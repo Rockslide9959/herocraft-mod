@@ -1,0 +1,1104 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.crimson_vanguard.idle": {
+      "loop": true,
+      "animation_length": 3,
+      "bones": {
+        "chest_armor": {
+          "position": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "3.0": [
+              0,
+              0,
+              0
+            ],
+            "1.5": [
+              0,
+              0.15,
+              0
+            ]
+          }
+        },
+        "arc_reactor": {
+          "scale": {
+            "0.0": [
+              1,
+              1,
+              1
+            ],
+            "3.0": [
+              1,
+              1,
+              1
+            ],
+            "1.2": [
+              1.08,
+              1.08,
+              1
+            ],
+            "2.4": [
+              1,
+              1,
+              1
+            ]
+          }
+        },
+        "right_shoulder": {
+          "rotation": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "3.0": [
+              0,
+              0,
+              0
+            ],
+            "1.5": [
+              0,
+              0,
+              -1
+            ]
+          }
+        },
+        "left_shoulder": {
+          "rotation": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "3.0": [
+              0,
+              0,
+              0
+            ],
+            "1.5": [
+              0,
+              0,
+              1
+            ]
+          }
+        }
+      }
+    },
+    "animation.crimson_vanguard.assemble": {
+      "loop": false,
+      "animation_length": 1.8,
+      "bones": {
+        "helmet": {
+          "position": {
+            "0.0": [
+              0,
+              28,
+              0
+            ],
+            "0.6": [
+              0,
+              0,
+              0
+            ]
+          },
+          "scale": {
+            "0.0": [
+              0.6,
+              0.6,
+              0.6
+            ],
+            "0.6": [
+              1,
+              1,
+              1
+            ]
+          }
+        },
+        "faceplate": {
+          "rotation": {
+            "0.0": [
+              -95,
+              0,
+              0
+            ],
+            "0.9": [
+              -95,
+              0,
+              0
+            ],
+            "1.3": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "chest_armor": {
+          "position": {
+            "0.0": [
+              0,
+              0,
+              -16
+            ],
+            "0.5": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "back_panel": {
+          "position": {
+            "0.0": [
+              0,
+              0,
+              16
+            ],
+            "0.5": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "right_shoulder": {
+          "position": {
+            "0.0": [
+              -14,
+              7,
+              0
+            ],
+            "0.7": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "left_shoulder": {
+          "position": {
+            "0.0": [
+              14,
+              7,
+              0
+            ],
+            "0.7": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "right_forearm": {
+          "position": {
+            "0.0": [
+              -12,
+              -4,
+              0
+            ],
+            "0.8": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "left_forearm": {
+          "position": {
+            "0.0": [
+              12,
+              -4,
+              0
+            ],
+            "0.8": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "right_gauntlet": {
+          "position": {
+            "0.0": [
+              -12,
+              -8,
+              0
+            ],
+            "1.0": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "left_gauntlet": {
+          "position": {
+            "0.0": [
+              12,
+              -8,
+              0
+            ],
+            "1.0": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "right_thigh": {
+          "position": {
+            "0.0": [
+              0,
+              -16,
+              0
+            ],
+            "1.1": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "left_thigh": {
+          "position": {
+            "0.0": [
+              0,
+              -16,
+              0
+            ],
+            "1.1": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "right_boot": {
+          "position": {
+            "0.0": [
+              0,
+              -18,
+              0
+            ],
+            "1.3": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "left_boot": {
+          "position": {
+            "0.0": [
+              0,
+              -18,
+              0
+            ],
+            "1.3": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "arc_reactor": {
+          "scale": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "1.4": [
+              0,
+              0,
+              0
+            ],
+            "1.6": [
+              1.25,
+              1.25,
+              1.25
+            ],
+            "1.8": [
+              1,
+              1,
+              1
+            ]
+          }
+        }
+      }
+    },
+    "animation.crimson_vanguard.disassemble": {
+      "loop": false,
+      "animation_length": 1.4,
+      "bones": {
+        "arc_reactor": {
+          "scale": {
+            "0.0": [
+              1,
+              1,
+              1
+            ],
+            "0.3": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "faceplate": {
+          "rotation": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.3": [
+              -95,
+              0,
+              0
+            ]
+          }
+        },
+        "helmet": {
+          "position": {
+            "1.0": [
+              0,
+              26,
+              0
+            ],
+            "0.3": [
+              0,
+              0,
+              0
+            ]
+          },
+          "scale": {
+            "1.0": [
+              0.6,
+              0.6,
+              0.6
+            ],
+            "0.3": [
+              1,
+              1,
+              1
+            ]
+          }
+        },
+        "chest_armor": {
+          "position": {
+            "0.2": [
+              0,
+              0,
+              0
+            ],
+            "0.9": [
+              0,
+              0,
+              -16
+            ]
+          }
+        },
+        "back_panel": {
+          "position": {
+            "0.2": [
+              0,
+              0,
+              0
+            ],
+            "0.9": [
+              0,
+              0,
+              16
+            ]
+          }
+        },
+        "right_shoulder": {
+          "position": {
+            "0.1": [
+              0,
+              0,
+              0
+            ],
+            "0.8": [
+              -14,
+              7,
+              0
+            ]
+          }
+        },
+        "left_shoulder": {
+          "position": {
+            "0.1": [
+              0,
+              0,
+              0
+            ],
+            "0.8": [
+              14,
+              7,
+              0
+            ]
+          }
+        },
+        "right_gauntlet": {
+          "position": {
+            "0.1": [
+              0,
+              0,
+              0
+            ],
+            "0.8": [
+              -12,
+              -8,
+              0
+            ]
+          }
+        },
+        "left_gauntlet": {
+          "position": {
+            "0.1": [
+              0,
+              0,
+              0
+            ],
+            "0.8": [
+              12,
+              -8,
+              0
+            ]
+          }
+        },
+        "right_boot": {
+          "position": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.7": [
+              0,
+              -18,
+              0
+            ]
+          }
+        },
+        "left_boot": {
+          "position": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.7": [
+              0,
+              -18,
+              0
+            ]
+          }
+        }
+      }
+    },
+    "animation.crimson_vanguard.helmet_open": {
+      "loop": "hold_on_last_frame",
+      "animation_length": 0.5,
+      "bones": {
+        "faceplate": {
+          "rotation": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.3": [
+              -88,
+              0,
+              0
+            ],
+            "0.5": [
+              -82,
+              0,
+              0
+            ]
+          },
+          "position": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.2": [
+              0,
+              0,
+              -1
+            ],
+            "0.5": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      }
+    },
+    "animation.crimson_vanguard.helmet_close": {
+      "loop": false,
+      "animation_length": 0.4,
+      "bones": {
+        "faceplate": {
+          "rotation": {
+            "0.0": [
+              -82,
+              0,
+              0
+            ],
+            "0.3": [
+              2,
+              0,
+              0
+            ],
+            "0.4": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      }
+    },
+    "animation.crimson_vanguard.faceplate_vent": {
+      "loop": false,
+      "animation_length": 0.6,
+      "bones": {
+        "faceplate": {
+          "rotation": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.1": [
+              -12,
+              0,
+              0
+            ],
+            "0.5": [
+              -12,
+              0,
+              0
+            ],
+            "0.6": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      }
+    },
+    "animation.crimson_vanguard.panels_open": {
+      "loop": "hold_on_last_frame",
+      "animation_length": 0.6,
+      "bones": {
+        "chest_armor": {
+          "rotation": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.5": [
+              -22,
+              0,
+              0
+            ]
+          },
+          "position": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.5": [
+              0,
+              0,
+              -1.5
+            ]
+          }
+        },
+        "back_panel": {
+          "rotation": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.5": [
+              18,
+              0,
+              0
+            ]
+          }
+        },
+        "right_shoulder": {
+          "rotation": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.5": [
+              0,
+              0,
+              -28
+            ]
+          }
+        },
+        "left_shoulder": {
+          "rotation": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.5": [
+              0,
+              0,
+              28
+            ]
+          }
+        }
+      }
+    },
+    "animation.crimson_vanguard.repulsor_aim_right": {
+      "loop": "hold_on_last_frame",
+      "animation_length": 0.5,
+      "bones": {
+        "armorRightArm": {
+          "rotation": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.3": [
+              -92,
+              0,
+              -6
+            ]
+          }
+        },
+        "right_gauntlet": {
+          "rotation": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.3": [
+              -8,
+              0,
+              0
+            ]
+          }
+        },
+        "right_forearm": {
+          "scale": {
+            "0.0": [
+              1,
+              1,
+              1
+            ],
+            "0.3": [
+              1.05,
+              1,
+              1.05
+            ]
+          }
+        }
+      }
+    },
+    "animation.crimson_vanguard.repulsor_aim_left": {
+      "loop": "hold_on_last_frame",
+      "animation_length": 0.5,
+      "bones": {
+        "armorLeftArm": {
+          "rotation": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.3": [
+              -92,
+              0,
+              6
+            ]
+          }
+        },
+        "left_gauntlet": {
+          "rotation": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.3": [
+              -8,
+              0,
+              0
+            ]
+          }
+        },
+        "left_forearm": {
+          "scale": {
+            "0.0": [
+              1,
+              1,
+              1
+            ],
+            "0.3": [
+              1.05,
+              1,
+              1.05
+            ]
+          }
+        }
+      }
+    },
+    "animation.crimson_vanguard.weapon_deploy_right": {
+      "loop": "hold_on_last_frame",
+      "animation_length": 0.7,
+      "bones": {
+        "right_forearm": {
+          "rotation": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.3": [
+              -10,
+              0,
+              0
+            ],
+            "0.6": [
+              -6,
+              0,
+              0
+            ]
+          }
+        },
+        "right_gauntlet": {
+          "position": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.3": [
+              0,
+              -2,
+              0
+            ],
+            "0.7": [
+              0,
+              -1,
+              0
+            ]
+          }
+        },
+        "right_hand": {
+          "position": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.7": [
+              0,
+              -1.5,
+              0
+            ]
+          }
+        }
+      }
+    },
+    "animation.crimson_vanguard.flight_pose": {
+      "loop": true,
+      "animation_length": 2,
+      "bones": {
+        "armorBody": {
+          "rotation": {
+            "0.0": [
+              14,
+              0,
+              0
+            ],
+            "1.0": [
+              16,
+              0,
+              0
+            ],
+            "2.0": [
+              14,
+              0,
+              0
+            ]
+          }
+        },
+        "armorHead": {
+          "rotation": {
+            "0.0": [
+              -14,
+              0,
+              0
+            ],
+            "2.0": [
+              -14,
+              0,
+              0
+            ]
+          }
+        },
+        "armorRightArm": {
+          "rotation": {
+            "0.0": [
+              -16,
+              0,
+              -6
+            ],
+            "1.0": [
+              -14,
+              0,
+              -7
+            ],
+            "2.0": [
+              -16,
+              0,
+              -6
+            ]
+          }
+        },
+        "armorLeftArm": {
+          "rotation": {
+            "0.0": [
+              -16,
+              0,
+              6
+            ],
+            "1.0": [
+              -14,
+              0,
+              7
+            ],
+            "2.0": [
+              -16,
+              0,
+              6
+            ]
+          }
+        },
+        "armorRightLeg": {
+          "rotation": {
+            "0.0": [
+              8,
+              0,
+              0
+            ],
+            "1.0": [
+              10,
+              0,
+              0
+            ],
+            "2.0": [
+              8,
+              0,
+              0
+            ]
+          }
+        },
+        "armorLeftLeg": {
+          "rotation": {
+            "0.0": [
+              8,
+              0,
+              0
+            ],
+            "1.0": [
+              10,
+              0,
+              0
+            ],
+            "2.0": [
+              8,
+              0,
+              0
+            ]
+          }
+        },
+        "right_boot": {
+          "rotation": {
+            "0.0": [
+              -8,
+              0,
+              0
+            ],
+            "2.0": [
+              -8,
+              0,
+              0
+            ]
+          }
+        },
+        "left_boot": {
+          "rotation": {
+            "0.0": [
+              -8,
+              0,
+              0
+            ],
+            "2.0": [
+              -8,
+              0,
+              0
+            ]
+          }
+        }
+      }
+    },
+    "animation.crimson_vanguard.landing": {
+      "loop": false,
+      "animation_length": 0.9,
+      "bones": {
+        "armorBody": {
+          "rotation": {
+            "0.0": [
+              26,
+              0,
+              0
+            ],
+            "0.3": [
+              18,
+              0,
+              0
+            ],
+            "0.9": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "armorHead": {
+          "rotation": {
+            "0.0": [
+              -18,
+              0,
+              0
+            ],
+            "0.9": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "armorRightArm": {
+          "rotation": {
+            "0.0": [
+              -52,
+              0,
+              -10
+            ],
+            "0.3": [
+              -38,
+              0,
+              -8
+            ],
+            "0.9": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "armorLeftArm": {
+          "rotation": {
+            "0.0": [
+              -52,
+              0,
+              10
+            ],
+            "0.3": [
+              -38,
+              0,
+              8
+            ],
+            "0.9": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "armorRightLeg": {
+          "rotation": {
+            "0.0": [
+              -34,
+              0,
+              0
+            ],
+            "0.3": [
+              -24,
+              0,
+              0
+            ],
+            "0.9": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "armorLeftLeg": {
+          "rotation": {
+            "0.0": [
+              16,
+              0,
+              0
+            ],
+            "0.3": [
+              10,
+              0,
+              0
+            ],
+            "0.9": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "right_knee": {
+          "rotation": {
+            "0.0": [
+              10,
+              0,
+              0
+            ],
+            "0.9": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      }
+    }
+  }
+}

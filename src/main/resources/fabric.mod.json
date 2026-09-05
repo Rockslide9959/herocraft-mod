@@ -1,0 +1,36 @@
+{
+	"schemaVersion": 1,
+	"id": "herocraft",
+	"version": "${version}",
+	"name": "HeroCraft",
+	"description": "A superhero mod for Minecraft, starting with Thor and Mjolnir.",
+	"authors": [
+		"ethanjansen2005"
+	],
+	"contact": {},
+	"license": "ARR",
+	"icon": "assets/herocraft/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.herocraft.mod.HeroCraftMod"
+		],
+		"client": [
+			"com.herocraft.mod.client.HeroCraftModClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*",
+		"geckolib": ">=4.7.0"
+	},
+	"mixins": [
+		"herocraft.mixins.json",
+		{
+			"config": "herocraft.client.mixins.json",
+			"environment": "client"
+		}
+	]
+}

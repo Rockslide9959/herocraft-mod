@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "herocraft:mjolnir_crater",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 872341,
+    "spacing": 48,
+    "separation": 16
+  }
+}

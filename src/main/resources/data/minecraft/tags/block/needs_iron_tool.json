@@ -1,0 +1,16 @@
+{
+  "replace": false,
+  "values": [
+    "herocraft:stark_fabricator",
+    "herocraft:iron_man_suit_platform",
+    "herocraft:overloaded_redstone_coil",
+    "herocraft:experimental_light_projector",
+    "herocraft:unstable_gravity_plate",
+    "herocraft:geological_resonance_chamber",
+    "herocraft:molecular_compression_chamber",
+    "herocraft:mass_compression_chamber",
+    "herocraft:pressure_chamber",
+    "herocraft:hydrostatic_test_tank",
+    "herocraft:electromagnetic_coil"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+	"required": true,
+	"package": "com.herocraft.mod.client.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"ClientLevelMixin",
+		"EntityGlowMixin",
+		"FirearmAttackMixin",
+		"FogRendererMixin",
+		"GunFovMixin",
+		"GameRendererPickMixin",
+		"HumanoidArmorLayerMixin",
+		"HumanoidModelMixin",
+		"ItemInHandLayerMixin",
+		"MouseHandlerMixin",
+		"LocalPlayerMixin",
+		"PlayerModelMixin",
+		"PlayerRendererHandMixin",
+		"PlayerRendererMixin",
+		"SoundEngineMixin",
+		"SpiderTravelMixin"
+	],
+	"client": [],
+	"server": [],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

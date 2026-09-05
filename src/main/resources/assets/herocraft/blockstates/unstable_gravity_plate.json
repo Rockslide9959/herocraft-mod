@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "powered=false": {
+      "model": "herocraft:block/unstable_gravity_plate"
+    },
+    "powered=true": {
+      "model": "herocraft:block/unstable_gravity_plate"
+    }
+  }
+}

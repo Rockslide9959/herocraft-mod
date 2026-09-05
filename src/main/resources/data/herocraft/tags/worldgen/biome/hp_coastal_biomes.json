@@ -1,0 +1,11 @@
+{
+  "values": [
+    "minecraft:beach",
+    "minecraft:stony_shore",
+    "minecraft:swamp",
+    "minecraft:mangrove_swamp",
+    "minecraft:river",
+    "minecraft:frozen_river",
+    "minecraft:snowy_beach"
+  ]
+}

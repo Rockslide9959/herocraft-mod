@@ -1,0 +1,6 @@
+{
+  "type": "herocraft:steel_crash_site",
+  "biomes": "#herocraft:steel_crash_site_biomes",
+  "spawn_overrides": {},
+  "step": "surface_structures"
+}

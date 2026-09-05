@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "P I",
+    "I I"
+  ],
+  "key": {
+    "I": { "item": "minecraft:iron_ingot" },
+    "P": { "item": "herocraft:metal_plating" }
+  },
+  "result": {
+    "id": "herocraft:iron_man_mark_1_boots",
+    "count": 1
+  }
+}

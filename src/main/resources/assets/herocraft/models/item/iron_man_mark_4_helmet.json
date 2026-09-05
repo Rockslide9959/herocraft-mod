@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "herocraft:item/iron_man_mark_4_helmet"
+  }
+}

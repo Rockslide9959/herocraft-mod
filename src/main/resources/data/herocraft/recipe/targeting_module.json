@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "herocraft:basic_circuit"
+    },
+    {
+      "item": "herocraft:stark_circuit"
+    },
+    {
+      "item": "minecraft:ender_eye"
+    }
+  ],
+  "result": {
+    "id": "herocraft:targeting_module",
+    "count": 2
+  }
+}

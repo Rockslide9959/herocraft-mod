@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "CGC",
+    "GSG",
+    "MGM"
+  ],
+  "key": {
+    "C": {
+      "item": "herocraft:stark_circuit"
+    },
+    "G": {
+      "item": "minecraft:gunpowder"
+    },
+    "S": {
+      "item": "herocraft:servo_motor"
+    },
+    "M": {
+      "item": "herocraft:metal_plating"
+    }
+  },
+  "result": {
+    "id": "herocraft:missile_module",
+    "count": 2
+  }
+}

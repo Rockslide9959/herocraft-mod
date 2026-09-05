@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "herocraft:titanium_gold_alloy"
+    },
+    {
+      "item": "herocraft:titanium_gold_alloy"
+    },
+    {
+      "item": "herocraft:metal_plating"
+    }
+  ],
+  "result": {
+    "id": "herocraft:titanium_gold_plate",
+    "count": 3
+  }
+}

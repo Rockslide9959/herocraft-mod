@@ -1,0 +1,46 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.steel_entity.idle": {
+      "loop": true,
+      "animation_length": 4,
+      "bones": {
+        "right_back_wing": {
+          "rotation": {
+            "0.0": [0, 0, -6],
+            "2.0": [0, 0, 4],
+            "4.0": [0, 0, -6]
+          }
+        },
+        "left_back_wing": {
+          "rotation": {
+            "0.0": [0, 0, 6],
+            "2.0": [0, 0, -4],
+            "4.0": [0, 0, 6]
+          }
+        },
+        "right_shoulder_fin": {
+          "rotation": {
+            "0.0": [0, 0, 0],
+            "2.0": [3, 0, 0],
+            "4.0": [0, 0, 0]
+          }
+        },
+        "left_shoulder_fin": {
+          "rotation": {
+            "0.0": [0, 0, 0],
+            "2.0": [3, 0, 0],
+            "4.0": [0, 0, 0]
+          }
+        },
+        "core_emitter": {
+          "scale": {
+            "0.0": [0.9, 0.9, 0.9],
+            "2.0": [1.15, 1.15, 1.15],
+            "4.0": [0.9, 0.9, 0.9]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,216 @@
+plugins {
+	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+	id 'maven-publish'
+}
+
+repositories {
+	// Add repositories to retrieve artifacts from in here.
+	// You should only use this when depending on other mods because
+	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
+	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
+	// for more information about repositories.
+
+	// GeckoLib (custom armour models -- see docs/ARMOR_MODELS.md). Cloudsmith is GeckoLib's canonical
+	// maven; the Modrinth mirror is the fallback if that host is unreachable.
+	maven {
+		name = 'GeckoLib'
+		url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
+		content { includeGroupByRegex('software\\.bernie.*') }
+	}
+	maven {
+		name = 'Modrinth'
+		url = 'https://api.modrinth.com/maven'
+		content { includeGroup('maven.modrinth') }
+	}
+}
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"herocraft" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+// Real, automated in-game tests via vanilla's GameTest framework (net.minecraft.gametest.framework)
+// wired up through Fabric API's gametest module -- these run inside an actual Minecraft server
+// (a "gametest server", built under build/run/gameTest), with test methods scripting real
+// entities/blocks and asserting on them, rather than a human clicking around. `createSourceSet`
+// gives the test code its own `src/gametest/java` (and wires it into the "herocraft" mod for us via
+// `modId`) so it never ships inside the real mod jar.
+//
+// `eula` left false is deliberate but turns out not to matter for THIS run configuration
+// specifically: confirmed empirically that GameTestServer never opens a public port or serves a
+// real player, and does not gate on the EULA file the way a real dedicated server (`runServer`)
+// does -- `runGameTest` has run successfully with build/run/gameTest/eula.txt reading `eula=false`
+// throughout. Left `false` anyway as the safer default for this block, since flipping it can affect
+// other run configurations `fabricApi.configureTests` touches and accepting Mojang's EULA on the
+// user's behalf is not something to do silently regardless of whether one specific task needs it.
+fabricApi.configureTests {
+	createSourceSet = true
+	// Must be distinct from the "herocraft" name already registered by the `mods {}` block above --
+	// this creates its own separate ModSettings entry for the generated gametest fabric.mod.json,
+	// it does not attach to the existing one.
+	modId = "herocraft-gametest"
+	enableGameTests = true
+	eula = false
+	// Without this, run/gametest persists between invocations, and persisted SavedData (e.g.
+	// CraterSpawnState) or leftover entities from a PREVIOUS run can make a later run's tests fail
+	// or pass for the wrong reason -- caught exactly this way: craterSpawnStateTracksOnce failed on
+	// its second-ever run because its test key was already marked spawned from the first run. Every
+	// invocation should be a clean, independent world.
+	clearRunDirectory = true
+}
+
+dependencies {
+	// To change the versions see the gradle.properties file
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings loom.officialMojangMappings()
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	// Fabric API. This is technically optional, but you probably want it anyway.
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// GeckoLib -- animation engine backing the shared superhero armour model (docs/ARMOR_MODELS.md).
+	modImplementation "software.bernie.geckolib:geckolib-fabric-${project.minecraft_version}:${project.geckolib_version}"
+
+	// The gametest module isn't bundled inside the umbrella fabric-api jar above (unlike most of its
+	// other submodules), so it needs its own explicit dependency -- fabricApi.module() resolves the
+	// exact submodule version paired with fabric_api_version rather than hardcoding one that could
+	// drift out of sync on a future Fabric API bump.
+	//
+	// Must be the "mod" configuration, not plain gametestImplementation: only mod-aware configurations
+	// go through Loom's remapping pipeline. Using the plain one put BOTH the raw (intermediary-named)
+	// Maven artifact and a separately-remapped copy on the runtime classpath at once, and depending on
+	// which one Fabric Loader's mod scanner happened to read first, launching would fail with
+	// "Namespace (intermediary) does not match current runtime namespace (named)" -- not flaky/
+	// environment noise as it first looked, a real classpath duplication from this one wrong word.
+	// (Naming quirk confirmed by actually listing the source set's generated configurations: it's
+	// modGametestImplementation, "mod" first -- NOT gametestModImplementation as main/client's own
+	// modImplementation naming pattern would suggest.)
+	modGametestImplementation fabricApi.module("fabric-gametest-api-v1", project.fabric_api_version)
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 21
+}
+
+java {
+	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
+	// if it is present.
+	// If you remove this line, sources will not be generated.
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}
+
+// Strip the mod metadata out of the sources jar.
+//
+// A sources jar is built from the same source sets as the real jar, so by default it carries the
+// resources too -- including fabric.mod.json and the mixin configs. That makes it look like a real
+// mod to Fabric Loader: drop one in a mods folder and the loader reads herocraft.mixins.json, tries
+// to apply the mixins listed there, and dies at startup with "The specified mixin
+// com.herocraft.mod.mixin.ItemEntityMixin was not found" -- because a sources jar holds .java files,
+// never compiled .class files. The two jars sit side by side in build/libs under near-identical
+// names, so installing the wrong one is an easy mistake, and the crash it produces points at the
+// mod's own code rather than at the actual problem (wrong file copied). Hit exactly this way when
+// 0.4.10 was installed by hand.
+//
+// Dropping these entries makes the sources jar invisible to the loader -- with no fabric.mod.json
+// Fabric never treats it as a mod at all, so a misplaced copy is inert instead of fatal. Sources
+// jars exist for IDE navigation, which needs none of these files.
+tasks.named('sourcesJar') {
+	exclude 'fabric.mod.json'
+	exclude 'herocraft.mixins.json'
+	exclude 'herocraft.client.mixins.json'
+}
+
+// Copies the built mod jar into a CurseForge App modpack instance's mods folder so it can be
+// tested in a real modpack without manual copying. Configure the target by setting
+// `modpackModsDir` in gradle.properties; if it's unset, this task is skipped with a log message.
+// The copy happens inside doLast (rather than via Copy's `into`) so the destination path is only
+// resolved once onlyIf has confirmed it's actually needed -- otherwise Gradle tries to convert
+// the (possibly absent) property to a File while wiring up the task graph and fails eagerly.
+tasks.register('copyToModpack') {
+	group = 'herocraft'
+	description = 'Copies the built mod jar into a CurseForge App modpack instance mods folder.'
+	dependsOn tasks.named('remapJar')
+
+	def modpackModsDir = providers.gradleProperty('modpackModsDir').orElse('')
+	def jarFile = layout.buildDirectory.file("libs/${project.name}-${project.version}.jar")
+
+	inputs.file(jarFile)
+
+	onlyIf {
+		def target = modpackModsDir.get()
+		if (target.isBlank()) {
+			logger.lifecycle("[HeroCraft] modpackModsDir is not set in gradle.properties -- skipping copyToModpack.")
+			return false
+		}
+		if (!new File(target).isDirectory()) {
+			logger.warn("[HeroCraft] modpackModsDir '${target}' does not exist -- skipping copyToModpack.")
+			return false
+		}
+		return true
+	}
+
+	doLast {
+		def target = new File(modpackModsDir.get())
+		def src = jarFile.get().asFile
+
+		// Clear out every other HeroCraft jar first. Without this the mods folder accumulates one
+		// jar per version, and Fabric Loader refuses to start with two copies of the same mod id --
+		// and, worse, a stray `-sources.jar` left behind from a manual copy crashes the game during
+		// mixin PREPARE (see the sourcesJar block above for why). Only files matching this mod's own
+		// name are touched, so other mods in the instance are never at risk.
+		def stale = target.listFiles({ File dir, String name ->
+			name.startsWith("${project.name}-") && name.endsWith('.jar') && name != src.name
+		} as FilenameFilter) ?: new File[0]
+		stale.each {
+			if (it.delete()) {
+				logger.lifecycle("[HeroCraft] Removed stale ${it.name} from ${target}")
+			} else {
+				logger.warn("[HeroCraft] Could not remove stale ${it.name} -- delete it by hand, "
+						+ "two HeroCraft jars in one mods folder will not load.")
+			}
+		}
+
+		copy {
+			from src
+			into target
+		}
+		logger.lifecycle("[HeroCraft] Copied ${src.name} to ${target}")
+	}
+}
+
+build.finalizedBy(tasks.named('copyToModpack'))
+
+// configure the maven publication
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			from components.java
+		}
+	}
+
+	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
+	repositories {
+		// Add repositories to publish to here.
+		// Notice: This block does NOT have the same function as the block in the top level.
+		// The repositories here will be used for publishing your artifact, not for
+		// retrieving dependencies.
+	}
+}

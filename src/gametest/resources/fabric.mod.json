@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "herocraft-gametest",
+  "name": "HeroCraft GameTests",
+  "version": "1.0.0",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest": [
+      "com.herocraft.mod.gametest.HeroCraftGameTests",
+      "com.herocraft.mod.gametest.HeroPackGameTests",
+      "com.herocraft.mod.gametest.ZombieRaidGameTests",
+      "com.herocraft.mod.gametest.SpiderManGameTests",
+      "com.herocraft.mod.gametest.SymbioteGameTests",
+      "com.herocraft.mod.gametest.MaxSteelGameTests",
+      "com.herocraft.mod.gametest.SupervillainRaidGameTests",
+      "com.herocraft.mod.gametest.PunisherGameTests",
+      "com.herocraft.mod.gametest.TitanGameTests"
+    ]
+  },
+  "depends": {
+    "herocraft": "*",
+    "fabric-gametest-api-v1": "*"
+  }
+}

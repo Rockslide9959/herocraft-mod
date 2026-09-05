@@ -1,0 +1,16 @@
+{
+  "parent": "herocraft:mutation/serum_stabilized",
+  "display": {
+    "icon": { "id": "minecraft:blaze_powder" },
+    "title": { "translate": "advancement.herocraft.mutation.exposure_survived.title" },
+    "description": { "translate": "advancement.herocraft.mutation.exposure_survived.description" },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "code_trigger": { "trigger": "minecraft:impossible" }
+  },
+  "requirements": [["code_trigger"]]
+}

@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "powered=false": {
+      "model": "herocraft:block/experimental_light_projector"
+    },
+    "powered=true": {
+      "model": "herocraft:block/experimental_light_projector"
+    }
+  }
+}

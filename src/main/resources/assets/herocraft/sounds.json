@@ -1,0 +1,27 @@
+{
+  "mjolnir_throw": {
+    "subtitle": "message.herocraft.subtitle.mjolnir_throw",
+    "sounds": [
+      { "name": "minecraft:item/trident/throw1", "volume": 0.9, "pitch": 0.75 },
+      { "name": "minecraft:item/trident/throw2", "volume": 0.9, "pitch": 0.75 },
+      { "name": "minecraft:item/trident/riptide1", "volume": 0.5, "pitch": 0.7 }
+    ]
+  },
+  "mjolnir_recall": {
+    "subtitle": "message.herocraft.subtitle.mjolnir_recall",
+    "sounds": [
+      { "name": "minecraft:item/trident/return1", "volume": 1.0, "pitch": 0.7 },
+      { "name": "minecraft:item/trident/return2", "volume": 1.0, "pitch": 0.7 },
+      { "name": "minecraft:item/trident/return3", "volume": 1.0, "pitch": 0.7 },
+      { "name": "minecraft:block/beacon/power1", "volume": 0.35, "pitch": 0.6 }
+    ]
+  },
+  "mjolnir_catch": {
+    "subtitle": "message.herocraft.subtitle.mjolnir_catch",
+    "sounds": [
+      { "name": "minecraft:random/anvil_land", "volume": 0.45, "pitch": 1.5 },
+      { "name": "minecraft:item/armor/equip_iron1", "volume": 0.9, "pitch": 0.8 },
+      { "name": "minecraft:item/armor/equip_iron3", "volume": 0.9, "pitch": 0.8 }
+    ]
+  }
+}

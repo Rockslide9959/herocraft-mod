@@ -1,0 +1,6 @@
+{
+  "type": "herocraft:graveyard",
+  "biomes": "#herocraft:graveyard_biomes",
+  "step": "surface_structures",
+  "spawn_overrides": {}
+}

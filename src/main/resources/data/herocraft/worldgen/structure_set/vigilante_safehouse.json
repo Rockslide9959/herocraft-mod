@@ -1,0 +1,11 @@
+{
+  "structures": [
+    { "structure": "herocraft:vigilante_safehouse", "weight": 1 }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 71834502,
+    "spacing": 52,
+    "separation": 20
+  }
+}

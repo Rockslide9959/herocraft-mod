@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "herocraft:mechanical_parts"
+    },
+    {
+      "item": "herocraft:mechanical_parts"
+    },
+    {
+      "item": "herocraft:copper_wiring"
+    },
+    {
+      "item": "minecraft:redstone"
+    }
+  ],
+  "result": {
+    "id": "herocraft:servo_motor",
+    "count": 2
+  }
+}

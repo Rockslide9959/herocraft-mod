@@ -1,0 +1,28 @@
+{
+  "display": {
+    "icon": {
+      "id": "herocraft:heart_of_the_grave"
+    },
+    "title": {
+      "translate": "advancement.herocraft.gravebound.gravewalker.title"
+    },
+    "description": {
+      "translate": "advancement.herocraft.gravebound.gravewalker.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "code_trigger": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "code_trigger"
+    ]
+  ],
+  "parent": "herocraft:gravebound/zombie_slayer"
+}
