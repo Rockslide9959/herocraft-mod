@@ -3,6 +3,26 @@
 A Minecraft superhero mod (Fabric, 1.21.1), starting with Thor and Mjolnir. See
 [THOR_DESIGN.md](THOR_DESIGN.md) for the full design doc.
 
+## Download
+
+**Go to [Releases](../../releases/latest) and download the `herocraft-<version>.jar` file** —
+that's the mod itself. Drop it into your Minecraft `mods` folder along with matching versions of
+[Fabric Loader](https://fabricmc.net/use/), [Fabric API](https://modrinth.com/mod/fabric-api) and
+[GeckoLib](https://modrinth.com/mod/geckolib) for Minecraft 1.21.1 (exact versions are listed on
+each release).
+
+Everything else in this repository is source code, not something you need to download to play.
+
+## Repo layout
+
+| Path | What it is |
+| --- | --- |
+| `src/main/java/com/herocraft/mod/` | All mod source code, one package per power/system (e.g. `ironman/`, `punisher/`, `symbiote/`, `event/`) |
+| `src/main/resources/` | Assets and data the mod ships: textures, models, lang files, loot tables, recipes |
+| `docs/` | Design/reference docs per power (e.g. [PUNISHER_REFERENCE.md](docs/PUNISHER_REFERENCE.md), [ARMOR_MODELS.md](docs/ARMOR_MODELS.md)) |
+| `scratchpad/` | One-off dev scripts used to generate assets (textures, models) — not part of the mod |
+| `gradle/`, `gradlew*`, `build.gradle`, `settings.gradle`, `gradle.properties` | Gradle build configuration |
+
 ## Status
 
 **v0.6.3 — Spider-Man, and a full rebuild of Spider Adhesion.**
