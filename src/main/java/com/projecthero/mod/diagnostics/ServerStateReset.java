@@ -99,6 +99,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.combat.SonicVulnerability.clearSessionState();
 		com.projecthero.mod.symbiote.SymbioteAbilityManager.clearSessionState();
 		com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.clearSessionState();
+		com.projecthero.mod.symbiote.SymbioteVitalsManager.clearSessionState();
 		com.projecthero.mod.symbiote.Symbiote.clearSessionState();
 	}
 }

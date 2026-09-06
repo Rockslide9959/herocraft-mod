@@ -29,11 +29,18 @@ public final class PunisherSuppressive {
 		if (!Punisher.hasPower(player)) {
 			return;
 		}
-		if (!Punisher.weaponUnlocked(player, Firearms.RIFLE)) {
+		// The Assault Rifle is the intended weapon for this stance, but holding any Punisher firearm is
+		// enough to enter it -- a stricter "must have crafted the rifle" gate was the most common reason
+		// pressing Z appeared to do nothing (v0.9.23).
+		if (!Punisher.weaponUnlocked(player, Firearms.RIFLE) && !holdingFirearm(player)) {
 			PunisherFeedback.message(player, "need_rifle");
 			return;
 		}
 		if (!Punisher.abilityReady(player, ABILITY)) {
+			int secs = (Punisher.cooldownRemaining(player, ABILITY) + 19) / 20;
+			player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+					"message.projecthero.punisher.suppressive_cooldown", secs)
+					.withStyle(net.minecraft.ChatFormatting.GRAY), true);
 			return;
 		}
 		PunisherState c = Punisher.state(player).copy();
@@ -47,6 +54,13 @@ public final class PunisherSuppressive {
 				SoundEvents.CROSSBOW_LOADING_END.value(), SoundSource.PLAYERS, 0.6f, 0.8f);
 		level.sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 1.0, player.getZ(),
 				12, 0.4, 0.5, 0.4, 0.1);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(),
+				SoundEvents.CROSSBOW_LOADING_END.value(), SoundSource.PLAYERS, 0.9f, 1.5f);
 		PunisherFeedback.message(player, "suppressive_on");
+	}
+
+	private static boolean holdingFirearm(ServerPlayer player) {
+		return player.getMainHandItem().getItem() instanceof com.projecthero.mod.firearm.item.FirearmItem
+				|| player.getOffhandItem().getItem() instanceof com.projecthero.mod.firearm.item.FirearmItem;
 	}
 }

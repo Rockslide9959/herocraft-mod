@@ -20,7 +20,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
  * firearms:
  *
  * <ul>
- *   <li><b>Weapon Proficiency</b> -- a regenerating personal reserve (3 mags/gun), reduced recoil, faster weapon handling
+ *   <li><b>Weapon Proficiency</b> -- a regenerating personal reserve (2 mags/gun), reduced recoil, faster weapon handling
  *       (all via {@link Hooks}).</li>
  *   <li><b>Faster Reloading</b> -- 15% quicker. Adrenaline's 25% <em>supersedes</em> this, it does
  *       not stack ({@link Hooks#reloadSpeedFactor}).</li>

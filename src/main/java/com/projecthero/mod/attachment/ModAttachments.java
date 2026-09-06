@@ -374,6 +374,22 @@ public final class ModAttachments {
 									AttachmentSyncPredicate.all()));
 
 	/**
+	 * The Symbiote's own "life" (v0.9.23) -- {@code hp} (the health bar half of every hit is routed
+	 * onto), {@code broken} (bar spent, abilities locked), and the Symbiote Blade / Symbiote Spikes
+	 * toggles. A second attachment purely because {@link com.projecthero.mod.symbiote.SymbioteState} is
+	 * already at the codec's 16-field ceiling. Persistent (the bar must not silently refill on relog),
+	 * synced to everyone (HUD, the black-arm render, another player's view). Reset to a healthy default
+	 * on death / relog / dimension change by {@link com.projecthero.mod.symbiote.SymbioteVitalsManager}.
+	 */
+	public static final AttachmentType<com.projecthero.mod.symbiote.SymbioteVitals> SYMBIOTE_VITALS =
+			AttachmentRegistry.create(ProjectHeroMod.id("symbiote_vitals"),
+					builder -> builder.persistent(com.projecthero.mod.symbiote.SymbioteVitals.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.symbiote.SymbioteVitals::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.symbiote.SymbioteVitals.CODEC),
+									AttachmentSyncPredicate.all()));
+
+	/**
 	 * Marks a mob as a rare <b>Symbiote Host</b> (v0.9.10). Persistent so the buff/aura survive a chunk
 	 * reload; not synced (the aura is server-spawned particles). Set once at spawn by
 	 * {@code SymbioteHostSpawns}; read every tick by {@code SymbioteHost} off a cheap null-check.

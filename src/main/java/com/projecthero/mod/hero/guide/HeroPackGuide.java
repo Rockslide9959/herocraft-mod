@@ -103,8 +103,8 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.symbiote.controls");
 			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {
 				String ability = switch (slot) {
-					case "R" -> "tendril_grab"; case "G" -> "tendril_strike"; case "X" -> "leap";
-					case "Z" -> "onslaught"; case "V" -> "shield"; default -> "frenzy";
+					case "R" -> "tendril_strike"; case "G" -> "tendril_grab"; case "X" -> "leap";
+					case "Z" -> "barrage"; case "V" -> "blade"; default -> "spikes";
 				};
 				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.symbiote.ability." + ability).withStyle(ChatFormatting.WHITE)));
@@ -390,8 +390,8 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.symbiote.controls.body");
 			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {
 				String ability = switch (slot) {
-					case "R" -> "tendril_grab"; case "G" -> "tendril_strike"; case "X" -> "leap";
-					case "Z" -> "onslaught"; case "V" -> "shield"; default -> "frenzy";
+					case "R" -> "tendril_strike"; case "G" -> "tendril_grab"; case "X" -> "leap";
+					case "Z" -> "barrage"; case "V" -> "blade"; default -> "spikes";
 				};
 				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.symbiote.ability." + ability).withStyle(ChatFormatting.WHITE)));

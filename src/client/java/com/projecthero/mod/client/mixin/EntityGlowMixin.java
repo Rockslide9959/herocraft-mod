@@ -59,6 +59,17 @@ public abstract class EntityGlowMixin {
 			}
 		}
 
+		// v0.9.23: Symbiote "Predator Vision" -- a bonded host sees every living thing within 20 blocks
+		// outlined. Purely this viewer's own render, like the powers above.
+		if (self instanceof LivingEntity) {
+			com.projecthero.mod.symbiote.SymbioteState symb =
+					viewer.getAttachedOrElse(ModAttachments.SYMBIOTE_STATE, null);
+			if (symb != null && symb.hasSymbiote && self.distanceToSqr(viewer) <= 20.0 * 20.0) {
+				cir.setReturnValue(true);
+				return;
+			}
+		}
+
 		ExperimentalState st = viewer.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		if (st == null) {
 			return;
@@ -193,6 +204,37 @@ public abstract class EntityGlowMixin {
 		long now = viewer.level() != null ? viewer.level().getGameTime() : 0L;
 		if (com.projecthero.mod.client.spider.SpiderSenseGlowClient.isThreat(self.getId(), now)) {
 			cir.setReturnValue(0xFF3355);
+		}
+	}
+
+	/**
+	 * Symbiote Predator Vision colour: hostile mobs red, other players dark yellow, everything else
+	 * dark blue. Purely the viewer's own render.
+	 */
+	@Inject(method = "getTeamColor", at = @At("HEAD"), cancellable = true)
+	private void projecthero$predatorVisionColor(CallbackInfoReturnable<Integer> cir) {
+		if (cir.isCancelled()) {
+			return;
+		}
+		Entity self = (Entity) (Object) this;
+		if (self instanceof LocalPlayer || !(self instanceof LivingEntity)) {
+			return;
+		}
+		LocalPlayer viewer = Minecraft.getInstance().player;
+		if (viewer == null || viewer == self) {
+			return;
+		}
+		com.projecthero.mod.symbiote.SymbioteState symb =
+				viewer.getAttachedOrElse(ModAttachments.SYMBIOTE_STATE, null);
+		if (symb == null || !symb.hasSymbiote || self.distanceToSqr(viewer) > 20.0 * 20.0) {
+			return;
+		}
+		if (self instanceof net.minecraft.world.entity.monster.Enemy) {
+			cir.setReturnValue(0xC01818);
+		} else if (self instanceof net.minecraft.world.entity.player.Player) {
+			cir.setReturnValue(0x8A7010);
+		} else {
+			cir.setReturnValue(0x1B2C7A);
 		}
 	}
 

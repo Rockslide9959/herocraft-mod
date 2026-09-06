@@ -36,8 +36,6 @@ public final class SymbioteDamageRules {
 	/** Symbiote Shield: like a real shield, it only stops what comes at your front -- and it stops
 	 *  almost all of it (-90%). A hit from the side or behind gets through untouched. */
 	private static final float SHIELD_FRONT_FACTOR = 0.1f;
-	/** Frenzy's drawback: +15% incoming damage for a few seconds after it ends. */
-	private static final float FRENZY_DEBUFF_VULNERABILITY = 1.15f;
 
 	private SymbioteDamageRules() {
 	}
@@ -47,38 +45,43 @@ public final class SymbioteDamageRules {
 	}
 
 	private static boolean onAllowDamage(LivingEntity entity, DamageSource source, float amount) {
-		if (REENTRANT.get() || !(entity instanceof ServerPlayer player) || !Symbiote.isActive(player)) {
+		if (REENTRANT.get() || !(entity instanceof ServerPlayer player) || !Symbiote.hasSymbiote(player)) {
 			return true;
 		}
 		long now = player.level().getGameTime();
+		boolean active = Symbiote.isActive(player);
 
-		// Symbiote Leap: the leap's OWN fall damage is negated outright (a short grace window after
-		// launch), separate from the passive -30% fall-damage reduction every active host already has.
+		// Symbiote Leap / Grapple: the launch's OWN fall damage is negated outright (a short grace
+		// window after launch).
 		if (source.is(DamageTypeTags.IS_FALL) && SymbioteAbilityManager.leapFallProtected(player, now)) {
 			player.resetFallDistance();
 			return false;
 		}
 
 		float factor = 1.0f;
-		if (source.is(DamageTypeTags.IS_FIRE)) {
-			// IS_FIRE also covers vanilla lava damage.
-			factor *= FIRE_MULTIPLIER;
-		} else if (source.is(DamageTypeTags.IS_EXPLOSION)) {
-			factor *= EXPLOSION_FACTOR;
+		if (active) {
+			if (source.is(DamageTypeTags.IS_FIRE)) {
+				// IS_FIRE also covers vanilla lava damage.
+				factor *= FIRE_MULTIPLIER;
+			} else if (source.is(DamageTypeTags.IS_EXPLOSION)) {
+				factor *= EXPLOSION_FACTOR;
+			}
+			if (source.is(DamageTypes.SONIC_BOOM) || SonicVulnerability.isDisrupted(player, now)) {
+				factor *= SOUND_MULTIPLIER;
+			}
+			if (SymbioteAbilityManager.shieldActive(player) && blockedFromFront(player, source)) {
+				factor *= SHIELD_FRONT_FACTOR;
+			}
 		}
-		if (source.is(DamageTypes.SONIC_BOOM) || SonicVulnerability.isDisrupted(player, now)) {
-			factor *= SOUND_MULTIPLIER;
-		}
-		if (SymbioteAbilityManager.shieldActive(player) && blockedFromFront(player, source)) {
-			factor *= SHIELD_FRONT_FACTOR;
-		}
-		if (SymbioteAbilityManager.frenzyDebuffActive(player, now)) {
-			factor *= FRENZY_DEBUFF_VULNERABILITY;
-		}
-		if (Math.abs(factor - 1.0f) < 0.001f) {
+
+		float scaled = amount * factor;
+		// v0.9.23: half of what is left is dealt to the Symbiote's own health bar, not to the host --
+		// until that bar is spent, then the host takes it all.
+		float toPlayer = SymbioteVitalsManager.absorb(player, scaled);
+		if (Math.abs(toPlayer - amount) < 0.01f) {
 			return true;
 		}
-		return reapply(player, source, amount * factor);
+		return reapply(player, source, toPlayer);
 	}
 
 	/**

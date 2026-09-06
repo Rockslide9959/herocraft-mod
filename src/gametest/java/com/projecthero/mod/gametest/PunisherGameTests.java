@@ -134,7 +134,7 @@ public class PunisherGameTests implements FabricGameTest {
 		ItemStack gun = pistol();
 		FirearmData d = Firearms.get(Firearms.PISTOL);
 		int cap = com.projecthero.mod.punisher.PunisherAmmoReserve.capacity(com.projecthero.mod.firearm.AmmoKind.PISTOL);
-		helper.assertTrue(cap == d.magazineSize * 3, "reserve capacity is three magazines, got " + cap);
+		helper.assertTrue(cap == d.magazineSize * 2, "reserve capacity is two magazines, got " + cap);
 		helper.assertTrue(com.projecthero.mod.punisher.PunisherAmmoReserve.count(p, com.projecthero.mod.firearm.AmmoKind.PISTOL) == cap,
 				"a fresh Punisher reserve starts full");
 

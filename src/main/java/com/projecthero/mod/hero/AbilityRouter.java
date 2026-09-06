@@ -195,6 +195,9 @@ public final class AbilityRouter {
 		// ability slots.
 		com.projecthero.mod.symbiote.SymbioteAbilityManager.serverTick(player);
 		com.projecthero.mod.symbiote.SymbiotePassives.tick(player);
+		// v0.9.23: the Symbiote health bar, its warnings, arrow-catching, blade/spikes upkeep, and the
+		// crouch-cloak + bare-hand mining passives.
+		com.projecthero.mod.symbiote.SymbioteVitalsManager.tick(player);
 		// Same discipline for Max Steel's suit.
 		com.projecthero.mod.maxsteel.MaxSteel.enforce(player);
 	}

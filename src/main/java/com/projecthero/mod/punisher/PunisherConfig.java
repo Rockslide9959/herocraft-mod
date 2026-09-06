@@ -49,10 +49,12 @@ public final class PunisherConfig {
 
 	public static final int SUPPRESSIVE_COOLDOWN_TICKS = 20 * 20;
 	public static final int SUPPRESSIVE_DURATION_TICKS = 8 * 20;   // v0.9.22: 8 s (was 4)
-	public static final float SUPPRESSIVE_FIRE_RATE_FACTOR = 0.7f;   // faster (shorter interval)
-	public static final float SUPPRESSIVE_RECOIL_FACTOR = 0.3f;
-	public static final float SUPPRESSIVE_SPREAD_FACTOR = 0.5f;
-	public static final float SUPPRESSIVE_SELF_SLOW = 0.25f;         // -25% move speed while active
+	// v0.9.23: made clearly impactful -- the interval roughly halves (rifle 4t -> 2t) and the self-slow
+	// is much lighter so the stance no longer feels like a downgrade.
+	public static final float SUPPRESSIVE_FIRE_RATE_FACTOR = 0.5f;   // faster (shorter interval)
+	public static final float SUPPRESSIVE_RECOIL_FACTOR = 0.25f;
+	public static final float SUPPRESSIVE_SPREAD_FACTOR = 0.45f;
+	public static final float SUPPRESSIVE_SELF_SLOW = 0.10f;         // -10% move speed while active
 	public static final int SUPPRESSIVE_SLOW_TICKS = 40;             // Slowness on things you hit
 	public static final int SUPPRESSIVE_SLOW_AMP = 1;
 

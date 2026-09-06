@@ -363,6 +363,11 @@ public final class PyrokinesisHandlers {
 			Ability dash = power.ability(AbilitySlot.SLOT_3);
 			TimedSelfFlight.tick(player, power, dash, "flame", ParticleTypes.FLAME);
 			PowerToggles.effect(player, MobEffects.FIRE_RESISTANCE, 0, false);
+			// A pyrokinetic simply cannot burn -- snuff any ignition the same tick it happens so the
+			// player never even visually catches fire (fire immunity already covers the damage).
+			if (player.getRemainingFireTicks() > 0) {
+				player.clearFire();
+			}
 			// each reserve refills independently while its own ability is not running
 			boolean flaming = ExperimentalPowers.getResource(player, power, "flaming") > 0.5f;
 			// flamethrower is a build-up gauge: it climbs in the channel tick and vents back down here.

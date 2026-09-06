@@ -10,10 +10,10 @@ import net.minecraft.server.level.ServerPlayer;
 /**
  * The Punisher's personal reserve ammunition (v0.9.22, replacing the old infinite reserve).
  *
- * <p>Each of the four guns has its own pool, sized at <b>three full magazines</b> of that gun's
+ * <p>Each of the four guns has its own pool, sized at <b>two full magazines</b> of that gun's
  * ammunition. Reloading draws from the pool; it refills on its own at roughly <b>1% of capacity every
  * 0.7 seconds</b> ({@link #REGEN_INTERVAL_TICKS}). A pool with no stored value yet is treated as
- * full, so a freshly-trained Punisher starts with all three magazines in reserve for every weapon.
+ * full, so a freshly-trained Punisher starts with both magazines in reserve for every weapon.
  *
  * <p>State lives on {@link PunisherState#ammoReserve} (persistent, {@code copyOnDeath}, synced to all
  * clients so {@code FirearmHud} can draw the real number). Writes happen only on a reload and at most
@@ -36,10 +36,10 @@ public final class PunisherAmmoReserve {
 		};
 	}
 
-	/** Reserve capacity for a gun's ammunition: three full magazines. */
+	/** Reserve capacity for a gun's ammunition: two full magazines (v0.9.23; was three). */
 	public static int capacity(AmmoKind kind) {
 		FirearmData data = Firearms.get(gunId(kind));
-		return data == null ? 0 : data.magazineSize * 3;
+		return data == null ? 0 : data.magazineSize * 2;
 	}
 
 	private static double stored(PunisherState s, AmmoKind kind) {
