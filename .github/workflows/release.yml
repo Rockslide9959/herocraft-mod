@@ -1,0 +1,89 @@
+# Publishes a release of HeroCraft to CurseForge and GitHub Releases.
+#
+# Trigger: pushing a git tag shaped like `v0.9.21`.
+# The full release flow is therefore:
+#
+#   1. bump `version=` in gradle.properties, commit
+#   2. git tag -a v0.9.21 -m "short changelog line(s)"
+#   3. git push origin master --tags
+#
+# ...and this workflow builds the jar, verifies the tag matches gradle.properties,
+# then uploads to CurseForge and creates the matching GitHub Release. The tag's
+# annotation message becomes the changelog on both.
+#
+# One-time setup before the first run:
+#   - CurseForge project created: id 1684169 (set in `curseforge-id` below).
+#   - Add a repo secret named CURSEFORGE_TOKEN (Settings > Secrets and variables >
+#     Actions) holding a CurseForge API token from
+#     https://legacy.curseforge.com/account/api-tokens
+#   - The project must be approved by CurseForge moderation before an API upload
+#     will succeed.
+
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write   # create the GitHub Release
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0   # need the tag object for its annotation message
+
+      - name: validate gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: setup jdk
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'microsoft'
+
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: build
+        run: ./gradlew build
+
+      - name: read mod version
+        id: meta
+        run: |
+          VERSION="$(grep -E '^version=' gradle.properties | cut -d'=' -f2 | tr -d '[:space:]')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match gradle.properties version $VERSION"
+            exit 1
+          fi
+          {
+            echo "changelog<<__EOF__"
+            git tag -l --format='%(contents)' "$GITHUB_REF_NAME"
+            echo "__EOF__"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: publish
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          # ---- CurseForge ----
+          curseforge-id: 1684169
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+
+          # ---- GitHub Releases ----
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+          # ---- shared ----
+          name: HeroCraft ${{ steps.meta.outputs.version }}
+          version: ${{ steps.meta.outputs.version }}
+          version-type: release
+          changelog: ${{ steps.meta.outputs.changelog }}
+          files: build/libs/!(*-sources).jar
+          # game versions, mod loaders and required dependencies (Fabric API,
+          # GeckoLib) are read automatically from src/main/resources/fabric.mod.json

@@ -1,0 +1,211 @@
+<h1>HeroCraft</h1>
+
+<p><strong>A large superhero mod for Minecraft 1.21.1 (Fabric).</strong> Become Thor, Iron Man,
+Spider-Man, Max Steel or the Punisher, bond with an alien symbiote, or mutate one of 27 experimental
+superpowers &mdash; then put them to the test against world raids and a giant world boss.</p>
+
+<p>Every hero is a full survival progression system, not a creative-only toy. You earn each one, power
+it, upgrade it, and can lose it again.</p>
+
+<h2>Requirements</h2>
+
+<table>
+  <tr><td><strong>Minecraft</strong></td><td>1.21.1</td></tr>
+  <tr><td><strong>Mod loader</strong></td><td>Fabric (Loader 0.19.3+)</td></tr>
+  <tr><td><strong>Java</strong></td><td>21 or newer</td></tr>
+  <tr><td><strong>Required dependencies</strong></td><td>Fabric API &middot; GeckoLib</td></tr>
+</table>
+
+<p>Works in single-player and on dedicated servers. Power state is per-player and fully synced, so
+several players can run different heroes at once. Almost everything is tunable through generated
+config files (<code>config/herocraft*.json</code>).</p>
+
+<hr>
+
+<h2>The Heroes</h2>
+
+<h3>Thor</h3>
+<p>Find a naturally generated <strong>Mjolnir crater</strong> (locatable, with its own ambient
+lightning) and try to lift the hammer. Only the <strong>worthy</strong> can pick it up or use it.</p>
+<ul>
+  <li><strong>Mjolnir</strong> flies straight when thrown, phases through terrain on the way home,
+  stands on its head where it lands, and is <strong>recalled to your hand from anywhere</strong>
+  &mdash; even out of another player's grip or an unloaded chunk. Bind it to yourself with
+  shift-right-click.</li>
+  <li><strong>Abilities:</strong> Lightning Strike (with Chain Lightning), Lightning Laser (held
+  beam), Thunderclap shockwave, Storm Call (a personal storm that follows you), Mjolnir Parry, and
+  flight via double-tap-jump while holding the hammer, with speed-based flight poses.</li>
+  <li><strong>Passives:</strong> the Power of Thor &mdash; bonus strength, damage resistance and fire
+  immunity while a hammer is bound to you.</li>
+  <li>Craftable <strong>Thor armour</strong> rendered as a full 3D GeckoLib model.</li>
+</ul>
+
+<h3>Iron Man / Tony Stark</h3>
+<p>A permanent <strong>Hero-Tier</strong> power. Build an <strong>Arc Reactor</strong>, craft the
+<strong>Stark Fabricator</strong> and a <strong>Suit Platform</strong>, then work up the mark ladder
+with <strong>Blank Blueprints</strong> (a linear Mark 1 &rarr; 2 &rarr; III &rarr; 4 &rarr; V &rarr;
+6 &rarr; VII progression).</p>
+<ul>
+  <li><strong>Seven suits</strong>, each with its own stats &mdash; energy capacity, integrity,
+  flight speed, strength, self-repair, air supply &mdash; from the cave-built Mark 1 to the
+  movie-style Mark 5 suitcase and the top-tier Mark 7.</li>
+  <li><strong>Call your armour</strong> in from a Suit Platform: the pieces fly to you and assemble in
+  sequence, even across distance or unloaded chunks.</li>
+  <li><strong>Weapons &amp; systems:</strong> repulsors and charged repulsors, Unibeam, rockets and
+  one-at-a-time micro-missiles, flares, a terrain-cutting wrist laser, the Repulsor Shield, a Mark 7
+  weapon wheel, tiered flight energy costs, helmet night vision, air tanks for diving, a toggleable
+  mob-highlight targeting view, and a retractable faceplate.</li>
+  <li><strong>Suit energy and integrity</strong> are real resources &mdash; a depleted suit slows and
+  weakens you until it recharges on a platform. <strong>Protocol Phoenix</strong> is a passive
+  emergency resurrection that recalls your best available suit when you would otherwise die.</li>
+  <li>The <strong>Repulsor</strong> also works as a wearable gadget: put one in your boots slot for
+  flight and a repulsor blast with no suit at all.</li>
+  <li>Fully survival-craftable and visible in JEI/EMI.</li>
+</ul>
+
+<h3>Spider-Man</h3>
+<p>Not granted directly &mdash; it is what the <strong>Spider Climbing / Adhesion</strong>
+experimental mutation grows into. Craft an <strong>Arachnid Mutagen</strong> and use it while you
+already carry that adaptation.</p>
+<ul>
+  <li><strong>Six web abilities</strong> paid for out of an organic <strong>Web Reserve</strong>, not
+  an ammo item: Web Swing, Web Zip, Web Shot, Web Yank, Web Net, and a wall-crawl toggle.</li>
+  <li><strong>Hybrid web-swinging</strong> physics &mdash; real anchors on terrain give long fast
+  arcs; open ground still gives you something to swing from so traversal never stalls, and you keep
+  all your momentum on release.</li>
+  <li>Full <strong>wall and ceiling crawling</strong> (your model flips upside-down for everyone to
+  see), a double jump, and a sneak-jump super-leap.</li>
+  <li><strong>Spider-Sense:</strong> a directional threat-warning HUD, a chance to auto-dodge incoming
+  attacks, catch or deflect projectiles, hit enemies through their own cobwebs, and a per-viewer red
+  glow on any mob hunting you.</li>
+  <li><strong>Zero fall damage.</strong> Craftable <strong>Spider-Man Suit</strong> with a removable
+  mask.</li>
+</ul>
+
+<h3>The Symbiote</h3>
+<p>An <strong>upgrade for Spider-Man</strong>, or a standalone power for a <strong>Normal Host</strong>.
+Find it in a crashed <strong>symbiote meteor</strong>, a buried <strong>containment lab</strong>, or
+on a rare <strong>symbiote-infected mob</strong> you have to hunt down &mdash; then right-click to
+bond.</p>
+<ul>
+  <li>Toggle the <strong>black suit</strong> on and off with a progressive, particle-covered
+  suit-up.</li>
+  <li><strong>Tendril abilities:</strong> Tendril Strike, a hold-to-raise <strong>Symbiote
+  Shield</strong> that blocks 90% of frontal damage on a guard meter, <strong>Tendril Grab</strong>
+  (grab, hold and throw a target), <strong>Symbiote Onslaught</strong> (a charged Wither / Blind /
+  Slow AoE ultimate), a 25-block <strong>Grapple</strong>, and a Frenzy state.</li>
+  <li>Bonding permanently <strong>doubles your Web Reserve</strong>. The suit is unbreakable while
+  worn.</li>
+  <li><strong>Weakness:</strong> sustained fire or lava severs the bond &mdash; about five seconds of
+  continuous burning and the symbiote lets go.</li>
+</ul>
+
+<h3>Max Steel</h3>
+<p>Find <strong>Steel</strong> &mdash; a floating alien companion hovering over a <strong>crash
+site</strong> &mdash; and bond by spending 30 experience levels (costs 5) or a crafted
+<strong>T.U.R.B.O. Stabilizer</strong>.</p>
+<ul>
+  <li><strong>Go Turbo</strong> to summon the nanotech suit, running on a rechargeable
+  <strong>T.U.R.B.O. energy</strong> pool.</li>
+  <li><strong>Six Turbo modes / abilities</strong>, each with its own suit model: Turbo Blast (a fast
+  energy bolt, tap or charged), Turbo Strength (heavy punch + shockwave, crouch-block), Turbo Speed
+  (dash), Turbo Flight (with blue elytra wings), Turbo Stealth, and the chargeable <strong>Turbo
+  Cannon</strong> that launches you as a guided projectile.</li>
+  <li>Running out of energy forces an <strong>overload</strong> and a lockout. An <strong>emergency
+  totem</strong> revive fires once you have enough energy banked. Retractable faceplate.</li>
+</ul>
+
+<h3>The Punisher</h3>
+<p>A <strong>non-superhuman</strong> Hero-Tier power: firearms, explosives, gear and training.
+Complete the <strong>Vigilante Training Manual</strong> objectives, or find a <strong>Vigilante
+Safehouse</strong> bunker.</p>
+<ul>
+  <li><strong>A full firearm engine:</strong> Pistol, Rifle, Shotgun and a scoped Sniper.
+  <strong>Left-click fires, right-click aims</strong>, tap R to reload or hold for the Tactical
+  Satchel. Server-authoritative hitscan bullets with spread, recoil bloom, range falloff,
+  <strong>headshots</strong>, and a hurt-cooldown bypass so every shotgun pellet and fast rifle round
+  lands full damage.</li>
+  <li><strong>Abilities:</strong> Tactical Satchel, Frag Grenade (cook-and-throw), Tactical Roll (with
+  i-frames), Suppressive Fire, <strong>Adrenaline</strong> (a regen / haste / speed burst with a
+  nausea crash), and remote <strong>C4 charges</strong>.</li>
+  <li><strong>Passives:</strong> infinite gun reserve ammo, plus infinite arrows and double
+  bow/crossbow damage while powered.</li>
+  <li>Diamond-tier <strong>tactical armour</strong> (no helmet), craftable only by Punisher
+  players.</li>
+</ul>
+
+<hr>
+
+<h2>27 Experimental Powers &middot; 162 Abilities</h2>
+
+<p>A whole second progression system layered on top of the named heroes. <strong>Mutate</strong> a
+power by brewing and drinking an <strong>experimental serum</strong>, studying <strong>research
+notes</strong>, surviving an <strong>exposure event</strong>, or using a <strong>lab device</strong>.
+Rare <strong>research site</strong> structures hold the recipes and hints.</p>
+
+<p>Powers <strong>stack</strong> &mdash; own up to three at once and all their passives and toggled
+modes run permanently; the one you have <em>selected</em> drives your six ability keys. A
+<strong>HeroPack Guide</strong> book documents every one, and there is an in-game power screen on the
+<strong>I</strong> key.</p>
+
+<p><strong>The full list:</strong> Super Strength, Laser Vision, Flight, Super Speed, Geokinesis,
+Crystalkinesis, Electrokinesis, Pyrokinesis, Cryokinesis, Telekinesis, Teleportation, Healing Factor,
+Super Durability, Sonic Scream, Invisibility &amp; Light Manipulation, Spider Climbing / Adhesion,
+Elasticity, Density Manipulation, Shadow Manipulation, Energy Absorption, Shockwave Manipulation,
+Plant Manipulation (Chlorokinesis), Gravity Manipulation, Wind Manipulation, Water Manipulation,
+Magnetic Manipulation, Size Manipulation.</p>
+
+<p>Each power has six abilities across the universal slot roles (Primary / Secondary / Movement /
+Ultimate / Utility / Special), plus passives, plus <strong>power combos</strong> when the right two
+are owned together (meteor slam, wet-electric, and more).</p>
+
+<hr>
+
+<h2>World Events &amp; Bosses</h2>
+
+<h3>The Zombie Raid</h3>
+<p>Catch the 20-minute <strong>Gravebound Curse</strong> from a naturally generated
+<strong>Graveyard</strong> or a rare <strong>Cursed Zombie</strong>. Then either burn an Enchanted
+Golden Apple to escape it, or survive <strong>twelve escalating waves</strong> and three
+<strong>Powered Zombie Bosses</strong> &mdash; each carrying a real experimental power and fighting
+with it. The raid darkens the sky around you and tracks progress on a boss bar.</p>
+
+<h3>The Supervillain Village Raid</h3>
+<p>A rare <strong>Pillager Spy</strong> that attacks you inside a village triggers a countdown, then
+<strong>five raider waves</strong> and an <strong>Empowered boss</strong> with a random power and a
+random cosmetic variant (Chimera, Arsenal, Omega Mage). Rewards include a Villain Cache, power
+fragments and variant trophies.</p>
+
+<h3>The Titan</h3>
+<p>A world boss that starts as an ordinary-looking zombie and, at low health, transforms into an
+<strong>~18-block giant</strong>. It actively hunts players and fights with a telegraphed attack
+state machine &mdash; ground-shaking <strong>Stomp</strong> and <strong>Slam</strong>, a player
+<strong>Grab</strong>, an <strong>AoE boulder throw</strong>, a long <strong>Charge</strong>, and an
+always-on melee swipe. Deliberately very strong; tunable in
+<code>config/herocraft_titan.json</code>.</p>
+
+<hr>
+
+<h2>Removing powers</h2>
+<p>Every power can be given up in survival. Craft a <strong>Power Suppressor</strong> and sneak-use it
+to strip Tony Stark, Max Steel, the Punisher, all experimental mutations, and reset Mjolnir
+worthiness. The Symbiote is removed by fire.</p>
+
+<hr>
+
+<h2>Notes</h2>
+<ul>
+  <li><strong>Creative tabs:</strong> Superheroes, Iron Man, Punisher.</li>
+  <li><strong>Admin / testing commands</strong> exist for every system (<code>/thor</code>,
+  <code>/ironman</code>, <code>/spiderman</code>, <code>/maxsteel</code>, <code>/punisher</code>,
+  <code>/superhero</code>, <code>/heropower</code>, <code>/heroraid</code>,
+  <code>/supervillainraid</code>, <code>/titan</code>) plus <code>/locate structure</code> support
+  for all mod structures.</li>
+  <li>Built on a shared GeckoLib armour-model pipeline and backed by 200+ automated in-game
+  tests.</li>
+  <li><strong>License:</strong> All Rights Reserved. This is a personal project shared as-is &mdash;
+  please don't redistribute or reupload the jar.</li>
+</ul>
+
+<p><em>HeroCraft started as "just Thor and Mjolnir" and kept growing. Bug reports and feedback
+welcome.</em></p>

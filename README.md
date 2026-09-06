@@ -318,6 +318,24 @@ modpackModsDir=C:\\Users\\ethan\\curseforge\\minecraft\\Instances\\<InstanceName
 
 Leave it unset/commented to skip the copy step (default).
 
+### Publishing a release
+
+Releases go to [CurseForge](https://legacy.curseforge.com/minecraft/mc-mods/herocraft) and
+[GitHub Releases](../../releases) automatically, driven by
+[`.github/workflows/release.yml`](.github/workflows/release.yml). To cut a release:
+
+```
+# 1. bump version= in gradle.properties, commit it
+# 2. tag it (the annotation message becomes the changelog on both sites)
+git tag -a v0.9.21 -m "One or more changelog lines."
+git push origin master --tags
+```
+
+The workflow builds the jar, checks the tag matches `gradle.properties`, and uploads. Game
+versions and required dependencies (Fabric API, GeckoLib) are taken from `fabric.mod.json`.
+First-time setup (CurseForge project + `CURSEFORGE_TOKEN` secret) is documented at the top of
+the workflow file.
+
 ## Project layout
 
 - `src/main/java` — common (client + server) code
