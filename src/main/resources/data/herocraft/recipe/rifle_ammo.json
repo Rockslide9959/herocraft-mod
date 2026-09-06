@@ -1,9 +1,0 @@
-{
-  "type": "minecraft:crafting_shapeless",
-  "category": "equipment",
-  "ingredients": [
-    { "item": "minecraft:gunpowder" }, { "item": "minecraft:gunpowder" },
-    { "item": "minecraft:copper_ingot" }, { "item": "minecraft:iron_nugget" }
-  ],
-  "result": { "id": "herocraft:rifle_ammo", "count": 12 }
-}

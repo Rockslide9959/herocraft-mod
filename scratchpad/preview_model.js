@@ -1,10 +1,10 @@
-// Tiny offline previewer for a HeroCraft item model: projects every element face isometrically,
+// Tiny offline previewer for a ProjectHero item model: projects every element face isometrically,
 // samples the average colour of its UV rect from the texture, z-buffers, and writes a PNG so the
 // geometry + UV mapping can be eyeballed without a client. Usage: node preview_model.js <id>
 const fs = require('fs');
 const zlib = require('zlib');
 const id = process.argv[2] || 'punisher_pistol';
-const MODEL = `src/main/resources/assets/herocraft/models/item/${id}.json`;
+const MODEL = `src/main/resources/assets/projecthero/models/item/${id}.json`;
 
 // ---- png decode/encode (shared shape with the other scratchpad scripts) ----
 function decode(p) {
@@ -30,7 +30,7 @@ function enc(w, h, px) { const st = w * 4; const raw = Buffer.alloc((st + 1) * h
 
 const model = JSON.parse(fs.readFileSync(MODEL, 'utf8'));
 const tw = model.texture_size ? model.texture_size[0] : 16, th = model.texture_size ? model.texture_size[1] : 16;
-const tex = decode(`src/main/resources/assets/herocraft/textures/item/${id}.png`);
+const tex = decode(`src/main/resources/assets/projecthero/textures/item/${id}.png`);
 
 function avgColor(uv) {
   const [u1, v1, u2, v2] = uv;

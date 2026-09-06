@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "powered=false": {
+      "model": "projecthero:block/unstable_gravity_plate"
+    },
+    "powered=true": {
+      "model": "projecthero:block/unstable_gravity_plate"
+    }
+  }
+}

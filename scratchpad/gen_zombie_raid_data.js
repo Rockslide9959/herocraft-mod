@@ -4,8 +4,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const ASSETS = 'src/main/resources/assets/herocraft';
-const DATA = 'src/main/resources/data/herocraft';
+const ASSETS = 'src/main/resources/assets/projecthero';
+const DATA = 'src/main/resources/data/projecthero';
 
 function write(file, obj) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -22,7 +22,7 @@ const FLAT_ITEMS = [
 for (const id of FLAT_ITEMS) {
   write(path.join(ASSETS, 'models/item', id + '.json'), {
     parent: 'minecraft:item/generated',
-    textures: { layer0: 'herocraft:item/' + id },
+    textures: { layer0: 'projecthero:item/' + id },
   });
 }
 
@@ -30,7 +30,7 @@ for (const id of FLAT_ITEMS) {
 for (const id of ['necrotic_blade', 'gravekeeper_shield']) {
   write(path.join(ASSETS, 'models/item', id + '.json'), {
     parent: 'minecraft:item/handheld',
-    textures: { layer0: 'herocraft:item/' + id },
+    textures: { layer0: 'projecthero:item/' + id },
   });
 }
 
@@ -39,12 +39,12 @@ for (const id of ['necrotic_blade', 'gravekeeper_shield']) {
 // A carved headstone: a box inset from the full cube, so it reads as a grave marker rather than a
 // full block, with a lit variant once it has been activated.
 function graveModel(lit) {
-  const side = lit ? 'herocraft:block/cursed_grave_lit' : 'herocraft:block/cursed_grave';
+  const side = lit ? 'projecthero:block/cursed_grave_lit' : 'projecthero:block/cursed_grave';
   return {
     parent: 'minecraft:block/block',
     textures: {
-      particle: 'herocraft:block/cursed_grave',
-      top: 'herocraft:block/cursed_grave_top',
+      particle: 'projecthero:block/cursed_grave',
+      top: 'projecthero:block/cursed_grave_top',
       side: side,
     },
     elements: [
@@ -65,7 +65,7 @@ function graveModel(lit) {
 }
 write(path.join(ASSETS, 'models/block/cursed_grave.json'), graveModel(false));
 write(path.join(ASSETS, 'models/block/cursed_grave_lit.json'), graveModel(true));
-write(path.join(ASSETS, 'models/item/cursed_grave.json'), { parent: 'herocraft:block/cursed_grave' });
+write(path.join(ASSETS, 'models/item/cursed_grave.json'), { parent: 'projecthero:block/cursed_grave' });
 
 // Variant keys deliberately omit `waterlogged`: a blockstate key only has to name the properties
 // that change the model, and waterlogging does not.
@@ -73,7 +73,7 @@ const graveVariants = {};
 for (const [facing, y] of [['north', 0], ['east', 90], ['south', 180], ['west', 270]]) {
   for (const lit of [false, true]) {
     const key = `facing=${facing},lit=${lit}`;
-    const variant = { model: 'herocraft:block/cursed_grave' + (lit ? '_lit' : '') };
+    const variant = { model: 'projecthero:block/cursed_grave' + (lit ? '_lit' : '') };
     if (y !== 0) variant.y = y;
     graveVariants[key] = variant;
   }
@@ -83,15 +83,15 @@ write(path.join(ASSETS, 'blockstates/cursed_grave.json'), { variants: graveVaria
 // ---------------------------------------------------------------- worldgen
 
 write(path.join(DATA, 'worldgen/structure/graveyard.json'), {
-  type: 'herocraft:graveyard',
-  biomes: '#herocraft:graveyard_biomes',
+  type: 'projecthero:graveyard',
+  biomes: '#projecthero:graveyard_biomes',
   step: 'surface_structures',
   spawn_overrides: {},
 });
 
 // Rarer than any of the research sites: a Graveyard is a major progression trigger, not scenery.
 write(path.join(DATA, 'worldgen/structure_set/graveyard.json'), {
-  structures: [{ structure: 'herocraft:graveyard', weight: 1 }],
+  structures: [{ structure: 'projecthero:graveyard', weight: 1 }],
   placement: {
     type: 'minecraft:random_spread',
     salt: 41627320,
@@ -140,7 +140,7 @@ write(path.join(DATA, 'loot_table/chests/graveyard.json'), {
         item('minecraft:soul_sand', { weight: 6, functions: [count(2, 5)] }),
         item('minecraft:gunpowder', { weight: 6, functions: [count(1, 4)] }),
         item('minecraft:skeleton_skull', { weight: 2 }),
-        item('herocraft:grave_essence', { weight: 5, functions: [count(1, 3)] }),
+        item('projecthero:grave_essence', { weight: 5, functions: [count(1, 3)] }),
       ],
     },
     {
@@ -151,7 +151,7 @@ write(path.join(DATA, 'loot_table/chests/graveyard.json'), {
         item('minecraft:iron_ingot', { weight: 6, functions: [count(2, 5)] }),
         item('minecraft:emerald', { weight: 4, functions: [count(1, 3)] }),
         item('minecraft:enchanted_book', { weight: 2 }),
-        item('herocraft:research_note', { weight: 3 }),
+        item('projecthero:research_note', { weight: 3 }),
       ],
     },
   ],
@@ -188,17 +188,17 @@ write(path.join(DATA, 'loot_table/chests/cursed_grave_chest.json'), {
       entries: [
         { type: 'minecraft:empty', weight: 37 },
         item('minecraft:enchanted_golden_apple', { weight: 20 }),
-        item('herocraft:gravewalker_charm', { weight: 15 }),
-        item('herocraft:gravekeeper_shield', { weight: 10 }),
-        item('herocraft:boss_trophy', { weight: 10 }),
-        item('herocraft:necrotic_blade', { weight: 8 }),
+        item('projecthero:gravewalker_charm', { weight: 15 }),
+        item('projecthero:gravekeeper_shield', { weight: 10 }),
+        item('projecthero:boss_trophy', { weight: 10 }),
+        item('projecthero:necrotic_blade', { weight: 8 }),
       ],
     },
     {
       rolls: 1,
       entries: [
         { type: 'minecraft:empty', weight: 97 },
-        item('herocraft:undying_totem', { weight: 3 }),
+        item('projecthero:undying_totem', { weight: 3 }),
       ],
     },
   ],
@@ -210,7 +210,7 @@ write(path.join(DATA, 'loot_table/blocks/cursed_grave.json'), {
   pools: [
     {
       rolls: 1,
-      entries: [item('herocraft:cursed_grave')],
+      entries: [item('projecthero:cursed_grave')],
       conditions: [{ condition: 'minecraft:survives_explosion' }],
     },
   ],
@@ -269,13 +269,13 @@ write(path.join(DATA, 'recipe/grave_ritual_totem.json'), {
   category: 'misc',
   pattern: ['ESE', 'RHR', 'SKS'],
   key: {
-    E: { item: 'herocraft:grave_essence' },
+    E: { item: 'projecthero:grave_essence' },
     S: { item: 'minecraft:soul_sand' },
     R: { item: 'minecraft:rotten_flesh' },
-    H: { item: 'herocraft:heart_of_the_grave' },
+    H: { item: 'projecthero:heart_of_the_grave' },
     K: { item: 'minecraft:skeleton_skull' },
   },
-  result: { id: 'herocraft:grave_ritual_totem', count: 1 },
+  result: { id: 'projecthero:grave_ritual_totem', count: 1 },
 });
 
 // ---------------------------------------------------------------- advancements
@@ -285,8 +285,8 @@ function advancement(icon, key, parent, frame = 'task', hidden = false) {
   const body = {
     display: {
       icon: { id: icon },
-      title: { translate: `advancement.herocraft.gravebound.${key}.title` },
-      description: { translate: `advancement.herocraft.gravebound.${key}.description` },
+      title: { translate: `advancement.projecthero.gravebound.${key}.title` },
+      description: { translate: `advancement.projecthero.gravebound.${key}.description` },
       frame,
       show_toast: true,
       announce_to_chat: true,
@@ -295,16 +295,16 @@ function advancement(icon, key, parent, frame = 'task', hidden = false) {
     criteria: { code_trigger: { trigger: 'minecraft:impossible' } },
     requirements: [['code_trigger']],
   };
-  if (parent) body.parent = `herocraft:gravebound/${parent}`;
+  if (parent) body.parent = `projecthero:gravebound/${parent}`;
   write(path.join(DATA, 'advancement/gravebound', key + '.json'), body);
 }
 
 advancement('minecraft:soul_lantern', 'cursed', null, 'task');
 advancement('minecraft:enchanted_golden_apple', 'curse_broken', 'cursed', 'task');
-advancement('herocraft:grave_essence', 'zombie_slayer', 'cursed', 'goal');
+advancement('projecthero:grave_essence', 'zombie_slayer', 'cursed', 'goal');
 advancement('minecraft:totem_of_undying', 'deathless', 'zombie_slayer', 'challenge');
 advancement('minecraft:iron_sword', 'one_man_army', 'zombie_slayer', 'challenge');
 advancement('minecraft:shield', 'last_stand', 'zombie_slayer', 'goal');
-advancement('herocraft:corrupted_power_core', 'power_breaker', 'zombie_slayer', 'challenge');
-advancement('herocraft:heart_of_the_grave', 'gravewalker', 'zombie_slayer', 'challenge');
-advancement('herocraft:boss_trophy', 'power_analysis', 'power_breaker', 'goal');
+advancement('projecthero:corrupted_power_core', 'power_breaker', 'zombie_slayer', 'challenge');
+advancement('projecthero:heart_of_the_grave', 'gravewalker', 'zombie_slayer', 'challenge');
+advancement('projecthero:boss_trophy', 'power_analysis', 'power_breaker', 'goal');

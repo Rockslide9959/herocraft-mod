@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "projecthero:basic_circuit"
+    },
+    {
+      "item": "projecthero:stark_circuit"
+    },
+    {
+      "item": "minecraft:ender_eye"
+    }
+  ],
+  "result": {
+    "id": "projecthero:targeting_module",
+    "count": 2
+  }
+}

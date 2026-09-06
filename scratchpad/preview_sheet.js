@@ -20,7 +20,7 @@ const names=['copper_wiring','metal_plating','basic_circuit','mechanical_parts',
 const S=6,CELL=16*S+8,COLS=6,ROWS=Math.ceil(names.length/COLS);
 const W=COLS*CELL,H=ROWS*CELL,sheet=Buffer.alloc(W*H*4);
 for(let i=0;i<W*H;i++){sheet[i*4]=58;sheet[i*4+1]=60;sheet[i*4+2]=68;sheet[i*4+3]=255;}
-names.forEach((n,i)=>{const img=dec(path.join('src/main/resources/assets/herocraft/textures/item',n+'.png'));
+names.forEach((n,i)=>{const img=dec(path.join('src/main/resources/assets/projecthero/textures/item',n+'.png'));
 const ox=(i%COLS)*CELL+4,oy=Math.floor(i/COLS)*CELL+4;
 for(let y=0;y<16;y++)for(let x=0;x<16;x++){const si=(y*16+x)*4;const a=img.data[si+3];if(!a)continue;
 for(let dy=0;dy<S;dy++)for(let dx=0;dx<S;dx++){const di=(((oy+y*S+dy)*W)+(ox+x*S+dx))*4;

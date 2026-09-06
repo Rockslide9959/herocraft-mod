@@ -1,0 +1,6 @@
+{
+  "type": "projecthero:mjolnir_crater",
+  "biomes": "#projecthero:mjolnir_crater_biomes",
+  "spawn_overrides": {},
+  "step": "surface_structures"
+}

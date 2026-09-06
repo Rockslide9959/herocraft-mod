@@ -119,11 +119,11 @@ function buildGun(id, parts, display, sheetW, sheetH) {
   }
   const cv = new Canvas(sheetW, sheetH);
   for (const p of parts) { const { px, py, w, h, d } = p._pack; paintPart(cv, px, py, w, h, d, p); }
-  fs.writeFileSync(`src/main/resources/assets/herocraft/textures/item/${id}.png`, cv.png());
-  fs.writeFileSync(`src/main/resources/assets/herocraft/models/item/${id}.json`, JSON.stringify({
-    credit: 'Punisher firearm -- original HeroCraft voxel model (v0.8.7). Barrel along -Z, grip -Y. Based on the user reference sheet. Display transforms tuned by eye; expect a screenshot pass.',
+  fs.writeFileSync(`src/main/resources/assets/projecthero/textures/item/${id}.png`, cv.png());
+  fs.writeFileSync(`src/main/resources/assets/projecthero/models/item/${id}.json`, JSON.stringify({
+    credit: 'Punisher firearm -- original ProjectHero voxel model (v0.8.7). Barrel along -Z, grip -Y. Based on the user reference sheet. Display transforms tuned by eye; expect a screenshot pass.',
     texture_size: [sheetW, sheetH],
-    textures: { gun: `herocraft:item/${id}`, particle: `herocraft:item/${id}` },
+    textures: { gun: `projecthero:item/${id}`, particle: `projecthero:item/${id}` },
     elements, display,
   }, null, 2));
   console.log('wrote', id, '(', parts.length, 'parts,', elements.length, 'elements )');

@@ -1,4 +1,4 @@
-# Publishes a release of HeroCraft to CurseForge and GitHub Releases.
+# Publishes a release of Project Hero to CurseForge and GitHub Releases.
 #
 # Trigger: pushing a git tag shaped like `v0.9.21`.
 # The full release flow is therefore:
@@ -80,7 +80,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
           # ---- shared ----
-          name: HeroCraft ${{ steps.meta.outputs.version }}
+          name: Project Hero ${{ steps.meta.outputs.version }}
           version: ${{ steps.meta.outputs.version }}
           version-type: release
           changelog: ${{ steps.meta.outputs.changelog }}

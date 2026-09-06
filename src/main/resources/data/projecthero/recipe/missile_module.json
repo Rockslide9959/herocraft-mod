@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "CGC",
+    "GSG",
+    "MGM"
+  ],
+  "key": {
+    "C": {
+      "item": "projecthero:stark_circuit"
+    },
+    "G": {
+      "item": "minecraft:gunpowder"
+    },
+    "S": {
+      "item": "projecthero:servo_motor"
+    },
+    "M": {
+      "item": "projecthero:metal_plating"
+    }
+  },
+  "result": {
+    "id": "projecthero:missile_module",
+    "count": 2
+  }
+}

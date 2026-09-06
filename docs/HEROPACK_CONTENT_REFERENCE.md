@@ -1,6 +1,6 @@
 # HeroPack Content Reference
 
-The readable source of truth for what is actually implemented in HeroPack (mod id `herocraft`,
+The readable source of truth for what is actually implemented in HeroPack (mod id `projecthero`,
 Fabric 1.21.1). Keep this file updated in the **same change** as any content addition/modification.
 
 The bottom "Experimental Power Encyclopedia" section is generated from the code + language file by
@@ -29,14 +29,14 @@ encyclopedia entry stops showing the "not implemented yet" behaviour.
 
 ### Ability implementation infrastructure (batch 3)
 
-- `com.herocraft.mod.hero.power.AbilityHelpers` — server-side raycast, config-gated `hurt` (PvP off
+- `com.projecthero.mod.hero.power.AbilityHelpers` — server-side raycast, config-gated `hurt` (PvP off
   → no player damage), `applyControl` (halves CC vs players; skips if `abilityHardCrowdControlOnPlayers`
   off), knockback, self-launch (`ClientboundSetEntityMotionPacket`), particle lines.
 - `Handlers` — terse factories (`instant`, `instantTicking`, `hold`, `charge`, `toggle`, `cycle`).
 - `PowerToggles` — infinite hidden effects + fixed-id transient attribute modifiers, applied
   idempotently every toggle tick (so they survive respawn via `ExperimentalPowers.reconcileToggles`).
 - `HeroFlight` — shared experimental flight, **fully independent of Thor flight**: own attachment
-  `herocraft:hero_flying`, own `flight` stamina resource (drains airborne, regens grounded, cuts out
+  `projecthero:hero_flying`, own `flight` stamina resource (drains airborne, regens grounded, cuts out
   cleanly with fall distance reset), refuses to engage while Thor flight is active.
 - `TempBlocks` — conjured walls/spikes: places only over replaceable blocks, restores after a TTL,
   bounded deque ticked once per server tick, skipped entirely when `abilityTerrainDamage` is off.
@@ -86,7 +86,7 @@ uses any of R/G/X/Z/V/C.
 There is one logical six-input system, **not** 162 keybindings. What each slot does is resolved
 server-side by `AbilityRouter` from the player's current context.
 
-### Context routing (`com.herocraft.mod.hero.AbilityRouter`)
+### Context routing (`com.projecthero.mod.hero.AbilityRouter`)
 
 1. **Thor** — if the player is worthy **and** (holding Mjolnir **or** is Mjolnir's bound owner), the
    six slots route to Thor's existing ability handlers with **no behaviour change**:
@@ -107,14 +107,14 @@ server-side.
 
 ### Thor / Mjolnir (production content — unchanged by HeroPack)
 
-Implemented in `com.herocraft.mod` under `item/` (`MjolnirItem`, armor), `entity/MjolnirEntity`,
+Implemented in `com.projecthero.mod` under `item/` (`MjolnirItem`, armor), `entity/MjolnirEntity`,
 `hammer/` (`MjolnirRegistry`, `MjolnirRecall`, `HammerRecord`, `MjolnirStatus`), `power/`
 (`ThorPowers`, `ThorPassives`, `ThorFeedback`, `StormEnergy`, `ThorAbility`), `worthiness/`
 (`Worthiness`, `WorthinessEnforcer`), `worldgen/` (Mjolnir crater structure + `CraterAmbience`),
 client mixins and `ThorHud`.
 
-**Items:** Mjolnir (`herocraft:mjolnir`), Helmet/Chestplate/Leggings/Boots of Asgard. All in the
-`herocraft:superheroes` ("Superheroes") creative tab.
+**Items:** Mjolnir (`projecthero:mjolnir`), Helmet/Chestplate/Leggings/Boots of Asgard. All in the
+`projecthero:superheroes` ("Superheroes") creative tab.
 
 **Mjolnir interactions:**
 - Right-click — throw Mjolnir (straight-line flight; returns on recall).
@@ -139,7 +139,7 @@ and lightning damage. Transient attribute modifiers with fixed ids — never acc
 
 **Worthiness:** hidden score, threshold 50. `/thor worthy|unworthy|status`.
 
-**Worldgen:** `herocraft:mjolnir_crater` rare surface structure spawns a naturally-occurring Mjolnir
+**Worldgen:** `projecthero:mjolnir_crater` rare surface structure spawns a naturally-occurring Mjolnir
 with ambient crater lightning. Unchanged.
 
 HeroPack changes to Thor were limited to a **transport-only** input reroute (the six Thor keybinds
@@ -148,7 +148,7 @@ gameplay constant, registry id, structure, sound, particle, data key, or handler
 
 ### Spider-Man (v0.6.3)
 
-A Hero Class in `com.herocraft.mod.spider`, reached by evolving experimental power 16 with an
+A Hero Class in `com.projecthero.mod.spider`, reached by evolving experimental power 16 with an
 **Arachnid Mutagen**. It takes the six universal slots whenever no experimental power is selected in
 the wheel, sitting after Thor and Iron Man in the router priority.
 
@@ -177,12 +177,12 @@ permanently unlocked with an `UNUSUAL MUTATION DETECTED` title → advancement +
 
 ### Serums & brewing (batch 2)
 
-- Each power has a **reagent** item (`herocraft:<power>_reagent`), crafted shapeless from that
-  power's obscure additives + its thematic "fuel" ingredient (see `data/herocraft/recipe/`).
+- Each power has a **reagent** item (`projecthero:<power>_reagent`), crafted shapeless from that
+  power's obscure additives + its thematic "fuel" ingredient (see `data/projecthero/recipe/`).
   *Deviation:* vanilla brewing takes one ingredient and always uses blaze powder as fuel, so the
   multi-additive list + non-standard fuel are folded into this crafted reagent.
 - Brewing: `<base vanilla potion> + <reagent>` in a brewing stand → that power's **serum**, a custom
-  potion (`herocraft:serum_<power>`) that applies **Unstable Mutation** for
+  potion (`projecthero:serum_<power>`) that applies **Unstable Mutation** for
   `unstableMutationDurationTicks` (default 60 s). *Deviation:* the target power is carried in the
   effect's amplifier (power index), so one effect covers all 27 serums.
 - Drinking the serum sets a pending mutation and advances research to `SERUM_STABILIZED`. It never
@@ -204,14 +204,14 @@ natural fallbacks — become fully reliable once devices land. All 27 are alread
 
 ### Research notes (batch 2)
 
-`herocraft:research_note` (carries a `research_power` component) — right-click to study, advances
+`projecthero:research_note` (carries a `research_power` component) — right-click to study, advances
 that power's research to `RESEARCH_FOUND` and fires the first advancement. Structure loot in the
 structures batch; for now obtainable in Creative or via `/heropower research <power>`.
 
 ### Advancement chain
 
-`herocraft:mutation/research_found → serum_stabilized → exposure_survived → mutation_confirmed`
-(`data/herocraft/advancement/mutation/`), awarded from code at each stage.
+`projecthero:mutation/research_found → serum_stabilized → exposure_survived → mutation_confirmed`
+(`data/projecthero/advancement/mutation/`), awarded from code at each stage.
 
 ### Persistent power stacking (v0.9.3)
 
@@ -241,7 +241,7 @@ up to `mutationCapacity` (default 3) at once, via natural mutation or `/heropowe
 
 ---
 
-## Rare structures (`herocraft:research_site`)
+## Rare structures (`projecthero:research_site`)
 
 One code structure (`ResearchSiteStructure` + `ResearchSitePiece`, mirroring the proven
 `MjolnirCraterStructure` pattern — code `StructureType`, datapack JSON, procedural piece that sits
@@ -258,12 +258,12 @@ chunk box**). The kind is a datapack field (`site_type`), so all six share the c
 | Hydrostatic Test Facility | `hydrostatic_facility` | Hydrostatic Test Tank | Water Manipulation (coastal biomes) |
 
 Each `structure_set` JSON has its own salt + `random_spread` spacing/separation (retune in
-`data/herocraft/worldgen/structure_set/*` without code). Biome tags `#herocraft:hp_surface_biomes`
-and `#herocraft:hp_coastal_biomes`. Loot in `data/herocraft/loot_table/chests/*` — research notes
+`data/projecthero/worldgen/structure_set/*` without code). Biome tags `#projecthero:hp_surface_biomes`
+and `#projecthero:hp_coastal_biomes`. Loot in `data/projecthero/loot_table/chests/*` — research notes
 (blank → reveal a random undiscovered power), thematic reagents, materials, and a rare themed serum.
-`/locate structure herocraft:<id>` works.
+`/locate structure projecthero:<id>` works.
 
-## Laboratory devices (`herocraft:*` blocks)
+## Laboratory devices (`projecthero:*` blocks)
 
 One `LabDeviceBlock` class param'd by `MutationTrigger.Kind[]` + activation style. Fires
 `MutationManager.triggerExposure` for every player within 4 blocks who has the matching unstable
@@ -282,7 +282,7 @@ rising edge, or right-click), never a per-tick scan.
 | `hydrostatic_test_tank` | SUBMERSION | right-click |
 | `electromagnetic_coil` | MAGNETIC_FIELD | redstone pulse |
 
-All craftable at iron-tier (`data/herocraft/recipe/*`), in the Superheroes creative tab.
+All craftable at iron-tier (`data/projecthero/recipe/*`), in the Superheroes creative tab.
 
 ## Power combos (`PowerCombos`)
 
@@ -296,7 +296,7 @@ listed ones are wired.
 
 ## HeroPack Guide
 
-`herocraft:heropack_guide` — a book item (Uncommon), in the Superheroes creative tab, crafted from
+`projecthero:heropack_guide` — a book item (Uncommon), in the Superheroes creative tab, crafted from
 book + amethyst + paper. Right-click opens `HeroPackGuideScreen`: a dependency-free chapter book
 (scrollable clickable index + word-wrapped scrollable content). Content is built by
 `HeroPackGuide.chapters()` **from the power registry + shared translation keys** — 6 framing
@@ -305,13 +305,13 @@ Thor & Mjolnir) + one chapter per power (abilities/keys, passives, serum recipe,
 device). Adding the guide has zero effect on Thor.
 
 **Mutation capacity:** default **3** permanently-owned powers per player, configurable
-(`config/herocraft.json` → `mutationCapacity`). A player may own several but only **one**
+(`config/projecthero.json` → `mutationCapacity`). A player may own several but only **one**
 experimental power occupies the six ability slots at a time. Switching the active power (power wheel / `H`)
 never resets cooldowns, never duplicates attributes/passives, and turns off the previous power's
 toggles.
 
 **Data storage:** all experimental state lives in one isolated attachment
-`herocraft:experimental_state` (`ExperimentalState`) — owned powers, active power, ability cooldowns
+`projecthero:experimental_state` (`ExperimentalState`) — owned powers, active power, ability cooldowns
 (absolute ready-at game time, so they survive relog / death / dimension change / power switch),
 toggle/cycle states, power resources, per-power research stage. Persistent + copy-on-death. Never
 shares a key with any Thor attachment.
@@ -322,7 +322,7 @@ MUTATION_CONFIRMED`. Once confirmed, the recipe + trigger are permanently readab
 
 ---
 
-## Configuration (`config/herocraft.json`)
+## Configuration (`config/projecthero.json`)
 
 | Key | Default | Effect |
 |---|---|---|
@@ -369,7 +369,7 @@ flight stamina and the radial power wheel are a later polish pass.)*
 
 ## Recent tuning — "changes 6" (v0.2.5–0.2.6)
 
-New shared helper `com.herocraft.mod.hero.power.ModeMeter`: a stance bar that drains while a mode
+New shared helper `com.projecthero.mod.hero.power.ModeMeter`: a stance bar that drains while a mode
 toggle is on and recharges while off (like flight stamina), forcing the toggle off when it empties.
 Its `regen()` seeds an untouched meter to full (fresh mutation = full bar). Used by Crystal Armor /
 Earth Armor, Charged Mode, Tailwind, Repulsion Field, Giant Form, and (v0.2.6) each of the Pyro and
@@ -469,7 +469,7 @@ the bottom name never falls off screen. `sparkle` added to the 100-max meter lis
   invisibility (gametest `invisibilityPerfectCloakAppliesInvisibility` → `invisibilityHolyLightChannels`).
 
 **New client mixin:** `client.mixin.HumanoidArmorLayerMixin` (HEAD of `HumanoidArmorLayer.render`,
-cancellable) — registered in `herocraft.client.mixins.json`.
+cancellable) — registered in `projecthero.client.mixins.json`.
 
 `./gradlew build` green, 44 gametests.
 
@@ -478,7 +478,7 @@ cancellable) — registered in `herocraft.client.mixins.json`.
 Power 26 rebuilt from the ground up so it manipulates **actual magnetic metal**, not invisible force.
 
 **Material system** (`hero.power.p26.MagneticMaterials`) — the single authority:
-- Tags `#herocraft:magnetic` (block) and `#herocraft:magnetic` (item) hold the concrete vanilla list
+- Tags `#projecthero:magnetic` (block) and `#projecthero:magnetic` (item) hold the concrete vanilla list
   (iron block/ore/raw-iron, bars, doors, trapdoors, chain, anvils, hopper, cauldron, heavy pressure
   plate, rails, lanterns, lodestone, netherite block; iron/chainmail/netherite gear, iron nuggets/
   ingots/raw iron, shears, shield, buckets, flint & steel, compass, minecarts, tripwire hook, …).
@@ -520,9 +520,9 @@ carrying `launchSpeed`, `accel`, `damage` (6 / 9 / 18 / 28), `knockback`, `gripF
 blocks drift to the player (magnetic only); controlled objects exclude their owner from all damage;
 faint spark on the metal you look at.
 
-**Wiring:** `MagneticHandlers.tick(server)` added to `HeroCraftMod`'s `END_SERVER_TICK` (projectiles +
+**Wiring:** `MagneticHandlers.tick(server)` added to `Project HeroMod`'s `END_SERVER_TICK` (projectiles +
 storms). `client.mixin.EntityGlowMixin` extended; `client.MagneticSenseClient` registered in
-`HeroCraftModClient`. Serum / trigger / Electromagnetic Coil Pair unchanged.
+`Project HeroModClient`. Serum / trigger / Electromagnetic Coil Pair unchanged.
 
 `./gradlew build` green, **46 gametests** (2 new: `magneticCrushNeedsMetalOnTarget`,
 `ferrousShotConsumesNearbyMetalDrop`).
@@ -534,7 +534,7 @@ storms). `client.mixin.EntityGlowMixin` extended; `client.MagneticSenseClient` r
 27 powers, 162 abilities. Slot → key: 1→R, 2→G, 3→H, 4→Z, 5→X, 6→C.
 
 ### 1. Super Strength  
-**ID:** `herocraft:power_01_super_strength` · **Category:** Physical
+**ID:** `projecthero:power_01_super_strength` · **Category:** Physical
 
 Enhanced physiology: devastating melee force, mobility, grabbing and tanking damage.
 
@@ -553,7 +553,7 @@ Enhanced physiology: devastating melee force, mobility, grabbing and tanking dam
 **Mutation trigger:** Drink the serum, then take an electrical surge from an Overloaded Redstone Coil (or a natural lightning strike).
 
 ### 2. Laser Vision  
-**ID:** `herocraft:power_02_laser_vision` · **Category:** Energy
+**ID:** `projecthero:power_02_laser_vision` · **Category:** Energy
 
 A photonic mutation turning the eyes into precision tools, combat beams and high-output weapons.
 
@@ -572,7 +572,7 @@ A photonic mutation turning the eyes into precision tools, combat beams and high
 **Mutation trigger:** Drink the serum and look into an active Experimental Light Projector / Beacon Lens for several seconds.
 
 ### 3. Flight  
-**ID:** `herocraft:power_03_flight` · **Category:** Movement
+**ID:** `projecthero:power_03_flight` · **Category:** Movement
 
 True superhero aerial movement: dashes, hovering and high-speed bursts.
 
@@ -591,7 +591,7 @@ True superhero aerial movement: dashes, hovering and high-speed bursts.
 **Mutation trigger:** Drink the serum on an activated Unstable Gravity Plate or inside a Gravity Distortion Rig.
 
 ### 4. Super Speed  
-**ID:** `herocraft:power_04_super_speed` · **Category:** Movement
+**ID:** `projecthero:power_04_super_speed` · **Category:** Movement
 
 A speedster mutation: traversal, combat bursts, evasion and momentum.
 
@@ -610,7 +610,7 @@ A speedster mutation: traversal, combat bursts, evasion and momentum.
 **Mutation trigger:** Drink the serum and sprint across a run of powered/charged copper plates.
 
 ### 5. Geokinesis  
-**ID:** `herocraft:power_05_geokinesis` · **Category:** Elemental
+**ID:** `projecthero:power_05_geokinesis` · **Category:** Elemental
 
 Control stone, dirt and earth as a battlefield weapon and defensive tool.
 
@@ -629,7 +629,7 @@ Control stone, dirt and earth as a battlefield weapon and defensive tool.
 **Mutation trigger:** Drink while standing on natural stone/deepslate, ideally in a Geological Resonance Chamber.
 
 ### 6. Crystalkinesis  
-**ID:** `herocraft:power_06_crystalkinesis` · **Category:** Elemental
+**ID:** `projecthero:power_06_crystalkinesis` · **Category:** Elemental
 
 An amethyst/crystal power set: sharp projectiles, prisons, barriers and reflective armor.
 
@@ -648,7 +648,7 @@ An amethyst/crystal power set: sharp projectiles, prisons, barriers and reflecti
 **Mutation trigger:** Drink inside a natural Amethyst Geode or a functioning crystal chamber.
 
 ### 7. Electrokinesis  
-**ID:** `herocraft:power_07_electrokinesis` · **Category:** Energy
+**ID:** `projecthero:power_07_electrokinesis` · **Category:** Energy
 
 A general electricity mutation - intentionally weaker than Thor’s true lightning.
 
@@ -667,7 +667,7 @@ A general electricity mutation - intentionally weaker than Thor’s true lightni
 **Mutation trigger:** Drink the serum and activate an Overloaded Redstone Coil while inside its discharge radius.
 
 ### 8. Pyrokinesis  
-**ID:** `herocraft:power_08_pyrokinesis` · **Category:** Elemental
+**ID:** `projecthero:power_08_pyrokinesis` · **Category:** Elemental
 
 Direct heat and flame control: ranged fire, mobility and an aggressive flame-body stance.
 
@@ -686,7 +686,7 @@ Direct heat and flame control: ranged fire, mobility and an aggressive flame-bod
 **Mutation trigger:** Drink the serum and remain in ordinary fire for several seconds while resistance protects you.
 
 ### 9. Cryokinesis  
-**ID:** `herocraft:power_09_cryokinesis` · **Category:** Elemental
+**ID:** `projecthero:power_09_cryokinesis` · **Category:** Elemental
 
 Ice control: freezing, terrain creation, defensive walls and fast ice traversal.
 
@@ -705,7 +705,7 @@ Ice control: freezing, terrain creation, defensive walls and fast ice traversal.
 **Mutation trigger:** Drink the serum while submerged in Powder Snow for several seconds.
 
 ### 10. Telekinesis  
-**ID:** `herocraft:power_10_telekinesis` · **Category:** Mental
+**ID:** `projecthero:power_10_telekinesis` · **Category:** Mental
 
 Psionic force manipulation: push, pull, levitate, grab and weaponize entities or blocks.
 
@@ -724,7 +724,7 @@ Psionic force manipulation: push, pull, levitate, grab and weaponize entities or
 **Mutation trigger:** Drink the serum near an active Enchanting Table with enough bookshelves to trigger a psionic resonance.
 
 ### 11. Teleportation  
-**ID:** `herocraft:power_11_teleportation` · **Category:** Movement
+**ID:** `projecthero:power_11_teleportation` · **Category:** Movement
 
 Short-range spatial distortion: combat blinks, marks and limited wall phasing.
 
@@ -743,7 +743,7 @@ Short-range spatial distortion: combat blinks, marks and limited wall phasing.
 **Mutation trigger:** Drink the serum and throw/use an Ender Pearl while the effect is active.
 
 ### 12. Super Regeneration  
-**ID:** `herocraft:power_12_healing_factor` · **Category:** Physical
+**ID:** `projecthero:power_12_super_regeneration` · **Category:** Physical
 
 Aggressive cellular regeneration: constant passive healing that hunger and combat can't stop.
 
@@ -762,7 +762,7 @@ Aggressive cellular regeneration: constant passive healing that hunger and comba
 **Mutation trigger:** While the serum is active, survive being reduced below 3 hearts without dying.
 
 ### 13. Super Durability  
-**ID:** `herocraft:power_13_super_durability` · **Category:** Physical
+**ID:** `projecthero:power_13_super_durability` · **Category:** Physical
 
 A tank mutation hardening the body against damage, knockback, projectiles and explosions.
 
@@ -781,7 +781,7 @@ A tank mutation hardening the body against damage, knockback, projectiles and ex
 **Mutation trigger:** Drink the serum and survive an explosion from TNT or a controlled blast chamber.
 
 ### 14. Sonic Scream  
-**ID:** `herocraft:power_14_sonic_scream` · **Category:** Energy
+**ID:** `projecthero:power_14_sonic_scream` · **Category:** Energy
 
 Manipulate destructive sound: cones, focused blasts, mobility and sonar-like utility.
 
@@ -800,7 +800,7 @@ Manipulate destructive sound: cones, focused blasts, mobility and sonar-like uti
 **Mutation trigger:** Use a Goat Horn while the serum is active, ideally inside a resonant room/chamber.
 
 ### 15. Invisibility / Light Manipulation  
-**ID:** `herocraft:power_15_invisibility_light_manipulation` · **Category:** Light
+**ID:** `projecthero:power_15_invisibility_light_manipulation` · **Category:** Light
 
 Bend light for stealth, flashes, mirages and limited offensive photonic attacks.
 
@@ -819,7 +819,7 @@ Bend light for stealth, flashes, mirages and limited offensive photonic attacks.
 **Mutation trigger:** Drink under direct sunlight with an unobstructed sky for several seconds.
 
 ### 16. Spider Climbing / Adhesion  
-**ID:** `herocraft:power_16_spider_climbing_adhesion` · **Category:** Movement
+**ID:** `projecthero:power_16_spider_climbing_adhesion` · **Category:** Movement
 
 Real surface adhesion -- walls, ceilings and the corners between them. Rebuilt in v0.6.3 (see
 [Spider-Man](SPIDERMAN_REFERENCE.md) section 3 for why the old version could only do what a ladder
@@ -852,7 +852,7 @@ a longer grace period, and needs no toggle -- it is always on. See
 [SPIDERMAN_REFERENCE.md](SPIDERMAN_REFERENCE.md).
 
 ### 17. Elasticity  
-**ID:** `herocraft:power_17_elasticity` · **Category:** Molecular
+**ID:** `projecthero:power_17_elasticity` · **Category:** Molecular
 
 Rubber-like body manipulation: ranged punches, bouncing, grabs and slingshot movement.
 
@@ -871,7 +871,7 @@ Rubber-like body manipulation: ranged punches, bouncing, grabs and slingshot mov
 **Mutation trigger:** While affected, fall at least 10 blocks onto a Slime Block and survive the rebound.
 
 ### 18. Density Manipulation  
-**ID:** `herocraft:power_18_density_manipulation` · **Category:** Molecular
+**ID:** `projecthero:power_18_density_manipulation` · **Category:** Molecular
 
 Switch between low and high density for mobility, heavy impacts, defense and limited phasing.
 
@@ -890,7 +890,7 @@ Switch between low and high density for mobility, heavy impacts, defense and lim
 **Mutation trigger:** Activate a Molecular Compression Chamber while the serum is active.
 
 ### 19. Shadow Manipulation  
-**ID:** `herocraft:power_19_shadow_manipulation` · **Category:** Energy
+**ID:** `projecthero:power_19_shadow_manipulation` · **Category:** Energy
 
 Use darkness as a resource for bolts, tendrils, movement, clones and concealment.
 
@@ -909,7 +909,7 @@ Use darkness as a resource for bolts, tendrils, movement, clones and concealment
 **Mutation trigger:** Drink at night while standing in true darkness (light level 0) for several seconds.
 
 ### 20. Energy Absorption  
-**ID:** `herocraft:power_20_energy_absorption` · **Category:** Energy
+**ID:** `projecthero:power_20_energy_absorption` · **Category:** Energy
 
 Convert incoming heat, explosions and electricity into a stored meter for offensive discharge.
 
@@ -928,7 +928,7 @@ Convert incoming heat, explosions and electricity into a stored meter for offens
 **Mutation trigger:** While the serum is active, survive at least two different energy-like damage sources.
 
 ### 21. Shockwave Manipulation  
-**ID:** `herocraft:power_21_shockwave_manipulation` · **Category:** Kinetic
+**ID:** `projecthero:power_21_shockwave_manipulation` · **Category:** Kinetic
 
 Amplify kinetic force into pressure waves, repulsion and charged impacts.
 
@@ -947,7 +947,7 @@ Amplify kinetic force into pressure waves, repulsion and charged impacts.
 **Mutation trigger:** Drink the serum and survive a TNT explosion or controlled blast chamber.
 
 ### 22. Plant Manipulation / Chlorokinesis  
-**ID:** `herocraft:power_22_plant_manipulation_chlorokinesis` · **Category:** Nature
+**ID:** `projecthero:power_22_plant_manipulation_chlorokinesis` · **Category:** Nature
 
 Control vines, roots and rapid growth for crowd control, movement, protection and regeneration.
 
@@ -966,7 +966,7 @@ Control vines, roots and rapid growth for crowd control, movement, protection an
 **Mutation trigger:** Drink beneath open sky while surrounded by natural plant blocks, flowers or saplings.
 
 ### 23. Gravity Manipulation  
-**ID:** `herocraft:power_23_gravity_manipulation` · **Category:** Spatial / Force
+**ID:** `projecthero:power_23_gravity_manipulation` · **Category:** Spatial / Force
 
 Control local gravity to push, crush, levitate and create dangerous gravity wells.
 
@@ -985,7 +985,7 @@ Control local gravity to push, crush, levitate and create dangerous gravity well
 **Mutation trigger:** Drink inside an active Gravity Distortion Rig or complete a controlled low-gravity drop test.
 
 ### 24. Wind Manipulation  
-**ID:** `herocraft:power_24_wind_manipulation` · **Category:** Elemental
+**ID:** `projecthero:power_24_wind_manipulation` · **Category:** Elemental
 
 Air-pressure control: blades, tornadoes, flight-like movement and projectile defense.
 
@@ -1004,7 +1004,7 @@ Air-pressure control: blades, tornadoes, flight-like movement and projectile def
 **Mutation trigger:** Drink inside an active Pressure Chamber / Industrial Fan Array.
 
 ### 25. Water Manipulation  
-**ID:** `herocraft:power_25_water_manipulation` · **Category:** Elemental
+**ID:** `projecthero:power_25_water_manipulation` · **Category:** Elemental
 
 Control water into projectiles, whips, prisons and movement; be extremely capable underwater.
 
@@ -1023,7 +1023,7 @@ Control water into projectiles, whips, prisons and movement; be extremely capabl
 **Mutation trigger:** Drink the serum and remain fully submerged for roughly a minute, or use a Hydrostatic Test Tank.
 
 ### 26. Magnetic Manipulation  
-**ID:** `herocraft:power_26_magnetic_manipulation` · **Category:** Spatial / Force
+**ID:** `projecthero:power_26_magnetic_manipulation` · **Category:** Spatial / Force
 
 Manipulate magnetically reactive metal (iron family + lodestone; netherite resists; **not** copper or
 gold) for combat and movement. Every major ability needs a real magnetic block, item or metal-equipped
@@ -1044,7 +1044,7 @@ enemy in reach — otherwise it fails with subtle feedback and spends no cooldow
 **Mutation trigger:** Drink between two powered Electromagnetic Coils or inside a Magnetic Test Rig.
 
 ### 27. Size Manipulation  
-**ID:** `herocraft:power_27_size_manipulation` · **Category:** Molecular
+**ID:** `projecthero:power_27_size_manipulation` · **Category:** Molecular
 
 Change body scale for stealth, mobility or giant strength - neither form universally superior.
 

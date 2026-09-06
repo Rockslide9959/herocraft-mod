@@ -107,16 +107,16 @@ function buildGun(id, parts, display, sheetW = 128, sheetH = 64) {
     const { px, py, w, h, d } = p._pack;
     paintBox(cv, px, py, w, h, d, p.base, p.opts || {});
   }
-  fs.writeFileSync(`src/main/resources/assets/herocraft/textures/item/${id}.png`, cv.png());
+  fs.writeFileSync(`src/main/resources/assets/projecthero/textures/item/${id}.png`, cv.png());
 
   const model = {
-    credit: 'Punisher firearm -- original HeroCraft voxel model (v0.8.6 rebuild, proper box UV unwrap). Barrel along +X. Display block tuned by eye; expect a screenshot pass.',
+    credit: 'Punisher firearm -- original ProjectHero voxel model (v0.8.6 rebuild, proper box UV unwrap). Barrel along +X. Display block tuned by eye; expect a screenshot pass.',
     texture_size: [sheetW, sheetH],
-    textures: { gun: `herocraft:item/${id}`, particle: `herocraft:item/${id}` },
+    textures: { gun: `projecthero:item/${id}`, particle: `projecthero:item/${id}` },
     elements,
     display,
   };
-  fs.writeFileSync(`src/main/resources/assets/herocraft/models/item/${id}.json`, JSON.stringify(model, null, 2));
+  fs.writeFileSync(`src/main/resources/assets/projecthero/models/item/${id}.json`, JSON.stringify(model, null, 2));
   console.log('wrote', id, '(', parts.length, 'parts )');
 }
 

@@ -1,6 +1,0 @@
-{
-  "type": "herocraft:symbiote_meteor",
-  "biomes": "#herocraft:hp_surface_biomes",
-  "step": "surface_structures",
-  "spawn_overrides": {}
-}

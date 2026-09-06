@@ -19,28 +19,28 @@ GeckoLib: `software.bernie.geckolib:geckolib-fabric-1.21.1:4.9.2` (see `gradle.p
 
 | Asset | Path | Notes |
 |---|---|---|
-| Geometry (shared) | `src/main/resources/assets/herocraft/geo/crimson_vanguard.geo.json` | `thor` only; GeckoLib scans `assets/*/geo/**` |
-| Geometry (per mark) | `src/main/resources/assets/herocraft/geo/mark_<n>.geo.json` (`mark_1`, `mark_2`, `mark_iii`, `mark_4`, `mark_v`, `mark_6`, `mark_vii`) | one bespoke model per Iron Man mark; same bone names as `crimson_vanguard` |
-| Animation | `src/main/resources/assets/herocraft/animations/crimson_vanguard.animation.json` | shared by **every** set, marks included — see [Adding animations](#adding-animations) |
-| Textures | `src/main/resources/assets/herocraft/textures/armor/<set>.png` | one per set: `thor`, `mark_1`, `mark_2`, `mark_iii`, `mark_4`, `mark_v`, `mark_6`, `mark_vii`, plus `crimson_vanguard.png` (the default) |
+| Geometry (shared) | `src/main/resources/assets/projecthero/geo/crimson_vanguard.geo.json` | `thor` only; GeckoLib scans `assets/*/geo/**` |
+| Geometry (per mark) | `src/main/resources/assets/projecthero/geo/mark_<n>.geo.json` (`mark_1`, `mark_2`, `mark_iii`, `mark_4`, `mark_v`, `mark_6`, `mark_vii`) | one bespoke model per Iron Man mark; same bone names as `crimson_vanguard` |
+| Animation | `src/main/resources/assets/projecthero/animations/crimson_vanguard.animation.json` | shared by **every** set, marks included — see [Adding animations](#adding-animations) |
+| Textures | `src/main/resources/assets/projecthero/textures/armor/<set>.png` | one per set: `thor`, `mark_1`, `mark_2`, `mark_iii`, `mark_4`, `mark_v`, `mark_6`, `mark_vii`, plus `crimson_vanguard.png` (the default) |
 
 ## The classes
 
 | Role | Class | Sourceset |
 |---|---|---|
-| Per-set visual config | `com.herocraft.mod.armor.ArmorVisualDefinition` (record: geometry, texture, animation) | main |
-| Set → config registry | `com.herocraft.mod.armor.SuperheroArmorVisuals` (`get(setId)`, `register(setId, def)`) | main |
-| Common armour item base | `com.herocraft.mod.armor.SuperheroArmorItem` (`ArmorItem` + `GeoItem`; abstract `armorSetId()`) | main |
-| Thor pieces | `com.herocraft.mod.item.ThorArmorItem` (`armorSetId() = "thor"`) | main |
-| Iron Man pieces | `com.herocraft.mod.ironman.item.IronManArmorItem` (`armorSetId() = suitId`) | main |
-| Shared GeoModel | `com.herocraft.mod.client.render.SuperheroArmorModel` (forwards to `SuperheroArmorVisuals`) | client |
-| Shared GeoArmorRenderer | `com.herocraft.mod.client.render.SuperheroArmorRenderer` | client |
-| Client bridge | `com.herocraft.mod.client.render.SuperheroArmorRenderProvider` (a `GeoRenderProvider`) | client |
+| Per-set visual config | `com.projecthero.mod.armor.ArmorVisualDefinition` (record: geometry, texture, animation) | main |
+| Set → config registry | `com.projecthero.mod.armor.SuperheroArmorVisuals` (`get(setId)`, `register(setId, def)`) | main |
+| Common armour item base | `com.projecthero.mod.armor.SuperheroArmorItem` (`ArmorItem` + `GeoItem`; abstract `armorSetId()`) | main |
+| Thor pieces | `com.projecthero.mod.item.ThorArmorItem` (`armorSetId() = "thor"`) | main |
+| Iron Man pieces | `com.projecthero.mod.ironman.item.IronManArmorItem` (`armorSetId() = suitId`) | main |
+| Shared GeoModel | `com.projecthero.mod.client.render.SuperheroArmorModel` (forwards to `SuperheroArmorVisuals`) | client |
+| Shared GeoArmorRenderer | `com.projecthero.mod.client.render.SuperheroArmorRenderer` | client |
+| Client bridge | `com.projecthero.mod.client.render.SuperheroArmorRenderProvider` (a `GeoRenderProvider`) | client |
 
 ### Client / server split
 
 `src/main` cannot see `src/client` (Loom `splitEnvironmentSourceSets()`). So `SuperheroArmorItem`
-exposes a `static Consumer<Consumer<GeoRenderProvider>> rendererFactory`; `HeroCraftModClient`
+exposes a `static Consumer<Consumer<GeoRenderProvider>> rendererFactory`; `Project HeroModClient`
 installs one that hands out `SuperheroArmorRenderProvider`s. On a dedicated server the factory stays
 `null` and GeckoLib never asks for a renderer — nothing client-only is touched.
 
@@ -70,9 +70,9 @@ Player pose (walk / crouch / jump / swim / sprint / ride) and the mod's flight p
 ## Adding a new armour SET
 
 1. Register its items as `SuperheroArmorItem` subclasses whose `armorSetId()` returns a new id.
-2. Drop a texture at `assets/herocraft/textures/armor/<newId>.png`.
+2. Drop a texture at `assets/projecthero/textures/armor/<newId>.png`.
 3. Add one line to `SuperheroArmorVisuals`' static block:
-   `register("<newId>", new ArmorVisualDefinition(SHARED_GEO, HeroCraftMod.id("textures/armor/<newId>.png"), SHARED_ANIMATION));`
+   `register("<newId>", new ArmorVisualDefinition(SHARED_GEO, Project HeroMod.id("textures/armor/<newId>.png"), SHARED_ANIMATION));`
    (Forget step 3 and it falls back to `DEFAULT` — crimson_vanguard — rather than crashing.)
 
 ## Giving a set its OWN model (not the shared one)
@@ -130,7 +130,7 @@ same clearance in; do **not** ship a bare vanilla-sized box.
 * Every Iron Man mark (`mark_1` … `mark_vii`) now has **real, hand-authored art**: the actual player
   skin supplied for that mark, on that mark's own UV layout. None of them are the crimson placeholder
   or a desaturated copy of it any more.
-* The old `assets/herocraft/textures/models/armor/<set>_layer_1.png` / `_layer_2.png` are unused
+* The old `assets/projecthero/textures/models/armor/<set>_layer_1.png` / `_layer_2.png` are unused
   (kept on disk only as art reference) — GeckoLib doesn't read vanilla armor-layer textures at all.
 
 ## First-person hand

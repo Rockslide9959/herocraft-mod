@@ -1,5 +1,5 @@
 const fs = require('fs');
-const f = 'src/main/java/com/herocraft/mod/event/entity/CursedZombie.java';
+const f = 'src/main/java/com/projecthero/mod/event/entity/CursedZombie.java';
 let s = fs.readFileSync(f, 'utf8');
 
 // Drop the no-op override and move its reasoning into the class javadoc, where it belongs.

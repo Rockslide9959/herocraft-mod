@@ -4,7 +4,7 @@ Hero-Tier power built around the permanent **Tony Stark** power. A normal player
 Man armour and wear it — they must first become Tony Stark by creating and activating an **Arc
 Reactor**. After that they gain access to the **Stark Fabricator** and the Iron Man suit progression.
 
-All power/energy/progression checks are **server-authoritative** (`com.herocraft.mod.ironman.*`). A
+All power/energy/progression checks are **server-authoritative** (`com.projecthero.mod.ironman.*`). A
 modified client cannot tell the server it has Tony Stark or unlimited suit energy.
 
 ---
@@ -16,7 +16,7 @@ modified client cannot tell the server it has Tony Stark or unlimited suit energ
 | Display name | Tony Stark |
 | Internal id | `tony_stark` (stored as a flag, not a registry entry) |
 | Tier | Hero Tier (peer of Thor — **not** one of the 27 experimental mutations) |
-| Storage | `TonyStarkState` attachment `herocraft:tony_stark_state` — `persistent` + `copyOnDeath` + synced target-only, mirroring `ExperimentalState` |
+| Storage | `TonyStarkState` attachment `projecthero:tony_stark_state` — `persistent` + `copyOnDeath` + synced target-only, mirroring `ExperimentalState` |
 | Survives | logout, server restart, world reload, dimension change, and death (like Thor's worthiness) |
 
 `TonyStarkState` fields: `hasPower`, `techLevel` (0–5), `builtSuits`, `activeSuit`, per-suit
@@ -25,7 +25,7 @@ state.
 
 ## 2. Arc Reactor activation
 
-Right-click the Arc Reactor item (`com.herocraft.mod.ironman.item.ArcReactorItem`):
+Right-click the Arc Reactor item (`com.projecthero.mod.ironman.item.ArcReactorItem`):
 
 * **server checks** `TonyStark.hasPower(player)`;
 * if not owned → `TonyStark.grant()`: sets `hasPower`, tech level 0, gives a **Blank Blueprint** ("changes 21"),
@@ -101,14 +101,14 @@ Module, Stark Circuit, Suit Computer, Advanced Arc Reactor, Missile Module. Plus
 
 ## 6. Fabricator recipes
 
-All in code — `com.herocraft.mod.ironman.fabricator.FabricatorRecipes` (call `all()` for the full
+All in code — `com.projecthero.mod.ironman.fabricator.FabricatorRecipes` (call `all()` for the full
 list). Categories: 13 advanced components, 4 later-mark blueprints (`mark_v/vii/42/50_blueprint`),
 and 20 armour pieces (helmet/chest/legs/boots × 5 marks), tech-gated + blueprint-gated. Building a
 mark's **chestplate** calls `TonyStark.markBuilt()` which advances the technology tree.
 
 ## 7. Iron Man armour restriction
 
-`com.herocraft.mod.ironman.IronManArmor`:
+`com.projecthero.mod.ironman.IronManArmor`:
 
 * `canOperate(player)` = `TonyStark.hasPower(player)` — the single gate for every capability;
 * `enforce(player)` runs every server tick: any Iron Man piece worn by a player **without** the power
@@ -205,7 +205,7 @@ speed — no suit and no Tony Stark power needed ("changes 22").
 
 ## 14. Suit definitions
 
-`com.herocraft.mod.ironman.suit.IronManSuits`: `MARK_III`, `MARK_V`, `MARK_VII`, `MARK_42`,
+`com.projecthero.mod.ironman.suit.IronManSuits`: `MARK_III`, `MARK_V`, `MARK_VII`, `MARK_42`,
 `MARK_50`. Each `IronManSuit` carries id, tech level, mark number, energy capacity/recharge/flight
 cost, flight speed/accel, repulsor & Unibeam & missile numbers, the 6 ability ids, `SuitUpType`,
 `SummonType`, required blueprint. Adding Mark I/II/IV/VI/VIII/Hulkbuster/War Machine/… later is one
@@ -341,7 +341,7 @@ silhouette (disc / cylinder / flat plate / stacked sheets / board / missile rack
 …), hue, and the placement of a single bright accent.
 
 **The accidental suit summon is fixed.** The *ground* half of the double-tap-jump gesture
-(`HeroCraftModClient.handleDoubleJump`) fired on any two jump presses inside 7 ticks — which is just
+(`Project HeroModClient.handleDoubleJump`) fired on any two jump presses inside 7 ticks — which is just
 running, or mashing jump to get moving after a knockback. That is the "an armour gets called to me
 when I get hit" report. It now requires **sneak + double-tap jump**. (A double-tap that fires nothing
 also leaves the timer at 0, so in a rapid string of jumps *every* tap counted as a double-tap.) The
@@ -374,7 +374,7 @@ size, same recipes, same role as a Fabricator component.
 ## 17o. v0.4.13 ("changes 21")
 
 **Blank Blueprint progression.** Mark blueprints are no longer crafted or fabricated individually.
-The one craftable blueprint is `IronManItems.BLANK_BLUEPRINT` (`herocraft:blank_blueprint`,
+The one craftable blueprint is `IronManItems.BLANK_BLUEPRINT` (`projecthero:blank_blueprint`,
 `2 paper + basic_circuit + redstone`, no Tony Stark gate). Right-click it (`BlankBlueprintItem.use`,
 sneak or not) → server sends `IronManBlueprintPickerPayload` → client opens `BlankBlueprintScreen`
 listing every mark with a blueprint in progression order. Pick → `IronManBlueprintChoicePayload` →
@@ -398,7 +398,7 @@ needed those very components. Armour is produced **only** via the selected-piece
 the matching mark's blueprint in the slot); the fallback loop in `find()` never returns armour.
 `armorSet`'s per-mark int is now `timeTier` (fabrication-time scaling only). Removed:
 `mark_v_blueprint` / `mark_vii_blueprint` Fabricator recipes, `modular_armor_controller` /
-`nanotech_matrix` recipes (their Mark 42/50 consumers are gone), all `data/herocraft/recipe/
+`nanotech_matrix` recipes (their Mark 42/50 consumers are gone), all `data/projecthero/recipe/
 mark_{1,2,4,6,iii}_blueprint.json`.
 
 `TonyStark.grant` now hands a **Blank Blueprint** instead of the Mark III Blueprint.
@@ -419,7 +419,7 @@ longer collides with the inventory label.
 **Every advanced Stark component now has a normal crafting-table recipe**, in addition to its Stark
 Fabricator recipe. Goal: every Iron Man armour set is fully survival-obtainable *and* discoverable in
 a recipe viewer (JEI/EMI never saw the in-code `FabricatorRecipes`, so servo motors / suit computers
-/ etc. looked uncraftable). New `data/herocraft/recipe/*.json` (all `category: misc`, no Tony Stark
+/ etc. looked uncraftable). New `data/projecthero/recipe/*.json` (all `category: misc`, no Tony Stark
 gate — components were always "deliberately open" per §on `IronManCrafting`):
 
 | component | table recipe |
@@ -456,7 +456,7 @@ pieces (table) → Mark 2 blueprint unlocks → fabricate Mark 2 … linear thro
 refused to run for a player failing `TonyStark.hasPower`, but the four Mark 1 pieces ship as plain
 `minecraft:crafting_shaped` recipes, so anyone with iron and a basic circuit could build the starter
 suit at a workbench — and then only discover it was useless when `IronManArmor.enforce` ejected it.
-`com.herocraft.mod.ironman.IronManCrafting` is the policy (`requiresTonyStark` = any
+`com.projecthero.mod.ironman.IronManCrafting` is the policy (`requiresTonyStark` = any
 `IronManArmorItem` or the Mark V suitcase) and `mixin.CraftingMenuMixin` enforces it by blanking the
 result slot.
 
@@ -467,7 +467,7 @@ injects at TAIL (vanilla has already resolved the recipe, so the check is a plai
 question about a finished stack) and therefore has to repeat vanilla's client resync —
 `setRemoteSlot` + a fresh `ClientboundContainerSetSlotPacket` — or the client would keep showing a
 phantom suit in a slot the server considers empty. A throttled action-bar message
-(`message.herocraft.ironman.craft_requires_tony_stark`, once per 60 ticks) explains the empty slot.
+(`message.projecthero.ironman.craft_requires_tony_stark`, once per 60 ticks) explains the empty slot.
 
 **Deliberately still open:** the Arc Reactor (it is what *grants* the power — gating it would make the
 whole tree unreachable), the components, the blueprints and the suit platform block.
@@ -497,9 +497,9 @@ mixin, before and after `TonyStark.grant`), `ironManCraftingGateCoversSuitsOnly`
 
 **Protocol Phoenix cooldown 5 min → 20 min** (`ProtocolPhoenix.COOLDOWN_TICKS = 1200 * 20`).
 
-**Helmet faceplate** (`com.herocraft.mod.ironman.IronManFaceplate`) — pressing **H** while wearing any
+**Helmet faceplate** (`com.projecthero.mod.ironman.IronManFaceplate`) — pressing **H** while wearing any
 Iron Man armour opens/closes the visor, revealing the pilot's face. `ModAttachments.IRON_MAN_FACEPLATE_OPEN`
-(synced to all, non-persistent). Client H handler (`HeroCraftModClient.handlePowerSelect`) sends
+(synced to all, non-persistent). Client H handler (`Project HeroModClient.handlePowerSelect`) sends
 `IronManActionPayload.TOGGLE_FACEPLATE` instead of opening the power wheel when an IM piece is worn.
 `SuperheroArmorRenderer.applyBoneVisibilityBySlot(HEAD)` hides the geo's helmet bones while open (see
 "changes 20" -- hiding `faceplate` alone left the helmet shell covering the face).
@@ -517,16 +517,16 @@ and the body is **scissored + scrollable** (mouse wheel; a scrollbar appears whe
 can never spill past the frame. Any click closes it. `imageHeight` was already bumped to 222 in
 "changes 18" so the piece buttons no longer overlap the output slot.
 
-**Only the Mark 1 is table-craftable** — deleted `data/herocraft/recipe/iron_man_mark_{2,iii,4,6}_*.json`;
+**Only the Mark 1 is table-craftable** — deleted `data/projecthero/recipe/iron_man_mark_{2,iii,4,6}_*.json`;
 added Fabricator armour recipes for `mark_2` / `mark_4` / `mark_6` in `FabricatorRecipes.armorSet` (all
 tech 0, so their existing tier-0 blueprints gate them, not a tech level). New
 `FabricatorRecipes.hasArmorRecipes(suitId)` (true for everything except `mark_1`) drives the
 Fabricator's per-piece picker visibility.
 
-**Mark 5 Blade ability** (`com.herocraft.mod.ironman.IronManBlade`, `IronManAbilities.BLADE`) —
+**Mark 5 Blade ability** (`com.projecthero.mod.ironman.IronManBlade`, `IronManAbilities.BLADE`) —
 replaces Flare in slot 3 (X). Toggle: press X to extend energy blades from both gauntlets, X again to
 retract. While extended: **+4 melee** (fixed-id transient `ATTACK_DAMAGE` modifier, reconciled each
-tick in `IronManBlade.tick`), **cannot place blocks** (`HeroCraftMod`'s `UseBlockCallback` vetoes a
+tick in `IronManBlade.tick`), **cannot place blocks** (`Project HeroMod`'s `UseBlockCallback` vetoes a
 `BlockItem` use, read via the synced `ModAttachments.IRON_MAN_BLADES` so it fires client-side too),
 and bright `ENCHANTED_HIT`/`END_ROD` blade FX from both gauntlets. Retracts on suit shutdown / power
 loss / overload / zero energy. HUD shows `GAUNTLET BLADES ENGAGED (+4 melee)`. (Blades are an FX
@@ -583,7 +583,7 @@ i-frame window instead of the salvo hitting once for 8 damage. Cleared by `shutD
 (called from `applyHelmetOptics` when the helmet is missing, and from the no-suit / no-power early
 returns). Our optic is the only ambient, no-icon, ≤400-tick Night Vision so it never nukes a potion/beacon one.
 
-**Mob highlight** (`EntityGlowMixin.herocraft$ironManHighlightDecision`): while the viewer wears an Iron
+**Mob highlight** (`EntityGlowMixin.projecthero$ironManHighlightDecision`): while the viewer wears an Iron
 Man helmet the mixin now takes an **authoritative yes/no** for every enemy (or, for Mark 6/7's
 coloured glow, every living entity) inside the suit's `targetScanRange` — returning `false` kills a
 stale outline the frame the toggle goes off. Still purely per-viewer (client-only, no server GLOWING).
@@ -605,7 +605,7 @@ considers, and the 3×3 grid shows its components as greyed **ghost** stacks in 
 more** button opens a panel listing every component in words plus the finished suit's stats. (Only
 `SUIT_IDS` — mark_iii/v/vii — have Fabricator armour recipes, so the picker only shows for those.)
 
-**Power Suppressor** (`com.herocraft.mod.item.PowerSuppressorItem`, `ModItems.POWER_SUPPRESSOR`) — a
+**Power Suppressor** (`com.projecthero.mod.item.PowerSuppressorItem`, `ModItems.POWER_SUPPRESSOR`) — a
 survival-craftable item (`AAA / ESE / AAA` = 6 amethyst shard + 2 echo shard + fermented spider eye).
 **Sneak + use** permanently strips **every** power at once: `TonyStark.revoke`, the full
 `/heropower revoke all` teardown for experimental powers, and `Worthiness.setScore(0)`. Refuses while
@@ -626,7 +626,7 @@ red-dominant pixels) — `scratchpad/gen_changes18.js` (hand-rolled PNG codec; a
 ## 17k. v0.4.8 ("changes 17")
 
 **Protocol Phoenix** — a passive emergency-resurrection ability on the Tony Stark power
-(`com.herocraft.mod.ironman.ProtocolPhoenix`). Fired from `ServerLivingEntityEvents.ALLOW_DEATH`
+(`com.projecthero.mod.ironman.ProtocolPhoenix`). Fired from `ServerLivingEntityEvents.ALLOW_DEATH`
 (before `recoverSuitOnDeath`): if a Tony Stark player would die, is **not** already in a complete
 suit, and Phoenix is off its **5-minute** cooldown (`TonyStarkState.phoenixReadyAt`, in the synced
 CODEC), the death is cancelled Totem-of-Undying style (`level.broadcastEntityEvent(player,(byte)35)`
@@ -688,7 +688,7 @@ at Mark VII (tech 3). 7 suits total.
   `player.getScale()`.
 * **Low-suit alert** — `IronManHud` blinks `SUIT CRITICAL — FIND COVER AND REPAIR THE ARMOUR` while
   energy% or integrity% is under **35%**.
-* **Creative** — a dedicated **Iron Man** tab (`ModCreativeTab.IRON_MAN`, key `herocraft:iron_man`)
+* **Creative** — a dedicated **Iron Man** tab (`ModCreativeTab.IRON_MAN`, key `projecthero:iron_man`)
   holding *everything* Iron Man: Arc Reactor, the Stark Fabricator + Suit Platform blocks, the
   reactor core + Mark V Suitcase, every blueprint, every component (basic → advanced), and all the
   armour pieces Mark I → II → III → … via `IronManItems.armorPiecesByMark()` (sorts
@@ -777,7 +777,7 @@ suit **5 energy/second** (`SUIT_ENERGY_REFILL_PER_TICK` 0.25/tick) and **2 integ
 platform energy figure (0.25).
 
 **"Not enough energy" now names the cost.** `IronManAbilities.noEnergy(player, required)` shows
-`message.herocraft.ironman.not_enough_energy` -- "Not enough suit energy -- this ability needs N" --
+`message.projecthero.ironman.not_enough_energy` -- "Not enough suit energy -- this ability needs N" --
 wherever a spend is refused for a known cost (repulsor, charged repulsor, shield, missiles, unibeam,
 punch, rocket, flare, timed flight, wrist laser).
 
@@ -790,7 +790,7 @@ full) and messages `armour_stowed` / `armour_dropped` as each Iron Man piece arr
 normal-table armour recipe), craftable `2 paper + basic_circuit + redstone` like the Mark III
 blueprint. All in the creative tab. Pattern to keep: **every new mark gets a blueprint item + a
 blueprint recipe + (for craftable marks) four normal-table armour recipes**, wired through
-`IronManItems` + `data/herocraft/recipe/`.
+`IronManItems` + `data/projecthero/recipe/`.
 
 **Mark 1 flight burst (X):** ends on a **13 s cooldown** (`IronManAbilities.TIMED_FLIGHT_COOLDOWN_TICKS`
 + new `endTimedFlight`, called from `IronManFlight` on both timer-expiry and early landing, and from
@@ -805,7 +805,7 @@ to steel; the movie Mark II silver look. (`scratchpad/gen_changes15.js` over `ar
 **New suit -- Mark IV (`mark_4`):** tech 0 craftable primitive (in `PRIMITIVE_SUIT_IDS`), integrity
 **400**, energy **13,000**, Mark III's exact ability layout. Grey-accented recolour of the Mark III
 armour + item textures (`gen_changes15.js`). New `IronManArmorMaterials.MARK_4`. Recipes:
-`data/herocraft/recipe/iron_man_mark_4_*` (iron + basic circuits, diamond in the chest) + a blueprint.
+`data/projecthero/recipe/iron_man_mark_4_*` (iron + basic circuits, diamond in the chest) + a blueprint.
 * **Wrist laser (sneak + V):** `IronManSuit.wristLaser()` flag + `IronManAbilities.WRIST_LASER`.
   Sneaking and pressing the V (mob-highlight) slot fires a thin, terrain-carving **red** beam (beam
   `kind 3` in `IronManBeamClient`) -- `WRIST_LASER_DAMAGE_PER_TICK` 10 gated by i-frames to ~20/s --
@@ -860,7 +860,7 @@ Death-crash integrity damage is now **50% of that suit's own max** (was a flat 2
 isn't near-totalled by one death.
 
 **Marks 1-3 are all survival-craftable at a normal table.** Mark 1 / Mark 2 recipes already
-existed; added `data/herocraft/recipe/iron_man_mark_iii_{helmet,chestplate,leggings,boots}.json`
+existed; added `data/projecthero/recipe/iron_man_mark_iii_{helmet,chestplate,leggings,boots}.json`
 (metal plating + basic circuits + diamonds, netherite ingot in the chestplate). The Fabricator
 path still exists and is still the only thing that advances the tech tree.
 
@@ -991,7 +991,7 @@ of a dead player's stuff always does.
 
 **Two new suits, both non-Fabricator** (`IronManItems.PRIMITIVE_SUIT_IDS`, tech level 0 -- craftable at
 a normal table the moment a player has the Tony Stark power, same as the Arc Reactor itself; see
-`data/herocraft/recipe/iron_man_mark_{1,2}_*.json`):
+`data/projecthero/recipe/iron_man_mark_{1,2}_*.json`):
 
 * **Mark I** -- grey texture (`textures/armor/mark_1.png`, a desaturated `crimson_vanguard.png`,
   generated the same way Mjolnir's textures were verified this session -- no hand-painted art), 25%
@@ -1081,7 +1081,7 @@ Regression coverage added: `interruptedSuitUpKeepsThePiecesInTheInventory`,
 
 **Still outstanding (unchanged this pass, deliberately):** every armour set — Thor and all five
 marks — still renders with the same `crimson_vanguard` placeholder texture, because the six files in
-`assets/herocraft/textures/armor/` are byte-identical copies of it. See §18 and `docs/ARMOR_MODELS.md`.
+`assets/projecthero/textures/armor/` are byte-identical copies of it. See §18 and `docs/ARMOR_MODELS.md`.
 
 ## 17d. v0.3.7 ("changes 9" + follow-ups)
 
@@ -1191,11 +1191,11 @@ marks — still renders with the same `crimson_vanguard` placeholder texture, be
 
 Generated by `scratchpad/gen_ironman.js` (flat solid-colour PNGs):
 
-* `assets/herocraft/textures/item/` — `stark_component.png`, `reactor_core.png`, `blueprint.png`,
+* `assets/projecthero/textures/item/` — `stark_component.png`, `reactor_core.png`, `blueprint.png`,
   `arc_reactor.png`, `repulsor.png`, `mark_v_suitcase.png`, `iron_man_mark_{iii,v,vii,42,50}.png`
-* `assets/herocraft/textures/block/` — `stark_fabricator.png`, `iron_man_suit_platform.png`
-* `assets/herocraft/textures/models/armor/mark_{iii,v,vii,42,50}_layer_{1,2}.png`
-* `assets/herocraft/textures/gui/stark_fabricator.png` (176×186)
+* `assets/projecthero/textures/block/` — `stark_fabricator.png`, `iron_man_suit_platform.png`
+* `assets/projecthero/textures/models/armor/mark_{iii,v,vii,42,50}_layer_{1,2}.png`
+* `assets/projecthero/textures/gui/stark_fabricator.png` (176×186)
 * Models are all `item/generated` / `block/cube_all`. Replace freely; no code change needed.
 * Custom sounds: none added — suit-up/abilities layer real vanilla sounds.
 * Custom entity/block models and staged nanotech formation rendering: not yet — see the roadmap in

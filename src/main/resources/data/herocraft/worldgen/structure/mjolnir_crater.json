@@ -1,6 +1,0 @@
-{
-  "type": "herocraft:mjolnir_crater",
-  "biomes": "#herocraft:mjolnir_crater_biomes",
-  "spawn_overrides": {},
-  "step": "surface_structures"
-}

@@ -1,6 +1,0 @@
-{
-  "type": "herocraft:symbiote_lab",
-  "biomes": "#herocraft:hp_surface_biomes",
-  "step": "underground_structures",
-  "spawn_overrides": {}
-}

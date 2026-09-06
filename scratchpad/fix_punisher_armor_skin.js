@@ -2,7 +2,7 @@
 // player skin that leaked into the armour sheet) to the armour's dark tactical grey. v0.8.6.
 const fs = require('fs');
 const zlib = require('zlib');
-const FILE = 'src/main/resources/assets/herocraft/textures/armor/punisher.png';
+const FILE = 'src/main/resources/assets/projecthero/textures/armor/punisher.png';
 
 function decode(p) {
   const b = fs.readFileSync(p); let o = 8; const cs = [];

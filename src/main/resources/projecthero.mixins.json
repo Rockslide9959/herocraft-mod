@@ -1,0 +1,28 @@
+{
+	"required": true,
+	"package": "com.projecthero.mod.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"AbstractArrowMixin",
+		"BossEventAccessor",
+		"CraftingMenuMixin",
+		"EntityWebMixin",
+		"ItemEntityMixin",
+		"ItemStackMixin",
+		"LivingEntityClimbMixin",
+		"LivingEntityEatMixin",
+		"MobSymbioteMixin",
+		"PlayerMixin",
+		"ProjectileWeaponItemMixin",
+		"RangedAttackGoalMixin",
+		"RangedAttributeAccessor",
+		"RangedBowAttackGoalMixin",
+		"RangedCrossbowAttackGoalMixin",
+		"ZombieSpawnMixin"
+	],
+	"client": [],
+	"server": [],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

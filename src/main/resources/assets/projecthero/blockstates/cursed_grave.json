@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=north,lit=false": {
+      "model": "projecthero:block/cursed_grave"
+    },
+    "facing=north,lit=true": {
+      "model": "projecthero:block/cursed_grave_lit"
+    },
+    "facing=east,lit=false": {
+      "model": "projecthero:block/cursed_grave",
+      "y": 90
+    },
+    "facing=east,lit=true": {
+      "model": "projecthero:block/cursed_grave_lit",
+      "y": 90
+    },
+    "facing=south,lit=false": {
+      "model": "projecthero:block/cursed_grave",
+      "y": 180
+    },
+    "facing=south,lit=true": {
+      "model": "projecthero:block/cursed_grave_lit",
+      "y": 180
+    },
+    "facing=west,lit=false": {
+      "model": "projecthero:block/cursed_grave",
+      "y": 270
+    },
+    "facing=west,lit=true": {
+      "model": "projecthero:block/cursed_grave_lit",
+      "y": 270
+    }
+  }
+}

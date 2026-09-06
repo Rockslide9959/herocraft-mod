@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    { "item": "minecraft:book" },
+    { "item": "minecraft:feather" },
+    { "item": "minecraft:spider_eye" },
+    { "item": "minecraft:emerald" }
+  ],
+  "result": {
+    "id": "projecthero:heropack_guide",
+    "count": 1
+  }
+}

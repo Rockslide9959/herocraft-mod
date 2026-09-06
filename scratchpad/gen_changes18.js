@@ -5,8 +5,8 @@ const fs = require('fs');
 const zlib = require('zlib');
 const path = require('path');
 
-const ARMOR = 'src/main/resources/assets/herocraft/textures/armor';
-const ITEM = 'src/main/resources/assets/herocraft/textures/item';
+const ARMOR = 'src/main/resources/assets/projecthero/textures/armor';
+const ITEM = 'src/main/resources/assets/projecthero/textures/item';
 
 // ---------- minimal PNG codec (8-bit RGBA, colour type 6) ----------
 const CRC_TABLE = (() => {

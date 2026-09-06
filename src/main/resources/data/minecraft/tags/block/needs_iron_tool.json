@@ -1,16 +1,16 @@
 {
   "replace": false,
   "values": [
-    "herocraft:stark_fabricator",
-    "herocraft:iron_man_suit_platform",
-    "herocraft:overloaded_redstone_coil",
-    "herocraft:experimental_light_projector",
-    "herocraft:unstable_gravity_plate",
-    "herocraft:geological_resonance_chamber",
-    "herocraft:molecular_compression_chamber",
-    "herocraft:mass_compression_chamber",
-    "herocraft:pressure_chamber",
-    "herocraft:hydrostatic_test_tank",
-    "herocraft:electromagnetic_coil"
+    "projecthero:stark_fabricator",
+    "projecthero:iron_man_suit_platform",
+    "projecthero:overloaded_redstone_coil",
+    "projecthero:experimental_light_projector",
+    "projecthero:unstable_gravity_plate",
+    "projecthero:geological_resonance_chamber",
+    "projecthero:molecular_compression_chamber",
+    "projecthero:mass_compression_chamber",
+    "projecthero:pressure_chamber",
+    "projecthero:hydrostatic_test_tank",
+    "projecthero:electromagnetic_coil"
   ]
 }

@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": ["WWB", " WR", " GC"],
+  "key": {
+    "W": { "item": "projecthero:weapon_parts" },
+    "B": { "item": "projecthero:gun_barrel" },
+    "R": { "item": "minecraft:redstone" },
+    "G": { "item": "minecraft:gunpowder" },
+    "C": { "item": "minecraft:copper_ingot" }
+  },
+  "result": { "id": "projecthero:punisher_assault_rifle", "count": 1 }
+}

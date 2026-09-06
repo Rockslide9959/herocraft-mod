@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "powered=false": {
+      "model": "projecthero:block/experimental_light_projector"
+    },
+    "powered=true": {
+      "model": "projecthero:block/experimental_light_projector"
+    }
+  }
+}

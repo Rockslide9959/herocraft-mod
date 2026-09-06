@@ -33,9 +33,9 @@ function enc(w, h, px) { const st = w * 4; const raw = Buffer.alloc((st + 1) * h
   const sig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]); const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 6;
   return Buffer.concat([sig, ch2('IHDR', ihdr), ch2('IDAT', zlib.deflateSync(raw)), ch2('IEND', Buffer.alloc(0))]); }
 
-const model = JSON.parse(fs.readFileSync(`src/main/resources/assets/herocraft/models/item/${id}.json`, 'utf8'));
+const model = JSON.parse(fs.readFileSync(`src/main/resources/assets/projecthero/models/item/${id}.json`, 'utf8'));
 const tw = model.texture_size ? model.texture_size[0] : 16, th = model.texture_size ? model.texture_size[1] : 16;
-const tex = decode(`src/main/resources/assets/herocraft/textures/item/${id}.png`);
+const tex = decode(`src/main/resources/assets/projecthero/textures/item/${id}.png`);
 const D = model.display.firstperson_righthand || { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] };
 const dt = D.translation.map(v => v / 16), ds = D.scale, dr = D.rotation.map(v => v * Math.PI / 180);
 

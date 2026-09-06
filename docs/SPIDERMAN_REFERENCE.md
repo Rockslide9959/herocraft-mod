@@ -1,7 +1,7 @@
-# Spider-Man — HeroCraft reference
+# Spider-Man — Project Hero reference
 
-Added in **v0.6.3**. Package root `com.herocraft.mod.spider`, client half in
-`com.herocraft.mod.client.spider`.
+Added in **v0.6.3**. Package root `com.projecthero.mod.spider`, client half in
+`com.projecthero.mod.client.spider`.
 
 ## v0.9.10 changes (at a glance)
 
@@ -9,9 +9,9 @@ Added in **v0.6.3**. Package root `com.herocraft.mod.spider`, client half in
   (simulated peak ~10.1 under vanilla gravity/drag). Still sneak + jump on the ground, still a
   14-tick gate, still a passive (no slot).
 - **The Symbiote — an *upgrade* for Spider-Man, not a standalone power.** New package
-  `com.herocraft.mod.spider.symbiote` (+ `client.spider.SymbioteFxClient`). A Spider-Man who has
+  `com.projecthero.mod.spider.symbiote` (+ `client.spider.SymbioteFxClient`). A Spider-Man who has
   **bonded** (`SymbioteState.hasSymbiote`) toggles the black suit with **H** (`SpiderActionPayload.TOGGLE_SYMBIOTE`
-  → `Symbiote.toggle`, ~0.75 s anti-spam gate). H routing in `HeroCraftModClient.handlePowerSelect`:
+  → `Symbiote.toggle`, ~0.75 s anti-spam gate). H routing in `Project HeroModClient.handlePowerSelect`:
   a bonded Spider-Man gets **plain H = Symbiote**, **Shift+H = costume mask** (the old mask-only H is
   unchanged for everyone who has not bonded). Server-authoritative throughout — the client only asks.
   - **Suit** = 4 synthesised `SymbioteArmorItem` pieces (`extends SpiderManArmorItem`, so the shared
@@ -75,7 +75,7 @@ User-reported follow-up on the Symbiote and (for the duplication fix) Max Steel.
   the ordinary inventory screen let the mod's own "keep the suit on" logic synthesise a *replacement*
   for the emptied slot while the original stayed behind as a real, storable, tradeable item -- repeat
   the removal and you have "infinite netherite/diamond-look armour". New
-  `com.herocraft.mod.armor.PowerEquipmentLock` closes this the same way vanilla cursed armour is closed:
+  `com.projecthero.mod.armor.PowerEquipmentLock` closes this the same way vanilla cursed armour is closed:
   every synthesised piece (Symbiote **and** Max Steel) is enchanted with the real
   `minecraft:binding_curse` on creation, which makes vanilla's own `ArmorSlot.mayPickup` (confirmed via
   `javap` on `ArmorSlot`/`EnchantmentEffectComponents.PREVENT_ARMOR_CHANGE`) refuse every removal path
@@ -144,8 +144,8 @@ User-reported follow-up on the Symbiote and (for the duplication fix) Max Steel.
     (`ServerLivingEntityEvents.AFTER_DEATH` -> `SymbioteHost.onDeath`) the Symbiote leaves the corpse as
     a free `SymbioteEntity` and every player within 28 blocks is told.
   - Testing: `/spiderman symbiote spawn` (drop one 3 blocks ahead) and `/spiderman symbiote host` (mark
-    the nearest hostile within 12 blocks). `/locate structure herocraft:symbiote_meteor` /
-    `herocraft:symbiote_lab`. `SymbioteGameTests` gained 3 more tests (types registered, host buffs +
+    the nearest hostile within 12 blocks). `/locate structure projecthero:symbiote_meteor` /
+    `projecthero:symbiote_lab`. `SymbioteGameTests` gained 3 more tests (types registered, host buffs +
     persists, a free Symbiote bonds only a Spider-Man). Build green, **209 gametests**.
 
 ## v0.9.8 changes (at a glance)

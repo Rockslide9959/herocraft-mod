@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:research_facility",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 41627311,
+    "spacing": 44,
+    "separation": 12
+  }
+}

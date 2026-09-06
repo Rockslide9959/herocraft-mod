@@ -1,7 +1,0 @@
-{
-  "type": "minecraft:crafting_shaped",
-  "category": "equipment",
-  "pattern": ["III", "C C"],
-  "key": { "I": { "item": "minecraft:iron_ingot" }, "C": { "item": "minecraft:copper_ingot" } },
-  "result": { "id": "herocraft:gun_barrel", "count": 2 }
-}

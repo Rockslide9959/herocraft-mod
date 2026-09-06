@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "minecraft:iron_ingot"
+    },
+    {
+      "item": "minecraft:redstone"
+    },
+    {
+      "item": "projecthero:copper_wiring"
+    }
+  ],
+  "result": {
+    "id": "projecthero:mechanical_parts",
+    "count": 3
+  }
+}

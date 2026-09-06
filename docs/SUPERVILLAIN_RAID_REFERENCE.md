@@ -1,8 +1,8 @@
 # Supervillain Village Raid — Reference
 
 A rare, superhero-themed village assault added in **v0.6.23**. It is **not** a vanilla raid and does
-not replace one. Package: `com.herocraft.mod.event.raid` (+ `com.herocraft.mod.event.entity` for the
-Pillager Spy and the boss variant). Built on the existing `com.herocraft.mod.event` world-event
+not replace one. Package: `com.projecthero.mod.event.raid` (+ `com.projecthero.mod.event.entity` for the
+Pillager Spy and the boss variant). Built on the existing `com.projecthero.mod.event` world-event
 framework and reuses the Zombie Raid's `EmpoweredZombie` boss and `BossPowers` AI registry wholesale.
 
 ## v0.9.10 changes
@@ -51,7 +51,7 @@ framework and reuses the Zombie Raid's `EmpoweredZombie` boss and `BossPowers` A
 | Village marking + starting | `SupervillainRaidStarter` |
 | Top-of-screen raid bar | `EventBossBar` (shared with the Zombie Raid) |
 | Post-raid 3-day cooldowns (SavedData) | `SupervillainVillages` |
-| Rare natural spawn | `PillagerSpySpawner` (ticked from `HeroCraftMod` server tick) |
+| Rare natural spawn | `PillagerSpySpawner` (ticked from `Project HeroMod` server tick) |
 | Spy entity + village-seek AI | `PillagerSpy extends Pillager` |
 | Boss | `EmpoweredZombie` + `DATA_VARIANT` (`configureAsSupervillain`) — full AI reused |
 | Boss appearance enum | `SupervillainVariant` (Chimera / Arsenal / Omega Mage) |
@@ -62,7 +62,7 @@ framework and reuses the Zombie Raid's `EmpoweredZombie` boss and `BossPowers` A
 | Death / boss-defeat hook | shared with the Zombie Raid in `GraveboundEvents.onAfterDeath` |
 | Client rendering | `SupervillainBossRenderer`, `RaidEntityRenderers` |
 | Commands | `/supervillainraid start|mark|boss|spy|clear|status` (`SupervillainRaidCommand`, op 2) |
-| Config | `EventConfig.SupervillainRaid` → `config/herocraft_events.json` `supervillainRaid` block |
+| Config | `EventConfig.SupervillainRaid` → `config/projecthero_events.json` `supervillainRaid` block |
 
 ## Boss
 
@@ -110,7 +110,7 @@ GUI, building, or a mechanic that does nothing visible on a mob. `supervillainAl
 | `/supervillainraid clear` | Abort every active Supervillain Raid and clear this village's cooldown |
 | `/supervillainraid status` | Village / phase / wave / countdown / villain / power / participant count |
 | `/heroraid start supervillain` | Start it here, countdown skipped (shared start/stop command — also `gravebound`) |
-| `/heroraid stop` | Force-end **every** active HeroCraft world event and clear all curses |
+| `/heroraid stop` | Force-end **every** active Project Hero world event and clear all curses |
 | `/heroraid cleartimers` | Clear every curse countdown + any raid still in its pre-wave countdown; leave running raids alone |
 
 ## Persistence

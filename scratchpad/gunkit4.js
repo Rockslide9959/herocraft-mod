@@ -68,10 +68,10 @@ function buildGun(id, parts, display) {
     if (p.rotation) el.rotation = p.rotation;
     elements.push(el);
   });
-  fs.writeFileSync(`src/main/resources/assets/herocraft/textures/item/${id}.png`, cv.png());
-  fs.writeFileSync(`src/main/resources/assets/herocraft/models/item/${id}.json`, JSON.stringify({
-    credit: 'Punisher firearm -- original HeroCraft voxel model (v0.9.0). 16x16 texture (NO texture_size -- vanilla 1.21 ignores it), UVs in [0,16], flat colour + MC face shading. Barrel -Z, grip -Y.',
-    textures: { g: `herocraft:item/${id}`, particle: `herocraft:item/${id}` },
+  fs.writeFileSync(`src/main/resources/assets/projecthero/textures/item/${id}.png`, cv.png());
+  fs.writeFileSync(`src/main/resources/assets/projecthero/models/item/${id}.json`, JSON.stringify({
+    credit: 'Punisher firearm -- original ProjectHero voxel model (v0.9.0). 16x16 texture (NO texture_size -- vanilla 1.21 ignores it), UVs in [0,16], flat colour + MC face shading. Barrel -Z, grip -Y.',
+    textures: { g: `projecthero:item/${id}`, particle: `projecthero:item/${id}` },
     elements, display,
   }, null, 2));
   console.log('wrote', id, parts.length, 'parts (16x16 tex)');

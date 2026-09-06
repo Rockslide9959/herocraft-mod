@@ -1,0 +1,7 @@
+{
+  "type": "projecthero:research_site",
+  "site_type": "hydrostatic_facility",
+  "biomes": "#projecthero:hp_coastal_biomes",
+  "step": "surface_structures",
+  "spawn_overrides": {}
+}

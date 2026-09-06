@@ -28,7 +28,7 @@ loom {
 	splitEnvironmentSourceSets()
 
 	mods {
-		"herocraft" {
+		"projecthero" {
 			sourceSet sourceSets.main
 			sourceSet sourceSets.client
 		}
@@ -39,7 +39,7 @@ loom {
 // wired up through Fabric API's gametest module -- these run inside an actual Minecraft server
 // (a "gametest server", built under build/run/gameTest), with test methods scripting real
 // entities/blocks and asserting on them, rather than a human clicking around. `createSourceSet`
-// gives the test code its own `src/gametest/java` (and wires it into the "herocraft" mod for us via
+// gives the test code its own `src/gametest/java` (and wires it into the "projecthero" mod for us via
 // `modId`) so it never ships inside the real mod jar.
 //
 // `eula` left false is deliberate but turns out not to matter for THIS run configuration
@@ -51,10 +51,10 @@ loom {
 // user's behalf is not something to do silently regardless of whether one specific task needs it.
 fabricApi.configureTests {
 	createSourceSet = true
-	// Must be distinct from the "herocraft" name already registered by the `mods {}` block above --
+	// Must be distinct from the "projecthero" name already registered by the `mods {}` block above --
 	// this creates its own separate ModSettings entry for the generated gametest fabric.mod.json,
 	// it does not attach to the existing one.
-	modId = "herocraft-gametest"
+	modId = "projecthero-gametest"
 	enableGameTests = true
 	eula = false
 	// Without this, run/gametest persists between invocations, and persisted SavedData (e.g.
@@ -107,6 +107,12 @@ tasks.withType(JavaCompile).configureEach {
 	it.options.release = 21
 }
 
+// The built mod jar is named "<archivesName>-<version>.jar". The mod id stays "projecthero"
+// (fabric.mod.json), but the distributed file is "projecthero-<version>.jar".
+base {
+	archivesName = "projecthero"
+}
+
 java {
 	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
 	// if it is present.
@@ -121,9 +127,9 @@ java {
 //
 // A sources jar is built from the same source sets as the real jar, so by default it carries the
 // resources too -- including fabric.mod.json and the mixin configs. That makes it look like a real
-// mod to Fabric Loader: drop one in a mods folder and the loader reads herocraft.mixins.json, tries
+// mod to Fabric Loader: drop one in a mods folder and the loader reads projecthero.mixins.json, tries
 // to apply the mixins listed there, and dies at startup with "The specified mixin
-// com.herocraft.mod.mixin.ItemEntityMixin was not found" -- because a sources jar holds .java files,
+// com.projecthero.mod.mixin.ItemEntityMixin was not found" -- because a sources jar holds .java files,
 // never compiled .class files. The two jars sit side by side in build/libs under near-identical
 // names, so installing the wrong one is an easy mistake, and the crash it produces points at the
 // mod's own code rather than at the actual problem (wrong file copied). Hit exactly this way when
@@ -134,8 +140,8 @@ java {
 // jars exist for IDE navigation, which needs none of these files.
 tasks.named('sourcesJar') {
 	exclude 'fabric.mod.json'
-	exclude 'herocraft.mixins.json'
-	exclude 'herocraft.client.mixins.json'
+	exclude 'projecthero.mixins.json'
+	exclude 'projecthero.client.mixins.json'
 }
 
 // Copies the built mod jar into a CurseForge App modpack instance's mods folder so it can be
@@ -145,23 +151,24 @@ tasks.named('sourcesJar') {
 // resolved once onlyIf has confirmed it's actually needed -- otherwise Gradle tries to convert
 // the (possibly absent) property to a File while wiring up the task graph and fails eagerly.
 tasks.register('copyToModpack') {
-	group = 'herocraft'
+	group = 'projecthero'
 	description = 'Copies the built mod jar into a CurseForge App modpack instance mods folder.'
 	dependsOn tasks.named('remapJar')
 
 	def modpackModsDir = providers.gradleProperty('modpackModsDir').orElse('')
-	def jarFile = layout.buildDirectory.file("libs/${project.name}-${project.version}.jar")
+	def archiveBase = base.archivesName.get()
+	def jarFile = layout.buildDirectory.file("libs/${archiveBase}-${project.version}.jar")
 
 	inputs.file(jarFile)
 
 	onlyIf {
 		def target = modpackModsDir.get()
 		if (target.isBlank()) {
-			logger.lifecycle("[HeroCraft] modpackModsDir is not set in gradle.properties -- skipping copyToModpack.")
+			logger.lifecycle("[ProjectHero] modpackModsDir is not set in gradle.properties -- skipping copyToModpack.")
 			return false
 		}
 		if (!new File(target).isDirectory()) {
-			logger.warn("[HeroCraft] modpackModsDir '${target}' does not exist -- skipping copyToModpack.")
+			logger.warn("[ProjectHero] modpackModsDir '${target}' does not exist -- skipping copyToModpack.")
 			return false
 		}
 		return true
@@ -171,20 +178,20 @@ tasks.register('copyToModpack') {
 		def target = new File(modpackModsDir.get())
 		def src = jarFile.get().asFile
 
-		// Clear out every other HeroCraft jar first. Without this the mods folder accumulates one
+		// Clear out every other ProjectHero jar first. Without this the mods folder accumulates one
 		// jar per version, and Fabric Loader refuses to start with two copies of the same mod id --
 		// and, worse, a stray `-sources.jar` left behind from a manual copy crashes the game during
 		// mixin PREPARE (see the sourcesJar block above for why). Only files matching this mod's own
 		// name are touched, so other mods in the instance are never at risk.
 		def stale = target.listFiles({ File dir, String name ->
-			name.startsWith("${project.name}-") && name.endsWith('.jar') && name != src.name
+			name.startsWith("${archiveBase}-") && name.endsWith('.jar') && name != src.name
 		} as FilenameFilter) ?: new File[0]
 		stale.each {
 			if (it.delete()) {
-				logger.lifecycle("[HeroCraft] Removed stale ${it.name} from ${target}")
+				logger.lifecycle("[ProjectHero] Removed stale ${it.name} from ${target}")
 			} else {
-				logger.warn("[HeroCraft] Could not remove stale ${it.name} -- delete it by hand, "
-						+ "two HeroCraft jars in one mods folder will not load.")
+				logger.warn("[ProjectHero] Could not remove stale ${it.name} -- delete it by hand, "
+						+ "two ProjectHero jars in one mods folder will not load.")
 			}
 		}
 
@@ -192,7 +199,7 @@ tasks.register('copyToModpack') {
 			from src
 			into target
 		}
-		logger.lifecycle("[HeroCraft] Copied ${src.name} to ${target}")
+		logger.lifecycle("[ProjectHero] Copied ${src.name} to ${target}")
 	}
 }
 

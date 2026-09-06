@@ -1,9 +1,9 @@
-# Punisher — HeroCraft reference
+# Punisher — Project Hero reference
 
 Hero-Tier power, peer of Thor / Tony Stark / Spider-Man / Max Steel. The Punisher is **not**
 superhuman: everything comes from firearms, explosives, tactical gear and training. Built across
-**v0.8.1 – v0.8.5**. Package `com.herocraft.mod.firearm` (the generic gun engine, usable by any
-player) and `com.herocraft.mod.punisher` (the power). Power id `punisher`.
+**v0.8.1 – v0.8.5**. Package `com.projecthero.mod.firearm` (the generic gun engine, usable by any
+player) and `com.projecthero.mod.punisher` (the power). Power id `punisher`.
 
 ## Build phases
 
@@ -41,7 +41,7 @@ player) and `com.herocraft.mod.punisher` (the power). Power id `punisher`.
   field 14) drives it from `PunisherPassives.tickAdrenalineCrash`; cleared by `clearTransient`.
 - **Only a Punisher may wear the Punisher armour.** New `PunisherArmorGate.enforce` (called for every
   player from `AbilityRouter.serverTick`) ejects any `PunisherArmorItem` from a non-Punisher's armour
-  slots into their inventory each tick, with a throttled `message.herocraft.punisher.armor_locked` —
+  slots into their inventory each tick, with a throttled `message.projecthero.punisher.armor_locked` —
   the same continuous-eject discipline Mjolnir worthiness uses. The crafting gate (`CraftingMenuMixin`)
   already existed.
 
@@ -60,11 +60,11 @@ player) and `com.herocraft.mod.punisher` (the power). Power id `punisher`.
 
 ## Tactical Satchel
 
-A persistent 9-slot personal container (`com.herocraft.mod.punisher.satchel.PunisherSatchel`), like an
+A persistent 9-slot personal container (`com.projecthero.mod.punisher.satchel.PunisherSatchel`), like an
 Ender Chest bound to the power. Contents live on `PunisherState.satchel` (an `ItemContainerContents`,
 codec field 13) — persistent, `copyOnDeath`, synced — so they survive death, power swaps and dimension
 changes. Opened with **R**; server checks `PunisherArmorSet.fullSet` and, if the player is not wearing
-the full tactical set, shows an action-bar message (`message.herocraft.punisher.satchel_locked`) and
+the full tactical set, shows an action-bar message (`message.projecthero.punisher.satchel_locked`) and
 nothing opens. The GUI is a vanilla one-row chest screen (`MenuType.GENERIC_9x1` + `ChestMenu` over a
 custom `SimpleContainer`) — no bespoke menu type, texture or networking. Every edit autosaves straight
 back to `PunisherState` (`setChanged` override); the container's `stillValid` re-checks power + armour
@@ -83,7 +83,7 @@ Punisher abilities use the six universal slots (R/G/X/Z/V/C), assigned in order:
 `R` Tactical Satchel · `G` Frag Grenade · `X` Tactical Roll · `Z` Suppressive Fire · `V` Adrenaline ·
 `C` Explosive Charge.
 
-## Firearm engine (`com.herocraft.mod.firearm`)
+## Firearm engine (`com.projecthero.mod.firearm`)
 
 - `FirearmData` / `Firearms` — one immutable stat block per weapon id; the whole balance table.
 - `FirearmItem` — base held item (no durability, not enchantable, stacks to 1).
@@ -94,11 +94,11 @@ Punisher abilities use the six universal slots (R/G/X/Z/V/C), assigned in order:
 - `HeadshotResolver` — head zone from the target's eye height / bbHeight, so it scales to any mob;
   per-`EntityType` overrides in `OVERRIDES`.
 - `FirearmReload` — magazine reload, or interruptible shell-by-shell for the shotgun.
-- `FirearmAmmo` — reserve logic: infinite for a Punisher (`FirearmHooks.infiniteReserve`), otherwise
+- `FirearmAmmo` — reserve logic: a personal per-gun pool for a Punisher (`FirearmHooks.usesPersonalReserve` -> `PunisherAmmoReserve`), otherwise
   the matching ammo item, consumed only as far as it takes to top off (partial reloads allowed).
 - `FirearmManager` — per-player tick: trigger-held flag (server-timed auto fire), recoil decay,
   reload tick, empty auto-reload, lowering the sights on stow. Registered in `ServerStateReset`.
-- `FirearmHooks` — the seam to the Punisher power (installed in Phase 3): infinite reserve, faster
+- `FirearmHooks` — the seam to the Punisher power (installed in Phase 3): personal reserve pool, faster
   handling, damage bonus, headshot / kill / craft callbacks. Default impl = a plain player.
 
 ## Firearm stats
@@ -114,7 +114,7 @@ Punisher abilities use the six universal slots (R/G/X/Z/V/C), assigned in order:
 
 No potion, no accident — a trained human:
 
-1. Find a rare **Abandoned Vigilante Safehouse** (`/locate structure herocraft:vigilante_safehouse`)
+1. Find a rare **Abandoned Vigilante Safehouse** (`/locate structure projecthero:vigilante_safehouse`)
    — a buried stone-brick bunker with a weapon workbench, ammo + supply chests, target boards, and a
    guaranteed **Vigilante Training Manual** in a barrel.
 2. Right-click the Manual → **Vigilante Training** begins. Objectives: defeat 25 hostiles, 10 of them
@@ -127,20 +127,20 @@ mutation or another Hero-Tier power. Admin: `/punisher power grant|revoke`, `/he
 punisher`, `/punisher training start`, `/punisher arsenal all|<weapon>`, `/punisher status`. The
 craftable **Power Suppressor** strips it like any other power.
 
-## Abilities (`com.herocraft.mod.punisher.ability`)
+## Abilities (`com.projecthero.mod.punisher.ability`)
 
 | Key | Ability | Summary |
 |---|---|---|
 | R | **Arsenal** | Hold for a weapon wheel over unlocked firearms (pistol always available; others unlock on craft). Tap R = reload. |
 | G | **Frag Grenade** | Hold to cook (max 3 s → detonates in hand), release to throw. Bounces, ~12 dmg falloff + knockback, small block damage. 12 s cd. |
 | X | **Tactical Roll** | Dive in movement direction, brief KB-resist + 40% damage reduction, cancels reload. Vanilla collision prevents wall-clip. 4 s cd. |
-| Z | **Suppressive Fire** | Needs the rifle unlocked. 4 s: −70% recoil, −50% spread, ×0.7 fire interval, Slowness on hits, −25% self speed. 20 s cd. |
+| Z | **Suppressive Fire** | Needs the rifle unlocked. 8 s: −70% recoil, −50% spread, ×0.7 fire interval, Slowness on hits, −25% self speed. 20 s cd. |
 | V | **Adrenaline** | 20 s: Regen V (first 3 s), Resistance II, Haste II, Speed II, ×0.75 reload (supersedes the passive), +15% firearm dmg. Own audio dulled 30%. Nausea I for 10 s crash when it ends. 30 s cd. |
 | C | **Explosive Charge** | Place a C4 charge on a surface (max 3, owner-stamped). Sneak+C detonates only yours. ~20 dmg, moderate terrain. |
 
 ## Passives (`PunisherPassives.Hooks`)
 
-- **Weapon Proficiency** — infinite reserve ammo, ×0.6 recoil, faster handling.
+- **Weapon Proficiency** — a regenerating personal reserve (3 mags/gun), ×0.6 recoil, faster handling.
 - **Faster Reloading** — ×0.85 reload; Adrenaline's ×0.75 *supersedes* it (no compounding).
 - **Ballistic Expertise** — ×0.85 (ADS) / ×0.9 (hip) spread.
 - **No Mercy** — +25% firearm damage to a non-boss hostile below 15% health (+10% to a boss,
@@ -185,7 +185,7 @@ projectile-damage reduction, 10% knockback resistance, ×0.9 recoil. Never excee
 ## Custom sound assets still to record
 
 Every firearm currently borrows vanilla sounds (`FirearmData.Builder` defaults + per-weapon
-`.sounds(...)` in `Firearms`). Replace with bespoke `.ogg` at `assets/herocraft/sounds/firearm/`
+`.sounds(...)` in `Firearms`). Replace with bespoke `.ogg` at `assets/projecthero/sounds/firearm/`
 and a `sounds.json` block, then point each `FirearmData` entry at the new event:
 
 - `firearm/pistol_fire`, `firearm/rifle_fire`, `firearm/shotgun_fire`, `firearm/sniper_fire`
@@ -205,7 +205,7 @@ sync + the S2C effect payloads.
 
 `./gradlew build` — green after every phase (v0.8.1 → v0.8.5). `src/gametest/.../PunisherGameTests.java`
 (11 tests): magazine drain + reload, Punisher-consumes-no-ammo vs normal-player-consumes-ammo,
-infinite-reserve hook gating, headshot resolver scaling, Adrenaline modifier apply + clean teardown,
+personal-reserve hook gating + depletion/regen, headshot resolver scaling, Adrenaline modifier apply + clean teardown,
 Suppressive-needs-rifle gate, Tactical Roll cooldown, C4 max-3 + owner separation, Hero-Tier
 exclusivity, Vigilante Training grant. **All 193 mod gametests pass** (Thor / Iron Man / Spider-Man /
 Max Steel / raids regression-clean). `runClient` boot log clean (0 model / texture / mixin errors).

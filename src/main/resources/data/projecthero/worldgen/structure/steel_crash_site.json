@@ -1,0 +1,6 @@
+{
+  "type": "projecthero:steel_crash_site",
+  "biomes": "#projecthero:steel_crash_site_biomes",
+  "spawn_overrides": {},
+  "step": "surface_structures"
+}

@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": ["WWB", "PWG", "P  "],
+  "key": {
+    "W": { "item": "projecthero:weapon_parts" },
+    "B": { "item": "projecthero:gun_barrel" },
+    "P": { "item": "minecraft:oak_planks" },
+    "G": { "item": "minecraft:gunpowder" }
+  },
+  "result": { "id": "projecthero:punisher_shotgun", "count": 1 }
+}

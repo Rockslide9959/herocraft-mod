@@ -38,7 +38,7 @@ const path = require('path');
 const SRC = process.argv[2]
 	|| 'C:/Users/ethan/OneDrive/Desktop/3d minecraft models/Spider-Man/spiderman_bnd_geckolib_bundle/bundle/spider_man_bnd.geo.json';
 const OUT = process.argv[3]
-	|| path.join(__dirname, '..', 'src/main/resources/assets/herocraft/geo/spider_man.geo.json');
+	|| path.join(__dirname, '..', 'src/main/resources/assets/projecthero/geo/spider_man.geo.json');
 const INFLATE = 0.30;
 
 const MAP = {

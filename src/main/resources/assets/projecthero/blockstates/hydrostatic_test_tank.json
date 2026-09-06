@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "powered=false": {
+      "model": "projecthero:block/hydrostatic_test_tank"
+    },
+    "powered=true": {
+      "model": "projecthero:block/hydrostatic_test_tank"
+    }
+  }
+}

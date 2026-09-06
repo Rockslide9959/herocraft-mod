@@ -1,8 +1,8 @@
 # Zombie Raid — Reference
 
-The Zombie Raid is HeroCraft's first **world event**: a twelve-wave survival encounter that comes to
+The Zombie Raid is Project Hero's first **world event**: a twelve-wave survival encounter that comes to
 *you*, triggered by a twenty-minute curse you can catch in two different ways. It is built on a small
-reusable event framework (`com.herocraft.mod.event`) so later events — an End invasion, a robot
+reusable event framework (`com.projecthero.mod.event`) so later events — an End invasion, a robot
 uprising, a world boss — do not have to reinvent waves, participants, boundaries or persistence.
 
 ---
@@ -76,7 +76,7 @@ at the centre holding the **Cursed Grave** and a loot chest.
 Find one with:
 
 ```bash
-/locate structure herocraft:graveyard
+/locate structure projecthero:graveyard
 ```
 
 ### The Cursed Zombie
@@ -177,7 +177,9 @@ from Juggernauts, 10–20 from a boss and 25–40 from the final boss. Cursed Zo
 
 Every Powered Zombie Boss drops a **Corrupted Power Core** stamped with its power ("Corrupted
 Geokinesis Core"). These are research and crafting reagents — **you cannot eat one to gain the power**.
-Bosses also sometimes drop a power trophy head; the final boss always drops a distinct one.
+Bosses also sometimes drop a power trophy head; the final boss always drops a distinct one, the
+**Grave Champion Head** — which (v0.9.22) is a real head: shift-click or drag it onto the head slot
+to wear it, or place it as a block, exactly like a vanilla mob head.
 
 Clearing wave 12 spawns a **Cursed Grave Chest** at the raid centre with:
 
@@ -237,8 +239,8 @@ the power's full guide entry.
 ### Package layout
 
 ```
-com.herocraft.mod.event/                 reusable world-event framework
-  EventConfig            two config sections (framework / zombieRaid) -> config/herocraft_events.json
+com.projecthero.mod.event/                 reusable world-event framework
+  EventConfig            two config sections (framework / zombieRaid) -> config/projecthero_events.json
   EventState             PENDING / RUNNING / PAUSED / COMPLETED / FAILED
   EventInstance          abstract: identity, participants, owned mobs, abandon logic, save/load
   EventParticipants      presence, eligibility, deaths
@@ -248,12 +250,12 @@ com.herocraft.mod.event/                 reusable world-event framework
   EventTypes             typeId -> factory registry (for save/load)
   EventSavedData         SavedData holding the live instances
   EventManager           start / query / tick
-com.herocraft.mod.event.raid/            the Zombie Raid itself
-com.herocraft.mod.event.entity/          raid mobs + the Cursed Zombie spawn conversion
-com.herocraft.mod.event.boss/            BossPowerController + BossPowers registry
-com.herocraft.mod.event.boss.power/      one controller per boss-capable Experimental Power
-com.herocraft.mod.grave/                 the curse, its hooks, the Cursed Grave block, raid items
-com.herocraft.mod.worldgen/              GraveyardStructure / GraveyardPiece / GraveyardTracker
+com.projecthero.mod.event.raid/            the Zombie Raid itself
+com.projecthero.mod.event.entity/          raid mobs + the Cursed Zombie spawn conversion
+com.projecthero.mod.event.boss/            BossPowerController + BossPowers registry
+com.projecthero.mod.event.boss.power/      one controller per boss-capable Experimental Power
+com.projecthero.mod.grave/                 the curse, its hooks, the Cursed Grave block, raid items
+com.projecthero.mod.worldgen/              GraveyardStructure / GraveyardPiece / GraveyardTracker
 ```
 
 ### Adding a new event
@@ -320,13 +322,13 @@ Op level 2. Both `zombieraid` and `zombieRaid` work.
 | `/heropack zombieraid giveEssence [count]` | Give Grave Essence (default 32) |
 | `/heropack zombieraid markGraveyard` | Register your position as a Graveyard, for testing the raised spawn rate |
 | `/heroraid start gravebound` | Start the raid here immediately (shared start/stop command — `supervillain` also works) |
-| `/heroraid stop` | Force-end **every** active HeroCraft world event and clear all curses |
+| `/heroraid stop` | Force-end **every** active Project Hero world event and clear all curses |
 | `/heroraid cleartimers` | Clear every curse countdown + any raid still in its pre-wave countdown; leave running raids alone |
 
 ### Configuration
 
-`config/herocraft_events.json`, written with defaults on first launch and re-written on every start so
-new keys appear after a mod update (same behaviour as `config/herocraft.json`).
+`config/projecthero_events.json`, written with defaults on first launch and re-written on every start so
+new keys appear after a mod update (same behaviour as `config/projecthero.json`).
 
 `framework` — event radius, warn/abandon radii, pause and fail timeouts, tick interval, spawn
 distances, live-mob ceiling, minimum distance between events.
@@ -337,7 +339,7 @@ cooldown scaling, final-boss multipliers and dual-power chance, every Grave Esse
 chance, and the Gravewalker / Undying Totem / Necrotic Blade tuning.
 
 Graveyard rarity is datapack-side, in
-`data/herocraft/worldgen/structure_set/graveyard.json` (`spacing` / `separation`).
+`data/projecthero/worldgen/structure_set/graveyard.json` (`spacing` / `separation`).
 
 ### Automated coverage
 

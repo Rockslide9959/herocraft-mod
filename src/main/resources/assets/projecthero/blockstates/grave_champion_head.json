@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "projecthero:block/grave_champion_head" },
+    "facing=east":  { "model": "projecthero:block/grave_champion_head", "y": 90 },
+    "facing=south": { "model": "projecthero:block/grave_champion_head", "y": 180 },
+    "facing=west":  { "model": "projecthero:block/grave_champion_head", "y": 270 }
+  }
+}

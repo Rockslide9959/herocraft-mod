@@ -3,7 +3,7 @@
 // along +X. Display transforms are a by-eye first pass -- a shouldered long-gun pose -- and are
 // expected to need one in-world screenshot tune (like the Mjolnir model). Geometry is final.
 const fs = require('fs');
-const OUT = 'src/main/resources/assets/herocraft/models/item';
+const OUT = 'src/main/resources/assets/projecthero/models/item';
 
 // texture regions (64x64): [u0,v0,u1,v1]
 const R = {
@@ -25,9 +25,9 @@ function box(name, from, to, region, rot) {
 }
 function model(elements, display) {
   return JSON.stringify({
-    credit: 'Punisher firearm -- original HeroCraft voxel model (Phase 2). Barrel along +X. Display block is a by-eye first pass for a shouldered long-gun pose; expect one in-world screenshot tune. Geometry is final.',
+    credit: 'Punisher firearm -- original ProjectHero voxel model (Phase 2). Barrel along +X. Display block is a by-eye first pass for a shouldered long-gun pose; expect one in-world screenshot tune. Geometry is final.',
     texture_size: [64, 64],
-    textures: { gun: 'herocraft:item/PLACEHOLDER', particle: 'herocraft:item/PLACEHOLDER' },
+    textures: { gun: 'projecthero:item/PLACEHOLDER', particle: 'projecthero:item/PLACEHOLDER' },
     elements,
     display,
   }, null, 2);
@@ -101,7 +101,7 @@ for (const [name, tex] of [
   ['gun_barrel', 'gun_barrel'], ['weapon_scope', 'weapon_scope'],
 ]) {
   fs.writeFileSync(`${OUT}/${name}.json`,
-    JSON.stringify({ parent: 'minecraft:item/generated', textures: { layer0: `herocraft:item/${tex}` } }, null, 2));
+    JSON.stringify({ parent: 'minecraft:item/generated', textures: { layer0: `projecthero:item/${tex}` } }, null, 2));
 }
 
 console.log('phase 2 models written');

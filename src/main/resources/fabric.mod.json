@@ -1,22 +1,22 @@
 {
 	"schemaVersion": 1,
-	"id": "herocraft",
+	"id": "projecthero",
 	"version": "${version}",
-	"name": "HeroCraft",
-	"description": "A superhero mod for Minecraft, starting with Thor and Mjolnir.",
+	"name": "Project Hero",
+	"description": "A superhero mod for Minecraft.",
 	"authors": [
 		"ethanjansen2005"
 	],
 	"contact": {},
 	"license": "ARR",
-	"icon": "assets/herocraft/icon.png",
+	"icon": "assets/projecthero/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"com.herocraft.mod.HeroCraftMod"
+			"com.projecthero.mod.ProjectHeroMod"
 		],
 		"client": [
-			"com.herocraft.mod.client.HeroCraftModClient"
+			"com.projecthero.mod.client.ProjectHeroModClient"
 		]
 	},
 	"depends": {
@@ -27,9 +27,9 @@
 		"geckolib": ">=4.7.0"
 	},
 	"mixins": [
-		"herocraft.mixins.json",
+		"projecthero.mixins.json",
 		{
-			"config": "herocraft.client.mixins.json",
+			"config": "projecthero.client.mixins.json",
 			"environment": "client"
 		}
 	]

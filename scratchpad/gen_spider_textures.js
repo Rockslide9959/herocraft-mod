@@ -10,7 +10,7 @@
 const fs = require('fs');
 const zlib = require('zlib');
 
-const OUT = 'src/main/resources/assets/herocraft/textures/item';
+const OUT = 'src/main/resources/assets/projecthero/textures/item';
 
 // ---------------------------------------------------------------- PNG encoding
 

@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:power_station",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 41627313,
+    "spacing": 56,
+    "separation": 16
+  }
+}

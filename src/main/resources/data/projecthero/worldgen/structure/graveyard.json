@@ -1,0 +1,6 @@
+{
+  "type": "projecthero:graveyard",
+  "biomes": "#projecthero:graveyard_biomes",
+  "step": "surface_structures",
+  "spawn_overrides": {}
+}

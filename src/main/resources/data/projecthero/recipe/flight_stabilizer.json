@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " A ",
+    "STS"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:amethyst_shard"
+    },
+    "S": {
+      "item": "projecthero:servo_motor"
+    },
+    "T": {
+      "item": "projecthero:micro_thruster"
+    }
+  },
+  "result": {
+    "id": "projecthero:flight_stabilizer",
+    "count": 2
+  }
+}

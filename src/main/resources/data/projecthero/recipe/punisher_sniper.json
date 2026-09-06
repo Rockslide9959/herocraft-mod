@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": ["WBS", "WWR", "GCP"],
+  "key": {
+    "W": { "item": "projecthero:weapon_parts" },
+    "B": { "item": "projecthero:gun_barrel" },
+    "S": { "item": "projecthero:weapon_scope" },
+    "R": { "item": "minecraft:redstone" },
+    "G": { "item": "minecraft:glass" },
+    "C": { "item": "minecraft:copper_ingot" },
+    "P": { "item": "minecraft:oak_planks" }
+  },
+  "result": { "id": "projecthero:punisher_sniper", "count": 1 }
+}

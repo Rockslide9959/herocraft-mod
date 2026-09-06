@@ -1,11 +1,11 @@
-# HeroCraft
+# Project Hero
 
 A Minecraft superhero mod (Fabric, 1.21.1), starting with Thor and Mjolnir. See
 [THOR_DESIGN.md](THOR_DESIGN.md) for the full design doc.
 
 ## Download
 
-**Go to [Releases](../../releases/latest) and download the `herocraft-<version>.jar` file** —
+**Go to [Releases](../../releases/latest) and download the `projecthero-<version>.jar` file** —
 that's the mod itself. Drop it into your Minecraft `mods` folder along with matching versions of
 [Fabric Loader](https://fabricmc.net/use/), [Fabric API](https://modrinth.com/mod/fabric-api) and
 [GeckoLib](https://modrinth.com/mod/geckolib) for Minecraft 1.21.1 (exact versions are listed on
@@ -17,7 +17,7 @@ Everything else in this repository is source code, not something you need to dow
 
 | Path | What it is |
 | --- | --- |
-| `src/main/java/com/herocraft/mod/` | All mod source code, one package per power/system (e.g. `ironman/`, `punisher/`, `symbiote/`, `event/`) |
+| `src/main/java/com/projecthero/mod/` | All mod source code, one package per power/system (e.g. `ironman/`, `punisher/`, `symbiote/`, `event/`) |
 | `src/main/resources/` | Assets and data the mod ships: textures, models, lang files, loot tables, recipes |
 | `docs/` | Design/reference docs per power (e.g. [PUNISHER_REFERENCE.md](docs/PUNISHER_REFERENCE.md), [ARMOR_MODELS.md](docs/ARMOR_MODELS.md)) |
 | `scratchpad/` | One-off dev scripts used to generate assets (textures, models) — not part of the mod |
@@ -94,7 +94,7 @@ Everything else in this repository is source code, not something you need to dow
   escape it or survive twelve waves and three **Powered Zombie Bosses** — each carrying a real
   Experimental Power and fighting with it. Full writeup:
   [docs/ZOMBIE_RAID_REFERENCE.md](docs/ZOMBIE_RAID_REFERENCE.md).
-- Built on a small reusable **world-event framework** (`com.herocraft.mod.event`) so future events
+- Built on a small reusable **world-event framework** (`com.projecthero.mod.event`) so future events
   (End invasion, Nether corruption, robot uprising, world bosses) reuse waves, participants,
   boundaries and persistence rather than reimplementing them.
 - **Fixed: the game got progressively choppier over a long session.** Every static server-side cache
@@ -286,7 +286,7 @@ were wearing. Cross-dimension summon (drop-and-summon) and the shrine structure 
   head around with it, aiming the face at the ground; the head part now has that angle taken back
   out of it.
 
-Default keybinds (Options > Controls > HeroCraft - Thor): `H` lightning strike, `J` call
+Default keybinds (Options > Controls > Project Hero - Thor): `H` lightning strike, `J` call
 Mjolnir, `K` suit up/down, `L` lightning laser (hold), `V` thunderclap, `B` storm call, `N`
 parry. Flight is double-tap jump while holding Mjolnir. Shift-right-click Mjolnir to bind it to
 yourself as its summon target.
@@ -305,7 +305,7 @@ Build a distributable jar:
 ./gradlew build
 ```
 
-The jar lands in `build/libs/herocraft-<version>.jar`.
+The jar lands in `build/libs/projecthero-<version>.jar`.
 
 ### Auto-copy to a CurseForge modpack instance
 
@@ -320,7 +320,7 @@ Leave it unset/commented to skip the copy step (default).
 
 ### Publishing a release
 
-Releases go to [CurseForge](https://legacy.curseforge.com/minecraft/mc-mods/herocraft) and
+Releases go to [CurseForge](https://legacy.curseforge.com/minecraft/mc-mods/projecthero) and
 [GitHub Releases](../../releases) automatically, driven by
 [`.github/workflows/release.yml`](.github/workflows/release.yml). To cut a release:
 
@@ -340,9 +340,9 @@ the workflow file.
 
 - `src/main/java` — common (client + server) code
 - `src/client/java` — client-only code (rendering, keybinds, HUD)
-- `src/main/resources/assets/herocraft` — textures, models, lang
+- `src/main/resources/assets/projecthero` — textures, models, lang
 - `src/gametest/java` — automated in-server tests (`./gradlew runGameTest`)
-- Package root: `com.herocraft.mod`
+- Package root: `com.projecthero.mod`
 
 Reference docs: [Thor](THOR_DESIGN.md) · [HeroPack powers](docs/HEROPACK_CONTENT_REFERENCE.md) ·
 [Iron Man](docs/IRONMAN_REFERENCE.md) · [armour models](docs/ARMOR_MODELS.md) ·

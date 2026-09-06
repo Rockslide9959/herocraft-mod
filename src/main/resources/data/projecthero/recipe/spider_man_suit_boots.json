@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "S S",
+    "D D"
+  ],
+  "key": {
+    "S": { "item": "minecraft:string" },
+    "D": { "item": "minecraft:red_dye" }
+  },
+  "result": { "id": "projecthero:spider_man_suit_boots", "count": 1 }
+}

@@ -1,0 +1,11 @@
+{
+  "structures": [
+    { "structure": "projecthero:symbiote_meteor", "weight": 1 }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 6620914,
+    "spacing": 68,
+    "separation": 24
+  }
+}

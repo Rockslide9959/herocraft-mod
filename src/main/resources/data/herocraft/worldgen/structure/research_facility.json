@@ -1,7 +1,0 @@
-{
-  "type": "herocraft:research_site",
-  "site_type": "research_facility",
-  "biomes": "#herocraft:hp_surface_biomes",
-  "step": "surface_structures",
-  "spawn_overrides": {}
-}

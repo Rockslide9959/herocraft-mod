@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "CC ",
+    " T ",
+    " A "
+  ],
+  "key": {
+    "C": {
+      "item": "projecthero:stark_circuit"
+    },
+    "T": {
+      "item": "projecthero:targeting_module"
+    },
+    "A": {
+      "item": "minecraft:amethyst_shard"
+    }
+  },
+  "result": {
+    "id": "projecthero:suit_computer",
+    "count": 1
+  }
+}

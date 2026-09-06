@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "ESE",
+    "RHR",
+    "SKS"
+  ],
+  "key": {
+    "E": {
+      "item": "projecthero:grave_essence"
+    },
+    "S": {
+      "item": "minecraft:soul_sand"
+    },
+    "R": {
+      "item": "minecraft:rotten_flesh"
+    },
+    "H": {
+      "item": "projecthero:heart_of_the_grave"
+    },
+    "K": {
+      "item": "minecraft:skeleton_skull"
+    }
+  },
+  "result": {
+    "id": "projecthero:grave_ritual_totem",
+    "count": 1
+  }
+}

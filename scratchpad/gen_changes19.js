@@ -4,7 +4,7 @@
 const fs = require('fs');
 const zlib = require('zlib');
 const path = require('path');
-const ARMOR = 'src/main/resources/assets/herocraft/textures/armor';
+const ARMOR = 'src/main/resources/assets/projecthero/textures/armor';
 
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256);

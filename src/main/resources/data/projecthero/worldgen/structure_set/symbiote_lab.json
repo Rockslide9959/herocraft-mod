@@ -1,0 +1,11 @@
+{
+  "structures": [
+    { "structure": "projecthero:symbiote_lab", "weight": 1 }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 6620977,
+    "spacing": 84,
+    "separation": 32
+  }
+}

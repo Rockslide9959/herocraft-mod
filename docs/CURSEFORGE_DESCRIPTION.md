@@ -1,4 +1,4 @@
-# HeroCraft
+# Project Hero
 
 **A large single-player-and-multiplayer superhero mod for Minecraft 1.21.1 (Fabric).** Become Thor,
 Iron Man, Spider-Man, Max Steel or the Punisher, bond with an alien symbiote, mutate one of 27
@@ -20,7 +20,7 @@ power it, upgrade it, and can lose it again.
 
 Works in single-player and on dedicated servers. Power state is per-player and fully synced, so
 several players can run different heroes at once. Almost everything is tunable through generated
-config files (`config/herocraft*.json`).
+config files (`config/projecthero*.json`).
 
 ---
 
@@ -137,7 +137,7 @@ one, and there is an in-game "your power" screen on **I**.
 <summary><b>The full list</b></summary>
 
 Super Strength · Laser Vision · Flight · Super Speed · Geokinesis · Crystalkinesis · Electrokinesis ·
-Pyrokinesis · Cryokinesis · Telekinesis · Teleportation · Healing Factor · Super Durability · Sonic
+Pyrokinesis · Cryokinesis · Telekinesis · Teleportation · Super Regeneration · Super Durability · Sonic
 Scream · Invisibility & Light Manipulation · Spider Climbing / Adhesion · Elasticity · Density
 Manipulation · Shadow Manipulation · Energy Absorption · Shockwave Manipulation · Plant Manipulation
 (Chlorokinesis) · Gravity Manipulation · Wind Manipulation · Water Manipulation · Magnetic
@@ -171,7 +171,7 @@ A world boss that starts as an ordinary-looking zombie and, at low health, trans
 **~18-block giant**. It actively hunts players and fights with a telegraphed attack state machine —
 ground-shaking **Stomp** and **Slam**, a player **Grab**, an **AoE boulder throw**, a long
 **Charge**, and an always-on melee swipe so you can't just hug its leg. Deliberately very strong;
-tunable in `config/herocraft_titan.json`.
+tunable in `config/projecthero_titan.json`.
 
 ---
 
@@ -195,4 +195,4 @@ Symbiote is removed by fire.
 
 ---
 
-*HeroCraft started as "just Thor and Mjolnir" and kept growing. Bug reports and feedback welcome.*
+*Project Hero started as "just Thor and Mjolnir" and kept growing. Bug reports and feedback welcome.*

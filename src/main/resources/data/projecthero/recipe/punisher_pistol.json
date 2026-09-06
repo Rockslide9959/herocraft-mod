@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "WWI",
+    " WR",
+    "  C"
+  ],
+  "key": {
+    "W": { "item": "projecthero:weapon_parts" },
+    "I": { "item": "minecraft:iron_ingot" },
+    "R": { "item": "minecraft:redstone" },
+    "C": { "item": "minecraft:copper_ingot" }
+  },
+  "result": {
+    "id": "projecthero:punisher_pistol",
+    "count": 1
+  }
+}

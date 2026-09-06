@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "projecthero:servo_motor"
+    },
+    {
+      "item": "projecthero:metal_plating"
+    },
+    {
+      "item": "projecthero:metal_plating"
+    },
+    {
+      "item": "minecraft:blaze_powder"
+    }
+  ],
+  "result": {
+    "id": "projecthero:micro_thruster",
+    "count": 2
+  }
+}

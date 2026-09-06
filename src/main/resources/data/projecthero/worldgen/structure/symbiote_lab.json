@@ -1,0 +1,6 @@
+{
+  "type": "projecthero:symbiote_lab",
+  "biomes": "#projecthero:hp_surface_biomes",
+  "step": "underground_structures",
+  "spawn_overrides": {}
+}

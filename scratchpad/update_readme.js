@@ -13,7 +13,7 @@ const newStatus = [
   '  escape it or survive twelve waves and three **Powered Zombie Bosses** — each carrying a real',
   '  Experimental Power and fighting with it. Full writeup:',
   '  [docs/ZOMBIE_RAID_REFERENCE.md](docs/ZOMBIE_RAID_REFERENCE.md).',
-  '- Built on a small reusable **world-event framework** (`com.herocraft.mod.event`) so future events',
+  '- Built on a small reusable **world-event framework** (`com.projecthero.mod.event`) so future events',
   '  (End invasion, Nether corruption, robot uprising, world bosses) reuse waves, participants,',
   '  boundaries and persistence rather than reimplementing them.',
   '- **Fixed: the game got progressively choppier over a long session.** Every static server-side cache',
@@ -39,9 +39,9 @@ s = s.replace(
   'See [docs/IRONMAN_REFERENCE.md §17f](docs/IRONMAN_REFERENCE.md) for the full writeup.\n\n---',
   'See [docs/IRONMAN_REFERENCE.md §17f](docs/IRONMAN_REFERENCE.md) for the full writeup.\n\n</details>\n\n---');
 
-s = s.replace('- Package root: `com.herocraft.mod`', [
+s = s.replace('- Package root: `com.projecthero.mod`', [
   '- `src/gametest/java` — automated in-server tests (`./gradlew runGameTest`)',
-  '- Package root: `com.herocraft.mod`',
+  '- Package root: `com.projecthero.mod`',
   '',
   'Reference docs: [Thor](THOR_DESIGN.md) · [HeroPack powers](docs/HEROPACK_CONTENT_REFERENCE.md) ·',
   '[Iron Man](docs/IRONMAN_REFERENCE.md) · [armour models](docs/ARMOR_MODELS.md) ·',

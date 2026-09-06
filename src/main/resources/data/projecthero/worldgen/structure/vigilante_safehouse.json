@@ -1,0 +1,6 @@
+{
+  "type": "projecthero:vigilante_safehouse",
+  "biomes": "#projecthero:hp_surface_biomes",
+  "step": "underground_structures",
+  "spawn_overrides": {}
+}

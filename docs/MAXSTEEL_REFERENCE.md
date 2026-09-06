@@ -1,6 +1,6 @@
-# Max Steel — HeroCraft reference
+# Max Steel — Project Hero reference
 
-Added across **v0.6.7 – v0.6.13** (Phases 1–8). Package `com.herocraft.mod.maxsteel` (+ `client.maxsteel`).
+Added across **v0.6.7 – v0.6.13** (Phases 1–8). Package `com.projecthero.mod.maxsteel` (+ `client.maxsteel`).
 Power id `max_steel`. A Hero Tier power, peer of Thor / Tony Stark / Spider-Man: its own attachment,
 granted server-authoritatively when Steel bonds, permanent, survives death / relog / restart.
 
@@ -10,7 +10,7 @@ granted server-authoritatively when Steel bonds, permanent, survives death / rel
   the mod's own "keep the suit worn" logic would synthesise a replacement for the emptied slot, leaving
   the original piece behind as a real, storable item -- repeat to get "infinite netherite-look armour".
   Every synthesised piece is now enchanted with the real `minecraft:binding_curse` on creation via new
-  `com.herocraft.mod.armor.PowerEquipmentLock.bind` (confirmed via `javap` on vanilla `ArmorSlot.mayPickup`
+  `com.projecthero.mod.armor.PowerEquipmentLock.bind` (confirmed via `javap` on vanilla `ArmorSlot.mayPickup`
   that this is exactly what blocks shift-click/drag/number-key-swap/drop-key removal from an armour
   slot); the glint and the "Curse of Binding" tooltip line are suppressed
   (`ENCHANTMENT_GLINT_OVERRIDE=false`, `HIDE_ADDITIONAL_TOOLTIP`) so the suit still just looks like the
@@ -45,7 +45,7 @@ granted server-authoritatively when Steel bonds, permanent, survives death / rel
   written each tick by `MaxSteelCannon` while charging and cleared on release / flight end.
   `MaxSteelHud.renderCannonCharge` draws a horizontal fill bar above the bottom-right ability HUD
   (`y0 - 40`) that climbs over the 5-second (`CANNON_MAX_CHARGE_TICKS` = 100) window and flashes gold
-  at full. Lang `hud.herocraft.max_steel.cannon_charge` / `.cannon_full`.
+  at full. Lang `hud.projecthero.max_steel.cannon_charge` / `.cannon_full`.
 
 ## v0.9.2 changes (at a glance)
 
@@ -60,7 +60,7 @@ granted server-authoritatively when Steel bonds, permanent, survives death / rel
   not just modes) until natural regen reaches `OVERLOAD_RECOVER_ENERGY` (150), when `tickRegen` clears
   it. `OVERLOAD_LOCKOUT_TICKS` deleted.
 - **Turbo Blast is a real projectile** (`maxsteel/entity/TurboBoltEntity` extends
-  `AbstractHurtingProjectile`, type `herocraft:turbo_bolt`, `TurboBoltRenderer` = empty/particle-driven
+  `AbstractHurtingProjectile`, type `projecthero:turbo_bolt`, `TurboBoltRenderer` = empty/particle-driven
   like `IronManMissileRenderer`). Thicker cyan trail, ~0.55 hitbox, flies straight, full-charge impact
   burst unchanged. `MaxSteelBlast.fire` spawns it instead of hitscanning.
 - **Unarmed melee bonuses**: Base/Speed/Flight stay **+4**; Strength is now **+8** total
@@ -109,7 +109,7 @@ granted server-authoritatively when Steel bonds, permanent, survives death / rel
   helmet. (v0.6.21: hold-R no longer powers down — hold-R while unsuited still Goes Turbo.)
 - **Suit-up into a mode**: a mode key (G/X/Z/V) pressed while unsuited armours up straight into that
   mode — `MaxSteelState.pendingMode`, consumed by `MaxSteelTransform.tick` when the suit-up settles.
-- **Emergency totem** (`MaxSteelTransform.tryEmergencyRevive`, hooked in `HeroCraftMod` `ALLOW_DEATH`
+- **Emergency totem** (`MaxSteelTransform.tryEmergencyRevive`, hooked in `Project HeroMod` `ALLOW_DEATH`
   before Iron Man's suit recovery): dying **while unsuited** cancels the death, forces the suit
   online, and grants a totem-style effect burst. Costs **150** energy, **20-minute** cooldown
   (`EMERGENCY_REVIVE` key, persisted).
@@ -122,14 +122,14 @@ granted server-authoritatively when Steel bonds, permanent, survives death / rel
 - Wings hold vanilla's **fully-deployed glide pose** (`MaxSteelWingsModel.render`: `xRot 0.349`,
   `zRot ∓π/2`) instead of the folded near-vertical pose, and render at the model root like vanilla's
   `ElytraLayer` (no `body.translateAndRotate`) so the whole-body flight lean carries them.
-- Emergency totem now has its **own guide section** (`herocraft.guide.max_steel.emergency`).
+- Emergency totem now has its **own guide section** (`projecthero.guide.max_steel.emergency`).
 
 ---
 
 ## 1. Getting it
 
-Find a **Steel Crash Site** (`herocraft:steel_crash_site`) — a rare above-ground crater with the
-**Steel** entity (`herocraft:steel`) floating at its centre. `/locate structure herocraft:steel_crash_site`.
+Find a **Steel Crash Site** (`projecthero:steel_crash_site`) — a rare above-ground crater with the
+**Steel** entity (`projecthero:steel`) floating at its centre. `/locate structure projecthero:steel_crash_site`.
 
 Right-click Steel to bond. Two routes, either one is enough:
 - **Experience Level 30+** → consumes **5** levels.
@@ -156,7 +156,7 @@ The six universal HeroPack slots, assigned in spec order to the mod's existing k
 | **V** | 5 | Turbo Stealth Mode (toggle) |
 | **C** | 6 | Turbo Cannon (hold to charge, release to launch) |
 
-Plus (v0.6.16): **N** (`key.herocraft.max_steel_transform`, rebindable) = Go Turbo / power down —
+Plus (v0.6.16): **N** (`key.projecthero.max_steel_transform`, rebindable) = Go Turbo / power down —
 `MaxSteelActionPayload.TRANSFORM_TOGGLE` → `MaxSteelTransform.toggle`. **H** while transformed =
 retract / seal the helmet (`MaxSteelFaceplate`, exactly the Iron Man faceplate pattern —
 `MAX_STEEL_FACEPLATE_OPEN` synced attachment, `SuperheroArmorRenderer.setHelmetHidden` +

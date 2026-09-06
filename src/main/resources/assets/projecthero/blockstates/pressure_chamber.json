@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "powered=false": {
+      "model": "projecthero:block/pressure_chamber"
+    },
+    "powered=true": {
+      "model": "projecthero:block/pressure_chamber"
+    }
+  }
+}

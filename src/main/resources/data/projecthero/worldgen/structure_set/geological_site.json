@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:geological_site",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 41627314,
+    "spacing": 52,
+    "separation": 15
+  }
+}

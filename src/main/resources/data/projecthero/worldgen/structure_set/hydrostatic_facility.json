@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:hydrostatic_facility",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 41627316,
+    "spacing": 64,
+    "separation": 20
+  }
+}

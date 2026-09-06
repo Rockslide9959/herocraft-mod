@@ -1,0 +1,35 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "trophy": "projecthero:block/grave_champion_head",
+    "particle": "projecthero:block/grave_champion_head"
+  },
+  "elements": [
+    {
+      "name": "plinth",
+      "from": [5, 0, 5],
+      "to": [11, 2, 11],
+      "faces": {
+        "north": { "uv": [2, 12, 14, 16], "texture": "#trophy" },
+        "south": { "uv": [2, 12, 14, 16], "texture": "#trophy" },
+        "west":  { "uv": [2, 12, 14, 16], "texture": "#trophy" },
+        "east":  { "uv": [2, 12, 14, 16], "texture": "#trophy" },
+        "up":    { "uv": [4, 4, 12, 12], "texture": "#trophy" },
+        "down":  { "uv": [4, 4, 12, 12], "texture": "#trophy" }
+      }
+    },
+    {
+      "name": "head",
+      "from": [4, 2, 4],
+      "to": [12, 10, 12],
+      "faces": {
+        "north": { "uv": [0, 0, 16, 16], "texture": "#trophy" },
+        "south": { "uv": [0, 0, 16, 16], "texture": "#trophy" },
+        "west":  { "uv": [0, 0, 16, 16], "texture": "#trophy" },
+        "east":  { "uv": [0, 0, 16, 16], "texture": "#trophy" },
+        "up":    { "uv": [0, 0, 16, 16], "texture": "#trophy" },
+        "down":  { "uv": [0, 0, 16, 16], "texture": "#trophy" }
+      }
+    }
+  ]
+}

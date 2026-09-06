@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "powered=false": {
+      "model": "projecthero:block/electromagnetic_coil"
+    },
+    "powered=true": {
+      "model": "projecthero:block/electromagnetic_coil"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:steel_crash_site",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 5514093,
+    "spacing": 44,
+    "separation": 14
+  }
+}

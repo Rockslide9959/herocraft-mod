@@ -1,7 +1,0 @@
-{
-  "type": "herocraft:research_site",
-  "site_type": "hydrostatic_facility",
-  "biomes": "#herocraft:hp_coastal_biomes",
-  "step": "surface_structures",
-  "spawn_overrides": {}
-}

@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "projecthero:item/spider_man_suit_leggings"
+  }
+}

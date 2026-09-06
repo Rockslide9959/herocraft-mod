@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:meteor_impact",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 41627312,
+    "spacing": 84,
+    "separation": 24
+  }
+}
