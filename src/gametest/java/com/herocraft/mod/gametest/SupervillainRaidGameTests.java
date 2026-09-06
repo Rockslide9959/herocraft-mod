@@ -95,7 +95,8 @@ public class SupervillainRaidGameTests implements FabricGameTest {
 		double expected = cfg.bossBaseHealth + cfg.bossHealthPerAdditionalPlayer * 2;
 		helper.assertTrue(Math.abs(boss.getMaxHealth() - expected) < 1.0,
 				"3-player health should be " + expected + ", got " + boss.getMaxHealth());
-		helper.assertTrue(boss.abilityDamageScale() < 1.0f, "boss ability damage is scaled down for fairness");
+		helper.assertTrue(Math.abs(boss.abilityDamageScale() - cfg.bossAbilityDamageScale) < 0.01f,
+				"boss ability damage scale comes from config");
 		helper.assertTrue(Math.abs(boss.getAttribute(
 				net.minecraft.world.entity.ai.attributes.Attributes.KNOCKBACK_RESISTANCE).getBaseValue()
 				- cfg.bossKnockbackResistance) < 0.01, "knockback resistance from config");
