@@ -377,12 +377,12 @@ public class SymbioteGameTests implements FabricGameTest {
 		helper.assertTrue(com.herocraft.mod.symbiote.SymbioteAbilityManager.hasContext(player),
 				"an active Normal host owns the six Symbiote ability slots");
 
-		long readyAt = Symbiote.state(player).abilityCooldowns.get(3); // SLOT_4 = Symbiote Slam
+		long readyAt = Symbiote.state(player).abilityCooldowns.get(2); // SLOT_3 = Symbiote Leap
 		helper.assertTrue(readyAt == 0L, "no cooldown before first use");
 		com.herocraft.mod.symbiote.SymbioteAbilityManager.handle(
-				player, com.herocraft.mod.hero.AbilitySlot.SLOT_4, true);
-		long after = Symbiote.state(player).abilityCooldowns.get(3);
-		helper.assertTrue(after > player.level().getGameTime(), "using Symbiote Slam starts its cooldown");
+				player, com.herocraft.mod.hero.AbilitySlot.SLOT_3, true);
+		long after = Symbiote.state(player).abilityCooldowns.get(2);
+		helper.assertTrue(after > player.level().getGameTime(), "using Symbiote Leap starts its cooldown");
 		helper.succeed();
 	}
 
@@ -400,8 +400,8 @@ public class SymbioteGameTests implements FabricGameTest {
 				"sanity: the player is marked disrupted");
 
 		com.herocraft.mod.symbiote.SymbioteAbilityManager.handle(
-				player, com.herocraft.mod.hero.AbilitySlot.SLOT_4, true);
-		helper.assertTrue(Symbiote.state(player).abilityCooldowns.get(3) == 0L,
+				player, com.herocraft.mod.hero.AbilitySlot.SLOT_3, true);
+		helper.assertTrue(Symbiote.state(player).abilityCooldowns.get(2) == 0L,
 				"a sonically disrupted host's ability press must do nothing (no cooldown started)");
 		helper.succeed();
 	}

@@ -89,6 +89,44 @@ public final class HeroPackGuide {
 	}
 
 	/**
+	 * The "Your Power" (I) screen's entry for a plain Normal Symbiote Host -- bonded, but not also
+	 * Spider-Man. Deliberately its own live-built chapter rather than the cached {@link #symbioteChapter()}
+	 * (which is the shared book page and covers both host variants): a Normal Host has no web abilities
+	 * and no sneak-modified "alt" extras, so their personal menu should show only their own six-ability
+	 * kit, not the Black Suit Spider-Man material.
+	 */
+	public static Chapter symbioteNormalHostChapter() {
+		return chapter("herocraft.guide.symbiote", lines -> {
+			lines.add(Component.translatable("herocraft.guide.symbiote.tier").withStyle(ChatFormatting.LIGHT_PURPLE));
+			para(lines, "herocraft.guide.symbiote.body");
+			blank(lines);
+			head(lines, "herocraft.guide.symbiote.controls");
+			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {
+				String ability = switch (slot) {
+					case "R" -> "tendril_grab"; case "G" -> "tendril_strike"; case "X" -> "leap";
+					case "Z" -> "onslaught"; case "V" -> "shield"; default -> "frenzy";
+				};
+				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("herocraft.symbiote.ability." + ability).withStyle(ChatFormatting.WHITE)));
+				para(lines, "herocraft.symbiote.ability." + ability + ".desc");
+			}
+			lines.add(Component.literal(" Sneak+X  ").withStyle(ChatFormatting.GOLD)
+					.append(Component.translatable("herocraft.symbiote.ability.grapple").withStyle(ChatFormatting.WHITE)));
+			para(lines, "herocraft.symbiote.ability.grapple.desc");
+			blank(lines);
+			head(lines, "herocraft.guide.symbiote.passives");
+			lines.add(Component.literal(" • ").append(
+					Component.translatable("herocraft.guide.symbiote.passive.recovery")).withStyle(ChatFormatting.GRAY));
+			blank(lines);
+			head(lines, "herocraft.guide.symbiote.weaknesses");
+			lines.add(Component.literal(" • ").append(
+					Component.translatable("herocraft.guide.symbiote.weakness.sonic")).withStyle(ChatFormatting.GRAY));
+			lines.add(Component.literal(" • ").append(
+					Component.translatable("herocraft.guide.symbiote.weakness.fire")).withStyle(ChatFormatting.GRAY));
+		});
+	}
+
+	/**
 	 * The "Your Power" info screen's entry for a player who is BOTH bonded with a Symbiote AND
 	 * currently holds Spider-Man -- Black Suit Spider-Man. Deliberately not one of the cached
 	 * {@link #chapters()} (the physical HeroPack Guide book has no single reader, so it can't show a
@@ -353,12 +391,15 @@ public final class HeroPackGuide {
 			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {
 				String ability = switch (slot) {
 					case "R" -> "tendril_grab"; case "G" -> "tendril_strike"; case "X" -> "leap";
-					case "Z" -> "slam"; case "V" -> "shield"; default -> "frenzy";
+					case "Z" -> "onslaught"; case "V" -> "shield"; default -> "frenzy";
 				};
 				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("herocraft.symbiote.ability." + ability).withStyle(ChatFormatting.WHITE)));
 				para(lines, "herocraft.symbiote.ability." + ability + ".desc");
 			}
+			lines.add(Component.literal(" Sneak+X  ").withStyle(ChatFormatting.GOLD)
+					.append(Component.translatable("herocraft.symbiote.ability.grapple").withStyle(ChatFormatting.WHITE)));
+			para(lines, "herocraft.symbiote.ability.grapple.desc");
 			blank(lines);
 			head(lines, "herocraft.guide.symbiote.black_suit");
 			para(lines, "herocraft.guide.symbiote.black_suit.body");

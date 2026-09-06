@@ -339,11 +339,12 @@ public final class Symbiote {
 		SymbioteSuit.stripEverywhere(player);
 		// Belt and braces: a fresh entity that inherited active=true / a stale animation via
 		// copyOnDeath must not survive into the new life/session.
-		if (s != null && (s.active || s.transformDir != SymbioteState.DIR_IDLE)) {
+		if (s != null && (s.active || s.transformDir != SymbioteState.DIR_IDLE || s.onslaughtChargeStart >= 0)) {
 			SymbioteState c = s.copy();
 			c.active = false;
 			c.transformDir = SymbioteState.DIR_IDLE;
 			c.stowedArmor = ItemContainerContents.EMPTY;
+			c.onslaughtChargeStart = -1L;
 			save(player, c);
 		}
 	}

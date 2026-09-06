@@ -25,8 +25,9 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * The Normal Symbiote Host's six abilities: Tendril Grab (R), Tendril Strike (G), Symbiote Leap
- * (X), Symbiote Slam (Z), Symbiote Shield (V), Frenzy (C). Bridges the six universal ability slots
+ * The Normal Symbiote Host's abilities: Tendril Grab (R), Tendril Strike (G), Symbiote Leap
+ * (X) / Symbiote Grapple (Sneak + X), Symbiote Onslaught (Z, the hold-charge ultimate),
+ * Symbiote Shield (V), Frenzy (C). Bridges the six universal ability slots
  * exactly like every other {@code <Hero>AbilityManager} -- see
  * {@link com.herocraft.mod.hero.AbilityRouter}'s priority chain.
  *
@@ -34,11 +35,13 @@ import net.minecraft.world.phys.Vec3;
  * existing {@code SpiderManAbilityManager}/{@code SpiderAbilities} instead, per the spec's explicit
  * "contextual, not new keybinds" instruction for that variant.
  *
- * <p>Two of the six slots are HOLD abilities (v0.9.19), so unlike every other slot here they act on
- * both the press AND the release: {@link AbilitySlot#SLOT_1} (Tendril Grab -- grab on press, hold the
- * target suspended, throw it on release) and {@link AbilitySlot#SLOT_5} (Symbiote Shield -- up while
- * held, draining a 9-second guard bar, regenerating twice as fast while down). Both are dispatched
- * before the generic press-only switch below and manage their own cooldown/guard bookkeeping.
+ * <p>Three slots are HOLD abilities, so unlike the rest they act on both the press AND the release:
+ * {@link AbilitySlot#SLOT_1} (Tendril Grab -- grab on press, throw on release),
+ * {@link AbilitySlot#SLOT_5} (Symbiote Shield -- up while held, draining a 9-second guard bar) and
+ * {@link AbilitySlot#SLOT_4} (Symbiote Onslaught -- a 3-second hold-charge, then a black-symbiote AoE
+ * on release, 60-second cooldown). All three are dispatched before the generic press-only switch
+ * below and manage their own cooldown/guard bookkeeping. Sneak + {@link AbilitySlot#SLOT_3} is also
+ * special-cased on the press edge, routing the Movement key to Symbiote Grapple instead of Leap.
  */
 public final class SymbioteAbilityManager {
 	private static final ResourceLocation FRENZY_ATTACK = HeroCraftMod.id("symbiote_frenzy_attack");
@@ -47,14 +50,16 @@ public final class SymbioteAbilityManager {
 
 	private static final int CD_TENDRIL_STRIKE = 80;  // 4s
 	private static final int CD_LEAP = 40;             // 2s
-	private static final int CD_SLAM = 200;            // 10s
 	private static final int CD_FRENZY = 500;          // 25s
 	/** Cooldown after a Tendril Grab resolves (thrown, or the target slips away) before it can grab again. */
 	private static final int CD_TENDRIL_GRAB = 100;    // 5s
 
 	private static final int FRENZY_DURATION = 280;     // 14s
 	private static final int FRENZY_DEBUFF_DURATION = 100; // 5s post-Frenzy defence dip
-	private static final int LEAP_NO_FALL_TICKS = 60;   // ~3s grace after a leap
+	/** Fall-damage grace after a Symbiote Leap or Grapple -- deliberately long: it is cleared the instant
+	 *  the player next touches the ground (see {@link #serverTick}), so in practice it always lasts
+	 *  exactly "until you land", however far the launch carried you. */
+	private static final int LEAP_NO_FALL_TICKS = 600;
 
 	private static final float SHIELD_GUARD_DRAIN = 1.0f; // 1 tick of hold per tick -- 180 ticks = 9s
 	private static final float SHIELD_GUARD_REGEN = 2.0f; // refills twice as fast as it drains while down
@@ -64,8 +69,23 @@ public final class SymbioteAbilityManager {
 	private static final int GRAB_MAX_HOLD_TICKS = 70;  // ~3.5s safety cap before an auto-throw
 	private static final float GRAB_THROW_DAMAGE = 7.0f;
 
+	// ---- Symbiote Onslaught (slot 4 ultimate): a 3-second hold-charge, then a black-symbiote AoE ----
+	private static final int CD_ONSLAUGHT = 1200;          // 60s
+	private static final int ONSLAUGHT_CHARGE_TICKS = 60;  // 3s hold to release it
+	private static final double ONSLAUGHT_RADIUS = 6.0;
+	private static final int ONSLAUGHT_DOT_TICKS = 100;    // 5s of black-symbiote decay on the victims
+
+	// ---- Symbiote Grapple (Sneak + X): a 25-block yank toward whatever you are aiming at ----
+	private static final double GRAPPLE_RANGE = 25.0;
+	private static final int CD_GRAPPLE = 60;              // 3s
+	private static final int GRAPPLE_PULL_TICKS = 20;      // how long the pull steers the player
+
 	/** Per-player leap fall-damage grace window -- not persisted, cleared on server stop like the rest. */
 	private static final Map<Integer, Long> LEAP_NO_FALL_UNTIL = new ConcurrentHashMap<>();
+	/** Per-player Grapple cooldown -- transient, cleared on server stop like the rest. */
+	private static final Map<Integer, Long> GRAPPLE_READY_AT = new ConcurrentHashMap<>();
+	/** Per-player active Grapple pull: {targetX, targetY, targetZ, endTick}. Transient. */
+	private static final Map<Integer, double[]> GRAPPLE_PULL = new ConcurrentHashMap<>();
 
 	private SymbioteAbilityManager() {
 	}
@@ -92,8 +112,14 @@ public final class SymbioteAbilityManager {
 		return until != null && now < until;
 	}
 
+	public static boolean onslaughtCharging(ServerPlayer player) {
+		return Symbiote.state(player).onslaughtChargeStart >= 0;
+	}
+
 	public static void clearSessionState() {
 		LEAP_NO_FALL_UNTIL.clear();
+		GRAPPLE_READY_AT.clear();
+		GRAPPLE_PULL.clear();
 	}
 
 	// ---------------- dispatch ----------------
@@ -115,6 +141,15 @@ public final class SymbioteAbilityManager {
 			handleTendrilGrab(player, pressed, now);
 			return;
 		}
+		if (slot == AbilitySlot.SLOT_4) {
+			handleOnslaught(player, pressed, now);
+			return;
+		}
+		// Sneak + X (Movement key) is Symbiote Grapple -- a 25-block yank -- rather than the plain Leap.
+		if (slot == AbilitySlot.SLOT_3 && pressed && player.isShiftKeyDown()) {
+			handleGrapple(player, now);
+			return;
+		}
 
 		if (!pressed) {
 			return;
@@ -131,7 +166,6 @@ public final class SymbioteAbilityManager {
 		boolean used = switch (slot) {
 			case SLOT_2 -> tendrilStrike(player);
 			case SLOT_3 -> symbioteLeap(player);
-			case SLOT_4 -> symbioteSlam(player);
 			case SLOT_6 -> frenzy(player);
 			default -> false;
 		};
@@ -144,7 +178,6 @@ public final class SymbioteAbilityManager {
 		return switch (slot) {
 			case SLOT_2 -> CD_TENDRIL_STRIKE;
 			case SLOT_3 -> CD_LEAP;
-			case SLOT_4 -> CD_SLAM;
 			case SLOT_6 -> CD_FRENZY;
 			default -> 0;
 		};
@@ -300,29 +333,140 @@ public final class SymbioteAbilityManager {
 		return true;
 	}
 
-	/** Ability 4 -- Symbiote Slam: short-range ground slam, no terrain damage by default. */
-	private static boolean symbioteSlam(ServerPlayer player) {
-		ServerLevel level = AbilityHelpers.level(player);
-		Vec3 center = player.position();
-		boolean hitAny = false;
-		for (LivingEntity target : AbilityHelpers.enemiesAround(player, center, 4.0)) {
-			float damage = 8.0f + player.getRandom().nextFloat() * 2.0f;
-			if (AbilityHelpers.hurt(player, target, damage)) {
-				AbilityHelpers.knockbackFrom(target, center, 1.1);
-				hitAny = true;
+	/**
+	 * Ability 4 -- Symbiote Onslaught (the ultimate): hold for 3 seconds to charge, then release to
+	 * engulf every nearby enemy in living black symbiote -- blinding and slowing them and decaying them
+	 * for 10 damage over the next 5 seconds. 60-second cooldown. Releasing early cancels it with no
+	 * cooldown; {@link #tickOnslaught} auto-fires it once the charge is full even if the key is held.
+	 */
+	private static void handleOnslaught(ServerPlayer player, boolean pressed, long now) {
+		SymbioteState s = Symbiote.state(player);
+		if (pressed) {
+			if (s.onslaughtChargeStart >= 0) {
+				return; // already charging
+			}
+			long readyAt = s.abilityCooldowns.get(AbilitySlot.SLOT_4.index());
+			if (now < readyAt) {
+				player.displayClientMessage(Component.translatable("message.herocraft.symbiote.ability_cooldown",
+						String.format(java.util.Locale.ROOT, "%.1f", (readyAt - now) / 20.0f)), true);
+				return;
+			}
+			SymbioteState c = s.copy();
+			c.onslaughtChargeStart = now;
+			player.setAttached(ModAttachments.SYMBIOTE_STATE, c);
+			player.displayClientMessage(Component.translatable("message.herocraft.symbiote.onslaught_charging"), true);
+			AbilityHelpers.sound(player, SoundEvents.WARDEN_HEARTBEAT, 1.0f, 0.5f);
+		} else if (s.onslaughtChargeStart >= 0) {
+			if (now - s.onslaughtChargeStart >= ONSLAUGHT_CHARGE_TICKS) {
+				fireOnslaught(player, s, now);
+			} else {
+				cancelOnslaught(player, s, "message.herocraft.symbiote.onslaught_interrupted");
 			}
 		}
-		AbilityHelpers.burst(level, center, ParticleTypes.SQUID_INK, 30, 0.6);
-		AbilityHelpers.burst(level, center, ParticleTypes.CRIT, 16, 0.8);
-		level.sendParticles(ParticleTypes.POOF, center.x, center.y, center.z, 20, 0.9, 0.1, 0.9, 0.02);
-		// A quick expanding ring of impact particles, tracing the slam's true hit radius.
-		for (int i = 0; i < 24; i++) {
-			double ang = (Math.PI * 2 * i) / 24.0;
-			Vec3 edge = center.add(Math.cos(ang) * 3.6, 0.1, Math.sin(ang) * 3.6);
-			level.sendParticles(ParticleTypes.SQUID_INK, edge.x, edge.y, edge.z, 1, 0.0, 0.0, 0.0, 0.0);
+	}
+
+	/** Per-tick upkeep while Symbiote Onslaught is charging: rising aura, and an auto-fire at full charge. */
+	private static void tickOnslaught(ServerPlayer player, long now) {
+		SymbioteState s = Symbiote.state(player);
+		if (s.onslaughtChargeStart < 0) {
+			return;
 		}
-		AbilityHelpers.sound(player, SoundEvents.GENERIC_BIG_FALL, 1.0f, 0.6f);
-		return hitAny || true; // functions even against nothing (creates the impact), matching the spec's slam
+		long held = now - s.onslaughtChargeStart;
+		if (held >= ONSLAUGHT_CHARGE_TICKS) {
+			fireOnslaught(player, s, now);
+			return;
+		}
+		ServerLevel level = AbilityHelpers.level(player);
+		double frac = held / (double) ONSLAUGHT_CHARGE_TICKS;
+		Vec3 c = player.position().add(0, player.getBbHeight() * 0.5, 0);
+		int ring = 12 + (int) (frac * 16);
+		for (int i = 0; i < ring; i++) {
+			double ang = (Math.PI * 2 * i) / ring + now * 0.15;
+			double r = ONSLAUGHT_RADIUS * (1.0 - frac * 0.7);
+			level.sendParticles(ParticleTypes.SQUID_INK, c.x + Math.cos(ang) * r, player.getY() + 0.1,
+					c.z + Math.sin(ang) * r, 1, 0.0, 0.0, 0.0, 0.0);
+		}
+		AbilityHelpers.burst(level, c, ParticleTypes.LARGE_SMOKE, 2, 0.4);
+		if (player.tickCount % 6 == 0) {
+			AbilityHelpers.sound(player, SoundEvents.WARDEN_HEARTBEAT, 1.0f, 0.5f + (float) frac);
+		}
+	}
+
+	private static void cancelOnslaught(ServerPlayer player, SymbioteState s, String messageKey) {
+		SymbioteState c = s.copy();
+		c.onslaughtChargeStart = -1L;
+		player.setAttached(ModAttachments.SYMBIOTE_STATE, c);
+		if (messageKey != null) {
+			player.displayClientMessage(Component.translatable(messageKey), true);
+		}
+	}
+
+	private static void fireOnslaught(ServerPlayer player, SymbioteState s, long now) {
+		ServerLevel level = AbilityHelpers.level(player);
+		Vec3 center = player.position();
+		for (LivingEntity target : AbilityHelpers.enemiesAround(player, center, ONSLAUGHT_RADIUS)) {
+			// Wither III for 5 seconds decays the target ~10 health over that window -- "10 damage for 5s".
+			target.addEffect(new MobEffectInstance(MobEffects.WITHER, ONSLAUGHT_DOT_TICKS, 2, false, true, true));
+			AbilityHelpers.applyControl(target, MobEffects.BLINDNESS, ONSLAUGHT_DOT_TICKS, 0);
+			AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, ONSLAUGHT_DOT_TICKS, 1);
+			Vec3 hit = target.position().add(0, target.getBbHeight() * 0.5, 0);
+			AbilityHelpers.burst(level, hit, ParticleTypes.SQUID_INK, 40, target.getBbWidth() * 0.6 + 0.4);
+			AbilityHelpers.burst(level, hit, ParticleTypes.LARGE_SMOKE, 12, 0.4);
+		}
+		AbilityHelpers.burst(level, center.add(0, 1, 0), ParticleTypes.SQUID_INK, 60, ONSLAUGHT_RADIUS * 0.6);
+		level.sendParticles(ParticleTypes.SONIC_BOOM, center.x, center.y + 1, center.z, 1, 0, 0, 0, 0);
+		AbilityHelpers.sound(player, SoundEvents.WARDEN_SONIC_BOOM, 1.0f, 0.7f);
+		AbilityHelpers.sound(player, SoundEvents.RAVAGER_ROAR, 0.9f, 0.6f);
+
+		SymbioteState c = s.copy();
+		c.onslaughtChargeStart = -1L;
+		c.abilityCooldowns.set(AbilitySlot.SLOT_4.index(), now + CD_ONSLAUGHT);
+		player.setAttached(ModAttachments.SYMBIOTE_STATE, c);
+	}
+
+	/**
+	 * Sneak + X -- Symbiote Grapple: fire a tendril at whatever you are aiming at within 25 blocks and
+	 * reel yourself toward it over the next second ({@link #tickGrapplePull}). Fall damage is waived on
+	 * the landing, exactly like a Symbiote Leap.
+	 */
+	private static void handleGrapple(ServerPlayer player, long now) {
+		Long readyAt = GRAPPLE_READY_AT.get(player.getId());
+		if (readyAt != null && now < readyAt) {
+			player.displayClientMessage(Component.translatable("message.herocraft.symbiote.ability_cooldown",
+					String.format(java.util.Locale.ROOT, "%.1f", (readyAt - now) / 20.0f)), true);
+			return;
+		}
+		Vec3 anchor = AbilityHelpers.aimPoint(player, GRAPPLE_RANGE);
+		Vec3 eye = player.getEyePosition();
+		if (anchor.distanceTo(eye) < 3.0) {
+			player.displayClientMessage(Component.translatable("message.herocraft.symbiote.grapple_too_close"), true);
+			return;
+		}
+		GRAPPLE_READY_AT.put(player.getId(), now + CD_GRAPPLE);
+		GRAPPLE_PULL.put(player.getId(), new double[]{anchor.x, anchor.y, anchor.z, now + GRAPPLE_PULL_TICKS});
+		LEAP_NO_FALL_UNTIL.put(player.getId(), now + LEAP_NO_FALL_TICKS);
+		ServerLevel level = AbilityHelpers.level(player);
+		AbilityHelpers.line(level, eye.add(player.getLookAngle().scale(0.4)), anchor, ParticleTypes.SQUID_INK, 3.0);
+		AbilityHelpers.sound(player, SoundEvents.SLIME_SQUISH, 0.9f, 0.4f);
+		AbilityHelpers.sound(player, SoundEvents.FISHING_BOBBER_RETRIEVE, 0.9f, 0.6f);
+	}
+
+	private static void tickGrapplePull(ServerPlayer player, long now) {
+		double[] pull = GRAPPLE_PULL.get(player.getId());
+		if (pull == null) {
+			return;
+		}
+		Vec3 anchor = new Vec3(pull[0], pull[1], pull[2]);
+		Vec3 toAnchor = anchor.subtract(player.getEyePosition());
+		if (now >= (long) pull[3] || toAnchor.length() < 2.0) {
+			GRAPPLE_PULL.remove(player.getId());
+			return;
+		}
+		Vec3 dir = toAnchor.normalize();
+		double speed = Math.min(1.6, 0.7 + toAnchor.length() * 0.08);
+		AbilityHelpers.launchSelf(player, dir.scale(speed).add(0, 0.12, 0));
+		AbilityHelpers.level(player).sendParticles(ParticleTypes.SQUID_INK,
+				player.getX(), player.getY() + player.getBbHeight() * 0.5, player.getZ(), 2, 0.1, 0.1, 0.1, 0.0);
 	}
 
 	/** Ability 5 -- Symbiote Shield: a holdable stance, -60% damage while up, slowed while up. */
@@ -362,10 +506,21 @@ public final class SymbioteAbilityManager {
 
 			player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 8, 1, true, true, true));
 			ServerLevel level = AbilityHelpers.level(player);
-			Vec3 front = player.getEyePosition().add(player.getLookAngle().scale(1.1)).add(0, -0.2, 0);
-			AbilityHelpers.burst(level, front, ParticleTypes.SQUID_INK, 5, 0.4);
+			// Draw a round black slab hovering just off the player's leading arm -- a real shield sits a
+			// little in front of you and faces where you look, so this one does too.
+			Vec3 look = player.getLookAngle();
+			Vec3 right = new Vec3(-look.z, 0, look.x).normalize();
+			Vec3 up = new Vec3(0, 1, 0);
+			Vec3 center = player.getEyePosition().add(look.scale(0.9)).add(0, -0.35, 0);
+			for (int i = 0; i < 14; i++) {
+				double ang = (Math.PI * 2 * i) / 14.0;
+				double rw = 0.55, rh = 0.7;
+				Vec3 edge = center.add(right.scale(Math.cos(ang) * rw)).add(up.scale(Math.sin(ang) * rh));
+				level.sendParticles(ParticleTypes.SQUID_INK, edge.x, edge.y, edge.z, 1, 0.0, 0.0, 0.0, 0.0);
+			}
+			level.sendParticles(ParticleTypes.SQUID_INK, center.x, center.y, center.z, 4, 0.28, 0.36, 0.05, 0.0);
 			if (player.tickCount % 4 == 0) {
-				AbilityHelpers.burst(level, front, ParticleTypes.SMOKE, 3, 0.25);
+				level.sendParticles(ParticleTypes.SMOKE, center.x, center.y, center.z, 3, 0.3, 0.4, 0.05, 0.0);
 			}
 			if (depleted) {
 				player.displayClientMessage(Component.translatable("message.herocraft.symbiote.shield_spent"), true);
@@ -437,6 +592,8 @@ public final class SymbioteAbilityManager {
 			wallAssist(player);
 			tickShield(player);
 			tickTendrilGrab(player, now);
+			tickOnslaught(player, now);
+			tickGrapplePull(player, now);
 		} else {
 			// The suit retracted (or the host type changed) mid-grab: let go rather than leave the
 			// target permanently floating with no-gravity set.
@@ -444,6 +601,10 @@ public final class SymbioteAbilityManager {
 			if (held.tendrilGrabHeld) {
 				releaseGrabQuietly(player, held, now);
 			}
+			if (held.onslaughtChargeStart >= 0) {
+				cancelOnslaught(player, held, null);
+			}
+			GRAPPLE_PULL.remove(player.getId());
 		}
 	}
 

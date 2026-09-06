@@ -27,8 +27,9 @@ public final class SymbioteDamageRules {
 	private static final float FIRE_MULTIPLIER = 1.4f;
 	/** A small passive cut to explosion damage while active -- "reduce... minor explosion damage". */
 	private static final float EXPLOSION_FACTOR = 0.8f;
-	/** Symbiote Shield: -60% incoming damage while up. */
-	private static final float SHIELD_FACTOR = 0.4f;
+	/** Symbiote Shield: like a real shield, it only stops what comes at your front -- and it stops
+	 *  almost all of it (-90%). A hit from the side or behind gets through untouched. */
+	private static final float SHIELD_FRONT_FACTOR = 0.1f;
 	/** Frenzy's drawback: +15% incoming damage for a few seconds after it ends. */
 	private static final float FRENZY_DEBUFF_VULNERABILITY = 1.15f;
 
@@ -58,8 +59,8 @@ public final class SymbioteDamageRules {
 		} else if (source.is(DamageTypeTags.IS_EXPLOSION)) {
 			factor *= EXPLOSION_FACTOR;
 		}
-		if (SymbioteAbilityManager.shieldActive(player)) {
-			factor *= SHIELD_FACTOR;
+		if (SymbioteAbilityManager.shieldActive(player) && blockedFromFront(player, source)) {
+			factor *= SHIELD_FRONT_FACTOR;
 		}
 		if (SymbioteAbilityManager.frenzyDebuffActive(player, now)) {
 			factor *= FRENZY_DEBUFF_VULNERABILITY;
@@ -68,6 +69,23 @@ public final class SymbioteDamageRules {
 			return true;
 		}
 		return reapply(player, source, amount * factor);
+	}
+
+	/**
+	 * Whether {@code source} is coming at the player's front, the same test vanilla's own shield uses
+	 * ({@code LivingEntity#isDamageSourceBlocked}): the attacker is in the forward 180-degree arc of
+	 * where the player is looking. Sources with no position (starvation, magic, ...) are treated as
+	 * unblockable, again matching vanilla.
+	 */
+	private static boolean blockedFromFront(ServerPlayer player, DamageSource source) {
+		net.minecraft.world.phys.Vec3 sourcePos = source.getSourcePosition();
+		if (sourcePos == null) {
+			return false;
+		}
+		net.minecraft.world.phys.Vec3 view = player.getViewVector(1.0f);
+		net.minecraft.world.phys.Vec3 toSource = sourcePos.vectorTo(player.position()).normalize();
+		toSource = new net.minecraft.world.phys.Vec3(toSource.x, 0.0, toSource.z);
+		return toSource.dot(view) < 0.0;
 	}
 
 	private static boolean reapply(ServerPlayer player, DamageSource source, float amount) {

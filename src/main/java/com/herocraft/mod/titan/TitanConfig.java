@@ -30,36 +30,45 @@ public final class TitanConfig {
 	/** Titan body stats. */
 	public static final class Stats {
 		public double disguisedHealth = 80.0;
-		public double health = 1500.0;
+		public double health = 1800.0;
 		/** Target height in blocks (15-20 per spec, default 18). Adjust and the hitbox/eye height follow. */
 		public double heightBlocks = 18.0;
-		public double knockbackResistance = 0.95;
-		public double normalSpeed = 4.5 / 20.0; // blocks/tick from blocks/sec
-		public double aggressiveSpeed = 5.0 / 20.0;
-		public double chargeSpeed = 7.5 / 20.0;
-		public double detectionRange = 64.0;
-		public double followRange = 96.0;
+		public double knockbackResistance = 1.0;
+		public double normalSpeed = 6.0 / 20.0; // blocks/tick from blocks/sec
+		/** Chase speed while a target is in sight -- fast enough to run down a sprinting player. */
+		public double aggressiveSpeed = 9.5 / 20.0;
+		public double chargeSpeed = 20.0 / 20.0;
+		public double detectionRange = 80.0;
+		public double followRange = 128.0;
 	}
 
 	/** Attack damages and areas of effect. */
 	public static final class Attacks {
-		public double punchDamage = 18.0;
-		public double punchRange = 6.0;
-		public double stompDamage = 30.0;
-		public double stompRadius = 4.0;
+		public double punchDamage = 26.0;
+		public double punchRange = 7.0;
+		/** Basic melee swing -- an always-available hit whenever a player is within reach, on its own
+		 *  short cooldown, independent of the telegraphed PUNCH/STOMP/SLAM state machine. */
+		public double meleeDamage = 22.0;
+		public double meleeRange = 8.0;
+		public int meleeCooldownTicks = 16;
+		public double stompDamage = 40.0;
+		public double stompRadius = 4.5;
 		public double stompWindupTicks = 16; // 0.8s
-		public double slamDamage = 24.0;
+		public double slamDamage = 34.0;
 		public double slamRadius = 6.0;
-		public double grabDamage = 6.0;
-		public double holdDamage = 4.0;
-		public double throwDamage = 10.0;
+		public double grabDamage = 8.0;
+		public double holdDamage = 5.0;
+		public double throwDamage = 14.0;
 		public double throwHorizontalMin = 15.0;
 		public double throwHorizontalMax = 25.0;
 		public double throwVerticalMin = 6.0;
 		public double throwVerticalMax = 10.0;
-		public double boulderDamage = 28.0;
+		public double boulderDamage = 36.0;
 		public double boulderImpactRadius = 4.0;
-		public double chargeDamage = 32.0;
+		/** The boulder's blast: everything within this radius of the impact takes {@link #boulderDamage},
+		 *  falling off with distance. This is what makes the ranged attack an AoE. */
+		public double boulderAoeRadius = 7.0;
+		public double chargeDamage = 44.0;
 		public double chargeThrowMin = 8.0;
 		public double chargeThrowMax = 12.0;
 		public double chargeMaxDistance = 40.0;
@@ -68,13 +77,13 @@ public final class TitanConfig {
 	/** Per-attack cooldowns, in ticks. */
 	public static final class Cooldowns {
 		public int punch = 20;          // 1s
-		public int stomp = 100;         // 5s
-		public int groundSlam = 140;    // 7s
-		public int grab = 200;          // 10s
-		public int boulder = 160;       // 8s
-		public int charge = 240;        // 12s
-		/** Minimum ticks between ANY two attacks, so the Titan telegraphs one move at a time. */
-		public int globalAttackDelay = 30;
+		public int stomp = 80;          // 4s
+		public int groundSlam = 110;    // 5.5s
+		public int grab = 160;          // 8s
+		public int boulder = 120;       // 6s
+		public int charge = 180;        // 9s
+		/** Minimum ticks between ANY two telegraphed attacks, so the Titan reads one move at a time. */
+		public int globalAttackDelay = 16;
 	}
 
 	/** Natural spawning and terrain-destruction toggles. */

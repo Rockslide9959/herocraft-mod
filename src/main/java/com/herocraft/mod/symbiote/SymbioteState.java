@@ -67,16 +67,20 @@ public final class SymbioteState {
 	public int tendrilGrabTargetId;
 	public boolean tendrilGrabHeld;
 	public long tendrilGrabStartTick;
+	/** Symbiote Onslaught (slot 4 ultimate) charge clock: absolute game-time the current 3-second
+	 *  hold-charge started, or -1 when not charging. See {@link SymbioteAbilityManager}. */
+	public long onslaughtChargeStart;
 
 	public SymbioteState() {
 		this(false, false, 0L, DIR_IDLE, 0L, 0, ItemContainerContents.EMPTY,
-				defaultCooldowns(), 0L, 0L, false, SHIELD_GUARD_MAX, -1, false, 0L);
+				defaultCooldowns(), 0L, 0L, false, SHIELD_GUARD_MAX, -1, false, 0L, -1L);
 	}
 
 	public SymbioteState(boolean hasSymbiote, boolean active, long toggleReadyAt, int transformDir,
 			long transformStartTick, int transformDurationTicks, ItemContainerContents stowedArmor,
 			List<Long> abilityCooldowns, long frenzyEndTick, long frenzyDebuffEndTick, boolean shieldHeld,
-			float shieldGuard, int tendrilGrabTargetId, boolean tendrilGrabHeld, long tendrilGrabStartTick) {
+			float shieldGuard, int tendrilGrabTargetId, boolean tendrilGrabHeld, long tendrilGrabStartTick,
+			long onslaughtChargeStart) {
 		this.hasSymbiote = hasSymbiote;
 		this.active = active;
 		this.toggleReadyAt = toggleReadyAt;
@@ -92,6 +96,7 @@ public final class SymbioteState {
 		this.tendrilGrabTargetId = tendrilGrabTargetId;
 		this.tendrilGrabHeld = tendrilGrabHeld;
 		this.tendrilGrabStartTick = tendrilGrabStartTick;
+		this.onslaughtChargeStart = onslaughtChargeStart;
 	}
 
 	private static List<Long> defaultCooldowns() {
@@ -112,7 +117,7 @@ public final class SymbioteState {
 		return new SymbioteState(hasSymbiote, active, toggleReadyAt, transformDir, transformStartTick,
 				transformDurationTicks, stowedArmor, new java.util.ArrayList<>(abilityCooldowns),
 				frenzyEndTick, frenzyDebuffEndTick, shieldHeld, shieldGuard, tendrilGrabTargetId,
-				tendrilGrabHeld, tendrilGrabStartTick);
+				tendrilGrabHeld, tendrilGrabStartTick, onslaughtChargeStart);
 	}
 
 	public static final Codec<SymbioteState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -131,6 +136,7 @@ public final class SymbioteState {
 			Codec.FLOAT.optionalFieldOf("shield_guard", SHIELD_GUARD_MAX).forGetter(s -> s.shieldGuard),
 			Codec.INT.optionalFieldOf("tendril_grab_target_id", -1).forGetter(s -> s.tendrilGrabTargetId),
 			Codec.BOOL.optionalFieldOf("tendril_grab_held", false).forGetter(s -> s.tendrilGrabHeld),
-			Codec.LONG.optionalFieldOf("tendril_grab_start_tick", 0L).forGetter(s -> s.tendrilGrabStartTick)
+			Codec.LONG.optionalFieldOf("tendril_grab_start_tick", 0L).forGetter(s -> s.tendrilGrabStartTick),
+			Codec.LONG.optionalFieldOf("onslaught_charge_start", -1L).forGetter(s -> s.onslaughtChargeStart)
 	).apply(instance, SymbioteState::new));
 }

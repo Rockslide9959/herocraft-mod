@@ -17,6 +17,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * The Titan's "ripped-up terrain" throw -- a visual illusion (spec section 10): the block the Titan
@@ -103,9 +104,26 @@ public class TitanBoulderEntity extends ThrowableItemProjectile {
 			return;
 		}
 		impacted = true;
-		server.playSound(null, getX(), getY(), getZ(), SoundEvents.GENERIC_BIG_FALL, SoundSource.HOSTILE, 1.2f, 0.6f);
-		server.sendParticles(ParticleTypes.EXPLOSION, getX(), getY(), getZ(), 1, 0.0, 0.0, 0.0, 0.0);
-		server.sendParticles(ParticleTypes.POOF, getX(), getY(), getZ(), 25, 0.6, 0.4, 0.6, 0.05);
+		server.playSound(null, getX(), getY(), getZ(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 2.0f, 0.7f);
+		server.sendParticles(ParticleTypes.EXPLOSION_EMITTER, getX(), getY(), getZ(), 1, 0.0, 0.0, 0.0, 0.0);
+		server.sendParticles(ParticleTypes.POOF, getX(), getY(), getZ(), 40, 1.0, 0.6, 1.0, 0.08);
+		// AoE blast: everything in radius takes boulder damage, falling off with distance, so a near-miss
+		// still hurts. This is what makes the Titan's ranged attack an area attack, not a single-target one.
+		double radius = TitanConfig.attacks().boulderAoeRadius;
+		double baseDamage = TitanConfig.attacks().boulderDamage;
+		var owner = getOwner() instanceof LivingEntity le ? le : null;
+		for (LivingEntity victim : server.getEntitiesOfClass(LivingEntity.class,
+				getBoundingBox().inflate(radius), e -> e.isAlive() && e != owner)) {
+			double d = Math.sqrt(victim.distanceToSqr(getX(), getY(), getZ()));
+			if (d > radius) {
+				continue;
+			}
+			float dmg = (float) (baseDamage * (1.0 - 0.6 * (d / radius)));
+			victim.hurt(damageSources().mobProjectile(this, owner), dmg);
+			Vec3 push = victim.position().subtract(position()).normalize();
+			victim.setDeltaMovement(victim.getDeltaMovement().add(push.x * 1.2, 0.45, push.z * 1.2));
+			victim.hurtMarked = true;
+		}
 		TitanTerrain.breakCluster(server, blockPosition(), TitanConfig.attacks().boulderImpactRadius);
 		discard();
 	}

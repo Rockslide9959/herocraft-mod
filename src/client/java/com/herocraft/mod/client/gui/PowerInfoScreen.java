@@ -172,7 +172,9 @@ public final class PowerInfoScreen extends Screen {
 			return com.herocraft.mod.hero.guide.HeroPackGuide.symbioteSpiderManChapter();
 		}
 		if (symbiote) {
-			return com.herocraft.mod.hero.guide.HeroPackGuide.symbioteChapter();
+			// A plain Normal Host: their own six-ability kit only -- no web abilities, no sneak "alt"
+			// extras (that material belongs to Black Suit Spider-Man, handled just above).
+			return com.herocraft.mod.hero.guide.HeroPackGuide.symbioteNormalHostChapter();
 		}
 		if (spiderMan) {
 			return com.herocraft.mod.hero.guide.HeroPackGuide.spiderManChapter();

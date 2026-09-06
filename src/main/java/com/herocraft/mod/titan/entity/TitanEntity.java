@@ -65,6 +65,7 @@ public class TitanEntity extends RaidUndead {
 
 	private double lastDistanceToTarget = -1;
 	private int fleeSignal;
+	private int meleeCooldown;
 
 	private EventBossBar bossBar;
 
@@ -158,10 +159,64 @@ public class TitanEntity extends RaidUndead {
 		if (TitanConfig.world().passiveWalkingDestructionEnabled) {
 			passiveDestruction(server);
 		}
+		acquireTarget(server);
 		tickGrab(server);
 		tickApproach();
+		tickMeleeSwipe(server);
 		tickCombat(server);
 		updateBossBar(server);
+	}
+
+	/**
+	 * "changes 25": the Titan actively hunts. If it currently has no target, lock onto the nearest
+	 * non-creative player inside its detection range straight away rather than waiting on vanilla's
+	 * periodic target scan -- a world boss should never lose interest or wander off while a player is
+	 * anywhere nearby.
+	 */
+	private void acquireTarget(ServerLevel server) {
+		LivingEntity current = getTarget();
+		if (current != null && current.isAlive() && !((current instanceof Player p) && (p.isCreative() || p.isSpectator()))) {
+			return;
+		}
+		Player nearest = server.getNearestPlayer(this, TitanConfig.stats().detectionRange);
+		if (nearest != null && nearest.isAlive() && !nearest.isCreative() && !nearest.isSpectator()) {
+			setTarget(nearest);
+		}
+	}
+
+	/**
+	 * "changes 25": a plain, reliable melee. The telegraphed PUNCH/STOMP/SLAM moves are the Titan's
+	 * showpiece attacks, but between them a player standing right at its feet used to be able to just
+	 * hug the leg and whittle it down untouched (vanilla's own melee goal having been stripped in
+	 * {@link #registerGoals}). This is a short-cooldown swipe -- big damage, hard knockback -- that lands
+	 * whenever a player is within arm's reach, independent of the state machine's global cooldown.
+	 */
+	private void tickMeleeSwipe(ServerLevel server) {
+		if (meleeCooldown > 0) {
+			meleeCooldown--;
+		}
+		if (meleeCooldown > 0 || activeAttack != Attack.NONE || grabbedPlayer != null) {
+			return;
+		}
+		LivingEntity target = getTarget();
+		if (target == null || !target.isAlive() || !(target instanceof Player)) {
+			return;
+		}
+		double reach = TitanConfig.attacks().meleeRange + getBbWidth() * 0.5;
+		double dx = target.getX() - getX();
+		double dz = target.getZ() - getZ();
+		double dy = target.getY() - getY();
+		if (dx * dx + dz * dz > reach * reach || dy < -3.0 || dy > getBbHeight() + 2.0) {
+			return;
+		}
+		getLookControl().setLookAt(target, 60.0f, 60.0f);
+		target.hurt(damageSources().mobAttack(this), (float) TitanConfig.attacks().meleeDamage);
+		Vec3 push = target.position().subtract(position()).normalize();
+		target.setDeltaMovement(target.getDeltaMovement().add(push.x * 1.4, 0.42, push.z * 1.4));
+		target.hurtMarked = true;
+		meleeCooldown = TitanConfig.attacks().meleeCooldownTicks;
+		server.playSound(null, blockPosition(), SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.HOSTILE, 2.0f, 0.6f);
+		server.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1, target.getZ(), 12, 0.3, 0.3, 0.3, 0.1);
 	}
 
 	private static final net.minecraft.resources.ResourceLocation CHASE_SPEED_ID =
@@ -561,10 +616,28 @@ public class TitanEntity extends RaidUndead {
 	}
 
 	private void tickCharge(ServerLevel server) {
+		// First tick of the run (the 20-tick wind-up has just finished): re-lock the charge line onto
+		// where the target actually is NOW, so a player who side-stepped during the wind-up is still
+		// chased rather than the Titan barrelling at their old position. `attackResolved` doubles as the
+		// "charge has launched" flag here (CHARGE never uses it for anything else).
+		if (!attackResolved) {
+			attackResolved = true;
+			LivingEntity t = getTarget();
+			if (t != null && t.isAlive()) {
+				Vec3 d = new Vec3(t.getX() - getX(), 0, t.getZ() - getZ());
+				if (d.lengthSqr() > 1.0e-4) {
+					chargeDirection = d.normalize();
+				}
+			}
+			server.playSound(null, blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 3.5f, 0.4f);
+		}
+		// chargeSpeed is already in blocks/tick -- apply it straight to the velocity. (The old code
+		// multiplied it by 20, launching the Titan ~7 blocks/tick: it crossed the whole charge distance
+		// in a couple of ticks, usually clipping a wall and ending instantly -- "the charge is broken".)
 		double speed = TitanConfig.stats().chargeSpeed;
-		setDeltaMovement(chargeDirection.x * speed / 0.05, getDeltaMovement().y, chargeDirection.z * speed / 0.05);
+		setDeltaMovement(chargeDirection.x * speed, getDeltaMovement().y, chargeDirection.z * speed);
 		hasImpulse = true;
-		chargeDistanceLeft -= speed / 0.05 * 0.05;
+		chargeDistanceLeft -= speed;
 		TitanTerrain.breakAlongPath(server, position(), position().add(chargeDirection.scale(2)), getBbWidth());
 		if (server.getGameTime() % 3 == 0) {
 			server.sendParticles(ParticleTypes.CLOUD, getX(), getY(), getZ(), 3, getBbWidth() * 0.3, 0.1, getBbWidth() * 0.3, 0.0);

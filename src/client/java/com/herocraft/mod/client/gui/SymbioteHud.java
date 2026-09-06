@@ -53,7 +53,7 @@ public final class SymbioteHud {
 
 	/** Slot order 1..6 -> the Normal host ability id shown in that box (matches {@code AbilitySlot}). */
 	private static final String[] NORMAL_SLOT_ABILITIES = {
-			"tendril_grab", "tendril_strike", "leap", "slam", "shield", "frenzy"
+			"tendril_grab", "tendril_strike", "leap", "onslaught", "shield", "frenzy"
 	};
 
 	/** The three Black Suit bonus abilities, left to right, with the real Spider-Man key each rides on. */
@@ -99,15 +99,22 @@ public final class SymbioteHud {
 
 		boolean shield = s.shieldHeld;
 		boolean frenzy = now < s.frenzyEndTick;
+		boolean charging = s.onslaughtChargeStart >= 0;
+		float chargeFrac = charging ? Math.min(1.0f, (now - s.onslaughtChargeStart) / 60.0f) : 0.0f;
 
 		for (int i = 0; i < 6; i++) {
 			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
 			int x = x0 + i * (BOX + GAP);
-			boolean active = (i == 4 && shield) || (i == 5 && frenzy);
+			boolean active = (i == 3 && charging) || (i == 4 && shield) || (i == 5 && frenzy);
 
 			g.fill(x, y0, x + BOX, y0 + BOX, COLOR_BOX_BG);
 			g.renderOutline(x, y0, BOX, BOX, active ? COLOR_BORDER_ACTIVE : COLOR_BORDER);
 			g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 2, y0 + 2, COLOR_KEY, false);
+
+			if (i == 3 && charging) {
+				int fill = Math.round((BOX - 2) * chargeFrac);
+				g.fill(x + 1, y0 + BOX - 1 - fill, x + BOX - 1, y0 + BOX - 1, 0xCC8A5FE0);
+			}
 
 			int cd = (int) Math.max(0L, s.abilityCooldowns.get(i) - now);
 			if (cd > 0) {
