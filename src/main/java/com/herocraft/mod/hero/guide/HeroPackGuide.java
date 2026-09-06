@@ -155,7 +155,7 @@ public final class HeroPackGuide {
 			}
 			blank(lines);
 			head(lines, "herocraft.guide.symbiote.black_suit");
-			String[] extras = {"symbiote_tendril_zip", "symbiote_multi_tendril", "symbiote_slam_enhanced"};
+			String[] extras = {"symbiote_tendril_strike", "symbiote_crush", "symbiote_slam_enhanced"};
 			String[] keyedOn = {com.herocraft.mod.spider.SpiderAbilities.WEB_YANK,
 					com.herocraft.mod.spider.SpiderAbilities.WEB_SHOT,
 					com.herocraft.mod.spider.SpiderAbilities.WALL_CRAWL};

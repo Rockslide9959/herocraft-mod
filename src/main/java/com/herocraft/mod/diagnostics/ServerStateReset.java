@@ -98,6 +98,7 @@ public final class ServerStateReset {
 		com.herocraft.mod.punisher.PunisherArmorGate.clearSessionState();
 		com.herocraft.mod.combat.SonicVulnerability.clearSessionState();
 		com.herocraft.mod.symbiote.SymbioteAbilityManager.clearSessionState();
+		com.herocraft.mod.symbiote.SymbioteBlackSuitAbilities.clearSessionState();
 		com.herocraft.mod.symbiote.Symbiote.clearSessionState();
 	}
 }

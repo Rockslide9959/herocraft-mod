@@ -53,24 +53,26 @@ public final class SpiderManAbilityManager {
 					SpiderAbilities.webZip(player);
 				}
 			}
-			// X -- Black Suit: sneak = Symbiote Web Tendrils (free tendril pull, own cooldown)
+			// X -- Black Suit: sneak = Symbiote Tendril Strike (a straight tendril melee hit, not a pull)
 			case SLOT_3 -> {
 				if (pressed) {
 					if (blackSuit(player) && player.isShiftKeyDown()) {
-						com.herocraft.mod.symbiote.SymbioteBlackSuitAbilities.tendrilZip(player);
+						com.herocraft.mod.symbiote.SymbioteBlackSuitAbilities.tendrilStrike(player);
 					} else {
 						SpiderAbilities.webYank(player);
 					}
 				}
 			}
-			// Z -- Black Suit: sneak = Multi-Tendril Attack
+			// Z -- Black Suit: sneak + hold = Symbiote Crush (release ends it)
 			case SLOT_4 -> {
 				if (pressed) {
 					if (blackSuit(player) && player.isShiftKeyDown()) {
-						com.herocraft.mod.symbiote.SymbioteBlackSuitAbilities.multiTendrilAttack(player);
+						com.herocraft.mod.symbiote.SymbioteBlackSuitAbilities.beginCrush(player);
 					} else {
 						SpiderAbilities.webShot(player);
 					}
+				} else {
+					com.herocraft.mod.symbiote.SymbioteBlackSuitAbilities.releaseCrush(player);
 				}
 			}
 			// V -- tap = Web Net; sneak + hold = Web Blossom (charge 3 s, releases on let-go)
@@ -91,7 +93,7 @@ public final class SpiderManAbilityManager {
 			case SLOT_6 -> {
 				if (pressed) {
 					boolean handledBySlam = blackSuit(player) && player.isShiftKeyDown()
-							&& com.herocraft.mod.symbiote.SymbioteBlackSuitAbilities.slamEnhanced(player);
+							&& com.herocraft.mod.symbiote.SymbioteBlackSuitAbilities.slam(player);
 					if (!handledBySlam) {
 						SpiderAbilities.toggleWallCrawl(player);
 					}
@@ -111,5 +113,6 @@ public final class SpiderManAbilityManager {
 		SpiderSense.serverTick(player);
 		SpiderPassives.tick(player);
 		SpiderAbilities.tickWebBlossom(player);
+		com.herocraft.mod.symbiote.SymbioteBlackSuitAbilities.serverTick(player);
 	}
 }

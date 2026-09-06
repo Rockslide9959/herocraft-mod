@@ -58,7 +58,7 @@ public final class SymbioteHud {
 
 	/** The three Black Suit bonus abilities, left to right, with the real Spider-Man key each rides on. */
 	private static final String[] BLACK_SUIT_ABILITIES = {
-			SymbioteBlackSuitAbilities.TENDRIL_ZIP, SymbioteBlackSuitAbilities.MULTI_TENDRIL,
+			SymbioteBlackSuitAbilities.TENDRIL_STRIKE, SymbioteBlackSuitAbilities.CRUSH,
 			SymbioteBlackSuitAbilities.SLAM_ENHANCED
 	};
 	private static final String[] BLACK_SUIT_KEYED_ON = {

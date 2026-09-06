@@ -2,9 +2,12 @@ package com.herocraft.mod.symbiote;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 
+import com.herocraft.mod.combat.SonicVulnerability;
+
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.LivingEntity;
 
 /**
@@ -23,8 +26,11 @@ import net.minecraft.world.entity.LivingEntity;
 public final class SymbioteDamageRules {
 	private static final ThreadLocal<Boolean> REENTRANT = ThreadLocal.withInitial(() -> false);
 
-	/** Fire/lava deals 40% more while the Symbiote is active, per the spec's fire weakness. */
-	private static final float FIRE_MULTIPLIER = 1.4f;
+	/** Fire and lava deal 50% more while the Symbiote is active, per the spec's fire weakness. */
+	private static final float FIRE_MULTIPLIER = 1.5f;
+	/** Sound / sonic attacks deal 50% more too -- the Warden's boom, and anything landing while the
+	 *  host is still sonically disrupted (bell, goat horn, boom -- see {@link SonicVulnerability}). */
+	private static final float SOUND_MULTIPLIER = 1.5f;
 	/** A small passive cut to explosion damage while active -- "reduce... minor explosion damage". */
 	private static final float EXPLOSION_FACTOR = 0.8f;
 	/** Symbiote Shield: like a real shield, it only stops what comes at your front -- and it stops
@@ -55,9 +61,13 @@ public final class SymbioteDamageRules {
 
 		float factor = 1.0f;
 		if (source.is(DamageTypeTags.IS_FIRE)) {
+			// IS_FIRE also covers vanilla lava damage.
 			factor *= FIRE_MULTIPLIER;
 		} else if (source.is(DamageTypeTags.IS_EXPLOSION)) {
 			factor *= EXPLOSION_FACTOR;
+		}
+		if (source.is(DamageTypes.SONIC_BOOM) || SonicVulnerability.isDisrupted(player, now)) {
+			factor *= SOUND_MULTIPLIER;
 		}
 		if (SymbioteAbilityManager.shieldActive(player) && blockedFromFront(player, source)) {
 			factor *= SHIELD_FRONT_FACTOR;

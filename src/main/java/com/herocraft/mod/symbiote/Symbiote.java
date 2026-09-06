@@ -70,14 +70,17 @@ public final class Symbiote {
 	public static final int RETRACT_TICKS = 24;
 
 	/**
-	 * How long (in ticks) a bonded, suited-up player must stand in continuous fire/lava before the
-	 * Symbiote can't take it any more and tears itself off -- a real, playable version of the
-	 * organism's classic fire weakness ({@link SymbioteDamageRules}'s +40% fire damage is the other
-	 * half of it), and the one "natural" (non-admin-command) way to be rid of a bond. Resets the
-	 * instant the burning stops, so it is sustained exposure, not a stacking counter.
+	 * How long (in ticks) a bonded, suited-up player must stay in continuous contact with one of the
+	 * Symbiote's hazards -- fire, lava, or a sonic/sound attack -- before the organism can't take it
+	 * any more and <em>retreats</em>: the suit retracts (animated, like a normal H press) and cannot be
+	 * called back for {@link #HAZARD_RETRACT_COOLDOWN_TICKS}. The bond itself is always kept -- there is
+	 * no "natural" way to lose a bond entirely any more. {@link SymbioteDamageRules}'s +50% fire / lava
+	 * / sound damage and the Weakness applied while exposed are the rest of the weakness. Resets the
+	 * instant the contact stops, so it is sustained exposure, not a stacking counter.
 	 */
-	private static final int FIRE_EXPOSURE_REMOVE_TICKS = 100; // ~5s
-	private static final java.util.Map<Integer, Integer> FIRE_EXPOSURE = new java.util.concurrent.ConcurrentHashMap<>();
+	private static final int HAZARD_RETRACT_TICKS = 100;             // ~5s of continuous contact
+	private static final int HAZARD_RETRACT_COOLDOWN_TICKS = 200;    // ~10s before the suit can come back
+	private static final java.util.Map<Integer, Integer> HAZARD_EXPOSURE = new java.util.concurrent.ConcurrentHashMap<>();
 
 	private Symbiote() {
 	}
@@ -275,10 +278,10 @@ public final class Symbiote {
 		if (player.tickCount % 20 == 0) {
 			SymbioteModifiers.reconcileBlackSuit(player);
 		}
-		tickFireWeakness(player, s);
-		// tickFireWeakness may have just severed the bond outright (#remove), which strips the suit and
-		// hands back real armour -- re-read rather than trust the pre-removal copy, or the reconciliation
-		// below would see stale active=true and immediately re-equip the suit it was just removed from.
+		tickHazardExposure(player, s);
+		// tickHazardExposure may have just forced a retract (#forceRetract -> #beginSuitDown), which
+		// flips the transform clock -- re-read rather than trust the pre-retract copy so the
+		// reconciliation below acts on the current animation direction.
 		s = state(player);
 		if (!s.hasSymbiote) {
 			return;
@@ -331,6 +334,7 @@ public final class Symbiote {
 	 * {@link SpiderMan#clearTransient}.
 	 */
 	public static void clearTransient(ServerPlayer player) {
+		SymbioteBlackSuitAbilities.clearFor(player);
 		SymbioteState s = player.getAttachedOrElse(ModAttachments.SYMBIOTE_STATE, null);
 		if (s != null && (s.active || SymbioteTransform.isAnimating(s) || SymbioteSuit.wearing(player))) {
 			hardDeactivate(player);
@@ -350,43 +354,71 @@ public final class Symbiote {
 	}
 
 	/**
-	 * Sustained fire/lava contact while suited eventually severs the bond outright -- see
-	 * {@link #FIRE_EXPOSURE_REMOVE_TICKS}. Skips creative/invulnerable players (they were never in
-	 * danger from the fire in the first place) and resets the moment the burning stops.
+	 * Sustained contact with a Symbiote hazard -- fire, lava, or a sonic/sound attack -- while suited.
+	 * While exposed the host is {@link net.minecraft.world.effect.MobEffects#WEAKNESS weakened}; after
+	 * {@link #HAZARD_RETRACT_TICKS} of continuous contact the suit is forced to retract with a
+	 * {@link #HAZARD_RETRACT_COOLDOWN_TICKS} lockout ({@link #forceRetract}). Skips creative/invulnerable
+	 * players and resets the moment the contact stops.
 	 */
-	private static void tickFireWeakness(ServerPlayer player, SymbioteState s) {
+	private static void tickHazardExposure(ServerPlayer player, SymbioteState s) {
 		if (!s.active || player.getAbilities().invulnerable) {
-			FIRE_EXPOSURE.remove(player.getId());
+			HAZARD_EXPOSURE.remove(player.getId());
 			return;
 		}
-		if (!(player.isOnFire() || player.isInLava())) {
-			FIRE_EXPOSURE.remove(player.getId());
+		long now = player.level().getGameTime();
+		boolean exposed = player.isOnFire() || player.isInLava()
+				|| com.herocraft.mod.combat.SonicVulnerability.isDisrupted(player, now);
+		if (!exposed) {
+			HAZARD_EXPOSURE.remove(player.getId());
 			return;
 		}
-		int ticks = FIRE_EXPOSURE.merge(player.getId(), 1, Integer::sum);
+
+		// Weakened for as long as it is being hurt by the hazard, plus a short tail.
+		player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+				net.minecraft.world.effect.MobEffects.WEAKNESS, 40, 0, false, true, true));
+
+		int ticks = HAZARD_EXPOSURE.merge(player.getId(), 1, Integer::sum);
 		if (ticks == 1) {
 			player.displayClientMessage(Component.translatable("message.herocraft.symbiote.fire_recoil")
 					.withStyle(ChatFormatting.RED), true);
 		}
-		if (ticks < FIRE_EXPOSURE_REMOVE_TICKS) {
+		if (player.tickCount % 2 == 0) {
+			player.serverLevel().sendParticles(net.minecraft.core.particles.ParticleTypes.SQUID_INK,
+					player.getX(), player.getY() + 1, player.getZ(), 6, 0.4, 0.7, 0.4, 0.02);
+		}
+		if (ticks < HAZARD_RETRACT_TICKS) {
 			return;
 		}
-		FIRE_EXPOSURE.remove(player.getId());
+		HAZARD_EXPOSURE.remove(player.getId());
+		forceRetract(player, now);
+	}
+
+	/**
+	 * Pull the suit back in right now (using the ordinary animated suit-down) and lock the H toggle for
+	 * {@link #HAZARD_RETRACT_COOLDOWN_TICKS}. The bond is untouched -- the player can suit back up once
+	 * the cooldown is up and they are clear of the hazard.
+	 */
+	private static void forceRetract(ServerPlayer player, long now) {
+		SymbioteState s = state(player);
+		if (s.active && s.transformDir != SymbioteState.DIR_DOWN) {
+			beginSuitDown(player);
+		}
+		SymbioteState c = state(player).copy();
+		c.toggleReadyAt = now + HAZARD_RETRACT_COOLDOWN_TICKS;
+		save(player, c);
+
 		ServerLevel level = player.serverLevel();
-		level.sendParticles(net.minecraft.core.particles.ParticleTypes.LAVA,
-				player.getX(), player.getY() + 1, player.getZ(), 40, 0.5, 0.8, 0.5, 0.06);
 		level.sendParticles(net.minecraft.core.particles.ParticleTypes.SQUID_INK,
 				player.getX(), player.getY() + 1, player.getZ(), 60, 0.5, 0.8, 0.5, 0.1);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(),
 				SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 1.0f, 0.5f);
-		player.displayClientMessage(Component.translatable("message.herocraft.symbiote.burned_off")
-				.withStyle(ChatFormatting.RED, ChatFormatting.BOLD), false);
-		remove(player);
+		player.displayClientMessage(Component.translatable("message.herocraft.symbiote.hazard_retreat")
+				.withStyle(ChatFormatting.RED, ChatFormatting.BOLD), true);
 	}
 
-	/** Server-stop cleanup for {@link #FIRE_EXPOSURE} -- same discipline as every other static session map. */
+	/** Server-stop cleanup for {@link #HAZARD_EXPOSURE} -- same discipline as every other static session map. */
 	public static void clearSessionState() {
-		FIRE_EXPOSURE.clear();
+		HAZARD_EXPOSURE.clear();
 	}
 
 	private static void fx(ServerPlayer player, boolean on) {
