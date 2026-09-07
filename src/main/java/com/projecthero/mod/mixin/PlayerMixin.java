@@ -36,16 +36,10 @@ public abstract class PlayerMixin {
 	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
 	private void projecthero$strengthMining(BlockState state, CallbackInfoReturnable<Float> cir) {
 		Player self = (Player) (Object) this;
-		if (StrengthBareHands.applies(self)) {
-			// Bare hands break like a stone tool ...
-			float stone = StrengthBareHands.miningSpeed(state, cir.getReturnValue());
-			if (stone > cir.getReturnValue()) {
-				cir.setReturnValue(stone);
-			}
-		}
-		// ... and any break (tool or fist) is 25% faster.
 		if (SuperStrengthHandlers.owns(self)) {
-			cir.setReturnValue(cir.getReturnValue() * 1.25f);
+			// A stone-tool floor no matter what's in hand (a better tool still wins), then +25%.
+			float floored = Math.max(cir.getReturnValue(), StrengthBareHands.miningSpeed(state, cir.getReturnValue()));
+			cir.setReturnValue(floored * 1.25f);
 		}
 	}
 

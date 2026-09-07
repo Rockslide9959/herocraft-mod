@@ -61,9 +61,12 @@ public final class SuperStrengthHandlers {
 	/** 2 s hold, 2.5 s post-hit cooldown. */
 	private static final int CHARGED_DAMAGE = 20;
 	private static final int CHARGED_CD_TICKS = 50;
-	/** Z is a 5 s hold-to-charge for both moves. Bull Rush then runs for 5 s; cooldowns 40 s / 90 s. */
+	/**
+	 * Z is a 5 s hold-to-charge for both moves. Bull Rush then plows forward for 8 s. Bull Rush and
+	 * Impact Smash share one cooldown timer ({@code z_cd}): 40 s after a rush, 90 s after a smash.
+	 */
 	private static final int SMASH_CHARGE = 100;
-	private static final int RUSH_RUN = 100;
+	private static final int RUSH_RUN = 160;
 	private static final int RUSH_CD = 800;
 	private static final int SMASH_CD = 1800;
 	/** Maximum Effort: 22 s active, 60 s cooldown. */
@@ -287,7 +290,7 @@ public final class SuperStrengthHandlers {
 		}
 	}
 
-	/** Radial shockwave: damage, 2 s slow, upward launch, and weak-block breaking. */
+	/** Radial shockwave: damage, 2 s slow, upward launch. Leaves terrain intact. */
 	private static void groundSlam(AbilityContext ctx, float damage, double radius, double launch, double kb) {
 		ServerPlayer p = ctx.player();
 		ServerLevel level = ctx.level();
@@ -300,26 +303,16 @@ public final class SuperStrengthHandlers {
 		}
 		level.sendParticles(ParticleTypes.EXPLOSION, p.getX(), p.getY() + 0.1, p.getZ(), 1, 0, 0, 0, 0);
 		level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 50, radius / 2, 0.1, radius / 2, 0.06);
-		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE.value(), 0.9f, 1.1f);
-		if (AbilityHelpers.canGrief()) {
-			int ir = (int) Math.ceil(radius);
-			BlockPos base = p.blockPosition();
-			for (int dx = -ir; dx <= ir; dx++) {
-				for (int dz = -ir; dz <= ir; dz++) {
-					if (dx * dx + dz * dz > radius * radius) {
-						continue;
-					}
-					for (int dy = -1; dy <= 0; dy++) {
-						BlockPos bp = base.offset(dx, dy, dz);
-						var st = level.getBlockState(bp);
-						float hard = st.getDestroySpeed(level, bp);
-						if (!st.isAir() && hard >= 0 && hard < 1.6f) {
-							level.destroyBlock(bp, true, p);
-						}
-					}
-				}
-			}
+		// A ring of block-crack particles for the impact, sampling the ground -- no blocks are broken.
+		for (int i = 0; i < 24; i++) {
+			double a = i / 24.0 * Math.PI * 2;
+			double bx = p.getX() + Math.cos(a) * radius * 0.7;
+			double bz = p.getZ() + Math.sin(a) * radius * 0.7;
+			BlockPos gp = BlockPos.containing(bx, p.getY() - 0.5, bz);
+			level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, level.getBlockState(gp)),
+					bx, p.getY(), bz, 6, 0.2, 0.1, 0.2, 0.02);
 		}
+		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE.value(), 0.9f, 1.1f);
 	}
 
 	// ---- G: Air Punch --------------------------------------------------------------------------
@@ -391,8 +384,8 @@ public final class SuperStrengthHandlers {
 		res(p, "leap_press", 0);
 		long held = p.level().getGameTime() - (long) press;
 		int tier = held < 10 ? 0 : held < 20 ? 1 : held < 30 ? 2 : held < 40 ? 3 : held < 50 ? 4 : 5;
-		// Rough travel in blocks: 11 / 15 / 20 / 26 / 32 / 38.
-		double[] speed = {1.35, 1.70, 2.10, 2.55, 3.00, 3.45};
+		// Initial launch velocity per charge tier -- a full-charge leap really throws you.
+		double[] speed = {2.4, 3.3, 4.3, 5.4, 6.6, 7.8};
 		double s = speed[tier] * (maxEffortActive(p) ? 1.2 : 1.0);
 
 		// Launch straight along the line of sight -- but guarantee some lift so a flat or downward
@@ -422,16 +415,11 @@ public final class SuperStrengthHandlers {
 			return;
 		}
 		boolean smash = p.isShiftKeyDown();
-		if (smash && res(p, "smash_cd") > 0.5f) {
+		// Bull Rush and Impact Smash share one cooldown -- either being on cooldown blocks both.
+		if (res(p, "z_cd") > 0.5f) {
 			ctx.actionBar("message.projecthero.ability.on_cooldown",
 					net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
-					String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(res(p, "smash_cd") / 20.0f)));
-			return;
-		}
-		if (!smash && res(p, "rush_cd") > 0.5f) {
-			ctx.actionBar("message.projecthero.ability.on_cooldown",
-					net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
-					String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(res(p, "rush_cd") / 20.0f)));
+					String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(res(p, "z_cd") / 20.0f)));
 			return;
 		}
 		res(p, "z_charge", p.level().getGameTime());
@@ -459,11 +447,9 @@ public final class SuperStrengthHandlers {
 		long now = p.level().getGameTime();
 		ServerLevel level = ctx.level();
 
-		for (String t : new String[] {"rush_cd", "smash_cd"}) {
-			float v = res(p, t);
-			if (v > 0) {
-				res(p, t, v - 1);
-			}
+		float zcd = res(p, "z_cd");
+		if (zcd > 0) {
+			res(p, "z_cd", zcd - 1);
 		}
 
 		// ---- charging ----
@@ -500,17 +486,17 @@ public final class SuperStrengthHandlers {
 		p.hasImpulse = true;
 		level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 5, 0.3, 0.05, 0.3, 0.04);
 
-		boolean hit = false;
+		// Plough straight through -- hitting an enemy does NOT stop the rush. Vanilla i-frames keep
+		// the same mob from being hit more than ~twice a second.
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position().add(flat.scale(1.3)), 2.0)) {
 			AbilityHelpers.hurt(p, e, maxEffortActive(p) ? 26f : 20f);
 			AbilityHelpers.knockbackFrom(e, p.position(), 4.2); // ~5 blocks
 			AbilityHelpers.push(e, new Vec3(0, 0.45, 0));
-			hit = true;
 		}
 		long ticksRun = RUSH_RUN - ((long) runEnd - now);
 		boolean stuck = ticksRun > 6 && p.horizontalCollision
 				&& p.getDeltaMovement().horizontalDistanceSqr() < 0.06;
-		if (hit || now >= (long) runEnd || stuck) {
+		if (now >= (long) runEnd || stuck) {
 			endRush(p);
 		}
 	}
@@ -524,7 +510,7 @@ public final class SuperStrengthHandlers {
 		if (smash) {
 			rushGuards(p, false);
 			impactSmash(ctx);
-			res(p, "smash_cd", SMASH_CD);
+			res(p, "z_cd", SMASH_CD);
 		} else {
 			res(p, "z_run_end", p.level().getGameTime() + RUSH_RUN);
 			PowerToggles.modifier(p, Attributes.STEP_HEIGHT, RUSH_STEP, 4.0, AttributeModifier.Operation.ADD_VALUE);
@@ -541,7 +527,7 @@ public final class SuperStrengthHandlers {
 
 	private static void endRush(ServerPlayer p) {
 		res(p, "z_run_end", 0);
-		res(p, "rush_cd", RUSH_CD);
+		res(p, "z_cd", RUSH_CD);
 		rushGuards(p, false);
 		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, RUSH_STEP);
 		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.7f);

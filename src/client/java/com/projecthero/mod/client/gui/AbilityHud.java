@@ -148,8 +148,7 @@ public final class AbilityHud {
 		float zCharge = state.resources.getOrDefault(pk + "z_charge", 0.0f);
 		float zSmash = state.resources.getOrDefault(pk + "z_smash", 0.0f);
 		float zRunEnd = state.resources.getOrDefault(pk + "z_run_end", 0.0f);
-		float rushCd = state.resources.getOrDefault(pk + "rush_cd", 0.0f);
-		float smashCd = state.resources.getOrDefault(pk + "smash_cd", 0.0f);
+		float zCd = state.resources.getOrDefault(pk + "z_cd", 0.0f);
 		float punchProg = com.projecthero.mod.client.ProjectHeroModClient.chargedPunchProgress();
 		boolean punchReady = com.projecthero.mod.client.ProjectHeroModClient.chargedPunchReady();
 		float leapProg = com.projecthero.mod.client.ProjectHeroModClient.leapChargeProgress();
@@ -168,12 +167,9 @@ public final class AbilityHud {
 					Math.min(1.0f, held / 100.0f), 0xFFE0703A, 0xFFF0A070);
 		} else if (zRunEnd > 0.5f) {
 			strengthBar(g, client, x, w, rowY, "BULL RUSH", 1.0f, 0xFFFFC24A, 0xFFFFE0A0);
-		} else if (rushCd > 0.5f) {
-			strengthBar(g, client, x, w, rowY, "Bull Rush  " + (int) Math.ceil(rushCd / 20.0f) + "s",
-					1.0f - Math.min(1.0f, rushCd / 800.0f), 0xFF6A5230, 0xFFB0A080);
-		} else if (smashCd > 0.5f) {
-			strengthBar(g, client, x, w, rowY, "Impact Smash  " + (int) Math.ceil(smashCd / 20.0f) + "s",
-					1.0f - Math.min(1.0f, smashCd / 1800.0f), 0xFF6A5230, 0xFFB0A080);
+		} else if (zCd > 0.5f) {
+			strengthBar(g, client, x, w, rowY, "Bull Rush / Impact Smash  " + (int) Math.ceil(zCd / 20.0f) + "s",
+					1.0f - Math.min(1.0f, zCd / 1800.0f), 0xFF6A5230, 0xFFB0A080);
 		}
 		if (leapProg > 0.01f) {
 			strengthBar(g, client, x, w, rowY, "Power Leap", leapProg, 0xFF6FA8FF, 0xFFB8D0FF);
