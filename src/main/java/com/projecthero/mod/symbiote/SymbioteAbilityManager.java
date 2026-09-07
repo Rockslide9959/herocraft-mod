@@ -42,6 +42,12 @@ public final class SymbioteAbilityManager {
 	private static final int CD_LEAP = 40;             // 2s
 	private static final int CD_BARRAGE = 300;         // 15s
 	private static final int CD_TENDRIL_GRAB = 100;    // 5s
+	private static final int CD_SPIKE_VOLLEY = 18;     // ~0.9s
+
+	private static final double SPIKE_RANGE = 26.0;
+	private static final double SPIKE_CONE_DOT = 0.965; // ~15 degree forward cone
+	private static final float SPIKE_DAMAGE = 5.0f;
+	private static final int SPIKE_MAX_TARGETS = 3;
 
 	private static final int LEAP_NO_FALL_TICKS = 600;
 	private static final int LEAP_RAM_TICKS = 16;
@@ -155,10 +161,18 @@ public final class SymbioteAbilityManager {
 			toggleShield(player);
 			return;
 		}
-		// Tendril Grab (Shift + G, or any G press while already holding a target to throw it).
+		// G: fire a Symbiote Spike volley. Shift + G grabs; a bare G press while already holding a target
+		// throws it; otherwise a bare G press shoots spikes.
 		if (slot == AbilitySlot.SLOT_2) {
 			if (pressed) {
-				handleTendrilGrab(player, now, sneak);
+				if (sneak || Symbiote.state(player).tendrilGrabHeld) {
+					handleTendrilGrab(player, now, sneak);
+				} else if (SymbioteVitalsManager.usable(player)) {
+					tryWithCooldown(player, AbilitySlot.SLOT_2.index(), now, CD_SPIKE_VOLLEY,
+							() -> fireSpikeVolley(player));
+				} else {
+					player.displayClientMessage(Component.translatable("message.projecthero.symbiote.spent"), true);
+				}
 			}
 			return;
 		}
@@ -275,6 +289,39 @@ public final class SymbioteAbilityManager {
 		}).toList();
 	}
 
+	// ---------------- Symbiote Spikes (G) ----------------
+
+	/** Fire a short spread of living spikes at whatever is in the narrow cone the player is aiming down. */
+	private static boolean fireSpikeVolley(ServerPlayer player) {
+		ServerLevel level = AbilityHelpers.level(player);
+		Vec3 eye = player.getEyePosition();
+		Vec3 look = player.getLookAngle();
+
+		int struck = 0;
+		for (LivingEntity target : coneTargets(player, SPIKE_RANGE, SPIKE_CONE_DOT)) {
+			if (AbilityHelpers.hurt(player, target, SPIKE_DAMAGE)) {
+				AbilityHelpers.knockbackFrom(target, player.position(), 0.35);
+				Vec3 hit = target.position().add(0, target.getBbHeight() * 0.5, 0);
+				AbilityHelpers.line(level, eye.add(look.scale(0.5)), hit, ParticleTypes.SQUID_INK, 4.0);
+				AbilityHelpers.burst(level, hit, ParticleTypes.CRIT, 6, 0.25);
+				AbilityHelpers.burst(level, hit, ParticleTypes.SQUID_INK, 8, 0.25);
+				if (++struck >= SPIKE_MAX_TARGETS) {
+					break;
+				}
+			}
+		}
+
+		// Always show the spikes leaving the arm, hit or miss.
+		for (int i = -1; i <= 1; i++) {
+			Vec3 dir = look.yRot(i * 0.09f).normalize();
+			AbilityHelpers.line(level, eye.add(dir.scale(0.5)), eye.add(dir.scale(SPIKE_RANGE * 0.7)),
+					ParticleTypes.SQUID_INK, 3.0);
+		}
+		AbilityHelpers.sound(player, SoundEvents.HOSTILE_SWIM, 0.9f, 1.2f);
+		AbilityHelpers.sound(player, SoundEvents.PLAYER_ATTACK_SWEEP, 0.6f, 1.4f);
+		return true;
+	}
+
 	// ---------------- Tendril Grab (Shift+G, tap-tap) ----------------
 
 	private static void handleTendrilGrab(ServerPlayer player, long now, boolean sneak) {
@@ -381,10 +428,13 @@ public final class SymbioteAbilityManager {
 
 	// ---------------- Symbiote Leap (X) ----------------
 
+	private static final double LEAP_SPEED = 1.9;
+
 	private static boolean symbioteLeap(ServerPlayer player) {
-		Vec3 look = player.getLookAngle();
-		Vec3 dir = new Vec3(look.x, 0, look.z).normalize();
-		AbilityHelpers.launchSelf(player, dir.scale(1.4).add(0, 1.05, 0));
+		// v0.9.24: purely directional -- a straight dash exactly where the player is looking, no added
+		// lift. Aim past an enemy and you will sail over them.
+		Vec3 dir = player.getLookAngle().normalize();
+		AbilityHelpers.launchSelf(player, dir.scale(LEAP_SPEED));
 		long now = player.level().getGameTime();
 		LEAP_NO_FALL_UNTIL.put(player.getId(), now + LEAP_NO_FALL_TICKS);
 		LEAP_RAM_UNTIL.put(player.getId(), now + LEAP_RAM_TICKS);

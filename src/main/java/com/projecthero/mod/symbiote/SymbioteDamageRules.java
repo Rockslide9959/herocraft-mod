@@ -75,13 +75,13 @@ public final class SymbioteDamageRules {
 		}
 
 		float scaled = amount * factor;
-		// v0.9.23: half of what is left is dealt to the Symbiote's own health bar, not to the host --
-		// until that bar is spent, then the host takes it all.
-		float toPlayer = SymbioteVitalsManager.absorb(player, scaled);
-		if (Math.abs(toPlayer - amount) < 0.01f) {
+		// v0.9.24: the host takes the hit IN FULL -- no redirect. Separately, the Symbiote loses a
+		// fraction of that hit from its own Biomass bar, in parallel.
+		SymbioteVitalsManager.onHostHit(player, scaled);
+		if (Math.abs(scaled - amount) < 0.01f) {
 			return true;
 		}
-		return reapply(player, source, toPlayer);
+		return reapply(player, source, scaled);
 	}
 
 	/**

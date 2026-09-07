@@ -127,6 +127,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.event.raid.SupervillainRaidEvents.initialize();
 		com.projecthero.mod.command.SupervillainRaidCommand.initialize();
 		com.projecthero.mod.command.HeroRaidCommand.initialize();
+		// Must be last: /projecthero redirects onto every root literal registered above.
+		com.projecthero.mod.command.ProjectHeroCommand.initialize();
 
 		ModStructureTypes.initialize();
 		ModStructurePieceTypes.initialize();

@@ -35,19 +35,24 @@ import net.minecraft.world.entity.projectile.AbstractArrow;
  * on the armour being on.
  */
 public final class SymbioteVitalsManager {
-	/** Full Symbiote health -- 30 hearts of shared pool on top of the host's own. */
-	public static final float MAX_HP = 60.0f;
-	/** Regen while not broken: ~1 hp per second. */
-	private static final float REGEN_PER_TICK = 0.05f;
+	/** Full Biomass -- the Symbiote's own life pool, shown in game as the "Biomass" bar. */
+	public static final float MAX_HP = 200.0f;
+	/** Regen once safe: 3% of the pool per second (0.3/tick), after {@link #REGEN_SAFE_TICKS} out of combat. */
+	private static final float REGEN_PER_TICK = MAX_HP * 0.03f / 20.0f;
+	/** Biomass only regenerates after this long with no damage dealt or taken (5 s). */
+	private static final int REGEN_SAFE_TICKS = 100;
 	/** Once the bar has emptied, abilities stay locked until it climbs back to this fraction. */
 	public static final float RECOVER_FRACTION = 0.20f;
 	/** The Symbiote starts warning its host below this fraction. */
 	private static final float WARN_FRACTION = 0.35f;
-	/** Fraction of every hit the host takes that is dealt to the Symbiote instead. */
-	public static final float ABSORB_FRACTION = 0.5f;
+	/**
+	 * The host takes every hit in full -- the damage is <em>not</em> split. On top of that, the Symbiote
+	 * loses this fraction of the hit from its own Biomass (a parallel drain, not a redirect).
+	 */
+	public static final float BIOMASS_HIT_FRACTION = 0.4f;
 
-	/** Symbiote Blade: 30 s of hold time (1 charge point per tick), refills a little faster while sheathed. */
-	public static final float BLADE_MAX = 600.0f;
+	/** Symbiote Blade: 15 s of hold time (1 charge point per tick), refills a little faster while sheathed. */
+	public static final float BLADE_MAX = 300.0f;
 	private static final float BLADE_DRAIN_PER_TICK = 1.0f;
 	private static final float BLADE_REGEN_PER_TICK = 1.4f;
 	private static final float BLADE_BONUS_DAMAGE = 5.0f;
@@ -69,12 +74,22 @@ public final class SymbioteVitalsManager {
 	private static final Map<Integer, Long> SNEAK_START = new ConcurrentHashMap<>();
 	/** Per-player last low-health warning game time -- transient. */
 	private static final Map<Integer, Long> LAST_WARN = new ConcurrentHashMap<>();
+	/** Per-player last game time a hit was dealt or taken -- gates Biomass regen and feeds the dialogue. */
+	private static final Map<Integer, Long> LAST_COMBAT = new ConcurrentHashMap<>();
+	/** Per-player last game time the Symbiote lost a large chunk of Biomass from a single hit. */
+	private static final Map<Integer, Long> LAST_BIG_HIT = new ConcurrentHashMap<>();
 
 	private SymbioteVitalsManager() {
 	}
 
 	public static void initialize() {
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> {
+			// Any hit a bonded host lands counts as "in combat" for the Biomass regen gate.
+			if (source.getEntity() instanceof ServerPlayer attackerPlayer && Symbiote.hasSymbiote(attackerPlayer)
+					&& entity != attackerPlayer && taken > 0.0f) {
+				markCombat(attackerPlayer);
+			}
+
 			// Symbiote Blade: an extra armour-bypassing bite on a melee hit while it is out.
 			if (source.getEntity() instanceof ServerPlayer sp && entity instanceof LivingEntity living
 					&& living != sp && taken > 0.0f && bladeActive(sp)
@@ -131,39 +146,88 @@ public final class SymbioteVitalsManager {
 		return v != null && v.thornsMode;
 	}
 
-	// ---------------- damage absorption ----------------
+	// ---------------- damage / Biomass drain ----------------
 
 	/**
-	 * Route {@link #ABSORB_FRACTION} of {@code incoming} onto the Symbiote's own health. Returns the
-	 * amount the player should still take. Once the bar is empty the player takes everything.
+	 * The host has just been dealt {@code dealt} damage <em>in full</em> (v0.9.24: no more redirect --
+	 * the player takes everything). The Symbiote loses {@link #BIOMASS_HIT_FRACTION} of that from its own
+	 * Biomass, in parallel. At zero the bar breaks and every ability locks until it recovers.
 	 */
-	public static float absorb(ServerPlayer player, float incoming) {
-		if (incoming <= 0.0f || !Symbiote.hasSymbiote(player)) {
-			return incoming;
+	public static void onHostHit(ServerPlayer player, float dealt) {
+		if (dealt <= 0.0f || !Symbiote.hasSymbiote(player)) {
+			return;
 		}
+		markCombat(player);
 		SymbioteVitals v = vitals(player);
 		if (v.hp <= 0.0f) {
-			return incoming;
+			return;
 		}
-		float want = incoming * ABSORB_FRACTION;
-		float drained = Math.min(want, v.hp);
+		float drain = dealt * BIOMASS_HIT_FRACTION;
 		SymbioteVitals c = v.copy();
-		c.hp = Math.max(0.0f, v.hp - want);
+		c.hp = Math.max(0.0f, v.hp - drain);
+		boolean nowBroken = c.hp <= 0.0f && !v.broken;
 		if (c.hp <= 0.0f) {
 			c.broken = true;
 		}
 		save(player, c);
+		if (drain >= MAX_HP * 0.12f) {
+			LAST_BIG_HIT.put(player.getId(), player.level().getGameTime());
+		}
 		if (player.level() instanceof ServerLevel level) {
 			level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 1.0, player.getZ(),
 					10, 0.35, 0.6, 0.35, 0.02);
-			if (c.broken) {
+			if (nowBroken) {
 				level.playSound(null, player.getX(), player.getY(), player.getZ(),
 						SoundEvents.WARDEN_DEATH, SoundSource.PLAYERS, 0.6f, 1.6f);
 				player.displayClientMessage(Component.translatable("message.projecthero.symbiote.spent")
 						.withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD), true);
 			}
 		}
-		return incoming - drained;
+	}
+
+	/** A direct Biomass cost (arrow catch, ability spend) -- no combat marking. */
+	static void spendBiomass(ServerPlayer player, float amount) {
+		SymbioteVitals v = vitals(player);
+		if (v.hp <= 0.0f) {
+			return;
+		}
+		SymbioteVitals c = v.copy();
+		c.hp = Math.max(0.0f, v.hp - amount);
+		if (c.hp <= 0.0f) {
+			c.broken = true;
+		}
+		save(player, c);
+	}
+
+	public static void markCombat(ServerPlayer player) {
+		LAST_COMBAT.put(player.getId(), player.level().getGameTime());
+	}
+
+	/** Ticks since this player last dealt or took a hit ({@link Long#MAX_VALUE} if never). */
+	public static long ticksSinceCombat(ServerPlayer player, long now) {
+		Long last = LAST_COMBAT.get(player.getId());
+		return last == null ? Long.MAX_VALUE : now - last;
+	}
+
+	public static boolean outOfCombat(ServerPlayer player, long now) {
+		return ticksSinceCombat(player, now) >= REGEN_SAFE_TICKS;
+	}
+
+	public static float biomass(ServerPlayer player) {
+		return vitals(player).hp;
+	}
+
+	public static float biomassFraction(ServerPlayer player) {
+		return Math.max(0.0f, Math.min(1.0f, vitals(player).hp / MAX_HP));
+	}
+
+	public static boolean regenerating(ServerPlayer player, long now) {
+		return outOfCombat(player, now) && vitals(player).hp < MAX_HP;
+	}
+
+	public static boolean tookBigHitRecently(ServerPlayer player, long now) {
+		Long last = LAST_BIG_HIT.get(player.getId());
+		return last != null && now - last < 60L;
 	}
 
 	// ---------------- blade / spikes toggles ----------------
@@ -245,9 +309,10 @@ public final class SymbioteVitalsManager {
 		boolean dirty = false;
 		boolean transition = false;
 
-		// Regeneration -- unless the bar is fully spent-and-broken, in which case it still climbs (that
-		// is how the lock lifts) just at the same rate.
-		if (c.hp < MAX_HP) {
+		// Regeneration -- 3% of the pool per second, but only after 5 s clear of combat. A broken bar
+		// climbs the same way (that is how the ability lock lifts), so staying in a fight keeps it locked.
+		long nowTime = player.level().getGameTime();
+		if (c.hp < MAX_HP && outOfCombat(player, nowTime)) {
 			c.hp = Math.min(MAX_HP, c.hp + REGEN_PER_TICK);
 			dirty = true;
 		}
@@ -303,19 +368,8 @@ public final class SymbioteVitalsManager {
 			}
 		}
 
-		fastMining(player, c);
 		sneakInvisibility(player);
 		catchArrows(player, c);
-	}
-
-	/** Bare-handed, a bonded Normal host tears through soft blocks -- Haste II while the main hand is empty. */
-	private static void fastMining(ServerPlayer player, SymbioteVitals v) {
-		if (v.broken || SymbioteHostType.of(player) != SymbioteHostType.NORMAL) {
-			return;
-		}
-		if (player.getMainHandItem().isEmpty() && player.tickCount % 20 == 0) {
-			player.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, 40, 1, true, false, false));
-		}
 	}
 
 	/** Suit on, and crouched without a break for {@link #SNEAK_INVIS_TICKS}: the Symbiote hides the host. */
@@ -381,6 +435,8 @@ public final class SymbioteVitalsManager {
 	public static void clearTransient(ServerPlayer player) {
 		SNEAK_START.remove(player.getId());
 		LAST_WARN.remove(player.getId());
+		LAST_COMBAT.remove(player.getId());
+		LAST_BIG_HIT.remove(player.getId());
 		reconcileBlade(player, false);
 		SymbioteVitals v = player.getAttachedOrElse(ModAttachments.SYMBIOTE_VITALS, null);
 		if (v == null) {
@@ -398,5 +454,7 @@ public final class SymbioteVitalsManager {
 	public static void clearSessionState() {
 		SNEAK_START.clear();
 		LAST_WARN.clear();
+		LAST_COMBAT.clear();
+		LAST_BIG_HIT.clear();
 	}
 }

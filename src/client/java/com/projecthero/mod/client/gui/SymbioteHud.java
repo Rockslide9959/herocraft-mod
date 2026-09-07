@@ -54,7 +54,7 @@ public final class SymbioteHud {
 
 	/** Slot order 1..6 -> the Normal host ability id shown in that box (matches {@code AbilitySlot}). */
 	private static final String[] NORMAL_SLOT_ABILITIES = {
-			"tendril_strike", "tendril_grab", "leap", "barrage", "blade", "spikes"
+			"tendril_strike", "spike_shot", "leap", "barrage", "blade", "spikes"
 	};
 
 	/** The three Black Suit bonus abilities, left to right, with the real Spider-Man key each rides on. */

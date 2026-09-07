@@ -337,6 +337,7 @@ public final class Symbiote {
 		SymbioteBlackSuitAbilities.clearFor(player);
 		SymbioteAbilityManager.clearFor(player);
 		SymbioteVitalsManager.clearTransient(player);
+		SymbioteDialogue.clearFor(player);
 		SymbioteState s = player.getAttachedOrElse(ModAttachments.SYMBIOTE_STATE, null);
 		if (s != null && (s.active || SymbioteTransform.isAnimating(s) || SymbioteSuit.wearing(player))) {
 			hardDeactivate(player);

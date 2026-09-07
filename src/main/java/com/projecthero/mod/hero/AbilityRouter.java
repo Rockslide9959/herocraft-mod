@@ -198,6 +198,8 @@ public final class AbilityRouter {
 		// v0.9.23: the Symbiote health bar, its warnings, arrow-catching, blade/spikes upkeep, and the
 		// crouch-cloak + bare-hand mining passives.
 		com.projecthero.mod.symbiote.SymbioteVitalsManager.tick(player);
+		// v0.9.24: the Symbiote's context-aware voice -- watches the fight and says the most relevant thing.
+		com.projecthero.mod.symbiote.SymbioteDialogue.tick(player);
 		// Same discipline for Max Steel's suit.
 		com.projecthero.mod.maxsteel.MaxSteel.enforce(player);
 	}
