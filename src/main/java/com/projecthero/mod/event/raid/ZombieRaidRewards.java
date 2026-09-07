@@ -7,7 +7,6 @@ import com.projecthero.mod.event.EventConfig;
 import com.projecthero.mod.event.EventInstance;
 import com.projecthero.mod.event.EventManager;
 import com.projecthero.mod.event.EventSavedData;
-import com.projecthero.mod.event.boss.BossPowers;
 import com.projecthero.mod.event.entity.AcidZombie;
 import com.projecthero.mod.event.entity.CursedZombie;
 import com.projecthero.mod.event.entity.EmpoweredZombie;
@@ -17,7 +16,6 @@ import com.projecthero.mod.event.entity.SwordSkeleton;
 import com.projecthero.mod.grave.GraveboundCurse;
 import com.projecthero.mod.grave.GraveboundState;
 import com.projecthero.mod.grave.item.BossTrophyItem;
-import com.projecthero.mod.grave.item.CorruptedPowerCoreItem;
 import com.projecthero.mod.grave.item.GraveItems;
 
 import net.minecraft.ChatFormatting;
@@ -125,60 +123,12 @@ public final class ZombieRaidRewards {
 				? randomBetween(random, cfg.graveEssenceFromFinalBossMin, cfg.graveEssenceFromFinalBossMax)
 				: randomBetween(random, cfg.graveEssenceFromBossMin, cfg.graveEssenceFromBossMax));
 
-		// Every Powered Zombie Boss drops a core that remembers its power.
-		drop(level, boss, CorruptedPowerCoreItem.of(GraveItems.CORRUPTED_POWER_CORE, boss.powerKey()));
-		if (!boss.secondPowerKey().isEmpty()) {
-			drop(level, boss, CorruptedPowerCoreItem.of(GraveItems.CORRUPTED_POWER_CORE, boss.secondPowerKey()));
-		}
-
 		if (finalBoss || random.nextDouble() < cfg.bossTrophyChance) {
 			drop(level, boss, BossTrophyItem.of(
 					finalBoss ? GraveItems.FINAL_BOSS_TROPHY : GraveItems.BOSS_TROPHY, boss.powerKey()));
 		}
-
-		// Research progress for every participant present for the kill.
-		for (ServerPlayer player : raid.participants().present()) {
-			advanceResearch(player, boss.powerKey());
-			if (!boss.secondPowerKey().isEmpty()) {
-				advanceResearch(player, boss.secondPowerKey());
-			}
-		}
-		if (raid.bossesDefeated() >= 3) {
-			for (ServerPlayer player : raid.participants().onlineEligible(level)) {
-				GraveboundCurse.award(player, "gravebound/power_breaker");
-			}
-		}
 		level.playSound(null, boss.blockPosition(), SoundEvents.TOTEM_USE, SoundSource.HOSTILE, 1.0f, 0.6f);
 	}
-
-	/**
-	 * Power research (spec section 38). Each boss kill of that power adds a chunk of progress; the
-	 * player is told where they are, and told once when it completes.
-	 */
-	private static void advanceResearch(ServerPlayer player, String powerKey) {
-		if (powerKey == null || powerKey.isEmpty()) {
-			return;
-		}
-		GraveboundState state = GraveboundCurse.state(player).copy();
-		int before = state.powerResearch.getOrDefault(powerKey, 0);
-		if (before >= 100) {
-			return;
-		}
-		int after = Math.min(100, before + RESEARCH_PER_KILL);
-		state.powerResearch.put(powerKey, after);
-		GraveboundCurse.save(player, state);
-
-		player.sendSystemMessage(Component.translatable("message.projecthero.research.progress",
-				BossPowers.displayName(powerKey), after).withStyle(ChatFormatting.AQUA));
-		if (after >= 100) {
-			player.sendSystemMessage(Component.translatable("message.projecthero.research.complete",
-					BossPowers.displayName(powerKey)).withStyle(ChatFormatting.GOLD));
-			GraveboundCurse.award(player, "gravebound/power_analysis");
-		}
-	}
-
-	/** Four boss kills of the same power to fully analyse it. */
-	private static final int RESEARCH_PER_KILL = 25;
 
 	// ---------------- layer 3: completion ----------------
 
@@ -248,10 +198,6 @@ public final class ZombieRaidRewards {
 			addToChest(chest, new ItemStack(GraveItems.GRAVE_ESSENCE, Math.min(64, essence)));
 			if (essence > 64) {
 				addToChest(chest, new ItemStack(GraveItems.GRAVE_ESSENCE, essence - 64));
-			}
-			String power = raid.finalBossPower();
-			if (!power.isEmpty()) {
-				addToChest(chest, CorruptedPowerCoreItem.of(GraveItems.CORRUPTED_POWER_CORE, power));
 			}
 			chest.setChanged();
 		}
@@ -338,11 +284,4 @@ public final class ZombieRaidRewards {
 	public static void giveEssence(ServerPlayer player, int count) {
 		give(player, new ItemStack(GraveItems.GRAVE_ESSENCE, count));
 	}
-
-	/** Exposed for the debug command / research display. */
-	public static int research(ServerPlayer player, String powerKey) {
-		Integer value = GraveboundCurse.state(player).powerResearch.get(powerKey);
-		return value == null ? 0 : value;
-	}
-
 }

@@ -1,12 +1,10 @@
 package com.projecthero.mod.grave;
 
-import com.projecthero.mod.event.EventConfig;
 import com.projecthero.mod.event.entity.AcidGlobEntity;
 import com.projecthero.mod.event.entity.AcidZombie;
 import com.projecthero.mod.event.entity.JuggernautZombie;
 import com.projecthero.mod.event.raid.ZombieRaidNetworking;
 import com.projecthero.mod.event.raid.ZombieRaidRewards;
-import com.projecthero.mod.grave.item.GraveComponents;
 import com.projecthero.mod.grave.item.GravekeeperShieldItem;
 import com.projecthero.mod.grave.item.GraveItems;
 import com.projecthero.mod.grave.item.NecroticBladeItem;
@@ -68,7 +66,6 @@ public final class GraveboundEvents {
 	 */
 	public static void serverTick(ServerPlayer player) {
 		GraveboundCurse.tick(player);
-		tickGravewalkerCharm(player);
 	}
 
 	// ---------------- curse removal ----------------
@@ -80,61 +77,36 @@ public final class GraveboundEvents {
 	 * <p>Called from {@code LivingEntityEatMixin}.
 	 */
 	public static void onFinishedEating(ServerPlayer player, ItemStack stack) {
-		if (!stack.is(Items.ENCHANTED_GOLDEN_APPLE)) {
+		if (stack.is(Items.ENCHANTED_GOLDEN_APPLE)) {
+			GraveboundCurse.clear(player, true);
 			return;
 		}
-		GraveboundCurse.clear(player, true);
+		if (stack.is(GraveItems.HEART_OF_THE_GRAVE)) {
+			armHeartTotem(player);
+		}
 	}
 
 	// ---------------- artifacts ----------------
 
 	/**
-	 * Gravewalker Charm. Fires when the player <em>crosses</em> the health threshold, not while they
-	 * sit below it: the charm records an absolute ready-at game time on the stack, and the trigger
-	 * additionally requires that the player was above the threshold recently. In practice the cooldown
-	 * alone is enough -- a two-minute lockout cannot fire every tick -- but the crossing check is what
-	 * stops it burning its cooldown the instant it is picked up by an already-hurt player.
+	 * Eating a Heart of the Grave settles a one-shot Totem of Undying revive into the player's chest.
+	 * Eating another while one is already armed does nothing extra -- the charge does not stack.
 	 */
-	private static void tickGravewalkerCharm(ServerPlayer player) {
-		if (player.tickCount % 10 != 0) {
+	private static void armHeartTotem(ServerPlayer player) {
+		GraveboundState state = GraveboundCurse.state(player).copy();
+		if (state.heartTotemArmed) {
 			return;
 		}
-		EventConfig.ZombieRaid cfg = EventConfig.raid();
-		float fraction = player.getHealth() / Math.max(1.0f, player.getMaxHealth());
-		if (fraction > cfg.gravewalkerThreshold || fraction <= 0.0f) {
-			return;
-		}
-		ItemStack charm = findCharm(player);
-		if (charm == null) {
-			return;
-		}
-		long now = player.level().getGameTime();
-		Long readyAt = charm.get(GraveComponents.CHARM_READY_AT);
-		if (readyAt != null && now < readyAt) {
-			return;
-		}
-		charm.set(GraveComponents.CHARM_READY_AT, now + cfg.gravewalkerCooldownTicks);
-		player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, cfg.gravewalkerEffectTicks, 0));
-		player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, cfg.gravewalkerEffectTicks, 0));
-		player.displayClientMessage(Component.translatable("message.projecthero.charm.triggered")
-				.withStyle(ChatFormatting.GOLD), true);
+		state.heartTotemArmed = true;
+		GraveboundCurse.save(player, state);
+		player.displayClientMessage(Component.translatable("message.projecthero.heart_of_the_grave.armed")
+				.withStyle(ChatFormatting.LIGHT_PURPLE), true);
 		if (player.level() instanceof ServerLevel level) {
 			level.playSound(null, player.getX(), player.getY(), player.getZ(),
-					SoundEvents.TOTEM_USE, SoundSource.PLAYERS, 0.6f, 1.5f);
+					SoundEvents.TOTEM_USE, SoundSource.PLAYERS, 0.5f, 0.7f);
 			level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, player.getX(), player.getY() + 1.0, player.getZ(),
-					20, 0.4, 0.6, 0.4, 0.03);
+					24, 0.4, 0.6, 0.4, 0.03);
 		}
-	}
-
-	private static ItemStack findCharm(ServerPlayer player) {
-		var inventory = player.getInventory();
-		for (int i = 0; i < inventory.getContainerSize(); i++) {
-			ItemStack stack = inventory.getItem(i);
-			if (stack.is(GraveItems.GRAVEWALKER_CHARM)) {
-				return stack;
-			}
-		}
-		return null;
 	}
 
 	/** Undying Totem: like a vanilla totem, but it takes three deaths to spend. */
@@ -150,19 +122,35 @@ public final class GraveboundEvents {
 				break;
 			}
 		}
-		if (totem == null || !UndyingTotemItem.consumeCharge(totem)) {
-			return true;
+		if (totem != null && UndyingTotemItem.consumeCharge(totem)) {
+			totemRevive(player);
+			player.displayClientMessage(Component.translatable("message.projecthero.undying_totem.used",
+					UndyingTotemItem.charges(totem)).withStyle(ChatFormatting.GOLD), true);
+			return false;
 		}
 
+		// Heart of the Grave: a one-shot revive that was eaten earlier, no need to hold anything.
+		GraveboundState state = GraveboundCurse.state(player);
+		if (state.heartTotemArmed) {
+			GraveboundState next = state.copy();
+			next.heartTotemArmed = false;
+			GraveboundCurse.save(player, next);
+			totemRevive(player);
+			player.displayClientMessage(Component.translatable("message.projecthero.heart_of_the_grave.used")
+					.withStyle(ChatFormatting.LIGHT_PURPLE), true);
+			return false;
+		}
+		return true;
+	}
+
+	/** The exact Totem-of-Undying rescue: 1 HP, clear effects, regen/absorption/fire-res, the animation. */
+	private static void totemRevive(ServerPlayer player) {
 		player.setHealth(1.0f);
 		player.removeAllEffects();
 		player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 900, 1));
 		player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 100, 1));
 		player.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 800, 0));
 		player.level().broadcastEntityEvent(player, (byte) 35); // vanilla totem animation
-		player.displayClientMessage(Component.translatable("message.projecthero.undying_totem.used",
-				UndyingTotemItem.charges(totem)).withStyle(ChatFormatting.GOLD), true);
-		return false;
 	}
 
 	// ---------------- combat rules ----------------

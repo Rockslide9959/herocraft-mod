@@ -121,6 +121,10 @@ public final class AbilityHud {
 			}
 		}
 
+		if (power.key().equals("power_01_super_strength")) {
+			renderStrengthExtras(graphics, client, state, x0, y0 - 20);
+		}
+
 		int bw = 6 * BOX + 5 * GAP;
 		int barY = y0 + BOX + 4;
 		for (Meter m : meters) {
@@ -136,9 +140,57 @@ public final class AbilityHud {
 	private record Meter(Component label, float value, float max, int color) {
 	}
 
+	/** Charged-punch state + Maximum Effort timer, above the Super Strength ability row. */
+	private static void renderStrengthExtras(GuiGraphics g, Minecraft client, ExperimentalState state, int x, int y) {
+		float cd = state.resources.getOrDefault("power_01_super_strength/charged_cd", 0.0f);
+		float armed = state.resources.getOrDefault("power_01_super_strength/charged_armed", 0.0f);
+		float effort = state.resources.getOrDefault("power_01_super_strength/effort_left", 0.0f);
+		float progress = com.projecthero.mod.client.ProjectHeroModClient.chargedPunchProgress();
+		int w = 6 * BOX + 5 * GAP;
+
+		int rowY = y;
+		if (effort > 0.5f) {
+			float ratio = Math.min(1.0f, effort / 440.0f);
+			g.fill(x - 1, rowY - 1, x + w + 1, rowY + 5, COLOR_BORDER);
+			g.fill(x, rowY, x + w, rowY + 4, 0xAA101018);
+			g.fill(x, rowY, x + Math.round(w * ratio), rowY + 4, 0xFFB98CFF);
+			g.drawString(client.font, Component.translatable("projecthero.power.power_01_super_strength.ability.maximum_effort"),
+					x, rowY - 9, 0xFFCBB6FF, false);
+			rowY -= 18;
+		}
+
+		String label;
+		int color;
+		float ratio;
+		if (cd > 0.5f) {
+			label = "Charged Punch  " + (int) Math.ceil(cd / 20.0f) + "s";
+			color = 0xFF7A5A2A;
+			ratio = 1.0f - Math.min(1.0f, cd / 50.0f);
+		} else if (armed > 0.5f) {
+			label = "Charged Punch  READY";
+			color = 0xFFFFC24A;
+			ratio = 1.0f;
+		} else if (progress > 0.01f && progress < 1.0f) {
+			label = "Charged Punch";
+			color = 0xFFE0A040;
+			ratio = progress;
+		} else {
+			return;
+		}
+		g.fill(x - 1, rowY - 1, x + w + 1, rowY + 5, COLOR_BORDER);
+		g.fill(x, rowY, x + w, rowY + 4, 0xAA101018);
+		g.fill(x, rowY, x + Math.round(w * ratio), rowY + 4, color);
+		g.drawString(client.font, label, x, rowY - 9, 0xFFE8C98A, false);
+	}
+
 	/** Build the list of meters worth drawing right now for the active power. */
 	private static List<Meter> collectMeters(ExperimentalState state, Power power) {
 		List<Meter> out = new ArrayList<>();
+		// Super Strength keeps only transient bookkeeping in its resource map -- its charged-punch
+		// and Maximum Effort indicators are drawn separately (see renderStrengthExtras).
+		if (power.key().equals("power_01_super_strength")) {
+			return out;
+		}
 		String prefix = power.key() + "/";
 		for (var e : state.resources.entrySet()) {
 			if (!e.getKey().startsWith(prefix)) {

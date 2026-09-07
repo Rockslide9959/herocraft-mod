@@ -79,6 +79,24 @@ public final class SymbioteHud {
 		if (s == null || !s.hasSymbiote) {
 			return;
 		}
+
+		// A fresh wild bond that has not settled yet: show the takeover progress, nothing else.
+		SymbioteVitals vitals = player.getAttachedOrElse(ModAttachments.SYMBIOTE_VITALS, new SymbioteVitals());
+		long gameNow = mc.level != null ? mc.level.getGameTime() : 0L;
+		if (vitals.bondingUntil > gameNow) {
+			float frac = 1.0f - Math.min(1.0f,
+					(vitals.bondingUntil - gameNow) / (float) com.projecthero.mod.symbiote.SymbioteVitalsManager.BONDING_TICKS);
+			int w = 150;
+			int x = g.guiWidth() / 2 - w / 2;
+			int y = g.guiHeight() / 2 + 30;
+			g.drawCenteredString(mc.font, Component.translatable("hud.projecthero.symbiote.bonding")
+					.withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.ITALIC), g.guiWidth() / 2, y - 12, 0xFFB090F0);
+			g.fill(x - 1, y - 1, x + w + 1, y + 5, COLOR_BORDER);
+			g.fill(x, y, x + w, y + 4, 0xAA100018);
+			g.fill(x, y, x + Math.round(w * frac), y + 4, 0xFF8A5FE0);
+			return;
+		}
+
 		boolean spiderMan = SymbioteHostType.of(player) == SymbioteHostType.SPIDER_MAN;
 		if (spiderMan && !s.active) {
 			return;

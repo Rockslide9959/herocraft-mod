@@ -39,7 +39,7 @@ public final class SymbioteDialogue {
 	private static final int EVAL_INTERVAL = 10; // twice a second
 
 	private enum Tier {
-		EMERGENCY(30), CRITICAL(60), COMBAT(80), STATE(110), AMBIENT(200);
+		EMERGENCY(25), CRITICAL(45), COMBAT(55), STATE(70), AMBIENT(120);
 
 		final int gapTicks;
 
@@ -63,6 +63,13 @@ public final class SymbioteDialogue {
 	private static final Map<Integer, long[]> KILL_WINDOW = new ConcurrentHashMap<>(); // {count, windowStartTick}
 	private static final long KILL_WINDOW_TICKS = 120L;
 	private static final Map<Integer, Integer> AMBIENT_ROTATION = new ConcurrentHashMap<>();
+	private static final Map<Integer, Integer> BOND_ROTATION = new ConcurrentHashMap<>();
+
+	/** What the Symbiote says while it is still spreading through a new host (the settling phase). */
+	private static final String[] BONDING_LINES = {
+			"bond_hold_still", "bond_do_not_fight", "bond_almost_part_of_you", "bond_your_pain_is_ours",
+			"bond_we_will_protect_you", "bond_stronger_together", "bond_breathe", "bond_nearly_whole"
+	};
 
 	/** Rotating "nothing is wrong" patrol lines -- keeps the Symbiote present during exploration. */
 	private static final String[] AMBIENT_PATROL = {
@@ -96,11 +103,16 @@ public final class SymbioteDialogue {
 		if (pick == null) {
 			return;
 		}
-		long last = LAST_SPOKEN.getOrDefault(player.getId(), Long.MIN_VALUE);
-		if (now - last < pick.tier.gapTicks) {
+		// NOTE: a real bug lived here for two versions -- the sentinel was Long.MIN_VALUE and
+		// `now - last` overflowed to a huge negative, which is always < gapTicks, so the Symbiote
+		// never spoke a single line. `spoken` tells "never" apart from "recently".
+		Long lastBox = LAST_SPOKEN.get(player.getId());
+		boolean spoken = lastBox != null;
+		long last = spoken ? lastBox : 0L;
+		if (spoken && now - last < pick.tier.gapTicks) {
 			return;
 		}
-		if (pick.id.equals(LAST_ID.get(player.getId())) && now - last < pick.tier.gapTicks * 3L) {
+		if (spoken && pick.id.equals(LAST_ID.get(player.getId())) && now - last < pick.tier.gapTicks * 3L) {
 			return;
 		}
 		speak(player, pick.id);
@@ -129,6 +141,7 @@ public final class SymbioteDialogue {
 		boolean inWater;
 		boolean drowning;
 		boolean spiderMan;
+		boolean bonding;
 		boolean sleeping;
 		boolean crouchedHidden;
 		boolean crouched;
@@ -183,6 +196,7 @@ public final class SymbioteDialogue {
 		s.inWater = player.isInWater();
 		s.drowning = player.getAirSupply() < 60 && player.getAirSupply() < player.getMaxAirSupply();
 		s.spiderMan = SymbioteHostType.of(player) == SymbioteHostType.SPIDER_MAN;
+		s.bonding = SymbioteVitalsManager.bonding(player);
 		s.sleeping = player.isSleeping();
 		s.crouched = player.isShiftKeyDown();
 		s.inCombat = SymbioteVitalsManager.ticksSinceCombat(player, now) < 80L;
@@ -327,6 +341,12 @@ public final class SymbioteDialogue {
 	// ---------------- rule priority ----------------
 
 	private static Line choose(ServerPlayer player, Signals s, long now) {
+		// ----- BONDING (a fresh wild host, still being taken over) -----
+		if (s.bonding) {
+			int i = BOND_ROTATION.merge(player.getId(), 1, Integer::sum);
+			return new Line(BONDING_LINES[Math.floorMod(i, BONDING_LINES.length)], Tier.COMBAT);
+		}
+
 		// ----- EMERGENCY -----
 		if (s.inLava) {
 			return new Line(s.biomassFrac < 0.35f ? "lava_get_out" : "lava_no", Tier.EMERGENCY);
@@ -530,19 +550,19 @@ public final class SymbioteDialogue {
 		if (s.enemyCount > 0 && !s.inCombat && s.enemiesUnaware) {
 			return new Line("avoid_them", Tier.AMBIENT);
 		}
-		if (s.regenerating && s.idleTicks > 200L && s.biomassFrac < 0.999f) {
+		if (s.regenerating && s.idleTicks > 120L && s.biomassFrac < 0.999f) {
 			return new Line("good_give_us_time", Tier.AMBIENT);
 		}
-		if (s.enemyCount == 0 && !s.inCombat && s.biomassFrac >= 0.999f && s.hpFrac >= 0.999f) {
-			// The rotating patrol commentary -- the Symbiote just being present.
-			if (s.idleTicks > 400L) {
+		if (s.enemyCount == 0 && !s.inCombat) {
+			// The rotating patrol commentary -- the Symbiote just being present. Fires readily so the
+			// organism is a constant presence during exploration, not a rare event.
+			if (s.idleTicks > 120L) {
 				int i = AMBIENT_ROTATION.merge(player.getId(), 1, Integer::sum);
 				return new Line(AMBIENT_PATROL[Math.floorMod(i, AMBIENT_PATROL.length)], Tier.AMBIENT);
 			}
-			return new Line("we_are_whole", Tier.AMBIENT);
-		}
-		if (s.enemyCount == 0 && !s.inCombat && s.idleTicks > 800L) {
-			return new Line("it_is_quiet", Tier.AMBIENT);
+			if (s.biomassFrac >= 0.999f && s.hpFrac >= 0.999f) {
+				return new Line("we_are_whole", Tier.AMBIENT);
+			}
 		}
 		return null;
 	}
@@ -635,6 +655,7 @@ public final class SymbioteDialogue {
 		LAST_KILL_TICK.remove(id);
 		KILL_WINDOW.remove(id);
 		AMBIENT_ROTATION.remove(id);
+		BOND_ROTATION.remove(id);
 		PREV_ENEMY_COUNT.remove(id);
 	}
 
@@ -650,6 +671,7 @@ public final class SymbioteDialogue {
 		LAST_KILL_TICK.clear();
 		KILL_WINDOW.clear();
 		AMBIENT_ROTATION.clear();
+		BOND_ROTATION.clear();
 		PREV_ENEMY_COUNT.clear();
 	}
 }

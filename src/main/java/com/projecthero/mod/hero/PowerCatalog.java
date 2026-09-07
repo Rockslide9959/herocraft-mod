@@ -73,13 +73,14 @@ final class PowerCatalog {
 	private static Power superStrength() {
 		String k = "power_01_super_strength";
 		return Power.Builder.of(Powers.id(k), PowerCategory.PHYSICAL)
-				.ability(ab(k, "power_punch", SLOT_1, INSTANT, 2 * S))
-				.ability(ab(k, "ground_slam", SLOT_2, INSTANT, 7 * S))
-				.ability(ab(k, "super_leap", SLOT_3, INSTANT, 4 * S))
-				.ability(ab(k, "thunderous_impact", SLOT_4, INSTANT, 28 * S))
-				.ability(ab(k, "grab_throw", SLOT_5, INSTANT, 5 * S))
-				.ability(ab(k, "brace", SLOT_6, TOGGLE, 0))
-				.passives(pk(k, "passive.melee"), pk(k, "passive.jump"), pk(k, "passive.mining"), pk(k, "passive.fall"))
+				.ability(ab(k, "ground_slam", SLOT_1, INSTANT, 8 * S))
+				.ability(ab(k, "air_punch", SLOT_2, INSTANT, 12 * S))
+				.ability(ab(k, "power_leap", SLOT_3, CHARGE, 3 * S))
+				.ability(ab(k, "bull_rush", SLOT_4, HOLD, 40 * S))
+				.ability(ab(k, "grab_carry", SLOT_5, INSTANT, 5 * S))
+				.ability(ab(k, "maximum_effort", SLOT_6, INSTANT, 60 * S))
+				.passives(pk(k, "passive.melee"), pk(k, "passive.defense"), pk(k, "passive.jump"),
+						pk(k, "passive.mining"), pk(k, "passive.fall"), pk(k, "passive.charged"))
 				.serum(SerumRecipe.of("minecraft:strength", pk(k, "serum"),
 						"minecraft:iron_nugget", "minecraft:redstone").withFuel("minecraft:coal"))
 				.trigger(MutationTrigger.of(Kind.ELECTRICAL_DISCHARGE, pk(k, "trigger"), "projecthero.device.overloaded_redstone_coil"))
@@ -299,7 +300,7 @@ final class PowerCatalog {
 				.ability(ab(k, "resurrection", SLOT_4, INSTANT, 60 * S))
 				.ability(ab(k, "cellular_surge", SLOT_5, INSTANT, 45 * S))
 				.ability(ab(k, "regeneration_mode", SLOT_6, TOGGLE, 0))
-				.passives(pk(k, "passive.regen"))
+				.passives(pk(k, "passive.regen"), pk(k, "passive.debuff"))
 				.serum(SerumRecipe.of("minecraft:regeneration", pk(k, "serum"),
 						"minecraft:golden_apple", "minecraft:spider_eye", "minecraft:bone_meal"))
 				.trigger(MutationTrigger.of(Kind.NEAR_DEATH, pk(k, "trigger"), null))
@@ -319,7 +320,7 @@ final class PowerCatalog {
 				.ability(ab(k, "unbreakable", SLOT_4, INSTANT, 50 * S))
 				.ability(ab(k, "projectile_deflection", SLOT_5, HOLD, 0))
 				.ability(ab(k, "tank_mode", SLOT_6, TOGGLE, 0))
-				.passives(pk(k, "passive.resist"))
+				.passives(pk(k, "passive.resist"), pk(k, "passive.health"))
 				.serum(SerumRecipe.of("minecraft:awkward", pk(k, "serum"),
 						"minecraft:iron_ingot", "minecraft:flint", "minecraft:leather"))
 				.trigger(MutationTrigger.of(Kind.EXPLOSION, pk(k, "trigger"), "projecthero.device.blast_chamber"))

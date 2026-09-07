@@ -428,7 +428,7 @@ public final class HeroPackGuide {
 		out.add(chapter("projecthero.guide.zombie_raid", lines -> {
 			para(lines, "projecthero.guide.zombie_raid.body");
 			blank(lines);
-			for (String section : new String[]{"curse", "sources", "waves", "bosses", "rewards", "repeat"}) {
+			for (String section : new String[]{"curse", "sources", "waves", "bosses", "rewards", "crafting", "repeat"}) {
 				head(lines, "projecthero.guide.zombie_raid." + section);
 				para(lines, "projecthero.guide.zombie_raid." + section + ".body");
 				blank(lines);
@@ -518,16 +518,11 @@ public final class HeroPackGuide {
 	}
 
 	/**
-	 * The same entry, plus the reader's own Experimental Power research from Empowered Zombie kills
-	 * (spec section 38). Pass a negative percentage to omit the line -- the shared book has no single
-	 * reader, so only the per-player "Your Power" screen supplies one.
+	 * Same entry. The second argument is vestigial (it used to carry Empowered-Zombie research
+	 * progress, removed in v0.10.3); any value is ignored.
 	 */
-	public static Chapter powerChapter(Power power, int researchPercent) {
+	public static Chapter powerChapter(Power power, int ignored) {
 		return chapter(power.nameKey(), lines -> {
-			if (researchPercent >= 0) {
-				lines.add(Component.translatable("projecthero.guide.power.analysis", researchPercent)
-						.withStyle(researchPercent >= 100 ? ChatFormatting.GOLD : ChatFormatting.AQUA));
-			}
 			lines.add(Component.translatable(power.category().translationKey()).withStyle(ChatFormatting.DARK_AQUA));
 			para(lines, power.descKey());
 			blank(lines);

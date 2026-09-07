@@ -114,7 +114,7 @@
       "entries": [
         {
           "type": "minecraft:empty",
-          "weight": 37
+          "weight": 46
         },
         {
           "type": "minecraft:item",
@@ -123,8 +123,18 @@
         },
         {
           "type": "minecraft:item",
-          "name": "projecthero:gravewalker_charm",
-          "weight": 15
+          "name": "projecthero:gravebound_ingot",
+          "weight": 14,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 2,
+                "max": 5
+              }
+            }
+          ]
         },
         {
           "type": "minecraft:item",

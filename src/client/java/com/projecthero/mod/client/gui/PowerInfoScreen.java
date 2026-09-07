@@ -130,26 +130,9 @@ public final class PowerInfoScreen extends Screen {
 		body.add(FormattedCharSequence.EMPTY);
 
 		// Full description of the power, its abilities and passives — exactly the HeroPack Guide entry.
-		// Pass this player's own power research so the entry shows their POWER ANALYSIS progress from
-		// Empowered Zombie kills. The shared book cannot: it has no single reader.
-		for (Component line : com.projecthero.mod.hero.guide.HeroPackGuide.powerChapter(power, researchPercent(power)).lines()) {
+		for (Component line : com.projecthero.mod.hero.guide.HeroPackGuide.powerChapter(power, -1).lines()) {
 			wrap(line, wrapW);
 		}
-	}
-
-	/** This player's analysis of {@code power}, 0..100, from the synced Gravebound state. */
-	private static int researchPercent(Power power) {
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null) {
-			return -1;
-		}
-		com.projecthero.mod.grave.GraveboundState grave =
-				mc.player.getAttachedOrElse(ModAttachments.GRAVEBOUND_STATE, null);
-		if (grave == null) {
-			return -1;
-		}
-		Integer value = grave.powerResearch.get(power.key());
-		return value == null ? 0 : value;
 	}
 
 	/**

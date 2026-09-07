@@ -125,8 +125,17 @@ public final class Symbiote {
 
 	// ---------------- unlock ----------------
 
-	/** Bond the player with a Symbiote (admin/testing entry for now; a real quest can call this later). */
+	/** Bond the player with a Symbiote (admin/command path -- instant, no settling phase). */
 	public static boolean grant(ServerPlayer player) {
+		return grant(player, true);
+	}
+
+	/**
+	 * Bond the player with a Symbiote. {@code announce} controls the "you are bonded" chat line --
+	 * {@link SymbioteBonding} passes {@code false} because it prints its own "the bond is spreading"
+	 * line and runs the settling phase instead.
+	 */
+	public static boolean grant(ServerPlayer player, boolean announce) {
 		SymbioteState s = state(player);
 		if (s.hasSymbiote) {
 			return false;
@@ -134,8 +143,10 @@ public final class Symbiote {
 		SymbioteState c = s.copy();
 		c.hasSymbiote = true;
 		save(player, c);
-		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.bonded")
-				.withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.BOLD), false);
+		if (announce) {
+			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.bonded")
+					.withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.BOLD), false);
+		}
 		return true;
 	}
 
@@ -169,6 +180,11 @@ public final class Symbiote {
 		if (!s.hasSymbiote) {
 			player.displayClientMessage(
 					Component.translatable("message.projecthero.symbiote.not_bonded"), true);
+			return;
+		}
+		if (SymbioteVitalsManager.bonding(player)) {
+			player.displayClientMessage(
+					Component.translatable("message.projecthero.symbiote.still_bonding"), true);
 			return;
 		}
 		long now = player.level().getGameTime();

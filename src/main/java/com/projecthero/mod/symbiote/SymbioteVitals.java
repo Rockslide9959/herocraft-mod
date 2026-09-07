@@ -31,21 +31,29 @@ public final class SymbioteVitals {
 	public boolean bladeActive;
 	public float bladeCharge;
 	public boolean thornsMode;
+	/**
+	 * Game time the initial bonding phase ends. While {@code > level.getGameTime()} the fresh host
+	 * has the Symbiote's protection but no abilities, feels sick, and the organism talks them through
+	 * it. 0 once the bond has settled (the normal state).
+	 */
+	public long bondingUntil;
 
 	public SymbioteVitals() {
-		this(SymbioteVitalsManager.MAX_HP, false, false, SymbioteVitalsManager.BLADE_MAX, false);
+		this(SymbioteVitalsManager.MAX_HP, false, false, SymbioteVitalsManager.BLADE_MAX, false, 0L);
 	}
 
-	public SymbioteVitals(float hp, boolean broken, boolean bladeActive, float bladeCharge, boolean thornsMode) {
+	public SymbioteVitals(float hp, boolean broken, boolean bladeActive, float bladeCharge, boolean thornsMode,
+			long bondingUntil) {
 		this.hp = hp;
 		this.broken = broken;
 		this.bladeActive = bladeActive;
 		this.bladeCharge = bladeCharge;
 		this.thornsMode = thornsMode;
+		this.bondingUntil = bondingUntil;
 	}
 
 	public SymbioteVitals copy() {
-		return new SymbioteVitals(hp, broken, bladeActive, bladeCharge, thornsMode);
+		return new SymbioteVitals(hp, broken, bladeActive, bladeCharge, thornsMode, bondingUntil);
 	}
 
 	public static final Codec<SymbioteVitals> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -53,6 +61,7 @@ public final class SymbioteVitals {
 			Codec.BOOL.optionalFieldOf("broken", false).forGetter(s -> s.broken),
 			Codec.BOOL.optionalFieldOf("blade_active", false).forGetter(s -> s.bladeActive),
 			Codec.FLOAT.optionalFieldOf("blade_charge", SymbioteVitalsManager.BLADE_MAX).forGetter(s -> s.bladeCharge),
-			Codec.BOOL.optionalFieldOf("thorns_mode", false).forGetter(s -> s.thornsMode)
+			Codec.BOOL.optionalFieldOf("thorns_mode", false).forGetter(s -> s.thornsMode),
+			Codec.LONG.optionalFieldOf("bonding_until", 0L).forGetter(s -> s.bondingUntil)
 	).apply(instance, SymbioteVitals::new));
 }

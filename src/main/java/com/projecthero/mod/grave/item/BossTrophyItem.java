@@ -15,8 +15,8 @@ import net.minecraft.world.item.TooltipFlag;
  * A Powered Zombie Boss's head, named for the power it had -- "Geokinetic Zombie Head", "Laser Vision
  * Zombie Head", and so on.
  *
- * <p>Like {@link CorruptedPowerCoreItem} this is one item plus a {@link GraveComponents#POWER_KEY}
- * component rather than one item per power, so the roster can grow without new registrations. The
+ * <p>This is one item plus a {@link GraveComponents#POWER_KEY} component rather than one item per
+ * power, so the roster can grow without new registrations. The
  * wave-12 boss drops a visually distinct variant (a separate item with its own texture and
  * {@link Rarity#EPIC}), which is the "final boss trophy" the design asks for.
  *

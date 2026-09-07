@@ -5,6 +5,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import com.projecthero.mod.hero.power.p01.StrengthBareHands;
+import com.projecthero.mod.hero.power.p01.SuperStrengthHandlers;
 import com.projecthero.mod.hero.power.p04.SuperSpeedHandlers;
 import com.projecthero.mod.symbiote.SymbioteBareHands;
 
@@ -32,6 +34,22 @@ public abstract class PlayerMixin {
 	}
 
 	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
+	private void projecthero$strengthMining(BlockState state, CallbackInfoReturnable<Float> cir) {
+		Player self = (Player) (Object) this;
+		if (StrengthBareHands.applies(self)) {
+			// Bare hands break like a stone tool ...
+			float stone = StrengthBareHands.miningSpeed(state, cir.getReturnValue());
+			if (stone > cir.getReturnValue()) {
+				cir.setReturnValue(stone);
+			}
+		}
+		// ... and any break (tool or fist) is 25% faster.
+		if (SuperStrengthHandlers.owns(self)) {
+			cir.setReturnValue(cir.getReturnValue() * 1.25f);
+		}
+	}
+
+	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
 	private void projecthero$symbioteBareHands(BlockState state, CallbackInfoReturnable<Float> cir) {
 		Player self = (Player) (Object) this;
 		if (SymbioteBareHands.applies(self)) {
@@ -50,6 +68,9 @@ public abstract class PlayerMixin {
 		}
 		Player self = (Player) (Object) this;
 		if (SymbioteBareHands.applies(self) && SymbioteBareHands.correctToolForDrops(state)) {
+			cir.setReturnValue(true);
+		}
+		if (StrengthBareHands.applies(self) && StrengthBareHands.correctToolForDrops(state)) {
 			cir.setReturnValue(true);
 		}
 	}

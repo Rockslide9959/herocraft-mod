@@ -11,6 +11,7 @@
 		"ItemStackMixin",
 		"LivingEntityClimbMixin",
 		"LivingEntityEatMixin",
+		"LivingEntityEffectMixin",
 		"MobSymbioteMixin",
 		"PlayerMixin",
 		"ProjectileWeaponItemMixin",

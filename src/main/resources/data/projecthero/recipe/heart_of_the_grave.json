@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "IRI",
+    "RTR",
+    "IRI"
+  ],
+  "key": {
+    "I": { "item": "projecthero:gravebound_ingot" },
+    "R": { "item": "minecraft:rotten_flesh" },
+    "T": { "item": "minecraft:totem_of_undying" }
+  },
+  "result": {
+    "id": "projecthero:heart_of_the_grave",
+    "count": 1
+  }
+}

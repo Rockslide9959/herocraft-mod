@@ -57,6 +57,10 @@ public final class SymbioteVitalsManager {
 	private static final float BLADE_REGEN_PER_TICK = 1.4f;
 	private static final float BLADE_BONUS_DAMAGE = 5.0f;
 
+	/** A wild bond takes this long to settle: protection but no abilities, and the host feels sick. */
+	public static final int BONDING_TICKS = 700; // 35 s
+	private static final Map<Integer, Long> LAST_BOND_FX = new ConcurrentHashMap<>();
+
 	private static final int WARN_INTERVAL_TICKS = 220;   // ~11 s between "I can't keep this up" lines
 	private static final int SNEAK_INVIS_TICKS = 100;     // 5 s of unbroken crouch (suit on) -> invisible
 	private static final double ARROW_CATCH_RADIUS = 2.4;
@@ -127,13 +131,41 @@ public final class SymbioteVitalsManager {
 		player.setAttached(ModAttachments.SYMBIOTE_VITALS, v);
 	}
 
-	/** Can the Symbiote's abilities be used right now? (Bonded, and the health bar is not spent.) */
+	/** Can the Symbiote's abilities be used right now? (Bonded, bond has settled, health bar not spent.) */
 	public static boolean usable(ServerPlayer player) {
 		if (!Symbiote.hasSymbiote(player)) {
 			return false;
 		}
 		SymbioteVitals v = player.getAttachedOrElse(ModAttachments.SYMBIOTE_VITALS, null);
-		return v == null || !v.broken;
+		if (v == null) {
+			return true;
+		}
+		return !v.broken && v.bondingUntil <= player.level().getGameTime();
+	}
+
+	/** True while a freshly-formed wild bond is still settling in (protection, but no abilities). */
+	public static boolean bonding(ServerPlayer player) {
+		SymbioteVitals v = player.getAttachedOrElse(ModAttachments.SYMBIOTE_VITALS, null);
+		return v != null && v.bondingUntil > player.level().getGameTime();
+	}
+
+	/** Ticks left in the bonding phase, 0 if not bonding. */
+	public static long bondingTicksLeft(ServerPlayer player) {
+		SymbioteVitals v = player.getAttachedOrElse(ModAttachments.SYMBIOTE_VITALS, null);
+		return v == null ? 0L : Math.max(0L, v.bondingUntil - player.level().getGameTime());
+	}
+
+	/** Start the initial bonding phase for a player who just picked up a wild Symbiote. */
+	public static void beginBonding(ServerPlayer player) {
+		SymbioteVitals c = vitals(player).copy();
+		c.bondingUntil = player.level().getGameTime() + BONDING_TICKS;
+		save(player, c);
+		if (player.level() instanceof ServerLevel level) {
+			level.playSound(null, player.getX(), player.getY(), player.getZ(),
+					SoundEvents.SLIME_SQUISH, SoundSource.PLAYERS, 1.2f, 0.35f);
+			level.playSound(null, player.getX(), player.getY(), player.getZ(),
+					SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 1.4f, 0.8f);
+		}
 	}
 
 	public static boolean bladeActive(ServerPlayer player) {
@@ -302,7 +334,11 @@ public final class SymbioteVitalsManager {
 	public static void tick(ServerPlayer player) {
 		if (!Symbiote.hasSymbiote(player)) {
 			SNEAK_START.remove(player.getId());
+			LAST_BOND_FX.remove(player.getId());
 			return;
+		}
+		if (tickBonding(player)) {
+			return; // still settling -- no vitals upkeep, no abilities
 		}
 		SymbioteVitals v = vitals(player);
 		SymbioteVitals c = v.copy();
@@ -370,6 +406,73 @@ public final class SymbioteVitalsManager {
 
 		sneakInvisibility(player);
 		catchArrows(player, c);
+	}
+
+	/**
+	 * The wild-bond settling phase. Returns true while it is still running. The host keeps the
+	 * Symbiote's passive protection (the bond is already granted) but every ability is locked
+	 * ({@link #usable}/{@link #bonding}), and their body fights the intrusion: nausea, weakness,
+	 * slowness, mining fatigue and hunger, wet writhing sounds, and black ichor crawling over them.
+	 * When the timer runs out the sickness lifts and the bond is complete.
+	 */
+	private static boolean tickBonding(ServerPlayer player) {
+		SymbioteVitals v = vitals(player);
+		long now = player.level().getGameTime();
+		if (v.bondingUntil <= 0L) {
+			return false;
+		}
+		if (now >= v.bondingUntil) {
+			SymbioteVitals c = v.copy();
+			c.bondingUntil = 0L;
+			c.hp = MAX_HP;
+			save(player, c);
+			LAST_BOND_FX.remove(player.getId());
+			player.removeEffect(MobEffects.CONFUSION);
+			player.removeEffect(MobEffects.WEAKNESS);
+			player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+			player.removeEffect(MobEffects.DIG_SLOWDOWN);
+			player.removeEffect(MobEffects.HUNGER);
+			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.bond_complete")
+					.withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.BOLD), false);
+			if (player.level() instanceof ServerLevel level) {
+				level.sendParticles(ParticleTypes.REVERSE_PORTAL, player.getX(), player.getY() + 1.0, player.getZ(),
+						60, 0.4, 0.9, 0.4, 0.08);
+				level.sendParticles(ParticleTypes.FLASH, player.getX(), player.getY() + 1.0, player.getZ(), 1, 0, 0, 0, 0);
+				level.playSound(null, player.getX(), player.getY(), player.getZ(),
+						SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0f, 0.6f);
+				level.playSound(null, player.getX(), player.getY(), player.getZ(),
+						SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.7f, 0.5f);
+			}
+			return false;
+		}
+
+		// Sickness -- refreshed well before it can lapse.
+		if (player.tickCount % 20 == 0) {
+			player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 80, 0, false, false, false));
+			player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 40, 0, false, true, true));
+			player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, 0, false, true, true));
+			player.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, 40, 1, false, true, true));
+			player.addEffect(new MobEffectInstance(MobEffects.HUNGER, 40, 0, false, false, false));
+		}
+		if (player.level() instanceof ServerLevel level) {
+			if (player.tickCount % 4 == 0) {
+				level.sendParticles(ParticleTypes.SQUID_INK,
+						player.getX(), player.getY() + player.getBbHeight() * player.getRandom().nextFloat(), player.getZ(),
+						3, 0.35, 0.4, 0.35, 0.01);
+			}
+			Long lastFx = LAST_BOND_FX.get(player.getId());
+			if (lastFx == null || now - lastFx >= 40L) {
+				LAST_BOND_FX.put(player.getId(), now);
+				float pitch = 0.4f + player.getRandom().nextFloat() * 0.3f;
+				level.playSound(null, player.getX(), player.getY(), player.getZ(),
+						SoundEvents.SLIME_SQUISH, SoundSource.PLAYERS, 0.9f, pitch);
+				if (((now / 40L) & 1L) == 0L) {
+					level.playSound(null, player.getX(), player.getY(), player.getZ(),
+							SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 0.9f, 0.9f);
+				}
+			}
+		}
+		return true;
 	}
 
 	/** Suit on, and crouched without a break for {@link #SNEAK_INVIS_TICKS}: the Symbiote hides the host. */

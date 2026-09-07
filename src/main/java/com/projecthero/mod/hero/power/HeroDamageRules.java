@@ -96,7 +96,22 @@ public final class HeroDamageRules {
 		}
 
 		switch (active.key()) {
-			case "power_01_super_strength", "power_03_flight", "power_16_spider_climbing_adhesion",
+			case "power_01_super_strength" -> {
+				// 65% less fall damage, 20% less explosion damage, 15% off everything else -- and
+				// Maximum Effort hardens the body further while it runs.
+				if (fall) {
+					return Verdict.mult(0.35f);
+				}
+				float f = 0.85f;
+				if (source.is(DamageTypeTags.IS_EXPLOSION)) {
+					f *= 0.8f;
+				}
+				if (com.projecthero.mod.hero.power.p01.SuperStrengthHandlers.maxEffortActive(player)) {
+					f *= 0.7f;
+				}
+				return Verdict.mult(f);
+			}
+			case "power_03_flight", "power_16_spider_climbing_adhesion",
 					"power_17_elasticity", "power_24_wind_manipulation" -> {
 				if (fall) {
 					player.resetFallDistance();
@@ -163,7 +178,7 @@ public final class HeroDamageRules {
 						&& !source.is(DamageTypes.GENERIC_KILL) && !source.is(DamageTypes.FELL_OUT_OF_WORLD)) {
 					return Verdict.immune();
 				}
-				float durability = 0.7f; // passive: 30% less damage from every source
+				float durability = 0.6f; // passive: 40% less damage from every source
 				if (ExperimentalPowers.getResource(player, active, "blocking") > 0.5f && isFrontal(player, source)) {
 					durability *= 0.4f; // Block: an additional 60% off the frontal 180-degree arc
 				}
@@ -174,7 +189,7 @@ public final class HeroDamageRules {
 					durability *= 0.5f;
 				}
 				if (fall) {
-					durability *= 0.4f;
+					durability *= 0.5f; // 70% less fall damage overall (0.6 * 0.5)
 				}
 				return Verdict.mult(durability);
 			}

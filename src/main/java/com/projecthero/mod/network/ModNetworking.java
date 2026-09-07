@@ -24,6 +24,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(IronManWeaponWheelPayload.TYPE, IronManWeaponWheelPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(IronManBlueprintChoicePayload.TYPE, IronManBlueprintChoicePayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(SpiderActionPayload.TYPE, SpiderActionPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(StrengthActionPayload.TYPE, StrengthActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(MaxSteelActionPayload.TYPE, MaxSteelActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(FirearmFirePayload.TYPE, FirearmFirePayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(FirearmActionPayload.TYPE, FirearmActionPayload.CODEC);
@@ -84,6 +85,13 @@ public final class ModNetworking {
 				case SUPER_JUMP -> com.projecthero.mod.spider.SpiderAbilities.superJump(context.player());
 				case TOGGLE_MASK -> com.projecthero.mod.spider.SpiderMask.toggle(context.player());
 				case TOGGLE_SYMBIOTE -> com.projecthero.mod.symbiote.Symbiote.toggle(context.player());
+			}
+		});
+
+		// Super Strength: the charged punch is armed by a 2 s attack-key hold, tracked client-side.
+		ServerPlayNetworking.registerGlobalReceiver(StrengthActionPayload.TYPE, (payload, context) -> {
+			if (payload.action() == StrengthActionPayload.Action.ARM_CHARGED_PUNCH) {
+				com.projecthero.mod.hero.power.p01.SuperStrengthHandlers.armChargedPunch(context.player());
 			}
 		});
 

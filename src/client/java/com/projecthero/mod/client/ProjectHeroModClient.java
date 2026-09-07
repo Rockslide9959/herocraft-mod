@@ -38,6 +38,16 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	private static boolean firearmAbilityOneSentPress = false;
 	private static final int FIREARM_RELOAD_TAP_TICKS = 8;
 
+	/** Super Strength charged punch: attack key held this many ticks arms the next melee hit. */
+	public static final int CHARGED_PUNCH_HOLD_TICKS = 40;
+	private static int chargedPunchHold = 0;
+	private static boolean chargedPunchSent = false;
+
+	/** 0..1 progress toward arming the charged punch, for the ability HUD. */
+	public static float chargedPunchProgress() {
+		return Math.min(1.0f, chargedPunchHold / (float) CHARGED_PUNCH_HOLD_TICKS);
+	}
+
 	@Override
 	public void onInitializeClient() {
 		ModKeyBindings.initialize();
@@ -218,6 +228,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		handlePowerSelect(client);
 		handlePowerInfo(client);
 		handleMaxSteelTransform(client);
+		handleChargedPunch(client);
 
 		boolean holdingFirearm = client.player.getMainHandItem().getItem()
 				instanceof com.projecthero.mod.firearm.item.FirearmItem;
@@ -325,6 +336,32 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			}
 		}
 		powerSelectWasDown = down;
+	}
+
+	/**
+	 * Super Strength: holding the vanilla attack key for {@link #CHARGED_PUNCH_HOLD_TICKS} ticks
+	 * sends one request to arm the charged punch. Vanilla never reports a held attack at nothing, so
+	 * this has to be tracked client-side; the server re-validates the power and cooldown.
+	 */
+	private static void handleChargedPunch(Minecraft client) {
+		LocalPlayer p = client.player;
+		com.projecthero.mod.hero.data.ExperimentalState st = p == null ? null
+				: p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		boolean strengthKit = st != null && st.ownedPowers.contains("power_01_super_strength")
+				&& "power_01_super_strength".equals(st.activePower);
+		boolean holdingFirearm = p != null && p.getMainHandItem().getItem()
+				instanceof com.projecthero.mod.firearm.item.FirearmItem;
+		if (!strengthKit || holdingFirearm || client.screen != null || !client.options.keyAttack.isDown()) {
+			chargedPunchHold = 0;
+			chargedPunchSent = false;
+			return;
+		}
+		chargedPunchHold++;
+		if (chargedPunchHold >= CHARGED_PUNCH_HOLD_TICKS && !chargedPunchSent) {
+			ClientPlayNetworking.send(new com.projecthero.mod.network.StrengthActionPayload(
+					com.projecthero.mod.network.StrengthActionPayload.Action.ARM_CHARGED_PUNCH));
+			chargedPunchSent = true;
+		}
 	}
 
 	private static boolean maxSteelTransformWasDown = false;

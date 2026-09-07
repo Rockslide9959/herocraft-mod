@@ -124,28 +124,28 @@ public class HeroPackGameTests implements FabricGameTest {
 	public void switchingActivePowerKeepsCooldownsAndKeepsOtherPowersModes(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
 		Power strength = power("power_01_super_strength");
-		Power flight = power("power_03_flight");
+		Power durability = power("power_13_super_durability");
 		ExperimentalPowers.grant(player, strength);
-		ExperimentalPowers.grant(player, flight);
+		ExperimentalPowers.grant(player, durability);
 
 		ExperimentalPowers.setActive(player, strength);
-		Ability groundSlam = strength.ability(AbilitySlot.SLOT_2);
-		Ability brace = strength.ability(AbilitySlot.SLOT_6);
+		Ability groundSlam = strength.ability(AbilitySlot.SLOT_1);
+		Ability tankMode = durability.ability(AbilitySlot.SLOT_6);
 
 		ExperimentalPowers.triggerCooldown(player, strength, groundSlam, 200);
-		ExperimentalPowers.setToggled(player, strength, brace, true);
+		ExperimentalPowers.setToggled(player, durability, tankMode, true);
 		helper.assertFalse(ExperimentalPowers.cooldownReady(player, strength, groundSlam), "cooldown should be active");
-		helper.assertTrue(ExperimentalPowers.isToggled(player, strength, brace), "brace toggle should be on");
+		helper.assertTrue(ExperimentalPowers.isToggled(player, durability, tankMode), "tank mode toggle should be on");
 
 		// Select the other owned power, then switch back.
-		ExperimentalPowers.setActive(player, flight);
-		helper.assertTrue(ExperimentalPowers.isToggled(player, strength, brace),
+		ExperimentalPowers.setActive(player, durability);
+		helper.assertTrue(ExperimentalPowers.isToggled(player, durability, tankMode),
 				"v0.9.3: selecting another power must NOT turn an owned power's toggled mode off");
 
 		ExperimentalPowers.setActive(player, strength);
 		helper.assertFalse(ExperimentalPowers.cooldownReady(player, strength, groundSlam),
 				"switching active power must NOT reset cooldowns");
-		helper.assertTrue(ExperimentalPowers.isToggled(player, strength, brace),
+		helper.assertTrue(ExperimentalPowers.isToggled(player, durability, tankMode),
 				"the toggled mode is still on after switching back");
 		helper.succeed();
 	}
@@ -352,10 +352,11 @@ public class HeroPackGameTests implements FabricGameTest {
 		net.minecraft.world.entity.monster.Zombie z = helper.spawn(net.minecraft.world.entity.EntityType.ZOMBIE, origin.offset(1, 0, 0));
 		float before = z.getHealth();
 
-		AbilityRouter.handleInput(player, 2, true); // G = ground_slam
+		player.setOnGround(true); // on the ground -> the immediate slam, not the air dive
+		AbilityRouter.handleInput(player, 1, true); // R = Ground Slam
 
 		helper.assertTrue(z.getHealth() < before, "Ground Slam should damage a nearby entity");
-		Ability slam = strength.ability(AbilitySlot.SLOT_2);
+		Ability slam = strength.ability(AbilitySlot.SLOT_1);
 		helper.assertFalse(ExperimentalPowers.cooldownReady(player, strength, slam), "Ground Slam should be on cooldown after use");
 		helper.succeed();
 	}

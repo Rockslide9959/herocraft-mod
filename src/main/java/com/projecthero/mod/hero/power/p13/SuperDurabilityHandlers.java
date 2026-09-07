@@ -43,6 +43,7 @@ public final class SuperDurabilityHandlers {
 	private static final net.minecraft.resources.ResourceLocation BLOCK_KB = com.projecthero.mod.ProjectHeroMod.id("block_kb");
 	private static final net.minecraft.resources.ResourceLocation UNBREAK_KB = com.projecthero.mod.ProjectHeroMod.id("unbreakable_kb");
 	private static final net.minecraft.resources.ResourceLocation PASSIVE_KB = com.projecthero.mod.ProjectHeroMod.id("durability_passive_kb");
+	private static final net.minecraft.resources.ResourceLocation PASSIVE_HP = com.projecthero.mod.ProjectHeroMod.id("durability_passive_health");
 
 	public static final String GUARD = "guard";
 	public static final float GUARD_MAX = 500.0f;
@@ -91,10 +92,14 @@ public final class SuperDurabilityHandlers {
 					ctx.actionBar("message.projecthero.durability.guard_spent");
 					return;
 				}
+				boolean alreadyBlocking = ctx.resource("blocking") > 0.5f;
 				PowerToggles.modifier(ctx.player(), Attributes.KNOCKBACK_RESISTANCE, BLOCK_KB, 1.0,
 						AttributeModifier.Operation.ADD_VALUE);
 				ctx.setResource("blocking", 1, 1);
-				AbilityHelpers.sound(ctx.player(), SoundEvents.SHIELD_BLOCK, 1.0f, 0.8f);
+				// Only the transition into the block plays the shield cue -- never every tick it's held.
+				if (!alreadyBlocking) {
+					AbilityHelpers.sound(ctx.player(), SoundEvents.SHIELD_BLOCK, 1.0f, 0.8f);
+				}
 			}
 
 			@Override
@@ -174,7 +179,10 @@ public final class SuperDurabilityHandlers {
 
 		com.projecthero.mod.hero.PowerPassives.register(KEY, (player, active) -> {
 			if (active) {
-				PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, PASSIVE_KB, 0.3,
+				// 85% knockback resistance and a 14-heart base health pool.
+				PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, PASSIVE_KB, 0.85,
+						AttributeModifier.Operation.ADD_VALUE);
+				PowerToggles.modifier(player, Attributes.MAX_HEALTH, PASSIVE_HP, 8.0,
 						AttributeModifier.Operation.ADD_VALUE);
 				var s = com.projecthero.mod.hero.ExperimentalPowers.state(player);
 				if (!s.resources.containsKey(KEY + "/" + GUARD)) {
@@ -183,6 +191,7 @@ public final class SuperDurabilityHandlers {
 				}
 			} else {
 				PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, PASSIVE_KB);
+				PowerToggles.clearModifier(player, Attributes.MAX_HEALTH, PASSIVE_HP);
 				PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, BLOCK_KB);
 				PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, UNBREAK_KB);
 				var power = com.projecthero.mod.hero.Powers.byKey(KEY);

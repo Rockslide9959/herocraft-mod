@@ -16,7 +16,8 @@ import com.projecthero.mod.event.raid.ZombieRaidWaves;
 import com.projecthero.mod.grave.CurseSource;
 import com.projecthero.mod.grave.GraveboundCurse;
 import com.projecthero.mod.grave.GraveboundEvents;
-import com.projecthero.mod.grave.item.CorruptedPowerCoreItem;
+import com.projecthero.mod.grave.item.BossTrophyItem;
+import com.projecthero.mod.grave.item.GraveComponents;
 import com.projecthero.mod.grave.item.GraveItems;
 import com.projecthero.mod.grave.item.NecroticBladeItem;
 import com.projecthero.mod.grave.item.UndyingTotemItem;
@@ -335,16 +336,16 @@ public class ZombieRaidGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void corruptedCoreRemembersItsPower(GameTestHelper helper) {
+	public void bossTrophyRemembersItsPower(GameTestHelper helper) {
 		String power = BossPowers.eligibleKeys().get(0);
 		String other = BossPowers.eligibleKeys().get(1);
-		ItemStack core = CorruptedPowerCoreItem.of(GraveItems.CORRUPTED_POWER_CORE, power);
-		ItemStack otherCore = CorruptedPowerCoreItem.of(GraveItems.CORRUPTED_POWER_CORE, other);
+		ItemStack trophy = BossTrophyItem.of(GraveItems.BOSS_TROPHY, power);
+		ItemStack otherTrophy = BossTrophyItem.of(GraveItems.BOSS_TROPHY, other);
 
-		helper.assertTrue(CorruptedPowerCoreItem.powerKey(core).equals(power),
-				"a core must remember the power it came from");
-		helper.assertFalse(core.getHoverName().getString().equals(otherCore.getHoverName().getString()),
-				"cores from different powers must be named differently");
+		helper.assertTrue(power.equals(trophy.get(GraveComponents.POWER_KEY)),
+				"a trophy must remember the power it came from");
+		helper.assertFalse(trophy.getHoverName().getString().equals(otherTrophy.getHoverName().getString()),
+				"trophies from different powers must be named differently");
 		helper.succeed();
 	}
 

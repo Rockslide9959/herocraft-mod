@@ -56,18 +56,23 @@ public final class SymbioteBonding {
 					.withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.BOLD), false);
 		}
 
-		Symbiote.grant(player);
+		Symbiote.grant(player, false);
+
+		// A wild bond does not just click into place -- the organism has to spread through the host
+		// first. For the settling phase the host has the Symbiote's protection but no abilities, and
+		// their body fights it (see SymbioteVitalsManager.tickBonding). The Symbiote talks them
+		// through it (SymbioteDialogue).
+		SymbioteVitalsManager.beginBonding(player);
+		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.bonding_begins")
+				.withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.ITALIC), false);
 
 		ServerLevel level = player.serverLevel();
 		level.sendParticles(ParticleTypes.SQUID_INK, symbiote.getX(), symbiote.getY() + 0.5, symbiote.getZ(),
-				80, 0.4, 0.6, 0.4, 0.1);
-		level.sendParticles(ParticleTypes.REVERSE_PORTAL, player.getX(), player.getY() + 1.0, player.getZ(),
-				60, 0.4, 0.9, 0.4, 0.06);
-		level.sendParticles(ParticleTypes.FLASH, player.getX(), player.getY() + 1.0, player.getZ(), 1, 0, 0, 0, 0);
+				100, 0.4, 0.6, 0.4, 0.12);
+		level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 1.0, player.getZ(),
+				60, 0.4, 0.9, 0.4, 0.05);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(),
-				SoundEvents.SLIME_SQUISH, SoundSource.PLAYERS, 1.0f, 0.4f);
-		level.playSound(null, player.getX(), player.getY(), player.getZ(),
-				SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 0.9f, 0.6f);
+				SoundEvents.SLIME_SQUISH, SoundSource.PLAYERS, 1.2f, 0.35f);
 
 		symbiote.discard();
 	}

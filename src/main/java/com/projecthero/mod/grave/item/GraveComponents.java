@@ -43,13 +43,6 @@ public final class GraveComponents {
 					.networkSynchronized(ByteBufCodecs.VAR_INT)
 					.build());
 
-	/** Gravewalker Charm: absolute game time the charm is next usable. */
-	public static final DataComponentType<Long> CHARM_READY_AT = register("charm_ready_at",
-			DataComponentType.<Long>builder()
-					.persistent(Codec.LONG)
-					.networkSynchronized(ByteBufCodecs.VAR_LONG)
-					.build());
-
 	/** Necrotic Blade: current undead-kill stacks, and the game time they all expire at. */
 	public static final DataComponentType<Integer> BLADE_STACKS = register("blade_stacks",
 			DataComponentType.<Integer>builder()

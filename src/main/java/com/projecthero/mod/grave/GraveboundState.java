@@ -1,8 +1,5 @@
 package com.projecthero.mod.grave;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
@@ -37,32 +34,27 @@ public final class GraveboundState {
 	public int raidsCompleted;
 	/** True once the first-clear Heart of the Grave has been handed over, ever. */
 	public boolean heartOfTheGraveGranted;
-
-	/**
-	 * Experimental-power research from defeating Powered Zombie Bosses: power key -> 0..100 percent
-	 * (spec section 38). Kept here rather than in {@code ExperimentalState} so raid progression can
-	 * never corrupt mutation data.
-	 */
-	public final Map<String, Integer> powerResearch;
+	/** True while an eaten Heart of the Grave is holding a one-shot totem-of-undying revive in reserve. */
+	public boolean heartTotemArmed;
 
 	public GraveboundState() {
-		this(0, CurseSource.COMMAND.name(), false, 0, 0, false, new HashMap<>());
+		this(0, CurseSource.COMMAND.name(), false, 0, 0, false, false);
 	}
 
 	public GraveboundState(int curseTicksLeft, String curseSource, boolean curseAnnounced, int nextAmbientTicks,
-			int raidsCompleted, boolean heartOfTheGraveGranted, Map<String, Integer> powerResearch) {
+			int raidsCompleted, boolean heartOfTheGraveGranted, boolean heartTotemArmed) {
 		this.curseTicksLeft = curseTicksLeft;
 		this.curseSource = curseSource == null ? CurseSource.COMMAND.name() : curseSource;
 		this.curseAnnounced = curseAnnounced;
 		this.nextAmbientTicks = nextAmbientTicks;
 		this.raidsCompleted = raidsCompleted;
 		this.heartOfTheGraveGranted = heartOfTheGraveGranted;
-		this.powerResearch = new HashMap<>(powerResearch);
+		this.heartTotemArmed = heartTotemArmed;
 	}
 
 	public GraveboundState copy() {
 		return new GraveboundState(curseTicksLeft, curseSource, curseAnnounced, nextAmbientTicks,
-				raidsCompleted, heartOfTheGraveGranted, powerResearch);
+				raidsCompleted, heartOfTheGraveGranted, heartTotemArmed);
 	}
 
 	public boolean cursed() {
@@ -80,7 +72,6 @@ public final class GraveboundState {
 			Codec.INT.optionalFieldOf("next_ambient", 0).forGetter(s -> s.nextAmbientTicks),
 			Codec.INT.optionalFieldOf("raids_completed", 0).forGetter(s -> s.raidsCompleted),
 			Codec.BOOL.optionalFieldOf("heart_granted", false).forGetter(s -> s.heartOfTheGraveGranted),
-			Codec.unboundedMap(Codec.STRING, Codec.INT).optionalFieldOf("power_research", new HashMap<>())
-					.forGetter(s -> new HashMap<>(s.powerResearch))
+			Codec.BOOL.optionalFieldOf("heart_totem_armed", false).forGetter(s -> s.heartTotemArmed)
 	).apply(instance, GraveboundState::new));
 }

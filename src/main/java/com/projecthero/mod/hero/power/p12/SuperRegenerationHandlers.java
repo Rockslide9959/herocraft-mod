@@ -33,9 +33,32 @@ import net.minecraft.world.item.Items;
  */
 public final class SuperRegenerationHandlers {
 	private static final String KEY = "power_12_super_regeneration";
-	/** Half a heart every quarter second (v0.9.6). */
-	private static final float TICK_HEAL = 0.5f;
 	private static final int HEAL_INTERVAL = 5;
+	/** Base passive heal per {@link #HEAL_INTERVAL} while recently hurt / in combat. */
+	private static final float BASE_HEAL_COMBAT = 0.5f;
+	/** Base passive heal per interval out of combat, or any time health is at/below {@link #DESPERATE_HP}. */
+	private static final float BASE_HEAL_CALM = 1.0f;
+	/** Each of Regeneration Mode and Cellular Surge adds this per interval on top of the base. */
+	private static final float MODE_HEAL = 1.0f;
+	/** 4 hearts. At or below this, the base heal jumps to the calm rate regardless of combat. */
+	private static final float DESPERATE_HP = 8.0f;
+	/** How long after taking or dealing damage the player counts as "in combat" (3 s). */
+	private static final int COMBAT_TICKS = 60;
+
+	/** Mark the Super Regeneration owner as in combat (called from the damage listeners). */
+	public static void markCombat(ServerPlayer player) {
+		Power power = Powers.byKey(KEY);
+		if (power != null && ExperimentalPowers.owns(player, power)) {
+			ExperimentalPowers.setResource(player, power, "combat_until",
+					player.level().getGameTime() + COMBAT_TICKS, 1e12f);
+		}
+	}
+
+	private static boolean inCombat(ServerPlayer player) {
+		Power power = Powers.byKey(KEY);
+		return power != null
+				&& ExperimentalPowers.getResource(player, power, "combat_until") > player.level().getGameTime();
+	}
 
 	private SuperRegenerationHandlers() {
 	}
@@ -95,7 +118,7 @@ public final class SuperRegenerationHandlers {
 				return;
 			}
 			if (p.getHealth() < p.getMaxHealth()) {
-				p.heal(TICK_HEAL);
+				p.heal(MODE_HEAL);
 				ctx.level().sendParticles(ParticleTypes.HEART, p.getX(), p.getY() + 1, p.getZ(), 1, 0.2, 0.3, 0.2, 0.0);
 			}
 		}));
@@ -109,7 +132,7 @@ public final class SuperRegenerationHandlers {
 				return;
 			}
 			if (p.tickCount % HEAL_INTERVAL == 0 && p.getHealth() < p.getMaxHealth()) {
-				p.heal(TICK_HEAL);
+				p.heal(MODE_HEAL);
 			}
 			if (p.tickCount % 100 == 0) {
 				FoodData food = p.getFoodData();
@@ -122,13 +145,28 @@ public final class SuperRegenerationHandlers {
 			}
 		}));
 
-		// Base passive regeneration: 0.5 HP every 0.25 s, no strings attached. Stacks with the modes above.
+		// Base passive regeneration, every 0.25 s. Rate depends on the situation:
+		//   - recently hurt / in combat: 0.5 HP per interval
+		//   - 3 s out of combat, or at/below 4 hearts: 1 HP per interval
+		// Stacks with Regeneration Mode and Cellular Surge above.
 		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, player -> {
 			if (player.getAbilities().instabuild || player.tickCount % HEAL_INTERVAL != 0) {
 				return;
 			}
 			if (player.getHealth() < player.getMaxHealth()) {
-				player.heal(TICK_HEAL);
+				boolean desperate = player.getHealth() <= DESPERATE_HP;
+				float heal = (inCombat(player) && !desperate) ? BASE_HEAL_COMBAT : BASE_HEAL_CALM;
+				player.heal(heal);
+			}
+		});
+
+		// "In combat" = the Super Regeneration owner took or dealt damage in the last 3 s.
+		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseAmount, dealtAmount, blocked) -> {
+			if (entity instanceof ServerPlayer hurt) {
+				markCombat(hurt);
+			}
+			if (source.getEntity() instanceof ServerPlayer attacker) {
+				markCombat(attacker);
 			}
 		});
 
