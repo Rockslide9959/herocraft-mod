@@ -140,47 +140,62 @@ public final class AbilityHud {
 	private record Meter(Component label, float value, float max, int color) {
 	}
 
-	/** Charged-punch state + Maximum Effort timer, above the Super Strength ability row. */
+	/** Charged Punch / Power Leap / Bull Rush charge + cooldown bars, stacked above the ability row. */
 	private static void renderStrengthExtras(GuiGraphics g, Minecraft client, ExperimentalState state, int x, int y) {
-		float cd = state.resources.getOrDefault("power_01_super_strength/charged_cd", 0.0f);
-		float armed = state.resources.getOrDefault("power_01_super_strength/charged_armed", 0.0f);
-		float effort = state.resources.getOrDefault("power_01_super_strength/effort_left", 0.0f);
-		float progress = com.projecthero.mod.client.ProjectHeroModClient.chargedPunchProgress();
+		String pk = "power_01_super_strength/";
+		float cd = state.resources.getOrDefault(pk + "charged_cd", 0.0f);
+		float effort = state.resources.getOrDefault(pk + "effort_left", 0.0f);
+		float zCharge = state.resources.getOrDefault(pk + "z_charge", 0.0f);
+		float zSmash = state.resources.getOrDefault(pk + "z_smash", 0.0f);
+		float zRunEnd = state.resources.getOrDefault(pk + "z_run_end", 0.0f);
+		float rushCd = state.resources.getOrDefault(pk + "rush_cd", 0.0f);
+		float smashCd = state.resources.getOrDefault(pk + "smash_cd", 0.0f);
+		float punchProg = com.projecthero.mod.client.ProjectHeroModClient.chargedPunchProgress();
+		boolean punchReady = com.projecthero.mod.client.ProjectHeroModClient.chargedPunchReady();
+		float leapProg = com.projecthero.mod.client.ProjectHeroModClient.leapChargeProgress();
+		long now = client.level != null ? client.level.getGameTime() : 0L;
+
 		int w = 6 * BOX + 5 * GAP;
+		int[] rowY = { y };
 
-		int rowY = y;
 		if (effort > 0.5f) {
-			float ratio = Math.min(1.0f, effort / 440.0f);
-			g.fill(x - 1, rowY - 1, x + w + 1, rowY + 5, COLOR_BORDER);
-			g.fill(x, rowY, x + w, rowY + 4, 0xAA101018);
-			g.fill(x, rowY, x + Math.round(w * ratio), rowY + 4, 0xFFB98CFF);
-			g.drawString(client.font, Component.translatable("projecthero.power.power_01_super_strength.ability.maximum_effort"),
-					x, rowY - 9, 0xFFCBB6FF, false);
-			rowY -= 18;
+			strengthBar(g, client, x, w, rowY, "Maximum Effort  " + (int) Math.ceil(effort / 20.0f) + "s",
+					Math.min(1.0f, effort / 440.0f), 0xFFB98CFF, 0xFFCBB6FF);
 		}
-
-		String label;
-		int color;
-		float ratio;
+		if (zCharge > 0.5f) {
+			float held = Math.max(0f, now - zCharge);
+			strengthBar(g, client, x, w, rowY, zSmash > 0.5f ? "Impact Smash — charging" : "Bull Rush — charging",
+					Math.min(1.0f, held / 100.0f), 0xFFE0703A, 0xFFF0A070);
+		} else if (zRunEnd > 0.5f) {
+			strengthBar(g, client, x, w, rowY, "BULL RUSH", 1.0f, 0xFFFFC24A, 0xFFFFE0A0);
+		} else if (rushCd > 0.5f) {
+			strengthBar(g, client, x, w, rowY, "Bull Rush  " + (int) Math.ceil(rushCd / 20.0f) + "s",
+					1.0f - Math.min(1.0f, rushCd / 800.0f), 0xFF6A5230, 0xFFB0A080);
+		} else if (smashCd > 0.5f) {
+			strengthBar(g, client, x, w, rowY, "Impact Smash  " + (int) Math.ceil(smashCd / 20.0f) + "s",
+					1.0f - Math.min(1.0f, smashCd / 1800.0f), 0xFF6A5230, 0xFFB0A080);
+		}
+		if (leapProg > 0.01f) {
+			strengthBar(g, client, x, w, rowY, "Power Leap", leapProg, 0xFF6FA8FF, 0xFFB8D0FF);
+		}
 		if (cd > 0.5f) {
-			label = "Charged Punch  " + (int) Math.ceil(cd / 20.0f) + "s";
-			color = 0xFF7A5A2A;
-			ratio = 1.0f - Math.min(1.0f, cd / 50.0f);
-		} else if (armed > 0.5f) {
-			label = "Charged Punch  READY";
-			color = 0xFFFFC24A;
-			ratio = 1.0f;
-		} else if (progress > 0.01f && progress < 1.0f) {
-			label = "Charged Punch";
-			color = 0xFFE0A040;
-			ratio = progress;
-		} else {
-			return;
+			strengthBar(g, client, x, w, rowY, "Charged Punch  " + (int) Math.ceil(cd / 20.0f) + "s",
+					1.0f - Math.min(1.0f, cd / 50.0f), 0xFF7A5A2A, 0xFFE8C98A);
+		} else if (punchReady) {
+			strengthBar(g, client, x, w, rowY, "Charged Punch — RELEASE", 1.0f, 0xFFFFC24A, 0xFFFFE0A0);
+		} else if (punchProg > 0.01f) {
+			strengthBar(g, client, x, w, rowY, "Charged Punch", punchProg, 0xFFE0A040, 0xFFE8C98A);
 		}
-		g.fill(x - 1, rowY - 1, x + w + 1, rowY + 5, COLOR_BORDER);
-		g.fill(x, rowY, x + w, rowY + 4, 0xAA101018);
-		g.fill(x, rowY, x + Math.round(w * ratio), rowY + 4, color);
-		g.drawString(client.font, label, x, rowY - 9, 0xFFE8C98A, false);
+	}
+
+	private static void strengthBar(GuiGraphics g, Minecraft client, int x, int w, int[] rowY,
+			String label, float ratio, int fill, int textColor) {
+		int ry = rowY[0];
+		g.fill(x - 1, ry - 1, x + w + 1, ry + 5, COLOR_BORDER);
+		g.fill(x, ry, x + w, ry + 4, 0xAA101018);
+		g.fill(x, ry, x + Math.round(w * Math.max(0f, Math.min(1f, ratio))), ry + 4, fill);
+		g.drawString(client.font, label, x, ry - 9, textColor, false);
+		rowY[0] = ry - 18;
 	}
 
 	/** Build the list of meters worth drawing right now for the active power. */

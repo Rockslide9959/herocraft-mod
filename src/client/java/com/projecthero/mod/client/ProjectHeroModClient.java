@@ -38,14 +38,28 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	private static boolean firearmAbilityOneSentPress = false;
 	private static final int FIREARM_RELOAD_TAP_TICKS = 8;
 
-	/** Super Strength charged punch: attack key held this many ticks arms the next melee hit. */
+	/** Super Strength charged punch: attack key held this many ticks (not while aimed at a block). */
 	public static final int CHARGED_PUNCH_HOLD_TICKS = 40;
 	private static int chargedPunchHold = 0;
-	private static boolean chargedPunchSent = false;
+	private static boolean chargedPunchWasCharging = false;
 
-	/** 0..1 progress toward arming the charged punch, for the ability HUD. */
+	/** Super Strength Power Leap: X held this many ticks = maximum charge. Mirrors the server. */
+	public static final int LEAP_MAX_CHARGE_TICKS = 50;
+	private static int leapChargeHold = 0;
+
+	/** 0..1 progress toward the charged punch being ready, for the ability HUD. */
 	public static float chargedPunchProgress() {
 		return Math.min(1.0f, chargedPunchHold / (float) CHARGED_PUNCH_HOLD_TICKS);
+	}
+
+	/** true once the charged punch has been held long enough to throw on release. */
+	public static boolean chargedPunchReady() {
+		return chargedPunchHold >= CHARGED_PUNCH_HOLD_TICKS;
+	}
+
+	/** 0..1 Power Leap charge, for the ability HUD (0 when X is not held). */
+	public static float leapChargeProgress() {
+		return Math.min(1.0f, leapChargeHold / (float) LEAP_MAX_CHARGE_TICKS);
 	}
 
 	@Override
@@ -339,9 +353,14 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	}
 
 	/**
-	 * Super Strength: holding the vanilla attack key for {@link #CHARGED_PUNCH_HOLD_TICKS} ticks
-	 * sends one request to arm the charged punch. Vanilla never reports a held attack at nothing, so
-	 * this has to be tracked client-side; the server re-validates the power and cooldown.
+	 * Super Strength client gestures that vanilla never reports on its own:
+	 * <ul>
+	 *   <li><b>Charged Punch</b> -- hold the attack key ~2 s (charge does not build while the
+	 *       crosshair is on a minable block, so ordinary mining never winds it up), then release to
+	 *       throw it ({@code PERFORM_CHARGED_PUNCH}).</li>
+	 *   <li><b>Power Leap charge bar</b> -- how long X has been held, so the HUD can show the tier.</li>
+	 * </ul>
+	 * The server re-validates power, cooldown and timing.
 	 */
 	private static void handleChargedPunch(Minecraft client) {
 		LocalPlayer p = client.player;
@@ -351,16 +370,33 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				&& "power_01_super_strength".equals(st.activePower);
 		boolean holdingFirearm = p != null && p.getMainHandItem().getItem()
 				instanceof com.projecthero.mod.firearm.item.FirearmItem;
-		if (!strengthKit || holdingFirearm || client.screen != null || !client.options.keyAttack.isDown()) {
+		boolean usable = strengthKit && !holdingFirearm && client.screen == null;
+
+		// ---- charged punch ----
+		boolean attackDown = usable && client.options.keyAttack.isDown();
+		boolean lookingAtBlock = client.hitResult != null
+				&& client.hitResult.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK;
+		if (attackDown && !lookingAtBlock) {
+			chargedPunchHold++;
+			chargedPunchWasCharging = true;
+		} else if (attackDown) {
+			// holding, but aimed at a block -- freeze the charge, do not build it and do not throw
+		} else {
+			// Only a genuine key release throws the punch (not opening a screen mid-charge).
+			if (chargedPunchWasCharging && chargedPunchHold >= CHARGED_PUNCH_HOLD_TICKS
+					&& !client.options.keyAttack.isDown()) {
+				ClientPlayNetworking.send(new com.projecthero.mod.network.StrengthActionPayload(
+						com.projecthero.mod.network.StrengthActionPayload.Action.PERFORM_CHARGED_PUNCH));
+			}
 			chargedPunchHold = 0;
-			chargedPunchSent = false;
-			return;
+			chargedPunchWasCharging = false;
 		}
-		chargedPunchHold++;
-		if (chargedPunchHold >= CHARGED_PUNCH_HOLD_TICKS && !chargedPunchSent) {
-			ClientPlayNetworking.send(new com.projecthero.mod.network.StrengthActionPayload(
-					com.projecthero.mod.network.StrengthActionPayload.Action.ARM_CHARGED_PUNCH));
-			chargedPunchSent = true;
+
+		// ---- Power Leap charge bar (display only; the server owns the real timing) ----
+		if (usable && ModKeyBindings.ABILITY_3.isDown()) {
+			leapChargeHold = Math.min(LEAP_MAX_CHARGE_TICKS + 5, leapChargeHold + 1);
+		} else {
+			leapChargeHold = 0;
 		}
 	}
 

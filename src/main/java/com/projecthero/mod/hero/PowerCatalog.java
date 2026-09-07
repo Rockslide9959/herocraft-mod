@@ -74,7 +74,7 @@ final class PowerCatalog {
 		String k = "power_01_super_strength";
 		return Power.Builder.of(Powers.id(k), PowerCategory.PHYSICAL)
 				.ability(ab(k, "ground_slam", SLOT_1, INSTANT, 8 * S))
-				.ability(ab(k, "air_punch", SLOT_2, INSTANT, 12 * S))
+				.ability(ab(k, "air_punch", SLOT_2, INSTANT, 10 * S))
 				.ability(ab(k, "power_leap", SLOT_3, CHARGE, 3 * S))
 				.ability(ab(k, "bull_rush", SLOT_4, HOLD, 40 * S))
 				.ability(ab(k, "grab_carry", SLOT_5, INSTANT, 5 * S))

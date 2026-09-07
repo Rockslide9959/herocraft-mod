@@ -88,10 +88,11 @@ public final class ModNetworking {
 			}
 		});
 
-		// Super Strength: the charged punch is armed by a 2 s attack-key hold, tracked client-side.
+		// Super Strength: the charged punch is wound up by a 2 s attack-key hold and thrown on release,
+		// both tracked client-side.
 		ServerPlayNetworking.registerGlobalReceiver(StrengthActionPayload.TYPE, (payload, context) -> {
-			if (payload.action() == StrengthActionPayload.Action.ARM_CHARGED_PUNCH) {
-				com.projecthero.mod.hero.power.p01.SuperStrengthHandlers.armChargedPunch(context.player());
+			if (payload.action() == StrengthActionPayload.Action.PERFORM_CHARGED_PUNCH) {
+				com.projecthero.mod.hero.power.p01.SuperStrengthHandlers.performChargedPunch(context.player());
 			}
 		});
 
