@@ -46,6 +46,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	/** Super Strength Power Leap: X held this many ticks = maximum charge. Mirrors the server. */
 	public static final int LEAP_MAX_CHARGE_TICKS = 50;
 	private static int leapChargeHold = 0;
+	private static boolean leapWasCharging = false;
 
 	/** 0..1 progress toward the charged punch being ready, for the ability HUD. */
 	public static float chargedPunchProgress() {
@@ -386,17 +387,30 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			if (chargedPunchWasCharging && chargedPunchHold >= CHARGED_PUNCH_HOLD_TICKS
 					&& !client.options.keyAttack.isDown()) {
 				ClientPlayNetworking.send(new com.projecthero.mod.network.StrengthActionPayload(
-						com.projecthero.mod.network.StrengthActionPayload.Action.PERFORM_CHARGED_PUNCH));
+						com.projecthero.mod.network.StrengthActionPayload.Action.PERFORM_CHARGED_PUNCH, 0));
 			}
 			chargedPunchHold = 0;
 			chargedPunchWasCharging = false;
 		}
 
-		// ---- Power Leap charge bar (display only; the server owns the real timing) ----
-		if (usable && ModKeyBindings.ABILITY_3.isDown()) {
-			leapChargeHold = Math.min(LEAP_MAX_CHARGE_TICKS + 5, leapChargeHold + 1);
+		// ---- Power Leap: the client owns the timing. Charge while X is held, launch on release with
+		// the exact tick count so the distance is deterministic. ----
+		boolean leapOnCd = false;
+		if (st != null && client.level != null) {
+			Long ready = st.abilityReadyAt.get("power_01_super_strength/power_leap");
+			leapOnCd = ready != null && ready > client.level.getGameTime();
+		}
+		boolean leapDown = usable && !leapOnCd && ModKeyBindings.ABILITY_3.isDown();
+		if (leapDown) {
+			leapChargeHold = Math.min(LEAP_MAX_CHARGE_TICKS + 10, leapChargeHold + 1);
+			leapWasCharging = true;
 		} else {
+			if (leapWasCharging && leapChargeHold >= 1 && strengthKit && !holdingFirearm && client.screen == null) {
+				ClientPlayNetworking.send(new com.projecthero.mod.network.StrengthActionPayload(
+						com.projecthero.mod.network.StrengthActionPayload.Action.PERFORM_POWER_LEAP, leapChargeHold));
+			}
 			leapChargeHold = 0;
+			leapWasCharging = false;
 		}
 	}
 

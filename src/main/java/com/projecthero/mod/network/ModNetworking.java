@@ -88,11 +88,14 @@ public final class ModNetworking {
 			}
 		});
 
-		// Super Strength: the charged punch is wound up by a 2 s attack-key hold and thrown on release,
-		// both tracked client-side.
+		// Super Strength: the charged punch and Power Leap are both wound up by a key hold and thrown on
+		// release, tracked client-side. Timing comes from the client; the server owns power + cooldown.
 		ServerPlayNetworking.registerGlobalReceiver(StrengthActionPayload.TYPE, (payload, context) -> {
-			if (payload.action() == StrengthActionPayload.Action.PERFORM_CHARGED_PUNCH) {
-				com.projecthero.mod.hero.power.p01.SuperStrengthHandlers.performChargedPunch(context.player());
+			switch (payload.action()) {
+				case PERFORM_CHARGED_PUNCH ->
+						com.projecthero.mod.hero.power.p01.SuperStrengthHandlers.performChargedPunch(context.player());
+				case PERFORM_POWER_LEAP ->
+						com.projecthero.mod.hero.power.p01.SuperStrengthHandlers.performPowerLeap(context.player(), payload.value());
 			}
 		});
 

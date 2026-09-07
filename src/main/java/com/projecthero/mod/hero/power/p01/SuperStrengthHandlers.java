@@ -113,26 +113,39 @@ public final class SuperStrengthHandlers {
 		AbilityHandlers.register(KEY, "ground_slam",
 				Handlers.instantTicking(SuperStrengthHandlers::groundSlamActivate, SuperStrengthHandlers::groundSlamTick));
 		AbilityHandlers.register(KEY, "air_punch", Handlers.instant(SuperStrengthHandlers::airPunch));
+		// Power Leap's timing is owned entirely by the client (StrengthActionPayload.PERFORM_POWER_LEAP)
+		// so the launch is deterministic. The slot handler only draws the wind-up dust: onActivate marks
+		// the start, onRelease/onServerTick self-clean it.
 		AbilityHandlers.register(KEY, "power_leap", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
-				if (!ctx.cooldownReady()) {
-					ctx.actionBar("message.projecthero.ability.on_cooldown",
-							net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
-							String.format(java.util.Locale.ROOT, "%.1f", ctx.cooldownRemaining() / 20.0f));
-					return;
+				if (ctx.cooldownReady()) {
+					res(ctx.player(), "leap_press", ctx.player().level().getGameTime());
 				}
-				res(ctx.player(), "leap_press", ctx.player().level().getGameTime());
 			}
 
 			@Override
 			public void onRelease(AbilityContext ctx) {
-				powerLeapFire(ctx);
+				res(ctx.player(), "leap_press", 0);
 			}
 
 			@Override
 			public void onServerTick(AbilityContext ctx) {
-				powerLeapTick(ctx);
+				ServerPlayer p = ctx.player();
+				float press = res(p, "leap_press");
+				if (press <= 0) {
+					return;
+				}
+				long held = p.level().getGameTime() - (long) press;
+				if (held < 0 || held > LEAP_MAX_CHARGE + 30) {
+					res(p, "leap_press", 0); // lost the release edge -- do not leak dust forever
+					return;
+				}
+				ctx.level().sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(),
+						3, 0.3, 0.05, 0.3, 0.02);
+				if (held > 0 && held <= LEAP_MAX_CHARGE && held % 10 == 0) {
+					AbilityHelpers.sound(p, SoundEvents.STONE_HIT, 0.5f, 0.8f + held / 60.0f);
+				}
 			}
 		});
 		AbilityHandlers.register(KEY, "bull_rush", new AbilityHandler() {
@@ -352,54 +365,46 @@ public final class SuperStrengthHandlers {
 		triggerCd(ctx, 10 * 20);
 	}
 
-	// ---- X: Power Leap (charge) --------------------------------------------------------------
+	// ---- X: Power Leap ----------------------------------------------------------------------
 
 	/** 0.5 s per tier of charge, 2.5 s (50 ticks) = maximum. Mirrors the client-side charge bar. */
 	public static final int LEAP_MAX_CHARGE = 50;
 
-	private static void powerLeapTick(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		float press = res(p, "leap_press");
-		if (press <= 0) {
-			return;
-		}
-		long held = p.level().getGameTime() - (long) press;
-		// A tightening coil of dust at the feet while charging.
-		ctx.level().sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(),
-				3, 0.3, 0.05, 0.3, 0.02);
-		if (held % 10 == 0 && held > 0 && held <= LEAP_MAX_CHARGE) {
-			AbilityHelpers.sound(p, SoundEvents.STONE_HIT, 0.5f, 0.8f + held / 60.0f);
-		}
-		if (held >= LEAP_MAX_CHARGE) {
-			powerLeapFire(ctx); // auto-launch at maximum charge
-		}
+	private static int leapTier(int heldTicks) {
+		return heldTicks < 10 ? 0 : heldTicks < 20 ? 1 : heldTicks < 30 ? 2 : heldTicks < 40 ? 3 : heldTicks < 50 ? 4 : 5;
 	}
 
-	private static void powerLeapFire(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		float press = res(p, "leap_press");
-		if (press <= 0) {
+	/**
+	 * The client released X after holding it {@code heldTicks} ticks. Launch along the full line of
+	 * sight, scaled by the charge tier. Cooldown-gated here (the only authority).
+	 */
+	public static void performPowerLeap(ServerPlayer p, int heldTicks) {
+		Power power = power();
+		if (power == null || !owns(p)) {
+			return;
+		}
+		com.projecthero.mod.hero.Ability ab = power.ability(com.projecthero.mod.hero.AbilitySlot.SLOT_3);
+		if (!com.projecthero.mod.hero.ExperimentalPowers.cooldownReady(p, power, ab)) {
 			return;
 		}
 		res(p, "leap_press", 0);
-		long held = p.level().getGameTime() - (long) press;
-		int tier = held < 10 ? 0 : held < 20 ? 1 : held < 30 ? 2 : held < 40 ? 3 : held < 50 ? 4 : 5;
-		// Initial launch velocity per charge tier -- a full-charge leap really throws you.
+
+		int tier = leapTier(heldTicks);
 		double[] speed = {2.4, 3.3, 4.3, 5.4, 6.6, 7.8};
 		double s = speed[tier] * (maxEffortActive(p) ? 1.2 : 1.0);
-
-		// Launch straight along the line of sight -- but guarantee some lift so a flat or downward
-		// aim still gets you off the ground.
 		Vec3 dir = p.getLookAngle().normalize();
 		if (dir.y < 0.15) {
 			dir = dir.add(0, 0.30, 0).normalize();
 		}
 		AbilityHelpers.launchSelf(p, dir.scale(s));
 		res(p, "no_fall_until", p.level().getGameTime() + 600);
-		AbilityHelpers.burst(ctx.level(), p.position(), ParticleTypes.EXPLOSION, 1, 0.0);
-		AbilityHelpers.burst(ctx.level(), p.position(), ParticleTypes.CLOUD, 40, 0.4);
+		if (p.level() instanceof ServerLevel level) {
+			level.sendParticles(ParticleTypes.EXPLOSION, p.getX(), p.getY() + 0.1, p.getZ(), 1, 0, 0, 0, 0);
+			level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 40, 0.4, 0.2, 0.4, 0.1);
+		}
 		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.1f, 0.5f);
-		triggerCd(ctx, 3 * 20);
+		com.projecthero.mod.hero.ExperimentalPowers.triggerCooldown(p, power, ab,
+				com.projecthero.mod.hero.HeroConfig.get().scaledCooldown(maxEffortActive(p) ? 30 : 60));
 	}
 
 	// ---- Z: Bull Rush / Impact Smash (both hold-to-charge for 5 s) --------------------------
