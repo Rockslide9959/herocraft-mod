@@ -16,5 +16,8 @@ public final class ModEntityRenderers {
 				TurboBoltRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.symbiote.entity.SymbioteEntityTypes.SYMBIOTE,
 				com.projecthero.mod.client.symbiote.SymbioteEntityRenderer::new);
+		// Geokinesis' Colossal Rock -- a heavily over-scaled stone block billboard.
+		EntityRendererRegistry.register(com.projecthero.mod.hero.power.p05.GeoEntityTypes.COLOSSAL_ROCK,
+				ctx -> new net.minecraft.client.renderer.entity.ThrownItemRenderer(ctx, 5.0f, false));
 	}
 }

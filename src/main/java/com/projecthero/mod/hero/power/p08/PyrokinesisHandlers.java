@@ -123,6 +123,14 @@ public final class PyrokinesisHandlers {
 		return p.level().dimension() == Level.NETHER ? 5.0f : 0.0f;
 	}
 
+	/**
+	 * Blue Flame stance (Flame Body) adds to <em>ability</em> damage as well as the +12 melee it already
+	 * grants -- a flat bonus on single-hit abilities, a smaller per-tick trickle on the flamethrower.
+	 */
+	private static float flameBodyAbilityBonus(ServerPlayer p) {
+		return blueMode(p) ? 8.0f : 0.0f;
+	}
+
 	private static void placeFire(ServerLevel level, BlockPos pos, int ttl) {
 		if (fireOk() && level.getBlockState(pos).isAir()) {
 			TempBlocks.place(level, pos, BaseFireBlock.getState(level, pos), ttl);
@@ -292,7 +300,7 @@ public final class PyrokinesisHandlers {
 				continue;
 			}
 			AbilityHelpers.hurt(p, e, level.damageSources().source(
-					net.minecraft.world.damagesource.DamageTypes.LIGHTNING_BOLT, p), 60.0f);
+					net.minecraft.world.damagesource.DamageTypes.LIGHTNING_BOLT, p), 60.0f + flameBodyAbilityBonus(p));
 			// stun
 			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, LIGHTNING_STUN, 9);
 			AbilityHelpers.applyControl(e, MobEffects.JUMP, LIGHTNING_STUN, -10);
@@ -331,7 +339,7 @@ public final class PyrokinesisHandlers {
 				// a direct hit: 12 fire damage and ignition, plus a searing beam of flame
 				AbilityHelpers.line(level, p.getEyePosition(), aimed.position().add(0, aimed.getBbHeight() * 0.5, 0),
 						flameParticle(p), 3.0);
-				AbilityHelpers.hurt(p, aimed, AbilityHelpers.fire(p), 12.0f + netherBonus(p));
+				AbilityHelpers.hurt(p, aimed, AbilityHelpers.fire(p), 12.0f + netherBonus(p) + flameBodyAbilityBonus(p));
 				aimed.setRemainingFireTicks(120);
 				level.sendParticles(flameParticle(p), aimed.getX(), aimed.getY() + aimed.getBbHeight() * 0.5, aimed.getZ(),
 						30, 0.4, 0.5, 0.4, 0.02);
@@ -372,7 +380,8 @@ public final class PyrokinesisHandlers {
 				for (LivingEntity e : AbilityHelpers.enemiesAround(p, origin.add(look.scale(2.5)), 3.0)) {
 					Vec3 to = e.position().subtract(origin).normalize();
 					if (to.dot(look) > 0.6) {
-						AbilityHelpers.hurt(p, e, AbilityHelpers.fire(p), 6.0f + netherBonus(p));
+						AbilityHelpers.hurt(p, e, AbilityHelpers.fire(p),
+								6.0f + netherBonus(p) + flameBodyAbilityBonus(p) * 0.25f);
 						e.setRemainingFireTicks(80);
 					}
 				}
@@ -505,7 +514,8 @@ public final class PyrokinesisHandlers {
 				ctx -> {
 					ServerPlayer p = ctx.player();
 					ServerLevel level = ctx.level();
-					// Blue Flame stance: +10 flame damage on top of the base +2 (Nether adds more still).
+					// Blue Flame stance: +12 melee damage (Nether adds more still). It also feeds
+					// flameBodyAbilityBonus() into every Pyrokinesis ability's damage.
 					PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, FLAME_BODY_ATK, 12.0 + netherBonus(p),
 							AttributeModifier.Operation.ADD_VALUE);
 					AbilityHelpers.modeAura(p, ParticleTypes.SOUL_FIRE_FLAME, 4);

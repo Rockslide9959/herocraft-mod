@@ -80,6 +80,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.firearm.item.FirearmItems.initialize();
 		com.projecthero.mod.punisher.item.PunisherItems.initialize();
 		com.projecthero.mod.punisher.entity.PunisherEntityTypes.initialize();
+		com.projecthero.mod.hero.power.p05.GeoEntityTypes.initialize();
 		Powers.initialize();
 		HeroPowerHandlers.registerAll();
 		ModDevices.initialize();

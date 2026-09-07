@@ -15,6 +15,7 @@ import com.projecthero.mod.hero.power.ConjuredStructures;
 import com.projecthero.mod.hero.power.Handlers;
 import com.projecthero.mod.hero.power.PowerToggles;
 import com.projecthero.mod.hero.power.TempBlocks;
+import com.projecthero.mod.hero.power.TimedSelfFlight;
 
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
@@ -34,11 +35,9 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -55,9 +54,10 @@ import net.minecraft.world.phys.Vec3;
  * ground with an empty hand for Seismic Sense — every creature within 30 blocks is outlined for 12 s.
  *
  * <h2>Slots</h2>
- * R Rock Shot (sneak = 5-shard crystal volley), G Earth Spike (sneak = auto-tracking cone), X Stone
- * Wall (sneak = Earth Swim), Z hold-5s Earthquake — or Colossal Rock while a boulder is lifted,
- * V Boulder Lift (held indefinitely), C Earth Armor.
+ * R Rock Shot (sneak = 10-block ground-shake cone), G Earth Spike (sneak = auto-tracking cone),
+ * X Stone Wall (sneak + look down = rock flight, sneak otherwise = Earth Swim), Z hold-5s Earthquake
+ * with ravines — or Colossal Rock while a boulder is lifted, V Boulder Lift (held indefinitely),
+ * C Earth Armor.
  */
 public final class GeokinesisHandlers {
 	static final String KEY = "power_05_geokinesis";
@@ -118,18 +118,15 @@ public final class GeokinesisHandlers {
 	}
 
 	public static void register() {
-		AbilityHandlers.register(KEY, "rock_shot", Handlers.instantTicking(ctx -> {
+		AbilityHandlers.register(KEY, "rock_shot", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
 			if (p.isShiftKeyDown()) {
-				ctx.setResource("shard_ticks", 5, 5);
-				ctx.setResource("shard_step", 1, 1);
-				ctx.triggerCooldown(10 * 20);
-				AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 1.2f);
+				groundShakeCone(ctx);
 			} else {
 				rockShotSingle(ctx, 9.0f);
 				ctx.triggerCooldown();
 			}
-		}, GeokinesisHandlers::shardVolleyTick));
+		}));
 
 		AbilityHandlers.register(KEY, "earth_spike", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
@@ -284,6 +281,10 @@ public final class GeokinesisHandlers {
 		com.projecthero.mod.hero.power.ModeMeter.regen(player, power, "earth_armor", MAX_STRAIN, STRAIN_REGEN,
 				armorActive(player));
 
+		// Rock flight (Stone Wall, sneak + look straight down) upkeep.
+		com.projecthero.mod.hero.power.TimedSelfFlight.tick(player, power, power.ability(AbilitySlot.SLOT_3),
+				"rock", STONE_DUST);
+
 		// gentle mining haste while standing on earth (kept from the original kit)
 		if (player.onGround() && player.level() instanceof ServerLevel sl
 				&& GeoBareHands.isEarth(sl.getBlockState(player.blockPosition().below()))) {
@@ -314,14 +315,9 @@ public final class GeokinesisHandlers {
 		} else if (swimOn) {
 			endEarthSwim(player);
 		}
-
-		// Colossal Rock pseudo-projectile advance.
-		colossalTick(player, power);
-		// Real-time ravine formation after an Earthquake.
-		ravineTick(player, power);
 	}
 
-	// ---- R: Rock Shot / crystal shard volley -----------------------------------------------------
+	// ---- R: Rock Shot / ground-shake cone ------------------------------------------------------
 
 	private static void rockShotSingle(AbilityContext ctx, float dmg) {
 		ServerPlayer p = ctx.player();
@@ -336,35 +332,45 @@ public final class GeokinesisHandlers {
 		AbilityHelpers.sound(p, SoundEvents.STONE_BREAK, 1.0f, 0.7f);
 	}
 
-	private static void shardVolleyTick(AbilityContext ctx) {
-		float left = ctx.resource("shard_ticks");
-		if (left < 0.5f) {
-			return;
-		}
-		int step = (int) ctx.resource("shard_step") - 1;
-		if (step > 0) {
-			ctx.setResource("shard_step", step, 5);
-			return;
-		}
+	/**
+	 * Sneak + R: a ground shockwave in a ~10-block cone. Everything caught in it takes 9 damage and is
+	 * slowed for 2 s. 10 s cooldown.
+	 */
+	private static void groundShakeCone(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		ServerLevel level = ctx.level();
-		// slight spread so the five shards fan out
 		Vec3 look = p.getLookAngle();
-		Vec3 jitter = new Vec3(level.random.nextGaussian() * 0.05, level.random.nextGaussian() * 0.05,
-				level.random.nextGaussian() * 0.05);
-		Vec3 dir = look.add(jitter).normalize();
-		Vec3 eye = p.getEyePosition();
-		Vec3 end = eye.add(dir.scale(24.0));
-		AbilityHelpers.line(level, eye, end, new BlockParticleOption(ParticleTypes.BLOCK, Blocks.AMETHYST_BLOCK.defaultBlockState()), 4.0);
-		AbilityHelpers.line(level, eye, end, ParticleTypes.END_ROD, 1.5);
-		LivingEntity t = AbilityHelpers.raycastEntity(p, 24.0);
-		if (t != null) {
-			AbilityHelpers.hurt(p, t, 6.0f + armorBonus(p));
-			AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, 30, 0);
+		Vec3 flat = new Vec3(look.x, 0, look.z);
+		flat = flat.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : flat.normalize();
+
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position().add(flat.scale(5.0)), 8.0)) {
+			Vec3 to = e.position().subtract(p.position());
+			Vec3 toFlat = new Vec3(to.x, 0, to.z);
+			if (toFlat.horizontalDistanceSqr() > 10.0 * 10.0 || toFlat.horizontalDistanceSqr() < 1.0e-4) {
+				continue;
+			}
+			if (toFlat.normalize().dot(flat) < 0.55) {
+				continue; // outside the cone
+			}
+			AbilityHelpers.hurt(p, e, 9.0f + armorBonus(p));
+			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 40, 1);
 		}
-		AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_HIT, 1.0f, 1.5f);
-		ctx.setResource("shard_ticks", left - 1, 5);
-		ctx.setResource("shard_step", 4, 5);
+
+		// a fan of ground-crack dust running out along the cone
+		Vec3 side = new Vec3(-flat.z, 0, flat.x);
+		for (int i = 0; i < 40; i++) {
+			double d = 1.5 + level.random.nextDouble() * 8.5;
+			double lateral = (level.random.nextDouble() - 0.5) * d * 0.9;
+			double bx = p.getX() + flat.x * d + side.x * lateral;
+			double bz = p.getZ() + flat.z * d + side.z * lateral;
+			BlockPos gp = BlockPos.containing(bx, p.getY() - 0.5, bz);
+			level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, level.getBlockState(gp)),
+					bx, p.getY() + 0.1, bz, 5, 0.2, 0.1, 0.2, 0.03);
+		}
+		level.sendParticles(STONE_DUST, p.getX(), p.getY() + 0.1, p.getZ(), 30, 1.0, 0.1, 1.0, 0.05);
+		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 0.8f, 0.5f);
+		level.playSound(null, p.blockPosition(), SoundEvents.STONE_BREAK, SoundSource.PLAYERS, 1.4f, 0.5f);
+		ctx.triggerCooldown(10 * 20);
 	}
 
 	// ---- G: Earth Spike cone -------------------------------------------------------------------
@@ -402,6 +408,18 @@ public final class GeokinesisHandlers {
 		ServerLevel level = ctx.level();
 
 		if (p.isShiftKeyDown()) {
+			// Sneak + look straight down → 20 s of rock flight (restored). Sneak otherwise → Earth Swim.
+			if (p.getXRot() > 75.0f) {
+				Power power = ctx.power();
+				if (TimedSelfFlight.isActive(p, power, "rock")) {
+					return;
+				}
+				if (TimedSelfFlight.start(p, power, ctx.ability(), "rock")) {
+					AbilityHelpers.sound(p, SoundEvents.STONE_PLACE, 1.0f, 0.5f);
+					AbilityHelpers.burst(level, p.position(), STONE_DUST, 40, 0.6);
+				}
+				return;
+			}
 			startEarthSwim(ctx);
 			return;
 		}
@@ -561,7 +579,7 @@ public final class GeokinesisHandlers {
 			return;
 		}
 
-		// The Earthquake: 45 damage in a 25-block radius, plus ravines that tear open in real time.
+		// The Earthquake: 45 damage in a 25-block radius, plus deep ravines torn open around the epicentre.
 		double r = 25.0;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
 			double d = e.position().distanceTo(p.position());
@@ -575,124 +593,83 @@ public final class GeokinesisHandlers {
 		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, p.getX(), p.getY(), p.getZ(), 2, 3, 0.5, 3, 0);
 		level.playSound(null, p.blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.4f, 0.35f);
 		level.playSound(null, p.blockPosition(), SoundEvents.STONE_BREAK, SoundSource.PLAYERS, 1.6f, 0.4f);
-		// arm the real-time ravine formation
-		ctx.setResource("ravine_x", (float) p.getX(), 1e12f);
-		ctx.setResource("ravine_y", (float) p.getY(), 1e12f);
-		ctx.setResource("ravine_z", (float) p.getZ(), 1e12f);
-		ctx.setResource("ravine_ticks", 70, 70);
+		carveRavines(p, level);
 		ctx.triggerCooldown(QUAKE_CD);
 	}
 
-	/** Tears radial cracks outward from the epicentre over ~3.5 seconds. */
-	private static void ravineTick(ServerPlayer player, Power power) {
-		float ticks = ExperimentalPowers.getResource(player, power, "ravine_ticks");
-		if (ticks <= 0.5f) {
+	/**
+	 * Rips several deep, winding ravines out of the earth radiating from the epicentre. Done in one
+	 * pass (not stored between ticks, so it works at any world coordinate) and gated on
+	 * {@link AbilityHelpers#canGrief()} like every other terrain effect.
+	 */
+	private static void carveRavines(ServerPlayer p, ServerLevel level) {
+		if (!AbilityHelpers.canGrief()) {
 			return;
 		}
-		ExperimentalPowers.setResource(player, power, "ravine_ticks", ticks - 1, 70);
-		if (!(player.level() instanceof ServerLevel level) || !AbilityHelpers.canGrief()) {
-			return;
-		}
-		int elapsed = 70 - (int) ticks;
-		double cx = ExperimentalPowers.getResource(player, power, "ravine_x");
-		double cy = ExperimentalPowers.getResource(player, power, "ravine_y");
-		double cz = ExperimentalPowers.getResource(player, power, "ravine_z");
-		int spokes = 6;
-		double reach = elapsed * 0.35; // blocks from centre this tick
-		int broken = 0;
-		for (int s = 0; s < spokes && broken < 40; s++) {
-			double ang = s * (Math.PI * 2 / spokes) + Math.sin(cx + cz) * 0.3;
-			int bx = Mth.floor(cx + Math.cos(ang) * reach);
-			int bz = Mth.floor(cz + Math.sin(ang) * reach);
-			int surfY = Mth.floor(cy);
-			for (int dy = -3; dy <= 1; dy++) {
-				for (int w = -1; w <= 1; w++) {
-					int wx = bx + (int) Math.round(-Math.sin(ang) * w);
-					int wz = bz + (int) Math.round(Math.cos(ang) * w);
-					BlockPos bp = new BlockPos(wx, surfY + dy, wz);
-					BlockState st = level.getBlockState(bp);
-					if (!st.isAir() && GeoBareHands.isEarth(st) && st.getDestroySpeed(level, bp) >= 0) {
-						level.destroyBlock(bp, false);
-						broken++;
+		int rifts = 5;
+		double base = level.random.nextDouble() * Math.PI * 2;
+		double ox = p.getX();
+		double oz = p.getZ();
+		int oy = Mth.floor(p.getY());
+		for (int rf = 0; rf < rifts; rf++) {
+			double heading = base + rf * (Math.PI * 2 / rifts) + (level.random.nextDouble() - 0.5) * 0.5;
+			double curve = (level.random.nextDouble() - 0.5) * 0.12;
+			int length = 16 + level.random.nextInt(10); // 16..25 blocks
+			double cx = ox;
+			double cz = oz;
+			for (int step = 1; step <= length; step++) {
+				heading += curve;
+				cx += Math.cos(heading);
+				cz += Math.sin(heading);
+				double taper = 1.0 - step / (double) length;
+				int half = 1 + (int) Math.round(1.6 * taper); // ~3 wide near the middle, 1 at the tips
+				int depth = 3 + (int) Math.round(4.0 * taper); // ~7 deep near the middle, 3 at the tips
+				double perpX = -Math.sin(heading);
+				double perpZ = Math.cos(heading);
+				int surf = surfaceY(level, Mth.floor(cx), Mth.floor(cz), oy);
+				for (int w = -half; w <= half; w++) {
+					int bx = Mth.floor(cx + perpX * w);
+					int bz = Mth.floor(cz + perpZ * w);
+					for (int dy = 1; dy >= -depth; dy--) {
+						BlockPos bp = new BlockPos(bx, surf + dy, bz);
+						BlockState st = level.getBlockState(bp);
+						if (!st.isAir() && GeoBareHands.isEarth(st) && st.getDestroySpeed(level, bp) >= 0
+								&& level.getFluidState(bp).isEmpty()) {
+							level.destroyBlock(bp, false);
+						}
 					}
 				}
+				if (step % 3 == 0) {
+					level.sendParticles(STONE_DUST, cx, surf + 0.5, cz, 18, 0.6, 0.6, 0.6, 0.06);
+				}
 			}
-			level.sendParticles(STONE_DUST, bx + 0.5, surfY + 0.5, bz + 0.5, 12, 0.5, 0.5, 0.5, 0.05);
 		}
-		if (elapsed % 6 == 0) {
-			level.playSound(null, BlockPos.containing(cx, cy, cz), SoundEvents.STONE_BREAK, SoundSource.PLAYERS, 1.2f, 0.4f);
-		}
+		level.playSound(null, p.blockPosition(), SoundEvents.STONE_BREAK, SoundSource.PLAYERS, 2.0f, 0.3f);
+		level.playSound(null, p.blockPosition(), SoundEvents.GRAVEL_BREAK, SoundSource.PLAYERS, 1.8f, 0.4f);
 	}
 
-	// ---- Colossal Rock pseudo-projectile ------------------------------------------------------
+	/** Walks down from a little above {@code guessY} to the first non-air block. */
+	private static int surfaceY(ServerLevel level, int x, int z, int guessY) {
+		int y = guessY + 4;
+		int floor = guessY - 10;
+		while (y > floor && level.getBlockState(new BlockPos(x, y, z)).isAir()) {
+			y--;
+		}
+		return y;
+	}
+
+	// ---- Colossal Rock ------------------------------------------------------------------------
 
 	private static void launchColossalRock(ServerPlayer p, ServerLevel level) {
 		Vec3 dir = p.getLookAngle().normalize();
-		Vec3 spawn = airSpawn(level, p, dir);
-		// fall() spawns the entity into the world for us at an air position along the player's sightline.
-		FallingBlockEntity rock = FallingBlockEntity.fall(level, BlockPos.containing(spawn),
-				Blocks.STONE.defaultBlockState());
-		rock.setPos(spawn.x, spawn.y - 0.5, spawn.z);
-		rock.setNoGravity(true);
-		rock.time = 1;
-		rock.setHurtsEntities(0.0f, 0);
-		rock.disableDrop(); // never places a block or drops an item when it stops
-		rock.setDeltaMovement(dir.scale(2.4));
-		ExperimentalPowers.setResource(p, power(), "crock_id", rock.getId(), 1e12f);
-		ExperimentalPowers.setResource(p, power(), "crock_ticks", 70, 70);
-		AbilityHelpers.burst(level, spawn, STONE_DUST, 80, 1.2);
-		level.playSound(null, p.blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.5f, 0.4f);
+		ColossalRockEntity rock = new ColossalRockEntity(level, p, 50.0f + armorBonus(p));
+		Vec3 spawn = p.getEyePosition().add(dir.scale(3.0));
+		rock.setPos(spawn.x, spawn.y, spawn.z);
+		rock.shoot(dir.x, dir.y, dir.z, 2.6f, 0.0f); // launched at full speed immediately, ghast-fireball fast
+		level.addFreshEntity(rock);
+		AbilityHelpers.burst(level, spawn, STONE_DUST, 90, 1.5);
+		level.playSound(null, p.blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.5f, 0.35f);
 		level.playSound(null, p.blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 1.2f, 0.5f);
-	}
-
-	private static void colossalTick(ServerPlayer player, Power power) {
-		float ticks = ExperimentalPowers.getResource(player, power, "crock_ticks");
-		if (ticks <= 0.5f) {
-			return;
-		}
-		ExperimentalPowers.setResource(player, power, "crock_ticks", ticks - 1, 70);
-		if (!(player.level() instanceof ServerLevel level)) {
-			return;
-		}
-		Entity e = level.getEntity((int) ExperimentalPowers.getResource(player, power, "crock_id"));
-		if (!(e instanceof FallingBlockEntity rock) || !rock.isAlive()) {
-			ExperimentalPowers.setResource(player, power, "crock_ticks", 0, 70);
-			return;
-		}
-		Vec3 dir = rock.getDeltaMovement().normalize();
-		rock.setDeltaMovement(dir.scale(2.4));
-		rock.setNoGravity(true);
-		Vec3 c = rock.position();
-		level.sendParticles(STONE_DUST, c.x, c.y, c.z, 20, 0.6, 0.6, 0.6, 0.02);
-		boolean impact = rock.horizontalCollision || rock.verticalCollision || rock.onGround();
-		java.util.List<LivingEntity> hits = AbilityHelpers.living(level, c, 2.6,
-				le -> le != player && le.isAlive() && !(le instanceof net.minecraft.world.entity.decoration.ArmorStand)
-						&& (!(le instanceof Player) || (player.getServer() != null && player.getServer().isPvpAllowed()
-								&& HeroConfig.get().abilityPvpDamage)));
-		if (!hits.isEmpty()) {
-			impact = true;
-		}
-		if (impact || ticks <= 1.5f) {
-			for (LivingEntity le : AbilityHelpers.enemiesAround(player, c, 4.0)) {
-				AbilityHelpers.hurt(player, le, 50.0f + armorBonus(player));
-				AbilityHelpers.knockbackFrom(le, c, 2.6);
-				AbilityHelpers.push(le, new Vec3(0, 0.5, 0));
-			}
-			level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y, c.z, 1, 0, 0, 0, 0);
-			level.sendParticles(STONE_DUST, c.x, c.y, c.z, 120, 2.0, 2.0, 2.0, 0.2);
-			level.playSound(null, BlockPos.containing(c), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.6f, 0.4f);
-			if (AbilityHelpers.canGrief()) {
-				for (BlockPos bp : BlockPos.betweenClosed(BlockPos.containing(c).offset(-2, -2, -2),
-						BlockPos.containing(c).offset(2, 2, 2))) {
-					BlockState st = level.getBlockState(bp);
-					if (!st.isAir() && GeoBareHands.isEarth(st) && st.getDestroySpeed(level, bp) >= 0) {
-						level.destroyBlock(bp, true);
-					}
-				}
-			}
-			rock.discard();
-			ExperimentalPowers.setResource(player, power, "crock_ticks", 0, 70);
-		}
 	}
 
 	// ---- V: Boulder Lift -----------------------------------------------------------------------

@@ -374,7 +374,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		boolean usable = strengthKit && !holdingFirearm && client.screen == null;
 
 		// ---- charged punch ----
-		boolean attackDown = usable && client.options.keyAttack.isDown();
+		// The wind-up cannot even begin while the punch's own cooldown is running (the server tracks
+		// it as the synced `charged_cd` resource, ticks not seconds).
+		boolean punchOnCd = st != null
+				&& st.resources.getOrDefault("power_01_super_strength/charged_cd", 0.0f) > 0.5f;
+		boolean attackDown = usable && !punchOnCd && client.options.keyAttack.isDown();
 		boolean lookingAtBlock = client.hitResult != null
 				&& client.hitResult.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK;
 		if (attackDown && !lookingAtBlock) {

@@ -72,19 +72,26 @@ public final class CrystalkinesisHandlers {
 	}
 
 	public static void register() {
-		AbilityHandlers.register(KEY, "crystal_shard", Handlers.instant(ctx -> {
+		AbilityHandlers.register(KEY, "crystal_shard", Handlers.instantTicking(ctx -> {
 			ServerPlayer p = ctx.player();
+			if (p.isShiftKeyDown()) {
+				// Sneak + R: a volley of 5 crystal shards fired one after another (10 s cooldown).
+				ctx.setResource("shard_ticks", 5, 5);
+				ctx.setResource("shard_step", 1, 1);
+				ctx.triggerCooldown(10 * 20);
+				AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 1.2f);
+				return;
+			}
 			LivingEntity t = AbilityHelpers.raycastEntity(p, 24.0);
 			Vec3 end = AbilityHelpers.aimPoint(p, 24.0);
 			AbilityHelpers.line(ctx.level(), p.getEyePosition(), end, CRYSTAL_DUST, 4.0);
-			AbilityHelpers.line(ctx.level(), p.getEyePosition(), end, ParticleTypes.END_ROD, 1.5);
 			if (t != null) {
 				AbilityHelpers.hurt(p, t, 11.0f + armorBonus(p));
 				AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, 40, 0);
 			}
 			AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 1.4f);
 			ctx.triggerCooldown();
-		}));
+		}, CrystalkinesisHandlers::shardVolleyTick));
 
 		AbilityHandlers.register(KEY, "crystal_spikes", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
@@ -104,7 +111,7 @@ public final class CrystalkinesisHandlers {
 					TempBlocks.placeStatic(level, bp, Blocks.AMETHYST_CLUSTER.defaultBlockState(), 120);
 				}
 			}
-			level.sendParticles(ParticleTypes.END_ROD, at.x, at.y, at.z, 30, 0.5, 0.6, 0.5, 0.1);
+			level.sendParticles(CRYSTAL_DUST, at.x, at.y, at.z, 30, 0.5, 0.6, 0.5, 0.1);
 			AbilityHelpers.sound(p, SoundEvents.AMETHYST_CLUSTER_PLACE, 1.0f, 0.8f);
 			ctx.triggerCooldown();
 		}));
@@ -121,7 +128,7 @@ public final class CrystalkinesisHandlers {
 			} else {
 				built = com.projecthero.mod.hero.power.ConjuredStructures.wall(p, level, BARRIER);
 			}
-			level.sendParticles(ParticleTypes.END_ROD, p.getX(), p.getY() + 1.5, p.getZ(), 30, 1.2, 1.2, 1.2, 0.05);
+			level.sendParticles(CRYSTAL_DUST, p.getX(), p.getY() + 1.5, p.getZ(), 30, 1.2, 1.2, 1.2, 0.05);
 			AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_RESONATE, 1.0f, 0.9f);
 			if (built || !AbilityHelpers.canGrief()) {
 				ctx.triggerCooldown();
@@ -162,7 +169,7 @@ public final class CrystalkinesisHandlers {
 				}
 				TempBlocks.place(ctx.level(), base.above(2), CRYSTAL, 140);
 			}
-			ctx.level().sendParticles(ParticleTypes.END_ROD, t.getX(), t.getY() + 1, t.getZ(), 40, 0.5, 1.0, 0.5, 0.05);
+			ctx.level().sendParticles(CRYSTAL_DUST, t.getX(), t.getY() + 1, t.getZ(), 40, 0.5, 1.0, 0.5, 0.05);
 			AbilityHelpers.sound(p, SoundEvents.AMETHYST_CLUSTER_PLACE, 1.0f, 0.5f);
 			if (applied || AbilityHelpers.canGrief()) {
 				ctx.triggerCooldown();
@@ -184,7 +191,7 @@ public final class CrystalkinesisHandlers {
 					armorOn(ctx);
 					AbilityHelpers.modeAura(ctx.player(), CRYSTAL_DUST, 3);
 					if (ctx.player().tickCount % 12 == 0) {
-						AbilityHelpers.modeAura(ctx.player(), ParticleTypes.END_ROD, 1);
+						AbilityHelpers.modeAura(ctx.player(), CRYSTAL_DUST, 1);
 					}
 					if (!ModeMeter.drain(ctx, "crystal_armor", MAX_STRAIN, STRAIN_DRAIN)) {
 						ctx.setToggled(false);
@@ -198,6 +205,38 @@ public final class CrystalkinesisHandlers {
 			ModeMeter.regen(player, power, "crystal_armor", MAX_STRAIN, STRAIN_REGEN, armorActive(player));
 			colossalTick(player, power);
 		});
+	}
+
+	// ---- sneak+R: crystal shard volley ----------------------------------------------------
+
+	private static void shardVolleyTick(AbilityContext ctx) {
+		float left = ctx.resource("shard_ticks");
+		if (left < 0.5f) {
+			return;
+		}
+		int step = (int) ctx.resource("shard_step") - 1;
+		if (step > 0) {
+			ctx.setResource("shard_step", step, 5);
+			return;
+		}
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		// slight spread so the five shards fan out
+		Vec3 look = p.getLookAngle();
+		Vec3 jitter = new Vec3(level.random.nextGaussian() * 0.05, level.random.nextGaussian() * 0.05,
+				level.random.nextGaussian() * 0.05);
+		Vec3 dir = look.add(jitter).normalize();
+		Vec3 eye = p.getEyePosition();
+		Vec3 end = eye.add(dir.scale(24.0));
+		AbilityHelpers.line(level, eye, end, CRYSTAL_DUST, 4.0);
+		LivingEntity t = AbilityHelpers.raycastEntity(p, 24.0);
+		if (t != null) {
+			AbilityHelpers.hurt(p, t, 6.0f + armorBonus(p));
+			AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, 30, 0);
+		}
+		AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_HIT, 1.0f, 1.5f);
+		ctx.setResource("shard_ticks", left - 1, 5);
+		ctx.setResource("shard_step", 4, 5);
 	}
 
 	// ---- shift+G: crystal cone --------------------------------------------------------------
@@ -219,7 +258,7 @@ public final class CrystalkinesisHandlers {
 				TempBlocks.placeStatic(level, feet, Blocks.AMETHYST_BLOCK.defaultBlockState(), 120);
 				TempBlocks.placeStatic(level, feet.above(), Blocks.LARGE_AMETHYST_BUD.defaultBlockState(), 120);
 			}
-			level.sendParticles(ParticleTypes.END_ROD, e.getX(), e.getY() + 0.5, e.getZ(), 24, 0.4, 0.6, 0.4, 0.05);
+			level.sendParticles(CRYSTAL_DUST, e.getX(), e.getY() + 0.5, e.getZ(), 24, 0.4, 0.6, 0.4, 0.05);
 		}
 		AbilityHelpers.line(level, eye, eye.add(look.scale(10.0)), CRYSTAL_DUST, 2.0);
 		AbilityHelpers.sound(p, SoundEvents.AMETHYST_CLUSTER_PLACE, 1.2f, 0.7f);
@@ -275,7 +314,7 @@ public final class CrystalkinesisHandlers {
 		p.setDeltaMovement(p.getDeltaMovement().multiply(0.25, 1.0, 0.25));
 		p.hurtMarked = true;
 		double frac = Math.min(1.0, held / (double) ERUPT_CHARGE);
-		level.sendParticles(ParticleTypes.END_ROD, p.getX(), p.getY() + 1.0, p.getZ(),
+		level.sendParticles(CRYSTAL_DUST, p.getX(), p.getY() + 1.0, p.getZ(),
 				4 + (int) (frac * 10), 0.6 * frac + 0.3, 0.5, 0.6 * frac + 0.3, 0.02);
 		if (held % 20 == 0) {
 			AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 0.7f, 0.6f + (float) frac);
@@ -318,7 +357,9 @@ public final class CrystalkinesisHandlers {
 			// a dense field of amethyst pillars -- solid blocks, so they never pop and shed shards
 			for (int i = 0; i < 60; i++) {
 				double ang = level.random.nextDouble() * Math.PI * 2;
-				double dist = level.random.nextDouble() * r;
+				// keep a 4-block clear ring around the caster -- the pillars must never wall them in,
+				// suffocate them, or crush them.
+				double dist = 4.0 + level.random.nextDouble() * (r - 4.0);
 				int bx = Mth.floor(p.getX() + Math.cos(ang) * dist);
 				int bz = Mth.floor(p.getZ() + Math.sin(ang) * dist);
 				int gy = p.blockPosition().getY() + 3;
@@ -335,7 +376,7 @@ public final class CrystalkinesisHandlers {
 				}
 			}
 		}
-		level.sendParticles(ParticleTypes.END_ROD, p.getX(), p.getY() + 0.5, p.getZ(), 160, r / 2, 0.6, r / 2, 0.2);
+		level.sendParticles(CRYSTAL_DUST, p.getX(), p.getY() + 0.5, p.getZ(), 160, r / 2, 0.6, r / 2, 0.2);
 		level.playSound(null, p.blockPosition(), SoundEvents.AMETHYST_BLOCK_BREAK, SoundSource.PLAYERS, 1.6f, 0.5f);
 		level.playSound(null, p.blockPosition(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.4f, 0.4f);
 		ctx.triggerCooldown(ERUPT_CD);
@@ -355,7 +396,7 @@ public final class CrystalkinesisHandlers {
 		ExperimentalPowers.setResource(p, power(), "ccrys_id", crystal.getId(), 1e12f);
 		ExperimentalPowers.setResource(p, power(), "ccrys_ticks", 70, 70);
 		AbilityHelpers.burst(level, spawn, CRYSTAL_DUST, 90, 1.2);
-		AbilityHelpers.burst(level, spawn, ParticleTypes.END_ROD, 40, 1.0);
+		AbilityHelpers.burst(level, spawn, CRYSTAL_DUST, 40, 1.0);
 		level.playSound(null, p.blockPosition(), SoundEvents.AMETHYST_BLOCK_BREAK, SoundSource.PLAYERS, 1.6f, 0.4f);
 	}
 
@@ -377,7 +418,7 @@ public final class CrystalkinesisHandlers {
 		crystal.setDeltaMovement(dir.scale(2.4));
 		crystal.setNoGravity(true);
 		Vec3 c = crystal.position();
-		level.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 12, 0.5, 0.5, 0.5, 0.02);
+		level.sendParticles(CRYSTAL_DUST, c.x, c.y, c.z, 12, 0.5, 0.5, 0.5, 0.02);
 		level.sendParticles(CRYSTAL_DUST, c.x, c.y, c.z, 14, 0.6, 0.6, 0.6, 0.02);
 		boolean impact = crystal.horizontalCollision || crystal.verticalCollision || crystal.onGround();
 		java.util.List<LivingEntity> hits = AbilityHelpers.living(level, c, 2.6,
@@ -395,7 +436,7 @@ public final class CrystalkinesisHandlers {
 			}
 			level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y, c.z, 1, 0, 0, 0, 0);
 			level.sendParticles(CRYSTAL_DUST, c.x, c.y, c.z, 140, 2.0, 2.0, 2.0, 0.2);
-			level.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 80, 2.0, 2.0, 2.0, 0.15);
+			level.sendParticles(CRYSTAL_DUST, c.x, c.y, c.z, 80, 2.0, 2.0, 2.0, 0.15);
 			level.playSound(null, BlockPos.containing(c), SoundEvents.AMETHYST_BLOCK_BREAK, SoundSource.PLAYERS, 1.8f, 0.4f);
 			crystal.discard();
 			ExperimentalPowers.setResource(player, power, "ccrys_ticks", 0, 70);

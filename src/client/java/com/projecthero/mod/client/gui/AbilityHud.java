@@ -179,17 +179,15 @@ public final class AbilityHud {
 		if (leapProg > 0.01f) {
 			strengthBar(g, client, x, w, rowY, "Power Leap", leapProg, 0xFF6FA8FF, 0xFFB8D0FF);
 		}
-		// The Charged Punch can be wound up even while its own cooldown is running -- show the charge
-		// progress regardless, and note the remaining cooldown alongside it when there is one.
-		if (punchReady) {
-			strengthBar(g, client, x, w, rowY, cd > 0.5f
-					? "Charged Punch — ready in " + (int) Math.ceil(cd / 20.0f) + "s"
-					: "Charged Punch — RELEASE", 1.0f, 0xFFFFC24A, 0xFFFFE0A0);
-		} else if (punchProg > 0.01f) {
-			strengthBar(g, client, x, w, rowY, "Charged Punch", punchProg, 0xFFE0A040, 0xFFE8C98A);
-		} else if (cd > 0.5f) {
+		// The Charged Punch cannot be wound up while its own cooldown is running, so the cooldown bar
+		// and the charge bar are mutually exclusive.
+		if (cd > 0.5f) {
 			strengthBar(g, client, x, w, rowY, "Charged Punch  " + (int) Math.ceil(cd / 20.0f) + "s",
 					1.0f - Math.min(1.0f, cd / 50.0f), 0xFF7A5A2A, 0xFFE8C98A);
+		} else if (punchReady) {
+			strengthBar(g, client, x, w, rowY, "Charged Punch — RELEASE", 1.0f, 0xFFFFC24A, 0xFFFFE0A0);
+		} else if (punchProg > 0.01f) {
+			strengthBar(g, client, x, w, rowY, "Charged Punch", punchProg, 0xFFE0A040, 0xFFE8C98A);
 		}
 	}
 
