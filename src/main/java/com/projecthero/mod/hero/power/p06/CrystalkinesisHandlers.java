@@ -1,10 +1,14 @@
 package com.projecthero.mod.hero.power.p06;
 
 import com.projecthero.mod.hero.AbilityContext;
+import com.projecthero.mod.hero.AbilityHandler;
 import com.projecthero.mod.hero.AbilityHandlers;
+import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.ExperimentalPowers;
+import com.projecthero.mod.hero.HeroConfig;
 import com.projecthero.mod.hero.Power;
 import com.projecthero.mod.hero.Powers;
+import com.projecthero.mod.hero.PowerPassives;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.Handlers;
 import com.projecthero.mod.hero.power.ModeMeter;
@@ -12,45 +16,59 @@ import com.projecthero.mod.hero.power.PowerToggles;
 import com.projecthero.mod.hero.power.TempBlocks;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.item.FallingBlockEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
-/** Power 06 — Crystalkinesis. */
+/** Power 06 — Crystalkinesis (v0.10.7 tuning). */
 public final class CrystalkinesisHandlers {
 	private static final String KEY = "power_06_crystalkinesis";
 	private static final BlockState CRYSTAL = Blocks.AMETHYST_BLOCK.defaultBlockState();
 	private static final BlockState BARRIER = Blocks.TINTED_GLASS.defaultBlockState();
-	private static final net.minecraft.core.particles.BlockParticleOption CRYSTAL_DUST =
-			new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK,
-					Blocks.AMETHYST_BLOCK.defaultBlockState());
+	private static final BlockParticleOption CRYSTAL_DUST =
+			new BlockParticleOption(ParticleTypes.BLOCK, Blocks.AMETHYST_BLOCK.defaultBlockState());
 	private static final net.minecraft.resources.ResourceLocation ARMOR_KB = com.projecthero.mod.ProjectHeroMod.id("crystal_armor_kb");
 	private static final net.minecraft.resources.ResourceLocation ARMOR_ATK = com.projecthero.mod.ProjectHeroMod.id("crystal_armor_atk");
 
 	private static final float MAX_STRAIN = 500.0f;
-	private static final float STRAIN_DRAIN = MAX_STRAIN / (25 * 20); // crystal armor holds ~25 s
-	private static final float STRAIN_REGEN = MAX_STRAIN / (40 * 20); // recharges over ~40 s while off
+	private static final float STRAIN_DRAIN = MAX_STRAIN / (25 * 20);
+	private static final float STRAIN_REGEN = MAX_STRAIN / (40 * 20);
+
+	/** Z is a 5 s (100-tick) hold-to-charge for the eruption and the shift+Z Colossal Crystal. */
+	private static final int ERUPT_CHARGE = 100;
+	private static final int ERUPT_CD = 70 * 20;
+	private static final int COLOSSAL_CD = 100 * 20;
 
 	private CrystalkinesisHandlers() {
 	}
 
-	private static boolean armorActive(ServerPlayer p) {
-		Power power = Powers.byKey(KEY);
-		return power != null && ExperimentalPowers.owns(p, power)
-				&& ExperimentalPowers.isToggled(p, power, power.ability(com.projecthero.mod.hero.AbilitySlot.SLOT_6));
+	private static Power power() {
+		return Powers.byKey(KEY);
 	}
 
-	/** Crystal Armor adds a flat +10 to every Crystalkinesis attack. */
+	private static boolean armorActive(ServerPlayer p) {
+		Power power = power();
+		return power != null && ExperimentalPowers.owns(p, power)
+				&& ExperimentalPowers.isToggled(p, power, power.ability(AbilitySlot.SLOT_6));
+	}
+
+	/** Crystal Armor adds a flat +11 to every Crystalkinesis attack. */
 	private static float armorBonus(ServerPlayer p) {
-		return armorActive(p) ? 10.0f : 0.0f;
+		return armorActive(p) ? 11.0f : 0.0f;
 	}
 
 	public static void register() {
@@ -61,7 +79,7 @@ public final class CrystalkinesisHandlers {
 			AbilityHelpers.line(ctx.level(), p.getEyePosition(), end, CRYSTAL_DUST, 4.0);
 			AbilityHelpers.line(ctx.level(), p.getEyePosition(), end, ParticleTypes.END_ROD, 1.5);
 			if (t != null) {
-				AbilityHelpers.hurt(p, t, 10.0f + armorBonus(p));
+				AbilityHelpers.hurt(p, t, 11.0f + armorBonus(p));
 				AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, 40, 0);
 			}
 			AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 1.4f);
@@ -70,6 +88,10 @@ public final class CrystalkinesisHandlers {
 
 		AbilityHandlers.register(KEY, "crystal_spikes", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
+			if (p.isShiftKeyDown()) {
+				crystalCone(ctx);
+				return;
+			}
 			Vec3 at = AbilityHelpers.aimPoint(p, 18.0);
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, at, 3.0)) {
 				AbilityHelpers.hurt(p, e, 19.0f + armorBonus(p));
@@ -79,7 +101,7 @@ public final class CrystalkinesisHandlers {
 			if (AbilityHelpers.canGrief()) {
 				for (int i = 0; i < 5; i++) {
 					BlockPos bp = BlockPos.containing(at.x + level.random.nextGaussian(), at.y, at.z + level.random.nextGaussian());
-					TempBlocks.place(level, bp, Blocks.AMETHYST_CLUSTER.defaultBlockState(), 120);
+					TempBlocks.placeStatic(level, bp, Blocks.AMETHYST_CLUSTER.defaultBlockState(), 120);
 				}
 			}
 			level.sendParticles(ParticleTypes.END_ROD, at.x, at.y, at.z, 30, 0.5, 0.6, 0.5, 0.1);
@@ -87,8 +109,6 @@ public final class CrystalkinesisHandlers {
 			ctx.triggerCooldown();
 		}));
 
-		// Look up → dome (owner left-clicks to dismiss). Look down → bridge. Otherwise → 4×4 wall.
-		// Every construct lasts 25 seconds.
 		AbilityHandlers.register(KEY, "crystal_barrier", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
 			ServerLevel level = ctx.level();
@@ -108,41 +128,23 @@ public final class CrystalkinesisHandlers {
 			}
 		}));
 
-		AbilityHandlers.register(KEY, "crystal_eruption", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			ServerLevel level = ctx.level();
-			double r = 8.0; // an 8-block ring of amethyst erupts from the ground around you
-			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
-				AbilityHelpers.hurt(p, e, 34.0f + armorBonus(p));
-				AbilityHelpers.knockbackFrom(e, p.position(), 1.3);
-				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 60, 1);
+		// Z: hold for 5 s. Crystal Eruption normally, Colossal Crystal on sneak.
+		AbilityHandlers.register(KEY, "crystal_eruption", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				eruptPress(ctx);
 			}
-			if (AbilityHelpers.canGrief()) {
-				// scatter jagged amethyst shards across the ground in range (like Crystal Spikes),
-				// each fading away after a few seconds
-				for (int i = 0; i < 22; i++) {
-					double ang = level.random.nextDouble() * Math.PI * 2;
-					double dist = level.random.nextDouble() * r;
-					int bx = net.minecraft.util.Mth.floor(p.getX() + Math.cos(ang) * dist);
-					int bz = net.minecraft.util.Mth.floor(p.getZ() + Math.sin(ang) * dist);
-					int gy = p.blockPosition().getY() + 2;
-					while (gy > level.getMinBuildHeight() + 1 && level.getBlockState(new BlockPos(bx, gy - 1, bz)).isAir()) {
-						gy--;
-					}
-					int h = 1 + level.random.nextInt(3);
-					for (int y = 0; y < h; y++) {
-						BlockPos bp = new BlockPos(bx, gy + y, bz);
-						if (level.getBlockState(bp).isAir() || level.getBlockState(bp).canBeReplaced()) {
-							TempBlocks.place(level, bp,
-									(y == h - 1 ? Blocks.AMETHYST_CLUSTER : Blocks.AMETHYST_BLOCK).defaultBlockState(), 120);
-						}
-					}
-				}
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				eruptRelease(ctx);
 			}
-			level.sendParticles(ParticleTypes.END_ROD, p.getX(), p.getY() + 0.5, p.getZ(), 80, r / 2, 0.4, r / 2, 0.15);
-			AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_BREAK, 1.4f, 0.6f);
-			ctx.triggerCooldown();
-		}));
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				eruptTick(ctx);
+			}
+		});
 
 		AbilityHandlers.register(KEY, "crystal_prison", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
@@ -150,11 +152,9 @@ public final class CrystalkinesisHandlers {
 			if (t == null) {
 				return;
 			}
-			// 7 s of near-total lockdown: Slowness X plus a jump lock so the target cannot move at all,
-			// with an amethyst cage sealed around them for the same 7 s.
 			boolean applied = AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, 140, 9);
-			AbilityHelpers.applyControl(t, MobEffects.JUMP, 140, -10); // negative Jump Boost = cannot jump
-			if (AbilityHelpers.canGrief() && !(t instanceof net.minecraft.world.entity.player.Player)) {
+			AbilityHelpers.applyControl(t, MobEffects.JUMP, 140, -10);
+			if (AbilityHelpers.canGrief() && !(t instanceof Player)) {
 				BlockPos base = t.blockPosition();
 				for (net.minecraft.core.Direction d : net.minecraft.core.Direction.Plane.HORIZONTAL) {
 					TempBlocks.place(ctx.level(), base.relative(d), CRYSTAL, 140);
@@ -193,15 +193,220 @@ public final class CrystalkinesisHandlers {
 					}
 				}));
 
-		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, player ->
-				ModeMeter.regen(player, Powers.byKey(KEY), "crystal_armor", MAX_STRAIN, STRAIN_REGEN, armorActive(player)));
+		PowerPassives.registerTick(KEY, player -> {
+			Power power = power();
+			ModeMeter.regen(player, power, "crystal_armor", MAX_STRAIN, STRAIN_REGEN, armorActive(player));
+			colossalTick(player, power);
+		});
+	}
+
+	// ---- shift+G: crystal cone --------------------------------------------------------------
+
+	private static void crystalCone(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, eye.add(look.scale(5.0)), 8.0)) {
+			Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);
+			if (to.length() > 10.5 || to.normalize().dot(look) < 0.6) {
+				continue;
+			}
+			AbilityHelpers.hurt(p, e, 15.0f + armorBonus(p));
+			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 120, 1);
+			BlockPos feet = e.blockPosition();
+			if (AbilityHelpers.canGrief() && !(e instanceof Player)) {
+				TempBlocks.placeStatic(level, feet, Blocks.AMETHYST_BLOCK.defaultBlockState(), 120);
+				TempBlocks.placeStatic(level, feet.above(), Blocks.LARGE_AMETHYST_BUD.defaultBlockState(), 120);
+			}
+			level.sendParticles(ParticleTypes.END_ROD, e.getX(), e.getY() + 0.5, e.getZ(), 24, 0.4, 0.6, 0.4, 0.05);
+		}
+		AbilityHelpers.line(level, eye, eye.add(look.scale(10.0)), CRYSTAL_DUST, 2.0);
+		AbilityHelpers.sound(p, SoundEvents.AMETHYST_CLUSTER_PLACE, 1.2f, 0.7f);
+		ctx.triggerCooldown(22 * 20);
+	}
+
+	// ---- Z: Crystal Eruption hold-charge / Colossal Crystal --------------------------------
+
+	private static void eruptPress(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (ctx.resource("crystal_start") > 0.5f) {
+			return;
+		}
+		if (!ExperimentalPowers.cooldownReady(p, ctx.power(), ctx.ability())) {
+			ctx.actionBar("message.projecthero.ability.on_cooldown",
+					net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
+					String.format(java.util.Locale.ROOT, "%.0f",
+							Math.ceil(ExperimentalPowers.cooldownRemainingTicks(p, ctx.power(), ctx.ability()) / 20.0f)));
+			return;
+		}
+		ctx.setResource("crystal_start", p.level().getGameTime(), 1e12f);
+		ctx.setResource("crystal_colossal", p.isShiftKeyDown() ? 1 : 0, 1);
+		ctx.setResource("ult_charge", 0, 100);
+		AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_RESONATE, 0.8f, 0.5f);
+	}
+
+	private static void eruptRelease(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (ctx.resource("crystal_start") <= 0.5f) {
+			return;
+		}
+		long held = p.level().getGameTime() - (long) ctx.resource("crystal_start");
+		if (held >= ERUPT_CHARGE) {
+			eruptFire(ctx);
+		} else {
+			eruptCancel(ctx);
+		}
+	}
+
+	private static void eruptTick(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		float start = ctx.resource("crystal_start");
+		if (start <= 0.5f) {
+			return;
+		}
+		long held = p.level().getGameTime() - (long) start;
+		if (held < 0 || held > ERUPT_CHARGE + 100) {
+			eruptCancel(ctx);
+			return;
+		}
+		ctx.setResource("ult_charge", Math.min(100f, held * 100f / ERUPT_CHARGE), 100);
+		ServerLevel level = ctx.level();
+		p.setDeltaMovement(p.getDeltaMovement().multiply(0.25, 1.0, 0.25));
+		p.hurtMarked = true;
+		double frac = Math.min(1.0, held / (double) ERUPT_CHARGE);
+		level.sendParticles(ParticleTypes.END_ROD, p.getX(), p.getY() + 1.0, p.getZ(),
+				4 + (int) (frac * 10), 0.6 * frac + 0.3, 0.5, 0.6 * frac + 0.3, 0.02);
+		if (held % 20 == 0) {
+			AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 0.7f, 0.6f + (float) frac);
+		}
+		if (held >= ERUPT_CHARGE) {
+			eruptFire(ctx);
+		}
+	}
+
+	private static void eruptCancel(AbilityContext ctx) {
+		ctx.setResource("crystal_start", 0, 1e12f);
+		ctx.setResource("crystal_colossal", 0, 1);
+		ctx.setResource("ult_charge", 0, 100);
+		AbilityHelpers.sound(ctx.player(), SoundEvents.FIRE_EXTINGUISH, 0.5f, 1.4f);
+	}
+
+	private static void eruptFire(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		boolean colossal = ctx.resource("crystal_colossal") > 0.5f;
+		ctx.setResource("crystal_start", 0, 1e12f);
+		ctx.setResource("crystal_colossal", 0, 1);
+		ctx.setResource("ult_charge", 0, 100);
+
+		if (colossal) {
+			launchColossalCrystal(p, level);
+			ctx.triggerCooldown(COLOSSAL_CD);
+			return;
+		}
+
+		double r = 20.0;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
+			double d = e.position().distanceTo(p.position());
+			float dmg = (float) ((40.0f + armorBonus(p)) * (1.0 - Math.min(0.55, d / r)));
+			AbilityHelpers.hurt(p, e, dmg);
+			AbilityHelpers.knockbackFrom(e, p.position(), 1.3);
+			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 80, 2);
+		}
+		if (AbilityHelpers.canGrief()) {
+			// a dense field of amethyst pillars -- solid blocks, so they never pop and shed shards
+			for (int i = 0; i < 60; i++) {
+				double ang = level.random.nextDouble() * Math.PI * 2;
+				double dist = level.random.nextDouble() * r;
+				int bx = Mth.floor(p.getX() + Math.cos(ang) * dist);
+				int bz = Mth.floor(p.getZ() + Math.sin(ang) * dist);
+				int gy = p.blockPosition().getY() + 3;
+				while (gy > level.getMinBuildHeight() + 1 && level.getBlockState(new BlockPos(bx, gy - 1, bz)).isAir()) {
+					gy--;
+				}
+				int h = 1 + level.random.nextInt(4);
+				for (int y = 0; y < h; y++) {
+					BlockPos bp = new BlockPos(bx, gy + y, bz);
+					BlockState st = level.getBlockState(bp);
+					if (st.isAir() || st.canBeReplaced()) {
+						TempBlocks.placeStatic(level, bp, Blocks.AMETHYST_BLOCK.defaultBlockState(), 160);
+					}
+				}
+			}
+		}
+		level.sendParticles(ParticleTypes.END_ROD, p.getX(), p.getY() + 0.5, p.getZ(), 160, r / 2, 0.6, r / 2, 0.2);
+		level.playSound(null, p.blockPosition(), SoundEvents.AMETHYST_BLOCK_BREAK, SoundSource.PLAYERS, 1.6f, 0.5f);
+		level.playSound(null, p.blockPosition(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.4f, 0.4f);
+		ctx.triggerCooldown(ERUPT_CD);
+	}
+
+	private static void launchColossalCrystal(ServerPlayer p, ServerLevel level) {
+		Vec3 dir = p.getLookAngle().normalize();
+		Vec3 spawn = com.projecthero.mod.hero.power.p05.GeokinesisHandlers.airSpawn(level, p, dir);
+		FallingBlockEntity crystal = FallingBlockEntity.fall(level, BlockPos.containing(spawn),
+				Blocks.AMETHYST_BLOCK.defaultBlockState());
+		crystal.setPos(spawn.x, spawn.y - 0.5, spawn.z);
+		crystal.setNoGravity(true);
+		crystal.time = 1;
+		crystal.setHurtsEntities(0.0f, 0);
+		crystal.disableDrop();
+		crystal.setDeltaMovement(dir.scale(2.4));
+		ExperimentalPowers.setResource(p, power(), "ccrys_id", crystal.getId(), 1e12f);
+		ExperimentalPowers.setResource(p, power(), "ccrys_ticks", 70, 70);
+		AbilityHelpers.burst(level, spawn, CRYSTAL_DUST, 90, 1.2);
+		AbilityHelpers.burst(level, spawn, ParticleTypes.END_ROD, 40, 1.0);
+		level.playSound(null, p.blockPosition(), SoundEvents.AMETHYST_BLOCK_BREAK, SoundSource.PLAYERS, 1.6f, 0.4f);
+	}
+
+	private static void colossalTick(ServerPlayer player, Power power) {
+		float ticks = ExperimentalPowers.getResource(player, power, "ccrys_ticks");
+		if (ticks <= 0.5f) {
+			return;
+		}
+		ExperimentalPowers.setResource(player, power, "ccrys_ticks", ticks - 1, 70);
+		if (!(player.level() instanceof ServerLevel level)) {
+			return;
+		}
+		Entity e = level.getEntity((int) ExperimentalPowers.getResource(player, power, "ccrys_id"));
+		if (!(e instanceof FallingBlockEntity crystal) || !crystal.isAlive()) {
+			ExperimentalPowers.setResource(player, power, "ccrys_ticks", 0, 70);
+			return;
+		}
+		Vec3 dir = crystal.getDeltaMovement().normalize();
+		crystal.setDeltaMovement(dir.scale(2.4));
+		crystal.setNoGravity(true);
+		Vec3 c = crystal.position();
+		level.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 12, 0.5, 0.5, 0.5, 0.02);
+		level.sendParticles(CRYSTAL_DUST, c.x, c.y, c.z, 14, 0.6, 0.6, 0.6, 0.02);
+		boolean impact = crystal.horizontalCollision || crystal.verticalCollision || crystal.onGround();
+		java.util.List<LivingEntity> hits = AbilityHelpers.living(level, c, 2.6,
+				le -> le != player && le.isAlive() && !(le instanceof net.minecraft.world.entity.decoration.ArmorStand)
+						&& (!(le instanceof Player) || (player.getServer() != null && player.getServer().isPvpAllowed()
+								&& HeroConfig.get().abilityPvpDamage)));
+		if (!hits.isEmpty()) {
+			impact = true;
+		}
+		if (impact || ticks <= 1.5f) {
+			for (LivingEntity le : AbilityHelpers.enemiesAround(player, c, 4.0)) {
+				AbilityHelpers.hurt(player, le, 55.0f + armorBonus(player));
+				AbilityHelpers.knockbackFrom(le, c, 2.4);
+				AbilityHelpers.applyControl(le, MobEffects.MOVEMENT_SLOWDOWN, 60, 2);
+			}
+			level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+			level.sendParticles(CRYSTAL_DUST, c.x, c.y, c.z, 140, 2.0, 2.0, 2.0, 0.2);
+			level.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 80, 2.0, 2.0, 2.0, 0.15);
+			level.playSound(null, BlockPos.containing(c), SoundEvents.AMETHYST_BLOCK_BREAK, SoundSource.PLAYERS, 1.8f, 0.4f);
+			crystal.discard();
+			ExperimentalPowers.setResource(player, power, "ccrys_ticks", 0, 70);
+		}
 	}
 
 	private static void armorOn(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		PowerToggles.effect(p, MobEffects.DAMAGE_RESISTANCE, 0, true);
 		PowerToggles.modifier(p, Attributes.KNOCKBACK_RESISTANCE, ARMOR_KB, 0.4, AttributeModifier.Operation.ADD_VALUE);
-		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, ARMOR_ATK, 10.0, AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, ARMOR_ATK, 11.0, AttributeModifier.Operation.ADD_VALUE);
 	}
 
 	private static void armorOff(AbilityContext ctx) {

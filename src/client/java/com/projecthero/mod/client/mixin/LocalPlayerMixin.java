@@ -36,7 +36,8 @@ public abstract class LocalPlayerMixin {
 	@Inject(method = "aiStep", at = @At("HEAD"))
 	private void projecthero$phaseNoclip(CallbackInfo ci) {
 		LocalPlayer self = (LocalPlayer) (Object) this;
-		if (DensityManipulationHandlers.phasing(self)) {
+		if (DensityManipulationHandlers.phasing(self)
+				|| com.projecthero.mod.hero.power.p05.GeokinesisHandlers.earthSwimming(self)) {
 			self.noPhysics = true;
 		} else if (!self.isSpectator()) {
 			self.noPhysics = false;

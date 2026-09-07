@@ -71,7 +71,22 @@ public final class PyrokinesisHandlers {
 	private static final float HEAT_MIN = 20.0f;
 	private static final ResourceLocation FLAME_BODY_ATK = com.projecthero.mod.ProjectHeroMod.id("flame_body_atk");
 
+	/** Inferno is now a 5 s (100-tick) hold-to-charge. */
+	private static final int INFERNO_CHARGE = 100;
+	private static final int INFERNO_CD = 55 * 20;
+	private static final int LIGHTNING_CD = 95 * 20;
+	private static final int LIGHTNING_STUN = 200;
+
 	private PyrokinesisHandlers() {
+	}
+
+	/** Blue Flame stance: Flame Body toggled turns the fire blue and unlocks the lightning ultimate. */
+	private static boolean blueMode(ServerPlayer p) {
+		return flameBodyActive(p);
+	}
+
+	private static net.minecraft.core.particles.SimpleParticleType flameParticle(ServerPlayer p) {
+		return blueMode(p) ? ParticleTypes.SOUL_FIRE_FLAME : ParticleTypes.FLAME;
 	}
 
 	private static boolean fireOk() {
@@ -136,14 +151,196 @@ public final class PyrokinesisHandlers {
 		placeFire(level, BlockPos.containing(x, y, z), 60);
 	}
 
+	// ---- Z: Inferno hold-charge / Lightning Arc ---------------------------------------------
+
+	private static void infernoPress(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (ctx.resource("pyro_start") > 0.5f) {
+			return;
+		}
+		if (!ExperimentalPowers.cooldownReady(p, ctx.power(), ctx.ability())) {
+			ctx.actionBar("message.projecthero.ability.on_cooldown",
+					net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
+					String.format(java.util.Locale.ROOT, "%.0f",
+							Math.ceil(ExperimentalPowers.cooldownRemainingTicks(p, ctx.power(), ctx.ability()) / 20.0f)));
+			return;
+		}
+		ctx.setResource("pyro_start", p.level().getGameTime(), 1e12f);
+		ctx.setResource("pyro_lightning", blueMode(p) ? 1 : 0, 1);
+		ctx.setResource("ult_charge", 0, 100);
+		AbilityHelpers.sound(p, blueMode(p) ? SoundEvents.BEACON_ACTIVATE : SoundEvents.BLAZE_AMBIENT, 0.7f, 0.6f);
+	}
+
+	private static void infernoRelease(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (ctx.resource("pyro_start") <= 0.5f) {
+			return;
+		}
+		long held = p.level().getGameTime() - (long) ctx.resource("pyro_start");
+		if (held >= INFERNO_CHARGE) {
+			infernoFire(ctx);
+		} else {
+			infernoCancel(ctx);
+		}
+	}
+
+	private static void infernoChargeTick(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		float start = ctx.resource("pyro_start");
+		if (start <= 0.5f) {
+			return;
+		}
+		long held = p.level().getGameTime() - (long) start;
+		if (held < 0 || held > INFERNO_CHARGE + 100) {
+			infernoCancel(ctx);
+			return;
+		}
+		ctx.setResource("ult_charge", Math.min(100f, held * 100f / INFERNO_CHARGE), 100);
+		ServerLevel level = ctx.level();
+		boolean lightning = ctx.resource("pyro_lightning") > 0.5f;
+		double frac = Math.min(1.0, held / (double) INFERNO_CHARGE);
+		p.setDeltaMovement(p.getDeltaMovement().multiply(0.3, 1.0, 0.3));
+		p.hurtMarked = true;
+		if (lightning) {
+			// lightning gathering around the caster, ramping as it charges
+			int n = 3 + (int) (frac * 12);
+			for (int i = 0; i < n; i++) {
+				double a = level.random.nextDouble() * Math.PI * 2;
+				double rad = 0.6 + level.random.nextDouble() * (0.8 + frac * 1.6);
+				double hy = level.random.nextDouble() * p.getBbHeight();
+				level.sendParticles(ParticleTypes.ELECTRIC_SPARK,
+						p.getX() + Math.cos(a) * rad, p.getY() + hy, p.getZ() + Math.sin(a) * rad, 1, 0, 0, 0, 0);
+			}
+			if (held % 8 == 0) {
+				level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, p.getX(), p.getY() + 1.0, p.getZ(),
+						8, 0.4, 0.6, 0.4, 0.02);
+				AbilityHelpers.sound(p, SoundEvents.LIGHTNING_BOLT_THUNDER, 0.4f, 1.4f + (float) frac * 0.4f);
+			}
+		} else {
+			level.sendParticles(flameParticle(p), p.getX(), p.getY() + 1.0, p.getZ(),
+					4 + (int) (frac * 12), 0.5 * frac + 0.3, 0.5, 0.5 * frac + 0.3, 0.02);
+			if (held % 16 == 0) {
+				AbilityHelpers.sound(p, SoundEvents.FIRE_AMBIENT, 0.8f, 0.5f + (float) frac);
+			}
+		}
+		if (held >= INFERNO_CHARGE) {
+			infernoFire(ctx);
+		}
+	}
+
+	private static void infernoCancel(AbilityContext ctx) {
+		ctx.setResource("pyro_start", 0, 1e12f);
+		ctx.setResource("pyro_lightning", 0, 1);
+		ctx.setResource("ult_charge", 0, 100);
+		AbilityHelpers.sound(ctx.player(), SoundEvents.FIRE_EXTINGUISH, 0.5f, 1.0f);
+	}
+
+	private static void infernoFire(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		boolean lightning = ctx.resource("pyro_lightning") > 0.5f;
+		ctx.setResource("pyro_start", 0, 1e12f);
+		ctx.setResource("pyro_lightning", 0, 1);
+		ctx.setResource("ult_charge", 0, 100);
+		if (lightning) {
+			lightningArc(ctx);
+			ctx.triggerCooldown(LIGHTNING_CD);
+		} else {
+			spawnInfernoFireball(ctx);
+			ctx.triggerCooldown(INFERNO_CD);
+		}
+	}
+
+	private static void spawnInfernoFireball(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		Vec3 dir = p.getLookAngle();
+		LargeFireball fb = new LargeFireball(p.level(), p, dir, netherBonus(p) > 0 ? 6 : 5);
+		fb.accelerationPower = 0.05;
+		fb.setPos(p.getX() + dir.x * 2.0, p.getEyeY() + dir.y * 2.0 - 0.1, p.getZ() + dir.z * 2.0);
+		p.level().addFreshEntity(fb);
+		ctx.setResource("inferno_id", fb.getId(), 1.0e9f);
+		ctx.setResource("inferno_ticks", 160, 160);
+		AbilityHelpers.burst(level, fb.position(), ParticleTypes.FLAME, 90, 1.4);
+		level.sendParticles(ParticleTypes.LAVA, fb.getX(), fb.getY(), fb.getZ(), 20, 0.8, 0.8, 0.8, 0.0);
+		AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.6f, 0.4f);
+		AbilityHelpers.sound(p, SoundEvents.FIRECHARGE_USE, 1.5f, 0.4f);
+	}
+
+	/**
+	 * Blue Flame ultimate: a massive arc of lightning. 60 damage, a 10 s stun, and 10 s of heavy
+	 * decay. Burns out the entire Flame Body reserve and locks its regeneration for a minute.
+	 */
+	private static void lightningArc(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		Vec3 end = AbilityHelpers.aimPoint(p, 48.0);
+		LivingEntity target = AbilityHelpers.raycastEntity(p, 48.0);
+
+		AbilityHelpers.line(level, eye, end, ParticleTypes.ELECTRIC_SPARK, 6.0);
+		AbilityHelpers.line(level, eye, end, ParticleTypes.SOUL_FIRE_FLAME, 2.0);
+		level.sendParticles(ParticleTypes.FLASH, end.x, end.y, end.z, 1, 0, 0, 0, 0);
+
+		java.util.List<LivingEntity> victims = new java.util.ArrayList<>();
+		if (target != null) {
+			victims.add(target);
+		}
+		victims.addAll(AbilityHelpers.enemiesAround(p, end, 4.0));
+		for (LivingEntity e : victims) {
+			if (!e.isAlive()) {
+				continue;
+			}
+			AbilityHelpers.hurt(p, e, level.damageSources().source(
+					net.minecraft.world.damagesource.DamageTypes.LIGHTNING_BOLT, p), 60.0f);
+			// stun
+			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, LIGHTNING_STUN, 9);
+			AbilityHelpers.applyControl(e, MobEffects.JUMP, LIGHTNING_STUN, -10);
+			AbilityHelpers.applyControl(e, MobEffects.WEAKNESS, LIGHTNING_STUN, 2);
+			AbilityHelpers.applyControl(e, MobEffects.DIG_SLOWDOWN, LIGHTNING_STUN, 2);
+			// decay
+			AbilityHelpers.applyControl(e, MobEffects.WITHER, LIGHTNING_STUN, 4);
+			e.setRemainingFireTicks(LIGHTNING_STUN);
+			e.setTicksFrozen(0);
+		}
+		net.minecraft.world.entity.LightningBolt bolt = net.minecraft.world.entity.EntityType.LIGHTNING_BOLT.create(level);
+		if (bolt != null) {
+			bolt.moveTo(end.x, end.y, end.z);
+			bolt.setVisualOnly(true);
+			bolt.setCause(p);
+			level.addFreshEntity(bolt);
+		}
+		level.playSound(null, BlockPos.containing(end), SoundEvents.LIGHTNING_BOLT_IMPACT,
+				net.minecraft.sounds.SoundSource.PLAYERS, 3.0f, 0.7f);
+		level.playSound(null, p.blockPosition(), SoundEvents.LIGHTNING_BOLT_THUNDER,
+				net.minecraft.sounds.SoundSource.PLAYERS, 2.0f, 0.6f);
+
+		// burn out the Flame Body reserve and lock its regen for a minute
+		long now = level.getGameTime();
+		ExperimentalPowers.setResource(p, ctx.power(), "flame_body", 0, MAX_HEAT);
+		ExperimentalPowers.setResource(p, ctx.power(), "flame_body_regen_until", now + 1200, 1e12f);
+	}
+
 	public static void register() {
 		AbilityHandlers.register(KEY, "fireball", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
+			ServerLevel level = ctx.level();
 			Vec3 dir = p.getLookAngle();
-			LargeFireball fb = new LargeFireball(p.level(), p, dir.scale(1.0), netherBonus(p) > 0 ? 3 : 2);
-			fb.setPos(p.getX() + dir.x * 1.0, p.getEyeY() - 0.1, p.getZ() + dir.z * 1.0);
-			p.level().addFreshEntity(fb);
-			AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.0f, 0.9f);
+			LivingEntity aimed = AbilityHelpers.raycastEntity(p, 28.0);
+			if (aimed != null) {
+				// a direct hit: 12 fire damage and ignition, plus a searing beam of flame
+				AbilityHelpers.line(level, p.getEyePosition(), aimed.position().add(0, aimed.getBbHeight() * 0.5, 0),
+						flameParticle(p), 3.0);
+				AbilityHelpers.hurt(p, aimed, AbilityHelpers.fire(p), 12.0f + netherBonus(p));
+				aimed.setRemainingFireTicks(120);
+				level.sendParticles(flameParticle(p), aimed.getX(), aimed.getY() + aimed.getBbHeight() * 0.5, aimed.getZ(),
+						30, 0.4, 0.5, 0.4, 0.02);
+			} else {
+				LargeFireball fb = new LargeFireball(p.level(), p, dir.scale(1.0), netherBonus(p) > 0 ? 3 : 2);
+				fb.setPos(p.getX() + dir.x * 1.0, p.getEyeY() - 0.1, p.getZ() + dir.z * 1.0);
+				p.level().addFreshEntity(fb);
+			}
+			AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.0f, blueMode(p) ? 0.6f : 0.9f);
 			ctx.triggerCooldown();
 		}));
 
@@ -175,7 +372,7 @@ public final class PyrokinesisHandlers {
 				for (LivingEntity e : AbilityHelpers.enemiesAround(p, origin.add(look.scale(2.5)), 3.0)) {
 					Vec3 to = e.position().subtract(origin).normalize();
 					if (to.dot(look) > 0.6) {
-						AbilityHelpers.hurt(p, e, AbilityHelpers.fire(p), 2.0f + netherBonus(p));
+						AbilityHelpers.hurt(p, e, AbilityHelpers.fire(p), 6.0f + netherBonus(p));
 						e.setRemainingFireTicks(80);
 					}
 				}
@@ -185,7 +382,7 @@ public final class PyrokinesisHandlers {
 				double streamLen = bhr.getType() == HitResult.Type.BLOCK ? origin.distanceTo(bhr.getLocation()) : reach;
 				for (double d = 0.5; d <= streamLen + 0.01; d += 0.5) {
 					Vec3 pt = origin.add(look.scale(d));
-					level.sendParticles(ParticleTypes.FLAME, pt.x, pt.y, pt.z, 3, 0.12 * d, 0.12 * d, 0.12 * d, 0.02);
+					level.sendParticles(flameParticle(p), pt.x, pt.y, pt.z, 3, 0.12 * d, 0.12 * d, 0.12 * d, 0.02);
 					// fire clings to any solid surface the spray washes across -- the floor it skims
 					// over, or a wall/ceiling right next to the stream
 					if (p.tickCount % 2 == 0) {
@@ -227,31 +424,31 @@ public final class PyrokinesisHandlers {
 			}
 			AbilityHelpers.addImpulse(p, p.getLookAngle().scale(1.6).add(0, 0.2, 0));
 			p.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.FIRE_RESISTANCE, 60, 0, false, false, false));
-			AbilityHelpers.burst(ctx.level(), p.position(), ParticleTypes.FLAME, 24, 0.3);
+			AbilityHelpers.burst(ctx.level(), p.position(), flameParticle(p), 24, 0.3);
 			placeFire(ctx.level(), p.blockPosition(), 60);
 			AbilityHelpers.sound(p, SoundEvents.FIRECHARGE_USE, 1.0f, 0.8f);
 			ctx.triggerCooldown();
 		}));
 
-		// Inferno: a colossal fireball that flies through the air rather than detonating an area
-		// instantly. It starts slow and accelerates, so at range it can be side-stepped -- that dodge
-		// window is the balance for how devastating a direct hit (a power-5 explosion) is.
-		AbilityHandlers.register(KEY, "inferno", Handlers.instantTicking(ctx -> {
-			ServerPlayer p = ctx.player();
-			ServerLevel level = ctx.level();
-			Vec3 dir = p.getLookAngle();
-			LargeFireball fb = new LargeFireball(p.level(), p, dir, netherBonus(p) > 0 ? 6 : 5);
-			fb.accelerationPower = 0.05; // half the vanilla ghast ramp -- slower, easier to miss
-			fb.setPos(p.getX() + dir.x * 2.0, p.getEyeY() + dir.y * 2.0 - 0.1, p.getZ() + dir.z * 2.0);
-			p.level().addFreshEntity(fb);
-			ctx.setResource("inferno_id", fb.getId(), 1.0e9f);
-			ctx.setResource("inferno_ticks", 160, 160);
-			AbilityHelpers.burst(level, fb.position(), ParticleTypes.FLAME, 90, 1.4);
-			level.sendParticles(ParticleTypes.LAVA, fb.getX(), fb.getY(), fb.getZ(), 20, 0.8, 0.8, 0.8, 0.0);
-			AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.6f, 0.4f);
-			AbilityHelpers.sound(p, SoundEvents.FIRECHARGE_USE, 1.5f, 0.4f);
-			ctx.triggerCooldown();
-		}, PyrokinesisHandlers::infernoTick));
+		// Inferno: hold Z for 5 s to charge. In the ordinary stance it releases a colossal flying
+		// fireball; in Blue Flame stance (Flame Body active) it becomes a Lightning Arc ultimate.
+		AbilityHandlers.register(KEY, "inferno", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				infernoPress(ctx);
+			}
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				infernoRelease(ctx);
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				infernoTick(ctx);
+				infernoChargeTick(ctx);
+			}
+		});
 
 		// Flame Spark (replaces Flame Wall): a flint-and-steel in your hand. Lights fires, TNT,
 		// campfires and nether portals; sneak + use cooks the food you are holding.
@@ -308,9 +505,13 @@ public final class PyrokinesisHandlers {
 				ctx -> {
 					ServerPlayer p = ctx.player();
 					ServerLevel level = ctx.level();
-					PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, FLAME_BODY_ATK, 2.0 + netherBonus(p),
+					// Blue Flame stance: +10 flame damage on top of the base +2 (Nether adds more still).
+					PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, FLAME_BODY_ATK, 12.0 + netherBonus(p),
 							AttributeModifier.Operation.ADD_VALUE);
-					AbilityHelpers.modeAura(p, ParticleTypes.FLAME, 4);
+					AbilityHelpers.modeAura(p, ParticleTypes.SOUL_FIRE_FLAME, 4);
+					if (p.tickCount % 6 == 0) {
+						AbilityHelpers.modeAura(p, ParticleTypes.ELECTRIC_SPARK, 1);
+					}
 					// leave a trail of fire underfoot as you move
 					if (p.tickCount % 2 == 0 && p.getDeltaMovement().horizontalDistanceSqr() > 0.002) {
 						placeFire(level, p.blockPosition(), 60);
@@ -372,8 +573,11 @@ public final class PyrokinesisHandlers {
 			boolean flaming = ExperimentalPowers.getResource(player, power, "flaming") > 0.5f;
 			// flamethrower is a build-up gauge: it climbs in the channel tick and vents back down here.
 			com.projecthero.mod.hero.power.ModeMeter.cool(player, power, "flamethrower", MAX_HEAT, HEAT_REGEN, flaming);
+			// the Lightning Arc ultimate burns the reserve out and locks its regen for a minute
+			boolean regenLocked = ExperimentalPowers.getResource(player, power, "flame_body_regen_until")
+					> player.level().getGameTime();
 			com.projecthero.mod.hero.power.ModeMeter.regen(player, power, "flame_body", MAX_HEAT, HEAT_REGEN,
-					flameBodyActive(player));
+					flameBodyActive(player) || regenLocked);
 		});
 	}
 

@@ -99,6 +99,14 @@ public final class AbilityHud {
 					&& state.activeToggles.contains(power.key() + "/" + ability.id());
 			Long readyAt = state.abilityReadyAt.get(power.key() + "/" + ability.id());
 			int cdRemain = readyAt == null ? 0 : (int) Math.max(0L, readyAt - gameTime);
+			// Super Strength's Z (Bull Rush / Impact Smash) tracks its shared cooldown in the z_cd
+			// resource, not abilityReadyAt -- surface it on the keybind box like every other cooldown.
+			if (power.key().equals("power_01_super_strength") && slot == AbilitySlot.SLOT_4) {
+				int zcd = Math.round(state.resources.getOrDefault("power_01_super_strength/z_cd", 0.0f));
+				if (zcd > cdRemain) {
+					cdRemain = zcd;
+				}
+			}
 
 			graphics.fill(x, y0, x + BOX, y0 + BOX, COLOR_BOX_BG);
 			int border = toggled ? COLOR_BORDER_ACTIVE : COLOR_BORDER;
@@ -148,7 +156,6 @@ public final class AbilityHud {
 		float zCharge = state.resources.getOrDefault(pk + "z_charge", 0.0f);
 		float zSmash = state.resources.getOrDefault(pk + "z_smash", 0.0f);
 		float zRunEnd = state.resources.getOrDefault(pk + "z_run_end", 0.0f);
-		float zCd = state.resources.getOrDefault(pk + "z_cd", 0.0f);
 		float punchProg = com.projecthero.mod.client.ProjectHeroModClient.chargedPunchProgress();
 		boolean punchReady = com.projecthero.mod.client.ProjectHeroModClient.chargedPunchReady();
 		float leapProg = com.projecthero.mod.client.ProjectHeroModClient.leapChargeProgress();
@@ -167,20 +174,22 @@ public final class AbilityHud {
 					Math.min(1.0f, held / 100.0f), 0xFFE0703A, 0xFFF0A070);
 		} else if (zRunEnd > 0.5f) {
 			strengthBar(g, client, x, w, rowY, "BULL RUSH", 1.0f, 0xFFFFC24A, 0xFFFFE0A0);
-		} else if (zCd > 0.5f) {
-			strengthBar(g, client, x, w, rowY, "Bull Rush / Impact Smash  " + (int) Math.ceil(zCd / 20.0f) + "s",
-					1.0f - Math.min(1.0f, zCd / 1800.0f), 0xFF6A5230, 0xFFB0A080);
 		}
+		// The Bull Rush / Impact Smash cooldown is drawn on the Z keybind box now, not as a bar.
 		if (leapProg > 0.01f) {
 			strengthBar(g, client, x, w, rowY, "Power Leap", leapProg, 0xFF6FA8FF, 0xFFB8D0FF);
 		}
-		if (cd > 0.5f) {
-			strengthBar(g, client, x, w, rowY, "Charged Punch  " + (int) Math.ceil(cd / 20.0f) + "s",
-					1.0f - Math.min(1.0f, cd / 50.0f), 0xFF7A5A2A, 0xFFE8C98A);
-		} else if (punchReady) {
-			strengthBar(g, client, x, w, rowY, "Charged Punch — RELEASE", 1.0f, 0xFFFFC24A, 0xFFFFE0A0);
+		// The Charged Punch can be wound up even while its own cooldown is running -- show the charge
+		// progress regardless, and note the remaining cooldown alongside it when there is one.
+		if (punchReady) {
+			strengthBar(g, client, x, w, rowY, cd > 0.5f
+					? "Charged Punch — ready in " + (int) Math.ceil(cd / 20.0f) + "s"
+					: "Charged Punch — RELEASE", 1.0f, 0xFFFFC24A, 0xFFFFE0A0);
 		} else if (punchProg > 0.01f) {
 			strengthBar(g, client, x, w, rowY, "Charged Punch", punchProg, 0xFFE0A040, 0xFFE8C98A);
+		} else if (cd > 0.5f) {
+			strengthBar(g, client, x, w, rowY, "Charged Punch  " + (int) Math.ceil(cd / 20.0f) + "s",
+					1.0f - Math.min(1.0f, cd / 50.0f), 0xFF7A5A2A, 0xFFE8C98A);
 		}
 	}
 
@@ -248,7 +257,7 @@ public final class AbilityHud {
 		}
 		return switch (name) {
 			// build-up gauges: climb from zero while their mode runs, full bar is the fail state
-			case "energy", "heat", "static_charge", "charge", "freeze_beam", "flamethrower" -> Kind.BUILD;
+			case "energy", "heat", "static_charge", "charge", "freeze_beam", "flamethrower", "ult_charge" -> Kind.BUILD;
 			case "total_darkness", "hurr", "singularity" -> Kind.TIMER;
 			default -> Kind.RESERVE;
 		};
@@ -259,7 +268,7 @@ public final class AbilityHud {
 			return 100.0f; // "flight" stamina and the timed self-flight meters are all 0..100
 		}
 		return switch (name) {
-			case "guard", "phase", "static_charge", "charge", "sparkle" -> 100.0f;
+			case "guard", "phase", "static_charge", "charge", "sparkle", "ult_charge" -> 100.0f;
 			case "hurr" -> 400.0f;
 			default -> 500.0f;
 		};
@@ -284,6 +293,7 @@ public final class AbilityHud {
 			case "hurr" -> Component.literal("Hurricane");
 			case "singularity" -> Component.literal("Singularity");
 			case "sparkle" -> Component.literal("Sparkling Flight");
+			case "ult_charge" -> Component.literal("Ultimate — charging");
 			default -> name.endsWith("flight") ? Component.literal("Flight")
 					: Component.literal(capitalize(name.replace('_', ' ')));
 		};
@@ -304,7 +314,9 @@ public final class AbilityHud {
 			case "beaming", "flaming", "diving", "charging", "slamming", "grabbed", "blocking", "deflecting",
 					"singularity_active", "gripping", "shielding", "draining", "repelling", "storm", "wave",
 					"crush", "frenzy", "well", "boulder", "mark_set", "aiming", "dashing", "sparkling", "beaming_holy",
-					"elastic_fall", "slide_hold_ticks", "slide_sneak_prev" -> true;
+					"elastic_fall", "slide_hold_ticks", "slide_sneak_prev",
+					"quake_start", "quake_colossal", "shard_step", "earthswim_on",
+					"crystal_start", "crystal_colossal", "pyro_start", "pyro_lightning" -> true;
 			default -> false;
 		};
 	}

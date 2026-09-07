@@ -137,6 +137,16 @@ public final class HeroDamageRules {
 					return Verdict.immune();
 				}
 			}
+			case "power_05_geokinesis" -> {
+				// Earth Swim: while phased into the ground, nothing but the void or a command can hurt you
+				// (suffocation, fall, drowning, mobs are all shrugged off).
+				long swimUntil = (long) ExperimentalPowers.getResource(player, active, "earthswim_until");
+				if (swimUntil > player.level().getGameTime()
+						&& !source.is(DamageTypes.GENERIC_KILL) && !source.is(DamageTypes.FELL_OUT_OF_WORLD)) {
+					player.resetFallDistance();
+					return Verdict.immune();
+				}
+			}
 			case "power_08_pyrokinesis" -> {
 				if (source.is(DamageTypeTags.IS_FIRE)) {
 					return Verdict.immune();

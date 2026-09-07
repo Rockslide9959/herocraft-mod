@@ -8,6 +8,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import com.projecthero.mod.hero.power.p01.StrengthBareHands;
 import com.projecthero.mod.hero.power.p01.SuperStrengthHandlers;
 import com.projecthero.mod.hero.power.p04.SuperSpeedHandlers;
+import com.projecthero.mod.hero.power.p05.GeoBareHands;
 import com.projecthero.mod.symbiote.SymbioteBareHands;
 
 import net.minecraft.world.entity.player.Player;
@@ -44,6 +45,18 @@ public abstract class PlayerMixin {
 	}
 
 	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
+	private void projecthero$geoMining(BlockState state, CallbackInfoReturnable<Float> cir) {
+		Player self = (Player) (Object) this;
+		if (GeoBareHands.applies(self)) {
+			// Iron-tool hands whatever is held (a better tool still wins), and +50% for earth blocks.
+			float boosted = GeoBareHands.miningSpeed(state, cir.getReturnValue());
+			if (boosted > cir.getReturnValue()) {
+				cir.setReturnValue(boosted);
+			}
+		}
+	}
+
+	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
 	private void projecthero$symbioteBareHands(BlockState state, CallbackInfoReturnable<Float> cir) {
 		Player self = (Player) (Object) this;
 		if (SymbioteBareHands.applies(self)) {
@@ -65,6 +78,9 @@ public abstract class PlayerMixin {
 			cir.setReturnValue(true);
 		}
 		if (StrengthBareHands.applies(self) && StrengthBareHands.correctToolForDrops(state)) {
+			cir.setReturnValue(true);
+		}
+		if (GeoBareHands.applies(self) && GeoBareHands.correctToolForDrops(state)) {
 			cir.setReturnValue(true);
 		}
 	}
