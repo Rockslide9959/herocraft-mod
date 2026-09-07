@@ -4,11 +4,10 @@ import com.projecthero.mod.ironman.TonyStark;
 import com.projecthero.mod.ironman.item.IronManItems;
 import com.projecthero.mod.worthiness.Worthiness;
 
-import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -32,16 +31,13 @@ public final class SuperheroCommand {
 	private SuperheroCommand() {
 	}
 
-	public static void initialize() {
-		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> register(dispatcher));
-	}
 
-	private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("superhero")
+	public static LiteralArgumentBuilder<CommandSourceStack> build() {
+		return Commands.literal("hero")
 				.then(Commands.literal("worthiness").executes(SuperheroCommand::worthiness))
 				.then(Commands.literal("status").executes(SuperheroCommand::status))
 				.then(Commands.literal("arcreactor")
-						.then(Commands.literal("remove").executes(SuperheroCommand::removeReactor))));
+						.then(Commands.literal("remove").executes(SuperheroCommand::removeReactor)));
 	}
 
 	private static ServerPlayer self(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {

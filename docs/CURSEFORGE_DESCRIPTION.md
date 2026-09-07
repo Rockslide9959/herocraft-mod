@@ -186,9 +186,10 @@ Symbiote is removed by fire.
 ## Notes
 
 - **Creative tabs:** Superheroes, Iron Man, Punisher.
-- **Testing/admin commands** exist for every system (`/thor`, `/heropower`, `/superhero`,
-  `/spiderman`, `/maxsteel`, `/punisher`, `/heroraid`, `/supervillainraid`, `/titan`) plus
-  `/locate structure` support for all mod structures.
+- **Testing/admin commands** all live under one root: `/projecthero <thor|ironman|spiderman|symbiote|`
+  `maxsteel|punisher|titan|power|hero|raid|supervillainraid|zombieraid> ...` (`/projecthero hero` is the
+  survival self-service branch any player can use; the rest are op-only). Plus `/locate structure`
+  support for all mod structures.
 - Built on a shared GeckoLib armour-model pipeline and backed by 200+ automated in-game tests.
 - **License:** All Rights Reserved. This is a personal project shared as-is; please don't redistribute
   or reupload the jar.

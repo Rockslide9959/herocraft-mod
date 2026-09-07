@@ -5,12 +5,11 @@ import com.projecthero.mod.maxsteel.MaxSteelConfig;
 import com.projecthero.mod.maxsteel.MaxSteelTransform;
 import com.projecthero.mod.maxsteel.data.MaxSteelState;
 
-import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -29,12 +28,9 @@ public final class MaxSteelCommand {
 	private MaxSteelCommand() {
 	}
 
-	public static void initialize() {
-		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> register(dispatcher));
-	}
 
-	private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("maxsteel")
+	public static LiteralArgumentBuilder<CommandSourceStack> build() {
+		return Commands.literal("maxsteel")
 				.requires(source -> source.hasPermission(2))
 				.then(Commands.literal("power")
 						.then(Commands.literal("grant")
@@ -54,7 +50,7 @@ public final class MaxSteelCommand {
 						.then(Commands.literal("on").executes(c -> transform(c, self(c), true)))
 						.then(Commands.literal("off").executes(c -> transform(c, self(c), false))))
 				.then(Commands.literal("spawnsteel").executes(c -> spawnSteel(c, self(c))))
-				.then(Commands.literal("status").executes(c -> status(c, self(c)))));
+				.then(Commands.literal("status").executes(c -> status(c, self(c))));
 	}
 
 	private static ServerPlayer self(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {

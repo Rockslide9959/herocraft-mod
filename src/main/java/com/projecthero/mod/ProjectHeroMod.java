@@ -1,8 +1,6 @@
 package com.projecthero.mod;
 
 import com.projecthero.mod.attachment.ModAttachments;
-import com.projecthero.mod.command.HeroCommand;
-import com.projecthero.mod.command.ThorCommand;
 import com.projecthero.mod.diagnostics.TickWatchdog;
 import com.projecthero.mod.entity.ModEntityTypes;
 import com.projecthero.mod.hero.AbilityRouter;
@@ -26,7 +24,6 @@ import com.projecthero.mod.ironman.TonyStark;
 import com.projecthero.mod.ironman.entity.IronManEntityTypes;
 import com.projecthero.mod.ironman.item.IronManItems;
 import com.projecthero.mod.ironman.suit.IronManSuits;
-import com.projecthero.mod.command.IronManCommand;
 import com.projecthero.mod.item.ModItems;
 import com.projecthero.mod.network.ModNetworking;
 import com.projecthero.mod.power.ThorPassives;
@@ -104,15 +101,6 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.symbiote.SymbioteVitalsManager.initialize();
 		com.projecthero.mod.combat.SonicTriggers.initialize();
 		ModNetworking.initialize();
-		ThorCommand.initialize();
-		HeroCommand.initialize();
-		IronManCommand.initialize();
-		com.projecthero.mod.command.SuperheroCommand.initialize();
-		com.projecthero.mod.command.SpiderManCommand.initialize();
-		com.projecthero.mod.command.MaxSteelCommand.initialize();
-		com.projecthero.mod.command.PunisherCommand.initialize();
-		com.projecthero.mod.command.SymbioteCommand.initialize();
-		com.projecthero.mod.command.TitanCommand.initialize();
 		// ---- Zombie Raid / world-event framework ----
 		com.projecthero.mod.grave.item.GraveItems.initialize();
 		com.projecthero.mod.event.entity.RaidEntityTypes.initialize();
@@ -120,14 +108,12 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.event.EventTypes.initialize();
 		com.projecthero.mod.event.entity.CursedZombieSpawns.initialize();
 		com.projecthero.mod.grave.GraveboundEvents.initialize();
-		com.projecthero.mod.command.ZombieRaidCommand.initialize();
 		com.projecthero.mod.worldgen.GraveyardTracker.initialize();
 		// ---- Supervillain Village Raid ----
 		com.projecthero.mod.event.raid.SupervillainRaidItems.initialize();
 		com.projecthero.mod.event.raid.SupervillainRaidEvents.initialize();
-		com.projecthero.mod.command.SupervillainRaidCommand.initialize();
-		com.projecthero.mod.command.HeroRaidCommand.initialize();
-		// Must be last: /projecthero redirects onto every root literal registered above.
+		// The one and only command root: /projecthero, which assembles every hero/event subtree from
+		// each command class's build().
 		com.projecthero.mod.command.ProjectHeroCommand.initialize();
 
 		ModStructureTypes.initialize();

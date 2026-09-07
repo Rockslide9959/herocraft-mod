@@ -74,6 +74,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.render.SuperheroFirstPersonArm.initialize();
 		IronManBeamClient.register();
 		com.projecthero.mod.client.spider.SpiderWebLineRenderer.initialize();
+		com.projecthero.mod.client.firearm.BulletHoleRenderer.initialize();
 
 		// GeckoLib armour: give every SuperheroArmorItem (Thor + the five Iron Man marks) a client-only
 		// GeoRenderProvider so GeckoLib renders them with the shared crimson_vanguard model instead of
@@ -154,6 +155,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.FirearmHeadshotPayload.TYPE,
 				(payload, context) -> context.client().execute(
 						com.projecthero.mod.client.gui.FirearmHud::flashHeadshot));
+		// Firearms: a shot hit a block -> drop a fading bullet-hole decal there.
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.BulletHolePayload.TYPE,
+				(payload, context) -> context.client().execute(() ->
+						com.projecthero.mod.client.firearm.BulletHoleRenderer.add(
+								payload.x(), payload.y(), payload.z(), payload.face())));
 		// Punisher: server asked us to open the Arsenal wheel.
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.PunisherArsenalOpenPayload.TYPE,
 				(payload, context) -> context.client().execute(() -> {
@@ -178,6 +184,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		if (client.player == null) {
 			// Leaving a world must not leave a stale raid-sky tint on the next one.
 			com.projecthero.mod.client.gui.RaidSkyTint.reset();
+			com.projecthero.mod.client.firearm.BulletHoleRenderer.clear();
 			java.util.Arrays.fill(slotWasDown, false);
 			wasFlying = false;
 			jumpWasDown = false;

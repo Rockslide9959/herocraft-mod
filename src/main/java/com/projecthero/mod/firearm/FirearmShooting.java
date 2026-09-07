@@ -1,8 +1,10 @@
 package com.projecthero.mod.firearm;
 
 import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.network.BulletHolePayload;
 import com.projecthero.mod.network.FirearmHeadshotPayload;
 
+import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import net.minecraft.core.particles.BlockParticleOption;
@@ -137,6 +139,7 @@ public final class FirearmShooting {
 				impact(level, rayEnd, null);
 				if (blockHit.getType() != HitResult.Type.MISS) {
 					tracer(level, muzzle, blockHit.getLocation());
+					bulletHole(level, blockHit);
 				}
 			}
 		}
@@ -208,6 +211,22 @@ public final class FirearmShooting {
 		for (int i = 1; i <= steps; i++) {
 			Vec3 pt = a.lerp(b, (double) i / (steps + 1));
 			level.sendParticles(ParticleTypes.CRIT, pt.x, pt.y, pt.z, 1, 0.0, 0.0, 0.0, 0.0);
+		}
+	}
+
+	/**
+	 * Tell nearby clients to drop a fading bullet-hole decal where the shot hit a solid block. Cosmetic
+	 * only -- the block is never changed. Skipped for a block with no collision face (already filtered by
+	 * the caller's MISS check) or air.
+	 */
+	private static void bulletHole(ServerLevel level, BlockHitResult hit) {
+		if (level.getBlockState(hit.getBlockPos()).isAir()) {
+			return;
+		}
+		Vec3 loc = hit.getLocation();
+		BulletHolePayload payload = new BulletHolePayload(loc.x, loc.y, loc.z, hit.getDirection().get3DDataValue());
+		for (ServerPlayer viewer : PlayerLookup.around(level, loc, 64.0)) {
+			ServerPlayNetworking.send(viewer, payload);
 		}
 	}
 

@@ -2,9 +2,7 @@ package com.projecthero.mod.command;
 
 import com.projecthero.mod.worthiness.Worthiness;
 
-import com.mojang.brigadier.CommandDispatcher;
-
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -12,19 +10,16 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * Testing-only commands for the worthiness system: {@code /thor worthy} and {@code /thor unworthy}
- * let you flip a player's hidden score without having to build the full scoring table first.
+ * Testing-only commands for the worthiness system: {@code /projecthero thor worthy} and
+ * {@code /projecthero thor unworthy} let you flip a player's hidden score without having to build the
+ * full scoring table first. Nested under {@code /projecthero} by {@link ProjectHeroCommand}.
  */
 public final class ThorCommand {
 	private ThorCommand() {
 	}
 
-	public static void initialize() {
-		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> register(dispatcher));
-	}
-
-	private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("thor")
+	public static LiteralArgumentBuilder<CommandSourceStack> build() {
+		return Commands.literal("thor")
 				.requires(source -> source.hasPermission(2))
 				.then(Commands.literal("worthy")
 						.executes(ThorCommand::makeWorthy)
@@ -37,7 +32,7 @@ public final class ThorCommand {
 				.then(Commands.literal("status")
 						.executes(ThorCommand::showStatus)
 						.then(Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
-								.executes(context -> showStatus(context, net.minecraft.commands.arguments.EntityArgument.getPlayer(context, "player"))))));
+								.executes(context -> showStatus(context, net.minecraft.commands.arguments.EntityArgument.getPlayer(context, "player")))));
 	}
 
 	private static int makeWorthy(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context)

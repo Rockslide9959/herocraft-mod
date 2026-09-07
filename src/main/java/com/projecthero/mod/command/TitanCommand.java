@@ -4,11 +4,10 @@ import com.projecthero.mod.titan.entity.DisguisedTitanEntity;
 import com.projecthero.mod.titan.entity.TitanEntity;
 import com.projecthero.mod.titan.entity.TitanEntityTypes;
 
-import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -23,16 +22,13 @@ public final class TitanCommand {
 	private TitanCommand() {
 	}
 
-	public static void initialize() {
-		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> register(dispatcher));
-	}
 
-	private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("titan")
+	public static LiteralArgumentBuilder<CommandSourceStack> build() {
+		return Commands.literal("titan")
 				.requires(source -> source.hasPermission(2))
 				.then(Commands.literal("disguised").executes(TitanCommand::spawnDisguised))
 				.then(Commands.literal("titan").executes(TitanCommand::spawnTitan))
-				.then(Commands.literal("status").executes(TitanCommand::status)));
+				.then(Commands.literal("status").executes(TitanCommand::status));
 	}
 
 	private static Vec3 ahead(ServerPlayer player, double distance) {

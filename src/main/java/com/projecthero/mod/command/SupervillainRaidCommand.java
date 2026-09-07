@@ -10,11 +10,10 @@ import com.projecthero.mod.event.raid.SupervillainRaid;
 import com.projecthero.mod.event.raid.SupervillainRaidStarter;
 import com.projecthero.mod.event.raid.SupervillainVillages;
 
-import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -32,19 +31,16 @@ public final class SupervillainRaidCommand {
 	private SupervillainRaidCommand() {
 	}
 
-	public static void initialize() {
-		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> register(dispatcher));
-	}
 
-	private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("supervillainraid")
+	public static LiteralArgumentBuilder<CommandSourceStack> build() {
+		return Commands.literal("supervillainraid")
 				.requires(source -> source.hasPermission(2))
 				.then(Commands.literal("start").executes(SupervillainRaidCommand::start))
 				.then(Commands.literal("mark").executes(SupervillainRaidCommand::mark))
 				.then(Commands.literal("boss").executes(SupervillainRaidCommand::boss))
 				.then(Commands.literal("spy").executes(SupervillainRaidCommand::spy))
 				.then(Commands.literal("clear").executes(SupervillainRaidCommand::clear))
-				.then(Commands.literal("status").executes(SupervillainRaidCommand::status)));
+				.then(Commands.literal("status").executes(SupervillainRaidCommand::status));
 	}
 
 	/** Start the event at the nearest village and immediately skip the 10-minute countdown. */

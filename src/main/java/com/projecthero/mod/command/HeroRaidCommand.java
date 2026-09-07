@@ -8,11 +8,10 @@ import com.projecthero.mod.event.raid.SupervillainRaidStarter;
 import com.projecthero.mod.event.raid.ZombieRaidStarter;
 import com.projecthero.mod.grave.GraveboundCurse;
 
-import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -38,19 +37,16 @@ public final class HeroRaidCommand {
 	private HeroRaidCommand() {
 	}
 
-	public static void initialize() {
-		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> register(dispatcher));
-	}
 
-	private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("heroraid")
+	public static LiteralArgumentBuilder<CommandSourceStack> build() {
+		return Commands.literal("raid")
 				.requires(source -> source.hasPermission(2))
 				.then(Commands.literal("start")
 						.then(Commands.literal("supervillain").executes(c -> startSupervillain(c)))
 						.then(Commands.literal("gravebound").executes(c -> startGravebound(c)))
 						.then(Commands.literal("zombie").executes(c -> startGravebound(c))))
 				.then(Commands.literal("stop").executes(HeroRaidCommand::stopAll))
-				.then(Commands.literal("cleartimers").executes(HeroRaidCommand::clearTimers)));
+				.then(Commands.literal("cleartimers").executes(HeroRaidCommand::clearTimers));
 	}
 
 	private static int startSupervillain(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {

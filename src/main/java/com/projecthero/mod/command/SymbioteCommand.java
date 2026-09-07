@@ -5,11 +5,10 @@ import com.projecthero.mod.symbiote.SymbioteCompatibility;
 import com.projecthero.mod.symbiote.SymbioteHostType;
 import com.projecthero.mod.symbiote.SymbioteState;
 
-import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -32,12 +31,9 @@ public final class SymbioteCommand {
 	private SymbioteCommand() {
 	}
 
-	public static void initialize() {
-		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> register(dispatcher));
-	}
 
-	private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("symbiote")
+	public static LiteralArgumentBuilder<CommandSourceStack> build() {
+		return Commands.literal("symbiote")
 				.requires(source -> source.hasPermission(2))
 				.then(Commands.literal("give").executes(c -> bond(c, self(c)))
 						.then(Commands.argument("player", EntityArgument.player())
@@ -59,7 +55,7 @@ public final class SymbioteCommand {
 								.executes(c -> setActive(c, EntityArgument.getPlayer(c, "player"), false))))
 				.then(Commands.literal("status").executes(c -> status(c, self(c)))
 						.then(Commands.argument("player", EntityArgument.player())
-								.executes(c -> status(c, EntityArgument.getPlayer(c, "player"))))));
+								.executes(c -> status(c, EntityArgument.getPlayer(c, "player")))));
 	}
 
 	private static int bond(CommandContext<CommandSourceStack> c, ServerPlayer target) {

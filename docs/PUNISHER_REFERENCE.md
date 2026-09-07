@@ -91,6 +91,11 @@ Punisher abilities use the six universal slots (R/G/X/Z/V/C), assigned in order:
   `FIREARM_LAST_FIRED`) — survives drop / death / relog with no extra bookkeeping.
 - `FirearmShooting` — **server-authoritative hitscan** (no bullet entity). Spread cone, recoil bloom,
   range falloff, headshots, knockback. Shotgun = N rays per trigger pull.
+  - **Bullet holes (v0.10.1):** a shot that ends on a solid block sends `BulletHolePayload` to players
+    within 64 blocks. Client-side `BulletHoleRenderer` keeps a bounded list (max 96, oldest dropped)
+    and draws a fading `textures/misc/bullet_hole.png` decal on the hit face via
+    `WorldRenderEvents.AFTER_TRANSLUCENT`; each hole lasts 60 s, fading over its last 6 s. No entity,
+    no block change — purely cosmetic, cleared on world unload.
 - `HeadshotResolver` — head zone from the target's eye height / bbHeight, so it scales to any mob;
   per-`EntityType` overrides in `OVERRIDES`.
 - `FirearmReload` — magazine reload, or interruptible shell-by-shell for the shotgun.
@@ -123,9 +128,10 @@ No potion, no accident — a trained human:
    underlying system as Thor / Iron Man / Spider-Man / Max Steel).
 
 Hero-Tier exclusivity is enforced through `HeroTiers` — a Punisher cannot also hold an experimental
-mutation or another Hero-Tier power. Admin: `/punisher power grant|revoke`, `/heropower grant hero
-punisher`, `/punisher training start`, `/punisher arsenal all|<weapon>`, `/punisher status`. The
-craftable **Power Suppressor** strips it like any other power.
+mutation or another Hero-Tier power. Admin (v0.10.1, all under `/projecthero`): `/projecthero punisher
+power grant|revoke`, `/projecthero power grant hero punisher`, `/projecthero punisher training start`,
+`/projecthero punisher arsenal all|<weapon>`, `/projecthero punisher status`. The craftable **Power
+Suppressor** strips it like any other power.
 
 ## Abilities (`com.projecthero.mod.punisher.ability`)
 
@@ -159,9 +165,16 @@ craftable **Power Suppressor** strips it like any other power.
 | Tactical Leggings | 7 | 3 | 600 |
 | Tactical Boots | 4 | 3 | 529 |
 
-Renders through the shared GeckoLib armour path (`geo/punisher.geo.json`, from the supplied model via
-`scratchpad/convert_punisher_geo.js`). **Full-set bonus, only while holding the power:** 20%
-projectile-damage reduction, 10% knockback resistance, ×0.9 recoil. Never exceeds Iron Man.
+Renders through the shared GeckoLib armour path (`geo/punisher.geo.json` + `textures/armor/punisher.png`,
+64×64). **Full-set bonus, only while holding the power:** 20% projectile-damage reduction, 10%
+knockback resistance, ×0.9 recoil. Never exceeds Iron Man.
+
+**Model history:** v0.9.25 added a second "Mark 2" model for side-by-side comparison; v0.10.1 the user
+picked Mark 2, so `geo/punisher.geo.json` + `textures/armor/punisher.png` were *replaced in place* with
+that model (merged from the GeckoLib-4 bundle at `.../Punisher/punisher_armor_geckolib4_bundle`;
+`armorRightLeg`/`armorLeftLeg` → `armorRightBoot`/`armorLeftBoot` for the boots slice; arms are one
+identical 4×6×4 shoulder-to-elbow cube so the sleeves match and the forearms render as skin). The
+`_2` items/recipes/models and the original model were deleted. The `"punisher"` set id is unchanged.
 
 ## Crafting
 

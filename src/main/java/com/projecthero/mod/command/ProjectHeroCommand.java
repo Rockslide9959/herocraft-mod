@@ -2,8 +2,6 @@ package com.projecthero.mod.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.tree.CommandNode;
-import com.mojang.brigadier.tree.LiteralCommandNode;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
@@ -13,32 +11,31 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 
 /**
- * v0.9.24: a single command tree, {@code /projecthero <sub> ...}, that nests every per-hero and
- * per-event admin command the mod registers. The original roots ({@code /thor}, {@code /symbiote},
- * {@code /heropower}, ...) are kept as aliases -- each subcommand here simply {@code redirect}s onto
- * the already-registered root node, so there is no duplicated argument wiring and the two forms can
- * never drift apart.
+ * v0.10.1: {@code /projecthero <sub> ...} is now the <b>only</b> command root the mod registers.
+ * Every per-hero and per-event admin command that used to have its own top-level literal
+ * ({@code /thor}, {@code /ironman}, {@code /symbiote}, {@code /heropower}, {@code /superhero},
+ * {@code /heroraid}, ...) is gone; each of those classes now exposes a {@code build()} that returns
+ * its subtree, and this class hangs them all under {@code /projecthero}.
  *
- * <p>{@link #initialize()} is called last in {@code ProjectHeroMod} so every root literal exists on
- * the dispatcher by the time {@link #register} looks it up.
+ * <table>
+ *   <tr><td>{@code /projecthero thor}</td><td>Mjolnir worthiness testing</td></tr>
+ *   <tr><td>{@code /projecthero ironman}</td><td>Tony Stark power / tech / suits</td></tr>
+ *   <tr><td>{@code /projecthero spiderman}</td><td>Spider-Man power / web / symbiote spawn</td></tr>
+ *   <tr><td>{@code /projecthero symbiote}</td><td>standalone Symbiote bond / activate</td></tr>
+ *   <tr><td>{@code /projecthero maxsteel}</td><td>Max Steel power / energy / transform</td></tr>
+ *   <tr><td>{@code /projecthero punisher}</td><td>Punisher power / training / arsenal</td></tr>
+ *   <tr><td>{@code /projecthero titan}</td><td>spawn the Titan boss</td></tr>
+ *   <tr><td>{@code /projecthero power}</td><td>experimental + Hero-Tier power admin (was {@code /heropower})</td></tr>
+ *   <tr><td>{@code /projecthero hero}</td><td>survival self-service, any player (was {@code /superhero})</td></tr>
+ *   <tr><td>{@code /projecthero raid}</td><td>start/stop any world event (was {@code /heroraid})</td></tr>
+ *   <tr><td>{@code /projecthero supervillainraid}</td><td>Supervillain Raid dev commands</td></tr>
+ *   <tr><td>{@code /projecthero zombieraid}</td><td>Zombie/Gravebound Raid dev commands (was {@code /heropack zombieraid})</td></tr>
+ * </table>
+ *
+ * <p>Each subtree keeps its own {@code requires(...)} permission gate, so {@code /projecthero hero} is
+ * still usable by any player while the rest stay op-only.
  */
 public final class ProjectHeroCommand {
-	/** {registered root literal, name it is nested under in /projecthero}. */
-	private static final String[][] SUBS = {
-			{"thor", "thor"},
-			{"ironman", "ironman"},
-			{"spiderman", "spiderman"},
-			{"symbiote", "symbiote"},
-			{"maxsteel", "maxsteel"},
-			{"punisher", "punisher"},
-			{"titan", "titan"},
-			{"heropower", "power"},
-			{"superhero", "hero"},
-			{"heroraid", "raid"},
-			{"supervillainraid", "supervillainraid"},
-			{"heropack", "zombieraid"},
-	};
-
 	private ProjectHeroCommand() {
 	}
 
@@ -51,31 +48,25 @@ public final class ProjectHeroCommand {
 				.executes(ctx -> {
 					ctx.getSource().sendSuccess(() -> Component.literal("Project Hero")
 							.withStyle(ChatFormatting.LIGHT_PURPLE)
-							.append(Component.literal("  /projecthero <" + names() + ">")
+							.append(Component.literal("  /projecthero <thor|ironman|spiderman|symbiote|maxsteel"
+									+ "|punisher|titan|power|hero|raid|supervillainraid|zombieraid>")
 									.withStyle(ChatFormatting.GRAY)), false);
 					return 1;
 				});
 
-		for (String[] pair : SUBS) {
-			CommandNode<CommandSourceStack> target = dispatcher.getRoot().getChild(pair[0]);
-			if (target instanceof LiteralCommandNode<CommandSourceStack> literal) {
-				root.then(Commands.literal(pair[1])
-						.requires(literal.getRequirement())
-						.redirect(literal));
-			}
-		}
+		root.then(ThorCommand.build());
+		root.then(IronManCommand.build());
+		root.then(SpiderManCommand.build());
+		root.then(SymbioteCommand.build());
+		root.then(MaxSteelCommand.build());
+		root.then(PunisherCommand.build());
+		root.then(TitanCommand.build());
+		root.then(HeroCommand.build());
+		root.then(SuperheroCommand.build());
+		root.then(HeroRaidCommand.build());
+		root.then(SupervillainRaidCommand.build());
+		root.then(ZombieRaidCommand.build());
 
 		dispatcher.register(root);
-	}
-
-	private static String names() {
-		StringBuilder sb = new StringBuilder();
-		for (String[] pair : SUBS) {
-			if (sb.length() > 0) {
-				sb.append('|');
-			}
-			sb.append(pair[1]);
-		}
-		return sb.toString();
 	}
 }

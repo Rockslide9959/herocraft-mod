@@ -7,12 +7,11 @@ import com.projecthero.mod.spider.SpiderMan;
 import com.projecthero.mod.spider.SpiderWebReserve;
 import com.projecthero.mod.spider.data.SpiderManState;
 
-import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -33,12 +32,9 @@ public final class SpiderManCommand {
 	private SpiderManCommand() {
 	}
 
-	public static void initialize() {
-		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> register(dispatcher));
-	}
 
-	private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("spiderman")
+	public static LiteralArgumentBuilder<CommandSourceStack> build() {
+		return Commands.literal("spiderman")
 				.requires(source -> source.hasPermission(2))
 				.then(Commands.literal("power")
 						.then(Commands.literal("grant")
@@ -65,7 +61,7 @@ public final class SpiderManCommand {
 										.executes(c -> symbiote(c, EntityArgument.getPlayer(c, "player"), false))))
 						.then(Commands.literal("spawn").executes(c -> spawnSymbiote(c, self(c))))
 						.then(Commands.literal("host").executes(c -> spawnHost(c, self(c)))))
-				.then(Commands.literal("status").executes(c -> status(c, self(c)))));
+				.then(Commands.literal("status").executes(c -> status(c, self(c))));
 	}
 
 	/** Drop a free-floating Symbiote 3 blocks ahead (testing the bond flow / meteor / lab spawn). */

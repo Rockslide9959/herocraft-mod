@@ -14,14 +14,12 @@ import com.projecthero.mod.grave.CurseSource;
 import com.projecthero.mod.grave.GraveboundCurse;
 import com.projecthero.mod.worldgen.GraveyardTracker;
 
-import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
-
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -33,14 +31,11 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.MobSpawnType;
 
 /**
- * {@code /heropack zombieraid ...} -- the Zombie Raid development and testing commands.
+ * {@code /projecthero zombieraid ...} -- the Zombie / Gravebound Raid development and testing commands
+ * (nested under {@code /projecthero} by {@link ProjectHeroCommand}; v0.10.1).
  *
- * <p>Op-only ({@code hasPermission(2)}), matching {@code /heropower} and {@code /ironman}. The
- * survival-facing verbs stay where they belong: a player gets cursed by a Graveyard, a Cursed Zombie
- * or a Grave Ritual Totem, never by a command.
- *
- * <p>The literal is spelled {@code zombieraid} in lower case (Brigadier literals are case-sensitive)
- * with {@code zombieRaid} registered as an alias, so both spellings from the design brief work.
+ * <p>Op-only ({@code hasPermission(2)}). The survival-facing verbs stay where they belong: a player
+ * gets cursed by a Graveyard, a Cursed Zombie or a Grave Ritual Totem, never by a command.
  */
 public final class ZombieRaidCommand {
 	private static final SuggestionProvider<CommandSourceStack> BOSS_POWERS = (ctx, builder) ->
@@ -49,18 +44,11 @@ public final class ZombieRaidCommand {
 	private ZombieRaidCommand() {
 	}
 
-	public static void initialize() {
-		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> register(dispatcher));
+	public static LiteralArgumentBuilder<CommandSourceStack> build() {
+		return raidNode("zombieraid").requires(source -> source.hasPermission(2));
 	}
 
-	private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("heropack")
-				.requires(source -> source.hasPermission(2))
-				.then(raidNode("zombieraid"))
-				.then(raidNode("zombieRaid")));
-	}
-
-	private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> raidNode(String literal) {
+	private static LiteralArgumentBuilder<CommandSourceStack> raidNode(String literal) {
 		return Commands.literal(literal)
 				.then(Commands.literal("start").executes(ZombieRaidCommand::start))
 				.then(Commands.literal("stop").executes(ZombieRaidCommand::stop))

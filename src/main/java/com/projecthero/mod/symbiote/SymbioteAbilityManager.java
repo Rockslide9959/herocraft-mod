@@ -428,13 +428,16 @@ public final class SymbioteAbilityManager {
 
 	// ---------------- Symbiote Leap (X) ----------------
 
-	private static final double LEAP_SPEED = 1.9;
+	private static final double LEAP_SPEED = 1.35;
+	private static final double LEAP_LIFT = 1.05;
 
 	private static boolean symbioteLeap(ServerPlayer player) {
-		// v0.9.24: purely directional -- a straight dash exactly where the player is looking, no added
-		// lift. Aim past an enemy and you will sail over them.
-		Vec3 dir = player.getLookAngle().normalize();
-		AbilityHelpers.launchSelf(player, dir.scale(LEAP_SPEED));
+		// v0.10.1: reverted to the pre-v0.9.24 behaviour -- launch along the horizontal aim direction
+		// with a fixed upward lift, so it arcs up and forward the way the player is looking rather than
+		// dashing dead straight.
+		Vec3 look = player.getLookAngle();
+		Vec3 dir = new Vec3(look.x, 0, look.z).normalize();
+		AbilityHelpers.launchSelf(player, dir.scale(LEAP_SPEED).add(0, LEAP_LIFT, 0));
 		long now = player.level().getGameTime();
 		LEAP_NO_FALL_UNTIL.put(player.getId(), now + LEAP_NO_FALL_TICKS);
 		LEAP_RAM_UNTIL.put(player.getId(), now + LEAP_RAM_TICKS);

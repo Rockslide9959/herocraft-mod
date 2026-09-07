@@ -45,6 +45,8 @@ public final class PunisherItems {
 		VIGILANTE_TRAINING_MANUAL = register("vigilante_training_manual",
 				new VigilanteTrainingManualItem(new Item.Properties().stacksTo(1).rarity(Rarity.RARE)));
 
+		// v0.10.1: the Punisher armour now renders through the "Mark 2" model the user picked -- the geo
+		// and texture files at these paths were replaced in place; the "punisher" set id is unchanged.
 		SuperheroArmorVisuals.register("punisher", new ArmorVisualDefinition(
 				ProjectHeroMod.id("geo/punisher.geo.json"),
 				ProjectHeroMod.id("textures/armor/punisher.png"),

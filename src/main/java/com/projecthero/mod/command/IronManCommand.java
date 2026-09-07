@@ -7,14 +7,12 @@ import com.projecthero.mod.ironman.suit.IronManSuit;
 import com.projecthero.mod.ironman.suit.IronManSuitSummonManager;
 import com.projecthero.mod.ironman.suit.IronManSuits;
 
-import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
-
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -35,12 +33,8 @@ public final class IronManCommand {
 	private IronManCommand() {
 	}
 
-	public static void initialize() {
-		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> register(dispatcher));
-	}
-
-	private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("ironman")
+	public static LiteralArgumentBuilder<CommandSourceStack> build() {
+		return Commands.literal("ironman")
 				.requires(source -> source.hasPermission(2))
 				.then(Commands.literal("power")
 						.then(Commands.literal("grant")
@@ -76,7 +70,7 @@ public final class IronManCommand {
 				.then(Commands.literal("status")
 						.executes(c -> status(c, self(c)))
 						.then(Commands.argument("player", EntityArgument.player())
-								.executes(c -> status(c, EntityArgument.getPlayer(c, "player"))))));
+								.executes(c -> status(c, EntityArgument.getPlayer(c, "player")))));
 	}
 
 	private static ServerPlayer self(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {

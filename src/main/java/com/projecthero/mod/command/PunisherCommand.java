@@ -5,12 +5,11 @@ import com.projecthero.mod.punisher.Punisher;
 import com.projecthero.mod.punisher.VigilanteTraining;
 import com.projecthero.mod.punisher.data.PunisherState;
 
-import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -28,12 +27,9 @@ public final class PunisherCommand {
 	private PunisherCommand() {
 	}
 
-	public static void initialize() {
-		CommandRegistrationCallback.EVENT.register((dispatcher, reg, env) -> register(dispatcher));
-	}
 
-	private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("punisher")
+	public static LiteralArgumentBuilder<CommandSourceStack> build() {
+		return Commands.literal("punisher")
 				.requires(s -> s.hasPermission(2))
 				.then(Commands.literal("power")
 						.then(Commands.literal("grant")
@@ -63,7 +59,7 @@ public final class PunisherCommand {
 									Punisher.unlockWeapon(self(c), StringArgumentType.getString(c, "weapon"));
 									return 1;
 								})))
-				.then(Commands.literal("status").executes(c -> status(c, self(c)))));
+				.then(Commands.literal("status").executes(c -> status(c, self(c))));
 	}
 
 	private static int power(CommandContext<CommandSourceStack> c, ServerPlayer target, boolean grant) {
