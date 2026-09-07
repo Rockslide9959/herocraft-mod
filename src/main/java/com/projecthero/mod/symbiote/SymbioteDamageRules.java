@@ -52,9 +52,20 @@ public final class SymbioteDamageRules {
 		boolean active = Symbiote.isActive(player);
 
 		// Symbiote Leap / Grapple: the launch's OWN fall damage is negated outright (a short grace
-		// window after launch).
+		// window after launch) -- no Biomass cost for a landing the Symbiote deliberately set up.
 		if (source.is(DamageTypeTags.IS_FALL) && SymbioteAbilityManager.leapFallProtected(player, now)) {
 			player.resetFallDistance();
+			return false;
+		}
+
+		// v0.10.2: a bonded host takes NO fall damage at all -- the Symbiote catches every landing. It
+		// costs a little Biomass to do it (scaled to the fall, always small), and nothing when the host
+		// is invulnerable (creative / spectator).
+		if (source.is(DamageTypeTags.IS_FALL)) {
+			player.resetFallDistance();
+			if (!player.getAbilities().invulnerable) {
+				SymbioteVitalsManager.spendBiomass(player, Math.min(5.0f, 1.0f + amount * 0.25f));
+			}
 			return false;
 		}
 

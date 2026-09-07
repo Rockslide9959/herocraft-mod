@@ -181,7 +181,10 @@ public final class SpiderAbilities {
 		Vec3 dir = delta.normalize();
 		// v0.6.19: a harder yank. Speed still scales with distance so a short hop is not a rocket and a
 		// long one still arrives, but the whole curve is pulled up.
-		boolean sneaking = player.isShiftKeyDown();
+		// v0.10.2: a zip aimed well below the player is a pull to a lower ledge, not a wall pin -- treat
+		// it as an ordinary arced zip and do NOT arm adhesion, which is what used to leave the player
+		// stuck against the block they zipped down onto.
+		boolean sneaking = player.isShiftKeyDown() && dir.y > -0.35;
 
 		if (sneaking) {
 			// v0.6.21 -- "pin me to the wall": fire straight at the exact point aimed at (dir already
@@ -199,6 +202,9 @@ public final class SpiderAbilities {
 			double speed = Math.min(2.6, 0.85 + dist * 0.075);
 			double lift = Math.min(0.4, dist * 0.02);
 			Vec3 pull = dir.scale(speed).add(0, lift, 0);
+			// Clamp the downward component so a steep zip carries the player across to the lower surface
+			// rather than drilling them into it and briefly wedging them there.
+			pull = new Vec3(pull.x, Math.max(pull.y, -0.55), pull.z);
 			AbilityHelpers.launchSelf(player, player.getDeltaMovement().scale(0.2).add(pull));
 		}
 

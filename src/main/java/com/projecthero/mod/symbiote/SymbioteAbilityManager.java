@@ -113,6 +113,30 @@ public final class SymbioteAbilityManager {
 		return Symbiote.state(player).onslaughtChargeStart >= 0;
 	}
 
+	/** Is the Symbiote Grapple (Shift+X) off cooldown? Feeds the Symbiote's voice. */
+	public static boolean grappleReady(ServerPlayer player, long now) {
+		Long readyAt = GRAPPLE_READY_AT.get(player.getId());
+		return readyAt == null || now >= readyAt;
+	}
+
+	/** Is Symbiote Leap (X) off cooldown? */
+	public static boolean leapReady(ServerPlayer player, long now) {
+		return now >= Symbiote.state(player).abilityCooldowns.get(AbilitySlot.SLOT_3.index());
+	}
+
+	/** Is Symbiote Onslaught (Shift+hold Z) off cooldown and not already charging? */
+	public static boolean onslaughtReady(ServerPlayer player, long now) {
+		SymbioteState s = Symbiote.state(player);
+		return s.onslaughtChargeStart < 0
+				&& now >= s.abilityCooldowns.get(AbilitySlot.SLOT_4.index());
+	}
+
+	/** Is Symbiote Shield (Shift+V) available -- not up already, and the guard bar has charge? */
+	public static boolean shieldReady(ServerPlayer player) {
+		SymbioteState s = Symbiote.state(player);
+		return !s.shieldHeld && s.shieldGuard >= SymbioteState.SHIELD_GUARD_MAX * 0.5f;
+	}
+
 	public static void clearSessionState() {
 		LEAP_NO_FALL_UNTIL.clear();
 		LEAP_RAM_UNTIL.clear();
@@ -504,8 +528,17 @@ public final class SymbioteAbilityManager {
 			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.grapple_too_close"), true);
 			return;
 		}
+		// Aim the pull at a point a little SHORT of the surface, along the line of sight, so the player
+		// fetches up next to the block rather than being driven into its face -- this is what used to
+		// leave you stuck against a wall when the grapple point was below you.
+		Vec3 pullTarget = anchor;
+		Vec3 back = eye.subtract(anchor);
+		if (back.length() > 2.5) {
+			pullTarget = anchor.add(back.normalize().scale(1.6));
+		}
 		GRAPPLE_READY_AT.put(player.getId(), now + CD_GRAPPLE);
-		GRAPPLE_PULL.put(player.getId(), new double[]{anchor.x, anchor.y, anchor.z, now + GRAPPLE_PULL_TICKS});
+		GRAPPLE_PULL.put(player.getId(),
+				new double[]{pullTarget.x, pullTarget.y, pullTarget.z, now + GRAPPLE_PULL_TICKS, now});
 		LEAP_NO_FALL_UNTIL.put(player.getId(), now + LEAP_NO_FALL_TICKS);
 		ServerLevel level = AbilityHelpers.level(player);
 		AbilityHelpers.line(level, eye.add(look.scale(0.4)), anchor, ParticleTypes.SQUID_INK, 3.0);
@@ -538,14 +571,25 @@ public final class SymbioteAbilityManager {
 			return;
 		}
 		Vec3 anchor = new Vec3(pull[0], pull[1], pull[2]);
+		long startTick = pull.length > 4 ? (long) pull[4] : now;
 		Vec3 toAnchor = anchor.subtract(player.getEyePosition());
-		if (now >= (long) pull[3] || toAnchor.length() < 2.0) {
+		// End the pull when we arrive, when time runs out, or -- after a couple of ticks of travel --
+		// the moment the player collides with terrain. That last case is the fix for "stuck on blocks":
+		// re-setting the velocity into a wall/floor every tick was what pinned the player in place.
+		boolean travelled = now - startTick >= 2;
+		boolean fetchedUp = travelled && (player.horizontalCollision
+				|| (player.onGround() && toAnchor.y < 1.0));
+		if (now >= (long) pull[3] || toAnchor.length() < 2.5 || fetchedUp) {
 			GRAPPLE_PULL.remove(player.getId());
 			return;
 		}
 		Vec3 dir = toAnchor.normalize();
 		double speed = Math.min(1.7, 0.7 + toAnchor.length() * 0.08);
-		AbilityHelpers.launchSelf(player, dir.scale(speed).add(0, 0.12, 0));
+		Vec3 vel = dir.scale(speed);
+		// Never let a downward grapple slam the host straight into the ground -- keep a slight lift so
+		// it carries them ACROSS to a lower ledge instead of drilling them into it.
+		double vy = Math.max(vel.y, -0.4) + 0.12;
+		AbilityHelpers.launchSelf(player, new Vec3(vel.x, vy, vel.z));
 		AbilityHelpers.level(player).sendParticles(ParticleTypes.SQUID_INK,
 				player.getX(), player.getY() + player.getBbHeight() * 0.5, player.getZ(), 2, 0.1, 0.1, 0.1, 0.0);
 	}

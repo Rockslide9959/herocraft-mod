@@ -37,8 +37,8 @@ import net.minecraft.world.entity.projectile.AbstractArrow;
 public final class SymbioteVitalsManager {
 	/** Full Biomass -- the Symbiote's own life pool, shown in game as the "Biomass" bar. */
 	public static final float MAX_HP = 200.0f;
-	/** Regen once safe: 3% of the pool per second (0.3/tick), after {@link #REGEN_SAFE_TICKS} out of combat. */
-	private static final float REGEN_PER_TICK = MAX_HP * 0.03f / 20.0f;
+	/** Regen once safe: 9 Biomass per second (0.45/tick), after {@link #REGEN_SAFE_TICKS} out of combat. */
+	private static final float REGEN_PER_TICK = 9.0f / 20.0f;
 	/** Biomass only regenerates after this long with no damage dealt or taken (5 s). */
 	private static final int REGEN_SAFE_TICKS = 100;
 	/** Once the bar has emptied, abilities stay locked until it climbs back to this fraction. */
@@ -309,7 +309,7 @@ public final class SymbioteVitalsManager {
 		boolean dirty = false;
 		boolean transition = false;
 
-		// Regeneration -- 3% of the pool per second, but only after 5 s clear of combat. A broken bar
+		// Regeneration -- 9 Biomass per second, but only after 5 s clear of combat. A broken bar
 		// climbs the same way (that is how the ability lock lifts), so staying in a fight keeps it locked.
 		long nowTime = player.level().getGameTime();
 		if (c.hp < MAX_HP && outOfCombat(player, nowTime)) {

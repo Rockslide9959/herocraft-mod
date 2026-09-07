@@ -59,16 +59,17 @@ public final class SymbiotePassives {
 
 		boolean suited = Symbiote.isActive(player);
 
-		// Movement / knockback / fall: a modest passive baseline just from being bonded, roughly
-		// doubled once the suit is on.
+		// Movement / knockback: a modest passive baseline just from being bonded, roughly doubled once
+		// the suit is on.
 		PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, SPEED, suited ? 0.15 : 0.07,
 				AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		// Also covers the spec's "Environmental Resistance: reduce knockback".
 		PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, KNOCKBACK, suited ? 0.20 : 0.10,
 				AttributeModifier.Operation.ADD_VALUE);
-		// Also covers "Environmental Resistance: reduce fall damage".
-		PowerToggles.modifier(player, Attributes.FALL_DAMAGE_MULTIPLIER, FALL_MULT, suited ? -0.80 : -0.40,
-				AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		// v0.10.2: fall damage is no longer softened by an attribute here -- the Symbiote negates it
+		// outright (for a small Biomass cost) in SymbioteDamageRules, which needs the vanilla fall
+		// amount to survive this far so it can size the cost. Clear any modifier a prior version left.
+		PowerToggles.clearModifier(player, Attributes.FALL_DAMAGE_MULTIPLIER, FALL_MULT);
 
 		if (suited) {
 			// Unarmed lands 5 (vanilla base 1.0 + 4.0) and jumps are noticeably higher -- the "powered
