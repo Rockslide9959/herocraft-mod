@@ -14,6 +14,7 @@
 		"LivingEntityEffectMixin",
 		"MobSymbioteMixin",
 		"PlayerMixin",
+		"PowderSnowBlockMixin",
 		"ProjectileWeaponItemMixin",
 		"RangedAttackGoalMixin",
 		"RangedAttributeAccessor",

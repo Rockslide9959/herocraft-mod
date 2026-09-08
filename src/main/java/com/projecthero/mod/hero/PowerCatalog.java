@@ -234,10 +234,10 @@ final class PowerCatalog {
 	private static Power cryokinesis() {
 		String k = "power_09_cryokinesis";
 		return Power.Builder.of(Powers.id(k), PowerCategory.ELEMENTAL)
-				.ability(ab(k, "ice_bolt", SLOT_1, INSTANT, 2 * S))
+				.ability(ab(k, "ice_bolt", SLOT_1, HOLD, 2 * S))
 				.ability(ab(k, "freeze_beam", SLOT_2, HOLD, 0))
 				.ability(ab(k, "ice_slide", SLOT_3, TOGGLE, 0))
-				.ability(ab(k, "absolute_zero", SLOT_4, INSTANT, 40 * S))
+				.ability(ab(k, "absolute_zero", SLOT_4, HOLD, 45 * S))
 				.ability(ab(k, "ice_wall", SLOT_5, INSTANT, 8 * S))
 				.ability(ab(k, "frozen_armor", SLOT_6, TOGGLE, 0))
 				.passives(pk(k, "passive.powder_snow"), pk(k, "passive.freeze_resist"))
@@ -530,10 +530,10 @@ final class PowerCatalog {
 	private static Power windManipulation() {
 		String k = "power_24_wind_manipulation";
 		return Power.Builder.of(Powers.id(k), PowerCategory.ELEMENTAL)
-				.ability(ab(k, "wind_blade", SLOT_1, INSTANT, 2 * S))
+				.ability(ab(k, "wind_blade", SLOT_1, HOLD, 2 * S))
 				.ability(ab(k, "tornado", SLOT_2, INSTANT, 10 * S))
 				.ability(ab(k, "wind_flight", SLOT_3, TOGGLE, 0))
-				.ability(ab(k, "hurricane", SLOT_4, INSTANT, 50 * S))
+				.ability(ab(k, "hurricane", SLOT_4, HOLD, 60 * S))
 				.ability(ab(k, "wind_push", SLOT_5, INSTANT, 4 * S))
 				.ability(ab(k, "tailwind", SLOT_6, TOGGLE, 0))
 				.passives(pk(k, "passive.fall"))
@@ -553,8 +553,8 @@ final class PowerCatalog {
 				.ability(ab(k, "water_shot", SLOT_1, HOLD, 2 * S))
 				.ability(ab(k, "water_whip", SLOT_2, INSTANT, 6 * S))
 				.ability(ab(k, "riptide", SLOT_3, INSTANT, 6 * S))
-				.ability(ab(k, "tidal_wave", SLOT_4, INSTANT, 40 * S))
-				.ability(ab(k, "water_prison", SLOT_5, INSTANT, 12 * S))
+				.ability(ab(k, "tidal_wave", SLOT_4, HOLD, 45 * S))
+				.ability(ab(k, "water_prison", SLOT_5, HOLD, 12 * S))
 				.ability(ab(k, "aquatic_form", SLOT_6, TOGGLE, 0))
 				.passives(pk(k, "passive.swimming"), pk(k, "passive.no_drown"))
 				.serum(SerumRecipe.of("minecraft:water_breathing", pk(k, "serum"),

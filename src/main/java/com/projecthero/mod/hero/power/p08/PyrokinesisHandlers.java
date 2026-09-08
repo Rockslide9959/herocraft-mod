@@ -128,7 +128,7 @@ public final class PyrokinesisHandlers {
 	 * grants -- a flat bonus on single-hit abilities, a smaller per-tick trickle on the flamethrower.
 	 */
 	private static float flameBodyAbilityBonus(ServerPlayer p) {
-		return blueMode(p) ? 8.0f : 0.0f;
+		return blueMode(p) ? com.projecthero.mod.hero.power.StanceMode.ABILITY_BONUS : 0.0f;
 	}
 
 	private static void placeFire(ServerLevel level, BlockPos pos, int ttl) {
@@ -500,6 +500,9 @@ public final class PyrokinesisHandlers {
 
 		AbilityHandlers.register(KEY, "flame_body", Handlers.toggle(
 				ctx -> {
+					if (com.projecthero.mod.hero.power.StanceMode.blockedByCooldown(ctx)) {
+						return;
+					}
 					seedHeat(ctx, "flame_body");
 					if (ctx.resource("flame_body") <= HEAT_MIN) {
 						ctx.setToggled(false);
@@ -510,13 +513,17 @@ public final class PyrokinesisHandlers {
 					ctx.player().level().playSound(null, ctx.player().blockPosition(), SoundEvents.BLAZE_AMBIENT,
 							net.minecraft.sounds.SoundSource.PLAYERS, 0.8f, 1.0f);
 				},
-				ctx -> PowerToggles.clearModifier(ctx.player(), Attributes.ATTACK_DAMAGE, FLAME_BODY_ATK),
+				ctx -> {
+					PowerToggles.clearModifier(ctx.player(), Attributes.ATTACK_DAMAGE, FLAME_BODY_ATK);
+					com.projecthero.mod.hero.power.StanceMode.startDeactivateCooldown(ctx);
+				},
 				ctx -> {
 					ServerPlayer p = ctx.player();
 					ServerLevel level = ctx.level();
 					// Blue Flame stance: +12 melee damage (Nether adds more still). It also feeds
 					// flameBodyAbilityBonus() into every Pyrokinesis ability's damage.
-					PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, FLAME_BODY_ATK, 12.0 + netherBonus(p),
+					PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, FLAME_BODY_ATK,
+							com.projecthero.mod.hero.power.StanceMode.MELEE_BONUS + netherBonus(p),
 							AttributeModifier.Operation.ADD_VALUE);
 					AbilityHelpers.modeAura(p, ParticleTypes.SOUL_FIRE_FLAME, 4);
 					if (p.tickCount % 6 == 0) {
@@ -541,6 +548,7 @@ public final class PyrokinesisHandlers {
 					if (ctx.resource("flame_body") <= 0.0f) {
 						ctx.setToggled(false);
 						PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, FLAME_BODY_ATK);
+						com.projecthero.mod.hero.power.StanceMode.startDeactivateCooldown(ctx);
 						ctx.actionBar("message.projecthero.pyro.no_fuel");
 					}
 				}));
@@ -578,6 +586,15 @@ public final class PyrokinesisHandlers {
 			// player never even visually catches fire (fire immunity already covers the damage).
 			if (player.getRemainingFireTicks() > 0) {
 				player.clearFire();
+			}
+			// Blue Flame stance: anything the pyrokinetic has set alight burns far hotter — a hard
+			// tick of fire damage on every nearby burning enemy (v0.10.9).
+			if (flameBodyActive(player) && player.tickCount % 8 == 0 && player.level() instanceof ServerLevel) {
+				for (LivingEntity e : AbilityHelpers.enemiesAround(player, player.position(), 24.0)) {
+					if (e.getRemainingFireTicks() > 0) {
+						AbilityHelpers.hurt(player, e, AbilityHelpers.fire(player), 3.0f);
+					}
+				}
 			}
 			// each reserve refills independently while its own ability is not running
 			boolean flaming = ExperimentalPowers.getResource(player, power, "flaming") > 0.5f;

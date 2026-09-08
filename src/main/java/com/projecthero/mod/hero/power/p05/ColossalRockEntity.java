@@ -26,9 +26,10 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Geokinesis' Colossal Rock ultimate: a huge boulder hurled at ghast-fireball speed. It flies dead
- * straight (no gravity, no drag), tears every earth block out of its own path so terrain never stops
- * it, has a very large hitbox, and detonates into a crater on the first thing it cannot chew through.
- * Renders as an over-scaled stone block via {@code ThrownItemRenderer}.
+ * straight (no gravity, no drag), has a very large hitbox, and detonates into a crater on the first
+ * block or entity it strikes — the blast destroys blocks on contact, but it does <em>not</em> tunnel
+ * through terrain on the way there (v0.10.9). Renders as an over-scaled stone block via
+ * {@code ThrownItemRenderer}.
  */
 public class ColossalRockEntity extends ThrowableItemProjectile {
 	/** Constant flight speed, blocks/tick -- comparable to a ghast fireball at full tilt. */
@@ -63,7 +64,6 @@ public class ColossalRockEntity extends ThrowableItemProjectile {
 	@Override
 	public void tick() {
 		if (!level().isClientSide) {
-			clearEarthAhead();
 			// hold a constant velocity -- never let drag or gravity bleed the speed off
 			Vec3 v = getDeltaMovement();
 			if (v.lengthSqr() > 1.0e-6) {
@@ -77,26 +77,6 @@ public class ColossalRockEntity extends ThrowableItemProjectile {
 			server.sendParticles(ParticleTypes.POOF, getX(), getY(), getZ(), 3, 0.5, 0.5, 0.5, 0.01);
 			if (++age >= MAX_AGE) {
 				detonate();
-			}
-		}
-	}
-
-	/** Chews a tunnel of earth blocks out of the boulder's path so nothing but bedrock/builds stops it. */
-	private void clearEarthAhead() {
-		if (!(level() instanceof ServerLevel server) || !AbilityHelpers.canGrief()) {
-			return;
-		}
-		Vec3 from = position();
-		Vec3 step = getDeltaMovement();
-		int segments = Math.max(1, (int) Math.ceil(step.length()));
-		for (int s = 0; s <= segments; s++) {
-			BlockPos centre = BlockPos.containing(from.add(step.scale(s / (double) segments)));
-			for (BlockPos bp : BlockPos.betweenClosed(centre.offset(-2, -2, -2), centre.offset(2, 2, 2))) {
-				BlockState st = server.getBlockState(bp);
-				if (!st.isAir() && GeoBareHands.isEarth(st) && st.getDestroySpeed(server, bp) >= 0
-						&& server.getFluidState(bp).isEmpty()) {
-					server.destroyBlock(bp, false);
-				}
 			}
 		}
 	}

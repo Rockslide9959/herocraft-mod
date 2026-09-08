@@ -102,9 +102,9 @@ public final class GeokinesisHandlers {
 				&& ExperimentalPowers.isToggled(p, power, power.ability(AbilitySlot.SLOT_6));
 	}
 
-	/** Earth Armor adds a flat +10 to every Geokinesis attack. */
+	/** Earth Armor adds a flat bonus to every Geokinesis attack (see {@link com.projecthero.mod.hero.power.StanceMode}). */
 	private static float armorBonus(ServerPlayer p) {
-		return armorActive(p) ? 10.0f : 0.0f;
+		return armorActive(p) ? com.projecthero.mod.hero.power.StanceMode.ABILITY_BONUS : 0.0f;
 	}
 
 	/** Client-safe: is this player currently phased into the earth (Earth Swim). */
@@ -205,6 +205,9 @@ public final class GeokinesisHandlers {
 
 		AbilityHandlers.register(KEY, "earth_armor", Handlers.toggle(
 				ctx -> {
+					if (com.projecthero.mod.hero.power.StanceMode.blockedByCooldown(ctx)) {
+						return;
+					}
 					com.projecthero.mod.hero.power.ModeMeter.ensureSeeded(ctx, "earth_armor", MAX_STRAIN);
 					if (!com.projecthero.mod.hero.power.ModeMeter.hasCharge(ctx, "earth_armor", 40.0f)) {
 						ctx.setToggled(false);
@@ -213,13 +216,17 @@ public final class GeokinesisHandlers {
 					}
 					earthArmorOn(ctx);
 				},
-				GeokinesisHandlers::earthArmorOff,
+				ctx -> {
+					earthArmorOff(ctx);
+					com.projecthero.mod.hero.power.StanceMode.startDeactivateCooldown(ctx);
+				},
 				ctx -> {
 					earthArmorOn(ctx);
 					AbilityHelpers.modeAura(ctx.player(), DIRT_DUST, 4);
 					if (!com.projecthero.mod.hero.power.ModeMeter.drain(ctx, "earth_armor", MAX_STRAIN, STRAIN_DRAIN)) {
 						ctx.setToggled(false);
 						earthArmorOff(ctx);
+						com.projecthero.mod.hero.power.StanceMode.startDeactivateCooldown(ctx);
 						ctx.actionBar("message.projecthero.geo.strain_out");
 					}
 				}));
@@ -406,14 +413,17 @@ public final class GeokinesisHandlers {
 	private static void stoneWall(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		ServerLevel level = ctx.level();
+		Power power = ctx.power();
+
+		// While rock flight is running the X slot is locked out entirely — no walls, domes, bridges or
+		// Earth Swim until it ends (v0.10.9).
+		if (TimedSelfFlight.isActive(p, power, "rock")) {
+			return;
+		}
 
 		if (p.isShiftKeyDown()) {
 			// Sneak + look straight down → 20 s of rock flight (restored). Sneak otherwise → Earth Swim.
 			if (p.getXRot() > 75.0f) {
-				Power power = ctx.power();
-				if (TimedSelfFlight.isActive(p, power, "rock")) {
-					return;
-				}
 				if (TimedSelfFlight.start(p, power, ctx.ability(), "rock")) {
 					AbilityHelpers.sound(p, SoundEvents.STONE_PLACE, 1.0f, 0.5f);
 					AbilityHelpers.burst(level, p.position(), STONE_DUST, 40, 0.6);
@@ -630,6 +640,11 @@ public final class GeokinesisHandlers {
 				for (int w = -half; w <= half; w++) {
 					int bx = Mth.floor(cx + perpX * w);
 					int bz = Mth.floor(cz + perpZ * w);
+					// v0.10.9: keep a solid 3×3 pad under the caster — the ravines open up *around* them,
+					// they don't drop into one.
+					if (Math.abs(bx + 0.5 - ox) < 2.0 && Math.abs(bz + 0.5 - oz) < 2.0) {
+						continue;
+					}
 					for (int dy = 1; dy >= -depth; dy--) {
 						BlockPos bp = new BlockPos(bx, surf + dy, bz);
 						BlockState st = level.getBlockState(bp);
@@ -696,7 +711,8 @@ public final class GeokinesisHandlers {
 		PowerToggles.effect(p, MobEffects.DAMAGE_RESISTANCE, 1, true);
 		PowerToggles.modifier(p, Attributes.KNOCKBACK_RESISTANCE, ARMOR_KB, 0.6, AttributeModifier.Operation.ADD_VALUE);
 		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, ARMOR_SPD, -0.35, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, ARMOR_ATK, 10.0, AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, ARMOR_ATK, com.projecthero.mod.hero.power.StanceMode.MELEE_BONUS,
+				AttributeModifier.Operation.ADD_VALUE);
 	}
 
 	private static void earthArmorOff(AbilityContext ctx) {

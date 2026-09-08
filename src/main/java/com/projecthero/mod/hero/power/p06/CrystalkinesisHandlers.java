@@ -13,6 +13,7 @@ import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.Handlers;
 import com.projecthero.mod.hero.power.ModeMeter;
 import com.projecthero.mod.hero.power.PowerToggles;
+import com.projecthero.mod.hero.power.StanceMode;
 import com.projecthero.mod.hero.power.TempBlocks;
 
 import net.minecraft.core.BlockPos;
@@ -32,6 +33,7 @@ import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.Vec3;
 
 /** Power 06 — Crystalkinesis (v0.10.7 tuning). */
@@ -66,9 +68,9 @@ public final class CrystalkinesisHandlers {
 				&& ExperimentalPowers.isToggled(p, power, power.ability(AbilitySlot.SLOT_6));
 	}
 
-	/** Crystal Armor adds a flat +11 to every Crystalkinesis attack. */
+	/** Crystal Armor adds a flat bonus to every Crystalkinesis attack (see {@link StanceMode}). */
 	private static float armorBonus(ServerPlayer p) {
-		return armorActive(p) ? 11.0f : 0.0f;
+		return armorActive(p) ? StanceMode.ABILITY_BONUS : 0.0f;
 	}
 
 	public static void register() {
@@ -119,6 +121,18 @@ public final class CrystalkinesisHandlers {
 		AbilityHandlers.register(KEY, "crystal_barrier", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
 			ServerLevel level = ctx.level();
+			// v0.10.9 — sneak + look straight down: toggle Crystal Skate. Any later X press ends it
+			// (8 s cooldown on the slot once it stops).
+			if (ctx.resource("skating") > 0.5f) {
+				stopSkate(ctx);
+				return;
+			}
+			if (p.isShiftKeyDown() && p.getXRot() > 75.0f) {
+				ctx.setResource("skating", 1, 1);
+				ctx.actionBar("message.projecthero.crystal.skate_on");
+				AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 0.6f);
+				return;
+			}
 			float pitch = p.getXRot();
 			boolean built;
 			if (pitch < -75.0f) {
@@ -178,6 +192,9 @@ public final class CrystalkinesisHandlers {
 
 		AbilityHandlers.register(KEY, "crystal_armor", Handlers.toggle(
 				ctx -> {
+					if (StanceMode.blockedByCooldown(ctx)) {
+						return;
+					}
 					ModeMeter.ensureSeeded(ctx, "crystal_armor", MAX_STRAIN);
 					if (!ModeMeter.hasCharge(ctx, "crystal_armor", 40.0f)) {
 						ctx.setToggled(false);
@@ -186,7 +203,10 @@ public final class CrystalkinesisHandlers {
 					}
 					armorOn(ctx);
 				},
-				CrystalkinesisHandlers::armorOff,
+				ctx -> {
+					armorOff(ctx);
+					StanceMode.startDeactivateCooldown(ctx);
+				},
 				ctx -> {
 					armorOn(ctx);
 					AbilityHelpers.modeAura(ctx.player(), CRYSTAL_DUST, 3);
@@ -196,6 +216,7 @@ public final class CrystalkinesisHandlers {
 					if (!ModeMeter.drain(ctx, "crystal_armor", MAX_STRAIN, STRAIN_DRAIN)) {
 						ctx.setToggled(false);
 						armorOff(ctx);
+						StanceMode.startDeactivateCooldown(ctx);
 						ctx.actionBar("message.projecthero.crystal.strain_out");
 					}
 				}));
@@ -204,6 +225,7 @@ public final class CrystalkinesisHandlers {
 			Power power = power();
 			ModeMeter.regen(player, power, "crystal_armor", MAX_STRAIN, STRAIN_REGEN, armorActive(player));
 			colossalTick(player, power);
+			skateTick(player, power);
 		});
 	}
 
@@ -443,11 +465,57 @@ public final class CrystalkinesisHandlers {
 		}
 	}
 
+	// ---- X: Crystal Skate (sneak + look straight down) -----------------------------------------
+
+	private static final int SKATE_CD = 8 * 20;
+
+	private static void stopSkate(AbilityContext ctx) {
+		ctx.setResource("skating", 0, 1);
+		ctx.triggerCooldown(SKATE_CD);
+		ctx.actionBar("message.projecthero.crystal.skate_off");
+		AbilityHelpers.sound(ctx.player(), SoundEvents.AMETHYST_BLOCK_BREAK, 0.8f, 1.2f);
+	}
+
+	private static void skateTick(ServerPlayer p, Power power) {
+		if (power == null || ExperimentalPowers.getResource(p, power, "skating") <= 0.5f) {
+			return;
+		}
+		if (!(p.level() instanceof ServerLevel level) || !p.isAlive()
+				|| p.getAbilities().flying || p.isFallFlying() || p.isInWater()) {
+			ExperimentalPowers.setResource(p, power, "skating", 0, 1);
+			ExperimentalPowers.triggerCooldown(p, power, power.ability(AbilitySlot.SLOT_3),
+					HeroConfig.get().scaledCooldown(SKATE_CD));
+			return;
+		}
+		Vec3 look = p.getLookAngle();
+		Vec3 flat = new Vec3(look.x, 0, look.z);
+		flat = flat.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : flat.normalize();
+		double speed = 0.62;
+		Vec3 v = p.getDeltaMovement();
+		AbilityHelpers.launchSelf(p, new Vec3(flat.x * speed, Math.min(v.y, 0.0) - 0.08, flat.z * speed));
+		p.resetFallDistance();
+		if (AbilityHelpers.canGrief()) {
+			BlockPos base = p.blockPosition().below();
+			for (int x = -1; x <= 1; x++) {
+				for (int z = -1; z <= 1; z++) {
+					BlockPos bp = base.offset(x, 0, z);
+					BlockState cur = level.getBlockState(bp);
+					if (cur.isAir() || cur.canBeReplaced() || cur.getFluidState().is(Fluids.WATER)) {
+						TempBlocks.place(level, bp, CRYSTAL, 40);
+					}
+				}
+			}
+		}
+		if (p.tickCount % 2 == 0) {
+			level.sendParticles(CRYSTAL_DUST, p.getX(), p.getY() + 0.1, p.getZ(), 5, 0.3, 0.05, 0.3, 0.0);
+		}
+	}
+
 	private static void armorOn(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		PowerToggles.effect(p, MobEffects.DAMAGE_RESISTANCE, 0, true);
 		PowerToggles.modifier(p, Attributes.KNOCKBACK_RESISTANCE, ARMOR_KB, 0.4, AttributeModifier.Operation.ADD_VALUE);
-		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, ARMOR_ATK, 11.0, AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, ARMOR_ATK, StanceMode.MELEE_BONUS, AttributeModifier.Operation.ADD_VALUE);
 	}
 
 	private static void armorOff(AbilityContext ctx) {

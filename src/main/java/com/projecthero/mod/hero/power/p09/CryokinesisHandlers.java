@@ -13,7 +13,17 @@ import com.projecthero.mod.hero.power.TempBlocks;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.HoeItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ShovelItem;
+import net.minecraft.world.item.SwordItem;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.tags.BlockTags;
@@ -49,7 +59,11 @@ public final class CryokinesisHandlers {
 	private static final float COLD_REGEN = MAX_COLD / (25 * 20);
 	private static final float COLD_MIN = 20.0f;
 	private static final BlockState SLIDE_ICE = Blocks.PACKED_ICE.defaultBlockState();
+	private static final int AZ_CHARGE = 100;
+	private static final int AZ_CD = 45 * 20;
+	private static final double AZ_RANGE = 20.0;
 	private static final net.minecraft.resources.ResourceLocation ARMOR_KB = com.projecthero.mod.ProjectHeroMod.id("frozen_armor_kb");
+	private static final net.minecraft.resources.ResourceLocation ARMOR_ATK = com.projecthero.mod.ProjectHeroMod.id("frozen_armor_atk");
 	private static final net.minecraft.resources.ResourceLocation SLIDE_SPD = com.projecthero.mod.ProjectHeroMod.id("ice_slide_speed");
 
 	private CryokinesisHandlers() {
@@ -57,6 +71,31 @@ public final class CryokinesisHandlers {
 
 	private static void freeze(LivingEntity e, int ticks) {
 		e.setTicksFrozen(Math.min(e.getTicksRequiredToFreeze() + 200, e.getTicksFrozen() + ticks));
+	}
+
+	/** Snap a target straight to the maximum freeze value (Frozen Armor / shift+V make every hit do this). */
+	private static void maxFreeze(LivingEntity e) {
+		e.setTicksFrozen(e.getTicksRequiredToFreeze() + 200);
+	}
+
+	/** Freeze a target — the ordinary amount, or straight to maximum while Frozen Armor is worn. */
+	private static void chill(ServerPlayer p, LivingEntity e, int ticks) {
+		if (frozenArmorActive(p)) {
+			maxFreeze(e);
+		} else {
+			freeze(e, ticks);
+		}
+	}
+
+	/** Frozen Armor adds a flat bonus to every Cryokinesis attack (see {@link com.projecthero.mod.hero.power.StanceMode}). */
+	private static float armorBonus(ServerPlayer p) {
+		return frozenArmorActive(p) ? com.projecthero.mod.hero.power.StanceMode.ABILITY_BONUS : 0.0f;
+	}
+
+	/** Client-safe: is Cryokinesis this player's active power (used by the powder-snow-walking mixin). */
+	public static boolean active(net.minecraft.world.entity.player.Player p) {
+		var st = p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.EXPERIMENTAL_STATE, null);
+		return st != null && KEY.equals(st.activePower) && st.ownedPowers.contains(KEY);
 	}
 
 	/** +10 to every Cryokinesis ability's damage while in a cold biome or standing in snow. */
@@ -74,18 +113,59 @@ public final class CryokinesisHandlers {
 	}
 
 	public static void register() {
-		AbilityHandlers.register(KEY, "ice_bolt", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			LivingEntity t = AbilityHelpers.raycastEntity(p, 24.0);
-			AbilityHelpers.line(ctx.level(), p.getEyePosition(), AbilityHelpers.aimPoint(p, 24.0), ParticleTypes.SNOWFLAKE, 3.0);
-			if (t != null) {
-				AbilityHelpers.hurt(p, t, 7.0f + coldBonus(p));
-				freeze(t, 200); // ~7 s of the freeze effect
-				AbilityHelpers.slow7s(t); // Slowness III, 7 s
+		AbilityHandlers.register(KEY, "ice_bolt", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					// sneak + hold R for 2 s: shape a tool out of ice
+					ctx.setResource("icetool_ticks", 40, 40);
+					AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 0.7f, 1.4f);
+					return;
+				}
+				if (!ctx.cooldownReady()) {
+					return;
+				}
+				LivingEntity t = AbilityHelpers.raycastEntity(p, 24.0);
+				AbilityHelpers.line(ctx.level(), p.getEyePosition(), AbilityHelpers.aimPoint(p, 24.0),
+						ParticleTypes.SNOWFLAKE, 3.0);
+				if (t != null) {
+					AbilityHelpers.hurt(p, t, 7.0f + coldBonus(p) + armorBonus(p));
+					chill(p, t, 200); // ~7 s of the freeze effect
+					AbilityHelpers.slow7s(t); // Slowness III, 7 s
+				}
+				AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 0.8f, 1.6f);
+				ctx.triggerCooldown();
 			}
-			AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 0.8f, 1.6f);
-			ctx.triggerCooldown();
-		}));
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				ctx.setResource("icetool_ticks", 0, 40);
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				float left = ctx.resource("icetool_ticks");
+				if (left <= 0.5f) {
+					return;
+				}
+				ServerPlayer p = ctx.player();
+				if (!p.isShiftKeyDown()) {
+					ctx.setResource("icetool_ticks", 0, 40);
+					return;
+				}
+				left -= 1.0f;
+				ctx.setResource("icetool_ticks", left, 40);
+				if (p.tickCount % 4 == 0) {
+					ctx.level().sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1.0, p.getZ(), 6, 0.3, 0.3, 0.3, 0.01);
+				}
+				if (left <= 0.5f) {
+					giveIceTool(p);
+					AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 1.0f, 0.8f);
+					ctx.level().sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1.0, p.getZ(), 30, 0.4, 0.4, 0.4, 0.03);
+				}
+			}
+		});
 
 		AbilityHandlers.register(KEY, "freeze_beam", new AbilityHandler() {
 			@Override
@@ -112,27 +192,36 @@ public final class CryokinesisHandlers {
 				LivingEntity t = AbilityHelpers.raycastEntity(p, 16.0);
 				AbilityHelpers.line(ctx.level(), p.getEyePosition().add(p.getLookAngle().scale(0.4)),
 						AbilityHelpers.aimPoint(p, 16.0), ParticleTypes.SNOWFLAKE, 3.0);
-				// The beam smothers fire it is aimed at.
+				// The beam smothers fire it is aimed at, turns lava it washes over to stone, and lays
+				// powder snow on the ground where it lands (v0.10.9).
 				BlockHitResult bhr = AbilityHelpers.raycastBlock(p, 16.0);
 				if (bhr.getType() == HitResult.Type.BLOCK) {
 					BlockPos hitPos = bhr.getBlockPos();
 					for (BlockPos bp : BlockPos.betweenClosed(hitPos.offset(-1, -1, -1), hitPos.offset(1, 1, 1))) {
-						if (ctx.level().getBlockState(bp).is(BlockTags.FIRE)) {
+						BlockState st = ctx.level().getBlockState(bp);
+						if (st.is(BlockTags.FIRE)) {
 							ctx.level().removeBlock(bp, false);
 							ctx.level().sendParticles(ParticleTypes.SMOKE,
 									bp.getX() + 0.5, bp.getY() + 0.5, bp.getZ() + 0.5, 4, 0.2, 0.2, 0.2, 0.01);
+						} else if (AbilityHelpers.canGrief() && st.getFluidState().is(Fluids.LAVA)) {
+							ctx.level().setBlockAndUpdate(bp, st.getFluidState().isSource()
+									? Blocks.OBSIDIAN.defaultBlockState() : Blocks.COBBLESTONE.defaultBlockState());
+							ctx.level().sendParticles(ParticleTypes.LARGE_SMOKE,
+									bp.getX() + 0.5, bp.getY() + 0.9, bp.getZ() + 0.5, 6, 0.3, 0.2, 0.3, 0.01);
 						}
+					}
+					BlockPos face = hitPos.relative(bhr.getDirection());
+					if (AbilityHelpers.canGrief() && bhr.getDirection() == Direction.UP
+							&& ctx.level().getBlockState(face).isAir() && p.tickCount % 4 == 0) {
+						TempBlocks.place(ctx.level(), face, Blocks.POWDER_SNOW.defaultBlockState(), 300);
 					}
 				}
 				if (t != null) {
 					t.clearFire();
-					freeze(t, 40); // much stronger freezing than Ice Bolt
+					chill(p, t, 40); // much stronger freezing than Ice Bolt
 					AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, 40, 4); // Slowness V, better than Ice Bolt
-					if (p.tickCount % 5 == 0) {
-						AbilityHelpers.hurt(p, t, AbilityHelpers.freeze(p), 1.5f);
-					}
-					if (p.tickCount % 20 == 0) {
-						AbilityHelpers.hurt(p, t, AbilityHelpers.freeze(p), coldBonus(p));
+					if (p.tickCount % 10 == 0) {
+						AbilityHelpers.hurt(p, t, AbilityHelpers.freeze(p), 5.0f + coldBonus(p) + armorBonus(p));
 					}
 				}
 				ctx.addResource("freeze_beam", COLD_PER_BEAM_TICK, MAX_COLD);
@@ -146,45 +235,43 @@ public final class CryokinesisHandlers {
 		AbilityHandlers.register(KEY, "ice_slide", Handlers.toggle(Handlers.noop(),
 				CryokinesisHandlers::slideOff, CryokinesisHandlers::slideTick));
 
-		AbilityHandlers.register(KEY, "absolute_zero", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			ServerLevel level = ctx.level();
-			double r = 8.0;
-			float dmg = 20.0f + coldBonus(p);
-			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
-				freeze(e, 25 * 20); // the freeze effect for 25 s
-				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 25 * 20, 3);
-				AbilityHelpers.hurt(p, e, AbilityHelpers.freeze(p), dmg);
-				e.clearFire();
+		// Absolute Zero: hold Z for 5 s to charge (snow swirls up around the caster), then a 20-block
+		// flash-freeze that blankets the whole radius in snow and seals every target in ice (v0.10.9).
+		AbilityHandlers.register(KEY, "absolute_zero", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				azPress(ctx);
 			}
-			if (AbilityHelpers.canGrief()) {
-				for (BlockPos bp : BlockPos.betweenClosed(p.blockPosition().offset((int) -r, -1, (int) -r),
-						p.blockPosition().offset((int) r, 0, (int) r))) {
-					if (bp.distToCenterSqr(p.getX(), p.getY(), p.getZ()) <= r * r
-							&& level.getBlockState(bp).getFluidState().is(Fluids.WATER)) {
-						TempBlocks.place(level, bp, Blocks.ICE.defaultBlockState(), 200);
-					}
-				}
-				layerSnow(p, level, (int) r);
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				azRelease(ctx);
 			}
-			level.sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1, p.getZ(), 120, r / 2, 0.5, r / 2, 0.05);
-			AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 1.4f, 0.5f);
-			ctx.triggerCooldown();
-		}));
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				azTick(ctx);
+			}
+		});
 
 		// Look up → dome (owner left-clicks to dismiss). Look down → bridge. Otherwise → 4×4 wall.
 		AbilityHandlers.register(KEY, "ice_wall", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
 			ServerLevel level = ctx.level();
 			BlockState ice = Blocks.PACKED_ICE.defaultBlockState();
-			// Sneak: erupt a field of jagged ice spikes in front of you instead of a flat wall.
 			if (p.isShiftKeyDown()) {
-				boolean spiked = iceSpikes(p, level);
-				level.sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1, p.getZ(), 50, 3, 1, 3, 0.06);
-				AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 1.2f, 0.7f);
-				if (spiked || !AbilityHelpers.canGrief()) {
-					ctx.triggerCooldown();
+				if (p.getXRot() > 60.0f) {
+					// sneak + look down: erupt a field of jagged ice spikes (the old sneak behaviour).
+					boolean spiked = iceSpikes(p, level);
+					level.sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1, p.getZ(), 50, 3, 1, 3, 0.06);
+					AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 1.2f, 0.7f);
+					if (spiked || !AbilityHelpers.canGrief()) {
+						ctx.triggerCooldown();
+					}
+					return;
 				}
+				// sneak: flash-freeze every target within 10 blocks — locked in place for 8 s, fires out.
+				massFreeze(ctx);
 				return;
 			}
 			float pitch = p.getXRot();
@@ -205,6 +292,9 @@ public final class CryokinesisHandlers {
 
 		AbilityHandlers.register(KEY, "frozen_armor", Handlers.toggle(
 				ctx -> {
+					if (com.projecthero.mod.hero.power.StanceMode.blockedByCooldown(ctx)) {
+						return;
+					}
 					seedCold(ctx, "frozen_armor");
 					if (ctx.resource("frozen_armor") <= COLD_MIN) {
 						ctx.setToggled(false);
@@ -213,17 +303,20 @@ public final class CryokinesisHandlers {
 					}
 					armorOn(ctx);
 				},
-				CryokinesisHandlers::armorOff,
+				ctx -> {
+					armorOff(ctx);
+					com.projecthero.mod.hero.power.StanceMode.startDeactivateCooldown(ctx);
+				},
 				ctx -> {
 					ServerPlayer p = ctx.player();
 					armorOn(ctx);
 					AbilityHelpers.modeAura(p, ParticleTypes.SNOWFLAKE, 4);
 					frostWalk(p);
-					// chill everything within 5 blocks
+					// every hit maxes freeze while worn; and everything within 6 blocks is flash-frozen too
 					if (p.tickCount % 10 == 0) {
-						for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 5.0)) {
-							AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 40, 1);
-							freeze(e, 20);
+						for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 6.0)) {
+							AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 40, 2);
+							maxFreeze(e);
 						}
 					}
 					// leave a dusting of snow on the blocks walked over
@@ -232,6 +325,7 @@ public final class CryokinesisHandlers {
 					if (ctx.resource("frozen_armor") <= 0.0f) {
 						ctx.setToggled(false);
 						armorOff(ctx);
+						com.projecthero.mod.hero.power.StanceMode.startDeactivateCooldown(ctx);
 						ctx.actionBar("message.projecthero.cryo.exhausted");
 					}
 				}));
@@ -255,6 +349,41 @@ public final class CryokinesisHandlers {
 			com.projecthero.mod.hero.power.ModeMeter.regen(player, power, "frozen_armor", MAX_COLD, COLD_REGEN,
 					frozenArmorActive(player));
 		});
+	}
+
+	/**
+	 * Shape a tool out of ice matching whatever tool the caster is holding (pickaxe if none): iron
+	 * mining level, but only gold-tier durability (32 uses). v0.10.9 — rendered as the plain iron tool
+	 * with a shortened lifespan; a bespoke icy model is a later polish item.
+	 */
+	private static void giveIceTool(ServerPlayer p) {
+		Item h = p.getMainHandItem().getItem();
+		Item base;
+		String label;
+		if (h instanceof AxeItem) {
+			base = Items.IRON_AXE;
+			label = "Axe";
+		} else if (h instanceof SwordItem) {
+			base = Items.IRON_SWORD;
+			label = "Sword";
+		} else if (h instanceof ShovelItem) {
+			base = Items.IRON_SHOVEL;
+			label = "Shovel";
+		} else if (h instanceof HoeItem) {
+			base = Items.IRON_HOE;
+			label = "Hoe";
+		} else {
+			base = Items.IRON_PICKAXE;
+			label = "Pickaxe";
+		}
+		ItemStack tool = new ItemStack(base);
+		tool.set(DataComponents.MAX_DAMAGE, 32);
+		tool.set(DataComponents.DAMAGE, 0);
+		tool.set(DataComponents.CUSTOM_NAME, Component.literal("Ice " + label)
+				.withStyle(s -> s.withColor(ChatFormatting.AQUA).withItalic(false)));
+		if (!p.getInventory().add(tool)) {
+			p.drop(tool, false);
+		}
 	}
 
 	/** Fill a cold reserve the first time it is referenced. */
@@ -288,6 +417,30 @@ public final class CryokinesisHandlers {
 		}
 	}
 
+	/** Sneak + Ice Wall (V): flash-freeze every enemy within 10 blocks, pinning them for 8 s (v0.10.9). */
+	private static void massFreeze(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 10.0)) {
+			maxFreeze(e);
+			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 160, 9);
+			AbilityHelpers.applyControl(e, MobEffects.JUMP, 160, -10);
+			e.setDeltaMovement(0, 0, 0);
+			e.hurtMarked = true;
+			e.clearFire();
+			AbilityHelpers.hurt(p, e, AbilityHelpers.freeze(p), 6.0f + coldBonus(p) + armorBonus(p));
+		}
+		BlockPos c = p.blockPosition();
+		for (BlockPos bp : BlockPos.betweenClosed(c.offset(-10, -4, -10), c.offset(10, 4, 10))) {
+			if (level.getBlockState(bp).is(BlockTags.FIRE)) {
+				level.removeBlock(bp, false);
+			}
+		}
+		level.sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1, p.getZ(), 120, 6, 1.2, 6, 0.05);
+		level.playSound(null, c, SoundEvents.GLASS_BREAK, net.minecraft.sounds.SoundSource.PLAYERS, 1.3f, 0.5f);
+		ctx.triggerCooldown(20 * 20);
+	}
+
 	/** Sneak + Ice Wall: a burst of jagged packed-ice spikes in front of the caster. */
 	private static boolean iceSpikes(ServerPlayer p, ServerLevel level) {
 		Vec3 look = p.getLookAngle();
@@ -317,10 +470,10 @@ public final class CryokinesisHandlers {
 				}
 			}
 		}
-		float dmg = 8.0f + coldBonus(p);
+		float dmg = 8.0f + coldBonus(p) + armorBonus(p);
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, center, 5.0)) {
 			AbilityHelpers.hurt(p, e, AbilityHelpers.freeze(p), dmg);
-			freeze(e, 120);
+			chill(p, e, 120);
 			AbilityHelpers.push(e, new Vec3(0, 0.85, 0));
 		}
 		return placed;
@@ -352,6 +505,123 @@ public final class CryokinesisHandlers {
 				}
 			}
 		}
+	}
+
+	// ---------------- Absolute Zero (Z, hold 5 s) ----------------
+
+	private static void azPress(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (ctx.resource("az_start") > 0.5f) {
+			return;
+		}
+		if (!ctx.cooldownReady()) {
+			ctx.actionBar("message.projecthero.ability.on_cooldown",
+					Component.translatable(ctx.ability().nameKey()),
+					String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(ctx.cooldownRemaining() / 20.0f)));
+			return;
+		}
+		ctx.setResource("az_start", p.level().getGameTime(), 1e12f);
+		ctx.setResource("ult_charge", 0, 100);
+		AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 0.8f, 0.4f);
+	}
+
+	private static void azRelease(AbilityContext ctx) {
+		if (ctx.resource("az_start") <= 0.5f) {
+			return;
+		}
+		long held = ctx.player().level().getGameTime() - (long) ctx.resource("az_start");
+		if (held >= AZ_CHARGE) {
+			azFire(ctx);
+		} else {
+			azCancel(ctx);
+		}
+	}
+
+	private static void azTick(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		float start = ctx.resource("az_start");
+		if (start <= 0.5f) {
+			return;
+		}
+		long held = p.level().getGameTime() - (long) start;
+		if (held < 0 || held > AZ_CHARGE + 100) {
+			azCancel(ctx);
+			return;
+		}
+		ctx.setResource("ult_charge", Math.min(100f, held * 100f / AZ_CHARGE), 100);
+		ServerLevel level = ctx.level();
+		p.setDeltaMovement(p.getDeltaMovement().multiply(0.3, 1.0, 0.3));
+		p.hurtMarked = true;
+		double frac = Math.min(1.0, held / (double) AZ_CHARGE);
+		int n = 4 + (int) (frac * 16);
+		for (int i = 0; i < n; i++) {
+			double a = level.random.nextDouble() * Math.PI * 2;
+			double rad = 0.6 + level.random.nextDouble() * (1.0 + frac * 3.0);
+			double hy = level.random.nextDouble() * (p.getBbHeight() + 1.0);
+			level.sendParticles(ParticleTypes.SNOWFLAKE,
+					p.getX() + Math.cos(a) * rad, p.getY() + hy, p.getZ() + Math.sin(a) * rad, 1, 0, 0, 0, 0);
+		}
+		if (held % 15 == 0) {
+			AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 0.7f, 0.4f + (float) frac * 0.8f);
+		}
+		if (held >= AZ_CHARGE) {
+			azFire(ctx);
+		}
+	}
+
+	private static void azCancel(AbilityContext ctx) {
+		ctx.setResource("az_start", 0, 1e12f);
+		ctx.setResource("ult_charge", 0, 100);
+		AbilityHelpers.sound(ctx.player(), SoundEvents.FIRE_EXTINGUISH, 0.4f, 1.4f);
+	}
+
+	private static void azFire(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		ctx.setResource("az_start", 0, 1e12f);
+		ctx.setResource("ult_charge", 0, 100);
+
+		float dmg = 35.0f + coldBonus(p) + armorBonus(p);
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), AZ_RANGE)) {
+			maxFreeze(e);
+			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 25 * 20, 9);
+			AbilityHelpers.applyControl(e, MobEffects.JUMP, 25 * 20, -10);
+			AbilityHelpers.hurt(p, e, AbilityHelpers.freeze(p), dmg);
+			e.clearFire();
+			e.setDeltaMovement(0, 0, 0);
+			e.hurtMarked = true;
+			if (AbilityHelpers.canGrief() && !(e instanceof net.minecraft.world.entity.player.Player)) {
+				encaseInIce(level, e);
+			}
+		}
+		if (AbilityHelpers.canGrief()) {
+			int r = (int) AZ_RANGE;
+			for (BlockPos bp : BlockPos.betweenClosed(p.blockPosition().offset(-r, -1, -r),
+					p.blockPosition().offset(r, 0, r))) {
+				if (bp.distToCenterSqr(p.getX(), p.getY(), p.getZ()) <= AZ_RANGE * AZ_RANGE
+						&& level.getBlockState(bp).getFluidState().is(Fluids.WATER)) {
+					TempBlocks.place(level, bp.immutable(), Blocks.ICE.defaultBlockState(), 300);
+				}
+			}
+			layerSnow(p, level, r);
+		}
+		level.sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1, p.getZ(), 240,
+				AZ_RANGE / 2, 1.0, AZ_RANGE / 2, 0.06);
+		level.playSound(null, p.blockPosition(), SoundEvents.GLASS_BREAK, net.minecraft.sounds.SoundSource.PLAYERS, 1.6f, 0.4f);
+		level.playSound(null, p.blockPosition(), SoundEvents.PLAYER_HURT_FREEZE, net.minecraft.sounds.SoundSource.PLAYERS, 1.4f, 0.5f);
+		ctx.triggerCooldown(AZ_CD);
+	}
+
+	/** Seal a target inside a shell of ice (a 3-tall box around its feet). */
+	private static void encaseInIce(ServerLevel level, LivingEntity e) {
+		BlockPos base = e.blockPosition();
+		for (int dy = 0; dy <= 2; dy++) {
+			for (Direction d : Direction.Plane.HORIZONTAL) {
+				TempBlocks.place(level, base.above(dy).relative(d), Blocks.PACKED_ICE.defaultBlockState(), 300);
+			}
+		}
+		TempBlocks.place(level, base.above(3), Blocks.PACKED_ICE.defaultBlockState(), 300);
+		TempBlocks.place(level, base.below(), Blocks.PACKED_ICE.defaultBlockState(), 300);
 	}
 
 	// ---------------- ice slide ----------------
@@ -450,12 +720,15 @@ public final class CryokinesisHandlers {
 		ServerPlayer p = ctx.player();
 		PowerToggles.effect(p, MobEffects.DAMAGE_RESISTANCE, 0, true);
 		PowerToggles.modifier(p, Attributes.KNOCKBACK_RESISTANCE, ARMOR_KB, 0.5, AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, ARMOR_ATK, com.projecthero.mod.hero.power.StanceMode.MELEE_BONUS,
+				AttributeModifier.Operation.ADD_VALUE);
 	}
 
 	private static void armorOff(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		PowerToggles.clearEffect(p, MobEffects.DAMAGE_RESISTANCE);
 		PowerToggles.clearModifier(p, Attributes.KNOCKBACK_RESISTANCE, ARMOR_KB);
+		PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, ARMOR_ATK);
 	}
 
 	private static boolean frozenArmorActive(ServerPlayer p) {

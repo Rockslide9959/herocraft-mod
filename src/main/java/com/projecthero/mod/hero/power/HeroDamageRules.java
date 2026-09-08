@@ -112,10 +112,15 @@ public final class HeroDamageRules {
 				return Verdict.mult(f);
 			}
 			case "power_03_flight", "power_16_spider_climbing_adhesion",
-					"power_17_elasticity", "power_24_wind_manipulation" -> {
+					"power_17_elasticity" -> {
 				if (fall) {
 					player.resetFallDistance();
 					return Verdict.immune();
+				}
+			}
+			case "power_24_wind_manipulation" -> {
+				if (fall) {
+					return Verdict.mult(0.2f); // v0.10.9: 80% less fall damage (was full immunity)
 				}
 			}
 			case "power_18_density_manipulation" -> {
