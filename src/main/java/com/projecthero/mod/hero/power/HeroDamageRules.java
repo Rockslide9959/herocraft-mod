@@ -221,6 +221,13 @@ public final class HeroDamageRules {
 				return Verdict.mult(durability);
 			}
 			case "power_10_telekinesis" -> {
+				// v0.10.12: a telekinetic catches their own fall -- no fall damage ever -- but the reflex
+				// draws on the Psi reserve in proportion to the fall it just absorbed.
+				if (fall) {
+					com.projecthero.mod.hero.power.p10.TelekinesisHandlers.absorbFall(player, amount);
+					player.resetFallDistance();
+					return Verdict.immune();
+				}
 				// v0.10.10: the Telekinetic Barrier stops everything outright while it is up -- but every
 				// blow it eats is charged to the Psi meter, so a heavy enough hit collapses the barrier by
 				// emptying it (and empty means a 10 s burnout).

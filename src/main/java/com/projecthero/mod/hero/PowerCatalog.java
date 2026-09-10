@@ -262,7 +262,7 @@ final class PowerCatalog {
 				.ability(ab(k, "telekinetic_explosion", SLOT_4, HOLD, 90 * S))
 				.ability(ab(k, "telekinetic_grab", SLOT_5, INSTANT, 5 * S))
 				.ability(ab(k, "block_manipulation", SLOT_6, HOLD, 0))
-				.passives(pk(k, "passive.psi"), pk(k, "passive.item_drift"))
+				.passives(pk(k, "passive.psi"), pk(k, "passive.fall"), pk(k, "passive.item_drift"))
 				.serum(SerumRecipe.of("minecraft:slow_falling", pk(k, "serum"),
 						"minecraft:ender_pearl", "minecraft:amethyst_shard", "minecraft:redstone"))
 				.trigger(MutationTrigger.of(Kind.PSIONIC_RESONANCE, pk(k, "trigger"), "projecthero.device.enchanting_resonance"))

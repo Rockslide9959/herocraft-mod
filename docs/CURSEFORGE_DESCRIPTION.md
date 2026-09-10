@@ -174,8 +174,9 @@ A world boss that starts as an ordinary-looking zombie and, at low health, trans
 every attack winds up for two full seconds with its own distinct charge-up particle tell before it
 lands. Its moves: a single-target **Punch**, a wide backhand **Sweep**, ground-shaking **Stomp** and
 **Slam**, a long-range ground **Shockwave**, a player **Grab**, an **AoE boulder throw**, a full-tilt
-**Charge**, and an always-on melee swipe so you can't just hug its leg. Strong, but readable; tunable
-in `config/projecthero_titan.json`.
+**Charge**, and an always-on melee swipe so you can't just hug its leg. Every blow it lands is
+scaled to your health so a healthy, armoured player is hit hard but never one-shot. Strong, but
+readable; tunable in `config/projecthero_titan.json`.
 
 ---
 

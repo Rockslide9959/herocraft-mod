@@ -17,8 +17,8 @@ import net.minecraft.world.level.block.state.BlockState;
 /**
  * Two per-block hooks:
  * <ul>
- *   <li>Super Speed: you mine as fast as you move. {@code getDestroySpeed} is multiplied by the same
- *       factor Super Speed's movement is (×3 in Speed Mode, ×6 in Overdrive).</li>
+ *   <li>Super Speed: you mine as fast as you move. {@code getDestroySpeed} is multiplied by a factor
+ *       that tracks the movement state (×2 at base, more in Speed Mode / Overdrive).</li>
  *   <li>Symbiote: a bonded host's empty hand mines and harvests like a wooden pickaxe / axe / shovel
  *       ({@link SymbioteBareHands}).</li>
  * </ul>

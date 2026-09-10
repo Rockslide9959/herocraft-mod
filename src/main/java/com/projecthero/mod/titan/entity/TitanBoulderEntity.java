@@ -83,8 +83,10 @@ public class TitanBoulderEntity extends ThrowableItemProjectile {
 		if (target == getOwner()) {
 			return;
 		}
-		double dmg = TitanConfig.attacks().boulderDamage;
-		target.hurt(damageSources().mobProjectile(this, getOwner() instanceof LivingEntity le ? le : null), (float) dmg);
+		float dmg = target instanceof LivingEntity lt
+				? TitanEntity.scaleForPlayer(lt, TitanConfig.attacks().boulderDamage)
+				: (float) TitanConfig.attacks().boulderDamage;
+		target.hurt(damageSources().mobProjectile(this, getOwner() instanceof LivingEntity le ? le : null), dmg);
 		if (target instanceof LivingEntity living) {
 			living.knockback(1.6, getX() - target.getX(), getZ() - target.getZ());
 		}
@@ -118,7 +120,7 @@ public class TitanBoulderEntity extends ThrowableItemProjectile {
 			if (d > radius) {
 				continue;
 			}
-			float dmg = (float) (baseDamage * (1.0 - 0.6 * (d / radius)));
+			float dmg = TitanEntity.scaleForPlayer(victim, baseDamage * (1.0 - 0.6 * (d / radius)));
 			victim.hurt(damageSources().mobProjectile(this, owner), dmg);
 			Vec3 push = victim.position().subtract(position()).normalize();
 			victim.setDeltaMovement(victim.getDeltaMovement().add(push.x * 1.2, 0.45, push.z * 1.2));

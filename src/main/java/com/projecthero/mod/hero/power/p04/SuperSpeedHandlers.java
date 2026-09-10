@@ -34,9 +34,11 @@ public final class SuperSpeedHandlers {
 
 	/** Absolute game time until which Overdrive is running (0 = off). Persisted; read client-side too. */
 	public static final String OVERDRIVE_UNTIL = "overdrive_until";
-	private static final int OVERDRIVE_TICKS = 25 * 20;
+	private static final int OVERDRIVE_TICKS = 30 * 20;
 
 	private static final ResourceLocation PASSIVE_STEP = com.projecthero.mod.ProjectHeroMod.id("speed_passive_step");
+	/** Base Super Speed passive: +100% movement speed just for owning the power. */
+	private static final ResourceLocation PASSIVE_SPEED = com.projecthero.mod.ProjectHeroMod.id("speed_passive_speed");
 
 	private static final ResourceLocation SM_SPEED = com.projecthero.mod.ProjectHeroMod.id("speed_mode_speed");
 	private static final ResourceLocation SM_ATTACK = com.projecthero.mod.ProjectHeroMod.id("speed_mode_attack_speed");
@@ -46,6 +48,7 @@ public final class SuperSpeedHandlers {
 
 	private static final ResourceLocation OD_SPEED = com.projecthero.mod.ProjectHeroMod.id("overdrive_speed");
 	private static final ResourceLocation OD_ATTACK = com.projecthero.mod.ProjectHeroMod.id("overdrive_attack_speed");
+	private static final ResourceLocation OD_STEP = com.projecthero.mod.ProjectHeroMod.id("overdrive_step");
 	private static final ResourceLocation OD_FALL = com.projecthero.mod.ProjectHeroMod.id("overdrive_fall");
 
 	private SuperSpeedHandlers() {
@@ -160,8 +163,12 @@ public final class SuperSpeedHandlers {
 		PowerPassives.register(KEY, (player, active) -> {
 			if (active) {
 				PowerToggles.modifier(player, Attributes.STEP_HEIGHT, PASSIVE_STEP, 0.6, AttributeModifier.Operation.ADD_VALUE);
+				// Base speedster metabolism: +100% movement speed just for owning Super Speed.
+				PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, PASSIVE_SPEED, 1.0,
+						AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 			} else {
 				PowerToggles.clearModifier(player, Attributes.STEP_HEIGHT, PASSIVE_STEP);
+				PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, PASSIVE_SPEED);
 				speedModeClear(player);
 				clearOverdrive(player);
 				ExperimentalPowers.setResource(player, Powers.byKey(KEY), OVERDRIVE_UNTIL, 0, 1e12f);
@@ -238,19 +245,31 @@ public final class SuperSpeedHandlers {
 			}
 		}
 
-		// Running on water: splash and footfall feedback so it reads as running, not gliding.
-		if ((speedMode || overdrive) && moving && !player.isShiftKeyDown()) {
+		// Running on water: splash and footfall feedback so it reads as running, not gliding. The
+		// client mixin (LocalPlayerMixin) is what actually keeps the player on the surface; here we
+		// only need to notice that they are skimming a water surface and throw up the wake. Checked
+		// generously -- water at the feet OR one block down, and a wide vertical band -- because at
+		// Super Speed the player crosses many water columns per tick and the old tight check missed
+		// most of them, which is why the splash and sound almost never fired.
+		if ((speedMode || overdrive) && moving && !player.isShiftKeyDown() && !player.getAbilities().flying) {
 			BlockPos feet = player.blockPosition();
-			var fluid = sl.getFluidState(feet);
-			if (fluid.is(FluidTags.WATER) && sl.getFluidState(feet.above()).isEmpty()) {
-				double surfaceY = feet.getY() + fluid.getHeight(sl, feet);
-				if (player.getY() >= surfaceY - 1.0 && player.getY() <= surfaceY + 0.6) {
-					sl.sendParticles(ParticleTypes.SPLASH, player.getX(), surfaceY, player.getZ(),
-							8, 0.3, 0.05, 0.3, 0.05);
-					if (player.tickCount % 6 == 0) {
-						sl.playSound(null, player.blockPosition(), SoundEvents.PLAYER_SPLASH,
-								net.minecraft.sounds.SoundSource.PLAYERS, 0.35f, 1.3f);
-					}
+			var atFeet = sl.getFluidState(feet);
+			var below = sl.getFluidState(feet.below());
+			boolean onWaterSurface = (atFeet.is(FluidTags.WATER) || below.is(FluidTags.WATER))
+					&& !player.isInWater();
+			if (onWaterSurface) {
+				double surfaceY = player.getY();
+				sl.sendParticles(ParticleTypes.SPLASH,
+						player.getX(), surfaceY + 0.05, player.getZ(), 12, 0.35, 0.02, 0.35, 0.12);
+				// a trailing spray just behind the direction of travel, so every stride kicks up water
+				Vec3 back = new Vec3(v.x, 0, v.z);
+				back = back.lengthSqr() > 1.0e-4 ? back.normalize() : player.getLookAngle();
+				sl.sendParticles(ParticleTypes.BUBBLE,
+						player.getX() - back.x * 0.6, surfaceY, player.getZ() - back.z * 0.6,
+						6, 0.2, 0.02, 0.2, 0.02);
+				if (player.tickCount % 3 == 0) {
+					sl.playSound(null, player.blockPosition(), SoundEvents.PLAYER_SPLASH_HIGH_SPEED,
+							net.minecraft.sounds.SoundSource.PLAYERS, 0.9f, 1.2f + sl.random.nextFloat() * 0.3f);
 				}
 			}
 		}
@@ -284,12 +303,12 @@ public final class SuperSpeedHandlers {
 		boolean overdrive = until != null && until > player.level().getGameTime();
 		boolean speedMode = st.activeToggles.contains(KEY + "/speed_mode");
 		if (overdrive && speedMode) {
-			return 8.0f;
+			return 14.0f;
 		}
 		if (overdrive) {
-			return 8.0f;
+			return 9.0f;
 		}
-		return speedMode ? 4.0f : 1.0f;
+		return speedMode ? 6.5f : 2.0f;
 	}
 
 	private static float overdriveMult(ServerPlayer p) {
@@ -301,7 +320,9 @@ public final class SuperSpeedHandlers {
 	}
 
 	private static void speedModeApply(ServerPlayer p) {
-		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, SM_SPEED, 3.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		// +450% on top of whatever the player already has (base passive included): ADD_MULTIPLIED_BASE
+		// modifiers all sum against the base value, so this stacks additively with the passive and Overdrive.
+		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, SM_SPEED, 4.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.ATTACK_SPEED, SM_ATTACK, 0.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, SM_STEP, 0.8, AttributeModifier.Operation.ADD_VALUE);
 		PowerToggles.modifier(p, Attributes.WATER_MOVEMENT_EFFICIENCY, SM_WATER, 1.0, AttributeModifier.Operation.ADD_VALUE);
@@ -317,14 +338,18 @@ public final class SuperSpeedHandlers {
 	}
 
 	private static void applyOverdrive(ServerPlayer p) {
-		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, OD_SPEED, 7.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		// +600%, additive with the base passive and Speed Mode (all ADD_MULTIPLIED_BASE off the base).
+		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, OD_SPEED, 6.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.ATTACK_SPEED, OD_ATTACK, 1.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		// 10-block step assist so Overdrive doesn't stall on every ledge at that speed.
+		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, OD_STEP, 10.0, AttributeModifier.Operation.ADD_VALUE);
 		PowerToggles.modifier(p, Attributes.FALL_DAMAGE_MULTIPLIER, OD_FALL, -1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 	}
 
 	private static void clearOverdrive(ServerPlayer p) {
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, OD_SPEED);
 		PowerToggles.clearModifier(p, Attributes.ATTACK_SPEED, OD_ATTACK);
+		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, OD_STEP);
 		PowerToggles.clearModifier(p, Attributes.FALL_DAMAGE_MULTIPLIER, OD_FALL);
 	}
 

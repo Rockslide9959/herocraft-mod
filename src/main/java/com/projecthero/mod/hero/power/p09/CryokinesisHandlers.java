@@ -109,73 +109,36 @@ public final class CryokinesisHandlers {
 	}
 
 	public static void register() {
-		AbilityHandlers.register(KEY, "ice_bolt", new AbilityHandler() {
-			@Override
-			public void onActivate(AbilityContext ctx) {
-				ServerPlayer p = ctx.player();
-				if (p.isShiftKeyDown()) {
-					// v0.10.11: Sneak + HOLD R for 2 s opens a weapon wheel; you pick which ice tool to
-					// shape (CryoWheelOpenPayload -> CryoWeaponWheelScreen -> CryoWeaponPayload ->
-					// giveIceToolChoice). Just tapping it starts and immediately cancels the charge.
-					if (!ctx.cooldownReady()) {
-						return;
-					}
-					ctx.setResource("icetool_ticks", 1, ICE_TOOL_CHARGE_TICKS);
-					AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 0.7f, 1.5f);
-					return;
-				}
+		AbilityHandlers.register(KEY, "ice_bolt", Handlers.instant(ctx -> {
+			ServerPlayer p = ctx.player();
+			if (p.isShiftKeyDown()) {
+				// v0.10.12: Sneak + R opens the ice-weapon wheel immediately (no charge-up). Pick which
+				// ice tool to shape (CryoWheelOpenPayload -> CryoWeaponWheelScreen -> CryoWeaponPayload
+				// -> giveIceToolChoice).
 				if (!ctx.cooldownReady()) {
 					return;
 				}
-				LivingEntity t = AbilityHelpers.raycastEntity(p, 24.0);
-				AbilityHelpers.line(ctx.level(), p.getEyePosition(), AbilityHelpers.aimPoint(p, 24.0),
-						ParticleTypes.SNOWFLAKE, 3.0);
-				if (t != null) {
-					AbilityHelpers.hurt(p, t, 7.0f + coldBonus(p) + armorBonus(p));
-					chill(p, t, 200); // ~7 s of the freeze effect
-					AbilityHelpers.slow7s(t); // Slowness III, 7 s
-				}
-				AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 0.8f, 1.6f);
-				ctx.triggerCooldown();
+				net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p,
+						com.projecthero.mod.network.CryoWheelOpenPayload.INSTANCE);
+				AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 0.7f, 1.5f);
+				ctx.level().sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1.0, p.getZ(),
+						20, 0.4, 0.4, 0.4, 0.04);
+				return;
 			}
-
-			@Override
-			public void onRelease(AbilityContext ctx) {
-				// Let go of R before the wheel opens -> cancel the charge.
-				if (ctx.resource("icetool_ticks") > 0.0f && ctx.resource("icetool_ticks") < ICE_TOOL_CHARGE_TICKS) {
-					ctx.setResource("icetool_ticks", 0, ICE_TOOL_CHARGE_TICKS);
-				}
+			if (!ctx.cooldownReady()) {
+				return;
 			}
-
-			@Override
-			public void onServerTick(AbilityContext ctx) {
-				float t = ctx.resource("icetool_ticks");
-				if (t <= 0.0f) {
-					return;
-				}
-				ServerPlayer p = ctx.player();
-				if (!p.isShiftKeyDown()) {
-					ctx.setResource("icetool_ticks", 0, ICE_TOOL_CHARGE_TICKS); // stopped sneaking -> cancel
-					return;
-				}
-				ctx.level().sendParticles(ParticleTypes.SNOWFLAKE,
-						p.getX(), p.getY() + 1.1, p.getZ(), 4, 0.5, 0.7, 0.5, 0.02);
-				if (p.tickCount % 6 == 0) {
-					AbilityHelpers.sound(p, SoundEvents.POWDER_SNOW_STEP, 0.5f, 1.6f);
-				}
-				if (t >= ICE_TOOL_CHARGE_TICKS) {
-					ctx.setResource("icetool_ticks", 0, ICE_TOOL_CHARGE_TICKS);
-					net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p,
-							com.projecthero.mod.network.CryoWheelOpenPayload.INSTANCE);
-					AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 0.8f, 1.7f);
-					ctx.level().sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1.0, p.getZ(),
-							30, 0.4, 0.4, 0.4, 0.05);
-					ctx.triggerCooldown();
-					return;
-				}
-				ctx.setResource("icetool_ticks", t + 1.0f, ICE_TOOL_CHARGE_TICKS);
+			LivingEntity t = AbilityHelpers.raycastEntity(p, 24.0);
+			AbilityHelpers.line(ctx.level(), p.getEyePosition(), AbilityHelpers.aimPoint(p, 24.0),
+					ParticleTypes.SNOWFLAKE, 3.0);
+			if (t != null) {
+				AbilityHelpers.hurt(p, t, 7.0f + coldBonus(p) + armorBonus(p));
+				chill(p, t, 200); // ~7 s of the freeze effect
+				AbilityHelpers.slow7s(t); // Slowness III, 7 s
 			}
-		});
+			AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 0.8f, 1.6f);
+			ctx.triggerCooldown();
+		}));
 
 		AbilityHandlers.register(KEY, "freeze_beam", new AbilityHandler() {
 			@Override
@@ -360,9 +323,6 @@ public final class CryokinesisHandlers {
 					frozenArmorActive(player));
 		});
 	}
-
-	/** How long Sneak + R must be held before the ice-weapon wheel opens (2 s). */
-	static final int ICE_TOOL_CHARGE_TICKS = 40;
 
 	/** The choices on the ice-weapon wheel. Order is the wire index in {@code CryoWeaponPayload}. */
 	public enum IceWeapon {

@@ -269,7 +269,7 @@ public class TitanEntity extends RaidUndead {
 			return;
 		}
 		getLookControl().setLookAt(target, 60.0f, 60.0f);
-		target.hurt(damageSources().mobAttack(this), (float) TitanConfig.attacks().meleeDamage);
+		target.hurt(damageSources().mobAttack(this), scaleForPlayer(target, TitanConfig.attacks().meleeDamage));
 		Vec3 push = target.position().subtract(position()).normalize();
 		target.setDeltaMovement(target.getDeltaMovement().add(push.x * 1.4, 0.42, push.z * 1.4));
 		target.hurtMarked = true;
@@ -722,12 +722,27 @@ public class TitanEntity extends RaidUndead {
 
 	// ---------------- individual attacks ----------------
 
+	/**
+	 * v0.10.12: the Titan must not one-shot a healthy player. Every hit it lands on a player is
+	 * capped at this fraction of their max health <em>before</em> armour is applied, so a full-diamond
+	 * player takes a solid but survivable blow, and even an unarmoured one is left with a sliver
+	 * rather than instantly dead. Non-players (its own thrown boulders, mobs) are unaffected.
+	 */
+	private static final double PLAYER_DAMAGE_CAP_FRACTION = 0.8;
+
+	public static float scaleForPlayer(LivingEntity target, double amount) {
+		if (target instanceof net.minecraft.world.entity.player.Player pl) {
+			return (float) Math.min(amount, pl.getMaxHealth() * PLAYER_DAMAGE_CAP_FRACTION);
+		}
+		return (float) amount;
+	}
+
 	private void doPunch(ServerLevel server, LivingEntity target) {
 		attackResolved = true;
 		if (target == null || distanceTo(target) > TitanConfig.attacks().punchRange + 1.0) {
 			return;
 		}
-		target.hurt(damageSources().mobAttack(this), (float) TitanConfig.attacks().punchDamage);
+		target.hurt(damageSources().mobAttack(this), scaleForPlayer(target, TitanConfig.attacks().punchDamage));
 		Vec3 push = target.position().subtract(position()).normalize();
 		target.setDeltaMovement(target.getDeltaMovement().add(push.x * 1.6, 0.4, push.z * 1.6));
 		target.hurtMarked = true;
@@ -746,7 +761,7 @@ public class TitanEntity extends RaidUndead {
 			if (flat.lengthSqr() > 1.0e-4 && flat.normalize().dot(facing) < 0.0) {
 				continue; // behind the swing
 			}
-			le.hurt(damageSources().mobAttack(this), (float) TitanConfig.attacks().sweepDamage);
+			le.hurt(damageSources().mobAttack(this), scaleForPlayer(le, TitanConfig.attacks().sweepDamage));
 			Vec3 push = flat.lengthSqr() < 1.0e-4 ? facing : flat.normalize();
 			le.setDeltaMovement(push.x * 2.6, 0.55, push.z * 2.6);
 			le.hurtMarked = true;
@@ -765,7 +780,7 @@ public class TitanEntity extends RaidUndead {
 		for (LivingEntity le : nearbyLiving(r)) {
 			double d = le.position().distanceTo(center);
 			float dmg = (float) (TitanConfig.attacks().shockwaveDamage * (1.0 - Math.min(0.6, d / r)));
-			le.hurt(damageSources().mobAttack(this), dmg);
+			le.hurt(damageSources().mobAttack(this), scaleForPlayer(le, dmg));
 			Vec3 push = le.position().subtract(center);
 			push = push.lengthSqr() < 1.0e-4 ? Vec3.directionFromRotation(0, getYRot()) : push.normalize();
 			le.setDeltaMovement(push.x * 1.3, 0.95, push.z * 1.3);
@@ -787,7 +802,7 @@ public class TitanEntity extends RaidUndead {
 		attackResolved = true;
 		Vec3 center = position();
 		for (LivingEntity le : nearbyLiving(TitanConfig.attacks().stompRadius)) {
-			le.hurt(damageSources().mobAttack(this), (float) TitanConfig.attacks().stompDamage);
+			le.hurt(damageSources().mobAttack(this), scaleForPlayer(le, TitanConfig.attacks().stompDamage));
 			Vec3 push = le.position().subtract(center).normalize();
 			le.setDeltaMovement(push.x * 1.4, 0.6, push.z * 1.4);
 			le.hurtMarked = true;
@@ -801,7 +816,7 @@ public class TitanEntity extends RaidUndead {
 		attackResolved = true;
 		Vec3 center = position();
 		for (LivingEntity le : nearbyLiving(TitanConfig.attacks().slamRadius)) {
-			le.hurt(damageSources().mobAttack(this), (float) TitanConfig.attacks().slamDamage);
+			le.hurt(damageSources().mobAttack(this), scaleForPlayer(le, TitanConfig.attacks().slamDamage));
 			Vec3 push = le.position().subtract(center).normalize();
 			le.setDeltaMovement(push.x * 1.2, 0.5, push.z * 1.2);
 			le.hurtMarked = true;
@@ -816,7 +831,7 @@ public class TitanEntity extends RaidUndead {
 		if (!(target instanceof ServerPlayer player) || distanceTo(player) > 7.0) {
 			return;
 		}
-		player.hurt(damageSources().mobAttack(this), (float) TitanConfig.attacks().grabDamage);
+		player.hurt(damageSources().mobAttack(this), scaleForPlayer(player, TitanConfig.attacks().grabDamage));
 		grabbedPlayer = player.getUUID();
 		grabTicksLeft = 30; // 1.5s hold
 		server.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 1, player.getZ(), 10, 0.3, 0.3, 0.3, 0.02);
@@ -845,7 +860,7 @@ public class TitanEntity extends RaidUndead {
 
 		grabTicksLeft--;
 		if (grabTicksLeft <= 0) {
-			player.hurt(damageSources().mobAttack(this), (float) TitanConfig.attacks().holdDamage);
+			player.hurt(damageSources().mobAttack(this), scaleForPlayer(player, TitanConfig.attacks().holdDamage));
 			throwPlayer(server, player);
 			releaseGrab();
 		}
@@ -865,7 +880,7 @@ public class TitanEntity extends RaidUndead {
 		player.hurtMarked = true;
 		player.hasImpulse = true;
 		player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(player));
-		player.hurt(damageSources().mobAttack(this), (float) TitanConfig.attacks().throwDamage);
+		player.hurt(damageSources().mobAttack(this), scaleForPlayer(player, TitanConfig.attacks().throwDamage));
 		server.playSound(null, blockPosition(), SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.HOSTILE, 2.5f, 0.4f);
 	}
 
@@ -928,7 +943,7 @@ public class TitanEntity extends RaidUndead {
 
 		boolean hitSomething = false;
 		for (LivingEntity le : nearbyLiving(getBbWidth() * 0.6 + 1.0)) {
-			le.hurt(damageSources().mobAttack(this), (float) TitanConfig.attacks().chargeDamage);
+			le.hurt(damageSources().mobAttack(this), scaleForPlayer(le, TitanConfig.attacks().chargeDamage));
 			double throwDist = TitanConfig.attacks().chargeThrowMin
 					+ getRandom().nextDouble() * (TitanConfig.attacks().chargeThrowMax - TitanConfig.attacks().chargeThrowMin);
 			Vec3 push = chargeDirection.scale(throwDist * 0.12).add(0, 0.5, 0);

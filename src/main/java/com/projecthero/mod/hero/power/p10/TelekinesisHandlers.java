@@ -62,8 +62,8 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class TelekinesisHandlers {
 	private static final String KEY = "power_10_telekinesis";
-	static final float MAX_PSI = 500.0f;
-	private static final float PSI_REGEN_PER_TICK = 1.6f;
+	static final float MAX_PSI = 1000.0f;
+	private static final float PSI_REGEN_PER_TICK = 3.2f;
 
 	/** How long the power is dead for after the meter is emptied. */
 	private static final int BURNOUT_TICKS = 10 * 20;
@@ -361,28 +361,36 @@ public final class TelekinesisHandlers {
 
 	// ================================================================================ R
 
+	/** Force Push only reaches the extra targets within this radius of the one you are aiming at. */
+	private static final double PUSH_SPLASH = 3.0;
+
 	private static void forcePush(AbilityContext ctx) {
-		if (!spendPsi(ctx, COST_PUSH)) {
-			return;
-		}
 		ServerPlayer p = ctx.player();
 		Vec3 eye = p.getEyePosition();
 		Vec3 look = p.getLookAngle();
-		// v0.10.11: a 50-block forward cone (~30 degrees) rather than a 4-block bubble in front of you.
-		Vec3 mid = eye.add(look.scale(RANGE * 0.5));
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, mid, RANGE * 0.5 + 3.0)) {
-			Vec3 toward = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);
-			if (toward.lengthSqr() > 1.0e-4 && toward.normalize().dot(look) < 0.86) {
-				continue;
-			}
+		// v0.10.12: no longer a 50-block cone that shoves everything in front of you. It hits exactly
+		// the entity you are aiming at, plus anything within 3 blocks of that entity.
+		LivingEntity aimed = AbilityHelpers.raycastEntity(p, RANGE);
+		if (aimed == null) {
+			ctx.actionBar("message.projecthero.telekinesis.no_target");
+			return;
+		}
+		if (!spendPsi(ctx, COST_PUSH)) {
+			return;
+		}
+		Vec3 focus = aimed.position();
+		java.util.Set<LivingEntity> hit = new java.util.HashSet<>();
+		hit.add(aimed);
+		hit.addAll(AbilityHelpers.enemiesAround(p, focus, PUSH_SPLASH));
+		for (LivingEntity e : hit) {
 			// a hard shove -- several blocks of launch on a clear line
 			Vec3 dir = e.position().subtract(eye).normalize().scale(2.0).add(0, 0.5, 0);
 			AbilityHelpers.push(e, dir);
 			AbilityHelpers.knockbackFrom(e, p.position(), 1.6);
 			AbilityHelpers.hurt(p, e, 10.0f);
 		}
-		AbilityHelpers.line(ctx.level(), eye, AbilityHelpers.aimPoint(p, RANGE), ParticleTypes.SCULK_SOUL, 2.0);
-		AbilityHelpers.burst(ctx.level(), eye.add(look.scale(4.0)), ParticleTypes.SCULK_SOUL, 20, 0.6);
+		AbilityHelpers.line(ctx.level(), eye, focus.add(0, aimed.getBbHeight() * 0.5, 0), ParticleTypes.SCULK_SOUL, 2.0);
+		AbilityHelpers.burst(ctx.level(), focus.add(0, aimed.getBbHeight() * 0.5, 0), ParticleTypes.SCULK_SOUL, 20, PUSH_SPLASH);
 		AbilityHelpers.sound(p, SoundEvents.ILLUSIONER_CAST_SPELL, 1.0f, 0.7f);
 		ctx.triggerCooldown();
 	}
@@ -978,6 +986,33 @@ public final class TelekinesisHandlers {
 				}
 			}
 		});
+	}
+
+	/** Psi drained per point of fall damage a telekinetic cushions. */
+	private static final float FALL_PSI_PER_DAMAGE = 6.0f;
+
+	/**
+	 * A telekinetic never takes fall damage — they catch themselves — but the reflex costs Psi in
+	 * proportion to the fall it absorbed. Called from {@link com.projecthero.mod.hero.power.HeroDamageRules};
+	 * always cushions the landing even if the meter is dry (it just cannot drain past empty).
+	 */
+	public static void absorbFall(ServerPlayer player, float fallAmount) {
+		Power power = power();
+		if (power == null) {
+			return;
+		}
+		if (ExperimentalPowers.getResource(player, power, "burnout_until") > player.level().getGameTime()) {
+			return; // burnt out: no cushioning cost while the power is down (still no fall damage though)
+		}
+		ExperimentalPowers.addResource(player, power, "psi", -fallAmount * FALL_PSI_PER_DAMAGE, MAX_PSI);
+		holdOffRegen(player);
+		if (ExperimentalPowers.getResource(player, power, "psi") <= 0.0f) {
+			startBurnout(player);
+		}
+		if (player.level() instanceof ServerLevel sl) {
+			sl.sendParticles(ParticleTypes.SCULK_SOUL, player.getX(), player.getY() + 0.1, player.getZ(),
+					8, 0.4, 0.05, 0.4, 0.02);
+		}
 	}
 
 	/**

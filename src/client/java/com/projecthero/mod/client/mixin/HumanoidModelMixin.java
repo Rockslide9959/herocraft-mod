@@ -47,6 +47,8 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 	@Shadow
 	public ModelPart head;
 	@Shadow
+	public ModelPart hat;
+	@Shadow
 	public ModelPart rightArm;
 	@Shadow
 	public ModelPart leftArm;
@@ -166,6 +168,12 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 	 * <p>Driven straight off {@link FlightPoseHelper#lean} rather than the arm-raise blend, so it
 	 * tracks the tilt exactly at every point of the transition -- including the SLOW tier, which
 	 * leans without raising the arm at all.
+	 *
+	 * <p>The hat (skin second layer over the head) is re-copied from the head afterwards: vanilla's
+	 * {@code HumanoidModel.setupAnim} does {@code hat.copyFrom(head)} <em>before</em> this TAIL
+	 * injection runs, so without the re-copy the hat keeps the un-levelled rotation and the body tilt
+	 * then drags it off the face -- the "second layer disconnected while flying" bug. Applies to every
+	 * flight in the mod because they all drive {@link FlightPoseHelper#lean}.
 	 */
 	private void levelHead(Player player, float partialTick) {
 		float lean = FlightPoseHelper.lean(player, partialTick);
@@ -173,5 +181,6 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			return;
 		}
 		this.head.xRot -= lean * ((float) Math.PI / 180.0f);
+		this.hat.copyFrom(this.head);
 	}
 }

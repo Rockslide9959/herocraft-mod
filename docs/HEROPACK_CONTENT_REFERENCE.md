@@ -643,11 +643,11 @@ A speedster mutation: traversal, combat bursts, evasion and momentum.
 | 1 | R | Speed Blitz | Dash to the targeted enemy and strike at high speed. |
 | 2 | G | Rapid Assault | A burst of multiple rapid strikes to nearby valid targets. |
 | 3 | X | Momentum Dash | Instant directional dodge based on current movement. In speed modes, jumps also keep their momentum for long leaps. |
-| 4 | Z | Overdrive | For 25s: +500% speed, +150% attack speed, fall immunity, and every Super Speed move hits twice as hard. Stacks with Speed Mode (50s cooldown). |
+| 4 | Z | Overdrive | For 30s: +600% speed (additive with your current speed), +150% attack speed, a 10-block step assist, fall immunity, and every Super Speed move hits twice as hard. Stacks with Speed Mode (50s cooldown). |
 | 5 | V | Whirlwind | Run a tight circle to push enemies/projectiles away and extinguish nearby fire. |
-| 6 | C | Speed Mode | Toggle: +200% speed, +50% attack speed, run on water, 2-block step, +100% swim speed, -80% fall damage. Stacks with Overdrive. |
+| 6 | C | Speed Mode | Toggle: +450% speed (additive with your current speed), +50% attack speed, run on water, 2-block step, +100% swim speed, -80% fall damage. Stacks with Overdrive. |
 
-**Passives:** Faster sprinting; Higher step-up capability at speed; Reduced collision slowdown
+**Passives:** +100% movement speed just for owning the power; Higher step-up capability at speed; Reduced collision slowdown
 
 **Serum:** Hypermetabolic Serum  
 **Mutation trigger:** Drink the serum and sprint across a run of powered/charged copper plates.
@@ -716,7 +716,7 @@ Direct heat and flame control: ranged fire, mobility and an aggressive flame-bod
 
 | Slot | Key | Ability | Effect |
 |---|---|---|---|
-| 1 | R | Fireball | Launch a compact explosive fire projectile. |
+| 1 | R | Fireball | Hurl a heavy ghast fireball that craters the ground and scatters fire on impact. In Blue Flame stance it becomes an instant flame laser that still detonates a crater, for extra damage. |
 | 2 | G | Flamethrower | Hold to project continuous close/medium-range flame. |
 | 3 | X | Flame Dash | Use a fire burst to launch rapidly where you aim. |
 | 4 | Z | Inferno | A large fiery eruption around you with heavy damage and ignition. |
@@ -735,7 +735,7 @@ Ice control: freezing, terrain creation, defensive walls and fast ice traversal.
 
 | Slot | Key | Ability | Effect |
 |---|---|---|---|
-| 1 | R | Ice Bolt | Fire a chilling projectile that builds freeze on targets. |
+| 1 | R | Ice Bolt | Fire a chilling projectile that builds freeze on targets. Sneak+R opens a weapon wheel to shape an ice tool (iron level, 32 uses). |
 | 2 | G | Freeze Beam | Hold a beam on enemies to progressively freeze and slow them. |
 | 3 | X | Ice Slide | Create temporary ice beneath your movement for fast skating. |
 | 4 | Z | Absolute Zero | Freeze entities and water in a large radius and extinguish fire. |
@@ -759,7 +759,7 @@ it, so no channel can be outrun by the trickle.
 
 | Slot | Key | Ability | Effect |
 |---|---|---|---|
-| 1 | R | Force Push | 10 damage + a hard shove in a 4.5-block ball ahead. 1 s cooldown. |
+| 1 | R | Force Push | 10 damage + a hard shove to the entity you are aiming at and anything within 3 blocks of it. 1 s cooldown. |
 | 1 | Sneak+R | Force Pull | Reel in the aimed target **and** every loose item within 20 blocks (they are handed straight over inside 1.5 blocks). 1 s cooldown. |
 | 2 | G | Telekinetic Barrier | Toggle. Nothing gets through while it holds; drains Psi steadily and charges 4× the blocked damage on top, so a heavy hit can collapse it into a burnout. |
 | 3 | X | Psychic Flight | Low, steady drain (~1 min from full). Cuts out at the soft floor so it can never drop you AND lock you out. |
@@ -770,7 +770,7 @@ it, so no channel can be outrun by the trickle.
 | 6 | C | Block Manipulation | Lift a block and steer it with the crosshair (a teleport packet per tick, so it tracks smoothly rather than in 1-second steps); release to throw. |
 | 6 | Sneak+C | Chunk Manipulation | Tear a 3×3 slab out of the ground and hurl it: 26 damage to the first thing it reaches, then it bursts. |
 
-**Passives:** Nearby dropped items drift slightly toward you while charged; everything runs off the Psi bar
+**Passives:** Nearby dropped items drift slightly toward you while charged; everything runs off one large Psi bar (self-refilling); you never take fall damage but catching yourself drains Psi in proportion to the fall
 
 **Serum:** Psionic Serum  
 **Mutation trigger:** Drink the serum near an active Enchanting Table with enough bookshelves to trigger a psionic resonance.

@@ -75,12 +75,17 @@ public abstract class LocalPlayerMixin {
 			v = self.getDeltaMovement();
 		}
 
-		if (!self.isShiftKeyDown() && !self.getAbilities().flying && horiz > 0.12) {
+		if (!self.isShiftKeyDown() && !self.getAbilities().flying && horiz > 0.08) {
 			BlockPos feet = self.blockPosition();
 			FluidState fluid = self.level().getFluidState(feet);
+			// If the player has already sunk a touch, the water is one block below the feet position.
+			if (!fluid.is(FluidTags.WATER) && self.level().getFluidState(feet.below()).is(FluidTags.WATER)) {
+				feet = feet.below();
+				fluid = self.level().getFluidState(feet);
+			}
 			if (fluid.is(FluidTags.WATER) && self.level().getFluidState(feet.above()).isEmpty()) {
 				double surfaceY = feet.getY() + fluid.getHeight(self.level(), feet);
-				if (self.getY() >= surfaceY - 1.0 && self.getY() <= surfaceY + 0.5) {
+				if (self.getY() >= surfaceY - 1.2 && self.getY() <= surfaceY + 0.5) {
 					if (self.getY() < surfaceY) {
 						self.setPos(self.getX(), surfaceY, self.getZ());
 					}

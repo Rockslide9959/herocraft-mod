@@ -292,6 +292,73 @@ public final class PyrokinesisHandlers {
 	}
 
 	/**
+	 * Blue Flame stance turns R into a flame laser: an instant hitscan beam instead of a lobbed
+	 * fireball. It still detonates -- a crater and a burst of fire where it lands -- and deals the
+	 * Blue-Flame-boosted fireball damage plus an extra bite to whatever the beam strikes.
+	 */
+	private static final float FLAME_LASER_BONUS = 8.0f;
+
+	/** Blocks-only explosion for the flame laser's crater (entity damage is hand-applied). */
+	private static final net.minecraft.world.level.ExplosionDamageCalculator BLOCKS_ONLY_BLAST =
+			new net.minecraft.world.level.ExplosionDamageCalculator() {
+				@Override
+				public boolean shouldDamageEntity(net.minecraft.world.level.Explosion explosion,
+						net.minecraft.world.entity.Entity entity) {
+					return false;
+				}
+
+				@Override
+				public float getKnockbackMultiplier(net.minecraft.world.entity.Entity entity) {
+					return 0.0f;
+				}
+			};
+
+	private static void flameLaser(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		double range = 40.0;
+		Vec3 eye = p.getEyePosition();
+		LivingEntity target = AbilityHelpers.raycastEntity(p, range);
+		BlockHitResult bhr = AbilityHelpers.raycastBlock(p, range);
+		Vec3 end = target != null
+				? target.position().add(0, target.getBbHeight() * 0.5, 0)
+				: (bhr.getType() == HitResult.Type.BLOCK ? bhr.getLocation() : AbilityHelpers.aimPoint(p, range));
+
+		AbilityHelpers.line(level, eye, end, ParticleTypes.SOUL_FIRE_FLAME, 4.0);
+		AbilityHelpers.line(level, eye, end, ParticleTypes.FLAME, 2.0);
+
+		float dmg = FIREBALL_DIRECT_DAMAGE + netherBonus(p) + flameBodyAbilityBonus(p) + FLAME_LASER_BONUS;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, end, 3.0)) {
+			AbilityHelpers.hurt(p, e, AbilityHelpers.fire(p), dmg);
+			e.setRemainingFireTicks(160);
+		}
+		if (target != null && target.isAlive()) {
+			AbilityHelpers.hurt(p, target, AbilityHelpers.fire(p), dmg);
+			target.setRemainingFireTicks(160);
+		}
+
+		// The detonation at the far end -- crater + fire. Entity damage is applied by hand above, so
+		// this blast is blocks-only (a null owner + default calculator would otherwise hurt the caster).
+		if (AbilityHelpers.canGrief()) {
+			level.explode(p, null, BLOCKS_ONLY_BLAST, end.x, end.y, end.z, 3.5f, true,
+					Level.ExplosionInteraction.MOB,
+					ParticleTypes.EXPLOSION, ParticleTypes.EXPLOSION_EMITTER, SoundEvents.GENERIC_EXPLODE);
+		}
+		if (fireOk()) {
+			BlockPos centre = BlockPos.containing(end);
+			for (int i = 0; i < 14; i++) {
+				BlockPos bp = centre.offset(level.random.nextInt(7) - 3,
+						level.random.nextInt(3) - 1, level.random.nextInt(7) - 3);
+				placeFire(level, bp, 120);
+			}
+		}
+		level.sendParticles(ParticleTypes.LAVA, end.x, end.y, end.z, 30, 2.0, 1.0, 2.0, 0.0);
+		level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, end.x, end.y, end.z, 60, 2.5, 1.2, 2.5, 0.05);
+		AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.4f, 0.5f);
+		AbilityHelpers.sound(p, SoundEvents.FIRECHARGE_USE, 1.4f, 0.5f);
+	}
+
+	/**
 	 * Blue Flame ultimate: a massive arc of lightning. 60 damage, a 10 s stun, and 10 s of heavy
 	 * decay. Burns out the entire Flame Body reserve and locks its regeneration for a minute.
 	 */
@@ -349,14 +416,18 @@ public final class PyrokinesisHandlers {
 	public static void register() {
 		AbilityHandlers.register(KEY, "fireball", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
+			if (blueMode(p)) {
+				flameLaser(ctx);
+				ctx.triggerCooldown();
+				return;
+			}
 			Vec3 dir = p.getLookAngle();
-			// v0.10.11: always a real ghast fireball (was a hitscan flame "laser" on a direct aim).
-			// A direct hit deals FIREBALL_DIRECT_DAMAGE via LargeFireballMixin; explosion power stays
-			// ghast-low so the basic attack does not crater terrain on every press.
-			LargeFireball fb = new LargeFireball(p.level(), p, dir, netherBonus(p) > 0 ? 2 : 1);
+			// v0.10.12: a real ghast fireball, back to a properly destructive one -- explosion power 3
+			// (4 in the Nether), and LargeFireballMixin gouges a crater and scatters fire on impact.
+			LargeFireball fb = new LargeFireball(p.level(), p, dir, netherBonus(p) > 0 ? 4 : 3);
 			fb.setPos(p.getX() + dir.x * 1.5, p.getEyeY() + dir.y * 1.5 - 0.1, p.getZ() + dir.z * 1.5);
 			p.level().addFreshEntity(fb);
-			AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.0f, blueMode(p) ? 0.6f : 0.9f);
+			AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.0f, 0.9f);
 			ctx.triggerCooldown();
 		}));
 
