@@ -9,6 +9,7 @@
 		"EntityWebMixin",
 		"ItemEntityMixin",
 		"ItemStackMixin",
+		"LargeFireballMixin",
 		"LivingEntityClimbMixin",
 		"LivingEntityEatMixin",
 		"LivingEntityEffectMixin",

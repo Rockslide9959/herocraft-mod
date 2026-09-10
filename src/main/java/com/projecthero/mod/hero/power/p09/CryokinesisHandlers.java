@@ -17,13 +17,9 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.AxeItem;
-import net.minecraft.world.item.HoeItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.ShovelItem;
-import net.minecraft.world.item.SwordItem;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.tags.BlockTags;
@@ -118,18 +114,14 @@ public final class CryokinesisHandlers {
 			public void onActivate(AbilityContext ctx) {
 				ServerPlayer p = ctx.player();
 				if (p.isShiftKeyDown()) {
-					// v0.10.10: sneak + R shapes the tool on the press, full stop. It used to arm a 2 s
-					// hold that only paid out if the key AND sneak were both still held 40 ticks later and
-					// nothing else cancelled in between -- in practice it essentially never fired, which is
-					// the "ice tool creation doesn't work" report. There is nothing worth charging here: it
-					// is a 32-use tool on a short cooldown.
-					giveIceTool(p);
-					ctx.actionBar("message.projecthero.cryo.ice_tool");
-					AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 0.8f, 1.4f);
-					AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 0.7f, 1.7f);
-					ctx.level().sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1.0, p.getZ(),
-							30, 0.4, 0.4, 0.4, 0.03);
-					ctx.triggerCooldown();
+					// v0.10.11: Sneak + HOLD R for 2 s opens a weapon wheel; you pick which ice tool to
+					// shape (CryoWheelOpenPayload -> CryoWeaponWheelScreen -> CryoWeaponPayload ->
+					// giveIceToolChoice). Just tapping it starts and immediately cancels the charge.
+					if (!ctx.cooldownReady()) {
+						return;
+					}
+					ctx.setResource("icetool_ticks", 1, ICE_TOOL_CHARGE_TICKS);
+					AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 0.7f, 1.5f);
 					return;
 				}
 				if (!ctx.cooldownReady()) {
@@ -148,12 +140,40 @@ public final class CryokinesisHandlers {
 			}
 
 			@Override
-			public void onServerTick(AbilityContext ctx) {
-				// v0.10.10: clear the retired 2 s ice-tool charge counter off any save that still carries
-				// one, so it cannot leave a stale bar on the HUD.
-				if (ctx.resource("icetool_ticks") > 0.0f) {
-					ctx.setResource("icetool_ticks", 0, 40);
+			public void onRelease(AbilityContext ctx) {
+				// Let go of R before the wheel opens -> cancel the charge.
+				if (ctx.resource("icetool_ticks") > 0.0f && ctx.resource("icetool_ticks") < ICE_TOOL_CHARGE_TICKS) {
+					ctx.setResource("icetool_ticks", 0, ICE_TOOL_CHARGE_TICKS);
 				}
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				float t = ctx.resource("icetool_ticks");
+				if (t <= 0.0f) {
+					return;
+				}
+				ServerPlayer p = ctx.player();
+				if (!p.isShiftKeyDown()) {
+					ctx.setResource("icetool_ticks", 0, ICE_TOOL_CHARGE_TICKS); // stopped sneaking -> cancel
+					return;
+				}
+				ctx.level().sendParticles(ParticleTypes.SNOWFLAKE,
+						p.getX(), p.getY() + 1.1, p.getZ(), 4, 0.5, 0.7, 0.5, 0.02);
+				if (p.tickCount % 6 == 0) {
+					AbilityHelpers.sound(p, SoundEvents.POWDER_SNOW_STEP, 0.5f, 1.6f);
+				}
+				if (t >= ICE_TOOL_CHARGE_TICKS) {
+					ctx.setResource("icetool_ticks", 0, ICE_TOOL_CHARGE_TICKS);
+					net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p,
+							com.projecthero.mod.network.CryoWheelOpenPayload.INSTANCE);
+					AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 0.8f, 1.7f);
+					ctx.level().sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1.0, p.getZ(),
+							30, 0.4, 0.4, 0.4, 0.05);
+					ctx.triggerCooldown();
+					return;
+				}
+				ctx.setResource("icetool_ticks", t + 1.0f, ICE_TOOL_CHARGE_TICKS);
 			}
 		});
 
@@ -341,38 +361,50 @@ public final class CryokinesisHandlers {
 		});
 	}
 
-	/**
-	 * Shape a tool out of ice matching whatever tool the caster is holding (pickaxe if none): iron
-	 * mining level, but only gold-tier durability (32 uses). v0.10.9 — rendered as the plain iron tool
-	 * with a shortened lifespan; a bespoke icy model is a later polish item.
-	 */
-	private static void giveIceTool(ServerPlayer p) {
-		Item h = p.getMainHandItem().getItem();
-		Item base;
-		String label;
-		if (h instanceof AxeItem) {
-			base = Items.IRON_AXE;
-			label = "Axe";
-		} else if (h instanceof SwordItem) {
-			base = Items.IRON_SWORD;
-			label = "Sword";
-		} else if (h instanceof ShovelItem) {
-			base = Items.IRON_SHOVEL;
-			label = "Shovel";
-		} else if (h instanceof HoeItem) {
-			base = Items.IRON_HOE;
-			label = "Hoe";
-		} else {
-			base = Items.IRON_PICKAXE;
-			label = "Pickaxe";
+	/** How long Sneak + R must be held before the ice-weapon wheel opens (2 s). */
+	static final int ICE_TOOL_CHARGE_TICKS = 40;
+
+	/** The choices on the ice-weapon wheel. Order is the wire index in {@code CryoWeaponPayload}. */
+	public enum IceWeapon {
+		PICKAXE(Items.IRON_PICKAXE, "Pickaxe"),
+		SWORD(Items.IRON_SWORD, "Sword"),
+		AXE(Items.IRON_AXE, "Axe"),
+		SHOVEL(Items.IRON_SHOVEL, "Shovel"),
+		HOE(Items.IRON_HOE, "Hoe");
+
+		public final Item base;
+		public final String label;
+
+		IceWeapon(Item base, String label) {
+			this.base = base;
+			this.label = label;
 		}
-		ItemStack tool = new ItemStack(base);
+	}
+
+	/**
+	 * Shape the chosen ice tool: iron mining level, but only 32 uses. v0.10.11 — the caster picks the
+	 * type from the weapon wheel. Rendered as the plain iron tool with a shortened lifespan; a bespoke
+	 * icy model is a later polish item. Re-validated here (owns Cryokinesis).
+	 */
+	public static void giveIceToolChoice(ServerPlayer p, int weaponIndex) {
+		if (!ExperimentalPowers.owns(p, KEY)) {
+			return;
+		}
+		IceWeapon[] all = IceWeapon.values();
+		IceWeapon w = all[Math.floorMod(weaponIndex, all.length)];
+		ItemStack tool = new ItemStack(w.base);
 		tool.set(DataComponents.MAX_DAMAGE, 32);
 		tool.set(DataComponents.DAMAGE, 0);
-		tool.set(DataComponents.CUSTOM_NAME, Component.literal("Ice " + label)
+		tool.set(DataComponents.CUSTOM_NAME, Component.literal("Ice " + w.label)
 				.withStyle(s -> s.withColor(ChatFormatting.AQUA).withItalic(false)));
 		if (!p.getInventory().add(tool)) {
 			p.drop(tool, false);
+		}
+		p.displayClientMessage(Component.translatable("message.projecthero.cryo.ice_tool"), true);
+		AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 0.8f, 1.4f);
+		AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 0.7f, 1.7f);
+		if (p.level() instanceof ServerLevel sl) {
+			sl.sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1.0, p.getZ(), 30, 0.4, 0.4, 0.4, 0.03);
 		}
 	}
 

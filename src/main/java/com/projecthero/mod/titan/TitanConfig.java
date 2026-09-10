@@ -49,31 +49,38 @@ public final class TitanConfig {
 
 	/** Attack damages and areas of effect. */
 	public static final class Attacks {
-		public double punchDamage = 26.0;
+		// v0.10.11: damage across the board lowered ~20-25%.
+		public double punchDamage = 20.0;
 		public double punchRange = 7.0;
 		/** Basic melee swing -- an always-available hit whenever a player is within reach, on its own
 		 *  short cooldown, independent of the telegraphed PUNCH/STOMP/SLAM state machine. */
-		public double meleeDamage = 22.0;
+		public double meleeDamage = 16.0;
 		public double meleeRange = 8.0;
 		public int meleeCooldownTicks = 16;
-		public double stompDamage = 40.0;
+		/** v0.10.11: wide backhand sweep -- a mid-range group knockback. */
+		public double sweepDamage = 22.0;
+		public double sweepRange = 10.0;
+		public double stompDamage = 30.0;
 		public double stompRadius = 4.5;
 		public double stompWindupTicks = 16; // 0.8s
-		public double slamDamage = 34.0;
+		public double slamDamage = 26.0;
 		public double slamRadius = 6.0;
-		public double grabDamage = 8.0;
-		public double holdDamage = 5.0;
-		public double throwDamage = 14.0;
+		/** v0.10.11: ground shockwave -- a large radial pulse, damage falls off toward the edge. */
+		public double shockwaveDamage = 30.0;
+		public double shockwaveRadius = 14.0;
+		public double grabDamage = 6.0;
+		public double holdDamage = 4.0;
+		public double throwDamage = 10.0;
 		public double throwHorizontalMin = 15.0;
 		public double throwHorizontalMax = 25.0;
 		public double throwVerticalMin = 6.0;
 		public double throwVerticalMax = 10.0;
-		public double boulderDamage = 36.0;
+		public double boulderDamage = 28.0;
 		public double boulderImpactRadius = 4.0;
 		/** The boulder's blast: everything within this radius of the impact takes {@link #boulderDamage},
 		 *  falling off with distance. This is what makes the ranged attack an AoE. */
 		public double boulderAoeRadius = 7.0;
-		public double chargeDamage = 44.0;
+		public double chargeDamage = 34.0;
 		public double chargeThrowMin = 8.0;
 		public double chargeThrowMax = 12.0;
 		public double chargeMaxDistance = 40.0;
@@ -82,8 +89,10 @@ public final class TitanConfig {
 	/** Per-attack cooldowns, in ticks. */
 	public static final class Cooldowns {
 		public int punch = 20;          // 1s
+		public int sweep = 70;          // 3.5s
 		public int stomp = 80;          // 4s
 		public int groundSlam = 110;    // 5.5s
+		public int shockwave = 150;     // 7.5s
 		public int grab = 160;          // 8s
 		public int boulder = 120;       // 6s
 		public int charge = 180;        // 9s

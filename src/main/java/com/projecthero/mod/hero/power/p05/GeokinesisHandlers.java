@@ -633,7 +633,7 @@ public final class GeokinesisHandlers {
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
 			double d = e.position().distanceTo(p.position());
 			float dmg = (float) ((45.0f + armorBonus(p)) * (1.0 - Math.min(0.55, d / r)));
-			AbilityHelpers.hurt(p, e, dmg);
+			AbilityHelpers.hurtBurst(p, e, dmg);
 			AbilityHelpers.knockbackFrom(e, p.position(), 1.4);
 			AbilityHelpers.push(e, new Vec3(0, 0.6, 0));
 			AbilityHelpers.slow7s(e);

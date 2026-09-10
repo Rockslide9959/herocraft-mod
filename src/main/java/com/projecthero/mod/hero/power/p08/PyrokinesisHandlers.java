@@ -131,6 +131,23 @@ public final class PyrokinesisHandlers {
 		return blueMode(p) ? com.projecthero.mod.hero.power.StanceMode.ABILITY_BONUS : 0.0f;
 	}
 
+	/** Base direct-hit damage for the R fireball (before Nether / Blue Flame bonuses). */
+	public static final float FIREBALL_DIRECT_DAMAGE = 12.0f;
+
+	/**
+	 * Direct-hit damage a Pyrokinesis R fireball should deal to whatever it strikes -- read by
+	 * {@code LargeFireballMixin}, which only ever calls this for a low-power (ghast-scale) fireball
+	 * owned by a pyrokinetic, i.e. never the Inferno ultimate's own big fireball.
+	 */
+	public static float fireballImpactDamage(ServerPlayer p) {
+		return FIREBALL_DIRECT_DAMAGE + netherBonus(p) + flameBodyAbilityBonus(p);
+	}
+
+	/** True when {@code p} owns Pyrokinesis -- the gate the fireball mixin uses. */
+	public static boolean ownsPyrokinesis(ServerPlayer p) {
+		return ExperimentalPowers.owns(p, KEY);
+	}
+
 	private static void placeFire(ServerLevel level, BlockPos pos, int ttl) {
 		if (fireOk() && level.getBlockState(pos).isAir()) {
 			TempBlocks.place(level, pos, BaseFireBlock.getState(level, pos), ttl);
@@ -299,7 +316,7 @@ public final class PyrokinesisHandlers {
 			if (!e.isAlive()) {
 				continue;
 			}
-			AbilityHelpers.hurt(p, e, level.damageSources().source(
+			AbilityHelpers.hurtBurst(p, e, level.damageSources().source(
 					net.minecraft.world.damagesource.DamageTypes.LIGHTNING_BOLT, p), 60.0f + flameBodyAbilityBonus(p));
 			// stun
 			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, LIGHTNING_STUN, 9);
@@ -332,22 +349,13 @@ public final class PyrokinesisHandlers {
 	public static void register() {
 		AbilityHandlers.register(KEY, "fireball", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
-			ServerLevel level = ctx.level();
 			Vec3 dir = p.getLookAngle();
-			LivingEntity aimed = AbilityHelpers.raycastEntity(p, 28.0);
-			if (aimed != null) {
-				// a direct hit: 12 fire damage and ignition, plus a searing beam of flame
-				AbilityHelpers.line(level, p.getEyePosition(), aimed.position().add(0, aimed.getBbHeight() * 0.5, 0),
-						flameParticle(p), 3.0);
-				AbilityHelpers.hurt(p, aimed, AbilityHelpers.fire(p), 12.0f + netherBonus(p) + flameBodyAbilityBonus(p));
-				aimed.setRemainingFireTicks(120);
-				level.sendParticles(flameParticle(p), aimed.getX(), aimed.getY() + aimed.getBbHeight() * 0.5, aimed.getZ(),
-						30, 0.4, 0.5, 0.4, 0.02);
-			} else {
-				LargeFireball fb = new LargeFireball(p.level(), p, dir.scale(1.0), netherBonus(p) > 0 ? 3 : 2);
-				fb.setPos(p.getX() + dir.x * 1.0, p.getEyeY() - 0.1, p.getZ() + dir.z * 1.0);
-				p.level().addFreshEntity(fb);
-			}
+			// v0.10.11: always a real ghast fireball (was a hitscan flame "laser" on a direct aim).
+			// A direct hit deals FIREBALL_DIRECT_DAMAGE via LargeFireballMixin; explosion power stays
+			// ghast-low so the basic attack does not crater terrain on every press.
+			LargeFireball fb = new LargeFireball(p.level(), p, dir, netherBonus(p) > 0 ? 2 : 1);
+			fb.setPos(p.getX() + dir.x * 1.5, p.getEyeY() + dir.y * 1.5 - 0.1, p.getZ() + dir.z * 1.5);
+			p.level().addFreshEntity(fb);
 			AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.0f, blueMode(p) ? 0.6f : 0.9f);
 			ctx.triggerCooldown();
 		}));
@@ -432,6 +440,9 @@ public final class PyrokinesisHandlers {
 				return;
 			}
 			AbilityHelpers.addImpulse(p, p.getLookAngle().scale(1.6).add(0, 0.2, 0));
+			// v0.10.11: no fall damage for 10 s after the lunge -- HeroDamageRules reads this resource.
+			ctx.setResource("no_fall_until", p.level().getGameTime() + 200, 1.0e12f);
+			p.resetFallDistance();
 			p.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.FIRE_RESISTANCE, 60, 0, false, false, false));
 			AbilityHelpers.burst(ctx.level(), p.position(), flameParticle(p), 24, 0.3);
 			placeFire(ctx.level(), p.blockPosition(), 60);

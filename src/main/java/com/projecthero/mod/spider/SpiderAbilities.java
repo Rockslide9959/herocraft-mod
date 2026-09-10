@@ -72,8 +72,8 @@ public final class SpiderAbilities {
 	// ---- Web Blossom tuning (v0.6.23) ----
 	/** Sneak + hold V for this long (3 s) to charge Web Blossom. */
 	public static final int BLOSSOM_CHARGE_TICKS = 3 * 20;
-	/** It spends the entire web reserve. */
-	public static final float BLOSSOM_COST = SpiderWebReserve.MAX;
+	/** v0.10.11: a flat 75 webbing, no longer the entire reserve. */
+	public static final float BLOSSOM_COST = 75.0f;
 	private static final double BLOSSOM_RADIUS = 20.0;
 	private static final float BLOSSOM_DAMAGE = 40.0f;
 	/** Targets are cocooned / frozen in place for 20 s. */
@@ -538,7 +538,7 @@ public final class SpiderAbilities {
 	 * Web Blossom: sneak and <b>hold V for 3 seconds</b> to charge, then Spider-Man leaps into the air
 	 * and fires webbing in every direction. Everything within {@link #BLOSSOM_RADIUS} blocks takes
 	 * {@link #BLOSSOM_DAMAGE} damage and is trapped in cobwebs -- frozen in place -- for
-	 * {@link #BLOSSOM_TRAP_TICKS} (20 s). Spends the entire web reserve ({@link #BLOSSOM_COST}).
+	 * {@link #BLOSSOM_TRAP_TICKS} (20 s). Costs {@link #BLOSSOM_COST} (75) webbing.
 	 *
 	 * <p>Charge / release / tick all mirror Thor's God of Thunder's Wrath: the charge is held in the
 	 * synced {@link ModAttachments#SPIDER_BLOSSOM_CHARGE} attachment so the HUD can draw a buildup

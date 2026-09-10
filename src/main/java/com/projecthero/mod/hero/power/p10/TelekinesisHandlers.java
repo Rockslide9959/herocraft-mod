@@ -97,10 +97,16 @@ public final class TelekinesisHandlers {
 	private static final float DRAIN_HOLD = 1.0f;
 	private static final float DRAIN_CRUSH = 2.5f;
 
+	/**
+	 * v0.10.11: every telekinetic move reaches 50 blocks. Force Push's cone, Force Pull's grab, the
+	 * detonation's radius, Telekinetic Grab, Force Crush and Block Manipulation all key off this.
+	 */
+	static final double RANGE = 50.0;
+
 	// --- Z: Psychic Detonation ---
 	private static final int ULT_CHARGE_TICKS = 5 * 20;
 	private static final int ULT_COOLDOWN = 90 * 20;
-	private static final double ULT_RANGE = 20.0;
+	private static final double ULT_RANGE = RANGE;
 	private static final double ULT_MIN_DISTANCE = 2.0;
 	private static final float ULT_DAMAGE = 55.0f;
 
@@ -360,15 +366,23 @@ public final class TelekinesisHandlers {
 			return;
 		}
 		ServerPlayer p = ctx.player();
-		Vec3 cone = p.getEyePosition().add(p.getLookAngle().scale(4.0));
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, cone, 4.5)) {
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		// v0.10.11: a 50-block forward cone (~30 degrees) rather than a 4-block bubble in front of you.
+		Vec3 mid = eye.add(look.scale(RANGE * 0.5));
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, mid, RANGE * 0.5 + 3.0)) {
+			Vec3 toward = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);
+			if (toward.lengthSqr() > 1.0e-4 && toward.normalize().dot(look) < 0.86) {
+				continue;
+			}
 			// a hard shove -- several blocks of launch on a clear line
-			Vec3 dir = e.position().subtract(p.getEyePosition()).normalize().scale(2.0).add(0, 0.5, 0);
+			Vec3 dir = e.position().subtract(eye).normalize().scale(2.0).add(0, 0.5, 0);
 			AbilityHelpers.push(e, dir);
 			AbilityHelpers.knockbackFrom(e, p.position(), 1.6);
 			AbilityHelpers.hurt(p, e, 10.0f);
 		}
-		AbilityHelpers.burst(ctx.level(), cone, ParticleTypes.SCULK_SOUL, 20, 0.6);
+		AbilityHelpers.line(ctx.level(), eye, AbilityHelpers.aimPoint(p, RANGE), ParticleTypes.SCULK_SOUL, 2.0);
+		AbilityHelpers.burst(ctx.level(), eye.add(look.scale(4.0)), ParticleTypes.SCULK_SOUL, 20, 0.6);
 		AbilityHelpers.sound(p, SoundEvents.ILLUSIONER_CAST_SPELL, 1.0f, 0.7f);
 		ctx.triggerCooldown();
 	}
@@ -382,16 +396,16 @@ public final class TelekinesisHandlers {
 			return;
 		}
 		ServerPlayer p = ctx.player();
-		LivingEntity t = AbilityHelpers.raycastEntity(p, 20.0);
+		LivingEntity t = AbilityHelpers.raycastEntity(p, RANGE);
 		if (t != null) {
 			Vec3 dir = p.position().subtract(t.position()).normalize().scale(1.6).add(0, 0.3, 0);
 			AbilityHelpers.push(t, dir);
 		}
 		int items = 0;
-		for (ItemEntity item : ctx.level().getEntitiesOfClass(ItemEntity.class, p.getBoundingBox().inflate(20.0))) {
+		for (ItemEntity item : ctx.level().getEntitiesOfClass(ItemEntity.class, p.getBoundingBox().inflate(RANGE))) {
 			Vec3 to = p.position().add(0, 0.3, 0).subtract(item.position());
 			double dist = to.length();
-			if (dist > 20.0) {
+			if (dist > RANGE) {
 				continue;
 			}
 			if (dist < 1.5) {
@@ -402,7 +416,7 @@ public final class TelekinesisHandlers {
 			}
 			items++;
 		}
-		AbilityHelpers.line(ctx.level(), p.getEyePosition(), AbilityHelpers.aimPoint(p, 12.0), ParticleTypes.SCULK_SOUL, 3.0);
+		AbilityHelpers.line(ctx.level(), p.getEyePosition(), AbilityHelpers.aimPoint(p, RANGE), ParticleTypes.SCULK_SOUL, 3.0);
 		AbilityHelpers.sound(p, SoundEvents.ILLUSIONER_CAST_SPELL, 1.0f, 1.3f);
 		if (t == null && items == 0) {
 			ctx.actionBar("message.projecthero.telekinesis.nothing_to_pull");
@@ -518,7 +532,7 @@ public final class TelekinesisHandlers {
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), ULT_RANGE)) {
 			Vec3 dir = e.position().subtract(p.position()).normalize().scale(2.8).add(0, 0.6, 0);
 			AbilityHelpers.push(e, dir);
-			AbilityHelpers.hurt(p, e, ULT_DAMAGE);
+			AbilityHelpers.hurtBurst(p, e, ULT_DAMAGE);
 		}
 		for (int i = 0; i < 5; i++) {
 			double r = ULT_RANGE * (i + 1) / 5.0;
@@ -558,7 +572,7 @@ public final class TelekinesisHandlers {
 			startCrush(ctx);
 			return;
 		}
-		if (spendPsi(ctx, COST_GRAB) && GrabHelper.tryGrab(ctx, 12.0, 160)) {
+		if (spendPsi(ctx, COST_GRAB) && GrabHelper.tryGrab(ctx, RANGE, 160)) {
 			ctx.actionBar("message.projecthero.ability.grabbed");
 		}
 	}
@@ -586,7 +600,7 @@ public final class TelekinesisHandlers {
 	 */
 	private static void startCrush(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
-		LivingEntity target = AbilityHelpers.raycastEntity(p, 16.0);
+		LivingEntity target = AbilityHelpers.raycastEntity(p, RANGE);
 		if (target == null || !AbilityHelpers.isValidGrabTarget(target, p)) {
 			ctx.actionBar("message.projecthero.telekinesis.no_target");
 			return;
@@ -628,7 +642,7 @@ public final class TelekinesisHandlers {
 		}
 		float left = ctx.resource("crush_ticks") - 1.0f;
 		if (!(p.level().getEntity(crushId) instanceof LivingEntity victim) || !victim.isAlive()
-				|| left <= 0.0f || p.distanceToSqr(victim) > 24.0 * 24.0) {
+				|| left <= 0.0f || p.distanceToSqr(victim) > RANGE * RANGE) {
 			endCrush(p);
 			return;
 		}
@@ -673,7 +687,7 @@ public final class TelekinesisHandlers {
 		if (!AbilityHelpers.canGrief() || heldBlockCount(ctx) > 0) {
 			return;
 		}
-		var hit = AbilityHelpers.raycastBlock(p, 8.0);
+		var hit = AbilityHelpers.raycastBlock(p, RANGE);
 		if (hit.getType() != HitResult.Type.BLOCK) {
 			return;
 		}
@@ -699,7 +713,7 @@ public final class TelekinesisHandlers {
 		if (!AbilityHelpers.canGrief() || heldBlockCount(ctx) > 0) {
 			return;
 		}
-		var hit = AbilityHelpers.raycastBlock(p, 12.0);
+		var hit = AbilityHelpers.raycastBlock(p, RANGE);
 		if (hit.getType() != HitResult.Type.BLOCK) {
 			return;
 		}
@@ -864,7 +878,7 @@ public final class TelekinesisHandlers {
 			return;
 		}
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, lead.position(), 2.5)) {
-			AbilityHelpers.hurt(p, e, CHUNK_IMPACT_DAMAGE);
+			AbilityHelpers.hurtBurst(p, e, CHUNK_IMPACT_DAMAGE);
 			AbilityHelpers.knockbackFrom(e, lead.position(), 1.8);
 			ctx.level().sendParticles(ParticleTypes.SCULK_CHARGE_POP,
 					e.getX(), e.getY() + 1.0, e.getZ(), 30, 0.5, 0.5, 0.5, 0.2);

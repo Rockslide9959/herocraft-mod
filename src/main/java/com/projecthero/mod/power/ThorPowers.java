@@ -714,10 +714,16 @@ public final class ThorPowers {
 		net.minecraft.world.phys.AABB area = new net.minecraft.world.phys.AABB(pos, pos).inflate(GOD_OF_THUNDER_RADIUS);
 		for (LivingEntity target : serverLevel.getEntitiesOfClass(LivingEntity.class, area,
 				e -> e != player && e.isAlive())) {
-			if (target.distanceToSqr(pos) > GOD_OF_THUNDER_RADIUS * GOD_OF_THUNDER_RADIUS + 4.0) {
+			if (com.projecthero.mod.hero.power.AbilityHelpers.distanceSqToBox(target, pos)
+					> GOD_OF_THUNDER_RADIUS * GOD_OF_THUNDER_RADIUS + 4.0) {
 				continue;
 			}
 			igniteIfAnimal(target);
+			// v0.10.11: a one-shot ultimate must land its full hit even if the boss is mid-i-frame from
+			// a melee swing -- clear the window for non-players first.
+			if (!(target instanceof net.minecraft.world.entity.player.Player)) {
+				target.invulnerableTime = 0;
+			}
 			target.hurt(source, GOD_OF_THUNDER_DAMAGE);
 		}
 

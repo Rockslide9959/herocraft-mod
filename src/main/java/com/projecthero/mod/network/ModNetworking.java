@@ -30,6 +30,8 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(FirearmActionPayload.TYPE, FirearmActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(PunisherArsenalPayload.TYPE, PunisherArsenalPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(PunisherActionPayload.TYPE, PunisherActionPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(CryoWeaponPayload.TYPE, CryoWeaponPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(CryoWheelOpenPayload.TYPE, CryoWheelOpenPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IronManBeamPayload.TYPE, IronManBeamPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IronManSuitListPayload.TYPE, IronManSuitListPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IronManWeaponWheelPayload.TYPE, IronManWeaponWheelPayload.CODEC);
@@ -132,6 +134,10 @@ public final class ModNetworking {
 				com.projecthero.mod.punisher.VigilanteTraining.abandon(context.player());
 			}
 		});
+
+		// Cryokinesis ice-weapon wheel: the player picked which ice tool to shape.
+		ServerPlayNetworking.registerGlobalReceiver(CryoWeaponPayload.TYPE, (payload, context) ->
+				com.projecthero.mod.hero.power.p09.CryokinesisHandlers.giveIceToolChoice(context.player(), payload.weapon()));
 
 		// Iron Man call-armour picker: the player chose a suit from the C-key screen.
 		ServerPlayNetworking.registerGlobalReceiver(IronManCallSuitPayload.TYPE, (payload, context) ->

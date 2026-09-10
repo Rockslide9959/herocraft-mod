@@ -85,11 +85,12 @@ An **upgrade for Spider-Man**, or a standalone power for a **Normal Host**. Find
 hunt down — then right-click to bond.
 
 - Toggle the **black suit** on and off (**H**) with a progressive, particle-covered suit-up.
-- **Tendril abilities:** Tendril Strike, a hold-to-raise **Symbiote Shield** that blocks 90% of
-  frontal damage on a guard meter, **Tendril Grab** (grab, hold and throw a target), **Symbiote
-  Onslaught** (a charged Wither/Blind/Slow AoE ultimate), a 25-block **Grapple** (sneak + X), and a
-  Frenzy state.
-- Bonding permanently **doubles your Web Reserve**. The suit is unbreakable while worn.
+- **Tendril abilities:** Tendril Strike, a hold-to-raise **Symbiote Shield**, a Spike volley, a
+  directional **Leap**, **Symbiote Onslaught** (a charged Wither/Blind/Slow AoE ultimate), a hardened
+  tendril **Blade**, a body-**Spikes** toggle, and a **Grapple** (sneak + X).
+- A **Normal Host** gets a **Biomass** health bar that soaks part of every hit and regenerates out of
+  combat; a Spider-Man host keeps their own Web Reserve and doubles it. The suit is unbreakable while
+  worn.
 - **Weakness:** sustained fire or lava severs the bond — about five seconds of continuous burning and
   the symbiote lets go.
 
@@ -117,8 +118,8 @@ A **non-superhuman** Hero-Tier power: firearms, explosives, gear and training. C
 - **Abilities:** Tactical Satchel, Frag Grenade (cook-and-throw), Tactical Roll (with i-frames),
   Suppressive Fire, **Adrenaline** (regen/haste/speed burst with a nausea crash), and remote **C4
   charges** (place with C, detonate with Shift+C).
-- **Passives:** infinite gun reserve ammo, plus infinite arrows and double bow/crossbow damage while
-  powered.
+- **Passives:** a per-gun regenerating ammo reserve (no ammo item to carry), plus infinite arrows and
+  double bow/crossbow damage while powered.
 - Netherite/diamond-tier **tactical armour** (no helmet), craftable only by Punisher players.
 
 ---
@@ -170,9 +171,11 @@ and variant trophies.
 ### The Titan
 A world boss that starts as an ordinary-looking zombie and, at low health, transforms into an
 **~18-block giant**. It actively hunts players and fights with a telegraphed attack state machine —
-ground-shaking **Stomp** and **Slam**, a player **Grab**, an **AoE boulder throw**, a long
-**Charge**, and an always-on melee swipe so you can't just hug its leg. Deliberately very strong;
-tunable in `config/projecthero_titan.json`.
+every attack winds up for two full seconds with its own distinct charge-up particle tell before it
+lands. Its moves: a single-target **Punch**, a wide backhand **Sweep**, ground-shaking **Stomp** and
+**Slam**, a long-range ground **Shockwave**, a player **Grab**, an **AoE boulder throw**, a full-tilt
+**Charge**, and an always-on melee swipe so you can't just hug its leg. Strong, but readable; tunable
+in `config/projecthero_titan.json`.
 
 ---
 

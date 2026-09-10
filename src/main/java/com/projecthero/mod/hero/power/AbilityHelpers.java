@@ -71,8 +71,23 @@ public final class AbilityHelpers {
 		net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(
 				center.x - radius, center.y - radius, center.z - radius,
 				center.x + radius, center.y + radius, center.z + radius);
+		double r2 = radius * radius;
 		return level.getEntitiesOfClass(LivingEntity.class, box,
-				e -> e.isAlive() && e.distanceToSqr(center) <= radius * radius && filter.test(e));
+				e -> e.isAlive() && distanceSqToBox(e, center) <= r2 && filter.test(e));
+	}
+
+	/**
+	 * Squared distance from {@code center} to the nearest point of the entity's bounding box. Using this
+	 * instead of {@code entity.distanceToSqr(center)} (which measures to the feet) is what lets an AoE
+	 * ability actually land on a huge boss like the Titan when the blast is centred on its body or on an
+	 * aim point rather than exactly on the block it is standing on.
+	 */
+	public static double distanceSqToBox(Entity e, Vec3 center) {
+		net.minecraft.world.phys.AABB b = e.getBoundingBox();
+		double dx = Math.max(Math.max(b.minX - center.x, center.x - b.maxX), 0.0);
+		double dy = Math.max(Math.max(b.minY - center.y, center.y - b.maxY), 0.0);
+		double dz = Math.max(Math.max(b.minZ - center.z, center.z - b.maxZ), 0.0);
+		return dx * dx + dy * dy + dz * dz;
 	}
 
 	public static List<LivingEntity> enemiesAround(ServerPlayer player, Vec3 center, double radius) {
@@ -99,6 +114,30 @@ public final class AbilityHelpers {
 			}
 		}
 		return target.hurt(damageSource, amount);
+	}
+
+	/**
+	 * A one-shot burst / ultimate hit that must land its full amount even if the target is still inside
+	 * its hit-invulnerability window from a melee swing or another ability a few ticks ago. Only ever
+	 * bypasses the window for non-player targets -- against players it behaves exactly like
+	 * {@link #hurt}. Never use this from a per-tick channel (flamethrower, freeze beam, crush): those
+	 * rely on the window, or their own tick counter, to throttle their DPS.
+	 */
+	public static boolean hurtBurst(ServerPlayer source, LivingEntity target, float amount) {
+		return hurtBurst(source, target, source.level().damageSources().playerAttack(source), amount);
+	}
+
+	public static boolean hurtBurst(ServerPlayer source, LivingEntity target, DamageSource damageSource, float amount) {
+		if (target == source || !target.isAlive() || target instanceof Player) {
+			return hurt(source, target, damageSource, amount);
+		}
+		int savedInv = target.invulnerableTime;
+		target.invulnerableTime = 0;
+		boolean dealt = target.hurt(damageSource, amount);
+		if (!dealt) {
+			target.invulnerableTime = savedInv;
+		}
+		return dealt;
 	}
 
 	public static DamageSource fire(ServerPlayer source) {

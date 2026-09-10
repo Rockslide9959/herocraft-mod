@@ -113,6 +113,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				(payload, context) -> context.client().execute(() -> context.client().setScreen(
 						new com.projecthero.mod.client.gui.IronManSuitCallScreen(payload.options()))));
 
+		// Cryokinesis ice-weapon wheel (v0.10.11): server tells us the 2 s Sneak+R hold completed.
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.CryoWheelOpenPayload.TYPE,
+				(payload, context) -> context.client().execute(() -> context.client().setScreen(
+						new com.projecthero.mod.client.gui.CryoWeaponWheelScreen())));
+
 		// Mark 7 weapon wheel ("changes 16"): server tells us to open it (empty ability string).
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.IronManWeaponWheelPayload.TYPE,
 				(payload, context) -> context.client().execute(() -> context.client().setScreen(

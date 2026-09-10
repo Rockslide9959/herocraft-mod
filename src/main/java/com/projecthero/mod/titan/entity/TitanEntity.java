@@ -52,7 +52,14 @@ public class TitanEntity extends RaidUndead {
 	 *  for why this is a compile-time constant rather than a live-reconfigurable one. */
 	public static final float SCALE = 18.0f / 1.95f;
 
-	private enum Attack { NONE, PUNCH, STOMP, SLAM, GRAB, BOULDER, CHARGE }
+	private enum Attack { NONE, PUNCH, SWEEP, STOMP, SLAM, SHOCKWAVE, GRAB, BOULDER, CHARGE }
+
+	/**
+	 * v0.10.11: every telegraphed attack now winds up for a uniform 2 seconds, with its own distinct
+	 * charge-up particle signature (see {@link #emitTelegraph}), so a player can read which move is
+	 * coming and answer it. CHARGE keeps this as its launch delay; the rest resolve when it hits 0.
+	 */
+	private static final int WINDUP_TICKS = 40;
 
 	private Attack activeAttack = Attack.NONE;
 	private int attackTicks;
@@ -481,6 +488,16 @@ public class TitanEntity extends RaidUndead {
 		if (dist <= TitanConfig.attacks().punchRange && ready(Attack.PUNCH)) {
 			addWeighted(pool, Attack.PUNCH, 3);
 		}
+		// v0.10.11: a wide backhand sweep -- a mid-range alternative to the single-target punch that
+		// catches a whole group standing in front of the Titan and hurls them back.
+		if (dist <= 12.0 && ready(Attack.SWEEP)) {
+			addWeighted(pool, Attack.SWEEP, veryClose ? 4 : 3);
+		}
+		// v0.10.11: a ground shockwave -- a big radial pulse that reaches much further than Stomp/Slam
+		// and knocks everyone in the ring straight up.
+		if (dist <= TitanConfig.attacks().shockwaveRadius && ready(Attack.SHOCKWAVE)) {
+			addWeighted(pool, Attack.SHOCKWAVE, fleeing || dist > 8.0 ? 4 : 2);
+		}
 		if (underfoot && ready(Attack.STOMP)) {
 			addWeighted(pool, Attack.STOMP, 6);
 		} else if (dist <= 6.0 && ready(Attack.STOMP)) {
@@ -531,35 +548,48 @@ public class TitanEntity extends RaidUndead {
 		// v0.10.10: the mover is what actually drives it now, so parking the (unused) navigator is not
 		// enough on its own to hold it still for an attack wind-up.
 		getMoveControl().setWantedPosition(getX(), getY(), getZ(), 0.0);
-		switch (attack) {
-			case PUNCH -> attackTicks = 10;
-			case STOMP -> attackTicks = (int) TitanConfig.attacks().stompWindupTicks;
-			case SLAM -> attackTicks = 18;
-			case GRAB -> attackTicks = 14;
-			case BOULDER -> attackTicks = 16;
-			case CHARGE -> {
-				attackTicks = 20;
-				Vec3 dir = new Vec3(target.getX() - getX(), 0, target.getZ() - getZ());
-				chargeDirection = dir.lengthSqr() < 1.0e-4 ? Vec3.directionFromRotation(0, getYRot()) : dir.normalize();
-				chargeDistanceLeft = TitanConfig.attacks().chargeMaxDistance;
-				server.playSound(null, blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 3.0f, 0.6f);
-			}
-			default -> attackTicks = 10;
+		// v0.10.11: uniform 2 s wind-up for every attack.
+		attackTicks = WINDUP_TICKS;
+		if (attack == Attack.CHARGE) {
+			Vec3 dir = new Vec3(target.getX() - getX(), 0, target.getZ() - getZ());
+			chargeDirection = dir.lengthSqr() < 1.0e-4 ? Vec3.directionFromRotation(0, getYRot()) : dir.normalize();
+			chargeDistanceLeft = TitanConfig.attacks().chargeMaxDistance;
 		}
+		server.playSound(null, blockPosition(), telegraphSound(attack), SoundSource.HOSTILE, 2.6f, 0.5f);
+	}
+
+	private static net.minecraft.sounds.SoundEvent telegraphSound(Attack a) {
+		return switch (a) {
+			case CHARGE -> SoundEvents.RAVAGER_ROAR;
+			case SLAM, SHOCKWAVE -> SoundEvents.WARDEN_SONIC_CHARGE;
+			case BOULDER -> SoundEvents.RAVAGER_STUNNED;
+			case GRAB -> SoundEvents.WARDEN_TENDRIL_CLICKS;
+			case SWEEP -> SoundEvents.RAVAGER_ATTACK;
+			default -> SoundEvents.RAVAGER_CELEBRATE;
+		};
 	}
 
 	private void resolveActiveAttack(ServerLevel server, LivingEntity target) {
 		attackTicks--;
+		// The 2-second charge-up: a per-attack particle tell every tick until it resolves.
+		if (attackTicks > 0) {
+			emitTelegraph(server, activeAttack, attackTicks, target);
+			if (activeAttack == Attack.CHARGE) {
+				return; // still winding up
+			}
+		}
 		switch (activeAttack) {
 			case PUNCH -> {
 				if (attackTicks == 0 && !attackResolved) {
 					doPunch(server, target);
 				}
 			}
-			case STOMP -> {
-				if (attackTicks % 3 == 0) {
-					server.sendParticles(ParticleTypes.CLOUD, getX(), getY(), getZ(), 3, getBbWidth() * 0.3, 0.1, getBbWidth() * 0.3, 0.0);
+			case SWEEP -> {
+				if (attackTicks == 0 && !attackResolved) {
+					doSweep(server);
 				}
+			}
+			case STOMP -> {
 				if (attackTicks == 0 && !attackResolved) {
 					doStomp(server);
 				}
@@ -569,8 +599,13 @@ public class TitanEntity extends RaidUndead {
 					doSlam(server);
 				}
 			}
+			case SHOCKWAVE -> {
+				if (attackTicks == 0 && !attackResolved) {
+					doShockwave(server);
+				}
+			}
 			case GRAB -> {
-				if (attackTicks == 8 && !attackResolved) {
+				if (attackTicks == 0 && !attackResolved) {
 					doGrabAttempt(server, target);
 				}
 			}
@@ -580,9 +615,6 @@ public class TitanEntity extends RaidUndead {
 				}
 			}
 			case CHARGE -> {
-				if (attackTicks > 0) {
-					return; // wind-up
-				}
 				tickCharge(server);
 				return;
 			}
@@ -591,6 +623,78 @@ public class TitanEntity extends RaidUndead {
 		}
 		if (attackTicks <= 0) {
 			endAttack(activeAttack);
+		}
+	}
+
+	/**
+	 * The charge-up particle signature for {@code attack}, drawn every tick of its 2-second wind-up.
+	 * Each move looks different so the telegraph is readable: a cocked fist, a sweeping arc at chest
+	 * height, dust gathering under a raised foot, a crackling column overhead, a contracting ground
+	 * ring, a reaching hand, a boulder forming in the palm, or the ground being pawed before a charge.
+	 */
+	private void emitTelegraph(ServerLevel server, Attack a, int remaining, LivingEntity target) {
+		double cx = getX();
+		double cy = getY();
+		double cz = getZ();
+		double h = getBbHeight();
+		double w = getBbWidth();
+		double progress = 1.0 - remaining / (double) WINDUP_TICKS;
+		Vec3 aim = target != null && target.isAlive()
+				? new Vec3(target.getX() - cx, 0, target.getZ() - cz)
+				: Vec3.directionFromRotation(0, getYRot());
+		aim = aim.lengthSqr() < 1.0e-4 ? Vec3.directionFromRotation(0, getYRot()) : aim.normalize();
+		Vec3 side = new Vec3(-aim.z, 0, aim.x);
+		switch (a) {
+			case PUNCH -> {
+				Vec3 fist = new Vec3(cx, cy + h * 0.78, cz).subtract(aim.scale(w * 0.45));
+				server.sendParticles(ParticleTypes.CRIT, fist.x, fist.y, fist.z, 5, 0.35, 0.35, 0.35, 0.03);
+			}
+			case SWEEP -> {
+				double ang = (remaining / (double) WINDUP_TICKS) * Math.PI - Math.PI / 2.0;
+				Vec3 p = new Vec3(cx, cy + h * 0.55, cz)
+						.add(side.scale(Math.cos(ang) * w * 0.9)).add(aim.scale(w * 0.6));
+				server.sendParticles(ParticleTypes.SWEEP_ATTACK, p.x, p.y, p.z, 1, 0, 0, 0, 0);
+				server.sendParticles(ParticleTypes.CLOUD, p.x, p.y, p.z, 2, 0.15, 0.15, 0.15, 0.0);
+			}
+			case STOMP -> {
+				server.sendParticles(ParticleTypes.CLOUD, cx, cy + 0.1, cz, 4, w * 0.35, 0.05, w * 0.35, 0.01);
+				server.sendParticles(ParticleTypes.POOF, cx, cy + 0.1, cz, 2, w * 0.3, 0.02, w * 0.3, 0.0);
+			}
+			case SLAM -> {
+				server.sendParticles(ParticleTypes.ELECTRIC_SPARK, cx, cy + h + 0.6, cz,
+						6, w * 0.4, 0.3, w * 0.4, 0.06);
+				server.sendParticles(ParticleTypes.CRIT, cx, cy + h * (0.6 + 0.45 * progress), cz,
+						4, w * 0.3, 0.4, w * 0.3, 0.02);
+			}
+			case SHOCKWAVE -> {
+				double rad = 1.5 + 6.0 * (remaining / (double) WINDUP_TICKS);
+				for (int i = 0; i < 8; i++) {
+					double aa = server.random.nextDouble() * Math.PI * 2;
+					server.sendParticles(ParticleTypes.SCULK_SOUL,
+							cx + Math.cos(aa) * rad, cy + 0.35, cz + Math.sin(aa) * rad, 1, 0, 0, 0, 0);
+				}
+			}
+			case GRAB -> {
+				Vec3 hand = new Vec3(cx, cy + h * 0.6, cz).add(aim.scale(w * 0.7));
+				server.sendParticles(ParticleTypes.PORTAL, hand.x, hand.y, hand.z, 6, 0.3, 0.4, 0.3, 0.05);
+				server.sendParticles(ParticleTypes.ENCHANT, hand.x, hand.y + 1.0, hand.z, 4, 0.2, 0.2, 0.2, 0.1);
+			}
+			case BOULDER -> {
+				Vec3 hand = new Vec3(cx, cy + h * 0.66, cz).add(aim.scale(w * 0.35));
+				server.sendParticles(ParticleTypes.LARGE_SMOKE, hand.x, hand.y, hand.z,
+						3, 0.35 + 0.3 * progress, 0.35, 0.35 + 0.3 * progress, 0.0);
+				server.sendParticles(ParticleTypes.LAVA, hand.x, hand.y, hand.z, 1, 0.2, 0.2, 0.2, 0.0);
+			}
+			case CHARGE -> {
+				Vec3 back = aim.scale(-1);
+				server.sendParticles(ParticleTypes.ANGRY_VILLAGER, cx, cy + h * 0.85, cz, 1,
+						w * 0.3, 0.2, w * 0.3, 0.0);
+				server.sendParticles(ParticleTypes.CLOUD,
+						cx + back.x * w * 0.5, cy + 0.1, cz + back.z * w * 0.5,
+						4, w * 0.2, 0.05, w * 0.2, 0.03);
+			}
+			default -> {
+			}
 		}
 	}
 
@@ -605,8 +709,10 @@ public class TitanEntity extends RaidUndead {
 		var cd = TitanConfig.cooldowns();
 		return switch (a) {
 			case PUNCH -> cd.punch;
+			case SWEEP -> cd.sweep;
 			case STOMP -> cd.stomp;
 			case SLAM -> cd.groundSlam;
+			case SHOCKWAVE -> cd.shockwave;
 			case GRAB -> cd.grab;
 			case BOULDER -> cd.boulder;
 			case CHARGE -> cd.charge;
@@ -627,6 +733,54 @@ public class TitanEntity extends RaidUndead {
 		target.hurtMarked = true;
 		server.sendParticles(ParticleTypes.CLOUD, target.getX(), target.getY() + 1, target.getZ(), 10, 0.3, 0.3, 0.3, 0.05);
 		server.playSound(null, blockPosition(), SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.HOSTILE, 2.0f, 0.5f);
+	}
+
+	/** Wide backhand: a ~180-degree forward arc, big damage-free-ish knockback, catches a whole group. */
+	private void doSweep(ServerLevel server) {
+		attackResolved = true;
+		Vec3 facing = Vec3.directionFromRotation(0, getYRot());
+		Vec3 center = position();
+		double reach = TitanConfig.attacks().sweepRange + getBbWidth() * 0.5;
+		for (LivingEntity le : nearbyLiving(reach)) {
+			Vec3 flat = new Vec3(le.getX() - center.x, 0, le.getZ() - center.z);
+			if (flat.lengthSqr() > 1.0e-4 && flat.normalize().dot(facing) < 0.0) {
+				continue; // behind the swing
+			}
+			le.hurt(damageSources().mobAttack(this), (float) TitanConfig.attacks().sweepDamage);
+			Vec3 push = flat.lengthSqr() < 1.0e-4 ? facing : flat.normalize();
+			le.setDeltaMovement(push.x * 2.6, 0.55, push.z * 2.6);
+			le.hurtMarked = true;
+		}
+		server.sendParticles(ParticleTypes.SWEEP_ATTACK, getX() + facing.x * getBbWidth() * 0.6,
+				getY() + getBbHeight() * 0.5, getZ() + facing.z * getBbWidth() * 0.6,
+				8, getBbWidth() * 0.6, 0.4, getBbWidth() * 0.6, 0.0);
+		server.playSound(null, blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 2.6f, 0.4f);
+	}
+
+	/** Ground shockwave: a big radial pulse that reaches far past Stomp/Slam and knocks everyone up. */
+	private void doShockwave(ServerLevel server) {
+		attackResolved = true;
+		double r = TitanConfig.attacks().shockwaveRadius;
+		Vec3 center = position();
+		for (LivingEntity le : nearbyLiving(r)) {
+			double d = le.position().distanceTo(center);
+			float dmg = (float) (TitanConfig.attacks().shockwaveDamage * (1.0 - Math.min(0.6, d / r)));
+			le.hurt(damageSources().mobAttack(this), dmg);
+			Vec3 push = le.position().subtract(center);
+			push = push.lengthSqr() < 1.0e-4 ? Vec3.directionFromRotation(0, getYRot()) : push.normalize();
+			le.setDeltaMovement(push.x * 1.3, 0.95, push.z * 1.3);
+			le.hurtMarked = true;
+		}
+		for (int step = 1; step <= (int) r; step += 2) {
+			for (int i = 0; i < 24; i++) {
+				double a = i / 24.0 * Math.PI * 2;
+				server.sendParticles(ParticleTypes.CLOUD, center.x + Math.cos(a) * step, center.y + 0.25,
+						center.z + Math.sin(a) * step, 1, 0.0, 0.0, 0.0, 0.0);
+			}
+		}
+		TitanTerrain.breakCluster(server, blockPosition(), Math.min(6.0, r * 0.4), false);
+		server.sendParticles(ParticleTypes.EXPLOSION_EMITTER, getX(), getY(), getZ(), 1, 0, 0, 0, 0);
+		server.playSound(null, blockPosition(), SoundEvents.WARDEN_SONIC_BOOM, SoundSource.HOSTILE, 3.0f, 0.5f);
 	}
 
 	private void doStomp(ServerLevel server) {

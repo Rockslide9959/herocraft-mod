@@ -371,7 +371,7 @@ public final class CrystalkinesisHandlers {
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
 			double d = e.position().distanceTo(p.position());
 			float dmg = (float) ((40.0f + armorBonus(p)) * (1.0 - Math.min(0.55, d / r)));
-			AbilityHelpers.hurt(p, e, dmg);
+			AbilityHelpers.hurtBurst(p, e, dmg);
 			AbilityHelpers.knockbackFrom(e, p.position(), 1.3);
 			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 80, 2);
 		}
@@ -452,7 +452,7 @@ public final class CrystalkinesisHandlers {
 		}
 		if (impact || ticks <= 1.5f) {
 			for (LivingEntity le : AbilityHelpers.enemiesAround(player, c, 4.0)) {
-				AbilityHelpers.hurt(player, le, 55.0f + armorBonus(player));
+				AbilityHelpers.hurtBurst(player, le, 55.0f + armorBonus(player));
 				AbilityHelpers.knockbackFrom(le, c, 2.4);
 				AbilityHelpers.applyControl(le, MobEffects.MOVEMENT_SLOWDOWN, 60, 2);
 			}
