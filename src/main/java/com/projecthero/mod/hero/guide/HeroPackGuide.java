@@ -200,7 +200,8 @@ public final class HeroPackGuide {
 	private static final int CH_SYMBIOTE = 10;
 	private static final int CH_ZOMBIE_RAID = 11;
 	private static final int CH_SUPERVILLAIN_RAID = 12;
-	private static final int CHAPTER_POWER_BASE = 13;
+	private static final int CH_SQUADS = 13;
+	private static final int CHAPTER_POWER_BASE = 14;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -218,6 +219,7 @@ public final class HeroPackGuide {
 			}
 			lines.add(Component.translatable("projecthero.guide.controls.select").withStyle(ChatFormatting.GRAY));
 			lines.add(Component.translatable("projecthero.guide.controls.info").withStyle(ChatFormatting.GRAY));
+			lines.add(Component.translatable("projecthero.guide.controls.squad").withStyle(ChatFormatting.GRAY));
 		}));
 
 		out.add(chapter("projecthero.guide.mutation", lines -> {
@@ -445,6 +447,18 @@ public final class HeroPackGuide {
 			}
 		}));
 
+		// Squads (v0.10.10). Sits between the world events and the powers because it is the thing that
+		// makes the rest of the mod playable together: almost every ability in here is an area attack.
+		out.add(chapter("projecthero.guide.squads", lines -> {
+			para(lines, "projecthero.guide.squads.body");
+			blank(lines);
+			head(lines, "projecthero.guide.squads.commands");
+			para(lines, "projecthero.guide.squads.commands.body");
+			blank(lines);
+			head(lines, "projecthero.guide.squads.menu");
+			para(lines, "projecthero.guide.squads.menu.body");
+		}));
+
 		// one chapter per power, in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.all()) {
 			out.add(powerChapter(power));
@@ -476,6 +490,9 @@ public final class HeroPackGuide {
 		section(idx, "projecthero.guide.section.events", true);
 		link(idx, "projecthero.guide.zombie_raid", CH_ZOMBIE_RAID);
 		link(idx, "projecthero.guide.supervillain_raid", CH_SUPERVILLAIN_RAID);
+
+		section(idx, "projecthero.guide.section.squads", true);
+		link(idx, "projecthero.guide.squads", CH_SQUADS);
 
 		section(idx, "projecthero.guide.section.powers", true);
 		List<Power> powers = new ArrayList<>(Powers.all());

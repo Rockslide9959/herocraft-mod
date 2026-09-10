@@ -438,10 +438,15 @@ public final class SymbioteVitalsManager {
 				level.sendParticles(ParticleTypes.REVERSE_PORTAL, player.getX(), player.getY() + 1.0, player.getZ(),
 						60, 0.4, 0.9, 0.4, 0.08);
 				level.sendParticles(ParticleTypes.FLASH, player.getX(), player.getY() + 1.0, player.getZ(), 1, 0, 0, 0, 0);
+				// v0.10.10: the bond completing is the Symbiote taking hold, not an achievement chime --
+				// a layered roar (Warden bellow + a pitched-down Ravager snarl) over the wet writhing of
+				// the suit settling, instead of the old beacon/level-up "ding".
 				level.playSound(null, player.getX(), player.getY(), player.getZ(),
-						SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0f, 0.6f);
+						SoundEvents.WARDEN_ROAR, SoundSource.PLAYERS, 1.4f, 1.1f);
 				level.playSound(null, player.getX(), player.getY(), player.getZ(),
-						SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.7f, 0.5f);
+						SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 1.2f, 0.5f);
+				level.playSound(null, player.getX(), player.getY(), player.getZ(),
+						SoundEvents.SLIME_SQUISH, SoundSource.PLAYERS, 1.0f, 0.4f);
 			}
 			return false;
 		}

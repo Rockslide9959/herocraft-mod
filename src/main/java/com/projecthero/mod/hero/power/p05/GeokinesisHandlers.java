@@ -41,6 +41,10 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtUtils;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -198,6 +202,7 @@ public final class GeokinesisHandlers {
 				ctx.triggerCooldown();
 			} else {
 				ctx.setResource("boulder", 1, 1);
+				spawnBoulderChunks(ctx);
 				ctx.actionBar("message.projecthero.ability.boulder_ready");
 				AbilityHelpers.sound(p, SoundEvents.STONE_PLACE, 1.0f, 0.6f);
 			}
@@ -304,6 +309,7 @@ public final class GeokinesisHandlers {
 		boolean swimOn = ExperimentalPowers.getResource(player, power, "earthswim_on") > 0.5f;
 		if (swimUntil > now) {
 			player.noPhysics = true;
+			earthSwimSpeed(player);
 			if (!player.getAbilities().instabuild) {
 				player.getAbilities().mayfly = true;
 				if (!player.getAbilities().flying) {
@@ -480,11 +486,44 @@ public final class GeokinesisHandlers {
 		ctx.triggerCooldown(EARTHSWIM_CD);
 	}
 
+	/**
+	 * v0.10.10: Earth Swim is genuinely <em>fast</em> while you are inside the ground, and stays slow
+	 * the moment you are not. It used to be one flat creative-flight speed either way, so tunnelling to
+	 * a target felt no better than walking, while popping out into the open let you cruise around like a
+	 * creative-mode player -- which was both wrong and the better way to use the ability.
+	 *
+	 * <p>Done as an additive nudge along the player's own velocity as well as a flight-speed change, so
+	 * it accelerates the direction they are actually swimming (straight down included) and decays to
+	 * nothing the instant they stop steering.
+	 */
+	private static void earthSwimSpeed(ServerPlayer p) {
+		BlockPos eye = BlockPos.containing(p.getEyePosition());
+		boolean submerged = GeoBareHands.isEarth(p.level().getBlockState(eye))
+				|| GeoBareHands.isEarth(p.level().getBlockState(p.blockPosition()))
+				|| p.level().getBlockState(eye).isSuffocating(p.level(), eye);
+		if (!p.getAbilities().instabuild) {
+			// Vanilla creative flight speed is 0.05: in the earth they move like a shark, out of it they slog.
+			p.getAbilities().setFlyingSpeed(submerged ? 0.14f : 0.03f);
+			p.onUpdateAbilities();
+		}
+		if (!submerged) {
+			return;
+		}
+		Vec3 v = p.getDeltaMovement();
+		if (v.lengthSqr() > 1.0e-4) {
+			p.setDeltaMovement(v.add(v.normalize().scale(0.06)));
+			p.hurtMarked = true;
+		}
+	}
+
 	private static void endEarthSwim(ServerPlayer p) {
 		Power power = power();
 		ExperimentalPowers.setResource(p, power, "earthswim_on", 0, 1);
 		ExperimentalPowers.setResource(p, power, "earthswim_until", 0, 1e12f);
 		p.noPhysics = false;
+		if (!p.getAbilities().instabuild) {
+			p.getAbilities().setFlyingSpeed(0.05f); // back to vanilla, whatever the swim left it at
+		}
 		if (!p.getAbilities().instabuild && !com.projecthero.mod.hero.power.HeroFlight.isFlying(p)) {
 			p.getAbilities().flying = false;
 			p.getAbilities().mayfly = false;
@@ -689,6 +728,93 @@ public final class GeokinesisHandlers {
 
 	// ---- V: Boulder Lift -----------------------------------------------------------------------
 
+	/**
+	 * v0.10.10: the lifted boulder is made of real blocks. It used to be nothing but a puff of
+	 * {@code STONE_DUST} at the hold point, which read as "I am standing in a dust cloud" rather than
+	 * "I am holding a rock over my head" -- there was no way to tell by looking whether V had done
+	 * anything at all.
+	 *
+	 * <p>Seven no-gravity {@link FallingBlockEntity}s arranged in a rough ball, built from whatever the
+	 * caster is standing on (stone, dirt, sand, deepslate...) so the boulder matches the ground it was
+	 * torn out of. {@link FallingBlockEntity} is used rather than a display entity purely because it is
+	 * the one vanilla entity that renders an arbitrary block state at an arbitrary position with no
+	 * model work; {@link #boulderTick} pins each piece in the air and resets {@code time} every tick,
+	 * which is what stops it ever "landing" and pasting itself into the world (the same technique
+	 * Telekinesis' Block Manipulation already uses).
+	 */
+	private static final Vec3[] BOULDER_OFFSETS = {
+			new Vec3(0.0, 0.0, 0.0),
+			new Vec3(0.62, 0.10, 0.18),
+			new Vec3(-0.55, 0.16, -0.22),
+			new Vec3(0.14, 0.66, -0.50),
+			new Vec3(-0.18, 0.58, 0.52),
+			new Vec3(0.40, -0.48, -0.44),
+			new Vec3(-0.44, -0.42, 0.40)
+	};
+
+	private static void spawnBoulderChunks(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		clearBoulderChunks(p); // never leak a previous set
+		BlockState material = boulderMaterial(level, p);
+		Vec3 hold = boulderHoldPoint(p);
+		for (int i = 0; i < BOULDER_OFFSETS.length; i++) {
+			Vec3 at = hold.add(BOULDER_OFFSETS[i]);
+			// Constructed directly rather than through FallingBlockEntity.fall(), which would REMOVE the
+			// block at that position -- the boulder is conjured, not excavated, and V must never quietly
+			// punch a hole in whatever happens to be floating in front of the caster.
+			FallingBlockEntity chunk = new FallingBlockEntity(EntityType.FALLING_BLOCK, level);
+			chunk.setPos(at.x, at.y, at.z);
+			chunk.setStartPos(BlockPos.containing(at));
+			chunk.blockData = null;
+			chunk.setNoGravity(true);
+			chunk.dropItem = false;
+			chunk.disableDrop();
+			chunk.time = 1;
+			chunk.setDeltaMovement(Vec3.ZERO);
+			setChunkState(chunk, material);
+			level.addFreshEntity(chunk);
+			ExperimentalPowers.setResource(p, power(), "boulder_id" + i, chunk.getId(), 1.0e9f);
+		}
+		level.sendParticles(STONE_DUST, hold.x, hold.y, hold.z, 40, 0.6, 0.6, 0.6, 0.05);
+	}
+
+	/**
+	 * The block state a falling-block entity shows lives in a private synched-data field with no setter,
+	 * so it is set the way vanilla's own {@code /summon falling_block {BlockState:...}} does: through the
+	 * entity's save data.
+	 */
+	private static void setChunkState(FallingBlockEntity chunk, BlockState state) {
+		CompoundTag tag = new CompoundTag();
+		chunk.saveWithoutId(tag);
+		tag.put("BlockState", NbtUtils.writeBlockState(state));
+		chunk.load(tag);
+	}
+
+	/** Whatever the caster is standing on, so the boulder looks torn out of the local ground. */
+	private static BlockState boulderMaterial(ServerLevel level, ServerPlayer p) {
+		BlockState below = level.getBlockState(p.blockPosition().below());
+		return GeoBareHands.isEarth(below) ? below : STONE;
+	}
+
+	private static Vec3 boulderHoldPoint(ServerPlayer p) {
+		return p.getEyePosition().add(p.getLookAngle().scale(3.0)).add(0, 0.4, 0);
+	}
+
+	private static void clearBoulderChunks(ServerPlayer p) {
+		Power power = power();
+		if (power == null) {
+			return;
+		}
+		for (int i = 0; i < BOULDER_OFFSETS.length; i++) {
+			int id = (int) ExperimentalPowers.getResource(p, power, "boulder_id" + i);
+			if (id != 0 && p.level().getEntity(id) instanceof FallingBlockEntity chunk) {
+				chunk.discard(); // discard(), never kill() -- a discarded falling block places nothing
+			}
+			ExperimentalPowers.setResource(p, power, "boulder_id" + i, 0, 1.0e9f);
+		}
+	}
+
 	private static void boulderTick(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		if (ctx.resource("boulder") < 0.5f) {
@@ -696,11 +822,34 @@ public final class GeokinesisHandlers {
 		}
 		// held for as long as the player likes -- but it weighs on them (Slowness I).
 		p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 10, 0, false, false, false));
-		Vec3 hold = p.getEyePosition().add(p.getLookAngle().scale(2.5));
-		ctx.level().sendParticles(STONE_DUST, hold.x, hold.y, hold.z, 4, 0.4, 0.4, 0.4, 0.0);
+		Vec3 hold = boulderHoldPoint(p);
+		boolean any = false;
+		for (int i = 0; i < BOULDER_OFFSETS.length; i++) {
+			int id = (int) ctx.resource("boulder_id" + i);
+			if (id == 0 || !(p.level().getEntity(id) instanceof FallingBlockEntity chunk) || !chunk.isAlive()) {
+				continue;
+			}
+			any = true;
+			// Slow tumble, so the ball reads as a solid mass of rock rather than a static prop.
+			double spin = (p.tickCount + i * 9) * 0.06;
+			Vec3 o = BOULDER_OFFSETS[i];
+			double ox = o.x * Math.cos(spin) - o.z * Math.sin(spin);
+			double oz = o.x * Math.sin(spin) + o.z * Math.cos(spin);
+			chunk.setPos(hold.x + ox, hold.y + o.y, hold.z + oz);
+			chunk.setDeltaMovement(Vec3.ZERO);
+			chunk.setNoGravity(true);
+			chunk.time = 1; // never let it age into the 600-tick "land or vanish" branch
+		}
+		if (!any) {
+			// every piece was culled (chunk unload, relog, /kill) -- rebuild, rather than leave the player
+			// carrying an invisible boulder with no way to see that they still are.
+			spawnBoulderChunks(ctx);
+		}
+		ctx.level().sendParticles(STONE_DUST, hold.x, hold.y, hold.z, 3, 0.5, 0.5, 0.5, 0.0);
 	}
 
 	private static void dropBoulder(ServerPlayer p) {
+		clearBoulderChunks(p);
 		ExperimentalPowers.setResource(p, power(), "boulder", 0, 1);
 	}
 

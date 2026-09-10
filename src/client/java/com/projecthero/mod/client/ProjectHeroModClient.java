@@ -32,6 +32,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	private static int ticksSinceJumpPress = Integer.MAX_VALUE;
 	private static boolean powerSelectWasDown = false;
 	private static boolean powerInfoWasDown = false;
+	private static boolean squadMenuWasDown = false;
 
 	/** Ability-1 (R) tap vs hold while a firearm is held: tap = reload, hold = open the Arsenal wheel. */
 	private static int firearmAbilityOneHeld = -1;
@@ -193,6 +194,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 					}
 				}));
 
+		// The squad roster, pushed a few times a second while the player is in a squad.
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.SquadInfoPayload.TYPE,
+				(payload, context) -> context.client().execute(() ->
+						com.projecthero.mod.client.squad.SquadClient.accept(payload)));
+
 		ClientTickEvents.END_CLIENT_TICK.register(client ->
 				com.projecthero.mod.client.firearm.FirearmClient.clientTick(client));
 		ClientTickEvents.END_CLIENT_TICK.register(ProjectHeroModClient::handleKeyBinds);
@@ -217,6 +223,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			powerSelectWasDown = false;
 			powerInfoWasDown = false;
 			maxSteelTransformWasDown = false;
+			squadMenuWasDown = false;
+			// Leaving a world must not carry the last server's squad roster into the next one.
+			com.projecthero.mod.client.squad.SquadClient.clear();
 			return;
 		}
 
@@ -242,6 +251,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		handleDoubleJump(client, client.player);
 		handlePowerSelect(client);
 		handlePowerInfo(client);
+		handleSquadMenu(client);
 		handleMaxSteelTransform(client);
 		handleChargedPunch(client);
 
@@ -439,6 +449,15 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			}
 		}
 		return false;
+	}
+
+	/** P: the squad screen. Opens for everyone -- it explains how to start a squad if you have none. */
+	private static void handleSquadMenu(Minecraft client) {
+		boolean down = ModKeyBindings.SQUAD_MENU.isDown();
+		if (down && !squadMenuWasDown && client.screen == null) {
+			client.setScreen(new com.projecthero.mod.client.gui.SquadScreen());
+		}
+		squadMenuWasDown = down;
 	}
 
 	private static void handlePowerInfo(Minecraft client) {

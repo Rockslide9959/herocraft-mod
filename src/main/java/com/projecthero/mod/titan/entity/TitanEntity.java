@@ -8,6 +8,7 @@ import com.projecthero.mod.titan.TitanConfig;
 import com.projecthero.mod.titan.TitanTerrain;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -94,8 +95,25 @@ public class TitanEntity extends RaidUndead {
 	@Override
 	protected void registerGoals() {
 		super.registerGoals();
-		this.goalSelector.removeAllGoals(
-				goal -> goal instanceof net.minecraft.world.entity.ai.goal.MeleeAttackGoal);
+		// v0.10.10 (performance): strip every vanilla goal that runs an A* search. Path-finding cost
+		// scales with the entity's own footprint -- the node evaluator samples a
+		// ceil(width) x ceil(height) x ceil(width) box of block states for EVERY node it visits -- so on
+		// an 18-block frame a single search is thousands of times more expensive than it is for an
+		// ordinary zombie, and vanilla Zombie/Monster ships four goals that start one on a timer whether
+		// or not anything is happening ("he lags out the world just by existing"). The Titan does not
+		// need any of them: it hunts through {@link #tickApproach}'s direct steering, and terrain in the
+		// way is handled by Step Assist plus {@link #tickUnstick}'s corridor carving.
+		this.goalSelector.removeAllGoals(goal ->
+				goal instanceof net.minecraft.world.entity.ai.goal.MeleeAttackGoal
+						|| goal instanceof net.minecraft.world.entity.ai.goal.MoveThroughVillageGoal
+						|| goal instanceof net.minecraft.world.entity.ai.goal.RandomStrollGoal
+						|| goal instanceof net.minecraft.world.entity.ai.goal.MoveTowardsRestrictionGoal
+						|| goal instanceof net.minecraft.world.entity.ai.goal.RemoveBlockGoal
+						|| goal instanceof net.minecraft.world.entity.ai.goal.BreakDoorGoal);
+		// Target scans are cheap, but only the player scan is wanted: a world boss chasing a wandering
+		// villager or a turtle across the map is both wrong and (via the chase) expensive.
+		this.targetSelector.removeAllGoals(goal ->
+				goal instanceof net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal);
 	}
 
 	public static AttributeSupplier.Builder createAttributes() {
@@ -125,7 +143,9 @@ public class TitanEntity extends RaidUndead {
 		GroundPathNavigation nav = new GroundPathNavigation(this, level);
 		nav.setCanFloat(true);
 		nav.setCanWalkOverFences(true);
-		nav.setMaxVisitedNodesMultiplier(4.0f);
+		// v0.10.10: back down to vanilla's default. Nothing routinely paths any more (see
+		// registerGoals / tickApproach); this only bounds the cost if some other system ever asks.
+		nav.setMaxVisitedNodesMultiplier(1.0f);
 		return nav;
 	}
 
@@ -290,13 +310,16 @@ public class TitanEntity extends RaidUndead {
 			return;
 		}
 		getLookControl().setLookAt(target, 30.0f, 30.0f);
-		// Repath periodically (not only once the current path finishes) so it keeps following a moving
-		// target instead of walking to their old position and stopping. v0.9.22: when the target is far
-		// away the A* search is expensive, so repath every 40 ticks at range and every 10 up close.
-		int repathEvery = distanceTo(target) > 40.0 ? 40 : 10;
-		if (getNavigation().isDone() || tickCount % repathEvery == 0) {
-			getNavigation().moveTo(target, 1.0);
-		}
+		// v0.10.10 (performance): steer straight at the target instead of running an A* search at it.
+		// MoveControl just points the body at a position and applies the movement-speed attribute -- no
+		// graph search, no node sampling, so it costs effectively nothing however big the Titan is. The
+		// old repath-every-10-ticks call was the single largest source of the "he lags out the world"
+		// report: each search sampled an ~19x19x19 block box per visited node.
+		//
+		// Losing the pathfinder loses obstacle avoidance, which for this boss is the point -- terrain is
+		// an inconvenience, not a barrier. Step Assist (STEP_HEIGHT 10) walks it up anything shorter
+		// than itself and tickUnstick punches a corridor through whatever is left.
+		getMoveControl().setWantedPosition(target.getX(), target.getY(), target.getZ(), 1.0);
 	}
 
 	/**
@@ -325,7 +348,9 @@ public class TitanEntity extends RaidUndead {
 		} else {
 			stuckTicks = Math.max(0, stuckTicks - 3);
 		}
-		if (stuckTicks < 20) {
+		// v0.10.10: half a second, not a full one -- with the pathfinder gone (see tickApproach) this is
+		// the only thing that gets the Titan past a wall, so it should not dither in front of one.
+		if (stuckTicks < 10) {
 			return;
 		}
 		stuckTicks = 0;
@@ -339,11 +364,17 @@ public class TitanEntity extends RaidUndead {
 		Vec3 to = from.add(dir.scale(width + 3.0));
 		TitanTerrain.carveCorridor(server, from, to, width, Math.min(12, (int) Math.ceil(getBbHeight())));
 		setDeltaMovement(getDeltaMovement().add(dir.x * 0.4, 0.05, dir.z * 0.4));
-		getNavigation().moveTo(target, 1.0);
+		// v0.10.10: steer, don't path -- see tickApproach for why no A* search runs here any more.
+		getMoveControl().setWantedPosition(target.getX(), target.getY(), target.getZ(), 1.0);
 	}
 
 	private void updateBossBar(ServerLevel server) {
 		if (isRemoved() || isDeadOrDying()) {
+			return;
+		}
+		// v0.10.10: five times a second is plenty for a health bar, and each refresh walks the level's
+		// whole player list to recompute the audience.
+		if (tickCount % 4 != 0) {
 			return;
 		}
 		float progress = Math.max(0.0f, getHealth() / getMaxHealth());
@@ -375,15 +406,30 @@ public class TitanEntity extends RaidUndead {
 	}
 
 	/** Only genuinely fragile blocks the huge body intersects -- see {@link TitanTerrain#breakFragileAt}. */
+	/**
+	 * v0.10.10 (performance): this used to walk the Titan's ENTIRE bounding box -- ~10 x 18 x 10, near
+	 * enough two thousand {@code getBlockState} lookups -- every 10 ticks, standing still or not. That
+	 * is a per-tick average of a couple of hundred block reads spent almost entirely on air, for a
+	 * cosmetic effect (brushing leaves and glass aside).
+	 *
+	 * <p>Now it only runs while the Titan is actually moving, and only scans the slab it is walking
+	 * <em>through</em> -- from its feet to a little over head height on a player's scale -- rather than
+	 * the full column up to its shoulders, which is where nothing it walks into ever is. That is roughly
+	 * a twentieth of the work, and none of it while it is standing in a wind-up.
+	 */
 	private void passiveDestruction(ServerLevel server) {
-		// v0.9.22: every 10 ticks (was 5) and only when there's actually something to do -- scanning the
-		// full ~18^3 body volume for fragile blocks twice a second was pure overhead most of the fight.
 		if (tickCount % 10 != 0 || !TitanConfig.world().blockDestructionEnabled) {
 			return;
 		}
+		Vec3 delta = getDeltaMovement();
+		if (delta.x * delta.x + delta.z * delta.z < 0.003) {
+			return;
+		}
 		var box = getBoundingBox();
+		int minY = Mth.floor(box.minY);
+		int maxY = Math.min(Mth.floor(box.maxY), minY + 3);
 		for (BlockPos p : BlockPos.betweenClosed(
-				BlockPos.containing(box.minX, box.minY, box.minZ), BlockPos.containing(box.maxX, box.maxY, box.maxZ))) {
+				BlockPos.containing(box.minX, minY, box.minZ), BlockPos.containing(box.maxX, maxY, box.maxZ))) {
 			TitanTerrain.breakFragileAt(server, p);
 		}
 	}
@@ -482,6 +528,9 @@ public class TitanEntity extends RaidUndead {
 		activeAttack = attack;
 		attackResolved = false;
 		getNavigation().stop();
+		// v0.10.10: the mover is what actually drives it now, so parking the (unused) navigator is not
+		// enough on its own to hold it still for an attack wind-up.
+		getMoveControl().setWantedPosition(getX(), getY(), getZ(), 0.0);
 		switch (attack) {
 			case PUNCH -> attackTicks = 10;
 			case STOMP -> attackTicks = (int) TitanConfig.attacks().stompWindupTicks;

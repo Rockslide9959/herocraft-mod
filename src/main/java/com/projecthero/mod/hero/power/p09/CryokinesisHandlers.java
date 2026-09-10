@@ -118,9 +118,18 @@ public final class CryokinesisHandlers {
 			public void onActivate(AbilityContext ctx) {
 				ServerPlayer p = ctx.player();
 				if (p.isShiftKeyDown()) {
-					// sneak + hold R for 2 s: shape a tool out of ice
-					ctx.setResource("icetool_ticks", 40, 40);
-					AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 0.7f, 1.4f);
+					// v0.10.10: sneak + R shapes the tool on the press, full stop. It used to arm a 2 s
+					// hold that only paid out if the key AND sneak were both still held 40 ticks later and
+					// nothing else cancelled in between -- in practice it essentially never fired, which is
+					// the "ice tool creation doesn't work" report. There is nothing worth charging here: it
+					// is a 32-use tool on a short cooldown.
+					giveIceTool(p);
+					ctx.actionBar("message.projecthero.cryo.ice_tool");
+					AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 0.8f, 1.4f);
+					AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 0.7f, 1.7f);
+					ctx.level().sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1.0, p.getZ(),
+							30, 0.4, 0.4, 0.4, 0.03);
+					ctx.triggerCooldown();
 					return;
 				}
 				if (!ctx.cooldownReady()) {
@@ -139,30 +148,11 @@ public final class CryokinesisHandlers {
 			}
 
 			@Override
-			public void onRelease(AbilityContext ctx) {
-				ctx.setResource("icetool_ticks", 0, 40);
-			}
-
-			@Override
 			public void onServerTick(AbilityContext ctx) {
-				float left = ctx.resource("icetool_ticks");
-				if (left <= 0.5f) {
-					return;
-				}
-				ServerPlayer p = ctx.player();
-				if (!p.isShiftKeyDown()) {
+				// v0.10.10: clear the retired 2 s ice-tool charge counter off any save that still carries
+				// one, so it cannot leave a stale bar on the HUD.
+				if (ctx.resource("icetool_ticks") > 0.0f) {
 					ctx.setResource("icetool_ticks", 0, 40);
-					return;
-				}
-				left -= 1.0f;
-				ctx.setResource("icetool_ticks", left, 40);
-				if (p.tickCount % 4 == 0) {
-					ctx.level().sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1.0, p.getZ(), 6, 0.3, 0.3, 0.3, 0.01);
-				}
-				if (left <= 0.5f) {
-					giveIceTool(p);
-					AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 1.0f, 0.8f);
-					ctx.level().sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1.0, p.getZ(), 30, 0.4, 0.4, 0.4, 0.03);
 				}
 			}
 		});

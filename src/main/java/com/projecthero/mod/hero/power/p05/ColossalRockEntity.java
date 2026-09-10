@@ -30,13 +30,42 @@ import net.minecraft.world.phys.Vec3;
  * block or entity it strikes — the blast destroys blocks on contact, but it does <em>not</em> tunnel
  * through terrain on the way there (v0.10.9). Renders as an over-scaled stone block via
  * {@code ThrownItemRenderer}.
+ *
+ * <p>v0.10.10: the crater is a real {@link net.minecraft.world.level.Level#explode} of the same weight
+ * as Pyrokinesis' Inferno fireball (power 6, a Large Fireball's own charge), <em>plus</em> the wide
+ * earth-only dig it always had. The old version only ever removed blocks {@code GeoBareHands.isEarth}
+ * recognised inside a 4-block ball, so it politely left every wall, tree and floor standing and read as
+ * "the ultimate barely breaks anything" next to the fire ultimate levelling a hillside.
  */
 public class ColossalRockEntity extends ThrowableItemProjectile {
 	/** Constant flight speed, blocks/tick -- comparable to a ghast fireball at full tilt. */
 	private static final double SPEED = 2.6;
 	private static final int MAX_AGE = 120;
 	private static final double HIT_RADIUS = 6.0;
-	private static final int CRATER_RADIUS = 4;
+	/** Earth-only over-dig, on top of the vanilla blast below. Widened from 4 in v0.10.10. */
+	private static final int CRATER_RADIUS = 7;
+	/** Vanilla explosion power — matches Inferno's Large Fireball (5, or 6 with the Nether bonus). */
+	private static final float BLAST_POWER = 6.0f;
+
+	/**
+	 * The blast is used purely for its <em>block</em> destruction: entity damage and knockback are
+	 * already applied by hand in {@link #detonate()} with the power's own falloff and PvP rules, so
+	 * letting the explosion hurt anything as well would double-dip (and would happily kill the thrower,
+	 * who is exempt from the hand-rolled pass).
+	 */
+	private static final net.minecraft.world.level.ExplosionDamageCalculator BLOCKS_ONLY =
+			new net.minecraft.world.level.ExplosionDamageCalculator() {
+				@Override
+				public boolean shouldDamageEntity(net.minecraft.world.level.Explosion explosion,
+						net.minecraft.world.entity.Entity entity) {
+					return false;
+				}
+
+				@Override
+				public float getKnockbackMultiplier(net.minecraft.world.entity.Entity entity) {
+					return 0.0f;
+				}
+			};
 
 	private float damage = 50.0f;
 	private int age;
@@ -120,6 +149,17 @@ public class ColossalRockEntity extends ThrowableItemProjectile {
 		}
 
 		if (AbilityHelpers.canGrief()) {
+			// The blast proper: breaks anything an explosion can, walls and floors included, so the
+			// crater actually reads as a crater. Damage/knockback are already applied by hand above, so
+			// this is a block-only detonation (no owner passed = no entity damage from the explosion).
+			server.explode(null, null, BLOCKS_ONLY, c.x, c.y, c.z, BLAST_POWER, false,
+					net.minecraft.world.level.Level.ExplosionInteraction.MOB,
+					net.minecraft.core.particles.ParticleTypes.EXPLOSION,
+					net.minecraft.core.particles.ParticleTypes.EXPLOSION_EMITTER,
+					net.minecraft.sounds.SoundEvents.GENERIC_EXPLODE);
+
+			// ...and then keep gouging out the surrounding earth well past the blast's own reach, which
+			// is what makes it a Geokinesis ultimate rather than a generic bomb.
 			BlockPos base = BlockPos.containing(c);
 			for (BlockPos bp : BlockPos.betweenClosed(base.offset(-CRATER_RADIUS, -CRATER_RADIUS, -CRATER_RADIUS),
 					base.offset(CRATER_RADIUS, CRATER_RADIUS, CRATER_RADIUS))) {

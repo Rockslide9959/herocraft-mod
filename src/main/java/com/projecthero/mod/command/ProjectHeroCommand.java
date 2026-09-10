@@ -34,6 +34,11 @@ import net.minecraft.network.chat.Component;
  *
  * <p>Each subtree keeps its own {@code requires(...)} permission gate, so {@code /projecthero hero} is
  * still usable by any player while the rest stay op-only.
+ *
+ * <p>v0.10.10 adds one deliberate exception to the single-root rule: {@link SquadCommand} is also
+ * registered as a bare {@code /squad}. Everything under {@code /projecthero} is admin tooling, but a
+ * squad is something every player manages themselves and often mid-fight, so it earns the short name.
+ * It is mirrored at {@code /projecthero squad} too, so it is still discoverable from the mod's root.
  */
 public final class ProjectHeroCommand {
 	private ProjectHeroCommand() {
@@ -66,7 +71,9 @@ public final class ProjectHeroCommand {
 		root.then(HeroRaidCommand.build());
 		root.then(SupervillainRaidCommand.build());
 		root.then(ZombieRaidCommand.build());
+		root.then(SquadCommand.build());
 
 		dispatcher.register(root);
+		SquadCommand.initialize(dispatcher);
 	}
 }

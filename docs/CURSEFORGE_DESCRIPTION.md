@@ -162,9 +162,10 @@ with it (telegraphed casts, aerial fights, blitz charges). The raid darkens the 
 tracks progress on a boss bar.
 
 ### The Supervillain Village Raid
-A rare **Pillager Spy** that attacks you inside a village triggers a countdown, then **five raider
-waves** and an **Empowered boss** with a random power and a random cosmetic variant (Chimera,
-Arsenal, Omega Mage). Rewards include a Villain Cache, power fragments, and variant trophies.
+A rare **Pillager Spy** that attacks you inside a village triggers a countdown, then **six waves** —
+five escalating raider waves, then the **Empowered boss** itself, with a random power and a random
+cosmetic variant (Chimera, Arsenal, Omega Mage). Rewards include a Villain Cache, power fragments,
+and variant trophies.
 
 ### The Titan
 A world boss that starts as an ordinary-looking zombie and, at low health, transforms into an
@@ -172,6 +173,17 @@ A world boss that starts as an ordinary-looking zombie and, at low health, trans
 ground-shaking **Stomp** and **Slam**, a player **Grab**, an **AoE boulder throw**, a long
 **Charge**, and an always-on melee swipe so you can't just hug its leg. Deliberately very strong;
 tunable in `config/projecthero_titan.json`.
+
+---
+
+## Squads
+
+These powers are built to level a hillside, which makes playing together awkward without a way to say
+"not them". **`/squad create <name>`** starts a squad and **`/squad invite <player>`** offers a place;
+squadmates simply cannot hurt each other — not with a sword, an arrow, a grenade, a repulsor beam or a
+55-damage Psychic Detonation. Press **P** for the roster: every teammate's health, whichever hero
+identity or mutation currently holds their ability slots, their coordinates, and how far away they are
+and in which direction. Squads hold up to 12 and survive a restart.
 
 ---
 
@@ -186,6 +198,7 @@ Symbiote is removed by fire.
 ## Notes
 
 - **Creative tabs:** Superheroes, Iron Man, Punisher.
+- **`/squad`** is the one player-facing command (see Squads above); everything else is admin tooling.
 - **Testing/admin commands** all live under one root: `/projecthero <thor|ironman|spiderman|symbiote|`
   `maxsteel|punisher|titan|power|hero|raid|supervillainraid|zombieraid> ...` (`/projecthero hero` is the
   survival self-service branch any player can use; the rest are op-only). Plus `/locate structure`

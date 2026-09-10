@@ -111,10 +111,22 @@ public final class HeroDamageRules {
 				}
 				return Verdict.mult(f);
 			}
-			case "power_03_flight", "power_16_spider_climbing_adhesion",
-					"power_17_elasticity" -> {
+			case "power_03_flight", "power_16_spider_climbing_adhesion" -> {
 				if (fall) {
 					player.resetFallDistance();
+					return Verdict.immune();
+				}
+			}
+			case "power_17_elasticity" -> {
+				if (fall) {
+					player.resetFallDistance();
+					return Verdict.immune();
+				}
+				// v0.10.10: a rubber body simply does not take an arrow. Elastic Form only ever bounced
+				// melee attackers away, which left the form useless against exactly the ranged enemies it
+				// most obviously should shrug off.
+				if (source.is(DamageTypeTags.IS_PROJECTILE)
+						&& com.projecthero.mod.hero.power.p17.ElasticityHandlers.deflectsProjectiles(player)) {
 					return Verdict.immune();
 				}
 			}
@@ -207,6 +219,15 @@ public final class HeroDamageRules {
 					durability *= 0.5f; // 70% less fall damage overall (0.6 * 0.5)
 				}
 				return Verdict.mult(durability);
+			}
+			case "power_10_telekinesis" -> {
+				// v0.10.10: the Telekinetic Barrier stops everything outright while it is up -- but every
+				// blow it eats is charged to the Psi meter, so a heavy enough hit collapses the barrier by
+				// emptying it (and empty means a 10 s burnout).
+				if (!source.is(DamageTypes.GENERIC_KILL) && !source.is(DamageTypes.FELL_OUT_OF_WORLD)
+						&& com.projecthero.mod.hero.power.p10.TelekinesisHandlers.barrierAbsorbs(player, amount)) {
+					return Verdict.immune();
+				}
 			}
 			case "power_20_energy_absorption" -> {
 				boolean energyType = source.is(DamageTypeTags.IS_FIRE) || source.is(DamageTypeTags.IS_EXPLOSION)

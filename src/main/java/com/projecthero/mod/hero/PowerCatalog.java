@@ -254,13 +254,15 @@ final class PowerCatalog {
 	private static Power telekinesis() {
 		String k = "power_10_telekinesis";
 		return Power.Builder.of(Powers.id(k), PowerCategory.MENTAL)
-				.ability(ab(k, "force_push", SLOT_1, INSTANT, 3 * S))
-				.ability(ab(k, "force_pull", SLOT_2, INSTANT, 3 * S))
+				// v0.10.10: Force Pull moved onto R's sneak variant, freeing G for the Telekinetic Barrier;
+				// both halves of R are down to a 1 s cooldown, and the ultimate is a 5 s hold on 90 s.
+				.ability(ab(k, "force_push", SLOT_1, INSTANT, 1 * S))
+				.ability(ab(k, "telekinetic_barrier", SLOT_2, TOGGLE, 0))
 				.ability(ab(k, "psychic_flight", SLOT_3, TOGGLE, 0))
-				.ability(ab(k, "telekinetic_explosion", SLOT_4, INSTANT, 35 * S))
+				.ability(ab(k, "telekinetic_explosion", SLOT_4, HOLD, 90 * S))
 				.ability(ab(k, "telekinetic_grab", SLOT_5, INSTANT, 5 * S))
 				.ability(ab(k, "block_manipulation", SLOT_6, HOLD, 0))
-				.passives(pk(k, "passive.item_drift"))
+				.passives(pk(k, "passive.psi"), pk(k, "passive.item_drift"))
 				.serum(SerumRecipe.of("minecraft:slow_falling", pk(k, "serum"),
 						"minecraft:ender_pearl", "minecraft:amethyst_shard", "minecraft:redstone"))
 				.trigger(MutationTrigger.of(Kind.PSIONIC_RESONANCE, pk(k, "trigger"), "projecthero.device.enchanting_resonance"))
@@ -415,7 +417,7 @@ final class PowerCatalog {
 				.ability(ab(k, "heavy_punch", SLOT_1, INSTANT, 3 * S))
 				.ability(ab(k, "density_slam", SLOT_2, INSTANT, 7 * S))
 				.ability(ab(k, "intangible_dash", SLOT_3, INSTANT, 5 * S))
-				.ability(ab(k, "singularity_drop", SLOT_4, INSTANT, 60 * S))
+				.ability(ab(k, "singularity_drop", SLOT_4, HOLD, 60 * S))
 				.ability(ab(k, "phase", SLOT_5, TOGGLE, 0))
 				.ability(ab(k, "density_mode", SLOT_6, CYCLE, 0))
 				.passives(pk(k, "passive.mode"))

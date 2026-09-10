@@ -252,6 +252,9 @@ public class SupervillainRaid extends EventInstance {
 	/**
 	 * Refresh the top-of-screen raid bar. During the preparation phase it is an {@code M:SS} countdown
 	 * to the first wave; once the waves are running it reads "Wave X/Y -- N enemies", filling as the
+	 * wave is cleared. v0.10.10: Y is {@link SupervillainRaidWaves#count()} (6), not {@code count() - 1}
+	 * -- the raid genuinely has six waves, the sixth being the Supervillain, and the bar used to
+	 * announce "Wave 5/5" while a whole boss wave was still to come.
 	 * wave is cleared. Audience and fill are recomputed here every tick from the level's own player
 	 * list, so no packets of the mod's own are needed. Modelled on the vanilla raid bar (red, notched).
 	 */
@@ -269,7 +272,7 @@ public class SupervillainRaid extends EventInstance {
 		} else if (phase == Phase.PREPARING) {
 			int shown = Math.max(1, wave);
 			name = Component.translatable("event.projecthero.supervillain_raid.bar.wave",
-					shown, SupervillainRaidWaves.count() - 1, 0);
+					shown, SupervillainRaidWaves.count(), 0);
 			// Refill across the lull between waves so the bar visibly recharges before the next wave.
 			int total = Math.max(1, EventConfig.supervillain().betweenWaveSeconds * 20);
 			progress = 1.0f - Math.min(1.0f, Math.max(0, phaseTicks) / (float) total);
@@ -277,7 +280,7 @@ public class SupervillainRaid extends EventInstance {
 			int shown = Math.max(1, wave);
 			int remaining = enemiesRemaining(level);
 			name = Component.translatable("event.projecthero.supervillain_raid.bar.wave",
-					shown, SupervillainRaidWaves.count() - 1, remaining);
+					shown, SupervillainRaidWaves.count(), remaining);
 			int expected = Math.max(1, waveMobBudget());
 			// Full while the wave is at strength, draining toward empty as the raiders fall.
 			progress = Math.min(1.0f, remaining / (float) expected);

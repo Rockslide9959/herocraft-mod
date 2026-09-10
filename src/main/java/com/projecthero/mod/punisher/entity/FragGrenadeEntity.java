@@ -20,10 +20,12 @@ import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * The Punisher's Frag Grenade. Bounces off terrain and glances off entities rather than sticking or
- * detonating on contact, and explodes on a fixed fuse (spec section 23). Cooking is handled before
- * the throw -- {@link com.projecthero.mod.punisher.ability.PunisherGrenade} passes a reduced starting
- * fuse -- and a grenade held too long detonates in the thrower's hand.
+ * The Punisher's Frag Grenade. v0.10.10: it <em>sticks</em> to the first surface it touches rather
+ * than bouncing -- a thrown grenade used to skitter away down slopes and around corners, so where it
+ * ended up had very little to do with where it was aimed. It still does not detonate on contact; the
+ * fixed fuse (spec section 23) is what sets it off. Cooking is handled before the throw --
+ * {@link com.projecthero.mod.punisher.ability.PunisherGrenade} passes a reduced starting fuse -- and a
+ * grenade held too long detonates in the thrower's hand.
  *
  * <p>Explosion damage falls off with distance, applies knockback, and only lightly damages blocks
  * ({@link PunisherConfig#GRENADE_BLOCK_POWER}) so one grenade never levels a structure.
@@ -31,6 +33,8 @@ import net.minecraft.world.phys.Vec3;
 public class FragGrenadeEntity extends ThrowableItemProjectile {
 	private int fuse = PunisherConfig.GRENADE_FUSE_TICKS;
 	private int restTicks;
+	/** v0.10.10: set the moment it touches anything -- from then on it is welded in place. */
+	private boolean stuck;
 
 	public FragGrenadeEntity(EntityType<? extends FragGrenadeEntity> type, Level level) {
 		super(type, level);
@@ -66,7 +70,13 @@ public class FragGrenadeEntity extends ThrowableItemProjectile {
 			((ServerLevel) level()).sendParticles(ParticleTypes.SMOKE, getX(), getY() + 0.15, getZ(),
 					1, 0.02, 0.02, 0.02, 0.0);
 		}
-		if (getDeltaMovement().lengthSqr() < 0.0015 && onGround()) {
+		if (stuck) {
+			// welded to whatever it hit: no gravity, no drift, no sliding down a slope
+			restTicks++;
+			setDeltaMovement(Vec3.ZERO);
+			setNoGravity(true);
+			hasImpulse = false;
+		} else if (getDeltaMovement().lengthSqr() < 0.0015 && onGround()) {
 			restTicks++;
 			setDeltaMovement(Vec3.ZERO);
 		} else {
@@ -74,26 +84,44 @@ public class FragGrenadeEntity extends ThrowableItemProjectile {
 		}
 	}
 
+	/**
+	 * v0.10.10: stick where it lands. Deliberately no {@code super()} -- a grenade still does not
+	 * detonate or vanish on contact, its fuse does that. It is parked a hair off the face it struck so
+	 * it is not buried inside the block, and pinned there for the rest of its fuse.
+	 */
 	@Override
 	protected void onHitBlock(BlockHitResult hit) {
-		// deliberately no super() -- a grenade bounces, it does not detonate or vanish on contact
+		if (stuck) {
+			return;
+		}
+		boolean audible = getDeltaMovement().lengthSqr() > 0.02;
 		Direction d = hit.getDirection();
-		Vec3 v = getDeltaMovement();
-		double b = 0.42;
-		Vec3 next = switch (d.getAxis()) {
-			case X -> new Vec3(-v.x * b, v.y * 0.75, v.z * 0.75);
-			case Y -> new Vec3(v.x * 0.72, -v.y * b, v.z * 0.72);
-			case Z -> new Vec3(v.x * 0.75, v.y * 0.75, -v.z * b);
-		};
-		setDeltaMovement(next);
-		if (v.lengthSqr() > 0.02) {
-			level().playSound(null, getX(), getY(), getZ(), SoundEvents.CHAIN_HIT, SoundSource.PLAYERS, 0.25f, 1.6f);
+		Vec3 at = hit.getLocation().add(d.getStepX() * 0.06, d.getStepY() * 0.06, d.getStepZ() * 0.06);
+		setPos(at.x, at.y, at.z);
+		stick();
+		if (audible) {
+			level().playSound(null, getX(), getY(), getZ(), SoundEvents.CHAIN_HIT, SoundSource.PLAYERS, 0.3f, 1.5f);
 		}
 	}
 
+	/**
+	 * Glancing off a body still leaves the grenade at that body's feet rather than ricocheting across
+	 * the room: it drops straight down from the contact point and sticks on landing.
+	 */
 	@Override
 	protected void onHitEntity(EntityHitResult hit) {
-		setDeltaMovement(getDeltaMovement().scale(-0.35).add(0, 0.05, 0));
+		if (stuck) {
+			return;
+		}
+		setDeltaMovement(0.0, -0.2, 0.0);
+	}
+
+	private void stick() {
+		stuck = true;
+		setDeltaMovement(Vec3.ZERO);
+		setNoGravity(true);
+		setDeltaMovement(Vec3.ZERO);
+		hasImpulse = false;
 	}
 
 	private void explode() {
@@ -147,6 +175,7 @@ public class FragGrenadeEntity extends ThrowableItemProjectile {
 	public void addAdditionalSaveData(CompoundTag tag) {
 		super.addAdditionalSaveData(tag);
 		tag.putInt("Fuse", fuse);
+		tag.putBoolean("Stuck", stuck);
 	}
 
 	@Override
@@ -155,5 +184,6 @@ public class FragGrenadeEntity extends ThrowableItemProjectile {
 		if (tag.contains("Fuse")) {
 			fuse = tag.getInt("Fuse");
 		}
+		stuck = tag.getBoolean("Stuck");
 	}
 }

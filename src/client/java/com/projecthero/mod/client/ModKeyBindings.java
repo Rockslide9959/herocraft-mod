@@ -74,6 +74,13 @@ public final class ModKeyBindings {
 	public static final KeyMapping MAX_STEEL_TRANSFORM = new KeyMapping(
 			"key.projecthero.max_steel_transform", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N, CATEGORY);
 
+	/**
+	 * Opens the squad screen: who is on your team, how hurt they are, and where they are. Default
+	 * {@code P} -- free of vanilla collisions in 1.21.1, and next to nothing else the mod binds.
+	 */
+	public static final KeyMapping SQUAD_MENU = new KeyMapping(
+			"key.projecthero.squad_menu", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_P, CATEGORY);
+
 	private ModKeyBindings() {
 	}
 
@@ -84,5 +91,6 @@ public final class ModKeyBindings {
 		KeyBindingHelper.registerKeyBinding(POWER_SELECT);
 		KeyBindingHelper.registerKeyBinding(POWER_INFO);
 		KeyBindingHelper.registerKeyBinding(MAX_STEEL_TRANSFORM);
+		KeyBindingHelper.registerKeyBinding(SQUAD_MENU);
 	}
 }

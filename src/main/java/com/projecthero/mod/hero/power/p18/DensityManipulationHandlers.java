@@ -24,7 +24,16 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
-/** Power 18 — Density Manipulation. C cycles Normal -> Heavy -> Light. */
+/**
+ * Power 18 — Density Manipulation. C cycles Normal -> Heavy -> Light.
+ *
+ * <p>v0.10.10 reins in the two abilities that had turned into flight. Phase is meant to be walking
+ * <em>through</em> the world, so it is now capped {@link #PHASE_MAX_HEIGHT} blocks over the ground
+ * rather than handing out unlimited creative flight, and the phased body renders see-through instead of
+ * looking completely ordinary. Singularity is an ultimate, so it costs a 5-second hold to start, hangs
+ * no more than {@link #SINGULARITY_MAX_HEIGHT} blocks up, can be dropped early on another press, and
+ * only starts its 60-second cooldown once it actually ends.
+ */
 public final class DensityManipulationHandlers {
 	private static final String KEY = "power_18_density_manipulation";
 	private static final net.minecraft.resources.ResourceLocation KB = com.projecthero.mod.ProjectHeroMod.id("density_kb");
@@ -38,6 +47,14 @@ public final class DensityManipulationHandlers {
 	private static final float PHASE_DRAIN = 0.15f;
 	private static final float PHASE_REGEN = 0.2f;
 	private static final int SINGULARITY_TICKS = 25 * 20;
+	/** Hold Z this long to commit to the ultimate. */
+	private static final int SINGULARITY_CHARGE = 5 * 20;
+	private static final int SINGULARITY_CD = 60 * 20;
+	/** Ceilings, in blocks above the ground directly below the player. */
+	private static final double PHASE_MAX_HEIGHT = 2.0;
+	private static final double SINGULARITY_MAX_HEIGHT = 5.0;
+	/** How far down to look for "the ground" before giving up (over a chasm or the void). */
+	private static final int GROUND_SEARCH = 32;
 
 	private DensityManipulationHandlers() {
 	}
@@ -91,17 +108,138 @@ public final class DensityManipulationHandlers {
 			}
 		}));
 
-		// Singularity: rise slowly, invulnerable, dragging every nearby creature in. Anything that gets
-		// within 6 blocks is crushed for 15 damage a second. 25 s duration, 60 s cooldown.
-		AbilityHandlers.register(KEY, "singularity_drop", Handlers.instantTicking(ctx -> {
-			ServerPlayer p = ctx.player();
-			ctx.setResource("singularity", SINGULARITY_TICKS, SINGULARITY_TICKS);
-			p.setInvulnerable(true);
-			AbilityHelpers.launchSelf(p, new Vec3(0, 0.3, 0));
-			ctx.level().sendParticles(ParticleTypes.REVERSE_PORTAL, p.getX(), p.getY() + 1, p.getZ(), 80, 1.5, 1.5, 1.5, 0.2);
-			AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 1.2f, 0.4f);
-			ctx.triggerCooldown();
-		}, ctx -> {
+		// Singularity: hold Z for 5 s, then hang just off the ground, invulnerable, dragging every nearby
+		// creature in. Anything that gets within 6 blocks is crushed for 15 damage a second. 25 s
+		// duration; press Z again at any point to drop out of it early. The 60 s cooldown starts when it
+		// ENDS, not when it starts, so cutting it short is a real cost rather than a free reset.
+		AbilityHandlers.register(KEY, "singularity_drop", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				singularityPress(ctx);
+			}
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				singularityRelease(ctx);
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				singularityChargeTick(ctx);
+				singularityTick(ctx);
+			}
+		});
+
+		// Phase: toggle to vibrate and walk straight through blocks. Drains the phase meter; while your
+		// head is buried in a block you lose air. Jump to rise, sneak to sink -- but only ever a couple of
+		// blocks off the ground: this is intangibility, not flight.
+		AbilityHandlers.register(KEY, "phase", phaseHandler());
+
+		AbilityHandlers.register(KEY, "density_mode", Handlers.cycle(ctx -> {
+			ctx.advanceCycle(3);
+			applyMode(ctx);
+			ctx.actionBar("message.projecthero.density.mode_" + MODE_NAMES[mode(ctx)]);
+			AbilityHelpers.sound(ctx.player(), SoundEvents.AMETHYST_BLOCK_HIT, 1.0f, 0.6f + mode(ctx) * 0.4f);
+		}));
+
+		registerPassives();
+	}
+
+	// ---- Z: Singularity ------------------------------------------------------------------------
+
+	/** True while the singularity is up -- used to answer "is this press a start or an early exit?". */
+	public static boolean singularityActive(AbilityContext ctx) {
+		return ctx.resource("singularity") > 0.5f;
+	}
+
+	private static void singularityPress(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (singularityActive(ctx)) {
+			endSingularity(ctx, true);
+			return;
+		}
+		if (ctx.resource("sing_start") > 0.5f) {
+			return; // already winding up
+		}
+		if (!ctx.cooldownReady()) {
+			ctx.actionBar("message.projecthero.ability.on_cooldown",
+					net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
+					String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(ctx.cooldownRemaining() / 20.0f)));
+			return;
+		}
+		ctx.setResource("sing_start", p.level().getGameTime(), 1.0e12f);
+		ctx.setResource("ult_charge", 0, 100);
+		AbilityHelpers.sound(p, SoundEvents.WARDEN_HEARTBEAT, 0.9f, 0.5f);
+	}
+
+	private static void singularityRelease(AbilityContext ctx) {
+		if (ctx.resource("sing_start") <= 0.5f) {
+			return;
+		}
+		long held = ctx.player().level().getGameTime() - (long) ctx.resource("sing_start");
+		if (held >= SINGULARITY_CHARGE) {
+			fireSingularity(ctx);
+		} else {
+			cancelSingularityCharge(ctx);
+		}
+	}
+
+	private static void singularityChargeTick(AbilityContext ctx) {
+		float start = ctx.resource("sing_start");
+		if (start <= 0.5f) {
+			return;
+		}
+		ServerPlayer p = ctx.player();
+		long held = p.level().getGameTime() - (long) start;
+		if (held < 0 || held > SINGULARITY_CHARGE + 100) {
+			cancelSingularityCharge(ctx);
+			return;
+		}
+		ctx.setResource("ult_charge", Math.min(100.0f, held * 100.0f / SINGULARITY_CHARGE), 100);
+		double frac = Math.min(1.0, held / (double) SINGULARITY_CHARGE);
+		// rooted while gathering -- the wind-up is what makes it dodgeable
+		p.setDeltaMovement(p.getDeltaMovement().multiply(0.2, 1.0, 0.2));
+		p.hurtMarked = true;
+		ctx.level().sendParticles(ParticleTypes.PORTAL, p.getX(), p.getY() + 1.0, p.getZ(),
+				4 + (int) (frac * 16), 0.4 + frac, 0.8, 0.4 + frac, 0.05);
+		if (held % 10 == 0) {
+			AbilityHelpers.sound(p, SoundEvents.WARDEN_HEARTBEAT, 0.9f, 0.5f + (float) frac * 0.8f);
+		}
+		if (held >= SINGULARITY_CHARGE) {
+			fireSingularity(ctx);
+		}
+	}
+
+	private static void cancelSingularityCharge(AbilityContext ctx) {
+		ctx.setResource("sing_start", 0, 1.0e12f);
+		ctx.setResource("ult_charge", 0, 100);
+		AbilityHelpers.sound(ctx.player(), SoundEvents.AMETHYST_BLOCK_BREAK, 0.6f, 0.8f);
+	}
+
+	private static void fireSingularity(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		ctx.setResource("sing_start", 0, 1.0e12f);
+		ctx.setResource("ult_charge", 0, 100);
+		ctx.setResource("singularity", SINGULARITY_TICKS, SINGULARITY_TICKS);
+		p.setInvulnerable(true);
+		AbilityHelpers.launchSelf(p, new Vec3(0, 0.3, 0));
+		ctx.level().sendParticles(ParticleTypes.REVERSE_PORTAL, p.getX(), p.getY() + 1, p.getZ(), 80, 1.5, 1.5, 1.5, 0.2);
+		AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 1.2f, 0.4f);
+	}
+
+	/** Take the singularity down, and only now start its cooldown. */
+	private static void endSingularity(AbilityContext ctx, boolean early) {
+		ServerPlayer p = ctx.player();
+		ctx.setResource("singularity", 0, SINGULARITY_TICKS);
+		p.setInvulnerable(false);
+		ctx.triggerCooldown(SINGULARITY_CD);
+		AbilityHelpers.sound(p, SoundEvents.BEACON_DEACTIVATE, 0.9f, 0.7f);
+		if (early) {
+			ctx.actionBar("message.projecthero.density.singularity_released");
+		}
+	}
+
+	private static void singularityTick(AbilityContext ctx) {
 			int t = (int) ctx.resource("singularity");
 			if (t <= 0) {
 				return;
@@ -110,13 +248,16 @@ public final class DensityManipulationHandlers {
 			t--;
 			ctx.setResource("singularity", t, SINGULARITY_TICKS);
 			if (t <= 0) {
-				p.setInvulnerable(false);
+				endSingularity(ctx, false);
 				return;
 			}
 			p.setInvulnerable(true); // re-assert (survives a relog mid-ability)
-			// drift upward, killing horizontal drift
+			// Drift upward, killing horizontal drift -- but stop climbing once it is hanging
+			// SINGULARITY_MAX_HEIGHT blocks up. It used to rise for the whole 25 seconds, which carried the
+			// player clean out of reach of everything it had just dragged in.
 			Vec3 v = p.getDeltaMovement();
-			AbilityHelpers.launchSelf(p, new Vec3(v.x * 0.6, 0.06, v.z * 0.6));
+			double lift = heightAboveGround(p) < SINGULARITY_MAX_HEIGHT ? 0.06 : -0.04;
+			AbilityHelpers.launchSelf(p, new Vec3(v.x * 0.6, lift, v.z * 0.6));
 			p.resetFallDistance();
 			// haul everything nearby toward the singularity
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 16.0)) {
@@ -137,11 +278,13 @@ public final class DensityManipulationHandlers {
 			if (t % 20 == 0) {
 				AbilityHelpers.sound(p, SoundEvents.WARDEN_HEARTBEAT, 1.4f, 0.5f);
 			}
-		}));
+	}
 
-		// Phase: toggle to vibrate and walk straight through blocks. Drains the phase meter; while your
-		// head is buried in a block you lose air. Jump to rise, sneak to sink (creative-style control).
-		AbilityHandlers.register(KEY, "phase", new AbilityHandler() {
+	// ---- X: Phase --------------------------------------------------------------------------------
+
+	private static AbilityHandler phaseHandler() {
+
+		return new AbilityHandler() {
 			@Override
 			public void onToggleOn(AbilityContext ctx) {
 				ServerPlayer p = ctx.player();
@@ -172,6 +315,7 @@ public final class DensityManipulationHandlers {
 				setPhaseAbilities(p, true);
 				p.noPhysics = true;
 				p.resetFallDistance();
+				clampPhaseHeight(p);
 				ctx.addResource("phase", -PHASE_DRAIN, MAX_PHASE);
 				if (ctx.resource("phase") <= 0.0f) {
 					ctx.setToggled(false);
@@ -194,15 +338,58 @@ public final class DensityManipulationHandlers {
 					}
 				}
 			}
-		});
+		};
+	}
 
-		AbilityHandlers.register(KEY, "density_mode", Handlers.cycle(ctx -> {
-			ctx.advanceCycle(3);
-			applyMode(ctx);
-			ctx.actionBar("message.projecthero.density.mode_" + MODE_NAMES[mode(ctx)]);
-			AbilityHelpers.sound(ctx.player(), SoundEvents.AMETHYST_BLOCK_HIT, 1.0f, 0.6f + mode(ctx) * 0.4f);
-		}));
+	/**
+	 * v0.10.10: Phase is intangibility, not flight. It has to hand out creative-style flight -- with
+	 * {@code noPhysics} on and no flight the player would simply fall through the world -- so the height
+	 * is capped server-side instead: hold the player at most {@link #PHASE_MAX_HEIGHT} blocks over
+	 * whatever solid ground is under them. Inside rock the ground IS the block they are standing in, so
+	 * this never interferes with tunnelling; it only bites the moment they try to use Phase to fly.
+	 */
+	private static void clampPhaseHeight(ServerPlayer p) {
+		double ground = groundYBelow(p);
+		if (Double.isNaN(ground)) {
+			return; // nothing under them for 32 blocks (a chasm, the void) -- nothing to measure against
+		}
+		double cap = ground + PHASE_MAX_HEIGHT;
+		if (p.getY() <= cap + 0.05) {
+			return;
+		}
+		p.setDeltaMovement(p.getDeltaMovement().x, 0.0, p.getDeltaMovement().z);
+		p.teleportTo(p.getX(), cap, p.getZ());
+		p.resetFallDistance();
+	}
 
+	/** Blocks between the player's feet and the ground below them, or 0 when there is none to find. */
+	private static double heightAboveGround(ServerPlayer p) {
+		double ground = groundYBelow(p);
+		return Double.isNaN(ground) ? 0.0 : p.getY() - ground;
+	}
+
+	/**
+	 * The Y of the top face of the first block with a real collision shape at or below the player, or
+	 * {@code NaN} if there is none within {@link #GROUND_SEARCH} blocks. Deliberately starts at the
+	 * player's own feet so a phased player buried in stone measures as being ON the ground.
+	 */
+	private static double groundYBelow(ServerPlayer p) {
+		BlockPos.MutableBlockPos cursor = p.blockPosition().mutable();
+		for (int i = 0; i <= GROUND_SEARCH; i++) {
+			if (!p.level().getBlockState(cursor).getCollisionShape(p.level(), cursor).isEmpty()) {
+				return cursor.getY() + 1.0;
+			}
+			cursor.move(0, -1, 0);
+			if (cursor.getY() < p.level().getMinBuildHeight()) {
+				break;
+			}
+		}
+		return Double.NaN;
+	}
+
+	// ---- passives ---------------------------------------------------------------------------------
+
+	private static void registerPassives() {
 		com.projecthero.mod.hero.PowerPassives.register(KEY, (player, active) -> {
 			if (!active) {
 				PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, KB);

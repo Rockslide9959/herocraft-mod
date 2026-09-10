@@ -116,6 +116,8 @@ public class ProjectHeroMod implements ModInitializer {
 		// The one and only command root: /projecthero, which assembles every hero/event subtree from
 		// each command class's build().
 		com.projecthero.mod.command.ProjectHeroCommand.initialize();
+		// ---- Squads: friendly-fire suppression + the roster the squad screen (P) draws. ----
+		com.projecthero.mod.squad.Squads.initialize();
 
 		ModStructureTypes.initialize();
 		ModStructurePieceTypes.initialize();
@@ -147,6 +149,7 @@ public class ProjectHeroMod implements ModInitializer {
 				TickWatchdog.run("RepulsorBoots.tick", () -> com.projecthero.mod.ironman.RepulsorBoots.tick(player));
 				TickWatchdog.run("GraveboundEvents.serverTick", () -> com.projecthero.mod.grave.GraveboundEvents.serverTick(player));
 				TickWatchdog.run("FirearmManager.serverTick", () -> com.projecthero.mod.firearm.FirearmManager.serverTick(player));
+				TickWatchdog.run("Squads.serverTick", () -> com.projecthero.mod.squad.Squads.serverTick(player));
 			});
 		});
 

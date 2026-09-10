@@ -15,6 +15,7 @@
 		"MobSymbioteMixin",
 		"PlayerMixin",
 		"PowderSnowBlockMixin",
+		"PowderSnowSlowMixin",
 		"ProjectileWeaponItemMixin",
 		"RangedAttackGoalMixin",
 		"RangedAttributeAccessor",

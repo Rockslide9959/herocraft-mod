@@ -29,13 +29,14 @@ import net.minecraft.world.phys.Vec3;
  *
  * <p>No entity is ever created (nothing to sync or leak): a hole is four vertices straight into the
  * world-render buffer. The list is capped at {@link #MAX} (oldest dropped first) and every hole
- * disappears after {@link #LIFETIME_MS}, fading out over its last {@link #FADE_MS}.
+ * disappears after {@link #LIFETIME_MS} (v0.10.10: 10 seconds, down from a minute -- a firefight used
+ * to leave the walls permanently peppered), fading out over its last {@link #FADE_MS}.
  */
 public final class BulletHoleRenderer {
 	private static final ResourceLocation TEXTURE = ProjectHeroMod.id("textures/misc/bullet_hole.png");
 	private static final int MAX = 96;
-	private static final long LIFETIME_MS = 60_000L;
-	private static final long FADE_MS = 6_000L;
+	private static final long LIFETIME_MS = 10_000L;
+	private static final long FADE_MS = 2_500L;
 	private static final float HALF_SIZE = 0.16f;
 	/** How far off the surface the decal floats, to beat z-fighting with the block face. */
 	private static final double SURFACE_OFFSET = 0.015;

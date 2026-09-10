@@ -24,9 +24,13 @@ import org.lwjgl.glfw.GLFW;
  * lower-right showing the slot key, cooldown shading + remaining seconds, and an ACTIVE edge for
  * toggled abilities. Hold Left Alt to expand and show full ability names.
  *
- * <p>Underneath the row, one bar per meter that is currently <em>in play</em> — draining or
- * refilling. A meter sitting full and idle is not drawn. The whole HUD is pushed up to make room for
- * however many bars are showing. Each bar is labelled with the ability it belongs to.
+ * <p>Underneath the row, one bar per meter that is currently <em>in play</em> — draining, filling, or
+ * counting down. A meter sitting full and idle is not drawn, and a charge gauge that has been spent or
+ * cancelled disappears the same tick. The whole HUD is pushed up to make room for however many bars are
+ * showing. Each bar is labelled with the ability it belongs to.
+ *
+ * <p>What counts as a meter at all is an explicit allow-list ({@code KIND}); everything else a power
+ * stores in its resource map is bookkeeping and is never drawn. See {@link #collectMeters}.
  *
  * <p>Only rendered for experimental-power context. Thor keeps its own {@code ThorHud} (Storm Energy).
  */
@@ -68,11 +72,12 @@ public final class AbilityHud {
 		// v0.9.3: the six boxes + names are the SELECTED power's kit, but the meter bars are gathered
 		// from EVERY owned Experimental Tier power -- a second power's aura / stance / reserve keeps its
 		// bar while a different power holds the slots.
+		long meterTime = client.level != null ? client.level.getGameTime() : 0L;
 		List<Meter> meters = new ArrayList<>();
 		for (String key : state.ownedPowers) {
 			Power owned = Powers.byKey(key);
 			if (owned != null) {
-				meters.addAll(collectMeters(state, owned));
+				meters.addAll(collectMeters(state, owned, meterTime));
 			}
 		}
 		meters.sort((a, b) -> a.label.getString().compareToIgnoreCase(b.label.getString()));
@@ -201,8 +206,30 @@ public final class AbilityHud {
 		rowY[0] = ry - 18;
 	}
 
-	/** Build the list of meters worth drawing right now for the active power. */
-	private static List<Meter> collectMeters(ExperimentalState state, Power power) {
+	/**
+	 * Build the list of meters worth drawing right now for one owned power.
+	 *
+	 * <h2>v0.10.10: an allow-list, not a deny-list</h2>
+	 * This used to draw a bar for every entry in the power's resource map that a hand-maintained
+	 * {@code isBookkeeping} list did not happen to name, defaulting anything unrecognised to
+	 * "reserve, max 500" -- which is drawn whenever it is not nearly full. Every flag, entity id,
+	 * mode number and charge counter that was ever added without also being added to that list
+	 * therefore became a <em>permanent</em> bar sitting at 1/500 (Water Manipulation's
+	 * {@code spraying} flag and Crystalkinesis' {@code skating} flag are exactly this, and
+	 * {@code spraying} is why Water Beam appeared to have two bars), and the meters that were
+	 * classified simply had the wrong kind, so they never emptied off the screen.
+	 *
+	 * <p>The resource map is a general-purpose per-power scratchpad -- most of what is in it is
+	 * bookkeeping, and bookkeeping is the default. So a name now has to be listed in {@link #KIND}
+	 * to be drawn at all, and its {@link Kind} decides when it is worth showing:
+	 * <ul>
+	 *   <li>{@code RESERVE} -- a pool that starts full and is spent. Shown while it is depleted.</li>
+	 *   <li>{@code BUILD} -- a gauge that climbs from zero while a channel runs and where a FULL bar is
+	 *       the fail state (overheat, frostbite, an ultimate finishing its charge). Shown while non-zero.</li>
+	 *   <li>{@code TIMER} -- a countdown on an active effect. Shown while it is still running.</li>
+	 * </ul>
+	 */
+	private static List<Meter> collectMeters(ExperimentalState state, Power power, long gameTime) {
 		List<Meter> out = new ArrayList<>();
 		// Super Strength keeps only transient bookkeeping in its resource map -- its charged-punch
 		// and Maximum Effort indicators are drawn separately (see renderStrengthExtras).
@@ -215,11 +242,11 @@ public final class AbilityHud {
 				continue;
 			}
 			String name = e.getKey().substring(prefix.length());
-			if (isBookkeeping(name)) {
-				continue;
+			Kind kind = kindOf(name);
+			if (kind == null) {
+				continue; // bookkeeping: a flag, an entity id, a packed position, a tick counter
 			}
 			float value = e.getValue();
-			Kind kind = kindOf(name);
 
 			if (name.equals("flight") && (!com.projecthero.mod.hero.power.HeroFlight.hasFlight(power)
 					|| com.projecthero.mod.hero.power.HeroFlight.infinite(power))) {
@@ -230,7 +257,7 @@ public final class AbilityHud {
 			boolean show = switch (kind) {
 				// reserves: shown only while depleted / recharging, hidden when full and idle
 				case RESERVE -> value < max - 1.0f;
-				// build-up meters + countdown timers: shown only while there is something on them
+				// build-up gauges + countdown timers: shown only while there is something on them
 				case BUILD, TIMER -> value > 0.5f;
 			};
 			if (!show) {
@@ -241,24 +268,62 @@ public final class AbilityHud {
 				case TIMER -> 0xFFB98CFF;
 				default -> 0xFF6FA8FF;
 			};
-			out.add(new Meter(label(power, name), value, max, color));
+			Component text = label(power, name);
+			// Telekinesis' Psi burnout is the one meter state that is a hard lockout rather than a
+			// shortage, so it gets its own red bar and label instead of just reading as "empty".
+			if (name.equals("psi") && state.resources.getOrDefault(prefix + "burnout_until", 0.0f) > gameTime) {
+				color = 0xFFE05252;
+				text = Component.literal("Psi — BURNED OUT");
+			}
+			out.add(new Meter(text, value, max, color));
 		}
 		return out;
 	}
 
 	private enum Kind { RESERVE, BUILD, TIMER }
 
+	/**
+	 * The complete set of resource names that are meters. Anything not in here is bookkeeping and is
+	 * never drawn -- see {@link #collectMeters}. Timed self-flight countdowns ({@code rockflight},
+	 * {@code flameflight}, ...) are matched by suffix rather than listed, since each power names its own.
+	 */
+	private static final java.util.Map<String, Kind> KIND = java.util.Map.ofEntries(
+			// --- reserves: start full, spent by use, regenerate while idle ---
+			java.util.Map.entry("psi", Kind.RESERVE),            // Telekinesis
+			java.util.Map.entry("flight", Kind.RESERVE),         // HeroFlight stamina
+			java.util.Map.entry("phase", Kind.RESERVE),          // Density Manipulation
+			java.util.Map.entry("guard", Kind.RESERVE),          // Super Durability
+			java.util.Map.entry("sparkle", Kind.RESERVE),        // Invisibility / Light
+			java.util.Map.entry("charged_mode", Kind.RESERVE),   // Electrokinesis stance
+			java.util.Map.entry("crystal_armor", Kind.RESERVE),  // Crystalkinesis stance
+			java.util.Map.entry("earth_armor", Kind.RESERVE),    // Geokinesis stance
+			java.util.Map.entry("flame_body", Kind.RESERVE),     // Pyrokinesis stance
+			java.util.Map.entry("frozen_armor", Kind.RESERVE),   // Cryokinesis stance
+			java.util.Map.entry("giant_form", Kind.RESERVE),     // Size Manipulation stance
+			java.util.Map.entry("repulsion_field", Kind.RESERVE), // Shockwave stance
+			java.util.Map.entry("tailwind", Kind.RESERVE),       // Wind stance
+			// --- build-up gauges: climb from zero, a full bar is the fail state ---
+			java.util.Map.entry("energy", Kind.BUILD),           // Energy Absorption
+			java.util.Map.entry("heat", Kind.BUILD),             // Laser Vision / Pyrokinesis
+			java.util.Map.entry("static_charge", Kind.BUILD),    // Electrokinesis
+			java.util.Map.entry("charge", Kind.BUILD),           // Shockwave
+			java.util.Map.entry("freeze_beam", Kind.BUILD),      // Cryokinesis channel
+			java.util.Map.entry("flamethrower", Kind.BUILD),     // Pyrokinesis channel
+			java.util.Map.entry("water", Kind.BUILD),            // Water Manipulation channel
+			java.util.Map.entry("ult_charge", Kind.BUILD),       // shared hold-to-charge ultimate meter
+			// --- countdowns on something currently running ---
+			java.util.Map.entry("total_darkness", Kind.TIMER),   // Shadow Manipulation
+			java.util.Map.entry("hurr", Kind.TIMER),             // Wind hurricane
+			java.util.Map.entry("singularity", Kind.TIMER),      // Density Manipulation ultimate
+			java.util.Map.entry("blade_charge", Kind.TIMER));    // Wind blade window
+
+	/** The meter kind for {@code name}, or {@code null} when it is bookkeeping and must not be drawn. */
 	private static Kind kindOf(String name) {
 		// Fixed-duration self-flight countdowns (flameflight, rockflight) -- drain to nothing, then vanish.
 		if (name.endsWith("flight") && !name.equals("flight")) {
 			return Kind.TIMER;
 		}
-		return switch (name) {
-			// build-up gauges: climb from zero while their mode runs, full bar is the fail state
-			case "energy", "heat", "static_charge", "charge", "freeze_beam", "flamethrower", "ult_charge" -> Kind.BUILD;
-			case "total_darkness", "hurr", "singularity" -> Kind.TIMER;
-			default -> Kind.RESERVE;
-		};
+		return KIND.get(name);
 	}
 
 	private static float maxOf(String name) {
@@ -266,8 +331,10 @@ public final class AbilityHud {
 			return 100.0f; // "flight" stamina and the timed self-flight meters are all 0..100
 		}
 		return switch (name) {
-			case "guard", "phase", "static_charge", "charge", "sparkle", "ult_charge" -> 100.0f;
-			case "hurr" -> 400.0f;
+			case "phase", "static_charge", "charge", "sparkle", "ult_charge" -> 100.0f;
+			case "blade_charge" -> 40.0f;
+			case "hurr" -> 220.0f;
+			case "total_darkness", "singularity" -> 500.0f;
 			default -> 500.0f;
 		};
 	}
@@ -280,7 +347,7 @@ public final class AbilityHud {
 			}
 		}
 		return switch (name) {
-			case "psi" -> Component.literal("Telekinetic Energy");
+			case "psi" -> Component.literal("Psi");
 			case "energy" -> Component.literal("Energy");
 			case "heat" -> Component.literal("Heat");
 			case "guard" -> Component.literal("Guard");
@@ -291,6 +358,7 @@ public final class AbilityHud {
 			case "hurr" -> Component.literal("Hurricane");
 			case "singularity" -> Component.literal("Singularity");
 			case "sparkle" -> Component.literal("Sparkling Flight");
+			case "blade_charge" -> Component.literal("Wind Blade");
 			case "ult_charge" -> Component.literal("Ultimate — charging");
 			default -> name.endsWith("flight") ? Component.literal("Flight")
 					: Component.literal(capitalize(name.replace('_', ' ')));
@@ -299,23 +367,5 @@ public final class AbilityHud {
 
 	private static String capitalize(String s) {
 		return s.isEmpty() ? s : Character.toUpperCase(s.charAt(0)) + s.substring(1);
-	}
-
-	/** Transient flags, entity ids, packed positions, tick counters -- never drawn as a bar. */
-	private static boolean isBookkeeping(String name) {
-		if (name.endsWith("_id") || name.endsWith("_x") || name.endsWith("_y") || name.endsWith("_z")
-				|| name.endsWith("_until") || name.endsWith("_ticks") || name.endsWith("_bonus")
-				|| name.endsWith("_prev") || name.endsWith("_hold")) {
-			return true;
-		}
-		return switch (name) {
-			case "beaming", "flaming", "diving", "charging", "slamming", "grabbed", "blocking", "deflecting",
-					"singularity_active", "gripping", "shielding", "draining", "repelling", "storm", "wave",
-					"crush", "frenzy", "well", "boulder", "mark_set", "aiming", "dashing", "sparkling", "beaming_holy",
-					"elastic_fall", "slide_hold_ticks", "slide_sneak_prev",
-					"quake_start", "quake_colossal", "shard_step", "earthswim_on",
-					"crystal_start", "crystal_colossal", "pyro_start", "pyro_lightning" -> true;
-			default -> false;
-		};
 	}
 }

@@ -22,8 +22,16 @@ public class HeartOfTheGraveItem extends Item {
 		super(properties);
 	}
 
+	/**
+	 * v0.10.10: the hint is three short lines rather than one very long one. A single-line tooltip is
+	 * not wrapped by vanilla, so on anything but an ultrawide window the sentence ran off the edge of
+	 * the screen and the end of it was simply unreadable.
+	 */
 	@Override
 	public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-		tooltip.add(Component.translatable("item.projecthero.heart_of_the_grave.hint").withStyle(ChatFormatting.GRAY));
+		for (int i = 1; i <= 3; i++) {
+			tooltip.add(Component.translatable("item.projecthero.heart_of_the_grave.hint" + i)
+					.withStyle(ChatFormatting.GRAY));
+		}
 	}
 }

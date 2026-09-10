@@ -140,7 +140,9 @@ public final class LaserVisionHandlers {
 		}));
 
 		AbilityHandlers.register(KEY, "thermal_vision", Handlers.toggle(Handlers.noop(), Handlers.noop(), ctx -> {
-			AbilityHelpers.modeAura(ctx.player(), ParticleTypes.SMALL_FLAME, 2);
+			// v0.10.10: no mode aura. Thermal Vision is something you do behind your own eyes -- the
+			// flame particles it used to trail made the user visibly light up for everybody else, which
+			// broadcast a purely private power (and, worse, told the room you were scanning them).
 			// running the thermal overlay costs a slow trickle of heat
 			ctx.addResource("heat", 0.5f, MAX_HEAT);
 			if (ctx.resource("heat") >= MAX_HEAT) {

@@ -367,6 +367,49 @@ flight stamina and the radial power wheel are a later polish pass.)*
 
 ---
 
+## Recent tuning — v0.10.10
+
+- **HUD meters are an allow-list now.** `AbilityHud` used to draw a bar for any resource a
+  hand-maintained deny-list did not name, defaulting the unknown to "reserve, max 500" — so every flag,
+  entity id and mode number a power ever stored became a permanent bar stuck at 1/500 (Water's
+  `spraying` flag was the second, phantom Water Beam bar; Crystalkinesis' `skating` was another).
+  A resource must now be listed in `AbilityHud.KIND` to be drawn at all, and its kind decides when.
+- **Telekinesis** rebuilt around the Psi reserve — see its entry above. Force Pull moved to Sneak+R and
+  G became the Telekinetic Barrier; the ultimate is a 5 s hold on 90 s.
+- **Elasticity:** damage raised across the kit, Elastic Form is projectile-proof, the bounce damps out,
+  and Slingshot at a creature is a dash-strike.
+- **Density:** Phase capped 2 blocks above ground and rendered translucent (`LivingEntityPhaseMixin`);
+  Singularity is a 5 s hold, capped at 5 blocks, endable early, cooldown on end.
+- **Geokinesis:** Colossal Rock detonates with a real power-6 explosion (blocks only — its entity damage
+  is still the hand-rolled pass) on top of a widened earth-only dig; Boulder Lift is seven real
+  no-gravity falling blocks made of the local ground; Earth Swim is fast inside earth and slow outside it.
+- **Cryokinesis:** the ice tool is shaped on the Sneak+R press (the old 2 s hold essentially never paid
+  out); powder snow no longer slows a cryokinetic (`PowderSnowSlowMixin`).
+- **Titan (performance):** every A*-pathfinding goal stripped and the chase replaced with direct
+  `MoveControl` steering. Path cost scales with entity footprint — the node evaluator samples a
+  ceil(w)×ceil(h)×ceil(w) box **per visited node**, so on an 18-block frame one search is thousands of
+  times an ordinary mob's. Passive block destruction now only scans the slab it is walking through, and
+  only while it is actually moving.
+- **Punisher:** grenades stick to the first surface they touch instead of bouncing; bullet holes fade
+  after 10 s instead of a minute.
+- **Thor:** R throws Mjolnir, Sneak+R recalls it.
+- **Squads:** new. See the Squads section below.
+
+## Squads (v0.10.10)
+
+`com.projecthero.mod.squad`. A player-created group whose members cannot damage each other, persisted
+as `SavedData` on the overworld (`SquadManager`). Friendly fire is suppressed on
+`ServerLivingEntityEvents.ALLOW_DAMAGE` rather than in `HeroDamageRules` — that class only runs for a
+player with an experimental power selected, whereas a squad has to cover ordinary swords and every hero
+ability for members with no powers at all. The attacker is resolved through `DamageSource.getEntity()`,
+so a squadmate's arrow, grenade or repulsor beam is as harmless as their sword; self-harm and
+`GENERIC_KILL`/`FELL_OUT_OF_WORLD` are untouched.
+
+`/squad` is the mod's only top-level command root besides `/projecthero` (and is mirrored under it).
+The roster screen is **P** (`SquadScreen`), fed by `SquadInfoPayload` pushed every 10 ticks — health,
+hero identity (`HeroIdentity`, ordered to match `AbilityRouter`'s own context priority), coordinates,
+and distance + compass bearing, with cross-dimension members showing the dimension instead.
+
 ## Recent tuning — "changes 6" (v0.2.5–0.2.6)
 
 New shared helper `com.projecthero.mod.hero.power.ModeMeter`: a stance bar that drains while a mode
@@ -707,18 +750,27 @@ Ice control: freezing, terrain creation, defensive walls and fast ice traversal.
 ### 10. Telekinesis  
 **ID:** `projecthero:power_10_telekinesis` · **Category:** Mental
 
-Psionic force manipulation: push, pull, levitate, grab and weaponize entities or blocks.
+Psionic force manipulation, every ability paid for out of one shared **Psi** reserve (500). Empty the
+reserve and the whole power locks out for 10 seconds ("burnout"): every toggle drops, every ability
+refuses, and Psi does not even begin to refill until the lockout is over. Continuous drains (flight)
+cut out at a soft floor rather than emptying the bar; deliberate spends and blows soaked by the
+Barrier are what can actually burn you out. Psi regeneration is parked for 1 s after anything spends
+it, so no channel can be outrun by the trickle.
 
 | Slot | Key | Ability | Effect |
 |---|---|---|---|
-| 1 | R | Force Push | Launch targeted or nearby entities away. |
-| 2 | G | Force Pull | Pull targeted entities or items toward you. |
-| 3 | X | Psychic Flight | Levitate telekinetically - slower and hungrier than true Flight. |
-| 4 | Z | Telekinetic Explosion | Seize nearby loose targets and violently throw them outward. |
-| 5 | V | Telekinetic Grab | Hold a target in the air; primary throws, secondary slams, aim controls position. |
-| 6 | C | Block Manipulation | Lift selected compatible blocks as temporary throwables. |
+| 1 | R | Force Push | 10 damage + a hard shove in a 4.5-block ball ahead. 1 s cooldown. |
+| 1 | Sneak+R | Force Pull | Reel in the aimed target **and** every loose item within 20 blocks (they are handed straight over inside 1.5 blocks). 1 s cooldown. |
+| 2 | G | Telekinetic Barrier | Toggle. Nothing gets through while it holds; drains Psi steadily and charges 4× the blocked damage on top, so a heavy hit can collapse it into a burnout. |
+| 3 | X | Psychic Flight | Low, steady drain (~1 min from full). Cuts out at the soft floor so it can never drop you AND lock you out. |
+| 4 | Z | Psychic Detonation | Hold 5 s: everything within 20 blocks is lifted and hauled toward you, held at a 2-block standoff, then blown apart for 55. 90 s cooldown, huge Psi cost, and Psi regenerates at 20% for 10 s afterwards. |
+| 5 | V | Telekinetic Grab | Press to grab, press again to throw. |
+| 5 | Sneak+V (holding) | Set Down | Release the victim gently — Slow Falling, no throw, no damage. |
+| 5 | Sneak+V (empty) | Force Crush | Reel a victim in and squeeze: 10 damage/second, drains Psi hard, and roots you (−85% speed) while it runs. |
+| 6 | C | Block Manipulation | Lift a block and steer it with the crosshair (a teleport packet per tick, so it tracks smoothly rather than in 1-second steps); release to throw. |
+| 6 | Sneak+C | Chunk Manipulation | Tear a 3×3 slab out of the ground and hurl it: 26 damage to the first thing it reaches, then it bursts. |
 
-**Passives:** Nearby dropped items drift slightly toward you while charged
+**Passives:** Nearby dropped items drift slightly toward you while charged; everything runs off the Psi bar
 
 **Serum:** Psionic Serum  
 **Mutation trigger:** Drink the serum near an active Enchanting Table with enough bookshelves to trigger a psionic resonance.
@@ -858,12 +910,12 @@ Rubber-like body manipulation: ranged punches, bouncing, grabs and slingshot mov
 
 | Slot | Key | Ability | Effect |
 |---|---|---|---|
-| 1 | R | Stretch Punch | Long-reach melee strike. |
-| 2 | G | Double-Fist Slam | Extend both arms for a heavy forward smash. |
-| 3 | X | Slingshot | Anchor to a surface and launch your body forward. |
-| 4 | Z | Giant Hammer Fist | Massively enlarge an arm and slam the ground for an area hit. |
-| 5 | V | Elastic Grab | Stretch an arm to pull a mob, player or item toward you. |
-| 6 | C | Elastic Form | Toggle elastic physics: little fall damage, bounce on impact, reduced collision damage. |
+| 1 | R | Stretch Punch | Long-reach melee strike — 12 damage at up to 15 blocks. |
+| 2 | G | Double-Fist Slam | Heavy forward smash — 17 damage in a 4-block ball, 7 blocks out. |
+| 3 | X | Slingshot | Anchor and launch. At terrain: reel yourself to it. At a **creature**: anchor onto them, get hauled in at speed, and slam into them for 14. |
+| 4 | Z | Giant Hammer Fist | 34 damage in a 4.5-block area, plus Slowness. |
+| 5 | V | Elastic Grab | Pull a mob, player or item in; press again to hurl for 7. |
+| 6 | C | Elastic Form | Toggle: +reach, +speed, Jump Boost, **projectile immunity**, melee attackers bounce off, and a slime-block rebound on landing that returns half the impact (so it always damps out). |
 
 **Passives:** Reduced fall and collision damage
 
@@ -880,8 +932,8 @@ Switch between low and high density for mobility, heavy impacts, defense and lim
 | 1 | R | Heavy Punch | Momentarily increase fist density for a powerful strike. |
 | 2 | G | Density Slam | Become extremely heavy and crash downward. |
 | 3 | X | Intangible Dash | Lower density and dash through entities and very thin obstacles. |
-| 4 | Z | Singularity Drop | Rise, maximize density and crash down with a massive shockwave. |
-| 5 | V | Phase | Briefly lower density enough to move through a thin wall, with strict safety limits. |
+| 4 | Z | Singularity | Hold 5 s to gather. Hangs ≤5 blocks off the ground, invulnerable, dragging everything in; 15 damage/s inside 6 blocks. 25 s, or press Z again to drop out early. 60 s cooldown, started only when it **ends**. |
+| 5 | V | Phase | Toggle: walk through solid blocks, immune to damage, rendered see-through. Capped at 2 blocks above the ground — intangibility, not flight. |
 | 6 | C | Density Mode | Cycle Light → Normal → Heavy: mobility vs damage/defense. |
 
 **Passives:** Mode-dependent jump, fall speed and knockback modifiers
