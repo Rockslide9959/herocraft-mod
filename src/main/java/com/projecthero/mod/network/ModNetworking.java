@@ -32,6 +32,10 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(PunisherActionPayload.TYPE, PunisherActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(CryoWeaponPayload.TYPE, CryoWeaponPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(CryoWheelOpenPayload.TYPE, CryoWheelOpenPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(ElasticFormPayload.TYPE, ElasticFormPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(ElasticFormWheelPayload.TYPE, ElasticFormWheelPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(PortalCreatePayload.TYPE, PortalCreatePayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(PortalPickerPayload.TYPE, PortalPickerPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IronManBeamPayload.TYPE, IronManBeamPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IronManSuitListPayload.TYPE, IronManSuitListPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IronManWeaponWheelPayload.TYPE, IronManWeaponWheelPayload.CODEC);
@@ -138,6 +142,15 @@ public final class ModNetworking {
 		// Cryokinesis ice-weapon wheel: the player picked which ice tool to shape.
 		ServerPlayNetworking.registerGlobalReceiver(CryoWeaponPayload.TYPE, (payload, context) ->
 				com.projecthero.mod.hero.power.p09.CryokinesisHandlers.giveIceToolChoice(context.player(), payload.weapon()));
+
+		// Elasticity body-shape wheel: the player picked Elastic / Inflated / Compression.
+		ServerPlayNetworking.registerGlobalReceiver(ElasticFormPayload.TYPE, (payload, context) ->
+				com.projecthero.mod.hero.power.p17.ElasticityHandlers.chooseForm(context.player(), payload.form()));
+
+		// Teleportation Portal picker: the player chose a destination + dimension.
+		ServerPlayNetworking.registerGlobalReceiver(PortalCreatePayload.TYPE, (payload, context) ->
+				com.projecthero.mod.hero.power.p11.TeleportationHandlers.createDestinationPortal(
+						context.player(), payload.x(), payload.y(), payload.z(), payload.dimension()));
 
 		// Iron Man call-armour picker: the player chose a suit from the C-key screen.
 		ServerPlayNetworking.registerGlobalReceiver(IronManCallSuitPayload.TYPE, (payload, context) ->

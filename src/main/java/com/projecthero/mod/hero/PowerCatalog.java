@@ -134,11 +134,11 @@ final class PowerCatalog {
 	private static Power superSpeed() {
 		String k = "power_04_super_speed";
 		return Power.Builder.of(Powers.id(k), PowerCategory.MOVEMENT)
-				.ability(ab(k, "speed_blitz", SLOT_1, INSTANT, 3 * S))
+				.ability(ab(k, "speed_carry", SLOT_1, INSTANT, 3 * S))
 				.ability(ab(k, "rapid_assault", SLOT_2, INSTANT, 0))
 				.ability(ab(k, "momentum_dash", SLOT_3, INSTANT, 2 * S))
 				.ability(ab(k, "overdrive", SLOT_4, INSTANT, 50 * S))
-				.ability(ab(k, "whirlwind", SLOT_5, HOLD, 8 * S))
+				.ability(ab(k, "whirlwind", SLOT_5, HOLD, 12 * S))
 				.ability(ab(k, "speed_mode", SLOT_6, TOGGLE, 0))
 				.passives(pk(k, "passive.sprint"), pk(k, "passive.step"), pk(k, "passive.collision"))
 				.serum(SerumRecipe.of("minecraft:swiftness", pk(k, "serum"),
@@ -279,9 +279,9 @@ final class PowerCatalog {
 				.ability(ab(k, "blink", SLOT_1, HOLD, 3 * S))
 				.ability(ab(k, "target_teleport", SLOT_2, INSTANT, 7 * S))
 				.ability(ab(k, "escape_blink", SLOT_3, INSTANT, 4 * S))
-				.ability(ab(k, "spatial_frenzy", SLOT_4, INSTANT, 25 * S))
+				.ability(ab(k, "portal", SLOT_4, CHARGE, 60 * S))
 				.ability(ab(k, "teleport_mark", SLOT_5, INSTANT, 20 * S))
-				.ability(ab(k, "phase_jump", SLOT_6, INSTANT, 8 * S))
+				.ability(ab(k, "portal_anchor", SLOT_6, INSTANT, 3 * S))
 				.passives(pk(k, "passive.pearl_resist"))
 				.serum(SerumRecipe.of("minecraft:swiftness", pk(k, "serum"),
 						"minecraft:ender_pearl", "minecraft:amethyst_shard", "minecraft:redstone"))
@@ -395,13 +395,14 @@ final class PowerCatalog {
 	private static Power elasticity() {
 		String k = "power_17_elasticity";
 		return Power.Builder.of(Powers.id(k), PowerCategory.MOLECULAR)
-				.ability(ab(k, "stretch_punch", SLOT_1, INSTANT, 2 * S))
+				.ability(ab(k, "stretch_punch", SLOT_1, CHARGE, 2 * S))
 				.ability(ab(k, "double_fist_slam", SLOT_2, INSTANT, 7 * S))
 				.ability(ab(k, "slingshot", SLOT_3, INSTANT, 3 * S))
 				.ability(ab(k, "giant_hammer_fist", SLOT_4, INSTANT, 35 * S))
 				.ability(ab(k, "elastic_grab", SLOT_5, INSTANT, 6 * S))
 				.ability(ab(k, "elastic_form", SLOT_6, TOGGLE, 0))
-				.passives(pk(k, "passive.fall"))
+				.passives(pk(k, "passive.fall"), pk(k, "passive.bounce"), pk(k, "passive.squeeze"),
+						pk(k, "passive.melee"), pk(k, "passive.knockback"))
 				.serum(SerumRecipe.of("minecraft:leaping", pk(k, "serum"),
 						"minecraft:slime_ball", "minecraft:string", "minecraft:rabbit_hide"))
 				.trigger(MutationTrigger.of(Kind.SLIME_IMPACT, pk(k, "trigger"), null))
@@ -414,12 +415,12 @@ final class PowerCatalog {
 	private static Power densityManipulation() {
 		String k = "power_18_density_manipulation";
 		return Power.Builder.of(Powers.id(k), PowerCategory.MOLECULAR)
-				.ability(ab(k, "heavy_punch", SLOT_1, INSTANT, 3 * S))
-				.ability(ab(k, "density_slam", SLOT_2, INSTANT, 7 * S))
-				.ability(ab(k, "intangible_dash", SLOT_3, INSTANT, 5 * S))
-				.ability(ab(k, "singularity_drop", SLOT_4, HOLD, 60 * S))
+				.ability(ab(k, "increase_density", SLOT_1, INSTANT, 0))
+				.ability(ab(k, "decrease_density", SLOT_2, INSTANT, 0))
+				.ability(ab(k, "density_anchor", SLOT_3, INSTANT, 30 * S))
+				.ability(ab(k, "heavy_impact", SLOT_4, INSTANT, 10 * S))
 				.ability(ab(k, "phase", SLOT_5, TOGGLE, 0))
-				.ability(ab(k, "density_mode", SLOT_6, CYCLE, 0))
+				.ability(ab(k, "zero_density", SLOT_6, INSTANT, 2 * S))
 				.passives(pk(k, "passive.mode"))
 				.serum(SerumRecipe.of("minecraft:slow_falling", pk(k, "serum"),
 						"minecraft:iron_ingot", "minecraft:feather", "minecraft:amethyst_shard"))

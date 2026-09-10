@@ -1,9 +1,14 @@
 package com.projecthero.mod.hero.power.p17;
 
+import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.AbilityContext;
+import com.projecthero.mod.hero.AbilityHandler;
 import com.projecthero.mod.hero.AbilityHandlers;
+import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.ExperimentalPowers;
+import com.projecthero.mod.hero.Power;
 import com.projecthero.mod.hero.Powers;
+import com.projecthero.mod.hero.data.ExperimentalState;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.GrabHelper;
 import com.projecthero.mod.hero.power.Handlers;
@@ -20,21 +25,27 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 /**
  * Power 17 — Elasticity.
  *
- * <p>v0.10.10: every attack hits harder (the kit was tuned well under comparable powers -- an 8-damage
- * primary against Geokinesis' 9-damage Rock Shot and a 27-damage ultimate against Boulder Lift's 20 for
- * a much shorter cooldown), Elastic Form shrugs off arrows and other projectiles outright rather than
- * only bouncing melee attackers away, its slime-block bounce now damps out instead of rebounding
- * forever, and Slingshot fired at a <em>creature</em> reels you into them and lands a hit.
+ * <p>v0.10.13: a rubber body is now a package of always-on passives (no fall damage, a small bounce
+ * on any real fall, squeeze through a one-block gap, 25% less melee damage, 50% knockback
+ * resistance), the primary is a charge-up stretch punch, the secondary doubles as a ground-slam from
+ * height, and Elastic Form is one of three body shapes chosen from a weapon wheel on Shift + C.
  */
 public final class ElasticityHandlers {
 	private static final String KEY = "power_17_elasticity";
+
 	private static final ResourceLocation FORM_REACH = com.projecthero.mod.ProjectHeroMod.id("elastic_form_reach");
 	private static final ResourceLocation FORM_SPEED = com.projecthero.mod.ProjectHeroMod.id("elastic_form_speed");
+	private static final ResourceLocation FORM_SCALE = com.projecthero.mod.ProjectHeroMod.id("elastic_form_scale");
+	private static final ResourceLocation FORM_KB = com.projecthero.mod.ProjectHeroMod.id("elastic_form_kb");
+	/** Always-on passives. */
+	private static final ResourceLocation PASSIVE_MELEE = com.projecthero.mod.ProjectHeroMod.id("elastic_passive_melee");
+	private static final ResourceLocation PASSIVE_KB = com.projecthero.mod.ProjectHeroMod.id("elastic_passive_kb");
 
 	/** Slingshot: how far it looks for an anchor, and how long the anchored dash may run. */
 	private static final double SLING_RANGE = 45.0;
@@ -42,29 +53,117 @@ public final class ElasticityHandlers {
 	private static final double SLING_IMPACT_RANGE = 2.6;
 	private static final float SLING_DAMAGE = 14.0f;
 
-	/** Elastic Form's slime-block landing: fraction of the impact returned, and the floor below which it stops. */
-	private static final float BOUNCE_MIN_FALL = 0.35f;
-	private static final double BOUNCE_RESTITUTION = 0.5;
-	private static final double BOUNCE_MAX = 1.25;
+	/** Stretch Punch charge: +5 damage per second, up to 2 s; every extra second held is +1 s cooldown. */
+	private static final int STRETCH_BASE_DMG = 12;
+	private static final int STRETCH_DMG_PER_SEC = 5;
+	private static final int STRETCH_MAX_DMG_SECONDS = 2;
+	private static final int STRETCH_MAX_TRACK_SECONDS = 6;
+
+	/** Dive slam (double_fist_slam from height). */
+	private static final double SLAM_MIN_HEIGHT = 5.0;
+	private static final float SLAM_DAMAGE = 20.0f;
+
+	/** The three body shapes chosen from the Shift + C wheel. Wire index == ordinal. */
+	public enum Form { ELASTIC, INFLATED, COMPRESSION }
 
 	private ElasticityHandlers() {
 	}
 
-	public static void register() {
-		AbilityHandlers.register(KEY, "stretch_punch", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			LivingEntity t = AbilityHelpers.raycastEntity(p, 15.0);
-			AbilityHelpers.line(ctx.level(), p.getEyePosition(), AbilityHelpers.aimPoint(p, 15.0), ParticleTypes.ITEM_SLIME, 3.0);
-			if (t != null) {
-				AbilityHelpers.hurt(p, t, 12.0f);
-				AbilityHelpers.knockbackFrom(t, p.position(), 0.9);
-			}
-			AbilityHelpers.sound(p, SoundEvents.SLIME_ATTACK, 1.0f, 1.2f);
-			ctx.triggerCooldown();
-		}));
+	// ---- ownership / form queries -------------------------------------------------------------
 
-		AbilityHandlers.register(KEY, "double_fist_slam", Handlers.instant(ctx -> {
+	public static boolean owns(Player p) {
+		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		return st != null && st.ownedPowers.contains(KEY);
+	}
+
+	/** True while the Elastic Form toggle is on (any of the three shapes). Read from the synced attachment. */
+	public static boolean formActiveClient(Player p) {
+		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		return st != null && st.ownedPowers.contains(KEY)
+				&& st.activeToggles.contains(KEY + "/elastic_form");
+	}
+
+	private static boolean formActive(Player p) {
+		return formActiveClient(p);
+	}
+
+	/** The currently selected body shape (only meaningful while Elastic Form is toggled on). */
+	public static Form form(Player p) {
+		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		if (st == null) {
+			return Form.ELASTIC;
+		}
+		int idx = Math.round(st.resources.getOrDefault(KEY + "/form", 0.0f));
+		Form[] all = Form.values();
+		return all[Math.floorMod(idx, all.length)];
+	}
+
+	/** Elastic form (only) shrugs projectiles off outright -- read by {@link com.projecthero.mod.hero.power.HeroDamageRules}. */
+	public static boolean deflectsProjectiles(ServerPlayer p) {
+		return formActive(p) && form(p) == Form.ELASTIC;
+	}
+
+	/** Damage-taken multiplier from the current form (Inflated: half). */
+	public static float damageTakenFactor(ServerPlayer p) {
+		return formActive(p) && form(p) == Form.INFLATED ? 0.5f : 1.0f;
+	}
+
+	// ---- registration ----------------------------------------------------------------------------
+
+	public static void register() {
+		// R -- Stretch Punch. Tap for the base hit; hold to charge (+5 dmg/s, capped at +10). Holding
+		// past 2 s adds nothing to the damage but each extra second adds a second of cooldown.
+		AbilityHandlers.register(KEY, "stretch_punch", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				if (!ctx.cooldownReady()) {
+					ctx.actionBar("message.projecthero.ability.on_cooldown",
+							net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
+							String.format(java.util.Locale.ROOT, "%.1f", ctx.cooldownRemaining() / 20.0f));
+					return;
+				}
+				ctx.setResource("stretch_on", 1, 1);
+				ctx.setResource("stretch_start", ctx.player().level().getGameTime(), 1.0e12f);
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				if (ctx.resource("stretch_on") < 0.5f) {
+					return;
+				}
+				float start = ctx.resource("stretch_start");
+				long held = ctx.player().level().getGameTime() - (long) start;
+				if (held > STRETCH_MAX_TRACK_SECONDS * 20 + 20) {
+					fireStretch(ctx); // safety: released event lost
+					return;
+				}
+				if (held % 4 == 0) {
+					ServerPlayer p = ctx.player();
+					ctx.level().sendParticles(ParticleTypes.ITEM_SLIME, p.getX(), p.getY() + 1.0, p.getZ(),
+							3 + (int) Math.min(12, held / 3), 0.3, 0.4, 0.3, 0.02);
+				}
+			}
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				fireStretch(ctx);
+			}
+		});
+
+		// G -- Double Fist Slam. On the ground it is the old forward arc; more than 5 blocks up it becomes
+		// a straight-down ground pound for 20 damage.
+		AbilityHandlers.register(KEY, "double_fist_slam", Handlers.instantTicking(ctx -> {
 			ServerPlayer p = ctx.player();
+			if (heightAboveGround(p) > SLAM_MIN_HEIGHT) {
+				p.setDeltaMovement(p.getDeltaMovement().x * 0.2, -2.6, p.getDeltaMovement().z * 0.2);
+				p.hurtMarked = true;
+				p.hasImpulse = true;
+				p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(p));
+				ctx.setResource("slamming", 1, 1);
+				AbilityHelpers.sound(p, SoundEvents.SLIME_JUMP, 1.0f, 0.5f);
+				ctx.triggerCooldown();
+				return;
+			}
 			Vec3 front = p.getEyePosition().add(p.getLookAngle().scale(7));
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, front, 4.0)) {
 				AbilityHelpers.hurt(p, e, 17.0f);
@@ -73,11 +172,30 @@ public final class ElasticityHandlers {
 			AbilityHelpers.burst(ctx.level(), front, ParticleTypes.ITEM_SLIME, 30, 0.6);
 			AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 1.2f, 0.7f);
 			ctx.triggerCooldown();
+		}, ctx -> {
+			if (ctx.resource("slamming") < 0.5f) {
+				return;
+			}
+			ServerPlayer p = ctx.player();
+			if (!p.onGround() && !p.isInWater()) {
+				p.setDeltaMovement(p.getDeltaMovement().x * 0.2, Math.min(p.getDeltaMovement().y, -2.6),
+						p.getDeltaMovement().z * 0.2);
+				p.hasImpulse = true;
+				p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(p));
+				p.resetFallDistance();
+				return;
+			}
+			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 5.0)) {
+				AbilityHelpers.hurt(p, e, SLAM_DAMAGE);
+				AbilityHelpers.knockbackFrom(e, p.position(), 1.4);
+				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 40, 1);
+			}
+			ctx.level().sendParticles(ParticleTypes.ITEM_SLIME, p.getX(), p.getY(), p.getZ(), 60, 2.5, 0.3, 2.5, 0.15);
+			ctx.level().sendParticles(ParticleTypes.EXPLOSION, p.getX(), p.getY(), p.getZ(), 1, 0, 0, 0, 0);
+			AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 1.4f, 0.4f);
+			ctx.setResource("slamming", 0, 1);
 		}));
 
-		// v0.10.10: aim Slingshot at a creature and you anchor onto THEM -- you are reeled in at speed and
-		// slam into them on arrival, instead of the shot simply doing nothing because there was a mob
-		// where the block you needed should have been. Aimed at terrain it is the old reel-in, unchanged.
 		AbilityHandlers.register(KEY, "slingshot", Handlers.instantTicking(ctx -> {
 			ServerPlayer p = ctx.player();
 			LivingEntity target = AbilityHelpers.raycastEntity(p, SLING_RANGE);
@@ -125,63 +243,100 @@ public final class ElasticityHandlers {
 			}
 		}, ctx -> GrabHelper.tick(ctx, 2.5)));
 
-		AbilityHandlers.register(KEY, "elastic_form", Handlers.toggle(
-				ElasticityHandlers::formOn, ElasticityHandlers::formOff, ctx -> {
-					formOn(ctx);
-					ServerPlayer p = ctx.player();
-					// bounce like a slime block on every landing -- the harder the fall, the bigger the rebound.
-					// track the descent speed while airborne (resources can't be negative, so store its magnitude).
-					float fall = ctx.resource("elastic_fall");
-					if (!p.onGround()) {
-						ctx.setResource("elastic_fall", (float) Math.max(fall, -p.getDeltaMovement().y), 1000.0f);
-					} else if (fall > BOUNCE_MIN_FALL) {
-						// v0.10.10: the rebound is strictly a FRACTION of the impact that caused it, and
-						// small impacts do not rebound at all. The old curve (0.4 + fall * 0.9) had a fixed
-						// 0.4 floor, so a landing always threw you back up hard enough to produce another
-						// qualifying landing -- once you touched the ground in Elastic Form you bounced for
-						// ever with no way to stop. Halving the energy each time means a big fall still
-						// gives a big, satisfying rebound but the series always converges and you settle.
-						double bounce = Math.min(BOUNCE_MAX, fall * BOUNCE_RESTITUTION);
-						p.setDeltaMovement(p.getDeltaMovement().x * 1.05, bounce, p.getDeltaMovement().z * 1.05);
-						p.hurtMarked = true;
-						p.hasImpulse = true;
-						p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(p));
-						p.resetFallDistance();
-						ctx.level().sendParticles(ParticleTypes.ITEM_SLIME, p.getX(), p.getY(), p.getZ(), 12, 0.3, 0.05, 0.3, 0.02);
-						AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 0.6f, 1.4f);
-						ctx.setResource("elastic_fall", 0, 1000.0f);
-					} else {
-						ctx.setResource("elastic_fall", 0, 1000.0f);
-					}
-					AbilityHelpers.modeAura(p, ParticleTypes.ITEM_SLIME, 3);
-				}));
+		// C -- Elastic Form. Plain C toggles Elastic (the default shape); Shift + C opens the wheel to
+		// pick Elastic / Inflated / Compression (and turns the form on if it was off).
+		AbilityHandlers.register(KEY, "elastic_form", new AbilityHandler() {
+			@Override
+			public void onToggleOn(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					// keep the toggle on but let the wheel choose the shape
+					net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p,
+							com.projecthero.mod.network.ElasticFormWheelPayload.INSTANCE);
+				} else {
+					ctx.setResource("form", Form.ELASTIC.ordinal(), 10);
+				}
+				applyForm(p, form(p));
+				AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 0.8f, 1.4f);
+			}
 
-		// While Elastic Form is on, anything that hits you in melee bounces ~2 blocks straight back.
-		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> {
-			if (entity instanceof ServerPlayer sp && formActive(sp)
-					&& source.getEntity() instanceof LivingEntity attacker && sp.distanceToSqr(attacker) < 25.0) {
-				Vec3 away = attacker.position().subtract(sp.position()).normalize().scale(0.9).add(0, 0.35, 0);
-				attacker.setDeltaMovement(away);
-				attacker.hurtMarked = true;
+			@Override
+			public void onToggleOff(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					// Shift + C always means "open the form wheel", never "turn the form off".
+					ctx.setToggled(true);
+					net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p,
+							com.projecthero.mod.network.ElasticFormWheelPayload.INSTANCE);
+					return;
+				}
+				clearForm(p);
+			}
+
+			@Override
+			public void onToggleTick(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				applyForm(p, form(p));
+				AbilityHelpers.modeAura(p, ParticleTypes.ITEM_SLIME, 3);
 			}
 		});
+
+		// Enemies that land a melee hit on Elastic Form get bounced back -- gently in Elastic, and flung
+		// ~10 blocks in Inflated.
+		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> {
+			if (!(entity instanceof ServerPlayer sp) || !formActive(sp)) {
+				return;
+			}
+			if (!(source.getEntity() instanceof LivingEntity attacker) || sp.distanceToSqr(attacker) >= 100.0) {
+				return;
+			}
+			Form f = form(sp);
+			if (f == Form.COMPRESSION) {
+				return;
+			}
+			Vec3 away = attacker.position().subtract(sp.position());
+			away = away.lengthSqr() < 1.0e-4 ? sp.getLookAngle().reverse() : away.normalize();
+			double power = f == Form.INFLATED ? 2.6 : 0.9;
+			attacker.setDeltaMovement(away.scale(power).add(0, f == Form.INFLATED ? 0.6 : 0.35, 0));
+			attacker.hurtMarked = true;
+			attacker.hasImpulse = true;
+			if (f == Form.INFLATED) {
+				AbilityHelpers.sound(sp, SoundEvents.SLIME_SQUISH, 1.2f, 0.6f);
+			}
+		});
+
+		registerPassives();
 	}
 
-	/**
-	 * v0.10.10: Elastic Form is projectile-proof. A rubber body absorbing an arrow is the single most
-	 * recognisable thing this power does, and it is what makes the form worth holding at range -- the
-	 * melee-only knockback it had before did nothing at all against the archers and skeletons it is
-	 * most needed for. Read by {@link com.projecthero.mod.hero.power.HeroDamageRules}.
-	 */
-	public static boolean deflectsProjectiles(ServerPlayer p) {
-		return formActive(p);
+	// ---- Stretch Punch charge -------------------------------------------------------------------
+
+	private static void fireStretch(AbilityContext ctx) {
+		if (ctx.resource("stretch_on") < 0.5f) {
+			return;
+		}
+		float start = ctx.resource("stretch_start");
+		ctx.setResource("stretch_on", 0, 1);
+		ctx.setResource("stretch_start", 0, 1.0e12f);
+		ServerPlayer p = ctx.player();
+		long heldTicks = Math.max(0L, p.level().getGameTime() - (long) start);
+		int heldSeconds = (int) Math.min(STRETCH_MAX_TRACK_SECONDS, heldTicks / 20);
+		int dmgSeconds = Math.min(STRETCH_MAX_DMG_SECONDS, heldSeconds);
+		float damage = STRETCH_BASE_DMG + dmgSeconds * STRETCH_DMG_PER_SEC;
+
+		LivingEntity t = AbilityHelpers.raycastEntity(p, 15.0 + dmgSeconds * 2.0);
+		AbilityHelpers.line(ctx.level(), p.getEyePosition(),
+				AbilityHelpers.aimPoint(p, 15.0 + dmgSeconds * 2.0), ParticleTypes.ITEM_SLIME, 3.0);
+		if (t != null) {
+			AbilityHelpers.hurt(p, t, damage);
+			AbilityHelpers.knockbackFrom(t, p.position(), 0.9 + dmgSeconds * 0.4);
+		}
+		AbilityHelpers.sound(p, SoundEvents.SLIME_ATTACK, 1.0f, 1.2f - heldSeconds * 0.15f);
+		// base 2 s cooldown, +1 s for every second the punch was held past release-immediately.
+		ctx.triggerCooldown((2 + heldSeconds) * 20);
 	}
 
-	/**
-	 * Slingshot's anchored dash: haul the player toward the creature they latched onto, and slam into it
-	 * on arrival. Runs for at most {@link #SLING_TICKS} so a target that dies, teleports or outruns the
-	 * pull can never leave the player being reeled at nothing.
-	 */
+	// ---- Slingshot upkeep (unchanged) ---------------------------------------------------------
+
 	private static void slingTick(AbilityContext ctx) {
 		float left = ctx.resource("sling_ticks");
 		if (left <= 0.5f) {
@@ -200,7 +355,6 @@ public final class ElasticityHandlers {
 			AbilityHelpers.hurt(p, target, SLING_DAMAGE);
 			AbilityHelpers.knockbackFrom(target, p.position(), 1.2);
 			AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, 40, 1);
-			// stop dead on the hit rather than sailing straight past them
 			p.setDeltaMovement(p.getDeltaMovement().scale(-0.15));
 			p.hurtMarked = true;
 			ctx.level().sendParticles(ParticleTypes.ITEM_SLIME, target.getX(), target.getY() + 1.0, target.getZ(),
@@ -209,7 +363,6 @@ public final class ElasticityHandlers {
 			endSling(ctx);
 			return;
 		}
-		// keep the pull topped up so terrain drag and gravity do not stall the dash halfway
 		AbilityHelpers.launchSelf(p, to.normalize().scale(Math.min(2.6, 0.9 + dist * 0.12)).add(0, 0.08, 0));
 		p.resetFallDistance();
 		AbilityHelpers.line(ctx.level(), p.getEyePosition(), target.position(), ParticleTypes.ITEM_SLIME, 2.0);
@@ -220,30 +373,112 @@ public final class ElasticityHandlers {
 		ctx.setResource("sling_id", 0, 1.0e9f);
 	}
 
-	private static void formOn(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		PowerToggles.modifier(p, Attributes.ENTITY_INTERACTION_RANGE, FORM_REACH, 5.0,
-				AttributeModifier.Operation.ADD_VALUE); // base 3 -> 8 blocks
-		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, FORM_SPEED, 0.3,
-				AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-		// Jump Boost IV ~= a 3-block leap.
-		var jump = p.getEffect(MobEffects.JUMP);
-		if (jump == null || !jump.isInfiniteDuration() || jump.getAmplifier() != 3) {
-			p.addEffect(new MobEffectInstance(MobEffects.JUMP, MobEffectInstance.INFINITE_DURATION, 3, false, false, false));
+	// ---- forms --------------------------------------------------------------------------------
+
+	/** Choose a form from the weapon wheel (C2S). Ensures Elastic Form is on and applies the shape. */
+	public static void chooseForm(ServerPlayer p, int index) {
+		Power power = Powers.byKey(KEY);
+		if (power == null || !ExperimentalPowers.owns(p, power)) {
+			return;
+		}
+		Form[] all = Form.values();
+		Form f = all[Math.floorMod(index, all.length)];
+		var ability = power.ability(AbilitySlot.SLOT_6);
+		if (!ExperimentalPowers.isToggled(p, power, ability)) {
+			ExperimentalPowers.setToggled(p, power, ability, true);
+		}
+		ExperimentalPowers.setResource(p, power, "form", f.ordinal(), 10);
+		applyForm(p, f);
+		p.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+				"message.projecthero.elasticity.form_" + f.name().toLowerCase(java.util.Locale.ROOT)), true);
+		AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 1.0f, f == Form.COMPRESSION ? 1.6f : (f == Form.INFLATED ? 0.5f : 1.1f));
+	}
+
+	private static void applyForm(ServerPlayer p, Form f) {
+		// reach: Elastic stretches; Inflated is average; Compression is short-armed
+		double reach = switch (f) {
+			case ELASTIC -> 5.0;
+			case INFLATED -> 0.0;
+			case COMPRESSION -> -1.0;
+		};
+		double speed = switch (f) {
+			case ELASTIC -> 0.3;
+			case INFLATED -> 0.0;
+			case COMPRESSION -> 0.25;
+		};
+		double scale = switch (f) {
+			case ELASTIC -> 0.0;
+			case INFLATED -> 0.25;   // rounder / bigger (kept modest so it does not clip low ceilings)
+			case COMPRESSION -> -0.45; // ~1 block tall
+		};
+		double kb = f == Form.INFLATED ? 1.0 : 0.0; // 100% knockback resistance (on top of the 50% passive)
+		PowerToggles.modifier(p, Attributes.ENTITY_INTERACTION_RANGE, FORM_REACH, reach, AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, FORM_SPEED, speed, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		PowerToggles.modifier(p, Attributes.SCALE, FORM_SCALE, scale, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		PowerToggles.modifier(p, Attributes.KNOCKBACK_RESISTANCE, FORM_KB, kb, AttributeModifier.Operation.ADD_VALUE);
+
+		if (f == Form.ELASTIC) {
+			ensureInfiniteEffect(p, MobEffects.JUMP, 3);
+			p.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+		} else {
+			p.removeEffect(MobEffects.JUMP);
+		}
+		if (f == Form.INFLATED) {
+			ensureInfiniteEffect(p, MobEffects.MOVEMENT_SLOWDOWN, 1); // Slowness II
 		}
 	}
 
-	private static void formOff(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
+	private static void clearForm(ServerPlayer p) {
 		PowerToggles.clearModifier(p, Attributes.ENTITY_INTERACTION_RANGE, FORM_REACH);
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, FORM_SPEED);
+		PowerToggles.clearModifier(p, Attributes.SCALE, FORM_SCALE);
+		PowerToggles.clearModifier(p, Attributes.KNOCKBACK_RESISTANCE, FORM_KB);
 		p.removeEffect(MobEffects.JUMP);
+		p.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
 		p.removeEffect(MobEffects.SLOW_FALLING);
 	}
 
-	private static boolean formActive(ServerPlayer p) {
-		var power = Powers.byKey(KEY);
-		return power != null && ExperimentalPowers.owns(p, power)
-				&& ExperimentalPowers.isToggled(p, power, power.ability(com.projecthero.mod.hero.AbilitySlot.SLOT_6));
+	private static void ensureInfiniteEffect(ServerPlayer p, net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect> effect, int amp) {
+		var cur = p.getEffect(effect);
+		if (cur == null || !cur.isInfiniteDuration() || cur.getAmplifier() != amp) {
+			p.addEffect(new MobEffectInstance(effect, MobEffectInstance.INFINITE_DURATION, amp, false, false, false));
+		}
+	}
+
+	// ---- passives ---------------------------------------------------------------------------------
+
+	private static void registerPassives() {
+		com.projecthero.mod.hero.PowerPassives.register(KEY, (player, owned) -> {
+			if (!owned) {
+				PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, PASSIVE_MELEE);
+				PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, PASSIVE_KB);
+				clearForm(player);
+			}
+		});
+		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, player -> {
+			// 25% less melee damage, 50% knockback resistance -- always on for the rubber body.
+			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, PASSIVE_MELEE, -0.25,
+					AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+			PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, PASSIVE_KB, 0.5,
+					AttributeModifier.Operation.ADD_VALUE);
+			// respawn-safe re-apply of the active shape
+			if (formActive(player)) {
+				applyForm(player, form(player));
+			}
+		});
+	}
+
+	private static double heightAboveGround(ServerPlayer p) {
+		net.minecraft.core.BlockPos.MutableBlockPos c = p.blockPosition().mutable();
+		for (int i = 0; i <= 24; i++) {
+			if (!p.level().getBlockState(c).getCollisionShape(p.level(), c).isEmpty()) {
+				return p.getY() - (c.getY() + 1.0);
+			}
+			c.move(0, -1, 0);
+			if (c.getY() < p.level().getMinBuildHeight()) {
+				break;
+			}
+		}
+		return 64.0;
 	}
 }

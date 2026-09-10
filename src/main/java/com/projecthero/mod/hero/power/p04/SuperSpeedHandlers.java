@@ -35,10 +35,10 @@ public final class SuperSpeedHandlers {
 	/** Absolute game time until which Overdrive is running (0 = off). Persisted; read client-side too. */
 	public static final String OVERDRIVE_UNTIL = "overdrive_until";
 	private static final int OVERDRIVE_TICKS = 30 * 20;
+	/** Countdown mirror of {@link #OVERDRIVE_UNTIL} purely so the ability HUD can draw an Overdrive bar. */
+	private static final String OVERDRIVE_LEFT = "overdrive_ticks";
 
 	private static final ResourceLocation PASSIVE_STEP = com.projecthero.mod.ProjectHeroMod.id("speed_passive_step");
-	/** Base Super Speed passive: +100% movement speed just for owning the power. */
-	private static final ResourceLocation PASSIVE_SPEED = com.projecthero.mod.ProjectHeroMod.id("speed_passive_speed");
 
 	private static final ResourceLocation SM_SPEED = com.projecthero.mod.ProjectHeroMod.id("speed_mode_speed");
 	private static final ResourceLocation SM_ATTACK = com.projecthero.mod.ProjectHeroMod.id("speed_mode_attack_speed");
@@ -55,24 +55,22 @@ public final class SuperSpeedHandlers {
 	}
 
 	public static void register() {
-		AbilityHandlers.register(KEY, "speed_blitz", Handlers.instant(ctx -> {
+		// v0.10.13: R replaced by a grab-and-carry -- snatch up the creature or player you are looking at
+		// and run with them tucked in front of you; press again to hurl them forward. Same GrabHelper flow
+		// as Elasticity's Elastic Grab.
+		AbilityHandlers.register(KEY, "speed_carry", Handlers.instantTicking(ctx -> {
 			ServerPlayer p = ctx.player();
-			float m = overdriveMult(p);
-			LivingEntity target = AbilityHelpers.raycastEntity(p, 14.0);
-			if (target != null) {
-				Vec3 to = target.position().subtract(p.getLookAngle().scale(1.5));
-				if (safe(ctx.level(), to)) {
-					p.teleportTo(to.x, to.y, to.z);
-				}
-				AbilityHelpers.hurt(p, target, 10.0f * m);
-				AbilityHelpers.knockbackFrom(target, p.position(), 0.4 * m);
-			} else {
-				AbilityHelpers.addImpulse(p, p.getLookAngle().scale(1.6 * selfMult(m)));
+			if (com.projecthero.mod.hero.power.GrabHelper.isHolding(ctx)) {
+				float m = overdriveMult(p);
+				com.projecthero.mod.hero.power.GrabHelper.throwHeld(ctx, 2.6 * m, 8.0f * m);
+				trail(ctx.level(), p);
+				AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 1.6f);
+				ctx.triggerCooldown();
+			} else if (com.projecthero.mod.hero.power.GrabHelper.tryGrab(ctx, 6.0, 300)) {
+				ctx.actionBar("message.projecthero.ability.grabbed");
+				AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.8f, 1.2f);
 			}
-			trail(ctx.level(), p);
-			AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 1.6f);
-			ctx.triggerCooldown();
-		}));
+		}, ctx -> com.projecthero.mod.hero.power.GrabHelper.tick(ctx, 1.8)));
 
 		AbilityHandlers.register(KEY, "rapid_assault", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
@@ -106,7 +104,8 @@ public final class SuperSpeedHandlers {
 		AbilityHandlers.register(KEY, "overdrive", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
 			ctx.setResource(OVERDRIVE_UNTIL, p.level().getGameTime() + OVERDRIVE_TICKS, 1e12f);
-			applyOverdrive(p);
+			ctx.setResource(OVERDRIVE_LEFT, OVERDRIVE_TICKS, OVERDRIVE_TICKS);
+			reconcileSpeed(p);
 			p.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, OVERDRIVE_TICKS, 2, false, true, true));
 			overdriveBurst(ctx.level(), p);
 			// A real detonation, not a trickle.
@@ -153,25 +152,24 @@ public final class SuperSpeedHandlers {
 		});
 
 		AbilityHandlers.register(KEY, "speed_mode", Handlers.toggle(
-				ctx -> speedModeApply(ctx.player()),
-				ctx -> speedModeClear(ctx.player()),
+				ctx -> reconcileSpeed(ctx.player()),
+				ctx -> reconcileSpeed(ctx.player()),
 				ctx -> {
-					speedModeApply(ctx.player());
+					reconcileSpeed(ctx.player());
 					AbilityHelpers.modeAura(ctx.player(), ParticleTypes.CRIT, 3);
 				}));
 
 		PowerPassives.register(KEY, (player, active) -> {
 			if (active) {
+				// v0.10.13: base movement speed is left NORMAL now -- no always-on speed passive. Only the
+				// step-up help stays passive so a speedster does not trip on every slab.
 				PowerToggles.modifier(player, Attributes.STEP_HEIGHT, PASSIVE_STEP, 0.6, AttributeModifier.Operation.ADD_VALUE);
-				// Base speedster metabolism: +100% movement speed just for owning Super Speed.
-				PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, PASSIVE_SPEED, 1.0,
-						AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 			} else {
 				PowerToggles.clearModifier(player, Attributes.STEP_HEIGHT, PASSIVE_STEP);
-				PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, PASSIVE_SPEED);
 				speedModeClear(player);
 				clearOverdrive(player);
 				ExperimentalPowers.setResource(player, Powers.byKey(KEY), OVERDRIVE_UNTIL, 0, 1e12f);
+				ExperimentalPowers.setResource(player, Powers.byKey(KEY), OVERDRIVE_LEFT, 0, OVERDRIVE_TICKS);
 			}
 		});
 		PowerPassives.registerTick(KEY, SuperSpeedHandlers::serverTick);
@@ -207,13 +205,15 @@ public final class SuperSpeedHandlers {
 
 		Power power = Powers.byKey(KEY);
 		float until = ExperimentalPowers.getResource(player, power, OVERDRIVE_UNTIL);
-		boolean overdrive = until > player.level().getGameTime();
+		long now = player.level().getGameTime();
+		boolean overdrive = until > now;
 		if (overdrive) {
-			applyOverdrive(player);
+			ExperimentalPowers.setResource(player, power, OVERDRIVE_LEFT, Math.max(0.0f, until - now), OVERDRIVE_TICKS);
 		} else if (until > 0.0f) {
-			clearOverdrive(player);
 			ExperimentalPowers.setResource(player, power, OVERDRIVE_UNTIL, 0, 1e12f);
+			ExperimentalPowers.setResource(player, power, OVERDRIVE_LEFT, 0, OVERDRIVE_TICKS);
 		}
+		reconcileSpeed(player);
 
 		boolean speedMode = ExperimentalPowers.isToggled(player, power,
 				power.ability(com.projecthero.mod.hero.AbilitySlot.SLOT_6));
@@ -302,13 +302,32 @@ public final class SuperSpeedHandlers {
 		Float until = st.resources.get(KEY + "/" + OVERDRIVE_UNTIL);
 		boolean overdrive = until != null && until > player.level().getGameTime();
 		boolean speedMode = st.activeToggles.contains(KEY + "/speed_mode");
-		if (overdrive && speedMode) {
-			return 14.0f;
-		}
 		if (overdrive) {
-			return 9.0f;
+			return 8.0f;
 		}
-		return speedMode ? 6.5f : 2.0f;
+		return speedMode ? 5.0f : 1.0f;
+	}
+
+	/**
+	 * Single authority for the movement modifiers. Overdrive and Speed Mode no longer stack -- Overdrive
+	 * is a strictly faster tier that replaces Speed Mode while it runs, so the top speed is a clean
+	 * ~64 blocks/s rather than an uncapped sum. Called every server tick plus on every state change.
+	 */
+	private static void reconcileSpeed(ServerPlayer p) {
+		Power power = Powers.byKey(KEY);
+		boolean overdrive = ExperimentalPowers.getResource(p, power, OVERDRIVE_UNTIL) > p.level().getGameTime();
+		boolean speedMode = ExperimentalPowers.isToggled(p, power,
+				power.ability(com.projecthero.mod.hero.AbilitySlot.SLOT_6));
+		if (overdrive) {
+			applyOverdrive(p);
+			speedModeClear(p);
+		} else if (speedMode) {
+			speedModeApply(p);
+			clearOverdrive(p);
+		} else {
+			speedModeClear(p);
+			clearOverdrive(p);
+		}
 	}
 
 	private static float overdriveMult(ServerPlayer p) {
@@ -320,9 +339,8 @@ public final class SuperSpeedHandlers {
 	}
 
 	private static void speedModeApply(ServerPlayer p) {
-		// +450% on top of whatever the player already has (base passive included): ADD_MULTIPLIED_BASE
-		// modifiers all sum against the base value, so this stacks additively with the passive and Overdrive.
-		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, SM_SPEED, 4.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		// v0.10.13: sized so a sprinting speedster tops out around 32 blocks/s in Speed Mode.
+		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, SM_SPEED, 4.7, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.ATTACK_SPEED, SM_ATTACK, 0.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, SM_STEP, 0.8, AttributeModifier.Operation.ADD_VALUE);
 		PowerToggles.modifier(p, Attributes.WATER_MOVEMENT_EFFICIENCY, SM_WATER, 1.0, AttributeModifier.Operation.ADD_VALUE);
@@ -338,8 +356,9 @@ public final class SuperSpeedHandlers {
 	}
 
 	private static void applyOverdrive(ServerPlayer p) {
-		// +600%, additive with the base passive and Speed Mode (all ADD_MULTIPLIED_BASE off the base).
-		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, OD_SPEED, 6.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		// v0.10.13: sized so a sprinting speedster tops out around 64 blocks/s. Replaces Speed Mode
+		// while it runs (see reconcileSpeed) rather than stacking on top of it.
+		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, OD_SPEED, 10.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.ATTACK_SPEED, OD_ATTACK, 1.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		// 10-block step assist so Overdrive doesn't stall on every ledge at that speed.
 		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, OD_STEP, 10.0, AttributeModifier.Operation.ADD_VALUE);
@@ -351,12 +370,6 @@ public final class SuperSpeedHandlers {
 		PowerToggles.clearModifier(p, Attributes.ATTACK_SPEED, OD_ATTACK);
 		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, OD_STEP);
 		PowerToggles.clearModifier(p, Attributes.FALL_DAMAGE_MULTIPLIER, OD_FALL);
-	}
-
-	private static boolean safe(ServerLevel level, Vec3 pos) {
-		var bp = BlockPos.containing(pos);
-		return level.getBlockState(bp).getCollisionShape(level, bp).isEmpty()
-				&& level.getBlockState(bp.above()).getCollisionShape(level, bp.above()).isEmpty();
 	}
 
 	private static void trail(ServerLevel level, ServerPlayer p) {

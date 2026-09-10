@@ -576,27 +576,33 @@ public class HeroPackGameTests implements FabricGameTest {
 		net.minecraft.world.entity.monster.Zombie z = zombieInFront(helper, player, 5); // beyond normal melee reach
 		float before = z.getHealth();
 
-		AbilityRouter.handleInput(player, 1, true); // R = stretch_punch
+		AbilityRouter.handleInput(player, 1, true); // R = stretch_punch (charge start)
+		AbilityRouter.handleInput(player, 1, false); // release -> fire the base punch
 
 		helper.assertTrue(z.getHealth() < before, "Stretch Punch should reach a target well beyond melee range");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void densityCycleAdvancesAndAppliesModifiers(GameTestHelper helper) {
+	public void densityAnchorRaisesDensityAndModifiers(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
 		Power density = power("power_18_density_manipulation");
 		ExperimentalPowers.grant(player, density);
 		ExperimentalPowers.setActive(player, density);
-		Ability cyc = density.ability(AbilitySlot.SLOT_6);
-		int m0 = ExperimentalPowers.cycleMode(player, density, cyc);
+		var atk = net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE;
+		var spd = net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED;
+		double atkBase = player.getAttributeValue(atk);
+		double spdBase = player.getAttributeValue(spd);
 
-		AbilityRouter.handleInput(player, 6, true); // C = density_mode -> Heavy (index 1)
+		AbilityRouter.handleInput(player, 3, true); // X = Density Anchor -> 300%
+		ExperimentalPowers.serverTick(player);
 
-		helper.assertTrue(ExperimentalPowers.cycleMode(player, density, cyc) != m0, "cycling should change the mode index");
-		helper.assertTrue(player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
-				> player.getAttributeBaseValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE),
-				"Heavy density mode should raise attack damage");
+		helper.assertTrue(ExperimentalPowers.getResource(player, density, "density") >= 299.0f,
+				"Density Anchor should push density to the maximum");
+		helper.assertTrue(player.getAttributeValue(atk) > atkBase + 0.001,
+				"maximum density should raise attack damage");
+		helper.assertTrue(player.getAttributeValue(spd) < spdBase - 0.0001,
+				"maximum density should slow the player");
 		helper.succeed();
 	}
 

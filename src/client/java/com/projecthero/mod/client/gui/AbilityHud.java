@@ -137,6 +137,16 @@ public final class AbilityHud {
 		if (power.key().equals("power_01_super_strength")) {
 			renderStrengthExtras(graphics, client, state, x0, y0 - 20);
 		}
+		if (power.key().equals("power_18_density_manipulation")) {
+			float d = state.resources.getOrDefault("power_18_density_manipulation/density", 100.0f);
+			if (d <= 0.0f) {
+				d = 100.0f;
+			}
+			boolean anchored = state.resources.getOrDefault("power_18_density_manipulation/anchor_until", 0.0f) > gameTime;
+			Component line = Component.literal("Density: " + Math.round(d) + "%" + (anchored ? "  [ANCHOR]" : ""));
+			int col = d < 100 ? 0xFF7FD0FF : (d > 100 ? 0xFFFFB24A : 0xFFD8D8F0);
+			graphics.drawString(client.font, line, x0, y0 - 20, col);
+		}
 
 		int bw = 6 * BOX + 5 * GAP;
 		int barY = y0 + BOX + 4;
@@ -260,6 +270,11 @@ public final class AbilityHud {
 				// build-up gauges + countdown timers: shown only while there is something on them
 				case BUILD, TIMER -> value > 0.5f;
 			};
+			// v0.10.13: Telekinesis' Psi reserve is always shown -- it is the whole power's fuel gauge
+			// and players kept losing track of it once it topped back up and the bar vanished.
+			if (name.equals("psi")) {
+				show = true;
+			}
 			if (!show) {
 				continue;
 			}
@@ -312,6 +327,8 @@ public final class AbilityHud {
 			java.util.Map.entry("water", Kind.BUILD),            // Water Manipulation channel
 			java.util.Map.entry("ult_charge", Kind.BUILD),       // shared hold-to-charge ultimate meter
 			// --- countdowns on something currently running ---
+			java.util.Map.entry("overdrive_ticks", Kind.TIMER),  // Super Speed Overdrive
+			java.util.Map.entry("whirl_ticks", Kind.TIMER),      // Super Speed Whirlwind
 			java.util.Map.entry("total_darkness", Kind.TIMER),   // Shadow Manipulation
 			java.util.Map.entry("hurr", Kind.TIMER),             // Wind hurricane
 			java.util.Map.entry("singularity", Kind.TIMER),      // Density Manipulation ultimate
@@ -333,7 +350,9 @@ public final class AbilityHud {
 		return switch (name) {
 			case "phase", "static_charge", "charge", "sparkle", "ult_charge" -> 100.0f;
 			case "blade_charge" -> 40.0f;
+			case "whirl_ticks" -> 160.0f;
 			case "hurr" -> 220.0f;
+			case "overdrive_ticks" -> 600.0f;
 			case "total_darkness", "singularity" -> 500.0f;
 			default -> 500.0f;
 		};
@@ -358,6 +377,8 @@ public final class AbilityHud {
 			case "hurr" -> Component.literal("Hurricane");
 			case "singularity" -> Component.literal("Singularity");
 			case "sparkle" -> Component.literal("Sparkling Flight");
+			case "overdrive_ticks" -> Component.literal("Overdrive");
+			case "whirl_ticks" -> Component.literal("Whirlwind");
 			case "blade_charge" -> Component.literal("Wind Blade");
 			case "ult_charge" -> Component.literal("Ultimate — charging");
 			default -> name.endsWith("flight") ? Component.literal("Flight")

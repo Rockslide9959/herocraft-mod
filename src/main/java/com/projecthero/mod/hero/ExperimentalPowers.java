@@ -285,10 +285,16 @@ public final class ExperimentalPowers {
 	}
 
 	public static void setMarker(ServerPlayer player, Power power, String name, net.minecraft.core.BlockPos pos) {
+		setMarker(player, power, name, pos, player.level().dimension().location());
+	}
+
+	/** Record a marker in an explicit dimension (Teleportation's chosen-destination portal). */
+	public static void setMarker(ServerPlayer player, Power power, String name, net.minecraft.core.BlockPos pos,
+			net.minecraft.resources.ResourceLocation dimension) {
 		ExperimentalState s = state(player).copy();
 		String k = power.key() + "/" + name;
 		s.markers.put(k, pos.asLong());
-		s.markerDims.put(k, player.level().dimension().location().toString());
+		s.markerDims.put(k, dimension.toString());
 		save(player, s);
 	}
 

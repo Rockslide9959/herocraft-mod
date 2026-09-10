@@ -129,6 +129,11 @@ public final class HeroDamageRules {
 						&& com.projecthero.mod.hero.power.p17.ElasticityHandlers.deflectsProjectiles(player)) {
 					return Verdict.immune();
 				}
+				// v0.10.13: Inflated Form soaks half of every hit.
+				float elasticFactor = com.projecthero.mod.hero.power.p17.ElasticityHandlers.damageTakenFactor(player);
+				if (elasticFactor < 0.999f) {
+					return Verdict.mult(elasticFactor);
+				}
 			}
 			case "power_24_wind_manipulation" -> {
 				if (fall) {
@@ -140,6 +145,11 @@ public final class HeroDamageRules {
 				if (com.projecthero.mod.hero.power.p18.DensityManipulationHandlers.phasing(player)
 						&& !source.is(DamageTypes.GENERIC_KILL) && !source.is(DamageTypes.FELL_OUT_OF_WORLD)) {
 					return Verdict.immune();
+				}
+				// v0.10.13: the density chart's damage-taken column, plus Density Anchor's 60% reduction.
+				float densityFactor = com.projecthero.mod.hero.power.p18.DensityManipulationHandlers.damageTakenFactor(player);
+				if (densityFactor < 0.999f) {
+					return Verdict.mult(densityFactor);
 				}
 			}
 			case "power_27_size_manipulation" -> {

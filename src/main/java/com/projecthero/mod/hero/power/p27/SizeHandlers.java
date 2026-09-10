@@ -95,10 +95,12 @@ public final class SizeHandlers {
 			case GIANT -> 15.0;
 			default -> 0.0;
 		};
+		// v0.10.13: bigger forms reach proportionally further -- roughly their own height. Base
+		// interaction range is 3, so Large (≈6 blocks tall) lands near 7 and Giant (≈15) near 16.
 		double reach = switch (f) {
-			case TINY -> -1.0;
-			case LARGE -> 3.0;
-			case GIANT -> 12.0;
+			case TINY -> -1.5;
+			case LARGE -> 4.0;
+			case GIANT -> 13.0;
 			default -> 0.0;
 		};
 		double step = switch (f) {
@@ -246,12 +248,12 @@ public final class SizeHandlers {
 
 		AbilityHandlers.register(KEY, "shrink", Handlers.toggle(
 				ctx -> enter(ctx, "shrink", Form.TINY),
-				ctx -> clearForm(ctx.player()),
+				ctx -> exitForm(ctx.player()),
 				ctx -> applyForm(ctx.player(), Form.TINY)));
 
 		AbilityHandlers.register(KEY, "large_form", Handlers.toggle(
 				ctx -> enter(ctx, "large_form", Form.LARGE),
-				ctx -> clearForm(ctx.player()),
+				ctx -> exitForm(ctx.player()),
 				ctx -> {
 					applyForm(ctx.player(), Form.LARGE);
 					itemMagnet(ctx.player(), 6.0);
@@ -270,7 +272,7 @@ public final class SizeHandlers {
 					}
 					AbilityHelpers.sound(ctx.player(), SoundEvents.RAVAGER_ROAR, 1.2f, 0.3f);
 				},
-				ctx -> clearForm(ctx.player()), // strain is NOT reset -- it recharges on its own once you shrink back
+				ctx -> exitForm(ctx.player()), // strain is NOT reset -- it recharges on its own once you shrink back
 				SizeHandlers::giantTick));
 
 		AbilityHandlers.register(KEY, "tiny_dash", Handlers.instant(ctx -> {
@@ -314,6 +316,7 @@ public final class SizeHandlers {
 				return false;
 			}
 		}
+		Form was = currentForm(p);
 		makeExclusive(p, abilityId);
 		// If you go Large / Giant while already at full health, the extra hearts come pre-filled --
 		// otherwise you would grow with a big empty gap and have to eat/regen to use the new HP. If you
@@ -324,7 +327,39 @@ public final class SizeHandlers {
 			p.setHealth(p.getMaxHealth());
 		}
 		ctx.actionBar("message.projecthero.size.mode_" + form.name().toLowerCase(java.util.Locale.ROOT));
+		sizeChangeFx(p, was, form);
 		return true;
+	}
+
+	/** Leave the current form back to normal, with an imploding-particle flourish. */
+	private static void exitForm(ServerPlayer p) {
+		Form was = currentForm(p);
+		clearForm(p);
+		sizeChangeFx(p, was, Form.NORMAL);
+	}
+
+	/**
+	 * The visual "pop" as the player changes size. Growing throws an expanding shell of cloud and
+	 * spark outward; shrinking implodes a puff of poof toward the player. Scaled to how big the change is.
+	 */
+	private static void sizeChangeFx(ServerPlayer p, Form from, Form to) {
+		if (!(p.level() instanceof ServerLevel sl) || from == to) {
+			return;
+		}
+		double y = p.getY() + p.getBbHeight() * 0.5;
+		boolean growing = scaleFor(to) > scaleFor(from);
+		double spread = Math.max(scaleFor(from), scaleFor(to)) * 0.9 + 0.5;
+		int count = 40 + (int) (spread * 12);
+		if (growing) {
+			sl.sendParticles(ParticleTypes.CLOUD, p.getX(), y, p.getZ(), count, spread, spread * 0.7, spread, 0.12);
+			sl.sendParticles(ParticleTypes.END_ROD, p.getX(), y, p.getZ(), count / 3, spread * 0.6, spread * 0.5, spread * 0.6, 0.15);
+			sl.sendParticles(ParticleTypes.EXPLOSION, p.getX(), y, p.getZ(), Math.max(1, (int) spread), spread * 0.4, 0.2, spread * 0.4, 0.0);
+			AbilityHelpers.sound(p, SoundEvents.BREEZE_INHALE, 1.2f, growing ? 0.7f : 1.4f);
+		} else {
+			sl.sendParticles(ParticleTypes.POOF, p.getX(), y, p.getZ(), count, spread * 0.6, spread * 0.5, spread * 0.6, -0.08);
+			sl.sendParticles(ParticleTypes.CLOUD, p.getX(), y, p.getZ(), count / 2, spread * 0.5, spread * 0.4, spread * 0.5, 0.02);
+			AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_BREAK, 1.0f, 1.5f);
+		}
 	}
 
 	private static void giantTick(AbilityContext ctx) {

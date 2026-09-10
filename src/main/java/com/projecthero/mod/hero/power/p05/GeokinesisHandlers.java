@@ -877,10 +877,13 @@ public final class GeokinesisHandlers {
 	private static void seismicSense(ServerLevel level, ServerPlayer p) {
 		int marked = 0;
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class,
-				p.getBoundingBox().inflate(SEISMIC_RANGE), e -> e != p && e.isAlive())) {
+				p.getBoundingBox().inflate(SEISMIC_RANGE),
+				e -> e != p && e.isAlive() && !(e instanceof net.minecraft.world.entity.player.Player))) {
 			if (e.distanceToSqr(p) > SEISMIC_RANGE * SEISMIC_RANGE) {
 				continue;
 			}
+			// v0.10.13: never mark players -- a shared GLOWING effect on a player is visible to everyone
+			// and makes them trivial to spot. Seismic Sense reveals creatures, not people.
 			e.addEffect(new MobEffectInstance(MobEffects.GLOWING, SEISMIC_TICKS, 0, false, false, false));
 			marked++;
 		}

@@ -1,16 +1,20 @@
 package com.projecthero.mod.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import com.projecthero.mod.hero.power.p01.StrengthBareHands;
 import com.projecthero.mod.hero.power.p01.SuperStrengthHandlers;
 import com.projecthero.mod.hero.power.p04.SuperSpeedHandlers;
 import com.projecthero.mod.hero.power.p05.GeoBareHands;
+import com.projecthero.mod.hero.power.p17.ElasticityHandlers;
 import com.projecthero.mod.symbiote.SymbioteBareHands;
 
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -26,6 +30,45 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 @Mixin(Player.class)
 public abstract class PlayerMixin {
+	@Shadow
+	protected abstract boolean canPlayerFitWithinBlocksAndEntitiesWhen(Pose pose);
+
+	/**
+	 * Elasticity: squeeze through a one-block gap without needing a trapdoor to trigger the crawl.
+	 * While the elastic hero owns the power and neither the standing nor the crouching pose fits where
+	 * they are (or a low opening is directly ahead), drop straight to the swimming/crawl pose.
+	 */
+	@Inject(method = "updatePlayerPose", at = @At("TAIL"))
+	private void projecthero$elasticCrawl(CallbackInfo ci) {
+		Player self = (Player) (Object) this;
+		if (!ElasticityHandlers.owns(self) || self.getAbilities().flying || self.isPassenger()) {
+			return;
+		}
+		if (self.getPose() == Pose.SWIMMING || self.isVisuallySwimming()) {
+			return;
+		}
+		boolean stuck = !canPlayerFitWithinBlocksAndEntitiesWhen(Pose.STANDING)
+				&& !canPlayerFitWithinBlocksAndEntitiesWhen(Pose.CROUCHING);
+		boolean openingAhead = false;
+		if (self.isShiftKeyDown() && !stuck) {
+			net.minecraft.world.phys.Vec3 look = self.getLookAngle();
+			double fx = look.x;
+			double fz = look.z;
+			double flen = Math.sqrt(fx * fx + fz * fz);
+			if (flen > 1.0e-3) {
+				fx /= flen;
+				fz /= flen;
+				net.minecraft.core.BlockPos ahead = net.minecraft.core.BlockPos.containing(
+						self.getX() + fx * 0.7, self.getY() + 0.1, self.getZ() + fz * 0.7);
+				openingAhead = self.level().getBlockState(ahead).getCollisionShape(self.level(), ahead).isEmpty()
+						&& !self.level().getBlockState(ahead.above()).getCollisionShape(self.level(), ahead.above()).isEmpty();
+			}
+		}
+		if ((stuck || openingAhead) && canPlayerFitWithinBlocksAndEntitiesWhen(Pose.SWIMMING)) {
+			self.setPose(Pose.SWIMMING);
+		}
+	}
+
 	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
 	private void projecthero$speedMining(BlockState state, CallbackInfoReturnable<Float> cir) {
 		float factor = SuperSpeedHandlers.speedFactor((Player) (Object) this);

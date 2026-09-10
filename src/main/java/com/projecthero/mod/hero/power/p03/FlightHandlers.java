@@ -58,10 +58,17 @@ public final class FlightHandlers {
 			}
 		}));
 
+		// Dive Bomb: drop like a stone -- dead straight down, all the way to the ground -- then detonate.
+		// v0.10.13: the impact scales with how far you fell, and horizontal drift is killed every tick so
+		// it is a true vertical plunge instead of petering out after a few blocks.
 		AbilityHandlers.register(KEY, "dive_bomb", Handlers.instantTicking(ctx -> {
 			ServerPlayer p = ctx.player();
-			AbilityHelpers.launchSelf(p, new Vec3(p.getDeltaMovement().x, -2.6, p.getDeltaMovement().z));
+			p.setDeltaMovement(0.0, -2.8, 0.0);
+			p.hurtMarked = true;
+			p.hasImpulse = true;
+			p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(p));
 			ctx.setResource("diving", 1, 1);
+			ctx.setResource("dive_from_y", (float) p.getY(), 1.0e9f);
 			AbilityHelpers.sound(p, SoundEvents.BREEZE_JUMP, 0.9f, 0.6f);
 			ctx.triggerCooldown();
 		}, ctx -> {
@@ -69,20 +76,31 @@ public final class FlightHandlers {
 				return;
 			}
 			ServerPlayer p = ctx.player();
-			if (p.onGround() || p.isInWater()) {
-				double speed = Math.min(3.0, Math.abs(p.getDeltaMovement().y) + p.fallDistance / 10.0);
-				double r = 2.5 + speed;
-				float meteor = com.projecthero.mod.hero.power.PowerCombos.meteorSlamBonus(p, KEY);
-				for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
-					AbilityHelpers.hurt(p, e, Math.max(15.0f, (float) (6.0 + speed * 3.0)) + meteor);
-					AbilityHelpers.knockbackFrom(e, p.position(), 1.0 + speed * 0.3);
-					AbilityHelpers.push(e, new Vec3(0, 0.5, 0));
-				}
-				ctx.level().sendParticles(ParticleTypes.EXPLOSION, p.getX(), p.getY(), p.getZ(), 1, 0, 0, 0, 0);
-				ctx.level().sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY(), p.getZ(), 40, r / 2, 0.1, r / 2, 0.05);
-				AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 0.9f, 1.0f);
-				ctx.setResource("diving", 0, 1);
+			if (!p.onGround() && !p.isInWater()) {
+				// keep plunging: straight down, ignore any sideways momentum, and do not let drag slow it
+				p.setDeltaMovement(0.0, Math.min(p.getDeltaMovement().y, -2.8), 0.0);
+				p.hurtMarked = true;
+				p.hasImpulse = true;
+				p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(p));
+				p.resetFallDistance();
+				ctx.level().sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 1.0, p.getZ(), 6, 0.2, 0.4, 0.2, 0.02);
+				return;
 			}
+			double height = Math.max(0.0, ctx.resource("dive_from_y") - p.getY());
+			float meteor = com.projecthero.mod.hero.power.PowerCombos.meteorSlamBonus(p, KEY);
+			// 15 at a short drop, climbing ~1.6/block to a 70 cap.
+			float dmg = Math.min(70.0f, 15.0f + (float) (height * 1.6)) + meteor;
+			double r = Math.min(12.0, 3.0 + height * 0.18);
+			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
+				AbilityHelpers.hurt(p, e, dmg);
+				AbilityHelpers.knockbackFrom(e, p.position(), 1.0 + height * 0.05);
+				AbilityHelpers.push(e, new Vec3(0, 0.5, 0));
+			}
+			ctx.level().sendParticles(ParticleTypes.EXPLOSION_EMITTER, p.getX(), p.getY(), p.getZ(), 1, 0, 0, 0, 0);
+			ctx.level().sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY(), p.getZ(), 60, r / 2, 0.1, r / 2, 0.05);
+			AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 1.0f, 0.9f);
+			ctx.setResource("diving", 0, 1);
+			ctx.setResource("dive_from_y", 0, 1.0e9f);
 		}));
 
 		AbilityHandlers.register(KEY, "flight_toggle", new AbilityHandler() {
@@ -135,7 +153,8 @@ public final class FlightHandlers {
 			}
 			ctx.setResource("sonic_ticks", t - 1, 25 * 20);
 			ServerPlayer p = ctx.player();
-			AbilityHelpers.addImpulse(p, p.getLookAngle().scale(0.35));
+			// push hard enough to hold the ~30 blocks/s cruise the client clamps to
+			AbilityHelpers.addImpulse(p, p.getLookAngle().scale(0.9));
 			// the vapour trail: a continuous streak of cloud pulled out behind the flight path
 			Vec3 behind = p.position().subtract(p.getDeltaMovement().normalize().scale(0.8));
 			ctx.level().sendParticles(ParticleTypes.CLOUD, behind.x, behind.y + 0.3, behind.z, 4, 0.15, 0.15, 0.15, 0.01);

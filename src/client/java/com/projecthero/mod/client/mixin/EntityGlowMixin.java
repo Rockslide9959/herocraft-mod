@@ -45,6 +45,14 @@ public abstract class EntityGlowMixin {
 			return;
 		}
 
+		// v0.10.13: mob-detection highlights (Spider-Sense, Predator Vision, Thermal / Echolocation /
+		// Magnetic Sense) never outline a player -- not the viewer and not anyone else. Lighting up
+		// players just makes people trivial to spot, which is not what "see the monsters around you" is
+		// meant to do. The Iron Man threat highlight above is a deliberate targeting HUD and is exempt.
+		if (self instanceof net.minecraft.world.entity.player.Player) {
+			return;
+		}
+
 		// v0.9.3: Spider-Sense red threat glow -- purely this viewer's own render, fed by
 		// SpiderSenseGlowPayload. Nothing is set on the mob server-side, so no other player sees it.
 		if (self instanceof LivingEntity) {

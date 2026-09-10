@@ -99,7 +99,9 @@ server-side by `AbilityRouter` from the player's current context.
 
 Client sends only a request (`AbilityInputPayload` — slot 1–6, pressed/released edge). All
 validation (ownership, active power, cooldown, resources, world state, damage, CC limits) is
-server-side.
+server-side. Several abilities read **Sneak** as a modifier on the same key (server checks
+`isShiftKeyDown`): e.g. Telekinesis Sneak+R = Force Pull, Cryokinesis Sneak+R = ice-tool wheel,
+Elasticity **Shift+C** = body-shape wheel, Teleportation **Shift+R** = Phase Jump.
 
 ---
 
@@ -366,6 +368,52 @@ flight stamina and the radial power wheel are a later polish pass.)*
   three call their own `revoke`).
 
 ---
+
+## Recent tuning — v0.10.13
+
+- **Highlight abilities never light up players.** Thermal Vision / Echolocation / Magnetic Sense /
+  Predator Vision / Spider-Sense (`EntityGlowMixin`) and Geokinesis Seismic Sense
+  (`GeokinesisHandlers`, server `GLOWING`) now skip `Player` entities entirely — a glowing outline made
+  people trivial to spot, which is not what "see the monsters around you" is for. The Iron Man
+  Mark 6/7 threat-targeting HUD is a deliberate exception and still outlines players.
+- **Telekinesis:** the Psi reserve bar is now always shown on the HUD (`AbilityHud`), not just while
+  it is depleted.
+- **Pyrokinesis:** the R fireball no longer forces a crater — the vanilla explosion (which honours
+  `mobGriefing`) is left as-is, with just a small fire spread and reduced particles
+  (`LargeFireballMixin`).
+- **Super Speed:** base movement speed is normal again (the always-on +100% passive is gone). Speed
+  Mode ≈ 32 blocks/s sprinting, Overdrive ≈ 64 (a faster tier that *replaces* Speed Mode rather than
+  stacking — see `reconcileSpeed`). Overdrive shows a countdown bar (`overdrive_ticks`), Whirlwind
+  shows an 8-second hold bar (`whirl_ticks`) and now has a 12 s cooldown. R (`speed_blitz`) replaced
+  by **Speed Carry** — grab the entity you look at and run with it, press again to throw.
+- **Flight:** Toggle Flight clamped to ~11 blocks/s (~15 sprinting), Super Sonic to ~30
+  (`LocalPlayerMixin`). Falling without flying gives improved aerial control (steer your descent,
+  softer terminal velocity). Dive Bomb plunges dead straight down all the way to the ground and its
+  impact scales with the fall height (15→70 damage). Fall damage while Flight is unlocked is full
+  immunity, not a reduction.
+- **Elasticity (rebuild):** always-on passives — full fall immunity, a small bounce on any real fall,
+  squeeze through a one-block gap without a trapdoor (`PlayerMixin.updatePlayerPose`), 25% less melee
+  damage, 50% knockback resistance. R (`stretch_punch`) is now a CHARGE — +5 dmg/s up to +10 at 2 s,
+  every extra second held adds a second of cooldown. G (`double_fist_slam`) more than 5 blocks up is a
+  20-damage straight-down ground pound. Elastic Form bounces only while the jump key is held
+  (`LocalPlayerMixin`) and is now one of three shapes picked from a Shift+C wheel: Elastic (default),
+  Inflated (wider, Slowness II, −50% damage taken, 100% KB resist, attackers flung ~10 blocks),
+  Compression (one block tall, +25% speed). New payloads `ElasticFormWheelPayload` / `ElasticFormPayload`.
+- **Density Manipulation (rebuild):** density is a continuous 25%–300% value (default 100%) shown on
+  the HUD, nudged ±5% with R / G. It drives a chart of speed / damage dealt / damage taken / knockback
+  (`DensityManipulationHandlers.chart`). C = Zero Density (drop to 25%), X = Density Anchor (max
+  density, rooted, no knockback, 60% DR, no sprint/jump, 10 s, then a 30 s cooldown), Z = Heavy
+  Impact (>6 blocks up: 45-dmg 20-block slam + shatter ground; on the ground: launch ~30 up then
+  slam), V = Phase (unchanged). The old Heavy Punch / Density Slam / Intangible Dash / Singularity /
+  Density Mode cycle are gone.
+- **Size Manipulation:** particle burst on every size change (`SizeHandlers.sizeChangeFx`), and bigger
+  forms reach further (Large ≈7-block interaction range, Giant ≈16).
+- **Teleportation:** Shift+R is now a Phase Jump (the `blink` handler branches on sneak). Z
+  (`spatial_frenzy` → **`portal`**) is a 5-second CHARGE that opens a destination picker
+  (`PortalPickerScreen`: exact X/Y/Z + dimension); a gateway forms slowly out of particles where you
+  stand, lasts ~45 s, 60 s cooldown. C (`phase_jump` → **`portal_anchor`**) places a linked pair of
+  permanent cross-dimension portals — sneak + right-click either end to remove them; they also clear
+  when the power is lost. New payloads `PortalPickerPayload` / `PortalCreatePayload`.
 
 ## Recent tuning — v0.10.10
 

@@ -15,7 +15,6 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.projectile.LargeFireball;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseFireBlock;
 import net.minecraft.world.phys.HitResult;
 
@@ -25,8 +24,8 @@ import net.minecraft.world.phys.HitResult;
  * <ul>
  *   <li>raises the direct-hit damage to {@link PyrokinesisHandlers#fireballImpactDamage}
  *       (12 + Nether / Blue Flame bonuses); and</li>
- *   <li>on impact (v0.10.12) gouges a proper crater and scatters a spread of fire around it, so the
- *       basic attack reads like the old, un-nerfed fireball again.</li>
+ *   <li>on impact scatters a small spread of fire around it (v0.10.13: no forced crater -- the
+ *       vanilla explosion, which honours the mobGriefing gamerule, is left as-is).</li>
  * </ul>
  *
  * <p>The {@code explosionPower < 5} guard keeps this off the Inferno ultimate's own big fireball
@@ -35,21 +34,6 @@ import net.minecraft.world.phys.HitResult;
  */
 @Mixin(LargeFireball.class)
 public abstract class LargeFireballMixin {
-	/** Our supplementary crater blast breaks blocks only -- the vanilla explosion already hurt entities. */
-	private static final net.minecraft.world.level.ExplosionDamageCalculator PROJECTHERO$BLOCKS_ONLY =
-			new net.minecraft.world.level.ExplosionDamageCalculator() {
-				@Override
-				public boolean shouldDamageEntity(net.minecraft.world.level.Explosion explosion,
-						net.minecraft.world.entity.Entity entity) {
-					return false;
-				}
-
-				@Override
-				public float getKnockbackMultiplier(net.minecraft.world.entity.Entity entity) {
-					return 0.0f;
-				}
-			};
-
 	@Shadow
 	private int explosionPower;
 
@@ -76,28 +60,22 @@ public abstract class LargeFireballMixin {
 		double x = self.getX();
 		double y = self.getY();
 		double z = self.getZ();
-		// A second, block-only blast to carve the crater even where the vanilla explosion above was
-		// held back by the mobGriefing gamerule -- only when the mod's own terrain-damage config allows.
-		if (AbilityHelpers.canGrief()) {
-			level.explode(self, null, PROJECTHERO$BLOCKS_ONLY, x, y, z, 3.5f, true,
-					Level.ExplosionInteraction.MOB,
-					ParticleTypes.EXPLOSION, ParticleTypes.EXPLOSION_EMITTER,
-					net.minecraft.sounds.SoundEvents.GENERIC_EXPLODE);
-		}
-		// A spread of fire around the impact.
+		// v0.10.13: no forced crater any more. The vanilla fireball explosion (which honours the
+		// mobGriefing gamerule) is left to do its own thing -- a "decent explosion", not a huge pit.
+		// A small spread of fire around the impact is all that is added on top.
 		if (com.projecthero.mod.hero.HeroConfig.get().abilityFireSpread && AbilityHelpers.canGrief()) {
 			BlockPos centre = BlockPos.containing(x, y, z);
-			for (int i = 0; i < 14; i++) {
-				BlockPos bp = centre.offset(level.random.nextInt(7) - 3,
-						level.random.nextInt(3) - 1, level.random.nextInt(7) - 3);
+			for (int i = 0; i < 5; i++) {
+				BlockPos bp = centre.offset(level.random.nextInt(5) - 2,
+						level.random.nextInt(3) - 1, level.random.nextInt(5) - 2);
 				if (level.getBlockState(bp).isAir()
 						&& level.getBlockState(bp.below()).isFaceSturdy(level, bp.below(), net.minecraft.core.Direction.UP)) {
 					level.setBlockAndUpdate(bp, BaseFireBlock.getState(level, bp));
 				}
 			}
 		}
-		level.sendParticles(ParticleTypes.LAVA, x, y, z, 30, 2.0, 1.0, 2.0, 0.0);
-		level.sendParticles(ParticleTypes.FLAME, x, y, z, 60, 2.5, 1.2, 2.5, 0.05);
+		level.sendParticles(ParticleTypes.LAVA, x, y, z, 16, 1.2, 0.6, 1.2, 0.0);
+		level.sendParticles(ParticleTypes.FLAME, x, y, z, 30, 1.4, 0.7, 1.4, 0.03);
 	}
 
 	/** The pyrokinetic owner iff this is one of their low-power (non-Inferno) fireballs, else null. */
