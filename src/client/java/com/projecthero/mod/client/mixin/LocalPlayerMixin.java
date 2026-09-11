@@ -107,9 +107,9 @@ public abstract class LocalPlayerMixin {
 	/**
 	 * Flight power feel, local player only (v0.10.13):
 	 * <ul>
-	 *   <li>Toggle Flight cruises at ~11 blocks/s, ~15 while sprinting (a clamp on the horizontal
+	 *   <li>Toggle Flight cruises at ~15 blocks/s, ~25 while sprinting (a clamp on the horizontal
 	 *       delta, so it lands on those numbers regardless of vanilla's fly-speed maths).</li>
-	 *   <li>Super Sonic Flight cruises at ~30 blocks/s.</li>
+	 *   <li>Super Sonic Flight cruises at ~50 blocks/s.</li>
 	 *   <li>Falling <em>without</em> flying gives improved aerial control -- a gentle wingsuit-style
 	 *       nudge in the direction you are steering, and a softer terminal velocity.</li>
 	 * </ul>
@@ -128,9 +128,9 @@ public abstract class LocalPlayerMixin {
 		if (self.getAbilities().flying && horiz > 1.0e-4) {
 			double capPerTick;
 			if (sonic) {
-				capPerTick = 30.0 / 20.0;
+				capPerTick = 50.0 / 20.0;
 			} else {
-				capPerTick = (self.isSprinting() ? 15.0 : 11.0) / 20.0;
+				capPerTick = (self.isSprinting() ? 25.0 : 15.0) / 20.0;
 			}
 			if (horiz > capPerTick) {
 				double f = capPerTick / horiz;

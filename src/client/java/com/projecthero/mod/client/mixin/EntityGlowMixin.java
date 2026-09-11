@@ -86,14 +86,25 @@ public abstract class EntityGlowMixin {
 		// while a different one holds the six slots -- so check ownership, not selection.
 		boolean thermal = self instanceof LivingEntity && st.ownedPowers.contains("power_02_laser_vision")
 				&& st.activeToggles.contains("power_02_laser_vision/thermal_vision");
+		// v0.10.14: the Echolocation TOGGLE is now Enhanced Senses -- the actual sonar ping is a
+		// Shift + right-click that arms a short "echo_until" window on the synced attachment.
+		Float echoUntil = st.resources.get("power_14_sonic_scream/echo_until");
 		boolean echo = self instanceof LivingEntity && st.ownedPowers.contains("power_14_sonic_scream")
-				&& st.activeToggles.contains("power_14_sonic_scream/echolocation");
+				&& echoUntil != null && echoUntil > (viewer.level() != null ? viewer.level().getGameTime() : 0L);
 		boolean magnetic = st.ownedPowers.contains("power_26_magnetic_manipulation")
 				&& st.activeToggles.contains("power_26_magnetic_manipulation/magnetic_sense");
-		if (!thermal && !echo && !magnetic) {
+		// Enhanced hearing: anything within 40 blocks that just moved flashes for this viewer alone.
+		boolean hearing = self instanceof LivingEntity && st.ownedPowers.contains("power_14_sonic_scream")
+				&& com.projecthero.mod.client.SonicMotionClient.isFlashing(self.getId(),
+						viewer.level() != null ? viewer.level().getGameTime() : 0L);
+		if (!thermal && !echo && !magnetic && !hearing) {
 			return;
 		}
-		double range = magnetic ? 20.0 : (echo ? 28.0 : 24.0);
+		if (hearing && !thermal && !echo && !magnetic) {
+			cir.setReturnValue(self.distanceToSqr(viewer) <= 40.0 * 40.0);
+			return;
+		}
+		double range = magnetic ? 20.0 : (echo ? 20.0 : 24.0);
 		if (self.distanceToSqr(viewer) > range * range) {
 			return;
 		}

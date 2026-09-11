@@ -43,6 +43,9 @@ public final class ElasticityHandlers {
 	private static final ResourceLocation FORM_SPEED = com.projecthero.mod.ProjectHeroMod.id("elastic_form_speed");
 	private static final ResourceLocation FORM_SCALE = com.projecthero.mod.ProjectHeroMod.id("elastic_form_scale");
 	private static final ResourceLocation FORM_KB = com.projecthero.mod.ProjectHeroMod.id("elastic_form_kb");
+	private static final ResourceLocation FORM_MELEE = com.projecthero.mod.ProjectHeroMod.id("elastic_form_melee");
+	/** Elastic Form adds this much to every Elasticity ability's damage. */
+	public static final float FORM_ABILITY_BONUS = 8.0f;
 	/** Always-on passives. */
 	private static final ResourceLocation PASSIVE_MELEE = com.projecthero.mod.ProjectHeroMod.id("elastic_passive_melee");
 	private static final ResourceLocation PASSIVE_KB = com.projecthero.mod.ProjectHeroMod.id("elastic_passive_kb");
@@ -98,9 +101,14 @@ public final class ElasticityHandlers {
 		return all[Math.floorMod(idx, all.length)];
 	}
 
-	/** Elastic form (only) shrugs projectiles off outright -- read by {@link com.projecthero.mod.hero.power.HeroDamageRules}. */
+	/** Any active body shape shrugs projectiles off outright -- read by {@link com.projecthero.mod.hero.power.HeroDamageRules}. */
 	public static boolean deflectsProjectiles(ServerPlayer p) {
-		return formActive(p) && form(p) == Form.ELASTIC;
+		return formActive(p);
+	}
+
+	/** Extra damage every Elasticity ability deals while Elastic Form (the default shape) is on. */
+	public static float formAbilityBonus(ServerPlayer p) {
+		return formActive(p) && form(p) == Form.ELASTIC ? FORM_ABILITY_BONUS : 0.0f;
 	}
 
 	/** Damage-taken multiplier from the current form (Inflated: half). */
@@ -137,6 +145,8 @@ public final class ElasticityHandlers {
 					fireStretch(ctx); // safety: released event lost
 					return;
 				}
+				ctx.setResource("stretch_charge",
+						(float) Math.min(100.0, held / (double) (STRETCH_MAX_DMG_SECONDS * 20) * 100.0), 100);
 				if (held % 4 == 0) {
 					ServerPlayer p = ctx.player();
 					ctx.level().sendParticles(ParticleTypes.ITEM_SLIME, p.getX(), p.getY() + 1.0, p.getZ(),
@@ -166,7 +176,7 @@ public final class ElasticityHandlers {
 			}
 			Vec3 front = p.getEyePosition().add(p.getLookAngle().scale(7));
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, front, 4.0)) {
-				AbilityHelpers.hurt(p, e, 17.0f);
+				AbilityHelpers.hurt(p, e, 17.0f + formAbilityBonus(p));
 				AbilityHelpers.knockbackFrom(e, p.getEyePosition(), 2.0);
 			}
 			AbilityHelpers.burst(ctx.level(), front, ParticleTypes.ITEM_SLIME, 30, 0.6);
@@ -186,7 +196,7 @@ public final class ElasticityHandlers {
 				return;
 			}
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 5.0)) {
-				AbilityHelpers.hurt(p, e, SLAM_DAMAGE);
+				AbilityHelpers.hurt(p, e, SLAM_DAMAGE + formAbilityBonus(p));
 				AbilityHelpers.knockbackFrom(e, p.position(), 1.4);
 				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 40, 1);
 			}
@@ -223,7 +233,7 @@ public final class ElasticityHandlers {
 			ServerPlayer p = ctx.player();
 			Vec3 at = AbilityHelpers.aimPoint(p, 8.0);
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, at, 4.5)) {
-				AbilityHelpers.hurt(p, e, 34.0f);
+				AbilityHelpers.hurt(p, e, 34.0f + formAbilityBonus(p));
 				AbilityHelpers.knockbackFrom(e, at, 1.5);
 				AbilityHelpers.push(e, new Vec3(0, -0.4, 0));
 				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 50, 2);
@@ -236,7 +246,7 @@ public final class ElasticityHandlers {
 
 		AbilityHandlers.register(KEY, "elastic_grab", Handlers.instantTicking(ctx -> {
 			if (GrabHelper.isHolding(ctx)) {
-				GrabHelper.throwHeld(ctx, 2.4, 7.0f);
+				GrabHelper.throwHeld(ctx, 2.4, 7.0f + formAbilityBonus(ctx.player()));
 				ctx.triggerCooldown();
 			} else if (GrabHelper.tryGrab(ctx, 15.0, 120)) {
 				ctx.actionBar("message.projecthero.ability.grabbed");
@@ -321,7 +331,8 @@ public final class ElasticityHandlers {
 		long heldTicks = Math.max(0L, p.level().getGameTime() - (long) start);
 		int heldSeconds = (int) Math.min(STRETCH_MAX_TRACK_SECONDS, heldTicks / 20);
 		int dmgSeconds = Math.min(STRETCH_MAX_DMG_SECONDS, heldSeconds);
-		float damage = STRETCH_BASE_DMG + dmgSeconds * STRETCH_DMG_PER_SEC;
+		float damage = STRETCH_BASE_DMG + dmgSeconds * STRETCH_DMG_PER_SEC + formAbilityBonus(p);
+		ctx.setResource("stretch_charge", 0, 100);
 
 		LivingEntity t = AbilityHelpers.raycastEntity(p, 15.0 + dmgSeconds * 2.0);
 		AbilityHelpers.line(ctx.level(), p.getEyePosition(),
@@ -352,7 +363,7 @@ public final class ElasticityHandlers {
 		Vec3 to = target.position().add(0, target.getBbHeight() * 0.5, 0).subtract(p.getEyePosition());
 		double dist = to.length();
 		if (dist <= SLING_IMPACT_RANGE) {
-			AbilityHelpers.hurt(p, target, SLING_DAMAGE);
+			AbilityHelpers.hurt(p, target, SLING_DAMAGE + formAbilityBonus(p));
 			AbilityHelpers.knockbackFrom(target, p.position(), 1.2);
 			AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, 40, 1);
 			p.setDeltaMovement(p.getDeltaMovement().scale(-0.15));
@@ -403,9 +414,10 @@ public final class ElasticityHandlers {
 		};
 		double speed = switch (f) {
 			case ELASTIC -> 0.3;
-			case INFLATED -> 0.0;
+			case INFLATED -> -0.3; // a big beach ball is slow
 			case COMPRESSION -> 0.25;
 		};
+		double melee = f == Form.ELASTIC ? 5.0 : 0.0; // +5 melee in the default stretchy shape
 		double scale = switch (f) {
 			case ELASTIC -> 0.0;
 			case INFLATED -> 0.25;   // rounder / bigger (kept modest so it does not clip low ceilings)
@@ -416,6 +428,7 @@ public final class ElasticityHandlers {
 		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, FORM_SPEED, speed, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.SCALE, FORM_SCALE, scale, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.KNOCKBACK_RESISTANCE, FORM_KB, kb, AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, FORM_MELEE, melee, AttributeModifier.Operation.ADD_VALUE);
 
 		if (f == Form.ELASTIC) {
 			ensureInfiniteEffect(p, MobEffects.JUMP, 3);
@@ -433,6 +446,7 @@ public final class ElasticityHandlers {
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, FORM_SPEED);
 		PowerToggles.clearModifier(p, Attributes.SCALE, FORM_SCALE);
 		PowerToggles.clearModifier(p, Attributes.KNOCKBACK_RESISTANCE, FORM_KB);
+		PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, FORM_MELEE);
 		p.removeEffect(MobEffects.JUMP);
 		p.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
 		p.removeEffect(MobEffects.SLOW_FALLING);
@@ -452,6 +466,7 @@ public final class ElasticityHandlers {
 			if (!owned) {
 				PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, PASSIVE_MELEE);
 				PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, PASSIVE_KB);
+				PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, FORM_MELEE);
 				clearForm(player);
 			}
 		});

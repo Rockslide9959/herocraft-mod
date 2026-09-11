@@ -199,6 +199,7 @@ public final class DensityManipulationHandlers {
 		// Z -- Heavy Impact.
 		AbilityHandlers.register(KEY, "heavy_impact", Handlers.instantTicking(ctx -> {
 			ServerPlayer p = ctx.player();
+			ctx.setResource("hi_start", p.level().getGameTime(), 1.0e12f);
 			if (heightAboveGround(p) > HEAVY_MIN_HEIGHT) {
 				ctx.setResource("hi_state", 2, 3);
 			} else {
@@ -253,6 +254,13 @@ public final class DensityManipulationHandlers {
 			return;
 		}
 		ServerPlayer p = ctx.player();
+		// Safety: never leave the player hanging in the sky. Five seconds after the cast, force the
+		// plunge regardless of what state the launch is in.
+		float start = ctx.resource("hi_start");
+		if (start > 0.5f && p.level().getGameTime() - (long) start > 100L && state == 1) {
+			ctx.setResource("hi_state", 2, 3);
+			state = 2;
+		}
 		if (state == 1) {
 			// rising -- keep boosting for a moment, then flip to the plunge once we top out
 			Vec3 v = p.getDeltaMovement();
@@ -280,6 +288,7 @@ public final class DensityManipulationHandlers {
 			return;
 		}
 		ctx.setResource("hi_state", 0, 3);
+		ctx.setResource("hi_start", 0, 1.0e12f);
 		double r = 20.0;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
 			double d = Math.sqrt(e.distanceToSqr(p));

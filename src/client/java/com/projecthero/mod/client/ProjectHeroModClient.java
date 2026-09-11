@@ -75,6 +75,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 
 		HudRenderCallback.EVENT.register(ThorHud::render);
 		HudRenderCallback.EVENT.register(AbilityHud::render);
+		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.LaserReticleHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.IronManHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.RaidHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SpiderHud::render);
@@ -218,6 +219,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				com.projecthero.mod.client.firearm.FirearmClient.clientTick(client));
 		ClientTickEvents.END_CLIENT_TICK.register(ProjectHeroModClient::handleKeyBinds);
 		ClientTickEvents.END_CLIENT_TICK.register(MagneticSenseClient::clientTick);
+		ClientTickEvents.END_CLIENT_TICK.register(SonicMotionClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(IronManFlightFxClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(MaxSteelFlightFxClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.spider.SpiderInputClient::clientTick);

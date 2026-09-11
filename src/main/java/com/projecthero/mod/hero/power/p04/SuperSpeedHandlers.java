@@ -61,10 +61,11 @@ public final class SuperSpeedHandlers {
 		AbilityHandlers.register(KEY, "speed_carry", Handlers.instantTicking(ctx -> {
 			ServerPlayer p = ctx.player();
 			if (com.projecthero.mod.hero.power.GrabHelper.isHolding(ctx)) {
-				float m = overdriveMult(p);
-				com.projecthero.mod.hero.power.GrabHelper.throwHeld(ctx, 2.6 * m, 8.0f * m);
+				// Speed Carry is a carry, not an attack: a second press just sets the passenger down
+				// unharmed -- no throw, no damage.
+				com.projecthero.mod.hero.power.GrabHelper.dropHeld(ctx);
 				trail(ctx.level(), p);
-				AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 1.6f);
+				AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.7f, 1.2f);
 				ctx.triggerCooldown();
 			} else if (com.projecthero.mod.hero.power.GrabHelper.tryGrab(ctx, 6.0, 300)) {
 				ctx.actionBar("message.projecthero.ability.grabbed");

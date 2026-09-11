@@ -58,6 +58,27 @@ public final class GrabHelper {
 		return true;
 	}
 
+	/**
+	 * Let the held entity go where it is, dealing no damage and giving it no launch. If it is in the air
+	 * it gets a brief Slow Falling so a carry does not become a death sentence. Returns true if something
+	 * was let go.
+	 */
+	public static boolean dropHeld(AbilityContext ctx) {
+		LivingEntity le = held(ctx);
+		clear(ctx);
+		if (le == null) {
+			return false;
+		}
+		le.setDeltaMovement(0, -0.05, 0);
+		le.fallDistance = 0.0f;
+		le.hurtMarked = true;
+		if (!le.onGround()) {
+			le.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+					net.minecraft.world.effect.MobEffects.SLOW_FALLING, 80, 0, false, false, false));
+		}
+		return true;
+	}
+
 	/** Slam the held entity straight down. */
 	public static boolean slamHeld(AbilityContext ctx, float damage) {
 		LivingEntity le = held(ctx);

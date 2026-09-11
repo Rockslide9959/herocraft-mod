@@ -40,8 +40,6 @@ public final class TeleportationHandlers {
 	/** Portal (Z): hold this long to arm the destination picker. */
 	private static final int PORTAL_CHARGE_TICKS = 5 * 20;
 	private static final int PORTAL_CD = 60 * 20;
-	/** How long a destination portal stays open once created. */
-	private static final int PORTAL_OPEN_TICKS = 45 * 20;
 	/** Ticks for the portal to finish forming out of particles. */
 	private static final int PORTAL_FORM_TICKS = 60;
 
@@ -171,17 +169,20 @@ public final class TeleportationHandlers {
 		}));
 
 		// Z -- Portal. Hold 5 s to arm, then pick an exact destination (coords + dimension) in a screen.
-		// A gateway forms slowly out of particles where you stand; step into it to travel. 60 s cooldown.
+		// A gateway forms slowly out of particles where you stand and a matching one at the destination;
+		// step into either to travel to the other. The pair stays open until you sneak + right-click a
+		// gate to close it, or you lose the power. 60 s cooldown to open a pair.
 		AbilityHandlers.register(KEY, "portal", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
+				if (ExperimentalPowers.getMarker(ctx.player(), ctx.power(), "portal_a") != null) {
+					ctx.actionBar("message.projecthero.teleport.portal_exists");
+					return;
+				}
 				if (!ctx.cooldownReady()) {
 					ctx.actionBar("message.projecthero.ability.on_cooldown",
 							net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
 							String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(ctx.cooldownRemaining() / 20.0f)));
-					return;
-				}
-				if (ctx.resource("portal_open") > 0.5f) {
 					return;
 				}
 				ctx.setResource("portal_charge_start", ctx.player().level().getGameTime(), 1.0e12f);
@@ -190,7 +191,7 @@ public final class TeleportationHandlers {
 			@Override
 			public void onServerTick(AbilityContext ctx) {
 				portalChargeTick(ctx);
-				portalOpenTick(ctx);
+				portalPairTick(ctx);
 			}
 
 			@Override
@@ -201,6 +202,7 @@ public final class TeleportationHandlers {
 				}
 				long held = ctx.player().level().getGameTime() - (long) start;
 				ctx.setResource("portal_charge_start", 0, 1.0e12f);
+				ctx.setResource("portal_charge", 0, 100);
 				if (held >= PORTAL_CHARGE_TICKS) {
 					sendPortalPicker(ctx);
 				} else {
@@ -281,16 +283,23 @@ public final class TeleportationHandlers {
 			if (power == null || !ExperimentalPowers.owns(sp, power)) {
 				return InteractionResult.PASS;
 			}
+			BlockPos clicked = hitResult.getBlockPos();
 			BlockPos a = ExperimentalPowers.getMarker(sp, power, "anchor_a");
 			BlockPos b = ExperimentalPowers.getMarker(sp, power, "anchor_b");
-			BlockPos clicked = hitResult.getBlockPos();
-			boolean nearA = a != null && a.distSqr(clicked) <= 4.0;
-			boolean nearB = b != null && b.distSqr(clicked) <= 4.0;
-			if (nearA || nearB) {
+			if ((a != null && a.distSqr(clicked) <= 9.0) || (b != null && b.distSqr(clicked) <= 9.0)) {
 				ExperimentalPowers.clearMarker(sp, power, "anchor_a");
 				ExperimentalPowers.clearMarker(sp, power, "anchor_b");
 				sp.displayClientMessage(net.minecraft.network.chat.Component.translatable(
 						"message.projecthero.teleport.anchor_removed"), true);
+				AbilityHelpers.sound(sp, SoundEvents.ENDERMAN_DEATH, 0.8f, 1.2f);
+				return InteractionResult.SUCCESS;
+			}
+			BlockPos pa = ExperimentalPowers.getMarker(sp, power, "portal_a");
+			BlockPos pb = ExperimentalPowers.getMarker(sp, power, "portal_b");
+			if ((pa != null && pa.distSqr(clicked) <= 9.0) || (pb != null && pb.distSqr(clicked) <= 9.0)) {
+				closePortalPair(sp, power);
+				sp.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+						"message.projecthero.teleport.portal_closed"), true);
 				AbilityHelpers.sound(sp, SoundEvents.ENDERMAN_DEATH, 0.8f, 1.2f);
 				return InteractionResult.SUCCESS;
 			}
@@ -309,9 +318,11 @@ public final class TeleportationHandlers {
 		long held = p.level().getGameTime() - (long) start;
 		if (held < 0 || held > PORTAL_CHARGE_TICKS + 60) {
 			ctx.setResource("portal_charge_start", 0, 1.0e12f);
+			ctx.setResource("portal_charge", 0, 100);
 			return;
 		}
 		double frac = Math.min(1.0, held / (double) PORTAL_CHARGE_TICKS);
+		ctx.setResource("portal_charge", (float) (frac * 100.0), 100);
 		ctx.level().sendParticles(ParticleTypes.PORTAL, p.getX(), p.getY() + 1.0, p.getZ(),
 				4 + (int) (frac * 20), 0.5 + frac, 0.9, 0.5 + frac, 0.05);
 		if (held % 10 == 0) {
@@ -330,11 +341,19 @@ public final class TeleportationHandlers {
 		AbilityHelpers.sound(p, SoundEvents.PORTAL_TRIGGER, 0.7f, 1.4f);
 	}
 
-	/** Server side of the picker screen: stand up a forming gateway at the player's feet. */
+	/**
+	 * Server side of the picker screen: stand up a linked pair of gateways -- one where the caster
+	 * stands ({@code portal_a}) and one at the chosen coordinates ({@code portal_b}). The pair persists
+	 * until a gate is sneak + right-clicked ({@link #closePortalPair}) or the power is lost (markers are
+	 * auto-cleared on revoke).
+	 */
 	public static void createDestinationPortal(ServerPlayer p, int x, int y, int z, String dimension) {
 		Power power = power();
 		if (power == null || !ExperimentalPowers.owns(p, power)) {
 			return;
+		}
+		if (ExperimentalPowers.getMarker(p, power, "portal_a") != null) {
+			return; // a pair is already open
 		}
 		if (!ExperimentalPowers.cooldownReady(p, power, power.ability(com.projecthero.mod.hero.AbilitySlot.SLOT_4))) {
 			return;
@@ -343,32 +362,46 @@ public final class TeleportationHandlers {
 		if (dim == null) {
 			dim = p.level().dimension().location();
 		}
-		ExperimentalPowers.setMarker(p, power, "portal_src", p.blockPosition());
-		ExperimentalPowers.setMarker(p, power, "portal_dest", new BlockPos(x, y, z), dim);
-		ExperimentalPowers.setResource(p, power, "portal_open", PORTAL_OPEN_TICKS, PORTAL_OPEN_TICKS);
+		ExperimentalPowers.setMarker(p, power, "portal_a", p.blockPosition(), p.level().dimension().location());
+		ExperimentalPowers.setMarker(p, power, "portal_b", new BlockPos(x, y, z), dim);
 		ExperimentalPowers.setResource(p, power, "portal_form", 0, PORTAL_FORM_TICKS);
 		ExperimentalPowers.triggerCooldown(p, power, power.ability(com.projecthero.mod.hero.AbilitySlot.SLOT_4), PORTAL_CD);
 		AbilityHelpers.sound(p, SoundEvents.PORTAL_TRAVEL, 0.6f, 1.2f);
+		p.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+				"message.projecthero.teleport.portal_open"), true);
 	}
 
-	private static void portalOpenTick(AbilityContext ctx) {
-		float open = ctx.resource("portal_open");
-		if (open <= 0.0f) {
+	/** Tick both gateways of the caster's open portal pair: form them, draw them, and travel players. */
+	private static void portalPairTick(AbilityContext ctx) {
+		ServerPlayer owner = ctx.player();
+		Power power = ctx.power();
+		BlockPos a = ExperimentalPowers.getMarker(owner, power, "portal_a");
+		BlockPos b = ExperimentalPowers.getMarker(owner, power, "portal_b");
+		if (a == null || b == null || owner.getServer() == null) {
 			return;
 		}
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		BlockPos src = ExperimentalPowers.getMarker(p, ctx.power(), "portal_src");
-		if (src == null) {
-			ctx.setResource("portal_open", 0, PORTAL_OPEN_TICKS);
+		ResourceKey<Level> dimA = orDefault(ExperimentalPowers.getMarkerDimension(owner, power, "portal_a"), owner);
+		ResourceKey<Level> dimB = orDefault(ExperimentalPowers.getMarkerDimension(owner, power, "portal_b"), owner);
+		ServerLevel levelA = owner.getServer().getLevel(dimA);
+		ServerLevel levelB = owner.getServer().getLevel(dimB);
+		if (levelA == null || levelB == null) {
 			return;
 		}
-		ctx.setResource("portal_open", open - 1.0f, PORTAL_OPEN_TICKS);
 		float form = Math.min(PORTAL_FORM_TICKS, ctx.resource("portal_form") + 1.0f);
 		ctx.setResource("portal_form", form, PORTAL_FORM_TICKS);
 		double frac = form / PORTAL_FORM_TICKS;
+		renderPortalRing(levelA, a, frac);
+		renderPortalRing(levelB, b, frac);
+		if (frac >= 0.99) {
+			warpPlayers(levelA, a, levelB, b);
+			if (!(a.equals(b) && dimA == dimB)) {
+				warpPlayers(levelB, b, levelA, a);
+			}
+		}
+	}
 
-		Vec3 c = Vec3.atBottomCenterOf(src).add(0, 1.0, 0);
+	private static void renderPortalRing(ServerLevel level, BlockPos at, double frac) {
+		Vec3 c = Vec3.atBottomCenterOf(at).add(0, 1.0, 0);
 		int ring = 4 + (int) (frac * 26);
 		for (int i = 0; i < ring; i++) {
 			double a = i / (double) ring * Math.PI * 2;
@@ -377,42 +410,14 @@ public final class TeleportationHandlers {
 					c.z + Math.sin(a) * rad, 1, 0.02, 0.15, 0.02, 0.01);
 		}
 		if (frac >= 0.99) {
-			level.sendParticles(ParticleTypes.REVERSE_PORTAL, c.x, c.y, c.z, 6, 0.5, 0.8, 0.5, 0.02);
-			if (p.position().distanceToSqr(c) <= 2.2 * 2.2) {
-				travelThroughPortal(ctx, p);
-			}
-		}
-		if (open <= 1.0f) {
-			fizzlePortal(ctx);
+			level.sendParticles(ParticleTypes.REVERSE_PORTAL, c.x, c.y, c.z, 4, 0.4, 0.7, 0.4, 0.02);
 		}
 	}
 
-	private static void travelThroughPortal(AbilityContext ctx, ServerPlayer p) {
-		BlockPos dest = ExperimentalPowers.getMarker(p, ctx.power(), "portal_dest");
-		var dimKey = ExperimentalPowers.getMarkerDimension(p, ctx.power(), "portal_dest");
-		ServerLevel target = (dimKey == null || p.getServer() == null) ? ctx.level() : p.getServer().getLevel(dimKey);
-		if (target == null || dest == null) {
-			fizzlePortal(ctx);
-			return;
-		}
-		Vec3 from = p.position();
-		if (SafeTeleport.tryTeleport(p, target, Vec3.atBottomCenterOf(dest).add(0, 0.1, 0))) {
-			poof(ctx.level(), from);
-			poof((ServerLevel) p.level(), p.position());
-			AbilityHelpers.sound(p, SoundEvents.PORTAL_TRAVEL, 0.8f, 1.0f);
-		} else {
-			p.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-					"message.projecthero.teleport.mark_blocked"), true);
-		}
-		fizzlePortal(ctx);
-	}
-
-	private static void fizzlePortal(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ctx.setResource("portal_open", 0, PORTAL_OPEN_TICKS);
-		ctx.setResource("portal_form", 0, PORTAL_FORM_TICKS);
-		ExperimentalPowers.clearMarker(p, ctx.power(), "portal_src");
-		ExperimentalPowers.clearMarker(p, ctx.power(), "portal_dest");
+	private static void closePortalPair(ServerPlayer p, Power power) {
+		ExperimentalPowers.clearMarker(p, power, "portal_a");
+		ExperimentalPowers.clearMarker(p, power, "portal_b");
+		ExperimentalPowers.setResource(p, power, "portal_form", 0, PORTAL_FORM_TICKS);
 	}
 
 	// ---- C: Portal Anchor ------------------------------------------------------------------------

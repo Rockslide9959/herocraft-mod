@@ -199,7 +199,14 @@ public final class HeroDamageRules {
 			}
 			case "power_07_electrokinesis" -> {
 				if (source.is(DamageTypes.LIGHTNING_BOLT)) {
-					return Verdict.mult(0.4f); // reduced, not immune (Thor stays king)
+					return Verdict.immune(); // v0.10.14: an electrokinetic is untouched by lightning
+				}
+			}
+			case "power_14_sonic_scream" -> {
+				// A sonic screamer's own ears and body are tuned out -- sonic booms and resonance barely
+				// register.
+				if (source.is(DamageTypes.SONIC_BOOM)) {
+					return Verdict.mult(0.25f);
 				}
 			}
 			case "power_13_super_durability" -> {

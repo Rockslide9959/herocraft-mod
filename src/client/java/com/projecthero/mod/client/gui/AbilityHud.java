@@ -272,7 +272,7 @@ public final class AbilityHud {
 			};
 			// v0.10.13: Telekinesis' Psi reserve is always shown -- it is the whole power's fuel gauge
 			// and players kept losing track of it once it topped back up and the bar vanished.
-			if (name.equals("psi")) {
+			if (name.equals("psi") || name.equals("ecell")) {
 				show = true;
 			}
 			if (!show) {
@@ -326,6 +326,13 @@ public final class AbilityHud {
 			java.util.Map.entry("flamethrower", Kind.BUILD),     // Pyrokinesis channel
 			java.util.Map.entry("water", Kind.BUILD),            // Water Manipulation channel
 			java.util.Map.entry("ult_charge", Kind.BUILD),       // shared hold-to-charge ultimate meter
+			java.util.Map.entry("fb_charge", Kind.BUILD),        // Laser Vision Focused Beam charge
+			java.util.Map.entry("portal_charge", Kind.BUILD),    // Teleportation Portal charge
+			java.util.Map.entry("stretch_charge", Kind.BUILD),   // Elasticity Stretch Punch charge
+			java.util.Map.entry("sonic_charge", Kind.BUILD),     // Sonic Scream hold-to-charge
+			java.util.Map.entry("storm_charge", Kind.BUILD),     // Electrokinesis Storm Bolt hold-to-charge
+			java.util.Map.entry("ecell", Kind.RESERVE),          // Electrokinesis charge cell
+			java.util.Map.entry("senses", Kind.RESERVE),         // Sonic Scream Enhanced Senses meter
 			// --- countdowns on something currently running ---
 			java.util.Map.entry("overdrive_ticks", Kind.TIMER),  // Super Speed Overdrive
 			java.util.Map.entry("whirl_ticks", Kind.TIMER),      // Super Speed Whirlwind
@@ -348,7 +355,9 @@ public final class AbilityHud {
 			return 100.0f; // "flight" stamina and the timed self-flight meters are all 0..100
 		}
 		return switch (name) {
-			case "phase", "static_charge", "charge", "sparkle", "ult_charge" -> 100.0f;
+			case "phase", "static_charge", "charge", "sparkle", "ult_charge",
+					"fb_charge", "portal_charge", "stretch_charge", "sonic_charge", "storm_charge", "senses" -> 100.0f;
+			case "ecell" -> 1000.0f;
 			case "blade_charge" -> 40.0f;
 			case "whirl_ticks" -> 160.0f;
 			case "hurr" -> 220.0f;
@@ -381,6 +390,13 @@ public final class AbilityHud {
 			case "whirl_ticks" -> Component.literal("Whirlwind");
 			case "blade_charge" -> Component.literal("Wind Blade");
 			case "ult_charge" -> Component.literal("Ultimate — charging");
+			case "fb_charge" -> Component.literal("Focused Beam — charging");
+			case "portal_charge" -> Component.literal("Portal — charging");
+			case "stretch_charge" -> Component.literal("Stretch Punch — charging");
+			case "sonic_charge" -> Component.literal("Scream — charging");
+			case "storm_charge" -> Component.literal("Storm Bolt — charging");
+			case "ecell" -> Component.literal("Charge");
+			case "senses" -> Component.literal("Enhanced Senses");
 			default -> name.endsWith("flight") ? Component.literal("Flight")
 					: Component.literal(capitalize(name.replace('_', ' ')));
 		};
