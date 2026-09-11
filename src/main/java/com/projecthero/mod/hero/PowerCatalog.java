@@ -598,7 +598,7 @@ final class PowerCatalog {
 				.ability(ab(k, "giant_form", SLOT_4, TOGGLE, 0))
 				.ability(ab(k, "tiny_dash", SLOT_5, INSTANT, 5 * S))
 				.ability(ab(k, "large_form", SLOT_6, TOGGLE, 0))
-				.passives(pk(k, "passive.form"))
+				.passives(pk(k, "passive.form"), pk(k, "passive.fall"))
 				.serum(SerumRecipe.of("minecraft:leaping", pk(k, "serum"),
 						"minecraft:slime_ball", "minecraft:rabbit_hide", "minecraft:fermented_spider_eye", "minecraft:redstone"))
 				.trigger(MutationTrigger.of(Kind.MASS_COMPRESSION, pk(k, "trigger"), "projecthero.device.mass_compression_chamber"))

@@ -34,7 +34,9 @@ public final class TitanEntityTypes {
 					.eyeHeight(1.74f * TitanEntity.SCALE)
 					// A giant boss has to stay visible (and its boss bar accurate) from far across a field.
 					.clientTrackingRange(24)
-					.fireImmune()
+					// v0.10.16: NOT fire-immune -- vanilla's is_fire damage-type tag also covers
+					// "fireball"/"unattributed_fireball", so this flag was silently no-op'ing Pyrokinesis'
+					// fireball ability (and anything else that ignites) against the Titan.
 					.build("titan"));
 
 	public static final EntityType<TitanBoulderEntity> TITAN_BOULDER = register("titan_boulder",

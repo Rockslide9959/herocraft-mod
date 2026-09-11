@@ -153,7 +153,7 @@ public final class FlightHandlers {
 			}
 			ctx.setResource("sonic_ticks", t - 1, 25 * 20);
 			ServerPlayer p = ctx.player();
-			// push hard enough to hold the ~30 blocks/s cruise the client clamps to
+			// push hard enough to hold the ~50 blocks/s cruise the client clamps to
 			AbilityHelpers.addImpulse(p, p.getLookAngle().scale(0.9));
 			// the vapour trail: a continuous streak of cloud pulled out behind the flight path
 			Vec3 behind = p.position().subtract(p.getDeltaMovement().normalize().scale(0.8));
