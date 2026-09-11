@@ -23,6 +23,8 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.TicketType;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
@@ -387,6 +389,8 @@ public final class TeleportationHandlers {
 		if (levelA == null || levelB == null) {
 			return;
 		}
+		keepLoaded(levelA, a);
+		keepLoaded(levelB, b);
 		float form = Math.min(PORTAL_FORM_TICKS, ctx.resource("portal_form") + 1.0f);
 		ctx.setResource("portal_form", form, PORTAL_FORM_TICKS);
 		double frac = form / PORTAL_FORM_TICKS;
@@ -437,6 +441,8 @@ public final class TeleportationHandlers {
 		if (levelA == null || levelB == null) {
 			return;
 		}
+		keepLoaded(levelA, a);
+		keepLoaded(levelB, b);
 		pillar(levelA, a);
 		pillar(levelB, b);
 		warpPlayers(levelA, a, levelB, b);
@@ -476,6 +482,21 @@ public final class TeleportationHandlers {
 
 	private static ResourceKey<Level> orDefault(ResourceKey<Level> key, ServerPlayer p) {
 		return key != null ? key : p.level().dimension();
+	}
+
+	/**
+	 * Cross-dimension portals and anchors were forming fine but never actually delivering anyone: the
+	 * far endpoint's chunk was force-loaded once at creation to read/place it, but nothing kept it
+	 * loaded afterwards. Once that one-off load expired the destination chunk unloaded again (nobody
+	 * was standing there to keep it resident), so every later {@code hasChunkAt} check on it -- the
+	 * first thing {@link SafeTeleport#isSafe} tests -- came back false and the gate simply never fired
+	 * for that side. This is the same {@link TicketType#PORTAL} vanilla nether portals refresh on every
+	 * use to keep the far side alive; re-adding it every tick both endpoints exist keeps them loaded
+	 * for as long as the pair does, dimension travel included, and it quietly expires on its own
+	 * (300 ticks) once we stop refreshing it.
+	 */
+	private static void keepLoaded(ServerLevel level, BlockPos pos) {
+		level.getChunkSource().addRegionTicket(TicketType.PORTAL, new ChunkPos(pos), 3, pos);
 	}
 
 	/** Drop the tiny per-player portal-anchor warp cooldown map when a server stops. */

@@ -88,17 +88,20 @@ public final class TelekinesisHandlers {
 	private static final float ULT_REGEN_PENALTY = 0.2f;
 
 	// --- costs ---
-	private static final float COST_PUSH = 110.0f;
-	private static final float COST_PULL = 80.0f;
-	private static final float COST_GRAB = 160.0f;
-	private static final float COST_BLOCK = 120.0f;
-	private static final float COST_CHUNK = 260.0f;
-	private static final float COST_ULTIMATE = 500.0f;
-	private static final float DRAIN_FLIGHT = 1.2f;
-	private static final float DRAIN_BARRIER = 4.0f;
-	private static final float DRAIN_BARRIER_PER_DAMAGE = 8.0f;
-	private static final float DRAIN_HOLD = 3.0f;
-	private static final float DRAIN_CRUSH = 6.0f;
+	// v0.10.15: back down to their pre-v0.10.14 values -- the v0.10.14 hike made every ability too
+	// expensive to actually use. The Psi bar's HUD max was the real bug behind "the bar looks half
+	// empty already" (see AbilityHud#maxOf); these costs just needed to come back down on their own.
+	private static final float COST_PUSH = 35.0f;
+	private static final float COST_PULL = 25.0f;
+	private static final float COST_GRAB = 55.0f;
+	private static final float COST_BLOCK = 40.0f;
+	private static final float COST_CHUNK = 90.0f;
+	private static final float COST_ULTIMATE = 320.0f;
+	private static final float DRAIN_FLIGHT = 0.4f;
+	private static final float DRAIN_BARRIER = 1.6f;
+	private static final float DRAIN_BARRIER_PER_DAMAGE = 4.0f;
+	private static final float DRAIN_HOLD = 1.0f;
+	private static final float DRAIN_CRUSH = 2.5f;
 
 	/**
 	 * v0.10.11: every telekinetic move reaches 50 blocks. Force Push's cone, Force Pull's grab, the

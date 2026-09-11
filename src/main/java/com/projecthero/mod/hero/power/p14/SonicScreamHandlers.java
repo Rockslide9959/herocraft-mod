@@ -226,6 +226,10 @@ public final class SonicScreamHandlers {
 			@Override
 			public void onToggleOff(AbilityContext ctx) {
 				sensesOff(ctx.player());
+				// Clear blindness the instant the mode ends instead of letting the last applied instance
+				// simply run out -- with the fix below it now outlives a single tick, so leaving this out
+				// would keep the wielder blind for a moment after toggling off.
+				ctx.player().removeEffect(MobEffects.BLINDNESS);
 				ctx.triggerCooldown(SENSES_CD);
 			}
 
@@ -233,7 +237,12 @@ public final class SonicScreamHandlers {
 			public void onToggleTick(AbilityContext ctx) {
 				ServerPlayer p = ctx.player();
 				sensesOn(p);
-				p.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 20, 0, false, false, false));
+				// v0.10.15: was re-applied with exactly a 20-tick duration every tick. Vanilla's blindness
+				// fog fades in/out over its last 20 ticks of remaining duration, so sitting right at that
+				// threshold every single tick (any one-tick hiccup in when this runs relative to the
+				// entity's own effect countdown) pushed the fade ratio below 1.0 and back -- a visible
+				// strobe. Refreshing to well above the fade window keeps it a flat, solid blind.
+				p.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 40, 0, false, false, false));
 				ctx.addResource("senses", -SENSES_DRAIN, SENSES_MAX);
 				if (ctx.resource("senses") <= 0.0f) {
 					ctx.setToggled(false);

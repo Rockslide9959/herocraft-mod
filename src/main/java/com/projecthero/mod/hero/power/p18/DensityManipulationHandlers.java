@@ -254,10 +254,10 @@ public final class DensityManipulationHandlers {
 			return;
 		}
 		ServerPlayer p = ctx.player();
-		// Safety: never leave the player hanging in the sky. Five seconds after the cast, force the
-		// plunge regardless of what state the launch is in.
+		// Heavy Impact only lifts you for 3 seconds: past that, force the plunge regardless of what
+		// state the launch is in, so the ground-cast rise can never linger longer than that.
 		float start = ctx.resource("hi_start");
-		if (start > 0.5f && p.level().getGameTime() - (long) start > 100L && state == 1) {
+		if (start > 0.5f && p.level().getGameTime() - (long) start > 60L && state == 1) {
 			ctx.setResource("hi_state", 2, 3);
 			state = 2;
 		}

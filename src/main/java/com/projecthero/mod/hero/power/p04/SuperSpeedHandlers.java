@@ -51,6 +51,13 @@ public final class SuperSpeedHandlers {
 	private static final ResourceLocation OD_STEP = com.projecthero.mod.ProjectHeroMod.id("overdrive_step");
 	private static final ResourceLocation OD_FALL = com.projecthero.mod.ProjectHeroMod.id("overdrive_fall");
 
+	// --- v0.10.15: Wall Running ---
+	private static final ResourceLocation WALLRUN_STEP = com.projecthero.mod.ProjectHeroMod.id("wallrun_step");
+	/** How steeply up you have to look (degrees, negative = up) before a wall in front becomes runnable. */
+	private static final float WALLRUN_PITCH = -50.0f;
+	private static final double WALLRUN_REACH = 0.7;
+	private static final double WALLRUN_CLIMB_SPEED = 0.30;
+
 	private SuperSpeedHandlers() {
 	}
 
@@ -169,8 +176,10 @@ public final class SuperSpeedHandlers {
 				PowerToggles.clearModifier(player, Attributes.STEP_HEIGHT, PASSIVE_STEP);
 				speedModeClear(player);
 				clearOverdrive(player);
+				PowerToggles.clearModifier(player, Attributes.STEP_HEIGHT, WALLRUN_STEP);
 				ExperimentalPowers.setResource(player, Powers.byKey(KEY), OVERDRIVE_UNTIL, 0, 1e12f);
 				ExperimentalPowers.setResource(player, Powers.byKey(KEY), OVERDRIVE_LEFT, 0, OVERDRIVE_TICKS);
+				ExperimentalPowers.setResource(player, Powers.byKey(KEY), "wallrun", 0, 1);
 			}
 		});
 		PowerPassives.registerTick(KEY, SuperSpeedHandlers::serverTick);
@@ -279,6 +288,57 @@ public final class SuperSpeedHandlers {
 		if (speedMode && player.isSprinting() && player.tickCount % 3 == 0) {
 			bodyTrail(sl, player, 1);
 		}
+
+		wallRunTick(player, sl);
+	}
+
+	/**
+	 * Wall Running: sprint into a wall while looking steeply up it and you run straight up instead of
+	 * stalling against it. A generous step-height assist rides along with it so an overhanging lip or
+	 * the rim of a deep hole does not just bump your head -- and the moment the wall in front runs out
+	 * (you have topped out) one forward-and-up nudge carries you over the edge instead of leaving you
+	 * to float at the lip and drop back in.
+	 */
+	private static void wallRunTick(ServerPlayer p, ServerLevel sl) {
+		Power power = Powers.byKey(KEY);
+		boolean wasClimbing = ExperimentalPowers.getResource(p, power, "wallrun") > 0.5f;
+		boolean climbing = p.isSprinting() && p.horizontalCollision && !p.isInWater()
+				&& !p.getAbilities().flying && p.getXRot() < WALLRUN_PITCH && wallAhead(p);
+		if (climbing) {
+			Vec3 v = p.getDeltaMovement();
+			p.setDeltaMovement(v.x, WALLRUN_CLIMB_SPEED, v.z);
+			p.resetFallDistance();
+			p.hasImpulse = true;
+			p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(p));
+			PowerToggles.modifier(p, Attributes.STEP_HEIGHT, WALLRUN_STEP, 1.2, AttributeModifier.Operation.ADD_VALUE);
+			ExperimentalPowers.setResource(p, power, "wallrun", 1, 1);
+			if (p.tickCount % 2 == 0) {
+				sl.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.2, p.getZ(), 3, 0.2, 0.05, 0.2, 0.01);
+			}
+			return;
+		}
+		if (wasClimbing) {
+			// Just topped out (or let go): a single mantle nudge so the crest of the wall carries you
+			// onto the ledge instead of leaving you stalled right at its lip.
+			Vec3 look = p.getLookAngle();
+			Vec3 v = p.getDeltaMovement();
+			p.setDeltaMovement(v.x + look.x * 0.5, Math.max(v.y, 0.35), v.z + look.z * 0.5);
+			p.hasImpulse = true;
+			p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(p));
+		}
+		ExperimentalPowers.setResource(p, power, "wallrun", 0, 1);
+		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, WALLRUN_STEP);
+	}
+
+	/** True if there is a solid block directly ahead (horizontally) at eye height, within wall-run reach. */
+	private static boolean wallAhead(ServerPlayer p) {
+		Vec3 look = new Vec3(p.getLookAngle().x, 0, p.getLookAngle().z);
+		if (look.lengthSqr() < 1.0e-4) {
+			return false;
+		}
+		look = look.normalize();
+		BlockPos bp = BlockPos.containing(p.getEyePosition().add(look.scale(WALLRUN_REACH)));
+		return !p.level().getBlockState(bp).getCollisionShape(p.level(), bp).isEmpty();
 	}
 
 	private static void overdriveBurst(ServerLevel level, ServerPlayer p) {

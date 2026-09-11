@@ -357,6 +357,10 @@ public final class AbilityHud {
 		return switch (name) {
 			case "phase", "static_charge", "charge", "sparkle", "ult_charge",
 					"fb_charge", "portal_charge", "stretch_charge", "sonic_charge", "storm_charge", "senses" -> 100.0f;
+			// v0.10.15: this fell through to the 500 default while Telekinesis' real max is 1000, so the
+			// bar only started showing once Psi had already dropped below half -- looked like it was
+			// draining from a half-empty bar. See TelekinesisHandlers.MAX_PSI.
+			case "psi" -> 1000.0f;
 			case "ecell" -> 1000.0f;
 			case "blade_charge" -> 40.0f;
 			case "whirl_ticks" -> 160.0f;
