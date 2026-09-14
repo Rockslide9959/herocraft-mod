@@ -48,7 +48,7 @@ import net.minecraft.world.phys.Vec3;
 public final class MagneticHandlers {
 	private static final String KEY = "power_26_magnetic_manipulation";
 
-	private static final double SELECT_RANGE = 10.0;
+	private static final double SELECT_RANGE = 30.0;
 	private static final double LEAP_RANGE = 24.0;
 	private static final double CRUSH_RANGE = 18.0;
 	private static final double STORM_RANGE = 12.0;
@@ -104,15 +104,31 @@ public final class MagneticHandlers {
 		BlockPos blockPos = lookedAtMagneticBlock(p, SELECT_RANGE);
 		ItemEntity drop = blockPos == null ? nearestMagneticDrop(level, p, SELECT_RANGE) : null;
 		if (blockPos == null && drop == null) {
-			blockPos = nearestMagneticBlock(level, p, 6.0);
+			blockPos = nearestMagneticBlock(level, p, SELECT_RANGE);
 		}
+		ItemStack fromInventory = null;
 		if (blockPos == null && drop == null) {
-			ctx.actionBar("message.projecthero.magnetic.no_metal");
-			return;
+			fromInventory = inventoryMagneticAmmo(p);
+			if (fromInventory == null) {
+				ctx.actionBar("message.projecthero.magnetic.no_metal");
+				return;
+			}
 		}
 
 		Vec3 from = p.getEyePosition().add(look.scale(0.6));
-		if (blockPos != null) {
+		if (fromInventory != null) {
+			MagneticMass mass = MagneticMass.of(fromInventory);
+			ItemStack one = fromInventory.copyWithCount(1);
+			fromInventory.shrink(1);
+			ItemEntity proj = new ItemEntity(level, from.x, from.y, from.z, one);
+			proj.setDeltaMovement(look.scale(mass.launchSpeed + 0.4));
+			proj.setNoGravity(true);
+			proj.setPickUpDelay(60);
+			level.addFreshEntity(proj);
+			track(level, proj, p, mass.damage, mass.knockback, 45);
+			streak(level, from, look, ParticleTypes.ELECTRIC_SPARK);
+			AbilityHelpers.sound(p, SoundEvents.IRON_GOLEM_HURT, 0.6f, 1.7f);
+		} else if (blockPos != null) {
 			BlockState state = level.getBlockState(blockPos);
 			MagneticMass mass = MagneticMass.of(state);
 			boolean nether = MagneticMaterials.isNetherite(state);
@@ -441,11 +457,13 @@ public final class MagneticHandlers {
 		if (!(player.level() instanceof ServerLevel level)) {
 			return;
 		}
-		// Metal Attraction: magnetic drops within 4 blocks drift toward the player (magnetic only).
-		for (ItemEntity ie : level.getEntitiesOfClass(ItemEntity.class, player.getBoundingBox().inflate(4.0),
+		// Metal Attraction: magnetic drops within 30 blocks drift toward the player, with a little lift
+		// so they climb a one-block step instead of getting stuck against it.
+		for (ItemEntity ie : level.getEntitiesOfClass(ItemEntity.class, player.getBoundingBox().inflate(30.0),
 				i -> MagneticMaterials.isMagnetic(i.getItem()))) {
-			ie.setDeltaMovement(ie.getDeltaMovement().add(
-					player.position().subtract(ie.position()).normalize().scale(0.035)));
+			Vec3 pull = player.position().subtract(ie.position()).normalize().scale(0.045);
+			double stepAssist = ie.horizontalCollision ? 0.1 : 0.02;
+			ie.setDeltaMovement(ie.getDeltaMovement().add(pull.x, stepAssist, pull.z));
 		}
 		// Magnetic Awareness: a faint tick on the metal object you are looking at.
 		if (player.tickCount % 8 == 0) {
@@ -697,6 +715,16 @@ public final class MagneticHandlers {
 			}
 		}
 		return best;
+	}
+
+	/** The first magnetic item stack in the player's inventory, used as ammo when nothing else is in reach. */
+	private static ItemStack inventoryMagneticAmmo(ServerPlayer p) {
+		for (ItemStack stack : p.getInventory().items) {
+			if (!stack.isEmpty() && MagneticMaterials.isMagnetic(stack)) {
+				return stack;
+			}
+		}
+		return null;
 	}
 
 	private static Entity raycastMagneticEntity(ServerPlayer p, double range) {

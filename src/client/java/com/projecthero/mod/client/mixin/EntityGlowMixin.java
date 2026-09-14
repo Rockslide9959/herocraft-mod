@@ -45,13 +45,24 @@ public abstract class EntityGlowMixin {
 			return;
 		}
 
+		// v0.10.19: Magnetic Sense is the one detection highlight that DOES light up another player --
+		// specifically one wearing magnetic (iron-family) equipment, since that gear is exactly what the
+		// power senses. Checked before the generic player exclusion below.
+		if (self instanceof net.minecraft.world.entity.player.Player otherPlayer) {
+			ExperimentalState magState = viewer.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+			if (magState != null && magState.ownedPowers.contains("power_26_magnetic_manipulation")
+					&& magState.activeToggles.contains("power_26_magnetic_manipulation/magnetic_sense")
+					&& self.distanceToSqr(viewer) <= 20.0 * 20.0
+					&& com.projecthero.mod.hero.power.p26.MagneticMaterials.hasMagneticEquipment(otherPlayer)) {
+				cir.setReturnValue(true);
+			}
+			return;
+		}
+
 		// v0.10.13: mob-detection highlights (Spider-Sense, Predator Vision, Thermal / Echolocation /
 		// Magnetic Sense) never outline a player -- not the viewer and not anyone else. Lighting up
 		// players just makes people trivial to spot, which is not what "see the monsters around you" is
 		// meant to do. The Iron Man threat highlight above is a deliberate targeting HUD and is exempt.
-		if (self instanceof net.minecraft.world.entity.player.Player) {
-			return;
-		}
 
 		// v0.9.3: Spider-Sense red threat glow -- purely this viewer's own render, fed by
 		// SpiderSenseGlowPayload. Nothing is set on the mob server-side, so no other player sees it.
@@ -93,6 +104,15 @@ public abstract class EntityGlowMixin {
 				&& echoUntil != null && echoUntil > (viewer.level() != null ? viewer.level().getGameTime() : 0L);
 		boolean magnetic = st.ownedPowers.contains("power_26_magnetic_manipulation")
 				&& st.activeToggles.contains("power_26_magnetic_manipulation/magnetic_sense");
+		// v0.10.19: Shadow Manipulation -- while the viewer is in nighttime darkness (or the Deep Dark),
+		// nearby hostiles get a black outline.
+		boolean shadowSight = self instanceof net.minecraft.world.entity.monster.Enemy
+				&& "power_19_shadow_manipulation".equals(st.activePower)
+				&& com.projecthero.mod.hero.power.p19.ShadowManipulationHandlers.tier(viewer.level(), viewer.blockPosition()) >= 1.0f;
+		if (shadowSight && self.distanceToSqr(viewer) <= 24.0 * 24.0) {
+			cir.setReturnValue(true);
+			return;
+		}
 		// Enhanced hearing: anything within 40 blocks that just moved flashes for this viewer alone.
 		boolean hearing = self instanceof LivingEntity && st.ownedPowers.contains("power_14_sonic_scream")
 				&& com.projecthero.mod.client.SonicMotionClient.isFlashing(self.getId(),
@@ -255,6 +275,29 @@ public abstract class EntityGlowMixin {
 		} else {
 			cir.setReturnValue(0x1B2C7A);
 		}
+	}
+
+	/** Shadow Manipulation's black outline for hostiles seen in darkness. Purely the viewer's own render. */
+	@Inject(method = "getTeamColor", at = @At("HEAD"), cancellable = true)
+	private void projecthero$shadowOutlineColor(CallbackInfoReturnable<Integer> cir) {
+		if (cir.isCancelled()) {
+			return;
+		}
+		Entity self = (Entity) (Object) this;
+		if (self instanceof LocalPlayer || !(self instanceof net.minecraft.world.entity.monster.Enemy)) {
+			return;
+		}
+		LocalPlayer viewer = Minecraft.getInstance().player;
+		if (viewer == null || viewer == self) {
+			return;
+		}
+		ExperimentalState st = viewer.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		if (st == null || !"power_19_shadow_manipulation".equals(st.activePower)
+				|| self.distanceToSqr(viewer) > 24.0 * 24.0
+				|| com.projecthero.mod.hero.power.p19.ShadowManipulationHandlers.tier(viewer.level(), viewer.blockPosition()) < 1.0f) {
+			return;
+		}
+		cir.setReturnValue(0x0A0A0C);
 	}
 
 	@Inject(method = "getTeamColor", at = @At("HEAD"), cancellable = true)

@@ -70,9 +70,11 @@ public final class MaxSteelBlast {
 				0.08, 0.08, 0.08, 0.02);
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, spawn.x, spawn.y, spawn.z, 8, 0.12, 0.12, 0.12, 0.06);
 
-		// v0.6.20: one clean beep -- pitched down a little for a charged shot -- instead of the layered
-		// conduit + trident-thunder + sonic-boom stack.
-		AbilityHelpers.sound(player, SoundEvents.NOTE_BLOCK_BIT.value(), 0.5f, charge > 0.4f ? 0.7f : 1.5f);
+		// v0.10.19: a real blast report instead of the "ding" NOTE_BLOCK_BIT gave -- a punchy burst layered
+		// with a low thump, pitched down further for a charged shot.
+		float pitch = charge > 0.4f ? 0.8f : 1.1f;
+		AbilityHelpers.sound(player, SoundEvents.WIND_CHARGE_BURST, 0.8f, pitch);
+		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_BLAST, 0.5f, pitch + 0.2f);
 
 		MaxSteel.triggerCooldown(player, ABILITY, MaxSteelConfig.BLAST_COOLDOWN_TICKS);
 	}

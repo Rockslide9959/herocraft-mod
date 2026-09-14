@@ -356,11 +356,11 @@ final class PowerCatalog {
 	private static Power invisibilityLight() {
 		String k = "power_15_invisibility_light_manipulation";
 		return Power.Builder.of(Powers.id(k), PowerCategory.LIGHT)
-				.ability(ab(k, "light_blast", SLOT_1, INSTANT, 3 * S))
-				.ability(ab(k, "flash", SLOT_2, INSTANT, 10 * S))
+				.ability(ab(k, "light_blast", SLOT_1, CHARGE, 1 * S))
+				.ability(ab(k, "flash", SLOT_2, INSTANT, 6 * S))
 				.ability(ab(k, "mirage_dash", SLOT_3, HOLD, 3 * S))
-				.ability(ab(k, "perfect_cloak", SLOT_4, INSTANT, 45 * S))
-				.ability(ab(k, "decoy", SLOT_5, INSTANT, 18 * S))
+				.ability(ab(k, "perfect_cloak", SLOT_4, CHARGE, 75 * S))
+				.ability(ab(k, "decoy", SLOT_5, INSTANT, 10 * S))
 				.ability(ab(k, "cloaking_toggle", SLOT_6, TOGGLE, 0))
 				.passives(pk(k, "passive.detection"))
 				.serum(SerumRecipe.of("minecraft:invisibility", pk(k, "serum"),
@@ -437,9 +437,9 @@ final class PowerCatalog {
 		return Power.Builder.of(Powers.id(k), PowerCategory.ENERGY)
 				.ability(ab(k, "shadow_bolt", SLOT_1, INSTANT, 2 * S))
 				.ability(ab(k, "shadow_tendrils", SLOT_2, INSTANT, 8 * S))
-				.ability(ab(k, "shadow_step", SLOT_3, INSTANT, 4 * S))
-				.ability(ab(k, "total_darkness", SLOT_4, INSTANT, 50 * S))
-				.ability(ab(k, "shadow_clone", SLOT_5, INSTANT, 12 * S))
+				.ability(ab(k, "shadow_step", SLOT_3, INSTANT, 3 * S))
+				.ability(ab(k, "total_darkness", SLOT_4, CHARGE, 60 * S))
+				.ability(ab(k, "shadow_clone", SLOT_5, INSTANT, 1 * S))
 				.ability(ab(k, "shadow_form", SLOT_6, TOGGLE, 0))
 				.passives(pk(k, "passive.darkness_regen"))
 				.serum(SerumRecipe.of("minecraft:night_vision", pk(k, "serum"),
@@ -455,11 +455,11 @@ final class PowerCatalog {
 	private static Power energyAbsorption() {
 		String k = "power_20_energy_absorption";
 		return Power.Builder.of(Powers.id(k), PowerCategory.ENERGY)
-				.ability(ab(k, "energy_blast", SLOT_1, INSTANT, 0))
+				.ability(ab(k, "energy_blast", SLOT_1, CHARGE, 2 * S))
 				.ability(ab(k, "energy_beam", SLOT_2, HOLD, 0))
-				.ability(ab(k, "absorption_shield", SLOT_3, INSTANT, 3 * S))
-				.ability(ab(k, "overload", SLOT_4, INSTANT, 35 * S))
-				.ability(ab(k, "energy_drain", SLOT_5, HOLD, 0))
+				.ability(ab(k, "absorption_shield", SLOT_3, INSTANT, 2 * S))
+				.ability(ab(k, "overload", SLOT_4, CHARGE, 30 * S))
+				.ability(ab(k, "energy_drain", SLOT_5, HOLD, 15 * S))
 				.ability(ab(k, "absorption_mode", SLOT_6, TOGGLE, 0))
 				.passives(pk(k, "passive.meter"))
 				.serum(SerumRecipe.of("minecraft:fire_resistance", pk(k, "serum"),
@@ -478,7 +478,7 @@ final class PowerCatalog {
 				.ability(ab(k, "shockwave_punch", SLOT_1, INSTANT, 2 * S))
 				.ability(ab(k, "ground_wave", SLOT_2, INSTANT, 6 * S))
 				.ability(ab(k, "recoil_jump", SLOT_3, INSTANT, 4 * S))
-				.ability(ab(k, "kinetic_detonation", SLOT_4, INSTANT, 35 * S))
+				.ability(ab(k, "kinetic_detonation", SLOT_4, CHARGE, 100 * S))
 				.ability(ab(k, "repulsion_field", SLOT_5, HOLD, 0))
 				.ability(ab(k, "charge", SLOT_6, CHARGE, 0))
 				.passives(pk(k, "passive.knockback_resist"))
@@ -498,7 +498,7 @@ final class PowerCatalog {
 				.ability(ab(k, "thorn_shot", SLOT_1, INSTANT, 2 * S))
 				.ability(ab(k, "vine_grab", SLOT_2, INSTANT, 7 * S))
 				.ability(ab(k, "vine_swing", SLOT_3, INSTANT, 1 * S))
-				.ability(ab(k, "overgrowth", SLOT_4, INSTANT, 40 * S))
+				.ability(ab(k, "overgrowth", SLOT_4, CHARGE, 60 * S))
 				.ability(ab(k, "living_wall", SLOT_5, INSTANT, 8 * S))
 				.ability(ab(k, "natures_blessing", SLOT_6, TOGGLE, 0))
 				.passives(pk(k, "passive.bonemeal"), pk(k, "passive.lush_regen"))
@@ -514,10 +514,10 @@ final class PowerCatalog {
 	private static Power gravityManipulation() {
 		String k = "power_23_gravity_manipulation";
 		return Power.Builder.of(Powers.id(k), PowerCategory.FORCE)
-				.ability(ab(k, "gravity_push", SLOT_1, INSTANT, 3 * S))
-				.ability(ab(k, "gravity_crush", SLOT_2, INSTANT, 9 * S))
+				.ability(ab(k, "gravity_push", SLOT_1, INSTANT, 2 * S))
+				.ability(ab(k, "gravity_crush", SLOT_2, INSTANT, 20 * S))
 				.ability(ab(k, "zero_g", SLOT_3, TOGGLE, 0))
-				.ability(ab(k, "gravity_well", SLOT_4, INSTANT, 45 * S))
+				.ability(ab(k, "gravity_well", SLOT_4, CHARGE, 120 * S))
 				.ability(ab(k, "levitate", SLOT_5, INSTANT, 6 * S))
 				.ability(ab(k, "gravity_field", SLOT_6, CYCLE, 0))
 				.passives(pk(k, "passive.low_g_fall"))

@@ -137,6 +137,9 @@ public final class AbilityHud {
 		if (power.key().equals("power_01_super_strength")) {
 			renderStrengthExtras(graphics, client, state, x0, y0 - 20);
 		}
+		if (power.key().equals("power_19_shadow_manipulation")) {
+			renderShadowLevel(graphics, client, x0, y0 - 20);
+		}
 		if (power.key().equals("power_18_density_manipulation")) {
 			float d = state.resources.getOrDefault("power_18_density_manipulation/density", 100.0f);
 			if (d <= 0.0f) {
@@ -161,6 +164,18 @@ public final class AbilityHud {
 	}
 
 	private record Meter(Component label, float value, float max, int color) {
+	}
+
+	/** Shadow Manipulation's ambient-light strength indicator, shown above the ability row. */
+	private static void renderShadowLevel(GuiGraphics g, Minecraft client, int x, int y) {
+		if (client.player == null || client.level == null) {
+			return;
+		}
+		float tier = com.projecthero.mod.hero.power.p19.ShadowManipulationHandlers.tier(
+				client.level, client.player.blockPosition());
+		int pct = Math.round(tier * 100);
+		int color = tier >= 1.3f ? 0xFFB98CFF : tier >= 1.0f ? 0xFF9AA6D0 : tier >= 0.75f ? 0xFFE8C98A : 0xFFFFC24A;
+		g.drawString(client.font, "Shadow Strength: " + pct + "%", x, y, color, false);
 	}
 
 	/** Charged Punch / Power Leap / Bull Rush charge + cooldown bars, stacked above the ability row. */
@@ -272,7 +287,9 @@ public final class AbilityHud {
 			};
 			// v0.10.13: Telekinesis' Psi reserve is always shown -- it is the whole power's fuel gauge
 			// and players kept losing track of it once it topped back up and the bar vanished.
-			if (name.equals("psi") || name.equals("ecell")) {
+			// v0.10.19: Energy Absorption's Energy bar and Shockwave's Charge bar are likewise always on
+			// screen -- both are the whole power's resource, not a situational buff.
+			if (name.equals("psi") || name.equals("ecell") || name.equals("energy") || name.equals("charge")) {
 				show = true;
 			}
 			if (!show) {
@@ -317,6 +334,7 @@ public final class AbilityHud {
 			java.util.Map.entry("giant_form", Kind.RESERVE),     // Size Manipulation stance
 			java.util.Map.entry("repulsion_field", Kind.RESERVE), // Shockwave stance
 			java.util.Map.entry("tailwind", Kind.RESERVE),       // Wind stance
+			java.util.Map.entry("shadow_cloak", Kind.RESERVE),   // Shadow Manipulation Shadow Cloak
 			// --- build-up gauges: climb from zero, a full bar is the fail state ---
 			java.util.Map.entry("energy", Kind.BUILD),           // Energy Absorption
 			java.util.Map.entry("heat", Kind.BUILD),             // Laser Vision / Pyrokinesis
@@ -333,12 +351,18 @@ public final class AbilityHud {
 			java.util.Map.entry("storm_charge", Kind.BUILD),     // Electrokinesis Storm Bolt hold-to-charge
 			java.util.Map.entry("ecell", Kind.RESERVE),          // Electrokinesis charge cell
 			java.util.Map.entry("senses", Kind.RESERVE),         // Sonic Scream Enhanced Senses meter
+			java.util.Map.entry("light_charge", Kind.BUILD),     // Light Blast hold-to-charge
+			java.util.Map.entry("holy_charge", Kind.BUILD),      // Holy Light hold-to-charge
+			java.util.Map.entry("zone_charge", Kind.BUILD),      // Shadow Zone hold-to-charge
+			java.util.Map.entry("blast_charge", Kind.BUILD),     // Energy Blast hold-to-charge
+			java.util.Map.entry("pulse_charge", Kind.BUILD),     // Maximum Pulse hold-to-charge
 			// --- countdowns on something currently running ---
 			java.util.Map.entry("overdrive_ticks", Kind.TIMER),  // Super Speed Overdrive
 			java.util.Map.entry("whirl_ticks", Kind.TIMER),      // Super Speed Whirlwind
-			java.util.Map.entry("total_darkness", Kind.TIMER),   // Shadow Manipulation
+			java.util.Map.entry("total_darkness", Kind.TIMER),   // Shadow Manipulation (legacy key, unused now)
 			java.util.Map.entry("hurr", Kind.TIMER),             // Wind hurricane
 			java.util.Map.entry("singularity", Kind.TIMER),      // Density Manipulation ultimate
+			java.util.Map.entry("crush_hold_ticks", Kind.TIMER), // Gravity Crush hold
 			java.util.Map.entry("blade_charge", Kind.TIMER));    // Wind blade window
 
 	/** The meter kind for {@code name}, or {@code null} when it is bookkeeping and must not be drawn. */
@@ -356,7 +380,8 @@ public final class AbilityHud {
 		}
 		return switch (name) {
 			case "phase", "static_charge", "charge", "sparkle", "ult_charge",
-					"fb_charge", "portal_charge", "stretch_charge", "sonic_charge", "storm_charge", "senses" -> 100.0f;
+					"fb_charge", "portal_charge", "stretch_charge", "sonic_charge", "storm_charge", "senses",
+					"light_charge", "holy_charge", "zone_charge", "blast_charge", "pulse_charge" -> 100.0f;
 			// v0.10.15: this fell through to the 500 default while Telekinesis' real max is 1000, so the
 			// bar only started showing once Psi had already dropped below half -- looked like it was
 			// draining from a half-empty bar. See TelekinesisHandlers.MAX_PSI.
@@ -366,6 +391,8 @@ public final class AbilityHud {
 			case "whirl_ticks" -> 160.0f;
 			case "hurr" -> 220.0f;
 			case "overdrive_ticks" -> 600.0f;
+			case "crush_hold_ticks" -> 160.0f;
+			case "shadow_cloak" -> 100.0f;
 			case "total_darkness", "singularity" -> 500.0f;
 			default -> 500.0f;
 		};
@@ -399,6 +426,13 @@ public final class AbilityHud {
 			case "stretch_charge" -> Component.literal("Stretch Punch — charging");
 			case "sonic_charge" -> Component.literal("Scream — charging");
 			case "storm_charge" -> Component.literal("Storm Bolt — charging");
+			case "light_charge" -> Component.literal("Light Blast — charging");
+			case "holy_charge" -> Component.literal("Holy Light — charging");
+			case "zone_charge" -> Component.literal("Shadow Zone — charging");
+			case "blast_charge" -> Component.literal("Energy Blast — charging");
+			case "pulse_charge" -> Component.literal("Maximum Pulse — charging");
+			case "crush_hold_ticks" -> Component.literal("Gravity Crush");
+			case "shadow_cloak" -> Component.literal("Shadow Cloak");
 			case "ecell" -> Component.literal("Charge");
 			case "senses" -> Component.literal("Enhanced Senses");
 			default -> name.endsWith("flight") ? Component.literal("Flight")

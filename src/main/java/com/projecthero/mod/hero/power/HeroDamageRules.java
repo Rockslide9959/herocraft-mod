@@ -253,20 +253,23 @@ public final class HeroDamageRules {
 					return Verdict.immune();
 				}
 			}
-			case "power_20_energy_absorption" -> {
-				boolean energyType = source.is(DamageTypeTags.IS_FIRE) || source.is(DamageTypeTags.IS_EXPLOSION)
-						|| source.is(DamageTypes.LIGHTNING_BOLT);
-				boolean shielding = ExperimentalPowers.getResource(player, active, "shielding") > 0.5f;
-				boolean absorbMode = ExperimentalPowers.isToggled(player, active, active.ability(AbilitySlot.SLOT_6));
-				if (energyType && (absorbMode || shielding)) {
-					float soak = shielding ? 0.75f : 0.5f;
-					ExperimentalPowers.addResource(player, active, "energy", amount * soak * 4.0f, 500.0f);
-					return Verdict.mult(1.0f - soak);
+			case "power_23_gravity_manipulation" -> {
+				if (fall) {
+					return Verdict.mult(0.2f);
 				}
-				if (shielding) {
-					// physical damage while shield held: convert a smaller share
-					ExperimentalPowers.addResource(player, active, "energy", amount * 1.2f, 500.0f);
-					return Verdict.mult(0.7f);
+			}
+			case "power_21_shockwave_manipulation" -> {
+				if (source.is(DamageTypeTags.IS_EXPLOSION)) {
+					return Verdict.mult(0.5f);
+				}
+			}
+			case "power_20_energy_absorption" -> {
+				// v0.10.19: an unconditional passive -- half of every hit becomes energy, all the time,
+				// unless Overload Release has just locked the meter out.
+				if (com.projecthero.mod.hero.power.p20.EnergyAbsorptionHandlers.canAbsorb(player)) {
+					ExperimentalPowers.addResource(player, active, "energy", amount * 0.5f, 500.0f);
+					com.projecthero.mod.hero.power.p20.EnergyAbsorptionHandlers.markAbsorbed(player);
+					return Verdict.mult(0.5f);
 				}
 			}
 			default -> {

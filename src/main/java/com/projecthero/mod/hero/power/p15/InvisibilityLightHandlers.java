@@ -4,9 +4,11 @@ import com.projecthero.mod.hero.AbilityContext;
 import com.projecthero.mod.hero.AbilityHandler;
 import com.projecthero.mod.hero.AbilityHandlers;
 import com.projecthero.mod.hero.ExperimentalPowers;
+import com.projecthero.mod.hero.Powers;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.Handlers;
 
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -20,46 +22,161 @@ import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.phys.Vec3;
 
-/** Power 15 — Invisibility / Light Manipulation. */
+import org.joml.Vector3f;
+
+/** Power 15 — Invisibility / Light Manipulation. Stronger and longer-ranged in direct sunlight. */
 public final class InvisibilityLightHandlers {
 	private static final String KEY = "power_15_invisibility_light_manipulation";
+	private static final Vector3f YELLOW = new Vector3f(1.0f, 0.86f, 0.2f);
 
 	private InvisibilityLightHandlers() {
 	}
 
-	public static void register() {
-		AbilityHandlers.register(KEY, "light_blast", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			LivingEntity t = AbilityHelpers.raycastEntity(p, 22.0);
-			AbilityHelpers.line(ctx.level(), p.getEyePosition(), AbilityHelpers.aimPoint(p, 22.0), ParticleTypes.END_ROD, 3.0);
-			AbilityHelpers.line(ctx.level(), p.getEyePosition(), AbilityHelpers.aimPoint(p, 22.0), ParticleTypes.GLOW, 2.0);
-			if (t != null) {
-				AbilityHelpers.hurt(p, t, 10.0f);
-				AbilityHelpers.applyControl(t, MobEffects.GLOWING, 100, 0);
-			}
-			AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 1.8f);
-			ctx.triggerCooldown();
-		}));
+	private static boolean inSunlight(ServerPlayer p) {
+		if (!(p.level() instanceof ServerLevel level)) {
+			return false;
+		}
+		return level.isDay() && !level.isRaining() && level.canSeeSky(p.blockPosition());
+	}
 
-		AbilityHandlers.register(KEY, "flash", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 8.0)) {
-				AbilityHelpers.hurt(p, e, 8.0f);
-				AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 200, 0);
-				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 200, 1);
-				if (e instanceof Mob mob) {
-					mob.setTarget(null);
+	/** Damage bonus multiplier: +10% in direct sunlight. */
+	private static float dmg(ServerPlayer p, float base) {
+		return inSunlight(p) ? base * 1.1f : base;
+	}
+
+	/** Range bonus: +20% in direct sunlight. */
+	private static double range(ServerPlayer p, double base) {
+		return inSunlight(p) ? base * 1.2 : base;
+	}
+
+	/** A yellow-tinted origin point at the player's hand rather than their eyes, so R never blinds them. */
+	private static Vec3 handOrigin(ServerPlayer p) {
+		Vec3 look = p.getLookAngle();
+		Vec3 right = look.cross(new Vec3(0, 1, 0));
+		if (right.lengthSqr() < 1.0e-6) {
+			double yaw = Math.toRadians(p.getYRot());
+			right = new Vec3(Math.cos(yaw), 0, Math.sin(yaw));
+		} else {
+			right = right.normalize();
+		}
+		return p.getEyePosition().add(look.scale(0.8)).add(right.scale(0.4)).add(0, -0.35, 0);
+	}
+
+	private static void yellowBurst(ServerLevel level, Vec3 at, int count, double spread) {
+		level.sendParticles(new DustParticleOptions(YELLOW, 2.0f), at.x, at.y, at.z, count, spread, spread, spread, 0.02);
+	}
+
+	public static void register() {
+		// R -- Light Blast, fired from the hand. Tap for a quick shot; hold to charge (more damage, more
+		// cooldown per second held). Shift+R fires a 5-blast volley instead.
+		AbilityHandlers.register(KEY, "light_blast", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					if (!ctx.cooldownReady()) {
+						onCooldownMessage(ctx);
+						return;
+					}
+					ctx.setResource("burst_left", 5, 5);
+					ctx.setResource("burst_timer", 0, 1);
+					fireBlast(ctx, 0.0f);
+					ctx.setResource("burst_left", 4, 5);
+					ctx.triggerCooldown(11 * 20);
+					return;
+				}
+				if (!ctx.cooldownReady()) {
+					onCooldownMessage(ctx);
+					return;
+				}
+				ctx.setResource("charging_light", 1, 1);
+				ctx.setResource("light_charge_start", p.level().getGameTime(), 1.0e12f);
+			}
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				if (ctx.resource("charging_light") < 0.5f) {
+					return;
+				}
+				ServerPlayer p = ctx.player();
+				long held = p.level().getGameTime() - (long) ctx.resource("light_charge_start");
+				double seconds = Math.min(3.0, held / 20.0);
+				ctx.setResource("charging_light", 0, 1);
+				ctx.setResource("light_charge", 0, 100);
+				fireBlast(ctx, (float) (seconds * 6.0));
+				ctx.triggerCooldown((int) Math.round(20 + seconds * 20));
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				int left = (int) ctx.resource("burst_left");
+				if (left > 0) {
+					float timer = ctx.resource("burst_timer") + 1;
+					if (timer >= 4) {
+						fireBlast(ctx, 0.0f);
+						ctx.setResource("burst_left", left - 1, 5);
+						timer = 0;
+					}
+					ctx.setResource("burst_timer", timer, 1);
+					return;
+				}
+				if (ctx.resource("charging_light") < 0.5f) {
+					return;
+				}
+				ServerPlayer p = ctx.player();
+				long held = p.level().getGameTime() - (long) ctx.resource("light_charge_start");
+				ctx.setResource("light_charge", (float) Math.min(100.0, held / (3.0 * 20) * 100.0), 100);
+				if (held % 3 == 0) {
+					Vec3 at = handOrigin(p);
+					ctx.level().sendParticles(ParticleTypes.END_ROD, at.x, at.y, at.z, 2, 0.05, 0.05, 0.05, 0.01);
+					yellowBurst(ctx.level(), at, 2, 0.08);
 				}
 			}
-			ctx.level().sendParticles(ParticleTypes.FLASH, p.getX(), p.getY() + 1, p.getZ(), 1, 0, 0, 0, 0);
-			ctx.level().sendParticles(ParticleTypes.END_ROD, p.getX(), p.getY() + 1, p.getZ(), 60, 4, 1, 4, 0.2);
-			AbilityHelpers.sound(p, SoundEvents.FIREWORK_ROCKET_BLAST, 1.0f, 1.5f);
-			ctx.triggerCooldown();
+		});
+
+		// G -- Solar Lance: a piercing beam that runs several enemies through. Shift+G is Solar Eruption,
+		// a short-range ground-slam nova.
+		AbilityHandlers.register(KEY, "flash", Handlers.instant(ctx -> {
+			ServerPlayer p = ctx.player();
+			ServerLevel level = ctx.level();
+			if (p.isShiftKeyDown()) {
+				Vec3 at = p.position().add(p.getLookAngle().scale(3));
+				double r = range(p, 4.0);
+				for (LivingEntity e : AbilityHelpers.enemiesAround(p, at, r)) {
+					AbilityHelpers.hurt(p, e, dmg(p, 16.0f));
+					AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 60, 0);
+					AbilityHelpers.knockbackFrom(e, at, 1.0);
+				}
+				level.sendParticles(ParticleTypes.FLASH, at.x, at.y, at.z, 1, 0, 0, 0, 0);
+				yellowBurst(level, at, 40, r * 0.5);
+				AbilityHelpers.sound(p, SoundEvents.BEACON_DEACTIVATE, 1.1f, 1.6f);
+				ctx.triggerCooldown(10 * 20);
+				return;
+			}
+			Vec3 from = handOrigin(p);
+			double r = range(p, 12.0);
+			Vec3 end = from.add(p.getLookAngle().scale(r));
+			AbilityHelpers.line(level, from, end, ParticleTypes.END_ROD, 3.0);
+			yellowBurst(level, from, 6, 0.1);
+			int hits = 0;
+			for (LivingEntity e : AbilityHelpers.living(level, from.add(p.getLookAngle().scale(r * 0.5)),
+					r * 0.5 + 0.6, le -> le != p && !(le instanceof ArmorStand))) {
+				Vec3 dir = e.position().subtract(from);
+				if (dir.lengthSqr() < 1.0e-4 || dir.normalize().dot(p.getLookAngle()) < 0.85) {
+					continue;
+				}
+				AbilityHelpers.hurt(p, e, dmg(p, 12.0f));
+				AbilityHelpers.applyControl(e, MobEffects.WEAKNESS, 60, 0);
+				hits++;
+				if (hits >= 5) {
+					break;
+				}
+			}
+			AbilityHelpers.sound(p, SoundEvents.BEACON_POWER_SELECT, 1.0f, 1.5f);
+			ctx.triggerCooldown(6 * 20);
 		}));
 
-		// Sparkling Flight (id kept as mirage_dash): HOLD to fly wherever you look. Your body dissolves
-		// into light while it lasts. Drains the sparkle meter (~25 s), which refills on its own; 3 s
-		// cooldown once you land.
+		// X -- Sparkling Flight (unchanged).
 		AbilityHandlers.register(KEY, "mirage_dash", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
@@ -103,7 +220,6 @@ public final class InvisibilityLightHandlers {
 				p.getAbilities().flying = true;
 				AbilityHelpers.addImpulse(p, p.getLookAngle().scale(0.42));
 				p.resetFallDistance();
-				// the body scatters into light particles
 				p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 6, 0, false, false, false));
 				ServerLevel level = ctx.level();
 				double h = Math.max(1.0, p.getBbHeight());
@@ -120,76 +236,96 @@ public final class InvisibilityLightHandlers {
 			}
 		});
 
-		// Holy Light (id kept as perfect_cloak): a single sustained pillar of blinding light, like Laser
-		// Vision's Maximum Output but one thick beam of light instead of twin heat beams.
-		AbilityHandlers.register(KEY, "perfect_cloak", Handlers.instantTicking(ctx -> {
-			ctx.setResource("holy_ticks", 60, 60);
-			AbilityHelpers.sound(ctx.player(), SoundEvents.BEACON_ACTIVATE, 1.2f, 1.5f);
-			ctx.triggerCooldown();
-		}, ctx -> {
-			int t = (int) ctx.resource("holy_ticks");
-			if (t <= 0) {
-				return;
-			}
-			ctx.setResource("holy_ticks", t - 1, 60);
-			ServerPlayer p = ctx.player();
-			ServerLevel level = ctx.level();
-			Vec3 start = p.getEyePosition();
-			LivingEntity target = AbilityHelpers.raycastEntity(p, 40.0);
-			Vec3 end;
-			if (target != null) {
-				end = target.position().add(0, target.getBbHeight() * 0.5, 0);
-				AbilityHelpers.hurt(p, target, 12.0f);
-			} else {
-				var bhr = AbilityHelpers.raycastBlock(p, 40.0);
-				end = bhr.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
-						? bhr.getLocation() : start.add(p.getLookAngle().scale(40.0));
-			}
-			Vec3 from = start.add(p.getLookAngle().scale(0.3));
-			AbilityHelpers.line(level, from, end, ParticleTypes.END_ROD, 4.0);
-			AbilityHelpers.line(level, from, end, ParticleTypes.GLOW, 2.5);
-			if (t % 10 == 0) {
-				Vec3 impact = AbilityHelpers.aimPoint(p, 40.0);
-				for (LivingEntity e : AbilityHelpers.enemiesAround(p, impact, 5.0)) {
-					AbilityHelpers.hurt(p, e, 24.0f);
-					AbilityHelpers.applyControl(e, MobEffects.GLOWING, 60, 0);
-					AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 40, 0);
+		// Z -- hold for 5 seconds to charge Holy Light, then it fires automatically.
+		AbilityHandlers.register(KEY, "perfect_cloak", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				if (ctx.resource("holy_ticks") > 0.0f || ctx.resource("charging_holy") > 0.5f || !ctx.cooldownReady()) {
+					return;
 				}
-				level.sendParticles(ParticleTypes.FLASH, impact.x, impact.y, impact.z, 1, 0, 0, 0, 0);
-				level.sendParticles(ParticleTypes.END_ROD, impact.x, impact.y, impact.z, 30, 1.0, 1.0, 1.0, 0.05);
+				ctx.setResource("charging_holy", 1, 1);
+				ctx.setResource("holy_charge_start", ctx.player().level().getGameTime(), 1.0e12f);
 			}
-		}));
 
-		AbilityHandlers.register(KEY, "decoy", Handlers.instantTicking(ctx -> {
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				if (ctx.resource("charging_holy") > 0.5f && ctx.resource("holy_ticks") <= 0.0f) {
+					ctx.setResource("charging_holy", 0, 1);
+					ctx.setResource("holy_charge", 0, 100);
+					AbilityHelpers.sound(ctx.player(), SoundEvents.BEACON_DEACTIVATE, 0.6f, 1.8f);
+				}
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				ServerLevel level = ctx.level();
+				if (ctx.resource("charging_holy") > 0.5f) {
+					long held = p.level().getGameTime() - (long) ctx.resource("holy_charge_start");
+					ctx.setResource("holy_charge", (float) Math.min(100.0, held / (5.0 * 20) * 100.0), 100);
+					if (p.tickCount % 2 == 0) {
+						yellowBurst(level, p.getEyePosition().add(p.getLookAngle().scale(0.6)), 3, 0.1);
+					}
+					if (held >= 5 * 20) {
+						ctx.setResource("charging_holy", 0, 1);
+						ctx.setResource("holy_charge", 0, 100);
+						ctx.setResource("holy_ticks", 60, 60);
+						AbilityHelpers.sound(p, SoundEvents.BEACON_ACTIVATE, 1.2f, 1.5f);
+						ctx.triggerCooldown(75 * 20);
+					}
+					return;
+				}
+				int t = (int) ctx.resource("holy_ticks");
+				if (t <= 0) {
+					return;
+				}
+				ctx.setResource("holy_ticks", t - 1, 60);
+				Vec3 start = p.getEyePosition();
+				LivingEntity target = AbilityHelpers.raycastEntity(p, 40.0);
+				Vec3 end;
+				if (target != null) {
+					end = target.position().add(0, target.getBbHeight() * 0.5, 0);
+					AbilityHelpers.hurt(p, target, dmg(p, 12.0f));
+				} else {
+					var bhr = AbilityHelpers.raycastBlock(p, 40.0);
+					end = bhr.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
+							? bhr.getLocation() : start.add(p.getLookAngle().scale(40.0));
+				}
+				Vec3 from = start.add(p.getLookAngle().scale(0.3));
+				AbilityHelpers.line(level, from, end, ParticleTypes.END_ROD, 4.0);
+				yellowBurst(level, from.lerp(end, 0.5), 6, 1.0);
+				if (t % 10 == 0) {
+					Vec3 impact = AbilityHelpers.aimPoint(p, 40.0);
+					for (LivingEntity e : AbilityHelpers.enemiesAround(p, impact, 5.0)) {
+						AbilityHelpers.hurt(p, e, dmg(p, 24.0f));
+						AbilityHelpers.applyControl(e, MobEffects.GLOWING, 60, 0);
+						AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 40, 0);
+					}
+					level.sendParticles(ParticleTypes.FLASH, impact.x, impact.y, impact.z, 1, 0, 0, 0, 0);
+					level.sendParticles(ParticleTypes.END_ROD, impact.x, impact.y, impact.z, 30, 1.0, 1.0, 1.0, 0.05);
+					yellowBurst(level, impact, 20, 1.2);
+				}
+			}
+		});
+
+		// V -- Flash: blind + slow a wide burst around you.
+		AbilityHandlers.register(KEY, "decoy", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
 			ServerLevel level = ctx.level();
-			ArmorStand decoy = new ArmorStand(EntityType.ARMOR_STAND, level);
-			decoy.setPos(p.getX(), p.getY(), p.getZ());
-			decoy.setCustomName(p.getName());
-			decoy.setCustomNameVisible(false);
-			decoy.setInvulnerable(false);
-			decoy.setNoGravity(false);
-			level.addFreshEntity(decoy);
-			ctx.setResource("decoy_id", decoy.getId(), 1_000_000);
-			ctx.setResource("decoy_until", p.level().getGameTime() + 360, 1e12f);
-			for (Monster m : level.getEntitiesOfClass(Monster.class, p.getBoundingBox().inflate(16.0))) {
-				m.setTarget(decoy);
-			}
-			p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 40, 0, false, false, false));
-			AbilityHelpers.sound(p, SoundEvents.ILLUSIONER_MIRROR_MOVE, 1.0f, 1.3f);
-			ctx.triggerCooldown();
-		}, ctx -> {
-			int id = (int) ctx.resource("decoy_id");
-			if (id == 0) {
-				return;
-			}
-			if (ctx.resource("decoy_until") <= ctx.player().level().getGameTime()
-					|| !(ctx.level().getEntity(id) instanceof ArmorStand as) || !as.isAlive()) {
-				if (ctx.level().getEntity(id) instanceof ArmorStand as2) {
-					as2.discard();
+			double r = range(p, 8.0);
+			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
+				AbilityHelpers.hurt(p, e, dmg(p, 10.0f));
+				AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 200, 0); // 10s
+				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 200, 1); // Slowness II, 10s
+				if (e instanceof Mob mob) {
+					mob.setTarget(null);
 				}
-				ctx.setResource("decoy_id", 0, 1_000_000);
 			}
+			level.sendParticles(ParticleTypes.FLASH, p.getX(), p.getY() + 1, p.getZ(), 1, 0, 0, 0, 0);
+			level.sendParticles(ParticleTypes.END_ROD, p.getX(), p.getY() + 1, p.getZ(), 60, 4, 1, 4, 0.2);
+			yellowBurst(level, p.position().add(0, 1, 0), 50, r * 0.5);
+			AbilityHelpers.sound(p, SoundEvents.FIREWORK_ROCKET_BLAST, 1.0f, 1.5f);
+			ctx.triggerCooldown(10 * 20);
 		}));
 
 		AbilityHandlers.register(KEY, "cloaking_toggle", Handlers.toggle(
@@ -197,7 +333,6 @@ public final class InvisibilityLightHandlers {
 				ctx -> ctx.player().removeEffect(MobEffects.INVISIBILITY),
 				ctx -> {
 					ServerPlayer p = ctx.player();
-					// reveal briefly on attack / heavy damage: handled by re-applying only if not "revealed"
 					if (ctx.resource("revealed_until") > p.level().getGameTime()) {
 						p.removeEffect(MobEffects.INVISIBILITY);
 					} else {
@@ -210,21 +345,20 @@ public final class InvisibilityLightHandlers {
 
 		net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
 			if (!world.isClientSide() && player instanceof ServerPlayer sp) {
-				var power = com.projecthero.mod.hero.Powers.byKey(KEY);
-				if (power != null && com.projecthero.mod.hero.ExperimentalPowers.owns(sp, power)
-						&& com.projecthero.mod.hero.ExperimentalPowers.isToggled(sp, power, power.ability(com.projecthero.mod.hero.AbilitySlot.SLOT_6))) {
-					com.projecthero.mod.hero.ExperimentalPowers.setResource(sp, power, "revealed_until",
+				var power = Powers.byKey(KEY);
+				if (power != null && ExperimentalPowers.owns(sp, power)
+						&& ExperimentalPowers.isToggled(sp, power, power.ability(com.projecthero.mod.hero.AbilitySlot.SLOT_6))) {
+					ExperimentalPowers.setResource(sp, power, "revealed_until",
 							sp.level().getGameTime() + 40, 1e12f);
 				}
 			}
 			return net.minecraft.world.InteractionResult.PASS;
 		});
 
-		// Clear a stuck Sparkling Flight on join / respawn / power switch.
 		com.projecthero.mod.hero.PowerPassives.register(KEY, (player, active) -> {
-			var power = com.projecthero.mod.hero.Powers.byKey(KEY);
+			var power = Powers.byKey(KEY);
 			if (power != null) {
-				com.projecthero.mod.hero.ExperimentalPowers.setResource(player, power, "sparkling", 0, 1);
+				ExperimentalPowers.setResource(player, power, "sparkling", 0, 1);
 			}
 			if (!player.getAbilities().instabuild && !com.projecthero.mod.power.ThorPowers.isFlying(player)
 					&& !com.projecthero.mod.hero.power.HeroFlight.isFlying(player)) {
@@ -232,23 +366,49 @@ public final class InvisibilityLightHandlers {
 				player.getAbilities().flying = false;
 				player.onUpdateAbilities();
 			}
+			if (!active) {
+				player.removeEffect(MobEffects.NIGHT_VISION);
+			}
 		});
 
 		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, player -> {
+			player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 220, 0, false, false, false));
 			var blind = player.getEffect(MobEffects.BLINDNESS);
 			if (blind != null && blind.getDuration() > 40) {
 				player.removeEffect(MobEffects.BLINDNESS);
 			}
-			var power = com.projecthero.mod.hero.Powers.byKey(KEY);
+			var power = Powers.byKey(KEY);
 			if (power == null) {
 				return;
 			}
-			boolean sparkling = com.projecthero.mod.hero.ExperimentalPowers.getResource(player, power, "sparkling") > 0.5f;
-			if (!sparkling && com.projecthero.mod.hero.ExperimentalPowers.state(player).resources.containsKey(KEY + "/sparkle")
-					&& com.projecthero.mod.hero.ExperimentalPowers.getResource(player, power, "sparkle") < MAX_SPARKLE) {
-				com.projecthero.mod.hero.ExperimentalPowers.addResource(player, power, "sparkle", SPARKLE_REGEN, MAX_SPARKLE);
+			boolean sparkling = ExperimentalPowers.getResource(player, power, "sparkling") > 0.5f;
+			if (!sparkling && ExperimentalPowers.state(player).resources.containsKey(KEY + "/sparkle")
+					&& ExperimentalPowers.getResource(player, power, "sparkle") < MAX_SPARKLE) {
+				ExperimentalPowers.addResource(player, power, "sparkle", SPARKLE_REGEN, MAX_SPARKLE);
 			}
 		});
+	}
+
+	private static void onCooldownMessage(AbilityContext ctx) {
+		ctx.actionBar("message.projecthero.ability.on_cooldown",
+				net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
+				String.format(java.util.Locale.ROOT, "%.1f", ctx.cooldownRemaining() / 20.0f));
+	}
+
+	private static void fireBlast(AbilityContext ctx, float bonusDamage) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		double r = range(p, 22.0);
+		LivingEntity t = AbilityHelpers.raycastEntity(p, r);
+		Vec3 from = handOrigin(p);
+		Vec3 to = AbilityHelpers.aimPoint(p, r);
+		AbilityHelpers.line(level, from, to, ParticleTypes.END_ROD, 3.0);
+		yellowBurst(level, from, 8, 0.12);
+		if (t != null) {
+			AbilityHelpers.hurt(p, t, dmg(p, 8.0f) + bonusDamage);
+			AbilityHelpers.applyControl(t, MobEffects.BLINDNESS, 80, 0); // 4s
+		}
+		AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 1.8f);
 	}
 
 	/** End Sparkling Flight: drop flight, restore the body, cushion the landing, start the cooldown. */

@@ -224,6 +224,28 @@ public class TitanEntity extends RaidUndead {
 		tickMeleeSwipe(server);
 		tickCombat(server);
 		updateBossBar(server);
+		yellowAura(server);
+	}
+
+	/**
+	 * v0.10.19: a steady drift of yellow embers off the Titan's body -- makes the boss read as
+	 * charged-up/powered even while it is just walking, on top of the yellow already layered into its
+	 * attack bursts below.
+	 */
+	private void yellowAura(ServerLevel server) {
+		if (tickCount % 5 != 0) {
+			return;
+		}
+		double w = getBbWidth();
+		double h = getBbHeight();
+		for (int i = 0; i < 3; i++) {
+			double ox = (server.random.nextDouble() - 0.5) * w;
+			double oy = server.random.nextDouble() * h;
+			double oz = (server.random.nextDouble() - 0.5) * w;
+			server.sendParticles(new net.minecraft.core.particles.DustParticleOptions(
+							new org.joml.Vector3f(1.0f, 0.82f, 0.15f), 2.2f),
+					getX() + ox, getY() + oy, getZ() + oz, 1, 0.0, 0.02, 0.0, 0.0);
+		}
 	}
 
 	/**
@@ -795,6 +817,9 @@ public class TitanEntity extends RaidUndead {
 		}
 		TitanTerrain.breakCluster(server, blockPosition(), Math.min(6.0, r * 0.4), false);
 		server.sendParticles(ParticleTypes.EXPLOSION_EMITTER, getX(), getY(), getZ(), 1, 0, 0, 0, 0);
+		server.sendParticles(new net.minecraft.core.particles.DustParticleOptions(
+						new org.joml.Vector3f(1.0f, 0.82f, 0.15f), 2.6f),
+				getX(), getY() + 1.0, getZ(), 40, getBbWidth() * 0.5, 0.6, getBbWidth() * 0.5, 0.1);
 		server.playSound(null, blockPosition(), SoundEvents.WARDEN_SONIC_BOOM, SoundSource.HOSTILE, 3.0f, 0.5f);
 	}
 
@@ -809,6 +834,9 @@ public class TitanEntity extends RaidUndead {
 		}
 		TitanTerrain.breakCluster(server, blockPosition(), TitanConfig.attacks().stompRadius, false);
 		server.sendParticles(ParticleTypes.EXPLOSION, getX(), getY(), getZ(), 1, 0, 0, 0, 0);
+		server.sendParticles(new net.minecraft.core.particles.DustParticleOptions(
+						new org.joml.Vector3f(1.0f, 0.82f, 0.15f), 2.6f),
+				getX(), getY() + 0.5, getZ(), 30, getBbWidth() * 0.5, 0.4, getBbWidth() * 0.5, 0.08);
 		server.playSound(null, blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 2.5f, 0.6f);
 	}
 
@@ -823,6 +851,9 @@ public class TitanEntity extends RaidUndead {
 		}
 		TitanTerrain.breakCluster(server, blockPosition(), TitanConfig.attacks().slamRadius, false);
 		server.sendParticles(ParticleTypes.EXPLOSION_EMITTER, getX(), getY(), getZ(), 1, 0, 0, 0, 0);
+		server.sendParticles(new net.minecraft.core.particles.DustParticleOptions(
+						new org.joml.Vector3f(1.0f, 0.82f, 0.15f), 2.6f),
+				getX(), getY() + 0.5, getZ(), 40, getBbWidth() * 0.5, 0.5, getBbWidth() * 0.5, 0.1);
 		server.playSound(null, blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 3.0f, 0.4f);
 	}
 

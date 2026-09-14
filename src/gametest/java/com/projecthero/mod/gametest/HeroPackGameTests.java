@@ -537,18 +537,22 @@ public class HeroPackGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 140)
 	public void invisibilityHolyLightChannels(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
 		Power inv = power("power_15_invisibility_light_manipulation");
 		ExperimentalPowers.grant(player, inv);
 		ExperimentalPowers.setActive(player, inv);
 
-		AbilityRouter.handleInput(player, 4, true); // Z = perfect_cloak -> Holy Light
+		AbilityRouter.handleInput(player, 4, true); // Z = perfect_cloak -> Holy Light (now a 5s hold-to-charge)
 
-		helper.assertTrue(ExperimentalPowers.getResource(player, inv, "holy_ticks") > 0.5f,
-				"Holy Light should start its beam channel");
-		helper.succeed();
+		// The charge-up needs 100 real ticks to elapse (the mod's normal per-player tick already drives
+		// this ability's onServerTick every tick), so check after it has had time to complete.
+		helper.runAfterDelay(105, () -> {
+			helper.assertTrue(ExperimentalPowers.getResource(player, inv, "holy_ticks") > 0.5f,
+					"Holy Light should start its beam channel once fully charged");
+			helper.succeed();
+		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

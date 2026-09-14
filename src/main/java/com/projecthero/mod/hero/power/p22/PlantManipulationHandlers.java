@@ -1,6 +1,10 @@
 package com.projecthero.mod.hero.power.p22;
 
+import com.projecthero.mod.hero.AbilityContext;
+import com.projecthero.mod.hero.AbilityHandler;
 import com.projecthero.mod.hero.AbilityHandlers;
+import com.projecthero.mod.hero.ExperimentalPowers;
+import com.projecthero.mod.hero.Powers;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.Handlers;
 import com.projecthero.mod.hero.power.TempBlocks;
@@ -13,47 +17,98 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.BonemealableBlock;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.SaplingBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 /** Power 22 — Plant Manipulation / Chlorokinesis. */
 public final class PlantManipulationHandlers {
 	private static final String KEY = "power_22_plant_manipulation_chlorokinesis";
+	private static final java.util.Map<java.util.UUID, Long> ROOTED_UNTIL = new java.util.HashMap<>();
+	private static final java.util.List<PendingTree> PENDING_TREES = new java.util.ArrayList<>();
+
+	private record PendingTree(ServerLevel level, BlockPos pos, long readyAt) {
+	}
 
 	private PlantManipulationHandlers() {
 	}
 
 	public static void register() {
+		// R -- Thorn Shot, fired from the hand. Shift+R is Branch Thrust.
 		AbilityHandlers.register(KEY, "thorn_shot", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
+			ServerLevel level = ctx.level();
+			if (p.isShiftKeyDown()) {
+				boolean onNature = PlantManipulationHandlers.onNatureGround(level, p.blockPosition());
+				boolean holdingPlant = p.getMainHandItem().is(Items.BONE_MEAL) || p.getMainHandItem().getItem() instanceof net.minecraft.world.item.BlockItem bi
+						&& bi.getBlock() instanceof SaplingBlock;
+				if (!onNature && !holdingPlant) {
+					ctx.actionBar("message.projecthero.plant.need_nature");
+					return;
+				}
+				LivingEntity t = AbilityHelpers.raycastEntity(p, 15.0);
+				if (t == null) {
+					return;
+				}
+				branchThrust(ctx, t);
+				ctx.triggerCooldown(10 * 20);
+				return;
+			}
 			LivingEntity t = AbilityHelpers.raycastEntity(p, 22.0);
-			AbilityHelpers.line(ctx.level(), p.getEyePosition(), AbilityHelpers.aimPoint(p, 22.0), ParticleTypes.COMPOSTER, 3.0);
+			Vec3 from = handOrigin(p);
+			AbilityHelpers.line(level, from, AbilityHelpers.aimPoint(p, 22.0), ParticleTypes.COMPOSTER, 3.0);
 			if (t != null) {
 				AbilityHelpers.hurt(p, t, 8.0f + natureBonus(p));
-				AbilityHelpers.applyControl(t, MobEffects.POISON, 160, 1); // Poison II, 8 s
+				AbilityHelpers.applyControl(t, MobEffects.POISON, 160, 2); // Poison III, 8s
 			}
 			AbilityHelpers.sound(p, SoundEvents.SWEET_BERRY_BUSH_PICK_BERRIES, 1.0f, 0.8f);
 			ctx.triggerCooldown();
 		}));
 
+		// G -- Thorn Snare: a damage-over-time root. Shift+G is an AoE cone version.
 		AbilityHandlers.register(KEY, "vine_grab", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
+			if (p.isShiftKeyDown()) {
+				Vec3 look = p.getLookAngle();
+				boolean any = false;
+				for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 10.0)) {
+					Vec3 dir = e.position().subtract(p.position());
+					if (dir.lengthSqr() < 1.0e-4 || dir.normalize().dot(look) < 0.5) {
+						continue;
+					}
+					rootAndSnare(ctx, e);
+					any = true;
+				}
+				if (any) {
+					AbilityHelpers.sound(p, SoundEvents.WEEPING_VINES_BREAK, 1.0f, 0.6f);
+					ctx.triggerCooldown();
+				}
+				return;
+			}
 			LivingEntity t = AbilityHelpers.raycastEntity(p, 16.0);
 			if (t != null) {
-				// vines root the target: near-total immobilisation for 8 s
-				AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, 160, 7);
-				AbilityHelpers.applyControl(t, MobEffects.WEAKNESS, 160, 1);
-				t.setDeltaMovement(Vec3.ZERO);
-				t.hurtMarked = true;
-				AbilityHelpers.hurt(p, t, 12.0f + natureBonus(p));
+				rootAndSnare(ctx, t);
 				ctx.level().sendParticles(ParticleTypes.HAPPY_VILLAGER, t.getX(), t.getY() + 1, t.getZ(), 15, 0.4, 0.6, 0.4, 0.0);
 			}
 			AbilityHelpers.sound(p, SoundEvents.WEEPING_VINES_BREAK, 1.0f, 0.7f);
 			ctx.triggerCooldown();
 		}));
 
+		// X -- Vine Swing pulls YOU to a block, or an aimed-at target TO you.
 		AbilityHandlers.register(KEY, "vine_swing", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
+			LivingEntity target = AbilityHelpers.raycastEntity(p, 30.0);
+			if (target != null) {
+				AbilityHelpers.push(target, p.position().subtract(target.position()).normalize().scale(1.6).add(0, 0.2, 0));
+				AbilityHelpers.line(ctx.level(), p.getEyePosition(), target.position(), ParticleTypes.COMPOSTER, 2.0);
+				AbilityHelpers.sound(p, SoundEvents.WEEPING_VINES_HIT, 1.0f, 0.9f);
+				ctx.triggerCooldown();
+				return;
+			}
 			var hit = AbilityHelpers.raycastBlock(p, 100.0);
 			if (hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) {
 				return;
@@ -63,41 +118,68 @@ public final class PlantManipulationHandlers {
 			AbilityHelpers.launchSelf(p, pull.normalize().scale(1.8).add(0, 0.4, 0));
 			AbilityHelpers.line(ctx.level(), p.getEyePosition(), anchor, ParticleTypes.COMPOSTER, 2.0);
 			AbilityHelpers.sound(p, SoundEvents.WEEPING_VINES_HIT, 1.0f, 1.2f);
-			// swinging on a vine and letting go: you land on your feet, no fall damage for the next 10 s
 			ctx.setResource("no_fall_until", p.level().getGameTime() + 200, 1.0e12f);
 			ctx.triggerCooldown();
 		}));
 
-		AbilityHandlers.register(KEY, "overgrowth", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			ServerLevel level = ctx.level();
-			double r = 10.0;
-			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
-				AbilityHelpers.hurt(p, e, 27.0f + natureBonus(p));
-				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 120, 4);
-				AbilityHelpers.applyControl(e, MobEffects.POISON, 200, 4); // Poison V, 10 s
-				e.setDeltaMovement(e.getDeltaMovement().multiply(0.1, 1, 0.1));
+		// Z -- hold for 5 seconds to charge Overgrowth.
+		AbilityHandlers.register(KEY, "overgrowth", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				if (ctx.resource("og_charging") > 0.5f || !ctx.cooldownReady()) {
+					return;
+				}
+				ctx.setResource("og_charging", 1, 1);
+				ctx.setResource("og_charge_start", ctx.player().level().getGameTime(), 1.0e12f);
 			}
-			if (AbilityHelpers.canGrief()) {
-				// a dense burst of short-lived growth that recedes after ~6 s
-				for (int i = 0; i < 44; i++) {
-					BlockPos bp = BlockPos.containing(p.getX() + level.random.nextGaussian() * 4, p.getY(), p.getZ() + level.random.nextGaussian() * 4);
-					if (level.getBlockState(bp).canBeReplaced() && level.getBlockState(bp.below()).isSolidRender(level, bp.below())) {
-						TempBlocks.place(level, bp, level.random.nextBoolean() ? Blocks.OAK_LEAVES.defaultBlockState() : Blocks.MOSS_CARPET.defaultBlockState(), 120);
-						if (level.random.nextInt(3) == 0 && level.getBlockState(bp.above()).canBeReplaced()) {
-							TempBlocks.place(level, bp.above(), Blocks.OAK_LEAVES.defaultBlockState(), 120);
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				if (ctx.resource("og_charging") > 0.5f) {
+					ctx.setResource("og_charging", 0, 1);
+				}
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				if (ctx.resource("og_charging") < 0.5f) {
+					return;
+				}
+				ServerPlayer p = ctx.player();
+				long held = p.level().getGameTime() - (long) ctx.resource("og_charge_start");
+				if (p.tickCount % 3 == 0) {
+					ctx.level().sendParticles(ParticleTypes.HAPPY_VILLAGER, p.getX(), p.getY() + 1, p.getZ(), 4, 0.5, 0.6, 0.5, 0.0);
+				}
+				if (held < 5 * 20) {
+					return;
+				}
+				ctx.setResource("og_charging", 0, 1);
+				ServerLevel level = ctx.level();
+				double r = 20.0;
+				for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
+					AbilityHelpers.hurt(p, e, 45.0f + natureBonus(p));
+					AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 200, 8);
+					AbilityHelpers.applyControl(e, MobEffects.POISON, 200, 9); // Poison X, 10s
+					ROOTED_UNTIL.put(e.getUUID(), p.level().getGameTime() + 200);
+					e.setDeltaMovement(e.getDeltaMovement().multiply(0.1, 1, 0.1));
+				}
+				if (AbilityHelpers.canGrief()) {
+					for (int i = 0; i < 60; i++) {
+						BlockPos bp = BlockPos.containing(p.getX() + level.random.nextGaussian() * r * 0.4, p.getY(),
+								p.getZ() + level.random.nextGaussian() * r * 0.4);
+						if (level.getBlockState(bp).canBeReplaced() && level.getBlockState(bp.below()).isSolidRender(level, bp.below())) {
+							TempBlocks.place(level, bp, level.random.nextBoolean() ? Blocks.OAK_LEAVES.defaultBlockState() : Blocks.MOSS_CARPET.defaultBlockState(), 120);
 						}
 					}
 				}
+				level.sendParticles(ParticleTypes.HAPPY_VILLAGER, p.getX(), p.getY() + 1, p.getZ(), 150, r / 2, 1, r / 2, 0.1);
+				AbilityHelpers.sound(p, SoundEvents.GRASS_BREAK, 1.6f, 0.4f);
+				ctx.triggerCooldown(60 * 20);
 			}
-			level.sendParticles(ParticleTypes.HAPPY_VILLAGER, p.getX(), p.getY() + 1, p.getZ(), 120, r / 2, 1, r / 2, 0.1);
-			AbilityHelpers.sound(p, SoundEvents.GRASS_BREAK, 1.4f, 0.5f);
-			ctx.triggerCooldown();
-		}));
+		});
 
-		// Living Wall: conjure a wall / dome / bridge of leaves like the other wall powers (look up for a
-		// dome, look down for a bridge, else a wall). Sneak instead to charge your touch with bone meal
-		// for 30 s -- right-click any plant to instantly grow it.
+		// V -- Living Wall (unchanged mechanics; sneak-charge still layers on top of the new always-on
+		// double-strength bonemeal touch registered below).
 		AbilityHandlers.register(KEY, "living_wall", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
 			ServerLevel level = ctx.level();
@@ -109,7 +191,7 @@ public final class PlantManipulationHandlers {
 				ctx.triggerCooldown();
 				return;
 			}
-			net.minecraft.world.level.block.state.BlockState leaves = Blocks.OAK_LEAVES.defaultBlockState();
+			BlockState leaves = Blocks.OAK_LEAVES.defaultBlockState();
 			float pitch = p.getXRot();
 			boolean built;
 			if (pitch < -75.0f) {
@@ -126,19 +208,40 @@ public final class PlantManipulationHandlers {
 			}
 		}));
 
-		// Bone-meal touch: while the Living Wall sneak-charge is active, right-clicking a block bone-meals it.
+		// Always-on: right-clicking a growable plant bonemeals it twice.
+		net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
+			if (world.isClientSide() || hand != net.minecraft.world.InteractionHand.MAIN_HAND
+					|| !(player instanceof ServerPlayer sp) || !ExperimentalPowers.owns(sp, Powers.byKey(KEY))) {
+				return net.minecraft.world.InteractionResult.PASS;
+			}
+			BlockPos pos = hitResult.getBlockPos();
+			BlockState state = world.getBlockState(pos);
+			if (state.getBlock() instanceof BonemealableBlock bm && world instanceof ServerLevel sl
+					&& bm.isValidBonemealTarget(sl, pos, state) && bm.isBonemealSuccess(sl, sl.random, pos, state)) {
+				bm.performBonemeal(sl, sl.random, pos, state);
+				if (bm.isValidBonemealTarget(sl, pos, sl.getBlockState(pos))) {
+					bm.performBonemeal(sl, sl.random, pos, sl.getBlockState(pos));
+				}
+				sl.sendParticles(ParticleTypes.HAPPY_VILLAGER, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
+						16, 0.4, 0.4, 0.4, 0.0);
+				return net.minecraft.world.InteractionResult.SUCCESS;
+			}
+			return net.minecraft.world.InteractionResult.PASS;
+		});
+
+		// The Living Wall sneak-charge: right-clicking a block bone-meals it (kept for the utility window).
 		net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
 			if (world.isClientSide() || hand != net.minecraft.world.InteractionHand.MAIN_HAND
 					|| !(player instanceof ServerPlayer sp)) {
 				return net.minecraft.world.InteractionResult.PASS;
 			}
-			var power = com.projecthero.mod.hero.Powers.byKey(KEY);
-			if (power == null || !com.projecthero.mod.hero.ExperimentalPowers.owns(sp, power)
-					|| com.projecthero.mod.hero.ExperimentalPowers.getResource(sp, power, "bonemeal_until") <= sp.level().getGameTime()) {
+			var power = Powers.byKey(KEY);
+			if (power == null || !ExperimentalPowers.owns(sp, power)
+					|| ExperimentalPowers.getResource(sp, power, "bonemeal_until") <= sp.level().getGameTime()) {
 				return net.minecraft.world.InteractionResult.PASS;
 			}
 			BlockPos pos = hitResult.getBlockPos();
-			net.minecraft.world.item.ItemStack meal = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.BONE_MEAL);
+			net.minecraft.world.item.ItemStack meal = new net.minecraft.world.item.ItemStack(Items.BONE_MEAL);
 			boolean grew = net.minecraft.world.item.BoneMealItem.growCrop(meal, world, pos);
 			if (!grew && world.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER)) {
 				grew = net.minecraft.world.item.BoneMealItem.growWaterPlant(meal, world, pos, hitResult.getDirection());
@@ -152,9 +255,7 @@ public final class PlantManipulationHandlers {
 			return net.minecraft.world.InteractionResult.PASS;
 		});
 
-		// Nature's Blessing: while standing on grass/moss or within 5 blocks of any plant or leaf, gain
-		// Regeneration II and +8 to every ability's and melee hit's damage. The buff drops the moment
-		// you leave living ground.
+		// C -- Nature's Blessing.
 		AbilityHandlers.register(KEY, "natures_blessing", Handlers.toggle(
 				Handlers.noop(),
 				ctx -> com.projecthero.mod.hero.power.PowerToggles.clearModifier(ctx.player(),
@@ -162,13 +263,16 @@ public final class PlantManipulationHandlers {
 				ctx -> {
 					ServerPlayer p = ctx.player();
 					AbilityHelpers.modeAura(p, ParticleTypes.HAPPY_VILLAGER, 3);
+					for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 3.0)) {
+						AbilityHelpers.applyControl(e, MobEffects.POISON, 60, 2); // Poison III
+					}
 					if (p.tickCount % 20 != 0) {
 						return;
 					}
 					if (isBlessed((ServerLevel) p.level(), p.blockPosition())) {
 						p.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 40, 1, false, false, true));
 						com.projecthero.mod.hero.power.PowerToggles.modifier(p,
-								net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE, BLESS_ATK, 8.0,
+								net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE, BLESS_ATK, 10.0,
 								net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_VALUE);
 					} else {
 						com.projecthero.mod.hero.power.PowerToggles.clearModifier(p,
@@ -182,25 +286,194 @@ public final class PlantManipulationHandlers {
 						net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE, BLESS_ATK);
 			}
 		});
-		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, player -> {
-			if (player.tickCount % 100 == 0 && player.level() instanceof ServerLevel sl
-					&& player.getHealth() < player.getMaxHealth() && nearVegetation(sl, player.blockPosition())) {
-				player.heal(1.0f);
+		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, PlantManipulationHandlers::passiveTick);
+	}
+
+	private static void passiveTick(ServerPlayer player) {
+		if (!(player.level() instanceof ServerLevel level)) {
+			return;
+		}
+		if (player.tickCount % 100 == 0 && player.getHealth() < player.getMaxHealth() && nearVegetation(level, player.blockPosition())) {
+			player.heal(1.0f);
+		}
+		// Standing on, or against, living ground grants a small buff.
+		if (player.tickCount % 20 == 0 && (onNatureGround(level, player.blockPosition()) || againstNatureWall(level, player.blockPosition()))) {
+			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 40, 0, false, false, false));
+			player.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, 40, 0, false, false, false));
+			player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 40, 0, false, false, false));
+			player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 40, 0, false, false, false));
+		}
+		// Plants within 30 blocks grow roughly 50% faster: an occasional bonemeal-tier assist.
+		if (player.tickCount % 100 == 0) {
+			int budget = 25;
+			BlockPos origin = player.blockPosition();
+			for (BlockPos bp : BlockPos.betweenClosed(origin.offset(-30, -6, -30), origin.offset(30, 6, 30))) {
+				if (budget <= 0) {
+					break;
+				}
+				if (bp.distSqr(origin) > 30.0 * 30.0 || level.random.nextInt(6) != 0) {
+					continue;
+				}
+				BlockState state = level.getBlockState(bp);
+				if (state.getBlock() instanceof BonemealableBlock bm && bm.isValidBonemealTarget(level, bp, state)
+						&& bm.isBonemealSuccess(level, level.random, bp, state)) {
+					bm.performBonemeal(level, level.random, bp, state);
+					budget--;
+				}
 			}
-		});
+		}
+		// Prune stale Thorn Snare / Overgrowth root markers.
+		if (!ROOTED_UNTIL.isEmpty() && player.tickCount % 20 == 0) {
+			long now = level.getGameTime();
+			ROOTED_UNTIL.values().removeIf(t -> t <= now);
+		}
+		// Branch Thrust: the trail of logs vanishes on its own (TempBlocks); once its time is up, plant
+		// and force-grow the tree at the cast point.
+		if (!PENDING_TREES.isEmpty()) {
+			long now = level.getGameTime();
+			PENDING_TREES.removeIf(t -> {
+				if (t.readyAt() > now) {
+					return false;
+				}
+				growTreeAt(t.level(), t.pos());
+				return true;
+			});
+		}
+	}
+
+	public static void clearSessionState() {
+		ROOTED_UNTIL.clear();
+		PENDING_TREES.clear();
+	}
+
+	private static void rootAndSnare(AbilityContext ctx, LivingEntity t) {
+		ServerPlayer p = ctx.player();
+		AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, 160, 8);
+		AbilityHelpers.applyControl(t, MobEffects.WEAKNESS, 160, 1);
+		t.setDeltaMovement(t.getDeltaMovement().multiply(0, 1, 0));
+		t.hurtMarked = true;
+		ROOTED_UNTIL.put(t.getUUID(), p.level().getGameTime() + 160);
+		AbilityHelpers.hurt(p, t, 3.0f + natureBonus(p));
+	}
+
+	private static void branchThrust(AbilityContext ctx, LivingEntity target) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		Vec3 from = p.position();
+		Vec3 to = target.position();
+		Block log = biomeLog(level, p.blockPosition());
+		java.util.List<BlockPos> trail = new java.util.ArrayList<>();
+		double dist = from.distanceTo(to);
+		int steps = Math.max(1, (int) dist);
+		for (int i = 0; i <= steps; i++) {
+			Vec3 pt = from.lerp(to, (double) i / steps);
+			BlockPos bp = BlockPos.containing(pt);
+			if (level.getBlockState(bp).canBeReplaced() && AbilityHelpers.canGrief()) {
+				TempBlocks.place(level, bp, log.defaultBlockState(), 100);
+				trail.add(bp);
+			}
+		}
+		AbilityHelpers.hurt(p, target, 15.0f + natureBonus(p));
+		AbilityHelpers.knockbackFrom(target, from, 1.2);
+		AbilityHelpers.sound(p, SoundEvents.WOOD_BREAK, 1.0f, 0.7f);
+		if (AbilityHelpers.canGrief()) {
+			BlockPos plant = BlockPos.containing(from);
+			PENDING_TREES.add(new PendingTree(level, plant, level.getGameTime() + 100));
+		}
+	}
+
+	/** Best-effort tree grow: plant the matching sapling, then force it up with a few bonemeal ticks. */
+	private static void growTreeAt(ServerLevel level, BlockPos pos) {
+		BlockPos at = pos.above();
+		if (!level.getBlockState(at).canBeReplaced()) {
+			return;
+		}
+		Block sapling = biomeSapling(level, pos);
+		level.setBlock(at, sapling.defaultBlockState(), 3);
+		BlockState state = level.getBlockState(at);
+		if (state.getBlock() instanceof BonemealableBlock bm) {
+			for (int i = 0; i < 8 && bm.isValidBonemealTarget(level, at, level.getBlockState(at)); i++) {
+				bm.performBonemeal(level, level.random, at, level.getBlockState(at));
+			}
+		}
+	}
+
+	private static Block biomeLog(ServerLevel level, BlockPos pos) {
+		var biome = level.getBiome(pos);
+		if (biome.is(net.minecraft.world.level.biome.Biomes.BIRCH_FOREST) || biome.is(net.minecraft.world.level.biome.Biomes.OLD_GROWTH_BIRCH_FOREST)) {
+			return Blocks.BIRCH_LOG;
+		}
+		if (biome.is(net.minecraft.world.level.biome.Biomes.TAIGA) || biome.is(net.minecraft.world.level.biome.Biomes.OLD_GROWTH_SPRUCE_TAIGA)
+				|| biome.is(net.minecraft.world.level.biome.Biomes.SNOWY_TAIGA)) {
+			return Blocks.SPRUCE_LOG;
+		}
+		if (biome.is(net.minecraft.world.level.biome.Biomes.JUNGLE) || biome.is(net.minecraft.world.level.biome.Biomes.SPARSE_JUNGLE)) {
+			return Blocks.JUNGLE_LOG;
+		}
+		if (biome.is(net.minecraft.world.level.biome.Biomes.SAVANNA) || biome.is(net.minecraft.world.level.biome.Biomes.SAVANNA_PLATEAU)) {
+			return Blocks.ACACIA_LOG;
+		}
+		if (biome.is(net.minecraft.world.level.biome.Biomes.DARK_FOREST)) {
+			return Blocks.DARK_OAK_LOG;
+		}
+		if (biome.is(net.minecraft.world.level.biome.Biomes.CHERRY_GROVE)) {
+			return Blocks.CHERRY_LOG;
+		}
+		if (biome.is(net.minecraft.world.level.biome.Biomes.MANGROVE_SWAMP)) {
+			return Blocks.MANGROVE_LOG;
+		}
+		return Blocks.OAK_LOG;
+	}
+
+	private static Block biomeSapling(ServerLevel level, BlockPos pos) {
+		Block log = biomeLog(level, pos);
+		if (log == Blocks.BIRCH_LOG) {
+			return Blocks.BIRCH_SAPLING;
+		}
+		if (log == Blocks.SPRUCE_LOG) {
+			return Blocks.SPRUCE_SAPLING;
+		}
+		if (log == Blocks.JUNGLE_LOG) {
+			return Blocks.JUNGLE_SAPLING;
+		}
+		if (log == Blocks.ACACIA_LOG) {
+			return Blocks.ACACIA_SAPLING;
+		}
+		if (log == Blocks.DARK_OAK_LOG) {
+			return Blocks.DARK_OAK_SAPLING;
+		}
+		if (log == Blocks.CHERRY_LOG) {
+			return Blocks.CHERRY_SAPLING;
+		}
+		if (log == Blocks.MANGROVE_LOG) {
+			return Blocks.MANGROVE_PROPAGULE;
+		}
+		return Blocks.OAK_SAPLING;
+	}
+
+	private static Vec3 handOrigin(ServerPlayer p) {
+		Vec3 look = p.getLookAngle();
+		Vec3 right = look.cross(new Vec3(0, 1, 0));
+		if (right.lengthSqr() < 1.0e-6) {
+			double yaw = Math.toRadians(p.getYRot());
+			right = new Vec3(Math.cos(yaw), 0, Math.sin(yaw));
+		} else {
+			right = right.normalize();
+		}
+		return p.getEyePosition().add(look.scale(0.8)).add(right.scale(0.4)).add(0, -0.35, 0);
 	}
 
 	private static final net.minecraft.resources.ResourceLocation BLESS_ATK =
 			com.projecthero.mod.ProjectHeroMod.id("natures_blessing_atk");
 
-	/** +8 to Plant abilities while Nature's Blessing is on and the player is on living ground. */
+	/** +10 to Plant abilities while Nature's Blessing is on and the player is on living ground. */
 	static float natureBonus(ServerPlayer p) {
-		var power = com.projecthero.mod.hero.Powers.byKey(KEY);
-		return power != null && com.projecthero.mod.hero.ExperimentalPowers.owns(p, power)
-				&& com.projecthero.mod.hero.ExperimentalPowers.isToggled(p, power,
+		var power = Powers.byKey(KEY);
+		return power != null && ExperimentalPowers.owns(p, power)
+				&& ExperimentalPowers.isToggled(p, power,
 						power.ability(com.projecthero.mod.hero.AbilitySlot.SLOT_6))
 				&& isBlessed((ServerLevel) p.level(), p.blockPosition())
-				? 8.0f : 0.0f;
+				? 10.0f : 0.0f;
 	}
 
 	/** Standing on grass/moss, or within 5 blocks of any plant or leaf. */
@@ -237,11 +510,21 @@ public final class PlantManipulationHandlers {
 				|| below.getBlock() instanceof net.minecraft.world.level.block.BushBlock) {
 			return true;
 		}
-		// or the block AT the feet is a plant you can sink into
 		var at = level.getBlockState(feet);
 		return at.getBlock() instanceof net.minecraft.world.level.block.BushBlock
 				|| at.is(Blocks.SHORT_GRASS) || at.is(Blocks.TALL_GRASS) || at.is(Blocks.FERN)
 				|| at.is(Blocks.LARGE_FERN) || at.is(Blocks.VINE) || at.is(Blocks.MOSS_CARPET);
+	}
+
+	/** True when a living-ground block forms a wall on any horizontal side of the player. */
+	private static boolean againstNatureWall(ServerLevel level, BlockPos feet) {
+		for (var dir : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+			var st = level.getBlockState(feet.relative(dir));
+			if (st.is(net.minecraft.tags.BlockTags.DIRT) || st.is(Blocks.MOSS_BLOCK) || st.is(Blocks.GRASS_BLOCK)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static boolean nearVegetation(ServerLevel level, BlockPos center) {
