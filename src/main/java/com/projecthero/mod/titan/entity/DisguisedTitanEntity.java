@@ -3,6 +3,7 @@ package com.projecthero.mod.titan.entity;
 import com.projecthero.mod.event.entity.RaidUndead;
 import com.projecthero.mod.titan.TitanConfig;
 
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
@@ -15,6 +16,8 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.level.Level;
+
+import org.joml.Vector3f;
 
 /**
  * The Titan's disguised first form -- an ordinary-looking, ordinary-sized wanderer (80 HP, ~2 blocks
@@ -31,6 +34,18 @@ import net.minecraft.world.level.Level;
  */
 public class DisguisedTitanEntity extends RaidUndead {
 	private static final int TRANSFORM_DELAY_TICKS = 20; // 1s freeze before the strike
+
+	/**
+	 * v0.10.18: a faint yellow spark drifting off the disguise -- a deliberate, small "tell" so an
+	 * attentive player CAN pick this one out of a crowd of ordinary zombies, without it being an
+	 * obvious glowing giveaway. Sparse on purpose (every {@value #TELLTALE_INTERVAL_TICKS} ticks, one
+	 * or two particles) -- this replaces the previous "no visual tell at all" design now that the user
+	 * has asked for one; it does not reveal that the wanderer will transform, just that it is not quite
+	 * an ordinary zombie.
+	 */
+	private static final DustParticleOptions TELLTALE_PARTICLE = new DustParticleOptions(
+			new Vector3f(1.0f, 0.85f, 0.15f), 1.0f);
+	private static final int TELLTALE_INTERVAL_TICKS = 30; // 1.5s
 
 	private boolean transformed;
 	private int transformTicksLeft = -1;
@@ -82,6 +97,12 @@ public class DisguisedTitanEntity extends RaidUndead {
 	public void tick() {
 		super.tick();
 		if (transformTicksLeft < 0) {
+			if (level() instanceof ServerLevel server && tickCount % TELLTALE_INTERVAL_TICKS == 0) {
+				double ox = (random.nextDouble() - 0.5) * 0.6;
+				double oz = (random.nextDouble() - 0.5) * 0.6;
+				server.sendParticles(TELLTALE_PARTICLE, getX() + ox, getY() + getBbHeight() * 0.6, getZ() + oz,
+						2, 0.15, 0.25, 0.15, 0.0);
+			}
 			return;
 		}
 		if (level() instanceof ServerLevel server && transformTicksLeft % 4 == 0) {

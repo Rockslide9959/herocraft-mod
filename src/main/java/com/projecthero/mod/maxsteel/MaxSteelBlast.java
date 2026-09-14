@@ -54,9 +54,11 @@ public final class MaxSteelBlast {
 		MaxSteelEnergy.markCombat(player);
 
 		ServerLevel level = player.serverLevel();
-		Vec3 eye = player.getEyePosition();
 		Vec3 look = player.getLookAngle();
-		Vec3 spawn = eye.add(look.scale(0.8));
+		// v0.10.18: fired from the hand, not the face -- spawning at the eye put the muzzle flash and
+		// bolt directly in the player's own view, effectively blinding them on every shot.
+		Vec3 right = rightOf(player, look);
+		Vec3 spawn = player.getEyePosition().add(look.scale(0.8)).add(right.scale(0.4)).add(0, -0.35, 0);
 
 		TurboBoltEntity bolt = new TurboBoltEntity(level, player, look.scale(MaxSteelConfig.BLAST_PROJECTILE_SPEED))
 				.configure(damage, charge);
@@ -77,5 +79,19 @@ public final class MaxSteelBlast {
 
 	private static float lerp(float a, float b, float t) {
 		return a + (b - a) * t;
+	}
+
+	/**
+	 * A stable "player's right" unit vector for placing the muzzle -- same fallback-at-the-poles trick
+	 * as {@code IronManAbilities.rightOf}: {@code look.cross(UP)} collapses to zero looking straight up
+	 * or down, so fall back to body yaw there instead of snapping the spawn point back onto the face.
+	 */
+	private static Vec3 rightOf(ServerPlayer player, Vec3 look) {
+		Vec3 right = look.cross(new Vec3(0, 1, 0));
+		if (right.lengthSqr() < 1.0E-6) {
+			double yaw = Math.toRadians(player.getYRot());
+			right = new Vec3(Math.cos(yaw), 0, Math.sin(yaw));
+		}
+		return right.normalize();
 	}
 }

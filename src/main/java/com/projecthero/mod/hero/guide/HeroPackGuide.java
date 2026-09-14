@@ -200,8 +200,9 @@ public final class HeroPackGuide {
 	private static final int CH_SYMBIOTE = 10;
 	private static final int CH_ZOMBIE_RAID = 11;
 	private static final int CH_SUPERVILLAIN_RAID = 12;
-	private static final int CH_SQUADS = 13;
-	private static final int CHAPTER_POWER_BASE = 14;
+	private static final int CH_TITAN = 13;
+	private static final int CH_SQUADS = 14;
+	private static final int CHAPTER_POWER_BASE = 15;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -447,6 +448,18 @@ public final class HeroPackGuide {
 			}
 		}));
 
+		// The Titan (v0.10.18) -- a rare wilderness encounter, not part of the scripted raid events
+		// above, so it gets its own short entry rather than a subsection of Zombie Raid.
+		out.add(chapter("projecthero.guide.titan", lines -> {
+			para(lines, "projecthero.guide.titan.body");
+			blank(lines);
+			for (String section : new String[]{"tell", "fight", "rewards"}) {
+				head(lines, "projecthero.guide.titan." + section);
+				para(lines, "projecthero.guide.titan." + section + ".body");
+				blank(lines);
+			}
+		}));
+
 		// Squads (v0.10.10). Sits between the world events and the powers because it is the thing that
 		// makes the rest of the mod playable together: almost every ability in here is an area attack.
 		out.add(chapter("projecthero.guide.squads", lines -> {
@@ -490,6 +503,7 @@ public final class HeroPackGuide {
 		section(idx, "projecthero.guide.section.events", true);
 		link(idx, "projecthero.guide.zombie_raid", CH_ZOMBIE_RAID);
 		link(idx, "projecthero.guide.supervillain_raid", CH_SUPERVILLAIN_RAID);
+		link(idx, "projecthero.guide.titan", CH_TITAN);
 
 		section(idx, "projecthero.guide.section.squads", true);
 		link(idx, "projecthero.guide.squads", CH_SQUADS);
