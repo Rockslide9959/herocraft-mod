@@ -112,7 +112,7 @@ public final class InvisibilityLightHandlers {
 				int left = (int) ctx.resource("burst_left");
 				if (left > 0) {
 					float timer = ctx.resource("burst_timer") + 1;
-					if (timer >= 4) {
+					if (timer >= 10) { // half a second between blasts, not all at once
 						fireBlast(ctx, 0.0f);
 						ctx.setResource("burst_left", left - 1, 5);
 						timer = 0;
@@ -134,47 +134,59 @@ public final class InvisibilityLightHandlers {
 			}
 		});
 
-		// G -- Solar Lance: a piercing beam that runs several enemies through. Shift+G is Solar Eruption,
-		// a short-range ground-slam nova.
-		AbilityHandlers.register(KEY, "flash", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			ServerLevel level = ctx.level();
-			if (p.isShiftKeyDown()) {
-				Vec3 at = p.position().add(p.getLookAngle().scale(3));
-				double r = range(p, 4.0);
-				for (LivingEntity e : AbilityHelpers.enemiesAround(p, at, r)) {
-					AbilityHelpers.hurt(p, e, dmg(p, 16.0f));
-					AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 60, 0);
-					AbilityHelpers.knockbackFrom(e, at, 1.0);
+		// G -- Light Orb: a floating orb above the player fires a homing beam once a second for 8 seconds.
+		// Shift+G is Solar Eruption, a short-range ground-slam nova.
+		AbilityHandlers.register(KEY, "flash", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				ServerLevel level = ctx.level();
+				if (p.isShiftKeyDown()) {
+					Vec3 at = p.position().add(p.getLookAngle().scale(3));
+					double r = range(p, 4.0);
+					for (LivingEntity e : AbilityHelpers.enemiesAround(p, at, r)) {
+						AbilityHelpers.hurt(p, e, dmg(p, 16.0f));
+						AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 60, 0);
+						AbilityHelpers.knockbackFrom(e, at, 1.0);
+					}
+					level.sendParticles(ParticleTypes.FLASH, at.x, at.y, at.z, 1, 0, 0, 0, 0);
+					yellowBurst(level, at, 40, r * 0.5);
+					AbilityHelpers.sound(p, SoundEvents.BEACON_DEACTIVATE, 1.1f, 1.6f);
+					ctx.triggerCooldown(10 * 20);
+					return;
 				}
-				level.sendParticles(ParticleTypes.FLASH, at.x, at.y, at.z, 1, 0, 0, 0, 0);
-				yellowBurst(level, at, 40, r * 0.5);
-				AbilityHelpers.sound(p, SoundEvents.BEACON_DEACTIVATE, 1.1f, 1.6f);
-				ctx.triggerCooldown(10 * 20);
-				return;
+				if (!ctx.cooldownReady()) {
+					onCooldownMessage(ctx);
+					return;
+				}
+				ctx.setResource("orb_ticks", 160, 160); // 8s
+				ctx.setResource("orb_shot_timer", 0, 1);
+				fireOrbBeam(ctx);
+				AbilityHelpers.sound(p, SoundEvents.BEACON_POWER_SELECT, 1.0f, 1.6f);
+				ctx.triggerCooldown(30 * 20);
 			}
-			Vec3 from = handOrigin(p);
-			double r = range(p, 12.0);
-			Vec3 end = from.add(p.getLookAngle().scale(r));
-			AbilityHelpers.line(level, from, end, ParticleTypes.END_ROD, 3.0);
-			yellowBurst(level, from, 6, 0.1);
-			int hits = 0;
-			for (LivingEntity e : AbilityHelpers.living(level, from.add(p.getLookAngle().scale(r * 0.5)),
-					r * 0.5 + 0.6, le -> le != p && !(le instanceof ArmorStand))) {
-				Vec3 dir = e.position().subtract(from);
-				if (dir.lengthSqr() < 1.0e-4 || dir.normalize().dot(p.getLookAngle()) < 0.85) {
-					continue;
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				int t = (int) ctx.resource("orb_ticks");
+				if (t <= 0) {
+					return;
 				}
-				AbilityHelpers.hurt(p, e, dmg(p, 12.0f));
-				AbilityHelpers.applyControl(e, MobEffects.WEAKNESS, 60, 0);
-				hits++;
-				if (hits >= 5) {
-					break;
+				ServerPlayer p = ctx.player();
+				t--;
+				ctx.setResource("orb_ticks", t, 160);
+				Vec3 orb = p.position().add(0, p.getBbHeight() + 0.5, 0);
+				if (p.tickCount % 2 == 0) {
+					yellowBurst(ctx.level(), orb, 3, 0.15);
 				}
+				float timer = ctx.resource("orb_shot_timer") + 1;
+				if (t > 0 && timer >= 20) {
+					fireOrbBeam(ctx);
+					timer = 0;
+				}
+				ctx.setResource("orb_shot_timer", timer, 1);
 			}
-			AbilityHelpers.sound(p, SoundEvents.BEACON_POWER_SELECT, 1.0f, 1.5f);
-			ctx.triggerCooldown(6 * 20);
-		}));
+		});
 
 		// X -- Sparkling Flight (unchanged).
 		AbilityHandlers.register(KEY, "mirage_dash", new AbilityHandler() {
@@ -222,12 +234,12 @@ public final class InvisibilityLightHandlers {
 				p.resetFallDistance();
 				p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 6, 0, false, false, false));
 				ServerLevel level = ctx.level();
-				double h = Math.max(1.0, p.getBbHeight());
-				for (int s = 0; s < 4; s++) {
-					double yy = p.getY() + h * (s / 3.0);
-					level.sendParticles(ParticleTypes.END_ROD, p.getX(), yy, p.getZ(), 2, 0.22, 0.12, 0.22, 0.004);
-					level.sendParticles(ParticleTypes.GLOW, p.getX(), yy, p.getZ(), 1, 0.2, 0.12, 0.2, 0.0);
-				}
+				// a yellow orb in the chest that leaves a trail behind the player as they fly, rather than
+				// the old blue full-body column of particles
+				double chestY = p.getY() + p.getBbHeight() * 0.55;
+				level.sendParticles(new DustParticleOptions(YELLOW, 2.4f), p.getX(), chestY, p.getZ(),
+						4, 0.1, 0.1, 0.1, 0.0);
+				level.sendParticles(ParticleTypes.END_ROD, p.getX(), chestY, p.getZ(), 2, 0.15, 0.1, 0.15, 0.003);
 				ctx.addResource("sparkle", -SPARKLE_DRAIN, MAX_SPARKLE);
 				if (ctx.resource("sparkle") <= 0.0f) {
 					endSparkle(ctx, true);
@@ -393,6 +405,31 @@ public final class InvisibilityLightHandlers {
 		ctx.actionBar("message.projecthero.ability.on_cooldown",
 				net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
 				String.format(java.util.Locale.ROOT, "%.1f", ctx.cooldownRemaining() / 20.0f));
+	}
+
+	/** One shot from the Light Orb: homes onto the nearest living enemy within range. */
+	private static void fireOrbBeam(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		Vec3 orb = p.position().add(0, p.getBbHeight() + 0.5, 0);
+		LivingEntity target = null;
+		double best = 16.0 * 16.0;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 16.0)) {
+			double d = e.distanceToSqr(p);
+			if (d < best) {
+				best = d;
+				target = e;
+			}
+		}
+		if (target == null) {
+			yellowBurst(level, orb, 10, 0.3);
+			return;
+		}
+		Vec3 end = target.position().add(0, target.getBbHeight() * 0.5, 0);
+		AbilityHelpers.line(level, orb, end, ParticleTypes.END_ROD, 3.0);
+		yellowBurst(level, orb, 8, 0.15);
+		AbilityHelpers.hurt(p, target, dmg(p, 14.0f));
+		AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 0.8f, 1.7f);
 	}
 
 	private static void fireBlast(AbilityContext ctx, float bonusDamage) {

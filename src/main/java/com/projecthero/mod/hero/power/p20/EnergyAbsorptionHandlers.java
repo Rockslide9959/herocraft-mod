@@ -7,6 +7,7 @@ import com.projecthero.mod.hero.ExperimentalPowers;
 import com.projecthero.mod.hero.Powers;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.Handlers;
+import com.projecthero.mod.hero.power.ModeMeter;
 import com.projecthero.mod.hero.power.PowerToggles;
 
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
@@ -39,6 +40,7 @@ public final class EnergyAbsorptionHandlers {
 	public static final String METER = "energy";
 	public static final float MAX = 500.0f;
 	private static final Vector3f ENERGY_COLOR = new Vector3f(0.55f, 0.85f, 1.0f);
+	private static final float FIELD_MAX = 100.0f;
 	private static final net.minecraft.resources.ResourceLocation SUPER_ATK =
 			com.projecthero.mod.ProjectHeroMod.id("energy_supercharged_atk");
 
@@ -68,6 +70,26 @@ public final class EnergyAbsorptionHandlers {
 		if (power != null) {
 			ExperimentalPowers.setResource(p, power, "last_absorb", p.level().getGameTime(), 1.0e12f);
 		}
+	}
+
+	/** True while V's Absorption Field is held -- boosts the passive soak from 50% to 90%. */
+	public static boolean fieldActive(ServerPlayer p) {
+		var power = Powers.byKey(KEY);
+		return power != null && ExperimentalPowers.owns(p, power)
+				&& ExperimentalPowers.getResource(p, power, "field_active") > 0.5f;
+	}
+
+	/** A hand-fired origin point so R/G's beam particles never spawn right in front of the caster's eyes. */
+	private static Vec3 handOrigin(ServerPlayer p) {
+		Vec3 look = p.getLookAngle();
+		Vec3 right = look.cross(new Vec3(0, 1, 0));
+		if (right.lengthSqr() < 1.0e-6) {
+			double yaw = Math.toRadians(p.getYRot());
+			right = new Vec3(Math.cos(yaw), 0, Math.sin(yaw));
+		} else {
+			right = right.normalize();
+		}
+		return p.getEyePosition().add(look.scale(0.8)).add(right.scale(0.4)).add(0, -0.35, 0);
 	}
 
 	public static void register() {
@@ -100,7 +122,7 @@ public final class EnergyAbsorptionHandlers {
 				ctx.setResource("blast_charge", 0, 100);
 				ServerLevel level = ctx.level();
 				LivingEntity t = AbilityHelpers.raycastEntity(p, 26.0);
-				AbilityHelpers.line(level, p.getEyePosition(), AbilityHelpers.aimPoint(p, 26.0), ParticleTypes.END_ROD, 3.0);
+				AbilityHelpers.line(level, handOrigin(p), AbilityHelpers.aimPoint(p, 26.0), ParticleTypes.END_ROD, 3.0);
 				if (t != null) {
 					AbilityHelpers.hurt(p, t, 13.0f + (float) (seconds * 5.0) + superchargedBonus(p));
 					AbilityHelpers.knockbackFrom(t, p.position(), 0.6);
@@ -118,7 +140,7 @@ public final class EnergyAbsorptionHandlers {
 				long held = p.level().getGameTime() - (long) ctx.resource("blast_charge_start");
 				ctx.setResource("blast_charge", (float) Math.min(100.0, held / (3.0 * 20) * 100.0), 100);
 				if (held % 3 == 0) {
-					Vec3 at = p.getEyePosition().add(p.getLookAngle().scale(0.6));
+					Vec3 at = handOrigin(p);
 					ctx.level().sendParticles(new DustParticleOptions(ENERGY_COLOR, 1.6f), at.x, at.y, at.z,
 							3, 0.1, 0.1, 0.1, 0.01);
 				}
@@ -171,7 +193,7 @@ public final class EnergyAbsorptionHandlers {
 				}
 				ServerPlayer p = ctx.player();
 				LivingEntity t = AbilityHelpers.raycastEntity(p, 22.0);
-				AbilityHelpers.line(ctx.level(), p.getEyePosition().add(p.getLookAngle().scale(0.4)),
+				AbilityHelpers.line(ctx.level(), handOrigin(p),
 						AbilityHelpers.aimPoint(p, 22.0), ParticleTypes.END_ROD, 2.5);
 				if (t != null) {
 					AbilityHelpers.hurt(p, t, 9.0f + superchargedBonus(p));
@@ -271,53 +293,68 @@ public final class EnergyAbsorptionHandlers {
 			}
 		});
 
-		// V -- Energy Shield (hold). Shift+V at max energy banks a one-time totem.
+		// V -- Absorption Field (hold): 90% of damage taken becomes energy, up to 15s, 7s cooldown on
+		// release. Shift+V is Energy Conversion: 10 energy every 0.5s becomes 2 HP while held.
 		AbilityHandlers.register(KEY, "energy_drain", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
+				if (!ctx.cooldownReady()) {
+					onCooldownMessage(ctx);
+					return;
+				}
 				ServerPlayer p = ctx.player();
 				if (p.isShiftKeyDown()) {
-					if (ctx.resource(METER) < MAX - 0.5f) {
-						ctx.actionBar("message.projecthero.energy.not_full");
-						return;
-					}
-					ctx.setResource(METER, 0, MAX);
-					ctx.setResource("banked_totem", 1, 1);
-					AbilityHelpers.sound(p, SoundEvents.TOTEM_USE, 1.0f, 1.4f);
-					ctx.level().sendParticles(ParticleTypes.TOTEM_OF_UNDYING, p.getX(), p.getY() + 1, p.getZ(),
-							30, 0.4, 0.6, 0.4, 0.2);
+					ctx.setResource("converting", 1, 1);
+					ctx.setResource("convert_timer", 0, 1);
 					return;
 				}
-				if (ctx.resource(METER) < 1.0f) {
-					ctx.actionBar("message.projecthero.energy.empty");
+				ModeMeter.ensureSeeded(ctx, "field_bar", FIELD_MAX);
+				if (!ModeMeter.hasCharge(ctx, "field_bar", 5.0f)) {
+					ctx.actionBar("message.projecthero.energy.field_low");
 					return;
 				}
-				ctx.setResource("shielding", 1, 1);
-				p.setInvulnerable(true);
+				ctx.setResource("field_active", 1, 1);
+				AbilityHelpers.sound(p, SoundEvents.BEACON_ACTIVATE, 0.8f, 1.4f);
 			}
 
 			@Override
 			public void onRelease(AbilityContext ctx) {
-				if (ctx.resource("shielding") > 0.5f) {
-					ctx.setResource("shielding", 0, 1);
-					ctx.player().setInvulnerable(false);
-					ctx.triggerCooldown(15 * 20);
+				if (ctx.resource("converting") > 0.5f) {
+					ctx.setResource("converting", 0, 1);
+					ctx.triggerCooldown(10 * 20);
+				}
+				if (ctx.resource("field_active") > 0.5f) {
+					ctx.setResource("field_active", 0, 1);
+					ctx.triggerCooldown(7 * 20);
 				}
 			}
 
 			@Override
 			public void onServerTick(AbilityContext ctx) {
-				if (ctx.resource("shielding") < 0.5f) {
-					return;
-				}
-				if (!ctx.spendResource(METER, 0.5f)) { // 10/s
-					ctx.setResource("shielding", 0, 1);
-					ctx.player().setInvulnerable(false);
-					ctx.triggerCooldown(15 * 20);
-					return;
-				}
 				ServerPlayer p = ctx.player();
-				p.setInvulnerable(true);
+				if (ctx.resource("converting") > 0.5f) {
+					float timer = ctx.resource("convert_timer") + 1;
+					if (timer >= 10) { // every 0.5s
+						if (ctx.spendResource(METER, 10.0f)) {
+							p.heal(2.0f);
+							ctx.level().sendParticles(new DustParticleOptions(ENERGY_COLOR, 1.6f), p.getX(), p.getY() + 1,
+									p.getZ(), 10, 0.3, 0.5, 0.3, 0.02);
+							AbilityHelpers.sound(p, SoundEvents.PLAYER_LEVELUP, 0.4f, 1.8f);
+						}
+						timer = 0;
+					}
+					ctx.setResource("convert_timer", timer, 1);
+					return;
+				}
+				if (ctx.resource("field_active") < 0.5f) {
+					return;
+				}
+				if (!ModeMeter.drain(ctx, "field_bar", FIELD_MAX, FIELD_MAX / (15 * 20))) {
+					ctx.setResource("field_active", 0, 1);
+					ctx.actionBar("message.projecthero.energy.field_out");
+					ctx.triggerCooldown(7 * 20);
+					return;
+				}
 				if (p.tickCount % 3 == 0) {
 					ctx.level().sendParticles(new DustParticleOptions(ENERGY_COLOR, 1.8f), p.getX(), p.getY() + 1, p.getZ(),
 							10, 1.6, 1.0, 1.6, 0.0);
@@ -351,11 +388,13 @@ public final class EnergyAbsorptionHandlers {
 		com.projecthero.mod.hero.PowerPassives.register(KEY, (player, active) -> {
 			if (!active) {
 				PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, SUPER_ATK);
-				player.setInvulnerable(false);
 			}
 		});
 
 		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, EnergyAbsorptionHandlers::passiveTick);
+		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, player ->
+				ModeMeter.regen(player, Powers.byKey(KEY), "field_bar", FIELD_MAX, FIELD_MAX / (20 * 20),
+						fieldActive(player)));
 
 		// Absorption Mode: melee hits carry an energy jolt while Supercharged.
 		AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
@@ -370,30 +409,6 @@ public final class EnergyAbsorptionHandlers {
 		});
 
 		registerRedstoneInteractions();
-
-		// Shift+V's banked totem: consume it to cancel the next lethal hit, exactly like a real totem.
-		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> {
-			if (!(entity instanceof ServerPlayer p)) {
-				return true;
-			}
-			var power = Powers.byKey(KEY);
-			if (power == null || !ExperimentalPowers.owns(p, power)
-					|| ExperimentalPowers.getResource(p, power, "banked_totem") < 0.5f) {
-				return true;
-			}
-			if (source.is(net.minecraft.world.damagesource.DamageTypes.GENERIC_KILL)
-					|| source.is(net.minecraft.world.damagesource.DamageTypes.FELL_OUT_OF_WORLD)) {
-				return true;
-			}
-			ExperimentalPowers.setResource(p, power, "banked_totem", 0, 1);
-			p.setHealth(1.0f);
-			p.removeAllEffects();
-			p.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 900, 1));
-			p.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 100, 1));
-			p.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 800, 0));
-			p.level().broadcastEntityEvent(p, (byte) 35);
-			return false;
-		});
 	}
 
 	private static void passiveTick(ServerPlayer player) {
@@ -413,12 +428,12 @@ public final class EnergyAbsorptionHandlers {
 			gain(player, 0.25f); // 5/s
 		}
 
-		// Passive trickle regen: only while nothing has been absorbed for 10s, capped at 25%.
+		// Passive trickle regen: only while nothing has been absorbed for 10s, capped at 25%. 1.3/s.
 		long now = level.getGameTime();
 		float lastAbsorb = ExperimentalPowers.getResource(player, power, "last_absorb");
 		float energy = ExperimentalPowers.getResource(player, power, METER);
 		if (now - (long) lastAbsorb >= 200 && energy < MAX * 0.25f) {
-			ExperimentalPowers.addResource(player, power, METER, MAX * 0.25f / 200f, MAX);
+			ExperimentalPowers.addResource(player, power, METER, 1.3f / 20f, MAX);
 		}
 
 		// Overcharge: 80% strength/speed + glow; 100% self-damage.

@@ -219,8 +219,12 @@ public final class PlantManipulationHandlers {
 			if (state.getBlock() instanceof BonemealableBlock bm && world instanceof ServerLevel sl
 					&& bm.isValidBonemealTarget(sl, pos, state) && bm.isBonemealSuccess(sl, sl.random, pos, state)) {
 				bm.performBonemeal(sl, sl.random, pos, state);
-				if (bm.isValidBonemealTarget(sl, pos, sl.getBlockState(pos))) {
-					bm.performBonemeal(sl, sl.random, pos, sl.getBlockState(pos));
+				// v0.10.20 crash fix: re-resolve the block fresh -- the first bonemeal can turn a sapling
+				// into a full tree, and handing the new block's state to the OLD SaplingBlock instance's
+				// performBonemeal crashes the server (see growTreeAt for the full explanation).
+				BlockState after = sl.getBlockState(pos);
+				if (after.getBlock() instanceof BonemealableBlock bm2 && bm2.isValidBonemealTarget(sl, pos, after)) {
+					bm2.performBonemeal(sl, sl.random, pos, after);
 				}
 				sl.sendParticles(ParticleTypes.HAPPY_VILLAGER, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
 						16, 0.4, 0.4, 0.4, 0.0);
@@ -382,7 +386,18 @@ public final class PlantManipulationHandlers {
 		}
 	}
 
-	/** Best-effort tree grow: plant the matching sapling, then force it up with a few bonemeal ticks. */
+	/**
+	 * Best-effort tree grow: plant the matching sapling, then force it up with a few bonemeal ticks.
+	 *
+	 * <p>v0.10.20 crash fix: once a bonemeal application actually grows the sapling into a tree, the
+	 * block at {@code at} is no longer a sapling (it's a log or an air pocket under the canopy) but the
+	 * loop kept calling the ORIGINAL {@code SaplingBlock} instance's {@code performBonemeal} against
+	 * that new, unrelated block state -- e.g. handing a {@code minecraft:oak_log} state to
+	 * {@code SaplingBlock#performBonemeal}, which reads sapling-only block-state properties that the
+	 * log state doesn't have and throws, crashing the server a few ticks after the tree finished
+	 * growing. Re-resolve the block (not just the state) fresh every iteration and stop the moment it
+	 * is no longer a bonemealable target of some kind.
+	 */
 	private static void growTreeAt(ServerLevel level, BlockPos pos) {
 		BlockPos at = pos.above();
 		if (!level.getBlockState(at).canBeReplaced()) {
@@ -390,11 +405,12 @@ public final class PlantManipulationHandlers {
 		}
 		Block sapling = biomeSapling(level, pos);
 		level.setBlock(at, sapling.defaultBlockState(), 3);
-		BlockState state = level.getBlockState(at);
-		if (state.getBlock() instanceof BonemealableBlock bm) {
-			for (int i = 0; i < 8 && bm.isValidBonemealTarget(level, at, level.getBlockState(at)); i++) {
-				bm.performBonemeal(level, level.random, at, level.getBlockState(at));
+		for (int i = 0; i < 8; i++) {
+			BlockState cur = level.getBlockState(at);
+			if (!(cur.getBlock() instanceof BonemealableBlock bm) || !bm.isValidBonemealTarget(level, at, cur)) {
+				break;
 			}
+			bm.performBonemeal(level, level.random, at, cur);
 		}
 	}
 

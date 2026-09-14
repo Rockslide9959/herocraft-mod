@@ -519,7 +519,7 @@ final class PowerCatalog {
 				.ability(ab(k, "zero_g", SLOT_3, TOGGLE, 0))
 				.ability(ab(k, "gravity_well", SLOT_4, CHARGE, 120 * S))
 				.ability(ab(k, "levitate", SLOT_5, INSTANT, 6 * S))
-				.ability(ab(k, "gravity_field", SLOT_6, CYCLE, 0))
+				.ability(ab(k, "gravity_field", SLOT_6, TOGGLE, 0))
 				.passives(pk(k, "passive.low_g_fall"))
 				.serum(SerumRecipe.of("minecraft:slow_falling", pk(k, "serum"),
 						"minecraft:compass", "minecraft:iron_nugget", "minecraft:amethyst_shard", "minecraft:redstone"))

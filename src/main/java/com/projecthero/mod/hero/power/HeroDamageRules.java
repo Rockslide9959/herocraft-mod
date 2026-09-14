@@ -265,11 +265,13 @@ public final class HeroDamageRules {
 			}
 			case "power_20_energy_absorption" -> {
 				// v0.10.19: an unconditional passive -- half of every hit becomes energy, all the time,
-				// unless Overload Release has just locked the meter out.
+				// unless Overload Release has just locked the meter out. v0.10.20: holding V's
+				// Absorption Field boosts that split to 90%.
 				if (com.projecthero.mod.hero.power.p20.EnergyAbsorptionHandlers.canAbsorb(player)) {
-					ExperimentalPowers.addResource(player, active, "energy", amount * 0.5f, 500.0f);
+					float soak = com.projecthero.mod.hero.power.p20.EnergyAbsorptionHandlers.fieldActive(player) ? 0.9f : 0.5f;
+					ExperimentalPowers.addResource(player, active, "energy", amount * soak, 500.0f);
 					com.projecthero.mod.hero.power.p20.EnergyAbsorptionHandlers.markAbsorbed(player);
-					return Verdict.mult(0.5f);
+					return Verdict.mult(1.0f - soak);
 				}
 			}
 			default -> {

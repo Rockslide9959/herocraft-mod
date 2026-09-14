@@ -335,6 +335,8 @@ public final class AbilityHud {
 			java.util.Map.entry("repulsion_field", Kind.RESERVE), // Shockwave stance
 			java.util.Map.entry("tailwind", Kind.RESERVE),       // Wind stance
 			java.util.Map.entry("shadow_cloak", Kind.RESERVE),   // Shadow Manipulation Shadow Cloak
+			java.util.Map.entry("field_bar", Kind.RESERVE),      // Energy Absorption Absorption Field
+			java.util.Map.entry("nexus_bar", Kind.RESERVE),      // Gravity Manipulation Gravitational Nexus
 			// --- build-up gauges: climb from zero, a full bar is the fail state ---
 			java.util.Map.entry("energy", Kind.BUILD),           // Energy Absorption
 			java.util.Map.entry("heat", Kind.BUILD),             // Laser Vision / Pyrokinesis
@@ -392,7 +394,7 @@ public final class AbilityHud {
 			case "hurr" -> 220.0f;
 			case "overdrive_ticks" -> 600.0f;
 			case "crush_hold_ticks" -> 160.0f;
-			case "shadow_cloak" -> 100.0f;
+			case "shadow_cloak", "field_bar", "nexus_bar" -> 100.0f;
 			case "total_darkness", "singularity" -> 500.0f;
 			default -> 500.0f;
 		};
@@ -433,6 +435,8 @@ public final class AbilityHud {
 			case "pulse_charge" -> Component.literal("Maximum Pulse — charging");
 			case "crush_hold_ticks" -> Component.literal("Gravity Crush");
 			case "shadow_cloak" -> Component.literal("Shadow Cloak");
+			case "field_bar" -> Component.literal("Absorption Field");
+			case "nexus_bar" -> Component.literal("Gravitational Nexus");
 			case "ecell" -> Component.literal("Charge");
 			case "senses" -> Component.literal("Enhanced Senses");
 			default -> name.endsWith("flight") ? Component.literal("Flight")

@@ -11,6 +11,7 @@ import com.projecthero.mod.hero.Powers;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.GrabHelper;
 import com.projecthero.mod.hero.power.Handlers;
+import com.projecthero.mod.hero.power.ModeMeter;
 import com.projecthero.mod.hero.power.PowerToggles;
 
 import net.minecraft.core.BlockPos;
@@ -28,11 +29,12 @@ import net.minecraft.world.phys.Vec3;
 /** Power 23 — Gravity Manipulation. C cycles Low / Normal / High personal gravity. */
 public final class GravityHandlers {
 	private static final String KEY = "power_23_gravity_manipulation";
-	private static final net.minecraft.resources.ResourceLocation GRAV = com.projecthero.mod.ProjectHeroMod.id("gravity_field_grav");
 	private static final net.minecraft.resources.ResourceLocation ZERO_G = com.projecthero.mod.ProjectHeroMod.id("zero_g_grav");
 	private static final net.minecraft.resources.ResourceLocation KB = com.projecthero.mod.ProjectHeroMod.id("gravity_kb");
-	// cycle starts at Normal (0): Normal -> High -> Low -> Normal ...
-	private static final String[] MODES = {"normal", "high", "low"};
+	private static final net.minecraft.resources.ResourceLocation NEXUS_ATK = com.projecthero.mod.ProjectHeroMod.id("gravity_nexus_atk");
+	private static final float MAX_NEXUS = 100.0f;
+	private static final float NEXUS_DRAIN = MAX_NEXUS / (35 * 20);
+	private static final float NEXUS_REGEN = MAX_NEXUS / (25 * 20);
 
 	/** Live Gravity Lifts (V, plain) -- one list of up to 10 targets per caster. */
 	private static final java.util.Map<java.util.UUID, List<Lift>> LIFTS = new java.util.HashMap<>();
@@ -47,12 +49,23 @@ public final class GravityHandlers {
 		HOLES.clear();
 	}
 
+	private static boolean nexusActive(ServerPlayer p) {
+		var power = Powers.byKey(KEY);
+		return power != null && ExperimentalPowers.owns(p, power)
+				&& ExperimentalPowers.isToggled(p, power, power.ability(com.projecthero.mod.hero.AbilitySlot.SLOT_6));
+	}
+
+	/** +10 ability damage while Gravitational Nexus is active. */
+	private static float nexusBonus(ServerPlayer p) {
+		return nexusActive(p) ? 10.0f : 0.0f;
+	}
+
 	public static void register() {
-		// R -- Gravity Push. Shift+R is a grab: press again (either way) to throw.
+		// R -- Gravity Push, 50-block range. Shift+R is a grab: press again (either way) to throw.
 		AbilityHandlers.register(KEY, "gravity_push", Handlers.instantTicking(ctx -> {
 			ServerPlayer p = ctx.player();
 			if (GrabHelper.isHolding(ctx)) {
-				GrabHelper.throwHeld(ctx, 2.2, 8.0f);
+				GrabHelper.throwHeld(ctx, 2.2, 8.0f + nexusBonus(p));
 				AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 0.8f, 1.2f);
 				ctx.triggerCooldown(2 * 20);
 				return;
@@ -64,10 +77,11 @@ public final class GravityHandlers {
 				}
 				return;
 			}
-			Vec3 front = p.getEyePosition().add(p.getLookAngle().scale(4));
+			LivingEntity direct = AbilityHelpers.raycastEntity(p, 50.0);
+			Vec3 front = direct != null ? direct.position() : p.getEyePosition().add(p.getLookAngle().scale(50.0));
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, front, 4.0)) {
 				AbilityHelpers.push(e, e.position().subtract(p.getEyePosition()).normalize().scale(2.6).add(0, 0.5, 0));
-				AbilityHelpers.hurt(p, e, 10.0f);
+				AbilityHelpers.hurt(p, e, 10.0f + nexusBonus(p));
 			}
 			AbilityHelpers.burst(ctx.level(), front, ParticleTypes.PORTAL, 20, 0.6);
 			AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 0.8f, 1.4f);
@@ -126,7 +140,7 @@ public final class GravityHandlers {
 							e.hurtMarked = true;
 						}
 						if ((120 - wt) % 20 == 0) {
-							AbilityHelpers.hurt(p, e, 2.0f);
+							AbilityHelpers.hurt(p, e, 2.0f + nexusBonus(p));
 						}
 					}
 					if (wt % 4 == 0) {
@@ -145,11 +159,14 @@ public final class GravityHandlers {
 					return;
 				}
 				ctx.setResource("crush_hold_ticks", held, 160);
-				Vec3 center = p.getEyePosition().add(p.getLookAngle().scale(4));
+				LivingEntity crushTarget = AbilityHelpers.raycastEntity(p, 50.0);
+				Vec3 center = crushTarget != null ? crushTarget.position()
+						: p.getEyePosition().add(p.getLookAngle().scale(50.0));
+				// no knockback -- just damage and Slowness II so the target can still shuffle along
 				for (LivingEntity e : AbilityHelpers.living(level, center, 2.8, le -> le != p)) {
-					AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 20, 3);
+					AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 20, 1);
 					if (held % 20 == 0) {
-						AbilityHelpers.hurt(p, e, 4.0f);
+						AbilityHelpers.hurt(p, e, 4.0f + nexusBonus(p));
 					}
 				}
 				if (held % 5 == 0) {
@@ -223,12 +240,12 @@ public final class GravityHandlers {
 						le.removeEffect(MobEffects.LEVITATION);
 						le.setDeltaMovement(le.getDeltaMovement().x, -1.6, le.getDeltaMovement().z);
 						le.hurtMarked = true;
-						AbilityHelpers.hurt(p, le, 14.0f);
+						AbilityHelpers.hurt(p, le, 14.0f + nexusBonus(p));
 					}
 				}
 				mine.clear();
 				AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 1.0f, 0.6f);
-				ctx.triggerCooldown(25 * 20);
+				ctx.triggerCooldown(25 * 20); // only the slam pays a cooldown -- marking targets is free
 				return;
 			}
 			if (mine.size() >= 10) {
@@ -243,32 +260,64 @@ public final class GravityHandlers {
 			t.addEffect(new MobEffectInstance(MobEffects.LEVITATION, 400, 0, false, false, true));
 			ctx.level().sendParticles(ParticleTypes.PORTAL, t.getX(), t.getY() + 1, t.getZ(), 15, 0.4, 0.6, 0.4, 0.2);
 			AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_HIT, 1.0f, 0.7f);
-			ctx.triggerCooldown(6 * 20);
 		}));
 
-		AbilityHandlers.register(KEY, "gravity_field", Handlers.cycle(ctx -> {
-			ctx.advanceCycle(3);
-			applyField(ctx);
-			ctx.actionBar("message.projecthero.gravity.field_" + MODES[ctx.cycleMode() % 3]);
-			AbilityHelpers.sound(ctx.player(), SoundEvents.AMETHYST_BLOCK_HIT, 1.0f, 0.5f + (ctx.cycleMode() % 3) * 0.4f);
-		}));
+		// C -- Gravitational Nexus: a drain-bar combat stance.
+		AbilityHandlers.register(KEY, "gravity_field", new AbilityHandler() {
+			@Override
+			public void onToggleOn(AbilityContext ctx) {
+				if (!ctx.cooldownReady()) {
+					onCooldownMessage(ctx);
+					ctx.setToggled(false);
+					return;
+				}
+				ModeMeter.ensureSeeded(ctx, "nexus_bar", MAX_NEXUS);
+				if (!ModeMeter.hasCharge(ctx, "nexus_bar", 5.0f)) {
+					ctx.actionBar("message.projecthero.gravity.nexus_low");
+					ctx.setToggled(false);
+					return;
+				}
+				PowerToggles.modifier(ctx.player(), Attributes.ATTACK_DAMAGE, NEXUS_ATK, 8.0, AttributeModifier.Operation.ADD_VALUE);
+				AbilityHelpers.sound(ctx.player(), SoundEvents.WARDEN_SONIC_BOOM, 1.0f, 0.6f);
+			}
+
+			@Override
+			public void onToggleOff(AbilityContext ctx) {
+				endNexus(ctx);
+			}
+
+			@Override
+			public void onToggleTick(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				AbilityHelpers.modeAura(p, ParticleTypes.REVERSE_PORTAL, 4);
+				p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 20, 1, false, false, false));
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 20, 0, false, false, false));
+				for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 3.0)) {
+					AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 20, 3); // Slowness IV
+					if (p.tickCount % 20 == 0) {
+						AbilityHelpers.hurt(p, e, 2.0f);
+					}
+				}
+				if (!ModeMeter.drain(ctx, "nexus_bar", MAX_NEXUS, NEXUS_DRAIN)) {
+					ctx.actionBar("message.projecthero.gravity.nexus_out");
+					endNexus(ctx);
+					ctx.setToggled(false);
+				}
+			}
+		});
 
 		com.projecthero.mod.hero.PowerPassives.register(KEY, (player, active) -> {
 			if (!active) {
-				PowerToggles.clearModifier(player, Attributes.GRAVITY, GRAV);
 				PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, KB);
+				PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, NEXUS_ATK);
 				player.setInvulnerable(false);
 			} else {
-				var power = Powers.byKey(KEY);
-				applyField(new AbilityContext(player, power, power.ability(com.projecthero.mod.hero.AbilitySlot.SLOT_6), true));
 				PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, KB, 0.5, AttributeModifier.Operation.ADD_VALUE);
 			}
 		});
+		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, player ->
+				ModeMeter.regen(player, Powers.byKey(KEY), "nexus_bar", MAX_NEXUS, NEXUS_REGEN, nexusActive(player)));
 		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, player -> {
-			var power = Powers.byKey(KEY);
-			if (power != null && player.tickCount % 20 == 0) {
-				applyField(new AbilityContext(player, power, power.ability(com.projecthero.mod.hero.AbilitySlot.SLOT_6), true));
-			}
 			// keep Gravity Lift targets pinned under their height cap
 			List<Lift> mine = LIFTS.get(player.getUUID());
 			if (mine != null && !mine.isEmpty() && player.level() instanceof ServerLevel level) {
@@ -300,13 +349,15 @@ public final class GravityHandlers {
 		ctx.triggerCooldown(10 * 20);
 	}
 
-	private static void applyField(AbilityContext ctx) {
-		int m = ctx.cycleMode() % 3; // 0 normal, 1 high, 2 low
-		double grav = m == 1 ? 0.6 : (m == 2 ? -0.5 : 0.0);
-		PowerToggles.modifier(ctx.player(), Attributes.GRAVITY, GRAV, grav, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-		if (m == 2) {
-			ctx.player().resetFallDistance();
-		}
+	private static void endNexus(AbilityContext ctx) {
+		PowerToggles.clearModifier(ctx.player(), Attributes.ATTACK_DAMAGE, NEXUS_ATK);
+		ctx.triggerCooldown(20 * 20);
+	}
+
+	private static void onCooldownMessage(AbilityContext ctx) {
+		ctx.actionBar("message.projecthero.ability.on_cooldown",
+				net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
+				String.format(java.util.Locale.ROOT, "%.1f", ctx.cooldownRemaining() / 20.0f));
 	}
 
 	private record Lift(int id, long expiry) {
@@ -338,7 +389,7 @@ public final class GravityHandlers {
 					e.hurtMarked = true;
 				}
 				if (dist <= 10.0 && age % 20 == 0) {
-					AbilityHelpers.hurt(owner, e, 6.0f);
+					AbilityHelpers.hurt(owner, e, 6.0f + nexusBonus(owner));
 				}
 			}
 			if (AbilityHelpers.canGrief() && age % 4 == 0) {
