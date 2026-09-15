@@ -18,6 +18,9 @@
 #     https://legacy.curseforge.com/account/api-tokens
 #   - The project must be approved by CurseForge moderation before an API upload
 #     will succeed.
+#   - Add a repo secret named DISCORD_WEBHOOK_URL (a #changelog channel webhook,
+#     Discord: Edit Channel > Integrations > Webhooks) to auto-post the tag's
+#     changelog message to Discord on release.
 
 name: release
 
@@ -87,3 +90,24 @@ jobs:
           files: build/libs/!(*-sources).jar
           # game versions, mod loaders and required dependencies (Fabric API,
           # GeckoLib) are read automatically from src/main/resources/fabric.mod.json
+
+      - name: notify discord
+        if: success()
+        continue-on-error: true   # a Discord hiccup should never fail the release
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          CHANGELOG: ${{ steps.meta.outputs.changelog }}
+          RELEASE_URL: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "No DISCORD_WEBHOOK_URL secret set, skipping."
+            exit 0
+          fi
+          jq -n \
+            --arg title "Project Hero $VERSION" \
+            --arg desc "$CHANGELOG" \
+            --arg url "$RELEASE_URL" \
+            '{embeds: [{title: $title, description: $desc, url: $url, color: 3066993}]}' \
+            > discord_payload.json
+          curl -sf -H "Content-Type: application/json" -d @discord_payload.json "$DISCORD_WEBHOOK_URL"
