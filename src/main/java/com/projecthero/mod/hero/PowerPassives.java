@@ -1,6 +1,8 @@
 package com.projecthero.mod.hero;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -23,7 +25,10 @@ public final class PowerPassives {
 	}
 
 	private static final Map<String, PassiveSet> BY_POWER = new HashMap<>();
-	private static final Map<String, Consumer<ServerPlayer>> TICK_BY_POWER = new HashMap<>();
+	// A power's own handler class may call registerTick more than once (e.g. one call for a stance
+	// meter, another for unrelated entity upkeep) -- keep every one of them rather than letting a
+	// later call silently replace an earlier one for the same power key.
+	private static final Map<String, List<Consumer<ServerPlayer>>> TICK_BY_POWER = new HashMap<>();
 
 	private PowerPassives() {
 	}
@@ -33,7 +38,7 @@ public final class PowerPassives {
 	}
 
 	public static void registerTick(String powerKey, Consumer<ServerPlayer> tick) {
-		TICK_BY_POWER.put(powerKey, tick);
+		TICK_BY_POWER.computeIfAbsent(powerKey, k -> new ArrayList<>()).add(tick);
 	}
 
 	public static void activate(ServerPlayer player, Power power) {
@@ -51,9 +56,11 @@ public final class PowerPassives {
 	}
 
 	public static void tick(ServerPlayer player, Power power) {
-		Consumer<ServerPlayer> tick = TICK_BY_POWER.get(power.key());
-		if (tick != null) {
-			tick.accept(player);
+		List<Consumer<ServerPlayer>> ticks = TICK_BY_POWER.get(power.key());
+		if (ticks != null) {
+			for (Consumer<ServerPlayer> tick : ticks) {
+				tick.accept(player);
+			}
 		}
 	}
 

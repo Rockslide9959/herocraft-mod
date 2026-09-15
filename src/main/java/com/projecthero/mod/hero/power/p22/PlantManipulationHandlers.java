@@ -131,12 +131,14 @@ public final class PlantManipulationHandlers {
 				}
 				ctx.setResource("og_charging", 1, 1);
 				ctx.setResource("og_charge_start", ctx.player().level().getGameTime(), 1.0e12f);
+				ctx.setResource("ult_charge", 0, 100);
 			}
 
 			@Override
 			public void onRelease(AbilityContext ctx) {
 				if (ctx.resource("og_charging") > 0.5f) {
 					ctx.setResource("og_charging", 0, 1);
+					ctx.setResource("ult_charge", 0, 100);
 				}
 			}
 
@@ -147,6 +149,7 @@ public final class PlantManipulationHandlers {
 				}
 				ServerPlayer p = ctx.player();
 				long held = p.level().getGameTime() - (long) ctx.resource("og_charge_start");
+				ctx.setResource("ult_charge", (float) Math.min(100.0, held * 100.0 / (5 * 20)), 100);
 				if (p.tickCount % 3 == 0) {
 					ctx.level().sendParticles(ParticleTypes.HAPPY_VILLAGER, p.getX(), p.getY() + 1, p.getZ(), 4, 0.5, 0.6, 0.5, 0.0);
 				}
@@ -154,6 +157,7 @@ public final class PlantManipulationHandlers {
 					return;
 				}
 				ctx.setResource("og_charging", 0, 1);
+				ctx.setResource("ult_charge", 0, 100);
 				ServerLevel level = ctx.level();
 				double r = 20.0;
 				for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
@@ -164,9 +168,13 @@ public final class PlantManipulationHandlers {
 					e.setDeltaMovement(e.getDeltaMovement().multiply(0.1, 1, 0.1));
 				}
 				if (AbilityHelpers.canGrief()) {
-					for (int i = 0; i < 60; i++) {
+					BlockPos standing = p.blockPosition();
+					for (int i = 0; i < 260; i++) {
 						BlockPos bp = BlockPos.containing(p.getX() + level.random.nextGaussian() * r * 0.4, p.getY(),
 								p.getZ() + level.random.nextGaussian() * r * 0.4);
+						if (bp.getX() == standing.getX() && bp.getZ() == standing.getZ()) {
+							continue; // never place on top of the player
+						}
 						if (level.getBlockState(bp).canBeReplaced() && level.getBlockState(bp.below()).isSolidRender(level, bp.below())) {
 							TempBlocks.place(level, bp, level.random.nextBoolean() ? Blocks.OAK_LEAVES.defaultBlockState() : Blocks.MOSS_CARPET.defaultBlockState(), 120);
 						}
@@ -208,10 +216,12 @@ public final class PlantManipulationHandlers {
 			}
 		}));
 
-		// Always-on: right-clicking a growable plant bonemeals it twice.
+		// Always-on: right-clicking a growable plant with an empty hand bonemeals it twice. Gated to an
+		// empty main hand so this never intercepts a normal block-placement right-click on grass/dirt.
 		net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
 			if (world.isClientSide() || hand != net.minecraft.world.InteractionHand.MAIN_HAND
-					|| !(player instanceof ServerPlayer sp) || !ExperimentalPowers.owns(sp, Powers.byKey(KEY))) {
+					|| !(player instanceof ServerPlayer sp) || !ExperimentalPowers.owns(sp, Powers.byKey(KEY))
+					|| !sp.getMainHandItem().isEmpty()) {
 				return net.minecraft.world.InteractionResult.PASS;
 			}
 			BlockPos pos = hitResult.getBlockPos();
@@ -240,7 +250,7 @@ public final class PlantManipulationHandlers {
 				return net.minecraft.world.InteractionResult.PASS;
 			}
 			var power = Powers.byKey(KEY);
-			if (power == null || !ExperimentalPowers.owns(sp, power)
+			if (power == null || !ExperimentalPowers.owns(sp, power) || !sp.getMainHandItem().isEmpty()
 					|| ExperimentalPowers.getResource(sp, power, "bonemeal_until") <= sp.level().getGameTime()) {
 				return net.minecraft.world.InteractionResult.PASS;
 			}
@@ -387,10 +397,18 @@ public final class PlantManipulationHandlers {
 	}
 
 	/**
-	 * Best-effort tree grow: plant the matching sapling, then force it up with a few bonemeal ticks.
+	 * Best-effort tree grow: plant the matching sapling at ground level, then force it up with a few
+	 * bonemeal ticks.
+	 *
+	 * <p>v0.10.21 fix: this used to plant one block ABOVE {@code pos} (the cast point, already the air
+	 * block a standing player occupies at ground level), leaving the tree floating with a visible gap
+	 * -- vanilla's tree feature then converts whatever sits directly under the trunk into dirt, which
+	 * is the "dirt block floating one above the ground" the sapling used to leave behind. Plant
+	 * straight at {@code pos} instead so the trunk starts right on the ground, and only lay down a
+	 * substrate block first when the ground the player was standing on isn't already plantable.
 	 *
 	 * <p>v0.10.20 crash fix: once a bonemeal application actually grows the sapling into a tree, the
-	 * block at {@code at} is no longer a sapling (it's a log or an air pocket under the canopy) but the
+	 * block at {@code pos} is no longer a sapling (it's a log or an air pocket under the canopy) but the
 	 * loop kept calling the ORIGINAL {@code SaplingBlock} instance's {@code performBonemeal} against
 	 * that new, unrelated block state -- e.g. handing a {@code minecraft:oak_log} state to
 	 * {@code SaplingBlock#performBonemeal}, which reads sapling-only block-state properties that the
@@ -399,18 +417,20 @@ public final class PlantManipulationHandlers {
 	 * is no longer a bonemealable target of some kind.
 	 */
 	private static void growTreeAt(ServerLevel level, BlockPos pos) {
-		BlockPos at = pos.above();
-		if (!level.getBlockState(at).canBeReplaced()) {
+		if (!level.getBlockState(pos).canBeReplaced()) {
 			return;
 		}
+		if (!onNatureGround(level, pos)) {
+			level.setBlock(pos.below(), Blocks.DIRT.defaultBlockState(), 3);
+		}
 		Block sapling = biomeSapling(level, pos);
-		level.setBlock(at, sapling.defaultBlockState(), 3);
+		level.setBlock(pos, sapling.defaultBlockState(), 3);
 		for (int i = 0; i < 8; i++) {
-			BlockState cur = level.getBlockState(at);
-			if (!(cur.getBlock() instanceof BonemealableBlock bm) || !bm.isValidBonemealTarget(level, at, cur)) {
+			BlockState cur = level.getBlockState(pos);
+			if (!(cur.getBlock() instanceof BonemealableBlock bm) || !bm.isValidBonemealTarget(level, pos, cur)) {
 				break;
 			}
-			bm.performBonemeal(level, level.random, at, cur);
+			bm.performBonemeal(level, level.random, pos, cur);
 		}
 	}
 

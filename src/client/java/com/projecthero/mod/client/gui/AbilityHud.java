@@ -307,6 +307,12 @@ public final class AbilityHud {
 				color = 0xFFE05252;
 				text = Component.literal("Psi — BURNED OUT");
 			}
+			// v0.10.21: Energy Absorption's bar is always on screen -- show the exact percentage next
+			// to the label rather than leaving the player to eyeball the fill.
+			if (name.equals("energy")) {
+				text = Component.literal("Energy: "
+						+ String.format(java.util.Locale.ROOT, "%.2f", value / max * 100.0f) + "%");
+			}
 			out.add(new Meter(text, value, max, color));
 		}
 		return out;

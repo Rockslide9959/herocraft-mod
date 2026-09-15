@@ -134,59 +134,42 @@ public final class InvisibilityLightHandlers {
 			}
 		});
 
-		// G -- Light Orb: a floating orb above the player fires a homing beam once a second for 8 seconds.
-		// Shift+G is Solar Eruption, a short-range ground-slam nova.
-		AbilityHandlers.register(KEY, "flash", new AbilityHandler() {
-			@Override
-			public void onActivate(AbilityContext ctx) {
-				ServerPlayer p = ctx.player();
-				ServerLevel level = ctx.level();
-				if (p.isShiftKeyDown()) {
-					Vec3 at = p.position().add(p.getLookAngle().scale(3));
-					double r = range(p, 4.0);
-					for (LivingEntity e : AbilityHelpers.enemiesAround(p, at, r)) {
-						AbilityHelpers.hurt(p, e, dmg(p, 16.0f));
-						AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 60, 0);
-						AbilityHelpers.knockbackFrom(e, at, 1.0);
-					}
-					level.sendParticles(ParticleTypes.FLASH, at.x, at.y, at.z, 1, 0, 0, 0, 0);
-					yellowBurst(level, at, 40, r * 0.5);
-					AbilityHelpers.sound(p, SoundEvents.BEACON_DEACTIVATE, 1.1f, 1.6f);
-					ctx.triggerCooldown(10 * 20);
-					return;
+		// G -- Light Lance: an instant piercing lance of light that skewers everything along the line.
+		// Shift+G is Radiant Lance: a bigger, harder-hitting lance that also blinds and detonates in a
+		// burst of light at its far end.
+		AbilityHandlers.register(KEY, "flash", Handlers.instant(ctx -> {
+			ServerPlayer p = ctx.player();
+			ServerLevel level = ctx.level();
+			if (p.isShiftKeyDown()) {
+				double r = range(p, 30.0);
+				Vec3 end = AbilityHelpers.aimPoint(p, r);
+				for (LivingEntity e : lanceTargets(p, r, 1.6)) {
+					AbilityHelpers.hurt(p, e, dmg(p, 20.0f));
+					AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 80, 0); // 4s
+					AbilityHelpers.knockbackFrom(e, p.position(), 0.8);
 				}
-				if (!ctx.cooldownReady()) {
-					onCooldownMessage(ctx);
-					return;
-				}
-				ctx.setResource("orb_ticks", 160, 160); // 8s
-				ctx.setResource("orb_shot_timer", 0, 1);
-				fireOrbBeam(ctx);
-				AbilityHelpers.sound(p, SoundEvents.BEACON_POWER_SELECT, 1.0f, 1.6f);
-				ctx.triggerCooldown(30 * 20);
+				AbilityHelpers.line(level, handOrigin(p), end, ParticleTypes.END_ROD, 2.0);
+				level.sendParticles(ParticleTypes.FLASH, end.x, end.y, end.z, 1, 0, 0, 0, 0);
+				yellowBurst(level, end, 40, 1.4);
+				AbilityHelpers.sound(p, SoundEvents.BEACON_DEACTIVATE, 1.1f, 1.6f);
+				ctx.triggerCooldown(12 * 20);
+				return;
 			}
-
-			@Override
-			public void onServerTick(AbilityContext ctx) {
-				int t = (int) ctx.resource("orb_ticks");
-				if (t <= 0) {
-					return;
-				}
-				ServerPlayer p = ctx.player();
-				t--;
-				ctx.setResource("orb_ticks", t, 160);
-				Vec3 orb = p.position().add(0, p.getBbHeight() + 0.5, 0);
-				if (p.tickCount % 2 == 0) {
-					yellowBurst(ctx.level(), orb, 3, 0.15);
-				}
-				float timer = ctx.resource("orb_shot_timer") + 1;
-				if (t > 0 && timer >= 20) {
-					fireOrbBeam(ctx);
-					timer = 0;
-				}
-				ctx.setResource("orb_shot_timer", timer, 1);
+			if (!ctx.cooldownReady()) {
+				onCooldownMessage(ctx);
+				return;
 			}
-		});
+			double r = range(p, 26.0);
+			Vec3 end = AbilityHelpers.aimPoint(p, r);
+			for (LivingEntity e : lanceTargets(p, r, 1.0)) {
+				AbilityHelpers.hurt(p, e, dmg(p, 14.0f));
+				AbilityHelpers.applyControl(e, MobEffects.GLOWING, 100, 0);
+			}
+			AbilityHelpers.line(level, handOrigin(p), end, ParticleTypes.END_ROD, 3.0);
+			yellowBurst(level, handOrigin(p), 10, 0.15);
+			AbilityHelpers.sound(p, SoundEvents.BEACON_POWER_SELECT, 1.0f, 1.6f);
+			ctx.triggerCooldown(6 * 20);
+		}));
 
 		// X -- Sparkling Flight (unchanged).
 		AbilityHandlers.register(KEY, "mirage_dash", new AbilityHandler() {
@@ -407,29 +390,16 @@ public final class InvisibilityLightHandlers {
 				String.format(java.util.Locale.ROOT, "%.1f", ctx.cooldownRemaining() / 20.0f));
 	}
 
-	/** One shot from the Light Orb: homes onto the nearest living enemy within range. */
-	private static void fireOrbBeam(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		Vec3 orb = p.position().add(0, p.getBbHeight() + 0.5, 0);
-		LivingEntity target = null;
-		double best = 16.0 * 16.0;
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 16.0)) {
-			double d = e.distanceToSqr(p);
-			if (d < best) {
-				best = d;
-				target = e;
-			}
+	/** Every enemy within {@code radius} of the look-ray out to {@code range}, for a piercing lance. */
+	private static java.util.Set<LivingEntity> lanceTargets(ServerPlayer p, double range, double radius) {
+		java.util.LinkedHashSet<LivingEntity> hit = new java.util.LinkedHashSet<>();
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		int steps = (int) Math.ceil(range);
+		for (int i = 1; i <= steps; i++) {
+			hit.addAll(AbilityHelpers.enemiesAround(p, eye.add(look.scale(i)), radius));
 		}
-		if (target == null) {
-			yellowBurst(level, orb, 10, 0.3);
-			return;
-		}
-		Vec3 end = target.position().add(0, target.getBbHeight() * 0.5, 0);
-		AbilityHelpers.line(level, orb, end, ParticleTypes.END_ROD, 3.0);
-		yellowBurst(level, orb, 8, 0.15);
-		AbilityHelpers.hurt(p, target, dmg(p, 14.0f));
-		AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 0.8f, 1.7f);
+		return hit;
 	}
 
 	private static void fireBlast(AbilityContext ctx, float bonusDamage) {

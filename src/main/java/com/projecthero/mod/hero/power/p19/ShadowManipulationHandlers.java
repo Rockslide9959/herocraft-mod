@@ -84,6 +84,13 @@ public final class ShadowManipulationHandlers {
 		if (isDeepDark(level, pos)) {
 			return 1.3f;
 		}
+		// v0.10.21: guarantee full darkness outdoors at night away from any light source, rather than
+		// leaving it to the raw sky-darken math -- which is already low at night but can still sit in
+		// the 7-12 range during the dusk/dawn transition, reading as merely "indoor lighting".
+		if (!level.isDay() && level.canSeeSky(pos)
+				&& level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, pos) == 0) {
+			return 1.0f;
+		}
 		int light = level.getMaxLocalRawBrightness(pos);
 		if (light >= 13) {
 			return 0.5f;
@@ -164,7 +171,7 @@ public final class ShadowManipulationHandlers {
 					return;
 				}
 				float timer = ctx.resource("bolt_timer") + 1;
-				if (timer >= 4) {
+				if (timer >= 15) { // 0.75s between shots
 					fireBolt(ctx);
 					ctx.setResource("bolt_burst", left - 1, 5);
 					timer = 0;
@@ -186,6 +193,11 @@ public final class ShadowManipulationHandlers {
 					}
 					AbilityHelpers.hurt(p, e, damage);
 					AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 160, 0); // 8s
+					AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 160, 9);
+					AbilityHelpers.applyControl(e, MobEffects.JUMP, 160, -10);
+					e.setDeltaMovement(e.getDeltaMovement().multiply(0, 1, 0));
+					e.hurtMarked = true;
+					ROOTED.put(e.getId(), p.level().getGameTime() + 160);
 				}
 				AbilityHelpers.line(ctx.level(), p.getEyePosition(), p.getEyePosition().add(look.scale(10)),
 						ParticleTypes.SQUID_INK, 1.5);
@@ -196,11 +208,6 @@ public final class ShadowManipulationHandlers {
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.getEyePosition().add(look(p).scale(4)), 4.0)) {
 				AbilityHelpers.hurt(p, e, damage);
 				AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 160, 0); // 8s
-				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 160, 9);
-				AbilityHelpers.applyControl(e, MobEffects.JUMP, 160, -10);
-				e.setDeltaMovement(e.getDeltaMovement().multiply(0, 1, 0));
-				e.hurtMarked = true;
-				ROOTED.put(e.getId(), p.level().getGameTime() + 160);
 			}
 			AbilityHelpers.burst(ctx.level(), p.getEyePosition().add(look(p).scale(4)), ParticleTypes.SQUID_INK, 30, 0.8);
 			AbilityHelpers.sound(p, SoundEvents.WARDEN_ATTACK_IMPACT, 0.8f, 0.7f);

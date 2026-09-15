@@ -10,6 +10,7 @@ import com.projecthero.mod.hero.power.Handlers;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.effect.MobEffects;
@@ -26,7 +27,8 @@ public final class ShockwaveHandlers {
 	}
 
 	public static void register() {
-		// R -- Shockwave Punch. Shift+R is Shockwave Pulse, a traveling ground wave with step assist.
+		// R -- Shockwave Punch. Shift+R is Ground Wave, a traveling shockwave along the ground with
+		// step assist.
 		AbilityHandlers.register(KEY, "shockwave_punch", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
 			if (p.isShiftKeyDown()) {
@@ -59,25 +61,20 @@ public final class ShockwaveHandlers {
 			ctx.triggerCooldown(3 * 20);
 		}));
 
-		AbilityHandlers.register(KEY, "ground_wave", Handlers.instantTicking(ctx -> {
-			ctx.setResource("wave", 20, 20);
-			AbilityHelpers.sound(ctx.player(), SoundEvents.WIND_CHARGE_BURST, 1.0f, 0.7f);
-			ctx.triggerCooldown();
-		}, ctx -> {
-			int t = (int) ctx.resource("wave");
-			if (t <= 0) {
-				return;
-			}
-			ctx.setResource("wave", t - 1, 20);
+		// G -- Shockwave Burst: the same 15-damage strike as Ground Wave, but centered on the player as
+		// an instant 8-block-radius AoE instead of a traveling wave.
+		AbilityHandlers.register(KEY, "ground_wave", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
-			double dist = (20 - t) * 1.0;
-			Vec3 ring = p.position().add(p.getLookAngle().multiply(1, 0, 1).normalize().scale(dist));
-			for (LivingEntity e : AbilityHelpers.enemiesAround(p, ring, 2.0)) {
+			ServerLevel level = ctx.level();
+			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 8.0)) {
 				AbilityHelpers.hurt(p, e, 15.0f);
 				AbilityHelpers.push(e, new Vec3(0, 0.6, 0));
 				AbilityHelpers.knockbackFrom(e, p.position(), 0.8);
 			}
-			ctx.level().sendParticles(ParticleTypes.CLOUD, ring.x, ring.y + 0.2, ring.z, 12, 1.0, 0.1, 1.0, 0.02);
+			level.sendParticles(ParticleTypes.SONIC_BOOM, p.getX(), p.getY() + 0.2, p.getZ(), 8, 4.0, 0.2, 4.0, 0.0);
+			level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.2, p.getZ(), 40, 4.0, 0.2, 4.0, 0.02);
+			AbilityHelpers.sound(p, SoundEvents.WIND_CHARGE_BURST, 1.0f, 0.7f);
+			ctx.triggerCooldown();
 		}));
 
 		// X -- Recoil Jump (unchanged).
@@ -90,7 +87,7 @@ public final class ShockwaveHandlers {
 			ctx.setResource("no_fall_until", p.level().getGameTime() + 200, 1.0e12f);
 			ctx.level().sendParticles(ParticleTypes.EXPLOSION, p.getX(), p.getY(), p.getZ(), 1, 0, 0, 0, 0);
 			AbilityHelpers.sound(p, SoundEvents.WIND_CHARGE_BURST, 0.9f, 1.5f);
-			ctx.triggerCooldown();
+			ctx.triggerCooldown(3 * 20);
 		}));
 
 		// Z -- hold for 5 seconds to charge, costs the full Charge bar, 100s cooldown.
@@ -192,7 +189,7 @@ public final class ShockwaveHandlers {
 					return;
 				}
 				ctx.setResource("charging", 1, 1);
-				AbilityHelpers.sound(ctx.player(), SoundEvents.WARDEN_SONIC_CHARGE, 0.7f, 1.2f);
+				AbilityHelpers.sound(ctx.player(), SoundEvents.WARDEN_SONIC_CHARGE, 0.35f, 1.2f);
 			}
 
 			@Override
@@ -211,6 +208,11 @@ public final class ShockwaveHandlers {
 				if (p.tickCount % 8 == 0) {
 					ctx.level().sendParticles(ParticleTypes.SONIC_BOOM,
 							p.getX(), p.getY() + 0.2, p.getZ(), 1, 0.0, 0.0, 0.0, 0.0);
+				}
+				// A soft, sparse loop so charging up doesn't go silent, without repeating often enough
+				// to grate.
+				if (p.tickCount % 25 == 0) {
+					AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_CHARGE, 0.2f, 1.4f);
 				}
 			}
 
