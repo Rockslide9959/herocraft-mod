@@ -139,6 +139,26 @@ public final class ModArmorMaterials {
 			0.0f,
 			() -> Ingredient.of(Items.STRING));
 
+	/**
+	 * The Green Lantern suit's raw {@code ArmorMaterial} defence -- the ring's construct shell around
+	 * the wearer. Per the build brief: 18 armour points total (3 boots / 5 leggings / 7 chest / 3
+	 * helmet), toughness 6.0 (deliberately above diamond/netherite -- hard-light, not metal plate), and
+	 * 0.20 knockback resistance from the material itself. Never crafted (synthesised on Suit Up), so
+	 * the repair ingredient is nominal. Reuses Thor's flat fallback layer (never seen -- GeckoLib
+	 * renders the real model).
+	 */
+	public static final Holder<ArmorMaterial> GREEN_LANTERN = registerWithLayer("green_lantern", "thor",
+			Map.of(
+					ArmorItem.Type.BOOTS, 3,
+					ArmorItem.Type.LEGGINGS, 5,
+					ArmorItem.Type.CHESTPLATE, 7,
+					ArmorItem.Type.HELMET, 3),
+			15,
+			SoundEvents.ARMOR_EQUIP_DIAMOND,
+			6.0f,
+			0.20f,
+			() -> Ingredient.of(Items.EMERALD));
+
 	private ModArmorMaterials() {
 	}
 

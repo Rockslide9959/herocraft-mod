@@ -84,6 +84,10 @@ public final class HeroPackGuide {
 		return chapters().get(CH_PUNISHER);
 	}
 
+	public static Chapter greenLanternChapter() {
+		return chapters().get(CH_GREEN_LANTERN);
+	}
+
 	public static Chapter symbioteChapter() {
 		return chapters().get(CH_SYMBIOTE);
 	}
@@ -197,12 +201,13 @@ public final class HeroPackGuide {
 	private static final int CH_SPIDER_MAN = 7;
 	private static final int CH_MAX_STEEL = 8;
 	private static final int CH_PUNISHER = 9;
-	private static final int CH_SYMBIOTE = 10;
-	private static final int CH_ZOMBIE_RAID = 11;
-	private static final int CH_SUPERVILLAIN_RAID = 12;
-	private static final int CH_TITAN = 13;
-	private static final int CH_SQUADS = 14;
-	private static final int CHAPTER_POWER_BASE = 15;
+	private static final int CH_GREEN_LANTERN = 10;
+	private static final int CH_SYMBIOTE = 11;
+	private static final int CH_ZOMBIE_RAID = 12;
+	private static final int CH_SUPERVILLAIN_RAID = 13;
+	private static final int CH_TITAN = 14;
+	private static final int CH_SQUADS = 15;
+	private static final int CHAPTER_POWER_BASE = 16;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -378,6 +383,40 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.punisher.crafting");
 		}));
 
+		// Green Lantern -- Hero Tier. The "toolbox" hero: a bonded Power Ring, a 10,000-point Ring
+		// Charge resource, controlled flight, hard-light constructs, ranged attacks and shielding.
+		out.add(chapter("projecthero.guide.green_lantern", lines -> {
+			lines.add(Component.translatable("projecthero.guide.green_lantern.tier").withStyle(ChatFormatting.GREEN));
+			para(lines, "projecthero.guide.green_lantern.body");
+			blank(lines);
+			head(lines, "projecthero.guide.green_lantern.progression");
+			para(lines, "projecthero.guide.green_lantern.step.find");
+			para(lines, "projecthero.guide.green_lantern.step.trial");
+			blank(lines);
+			head(lines, "projecthero.guide.green_lantern.charge");
+			para(lines, "projecthero.guide.green_lantern.charge.body");
+			blank(lines);
+			head(lines, "projecthero.guide.green_lantern.controls");
+			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {
+				String key = switch (slot) {
+					case "R" -> "ring_bolt"; case "G" -> "construct_fist"; case "X" -> "flight";
+					case "Z" -> "shield"; case "V" -> "suit"; default -> "construct";
+				};
+				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.guide.green_lantern.ability." + key).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.guide.green_lantern.ability." + key);
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.green_lantern.constructs");
+			para(lines, "projecthero.guide.green_lantern.constructs.body");
+			blank(lines);
+			head(lines, "projecthero.guide.green_lantern.mastery");
+			para(lines, "projecthero.guide.green_lantern.mastery.body");
+			blank(lines);
+			head(lines, "projecthero.guide.green_lantern.battery");
+			para(lines, "projecthero.guide.green_lantern.battery.body");
+		}));
+
 		// The Symbiote -- not a Hero Class of its own like the other four: any player can bond with it,
 		// and which of the two host variants they get is derived live from whether they also hold
 		// Spider-Man. Sits with the other Hero-Tier chapters because that is what pressing I shows.
@@ -498,6 +537,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.spider_man", CH_SPIDER_MAN);
 		link(idx, "projecthero.guide.max_steel", CH_MAX_STEEL);
 		link(idx, "projecthero.guide.punisher", CH_PUNISHER);
+		link(idx, "projecthero.guide.green_lantern", CH_GREEN_LANTERN);
 		link(idx, "projecthero.guide.symbiote", CH_SYMBIOTE);
 
 		section(idx, "projecthero.guide.section.events", true);

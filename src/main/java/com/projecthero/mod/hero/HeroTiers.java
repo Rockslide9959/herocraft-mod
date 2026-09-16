@@ -1,5 +1,6 @@
 package com.projecthero.mod.hero;
 
+import com.projecthero.mod.greenlantern.GreenLantern;
 import com.projecthero.mod.hero.power.HeroFlight;
 import com.projecthero.mod.ironman.TonyStark;
 import com.projecthero.mod.maxsteel.MaxSteel;
@@ -38,7 +39,8 @@ public final class HeroTiers {
 				|| TonyStark.hasPower(player)
 				|| SpiderMan.hasPower(player)
 				|| MaxSteel.hasPower(player)
-				|| Punisher.hasPower(player);
+				|| Punisher.hasPower(player)
+				|| GreenLantern.hasPower(player);
 	}
 
 	/** True if the player owns any of the 27 experimental mutation powers. */
@@ -90,6 +92,9 @@ public final class HeroTiers {
 		if (!excludeHeroKeys.contains("punisher") && Punisher.hasPower(player)) {
 			Punisher.revoke(player);
 		}
+		if (!excludeHeroKeys.contains("green_lantern") && GreenLantern.hasPower(player)) {
+			GreenLantern.revoke(player);
+		}
 
 		PowerPassives.reconcileActive(player);
 	}
@@ -116,6 +121,9 @@ public final class HeroTiers {
 			return true;
 		}
 		if (!excludeHeroKeys.contains("punisher") && Punisher.hasPower(player)) {
+			return true;
+		}
+		if (!excludeHeroKeys.contains("green_lantern") && GreenLantern.hasPower(player)) {
 			return true;
 		}
 		return false;

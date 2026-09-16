@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:fallen_lantern_site",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 7742051,
+    "spacing": 130,
+    "separation": 25
+  }
+}

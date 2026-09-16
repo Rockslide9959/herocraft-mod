@@ -139,7 +139,7 @@ public final class ShadowManipulationHandlers {
 	}
 
 	public static void register() {
-		// R -- Shadow Bolt. Shift+R fires five in a row.
+		// R -- Shadow Bolt. Shift+R fires all 5 at once, fanned out in front of the caster.
 		AbilityHandlers.register(KEY, "shadow_bolt", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
@@ -149,10 +149,7 @@ public final class ShadowManipulationHandlers {
 						onCooldownMessage(ctx);
 						return;
 					}
-					ctx.setResource("bolt_burst", 5, 5);
-					ctx.setResource("bolt_timer", 0, 1);
-					fireBolt(ctx);
-					ctx.setResource("bolt_burst", 4, 5);
+					fireBoltVolley(ctx);
 					ctx.triggerCooldown(Math.max(1, Math.round(15 * 20 / tier(p))));
 					return;
 				}
@@ -162,21 +159,6 @@ public final class ShadowManipulationHandlers {
 				}
 				fireBolt(ctx);
 				cd(ctx, 40);
-			}
-
-			@Override
-			public void onServerTick(AbilityContext ctx) {
-				int left = (int) ctx.resource("bolt_burst");
-				if (left <= 0) {
-					return;
-				}
-				float timer = ctx.resource("bolt_timer") + 1;
-				if (timer >= 15) { // 0.75s between shots
-					fireBolt(ctx);
-					ctx.setResource("bolt_burst", left - 1, 5);
-					timer = 0;
-				}
-				ctx.setResource("bolt_timer", timer, 1);
 			}
 		});
 
@@ -475,6 +457,66 @@ public final class ShadowManipulationHandlers {
 			blind4s(t);
 		}
 		AbilityHelpers.sound(p, SoundEvents.SCULK_CLICKING, 1.0f, 0.6f);
+	}
+
+	/**
+	 * Shift+R: all 5 Shadow Bolts fire in the same instant as a fan spread (-20/-10/0/+10/+20 degrees
+	 * off the caster's yaw), rather than trickling out one every 0.75s. Each bolt independently
+	 * raycasts along its own fanned direction, so a wide group of enemies can be hit in one press.
+	 */
+	private static void fireBoltVolley(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		double[] yawOffsets = {-20.0, -10.0, 0.0, 10.0, 20.0};
+		for (double offset : yawOffsets) {
+			Vec3 dir = yawOffsetLook(p, offset);
+			fireBoltInDirection(ctx, dir);
+		}
+		AbilityHelpers.sound(p, SoundEvents.SCULK_CLICKING, 1.2f, 0.5f);
+	}
+
+	/** The player's look direction, rotated {@code degrees} around the vertical (yaw) axis. */
+	private static Vec3 yawOffsetLook(ServerPlayer p, double degrees) {
+		double yaw = Math.toRadians(p.getYRot() + degrees);
+		double pitch = Math.toRadians(p.getXRot());
+		double xz = Math.cos(pitch);
+		return new Vec3(-Math.sin(yaw) * xz, -Math.sin(pitch), Math.cos(yaw) * xz).normalize();
+	}
+
+	/** One fanned bolt: raycasts blocks and living entities along {@code dir} rather than the player's exact look. */
+	private static void fireBoltInDirection(AbilityContext ctx, Vec3 dir) {
+		ServerPlayer p = ctx.player();
+		Vec3 eye = p.getEyePosition();
+		double range = 24.0;
+		Vec3 end = eye.add(dir.scale(range));
+		net.minecraft.world.phys.BlockHitResult blockHit = ctx.level().clip(new net.minecraft.world.level.ClipContext(
+				eye, end, net.minecraft.world.level.ClipContext.Block.COLLIDER,
+				net.minecraft.world.level.ClipContext.Fluid.NONE, p));
+		double maxDist = blockHit.getType() != net.minecraft.world.phys.HitResult.Type.MISS
+				? eye.distanceTo(blockHit.getLocation()) : range;
+
+		LivingEntity best = null;
+		double bestDist = maxDist;
+		for (LivingEntity e : AbilityHelpers.living(ctx.level(), eye, range, le -> le != p)) {
+			Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);
+			double dist = to.length();
+			if (dist < 1.0e-4 || dist > maxDist) {
+				continue;
+			}
+			if (to.normalize().dot(dir) < 0.94) { // ~20 degree cone around this fan direction
+				continue;
+			}
+			if (dist < bestDist) {
+				best = e;
+				bestDist = dist;
+			}
+		}
+
+		Vec3 endPoint = best != null ? best.position().add(0, best.getBbHeight() * 0.5, 0) : eye.add(dir.scale(maxDist));
+		AbilityHelpers.line(ctx.level(), eye, endPoint, ParticleTypes.SQUID_INK, 3.0);
+		if (best != null) {
+			AbilityHelpers.hurt(p, best, dmg(p, 11.0f) + cloakAbilityBonus(p));
+			blind4s(best);
+		}
 	}
 
 	/** Scan the look ray up to {@code range} for the first sufficiently dark block position. */

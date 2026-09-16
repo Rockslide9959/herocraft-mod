@@ -84,6 +84,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.ScopeOverlay::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.PunisherHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SymbioteHud::render);
+		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternHud::render);
 
 		net.minecraft.client.gui.screens.MenuScreens.register(
 				com.projecthero.mod.ironman.IronManBlocks.STARK_FABRICATOR_MENU,

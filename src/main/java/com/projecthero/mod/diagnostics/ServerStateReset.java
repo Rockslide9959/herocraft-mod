@@ -105,5 +105,10 @@ public final class ServerStateReset {
 		com.projecthero.mod.hero.power.p11.TeleportationHandlers.clearSessionState();
 		com.projecthero.mod.hero.power.p23.GravityHandlers.clearSessionState();
 		com.projecthero.mod.hero.power.p22.PlantManipulationHandlers.clearSessionState();
+		com.projecthero.mod.greenlantern.GreenLanternAbilityManager.clearSessionState();
+		com.projecthero.mod.greenlantern.GreenLanternCombat.clearSessionState();
+		com.projecthero.mod.greenlantern.GreenLanternBattery.clearSessionState();
+		com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.clearSessionState();
+		com.projecthero.mod.greenlantern.GreenLanternTrial.clearSessionState();
 	}
 }

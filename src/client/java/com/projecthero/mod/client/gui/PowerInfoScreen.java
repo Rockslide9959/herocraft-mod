@@ -171,6 +171,9 @@ public final class PowerInfoScreen extends Screen {
 		if (com.projecthero.mod.punisher.Punisher.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.punisherChapter();
 		}
+		if (com.projecthero.mod.greenlantern.GreenLantern.hasPower(mc.player)) {
+			return com.projecthero.mod.hero.guide.HeroPackGuide.greenLanternChapter();
+		}
 		boolean thor = com.projecthero.mod.worthiness.Worthiness.isWorthy(mc.player)
 				|| mc.player.getMainHandItem().is(com.projecthero.mod.item.ModItems.MJOLNIR)
 				|| mc.player.getOffhandItem().is(com.projecthero.mod.item.ModItems.MJOLNIR);

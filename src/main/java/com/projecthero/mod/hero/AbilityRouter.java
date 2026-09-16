@@ -99,6 +99,13 @@ public final class AbilityRouter {
 			return;
 		}
 
+		// Green Lantern takes the slots ahead of an experimental power on the same terms as every other
+		// Hero-Tier power: has the power and has not selected a mutation from the wheel.
+		if (com.projecthero.mod.greenlantern.GreenLanternAbilityManager.hasContext(player)) {
+			com.projecthero.mod.greenlantern.GreenLanternAbilityManager.handle(player, slot, pressed);
+			return;
+		}
+
 		// A Normal Symbiote host (bonded, suit active, NOT also Spider-Man -- that combination is Black
 		// Suit Spider-Man and stays on SpiderManAbilityManager above) gets its own six tendril/mobility/
 		// defence abilities. Moot in practice that this sits after every Hero-Tier check: bonding purges
@@ -177,6 +184,7 @@ public final class AbilityRouter {
 		// Max Steel's energy / transform / mode upkeep runs regardless of which power holds the slots.
 		com.projecthero.mod.maxsteel.MaxSteelAbilityManager.serverTick(player);
 		com.projecthero.mod.punisher.PunisherAbilityManager.serverTick(player);
+		com.projecthero.mod.greenlantern.GreenLanternAbilityManager.serverTick(player);
 		// v0.6.20: the Spider-Man costume mask (H key) is tied to the costume, not the power, so its
 		// "mask can't stay off once the hood comes off" reconcile has to run for every player.
 		com.projecthero.mod.spider.SpiderMask.reconcile(player);

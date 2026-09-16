@@ -80,6 +80,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.firearm.item.FirearmItems.initialize();
 		com.projecthero.mod.punisher.item.PunisherItems.initialize();
 		com.projecthero.mod.punisher.entity.PunisherEntityTypes.initialize();
+		com.projecthero.mod.greenlantern.item.GreenLanternItems.initialize();
 		com.projecthero.mod.hero.power.p05.GeoEntityTypes.initialize();
 		Powers.initialize();
 		HeroPowerHandlers.registerAll();
@@ -98,6 +99,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.maxsteel.MaxSteelDamage.initialize();
 		com.projecthero.mod.punisher.Punisher.initialize();
 		com.projecthero.mod.punisher.PunisherDamage.initialize();
+		com.projecthero.mod.greenlantern.GreenLanternDamage.initialize();
+		com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.initialize();
 		com.projecthero.mod.symbiote.SymbioteDamageRules.initialize();
 		com.projecthero.mod.symbiote.SymbioteVitalsManager.initialize();
 		com.projecthero.mod.combat.SonicTriggers.initialize();
@@ -139,6 +142,8 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.event.raid.PillagerSpySpawner.tick(server);
 			com.projecthero.mod.titan.TitanSpawner.tick(server);
 			com.projecthero.mod.spider.SpiderWebs.tick(server);
+			com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.tick(server);
+			com.projecthero.mod.greenlantern.GreenLanternTrial.tick(server);
 			server.getPlayerList().getPlayers().forEach(player -> {
 				TickWatchdog.run("ThorPowers.serverTick", () -> ThorPowers.serverTick(player));
 				TickWatchdog.run("HeroFlight.tick", () -> HeroFlight.tick(player));
@@ -192,6 +197,9 @@ public class ProjectHeroMod implements ModInitializer {
 				// Punisher: drop Adrenaline / Suppressive / roll modifiers and clear placed C4 (the
 				// power itself is kept via copyOnDeath).
 				com.projecthero.mod.punisher.Punisher.clearTransient(sp);
+				// Green Lantern: active constructs vanish, the suit deactivates, flight/shield/dome end
+				// (the power and Ring Charge/Mastery are kept via copyOnDeath).
+				com.projecthero.mod.greenlantern.GreenLantern.clearTransient(sp);
 			}
 			return true;
 		});
@@ -254,6 +262,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.spider.SpiderMan.onPlayerJoin(player);
 			com.projecthero.mod.maxsteel.MaxSteel.onPlayerJoin(player);
 			com.projecthero.mod.punisher.Punisher.onPlayerJoin(player);
+			com.projecthero.mod.greenlantern.GreenLantern.onPlayerJoin(player);
 		});
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
 			ThorPowers.onPlayerRespawn(newPlayer);
@@ -268,6 +277,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.spider.SpiderMan.onPlayerRespawn(newPlayer);
 			com.projecthero.mod.maxsteel.MaxSteel.onPlayerRespawn(newPlayer);
 			com.projecthero.mod.punisher.Punisher.onPlayerRespawn(newPlayer);
+			com.projecthero.mod.greenlantern.GreenLantern.onPlayerRespawn(newPlayer);
 		});
 
 		// Spider-Man traversal cleanup (spec sections 39-41). A swing anchor is a raw coordinate, so
@@ -280,6 +290,7 @@ public class ProjectHeroMod implements ModInitializer {
 					com.projecthero.mod.maxsteel.MaxSteel.clearTransient(player);
 					com.projecthero.mod.punisher.Punisher.clearTransient(player);
 					com.projecthero.mod.symbiote.Symbiote.clearTransient(player);
+					com.projecthero.mod.greenlantern.GreenLantern.clearTransient(player);
 				});
 		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			com.projecthero.mod.spider.SpiderMan.clearTransient(handler.getPlayer());
@@ -288,6 +299,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.firearm.FirearmManager.onCleanup(handler.getPlayer().getUUID());
 			com.projecthero.mod.punisher.Punisher.clearTransient(handler.getPlayer());
 			com.projecthero.mod.symbiote.Symbiote.clearTransient(handler.getPlayer());
+			com.projecthero.mod.greenlantern.GreenLantern.clearTransient(handler.getPlayer());
 		});
 
 		LOGGER.info("ProjectHero is assembling!");

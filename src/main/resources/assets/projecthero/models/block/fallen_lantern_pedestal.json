@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "projecthero:block/fallen_lantern_pedestal"
+  }
+}

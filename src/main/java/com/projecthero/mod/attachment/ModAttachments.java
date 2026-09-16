@@ -409,6 +409,52 @@ public final class ModAttachments {
 			builder -> builder.initializer(() -> false)
 					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
 
+	/**
+	 * The entire Green Lantern Hero-Tier power for one player -- Ring Charge, suit state, selected
+	 * construct, Mastery progress, cumulative counters and ability cooldowns. Persistent + copyOnDeath
+	 * (the power and Mastery must survive death/relog), synced to everyone (other clients render the
+	 * suit). Server stays authoritative. Isolated from every other attachment here.
+	 */
+	public static final AttachmentType<com.projecthero.mod.greenlantern.data.GreenLanternState> GREEN_LANTERN_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("green_lantern_state"),
+					builder -> builder.persistent(com.projecthero.mod.greenlantern.data.GreenLanternState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.greenlantern.data.GreenLanternState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.greenlantern.data.GreenLanternState.CODEC),
+									AttachmentSyncPredicate.all()));
+
+	/**
+	 * Whether Ring Flight is currently engaged. Independent of every other flight flag, exactly like
+	 * {@link #MAX_STEEL_FLYING}. Not persisted (a relog drops you safely); synced to everyone so
+	 * thruster particles/pose read on other clients.
+	 */
+	public static final AttachmentType<Boolean> GREEN_LANTERN_FLYING = AttachmentRegistry.create(
+			ProjectHeroMod.id("green_lantern_flying"),
+			builder -> builder.initializer(() -> false)
+					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
+
+	/** Whether Ring Flight's boost is currently held. Purely a render/HUD flag. */
+	public static final AttachmentType<Boolean> GREEN_LANTERN_BOOSTING = AttachmentRegistry.create(
+			ProjectHeroMod.id("green_lantern_boosting"),
+			builder -> builder.initializer(() -> false)
+					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
+
+	/**
+	 * Current HP of the player's active Directional Shield/Protective Dome, or 0 when neither is up.
+	 * Deliberately not part of {@link #GREEN_LANTERN_STATE} -- combat state that must never survive a
+	 * relog. Synced to everyone so the barrier's translucency/HP can be inferred by anyone nearby.
+	 */
+	public static final AttachmentType<Float> GREEN_LANTERN_BARRIER_HP = AttachmentRegistry.create(
+			ProjectHeroMod.id("green_lantern_barrier_hp"),
+			builder -> builder.initializer(() -> 0f)
+					.syncWith(ByteBufCodecs.FLOAT, AttachmentSyncPredicate.all()));
+
+	/** True while the active barrier is the Protective Dome (Shift+Z) rather than the Directional Shield. */
+	public static final AttachmentType<Boolean> GREEN_LANTERN_BARRIER_IS_DOME = AttachmentRegistry.create(
+			ProjectHeroMod.id("green_lantern_barrier_is_dome"),
+			builder -> builder.initializer(() -> false)
+					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
+
 	private ModAttachments() {
 	}
 

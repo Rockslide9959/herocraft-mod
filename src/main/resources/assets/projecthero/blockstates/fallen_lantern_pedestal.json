@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "claimed=false": {
+      "model": "projecthero:block/fallen_lantern_pedestal"
+    },
+    "claimed=true": {
+      "model": "projecthero:block/fallen_lantern_pedestal"
+    }
+  }
+}

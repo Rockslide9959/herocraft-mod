@@ -245,10 +245,10 @@ public class HeroPackGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void guideChaptersBuildFromRegistry(GameTestHelper helper) {
 		var chapters = com.projecthero.mod.hero.guide.HeroPackGuide.chapters();
-		// 15 framing chapters (overview, mutation, structures, devices, combos, Thor, Iron Man,
-		// Spider-Man, Max Steel, Punisher, Symbiote, Zombie Raid, Supervillain Raid, Titan, Squads) +
-		// one per power
-		helper.assertTrue(chapters.size() == 15 + Powers.count(),
+		// 16 framing chapters (overview, mutation, structures, devices, combos, Thor, Iron Man,
+		// Spider-Man, Max Steel, Punisher, Green Lantern, Symbiote, Zombie Raid, Supervillain Raid,
+		// Titan, Squads) + one per power
+		helper.assertTrue(chapters.size() == 16 + Powers.count(),
 				"guide should have a chapter per power plus framing chapters, got " + chapters.size());
 		for (var ch : chapters) {
 			helper.assertFalse(ch.lines().isEmpty(), "chapter '" + ch.title().getString() + "' has no content");

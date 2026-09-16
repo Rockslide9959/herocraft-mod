@@ -46,6 +46,10 @@ public final class ModStructureTypes {
 	public static final StructureType<com.projecthero.mod.symbiote.worldgen.SymbioteLabStructure> SYMBIOTE_LAB =
 			register("symbiote_lab", com.projecthero.mod.symbiote.worldgen.SymbioteLabStructure.CODEC);
 
+	/** Green Lantern: the rare damaged crater holding the Dormant Power Ring pedestal. */
+	public static final StructureType<com.projecthero.mod.greenlantern.worldgen.FallenLanternSiteStructure> FALLEN_LANTERN_SITE =
+			register("fallen_lantern_site", com.projecthero.mod.greenlantern.worldgen.FallenLanternSiteStructure.CODEC);
+
 	private ModStructureTypes() {
 	}
 

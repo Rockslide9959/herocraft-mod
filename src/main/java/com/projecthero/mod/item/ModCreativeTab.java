@@ -73,6 +73,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.spider.item.SpiderItems.addToCreativeTab(output);
 				// Max Steel: the T.U.R.B.O. Stabilizer for bonding with Steel below Level 30.
 				com.projecthero.mod.maxsteel.item.MaxSteelItems.addToCreativeTab(output);
+				// Green Lantern: the Power Ring, Lantern Core, suit pieces and Power Battery block.
+				com.projecthero.mod.greenlantern.item.GreenLanternItems.addToCreativeTab(output);
 			})
 			.build();
 
