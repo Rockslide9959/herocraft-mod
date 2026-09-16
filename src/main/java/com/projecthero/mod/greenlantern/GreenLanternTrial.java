@@ -43,19 +43,23 @@ public final class GreenLanternTrial {
 	private static final class Trial {
 		final BlockPos pedestal;
 		final Vec3 center;
+		final net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension;
 		int wave = 1;
 		final List<Integer> liveMobIds = new ArrayList<>();
 		long outOfRadiusSince = -1L;
 
-		Trial(BlockPos pedestal, Vec3 center) {
+		Trial(BlockPos pedestal, Vec3 center, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension) {
 			this.pedestal = pedestal;
 			this.center = center;
+			this.dimension = dimension;
 		}
 	}
 
 	private static final Map<UUID, Trial> ACTIVE = new ConcurrentHashMap<>();
 	/** (player, pedestal) -> game-time the 10-minute failure cooldown ends. */
 	private static final Map<String, Long> COOLDOWNS = new ConcurrentHashMap<>();
+	/** Pedestals with a trial currently running -- refuses a second player racing the same site. */
+	private static final java.util.Set<Long> PEDESTALS_IN_PROGRESS = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
 	private GreenLanternTrial() {
 	}
@@ -63,6 +67,7 @@ public final class GreenLanternTrial {
 	public static void clearSessionState() {
 		ACTIVE.clear();
 		COOLDOWNS.clear();
+		PEDESTALS_IN_PROGRESS.clear();
 	}
 
 	public static void attemptStart(ServerPlayer player, BlockPos pedestal, boolean claimed) {
@@ -88,8 +93,15 @@ public final class GreenLanternTrial {
 					secs), true);
 			return;
 		}
+		// The last gate before committing: refuses a second player racing the same unclaimed pedestal.
+		// Every earlier `return` above must NOT have reserved this, or a rejected attempt would leave
+		// the pedestal permanently (falsely) marked in-progress.
+		if (!PEDESTALS_IN_PROGRESS.add(pedestal.asLong())) {
+			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.trial_in_progress"), true);
+			return;
+		}
 
-		Trial trial = new Trial(pedestal, Vec3.atCenterOf(pedestal));
+		Trial trial = new Trial(pedestal, Vec3.atCenterOf(pedestal), player.level().dimension());
 		ACTIVE.put(player.getUUID(), trial);
 		player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.trial_begin")
 				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
@@ -134,7 +146,7 @@ public final class GreenLanternTrial {
 	}
 
 	private static Mob spawnBoosted(ServerLevel level, Vec3 center, MobFactory factory) {
-		Vec3 pos = randomPointNear(level, center, 6.0, 14.0);
+		Vec3 pos = groundedPointNear(level, center, 6.0, 14.0);
 		Mob mob = factory.create(level);
 		if (mob == null) {
 			return null;
@@ -154,10 +166,30 @@ public final class GreenLanternTrial {
 		Mob create(ServerLevel level);
 	}
 
-	private static Vec3 randomPointNear(ServerLevel level, Vec3 center, double min, double max) {
-		double angle = level.random.nextDouble() * Math.PI * 2;
-		double dist = min + level.random.nextDouble() * (max - min);
-		return new Vec3(center.x + Math.cos(angle) * dist, center.y, center.z + Math.sin(angle) * dist);
+	/**
+	 * A random point in the ring [min, max] around {@code center}, snapped onto the real surface
+	 * (the crater's walls mean a fixed {@code center.y} often lands a spawn inside solid ground). Tries
+	 * a few times to avoid a column with no open headroom before falling back to whatever the last roll
+	 * found -- never blocks spawning outright.
+	 */
+	private static Vec3 groundedPointNear(ServerLevel level, Vec3 center, double min, double max) {
+		Vec3 best = null;
+		for (int attempt = 0; attempt < 6; attempt++) {
+			double angle = level.random.nextDouble() * Math.PI * 2;
+			double dist = min + level.random.nextDouble() * (max - min);
+			double x = center.x + Math.cos(angle) * dist;
+			double z = center.z + Math.sin(angle) * dist;
+			int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+					(int) Math.floor(x), (int) Math.floor(z));
+			Vec3 candidate = new Vec3(x, y, z);
+			BlockPos feet = BlockPos.containing(candidate);
+			if (level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
+					&& level.getBlockState(feet.above()).getCollisionShape(level, feet.above()).isEmpty()) {
+				return candidate;
+			}
+			best = candidate;
+		}
+		return best;
 	}
 
 	public static void tick(MinecraftServer server) {
@@ -176,6 +208,13 @@ public final class GreenLanternTrial {
 			}
 			if (!player.isAlive()) {
 				fail(entry.getKey(), trial, server, "message.projecthero.green_lantern.trial_failed_death");
+				it.remove();
+				continue;
+			}
+			if (player.level().dimension() != trial.dimension) {
+				// Left the dimension entirely (portal, /execute in, command teleport) -- treat exactly
+				// like leaving the 32-block radius rather than letting the trial silently follow them.
+				fail(entry.getKey(), trial, server, "message.projecthero.green_lantern.trial_failed_left");
 				it.remove();
 				continue;
 			}
@@ -205,6 +244,7 @@ public final class GreenLanternTrial {
 	}
 
 	private static void fail(UUID playerId, Trial trial, MinecraftServer server, String messageKey) {
+		PEDESTALS_IN_PROGRESS.remove(trial.pedestal.asLong());
 		for (int id : trial.liveMobIds) {
 			if (server.overworld().getEntity(id) instanceof Mob m) {
 				m.discard();
@@ -219,6 +259,7 @@ public final class GreenLanternTrial {
 	}
 
 	private static void succeed(ServerPlayer player, Trial trial) {
+		PEDESTALS_IN_PROGRESS.remove(trial.pedestal.asLong());
 		for (int id : trial.liveMobIds) {
 			if (player.serverLevel().getEntity(id) instanceof Mob m) {
 				m.discard();

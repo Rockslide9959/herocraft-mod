@@ -75,6 +75,23 @@ public final class GreenLanternEnergy {
 		return true;
 	}
 
+	/**
+	 * Undo a {@link #spend} that turned out not to earn anything (a construct that failed to place, an
+	 * ability refused after the cost was already taken). Restores the charge AND rolls back
+	 * {@code totalEnergySpent} by the same amount -- a plain {@link #addCharge} would leave the
+	 * Mastery counter incremented for nothing spent, letting a repeatedly-refused action farm Mastery
+	 * thresholds for free.
+	 */
+	public static void refund(ServerPlayer player, float amount) {
+		if (amount <= 0f) {
+			return;
+		}
+		GreenLanternState c = GreenLantern.state(player).copy();
+		c.ringCharge = Math.min(GreenLanternConfig.MAX_RING_CHARGE, c.ringCharge + amount);
+		c.totalEnergySpent = Math.max(0L, c.totalEnergySpent - Math.round(amount));
+		GreenLantern.save(player, c);
+	}
+
 	public static void addCharge(ServerPlayer player, float amount) {
 		if (amount <= 0f) {
 			return;

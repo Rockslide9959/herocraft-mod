@@ -2,6 +2,8 @@ package com.projecthero.mod.greenlantern;
 
 import com.projecthero.mod.greenlantern.data.GreenLanternState;
 
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -16,7 +18,23 @@ import net.minecraft.sounds.SoundSource;
  * brief's explicit allowance for a standalone system).
  */
 public final class GreenLanternMastery {
+	/** Same "big enough to count as a boss" threshold {@code GreenLanternCombat.warHammerSlam} already uses. */
+	public static final double BOSS_MAX_HEALTH_THRESHOLD = 200.0;
+
 	private GreenLanternMastery() {
+	}
+
+	public static void initialize() {
+		// Mastery IV's "defeat a boss while bonded" requirement -- attribute the kill to whichever
+		// player dealt the final blow, exactly like Punisher's Vigilante Training kill-attribution hook.
+		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+			if (entity.getMaxHealth() < BOSS_MAX_HEALTH_THRESHOLD) {
+				return;
+			}
+			if (source.getEntity() instanceof ServerPlayer killer && GreenLantern.hasPower(killer)) {
+				onBossDefeated(killer);
+			}
+		});
 	}
 
 	/** Re-checked after every energy spend -- cheap, and catches the "energy" half of every tier instantly. */
@@ -52,6 +70,13 @@ public final class GreenLanternMastery {
 		checkAdvance(player);
 	}
 
+	/**
+	 * A full vanilla night (the {@code isDay()}-false window) is ~10,000 ticks (day-time 13000-23000).
+	 * Require having been continuously tracked as "night" for close to that whole span before counting
+	 * it -- otherwise bonding minutes before dawn would trivially satisfy "survive one full night".
+	 */
+	private static final long MIN_NIGHT_TICKS_TRACKED = 9000L;
+
 	/** Called from the per-player server tick while bonded -- tracks "survive one full night". */
 	public static void tickNightWatch(ServerPlayer player) {
 		GreenLanternState s = GreenLantern.state(player);
@@ -62,16 +87,21 @@ public final class GreenLanternMastery {
 		boolean isNight = !level.isDay();
 		if (isNight && s.nightStartTick == 0L) {
 			GreenLanternState c = s.copy();
-			c.nightStartTick = level.getDayTime();
+			c.nightStartTick = level.getGameTime();
 			GreenLantern.save(player, c);
 			return;
 		}
 		if (!isNight && s.nightStartTick != 0L) {
+			long tracked = level.getGameTime() - s.nightStartTick;
 			GreenLanternState c = s.copy();
-			c.nightSurvived = true;
 			c.nightStartTick = 0L;
-			GreenLantern.save(player, c);
-			checkAdvance(player);
+			if (tracked >= MIN_NIGHT_TICKS_TRACKED) {
+				c.nightSurvived = true;
+				GreenLantern.save(player, c);
+				checkAdvance(player);
+			} else {
+				GreenLantern.save(player, c);
+			}
 		}
 	}
 

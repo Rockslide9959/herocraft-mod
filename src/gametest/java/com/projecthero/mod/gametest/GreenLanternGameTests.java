@@ -5,6 +5,7 @@ import com.projecthero.mod.greenlantern.GreenLantern;
 import com.projecthero.mod.greenlantern.GreenLanternConfig;
 import com.projecthero.mod.greenlantern.GreenLanternEnergy;
 import com.projecthero.mod.greenlantern.GreenLanternFlight;
+import com.projecthero.mod.greenlantern.GreenLanternMastery;
 import com.projecthero.mod.greenlantern.GreenLanternShield;
 import com.projecthero.mod.greenlantern.construct.ConstructType;
 import com.projecthero.mod.greenlantern.construct.GreenLanternConstructs;
@@ -148,18 +149,18 @@ public class GreenLanternGameTests implements FabricGameTest {
 		s.masteryLevel = GreenLanternState.MASTERY_IV; // unlock everything for this test
 		GreenLantern.save(player, s);
 
-		// Two Platforms (slot weight 4 each) already fill 8 of the 6 available slots by themselves --
-		// use a lighter, always-unlocked construct to fill exactly to the cap instead.
+		// Energy Blade (slot weight 1, no block placement) deploys deterministically regardless of
+		// what the mock player is looking at -- six of them fill the cap exactly.
 		for (int i = 0; i < 6; i++) {
-			GreenLanternConstructs.deploy(player, ConstructType.LANTERN_LIGHT);
+			GreenLanternConstructs.deploy(player, ConstructType.ENERGY_BLADE);
 		}
 		int weightAtCap = GreenLanternConstructs.activeWeight(player.getUUID());
-		helper.assertTrue(weightAtCap <= GreenLanternConfig.CONSTRUCT_MAX_SLOTS,
-				"active weight must never exceed the 6-slot cap, was " + weightAtCap);
+		helper.assertTrue(weightAtCap == GreenLanternConfig.CONSTRUCT_MAX_SLOTS,
+				"six weight-1 constructs should fill the 6-slot cap exactly, was " + weightAtCap);
 
 		float chargeBefore = GreenLantern.state(player).ringCharge;
-		GreenLanternConstructs.deploy(player, ConstructType.HARD_LIGHT_WALL); // slot weight 2 -- should overflow
-		helper.assertTrue(GreenLanternConstructs.activeWeight(player.getUUID()) <= GreenLanternConfig.CONSTRUCT_MAX_SLOTS,
+		GreenLanternConstructs.deploy(player, ConstructType.ENERGY_BLADE); // a 7th -- should overflow
+		helper.assertTrue(GreenLanternConstructs.activeWeight(player.getUUID()) == GreenLanternConfig.CONSTRUCT_MAX_SLOTS,
 				"a refused deploy must not push the weight past the cap");
 		helper.assertTrue(GreenLantern.state(player).ringCharge == chargeBefore,
 				"a refused deploy must not spend any charge");
@@ -192,6 +193,41 @@ public class GreenLanternGameTests implements FabricGameTest {
 				"a construct above the player's Mastery level must be refused");
 		helper.assertTrue(GreenLantern.state(player).ringCharge == GreenLanternConfig.MAX_RING_CHARGE,
 				"a Mastery-refused deploy must not spend charge");
+		helper.succeed();
+	}
+
+	// ---------------- shield / mastery ----------------
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void barrierReturnsOverflowInsteadOfNoSellingIt(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_HP, 1f);
+		float overflow = GreenLanternShield.absorb(player, 200f);
+		helper.assertTrue(overflow == 199f, "a 1-HP shield must only absorb 1 of a 200-damage hit, got overflow " + overflow);
+		helper.assertFalse(GreenLanternShield.isActive(player), "the barrier should have broken");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void barrierAbsorbsFullyWhenItHasEnoughHp(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_HP, GreenLanternConfig.SHIELD_HP);
+		float overflow = GreenLanternShield.absorb(player, 30f);
+		helper.assertTrue(overflow == 0f, "a full-HP shield should fully absorb a 30-damage hit, got overflow " + overflow);
+		helper.assertTrue(GreenLanternShield.isActive(player), "the barrier should still be up");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void defeatingABossAdvancesToMasteryIV(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		GreenLanternState s = GreenLantern.state(player).copy();
+		s.masteryLevel = GreenLanternState.MASTERY_III;
+		s.totalEnergySpent = GreenLanternConfig.MASTERY_IV_ENERGY;
+		GreenLantern.save(player, s);
+		GreenLanternMastery.onBossDefeated(player);
+		helper.assertTrue(GreenLantern.state(player).masteryLevel == GreenLanternState.MASTERY_IV,
+				"meeting both the energy and boss-defeat requirements should advance to Mastery IV");
 		helper.succeed();
 	}
 

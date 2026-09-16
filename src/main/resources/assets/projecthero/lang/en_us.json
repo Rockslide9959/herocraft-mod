@@ -1830,6 +1830,7 @@
   "message.projecthero.ability.low_charge": "LOW CHARGE",
   "message.projecthero.ability.mastery_locked": "LOCKED — MASTERY REQUIRED",
   "message.projecthero.ability.invalid_target": "INVALID TARGET",
+  "message.projecthero.ability.cooldown_simple": "COOLDOWN",
 
   "item.projecthero.power_ring": "Power Ring",
   "item.projecthero.lantern_core": "Lantern Core",
@@ -1914,5 +1915,6 @@
   "message.projecthero.green_lantern.trial_failed_left": "The Will Trial ends — you left the site",
   "message.projecthero.green_lantern.trial_failed_logout": "The Will Trial ends — you logged out",
   "message.projecthero.green_lantern.trial_ineligible": "You already carry another power — this ring is not for you",
+  "message.projecthero.green_lantern.trial_in_progress": "Someone else is already attempting this ring",
   "message.projecthero.green_lantern.trial_wave": "Wave %s"
 }

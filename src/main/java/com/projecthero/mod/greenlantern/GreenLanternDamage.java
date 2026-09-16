@@ -59,7 +59,10 @@ public final class GreenLanternDamage {
 
 		REENTRANT.set(true);
 		try {
-			GreenLanternShield.absorb(player, amount);
+			float overflow = GreenLanternShield.absorb(player, amount);
+			if (overflow >= 0.5f) {
+				player.hurt(source, overflow);
+			}
 		} finally {
 			REENTRANT.set(false);
 		}

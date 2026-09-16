@@ -404,7 +404,7 @@ public final class HeroPackGuide {
 				};
 				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.guide.green_lantern.ability." + key).withStyle(ChatFormatting.WHITE)));
-				para(lines, "projecthero.guide.green_lantern.ability." + key);
+				para(lines, "projecthero.guide.green_lantern.ability." + key + ".desc");
 			}
 			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.constructs");

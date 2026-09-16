@@ -514,7 +514,10 @@ public final class ShadowManipulationHandlers {
 		Vec3 endPoint = best != null ? best.position().add(0, best.getBbHeight() * 0.5, 0) : eye.add(dir.scale(maxDist));
 		AbilityHelpers.line(ctx.level(), eye, endPoint, ParticleTypes.SQUID_INK, 3.0);
 		if (best != null) {
-			AbilityHelpers.hurt(p, best, dmg(p, 11.0f) + cloakAbilityBonus(p));
+			// hurtBurst, not hurt: the fan's 20-degree-wide lanes overlap, so a centred enemy is
+			// legitimately picked by more than one bolt -- each must still land its own damage rather
+			// than being silently absorbed by the first bolt's hit-invulnerability window.
+			AbilityHelpers.hurtBurst(p, best, dmg(p, 11.0f) + cloakAbilityBonus(p));
 			blind4s(best);
 		}
 	}

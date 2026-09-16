@@ -36,16 +36,21 @@ import net.minecraft.server.level.ServerPlayer;
 public final class GreenLanternAbilityManager {
 	/** Ability-6 (C) press game-time per player -- tap-vs-hold gesture for deploy/cycle-select. */
 	private static final Map<UUID, Long> ABILITY6_PRESSED = new ConcurrentHashMap<>();
+	/** Ring Charge as of the last once-per-second check -- lets low-charge warnings fire on a real
+	 *  crossing instead of a fabricated "value + one second of regen" estimate. */
+	private static final Map<UUID, Float> LAST_CHARGE_CHECK = new ConcurrentHashMap<>();
 
 	private GreenLanternAbilityManager() {
 	}
 
 	public static void clearSessionState() {
 		ABILITY6_PRESSED.clear();
+		LAST_CHARGE_CHECK.clear();
 	}
 
 	public static void onCleanup(UUID playerId) {
 		ABILITY6_PRESSED.remove(playerId);
+		LAST_CHARGE_CHECK.remove(playerId);
 		GreenLanternCombat.onCleanup(playerId);
 	}
 
@@ -58,6 +63,14 @@ public final class GreenLanternAbilityManager {
 	}
 
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
+		// Every ability except the suit toggle itself (V, unshifted) requires the suit to already be
+		// on -- combat/shield/scan/flight/constructs are all suit equipment. Release edges always pass
+		// through so an in-progress hold (beam/shield) can still be cleanly stopped.
+		boolean isSuitToggle = slot == AbilitySlot.SLOT_5 && !player.isShiftKeyDown();
+		if (pressed && !isSuitToggle && !GreenLantern.isSuited(player)) {
+			GreenLanternEnergy.feedback(player, "message.projecthero.green_lantern.must_be_suited");
+			return;
+		}
 		switch (slot) {
 			case SLOT_1 -> {
 				if (pressed) {
@@ -176,6 +189,11 @@ public final class GreenLanternAbilityManager {
 		GreenLanternMastery.tickNightWatch(player);
 		GreenLanternBattery.tick(player);
 
+		if (GreenLantern.isSuited(player)) {
+			com.projecthero.mod.greenlantern.item.GreenLanternSuitArmor.reequipMissing(player);
+			com.projecthero.mod.greenlantern.item.GreenLanternSuitArmor.deleteLoose(player);
+		}
+
 		boolean beamChannelling = GreenLanternCombat.isChannellingBeam(player);
 		if (beamChannelling) {
 			GreenLanternCombat.beamTick(player);
@@ -194,8 +212,11 @@ public final class GreenLanternAbilityManager {
 		GreenLanternEnergy.tickRegen(player, beamChannelling || GreenLanternBattery.isChannelling(player));
 
 		if (player.tickCount % 20 == 0) {
-			float before = GreenLanternEnergy.get(player) + GreenLanternConfig.PASSIVE_REGEN_PER_SEC;
-			GreenLanternEnergy.triggerLowChargeFeedback(player, before, GreenLanternEnergy.get(player));
+			float now = GreenLanternEnergy.get(player);
+			Float previous = LAST_CHARGE_CHECK.put(player.getUUID(), now);
+			if (previous != null) {
+				GreenLanternEnergy.triggerLowChargeFeedback(player, previous, now);
+			}
 		}
 	}
 

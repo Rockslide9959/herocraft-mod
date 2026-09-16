@@ -102,15 +102,23 @@ public final class GreenLanternShield {
 		}
 	}
 
-	public static void absorb(ServerPlayer player, float amount) {
+	/**
+	 * Absorb up to {@code amount} of incoming damage into the barrier's HP. Returns whatever could NOT
+	 * be absorbed (0 if the barrier had enough HP left) -- the caller (see {@code GreenLanternDamage})
+	 * is responsible for re-applying that overflow to the player, exactly like every other Hero-Tier
+	 * power's cancel-and-reapply-smaller damage hook. A near-dead shield must not no-sell a huge hit.
+	 */
+	public static float absorb(ServerPlayer player, float amount) {
 		float hp = hp(player);
-		float remaining = hp - amount;
-		GreenLanternMastery.onDamageBlocked(player, Math.min(hp, amount));
-		if (remaining <= 0f) {
+		float absorbed = Math.min(hp, amount);
+		float remainingHp = hp - absorbed;
+		GreenLanternMastery.onDamageBlocked(player, absorbed);
+		if (remainingHp <= 0f) {
 			endBarrier(player, true);
 		} else {
-			player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_HP, remaining);
+			player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_HP, remainingHp);
 		}
+		return amount - absorbed;
 	}
 
 	private static void endBarrier(ServerPlayer player, boolean broke) {

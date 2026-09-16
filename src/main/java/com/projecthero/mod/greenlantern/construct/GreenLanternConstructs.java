@@ -62,26 +62,54 @@ public final class GreenLanternConstructs {
 	}
 
 	public static void initialize() {
-		// Punching one of a construct's own blocks chips away at its HP (Wall/Cage); once it hits 0 the
-		// whole construct collapses. Mirrors ConjuredStructures' dismiss-by-punch pattern.
+		// Punching one of a construct's own blocks either chips away at its HP (Wall/Cage; the whole
+		// construct collapses at 0) or, for the HP-less kinds (Platform/Bridge/Stair-Ramp/Lantern
+		// Light), dismisses it outright on the first punch -- either way the vanilla break path never
+		// runs, so a construct block is never actually mined and never drops anything. Mirrors
+		// ConjuredStructures' dismiss-by-punch pattern.
 		AttackBlockCallback.EVENT.register((player, level, hand, pos, direction) -> {
 			if (!(player instanceof ServerPlayer sp)) {
 				return InteractionResult.PASS;
 			}
 			for (List<Construct> list : BY_OWNER.values()) {
 				for (Construct c : list) {
-					if (c.hp <= 0f && c.type.maxHp() <= 0f) {
-						continue;
-					}
 					for (Construct.Cell cell : c.cells) {
 						if (cell.pos().equals(pos)) {
-							damage(c, 20f, sp);
+							if (c.type.maxHp() > 0f) {
+								damage(c, 20f, sp);
+							} else {
+								dismissOne(c, true);
+							}
 							return InteractionResult.SUCCESS;
 						}
 					}
 				}
 			}
 			return InteractionResult.PASS;
+		});
+
+		// A block-based construct is never meant to be minable through the normal survival path either
+		// (a player standing under a Platform and breaking it from below, a pickaxe on a Bridge, etc.) --
+		// treat any break attempt on a tracked cell as a punch-dismiss instead of letting it break/drop.
+		net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, be) -> {
+			if (!(player instanceof ServerPlayer sp)) {
+				return true;
+			}
+			for (List<Construct> list : BY_OWNER.values()) {
+				for (Construct c : list) {
+					for (Construct.Cell cell : c.cells) {
+						if (cell.pos().equals(pos)) {
+							if (c.type.maxHp() > 0f) {
+								damage(c, 20f, sp);
+							} else {
+								dismissOne(c, true);
+							}
+							return false;
+						}
+					}
+				}
+			}
+			return true;
 		});
 	}
 
@@ -111,6 +139,11 @@ public final class GreenLanternConstructs {
 		}
 		if (type == ConstructType.BATTERING_RAM) {
 			batteringRam(player);
+			return;
+		}
+		String cooldownId = cooldownIdFor(type);
+		if (cooldownId != null && !GreenLantern.abilityReady(player, cooldownId)) {
+			GreenLanternEnergy.feedback(player, "message.projecthero.ability.cooldown_simple");
 			return;
 		}
 		if (activeWeight(player.getUUID()) + type.slotWeight() > GreenLanternConfig.CONSTRUCT_MAX_SLOTS) {
@@ -150,13 +183,39 @@ public final class GreenLanternConstructs {
 				|| (type.kind() == ConstructType.Kind.TETHER && c.tetherTargetId < 0);
 		if (placementFailed) {
 			// placement failed entirely (e.g. every target cell was protected/occupied, or no target found)
-			GreenLanternEnergy.addCharge(player, cost);
+			GreenLanternEnergy.refund(player, cost);
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.invalid_target");
 			return;
 		}
 		BY_OWNER.computeIfAbsent(player.getUUID(), k -> new ArrayList<>()).add(c);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_AMBIENT,
 				SoundSource.PLAYERS, 0.5f, 1.4f);
+	}
+
+	/** The three constructs with an explicit post-collapse cooldown in the build brief; null for the rest. */
+	private static String cooldownIdFor(ConstructType type) {
+		return switch (type) {
+			case CONTAINMENT_CAGE -> "construct_cage";
+			case SENTRY_TURRET -> "construct_turret";
+			case HARD_LIGHT_WALL -> "construct_wall";
+			default -> null;
+		};
+	}
+
+	private static int cooldownTicksFor(ConstructType type) {
+		return switch (type) {
+			case CONTAINMENT_CAGE -> GreenLanternConfig.CAGE_COOLDOWN_TICKS;
+			case SENTRY_TURRET -> GreenLanternConfig.TURRET_COOLDOWN_TICKS;
+			case HARD_LIGHT_WALL -> GreenLanternConfig.WALL_COOLDOWN_TICKS;
+			default -> 0;
+		};
+	}
+
+	private static void applyEndCooldown(ServerPlayer owner, Construct c) {
+		String id = cooldownIdFor(c.type);
+		if (id != null) {
+			GreenLantern.triggerCooldown(owner, id, cooldownTicksFor(c.type));
+		}
 	}
 
 	private static float totalCost(ConstructType type, ServerPlayer player) {
@@ -246,7 +305,7 @@ public final class GreenLanternConstructs {
 
 	private static void spawnCage(ServerPlayer player, Construct c) {
 		LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.CAGE_RANGE);
-		if (target == null || target == player) {
+		if (target == null || !isHostileTarget(player, target)) {
 			return;
 		}
 		c.cagedEntityId = target.getId();
@@ -267,18 +326,18 @@ public final class GreenLanternConstructs {
 
 	private static void spawnTether(ServerPlayer player, Construct c) {
 		LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.TETHER_RANGE);
-		if (target != null && target != player) {
+		if (target != null && isHostileTarget(player, target)) {
 			c.tetherTargetId = target.getId();
 		}
 	}
 
 	private static void batteringRam(ServerPlayer player) {
-		if (!GreenLanternEnergy.spend(player, GreenLanternConfig.RAM_COST)) {
-			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
+		if (!GreenLantern.abilityReady(player, "battering_ram")) {
+			GreenLanternEnergy.feedback(player, "message.projecthero.ability.cooldown_simple");
 			return;
 		}
-		if (!GreenLantern.abilityReady(player, "battering_ram")) {
-			GreenLanternEnergy.addCharge(player, GreenLanternConfig.RAM_COST);
+		if (!GreenLanternEnergy.spend(player, GreenLanternConfig.RAM_COST)) {
+			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
 			return;
 		}
 		GreenLantern.triggerCooldown(player, "battering_ram", GreenLanternConfig.RAM_COOLDOWN_TICKS);
@@ -359,6 +418,10 @@ public final class GreenLanternConstructs {
 		if (broken) {
 			c.level.sendParticles(ParticleTypes.END_ROD, c.anchor.x, c.anchor.y, c.anchor.z, 20, 0.6, 0.6, 0.6, 0.05);
 			c.level.playSound(null, c.anchor.x, c.anchor.y, c.anchor.z, SoundEvents.GLASS_BREAK, SoundSource.BLOCKS, 0.6f, 0.8f);
+			ServerPlayer owner = c.level.getServer() != null ? c.level.getServer().getPlayerList().getPlayer(c.owner) : null;
+			if (owner != null) {
+				applyEndCooldown(owner, c);
+			}
 		}
 	}
 
@@ -417,6 +480,7 @@ public final class GreenLanternConstructs {
 					if (c.type.kind() == ConstructType.Kind.MELEE_BUFF) {
 						removeMeleeBuff(c);
 					}
+					applyEndCooldown(owner, c);
 					it.remove();
 				}
 			}
