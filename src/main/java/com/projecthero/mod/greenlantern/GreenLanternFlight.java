@@ -15,8 +15,9 @@ import net.minecraft.world.phys.Vec3;
  * descends, sprint boosts. Cruise drains 12/sec (5/sec hovering), Boost drains 40/sec.
  *
  * <p><b>Cleanup contract</b>: {@link #forceStop} is the one place the {@code mayfly} grant is revoked,
- * called from every lifecycle path (death/respawn/disconnect/dimension change/suit-down/power
- * loss/energy depletion).
+ * called from every lifecycle path (death/respawn/disconnect/dimension change/power loss/energy
+ * depletion) -- but deliberately NOT from suit-down, since flight (like every ring power) works
+ * unsuited and suiting down mid-flight must not interrupt it.
  */
 public final class GreenLanternFlight {
 	private GreenLanternFlight() {

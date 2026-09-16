@@ -76,8 +76,11 @@ public final class GreenLanternSuit {
 			GreenLanternSuitArmor.equip(player);
 		} else {
 			GreenLanternSuitArmor.strip(player);
-			GreenLanternFlight.forceStop(player, false);
-			GreenLanternShield.dismissAll(player);
+			// Flight/shield no longer belong to the suit (the ring's powers work unsuited too), so
+			// suiting down must not touch either -- forcing flight to stop here used to be safe only
+			// because flight required the suit in the first place; now it would end a legitimate
+			// unsuited flight with no controlled-descent grace (GreenLanternDamage's Emergency Catch is
+			// itself suit-gated), an instant plummet from whatever height the player suited down at.
 		}
 		player.displayClientMessage(Component.translatable(suitingUp
 				? "message.projecthero.green_lantern.suited_up" : "message.projecthero.green_lantern.suited_down"), true);

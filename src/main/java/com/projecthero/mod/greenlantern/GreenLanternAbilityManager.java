@@ -63,14 +63,9 @@ public final class GreenLanternAbilityManager {
 	}
 
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
-		// Every ability except the suit toggle itself (V, unshifted) requires the suit to already be
-		// on -- combat/shield/scan/flight/constructs are all suit equipment. Release edges always pass
-		// through so an in-progress hold (beam/shield) can still be cleanly stopped.
-		boolean isSuitToggle = slot == AbilitySlot.SLOT_5 && !player.isShiftKeyDown();
-		if (pressed && !isSuitToggle && !GreenLantern.isSuited(player)) {
-			GreenLanternEnergy.feedback(player, "message.projecthero.green_lantern.must_be_suited");
-			return;
-		}
+		// The ring's powers work whether or not the suit is on -- only the suit's own armour/Emergency
+		// Catch passives (GreenLanternDamage) require actually wearing it. Charge cost and cooldowns
+		// remain the real gate on every ability below; nothing here becomes free by being unsuited.
 		switch (slot) {
 			case SLOT_1 -> {
 				if (pressed) {
@@ -122,10 +117,6 @@ public final class GreenLanternAbilityManager {
 	}
 
 	private static void toggleFlight(ServerPlayer player) {
-		if (!GreenLantern.isSuited(player)) {
-			GreenLanternEnergy.feedback(player, "message.projecthero.green_lantern.must_be_suited");
-			return;
-		}
 		if (GreenLanternFlight.isFlying(player)) {
 			GreenLanternFlight.forceStop(player, false);
 			return;

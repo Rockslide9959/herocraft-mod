@@ -112,7 +112,7 @@ public final class GreenLanternEnergy {
 		GreenLantern.save(player, c);
 	}
 
-	/** Once per server tick while suited. {@code suppressed} = a channel (beam/battery) owns the pool right now. */
+	/** Once per server tick for every bonded player. {@code suppressed} = a channel (beam/battery) owns the pool right now. */
 	public static void tickRegen(ServerPlayer player, boolean suppressed) {
 		GreenLanternState s = GreenLantern.state(player);
 		if (!s.hasPower || s.ringCharge >= GreenLanternConfig.MAX_RING_CHARGE || suppressed) {

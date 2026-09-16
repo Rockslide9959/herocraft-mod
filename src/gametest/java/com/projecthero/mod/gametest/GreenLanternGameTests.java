@@ -2,6 +2,7 @@ package com.projecthero.mod.gametest;
 
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.greenlantern.GreenLantern;
+import com.projecthero.mod.greenlantern.GreenLanternAbilityManager;
 import com.projecthero.mod.greenlantern.GreenLanternConfig;
 import com.projecthero.mod.greenlantern.GreenLanternEnergy;
 import com.projecthero.mod.greenlantern.GreenLanternFlight;
@@ -10,6 +11,7 @@ import com.projecthero.mod.greenlantern.GreenLanternShield;
 import com.projecthero.mod.greenlantern.construct.ConstructType;
 import com.projecthero.mod.greenlantern.construct.GreenLanternConstructs;
 import com.projecthero.mod.greenlantern.data.GreenLanternState;
+import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.HeroTiers;
 import com.projecthero.mod.maxsteel.MaxSteel;
 
@@ -33,6 +35,53 @@ public class GreenLanternGameTests implements FabricGameTest {
 		player.setGameMode(GameType.SURVIVAL);
 		GreenLantern.bond(player);
 		return player;
+	}
+
+	// ---------------- usable unsuited ----------------
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void ringBoltWorksWithoutTheSuitOn(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		helper.assertFalse(GreenLantern.isSuited(player), "this test needs an unsuited player");
+		float before = GreenLantern.state(player).ringCharge;
+		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_1, true);
+		helper.assertTrue(GreenLantern.state(player).ringCharge == before - GreenLanternConfig.BOLT_COST,
+				"Ring Bolt should spend its charge cost even while unsuited");
+		helper.assertFalse(GreenLantern.abilityReady(player, "ring_bolt"),
+				"Ring Bolt should set its cooldown even while unsuited");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void flightTogglesOnWithoutTheSuitOn(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		helper.assertFalse(GreenLantern.isSuited(player), "this test needs an unsuited player");
+		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_3, true);
+		helper.assertTrue(GreenLanternFlight.isFlying(player), "Ring Flight should engage even while unsuited");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void suitingDownDoesNotInterruptFlightOrTheBarrier(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		GreenLanternFlight.onEnter(player);
+		player.setAttached(com.projecthero.mod.attachment.ModAttachments.GREEN_LANTERN_BARRIER_HP,
+				GreenLanternConfig.SHIELD_HP);
+
+		// Fast-forward a suit-down animation that's already in progress to its completion tick.
+		GreenLanternState s = GreenLantern.state(player).copy();
+		s.suited = true;
+		s.suitAnimDir = GreenLanternState.SUIT_SUITING_DOWN;
+		s.suitAnimStartTick = player.level().getGameTime() - GreenLanternConfig.SUIT_UP_TICKS;
+		GreenLantern.save(player, s);
+		com.projecthero.mod.greenlantern.GreenLanternSuit.tick(player);
+
+		helper.assertFalse(GreenLantern.state(player).suited, "the suit should have finished retracting");
+		helper.assertTrue(GreenLanternFlight.isFlying(player),
+				"suiting down must not interrupt an in-progress unsuited-capable flight");
+		helper.assertTrue(player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f)
+				== GreenLanternConfig.SHIELD_HP, "suiting down must not dismiss an active barrier");
+		helper.succeed();
 	}
 
 	// ---------------- cross-tier exclusivity ----------------
