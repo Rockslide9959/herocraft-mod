@@ -15,9 +15,10 @@ import net.minecraft.util.Mth;
 import org.joml.Vector3f;
 
 /**
- * Suit Up / Suit Down (V, tap). 0.8s animation, 100 charge on activation, 0 idle upkeep (the ring's
- * armour costs nothing to maintain -- only actions do). A 0.25s debounce stops a double-tap from
- * immediately reversing the animation, and suit-down is refused while battery-recharging (Phase 4).
+ * Suit Up / Suit Down (V, tap). 0.8s animation, 10 charge on activation (v0.11.5, was 100), plus 1
+ * charge every 5 seconds while worn (ticked in {@code GreenLanternAbilityManager#serverTick}) -- the
+ * suit is no longer free to keep on. A 0.25s debounce stops a double-tap from immediately reversing the
+ * animation, and suit-down is refused while battery-recharging (Phase 4).
  *
  * <p>v0.11.4: a ring of green hard-light particles travels up the body while suiting up (and back down
  * while suiting down), read each tick straight off {@link GreenLanternState#suitAnimStartTick} rather
@@ -58,6 +59,20 @@ public final class GreenLanternSuit {
 		}
 		GreenLanternBattery.onAbilityUsed(player);
 		beginTransition(player, GreenLanternState.SUIT_SUITING_UP);
+	}
+
+	/**
+	 * Retracts the suit immediately when its 5-second upkeep charge can't be paid (v0.11.5) -- unlike
+	 * {@link #toggle}, this bypasses the mid-animation debounce and the oath-recharging refusal, since
+	 * an unpayable debt must not be able to keep the suit on indefinitely.
+	 */
+	public static void forceSuitDown(ServerPlayer player) {
+		GreenLanternState s = GreenLantern.state(player);
+		if (!s.suited || s.suitAnimDir == GreenLanternState.SUIT_SUITING_DOWN) {
+			return;
+		}
+		beginTransition(player, GreenLanternState.SUIT_SUITING_DOWN);
+		GreenLanternEnergy.feedback(player, "message.projecthero.green_lantern.suit_upkeep_depleted");
 	}
 
 	private static void beginTransition(ServerPlayer player, int dir) {

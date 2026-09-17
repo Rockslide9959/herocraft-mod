@@ -240,7 +240,7 @@ public final class GreenLanternCombat {
 		Vec3 center = player.position().add(player.getLookAngle().scale(2.0));
 		for (LivingEntity e : AbilityHelpers.enemiesAround(player, center, GreenLanternConfig.HAMMER_RADIUS)) {
 			double dist = e.position().distanceTo(center);
-			boolean isBoss = e.getMaxHealth() >= GreenLanternMastery.BOSS_MAX_HEALTH_THRESHOLD;
+			boolean isBoss = e.getMaxHealth() >= GreenLanternConfig.HAMMER_BOSS_MAX_HEALTH_THRESHOLD;
 			float damage = dist <= 1.5 ? GreenLanternConfig.HAMMER_CENTER_DAMAGE : GreenLanternConfig.HAMMER_OUTER_DAMAGE;
 			AbilityHelpers.hurt(player, e, damage);
 			double knockback = isBoss ? 0.25 : 1.0; // bosses: full damage, only 25% normal knockback

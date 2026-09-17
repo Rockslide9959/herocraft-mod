@@ -116,11 +116,12 @@ public final class ModArmorMaterials {
 
 	/**
 	 * The Normal Symbiote Host's armour (v0.9.14) -- a non-Spider-Man bonded player's "living black
-	 * diamond/iron armour". Unlike every other synthesised suit in the mod, this one is rendered
-	 * through vanilla's ordinary {@code HumanoidArmorLayer} (like {@link
-	 * com.projecthero.mod.ironman.item.RepulsorItem}), not GeckoLib. {@code symbiote_host_layer_1/2.png}
-	 * are (v0.9.19) fully transparent on purpose -- the suit no longer renders as cloth at all, only as
-	 * the ambient shoulder particles {@code SymbioteFxClient} draws; see {@code SymbioteHostArmorItem}.
+	 * diamond/iron armour". Renders through the shared GeckoLib armour path on its own bespoke
+	 * {@code geo/symbiote_host.geo.json}, converted from a user-supplied Blockbench model (see
+	 * {@code SymbioteHostArmorItem}); {@code symbiote_host_layer_1/2.png} are the old vanilla-layer
+	 * fallback textures from the v0.9.19-v0.9.23 fully-transparent placeholder era and are no longer
+	 * read by anything (GeckoLib doesn't use vanilla armor-layer textures at all), kept on disk only as
+	 * art reference like every other converted set's old layer textures.
 	 * Defence (3/6/5/3 = 17, toughness 1.0) is deliberately the midpoint between iron (15, toughness 0)
 	 * and diamond (20, toughness 2) per the design spec -- stronger than iron, weaker than diamond, not
 	 * a copy of either, and untouched by the texture change. Never crafted (synthesised by

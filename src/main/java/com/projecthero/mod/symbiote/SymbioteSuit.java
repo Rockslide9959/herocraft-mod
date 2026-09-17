@@ -16,7 +16,8 @@ import net.minecraft.world.item.ItemStack;
 /**
  * The four synthesised Symbiote armour pieces -- one of two variants, chosen live off
  * {@link SymbioteHostType#of}: {@link SymbioteArmorItem} (Black Suit Spider-Man, GeckoLib) or
- * {@link SymbioteHostArmorItem} (Normal host, plain vanilla armour). Putting them on, capturing what
+ * {@link SymbioteHostArmorItem} (Normal host, also GeckoLib now -- its own bespoke model). Putting
+ * them on, capturing what
  * they displaced, handing that back, and keeping the suit honest tick to tick. Modelled on
  * {@link com.projecthero.mod.maxsteel.MaxSteelSuitArmor}, with two additions:
  *

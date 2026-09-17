@@ -26,7 +26,8 @@ import net.minecraft.server.level.ServerPlayer;
  * <pre>
  *   R (slot 1)  Ring Bolt / Shift+R Continuous Beam
  *   G (slot 2)  Construct Fist / Shift+G War Hammer Slam
- *   X (slot 3)  Flight Toggle (boost is automatic while sprint-holding, read live each tick)
+ *   X (slot 3)  Ring Grapple (v0.11.5) -- Ring Flight moved to a double-tap of the vanilla jump key
+ *               (boost is automatic while sprint-holding while flying, read live each tick)
  *   Z (slot 4)  Directional Shield (held) / Shift+Z Protective Dome
  *   V (slot 5)  Suit Up/Down / Shift+V Ring Scan
  *   C (slot 6)  tap: deploy selected construct; hold >=0.35s (release to confirm): cycle selection;
@@ -89,7 +90,7 @@ public final class GreenLanternAbilityManager {
 			}
 			case SLOT_3 -> {
 				if (pressed) {
-					toggleFlight(player);
+					GreenLanternGrapple.grapple(player);
 				}
 			}
 			case SLOT_4 -> {
@@ -123,12 +124,20 @@ public final class GreenLanternAbilityManager {
 		}
 	}
 
-	private static void toggleFlight(ServerPlayer player) {
+	/**
+	 * Toggles Ring Flight. No longer wired to any of the six ability slots (v0.11.5 moved it to a
+	 * double-tap of the vanilla jump key, mirroring Thor/Iron Man) -- called from the
+	 * {@code GreenLanternActionPayload} network handler instead.
+	 */
+	public static void toggleFlight(ServerPlayer player) {
+		if (!hasContext(player)) {
+			return;
+		}
 		if (GreenLanternFlight.isFlying(player)) {
 			GreenLanternFlight.forceStop(player, false);
 			return;
 		}
-		if (!GreenLanternEnergy.canSpend(player, GreenLanternConfig.FLIGHT_HOVER_COST_PER_SEC / 20f)) {
+		if (!GreenLanternEnergy.canSpend(player, GreenLanternConfig.FLIGHT_COST_PER_SEC / 20f)) {
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
 			return;
 		}
@@ -168,16 +177,11 @@ public final class GreenLanternAbilityManager {
 
 	/**
 	 * Server-side landing spot for {@link com.projecthero.mod.network.GreenLanternConstructSelectPayload}
-	 * (the construct wheel). Re-validates the ordinal and Mastery unlock -- the client only ever shows
-	 * unlocked wedges, but the payload is not trusted just because the screen was built correctly.
+	 * (the construct wheel). Re-validates the ordinal -- the client only ever shows real wedges, but the
+	 * payload is not trusted just because the screen was built correctly.
 	 */
 	public static void selectConstruct(ServerPlayer player, int ordinal) {
 		if (!hasContext(player) || ordinal < 0 || ordinal >= ConstructType.values().length) {
-			return;
-		}
-		GreenLanternState s = GreenLantern.state(player);
-		ConstructType type = ConstructType.values()[ordinal];
-		if (!type.unlockedFor(s)) {
 			return;
 		}
 		applySelection(player, ordinal);
@@ -198,12 +202,17 @@ public final class GreenLanternAbilityManager {
 			return;
 		}
 		GreenLanternSuit.tick(player);
-		GreenLanternMastery.tickNightWatch(player);
 		GreenLanternBattery.tick(player);
 
 		if (GreenLantern.isSuited(player)) {
 			com.projecthero.mod.greenlantern.item.GreenLanternSuitArmor.reequipMissing(player);
 			com.projecthero.mod.greenlantern.item.GreenLanternSuitArmor.deleteLoose(player);
+			// v0.11.5: wearing the suit is no longer free -- 1 charge every 5 seconds. Depleting the ring
+			// entirely while suited forces it back off rather than leaving an unpayable debt.
+			if (player.tickCount % GreenLanternConfig.SUIT_UPKEEP_INTERVAL_TICKS == 0
+					&& !GreenLanternEnergy.spend(player, GreenLanternConfig.SUIT_UPKEEP_COST)) {
+				GreenLanternSuit.forceSuitDown(player);
+			}
 		}
 
 		boolean beamChannelling = GreenLanternCombat.isChannellingBeam(player);

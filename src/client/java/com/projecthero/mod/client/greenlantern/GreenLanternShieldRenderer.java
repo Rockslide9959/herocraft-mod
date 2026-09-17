@@ -24,7 +24,9 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Draws the Directional Shield (Z, held) as a green-tinted vanilla {@code minecraft:shield}, floating
- * about a block in front of the wielder's eyes and tracking their live look direction every frame.
+ * a block in front of the wielder's eyes ({@link #DISTANCE}, v0.11.5's "spawn 1 block in front of the
+ * player") and tracking their live look direction every frame. Rendered for the wielder as well as
+ * everyone else (v0.11.5 -- "make them able to see the shield aswell"), in both first and third person.
  *
  * <p>Purely a render, exactly like {@code SpiderWebLineRenderer}: no entity is spawned, nothing to
  * clean up -- {@link ModAttachments#GREEN_LANTERN_BARRIER_HP} (synced to everyone) going back to 0
@@ -66,15 +68,10 @@ public final class GreenLanternShieldRenderer {
 		MultiBufferSource buffers = context.consumers();
 		float partialTick = context.tickCounter().getGameTimeDeltaPartialTick(false);
 
-		// The wielder's own shield is skipped in first person -- at that camera it would render right
-		// on top of the view (the exact "blinding" problem the ring bolt/beam hand-origin change in
-		// this same pass exists to avoid). Third person and every other nearby player still see it.
-		boolean firstPerson = mc.options.getCameraType().isFirstPerson();
-
+		// v0.11.5: the wielder can now see their own shield too -- it floats a full block out in front
+		// of the eyes, well clear of the first-person camera, so the old "blinding" concern that used to
+		// skip rendering it for the wielder in first person no longer applies.
 		for (Player player : mc.level.players()) {
-			if (firstPerson && player == mc.player) {
-				continue;
-			}
 			float hp = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f);
 			boolean dome = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, false);
 			if (hp <= 0f || dome) {

@@ -618,6 +618,18 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			ticksSinceJumpPress = Integer.MAX_VALUE;
 			ClientPlayNetworking.send(new com.projecthero.mod.network.IronManActionPayload(
 					com.projecthero.mod.network.IronManActionPayload.Action.SUMMON_SUIT));
+			return;
+		}
+
+		// Green Lantern (v0.11.5): Ring Flight moved off the X ability slot to this same double-tap-jump
+		// gesture (X now fires Ring Grapple instead) -- airborne only, toggles on or off either way.
+		// Server re-validates power/context/energy in GreenLanternAbilityManager#toggleFlight.
+		com.projecthero.mod.greenlantern.data.GreenLanternState lantern =
+				player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.GREEN_LANTERN_STATE, null);
+		if (lantern != null && lantern.hasPower && !player.onGround()) {
+			ticksSinceJumpPress = Integer.MAX_VALUE;
+			ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternActionPayload(
+					com.projecthero.mod.network.GreenLanternActionPayload.Action.TOGGLE_FLIGHT));
 		}
 	}
 

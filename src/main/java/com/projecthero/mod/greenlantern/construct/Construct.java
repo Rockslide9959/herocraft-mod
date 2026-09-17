@@ -35,8 +35,6 @@ public final class Construct {
 	public long nextFireAt;
 	/** CAGE: the entity id caged, or -1. */
 	public int cagedEntityId = -1;
-	/** TETHER: the entity id being pulled, or -1. */
-	public int tetherTargetId = -1;
 	/** BUBBLE: radius this instance was deployed with (currently always {@code GreenLanternConfig#BUBBLE_RADIUS}). */
 	public double radius;
 	/** BRIDGE/RAMP: facing used at deploy time, so the tick loop doesn't need to re-derive it. */
@@ -45,6 +43,12 @@ public final class Construct {
 	public final int instanceId;
 	/** TOOL_KIT: whether all three tools were actually granted (false if the inventory had no room). */
 	public boolean toolKitGranted;
+	/** CARRY_PLATFORM: the continuous position it is smoothly moving toward each tick. */
+	public Vec3 platformCenter;
+	/** CARRY_PLATFORM: the block-grid center its cells were last placed around. */
+	public BlockPos platformBlockCenter;
+	/** CARRY_PLATFORM: one invisible seat entity id per cell, index-aligned with {@link #cells}. */
+	public final List<Integer> seatEntityIds = new ArrayList<>();
 
 	private static int nextInstanceId = 1;
 

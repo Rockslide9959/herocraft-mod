@@ -14,8 +14,8 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
  * ({@code projecthero:green_lantern_state}). Isolated from every other Hero-Tier/experimental store,
  * exactly like {@code MaxSteelState} is.
  *
- * <p>Persistent and {@code copyOnDeath()} -- the power, its Ring Charge and its Mastery progress must
- * survive death and relog. Synced to everyone (other clients need {@link #suited} to render the suit).
+ * <p>Persistent and {@code copyOnDeath()} -- the power and its Ring Charge must survive death and relog.
+ * Synced to everyone (other clients need {@link #suited} to render the suit).
  * The server stays authoritative: every gameplay check runs against the server-side copy.
  *
  * <p>Transient combat state (flight, active barrier, construct-wheel-hold gesture) deliberately lives
@@ -30,12 +30,6 @@ public final class GreenLanternState {
 	public static final int SUIT_SUITING_UP = 1;
 	public static final int SUIT_SUITING_DOWN = 2;
 
-	public static final int MASTERY_BONDED = 0;
-	public static final int MASTERY_I = 1;
-	public static final int MASTERY_II = 2;
-	public static final int MASTERY_III = 3;
-	public static final int MASTERY_IV = 4;
-
 	/** Permanent Hero-Tier power flag -- set once the ring has bonded. */
 	public boolean hasPower;
 	/** Ring Charge, 0..{@link GreenLanternConfig#MAX_RING_CHARGE}. */
@@ -48,62 +42,32 @@ public final class GreenLanternState {
 	public long suitAnimStartTick;
 	/** {@link ConstructType} ordinal currently selected for the C key. */
 	public int selectedConstruct = ConstructType.HARD_LIGHT_WALL.ordinal();
-	/** {@link #MASTERY_BONDED}..{@link #MASTERY_IV}. */
-	public int masteryLevel = MASTERY_BONDED;
-	/** Cumulative Ring Charge ever spent -- drives Mastery I-IV energy thresholds. */
-	public long totalEnergySpent;
-	/** Cumulative damage absorbed by shields/domes/walls/cages -- Mastery II's second requirement. */
-	public float totalDamageBlocked;
-	/** Cumulative distance flown via ring flight, in blocks -- Mastery III's second requirement. */
-	public double totalFlightDistance;
 	/** {@code abilityId} -> absolute game-time it is ready again (survives relog/death/dimension). */
 	public final Map<String, Long> abilityReadyAt;
-	/** Absolute game-time the current night began while bonded (0 = not currently tracking a night). */
-	public long nightStartTick;
-	/** Mastery I's "survive one full night while bonded" requirement, once satisfied. */
-	public boolean nightSurvived;
-	/** Mastery IV's "defeat a boss while bonded" requirement, once satisfied. */
-	public boolean bossDefeatedWhileBonded;
 
 	public GreenLanternState() {
 		this(false, GreenLanternConfig.MAX_RING_CHARGE, false, SUIT_IDLE, 0L,
-				ConstructType.HARD_LIGHT_WALL.ordinal(), MASTERY_BONDED, 0L, 0f, 0.0,
-				new HashMap<>(), 0L, false, false);
+				ConstructType.HARD_LIGHT_WALL.ordinal(), new HashMap<>());
 	}
 
 	public GreenLanternState(boolean hasPower, float ringCharge, boolean suited, int suitAnimDir,
-			long suitAnimStartTick, int selectedConstruct, int masteryLevel, long totalEnergySpent,
-			float totalDamageBlocked, double totalFlightDistance, Map<String, Long> abilityReadyAt,
-			long nightStartTick, boolean nightSurvived, boolean bossDefeatedWhileBonded) {
+			long suitAnimStartTick, int selectedConstruct, Map<String, Long> abilityReadyAt) {
 		this.hasPower = hasPower;
 		this.ringCharge = ringCharge;
 		this.suited = suited;
 		this.suitAnimDir = suitAnimDir;
 		this.suitAnimStartTick = suitAnimStartTick;
 		this.selectedConstruct = selectedConstruct;
-		this.masteryLevel = masteryLevel;
-		this.totalEnergySpent = totalEnergySpent;
-		this.totalDamageBlocked = totalDamageBlocked;
-		this.totalFlightDistance = totalFlightDistance;
 		this.abilityReadyAt = new HashMap<>(abilityReadyAt);
-		this.nightStartTick = nightStartTick;
-		this.nightSurvived = nightSurvived;
-		this.bossDefeatedWhileBonded = bossDefeatedWhileBonded;
 	}
 
 	public GreenLanternState copy() {
 		return new GreenLanternState(hasPower, ringCharge, suited, suitAnimDir, suitAnimStartTick,
-				selectedConstruct, masteryLevel, totalEnergySpent, totalDamageBlocked, totalFlightDistance,
-				abilityReadyAt, nightStartTick, nightSurvived, bossDefeatedWhileBonded);
+				selectedConstruct, abilityReadyAt);
 	}
 
 	public ConstructType selectedConstructType() {
 		return ConstructType.byOrdinal(selectedConstruct);
-	}
-
-	/** Whether {@code masteryLevel} has unlocked at least {@code level} ({@link #MASTERY_I} etc.). */
-	public boolean hasMastery(int level) {
-		return masteryLevel >= level;
 	}
 
 	public static final Codec<GreenLanternState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -114,14 +78,7 @@ public final class GreenLanternState {
 			Codec.LONG.optionalFieldOf("suit_anim_start_tick", 0L).forGetter(s -> s.suitAnimStartTick),
 			Codec.INT.optionalFieldOf("selected_construct", ConstructType.HARD_LIGHT_WALL.ordinal())
 					.forGetter(s -> s.selectedConstruct),
-			Codec.INT.optionalFieldOf("mastery_level", MASTERY_BONDED).forGetter(s -> s.masteryLevel),
-			Codec.LONG.optionalFieldOf("total_energy_spent", 0L).forGetter(s -> s.totalEnergySpent),
-			Codec.FLOAT.optionalFieldOf("total_damage_blocked", 0f).forGetter(s -> s.totalDamageBlocked),
-			Codec.DOUBLE.optionalFieldOf("total_flight_distance", 0.0).forGetter(s -> s.totalFlightDistance),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", new HashMap<>())
-					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
-			Codec.LONG.optionalFieldOf("night_start_tick", 0L).forGetter(s -> s.nightStartTick),
-			Codec.BOOL.optionalFieldOf("night_survived", false).forGetter(s -> s.nightSurvived),
-			Codec.BOOL.optionalFieldOf("boss_defeated_while_bonded", false).forGetter(s -> s.bossDefeatedWhileBonded)
+					.forGetter(s -> new HashMap<>(s.abilityReadyAt))
 	).apply(instance, GreenLanternState::new));
 }

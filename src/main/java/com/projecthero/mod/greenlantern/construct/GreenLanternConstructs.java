@@ -10,14 +10,16 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.projecthero.mod.greenlantern.GreenLantern;
 import com.projecthero.mod.greenlantern.GreenLanternConfig;
 import com.projecthero.mod.greenlantern.GreenLanternEnergy;
-import com.projecthero.mod.greenlantern.data.GreenLanternState;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.PowerToggles;
 
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -25,6 +27,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -32,6 +35,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -39,18 +43,21 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
+import org.joml.Vector3f;
+
 /**
  * The reusable hard-light construct system: owner-tracked, TTL-restoring, capacity-enforced. Every
- * one of the thirteen named constructs is a {@link Construct} instance dispatched by
+ * one of the twelve named constructs is a {@link Construct} instance dispatched by
  * {@link ConstructType.Kind} rather than its own class -- most are backed by real temporary blocks
- * (cloned from {@code ConjuredStructures}' TTL/restore shape), a few (turret, tether, drill, energy
- * blade, atmosphere bubble, the Hard-Light Tool Kit) are "marker" constructs with no blocks, ticked
- * purely in Java.
+ * (cloned from {@code ConjuredStructures}' TTL/restore shape), a few (turret, drill, energy blade,
+ * atmosphere bubble, the Hard-Light Tool Kit) are "marker" constructs with no blocks, ticked purely in
+ * Java, and two (Battering Ram, Rescue Tether) are instant one-shots that never enter {@link #BY_OWNER}
+ * at all.
  *
  * <p>Global rules enforced here: max {@link GreenLanternConfig#CONSTRUCT_MAX_SLOTS} weighted slots
  * (see {@link ConstructType#slotWeight()}), 24-block placement range, never overwrites
  * bedrock/portals/containers/unbreakable blocks, never drops items, vanishes on owner
- * death/dimension-change/logout/hard depletion (see {@code clearFor}), and a turret/cage/tether never
+ * death/dimension-change/logout/hard depletion (see {@code clearFor}), and a turret/cage never
  * targets/affects the owner, a squadmate, or a tamed mob.
  */
 public final class GreenLanternConstructs {
@@ -59,6 +66,8 @@ public final class GreenLanternConstructs {
 			com.projecthero.mod.ProjectHeroMod.id("green_lantern_energy_blade");
 	private static final net.minecraft.resources.ResourceLocation BLADE_REACH =
 			com.projecthero.mod.ProjectHeroMod.id("green_lantern_energy_blade_reach");
+	/** Lantern-Corps green, matching every other hard-light effect's dust colour in this power. */
+	private static final ParticleOptions GREEN_DUST = new DustParticleOptions(new Vector3f(0.208f, 0.941f, 0.459f), 1.5f);
 
 	private GreenLanternConstructs() {
 	}
@@ -113,6 +122,30 @@ public final class GreenLanternConstructs {
 			}
 			return true;
 		});
+
+		// v0.11.5: right-clicking a Carry Platform cell seats the clicking player on it (an invisible
+		// armour-stand "seat" riding along whenever the platform moves), so the owner can ferry more than
+		// just themselves. Anyone may sit, not just the owner or squadmates.
+		UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
+			if (level.isClientSide() || hand != InteractionHand.MAIN_HAND || !(player instanceof ServerPlayer sp)) {
+				return InteractionResult.PASS;
+			}
+			BlockPos pos = hit.getBlockPos();
+			for (List<Construct> list : BY_OWNER.values()) {
+				for (Construct c : list) {
+					if (c.type != ConstructType.CARRY_PLATFORM) {
+						continue;
+					}
+					for (int i = 0; i < c.cells.size(); i++) {
+						if (c.cells.get(i).pos().equals(pos)) {
+							trySeat(sp, c, i);
+							return InteractionResult.SUCCESS;
+						}
+					}
+				}
+			}
+			return InteractionResult.PASS;
+		});
 	}
 
 	public static void clearSessionState() {
@@ -134,13 +167,12 @@ public final class GreenLanternConstructs {
 	// ---------------- deploy ----------------
 
 	public static void deploy(ServerPlayer player, ConstructType type) {
-		GreenLanternState s = GreenLantern.state(player);
-		if (!type.unlockedFor(s)) {
-			GreenLanternEnergy.feedback(player, "message.projecthero.ability.mastery_locked");
-			return;
-		}
 		if (type == ConstructType.BATTERING_RAM) {
 			batteringRam(player);
+			return;
+		}
+		if (type == ConstructType.RESCUE_TETHER) {
+			rescueGrab(player);
 			return;
 		}
 		// Only one Tool Kit at a time -- countToolKitPieces()/tickKind's TOOL_KIT case count pieces
@@ -152,7 +184,7 @@ public final class GreenLanternConstructs {
 		}
 		String cooldownId = cooldownIdFor(type);
 		if (cooldownId != null && !GreenLantern.abilityReady(player, cooldownId)) {
-			GreenLanternEnergy.feedback(player, "message.projecthero.ability.cooldown_simple");
+			feedbackCooldown(player, cooldownId);
 			return;
 		}
 		if (activeWeight(player.getUUID()) + type.slotWeight() > GreenLanternConfig.CONSTRUCT_MAX_SLOTS) {
@@ -167,7 +199,7 @@ public final class GreenLanternConstructs {
 		com.projecthero.mod.greenlantern.GreenLanternBattery.onAbilityUsed(player);
 
 		ServerLevel level = player.serverLevel();
-		Vec3 anchor = placementPoint(player);
+		Vec3 anchor = type == ConstructType.CARRY_PLATFORM ? carryPlatformAnchor(player) : placementPoint(player);
 		Construct c = new Construct(player.getUUID(), type, level, anchor, level.getGameTime());
 		switch (type.kind()) {
 			case MELEE_BUFF -> spawnEnergyBlade(player, c);
@@ -179,7 +211,6 @@ public final class GreenLanternConstructs {
 			case CAGE -> spawnCage(player, c);
 			case TURRET -> {} // anchor + timer only, ticked below
 			case BUBBLE -> {} // marker only
-			case TETHER -> spawnTether(player, c);
 			case DRILL -> {} // marker only
 			case TOOL_KIT -> spawnToolKit(player, c);
 			default -> {}
@@ -189,7 +220,6 @@ public final class GreenLanternConstructs {
 				|| type.kind() == ConstructType.Kind.LIGHT_BLOCKS;
 		boolean placementFailed = (usesBlocks && c.cells.isEmpty())
 				|| (type.kind() == ConstructType.Kind.CAGE && c.cagedEntityId < 0)
-				|| (type.kind() == ConstructType.Kind.TETHER && c.tetherTargetId < 0)
 				|| (type.kind() == ConstructType.Kind.TOOL_KIT && !c.toolKitGranted);
 		if (placementFailed) {
 			// placement failed entirely (e.g. every target cell was protected/occupied, or no target found)
@@ -199,8 +229,31 @@ public final class GreenLanternConstructs {
 			return;
 		}
 		BY_OWNER.computeIfAbsent(player.getUUID(), k -> new ArrayList<>()).add(c);
+		emitDeployGlow(player);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_AMBIENT,
 				SoundSource.PLAYERS, 0.5f, 1.4f);
+	}
+
+	/**
+	 * A burst of green hard-light particles at the caster's hand -- v0.11.5, "at the very least ... make
+	 * the players hand glow green particles so the player knows that something is happening", added for
+	 * every construct kind, including the marker-only ones (turret/bubble/drill/energy blade/tool kit)
+	 * that place no blocks of their own to look at.
+	 */
+	private static void emitDeployGlow(ServerPlayer player) {
+		Vec3 hand = player.getEyePosition().add(player.getLookAngle().scale(0.6)).add(0, -0.3, 0);
+		player.serverLevel().sendParticles(GREEN_DUST, hand.x, hand.y, hand.z, 12, 0.15, 0.15, 0.15, 0.02);
+	}
+
+	/** Carry Platform's spawn point: 5 blocks ahead of the owner, at their own foot height (walkable). */
+	private static Vec3 carryPlatformAnchor(ServerPlayer player) {
+		Vec3 look = player.getLookAngle();
+		Vec3 horizontal = new Vec3(look.x, 0, look.z);
+		if (horizontal.lengthSqr() < 1.0e-4) {
+			double yawRad = Math.toRadians(player.getYRot());
+			horizontal = new Vec3(-Math.sin(yawRad), 0, Math.cos(yawRad));
+		}
+		return player.position().add(horizontal.normalize().scale(5.0));
 	}
 
 	/** The three constructs with an explicit post-collapse cooldown in the build brief; null for the rest. */
@@ -211,6 +264,19 @@ public final class GreenLanternConstructs {
 			case HARD_LIGHT_WALL -> "construct_wall";
 			default -> null;
 		};
+	}
+
+	/**
+	 * The cooldown remaining for {@code type} right now, or 0 if it has none or isn't on cooldown --
+	 * used by {@code GreenLanternHud}'s C-slot box, since C can deploy whichever construct is selected.
+	 */
+	public static int cooldownRemainingFor(net.minecraft.world.entity.player.Player player, ConstructType type) {
+		String id = switch (type) {
+			case BATTERING_RAM -> "battering_ram";
+			case RESCUE_TETHER -> "rescue_tether";
+			default -> cooldownIdFor(type);
+		};
+		return id == null ? 0 : GreenLantern.cooldownRemaining(player, id);
 	}
 
 	private static int cooldownTicksFor(ConstructType type) {
@@ -227,6 +293,16 @@ public final class GreenLanternConstructs {
 		if (id != null) {
 			GreenLantern.triggerCooldown(owner, id, cooldownTicksFor(c.type));
 		}
+	}
+
+	/**
+	 * v0.11.5: "it just says cooldown, show the cooldowns" -- names the actual seconds remaining instead
+	 * of the bare generic {@code message.projecthero.ability.cooldown_simple} text.
+	 */
+	private static void feedbackCooldown(ServerPlayer player, String cooldownId) {
+		int seconds = (int) Math.ceil(GreenLantern.cooldownRemaining(player, cooldownId) / 20.0);
+		player.displayClientMessage(Component.translatable(
+				"message.projecthero.green_lantern.construct_cooldown", seconds), true);
 	}
 
 	private static float totalCost(ConstructType type, ServerPlayer player) {
@@ -270,16 +346,127 @@ public final class GreenLanternConstructs {
 
 	private static void spawnPlatform(ServerPlayer player, Construct c, boolean carry) {
 		BlockPos center = BlockPos.containing(c.anchor).below();
-		int halfW = carry ? 1 : 1;
-		int halfL = carry ? 2 : 1;
+		if (carry) {
+			// v0.11.5: a fixed 3x3 square, independent of the owner's facing -- it needs to be
+			// recomputable around a moving center every tick without re-deriving a facing/side pair.
+			for (BlockPos pos : carryPlatformCells(center)) {
+				add(c, pos, carryPlatformBlockState());
+			}
+			place(c);
+			// platformCenter tracks the same pre-".below()" frame as c.anchor/carryPlatformAnchor() --
+			// tickCarryPlatform() re-derives the block-grid center from it with exactly one .below(),
+			// matching this line, so the two never drift apart.
+			c.platformCenter = c.anchor;
+			c.platformBlockCenter = center;
+			spawnCarryPlatformSeats(c);
+			return;
+		}
 		Direction facing = player.getDirection();
 		Direction side = facing.getClockWise();
-		for (int f = -halfL; f <= halfL; f++) {
-			for (int w = -halfW; w <= halfW; w++) {
+		int half = 1;
+		for (int f = -half; f <= half; f++) {
+			for (int w = -half; w <= half; w++) {
 				add(c, center.relative(facing, f).relative(side, w), lightBlockState());
 			}
 		}
 		place(c);
+	}
+
+	/** The nine world positions of a 3x3 footprint centred on {@code center}, in a fixed, stable order. */
+	private static List<BlockPos> carryPlatformCells(BlockPos center) {
+		List<BlockPos> cells = new ArrayList<>(9);
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				cells.add(center.offset(dx, 0, dz));
+			}
+		}
+		return cells;
+	}
+
+	// ---------------- Carry Platform (v0.11.5: follows its owner and can carry passengers) ----------------
+
+	/** One invisible, unkillable seat per cell -- a rider on one follows it automatically as it moves. */
+	private static void spawnCarryPlatformSeats(Construct c) {
+		for (Construct.Cell cell : c.cells) {
+			ArmorStand stand = new ArmorStand(net.minecraft.world.entity.EntityType.ARMOR_STAND, c.level);
+			stand.setPos(cell.pos().getX() + 0.5, cell.pos().getY() + 1.0, cell.pos().getZ() + 0.5);
+			stand.setInvisible(true);
+			stand.setNoGravity(true);
+			stand.setInvulnerable(true);
+			stand.setSilent(true);
+			stand.setNoBasePlate(true);
+			stand.setShowArms(false);
+			c.level.addFreshEntity(stand);
+			c.seatEntityIds.add(stand.getId());
+		}
+	}
+
+	private static void removeCarrySeats(Construct c) {
+		for (int id : c.seatEntityIds) {
+			net.minecraft.world.entity.Entity seat = c.level.getEntity(id);
+			if (seat != null) {
+				for (net.minecraft.world.entity.Entity rider : List.copyOf(seat.getPassengers())) {
+					rider.stopRiding();
+				}
+				seat.discard();
+			}
+		}
+		c.seatEntityIds.clear();
+	}
+
+	/** Right-click on an unoccupied Carry Platform cell seats the clicking player on it. */
+	private static void trySeat(ServerPlayer player, Construct c, int cellIndex) {
+		if (cellIndex >= c.seatEntityIds.size() || player.isPassenger()) {
+			return;
+		}
+		net.minecraft.world.entity.Entity seat = c.level.getEntity(c.seatEntityIds.get(cellIndex));
+		if (!(seat instanceof ArmorStand stand) || !stand.isAlive()) {
+			return;
+		}
+		if (!stand.getPassengers().isEmpty()) {
+			GreenLanternEnergy.feedback(player, "message.projecthero.green_lantern.seat_occupied");
+			return;
+		}
+		player.startRiding(stand, true);
+	}
+
+	/**
+	 * Steers the platform toward a point {@link GreenLanternConfig#CARRY_PLATFORM_SPEED_CAP_BPS} blocks
+	 * away 5 blocks in front of the owner's live look direction ("follows their mouse"), at the owner's
+	 * own height. {@link Construct#platformCenter} tracks the continuous position; the actual blocks
+	 * (and their riders, via the seat entities) only move when that crosses into a new block, so a slow
+	 * drift doesn't churn the world every tick.
+	 */
+	private static void tickCarryPlatform(ServerPlayer owner, Construct c) {
+		Vec3 target = carryPlatformAnchor(owner);
+		Vec3 current = c.platformCenter;
+		Vec3 toTarget = target.subtract(current);
+		double dist = toTarget.length();
+		double maxStep = GreenLanternConfig.CARRY_PLATFORM_SPEED_CAP_BPS / 20.0;
+		c.platformCenter = dist <= maxStep || dist < 1.0e-4 ? target : current.add(toTarget.normalize().scale(maxStep));
+
+		BlockPos newCenter = BlockPos.containing(c.platformCenter).below();
+		if (newCenter.equals(c.platformBlockCenter)) {
+			return;
+		}
+		BlockPos oldCenter = c.platformBlockCenter;
+		restore(c);
+		c.cells.clear();
+		for (BlockPos pos : carryPlatformCells(newCenter)) {
+			add(c, pos, carryPlatformBlockState());
+		}
+		place(c);
+		c.platformBlockCenter = newCenter;
+
+		int dx = newCenter.getX() - oldCenter.getX();
+		int dy = newCenter.getY() - oldCenter.getY();
+		int dz = newCenter.getZ() - oldCenter.getZ();
+		for (int id : c.seatEntityIds) {
+			net.minecraft.world.entity.Entity seat = c.level.getEntity(id);
+			if (seat != null) {
+				seat.teleportTo(seat.getX() + dx, seat.getY() + dy, seat.getZ() + dz);
+			}
+		}
 	}
 
 	private static int bridgeLength(ServerPlayer player) {
@@ -335,11 +522,44 @@ public final class GreenLanternConstructs {
 		place(c);
 	}
 
-	private static void spawnTether(ServerPlayer player, Construct c) {
-		LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.TETHER_RANGE);
-		if (target != null && isHostileTarget(player, target)) {
-			c.tetherTargetId = target.getId();
+	// ---------------- Rescue Tether (v0.11.5: an instant grab, not a standing construct) ----------------
+
+	/**
+	 * Rescue Tether reworked from a standing, upkeep-costing pull-over-time construct into a single
+	 * instant grab -- raycast whatever living entity is under the crosshair (ally or foe; a "rescue"
+	 * doesn't discriminate) and yank it straight to the caster, mirroring
+	 * {@code SymbioteTendrils#pull}'s heavy-vs-light handling. Never enters {@link #BY_OWNER}, exactly
+	 * like {@link #batteringRam}.
+	 */
+	private static void rescueGrab(ServerPlayer player) {
+		if (!GreenLantern.abilityReady(player, "rescue_tether")) {
+			feedbackCooldown(player, "rescue_tether");
+			return;
 		}
+		LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.TETHER_RANGE);
+		if (target == null) {
+			GreenLanternEnergy.feedback(player, "message.projecthero.ability.invalid_target");
+			return;
+		}
+		if (!GreenLanternEnergy.spend(player, GreenLanternConfig.TETHER_COST)) {
+			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
+			return;
+		}
+		GreenLantern.triggerCooldown(player, "rescue_tether", GreenLanternConfig.TETHER_COOLDOWN_TICKS);
+		com.projecthero.mod.greenlantern.GreenLanternBattery.onAbilityUsed(player);
+
+		ServerLevel level = player.serverLevel();
+		Vec3 hand = player.getEyePosition().add(player.getLookAngle().scale(0.6)).add(0, -0.3, 0);
+		AbilityHelpers.line(level, hand, target.position().add(0, target.getBbHeight() * 0.5, 0), GREEN_DUST, 3.0);
+
+		if (target.getMaxHealth() <= 200.0f) {
+			Vec3 toPlayer = player.position().subtract(target.position()).normalize().scale(1.6).add(0, 0.3, 0);
+			AbilityHelpers.push(target, toPlayer);
+		} else {
+			Vec3 toTarget = target.position().subtract(player.position()).normalize().scale(1.2).add(0, 0.2, 0);
+			AbilityHelpers.addImpulse(player, toTarget);
+		}
+		AbilityHelpers.sound(player, SoundEvents.TRIDENT_RETURN, 0.8f, 1.1f);
 	}
 
 	// ---------------- Hard-Light Tool Kit ----------------
@@ -474,7 +694,7 @@ public final class GreenLanternConstructs {
 
 	private static void batteringRam(ServerPlayer player) {
 		if (!GreenLantern.abilityReady(player, "battering_ram")) {
-			GreenLanternEnergy.feedback(player, "message.projecthero.ability.cooldown_simple");
+			feedbackCooldown(player, "battering_ram");
 			return;
 		}
 		if (!GreenLanternEnergy.spend(player, GreenLanternConfig.RAM_COST)) {
@@ -502,8 +722,14 @@ public final class GreenLanternConstructs {
 
 	// ---------------- block helpers ----------------
 
+	// v0.11.5: green, not light blue -- "all the constructs need green models" so they read as the
+	// Green Lantern's own hard light rather than a generic glass block.
 	private static BlockState lightBlockState() {
-		return Blocks.LIGHT_BLUE_STAINED_GLASS.defaultBlockState();
+		return Blocks.GREEN_STAINED_GLASS.defaultBlockState();
+	}
+
+	private static BlockState carryPlatformBlockState() {
+		return Blocks.LIME_STAINED_GLASS.defaultBlockState();
 	}
 
 	private static void add(Construct c, BlockPos pos, BlockState state) {
@@ -559,6 +785,9 @@ public final class GreenLanternConstructs {
 		if (c.type.kind() == ConstructType.Kind.TOOL_KIT) {
 			removeToolKit(c);
 		}
+		if (c.type == ConstructType.CARRY_PLATFORM) {
+			removeCarrySeats(c);
+		}
 		if (broken) {
 			c.level.sendParticles(ParticleTypes.END_ROD, c.anchor.x, c.anchor.y, c.anchor.z, 20, 0.6, 0.6, 0.6, 0.05);
 			c.level.playSound(null, c.anchor.x, c.anchor.y, c.anchor.z, SoundEvents.GLASS_BREAK, SoundSource.BLOCKS, 0.6f, 0.8f);
@@ -590,6 +819,9 @@ public final class GreenLanternConstructs {
 			if (c.type.kind() == ConstructType.Kind.TOOL_KIT) {
 				removeToolKit(c);
 			}
+			if (c.type == ConstructType.CARRY_PLATFORM) {
+				removeCarrySeats(c);
+			}
 		}
 	}
 
@@ -615,6 +847,9 @@ public final class GreenLanternConstructs {
 				// Logged out -- restore blocks now rather than waiting; the entry itself is dropped.
 				for (Construct c : entry.getValue()) {
 					restore(c);
+					if (c.type == ConstructType.CARRY_PLATFORM) {
+						removeCarrySeats(c);
+					}
 				}
 				ownerIt.remove();
 				continue;
@@ -629,6 +864,9 @@ public final class GreenLanternConstructs {
 					}
 					if (c.type.kind() == ConstructType.Kind.TOOL_KIT) {
 						removeToolKit(c);
+					}
+					if (c.type == ConstructType.CARRY_PLATFORM) {
+						removeCarrySeats(c);
 					}
 					applyEndCooldown(owner, c);
 					it.remove();
@@ -655,9 +893,6 @@ public final class GreenLanternConstructs {
 	/** Returns false if upkeep could not be paid (construct should end). */
 	private static boolean tickUpkeep(ServerPlayer owner, Construct c) {
 		float upkeepPerSec = c.type.upkeepPerSec();
-		if (GreenLantern.state(owner).hasMastery(GreenLanternState.MASTERY_IV)) {
-			upkeepPerSec *= (1f - GreenLanternConfig.EFFICIENT_FOCUS_UPKEEP_DISCOUNT);
-		}
 		if (upkeepPerSec <= 0f) {
 			return true;
 		}
@@ -672,10 +907,12 @@ public final class GreenLanternConstructs {
 				return c.level.getEntity(c.cagedEntityId) != null;
 			}
 			case BUBBLE -> tickBubble(owner, c);
-			case TETHER -> {
-				return tickTether(owner, c);
-			}
 			case DRILL -> tickDrill(owner, c);
+			case PLATFORM_BLOCKS -> {
+				if (c.type == ConstructType.CARRY_PLATFORM) {
+					tickCarryPlatform(owner, c);
+				}
+			}
 			case TOOL_KIT -> {
 				// Dropping any one of the three tools ends the whole kit (removeToolKit strips the rest).
 				return countToolKitPieces(owner) >= 3;
@@ -741,31 +978,6 @@ public final class GreenLanternConstructs {
 				owner.setAirSupply(owner.getMaxAirSupply());
 			}
 		}
-	}
-
-	private static boolean tickTether(ServerPlayer owner, Construct c) {
-		if (c.tetherTargetId < 0) {
-			return false;
-		}
-		net.minecraft.world.entity.Entity target = c.level.getEntity(c.tetherTargetId);
-		if (target == null || !target.isAlive()) {
-			return false;
-		}
-		if (target instanceof net.minecraft.world.entity.player.Player p
-				&& (isSquadmate(owner, p) || owner.getServer() == null || !owner.getServer().isPvpAllowed())) {
-			return false;
-		}
-		Vec3 toOwner = owner.position().subtract(target.position());
-		double dist = toOwner.length();
-		if (dist < 1.5) {
-			return false;
-		}
-		double speedFactor = target instanceof net.minecraft.world.entity.vehicle.Boat
-				|| target instanceof net.minecraft.world.entity.vehicle.AbstractMinecart ? 0.5 : 1.0;
-		Vec3 pull = toOwner.normalize().scale(GreenLanternConfig.TETHER_PULL_SPEED_BPS / 20.0 * speedFactor);
-		target.setDeltaMovement(target.getDeltaMovement().add(pull));
-		target.hurtMarked = true;
-		return true;
 	}
 
 	private static void tickDrill(ServerPlayer owner, Construct c) {

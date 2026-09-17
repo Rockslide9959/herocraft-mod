@@ -17,8 +17,8 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /**
- * The Green Lantern construct wheel (v0.11.2): a radial menu listing every construct unlocked at the
- * player's current Mastery level, opened by holding C for
+ * The Green Lantern construct wheel (v0.11.2): a radial menu listing every construct (all of them,
+ * unconditionally since v0.11.5 removed the Mastery unlock gate), opened by holding C for
  * {@code GreenLanternConfig.CONSTRUCT_WHEEL_HOLD_TICKS} (see
  * {@code ProjectHeroModClient#handleGreenLanternConstructWheelHold}). Point at a wedge and either
  * click it or release C to select; release over the centre (or press Escape) cancels. This only
@@ -44,12 +44,10 @@ public final class GreenLanternConstructWheelScreen extends Screen {
 		GreenLanternState state = mc.player == null ? null
 				: mc.player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_STATE, null);
 		selectedOrdinal = state != null ? state.selectedConstruct : -1;
+		// v0.11.5: every construct is available from the moment the ring bonds -- the Willpower Mastery
+		// gate that used to filter this list has been removed outright.
 		if (state != null) {
-			for (ConstructType type : ConstructType.values()) {
-				if (type.unlockedFor(state)) {
-					entries.add(type);
-				}
-			}
+			entries.addAll(java.util.List.of(ConstructType.values()));
 		}
 	}
 

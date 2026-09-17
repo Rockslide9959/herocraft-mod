@@ -35,7 +35,11 @@ public final class GreenLanternConfig {
 	// ---------------- suit ----------------
 
 	public static final int SUIT_UP_TICKS = 16; // 0.8s
-	public static final float SUIT_UP_COST = 100f;
+	/** v0.11.5: cut from 100 -- summoning the suit is now a cheap gesture, not a real charge investment. */
+	public static final float SUIT_UP_COST = 10f;
+	/** v0.11.5: 1 charge every 5 seconds while worn -- the suit is no longer free to keep on. */
+	public static final float SUIT_UPKEEP_COST = 1f;
+	public static final int SUIT_UPKEEP_INTERVAL_TICKS = 100; // 5s
 	public static final int SUIT_DOWN_DEBOUNCE_TICKS = 5; // 0.25s
 	/** v0.11.4: diamond-level parity (see {@code ModArmorMaterials#GREEN_LANTERN}, mirrors MAX_STEEL's). */
 	public static final float SUIT_ARMOR_POINTS = 20f;
@@ -79,6 +83,8 @@ public final class GreenLanternConfig {
 	public static final int HAMMER_COOLDOWN_TICKS = 100; // 5s
 	public static final double HAMMER_RADIUS = 4.5;
 	public static final double HAMMER_KNOCKUP = 0.55;
+	/** Above this max health, War Hammer Slam still deals full damage but only 25% normal knockback. */
+	public static final double HAMMER_BOSS_MAX_HEALTH_THRESHOLD = 200.0;
 
 	// ---------------- Suit Up/Down (V) / Ring Scan (Shift+V) ----------------
 
@@ -88,12 +94,12 @@ public final class GreenLanternConfig {
 	public static final int SCAN_DURATION_TICKS = 120; // 6s
 	public static final double SCAN_ITEM_RADIUS = 16.0;
 
-	// ---------------- Flight (X) / Boost (Shift+X) ----------------
+	// ---------------- Flight (double-tap Space) / Boost (Shift+Sprint while flying) ----------------
 
 	public static final double FLIGHT_CRUISE_SPEED_BPS = 12.0;
 	public static final double FLIGHT_VERTICAL_SPEED_BPS = 8.0;
-	public static final float FLIGHT_CRUISE_COST_PER_SEC = 12f;
-	public static final float FLIGHT_HOVER_COST_PER_SEC = 5f;
+	/** v0.11.5: flat cost regardless of hovering or cruising -- replaces the old cruise/hover split. */
+	public static final float FLIGHT_COST_PER_SEC = 1f;
 	public static final double BOOST_SPEED_BPS = 22.0;
 	public static final double BOOST_VERTICAL_SPEED_BPS = 15.0;
 	public static final float BOOST_COST_PER_SEC = 40f;
@@ -101,16 +107,25 @@ public final class GreenLanternConfig {
 	public static final float FLIGHT_TRAIL_COST_PER_SEC = 1f;
 	public static final int EMERGENCY_DESCENT_TICKS = 60; // 3s
 
+	// ---------------- Ring Grapple (X, v0.11.5 -- replaces the flight toggle that moved to double-tap Space) ----------------
+
+	public static final float GRAPPLE_COST = 30f;
+	public static final int GRAPPLE_COOLDOWN_TICKS = 60; // 3s
+	public static final double GRAPPLE_RANGE = 28.0;
+	/** Per-tick velocity magnitude cap on the pull, so a grapple onto a far wall doesn't fling the player. */
+	public static final double GRAPPLE_MAX_SPEED = 2.2;
+
 	// ---------------- Directional Shield (Z) / Protective Dome (Shift+Z) ----------------
 
-	public static final float SHIELD_INITIAL_COST = 250f;
-	public static final float SHIELD_UPKEEP_PER_SEC = 60f;
+	// v0.11.5: both cut to well under a fifth of their original cost -- "way less" per the user's request.
+	public static final float SHIELD_INITIAL_COST = 45f;
+	public static final float SHIELD_UPKEEP_PER_SEC = 10f;
 	public static final float SHIELD_HP = 80f;
 	public static final int SHIELD_BREAK_COOLDOWN_TICKS = 80; // 4s
 	public static final double SHIELD_ARC_DEGREES = 120.0;
 
-	public static final float DOME_INITIAL_COST = 900f;
-	public static final float DOME_UPKEEP_PER_SEC = 120f;
+	public static final float DOME_INITIAL_COST = 160f;
+	public static final float DOME_UPKEEP_PER_SEC = 20f;
 	public static final float DOME_HP = 250f;
 	public static final double DOME_RADIUS = 5.0;
 	public static final int DOME_MAX_DURATION_TICKS = 15 * 20;
@@ -195,12 +210,11 @@ public final class GreenLanternConfig {
 	public static final int BUBBLE_MAX_DURATION_TICKS = 30 * 20;
 	public static final int BUBBLE_SLOT_WEIGHT = 2;
 
+	// v0.11.5: Rescue Tether is now an instant grab (a one-shot pull), not a standing construct -- see
+	// GreenLanternConstructs#rescueGrab. No more upkeep, slot weight or persisted pull duration.
 	public static final float TETHER_COST = 40f;
-	public static final float TETHER_UPKEEP_PER_SEC = 3f;
 	public static final double TETHER_RANGE = 24.0;
-	public static final int TETHER_MAX_PULL_TICKS = 8 * 20;
-	public static final int TETHER_SLOT_WEIGHT = 1;
-	public static final double TETHER_PULL_SPEED_BPS = 5.0;
+	public static final int TETHER_COOLDOWN_TICKS = 80; // 4s
 
 	public static final float CARRY_PLATFORM_COST = 120f;
 	public static final float CARRY_PLATFORM_UPKEEP_PER_SEC = 6f;
@@ -212,16 +226,6 @@ public final class GreenLanternConfig {
 	public static final float TOOL_KIT_COST = 60f;
 	public static final float TOOL_KIT_UPKEEP_PER_SEC = 3f;
 	public static final int TOOL_KIT_SLOT_WEIGHT = 2;
-
-	// ---------------- mastery / progression ----------------
-
-	public static final long MASTERY_I_ENERGY = 20000L;
-	public static final long MASTERY_II_ENERGY = 60000L;
-	public static final float MASTERY_II_DAMAGE_BLOCKED = 500f;
-	public static final long MASTERY_III_ENERGY = 140000L;
-	public static final double MASTERY_III_FLIGHT_DISTANCE = 10000.0;
-	public static final long MASTERY_IV_ENERGY = 250000L;
-	public static final float EFFICIENT_FOCUS_UPKEEP_DISCOUNT = 0.10f;
 
 	// ---------------- Will Trial ----------------
 

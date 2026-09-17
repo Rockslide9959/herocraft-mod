@@ -14,9 +14,13 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 
 /**
- * Ring Flight (X) / Boost (Shift+X). Built on vanilla {@code mayfly}/{@code flying} with a per-tick
- * velocity model, cloned from {@code MaxSteelFlight}: movement keys steer, jump ascends, sneak
- * descends, sprint boosts. Cruise drains 12/sec (5/sec hovering), Boost drains 40/sec.
+ * Ring Flight (double-tap Space) / Boost (Shift+Sprint while flying). Built on vanilla
+ * {@code mayfly}/{@code flying} with a per-tick velocity model, cloned from {@code MaxSteelFlight}:
+ * movement keys steer, jump ascends, sneak descends, sprint boosts. v0.11.5: a flat 1 energy/sec
+ * whether hovering or cruising (was a 12/5 split); Boost still drains 40/sec plus its own trail cost.
+ * The flight toggle itself moved off the X ability slot to a double-tap of the vanilla jump key (see
+ * {@code ProjectHeroModClient#handleDoubleJump} and {@code GreenLanternActionPayload}) -- X now fires
+ * Ring Grapple instead (see {@code GreenLanternGrapple}).
  *
  * <p><b>Cleanup contract</b>: {@link #forceStop} is the one place the {@code mayfly} grant is revoked,
  * called from every lifecycle path (death/respawn/disconnect/dimension change/power loss/energy
@@ -75,10 +79,7 @@ public final class GreenLanternFlight {
 		}
 	}
 
-	/**
-	 * Per-tick while Ring Flight is the active mode. Returns the charge drained this tick and reports
-	 * distance flown for Mastery III tracking.
-	 */
+	/** Per-tick while Ring Flight is the active mode. Returns the charge drained this tick. */
 	public static float tick(ServerPlayer player, boolean boosting) {
 		if (!isFlying(player)) {
 			return 0f;
@@ -100,7 +101,6 @@ public final class GreenLanternFlight {
 		player.resetFallDistance();
 
 		double speed = player.getDeltaMovement().horizontalDistance() + Math.abs(player.getDeltaMovement().y);
-		com.projecthero.mod.greenlantern.GreenLanternMastery.onFlightDistance(player, speed);
 
 		if (player.tickCount % 2 == 0 && speed > 0.02) {
 			ServerLevel level = player.serverLevel();
@@ -124,8 +124,8 @@ public final class GreenLanternFlight {
 			}
 			return (GreenLanternConfig.BOOST_COST_PER_SEC + GreenLanternConfig.FLIGHT_TRAIL_COST_PER_SEC) / 20f;
 		}
-		float perSec = speed > 0.06 ? GreenLanternConfig.FLIGHT_CRUISE_COST_PER_SEC : GreenLanternConfig.FLIGHT_HOVER_COST_PER_SEC;
-		return perSec / 20f;
+		// v0.11.5: a flat 1 energy/sec regardless of hovering or cruising -- replaces the old cruise/hover split.
+		return GreenLanternConfig.FLIGHT_COST_PER_SEC / 20f;
 	}
 
 	private static boolean anyOtherFlightWants(ServerPlayer player) {

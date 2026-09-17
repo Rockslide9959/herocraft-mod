@@ -8,7 +8,6 @@ import com.projecthero.mod.greenlantern.GreenLanternCombat;
 import com.projecthero.mod.greenlantern.GreenLanternConfig;
 import com.projecthero.mod.greenlantern.GreenLanternEnergy;
 import com.projecthero.mod.greenlantern.GreenLanternFlight;
-import com.projecthero.mod.greenlantern.GreenLanternMastery;
 import com.projecthero.mod.greenlantern.GreenLanternShield;
 import com.projecthero.mod.greenlantern.GreenLanternSuit;
 import com.projecthero.mod.greenlantern.block.GreenLanternBlocks;
@@ -69,7 +68,10 @@ public class GreenLanternGameTests implements FabricGameTest {
 	public void flightTogglesOnWithoutTheSuitOn(GameTestHelper helper) {
 		ServerPlayer player = bonded(helper);
 		helper.assertFalse(GreenLantern.isSuited(player), "this test needs an unsuited player");
-		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_3, true);
+		// v0.11.5: Ring Flight moved off ability slot 3 (X now fires Ring Grapple) to a double-tap of the
+		// vanilla jump key -- GreenLanternAbilityManager#toggleFlight is the server-side landing spot both
+		// that gesture and this test now go through directly.
+		GreenLanternAbilityManager.toggleFlight(player);
 		helper.assertTrue(GreenLanternFlight.isFlying(player), "Ring Flight should engage even while unsuited");
 		helper.succeed();
 	}
@@ -239,7 +241,6 @@ public class GreenLanternGameTests implements FabricGameTest {
 		ServerPlayer player = bonded(helper);
 		GreenLanternState s = GreenLantern.state(player).copy();
 		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
-		s.masteryLevel = GreenLanternState.MASTERY_IV; // unlock everything for this test
 		GreenLantern.save(player, s);
 
 		// Energy Blade (slot weight 1, no block placement) deploys deterministically regardless of
@@ -265,7 +266,6 @@ public class GreenLanternGameTests implements FabricGameTest {
 		ServerPlayer player = bonded(helper);
 		GreenLanternState s = GreenLantern.state(player).copy();
 		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
-		s.masteryLevel = GreenLanternState.MASTERY_I; // ENERGY_BLADE's unlock requirement
 		GreenLantern.save(player, s);
 		GreenLanternConstructs.deploy(player, ConstructType.ENERGY_BLADE); // raycast-free marker construct
 		helper.assertTrue(GreenLanternConstructs.activeWeight(player.getUUID()) > 0, "the construct should be tracked");
@@ -275,46 +275,14 @@ public class GreenLanternGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void mastersLockedConstructIsRefused(GameTestHelper helper) {
-		ServerPlayer player = bonded(helper);
-		GreenLanternState s = GreenLantern.state(player).copy();
-		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
-		s.masteryLevel = GreenLanternState.MASTERY_BONDED; // Sentry Turret needs Mastery IV
-		GreenLantern.save(player, s);
-		GreenLanternConstructs.deploy(player, ConstructType.SENTRY_TURRET);
-		helper.assertTrue(GreenLanternConstructs.activeWeight(player.getUUID()) == 0,
-				"a construct above the player's Mastery level must be refused");
-		helper.assertTrue(GreenLantern.state(player).ringCharge == GreenLanternConfig.MAX_RING_CHARGE,
-				"a Mastery-refused deploy must not spend charge");
-		helper.succeed();
-	}
-
 	// ---------------- construct wheel (v0.11.2: hold C to select) ----------------
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void selectConstructAppliesAValidUnlockedChoice(GameTestHelper helper) {
+	public void selectConstructAppliesAValidChoice(GameTestHelper helper) {
 		ServerPlayer player = bonded(helper);
-		GreenLanternState s = GreenLantern.state(player).copy();
-		s.masteryLevel = GreenLanternState.MASTERY_IV; // unlock everything
-		GreenLantern.save(player, s);
 		GreenLanternAbilityManager.selectConstruct(player, ConstructType.SENTRY_TURRET.ordinal());
 		helper.assertTrue(GreenLantern.state(player).selectedConstruct == ConstructType.SENTRY_TURRET.ordinal(),
-				"a valid, unlocked ordinal from the wheel should become the selected construct");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void selectConstructRefusesALockedType(GameTestHelper helper) {
-		ServerPlayer player = bonded(helper);
-		GreenLanternState s = GreenLantern.state(player).copy();
-		s.masteryLevel = GreenLanternState.MASTERY_BONDED; // Sentry Turret needs Mastery IV
-		s.selectedConstruct = ConstructType.LANTERN_LIGHT.ordinal();
-		GreenLantern.save(player, s);
-		GreenLanternAbilityManager.selectConstruct(player, ConstructType.SENTRY_TURRET.ordinal());
-		helper.assertTrue(GreenLantern.state(player).selectedConstruct == ConstructType.LANTERN_LIGHT.ordinal(),
-				"the wheel payload must not be trusted just because the client only shows unlocked wedges -- "
-						+ "a locked ordinal must leave the previous selection untouched");
+				"a valid ordinal from the wheel should become the selected construct");
 		helper.succeed();
 	}
 
@@ -322,7 +290,6 @@ public class GreenLanternGameTests implements FabricGameTest {
 	public void selectConstructRefusesAnOutOfRangeOrdinal(GameTestHelper helper) {
 		ServerPlayer player = bonded(helper);
 		GreenLanternState s = GreenLantern.state(player).copy();
-		s.masteryLevel = GreenLanternState.MASTERY_IV;
 		s.selectedConstruct = ConstructType.LANTERN_LIGHT.ordinal();
 		GreenLantern.save(player, s);
 		GreenLanternAbilityManager.selectConstruct(player, -1);
@@ -337,7 +304,6 @@ public class GreenLanternGameTests implements FabricGameTest {
 		ServerPlayer player = bonded(helper);
 		GreenLanternState s = GreenLantern.state(player).copy();
 		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
-		s.masteryLevel = GreenLanternState.MASTERY_IV;
 		// ENERGY_BLADE rather than a block-placing construct -- it's a pure attribute-modifier "marker"
 		// construct with no raycast/placement step, so this test (which is really about the tap/hold
 		// gesture timing, not placement) can't spuriously fail from a raycast reaching a neighbouring
@@ -356,7 +322,6 @@ public class GreenLanternGameTests implements FabricGameTest {
 		ServerPlayer player = bonded(helper);
 		GreenLanternState s = GreenLantern.state(player).copy();
 		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
-		s.masteryLevel = GreenLanternState.MASTERY_IV;
 		s.selectedConstruct = ConstructType.ENERGY_BLADE.ordinal(); // raycast-free marker construct, see the sibling test's comment
 		GreenLantern.save(player, s);
 		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_6, true);
@@ -384,7 +349,6 @@ public class GreenLanternGameTests implements FabricGameTest {
 		ServerPlayer player = bonded(helper);
 		GreenLanternState s = GreenLantern.state(player).copy();
 		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
-		s.masteryLevel = GreenLanternState.MASTERY_IV;
 		s.selectedConstruct = ConstructType.ENERGY_BLADE.ordinal(); // raycast-free marker construct, see the sibling test's comment
 		GreenLantern.save(player, s);
 		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_6, true);
@@ -457,19 +421,6 @@ public class GreenLanternGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void defeatingABossAdvancesToMasteryIV(GameTestHelper helper) {
-		ServerPlayer player = bonded(helper);
-		GreenLanternState s = GreenLantern.state(player).copy();
-		s.masteryLevel = GreenLanternState.MASTERY_III;
-		s.totalEnergySpent = GreenLanternConfig.MASTERY_IV_ENERGY;
-		GreenLantern.save(player, s);
-		GreenLanternMastery.onBossDefeated(player);
-		helper.assertTrue(GreenLantern.state(player).masteryLevel == GreenLanternState.MASTERY_IV,
-				"meeting both the energy and boss-defeat requirements should advance to Mastery IV");
-		helper.succeed();
-	}
-
 	// ---------------- lifecycle ----------------
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -478,7 +429,6 @@ public class GreenLanternGameTests implements FabricGameTest {
 		GreenLanternState s = GreenLantern.state(player).copy();
 		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
 		s.suited = true;
-		s.masteryLevel = GreenLanternState.MASTERY_I; // ENERGY_BLADE's unlock requirement
 		GreenLantern.save(player, s);
 		GreenLanternFlight.onEnter(player);
 		GreenLanternConstructs.deploy(player, ConstructType.ENERGY_BLADE); // raycast-free marker construct
@@ -733,20 +683,6 @@ public class GreenLanternGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void hardLightWallIsUnlockedFromBonded(GameTestHelper helper) {
-		helper.assertTrue(ConstructType.HARD_LIGHT_WALL.requiredMastery() == GreenLanternState.MASTERY_BONDED,
-				"Hard-Light Wall should now be available from the moment a Green Lantern bonds");
-		// Checked via unlockedFor() rather than an actual deploy -- Wall places real blocks at a 24-block
-		// raycast projection (Kind.WALL), and this test's actual subject is the Mastery gate, not
-		// placement, so it shouldn't share the raycast-into-a-neighbouring-structure flake risk that
-		// LANTERN_LIGHT-based tests had (see the wheel-timing tests' fix, same root cause).
-		ServerPlayer player = bonded(helper);
-		helper.assertTrue(ConstructType.HARD_LIGHT_WALL.unlockedFor(GreenLantern.state(player)),
-				"a freshly bonded (Mastery Bonded) player should have Hard-Light Wall unlocked");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
 	public void constructCostsAreCutFromTheirOriginalValues(GameTestHelper helper) {
 		helper.assertTrue(GreenLanternConfig.WALL_COST == 100f && GreenLanternConfig.WALL_UPKEEP_PER_SEC == 8f,
 				"Hard-Light Wall cost/upkeep should be cut to 100/8 (was 500/40)");
@@ -891,51 +827,29 @@ public class GreenLanternGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void fractionalUpkeepStillAccumulatesMasteryProgress(GameTestHelper helper) {
-		ServerPlayer player = bonded(helper);
-		GreenLanternState s = GreenLantern.state(player).copy();
-		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
-		s.totalEnergySpent = 0L;
-		GreenLantern.save(player, s);
-		// Not calling GreenLanternEnergy.clearSessionState() here: it's a global, shared-across-the-batch
-		// map, and GameTest runs many tests concurrently -- wiping it mid-batch could zero out another
-		// concurrently-running test's own in-progress carry. Unnecessary anyway: mock players get a fresh
-		// random UUID each test, so MASTERY_XP_CARRY has no pre-existing entry for this one regardless.
-
-		// 0.25 is exactly representable in float (no drift) and, individually, is exactly the kind of
-		// sub-1 per-tick amount v0.11.4's cheaper upkeep produces -- Math.round(0.25) alone is 0, so
-		// before the fix 8 calls would have contributed nothing at all to Mastery progress.
-		for (int i = 0; i < 8; i++) {
-			GreenLanternEnergy.drainTick(player, 0.25f);
-		}
-		long spent = GreenLantern.state(player).totalEnergySpent;
-		helper.assertTrue(spent == 2L,
-				"8 ticks of a 0.25/tick drain (2.0 total) should accumulate via the carried remainder instead of "
-						+ "truncating to zero every call, was " + spent);
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void codecStillDecodesASaveThatHasTheRemovedLastAbilityUseTickField(GameTestHelper helper) {
-		// A save written before v0.11.4 still has "last_ability_use_tick" in its NBT -- the codec must
-		// keep decoding it (RecordCodecBuilder simply ignores map entries it doesn't declare a field
-		// for) rather than failing to load an existing player's Green Lantern state.
+	public void codecStillDecodesASaveWithFieldsRemovedByLaterVersions(GameTestHelper helper) {
+		// A save written before v0.11.4/v0.11.5 still has "last_ability_use_tick" and the whole Mastery
+		// progression's fields in its NBT -- the codec must keep decoding it (RecordCodecBuilder simply
+		// ignores map entries it doesn't declare a field for) rather than failing to load an existing
+		// player's Green Lantern state.
 		net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
 		tag.putBoolean("has_power", true);
 		tag.putFloat("ring_charge", 4242f);
 		tag.putLong("last_ability_use_tick", 999L);
-		tag.putInt("mastery_level", GreenLanternState.MASTERY_III);
+		tag.putInt("mastery_level", 3);
 		tag.putLong("total_energy_spent", 12345L);
+		tag.putFloat("total_damage_blocked", 500f);
+		tag.putDouble("total_flight_distance", 10000.0);
+		tag.putBoolean("night_survived", true);
+		tag.putBoolean("boss_defeated_while_bonded", true);
 
 		com.mojang.serialization.DataResult<GreenLanternState> result =
 				GreenLanternState.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, tag);
 		helper.assertTrue(result.result().isPresent(),
-				"a save with the removed last_ability_use_tick field should still decode: " + result.error());
+				"a save with fields removed by later versions should still decode: " + result.error());
 		GreenLanternState decoded = result.result().get();
 		helper.assertTrue(decoded.hasPower, "has_power should round-trip");
 		helper.assertTrue(decoded.ringCharge == 4242f, "ring_charge should round-trip, was " + decoded.ringCharge);
-		helper.assertTrue(decoded.masteryLevel == GreenLanternState.MASTERY_III, "mastery_level should round-trip");
-		helper.assertTrue(decoded.totalEnergySpent == 12345L, "total_energy_spent should round-trip");
 		helper.succeed();
 	}
 

@@ -43,13 +43,9 @@ public final class GreenLanternHud {
 	private static final int KEY = 0xFFCFF8D4;
 	private static final int PANEL_BG = 0xD0071812;
 
-	/** Slot 1..6 -> the ability id whose cooldown that box should show (or null). */
-	private static final String[] SLOT_COOLDOWNS = {
-			"ring_bolt", "construct_fist", null, "directional_shield", "ring_scan", null
-	};
 	/** Slot 1..6 -> the {@code projecthero.guide.green_lantern.ability.<key>} suffix for its name. */
 	private static final String[] SLOT_ABILITY_KEYS = {
-			"ring_bolt", "construct_fist", "flight", "shield", "suit", "construct"
+			"ring_bolt", "construct_fist", "grapple", "shield", "suit", "construct"
 	};
 
 	private GreenLanternHud() {
@@ -81,8 +77,9 @@ public final class GreenLanternHud {
 		int x0 = g.guiWidth() - MARGIN - totalW;
 		int y0 = g.guiHeight() - MARGIN - BOX - 20;
 
-		// Three stacked label rows above the ability boxes, each on its own line so a long construct
-		// name and the Mastery badge can never collide (they used to share one row -- see history).
+		// Two stacked label rows above the ability boxes (the Mastery badge row is gone -- v0.11.5
+		// removed the Willpower Mastery progression system entirely, every construct is unlocked from
+		// the moment the ring bonds).
 		int labelY = y0 - LINE;
 		g.drawString(mc.font, Component.translatable("projecthero.guide.green_lantern")
 				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), x0, labelY, GREEN);
@@ -91,18 +88,21 @@ public final class GreenLanternHud {
 				.withStyle(ChatFormatting.DARK_GREEN);
 		g.drawString(mc.font, construct, x0, labelY, GREEN_DIM, false);
 		labelY -= LINE;
-		Component mastery = Component.literal("Mastery " + masteryLabel(s.masteryLevel)).withStyle(ChatFormatting.DARK_GREEN);
-		g.drawString(mc.font, mastery, x0, labelY, 0xFFFFFFFF, false);
-		labelY -= LINE;
 
+		boolean suited = s.suited;
+		boolean barrierUp = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f) > 0f;
 		for (int i = 0; i < 6; i++) {
 			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
 			int x = x0 + i * (BOX + GAP);
+			// v0.11.5: "make the toggleable abilities ability key outlines glow when used" -- Z glows
+			// while a Shield/Dome is up, V glows while the suit is worn, same convention as
+			// MaxSteelHud/ThorHud's own BORDER_ACTIVE use for an engaged mode/toggle.
+			boolean active = (i == 3 && barrierUp) || (i == 4 && suited);
 			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
-			g.renderOutline(x, y0, BOX, BOX, BORDER);
+			g.renderOutline(x, y0, BOX, BOX, active ? BORDER_ACTIVE : BORDER);
 			g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 2, y0 + 2, KEY, false);
 
-			int cd = SLOT_COOLDOWNS[i] != null ? GreenLantern.cooldownRemaining(player, SLOT_COOLDOWNS[i]) : 0;
+			int cd = cooldownForSlot(player, i, s);
 			if (cd > 0) {
 				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
 				g.drawCenteredString(mc.font, String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(cd / 20.0f)),
@@ -193,13 +193,25 @@ public final class GreenLanternHud {
 		}
 	}
 
-	private static String masteryLabel(int level) {
-		return switch (level) {
-			case GreenLanternState.MASTERY_I -> "I";
-			case GreenLanternState.MASTERY_II -> "II";
-			case GreenLanternState.MASTERY_III -> "III";
-			case GreenLanternState.MASTERY_IV -> "IV";
-			default -> "Bonded";
+	/**
+	 * Slot 0/1/3 (R/G/Z) each have a tap AND a shift ability with their own separate cooldown key --
+	 * v0.11.5 fix: previously only the tap half's key was checked, so e.g. War Hammer Slam's cooldown
+	 * never showed on the G box at all. Slot 5 (C) shows whatever the currently *selected* construct's
+	 * own cooldown is, since C can deploy any of them.
+	 */
+	private static int cooldownForSlot(Player player, int slot, GreenLanternState s) {
+		return switch (slot) {
+			case 0 -> Math.max(GreenLantern.cooldownRemaining(player, "ring_bolt"),
+					GreenLantern.cooldownRemaining(player, "continuous_beam"));
+			case 1 -> Math.max(GreenLantern.cooldownRemaining(player, "construct_fist"),
+					GreenLantern.cooldownRemaining(player, "war_hammer_slam"));
+			case 2 -> GreenLantern.cooldownRemaining(player, "ring_grapple");
+			case 3 -> Math.max(GreenLantern.cooldownRemaining(player, "directional_shield"),
+					GreenLantern.cooldownRemaining(player, "protective_dome"));
+			case 4 -> GreenLantern.cooldownRemaining(player, "ring_scan");
+			case 5 -> com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.cooldownRemainingFor(
+					player, ConstructType.byOrdinal(s.selectedConstruct));
+			default -> 0;
 		};
 	}
 }

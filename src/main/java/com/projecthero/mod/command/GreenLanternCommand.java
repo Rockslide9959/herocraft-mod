@@ -18,7 +18,7 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Admin/testing commands for Green Lantern: {@code /projecthero greenlantern power grant|revoke |
- * energy <0-10000> | mastery <0-4> | dismiss | status}. Op 2, same shape as {@link MaxSteelCommand}.
+ * energy <0-10000> | dismiss | status}. Op 2, same shape as {@link MaxSteelCommand}.
  */
 public final class GreenLanternCommand {
 	private GreenLanternCommand() {
@@ -41,11 +41,6 @@ public final class GreenLanternCommand {
 								.executes(c -> energy(c, self(c)))
 								.then(Commands.argument("player", EntityArgument.player())
 										.executes(c -> energy(c, EntityArgument.getPlayer(c, "player"))))))
-				.then(Commands.literal("mastery")
-						.then(Commands.argument("level", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0, 4))
-								.executes(c -> mastery(c, self(c)))
-								.then(Commands.argument("player", EntityArgument.player())
-										.executes(c -> mastery(c, EntityArgument.getPlayer(c, "player"))))))
 				.then(Commands.literal("dismiss").executes(c -> dismiss(c, self(c))))
 				.then(Commands.literal("status").executes(c -> status(c, self(c))));
 	}
@@ -79,15 +74,6 @@ public final class GreenLanternCommand {
 		return 1;
 	}
 
-	private static int mastery(CommandContext<CommandSourceStack> c, ServerPlayer target) {
-		int level = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "level");
-		GreenLanternState s = GreenLantern.state(target).copy();
-		s.masteryLevel = level;
-		GreenLantern.save(target, s);
-		c.getSource().sendSuccess(() -> Component.literal("Mastery set to " + level), true);
-		return 1;
-	}
-
 	private static int dismiss(CommandContext<CommandSourceStack> c, ServerPlayer target) {
 		GreenLanternConstructs.dismissAll(target.getUUID());
 		c.getSource().sendSuccess(() -> Component.literal("Dismissed all constructs for "
@@ -98,10 +84,9 @@ public final class GreenLanternCommand {
 	private static int status(CommandContext<CommandSourceStack> c, ServerPlayer target) {
 		GreenLanternState s = GreenLantern.state(target);
 		c.getSource().sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT,
-				"Green Lantern: %s | charge %.0f/%.0f | suited %s | mastery %d | constructs %d/%d | spent %d",
-				s.hasPower, s.ringCharge, GreenLanternConfig.MAX_RING_CHARGE, s.suited, s.masteryLevel,
-				GreenLanternConstructs.activeWeight(target.getUUID()), GreenLanternConfig.CONSTRUCT_MAX_SLOTS,
-				s.totalEnergySpent)), false);
+				"Green Lantern: %s | charge %.0f/%.0f | suited %s | constructs %d/%d",
+				s.hasPower, s.ringCharge, GreenLanternConfig.MAX_RING_CHARGE, s.suited,
+				GreenLanternConstructs.activeWeight(target.getUUID()), GreenLanternConfig.CONSTRUCT_MAX_SLOTS)), false);
 		return 1;
 	}
 }

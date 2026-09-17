@@ -51,12 +51,21 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(PunisherArsenalOpenPayload.TYPE, PunisherArsenalOpenPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SquadInfoPayload.TYPE, SquadInfoPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(GreenLanternConstructSelectPayload.TYPE, GreenLanternConstructSelectPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(GreenLanternActionPayload.TYPE, GreenLanternActionPayload.CODEC);
 
 		// Thor flight double-tap-jump (unchanged). The other Thor actions now arrive via the universal
 		// slot router below, but the enum values are left intact for save/packet compatibility.
 		ServerPlayNetworking.registerGlobalReceiver(ThorActionPayload.TYPE, (payload, context) -> {
 			if (payload.action() == ThorActionPayload.Action.TOGGLE_FLIGHT) {
 				ThorPowers.toggleFlight(context.player());
+			}
+		});
+
+		// Green Lantern Ring Flight double-tap-jump (v0.11.5 -- moved off the X ability slot, which now
+		// fires Ring Grapple instead).
+		ServerPlayNetworking.registerGlobalReceiver(GreenLanternActionPayload.TYPE, (payload, context) -> {
+			if (payload.action() == GreenLanternActionPayload.Action.TOGGLE_FLIGHT) {
+				com.projecthero.mod.greenlantern.GreenLanternAbilityManager.toggleFlight(context.player());
 			}
 		});
 

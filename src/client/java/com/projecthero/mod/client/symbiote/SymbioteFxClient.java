@@ -59,13 +59,13 @@ public final class SymbioteFxClient {
 	}
 
 	/**
-	 * The Normal Symbiote Host's whole "armour" (v0.9.19): the suit itself renders with fully
-	 * transparent textures now (see {@code SymbioteHostArmorItem}), so this small, low-frequency wisp
-	 * at each shoulder is the ENTIRE visual signal that the suit is on -- meant to read as the organism
-	 * itself sitting on the host rather than a rendered garment. Black Suit Spider-Man keeps his real
-	 * GeckoLib model and is excluded here. Deliberately skipped for the local player's own first-person
-	 * camera (per the "shouldn't block the player's own view" requirement) -- it still shows for every
-	 * other player, and for the local player in third person.
+	 * A small, low-frequency wisp at each shoulder, layered on top of the Normal Symbiote Host's real
+	 * {@code geo/symbiote_host.geo.json} suit -- meant to read as the organism itself still moving on
+	 * the host, not just a static rendered garment (v0.9.19 predates that model: back then the suit
+	 * textures were fully transparent and this wisp was the entire visual signal the suit was on).
+	 * Black Suit Spider-Man keeps his own GeckoLib model and is excluded here. Deliberately skipped for
+	 * the local player's own first-person camera (per the "shouldn't block the player's own view"
+	 * requirement) -- it still shows for every other player, and for the local player in third person.
 	 */
 	private static void emitShoulderWisps(Minecraft client, Player player, Vec3 localEye) {
 		if (SymbioteHostType.of(player) != SymbioteHostType.NORMAL) {

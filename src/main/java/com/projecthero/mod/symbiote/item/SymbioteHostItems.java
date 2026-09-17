@@ -1,6 +1,8 @@
 package com.projecthero.mod.symbiote.item;
 
 import com.projecthero.mod.ProjectHeroMod;
+import com.projecthero.mod.armor.ArmorVisualDefinition;
+import com.projecthero.mod.armor.SuperheroArmorVisuals;
 import com.projecthero.mod.item.ModArmorMaterials;
 
 import net.minecraft.core.Registry;
@@ -29,6 +31,13 @@ public final class SymbioteHostItems {
 		CHESTPLATE = register("symbiote_host_chestplate", ArmorItem.Type.CHESTPLATE);
 		LEGGINGS = register("symbiote_host_leggings", ArmorItem.Type.LEGGINGS);
 		BOOTS = register("symbiote_host_boots", ArmorItem.Type.BOOTS);
+
+		// Bespoke geometry converted from a user-supplied Blockbench rig by
+		// scratchpad/convert_symbiote_geo.js -- same shared-animation convention as every other set.
+		SuperheroArmorVisuals.register("symbiote_host", new ArmorVisualDefinition(
+				ProjectHeroMod.id("geo/symbiote_host.geo.json"),
+				ProjectHeroMod.id("textures/armor/symbiote_host.png"),
+				SuperheroArmorVisuals.SHARED_ANIMATION));
 	}
 
 	private static SymbioteHostArmorItem register(String path, ArmorItem.Type type) {

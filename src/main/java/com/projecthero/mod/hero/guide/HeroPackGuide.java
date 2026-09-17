@@ -396,10 +396,13 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.green_lantern.charge");
 			para(lines, "projecthero.guide.green_lantern.charge.body");
 			blank(lines);
+			head(lines, "projecthero.guide.green_lantern.flight");
+			para(lines, "projecthero.guide.green_lantern.flight.body");
+			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.controls");
 			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {
 				String key = switch (slot) {
-					case "R" -> "ring_bolt"; case "G" -> "construct_fist"; case "X" -> "flight";
+					case "R" -> "ring_bolt"; case "G" -> "construct_fist"; case "X" -> "grapple";
 					case "Z" -> "shield"; case "V" -> "suit"; default -> "construct";
 				};
 				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
@@ -409,9 +412,6 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.constructs");
 			para(lines, "projecthero.guide.green_lantern.constructs.body");
-			blank(lines);
-			head(lines, "projecthero.guide.green_lantern.mastery");
-			para(lines, "projecthero.guide.green_lantern.mastery.body");
 			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.battery");
 			para(lines, "projecthero.guide.green_lantern.battery.body");

@@ -144,7 +144,6 @@ public final class GreenLanternShield {
 		float hp = hp(player);
 		float absorbed = Math.min(hp, amount);
 		float remainingHp = hp - absorbed;
-		GreenLanternMastery.onDamageBlocked(player, absorbed);
 		if (remainingHp <= 0f) {
 			endBarrier(player, true);
 		} else {

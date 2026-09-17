@@ -1,4 +1,4 @@
-# Green Lantern Hero-Tier power (v0.11.4)
+# Green Lantern Hero-Tier power (v0.11.5)
 
 A bonded Power Ring, Ring Charge (0-10,000), controlled flight, hard-light constructs, ranged
 combat and shielding. Package: `com.projecthero.mod.greenlantern` (+ `.data`, `.item`, `.block`,
@@ -17,10 +17,16 @@ real six slots by role:
 |---|---|---|
 | R | Ring Bolt | Continuous Beam (held) |
 | G | Construct Fist | War Hammer Slam |
-| X (Movement) | Flight toggle | — (boost is read live from sprint-holding while flying, no separate key) |
+| X (Movement) | Ring Grapple (v0.11.5) | — |
 | Z (Ultimate) | Directional Shield (held) | Protective Dome |
 | V (Utility/Control) | Suit Up/Down | Ring Scan |
-| C (Special Mode) | Deploy selected construct | hold ≥0.35s, release = cycle to next unlocked construct; **Shift+C** = dismiss all |
+| C (Special Mode) | Deploy selected construct | hold ≥0.35s, release = cycle to next construct; **Shift+C** = dismiss all |
+
+**v0.11.5: Ring Flight moved off the X slot** to a double-tap of the vanilla jump key while airborne
+(mirroring Thor/Iron Man's own double-tap-jump gesture -- see `ProjectHeroModClient#handleDoubleJump`
+and the C2S `GreenLanternActionPayload`), toggling on or off either way; boost is still read live from
+sprint-holding while flying, no separate key. X now fires the new Ring Grapple ability instead (see
+`GreenLanternGrapple`) so the slot isn't wasted.
 
 ## Core classes
 
@@ -28,15 +34,15 @@ real six slots by role:
 |---|---|
 | Static API (bond/revoke/cooldowns/lifecycle) | `GreenLantern` |
 | Balance constants | `GreenLanternConfig` |
-| Persistent state (14-field codec, under the 16-field ceiling) | `data/GreenLanternState` |
+| Persistent state (7-field codec, under the 16-field ceiling) | `data/GreenLanternState` |
 | Ring Charge resource | `GreenLanternEnergy` |
-| Slot dispatch + per-player tick | `GreenLanternAbilityManager` |
-| Flight (cloned from `MaxSteelFlight`'s velocity model) | `GreenLanternFlight` |
+| Slot dispatch + per-player tick (+ suit upkeep drain, v0.11.5) | `GreenLanternAbilityManager` |
+| Flight (cloned from `MaxSteelFlight`'s velocity model; toggled via double-tap-jump, v0.11.5) | `GreenLanternFlight` |
 | Ring Bolt / Beam / Fist / Hammer | `GreenLanternCombat` |
+| Ring Grapple (v0.11.5, X slot) | `GreenLanternGrapple` |
 | Directional Shield / Protective Dome | `GreenLanternShield` (state) + `GreenLanternDamage` (absorption hook) |
 | Ring Scan | `GreenLanternScan` |
 | Suit Up/Down animation | `GreenLanternSuit` |
-| Willpower Mastery I-IV | `GreenLanternMastery` |
 | Power Battery Oath recitation | `GreenLanternBattery` |
 | Will Trial (waves/fail/cooldown) | `GreenLanternTrial` |
 | Construct framework | `construct/Construct`, `construct/ConstructType`, `construct/GreenLanternConstructs` |
@@ -65,7 +71,8 @@ exactly what to revisit:
   gameplay-wise the only loss is a dodgeable travel time.
 - **~~Construct selection is cycle-on-hold, not a radial wheel.~~ Superseded in v0.11.2**: holding C
   ≥0.5s (`CONSTRUCT_WHEEL_HOLD_TICKS`) now opens `GreenLanternConstructWheelScreen`, a real radial menu
-  (modelled on `PowerWheelScreen`) listing every Mastery-unlocked `ConstructType`; picking a wedge
+  (modelled on `PowerWheelScreen`) listing every `ConstructType` (all of them, unconditionally since
+  v0.11.5 removed the Mastery unlock gate); picking a wedge
   sends the dedicated `GreenLanternConstructSelectPayload` C2S packet, re-validated server-side in
   `GreenLanternAbilityManager#selectConstruct`. A quick tap of C still deploys the current selection
   directly, unchanged. The server-side hold-then-cycle fallback this replaced has been removed --
@@ -95,10 +102,31 @@ exactly what to revisit:
   bedrock/unbreakable blocks — but it inherits the currently-held item's harvest tier rather than
   always granting diamond-equivalent drops, and it does not implement the per-material break-speed
   timing table from the spec (it breaks on the normal per-tick check interval instead).
-- **Battering Ram** is an instant dash-and-open-vanilla-doors ability, not a persisted, slot-costing
-  construct (avoids any block-breaking/claim-bypass risk).
-- **Carry Platform** is a larger stationary platform; it does not yet follow its owner or carry
-  passengers along with it.
+- **Battering Ram and Rescue Tether are both instant one-shot abilities**, not persisted, slot-costing
+  constructs (`ConstructType.Kind.INSTANT`, dispatched from `GreenLanternConstructs#deploy` before the
+  normal construct pipeline, never entering `BY_OWNER`). Battering Ram avoids any block-breaking/claim-
+  bypass risk; Rescue Tether was reworked in v0.11.5 from a standing, upkeep-costing pull-over-time
+  construct into a single instant grab (`GreenLanternConstructs#rescueGrab`, mirroring
+  `SymbioteTendrils#pull`'s heavy-vs-light handling) per an explicit "make it a grab move" request.
+- **Carry Platform follows its owner and can carry passengers (v0.11.5)**, resolving the prior
+  limitation here. It's a fixed 3x3 footprint (not rotated to the owner's facing -- a symmetric square
+  is rotation-invariant, so `GreenLanternConstructs#carryPlatformCells` just offsets ±1 on both
+  horizontal axes from a moving center) spawned 5 blocks in front of the owner at their own foot height.
+  Each tick it steers a continuous `Construct#platformCenter` toward a live "5 blocks ahead of the
+  owner's look" target, capped at `CARRY_PLATFORM_SPEED_CAP_BPS`; the actual blocks (and any riders)
+  only move when that continuous position crosses into a new block, via a restore-then-replace of all
+  nine cells rather than any real sliding-block physics. Passengers ride one invisible, unkillable
+  `ArmorStand` "seat" per cell (`spawnCarryPlatformSeats`) -- right-clicking an unoccupied cell
+  (`UseBlockCallback`, `GreenLanternConstructs#trySeat`) mounts the clicking player on that cell's seat,
+  and the seat is simply teleported by the same delta as the platform moves; passenger repositioning
+  itself is entirely vanilla's own generic "a rider follows whatever it's riding" behaviour, not
+  anything this mod implements. Two known edge cases from this simplicity: (1) a standing-but-not-
+  seated player on top of the platform is NOT carried along (the blocks teleport out from under them
+  the instant the platform moves, same as any other block-based construct in this mod) -- only a seated
+  rider is guaranteed to travel with it; (2) if a cell's new position is ever blocked (another player,
+  a container, bedrock, etc.), `add()` silently skips that one cell, which can leave `Construct#cells`
+  shorter than `Construct#seatEntityIds` until the platform moves somewhere unobstructed again -- a
+  minor, self-healing index mismatch, not a crash risk (`trySeat` bounds-checks the index).
 - **Will Trial enemies are vanilla mobs** (Zombie/Skeleton, boosted health) plus a boosted, renamed
   Vex as the "Fear Echo" — not bespoke models.
 - **Fallen Lantern Site** is a procedurally-carved single `StructurePiece` (clone of
@@ -144,14 +172,43 @@ exactly what to revisit:
   live per player at a time (a second deploy is refused outright) specifically so this per-player piece
   count is never ambiguous between two simultaneous kits. Deploying with fewer than 3 free inventory
   slots is refused and refunded up front instead of dropping the overflow on the ground.
-- **Mastery XP no longer truncates sub-1 per-tick amounts to zero** (v0.11.4,
-  `GreenLanternEnergy#wholeMasteryXp`) -- `totalEnergySpent` is a whole `long`, and the construct-cost
-  cut above put most per-tick upkeep drains well under 1 energy/tick; rounding each one in isolation
-  would have silently zeroed out Mastery progress from upkeep entirely. A transient, per-player carried
-  remainder (session-only, cleared like `GreenLanternAbilityManager`'s own `LAST_CHARGE_CHECK`) keeps
-  the fractional amount instead of discarding it every tick.
-- **Power Battery blast resistance raised to 1200** (v0.11.4, matching `FALLEN_LANTERN_PEDESTAL`'s own
-  figure) -- with no passive regen at all, losing a placed battery to a creeper (or its `lantern_core`,
-  granted only once by the Will Trial) would otherwise be an unrecoverable soft-lock on ever recharging
-  the ring again. This raises the bar to "no vanilla explosion can touch it" without redesigning how a
-  Lantern Core is obtained, which stays a known follow-up if it ever comes up in practice.
+- **The Willpower Mastery I-IV progression system was removed outright (v0.11.5)**, per an explicit
+  user request ("remove the progression mastery system make all constructs available from the start").
+  `GreenLanternMastery` is deleted; `GreenLanternState` dropped `masteryLevel`, `totalEnergySpent`,
+  `totalDamageBlocked`, `totalFlightDistance`, `nightStartTick`, `nightSurvived` and
+  `bossDefeatedWhileBonded` (7 fields, down from 14 -- the codec's `optionalFieldOf` means an old save
+  still holding those keys in its NBT just has them silently ignored, the same forward-compatible
+  pattern the removed `last_ability_use_tick` field already established). `ConstructType#unlockedFor`
+  and `#requiredMastery` are gone entirely rather than left as an always-true stub -- every construct is
+  simply available the moment the ring bonds. Mastery IV's Efficient Focus (10% upkeep discount) went
+  with it; no replacement discount was added.
+- **Power Battery is now as breakable as dirt (v0.11.5)** (`strength(0.5f)`, no
+  `requiresCorrectToolForDrops()`), per an explicit user request -- this deliberately reverses v0.11.4's
+  blast-resistance raise to 1200, which existed only to guard against losing an unrecoverable recharge
+  point to a creeper. That tradeoff (a placed battery is trivial to destroy, by explosion or otherwise)
+  is now the player's own to manage.
+- **Suit Up now costs 10 charge (was 100) plus 1 charge every 5 seconds while worn (v0.11.5)** --
+  `GreenLanternAbilityManager#serverTick` drains it on a `player.tickCount % SUIT_UPKEEP_INTERVAL_TICKS`
+  cadence and calls `GreenLanternSuit#forceSuitDown` (bypassing the mid-animation debounce and the
+  oath-recharging refusal `toggle()` normally enforces) if the charge can't be paid, so an unpayable
+  debt can't keep the suit on indefinitely.
+- **Directional Shield / Protective Dome cost far less (v0.11.5)** -- Shield 250→45 initial /
+  60→10 per-sec upkeep, Dome 900→160 initial / 120→20 per-sec upkeep. The Directional Shield is now
+  also rendered for its own wielder, not just everyone else (`GreenLanternShieldRenderer` dropped the
+  first-person skip that used to exist to avoid the shield rendering on top of the camera at the old,
+  closer distance -- the shield already floats a full block out, `DISTANCE = 1.0`, so that concern
+  didn't actually apply and the skip just meant a player couldn't see their own shield at all).
+- **Ability-key HUD glow and cooldown display fixes (v0.11.5)** -- `GreenLanternHud`'s six boxes now
+  glow (`BORDER_ACTIVE`, the same convention `MaxSteelHud`/`ThorHud` already use) while Z's Shield/Dome
+  is up or V's suit is worn; R/G/Z each now show whichever of their tap/shift abilities' two separate
+  cooldown keys (`ring_bolt`/`continuous_beam`, `construct_fist`/`war_hammer_slam`,
+  `directional_shield`/`protective_dome`) is actually counting down, via `Math.max` of both -- previously
+  only the tap half's key was checked, so e.g. War Hammer Slam's cooldown never showed on the G box at
+  all; and C now shows the currently *selected* construct's own cooldown
+  (`GreenLanternConstructs#cooldownRemainingFor`) instead of nothing. Deploying any construct now also
+  emits a burst of green particles at the caster's hand (`GreenLanternConstructs#emitDeployGlow`) so
+  marker-only constructs with no blocks of their own (turret/bubble/drill/energy blade/tool kit) still
+  give some visible feedback, and every block-based construct's blocks are green stained glass instead
+  of light-blue (`lightBlockState`) to actually read as this power's own hard light. A construct refused
+  for being on cooldown now names the actual seconds remaining
+  (`message.projecthero.green_lantern.construct_cooldown`) instead of a bare "COOLDOWN" string.
