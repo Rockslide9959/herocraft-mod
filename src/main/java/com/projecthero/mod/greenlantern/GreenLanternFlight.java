@@ -77,8 +77,14 @@ public final class GreenLanternFlight {
 			return 0f;
 		}
 		player.getAbilities().flying = true;
-		double topSpeedBps = boosting ? GreenLanternConfig.BOOST_SPEED_BPS : GreenLanternConfig.FLIGHT_CRUISE_SPEED_BPS;
-		float fly = (float) (topSpeedBps / 20.0 / 2.0); // vanilla doubles flying speed while sprinting
+		// v0.11.2: cruise now sets the exact same vanilla flying-speed value the Flight power uses
+		// (HeroFlight.HERO_FLYING_SPEED) instead of GL's own hand-derived figure, so the two feel
+		// identical at rest; Boost scales that by the existing cruise->boost ratio
+		// (BOOST_SPEED_BPS / FLIGHT_CRUISE_SPEED_BPS) so the boost-over-cruise feel is unchanged.
+		float fly = boosting
+				? com.projecthero.mod.hero.power.HeroFlight.HERO_FLYING_SPEED
+						* (float) (GreenLanternConfig.BOOST_SPEED_BPS / GreenLanternConfig.FLIGHT_CRUISE_SPEED_BPS)
+				: com.projecthero.mod.hero.power.HeroFlight.HERO_FLYING_SPEED;
 		if (player.getAbilities().getFlyingSpeed() != fly) {
 			player.getAbilities().setFlyingSpeed(fly);
 			player.onUpdateAbilities();

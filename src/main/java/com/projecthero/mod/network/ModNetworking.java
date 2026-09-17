@@ -50,6 +50,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(BulletHolePayload.TYPE, BulletHolePayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(PunisherArsenalOpenPayload.TYPE, PunisherArsenalOpenPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SquadInfoPayload.TYPE, SquadInfoPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(GreenLanternConstructSelectPayload.TYPE, GreenLanternConstructSelectPayload.CODEC);
 
 		// Thor flight double-tap-jump (unchanged). The other Thor actions now arrive via the universal
 		// slot router below, but the enum values are left intact for save/packet compatibility.
@@ -146,6 +147,10 @@ public final class ModNetworking {
 		// Elasticity body-shape wheel: the player picked Elastic / Inflated / Compression.
 		ServerPlayNetworking.registerGlobalReceiver(ElasticFormPayload.TYPE, (payload, context) ->
 				com.projecthero.mod.hero.power.p17.ElasticityHandlers.chooseForm(context.player(), payload.form()));
+
+		// Green Lantern construct wheel: the player picked a construct type (hold C).
+		ServerPlayNetworking.registerGlobalReceiver(GreenLanternConstructSelectPayload.TYPE, (payload, context) ->
+				com.projecthero.mod.greenlantern.GreenLanternAbilityManager.selectConstruct(context.player(), payload.ordinal()));
 
 		// Teleportation Portal picker: the player chose a destination + dimension.
 		ServerPlayNetworking.registerGlobalReceiver(PortalCreatePayload.TYPE, (payload, context) ->

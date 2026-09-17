@@ -107,10 +107,10 @@ public final class GreenLanternConfig {
 
 	// ---------------- constructs (generic) ----------------
 
-	public static final int CONSTRUCT_MAX_SLOTS = 6;
+	public static final int CONSTRUCT_MAX_SLOTS = 20;
 	public static final double CONSTRUCT_PLACE_RANGE = 24.0;
 	public static final double CONSTRUCT_OWNER_OUTLINE_RANGE = 48.0;
-	public static final int CONSTRUCT_WHEEL_HOLD_TICKS = 7; // 0.35s
+	public static final int CONSTRUCT_WHEEL_HOLD_TICKS = 10; // 0.5s
 
 	// ---------------- combat constructs ----------------
 

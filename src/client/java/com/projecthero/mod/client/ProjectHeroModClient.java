@@ -34,6 +34,10 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	private static boolean powerInfoWasDown = false;
 	private static boolean squadMenuWasDown = false;
 
+	/** Green Lantern construct wheel: C (ability slot 6) held this many ticks so far, not shifted. */
+	private static int glConstructHeldTicks = 0;
+	private static boolean glWheelOpenedThisHold = false;
+
 	/** Ability-1 (R) tap vs hold while a firearm is held: tap = reload, hold = open the Arsenal wheel. */
 	private static int firearmAbilityOneHeld = -1;
 	private static boolean firearmAbilityOneSentPress = false;
@@ -103,6 +107,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		IronManBeamClient.register();
 		com.projecthero.mod.client.spider.SpiderWebLineRenderer.initialize();
 		com.projecthero.mod.client.firearm.BulletHoleRenderer.initialize();
+		com.projecthero.mod.client.greenlantern.GreenLanternShieldRenderer.initialize();
 
 		// GeckoLib armour: give every SuperheroArmorItem (Thor + the five Iron Man marks) a client-only
 		// GeoRenderProvider so GeckoLib renders them with the shared crimson_vanguard model instead of
@@ -242,10 +247,14 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			powerInfoWasDown = false;
 			maxSteelTransformWasDown = false;
 			squadMenuWasDown = false;
+			glConstructHeldTicks = 0;
+			glWheelOpenedThisHold = false;
 			// Leaving a world must not carry the last server's squad roster into the next one.
 			com.projecthero.mod.client.squad.SquadClient.clear();
 			return;
 		}
+
+		handleGreenLanternConstructWheelHold(client);
 
 		boolean flyingNow = client.player.getAttachedOrElse(ModAttachments.FLYING, false);
 		if (flyingNow && !wasFlying) {
@@ -259,6 +268,18 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			for (int i = 0; i < 6; i++) {
 				if (slotWasDown[i]) {
 					slotWasDown[i] = false;
+					// v0.11.2: slot 6 (C) opening the construct wheel is the one case where this cleanup
+					// must NOT forward a release -- the press was already sent moments earlier, and
+					// forwarding this release too would report a several-tick "hold" to the server that
+					// (being under GreenLanternConfig.CONSTRUCT_WHEEL_HOLD_TICKS, since the wheel opens
+					// the instant the client-side counter reaches that same threshold, one tick before the
+					// server would ever see it) reads as a short tap and deploys the selected construct
+					// out from under the player the moment the wheel opens. Leaving the server's
+					// ABILITY6_PRESSED entry un-removed is harmless: the next real press simply overwrites
+					// it (see GreenLanternAbilityManager#handleAbilitySix).
+					if (i == 5 && glWheelOpenedThisHold) {
+						continue;
+					}
 					ClientPlayNetworking.send(new AbilityInputPayload(i + 1, false));
 				}
 			}
@@ -340,6 +361,46 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			firearmAbilityOneSentPress = false;
 		}
 		slotWasDown[0] = down;
+	}
+
+	/**
+	 * v0.11.2: holding ability slot 6 (C) for {@code GreenLanternConfig.CONSTRUCT_WHEEL_HOLD_TICKS}
+	 * opens the construct wheel. Deliberately does NOT touch {@link #slotWasDown} or send any
+	 * {@link AbilityInputPayload} itself -- the generic per-slot loop below keeps forwarding C's
+	 * press/release exactly as it does for every other slot (so a quick tap still deploys, and Shift+C
+	 * still dismisses via the existing server-side path), and opening a {@link Screen} makes the
+	 * existing "screen opened while a slot key was held" cleanup (this same method's caller) release
+	 * slot 6 on the client's own next tick, same as it would for any other ability key.
+	 */
+	private static void handleGreenLanternConstructWheelHold(Minecraft client) {
+		boolean eligible = client.screen == null && !Screen.hasShiftDown()
+				&& ModKeyBindings.ABILITY_6.isDown() && greenLanternHasWheelContext(client.player);
+		if (!eligible) {
+			glConstructHeldTicks = 0;
+			glWheelOpenedThisHold = false;
+			return;
+		}
+		glConstructHeldTicks++;
+		if (!glWheelOpenedThisHold
+				&& glConstructHeldTicks >= com.projecthero.mod.greenlantern.GreenLanternConfig.CONSTRUCT_WHEEL_HOLD_TICKS) {
+			glWheelOpenedThisHold = true;
+			client.setScreen(new com.projecthero.mod.client.gui.GreenLanternConstructWheelScreen());
+		}
+	}
+
+	/** Mirrors the server's {@code GreenLanternAbilityManager.hasContext}: bonded, no mutation active. */
+	private static boolean greenLanternHasWheelContext(LocalPlayer player) {
+		if (player == null) {
+			return false;
+		}
+		com.projecthero.mod.greenlantern.data.GreenLanternState state =
+				player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_STATE, null);
+		if (state == null || !state.hasPower) {
+			return false;
+		}
+		com.projecthero.mod.hero.data.ExperimentalState experimental =
+				player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		return experimental == null || experimental.activePower.isEmpty();
 	}
 
 	private static void handlePowerSelect(Minecraft client) {

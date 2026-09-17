@@ -6,6 +6,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.projecthero.mod.hero.power.AbilityHelpers;
 
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -14,6 +16,8 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
+
+import org.joml.Vector3f;
 
 /**
  * Ring Bolt (R) / Continuous Beam (Shift+R) and Construct Fist (G) / War Hammer Slam (Shift+G).
@@ -33,7 +37,73 @@ public final class GreenLanternCombat {
 	/** Player UUID -> ticks the beam has been channelling this activation (absent = not channelling). */
 	private static final Map<UUID, Integer> BEAM_CHANNEL = new ConcurrentHashMap<>();
 
+	/** Lantern-Corps green, matching {@code GreenLanternHud}'s bar colour (0x35F075). */
+	private static final ParticleOptions GREEN_DUST = new DustParticleOptions(new Vector3f(0.208f, 0.941f, 0.459f), 1.6f);
+
 	private GreenLanternCombat() {
+	}
+
+	/**
+	 * The player's live right-hand vector (perpendicular to both look direction and world-up),
+	 * falling back to a body-yaw-derived right vector when looking straight up/down (where
+	 * {@code look x up} degenerates to zero).
+	 */
+	private static Vec3 rightVector(ServerPlayer player) {
+		Vec3 look = player.getLookAngle();
+		Vec3 right = look.cross(new Vec3(0, 1, 0));
+		if (right.lengthSqr() < 1.0e-4) {
+			double yawRad = Math.toRadians(player.getYRot());
+			right = new Vec3(-Math.cos(yawRad), 0, -Math.sin(yawRad));
+		}
+		return right.normalize();
+	}
+
+	/**
+	 * Where Ring Bolt/Continuous Beam's drawn line starts -- offset down and to the side from the eye,
+	 * roughly at hand height, so the beam's own particles don't render right in front of the camera
+	 * (v0.11.2: "so they don't get blinded"). Hit detection is unaffected -- {@link #ringBolt} and
+	 * {@link #beamTick} still raycast from the eye via {@link AbilityHelpers#raycastEntity}, so the bolt
+	 * still lands exactly on the crosshair; only the cosmetic line's start point moves.
+	 */
+	private static Vec3 handOrigin(ServerPlayer player) {
+		Vec3 eye = player.getEyePosition();
+		return eye.add(player.getLookAngle().scale(0.5)).add(rightVector(player).scale(0.35)).add(0.0, -0.45, 0.0);
+	}
+
+	/**
+	 * A wireframe cube of particles at {@code center} -- Construct Fist's hard-light "model" (v0.11.2).
+	 * Cheap and asset-free (reuses {@link AbilityHelpers#line}'s existing particle-line drawing) but
+	 * reads as a fist-sized solid shape rather than a shapeless burst, consistent with every other
+	 * Green Lantern effect being particle-driven rather than a spawned entity/model (see
+	 * docs/GREENLANTERN_REFERENCE.md's deliberate-simplifications list).
+	 */
+	private static void drawFistShape(ServerLevel level, Vec3 center) {
+		double h = 0.35;
+		Vec3[] c = {
+				center.add(-h, -h, -h), center.add(h, -h, -h), center.add(h, -h, h), center.add(-h, -h, h),
+				center.add(-h, h, -h), center.add(h, h, -h), center.add(h, h, h), center.add(-h, h, h),
+		};
+		int[][] edges = {
+				{0, 1}, {1, 2}, {2, 3}, {3, 0},
+				{4, 5}, {5, 6}, {6, 7}, {7, 4},
+				{0, 4}, {1, 5}, {2, 6}, {3, 7},
+		};
+		for (int[] e : edges) {
+			AbilityHelpers.line(level, c[e[0]], c[e[1]], GREEN_DUST, 6.0);
+		}
+	}
+
+	/**
+	 * A hammer silhouette (a mallet-head bar crossing the swing, plus a handle rising from the impact
+	 * point) in particles -- War Hammer Slam's equivalent of {@link #drawFistShape}.
+	 */
+	private static void drawHammerShape(ServerLevel level, Vec3 center, Vec3 right) {
+		double headHalf = 0.7;
+		Vec3 headA = center.add(right.scale(-headHalf)).add(0, 0.55, 0);
+		Vec3 headB = center.add(right.scale(headHalf)).add(0, 0.55, 0);
+		AbilityHelpers.line(level, headA, headB, GREEN_DUST, 8.0);
+		AbilityHelpers.line(level, headA.add(0, 0.3, 0), headB.add(0, 0.3, 0), GREEN_DUST, 8.0);
+		AbilityHelpers.line(level, center.add(0, 0.55, 0), center.add(0, 1.7, 0), GREEN_DUST, 6.0);
 	}
 
 	public static void clearSessionState() {
@@ -61,12 +131,12 @@ public final class GreenLanternCombat {
 		ServerLevel level = player.serverLevel();
 		LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.BOLT_RANGE);
 		Vec3 endPoint = AbilityHelpers.aimPoint(player, GreenLanternConfig.BOLT_RANGE);
-		AbilityHelpers.line(level, player.getEyePosition(), endPoint, ParticleTypes.HAPPY_VILLAGER, 4.0);
+		AbilityHelpers.line(level, handOrigin(player), endPoint, ParticleTypes.HAPPY_VILLAGER, 4.0);
 		if (target != null) {
 			AbilityHelpers.hurt(player, target, GreenLanternConfig.BOLT_DAMAGE);
 			AbilityHelpers.knockbackFrom(target, player.position(), GreenLanternConfig.BOLT_KNOCKBACK);
 		}
-		AbilityHelpers.sound(player, SoundEvents.TRIDENT_THROW, 0.6f, 1.6f);
+		AbilityHelpers.sound(player, SoundEvents.GUARDIAN_ATTACK, 0.5f, 1.8f);
 	}
 
 	// ---------------- Continuous Beam ----------------
@@ -85,6 +155,7 @@ public final class GreenLanternCombat {
 		}
 		BEAM_CHANNEL.put(player.getUUID(), 0);
 		player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 6, movementPenaltyAmplifier(), false, false, false));
+		AbilityHelpers.sound(player, SoundEvents.GUARDIAN_ATTACK, 0.5f, 0.7f);
 	}
 
 	public static void beamStop(ServerPlayer player) {
@@ -115,10 +186,13 @@ public final class GreenLanternCombat {
 			if (target != null) {
 				AbilityHelpers.hurt(player, target, GreenLanternConfig.BEAM_DAMAGE_PER_TICK);
 			}
+			// A periodic zap on the same cadence as the damage tick -- not a true seamless loop, but
+			// enough to read as a sustained energy weapon rather than silent channelling.
+			AbilityHelpers.sound(player, SoundEvents.GUARDIAN_ATTACK, 0.35f, 0.9f);
 		}
 		ServerLevel level = player.serverLevel();
 		Vec3 end = AbilityHelpers.aimPoint(player, GreenLanternConfig.BEAM_RANGE);
-		AbilityHelpers.line(level, player.getEyePosition(), end, ParticleTypes.HAPPY_VILLAGER, 3.0);
+		AbilityHelpers.line(level, handOrigin(player), end, ParticleTypes.HAPPY_VILLAGER, 3.0);
 		BEAM_CHANNEL.put(player.getUUID(), ticks + 1);
 	}
 
@@ -143,13 +217,13 @@ public final class GreenLanternCombat {
 
 		ServerLevel level = player.serverLevel();
 		Vec3 aim = AbilityHelpers.aimPoint(player, GreenLanternConfig.FIST_RANGE);
-		AbilityHelpers.line(level, player.getEyePosition(), aim, ParticleTypes.END_ROD, 5.0);
+		AbilityHelpers.line(level, handOrigin(player), aim, GREEN_DUST, 5.0);
 		LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.FIST_RANGE);
+		Vec3 impact = target != null ? target.position().add(0, target.getBbHeight() * 0.5, 0) : aim;
+		drawFistShape(level, impact);
 		if (target != null) {
 			AbilityHelpers.hurt(player, target, GreenLanternConfig.FIST_DAMAGE);
 			AbilityHelpers.knockbackFrom(target, player.position(), GreenLanternConfig.FIST_KNOCKBACK);
-			AbilityHelpers.burst(level, target.position().add(0, target.getBbHeight() * 0.5, 0),
-					ParticleTypes.END_ROD, 16, 0.5);
 		}
 		AbilityHelpers.sound(player, SoundEvents.IRON_GOLEM_ATTACK, 0.8f, 1.1f);
 	}
@@ -178,8 +252,9 @@ public final class GreenLanternCombat {
 			e.setDeltaMovement(e.getDeltaMovement().x, GreenLanternConfig.HAMMER_KNOCKUP, e.getDeltaMovement().z);
 			e.hurtMarked = true;
 		}
-		AbilityHelpers.burst(level, center, ParticleTypes.END_ROD, 40, GreenLanternConfig.HAMMER_RADIUS * 0.6);
-		level.sendParticles(ParticleTypes.CRIT, center.x, center.y, center.z, 30, GreenLanternConfig.HAMMER_RADIUS,
+		drawHammerShape(level, center, rightVector(player));
+		AbilityHelpers.burst(level, center, GREEN_DUST, 40, GreenLanternConfig.HAMMER_RADIUS * 0.6);
+		level.sendParticles(GREEN_DUST, center.x, center.y, center.z, 30, GreenLanternConfig.HAMMER_RADIUS,
 				0.2, GreenLanternConfig.HAMMER_RADIUS, 0.05);
 		AbilityHelpers.sound(player, SoundEvents.ANVIL_LAND, 1.0f, 0.6f);
 	}

@@ -96,8 +96,12 @@ public final class FlightPoseHelper {
 		boolean ironManFlying = player.getAttachedOrElse(ModAttachments.IRON_MAN_FLYING, false);
 		// v0.6.17: Max Steel's Turbo Flight gets the same forward-lean "superman" body pose.
 		boolean maxSteelFlying = player.getAttachedOrElse(ModAttachments.MAX_STEEL_FLYING, false);
+		// v0.11.2: Green Lantern's Ring Flight gets the same pose too -- this is also what keeps the
+		// skin's hat layer glued to the head while flying (see HumanoidModelMixin#levelHead), which was
+		// never happening for Ring Flight before since it never drove a body lean at all.
+		boolean greenLanternFlying = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FLYING, false);
 		boolean heroFlying = player.getAttachedOrElse(ModAttachments.HERO_FLYING, false)
-				|| ironManFlying || maxSteelFlying;
+				|| ironManFlying || maxSteelFlying || greenLanternFlying;
 		boolean flying = thorFlying || heroFlying;
 		anim.heroOnly = heroFlying && !thorFlying;
 		if (flying) {

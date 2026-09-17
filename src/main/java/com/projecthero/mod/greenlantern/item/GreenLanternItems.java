@@ -43,8 +43,10 @@ public final class GreenLanternItems {
 		SUIT_LEGGINGS = registerArmor("green_lantern_suit_leggings", ArmorItem.Type.LEGGINGS);
 		SUIT_BOOTS = registerArmor("green_lantern_suit_boots", ArmorItem.Type.BOOTS);
 
+		// v0.11.2: bespoke geometry (own bone layout, same GeckoLib armour bone names as
+		// crimson_vanguard so it still rides SHARED_ANIMATION) instead of the shared placeholder shell.
 		SuperheroArmorVisuals.register("green_lantern", new ArmorVisualDefinition(
-				SuperheroArmorVisuals.SHARED_GEO,
+				ProjectHeroMod.id("geo/green_lantern.geo.json"),
 				ProjectHeroMod.id("textures/armor/green_lantern.png"),
 				SuperheroArmorVisuals.SHARED_ANIMATION));
 

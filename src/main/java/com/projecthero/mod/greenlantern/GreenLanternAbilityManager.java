@@ -95,7 +95,14 @@ public final class GreenLanternAbilityManager {
 			case SLOT_4 -> {
 				if (pressed) {
 					if (player.isShiftKeyDown()) {
-						GreenLanternShield.deployDome(player);
+						// v0.11.2: Shift+Z dismisses an already-up dome instead of trying (and failing) to
+						// deploy a second one -- lets the player drop it on their own timing rather than
+						// only ever losing it to a break or the max-duration timeout.
+						if (GreenLanternShield.isActive(player) && GreenLanternShield.isDome(player)) {
+							GreenLanternShield.dismissDomeVoluntarily(player);
+						} else {
+							GreenLanternShield.deployDome(player);
+						}
 					} else {
 						GreenLanternShield.startShield(player);
 					}
@@ -130,8 +137,17 @@ public final class GreenLanternAbilityManager {
 		GreenLanternFlight.onEnter(player);
 	}
 
-	// ---------------- Ability 6 (C): deploy / cycle-select / dismiss ----------------
+	// ---------------- Ability 6 (C): deploy / hold-for-wheel / dismiss ----------------
 
+	/**
+	 * A tap (release before {@link GreenLanternConfig#CONSTRUCT_WHEEL_HOLD_TICKS}) deploys the currently
+	 * selected construct. A hold that reaches the threshold is the construct-wheel gesture (v0.11.2):
+	 * the client (see {@code ProjectHeroModClient}'s ability-key handling) opens
+	 * {@code GreenLanternConstructWheelScreen} itself once it crosses that same threshold and, because
+	 * opening any {@link net.minecraft.client.gui.screens.Screen} makes the client release every held
+	 * ability key, the release this method sees for a long hold is intentionally a no-op here -- the
+	 * player's actual pick arrives separately via {@link #selectConstruct}.
+	 */
 	private static void handleAbilitySix(ServerPlayer player, boolean pressed) {
 		if (pressed) {
 			if (player.isShiftKeyDown()) {
@@ -146,28 +162,34 @@ public final class GreenLanternAbilityManager {
 			return;
 		}
 		long held = player.level().getGameTime() - since;
-		if (held >= GreenLanternConfig.CONSTRUCT_WHEEL_HOLD_TICKS) {
-			cycleSelection(player);
-		} else {
+		if (held < GreenLanternConfig.CONSTRUCT_WHEEL_HOLD_TICKS) {
 			GreenLanternConstructs.deploy(player, GreenLantern.state(player).selectedConstructType());
 		}
 	}
 
-	private static void cycleSelection(ServerPlayer player) {
-		GreenLanternState s = GreenLantern.state(player);
-		ConstructType[] all = ConstructType.values();
-		int next = s.selectedConstruct;
-		for (int i = 0; i < all.length; i++) {
-			next = (next + 1) % all.length;
-			if (all[next].unlockedFor(s)) {
-				break;
-			}
+	/**
+	 * Server-side landing spot for {@link com.projecthero.mod.network.GreenLanternConstructSelectPayload}
+	 * (the construct wheel). Re-validates the ordinal and Mastery unlock -- the client only ever shows
+	 * unlocked wedges, but the payload is not trusted just because the screen was built correctly.
+	 */
+	public static void selectConstruct(ServerPlayer player, int ordinal) {
+		if (!hasContext(player) || ordinal < 0 || ordinal >= ConstructType.values().length) {
+			return;
 		}
-		GreenLanternState c = s.copy();
-		c.selectedConstruct = next;
+		GreenLanternState s = GreenLantern.state(player);
+		ConstructType type = ConstructType.values()[ordinal];
+		if (!type.unlockedFor(s)) {
+			return;
+		}
+		applySelection(player, ordinal);
+	}
+
+	private static void applySelection(ServerPlayer player, int ordinal) {
+		GreenLanternState c = GreenLantern.state(player).copy();
+		c.selectedConstruct = ordinal;
 		GreenLantern.save(player, c);
 		player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.construct_selected",
-				Component.translatable(all[next].translationKey())), true);
+				Component.translatable(ConstructType.byOrdinal(ordinal).translationKey())), true);
 	}
 
 	// ---------------- per-player server tick ----------------
