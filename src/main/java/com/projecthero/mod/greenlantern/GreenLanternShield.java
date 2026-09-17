@@ -54,7 +54,6 @@ public final class GreenLanternShield {
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
 			return;
 		}
-		GreenLanternEnergy.markAbilityUsed(player);
 		GreenLanternBattery.onAbilityUsed(player);
 		player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_HP, GreenLanternConfig.SHIELD_HP);
 		player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, false);
@@ -88,7 +87,6 @@ public final class GreenLanternShield {
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
 			return;
 		}
-		GreenLanternEnergy.markAbilityUsed(player);
 		GreenLanternBattery.onAbilityUsed(player);
 		player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_HP, GreenLanternConfig.DOME_HP);
 		player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, true);

@@ -2,12 +2,16 @@ package com.projecthero.mod.greenlantern;
 
 import com.projecthero.mod.attachment.ModAttachments;
 
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.phys.Vec3;
+
+import org.joml.Vector3f;
 
 /**
  * Ring Flight (X) / Boost (Shift+X). Built on vanilla {@code mayfly}/{@code flying} with a per-tick
@@ -20,6 +24,9 @@ import net.minecraft.world.phys.Vec3;
  * unsuited and suiting down mid-flight must not interrupt it.
  */
 public final class GreenLanternFlight {
+	/** Lantern-Corps green, matching {@code GreenLanternCombat}'s dust colour -- the sprint-flying trail. */
+	private static final ParticleOptions TRAIL_DUST = new DustParticleOptions(new Vector3f(0.208f, 0.941f, 0.459f), 1.4f);
+
 	private GreenLanternFlight() {
 	}
 
@@ -104,8 +111,18 @@ public final class GreenLanternFlight {
 					player.getX() + back.x, player.getY() + 0.3, player.getZ() + back.z, 1, 0.1, 0.1, 0.1, 0.02);
 		}
 
+		// v0.11.4: a green particle trail while sprint-flying (Boost -- Shift+Sprint, per the caller),
+		// continuously emitted at the player's position so it reads as a trail behind fast movement --
+		// same single-point-emission trick used for Super Speed's trail, no dedicated trail entity
+		// needed. Costs its own small per-second drain on top of Boost's existing cost. Gated on the
+		// same tickCount%2/speed>0.02 cadence as the flame/end-rod effect above, so it doesn't spray
+		// packets while hovering nearly in place and doubles up on the same tick as that effect.
 		if (boosting) {
-			return GreenLanternConfig.BOOST_COST_PER_SEC / 20f;
+			if (player.tickCount % 2 == 0 && speed > 0.02) {
+				player.serverLevel().sendParticles(TRAIL_DUST, player.getX(), player.getY() + 0.9, player.getZ(),
+						1, 0.05, 0.05, 0.05, 0.0);
+			}
+			return (GreenLanternConfig.BOOST_COST_PER_SEC + GreenLanternConfig.FLIGHT_TRAIL_COST_PER_SEC) / 20f;
 		}
 		float perSec = speed > 0.06 ? GreenLanternConfig.FLIGHT_CRUISE_COST_PER_SEC : GreenLanternConfig.FLIGHT_HOVER_COST_PER_SEC;
 		return perSec / 20f;

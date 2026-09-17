@@ -144,6 +144,11 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.titan.TitanSpawner.tick(server);
 			com.projecthero.mod.spider.SpiderWebs.tick(server);
 			com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.tick(server);
+			// Once/sec, for every online player (not just bonded Green Lanterns) -- a traded, gifted or
+			// chest-stashed hard-light tool can end up on anyone, not only the Lantern who deployed it.
+			if (server.getTickCount() % 20 == 0) {
+				com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.sweepLooseToolKitPieces(server);
+			}
 			com.projecthero.mod.greenlantern.GreenLanternTrial.tick(server);
 			server.getPlayerList().getPlayers().forEach(player -> {
 				TickWatchdog.run("ThorPowers.serverTick", () -> ThorPowers.serverTick(player));

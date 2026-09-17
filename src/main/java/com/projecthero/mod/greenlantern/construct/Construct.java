@@ -43,6 +43,8 @@ public final class Construct {
 	public net.minecraft.core.Direction facing;
 	/** WALL/CAGE break-cooldown bookkeeping key suffix, so multiple constructs of the same type don't collide. */
 	public final int instanceId;
+	/** TOOL_KIT: whether all three tools were actually granted (false if the inventory had no room). */
+	public boolean toolKitGranted;
 
 	private static int nextInstanceId = 1;
 

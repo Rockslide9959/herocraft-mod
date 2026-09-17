@@ -3,18 +3,32 @@ package com.projecthero.mod.greenlantern;
 import com.projecthero.mod.greenlantern.data.GreenLanternState;
 import com.projecthero.mod.greenlantern.item.GreenLanternSuitArmor;
 
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
+
+import org.joml.Vector3f;
 
 /**
  * Suit Up / Suit Down (V, tap). 0.8s animation, 100 charge on activation, 0 idle upkeep (the ring's
  * armour costs nothing to maintain -- only actions do). A 0.25s debounce stops a double-tap from
  * immediately reversing the animation, and suit-down is refused while battery-recharging (Phase 4).
+ *
+ * <p>v0.11.4: a ring of green hard-light particles travels up the body while suiting up (and back down
+ * while suiting down), read each tick straight off {@link GreenLanternState#suitAnimStartTick} rather
+ * than a separate counter, so it can't drift out of sync with the animation it's decorating.
  */
 public final class GreenLanternSuit {
+	/** Lantern-Corps green, matching every other hard-light effect's dust colour in this power. */
+	private static final ParticleOptions SUIT_DUST = new DustParticleOptions(new Vector3f(0.208f, 0.941f, 0.459f), 1.3f);
+	private static final int RING_POINTS = 8;
+	private static final double RING_RADIUS = 0.4;
+
 	private GreenLanternSuit() {
 	}
 
@@ -30,7 +44,7 @@ public final class GreenLanternSuit {
 		}
 
 		if (s.suited) {
-			if (GreenLanternBattery.isChannelling(player)) {
+			if (GreenLanternBattery.isRecitingOath(player)) {
 				GreenLanternEnergy.feedback(player, "message.projecthero.green_lantern.cannot_suit_down_recharging");
 				return;
 			}
@@ -42,7 +56,7 @@ public final class GreenLanternSuit {
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
 			return;
 		}
-		GreenLanternEnergy.markAbilityUsed(player);
+		GreenLanternBattery.onAbilityUsed(player);
 		beginTransition(player, GreenLanternState.SUIT_SUITING_UP);
 	}
 
@@ -64,6 +78,7 @@ public final class GreenLanternSuit {
 			return;
 		}
 		long elapsed = player.level().getGameTime() - s.suitAnimStartTick;
+		emitSuitRing(player, s.suitAnimDir, elapsed);
 		if (elapsed < GreenLanternConfig.SUIT_UP_TICKS) {
 			return;
 		}
@@ -84,5 +99,23 @@ public final class GreenLanternSuit {
 		}
 		player.displayClientMessage(Component.translatable(suitingUp
 				? "message.projecthero.green_lantern.suited_up" : "message.projecthero.green_lantern.suited_down"), true);
+	}
+
+	/**
+	 * A ring of green particles at {@code player}'s feet climbing to head height over the suit-up
+	 * animation (and the mirror image sinking back down on suit-down), so the hard-light suit reads as
+	 * materialising/dissolving up the body rather than just popping on.
+	 */
+	private static void emitSuitRing(ServerPlayer player, int dir, long elapsed) {
+		float progress = Mth.clamp(elapsed / (float) GreenLanternConfig.SUIT_UP_TICKS, 0f, 1f);
+		float ringHeight = dir == GreenLanternState.SUIT_SUITING_UP ? progress : 1f - progress;
+		ServerLevel level = player.serverLevel();
+		double y = player.getY() + ringHeight * player.getBbHeight();
+		for (int i = 0; i < RING_POINTS; i++) {
+			double angle = (2 * Math.PI * i) / RING_POINTS;
+			double x = player.getX() + Math.cos(angle) * RING_RADIUS;
+			double z = player.getZ() + Math.sin(angle) * RING_RADIUS;
+			level.sendParticles(SUIT_DUST, x, y, z, 1, 0.0, 0.0, 0.0, 0.0);
+		}
 	}
 }

@@ -132,7 +132,6 @@ public final class GreenLanternAbilityManager {
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
 			return;
 		}
-		GreenLanternEnergy.markAbilityUsed(player);
 		GreenLanternBattery.onAbilityUsed(player);
 		GreenLanternFlight.onEnter(player);
 	}
@@ -221,8 +220,6 @@ public final class GreenLanternAbilityManager {
 				emergencyDescend(player);
 			}
 		}
-
-		GreenLanternEnergy.tickRegen(player, beamChannelling || GreenLanternBattery.isChannelling(player));
 
 		if (player.tickCount % 20 == 0) {
 			float now = GreenLanternEnergy.get(player);

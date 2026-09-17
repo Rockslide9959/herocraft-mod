@@ -14,10 +14,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
 /**
- * The Personal Power Battery. Right-click by its bonded owner begins a recharge channel (500/sec);
- * any other Green Lantern may also use it (per the build brief's fallback -- ownership on placed
- * batteries isn't tracked, team-sharing is implicit). See {@link GreenLanternBattery} for the channel
- * state machine and interrupt conditions.
+ * The Personal Power Battery. Right-click by its bonded owner begins the Oath recitation that fully
+ * recharges the ring on completion (v0.11.4); any other Green Lantern may also use it (per the build
+ * brief's fallback -- ownership on placed batteries isn't tracked, team-sharing is implicit). See
+ * {@link GreenLanternBattery} for the oath state machine and cancel conditions.
  */
 public class PowerBatteryBlock extends Block {
 	public PowerBatteryBlock(Properties properties) {
@@ -34,7 +34,7 @@ public class PowerBatteryBlock extends Block {
 			sp.displayClientMessage(Component.translatable("message.projecthero.green_lantern.not_a_lantern"), true);
 			return InteractionResult.CONSUME;
 		}
-		GreenLanternBattery.beginChannel(sp, pos);
+		GreenLanternBattery.beginOath(sp, pos);
 		return InteractionResult.CONSUME;
 	}
 }

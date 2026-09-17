@@ -41,15 +41,17 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * The reusable hard-light construct system: owner-tracked, TTL-restoring, capacity-enforced. Every
- * one of the twelve named constructs is a {@link Construct} instance dispatched by
+ * one of the thirteen named constructs is a {@link Construct} instance dispatched by
  * {@link ConstructType.Kind} rather than its own class -- most are backed by real temporary blocks
  * (cloned from {@code ConjuredStructures}' TTL/restore shape), a few (turret, tether, drill, energy
- * blade, atmosphere bubble) are "marker" constructs with no blocks, ticked purely in Java.
+ * blade, atmosphere bubble, the Hard-Light Tool Kit) are "marker" constructs with no blocks, ticked
+ * purely in Java.
  *
- * <p>Global rules enforced here: max 6 ordinary slots (weighted, see {@link ConstructType#slotWeight()}),
- * 24-block placement range, never overwrites bedrock/portals/containers/unbreakable blocks, never drops
- * items, vanishes on owner death/dimension-change/logout/hard depletion (see {@code clearFor}), and a
- * turret/cage/tether never targets/affects the owner, a squadmate, or a tamed mob.
+ * <p>Global rules enforced here: max {@link GreenLanternConfig#CONSTRUCT_MAX_SLOTS} weighted slots
+ * (see {@link ConstructType#slotWeight()}), 24-block placement range, never overwrites
+ * bedrock/portals/containers/unbreakable blocks, never drops items, vanishes on owner
+ * death/dimension-change/logout/hard depletion (see {@code clearFor}), and a turret/cage/tether never
+ * targets/affects the owner, a squadmate, or a tamed mob.
  */
 public final class GreenLanternConstructs {
 	private static final Map<UUID, List<Construct>> BY_OWNER = new ConcurrentHashMap<>();
@@ -141,6 +143,13 @@ public final class GreenLanternConstructs {
 			batteringRam(player);
 			return;
 		}
+		// Only one Tool Kit at a time -- countToolKitPieces()/tickKind's TOOL_KIT case count pieces
+		// per-PLAYER, not per-construct-instance, so two live kits sharing one pool of tagged tools
+		// would let a player drop pieces from one kit without either one ever ending.
+		if (type == ConstructType.HARD_LIGHT_TOOLS && hasLiveToolKit(player.getUUID())) {
+			GreenLanternEnergy.feedback(player, "message.projecthero.green_lantern.tool_kit_already_active");
+			return;
+		}
 		String cooldownId = cooldownIdFor(type);
 		if (cooldownId != null && !GreenLantern.abilityReady(player, cooldownId)) {
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.cooldown_simple");
@@ -155,7 +164,6 @@ public final class GreenLanternConstructs {
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
 			return;
 		}
-		GreenLanternEnergy.markAbilityUsed(player);
 		com.projecthero.mod.greenlantern.GreenLanternBattery.onAbilityUsed(player);
 
 		ServerLevel level = player.serverLevel();
@@ -173,6 +181,7 @@ public final class GreenLanternConstructs {
 			case BUBBLE -> {} // marker only
 			case TETHER -> spawnTether(player, c);
 			case DRILL -> {} // marker only
+			case TOOL_KIT -> spawnToolKit(player, c);
 			default -> {}
 		}
 		boolean usesBlocks = type.kind() == ConstructType.Kind.WALL || type.kind() == ConstructType.Kind.PLATFORM_BLOCKS
@@ -180,11 +189,13 @@ public final class GreenLanternConstructs {
 				|| type.kind() == ConstructType.Kind.LIGHT_BLOCKS;
 		boolean placementFailed = (usesBlocks && c.cells.isEmpty())
 				|| (type.kind() == ConstructType.Kind.CAGE && c.cagedEntityId < 0)
-				|| (type.kind() == ConstructType.Kind.TETHER && c.tetherTargetId < 0);
+				|| (type.kind() == ConstructType.Kind.TETHER && c.tetherTargetId < 0)
+				|| (type.kind() == ConstructType.Kind.TOOL_KIT && !c.toolKitGranted);
 		if (placementFailed) {
 			// placement failed entirely (e.g. every target cell was protected/occupied, or no target found)
 			GreenLanternEnergy.refund(player, cost);
-			GreenLanternEnergy.feedback(player, "message.projecthero.ability.invalid_target");
+			GreenLanternEnergy.feedback(player, type.kind() == ConstructType.Kind.TOOL_KIT
+					? "message.projecthero.green_lantern.tool_kit_no_room" : "message.projecthero.ability.invalid_target");
 			return;
 		}
 		BY_OWNER.computeIfAbsent(player.getUUID(), k -> new ArrayList<>()).add(c);
@@ -331,6 +342,136 @@ public final class GreenLanternConstructs {
 		}
 	}
 
+	// ---------------- Hard-Light Tool Kit ----------------
+
+	/** NBT marker key identifying a hard-light tool piece -- survives an anvil rename, unlike a name match. */
+	private static final String TOOL_KIT_TAG = "projecthero_gl_tool_kit";
+	private static final String[] TOOL_KIT_NAME_KEYS = {
+			"message.projecthero.green_lantern.tool_kit.pickaxe",
+			"message.projecthero.green_lantern.tool_kit.axe",
+			"message.projecthero.green_lantern.tool_kit.shovel",
+	};
+	private static final net.minecraft.world.item.Item[] TOOL_KIT_BASES = {
+			net.minecraft.world.item.Items.DIAMOND_PICKAXE,
+			net.minecraft.world.item.Items.DIAMOND_AXE,
+			net.minecraft.world.item.Items.DIAMOND_SHOVEL,
+	};
+
+	private static net.minecraft.world.item.ItemStack toolKitPiece(net.minecraft.world.item.Item base, String nameKey) {
+		net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(base);
+		stack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.translatable(nameKey)
+				.withStyle(s -> s.withColor(net.minecraft.ChatFormatting.GREEN).withItalic(false)));
+		net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+		tag.putBoolean(TOOL_KIT_TAG, true);
+		stack.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
+				net.minecraft.world.item.component.CustomData.of(tag));
+		return stack;
+	}
+
+	private static boolean isToolKitPiece(net.minecraft.world.item.ItemStack stack) {
+		net.minecraft.world.item.component.CustomData data = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+		return data != null && data.copyTag().getBoolean(TOOL_KIT_TAG);
+	}
+
+	/** Whether {@code owner} already has a live Tool Kit -- at most one may be active at a time. */
+	public static boolean hasLiveToolKit(UUID owner) {
+		for (Construct c : of(owner)) {
+			if (c.type.kind() == ConstructType.Kind.TOOL_KIT) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Deploy: one diamond pickaxe/axe/shovel each. Refuses (leaving {@code c.toolKitGranted} false, so
+	 * {@code deploy()} treats it as a failed placement and refunds) rather than {@code drop()}ing
+	 * whatever doesn't fit -- a dropped piece with no construct behind it would be a free permanent
+	 * diamond tool the moment it's picked back up, since nothing would ever end the kit that "granted" it.
+	 */
+	private static void spawnToolKit(ServerPlayer player, Construct c) {
+		int free = 0;
+		for (net.minecraft.world.item.ItemStack stack : player.getInventory().items) {
+			if (stack.isEmpty()) {
+				free++;
+			}
+		}
+		if (free < TOOL_KIT_BASES.length) {
+			return;
+		}
+		for (int i = 0; i < TOOL_KIT_BASES.length; i++) {
+			if (!player.getInventory().add(toolKitPiece(TOOL_KIT_BASES[i], TOOL_KIT_NAME_KEYS[i]))) {
+				// The free-slot count above makes this practically unreachable, but if it ever does
+				// happen, strip whatever was granted so far rather than leaving a half-granted kit --
+				// c.toolKitGranted stays false, so deploy() takes the failed-placement refund path.
+				deleteLooseToolKitPieces(player);
+				return;
+			}
+		}
+		c.toolKitGranted = true;
+	}
+
+	/** Counts every tagged piece the player is holding, including one on the container cursor. */
+	private static int countToolKitPieces(ServerPlayer owner) {
+		int count = 0;
+		for (net.minecraft.world.item.ItemStack stack : owner.getInventory().items) {
+			if (isToolKitPiece(stack)) {
+				count++;
+			}
+		}
+		for (net.minecraft.world.item.ItemStack stack : owner.getInventory().offhand) {
+			if (isToolKitPiece(stack)) {
+				count++;
+			}
+		}
+		if (isToolKitPiece(owner.containerMenu.getCarried())) {
+			count++;
+		}
+		return count;
+	}
+
+	/**
+	 * Dropping any one of the three tools ends the whole kit (per the deploy-as-one-bundle design) --
+	 * called whenever a Tool Kit construct ends for any reason, so the remaining pieces don't linger.
+	 */
+	private static void removeToolKit(Construct c) {
+		ServerPlayer p = c.level.getServer() != null ? c.level.getServer().getPlayerList().getPlayer(c.owner) : null;
+		if (p != null) {
+			deleteLooseToolKitPieces(p);
+		}
+	}
+
+	/**
+	 * Deletes any hard-light tool {@code player} is holding (inventory, offhand, or the container
+	 * cursor) while they have no live Tool Kit construct of their own. Called both to clean up an
+	 * ending kit's own leftovers immediately, and periodically for every online player (not just
+	 * Green Lanterns -- a traded, gifted or chest-stashed piece can end up on anyone) via
+	 * {@link #sweepLooseToolKitPieces}. Mirrors {@code GreenLanternSuitArmor#deleteLoose}'s "this
+	 * shouldn't exist any more" pattern for exactly the same reason: a piece with no construct behind
+	 * it any more would otherwise be a free, permanent diamond tool the moment anyone picks it up.
+	 */
+	public static boolean deleteLooseToolKitPieces(ServerPlayer player) {
+		var inv = player.getInventory();
+		boolean removed = false;
+		for (int i = 0; i < inv.items.size(); i++) {
+			if (isToolKitPiece(inv.items.get(i))) {
+				inv.items.set(i, net.minecraft.world.item.ItemStack.EMPTY);
+				removed = true;
+			}
+		}
+		for (int i = 0; i < inv.offhand.size(); i++) {
+			if (isToolKitPiece(inv.offhand.get(i))) {
+				inv.offhand.set(i, net.minecraft.world.item.ItemStack.EMPTY);
+				removed = true;
+			}
+		}
+		if (isToolKitPiece(player.containerMenu.getCarried())) {
+			player.containerMenu.setCarried(net.minecraft.world.item.ItemStack.EMPTY);
+			removed = true;
+		}
+		return removed;
+	}
+
 	private static void batteringRam(ServerPlayer player) {
 		if (!GreenLantern.abilityReady(player, "battering_ram")) {
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.cooldown_simple");
@@ -341,7 +482,7 @@ public final class GreenLanternConstructs {
 			return;
 		}
 		GreenLantern.triggerCooldown(player, "battering_ram", GreenLanternConfig.RAM_COOLDOWN_TICKS);
-		GreenLanternEnergy.markAbilityUsed(player);
+		com.projecthero.mod.greenlantern.GreenLanternBattery.onAbilityUsed(player);
 		AbilityHelpers.launchSelf(player, player.getLookAngle().scale(1.4).add(0, 0.1, 0));
 		LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.RAM_DISTANCE);
 		if (target != null) {
@@ -415,6 +556,9 @@ public final class GreenLanternConstructs {
 		if (c.type.kind() == ConstructType.Kind.MELEE_BUFF) {
 			removeMeleeBuff(c);
 		}
+		if (c.type.kind() == ConstructType.Kind.TOOL_KIT) {
+			removeToolKit(c);
+		}
 		if (broken) {
 			c.level.sendParticles(ParticleTypes.END_ROD, c.anchor.x, c.anchor.y, c.anchor.z, 20, 0.6, 0.6, 0.6, 0.05);
 			c.level.playSound(null, c.anchor.x, c.anchor.y, c.anchor.z, SoundEvents.GLASS_BREAK, SoundSource.BLOCKS, 0.6f, 0.8f);
@@ -442,6 +586,9 @@ public final class GreenLanternConstructs {
 			restore(c);
 			if (c.type.kind() == ConstructType.Kind.MELEE_BUFF) {
 				removeMeleeBuff(c);
+			}
+			if (c.type.kind() == ConstructType.Kind.TOOL_KIT) {
+				removeToolKit(c);
 			}
 		}
 	}
@@ -480,9 +627,27 @@ public final class GreenLanternConstructs {
 					if (c.type.kind() == ConstructType.Kind.MELEE_BUFF) {
 						removeMeleeBuff(c);
 					}
+					if (c.type.kind() == ConstructType.Kind.TOOL_KIT) {
+						removeToolKit(c);
+					}
 					applyEndCooldown(owner, c);
 					it.remove();
 				}
+			}
+		}
+	}
+
+	/**
+	 * Sweeps every online player (not just Green Lanterns -- a hard-light tool traded, gifted or left
+	 * in a shared chest can end up on anyone) for loose Tool Kit pieces with no live construct behind
+	 * them. Throttled by the caller to once/sec rather than every tick -- an untracked tool sitting
+	 * around for up to a second before vanishing is imperceptible, and scanning every online player's
+	 * full inventory every single tick is not worth paying for.
+	 */
+	public static void sweepLooseToolKitPieces(MinecraftServer server) {
+		for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+			if (!hasLiveToolKit(p.getUUID())) {
+				deleteLooseToolKitPieces(p);
 			}
 		}
 	}
@@ -511,6 +676,10 @@ public final class GreenLanternConstructs {
 				return tickTether(owner, c);
 			}
 			case DRILL -> tickDrill(owner, c);
+			case TOOL_KIT -> {
+				// Dropping any one of the three tools ends the whole kit (removeToolKit strips the rest).
+				return countToolKitPieces(owner) >= 3;
+			}
 			default -> {}
 		}
 		return true;

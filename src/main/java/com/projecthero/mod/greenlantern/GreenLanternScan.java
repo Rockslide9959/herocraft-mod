@@ -31,7 +31,6 @@ public final class GreenLanternScan {
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
 			return;
 		}
-		GreenLanternEnergy.markAbilityUsed(player);
 		GreenLanternBattery.onAbilityUsed(player);
 		GreenLantern.triggerCooldown(player, SCAN_CD, GreenLanternConfig.SCAN_COOLDOWN_TICKS);
 

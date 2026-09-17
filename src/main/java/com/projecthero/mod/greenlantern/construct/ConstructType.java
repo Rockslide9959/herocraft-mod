@@ -19,8 +19,10 @@ public enum ConstructType {
 	SENTRY_TURRET(Kind.TURRET, GreenLanternConfig.TURRET_COST, GreenLanternConfig.TURRET_UPKEEP_PER_SEC,
 			0f, GreenLanternConfig.TURRET_MAX_DURATION_TICKS, 2, GreenLanternState.MASTERY_IV),
 	BATTERING_RAM(Kind.INSTANT_RAM, GreenLanternConfig.RAM_COST, 0f, 0f, 0, 0, GreenLanternState.MASTERY_IV),
+	// v0.11.4: Bonded (was Mastery II) -- a brand-new Green Lantern had no defensive construct option
+	// at all before this; Wall is the obvious one to make available from the start.
 	HARD_LIGHT_WALL(Kind.WALL, GreenLanternConfig.WALL_COST, GreenLanternConfig.WALL_UPKEEP_PER_SEC,
-			GreenLanternConfig.WALL_HP, GreenLanternConfig.WALL_MAX_DURATION_TICKS, 2, GreenLanternState.MASTERY_II),
+			GreenLanternConfig.WALL_HP, GreenLanternConfig.WALL_MAX_DURATION_TICKS, 2, GreenLanternState.MASTERY_BONDED),
 	PLATFORM(Kind.PLATFORM_BLOCKS, GreenLanternConfig.PLATFORM_COST, GreenLanternConfig.PLATFORM_UPKEEP_PER_SEC,
 			0f, GreenLanternConfig.PLATFORM_MAX_DURATION_TICKS, GreenLanternConfig.PLATFORM_SLOT_WEIGHT,
 			GreenLanternState.MASTERY_BONDED),
@@ -43,12 +45,17 @@ public enum ConstructType {
 			GreenLanternState.MASTERY_I),
 	CARRY_PLATFORM(Kind.PLATFORM_BLOCKS, GreenLanternConfig.CARRY_PLATFORM_COST, GreenLanternConfig.CARRY_PLATFORM_UPKEEP_PER_SEC,
 			0f, GreenLanternConfig.CARRY_PLATFORM_MAX_DURATION_TICKS, GreenLanternConfig.CARRY_PLATFORM_SLOT_WEIGHT,
-			GreenLanternState.MASTERY_III);
+			GreenLanternState.MASTERY_III),
+	// v0.11.4: a diamond pickaxe/axe/shovel synthesised straight into the inventory rather than a
+	// block/marker construct -- dismiss-only (no automatic expiry), ended by upkeep failure, Shift+C,
+	// or the player dropping any one of the three tools (see GreenLanternConstructs#tickKind's TOOL_KIT case).
+	HARD_LIGHT_TOOLS(Kind.TOOL_KIT, GreenLanternConfig.TOOL_KIT_COST, GreenLanternConfig.TOOL_KIT_UPKEEP_PER_SEC,
+			0f, 0, GreenLanternConfig.TOOL_KIT_SLOT_WEIGHT, GreenLanternState.MASTERY_BONDED);
 
 	/** How {@link GreenLanternConstructs} spawns/ticks/dismisses a construct of this type. */
 	public enum Kind {
 		MELEE_BUFF, CAGE, TURRET, INSTANT_RAM, WALL, PLATFORM_BLOCKS, BRIDGE_BLOCKS, RAMP_BLOCKS,
-		DRILL, LIGHT_BLOCKS, BUBBLE, TETHER
+		DRILL, LIGHT_BLOCKS, BUBBLE, TETHER, TOOL_KIT
 	}
 
 	private final Kind kind;

@@ -122,6 +122,22 @@ A **non-superhuman** Hero-Tier power: firearms, explosives, gear and training. C
   double bow/crossbow damage while powered.
 - Netherite/diamond-tier **tactical armour** (no helmet), craftable only by Punisher players.
 
+### 💚 Green Lantern
+A permanent **Hero-Tier** power. Find a **Fallen Lantern Site** — a rare, damaged crater holding a
+Dormant Power Ring — and pass the **Will Trial** (three enemy waves) to bond it.
+
+- A **Ring Charge** pool (10,000 points) fuels everything: ranged Ring Bolt/Continuous Beam, a
+  Construct Fist and War Hammer Slam, flight, a directional shield or an all-around dome, and **13
+  hard-light constructs** shaped on the fly — a defensive Wall and a diamond pickaxe/axe/shovel Tool
+  Kit are available from the moment you bond, the rest unlock through Willpower Mastery.
+- **No passive recharge at all.** The only way to refill the ring is a Personal Power Battery: recite
+  the on-screen Oath — four lines, one at a time, in green — without moving, turning, taking damage or
+  using any ability, and the ring fills instantly the moment you finish.
+- Suiting up grants full **diamond-level armour** plus a flat melee damage bonus; sprint-flying trails
+  a green hard-light streak behind you.
+- Constructs are cheap to make and maintain, temporary rather than permanent building blocks, and
+  capped by a weighted slot system rather than a flat count.
+
 ---
 
 ## 27 Experimental Powers · 162 Abilities

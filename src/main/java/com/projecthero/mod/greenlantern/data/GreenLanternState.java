@@ -58,8 +58,6 @@ public final class GreenLanternState {
 	public double totalFlightDistance;
 	/** {@code abilityId} -> absolute game-time it is ready again (survives relog/death/dimension). */
 	public final Map<String, Long> abilityReadyAt;
-	/** Absolute game-time of the last ring-ability use -- passive regen waits 8s after this. */
-	public long lastAbilityUseTick;
 	/** Absolute game-time the current night began while bonded (0 = not currently tracking a night). */
 	public long nightStartTick;
 	/** Mastery I's "survive one full night while bonded" requirement, once satisfied. */
@@ -70,13 +68,13 @@ public final class GreenLanternState {
 	public GreenLanternState() {
 		this(false, GreenLanternConfig.MAX_RING_CHARGE, false, SUIT_IDLE, 0L,
 				ConstructType.HARD_LIGHT_WALL.ordinal(), MASTERY_BONDED, 0L, 0f, 0.0,
-				new HashMap<>(), 0L, 0L, false, false);
+				new HashMap<>(), 0L, false, false);
 	}
 
 	public GreenLanternState(boolean hasPower, float ringCharge, boolean suited, int suitAnimDir,
 			long suitAnimStartTick, int selectedConstruct, int masteryLevel, long totalEnergySpent,
 			float totalDamageBlocked, double totalFlightDistance, Map<String, Long> abilityReadyAt,
-			long lastAbilityUseTick, long nightStartTick, boolean nightSurvived, boolean bossDefeatedWhileBonded) {
+			long nightStartTick, boolean nightSurvived, boolean bossDefeatedWhileBonded) {
 		this.hasPower = hasPower;
 		this.ringCharge = ringCharge;
 		this.suited = suited;
@@ -88,7 +86,6 @@ public final class GreenLanternState {
 		this.totalDamageBlocked = totalDamageBlocked;
 		this.totalFlightDistance = totalFlightDistance;
 		this.abilityReadyAt = new HashMap<>(abilityReadyAt);
-		this.lastAbilityUseTick = lastAbilityUseTick;
 		this.nightStartTick = nightStartTick;
 		this.nightSurvived = nightSurvived;
 		this.bossDefeatedWhileBonded = bossDefeatedWhileBonded;
@@ -97,7 +94,7 @@ public final class GreenLanternState {
 	public GreenLanternState copy() {
 		return new GreenLanternState(hasPower, ringCharge, suited, suitAnimDir, suitAnimStartTick,
 				selectedConstruct, masteryLevel, totalEnergySpent, totalDamageBlocked, totalFlightDistance,
-				abilityReadyAt, lastAbilityUseTick, nightStartTick, nightSurvived, bossDefeatedWhileBonded);
+				abilityReadyAt, nightStartTick, nightSurvived, bossDefeatedWhileBonded);
 	}
 
 	public ConstructType selectedConstructType() {
@@ -123,7 +120,6 @@ public final class GreenLanternState {
 			Codec.DOUBLE.optionalFieldOf("total_flight_distance", 0.0).forGetter(s -> s.totalFlightDistance),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", new HashMap<>())
 					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
-			Codec.LONG.optionalFieldOf("last_ability_use_tick", 0L).forGetter(s -> s.lastAbilityUseTick),
 			Codec.LONG.optionalFieldOf("night_start_tick", 0L).forGetter(s -> s.nightStartTick),
 			Codec.BOOL.optionalFieldOf("night_survived", false).forGetter(s -> s.nightSurvived),
 			Codec.BOOL.optionalFieldOf("boss_defeated_while_bonded", false).forGetter(s -> s.bossDefeatedWhileBonded)

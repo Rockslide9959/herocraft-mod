@@ -116,8 +116,9 @@ public final class GreenLantern {
 		com.projecthero.mod.greenlantern.GreenLanternFlight.forceStop(player, false);
 		com.projecthero.mod.greenlantern.GreenLanternShield.dismissAll(player);
 		com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.clearFor(player.getUUID());
-		com.projecthero.mod.greenlantern.GreenLanternBattery.cancelChannel(player.getUUID());
+		com.projecthero.mod.greenlantern.GreenLanternBattery.cancelOath(player.getUUID());
 		com.projecthero.mod.greenlantern.GreenLanternAbilityManager.onCleanup(player.getUUID());
+		com.projecthero.mod.greenlantern.GreenLanternEnergy.onCleanup(player.getUUID());
 		com.projecthero.mod.greenlantern.item.GreenLanternSuitArmor.strip(player);
 		GreenLanternState s = state(player);
 		if (!s.suited && s.suitAnimDir == GreenLanternState.SUIT_IDLE) {

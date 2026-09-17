@@ -1,4 +1,4 @@
-# Green Lantern Hero-Tier power (v0.11.2)
+# Green Lantern Hero-Tier power (v0.11.4)
 
 A bonded Power Ring, Ring Charge (0-10,000), controlled flight, hard-light constructs, ranged
 combat and shielding. Package: `com.projecthero.mod.greenlantern` (+ `.data`, `.item`, `.block`,
@@ -28,7 +28,7 @@ real six slots by role:
 |---|---|
 | Static API (bond/revoke/cooldowns/lifecycle) | `GreenLantern` |
 | Balance constants | `GreenLanternConfig` |
-| Persistent state (15-field codec, under the 16-field ceiling) | `data/GreenLanternState` |
+| Persistent state (14-field codec, under the 16-field ceiling) | `data/GreenLanternState` |
 | Ring Charge resource | `GreenLanternEnergy` |
 | Slot dispatch + per-player tick | `GreenLanternAbilityManager` |
 | Flight (cloned from `MaxSteelFlight`'s velocity model) | `GreenLanternFlight` |
@@ -37,7 +37,7 @@ real six slots by role:
 | Ring Scan | `GreenLanternScan` |
 | Suit Up/Down animation | `GreenLanternSuit` |
 | Willpower Mastery I-IV | `GreenLanternMastery` |
-| Power Battery recharge channel | `GreenLanternBattery` |
+| Power Battery Oath recitation | `GreenLanternBattery` |
 | Will Trial (waves/fail/cooldown) | `GreenLanternTrial` |
 | Construct framework | `construct/Construct`, `construct/ConstructType`, `construct/GreenLanternConstructs` |
 | Suit items/armour | `item/GreenLanternItems`, `item/GreenLanternArmorItem`, `item/GreenLanternSuitArmor` |
@@ -121,3 +121,37 @@ exactly what to revisit:
   `DOME_COOLDOWN_TICKS` (`GreenLanternShield#dismissDomeVoluntarily`) so a dome can't be soaked down and
   redeployed at full HP for free; the lifecycle-cleanup path (`GreenLanternShield#dismissAll`, used on
   death/power-loss) deliberately does not apply that cooldown.
+- **The Oath's "any input cancels it" is a heuristic, not real key-press detection** (v0.11.4,
+  `GreenLanternBattery#movedOrTurned`) -- no raw server-side input event exists for this, so the oath
+  instead cancels on a position/look-angle drift past a small epsilon each tick, plus the existing
+  per-ability `onAbilityUsed`/`onDamaged` hooks every Green Lantern ability already calls. This mirrors
+  the old channel's own interrupt conditions (damage/movement/ability-use/logout), just re-purposed for
+  a fixed recitation instead of a walk-and-wait loop. Passive Ring Charge regen is gone entirely --
+  `GreenLanternEnergy#addCharge` (fired once, instantly, on oath completion) is now the only source of
+  charge.
+- **The oath text is the classic Green Lantern Oath** (`message.projecthero.green_lantern.oath.line1-4`),
+  per an explicit user request -- the opening line was already shipped as `message...welcome` since an
+  earlier version.
+- **Hard-Light Tool Kit dismissal is tick-polled, not event-driven** (v0.11.4,
+  `GreenLanternConstructs#tickKind`'s `TOOL_KIT` case/`countToolKitPieces`) -- rather than a new
+  drop-event/mixin, the granted diamond pickaxe/axe/shovel are tagged with a `CustomData` marker and
+  the construct checks each server tick whether all three are still somewhere in the owner's inventory
+  (including the container-menu cursor, so mid-drag inventory rearranging isn't misread as a drop);
+  losing any one ends the whole kit and calls `deleteLooseToolKitPieces`, which also runs unconditionally
+  every player-tick from `GreenLanternAbilityManager` whenever that player has no live Tool Kit -- so a
+  piece dropped, stored in a chest, or left over from an ended kit is deleted the moment it re-enters the
+  player's inventory, rather than becoming a free permanent diamond tool. At most one Tool Kit may be
+  live per player at a time (a second deploy is refused outright) specifically so this per-player piece
+  count is never ambiguous between two simultaneous kits. Deploying with fewer than 3 free inventory
+  slots is refused and refunded up front instead of dropping the overflow on the ground.
+- **Mastery XP no longer truncates sub-1 per-tick amounts to zero** (v0.11.4,
+  `GreenLanternEnergy#wholeMasteryXp`) -- `totalEnergySpent` is a whole `long`, and the construct-cost
+  cut above put most per-tick upkeep drains well under 1 energy/tick; rounding each one in isolation
+  would have silently zeroed out Mastery progress from upkeep entirely. A transient, per-player carried
+  remainder (session-only, cleared like `GreenLanternAbilityManager`'s own `LAST_CHARGE_CHECK`) keeps
+  the fractional amount instead of discarding it every tick.
+- **Power Battery blast resistance raised to 1200** (v0.11.4, matching `FALLEN_LANTERN_PEDESTAL`'s own
+  figure) -- with no passive regen at all, losing a placed battery to a creeper (or its `lantern_core`,
+  granted only once by the Will Trial) would otherwise be an unrecoverable soft-lock on ever recharging
+  the ring again. This raises the bar to "no vanilla explosion can touch it" without redesigning how a
+  Lantern Core is obtained, which stays a known follow-up if it ever comes up in practice.

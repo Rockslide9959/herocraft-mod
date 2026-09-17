@@ -124,7 +124,6 @@ public final class GreenLanternCombat {
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
 			return;
 		}
-		GreenLanternEnergy.markAbilityUsed(player);
 		GreenLanternBattery.onAbilityUsed(player);
 		GreenLantern.triggerCooldown(player, BOLT_CD, GreenLanternConfig.BOLT_COOLDOWN_TICKS);
 
@@ -180,7 +179,6 @@ public final class GreenLanternCombat {
 				GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
 				return;
 			}
-			GreenLanternEnergy.markAbilityUsed(player);
 			GreenLanternBattery.onAbilityUsed(player);
 			LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.BEAM_RANGE);
 			if (target != null) {
@@ -211,7 +209,6 @@ public final class GreenLanternCombat {
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
 			return;
 		}
-		GreenLanternEnergy.markAbilityUsed(player);
 		GreenLanternBattery.onAbilityUsed(player);
 		GreenLantern.triggerCooldown(player, FIST_CD, GreenLanternConfig.FIST_COOLDOWN_TICKS);
 
@@ -236,7 +233,6 @@ public final class GreenLanternCombat {
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
 			return;
 		}
-		GreenLanternEnergy.markAbilityUsed(player);
 		GreenLanternBattery.onAbilityUsed(player);
 		GreenLantern.triggerCooldown(player, HAMMER_CD, GreenLanternConfig.HAMMER_COOLDOWN_TICKS);
 

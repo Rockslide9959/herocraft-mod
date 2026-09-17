@@ -16,9 +16,13 @@ import net.minecraft.world.level.material.MapColor;
 
 /** Green Lantern blocks: the Personal Power Battery and the Fallen Lantern Site's pedestal. */
 public final class GreenLanternBlocks {
+	// v0.11.4: blast resistance raised to match FALLEN_LANTERN_PEDESTAL's own 1200 -- with no passive
+	// Ring Charge regen at all any more, losing a placed battery to a creeper would otherwise be an
+	// unrecoverable soft-lock on ever recharging the ring again (lantern_core is granted only once, by
+	// the Will Trial). Mining hardness is unchanged.
 	public static final Block POWER_BATTERY = register("power_battery",
 			new PowerBatteryBlock(BlockBehaviour.Properties.of()
-					.mapColor(MapColor.COLOR_GREEN).strength(3.5f, 6.0f).sound(SoundType.AMETHYST)
+					.mapColor(MapColor.COLOR_GREEN).strength(3.5f, 1200.0f).sound(SoundType.AMETHYST)
 					.requiresCorrectToolForDrops().lightLevel(s -> 12).noOcclusion()));
 
 	/** Not in the creative tab / not craftable -- placed only by the Fallen Lantern Site's worldgen. */

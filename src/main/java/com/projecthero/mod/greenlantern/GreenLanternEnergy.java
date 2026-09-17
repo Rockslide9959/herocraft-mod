@@ -1,5 +1,9 @@
 package com.projecthero.mod.greenlantern;
 
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 import com.projecthero.mod.greenlantern.data.GreenLanternState;
 
 import net.minecraft.network.chat.Component;
@@ -8,15 +12,43 @@ import net.minecraft.server.level.ServerPlayer;
 /**
  * The Ring Charge resource. 0..{@link GreenLanternConfig#MAX_RING_CHARGE}; the last
  * {@link GreenLanternConfig#EMERGENCY_RESERVE} points are reserved for Emergency Catch/emergency
- * descent and never spendable by {@link #spend}. Passive regen is 2/sec, but only once 8 seconds have
- * passed since {@link #markAbilityUsed}, and never while a channel (beam, battery recharge) holds it
- * off via {@link #tickRegen}'s {@code suppressed} argument.
+ * descent and never spendable by {@link #spend}. There is no passive regeneration (v0.11.4) -- the
+ * only way to gain charge is {@link #addCharge}, called once, instantly, when a Power Battery Oath
+ * completes (see {@link GreenLanternBattery}).
  *
  * <p>Server-authoritative in every respect: only a server-side {@link #spend}/{@link #spendEmergency}
- * moves the pool down and only {@link #tickRegen}/{@link #addCharge} moves it up.
+ * moves the pool down and only {@link #addCharge} moves it up.
  */
 public final class GreenLanternEnergy {
+	/**
+	 * The sub-1 remainder of {@code totalEnergySpent} contributions, per player -- v0.11.4's much
+	 * cheaper per-tick construct upkeep (often well under 1 energy/tick) would otherwise round to zero
+	 * on every single call via {@link #wholeMasteryXp}, silently erasing Mastery progress from upkeep
+	 * entirely regardless of how the Mastery thresholds themselves are tuned. Transient, not part of
+	 * {@code GreenLanternState}'s codec -- cleared per-player on logout/death/power-loss via
+	 * {@link #onCleanup} (same lifecycle as {@code GreenLanternAbilityManager}'s own per-player maps)
+	 * and entirely on a server restart via {@link #clearSessionState}. Losing at most &lt;1 point of
+	 * Mastery progress is an acceptable trade for not truncating it to zero every tick.
+	 */
+	private static final Map<UUID, Float> MASTERY_XP_CARRY = new ConcurrentHashMap<>();
+
 	private GreenLanternEnergy() {
+	}
+
+	public static void clearSessionState() {
+		MASTERY_XP_CARRY.clear();
+	}
+
+	public static void onCleanup(UUID playerId) {
+		MASTERY_XP_CARRY.remove(playerId);
+	}
+
+	/** Rounds {@code amount} down to a whole long, carrying the fractional remainder to the next call. */
+	private static long wholeMasteryXp(ServerPlayer player, float amount) {
+		float carried = MASTERY_XP_CARRY.getOrDefault(player.getUUID(), 0f) + amount;
+		long whole = (long) carried;
+		MASTERY_XP_CARRY.put(player.getUUID(), carried - whole);
+		return whole;
 	}
 
 	public static float get(ServerPlayer player) {
@@ -49,7 +81,7 @@ public final class GreenLanternEnergy {
 		}
 		GreenLanternState c = GreenLantern.state(player).copy();
 		c.ringCharge = Math.max(0f, c.ringCharge - amount);
-		c.totalEnergySpent += Math.round(amount);
+		c.totalEnergySpent += wholeMasteryXp(player, amount);
 		GreenLantern.save(player, c);
 		com.projecthero.mod.greenlantern.GreenLanternMastery.onEnergySpent(player);
 		return true;
@@ -102,28 +134,6 @@ public final class GreenLanternEnergy {
 		}
 		GreenLanternState c = s.copy();
 		c.ringCharge = Math.min(GreenLanternConfig.MAX_RING_CHARGE, c.ringCharge + amount);
-		GreenLantern.save(player, c);
-	}
-
-	/** Call whenever a ring ability is used -- resets the 8s passive-regen delay. */
-	public static void markAbilityUsed(ServerPlayer player) {
-		GreenLanternState c = GreenLantern.state(player).copy();
-		c.lastAbilityUseTick = player.level().getGameTime();
-		GreenLantern.save(player, c);
-	}
-
-	/** Once per server tick for every bonded player. {@code suppressed} = a channel (beam/battery) owns the pool right now. */
-	public static void tickRegen(ServerPlayer player, boolean suppressed) {
-		GreenLanternState s = GreenLantern.state(player);
-		if (!s.hasPower || s.ringCharge >= GreenLanternConfig.MAX_RING_CHARGE || suppressed) {
-			return;
-		}
-		long now = player.level().getGameTime();
-		if (now - s.lastAbilityUseTick < GreenLanternConfig.PASSIVE_REGEN_DELAY_TICKS) {
-			return;
-		}
-		GreenLanternState c = s.copy();
-		c.ringCharge = Math.min(GreenLanternConfig.MAX_RING_CHARGE, c.ringCharge + GreenLanternConfig.PASSIVE_REGEN_PER_SEC / 20f);
 		GreenLantern.save(player, c);
 	}
 
