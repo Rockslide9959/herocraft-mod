@@ -16,15 +16,6 @@
           "pivot": [0, 24, 0]
         },
         {
-          "name": "helmet",
-          "pivot": [0, 24, 0],
-          "parent": "armorHead",
-          "cubes": [
-            {"origin": [-4, 24, -4], "size": [8, 8, 8], "inflate": 0.3, "uv": [0, 0]},
-            {"origin": [-4, 24, -4], "size": [8, 8, 8], "inflate": 0.55, "uv": [32, 0]}
-          ]
-        },
-        {
           "name": "armorBody",
           "pivot": [0, 24, 0]
         },

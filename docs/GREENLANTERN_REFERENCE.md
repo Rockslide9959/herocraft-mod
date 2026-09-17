@@ -85,11 +85,11 @@ exactly what to revisit:
   they moved off the shared geometry. Still points at `SHARED_ANIMATION` since the geo reuses
   `crimson_vanguard`'s top-level bone names. No dedicated boot geometry -- the leg cubes already reach
   the floor, so a Green Lantern wearing only boots (no leggings) shows nothing extra, just no visible
-  gap either. **The supplied texture's head UV region (both the `[0,0]` and `[32,0]` 32x16 blocks) is
-  fully transparent** -- inherited byte-for-byte from the source art, not a conversion mistake -- so the
-  `helmet` bone currently renders nothing at all while worn (armour points/toughness still apply; it is
-  purely a visual gap). Needs either a repaint of that texture region or the `helmet` cubes dropped
-  entirely, at the user's call.
+  gap either. **No helmet geometry either (v0.11.3, by design)** -- the suit has no helmet, so
+  `armorHead` is an empty top-level bone with no cubes (same pattern as the boot bones), and
+  `PlayerModelMixin#helmetRetracted` treats any `GreenLanternArmorItem` in the HEAD slot as permanently
+  "retracted" so the wearer's own hat/hair second-layer shows through instead of the usual
+  hide-the-skin-overlay-under-armour behaviour every other set gets.
 - **Mining Drill mines through the normal survival block-break path**
   (`ServerPlayerGameMode.destroyBlock`), so it fully respects claims/protections and can never touch
   bedrock/unbreakable blocks — but it inherits the currently-held item's harvest tier rather than

@@ -90,9 +90,17 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 				&& com.projecthero.mod.maxsteel.MaxSteelFaceplate.isOpen(player)) {
 			return true;
 		}
-		// v0.6.20: Spider-Man costume mask pulled off -- show the wearer's hair/face overlay.
-		return player.getItemBySlot(EquipmentSlot.HEAD).getItem()
+		if (player.getItemBySlot(EquipmentSlot.HEAD).getItem()
 				instanceof com.projecthero.mod.spider.item.SpiderManArmorItem
-				&& com.projecthero.mod.spider.SpiderMask.isOpen(player);
+				&& com.projecthero.mod.spider.SpiderMask.isOpen(player)) {
+			// v0.6.20: Spider-Man costume mask pulled off -- show the wearer's hair/face overlay.
+			return true;
+		}
+		// v0.11.3: the Green Lantern suit has no helmet geometry at all (geo/green_lantern.geo.json's
+		// armorHead bone is empty) -- unlike the other three cases above, this is not a toggle, it is
+		// permanent for as long as the head slot holds a Green Lantern piece, so the wearer's own
+		// hat/hair layer should always show through it.
+		return player.getItemBySlot(EquipmentSlot.HEAD).getItem()
+				instanceof com.projecthero.mod.greenlantern.item.GreenLanternArmorItem;
 	}
 }
