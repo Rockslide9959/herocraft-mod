@@ -159,7 +159,11 @@ public final class GreenLanternAbilityManager {
 	private static void handleAbilitySix(ServerPlayer player, boolean pressed) {
 		if (pressed) {
 			if (player.isShiftKeyDown()) {
-				GreenLanternConstructs.dismissRequested(player);
+				// v0.11.6: Shift+C sets down a Rescue Tether hold safely instead of dismissing constructs,
+				// if one is active -- the ordinary dismiss-all only runs when nothing is being held.
+				if (!GreenLanternConstructs.releaseRescueHeldSafely(player)) {
+					GreenLanternConstructs.dismissRequested(player);
+				}
 				return;
 			}
 			ABILITY6_PRESSED.put(player.getUUID(), player.level().getGameTime());
@@ -221,6 +225,7 @@ public final class GreenLanternAbilityManager {
 		}
 		GreenLanternShield.tickShieldUpkeep(player);
 		GreenLanternShield.tickDomeUpkeep(player);
+		GreenLanternConstructs.tickRescueHeld(player);
 
 		if (GreenLanternFlight.isFlying(player)) {
 			boolean boosting = player.isShiftKeyDown() && player.isSprinting();

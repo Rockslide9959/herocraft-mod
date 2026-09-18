@@ -593,32 +593,34 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		// but has developed a suit -> summon it. Server re-validates power / suit / energy.
 		com.projecthero.mod.ironman.data.TonyStarkState stark =
 				player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.TONY_STARK_STATE, null);
-		if (stark == null || !stark.hasPower) {
-			return;
-		}
-		boolean wearingIronMan = isWearingIronMan(player);
-		if (!player.onGround() && wearingIronMan) {
-			ticksSinceJumpPress = Integer.MAX_VALUE;
-			ClientPlayNetworking.send(new com.projecthero.mod.network.IronManActionPayload(
-					com.projecthero.mod.network.IronManActionPayload.Action.TOGGLE_FLIGHT));
-		} else if (player.onGround() && player.isShiftKeyDown() && !wearingIronMan
-				&& stark.builtSuits.stream().anyMatch(id -> id.indexOf('/') < 0)) {
-			// "changes 22": the ground summon gesture now needs SNEAK + double-tap jump.
-			//
-			// The airborne half of this method is safe because ordinary movement never puts two jump
-			// presses in the air inside the 7-tick window. The grounded half was not: two hops in a
-			// third of a second is just... running. Any Tony Stark player who bunny-hopped, or who got
-			// knocked back and mashed jump to get moving again, silently called their armour in -- which
-			// is exactly the "an armour gets called to me when I get hit" report. Worse, a rapid string
-			// of jumps re-fires it, because a double-tap that does nothing still leaves the timer at 0
-			// and so makes the NEXT tap a double-tap too.
-			//
-			// Sneaking is never part of a jump you did not mean, so gating on it removes the accident
-			// without removing the gesture. `C` remains the ordinary way to call the armour.
-			ticksSinceJumpPress = Integer.MAX_VALUE;
-			ClientPlayNetworking.send(new com.projecthero.mod.network.IronManActionPayload(
-					com.projecthero.mod.network.IronManActionPayload.Action.SUMMON_SUIT));
-			return;
+		// Guards the Iron Man gesture rather than early-returning -- an early return here used to skip
+		// every check below it (including Green Lantern's, further down), so any player without Tony
+		// Stark power could never double-tap-jump into Ring Flight at all.
+		if (stark != null && stark.hasPower) {
+			boolean wearingIronMan = isWearingIronMan(player);
+			if (!player.onGround() && wearingIronMan) {
+				ticksSinceJumpPress = Integer.MAX_VALUE;
+				ClientPlayNetworking.send(new com.projecthero.mod.network.IronManActionPayload(
+						com.projecthero.mod.network.IronManActionPayload.Action.TOGGLE_FLIGHT));
+			} else if (player.onGround() && player.isShiftKeyDown() && !wearingIronMan
+					&& stark.builtSuits.stream().anyMatch(id -> id.indexOf('/') < 0)) {
+				// "changes 22": the ground summon gesture now needs SNEAK + double-tap jump.
+				//
+				// The airborne half of this method is safe because ordinary movement never puts two jump
+				// presses in the air inside the 7-tick window. The grounded half was not: two hops in a
+				// third of a second is just... running. Any Tony Stark player who bunny-hopped, or who got
+				// knocked back and mashed jump to get moving again, silently called their armour in -- which
+				// is exactly the "an armour gets called to me when I get hit" report. Worse, a rapid string
+				// of jumps re-fires it, because a double-tap that does nothing still leaves the timer at 0
+				// and so makes the NEXT tap a double-tap too.
+				//
+				// Sneaking is never part of a jump you did not mean, so gating on it removes the accident
+				// without removing the gesture. `C` remains the ordinary way to call the armour.
+				ticksSinceJumpPress = Integer.MAX_VALUE;
+				ClientPlayNetworking.send(new com.projecthero.mod.network.IronManActionPayload(
+						com.projecthero.mod.network.IronManActionPayload.Action.SUMMON_SUIT));
+				return;
+			}
 		}
 
 		// Green Lantern (v0.11.5): Ring Flight moved off the X ability slot to this same double-tap-jump

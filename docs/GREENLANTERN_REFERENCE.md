@@ -1,4 +1,4 @@
-# Green Lantern Hero-Tier power (v0.11.5)
+# Green Lantern Hero-Tier power (v0.11.6)
 
 A bonded Power Ring, Ring Charge (0-10,000), controlled flight, hard-light constructs, ranged
 combat and shielding. Package: `com.projecthero.mod.greenlantern` (+ `.data`, `.item`, `.block`,
@@ -20,7 +20,7 @@ real six slots by role:
 | X (Movement) | Ring Grapple (v0.11.5) | — |
 | Z (Ultimate) | Directional Shield (held) | Protective Dome |
 | V (Utility/Control) | Suit Up/Down | Ring Scan |
-| C (Special Mode) | Deploy selected construct | hold ≥0.35s, release = cycle to next construct; **Shift+C** = dismiss all |
+| C (Special Mode) | Deploy selected construct (Rescue Tether: grab, or throw if already holding) | hold ≥0.35s, release = cycle to next construct; **Shift+C** = dismiss all, or set down a Rescue Tether hold safely if one is active |
 
 **v0.11.5: Ring Flight moved off the X slot** to a double-tap of the vanilla jump key while airborne
 (mirroring Thor/Iron Man's own double-tap-jump gesture -- see `ProjectHeroModClient#handleDoubleJump`
@@ -102,12 +102,30 @@ exactly what to revisit:
   bedrock/unbreakable blocks — but it inherits the currently-held item's harvest tier rather than
   always granting diamond-equivalent drops, and it does not implement the per-material break-speed
   timing table from the spec (it breaks on the normal per-tick check interval instead).
-- **Battering Ram and Rescue Tether are both instant one-shot abilities**, not persisted, slot-costing
-  constructs (`ConstructType.Kind.INSTANT`, dispatched from `GreenLanternConstructs#deploy` before the
-  normal construct pipeline, never entering `BY_OWNER`). Battering Ram avoids any block-breaking/claim-
-  bypass risk; Rescue Tether was reworked in v0.11.5 from a standing, upkeep-costing pull-over-time
-  construct into a single instant grab (`GreenLanternConstructs#rescueGrab`, mirroring
-  `SymbioteTendrils#pull`'s heavy-vs-light handling) per an explicit "make it a grab move" request.
+- **Battering Ram and Rescue Tether are both `ConstructType.Kind.INSTANT`**, not persisted,
+  slot-costing constructs -- dispatched from `GreenLanternConstructs#deploy` before the normal construct
+  pipeline, never entering `BY_OWNER`. Battering Ram avoids any block-breaking/claim-bypass risk and
+  stays a true one-shot. Rescue Tether went through two reworks: v0.11.5 turned it from a standing,
+  upkeep-costing pull-over-time construct into a single instant grab (mirroring
+  `SymbioteTendrils#pull`'s heavy-vs-light handling); **v0.11.6 turned that instant grab into an actual
+  hold**, per an explicit "press c and pick up the target, they can press c again to throw the target or
+  shift+C to let them down safely" request. The state now lives in `GreenLanternConstructs#RESCUE_HELD`
+  (a `Map<UUID, Integer>` of owner -> held entity id, separate from `BY_OWNER` since a hold still isn't a
+  standing construct): the first C press raycasts and validates the target with the same
+  `AbilityHelpers#isValidGrabTarget` filter every other Hero-Tier grab move uses (no armour stands, no
+  boss-tier health, real players gated behind `HeroConfig#abilityHardCrowdControlOnPlayers` -- a
+  persisted carry is a much stronger hold on a player than the old one-tick yank ever was, so it now
+  gets the same hard-CC gate Super Strength/Telekinesis/Elasticity's grabs already respect) and glues it
+  in front of the caster's eyes every tick (`#tickRescueHeld`, called from
+  `GreenLanternAbilityManager#serverTick`, re-implementing `GrabHelper#tick`'s reposition-every-tick
+  approach since Green Lantern keeps its own state rather than an experimental power's `AbilityContext`
+  resource slots); a second C press throws it (`#throwRescueHeld`); Shift+C sets it down safely instead
+  of the ordinary dismiss-all (`GreenLanternAbilityManager#handleAbilitySix` checks
+  `#releaseRescueHeldSafely` first) -- zero velocity, `fallDistance` reset, and a brief Slow Falling if
+  still airborne, so "safely" holds even released off a ledge. A hold that outlives its owner (death,
+  respawn, logout, dimension change, power loss) is released the same safe way from
+  `GreenLantern#clearTransient`, and a held target too far away or that dies is dropped automatically
+  by `#tickRescueHeld`.
 - **Carry Platform follows its owner and can carry passengers (v0.11.5)**, resolving the prior
   limitation here. It's a fixed 3x3 footprint (not rotated to the owner's facing -- a symmetric square
   is rotation-invariant, so `GreenLanternConstructs#carryPlatformCells` just offsets ±1 on both
@@ -212,3 +230,26 @@ exactly what to revisit:
   of light-blue (`lightBlockState`) to actually read as this power's own hard light. A construct refused
   for being on cooldown now names the actual seconds remaining
   (`message.projecthero.green_lantern.construct_cooldown`) instead of a bare "COOLDOWN" string.
+- **Ring Flight's double-tap-jump gesture was dead for every Green Lantern who wasn't also Tony
+  Stark (v0.11.6 bug fix)** -- `ProjectHeroModClient#handleDoubleJump`'s Iron Man branch used to
+  `return` outright when the player had no Tony Stark power, which skipped every check below it in the
+  method, including Green Lantern's, further down. A Green Lantern with no Iron Man power (i.e. almost
+  all of them) could therefore never trigger flight by double-tapping Space at all. Fixed by guarding
+  the Iron Man branch in an `if` instead of an early `return`, so execution always falls through to the
+  Green Lantern check. The gesture itself is unchanged: airborne, double-tap Space within
+  `DOUBLE_JUMP_WINDOW_TICKS` (7 ticks) of the first press, toggles flight on or off either way.
+- **No fall damage at all while the ring has any charge (v0.11.6)**, per an explicit user request --
+  replaces the old suited-only, cost-and-cooldown-gated Emergency Catch passive outright (`emergency_
+  catch`'s ability id, `EMERGENCY_CATCH_COST`/`EMERGENCY_CATCH_COOLDOWN_TICKS` are gone;
+  `GreenLanternDamage#onAllowDamage` now just checks `GreenLanternEnergy#get(player) > 0f` against
+  `DamageTypeTags#IS_FALL` and vetoes the damage, free and not suit-gated like every other ring power).
+  `GreenLanternConfig#EMERGENCY_RESERVE` and `GreenLanternEnergy#spendEmergency` stay -- they're still
+  the emergency flight descent's own reserved pool, unrelated to this.
+- **War Hammer Slam's AoE radius raised 4.5 -> 10 blocks (v0.11.6)**, per an explicit user request --
+  `GreenLanternConfig#HAMMER_RADIUS`, measured from the impact point 2 blocks in front of the caster
+  exactly as before; damage/knockup/knockback figures are untouched.
+- **Power Battery now has a loot table and actually drops itself when broken (v0.11.6 bug fix)** --
+  it never had one, so breaking a placed battery (trivial since v0.11.5's strength drop to 0.5) simply
+  destroyed it with nothing to pick back up. `data/projecthero/loot_table/blocks/power_battery.json`
+  fixes that with a plain self-drop, the same pattern every other simple block in this mod uses (e.g.
+  `stark_fabricator.json`).

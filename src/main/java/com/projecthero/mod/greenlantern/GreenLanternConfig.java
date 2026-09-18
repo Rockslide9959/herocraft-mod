@@ -23,9 +23,9 @@ public final class GreenLanternConfig {
 	public static final double OATH_MOVE_EPSILON = 0.01;
 	public static final float OATH_ROT_EPSILON = 0.5f;
 	/**
-	 * The last {@link #MAX_RING_CHARGE} - this many points are reserved for {@link #EMERGENCY_CATCH_COST}
-	 * only -- never spendable on abilities/constructs/flight. {@code getSpendableCharge()} subtracts
-	 * this from the raw pool.
+	 * The last {@link #MAX_RING_CHARGE} - this many points are reserved for an emergency flight descent
+	 * only -- never spendable on abilities/constructs/flight upkeep. {@code getSpendableCharge()}
+	 * subtracts this from the raw pool.
 	 */
 	public static final float EMERGENCY_RESERVE = 250f;
 	public static final float LOW_CHARGE_WARN_25 = 0.25f;
@@ -47,8 +47,6 @@ public final class GreenLanternConfig {
 	public static final float SUIT_KNOCKBACK_RESIST = 0.0f;
 	/** v0.11.4: flat melee bonus while the suit is on ({@code GreenLanternSuitArmor}). */
 	public static final float SUIT_MELEE_BONUS = 8f;
-	public static final float EMERGENCY_CATCH_COST = 100f;
-	public static final int EMERGENCY_CATCH_COOLDOWN_TICKS = 80; // 4s
 	public static final double CONSTRUCT_AWARENESS_RANGE = 48.0;
 	public static final double THREAT_PING_RANGE = 10.0;
 
@@ -81,7 +79,8 @@ public final class GreenLanternConfig {
 	public static final float HAMMER_OUTER_DAMAGE = 17f;
 	public static final float HAMMER_COST = 40f;
 	public static final int HAMMER_COOLDOWN_TICKS = 100; // 5s
-	public static final double HAMMER_RADIUS = 4.5;
+	/** v0.11.6: explicit user request -- a 10-block radius from the impact point, up from 4.5. */
+	public static final double HAMMER_RADIUS = 10.0;
 	public static final double HAMMER_KNOCKUP = 0.55;
 	/** Above this max health, War Hammer Slam still deals full damage but only 25% normal knockback. */
 	public static final double HAMMER_BOSS_MAX_HEALTH_THRESHOLD = 200.0;
@@ -210,11 +209,21 @@ public final class GreenLanternConfig {
 	public static final int BUBBLE_MAX_DURATION_TICKS = 30 * 20;
 	public static final int BUBBLE_SLOT_WEIGHT = 2;
 
-	// v0.11.5: Rescue Tether is now an instant grab (a one-shot pull), not a standing construct -- see
-	// GreenLanternConstructs#rescueGrab. No more upkeep, slot weight or persisted pull duration.
+	// v0.11.5: Rescue Tether is now a grab (not a standing construct) -- see
+	// GreenLanternConstructs#rescueGrab. No upkeep or slot weight.
+	// v0.11.6: reworked from an instant yank into an actual hold -- explicit user request ("press c and
+	// pick up the target, they can press c again to throw the target or shift+C to let them down
+	// safely"). The cost/cooldown below now gate the grab itself; the throw and the safe-set-down are
+	// both free follow-ups to an existing hold.
 	public static final float TETHER_COST = 40f;
 	public static final double TETHER_RANGE = 24.0;
 	public static final int TETHER_COOLDOWN_TICKS = 80; // 4s
+	/** Blocks in front of the caster's eyes the held target is glued to each tick. */
+	public static final double TETHER_HOLD_DISTANCE = 2.5;
+	/** Blocks/tick launch speed given to the held target on a throw (C again while holding). */
+	public static final double TETHER_THROW_SPEED = 1.6;
+	/** A held target further than this (blocks, squared) from the caster is released automatically. */
+	public static final double TETHER_MAX_HOLD_RANGE_SQR = 400.0;
 
 	public static final float CARRY_PLATFORM_COST = 120f;
 	public static final float CARRY_PLATFORM_UPKEEP_PER_SEC = 6f;

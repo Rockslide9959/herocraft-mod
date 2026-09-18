@@ -1,7 +1,5 @@
 package com.projecthero.mod.greenlantern;
 
-import com.projecthero.mod.greenlantern.data.GreenLanternState;
-
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 
 import net.minecraft.server.level.ServerPlayer;
@@ -15,7 +13,7 @@ import net.minecraft.world.phys.Vec3;
 /**
  * Green Lantern's incoming-damage handling: Directional Shield/Protective Dome absorption (the
  * cancel-and-reapply-smaller pattern every Hero-Tier power in this mod uses, since Fabric's
- * {@code ALLOW_DAMAGE} is a boolean veto with no "reduce amount"), Emergency Catch fall protection,
+ * {@code ALLOW_DAMAGE} is a boolean veto with no "reduce amount"), Ring Charge fall-damage immunity,
  * and battery-channel interruption on any hit taken.
  */
 public final class GreenLanternDamage {
@@ -38,12 +36,12 @@ public final class GreenLanternDamage {
 
 		GreenLanternBattery.onDamaged(player);
 
-		// Emergency Catch: a suited-passive. A dangerous fall consumes 100 emergency energy on a 4s
-		// internal cooldown.
-		if (GreenLantern.isSuited(player) && source.is(DamageTypeTags.IS_FALL) && amount >= 5.0f) {
-			if (tryEmergencyCatch(player)) {
-				return false;
-			}
+		// v0.11.6: explicit user request -- "player cant take fall damage as long as the ring has
+		// charge". Free, unconditional and not suit-gated (the ring's powers work unsuited too), unlike
+		// the old cost-and-cooldown-gated Emergency Catch this replaces.
+		if (source.is(DamageTypeTags.IS_FALL) && GreenLanternEnergy.get(player) > 0f) {
+			player.resetFallDistance();
+			return false;
 		}
 
 		if (!GreenLanternShield.isActive(player)) {
@@ -87,24 +85,5 @@ public final class GreenLanternDamage {
 			return direct.position();
 		}
 		return source.getSourcePosition();
-	}
-
-	private static boolean tryEmergencyCatch(ServerPlayer player) {
-		if (!GreenLantern.abilityReady(player, "emergency_catch")) {
-			return false;
-		}
-		GreenLanternState s = GreenLantern.state(player);
-		if (s.ringCharge < GreenLanternConfig.EMERGENCY_CATCH_COST) {
-			return false;
-		}
-		if (!GreenLanternEnergy.spendEmergency(player, GreenLanternConfig.EMERGENCY_CATCH_COST)) {
-			return false;
-		}
-		GreenLantern.triggerCooldown(player, "emergency_catch", GreenLanternConfig.EMERGENCY_CATCH_COOLDOWN_TICKS);
-		player.resetFallDistance();
-		player.setDeltaMovement(player.getDeltaMovement().multiply(1, 0, 1));
-		player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
-				net.minecraft.sounds.SoundEvents.BEACON_POWER_SELECT, net.minecraft.sounds.SoundSource.PLAYERS, 0.6f, 1.5f);
-		return true;
 	}
 }

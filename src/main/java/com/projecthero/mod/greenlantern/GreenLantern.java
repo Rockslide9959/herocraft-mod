@@ -116,6 +116,9 @@ public final class GreenLantern {
 		com.projecthero.mod.greenlantern.GreenLanternFlight.forceStop(player, false);
 		com.projecthero.mod.greenlantern.GreenLanternShield.dismissAll(player);
 		com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.clearFor(player.getUUID());
+		// v0.11.6: a Rescue Tether hold must not survive death/respawn/logout/dimension-change/power-loss
+		// any more than a standing construct does -- released safely (no damage/launch), same as Shift+C.
+		com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.releaseRescueHeldSafely(player);
 		com.projecthero.mod.greenlantern.GreenLanternBattery.cancelOath(player.getUUID());
 		com.projecthero.mod.greenlantern.GreenLanternAbilityManager.onCleanup(player.getUUID());
 		com.projecthero.mod.greenlantern.GreenLanternEnergy.onCleanup(player.getUUID());

@@ -20,8 +20,8 @@ import net.minecraft.world.entity.player.Player;
  * layout convention as {@link MaxSteelHud}/{@link ThorHud}), a green Ring Charge bar beneath it, the
  * selected construct's name, and -- while up -- the Directional Shield/Protective Dome HP bar. Drawn
  * whenever the player has the power at all -- Green Lantern's abilities work unsuited (only the suit's
- * own armour/Emergency Catch passives require actually wearing it), so the HUD is not suit-gated
- * either, or an unsuited player would get zero charge/cooldown feedback.
+ * own armour bonus requires actually wearing it; the ring's fall-damage immunity does not), so the HUD
+ * is not suit-gated either, or an unsuited player would get zero charge/cooldown feedback.
  *
  * <p>Holding Alt reveals each slot's ability name (see {@link #renderAltPanel}), reusing the same
  * {@code projecthero.guide.green_lantern.ability.<key>} strings the guide chapter already shows.

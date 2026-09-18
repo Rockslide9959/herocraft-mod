@@ -150,6 +150,7 @@ public final class GreenLanternConstructs {
 
 	public static void clearSessionState() {
 		BY_OWNER.clear();
+		RESCUE_HELD.clear();
 	}
 
 	public static List<Construct> of(UUID owner) {
@@ -522,22 +523,33 @@ public final class GreenLanternConstructs {
 		place(c);
 	}
 
-	// ---------------- Rescue Tether (v0.11.5: an instant grab, not a standing construct) ----------------
+	// ---------------- Rescue Tether (v0.11.6: a proper grab -- hold, throw, or set down) ----------------
+
+	/** Player UUID -> the entity id they're currently carrying via Rescue Tether (absent = not holding). */
+	private static final Map<UUID, Integer> RESCUE_HELD = new ConcurrentHashMap<>();
 
 	/**
-	 * Rescue Tether reworked from a standing, upkeep-costing pull-over-time construct into a single
-	 * instant grab -- raycast whatever living entity is under the crosshair (ally or foe; a "rescue"
-	 * doesn't discriminate) and yank it straight to the caster, mirroring
-	 * {@code SymbioteTendrils#pull}'s heavy-vs-light handling. Never enters {@link #BY_OWNER}, exactly
-	 * like {@link #batteringRam}.
+	 * Rescue Tether reworked (v0.11.6, explicit user request: "make it a grab move, players press c and
+	 * pick up the target, they can press c again to throw the target or shift+C to let them down
+	 * safely") from a single instant yank into an actual hold. The first C press grabs whatever's under
+	 * the crosshair (ally or foe; a "rescue" doesn't discriminate, though {@link AbilityHelpers}'
+	 * general-purpose grab-target filter still excludes armour stands and boss-tier health) and keeps it
+	 * held in front of the caster every tick ({@link #tickRescueHeld}); a second C press throws it
+	 * ({@link #throwRescueHeld}); Shift+C sets it down safely instead of the usual dismiss-all
+	 * ({@code GreenLanternAbilityManager#handleAbilitySix}). Never enters {@link #BY_OWNER} -- the hold
+	 * is tracked in {@link #RESCUE_HELD} instead, exactly as the one-shot {@link #batteringRam} never did.
 	 */
 	private static void rescueGrab(ServerPlayer player) {
+		if (RESCUE_HELD.containsKey(player.getUUID())) {
+			throwRescueHeld(player);
+			return;
+		}
 		if (!GreenLantern.abilityReady(player, "rescue_tether")) {
 			feedbackCooldown(player, "rescue_tether");
 			return;
 		}
 		LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.TETHER_RANGE);
-		if (target == null) {
+		if (target == null || !AbilityHelpers.isValidGrabTarget(target, player)) {
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.invalid_target");
 			return;
 		}
@@ -552,14 +564,75 @@ public final class GreenLanternConstructs {
 		Vec3 hand = player.getEyePosition().add(player.getLookAngle().scale(0.6)).add(0, -0.3, 0);
 		AbilityHelpers.line(level, hand, target.position().add(0, target.getBbHeight() * 0.5, 0), GREEN_DUST, 3.0);
 
-		if (target.getMaxHealth() <= 200.0f) {
-			Vec3 toPlayer = player.position().subtract(target.position()).normalize().scale(1.6).add(0, 0.3, 0);
-			AbilityHelpers.push(target, toPlayer);
-		} else {
-			Vec3 toTarget = target.position().subtract(player.position()).normalize().scale(1.2).add(0, 0.2, 0);
-			AbilityHelpers.addImpulse(player, toTarget);
-		}
+		RESCUE_HELD.put(player.getUUID(), target.getId());
+		target.setDeltaMovement(Vec3.ZERO);
+		target.fallDistance = 0f;
 		AbilityHelpers.sound(player, SoundEvents.TRIDENT_RETURN, 0.8f, 1.1f);
+	}
+
+	/**
+	 * Per-tick while a Rescue Tether hold is active ({@code GreenLanternAbilityManager#serverTick}) --
+	 * glues the held target {@link GreenLanternConfig#TETHER_HOLD_DISTANCE} blocks in front of the
+	 * caster's eyes every tick, mirroring {@code GrabHelper#tick}'s reposition-every-tick approach (the
+	 * generic hero-power grab helper), re-implemented here since Green Lantern keeps its own state
+	 * rather than going through the experimental-power {@code AbilityContext} resource system.
+	 */
+	public static void tickRescueHeld(ServerPlayer player) {
+		Integer id = RESCUE_HELD.get(player.getUUID());
+		if (id == null) {
+			return;
+		}
+		net.minecraft.world.entity.Entity e = player.level().getEntity(id);
+		if (!(e instanceof LivingEntity target) || !target.isAlive()
+				|| player.distanceToSqr(target) > GreenLanternConfig.TETHER_MAX_HOLD_RANGE_SQR) {
+			RESCUE_HELD.remove(player.getUUID());
+			return;
+		}
+		Vec3 hold = player.getEyePosition().add(player.getLookAngle().scale(GreenLanternConfig.TETHER_HOLD_DISTANCE));
+		target.setPos(hold.x, hold.y - target.getBbHeight() / 2, hold.z);
+		target.setDeltaMovement(Vec3.ZERO);
+		target.fallDistance = 0f;
+		target.hurtMarked = true;
+	}
+
+	/** Second C press while holding: launches the held target in the caster's look direction. */
+	private static void throwRescueHeld(ServerPlayer player) {
+		Integer id = RESCUE_HELD.remove(player.getUUID());
+		if (id == null) {
+			return;
+		}
+		net.minecraft.world.entity.Entity e = player.level().getEntity(id);
+		if (e instanceof LivingEntity target && target.isAlive()) {
+			target.setDeltaMovement(player.getLookAngle().scale(GreenLanternConfig.TETHER_THROW_SPEED).add(0, 0.3, 0));
+			target.hurtMarked = true;
+			target.hasImpulse = true;
+		}
+		AbilityHelpers.sound(player, SoundEvents.TRIDENT_THROW, 0.8f, 1.2f);
+	}
+
+	/**
+	 * Shift+C while holding: sets the target down where it is, no damage and no launch -- a brief Slow
+	 * Falling if it's still airborne so "safely" actually holds even off a ledge. Checked by
+	 * {@code GreenLanternAbilityManager#handleAbilitySix} before the ordinary dismiss-all, so Shift+C
+	 * releases a held rescue target instead of trying (and having nothing) to dismiss.
+	 *
+	 * @return true if something was actually being held and released.
+	 */
+	public static boolean releaseRescueHeldSafely(ServerPlayer player) {
+		Integer id = RESCUE_HELD.remove(player.getUUID());
+		if (id == null) {
+			return false;
+		}
+		net.minecraft.world.entity.Entity e = player.level().getEntity(id);
+		if (e instanceof LivingEntity target && target.isAlive()) {
+			target.setDeltaMovement(0, -0.05, 0);
+			target.fallDistance = 0f;
+			target.hurtMarked = true;
+			if (!target.onGround()) {
+				target.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 80, 0, false, false, false));
+			}
+		}
+		return true;
 	}
 
 	// ---------------- Hard-Light Tool Kit ----------------

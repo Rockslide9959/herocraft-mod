@@ -9,8 +9,8 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * The Ring Charge resource. 0..{@link GreenLanternConfig#MAX_RING_CHARGE}; the last
- * {@link GreenLanternConfig#EMERGENCY_RESERVE} points are reserved for Emergency Catch/emergency
- * descent and never spendable by {@link #spend}. There is no passive regeneration (v0.11.4) -- the
+ * {@link GreenLanternConfig#EMERGENCY_RESERVE} points are reserved for an emergency flight descent
+ * and never spendable by {@link #spend}. There is no passive regeneration (v0.11.4) -- the
  * only way to gain charge is {@link #addCharge}, called once, instantly, when a Power Battery Oath
  * completes (see {@link GreenLanternBattery}).
  *
@@ -68,8 +68,8 @@ public final class GreenLanternEnergy {
 	}
 
 	/**
-	 * Spend from the emergency reserve only (Emergency Catch, emergency flight descent) -- may dip the
-	 * pool all the way to 0, unlike {@link #spend}.
+	 * Spend from the emergency reserve only (emergency flight descent) -- may dip the pool all the way
+	 * to 0, unlike {@link #spend}.
 	 */
 	public static boolean spendEmergency(ServerPlayer player, float amount) {
 		GreenLanternState s = GreenLantern.state(player);
