@@ -109,6 +109,8 @@ public final class ServerStateReset {
 		com.projecthero.mod.greenlantern.GreenLanternCombat.clearSessionState();
 		com.projecthero.mod.greenlantern.GreenLanternBattery.clearSessionState();
 		com.projecthero.mod.greenlantern.GreenLanternEnergy.clearSessionState();
+		com.projecthero.mod.greenlantern.GreenLanternFlight.clearSessionState();
+		com.projecthero.mod.greenlantern.GreenLanternShield.clearSessionState();
 		com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.clearSessionState();
 		com.projecthero.mod.greenlantern.GreenLanternTrial.clearSessionState();
 	}

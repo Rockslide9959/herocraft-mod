@@ -1,4 +1,4 @@
-# Green Lantern Hero-Tier power (v0.11.6)
+# Green Lantern Hero-Tier power (v0.11.7)
 
 A bonded Power Ring, Ring Charge (0-10,000), controlled flight, hard-light constructs, ranged
 combat and shielding. Package: `com.projecthero.mod.greenlantern` (+ `.data`, `.item`, `.block`,
@@ -17,16 +17,17 @@ real six slots by role:
 |---|---|---|
 | R | Ring Bolt | Continuous Beam (held) |
 | G | Construct Fist | War Hammer Slam |
-| X (Movement) | Ring Grapple (v0.11.5) | — |
+| X (Movement) | hold: recite the Oath -- "Green Lantern's Light!" empowerment mode (v0.11.7) | — |
 | Z (Ultimate) | Directional Shield (held) | Protective Dome |
 | V (Utility/Control) | Suit Up/Down | Ring Scan |
-| C (Special Mode) | Deploy selected construct (Rescue Tether: grab, or throw if already holding) | hold ≥0.35s, release = cycle to next construct; **Shift+C** = dismiss all, or set down a Rescue Tether hold safely if one is active |
+| C (Special Mode) | Deploy selected construct (Rescue Tether: grab, or throw if already holding; Mining Drill/Energy Blade/Carry Platform: toggle on/off if already equipped) | hold ≥0.35s, release = cycle to next construct; **Shift+C** = dismiss all, or set down a Rescue Tether hold safely if one is active |
 
 **v0.11.5: Ring Flight moved off the X slot** to a double-tap of the vanilla jump key while airborne
 (mirroring Thor/Iron Man's own double-tap-jump gesture -- see `ProjectHeroModClient#handleDoubleJump`
 and the C2S `GreenLanternActionPayload`), toggling on or off either way; boost is still read live from
-sprint-holding while flying, no separate key. X now fires the new Ring Grapple ability instead (see
-`GreenLanternGrapple`) so the slot isn't wasted.
+sprint-holding while flying, no separate key. **v0.11.7 replaced X's Ring Grapple outright** with a new
+Oath empowerment mode (`GreenLanternOath` -- the `GreenLanternGrapple` class is deleted) -- see the
+changelog entry below for the full mechanic.
 
 ## Core classes
 
@@ -39,7 +40,7 @@ sprint-holding while flying, no separate key. X now fires the new Ring Grapple a
 | Slot dispatch + per-player tick (+ suit upkeep drain, v0.11.5) | `GreenLanternAbilityManager` |
 | Flight (cloned from `MaxSteelFlight`'s velocity model; toggled via double-tap-jump, v0.11.5) | `GreenLanternFlight` |
 | Ring Bolt / Beam / Fist / Hammer | `GreenLanternCombat` |
-| Ring Grapple (v0.11.5, X slot) | `GreenLanternGrapple` |
+| "Green Lantern's Light!" Oath empowerment mode (v0.11.7, X slot, replaces Ring Grapple) | `GreenLanternOath` |
 | Directional Shield / Protective Dome | `GreenLanternShield` (state) + `GreenLanternDamage` (absorption hook) |
 | Ring Scan | `GreenLanternScan` |
 | Suit Up/Down animation | `GreenLanternSuit` |
@@ -57,6 +58,116 @@ Wired into `HeroTiers` (cross-tier exclusivity), `HeroCommand.HERO_TIER_KEYS`, `
 `ProjectHeroMod` (init + death/respawn/join/world-change/disconnect lifecycle + tick loop),
 `ServerStateReset` (session-state clears), `ModAttachments`, `ModCreativeTab`, `HeroPackGuide`
 (chapter `CH_GREEN_LANTERN`), `PowerInfoScreen`.
+
+## v0.11.7 changelog
+
+A large single-message batch covering flight, the X slot, the dome, low-charge feedback, the Power
+Battery model and every construct's cost/behaviour. Full detail belongs here rather than repeated per
+change below:
+
+- **Flight**: a green hard-light trail now shows any time Ring Flight is engaged and moving (was
+  Boost-only; Boost still thickens it), and flight now ends automatically on landing -- `GreenLanternFlight`
+  tracks a per-player liftoff-grace timestamp (`FLIGHT_START`, 10-tick grace, same idea Thor's own flight
+  uses) and auto-`forceStop`s once `player.onGround()` reports true past that grace window.
+- **New passive: Resistance I**, flat and permanent for any bonded Green Lantern, suited or not (reapplied
+  every 5s on a short hidden effect from `GreenLanternAbilityManager#serverTick` so it never actually
+  expires) -- not suit-gated, matching the existing unsuited-still-works convention (fall immunity).
+- **X slot fully replaced**: Ring Grapple is gone (`GreenLanternGrapple` deleted) in favour of
+  **"Green Lantern's Light!"** (`GreenLanternOath`) -- hold X to recite the same four Oath lines/cadence
+  the Power Battery's own recharge ritual uses (reused, not duplicated text); release before the fourth
+  line and it's cancelled outright, free, no cooldown. A completed recitation empowers the caster for
+  `OATH_MODE_DURATION_TICKS` (22s): double melee (a transient `ADD_MULTIPLIED_TOTAL` attribute modifier),
+  double ability damage (`GreenLanternCombat`'s Bolt/Beam/Fist/Hammer and the constructs' Turret/Battering
+  Ram damage all read `GreenLanternOath.multiplier`), and **every Ring Charge cost doubled** -- done at the
+  single choke point (`GreenLanternEnergy#spend` multiplies by `GreenLanternOath.multiplier` itself, so no
+  individual ability/construct call site needed touching), plus its own flat `OATH_MODE_UPKEEP_PER_SEC`
+  (10/sec, paid via the new `GreenLanternEnergy#spendRaw` so it isn't itself doubled by the multiplier it
+  causes). Ends on its own timer or the instant its own upkeep can't be paid, either way applying
+  `OATH_MODE_COOLDOWN_TICKS` (80s). Green particles surround the caster the whole time; the X HUD box shows
+  a live countdown while active (green overlay, not the ordinary dark cooldown tint) or "..." while
+  reciting. State lives in two new synced, non-persisted attachments (`GREEN_LANTERN_OATH_UNTIL`/
+  `_RECITING_SINCE`) -- same live-source-of-truth pattern the barrier HP attachment already used, so the
+  client-side HUD needs no extra payload.
+- **Protective Dome reworked**: radius 5 -> 10, now animates outward from the caster over
+  `DOME_EXPAND_TICKS` (1.5s) instead of appearing at full size instantly (`GreenLanternShield#currentDomeRadius`,
+  driven by a new per-owner `DOME_DEPLOY_TICK` map), upkeep cut 20 -> 5/sec, and the outline now draws with
+  24 points per ring instead of 14. **New: it's a real exclusion zone** -- every tick,
+  `GreenLanternShield#pushOutNonSquad` knocks anyone within the current (possibly still-expanding) radius
+  outward unless they're the owner or a squadmate (`SquadManager#squadOf`/`Squad#has`), which is "push out
+  nearby entities as it expands" during the growth window and keeps outsiders from walking back in for the
+  rest of the dome's lifetime. Damage-absorption behaviour itself is unchanged (still caster-only).
+- **Low Ring Charge feedback overhauled**: eight escalating thresholds (40/35/30/25/20/15/10/5%, was three)
+  in `GreenLanternConfig#LOW_CHARGE_WARN_THRESHOLDS`; `GreenLanternEnergy#triggerLowChargeFeedback` finds
+  the most severe one crossed since the last check and fires a colour-ramped (yellow -> gold -> bold red)
+  action-bar message plus a pitch/volume-ramped notification sound. The HUD's own charge-bar pulse (was a
+  single hardcoded <=10% cutoff) now reacts to `GreenLanternEnergy#severityTier` and speeds up as charge
+  drops further -- that continuous pulse is the "flash above the hotbar," rather than the server trying to
+  schedule a multi-tick blink itself.
+- **Power Battery model reshaped** into an actual lantern silhouette (base/glowing core/cap/carrying-handle
+  loop, 6 elements, ~20 units tall vs. a normal block's 16) instead of a plain `cube_all`, per an explicit
+  "just a green lantern but slightly bigger" request -- new `power_battery_frame.png` texture for the
+  base/cap/handle, core texture cleaned up to a plain glow (the bordered-square look moved to being a
+  separate element instead of baked into one flat texture). Purely visual; no collision-shape change (the
+  handle loop overhangs above the block's ordinary full-cube hitbox, the same simplification vanilla
+  lanterns/chains/campfires accept for their own overhangs).
+- **Every construct renumbered again** (a full pass, not a proportional cut like v0.11.4's):
+  - **The generic weighted-slot cap is gone outright** (`CONSTRUCT_MAX_SLOTS` deleted) -- explicit "remove
+    construct limit" request. `ConstructType#slotWeight()` is still tracked/reported, nothing compares it
+    to a ceiling any more.
+  - **Mining Drill, Energy Blade and Carry Platform are now toggle constructs**: deploying equips them for
+    free (0 cost) with no effect yet; a second C-press on the caster's own already-active instance
+    (`GreenLanternConstructs#toggleConstruct`, dispatched via a `TOGGLE_TYPES` check at the top of
+    `#deploy`) flips `Construct#toggledOn`, a third press flips it back. Only while on do they actually cost
+    anything (`#tickUpkeep` skips Drill/Blade upkeep while off) or do anything (Drill only mines while on,
+    with green particles spiralling the mining hand; Blade only grants its melee attribute bonus while on,
+    with a periodic green arm-glow particle; Carry Platform only steers toward the owner while on --
+    `#tickCarryPlatform` early-returns otherwise, leaving it parked). Upkeep while on: Drill/Blade 2/sec each.
+  - **Sentry Turret**: cost 170->20, upkeep 9->1/sec, a new explicit **`TURRET_MAX_LIVE`=10** hard per-player
+    cap (separate from the now-deleted generic cap -- checked in `#deploy` before the cooldown check), and a
+    standing green particle "rod" now marks its anchor at all times (`#tickTurret`, every 4 ticks) rather
+    than only showing a beam when it actually fires. (Investigated the "shouldn't deploy from the wheel"
+    part of this request -- static analysis found the v0.11.2 wheel-hold race this would describe is
+    already fully closed by `ProjectHeroModClient`'s `glWheelOpenedThisHold` guard; no reproducible bug
+    found, so nothing was changed there.)
+  - **Containment Cage**: cost 120->20, upkeep 5->1/sec, range 18->30. **Now sized to the target**
+    (`GreenLanternConstructs#spawnCage`) -- anything spider/cow/sheep-sized or smaller (bounding-box width
+    <=1.5, i.e. essentially every overworld mob) gets a tight 2x2 footprint of solid walls at body height
+    instead of the old fixed 3x3; bigger targets keep the original 3x3 perimeter-with-open-corners shape.
+    **Flying targets get fully sealed top and bottom** (`#isFlyingMob`: no-gravity entities, Vex, Ghast,
+    Phantom, Bat, Parrot, Bee) instead of the small open gap a ground-bound mob doesn't need closed.
+  - **Battering Ram**: cost 130->20.
+  - **Hard-Light Wall**: cost 100->20, upkeep 8->1/sec, height 3->4 blocks (`WALL_HEIGHT`).
+  - **Platform**: cost 60->20, upkeep 4->1/sec, footprint 3x3->4x4 (`PLATFORM_SIZE`), and its own
+    30-block placement range (`PLATFORM_RANGE`, was the generic 24) -- landing on the ground within range
+    (the existing raycast-hit-a-block fallback of `placementPoint`) already made it spawn flush on terrain
+    rather than floating, so no separate "spawn on the ground" branch was needed.
+  - **Bridge**: cost/upkeep flattened to a fixed 20/1/sec (was a variable-length, per-segment-scaling cost)
+    at a fixed 20 long x 3 wide (`BRIDGE_LENGTH`/`BRIDGE_WIDTH`) -- the old aim-at-a-target length is gone.
+  - **Stair/Ramp**: cost/upkeep flattened to 20/1/sec, 3 blocks wide (`RAMP_WIDTH`).
+  - **Lantern Light**: cost 20->1, upkeep 1/sec->1 every 5 seconds (`LANTERN_LIGHT_UPKEEP_PER_SEC`=0.2 --
+    Ring Charge is a float pool with no truncation risk, unlike the mod's integer XP systems, so a
+    sub-1-per-tick upkeep needed no special carried-remainder handling here).
+  - **Atmosphere Bubble**: radius 2.5->8 ("covers a small room"); its particle outline was already there
+    from the general deploy-glow pass, unchanged.
+  - **Rescue Tether**: cost 40->20, range 24->30, and **the hold itself now costs 1/sec to maintain**
+    (`TETHER_UPKEEP_PER_SEC`, drained in `#tickRescueHeld`) -- an unpayable upkeep releases the target the
+    same safe way Shift+C does, rather than dropping them outright.
+  - **Carry Platform**: cost 120->20, upkeep 6->1/sec (unconditional -- it's still occupying world blocks
+    whether or not "drive" is toggled on), and **now spawns level with the owner's own Y** instead of one
+    block below (both `#spawnPlatform`'s carry branch and `#tickCarryPlatform`'s re-centring dropped their
+    `.below()`).
+  - **Hard-Light Tool Kit**: gained a fourth piece, a Hard-Light Flint and Steel (`TOOL_KIT_BASES`/
+    `TOOL_KIT_NAME_KEYS` both grew by one; the piece-count-ends-the-kit check already read
+    `TOOL_KIT_BASES.length` generically, so no separate "4" needed hardcoding anywhere else).
+- Gametest coverage: `GreenLanternGameTests` gained oath-mode press/release/activation/cost-doubling
+  coverage, a toggle-construct test (Mining Drill's `toggledOn` flips across three presses, never spawning
+  a second instance), an Energy Blade melee-bonus-only-while-on test, a dome-radius-grows-over-time test,
+  and a Sentry Turret live-cap-refusal test; the old fixed weighted-slot-cap test was replaced with one
+  proving deploys past the old 20-slot ceiling now succeed, and every tool-kit test/helper updated for 4
+  pieces instead of 3. Build green, 282 gametests pass. **UNVERIFIED in-game** (usual standing limitation,
+  no live server here) -- the Oath mode's feel/balance, the dome's push-out radius and squad-filtering in a
+  real multi-player scenario, every construct's new dimensions/costs, the lantern block model's actual
+  in-game silhouette, and the escalating low-charge audio/visual cues.
 
 ## Deliberate simplifications (v1)
 

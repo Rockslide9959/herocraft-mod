@@ -26,18 +26,20 @@ public enum ConstructType {
 			GreenLanternConfig.WALL_HP, GreenLanternConfig.WALL_MAX_DURATION_TICKS, 2),
 	PLATFORM(Kind.PLATFORM_BLOCKS, GreenLanternConfig.PLATFORM_COST, GreenLanternConfig.PLATFORM_UPKEEP_PER_SEC,
 			0f, GreenLanternConfig.PLATFORM_MAX_DURATION_TICKS, GreenLanternConfig.PLATFORM_SLOT_WEIGHT),
-	BRIDGE(Kind.BRIDGE_BLOCKS, GreenLanternConfig.BRIDGE_BASE_COST, GreenLanternConfig.BRIDGE_UPKEEP_PER_SEC,
+	BRIDGE(Kind.BRIDGE_BLOCKS, GreenLanternConfig.BRIDGE_COST, GreenLanternConfig.BRIDGE_UPKEEP_PER_SEC,
 			0f, GreenLanternConfig.BRIDGE_MAX_DURATION_TICKS, GreenLanternConfig.BRIDGE_SLOT_WEIGHT),
-	STAIR_RAMP(Kind.RAMP_BLOCKS, GreenLanternConfig.RAMP_BASE_COST, GreenLanternConfig.RAMP_UPKEEP_PER_SEC,
+	STAIR_RAMP(Kind.RAMP_BLOCKS, GreenLanternConfig.RAMP_COST, GreenLanternConfig.RAMP_UPKEEP_PER_SEC,
 			0f, GreenLanternConfig.RAMP_MAX_DURATION_TICKS, GreenLanternConfig.RAMP_SLOT_WEIGHT),
-	MINING_DRILL(Kind.DRILL, GreenLanternConfig.DRILL_START_COST, 0f, 0f, 0,
+	// v0.11.7: free to equip, only draining GreenLanternConfig.DRILL_UPKEEP_PER_SEC while toggled on.
+	MINING_DRILL(Kind.DRILL, GreenLanternConfig.DRILL_START_COST, GreenLanternConfig.DRILL_UPKEEP_PER_SEC, 0f, 0,
 			GreenLanternConfig.DRILL_SLOT_WEIGHT),
 	LANTERN_LIGHT(Kind.LIGHT_BLOCKS, GreenLanternConfig.LANTERN_LIGHT_COST, GreenLanternConfig.LANTERN_LIGHT_UPKEEP_PER_SEC,
 			0f, GreenLanternConfig.LANTERN_LIGHT_MAX_DURATION_TICKS, GreenLanternConfig.LANTERN_LIGHT_SLOT_WEIGHT),
 	ATMOSPHERE_BUBBLE(Kind.BUBBLE, GreenLanternConfig.BUBBLE_COST, GreenLanternConfig.BUBBLE_UPKEEP_PER_SEC,
 			0f, GreenLanternConfig.BUBBLE_MAX_DURATION_TICKS, GreenLanternConfig.BUBBLE_SLOT_WEIGHT),
 	// v0.11.5: an instant grab, not a standing construct any more -- see GreenLanternConstructs#rescueGrab.
-	RESCUE_TETHER(Kind.INSTANT, GreenLanternConfig.TETHER_COST, 0f, 0f, 0, 0),
+	// v0.11.7: the hold itself now costs GreenLanternConfig.TETHER_UPKEEP_PER_SEC to maintain.
+	RESCUE_TETHER(Kind.INSTANT, GreenLanternConfig.TETHER_COST, GreenLanternConfig.TETHER_UPKEEP_PER_SEC, 0f, 0, 0),
 	CARRY_PLATFORM(Kind.PLATFORM_BLOCKS, GreenLanternConfig.CARRY_PLATFORM_COST, GreenLanternConfig.CARRY_PLATFORM_UPKEEP_PER_SEC,
 			0f, GreenLanternConfig.CARRY_PLATFORM_MAX_DURATION_TICKS, GreenLanternConfig.CARRY_PLATFORM_SLOT_WEIGHT),
 	// v0.11.4: a diamond pickaxe/axe/shovel synthesised straight into the inventory rather than a

@@ -132,7 +132,7 @@ public final class GreenLanternCombat {
 		Vec3 endPoint = AbilityHelpers.aimPoint(player, GreenLanternConfig.BOLT_RANGE);
 		AbilityHelpers.line(level, handOrigin(player), endPoint, ParticleTypes.HAPPY_VILLAGER, 4.0);
 		if (target != null) {
-			AbilityHelpers.hurt(player, target, GreenLanternConfig.BOLT_DAMAGE);
+			AbilityHelpers.hurt(player, target, GreenLanternConfig.BOLT_DAMAGE * GreenLanternOath.multiplier(player));
 			AbilityHelpers.knockbackFrom(target, player.position(), GreenLanternConfig.BOLT_KNOCKBACK);
 		}
 		AbilityHelpers.sound(player, SoundEvents.GUARDIAN_ATTACK, 0.5f, 1.8f);
@@ -182,7 +182,7 @@ public final class GreenLanternCombat {
 			GreenLanternBattery.onAbilityUsed(player);
 			LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.BEAM_RANGE);
 			if (target != null) {
-				AbilityHelpers.hurt(player, target, GreenLanternConfig.BEAM_DAMAGE_PER_TICK);
+				AbilityHelpers.hurt(player, target, GreenLanternConfig.BEAM_DAMAGE_PER_TICK * GreenLanternOath.multiplier(player));
 			}
 			// A periodic zap on the same cadence as the damage tick -- not a true seamless loop, but
 			// enough to read as a sustained energy weapon rather than silent channelling.
@@ -219,7 +219,7 @@ public final class GreenLanternCombat {
 		Vec3 impact = target != null ? target.position().add(0, target.getBbHeight() * 0.5, 0) : aim;
 		drawFistShape(level, impact);
 		if (target != null) {
-			AbilityHelpers.hurt(player, target, GreenLanternConfig.FIST_DAMAGE);
+			AbilityHelpers.hurt(player, target, GreenLanternConfig.FIST_DAMAGE * GreenLanternOath.multiplier(player));
 			AbilityHelpers.knockbackFrom(target, player.position(), GreenLanternConfig.FIST_KNOCKBACK);
 		}
 		AbilityHelpers.sound(player, SoundEvents.IRON_GOLEM_ATTACK, 0.8f, 1.1f);
@@ -238,10 +238,11 @@ public final class GreenLanternCombat {
 
 		ServerLevel level = player.serverLevel();
 		Vec3 center = player.position().add(player.getLookAngle().scale(2.0));
+		float oathMultiplier = GreenLanternOath.multiplier(player);
 		for (LivingEntity e : AbilityHelpers.enemiesAround(player, center, GreenLanternConfig.HAMMER_RADIUS)) {
 			double dist = e.position().distanceTo(center);
 			boolean isBoss = e.getMaxHealth() >= GreenLanternConfig.HAMMER_BOSS_MAX_HEALTH_THRESHOLD;
-			float damage = dist <= 1.5 ? GreenLanternConfig.HAMMER_CENTER_DAMAGE : GreenLanternConfig.HAMMER_OUTER_DAMAGE;
+			float damage = (dist <= 1.5 ? GreenLanternConfig.HAMMER_CENTER_DAMAGE : GreenLanternConfig.HAMMER_OUTER_DAMAGE) * oathMultiplier;
 			AbilityHelpers.hurt(player, e, damage);
 			double knockback = isBoss ? 0.25 : 1.0; // bosses: full damage, only 25% normal knockback
 			AbilityHelpers.knockbackFrom(e, center, knockback);

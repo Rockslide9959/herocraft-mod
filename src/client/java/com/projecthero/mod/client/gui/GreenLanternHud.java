@@ -45,7 +45,7 @@ public final class GreenLanternHud {
 
 	/** Slot 1..6 -> the {@code projecthero.guide.green_lantern.ability.<key>} suffix for its name. */
 	private static final String[] SLOT_ABILITY_KEYS = {
-			"ring_bolt", "construct_fist", "grapple", "shield", "suit", "construct"
+			"ring_bolt", "construct_fist", "oath", "shield", "suit", "construct"
 	};
 
 	private GreenLanternHud() {
@@ -91,29 +91,51 @@ public final class GreenLanternHud {
 
 		boolean suited = s.suited;
 		boolean barrierUp = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f) > 0f;
+		// v0.11.7: X's "Green Lantern's Light!" Oath empowerment mode -- both are synced non-persisted
+		// attachments (same pattern as the barrier HP above), so the HUD can read them directly.
+		long oathUntil = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_OATH_UNTIL, 0L);
+		long oathRecitingSince = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_OATH_RECITING_SINCE, 0L);
+		boolean oathActive = oathUntil > now;
+		boolean oathReciting = !oathActive && oathRecitingSince > 0L;
 		for (int i = 0; i < 6; i++) {
 			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
 			int x = x0 + i * (BOX + GAP);
 			// v0.11.5: "make the toggleable abilities ability key outlines glow when used" -- Z glows
 			// while a Shield/Dome is up, V glows while the suit is worn, same convention as
-			// MaxSteelHud/ThorHud's own BORDER_ACTIVE use for an engaged mode/toggle.
-			boolean active = (i == 3 && barrierUp) || (i == 4 && suited);
+			// MaxSteelHud/ThorHud's own BORDER_ACTIVE use for an engaged mode/toggle. X (v0.11.7) glows
+			// while reciting the Oath or empowered by it.
+			boolean active = (i == 3 && barrierUp) || (i == 4 && suited) || (i == 2 && (oathActive || oathReciting));
 			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
 			g.renderOutline(x, y0, BOX, BOX, active ? BORDER_ACTIVE : BORDER);
 			g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 2, y0 + 2, KEY, false);
 
-			int cd = cooldownForSlot(player, i, s);
-			if (cd > 0) {
-				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
-				g.drawCenteredString(mc.font, String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(cd / 20.0f)),
+			if (i == 2 && oathActive) {
+				// Empowered -- a green (not the ordinary dark cooldown) overlay showing the countdown,
+				// so it reads as "active buff" rather than "can't use this".
+				int remaining = (int) Math.max(0L, oathUntil - now);
+				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, 0x8010A040);
+				g.drawCenteredString(mc.font, String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(remaining / 20.0f)),
 						x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
+			} else if (i == 2 && oathReciting) {
+				g.drawCenteredString(mc.font, "...", x + BOX / 2, y0 + BOX / 2 - 4, GREEN);
+			} else {
+				int cd = cooldownForSlot(player, i, s);
+				if (cd > 0) {
+					g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
+					g.drawCenteredString(mc.font, String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(cd / 20.0f)),
+							x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
+				}
 			}
 		}
 
-		// Ring Charge bar below the row.
+		// Ring Charge bar below the row. v0.11.7: the pulse now reacts to all eight escalating low-charge
+		// thresholds (was a single hardcoded 10% cutoff) and speeds up the lower charge gets, so the bar
+		// itself is the continuous "flash above the hotbar" the warning sounds/messages announce.
 		float frac = charge / GreenLanternConfig.MAX_RING_CHARGE;
-		boolean low = frac <= GreenLanternConfig.LOW_CHARGE_WARN_10;
-		boolean pulseOff = low && (now % 8) < 3;
+		int severity = com.projecthero.mod.greenlantern.GreenLanternEnergy.severityTier(frac);
+		boolean low = severity > 0;
+		int pulsePeriod = Math.max(3, 16 - severity * 2);
+		boolean pulseOff = low && (now % pulsePeriod) < Math.max(1, pulsePeriod / 3);
 		int barY = y0 + BOX + 4;
 		g.fill(x0 - 1, barY - 1, x0 + totalW + 1, barY + 5, BORDER);
 		g.fill(x0, barY, x0 + totalW, barY + 4, 0xAA0A2412);
@@ -205,7 +227,7 @@ public final class GreenLanternHud {
 					GreenLantern.cooldownRemaining(player, "continuous_beam"));
 			case 1 -> Math.max(GreenLantern.cooldownRemaining(player, "construct_fist"),
 					GreenLantern.cooldownRemaining(player, "war_hammer_slam"));
-			case 2 -> GreenLantern.cooldownRemaining(player, "ring_grapple");
+			case 2 -> GreenLantern.cooldownRemaining(player, "oath_mode");
 			case 3 -> Math.max(GreenLantern.cooldownRemaining(player, "directional_shield"),
 					GreenLantern.cooldownRemaining(player, "protective_dome"));
 			case 4 -> GreenLantern.cooldownRemaining(player, "ring_scan");

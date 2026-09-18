@@ -1,6 +1,89 @@
 {
-  "parent": "minecraft:block/cube_all",
+  "__comment": "v0.11.7: reshaped from a plain cube_all into a lantern silhouette (base/glowing core/cap/carrying-handle loop), slightly taller than a normal block -- explicit user request ('make the power battery model just a green lantern but slightly bigger').",
+  "ambientocclusion": true,
   "textures": {
-    "all": "projecthero:block/power_battery"
-  }
+    "frame": "projecthero:block/power_battery_frame",
+    "core": "projecthero:block/power_battery",
+    "particle": "projecthero:block/power_battery"
+  },
+  "elements": [
+    {
+      "name": "base",
+      "from": [2, 0, 2],
+      "to": [14, 2, 14],
+      "faces": {
+        "down":  { "uv": [0, 0, 12, 12], "texture": "#frame" },
+        "up":    { "uv": [0, 0, 12, 12], "texture": "#frame" },
+        "north": { "uv": [0, 0, 12, 2], "texture": "#frame" },
+        "south": { "uv": [0, 0, 12, 2], "texture": "#frame" },
+        "west":  { "uv": [0, 0, 12, 2], "texture": "#frame" },
+        "east":  { "uv": [0, 0, 12, 2], "texture": "#frame" }
+      }
+    },
+    {
+      "name": "core",
+      "from": [3, 2, 3],
+      "to": [13, 12, 13],
+      "faces": {
+        "down":  { "uv": [0, 0, 10, 10], "texture": "#core" },
+        "up":    { "uv": [0, 0, 10, 10], "texture": "#core" },
+        "north": { "uv": [0, 0, 10, 10], "texture": "#core" },
+        "south": { "uv": [0, 0, 10, 10], "texture": "#core" },
+        "west":  { "uv": [0, 0, 10, 10], "texture": "#core" },
+        "east":  { "uv": [0, 0, 10, 10], "texture": "#core" }
+      }
+    },
+    {
+      "name": "cap",
+      "from": [2, 12, 2],
+      "to": [14, 14, 14],
+      "faces": {
+        "down":  { "uv": [0, 0, 12, 12], "texture": "#frame" },
+        "up":    { "uv": [0, 0, 12, 12], "texture": "#frame" },
+        "north": { "uv": [0, 0, 12, 2], "texture": "#frame" },
+        "south": { "uv": [0, 0, 12, 2], "texture": "#frame" },
+        "west":  { "uv": [0, 0, 12, 2], "texture": "#frame" },
+        "east":  { "uv": [0, 0, 12, 2], "texture": "#frame" }
+      }
+    },
+    {
+      "name": "handle_post_left",
+      "from": [4, 14, 7],
+      "to": [5, 20, 9],
+      "faces": {
+        "down":  { "uv": [0, 0, 1, 2], "texture": "#frame" },
+        "up":    { "uv": [0, 0, 1, 2], "texture": "#frame" },
+        "north": { "uv": [0, 0, 1, 6], "texture": "#frame" },
+        "south": { "uv": [0, 0, 1, 6], "texture": "#frame" },
+        "west":  { "uv": [0, 0, 2, 6], "texture": "#frame" },
+        "east":  { "uv": [0, 0, 2, 6], "texture": "#frame" }
+      }
+    },
+    {
+      "name": "handle_post_right",
+      "from": [11, 14, 7],
+      "to": [12, 20, 9],
+      "faces": {
+        "down":  { "uv": [0, 0, 1, 2], "texture": "#frame" },
+        "up":    { "uv": [0, 0, 1, 2], "texture": "#frame" },
+        "north": { "uv": [0, 0, 1, 6], "texture": "#frame" },
+        "south": { "uv": [0, 0, 1, 6], "texture": "#frame" },
+        "west":  { "uv": [0, 0, 2, 6], "texture": "#frame" },
+        "east":  { "uv": [0, 0, 2, 6], "texture": "#frame" }
+      }
+    },
+    {
+      "name": "handle_top_bar",
+      "from": [4, 19, 7],
+      "to": [12, 20, 9],
+      "faces": {
+        "down":  { "uv": [0, 0, 8, 2], "texture": "#frame" },
+        "up":    { "uv": [0, 0, 8, 2], "texture": "#frame" },
+        "north": { "uv": [0, 0, 8, 1], "texture": "#frame" },
+        "south": { "uv": [0, 0, 8, 1], "texture": "#frame" },
+        "west":  { "uv": [0, 0, 2, 1], "texture": "#frame" },
+        "east":  { "uv": [0, 0, 2, 1], "texture": "#frame" }
+      }
+    }
+  ]
 }

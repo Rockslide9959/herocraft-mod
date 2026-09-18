@@ -1,6 +1,12 @@
 package com.projecthero.mod.greenlantern;
 
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.hero.power.AbilityHelpers;
+import com.projecthero.mod.squad.SquadManager;
 
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleOptions;
@@ -10,6 +16,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 
 import org.joml.Vector3f;
 
@@ -29,7 +38,30 @@ public final class GreenLanternShield {
 	private static final String SHIELD_COOLDOWN = "directional_shield";
 	private static final String DOME_COOLDOWN = "protective_dome";
 
+	/** Owner UUID -> absolute game-time the dome was deployed -- drives the v0.11.7 expand-out animation. */
+	private static final Map<UUID, Long> DOME_DEPLOY_TICK = new ConcurrentHashMap<>();
+
 	private GreenLanternShield() {
+	}
+
+	public static void clearSessionState() {
+		DOME_DEPLOY_TICK.clear();
+	}
+
+	/** The dome's current radius -- 0 the instant it deploys, growing linearly to {@link GreenLanternConfig#DOME_RADIUS}
+	 *  over {@link GreenLanternConfig#DOME_EXPAND_TICKS} (v0.11.7, explicit user request: "make the dome
+	 *  ability expand from the player to a 10 radius"). Already at full radius for anyone this map has no
+	 *  entry for (e.g. mid-tick after a relog), so a missing entry never reads as "still expanding forever". */
+	public static double currentDomeRadius(ServerPlayer player) {
+		Long deployedAt = DOME_DEPLOY_TICK.get(player.getUUID());
+		if (deployedAt == null) {
+			return GreenLanternConfig.DOME_RADIUS;
+		}
+		long elapsed = player.level().getGameTime() - deployedAt;
+		if (elapsed >= GreenLanternConfig.DOME_EXPAND_TICKS) {
+			return GreenLanternConfig.DOME_RADIUS;
+		}
+		return GreenLanternConfig.DOME_RADIUS * Math.max(0L, elapsed) / (double) GreenLanternConfig.DOME_EXPAND_TICKS;
 	}
 
 	public static boolean isActive(ServerPlayer player) {
@@ -90,9 +122,10 @@ public final class GreenLanternShield {
 		GreenLanternBattery.onAbilityUsed(player);
 		player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_HP, GreenLanternConfig.DOME_HP);
 		player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, true);
+		DOME_DEPLOY_TICK.put(player.getUUID(), player.level().getGameTime());
 		GreenLantern.triggerCooldown(player, "dome_expiry", GreenLanternConfig.DOME_MAX_DURATION_TICKS);
 		ServerLevel level = player.serverLevel();
-		emitDomeOutline(player, level);
+		emitDomeOutline(player, level, 0.0);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(),
 				SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 0.6f, 1.6f);
 	}
@@ -102,14 +135,16 @@ public final class GreenLanternShield {
 	 * (one per axis plane), which reads as a hollow globe outline rather than a solid burst. Called once
 	 * on deploy and then re-emitted every {@link #DOME_OUTLINE_INTERVAL_TICKS} while the dome is up (see
 	 * {@link #tickDomeUpkeep}) so the boundary stays visibly marked instead of a one-shot puff that
-	 * immediately disperses (v0.11.2).
+	 * immediately disperses (v0.11.2). v0.11.7: draws at {@code radius} (the live, possibly still-growing
+	 * value from {@link #currentDomeRadius}) rather than the fixed max, and uses more points per ring
+	 * ("add more particles to the dome to show the outline of it", explicit user request).
 	 */
-	private static void emitDomeOutline(ServerPlayer player, ServerLevel level) {
-		double r = GreenLanternConfig.DOME_RADIUS;
+	private static void emitDomeOutline(ServerPlayer player, ServerLevel level, double radius) {
+		double r = Math.max(0.3, radius);
 		double cx = player.getX();
 		double cy = player.getY() + 1.0;
 		double cz = player.getZ();
-		int points = 14;
+		int points = 24;
 		for (int i = 0; i < points; i++) {
 			double a = (Math.PI * 2 * i) / points;
 			double cos = Math.cos(a) * r;
@@ -120,17 +155,40 @@ public final class GreenLanternShield {
 		}
 	}
 
-	/** Per-tick upkeep + max-duration expiry while the dome is up. */
+	/**
+	 * Per-tick upkeep + max-duration expiry while the dome is up. v0.11.7: also enforces the dome's own
+	 * exclusion zone every tick ("only allow the players squad members inside it") -- anyone else caught
+	 * within the current (possibly still-expanding) radius is pushed outward, which during the expansion
+	 * window is exactly "push out nearby entities as it expands" and for the rest of the dome's lifetime
+	 * keeps outsiders from walking back in.
+	 */
 	public static void tickDomeUpkeep(ServerPlayer player) {
 		if (!isActive(player) || !isDome(player)) {
 			return;
 		}
+		double radius = currentDomeRadius(player);
 		if (player.tickCount % DOME_OUTLINE_INTERVAL_TICKS == 0) {
-			emitDomeOutline(player, player.serverLevel());
+			emitDomeOutline(player, player.serverLevel(), radius);
 		}
+		pushOutNonSquad(player, radius);
 		if (!GreenLanternEnergy.drainTick(player, GreenLanternConfig.DOME_UPKEEP_PER_SEC / 20f)
 				|| GreenLantern.abilityReady(player, "dome_expiry")) {
 			endBarrier(player, true);
+		}
+	}
+
+	/** Knocks anyone within {@code radius} of the dome's live centre outward, unless they're the owner or a squadmate. */
+	private static void pushOutNonSquad(ServerPlayer owner, double radius) {
+		if (radius <= 0.0) {
+			return;
+		}
+		Vec3 center = owner.position().add(0, 1.0, 0);
+		var squad = owner.getServer() == null ? null : SquadManager.get(owner.getServer()).squadOf(owner.getUUID());
+		for (LivingEntity e : AbilityHelpers.living(owner.serverLevel(), center, radius, le -> le != owner)) {
+			if (e instanceof Player p && squad != null && squad.has(p.getUUID())) {
+				continue;
+			}
+			AbilityHelpers.knockbackFrom(e, center, GreenLanternConfig.DOME_PUSH_SPEED);
 		}
 	}
 
@@ -156,6 +214,7 @@ public final class GreenLanternShield {
 		boolean dome = isDome(player);
 		player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f);
 		player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, false);
+		DOME_DEPLOY_TICK.remove(player.getUUID());
 		String cooldownKey = dome ? DOME_COOLDOWN : SHIELD_COOLDOWN;
 		int cooldownTicks = dome ? GreenLanternConfig.DOME_COOLDOWN_TICKS : GreenLanternConfig.SHIELD_BREAK_COOLDOWN_TICKS;
 		if (broke) {
@@ -174,6 +233,7 @@ public final class GreenLanternShield {
 			player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f);
 			player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, false);
 		}
+		DOME_DEPLOY_TICK.remove(player.getUUID());
 	}
 
 	/**

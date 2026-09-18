@@ -1,5 +1,9 @@
 package com.projecthero.mod.greenlantern;
 
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 import com.projecthero.mod.attachment.ModAttachments;
 
 import net.minecraft.core.particles.DustParticleOptions;
@@ -20,7 +24,9 @@ import org.joml.Vector3f;
  * whether hovering or cruising (was a 12/5 split); Boost still drains 40/sec plus its own trail cost.
  * The flight toggle itself moved off the X ability slot to a double-tap of the vanilla jump key (see
  * {@code ProjectHeroModClient#handleDoubleJump} and {@code GreenLanternActionPayload}) -- X now fires
- * Ring Grapple instead (see {@code GreenLanternGrapple}).
+ * the "Green Lantern's Light!" Oath empowerment mode instead (v0.11.7, see {@link GreenLanternOath}).
+ * v0.11.7: ends automatically on landing (past a short liftoff grace), and the green trail (previously
+ * Boost-only) now shows any time flight is engaged and moving.
  *
  * <p><b>Cleanup contract</b>: {@link #forceStop} is the one place the {@code mayfly} grant is revoked,
  * called from every lifecycle path (death/respawn/disconnect/dimension change/power loss/energy
@@ -28,10 +34,20 @@ import org.joml.Vector3f;
  * unsuited and suiting down mid-flight must not interrupt it.
  */
 public final class GreenLanternFlight {
-	/** Lantern-Corps green, matching {@code GreenLanternCombat}'s dust colour -- the sprint-flying trail. */
+	/** Lantern-Corps green, matching {@code GreenLanternCombat}'s dust colour -- the flight trail. */
 	private static final ParticleOptions TRAIL_DUST = new DustParticleOptions(new Vector3f(0.208f, 0.941f, 0.459f), 1.4f);
+	/** Ticks after takeoff before an on-ground check is allowed to auto-land -- otherwise the very tick
+	 *  flight engages (still reporting the ground from just before the jump) would immediately cancel it. */
+	private static final long LIFTOFF_GRACE_TICKS = 10;
+
+	/** Player UUID -> absolute game-time Ring Flight was last engaged -- the liftoff-grace clock. */
+	private static final Map<UUID, Long> FLIGHT_START = new ConcurrentHashMap<>();
 
 	private GreenLanternFlight() {
+	}
+
+	public static void clearSessionState() {
+		FLIGHT_START.clear();
 	}
 
 	public static boolean isFlying(ServerPlayer player) {
@@ -40,6 +56,7 @@ public final class GreenLanternFlight {
 
 	public static void onEnter(ServerPlayer player) {
 		player.setAttached(ModAttachments.GREEN_LANTERN_FLYING, true);
+		FLIGHT_START.put(player.getUUID(), player.level().getGameTime());
 		if (!player.getAbilities().instabuild) {
 			player.getAbilities().mayfly = true;
 			player.getAbilities().flying = true;
@@ -59,6 +76,7 @@ public final class GreenLanternFlight {
 		if (wasFlying) {
 			player.setAttached(ModAttachments.GREEN_LANTERN_FLYING, false);
 			player.setAttached(ModAttachments.GREEN_LANTERN_BOOSTING, false);
+			FLIGHT_START.remove(player.getUUID());
 		}
 		if (player.getAbilities().getFlyingSpeed() != 0.05f) {
 			player.getAbilities().setFlyingSpeed(0.05f);
@@ -82,6 +100,14 @@ public final class GreenLanternFlight {
 	/** Per-tick while Ring Flight is the active mode. Returns the charge drained this tick. */
 	public static float tick(ServerPlayer player, boolean boosting) {
 		if (!isFlying(player)) {
+			return 0f;
+		}
+		// v0.11.7: end automatically once the player lands, past a short liftoff grace so the very tick
+		// flight engages (still reporting the ground the player just jumped off) doesn't instantly cancel
+		// it -- the same grace window Thor's own flight uses for the identical reason.
+		Long start = FLIGHT_START.get(player.getUUID());
+		if (player.onGround() && (start == null || player.level().getGameTime() - start >= LIFTOFF_GRACE_TICKS)) {
+			forceStop(player, false);
 			return 0f;
 		}
 		player.getAbilities().flying = true;
@@ -111,17 +137,17 @@ public final class GreenLanternFlight {
 					player.getX() + back.x, player.getY() + 0.3, player.getZ() + back.z, 1, 0.1, 0.1, 0.1, 0.02);
 		}
 
-		// v0.11.4: a green particle trail while sprint-flying (Boost -- Shift+Sprint, per the caller),
-		// continuously emitted at the player's position so it reads as a trail behind fast movement --
-		// same single-point-emission trick used for Super Speed's trail, no dedicated trail entity
-		// needed. Costs its own small per-second drain on top of Boost's existing cost. Gated on the
-		// same tickCount%2/speed>0.02 cadence as the flame/end-rod effect above, so it doesn't spray
-		// packets while hovering nearly in place and doubles up on the same tick as that effect.
+		// v0.11.4/v0.11.7: a green particle trail behind the flight -- originally boost-only, now emitted
+		// any time Ring Flight is engaged and moving (explicit user request, "the flight needs a green
+		// trail"), continuously at the player's position so it reads as a trail behind movement, same
+		// single-point-emission trick Super Speed's own trail uses. Boosting simply thickens it (more
+		// particles per burst) rather than being the only time it shows at all. Gated on the same
+		// tickCount%2/speed>0.02 cadence as the flame/end-rod effect above.
+		if (player.tickCount % 2 == 0 && speed > 0.02) {
+			player.serverLevel().sendParticles(TRAIL_DUST, player.getX(), player.getY() + 0.9, player.getZ(),
+					boosting ? 3 : 1, 0.08, 0.08, 0.08, 0.0);
+		}
 		if (boosting) {
-			if (player.tickCount % 2 == 0 && speed > 0.02) {
-				player.serverLevel().sendParticles(TRAIL_DUST, player.getX(), player.getY() + 0.9, player.getZ(),
-						1, 0.05, 0.05, 0.05, 0.0);
-			}
 			return (GreenLanternConfig.BOOST_COST_PER_SEC + GreenLanternConfig.FLIGHT_TRAIL_COST_PER_SEC) / 20f;
 		}
 		// v0.11.5: a flat 1 energy/sec regardless of hovering or cruising -- replaces the old cruise/hover split.

@@ -49,6 +49,13 @@ public final class Construct {
 	public BlockPos platformBlockCenter;
 	/** CARRY_PLATFORM: one invisible seat entity id per cell, index-aligned with {@link #cells}. */
 	public final List<Integer> seatEntityIds = new ArrayList<>();
+	/**
+	 * MINING_DRILL/ENERGY_BLADE/CARRY_PLATFORM (v0.11.7): whether the toggle is switched on. These three
+	 * now deploy as a free "equipped" stance that does nothing (and costs nothing) until a second C press
+	 * while they're the caster's already-active instance toggles this on -- see
+	 * {@code GreenLanternConstructs#deploy}'s toggle-instead-of-redeploy branch.
+	 */
+	public boolean toggledOn;
 
 	private static int nextInstanceId = 1;
 

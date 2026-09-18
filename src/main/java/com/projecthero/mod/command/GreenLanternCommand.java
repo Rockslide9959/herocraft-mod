@@ -83,10 +83,11 @@ public final class GreenLanternCommand {
 
 	private static int status(CommandContext<CommandSourceStack> c, ServerPlayer target) {
 		GreenLanternState s = GreenLantern.state(target);
+		// v0.11.7: no more generic construct-slot cap to report against -- just the raw active weight.
 		c.getSource().sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT,
-				"Green Lantern: %s | charge %.0f/%.0f | suited %s | constructs %d/%d",
+				"Green Lantern: %s | charge %.0f/%.0f | suited %s | constructs %d",
 				s.hasPower, s.ringCharge, GreenLanternConfig.MAX_RING_CHARGE, s.suited,
-				GreenLanternConstructs.activeWeight(target.getUUID()), GreenLanternConfig.CONSTRUCT_MAX_SLOTS)), false);
+				GreenLanternConstructs.activeWeight(target.getUUID()))), false);
 		return 1;
 	}
 }

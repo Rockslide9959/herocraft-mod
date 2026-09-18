@@ -8,6 +8,7 @@ import com.projecthero.mod.greenlantern.GreenLanternCombat;
 import com.projecthero.mod.greenlantern.GreenLanternConfig;
 import com.projecthero.mod.greenlantern.GreenLanternEnergy;
 import com.projecthero.mod.greenlantern.GreenLanternFlight;
+import com.projecthero.mod.greenlantern.GreenLanternOath;
 import com.projecthero.mod.greenlantern.GreenLanternShield;
 import com.projecthero.mod.greenlantern.GreenLanternSuit;
 import com.projecthero.mod.greenlantern.block.GreenLanternBlocks;
@@ -237,27 +238,26 @@ public class GreenLanternGameTests implements FabricGameTest {
 	// ---------------- constructs ----------------
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void constructCapRefusesOverweightDeploy(GameTestHelper helper) {
+	public void constructLimitHasBeenRemoved(GameTestHelper helper) {
+		// v0.11.7: the old generic weighted-slot cap is gone outright (explicit user request, "remove
+		// construct limit") -- deploying well past the old 20-slot ceiling must never be refused.
+		// Atmosphere Bubble (slot weight 2, marker-only, no cooldown, no block placement to collide with
+		// itself at a fixed anchor) deploys deterministically regardless of what the mock player is
+		// looking at, unlike a block-based or raycast-target construct.
 		ServerPlayer player = bonded(helper);
 		GreenLanternState s = GreenLantern.state(player).copy();
 		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
 		GreenLantern.save(player, s);
 
-		// Energy Blade (slot weight 1, no block placement) deploys deterministically regardless of
-		// what the mock player is looking at -- CONSTRUCT_MAX_SLOTS of them fill the cap exactly.
-		for (int i = 0; i < GreenLanternConfig.CONSTRUCT_MAX_SLOTS; i++) {
-			GreenLanternConstructs.deploy(player, ConstructType.ENERGY_BLADE);
+		int deploys = 25; // comfortably past the old CONSTRUCT_MAX_SLOTS=20 cap
+		for (int i = 0; i < deploys; i++) {
+			GreenLanternConstructs.deploy(player, ConstructType.ATMOSPHERE_BUBBLE);
 		}
-		int weightAtCap = GreenLanternConstructs.activeWeight(player.getUUID());
-		helper.assertTrue(weightAtCap == GreenLanternConfig.CONSTRUCT_MAX_SLOTS,
-				"CONSTRUCT_MAX_SLOTS weight-1 constructs should fill the cap exactly, was " + weightAtCap);
-
-		float chargeBefore = GreenLantern.state(player).ringCharge;
-		GreenLanternConstructs.deploy(player, ConstructType.ENERGY_BLADE); // one more -- should overflow
-		helper.assertTrue(GreenLanternConstructs.activeWeight(player.getUUID()) == GreenLanternConfig.CONSTRUCT_MAX_SLOTS,
-				"a refused deploy must not push the weight past the cap");
-		helper.assertTrue(GreenLantern.state(player).ringCharge == chargeBefore,
-				"a refused deploy must not spend any charge");
+		int expectedWeight = deploys * ConstructType.ATMOSPHERE_BUBBLE.slotWeight();
+		int actualWeight = GreenLanternConstructs.activeWeight(player.getUUID());
+		helper.assertTrue(actualWeight == expectedWeight,
+				"every deploy past the old cap should have succeeded, expected weight " + expectedWeight
+						+ " got " + actualWeight);
 		helper.succeed();
 	}
 
@@ -683,18 +683,40 @@ public class GreenLanternGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void constructCostsAreCutFromTheirOriginalValues(GameTestHelper helper) {
-		helper.assertTrue(GreenLanternConfig.WALL_COST == 100f && GreenLanternConfig.WALL_UPKEEP_PER_SEC == 8f,
-				"Hard-Light Wall cost/upkeep should be cut to 100/8 (was 500/40)");
-		helper.assertTrue(GreenLanternConfig.PLATFORM_COST == 60f && GreenLanternConfig.PLATFORM_UPKEEP_PER_SEC == 4f,
-				"Platform cost/upkeep should be cut to 60/4 (was 300/20)");
-		helper.assertTrue(GreenLanternConfig.TURRET_COST == 170f && GreenLanternConfig.TURRET_UPKEEP_PER_SEC == 9f,
-				"Sentry Turret cost/upkeep should be cut to 170/9 (was 850/45)");
+	public void constructCostsMatchTheV0117Renumbering(GameTestHelper helper) {
+		helper.assertTrue(GreenLanternConfig.WALL_COST == 20f && GreenLanternConfig.WALL_UPKEEP_PER_SEC == 1f,
+				"Hard-Light Wall cost/upkeep should now be 20/1");
+		helper.assertTrue(GreenLanternConfig.PLATFORM_COST == 20f && GreenLanternConfig.PLATFORM_UPKEEP_PER_SEC == 1f,
+				"Platform cost/upkeep should now be 20/1");
+		helper.assertTrue(GreenLanternConfig.TURRET_COST == 20f && GreenLanternConfig.TURRET_UPKEEP_PER_SEC == 1f,
+				"Sentry Turret cost/upkeep should now be 20/1");
+		helper.assertTrue(GreenLanternConfig.TURRET_MAX_LIVE == 10, "Sentry Turret should cap at 10 live");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void toolKitGrantsThreeTaggedToolsWithoutTouchingAPreExistingOne(GameTestHelper helper) {
+	public void turretDeployIsRefusedPastItsOwnLiveCap(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		GreenLanternState s = GreenLantern.state(player).copy();
+		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
+		GreenLantern.save(player, s);
+		for (int i = 0; i < GreenLanternConfig.TURRET_MAX_LIVE; i++) {
+			GreenLanternConstructs.deploy(player, ConstructType.SENTRY_TURRET);
+		}
+		int liveAtCap = GreenLanternConstructs.activeWeight(player.getUUID());
+		float chargeAtCap = GreenLantern.state(player).ringCharge;
+
+		GreenLanternConstructs.deploy(player, ConstructType.SENTRY_TURRET); // one more -- should be refused
+
+		helper.assertTrue(GreenLanternConstructs.activeWeight(player.getUUID()) == liveAtCap,
+				"an 11th Sentry Turret must be refused once 10 are already live");
+		helper.assertTrue(GreenLantern.state(player).ringCharge == chargeAtCap,
+				"a refused-for-cap turret deploy must not spend any charge");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void toolKitGrantsFourTaggedToolsWithoutTouchingAPreExistingOne(GameTestHelper helper) {
 		ServerPlayer player = bonded(helper);
 		GreenLanternState s = GreenLantern.state(player).copy();
 		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
@@ -714,7 +736,8 @@ public class GreenLanternGameTests implements FabricGameTest {
 				&& !st.has(net.minecraft.core.component.DataComponents.CUSTOM_DATA)).count();
 		helper.assertTrue(ordinaryPickaxes == 1, "the player's own diamond pickaxe must be untouched, found " + ordinaryPickaxes);
 		long tagged = countHardLightTools(player);
-		helper.assertTrue(tagged == 3, "deploying the Tool Kit should grant exactly 3 tagged tools, got " + tagged);
+		// v0.11.7: a flint and steel joined the pickaxe/axe/shovel, so a full kit is now 4 pieces.
+		helper.assertTrue(tagged == 4, "deploying the Tool Kit should grant exactly 4 tagged tools, got " + tagged);
 		helper.succeed();
 	}
 
@@ -853,13 +876,114 @@ public class GreenLanternGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	// ================ v0.11.7: Oath empowerment mode / construct toggles / dome expansion ================
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void oathModePressStartsRecitingAndReleaseCancelsItEarly(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		GreenLanternOath.onPress(player);
+		helper.assertTrue(GreenLanternOath.isReciting(player), "pressing X should start the recitation");
+		helper.assertFalse(GreenLanternOath.isActive(player), "the mode isn't active until the recitation finishes");
+
+		GreenLanternOath.onRelease(player);
+		helper.assertFalse(GreenLanternOath.isReciting(player), "releasing X before the oath finishes must cancel it");
+		helper.assertFalse(GreenLanternOath.isActive(player), "an early release must never activate the mode");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void oathModeActivatesAfterFullRecitationAndDoublesCosts(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		GreenLanternState s = GreenLantern.state(player).copy();
+		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
+		GreenLantern.save(player, s);
+
+		GreenLanternOath.onPress(player);
+		helper.runAfterDelay(GreenLanternConfig.OATH_MODE_RECITE_TICKS + 1, () -> {
+			GreenLanternOath.tick(player);
+			helper.assertTrue(GreenLanternOath.isActive(player), "a full recitation should activate the mode");
+			helper.assertFalse(GreenLanternOath.isReciting(player), "activation should clear the reciting flag");
+
+			float before = GreenLantern.state(player).ringCharge;
+			GreenLanternEnergy.spend(player, 10f);
+			float spent = before - GreenLantern.state(player).ringCharge;
+			helper.assertTrue(spent == 20f, "spend() should double the cost while the mode is active, spent " + spent);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void secondDeployOfMiningDrillTogglesTheExistingInstanceInsteadOfAddingAnother(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		GreenLanternState s = GreenLantern.state(player).copy();
+		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
+		GreenLantern.save(player, s);
+
+		GreenLanternConstructs.deploy(player, ConstructType.MINING_DRILL);
+		helper.assertTrue(GreenLanternConstructs.of(player.getUUID()).size() == 1, "the drill should equip as one instance");
+		helper.assertFalse(GreenLanternConstructs.of(player.getUUID()).get(0).toggledOn,
+				"a freshly-equipped drill should start toggled off");
+
+		GreenLanternConstructs.deploy(player, ConstructType.MINING_DRILL); // second press: toggle on
+		helper.assertTrue(GreenLanternConstructs.of(player.getUUID()).size() == 1,
+				"toggling an already-active drill must not deploy a second instance");
+		helper.assertTrue(GreenLanternConstructs.of(player.getUUID()).get(0).toggledOn, "the second press should toggle it on");
+
+		GreenLanternConstructs.deploy(player, ConstructType.MINING_DRILL); // third press: toggle off
+		helper.assertFalse(GreenLanternConstructs.of(player.getUUID()).get(0).toggledOn, "a third press should toggle it back off");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void energyBladeOnlyAppliesItsMeleeBonusWhileToggledOn(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		GreenLanternState s = GreenLantern.state(player).copy();
+		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
+		GreenLantern.save(player, s);
+		double baseAttack = player.getAttributeValue(Attributes.ATTACK_DAMAGE);
+
+		GreenLanternConstructs.deploy(player, ConstructType.ENERGY_BLADE); // equip -- no bonus yet
+		helper.assertTrue(player.getAttributeValue(Attributes.ATTACK_DAMAGE) == baseAttack,
+				"merely equipping the blade must not grant its melee bonus yet");
+
+		GreenLanternConstructs.deploy(player, ConstructType.ENERGY_BLADE); // toggle on
+		helper.assertTrue(player.getAttributeValue(Attributes.ATTACK_DAMAGE) > baseAttack,
+				"toggling the blade on should grant its melee bonus");
+
+		GreenLanternConstructs.deploy(player, ConstructType.ENERGY_BLADE); // toggle off
+		helper.assertTrue(player.getAttributeValue(Attributes.ATTACK_DAMAGE) == baseAttack,
+				"toggling the blade back off should remove its melee bonus");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void domeRadiusGrowsFromZeroToFullOverTheExpandWindow(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		GreenLanternState s = GreenLantern.state(player).copy();
+		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
+		GreenLantern.save(player, s);
+		player.setShiftKeyDown(true);
+
+		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_4, true); // Shift+Z: deploy the dome
+		double radiusAtDeploy = GreenLanternShield.currentDomeRadius(player);
+		helper.assertTrue(radiusAtDeploy < GreenLanternConfig.DOME_RADIUS,
+				"the dome should start below its full radius, was " + radiusAtDeploy);
+
+		helper.runAfterDelay(GreenLanternConfig.DOME_EXPAND_TICKS + 1, () -> {
+			double radiusAfter = GreenLanternShield.currentDomeRadius(player);
+			helper.assertTrue(radiusAfter == GreenLanternConfig.DOME_RADIUS,
+					"the dome should be at its full radius once the expand window has passed, was " + radiusAfter);
+			helper.succeed();
+		});
+	}
+
 	private static long countHardLightTools(ServerPlayer player) {
 		return player.getInventory().items.stream().filter(GreenLanternGameTests::isHardLightTool).count();
 	}
 
 	private static boolean isHardLightTool(ItemStack stack) {
 		return (stack.getItem() == Items.DIAMOND_PICKAXE || stack.getItem() == Items.DIAMOND_AXE
-				|| stack.getItem() == Items.DIAMOND_SHOVEL)
+				|| stack.getItem() == Items.DIAMOND_SHOVEL || stack.getItem() == Items.FLINT_AND_STEEL)
 				&& stack.has(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
 	}
 }

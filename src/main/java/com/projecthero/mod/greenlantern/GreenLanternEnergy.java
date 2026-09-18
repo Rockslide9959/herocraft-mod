@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import com.projecthero.mod.greenlantern.data.GreenLanternState;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -46,10 +47,19 @@ public final class GreenLanternEnergy {
 	}
 
 	/**
-	 * Spend {@code amount} from the spendable pool (never touching the emergency reserve). Returns
-	 * false and spends nothing if the player is short.
+	 * Spend {@code amount} from the spendable pool (never touching the emergency reserve), doubled
+	 * (v0.11.7) whenever {@link GreenLanternOath}'s "Green Lantern's Light!" empowerment mode is active
+	 * -- "drains 2x energy for everything" applies here, the single choke point every ability/construct/
+	 * flight/suit cost already routes through, rather than at each call site individually. Returns false
+	 * and spends nothing if the player is short. Use {@link #spendRaw} for a cost that must NOT be
+	 * doubled by the mode (its own flat upkeep drain).
 	 */
 	public static boolean spend(ServerPlayer player, float amount) {
+		return spendRaw(player, amount * GreenLanternOath.multiplier(player));
+	}
+
+	/** Like {@link #spend}, but never doubled by the Oath empowerment mode. */
+	public static boolean spendRaw(ServerPlayer player, float amount) {
 		if (amount <= 0f) {
 			return true;
 		}
@@ -108,23 +118,61 @@ public final class GreenLanternEnergy {
 		GreenLantern.save(player, c);
 	}
 
+	/**
+	 * How many of {@link GreenLanternConfig#LOW_CHARGE_WARN_THRESHOLDS} {@code frac} is at or below --
+	 * 0 means above the highest (40%) threshold entirely. Pure function of the charge fraction, safe to
+	 * call from either side (the client-side HUD uses it too, to scale how urgently the charge bar
+	 * pulses -- see {@code GreenLanternHud}).
+	 */
+	public static int severityTier(float frac) {
+		int tier = 0;
+		for (float threshold : GreenLanternConfig.LOW_CHARGE_WARN_THRESHOLDS) {
+			if (frac <= threshold) {
+				tier++;
+			}
+		}
+		return tier;
+	}
+
+	/**
+	 * v0.11.7: eight escalating warnings (was three) -- a real notification sound plus a flashing
+	 * action-bar message every time charge crosses one of {@link GreenLanternConfig#LOW_CHARGE_WARN_THRESHOLDS}
+	 * (40/35/30/25/20/15/10/5%), each more intense than the last (louder, higher-pitched, more urgently
+	 * coloured). If a single tick's drain jumps past more than one threshold at once, only the most
+	 * severe (lowest) one crossed fires -- the thresholds array is sorted descending, so the last match
+	 * found while scanning it is the most severe. The HUD's own charge-bar pulse (see
+	 * {@code GreenLanternHud}) is the continuous "flash above the hotbar" -- it reacts to
+	 * {@link #severityTier} directly and speeds up as charge drops further, rather than this method
+	 * trying to schedule a multi-tick blink itself.
+	 */
 	public static void triggerLowChargeFeedback(ServerPlayer player, float before, float after) {
 		float pctBefore = before / GreenLanternConfig.MAX_RING_CHARGE;
 		float pctAfter = after / GreenLanternConfig.MAX_RING_CHARGE;
-		String key = null;
-		if (pctBefore > GreenLanternConfig.LOW_CHARGE_WARN_5 && pctAfter <= GreenLanternConfig.LOW_CHARGE_WARN_5) {
-			key = "message.projecthero.green_lantern.charge_critical";
-		} else if (pctBefore > GreenLanternConfig.LOW_CHARGE_WARN_10 && pctAfter <= GreenLanternConfig.LOW_CHARGE_WARN_10) {
-			key = "message.projecthero.green_lantern.charge_low";
-		} else if (pctBefore > GreenLanternConfig.LOW_CHARGE_WARN_25 && pctAfter <= GreenLanternConfig.LOW_CHARGE_WARN_25) {
-			key = "message.projecthero.green_lantern.charge_warning";
+		int severity = -1;
+		float crossed = 0f;
+		float[] thresholds = GreenLanternConfig.LOW_CHARGE_WARN_THRESHOLDS;
+		for (int i = 0; i < thresholds.length; i++) {
+			if (pctBefore > thresholds[i] && pctAfter <= thresholds[i]) {
+				severity = i;
+				crossed = thresholds[i];
+			}
 		}
-		if (key != null) {
-			player.displayClientMessage(Component.translatable(key), true);
-			player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-					net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BASS.value(), net.minecraft.sounds.SoundSource.PLAYERS,
-					0.6f, 0.7f);
+		if (severity < 0) {
+			return;
 		}
+		ChatFormatting color = severity >= 6 ? ChatFormatting.RED : severity >= 3 ? ChatFormatting.GOLD : ChatFormatting.YELLOW;
+		net.minecraft.network.chat.Style style = severity >= 6
+				? net.minecraft.network.chat.Style.EMPTY.withColor(color).withBold(true)
+				: net.minecraft.network.chat.Style.EMPTY.withColor(color);
+		player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.charge_warning",
+				Math.round(crossed * 100f)).setStyle(style), true);
+		float pitch = 0.6f + severity * 0.15f;
+		float volume = 0.5f + severity * 0.05f;
+		net.minecraft.sounds.SoundEvent sound = severity >= 6
+				? net.minecraft.sounds.SoundEvents.NOTE_BLOCK_PLING.value()
+				: net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BASS.value();
+		player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+				sound, net.minecraft.sounds.SoundSource.PLAYERS, volume, pitch);
 	}
 
 	public static void feedback(ServerPlayer player, String reasonKey) {

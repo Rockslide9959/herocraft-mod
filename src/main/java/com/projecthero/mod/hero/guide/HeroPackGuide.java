@@ -402,7 +402,7 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.green_lantern.controls");
 			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {
 				String key = switch (slot) {
-					case "R" -> "ring_bolt"; case "G" -> "construct_fist"; case "X" -> "grapple";
+					case "R" -> "ring_bolt"; case "G" -> "construct_fist"; case "X" -> "oath";
 					case "Z" -> "shield"; case "V" -> "suit"; default -> "construct";
 				};
 				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)

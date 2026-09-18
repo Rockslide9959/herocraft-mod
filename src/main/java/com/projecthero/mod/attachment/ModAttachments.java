@@ -455,6 +455,22 @@ public final class ModAttachments {
 			builder -> builder.initializer(() -> false)
 					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
 
+	/**
+	 * Absolute game-time the X ability's "Green Lantern's Light!" Oath empowerment mode expires, or 0
+	 * while inactive (v0.11.7). Not persisted (a relog drops it safely); synced so the HUD can show a
+	 * remaining-time countdown on the X key.
+	 */
+	public static final AttachmentType<Long> GREEN_LANTERN_OATH_UNTIL = AttachmentRegistry.create(
+			ProjectHeroMod.id("green_lantern_oath_until"),
+			builder -> builder.initializer(() -> 0L)
+					.syncWith(ByteBufCodecs.VAR_LONG, AttachmentSyncPredicate.all()));
+
+	/** Absolute game-time the player started reciting the X ability's Oath, or 0 while not reciting. */
+	public static final AttachmentType<Long> GREEN_LANTERN_OATH_RECITING_SINCE = AttachmentRegistry.create(
+			ProjectHeroMod.id("green_lantern_oath_reciting_since"),
+			builder -> builder.initializer(() -> 0L)
+					.syncWith(ByteBufCodecs.VAR_LONG, AttachmentSyncPredicate.all()));
+
 	private ModAttachments() {
 	}
 

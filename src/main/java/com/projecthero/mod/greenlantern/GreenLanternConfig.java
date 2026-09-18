@@ -28,9 +28,15 @@ public final class GreenLanternConfig {
 	 * subtracts this from the raw pool.
 	 */
 	public static final float EMERGENCY_RESERVE = 250f;
-	public static final float LOW_CHARGE_WARN_25 = 0.25f;
-	public static final float LOW_CHARGE_WARN_10 = 0.10f;
-	public static final float LOW_CHARGE_WARN_5 = 0.05f;
+	/**
+	 * v0.11.7: eight escalating low-charge warnings (was three) -- descending so
+	 * {@link GreenLanternEnergy#triggerLowChargeFeedback} can find the lowest (most severe) threshold
+	 * crossed since the last check in one pass. Each is a percentage of {@link #MAX_RING_CHARGE}.
+	 */
+	public static final float[] LOW_CHARGE_WARN_THRESHOLDS = {0.40f, 0.35f, 0.30f, 0.25f, 0.20f, 0.15f, 0.10f, 0.05f};
+
+	/** v0.11.7: a flat passive Resistance I while the ring is bonded (not suit-gated). */
+	public static final int RING_RESISTANCE_AMPLIFIER = 0; // Resistance I
 
 	// ---------------- suit ----------------
 
@@ -106,13 +112,17 @@ public final class GreenLanternConfig {
 	public static final float FLIGHT_TRAIL_COST_PER_SEC = 1f;
 	public static final int EMERGENCY_DESCENT_TICKS = 60; // 3s
 
-	// ---------------- Ring Grapple (X, v0.11.5 -- replaces the flight toggle that moved to double-tap Space) ----------------
+	// ---------------- Green Lantern's Light (X, v0.11.7 -- replaces Ring Grapple) ----------------
 
-	public static final float GRAPPLE_COST = 30f;
-	public static final int GRAPPLE_COOLDOWN_TICKS = 60; // 3s
-	public static final double GRAPPLE_RANGE = 28.0;
-	/** Per-tick velocity magnitude cap on the pull, so a grapple onto a far wall doesn't fling the player. */
-	public static final double GRAPPLE_MAX_SPEED = 2.2;
+	/** Ticks per oath line while reciting -- reuses the Power Battery Oath's own cadence (30 = 1.5s/line). */
+	public static final int OATH_MODE_LINE_TICKS = OATH_LINE_TICKS;
+	public static final int OATH_MODE_LINE_COUNT = 4;
+	public static final int OATH_MODE_RECITE_TICKS = OATH_MODE_LINE_TICKS * OATH_MODE_LINE_COUNT; // 6s
+	public static final int OATH_MODE_DURATION_TICKS = 22 * 20; // 22s
+	public static final int OATH_MODE_COOLDOWN_TICKS = 80 * 20; // 80s, applied once the mode ends
+	/** Flat drain for simply being in the mode, on top of every ability/construct/upkeep cost doubling. */
+	public static final float OATH_MODE_UPKEEP_PER_SEC = 10f;
+	public static final float OATH_MODE_MULTIPLIER = 2f;
 
 	// ---------------- Directional Shield (Z) / Protective Dome (Shift+Z) ----------------
 
@@ -124,88 +134,112 @@ public final class GreenLanternConfig {
 	public static final double SHIELD_ARC_DEGREES = 120.0;
 
 	public static final float DOME_INITIAL_COST = 160f;
-	public static final float DOME_UPKEEP_PER_SEC = 20f;
+	/** v0.11.7: cut from 20 -- explicit user request ("cost 5 energy per second to maintain"). */
+	public static final float DOME_UPKEEP_PER_SEC = 5f;
 	public static final float DOME_HP = 250f;
-	public static final double DOME_RADIUS = 5.0;
+	/** v0.11.7: expands from the caster out to this radius, up from a fixed 5 -- explicit user request. */
+	public static final double DOME_RADIUS = 10.0;
+	/** How long the dome takes to grow from 0 to {@link #DOME_RADIUS} once deployed. */
+	public static final int DOME_EXPAND_TICKS = 30; // 1.5s
 	public static final int DOME_MAX_DURATION_TICKS = 15 * 20;
 	public static final int DOME_COOLDOWN_TICKS = 12 * 20;
+	/** Outward push speed (blocks/tick) applied to a non-squadmate caught inside the dome's radius. */
+	public static final double DOME_PUSH_SPEED = 0.5;
 
 	// ---------------- constructs (generic) ----------------
 
-	public static final int CONSTRUCT_MAX_SLOTS = 20;
+	// v0.11.7: the weighted-slot cap is gone outright -- explicit user request ("remove construct
+	// limit"). ConstructType#slotWeight() values are kept (still read by the HUD/accounting helpers)
+	// but nothing compares the total against a ceiling any more.
 	public static final double CONSTRUCT_PLACE_RANGE = 24.0;
 	public static final double CONSTRUCT_OWNER_OUTLINE_RANGE = 48.0;
 	public static final int CONSTRUCT_WHEEL_HOLD_TICKS = 10; // 0.5s
 
 	// ---------------- combat constructs ----------------
-	// v0.11.4: every deploy cost/upkeep in this section and the next cut to ~20% of its original value
-	// ("make construct making and maintaining cost way less").
+	// v0.11.7: every construct's cost/upkeep/range renumbered again to the user's explicit per-construct
+	// figures below (this pass replaces the old v0.11.4 "~20% of original" table entirely).
 
-	public static final float ENERGY_BLADE_COST = 40f;
-	public static final float ENERGY_BLADE_UPKEEP_PER_SEC = 4f;
+	/** v0.11.7: deploying now just equips the stance for free -- press C again (while it's the active
+	 *  instance) to toggle the blade itself on, which is what actually costs anything. */
+	public static final float ENERGY_BLADE_COST = 0f;
+	public static final float ENERGY_BLADE_UPKEEP_PER_SEC = 2f; // only drains while toggled on
 	public static final float ENERGY_BLADE_DAMAGE = 9f;
 	public static final double ENERGY_BLADE_REACH = 2.8;
 
-	public static final float CAGE_COST = 120f;
-	public static final float CAGE_UPKEEP_PER_SEC = 5f;
-	public static final double CAGE_RANGE = 18.0;
+	public static final float CAGE_COST = 20f;
+	public static final float CAGE_UPKEEP_PER_SEC = 1f;
+	public static final double CAGE_RANGE = 30.0;
 	public static final int CAGE_MAX_DURATION_TICKS = 8 * 20;
 	public static final int CAGE_COOLDOWN_TICKS = 8 * 20;
 	public static final float CAGE_HP = 75f;
 
-	public static final float TURRET_COST = 170f;
-	public static final float TURRET_UPKEEP_PER_SEC = 9f;
+	public static final float TURRET_COST = 20f;
+	public static final float TURRET_UPKEEP_PER_SEC = 1f;
 	public static final float TURRET_DAMAGE = 4f;
 	public static final int TURRET_FIRE_INTERVAL_TICKS = 10; // 2 shots/sec
 	public static final double TURRET_TARGET_RADIUS = 20.0;
 	public static final int TURRET_MAX_DURATION_TICKS = 12 * 20;
 	public static final int TURRET_COOLDOWN_TICKS = 20 * 20;
+	/** v0.11.7: a hard per-player cap on live turrets specifically -- separate from the (now removed) generic construct-slot limit. */
+	public static final int TURRET_MAX_LIVE = 10;
 
-	public static final float RAM_COST = 130f;
+	public static final float RAM_COST = 20f;
 	public static final float RAM_DAMAGE = 12f;
 	public static final double RAM_DISTANCE = 16.0;
 	public static final int RAM_COOLDOWN_TICKS = 80; // 4s
 
-	public static final float WALL_COST = 100f;
-	public static final float WALL_UPKEEP_PER_SEC = 8f;
+	public static final float WALL_COST = 20f;
+	public static final float WALL_UPKEEP_PER_SEC = 1f;
 	public static final float WALL_HP = 160f;
+	/** v0.11.7: 4 blocks tall, up from 3 -- explicit user request. */
+	public static final int WALL_HEIGHT = 4;
 	public static final int WALL_MAX_DURATION_TICKS = 15 * 20;
 	public static final int WALL_COOLDOWN_TICKS = 5 * 20;
 
 	// ---------------- utility / survival constructs ----------------
 
-	public static final float PLATFORM_COST = 60f;
-	public static final float PLATFORM_UPKEEP_PER_SEC = 4f;
+	public static final float PLATFORM_COST = 20f;
+	public static final float PLATFORM_UPKEEP_PER_SEC = 1f;
+	/** v0.11.7: a 4x4 footprint, up from 3x3 -- explicit user request. */
+	public static final int PLATFORM_SIZE = 4;
+	/** v0.11.7: its own placement range (was the generic 24) -- explicit user request. */
+	public static final double PLATFORM_RANGE = 30.0;
 	public static final int PLATFORM_MAX_DURATION_TICKS = 20 * 20;
 	public static final int PLATFORM_SLOT_WEIGHT = 4;
 
-	public static final float BRIDGE_BASE_COST = 24f;
-	public static final float BRIDGE_COST_PER_SEGMENT = 7f;
-	public static final float BRIDGE_UPKEEP_PER_SEC = 2f;
-	public static final int BRIDGE_MAX_LENGTH = 20;
+	/** v0.11.7: 3 blocks wide, 20 long, flat 20-energy deploy + 1/sec -- explicit user request (was a
+	 *  per-segment scaling cost for a variable-length bridge; length is now always the full 20). */
+	public static final float BRIDGE_COST = 20f;
+	public static final float BRIDGE_UPKEEP_PER_SEC = 1f;
+	public static final int BRIDGE_LENGTH = 20;
+	public static final int BRIDGE_WIDTH = 3;
 	public static final int BRIDGE_MAX_DURATION_TICKS = 30 * 20;
 	public static final int BRIDGE_SLOT_WEIGHT = 2;
 
-	public static final float RAMP_BASE_COST = 30f;
-	public static final float RAMP_COST_PER_SEGMENT = 6f;
-	public static final float RAMP_UPKEEP_PER_SEC = 2f;
+	/** v0.11.7: 3 blocks wide, flat 20-energy deploy + 1/sec -- explicit user request. */
+	public static final float RAMP_COST = 20f;
+	public static final float RAMP_UPKEEP_PER_SEC = 1f;
+	public static final int RAMP_WIDTH = 3;
 	public static final int RAMP_MAX_SEGMENTS = 12;
 	public static final int RAMP_MAX_DURATION_TICKS = 30 * 20;
 	public static final int RAMP_SLOT_WEIGHT = 2;
 
-	public static final float DRILL_START_COST = 40f;
-	public static final float DRILL_COST_PER_BLOCK = 5f;
+	/** v0.11.7: same free-to-equip/pay-while-on model as Energy Blade -- explicit user request. */
+	public static final float DRILL_START_COST = 0f;
+	public static final float DRILL_UPKEEP_PER_SEC = 2f; // only drains while toggled on
 	public static final double DRILL_REACH = 5.0;
 	public static final int DRILL_SLOT_WEIGHT = 1;
 
-	public static final float LANTERN_LIGHT_COST = 20f;
-	public static final float LANTERN_LIGHT_UPKEEP_PER_SEC = 1f;
+	/** v0.11.7: 1 to deploy, 1 charge every 5 seconds (0.2/sec) to maintain -- explicit user request. */
+	public static final float LANTERN_LIGHT_COST = 1f;
+	public static final float LANTERN_LIGHT_UPKEEP_PER_SEC = 0.2f;
 	public static final int LANTERN_LIGHT_MAX_DURATION_TICKS = 60 * 20;
 	public static final int LANTERN_LIGHT_SLOT_WEIGHT = 1;
 
 	public static final float BUBBLE_COST = 90f;
 	public static final float BUBBLE_UPKEEP_PER_SEC = 7f;
-	public static final double BUBBLE_RADIUS = 2.5;
+	/** v0.11.7: big enough to cover a small room, up from 2.5 -- explicit user request. */
+	public static final double BUBBLE_RADIUS = 8.0;
 	public static final int BUBBLE_MAX_DURATION_TICKS = 30 * 20;
 	public static final int BUBBLE_SLOT_WEIGHT = 2;
 
@@ -215,8 +249,10 @@ public final class GreenLanternConfig {
 	// pick up the target, they can press c again to throw the target or shift+C to let them down
 	// safely"). The cost/cooldown below now gate the grab itself; the throw and the safe-set-down are
 	// both free follow-ups to an existing hold.
-	public static final float TETHER_COST = 40f;
-	public static final double TETHER_RANGE = 24.0;
+	// v0.11.7: cost 20 to cast + 1/sec to maintain the hold, 30-block grab range -- explicit user request.
+	public static final float TETHER_COST = 20f;
+	public static final float TETHER_UPKEEP_PER_SEC = 1f;
+	public static final double TETHER_RANGE = 30.0;
 	public static final int TETHER_COOLDOWN_TICKS = 80; // 4s
 	/** Blocks in front of the caster's eyes the held target is glued to each tick. */
 	public static final double TETHER_HOLD_DISTANCE = 2.5;
@@ -225,8 +261,8 @@ public final class GreenLanternConfig {
 	/** A held target further than this (blocks, squared) from the caster is released automatically. */
 	public static final double TETHER_MAX_HOLD_RANGE_SQR = 400.0;
 
-	public static final float CARRY_PLATFORM_COST = 120f;
-	public static final float CARRY_PLATFORM_UPKEEP_PER_SEC = 6f;
+	public static final float CARRY_PLATFORM_COST = 20f;
+	public static final float CARRY_PLATFORM_UPKEEP_PER_SEC = 1f;
 	public static final int CARRY_PLATFORM_MAX_DURATION_TICKS = 30 * 20;
 	public static final int CARRY_PLATFORM_SLOT_WEIGHT = 3;
 	public static final double CARRY_PLATFORM_SPEED_CAP_BPS = 8.0;

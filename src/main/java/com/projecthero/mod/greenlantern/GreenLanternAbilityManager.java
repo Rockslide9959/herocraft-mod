@@ -26,7 +26,8 @@ import net.minecraft.server.level.ServerPlayer;
  * <pre>
  *   R (slot 1)  Ring Bolt / Shift+R Continuous Beam
  *   G (slot 2)  Construct Fist / Shift+G War Hammer Slam
- *   X (slot 3)  Ring Grapple (v0.11.5) -- Ring Flight moved to a double-tap of the vanilla jump key
+ *   X (slot 3)  hold: recite the Oath -- "Green Lantern's Light!" empowerment mode (v0.11.7,
+ *               replaces Ring Grapple). Ring Flight is a double-tap of the vanilla jump key
  *               (boost is automatic while sprint-holding while flying, read live each tick)
  *   Z (slot 4)  Directional Shield (held) / Shift+Z Protective Dome
  *   V (slot 5)  Suit Up/Down / Shift+V Ring Scan
@@ -90,7 +91,9 @@ public final class GreenLanternAbilityManager {
 			}
 			case SLOT_3 -> {
 				if (pressed) {
-					GreenLanternGrapple.grapple(player);
+					GreenLanternOath.onPress(player);
+				} else {
+					GreenLanternOath.onRelease(player);
 				}
 			}
 			case SLOT_4 -> {
@@ -205,6 +208,15 @@ public final class GreenLanternAbilityManager {
 		if (!GreenLantern.hasPower(player)) {
 			return;
 		}
+		// v0.11.7: a flat passive Resistance I for any bonded Green Lantern, suited or not (same
+		// unsuited-still-works convention as the fall-damage immunity) -- reapplied every 5s on a short
+		// effect so it never actually runs out, rather than tracked as its own persisted flag.
+		if (player.tickCount % 100 == 0) {
+			player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+					net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 140,
+					GreenLanternConfig.RING_RESISTANCE_AMPLIFIER, true, false, false));
+		}
+		GreenLanternOath.tick(player);
 		GreenLanternSuit.tick(player);
 		GreenLanternBattery.tick(player);
 

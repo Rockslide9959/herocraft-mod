@@ -127,16 +127,18 @@ A permanent **Hero-Tier** power. Find a **Fallen Lantern Site** — a rare, dama
 Dormant Power Ring — and pass the **Will Trial** (three enemy waves) to bond it.
 
 - A **Ring Charge** pool (10,000 points) fuels everything: ranged Ring Bolt/Continuous Beam, a
-  Construct Fist and War Hammer Slam, flight, a directional shield or an all-around dome, and **13
-  hard-light constructs** shaped on the fly — a defensive Wall and a diamond pickaxe/axe/shovel Tool
-  Kit are available from the moment you bond, the rest unlock through Willpower Mastery.
+  Construct Fist and War Hammer Slam, flight, a directional shield or a 10-block Protective Dome that
+  pushes out anyone who isn't in your squad, and **14 hard-light constructs** shaped on the fly — every
+  one available from the moment you bond, with no cap on how many can be active at once.
+- Hold **X to recite the Oath** ("Green Lantern's Light!") for a 22-second empowerment: double melee,
+  double ability damage, double construct strength — at double the Ring Charge cost for everything.
 - **No passive recharge at all.** The only way to refill the ring is a Personal Power Battery: recite
   the on-screen Oath — four lines, one at a time, in green — without moving, turning, taking damage or
   using any ability, and the ring fills instantly the moment you finish.
-- Suiting up grants full **diamond-level armour** plus a flat melee damage bonus; sprint-flying trails
-  a green hard-light streak behind you.
-- Constructs are cheap to make and maintain, temporary rather than permanent building blocks, and
-  capped by a weighted slot system rather than a flat count.
+- A permanent passive Resistance I, suited or not. Suiting up also grants full **diamond-level armour**
+  plus a flat melee damage bonus; flight trails a green hard-light streak the whole time it's active.
+- Constructs are cheap to make and maintain, temporary rather than permanent building blocks — Mining
+  Drill, Energy Blade and Carry Platform equip for free and only cost anything once toggled on.
 
 ---
 

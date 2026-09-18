@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.projecthero.mod.greenlantern.GreenLantern;
 import com.projecthero.mod.greenlantern.GreenLanternConfig;
 import com.projecthero.mod.greenlantern.GreenLanternEnergy;
+import com.projecthero.mod.greenlantern.GreenLanternOath;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.PowerToggles;
 
@@ -54,8 +55,10 @@ import org.joml.Vector3f;
  * Java, and two (Battering Ram, Rescue Tether) are instant one-shots that never enter {@link #BY_OWNER}
  * at all.
  *
- * <p>Global rules enforced here: max {@link GreenLanternConfig#CONSTRUCT_MAX_SLOTS} weighted slots
- * (see {@link ConstructType#slotWeight()}), 24-block placement range, never overwrites
+ * <p>Global rules enforced here: no cap on the number of active constructs any more (v0.11.7 removed it
+ * outright; {@link ConstructType#slotWeight()} is still tracked/reported but nothing compares it against
+ * a ceiling -- Sentry Turret alone keeps its own explicit {@link GreenLanternConfig#TURRET_MAX_LIVE}),
+ * 24-block placement range (several types override this with their own, longer range), never overwrites
  * bedrock/portals/containers/unbreakable blocks, never drops items, vanishes on owner
  * death/dimension-change/logout/hard depletion (see {@code clearFor}), and a turret/cage never
  * targets/affects the owner, a squadmate, or a tamed mob.
@@ -165,7 +168,60 @@ public final class GreenLanternConstructs {
 		return w;
 	}
 
+	private static Construct firstOfType(UUID owner, ConstructType type) {
+		for (Construct c : of(owner)) {
+			if (c.type == type) {
+				return c;
+			}
+		}
+		return null;
+	}
+
+	private static int countOfType(UUID owner, ConstructType type) {
+		int n = 0;
+		for (Construct c : of(owner)) {
+			if (c.type == type) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	/**
+	 * A second C-press on an already-active {@link #TOGGLE_TYPES} instance flips it on/off, rather than
+	 * deploying another one (v0.11.7, explicit user request for Mining Drill/Energy Blade/Carry Platform
+	 * -- "if player presses c with this construct active make them toggle the drive on, if they press c
+	 * while its on make them toggle it off"). Turning ON applies whatever effect that type actually has
+	 * (Energy Blade's melee buff; Mining Drill/Carry Platform have none to apply here, their own tick
+	 * functions simply gate on {@link Construct#toggledOn}); turning off reverses it. Upkeep for these
+	 * three only drains while toggled on (see {@link #tickUpkeep}), except Carry Platform, whose upkeep
+	 * is unconditional (it is still occupying world blocks either way).
+	 */
+	private static void toggleConstruct(ServerPlayer player, Construct c) {
+		c.toggledOn = !c.toggledOn;
+		if (c.type == ConstructType.ENERGY_BLADE) {
+			if (c.toggledOn) {
+				PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, BLADE_DAMAGE,
+						GreenLanternConfig.ENERGY_BLADE_DAMAGE - 1f, AttributeModifier.Operation.ADD_VALUE);
+				PowerToggles.modifier(player, Attributes.ENTITY_INTERACTION_RANGE, BLADE_REACH,
+						GreenLanternConfig.ENERGY_BLADE_REACH - 3.0, AttributeModifier.Operation.ADD_VALUE);
+			} else {
+				removeMeleeBuff(c);
+			}
+		}
+		player.serverLevel().sendParticles(GREEN_DUST, player.getX(), player.getY() + 1.0, player.getZ(),
+				c.toggledOn ? 20 : 8, 0.3, 0.5, 0.3, 0.03);
+		player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
+				c.toggledOn ? SoundEvents.BEACON_ACTIVATE : SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS,
+				0.5f, c.toggledOn ? 1.5f : 1.0f);
+	}
+
 	// ---------------- deploy ----------------
+
+	/** MINING_DRILL, ENERGY_BLADE and CARRY_PLATFORM (v0.11.7): a second deploy of the same type toggles
+	 *  the caster's own already-active instance instead of trying (and refusing) to place another one. */
+	private static final java.util.Set<ConstructType> TOGGLE_TYPES =
+			java.util.EnumSet.of(ConstructType.MINING_DRILL, ConstructType.ENERGY_BLADE, ConstructType.CARRY_PLATFORM);
 
 	public static void deploy(ServerPlayer player, ConstructType type) {
 		if (type == ConstructType.BATTERING_RAM) {
@@ -176,6 +232,13 @@ public final class GreenLanternConstructs {
 			rescueGrab(player);
 			return;
 		}
+		if (TOGGLE_TYPES.contains(type)) {
+			Construct existing = firstOfType(player.getUUID(), type);
+			if (existing != null) {
+				toggleConstruct(player, existing);
+				return;
+			}
+		}
 		// Only one Tool Kit at a time -- countToolKitPieces()/tickKind's TOOL_KIT case count pieces
 		// per-PLAYER, not per-construct-instance, so two live kits sharing one pool of tagged tools
 		// would let a player drop pieces from one kit without either one ever ending.
@@ -183,13 +246,16 @@ public final class GreenLanternConstructs {
 			GreenLanternEnergy.feedback(player, "message.projecthero.green_lantern.tool_kit_already_active");
 			return;
 		}
+		// v0.11.7: no generic construct-slot cap any more (explicit user request, "remove construct
+		// limit") -- Sentry Turret alone keeps its own separate, explicitly-requested hard cap.
+		if (type == ConstructType.SENTRY_TURRET && countOfType(player.getUUID(), ConstructType.SENTRY_TURRET)
+				>= GreenLanternConfig.TURRET_MAX_LIVE) {
+			GreenLanternEnergy.feedback(player, "message.projecthero.green_lantern.turret_limit");
+			return;
+		}
 		String cooldownId = cooldownIdFor(type);
 		if (cooldownId != null && !GreenLantern.abilityReady(player, cooldownId)) {
 			feedbackCooldown(player, cooldownId);
-			return;
-		}
-		if (activeWeight(player.getUUID()) + type.slotWeight() > GreenLanternConfig.CONSTRUCT_MAX_SLOTS) {
-			GreenLanternEnergy.feedback(player, "message.projecthero.green_lantern.construct_slots_full");
 			return;
 		}
 		float cost = totalCost(type, player);
@@ -200,7 +266,9 @@ public final class GreenLanternConstructs {
 		com.projecthero.mod.greenlantern.GreenLanternBattery.onAbilityUsed(player);
 
 		ServerLevel level = player.serverLevel();
-		Vec3 anchor = type == ConstructType.CARRY_PLATFORM ? carryPlatformAnchor(player) : placementPoint(player);
+		Vec3 anchor = type == ConstructType.CARRY_PLATFORM ? carryPlatformAnchor(player)
+				: type == ConstructType.PLATFORM ? placementPoint(player, GreenLanternConfig.PLATFORM_RANGE)
+				: placementPoint(player);
 		Construct c = new Construct(player.getUUID(), type, level, anchor, level.getGameTime());
 		switch (type.kind()) {
 			case MELEE_BUFF -> spawnEnergyBlade(player, c);
@@ -306,31 +374,30 @@ public final class GreenLanternConstructs {
 				"message.projecthero.green_lantern.construct_cooldown", seconds), true);
 	}
 
+	/** v0.11.7: Bridge and Stair/Ramp are now flat, fixed-dimension costs -- no more per-segment scaling. */
 	private static float totalCost(ConstructType type, ServerPlayer player) {
-		float base = type.initialCost();
-		if (type == ConstructType.BRIDGE) {
-			base += GreenLanternConfig.BRIDGE_COST_PER_SEGMENT * bridgeLength(player);
-		} else if (type == ConstructType.STAIR_RAMP) {
-			base += GreenLanternConfig.RAMP_COST_PER_SEGMENT * GreenLanternConfig.RAMP_MAX_SEGMENTS;
-		}
-		return base;
+		return type.initialCost();
 	}
 
 	private static Vec3 placementPoint(ServerPlayer player) {
-		BlockHitResult hit = AbilityHelpers.raycastBlock(player, GreenLanternConfig.CONSTRUCT_PLACE_RANGE);
+		return placementPoint(player, GreenLanternConfig.CONSTRUCT_PLACE_RANGE);
+	}
+
+	private static Vec3 placementPoint(ServerPlayer player, double range) {
+		BlockHitResult hit = AbilityHelpers.raycastBlock(player, range);
 		if (hit.getType() != HitResult.Type.MISS) {
 			return hit.getLocation();
 		}
-		return player.getEyePosition().add(player.getLookAngle().scale(GreenLanternConfig.CONSTRUCT_PLACE_RANGE));
+		return player.getEyePosition().add(player.getLookAngle().scale(range));
 	}
 
 	// ---------------- per-kind spawn ----------------
 
+	/**
+	 * v0.11.7: deploying just equips the stance, free and with no effect yet -- a second C press
+	 * ({@link #toggleConstruct}) is what actually turns the blade (and its cost) on.
+	 */
 	private static void spawnEnergyBlade(ServerPlayer player, Construct c) {
-		PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, BLADE_DAMAGE,
-				GreenLanternConfig.ENERGY_BLADE_DAMAGE - 1f, AttributeModifier.Operation.ADD_VALUE);
-		PowerToggles.modifier(player, Attributes.ENTITY_INTERACTION_RANGE, BLADE_REACH,
-				GreenLanternConfig.ENERGY_BLADE_REACH - 3.0, AttributeModifier.Operation.ADD_VALUE);
 	}
 
 	private static void spawnWall(ServerPlayer player, Construct c) {
@@ -338,7 +405,7 @@ public final class GreenLanternConstructs {
 		Direction side = facing.getClockWise();
 		BlockPos center = BlockPos.containing(c.anchor);
 		for (int w = -2; w <= 2; w++) {
-			for (int h = 0; h < 3; h++) {
+			for (int h = 0; h < GreenLanternConfig.WALL_HEIGHT; h++) {
 				add(c, center.relative(side, w).above(h), lightBlockState());
 			}
 		}
@@ -346,27 +413,32 @@ public final class GreenLanternConstructs {
 	}
 
 	private static void spawnPlatform(ServerPlayer player, Construct c, boolean carry) {
-		BlockPos center = BlockPos.containing(c.anchor).below();
 		if (carry) {
-			// v0.11.5: a fixed 3x3 square, independent of the owner's facing -- it needs to be
-			// recomputable around a moving center every tick without re-deriving a facing/side pair.
+			// v0.11.7: spawns level with the owner's own Y (was one block below -- explicit user request),
+			// a fixed 3x3 square independent of facing so it can be recomputed around a moving center
+			// every tick without re-deriving a facing/side pair.
+			BlockPos center = BlockPos.containing(c.anchor);
 			for (BlockPos pos : carryPlatformCells(center)) {
 				add(c, pos, carryPlatformBlockState());
 			}
 			place(c);
-			// platformCenter tracks the same pre-".below()" frame as c.anchor/carryPlatformAnchor() --
-			// tickCarryPlatform() re-derives the block-grid center from it with exactly one .below(),
-			// matching this line, so the two never drift apart.
+			// platformCenter tracks the same frame as c.anchor/carryPlatformAnchor() -- tickCarryPlatform()
+			// re-derives the block-grid center from it with the same (now none) offset, so the two never
+			// drift apart.
 			c.platformCenter = c.anchor;
 			c.platformBlockCenter = center;
 			spawnCarryPlatformSeats(c);
 			return;
 		}
+		// v0.11.7: a 4x4 footprint (up from 3x3) placed wherever the 30-block-range placementPoint()
+		// landed -- on the ground if the caster's aim hit solid terrain within range, otherwise floating
+		// out in front of them, exactly the existing placementPoint() fallback behaviour.
+		BlockPos center = BlockPos.containing(c.anchor).below();
 		Direction facing = player.getDirection();
 		Direction side = facing.getClockWise();
-		int half = 1;
-		for (int f = -half; f <= half; f++) {
-			for (int w = -half; w <= half; w++) {
+		int size = GreenLanternConfig.PLATFORM_SIZE;
+		for (int f = -1; f < size - 1; f++) {
+			for (int w = -1; w < size - 1; w++) {
 				add(c, center.relative(facing, f).relative(side, w), lightBlockState());
 			}
 		}
@@ -436,9 +508,15 @@ public final class GreenLanternConstructs {
 	 * away 5 blocks in front of the owner's live look direction ("follows their mouse"), at the owner's
 	 * own height. {@link Construct#platformCenter} tracks the continuous position; the actual blocks
 	 * (and their riders, via the seat entities) only move when that crosses into a new block, so a slow
-	 * drift doesn't churn the world every tick.
+	 * drift doesn't churn the world every tick. v0.11.7: only actually steers while
+	 * {@link Construct#toggledOn} ("drive") is on -- a second C press on the already-active platform
+	 * toggles it (see {@link #toggleConstruct}); while off, the platform simply holds its last position
+	 * (still fully usable as a stationary platform, just not chasing the owner).
 	 */
 	private static void tickCarryPlatform(ServerPlayer owner, Construct c) {
+		if (!c.toggledOn) {
+			return;
+		}
 		Vec3 target = carryPlatformAnchor(owner);
 		Vec3 current = c.platformCenter;
 		Vec3 toTarget = target.subtract(current);
@@ -446,7 +524,8 @@ public final class GreenLanternConstructs {
 		double maxStep = GreenLanternConfig.CARRY_PLATFORM_SPEED_CAP_BPS / 20.0;
 		c.platformCenter = dist <= maxStep || dist < 1.0e-4 ? target : current.add(toTarget.normalize().scale(maxStep));
 
-		BlockPos newCenter = BlockPos.containing(c.platformCenter).below();
+		// v0.11.7: same Y-cell as the owner's own frame, no ".below()" offset any more.
+		BlockPos newCenter = BlockPos.containing(c.platformCenter);
 		if (newCenter.equals(c.platformBlockCenter)) {
 			return;
 		}
@@ -470,29 +549,30 @@ public final class GreenLanternConstructs {
 		}
 	}
 
-	private static int bridgeLength(ServerPlayer player) {
-		BlockHitResult hit = AbilityHelpers.raycastBlock(player, GreenLanternConfig.BRIDGE_MAX_LENGTH);
-		if (hit.getType() == HitResult.Type.MISS) {
-			return GreenLanternConfig.BRIDGE_MAX_LENGTH;
-		}
-		return Math.max(3, Math.min(GreenLanternConfig.BRIDGE_MAX_LENGTH, (int) player.position().distanceTo(hit.getLocation())));
-	}
-
+	/** v0.11.7: fixed 20-long, 3-wide -- explicit user request (replaces the old aim-to-a-target length). */
 	private static void spawnBridge(ServerPlayer player, Construct c) {
 		Direction facing = player.getDirection();
+		Direction side = facing.getClockWise();
 		BlockPos start = player.blockPosition().below().relative(facing);
-		int length = bridgeLength(player);
-		for (int f = 0; f < length; f++) {
-			add(c, start.relative(facing, f), lightBlockState());
+		int halfWidth = GreenLanternConfig.BRIDGE_WIDTH / 2;
+		for (int f = 0; f < GreenLanternConfig.BRIDGE_LENGTH; f++) {
+			for (int w = -halfWidth; w <= halfWidth; w++) {
+				add(c, start.relative(facing, f).relative(side, w), lightBlockState());
+			}
 		}
 		place(c);
 	}
 
+	/** v0.11.7: 3 blocks wide -- explicit user request. */
 	private static void spawnRamp(ServerPlayer player, Construct c) {
 		Direction facing = player.getDirection();
+		Direction side = facing.getClockWise();
 		BlockPos start = player.blockPosition().below().relative(facing);
+		int halfWidth = GreenLanternConfig.RAMP_WIDTH / 2;
 		for (int f = 0; f < GreenLanternConfig.RAMP_MAX_SEGMENTS; f++) {
-			add(c, start.relative(facing, f).above(f), lightBlockState());
+			for (int w = -halfWidth; w <= halfWidth; w++) {
+				add(c, start.relative(facing, f).relative(side, w).above(f), lightBlockState());
+			}
 		}
 		place(c);
 	}
@@ -502,25 +582,65 @@ public final class GreenLanternConstructs {
 		place(c);
 	}
 
+	/**
+	 * v0.11.7: fits the cage to the target instead of always using the same 3x3 footprint -- explicit
+	 * user request ("make it fit the form of any mob it encases, make it a 2x2 for spiders and cows and
+	 * sheep and stuff"). Anything spider/cow/sheep-sized or smaller (bounding-box width <= 1.5, which
+	 * covers essentially every overworld mob) gets a tight 2x2 footprint of solid walls at body height;
+	 * anything bigger keeps the original roomier 3x3 perimeter-with-open-corners shape. Either way, a
+	 * flying target additionally gets its top and bottom fully sealed rather than left with the small
+	 * open gap a ground-bound mob doesn't need closed ("if player tries to use it on a flying mob make
+	 * it cover them completely so that they are trapped in place").
+	 */
 	private static void spawnCage(ServerPlayer player, Construct c) {
 		LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.CAGE_RANGE);
 		if (target == null || !isHostileTarget(player, target)) {
 			return;
 		}
 		c.cagedEntityId = target.getId();
+		boolean flying = isFlyingMob(target);
 		BlockPos center = target.blockPosition();
-		for (int x = -1; x <= 1; x++) {
-			for (int y = 0; y <= 2; y++) {
-				for (int z = -1; z <= 1; z++) {
-					boolean edge = Math.abs(x) == 1 || Math.abs(z) == 1 || y == 0 || y == 2;
-					boolean corner = Math.abs(x) == 1 && Math.abs(z) == 1;
-					if (edge && !corner && !(x == 0 && z == 0)) {
-						add(c, center.offset(x, y, z), lightBlockState());
+		if (target.getBbWidth() <= 1.5) {
+			// A 2-wide footprint has no true "corner to leave open" the way a 3-wide one does -- every
+			// cell in it IS the perimeter -- so it's a full solid ring at body height, sealed top/bottom
+			// only for a flying target.
+			int xLo = target.getX() - Math.floor(target.getX()) < 0.5 ? -1 : 0;
+			int zLo = target.getZ() - Math.floor(target.getZ()) < 0.5 ? -1 : 0;
+			for (int x = xLo; x <= xLo + 1; x++) {
+				for (int z = zLo; z <= zLo + 1; z++) {
+					add(c, center.offset(x, 1, z), lightBlockState());
+					if (flying) {
+						add(c, center.offset(x, 0, z), lightBlockState());
+						add(c, center.offset(x, 2, z), lightBlockState());
+					}
+				}
+			}
+		} else {
+			for (int x = -1; x <= 1; x++) {
+				for (int y = 0; y <= 2; y++) {
+					for (int z = -1; z <= 1; z++) {
+						boolean edge = Math.abs(x) == 1 || Math.abs(z) == 1 || y == 0 || y == 2;
+						boolean corner = Math.abs(x) == 1 && Math.abs(z) == 1;
+						boolean capCenter = (y == 0 || y == 2) && x == 0 && z == 0;
+						if (edge && !corner && (!capCenter || flying)) {
+							add(c, center.offset(x, y, z), lightBlockState());
+						}
 					}
 				}
 			}
 		}
 		place(c);
+	}
+
+	/** Vanilla mobs that fly or otherwise ignore gravity -- Containment Cage seals these in completely. */
+	private static boolean isFlyingMob(LivingEntity e) {
+		return e.isNoGravity()
+				|| e instanceof net.minecraft.world.entity.monster.Vex
+				|| e instanceof net.minecraft.world.entity.monster.Ghast
+				|| e instanceof net.minecraft.world.entity.monster.Phantom
+				|| e instanceof net.minecraft.world.entity.ambient.Bat
+				|| e instanceof net.minecraft.world.entity.animal.Parrot
+				|| e instanceof net.minecraft.world.entity.animal.Bee;
 	}
 
 	// ---------------- Rescue Tether (v0.11.6: a proper grab -- hold, throw, or set down) ----------------
@@ -575,7 +695,9 @@ public final class GreenLanternConstructs {
 	 * glues the held target {@link GreenLanternConfig#TETHER_HOLD_DISTANCE} blocks in front of the
 	 * caster's eyes every tick, mirroring {@code GrabHelper#tick}'s reposition-every-tick approach (the
 	 * generic hero-power grab helper), re-implemented here since Green Lantern keeps its own state
-	 * rather than going through the experimental-power {@code AbilityContext} resource system.
+	 * rather than going through the experimental-power {@code AbilityContext} resource system. v0.11.7:
+	 * also drains {@link GreenLanternConfig#TETHER_UPKEEP_PER_SEC} to maintain the hold -- an unpayable
+	 * upkeep releases the target the same safe way Shift+C does, rather than dropping them outright.
 	 */
 	public static void tickRescueHeld(ServerPlayer player) {
 		Integer id = RESCUE_HELD.get(player.getUUID());
@@ -586,6 +708,11 @@ public final class GreenLanternConstructs {
 		if (!(e instanceof LivingEntity target) || !target.isAlive()
 				|| player.distanceToSqr(target) > GreenLanternConfig.TETHER_MAX_HOLD_RANGE_SQR) {
 			RESCUE_HELD.remove(player.getUUID());
+			return;
+		}
+		if (player.tickCount % 20 == 0
+				&& !GreenLanternEnergy.drainTick(player, GreenLanternConfig.TETHER_UPKEEP_PER_SEC)) {
+			releaseRescueHeldSafely(player);
 			return;
 		}
 		Vec3 hold = player.getEyePosition().add(player.getLookAngle().scale(GreenLanternConfig.TETHER_HOLD_DISTANCE));
@@ -643,11 +770,14 @@ public final class GreenLanternConstructs {
 			"message.projecthero.green_lantern.tool_kit.pickaxe",
 			"message.projecthero.green_lantern.tool_kit.axe",
 			"message.projecthero.green_lantern.tool_kit.shovel",
+			"message.projecthero.green_lantern.tool_kit.flint_and_steel",
 	};
+	// v0.11.7: a flint and steel added to the kit -- explicit user request.
 	private static final net.minecraft.world.item.Item[] TOOL_KIT_BASES = {
 			net.minecraft.world.item.Items.DIAMOND_PICKAXE,
 			net.minecraft.world.item.Items.DIAMOND_AXE,
 			net.minecraft.world.item.Items.DIAMOND_SHOVEL,
+			net.minecraft.world.item.Items.FLINT_AND_STEEL,
 	};
 
 	private static net.minecraft.world.item.ItemStack toolKitPiece(net.minecraft.world.item.Item base, String nameKey) {
@@ -779,7 +909,7 @@ public final class GreenLanternConstructs {
 		AbilityHelpers.launchSelf(player, player.getLookAngle().scale(1.4).add(0, 0.1, 0));
 		LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.RAM_DISTANCE);
 		if (target != null) {
-			AbilityHelpers.hurt(player, target, GreenLanternConfig.RAM_DAMAGE);
+			AbilityHelpers.hurt(player, target, GreenLanternConfig.RAM_DAMAGE * GreenLanternOath.multiplier(player));
 			AbilityHelpers.knockbackFrom(target, player.position(), 2.0);
 		}
 		BlockHitResult hit = AbilityHelpers.raycastBlock(player, 3.0);
@@ -963,8 +1093,14 @@ public final class GreenLanternConstructs {
 		}
 	}
 
-	/** Returns false if upkeep could not be paid (construct should end). */
+	/**
+	 * Returns false if upkeep could not be paid (construct should end). v0.11.7: Mining Drill and Energy
+	 * Blade are free while merely equipped -- only {@link Construct#toggledOn} actually drains anything.
+	 */
 	private static boolean tickUpkeep(ServerPlayer owner, Construct c) {
+		if ((c.type == ConstructType.MINING_DRILL || c.type == ConstructType.ENERGY_BLADE) && !c.toggledOn) {
+			return true;
+		}
 		float upkeepPerSec = c.type.upkeepPerSec();
 		if (upkeepPerSec <= 0f) {
 			return true;
@@ -981,21 +1117,39 @@ public final class GreenLanternConstructs {
 			}
 			case BUBBLE -> tickBubble(owner, c);
 			case DRILL -> tickDrill(owner, c);
+			case MELEE_BUFF -> tickEnergyBlade(owner, c);
 			case PLATFORM_BLOCKS -> {
 				if (c.type == ConstructType.CARRY_PLATFORM) {
 					tickCarryPlatform(owner, c);
 				}
 			}
 			case TOOL_KIT -> {
-				// Dropping any one of the three tools ends the whole kit (removeToolKit strips the rest).
-				return countToolKitPieces(owner) >= 3;
+				// Dropping any one of the four tools ends the whole kit (removeToolKit strips the rest).
+				return countToolKitPieces(owner) >= TOOL_KIT_BASES.length;
 			}
 			default -> {}
 		}
 		return true;
 	}
 
+	/** While toggled on, a green glow around the wielding hand/arm ("make the players arm glow green to
+	 *  show that its active", explicit user request). */
+	private static void tickEnergyBlade(ServerPlayer owner, Construct c) {
+		if (!c.toggledOn || owner.tickCount % 3 != 0) {
+			return;
+		}
+		net.minecraft.world.phys.Vec3 hand = owner.getEyePosition()
+				.add(owner.getLookAngle().scale(0.7)).add(0, -0.4, 0);
+		owner.serverLevel().sendParticles(GREEN_DUST, hand.x, hand.y, hand.z, 2, 0.08, 0.08, 0.08, 0.0);
+	}
+
 	private static void tickTurret(ServerPlayer owner, Construct c, long now) {
+		// v0.11.7: a standing green hard-light rod marks the anchor at all times (explicit user request,
+		// "the sentry itself should spawn a green rod to visually show them"), independent of whether it
+		// fires this tick.
+		if (now % 4 == 0) {
+			AbilityHelpers.line(c.level, c.anchor, c.anchor.add(0, 1.6, 0), GREEN_DUST, 2.0);
+		}
 		if (now < c.nextFireAt) {
 			return;
 		}
@@ -1019,7 +1173,7 @@ public final class GreenLanternConstructs {
 		}
 		AbilityHelpers.line(c.level, c.anchor, target.position().add(0, target.getBbHeight() * 0.5, 0),
 				ParticleTypes.END_ROD, 3.0);
-		AbilityHelpers.hurt(owner, target, GreenLanternConfig.TURRET_DAMAGE);
+		AbilityHelpers.hurt(owner, target, GreenLanternConfig.TURRET_DAMAGE * GreenLanternOath.multiplier(owner));
 		c.level.playSound(null, c.anchor.x, c.anchor.y, c.anchor.z, SoundEvents.ARROW_SHOOT, SoundSource.NEUTRAL, 0.4f, 1.6f);
 	}
 
@@ -1053,7 +1207,22 @@ public final class GreenLanternConstructs {
 		}
 	}
 
+	/**
+	 * v0.11.7: only mines while {@link Construct#toggledOn} -- a second C press on the already-active
+	 * drill toggles it (see {@link #toggleConstruct}). The per-block charge is gone; mining now just
+	 * rides on the flat {@link GreenLanternConfig#DRILL_UPKEEP_PER_SEC} upkeep (see {@link #tickUpkeep})
+	 * that already only drains while on. While on, green particles spiral around the mining hand
+	 * ("the player should have green particles rotating around their hand to simulate the drill").
+	 */
 	private static void tickDrill(ServerPlayer owner, Construct c) {
+		if (!c.toggledOn) {
+			return;
+		}
+		net.minecraft.world.phys.Vec3 hand = owner.getEyePosition()
+				.add(owner.getLookAngle().scale(0.7)).add(0, -0.4, 0);
+		double angle = (owner.tickCount % 20) * (Math.PI * 2 / 20.0);
+		owner.serverLevel().sendParticles(GREEN_DUST,
+				hand.x + Math.cos(angle) * 0.25, hand.y + Math.sin(angle) * 0.25, hand.z, 1, 0, 0, 0, 0.0);
 		if (owner.tickCount % 5 != 0) {
 			return;
 		}
@@ -1066,11 +1235,6 @@ public final class GreenLanternConstructs {
 		if (state.isAir() || state.getDestroySpeed(owner.level(), pos) < 0) {
 			return;
 		}
-		if (!GreenLanternEnergy.canSpend(owner, GreenLanternConfig.DRILL_COST_PER_BLOCK)) {
-			return;
-		}
-		if (owner.gameMode.destroyBlock(pos)) {
-			GreenLanternEnergy.spend(owner, GreenLanternConfig.DRILL_COST_PER_BLOCK);
-		}
+		owner.gameMode.destroyBlock(pos);
 	}
 }
