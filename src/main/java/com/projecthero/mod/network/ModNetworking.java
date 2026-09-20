@@ -53,6 +53,8 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(GreenLanternConstructSelectPayload.TYPE, GreenLanternConstructSelectPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(GreenLanternActionPayload.TYPE, GreenLanternActionPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(GreenLanternRingScanPayload.TYPE, GreenLanternRingScanPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(GreenLanternTrialPromptPayload.TYPE, GreenLanternTrialPromptPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(GreenLanternTrialAnswerPayload.TYPE, GreenLanternTrialAnswerPayload.CODEC);
 
 		// Thor flight double-tap-jump (unchanged). The other Thor actions now arrive via the universal
 		// slot router below, but the enum values are left intact for save/packet compatibility.
@@ -161,6 +163,10 @@ public final class ModNetworking {
 		// Green Lantern construct wheel: the player picked a construct type (hold C).
 		ServerPlayNetworking.registerGlobalReceiver(GreenLanternConstructSelectPayload.TYPE, (payload, context) ->
 				com.projecthero.mod.greenlantern.GreenLanternAbilityManager.selectConstruct(context.player(), payload.ordinal()));
+
+		// Will Trial "Are you afraid?" answer (v0.11.11).
+		ServerPlayNetworking.registerGlobalReceiver(GreenLanternTrialAnswerPayload.TYPE, (payload, context) ->
+				com.projecthero.mod.greenlantern.GreenLanternTrial.handleAnswer(context.player(), payload.yes()));
 
 		// Teleportation Portal picker: the player chose a destination + dimension.
 		ServerPlayNetworking.registerGlobalReceiver(PortalCreatePayload.TYPE, (payload, context) ->

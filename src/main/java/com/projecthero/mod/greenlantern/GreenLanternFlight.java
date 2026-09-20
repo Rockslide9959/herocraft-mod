@@ -5,6 +5,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.hero.power.AbilityHelpers;
 
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleOptions;
@@ -137,15 +138,20 @@ public final class GreenLanternFlight {
 					player.getX() + back.x, player.getY() + 0.3, player.getZ() + back.z, 1, 0.1, 0.1, 0.1, 0.02);
 		}
 
-		// v0.11.4/v0.11.7: a green particle trail behind the flight -- originally boost-only, now emitted
-		// any time Ring Flight is engaged and moving (explicit user request, "the flight needs a green
-		// trail"), continuously at the player's position so it reads as a trail behind movement, same
-		// single-point-emission trick Super Speed's own trail uses. Boosting simply thickens it (more
-		// particles per burst) rather than being the only time it shows at all. Gated on the same
-		// tickCount%2/speed>0.02 cadence as the flame/end-rod effect above.
-		if (player.tickCount % 2 == 0 && speed > 0.02) {
-			player.serverLevel().sendParticles(TRAIL_DUST, player.getX(), player.getY() + 0.9, player.getZ(),
-					boosting ? 3 : 1, 0.08, 0.08, 0.08, 0.0);
+		// v0.11.4/v0.11.7/v0.11.11: a green particle trail behind the flight -- explicit, repeated user
+		// request ("the flight needs a green trail" / "give players a green trail while flying"). The
+		// earlier version emitted a single sparse point every 2 ticks, which read as a faint flicker next
+		// to the much busier flame/end-rod burst above rather than an actual trail. v0.11.11 draws a real
+		// streak instead: a short line of dust from the current position back along the direction of
+		// travel (not the look angle -- flying backwards/strafing should still trail behind the actual
+		// motion), every tick while moving, so it reads as a continuous ribbon rather than a dotted line.
+		if (speed > 0.02) {
+			ServerLevel level = player.serverLevel();
+			Vec3 travel = player.getDeltaMovement();
+			Vec3 travelDir = travel.lengthSqr() > 1.0e-6 ? travel.normalize() : player.getLookAngle();
+			Vec3 head = player.position().add(0, player.getBbHeight() * 0.5, 0);
+			Vec3 tail = head.subtract(travelDir.scale(boosting ? 1.6 : 1.0));
+			AbilityHelpers.line(level, head, tail, TRAIL_DUST, boosting ? 6.0 : 4.0);
 		}
 		if (boosting) {
 			return (GreenLanternConfig.BOOST_COST_PER_SEC + GreenLanternConfig.FLIGHT_TRAIL_COST_PER_SEC) / 20f;

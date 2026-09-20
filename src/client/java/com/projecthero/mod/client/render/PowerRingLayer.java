@@ -49,13 +49,18 @@ public class PowerRingLayer extends RenderLayer<AbstractClientPlayer, PlayerMode
 		(rightHand ? getParentModel().rightArm : getParentModel().leftArm).translateAndRotate(pose);
 		// Arm-bone space: Y runs down the forearm toward the hand/wrist -- 0.62 sits right at the wrist,
 		// just short of the hand itself, and a fraction outward on X centres it on the finger rather than
-		// dead-centre of the wrist bone.
+		// dead-centre of the wrist bone. -0.13 on Z lifts it just off the arm's own surface so it doesn't
+		// z-fight with the arm mesh. v0.11.11 fix: the previous 90-degree X rotation turned the flat
+		// "generated" icon edge-on to a normal horizontal camera, which is why it never actually showed up
+		// -- ArcReactorLayer's own 180-degree flip (facing forward, right-side-up) is the transform that
+		// actually keeps a flat icon facing the viewer, so this now matches it exactly.
 		double sideOffset = rightHand ? 0.02 : -0.02;
-		pose.translate(sideOffset, 0.62, 0.0);
-		pose.mulPose(Axis.XP.rotationDegrees(90f));
-		// "literally 1 pixel": a fleck, not a normal item render -- ArcReactorLayer's own chest emblem
-		// uses 0.28f for comparison.
-		pose.scale(0.045f, 0.045f, 0.045f);
+		pose.translate(sideOffset, 0.62, -0.13);
+		pose.mulPose(Axis.XP.rotationDegrees(180f));
+		// A small fleck rather than a normal item render -- ArcReactorLayer's own chest emblem uses 0.28f
+		// for comparison; bumped from an initial 0.045f, which (on top of the rotation bug) rendered as
+		// nothing at all.
+		pose.scale(0.09f, 0.09f, 0.09f);
 		itemRenderer.renderStatic(ring, ItemDisplayContext.FIXED, packedLight, OverlayTexture.NO_OVERLAY,
 				pose, buffers, player.level(), player.getId());
 		pose.popPose();

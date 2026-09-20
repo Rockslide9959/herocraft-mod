@@ -101,6 +101,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.punisher.PunisherDamage.initialize();
 		com.projecthero.mod.greenlantern.GreenLanternDamage.initialize();
 		com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.initialize();
+		com.projecthero.mod.greenlantern.GreenLanternTrial.initialize();
 		com.projecthero.mod.symbiote.SymbioteDamageRules.initialize();
 		com.projecthero.mod.symbiote.SymbioteVitalsManager.initialize();
 		com.projecthero.mod.combat.SonicTriggers.initialize();

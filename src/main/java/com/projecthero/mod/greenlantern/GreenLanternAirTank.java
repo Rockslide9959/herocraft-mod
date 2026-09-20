@@ -3,11 +3,14 @@ package com.projecthero.mod.greenlantern;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 
-import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.Vec3;
+
+import org.joml.Vector3f;
 
 /**
  * Automatic (v0.11.10, explicit user request): no key press, no construct-wheel slot. Whenever a
@@ -27,6 +30,9 @@ import net.minecraft.world.phys.Vec3;
  * switching back off -- {@link #start} is the only place that sends a message.
  */
 public final class GreenLanternAirTank {
+	/** Lantern-Corps green, matching every other hard-light effect's dust colour in this power. */
+	private static final ParticleOptions GREEN_DUST = new DustParticleOptions(new Vector3f(0.208f, 0.941f, 0.459f), 1.3f);
+
 	private GreenLanternAirTank() {
 	}
 
@@ -70,27 +76,31 @@ public final class GreenLanternAirTank {
 
 	/**
 	 * A tank on the upper back, a mask ring just under the chin, and a pipe down each side connecting
-	 * them -- entirely derived from the player's own live position/yaw so it never drifts loose or looks
-	 * detached as they swim.
+	 * them -- entirely derived from the player's own live eye position/look vector, not just their yaw,
+	 * so it tracks correctly even in the swimming pose (pitched forward) instead of drifting loose or
+	 * clipping through their model. v0.11.11 fix: the previous yaw-only version ignored pitch entirely,
+	 * so while actually swimming (body pitched, not upright) the "behind the back" offset landed inside
+	 * the tilted body instead of behind it -- anchoring off the eye position and the full 3D look vector
+	 * (which already carries pitch) keeps the rig glued to the wearer's real orientation in every pose.
 	 */
 	private static void emitParticles(ServerPlayer player) {
 		ServerLevel level = player.serverLevel();
-		double yawRad = Math.toRadians(player.getYRot());
-		Vec3 back = new Vec3(Math.sin(yawRad), 0, -Math.cos(yawRad));
-		Vec3 side = new Vec3(-Math.cos(yawRad), 0, -Math.sin(yawRad));
-		double h = player.getBbHeight();
-		Vec3 origin = player.position();
+		Vec3 eye = player.getEyePosition();
+		Vec3 look = player.getLookAngle();
+		Vec3 back = look.scale(-1.0);
+		Vec3 side = look.cross(new Vec3(0, 1, 0));
+		side = side.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : side.normalize();
 
-		Vec3 tank = origin.add(back.scale(0.32)).add(0, h * 0.62, 0);
-		level.sendParticles(ParticleTypes.BUBBLE, tank.x, tank.y, tank.z, 2, 0.08, 0.1, 0.08, 0.01);
+		Vec3 tank = eye.add(back.scale(0.55)).add(0, -0.15, 0);
+		level.sendParticles(GREEN_DUST, tank.x, tank.y, tank.z, 2, 0.08, 0.1, 0.08, 0.01);
 
-		Vec3 mask = origin.add(back.scale(-0.22)).add(0, h * 0.84, 0);
-		level.sendParticles(ParticleTypes.BUBBLE_POP, mask.x, mask.y, mask.z, 1, 0.05, 0.03, 0.05, 0.0);
+		Vec3 mask = eye.add(look.scale(0.22)).add(0, -0.35, 0);
+		level.sendParticles(GREEN_DUST, mask.x, mask.y, mask.z, 1, 0.05, 0.03, 0.05, 0.0);
 
 		for (int sgn = -1; sgn <= 1; sgn += 2) {
 			Vec3 pipeStart = mask.add(side.scale(sgn * 0.22));
 			Vec3 pipeEnd = tank.add(side.scale(sgn * 0.22));
-			AbilityHelpers.line(level, pipeStart, pipeEnd, ParticleTypes.BUBBLE_COLUMN_UP, 4.0);
+			AbilityHelpers.line(level, pipeStart, pipeEnd, GREEN_DUST, 4.0);
 		}
 	}
 

@@ -1849,7 +1849,7 @@
   "projecthero.guide.green_lantern.body": "A bonded Power Ring channels willpower into Ring Charge — up to 10,000 points that fuel flight, ranged bolts, shields and hard-light constructs shaped on the fly. A permanent, passive Resistance I comes with the bond itself, suited or not. Green Lantern is the mod's toolbox hero: exceptionally versatile, but never the single strongest tank, striker or speedster. The Ring Charge pool and construct upkeep are the balancing axis — strong offense, defence and utility at once drains it fast.",
   "projecthero.guide.green_lantern.progression": "Obtainment",
   "projecthero.guide.green_lantern.step.find": "Find a Fallen Lantern Site — a rare, damaged crater holding a Dormant Power Ring pedestal.",
-  "projecthero.guide.green_lantern.step.trial": "Right-click the pedestal to begin the Will Trial: three waves of enemies within 32 blocks. Win to bond the ring; leaving the radius for 8s, dying or logging out fails it (10-minute cooldown to retry).",
+  "projecthero.guide.green_lantern.step.trial": "Right-click the pedestal to begin the Will Trial: the site seals shut behind a green hard-light dome (everyone and everything but you and the trial's own mobs is pushed straight back out, and re-expelled if they wander in again), then three waves of enemies within 32 blocks — glowing green, immune to daylight burning. Leaving the radius for 8s, dying or logging out fails it (10-minute cooldown to retry) and lowers the dome either way. Win, and the ring asks 'Are you afraid?': answer no and you walk away empty-handed with the site immediately open to anyone again; answer yes and the pedestal breaks for good, and the ring and its Power Battery core are yours to keep — but the ring stays inert until you right-click it, which is also the moment its faint glint appears on your hand.",
   "projecthero.guide.green_lantern.charge": "Ring Charge",
   "projecthero.guide.green_lantern.charge.body": "0-10,000, with no passive regeneration at all — the only way to recharge is a Personal Power Battery. The last 250 points are an emergency reserve, spendable only on an emergency flight descent — never on attacks or constructs. You take no fall damage at all as long as the ring has any charge left.",
   "projecthero.guide.green_lantern.flight": "Ring Flight",
@@ -1937,5 +1937,10 @@
   "message.projecthero.green_lantern.trial_failed_logout": "The Will Trial ends — you logged out",
   "message.projecthero.green_lantern.trial_ineligible": "You already carry another power — this ring is not for you",
   "message.projecthero.green_lantern.trial_in_progress": "Someone else is already attempting this ring",
+  "message.projecthero.green_lantern.trial_area_sealed": "The Will Trial has sealed this ground — you cannot enter",
+  "message.projecthero.green_lantern.trial_afraid.title": "Are you afraid?",
+  "message.projecthero.green_lantern.trial_afraid.body": "The ring has judged your will. Accept it, and it is yours forever.",
+  "message.projecthero.green_lantern.trial_ring_granted": "The ring and its Power Battery core are yours. Right-click the ring to bond it.",
+  "message.projecthero.green_lantern.trial_declined": "You turn away. The ring waits for someone else.",
   "message.projecthero.green_lantern.trial_wave": "Wave %s"
 }
