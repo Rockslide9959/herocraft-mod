@@ -4,8 +4,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.projecthero.mod.hero.power.AbilityHelpers;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -14,6 +18,8 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
+
+import org.joml.Vector3f;
 
 /**
  * The Personal Power Battery's recharge ritual (v0.11.4): there is no passive Ring Charge regen and no
@@ -30,6 +36,8 @@ import net.minecraft.world.phys.Vec3;
  * recitation instead of a walk-and-wait loop.
  */
 public final class GreenLanternBattery {
+	/** Lantern-Corps green, matching every other hard-light effect's dust colour in this power. */
+	private static final ParticleOptions GREEN_DUST = new DustParticleOptions(new Vector3f(0.208f, 0.941f, 0.459f), 1.5f);
 	/** v0.11.4: the classic Green Lantern Oath, one line at a time. */
 	private static final String[] OATH_LINES = {
 			"message.projecthero.green_lantern.oath.line1",
@@ -109,6 +117,14 @@ public final class GreenLanternBattery {
 			OATHS.remove(player.getUUID());
 			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.oath.cancelled"), true);
 			return;
+		}
+
+		// v0.11.8: a green trail from the battery to the caster's hand while reciting, showing the energy
+		// actually flowing in -- explicit user request ("make it so that when the player is charging
+		// using the power battery that a green trail goes from the battery to the players hand").
+		if (player.tickCount % 2 == 0) {
+			AbilityHelpers.line(player.serverLevel(), Vec3.atCenterOf(o.batteryPos),
+					AbilityHelpers.handPosition(player), GREEN_DUST, 3.0);
 		}
 
 		long elapsed = player.level().getGameTime() - o.startTick;

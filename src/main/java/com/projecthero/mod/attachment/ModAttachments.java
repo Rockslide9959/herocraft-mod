@@ -456,6 +456,18 @@ public final class ModAttachments {
 					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
 
 	/**
+	 * v0.11.8: the Directional Shield/Protective Dome's shared uptime meter, 1.0 = fully charged, 0.0 =
+	 * exhausted -- drains over {@link com.projecthero.mod.greenlantern.GreenLanternConfig#BARRIER_METER_MAX_TICKS}
+	 * of active use, refills at the same rate while neither is up. Not persisted (same "combat state must
+	 * never survive a relog" reasoning as {@link #GREEN_LANTERN_BARRIER_HP}); synced so the HUD bar reads
+	 * correctly for everyone.
+	 */
+	public static final AttachmentType<Float> GREEN_LANTERN_BARRIER_METER = AttachmentRegistry.create(
+			ProjectHeroMod.id("green_lantern_barrier_meter"),
+			builder -> builder.initializer(() -> 1f)
+					.syncWith(ByteBufCodecs.FLOAT, AttachmentSyncPredicate.all()));
+
+	/**
 	 * Absolute game-time the X ability's "Green Lantern's Light!" Oath empowerment mode expires, or 0
 	 * while inactive (v0.11.7). Not persisted (a relog drops it safely); synced so the HUD can show a
 	 * remaining-time countdown on the X key.

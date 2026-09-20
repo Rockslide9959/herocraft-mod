@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
+    "projecthero:power_battery",
     "projecthero:stark_fabricator",
     "projecthero:iron_man_suit_platform",
     "projecthero:overloaded_redstone_coil",

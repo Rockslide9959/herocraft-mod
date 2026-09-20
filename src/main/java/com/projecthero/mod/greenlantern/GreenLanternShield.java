@@ -78,8 +78,17 @@ public final class GreenLanternShield {
 
 	// ---------------- Directional Shield (held) ----------------
 
+	/** The shared shield/dome uptime meter, 0..1. Full for anyone this hasn't been set for yet. */
+	public static float meter(ServerPlayer player) {
+		return player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_METER, 1f);
+	}
+
 	public static void startShield(ServerPlayer player) {
 		if (isActive(player) || !GreenLantern.abilityReady(player, SHIELD_COOLDOWN)) {
+			return;
+		}
+		if (meter(player) <= 0f) {
+			GreenLanternEnergy.feedback(player, "message.projecthero.green_lantern.barrier_recharging");
 			return;
 		}
 		if (!GreenLanternEnergy.spend(player, GreenLanternConfig.SHIELD_INITIAL_COST)) {
@@ -106,13 +115,19 @@ public final class GreenLanternShield {
 		}
 		if (!GreenLanternEnergy.drainTick(player, GreenLanternConfig.SHIELD_UPKEEP_PER_SEC / 20f)) {
 			endBarrier(player, true);
+			return;
 		}
+		drainMeter(player);
 	}
 
 	// ---------------- Protective Dome (timed) ----------------
 
 	public static void deployDome(ServerPlayer player) {
 		if (isActive(player) || !GreenLantern.abilityReady(player, DOME_COOLDOWN)) {
+			return;
+		}
+		if (meter(player) <= 0f) {
+			GreenLanternEnergy.feedback(player, "message.projecthero.green_lantern.barrier_recharging");
 			return;
 		}
 		if (!GreenLanternEnergy.spend(player, GreenLanternConfig.DOME_INITIAL_COST)) {
@@ -123,7 +138,6 @@ public final class GreenLanternShield {
 		player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_HP, GreenLanternConfig.DOME_HP);
 		player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, true);
 		DOME_DEPLOY_TICK.put(player.getUUID(), player.level().getGameTime());
-		GreenLantern.triggerCooldown(player, "dome_expiry", GreenLanternConfig.DOME_MAX_DURATION_TICKS);
 		ServerLevel level = player.serverLevel();
 		emitDomeOutline(player, level, 0.0);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(),
@@ -156,11 +170,12 @@ public final class GreenLanternShield {
 	}
 
 	/**
-	 * Per-tick upkeep + max-duration expiry while the dome is up. v0.11.7: also enforces the dome's own
-	 * exclusion zone every tick ("only allow the players squad members inside it") -- anyone else caught
-	 * within the current (possibly still-expanding) radius is pushed outward, which during the expansion
-	 * window is exactly "push out nearby entities as it expands" and for the rest of the dome's lifetime
-	 * keeps outsiders from walking back in.
+	 * Per-tick upkeep while the dome is up. v0.11.7: also enforces the dome's own exclusion zone every
+	 * tick ("only allow the players squad members inside it") -- anyone else caught within the current
+	 * (possibly still-expanding) radius is pushed outward, which during the expansion window is exactly
+	 * "push out nearby entities as it expands" and for the rest of the dome's lifetime keeps outsiders
+	 * from walking back in. v0.11.8: the fixed max-duration cooldown ("dome_expiry") is gone -- the
+	 * shared uptime meter reaching 0 (via {@link #drainMeter}) now IS the max-duration expiry.
 	 */
 	public static void tickDomeUpkeep(ServerPlayer player) {
 		if (!isActive(player) || !isDome(player)) {
@@ -171,10 +186,43 @@ public final class GreenLanternShield {
 			emitDomeOutline(player, player.serverLevel(), radius);
 		}
 		pushOutNonSquad(player, radius);
-		if (!GreenLanternEnergy.drainTick(player, GreenLanternConfig.DOME_UPKEEP_PER_SEC / 20f)
-				|| GreenLantern.abilityReady(player, "dome_expiry")) {
+		if (!GreenLanternEnergy.drainTick(player, GreenLanternConfig.DOME_UPKEEP_PER_SEC / 20f)) {
 			endBarrier(player, true);
+			return;
 		}
+		drainMeter(player);
+	}
+
+	/**
+	 * Drains the shared uptime meter by one tick's worth while a barrier is active -- forces it down the
+	 * instant the meter empties, which is how the 22-second cap (v0.11.8) is actually enforced.
+	 */
+	private static void drainMeter(ServerPlayer player) {
+		float meter = meter(player) - 1f / GreenLanternConfig.BARRIER_METER_MAX_TICKS;
+		if (meter <= 0f) {
+			player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_METER, 0f);
+			endBarrier(player, true);
+		} else {
+			player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_METER, meter);
+		}
+	}
+
+	/**
+	 * Refills the shared uptime meter while neither the shield nor the dome is up -- called every tick
+	 * for every bonded Green Lantern from {@code GreenLanternAbilityManager#serverTick}, regardless of
+	 * whether a barrier has ever been used, so a fresh ring is simply always at full meter. v0.11.8,
+	 * explicit user request ("the bar passively recharges as the player stops using the dome").
+	 */
+	public static void tickMeterRegen(ServerPlayer player) {
+		if (isActive(player)) {
+			return;
+		}
+		float meter = meter(player);
+		if (meter >= 1f) {
+			return;
+		}
+		player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_METER,
+				Math.min(1f, meter + 1f / GreenLanternConfig.BARRIER_METER_MAX_TICKS));
 	}
 
 	/** Knocks anyone within {@code radius} of the dome's live centre outward, unless they're the owner or a squadmate. */
@@ -228,24 +276,32 @@ public final class GreenLanternShield {
 		}
 	}
 
+	/** Death/respawn/logout/dimension-change/power-loss cleanup -- also resets the uptime meter to full,
+	 *  same "fresh start" convention as every other transient combat flag this clears. */
 	public static void dismissAll(ServerPlayer player) {
 		if (isActive(player)) {
 			player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f);
 			player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, false);
 		}
+		player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_METER, 1f);
 		DOME_DEPLOY_TICK.remove(player.getUUID());
 	}
 
 	/**
 	 * A second Shift+Z while the dome is up (v0.11.2): the player chose to drop it early, as opposed to
-	 * it breaking or timing out. Goes through {@link #dismissAll} (no "broke" cooldown/particles/message)
-	 * rather than {@link #endBarrier} -- but still applies half of {@link GreenLanternConfig#DOME_COOLDOWN_TICKS}
-	 * so a full-HP dome can't be redeployed instantly after soaking most of a hit; a genuinely idle dome
-	 * costs nothing extra to end early, it just can't be immediately re-thrown at full strength.
+	 * it breaking or running out of uptime. Same effect as {@link #dismissAll} (no "broke"
+	 * particles/message) but does NOT reset the meter -- only the death/logout path gets a free refill --
+	 * and, v0.11.8, applies the new flat {@link GreenLanternConfig#BARRIER_TOGGLE_COOLDOWN_TICKS} (8s,
+	 * explicit user request: "when they toggle off the dome it goes on an 8 second cooldown") in place of
+	 * the old half-of-break-cooldown.
 	 */
 	public static void dismissDomeVoluntarily(ServerPlayer player) {
-		dismissAll(player);
-		GreenLantern.triggerCooldown(player, DOME_COOLDOWN, GreenLanternConfig.DOME_COOLDOWN_TICKS / 2);
+		if (isActive(player)) {
+			player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f);
+			player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, false);
+		}
+		DOME_DEPLOY_TICK.remove(player.getUUID());
+		GreenLantern.triggerCooldown(player, DOME_COOLDOWN, GreenLanternConfig.BARRIER_TOGGLE_COOLDOWN_TICKS);
 		player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
 				SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.5f, 1.3f);
 	}

@@ -247,6 +247,27 @@ public final class AbilityHelpers {
 		return player.getLookAngle();
 	}
 
+	/**
+	 * A point off to the side and slightly below the eyes, roughly where a held item sits in first
+	 * person -- offset sideways from the look vector rather than straight down it, so a particle effect
+	 * spawned here doesn't land directly in the camera's line of sight. Several Green Lantern effects
+	 * used to spawn "at the hand" by placing particles a short distance IN FRONT of the eyes along the
+	 * look vector, which in first person put them dead-centre of the screen and blinded the player -- see
+	 * v0.11.8, explicit user request ("don't spawn it in front of the players head... make it spawn by
+	 * the players hand").
+	 */
+	public static Vec3 handPosition(Player player) {
+		Vec3 eye = player.getEyePosition();
+		Vec3 look = player.getLookAngle();
+		Vec3 right = look.cross(new Vec3(0, 1, 0));
+		if (right.lengthSqr() < 1.0e-4) {
+			right = new Vec3(1, 0, 0);
+		} else {
+			right = right.normalize();
+		}
+		return eye.add(look.scale(0.35)).add(right.scale(0.5)).add(0, -0.45, 0);
+	}
+
 	public static boolean isValidGrabTarget(Entity target, ServerPlayer grabber) {
 		if (!(target instanceof LivingEntity living) || !living.isAlive() || target == grabber) {
 			return false;

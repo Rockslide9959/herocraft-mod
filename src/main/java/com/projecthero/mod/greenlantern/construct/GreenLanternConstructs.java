@@ -209,7 +209,9 @@ public final class GreenLanternConstructs {
 				removeMeleeBuff(c);
 			}
 		}
-		player.serverLevel().sendParticles(GREEN_DUST, player.getX(), player.getY() + 1.0, player.getZ(),
+		// v0.11.8: at the hand, not the head -- see AbilityHelpers#handPosition's javadoc.
+		Vec3 toggleGlow = AbilityHelpers.handPosition(player);
+		player.serverLevel().sendParticles(GREEN_DUST, toggleGlow.x, toggleGlow.y, toggleGlow.z,
 				c.toggledOn ? 20 : 8, 0.3, 0.5, 0.3, 0.03);
 		player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
 				c.toggledOn ? SoundEvents.BEACON_ACTIVATE : SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS,
@@ -307,10 +309,13 @@ public final class GreenLanternConstructs {
 	 * A burst of green hard-light particles at the caster's hand -- v0.11.5, "at the very least ... make
 	 * the players hand glow green particles so the player knows that something is happening", added for
 	 * every construct kind, including the marker-only ones (turret/bubble/drill/energy blade/tool kit)
-	 * that place no blocks of their own to look at.
+	 * that place no blocks of their own to look at. v0.11.8: actually off to the side of the view instead
+	 * of straight down the look vector -- the old offset put it dead-centre of the first-person screen,
+	 * which read as "particles in the player's face" rather than "at the hand" (see
+	 * {@link AbilityHelpers#handPosition}).
 	 */
 	private static void emitDeployGlow(ServerPlayer player) {
-		Vec3 hand = player.getEyePosition().add(player.getLookAngle().scale(0.6)).add(0, -0.3, 0);
+		Vec3 hand = AbilityHelpers.handPosition(player);
 		player.serverLevel().sendParticles(GREEN_DUST, hand.x, hand.y, hand.z, 12, 0.15, 0.15, 0.15, 0.02);
 	}
 
@@ -583,14 +588,17 @@ public final class GreenLanternConstructs {
 	}
 
 	/**
-	 * v0.11.7: fits the cage to the target instead of always using the same 3x3 footprint -- explicit
-	 * user request ("make it fit the form of any mob it encases, make it a 2x2 for spiders and cows and
-	 * sheep and stuff"). Anything spider/cow/sheep-sized or smaller (bounding-box width <= 1.5, which
-	 * covers essentially every overworld mob) gets a tight 2x2 footprint of solid walls at body height;
-	 * anything bigger keeps the original roomier 3x3 perimeter-with-open-corners shape. Either way, a
-	 * flying target additionally gets its top and bottom fully sealed rather than left with the small
-	 * open gap a ground-bound mob doesn't need closed ("if player tries to use it on a flying mob make
-	 * it cover them completely so that they are trapped in place").
+	 * v0.11.8 rework: always the same hollow 3x3 perimeter shell (walls only, the centre column where the
+	 * target actually stands left open), regardless of the target's size. The earlier v0.11.7 "tight 2x2
+	 * for small mobs" shape filled every cell of that 2x2 footprint SOLID, including the one cell the
+	 * target itself was standing in -- so the moment the blocks were placed, vanilla's own
+	 * entity-vs-block collision immediately shoved the (now embedded-in-solid-matter) target out to the
+	 * nearest open space, which is exactly the reported bug ("just spawns in 2 construct blocks in front
+	 * of the target and doesn't trap them"): most of the 4 cells got placed, the target got physically
+	 * ejected out of its own cage the same tick, and only the far side's blocks were left standing with
+	 * nothing inside them any more. The 3x3 shell never has this problem -- {@code y==1,x==0,z==0} (the
+	 * target's own column) is never a wall cell, at any size -- so it is now used unconditionally. A
+	 * flying target still gets the small open gap on the very top/bottom sealed too.
 	 */
 	private static void spawnCage(ServerPlayer player, Construct c) {
 		LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.CAGE_RANGE);
@@ -600,31 +608,14 @@ public final class GreenLanternConstructs {
 		c.cagedEntityId = target.getId();
 		boolean flying = isFlyingMob(target);
 		BlockPos center = target.blockPosition();
-		if (target.getBbWidth() <= 1.5) {
-			// A 2-wide footprint has no true "corner to leave open" the way a 3-wide one does -- every
-			// cell in it IS the perimeter -- so it's a full solid ring at body height, sealed top/bottom
-			// only for a flying target.
-			int xLo = target.getX() - Math.floor(target.getX()) < 0.5 ? -1 : 0;
-			int zLo = target.getZ() - Math.floor(target.getZ()) < 0.5 ? -1 : 0;
-			for (int x = xLo; x <= xLo + 1; x++) {
-				for (int z = zLo; z <= zLo + 1; z++) {
-					add(c, center.offset(x, 1, z), lightBlockState());
-					if (flying) {
-						add(c, center.offset(x, 0, z), lightBlockState());
-						add(c, center.offset(x, 2, z), lightBlockState());
-					}
-				}
-			}
-		} else {
-			for (int x = -1; x <= 1; x++) {
-				for (int y = 0; y <= 2; y++) {
-					for (int z = -1; z <= 1; z++) {
-						boolean edge = Math.abs(x) == 1 || Math.abs(z) == 1 || y == 0 || y == 2;
-						boolean corner = Math.abs(x) == 1 && Math.abs(z) == 1;
-						boolean capCenter = (y == 0 || y == 2) && x == 0 && z == 0;
-						if (edge && !corner && (!capCenter || flying)) {
-							add(c, center.offset(x, y, z), lightBlockState());
-						}
+		for (int x = -1; x <= 1; x++) {
+			for (int y = 0; y <= 2; y++) {
+				for (int z = -1; z <= 1; z++) {
+					boolean edge = Math.abs(x) == 1 || Math.abs(z) == 1 || y == 0 || y == 2;
+					boolean corner = Math.abs(x) == 1 && Math.abs(z) == 1;
+					boolean capCenter = (y == 0 || y == 2) && x == 0 && z == 0;
+					if (edge && !corner && (!capCenter || flying)) {
+						add(c, center.offset(x, y, z), lightBlockState());
 					}
 				}
 			}
@@ -1138,8 +1129,7 @@ public final class GreenLanternConstructs {
 		if (!c.toggledOn || owner.tickCount % 3 != 0) {
 			return;
 		}
-		net.minecraft.world.phys.Vec3 hand = owner.getEyePosition()
-				.add(owner.getLookAngle().scale(0.7)).add(0, -0.4, 0);
+		Vec3 hand = AbilityHelpers.handPosition(owner);
 		owner.serverLevel().sendParticles(GREEN_DUST, hand.x, hand.y, hand.z, 2, 0.08, 0.08, 0.08, 0.0);
 	}
 
@@ -1218,8 +1208,7 @@ public final class GreenLanternConstructs {
 		if (!c.toggledOn) {
 			return;
 		}
-		net.minecraft.world.phys.Vec3 hand = owner.getEyePosition()
-				.add(owner.getLookAngle().scale(0.7)).add(0, -0.4, 0);
+		Vec3 hand = AbilityHelpers.handPosition(owner);
 		double angle = (owner.tickCount % 20) * (Math.PI * 2 / 20.0);
 		owner.serverLevel().sendParticles(GREEN_DUST,
 				hand.x + Math.cos(angle) * 0.25, hand.y + Math.sin(angle) * 0.25, hand.z, 1, 0, 0, 0, 0.0);

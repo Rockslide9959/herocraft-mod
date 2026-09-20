@@ -113,7 +113,11 @@ public final class GreenLanternOath {
 			return;
 		}
 		ServerLevel level = player.serverLevel();
-		level.sendParticles(GREEN_DUST, player.getX(), player.getY() + 1.0, player.getZ(), 6, 0.4, 0.9, 0.4, 0.02);
+		// v0.11.8: a full-body aura, not a burst centred on the player's own eye line -- the old
+		// player.getY()+1 spawn point sat almost exactly at the first-person camera and read as
+		// particles in the player's face rather than an ambient glow (see AbilityHelpers#handPosition).
+		double h = player.getBbHeight();
+		level.sendParticles(GREEN_DUST, player.getX(), player.getY() + h * 0.5, player.getZ(), 6, 0.4, h * 0.5, 0.4, 0.02);
 		if (now % 20 == 0 && !GreenLanternEnergy.spendRaw(player, GreenLanternConfig.OATH_MODE_UPKEEP_PER_SEC)) {
 			end(player);
 			return;
@@ -132,7 +136,8 @@ public final class GreenLanternOath {
 		ServerLevel level = player.serverLevel();
 		level.playSound(null, player.getX(), player.getY(), player.getZ(),
 				SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.0f, 1.0f);
-		level.sendParticles(GREEN_DUST, player.getX(), player.getY() + 1.0, player.getZ(), 40, 0.5, 1.0, 0.5, 0.05);
+		double h = player.getBbHeight();
+		level.sendParticles(GREEN_DUST, player.getX(), player.getY() + h * 0.5, player.getZ(), 40, 0.5, h * 0.5, 0.5, 0.05);
 	}
 
 	/** Ends an active mode -- called on natural expiry, on failing to pay its own upkeep, or lifecycle cleanup. */

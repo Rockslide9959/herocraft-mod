@@ -237,6 +237,7 @@ public final class GreenLanternAbilityManager {
 		}
 		GreenLanternShield.tickShieldUpkeep(player);
 		GreenLanternShield.tickDomeUpkeep(player);
+		GreenLanternShield.tickMeterRegen(player);
 		GreenLanternConstructs.tickRescueHeld(player);
 
 		if (GreenLanternFlight.isFlying(player)) {

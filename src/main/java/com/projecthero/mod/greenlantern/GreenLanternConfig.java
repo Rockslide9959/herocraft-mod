@@ -141,10 +141,23 @@ public final class GreenLanternConfig {
 	public static final double DOME_RADIUS = 10.0;
 	/** How long the dome takes to grow from 0 to {@link #DOME_RADIUS} once deployed. */
 	public static final int DOME_EXPAND_TICKS = 30; // 1.5s
-	public static final int DOME_MAX_DURATION_TICKS = 15 * 20;
+	/** v0.11.7 break/collapse cooldown (HP hitting 0, or running out of charge) -- kept distinct from
+	 *  {@link #BARRIER_TOGGLE_COOLDOWN_TICKS}, the new v0.11.8 cooldown for choosing to end it early. */
 	public static final int DOME_COOLDOWN_TICKS = 12 * 20;
 	/** Outward push speed (blocks/tick) applied to a non-squadmate caught inside the dome's radius. */
 	public static final double DOME_PUSH_SPEED = 0.5;
+
+	/**
+	 * v0.11.8: the Directional Shield/Protective Dome's shared "uptime" meter -- explicit user request
+	 * ("the dome bar doesn't deplete as the dome usage goes up ... the player can only have the dome up
+	 * for 22 seconds maximum ... the bar passively recharges as the player stops using the dome"). Drains
+	 * to 0 over this many ticks of continuous active use (shield or dome, they share one meter), refills
+	 * at the same rate while neither is up. Replaces the old fixed {@code DOME_MAX_DURATION_TICKS} cap --
+	 * the meter reaching 0 now IS the max-duration expiry.
+	 */
+	public static final int BARRIER_METER_MAX_TICKS = 22 * 20; // 22s
+	/** v0.11.8: explicit user request -- "when they toggle off the dome it goes on an 8 second cooldown". */
+	public static final int BARRIER_TOGGLE_COOLDOWN_TICKS = 8 * 20; // 8s
 
 	// ---------------- constructs (generic) ----------------
 
@@ -180,8 +193,9 @@ public final class GreenLanternConfig {
 	public static final double TURRET_TARGET_RADIUS = 20.0;
 	public static final int TURRET_MAX_DURATION_TICKS = 12 * 20;
 	public static final int TURRET_COOLDOWN_TICKS = 20 * 20;
-	/** v0.11.7: a hard per-player cap on live turrets specifically -- separate from the (now removed) generic construct-slot limit. */
-	public static final int TURRET_MAX_LIVE = 10;
+	/** v0.11.7: a hard per-player cap on live turrets specifically -- separate from the (now removed) generic
+	 *  construct-slot limit. v0.11.8: cut from 10 to 5 -- explicit user request. */
+	public static final int TURRET_MAX_LIVE = 5;
 
 	public static final float RAM_COST = 20f;
 	public static final float RAM_DAMAGE = 12f;

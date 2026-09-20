@@ -60,13 +60,29 @@ public final class GreenLanternConstructWheelScreen extends Screen {
 		return super.keyReleased(keyCode, scanCode, modifiers);
 	}
 
+	/** Half-width/height of each wedge box -- kept as constants so the radius formula below can size
+	 *  itself around them instead of guessing a fixed distance per entry count. */
+	private static final int BOX_HALF_W = 27;
+	private static final int BOX_HALF_H = 9;
+	/** Minimum gap (px) left between two adjacent wedges' edges at the computed radius. */
+	private static final int WEDGE_GAP = 6;
+
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
 		this.renderTransparentBackground(g);
 		int cx = this.width / 2;
 		int cy = this.height / 2;
 		int n = entries.size();
-		int radius = Math.max(70, Math.min(130, 34 + n * 9));
+		// v0.11.8: the old fixed "34 + n*9, capped at 130" formula didn't scale with how many wedges
+		// actually need to fit around the circle, so with all 14 constructs unlocked (explicit user
+		// report: "spread out the construct wheel a bit its kinda overlapping a bit") the boxes heavily
+		// overlapped. Solve for the radius that actually keeps adjacent boxes' half-widths apart, given
+		// the real angular spacing between them (the chord between two neighbouring wedge centres must be
+		// at least one full box-width plus a gap).
+		double neededRadius = n > 1
+				? (BOX_HALF_W + WEDGE_GAP) / Math.sin(Math.PI / n)
+				: 80.0;
+		int radius = (int) Math.max(80, Math.min(160, neededRadius));
 
 		double dist = Math.hypot(mouseX - cx, mouseY - cy);
 		hovered = -1;
@@ -85,9 +101,8 @@ public final class GreenLanternConstructWheelScreen extends Screen {
 			ConstructType type = entries.get(i);
 			boolean isHover = i == hovered;
 			boolean isSelected = type.ordinal() == selectedOrdinal;
-			int box = 50;
-			g.fill(x - box, y - 11, x + box, y + 11, isHover ? 0xE00A3018 : 0xB0081408);
-			g.renderOutline(x - box, y - 11, box * 2, 22,
+			g.fill(x - BOX_HALF_W, y - BOX_HALF_H, x + BOX_HALF_W, y + BOX_HALF_H, isHover ? 0xE00A3018 : 0xB0081408);
+			g.renderOutline(x - BOX_HALF_W, y - BOX_HALF_H, BOX_HALF_W * 2, BOX_HALF_H * 2,
 					isSelected ? 0xFF35F075 : (isHover ? 0xFF7EF0A0 : 0x4035F075));
 			g.drawCenteredString(this.font, Component.translatable(type.translationKey()), x, y - 4,
 					isHover ? 0xFFFFFFFF : (isSelected ? 0xFF35F075 : 0xFFC0F0D0));

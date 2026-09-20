@@ -406,6 +406,9 @@ public class GreenLanternGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.11.8: a voluntary dismiss now applies the flat {@link GreenLanternConfig#BARRIER_TOGGLE_COOLDOWN_TICKS}
+	 *  (8s, explicit user request) rather than half of the HP-break cooldown -- still shorter than a real
+	 *  break, since {@code BARRIER_TOGGLE_COOLDOWN_TICKS < DOME_COOLDOWN_TICKS}. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void voluntaryDomeDismissCooldownIsShorterThanABreak(GameTestHelper helper) {
 		ServerPlayer player = bonded(helper);
@@ -416,8 +419,10 @@ public class GreenLanternGameTests implements FabricGameTest {
 		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_4, true); // deploy
 		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_4, true); // voluntary dismiss
 		int voluntaryCooldown = GreenLantern.cooldownRemaining(player, "protective_dome");
-		helper.assertTrue(voluntaryCooldown > 0 && voluntaryCooldown <= GreenLanternConfig.DOME_COOLDOWN_TICKS / 2,
-				"a voluntary dismiss's cooldown should be a fraction of the full break cooldown, was " + voluntaryCooldown);
+		helper.assertTrue(voluntaryCooldown == GreenLanternConfig.BARRIER_TOGGLE_COOLDOWN_TICKS
+				&& voluntaryCooldown < GreenLanternConfig.DOME_COOLDOWN_TICKS,
+				"a voluntary dismiss's cooldown should be the flat toggle-off cooldown, shorter than a full "
+						+ "break's, was " + voluntaryCooldown);
 		helper.succeed();
 	}
 
@@ -690,7 +695,8 @@ public class GreenLanternGameTests implements FabricGameTest {
 				"Platform cost/upkeep should now be 20/1");
 		helper.assertTrue(GreenLanternConfig.TURRET_COST == 20f && GreenLanternConfig.TURRET_UPKEEP_PER_SEC == 1f,
 				"Sentry Turret cost/upkeep should now be 20/1");
-		helper.assertTrue(GreenLanternConfig.TURRET_MAX_LIVE == 10, "Sentry Turret should cap at 10 live");
+		// v0.11.8: cap cut from 10 to 5 -- explicit user request.
+		helper.assertTrue(GreenLanternConfig.TURRET_MAX_LIVE == 5, "Sentry Turret should cap at 5 live");
 		helper.succeed();
 	}
 
@@ -709,7 +715,7 @@ public class GreenLanternGameTests implements FabricGameTest {
 		GreenLanternConstructs.deploy(player, ConstructType.SENTRY_TURRET); // one more -- should be refused
 
 		helper.assertTrue(GreenLanternConstructs.activeWeight(player.getUUID()) == liveAtCap,
-				"an 11th Sentry Turret must be refused once 10 are already live");
+				"a turret past the live cap must be refused once TURRET_MAX_LIVE are already live");
 		helper.assertTrue(GreenLantern.state(player).ringCharge == chargeAtCap,
 				"a refused-for-cap turret deploy must not spend any charge");
 		helper.succeed();

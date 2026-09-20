@@ -1,9 +1,13 @@
 package com.projecthero.mod.client.gui;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.greenlantern.GreenLantern;
 import com.projecthero.mod.greenlantern.GreenLanternConfig;
 import com.projecthero.mod.greenlantern.construct.ConstructType;
+import com.projecthero.mod.greenlantern.construct.GreenLanternConstructs;
 import com.projecthero.mod.greenlantern.data.GreenLanternState;
 import com.projecthero.mod.hero.AbilitySlot;
 
@@ -89,6 +93,11 @@ public final class GreenLanternHud {
 		g.drawString(mc.font, construct, x0, labelY, GREEN_DIM, false);
 		labelY -= LINE;
 
+		// v0.11.8: constructs on cooldown get their own persistent row above the ability keys (explicit
+		// user request: "show it above the HUD ... dont show it as a bar just show the construct with a
+		// timer going down"), instead of only the fleeting action-bar message from trying to redeploy one.
+		labelY = renderConstructCooldowns(g, mc, player, x0, labelY, totalW);
+
 		boolean suited = s.suited;
 		boolean barrierUp = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f) > 0f;
 		// v0.11.7: X's "Green Lantern's Light!" Oath empowerment mode -- both are synced non-persisted
@@ -155,25 +164,59 @@ public final class GreenLanternHud {
 		}
 	}
 
-	/** Returns the y just above whatever this drew, so the caller can keep stacking upward. */
+	/**
+	 * The shared shield/dome uptime meter row -- v0.11.8 rework. Previously showed the barrier's HP
+	 * fraction, which only visibly moved when it actually absorbed a hit; explicit user request was "the
+	 * dome bar doesn't deplete as the dome usage goes up ... make the bar stay while its regenerating and
+	 * disappear once its full", i.e. this should track time-in-use, not damage taken. Visible whenever a
+	 * barrier is actually up, OR the meter hasn't finished refilling yet; hidden entirely once neither is
+	 * true. Returns the y just above whatever this drew, so the caller can keep stacking upward.
+	 */
 	private static int renderBarrier(GuiGraphics g, Minecraft mc, Player player, int x0, int topY, int totalW) {
-		float hp = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f);
-		if (hp <= 0f) {
+		boolean active = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f) > 0f;
+		float meter = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_METER, 1f);
+		if (!active && meter >= 1f) {
 			return topY;
 		}
 		boolean dome = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, false);
-		float max = dome ? GreenLanternConfig.DOME_HP : GreenLanternConfig.SHIELD_HP;
-		float frac = Math.max(0f, Math.min(1f, hp / max));
 		int h = 5;
 		int y = topY - LINE - h;
-		Component label = Component.translatable(dome
-				? "hud.projecthero.green_lantern.dome" : "hud.projecthero.green_lantern.shield")
-				.withStyle(ChatFormatting.AQUA);
+		Component label = Component.translatable(active
+				? (dome ? "hud.projecthero.green_lantern.dome" : "hud.projecthero.green_lantern.shield")
+				: "hud.projecthero.green_lantern.barrier").withStyle(ChatFormatting.AQUA);
 		g.drawCenteredString(mc.font, label, x0 + totalW / 2, y - 10, 0xFFFFFFFF);
 		g.fill(x0 - 1, y - 1, x0 + totalW + 1, y + h + 1, BORDER);
 		g.fill(x0, y, x0 + totalW, y + h, 0xAA0A2412);
-		g.fill(x0, y, x0 + Math.round(totalW * frac), y + h, 0xFF35C8F0);
+		g.fill(x0, y, x0 + Math.round(totalW * meter), y + h, active ? 0xFF35C8F0 : 0xFF1E7A94);
 		return y - LINE;
+	}
+
+	/**
+	 * One right-aligned line per construct currently on its post-use cooldown, each with a countdown --
+	 * not the generic per-slot ability-key boxes (those only ever show the currently *selected*
+	 * construct's cooldown; this shows every one, including a type that isn't selected any more).
+	 */
+	private static int renderConstructCooldowns(GuiGraphics g, Minecraft mc, Player player, int x0, int topY, int totalW) {
+		List<ConstructType> onCooldown = new ArrayList<>();
+		for (ConstructType type : ConstructType.values()) {
+			if (GreenLanternConstructs.cooldownRemainingFor(player, type) > 0) {
+				onCooldown.add(type);
+			}
+		}
+		if (onCooldown.isEmpty()) {
+			return topY;
+		}
+		int y = topY;
+		for (ConstructType type : onCooldown) {
+			y -= LINE;
+			int seconds = (int) Math.ceil(GreenLanternConstructs.cooldownRemainingFor(player, type) / 20.0);
+			Component label = Component.literal("■ ").withStyle(s -> s.withColor(GREEN_DIM))
+					.append(Component.translatable(type.translationKey()).withStyle(ChatFormatting.GRAY))
+					.append(Component.literal("  " + seconds + "s").withStyle(ChatFormatting.WHITE));
+			int w = mc.font.width(label);
+			g.drawString(mc.font, label, x0 + totalW - w, y, 0xFFFFFFFF, false);
+		}
+		return y - 2;
 	}
 
 	/**
