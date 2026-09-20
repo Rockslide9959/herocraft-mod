@@ -158,6 +158,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 								playerRenderer, context.getItemRenderer()));
 						registrationHelper.register(new com.projecthero.mod.client.maxsteel.MaxSteelWingsLayer(
 								playerRenderer, context.getModelSet()));
+						registrationHelper.register(new com.projecthero.mod.client.render.PowerRingLayer(
+								playerRenderer, context.getItemRenderer()));
 					}
 				});
 
@@ -183,6 +185,15 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				(payload, context) -> context.client().execute(() -> {
 					long now = context.client().level != null ? context.client().level.getGameTime() : 0L;
 					com.projecthero.mod.client.spider.SpiderSenseGlowClient.accept(payload.ids(), now);
+				}));
+
+		// Green Lantern Ring Scan: the per-viewer hostile/passive glow (v0.11.10). Replaces the client's
+		// whole scan set, same pattern as Spider-Sense above.
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.GreenLanternRingScanPayload.TYPE,
+				(payload, context) -> context.client().execute(() -> {
+					long now = context.client().level != null ? context.client().level.getGameTime() : 0L;
+					com.projecthero.mod.client.greenlantern.GreenLanternRingScanClient.accept(
+							payload.hostileIds(), payload.passiveIds(), now);
 				}));
 
 		// Shift + Web Zip: the server tells the client to arm its adhesion grab intent so the zip lands

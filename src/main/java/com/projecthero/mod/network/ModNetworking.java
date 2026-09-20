@@ -52,6 +52,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(SquadInfoPayload.TYPE, SquadInfoPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(GreenLanternConstructSelectPayload.TYPE, GreenLanternConstructSelectPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(GreenLanternActionPayload.TYPE, GreenLanternActionPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(GreenLanternRingScanPayload.TYPE, GreenLanternRingScanPayload.CODEC);
 
 		// Thor flight double-tap-jump (unchanged). The other Thor actions now arrive via the universal
 		// slot router below, but the enum values are left intact for save/packet compatibility.

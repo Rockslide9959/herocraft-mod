@@ -109,7 +109,18 @@ public final class GreenLanternOath {
 			}
 			return;
 		}
-		if (!isActive(player)) {
+		// v0.11.10 fix: this used to gate on isActive(player) (UNTIL > now) before ever checking for
+		// natural expiry, so the exact tick UNTIL dropped to <= now, isActive() itself already flipped
+		// false and the method returned right here -- the "now >= UNTIL" check a few lines down was
+		// therefore dead code and end() (which is what applies OATH_MODE_COOLDOWN_TICKS) never ran on a
+		// natural timeout, only on the separate upkeep-can't-be-paid path. Reading UNTIL directly and
+		// checking expiry first, before any other early return, is what makes end() actually fire.
+		long until = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_OATH_UNTIL, 0L);
+		if (until <= 0L) {
+			return;
+		}
+		if (now >= until) {
+			end(player);
 			return;
 		}
 		ServerLevel level = player.serverLevel();
@@ -119,10 +130,6 @@ public final class GreenLanternOath {
 		double h = player.getBbHeight();
 		level.sendParticles(GREEN_DUST, player.getX(), player.getY() + h * 0.5, player.getZ(), 6, 0.4, h * 0.5, 0.4, 0.02);
 		if (now % 20 == 0 && !GreenLanternEnergy.spendRaw(player, GreenLanternConfig.OATH_MODE_UPKEEP_PER_SEC)) {
-			end(player);
-			return;
-		}
-		if (now >= player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_OATH_UNTIL, 0L)) {
 			end(player);
 		}
 	}

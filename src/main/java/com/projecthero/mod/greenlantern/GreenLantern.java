@@ -121,6 +121,7 @@ public final class GreenLantern {
 		com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.releaseRescueHeldSafely(player);
 		com.projecthero.mod.greenlantern.GreenLanternBattery.cancelOath(player.getUUID());
 		com.projecthero.mod.greenlantern.GreenLanternOath.clearFor(player);
+		com.projecthero.mod.greenlantern.GreenLanternAirTank.clearFor(player);
 		com.projecthero.mod.greenlantern.GreenLanternAbilityManager.onCleanup(player.getUUID());
 		com.projecthero.mod.greenlantern.GreenLanternEnergy.onCleanup(player.getUUID());
 		com.projecthero.mod.greenlantern.item.GreenLanternSuitArmor.strip(player);

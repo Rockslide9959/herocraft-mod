@@ -219,6 +219,7 @@ public final class GreenLanternAbilityManager {
 		GreenLanternOath.tick(player);
 		GreenLanternSuit.tick(player);
 		GreenLanternBattery.tick(player);
+		GreenLanternAirTank.tick(player);
 
 		if (GreenLantern.isSuited(player)) {
 			com.projecthero.mod.greenlantern.item.GreenLanternSuitArmor.reequipMissing(player);

@@ -94,10 +94,12 @@ public final class GreenLanternConfig {
 	// ---------------- Suit Up/Down (V) / Ring Scan (Shift+V) ----------------
 
 	public static final float SCAN_COST = 300f;
-	public static final int SCAN_COOLDOWN_TICKS = 240; // 12s
-	public static final double SCAN_RADIUS = 24.0;
+	/** v0.11.10: 5s, down from 12 -- explicit user request. */
+	public static final int SCAN_COOLDOWN_TICKS = 100; // 5s
+	/** v0.11.10: 50-block radius, up from 24 -- explicit user request. */
+	public static final double SCAN_RADIUS = 50.0;
 	public static final int SCAN_DURATION_TICKS = 120; // 6s
-	public static final double SCAN_ITEM_RADIUS = 16.0;
+	public static final double SCAN_ITEM_RADIUS = 50.0;
 
 	// ---------------- Flight (double-tap Space) / Boost (Shift+Sprint while flying) ----------------
 
@@ -281,12 +283,18 @@ public final class GreenLanternConfig {
 	public static final float CARRY_PLATFORM_UPKEEP_PER_SEC = 1f;
 	public static final int CARRY_PLATFORM_MAX_DURATION_TICKS = 30 * 20;
 	public static final int CARRY_PLATFORM_SLOT_WEIGHT = 3;
-	public static final double CARRY_PLATFORM_SPEED_CAP_BPS = 8.0;
+	/** v0.11.10: 24, up from 8 -- explicit user request ("track the players aim much quicker"). */
+	public static final double CARRY_PLATFORM_SPEED_CAP_BPS = 24.0;
 
 	/** v0.11.4: Hard-Light Tool Kit -- a diamond pickaxe/axe/shovel, dismiss-only (dropping any one ends it). */
 	public static final float TOOL_KIT_COST = 60f;
 	public static final float TOOL_KIT_UPKEEP_PER_SEC = 3f;
 	public static final int TOOL_KIT_SLOT_WEIGHT = 2;
+
+	// ---------------- Automatic Air Tank (v0.11.10) ----------------
+
+	/** Charge/sec drained while the automatic underwater air tank is active. */
+	public static final float AIR_TANK_UPKEEP_PER_SEC = 1f;
 
 	// ---------------- Will Trial ----------------
 

@@ -483,6 +483,16 @@ public final class ModAttachments {
 			builder -> builder.initializer(() -> 0L)
 					.syncWith(ByteBufCodecs.VAR_LONG, AttachmentSyncPredicate.all()));
 
+	/**
+	 * v0.11.10: whether the automatic underwater air tank ({@code GreenLanternAirTank}) is currently
+	 * active for this player. Not persisted (a relog resurfaces you safely); synced to everyone so the
+	 * tank's own particle rig reads correctly on other clients too.
+	 */
+	public static final AttachmentType<Boolean> GREEN_LANTERN_AIR_TANK_ACTIVE = AttachmentRegistry.create(
+			ProjectHeroMod.id("green_lantern_air_tank_active"),
+			builder -> builder.initializer(() -> false)
+					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
+
 	private ModAttachments() {
 	}
 

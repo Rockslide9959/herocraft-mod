@@ -89,6 +89,18 @@ public abstract class EntityGlowMixin {
 			}
 		}
 
+		// v0.11.10: Green Lantern Ring Scan -- purely this viewer's own render, fed by
+		// GreenLanternRingScanPayload. Nothing is set on the target server-side any more, so no other
+		// player's client is told anything (fixes "everyone in the world can see the glowing creatures").
+		if (self instanceof LivingEntity && com.projecthero.mod.greenlantern.GreenLantern.hasPower(viewer)) {
+			long now = viewer.level() != null ? viewer.level().getGameTime() : 0L;
+			if (com.projecthero.mod.client.greenlantern.GreenLanternRingScanClient.isHostile(self.getId(), now)
+					|| com.projecthero.mod.client.greenlantern.GreenLanternRingScanClient.isPassive(self.getId(), now)) {
+				cir.setReturnValue(true);
+				return;
+			}
+		}
+
 		ExperimentalState st = viewer.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		if (st == null) {
 			return;
@@ -274,6 +286,31 @@ public abstract class EntityGlowMixin {
 			cir.setReturnValue(0x8A7010);
 		} else {
 			cir.setReturnValue(0x1B2C7A);
+		}
+	}
+
+	/**
+	 * Green Lantern Ring Scan colour: red for a hostile the scan picked up, green for a passive/neutral
+	 * one -- "change colour depending on hostile or passive mobs". Purely the viewer's own render.
+	 */
+	@Inject(method = "getTeamColor", at = @At("HEAD"), cancellable = true)
+	private void projecthero$ringScanColor(CallbackInfoReturnable<Integer> cir) {
+		if (cir.isCancelled()) {
+			return;
+		}
+		Entity self = (Entity) (Object) this;
+		if (self instanceof LocalPlayer || !(self instanceof LivingEntity)) {
+			return;
+		}
+		LocalPlayer viewer = Minecraft.getInstance().player;
+		if (viewer == null || viewer == self || !com.projecthero.mod.greenlantern.GreenLantern.hasPower(viewer)) {
+			return;
+		}
+		long now = viewer.level() != null ? viewer.level().getGameTime() : 0L;
+		if (com.projecthero.mod.client.greenlantern.GreenLanternRingScanClient.isHostile(self.getId(), now)) {
+			cir.setReturnValue(0xFF3B3B);
+		} else if (com.projecthero.mod.client.greenlantern.GreenLanternRingScanClient.isPassive(self.getId(), now)) {
+			cir.setReturnValue(0x3BFF6B);
 		}
 	}
 

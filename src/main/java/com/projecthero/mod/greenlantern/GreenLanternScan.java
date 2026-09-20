@@ -1,21 +1,34 @@
 package com.projecthero.mod.greenlantern;
 
 import com.projecthero.mod.hero.power.AbilityHelpers;
+import com.projecthero.mod.network.GreenLanternRingScanPayload;
+
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.player.Player;
+
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 
 /**
- * Shift+V -- Ring Scan. Hostiles within 24 blocks get vanilla Glowing (a real see-through-walls
- * outline, tinted by the client's own glow-colour handling) for 6 seconds; dropped items within 16
- * blocks get a short particle beacon since {@code MobEffects.GLOWING} does not apply to item entities.
- * Deliberately does not x-ray ore through solid blocks (per the build brief).
+ * Shift+V -- Ring Scan (v0.11.10 rework). Every living creature within {@link GreenLanternConfig#SCAN_RADIUS}
+ * blocks (50, up from 24) glows through walls for {@link GreenLanternConfig#SCAN_DURATION_TICKS} -- red
+ * for hostiles, green for everything else (passive/neutral/tamed) -- but only in the <em>scanning
+ * player's own client</em>. This no longer applies the vanilla {@code GLOWING} mob effect at all (that
+ * synced a shared entity flag every tracking client could see, which is exactly the reported bug --
+ * "right now everyone in the world can see the glowing creatures"); instead a
+ * {@link GreenLanternRingScanPayload} goes to the caster alone and {@code EntityGlowMixin} renders the
+ * outline purely on their end, the same private-glow pattern Spider-Sense/Predator Vision already use.
+ * Players are deliberately never highlighted (mirrors every other detection power in the mod). Dropped
+ * items within the same radius still get a short particle beacon, since glowing has no meaning for an
+ * {@link ItemEntity}. Deliberately does not x-ray ore through solid blocks (per the build brief).
  */
 public final class GreenLanternScan {
 	private static final String SCAN_CD = "ring_scan";
@@ -35,9 +48,18 @@ public final class GreenLanternScan {
 		GreenLantern.triggerCooldown(player, SCAN_CD, GreenLanternConfig.SCAN_COOLDOWN_TICKS);
 
 		ServerLevel level = player.serverLevel();
-		for (LivingEntity e : AbilityHelpers.enemiesAround(player, player.position(), GreenLanternConfig.SCAN_RADIUS)) {
-			e.addEffect(new MobEffectInstance(MobEffects.GLOWING, GreenLanternConfig.SCAN_DURATION_TICKS, 0, false, false, true));
+		IntList hostileIds = new IntArrayList();
+		IntList passiveIds = new IntArrayList();
+		for (LivingEntity e : AbilityHelpers.living(level, player.position(), GreenLanternConfig.SCAN_RADIUS,
+				le -> le != player && !(le instanceof Player))) {
+			if (e instanceof Enemy) {
+				hostileIds.add(e.getId());
+			} else {
+				passiveIds.add(e.getId());
+			}
 		}
+		ServerPlayNetworking.send(player, new GreenLanternRingScanPayload(hostileIds.toIntArray(), passiveIds.toIntArray()));
+
 		for (ItemEntity item : level.getEntitiesOfClass(ItemEntity.class,
 				player.getBoundingBox().inflate(GreenLanternConfig.SCAN_ITEM_RADIUS))) {
 			level.sendParticles(ParticleTypes.END_ROD, item.getX(), item.getY() + 0.4, item.getZ(), 3, 0.1, 0.2, 0.1, 0.01);

@@ -597,30 +597,47 @@ public final class GreenLanternConstructs {
 	 * of the target and doesn't trap them"): most of the 4 cells got placed, the target got physically
 	 * ejected out of its own cage the same tick, and only the far side's blocks were left standing with
 	 * nothing inside them any more. The 3x3 shell never has this problem -- {@code y==1,x==0,z==0} (the
-	 * target's own column) is never a wall cell, at any size -- so it is now used unconditionally. A
-	 * flying target still gets the small open gap on the very top/bottom sealed too.
+	 * target's own column) is never a wall cell, at any size -- so it is now used unconditionally.
+	 *
+	 * <p>v0.11.10: works on any living target, not just hostiles (explicit user request) -- reuses
+	 * {@link AbilityHelpers#isValidGrabTarget}, the same "no armour stands, no bosses, players only if
+	 * hard-CC-on-players is on" filter Rescue Tether already grabs with, rather than the turret/turret-
+	 * style hostile-only check. Also v0.11.10: the top and/or bottom cap is now sealed whenever there is
+	 * actually open space to escape through there -- not just for a flying target -- since a grounded
+	 * target caged over a hole (open below) or under enough headroom to climb/jump out (open above) could
+	 * otherwise slip out exactly the way a flying target always could.
 	 */
 	private static void spawnCage(ServerPlayer player, Construct c) {
 		LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.CAGE_RANGE);
-		if (target == null || !isHostileTarget(player, target)) {
+		if (target == null || !AbilityHelpers.isValidGrabTarget(target, player)) {
 			return;
 		}
 		c.cagedEntityId = target.getId();
 		boolean flying = isFlyingMob(target);
 		BlockPos center = target.blockPosition();
+		boolean sealBottom = flying || isOpen(c, center.below());
+		boolean sealTop = flying || isOpen(c, center.above(3));
 		for (int x = -1; x <= 1; x++) {
 			for (int y = 0; y <= 2; y++) {
 				for (int z = -1; z <= 1; z++) {
 					boolean edge = Math.abs(x) == 1 || Math.abs(z) == 1 || y == 0 || y == 2;
 					boolean corner = Math.abs(x) == 1 && Math.abs(z) == 1;
 					boolean capCenter = (y == 0 || y == 2) && x == 0 && z == 0;
-					if (edge && !corner && (!capCenter || flying)) {
+					boolean capSealed = y == 0 ? sealBottom : sealTop;
+					if (edge && !corner && (!capCenter || capSealed)) {
 						add(c, center.offset(x, y, z), lightBlockState());
 					}
 				}
 			}
 		}
 		place(c);
+	}
+
+	/** Whether {@code pos} is passable (air or otherwise replaceable) -- used to decide whether
+	 *  Containment Cage needs to seal its own floor/ceiling cap there. */
+	private static boolean isOpen(Construct c, BlockPos pos) {
+		BlockState state = c.level.getBlockState(pos);
+		return state.isAir() || state.canBeReplaced();
 	}
 
 	/** Vanilla mobs that fly or otherwise ignore gravity -- Containment Cage seals these in completely. */

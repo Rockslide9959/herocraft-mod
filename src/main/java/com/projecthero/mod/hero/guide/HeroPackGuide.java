@@ -399,6 +399,9 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.green_lantern.flight");
 			para(lines, "projecthero.guide.green_lantern.flight.body");
 			blank(lines);
+			head(lines, "projecthero.guide.green_lantern.air_tank");
+			para(lines, "projecthero.guide.green_lantern.air_tank.body");
+			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.controls");
 			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {
 				String key = switch (slot) {
