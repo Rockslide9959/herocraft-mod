@@ -473,6 +473,7 @@
   "projecthero.power.power_22_plant_manipulation_chlorokinesis.ability.natures_blessing.desc": "Toggle: while standing on grass/moss or within 5 blocks of any plant or leaf, gain Regeneration II and +10 to all ability and melee damage. Enemies within 3 blocks of you are poisoned.",
   "projecthero.power.power_22_plant_manipulation_chlorokinesis.passive.bonemeal": "Right-clicking any growable plant bone-meals it twice. Plants within 30 blocks grow roughly 50% faster.",
   "projecthero.power.power_22_plant_manipulation_chlorokinesis.passive.lush_regen": "Minor regeneration in lush areas. Standing on or against grass/dirt/moss grants Regeneration, Haste, Resistance and Strength.",
+  "projecthero.power.power_22_plant_manipulation_chlorokinesis.passive.swing_through_grass": "Attacks and interactions pass straight through short grass, ferns, tall grass and dead bushes instead of being blocked by them.",
   "message.projecthero.plant.need_nature": "You need to be on natural ground, or holding bone meal or a sapling",
   "projecthero.power.power_23_gravity_manipulation.name": "Gravity Manipulation",
   "projecthero.power.power_23_gravity_manipulation.desc": "Control local gravity to push, crush, levitate and create dangerous gravity wells.",

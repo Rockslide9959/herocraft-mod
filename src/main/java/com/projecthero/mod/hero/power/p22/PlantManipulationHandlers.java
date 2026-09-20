@@ -37,6 +37,19 @@ public final class PlantManipulationHandlers {
 	private PlantManipulationHandlers() {
 	}
 
+	/**
+	 * Whether {@code player} currently has Chlorokinesis selected as their active experimental power --
+	 * public so {@code ClipContextMixin} can gate the "swing through grass" fix to only these players
+	 * (v0.11.9). Safe to call from either side: {@link com.projecthero.mod.attachment.ModAttachments#EXPERIMENTAL_STATE}
+	 * is synced, so a client-side raycast (the one that actually matters for crosshair targeting) reads
+	 * the same value a server-side one would.
+	 */
+	public static boolean isActiveFor(net.minecraft.world.entity.player.Player player) {
+		com.projecthero.mod.hero.data.ExperimentalState state =
+				player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.EXPERIMENTAL_STATE, null);
+		return state != null && KEY.equals(state.activePower);
+	}
+
 	public static void register() {
 		// R -- Thorn Shot, fired from the hand. Shift+R is Branch Thrust.
 		AbilityHandlers.register(KEY, "thorn_shot", Handlers.instant(ctx -> {

@@ -5,6 +5,7 @@
 	"mixins": [
 		"AbstractArrowMixin",
 		"BossEventAccessor",
+		"ClipContextMixin",
 		"CraftingMenuMixin",
 		"EntityWebMixin",
 		"ItemEntityMixin",

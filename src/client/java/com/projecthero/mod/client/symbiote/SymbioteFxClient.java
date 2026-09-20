@@ -1,7 +1,6 @@
 package com.projecthero.mod.client.symbiote;
 
 import com.projecthero.mod.attachment.ModAttachments;
-import com.projecthero.mod.symbiote.SymbioteHostType;
 import com.projecthero.mod.symbiote.SymbioteState;
 import com.projecthero.mod.symbiote.SymbioteTransform;
 
@@ -36,6 +35,16 @@ public final class SymbioteFxClient {
 	private SymbioteFxClient() {
 	}
 
+	/**
+	 * v0.11.9: the idle "shoulder wisp" ambient particle loop that used to play the whole time the suit
+	 * was worn is gone -- explicit user request ("since symbiote armour has a model now remove the
+	 * particles that spawn with the armour"). It existed only because the Normal Symbiote Host's suit
+	 * textures were fully transparent back in v0.9.19 and needed *some* visual signal that the suit was
+	 * actually on; a real GeckoLib model has carried that job since. The transformation sequence's own
+	 * particles ({@link #emit}, while {@link SymbioteTransform#isAnimating} is true) are unrelated and
+	 * unchanged -- those play the tendrils-creeping-over-the-body effect during suit-up/suit-down itself,
+	 * not a persistent effect "with the armour".
+	 */
 	public static void clientTick(Minecraft client) {
 		if (client.level == null || client.player == null) {
 			return;
@@ -43,48 +52,12 @@ public final class SymbioteFxClient {
 		Vec3 eye = client.player.getEyePosition();
 		for (Player player : client.level.players()) {
 			SymbioteState s = player.getAttachedOrElse(ModAttachments.SYMBIOTE_STATE, null);
-			if (s == null) {
+			if (s == null || !SymbioteTransform.isAnimating(s) || player.distanceToSqr(eye) > 24 * 24) {
 				continue;
 			}
-			if (SymbioteTransform.isAnimating(s)) {
-				if (player.distanceToSqr(eye) > 24 * 24) {
-					continue;
-				}
-				float effective = SymbioteTransform.effectiveProgress(s, player.level().getGameTime());
-				emit(client, player, effective);
-			} else if (s.active) {
-				emitShoulderWisps(client, player, eye);
-			}
+			float effective = SymbioteTransform.effectiveProgress(s, player.level().getGameTime());
+			emit(client, player, effective);
 		}
-	}
-
-	/**
-	 * A small, low-frequency wisp at each shoulder, layered on top of the Normal Symbiote Host's real
-	 * {@code geo/symbiote_host.geo.json} suit -- meant to read as the organism itself still moving on
-	 * the host, not just a static rendered garment (v0.9.19 predates that model: back then the suit
-	 * textures were fully transparent and this wisp was the entire visual signal the suit was on).
-	 * Black Suit Spider-Man keeps his own GeckoLib model and is excluded here. Deliberately skipped for
-	 * the local player's own first-person camera (per the "shouldn't block the player's own view"
-	 * requirement) -- it still shows for every other player, and for the local player in third person.
-	 */
-	private static void emitShoulderWisps(Minecraft client, Player player, Vec3 localEye) {
-		if (SymbioteHostType.of(player) != SymbioteHostType.NORMAL) {
-			return;
-		}
-		boolean localFirstPerson = player == client.player && client.options.getCameraType().isFirstPerson();
-		if (localFirstPerson) {
-			return;
-		}
-		if (player.distanceToSqr(localEye) > 32 * 32 || player.tickCount % 5 != 0) {
-			return;
-		}
-		double h = player.getBbHeight();
-		double w = player.getBbWidth();
-		Vec3 look = player.getLookAngle();
-		Vec3 right = new Vec3(-look.z, 0, look.x).normalize();
-		Vec3 shoulders = player.position().add(0, h * 0.82, 0);
-		cloud(client, shoulders.add(right.scale(-w * 0.32)), 0.10, 0.10, 3);
-		cloud(client, shoulders.add(right.scale(w * 0.32)), 0.10, 0.10, 3);
 	}
 
 	private static void emit(Minecraft client, Player player, float effective) {

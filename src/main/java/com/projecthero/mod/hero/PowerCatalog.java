@@ -501,7 +501,7 @@ final class PowerCatalog {
 				.ability(ab(k, "overgrowth", SLOT_4, CHARGE, 60 * S))
 				.ability(ab(k, "living_wall", SLOT_5, INSTANT, 8 * S))
 				.ability(ab(k, "natures_blessing", SLOT_6, TOGGLE, 0))
-				.passives(pk(k, "passive.bonemeal"), pk(k, "passive.lush_regen"))
+				.passives(pk(k, "passive.bonemeal"), pk(k, "passive.lush_regen"), pk(k, "passive.swing_through_grass"))
 				.serum(SerumRecipe.of("minecraft:regeneration", pk(k, "serum"),
 						"minecraft:moss_block", "minecraft:vine", "minecraft:bone_meal"))
 				.trigger(MutationTrigger.of(Kind.PLANT_SURROUNDINGS, pk(k, "trigger"), null))

@@ -330,10 +330,11 @@ public final class GreenLanternConstructs {
 		return player.position().add(horizontal.normalize().scale(5.0));
 	}
 
-	/** The three constructs with an explicit post-collapse cooldown in the build brief; null for the rest. */
+	/** Constructs with an explicit post-collapse cooldown; null for the rest. v0.11.9: Containment Cage no
+	 *  longer has one at all -- explicit user request ("remove cooldowns and just make it disappear after
+	 *  15 seconds"), it can simply be recast (at its normal cost) the instant it expires or is punched down. */
 	private static String cooldownIdFor(ConstructType type) {
 		return switch (type) {
-			case CONTAINMENT_CAGE -> "construct_cage";
 			case SENTRY_TURRET -> "construct_turret";
 			case HARD_LIGHT_WALL -> "construct_wall";
 			default -> null;
@@ -355,7 +356,6 @@ public final class GreenLanternConstructs {
 
 	private static int cooldownTicksFor(ConstructType type) {
 		return switch (type) {
-			case CONTAINMENT_CAGE -> GreenLanternConfig.CAGE_COOLDOWN_TICKS;
 			case SENTRY_TURRET -> GreenLanternConfig.TURRET_COOLDOWN_TICKS;
 			case HARD_LIGHT_WALL -> GreenLanternConfig.WALL_COOLDOWN_TICKS;
 			default -> 0;
@@ -782,7 +782,9 @@ public final class GreenLanternConstructs {
 		return stack;
 	}
 
-	private static boolean isToolKitPiece(net.minecraft.world.item.ItemStack stack) {
+	/** Public so {@code ItemEntityMixin} can recognise (and discard) one on the ground -- see its own
+	 *  javadoc for why a tool kit piece must never actually land in the world. */
+	public static boolean isToolKitPiece(net.minecraft.world.item.ItemStack stack) {
 		net.minecraft.world.item.component.CustomData data = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
 		return data != null && data.copyTag().getBoolean(TOOL_KIT_TAG);
 	}
@@ -1123,14 +1125,22 @@ public final class GreenLanternConstructs {
 		return true;
 	}
 
-	/** While toggled on, a green glow around the wielding hand/arm ("make the players arm glow green to
-	 *  show that its active", explicit user request). */
+	/**
+	 * While toggled on, a green glow around the wielding hand/arm ("make the players arm glow green to
+	 *  show that its active", explicit user request, reiterated v0.11.9 -- made this noticeably more of an
+	 *  actual "glow" rather than an occasional faint puff: a small continuous swirl every tick, matching
+	 *  the visual language {@link #tickDrill} already uses for its own hand effect, instead of 2 particles
+	 *  with almost no spread once every 3 ticks.
+	 */
 	private static void tickEnergyBlade(ServerPlayer owner, Construct c) {
-		if (!c.toggledOn || owner.tickCount % 3 != 0) {
+		if (!c.toggledOn) {
 			return;
 		}
 		Vec3 hand = AbilityHelpers.handPosition(owner);
-		owner.serverLevel().sendParticles(GREEN_DUST, hand.x, hand.y, hand.z, 2, 0.08, 0.08, 0.08, 0.0);
+		double angle = (owner.tickCount % 20) * (Math.PI * 2 / 20.0);
+		owner.serverLevel().sendParticles(GREEN_DUST,
+				hand.x + Math.cos(angle) * 0.2, hand.y + Math.sin(angle) * 0.2, hand.z + Math.sin(angle) * 0.1,
+				2, 0.1, 0.1, 0.1, 0.01);
 	}
 
 	private static void tickTurret(ServerPlayer owner, Construct c, long now) {

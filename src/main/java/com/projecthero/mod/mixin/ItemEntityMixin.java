@@ -71,6 +71,31 @@ public abstract class ItemEntityMixin {
 		ci.cancel();
 	}
 
+	/**
+	 * A Green Lantern Hard-Light Tool Kit piece must never actually land on the ground -- v0.11.9,
+	 * explicit user request ("if the player drops any part of the tool kit all of it must disappear and
+	 * none of the tool kit items must fall onto the ground"). Before this fix, dropping one piece (Q,
+	 * dragging it out of the inventory screen, a death drop, ...) correctly tore down the rest of the kit
+	 * (see {@code GreenLanternConstructs#tickKind}'s TOOL_KIT case, which ends the construct once a piece
+	 * leaves the tracked player's inventory/offhand/cursor), but the dropped piece itself still spawned a
+	 * real, visible {@link ItemEntity} that sat on the ground until walked over -- at which point it
+	 * silently vanished again the moment the next duplicate sweep ran, reading as a buggy "item
+	 * disappears when picked up" rather than "never touches the ground at all". Same catch-all-on-tick
+	 * approach as {@link #projecthero$promoteToMjolnirEntity} above, for the same reason: it covers every
+	 * way an item can end up dropped without needing to hook each call site individually.
+	 */
+	@Inject(method = "tick", at = @At("HEAD"), cancellable = true)
+	private void projecthero$discardLooseToolKitPieces(CallbackInfo ci) {
+		ItemEntity self = (ItemEntity) (Object) this;
+		if (self.level().isClientSide() || self.isRemoved()) {
+			return;
+		}
+		if (com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.isToolKitPiece(self.getItem())) {
+			self.discard();
+			ci.cancel();
+		}
+	}
+
 	@Inject(method = "playerTouch", at = @At("HEAD"), cancellable = true)
 	private void projecthero$blockUnworthyPickup(Player player, CallbackInfo ci) {
 		ItemEntity self = (ItemEntity) (Object) this;

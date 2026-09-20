@@ -182,8 +182,10 @@ public final class GreenLanternConfig {
 	public static final float CAGE_COST = 20f;
 	public static final float CAGE_UPKEEP_PER_SEC = 1f;
 	public static final double CAGE_RANGE = 30.0;
-	public static final int CAGE_MAX_DURATION_TICKS = 8 * 20;
-	public static final int CAGE_COOLDOWN_TICKS = 8 * 20;
+	/** v0.11.9: 15s, up from 8 -- explicit user request. No post-collapse cooldown any more either
+	 *  (also explicit user request, "remove cooldowns and just make it disappear after 15 seconds") --
+	 *  see {@code GreenLanternConstructs#cooldownIdFor}. */
+	public static final int CAGE_MAX_DURATION_TICKS = 15 * 20;
 	public static final float CAGE_HP = 75f;
 
 	public static final float TURRET_COST = 20f;
