@@ -71,6 +71,8 @@ public final class IronManSuit {
 	// that formula would give it, so it needs its own explicit numbers rather than a scaled fraction.
 	private final float platformEnergyPerSecondOverride;
 	private final float platformIntegrityPerSecondOverride;
+	// v0.11.13
+	private final int resistanceAmplifier;   // -1 = none; else MobEffects.DAMAGE_RESISTANCE amplifier while a full suit is worn+powered
 
 	private final String[] abilities;        // 6, ordered slot 1..6 (ability ids from IronManAbilities)
 	private final SuitUpType suitUpType;
@@ -123,6 +125,7 @@ public final class IronManSuit {
 		this.flightDrainMultiplier = b.flightDrainMultiplier;
 		this.platformEnergyPerSecondOverride = b.platformEnergyPerSecondOverride;
 		this.platformIntegrityPerSecondOverride = b.platformIntegrityPerSecondOverride;
+		this.resistanceAmplifier = b.resistanceAmplifier;
 		this.abilities = b.abilities;
 		this.suitUpType = b.suitUpType;
 		this.summonType = b.summonType;
@@ -174,6 +177,7 @@ public final class IronManSuit {
 	public float flightDrainMultiplier() { return flightDrainMultiplier; }
 	public float platformEnergyPerSecondOverride() { return platformEnergyPerSecondOverride; }
 	public float platformIntegrityPerSecondOverride() { return platformIntegrityPerSecondOverride; }
+	public int resistanceAmplifier() { return resistanceAmplifier; }
 	public SuitUpType suitUpType() { return suitUpType; }
 	public SummonType summonType() { return summonType; }
 	public Item requiredBlueprint() { return requiredBlueprint; }
@@ -232,6 +236,7 @@ public final class IronManSuit {
 		private float flightDrainMultiplier = 1.0f;
 		private float platformEnergyPerSecondOverride = -1f;
 		private float platformIntegrityPerSecondOverride = -1f;
+		private int resistanceAmplifier = -1;
 		private String[] abilities = new String[6];
 		private SuitUpType suitUpType = SuitUpType.MECHANICAL_REMOTE;
 		private SummonType summonType = SummonType.FLYING_SET;
@@ -308,6 +313,9 @@ public final class IronManSuit {
 			this.platformIntegrityPerSecondOverride = integrityPerSecond;
 			return this;
 		}
+		/** v0.11.13: while a full suit of this mark is worn and powered, apply a permanent
+		 *  {@code MobEffects.DAMAGE_RESISTANCE} at this level (1 = Resistance I). */
+		public Builder resistance(int level) { this.resistanceAmplifier = level - 1; return this; }
 		public Builder abilities(String s1, String s2, String s3, String s4, String s5, String s6) {
 			this.abilities = new String[] { s1, s2, s3, s4, s5, s6 };
 			return this;

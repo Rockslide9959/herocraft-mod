@@ -7,6 +7,8 @@ import com.projecthero.mod.ironman.suit.IronManSuits;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
@@ -32,6 +34,8 @@ public final class IronManPassives {
 	private static final ResourceLocation MINE = ProjectHeroMod.id("iron_man_mining");
 	/** Mark 1's "25% bigger than the normal player model" (spec "changes 12"). */
 	private static final ResourceLocation SCALE = ProjectHeroMod.id("iron_man_suit_scale");
+	/** v0.11.13: how long a per-tick-refreshed suit Resistance effect is granted for (see below). */
+	private static final int RESISTANCE_REFRESH_TICKS = 40;
 
 	private IronManPassives() {
 	}
@@ -69,6 +73,21 @@ public final class IronManPassives {
 		double suitScale = suit == null ? 1.0 : suit.scale();
 		set(player, Attributes.SCALE, SCALE, suitScale - 1.0,
 				AttributeModifier.Operation.ADD_MULTIPLIED_BASE, frac >= 1.0 && suitScale != 1.0);
+
+		// v0.11.13: a full, powered suit with a resistanceAmplifier (Mark 2) grants a standing Resistance
+		// effect -- refreshed every tick like the helmet's Night Vision, so it disappears on its own the
+		// instant the suit comes off/depowers instead of lingering.
+		int resistance = suit == null ? -1 : suit.resistanceAmplifier();
+		if (powered && frac >= 1.0 && resistance >= 0) {
+			player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, RESISTANCE_REFRESH_TICKS,
+					resistance, true, false, false));
+		} else {
+			MobEffectInstance eff = player.getEffect(MobEffects.DAMAGE_RESISTANCE);
+			if (eff != null && eff.isAmbient() && !eff.isVisible() && !eff.showIcon()
+					&& eff.getDuration() <= RESISTANCE_REFRESH_TICKS) {
+				player.removeEffect(MobEffects.DAMAGE_RESISTANCE);
+			}
+		}
 	}
 
 	private static void set(ServerPlayer player, Holder<Attribute> attribute, ResourceLocation id, double amount,

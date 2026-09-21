@@ -261,6 +261,76 @@ right-click the platform (pulls the worn suit straight onto it).
 If **C does nothing:** you either don't have the Tony Stark power, haven't fabricated/obtained the
 suit, or the pieces aren't within ~60 blocks. Check with `/superhero status`.
 
+## 17t. v0.11.13 (Mark 1 / Mark 2 rebalance)
+
+*(Note: this reference doc's changelog sections skip a large gap between v0.6.2 below and here --
+several released versions of Iron Man changes through v0.11.12 were never backfilled into this file.
+The per-mark stat table in §17l is stale for the same reason; treat it as a historical snapshot, not
+current numbers. `IronManSuits.java` is the source of truth for current per-mark stats.)*
+
+**Mark 2 rebuilt into a real second-tier suit, not just a cheap Mark 1 clone.** All explicit user
+request:
+* **Diamond-level armour** (`IronManArmorMaterials.MARK_2`): defense/toughness now identical to Mark 1
+  / vanilla Diamond (boots 3, leggings 6, chestplate 8, helmet 3, toughness 2.0), still iron-repaired.
+* **Integrity 420 → 1500**, **worn energy regen 1.0 → 12/s**, **new worn armour regen 5/s** (Mark 2 had
+  none before), **Suit Platform regen now its own flat override (24 energy/s + 15 integrity/s)**
+  instead of the generic 0.1%-of-pool formula every non-Mark-1 suit still uses.
+* **New standing Resistance I** (`IronManSuit.resistanceAmplifier`) while a full, powered Mark 2 suit
+  is worn -- refreshed every tick in `IronManPassives`, same pattern as the helmet's Night Vision.
+* **Damage model matches Mark 1's now** (`IronManDamage.mitigateMark2`, new): the wearer takes the
+  **full** raw hit, and the plating separately bleeds **80%** of that same amount off integrity, in
+  parallel -- not a 100-vs-80 split of one pool. No fire/projectile immunity carve-out (that stayed
+  Mark-1-only).
+* **A real Charged Repulsor** added to R (`repulsorSlot`, `chargedRepulsor`): a quick tap still does
+  the existing forced 1 s spin-up then an ordinary blast (now **20** energy, down from the shared 80),
+  but holding the key >= 2 s before releasing instead fires a Charged Repulsor directly (**50** energy)
+  -- no separate windup needed, the hold itself is the charge. The windup also gained a periodic
+  rising-pitch hum (`tickRepulsorWindup`), not just a single blip when it starts.
+* **Rocket (G)** now costs its own **50** energy (was the shared 300) and its blast **actually breaks
+  blocks** (see below).
+* **Unibeam (Z)** now costs its own flat **300** total per channel (was the shared 700).
+* **Mob Highlight (V)** now drains **1 energy/sec** while toggled on (`tickMark2MobHighlightDrain`,
+  ticked from `IronManSuitTicker`) -- auto-clears if the helmet comes off or energy runs dry. Was
+  free and indefinite before, like every non-Mark-1 suit.
+* **Custom Fabricator recipe** (`FabricatorRecipes.mark2ArmorSet`, replacing the shared `armorSet`
+  generator entirely): built from the basic `METAL_PLATING` instead of the advanced
+  `TITANIUM_GOLD_PLATE` every other mark uses -- Helmet (6 plate/2 servo motor/1 targeting module/3
+  Stark circuit/1 suit computer), Chestplate (6 plate/4 servo motor/1 repulsor/1 flight
+  stabilizer/4 Stark circuit), Leggings (6 plate/4 servo motor/2 Stark circuit/1 flight stabilizer),
+  Boots (6 plate/2 micro thruster/2 repulsor/1 flight stabilizer/2 servo motor/1 Stark circuit). The
+  Stark Fabricator's "View more" info panel and the ingredient list it shows are both fully dynamic off
+  these definitions, so no separate menu/UI text needed updating.
+
+**Mark 1 changes**, also explicit user request:
+* **Damage model changed from a 50/50 reduction to a full-hit-plus-parallel-integrity-cost model**
+  (`IronManDamage.mitigateMark1`): the wearer now takes the **full** raw hit (was halved), and the
+  plating separately bleeds **80%** of that same amount off integrity (was 50%), in parallel. Fire/
+  projectile immunity is unchanged.
+* **Rocket (Z)**: damage 15 → **25**, energy cost 300 → **100**, cooldown 20 s → **25 s**, and the
+  blast now **breaks blocks** (see below). The flamethrower's 2.5-dmg-every-half-second cadence was
+  already exactly that (vanilla hit-invulnerability naturally throttles a per-tick `hurt()` call to
+  roughly twice a second) -- no code change needed there, just confirmed by reading `AbilityHelpers.hurt`.
+* **HUD heat-bar bug fixed**: the HEAT gauge had silently stopped showing for Mark 1 -- root cause was
+  the v0.11.12 "minimal HUD" strip-down (`IronManHud`'s `minimalHud = "mark_1".equals(suitId)`) gating
+  the heat bar behind `!minimalHud`, which hides it specifically for the ONE suit that has the
+  Flamethrower bound to a slot at all. `minimalHud` is meant to hide altitude/speed/clock/target-
+  readout/Phoenix status, not this suit's own core ability feedback -- the gate was simply removed from
+  that one bar. It still only shows while heat is actually above ~0 (building up while firing, or
+  venting back down afterwards), same as before.
+
+**Shared change**: `IronManMissileEntity` gained an opt-in `withBreaksBlocks()` (a TNT-style
+`Level.ExplosionInteraction.MOB` blast, gated on `HeroConfig.abilityTerrainDamage` like every other
+terrain effect in the mod) -- used by the Mark 1/2 Rocket only; Micro-Missiles is untouched and still
+never damages terrain.
+
+`./gradlew build` green, **288** gametests pass (6 new: Mark 2 diamond armour, Mark 2 Resistance,
+Mark 2 Unibeam cost, Mark 2 Charged Repulsor cost, Mark 2 mob-highlight drain, Mark 2 rocket cost; the
+old `rocketAbilityDealsFifteenDamage` was renamed `mark1RocketCostsOneHundredEnergy` and now also
+checks the energy spent). NOT in-world playtested. The damage-split arithmetic itself is verified by
+code review only, same long-standing limitation as every other Iron Man mitigation change in this
+file -- see the comment block above the "---- Mark 1 / Mark 2 ----" gametest section for why a mock
+`ServerPlayer` never reaches `player.hurt()` through Fabric's `ALLOW_DAMAGE` event.
+
 ## 17s. v0.6.2 (platform regen → flat 0.1%/s)
 
 **Suit Platform regen is now a flat 0.1% of the mark's pool per second**, for both energy and armour.

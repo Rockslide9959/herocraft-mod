@@ -28,8 +28,6 @@ import net.minecraft.world.item.crafting.Ingredient;
  * Placeholder textures ship now; drop real ones in at those paths with no code change.
  */
 public final class IronManArmorMaterials {
-	// Mark 2 ("changes 12"): primitive first-generation prototype, repaired with plain iron rather than
-	// netherite -- deliberately lower defense than every Fabricator-built mark.
 	// Mark 1 ("changes 12", v0.11.12): explicit user request -- "diamond level armour", i.e. the exact
 	// same per-piece defense/toughness vanilla Diamond armor has (boots 3, leggings 6, chestplate 8,
 	// helmet 3, toughness 2.0), still repaired with iron in keeping with the primitive-prototype theme.
@@ -38,9 +36,12 @@ public final class IronManArmorMaterials {
 	public static final Holder<ArmorMaterial> MARK_1 = register("mark_1",
 			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 8, ArmorItem.Type.HELMET, 3),
 			8, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.0f, Items.IRON_INGOT);
+	// Mark 2 (v0.11.13, explicit user request): also "diamond level armour" now -- same defense/toughness
+	// as Mark 1/vanilla Diamond, still repaired with iron. IronManDamage's Mark 2 branch governs the
+	// actual powered-hit split.
 	public static final Holder<ArmorMaterial> MARK_2 = register("mark_2",
-			Map.of(ArmorItem.Type.BOOTS, 2, ArmorItem.Type.LEGGINGS, 5, ArmorItem.Type.CHESTPLATE, 6, ArmorItem.Type.HELMET, 2),
-			10, SoundEvents.ARMOR_EQUIP_IRON, 1.0f, 0.0f, Items.IRON_INGOT);
+			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 8, ArmorItem.Type.HELMET, 3),
+			10, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.0f, Items.IRON_INGOT);
 	// Mark 4 ("changes 15"): the strongest of the craftable "movie early-marks" line -- defence on par
 	// with the Mark III, still repaired with iron like the rest of the primitive line.
 	public static final Holder<ArmorMaterial> MARK_4 = register("mark_4",

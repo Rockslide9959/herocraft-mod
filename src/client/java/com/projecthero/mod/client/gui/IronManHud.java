@@ -119,9 +119,13 @@ public final class IronManHud {
 		}
 
 		// Mark 1 flamethrower heat gauge ("changes 14"; "changes 17": also the Mark 7 weapon-wheel
-		// flamethrower, whose bar is 50% bigger) -- only shown once it starts building up.
+		// flamethrower, whose bar is 50% bigger) -- only shown while it's actually building up or venting
+		// back down (> 0.5). v0.11.13 bug fix: this used to be gated behind `!minimalHud`, which hid it
+		// for Mark 1 specifically -- the ONLY suit with the Flamethrower bound directly to a slot -- ever
+		// since the v0.11.12 minimal-HUD strip-down. minimalHud is meant to hide altitude/speed/clock/
+		// target-readout/Phoenix status, not this suit's own core ability feedback.
 		float maxHeat = com.projecthero.mod.ironman.ability.IronManAbilities.flamethrowerMaxHeat(suit);
-		if (!minimalHud && (hasAbility(suit, com.projecthero.mod.ironman.ability.IronManAbilities.FLAMETHROWER) || suit.hasWeaponWheel())
+		if ((hasAbility(suit, com.projecthero.mod.ironman.ability.IronManAbilities.FLAMETHROWER) || suit.hasWeaponWheel())
 				&& state.flamethrowerHeat > 0.5f) {
 			float heatFrac = clamp(state.flamethrowerHeat / maxHeat);
 			bar(g, client, X, y, "HEAT", heatFrac,

@@ -29,6 +29,8 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 	private float splashDamage = 4.0f;
 	private boolean homing = false; // "changes 14": rockets / micro-missiles fly where they were aimed
 	private float blastRadius = 1.4f;
+	/** v0.11.13: the Mark 1/2 Rocket opts into this -- Micro-Missiles never does. */
+	private boolean breaksBlocks = false;
 
 	public IronManMissileEntity(EntityType<? extends IronManMissileEntity> type, Level level) {
 		super(type, level);
@@ -54,6 +56,17 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 	/** Set the blast size of the on-impact AoE explosion (default 1.4). */
 	public IronManMissileEntity withBlastRadius(float radius) {
 		this.blastRadius = radius;
+		return this;
+	}
+
+	/**
+	 * "changes 14"'s class javadoc used to promise this entity type "never destroys terrain" -- v0.11.13,
+	 * explicit user request, gives the Mark 1/2 Rocket an opt-in exception: a TNT-style block-breaking
+	 * blast, still respecting {@code HeroConfig.abilityTerrainDamage} like every other terrain effect in
+	 * the mod (see {@link #detonate}). Every other caller of this entity (Micro-Missiles) leaves this off.
+	 */
+	public IronManMissileEntity withBreaksBlocks() {
+		this.breaksBlocks = true;
 		return this;
 	}
 
@@ -155,7 +168,9 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 			return;
 		}
 		ServerLevel level = (ServerLevel) level();
-		level.explode(this, getX(), getY(), getZ(), blastRadius, Level.ExplosionInteraction.NONE);
+		Level.ExplosionInteraction interaction = breaksBlocks && com.projecthero.mod.hero.power.AbilityHelpers.canGrief()
+				? Level.ExplosionInteraction.MOB : Level.ExplosionInteraction.NONE;
+		level.explode(this, getX(), getY(), getZ(), blastRadius, interaction);
 		level.sendParticles(ParticleTypes.EXPLOSION, getX(), getY(), getZ(), 1, 0, 0, 0, 0);
 		level.playSound(null, getX(), getY(), getZ(), SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.8f, 1.4f);
 		// AoE splash damage, scaled with the blast size, falling off toward the edge
@@ -189,6 +204,7 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 		if (tag.contains("BlastRadius")) {
 			blastRadius = tag.getFloat("BlastRadius");
 		}
+		breaksBlocks = tag.getBoolean("BreaksBlocks");
 	}
 
 	@Override
@@ -198,5 +214,6 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 		tag.putFloat("SplashDamage", splashDamage);
 		tag.putBoolean("Homing", homing);
 		tag.putFloat("BlastRadius", blastRadius);
+		tag.putBoolean("BreaksBlocks", breaksBlocks);
 	}
 }

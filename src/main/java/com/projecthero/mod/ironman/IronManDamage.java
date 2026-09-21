@@ -66,15 +66,19 @@ public final class IronManDamage {
 	private static final float FIRE_ENERGY_MULTIPLIER = 0.10f;
 
 	/**
-	 * v0.11.12, explicit user request: Mark 1's mitigation is its own flat rule, not the shared 90/10
-	 * split above -- an even 50/50 for an ordinary hit (the wearer takes half, the arc reactor's plating
-	 * eats the other half off integrity), and full immunity to fire and projectiles specifically (the
-	 * wearer takes nothing from either), at the cost of only a token flat integrity chip -- not a
-	 * percentage of the hit -- regardless of how big that hit was.
+	 * v0.11.13, explicit user request: Mark 1's mitigation is its own flat rule, not the shared 90/10
+	 * split above -- the wearer takes the <b>full</b> hit (no reduction at all), and the plating
+	 * separately bleeds {@value #MARK_1_INTEGRITY_DAMAGE_SHARE} of that same raw amount <em>in
+	 * parallel</em> -- e.g. a 10-damage hit is 10 damage to the player AND 8 off integrity, not a
+	 * 10-vs-8 split of one pool of damage. (v0.11.12 had this as an even 50/50 reduction; the wearer's
+	 * own share is no longer reduced at all.) Full immunity to fire and projectiles specifically is
+	 * unchanged -- the wearer takes nothing from either, at the cost of only a token flat integrity chip.
 	 */
-	private static final float MARK_1_PLAYER_SHARE = 0.5f;
-	private static final float MARK_1_INTEGRITY_DAMAGE_SHARE = 0.5f;
+	private static final float MARK_1_INTEGRITY_DAMAGE_SHARE = 0.8f;
 	private static final float MARK_1_ELEMENTAL_INTEGRITY_CHIP = 0.1f;
+	/** v0.11.13, explicit user request: Mark 2 gets the identical parallel-damage rule as Mark 1 above
+	 *  (no fire/projectile immunity carve-out, since that wasn't asked for Mark 2). */
+	private static final float MARK_2_INTEGRITY_DAMAGE_SHARE = 0.8f;
 
 	private static final ThreadLocal<Boolean> REENTRANT = ThreadLocal.withInitial(() -> false);
 
@@ -142,6 +146,9 @@ public final class IronManDamage {
 		if ("mark_1".equals(suitId)) {
 			return mitigateMark1(player, suitId, source, amount);
 		}
+		if ("mark_2".equals(suitId)) {
+			return mitigateMark2(player, suitId, amount);
+		}
 
 		// "changes 22": fire is cheap for the suit to shrug off -- see FIRE_INTEGRITY_MULTIPLIER.
 		boolean fire = source.is(DamageTypeTags.IS_FIRE);
@@ -180,7 +187,15 @@ public final class IronManDamage {
 			return false;
 		}
 		IronManEnergy.damageIntegrity(player, suitId, amount * MARK_1_INTEGRITY_DAMAGE_SHARE);
-		return reduce(player, source, amount, MARK_1_PLAYER_SHARE);
+		// v0.11.13: allow the hit through unmodified -- the player takes the full raw amount, the
+		// integrity chip above is a separate, parallel cost, not a reduction of what the player takes.
+		return true;
+	}
+
+	/** v0.11.13, explicit user request: Mark 2's own flat mitigation rule -- see {@link #MARK_2_INTEGRITY_DAMAGE_SHARE}. */
+	private static boolean mitigateMark2(ServerPlayer player, String suitId, float amount) {
+		IronManEnergy.damageIntegrity(player, suitId, amount * MARK_2_INTEGRITY_DAMAGE_SHARE);
+		return true;
 	}
 
 	/**

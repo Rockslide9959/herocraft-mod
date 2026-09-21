@@ -60,8 +60,12 @@ public final class IronManSuits {
 	public static final IronManSuit MARK_2 = register(IronManSuit.Builder.of("mark_2")
 			.tech(0, 2)
 			.energy(4_500f, 2.0f, 0.5f)
-			.maxIntegrity(420f) // "changes 18": Mark 2 condition pool
-			.energyRegen(1.0f) // "changes 18"; nudged up from 0.75 -- slight Mark 2 recharge buff
+			.maxIntegrity(1500f) // v0.11.13: up from 420, explicit user request
+			.energyRegen(12f) // v0.11.13: flat passive 12 energy/sec (was 1.0), explicit user request
+			.armorRegen(5f) // v0.11.13: flat passive 5 integrity/sec worn self-repair, explicit user request
+			.platformRegen(24f, 15f) // v0.11.13: 24 energy/sec + 15 integrity/sec on a Suit Platform,
+			// overriding the generic 0.1%-of-pool formula -- explicit user request.
+			.resistance(1) // v0.11.13: permanent Resistance I while the full suit is worn+powered
 			.flightDrain(0.9f) // "changes 18"
 			.targetScanRange(30.0) // "changes 14"
 			.flight(1.0f, 0.08f) // "normal flight like other armours"

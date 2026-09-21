@@ -166,7 +166,7 @@ public final class FabricatorRecipes {
 		// "changes 21": armour is gated purely by "the matching mark's blueprint is in the slot" -- which
 		// the Blank Blueprint progression controls -- so the recipes carry no tech-level requirement. The
 		// per-mark number below only scales fabrication time (higher mark = longer build).
-		armorSet("mark_2", 1, 0.4f);
+		mark2ArmorSet();
 		armorSet("mark_4", 1, 0.9f);
 		armorSet("mark_6", 2, 1.0f);
 		armorSet("mark_iii", 1, 1.0f);
@@ -209,6 +209,34 @@ public final class FabricatorRecipes {
 		add(armor(suitId, ArmorItem.Type.BOOTS, timeTier, scale, 200,
 				in(plate, 6), in(IronManItems.MICRO_THRUSTER, 2), in(IronManItems.REPULSOR, 2),
 				in(IronManItems.FLIGHT_STABILIZER, 1), in(IronManItems.SERVO_MOTOR, 2), in(signature, 1)));
+	}
+
+	/**
+	 * Mark 2's own fixed component list (v0.11.13, explicit user request) -- replaces the shared
+	 * {@link #armorSet} generation entirely. Built from the basic {@code METAL_PLATING} rather than the
+	 * advanced {@code TITANIUM_GOLD_PLATE} every other mark's armour uses, in keeping with Mark 2 being
+	 * the cheaper primitive-tier suit.
+	 */
+	private static void mark2ArmorSet() {
+		int timeTier = 1;
+		float scale = 0.4f;
+		Item plate = IronManItems.METAL_PLATING;
+
+		add(armor("mark_2", ArmorItem.Type.HELMET, timeTier, scale, 160,
+				in(plate, 6), in(IronManItems.SERVO_MOTOR, 2), in(IronManItems.TARGETING_MODULE, 1),
+				in(IronManItems.STARK_CIRCUIT, 3), in(IronManItems.SUIT_COMPUTER, 1)));
+
+		add(armor("mark_2", ArmorItem.Type.CHESTPLATE, timeTier, scale, 240,
+				in(plate, 6), in(IronManItems.SERVO_MOTOR, 4), in(IronManItems.REPULSOR, 1),
+				in(IronManItems.FLIGHT_STABILIZER, 1), in(IronManItems.STARK_CIRCUIT, 4)));
+
+		add(armor("mark_2", ArmorItem.Type.LEGGINGS, timeTier, scale, 200,
+				in(plate, 6), in(IronManItems.SERVO_MOTOR, 4), in(IronManItems.STARK_CIRCUIT, 2),
+				in(IronManItems.FLIGHT_STABILIZER, 1)));
+
+		add(armor("mark_2", ArmorItem.Type.BOOTS, timeTier, scale, 200,
+				in(plate, 6), in(IronManItems.MICRO_THRUSTER, 2), in(IronManItems.REPULSOR, 2),
+				in(IronManItems.FLIGHT_STABILIZER, 1), in(IronManItems.SERVO_MOTOR, 2), in(IronManItems.STARK_CIRCUIT, 1)));
 	}
 
 	private static FabricationRecipe armor(String suitId, ArmorItem.Type type, int timeTier, float scale, int baseTime,

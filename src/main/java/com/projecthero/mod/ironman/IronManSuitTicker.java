@@ -166,6 +166,10 @@ public final class IronManSuitTicker {
 		if (s.pendingMissiles > 0) {
 			IronManAbilities.tickMicroMissiles(player, suit);
 		}
+		// v0.11.13, explicit user request: Mark 2's mob-highlight toggle now costs 1 energy/sec while on.
+		if (s.mobHighlightOn && "mark_2".equals(suitId)) {
+			IronManAbilities.tickMark2MobHighlightDrain(player, suit);
+		}
 		IronManEnergy.tickRecharge(player, suit);
 		IronManEnergy.tickArmorRegen(player, suit); // "changes 18": Mark III+ slowly self-repair while worn
 	}

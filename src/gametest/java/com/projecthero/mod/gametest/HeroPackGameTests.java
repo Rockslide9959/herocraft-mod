@@ -1668,18 +1668,47 @@ public class HeroPackGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.11.13, explicit user request: Mark 1's Rocket (Z) now costs 100 energy (was a shared 300). */
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void rocketAbilityDealsFifteenDamage(GameTestHelper helper) {
+	public void mark1RocketCostsOneHundredEnergy(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
 		giveFullSuit(player, "mark_1");
 		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_1", 5000f);
+		float before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_1");
 
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_4, true);
 
+		// Filtered to this player's OWN missiles: a plain proximity query can pick up a neighbouring
+		// gametest structure's rocket when the world's structure grid packs two rocket-firing tests close
+		// together (a known class of GameTest flake in this suite -- see the "changes 19"/"changes 20"
+		// era comments elsewhere in this file about raycasts crossing into a neighbouring test).
 		long rockets = helper.getLevel().getEntitiesOfClass(com.projecthero.mod.ironman.entity.IronManMissileEntity.class,
-				player.getBoundingBox().inflate(8)).size();
+				player.getBoundingBox().inflate(8), e -> e.getOwner() == player).size();
 		helper.assertTrue(rockets == 1, "the Rocket ability should launch exactly one projectile, got " + rockets);
+		float spent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_1");
+		helper.assertTrue(Math.abs(spent - 100f) < 0.01f, "Mark 1's Rocket must cost exactly 100 energy, spent " + spent);
+		helper.succeed();
+	}
+
+	/** v0.11.13, explicit user request: Mark 2's Rocket (G) now costs 50 energy (was a shared 300). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void mark2RocketCostsFiftyEnergy(GameTestHelper helper) {
+		ServerPlayer player = survivalMockPlayer(helper);
+		com.projecthero.mod.ironman.TonyStark.grant(player);
+		giveFullSuit(player, "mark_2");
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_2", 5000f);
+		float before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
+
+		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_2, true);
+
+		// See the matching comment in mark1RocketCostsOneHundredEnergy above -- filtered to owner to avoid
+		// picking up a neighbouring gametest structure's rocket.
+		long rockets = helper.getLevel().getEntitiesOfClass(com.projecthero.mod.ironman.entity.IronManMissileEntity.class,
+				player.getBoundingBox().inflate(8), e -> e.getOwner() == player).size();
+		helper.assertTrue(rockets == 1, "the Rocket ability should launch exactly one projectile, got " + rockets);
+		float spent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
+		helper.assertTrue(Math.abs(spent - 50f) < 0.01f, "Mark 2's Rocket must cost exactly 50 energy, spent " + spent);
 		helper.succeed();
 	}
 
@@ -1696,6 +1725,99 @@ public class HeroPackGameTests implements FabricGameTest {
 		helper.assertTrue(com.projecthero.mod.ironman.TonyStark.state(player).mobHighlightOn, "V should toggle it on");
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_5, true);
 		helper.assertFalse(com.projecthero.mod.ironman.TonyStark.state(player).mobHighlightOn, "a second V toggles it back off");
+		helper.succeed();
+	}
+
+	/** v0.11.13, explicit user request: Mark 2 is now diamond-level armour, same as Mark 1. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void mark2IsDiamondLevelArmor(GameTestHelper helper) {
+		net.minecraft.world.item.ArmorMaterial material = com.projecthero.mod.ironman.item.IronManArmorMaterials.MARK_2.value();
+		int total = material.defense().values().stream().mapToInt(Integer::intValue).sum();
+		helper.assertTrue(total == 20, "Mark 2's total defence should be diamond-level 20, was " + total);
+		helper.assertTrue(material.toughness() == 2.0f,
+				"Mark 2's toughness should be diamond-level 2.0, was " + material.toughness());
+		helper.succeed();
+	}
+
+	/** v0.11.13, explicit user request: a full, powered Mark 2 suit grants a standing Resistance I. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void mark2FullSuitGrantsResistance(GameTestHelper helper) {
+		ServerPlayer player = survivalMockPlayer(helper);
+		com.projecthero.mod.ironman.TonyStark.grant(player);
+		giveFullSuit(player, "mark_2");
+		com.projecthero.mod.ironman.IronManPassives.tick(player);
+		helper.assertTrue(player.hasEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE),
+				"a fully-suited, powered Mark 2 wearer should have Resistance");
+		var eff = player.getEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE);
+		helper.assertTrue(eff.getAmplifier() == 0, "Resistance I is amplifier 0, got " + eff.getAmplifier());
+
+		player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, ItemStack.EMPTY);
+		com.projecthero.mod.ironman.IronManPassives.tick(player);
+		helper.assertFalse(player.hasEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE),
+				"losing a piece should drop the Resistance bonus (only a full suit gets it)");
+		helper.succeed();
+	}
+
+	/** v0.11.13, explicit user request: Mark 2's Unibeam channel now costs a flat 300 (was a shared 700). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void mark2UnibeamCostsThreeHundredEnergy(GameTestHelper helper) {
+		ServerPlayer player = survivalMockPlayer(helper);
+		com.projecthero.mod.ironman.TonyStark.grant(player);
+		giveFullSuit(player, "mark_2");
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_2", 5000f);
+		float before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
+
+		var suit = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_2");
+		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_4, true);
+		for (int i = 0; i < 100; i++) {
+			com.projecthero.mod.ironman.ability.IronManAbilities.tickUnibeam(player, suit);
+		}
+		float spent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
+		helper.assertTrue(Math.abs(spent - 300f) < 1f, "a full Mark 2 Unibeam channel must cost ~300 energy, spent " + spent);
+		helper.succeed();
+	}
+
+	/** v0.11.13, explicit user request: Mark 2's Charged Repulsor (hold slot 1) costs its own flat 50. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void mark2ChargedRepulsorCostsFiftyEnergy(GameTestHelper helper) {
+		ServerPlayer player = survivalMockPlayer(helper);
+		com.projecthero.mod.ironman.TonyStark.grant(player);
+		giveFullSuit(player, "mark_2");
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_2", 5000f);
+		float before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
+
+		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_1, true);
+		com.projecthero.mod.ironman.TonyStark.state(player).chargeStartTick = player.level().getGameTime() - 60L;
+		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_1, false);
+		float spent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
+		helper.assertTrue(Math.abs(spent - 50f) < 0.01f, "a held-then-released Mark 2 repulsor must cost exactly 50, spent " + spent);
+		helper.assertTrue(com.projecthero.mod.ironman.TonyStark.state(player).repulsorWindupAt == 0L,
+				"the Charged Repulsor must fire directly, not queue a windup shot too");
+		helper.succeed();
+	}
+
+	/** v0.11.13, explicit user request: Mark 2's mob-highlight toggle now drains 1 energy/sec while on. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void mark2MobHighlightDrainsOneEnergyPerSecond(GameTestHelper helper) {
+		ServerPlayer player = survivalMockPlayer(helper);
+		com.projecthero.mod.ironman.TonyStark.grant(player);
+		giveFullSuit(player, "mark_2");
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_2", 100f);
+		var suit = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_2");
+
+		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_5, true);
+		helper.assertTrue(com.projecthero.mod.ironman.TonyStark.state(player).mobHighlightOn, "V toggles the highlight on");
+		float before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
+		for (int i = 0; i < 20; i++) {
+			com.projecthero.mod.ironman.ability.IronManAbilities.tickMark2MobHighlightDrain(player, suit);
+		}
+		float spent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
+		helper.assertTrue(Math.abs(spent - 1f) < 0.01f, "20 ticks of the highlight should cost ~1 energy, spent " + spent);
+
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_2", 0f);
+		com.projecthero.mod.ironman.ability.IronManAbilities.tickMark2MobHighlightDrain(player, suit);
+		helper.assertFalse(com.projecthero.mod.ironman.TonyStark.state(player).mobHighlightOn,
+				"running out of energy should clear the highlight toggle");
 		helper.succeed();
 	}
 
@@ -1754,8 +1876,8 @@ public class HeroPackGameTests implements FabricGameTest {
 		// user request.
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_1") == 1000f,
 				"Mark 1 max integrity must be 1000");
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_2") == 420f,
-				"Mark 2 max integrity must be 420");
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_2") == 1500f,
+				"Mark 2 max integrity must be 1500"); // v0.11.13, explicit user request (was 420)
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_iii") == 600f,
 				"Mark III max integrity must be 600");
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_4") == 700f,
@@ -2059,9 +2181,9 @@ public class HeroPackGameTests implements FabricGameTest {
 
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.PLATFORM_FRACTION_PER_SECOND == 0.001f,
 				"a platform charges a flat 0.1% per second");
-		// v0.11.12: Mark 1 now has its own flat platformRegen() override (10 energy/s, 6 integrity/s,
-		// explicit user request) instead of the generic 0.1%-of-pool formula -- checked separately below.
-		for (var suit : new com.projecthero.mod.ironman.suit.IronManSuit[] { m2, m7 }) {
+		// v0.11.12/13: Mark 1 and Mark 2 each now have their own flat platformRegen() override instead of
+		// the generic 0.1%-of-pool formula -- checked separately below.
+		for (var suit : new com.projecthero.mod.ironman.suit.IronManSuit[] { m7 }) {
 			helper.assertTrue(Math.abs(com.projecthero.mod.ironman.IronManEnergy.platformEnergyPerSecond(suit)
 					- suit.energyCapacity() * 0.001f) < 1e-4f,
 					"platform energy regen is 0.1% of capacity for " + suit.id());
@@ -2072,6 +2194,9 @@ public class HeroPackGameTests implements FabricGameTest {
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.platformEnergyPerSecond(m1) == 10f
 				&& com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(m1) == 6f,
 				"Mark 1's own flat platform regen override (10 energy/s, 6 integrity/s)");
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.platformEnergyPerSecond(m2) == 24f
+				&& com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(m2) == 15f,
+				"Mark 2's own flat platform regen override (24 energy/s, 15 integrity/s)"); // v0.11.13
 		// every mark -- including the prototypes -- now gets a positive repair rate on a rack.
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(m1) > 0f
 				&& com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(m2) > 0f,

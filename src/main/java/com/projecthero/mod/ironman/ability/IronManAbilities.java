@@ -31,8 +31,9 @@ import net.minecraft.world.phys.Vec3;
  * 50), updated in "changes 13":
  * <pre>
  *   R  slot 1  Repulsor Blast     tap = shot (80 energy); HOLD >= 2 s then release = Charged Repulsor
- *                                 (250 energy, 3x the damage). Mark 2 has NO charged variant -- a press
- *                                 = a forced 1 s spin-up then an ordinary blast.
+ *                                 (250 energy, 3x the damage). Mark 2 (v0.11.13): a quick tap = a forced
+ *                                 1 s spin-up then an ordinary blast (20 energy); HOLD >= 2 s then
+ *                                 release instead fires its own cheaper Charged Repulsor (50 energy).
  *   G  slot 2  Repulsor Shield    frontal energy shield: blocks 90% of any hit landing in the 180-deg
  *                                 front arc + deflects projectiles while up, 40 energy/s, 6 s cooldown
  *   X  slot 3  Micro-Missiles     volley fired one at a time (each lands + blasts separately)
@@ -88,10 +89,15 @@ public final class IronManAbilities {
 	public static final float REPULSOR_ENERGY = 80.0f;
 	/** Energy a Charged Repulsor costs ("changes 18": 250, and it hits 3x as hard as a plain blast). */
 	public static final float CHARGED_REPULSOR_ENERGY = 250.0f;
+	/** v0.11.13, explicit user request: Mark 2's own (cheaper, prototype-tier) repulsor costs. */
+	private static final float MARK_2_REPULSOR_ENERGY = 20.0f;
+	private static final float MARK_2_CHARGED_REPULSOR_ENERGY = 50.0f;
 	/** How much harder a Charged Repulsor hits than a plain Repulsor Blast ("changes 18"). */
 	public static final float CHARGED_REPULSOR_DAMAGE_MULTIPLIER = 3.0f;
 	/** Total energy one full Unibeam channel costs ("changes 18": 700, spread evenly across its 5 s). */
 	public static final float UNIBEAM_ENERGY = 700.0f;
+	/** v0.11.13, explicit user request: Mark 2's own (cheaper) total Unibeam channel cost. */
+	private static final float MARK_2_UNIBEAM_ENERGY = 300.0f;
 
 	private static final int UNIBEAM_CHANNEL_TICKS = 100; // 5 s
 	private static final float UNIBEAM_DAMAGE_PER_TICK = 10.0f; // "changes 13"
@@ -132,6 +138,12 @@ public final class IronManAbilities {
 	private static final float ROCKET_DAMAGE = 15.0f;
 	private static final float ROCKET_ENERGY_COST = 300f; // "changes 18"
 	private static final int ROCKET_COOLDOWN_TICKS = 20 * 20;
+	// v0.11.13, explicit user request: Mark 1 and Mark 2 now each have their own Rocket tuning (was one
+	// shared set of constants for both) and both now break blocks on impact (see IronManMissileEntity).
+	private static final float MARK_1_ROCKET_DAMAGE = 25.0f;
+	private static final float MARK_1_ROCKET_ENERGY_COST = 100f;
+	private static final int MARK_1_ROCKET_COOLDOWN_TICKS = 25 * 20;
+	private static final float MARK_2_ROCKET_ENERGY_COST = 50f;
 
 	private static final double FLARE_RADIUS = 10.0;
 	private static final int FLARE_BLIND_TICKS = 60; // 3 s
@@ -149,6 +161,8 @@ public final class IronManAbilities {
 	// -- Mark 1: mob-highlight toggle timer/cost (v0.11.12, explicit user request) --
 	private static final float MARK_1_MOB_HIGHLIGHT_ENERGY_COST = 2f;
 	private static final int MARK_1_MOB_HIGHLIGHT_DURATION_TICKS = 20 * 20;
+	// -- Mark 2: mob-highlight toggle continuous drain (v0.11.13, explicit user request) --
+	private static final float MARK_2_MOB_HIGHLIGHT_ENERGY_PER_TICK = 1f / 20f; // 1 energy/sec
 	/** Key suffix stored in the shared, already-synced {@code abilityReadyAt} map for the highlight's
 	 *  own expiry timestamp -- avoids adding a 17th field to {@link TonyStarkState}'s codec, which is
 	 *  already at its 16-field ceiling per that class's own javadoc. */
@@ -301,11 +315,26 @@ public final class IronManAbilities {
 		TonyStarkState s = TonyStark.state(player);
 		long now = player.level().getGameTime();
 
-		// Mark 2 ("changes 13"): a newer-but-cruder suit. NO Charged Repulsor variant and NO hold
-		// semantics -- a single press commits to a forced 1 s spin-up, then an ordinary blast fires
-		// (tickRepulsorWindup). Holding the key does nothing extra.
+		// Mark 2 ("changes 13"; Charged variant added v0.11.13, explicit user request): a quick tap
+		// commits to the forced 1 s spin-up, then an ordinary blast fires (tickRepulsorWindup). Holding
+		// the key for >= CHARGE_HOLD_TICKS before releasing instead fires a Charged Repulsor directly --
+		// no separate windup needed, the hold itself is the charge-up.
 		if (suit.repulsorWindupTicks() > 0) {
-			if (pressed && s.repulsorWindupAt == 0L && requireChest(player, suit)
+			if (pressed) {
+				if (s.chargeStartTick == 0L) {
+					s.chargeStartTick = now;
+					s.chargeReadyPinged = false;
+				}
+				return;
+			}
+			long held = s.chargeStartTick == 0L ? 0L : now - s.chargeStartTick;
+			s.chargeStartTick = 0L;
+			s.chargeReadyPinged = false;
+			if (held >= CHARGE_HOLD_TICKS) {
+				chargedRepulsor(player, suit);
+				return;
+			}
+			if (s.repulsorWindupAt == 0L && requireChest(player, suit)
 					&& cooldownReady(player, suit.id(), REPULSOR_BLAST)) {
 				TonyStark.state(player).repulsorWindupAt = now + suit.repulsorWindupTicks();
 				AbilityHelpers.sound(player, SoundEvents.BEACON_AMBIENT, 0.4f, 0.6f);
@@ -348,6 +377,13 @@ public final class IronManAbilities {
 		Vec3 right = rightOf(player, look);
 		Vec3 muzzle = player.getEyePosition().add(look.scale(0.6)).add(right.scale(0.35)).add(0, -0.35, 0);
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, muzzle.x, muzzle.y, muzzle.z, 2, 0.05, 0.05, 0.05, 0.02);
+		// v0.11.13, explicit user request: an audible spin-up, not just a single blip when the windup
+		// starts -- a rising-pitch hum every 4 ticks as it nears firing.
+		long remaining = Math.max(0L, windupAt - now);
+		if (remaining % 4 == 0) {
+			float pitch = 0.6f + 0.5f * (1f - (float) remaining / suit.repulsorWindupTicks());
+			AbilityHelpers.sound(player, SoundEvents.BEACON_AMBIENT, 0.3f, pitch);
+		}
 		if (now >= windupAt) {
 			TonyStark.state(player).repulsorWindupAt = 0L;
 			repulsorBlast(player, suit);
@@ -390,7 +426,8 @@ public final class IronManAbilities {
 		if (!requireChest(player, suit) || !cooldownReady(player, suit.id(), REPULSOR_BLAST)) {
 			return;
 		}
-		if (!pay(player, suit, REPULSOR_ENERGY)) {
+		float cost = "mark_2".equals(suit.id()) ? MARK_2_REPULSOR_ENERGY : REPULSOR_ENERGY;
+		if (!pay(player, suit, cost)) {
 			return;
 		}
 		fireRepulsor(player, suit.repulsorDamage(), false, 24.0);
@@ -406,7 +443,8 @@ public final class IronManAbilities {
 			repulsorBlast(player, suit);
 			return;
 		}
-		if (!pay(player, suit, CHARGED_REPULSOR_ENERGY)) {
+		float cost = "mark_2".equals(suit.id()) ? MARK_2_CHARGED_REPULSOR_ENERGY : CHARGED_REPULSOR_ENERGY;
+		if (!pay(player, suit, cost)) {
 			return;
 		}
 		fireRepulsor(player, suit.repulsorDamage() * CHARGED_REPULSOR_DAMAGE_MULTIPLIER, true, 32.0);
@@ -640,6 +678,11 @@ public final class IronManAbilities {
 
 	// ---------------- Unibeam (continuous) ----------------
 
+	/** v0.11.13: Mark 2's total Unibeam channel cost is its own, cheaper flat figure. */
+	private static float unibeamTotalEnergy(IronManSuit suit) {
+		return "mark_2".equals(suit.id()) ? MARK_2_UNIBEAM_ENERGY : UNIBEAM_ENERGY;
+	}
+
 	private static void startUnibeam(ServerPlayer player, IronManSuit suit) {
 		if (!requireChest(player, suit)) {
 			return;
@@ -651,8 +694,9 @@ public final class IronManAbilities {
 		if (!cooldownReady(player, suit.id(), UNIBEAM)) {
 			return;
 		}
-		if (!canPay(player, suit, UNIBEAM_ENERGY / (float) UNIBEAM_CHANNEL_TICKS)) {
-			noEnergy(player, UNIBEAM_ENERGY * suit.energyCostMultiplier());
+		float totalEnergy = unibeamTotalEnergy(suit);
+		if (!canPay(player, suit, totalEnergy / (float) UNIBEAM_CHANNEL_TICKS)) {
+			noEnergy(player, totalEnergy * suit.energyCostMultiplier());
 			return;
 		}
 		s.unibeamUntil = player.level().getGameTime() + UNIBEAM_CHANNEL_TICKS;
@@ -668,7 +712,7 @@ public final class IronManAbilities {
 			return;
 		}
 		String suitId = suit.id();
-		float perTick = UNIBEAM_ENERGY / (float) UNIBEAM_CHANNEL_TICKS;
+		float perTick = unibeamTotalEnergy(suit) / (float) UNIBEAM_CHANNEL_TICKS;
 		if (now >= unibeamUntil || !IronManArmor.hasChestplate(player, suitId)
 				|| !IronManEnergy.spend(player, suitId, perTick * suit.energyCostMultiplier())) {
 			// re-fetch after the spend (which swaps the attachment) before clearing the flag
@@ -848,12 +892,17 @@ public final class IronManAbilities {
 	// ---------------- Mark 1 / Mark 2: Rocket ----------------
 
 	private static void rocket(ServerPlayer player, IronManSuit suit) {
+		boolean mark1 = "mark_1".equals(suit.id());
+		int cooldownTicks = mark1 ? MARK_1_ROCKET_COOLDOWN_TICKS : ROCKET_COOLDOWN_TICKS;
 		if (!requireHelmet(player, suit) || !cooldownReady(player, suit.id(), ROCKET)) {
 			return;
 		}
-		if (!pay(player, suit, ROCKET_ENERGY_COST)) {
+		float cost = mark1 ? MARK_1_ROCKET_ENERGY_COST
+				: "mark_2".equals(suit.id()) ? MARK_2_ROCKET_ENERGY_COST : ROCKET_ENERGY_COST;
+		if (!pay(player, suit, cost)) {
 			return;
 		}
+		float damage = mark1 ? MARK_1_ROCKET_DAMAGE : ROCKET_DAMAGE;
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 shoulder = player.getEyePosition().add(0, 0.15, 0);
 		// "changes 14": the rocket is dumb-fire -- it flies exactly where the player aimed, no tracking,
@@ -861,12 +910,15 @@ public final class IronManAbilities {
 		Vec3 dir = player.getLookAngle();
 		com.projecthero.mod.ironman.entity.IronManMissileEntity missile =
 				new com.projecthero.mod.ironman.entity.IronManMissileEntity(level, player, dir.scale(1.4))
-						.withDamage(ROCKET_DAMAGE, ROCKET_DAMAGE * 0.7f)
-						.withBlastRadius(3.0f);
+						.withDamage(damage, damage * 0.7f)
+						.withBlastRadius(3.0f)
+						// v0.11.13, explicit user request: the Mark 1/2 rocket now actually breaks blocks
+						// (TNT-style), unlike every other missile this entity type is shared with.
+						.withBreaksBlocks();
 		missile.setPos(shoulder.x + dir.x, shoulder.y + dir.y, shoulder.z + dir.z);
 		level.addFreshEntity(missile);
 		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.2f, 0.9f);
-		triggerCooldown(player, suit.id(), ROCKET, ROCKET_COOLDOWN_TICKS);
+		triggerCooldown(player, suit.id(), ROCKET, cooldownTicks);
 	}
 
 	// ---------------- Mark 2: Flare (X) ----------------
@@ -918,6 +970,21 @@ public final class IronManAbilities {
 		AbilityHelpers.sound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, 0.5f, s.mobHighlightOn ? 1.8f : 1.2f);
 		player.displayClientMessage(Component.translatable(s.mobHighlightOn
 				? "message.projecthero.ironman.mob_highlight_on" : "message.projecthero.ironman.mob_highlight_off"), true);
+	}
+
+	/**
+	 * "Per-tick from {@link com.projecthero.mod.ironman.IronManSuitTicker} while Mark 2's mob-highlight
+	 * toggle is on: 1 energy/sec, auto-clearing the toggle if the helmet comes off or energy runs out
+	 * (v0.11.13, explicit user request).
+	 */
+	public static void tickMark2MobHighlightDrain(ServerPlayer player, IronManSuit suit) {
+		if (!TonyStark.state(player).mobHighlightOn) {
+			return;
+		}
+		if (!IronManArmor.hasHelmet(player, suit.id())
+				|| !IronManEnergy.spend(player, suit.id(), MARK_2_MOB_HIGHLIGHT_ENERGY_PER_TICK * suit.energyCostMultiplier())) {
+			clearMobHighlight(player);
+		}
 	}
 
 	/** Absolute game-time Mark 1's mob-highlight toggle expires, or 0 if not active/not Mark 1. Works
