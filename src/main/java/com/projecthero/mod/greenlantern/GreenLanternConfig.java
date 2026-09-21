@@ -298,6 +298,8 @@ public final class GreenLanternConfig {
 
 	// ---------------- Will Trial ----------------
 
+	/** v0.11.12, explicit user request: a bare experience-level gate on even starting the trial. */
+	public static final int TRIAL_LEVEL_REQUIREMENT = 20;
 	public static final double TRIAL_RADIUS = 32.0;
 	public static final int TRIAL_LEAVE_FAIL_TICKS = 8 * 20;
 	public static final int TRIAL_FAIL_COOLDOWN_TICKS = 10 * 60 * 20;

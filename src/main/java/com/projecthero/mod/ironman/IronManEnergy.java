@@ -138,14 +138,25 @@ public final class IronManEnergy {
 	 */
 	public static final float PLATFORM_FRACTION_PER_SECOND = 0.001f;
 
-	/** Energy per second a docked suit gains on a Suit Platform -- a flat 0.1% of the mark's capacity. */
+	/** Energy per second a docked suit gains on a Suit Platform -- a flat 0.1% of the mark's capacity,
+	 *  unless the mark sets its own flat {@link IronManSuit#platformEnergyPerSecondOverride()} (Mark 1). */
 	public static float platformEnergyPerSecond(IronManSuit suit) {
-		return suit == null ? 0f : suit.energyCapacity() * PLATFORM_FRACTION_PER_SECOND;
+		if (suit == null) {
+			return 0f;
+		}
+		return suit.platformEnergyPerSecondOverride() >= 0f
+				? suit.platformEnergyPerSecondOverride() : suit.energyCapacity() * PLATFORM_FRACTION_PER_SECOND;
 	}
 
-	/** Integrity per second a docked suit repairs on a Suit Platform -- a flat 0.1% of the mark's max integrity. */
+	/** Integrity per second a docked suit repairs on a Suit Platform -- a flat 0.1% of the mark's max
+	 *  integrity, unless the mark sets its own flat {@link IronManSuit#platformIntegrityPerSecondOverride()}
+	 *  (Mark 1). */
 	public static float platformIntegrityPerSecond(IronManSuit suit) {
-		return suit == null ? 0f : suit.maxIntegrity() * PLATFORM_FRACTION_PER_SECOND;
+		if (suit == null) {
+			return 0f;
+		}
+		return suit.platformIntegrityPerSecondOverride() >= 0f
+				? suit.platformIntegrityPerSecondOverride() : suit.maxIntegrity() * PLATFORM_FRACTION_PER_SECOND;
 	}
 
 	/**

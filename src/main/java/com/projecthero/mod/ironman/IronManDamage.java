@@ -65,6 +65,17 @@ public final class IronManDamage {
 	private static final float FIRE_INTEGRITY_MULTIPLIER = 0.05f;
 	private static final float FIRE_ENERGY_MULTIPLIER = 0.10f;
 
+	/**
+	 * v0.11.12, explicit user request: Mark 1's mitigation is its own flat rule, not the shared 90/10
+	 * split above -- an even 50/50 for an ordinary hit (the wearer takes half, the arc reactor's plating
+	 * eats the other half off integrity), and full immunity to fire and projectiles specifically (the
+	 * wearer takes nothing from either), at the cost of only a token flat integrity chip -- not a
+	 * percentage of the hit -- regardless of how big that hit was.
+	 */
+	private static final float MARK_1_PLAYER_SHARE = 0.5f;
+	private static final float MARK_1_INTEGRITY_DAMAGE_SHARE = 0.5f;
+	private static final float MARK_1_ELEMENTAL_INTEGRITY_CHIP = 0.1f;
+
 	private static final ThreadLocal<Boolean> REENTRANT = ThreadLocal.withInitial(() -> false);
 
 	private IronManDamage() {
@@ -128,6 +139,10 @@ public final class IronManDamage {
 			return true; // suit fully unpowered -- physical protection only
 		}
 
+		if ("mark_1".equals(suitId)) {
+			return mitigateMark1(player, suitId, source, amount);
+		}
+
 		// "changes 22": fire is cheap for the suit to shrug off -- see FIRE_INTEGRITY_MULTIPLIER.
 		boolean fire = source.is(DamageTypeTags.IS_FIRE);
 		float integrityMult = fire ? FIRE_INTEGRITY_MULTIPLIER : 1.0f;
@@ -152,6 +167,20 @@ public final class IronManDamage {
 			IronManEnergy.addEnergy(player, suitId, -amount * ENERGY_COST_SHARE_INTEGRITY_FAILED * energyMult);
 		}
 		return reduce(player, source, amount, integrityOk ? PLAYER_SHARE_INTEGRITY_OK : PLAYER_SHARE_INTEGRITY_FAILED);
+	}
+
+	/**
+	 * Mark 1's own flat mitigation rule (v0.11.12) -- see {@link #MARK_1_PLAYER_SHARE} and friends.
+	 * Unlike the shared model this never falls back to a worse "integrity failed" share; it is the same
+	 * flat split regardless of how much of the (now 1000-point) pool is left, exactly as specified.
+	 */
+	private static boolean mitigateMark1(ServerPlayer player, String suitId, DamageSource source, float amount) {
+		if (source.is(DamageTypeTags.IS_FIRE) || source.is(DamageTypeTags.IS_PROJECTILE)) {
+			IronManEnergy.damageIntegrity(player, suitId, MARK_1_ELEMENTAL_INTEGRITY_CHIP);
+			return false;
+		}
+		IronManEnergy.damageIntegrity(player, suitId, amount * MARK_1_INTEGRITY_DAMAGE_SHARE);
+		return reduce(player, source, amount, MARK_1_PLAYER_SHARE);
 	}
 
 	/**

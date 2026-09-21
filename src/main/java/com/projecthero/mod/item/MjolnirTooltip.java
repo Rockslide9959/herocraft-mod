@@ -28,9 +28,8 @@ public final class MjolnirTooltip {
 	 * Options &gt; Controls updates the tooltip too, instead of it advertising a stale default.
 	 */
 	private static final String[][] ABILITY_LINES = {
-			// v0.10.10: the throw moved onto the ability-1 key (it used to be right-click only) and the
-			// recall onto that key's sneak variant, so both now read their binding rather than a fixed word.
-			{ "item.projecthero.mjolnir.ability.throw_key", "key.projecthero.ability_1" },
+			// v0.11.12, explicit user request: the ability-1 key is Call Mjolnir only now, no Shift
+			// needed -- throwing moved off it entirely and lives solely on plain right-click below.
 			{ "item.projecthero.mjolnir.ability.call_hammer", "key.projecthero.ability_1" },
 			{ "item.projecthero.mjolnir.ability.throw", null },
 			{ "item.projecthero.mjolnir.ability.bind", null },

@@ -138,6 +138,14 @@ public final class GreenLanternTrial {
 			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.trial_ineligible"), true);
 			return;
 		}
+		// v0.11.12, explicit user request: the ring demands proof of experience before it will even
+		// test your will -- experience LEVELS (the enchant-table number), not XP points, and purely a
+		// gate, not a cost -- nothing is spent here.
+		if (player.experienceLevel < GreenLanternConfig.TRIAL_LEVEL_REQUIREMENT) {
+			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.trial_level_required",
+					GreenLanternConfig.TRIAL_LEVEL_REQUIREMENT), true);
+			return;
+		}
 		Long cooldownUntil = COOLDOWNS.get(cooldownKey(player, pedestal));
 		if (cooldownUntil != null && player.level().getGameTime() < cooldownUntil) {
 			int secs = (int) ((cooldownUntil - player.level().getGameTime()) / 20);
@@ -157,8 +165,17 @@ public final class GreenLanternTrial {
 		ACTIVE.put(player.getUUID(), trial);
 		player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.trial_begin")
 				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
-		sealArea(player, trial);
+		// v0.11.12 fix: expel outsiders and spawn the wave BEFORE the dome goes up, not after. Building
+		// the dome first (the original v0.11.11 order) was the actual cause of "spawns the dome but
+		// nothing else happens" -- groundedPointNear() below snaps a spawn point onto the terrain via
+		// the MOTION_BLOCKING_NO_LEAVES heightmap, and the dome's own glass shell (which sits ~30 blocks
+		// above the crater floor near the centre) immediately became the tallest blocking block in every
+		// column under it, so every mob in wave 1 silently spawned up at the dome's own ceiling instead
+		// of on the ground -- invisible, inaudible, and almost certainly dead of suffocation within a
+		// couple of ticks, which from the player's point of view really did look like nothing happened.
+		expelOutsiders(trial, player.getUUID());
 		spawnWave(player, trial);
+		buildDome(trial);
 	}
 
 	private static String cooldownKey(ServerPlayer player, BlockPos pedestal) {
@@ -166,12 +183,6 @@ public final class GreenLanternTrial {
 	}
 
 	// ---------------- sealing the trial area ----------------
-
-	/** Clears everyone but the attempting player out of the trial radius and raises the dome over it. */
-	private static void sealArea(ServerPlayer player, Trial trial) {
-		expelOutsiders(trial, player.getUUID());
-		buildDome(trial);
-	}
 
 	/**
 	 * v0.11.11, explicit user request ("push all other entities out of the range of the trial ... only
@@ -234,8 +245,13 @@ public final class GreenLanternTrial {
 				}
 			}
 		}
+		// v0.11.12: UPDATE_CLIENTS, not UPDATE_ALL -- a dome shell this size is several thousand blocks,
+		// and UPDATE_ALL's per-block neighbour-notify cascade (irrelevant for plain glass, which has no
+		// neighbour-dependent behaviour) turned what should be an instant effect into a multi-second
+		// stall on the server thread. Sync-only placement is what every other bulk-placement site in the
+		// mod already uses for exactly this reason (see IronManSuitPlatformBlockEntity/LabDeviceBlock).
 		for (int i = 0; i < trial.domeCells.size(); i++) {
-			level.setBlock(trial.domeCells.get(i), domeState, Block.UPDATE_ALL);
+			level.setBlock(trial.domeCells.get(i), domeState, Block.UPDATE_CLIENTS);
 		}
 	}
 
@@ -256,7 +272,7 @@ public final class GreenLanternTrial {
 		for (int i = 0; i < trial.domeCells.size(); i++) {
 			BlockPos pos = trial.domeCells.get(i);
 			if (trial.level.hasChunkAt(pos) && trial.level.getBlockState(pos).is(Blocks.GREEN_STAINED_GLASS)) {
-				trial.level.setBlock(pos, trial.domePrevious.get(i), Block.UPDATE_ALL);
+				trial.level.setBlock(pos, trial.domePrevious.get(i), Block.UPDATE_CLIENTS);
 			}
 		}
 	}

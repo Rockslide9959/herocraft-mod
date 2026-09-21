@@ -75,6 +75,16 @@ public final class IronManSuitTicker {
 			s = TonyStark.state(player);
 		}
 
+		// v0.11.12, explicit user request: Mark 1's mob-highlight toggle now expires on its own after
+		// IronManAbilities.MARK_1_MOB_HIGHLIGHT_DURATION_TICKS instead of running indefinitely -- every
+		// other suit sharing this ability is unaffected (their toggle stays free and indefinite).
+		if (s.mobHighlightOn && suitId != null
+				&& player.level().getGameTime() >= IronManAbilities.mark1MobHighlightUntil(s, suitId)
+				&& IronManAbilities.mark1MobHighlightUntil(s, suitId) != 0L) {
+			IronManAbilities.clearMobHighlight(player);
+			s = TonyStark.state(player);
+		}
+
 		// No valid suit worn -> everything the suit was doing stops.
 		if (suit == null) {
 			shutDownAllSystems(player, s, null);

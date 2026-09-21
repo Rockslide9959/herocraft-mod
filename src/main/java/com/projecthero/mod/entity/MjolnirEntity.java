@@ -791,9 +791,10 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 
 	/**
 	 * Puts the hammer where a returning Mjolnir should go, in order of preference: the empty main
-	 * hand, then the empty off hand, then any free inventory slot. Carries over the entity's actual
-	 * held stack (not a fresh plain one) so the bound owner, the hammer id and the generation all
-	 * survive the round trip.
+	 * hand, then the next free inventory slot -- v0.11.12, explicit user request: the off hand is no
+	 * longer a landing spot at all, so a returning Mjolnir never bumps whatever the player deliberately
+	 * has equipped there. Carries over the entity's actual held stack (not a fresh plain one) so the
+	 * bound owner, the hammer id and the generation all survive the round trip.
 	 *
 	 * @return false if there was nowhere to put it -- the caller must not delete the hammer.
 	 */
@@ -801,8 +802,6 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 		ItemStack stack = this.getItem().copy();
 		if (player.getMainHandItem().isEmpty()) {
 			player.setItemInHand(InteractionHand.MAIN_HAND, stack);
-		} else if (player.getOffhandItem().isEmpty()) {
-			player.setItemInHand(InteractionHand.OFF_HAND, stack);
 		} else if (!player.getInventory().add(stack)) {
 			return false;
 		}

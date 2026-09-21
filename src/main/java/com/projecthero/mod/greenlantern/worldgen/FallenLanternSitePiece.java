@@ -57,11 +57,24 @@ public class FallenLanternSitePiece extends StructurePiece {
 			RandomSource random, BoundingBox chunkBox, ChunkPos chunkPos, BlockPos pos) {
 		int centerX = (this.boundingBox.minX() + this.boundingBox.maxX()) / 2;
 		int centerZ = (this.boundingBox.minZ() + this.boundingBox.maxZ()) / 2;
-		carve(level, chunkBox, random, centerX, centerZ);
-		buildDais(level, chunkBox, random, centerX, centerZ);
+		java.util.Map<Long, Integer> floorHeights = carve(level, chunkBox, random, centerX, centerZ);
+		buildDais(level, chunkBox, random, centerX, centerZ, floorHeights);
 	}
 
-	private void carve(WorldGenLevel level, BoundingBox chunkBox, RandomSource random, int centerX, int centerZ) {
+	/**
+	 * @return every carved column's actual floor Y (the block {@code floorMaterial} was just placed on,
+	 *         keyed by packed world X/Z), for {@link #buildDais} to reuse directly instead of
+	 *         re-deriving it. Re-querying the heightmap independently (the pre-v0.11.12 approach) was
+	 *         the actual cause of the pedestal -- and potentially the accent blocks/chest -- spawning
+	 *         disconnected above the rest of the structure: each of those re-derivations either raced a
+	 *         heightmap that had not necessarily settled from this same pass's own edits yet, or (for
+	 *         the accent columns specifically) would have needed to redraw the same random jitter carve()
+	 *         already consumed for that column, which is simply not reproducible after the fact. Handing
+	 *         over the exact Y that was actually carved removes the whole class of bug by construction.
+	 */
+	private java.util.Map<Long, Integer> carve(WorldGenLevel level, BoundingBox chunkBox, RandomSource random,
+			int centerX, int centerZ) {
+		java.util.Map<Long, Integer> floorHeights = new java.util.HashMap<>();
 		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 		int outer = RADIUS + 1;
 		for (int dx = -outer; dx <= outer; dx++) {
@@ -84,21 +97,25 @@ public class FallenLanternSitePiece extends StructurePiece {
 					cursor.set(worldX, y, worldZ);
 					level.setBlock(cursor, Blocks.AIR.defaultBlockState(), 2);
 				}
-				cursor.set(worldX, surfaceY - depth, worldZ);
+				int floorY = surfaceY - depth;
+				cursor.set(worldX, floorY, worldZ);
 				level.setBlock(cursor, floorMaterial(random, dist), 2);
 				if (dist > RADIUS - 2.0 && random.nextFloat() < 0.35f) {
 					cursor.set(worldX, surfaceY, worldZ);
 					level.setBlock(cursor, rimMaterial(random), 2);
 				}
+				floorHeights.put(columnKey(worldX, worldZ), floorY);
 			}
 		}
+		return floorHeights;
 	}
 
-	private void buildDais(WorldGenLevel level, BoundingBox chunkBox, RandomSource random, int centerX, int centerZ) {
+	private void buildDais(WorldGenLevel level, BoundingBox chunkBox, RandomSource random, int centerX, int centerZ,
+			java.util.Map<Long, Integer> floorHeights) {
 		if (centerX < chunkBox.minX() || centerX > chunkBox.maxX() || centerZ < chunkBox.minZ() || centerZ > chunkBox.maxZ()) {
 			return;
 		}
-		int floorY = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, centerX, centerZ) - 1;
+		int floorY = columnFloor(level, floorHeights, centerX, centerZ);
 		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 		for (int dx = -1; dx <= 1; dx++) {
 			for (int dz = -1; dz <= 1; dz++) {
@@ -120,7 +137,7 @@ public class FallenLanternSitePiece extends StructurePiece {
 			if (ax < chunkBox.minX() || ax > chunkBox.maxX() || az < chunkBox.minZ() || az > chunkBox.maxZ()) {
 				continue;
 			}
-			int ay = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, ax, az) - 1;
+			int ay = columnFloor(level, floorHeights, ax, az);
 			cursor.set(ax, ay, az);
 			level.setBlock(cursor, accentBlocks[i], 2);
 		}
@@ -128,13 +145,25 @@ public class FallenLanternSitePiece extends StructurePiece {
 		int chestX = centerX + 3;
 		int chestZ = centerZ;
 		if (chestX >= chunkBox.minX() && chestX <= chunkBox.maxX() && chestZ >= chunkBox.minZ() && chestZ <= chunkBox.maxZ()) {
-			int chestY = level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, chestX, chestZ);
+			int chestY = columnFloor(level, floorHeights, chestX, chestZ) + 1;
 			BlockPos chestPos = new BlockPos(chestX, chestY, chestZ);
 			level.setBlock(chestPos, Blocks.CHEST.defaultBlockState(), 2);
 			if (level.getBlockEntity(chestPos) instanceof ChestBlockEntity chest) {
 				chest.setLootTable(LOOT, random.nextLong());
 			}
 		}
+	}
+
+	private static long columnKey(int worldX, int worldZ) {
+		return ((long) worldX << 32) ^ (worldZ & 0xFFFFFFFFL);
+	}
+
+	/** The floor Y {@link #carve} actually dug at this column in this same pass, or (only for a column
+	 *  outside the carved footprint, which should not happen for any of the fixed offsets above) a
+	 *  live heightmap query as a last-resort fallback. */
+	private static int columnFloor(WorldGenLevel level, java.util.Map<Long, Integer> floorHeights, int worldX, int worldZ) {
+		Integer known = floorHeights.get(columnKey(worldX, worldZ));
+		return known != null ? known : level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, worldX, worldZ) - 1;
 	}
 
 	private static BlockState floorMaterial(RandomSource random, double distanceFromCenter) {

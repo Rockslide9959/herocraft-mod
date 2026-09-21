@@ -1688,6 +1688,8 @@ public class HeroPackGameTests implements FabricGameTest {
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
 		giveFullSuit(player, "mark_1");
+		// v0.11.12: Mark 1's toggle now costs energy to switch on, explicit user request.
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_1", 3000f);
 
 		helper.assertFalse(com.projecthero.mod.ironman.TonyStark.state(player).mobHighlightOn, "starts off");
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_5, true);
@@ -1748,9 +1750,10 @@ public class HeroPackGameTests implements FabricGameTest {
 	/** Marks 1-3 have small condition pools (200/200/300 -- "changes 14"); the other marks stay on the 500 default. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void markThreeIntegrityPoolIsFifteenHundred(GameTestHelper helper) {
-		// "changes 18": per-mark condition pools rebalanced.
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_1") == 300f,
-				"Mark 1 max integrity must be 300");
+		// "changes 18": per-mark condition pools rebalanced. v0.11.12: Mark 1 bumped to 1000, explicit
+		// user request.
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_1") == 1000f,
+				"Mark 1 max integrity must be 1000");
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_2") == 420f,
 				"Mark 2 max integrity must be 420");
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_iii") == 600f,
@@ -2030,7 +2033,8 @@ public class HeroPackGameTests implements FabricGameTest {
 	public void changes18SuitTuning(GameTestHelper helper) {
 		var m1 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_1");
 		var m7 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_vii");
-		helper.assertTrue(m1.energyRegenPerSecond() == 0.7f && m7.energyRegenPerSecond() == 3.0f,
+		// v0.11.12: Mark 1's passive worn regen bumped to a flat 6/s, explicit user request.
+		helper.assertTrue(m1.energyRegenPerSecond() == 6.0f && m7.energyRegenPerSecond() == 3.0f,
 				"Mark 1 / Mark 7 worn energy regen");
 		helper.assertTrue(m1.armorRegenPerSecond() == 0f && m7.armorRegenPerSecond() == 0.06f,
 				"Mark 1 has no worn armour regen; Mark 7 is 0.06/s");
@@ -2055,7 +2059,9 @@ public class HeroPackGameTests implements FabricGameTest {
 
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.PLATFORM_FRACTION_PER_SECOND == 0.001f,
 				"a platform charges a flat 0.1% per second");
-		for (var suit : new com.projecthero.mod.ironman.suit.IronManSuit[] { m1, m2, m7 }) {
+		// v0.11.12: Mark 1 now has its own flat platformRegen() override (10 energy/s, 6 integrity/s,
+		// explicit user request) instead of the generic 0.1%-of-pool formula -- checked separately below.
+		for (var suit : new com.projecthero.mod.ironman.suit.IronManSuit[] { m2, m7 }) {
 			helper.assertTrue(Math.abs(com.projecthero.mod.ironman.IronManEnergy.platformEnergyPerSecond(suit)
 					- suit.energyCapacity() * 0.001f) < 1e-4f,
 					"platform energy regen is 0.1% of capacity for " + suit.id());
@@ -2063,6 +2069,9 @@ public class HeroPackGameTests implements FabricGameTest {
 					- suit.maxIntegrity() * 0.001f) < 1e-4f,
 					"platform integrity regen is 0.1% of max integrity for " + suit.id());
 		}
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.platformEnergyPerSecond(m1) == 10f
+				&& com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(m1) == 6f,
+				"Mark 1's own flat platform regen override (10 energy/s, 6 integrity/s)");
 		// every mark -- including the prototypes -- now gets a positive repair rate on a rack.
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(m1) > 0f
 				&& com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(m2) > 0f,

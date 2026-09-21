@@ -27,8 +27,12 @@ public final class IronManSuits {
 	public static final IronManSuit MARK_1 = register(IronManSuit.Builder.of("mark_1")
 			.tech(0, 1)
 			.energy(3_000f, 2.0f, 3.0f)
-			.maxIntegrity(300f) // "changes 18": Mark 1 condition pool
-			.energyRegen(0.7f) // "changes 18"; nudged up from 0.5 -- slight Mark 1 recharge buff
+			.maxIntegrity(1000f) // v0.11.12: up from 300, explicit user request
+			.energyRegen(6f) // v0.11.12: flat passive 6 energy/sec (was 0.7 -- explicit user request)
+			.platformRegen(10f, 6f) // v0.11.12: flat 10 energy/sec + 6 integrity/sec on a Suit Platform,
+			// overriding the generic 0.1%-of-pool formula every other mark still uses -- explicit user
+			// request. armorRegen is deliberately left unset (0 = no passive integrity regen at all,
+			// platform only -- also explicit user request).
 			.flamethrowerHeat(0.6f) // "changes 22": Mark 1 heat ceiling 300 (500 x 0.6) -- ~7.9 s of stream before it overheats
 			.flightDrain(0.55f) // "changes 18"
 			.targetScanRange(30.0) // "changes 14"

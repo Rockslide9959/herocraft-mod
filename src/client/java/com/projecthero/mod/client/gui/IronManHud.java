@@ -79,6 +79,11 @@ public final class IronManHud {
 		float integrity = state.suitIntegrity.getOrDefault(suitId, maxIntegrity);
 		float integrityFrac = clamp(integrity / maxIntegrity);
 
+		// v0.11.12, explicit user request: Mark 1's HUD is deliberately stripped down to just ENERGY,
+		// INTEGRITY, and the ability/keybind list (plus its own mob-highlight duration) -- no altitude,
+		// speed, coordinates, clock, target readout, or Protocol Phoenix status.
+		boolean minimalHud = "mark_1".equals(suitId);
+
 		int y = Y;
 		g.drawString(client.font, Component.translatable(suit.nameKey())
 				.withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), X, y, 0xFF7FE9FF);
@@ -94,7 +99,7 @@ public final class IronManHud {
 
 		// "changes 17": built-in air tank -- an AIR bar while it is below full (draining underwater or
 		// refilling once out of the water).
-		if (suit.airTankSeconds() > 0 && state.suitAir < 0.999f) {
+		if (!minimalHud && suit.airTankSeconds() > 0 && state.suitAir < 0.999f) {
 			float airFrac = clamp(state.suitAir);
 			bar(g, client, X, y, "AIR", airFrac,
 					String.format(java.util.Locale.ROOT, "%ds", Math.round(airFrac * suit.airTankSeconds())),
@@ -105,7 +110,7 @@ public final class IronManHud {
 
 		// "changes 17": low-power / low-integrity alert -- blink a warning telling the pilot to disengage
 		// and repair once either gauge drops below 35%.
-		if (energyFrac < 0.35f || integrityFrac < 0.35f) {
+		if (!minimalHud && (energyFrac < 0.35f || integrityFrac < 0.35f)) {
 			if ((now % 20) < 13) {
 				g.drawString(client.font, Component.translatable("hud.projecthero.ironman.repair_warning")
 						.withStyle(ChatFormatting.RED, ChatFormatting.BOLD), X, y, 0xFFFF4444);
@@ -116,7 +121,7 @@ public final class IronManHud {
 		// Mark 1 flamethrower heat gauge ("changes 14"; "changes 17": also the Mark 7 weapon-wheel
 		// flamethrower, whose bar is 50% bigger) -- only shown once it starts building up.
 		float maxHeat = com.projecthero.mod.ironman.ability.IronManAbilities.flamethrowerMaxHeat(suit);
-		if ((hasAbility(suit, com.projecthero.mod.ironman.ability.IronManAbilities.FLAMETHROWER) || suit.hasWeaponWheel())
+		if (!minimalHud && (hasAbility(suit, com.projecthero.mod.ironman.ability.IronManAbilities.FLAMETHROWER) || suit.hasWeaponWheel())
 				&& state.flamethrowerHeat > 0.5f) {
 			float heatFrac = clamp(state.flamethrowerHeat / maxHeat);
 			bar(g, client, X, y, "HEAT", heatFrac,
@@ -126,7 +131,7 @@ public final class IronManHud {
 		}
 
 		// Mark 1 flight burst remaining ("changes 15") -- 13 s cooldown once it ends.
-		if (state.timedFlightUntil > now) {
+		if (!minimalHud && state.timedFlightUntil > now) {
 			float total = com.projecthero.mod.ironman.ability.IronManAbilities.TIMED_FLIGHT_TICKS;
 			float flightFrac = clamp((state.timedFlightUntil - now) / total);
 			bar(g, client, X, y, "FLIGHT", flightFrac,
@@ -138,7 +143,7 @@ public final class IronManHud {
 		// Mark 4 systems overload ("changes 15" / 30 s "changes 16") -- the whole suit is offline after
 		// the wrist laser fires. Drawn as its own label line + a full-width bar below it so the long
 		// "OVERLOADED SYSTEMS" text and the bar never overlap ("changes 16" fix).
-		if (state.overloadUntil > now) {
+		if (!minimalHud && state.overloadUntil > now) {
 			float total = com.projecthero.mod.ironman.ability.IronManAbilities.OVERLOAD_TICKS;
 			float overFrac = clamp((state.overloadUntil - now) / total);
 			g.drawString(client.font, Component.translatable("hud.projecthero.ironman.overloaded")
@@ -147,7 +152,7 @@ public final class IronManHud {
 			wideBar(g, X, y, overFrac,
 					String.format(java.util.Locale.ROOT, "%.1fs", (state.overloadUntil - now) / 20.0), 0xFFFF5555);
 			y += 12;
-		} else if (state.wristLaserUntil > now) {
+		} else if (!minimalHud && state.wristLaserUntil > now) {
 			float total = com.projecthero.mod.ironman.ability.IronManAbilities.WRIST_LASER_TICKS;
 			float laserFrac = clamp((state.wristLaserUntil - now) / total);
 			g.drawString(client.font, Component.translatable("hud.projecthero.ironman.ability.wrist_laser")
@@ -158,30 +163,32 @@ public final class IronManHud {
 			y += 12;
 		}
 
-		int altitude = (int) Math.round(player.getY());
-		double speed = player.getDeltaMovement().horizontalDistance() * 20.0;
-		g.drawString(client.font, Component.literal(String.format(java.util.Locale.ROOT,
-				"ALT %dm   SPD %.0f m/s", altitude, speed)).withStyle(ChatFormatting.GRAY), X, y, 0xFFB8C0E0);
-		y += 10;
-		g.drawString(client.font, Component.literal(String.format(java.util.Locale.ROOT,
-				"X %.0f  Y %.0f  Z %.0f", player.getX(), player.getY(), player.getZ()))
-				.withStyle(ChatFormatting.GRAY), X, y, 0xFFB8C0E0);
-		y += 10;
-		// "changes 18": in-game clock + day count.
-		if (client.level != null) {
-			long dayTime = client.level.getDayTime();
-			long tod = ((dayTime + 6000L) % 24000L + 24000L) % 24000L;
-			int hh = (int) (tod / 1000L);
-			int mm = (int) ((tod % 1000L) * 60L / 1000L);
-			long day = dayTime / 24000L + 1L;
+		if (!minimalHud) {
+			int altitude = (int) Math.round(player.getY());
+			double speed = player.getDeltaMovement().horizontalDistance() * 20.0;
 			g.drawString(client.font, Component.literal(String.format(java.util.Locale.ROOT,
-					"TIME %02d:%02d   DAY %d", hh, mm, day)).withStyle(ChatFormatting.GRAY), X, y, 0xFFB8C0E0);
+					"ALT %dm   SPD %.0f m/s", altitude, speed)).withStyle(ChatFormatting.GRAY), X, y, 0xFFB8C0E0);
+			y += 10;
+			g.drawString(client.font, Component.literal(String.format(java.util.Locale.ROOT,
+					"X %.0f  Y %.0f  Z %.0f", player.getX(), player.getY(), player.getZ()))
+					.withStyle(ChatFormatting.GRAY), X, y, 0xFFB8C0E0);
+			y += 10;
+			// "changes 18": in-game clock + day count.
+			if (client.level != null) {
+				long dayTime = client.level.getDayTime();
+				long tod = ((dayTime + 6000L) % 24000L + 24000L) % 24000L;
+				int hh = (int) (tod / 1000L);
+				int mm = (int) ((tod % 1000L) * 60L / 1000L);
+				long day = dayTime / 24000L + 1L;
+				g.drawString(client.font, Component.literal(String.format(java.util.Locale.ROOT,
+						"TIME %02d:%02d   DAY %d", hh, mm, day)).withStyle(ChatFormatting.GRAY), X, y, 0xFFB8C0E0);
+			}
+			y += 12;
 		}
-		y += 12;
 
 		// Mark 2's altitude ceiling ("changes 12"): a warning band below the hard cutoff, then a clear
 		// "systems frozen" readout once IronManSuitTicker has actually locked everything out.
-		if (suit.altitudeCeiling() > 0.0) {
+		if (!minimalHud && suit.altitudeCeiling() > 0.0) {
 			double ceiling = suit.altitudeCeiling();
 			if (player.getY() >= ceiling) {
 				g.drawString(client.font, Component.translatable("hud.projecthero.ironman.systems_frozen")
@@ -235,39 +242,51 @@ public final class IronManHud {
 		}
 
 		y += 3;
-		// "changes 16": Mark 7 -- always-on entity highlight + which ability the weapon wheel bound to X.
-		if (suit.passiveHighlightRange() > 0.0) {
-			g.drawString(client.font, Component.translatable("hud.projecthero.ironman.passive_highlight",
-					(int) suit.passiveHighlightRange()).withStyle(ChatFormatting.AQUA), X, y, 0xFF7FE9FF);
-			y += 10;
-		}
-		if (suit.hasWeaponWheel()) {
-			g.drawString(client.font, Component.translatable("hud.projecthero.ironman.wheel_bound",
-					Component.translatable("hud.projecthero.ironman.ability." + state.weaponWheelChoice))
-					.withStyle(ChatFormatting.GOLD), X, y, 0xFFFFC24A);
-			y += 10;
-		}
-		// "changes 19": Mark 5 blades + faceplate state.
-		if (player.getAttachedOrElse(ModAttachments.IRON_MAN_BLADES, false)) {
-			g.drawString(client.font, Component.translatable("hud.projecthero.ironman.blades_active")
-					.withStyle(ChatFormatting.AQUA), X, y, 0xFF7FE9FF);
-			y += 10;
-		}
-		if (player.getAttachedOrElse(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false)) {
-			g.drawString(client.font, Component.translatable("hud.projecthero.ironman.faceplate_open")
-					.withStyle(ChatFormatting.GRAY), X, y, 0xFFB8C0E0);
-			y += 10;
+		if (!minimalHud) {
+			// "changes 16": Mark 7 -- always-on entity highlight + which ability the weapon wheel bound to X.
+			if (suit.passiveHighlightRange() > 0.0) {
+				g.drawString(client.font, Component.translatable("hud.projecthero.ironman.passive_highlight",
+						(int) suit.passiveHighlightRange()).withStyle(ChatFormatting.AQUA), X, y, 0xFF7FE9FF);
+				y += 10;
+			}
+			if (suit.hasWeaponWheel()) {
+				g.drawString(client.font, Component.translatable("hud.projecthero.ironman.wheel_bound",
+						Component.translatable("hud.projecthero.ironman.ability." + state.weaponWheelChoice))
+						.withStyle(ChatFormatting.GOLD), X, y, 0xFFFFC24A);
+				y += 10;
+			}
+			// "changes 19": Mark 5 blades + faceplate state.
+			if (player.getAttachedOrElse(ModAttachments.IRON_MAN_BLADES, false)) {
+				g.drawString(client.font, Component.translatable("hud.projecthero.ironman.blades_active")
+						.withStyle(ChatFormatting.AQUA), X, y, 0xFF7FE9FF);
+				y += 10;
+			}
+			if (player.getAttachedOrElse(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false)) {
+				g.drawString(client.font, Component.translatable("hud.projecthero.ironman.faceplate_open")
+						.withStyle(ChatFormatting.GRAY), X, y, 0xFFB8C0E0);
+				y += 10;
+			}
 		}
 
-		// "changes 13": mob-highlight toggle state + a Micro-Missiles ammo / reload readout.
+		// "changes 13": mob-highlight toggle state + a Micro-Missiles ammo / reload readout. Kept for
+		// Mark 1 even in the stripped-down HUD -- explicit user request, "show the remaining duration of
+		// the mob highlight thats left on the heads up display" -- with its own countdown appended.
 		if (hasAbility(suit, com.projecthero.mod.ironman.ability.IronManAbilities.MOB_HIGHLIGHT_TOGGLE)) {
 			boolean on = state.mobHighlightOn;
-			g.drawString(client.font, Component.translatable(on
+			Component line = Component.translatable(on
 					? "hud.projecthero.ironman.highlight_on" : "hud.projecthero.ironman.highlight_off")
-					.withStyle(on ? ChatFormatting.AQUA : ChatFormatting.DARK_GRAY), X, y, on ? 0xFF7FE9FF : 0xFF6A7286);
+					.withStyle(on ? ChatFormatting.AQUA : ChatFormatting.DARK_GRAY);
+			if (on && minimalHud) {
+				long until = com.projecthero.mod.ironman.ability.IronManAbilities.mark1MobHighlightUntil(state, suitId);
+				if (until > now) {
+					line = line.copy().append(Component.literal(String.format(java.util.Locale.ROOT,
+							"  %.1fs", (until - now) / 20.0)).withStyle(ChatFormatting.GRAY));
+				}
+			}
+			g.drawString(client.font, line, X, y, on ? 0xFF7FE9FF : 0xFF6A7286);
 			y += 10;
 		}
-		if (suit.missileCount() > 0) {
+		if (!minimalHud && suit.missileCount() > 0) {
 			Long mReadyAt = state.abilityReadyAt.get(suitId + "/"
 					+ com.projecthero.mod.ironman.ability.IronManAbilities.MICRO_MISSILES);
 			int mCd = mReadyAt == null ? 0 : (int) Math.max(0, mReadyAt - now);
@@ -281,8 +300,9 @@ public final class IronManHud {
 			y += 10;
 		}
 
-		// "changes 17": Protocol Phoenix -- emergency-resurrection cooldown readout.
-		{
+		// "changes 17": Protocol Phoenix -- emergency-resurrection cooldown readout. v0.11.12, explicit
+		// user request: never shown on Mark 1's HUD.
+		if (!minimalHud) {
 			long readyIn = state.phoenixReadyAt - now;
 			if (readyIn > 0) {
 				long secs = (readyIn + 19) / 20;
@@ -296,20 +316,22 @@ public final class IronManHud {
 		}
 
 		y += 2;
-		HitResult hit = client.hitResult;
-		if (hit instanceof EntityHitResult ehr && ehr.getEntity() instanceof LivingEntity target && target.isAlive()) {
-			g.drawString(client.font, Component.literal("TARGET  ").withStyle(ChatFormatting.GOLD)
-					.append(target.getName().copy().withStyle(ChatFormatting.WHITE))
-					.append(Component.literal(String.format(java.util.Locale.ROOT, "  %.1fm", player.distanceTo(target)))
-							.withStyle(ChatFormatting.GRAY)), X, y, 0xFFFFC24A);
-			y += 10;
-			if (state.targetingActive(now)) {
-				drawReticle(g);
+		if (!minimalHud) {
+			HitResult hit = client.hitResult;
+			if (hit instanceof EntityHitResult ehr && ehr.getEntity() instanceof LivingEntity target && target.isAlive()) {
+				g.drawString(client.font, Component.literal("TARGET  ").withStyle(ChatFormatting.GOLD)
+						.append(target.getName().copy().withStyle(ChatFormatting.WHITE))
+						.append(Component.literal(String.format(java.util.Locale.ROOT, "  %.1fm", player.distanceTo(target)))
+								.withStyle(ChatFormatting.GRAY)), X, y, 0xFFFFC24A);
+				y += 10;
+				if (state.targetingActive(now)) {
+					drawReticle(g);
+				}
 			}
-		}
-		if (energyFrac <= 0.001f || integrity <= 0.001f || state.overloadUntil > now) {
-			g.drawString(client.font, Component.translatable("hud.projecthero.ironman.offline")
-					.withStyle(ChatFormatting.RED), X, y, 0xFFFF5555);
+			if (energyFrac <= 0.001f || integrity <= 0.001f || state.overloadUntil > now) {
+				g.drawString(client.font, Component.translatable("hud.projecthero.ironman.offline")
+						.withStyle(ChatFormatting.RED), X, y, 0xFFFF5555);
+			}
 		}
 	}
 

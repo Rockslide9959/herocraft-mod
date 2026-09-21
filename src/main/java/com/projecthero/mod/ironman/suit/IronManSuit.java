@@ -66,6 +66,11 @@ public final class IronManSuit {
 	private final float energyRegenPerSecond;    // worn Arc Reactor trickle (flat energy/second, per mark)
 	private final float armorRegenPerSecond;     // worn self-repair of integrity (flat integrity/second, per mark; 0 = none, platform only)
 	private final float flightDrainMultiplier;   // scales the tiered base flight energy cost (hover/walk/sprint/supersonic) for this mark
+	// v0.11.12: per-mark Suit Platform regen override (-1 = use the generic 0.1%-of-pool/sec formula).
+	// Mark 1's flat 10 energy/sec + 6 integrity/sec is a deliberately different, much faster rate than
+	// that formula would give it, so it needs its own explicit numbers rather than a scaled fraction.
+	private final float platformEnergyPerSecondOverride;
+	private final float platformIntegrityPerSecondOverride;
 
 	private final String[] abilities;        // 6, ordered slot 1..6 (ability ids from IronManAbilities)
 	private final SuitUpType suitUpType;
@@ -116,6 +121,8 @@ public final class IronManSuit {
 		this.energyRegenPerSecond = b.energyRegenPerSecond;
 		this.armorRegenPerSecond = b.armorRegenPerSecond;
 		this.flightDrainMultiplier = b.flightDrainMultiplier;
+		this.platformEnergyPerSecondOverride = b.platformEnergyPerSecondOverride;
+		this.platformIntegrityPerSecondOverride = b.platformIntegrityPerSecondOverride;
 		this.abilities = b.abilities;
 		this.suitUpType = b.suitUpType;
 		this.summonType = b.summonType;
@@ -165,6 +172,8 @@ public final class IronManSuit {
 	public float energyRegenPerSecond() { return energyRegenPerSecond; }
 	public float armorRegenPerSecond() { return armorRegenPerSecond; }
 	public float flightDrainMultiplier() { return flightDrainMultiplier; }
+	public float platformEnergyPerSecondOverride() { return platformEnergyPerSecondOverride; }
+	public float platformIntegrityPerSecondOverride() { return platformIntegrityPerSecondOverride; }
 	public SuitUpType suitUpType() { return suitUpType; }
 	public SummonType summonType() { return summonType; }
 	public Item requiredBlueprint() { return requiredBlueprint; }
@@ -221,6 +230,8 @@ public final class IronManSuit {
 		private float energyRegenPerSecond = 1.5f;
 		private float armorRegenPerSecond = 0.0f;
 		private float flightDrainMultiplier = 1.0f;
+		private float platformEnergyPerSecondOverride = -1f;
+		private float platformIntegrityPerSecondOverride = -1f;
 		private String[] abilities = new String[6];
 		private SuitUpType suitUpType = SuitUpType.MECHANICAL_REMOTE;
 		private SummonType summonType = SummonType.FLYING_SET;
@@ -290,6 +301,13 @@ public final class IronManSuit {
 		public Builder armorRegen(float perSecond) { this.armorRegenPerSecond = perSecond; return this; }
 		/** "changes 18": scales the tiered base flight energy cost (hover 10/s, walk 20/s, sprint 30/s, supersonic 45/s). */
 		public Builder flightDrain(float multiplier) { this.flightDrainMultiplier = multiplier; return this; }
+		/** v0.11.12: this mark's own flat Suit Platform regen rates, overriding the generic
+		 *  0.1%-of-pool/sec formula every other mark still uses. */
+		public Builder platformRegen(float energyPerSecond, float integrityPerSecond) {
+			this.platformEnergyPerSecondOverride = energyPerSecond;
+			this.platformIntegrityPerSecondOverride = integrityPerSecond;
+			return this;
+		}
 		public Builder abilities(String s1, String s2, String s3, String s4, String s5, String s6) {
 			this.abilities = new String[] { s1, s2, s3, s4, s5, s6 };
 			return this;

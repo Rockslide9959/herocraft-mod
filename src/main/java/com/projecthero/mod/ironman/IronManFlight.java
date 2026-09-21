@@ -91,11 +91,15 @@ public final class IronManFlight {
 			setFlying(player, false);
 			return;
 		}
-		// Mark 1's "20 seconds of flight" (X) is paid for up front and guaranteed for its whole
-		// duration -- no per-tick drain, no landing on ground contact (so it can launch you straight up
-		// off the floor, like Pyrokinesis/Geokinesis timed self-flight), and it force-lands the instant
-		// the timer runs out. This check has to run BEFORE the ordinary "touched the ground = land"
-		// rule, otherwise activating it while standing on the ground ended it again the very next tick.
+		// Mark 1's "20 seconds of flight" (X) is paid for up front (an activation cost) and guaranteed to
+		// stay airborne for its whole duration regardless of energy -- no landing on ground contact (so
+		// it can launch you straight up off the floor, like Pyrokinesis/Geokinesis timed self-flight),
+		// and it force-lands the instant the timer runs out. v0.11.12, explicit user request: it now ALSO
+		// drains TIMED_FLIGHT_DRAIN_PER_SECOND on top of that activation cost -- unlike the guarantee
+		// above, running dry mid-burst does force an early landing (see below), it just never cuts the
+		// burst short from ground contact. This check has to run BEFORE the ordinary "touched the ground
+		// = land" rule, otherwise activating it while standing on the ground ended it again the very next
+		// tick.
 		// "changes 17": a supersonic burst ends after 20 s (or an early re-press) -> start its cooldown.
 		long supersonicUntil = TonyStark.state(player).supersonicUntil;
 		if (supersonicUntil != 0L && player.level().getGameTime() >= supersonicUntil) {
@@ -110,6 +114,14 @@ public final class IronManFlight {
 			if (player.level().getGameTime() >= timedFlightUntil) {
 				com.projecthero.mod.ironman.ability.IronManAbilities.endTimedFlight(player, suitId);
 				setFlying(player, false);
+				return;
+			}
+			if (!IronManEnergy.spend(player, suitId,
+					com.projecthero.mod.ironman.ability.IronManAbilities.TIMED_FLIGHT_DRAIN_PER_SECOND / 20f)) {
+				com.projecthero.mod.ironman.ability.IronManAbilities.endTimedFlight(player, suitId);
+				setFlying(player, false);
+				player.displayClientMessage(net.minecraft.network.chat.Component
+						.translatable("message.projecthero.ironman.no_energy"), true);
 				return;
 			}
 		} else {

@@ -108,9 +108,9 @@ public final class IronManAbilities {
 	private static final float PUNCH_DAMAGE = 12.0f;
 	private static final double PUNCH_RANGE = 4.0;
 	private static final int PUNCH_COOLDOWN_TICKS = 10; // half a second -- a punch should feel snappy
-	private static final float PUNCH_ENERGY_COST = 30f;
+	private static final float PUNCH_ENERGY_COST = 20f; // v0.11.12: down from 30, explicit user request
 
-	private static final float FLAMETHROWER_ENERGY_PER_TICK = 6.0f;
+	private static final float FLAMETHROWER_ENERGY_PER_TICK = 0.25f; // v0.11.12: 5/sec (was 6/tick = 120/sec), explicit user request
 	private static final double FLAMETHROWER_REACH = 6.0;
 	/**
 	 * Mark 1 Flamethrower heat gauge ("changes 14") -- the same overheat model as Pyrokinesis's
@@ -139,9 +139,20 @@ public final class IronManAbilities {
 	private static final float FLARE_ENERGY_COST = 60f;
 
 	public static final int TIMED_FLIGHT_TICKS = 20 * 20;
-	private static final float TIMED_FLIGHT_ACTIVATION_COST = 500f;
+	private static final float TIMED_FLIGHT_ACTIVATION_COST = 20f; // v0.11.12: down from 500, explicit user request
+	/** v0.11.12, explicit user request: on top of the flat activation cost, the burst also drains this
+	 *  much energy per second for as long as it stays airborne. */
+	public static final float TIMED_FLIGHT_DRAIN_PER_SECOND = 1.0f;
 	/** Cooldown applied to the Mark 1 flight burst once it ends ("changes 15"). */
 	public static final int TIMED_FLIGHT_COOLDOWN_TICKS = 13 * 20;
+
+	// -- Mark 1: mob-highlight toggle timer/cost (v0.11.12, explicit user request) --
+	private static final float MARK_1_MOB_HIGHLIGHT_ENERGY_COST = 2f;
+	private static final int MARK_1_MOB_HIGHLIGHT_DURATION_TICKS = 20 * 20;
+	/** Key suffix stored in the shared, already-synced {@code abilityReadyAt} map for the highlight's
+	 *  own expiry timestamp -- avoids adding a 17th field to {@link TonyStarkState}'s codec, which is
+	 *  already at its 16-field ceiling per that class's own javadoc. */
+	private static final String MOB_HIGHLIGHT_UNTIL_KEY = "mob_highlight_until";
 
 	// -- Mark 4 wrist laser ("changes 15") --
 	public static final int WRIST_LASER_TICKS = 4 * 20;      // 4 s active
@@ -885,12 +896,34 @@ public final class IronManAbilities {
 		if (!requireHelmet(player, suit)) {
 			return;
 		}
+		boolean turningOn = !TonyStark.state(player).mobHighlightOn;
+		// v0.11.12, explicit user request: Mark 1's toggle costs energy to switch ON (never to switch
+		// off) and expires on its own after MARK_1_MOB_HIGHLIGHT_DURATION_TICKS -- every other suit
+		// sharing this ability is untouched, still free and indefinite.
+		boolean mark1 = "mark_1".equals(suit.id());
+		if (turningOn && mark1 && !pay(player, suit, MARK_1_MOB_HIGHLIGHT_ENERGY_COST)) {
+			return;
+		}
 		TonyStarkState s = TonyStark.state(player).copy();
-		s.mobHighlightOn = !s.mobHighlightOn;
+		s.mobHighlightOn = turningOn;
+		if (mark1) {
+			String key = suit.id() + "/" + MOB_HIGHLIGHT_UNTIL_KEY;
+			if (turningOn) {
+				s.abilityReadyAt.put(key, player.level().getGameTime() + MARK_1_MOB_HIGHLIGHT_DURATION_TICKS);
+			} else {
+				s.abilityReadyAt.remove(key);
+			}
+		}
 		player.setAttached(com.projecthero.mod.attachment.ModAttachments.TONY_STARK_STATE, s);
 		AbilityHelpers.sound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, 0.5f, s.mobHighlightOn ? 1.8f : 1.2f);
 		player.displayClientMessage(Component.translatable(s.mobHighlightOn
 				? "message.projecthero.ironman.mob_highlight_on" : "message.projecthero.ironman.mob_highlight_off"), true);
+	}
+
+	/** Absolute game-time Mark 1's mob-highlight toggle expires, or 0 if not active/not Mark 1. Works
+	 *  from either side (server or the client's own synced state) since it only reads the state object. */
+	public static long mark1MobHighlightUntil(TonyStarkState state, String suitId) {
+		return state.abilityReadyAt.getOrDefault(suitId + "/" + MOB_HIGHLIGHT_UNTIL_KEY, 0L);
 	}
 
 	/**
