@@ -136,6 +136,11 @@ public class WolverineGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void frenzyNeedsATargetAndDoesNotSpendCooldownWithout(GameTestHelper helper) {
 		ServerPlayer p = wolverine(helper);
+		// neighbouring tests may have left mobs nearby on CI: clear the area so "nobody near" is true
+		for (var e : helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class,
+				p.getBoundingBox().inflate(8.0), x -> x != p && !(x instanceof net.minecraft.world.entity.player.Player))) {
+			e.discard();
+		}
 		AbilityRouter.handleInput(p, 5, true); // C -> Frenzy with nobody near
 		helper.assertTrue(Wolverine.abilityReady(p, WolverineAbilities.FRENZY), "no target: no cooldown spent");
 		Zombie z = zombieInFront(helper, p, 2.0);
