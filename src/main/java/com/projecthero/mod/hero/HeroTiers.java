@@ -7,6 +7,7 @@ import com.projecthero.mod.maxsteel.MaxSteel;
 import com.projecthero.mod.punisher.Punisher;
 import com.projecthero.mod.spider.SpiderMan;
 import com.projecthero.mod.symbiote.Symbiote;
+import com.projecthero.mod.wolverine.Wolverine;
 import com.projecthero.mod.worthiness.Worthiness;
 
 import net.minecraft.server.level.ServerPlayer;
@@ -44,7 +45,8 @@ public final class HeroTiers {
 				|| SpiderMan.hasPower(player)
 				|| MaxSteel.hasPower(player)
 				|| Punisher.hasPower(player)
-				|| GreenLantern.hasPower(player);
+				|| GreenLantern.hasPower(player)
+				|| Wolverine.hasPower(player);
 	}
 
 	/** How many Hero-Tier (non-experimental) Primary powers the player holds. */
@@ -68,7 +70,7 @@ public final class HeroTiers {
 
 	/** Every non-experimental Primary power key, as used by {@code HeroCommand}. */
 	public static final java.util.List<String> HERO_KEYS = java.util.List.of(
-			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern");
+			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine");
 
 	/** Whether the player currently holds the Hero-Tier power named by {@code key}. */
 	public static boolean holdsHero(ServerPlayer player, String key) {
@@ -79,6 +81,7 @@ public final class HeroTiers {
 			case "max_steel" -> MaxSteel.hasPower(player);
 			case "punisher" -> Punisher.hasPower(player);
 			case "green_lantern" -> GreenLantern.hasPower(player);
+			case "wolverine" -> Wolverine.hasPower(player);
 			default -> false;
 		};
 	}
@@ -109,6 +112,11 @@ public final class HeroTiers {
 			case "green_lantern" -> {
 				if (GreenLantern.hasPower(player)) {
 					GreenLantern.revoke(player);
+				}
+			}
+			case "wolverine" -> {
+				if (Wolverine.hasPower(player)) {
+					Wolverine.revoke(player);
 				}
 			}
 			default -> {
@@ -274,6 +282,9 @@ public final class HeroTiers {
 			return true;
 		}
 		if (!excludeHeroKeys.contains("green_lantern") && GreenLantern.hasPower(player)) {
+			return true;
+		}
+		if (!excludeHeroKeys.contains("wolverine") && Wolverine.hasPower(player)) {
 			return true;
 		}
 		return false;

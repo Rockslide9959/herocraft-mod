@@ -50,6 +50,62 @@ public final class SizeHandlers {
 
 	private enum Form { NORMAL, TINY, LARGE, GIANT }
 
+	/** v0.12.1: every size change takes one second -- the scale eases from its current value to the target. */
+	private static final int SCALE_ANIM_TICKS = 20;
+	/** Per player: {fromScale, toScale, startGameTime}. Static world-object cache -- reset via {@link #clearSessionState}. */
+	private static final java.util.Map<java.util.UUID, double[]> SCALE_ANIM = new java.util.concurrent.ConcurrentHashMap<>();
+
+	public static void clearSessionState() {
+		SCALE_ANIM.clear();
+	}
+
+	private static double currentScale(ServerPlayer p) {
+		net.minecraft.world.entity.ai.attributes.AttributeInstance inst = p.getAttribute(Attributes.SCALE);
+		AttributeModifier m = inst == null ? null : inst.getModifier(SCALE);
+		return m == null ? 1.0 : 1.0 + m.amount();
+	}
+
+	private static void writeScale(ServerPlayer p, double scale) {
+		if (Math.abs(scale - 1.0) < 1.0E-3) {
+			PowerToggles.clearModifier(p, Attributes.SCALE, SCALE);
+		} else {
+			PowerToggles.modifier(p, Attributes.SCALE, SCALE, scale - 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		}
+	}
+
+	/** Start (or keep) easing toward {@code target}; a no-op if already there or already heading there. */
+	private static void setScaleTarget(ServerPlayer p, double target) {
+		double[] a = SCALE_ANIM.get(p.getUUID());
+		if (a != null && a[1] == target) {
+			return;
+		}
+		double cur = currentScale(p);
+		if (Math.abs(cur - target) < 1.0E-3) {
+			SCALE_ANIM.remove(p.getUUID());
+			return;
+		}
+		SCALE_ANIM.put(p.getUUID(), new double[] {cur, target, p.level().getGameTime()});
+	}
+
+	/** Advance the ease by one tick. Growth waits (and retries) if the bigger body would not fit. */
+	private static void tickScale(ServerPlayer p) {
+		double[] a = SCALE_ANIM.get(p.getUUID());
+		if (a == null) {
+			return;
+		}
+		double t = Math.min(1.0, (p.level().getGameTime() - (long) a[2]) / (double) SCALE_ANIM_TICKS);
+		// geometric interpolation so 0.28 <-> 8.33 grows by the same proportion every tick
+		double scale = t >= 1.0 ? a[1] : a[0] * Math.pow(a[1] / a[0], t);
+		if (scale > currentScale(p) && !fits(p, scale)) {
+			a[2] += 1; // hold the animation clock while blocked
+			return;
+		}
+		writeScale(p, scale);
+		if (t >= 1.0) {
+			SCALE_ANIM.remove(p.getUUID());
+		}
+	}
+
 	/** Ability ids of the three form toggles, in slot order X / Z / C. */
 	private static final String[] FORM_TOGGLES = {"shrink", "giant_form", "large_form"};
 
@@ -81,14 +137,7 @@ public final class SizeHandlers {
 
 	private static void applyForm(ServerPlayer p, Form f) {
 		double scale = scaleFor(f);
-		if (scale > 1.0 && !fits(p, scale)) {
-			p.setPos(p.getX(), p.getY() + 0.5, p.getZ());
-			if (!fits(p, scale)) {
-				p.setPos(p.getX(), p.getY() - 0.5, p.getZ());
-				return;
-			}
-		}
-		PowerToggles.modifier(p, Attributes.SCALE, SCALE, scale - 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		setScaleTarget(p, scale);
 		double atk = switch (f) {
 			case TINY -> -2.0;
 			case LARGE -> 5.0;
@@ -129,8 +178,20 @@ public final class SizeHandlers {
 		}
 	}
 
+	/** Drop the stat modifiers now and ease the body back to normal size over a second. */
 	private static void clearForm(ServerPlayer p) {
+		clearStats(p);
+		setScaleTarget(p, 1.0);
+	}
+
+	/** Power removed / deactivated: no animation, everything gone immediately. */
+	private static void clearFormNow(ServerPlayer p) {
+		SCALE_ANIM.remove(p.getUUID());
 		PowerToggles.clearModifier(p, Attributes.SCALE, SCALE);
+		clearStats(p);
+	}
+
+	private static void clearStats(ServerPlayer p) {
 		PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, ATK);
 		PowerToggles.clearModifier(p, Attributes.ENTITY_INTERACTION_RANGE, REACH);
 		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, STEP);
@@ -286,10 +347,11 @@ public final class SizeHandlers {
 
 		com.projecthero.mod.hero.PowerPassives.register(KEY, (player, active) -> {
 			if (!active) {
-				clearForm(player);
+				clearFormNow(player);
 			}
 		});
 		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, player -> {
+			tickScale(player);
 			// keep the current form's modifiers applied (respawn-safe); giant handled by its own tick
 			Form f = currentForm(player);
 			if ((f == Form.TINY || f == Form.LARGE) && player.tickCount % 20 == 0) {

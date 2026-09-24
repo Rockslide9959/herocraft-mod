@@ -1271,7 +1271,7 @@ slot; the experimental mutations are one group in one slot (still capped by `mut
 ## Primary & Secondary powers (v0.11.14)
 
 Every power is `PowerClass.PRIMARY` or `PowerClass.SECONDARY`. Primary: Thor, Iron Man, Spider-Man,
-Max Steel, the Punisher, Green Lantern and the 27 experimental mutations. Secondary: the Symbiote (only).
+Max Steel, the Punisher, Green Lantern, Wolverine (v0.12.1) and the 27 experimental mutations. Secondary: the Symbiote (only).
 
 - Gaining a Primary power **replaces** the old one. Each hero's grant routine calls
   `HeroTiers.claimPrimary(player, key)` (strips everything except that hero, and removes the Symbiote
@@ -1286,3 +1286,14 @@ Max Steel, the Punisher, Green Lantern and the 27 experimental mutations. Second
   non-Spider-Man Primary power is gained.
 - `gametest/PrimaryPowerGameTests` covers replacement, mutation replacement, the Symbiote rule and the
   Hero-of-the-Village ascension.
+
+## v0.12.1
+
+- **Wolverine** — Hero-Tier ascension of Super Regeneration; full reference in [WOLVERINE_REFERENCE.md](WOLVERINE_REFERENCE.md).
+  Keys: R Claw Slash, G Cross Slash, Z Claw Dash, X Berserker Rage, C Frenzy, V Adamantium Execution (Ability 1-6),
+  H claws deploy/retract. Registered in `HeroTiers.HERO_KEYS` (`holdsHero`, `revokeHero`, `hasIncompatibleWith`) and
+  `HeroCommand`.
+- **Symbiote** suit growth is +50% (2.7 blocks, Iron Golem height). Lunge is one ballistic launch that carries the host
+  ~20 blocks (`AbilityHelpers.ballisticLaunch`).
+- **Size Manipulation** (Tiny / Large / Giant) scale changes ease over 1 second (`SizeHandlers.SCALE_ANIM`, cleared by
+  `ServerStateReset`).

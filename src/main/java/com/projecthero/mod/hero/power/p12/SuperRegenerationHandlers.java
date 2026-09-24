@@ -149,16 +149,7 @@ public final class SuperRegenerationHandlers {
 		//   - recently hurt / in combat: 0.5 HP per interval
 		//   - 3 s out of combat, or at/below 4 hearts: 1 HP per interval
 		// Stacks with Regeneration Mode and Cellular Surge above.
-		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, player -> {
-			if (player.getAbilities().instabuild || player.tickCount % HEAL_INTERVAL != 0) {
-				return;
-			}
-			if (player.getHealth() < player.getMaxHealth()) {
-				boolean desperate = player.getHealth() <= DESPERATE_HP;
-				float heal = (inCombat(player) && !desperate) ? BASE_HEAL_COMBAT : BASE_HEAL_CALM;
-				player.heal(heal);
-			}
-		});
+		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, player -> tickBaseRegen(player, 1.0f, false));
 
 		// "In combat" = the Super Regeneration owner took or dealt damage in the last 3 s.
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseAmount, dealtAmount, blocked) -> {
@@ -192,6 +183,22 @@ public final class SuperRegenerationHandlers {
 					com.projecthero.mod.hero.HeroConfig.get().scaledCooldown(z.cooldownTicks()));
 			return false; // death cancelled
 		});
+	}
+
+	/**
+	 * The base passive heal, factored out so an ascension can reuse and scale it instead of duplicating it.
+	 * Wolverine (v0.12.1) calls this with a 1x / 2x / 3x multiplier by health tier and
+	 * {@code ignoreCombat = true} (his healing factor never slows down mid-fight).
+	 */
+	public static void tickBaseRegen(ServerPlayer player, float multiplier, boolean ignoreCombat) {
+		if (player.getAbilities().instabuild || player.tickCount % HEAL_INTERVAL != 0) {
+			return;
+		}
+		if (player.getHealth() < player.getMaxHealth()) {
+			boolean desperate = player.getHealth() <= DESPERATE_HP;
+			float heal = (!ignoreCombat && inCombat(player) && !desperate) ? BASE_HEAL_COMBAT : BASE_HEAL_CALM;
+			player.heal(heal * multiplier);
+		}
 	}
 
 	/** Exactly what a Totem of Undying does on a lethal hit. */

@@ -87,6 +87,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.FirearmHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.ScopeOverlay::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.PunisherHud::render);
+		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.WolverineHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SymbioteHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternHud::render);
 
@@ -148,6 +149,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
 				com.projecthero.mod.client.maxsteel.MaxSteelWingsModel.LAYER,
 				com.projecthero.mod.client.maxsteel.MaxSteelWingsModel::createLayer);
+		net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
+				com.projecthero.mod.client.wolverine.WolverineClawsModel.LAYER,
+				com.projecthero.mod.client.wolverine.WolverineClawsModel::createLayer);
 
 		// Arc Reactor on the player's chest (Tony Stark power, no Iron Man chestplate) + Max Steel's
 		// blue Turbo Flight wings.
@@ -160,6 +164,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 								playerRenderer, context.getModelSet()));
 						registrationHelper.register(new com.projecthero.mod.client.render.PowerRingLayer(
 								playerRenderer, context.getItemRenderer()));
+						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineClawsLayer(
+								playerRenderer, context.getModelSet()));
 					}
 				});
 
@@ -460,6 +466,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				// v0.6.20: H while wearing the Spider-Man costume pulls the mask off / on.
 				ClientPlayNetworking.send(new com.projecthero.mod.network.SpiderActionPayload(
 						com.projecthero.mod.network.SpiderActionPayload.Action.TOGGLE_MASK));
+			} else if (client.player != null && com.projecthero.mod.wolverine.Wolverine.hasPower(client.player)
+					&& !Screen.hasShiftDown()) {
+				// v0.12.1: H as Wolverine deploys / retracts the claws (Shift+H still opens the power wheel).
+				ClientPlayNetworking.send(new com.projecthero.mod.network.WolverineActionPayload(
+						com.projecthero.mod.network.WolverineActionPayload.Action.TOGGLE_CLAWS));
 			} else {
 				client.setScreen(new PowerWheelScreen());
 			}

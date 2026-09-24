@@ -77,6 +77,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.maxsteel.item.MaxSteelItems.addToCreativeTab(output);
 				// Green Lantern: the Power Ring, Lantern Core, suit pieces and Power Battery block.
 				com.projecthero.mod.greenlantern.item.GreenLanternItems.addToCreativeTab(output);
+				// Wolverine: the Adamantium Serum that ascends Super Regeneration into the Hero Class.
+				com.projecthero.mod.wolverine.item.WolverineItems.addToCreativeTab(output);
 			})
 			.build();
 

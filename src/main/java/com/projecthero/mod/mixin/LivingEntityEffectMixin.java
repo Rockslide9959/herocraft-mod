@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 /**
- * Super Regeneration (power 12): the listed negative effects affect the mutant 50% less. Implemented
+ * Super Regeneration (power 12) and its Wolverine ascension: the listed negative effects affect the mutant 50% less. Implemented
  * by halving the duration of a fresh application before vanilla stores it, so Poison, Wither,
  * Weakness, Slowness, Mining Fatigue, Nausea and Hunger all wear off in half the time. Amplifier is
  * left alone. Inert for every other entity / power.
@@ -43,9 +43,16 @@ public abstract class LivingEntityEffectMixin {
 		if (!((Object) this instanceof ServerPlayer player)) {
 			return instance;
 		}
+		boolean wolverine = com.projecthero.mod.wolverine.Wolverine.hasPower(player);
 		if (!PROJECTHERO$HALVED.contains(instance.getEffect())
-				|| !ExperimentalPowers.owns(player, "power_12_super_regeneration")) {
+				|| !(wolverine || ExperimentalPowers.owns(player, "power_12_super_regeneration"))) {
 			return instance;
+		}
+		// Wolverine ascends Super Regeneration: it keeps the 50% debuff cut, and Poison / Wither are cut harder.
+		if (wolverine && (instance.getEffect() == MobEffects.POISON || instance.getEffect() == MobEffects.WITHER)) {
+			return new MobEffectInstance(instance.getEffect(),
+					Math.max(1, (int) (instance.getDuration() * com.projecthero.mod.wolverine.WolverineConfig.POISON_WITHER_DURATION_FACTOR)),
+					instance.getAmplifier(), instance.isAmbient(), instance.isVisible(), instance.showIcon());
 		}
 		return new MobEffectInstance(instance.getEffect(), Math.max(1, instance.getDuration() / 2),
 				instance.getAmplifier(), instance.isAmbient(), instance.isVisible(), instance.showIcon());

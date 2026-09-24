@@ -1,14 +1,14 @@
 # Project Hero
 
 **A large single-player-and-multiplayer superhero mod for Minecraft 1.21.1 (Fabric).** Become Thor,
-Iron Man, Spider-Man, Max Steel or the Punisher, bond with an alien symbiote, mutate one of 27
+Iron Man, Spider-Man, Max Steel, the Punisher or Wolverine, bond with an alien symbiote, mutate one of 27
 experimental superpowers, then put them to the test against world raids and a giant world boss.
 
 Every hero is a full progression system, not a creative-only toy — you earn each one in survival,
 power it, upgrade it, and can lose it again.
 
 **Primary & Secondary powers.** Every power is either *Primary* — who you are: Thor, Iron Man,
-Spider-Man, Max Steel, the Punisher, Green Lantern and the mutations — or *Secondary* — an add-on that
+Spider-Man, Max Steel, the Punisher, Green Lantern, Wolverine and the mutations — or *Secondary* — an add-on that
 rides on top. **You can hold two Primary powers at once** (v0.11.15): each hero power takes a slot, and
 your mutations (up to 3, stacking as before) share one. Gaining a hero power strips every mutation and,
 if you already hold two heroes, **replaces the oldest**; gaining a mutation keeps at most one hero beside
@@ -16,7 +16,7 @@ it. The Symbiote is the only Secondary power for now, and because it only works 
 Spider-Man, gaining any other Primary power removes it.
 
 **Keybinds (v0.11.17).** The six ability keys are now named **Ability 1–6** in Options › Controls and
-default to **R, G, Z, X, C, V** (Ability 1 = R, 2 = G, 3 = Z, 4 = X, 5 = C, 6 = V — every move stays on the physical key it has always used; only the names changed); **H** is *Utility 1* and **N** is *Utility 2*; **P** opens the squad
+default to **R, G, Z, X, C, V** (Ability 1 = R, 2 = G, 3 = Z, 4 = X, 5 = C, 6 = V — every move stays on the physical key it has always used; only the names changed); **H** is *Utility 1* (as Wolverine it deploys / retracts your claws) and **N** is *Utility 2*; **P** opens the squad
 menu. If your saved controls still show the old letters, press *Reset* on those keys.
 
 ---
@@ -172,6 +172,23 @@ someone else can try.
   plus a flat melee damage bonus; flight trails a green hard-light streak the whole time it's active.
 - Constructs are cheap to make and maintain, temporary rather than permanent building blocks — Mining
   Drill, Energy Blade and Carry Platform equip for free and only cost anything once toggled on.
+
+### 🐺 Wolverine
+A permanent **Primary** power — the **ascension of Super Regeneration**. Own Super Regeneration, craft an
+**Adamantium Serum** (4 diamonds, 2 netherite ingots, 2 blaze powder, a golden apple) and use it: your
+regenerative mutation is consumed and rebuilt as Wolverine.
+
+- **Healing factor:** 4 HP/s, 8 HP/s below half health, 12 HP/s below a quarter — it never slows in combat.
+  Below 15% health (or on a lethal hit) an **emergency surge** restores 30% of your health over 2 seconds
+  (60 s cooldown).
+- **Built to last:** 35% less physical damage, 75% knockback resistance, 75% less fall damage, strong Poison
+  and Wither resistance, +8 melee damage, +20% speed, +25% jump. Enemy monsters within 12 blocks glow for you
+  alone.
+- **Adamantium claws:** three curved blades per hand, deployed with **H** (Shift+H still opens the power
+  wheel). A custom model that other players see, 12 damage bare-handed, 1.5x faster mining.
+- **Six abilities on the standard keys:** **R** Claw Slash · **G** Cross Slash · **Z** Claw Dash (7-block
+  launch) · **X** Berserker Rage (12 s of +50% damage, +30% speed, double healing) · **C** Frenzy (five rapid
+  strikes) · **V** Adamantium Execution (60-damage finisher).
 
 ---
 

@@ -245,10 +245,10 @@ public class HeroPackGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void guideChaptersBuildFromRegistry(GameTestHelper helper) {
 		var chapters = com.projecthero.mod.hero.guide.HeroPackGuide.chapters();
-		// 16 framing chapters (overview, mutation, structures, devices, combos, Thor, Iron Man,
+		// 17 framing chapters (overview, mutation, structures, devices, combos, Thor, Iron Man,
 		// Spider-Man, Max Steel, Punisher, Green Lantern, Symbiote, Zombie Raid, Supervillain Raid,
-		// Titan, Squads) + one per power
-		helper.assertTrue(chapters.size() == 16 + Powers.count(),
+		// Titan, Squads, Wolverine) + one per power
+		helper.assertTrue(chapters.size() == 17 + Powers.count(),
 				"guide should have a chapter per power plus framing chapters, got " + chapters.size());
 		for (var ch : chapters) {
 			helper.assertFalse(ch.lines().isEmpty(), "chapter '" + ch.title().getString() + "' has no content");
@@ -657,13 +657,29 @@ public class HeroPackGameTests implements FabricGameTest {
 		var attr = net.minecraft.world.entity.ai.attributes.Attributes.SCALE;
 		double base = player.getAttributeValue(attr);
 
-		AbilityRouter.handleInput(player, 3, true); // X = Tiny Form on
-		helper.assertTrue(player.getAttributeValue(attr) < base, "Tiny Form should shrink the player");
-
-		AbilityRouter.handleInput(player, 3, true); // X = Tiny Form off
+		AbilityRouter.handleInput(player, 3, true); // X = Tiny Form on -- v0.12.1: eases over 1 second
 		helper.assertTrue(Math.abs(player.getAttributeValue(attr) - base) < 1.0e-4,
-				"toggling Tiny Form off should restore normal size");
-		helper.succeed();
+				"the size change is gradual: nothing has changed yet on the same tick");
+		// the mock player is not ticked by the server, so drive the per-tick upkeep by hand
+		for (int t = 1; t <= 50; t++) {
+			final int tick = t;
+			helper.runAtTickTime(tick, () -> {
+				ExperimentalPowers.serverTick(player);
+				if (tick == 8) {
+					double mid = player.getAttributeValue(attr);
+					helper.assertTrue(mid < base && mid > 0.3, "mid-way through the ease the scale is between forms, got " + mid);
+				}
+				if (tick == 24) {
+					helper.assertTrue(player.getAttributeValue(attr) < 0.5, "after a second Tiny Form has fully shrunk the player");
+					AbilityRouter.handleInput(player, 3, true); // X = Tiny Form off
+				}
+				if (tick == 50) {
+					helper.assertTrue(Math.abs(player.getAttributeValue(attr) - base) < 1.0e-4,
+							"toggling Tiny Form off eases back to normal size");
+					helper.succeed();
+				}
+			});
+		}
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

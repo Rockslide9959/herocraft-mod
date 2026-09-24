@@ -88,6 +88,10 @@ public final class HeroPackGuide {
 		return chapters().get(CH_GREEN_LANTERN);
 	}
 
+	public static Chapter wolverineChapter() {
+		return chapters().get(CH_WOLVERINE);
+	}
+
 	public static Chapter symbioteChapter() {
 		return chapters().get(CH_SYMBIOTE);
 	}
@@ -215,7 +219,8 @@ public final class HeroPackGuide {
 	private static final int CH_SUPERVILLAIN_RAID = 13;
 	private static final int CH_TITAN = 14;
 	private static final int CH_SQUADS = 15;
-	private static final int CHAPTER_POWER_BASE = 16;
+	private static final int CH_WOLVERINE = 16;
+	private static final int CHAPTER_POWER_BASE = 17;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -526,6 +531,39 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.squads.menu.body");
 		}));
 
+		// Wolverine (v0.12.1) -- Hero Tier, an ascension of Super Regeneration. Appended after Squads so the
+		// fixed framing-chapter indices above stay put; the index links it under Heroes.
+		out.add(chapter("projecthero.guide.wolverine", lines -> {
+			lines.add(Component.translatable("projecthero.guide.wolverine.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.wolverine.body");
+			blank(lines);
+			head(lines, "projecthero.guide.wolverine.progression");
+			para(lines, "projecthero.guide.wolverine.step.prereq");
+			para(lines, "projecthero.guide.wolverine.step.serum");
+			blank(lines);
+			head(lines, "projecthero.guide.wolverine.claws");
+			para(lines, "projecthero.guide.wolverine.claws.body");
+			blank(lines);
+			head(lines, "projecthero.guide.wolverine.controls");
+			for (String slot : new String[]{"R", "G", "Z", "X", "C", "V"}) {
+				String key = switch (slot) {
+					case "R" -> "claw_slash"; case "G" -> "cross_slash"; case "Z" -> "claw_dash";
+					case "X" -> "berserker_rage"; case "C" -> "frenzy"; default -> "adamantium_execution";
+				};
+				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.wolverine.ability." + key).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.guide.wolverine.ability." + key);
+			}
+			lines.add(Component.literal(" H  ").withStyle(ChatFormatting.GOLD)
+					.append(Component.translatable("projecthero.guide.wolverine.toggle").withStyle(ChatFormatting.WHITE)));
+			blank(lines);
+			head(lines, "projecthero.guide.wolverine.passives");
+			para(lines, "projecthero.guide.wolverine.passives.body");
+			blank(lines);
+			head(lines, "projecthero.guide.wolverine.emergency");
+			para(lines, "projecthero.guide.wolverine.emergency.body");
+		}));
+
 		// one chapter per power, in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.all()) {
 			out.add(powerChapter(power));
@@ -554,6 +592,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.punisher", CH_PUNISHER);
 		link(idx, "projecthero.guide.green_lantern", CH_GREEN_LANTERN);
 		link(idx, "projecthero.guide.symbiote", CH_SYMBIOTE);
+		link(idx, "projecthero.guide.wolverine", CH_WOLVERINE);
 
 		section(idx, "projecthero.guide.section.events", true);
 		link(idx, "projecthero.guide.zombie_raid", CH_ZOMBIE_RAID);

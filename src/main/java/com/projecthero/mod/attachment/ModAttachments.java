@@ -357,6 +357,20 @@ public final class ModAttachments {
 									AttachmentSyncPredicate.all()));
 
 	/**
+	 * The whole Wolverine Hero-Tier power for one player (v0.12.1): the permanent power flag, claw
+	 * deployment, Berserker Rage / Claw Dash / emergency-heal timers, the last-action stamp the client
+	 * animates from, and ability cooldowns. Persistent + {@code copyOnDeath()} and synced to everyone
+	 * (other clients render the claws and the rage look from it); the server stays authoritative.
+	 */
+	public static final AttachmentType<com.projecthero.mod.wolverine.data.WolverineState> WOLVERINE_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("wolverine_state"),
+					builder -> builder.persistent(com.projecthero.mod.wolverine.data.WolverineState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.wolverine.data.WolverineState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.wolverine.data.WolverineState.CODEC),
+									AttachmentSyncPredicate.all()));
+
+	/**
 	 * The Spider-Man Symbiote upgrade: {@code hasSymbiote} (has the player bonded with a Symbiote yet),
 	 * {@code active} (is the black suit on, or in the middle of coming on / going off), a tiny anti-spam
 	 * toggle cooldown, the suit-up/suit-down animation clock ({@code transformDir}/

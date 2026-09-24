@@ -206,6 +206,53 @@ public final class AbilityHelpers {
 		player.resetFallDistance();
 	}
 
+/**
+	 * The launch velocity that carries a player roughly {@code blocks} blocks along the line they are
+	 * looking, as a single impulse rather than a held push (v0.12.1); {@code grounded} accounts for floor friction on the first tick. Simulates vanilla airborne
+	 * movement (position += v, then gravity 0.08 and 0.98 vertical drag, 0.91 horizontal drag) and
+	 * binary-searches the launch speed so the arc lands the requested distance away. A near-level aim
+	 * is tilted slightly upward so the player actually leaves the floor instead of scraping along it.
+	 */
+	public static Vec3 ballisticLaunch(Vec3 look, double blocks, boolean grounded) {
+		Vec3 dir = look.normalize();
+		double hFrac = Math.max(0.3, Math.sqrt(Math.max(0.0, 1.0 - dir.y * dir.y)));
+		double targetH = blocks * hFrac;
+		double groundY = Math.min(0.0, blocks * dir.y);
+		Vec3 launch = dir;
+		if (dir.y > -0.1) {
+			launch = new Vec3(dir.x, Math.max(dir.y, 0.22), dir.z).normalize();
+		}
+		double lo = 0.3;
+		double hi = 5.0;
+		for (int i = 0; i < 24; i++) {
+			double mid = (lo + hi) * 0.5;
+			if (ballisticRange(launch, mid, groundY, grounded) < targetH) {
+				lo = mid;
+			} else {
+				hi = mid;
+			}
+		}
+		return launch.scale((lo + hi) * 0.5);
+	}
+
+	private static double ballisticRange(Vec3 launch, double speed, double groundY, boolean grounded) {
+		double h = Math.sqrt(launch.x * launch.x + launch.z * launch.z) * speed;
+		double vy = launch.y * speed;
+		double x = 0.0;
+		double y = 0.0;
+		for (int t = 0; t < 100; t++) {
+			x += h;
+			y += vy;
+			if (y <= groundY && vy < 0.0) {
+				break;
+			}
+			vy = (vy - 0.08) * 0.98;
+			// the first tick after a launch from the floor still gets ground friction (0.6 * 0.91)
+			h *= (t == 0 && grounded) ? 0.546 : 0.91;
+		}
+		return x;
+	}
+
 	public static void addImpulse(ServerPlayer player, Vec3 velocity) {
 		launchSelf(player, player.getDeltaMovement().add(velocity));
 	}

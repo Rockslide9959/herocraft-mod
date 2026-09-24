@@ -54,7 +54,7 @@ public final class ProjectHeroCommand {
 					ctx.getSource().sendSuccess(() -> Component.literal("Project Hero")
 							.withStyle(ChatFormatting.LIGHT_PURPLE)
 							.append(Component.literal("  /projecthero <thor|ironman|spiderman|symbiote|maxsteel"
-									+ "|punisher|greenlantern|titan|power|hero|raid|supervillainraid|zombieraid>")
+									+ "|punisher|greenlantern|wolverine|titan|power|hero|raid|supervillainraid|zombieraid>")
 									.withStyle(ChatFormatting.GRAY)), false);
 					return 1;
 				});
@@ -66,6 +66,7 @@ public final class ProjectHeroCommand {
 		root.then(MaxSteelCommand.build());
 		root.then(PunisherCommand.build());
 		root.then(GreenLanternCommand.build());
+		root.then(WolverineCommand.build());
 		root.then(TitanCommand.build());
 		root.then(HeroCommand.build());
 		root.then(SuperheroCommand.build());

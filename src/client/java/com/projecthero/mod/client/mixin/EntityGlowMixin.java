@@ -90,6 +90,15 @@ public abstract class EntityGlowMixin {
 			}
 		}
 
+		// v0.12.1: Wolverine enhanced senses -- hostile mobs within 12 blocks are outlined, for the
+		// Wolverine own client only (nothing is set on the mob, no packet, no wallhack for anyone else).
+		if (self instanceof net.minecraft.world.entity.monster.Enemy && com.projecthero.mod.wolverine.Wolverine.hasPower(viewer)
+				&& self.distanceToSqr(viewer) <= com.projecthero.mod.wolverine.WolverineConfig.SENSE_RADIUS
+						* com.projecthero.mod.wolverine.WolverineConfig.SENSE_RADIUS) {
+			cir.setReturnValue(true);
+			return;
+		}
+
 		// v0.11.10: Green Lantern Ring Scan -- purely this viewer's own render, fed by
 		// GreenLanternRingScanPayload. Nothing is set on the target server-side any more, so no other
 		// player's client is told anything (fixes "everyone in the world can see the glowing creatures").

@@ -450,19 +450,20 @@ public final class SymbioteAbilityManager {
 
 	// ---------------- Symbiote Lunge (Ability 3) ----------------
 
-	/** Blocks per tick and ticks of travel: 2.0 x 10 = a 20-block lunge along the aim line. */
-	private static final double LUNGE_SPEED = 2.0;
-	private static final int LUNGE_TICKS = 10;
+	/** How far one lunge impulse carries the host along the aim line. */
+	private static final double LUNGE_BLOCKS = 20.0;
+	/** Ticks after which a lunge stops checking for a ram, even if the host is somehow still airborne. */
+	private static final int LUNGE_MAX_TICKS = 40;
 
-	/** Active lunges: {dirX, dirY, dirZ, endTick, startTick}. */
+	/** Active lunges: {endTick, startTick}. The flight itself is ballistic -- one launch, no held push. */
 	private static final Map<Integer, double[]> LUNGE = new ConcurrentHashMap<>();
 
 	private static boolean symbioteLunge(ServerPlayer player) {
-		Vec3 dir = player.getLookAngle().normalize();
 		long now = player.level().getGameTime();
-		LUNGE.put(player.getId(), new double[]{dir.x, dir.y, dir.z, now + LUNGE_TICKS, now});
+		Vec3 launch = AbilityHelpers.ballisticLaunch(player.getLookAngle(), LUNGE_BLOCKS, player.onGround());
+		LUNGE.put(player.getId(), new double[]{now + LUNGE_MAX_TICKS, now});
 		LEAP_NO_FALL_UNTIL.put(player.getId(), now + LEAP_NO_FALL_TICKS);
-		AbilityHelpers.launchSelf(player, dir.scale(LUNGE_SPEED));
+		AbilityHelpers.launchSelf(player, launch);
 		ServerLevel level = AbilityHelpers.level(player);
 		AbilityHelpers.burst(level, player.position(), ParticleTypes.SQUID_INK, 24, 0.3);
 		AbilityHelpers.burst(level, player.position(), ParticleTypes.POOF, 10, 0.4);
@@ -480,29 +481,20 @@ public final class SymbioteAbilityManager {
 		if (l == null) {
 			return;
 		}
-		Vec3 dir = new Vec3(l[0], l[1], l[2]);
-		boolean travelled = now - (long) l[4] >= 2;
-		boolean blocked = travelled && (player.horizontalCollision || player.verticalCollision);
-		if (now >= (long) l[3] || blocked) {
+		boolean travelled = now - (long) l[1] >= 3;
+		if (now >= (long) l[0] || (travelled && player.onGround())) {
 			LUNGE.remove(player.getId());
-			// v0.11.16: keep the momentum -- the lunge ends by letting go, not by stopping dead. (A wall
-			// already killed the speed by itself, so only a lunge that ran its full length coasts on.)
-			if (!blocked) {
-				player.setDeltaMovement(dir.scale(LUNGE_SPEED));
-				player.hurtMarked = true;
-			}
 			return;
 		}
-		AbilityHelpers.launchSelf(player, dir.scale(LUNGE_SPEED));
-		for (LivingEntity target : AbilityHelpers.enemiesAround(player, player.position().add(0, 0.9, 0), 2.0)) {
+		// v0.12.1: the launch is a real impulse now (vanilla gravity and drag carry it), so the only
+		// per-tick work is the ram check -- the host punches through the first creature it meets.
+		for (LivingEntity target : AbilityHelpers.enemiesAround(player, player.position().add(0, 0.9 * player.getScale(), 0), 2.0 * player.getScale())) {
 			if (AbilityHelpers.hurt(player, target, LEAP_RAM_DAMAGE)) {
 				AbilityHelpers.knockbackFrom(target, player.position(), 1.6);
 				AbilityHelpers.burst(AbilityHelpers.level(player),
 						target.position().add(0, target.getBbHeight() * 0.5, 0), ParticleTypes.SQUID_INK, 26, 0.5);
 				SymbioteSounds.lash(player, 1.0f, 0.6f);
 				LUNGE.remove(player.getId());
-				player.setDeltaMovement(dir.scale(LUNGE_SPEED));
-				player.hurtMarked = true;
 				return;
 			}
 		}

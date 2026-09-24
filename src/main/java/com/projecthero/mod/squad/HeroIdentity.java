@@ -38,6 +38,9 @@ public final class HeroIdentity {
 		if (com.projecthero.mod.greenlantern.GreenLantern.hasPower(player)) {
 			return "projecthero.squad.identity.green_lantern";
 		}
+		if (com.projecthero.mod.wolverine.WolverineAbilityManager.hasContext(player)) {
+			return "projecthero.squad.identity.wolverine";
+		}
 		if (com.projecthero.mod.symbiote.SymbioteAbilityManager.hasContext(player)) {
 			return "projecthero.squad.identity.symbiote";
 		}

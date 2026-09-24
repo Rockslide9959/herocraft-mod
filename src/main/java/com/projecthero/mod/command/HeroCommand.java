@@ -43,7 +43,7 @@ import net.minecraft.server.level.ServerPlayer;
 public final class HeroCommand {
 	/** The four Hero-Tier powers, addressable by {@code /heropower grant|revoke hero <key>}. */
 	private static final java.util.List<String> HERO_TIER_KEYS =
-			java.util.List.of("thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern");
+			java.util.List.of("thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine");
 
 	/**
 	 * The bare {@code /heropower grant <key>} form (v0.6.20): experimental keys <em>and</em> the four
@@ -307,9 +307,12 @@ public final class HeroCommand {
 						: name + " is already Green Lantern"), true);
 				return ok ? 1 : 0;
 			}
+			case "wolverine" -> {
+				return com.projecthero.mod.command.WolverineCommand.grant(c, target);
+			}
 			default -> {
 				c.getSource().sendFailure(Component.literal(
-						"Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel, punisher, green_lantern)"));
+						"Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel, punisher, green_lantern, wolverine)"));
 				return 0;
 			}
 		}
@@ -329,9 +332,10 @@ public final class HeroCommand {
 			case "max_steel" -> MaxSteel.revoke(target);
 			case "punisher" -> com.projecthero.mod.punisher.Punisher.revoke(target);
 			case "green_lantern" -> com.projecthero.mod.greenlantern.GreenLantern.revoke(target);
+			case "wolverine" -> com.projecthero.mod.wolverine.Wolverine.revoke(target);
 			default -> {
 				c.getSource().sendFailure(Component.literal(
-						"Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel, punisher, green_lantern)"));
+						"Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel, punisher, green_lantern, wolverine)"));
 				return 0;
 			}
 		}

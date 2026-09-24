@@ -26,6 +26,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(SpiderActionPayload.TYPE, SpiderActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(StrengthActionPayload.TYPE, StrengthActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(MaxSteelActionPayload.TYPE, MaxSteelActionPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(WolverineActionPayload.TYPE, WolverineActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(FirearmFirePayload.TYPE, FirearmFirePayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(FirearmActionPayload.TYPE, FirearmActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(PunisherArsenalPayload.TYPE, PunisherArsenalPayload.CODEC);
@@ -129,6 +130,13 @@ public final class ModNetworking {
 				case TRANSFORM_TOGGLE -> com.projecthero.mod.maxsteel.MaxSteelTransform.goTurbo(p);
 				case TOGGLE_HELMET -> com.projecthero.mod.maxsteel.MaxSteelFaceplate.toggle(p);
 				case POWER_DOWN -> com.projecthero.mod.maxsteel.MaxSteelTransform.powerDown(p);
+			}
+		});
+
+		// Wolverine: the H-key claw toggle. Server re-validates power ownership + the spam guard.
+		ServerPlayNetworking.registerGlobalReceiver(WolverineActionPayload.TYPE, (payload, context) -> {
+			if (payload.action() == WolverineActionPayload.Action.TOGGLE_CLAWS) {
+				com.projecthero.mod.wolverine.Wolverine.toggleClaws(context.player());
 			}
 		});
 

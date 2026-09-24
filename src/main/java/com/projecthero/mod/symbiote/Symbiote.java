@@ -333,11 +333,11 @@ public final class Symbiote {
 		}
 	}
 
-	/** The suit makes its host this much bigger (25%), growing in over the suit-up and shrinking back out over the retract. */
-	private static final double SUIT_GROWTH = 0.25;
+	/** The suit makes its host this much bigger (+50% = 1.8 -> 2.7 blocks tall, an Iron Golem), growing in over the suit-up and shrinking back out over the retract. */
+	private static final double SUIT_GROWTH = 0.5;
 	private static final net.minecraft.resources.ResourceLocation SUIT_SCALE = com.projecthero.mod.ProjectHeroMod.id("symbiote_suit_scale");
 
-	/** v0.11.17: scale follows the transform clock, so onlookers watch the host slowly swell to 125% (and back). */
+	/** v0.11.17: scale follows the transform clock, so onlookers watch the host slowly swell to 150% -- 2.7 blocks, Iron Golem height (and back). */
 	private static void tickGrowth(ServerPlayer player, SymbioteState s) {
 		float progress = s.hasSymbiote ? SymbioteTransform.effectiveProgress(s, player.level().getGameTime()) : 0.0f;
 		if (progress <= 0.0f) {

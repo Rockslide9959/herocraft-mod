@@ -17,6 +17,7 @@
 		"MouseHandlerMixin",
 		"LocalPlayerMixin",
 		"PlayerModelMixin",
+		"PlayerRendererClawsMixin",
 		"PlayerRendererHandMixin",
 		"PlayerRendererMixin",
 		"SoundEngineMixin",
