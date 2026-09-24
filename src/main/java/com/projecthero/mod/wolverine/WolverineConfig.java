@@ -69,12 +69,14 @@ public final class WolverineConfig {
 	public static final int CROSS_COOLDOWN = 4 * S;
 
 	// ---- Ability 3: Claw Dash (X) ----
-	public static final double DASH_BLOCKS = 7.0;
+	public static final double DASH_BLOCKS = 21.0;
 	public static final float DASH_DAMAGE = 18.0f;
 	/** Safety cap only -- the dash normally ends the moment the Wolverine lands. */
 	public static final int DASH_MAX_TICKS = 30;
 	/** How far in front of the Wolverine a seized enemy is held while he drags it along. */
-	public static final double DASH_GRAB_DISTANCE = 1.3;
+	public static final double DASH_GRAB_DISTANCE = 1.6;
+	/** Ticks of the player's velocity the grabbed entity is placed ahead by, to stay in front despite tick order and latency. */
+	public static final double DASH_GRAB_LEAD_TICKS = 2.0;
 	public static final double DASH_HIT_RADIUS = 2.0;
 	public static final int DASH_COOLDOWN = 6 * S;
 

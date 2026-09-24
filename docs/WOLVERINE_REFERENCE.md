@@ -20,7 +20,7 @@ reuses Super Regeneration's base heal tick and debuff-shortening mixin and scale
 |---|---|---|---|---|
 | R | Ability 1 | Claw Slash | 18, 3.5-block arc | 1.5 s |
 | G | Ability 2 | Cross Slash | 15 + 15, 3 blocks | 4 s |
-| Z | Ability 3 | Claw Dash | 18 to each enemy cut through, 7-block launch; grabs the first enemy hit and drags it until you land; lunge pose | 6 s |
+| Z | Ability 3 | Claw Dash | 18 to each enemy cut through, 21-block launch; grabs the first enemy hit and drags it in front of you until you land; lunge pose | 6 s |
 | X | Ability 4 | Berserker Rage | 12 s: +50% dmg, +30% speed, 2x regen, -20% dmg taken, ~100% KB resist | 45 s |
 | C | Ability 5 | Frenzy | 5 strikes x 8 (0.2 s apart), enemies within 4 blocks | 15 s |
 | V | Ability 6 | Adamantium Execution | 60, 4 blocks, wind-up + lunge, needs a target | 30 s (8 s on a whiff) |
@@ -111,3 +111,10 @@ untouched.
   until the dash ends (landing; 30-tick safety cap), never through walls (`WolverineAbilities.dragGrabbed`).
 - **Lunge pose:** `WolverineDashPose` + `PlayerRendererMixin` / `HumanoidModelMixin` lean the body 55° forward
   with both arms thrust ahead while `dashUntil` is active (visible to every viewer).
+
+## v0.12.13
+
+- Claw Dash range 7 -> 21 blocks. The grabbed enemy is now placed ahead of the player by 2 ticks of their velocity
+  (1.6 blocks in front) so it stays in front instead of trailing.
+- Claw moves alternate right / left hand (`WolverineAbilities.swing`); the right-click strike resets the attack cooldown.
+- Symbiote suit growth is now base-host only (`Symbiote.tickGrowth`); Symbiote Spider-Man keeps his size.

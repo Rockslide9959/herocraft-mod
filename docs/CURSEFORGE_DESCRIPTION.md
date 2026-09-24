@@ -115,7 +115,7 @@ hunt down — then right-click to bond.
   half its Biomass, hurls everything within 20 blocks away with massive tendrils and gives you
   Resistance for 20 seconds. Its voice appears above your hotbar. The suit stays on until you retract it.
 - **Living armour:** Resistance I at all times while bonded. The suit forms over **2 seconds**, piece by
-  piece, and you visibly grow to **125% size** as it does (shrinking back when it retracts). Crouch for
+  piece, and a normal host visibly grows to **150% size** as it does (shrinking back when it retracts; Symbiote Spider-Man stays his own size). Crouch for
   5 seconds with the suit on and the Symbiote **camouflages** you completely.
 - **Predator Vision:** a bonded host sees living things within 20 blocks outlined (hostile red, players
   dark purple, everything else dark blue) — visible to **you only**. **N** toggles it off and on.
@@ -186,7 +186,7 @@ regenerative mutation is consumed and rebuilt as Wolverine.
   alone.
 - **Adamantium claws:** three curved blades per hand, deployed with **H** (Shift+H still opens the power
   wheel). A custom model that other players see, 12 damage bare-handed, 1.5x faster mining.
-- **Six abilities on the standard keys:** **R** Claw Slash · **G** Cross Slash · **Z** Claw Dash (7-block
+- **Six abilities on the standard keys:** **R** Claw Slash · **G** Cross Slash · **Z** Claw Dash (21-block
   lunge that grabs and drags the first enemy you hit) · **X** Berserker Rage (12 s of +50% damage, +30% speed, double healing) · **C** Frenzy (five rapid
   strikes) · **V** Adamantium Execution (60-damage finisher).
 

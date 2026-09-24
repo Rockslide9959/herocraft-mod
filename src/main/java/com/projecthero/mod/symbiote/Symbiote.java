@@ -339,7 +339,8 @@ public final class Symbiote {
 
 	/** v0.11.17: scale follows the transform clock, so onlookers watch the host slowly swell to 150% -- 2.7 blocks, Iron Golem height (and back). */
 	private static void tickGrowth(ServerPlayer player, SymbioteState s) {
-		float progress = s.hasSymbiote ? SymbioteTransform.effectiveProgress(s, player.level().getGameTime()) : 0.0f;
+		// only the base Symbiote host swells -- Symbiote Spider-Man keeps his own size
+		float progress = s.hasSymbiote && SymbioteHostType.of(player) == SymbioteHostType.NORMAL ? SymbioteTransform.effectiveProgress(s, player.level().getGameTime()) : 0.0f;
 		if (progress <= 0.0f) {
 			com.projecthero.mod.hero.power.PowerToggles.clearModifier(player, net.minecraft.world.entity.ai.attributes.Attributes.SCALE, SUIT_SCALE);
 		} else {

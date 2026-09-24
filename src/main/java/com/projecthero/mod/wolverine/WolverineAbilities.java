@@ -44,6 +44,8 @@ public final class WolverineAbilities {
 	private static final Map<UUID, Set<Integer>> DASH_HITS = new ConcurrentHashMap<>();
 	/** The entity each player is currently dragging along on a Claw Dash (v0.12.12): player -> entity id. */
 	private static final Map<UUID, Integer> DASH_GRAB = new ConcurrentHashMap<>();
+	/** Players whose next claw swing uses the off (left) hand -- claw moves alternate hands (v0.12.13). */
+	private static final Set<UUID> LEFT_NEXT = ConcurrentHashMap.newKeySet();
 
 	private WolverineAbilities() {
 	}
@@ -51,6 +53,7 @@ public final class WolverineAbilities {
 	public static void clearSessionState() {
 		DASH_HITS.clear();
 		DASH_GRAB.clear();
+		LEFT_NEXT.clear();
 	}
 
 	// ---------------- shared helpers ----------------
@@ -122,7 +125,13 @@ public final class WolverineAbilities {
 	}
 
 	private static void swing(ServerPlayer player, int slot) {
-		player.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
+		boolean left = !LEFT_NEXT.add(player.getUUID());
+		if (left) {
+			LEFT_NEXT.remove(player.getUUID());
+		}
+		// a held off-hand item would be waved about with the claw swing, so only use it when empty
+		player.swing(left && player.getOffhandItem().isEmpty() ? net.minecraft.world.InteractionHand.OFF_HAND
+				: net.minecraft.world.InteractionHand.MAIN_HAND, true);
 		Wolverine.markAction(player, slot);
 	}
 
@@ -243,7 +252,9 @@ public final class WolverineAbilities {
 		Vec3 look = player.getLookAngle();
 		Vec3 flat = new Vec3(look.x, 0, look.z);
 		flat = flat.lengthSqr() < 1.0E-4 ? Vec3.ZERO : flat.normalize();
-		Vec3 to = player.position().add(flat.scale(WolverineConfig.DASH_GRAB_DISTANCE));
+		// the player moves after this tick runs, so aim ahead by their velocity or the grabbed entity trails behind
+		Vec3 to = player.position().add(player.getDeltaMovement().scale(WolverineConfig.DASH_GRAB_LEAD_TICKS))
+				.add(flat.scale(WolverineConfig.DASH_GRAB_DISTANCE));
 		// never drag them through a wall: skip the move when the spot in front is blocked
 		if (target.level().noCollision(target, target.getBoundingBox().move(to.subtract(target.position())))) {
 			target.setPos(to.x, to.y, to.z);

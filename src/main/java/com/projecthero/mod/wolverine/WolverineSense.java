@@ -82,6 +82,7 @@ public final class WolverineSense {
 			} else {
 				player.attack(hit.getEntity());
 			}
+			player.resetAttackStrengthTicker();
 		}
 	}
 
