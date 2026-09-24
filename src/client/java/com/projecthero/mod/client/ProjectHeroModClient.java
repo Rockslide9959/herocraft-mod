@@ -196,17 +196,19 @@ public class ProjectHeroModClient implements ClientModInitializer {
 							payload.hostileIds(), payload.passiveIds(), now);
 				}));
 
-		// Will Trial "Are you afraid?" prompt (v0.11.11): a vanilla yes/no confirmation. The answer goes
-		// straight back to the server, which re-checks it against the player's own active trial -- this
-		// screen is just the UI, nothing here is trusted.
+		// Will Trial "Are you afraid?" prompt (v0.11.11): a vanilla yes/no confirmation. v0.11.14: the
+		// screen carries only the question -- answer NO (not afraid) to earn the ring, YES (afraid) cancels
+		// the trial so someone else can attempt it. The answer goes straight back to the server, which
+		// re-checks it against the player's own active trial -- this screen is just the UI, nothing here
+		// is trusted.
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.GreenLanternTrialPromptPayload.TYPE,
 				(payload, context) -> context.client().execute(() -> context.client().setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(
-						yes -> {
-							ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternTrialAnswerPayload(yes));
+						afraid -> {
+							ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternTrialAnswerPayload(afraid));
 							context.client().setScreen(null);
 						},
 						net.minecraft.network.chat.Component.translatable("message.projecthero.green_lantern.trial_afraid.title"),
-						net.minecraft.network.chat.Component.translatable("message.projecthero.green_lantern.trial_afraid.body")))));
+						net.minecraft.network.chat.Component.empty()))));
 
 		// Shift + Web Zip: the server tells the client to arm its adhesion grab intent so the zip lands
 		// the player flush against the wall and the climb engine sticks with no double-tap (v0.6.21).

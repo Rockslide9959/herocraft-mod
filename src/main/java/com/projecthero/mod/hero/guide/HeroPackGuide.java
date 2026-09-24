@@ -215,6 +215,9 @@ public final class HeroPackGuide {
 		out.add(chapter("projecthero.guide.overview", lines -> {
 			para(lines, "projecthero.guide.overview.body");
 			blank(lines);
+			head(lines, "projecthero.guide.powerclass");
+			para(lines, "projecthero.guide.powerclass.body");
+			blank(lines);
 			head(lines, "projecthero.guide.controls.title");
 			para(lines, "projecthero.guide.controls.body");
 			for (AbilitySlot slot : AbilitySlot.values()) {

@@ -8,7 +8,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.projecthero.mod.greenlantern.block.FallenLanternPedestalBlock;
 import com.projecthero.mod.greenlantern.item.GreenLanternItems;
-import com.projecthero.mod.hero.HeroTiers;
 import com.projecthero.mod.network.GreenLanternTrialPromptPayload;
 
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
@@ -16,6 +15,9 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import org.joml.Vector3f;
+
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -35,9 +37,6 @@ import net.minecraft.world.entity.monster.Vex;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.PlayerTeam;
@@ -50,27 +49,27 @@ import net.minecraft.world.scores.Scoreboard;
  * the undead ones never catch fire in daylight -- see the build brief's explicit allowance not to block
  * the whole feature on a bespoke trial mob.
  *
- * <p>v0.11.11 rework, explicit user request: starting a trial now physically seals the site --
- * {@link #sealArea} shoves every other living thing outside the radius and raises a hollow green
- * hard-light dome over the whole area, and every tick ({@link #tick}) re-expels anyone but the
- * attempting player and the trial's own mobs who wanders back in, so nobody can interfere with or steal
- * someone else's attempt. Clearing wave 3 no longer bonds the ring immediately: it opens an "Are you
- * afraid?" confirmation on the winner's screen ({@link #promptAfraid}/{@link #handleAnswer}). Answering
- * "no" declines outright (no ring, no cooldown -- the site is immediately open to anyone, including the
- * same player again) and answering "yes" breaks the pedestal for good and hands over the Power Ring and
- * Lantern Core -- but {@link GreenLantern#bond} itself is now deferred to the moment the player actually
- * right-clicks the ring item ({@link #initialize}'s {@code UseItemCallback}), which is also the moment
- * {@code PowerRingLayer} starts rendering it on their body, since both key off the same
- * {@link GreenLantern#hasPower} flag.
+ * <p>While a trial runs the site is sealed: {@link #expelOutsiders} shoves every other living thing
+ * outside the radius (and every tick re-expels anyone who wanders back in), so nobody can interfere with
+ * or steal someone else's attempt. v0.11.14: the physical green glass dome is gone -- it sat on top of the
+ * terrain the mobs spawn on and pushed waves 2 and 3 onto its own ceiling -- and is replaced by a purely
+ * cosmetic particle boundary ({@link #boundaryParticles}).
  *
- * <p>Failure (leaving the radius for 8s, dying, or logging out) still drops a 10-minute per-player
- * cooldown for that pedestal and restores the dome/terrain either way.
+ * <p>Clearing wave 3 opens an "Are you afraid?" prompt on the winner's screen ({@link #promptAfraid}/
+ * {@link #handleAnswer}). Answering <b>no</b> (not afraid) breaks the pedestal and hands over the Power Ring
+ * and Lantern Core -- {@link GreenLantern#bond} itself is deferred to the moment the player right-clicks the
+ * ring, which consumes it. Answering <b>yes</b> (afraid) cancels the trial: no ring, no cooldown, the site is
+ * immediately open to anyone, including the same player again.
+ *
+ * <p>Failure (leaving the radius for 8s, dying, or logging out) drops a 10-minute per-player cooldown.
  */
 public final class GreenLanternTrial {
 	/** Scoreboard team every trial mob joins purely so its Glowing outline renders green, not white. */
 	private static final String TRIAL_TEAM_NAME = "projecthero_gl_trial";
 	/** How often (ticks) the active-trial area is re-swept for anyone who wandered back in. */
 	private static final int SEAL_ENFORCE_INTERVAL_TICKS = 10;
+	/** How long the "Are you afraid?" prompt waits before it is treated as an admission of fear. */
+	private static final int ANSWER_TIMEOUT_TICKS = 3 * 60 * 20;
 
 	private static final class Trial {
 		final BlockPos pedestal;
@@ -82,8 +81,8 @@ public final class GreenLanternTrial {
 		long outOfRadiusSince = -1L;
 		/** True once wave 3 is cleared and the "Are you afraid?" answer is pending. */
 		boolean awaitingAnswer = false;
-		final List<BlockPos> domeCells = new ArrayList<>();
-		final List<BlockState> domePrevious = new ArrayList<>();
+		/** Game time the pending "Are you afraid?" answer expires (treated as afraid), or -1. */
+		long answerDeadline = -1L;
 
 		Trial(BlockPos pedestal, Vec3 center, ServerLevel level) {
 			this.pedestal = pedestal;
@@ -117,7 +116,9 @@ public final class GreenLanternTrial {
 					|| GreenLantern.hasPower(sp)) {
 				return InteractionResultHolder.pass(stack);
 			}
-			GreenLantern.bond(sp);
+			if (GreenLantern.bond(sp)) {
+				stack.shrink(1);
+			}
 			return InteractionResultHolder.success(stack);
 		});
 	}
@@ -132,10 +133,6 @@ public final class GreenLanternTrial {
 		}
 		if (GreenLantern.hasPower(player)) {
 			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.already_bonded"), true);
-			return;
-		}
-		if (HeroTiers.hasHeroTier(player) || HeroTiers.hasExperimental(player)) {
-			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.trial_ineligible"), true);
 			return;
 		}
 		// v0.11.12, explicit user request: the ring demands proof of experience before it will even
@@ -165,17 +162,8 @@ public final class GreenLanternTrial {
 		ACTIVE.put(player.getUUID(), trial);
 		player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.trial_begin")
 				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
-		// v0.11.12 fix: expel outsiders and spawn the wave BEFORE the dome goes up, not after. Building
-		// the dome first (the original v0.11.11 order) was the actual cause of "spawns the dome but
-		// nothing else happens" -- groundedPointNear() below snaps a spawn point onto the terrain via
-		// the MOTION_BLOCKING_NO_LEAVES heightmap, and the dome's own glass shell (which sits ~30 blocks
-		// above the crater floor near the centre) immediately became the tallest blocking block in every
-		// column under it, so every mob in wave 1 silently spawned up at the dome's own ceiling instead
-		// of on the ground -- invisible, inaudible, and almost certainly dead of suffocation within a
-		// couple of ticks, which from the player's point of view really did look like nothing happened.
 		expelOutsiders(trial, player.getUUID());
 		spawnWave(player, trial);
-		buildDome(trial);
 	}
 
 	private static String cooldownKey(ServerPlayer player, BlockPos pedestal) {
@@ -217,62 +205,28 @@ public final class GreenLanternTrial {
 	}
 
 	/**
-	 * A hollow hard-light dome over the whole trial radius -- a spherical shell (only the upper half is
-	 * ever visited) centred on the pedestal, thick enough to have no gaps. Every displaced block is
-	 * remembered in {@link Trial#domeCells}/{@link Trial#domePrevious} so {@link #restoreDome} can put
-	 * the site back exactly as it was, regardless of which of the trial's several end states triggers it.
+	 * v0.11.14: the trial's boundary is now particles only -- a sparse green shimmer over a hemisphere at
+	 * the trial radius plus a ring at the player's own height, so the edge is readable without a single
+	 * physical block. Purely cosmetic; {@link #expelOutsiders} is what actually keeps people out.
 	 */
-	private static void buildDome(Trial trial) {
+	private static void boundaryParticles(Trial trial, ServerPlayer player) {
 		ServerLevel level = trial.level;
 		Vec3 c = trial.center;
 		double r = GreenLanternConfig.TRIAL_RADIUS;
-		int ir = (int) Math.ceil(r);
-		BlockState domeState = Blocks.GREEN_STAINED_GLASS.defaultBlockState();
-		for (int dx = -ir; dx <= ir; dx++) {
-			for (int dy = 0; dy <= ir; dy++) {
-				for (int dz = -ir; dz <= ir; dz++) {
-					double dist = Math.sqrt((double) dx * dx + (double) dy * dy + (double) dz * dz);
-					if (dist < r - 1.0 || dist > r) {
-						continue;
-					}
-					BlockPos pos = BlockPos.containing(c.x + dx, c.y + dy, c.z + dz);
-					BlockState current = level.getBlockState(pos);
-					if (!canSealCell(level, pos, current)) {
-						continue;
-					}
-					trial.domeCells.add(pos.immutable());
-					trial.domePrevious.add(current);
-				}
-			}
+		DustParticleOptions dust = new DustParticleOptions(new Vector3f(0.15f, 1.0f, 0.3f), 1.6f);
+		for (int i = 0; i < 48; i++) {
+			double theta = level.random.nextDouble() * Math.PI * 2;
+			double phi = Math.acos(level.random.nextDouble());
+			level.sendParticles(dust, c.x + r * Math.sin(phi) * Math.cos(theta), c.y + r * Math.cos(phi),
+					c.z + r * Math.sin(phi) * Math.sin(theta), 1, 0, 0, 0, 0);
 		}
-		// v0.11.12: UPDATE_CLIENTS, not UPDATE_ALL -- a dome shell this size is several thousand blocks,
-		// and UPDATE_ALL's per-block neighbour-notify cascade (irrelevant for plain glass, which has no
-		// neighbour-dependent behaviour) turned what should be an instant effect into a multi-second
-		// stall on the server thread. Sync-only placement is what every other bulk-placement site in the
-		// mod already uses for exactly this reason (see IronManSuitPlatformBlockEntity/LabDeviceBlock).
-		for (int i = 0; i < trial.domeCells.size(); i++) {
-			level.setBlock(trial.domeCells.get(i), domeState, Block.UPDATE_CLIENTS);
-		}
-	}
-
-	/** Never overwrites bedrock/portals/containers/unbreakable blocks -- same convention as every other
-	 *  hard-light construct in this power ({@code GreenLanternConstructs#add}). */
-	private static boolean canSealCell(ServerLevel level, BlockPos pos, BlockState current) {
-		if (!current.canBeReplaced() && !current.isAir()) {
-			return false;
-		}
-		if (current.getDestroySpeed(level, pos) < 0) {
-			return false;
-		}
-		return level.getBlockEntity(pos) == null;
-	}
-
-	/** Restores every dome cell the trial displaced, whichever way the trial ended. */
-	private static void restoreDome(Trial trial) {
-		for (int i = 0; i < trial.domeCells.size(); i++) {
-			BlockPos pos = trial.domeCells.get(i);
-			if (trial.level.hasChunkAt(pos) && trial.level.getBlockState(pos).is(Blocks.GREEN_STAINED_GLASS)) {
-				trial.level.setBlock(pos, trial.domePrevious.get(i), Block.UPDATE_CLIENTS);
+		double y = player.getY() + 1.0;
+		double dy = y - c.y;
+		if (Math.abs(dy) < r) {
+			double ringR = Math.sqrt(r * r - dy * dy);
+			for (int i = 0; i < 40; i++) {
+				double theta = i * Math.PI * 2 / 40.0;
+				level.sendParticles(dust, c.x + ringR * Math.cos(theta), y, c.z + ringR * Math.sin(theta), 1, 0, 0, 0, 0);
 			}
 		}
 	}
@@ -324,6 +278,7 @@ public final class GreenLanternTrial {
 		mob.getAttribute(Attributes.MAX_HEALTH).addOrUpdateTransientModifier(new net.minecraft.world.entity.ai.attributes.AttributeModifier(
 				com.projecthero.mod.ProjectHeroMod.id("green_lantern_trial_hp"), 0.5, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_MULTIPLIED_BASE));
 		mob.setHealth(mob.getMaxHealth());
+		mob.setPersistenceRequired();
 		mob.addEffect(new MobEffectInstance(MobEffects.GLOWING, 20000, 0, false, false, false));
 		// A plain helmet is the same trick vanilla itself uses to keep an undead mob from ever catching
 		// fire in daylight (checked before ignition, not a workaround after the fact) -- explicit user
@@ -423,9 +378,20 @@ public final class GreenLanternTrial {
 
 			if (now % SEAL_ENFORCE_INTERVAL_TICKS == 0) {
 				expelOutsiders(trial, entry.getKey());
+				boundaryParticles(trial, player);
 			}
 
-			trial.liveMobIds.removeIf(id -> !(trial.level.getEntity(id) instanceof Mob m) || !m.isAlive());
+			if (trial.awaitingAnswer) {
+				// The prompt screen can be dismissed without answering; don't hold the pedestal hostage forever.
+				if (trial.answerDeadline >= 0 && now >= trial.answerDeadline) {
+					it.remove();
+					PEDESTALS_IN_PROGRESS.remove(trial.pedestal.asLong());
+					decline(player, trial);
+				}
+				continue;
+			}
+
+			trial.liveMobIds.removeIf(id -> !(trial.level.getEntity(id) instanceof Mob m) || m.isRemoved() || !m.isAlive());
 			// Belt-and-braces on top of the helmet trick above -- guarantees a trial mob never actually
 			// stays lit even if something else ever manages to ignite it.
 			for (int id : trial.liveMobIds) {
@@ -434,12 +400,12 @@ public final class GreenLanternTrial {
 				}
 			}
 
-			if (!trial.awaitingAnswer && trial.liveMobIds.isEmpty()) {
+			if (trial.liveMobIds.isEmpty()) {
 				if (trial.wave < 3) {
 					trial.wave++;
 					spawnWave(player, trial);
 				} else {
-					promptAfraid(player, trial);
+					promptAfraid(player, trial, now);
 				}
 			}
 		}
@@ -452,7 +418,6 @@ public final class GreenLanternTrial {
 				m.discard();
 			}
 		}
-		restoreDome(trial);
 		COOLDOWNS.put(playerId + "@" + trial.pedestal.asLong(),
 				trial.level.getGameTime() + GreenLanternConfig.TRIAL_FAIL_COOLDOWN_TICKS);
 		ServerPlayer player = trial.level.getServer() != null ? trial.level.getServer().getPlayerList().getPlayer(playerId) : null;
@@ -464,8 +429,9 @@ public final class GreenLanternTrial {
 	// ---------------- "Are you afraid?" ----------------
 
 	/** Wave 3 cleared -- open the confirmation on the winner's screen instead of bonding immediately. */
-	private static void promptAfraid(ServerPlayer player, Trial trial) {
+	private static void promptAfraid(ServerPlayer player, Trial trial, long now) {
 		trial.awaitingAnswer = true;
+		trial.answerDeadline = now + ANSWER_TIMEOUT_TICKS;
 		ServerPlayNetworking.send(player, GreenLanternTrialPromptPayload.INSTANCE);
 	}
 
@@ -473,24 +439,25 @@ public final class GreenLanternTrial {
 	 * The server-side landing spot for {@code GreenLanternTrialAnswerPayload}. Re-validates that the
 	 * sender actually has a trial of their own awaiting an answer -- a modified client sending this
 	 * unprompted (or a second time) finds nothing here to act on.
+	 *
+	 * @param afraid the player's answer to "Are you afraid?" -- yes cancels the trial, no earns the ring
 	 */
-	public static void handleAnswer(ServerPlayer player, boolean yes) {
+	public static void handleAnswer(ServerPlayer player, boolean afraid) {
 		Trial trial = ACTIVE.get(player.getUUID());
 		if (trial == null || !trial.awaitingAnswer) {
 			return;
 		}
 		ACTIVE.remove(player.getUUID());
 		PEDESTALS_IN_PROGRESS.remove(trial.pedestal.asLong());
-		restoreDome(trial);
-		if (yes) {
-			grantRing(player, trial);
-		} else {
+		if (afraid) {
 			decline(player, trial);
+		} else {
+			grantRing(player, trial);
 		}
 	}
 
 	/**
-	 * "Yes": breaks the pedestal for good (so nobody can farm the site again) and hands over the ring +
+	 * "No" (not afraid): breaks the pedestal for good (so nobody can farm the site again) and hands over the ring +
 	 * core -- but does NOT bond the power yet. {@link GreenLantern#bond} only runs once the player
 	 * actually right-clicks the ring ({@link #initialize}), per explicit user request.
 	 */
@@ -510,7 +477,7 @@ public final class GreenLanternTrial {
 				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
 	}
 
-	/** "No": nothing granted, no cooldown either -- the pedestal stays unclaimed, open to anyone at once. */
+	/** "Yes" (afraid): the trial is cancelled -- nothing granted, no cooldown either -- the pedestal stays unclaimed, open to anyone at once. */
 	private static void decline(ServerPlayer player, Trial trial) {
 		player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.trial_declined"), false);
 		trial.level.playSound(null, trial.center.x, trial.center.y, trial.center.z,

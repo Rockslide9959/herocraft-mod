@@ -264,17 +264,14 @@ public final class MutationManager {
 		if (!power.key().equals(s.pendingMutationPower) || ExperimentalPowers.owns(player, power)) {
 			return;
 		}
-		// Experimental mutations and Hero-Tier powers cannot be mixed. A player who is already a
-		// Hero (worthy of Mjolnir, Tony Stark, Spider-Man, Max Steel) cannot mutate -- the serum
-		// simply will not take. The reverse guard lives on the Arc Reactor / Arachnid Mutagen / Steel.
+		// v0.11.14: a mutation no longer bounces off a Hero-Tier body -- it replaces that power (and the
+		// Symbiote). Mutations still stack with each other up to the mutation capacity.
 		if (com.projecthero.mod.hero.HeroTiers.hasHeroTier(player)) {
-			player.removeEffect(ModMobEffects.UNSTABLE_MUTATION);
-			s.pendingMutationPower = "";
-			s.pendingExposureProgress.clear();
-			s.pendingExposureTicks = 0;
+			com.projecthero.mod.hero.HeroTiers.claimExperimental(player);
 			player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-					"message.projecthero.mutation.blocked_hero_tier").withStyle(net.minecraft.ChatFormatting.RED), true);
-			return;
+					"message.projecthero.mutation.replaced_hero_tier").withStyle(net.minecraft.ChatFormatting.YELLOW), false);
+		} else if (com.projecthero.mod.symbiote.Symbiote.hasSymbiote(player)) {
+			com.projecthero.mod.hero.HeroTiers.claimExperimental(player);
 		}
 		if (ExperimentalPowers.atCapacity(player)) {
 			MutationFeedback.capacityFull(player);

@@ -45,12 +45,7 @@ public final class MaxSteelBonding {
 			return;
 		}
 
-		// Experimental mutations and Hero-Tier powers cannot be mixed: Steel rejects a mutated host.
-		if (com.projecthero.mod.hero.HeroTiers.hasExperimental(player)) {
-			player.displayClientMessage(Component.translatable("message.projecthero.max_steel.blocked_experimental")
-					.withStyle(ChatFormatting.AQUA), true);
-			return;
-		}
+		// v0.11.14: a bond replaces any other Primary power (MaxSteel.bond claims Primary status).
 
 		boolean hasStabilizer = findStabilizerSlot(player) >= 0;
 		boolean hasLevels = player.experienceLevel >= LEVEL_REQUIREMENT;

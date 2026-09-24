@@ -1197,3 +1197,22 @@ Change body scale for stealth, mobility or giant strength - neither form univers
 - Hydrostatic Test Tank
 - Electromagnetic Coil Pair
 
+
+## Primary & Secondary powers (v0.11.14)
+
+Every power is `PowerClass.PRIMARY` or `PowerClass.SECONDARY`. Primary: Thor, Iron Man, Spider-Man,
+Max Steel, the Punisher, Green Lantern and the 27 experimental mutations. Secondary: the Symbiote (only).
+
+- Gaining a Primary power **replaces** the old one. Each hero's grant routine calls
+  `HeroTiers.claimPrimary(player, key)` (strips everything except that hero, and removes the Symbiote
+  unless the new power is Spider-Man). The mutation manager calls `HeroTiers.claimExperimental` (strips
+  every hero power + the Symbiote but keeps other mutations -- they still stack to the mutation capacity).
+  The old "refuses while you hold the other tier" checks (Arc Reactor, Steel bond, Vigilante Training,
+  Green Lantern trial, mutation serum) are removed.
+- Thor: Mjolnir only lifts for a **Hero of the Village** (`Worthiness#canLift/#ascend`). Lifting binds the
+  hammer to the player, sets worthiness, replaces their Primary power and consumes the effect. Already-Thor
+  players lift freely; everyone else (including an expired effect) is rejected as before.
+- Symbiote bonding is unchanged (still purges everything but Spider-Man). `Symbiote.remove` runs whenever a
+  non-Spider-Man Primary power is gained.
+- `gametest/PrimaryPowerGameTests` covers replacement, mutation replacement, the Symbiote rule and the
+  Hero-of-the-Village ascension.

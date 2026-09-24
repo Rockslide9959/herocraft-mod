@@ -78,6 +78,7 @@ public class MjolnirItem extends Item {
 		tooltip.add(Component.translatable("item.projecthero.mjolnir.flavor.line1").withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
 		tooltip.add(Component.translatable("item.projecthero.mjolnir.flavor.line2").withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
 		tooltip.add(Component.translatable("item.projecthero.mjolnir.flavor.line3").withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
+		tooltip.add(Component.translatable("item.projecthero.mjolnir.lift_hint").withStyle(ChatFormatting.AQUA, ChatFormatting.ITALIC));
 
 		tooltip.add(Component.empty());
 		tooltip.add(ownershipLine(stack));

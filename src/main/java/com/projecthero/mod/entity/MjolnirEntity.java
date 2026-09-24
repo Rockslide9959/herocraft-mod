@@ -751,7 +751,15 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 		if (getState() != State.RESTING || pickupDelay > 0) {
 			return net.minecraft.world.InteractionResult.PASS;
 		}
-		if (WorthinessEnforcer.bypassesWorthiness(player) || Worthiness.isWorthy(player)) {
+		if (Worthiness.canLift(player)) {
+			// A Hero of the Village lifting it for the first time becomes Thor -- but only once there is
+			// actually room in their inventory, so a full pack never burns the effect for nothing.
+			if (Worthiness.wouldAscend(player) && player instanceof net.minecraft.server.level.ServerPlayer sp) {
+				if (!player.getMainHandItem().isEmpty() && player.getInventory().getFreeSlot() < 0) {
+					return net.minecraft.world.InteractionResult.SUCCESS;
+				}
+				Worthiness.ascend(sp, this.getItem());
+			}
 			if (giveTo(player)) {
 				level().playSound(null, player.blockPosition(), SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 1.0f, 1.2f);
 				this.discard();

@@ -47,15 +47,8 @@ public class ArcReactorItem extends Item {
 			return InteractionResultHolder.pass(stack);
 		}
 
-		// Experimental mutations and Hero-Tier powers cannot be mixed: a mutated player must give up
-		// their experimental powers before the Arc Reactor will bond (use a Power Suppressor, or the
-		// operator command). Commands replace freely; this natural route refuses.
-		if (com.projecthero.mod.hero.HeroTiers.hasExperimental(serverPlayer)) {
-			serverPlayer.displayClientMessage(
-					Component.translatable("message.projecthero.tony_stark.blocked_experimental").withStyle(ChatFormatting.RED), true);
-			return InteractionResultHolder.fail(stack);
-		}
-
+		// v0.11.14: no refusal any more -- TonyStark.grant claims Primary status, replacing whatever
+		// Primary power (or mutation) the player held.
 		if (!TonyStark.grant(serverPlayer)) {
 			serverPlayer.displayClientMessage(
 					Component.translatable("message.projecthero.tony_stark.already_have").withStyle(ChatFormatting.RED), true);

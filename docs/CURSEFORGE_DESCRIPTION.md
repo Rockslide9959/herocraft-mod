@@ -7,6 +7,13 @@ experimental superpowers, then put them to the test against world raids and a gi
 Every hero is a full progression system, not a creative-only toy — you earn each one in survival,
 power it, upgrade it, and can lose it again.
 
+**Primary & Secondary powers (v0.11.14).** Every power is either *Primary* — who you are: Thor, Iron
+Man, Spider-Man, Max Steel, the Punisher, Green Lantern and the mutations — or *Secondary* — an add-on
+that rides on top. You hold one Primary power at a time: gaining a new one **replaces** the old one, so
+winning the Green Lantern ring while you are Spider-Man makes you Green Lantern. The Symbiote is the
+only Secondary power for now, and because it only works properly with Spider-Man, gaining any other
+Primary power removes it.
+
 ---
 
 ## Requirements
@@ -28,8 +35,10 @@ config files (`config/projecthero*.json`).
 
 ### ⚡ Thor
 Find a naturally generated **Mjolnir crater** (locatable, with its own ambient lightning) and try to
-lift the hammer. Only the **worthy** can pick it up or use it — worthiness is enforced everywhere,
-and creative players bypass it.
+lift the hammer. It will only budge for a **Hero of the Village**: lift it while you have the effect and
+Mjolnir binds itself to you on the spot, the effect is used up, and you become Thor (replacing any other
+Primary power). Without the effect — or once it runs out — it will not move for anyone who isn't
+already Thor. Creative players bypass it.
 
 - **Mjolnir** flies straight and true when thrown, phases through terrain on the way home, stands on
   its head when it lands, and is **recalled to your hand from anywhere** — even out of another
@@ -123,8 +132,11 @@ A **non-superhuman** Hero-Tier power: firearms, explosives, gear and training. C
 - Netherite/diamond-tier **tactical armour** (no helmet), craftable only by Punisher players.
 
 ### 💚 Green Lantern
-A permanent **Hero-Tier** power. Find a **Fallen Lantern Site** — a rare, damaged crater holding a
-Dormant Power Ring — and pass the **Will Trial** (three enemy waves) to bond it.
+A permanent **Primary** power. Find a **Fallen Lantern Site** — a rare, damaged crater holding a
+Dormant Power Ring — and pass the **Will Trial** (three enemy waves inside a green-particle boundary
+that keeps everyone else out). Win, and the ring asks *"Are you afraid?"* — answer **no** to earn the
+ring (right-click it to put it on; the item is used up), answer **yes** and the trial is cancelled so
+someone else can try.
 
 - A **Ring Charge** pool (10,000 points) fuels everything: ranged Ring Bolt/Continuous Beam, a
   Construct Fist and War Hammer Slam, flight, a directional shield or a 10-block Protective Dome that

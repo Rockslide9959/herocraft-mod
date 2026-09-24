@@ -51,6 +51,7 @@ public final class Punisher {
 		if (hasPower(player)) {
 			return false;
 		}
+		com.projecthero.mod.hero.HeroTiers.claimPrimary(player, "punisher");
 		PunisherState s = state(player).copy();
 		s.hasPower = true;
 		s.trainingActive = false;

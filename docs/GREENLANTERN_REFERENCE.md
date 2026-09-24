@@ -364,3 +364,20 @@ exactly what to revisit:
   destroyed it with nothing to pick back up. `data/projecthero/loot_table/blocks/power_battery.json`
   fixes that with a plain self-drop, the same pattern every other simple block in this mod uses (e.g.
   `stark_fabricator.json`).
+
+## v0.11.14 -- Will Trial fixes, ring consumed, Primary power
+
+- **Dome removed.** The green glass dome (`buildDome`/`restoreDome`) is gone: waves 2 and 3 were spawning on
+  top of it (the dome sat on the heightmap the spawn point is snapped to), so the trial appeared to end after
+  wave 1 and then jump straight to the prompt. The boundary is now purely particles
+  (`GreenLanternTrial#boundaryParticles`), while `expelOutsiders` still pushes every entity except the
+  attempting player and the trial's own mobs out of the 32-block radius, every 10 ticks. Trial mobs are
+  also `setPersistenceRequired` so they can't despawn mid-wave.
+- **"Are you afraid?"** is the only text on the prompt. **No** = not afraid = pedestal breaks, ring + core
+  granted. **Yes** = afraid = the trial cancels (no ring, no cooldown, site open at once). The prompt times
+  out after 3 minutes and counts as "afraid" so a dismissed screen can't hold the pedestal forever.
+- **The ring is consumed** when right-clicked (`GreenLantern.bond` succeeds -> `stack.shrink(1)`).
+- **Primary power.** Green Lantern is a Primary power: `GreenLantern.bond` calls `HeroTiers.claimPrimary`,
+  which replaces any mutation / other hero power and removes a bonded Symbiote. The old
+  `trial_ineligible` refusal is gone. Green Lantern now also appears in the squad roster
+  (`HeroIdentity`).

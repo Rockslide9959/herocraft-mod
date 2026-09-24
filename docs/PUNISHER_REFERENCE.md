@@ -127,8 +127,9 @@ No potion, no accident — a trained human:
 3. All objectives done → *HERO POWER UNLOCKED — PUNISHER*, permanent, via `Punisher.grant` (the same
    underlying system as Thor / Iron Man / Spider-Man / Max Steel).
 
-Hero-Tier exclusivity is enforced through `HeroTiers` — a Punisher cannot also hold an experimental
-mutation or another Hero-Tier power. Admin (v0.10.1, all under `/projecthero`): `/projecthero punisher
+Primary-power exclusivity is enforced through `HeroTiers` (v0.11.14) — a Punisher is a *Primary* power,
+so `Punisher.grant` replaces any experimental mutation or other Primary power (and a bonded Symbiote)
+instead of being refused. Admin (v0.10.1, all under `/projecthero`): `/projecthero punisher
 power grant|revoke`, `/projecthero power grant hero punisher`, `/projecthero punisher training start`,
 `/projecthero punisher arsenal all|<weapon>`, `/projecthero punisher status`. The craftable **Power
 Suppressor** strips it like any other power.

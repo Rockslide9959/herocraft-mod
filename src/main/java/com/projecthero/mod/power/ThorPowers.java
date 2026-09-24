@@ -269,6 +269,22 @@ public final class ThorPowers {
 		bindHammer(player, stack, registry, hammerId, serverLevel);
 	}
 
+	/**
+	 * Binds a freshly-lifted hammer to the player who just ascended (see {@code Worthiness#ascend}). A hammer
+	 * already bound to someone else is left with its owner -- ownership is deliberately strong.
+	 */
+	public static void bindOnAscend(ServerPlayer player, ItemStack stack) {
+		if (!(player.level() instanceof ServerLevel serverLevel)) {
+			return;
+		}
+		UUID currentOwner = stack.get(ModDataComponents.BOUND_OWNER);
+		if (currentOwner != null && !currentOwner.equals(player.getUUID())) {
+			return;
+		}
+		MjolnirRegistry registry = MjolnirRegistry.get(serverLevel);
+		bindHammer(player, stack, registry, registry.identify(stack), serverLevel);
+	}
+
 	private static void bindHammer(ServerPlayer player, ItemStack stack, MjolnirRegistry registry,
 			UUID hammerId, ServerLevel serverLevel) {
 		stack.set(ModDataComponents.BOUND_OWNER, player.getUUID());

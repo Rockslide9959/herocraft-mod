@@ -87,6 +87,7 @@ public final class MaxSteel {
 		if (hasPower(player)) {
 			return false;
 		}
+		com.projecthero.mod.hero.HeroTiers.claimPrimary(player, "max_steel");
 		MaxSteelState s = state(player).copy();
 		s.hasPower = true;
 		s.turboEnergy = MaxSteelConfig.MAX_TURBO_ENERGY;

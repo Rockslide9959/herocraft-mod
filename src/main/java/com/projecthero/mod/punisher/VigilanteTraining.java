@@ -28,17 +28,11 @@ public final class VigilanteTraining {
 	private VigilanteTraining() {
 	}
 
-	/** Begin training. Refused if the player already has a power of either family, or is training. */
+	/** Begin training. Refused if the player already is a Punisher or is training (any other Primary power is simply replaced on completion). */
 	public static boolean begin(ServerPlayer player) {
 		if (Punisher.hasPower(player)) {
 			player.displayClientMessage(Component.translatable("message.projecthero.punisher.already")
 					.withStyle(ChatFormatting.GRAY), true);
-			return false;
-		}
-		if (com.projecthero.mod.hero.HeroTiers.hasHeroTier(player)
-				|| com.projecthero.mod.hero.HeroTiers.hasExperimental(player)) {
-			player.displayClientMessage(Component.translatable("message.projecthero.punisher.blocked_power")
-					.withStyle(ChatFormatting.RED), false);
 			return false;
 		}
 		PunisherState s = Punisher.state(player);

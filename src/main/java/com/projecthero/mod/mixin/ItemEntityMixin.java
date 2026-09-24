@@ -110,6 +110,13 @@ public abstract class ItemEntityMixin {
 		if (WorthinessEnforcer.bypassesWorthiness(player) || Worthiness.isWorthy(player)) {
 			return;
 		}
+		if (Worthiness.hasAscensionEffect(player) && player.getInventory().getFreeSlot() >= 0
+					&& player instanceof net.minecraft.server.level.ServerPlayer sp) {
+			// Hero of the Village lifting it: becomes Thor and the hammer arrives bound (mutated in place
+			// before vanilla's own pickup moves it into the inventory).
+			Worthiness.ascend(sp, stack);
+			return;
+		}
 
 		ci.cancel();
 		WorthinessEnforcer.playRejectionFeedback(player, self.position());

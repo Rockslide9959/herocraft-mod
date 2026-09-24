@@ -49,6 +49,7 @@ public final class GreenLantern {
 		if (hasPower(player)) {
 			return false;
 		}
+		com.projecthero.mod.hero.HeroTiers.claimPrimary(player, "green_lantern");
 		GreenLanternState s = state(player).copy();
 		s.hasPower = true;
 		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;

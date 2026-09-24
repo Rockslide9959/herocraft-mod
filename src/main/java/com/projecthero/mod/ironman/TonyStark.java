@@ -66,6 +66,7 @@ public final class TonyStark {
 		if (hasPower(player)) {
 			return false;
 		}
+		com.projecthero.mod.hero.HeroTiers.claimPrimary(player, "iron_man");
 		TonyStarkState s = state(player).copy();
 		s.hasPower = true;
 		s.techLevel = 0;
