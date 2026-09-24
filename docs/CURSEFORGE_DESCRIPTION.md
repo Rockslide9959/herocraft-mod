@@ -15,8 +15,8 @@ if you already hold two heroes, **replaces the oldest**; gaining a mutation keep
 it. The Symbiote is the only Secondary power for now, and because it only works properly with
 Spider-Man, gaining any other Primary power removes it.
 
-**Keybinds (v0.11.15).** The six ability keys are now named **Ability 1–6** in Options › Controls and
-default to **R, G, X, Z, V, C**; **H** is *Utility 1* and **N** is *Utility 2*; **P** opens the squad
+**Keybinds (v0.11.17).** The six ability keys are now named **Ability 1–6** in Options › Controls and
+default to **R, G, Z, X, C, V** (Ability 1 = R, 2 = G, 3 = Z, 4 = X, 5 = C, 6 = V — every move stays on the physical key it has always used; only the names changed); **H** is *Utility 1* and **N** is *Utility 2*; **P** opens the squad
 menu. If your saved controls still show the old letters, press *Reset* on those keys.
 
 ---
@@ -104,9 +104,9 @@ hunt down — then right-click to bond.
 
 - Toggle the **black suit** on and off (**H**) with a progressive, particle-covered suit-up.
 - **Tendril abilities:** Tendril Strike, a hold-to-raise **Symbiote Shield**, a Spike volley, a
-  20-block **Symbiote Lunge** (Ability 3 — you keep your momentum when it ends), **Symbiote Onslaught** (a charged Wither/Blind/Slow AoE
+  20-block **Symbiote Lunge** (Ability 4 / X — you keep your momentum when it ends), **Symbiote Onslaught** (a charged Wither/Blind/Slow AoE
   ultimate), a hardened tendril **Blade**, a body-**Spikes** toggle, and a 25-block **Grapple** (sneak +
-  Ability 3) that needs something to hold onto.
+  Ability 4 / X) that needs something to hold onto.
 - A **Normal Host** gets a **Biomass** health bar that drains alongside every hit and regenerates out of
   combat; Regeneration II heals you whenever you are hurt, at a small Biomass cost. A Spider-Man host
   keeps their own Web Reserve and doubles it. The suit is unbreakable while worn.

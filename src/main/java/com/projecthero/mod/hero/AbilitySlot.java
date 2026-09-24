@@ -3,9 +3,10 @@ package com.projecthero.mod.hero;
 /**
  * The six universal ability slots. What a slot <em>does</em> depends on the active power. The
  * {@code role} / default key is the design-intent guideline (R = Ability 1 / primary, G = Ability 2 /
- * secondary, X = Ability 3 / movement, Z = Ability 4 / ultimate, V = Ability 5 / utility-control, C = Ability 6 /
- * special mode) and is only used for documentation/HUD hints. Since v0.11.15 the controls screen names the
- * keys "Ability 1" .. "Ability 6" and slots 3-6 default to X, Z, V, C. The dedicated power-select key is H (see {@code ModKeyBindings}).
+ * secondary, X = slot 3 / movement, Z = slot 4 / ultimate, V = slot 5 / utility-control, C = slot 6 /
+ * special mode) and is only used for documentation/HUD hints. Since v0.11.17 the controls screen names the keys R, G, Z, X, C, V
+ * "Ability 1" .. "Ability 6" (so slot 4 / Z is "Ability 3", slot 3 / X is "Ability 4", slot 6 / C is "Ability 5", slot 5 / V is "Ability 6");
+ * the moves themselves never moved. The dedicated power-select key is H (see {@code ModKeyBindings}).
  */
 public enum AbilitySlot {
 	SLOT_1('R', "Primary"),

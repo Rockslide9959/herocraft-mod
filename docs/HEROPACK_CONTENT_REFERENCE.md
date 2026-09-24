@@ -1198,13 +1198,14 @@ Change body scale for stealth, mobility or giant strength - neither form univers
 - Electromagnetic Coil Pair
 
 
-## Key layout (v0.11.16)
+## Key layout (v0.11.17)
 
-The six slots are named **Ability 1 - Ability 6** in the controls screen (`key.projecthero.ability_N`) and default to
-**R, G, X, Z, V, C** -- the same physical key -> move mapping the mod always had (v0.11.15 briefly swapped slots 3-6 to
-Z, X, C, V; v0.11.16 put them back, and the slot tables / guide text use the original letters again). **H** is "Utility 1"
-(`power_select`), **N** is "Utility 2" (`max_steel_transform`; as a Symbiote host it toggles Predator Vision),
-**P** is the squad menu.
+Internal slots are unchanged and every move stays on the physical key it has always used: slot 1 R, slot 2 G,
+slot 3 X, slot 4 Z, slot 5 V, slot 6 C. Only the *controls-screen names* differ from slot order: the key that fires slot 4
+(Z) is named **Ability 3**, slot 3 (X) is **Ability 4**, slot 6 (C) is **Ability 5**, slot 5 (V) is **Ability 6**
+(`key.projecthero.ability_N` lang values in `en_us.json`), so the sorted controls list reads R, G, Z, X, C, V =
+Ability 1-6. **H** is "Utility 1" (`power_select`), **N** is "Utility 2" (`max_steel_transform`; as a Symbiote host it
+toggles Predator Vision), **P** is the squad menu. Prose in this file uses key letters; "slot N" means the internal slot.
 
 ## Primary & Secondary powers (v0.11.15 -- two slots)
 
