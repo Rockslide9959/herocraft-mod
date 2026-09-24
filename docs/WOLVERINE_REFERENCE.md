@@ -138,3 +138,25 @@ untouched.
 - **Rage bar:** fills 50% slower (0.375 / 0.225 per damage taken / dealt) and drains 2/s after 10 s with no damage
   dealt or taken (`WolverineState.lastCombatAt`, `WolverinePassives.drainRage`).
 - **Symbiote:** Resistance I removed; wearing the suit cuts all damage taken by 10%.
+
+## v0.12.16
+
+- **Death resurrection** (replaces the <15% emergency heal): a lethal hit no longer kills a Wolverine whose
+  resurrection is ready (3 min cooldown). He rises at 30% health for 10 s of total invulnerability (only `/kill` and
+  the void get through), Slowness III + Blindness + Weakness I (re-applied every 5 ticks so the debuff-halving
+  mixin cannot shorten them, removed at the end), in the flesh model; then the skin fades back over the next 10 s.
+  On cooldown he can die normally. `WolverinePassives.tryEmergency`, `Wolverine.resurrecting`.
+- **R (Claw Slash, radius 4.5), G (Cross Slash, radius 4) and V (Frenzy, every strike hits everything within 4 blocks)
+  are now area attacks** around him, not frontal.
+- **Rage bar:** +1% per hit dealt or taken (flat, `RAGE_PER_HIT`), -5%/s after 10 s out of combat.
+- **No held items with the claws out:** both hands are cleared each tick into free inventory slots (claws retract if
+  there is no room). `WolverinePassives.clearHands`.
+- **Healing factor nerfed:** 3 / 6 / 9 HP/s (was 4 / 8 / 12) at full / below half / below quarter health.
+- **Suit:** leather-level (1/3/2/1); `SuperheroArmorModel` swaps to `wolverine_damaged_1..3.png` as the wearer's
+  health falls below 75 / 50 / 25%.
+- **Fix:** the boots recipe listed an unused blue-dye key, so it never loaded in 0.12.14/0.12.15.
+- **Super Regeneration:** Cellular Surge now adds +8 HP/s (was +4). Base 4 HP/s and Regeneration Mode +4 unchanged.
+- **Commands:** `/projecthero` is now only `power grant|remove|stack`, `locate <structure>` and
+  `raid start|end|removetimer|advancetimer <supervillain|gravebound>` (op-only). `/squad` stays.
+- **Thor:** releasing the hammer marks the player (`HAMMER_RELEASED`); gaining any other power afterwards zeroes
+  their worthiness so they cannot lift Mjolnir and stack it.

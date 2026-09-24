@@ -31,12 +31,11 @@ public final class WolverineDamage {
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseAmount, dealtAmount, blocked) -> {
 			if (entity instanceof ServerPlayer p && Wolverine.hasPower(p)) {
 				Wolverine.markCombat(p);
-				WolverinePassives.tryEmergency(p);
-				Wolverine.addRage(p, dealtAmount * WolverineConfig.RAGE_GAIN_PER_DAMAGE_TAKEN);
+				Wolverine.addRage(p, WolverineConfig.RAGE_PER_HIT);
 			}
 			if (source.getEntity() instanceof ServerPlayer attacker && attacker != entity && Wolverine.hasPower(attacker)) {
 				Wolverine.markCombat(attacker);
-				Wolverine.addRage(attacker, dealtAmount * WolverineConfig.RAGE_GAIN_PER_DAMAGE_DEALT);
+				Wolverine.addRage(attacker, WolverineConfig.RAGE_PER_HIT);
 			}
 		});
 		// A lethal hit while the emergency heal is ready is survived -- the healing factor kicks in at 1 HP.
@@ -49,7 +48,7 @@ public final class WolverineDamage {
 				return true; // /kill and the void still kill
 			}
 			if (WolverinePassives.tryEmergency(p)) {
-				p.setHealth(1.0f);
+				p.setHealth(Math.max(1.0f, p.getMaxHealth() * WolverineConfig.EMERGENCY_HEAL_FRACTION));
 				return false;
 			}
 			return true;
@@ -63,6 +62,9 @@ public final class WolverineDamage {
 		if (source.is(DamageTypes.GENERIC_KILL) || source.is(DamageTypes.FELL_OUT_OF_WORLD)
 				|| source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
 			return true;
+		}
+		if (Wolverine.resurrecting(player)) {
+			return false; // the resurrection window: nothing can hurt him (the void and /kill excepted above)
 		}
 		float factor = 1.0f;
 		if (source.is(DamageTypes.FALL)) {

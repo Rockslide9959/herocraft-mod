@@ -185,11 +185,12 @@ regenerative mutation is consumed and rebuilt as Wolverine.
   and Wither resistance, 4 melee damage (12 unarmed with claws out), +20% speed, +25% jump. Enemy monsters within 12 blocks glow for you
   alone.
 - **Adamantium claws:** three curved blades per hand, deployed with **H** (Shift+H still opens the power
-  wheel). A custom model that other players see, 12 damage bare-handed, and they break blocks like a sword
+  wheel); no items can be held while they are out. R, G and V are area attacks. A lethal hit triggers a 3-minute
+  death resurrection (10 s invulnerable but slowed and blinded, in a raw flesh body, then the skin grows back). A custom model that other players see, 12 damage bare-handed, and they break blocks like a sword
   (cobwebs at once, plants and leaves faster). Craft the yellow-and-blue **Wolverine Suit** costume, and
   when a Wolverine dies his body gives way to raw flesh and bone.
 - **Six abilities on the standard keys:** **R** Claw Slash · **G** Cross Slash · **Z** Claw Dash (21-block
-  lunge that grabs and drags the first enemy you hit) · **X** Berserker Rage (12 s of +50% damage, +30% speed, double healing) · **C** Frenzy (five rapid
+  lunge that grabs and drags the first enemy you hit) · **X** Berserker Rage (12 s of +50% damage, +30% speed, double healing; the bar fills 1% per hit dealt or taken) · **C** Frenzy (five rapid
   strikes) · **V** Adamantium Execution (60-damage finisher).
 
 ---
@@ -273,10 +274,9 @@ Symbiote (or bottle the Symbiote alone with a Symbiote Vial).
 
 - **Creative tabs:** Superheroes, Iron Man, Punisher.
 - **`/squad`** is the one player-facing command (see Squads above); everything else is admin tooling.
-- **Testing/admin commands** all live under one root: `/projecthero <thor|ironman|spiderman|symbiote|`
-  `maxsteel|punisher|titan|power|hero|raid|supervillainraid|zombieraid> ...` (`/projecthero hero` is the
-  survival self-service branch any player can use; the rest are op-only). Plus `/locate structure`
-  support for all mod structures.
+- **Admin commands** (op-only) are just three, under `/projecthero`: `power grant|remove|stack <power>`
+  (every power in the mod), `locate <structure>` (every mod structure) and
+  `raid start|end|removetimer|advancetimer <supervillain|gravebound>`.
 - Built on a shared GeckoLib armour-model pipeline and backed by 200+ automated in-game tests.
 - **License:** All Rights Reserved. This is a personal project shared as-is; please don't redistribute
   or reupload the jar.

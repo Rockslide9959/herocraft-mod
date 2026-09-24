@@ -11,19 +11,20 @@ public final class WolverineConfig {
 	private static final int S = 20;
 
 	// ---- healing factor (extends Super Regeneration's base rate: 1 HP / 0.25 s = 4 HP/s) ----
-	/** Multiples of Super Regeneration's calm base heal: 4 / 8 / 12 HP per second. */
-	public static final float REGEN_MULT_NORMAL = 1.0f;
-	public static final float REGEN_MULT_INJURED = 2.0f;
-	public static final float REGEN_MULT_CRITICAL = 3.0f;
+	/** Multiples of Super Regeneration's calm base heal (4 HP/s): 3 / 6 / 9 HP per second (v0.12.16 nerf). */
+	public static final float REGEN_MULT_NORMAL = 0.75f;
+	public static final float REGEN_MULT_INJURED = 1.5f;
+	public static final float REGEN_MULT_CRITICAL = 2.25f;
 	public static final float INJURED_BELOW = 0.50f;
 	public static final float CRITICAL_BELOW = 0.25f;
 	/** Berserker Rage adds this much to the regeneration multiplier (+100%). */
 	public static final float RAGE_REGEN_BONUS = 1.0f;
 
 	// ---- emergency healing ----
-	public static final float EMERGENCY_BELOW = 0.15f;
+	/** Health (fraction of max) he is left at when the death resurrection fires. */
 	public static final float EMERGENCY_HEAL_FRACTION = 0.30f;
-	public static final int EMERGENCY_HEAL_TICKS = 2 * S;
+	/** The resurrection window: no damage, Slowness III + Blindness + Weakness I, flesh model. */
+	public static final int EMERGENCY_HEAL_TICKS = 10 * S;
 	public static final int EMERGENCY_COOLDOWN_TICKS = 180 * S;
 	/** Emergency resurrection look: full flesh for 10 s, then the skin fades back over another 10 s. */
 	public static final int FLESH_HOLD_TICKS = 10 * S;
@@ -62,12 +63,12 @@ public final class WolverineConfig {
 
 	// ---- Ability 1: Claw Slash (R) ----
 	public static final float SLASH_DAMAGE = 18.0f;
-	public static final double SLASH_RANGE = 3.5;
+	public static final double SLASH_RANGE = 4.5;
 	public static final int SLASH_COOLDOWN = 30; // 1.5 s
 
 	// ---- Ability 2: Cross Slash (G) ----
 	public static final float CROSS_DAMAGE_EACH = 12.0f;
-	public static final double CROSS_RANGE = 3.0;
+	public static final double CROSS_RANGE = 4.0;
 	public static final int CROSS_GAP_TICKS = 5;
 	public static final int CROSS_COOLDOWN = 4 * S;
 
@@ -87,12 +88,12 @@ public final class WolverineConfig {
 	public static final int RAGE_TICKS = 30 * S;
 	public static final float RAGE_BAR_MAX = 100.0f;
 	/** Bar points gained per point of damage the Wolverine takes / deals (not gained while raging). */
-	public static final float RAGE_GAIN_PER_DAMAGE_TAKEN = 0.375f;
-	public static final float RAGE_GAIN_PER_DAMAGE_DEALT = 0.225f;
+	/** Bar points (of 100) gained for every hit he lands or takes -- flat, whatever the damage. */
+	public static final float RAGE_PER_HIT = 1.0f;
 	/** The Rage bar starts draining after this long without dealing or taking damage... */
 	public static final int RAGE_DRAIN_DELAY_TICKS = 10 * S;
-	/** ...at this many bar points per tick (2 per second: a full bar empties in 50 s). */
-	public static final float RAGE_DRAIN_PER_TICK = 2.0f / S;
+	/** ...at this many bar points per tick (5% of the bar per second: a full bar empties in 20 s). */
+	public static final float RAGE_DRAIN_PER_TICK = 5.0f / S;
 	public static final double RAGE_DAMAGE_BONUS = 0.50;
 	public static final double RAGE_SPEED_BONUS = 0.30;
 

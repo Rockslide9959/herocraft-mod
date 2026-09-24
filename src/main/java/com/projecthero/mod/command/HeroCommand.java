@@ -67,6 +67,31 @@ public final class HeroCommand {
 	}
 
 
+	/**
+	 * v0.12.16: the only power admin tree -- {@code /projecthero power grant|remove|stack <power> [player]},
+	 * over every power in the mod (the 27 mutations and every Hero-Tier power). {@code grant} replaces
+	 * whatever the player has, {@code stack} adds alongside it, {@code remove} takes one power (or {@code all}).
+	 */
+	public static LiteralArgumentBuilder<CommandSourceStack> buildAdmin() {
+		return Commands.literal("power")
+				.requires(source -> source.hasPermission(2))
+				.then(Commands.literal("grant")
+						.then(Commands.argument("power", StringArgumentType.word()).suggests(POWER_KEYS)
+								.executes(c -> grant(c, self(c)))
+								.then(Commands.argument("player", EntityArgument.player())
+										.executes(c -> grant(c, EntityArgument.getPlayer(c, "player"))))))
+				.then(Commands.literal("remove")
+						.then(Commands.argument("power", StringArgumentType.word()).suggests(POWER_KEYS_OR_ALL)
+								.executes(c -> revoke(c, self(c)))
+								.then(Commands.argument("player", EntityArgument.player())
+										.executes(c -> revoke(c, EntityArgument.getPlayer(c, "player"))))))
+				.then(Commands.literal("stack")
+						.then(Commands.argument("power", StringArgumentType.word()).suggests(POWER_KEYS)
+								.executes(c -> stack(c, self(c)))
+								.then(Commands.argument("player", EntityArgument.player())
+										.executes(c -> stack(c, EntityArgument.getPlayer(c, "player"))))));
+	}
+
 	public static LiteralArgumentBuilder<CommandSourceStack> build() {
 		return Commands.literal("power")
 				.requires(source -> source.hasPermission(2))
@@ -185,6 +210,10 @@ public final class HeroCommand {
 
 	/** Additive grant: unlock a power without disturbing the others, up to the mutation capacity. */
 	private static int stack(CommandContext<CommandSourceStack> c, ServerPlayer target) {
+		String rawKey = StringArgumentType.getString(c, "power");
+		if (HERO_TIER_KEYS.contains(rawKey)) {
+			return grantHeroByKey(c, target, rawKey); // claims a Primary slot, alongside what they already hold
+		}
 		Power power = resolve(c);
 		if (power == null) {
 			c.getSource().sendFailure(Component.literal("Unknown power"));

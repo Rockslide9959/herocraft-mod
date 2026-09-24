@@ -88,6 +88,7 @@ public final class ThorPassives {
 	public static boolean bind(ServerPlayer player, UUID hammerId) {
 		UUID previous = boundHammerId(player);
 		player.setAttached(ModAttachments.BOUND_HAMMER_ID, hammerId);
+		player.setAttached(ModAttachments.HAMMER_RELEASED, false);
 		reconcile(player);
 		return !hammerId.equals(previous);
 	}

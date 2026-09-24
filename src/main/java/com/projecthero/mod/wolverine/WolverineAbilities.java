@@ -144,7 +144,8 @@ public final class WolverineAbilities {
 		Wolverine.triggerCooldown(player, SLASH, WolverineConfig.SLASH_COOLDOWN);
 		swing(player, 1);
 		slashFx(player, 1.6, 0.0, 1.0f);
-		for (LivingEntity target : inCone(player, WolverineConfig.SLASH_RANGE, 0.55)) {
+		// v0.12.16: area attack -- everything around him, not just what is in front
+		for (LivingEntity target : inCone(player, WolverineConfig.SLASH_RANGE, -2.0)) {
 			strike(player, target, WolverineConfig.SLASH_DAMAGE, 0.6);
 		}
 	}
@@ -166,7 +167,7 @@ public final class WolverineAbilities {
 
 	private static void crossHit(ServerPlayer player, double side, float pitch) {
 		slashFx(player, 1.5, side, pitch);
-		for (LivingEntity target : inCone(player, WolverineConfig.CROSS_RANGE, 0.35)) {
+		for (LivingEntity target : inCone(player, WolverineConfig.CROSS_RANGE, -2.0)) {
 			strike(player, target, WolverineConfig.CROSS_DAMAGE_EACH, 0.35);
 		}
 	}
@@ -327,30 +328,22 @@ public final class WolverineAbilities {
 		}
 	}
 
+	/** v0.12.16: area attack -- every strike shreds EVERYTHING within range, not one chosen target. */
 	private static void frenzyStrike(ServerPlayer player, Map<Integer, Integer> hitCount) {
-		LivingEntity best = null;
-		int bestHits = Integer.MAX_VALUE;
-		double bestDist = Double.MAX_VALUE;
-		for (LivingEntity e : AbilityHelpers.enemiesAround(player, player.position().add(0, 0.9, 0), WolverineConfig.FRENZY_RANGE)) {
-			int h = hitCount.getOrDefault(e.getId(), 0);
-			double d = e.distanceToSqr(player);
-			if (h < bestHits || (h == bestHits && d < bestDist)) {
-				best = e;
-				bestHits = h;
-				bestDist = d;
-			}
-		}
 		swing(player, 5);
-		if (best == null) {
-			return;
-		}
-		hitCount.merge(best.getId(), 1, Integer::sum);
-		if (strike(player, best, WolverineConfig.FRENZY_DAMAGE, 0.15)) {
-			AbilityHelpers.sound(player, SoundEvents.PLAYER_ATTACK_SWEEP, 0.7f, 1.3f + 0.1f * hitCount.size());
-			if (player.level() instanceof ServerLevel level) {
-				Vec3 p = best.position().add(0, best.getBbHeight() * 0.6, 0);
-				level.sendParticles(ParticleTypes.SWEEP_ATTACK, p.x, p.y, p.z, 1, 0.2, 0.2, 0.2, 0.0);
+		boolean any = false;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(player, player.position().add(0, 0.9, 0), WolverineConfig.FRENZY_RANGE)) {
+			hitCount.merge(e.getId(), 1, Integer::sum);
+			if (strike(player, e, WolverineConfig.FRENZY_DAMAGE, 0.15)) {
+				any = true;
+				if (player.level() instanceof ServerLevel level) {
+					Vec3 p = e.position().add(0, e.getBbHeight() * 0.6, 0);
+					level.sendParticles(ParticleTypes.SWEEP_ATTACK, p.x, p.y, p.z, 1, 0.2, 0.2, 0.2, 0.0);
+				}
 			}
+		}
+		if (any) {
+			AbilityHelpers.sound(player, SoundEvents.PLAYER_ATTACK_SWEEP, 0.7f, 1.3f + 0.1f * hitCount.size());
 		}
 	}
 

@@ -13,6 +13,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
@@ -52,12 +54,55 @@ public final class WolverinePassives {
 		healingFactor(player);
 		tickEmergency(player, now);
 		drainRage(player, now);
+		clearHands(player);
 
 		if (Wolverine.raging(player) && player.tickCount % 10 == 0 && player.level() instanceof ServerLevel level) {
 			level.sendParticles(ParticleTypes.ANGRY_VILLAGER, player.getX(), player.getY() + player.getBbHeight() * 0.85,
 					player.getZ(), 1, 0.3, 0.2, 0.3, 0.0);
 			level.sendParticles(ParticleTypes.CRIMSON_SPORE, player.getX(), player.getY() + player.getBbHeight() * 0.5,
 					player.getZ(), 3, 0.35, 0.5, 0.35, 0.0);
+		}
+	}
+
+	/**
+	 * v0.12.16: nothing may be held while the claws are out. Any item in either hand is moved to a free
+	 * inventory slot; with no room, the claws retract instead (so nothing is ever dropped or lost).
+	 */
+	private static void clearHands(ServerPlayer player) {
+		if (!Wolverine.clawsOut(player)) {
+			return;
+		}
+		net.minecraft.world.item.ItemStack main = player.getMainHandItem();
+		net.minecraft.world.item.ItemStack off = player.getOffhandItem();
+		if (main.isEmpty() && off.isEmpty()) {
+			return;
+		}
+		boolean stowedAll = true;
+		if (!main.isEmpty()) {
+			int free = player.getInventory().getFreeSlot();
+			if (free >= 0) {
+				player.getInventory().setItem(free, main.copy());
+				player.getInventory().setItem(player.getInventory().selected, net.minecraft.world.item.ItemStack.EMPTY);
+			} else {
+				stowedAll = false;
+			}
+		}
+		if (!off.isEmpty()) {
+			int free = player.getInventory().getFreeSlot();
+			if (free >= 0) {
+				player.getInventory().setItem(free, off.copy());
+				player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, net.minecraft.world.item.ItemStack.EMPTY);
+			} else {
+				stowedAll = false;
+			}
+		}
+		if (!stowedAll) {
+			Wolverine.setClaws(player, false);
+			player.displayClientMessage(Component.translatable("message.projecthero.wolverine.hands_full")
+					.withStyle(ChatFormatting.GRAY), true);
+		} else {
+			player.displayClientMessage(Component.translatable("message.projecthero.wolverine.claws_no_items")
+					.withStyle(ChatFormatting.GRAY), true);
 		}
 	}
 
@@ -95,6 +140,9 @@ public final class WolverinePassives {
 		}
 		if (healEnded) {
 			c.emergencyHealUntil = 0L;
+			player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+			player.removeEffect(MobEffects.BLINDNESS);
+			player.removeEffect(MobEffects.WEAKNESS);
 		}
 		Wolverine.save(player, c);
 	}
@@ -119,15 +167,12 @@ public final class WolverinePassives {
 	 * Below {@link WolverineConfig#EMERGENCY_BELOW} of max health, restore 30% of max health over two
 	 * seconds, then a 60 s internal cooldown. Called from the damage hooks and every tick.
 	 *
-	 * @return true if the heal started now
+	 * @return true if the resurrection started now
 	 */
 	public static boolean tryEmergency(ServerPlayer player) {
 		WolverineState s = Wolverine.state(player);
 		long now = player.level().getGameTime();
 		if (!s.hasPower || now < s.emergencyReadyAt || s.emergencyHealUntil > now) {
-			return false;
-		}
-		if (player.getHealth() > player.getMaxHealth() * WolverineConfig.EMERGENCY_BELOW) {
 			return false;
 		}
 		WolverineState c = s.copy();
@@ -145,15 +190,13 @@ public final class WolverinePassives {
 		return true;
 	}
 
+	/** While the resurrection window runs: keep Slowness III, Blindness and Weakness I on him (re-applied because his debuff-halving would shorten them). */
 	private static void tickEmergency(ServerPlayer player, long now) {
 		WolverineState s = Wolverine.state(player);
-		if (s.emergencyHealUntil > now) {
-			player.heal(player.getMaxHealth() * WolverineConfig.EMERGENCY_HEAL_FRACTION
-					/ WolverineConfig.EMERGENCY_HEAL_TICKS);
-			return;
-		}
-		if (player.tickCount % 5 == 0) {
-			tryEmergency(player);
+		if (s.emergencyHealUntil > now && player.tickCount % 5 == 0) {
+			player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 20, 2, true, false, false));
+			player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 20, 0, true, false, false));
+			player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 20, 0, true, false, false));
 		}
 	}
 

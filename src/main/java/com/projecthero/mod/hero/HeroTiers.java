@@ -180,7 +180,24 @@ public final class HeroTiers {
 	 *
 	 * @param heroKey one of {@link #HERO_KEYS}
 	 */
+	/**
+	 * v0.12.16: a Thor who has let go of the hammer (no bound hammer) and then takes on ANY other power
+	 * stops being worthy -- they can no longer lift Mjolnir back up and stack Thor on top of it.
+	 */
+	public static void unworthyIfHammerReleased(ServerPlayer player) {
+		if (Boolean.TRUE.equals(player.getAttachedOrElse(
+				com.projecthero.mod.attachment.ModAttachments.HAMMER_RELEASED, false))) {
+			player.setAttached(com.projecthero.mod.attachment.ModAttachments.HAMMER_RELEASED, false);
+			if (Worthiness.isWorthy(player)) {
+				Worthiness.setScore(player, 0);
+			}
+		}
+	}
+
 	public static void claimPrimary(ServerPlayer player, String heroKey) {
+		if (!"thor".equals(heroKey)) {
+			unworthyIfHammerReleased(player);
+		}
 		if (hasExperimental(player)) {
 			wipeExperimental(player);
 		}
@@ -201,6 +218,7 @@ public final class HeroTiers {
 	 * @return true if anything was replaced
 	 */
 	public static boolean claimExperimental(ServerPlayer player) {
+		unworthyIfHammerReleased(player);
 		java.util.List<String> order = heroOrder(player);
 		boolean changed = trimHeroes(player, order, "", PRIMARY_SLOTS - 1);
 		saveOrder(player, order);

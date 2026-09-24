@@ -57,6 +57,12 @@ public final class Wolverine {
 		return s != null && s.hasPower && s.clawsOut;
 	}
 
+	/** In the death-resurrection window (invulnerable, debuffed, flesh-skinned). */
+	public static boolean resurrecting(Player player) {
+		WolverineState s = player.getAttachedOrElse(ModAttachments.WOLVERINE_STATE, null);
+		return s != null && s.hasPower && s.emergencyHealUntil > player.level().getGameTime();
+	}
+
 	public static boolean raging(Player player) {
 		WolverineState s = player.getAttachedOrElse(ModAttachments.WOLVERINE_STATE, null);
 		return s != null && s.hasPower && s.rageUntil > player.level().getGameTime();

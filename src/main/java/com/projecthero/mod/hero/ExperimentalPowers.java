@@ -73,6 +73,7 @@ public final class ExperimentalPowers {
 	 * becomes the selected power -- owned means live (spec: persistent passive stacking).
 	 */
 	public static boolean grant(ServerPlayer player, Power power) {
+		com.projecthero.mod.hero.HeroTiers.unworthyIfHammerReleased(player);
 		ExperimentalState s = state(player).copy();
 		if (s.ownedPowers.contains(power.key())) {
 			return false;

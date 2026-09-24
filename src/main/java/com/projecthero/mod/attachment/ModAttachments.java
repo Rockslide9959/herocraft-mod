@@ -122,6 +122,17 @@ public final class ModAttachments {
 					.syncWith(UUIDUtil.STREAM_CODEC, AttachmentSyncPredicate.targetOnly()));
 
 	/**
+	 * v0.12.16: true once a Thor has deliberately released their hold on the hammer (unbound it) and has
+	 * not bound one since. If they then gain another power they lose their worthiness
+	 * ({@code HeroTiers.unworthyIfHammerReleased}) so they cannot lift Mjolnir back up and stack it on top.
+	 */
+	public static final AttachmentType<Boolean> HAMMER_RELEASED = AttachmentRegistry.create(
+			ProjectHeroMod.id("thor_hammer_released"),
+			builder -> builder.persistent(com.mojang.serialization.Codec.BOOL)
+					.copyOnDeath()
+					.initializer(() -> false));
+
+	/**
 	 * Game time of the last damage that got through, used only to gate the very mild Power of Thor
 	 * regeneration. Not persisted -- a fresh login is as good as being out of combat.
 	 */

@@ -4,8 +4,7 @@
   "pattern": ["Y Y", "L L"],
   "key": {
     "L": { "item": "minecraft:leather" },
-    "Y": { "item": "minecraft:yellow_dye" },
-    "B": { "item": "minecraft:blue_dye" }
+    "Y": { "item": "minecraft:yellow_dye" }
   },
   "result": { "id": "projecthero:wolverine_suit_boots", "count": 1 }
 }

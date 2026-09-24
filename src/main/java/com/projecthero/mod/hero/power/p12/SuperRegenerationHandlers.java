@@ -40,6 +40,8 @@ public final class SuperRegenerationHandlers {
 	private static final float BASE_HEAL_CALM = 1.0f;
 	/** Each of Regeneration Mode and Cellular Surge adds this per interval on top of the base. */
 	private static final float MODE_HEAL = 1.0f;
+	/** Cellular Surge adds twice that on top (v0.12.16): +8 HP/s. */
+	private static final float SURGE_HEAL = 2.0f;
 	/** 4 hearts. At or below this, the base heal jumps to the calm rate regardless of combat. */
 	private static final float DESPERATE_HP = 8.0f;
 	/** How long after taking or dealing damage the player counts as "in combat" (3 s). */
@@ -118,7 +120,7 @@ public final class SuperRegenerationHandlers {
 				return;
 			}
 			if (p.getHealth() < p.getMaxHealth()) {
-				p.heal(MODE_HEAL);
+				p.heal(SURGE_HEAL);
 				ctx.level().sendParticles(ParticleTypes.HEART, p.getX(), p.getY() + 1, p.getZ(), 1, 0.2, 0.3, 0.2, 0.0);
 			}
 		}));

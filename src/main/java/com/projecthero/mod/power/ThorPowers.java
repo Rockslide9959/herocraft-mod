@@ -310,6 +310,7 @@ public final class ThorPowers {
 		stack.remove(ModDataComponents.BOUND_OWNER_NAME);
 		registry.setOwner(stack, Optional.empty(), "");
 		ThorPassives.unbind(player);
+		player.setAttached(com.projecthero.mod.attachment.ModAttachments.HAMMER_RELEASED, true);
 		ThorFeedback.unbound(player);
 
 		if (player.level() instanceof ServerLevel serverLevel) {
