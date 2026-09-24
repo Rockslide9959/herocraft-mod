@@ -31,6 +31,10 @@ public final class WolverineDamage {
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseAmount, dealtAmount, blocked) -> {
 			if (entity instanceof ServerPlayer p && Wolverine.hasPower(p)) {
 				WolverinePassives.tryEmergency(p);
+				Wolverine.addRage(p, dealtAmount * WolverineConfig.RAGE_GAIN_PER_DAMAGE_TAKEN);
+			}
+			if (source.getEntity() instanceof ServerPlayer attacker && attacker != entity && Wolverine.hasPower(attacker)) {
+				Wolverine.addRage(attacker, dealtAmount * WolverineConfig.RAGE_GAIN_PER_DAMAGE_DEALT);
 			}
 		});
 		// A lethal hit while the emergency heal is ready is survived -- the healing factor kicks in at 1 HP.

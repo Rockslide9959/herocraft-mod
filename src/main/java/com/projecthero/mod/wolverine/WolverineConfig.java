@@ -40,15 +40,22 @@ public final class WolverineConfig {
 	public static final double MELEE_BONUS_DAMAGE = 3.0; // bare-hand melee = 1 + 3 = 4
 	/** Claws out AND an empty hand: +8 unarmed damage on top (4 + 8 = 12). Not applied while holding an item. */
 	public static final double CLAW_MELEE_BONUS = 8.0;
-	public static final double SPEED_BONUS = 0.20;
-	public static final double JUMP_BONUS = 0.25;
+	public static final double SPEED_BONUS = 0.40; // Speed II
+	public static final double JUMP_BONUS = 0.30; // ~2.1 blocks: clears a 2-block wall
 	/** Passive strength mining bonus; claws add {@link #CLAW_MINING_BONUS} on top (1.5x total). */
 	public static final double STRENGTH_MINING_BONUS = 0.20;
 	public static final double CLAW_MINING_BONUS = 0.30;
 
 	// ---- enhanced senses ----
-	/** Hostile mobs inside this many blocks are outlined for the Wolverine's own client only. */
-	public static final double SENSE_RADIUS = 12.0;
+	/** Mobs hunting the Wolverine (targeting him) within this many blocks glow orange -- for his client only. */
+	public static final double HUNTER_RADIUS = 40.0;
+	/** How often the server refreshes his list of hunters. */
+	public static final int HUNTER_SCAN_TICKS = 10;
+	/** N key -- Sniff: every living thing within this many blocks is highlighted... */
+	public static final double SNIFF_RADIUS = 40.0;
+	/** ...for this long. No cooldown; only a tiny anti-spam guard. */
+	public static final int SNIFF_TICKS = 20 * S;
+	public static final int SNIFF_SPAM_GUARD = 10;
 
 	// ---- Ability 1: Claw Slash (R) ----
 	public static final float SLASH_DAMAGE = 18.0f;
@@ -56,32 +63,42 @@ public final class WolverineConfig {
 	public static final int SLASH_COOLDOWN = 30; // 1.5 s
 
 	// ---- Ability 2: Cross Slash (G) ----
-	public static final float CROSS_DAMAGE_EACH = 15.0f;
+	public static final float CROSS_DAMAGE_EACH = 12.0f;
 	public static final double CROSS_RANGE = 3.0;
 	public static final int CROSS_GAP_TICKS = 5;
 	public static final int CROSS_COOLDOWN = 4 * S;
 
-	// ---- Ability 3: Claw Dash (Z) ----
+	// ---- Ability 3: Claw Dash (X) ----
 	public static final double DASH_BLOCKS = 7.0;
-	public static final float DASH_DAMAGE = 24.0f;
-	public static final int DASH_MAX_TICKS = 14;
+	public static final float DASH_DAMAGE = 18.0f;
+	/** Safety cap only -- the dash normally ends the moment the Wolverine lands. */
+	public static final int DASH_MAX_TICKS = 30;
+	/** How far in front of the Wolverine a seized enemy is held while he drags it along. */
+	public static final double DASH_GRAB_DISTANCE = 1.3;
 	public static final double DASH_HIT_RADIUS = 2.0;
 	public static final int DASH_COOLDOWN = 6 * S;
 
-	// ---- Ability 4: Berserker Rage (X) ----
-	public static final int RAGE_TICKS = 12 * S;
-	public static final int RAGE_COOLDOWN = 45 * S;
+	// ---- Ability 6: Berserker Rage (C) -- gated by a rage bar, not a cooldown ----
+	public static final int RAGE_TICKS = 30 * S;
+	public static final float RAGE_BAR_MAX = 100.0f;
+	/** Bar points gained per point of damage the Wolverine takes / deals (not gained while raging). */
+	public static final float RAGE_GAIN_PER_DAMAGE_TAKEN = 0.75f;
+	public static final float RAGE_GAIN_PER_DAMAGE_DEALT = 0.45f;
 	public static final double RAGE_DAMAGE_BONUS = 0.50;
 	public static final double RAGE_SPEED_BONUS = 0.30;
 
-	// ---- Ability 5: Frenzy (C) ----
+	// ---- Ability 5: Frenzy (V) ----
 	public static final int FRENZY_STRIKES = 5;
 	public static final float FRENZY_DAMAGE = 8.0f;
 	public static final double FRENZY_RANGE = 4.0;
 	public static final int FRENZY_INTERVAL_TICKS = 4; // ~0.2 s
 	public static final int FRENZY_COOLDOWN = 15 * S;
 
-	// ---- Ability 6: Adamantium Execution (V) ----
+	// ---- Ability 4: Adamantium Execution (Z) -- hold to charge, release to strike ----
+	/** Hold the key this long; on release after a full charge the execution fires. */
+	public static final int EXECUTION_CHARGE_TICKS = 5 * S;
+	/** A charge whose release was never received (GUI opened, etc.) is dropped after this long. */
+	public static final int EXECUTION_CHARGE_TIMEOUT = 30 * S;
 	public static final float EXECUTION_DAMAGE = 60.0f;
 	public static final double EXECUTION_RANGE = 4.0;
 	public static final int EXECUTION_WINDUP_TICKS = 8;
@@ -89,6 +106,10 @@ public final class WolverineConfig {
 	public static final int EXECUTION_COOLDOWN = 30 * S;
 	/** Cooldown when the strike finds nothing to hit -- no full 30 s penalty for a whiff. */
 	public static final int EXECUTION_MISS_COOLDOWN = 8 * S;
+
+	/** Right-click claw strike (off hand) reach and swing guard. */
+	public static final double OFFHAND_STRIKE_REACH = 3.5;
+	public static final int OFFHAND_STRIKE_GUARD = 6;
 
 	/** Claw toggle spam guard. */
 	public static final int TOGGLE_COOLDOWN = 8;

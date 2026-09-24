@@ -193,6 +193,14 @@ public class ProjectHeroModClient implements ClientModInitializer {
 					com.projecthero.mod.client.spider.SpiderSenseGlowClient.accept(payload.ids(), now);
 				}));
 
+		// Wolverine senses: the per-viewer orange hunter glow + the N-key sniff highlight.
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.WolverineSensePayload.TYPE,
+				(payload, context) -> context.client().execute(() -> {
+					long now = context.client().level != null ? context.client().level.getGameTime() : 0L;
+					com.projecthero.mod.client.wolverine.WolverineSenseClient.accept(payload.hunters(), payload.sniffed(),
+							payload.sniffTicks(), now);
+				}));
+
 		// Green Lantern Ring Scan: the per-viewer hostile/passive glow (v0.11.10). Replaces the client's
 		// whole scan set, same pattern as Spider-Sense above.
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.GreenLanternRingScanPayload.TYPE,
@@ -323,6 +331,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		handlePowerInfo(client);
 		handleSquadMenu(client);
 		handleMaxSteelTransform(client);
+		handleWolverineOffHand(client);
 		handleChargedPunch(client);
 
 		boolean holdingFirearm = client.player.getMainHandItem().getItem()
@@ -545,12 +554,32 @@ public class ProjectHeroModClient implements ClientModInitializer {
 
 	private static boolean maxSteelTransformWasDown = false;
 
+	private static boolean wolverineUseWasDown;
+
+	/** Wolverine, claws out: right click strikes with the off-hand claw (the left hand that pops up). */
+	private static void handleWolverineOffHand(Minecraft client) {
+		boolean down = client.options.keyUse.isDown();
+		if (down && !wolverineUseWasDown && client.player != null && client.screen == null
+				&& com.projecthero.mod.wolverine.Wolverine.clawsOut(client.player)
+				&& client.player.getOffhandItem().isEmpty() && client.player.getMainHandItem().isEmpty()) {
+			client.player.swing(net.minecraft.world.InteractionHand.OFF_HAND);
+			ClientPlayNetworking.send(new com.projecthero.mod.network.WolverineActionPayload(
+					com.projecthero.mod.network.WolverineActionPayload.Action.CLAW_STRIKE));
+		}
+		wolverineUseWasDown = down;
+	}
+
 	private static void handleMaxSteelTransform(Minecraft client) {
 		boolean down = ModKeyBindings.MAX_STEEL_TRANSFORM.isDown();
 		if (down && !maxSteelTransformWasDown && client.player != null
 				&& com.projecthero.mod.maxsteel.MaxSteel.hasPower(client.player)) {
 			ClientPlayNetworking.send(new com.projecthero.mod.network.MaxSteelActionPayload(
 					com.projecthero.mod.network.MaxSteelActionPayload.Action.TRANSFORM_TOGGLE));
+		} else if (down && !maxSteelTransformWasDown && client.player != null
+				&& com.projecthero.mod.wolverine.Wolverine.hasPower(client.player)) {
+			// Wolverine: Utility 2 (N) sniffs -- highlights everything within 40 blocks for 20 s.
+			ClientPlayNetworking.send(new com.projecthero.mod.network.WolverineActionPayload(
+					com.projecthero.mod.network.WolverineActionPayload.Action.SNIFF));
 		} else if (down && !maxSteelTransformWasDown && client.player != null
 				&& com.projecthero.mod.symbiote.Symbiote.hasSymbiote(client.player)) {
 			// v0.11.16: Utility 2 (N) as a Symbiote host toggles Predator Vision (the glow outline).

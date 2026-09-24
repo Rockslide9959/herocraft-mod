@@ -20,7 +20,7 @@ reuses Super Regeneration's base heal tick and debuff-shortening mixin and scale
 |---|---|---|---|---|
 | R | Ability 1 | Claw Slash | 18, 3.5-block arc | 1.5 s |
 | G | Ability 2 | Cross Slash | 15 + 15, 3 blocks | 4 s |
-| Z | Ability 3 | Claw Dash | 24 to each enemy cut through, 7-block launch | 6 s |
+| Z | Ability 3 | Claw Dash | 18 to each enemy cut through, 7-block launch; grabs the first enemy hit and drags it until you land; lunge pose | 6 s |
 | X | Ability 4 | Berserker Rage | 12 s: +50% dmg, +30% speed, 2x regen, -20% dmg taken, ~100% KB resist | 45 s |
 | C | Ability 5 | Frenzy | 5 strikes x 8 (0.2 s apart), enemies within 4 blocks | 15 s |
 | V | Ability 6 | Adamantium Execution | 60, 4 blocks, wind-up + lunge, needs a target | 30 s (8 s on a whiff) |
@@ -94,3 +94,20 @@ chain, anvil, phantom swoop). No animation files: the swing uses the vanilla arm
 `gametest/WolverineGameTests`: prerequisite gate, stat apply/remove/idempotence, claws toggle, Rage (12 s,
 no stacking, cleanup), R routing + cooldown gate, Frenzy target rule, emergency heal + cooldown, other powers
 untouched.
+
+## v0.12.10 kit changes
+
+- **Keys:** R Claw Slash (18) · G Cross Slash (12 + 12) · X Claw Dash (18) · Z Adamantium Execution · V Frenzy · C Berserker Rage · N Sniff · H claws.
+- **Z Execution:** hold 5 s to charge (Slowness II while charging), release to fire. Early release cancels with no cooldown. Fires the usual wind-up / lunge / 60 damage; 30 s cooldown.
+- **C Rage:** gated by a rage bar (0-100), no cooldown. +2.5 per HP taken, +1.5 per HP dealt (`WolverineConfig`), not gained while raging. Full bar -> 30 s of rage, bar empties. Bar resets on respawn.
+- **N Sniff:** every living thing within 40 blocks highlighted for 20 s, no cooldown (10-tick anti-spam), sniffer sound. Client-only render via `WolverineSensePayload`.
+- **Hunters:** any mob targeting the Wolverine within 40 blocks glows orange at all times (replaces the old 12-block hostile glow). Only the Wolverine's client draws it.
+
+## v0.12.12
+
+- **Left hand = right hand:** the right-click off-hand strike now deals a fixed 12 (+50% in Rage) at full
+  strength (`WolverineSense.offHandStrike`), no longer scaled by the swing cooldown or a held item.
+- **Claw Dash grab:** the first enemy struck is pinned 1.3 blocks ahead and carried with the player's velocity
+  until the dash ends (landing; 30-tick safety cap), never through walls (`WolverineAbilities.dragGrabbed`).
+- **Lunge pose:** `WolverineDashPose` + `PlayerRendererMixin` / `HumanoidModelMixin` lean the body 55° forward
+  with both arms thrust ahead while `dashUntil` is active (visible to every viewer).

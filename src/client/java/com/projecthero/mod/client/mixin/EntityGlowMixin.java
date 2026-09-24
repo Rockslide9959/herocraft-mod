@@ -45,6 +45,19 @@ public abstract class EntityGlowMixin {
 			return;
 		}
 
+		// Wolverine senses (v0.12.10): mobs hunting him glow orange at all times, and a Sniff lights up every
+		// living thing nearby for 20 s. Fed by WolverineSensePayload to this viewer alone -- nothing is
+		// set on the entity, so only a Wolverine ever sees it. Checked before the player exclusion below
+		// because a Sniff deliberately marks players too.
+		if (self instanceof LivingEntity && com.projecthero.mod.wolverine.Wolverine.hasPower(viewer)) {
+			long wnow = viewer.level() != null ? viewer.level().getGameTime() : 0L;
+			if (com.projecthero.mod.client.wolverine.WolverineSenseClient.isHunter(self.getId(), wnow)
+					|| com.projecthero.mod.client.wolverine.WolverineSenseClient.isSniffed(self.getId(), wnow)) {
+				cir.setReturnValue(true);
+				return;
+			}
+		}
+
 		// v0.10.19: Magnetic Sense is the one detection highlight that DOES light up another player --
 		// specifically one wearing magnetic (iron-family) equipment, since that gear is exactly what the
 		// power senses. Checked before the generic player exclusion below.
@@ -88,15 +101,6 @@ public abstract class EntityGlowMixin {
 				cir.setReturnValue(true);
 				return;
 			}
-		}
-
-		// v0.12.1: Wolverine enhanced senses -- hostile mobs within 12 blocks are outlined, for the
-		// Wolverine own client only (nothing is set on the mob, no packet, no wallhack for anyone else).
-		if (self instanceof net.minecraft.world.entity.monster.Enemy && com.projecthero.mod.wolverine.Wolverine.hasPower(viewer)
-				&& self.distanceToSqr(viewer) <= com.projecthero.mod.wolverine.WolverineConfig.SENSE_RADIUS
-						* com.projecthero.mod.wolverine.WolverineConfig.SENSE_RADIUS) {
-			cir.setReturnValue(true);
-			return;
 		}
 
 		// v0.11.10: Green Lantern Ring Scan -- purely this viewer's own render, fed by
@@ -322,6 +326,30 @@ public abstract class EntityGlowMixin {
 			cir.setReturnValue(0xFF3B3B);
 		} else if (com.projecthero.mod.client.greenlantern.GreenLanternRingScanClient.isPassive(self.getId(), now)) {
 			cir.setReturnValue(0x3BFF6B);
+		}
+	}
+
+	/** Wolverine: orange for hostile / hunting mobs, pale gold for anything else a Sniff marked. */
+	@Inject(method = "getTeamColor", at = @At("HEAD"), cancellable = true)
+	private void projecthero$wolverineSenseColor(CallbackInfoReturnable<Integer> cir) {
+		if (cir.isCancelled()) {
+			return;
+		}
+		Entity self = (Entity) (Object) this;
+		if (self instanceof LocalPlayer || !(self instanceof LivingEntity)) {
+			return;
+		}
+		LocalPlayer viewer = Minecraft.getInstance().player;
+		if (viewer == null || viewer == self || !com.projecthero.mod.wolverine.Wolverine.hasPower(viewer)) {
+			return;
+		}
+		long now = viewer.level() != null ? viewer.level().getGameTime() : 0L;
+		boolean hunter = com.projecthero.mod.client.wolverine.WolverineSenseClient.isHunter(self.getId(), now);
+		boolean sniffed = com.projecthero.mod.client.wolverine.WolverineSenseClient.isSniffed(self.getId(), now);
+		if (hunter || (sniffed && self instanceof net.minecraft.world.entity.monster.Enemy)) {
+			cir.setReturnValue(0xFF8A00);
+		} else if (sniffed) {
+			cir.setReturnValue(0xFFE9A0);
 		}
 	}
 

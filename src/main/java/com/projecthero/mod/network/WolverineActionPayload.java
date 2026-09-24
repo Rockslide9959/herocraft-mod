@@ -15,7 +15,9 @@ import net.minecraft.resources.ResourceLocation;
  */
 public record WolverineActionPayload(Action action) implements CustomPacketPayload {
 	public enum Action {
-		TOGGLE_CLAWS
+		TOGGLE_CLAWS,
+		SNIFF,
+		CLAW_STRIKE
 	}
 
 	public static final CustomPacketPayload.Type<WolverineActionPayload> TYPE =

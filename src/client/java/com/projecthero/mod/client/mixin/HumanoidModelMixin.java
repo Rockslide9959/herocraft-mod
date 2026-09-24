@@ -81,6 +81,33 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		arm.zRot = s.swingHandRight ? -0.15f : 0.15f;
 	}
 
+	/**
+	 * Wolverine Claw Dash: arms thrust forward past the tilted body (so they point along the line of
+	 * travel), claws leading, legs trailing, head kept up on the target.
+	 */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$clawDashPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (!(entity instanceof Player player)
+				|| com.projecthero.mod.client.wolverine.WolverineDashPose.amount(player) <= 0.0f) {
+			return;
+		}
+		float lean = (float) Math.toRadians(com.projecthero.mod.client.wolverine.WolverineDashPose.LEAN_DEGREES);
+		float armX = -(1.5708f + lean);
+		this.rightArm.xRot = armX;
+		this.rightArm.yRot = -0.14f;
+		this.rightArm.zRot = 0.0f;
+		this.leftArm.xRot = armX;
+		this.leftArm.yRot = 0.14f;
+		this.leftArm.zRot = 0.0f;
+		this.rightLeg.xRot = 0.25f;
+		this.rightLeg.yRot = 0.0f;
+		this.leftLeg.xRot = -0.15f;
+		this.leftLeg.yRot = 0.0f;
+		this.head.xRot -= lean * 0.85f;
+		this.hat.xRot = this.head.xRot;
+	}
+
 	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
 	private void projecthero$flightPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
 			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {

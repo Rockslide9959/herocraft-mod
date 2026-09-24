@@ -45,6 +45,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(MaxSteelWarningPayload.TYPE, MaxSteelWarningPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SpiderSenseWarningPayload.TYPE, SpiderSenseWarningPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SpiderSenseGlowPayload.TYPE, SpiderSenseGlowPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(WolverineSensePayload.TYPE, WolverineSensePayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SpiderClimbGrabPayload.TYPE, SpiderClimbGrabPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FirearmShotPayload.TYPE, FirearmShotPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FirearmHeadshotPayload.TYPE, FirearmHeadshotPayload.CODEC);
@@ -135,7 +136,11 @@ public final class ModNetworking {
 
 		// Wolverine: the H-key claw toggle. Server re-validates power ownership + the spam guard.
 		ServerPlayNetworking.registerGlobalReceiver(WolverineActionPayload.TYPE, (payload, context) -> {
-			if (payload.action() == WolverineActionPayload.Action.TOGGLE_CLAWS) {
+			if (payload.action() == WolverineActionPayload.Action.CLAW_STRIKE) {
+				com.projecthero.mod.wolverine.WolverineSense.offHandStrike(context.player());
+			} else if (payload.action() == WolverineActionPayload.Action.SNIFF) {
+				com.projecthero.mod.wolverine.WolverineSense.sniff(context.player());
+			} else if (payload.action() == WolverineActionPayload.Action.TOGGLE_CLAWS) {
 				com.projecthero.mod.wolverine.Wolverine.toggleClaws(context.player());
 			}
 		});

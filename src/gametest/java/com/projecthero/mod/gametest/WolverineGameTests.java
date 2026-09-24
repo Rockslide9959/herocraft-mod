@@ -99,16 +99,20 @@ public class WolverineGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void rageAppliesOnceAndCannotStack(GameTestHelper helper) {
 		ServerPlayer p = wolverine(helper);
-		AbilityRouter.handleInput(p, 4, true);
-		helper.assertTrue(Wolverine.raging(p), "X starts Berserker Rage");
+		AbilityRouter.handleInput(p, 6, true);
+		helper.assertFalse(Wolverine.raging(p), "C does nothing while the rage bar is empty");
+		Wolverine.addRage(p, WolverineConfig.RAGE_BAR_MAX);
+		helper.assertTrue(Wolverine.state(p).rageMeter >= WolverineConfig.RAGE_BAR_MAX, "the bar fills");
+		AbilityRouter.handleInput(p, 6, true);
+		helper.assertTrue(Wolverine.raging(p), "C starts Berserker Rage from a full bar");
+		helper.assertTrue(Wolverine.state(p).rageMeter == 0.0f, "starting the rage empties the bar");
 		long until = Wolverine.state(p).rageUntil;
-		helper.assertTrue(until - p.level().getGameTime() == WolverineConfig.RAGE_TICKS, "lasts 12 seconds");
+		helper.assertTrue(until - p.level().getGameTime() == WolverineConfig.RAGE_TICKS, "lasts 30 seconds");
 		double rageSpeed = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
-		AbilityRouter.handleInput(p, 4, true);
+		AbilityRouter.handleInput(p, 6, true);
 		helper.assertTrue(Wolverine.state(p).rageUntil == until, "a second press does not extend or stack it");
 		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) == rageSpeed, "no stacked speed");
 		helper.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 1.0 - 1e-6, "near-total knockback resistance");
-		helper.assertFalse(Wolverine.abilityReady(p, WolverineAbilities.RAGE), "45-second cooldown running");
 		Wolverine.clearTransient(p);
 		helper.assertFalse(Wolverine.raging(p), "rage ends with transient state");
 		helper.assertTrue(p.getAttribute(Attributes.MOVEMENT_SPEED).getModifiers().size() == 1, "rage speed modifier removed");
@@ -169,7 +173,7 @@ public class WolverineGameTests implements FabricGameTest {
 		ExperimentalPowers.grant(p, Powers.byKey(Wolverine.SUPER_REGENERATION_KEY));
 		helper.assertFalse(com.projecthero.mod.wolverine.WolverineAbilityManager.hasContext(p),
 				"plain Super Regeneration is not in Wolverine's context");
-		AbilityRouter.handleInput(p, 4, true); // X must not start a Wolverine rage
+		AbilityRouter.handleInput(p, 6, true); // C must not start a Wolverine rage
 		helper.assertFalse(Wolverine.raging(p), "no Wolverine behaviour without the power");
 		helper.succeed();
 	}

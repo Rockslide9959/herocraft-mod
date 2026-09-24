@@ -545,10 +545,10 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.wolverine.claws.body");
 			blank(lines);
 			head(lines, "projecthero.guide.wolverine.controls");
-			for (String slot : new String[]{"R", "G", "Z", "X", "C", "V"}) {
+			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {
 				String key = switch (slot) {
-					case "R" -> "claw_slash"; case "G" -> "cross_slash"; case "Z" -> "claw_dash";
-					case "X" -> "berserker_rage"; case "C" -> "frenzy"; default -> "adamantium_execution";
+					case "R" -> "claw_slash"; case "G" -> "cross_slash"; case "X" -> "claw_dash";
+					case "Z" -> "adamantium_execution"; case "V" -> "frenzy"; default -> "berserker_rage";
 				};
 				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.wolverine.ability." + key).withStyle(ChatFormatting.WHITE)));
@@ -556,6 +556,8 @@ public final class HeroPackGuide {
 			}
 			lines.add(Component.literal(" H  ").withStyle(ChatFormatting.GOLD)
 					.append(Component.translatable("projecthero.guide.wolverine.toggle").withStyle(ChatFormatting.WHITE)));
+			lines.add(Component.literal(" N  ").withStyle(ChatFormatting.GOLD)
+					.append(Component.translatable("projecthero.guide.wolverine.sniff").withStyle(ChatFormatting.WHITE)));
 			blank(lines);
 			head(lines, "projecthero.guide.wolverine.passives");
 			para(lines, "projecthero.guide.wolverine.passives.body");

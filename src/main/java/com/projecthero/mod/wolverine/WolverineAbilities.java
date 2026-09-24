@@ -42,12 +42,15 @@ public final class WolverineAbilities {
 
 	/** Entity ids already struck by the current Claw Dash, per player. Static cache: reset with the session. */
 	private static final Map<UUID, Set<Integer>> DASH_HITS = new ConcurrentHashMap<>();
+	/** The entity each player is currently dragging along on a Claw Dash (v0.12.12): player -> entity id. */
+	private static final Map<UUID, Integer> DASH_GRAB = new ConcurrentHashMap<>();
 
 	private WolverineAbilities() {
 	}
 
 	public static void clearSessionState() {
 		DASH_HITS.clear();
+		DASH_GRAB.clear();
 	}
 
 	// ---------------- shared helpers ----------------
@@ -159,7 +162,7 @@ public final class WolverineAbilities {
 		}
 	}
 
-	// ---------------- 3: Claw Dash (Z) ----------------
+	// ---------------- 3: Claw Dash (X) ----------------
 
 	public static void clawDash(ServerPlayer player) {
 		if (!prepare(player, DASH, "projecthero.wolverine.ability.claw_dash", true)) {
@@ -178,6 +181,7 @@ public final class WolverineAbilities {
 		Wolverine.save(player, c);
 		WolverinePassives.reconcile(player);
 		DASH_HITS.put(player.getUUID(), new HashSet<>());
+		DASH_GRAB.remove(player.getUUID());
 		Wolverine.triggerCooldown(player, DASH, WolverineConfig.DASH_COOLDOWN);
 		AbilityHelpers.launchSelf(player, AbilityHelpers.ballisticLaunch(look, dist, player.onGround()));
 		swing(player, 3);
@@ -194,6 +198,7 @@ public final class WolverineAbilities {
 			if (hits != null) {
 				DASH_HITS.remove(player.getUUID());
 			}
+			DASH_GRAB.remove(player.getUUID());
 			return;
 		}
 		if (hits == null) {
@@ -206,8 +211,13 @@ public final class WolverineAbilities {
 				player.position().add(0, player.getBbHeight() * 0.5, 0), WolverineConfig.DASH_HIT_RADIUS)) {
 			if (hits.add(target.getId()) && strike(player, target, WolverineConfig.DASH_DAMAGE, 0.9)) {
 				slashFx(player, 0.9, 0.0, 0.8f);
+				// the first thing the claws sink into is seized and carried along
+				if (target.isAlive() && !DASH_GRAB.containsKey(player.getUUID())) {
+					DASH_GRAB.put(player.getUUID(), target.getId());
+				}
 			}
 		}
+		dragGrabbed(player);
 		// landing ends the dash early (after it has actually left the ground)
 		if (s.dashUntil - now < WolverineConfig.DASH_MAX_TICKS - 3 && player.onGround()) {
 			WolverineState c = s.copy();
@@ -215,10 +225,35 @@ public final class WolverineAbilities {
 			Wolverine.save(player, c);
 			WolverinePassives.reconcile(player);
 			DASH_HITS.remove(player.getUUID());
+			DASH_GRAB.remove(player.getUUID());
 		}
 	}
 
-	// ---------------- 4: Berserker Rage (X) ----------------
+	/** Keep the seized entity pinned on the claws in front of the player, moving with them, until the dash ends. */
+	private static void dragGrabbed(ServerPlayer player) {
+		Integer id = DASH_GRAB.get(player.getUUID());
+		if (id == null) {
+			return;
+		}
+		net.minecraft.world.entity.Entity e = player.serverLevel().getEntity(id);
+		if (!(e instanceof LivingEntity target) || !target.isAlive()) {
+			DASH_GRAB.remove(player.getUUID());
+			return;
+		}
+		Vec3 look = player.getLookAngle();
+		Vec3 flat = new Vec3(look.x, 0, look.z);
+		flat = flat.lengthSqr() < 1.0E-4 ? Vec3.ZERO : flat.normalize();
+		Vec3 to = player.position().add(flat.scale(WolverineConfig.DASH_GRAB_DISTANCE));
+		// never drag them through a wall: skip the move when the spot in front is blocked
+		if (target.level().noCollision(target, target.getBoundingBox().move(to.subtract(target.position())))) {
+			target.setPos(to.x, to.y, to.z);
+		}
+		target.setDeltaMovement(player.getDeltaMovement());
+		target.fallDistance = 0.0f;
+		target.hurtMarked = true;
+	}
+
+	// ---------------- 6: Berserker Rage (C) ----------------
 
 	public static void berserkerRage(ServerPlayer player) {
 		if (!Wolverine.hasPower(player)) {
@@ -230,16 +265,20 @@ public final class WolverineAbilities {
 					.withStyle(ChatFormatting.GRAY), true);
 			return;
 		}
-		if (!prepare(player, RAGE, "projecthero.wolverine.ability.berserker_rage", false)) {
+		// no cooldown: the rage bar (filled by taking and dealing damage) is the gate
+		float meter = Wolverine.state(player).rageMeter;
+		if (meter < WolverineConfig.RAGE_BAR_MAX) {
+			player.displayClientMessage(Component.translatable("message.projecthero.wolverine.rage_not_ready",
+					(int) (100.0f * meter / WolverineConfig.RAGE_BAR_MAX)).withStyle(ChatFormatting.GRAY), true);
 			return;
 		}
 		long now = player.level().getGameTime();
 		WolverineState c = Wolverine.state(player).copy();
 		c.rageUntil = now + WolverineConfig.RAGE_TICKS;
+		c.rageMeter = 0.0f;
 		Wolverine.save(player, c);
 		WolverinePassives.reconcile(player);
-		Wolverine.triggerCooldown(player, RAGE, WolverineConfig.RAGE_COOLDOWN);
-		Wolverine.markAction(player, 4);
+		Wolverine.markAction(player, 6);
 		if (player.level() instanceof ServerLevel level) {
 			level.sendParticles(ParticleTypes.ANGRY_VILLAGER, player.getX(), player.getY() + 1.6, player.getZ(), 6, 0.4, 0.3, 0.4, 0.0);
 			level.sendParticles(ParticleTypes.CRIMSON_SPORE, player.getX(), player.getY() + 1.0, player.getZ(), 25, 0.5, 0.8, 0.5, 0.02);
@@ -304,7 +343,75 @@ public final class WolverineAbilities {
 		}
 	}
 
-	// ---------------- 6: Adamantium Execution (V) ----------------
+	// ---------------- 4: Adamantium Execution (Z) ----------------
+
+	/** Z pressed: start charging. Nothing happens until the key is released after a full charge. */
+	public static void beginExecutionCharge(ServerPlayer player) {
+		if (!Wolverine.hasPower(player)) {
+			return;
+		}
+		WolverineState s = Wolverine.state(player);
+		if (s.chargeStartedAt != 0L || WolverineScheduler.hasPending(player)) {
+			return;
+		}
+		if (!prepare(player, EXECUTION, "projecthero.wolverine.ability.adamantium_execution", true)) {
+			return; // on cooldown: says so, and no charge starts
+		}
+		WolverineState c = s.copy();
+		c.chargeStartedAt = player.level().getGameTime();
+		Wolverine.save(player, c);
+		AbilityHelpers.sound(player, SoundEvents.CHAIN_PLACE, 0.7f, 0.6f);
+	}
+
+	/** Z released: fire the execution if the charge was complete, otherwise just drop it. */
+	public static void releaseExecutionCharge(ServerPlayer player) {
+		WolverineState s = Wolverine.state(player);
+		if (!s.hasPower || s.chargeStartedAt == 0L) {
+			return;
+		}
+		long held = player.level().getGameTime() - s.chargeStartedAt;
+		endCharge(player);
+		if (held < WolverineConfig.EXECUTION_CHARGE_TICKS) {
+			player.displayClientMessage(Component.translatable("message.projecthero.wolverine.charge_cancelled")
+					.withStyle(ChatFormatting.GRAY), true);
+			return;
+		}
+		execution(player);
+	}
+
+	private static void endCharge(ServerPlayer player) {
+		WolverineState c = Wolverine.state(player).copy();
+		c.chargeStartedAt = 0L;
+		Wolverine.save(player, c);
+		player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+	}
+
+	/** While charging: slow the Wolverine, gather sparks, tick a rising note each second, ping at full. */
+	private static void tickCharge(ServerPlayer player, WolverineState s, long now) {
+		long held = now - s.chargeStartedAt;
+		if (held > WolverineConfig.EXECUTION_CHARGE_TIMEOUT) {
+			endCharge(player);
+			return;
+		}
+		if (held % 4 == 0) {
+			player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 8, 1, false, false, false));
+		}
+		boolean full = held >= WolverineConfig.EXECUTION_CHARGE_TICKS;
+		if (player.level() instanceof ServerLevel level && held % 4 == 0) {
+			Vec3 p = player.getEyePosition().add(player.getLookAngle().scale(0.8));
+			level.sendParticles(full ? ParticleTypes.CRIT : ParticleTypes.ENCHANTED_HIT, p.x, p.y - 0.3, p.z,
+					full ? 4 : 2, 0.3, 0.2, 0.3, 0.05);
+		}
+		if (held > 0 && held % 20 == 0 && !full) {
+			AbilityHelpers.sound(player, SoundEvents.NOTE_BLOCK_HAT.value(), 0.8f, 0.8f + 0.15f * (held / 20));
+		}
+		if (held == WolverineConfig.EXECUTION_CHARGE_TICKS) {
+			AbilityHelpers.sound(player, SoundEvents.ANVIL_PLACE, 0.6f, 1.6f);
+			AbilityHelpers.sound(player, SoundEvents.WOLF_GROWL, 0.8f, 0.6f);
+			player.displayClientMessage(Component.translatable("message.projecthero.wolverine.charge_ready")
+					.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), true);
+		}
+	}
 
 	public static void execution(ServerPlayer player) {
 		if (!Wolverine.hasPower(player)) {
@@ -327,7 +434,7 @@ public final class WolverineAbilities {
 		}
 		LivingEntity mark = targets.get(0);
 		Wolverine.triggerCooldown(player, EXECUTION, WolverineConfig.EXECUTION_COOLDOWN);
-		swing(player, 6);
+		swing(player, 4);
 		// wind-up: root in place, claws glinting
 		player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, WolverineConfig.EXECUTION_WINDUP_TICKS, 6, false, false, false));
 		AbilityHelpers.sound(player, SoundEvents.WOLF_GROWL, 0.9f, 0.5f);
@@ -354,7 +461,7 @@ public final class WolverineAbilities {
 	}
 
 	private static void executionStrike(ServerPlayer player, LivingEntity mark) {
-		swing(player, 6);
+		swing(player, 4);
 		LivingEntity target = null;
 		double reach = WolverineConfig.EXECUTION_RANGE;
 		if (mark.isAlive() && AbilityHelpers.distanceSqToBox(mark, player.getEyePosition()) <= reach * reach) {
@@ -387,7 +494,11 @@ public final class WolverineAbilities {
 	public static void tick(ServerPlayer player) {
 		WolverineState s = Wolverine.state(player);
 		if (s.hasPower) {
-			tickDash(player, s, player.level().getGameTime());
+			long now = player.level().getGameTime();
+			tickDash(player, s, now);
+			if (s.chargeStartedAt != 0L) {
+				tickCharge(player, s, now);
+			}
 		}
 	}
 }

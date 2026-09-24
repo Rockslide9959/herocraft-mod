@@ -38,7 +38,8 @@ public class WolverineClawsLayer extends RenderLayer<AbstractClientPlayer, Playe
 		if (player.isInvisible() || !WolverineClawsModel.visible(player, partialTick)) {
 			return;
 		}
-		float ext = WolverineClawsModel.extension(player, partialTick);
+		// half length outside first person: full-length blades dig into the ground on a hanging arm
+		float ext = WolverineClawsModel.extension(player, partialTick) * 0.5f;
 		boolean slim = player.getSkin().model() == PlayerSkin.Model.SLIM;
 		int color = Wolverine.raging(player) ? RAGE_TINT : SILVER;
 		VertexConsumer buffer = buffers.getBuffer(RenderType.entityCutoutNoCull(WolverineClawsModel.TEXTURE));

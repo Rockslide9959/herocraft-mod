@@ -39,6 +39,8 @@ public final class SymbioteVitalsManager {
 	public static final float MAX_HP = 200.0f;
 	/** Regen once safe: 9 Biomass per second (0.45/tick), after {@link #REGEN_SAFE_TICKS} out of combat. */
 	private static final float REGEN_PER_TICK = 9.0f / 20.0f;
+	/** Suit up and the Biomass climbs 70% slower -- wearing the armour is a drain of its own. */
+	private static final float SUITED_REGEN_FACTOR = 0.3f;
 	/** Biomass only regenerates after this long with no damage dealt or taken (5 s). */
 	private static final int REGEN_SAFE_TICKS = 100;
 	/** Once the bar has emptied, abilities stay locked until it climbs back to this fraction. */
@@ -360,7 +362,8 @@ public final class SymbioteVitalsManager {
 		// climbs the same way (that is how the ability lock lifts), so staying in a fight keeps it locked.
 		long nowTime = player.level().getGameTime();
 		if (c.hp < MAX_HP && outOfCombat(player, nowTime)) {
-			c.hp = Math.min(MAX_HP, c.hp + REGEN_PER_TICK);
+			c.hp = Math.min(MAX_HP, c.hp
+					+ (Symbiote.isActive(player) ? REGEN_PER_TICK * SUITED_REGEN_FACTOR : REGEN_PER_TICK));
 			dirty = true;
 		}
 		if (c.broken && c.hp >= MAX_HP * RECOVER_FRACTION) {

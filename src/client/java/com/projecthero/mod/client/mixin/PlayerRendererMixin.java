@@ -51,6 +51,17 @@ public abstract class PlayerRendererMixin {
 		poseStack.mulPose(Axis.ZP.rotationDegrees(180.0f));
 	}
 
+	/** Wolverine Claw Dash: pitch the whole body forward into the lunge (limbs are posed in HumanoidModelMixin). */
+	@Inject(method = "setupRotations(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;FFFF)V", at = @At("TAIL"))
+	private void projecthero$clawDashLean(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks,
+			float rotationYaw, float partialTicks, float scale, CallbackInfo ci) {
+		if (com.projecthero.mod.client.wolverine.WolverineDashPose.amount(player) <= 0.0f) {
+			return;
+		}
+		poseStack.translate(0.0f, 0.3f, 0.0f);
+		poseStack.mulPose(Axis.XP.rotationDegrees(-com.projecthero.mod.client.wolverine.WolverineDashPose.LEAN_DEGREES));
+	}
+
 	@Inject(method = "setupRotations(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;FFFF)V", at = @At("TAIL"))
 	private void projecthero$leanWhileFlying(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks,
 			float rotationYaw, float partialTicks, float scale, CallbackInfo ci) {

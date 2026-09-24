@@ -102,6 +102,8 @@ public final class Wolverine {
 		s.emergencyHealUntil = 0L;
 		s.emergencyReadyAt = 0L;
 		s.dashUntil = 0L;
+		s.rageMeter = 0.0f;
+		s.chargeStartedAt = 0L;
 		s.abilityReadyAt.clear();
 		save(player, s);
 		WolverinePassives.reconcile(player);
@@ -118,6 +120,8 @@ public final class Wolverine {
 		s.rageUntil = 0L;
 		s.emergencyHealUntil = 0L;
 		s.dashUntil = 0L;
+		s.rageMeter = 0.0f;
+		s.chargeStartedAt = 0L;
 		s.abilityReadyAt.clear();
 		save(player, s);
 		WolverinePassives.reconcile(player);
@@ -186,6 +190,25 @@ public final class Wolverine {
 		save(player, c);
 	}
 
+	// ---------------- rage bar ----------------
+
+	/** Fill the Berserker Rage bar (taking or dealing damage). Does nothing while a rage is burning. */
+	public static void addRage(ServerPlayer player, float amount) {
+		WolverineState s = state(player);
+		if (!s.hasPower || amount <= 0.0f || raging(player) || s.rageMeter >= WolverineConfig.RAGE_BAR_MAX) {
+			return;
+		}
+		WolverineState c = s.copy();
+		c.rageMeter = Math.min(WolverineConfig.RAGE_BAR_MAX, s.rageMeter + amount);
+		save(player, c);
+		if (c.rageMeter >= WolverineConfig.RAGE_BAR_MAX) {
+			player.displayClientMessage(Component.translatable("message.projecthero.wolverine.rage_ready")
+					.withStyle(ChatFormatting.RED, ChatFormatting.BOLD), true);
+			player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+					SoundEvents.WOLF_GROWL, SoundSource.PLAYERS, 0.8f, 0.8f);
+		}
+	}
+
 	// ---------------- cooldowns (absolute ready-at game time) ----------------
 
 	public static boolean abilityReady(ServerPlayer player, String abilityId) {
@@ -217,8 +240,9 @@ public final class Wolverine {
 	public static void clearTransient(ServerPlayer player) {
 		WolverineScheduler.clear(player.getUUID());
 		WolverineState s = state(player);
-		if (s.rageUntil != 0L || s.emergencyHealUntil != 0L || s.dashUntil != 0L) {
+		if (s.rageUntil != 0L || s.emergencyHealUntil != 0L || s.dashUntil != 0L || s.chargeStartedAt != 0L) {
 			WolverineState c = s.copy();
+			c.chargeStartedAt = 0L;
 			c.rageUntil = 0L;
 			c.emergencyHealUntil = 0L;
 			c.dashUntil = 0L;
@@ -233,6 +257,11 @@ public final class Wolverine {
 
 	public static void onPlayerRespawn(ServerPlayer player) {
 		clearTransient(player);
+		if (state(player).rageMeter != 0.0f) {
+			WolverineState c = state(player).copy();
+			c.rageMeter = 0.0f;
+			save(player, c);
+		}
 	}
 
 	public static void initialize() {

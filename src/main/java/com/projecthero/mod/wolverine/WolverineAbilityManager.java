@@ -13,8 +13,9 @@ import net.minecraft.server.level.ServerPlayer;
  * power, so R/G/Z/X/C/V (Ability 1-6) keep their own meaning for everyone else:
  *
  * <pre>
- *   R (1)  Claw Slash        G (2)  Cross Slash        Z (3)  Claw Dash
- *   X (4)  Berserker Rage    C (5)  Frenzy             V (6)  Adamantium Execution
+ *   R (1)  Claw Slash        G (2)  Cross Slash        X (3)  Claw Dash
+ *   Z (4)  Adamantium Execution (hold 5 s, release)    V (5)  Frenzy
+ *   C (6)  Berserker Rage (needs a full rage bar)      N  Sniff
  * </pre>
  *
  * <p>H (the claw toggle) is not an ability slot -- see {@code WolverineActionPayload}.
@@ -37,6 +38,15 @@ public final class WolverineAbilityManager {
 	}
 
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
+		if (slot == AbilitySlot.SLOT_4) {
+			// Adamantium Execution is hold-to-charge: it needs both the press and the release
+			if (pressed) {
+				WolverineAbilities.beginExecutionCharge(player);
+			} else {
+				WolverineAbilities.releaseExecutionCharge(player);
+			}
+			return;
+		}
 		if (!pressed) {
 			return;
 		}
@@ -44,9 +54,10 @@ public final class WolverineAbilityManager {
 			case SLOT_1 -> WolverineAbilities.clawSlash(player);
 			case SLOT_2 -> WolverineAbilities.crossSlash(player);
 			case SLOT_3 -> WolverineAbilities.clawDash(player);
-			case SLOT_4 -> WolverineAbilities.berserkerRage(player);
 			case SLOT_5 -> WolverineAbilities.frenzy(player);
-			case SLOT_6 -> WolverineAbilities.execution(player);
+			case SLOT_6 -> WolverineAbilities.berserkerRage(player);
+			default -> {
+			}
 		}
 	}
 
@@ -55,6 +66,7 @@ public final class WolverineAbilityManager {
 		if (!Wolverine.hasPower(player)) {
 			return;
 		}
+		WolverineSense.tick(player);
 		WolverinePassives.tick(player);
 		WolverineScheduler.tick(player);
 		WolverineAbilities.tick(player);
@@ -66,9 +78,9 @@ public final class WolverineAbilityManager {
 			case SLOT_1 -> WolverineAbilities.SLASH;
 			case SLOT_2 -> WolverineAbilities.CROSS;
 			case SLOT_3 -> WolverineAbilities.DASH;
-			case SLOT_4 -> WolverineAbilities.RAGE;
+			case SLOT_4 -> WolverineAbilities.EXECUTION;
 			case SLOT_5 -> WolverineAbilities.FRENZY;
-			case SLOT_6 -> WolverineAbilities.EXECUTION;
+			case SLOT_6 -> WolverineAbilities.RAGE;
 		};
 	}
 
@@ -78,9 +90,9 @@ public final class WolverineAbilityManager {
 			case SLOT_1 -> WolverineConfig.SLASH_COOLDOWN;
 			case SLOT_2 -> WolverineConfig.CROSS_COOLDOWN;
 			case SLOT_3 -> WolverineConfig.DASH_COOLDOWN;
-			case SLOT_4 -> WolverineConfig.RAGE_COOLDOWN;
+			case SLOT_4 -> WolverineConfig.EXECUTION_COOLDOWN;
 			case SLOT_5 -> WolverineConfig.FRENZY_COOLDOWN;
-			case SLOT_6 -> WolverineConfig.EXECUTION_COOLDOWN;
+			case SLOT_6 -> 0; // the rage bar gates it, not a cooldown
 		};
 	}
 }

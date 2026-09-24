@@ -13,6 +13,7 @@
 		"HumanoidArmorLayerMixin",
 		"HumanoidModelMixin",
 		"ItemInHandLayerMixin",
+		"ItemInHandRendererClawsMixin",
 		"LivingEntityPhaseMixin",
 		"MouseHandlerMixin",
 		"LocalPlayerMixin",
