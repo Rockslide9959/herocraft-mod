@@ -1233,7 +1233,9 @@ slot; the experimental mutations are one group in one slot (still capped by `mut
 - **Auto-equip** (`Symbiote.autoEquip` / `onIncomingHit`): a hit of >3, one leaving <5 hearts, a fatal one, or health
   below 5 hearts wraps the host. Refused while bonding, locked out (sonic / fire retreat / toggle cooldown), on fire,
   or creative. A manual retract suppresses the *health-triggered* wrap for 10 s; hits override it.
-  An auto-wrap retracts itself after 5 s (`AUTO_RETRACT_AT`, v0.11.16) unless the host presses H (`Symbiote.toggle`) to keep it.
+  (v0.11.18: auto-wraps no longer retract by themselves.) Resistance I always while bonded (`SymbiotePassives.tick`).
+  Suit-up is 40 ticks, bones revealed one at a time (`SymbioteReveal.THRESHOLD`); `Symbiote.tickGrowth` drives a +25%
+  `Attributes.SCALE` modifier from the transform clock. Sneak-cloak (5 s crouch): `HumanoidArmorLayerMixin` hides the suit while invisible.
 - **Predator Vision** (client, `EntityGlowMixin` + `SymbioteFxClient`): viewer-only outline within 20 blocks; N toggles it
   (`SymbioteFxClient.togglePredatorVision`). Hostiles red, other players dark purple, the rest dark blue.
 - **Lunge** keeps its momentum on finishing (v0.11.16). Meteor / lab structure sets: spacing 130/150, frequency 0.7.

@@ -29,8 +29,8 @@ public final class SymbioteFxClient {
 	/** Effective-progress boundaries between the three visual stages (matches {@code SymbioteReveal}'s
 	 *  own thresholds closely enough that the particles are covering the part that is about to appear,
 	 *  with a little deliberate overlap/anticipation into the next stage). */
-	private static final float STAGE_CHEST_END = 0.32f;
-	private static final float STAGE_LIMBS_END = 0.72f;
+	private static final float STAGE_CHEST_END = 0.24f;
+	private static final float STAGE_LIMBS_END = 0.82f;
 
 	/**
 	 * v0.11.16: N toggles the Symbiote host's Predator Vision (the mob / player outline) on and off. Purely a
@@ -85,17 +85,17 @@ public final class SymbioteFxClient {
 		// A faint cloud tracing the whole silhouette every tick, so the suit reads as creeping over the
 		// entire body rather than only the one region currently being sealed -- the dense stage cloud
 		// below is layered on top of this, not instead of it.
-		cloud(client, feet.add(0, h * 0.55, 0), w * 0.60, h * 0.5, 6);
+		cloud(client, feet.add(0, h * 0.55, 0), w * 0.60, h * 0.5, 3);
 
 		if (effective < STAGE_CHEST_END) {
-			cloud(client, feet.add(0, h * 0.62, 0), w * 0.70, h * 0.26, 16);
+			cloud(client, feet.add(0, h * 0.62, 0), w * 0.70, h * 0.26, 4);
 		} else if (effective < STAGE_LIMBS_END) {
-			cloud(client, feet.add(right.scale(w * 0.55)).add(0, h * 0.68, 0), w * 0.32, h * 0.22, 8);
-			cloud(client, feet.add(right.scale(-w * 0.55)).add(0, h * 0.68, 0), w * 0.32, h * 0.22, 8);
-			cloud(client, feet.add(right.scale(w * 0.24)).add(0, h * 0.24, 0), w * 0.32, h * 0.26, 8);
-			cloud(client, feet.add(right.scale(-w * 0.24)).add(0, h * 0.24, 0), w * 0.32, h * 0.26, 8);
+			cloud(client, feet.add(right.scale(w * 0.55)).add(0, h * 0.68, 0), w * 0.32, h * 0.22, 4);
+			cloud(client, feet.add(right.scale(-w * 0.55)).add(0, h * 0.68, 0), w * 0.32, h * 0.22, 4);
+			cloud(client, feet.add(right.scale(w * 0.24)).add(0, h * 0.24, 0), w * 0.32, h * 0.26, 4);
+			cloud(client, feet.add(right.scale(-w * 0.24)).add(0, h * 0.24, 0), w * 0.32, h * 0.26, 4);
 		} else {
-			cloud(client, feet.add(0, h * 0.94, 0), w * 0.55, h * 0.20, 14);
+			cloud(client, feet.add(0, h * 0.94, 0), w * 0.55, h * 0.20, 7);
 		}
 	}
 
@@ -107,11 +107,8 @@ public final class SymbioteFxClient {
 			double px = center.x + Math.cos(ang) * r;
 			double pz = center.z + Math.sin(ang) * r;
 			double py = center.y + (RNG.nextDouble() * 2 - 1) * halfHeight;
-			ParticleOptions type = switch (i % 3) {
-				case 0 -> ParticleTypes.SQUID_INK;
-				case 1 -> ParticleTypes.SMOKE;
-				default -> ParticleTypes.REVERSE_PORTAL;
-			};
+			// v0.11.18: no lingering SMOKE -- SQUID_INK and REVERSE_PORTAL clear quickly.
+			ParticleOptions type = (i % 2 == 0) ? ParticleTypes.SQUID_INK : ParticleTypes.REVERSE_PORTAL;
 			level.addParticle(type, px, py, pz,
 					(RNG.nextDouble() - 0.5) * 0.02, 0.01, (RNG.nextDouble() - 0.5) * 0.02);
 		}

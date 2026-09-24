@@ -125,7 +125,7 @@ public final class HeroPackGuide {
 					Component.translatable("projecthero.guide.symbiote.passive.recovery")).withStyle(ChatFormatting.GRAY));
 			lines.add(Component.literal(" • ").append(
 					Component.translatable("projecthero.guide.symbiote.passive.bare_hands")).withStyle(ChatFormatting.GRAY));
-			for (String p : new String[]{"protect", "predator", "resurrect", "vial"}) {
+			for (String p : new String[]{"protect", "resist", "growth", "cloak", "predator", "resurrect", "vial"}) {
 				lines.add(Component.literal(" • ").append(
 						Component.translatable("projecthero.guide.symbiote.passive." + p)).withStyle(ChatFormatting.GRAY));
 			}
@@ -183,7 +183,7 @@ public final class HeroPackGuide {
 				lines.add(Component.literal(" • ").append(
 						Component.translatable("projecthero.guide.symbiote_spider_man.passive." + p)).withStyle(ChatFormatting.GRAY));
 			}
-			for (String p : new String[]{"protect", "predator", "resurrect", "vial"}) {
+			for (String p : new String[]{"protect", "resist", "growth", "cloak", "predator", "resurrect", "vial"}) {
 				lines.add(Component.literal(" • ").append(
 						Component.translatable("projecthero.guide.symbiote.passive." + p)).withStyle(ChatFormatting.GRAY));
 			}

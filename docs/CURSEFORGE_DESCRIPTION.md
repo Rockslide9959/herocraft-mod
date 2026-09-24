@@ -113,8 +113,10 @@ hunt down — then right-click to bond.
 - **It protects its host.** A hit over 3 damage, a hit that would leave you under 5 hearts, or a fatal
   hit makes the Symbiote wrap you in the suit on its own — and if you *would* die it resurrects you for
   half its Biomass, hurls everything within 20 blocks away with massive tendrils and gives you
-  Resistance for 20 seconds. Its voice appears above your hotbar. An automatic wrap lasts 5 seconds and
-  then lets go — **press H within those 5 seconds to keep the suit on**.
+  Resistance for 20 seconds. Its voice appears above your hotbar. The suit stays on until you retract it.
+- **Living armour:** Resistance I at all times while bonded. The suit forms over **2 seconds**, piece by
+  piece, and you visibly grow to **125% size** as it does (shrinking back when it retracts). Crouch for
+  5 seconds with the suit on and the Symbiote **camouflages** you completely.
 - **Predator Vision:** a bonded host sees living things within 20 blocks outlined (hostile red, players
   dark purple, everything else dark blue) — visible to **you only**. **N** toggles it off and on.
 - **Weaknesses:** sound attacks (Warden boom, bells, goat horns) tear the suit off and disable every

@@ -25,14 +25,14 @@ import net.minecraft.world.entity.player.Player;
 public final class SymbioteReveal {
 	/** bone name -> reveal threshold, in the three stages: chest / arms+legs / head. */
 	private static final Map<String, Float> THRESHOLD = Map.ofEntries(
-			Map.entry("armorBody", 0.32f),
-			Map.entry("armorRightArm", 0.60f),
-			Map.entry("armorLeftArm", 0.62f),
-			Map.entry("armorRightLeg", 0.64f),
-			Map.entry("armorLeftLeg", 0.66f),
-			Map.entry("armorRightBoot", 0.68f),
-			Map.entry("armorLeftBoot", 0.70f),
-			Map.entry("armorHead", 0.95f));
+			Map.entry("armorBody", 0.10f),
+			Map.entry("armorRightArm", 0.24f),
+			Map.entry("armorLeftArm", 0.36f),
+			Map.entry("armorRightLeg", 0.48f),
+			Map.entry("armorLeftLeg", 0.60f),
+			Map.entry("armorRightBoot", 0.72f),
+			Map.entry("armorLeftBoot", 0.82f),
+			Map.entry("armorHead", 0.92f));
 
 	private SymbioteReveal() {
 	}

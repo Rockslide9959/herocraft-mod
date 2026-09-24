@@ -29,6 +29,8 @@ public abstract class HumanoidArmorLayerMixin {
 			LivingEntity entity, float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks,
 			float netHeadYaw, float headPitch, CallbackInfo ci) {
 		if (entity instanceof Player player && (InvisibilityLightHandlers.hideArmor(player)
+				// v0.11.18: the Symbiote's sneak-cloak -- the GeckoLib suit would otherwise stay visible on an invisible host
+				|| (player.isInvisible() && com.projecthero.mod.symbiote.Symbiote.isActive(player))
 				// v0.10.10: and while phasing -- opaque armour floating around a see-through body
 				// (see LivingEntityPhaseMixin) looks like a bug rather than a power.
 				|| com.projecthero.mod.hero.power.p18.DensityManipulationHandlers.phasing(player))) {
