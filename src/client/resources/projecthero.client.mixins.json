@@ -19,6 +19,7 @@
 		"LocalPlayerMixin",
 		"PlayerModelMixin",
 		"PlayerRendererClawsMixin",
+		"PlayerRendererFleshHandMixin",
 		"PlayerRendererFleshMixin",
 		"PlayerRendererHandMixin",
 		"PlayerRendererMixin",

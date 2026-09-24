@@ -46,6 +46,10 @@ public abstract class PlayerRendererHandMixin {
 		// The Punisher tactical vest is deliberately "clothing only" -- bare forearms, no gauntlet.
 		// Its texture has no data at the shared crimson_vanguard arm UVs, so drawing the armoured
 		// forearm here was rendering a flat grey sleeve over the hand. Let the vanilla hand show.
+		if ("wolverine".equals(piece.armorSetId())
+				&& com.projecthero.mod.client.wolverine.WolverineFlesh.active(player, 1.0f)) {
+			return; // flesh (or fading-in skin) hand: no suit sleeve over it
+		}
 		if ("punisher".equals(piece.armorSetId())) {
 			return;
 		}

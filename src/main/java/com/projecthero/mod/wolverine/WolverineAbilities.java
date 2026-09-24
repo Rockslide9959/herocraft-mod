@@ -97,6 +97,28 @@ public final class WolverineAbilities {
 		return out;
 	}
 
+	/** Living things in a box in front of the player: {@code range} deep, {@code width} blocks wide, nearest first. */
+	private static List<LivingEntity> inBox(ServerPlayer player, double range, double width) {
+		Vec3 eye = player.getEyePosition();
+		Vec3 look = player.getLookAngle();
+		Vec3 flat = new Vec3(look.x, 0, look.z);
+		flat = flat.lengthSqr() < 1.0E-4 ? new Vec3(0, 0, 1) : flat.normalize();
+		double half = width / 2.0;
+		List<LivingEntity> out = new ArrayList<>();
+		for (LivingEntity e : AbilityHelpers.enemiesAround(player, eye, range + half + 2.0)) {
+			Vec3 c = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);
+			double fwd = c.x * flat.x + c.z * flat.z;
+			double side = Math.abs(c.x * -flat.z + c.z * flat.x);
+			double halfW = e.getBbWidth() / 2.0;
+			if (fwd >= -0.5 - halfW && fwd <= range + halfW && side <= half + halfW
+					&& Math.abs(c.y) <= 2.0 + e.getBbHeight() / 2.0) {
+				out.add(e);
+			}
+		}
+		out.sort((a, b) -> Double.compare(a.distanceToSqr(player), b.distanceToSqr(player)));
+		return out;
+	}
+
 	private static boolean strike(ServerPlayer player, LivingEntity target, float damage, double knockback) {
 		if (!AbilityHelpers.hurtBurst(player, target, scaled(player, damage))) {
 			return false;
@@ -144,8 +166,7 @@ public final class WolverineAbilities {
 		Wolverine.triggerCooldown(player, SLASH, WolverineConfig.SLASH_COOLDOWN);
 		swing(player, 1);
 		slashFx(player, 1.6, 0.0, 1.0f);
-		// v0.12.16: area attack -- everything around him, not just what is in front
-		for (LivingEntity target : inCone(player, WolverineConfig.SLASH_RANGE, -2.0)) {
+		for (LivingEntity target : inBox(player, WolverineConfig.SLASH_RANGE, WolverineConfig.STRIKE_WIDTH)) {
 			strike(player, target, WolverineConfig.SLASH_DAMAGE, 0.6);
 		}
 	}
@@ -167,7 +188,7 @@ public final class WolverineAbilities {
 
 	private static void crossHit(ServerPlayer player, double side, float pitch) {
 		slashFx(player, 1.5, side, pitch);
-		for (LivingEntity target : inCone(player, WolverineConfig.CROSS_RANGE, -2.0)) {
+		for (LivingEntity target : inBox(player, WolverineConfig.CROSS_RANGE, WolverineConfig.STRIKE_WIDTH)) {
 			strike(player, target, WolverineConfig.CROSS_DAMAGE_EACH, 0.35);
 		}
 	}
@@ -328,22 +349,30 @@ public final class WolverineAbilities {
 		}
 	}
 
-	/** v0.12.16: area attack -- every strike shreds EVERYTHING within range, not one chosen target. */
 	private static void frenzyStrike(ServerPlayer player, Map<Integer, Integer> hitCount) {
-		swing(player, 5);
-		boolean any = false;
+		LivingEntity best = null;
+		int bestHits = Integer.MAX_VALUE;
+		double bestDist = Double.MAX_VALUE;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(player, player.position().add(0, 0.9, 0), WolverineConfig.FRENZY_RANGE)) {
-			hitCount.merge(e.getId(), 1, Integer::sum);
-			if (strike(player, e, WolverineConfig.FRENZY_DAMAGE, 0.15)) {
-				any = true;
-				if (player.level() instanceof ServerLevel level) {
-					Vec3 p = e.position().add(0, e.getBbHeight() * 0.6, 0);
-					level.sendParticles(ParticleTypes.SWEEP_ATTACK, p.x, p.y, p.z, 1, 0.2, 0.2, 0.2, 0.0);
-				}
+			int h = hitCount.getOrDefault(e.getId(), 0);
+			double d = e.distanceToSqr(player);
+			if (h < bestHits || (h == bestHits && d < bestDist)) {
+				best = e;
+				bestHits = h;
+				bestDist = d;
 			}
 		}
-		if (any) {
+		swing(player, 5);
+		if (best == null) {
+			return;
+		}
+		hitCount.merge(best.getId(), 1, Integer::sum);
+		if (strike(player, best, WolverineConfig.FRENZY_DAMAGE, 0.15)) {
 			AbilityHelpers.sound(player, SoundEvents.PLAYER_ATTACK_SWEEP, 0.7f, 1.3f + 0.1f * hitCount.size());
+			if (player.level() instanceof ServerLevel level) {
+				Vec3 p = best.position().add(0, best.getBbHeight() * 0.6, 0);
+				level.sendParticles(ParticleTypes.SWEEP_ATTACK, p.x, p.y, p.z, 1, 0.2, 0.2, 0.2, 0.0);
+			}
 		}
 	}
 

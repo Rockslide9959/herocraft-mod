@@ -122,7 +122,7 @@ public final class WolverineHud {
 		}
 		if (s.emergencyReadyAt > now) {
 			g.drawString(mc.font, Component.translatable("hud.projecthero.wolverine.emergency",
-					(int) ((s.emergencyReadyAt - now + 19) / 20)).withStyle(ChatFormatting.DARK_GRAY), x0, line, 0xFF777777, true);
+					(int) ((s.emergencyReadyAt - now + 19) / 20)).withStyle(ChatFormatting.GRAY), x0, line, 0xFFAAAAAA, true);
 		}
 	}
 }

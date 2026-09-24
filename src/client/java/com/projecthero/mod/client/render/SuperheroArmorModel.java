@@ -27,7 +27,7 @@ public class SuperheroArmorModel extends GeoModel<SuperheroArmorItem> {
 
 	/**
 	 * v0.12.16: the Wolverine Suit tears and bloodies as its wearer's health drops -- four textures,
-	 * chosen by health fraction (over 75% clean, then 75 / 50 / 25%).
+	 * chosen by health fraction (over 90% clean, then 90 / 65 / 40%), and a fifth, almost fully torn off, during the Death Surge.
 	 */
 	@Override
 	public ResourceLocation getTextureResource(SuperheroArmorItem animatable,
@@ -35,7 +35,9 @@ public class SuperheroArmorModel extends GeoModel<SuperheroArmorItem> {
 		if ("wolverine".equals(animatable.armorSetId()) && renderer instanceof software.bernie.geckolib.renderer.GeoArmorRenderer<?> armor
 				&& armor.getCurrentEntity() instanceof net.minecraft.world.entity.LivingEntity wearer) {
 			float frac = wearer.getMaxHealth() <= 0 ? 1.0f : wearer.getHealth() / wearer.getMaxHealth();
-			int stage = frac > 0.75f ? 0 : frac > 0.5f ? 1 : frac > 0.25f ? 2 : 3;
+			// Death Surge: the suit is almost completely torn off
+			int stage = (wearer instanceof net.minecraft.world.entity.player.Player p && com.projecthero.mod.wolverine.Wolverine.resurrecting(p))
+					? 4 : frac > 0.9f ? 0 : frac > 0.65f ? 1 : frac > 0.4f ? 2 : 3;
 			if (stage > 0) {
 				return com.projecthero.mod.ProjectHeroMod.id("textures/armor/wolverine_damaged_" + stage + ".png");
 			}

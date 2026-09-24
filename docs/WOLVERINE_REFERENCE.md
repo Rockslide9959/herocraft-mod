@@ -160,3 +160,9 @@ untouched.
   `raid start|end|removetimer|advancetimer <supervillain|gravebound>` (op-only). `/squad` stays.
 - **Thor:** releasing the hammer marks the player (`HAMMER_RELEASED`); gaining any other power afterwards zeroes
   their worthiness so they cannot lift Mjolnir and stack it.
+
+## v0.12.17
+
+- Death Surge visuals: red screen-edge shadow for the 10 s window (WolverineSurgeOverlay); first-person hand uses the flesh texture and the skin fades back over it (PlayerRendererFleshHandMixin); HUD line is now "Death Surge: <s>".
+- R / G are frontal again but hit a box 3 blocks wide (inBox, reach 3.5 / 3.0); V (Frenzy) is back to its old nearest-target spread.
+- Suit: chainmail protection (1/4/5/2), iron durability (multiplier 15); four damage textures (below 90 / 65 / 40% health, plus a near-fully-torn-off one during the Death Surge) with whole chunks removed to bare the skin.

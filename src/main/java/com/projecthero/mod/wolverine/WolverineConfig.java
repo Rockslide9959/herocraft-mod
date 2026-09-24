@@ -63,12 +63,14 @@ public final class WolverineConfig {
 
 	// ---- Ability 1: Claw Slash (R) ----
 	public static final float SLASH_DAMAGE = 18.0f;
-	public static final double SLASH_RANGE = 4.5;
+	public static final double SLASH_RANGE = 3.5;
+	/** R and G hit a box in front of him this wide (blocks), reach = the move's range. */
+	public static final double STRIKE_WIDTH = 3.0;
 	public static final int SLASH_COOLDOWN = 30; // 1.5 s
 
 	// ---- Ability 2: Cross Slash (G) ----
 	public static final float CROSS_DAMAGE_EACH = 12.0f;
-	public static final double CROSS_RANGE = 4.0;
+	public static final double CROSS_RANGE = 3.0;
 	public static final int CROSS_GAP_TICKS = 5;
 	public static final int CROSS_COOLDOWN = 4 * S;
 
