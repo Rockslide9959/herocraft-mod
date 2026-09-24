@@ -65,6 +65,11 @@ public final class WorthinessEnforcer {
 		for (int i = 0; i < slots.size(); i++) {
 			ItemStack stack = slots.get(i);
 			if (stack.is(ModItems.MJOLNIR)) {
+				// v0.11.15: a Hero of the Village who lifted another player's bound hammer keeps hold of it
+				// for as long as the effect lasts (it then drops back like any unworthy carry).
+				if (Worthiness.hasAscensionEffect(player) && Worthiness.boundToSomeoneElse(player, stack)) {
+					continue;
+				}
 				slots.set(i, ItemStack.EMPTY);
 				dropAtFeet(player, stack);
 				any = true;

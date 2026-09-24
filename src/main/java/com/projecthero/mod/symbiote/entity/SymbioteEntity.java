@@ -186,6 +186,12 @@ public class SymbioteEntity extends Entity {
 			return InteractionResult.CONSUME;
 		}
 
+		// v0.11.15: an empty Symbiote Vial in hand bottles the organism instead of bonding with it.
+		if (player.getMainHandItem().is(com.projecthero.mod.symbiote.item.SymbioteHostItems.SYMBIOTE_VIAL)) {
+			com.projecthero.mod.symbiote.item.SymbioteVialItem.capture(sp, this);
+			return InteractionResult.CONSUME;
+		}
+
 		SymbioteBonding.attempt(sp, this);
 		return InteractionResult.CONSUME;
 	}

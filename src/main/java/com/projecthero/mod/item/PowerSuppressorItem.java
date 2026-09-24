@@ -2,10 +2,8 @@ package com.projecthero.mod.item;
 
 import java.util.List;
 
-import com.projecthero.mod.hero.ExperimentalPowers;
 import com.projecthero.mod.ironman.IronManArmor;
 import com.projecthero.mod.ironman.TonyStark;
-import com.projecthero.mod.worthiness.Worthiness;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleTypes;
@@ -24,8 +22,8 @@ import net.minecraft.world.level.Level;
 
 /**
  * "changes 18": a survival-craftable way to give up your superpowers -- the natural counterpart to
- * gaining them. Sneak + use to permanently strip <b>every</b> Hero-Tier and experimental power at
- * once:
+ * gaining them. Sneak + use to permanently strip <b>every</b> power -- Hero-Tier, experimental, Green
+ * Lantern, Symbiote -- at once:
  * <ul>
  *   <li>the Tony Stark power (via {@link TonyStark#revoke});</li>
  *   <li>the Spider-Man Hero Class (the Spider Adhesion it grew out of is not handed back);</li>
@@ -47,13 +45,10 @@ public class PowerSuppressorItem extends Item {
 			return InteractionResultHolder.success(held);
 		}
 
-		boolean hasTony = TonyStark.hasPower(sp);
-		boolean hasExperimental = !ExperimentalPowers.state(sp).ownedPowers.isEmpty();
-		boolean worthy = Worthiness.isWorthy(sp);
-		boolean hasSpider = com.projecthero.mod.spider.SpiderMan.hasPower(sp);
-		boolean hasMaxSteel = com.projecthero.mod.maxsteel.MaxSteel.hasPower(sp);
-		boolean hasPunisher = com.projecthero.mod.punisher.Punisher.hasPower(sp);
-		if (!hasTony && !hasExperimental && !worthy && !hasSpider && !hasMaxSteel && !hasPunisher) {
+		boolean any = com.projecthero.mod.hero.HeroTiers.hasHeroTier(sp)
+				|| com.projecthero.mod.hero.HeroTiers.hasExperimental(sp)
+				|| com.projecthero.mod.symbiote.Symbiote.hasSymbiote(sp);
+		if (!any) {
 			sp.displayClientMessage(Component.translatable("message.projecthero.power_suppressor.nothing"), true);
 			return InteractionResultHolder.fail(held);
 		}
@@ -71,8 +66,12 @@ public class PowerSuppressorItem extends Item {
 			return InteractionResultHolder.fail(held);
 		}
 
-		// Strips every power of every tier in one clean pass (same routine the /<hero> commands use).
+		// Strips every power of every tier in one clean pass: all Primary powers (Hero-Tier + mutations) and
+		// the Secondary Symbiote.
 		com.projecthero.mod.hero.HeroTiers.wipeAll(sp);
+		if (com.projecthero.mod.symbiote.Symbiote.hasSymbiote(sp)) {
+			com.projecthero.mod.symbiote.Symbiote.remove(sp);
+		}
 
 		held.shrink(1);
 		if (level instanceof ServerLevel serverLevel) {

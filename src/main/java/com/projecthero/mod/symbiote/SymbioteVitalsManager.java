@@ -161,8 +161,7 @@ public final class SymbioteVitalsManager {
 		c.bondingUntil = player.level().getGameTime() + BONDING_TICKS;
 		save(player, c);
 		if (player.level() instanceof ServerLevel level) {
-			level.playSound(null, player.getX(), player.getY(), player.getZ(),
-					SoundEvents.SLIME_SQUISH, SoundSource.PLAYERS, 1.2f, 0.35f);
+			SymbioteSounds.organic(level, player.getX(), player.getY(), player.getZ(), 1.2f, 0.35f);
 			level.playSound(null, player.getX(), player.getY(), player.getZ(),
 					SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 1.4f, 0.8f);
 		}
@@ -262,6 +261,19 @@ public final class SymbioteVitalsManager {
 		return last != null && now - last < 60L;
 	}
 
+	/** A sound attack sheathes the Symbiote Blade and drops Symbiote Spikes. */
+	static void disruptToggles(ServerPlayer player) {
+		SymbioteVitals v = vitals(player);
+		if (!v.bladeActive && !v.thornsMode) {
+			return;
+		}
+		SymbioteVitals c = v.copy();
+		c.bladeActive = false;
+		c.thornsMode = false;
+		save(player, c);
+		reconcileBlade(player, false);
+	}
+
 	// ---------------- blade / spikes toggles ----------------
 
 	/** Symbiote Blade (V) toggle. Needs an empty main hand and some charge left. */
@@ -290,8 +302,7 @@ public final class SymbioteVitalsManager {
 		if (player.level() instanceof ServerLevel level) {
 			level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 1.2, player.getZ(),
 					24, 0.3, 0.4, 0.3, 0.02);
-			level.playSound(null, player.getX(), player.getY(), player.getZ(),
-					SoundEvents.SLIME_SQUISH, SoundSource.PLAYERS, 0.9f, 0.4f);
+			SymbioteSounds.organic(level, player.getX(), player.getY(), player.getZ(), 0.9f, 0.4f);
 		}
 	}
 
@@ -445,8 +456,7 @@ public final class SymbioteVitalsManager {
 						SoundEvents.WARDEN_ROAR, SoundSource.PLAYERS, 1.4f, 1.1f);
 				level.playSound(null, player.getX(), player.getY(), player.getZ(),
 						SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 1.2f, 0.5f);
-				level.playSound(null, player.getX(), player.getY(), player.getZ(),
-						SoundEvents.SLIME_SQUISH, SoundSource.PLAYERS, 1.0f, 0.4f);
+				SymbioteSounds.organic(level, player.getX(), player.getY(), player.getZ(), 1.0f, 0.4f);
 			}
 			return false;
 		}
@@ -469,8 +479,7 @@ public final class SymbioteVitalsManager {
 			if (lastFx == null || now - lastFx >= 40L) {
 				LAST_BOND_FX.put(player.getId(), now);
 				float pitch = 0.4f + player.getRandom().nextFloat() * 0.3f;
-				level.playSound(null, player.getX(), player.getY(), player.getZ(),
-						SoundEvents.SLIME_SQUISH, SoundSource.PLAYERS, 0.9f, pitch);
+				SymbioteSounds.organic(level, player.getX(), player.getY(), player.getZ(), 0.9f, pitch);
 				if (((now / 40L) & 1L) == 0L) {
 					level.playSound(null, player.getX(), player.getY(), player.getZ(),
 							SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 0.9f, 0.9f);
@@ -521,8 +530,7 @@ public final class SymbioteVitalsManager {
 			caught = true;
 			level.sendParticles(ParticleTypes.SQUID_INK, arrow.getX(), arrow.getY(), arrow.getZ(),
 					14, 0.2, 0.2, 0.2, 0.03);
-			level.playSound(null, player.getX(), player.getY(), player.getZ(),
-					SoundEvents.SLIME_SQUISH, SoundSource.PLAYERS, 0.7f, 1.4f);
+			SymbioteSounds.organic(level, player.getX(), player.getY(), player.getZ(), 0.7f, 1.4f);
 			if (hp <= 0.0f) {
 				break;
 			}

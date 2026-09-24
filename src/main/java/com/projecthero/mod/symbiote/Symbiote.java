@@ -78,8 +78,20 @@ public final class Symbiote {
 	 * / sound damage and the Weakness applied while exposed are the rest of the weakness. Resets the
 	 * instant the contact stops, so it is sustained exposure, not a stacking counter.
 	 */
-	private static final int HAZARD_RETRACT_TICKS = 100;             // ~5s of continuous contact
+	private static final int HAZARD_RETRACT_TICKS = 40;              // ~2s of continuous fire / lava
 	private static final int HAZARD_RETRACT_COOLDOWN_TICKS = 200;    // ~10s before the suit can come back
+	/** Sound attacks knock the suit off and lock the Symbiote out for this long (5 s). */
+	public static final int SONIC_LOCKOUT_TICKS = 100;
+	/** Players whose sonic disruption has already been reacted to -- edge-detects a fresh hit. */
+	private static final java.util.Set<Integer> SONIC_HANDLED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+	/** Game time before which the health-triggered auto-equip stands down (after the host retracts the suit by hand). */
+	private static final java.util.Map<Integer, Long> AUTO_EQUIP_SUPPRESS = new java.util.concurrent.ConcurrentHashMap<>();
+	/** Host health (in half-hearts) below which the Symbiote wraps its host on its own: 5 hearts. */
+	private static final float AUTO_EQUIP_HEALTH = 10.0f;
+	/** Biomass a resurrection costs: half of a full bar. */
+	private static final float RESURRECT_COST = SymbioteVitalsManager.MAX_HP / 2.0f;
+	private static final int RESURRECT_COOLDOWN_TICKS = 1200;
+	private static final java.util.Map<Integer, Long> RESURRECT_READY_AT = new java.util.concurrent.ConcurrentHashMap<>();
 	private static final java.util.Map<Integer, Integer> HAZARD_EXPOSURE = new java.util.concurrent.ConcurrentHashMap<>();
 
 	private Symbiote() {
@@ -192,6 +204,7 @@ public final class Symbiote {
 			return;
 		}
 		if (s.active) {
+			AUTO_EQUIP_SUPPRESS.put(player.getId(), now + 200L);
 			beginSuitDown(player);
 		} else {
 			beginSuitUp(player);
@@ -294,7 +307,9 @@ public final class Symbiote {
 		if (player.tickCount % 20 == 0) {
 			SymbioteModifiers.reconcileBlackSuit(player);
 		}
+		tickSonic(player, s);
 		tickHazardExposure(player, s);
+		tickAutoEquip(player);
 		// tickHazardExposure may have just forced a retract (#forceRetract -> #beginSuitDown), which
 		// flips the transform clock -- re-read rather than trust the pre-retract copy so the
 		// reconciliation below acts on the current animation direction.
@@ -385,8 +400,7 @@ public final class Symbiote {
 			return;
 		}
 		long now = player.level().getGameTime();
-		boolean exposed = player.isOnFire() || player.isInLava()
-				|| com.projecthero.mod.combat.SonicVulnerability.isDisrupted(player, now);
+		boolean exposed = player.isOnFire() || player.isInLava();
 		if (!exposed) {
 			HAZARD_EXPOSURE.remove(player.getId());
 			return;
@@ -435,16 +449,157 @@ public final class Symbiote {
 				.withStyle(ChatFormatting.RED, ChatFormatting.BOLD), true);
 	}
 
+	// ---------------- sonic shock ----------------
+
+	/**
+	 * A sound attack (Warden boom, bell, goat horn -- anything that marks the host
+	 * {@link com.projecthero.mod.combat.SonicVulnerability sonically disrupted}) rips the suit off and locks
+	 * the Symbiote out for {@link #SONIC_LOCKOUT_TICKS}. Reacted to once per hit, on the rising edge.
+	 */
+	private static void tickSonic(ServerPlayer player, SymbioteState s) {
+		long now = player.level().getGameTime();
+		if (!com.projecthero.mod.combat.SonicVulnerability.isDisrupted(player, now)) {
+			if (SONIC_HANDLED.remove(player.getId())) {
+				SymbioteDialogue.say(player, "sonic_recovered");
+			}
+			return;
+		}
+		if (!SONIC_HANDLED.add(player.getId())) {
+			return;
+		}
+		// Make sure the lockout covers a full 5 s from the hit, whatever length the source set.
+		com.projecthero.mod.combat.SonicVulnerability.expose(player, now, SONIC_LOCKOUT_TICKS);
+		boolean wasSuited = s.active || SymbioteSuit.wearing(player);
+		if (wasSuited) {
+			hardDeactivate(player);
+		}
+		SymbioteState c = state(player).copy();
+		c.toggleReadyAt = Math.max(c.toggleReadyAt, now + SONIC_LOCKOUT_TICKS);
+		save(player, c);
+		SymbioteAbilityManager.disrupt(player);
+		SymbioteVitalsManager.disruptToggles(player);
+
+		ServerLevel level = player.serverLevel();
+		level.sendParticles(net.minecraft.core.particles.ParticleTypes.SQUID_INK,
+				player.getX(), player.getY() + 1, player.getZ(), 50, 0.5, 0.8, 0.5, 0.12);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(),
+				SoundEvents.WARDEN_HURT, SoundSource.PLAYERS, 1.0f, 1.6f);
+		SymbioteDialogue.say(player, wasSuited ? "sonic_stunned" : "sonic_stunned_bare");
+	}
+
+	/** True while a sound attack has the Symbiote locked out. */
+	public static boolean sonicLocked(ServerPlayer player) {
+		return com.projecthero.mod.combat.SonicVulnerability.isDisrupted(player, player.level().getGameTime());
+	}
+
+	// ---------------- protecting the host: auto-equip + resurrection ----------------
+
+	/** Health-triggered wrap: below 5 hearts the Symbiote suits up by itself. */
+	private static void tickAutoEquip(ServerPlayer player) {
+		if (player.tickCount % 5 != 0 || player.getHealth() >= AUTO_EQUIP_HEALTH) {
+			return;
+		}
+		if (autoEquip(player, false)) {
+			SymbioteDialogue.say(player, "equip_low");
+		}
+	}
+
+	/**
+	 * The Symbiote wraps its host without being asked. Refuses (returns false) while the host is not bonded,
+	 * is already suited / mid-animation, is still bonding, is locked out (sonic shock, fire / lava retreat,
+	 * the toggle cooldown), is on fire, or is creative/spectator. {@code force} ignores the short stand-down
+	 * that follows the host retracting the suit by hand -- a hard hit or a fatal one overrides it.
+	 *
+	 * @return true if the suit went on
+	 */
+	public static boolean autoEquip(ServerPlayer player, boolean force) {
+		SymbioteState s = state(player);
+		if (!s.hasSymbiote || s.active || SymbioteTransform.isAnimating(s)
+				|| player.isSpectator() || player.getAbilities().invulnerable) {
+			return false;
+		}
+		long now = player.level().getGameTime();
+		if (now < s.toggleReadyAt || SymbioteVitalsManager.bonding(player) || sonicLocked(player)
+				|| player.isOnFire() || player.isInLava()) {
+			return false;
+		}
+		if (!force && now < AUTO_EQUIP_SUPPRESS.getOrDefault(player.getId(), 0L)) {
+			return false;
+		}
+		beginSuitUp(player);
+		return true;
+	}
+
+	/**
+	 * A hit is about to land on a bonded host: wrap them if it is heavy (over 3), would leave them under
+	 * 5 hearts, or would kill them. Called from {@link SymbioteDamageRules}.
+	 */
+	static void onIncomingHit(ServerPlayer player, float damage) {
+		if (damage <= 0.0f || player.getAbilities().invulnerable) {
+			return;
+		}
+		float after = player.getHealth() - damage;
+		String line = after <= 0.0f ? "equip_fatal" : (damage > 3.0f ? "equip_impact" : (after < AUTO_EQUIP_HEALTH ? "equip_low" : null));
+		if (line != null && autoEquip(player, true)) {
+			SymbioteDialogue.say(player, line);
+		}
+	}
+
+	/**
+	 * The Symbiote refuses to let its host die. Called from {@code ALLOW_DEATH}: if the bond can pay
+	 * {@link #RESURRECT_COST} Biomass (half a full bar), is not locked out by a sound attack and is not still
+	 * recovering from its last resurrection, the host is brought back, the Symbiote throws massive tendrils
+	 * that hurl everything within 20 blocks away, and the host gets Resistance for 20 seconds.
+	 *
+	 * @return true if the death was averted (the caller must then cancel it)
+	 */
+	public static boolean tryResurrect(ServerPlayer player) {
+		if (!hasSymbiote(player) || player.getAbilities().invulnerable || sonicLocked(player)) {
+			return false;
+		}
+		long now = player.level().getGameTime();
+		if (now < RESURRECT_READY_AT.getOrDefault(player.getId(), 0L)
+				|| SymbioteVitalsManager.biomass(player) < RESURRECT_COST) {
+			return false;
+		}
+		RESURRECT_READY_AT.put(player.getId(), now + RESURRECT_COOLDOWN_TICKS);
+		SymbioteVitalsManager.spendBiomass(player, RESURRECT_COST);
+		SymbioteVitalsManager.markCombat(player);
+
+		player.setHealth(Math.max(4.0f, player.getMaxHealth() * 0.5f));
+		player.clearFire();
+		player.removeEffect(net.minecraft.world.effect.MobEffects.POISON);
+		player.removeEffect(net.minecraft.world.effect.MobEffects.WITHER);
+		player.setAirSupply(player.getMaxAirSupply());
+		player.fallDistance = 0.0f;
+		player.invulnerableTime = 40;
+		player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+				net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 400, 0, false, true, true));
+
+		SymbioteAbilityManager.resurrectionBlast(player);
+		// The suit wraps its host too (no lockout can stop a resurrection wrap).
+		SymbioteState s = state(player);
+		if (!s.active && !SymbioteTransform.isAnimating(s)) {
+			SymbioteState c = s.copy();
+			c.toggleReadyAt = 0L;
+			save(player, c);
+			beginSuitUp(player);
+		}
+		SymbioteDialogue.say(player, "resurrect");
+		return true;
+	}
+
 	/** Server-stop cleanup for {@link #HAZARD_EXPOSURE} -- same discipline as every other static session map. */
 	public static void clearSessionState() {
 		HAZARD_EXPOSURE.clear();
+		SONIC_HANDLED.clear();
+		AUTO_EQUIP_SUPPRESS.clear();
+		RESURRECT_READY_AT.clear();
 	}
 
 	private static void fx(ServerPlayer player, boolean on) {
 		ServerLevel level = player.serverLevel();
-		level.playSound(null, player.getX(), player.getY(), player.getZ(),
-				on ? SoundEvents.SLIME_SQUISH : SoundEvents.HONEY_BLOCK_SLIDE,
-				SoundSource.PLAYERS, 0.7f, on ? 0.5f : 0.8f);
+		SymbioteSounds.organic(level, player.getX(), player.getY(), player.getZ(), 0.8f, on ? 0.5f : 0.8f);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(),
 				SoundEvents.PHANTOM_FLAP, SoundSource.PLAYERS, 0.4f, on ? 0.6f : 1.4f);
 	}

@@ -41,7 +41,25 @@ public final class SymbioteBonding {
 			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.entity_busy"), true);
 			return;
 		}
+		completeBond(player, symbiote.getX(), symbiote.getY() + 0.5, symbiote.getZ());
+		symbiote.discard();
+	}
 
+	/**
+	 * Bond from a filled {@link com.projecthero.mod.symbiote.item.SymbioteVialItem Symbiote Vial}: the same
+	 * flow as touching a free Symbiote, minus the entity. Returns false if the player is already bonded.
+	 */
+	public static boolean attemptFromVial(ServerPlayer player) {
+		if (Symbiote.hasSymbiote(player)) {
+			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.already_bonded")
+					.withStyle(ChatFormatting.GRAY), true);
+			return false;
+		}
+		completeBond(player, player.getX(), player.getY() + 1.0, player.getZ());
+		return true;
+	}
+
+	private static void completeBond(ServerPlayer player, double fxX, double fxY, double fxZ) {
 		boolean spiderMan = SymbioteCompatibility.isSpiderMan(player);
 		boolean incompatible = !spiderMan && SymbioteCompatibility.hasIncompatiblePower(player);
 
@@ -67,13 +85,9 @@ public final class SymbioteBonding {
 				.withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.ITALIC), false);
 
 		ServerLevel level = player.serverLevel();
-		level.sendParticles(ParticleTypes.SQUID_INK, symbiote.getX(), symbiote.getY() + 0.5, symbiote.getZ(),
-				100, 0.4, 0.6, 0.4, 0.12);
+		level.sendParticles(ParticleTypes.SQUID_INK, fxX, fxY, fxZ, 100, 0.4, 0.6, 0.4, 0.12);
 		level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 1.0, player.getZ(),
 				60, 0.4, 0.9, 0.4, 0.05);
-		level.playSound(null, player.getX(), player.getY(), player.getZ(),
-				SoundEvents.SLIME_SQUISH, SoundSource.PLAYERS, 1.2f, 0.35f);
-
-		symbiote.discard();
+		SymbioteSounds.organic(level, player.getX(), player.getY(), player.getZ(), 1.2f, 0.35f);
 	}
 }

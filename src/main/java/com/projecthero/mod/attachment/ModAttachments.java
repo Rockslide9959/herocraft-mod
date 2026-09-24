@@ -23,6 +23,14 @@ import net.minecraft.network.codec.ByteBufCodecs;
  */
 public final class ModAttachments {
 	/**
+	 * Comma-separated keys of the non-experimental Primary powers a player holds, oldest first. Drives the
+	 * "hold two Primary powers, the oldest is replaced" rule in {@link com.projecthero.mod.hero.HeroTiers}.
+	 */
+	public static final AttachmentType<String> PRIMARY_ORDER = AttachmentRegistry.create(
+			ProjectHeroMod.id("primary_order"),
+			builder -> builder.persistent(Codec.STRING).copyOnDeath().initializer(() -> ""));
+
+	/**
 	 * Hidden worthiness score. See {@link com.projecthero.mod.worthiness.Worthiness}. {@code copyOnDeath()}
 	 * is required here -- a player death/respawn creates a new player entity instance, and without it
 	 * this (like any Fabric attachment) silently resets to its initializer instead of carrying over.

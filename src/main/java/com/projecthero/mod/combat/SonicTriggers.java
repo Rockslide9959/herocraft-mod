@@ -27,8 +27,8 @@ import net.minecraft.world.phys.AABB;
 public final class SonicTriggers {
 	/** How far a rung bell or a played goat horn disrupts. */
 	private static final double RADIUS = 16.0;
-	/** ~4 s of disruption from an environmental source. */
-	private static final int DISRUPT_TICKS = 80;
+	/** ~5 s of disruption from an environmental source. */
+	private static final int DISRUPT_TICKS = 100;
 
 	private SonicTriggers() {
 	}

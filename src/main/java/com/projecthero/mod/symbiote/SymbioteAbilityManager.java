@@ -30,7 +30,7 @@ import net.minecraft.world.phys.Vec3;
  * <pre>
  *   R  Tendril Strike (30 blocks)      Shift+R  Tendril Sweep (cone, Slow 7 s)
  *   Shift+G  Tendril Grab (press, press again to throw)
- *   X  Symbiote Leap (ram = 15 dmg)    Shift+X  Symbiote Grapple (30 blocks; pulls items)
+ *   Ability 3 (Z)  Symbiote Lunge (20 blocks, ram = 15 dmg)   Shift+Ability 3  Symbiote Grapple (25 blocks; needs an anchor; pulls items)
  *   Z  Tendril Barrage / Blade Slash   Shift+hold Z  Symbiote Onslaught (ultimate)
  *   V  Symbiote Blade (toggle)         Shift+V  Symbiote Shield (toggle)
  *   C  Symbiote Spikes (Thorns IV toggle)
@@ -50,7 +50,6 @@ public final class SymbioteAbilityManager {
 	private static final int SPIKE_MAX_TARGETS = 3;
 
 	private static final int LEAP_NO_FALL_TICKS = 600;
-	private static final int LEAP_RAM_TICKS = 16;
 	private static final float LEAP_RAM_DAMAGE = 15.0f;
 
 	private static final float SHIELD_GUARD_DRAIN = 1.0f;
@@ -79,12 +78,11 @@ public final class SymbioteAbilityManager {
 	private static final double ONSLAUGHT_RADIUS = 6.0;
 	private static final int ONSLAUGHT_DOT_TICKS = 100;
 
-	private static final double GRAPPLE_RANGE = 30.0;
+	private static final double GRAPPLE_RANGE = 25.0;
 	private static final int CD_GRAPPLE = 60;
 	private static final int GRAPPLE_PULL_TICKS = 20;
 
 	private static final Map<Integer, Long> LEAP_NO_FALL_UNTIL = new ConcurrentHashMap<>();
-	private static final Map<Integer, Long> LEAP_RAM_UNTIL = new ConcurrentHashMap<>();
 	private static final Map<Integer, Long> GRAPPLE_READY_AT = new ConcurrentHashMap<>();
 	private static final Map<Integer, double[]> GRAPPLE_PULL = new ConcurrentHashMap<>();
 	/** Active Tendril Barrage: {endTick, lastHitTick}. */
@@ -139,7 +137,7 @@ public final class SymbioteAbilityManager {
 
 	public static void clearSessionState() {
 		LEAP_NO_FALL_UNTIL.clear();
-		LEAP_RAM_UNTIL.clear();
+		LUNGE.clear();
 		GRAPPLE_READY_AT.clear();
 		GRAPPLE_PULL.clear();
 		BARRAGE.clear();
@@ -148,7 +146,7 @@ public final class SymbioteAbilityManager {
 
 	public static void clearFor(ServerPlayer player) {
 		LEAP_NO_FALL_UNTIL.remove(player.getId());
-		LEAP_RAM_UNTIL.remove(player.getId());
+		LUNGE.remove(player.getId());
 		GRAPPLE_READY_AT.remove(player.getId());
 		GRAPPLE_PULL.remove(player.getId());
 		BARRAGE.remove(player.getId());
@@ -220,7 +218,7 @@ public final class SymbioteAbilityManager {
 				if (sneak) {
 					handleGrapple(player, now);
 				} else {
-					tryWithCooldown(player, 2, now, CD_LEAP, () -> symbioteLeap(player));
+					tryWithCooldown(player, 2, now, CD_LEAP, () -> symbioteLunge(player));
 				}
 			}
 			case SLOT_4 -> {
@@ -277,7 +275,7 @@ public final class SymbioteAbilityManager {
 		AbilityHelpers.line(level, hand, hit, ParticleTypes.SQUID_INK, 4.0);
 		AbilityHelpers.burst(level, hit, ParticleTypes.SQUID_INK, 14, 0.3);
 		AbilityHelpers.burst(level, hit, ParticleTypes.CRIT, 6, 0.3);
-		AbilityHelpers.sound(player, SoundEvents.HOSTILE_SWIM, 0.8f, 0.5f);
+		SymbioteSounds.organic(player, 0.8f, 0.5f);
 		return true;
 	}
 
@@ -299,7 +297,7 @@ public final class SymbioteAbilityManager {
 			AbilityHelpers.line(level, eye.add(dir.scale(0.5)), eye.add(dir.scale(SWEEP_RANGE)),
 					ParticleTypes.SQUID_INK, 2.0);
 		}
-		AbilityHelpers.sound(player, SoundEvents.HOSTILE_SWIM, 1.0f, 0.4f);
+		SymbioteSounds.organic(player, 1.0f, 0.4f);
 		AbilityHelpers.sound(player, SoundEvents.RAVAGER_ROAR, 0.5f, 1.4f);
 		return true;
 	}
@@ -341,7 +339,7 @@ public final class SymbioteAbilityManager {
 			AbilityHelpers.line(level, eye.add(dir.scale(0.5)), eye.add(dir.scale(SPIKE_RANGE * 0.7)),
 					ParticleTypes.SQUID_INK, 3.0);
 		}
-		AbilityHelpers.sound(player, SoundEvents.HOSTILE_SWIM, 0.9f, 1.2f);
+		SymbioteSounds.organic(player, 0.9f, 1.2f);
 		AbilityHelpers.sound(player, SoundEvents.PLAYER_ATTACK_SWEEP, 0.6f, 1.4f);
 		return true;
 	}
@@ -385,7 +383,7 @@ public final class SymbioteAbilityManager {
 				target.position().add(0, target.getBbHeight() * 0.5, 0), ParticleTypes.SQUID_INK, 4.0);
 		AbilityHelpers.burst(level, target.position().add(0, target.getBbHeight() * 0.5, 0),
 				ParticleTypes.SQUID_INK, 10, 0.3);
-		AbilityHelpers.sound(player, SoundEvents.SLIME_SQUISH, 0.9f, 0.5f);
+		SymbioteSounds.organic(player, 0.9f, 0.5f);
 		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.grab_seized"), true);
 	}
 
@@ -426,7 +424,7 @@ public final class SymbioteAbilityManager {
 			AbilityHelpers.hurt(player, target, GRAB_THROW_DAMAGE);
 			AbilityHelpers.burst(level, target.position().add(0, target.getBbHeight() * 0.5, 0),
 					ParticleTypes.SQUID_INK, 18, 0.4);
-			AbilityHelpers.sound(player, SoundEvents.HOSTILE_SWIM, 1.0f, 0.4f);
+			SymbioteSounds.organic(player, 1.0f, 0.4f);
 		}
 		clearGrab(player, s, now, true);
 	}
@@ -450,49 +448,58 @@ public final class SymbioteAbilityManager {
 		player.setAttached(ModAttachments.SYMBIOTE_STATE, c);
 	}
 
-	// ---------------- Symbiote Leap (X) ----------------
+	// ---------------- Symbiote Lunge (Ability 3) ----------------
 
-	private static final double LEAP_SPEED = 1.35;
-	private static final double LEAP_LIFT = 1.05;
+	/** Blocks per tick and ticks of travel: 2.0 x 10 = a 20-block lunge along the aim line. */
+	private static final double LUNGE_SPEED = 2.0;
+	private static final int LUNGE_TICKS = 10;
 
-	private static boolean symbioteLeap(ServerPlayer player) {
-		// v0.10.1: reverted to the pre-v0.9.24 behaviour -- launch along the horizontal aim direction
-		// with a fixed upward lift, so it arcs up and forward the way the player is looking rather than
-		// dashing dead straight.
-		Vec3 look = player.getLookAngle();
-		Vec3 dir = new Vec3(look.x, 0, look.z).normalize();
-		AbilityHelpers.launchSelf(player, dir.scale(LEAP_SPEED).add(0, LEAP_LIFT, 0));
+	/** Active lunges: {dirX, dirY, dirZ, endTick, startTick}. */
+	private static final Map<Integer, double[]> LUNGE = new ConcurrentHashMap<>();
+
+	private static boolean symbioteLunge(ServerPlayer player) {
+		Vec3 dir = player.getLookAngle().normalize();
 		long now = player.level().getGameTime();
+		LUNGE.put(player.getId(), new double[]{dir.x, dir.y, dir.z, now + LUNGE_TICKS, now});
 		LEAP_NO_FALL_UNTIL.put(player.getId(), now + LEAP_NO_FALL_TICKS);
-		LEAP_RAM_UNTIL.put(player.getId(), now + LEAP_RAM_TICKS);
+		AbilityHelpers.launchSelf(player, dir.scale(LUNGE_SPEED));
 		ServerLevel level = AbilityHelpers.level(player);
 		AbilityHelpers.burst(level, player.position(), ParticleTypes.SQUID_INK, 24, 0.3);
 		AbilityHelpers.burst(level, player.position(), ParticleTypes.POOF, 10, 0.4);
-		AbilityHelpers.sound(player, SoundEvents.SLIME_JUMP, 1.0f, 0.6f);
+		SymbioteSounds.lash(player, 1.0f, 0.7f);
 		return true;
 	}
 
-	private static void tickLeap(ServerPlayer player, long now) {
+	private static void tickLunge(ServerPlayer player, long now) {
 		if (leapFallProtected(player, now)) {
 			// trailing wisp so it reads as the Symbiote launching the host
 			AbilityHelpers.level(player).sendParticles(ParticleTypes.SQUID_INK,
 					player.getX(), player.getY() + player.getBbHeight() * 0.4, player.getZ(), 3, 0.15, 0.2, 0.15, 0.01);
 		}
-		Long ramUntil = LEAP_RAM_UNTIL.get(player.getId());
-		if (ramUntil == null) {
+		double[] l = LUNGE.get(player.getId());
+		if (l == null) {
 			return;
 		}
-		if (now >= ramUntil || player.onGround()) {
-			LEAP_RAM_UNTIL.remove(player.getId());
+		Vec3 dir = new Vec3(l[0], l[1], l[2]);
+		boolean travelled = now - (long) l[4] >= 2;
+		boolean blocked = travelled && (player.horizontalCollision || player.verticalCollision);
+		if (now >= (long) l[3] || blocked) {
+			LUNGE.remove(player.getId());
+			// bleed the speed off so the lunge ends in a stop rather than a 2-blocks-per-tick drift
+			player.setDeltaMovement(dir.scale(0.25));
+			player.hurtMarked = true;
 			return;
 		}
-		for (LivingEntity target : AbilityHelpers.enemiesAround(player, player.position(), 1.7)) {
+		AbilityHelpers.launchSelf(player, dir.scale(LUNGE_SPEED));
+		for (LivingEntity target : AbilityHelpers.enemiesAround(player, player.position().add(0, 0.9, 0), 2.0)) {
 			if (AbilityHelpers.hurt(player, target, LEAP_RAM_DAMAGE)) {
 				AbilityHelpers.knockbackFrom(target, player.position(), 1.6);
 				AbilityHelpers.burst(AbilityHelpers.level(player),
 						target.position().add(0, target.getBbHeight() * 0.5, 0), ParticleTypes.SQUID_INK, 26, 0.5);
-				AbilityHelpers.sound(player, SoundEvents.HOSTILE_SWIM, 1.0f, 0.4f);
-				LEAP_RAM_UNTIL.remove(player.getId());
+				SymbioteSounds.lash(player, 1.0f, 0.6f);
+				LUNGE.remove(player.getId());
+				player.setDeltaMovement(dir.scale(0.25));
+				player.hurtMarked = true;
 				return;
 			}
 		}
@@ -519,10 +526,22 @@ public final class SymbioteAbilityManager {
 			item.setNoPickUpDelay();
 			ServerLevel level = AbilityHelpers.level(player);
 			AbilityHelpers.line(level, eye.add(look.scale(0.4)), item.position(), ParticleTypes.SQUID_INK, 3.0);
-			AbilityHelpers.sound(player, SoundEvents.FISHING_BOBBER_RETRIEVE, 0.9f, 0.7f);
+			SymbioteSounds.organic(player, 0.9f, 0.7f);
 			return;
 		}
 
+		// v0.11.15: the grapple needs something to hold onto -- a block or a creature within range. Aimed at
+		// open air the tendril still lashes out the full distance, finds nothing, and snaps back.
+		boolean hasAnchor = AbilityHelpers.raycastEntity(player, GRAPPLE_RANGE) != null
+				|| AbilityHelpers.raycastBlock(player, GRAPPLE_RANGE).getType() != net.minecraft.world.phys.HitResult.Type.MISS;
+		if (!hasAnchor) {
+			ServerLevel missLevel = AbilityHelpers.level(player);
+			AbilityHelpers.line(missLevel, eye.add(look.scale(0.4)), eye.add(look.scale(GRAPPLE_RANGE)),
+					ParticleTypes.SQUID_INK, 3.0);
+			SymbioteSounds.organic(player, 0.6f, 0.5f);
+			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.grapple_no_anchor"), true);
+			return;
+		}
 		Vec3 anchor = AbilityHelpers.aimPoint(player, GRAPPLE_RANGE);
 		if (anchor.distanceTo(eye) < 3.0) {
 			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.grapple_too_close"), true);
@@ -542,8 +561,8 @@ public final class SymbioteAbilityManager {
 		LEAP_NO_FALL_UNTIL.put(player.getId(), now + LEAP_NO_FALL_TICKS);
 		ServerLevel level = AbilityHelpers.level(player);
 		AbilityHelpers.line(level, eye.add(look.scale(0.4)), anchor, ParticleTypes.SQUID_INK, 3.0);
-		AbilityHelpers.sound(player, SoundEvents.SLIME_SQUISH, 0.9f, 0.4f);
-		AbilityHelpers.sound(player, SoundEvents.FISHING_BOBBER_RETRIEVE, 0.9f, 0.6f);
+		SymbioteSounds.organic(player, 0.9f, 0.4f);
+		SymbioteSounds.organic(player, 0.9f, 0.6f);
 	}
 
 	private static ItemEntity nearestItemAlongAim(ServerPlayer player, Vec3 eye, Vec3 look) {
@@ -632,7 +651,7 @@ public final class SymbioteAbilityManager {
 				}
 			}
 		}
-		AbilityHelpers.sound(player, SoundEvents.HOSTILE_SWIM, 0.5f, 0.6f);
+		SymbioteSounds.organic(player, 0.5f, 0.6f);
 	}
 
 	private static boolean bladeSlash(ServerPlayer player) {
@@ -654,7 +673,7 @@ public final class SymbioteAbilityManager {
 					ParticleTypes.SQUID_INK, 3.0);
 		}
 		AbilityHelpers.sound(player, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 0.5f);
-		AbilityHelpers.sound(player, SoundEvents.HOSTILE_SWIM, 0.8f, 0.4f);
+		SymbioteSounds.organic(player, 0.8f, 0.4f);
 		return true;
 	}
 
@@ -844,6 +863,88 @@ public final class SymbioteAbilityManager {
 		}
 	}
 
+	// ---------------- sound-attack shock + resurrection ----------------
+
+	/** A sound attack rips every active Symbiote ability out of the host's control at once. */
+	public static void disrupt(ServerPlayer player) {
+		long now = player.level().getGameTime();
+		SymbioteState s = Symbiote.state(player);
+		if (s.tendrilGrabHeld) {
+			releaseGrabQuietly(player, s, now);
+		}
+		s = Symbiote.state(player);
+		if (s.onslaughtChargeStart >= 0) {
+			cancelOnslaught(player, s, null);
+		}
+		s = Symbiote.state(player);
+		if (s.shieldHeld) {
+			SymbioteState c = s.copy();
+			c.shieldHeld = false;
+			player.setAttached(ModAttachments.SYMBIOTE_STATE, c);
+		}
+		GRAPPLE_PULL.remove(player.getId());
+		BARRAGE.remove(player.getId());
+		LUNGE.remove(player.getId());
+		ONSLAUGHT_VICTIMS.remove(player.getId());
+	}
+
+	private static final double RESURRECT_RADIUS = 20.0;
+	private static final double RESURRECT_PUSH = 2.8;
+
+	/**
+	 * The resurrection burst: massive tendrils erupt from the host in every direction and hurl every living
+	 * thing within 20 blocks away from them. Nothing takes damage -- it is pure separation, so the freshly
+	 * revived host has room to breathe.
+	 */
+	public static void resurrectionBlast(ServerPlayer player) {
+		ServerLevel level = AbilityHelpers.level(player);
+		Vec3 origin = player.position().add(0, player.getBbHeight() * 0.6, 0);
+
+		// The tendrils: a wide fan of long, arcing lines of black ichor reaching the full radius.
+		int rays = 28;
+		for (int i = 0; i < rays; i++) {
+			double ang = (Math.PI * 2 * i) / rays;
+			double rise = 0.05 + (i % 3) * 0.12;
+			Vec3 dir = new Vec3(Math.cos(ang), rise, Math.sin(ang)).normalize();
+			Vec3 prev = origin;
+			for (int seg = 1; seg <= 10; seg++) {
+				double dist = seg * (RESURRECT_RADIUS / 10.0);
+				double sway = Math.sin(seg * 0.9 + i) * 0.9;
+				Vec3 p = origin.add(dir.scale(dist)).add(-dir.z * sway * 0.3, Math.sin(seg * 0.6) * 0.6, dir.x * sway * 0.3);
+				AbilityHelpers.line(level, prev, p, ParticleTypes.SQUID_INK, 2.5);
+				prev = p;
+			}
+		}
+		level.sendParticles(ParticleTypes.LARGE_SMOKE, origin.x, origin.y, origin.z, 60, 1.2, 0.8, 1.2, 0.05);
+		level.sendParticles(ParticleTypes.SONIC_BOOM, origin.x, origin.y, origin.z, 1, 0, 0, 0, 0);
+		SymbioteSounds.lash(player, 1.6f, 0.5f);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(),
+				SoundEvents.WARDEN_ROAR, net.minecraft.sounds.SoundSource.PLAYERS, 1.6f, 0.9f);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(),
+				SoundEvents.RAVAGER_ROAR, net.minecraft.sounds.SoundSource.PLAYERS, 1.4f, 0.5f);
+
+		AABB box = player.getBoundingBox().inflate(RESURRECT_RADIUS);
+		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box,
+				x -> x != player && x.isAlive() && !x.isSpectator())) {
+			Vec3 away = e.position().subtract(player.position());
+			Vec3 flat = new Vec3(away.x, 0, away.z);
+			if (flat.lengthSqr() < 0.01) {
+				flat = new Vec3(player.getRandom().nextDouble() - 0.5, 0, player.getRandom().nextDouble() - 0.5);
+			}
+			if (flat.length() > RESURRECT_RADIUS) {
+				continue;
+			}
+			Vec3 vel = flat.normalize().scale(RESURRECT_PUSH).add(0, 0.9, 0);
+			e.setDeltaMovement(vel);
+			e.hurtMarked = true;
+			e.hasImpulse = true;
+			if (e instanceof ServerPlayer sp) {
+				sp.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(sp));
+			}
+			AbilityHelpers.burst(level, e.position().add(0, e.getBbHeight() * 0.5, 0), ParticleTypes.SQUID_INK, 10, 0.3);
+		}
+	}
+
 	// ---------------- per-tick upkeep ----------------
 
 	public static void serverTick(ServerPlayer player) {
@@ -863,7 +964,7 @@ public final class SymbioteAbilityManager {
 			tickOnslaughtVictims(player, now);
 			tickGrapplePull(player, now);
 			tickBarrage(player, now);
-			tickLeap(player, now);
+			tickLunge(player, now);
 		} else {
 			SymbioteState held = Symbiote.state(player);
 			if (held.tendrilGrabHeld) {

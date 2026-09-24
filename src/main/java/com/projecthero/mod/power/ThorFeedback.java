@@ -88,7 +88,7 @@ public final class ThorFeedback {
 		player.sendSystemMessage(Component.translatable("message.projecthero.bind.worthy")
 				.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
 		player.sendSystemMessage(Component.translatable("message.projecthero.bind.power")
-				.withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
+				.withStyle(ChatFormatting.BLUE, ChatFormatting.BOLD));
 	}
 
 	public static void unbound(Player player) {

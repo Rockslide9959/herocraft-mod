@@ -79,8 +79,6 @@ public final class IronManCommand {
 
 	private static int power(CommandContext<CommandSourceStack> c, ServerPlayer target, boolean grant) {
 		if (grant) {
-			// Command grant = always replace: wipe every power of every tier first.
-			com.projecthero.mod.hero.HeroTiers.wipeAll(target);
 			boolean ok = TonyStark.grant(target);
 			c.getSource().sendSuccess(() -> Component.literal((ok ? "Granted Tony Stark to " : "Already had Tony Stark: ")
 					+ target.getGameProfile().getName()), true);
@@ -94,7 +92,6 @@ public final class IronManCommand {
 	private static int tech(CommandContext<CommandSourceStack> c, ServerPlayer target) {
 		int level = IntegerArgumentType.getInteger(c, "level");
 		if (!TonyStark.hasPower(target)) {
-			com.projecthero.mod.hero.HeroTiers.wipeAll(target);
 			TonyStark.grant(target);
 		}
 		TonyStark.unlockTech(target, level);

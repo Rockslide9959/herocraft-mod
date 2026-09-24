@@ -28,7 +28,7 @@ final class SymbioteTendrils {
 		Vec3 hand = player.getEyePosition().add(player.getLookAngle().scale(0.6)).add(0, -0.3, 0);
 		AbilityHelpers.line(level, hand, target.position().add(0, target.getBbHeight() * 0.5, 0),
 				ParticleTypes.SQUID_INK, 3.0);
-		AbilityHelpers.sound(player, SoundEvents.SLIME_SQUISH, 0.8f, 0.6f);
+		SymbioteSounds.organic(player, 0.8f, 0.6f);
 
 		if (target.getMaxHealth() <= 200.0f) {
 			Vec3 toPlayer = player.position().subtract(target.position()).normalize().scale(1.4).add(0, 0.25, 0);

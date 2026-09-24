@@ -2,17 +2,18 @@ package com.projecthero.mod.hero;
 
 /**
  * The six universal ability slots. What a slot <em>does</em> depends on the active power. The
- * {@code role} / default key is the design-intent guideline (R = primary, G = secondary,
- * X = movement, Z = ultimate, V = utility/control, C = special mode) and is only used for
- * documentation/HUD hints. The dedicated power-select key is H (see {@code ModKeyBindings}).
+ * {@code role} / default key is the design-intent guideline (R = Ability 1 / primary, G = Ability 2 /
+ * secondary, Z = Ability 3 / movement, X = Ability 4 / ultimate, C = Ability 5 / utility-control, V = Ability 6 /
+ * special mode) and is only used for documentation/HUD hints. Since v0.11.15 the controls screen names the
+ * keys "Ability 1" .. "Ability 6" and slots 3-6 default to Z, X, C, V. The dedicated power-select key is H (see {@code ModKeyBindings}).
  */
 public enum AbilitySlot {
 	SLOT_1('R', "Primary"),
 	SLOT_2('G', "Secondary"),
-	SLOT_3('X', "Movement"),
-	SLOT_4('Z', "Ultimate"),
-	SLOT_5('V', "Utility / Control"),
-	SLOT_6('C', "Special Mode");
+	SLOT_3('Z', "Movement"),
+	SLOT_4('X', "Ultimate"),
+	SLOT_5('C', "Utility / Control"),
+	SLOT_6('V', "Special Mode");
 
 	private final char defaultKey;
 	private final String role;
@@ -40,7 +41,7 @@ public enum AbilitySlot {
 		return role;
 	}
 
-	/** The controls-screen translation key (rendered "Primary" ... "Special Mode"). */
+	/** The controls-screen translation key (rendered "Ability 1" ... "Ability 6"). */
 	public String keyBindingTranslationKey() {
 		return "key.projecthero.ability_" + number();
 	}

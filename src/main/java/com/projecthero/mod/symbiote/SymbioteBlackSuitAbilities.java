@@ -103,7 +103,7 @@ public final class SymbioteBlackSuitAbilities {
 		AbilityHelpers.line(level, hand, hit, ParticleTypes.SQUID_INK, 4.0);
 		AbilityHelpers.burst(level, hit, ParticleTypes.SQUID_INK, 14, 0.3);
 		AbilityHelpers.burst(level, hit, ParticleTypes.CRIT, 6, 0.3);
-		AbilityHelpers.sound(player, SoundEvents.HOSTILE_SWIM, 0.8f, 0.5f);
+		SymbioteSounds.organic(player, 0.8f, 0.5f);
 		SpiderMan.triggerCooldown(player, TENDRIL_STRIKE, CD_TENDRIL_STRIKE);
 	}
 
@@ -125,7 +125,7 @@ public final class SymbioteBlackSuitAbilities {
 		}
 		long now = player.level().getGameTime();
 		CRUSH_ACTIVE.put(player.getId(), new long[] { target.getId(), now, now });
-		AbilityHelpers.sound(player, SoundEvents.SLIME_SQUISH, 1.0f, 0.4f);
+		SymbioteSounds.organic(player, 1.0f, 0.4f);
 		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.crush_seized"), true);
 	}
 
@@ -161,7 +161,7 @@ public final class SymbioteBlackSuitAbilities {
 		SLAM_PENDING.put(player.getId(), player.level().getGameTime() + SLAM_LAND_DEADLINE_TICKS);
 		AbilityHelpers.burst(level, player.position().add(0, 1, 0), ParticleTypes.SQUID_INK, 24, 0.5);
 		AbilityHelpers.burst(level, player.position().add(0, 1, 0), ParticleTypes.LARGE_SMOKE, 8, 0.4);
-		AbilityHelpers.sound(player, SoundEvents.HOSTILE_SWIM, 1.0f, 0.4f);
+		SymbioteSounds.organic(player, 1.0f, 0.4f);
 		return true;
 	}
 
@@ -235,7 +235,7 @@ public final class SymbioteBlackSuitAbilities {
 		if (now - c[2] >= CRUSH_DAMAGE_INTERVAL) {
 			c[2] = now;
 			AbilityHelpers.hurt(player, target, CRUSH_DAMAGE_PER_INTERVAL);
-			AbilityHelpers.sound(player, SoundEvents.SLIME_SQUISH, 0.6f, 0.3f);
+			SymbioteSounds.organic(player, 0.6f, 0.3f);
 		}
 	}
 

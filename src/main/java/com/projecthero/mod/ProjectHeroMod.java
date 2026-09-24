@@ -126,6 +126,7 @@ public class ProjectHeroMod implements ModInitializer {
 		ModStructureTypes.initialize();
 		ModStructurePieceTypes.initialize();
 		CraterAmbience.initialize();
+		com.projecthero.mod.hammer.MjolnirSeer.initialize();
 		com.projecthero.mod.maxsteel.worldgen.SteelCrashAmbience.initialize();
 		com.projecthero.mod.symbiote.worldgen.SymbioteWorldgen.initialize();
 
@@ -187,6 +188,11 @@ public class ProjectHeroMod implements ModInitializer {
 				// Max Steel: dying while unsuited pops an emergency totem -- the suit slams on around
 				// the downed pilot (v0.6.17). Costs 150 T.U.R.B.O. Energy and 20 minutes of cooldown.
 				if (com.projecthero.mod.maxsteel.MaxSteelTransform.tryEmergencyRevive(sp)) {
+					return false;
+				}
+				// v0.11.15: the Symbiote refuses to let its host die -- at the cost of half its Biomass it
+				// brings them back, throws everything within 20 blocks away and grants Resistance.
+				if (com.projecthero.mod.symbiote.Symbiote.tryResurrect(sp)) {
 					return false;
 				}
 				com.projecthero.mod.ironman.suit.IronManSuitCall.recoverSuitOnDeath(sp);

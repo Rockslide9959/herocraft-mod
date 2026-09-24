@@ -64,7 +64,6 @@ public final class PunisherCommand {
 
 	private static int power(CommandContext<CommandSourceStack> c, ServerPlayer target, boolean grant) {
 		if (grant) {
-			com.projecthero.mod.hero.HeroTiers.wipeAll(target);
 			boolean ok = Punisher.grant(target);
 			c.getSource().sendSuccess(() -> Component.literal(ok ? "Granted the Punisher" : "Already the Punisher"), true);
 		} else {

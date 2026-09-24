@@ -41,8 +41,8 @@ public final class ThorCommand {
 	}
 
 	private static int makeWorthy(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context, ServerPlayer target) {
-		// Command grant = always replace: wipe every power of every tier before making the player worthy.
-		com.projecthero.mod.hero.HeroTiers.wipeAll(target);
+		// Claim a Primary slot (replacing the oldest power if the player already holds two).
+		com.projecthero.mod.hero.HeroTiers.claimPrimary(target, "thor");
 		Worthiness.setScore(target, Worthiness.TEST_WORTHY_SCORE);
 		context.getSource().sendSuccess(() -> Component.translatable("commands.projecthero.thor.worthy", target.getName()), true);
 		return 1;

@@ -154,6 +154,17 @@ public final class MjolnirRegistry extends SavedData {
 		return Optional.ofNullable(hammerId == null ? null : records.get(hammerId));
 	}
 
+	/** Every hammer lying loose in the world (an entity, no owner) -- what the villager Seer can point at. */
+	public java.util.List<HammerRecord> freeHammers() {
+		java.util.List<HammerRecord> out = new java.util.ArrayList<>();
+		for (HammerRecord record : records.values()) {
+			if (record.placement() == HammerRecord.Placement.ENTITY && record.owner().isEmpty()) {
+				out.add(record);
+			}
+		}
+		return out;
+	}
+
 	// ---------------- record updates ----------------
 
 	/** Records that {@code holder} has the hammer in an inventory. */

@@ -22,6 +22,9 @@ public final class SymbioteHostItems {
 	public static SymbioteHostArmorItem CHESTPLATE;
 	public static SymbioteHostArmorItem LEGGINGS;
 	public static SymbioteHostArmorItem BOOTS;
+	/** v0.11.15: empty / filled Symbiote Vial -- see {@link SymbioteVialItem}. */
+	public static Item SYMBIOTE_VIAL;
+	public static Item SYMBIOTE_VIAL_FILLED;
 
 	private SymbioteHostItems() {
 	}
@@ -31,6 +34,10 @@ public final class SymbioteHostItems {
 		CHESTPLATE = register("symbiote_host_chestplate", ArmorItem.Type.CHESTPLATE);
 		LEGGINGS = register("symbiote_host_leggings", ArmorItem.Type.LEGGINGS);
 		BOOTS = register("symbiote_host_boots", ArmorItem.Type.BOOTS);
+		SYMBIOTE_VIAL = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("symbiote_vial"),
+				new SymbioteVialItem(new Item.Properties().stacksTo(16).rarity(Rarity.UNCOMMON), false));
+		SYMBIOTE_VIAL_FILLED = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("symbiote_vial_filled"),
+				new SymbioteVialItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC), true));
 
 		// Bespoke geometry converted from a user-supplied Blockbench rig by
 		// scratchpad/convert_symbiote_geo.js -- same shared-animation convention as every other set.

@@ -11,8 +11,8 @@ import org.lwjgl.glfw.GLFW;
 /**
  * The six <em>universal</em> HeroPack ability keybindings, plus the power-selection key.
  *
- * <p>There is deliberately exactly one logical set of six ability inputs -- R, G, X, Z, V, C
- * (Primary / Secondary / Movement / Ultimate / Utility-Control / Special Mode) -- shown in
+ * <p>There is deliberately exactly one logical set of six ability inputs -- R, G, Z, X, C, V
+ * (named Ability 1 to Ability 6 in the controls screen since v0.11.15) -- shown in
  * Options &gt; Controls under the category "Heropack Abilties".
  * What each slot actually <em>does</em> is contextual and resolved server-side by
  * {@link com.projecthero.mod.hero.AbilityRouter}: when the player currently has Thor's control context
@@ -37,13 +37,13 @@ public final class ModKeyBindings {
 	public static final KeyMapping ABILITY_2 = new KeyMapping(
 			"key.projecthero.ability_2", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, CATEGORY);
 	public static final KeyMapping ABILITY_3 = new KeyMapping(
-			"key.projecthero.ability_3", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_X, CATEGORY);
+			"key.projecthero.ability_3", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_Z, CATEGORY);
 	public static final KeyMapping ABILITY_4 = new KeyMapping(
-			"key.projecthero.ability_4", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_Z, CATEGORY);
+			"key.projecthero.ability_4", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_X, CATEGORY);
 	public static final KeyMapping ABILITY_5 = new KeyMapping(
-			"key.projecthero.ability_5", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, CATEGORY);
+			"key.projecthero.ability_5", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_C, CATEGORY);
 	public static final KeyMapping ABILITY_6 = new KeyMapping(
-			"key.projecthero.ability_6", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_C, CATEGORY);
+			"key.projecthero.ability_6", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, CATEGORY);
 
 	/** All six, indexed 0..5 == slot 1..6. */
 	public static final KeyMapping[] ABILITY_SLOTS = {

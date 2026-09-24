@@ -120,11 +120,23 @@ public final class SymbioteDialogue {
 		LAST_ID.put(player.getId(), pick.id);
 	}
 
+	/**
+	 * Speak a specific line right now (an event the Symbiote must react to -- auto-equip, a sound attack, a
+	 * resurrection), bypassing the ambient gap timers but stamping them so the patrol chatter does not
+	 * immediately talk over it.
+	 */
+	public static void say(ServerPlayer player, String id) {
+		speak(player, id);
+		LAST_SPOKEN.put(player.getId(), player.level().getGameTime());
+		LAST_ID.put(player.getId(), id);
+	}
+
+	/** v0.11.15: the Symbiote's voice shows above the hotbar (action bar) instead of filling the chat. */
 	private static void speak(ServerPlayer player, String id) {
-		player.sendSystemMessage(Component.literal("“")
+		player.displayClientMessage(Component.literal("“")
 				.append(Component.translatable("message.projecthero.symbiote.talk." + id))
 				.append(Component.literal("”"))
-				.withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.ITALIC));
+				.withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.ITALIC), true);
 	}
 
 	// ---------------- signal gathering ----------------

@@ -86,6 +86,8 @@ public final class SymbioteDamageRules {
 		}
 
 		float scaled = amount * factor;
+		// v0.11.15: a heavy, dangerous or fatal hit makes the Symbiote wrap its host on its own.
+		Symbiote.onIncomingHit(player, scaled);
 		// v0.9.24: the host takes the hit IN FULL -- no redirect. Separately, the Symbiote loses a
 		// fraction of that hit from its own Biomass bar, in parallel.
 		SymbioteVitalsManager.onHostHit(player, scaled);

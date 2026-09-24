@@ -7,12 +7,17 @@ experimental superpowers, then put them to the test against world raids and a gi
 Every hero is a full progression system, not a creative-only toy — you earn each one in survival,
 power it, upgrade it, and can lose it again.
 
-**Primary & Secondary powers (v0.11.14).** Every power is either *Primary* — who you are: Thor, Iron
-Man, Spider-Man, Max Steel, the Punisher, Green Lantern and the mutations — or *Secondary* — an add-on
-that rides on top. You hold one Primary power at a time: gaining a new one **replaces** the old one, so
-winning the Green Lantern ring while you are Spider-Man makes you Green Lantern. The Symbiote is the
-only Secondary power for now, and because it only works properly with Spider-Man, gaining any other
-Primary power removes it.
+**Primary & Secondary powers.** Every power is either *Primary* — who you are: Thor, Iron Man,
+Spider-Man, Max Steel, the Punisher, Green Lantern and the mutations — or *Secondary* — an add-on that
+rides on top. **You can hold two Primary powers at once** (v0.11.15): each hero power takes a slot, and
+your mutations (up to 3, stacking as before) share one. Gaining a hero power strips every mutation and,
+if you already hold two heroes, **replaces the oldest**; gaining a mutation keeps at most one hero beside
+it. The Symbiote is the only Secondary power for now, and because it only works properly with
+Spider-Man, gaining any other Primary power removes it.
+
+**Keybinds (v0.11.15).** The six ability keys are now named **Ability 1–6** in Options › Controls and
+default to **R, G, Z, X, C, V**; **H** is *Utility 1* and **N** is *Utility 2*; **P** opens the squad
+menu. If your saved controls still show the old letters, press *Reset* on those keys.
 
 ---
 
@@ -35,10 +40,14 @@ config files (`config/projecthero*.json`).
 
 ### ⚡ Thor
 Find a naturally generated **Mjolnir crater** (locatable, with its own ambient lightning) and try to
-lift the hammer. It will only budge for a **Hero of the Village**: lift it while you have the effect and
-Mjolnir binds itself to you on the spot, the effect is used up, and you become Thor (replacing any other
-Primary power). Without the effect — or once it runs out — it will not move for anyone who isn't
-already Thor. Creative players bypass it.
+lift the hammer. Craters are now **very rare**, so villagers will help: **Sneak + right-click a villager
+while holding a Lightning Rod** and trade **25 emeralds** for the direction (North, North East, …) of the
+nearest free Mjolnir — walk that way and it leads you there. The hammer only budges for a **Hero of the
+Village**: lift it while you have the effect and Mjolnir binds itself to you on the spot, the effect is
+used up, and you become Thor (taking a Primary slot). Lift a hammer that is *already bound to another
+player* and you can carry it while the effect lasts, but it does **not** bind to you and its owner is
+untouched. Without the effect — or once it runs out — it will not move for anyone who isn't already Thor.
+Creative players bypass it.
 
 - **Mjolnir** flies straight and true when thrown, phases through terrain on the way home, stands on
   its head when it lands, and is **recalled to your hand from anywhere** — even out of another
@@ -95,13 +104,20 @@ hunt down — then right-click to bond.
 
 - Toggle the **black suit** on and off (**H**) with a progressive, particle-covered suit-up.
 - **Tendril abilities:** Tendril Strike, a hold-to-raise **Symbiote Shield**, a Spike volley, a
-  directional **Leap**, **Symbiote Onslaught** (a charged Wither/Blind/Slow AoE ultimate), a hardened
-  tendril **Blade**, a body-**Spikes** toggle, and a **Grapple** (sneak + X).
-- A **Normal Host** gets a **Biomass** health bar that soaks part of every hit and regenerates out of
-  combat; a Spider-Man host keeps their own Web Reserve and doubles it. The suit is unbreakable while
-  worn.
-- **Weakness:** sustained fire or lava severs the bond — about five seconds of continuous burning and
-  the symbiote lets go.
+  20-block **Symbiote Lunge** (Ability 3), **Symbiote Onslaught** (a charged Wither/Blind/Slow AoE
+  ultimate), a hardened tendril **Blade**, a body-**Spikes** toggle, and a 25-block **Grapple** (sneak +
+  Ability 3) that needs something to hold onto.
+- A **Normal Host** gets a **Biomass** health bar that drains alongside every hit and regenerates out of
+  combat; Regeneration II heals you whenever you are hurt, at a small Biomass cost. A Spider-Man host
+  keeps their own Web Reserve and doubles it. The suit is unbreakable while worn.
+- **It protects its host.** A hit over 3 damage, a hit that would leave you under 5 hearts, or a fatal
+  hit makes the Symbiote wrap you in the suit on its own — and if you *would* die it resurrects you for
+  half its Biomass, hurls everything within 20 blocks away with massive tendrils and gives you
+  Resistance for 20 seconds. Its voice appears above your hotbar.
+- **Weaknesses:** sound attacks (Warden boom, bells, goat horns) tear the suit off and disable every
+  Symbiote ability for 5 seconds; burning for more than 2 seconds deactivates the suit.
+- **Symbiote Vial:** craft one from Iron Blocks and Glass. Sneak-use to bottle your own Symbiote, or
+  right-click a free one; use the filled vial to bond again.
 
 ### 🔵 Max Steel
 Find **Steel** — a floating alien companion hovering over a **crash site** — and bond by spending 30
@@ -126,7 +142,7 @@ A **non-superhuman** Hero-Tier power: firearms, explosives, gear and training. C
   so every shotgun pellet and fast rifle round lands full damage.
 - **Abilities:** Tactical Satchel, Frag Grenade (cook-and-throw), Tactical Roll (with i-frames),
   Suppressive Fire, **Adrenaline** (regen/haste/speed burst with a nausea crash), and remote **C4
-  charges** (place with C, detonate with Shift+C).
+  charges** (place with V, detonate with Shift+V).
 - **Passives:** a per-gun regenerating ammo reserve (no ammo item to carry), plus infinite arrows and
   double bow/crossbow damage while powered.
 - Netherite/diamond-tier **tactical armour** (no helmet), craftable only by Punisher players.
@@ -223,9 +239,9 @@ and in which direction. Squads hold up to 12 and survive a restart.
 
 ## Removing powers
 
-Every power can be given up in survival. Craft a **Power Suppressor** and sneak-use it to strip Tony
-Stark, Max Steel, the Punisher, all experimental mutations, and reset Mjolnir worthiness. The
-Symbiote is removed by fire.
+Every power can be given up in survival. Craft a **Power Suppressor** and sneak-use it to strip
+**every** power you have — all hero powers, all experimental mutations, Mjolnir worthiness and a bonded
+Symbiote (or bottle the Symbiote alone with a Symbiote Vial).
 
 ---
 

@@ -113,8 +113,11 @@ public abstract class ItemEntityMixin {
 		if (Worthiness.hasAscensionEffect(player) && player.getInventory().getFreeSlot() >= 0
 					&& player instanceof net.minecraft.server.level.ServerPlayer sp) {
 			// Hero of the Village lifting it: becomes Thor and the hammer arrives bound (mutated in place
-			// before vanilla's own pickup moves it into the inventory).
-			Worthiness.ascend(sp, stack);
+			// before vanilla's own pickup moves it into the inventory) -- unless it is already bound to
+			// somebody else, in which case they simply get to lift it and nothing about its owner changes.
+			if (Worthiness.wouldAscend(sp, stack)) {
+				Worthiness.ascend(sp, stack);
+			}
 			return;
 		}
 

@@ -264,14 +264,14 @@ public final class MutationManager {
 		if (!power.key().equals(s.pendingMutationPower) || ExperimentalPowers.owns(player, power)) {
 			return;
 		}
-		// v0.11.14: a mutation no longer bounces off a Hero-Tier body -- it replaces that power (and the
-		// Symbiote). Mutations still stack with each other up to the mutation capacity.
-		if (com.projecthero.mod.hero.HeroTiers.hasHeroTier(player)) {
-			com.projecthero.mod.hero.HeroTiers.claimExperimental(player);
+		// v0.11.15: the mutation group takes one of the two Primary slots. If the player already holds two
+		// Hero-Tier powers the oldest is replaced (and the Symbiote is removed); with one or none nothing is
+		// lost. Mutations still stack with each other up to the mutation capacity.
+		int heroesBefore = com.projecthero.mod.hero.HeroTiers.heroCount(player);
+		if (com.projecthero.mod.hero.HeroTiers.claimExperimental(player)
+				&& com.projecthero.mod.hero.HeroTiers.heroCount(player) < heroesBefore) {
 			player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
 					"message.projecthero.mutation.replaced_hero_tier").withStyle(net.minecraft.ChatFormatting.YELLOW), false);
-		} else if (com.projecthero.mod.symbiote.Symbiote.hasSymbiote(player)) {
-			com.projecthero.mod.hero.HeroTiers.claimExperimental(player);
 		}
 		if (ExperimentalPowers.atCapacity(player)) {
 			MutationFeedback.capacityFull(player);

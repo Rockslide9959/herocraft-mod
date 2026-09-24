@@ -61,6 +61,8 @@ public final class ModCreativeTab {
 			.displayItems((parameters, output) -> {
 				output.accept(ModItems.MJOLNIR);
 				output.accept(ModItems.POWER_SUPPRESSOR);
+				output.accept(com.projecthero.mod.symbiote.item.SymbioteHostItems.SYMBIOTE_VIAL);
+				output.accept(com.projecthero.mod.symbiote.item.SymbioteHostItems.SYMBIOTE_VIAL_FILLED);
 				// HeroPack experimental-power items (research notes, reagents, serums, guide).
 				com.projecthero.mod.hero.item.HeroPackItems.addToCreativeTab(output);
 				com.projecthero.mod.hero.device.ModDevices.addToCreativeTab(output);

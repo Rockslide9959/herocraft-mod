@@ -33,6 +33,11 @@ public final class SymbiotePassives {
 	private static final ResourceLocation KNOCKBACK = ProjectHeroMod.id("symbiote_host_knockback");
 	private static final ResourceLocation FALL_MULT = ProjectHeroMod.id("symbiote_host_fall_multiplier");
 
+	/** Regeneration is re-applied (and paid for) once a second. */
+	private static final int REGEN_PULSE_TICKS = 20;
+	/** Biomass one second of Symbiote healing costs -- small next to the 9/s it regenerates out of combat. */
+	private static final float REGEN_BIOMASS_PER_PULSE = 2.0f;
+
 	private SymbiotePassives() {
 	}
 
@@ -96,10 +101,13 @@ public final class SymbiotePassives {
 		if (!bonded(player)) {
 			return;
 		}
-		if (player.tickCount % 40 == 0) {
-			boolean wellFedAndSuited = Symbiote.isActive(player) && player.getFoodData().getFoodLevel() >= 10;
-			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 100, wellFedAndSuited ? 1 : 0,
+		// v0.11.15: Regeneration II only while the host is actually hurt, and it is paid for -- each second
+		// of healing costs the Symbiote a little Biomass. A spent (broken) or still-bonding Symbiote cannot heal.
+		if (player.tickCount % REGEN_PULSE_TICKS == 0 && player.getHealth() < player.getMaxHealth()
+				&& SymbioteVitalsManager.usable(player) && SymbioteVitalsManager.biomass(player) > 0.0f) {
+			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, REGEN_PULSE_TICKS * 3, 1,
 					true, false, false));
+			SymbioteVitalsManager.spendBiomass(player, REGEN_BIOMASS_PER_PULSE);
 		}
 	}
 }

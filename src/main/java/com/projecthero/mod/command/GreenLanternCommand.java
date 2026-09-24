@@ -51,7 +51,6 @@ public final class GreenLanternCommand {
 
 	private static int power(CommandContext<CommandSourceStack> c, ServerPlayer target, boolean grant) {
 		if (grant) {
-			com.projecthero.mod.hero.HeroTiers.wipeAll(target);
 			if (!GreenLantern.bond(target)) {
 				c.getSource().sendFailure(Component.literal(target.getGameProfile().getName() + " already has Green Lantern"));
 				return 0;

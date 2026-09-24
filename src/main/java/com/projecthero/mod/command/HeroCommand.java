@@ -249,10 +249,15 @@ public final class HeroCommand {
 			c.getSource().sendFailure(Component.literal("Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel)"));
 			return 0;
 		}
-		// Command grant = always replace: wipe every power of every tier before granting this one.
-		com.projecthero.mod.hero.HeroTiers.wipeAll(target);
+		// Claim a Primary slot (the oldest power is replaced if the player already holds two). The other heroes'
+		// grant routines claim for themselves; Thor has no routine of its own, and Spider-Man needs the
+		// mutations cleared for its Adhesion prerequisite.
+		if ("spider_man".equals(hero)) {
+			com.projecthero.mod.hero.HeroTiers.wipeExperimental(target);
+		}
 		switch (hero) {
 			case "thor" -> {
+				com.projecthero.mod.hero.HeroTiers.claimPrimary(target, "thor");
 				Worthiness.setScore(target, Worthiness.TEST_WORTHY_SCORE);
 				c.getSource().sendSuccess(() -> Component.literal(
 						"Made " + name + " worthy of Mjolnir (grab the hammer to wield Thor's power)"), true);

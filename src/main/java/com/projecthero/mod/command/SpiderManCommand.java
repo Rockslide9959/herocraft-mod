@@ -118,9 +118,9 @@ public final class SpiderManCommand {
 				c.getSource().sendFailure(Component.translatable("commands.projecthero.spiderman.already"));
 				return 0;
 			}
-			// Command grant = always replace: wipe every power of every tier, then walk the real
-			// evolution path (grant the Spider Adhesion prerequisite, evolve it).
-			com.projecthero.mod.hero.HeroTiers.wipeAll(target);
+			// Clear the mutations (the Adhesion prerequisite needs a free slot), then walk the real evolution
+			// path (grant Spider Adhesion, evolve it) -- the evolution claims a Primary slot.
+			com.projecthero.mod.hero.HeroTiers.wipeExperimental(target);
 			if (!SpiderMan.hasSpiderAdhesion(target)) {
 				Power adhesion = Powers.byKey(SpiderMan.SPIDER_ADHESION_KEY);
 				if (adhesion == null || !ExperimentalPowers.grant(target, adhesion)) {

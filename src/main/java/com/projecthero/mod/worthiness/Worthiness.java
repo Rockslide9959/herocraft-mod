@@ -2,8 +2,6 @@ package com.projecthero.mod.worthiness;
 
 import com.projecthero.mod.attachment.ModAttachments;
 
-import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.player.Player;
@@ -61,6 +59,22 @@ public final class Worthiness {
 	}
 
 	/**
+	 * v0.11.15: as {@link #wouldAscend(Player)}, but for a specific hammer. A hammer that is already bound to
+	 * <em>another</em> player never turns its lifter into Thor and never rebinds -- a Hero of the Village may
+	 * still lift it (see {@link #canLift}), but the power stays with its owner and nothing about the
+	 * owner changes.
+	 */
+	public static boolean wouldAscend(Player player, ItemStack hammer) {
+		return wouldAscend(player) && !boundToSomeoneElse(player, hammer);
+	}
+
+	/** True if {@code hammer} is bound to a player other than {@code player}. */
+	public static boolean boundToSomeoneElse(Player player, ItemStack hammer) {
+		java.util.UUID owner = hammer.get(com.projecthero.mod.item.ModDataComponents.BOUND_OWNER);
+		return owner != null && !owner.equals(player.getUUID());
+	}
+
+	/**
 	 * The moment a Hero of the Village lifts Mjolnir: replaces their Primary power with Thor, binds
 	 * {@code hammer} to them (unless someone else already owns it), and consumes the effect.
 	 *
@@ -71,7 +85,7 @@ public final class Worthiness {
 		setScore(player, TEST_WORTHY_SCORE);
 		com.projecthero.mod.power.ThorPowers.bindOnAscend(player, hammer);
 		player.removeEffect(MobEffects.HERO_OF_THE_VILLAGE);
-		player.displayClientMessage(Component.translatable("message.projecthero.thor.ascended")
-				.withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), false);
+		// The "You are worthy / Mjolnir accepts you" announcement comes from ThorFeedback#bound, which the
+		// bind above triggers -- one place, two lines, no duplicate.
 	}
 }

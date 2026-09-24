@@ -190,10 +190,10 @@ Default Mark set (all five marks, tuned per suit):
 |---|---|---|
 | 1 | R | Repulsor Blast — tap for a raycast shot; **hold ≥ 2 s then release** for a Charged Repulsor (1.6× dmg, 2.5× energy, breaks ~3 blocks in a line only when shot *at* a block, nothing when shot at a mob) |
 | 2 | G | Repulsor Barrier — hold to keep a frontal shield up (absorbs ~80% of damage + deflects projectiles), drains energy while held, release for a 6 s cooldown |
-| 3 | X | Micro-Missiles — homing volley at nearby hostiles |
-| 4 | Z | Unibeam — Arc Reactor chest beam, 5 s channel, heavy damage, light block-break (Laser-Vision-ultimate style: ≤1 soft block / ~0.5 s), reduced particles, **30 s cd** |
-| 5 | V | Targeting Mode — highlights nearby hostiles, HUD assist, **2 s cd** |
-| 6 | C | Suit Toggle — suit-down when worn; **Call Armour picker** when unarmoured |
+| 3 | Z | Micro-Missiles — homing volley at nearby hostiles |
+| 4 | X | Unibeam — Arc Reactor chest beam, 5 s channel, heavy damage, light block-break (Laser-Vision-ultimate style: ≤1 soft block / ~0.5 s), reduced particles, **30 s cd** |
+| 5 | C | Targeting Mode — highlights nearby hostiles, HUD assist, **2 s cd** |
+| 6 | V | Suit Toggle — suit-down when worn; **Call Armour picker** when unarmoured |
 
 The helmet also passively highlights nearby hostiles (client-only outline) whenever the worn suit has energy.
 

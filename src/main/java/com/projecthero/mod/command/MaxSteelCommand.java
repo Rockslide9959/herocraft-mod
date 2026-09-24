@@ -59,8 +59,6 @@ public final class MaxSteelCommand {
 
 	private static int power(CommandContext<CommandSourceStack> c, ServerPlayer target, boolean grant) {
 		if (grant) {
-			// Command grant = always replace: wipe every power of every tier first.
-			com.projecthero.mod.hero.HeroTiers.wipeAll(target);
 			if (!MaxSteel.bond(target)) {
 				c.getSource().sendFailure(Component.translatable("commands.projecthero.maxsteel.already"));
 				return 0;
