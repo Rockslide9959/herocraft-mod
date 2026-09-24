@@ -110,6 +110,17 @@ public abstract class PlayerMixin {
 		}
 	}
 
+	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
+	private void projecthero$wolverineClaws(BlockState state, CallbackInfoReturnable<Float> cir) {
+		Player self = (Player) (Object) this;
+		if (com.projecthero.mod.wolverine.WolverineBareHands.applies(self)) {
+			float boosted = com.projecthero.mod.wolverine.WolverineBareHands.miningSpeed(state, cir.getReturnValue());
+			if (boosted > cir.getReturnValue()) {
+				cir.setReturnValue(boosted);
+			}
+		}
+	}
+
 	@Inject(method = "hasCorrectToolForDrops(Lnet/minecraft/world/level/block/state/BlockState;)Z",
 			at = @At("RETURN"), cancellable = true)
 	private void projecthero$symbioteHarvest(BlockState state, CallbackInfoReturnable<Boolean> cir) {
@@ -124,6 +135,10 @@ public abstract class PlayerMixin {
 			cir.setReturnValue(true);
 		}
 		if (GeoBareHands.applies(self) && GeoBareHands.correctToolForDrops(state)) {
+			cir.setReturnValue(true);
+		}
+		if (com.projecthero.mod.wolverine.WolverineBareHands.applies(self)
+				&& com.projecthero.mod.wolverine.WolverineBareHands.correctToolForDrops(state)) {
 			cir.setReturnValue(true);
 		}
 	}

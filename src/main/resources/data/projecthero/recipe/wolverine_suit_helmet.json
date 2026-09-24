@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": ["LYL", "B B"],
+  "key": {
+    "L": { "item": "minecraft:leather" },
+    "Y": { "item": "minecraft:yellow_dye" },
+    "B": { "item": "minecraft:blue_dye" }
+  },
+  "result": { "id": "projecthero:wolverine_suit_helmet", "count": 1 }
+}

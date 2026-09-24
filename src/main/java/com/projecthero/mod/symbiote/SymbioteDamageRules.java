@@ -45,7 +45,7 @@ public final class SymbioteDamageRules {
 	}
 
 	private static boolean onAllowDamage(LivingEntity entity, DamageSource source, float amount) {
-		if (REENTRANT.get() || !(entity instanceof ServerPlayer player) || !Symbiote.hasSymbiote(player)) {
+		if (REENTRANT.get() || !(entity instanceof ServerPlayer player) || !Symbiote.isNormalHost(player)) {
 			return true;
 		}
 		long now = player.level().getGameTime();

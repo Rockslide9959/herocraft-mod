@@ -40,7 +40,7 @@ public final class SymbioteDiet {
 	 */
 	public static FoodProperties resolve(Player eater, ItemStack stack, FoodProperties original) {
 		// v0.9.24: any bonded host, suit on or off -- "the Symbiote is always with you".
-		if (!Symbiote.hasSymbiote(eater)) {
+		if (!Symbiote.isNormalHost(eater)) {
 			return original;
 		}
 		Item cooked = RAW_TO_COOKED.get(stack.getItem());

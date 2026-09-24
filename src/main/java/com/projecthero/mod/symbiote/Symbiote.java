@@ -121,6 +121,15 @@ public final class Symbiote {
 	 * Whether the black suit is on, or in the middle of coming on / going off. Synced, so client-safe
 	 * for rendering/HUD decisions.
 	 */
+	/**
+	 * v0.12.14: bonded AND not Spider-Man. The Symbiote's generic passives (Biomass bar, damage rules,
+	 * Resistance, tool-hands, raw-food stomach, Predator Vision) belong to the base host only -- Symbiote
+	 * Spider-Man gets just the black suit, his extra abilities and the bigger web reserve.
+	 */
+	public static boolean isNormalHost(Player player) {
+		return hasSymbiote(player) && SymbioteHostType.of(player) == SymbioteHostType.NORMAL;
+	}
+
 	public static boolean isActive(Player player) {
 		SymbioteState s = player.getAttachedOrElse(ModAttachments.SYMBIOTE_STATE, null);
 		return s != null && s.active;

@@ -471,12 +471,7 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.symbiote.black_suit.body");
 			blank(lines);
 			head(lines, "projecthero.guide.symbiote.passives");
-			lines.add(Component.literal(" • ").append(
-					Component.translatable("projecthero.guide.symbiote.passive.biomass")).withStyle(ChatFormatting.GRAY));
-			lines.add(Component.literal(" • ").append(
-					Component.translatable("projecthero.guide.symbiote.passive.recovery")).withStyle(ChatFormatting.GRAY));
-			lines.add(Component.literal(" • ").append(
-					Component.translatable("projecthero.guide.symbiote.passive.bare_hands")).withStyle(ChatFormatting.GRAY));
+			para(lines, "projecthero.guide.symbiote.spider_passives");
 			blank(lines);
 			head(lines, "projecthero.guide.symbiote.weaknesses");
 			lines.add(Component.literal(" • ").append(
@@ -543,6 +538,12 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.wolverine.claws");
 			para(lines, "projecthero.guide.wolverine.claws.body");
+			blank(lines);
+			head(lines, "projecthero.guide.wolverine.suit");
+			para(lines, "projecthero.guide.wolverine.suit.body");
+			blank(lines);
+			head(lines, "projecthero.guide.wolverine.death");
+			para(lines, "projecthero.guide.wolverine.death.body");
 			blank(lines);
 			head(lines, "projecthero.guide.wolverine.controls");
 			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {

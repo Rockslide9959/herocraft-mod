@@ -19,6 +19,7 @@
 		"LocalPlayerMixin",
 		"PlayerModelMixin",
 		"PlayerRendererClawsMixin",
+		"PlayerRendererFleshMixin",
 		"PlayerRendererHandMixin",
 		"PlayerRendererMixin",
 		"SoundEngineMixin",

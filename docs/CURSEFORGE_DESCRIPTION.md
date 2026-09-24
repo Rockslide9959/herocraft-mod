@@ -108,8 +108,8 @@ hunt down — then right-click to bond.
   ultimate), a hardened tendril **Blade**, a body-**Spikes** toggle, and a 25-block **Grapple** (sneak +
   Ability 4 / X) that needs something to hold onto.
 - A **Normal Host** gets a **Biomass** health bar that drains alongside every hit and regenerates out of
-  combat (70% slower while the suit is on); Regeneration II heals you whenever you are hurt, at a small Biomass cost. A Spider-Man host
-  keeps their own Web Reserve and doubles it. The suit is unbreakable while worn.
+  combat (70% slower while the suit is on); Regeneration II heals you whenever you are hurt, at a small Biomass cost. Symbiote Spider-Man gets none of
+  these passives -- just the black suit, his extra abilities and a doubled Web Reserve. The suit is unbreakable while worn.
 - **It protects its host.** A hit over 3 damage, a hit that would leave you under 5 hearts, or a fatal
   hit makes the Symbiote wrap you in the suit on its own — and if you *would* die it resurrects you for
   half its Biomass, hurls everything within 20 blocks away with massive tendrils and gives you
@@ -185,7 +185,9 @@ regenerative mutation is consumed and rebuilt as Wolverine.
   and Wither resistance, 4 melee damage (12 unarmed with claws out), +20% speed, +25% jump. Enemy monsters within 12 blocks glow for you
   alone.
 - **Adamantium claws:** three curved blades per hand, deployed with **H** (Shift+H still opens the power
-  wheel). A custom model that other players see, 12 damage bare-handed, 1.5x faster mining.
+  wheel). A custom model that other players see, 12 damage bare-handed, and they break blocks like a sword
+  (cobwebs at once, plants and leaves faster). Craft the yellow-and-blue **Wolverine Suit** costume, and
+  when a Wolverine dies his body gives way to raw flesh and bone.
 - **Six abilities on the standard keys:** **R** Claw Slash · **G** Cross Slash · **Z** Claw Dash (21-block
   lunge that grabs and drags the first enemy you hit) · **X** Berserker Rage (12 s of +50% damage, +30% speed, double healing) · **C** Frenzy (five rapid
   strikes) · **V** Adamantium Execution (60-damage finisher).

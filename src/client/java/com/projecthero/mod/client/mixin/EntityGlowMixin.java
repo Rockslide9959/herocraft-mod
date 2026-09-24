@@ -96,7 +96,8 @@ public abstract class EntityGlowMixin {
 		if (self instanceof LivingEntity) {
 			com.projecthero.mod.symbiote.SymbioteState symb =
 					viewer.getAttachedOrElse(ModAttachments.SYMBIOTE_STATE, null);
-			if (symb != null && symb.hasSymbiote && com.projecthero.mod.client.symbiote.SymbioteFxClient.predatorVisionOn()
+			if (symb != null && symb.hasSymbiote && com.projecthero.mod.symbiote.Symbiote.isNormalHost(viewer)
+					&& com.projecthero.mod.client.symbiote.SymbioteFxClient.predatorVisionOn()
 					&& self.distanceToSqr(viewer) <= 20.0 * 20.0) {
 				cir.setReturnValue(true);
 				return;
@@ -291,7 +292,8 @@ public abstract class EntityGlowMixin {
 		}
 		com.projecthero.mod.symbiote.SymbioteState symb =
 				viewer.getAttachedOrElse(ModAttachments.SYMBIOTE_STATE, null);
-		if (symb == null || !symb.hasSymbiote || !com.projecthero.mod.client.symbiote.SymbioteFxClient.predatorVisionOn()
+		if (symb == null || !symb.hasSymbiote || !com.projecthero.mod.symbiote.Symbiote.isNormalHost(viewer)
+				|| !com.projecthero.mod.client.symbiote.SymbioteFxClient.predatorVisionOn()
 				|| self.distanceToSqr(viewer) > 20.0 * 20.0) {
 			return;
 		}

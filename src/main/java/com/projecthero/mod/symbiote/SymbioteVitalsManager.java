@@ -187,7 +187,7 @@ public final class SymbioteVitalsManager {
 	 * Biomass, in parallel. At zero the bar breaks and every ability locks until it recovers.
 	 */
 	public static void onHostHit(ServerPlayer player, float dealt) {
-		if (dealt <= 0.0f || !Symbiote.hasSymbiote(player)) {
+		if (dealt <= 0.0f || !Symbiote.isNormalHost(player)) {
 			return;
 		}
 		markCombat(player);
@@ -352,6 +352,10 @@ public final class SymbioteVitalsManager {
 		}
 		if (tickBonding(player)) {
 			return; // still settling -- no vitals upkeep, no abilities
+		}
+		if (!Symbiote.isNormalHost(player)) {
+			SNEAK_START.remove(player.getId());
+			return; // Symbiote Spider-Man has no Biomass bar, cloak or blade upkeep
 		}
 		SymbioteVitals v = vitals(player);
 		SymbioteVitals c = v.copy();

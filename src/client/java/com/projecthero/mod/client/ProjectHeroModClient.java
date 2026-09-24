@@ -581,7 +581,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			ClientPlayNetworking.send(new com.projecthero.mod.network.WolverineActionPayload(
 					com.projecthero.mod.network.WolverineActionPayload.Action.SNIFF));
 		} else if (down && !maxSteelTransformWasDown && client.player != null
-				&& com.projecthero.mod.symbiote.Symbiote.hasSymbiote(client.player)) {
+				&& com.projecthero.mod.symbiote.Symbiote.isNormalHost(client.player)) {
 			// v0.11.16: Utility 2 (N) as a Symbiote host toggles Predator Vision (the glow outline).
 			boolean on = com.projecthero.mod.client.symbiote.SymbioteFxClient.togglePredatorVision();
 			client.player.displayClientMessage(net.minecraft.network.chat.Component.translatable(

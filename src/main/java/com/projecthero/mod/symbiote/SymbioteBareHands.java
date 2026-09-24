@@ -31,7 +31,7 @@ public final class SymbioteBareHands {
 
 	/** Whether the wooden-hand rule applies to {@code player} this instant (bonded, main hand empty). */
 	public static boolean applies(Player player) {
-		return Symbiote.hasSymbiote(player) && player.getMainHandItem().isEmpty();
+		return Symbiote.isNormalHost(player) && player.getMainHandItem().isEmpty();
 	}
 
 	/** The best mining speed a wooden pickaxe / axe / shovel would get on {@code state}. */

@@ -160,6 +160,19 @@ public final class ModArmorMaterials {
 			0.0f,
 			() -> Ingredient.of(Items.EMERALD));
 
+	/** The craftable Wolverine Suit (v0.12.14): iron-level cloth-and-leather costume; GeckoLib renders the real model. */
+	public static final Holder<ArmorMaterial> WOLVERINE = registerWithLayer("wolverine", "thor",
+			Map.of(
+					ArmorItem.Type.BOOTS, 2,
+					ArmorItem.Type.LEGGINGS, 5,
+					ArmorItem.Type.CHESTPLATE, 6,
+					ArmorItem.Type.HELMET, 2),
+			12,
+			SoundEvents.ARMOR_EQUIP_LEATHER,
+			0.0f,
+			0.0f,
+			() -> Ingredient.of(Items.LEATHER));
+
 	private ModArmorMaterials() {
 	}
 

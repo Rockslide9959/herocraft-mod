@@ -118,3 +118,14 @@ untouched.
   (1.6 blocks in front) so it stays in front instead of trailing.
 - Claw moves alternate right / left hand (`WolverineAbilities.swing`); the right-click strike resets the attack cooldown.
 - Symbiote suit growth is now base-host only (`Symbiote.tickGrowth`); Symbiote Spider-Man keeps his size.
+
+## v0.12.14
+
+- **Claws mine like swords:** `WolverineBareHands` (hooked in `PlayerMixin`) gives claws-out + empty-hand a netherite
+  sword's destroy speed and drop rules (cobweb near-instant + drops, sword-efficient blocks 1.5x), on top of the 1.5x.
+- **Wolverine Suit:** 4 craftable costume pieces (`WolverineItems.SUIT_*`, set id `wolverine`, `geo/wolverine.geo.json`,
+  `textures/armor/wolverine.png`, recipes: leather + yellow/blue dye). Built from `WolverinArmour.bbmodel`.
+- **Death flesh model:** `PlayerRendererFleshMixin` swaps the skin to `textures/entity/wolverine_flesh.png`
+  (from `Flesh.bbmodel`) while a Wolverine `isDeadOrDying()`.
+- **Symbiote Spider-Man** no longer gets the base host's passives: `Symbiote.isNormalHost` now gates the Biomass bar,
+  damage rules, Resistance I, tool-hands, raw-food stomach and Predator Vision.
