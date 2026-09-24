@@ -37,9 +37,9 @@ public final class WolverineConfig {
 	public static final float POISON_WITHER_DURATION_FACTOR = 0.25f;
 
 	// ---- physique ----
-	public static final double MELEE_BONUS_DAMAGE = 8.0;
-	/** Bare-hand melee is 1 + 8 + this = 12 with the claws out (base claw damage 12). */
-	public static final double CLAW_MELEE_BONUS = 3.0;
+	public static final double MELEE_BONUS_DAMAGE = 3.0; // bare-hand melee = 1 + 3 = 4
+	/** Claws out AND an empty hand: +8 unarmed damage on top (4 + 8 = 12). Not applied while holding an item. */
+	public static final double CLAW_MELEE_BONUS = 8.0;
 	public static final double SPEED_BONUS = 0.20;
 	public static final double JUMP_BONUS = 0.25;
 	/** Passive strength mining bonus; claws add {@link #CLAW_MINING_BONUS} on top (1.5x total). */

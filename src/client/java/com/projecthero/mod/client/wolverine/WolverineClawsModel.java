@@ -35,8 +35,8 @@ public final class WolverineClawsModel {
 	/** Ticks the blades take to slide out / back in. */
 	private static final float EXTEND_TICKS = 6.0f;
 	/** Arm-bone Y of the end of the fist. */
-	private static final float HAND_END = 10.0f;
-	private static final float BLADE_SPACING = 1.1f;
+	private static final float HAND_END = 9.0f;
+	private static final float BLADE_SPACING = 1.25f;
 
 	private final ModelPart rightHand;
 	private final ModelPart leftHand;
@@ -54,17 +54,17 @@ public final class WolverineClawsModel {
 			for (int i = 0; i < 3; i++) {
 				float x = (i - 1) * BLADE_SPACING;
 				PartDefinition base = hand.addOrReplaceChild("blade" + i, CubeListBuilder.create()
-						.texOffs(0, 0).addBox(-0.3F, 0.0F, -0.8F, 0.6F, 4.0F, 1.6F),
+						.texOffs(0, 0).addBox(-0.5F, 0.0F, -1.0F, 1.0F, 5.0F, 2.0F),
 						PartPose.offset(x, 0.0F, 0.0F));
 				PartDefinition mid = base.addOrReplaceChild("mid", CubeListBuilder.create()
-						.texOffs(0, 0).addBox(-0.28F, 0.0F, -0.65F, 0.56F, 4.0F, 1.3F),
-						PartPose.offsetAndRotation(0.0F, 4.0F, 0.0F, -0.10F, 0.0F, 0.0F));
+						.texOffs(0, 0).addBox(-0.45F, 0.0F, -0.85F, 0.9F, 5.0F, 1.7F),
+						PartPose.offsetAndRotation(0.0F, 5.0F, 0.0F, -0.08F, 0.0F, 0.0F));
 				PartDefinition tip = mid.addOrReplaceChild("tip", CubeListBuilder.create()
-						.texOffs(0, 0).addBox(-0.22F, 0.0F, -0.45F, 0.44F, 3.0F, 0.9F),
-						PartPose.offsetAndRotation(0.0F, 4.0F, 0.0F, -0.14F, 0.0F, 0.0F));
+						.texOffs(0, 0).addBox(-0.35F, 0.0F, -0.6F, 0.7F, 4.0F, 1.2F),
+						PartPose.offsetAndRotation(0.0F, 5.0F, 0.0F, -0.12F, 0.0F, 0.0F));
 				tip.addOrReplaceChild("point", CubeListBuilder.create()
-						.texOffs(0, 0).addBox(-0.12F, 0.0F, -0.25F, 0.24F, 1.6F, 0.5F),
-						PartPose.offsetAndRotation(0.0F, 3.0F, 0.0F, -0.18F, 0.0F, 0.0F));
+						.texOffs(0, 0).addBox(-0.2F, 0.0F, -0.3F, 0.4F, 2.0F, 0.6F),
+						PartPose.offsetAndRotation(0.0F, 4.0F, 0.0F, -0.16F, 0.0F, 0.0F));
 			}
 		}
 		return LayerDefinition.create(mesh, 16, 16);
@@ -96,6 +96,10 @@ public final class WolverineClawsModel {
 		float center = slim ? 0.5F : 1.0F;
 		hand.x = rightArm ? -center : center;
 		hand.yScale = extension;
-		hand.render(pose, buffer, light, overlay, argb);
+		// metal catches light: never darker than a mid level, even in caves
+		int lit = net.minecraft.client.renderer.LightTexture.pack(
+				Math.max(net.minecraft.client.renderer.LightTexture.block(light), 9),
+				net.minecraft.client.renderer.LightTexture.sky(light));
+		hand.render(pose, buffer, lit, overlay, argb);
 	}
 }

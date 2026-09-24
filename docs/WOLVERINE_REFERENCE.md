@@ -41,7 +41,7 @@ Claw moves deploy the claws for you if they are retracted; Rage does not need th
 - **Survivability:** 35% less physical damage (fire, magic, poison, wither, hunger are not reduced), a further
   20% in Rage (multiplicative, 0.65 x 0.8), 75% less fall damage, 75% knockback resistance (~100% in Rage / mid-dash),
   Poison and Wither last a quarter as long, the other Super Regeneration debuff cuts (50%) still apply.
-- **Physique:** +8 melee damage (12 with the claws out), +20% speed (+30% more in Rage), +25% jump, mining
+- **Physique:** melee damage 4 (claws out and empty hand: +8 = 12), +20% speed (+30% more in Rage), +25% jump, mining
   1.5x with claws out (1.2x passive from strength). All are fixed-id attribute modifiers, reconciled every tick
   and removed with the power.
 - **Enhanced senses:** hostile mobs within 12 blocks are outlined *for the Wolverine's own client only*

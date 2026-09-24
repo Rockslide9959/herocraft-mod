@@ -182,7 +182,7 @@ regenerative mutation is consumed and rebuilt as Wolverine.
   Below 15% health (or on a lethal hit) an **emergency surge** restores 30% of your health over 2 seconds
   (60 s cooldown).
 - **Built to last:** 35% less physical damage, 75% knockback resistance, 75% less fall damage, strong Poison
-  and Wither resistance, +8 melee damage, +20% speed, +25% jump. Enemy monsters within 12 blocks glow for you
+  and Wither resistance, 4 melee damage (12 unarmed with claws out), +20% speed, +25% jump. Enemy monsters within 12 blocks glow for you
   alone.
 - **Adamantium claws:** three curved blades per hand, deployed with **H** (Shift+H still opens the power
   wheel). A custom model that other players see, 12 damage bare-handed, 1.5x faster mining.

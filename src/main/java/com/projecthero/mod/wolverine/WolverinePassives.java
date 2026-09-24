@@ -145,6 +145,7 @@ public final class WolverinePassives {
 	public static void reconcile(ServerPlayer player) {
 		boolean power = Wolverine.hasPower(player);
 		boolean claws = power && Wolverine.clawsOut(player);
+		boolean unarmedClaws = claws && player.getMainHandItem().isEmpty();
 		boolean rage = power && Wolverine.raging(player);
 		boolean dash = power && Wolverine.dashing(player);
 
@@ -157,7 +158,7 @@ public final class WolverinePassives {
 		set(player, Attributes.ATTACK_DAMAGE, ATTACK, WolverineConfig.MELEE_BONUS_DAMAGE,
 				AttributeModifier.Operation.ADD_VALUE, power);
 		set(player, Attributes.ATTACK_DAMAGE, CLAW_ATTACK, WolverineConfig.CLAW_MELEE_BONUS,
-				AttributeModifier.Operation.ADD_VALUE, claws);
+				AttributeModifier.Operation.ADD_VALUE, unarmedClaws);
 		set(player, Attributes.ATTACK_DAMAGE, RAGE_ATTACK, WolverineConfig.RAGE_DAMAGE_BONUS,
 				AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL, rage);
 		set(player, Attributes.KNOCKBACK_RESISTANCE, KNOCKBACK, WolverineConfig.KNOCKBACK_RESISTANCE,
