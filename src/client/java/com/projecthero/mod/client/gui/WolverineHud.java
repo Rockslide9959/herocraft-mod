@@ -79,8 +79,8 @@ public final class WolverineHud {
 				.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), x0, line, 0xFFFFAA00, true);
 		Component claws = Component.translatable(s.clawsOut ? "hud.projecthero.wolverine.claws_deployed"
 				: "hud.projecthero.wolverine.claws_retracted");
-		g.drawString(mc.font, claws, x0 + mc.font.width(Component.translatable("hud.projecthero.wolverine.title")) + 14,
-				line, s.clawsOut ? 0xFFE8E8E8 : 0xFF909090, true);
+		line += 10;
+		g.drawString(mc.font, claws, x0, line, s.clawsOut ? 0xFFE8E8E8 : 0xFF909090, true);
 		line += 10;
 		if (s.rageUntil > now) {
 			g.drawString(mc.font, Component.translatable("hud.projecthero.wolverine.rage",
