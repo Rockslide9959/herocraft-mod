@@ -86,6 +86,10 @@ public final class Symbiote {
 	private static final java.util.Set<Integer> SONIC_HANDLED = java.util.concurrent.ConcurrentHashMap.newKeySet();
 	/** Game time before which the health-triggered auto-equip stands down (after the host retracts the suit by hand). */
 	private static final java.util.Map<Integer, Long> AUTO_EQUIP_SUPPRESS = new java.util.concurrent.ConcurrentHashMap<>();
+	/** How long an automatic wrap lasts before the suit lets go again (5 s) unless the host presses H to keep it. */
+	private static final int AUTO_RETRACT_TICKS = 100;
+	/** Players wearing an auto-equipped suit -> game time it retracts on its own. Pressing H clears the entry (keeps the suit). */
+	private static final java.util.Map<Integer, Long> AUTO_RETRACT_AT = new java.util.concurrent.ConcurrentHashMap<>();
 	/** Host health (in half-hearts) below which the Symbiote wraps its host on its own: 5 hearts. */
 	private static final float AUTO_EQUIP_HEALTH = 10.0f;
 	/** Biomass a resurrection costs: half of a full bar. */
@@ -200,6 +204,12 @@ public final class Symbiote {
 			return;
 		}
 		long now = player.level().getGameTime();
+		if (s.active && AUTO_RETRACT_AT.remove(player.getId()) != null) {
+			// v0.11.16: the suit went on by itself and is due to retract -- H means "keep it on".
+			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.keep_suit")
+					.withStyle(ChatFormatting.DARK_GRAY), true);
+			return;
+		}
 		if (now < s.toggleReadyAt || SymbioteTransform.isAnimating(s)) {
 			return;
 		}
@@ -310,6 +320,7 @@ public final class Symbiote {
 		tickSonic(player, s);
 		tickHazardExposure(player, s);
 		tickAutoEquip(player);
+		tickAutoRetract(player);
 		// tickHazardExposure may have just forced a retract (#forceRetract -> #beginSuitDown), which
 		// flips the transform clock -- re-read rather than trust the pre-retract copy so the
 		// reconciliation below acts on the current animation direction.
@@ -369,6 +380,7 @@ public final class Symbiote {
 		SymbioteAbilityManager.clearFor(player);
 		SymbioteVitalsManager.clearTransient(player);
 		SymbioteDialogue.clearFor(player);
+		AUTO_RETRACT_AT.remove(player.getId());
 		SymbioteState s = player.getAttachedOrElse(ModAttachments.SYMBIOTE_STATE, null);
 		if (s != null && (s.active || SymbioteTransform.isAnimating(s) || SymbioteSuit.wearing(player))) {
 			hardDeactivate(player);
@@ -494,6 +506,25 @@ public final class Symbiote {
 
 	// ---------------- protecting the host: auto-equip + resurrection ----------------
 
+	/** An auto-equipped suit retracts itself after {@link #AUTO_RETRACT_TICKS} unless the host pressed H. */
+	private static void tickAutoRetract(ServerPlayer player) {
+		Long at = AUTO_RETRACT_AT.get(player.getId());
+		if (at == null) {
+			return;
+		}
+		SymbioteState s = state(player);
+		if (!s.hasSymbiote || !s.active) {
+			AUTO_RETRACT_AT.remove(player.getId());
+			return;
+		}
+		long now = player.level().getGameTime();
+		if (now >= at && !SymbioteTransform.isAnimating(s)) {
+			AUTO_RETRACT_AT.remove(player.getId());
+			AUTO_EQUIP_SUPPRESS.put(player.getId(), now + 100L);
+			beginSuitDown(player);
+		}
+	}
+
 	/** Health-triggered wrap: below 5 hearts the Symbiote suits up by itself. */
 	private static void tickAutoEquip(ServerPlayer player) {
 		if (player.tickCount % 5 != 0 || player.getHealth() >= AUTO_EQUIP_HEALTH) {
@@ -527,6 +558,9 @@ public final class Symbiote {
 			return false;
 		}
 		beginSuitUp(player);
+		AUTO_RETRACT_AT.put(player.getId(), now + AUTO_RETRACT_TICKS);
+		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.auto_wrap")
+				.withStyle(ChatFormatting.DARK_GRAY), true);
 		return true;
 	}
 
@@ -594,6 +628,7 @@ public final class Symbiote {
 		HAZARD_EXPOSURE.clear();
 		SONIC_HANDLED.clear();
 		AUTO_EQUIP_SUPPRESS.clear();
+		AUTO_RETRACT_AT.clear();
 		RESURRECT_READY_AT.clear();
 	}
 

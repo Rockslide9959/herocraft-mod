@@ -33,8 +33,8 @@ Everything else in this repository is source code, not something you need to dow
   adaptation already in you it does nothing and is not consumed. The evolution replaces Adhesion
   outright and hands its mutation slot back. Full writeup:
   [docs/SPIDERMAN_REFERENCE.md](docs/SPIDERMAN_REFERENCE.md).
-- **Six web abilities on the existing keys** — R Web Swing, G Web Zip, X Web Shot, Z Web Yank,
-  V Wall Crawl, C Web Net — paid for out of a 100-point organic **Web Reserve** rather than any
+- **Six web abilities on the existing keys** — R Web Swing, G Web Zip, Z Web Shot, X Web Yank,
+  C Wall Crawl, V Web Net — paid for out of a 100-point organic **Web Reserve** rather than any
   ammunition item. No new keybindings.
 - **Hybrid web swinging.** Real terrain is always preferred, so a city, a mountainside or a forest
   canopy gives longer and faster arcs; where there is genuinely nothing to catch, the web goes up and

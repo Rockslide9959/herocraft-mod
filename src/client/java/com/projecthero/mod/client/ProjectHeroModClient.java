@@ -540,6 +540,12 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				&& com.projecthero.mod.maxsteel.MaxSteel.hasPower(client.player)) {
 			ClientPlayNetworking.send(new com.projecthero.mod.network.MaxSteelActionPayload(
 					com.projecthero.mod.network.MaxSteelActionPayload.Action.TRANSFORM_TOGGLE));
+		} else if (down && !maxSteelTransformWasDown && client.player != null
+				&& com.projecthero.mod.symbiote.Symbiote.hasSymbiote(client.player)) {
+			// v0.11.16: Utility 2 (N) as a Symbiote host toggles Predator Vision (the glow outline).
+			boolean on = com.projecthero.mod.client.symbiote.SymbioteFxClient.togglePredatorVision();
+			client.player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+					on ? "projecthero.symbiote.predator_vision.on" : "projecthero.symbiote.predator_vision.off"), true);
 		}
 		maxSteelTransformWasDown = down;
 	}

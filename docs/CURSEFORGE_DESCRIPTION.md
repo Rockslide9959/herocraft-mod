@@ -16,7 +16,7 @@ it. The Symbiote is the only Secondary power for now, and because it only works 
 Spider-Man, gaining any other Primary power removes it.
 
 **Keybinds (v0.11.15).** The six ability keys are now named **Ability 1–6** in Options › Controls and
-default to **R, G, Z, X, C, V**; **H** is *Utility 1* and **N** is *Utility 2*; **P** opens the squad
+default to **R, G, X, Z, V, C**; **H** is *Utility 1* and **N** is *Utility 2*; **P** opens the squad
 menu. If your saved controls still show the old letters, press *Reset* on those keys.
 
 ---
@@ -99,12 +99,12 @@ into*. Craft an **Arachnid Mutagen** and use it while you already carry that ada
 
 ### 🖤 The Symbiote
 An **upgrade for Spider-Man**, or a standalone power for a **Normal Host**. Find it in a crashed
-**symbiote meteor**, a buried **containment lab**, or on a rare **symbiote-infected mob** you have to
+rare **symbiote meteor**, a rarer buried **containment lab**, or on a rare **symbiote-infected mob** you have to
 hunt down — then right-click to bond.
 
 - Toggle the **black suit** on and off (**H**) with a progressive, particle-covered suit-up.
 - **Tendril abilities:** Tendril Strike, a hold-to-raise **Symbiote Shield**, a Spike volley, a
-  20-block **Symbiote Lunge** (Ability 3), **Symbiote Onslaught** (a charged Wither/Blind/Slow AoE
+  20-block **Symbiote Lunge** (Ability 3 — you keep your momentum when it ends), **Symbiote Onslaught** (a charged Wither/Blind/Slow AoE
   ultimate), a hardened tendril **Blade**, a body-**Spikes** toggle, and a 25-block **Grapple** (sneak +
   Ability 3) that needs something to hold onto.
 - A **Normal Host** gets a **Biomass** health bar that drains alongside every hit and regenerates out of
@@ -113,7 +113,10 @@ hunt down — then right-click to bond.
 - **It protects its host.** A hit over 3 damage, a hit that would leave you under 5 hearts, or a fatal
   hit makes the Symbiote wrap you in the suit on its own — and if you *would* die it resurrects you for
   half its Biomass, hurls everything within 20 blocks away with massive tendrils and gives you
-  Resistance for 20 seconds. Its voice appears above your hotbar.
+  Resistance for 20 seconds. Its voice appears above your hotbar. An automatic wrap lasts 5 seconds and
+  then lets go — **press H within those 5 seconds to keep the suit on**.
+- **Predator Vision:** a bonded host sees living things within 20 blocks outlined (hostile red, players
+  dark purple, everything else dark blue) — visible to **you only**. **N** toggles it off and on.
 - **Weaknesses:** sound attacks (Warden boom, bells, goat horns) tear the suit off and disable every
   Symbiote ability for 5 seconds; burning for more than 2 seconds deactivates the suit.
 - **Symbiote Vial:** craft one from Iron Blocks and Glass. Sneak-use to bottle your own Symbiote, or
@@ -142,7 +145,7 @@ A **non-superhuman** Hero-Tier power: firearms, explosives, gear and training. C
   so every shotgun pellet and fast rifle round lands full damage.
 - **Abilities:** Tactical Satchel, Frag Grenade (cook-and-throw), Tactical Roll (with i-frames),
   Suppressive Fire, **Adrenaline** (regen/haste/speed burst with a nausea crash), and remote **C4
-  charges** (place with V, detonate with Shift+V).
+  charges** (place with C, detonate with Shift+C).
 - **Passives:** a per-gun regenerating ammo reserve (no ammo item to carry), plus infinite arrows and
   double bow/crossbow damage while powered.
 - Netherite/diamond-tier **tactical armour** (no helmet), craftable only by Punisher players.

@@ -83,7 +83,8 @@ public abstract class EntityGlowMixin {
 		if (self instanceof LivingEntity) {
 			com.projecthero.mod.symbiote.SymbioteState symb =
 					viewer.getAttachedOrElse(ModAttachments.SYMBIOTE_STATE, null);
-			if (symb != null && symb.hasSymbiote && self.distanceToSqr(viewer) <= 20.0 * 20.0) {
+			if (symb != null && symb.hasSymbiote && com.projecthero.mod.client.symbiote.SymbioteFxClient.predatorVisionOn()
+					&& self.distanceToSqr(viewer) <= 20.0 * 20.0) {
 				cir.setReturnValue(true);
 				return;
 			}
@@ -259,7 +260,7 @@ public abstract class EntityGlowMixin {
 	}
 
 	/**
-	 * Symbiote Predator Vision colour: hostile mobs red, other players dark yellow, everything else
+	 * Symbiote Predator Vision colour: hostile mobs red, other players dark purple, everything else
 	 * dark blue. Purely the viewer's own render.
 	 */
 	@Inject(method = "getTeamColor", at = @At("HEAD"), cancellable = true)
@@ -277,13 +278,14 @@ public abstract class EntityGlowMixin {
 		}
 		com.projecthero.mod.symbiote.SymbioteState symb =
 				viewer.getAttachedOrElse(ModAttachments.SYMBIOTE_STATE, null);
-		if (symb == null || !symb.hasSymbiote || self.distanceToSqr(viewer) > 20.0 * 20.0) {
+		if (symb == null || !symb.hasSymbiote || !com.projecthero.mod.client.symbiote.SymbioteFxClient.predatorVisionOn()
+				|| self.distanceToSqr(viewer) > 20.0 * 20.0) {
 			return;
 		}
 		if (self instanceof net.minecraft.world.entity.monster.Enemy) {
 			cir.setReturnValue(0xC01818);
 		} else if (self instanceof net.minecraft.world.entity.player.Player) {
-			cir.setReturnValue(0x8A7010);
+			cir.setReturnValue(0x4B0F7A);
 		} else {
 			cir.setReturnValue(0x1B2C7A);
 		}

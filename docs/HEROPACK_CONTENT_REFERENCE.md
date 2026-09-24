@@ -75,10 +75,10 @@ category **`Heropack Abilties`** (exact spelling per design spec):
 |---|---|---|---|
 | 1 | `R` | Primary | Primary attack |
 | 2 | `G` | Secondary | Secondary attack |
-| 3 | Z | Movement | Movement / defence |
-| 4 | X | Ultimate | Ultimate |
-| 5 | C | Utility / Control | Utility / control |
-| 6 | V | Special Mode | Special mode / toggle |
+| 3 | X | Movement | Movement / defence |
+| 4 | Z | Ultimate | Ultimate |
+| 5 | V | Utility / Control | Utility / control |
+| 6 | C | Special Mode | Special mode / toggle |
 
 Plus one non-slot key: **`H` — HeroPack: Select Power** (opens the power-selection screen). Never
 uses any of R/G/X/Z/V/C.
@@ -633,10 +633,10 @@ Enhanced physiology: devastating melee force, mobility, grabbing and tanking dam
 |---|---|---|---|
 | 1 | R | Power Punch | Heavy melee strike with high damage and knockback. |
 | 2 | G | Ground Slam | Smash the ground for a radial shockwave that damages and launches nearby entities. |
-| 3 | Z | Super Leap | Charge briefly, then launch toward where you are looking. |
-| 4 | X | Thunderous Impact | Massive charged ground punch with a large shockwave and cosmetic terrain cracking. |
-| 5 | C | Grab & Throw | Grab a valid mob/player/object; activate again to hurl it where you aim. |
-| 6 | V | Brace | Toggle a defensive stance: high knockback resistance and damage reduction, less speed. |
+| 3 | X | Super Leap | Charge briefly, then launch toward where you are looking. |
+| 4 | Z | Thunderous Impact | Massive charged ground punch with a large shockwave and cosmetic terrain cracking. |
+| 5 | V | Grab & Throw | Grab a valid mob/player/object; activate again to hurl it where you aim. |
+| 6 | C | Brace | Toggle a defensive stance: high knockback resistance and damage reduction, less speed. |
 
 **Passives:** Unarmed hits deal 7 damage; a held tool adds its own damage on top; Slightly higher jump height; Faster breaking of stone-like blocks; Reduced fall damage
 
@@ -652,10 +652,10 @@ A photonic mutation turning the eyes into precision tools, combat beams and high
 |---|---|---|---|
 | 1 | R | Heat Vision | Hold to fire two continuous energy streams from your eyes that damage and ignite targets. |
 | 2 | G | Focused Beam | Narrow, high-damage beam with longer range and limited block-cutting. |
-| 3 | Z | Heat Burst | Instant short-range eye blast that knocks nearby enemies away. |
-| 4 | X | Maximum Output | Sustained full-power beam with extreme damage, fire and an impact burst. |
-| 5 | C | Precision Vision | Low-power utility beam: light TNT, melt ice/snow, break glass. |
-| 6 | V | Thermal Vision | Toggle thermal highlighting of nearby living entities, through limited cover. |
+| 3 | X | Heat Burst | Instant short-range eye blast that knocks nearby enemies away. |
+| 4 | Z | Maximum Output | Sustained full-power beam with extreme damage, fire and an impact burst. |
+| 5 | V | Precision Vision | Low-power utility beam: light TNT, melt ice/snow, break glass. |
+| 6 | C | Thermal Vision | Toggle thermal highlighting of nearby living entities, through limited cover. |
 
 **Passives:** Reduced blindness duration; Subtle red eye glow while charged
 
@@ -671,10 +671,10 @@ True superhero aerial movement: dashes, hovering and high-speed bursts.
 |---|---|---|---|
 | 1 | R | Air Dash | Rapid forward aerial dash that preserves momentum. |
 | 2 | G | Dive Bomb | Accelerate downward; hitting the ground creates an impact shockwave scaled to dive speed. |
-| 3 | Z | Flight Toggle | Enable or disable superhero flight. |
-| 4 | X | Sonic Flight | Temporary maximum-speed flight with a sonic boom and wake knockback. |
-| 5 | C | Hover | Lock altitude and greatly reduce drift for precise aerial combat. |
-| 6 | V | Aerial Burst | Powerful vertical launch that immediately gains altitude. |
+| 3 | X | Flight Toggle | Enable or disable superhero flight. |
+| 4 | Z | Sonic Flight | Temporary maximum-speed flight with a sonic boom and wake knockback. |
+| 5 | V | Hover | Lock altitude and greatly reduce drift for precise aerial combat. |
+| 6 | C | Aerial Burst | Powerful vertical launch that immediately gains altitude. |
 
 **Passives:** Improved air control; Reduced fall damage while flight is unlocked
 
@@ -690,10 +690,10 @@ A speedster mutation: traversal, combat bursts, evasion and momentum.
 |---|---|---|---|
 | 1 | R | Speed Blitz | Dash to the targeted enemy and strike at high speed. |
 | 2 | G | Rapid Assault | A burst of multiple rapid strikes to nearby valid targets. |
-| 3 | Z | Momentum Dash | Instant directional dodge based on current movement. In speed modes, jumps also keep their momentum for long leaps. |
-| 4 | X | Overdrive | For 30s: +600% speed (additive with your current speed), +150% attack speed, a 10-block step assist, fall immunity, and every Super Speed move hits twice as hard. Stacks with Speed Mode (50s cooldown). |
-| 5 | C | Whirlwind | Run a tight circle to push enemies/projectiles away and extinguish nearby fire. |
-| 6 | V | Speed Mode | Toggle: +450% speed (additive with your current speed), +50% attack speed, run on water, 2-block step, +100% swim speed, -80% fall damage. Stacks with Overdrive. |
+| 3 | X | Momentum Dash | Instant directional dodge based on current movement. In speed modes, jumps also keep their momentum for long leaps. |
+| 4 | Z | Overdrive | For 30s: +600% speed (additive with your current speed), +150% attack speed, a 10-block step assist, fall immunity, and every Super Speed move hits twice as hard. Stacks with Speed Mode (50s cooldown). |
+| 5 | V | Whirlwind | Run a tight circle to push enemies/projectiles away and extinguish nearby fire. |
+| 6 | C | Speed Mode | Toggle: +450% speed (additive with your current speed), +50% attack speed, run on water, 2-block step, +100% swim speed, -80% fall damage. Stacks with Overdrive. |
 
 **Passives:** +100% movement speed just for owning the power; Higher step-up capability at speed; Reduced collision slowdown
 
@@ -709,10 +709,10 @@ Control stone, dirt and earth as a battlefield weapon and defensive tool.
 |---|---|---|---|
 | 1 | R | Rock Shot | Rip a small rock from the ground and fire it as a projectile. |
 | 2 | G | Earth Spike | Cause stone spikes to erupt beneath the targeted location. |
-| 3 | Z | Stone Wall | Raise a temporary wall from suitable terrain. |
-| 4 | X | Earthquake | Large seismic pulse that damages, disrupts and launches nearby entities. |
-| 5 | C | Boulder Lift | Pull a large temporary boulder from the ground and hold it for an aimed throw. |
-| 6 | V | Earth Armor | Toggle stone plating: defense and stronger melee, reduced speed. |
+| 3 | X | Stone Wall | Raise a temporary wall from suitable terrain. |
+| 4 | Z | Earthquake | Large seismic pulse that damages, disrupts and launches nearby entities. |
+| 5 | V | Boulder Lift | Pull a large temporary boulder from the ground and hold it for an aimed throw. |
+| 6 | C | Earth Armor | Toggle stone plating: defense and stronger melee, reduced speed. |
 
 **Passives:** Improved mining speed on stone/earth while ability energy is available
 
@@ -728,10 +728,10 @@ An amethyst/crystal power set: sharp projectiles, prisons, barriers and reflecti
 |---|---|---|---|
 | 1 | R | Crystal Shard | Fire a fast, sharp crystal projectile. |
 | 2 | G | Crystal Spikes | Grow a cluster of crystals beneath targeted enemies. |
-| 3 | Z | Crystal Barrier | Create a temporary translucent crystal shield. |
-| 4 | X | Crystal Eruption | A large field of crystals erupts around you. |
-| 5 | C | Crystal Prison | Encase a target in crystal temporarily, heavily restricting movement. |
-| 6 | V | Crystal Armor | Toggle crystal plating: defense, minor damage reflection, enhanced melee. |
+| 3 | X | Crystal Barrier | Create a temporary translucent crystal shield. |
+| 4 | Z | Crystal Eruption | A large field of crystals erupts around you. |
+| 5 | V | Crystal Prison | Encase a target in crystal temporarily, heavily restricting movement. |
+| 6 | C | Crystal Armor | Toggle crystal plating: defense, minor damage reflection, enhanced melee. |
 
 **Passives:** Reduced damage from amethyst/crystal hazards you create
 
@@ -747,10 +747,10 @@ A general electricity mutation - intentionally weaker than Thor’s true lightni
 |---|---|---|---|
 | 1 | R | Electric Bolt | Fire a quick electrical projectile. |
 | 2 | G | Chain Lightning | Strike one target and arc to nearby valid targets. |
-| 3 | Z | Electric Dash | Short high-speed electrical dash with brief collision immunity. |
-| 4 | X | Electrical Storm | A temporary storm field that repeatedly shocks nearby enemies. |
-| 5 | C | Electromagnetic Pull | Pull metallic items, minecarts and metal-linked entities toward you. |
-| 6 | V | Charged Mode | Electrify your body: melee attackers are shocked, punches deal bonus electrical damage. |
+| 3 | X | Electric Dash | Short high-speed electrical dash with brief collision immunity. |
+| 4 | Z | Electrical Storm | A temporary storm field that repeatedly shocks nearby enemies. |
+| 5 | V | Electromagnetic Pull | Pull metallic items, minecarts and metal-linked entities toward you. |
+| 6 | C | Charged Mode | Electrify your body: melee attackers are shocked, punches deal bonus electrical damage. |
 
 **Passives:** Reduced lightning damage; Can briefly power compatible redstone targets with some abilities
 
@@ -766,10 +766,10 @@ Direct heat and flame control: ranged fire, mobility and an aggressive flame-bod
 |---|---|---|---|
 | 1 | R | Fireball | Hurl a heavy ghast fireball that craters the ground and scatters fire on impact. In Blue Flame stance it becomes an instant flame laser that still detonates a crater, for extra damage. |
 | 2 | G | Flamethrower | Hold to project continuous close/medium-range flame. |
-| 3 | Z | Flame Dash | Use a fire burst to launch rapidly where you aim. |
-| 4 | X | Inferno | A large fiery eruption around you with heavy damage and ignition. |
-| 5 | C | Flame Wall | Create a temporary line of fire at the targeted ground area. |
-| 6 | V | Flame Body | Toggle a flame aura granting fire immunity and burning melee attackers. |
+| 3 | X | Flame Dash | Use a fire burst to launch rapidly where you aim. |
+| 4 | Z | Inferno | A large fiery eruption around you with heavy damage and ignition. |
+| 5 | V | Flame Wall | Create a temporary line of fire at the targeted ground area. |
+| 6 | C | Flame Body | Toggle a flame aura granting fire immunity and burning melee attackers. |
 
 **Passives:** Strong or permanent fire resistance depending on balance mode
 
@@ -785,10 +785,10 @@ Ice control: freezing, terrain creation, defensive walls and fast ice traversal.
 |---|---|---|---|
 | 1 | R | Ice Bolt | Fire a chilling projectile that builds freeze on targets. Sneak+R opens a weapon wheel to shape an ice tool (iron level, 32 uses). |
 | 2 | G | Freeze Beam | Hold a beam on enemies to progressively freeze and slow them. |
-| 3 | Z | Ice Slide | Create temporary ice beneath your movement for fast skating. |
-| 4 | X | Absolute Zero | Freeze entities and water in a large radius and extinguish fire. |
-| 5 | C | Ice Wall | Create a large temporary wall of ice. |
-| 6 | V | Frozen Armor | Toggle ice plating for defense; melee attackers gain freeze stacks. |
+| 3 | X | Ice Slide | Create temporary ice beneath your movement for fast skating. |
+| 4 | Z | Absolute Zero | Freeze entities and water in a large radius and extinguish fire. |
+| 5 | V | Ice Wall | Create a large temporary wall of ice. |
+| 6 | C | Frozen Armor | Toggle ice plating for defense; melee attackers gain freeze stacks. |
 
 **Passives:** Powder snow immunity; Reduced freezing damage
 
@@ -810,12 +810,12 @@ it, so no channel can be outrun by the trickle.
 | 1 | R | Force Push | 10 damage + a hard shove to the entity you are aiming at and anything within 3 blocks of it. 1 s cooldown. |
 | 1 | Sneak+R | Force Pull | Reel in the aimed target **and** every loose item within 20 blocks (they are handed straight over inside 1.5 blocks). 1 s cooldown. |
 | 2 | G | Telekinetic Barrier | Toggle. Nothing gets through while it holds; drains Psi steadily and charges 4× the blocked damage on top, so a heavy hit can collapse it into a burnout. |
-| 3 | Z | Psychic Flight | Low, steady drain (~1 min from full). Cuts out at the soft floor so it can never drop you AND lock you out. |
-| 4 | X | Psychic Detonation | Hold 5 s: everything within 20 blocks is lifted and hauled toward you, held at a 2-block standoff, then blown apart for 55. 90 s cooldown, huge Psi cost, and Psi regenerates at 20% for 10 s afterwards. |
-| 5 | C | Telekinetic Grab | Press to grab, press again to throw. |
+| 3 | X | Psychic Flight | Low, steady drain (~1 min from full). Cuts out at the soft floor so it can never drop you AND lock you out. |
+| 4 | Z | Psychic Detonation | Hold 5 s: everything within 20 blocks is lifted and hauled toward you, held at a 2-block standoff, then blown apart for 55. 90 s cooldown, huge Psi cost, and Psi regenerates at 20% for 10 s afterwards. |
+| 5 | V | Telekinetic Grab | Press to grab, press again to throw. |
 | 5 | Sneak+V (holding) | Set Down | Release the victim gently — Slow Falling, no throw, no damage. |
 | 5 | Sneak+V (empty) | Force Crush | Reel a victim in and squeeze: 10 damage/second, drains Psi hard, and roots you (−85% speed) while it runs. |
-| 6 | V | Block Manipulation | Lift a block and steer it with the crosshair (a teleport packet per tick, so it tracks smoothly rather than in 1-second steps); release to throw. |
+| 6 | C | Block Manipulation | Lift a block and steer it with the crosshair (a teleport packet per tick, so it tracks smoothly rather than in 1-second steps); release to throw. |
 | 6 | Sneak+C | Chunk Manipulation | Tear a 3×3 slab out of the ground and hurl it: 26 damage to the first thing it reaches, then it bursts. |
 
 **Passives:** Nearby dropped items drift slightly toward you while charged; everything runs off one large Psi bar (self-refilling); you never take fall damage but catching yourself drains Psi in proportion to the fall
@@ -832,10 +832,10 @@ Short-range spatial distortion: combat blinks, marks and limited wall phasing.
 |---|---|---|---|
 | 1 | R | Blink | Short teleport toward the crosshair, stopping safely before invalid blocks. |
 | 2 | G | Target Teleport | Teleport to a safe position behind a targeted enemy. |
-| 3 | Z | Escape Blink | Instant short teleport backward from your facing. |
-| 4 | X | Spatial Frenzy | Rapidly blink between nearby enemies and strike each valid target. |
-| 5 | C | Teleport Mark | Place one return marker; activate again to return if the spot is still valid. |
-| 6 | V | Phase Jump | Short teleport through a thin wall with strict distance and safety checks. |
+| 3 | X | Escape Blink | Instant short teleport backward from your facing. |
+| 4 | Z | Spatial Frenzy | Rapidly blink between nearby enemies and strike each valid target. |
+| 5 | V | Teleport Mark | Place one return marker; activate again to return if the spot is still valid. |
+| 6 | C | Phase Jump | Short teleport through a thin wall with strict distance and safety checks. |
 
 **Passives:** Reduced Ender Pearl damage
 
@@ -851,10 +851,10 @@ Aggressive cellular regeneration: constant passive healing that hunger and comba
 |---|---|---|---|
 | 1 | R | Rapid Heal | Instantly restore a burst of health. |
 | 2 | G | Purge | Remove selected negative effects such as Poison, Weakness and Slowness. |
-| 3 | Z | Recovery Burst | Immediate recovery and short resistance after heavy recent damage. |
-| 4 | X | Second Wind | Briefly, lethal damage cannot drop you below half a heart. |
-| 5 | C | Cellular Surge | +1 HP/second for 30s on top of your normal regeneration, plus a movement and mining boost (45s cooldown). |
-| 6 | V | Regeneration Mode | Toggle +1 HP/second healing; the only Super Regeneration ability that burns hunger (saturation every 5s). |
+| 3 | X | Recovery Burst | Immediate recovery and short resistance after heavy recent damage. |
+| 4 | Z | Second Wind | Briefly, lethal damage cannot drop you below half a heart. |
+| 5 | V | Cellular Surge | +1 HP/second for 30s on top of your normal regeneration, plus a movement and mining boost (45s cooldown). |
+| 6 | C | Regeneration Mode | Toggle +1 HP/second healing; the only Super Regeneration ability that burns hunger (saturation every 5s). |
 
 **Passives:** Passive regeneration of 1 HP per second, unaffected by hunger or combat
 
@@ -870,10 +870,10 @@ A tank mutation hardening the body against damage, knockback, projectiles and ex
 |---|---|---|---|
 | 1 | R | Heavy Strike | Reinforced melee hit with extra stagger. |
 | 2 | G | Shoulder Charge | Rush forward through enemies, dealing collision damage and knockback. |
-| 3 | Z | Block | Hold to cut damage from the frontal 180° arc by a further 60%; drains the guard bar. |
-| 4 | X | Unbreakable | Ignore 100% of all damage for 15 seconds. |
-| 5 | C | Projectile Deflection | Hold to swat away nearby projectiles and be immune to them; drains the guard bar. |
-| 6 | V | Tank Mode | Toggle a reinforced stance: a further 30% damage reduction and knockback resistance, lower speed. |
+| 3 | X | Block | Hold to cut damage from the frontal 180° arc by a further 60%; drains the guard bar. |
+| 4 | Z | Unbreakable | Ignore 100% of all damage for 15 seconds. |
+| 5 | V | Projectile Deflection | Hold to swat away nearby projectiles and be immune to them; drains the guard bar. |
+| 6 | C | Tank Mode | Toggle a reinforced stance: a further 30% damage reduction and knockback resistance, lower speed. |
 
 **Passives:** 30% less damage from all sources, with extra reduction vs fall and explosions
 
@@ -889,10 +889,10 @@ Manipulate destructive sound: cones, focused blasts, mobility and sonar-like uti
 |---|---|---|---|
 | 1 | R | Sonic Blast | A quick cone-shaped sound attack with knockback. |
 | 2 | G | Focused Scream | A long-range concentrated sonic beam. |
-| 3 | Z | Sonic Jump | Blast sound downward to launch into the air. |
-| 4 | X | Supersonic Scream | A huge area scream with severe knockback and glass-breaking. |
-| 5 | C | Resonance | Vibrate selected fragile/compatible blocks until they break. |
-| 6 | V | Echolocation | Toggle periodic sonar pulses that outline nearby living entities. |
+| 3 | X | Sonic Jump | Blast sound downward to launch into the air. |
+| 4 | Z | Supersonic Scream | A huge area scream with severe knockback and glass-breaking. |
+| 5 | V | Resonance | Vibrate selected fragile/compatible blocks until they break. |
+| 6 | C | Echolocation | Toggle periodic sonar pulses that outline nearby living entities. |
 
 **Passives:** Reduced self-damage from sonic effects
 
@@ -908,10 +908,10 @@ Bend light for stealth, flashes, mirages and limited offensive photonic attacks.
 |---|---|---|---|
 | 1 | R | Light Blast | Fire a compact burst of concentrated light. |
 | 2 | G | Flash | Blind/disorient nearby enemies for a short duration. |
-| 3 | Z | Mirage Dash | Briefly vanish while performing a fast evasive dash. |
-| 4 | X | Perfect Cloak | Full invisibility including armor, held items and particles for a limited time. |
-| 5 | C | Decoy | Create a temporary visual duplicate that attracts hostile attention. |
-| 6 | V | Cloaking Toggle | Sustained invisibility; attacking or heavy damage briefly reveals you. |
+| 3 | X | Mirage Dash | Briefly vanish while performing a fast evasive dash. |
+| 4 | Z | Perfect Cloak | Full invisibility including armor, held items and particles for a limited time. |
+| 5 | V | Decoy | Create a temporary visual duplicate that attracts hostile attention. |
+| 6 | C | Cloaking Toggle | Sustained invisibility; attacking or heavy damage briefly reveals you. |
 
 **Passives:** Reduced detection range while crouching
 
@@ -936,10 +936,10 @@ established hold survives five ticks with nothing in reach so corners and block 
 |---|---|---|---|
 | 1 | R | Adhesive Strike | Hit a target and briefly stick/root it against a nearby surface. |
 | 2 | G | Pounce | Launch toward the aimed target or surface. |
-| 3 | Z | Wall Leap | Launch away along the held surface normal (falls back to a backward leap when not adhered). |
-| 4 | X | Predator Rush | Temporary enhanced agility: rapid climbing, wall-running, attack speed and leaps. |
-| 5 | C | Wall Grip | Hold on: stick to whatever surface you touch and move relative to it. |
-| 6 | V | Adhesion Mode | The same grip, left on permanently. |
+| 3 | X | Wall Leap | Launch away along the held surface normal (falls back to a backward leap when not adhered). |
+| 4 | Z | Predator Rush | Temporary enhanced agility: rapid climbing, wall-running, attack speed and leaps. |
+| 5 | V | Wall Grip | Hold on: stick to whatever surface you touch and move relative to it. |
+| 6 | C | Adhesion Mode | The same grip, left on permanently. |
 
 **Passives:** Reduced fall damage; Improved jump height; can be evolved into the Spider-Man Hero Class
 
@@ -960,10 +960,10 @@ Rubber-like body manipulation: ranged punches, bouncing, grabs and slingshot mov
 |---|---|---|---|
 | 1 | R | Stretch Punch | Long-reach melee strike — 12 damage at up to 15 blocks. |
 | 2 | G | Double-Fist Slam | Heavy forward smash — 17 damage in a 4-block ball, 7 blocks out. |
-| 3 | Z | Slingshot | Anchor and launch. At terrain: reel yourself to it. At a **creature**: anchor onto them, get hauled in at speed, and slam into them for 14. |
-| 4 | X | Giant Hammer Fist | 34 damage in a 4.5-block area, plus Slowness. |
-| 5 | C | Elastic Grab | Pull a mob, player or item in; press again to hurl for 7. |
-| 6 | V | Elastic Form | Toggle: +reach, +speed, Jump Boost, **projectile immunity**, melee attackers bounce off, and a slime-block rebound on landing that returns half the impact (so it always damps out). |
+| 3 | X | Slingshot | Anchor and launch. At terrain: reel yourself to it. At a **creature**: anchor onto them, get hauled in at speed, and slam into them for 14. |
+| 4 | Z | Giant Hammer Fist | 34 damage in a 4.5-block area, plus Slowness. |
+| 5 | V | Elastic Grab | Pull a mob, player or item in; press again to hurl for 7. |
+| 6 | C | Elastic Form | Toggle: +reach, +speed, Jump Boost, **projectile immunity**, melee attackers bounce off, and a slime-block rebound on landing that returns half the impact (so it always damps out). |
 
 **Passives:** Reduced fall and collision damage
 
@@ -979,10 +979,10 @@ Switch between low and high density for mobility, heavy impacts, defense and lim
 |---|---|---|---|
 | 1 | R | Heavy Punch | Momentarily increase fist density for a powerful strike. |
 | 2 | G | Density Slam | Become extremely heavy and crash downward. |
-| 3 | Z | Intangible Dash | Lower density and dash through entities and very thin obstacles. |
-| 4 | X | Singularity | Hold 5 s to gather. Hangs ≤5 blocks off the ground, invulnerable, dragging everything in; 15 damage/s inside 6 blocks. 25 s, or press Z again to drop out early. 60 s cooldown, started only when it **ends**. |
-| 5 | C | Phase | Toggle: walk through solid blocks, immune to damage, rendered see-through. Capped at 2 blocks above the ground — intangibility, not flight. |
-| 6 | V | Density Mode | Cycle Light → Normal → Heavy: mobility vs damage/defense. |
+| 3 | X | Intangible Dash | Lower density and dash through entities and very thin obstacles. |
+| 4 | Z | Singularity | Hold 5 s to gather. Hangs ≤5 blocks off the ground, invulnerable, dragging everything in; 15 damage/s inside 6 blocks. 25 s, or press Z again to drop out early. 60 s cooldown, started only when it **ends**. |
+| 5 | V | Phase | Toggle: walk through solid blocks, immune to damage, rendered see-through. Capped at 2 blocks above the ground — intangibility, not flight. |
+| 6 | C | Density Mode | Cycle Light → Normal → Heavy: mobility vs damage/defense. |
 
 **Passives:** Mode-dependent jump, fall speed and knockback modifiers
 
@@ -998,10 +998,10 @@ Use darkness as a resource for bolts, tendrils, movement, clones and concealment
 |---|---|---|---|
 | 1 | R | Shadow Bolt | Fire a compact dark-energy projectile. |
 | 2 | G | Shadow Tendrils | Bind and pull nearby enemies with shadow tendrils. |
-| 3 | Z | Shadow Step | Teleport to a nearby valid dark location. |
-| 4 | X | Total Darkness | Create a large darkness field where you gain mobility and offensive bonuses. |
-| 5 | C | Shadow Clone | Create a temporary shadow duplicate to distract or attack lightly. |
-| 6 | V | Shadow Form | Toggle stealth bonuses in darkness: partial invisibility, speed, reduced mob detection. |
+| 3 | X | Shadow Step | Teleport to a nearby valid dark location. |
+| 4 | Z | Total Darkness | Create a large darkness field where you gain mobility and offensive bonuses. |
+| 5 | V | Shadow Clone | Create a temporary shadow duplicate to distract or attack lightly. |
+| 6 | C | Shadow Form | Toggle stealth bonuses in darkness: partial invisibility, speed, reduced mob detection. |
 
 **Passives:** Stronger ability regeneration in darkness; weaker in bright sunlight
 
@@ -1017,10 +1017,10 @@ Convert incoming heat, explosions and electricity into a stored meter for offens
 |---|---|---|---|
 | 1 | R | Energy Blast | Spend stored energy on a ranged projectile. |
 | 2 | G | Energy Beam | Spend stored energy on a sustained beam. |
-| 3 | Z | Absorption Shield | Hold a shield converting a share of incoming damage into stored energy. |
-| 4 | X | Overload | Release all stored energy in a detonation scaled to meter level. |
-| 5 | C | Energy Drain | Drain compatible powered blocks, redstone devices or energy entities into the meter. |
-| 6 | V | Absorption Mode | Toggle passive partial absorption of fire, lightning, explosions and energy attacks. |
+| 3 | X | Absorption Shield | Hold a shield converting a share of incoming damage into stored energy. |
+| 4 | Z | Overload | Release all stored energy in a detonation scaled to meter level. |
+| 5 | V | Energy Drain | Drain compatible powered blocks, redstone devices or energy entities into the meter. |
+| 6 | C | Absorption Mode | Toggle passive partial absorption of fire, lightning, explosions and energy attacks. |
 
 **Passives:** Visible Energy Meter; high charge produces a cosmetic aura
 
@@ -1036,10 +1036,10 @@ Amplify kinetic force into pressure waves, repulsion and charged impacts.
 |---|---|---|---|
 | 1 | R | Shockwave Punch | Punch to send a short pressure wave forward. |
 | 2 | G | Ground Wave | Strike the ground and send a traveling shockwave along the surface. |
-| 3 | Z | Recoil Jump | Blast a shockwave downward to launch yourself. |
-| 4 | X | Kinetic Detonation | Release a huge spherical shockwave around you. |
-| 5 | C | Repulsion Field | Immediately shove nearby entities and projectiles away. |
-| 6 | V | Charge | Hold to build kinetic energy; the next Primary, Secondary or Ultimate gains extra strength and range. |
+| 3 | X | Recoil Jump | Blast a shockwave downward to launch yourself. |
+| 4 | Z | Kinetic Detonation | Release a huge spherical shockwave around you. |
+| 5 | V | Repulsion Field | Immediately shove nearby entities and projectiles away. |
+| 6 | C | Charge | Hold to build kinetic energy; the next Primary, Secondary or Ultimate gains extra strength and range. |
 
 **Passives:** Slight knockback resistance from internal kinetic control
 
@@ -1055,10 +1055,10 @@ Control vines, roots and rapid growth for crowd control, movement, protection an
 |---|---|---|---|
 | 1 | R | Thorn Shot | Fire sharp plant projectiles. |
 | 2 | G | Vine Grab | Grow vines that restrain and pull a target. |
-| 3 | Z | Vine Swing | Attach a temporary vine line to suitable blocks and swing. |
-| 4 | X | Overgrowth | Explosive plant growth across a large area, trapping and damaging enemies. |
-| 5 | C | Living Wall | Grow a temporary root/vine barrier. |
-| 6 | V | Nature’s Blessing | Toggle enhanced regeneration and energy recovery near healthy vegetation. |
+| 3 | X | Vine Swing | Attach a temporary vine line to suitable blocks and swing. |
+| 4 | Z | Overgrowth | Explosive plant growth across a large area, trapping and damaging enemies. |
+| 5 | V | Living Wall | Grow a temporary root/vine barrier. |
+| 6 | C | Nature’s Blessing | Toggle enhanced regeneration and energy recovery near healthy vegetation. |
 
 **Passives:** Bone meal interactions are more efficient; Minor regeneration in lush areas
 
@@ -1074,10 +1074,10 @@ Control local gravity to push, crush, levitate and create dangerous gravity well
 |---|---|---|---|
 | 1 | R | Gravity Push | A focused gravity pulse that throws targets away. |
 | 2 | G | Gravity Crush | Increase gravity on a target/area, pinning enemies and dealing sustained pressure damage. |
-| 3 | Z | Zero-G | Temporarily reduce personal gravity for floating and aerial repositioning. |
-| 4 | X | Gravity Well | A strong localized gravity field that drags entities toward its center. |
-| 5 | C | Levitate | Lift a targeted mob/object and hold it suspended. |
-| 6 | V | Gravity Field | Cycle personal Low / Normal / High gravity with different mobility and combat effects. |
+| 3 | X | Zero-G | Temporarily reduce personal gravity for floating and aerial repositioning. |
+| 4 | Z | Gravity Well | A strong localized gravity field that drags entities toward its center. |
+| 5 | V | Levitate | Lift a targeted mob/object and hold it suspended. |
+| 6 | C | Gravity Field | Cycle personal Low / Normal / High gravity with different mobility and combat effects. |
 
 **Passives:** Reduced fall damage in Low gravity mode
 
@@ -1093,10 +1093,10 @@ Air-pressure control: blades, tornadoes, flight-like movement and projectile def
 |---|---|---|---|
 | 1 | R | Wind Blade | Fire a compressed blade of air. |
 | 2 | G | Tornado | Create a small moving tornado that lifts and carries entities. |
-| 3 | Z | Wind Flight | Use controlled air currents for limited flight/propulsion. |
-| 4 | X | Hurricane | Create a large violent wind field around you. |
-| 5 | C | Wind Push | A powerful defensive gust that repels mobs and projectiles. |
-| 6 | V | Tailwind | Toggle a supporting wind current for faster movement, jumps and gliding. |
+| 3 | X | Wind Flight | Use controlled air currents for limited flight/propulsion. |
+| 4 | Z | Hurricane | Create a large violent wind field around you. |
+| 5 | V | Wind Push | A powerful defensive gust that repels mobs and projectiles. |
+| 6 | C | Tailwind | Toggle a supporting wind current for faster movement, jumps and gliding. |
 
 **Passives:** Reduced fall damage when using wind movement
 
@@ -1112,10 +1112,10 @@ Control water into projectiles, whips, prisons and movement; be extremely capabl
 |---|---|---|---|
 | 1 | R | Water Shot | Fire a high-pressure water projectile. |
 | 2 | G | Water Whip | A sweeping water lash that damages and pulls targets. |
-| 3 | Z | Riptide | Fire yourself along a jet of water in a fast forward dash; further while wet, bowls over anything in the way. |
-| 4 | X | Tidal Wave | Launch a massive advancing wall of water that knocks back and displaces enemies. |
-| 5 | C | Water Prison | Trap a target in a suspended water sphere for a short duration. |
-| 6 | V | Aquatic Form | Toggle an enhanced underwater state: water breathing, fast swimming, clear vision. |
+| 3 | X | Riptide | Fire yourself along a jet of water in a fast forward dash; further while wet, bowls over anything in the way. |
+| 4 | Z | Tidal Wave | Launch a massive advancing wall of water that knocks back and displaces enemies. |
+| 5 | V | Water Prison | Trap a target in a suspended water sphere for a short duration. |
+| 6 | C | Aquatic Form | Toggle an enhanced underwater state: water breathing, fast swimming, clear vision. |
 
 **Passives:** Improved swimming; No drowning while Aquatic Form is active
 
@@ -1133,10 +1133,10 @@ enemy in reach — otherwise it fails with subtle feedback and spends no cooldow
 |---|---|---|---|
 | 1 | R | Ferrous Shot | Launch a nearby magnetic object (looked-at block → dropped metal item → nearby metal block) at the crosshair; heavier objects hit harder. |
 | 2 | G | Magnetic Grip | Grab a magnetic block / item / minecart / iron golem and float it on your aim; activate again to hurl it. |
-| 3 | Z | Polarity Leap | Pull yourself toward a magnetic object you are looking at, up to 24 blocks; preserves momentum, brief landing cushion. |
-| 4 | X | Metal Storm | Gather up to 8 nearby magnetic objects into orbit, then launch them at your aim; per-target damage capped. |
-| 5 | C | Magnetic Crush | Crush an enemy with their own worn/held metal — damage scales with how much they carry, plus Slowness / immobilise. |
-| 6 | V | Magnetic Sense | Toggle: highlight only magnetically reactive blocks and metal-equipped entities nearby (client-side, bounded). |
+| 3 | X | Polarity Leap | Pull yourself toward a magnetic object you are looking at, up to 24 blocks; preserves momentum, brief landing cushion. |
+| 4 | Z | Metal Storm | Gather up to 8 nearby magnetic objects into orbit, then launch them at your aim; per-target damage capped. |
+| 5 | V | Magnetic Crush | Crush an enemy with their own worn/held metal — damage scales with how much they carry, plus Slowness / immobilise. |
+| 6 | C | Magnetic Sense | Toggle: highlight only magnetically reactive blocks and metal-equipped entities nearby (client-side, bounded). |
 
 **Passives:** Nearby dropped magnetic items drift toward you; objects you control never damage you.
 
@@ -1152,10 +1152,10 @@ Change body scale for stealth, mobility or giant strength - neither form univers
 |---|---|---|---|
 | 1 | R | Giant Punch | Briefly enlarge the striking arm for extended reach and damage. |
 | 2 | G | Stomp | Increase size and stomp, creating a short-radius ground shockwave. |
-| 3 | Z | Shrink | Instantly shift to Tiny form for evasion and access to small spaces. |
-| 4 | X | Giant Form | Become roughly 4-6 blocks tall briefly with major strength and reach. |
-| 5 | C | Tiny Dash | While small or normal, rapidly shrink/dash through a narrow gap or under attacks. |
-| 6 | V | Size Cycle | Cycle Tiny → Normal → Large, each with distinct movement, hitbox, damage and defense. |
+| 3 | X | Shrink | Instantly shift to Tiny form for evasion and access to small spaces. |
+| 4 | Z | Giant Form | Become roughly 4-6 blocks tall briefly with major strength and reach. |
+| 5 | V | Tiny Dash | While small or normal, rapidly shrink/dash through a narrow gap or under attacks. |
+| 6 | C | Size Cycle | Cycle Tiny → Normal → Large, each with distinct movement, hitbox, damage and defense. |
 
 **Passives:** Form-dependent reach, speed, step height and hitbox changes
 
@@ -1198,14 +1198,13 @@ Change body scale for stealth, mobility or giant strength - neither form univers
 - Electromagnetic Coil Pair
 
 
-## Key layout (v0.11.15)
+## Key layout (v0.11.16)
 
-The six slots are named **Ability 1 - Ability 6** in the controls screen (`key.projecthero.ability_N`) and slots
-3-6 now default to **Z, X, C, V** (they were X, Z, V, C). **H** is "Utility 1" (`power_select`), **N** is "Utility 2"
-(`max_steel_transform`), **P** is the squad menu. The slot tables in this file were re-keyed; older prose sections
-that still name a key letter use the OLD letters for slots 3-6 (old X = slot 3 = Z, old Z = slot 4 = X, old V =
-slot 5 = C, old C = slot 6 = V). Saved options keep whatever a player had bound -- they press *Reset* to pick up
-the new defaults.
+The six slots are named **Ability 1 - Ability 6** in the controls screen (`key.projecthero.ability_N`) and default to
+**R, G, X, Z, V, C** -- the same physical key -> move mapping the mod always had (v0.11.15 briefly swapped slots 3-6 to
+Z, X, C, V; v0.11.16 put them back, and the slot tables / guide text use the original letters again). **H** is "Utility 1"
+(`power_select`), **N** is "Utility 2" (`max_steel_transform`; as a Symbiote host it toggles Predator Vision),
+**P** is the squad menu.
 
 ## Primary & Secondary powers (v0.11.15 -- two slots)
 
@@ -1233,6 +1232,10 @@ slot; the experimental mutations are one group in one slot (still capped by `mut
 - **Auto-equip** (`Symbiote.autoEquip` / `onIncomingHit`): a hit of >3, one leaving <5 hearts, a fatal one, or health
   below 5 hearts wraps the host. Refused while bonding, locked out (sonic / fire retreat / toggle cooldown), on fire,
   or creative. A manual retract suppresses the *health-triggered* wrap for 10 s; hits override it.
+  An auto-wrap retracts itself after 5 s (`AUTO_RETRACT_AT`, v0.11.16) unless the host presses H (`Symbiote.toggle`) to keep it.
+- **Predator Vision** (client, `EntityGlowMixin` + `SymbioteFxClient`): viewer-only outline within 20 blocks; N toggles it
+  (`SymbioteFxClient.togglePredatorVision`). Hostiles red, other players dark purple, the rest dark blue.
+- **Lunge** keeps its momentum on finishing (v0.11.16). Meteor / lab structure sets: spacing 130/150, frequency 0.7.
 - **Resurrection** (`Symbiote.tryResurrect`, from `ALLOW_DEATH` after Protocol Phoenix / Max Steel revive): costs
   half of `MAX_HP` Biomass (needs at least that much), 60 s cooldown, refused during a sonic lockout. Sets health to
   half max, Resistance I for 20 s, then `SymbioteAbilityManager.resurrectionBlast` pushes every living entity

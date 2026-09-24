@@ -37,13 +37,13 @@ public final class ModKeyBindings {
 	public static final KeyMapping ABILITY_2 = new KeyMapping(
 			"key.projecthero.ability_2", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, CATEGORY);
 	public static final KeyMapping ABILITY_3 = new KeyMapping(
-			"key.projecthero.ability_3", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_Z, CATEGORY);
+			"key.projecthero.ability_3", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_X, CATEGORY);
 	public static final KeyMapping ABILITY_4 = new KeyMapping(
-			"key.projecthero.ability_4", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_X, CATEGORY);
+			"key.projecthero.ability_4", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_Z, CATEGORY);
 	public static final KeyMapping ABILITY_5 = new KeyMapping(
-			"key.projecthero.ability_5", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_C, CATEGORY);
+			"key.projecthero.ability_5", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, CATEGORY);
 	public static final KeyMapping ABILITY_6 = new KeyMapping(
-			"key.projecthero.ability_6", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, CATEGORY);
+			"key.projecthero.ability_6", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_C, CATEGORY);
 
 	/** All six, indexed 0..5 == slot 1..6. */
 	public static final KeyMapping[] ABILITY_SLOTS = {

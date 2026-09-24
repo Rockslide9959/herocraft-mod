@@ -485,9 +485,12 @@ public final class SymbioteAbilityManager {
 		boolean blocked = travelled && (player.horizontalCollision || player.verticalCollision);
 		if (now >= (long) l[3] || blocked) {
 			LUNGE.remove(player.getId());
-			// bleed the speed off so the lunge ends in a stop rather than a 2-blocks-per-tick drift
-			player.setDeltaMovement(dir.scale(0.25));
-			player.hurtMarked = true;
+			// v0.11.16: keep the momentum -- the lunge ends by letting go, not by stopping dead. (A wall
+			// already killed the speed by itself, so only a lunge that ran its full length coasts on.)
+			if (!blocked) {
+				player.setDeltaMovement(dir.scale(LUNGE_SPEED));
+				player.hurtMarked = true;
+			}
 			return;
 		}
 		AbilityHelpers.launchSelf(player, dir.scale(LUNGE_SPEED));
@@ -498,7 +501,7 @@ public final class SymbioteAbilityManager {
 						target.position().add(0, target.getBbHeight() * 0.5, 0), ParticleTypes.SQUID_INK, 26, 0.5);
 				SymbioteSounds.lash(player, 1.0f, 0.6f);
 				LUNGE.remove(player.getId());
-				player.setDeltaMovement(dir.scale(0.25));
+				player.setDeltaMovement(dir.scale(LUNGE_SPEED));
 				player.hurtMarked = true;
 				return;
 			}

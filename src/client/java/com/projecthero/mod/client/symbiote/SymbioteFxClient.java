@@ -32,7 +32,22 @@ public final class SymbioteFxClient {
 	private static final float STAGE_CHEST_END = 0.32f;
 	private static final float STAGE_LIMBS_END = 0.72f;
 
+	/**
+	 * v0.11.16: N toggles the Symbiote host's Predator Vision (the mob / player outline) on and off. Purely a
+	 * client-side view preference -- the outline is this viewer's own render, nothing is sent to the server.
+	 */
+	private static boolean predatorVision = true;
+
 	private SymbioteFxClient() {
+	}
+
+	public static boolean predatorVisionOn() {
+		return predatorVision;
+	}
+
+	public static boolean togglePredatorVision() {
+		predatorVision = !predatorVision;
+		return predatorVision;
 	}
 
 	/**

@@ -523,10 +523,10 @@ public class SpiderManGameTests implements FabricGameTest {
 		// The exact layout the design asks for.
 		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WEB_SWING) == 'R', "R = Web Swing");
 		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WEB_ZIP) == 'G', "G = Web Zip");
-		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WEB_SHOT) == 'X', "X = Web Shot (Ability 4)");
-		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WEB_YANK) == 'Z', "Z = Web Yank (Ability 3)");
-		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WALL_CRAWL) == 'V', "V = Wall Crawl (Ability 6)");
-		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WEB_NET) == 'C', "C = Web Net (Ability 5)");
+		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WEB_SHOT) == 'Z', "Z = Web Shot");
+		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WEB_YANK) == 'X', "X = Web Yank");
+		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WALL_CRAWL) == 'C', "C = Wall Crawl");
+		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WEB_NET) == 'V', "V = Web Net");
 		helper.succeed();
 	}
 
