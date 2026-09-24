@@ -158,6 +158,9 @@ public final class WolverinePassives {
 		if (Wolverine.raging(player)) {
 			mult *= 1.0f + WolverineConfig.RAGE_REGEN_BONUS;
 		}
+		if (Wolverine.surgeRecovering(player)) {
+			mult *= WolverineConfig.SURGE_REGEN_FACTOR; // still weak from the Death Surge: closer to dying
+		}
 		SuperRegenerationHandlers.tickBaseRegen(player, mult, true);
 	}
 

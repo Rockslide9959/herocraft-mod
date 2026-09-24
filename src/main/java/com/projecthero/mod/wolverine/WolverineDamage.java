@@ -63,7 +63,7 @@ public final class WolverineDamage {
 				|| source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
 			return true;
 		}
-		if (Wolverine.resurrecting(player)) {
+		if (Wolverine.invulnerable(player)) {
 			return false; // the resurrection window: nothing can hurt him (the void and /kill excepted above)
 		}
 		float factor = 1.0f;

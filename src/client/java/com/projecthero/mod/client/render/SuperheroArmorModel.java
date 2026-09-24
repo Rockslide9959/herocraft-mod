@@ -34,10 +34,7 @@ public class SuperheroArmorModel extends GeoModel<SuperheroArmorItem> {
 			software.bernie.geckolib.renderer.GeoRenderer<SuperheroArmorItem> renderer) {
 		if ("wolverine".equals(animatable.armorSetId()) && renderer instanceof software.bernie.geckolib.renderer.GeoArmorRenderer<?> armor
 				&& armor.getCurrentEntity() instanceof net.minecraft.world.entity.LivingEntity wearer) {
-			float frac = wearer.getMaxHealth() <= 0 ? 1.0f : wearer.getHealth() / wearer.getMaxHealth();
-			// Death Surge: the suit is almost completely torn off
-			int stage = (wearer instanceof net.minecraft.world.entity.player.Player p && com.projecthero.mod.wolverine.Wolverine.resurrecting(p))
-					? 4 : frac > 0.9f ? 0 : frac > 0.65f ? 1 : frac > 0.4f ? 2 : 3;
+			int stage = com.projecthero.mod.client.wolverine.WolverineSuitWear.stage(wearer);
 			if (stage > 0) {
 				return com.projecthero.mod.ProjectHeroMod.id("textures/armor/wolverine_damaged_" + stage + ".png");
 			}

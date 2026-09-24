@@ -238,8 +238,24 @@ public final class WolverineAbilities {
 		if (player.level() instanceof ServerLevel level && player.tickCount % 2 == 0) {
 			level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 0.9, player.getZ(), 2, 0.2, 0.3, 0.2, 0.02);
 		}
-		for (LivingEntity target : AbilityHelpers.enemiesAround(player,
-				player.position().add(0, player.getBbHeight() * 0.5, 0), WolverineConfig.DASH_HIT_RADIUS)) {
+		// a box 3 blocks wide along his line of travel, long enough to cover the ground covered this tick
+		Vec3 vel = player.getDeltaMovement();
+		double speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
+		Vec3 dir = speed > 0.05 ? new Vec3(vel.x / speed, 0, vel.z / speed) : player.getLookAngle();
+		dir = new Vec3(dir.x, 0, dir.z);
+		dir = dir.lengthSqr() < 1.0E-4 ? new Vec3(0, 0, 1) : dir.normalize();
+		final Vec3 axis = dir;
+		final double reachBack = speed + 0.5;
+		Vec3 centre = player.position().add(0, player.getBbHeight() * 0.5, 0);
+		for (LivingEntity target : AbilityHelpers.enemiesAround(player, centre, speed + 4.0)) {
+			Vec3 c = target.position().add(0, target.getBbHeight() * 0.5, 0).subtract(centre);
+			double along = c.x * axis.x + c.z * axis.z;
+			double side = Math.abs(c.x * -axis.z + c.z * axis.x);
+			double halfW = target.getBbWidth() / 2.0;
+			if (along < -reachBack - halfW || along > 1.8 + halfW || side > WolverineConfig.STRIKE_WIDTH / 2.0 + halfW
+					|| Math.abs(c.y) > 2.0 + target.getBbHeight() / 2.0) {
+				continue;
+			}
 			if (hits.add(target.getId()) && strike(player, target, WolverineConfig.DASH_DAMAGE, 0.9)) {
 				slashFx(player, 0.9, 0.0, 0.8f);
 				// the first thing the claws sink into is seized and carried along

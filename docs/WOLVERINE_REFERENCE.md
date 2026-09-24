@@ -166,3 +166,10 @@ untouched.
 - Death Surge visuals: red screen-edge shadow for the 10 s window (WolverineSurgeOverlay); first-person hand uses the flesh texture and the skin fades back over it (PlayerRendererFleshHandMixin); HUD line is now "Death Surge: <s>".
 - R / G are frontal again but hit a box 3 blocks wide (inBox, reach 3.5 / 3.0); V (Frenzy) is back to its old nearest-target spread.
 - Suit: chainmail protection (1/4/5/2), iron durability (multiplier 15); four damage textures (below 90 / 65 / 40% health, plus a near-fully-torn-off one during the Death Surge) with whole chunks removed to bare the skin.
+
+## v0.12.18
+
+- Suit damage lingers: the shown tear stage jumps up with damage but repairs one stage every 5 s (20 s from fully shredded) - WolverineSuitWear.
+- Death Surge: debuffs / red border / torn suit last 20 s, the flesh->skin fade another 20 s; damage immunity stays the first 10 s; healing factor halved for all 40 s.
+- Deploying the claws costs 4 armour-bypassing damage (never lethal, not in creative).
+- Claw Dash sweeps a box 3 blocks wide along its line of travel instead of a 2-block-radius sphere.

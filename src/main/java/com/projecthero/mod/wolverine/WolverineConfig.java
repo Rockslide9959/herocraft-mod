@@ -23,12 +23,20 @@ public final class WolverineConfig {
 	// ---- emergency healing ----
 	/** Health (fraction of max) he is left at when the death resurrection fires. */
 	public static final float EMERGENCY_HEAL_FRACTION = 0.30f;
-	/** The resurrection window: no damage, Slowness III + Blindness + Weakness I, flesh model. */
-	public static final int EMERGENCY_HEAL_TICKS = 10 * S;
+	/** The Death Surge window: Slowness III + Blindness + Weakness I, red screen border, suit torn off. */
+	public static final int EMERGENCY_HEAL_TICKS = 20 * S;
+	/** ...of which the first part he cannot take any damage. */
+	public static final int EMERGENCY_INVULN_TICKS = 10 * S;
 	public static final int EMERGENCY_COOLDOWN_TICKS = 180 * S;
 	/** Emergency resurrection look: full flesh for 10 s, then the skin fades back over another 10 s. */
-	public static final int FLESH_HOLD_TICKS = 10 * S;
-	public static final int FLESH_FADE_TICKS = 10 * S;
+	public static final int FLESH_HOLD_TICKS = 20 * S;
+	public static final int FLESH_FADE_TICKS = 20 * S;
+	/** His healing factor runs at this fraction of normal for the whole flesh + fade period (40 s). */
+	public static final float SURGE_REGEN_FACTOR = 0.5f;
+	/** Deploying the claws tears through his hands: this much damage (armour-bypassing). */
+	public static final float CLAW_DEPLOY_DAMAGE = 4.0f;
+	/** A damaged suit stays torn this long per damage stage (4 stages: fully repaired 20 s after the last damage). */
+	public static final int SUIT_REPAIR_TICKS_PER_STAGE = 5 * S;
 
 	// ---- survivability ----
 	public static final float DAMAGE_REDUCTION = 0.35f;

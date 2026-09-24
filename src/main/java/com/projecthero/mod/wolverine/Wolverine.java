@@ -57,6 +57,21 @@ public final class Wolverine {
 		return s != null && s.hasPower && s.clawsOut;
 	}
 
+	/** Inside the Death Surge's damage-proof opening seconds. */
+	public static boolean invulnerable(Player player) {
+		WolverineState s = player.getAttachedOrElse(ModAttachments.WOLVERINE_STATE, null);
+		return s != null && s.hasPower && s.emergencyHealUntil > player.level().getGameTime()
+				&& player.level().getGameTime() < s.fleshStartedAt + WolverineConfig.EMERGENCY_INVULN_TICKS;
+	}
+
+	/** In the flesh + skin-fade recovery after a Death Surge (regeneration halved). */
+	public static boolean surgeRecovering(Player player) {
+		WolverineState s = player.getAttachedOrElse(ModAttachments.WOLVERINE_STATE, null);
+		long now = player.level().getGameTime();
+		return s != null && s.hasPower && s.fleshStartedAt > 0L
+				&& now < s.fleshStartedAt + WolverineConfig.FLESH_HOLD_TICKS + WolverineConfig.FLESH_FADE_TICKS;
+	}
+
 	/** In the death-resurrection window (invulnerable, debuffed, flesh-skinned). */
 	public static boolean resurrecting(Player player) {
 		WolverineState s = player.getAttachedOrElse(ModAttachments.WOLVERINE_STATE, null);
@@ -172,6 +187,14 @@ public final class Wolverine {
 		player.displayClientMessage(Component.translatable(
 				out ? "message.projecthero.wolverine.claws_deployed" : "message.projecthero.wolverine.claws_retracted")
 				.withStyle(out ? ChatFormatting.GOLD : ChatFormatting.GRAY), true);
+		if (out && !player.isCreative() && !player.isSpectator()) {
+			// the blades tear out through his knuckles: 4 damage, but never enough to kill him
+			float dmg = Math.min(WolverineConfig.CLAW_DEPLOY_DAMAGE, player.getHealth() - 1.0f);
+			if (dmg > 0.0f) {
+				player.invulnerableTime = 0;
+				player.hurt(player.damageSources().magic(), dmg);
+			}
+		}
 		return out;
 	}
 
