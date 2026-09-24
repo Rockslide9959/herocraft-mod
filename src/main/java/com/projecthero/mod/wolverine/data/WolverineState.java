@@ -34,16 +34,23 @@ public final class WolverineState {
 	public float rageMeter;
 	/** Game-time the player started holding the Adamantium Execution key (0 = not charging). */
 	public long chargeStartedAt;
+	/** Game-time the emergency resurrection began (0 = never) -- drives the flesh -> skin fade on every client. */
+	public long fleshStartedAt;
+	/** Game-time this Wolverine last dealt or took damage -- gates the Rage bar's slow drain. */
+	public long lastCombatAt;
 	/** {@code abilityId} -> absolute game-time it is ready again. */
 	public final Map<String, Long> abilityReadyAt;
 
 	public WolverineState() {
-		this(false, false, 0L, 0L, 0L, 0L, 0L, 0, 0L, 0.0f, 0L, new HashMap<>());
+		this(false, false, 0L, 0L, 0L, 0L, 0L, 0, 0L, 0.0f, 0L, 0L, 0L, new HashMap<>());
 	}
 
 	public WolverineState(boolean hasPower, boolean clawsOut, long clawsChangedAt, long rageUntil,
 			long emergencyReadyAt, long emergencyHealUntil, long dashUntil, int lastAction, long lastActionTick,
-			float rageMeter, long chargeStartedAt, Map<String, Long> abilityReadyAt) {
+			float rageMeter, long chargeStartedAt, long fleshStartedAt, long lastCombatAt,
+			Map<String, Long> abilityReadyAt) {
+		this.fleshStartedAt = fleshStartedAt;
+		this.lastCombatAt = lastCombatAt;
 		this.hasPower = hasPower;
 		this.clawsOut = clawsOut;
 		this.clawsChangedAt = clawsChangedAt;
@@ -60,7 +67,7 @@ public final class WolverineState {
 
 	public WolverineState copy() {
 		return new WolverineState(hasPower, clawsOut, clawsChangedAt, rageUntil, emergencyReadyAt,
-				emergencyHealUntil, dashUntil, lastAction, lastActionTick, rageMeter, chargeStartedAt, abilityReadyAt);
+				emergencyHealUntil, dashUntil, lastAction, lastActionTick, rageMeter, chargeStartedAt, fleshStartedAt, lastCombatAt, abilityReadyAt);
 	}
 
 	public static final Codec<WolverineState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -75,6 +82,8 @@ public final class WolverineState {
 			Codec.LONG.optionalFieldOf("last_action_tick", 0L).forGetter(s -> s.lastActionTick),
 			Codec.FLOAT.optionalFieldOf("rage_meter", 0.0f).forGetter(s -> s.rageMeter),
 			Codec.LONG.optionalFieldOf("charge_started_at", 0L).forGetter(s -> s.chargeStartedAt),
+			Codec.LONG.optionalFieldOf("flesh_started_at", 0L).forGetter(s -> s.fleshStartedAt),
+			Codec.LONG.optionalFieldOf("last_combat_at", 0L).forGetter(s -> s.lastCombatAt),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", Map.of())
 					.forGetter(s -> new HashMap<>(s.abilityReadyAt))
 	).apply(instance, WolverineState::new));

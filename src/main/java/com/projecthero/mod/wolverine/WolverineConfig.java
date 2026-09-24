@@ -24,7 +24,10 @@ public final class WolverineConfig {
 	public static final float EMERGENCY_BELOW = 0.15f;
 	public static final float EMERGENCY_HEAL_FRACTION = 0.30f;
 	public static final int EMERGENCY_HEAL_TICKS = 2 * S;
-	public static final int EMERGENCY_COOLDOWN_TICKS = 60 * S;
+	public static final int EMERGENCY_COOLDOWN_TICKS = 180 * S;
+	/** Emergency resurrection look: full flesh for 10 s, then the skin fades back over another 10 s. */
+	public static final int FLESH_HOLD_TICKS = 10 * S;
+	public static final int FLESH_FADE_TICKS = 10 * S;
 
 	// ---- survivability ----
 	public static final float DAMAGE_REDUCTION = 0.35f;
@@ -84,8 +87,12 @@ public final class WolverineConfig {
 	public static final int RAGE_TICKS = 30 * S;
 	public static final float RAGE_BAR_MAX = 100.0f;
 	/** Bar points gained per point of damage the Wolverine takes / deals (not gained while raging). */
-	public static final float RAGE_GAIN_PER_DAMAGE_TAKEN = 0.75f;
-	public static final float RAGE_GAIN_PER_DAMAGE_DEALT = 0.45f;
+	public static final float RAGE_GAIN_PER_DAMAGE_TAKEN = 0.375f;
+	public static final float RAGE_GAIN_PER_DAMAGE_DEALT = 0.225f;
+	/** The Rage bar starts draining after this long without dealing or taking damage... */
+	public static final int RAGE_DRAIN_DELAY_TICKS = 10 * S;
+	/** ...at this many bar points per tick (2 per second: a full bar empties in 50 s). */
+	public static final float RAGE_DRAIN_PER_TICK = 2.0f / S;
 	public static final double RAGE_DAMAGE_BONUS = 0.50;
 	public static final double RAGE_SPEED_BONUS = 0.30;
 

@@ -51,6 +51,7 @@ public final class WolverinePassives {
 
 		healingFactor(player);
 		tickEmergency(player, now);
+		drainRage(player, now);
 
 		if (Wolverine.raging(player) && player.tickCount % 10 == 0 && player.level() instanceof ServerLevel level) {
 			level.sendParticles(ParticleTypes.ANGRY_VILLAGER, player.getX(), player.getY() + player.getBbHeight() * 0.85,
@@ -58,6 +59,22 @@ public final class WolverinePassives {
 			level.sendParticles(ParticleTypes.CRIMSON_SPORE, player.getX(), player.getY() + player.getBbHeight() * 0.5,
 					player.getZ(), 3, 0.35, 0.5, 0.35, 0.0);
 		}
+	}
+
+	/** The Rage bar bleeds off slowly once he has gone {@code RAGE_DRAIN_DELAY_TICKS} without a hit either way. */
+	private static void drainRage(ServerPlayer player, long now) {
+		WolverineState s = Wolverine.state(player);
+		if (s.rageMeter <= 0.0f || Wolverine.raging(player)
+				|| now - s.lastCombatAt < WolverineConfig.RAGE_DRAIN_DELAY_TICKS) {
+			return;
+		}
+		// saved once a second -- the HUD does not need per-tick precision
+		if (player.tickCount % 20 != 0) {
+			return;
+		}
+		WolverineState c = s.copy();
+		c.rageMeter = Math.max(0.0f, s.rageMeter - WolverineConfig.RAGE_DRAIN_PER_TICK * 20);
+		Wolverine.save(player, c);
 	}
 
 	private static void expireTimers(ServerPlayer player, WolverineState s, long now) {
@@ -116,6 +133,7 @@ public final class WolverinePassives {
 		WolverineState c = s.copy();
 		c.emergencyHealUntil = now + WolverineConfig.EMERGENCY_HEAL_TICKS;
 		c.emergencyReadyAt = now + WolverineConfig.EMERGENCY_COOLDOWN_TICKS;
+		c.fleshStartedAt = now;
 		Wolverine.save(player, c);
 		if (player.level() instanceof ServerLevel level) {
 			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WOLF_GROWL,

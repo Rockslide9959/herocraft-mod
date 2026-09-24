@@ -129,3 +129,12 @@ untouched.
   (from `Flesh.bbmodel`) while a Wolverine `isDeadOrDying()`.
 - **Symbiote Spider-Man** no longer gets the base host's passives: `Symbiote.isNormalHost` now gates the Biomass bar,
   damage rules, Resistance I, tool-hands, raw-food stomach and Predator Vision.
+
+## v0.12.15
+
+- **Emergency resurrection cooldown 60 s -> 180 s.** It now stamps `WolverineState.fleshStartedAt`; every client
+  (`WolverineFlesh`) shows full flesh for 10 s then fades the real skin back over the flesh for 10 s
+  (`PlayerRendererFleshMixin` picks the flesh texture, `WolverineFleshLayer` draws the skin at rising alpha).
+- **Rage bar:** fills 50% slower (0.375 / 0.225 per damage taken / dealt) and drains 2/s after 10 s with no damage
+  dealt or taken (`WolverineState.lastCombatAt`, `WolverinePassives.drainRage`).
+- **Symbiote:** Resistance I removed; wearing the suit cuts all damage taken by 10%.

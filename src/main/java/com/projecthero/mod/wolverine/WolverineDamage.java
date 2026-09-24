@@ -30,10 +30,12 @@ public final class WolverineDamage {
 		// Started by damage as well as the tick, so a single big hit cannot slip past the 5-tick scan.
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseAmount, dealtAmount, blocked) -> {
 			if (entity instanceof ServerPlayer p && Wolverine.hasPower(p)) {
+				Wolverine.markCombat(p);
 				WolverinePassives.tryEmergency(p);
 				Wolverine.addRage(p, dealtAmount * WolverineConfig.RAGE_GAIN_PER_DAMAGE_TAKEN);
 			}
 			if (source.getEntity() instanceof ServerPlayer attacker && attacker != entity && Wolverine.hasPower(attacker)) {
+				Wolverine.markCombat(attacker);
 				Wolverine.addRage(attacker, dealtAmount * WolverineConfig.RAGE_GAIN_PER_DAMAGE_DEALT);
 			}
 		});

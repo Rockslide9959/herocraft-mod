@@ -192,6 +192,17 @@ public final class Wolverine {
 
 	// ---------------- rage bar ----------------
 
+	/** Note that this Wolverine just dealt or took damage (pauses the Rage bar's drain). */
+	public static void markCombat(ServerPlayer player) {
+		WolverineState s = state(player);
+		if (!s.hasPower) {
+			return;
+		}
+		WolverineState c = s.copy();
+		c.lastCombatAt = player.level().getGameTime();
+		save(player, c);
+	}
+
 	/** Fill the Berserker Rage bar (taking or dealing damage). Does nothing while a rage is burning. */
 	public static void addRage(ServerPlayer player, float amount) {
 		WolverineState s = state(player);

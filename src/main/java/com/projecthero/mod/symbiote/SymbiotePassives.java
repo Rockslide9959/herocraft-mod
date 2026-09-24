@@ -98,10 +98,6 @@ public final class SymbiotePassives {
 		if (player.tickCount % 40 == 0) {
 			reconcile(player);
 		}
-		// v0.11.18: Resistance I for as long as the Symbiote is bonded (Spider-Man hosts included).
-		if (Symbiote.isNormalHost(player) && player.tickCount % 20 == 0) {
-			player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 60, 0, true, false, false));
-		}
 		if (!bonded(player)) {
 			return;
 		}

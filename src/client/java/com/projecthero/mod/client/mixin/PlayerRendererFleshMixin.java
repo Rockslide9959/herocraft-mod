@@ -25,7 +25,7 @@ public abstract class PlayerRendererFleshMixin {
 	@Inject(method = "getTextureLocation(Lnet/minecraft/client/player/AbstractClientPlayer;)Lnet/minecraft/resources/ResourceLocation;",
 			at = @At("HEAD"), cancellable = true)
 	private void projecthero$wolverineFlesh(AbstractClientPlayer player, CallbackInfoReturnable<ResourceLocation> cir) {
-		if (player.isDeadOrDying() && Wolverine.hasPower(player)) {
+		if (Wolverine.hasPower(player) && com.projecthero.mod.client.wolverine.WolverineFlesh.active(player, 0.0f)) {
 			cir.setReturnValue(FLESH);
 		}
 	}

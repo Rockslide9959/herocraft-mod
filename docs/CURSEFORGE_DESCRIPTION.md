@@ -114,7 +114,7 @@ hunt down — then right-click to bond.
   hit makes the Symbiote wrap you in the suit on its own — and if you *would* die it resurrects you for
   half its Biomass, hurls everything within 20 blocks away with massive tendrils and gives you
   Resistance for 20 seconds. Its voice appears above your hotbar. The suit stays on until you retract it.
-- **Living armour:** Resistance I at all times while bonded. The suit forms over **2 seconds**, piece by
+- **Living armour:** wearing the suit cuts all damage you take by 10%. The suit forms over **2 seconds**, piece by
   piece, and a normal host visibly grows to **150% size** as it does (shrinking back when it retracts; Symbiote Spider-Man stays his own size). Crouch for
   5 seconds with the suit on and the Symbiote **camouflages** you completely.
 - **Predator Vision:** a bonded host sees living things within 20 blocks outlined (hostile red, players

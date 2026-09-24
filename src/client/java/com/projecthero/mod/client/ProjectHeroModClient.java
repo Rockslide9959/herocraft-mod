@@ -166,6 +166,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 								playerRenderer, context.getItemRenderer()));
 						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineClawsLayer(
 								playerRenderer, context.getModelSet()));
+						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineFleshLayer(playerRenderer));
 					}
 				});
 

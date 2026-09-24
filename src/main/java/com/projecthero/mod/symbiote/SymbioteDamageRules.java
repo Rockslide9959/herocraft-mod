@@ -37,6 +37,8 @@ public final class SymbioteDamageRules {
 	 *  almost all of it (-90%). A hit from the side or behind gets through untouched. */
 	private static final float SHIELD_FRONT_FACTOR = 0.1f;
 
+	private static final float SUIT_DAMAGE_FACTOR = 0.9f;
+
 	private SymbioteDamageRules() {
 	}
 
@@ -71,6 +73,8 @@ public final class SymbioteDamageRules {
 
 		float factor = 1.0f;
 		if (active) {
+			// v0.12.15: replaces Resistance I -- wearing the suit simply cuts all damage taken by 10%.
+			factor *= SUIT_DAMAGE_FACTOR;
 			if (source.is(DamageTypeTags.IS_FIRE)) {
 				// IS_FIRE also covers vanilla lava damage.
 				factor *= FIRE_MULTIPLIER;
