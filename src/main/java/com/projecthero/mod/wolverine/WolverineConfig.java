@@ -8,35 +8,6 @@ public final class WolverineConfig {
 	private WolverineConfig() {
 	}
 
-	// ---- claw progression (v0.12.25): the ADAMANTIUM numbers are the original kit; BONE claws are weaker ----
-	public static final float BONE_CLAW_MELEE_BONUS = 5.0f; // bare hand 4 + 5 = 9
-	public static final float BONE_SLASH_DAMAGE = 15.0f;
-	public static final float BONE_CROSS_DAMAGE_EACH = 10.0f;
-	public static final float BONE_DASH_DAMAGE = 10.0f;
-	public static final float BONE_FRENZY_DAMAGE = 6.0f;
-	/** Adamantium Serum: hold-to-use transformation time. */
-	public static final int TRANSFORM_TICKS = 3 * 20;
-
-	public static float clawMeleeBonus(com.projecthero.mod.wolverine.data.ClawTier t) {
-		return t == com.projecthero.mod.wolverine.data.ClawTier.BONE ? BONE_CLAW_MELEE_BONUS : (float) CLAW_MELEE_BONUS;
-	}
-
-	public static float slashDamage(com.projecthero.mod.wolverine.data.ClawTier t) {
-		return t == com.projecthero.mod.wolverine.data.ClawTier.BONE ? BONE_SLASH_DAMAGE : SLASH_DAMAGE;
-	}
-
-	public static float crossDamageEach(com.projecthero.mod.wolverine.data.ClawTier t) {
-		return t == com.projecthero.mod.wolverine.data.ClawTier.BONE ? BONE_CROSS_DAMAGE_EACH : CROSS_DAMAGE_EACH;
-	}
-
-	public static float dashDamage(com.projecthero.mod.wolverine.data.ClawTier t) {
-		return t == com.projecthero.mod.wolverine.data.ClawTier.BONE ? BONE_DASH_DAMAGE : DASH_DAMAGE;
-	}
-
-	public static float frenzyDamage(com.projecthero.mod.wolverine.data.ClawTier t) {
-		return t == com.projecthero.mod.wolverine.data.ClawTier.BONE ? BONE_FRENZY_DAMAGE : FRENZY_DAMAGE;
-	}
-
 	private static final int S = 20;
 
 	// ---- healing factor (v0.12.20: flat -- no health tiers, no Rage bonus, no Death Surge halving) ----

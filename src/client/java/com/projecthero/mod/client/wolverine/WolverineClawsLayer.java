@@ -1,7 +1,6 @@
 package com.projecthero.mod.client.wolverine;
 
 import com.projecthero.mod.wolverine.Wolverine;
-import com.projecthero.mod.wolverine.data.ClawTier;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -25,14 +24,12 @@ public class WolverineClawsLayer extends RenderLayer<AbstractClientPlayer, Playe
 	private static final int SILVER = 0xFFFFFFFF;
 	private static final int RAGE_TINT = 0xFFFFC4C4;
 
-	private final WolverineClawsModel adamantium;
-	private final WolverineClawsModel bone;
+	private final WolverineClawsModel model;
 
 	public WolverineClawsLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent,
 			EntityModelSet models) {
 		super(parent);
-		this.adamantium = new WolverineClawsModel(models.bakeLayer(WolverineClawsModel.LAYER));
-		this.bone = new WolverineClawsModel(models.bakeLayer(WolverineClawsModel.BONE_LAYER));
+		this.model = new WolverineClawsModel(models.bakeLayer(WolverineClawsModel.LAYER));
 	}
 
 	@Override
@@ -45,9 +42,7 @@ public class WolverineClawsLayer extends RenderLayer<AbstractClientPlayer, Playe
 		float ext = WolverineClawsModel.extension(player, partialTick) * 0.5f;
 		boolean slim = player.getSkin().model() == PlayerSkin.Model.SLIM;
 		int color = Wolverine.raging(player) ? RAGE_TINT : SILVER;
-		ClawTier tier = Wolverine.clawTier(player); // exactly one model is ever drawn
-		WolverineClawsModel model = tier == ClawTier.BONE ? bone : adamantium;
-		VertexConsumer buffer = buffers.getBuffer(RenderType.entityCutoutNoCull(WolverineClawsModel.textureFor(tier)));
+		VertexConsumer buffer = buffers.getBuffer(RenderType.entityCutoutNoCull(WolverineClawsModel.TEXTURE));
 		for (boolean right : new boolean[] {true, false}) {
 			pose.pushPose();
 			(right ? getParentModel().rightArm : getParentModel().leftArm).translateAndRotate(pose);

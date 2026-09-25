@@ -4,7 +4,6 @@ import com.projecthero.mod.hero.ExperimentalPowers;
 import com.projecthero.mod.hero.Power;
 import com.projecthero.mod.hero.Powers;
 import com.projecthero.mod.wolverine.Wolverine;
-import com.projecthero.mod.wolverine.data.ClawTier;
 import com.projecthero.mod.wolverine.data.WolverineState;
 
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -18,8 +17,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * Admin / testing commands for Wolverine: {@code /wolverine power grant|revoke [player] | claws deploy|retract|tier none|bone|adamantium
- * | status}. Op 2. Survival route: own Super Regeneration, craft a Bone Claw Serum and use it (bone-claw Wolverine); then an Adamantium Serum.
+ * Admin / testing commands for Wolverine: {@code /wolverine power grant|revoke [player] | claws deploy|retract
+ * | status}. Op 2. Survival route: own Super Regeneration, craft an Adamantium Serum, use it.
  */
 public final class WolverineCommand {
 	private WolverineCommand() {
@@ -38,10 +37,6 @@ public final class WolverineCommand {
 								.then(Commands.argument("player", EntityArgument.player())
 										.executes(c -> revoke(c, EntityArgument.getPlayer(c, "player"))))))
 				.then(Commands.literal("claws")
-						.then(Commands.literal("tier")
-								.then(Commands.literal("none").executes(c -> tier(c, ClawTier.NONE)))
-								.then(Commands.literal("bone").executes(c -> tier(c, ClawTier.BONE)))
-								.then(Commands.literal("adamantium").executes(c -> tier(c, ClawTier.ADAMANTIUM))))
 						.then(Commands.literal("deploy").executes(c -> {
 							Wolverine.setClaws(self(c), true);
 							return 1;
@@ -76,17 +71,6 @@ public final class WolverineCommand {
 		return 1;
 	}
 
-	private static int tier(CommandContext<CommandSourceStack> c, ClawTier tier) throws CommandSyntaxException {
-		ServerPlayer p = self(c);
-		if (!Wolverine.hasPower(p)) {
-			c.getSource().sendFailure(Component.literal("Not a Wolverine"));
-			return 0;
-		}
-		Wolverine.setClawTier(p, tier, false);
-		c.getSource().sendSuccess(() -> Component.literal("Claw tier: " + tier.id), true);
-		return 1;
-	}
-
 	private static int revoke(CommandContext<CommandSourceStack> c, ServerPlayer target) {
 		Wolverine.revoke(target);
 		c.getSource().sendSuccess(() -> Component.literal("Revoked Wolverine"), true);
@@ -96,7 +80,7 @@ public final class WolverineCommand {
 	private static int status(CommandContext<CommandSourceStack> c, ServerPlayer p) {
 		WolverineState s = Wolverine.state(p);
 		long now = p.level().getGameTime();
-		c.getSource().sendSuccess(() -> Component.literal("Wolverine=" + s.hasPower + " claws=" + s.clawTier.id + (s.clawsOut ? "(out)" : "")
+		c.getSource().sendSuccess(() -> Component.literal("Wolverine=" + s.hasPower + " claws=" + s.clawsOut
 				+ " rage=" + Math.max(0, (s.rageUntil - now) / 20) + "s emergencyReadyIn="
 				+ Math.max(0, (s.emergencyReadyAt - now) / 20) + "s"), false);
 		return 1;

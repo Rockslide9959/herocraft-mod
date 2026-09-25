@@ -91,10 +91,8 @@ public final class WolverineHud {
 		int line = y0 + BOX + 2;
 		g.drawString(mc.font, Component.translatable("hud.projecthero.wolverine.title")
 				.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), x0, line, 0xFFFFAA00, true);
-		Component claws = !s.clawTier.hasClaws() ? Component.translatable("hud.projecthero.wolverine.claws_none")
-				: Component.translatable("hud.projecthero.wolverine.tier." + s.clawTier.id).append(" - ").append(
-						Component.translatable(s.clawsOut ? "hud.projecthero.wolverine.claws_deployed"
-								: "hud.projecthero.wolverine.claws_retracted"));
+		Component claws = Component.translatable(s.clawsOut ? "hud.projecthero.wolverine.claws_deployed"
+				: "hud.projecthero.wolverine.claws_retracted");
 		line += 10;
 		g.drawString(mc.font, claws, x0, line, s.clawsOut ? 0xFFE8E8E8 : 0xFF909090, true);
 		line += 10;

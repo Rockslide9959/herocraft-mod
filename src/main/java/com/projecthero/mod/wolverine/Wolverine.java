@@ -5,9 +5,7 @@ import com.projecthero.mod.hero.ExperimentalPowers;
 import com.projecthero.mod.hero.HeroTiers;
 import com.projecthero.mod.hero.Power;
 import com.projecthero.mod.hero.PowerPassives;
-import com.projecthero.mod.wolverine.data.ClawTier;
 import com.projecthero.mod.wolverine.data.WolverineState;
-import com.projecthero.mod.wolverine.item.WolverineItems;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleTypes;
@@ -56,44 +54,7 @@ public final class Wolverine {
 
 	public static boolean clawsOut(Player player) {
 		WolverineState s = player.getAttachedOrElse(ModAttachments.WOLVERINE_STATE, null);
-		return s != null && s.hasPower && s.clawsOut && s.clawTier.hasClaws();
-	}
-
-	/** The claw progression stage (NONE for a non-Wolverine). Safe on the client (synced attachment). */
-	public static ClawTier clawTier(Player player) {
-		WolverineState s = player.getAttachedOrElse(ModAttachments.WOLVERINE_STATE, null);
-		return s != null && s.hasPower ? s.clawTier : ClawTier.NONE;
-	}
-
-	/** Mid Adamantium Serum transformation (the serum is being held down): no abilities, no claw toggling. */
-	public static boolean transforming(Player player) {
-		return player.isUsingItem() && player.getUseItem().is(WolverineItems.ADAMANTIUM_SERUM);
-	}
-
-	static void say(ServerPlayer player, String key, ChatFormatting colour) {
-		player.displayClientMessage(Component.translatable(key).withStyle(colour), true);
-	}
-
-	/**
-	 * Set the claw tier (serums / admin). Claws are retracted and the change is stamped so every client
-	 * eases the right model in; the caller decides whether to deploy afterwards.
-	 */
-	public static void setClawTier(ServerPlayer player, ClawTier tier, boolean deploy) {
-		WolverineState c = state(player).copy();
-		c.clawTier = tier;
-		c.clawsOut = deploy && tier.hasClaws();
-		c.clawsChangedAt = player.level().getGameTime();
-		save(player, c);
-		WolverinePassives.reconcile(player);
-	}
-
-	/** Adamantium Serum: BONE -> ADAMANTIUM (adamantium claws come out already deployed). */
-	public static boolean upgradeToAdamantium(ServerPlayer player) {
-		if (!hasPower(player) || state(player).clawTier != ClawTier.BONE) {
-			return false;
-		}
-		setClawTier(player, ClawTier.ADAMANTIUM, true);
-		return true;
+		return s != null && s.hasPower && s.clawsOut;
 	}
 
 	/** Inside the Death Surge's damage-proof opening seconds. */
@@ -157,7 +118,6 @@ public final class Wolverine {
 		WolverineState s = state(player).copy();
 		s.hasPower = true;
 		s.clawsOut = false;
-		s.clawTier = ClawTier.BONE; // v0.12.26: the Bone Claw Serum ascends Super Regeneration into bone-claw Wolverine
 		s.clawsChangedAt = now;
 		s.rageUntil = 0L;
 		s.emergencyHealUntil = 0L;
@@ -178,7 +138,6 @@ public final class Wolverine {
 		WolverineState s = state(player).copy();
 		s.hasPower = false;
 		s.clawsOut = false;
-		s.clawTier = ClawTier.NONE;
 		s.rageUntil = 0L;
 		s.emergencyHealUntil = 0L;
 		s.dashUntil = 0L;
@@ -223,13 +182,6 @@ public final class Wolverine {
 		if (!s.hasPower || s.clawsOut == out) {
 			return s.clawsOut;
 		}
-		if (out && !s.clawTier.hasClaws()) {
-			say(player, "message.projecthero.wolverine.bone_claws_required", ChatFormatting.RED);
-			return false;
-		}
-		if (transforming(player)) {
-			return s.clawsOut;
-		}
 		WolverineState c = s.copy();
 		c.clawsOut = out;
 		c.clawsChangedAt = player.level().getGameTime();
@@ -267,10 +219,6 @@ public final class Wolverine {
 		}
 		long now = player.level().getGameTime();
 		if (now - s.clawsChangedAt < WolverineConfig.TOGGLE_COOLDOWN) {
-			return;
-		}
-		if (!s.clawTier.hasClaws()) {
-			say(player, "message.projecthero.wolverine.bone_claws_required", ChatFormatting.RED);
 			return;
 		}
 		setClaws(player, !s.clawsOut);

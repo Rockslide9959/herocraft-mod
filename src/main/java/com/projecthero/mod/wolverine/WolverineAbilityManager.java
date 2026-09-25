@@ -38,9 +38,6 @@ public final class WolverineAbilityManager {
 	}
 
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
-		if (Wolverine.transforming(player)) {
-			return; // the Adamantium Serum transformation locks every ability
-		}
 		if (slot == AbilitySlot.SLOT_4) {
 			// Adamantium Execution is hold-to-charge: it needs both the press and the release
 			if (pressed) {

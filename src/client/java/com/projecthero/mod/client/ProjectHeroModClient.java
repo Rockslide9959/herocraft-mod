@@ -154,9 +154,6 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				com.projecthero.mod.client.wolverine.WolverineClawsModel.LAYER,
 				com.projecthero.mod.client.wolverine.WolverineClawsModel::createLayer);
 		net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
-				com.projecthero.mod.client.wolverine.WolverineClawsModel.BONE_LAYER,
-				com.projecthero.mod.client.wolverine.WolverineClawsModel::createBoneLayer);
-		net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
 				com.projecthero.mod.client.spider.ImpactWebModel.LAYER,
 				com.projecthero.mod.client.spider.ImpactWebModel::createLayer);
 

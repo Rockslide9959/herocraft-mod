@@ -2,25 +2,22 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    "NDN",
-    "GSG",
-    "NLN"
+    "DND",
+    "BGB",
+    "DND"
   ],
   "key": {
+    "D": {
+      "item": "minecraft:diamond"
+    },
     "N": {
       "item": "minecraft:netherite_ingot"
     },
-    "D": {
-      "item": "minecraft:diamond_block"
+    "B": {
+      "item": "minecraft:blaze_powder"
     },
     "G": {
-      "item": "minecraft:gold_block"
-    },
-    "S": {
-      "item": "minecraft:nether_star"
-    },
-    "L": {
-      "item": "minecraft:glass_bottle"
+      "item": "minecraft:golden_apple"
     }
   },
   "result": {

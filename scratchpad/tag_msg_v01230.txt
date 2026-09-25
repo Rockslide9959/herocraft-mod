@@ -1,0 +1,13 @@
+v0.12.30 - Wolverine returns to its original form (bone claws removed)
+
+WOLVERINE
+- The Bone Claw progression added in 0.12.25 has been removed entirely. Wolverine works exactly as it did before: own Super Regeneration, craft an Adamantium Serum (4 diamonds, 2 netherite ingots, 2 blaze powder, golden apple) and use it to become Wolverine with your adamantium claws straight away.
+- Removed: Bone Claw Serum, the hold-to-use upgrade Adamantium Serum, the Bone Claw model and texture, the claw tiers, and the locked Adamantium Execution. All abilities, damage values and controls are back to the original kit.
+
+KEPT FROM 0.12.25
+- Symbiote bonding minigame: stop the sweeping marker inside the green zone three times running to bond; miss and you must wait 5 seconds to retry, nothing is used up.
+- Green Lantern Mining Drill breaks a 2x2 patch every 0.75 seconds.
+- Super Regeneration healing no longer slows down in combat.
+- The Hero Pack guide reopens on the page you left it on.
+
+Please wait about 20 minutes for CurseForge to verify the update.

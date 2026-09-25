@@ -175,9 +175,8 @@ someone else can try.
 
 ### 🐺 Wolverine
 A permanent **Primary** power — the **ascension of Super Regeneration**. Own Super Regeneration, craft an
-**Bone Claw Serum** (bone blocks, netherite scrap, gold, glass bottle, ghast tear) and use it: your
-regenerative mutation is consumed and rebuilt as a bone-claw Wolverine (three natural claws a hand, weaker: 9 bare-handed). Then an **Adamantium Serum** (hold to use, 3 s) to
-turn them into full-strength adamantium claws and unlock Adamantium Execution.
+**Adamantium Serum** (4 diamonds, 2 netherite ingots, 2 blaze powder, a golden apple) and use it: your
+regenerative mutation is consumed and rebuilt as Wolverine.
 
 - **Healing factor:** 4 HP/s, 8 HP/s below half health, 12 HP/s below a quarter — it never slows in combat.
   Below 15% health (or on a lethal hit) an **emergency surge** restores 30% of your health over 2 seconds
@@ -185,7 +184,7 @@ turn them into full-strength adamantium claws and unlock Adamantium Execution.
 - **Built to last:** 35% less physical damage, 75% knockback resistance, 75% less fall damage, strong Poison
   and Wither resistance, 4 melee damage (12 unarmed with claws out), +20% speed, +25% jump. Enemy monsters within 12 blocks glow for you
   alone.
-- **Bone → Adamantium claws:** three curved blades per hand, deployed with **H** (Shift+H still opens the power
+- **Adamantium claws:** three curved blades per hand, deployed with **H** (Shift+H still opens the power
   wheel); no items can be held while they are out. R, G and V are area attacks. A lethal hit triggers a 3-minute
   death resurrection (10 s invulnerable but slowed and blinded, in a raw flesh body, then the skin grows back). A custom model that other players see, 12 damage bare-handed, and they break blocks like a sword
   (cobwebs at once, plants and leaves faster). Craft the yellow-and-blue **Wolverine Suit** costume, and
