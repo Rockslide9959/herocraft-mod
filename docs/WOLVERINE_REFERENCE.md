@@ -173,3 +173,8 @@ untouched.
 - Death Surge: debuffs / red border / torn suit last 20 s, the flesh->skin fade another 20 s; damage immunity stays the first 10 s; healing factor halved for all 40 s.
 - Deploying the claws costs 4 armour-bypassing damage (never lethal, not in creative).
 - Claw Dash sweeps a box 3 blocks wide along its line of travel instead of a 2-block-radius sphere.
+
+## v0.12.19
+
+- Death Surge bursts into a spray of blood (red dust + redstone-block chips) and keeps bleeding through the first ~15 s.
+- Claws deploy with the retract sound. Suit durability is now diamond level (multiplier 33).

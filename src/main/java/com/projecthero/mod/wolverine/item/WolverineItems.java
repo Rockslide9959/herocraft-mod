@@ -51,7 +51,7 @@ public final class WolverineItems {
 
 	private static WolverineArmorItem registerSuit(String path, ArmorItem.Type type) {
 		WolverineArmorItem item = new WolverineArmorItem(ModArmorMaterials.WOLVERINE, type,
-				new Item.Properties().rarity(Rarity.RARE).durability(type.getDurability(15)));
+				new Item.Properties().rarity(Rarity.RARE).durability(type.getDurability(33)));
 		return Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id(path), item);
 	}
 }

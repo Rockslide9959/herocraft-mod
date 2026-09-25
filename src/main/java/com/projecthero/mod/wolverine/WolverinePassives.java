@@ -186,16 +186,32 @@ public final class WolverinePassives {
 		if (player.level() instanceof ServerLevel level) {
 			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WOLF_GROWL,
 					SoundSource.PLAYERS, 0.8f, 1.3f);
-			level.sendParticles(ParticleTypes.HEART, player.getX(), player.getY() + 1.0, player.getZ(), 12, 0.4, 0.6, 0.4, 0.0);
+			bloodBurst(level, player, 260, 140);
 		}
 		player.displayClientMessage(Component.translatable("message.projecthero.wolverine.emergency")
 				.withStyle(ChatFormatting.RED), true);
 		return true;
 	}
 
+	private static final net.minecraft.core.particles.DustParticleOptions BLOOD =
+			new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.65f, 0.0f, 0.02f), 1.8f);
+
+	/** A spray of red: dust plus shattering redstone-block chips around his whole body. */
+	private static void bloodBurst(ServerLevel level, ServerPlayer player, int dust, int chips) {
+		double y = player.getY() + player.getBbHeight() * 0.55;
+		level.sendParticles(BLOOD, player.getX(), y, player.getZ(), dust, 0.6, 0.8, 0.6, 0.15);
+		level.sendParticles(new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK,
+				net.minecraft.world.level.block.Blocks.REDSTONE_BLOCK.defaultBlockState()),
+				player.getX(), y, player.getZ(), chips, 0.5, 0.7, 0.5, 0.25);
+	}
+
 	/** While the resurrection window runs: keep Slowness III, Blindness and Weakness I on him (re-applied because his debuff-halving would shorten them). */
 	private static void tickEmergency(ServerPlayer player, long now) {
 		WolverineState s = Wolverine.state(player);
+		if (s.emergencyHealUntil > now && player.tickCount % 5 == 0 && player.level() instanceof ServerLevel level
+				&& now < s.fleshStartedAt + 3 * WolverineConfig.EMERGENCY_INVULN_TICKS / 2) {
+			bloodBurst(level, player, 14, 6); // keeps bleeding through the first part of the surge
+		}
 		if (s.emergencyHealUntil > now && player.tickCount % 5 == 0) {
 			player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 20, 2, true, false, false));
 			player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 20, 0, true, false, false));

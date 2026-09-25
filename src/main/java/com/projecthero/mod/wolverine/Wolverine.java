@@ -181,9 +181,9 @@ public final class Wolverine {
 		save(player, c);
 		WolverinePassives.reconcile(player);
 		player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-				out ? SoundEvents.CHAIN_PLACE : SoundEvents.CHAIN_BREAK, SoundSource.PLAYERS, 0.9f, out ? 1.6f : 1.2f);
+				SoundEvents.CHAIN_BREAK, SoundSource.PLAYERS, 0.9f, 1.2f); // deploy sounds like the retract
 		player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-				out ? SoundEvents.ANVIL_PLACE : SoundEvents.IRON_TRAPDOOR_CLOSE, SoundSource.PLAYERS, 0.35f, out ? 1.8f : 1.4f);
+				SoundEvents.IRON_TRAPDOOR_CLOSE, SoundSource.PLAYERS, 0.35f, 1.4f);
 		player.displayClientMessage(Component.translatable(
 				out ? "message.projecthero.wolverine.claws_deployed" : "message.projecthero.wolverine.claws_retracted")
 				.withStyle(out ? ChatFormatting.GOLD : ChatFormatting.GRAY), true);
