@@ -94,15 +94,15 @@ public final class WolverineClawsModel {
 		MeshDefinition mesh = new MeshDefinition();
 		PartDefinition root = mesh.getRoot();
 		// per segment: length, thickness, texture u, texture v
-		float[][] seg = {{4.0F, 1.5F, 0, 0}, {3.5F, 1.3F, 8, 0}, {3.0F, 1.1F, 0, 8}, {2.5F, 0.85F, 8, 8}, {1.5F, 0.5F, 8, 8}};
+		float[][] seg = {{4.0F, 1.2F, 0, 0}, {3.5F, 1.05F, 8, 0}, {3.0F, 0.9F, 0, 8}, {2.5F, 0.7F, 8, 8}, {1.5F, 0.45F, 8, 8}};
 		for (String side : new String[] {"right_hand", "left_hand"}) {
 			float s = side.startsWith("right") ? -1.0F : 1.0F;
 			PartDefinition hand = root.addOrReplaceChild(side, CubeListBuilder.create(), PartPose.offset(0.0F, HAND_END, 0.0F));
 			for (int i = 0; i < 3; i++) {
-				float z = (i - 1) * 1.55F;
+				float z = (i - 1) * 1.7F;
 				float k = i == 1 ? 1.0F : 0.9F; // the outer blades are shorter
-				float fan = (i - 1) * 0.07F;    // ...and splay outward
-				float curve = (i == 1 ? 0.10F : 0.13F) * s;
+				float fan = (i - 1) * 0.04F;    // ...and splay outward
+				float curve = (i == 1 ? 0.03F : 0.04F) * s;
 				PartDefinition parent = hand;
 				float prevLen = 0.0F;
 				for (int j = 0; j < seg.length; j++) {
