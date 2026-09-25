@@ -146,14 +146,14 @@ public final class GreenLanternHud {
 		int pulsePeriod = Math.max(3, 16 - severity * 2);
 		boolean pulseOff = low && (now % pulsePeriod) < Math.max(1, pulsePeriod / 3);
 		int barY = y0 + BOX + 4;
-		g.fill(x0 - 1, barY - 1, x0 + totalW + 1, barY + 5, BORDER);
-		g.fill(x0, barY, x0 + totalW, barY + 4, 0xAA0A2412);
+		// v0.12.23: thin 3px bar, no border, like Wolverine's
+		g.fill(x0, barY, x0 + totalW, barY + 3, 0xAA0A2412);
 		if (!pulseOff) {
-			g.fill(x0, barY, x0 + Math.round(totalW * frac), barY + 4, low ? LOW : GREEN);
+			g.fill(x0, barY, x0 + Math.round(totalW * frac), barY + 3, low ? LOW : GREEN);
 		}
 		// mark where the emergency reserve begins
 		int reserveMark = x0 + Math.round(totalW * (GreenLanternConfig.EMERGENCY_RESERVE / GreenLanternConfig.MAX_RING_CHARGE));
-		g.fill(reserveMark, barY - 1, reserveMark + 1, barY + 5, 0xFFFFDD33);
+		g.fill(reserveMark, barY - 1, reserveMark + 1, barY + 4, 0xFFFFDD33);
 		g.drawString(mc.font, String.format(java.util.Locale.ROOT, "%d%%", Math.round(frac * 100.0f)), x0, barY + 5, low ? LOW : 0xFFA8E6B8, false);
 
 		labelY = renderBarrier(g, mc, player, x0, labelY, totalW);
