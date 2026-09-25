@@ -382,6 +382,19 @@ public final class ModAttachments {
 									AttachmentSyncPredicate.all()));
 
 	/**
+	 * The whole Titan Shifter Hero-Tier power for one player (v0.12.31): the unlock, the phase state machine,
+	 * transformation cooldown, ability cooldowns and the HUD's Titan-health mirror. Persistent +
+	 * {@code copyOnDeath()}; synced to the owner only (the Titan itself is a real entity every client sees).
+	 */
+	public static final AttachmentType<com.projecthero.mod.titanshifter.data.TitanShifterState> TITAN_SHIFTER_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("titan_shifter_state"),
+					builder -> builder.persistent(com.projecthero.mod.titanshifter.data.TitanShifterState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.titanshifter.data.TitanShifterState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.titanshifter.data.TitanShifterState.CODEC),
+									AttachmentSyncPredicate.targetOnly()));
+
+	/**
 	 * The Spider-Man Symbiote upgrade: {@code hasSymbiote} (has the player bonded with a Symbiote yet),
 	 * {@code active} (is the black suit on, or in the middle of coming on / going off), a tiny anti-spam
 	 * toggle cooldown, the suit-up/suit-down animation clock ({@code transformDir}/

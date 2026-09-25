@@ -63,6 +63,8 @@ public class ProjectHeroMod implements ModInitializer {
 		HeroConfig.load();
 		com.projecthero.mod.event.EventConfig.load();
 		com.projecthero.mod.titan.TitanConfig.load();
+		// v0.12.31: Titan Shifter balance config (read before its entity type is built -- it sets the hit-box).
+		com.projecthero.mod.titanshifter.TitanShifterConfig.load();
 		ModAttachments.initialize();
 		ModItems.initialize();
 		IronManItems.initialize();
@@ -83,6 +85,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.punisher.entity.PunisherEntityTypes.initialize();
 		com.projecthero.mod.greenlantern.item.GreenLanternItems.initialize();
 		com.projecthero.mod.wolverine.item.WolverineItems.initialize();
+		com.projecthero.mod.titanshifter.item.TitanShifterItems.initialize();
+		com.projecthero.mod.titanshifter.entity.TitanShifterEntities.initialize();
 		com.projecthero.mod.hero.power.p05.GeoEntityTypes.initialize();
 		Powers.initialize();
 		HeroPowerHandlers.registerAll();
@@ -103,6 +107,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.punisher.PunisherDamage.initialize();
 		com.projecthero.mod.greenlantern.GreenLanternDamage.initialize();
 		com.projecthero.mod.wolverine.Wolverine.initialize();
+		com.projecthero.mod.titanshifter.TitanShifterDamage.initialize();
 		com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.initialize();
 		com.projecthero.mod.greenlantern.GreenLanternTrial.initialize();
 		com.projecthero.mod.symbiote.SymbioteDamageRules.initialize();
@@ -217,6 +222,8 @@ public class ProjectHeroMod implements ModInitializer {
 				com.projecthero.mod.greenlantern.GreenLantern.clearTransient(sp);
 				// Wolverine: Rage / Dash / queued strikes end with him (power and claw state are kept).
 				com.projecthero.mod.wolverine.Wolverine.clearTransient(sp);
+				// Titan Shifter: step out of the Titan onto the ground before dying (the unlock is kept).
+				com.projecthero.mod.titanshifter.TitanShifter.forceEnd(sp, true);
 			}
 			return true;
 		});
@@ -281,6 +288,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.punisher.Punisher.onPlayerJoin(player);
 			com.projecthero.mod.greenlantern.GreenLantern.onPlayerJoin(player);
 			com.projecthero.mod.wolverine.Wolverine.onPlayerJoin(player);
+			com.projecthero.mod.titanshifter.TitanShifter.onPlayerJoin(player);
 		});
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
 			ThorPowers.onPlayerRespawn(newPlayer);
@@ -297,6 +305,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.punisher.Punisher.onPlayerRespawn(newPlayer);
 			com.projecthero.mod.greenlantern.GreenLantern.onPlayerRespawn(newPlayer);
 			com.projecthero.mod.wolverine.Wolverine.onPlayerRespawn(newPlayer);
+			com.projecthero.mod.titanshifter.TitanShifter.onPlayerRespawn(newPlayer);
 		});
 
 		// Spider-Man traversal cleanup (spec sections 39-41). A swing anchor is a raw coordinate, so
@@ -311,6 +320,7 @@ public class ProjectHeroMod implements ModInitializer {
 					com.projecthero.mod.symbiote.Symbiote.clearTransient(player);
 					com.projecthero.mod.greenlantern.GreenLantern.clearTransient(player);
 					com.projecthero.mod.wolverine.Wolverine.clearTransient(player);
+					com.projecthero.mod.titanshifter.TitanShifter.forceEnd(player, true);
 				});
 		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			com.projecthero.mod.spider.SpiderMan.clearTransient(handler.getPlayer());
@@ -321,14 +331,23 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.symbiote.Symbiote.clearTransient(handler.getPlayer());
 			com.projecthero.mod.greenlantern.GreenLantern.clearTransient(handler.getPlayer());
 			com.projecthero.mod.wolverine.Wolverine.clearTransient(handler.getPlayer());
+			com.projecthero.mod.titanshifter.TitanShifter.clearTransient(handler.getPlayer());
 		});
+		// A Titan never survives a server stop: put every shifter back on the ground before the world saves.
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPING.register(
+				com.projecthero.mod.titanshifter.TitanShifter::onServerStopping);
 
 		LOGGER.info("ProjectHero is assembling!");
 	}
 
+	/**
+	 * True while the player cannot attack / use / place / break: Protocol Phoenix has them incapacitated, or (v0.12.31)
+	 * they are inside a Titan -- their hands are ten blocks up and the Titan's abilities are the only way to act.
+	 */
 	private static boolean phoenixFrozen(net.minecraft.world.entity.player.Player player) {
-		return player instanceof net.minecraft.server.level.ServerPlayer sp
-				&& com.projecthero.mod.ironman.ProtocolPhoenix.incapacitated(sp);
+		return player.getVehicle() instanceof com.projecthero.mod.titanshifter.entity.TitanFormEntity
+				|| (player instanceof net.minecraft.server.level.ServerPlayer sp
+						&& com.projecthero.mod.ironman.ProtocolPhoenix.incapacitated(sp));
 	}
 
 	public static ResourceLocation id(String path) {

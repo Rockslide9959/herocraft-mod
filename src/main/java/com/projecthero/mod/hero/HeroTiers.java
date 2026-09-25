@@ -7,6 +7,7 @@ import com.projecthero.mod.maxsteel.MaxSteel;
 import com.projecthero.mod.punisher.Punisher;
 import com.projecthero.mod.spider.SpiderMan;
 import com.projecthero.mod.symbiote.Symbiote;
+import com.projecthero.mod.titanshifter.TitanShifter;
 import com.projecthero.mod.wolverine.Wolverine;
 import com.projecthero.mod.worthiness.Worthiness;
 
@@ -46,7 +47,8 @@ public final class HeroTiers {
 				|| MaxSteel.hasPower(player)
 				|| Punisher.hasPower(player)
 				|| GreenLantern.hasPower(player)
-				|| Wolverine.hasPower(player);
+				|| Wolverine.hasPower(player)
+				|| TitanShifter.isShifter(player);
 	}
 
 	/** How many Hero-Tier (non-experimental) Primary powers the player holds. */
@@ -70,7 +72,7 @@ public final class HeroTiers {
 
 	/** Every non-experimental Primary power key, as used by {@code HeroCommand}. */
 	public static final java.util.List<String> HERO_KEYS = java.util.List.of(
-			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine");
+			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter");
 
 	/** Whether the player currently holds the Hero-Tier power named by {@code key}. */
 	public static boolean holdsHero(ServerPlayer player, String key) {
@@ -82,6 +84,7 @@ public final class HeroTiers {
 			case "punisher" -> Punisher.hasPower(player);
 			case "green_lantern" -> GreenLantern.hasPower(player);
 			case "wolverine" -> Wolverine.hasPower(player);
+			case "titan_shifter" -> TitanShifter.isShifter(player);
 			default -> false;
 		};
 	}
@@ -117,6 +120,11 @@ public final class HeroTiers {
 			case "wolverine" -> {
 				if (Wolverine.hasPower(player)) {
 					Wolverine.revoke(player);
+				}
+			}
+			case "titan_shifter" -> {
+				if (TitanShifter.isShifter(player)) {
+					TitanShifter.revoke(player);
 				}
 			}
 			default -> {
@@ -303,6 +311,9 @@ public final class HeroTiers {
 			return true;
 		}
 		if (!excludeHeroKeys.contains("wolverine") && Wolverine.hasPower(player)) {
+			return true;
+		}
+		if (!excludeHeroKeys.contains("titan_shifter") && TitanShifter.isShifter(player)) {
 			return true;
 		}
 		return false;

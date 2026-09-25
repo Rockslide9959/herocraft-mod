@@ -33,6 +33,15 @@ public abstract class PlayerMixin {
 	@Shadow
 	protected abstract boolean canPlayerFitWithinBlocksAndEntitiesWhen(Pose pose);
 
+	/** A Titan Shifter cannot sneak out of their own Titan -- the Titan Shift key is the only way down. */
+	@Inject(method = "wantsToStopRiding", at = @At("HEAD"), cancellable = true)
+	private void projecthero$titanStaysSeated(CallbackInfoReturnable<Boolean> cir) {
+		Player self = (Player) (Object) this;
+		if (self.getVehicle() instanceof com.projecthero.mod.titanshifter.entity.TitanFormEntity) {
+			cir.setReturnValue(false);
+		}
+	}
+
 	/**
 	 * Elasticity: squeeze through a one-block gap without needing a trapdoor to trigger the crawl.
 	 * While the elastic hero owns the power and neither the standing nor the crouching pose fits where

@@ -107,6 +107,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.hero.power.p11.TeleportationHandlers.clearSessionState();
 		com.projecthero.mod.hero.power.p27.SizeHandlers.clearSessionState();
 		com.projecthero.mod.wolverine.WolverineAbilityManager.clearSessionState();
+		com.projecthero.mod.titanshifter.TitanShifterAbilityManager.clearSessionState();
 		com.projecthero.mod.hero.power.p23.GravityHandlers.clearSessionState();
 		com.projecthero.mod.hero.power.p22.PlantManipulationHandlers.clearSessionState();
 		com.projecthero.mod.greenlantern.GreenLanternAbilityManager.clearSessionState();

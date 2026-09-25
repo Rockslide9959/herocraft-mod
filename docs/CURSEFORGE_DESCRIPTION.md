@@ -1,14 +1,14 @@
 # Project Hero
 
 **A large single-player-and-multiplayer superhero mod for Minecraft 1.21.1 (Fabric).** Become Thor,
-Iron Man, Spider-Man, Max Steel, the Punisher or Wolverine, bond with an alien symbiote, mutate one of 27
+Iron Man, Spider-Man, Max Steel, the Punisher, Wolverine or a giant Titan Shifter, bond with an alien symbiote, mutate one of 27
 experimental superpowers, then put them to the test against world raids and a giant world boss.
 
 Every hero is a full progression system, not a creative-only toy — you earn each one in survival,
 power it, upgrade it, and can lose it again.
 
 **Primary & Secondary powers.** Every power is either *Primary* — who you are: Thor, Iron Man,
-Spider-Man, Max Steel, the Punisher, Green Lantern, Wolverine and the mutations — or *Secondary* — an add-on that
+Spider-Man, Max Steel, the Punisher, Green Lantern, Wolverine, the Titan Shifter and the mutations — or *Secondary* — an add-on that
 rides on top. **You can hold two Primary powers at once** (v0.11.15): each hero power takes a slot, and
 your mutations (up to 3, stacking as before) share one. Gaining a hero power strips every mutation and,
 if you already hold two heroes, **replaces the oldest**; gaining a mutation keeps at most one hero beside
@@ -171,7 +171,8 @@ someone else can try.
 - A permanent passive Resistance I, suited or not. Suiting up also grants full **diamond-level armour**
   plus a flat melee damage bonus; flight trails a green hard-light streak the whole time it's active.
 - Constructs are cheap to make and maintain, temporary rather than permanent building blocks — Mining
-  Drill, Energy Blade and Carry Platform equip for free and only cost anything once toggled on.
+  Drill, Energy Blade and Carry Platform equip for free and only cost anything once toggled on. The Mining
+  Drill breaks a 2x2 patch every **0.5 s** (v0.12.31).
 
 ### 🐺 Wolverine
 A permanent **Primary** power — the **ascension of Super Regeneration**. Own Super Regeneration, craft an
@@ -192,6 +193,26 @@ regenerative mutation is consumed and rebuilt as Wolverine.
 - **Six abilities on the standard keys:** **R** Claw Slash · **G** Cross Slash · **Z** Claw Dash (21-block
   lunge that grabs and drags the first enemy you hit) · **X** Berserker Rage (12 s of +50% damage, +30% speed, double healing; the bar fills 1% per hit dealt or taken) · **C** Frenzy (five rapid
   strikes) · **V** Adamantium Execution (60-damage finisher).
+
+### 🗿 Titan Shifter
+A permanent **Primary** power (v0.12.31). Craft a **Titan Serum** (4 titanium-gold plates, 2 netherite ingots, 2
+magma blocks, a nether star) and use it to unlock Titan Shifting — it never transforms you by itself. Press **J**
+to burst into an **11-block Titan** (lightning, steam, a 3 s transformation); press **J** again to change back.
+
+- **A real creature, not a big player.** The Titan is its own entity with **500 HP, 25 armour, 8 toughness** and
+  full knockback immunity; you ride it as its controller and take no damage yourself — the Titan takes the hits.
+  Everyone in the world sees and can fight it. Fall damage ×0.1, fire ×0.2, explosions ×0.5; tiny hits are shrugged off.
+- **Seven abilities:** **R** Titan Punch (20; third swing of a combo = Heavy Punch 35; **Shift+R** = Titan Kick 30) ·
+  **G** Heavy Smash (charge, then 50 in an area) · **X** Titan Stomp (25, 6 blocks) · **Z** Titan Leap (~3× a jump,
+  landing 20 in 5 blocks) · **V** Titan Roar (12 blocks: slow, weaken, scatter; bosses resist) · **C** Titan Regeneration
+  (10 HP/s for 10 s) · **H** Titan Hardening (60% less damage for 8 s, crystal skin).
+- **Heavy by design:** slow ground-shaking footsteps with dust and camera tremors, steam off the shoulders when hurt
+  or healing, no terrain digging (it tramples leaves and plants; a server option lets attacks break weak blocks).
+- **State machine:** human → transforming → Titan → reverting → human, or Titan → defeated → recovering → human.
+  After reverting or being defeated you cannot shift for 60 s. Logging out inside a Titan drops you safely on the ground.
+- Server-authoritative, GeckoLib-animated (idle, walk, run, punch, kick, heavy punch, smash, stomp, leap, landing, roar,
+  hurt, regeneration, hardening, transformation, reversion, death), built to add more Titan types later. Everything is in
+  `config/projecthero_titan_shifter.json`.
 
 ---
 

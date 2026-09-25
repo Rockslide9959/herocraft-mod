@@ -43,6 +43,14 @@ public final class AbilityRouter {
 			return;
 		}
 
+		// Titan Shifter: nothing else (including Call Armour) may fire from inside a Titan.
+		if (com.projecthero.mod.titanshifter.TitanShifter.phase(player).insideForm()) {
+			if (com.projecthero.mod.titanshifter.TitanShifterAbilityManager.hasContext(player)) {
+				com.projecthero.mod.titanshifter.TitanShifterAbilityManager.handle(player, slot, pressed);
+			}
+			return;
+		}
+
 		// Call Armour (Special-Mode key, unarmoured) always wins for a Tony Stark player who is NOT
 		// holding Mjolnir -- "I'm not in my suit and I pressed the suit key" is unambiguous, and it must
 		// work regardless of whether the player also has Thor's context or an experimental power, and
@@ -193,6 +201,7 @@ public final class AbilityRouter {
 		com.projecthero.mod.punisher.PunisherAbilityManager.serverTick(player);
 		com.projecthero.mod.greenlantern.GreenLanternAbilityManager.serverTick(player);
 		com.projecthero.mod.wolverine.WolverineAbilityManager.serverTick(player);
+		com.projecthero.mod.titanshifter.TitanShifterAbilityManager.serverTick(player);
 		// v0.6.20: the Spider-Man costume mask (H key) is tied to the costume, not the power, so its
 		// "mask can't stay off once the hood comes off" reconcile has to run for every player.
 		com.projecthero.mod.spider.SpiderMask.reconcile(player);

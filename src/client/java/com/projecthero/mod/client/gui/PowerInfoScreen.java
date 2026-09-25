@@ -171,6 +171,9 @@ public final class PowerInfoScreen extends Screen {
 		if (com.projecthero.mod.punisher.Punisher.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.punisherChapter();
 		}
+		if (com.projecthero.mod.titanshifter.TitanShifter.isShifter(mc.player)) {
+			return com.projecthero.mod.hero.guide.HeroPackGuide.titanShifterChapter();
+		}
 		if (com.projecthero.mod.wolverine.Wolverine.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.wolverineChapter();
 		}

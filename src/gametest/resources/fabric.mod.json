@@ -18,7 +18,8 @@
       "com.projecthero.mod.gametest.GreenLanternGameTests",
       "com.projecthero.mod.gametest.PrimaryPowerGameTests",
       "com.projecthero.mod.gametest.SymbioteProtectionGameTests",
-      "com.projecthero.mod.gametest.WolverineGameTests"
+      "com.projecthero.mod.gametest.WolverineGameTests",
+      "com.projecthero.mod.gametest.TitanShifterGameTests"
     ]
   },
   "depends": {

@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "PNP",
+    "MSM",
+    "PNP"
+  ],
+  "key": {
+    "P": {
+      "item": "projecthero:titanium_gold_plate"
+    },
+    "N": {
+      "item": "minecraft:netherite_ingot"
+    },
+    "M": {
+      "item": "minecraft:magma_block"
+    },
+    "S": {
+      "item": "minecraft:nether_star"
+    }
+  },
+  "result": {
+    "id": "projecthero:titan_serum",
+    "count": 1
+  }
+}

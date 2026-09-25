@@ -92,6 +92,10 @@ public final class HeroPackGuide {
 		return chapters().get(CH_WOLVERINE);
 	}
 
+	public static Chapter titanShifterChapter() {
+		return chapters().get(CH_TITAN_SHIFTER);
+	}
+
 	public static Chapter symbioteChapter() {
 		return chapters().get(CH_SYMBIOTE);
 	}
@@ -220,7 +224,8 @@ public final class HeroPackGuide {
 	private static final int CH_TITAN = 14;
 	private static final int CH_SQUADS = 15;
 	private static final int CH_WOLVERINE = 16;
-	private static final int CHAPTER_POWER_BASE = 17;
+	private static final int CH_TITAN_SHIFTER = 17;
+	private static final int CHAPTER_POWER_BASE = 18;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -574,6 +579,40 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.wolverine.emergency.body");
 		}));
 
+		// Titan Shifter (v0.12.31) -- Hero Tier. Appended after Wolverine so every earlier index stays put.
+		out.add(chapter("projecthero.guide.titan_shifter", lines -> {
+			lines.add(Component.translatable("projecthero.guide.titan_shifter.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.titan_shifter.body");
+			blank(lines);
+			head(lines, "projecthero.guide.titan_shifter.progression");
+			para(lines, "projecthero.guide.titan_shifter.step.serum");
+			blank(lines);
+			head(lines, "projecthero.guide.titan_shifter.transform");
+			para(lines, "projecthero.guide.titan_shifter.transform.body");
+			blank(lines);
+			head(lines, "projecthero.guide.titan_shifter.controls");
+			lines.add(Component.literal(" J  ").withStyle(ChatFormatting.GOLD)
+					.append(Component.translatable("key.projecthero.titan_shift").withStyle(ChatFormatting.WHITE)));
+			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C", "H"}) {
+				String key = switch (slot) {
+					case "R" -> "punch"; case "G" -> "heavy_smash"; case "X" -> "stomp"; case "Z" -> "leap";
+					case "V" -> "roar"; case "C" -> "regeneration"; default -> "hardening";
+				};
+				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.titan_shifter.ability." + key).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.guide.titan_shifter.ability." + key);
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.titan_shifter.stats");
+			para(lines, "projecthero.guide.titan_shifter.stats.body");
+			blank(lines);
+			head(lines, "projecthero.guide.titan_shifter.defeat");
+			para(lines, "projecthero.guide.titan_shifter.defeat.body");
+			blank(lines);
+			head(lines, "projecthero.guide.titan_shifter.commands");
+			para(lines, "projecthero.guide.titan_shifter.commands.body");
+		}));
+
 		// one chapter per power, in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.all()) {
 			out.add(powerChapter(power));
@@ -603,6 +642,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.green_lantern", CH_GREEN_LANTERN);
 		link(idx, "projecthero.guide.symbiote", CH_SYMBIOTE);
 		link(idx, "projecthero.guide.wolverine", CH_WOLVERINE);
+		link(idx, "projecthero.guide.titan_shifter", CH_TITAN_SHIFTER);
 
 		section(idx, "projecthero.guide.section.events", true);
 		link(idx, "projecthero.guide.zombie_raid", CH_ZOMBIE_RAID);

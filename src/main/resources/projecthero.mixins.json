@@ -11,6 +11,7 @@
 		"ItemEntityMixin",
 		"ItemStackMixin",
 		"LargeFireballMixin",
+		"LivingEntityAccessor",
 		"LivingEntityClimbMixin",
 		"LivingEntityEatMixin",
 		"LivingEntityEffectMixin",

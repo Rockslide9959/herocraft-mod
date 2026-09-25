@@ -27,6 +27,8 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(StrengthActionPayload.TYPE, StrengthActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(MaxSteelActionPayload.TYPE, MaxSteelActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(WolverineActionPayload.TYPE, WolverineActionPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(TitanShiftPayload.TYPE, TitanShiftPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(TitanShakePayload.TYPE, TitanShakePayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(FirearmFirePayload.TYPE, FirearmFirePayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(FirearmActionPayload.TYPE, FirearmActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(PunisherArsenalPayload.TYPE, PunisherArsenalPayload.CODEC);
@@ -135,6 +137,16 @@ public final class ModNetworking {
 				case TRANSFORM_TOGGLE -> com.projecthero.mod.maxsteel.MaxSteelTransform.goTurbo(p);
 				case TOGGLE_HELMET -> com.projecthero.mod.maxsteel.MaxSteelFaceplate.toggle(p);
 				case POWER_DOWN -> com.projecthero.mod.maxsteel.MaxSteelTransform.powerDown(p);
+			}
+		});
+
+		// Titan Shifter: the Titan Shift key (transform / revert) and the Hardening key. The server re-validates the
+		// unlock, phase, cooldowns and room -- these are only requests.
+		ServerPlayNetworking.registerGlobalReceiver(TitanShiftPayload.TYPE, (payload, context) -> {
+			if (payload.action() == TitanShiftPayload.Action.TOGGLE_SHIFT) {
+				com.projecthero.mod.titanshifter.TitanShifter.requestToggle(context.player());
+			} else if (payload.action() == TitanShiftPayload.Action.HARDEN) {
+				com.projecthero.mod.titanshifter.TitanShifterAbilityManager.handleUtility(context.player());
 			}
 		});
 

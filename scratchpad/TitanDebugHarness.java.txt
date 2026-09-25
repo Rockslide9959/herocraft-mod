@@ -1,0 +1,186 @@
+package com.projecthero.mod.client.titanshifter;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.titanshifter.TitanAbilities;
+import com.projecthero.mod.titanshifter.TitanShifter;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.player.Input;
+import net.minecraft.client.player.KeyboardInput;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/** TEMPORARY dev harness (not shipped): scripted world + Titan transform + screenshots. Enabled by env var. */
+public final class TitanDebugHarness {
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static double legY, legX, legZ;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+
+	private TitanDebugHarness() {
+	}
+
+	public static void init() {
+		ClientTickEvents.END_CLIENT_TICK.register(TitanDebugHarness::tick);
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					fn.accept(p);
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.put(t, r);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				GameRules rules = new GameRules();
+				LevelSettings settings = new LevelSettings("TitanDebug" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+						Difficulty.PEACEFUL, true, rules, WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		mc.options.pauseOnLostFocus = false;
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.hideGui = false;
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			server(mc, p -> {
+				net.minecraft.world.phys.Vec3 v = p.position();
+				p.teleportTo(p.serverLevel(), v.x, v.y, v.z, 0.0f, 10.0f);
+				TitanShifter.grant(p);
+				TitanShifter.transform(p);
+			});
+			t0 = inWorldTicks;
+			buildScript(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void buildScript(Minecraft mc) {
+		int[] transformShots = { 4, 22, 40, 58, 70 };
+		for (int t : transformShots) {
+			at(t, () -> shot(mc, "01_transform_" + (inWorldTicks - t0)));
+		}
+		at(90, () -> shot(mc, "02_idle_back"));
+		at(92, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+		at(98, () -> shot(mc, "03_idle_front"));
+		at(100, () -> mc.options.setCameraType(CameraType.FIRST_PERSON));
+		at(104, () -> { var v = mc.player.getVehicle(); System.out.println("TITANDBG eyeY=" + mc.player.getEyeY() + " vehicleY=" + (v == null ? -1 : v.getY()) + " bbH=" + (v == null ? -1 : v.getBbHeight()) + " pitch=" + mc.player.getXRot() + " playerY=" + mc.player.getY()); mc.player.setXRot(0.0f); });
+		at(106, () -> shot(mc, "04_firstperson"));
+		at(108, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+		at(110, () -> server(mc, TitanAbilities::punch));
+		at(114, () -> shot(mc, "05_punch_windup"));
+		at(117, () -> shot(mc, "05_punch_strike"));
+		at(130, () -> server(mc, p -> {
+			p.setShiftKeyDown(true);
+			TitanAbilities.punch(p);
+			p.setShiftKeyDown(false);
+		}));
+		at(138, () -> shot(mc, "06_kick"));
+		at(150, () -> server(mc, TitanAbilities::heavySmash));
+		at(160, () -> shot(mc, "07_smash_charge"));
+		at(171, () -> shot(mc, "07_smash_raised"));
+		at(176, () -> shot(mc, "07_smash_impact"));
+		at(200, () -> server(mc, TitanAbilities::stomp));
+		at(207, () -> shot(mc, "08_stomp_lift"));
+		at(213, () -> shot(mc, "08_stomp_impact"));
+		at(230, () -> server(mc, TitanAbilities::roar));
+		at(240, () -> shot(mc, "09_roar"));
+		at(250, () -> shot(mc, "09_roar2"));
+		at(280, () -> server(mc, TitanAbilities::hardening));
+		at(292, () -> shot(mc, "10_hardening"));
+		at(300, () -> shot(mc, "10_hardening2"));
+		at(320, () -> server(mc, TitanAbilities::leap));
+		at(321, () -> { legY = mc.player.getVehicle().getY(); legX = mc.player.getVehicle().getX(); legZ = mc.player.getVehicle().getZ(); });
+		at(324, () -> shot(mc, "11_leap_crouch"));
+		at(340, () -> System.out.println("TITANDBG leap y+" + (mc.player.getVehicle().getY() - legY) + " dist " + Math.hypot(mc.player.getVehicle().getX() - legX, mc.player.getVehicle().getZ() - legZ)));
+		at(360, () -> System.out.println("TITANDBG leap y+" + (mc.player.getVehicle().getY() - legY) + " dist " + Math.hypot(mc.player.getVehicle().getX() - legX, mc.player.getVehicle().getZ() - legZ)));
+		at(390, () -> System.out.println("TITANDBG leap end y+" + (mc.player.getVehicle().getY() - legY) + " dist " + Math.hypot(mc.player.getVehicle().getX() - legX, mc.player.getVehicle().getZ() - legZ)));
+		at(334, () -> shot(mc, "11_leap_air"));
+		at(352, () -> shot(mc, "11_leap_air2"));
+		at(380, () -> shot(mc, "11_leap_land"));
+		at(430, () -> {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.player.input = new Input() {
+				@Override
+				public void tick(boolean slow, float sneakSpeed) {
+					this.forwardImpulse = 1.0f;
+				}
+			};
+		});
+		at(431, () -> { legX = mc.player.getVehicle().getX(); legZ = mc.player.getVehicle().getZ(); });
+		at(450, () -> shot(mc, "12_walk_a"));
+		at(456, () -> shot(mc, "12_walk_b"));
+		at(462, () -> shot(mc, "12_walk_c"));
+		at(470, () -> { System.out.println("TITANDBG walk blocks in 39 ticks: " + Math.hypot(mc.player.getVehicle().getX() - legX, mc.player.getVehicle().getZ() - legZ)); mc.player.input = new KeyboardInput(mc.options); });
+		at(480, () -> server(mc, TitanShifter::revert));
+		at(490, () -> shot(mc, "13_revert_a"));
+		at(505, () -> shot(mc, "13_revert_b"));
+		at(540, () -> shot(mc, "14_human_again"));
+		at(560, () -> server(mc, p -> {
+			var st = TitanShifter.state(p).copy();
+			st.cooldownUntil = 0L;
+			p.setAttached(com.projecthero.mod.attachment.ModAttachments.TITAN_SHIFTER_STATE, st);
+			mc.execute(() -> mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+			TitanShifter.transform(p);
+		}));
+		at(640, () -> server(mc, p -> {
+			var f = TitanShifter.formOf(p);
+			if (f != null) {
+				f.hurt(p.level().damageSources().generic(), 100000.0f);
+			}
+		}));
+		at(650, () -> shot(mc, "15_defeat_a"));
+		at(670, () -> shot(mc, "15_defeat_b"));
+		at(690, () -> shot(mc, "15_defeat_c"));
+		at(715, () -> shot(mc, "15_recovering"));
+		at(760, () -> mc.stop());
+	}
+}

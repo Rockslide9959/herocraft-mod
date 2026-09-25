@@ -33,6 +33,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	private static boolean powerSelectWasDown = false;
 	private static boolean powerInfoWasDown = false;
 	private static boolean squadMenuWasDown = false;
+	private static boolean titanShiftWasDown = false;
 
 	/** Green Lantern construct wheel: C (ability slot 6) held this many ticks so far, not shifted. */
 	private static int glConstructHeldTicks = 0;
@@ -89,6 +90,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.PunisherHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.WolverineSurgeOverlay::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.WolverineHud::render);
+		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.TitanShifterHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SymbioteHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternHud::render);
 
@@ -199,6 +201,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 					com.projecthero.mod.client.spider.SpiderSenseGlowClient.accept(payload.ids(), now);
 				}));
 
+		// Titan Shifter: footfall / impact tremors near any Titan (cosmetic, applied by TitanCameraMixin).
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.TitanShakePayload.TYPE,
+				(payload, context) -> context.client().execute(
+						() -> com.projecthero.mod.client.titanshifter.TitanShakeClient.accept(payload.intensity(), payload.ticks())));
+
 		// Wolverine senses: the per-viewer orange hunter glow + the N-key sniff highlight.
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.WolverineSensePayload.TYPE,
 				(payload, context) -> context.client().execute(() -> {
@@ -285,6 +292,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(MaxSteelFlightFxClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.spider.SpiderInputClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.symbiote.SymbioteFxClient::clientTick);
+		ClientTickEvents.END_CLIENT_TICK.register(client -> com.projecthero.mod.client.titanshifter.TitanShakeClient.tick());
 	}
 
 	private static void handleKeyBinds(Minecraft client) {
@@ -302,6 +310,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			powerInfoWasDown = false;
 			maxSteelTransformWasDown = false;
 			squadMenuWasDown = false;
+			titanShiftWasDown = false;
 			glConstructHeldTicks = 0;
 			glWheelOpenedThisHold = false;
 			// Leaving a world must not carry the last server's squad roster into the next one.
@@ -346,6 +355,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		handlePowerSelect(client);
 		handlePowerInfo(client);
 		handleSquadMenu(client);
+		handleTitanShift(client);
 		handleMaxSteelTransform(client);
 		handleWolverineOffHand(client);
 		handleChargedPunch(client);
@@ -465,7 +475,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			// "changes 19": H while wearing any Iron Man armour opens / closes the helmet faceplate.
 			// v0.6.16: H while transformed as Max Steel does the same for its helmet. Otherwise H opens
 			// the experimental power wheel as before.
-			if (client.player != null && wearingAnyIronMan(client.player)) {
+			if (client.player != null && com.projecthero.mod.titanshifter.TitanShifter.inTitan(client.player)) {
+				// v0.12.31: H inside a Titan is Utility 1 -- Titan Hardening.
+				ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(
+						com.projecthero.mod.network.TitanShiftPayload.Action.HARDEN));
+			} else if (client.player != null && wearingAnyIronMan(client.player)) {
 				ClientPlayNetworking.send(new com.projecthero.mod.network.IronManActionPayload(
 						com.projecthero.mod.network.IronManActionPayload.Action.TOGGLE_FACEPLATE));
 			} else if (client.player != null && com.projecthero.mod.maxsteel.MaxSteel.isTransformed(client.player)) {
@@ -623,6 +637,17 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	}
 
 	/** P: the squad screen. Opens for everyone -- it explains how to start a squad if you have none. */
+	/** J: transform into / revert from the Titan. Edge-triggered; the server validates everything. */
+	private static void handleTitanShift(Minecraft client) {
+		boolean down = ModKeyBindings.TITAN_SHIFT.isDown();
+		if (down && !titanShiftWasDown && client.screen == null && client.player != null
+				&& com.projecthero.mod.titanshifter.TitanShifter.isShifter(client.player)) {
+			ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(
+					com.projecthero.mod.network.TitanShiftPayload.Action.TOGGLE_SHIFT));
+		}
+		titanShiftWasDown = down;
+	}
+
 	private static void handleSquadMenu(Minecraft client) {
 		boolean down = ModKeyBindings.SQUAD_MENU.isDown();
 		if (down && !squadMenuWasDown && client.screen == null) {

@@ -79,6 +79,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.greenlantern.item.GreenLanternItems.addToCreativeTab(output);
 				// Wolverine: the Adamantium Serum that ascends Super Regeneration into the Hero Class.
 				com.projecthero.mod.wolverine.item.WolverineItems.addToCreativeTab(output);
+				// Titan Shifter: the Titan Serum.
+				com.projecthero.mod.titanshifter.item.TitanShifterItems.addToCreativeTab(output);
 			})
 			.build();
 
