@@ -355,3 +355,8 @@ raid start/abort leaving no mobs behind.
 Two of those tests were written before the code was right and caught real bugs: a fully spent Undying
 Totem reported a full charge count again (an empty stack fell through to the "component-less means
 fresh" default), and boss health silently flat-lined at vanilla's 1024 cap for groups of five or more.
+
+## v0.12.23
+
+- The Cursed Zombie applies the Gravebound Curse on any attack against a (non-creative) player, not only when vanilla
+  reports damage -- powers that dodge/soak/cancel-and-reapply hits used to swallow it. Never gated by earlier raids.

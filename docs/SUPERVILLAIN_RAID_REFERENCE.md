@@ -134,3 +134,8 @@ SavedData on the overworld.
   Raid system's explicit hooks.
 * Not yet playtested in a live world (no `runServer` in the dev environment) — build + 182 gametests
   green, dev-client boot clean.
+
+## v0.12.23
+
+- The Pillager Spy marks a village when it *attacks* a player inside it (`performRangedAttack`), not only when the arrow
+  deals damage, and the per-village post-raid cooldown no longer blocks marking (an active raid still does).

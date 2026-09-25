@@ -108,9 +108,13 @@ public class CursedZombie extends RaidUndead {
 	@Override
 	public boolean doHurtTarget(Entity target) {
 		boolean hit = super.doHurtTarget(target);
-		if (hit && target instanceof ServerPlayer player) {
+		// v0.12.23: the curse comes from the attack landing on the player, not from vanilla reporting damage --
+		// a hero power that soaks, dodges or cancel-and-reapplies the hit (Spider-Man, Wolverine, Symbiote, ...)
+		// makes doHurtTarget return false and used to swallow the curse. Creative / spectator are exempt.
+		if (target instanceof ServerPlayer player && !player.isCreative() && !player.isSpectator()) {
 			// apply() is a no-op if this player is already cursed, so repeated hits (and hits from a
-			// second Cursed Zombie) can never reset, extend or duplicate the timer.
+			// second Cursed Zombie) can never reset, extend or duplicate the timer. It never checks for
+			// earlier raids: the curse can be caught again and again.
 			GraveboundCurse.apply(player, CurseSource.CURSED_ZOMBIE);
 		}
 		return hit;

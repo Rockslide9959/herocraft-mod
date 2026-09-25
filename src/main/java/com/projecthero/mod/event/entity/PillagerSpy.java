@@ -157,6 +157,19 @@ public class PillagerSpy extends Pillager {
 		}
 	}
 
+	/**
+	 * v0.12.23: the spy marks a village when it ATTACKS a player in one, not only when its arrow deals damage --
+	 * a hero power that dodges or soaks the bolt used to mean the village was never marked.
+	 */
+	@Override
+	public void performRangedAttack(net.minecraft.world.entity.LivingEntity target, float velocity) {
+		super.performRangedAttack(target, velocity);
+		if (target instanceof ServerPlayer player && level() instanceof ServerLevel level
+				&& !player.isCreative() && !player.isSpectator()) {
+			notifyDamagedPlayer(level, player);
+		}
+	}
+
 	// Hook used by the damage listener: give the escort/leader a way to identify a raid trigger.
 	public void notifyDamagedPlayer(ServerLevel level, ServerPlayer player) {
 		SupervillainRaidStarter.onSpyHitPlayer(level, this, player);

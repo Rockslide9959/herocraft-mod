@@ -93,7 +93,7 @@ public final class SymbioteBlackSuitAbilities {
 			return;
 		}
 		float damage = 9.0f + player.getRandom().nextFloat() * 2.0f;
-		if (!AbilityHelpers.hurt(player, target, damage)) {
+		if (!AbilityHelpers.hurtLands(player, target, damage)) {
 			return;
 		}
 		AbilityHelpers.knockbackFrom(target, player.position(), 0.9);
@@ -169,7 +169,7 @@ public final class SymbioteBlackSuitAbilities {
 		ServerLevel level = AbilityHelpers.level(player);
 		Vec3 center = player.position();
 		for (LivingEntity target : AbilityHelpers.enemiesAround(player, center, SLAM_RADIUS)) {
-			if (AbilityHelpers.hurt(player, target, SLAM_DAMAGE)) {
+			if (AbilityHelpers.hurtLands(player, target, SLAM_DAMAGE)) {
 				AbilityHelpers.knockbackFrom(target, center, 1.3);
 			}
 		}

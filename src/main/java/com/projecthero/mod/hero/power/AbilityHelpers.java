@@ -99,6 +99,27 @@ public final class AbilityHelpers {
 
 	// ---------------- damage / control ----------------
 
+	/**
+	 * Like {@link #hurt}, but also true for a legitimate player target whose hit was merely swallowed -- a damage
+	 * cooldown, a dodge, or another power's cancel-and-reapply damage rules make {@code hurt} return false even
+	 * though the ability landed. Callers use it to decide whether to show the ability's particles and knockback,
+	 * so hitting a player who has a power looks the same as hitting anything else (v0.12.23).
+	 */
+	public static boolean hurtLands(ServerPlayer source, LivingEntity target, float amount) {
+		if (hurt(source, target, amount)) {
+			return true;
+		}
+		if (!(target instanceof ServerPlayer tp) || !tp.isAlive() || tp == source
+				|| tp.isCreative() || tp.isSpectator()) {
+			return false;
+		}
+		net.minecraft.server.MinecraftServer server = source.getServer();
+		if (server == null || !server.isPvpAllowed() || !HeroConfig.get().abilityPvpDamage) {
+			return false;
+		}
+		return !com.projecthero.mod.squad.SquadManager.get(server).sameSquad(source.getUUID(), tp.getUUID());
+	}
+
 	public static boolean hurt(ServerPlayer source, LivingEntity target, float amount) {
 		return hurt(source, target, source.level().damageSources().playerAttack(source), amount);
 	}

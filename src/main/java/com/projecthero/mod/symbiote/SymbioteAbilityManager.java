@@ -265,7 +265,7 @@ public final class SymbioteAbilityManager {
 			return false;
 		}
 		float damage = 9.0f + player.getRandom().nextFloat() * 2.0f;
-		if (!AbilityHelpers.hurt(player, target, damage)) {
+		if (!AbilityHelpers.hurtLands(player, target, damage)) {
 			return false;
 		}
 		AbilityHelpers.knockbackFrom(target, player.position(), 0.9);
@@ -321,7 +321,7 @@ public final class SymbioteAbilityManager {
 
 		int struck = 0;
 		for (LivingEntity target : coneTargets(player, SPIKE_RANGE, SPIKE_CONE_DOT)) {
-			if (AbilityHelpers.hurt(player, target, SPIKE_DAMAGE)) {
+			if (AbilityHelpers.hurtLands(player, target, SPIKE_DAMAGE)) {
 				AbilityHelpers.knockbackFrom(target, player.position(), 0.35);
 				Vec3 hit = target.position().add(0, target.getBbHeight() * 0.5, 0);
 				AbilityHelpers.line(level, eye.add(look.scale(0.5)), hit, ParticleTypes.SQUID_INK, 4.0);
@@ -489,7 +489,7 @@ public final class SymbioteAbilityManager {
 		// v0.12.1: the launch is a real impulse now (vanilla gravity and drag carry it), so the only
 		// per-tick work is the ram check -- the host punches through the first creature it meets.
 		for (LivingEntity target : AbilityHelpers.enemiesAround(player, player.position().add(0, 0.9 * player.getScale(), 0), 2.0 * player.getScale())) {
-			if (AbilityHelpers.hurt(player, target, LEAP_RAM_DAMAGE)) {
+			if (AbilityHelpers.hurtLands(player, target, LEAP_RAM_DAMAGE)) {
 				AbilityHelpers.knockbackFrom(target, player.position(), 1.6);
 				AbilityHelpers.burst(AbilityHelpers.level(player),
 						target.position().add(0, target.getBbHeight() * 0.5, 0), ParticleTypes.SQUID_INK, 26, 0.5);
@@ -637,7 +637,7 @@ public final class SymbioteAbilityManager {
 		int struck = 0;
 		for (LivingEntity target : targets) {
 			target.invulnerableTime = 0;
-			if (AbilityHelpers.hurt(player, target, BARRAGE_HIT_DAMAGE)) {
+			if (AbilityHelpers.hurtLands(player, target, BARRAGE_HIT_DAMAGE)) {
 				Vec3 hit = target.position().add(0, target.getBbHeight() * 0.5, 0);
 				AbilityHelpers.line(level, eye.add(player.getLookAngle().scale(0.5)), hit, ParticleTypes.SQUID_INK, 3.0);
 				AbilityHelpers.burst(level, hit, ParticleTypes.SQUID_INK, 8, 0.3);
@@ -653,7 +653,7 @@ public final class SymbioteAbilityManager {
 		ServerLevel level = AbilityHelpers.level(player);
 		List<LivingEntity> targets = coneTargets(player, BLADE_SLASH_RANGE, BLADE_SLASH_CONE_DOT);
 		for (LivingEntity target : targets) {
-			if (AbilityHelpers.hurt(player, target, BLADE_SLASH_DAMAGE)) {
+			if (AbilityHelpers.hurtLands(player, target, BLADE_SLASH_DAMAGE)) {
 				target.hurt(player.damageSources().magic(), 2.0f);
 				AbilityHelpers.knockbackFrom(target, player.position(), 0.6);
 				AbilityHelpers.burst(level, target.position().add(0, target.getBbHeight() * 0.5, 0),

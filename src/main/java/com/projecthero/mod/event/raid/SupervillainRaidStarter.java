@@ -67,10 +67,7 @@ public final class SupervillainRaidStarter {
 				com.projecthero.mod.event.EventConfig.framework().minDistanceBetweenEvents)) {
 			return;
 		}
-		// Still on its post-raid cooldown?
-		if (!SupervillainVillages.get(level).available(level, center)) {
-			return;
-		}
+		// v0.12.23: no post-raid cooldown any more -- a village that has been raided before can be marked again.
 
 		if (markVillage(level, center)) {
 			ProjectHeroMod.LOGGER.info("[SupervillainRaid] Pillager Spy {} marked the village at {} (hit {})",
