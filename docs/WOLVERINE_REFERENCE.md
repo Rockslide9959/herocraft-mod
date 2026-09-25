@@ -190,3 +190,9 @@ untouched.
 ## v0.12.21
 
 - The passive +40% movement speed is removed (`SPEED_BONUS = 0`); Berserker Rage's +30% speed remains.
+
+## v0.12.22
+
+- Claw Dash now properly grabs players: a player target is seized even when the hit is swallowed by their damage cooldown
+  (never a squadmate, PvP rules still apply), and is dragged by velocity + a catch-up teleport, because a player's own
+  client overrides `setPos`.

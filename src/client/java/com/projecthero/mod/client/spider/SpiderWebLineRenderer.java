@@ -76,10 +76,6 @@ public final class SpiderWebLineRenderer {
 			}
 			Vec3 anchor = new Vec3(state.anchorX, state.anchorY, state.anchorZ);
 			swingingNow.add(player.getId());
-			if (!LAST_SWING.containsKey(player.getId())) {
-				// a fresh swing replaces the previous swing's fading remnant
-				SpiderStrands.removeSlot(player.getId(), SpiderStrands.SLOT_SWING_REMNANT);
-			}
 			Vec3 hand = SpiderStrands.handPosition(player, state.swingHandRight, partial, camera);
 			LAST_SWING.put(player.getId(), new SwingMemo(anchor, state.swingHandRight, hand));
 			drawLine(poseStack, consumers, camera, hand, anchor, BASE_ALPHA);

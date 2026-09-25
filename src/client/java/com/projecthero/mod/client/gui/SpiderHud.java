@@ -36,7 +36,7 @@ public final class SpiderHud {
 	private static final int COLOR_KEY = 0xFFE8B0B8;
 	private static final int COLOR_WEB = 0xFFE8E8F4;
 	/** Dark maroon so the percentage stays readable over bright terrain. */
-	private static final int COLOR_WEB_TEXT = 0xFF3A1620;
+	private static final int COLOR_WEB_TEXT = 0xFFE8E8F4; // same grey-white as the web bar
 	private static final int COLOR_WEB_LOW = 0xFFFF7A3C;
 
 	/** Slot order 1..6 mapped to the ability that sits there -- see {@code SpiderAbilities}. */
@@ -212,7 +212,7 @@ public final class SpiderHud {
 				ratio < 0.2f ? COLOR_WEB_LOW : COLOR_WEB);
 		graphics.drawString(client.font, Component.translatable(state.combatMode
 				? "hud.projecthero.spider_man.mode_combat" : "hud.projecthero.spider_man.mode_traversal"),
-				x0, barY + 6, 0xFFE0C8CC, false);
+				x0, barY + 6, COLOR_WEB_TEXT, false);
 
 		// v0.6.19: the double-jump cooldown is no longer shown -- it is a 1-second passive and the HUD
 		// clutter was not worth it.

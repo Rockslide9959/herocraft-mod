@@ -105,7 +105,7 @@ public final class SpiderStrands {
 
 	/** A released swing does not vanish: its line stays where it was and phases out over five seconds. */
 	public static void swingReleased(int playerId, Vec3 anchor, boolean rightHand, Vec3 lastHand) {
-		removeSlot(playerId, SLOT_SWING_REMNANT);
+		// (v0.12.21: older remnants are NOT removed -- every released web stays until it has phased out)
 		Strand s = new Strand(playerId, SLOT_SWING_REMNANT, -1, anchor, now(0.0f), 0, SWING_REMNANT_FADE, rightHand);
 		s.frozenHand = lastHand; // released: the web is let go of, it does not follow the hand
 		STRANDS.add(s);

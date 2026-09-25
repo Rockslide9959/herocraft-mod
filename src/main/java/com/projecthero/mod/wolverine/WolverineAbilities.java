@@ -119,6 +119,10 @@ public final class WolverineAbilities {
 		return out;
 	}
 
+	private static boolean squadmates(ServerPlayer a, ServerPlayer b) {
+		return com.projecthero.mod.squad.SquadManager.get(a.server).sameSquad(a.getUUID(), b.getUUID());
+	}
+
 	private static boolean strike(ServerPlayer player, LivingEntity target, float damage, double knockback) {
 		if (!AbilityHelpers.hurtBurst(player, target, scaled(player, damage))) {
 			return false;
@@ -256,12 +260,19 @@ public final class WolverineAbilities {
 					|| Math.abs(c.y) > 2.0 + target.getBbHeight() / 2.0) {
 				continue;
 			}
-			if (hits.add(target.getId()) && strike(player, target, WolverineConfig.DASH_DAMAGE, 0.9)) {
+			if (!hits.add(target.getId())) {
+				continue;
+			}
+			boolean hurt = strike(player, target, WolverineConfig.DASH_DAMAGE, 0.9);
+			if (hurt) {
 				slashFx(player, 0.9, 0.0, 0.8f);
-				// the first thing the claws sink into is seized and carried along
-				if (target.isAlive() && !DASH_GRAB.containsKey(player.getUUID())) {
-					DASH_GRAB.put(player.getUUID(), target.getId());
-				}
+			}
+			// the first thing the claws sink into is seized and carried along. v0.12.21: a player is grabbed even
+			// when the hit itself is swallowed by their damage cooldown (enemiesAround already applies the PvP
+			// rules), but never a squadmate.
+			boolean grabbable = hurt || (target instanceof ServerPlayer tp && !squadmates(player, tp));
+			if (grabbable && target.isAlive() && !DASH_GRAB.containsKey(player.getUUID())) {
+				DASH_GRAB.put(player.getUUID(), target.getId());
 			}
 		}
 		dragGrabbed(player);
@@ -293,6 +304,20 @@ public final class WolverineAbilities {
 		// the player moves after this tick runs, so aim ahead by their velocity or the grabbed entity trails behind
 		Vec3 to = player.position().add(player.getDeltaMovement().scale(WolverineConfig.DASH_GRAB_LEAD_TICKS))
 				.add(flat.scale(WolverineConfig.DASH_GRAB_DISTANCE));
+		if (target instanceof ServerPlayer tp) {
+			// v0.12.21: a player's own client owns their position, so setPos is simply overwritten by their next
+			// movement packet. Drive them by velocity instead (the same packet path as every other pull), aimed at
+			// the spot in front of the dasher, and teleport when they have fallen well behind.
+			Vec3 gap = to.subtract(target.position());
+			if (gap.lengthSqr() > 16.0 && target.level().noCollision(target, target.getBoundingBox().move(gap))) {
+				tp.connection.teleport(to.x, to.y, to.z, tp.getYRot(), tp.getXRot());
+			}
+			Vec3 v = gap.length() > 3.0 ? gap.normalize().scale(3.0) : gap;
+			target.setDeltaMovement(player.getDeltaMovement().add(v.scale(0.5)));
+			target.fallDistance = 0.0f;
+			target.hurtMarked = true;
+			return;
+		}
 		// never drag them through a wall: skip the move when the spot in front is blocked
 		if (target.level().noCollision(target, target.getBoundingBox().move(to.subtract(target.position())))) {
 			target.setPos(to.x, to.y, to.z);

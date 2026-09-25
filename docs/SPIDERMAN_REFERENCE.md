@@ -725,3 +725,8 @@ Adhesion it grew out of is not handed back.
 - Fading strands no longer follow the hand: the near end freezes where the hand was the moment the web is let go
   (release of R, or the end of a strand's hold phase).
 - HUD restructured and lifted: ability keys / "Spider-Man" / "Web N%" + thin bar / "Traversal|Combat Mode [N]".
+
+## v0.12.22
+
+- Released swing webs no longer replace each other: every released web stays put until it has fully phased out (5 s).
+- HUD: the Web % text and the mode label use the web bar's grey-white.
