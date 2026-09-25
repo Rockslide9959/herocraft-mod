@@ -101,7 +101,9 @@ public final class WolverineClawsModel {
 			for (int i = 0; i < 3; i++) {
 				float z = (i - 1) * BLADE_SPACING; // same knuckle line as the adamantium blades: side by side
 				float k = 1.0F;
-				float fan = 0.0F;   // parallel, no splay: three blades side by side
+				float fan = 0.0F;
+				float x = (i - 1) * 1.1F;      // spread across the knuckles too, so all three read from any angle (first person looks along Z)
+				float splay = (i - 1) * 0.12F; // and diverge slightly
 				float curve = 0.035F * s;
 				PartDefinition parent = hand;
 				float prevLen = 0.0F;
@@ -109,7 +111,7 @@ public final class WolverineClawsModel {
 					float len = seg[j][0] * k;
 					float w = seg[j][1];
 					PartPose pose = j == 0
-							? PartPose.offsetAndRotation(0.0F, 0.0F, z, fan, 0.0F, 0.0F)
+							? PartPose.offsetAndRotation(x, 0.0F, z, fan, 0.0F, splay)
 							: PartPose.offsetAndRotation(0.0F, prevLen, 0.0F, 0.0F, 0.0F, curve * (0.7F + 0.25F * j));
 					parent = parent.addOrReplaceChild("seg" + j, CubeListBuilder.create()
 							.texOffs((int) seg[j][2], (int) seg[j][3]).addBox(-w / 2, 0.0F, -w / 2, w, len, w), pose);
