@@ -14,6 +14,8 @@ public final class ModEntityRenderers {
 				com.projecthero.mod.client.maxsteel.SteelRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.maxsteel.entity.MaxSteelEntityTypes.TURBO_BOLT,
 				TurboBoltRenderer::new);
+		EntityRendererRegistry.register(com.projecthero.mod.spider.entity.SpiderEntityTypes.IMPACT_WEB,
+				com.projecthero.mod.client.spider.ImpactWebRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.symbiote.entity.SymbioteEntityTypes.SYMBIOTE,
 				com.projecthero.mod.client.symbiote.SymbioteEntityRenderer::new);
 		// Geokinesis' Colossal Rock -- a heavily over-scaled stone block billboard.

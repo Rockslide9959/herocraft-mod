@@ -213,6 +213,7 @@ public final class SpiderMan {
 	 */
 	public static void clearTransient(ServerPlayer player) {
 		SpiderSwing.clearFlightGrant(player);
+		SpiderCombat.clear(player);
 		// Symbiote becomes inactive on death / logout / dimension change (the bond is kept) -- no stuck
 		// suit, no lingering armour or webbing buff on the corpse or the fresh entity.
 		com.projecthero.mod.symbiote.Symbiote.clearTransient(player);

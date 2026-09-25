@@ -1,7 +1,6 @@
 package com.projecthero.mod.wolverine;
 
 import com.projecthero.mod.ProjectHeroMod;
-import com.projecthero.mod.hero.power.p12.SuperRegenerationHandlers;
 import com.projecthero.mod.wolverine.data.WolverineState;
 
 import net.minecraft.ChatFormatting;
@@ -151,17 +150,13 @@ public final class WolverinePassives {
 
 	/** Super Regeneration's base heal at 1x / 2x / 3x by health tier (4 / 8 / 12 HP/s), doubled in Rage. */
 	private static void healingFactor(ServerPlayer player) {
-		float frac = player.getMaxHealth() <= 0 ? 1f : player.getHealth() / player.getMaxHealth();
-		float mult = frac < WolverineConfig.CRITICAL_BELOW ? WolverineConfig.REGEN_MULT_CRITICAL
-				: frac < WolverineConfig.INJURED_BELOW ? WolverineConfig.REGEN_MULT_INJURED
-				: WolverineConfig.REGEN_MULT_NORMAL;
-		if (Wolverine.raging(player)) {
-			mult *= 1.0f + WolverineConfig.RAGE_REGEN_BONUS;
+		// v0.12.20: flat 1.5 HP every 5 ticks, whatever his health, Rage or Death Surge state.
+		if (player.getAbilities().instabuild || player.tickCount % WolverineConfig.REGEN_INTERVAL_TICKS != 0) {
+			return;
 		}
-		if (Wolverine.surgeRecovering(player)) {
-			mult *= WolverineConfig.SURGE_REGEN_FACTOR; // still weak from the Death Surge: closer to dying
+		if (player.getHealth() < player.getMaxHealth()) {
+			player.heal(WolverineConfig.REGEN_HP);
 		}
-		SuperRegenerationHandlers.tickBaseRegen(player, mult, true);
 	}
 
 	// ---------------- emergency heal ----------------
@@ -209,7 +204,7 @@ public final class WolverinePassives {
 	private static void tickEmergency(ServerPlayer player, long now) {
 		WolverineState s = Wolverine.state(player);
 		if (s.emergencyHealUntil > now && player.tickCount % 5 == 0 && player.level() instanceof ServerLevel level
-				&& now < s.fleshStartedAt + 3 * WolverineConfig.EMERGENCY_INVULN_TICKS / 2) {
+				&& now < s.fleshStartedAt + WolverineConfig.EMERGENCY_BLEED_TICKS) {
 			bloodBurst(level, player, 14, 6); // keeps bleeding through the first part of the surge
 		}
 		if (s.emergencyHealUntil > now && player.tickCount % 5 == 0) {

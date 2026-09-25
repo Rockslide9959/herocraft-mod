@@ -31,7 +31,9 @@ public record SpiderActionPayload(Action action) implements CustomPacketPayload 
 		/** H key while wearing the Spider-Man costume head piece: pull the mask off / on (v0.6.20). */
 		TOGGLE_MASK,
 		/** H key for a Spider-Man who has bonded with the Symbiote: engage / retract the black suit (v0.9.10). */
-		TOGGLE_SYMBIOTE
+		TOGGLE_SYMBIOTE,
+		/** N key: switch between Traversal Mode and Combat Mode (v0.12.20). */
+		TOGGLE_MODE
 	}
 
 	public static final CustomPacketPayload.Type<SpiderActionPayload> TYPE =

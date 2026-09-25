@@ -88,6 +88,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.event.raid.ZombieRaidNetworking.clearSessionState();
 		com.projecthero.mod.worldgen.GraveyardTracker.clearSessionState();
 		com.projecthero.mod.spider.SpiderWebs.clearSessionState();
+		com.projecthero.mod.spider.SpiderCombat.clearSessionState();
 		com.projecthero.mod.maxsteel.MaxSteelAbilityManager.clearSessionState();
 		com.projecthero.mod.maxsteel.MaxSteelCannon.clearSessionState();
 		com.projecthero.mod.maxsteel.worldgen.SteelCrashAmbience.clearSessionState();

@@ -72,6 +72,13 @@ public final class SpiderAbilities {
 	// ---- Web Blossom tuning (v0.6.23) ----
 	/** Sneak + hold V for this long (3 s) to charge Web Blossom. */
 	public static final int BLOSSOM_CHARGE_TICKS = 3 * 20;
+	/** v0.12.20: Combat Mode charges Web Blossom in 2 s instead. */
+	public static final int BLOSSOM_CHARGE_TICKS_COMBAT = 2 * 20;
+
+	/** Charge time for the given mode (the HUD passes the synced state's flag, the server the player's). */
+	public static int blossomChargeTicks(boolean combatMode) {
+		return combatMode ? BLOSSOM_CHARGE_TICKS_COMBAT : BLOSSOM_CHARGE_TICKS;
+	}
 	/** v0.10.11: a flat 75 webbing, no longer the entire reserve. */
 	public static final float BLOSSOM_COST = 75.0f;
 	private static final double BLOSSOM_RADIUS = 20.0;
@@ -110,7 +117,7 @@ public final class SpiderAbilities {
 
 	// ---------------- shared gates ----------------
 
-	private static boolean gate(ServerPlayer player, String ability, float cost) {
+	static boolean gate(ServerPlayer player, String ability, float cost) {
 		if (!SpiderMan.abilityReady(player, ability)) {
 			player.displayClientMessage(Component.translatable("message.projecthero.ability.on_cooldown",
 					Component.translatable("projecthero.spider_man.ability." + ability),
@@ -125,7 +132,7 @@ public final class SpiderAbilities {
 		return true;
 	}
 
-	private static void fired(ServerPlayer player, String ability, float cost, int cooldown) {
+	static void fired(ServerPlayer player, String ability, float cost, int cooldown) {
 		SpiderWebReserve.spend(player, cost, true);
 		SpiderMan.triggerCooldown(player, ability, cooldown);
 	}
@@ -216,7 +223,8 @@ public final class SpiderAbilities {
 		SpiderSwing.detach(player, false);
 
 		ServerLevel level = (ServerLevel) player.level();
-		webLine(level, handPos(player), target);
+		// v0.12.20: the real web line, hand -> anchor, holding briefly and then phasing out over 5 s.
+		SpiderCombat.sendStrand(player, SpiderCombat.SLOT_ZIP, null, target, 6, SpiderCombat.STRAND_FADE_TICKS);
 		AbilityHelpers.burst(level, target, ParticleTypes.ITEM_COBWEB, 6, 0.15);
 		AbilityHelpers.sound(player, SoundEvents.FISHING_BOBBER_RETRIEVE, 0.7f, 1.5f);
 		fired(player, WEB_ZIP, SpiderWebReserve.COST_WEB_ZIP, CD_WEB_ZIP);
@@ -409,16 +417,21 @@ public final class SpiderAbilities {
 	 * raycast. Mirrors {@link #nearestItemInAim}: a ~13-degree cone, closest wins.
 	 */
 	private static LivingEntity nearestLivingInAim(ServerPlayer player) {
+		return nearestLivingInAim(player, yankRange(player));
+	}
+
+	/** Same loose aim cone, with an explicit reach (the Combat Mode moves use their own ranges). */
+	static LivingEntity nearestLivingInAim(ServerPlayer player, double range) {
 		Vec3 eye = player.getEyePosition();
 		Vec3 look = player.getLookAngle();
-		AABB box = player.getBoundingBox().expandTowards(look.scale(yankRange(player))).inflate(3.0);
+		AABB box = player.getBoundingBox().expandTowards(look.scale(range)).inflate(3.0);
 		LivingEntity best = null;
 		double bestScore = 0.972; // ~13 degrees
 		for (LivingEntity e : player.level().getEntitiesOfClass(LivingEntity.class, box,
 				e -> e != player && e.isAlive() && !(e instanceof net.minecraft.world.entity.decoration.ArmorStand))) {
 			Vec3 delta = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);
 			double d = delta.length();
-			if (d < 0.5 || d > yankRange(player)) {
+			if (d < 0.5 || d > range) {
 				continue;
 			}
 			double aim = delta.normalize().dot(look);
@@ -563,7 +576,7 @@ public final class SpiderAbilities {
 			return;
 		}
 		player.setAttached(ModAttachments.SPIDER_BLOSSOM_CHARGE, 0);
-		if (c >= BLOSSOM_CHARGE_TICKS) {
+		if (c >= blossomChargeTicks(SpiderMan.state(player).combatMode)) {
 			fireWebBlossom(player);
 		} else {
 			AbilityHelpers.sound(player, SoundEvents.FIRE_EXTINGUISH, 0.5f, 1.3f);
@@ -582,15 +595,16 @@ public final class SpiderAbilities {
 			return;
 		}
 		c++;
+		int chargeTicks = blossomChargeTicks(SpiderMan.state(player).combatMode);
 		if (player.level() instanceof ServerLevel level) {
-			double a = Math.min(1.0, c / (double) BLOSSOM_CHARGE_TICKS);
+			double a = Math.min(1.0, c / (double) chargeTicks);
 			level.sendParticles(ParticleTypes.ITEM_COBWEB, player.getX(), player.getY() + 1.0, player.getZ(),
 					(int) (2 + a * 10), 0.5 + a * 0.6, 0.9, 0.5 + a * 0.6, 0.02);
 			if (c % 6 == 0) {
 				AbilityHelpers.sound(player, SoundEvents.SLIME_SQUISH, 0.4f, 0.6f + (float) a);
 			}
 		}
-		if (c >= BLOSSOM_CHARGE_TICKS) {
+		if (c >= chargeTicks) {
 			player.setAttached(ModAttachments.SPIDER_BLOSSOM_CHARGE, 0);
 			fireWebBlossom(player);
 		} else {

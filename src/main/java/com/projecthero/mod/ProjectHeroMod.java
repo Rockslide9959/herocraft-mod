@@ -74,6 +74,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.spider.item.SpiderItems.initialize();
 		com.projecthero.mod.maxsteel.item.MaxSteelItems.initialize();
 		com.projecthero.mod.maxsteel.entity.MaxSteelEntityTypes.initialize();
+		com.projecthero.mod.spider.entity.SpiderEntityTypes.initialize();
 		com.projecthero.mod.symbiote.entity.SymbioteEntityTypes.initialize();
 		com.projecthero.mod.symbiote.item.SymbioteHostItems.initialize();
 		com.projecthero.mod.titan.entity.TitanEntityTypes.initialize();

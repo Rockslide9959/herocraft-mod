@@ -43,7 +43,7 @@ import net.minecraft.server.level.ServerPlayer;
 public final class HeroCommand {
 	/** The four Hero-Tier powers, addressable by {@code /heropower grant|revoke hero <key>}. */
 	private static final java.util.List<String> HERO_TIER_KEYS =
-			java.util.List.of("thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine");
+			java.util.List.of("thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "symbiote");
 
 	/**
 	 * The bare {@code /heropower grant <key>} form (v0.6.20): experimental keys <em>and</em> the four
@@ -184,21 +184,27 @@ public final class HeroCommand {
 		// v0.6.20: the bare form also accepts a Hero-Tier key, so "/heropower grant spider_man" routes
 		// to the same path as "/heropower grant hero spider_man".
 		String rawKey = StringArgumentType.getString(c, "power");
-		if (HERO_TIER_KEYS.contains(rawKey)) {
-			return grantHeroByKey(c, target, rawKey);
-		}
-		Power power = resolve(c);
-		if (power == null) {
+		boolean heroKey = HERO_TIER_KEYS.contains(rawKey);
+		Power power = heroKey ? null : resolve(c);
+		if (power == null && !heroKey) {
 			c.getSource().sendFailure(Component.literal("Unknown power (experimental key or "
 					+ String.join("/", HERO_TIER_KEYS) + ")"));
 			return 0;
 		}
 		boolean hadAny = com.projecthero.mod.hero.HeroTiers.hasExperimental(target)
-				|| com.projecthero.mod.hero.HeroTiers.hasHeroTier(target);
+				|| com.projecthero.mod.hero.HeroTiers.hasHeroTier(target)
+				|| com.projecthero.mod.symbiote.Symbiote.hasSymbiote(target);
 
-		// A command grant always REPLACES: tear down every power of every tier first (experimental
-		// toggles/passives/flight + all four Hero-Tier powers), then grant this one as the sole power.
+		// A command grant always REPLACES (v0.12.20: for Hero-Tier keys and the Symbiote too): tear down every
+		// power of every tier first (experimental toggles/passives/flight, all Hero-Tier powers, the Symbiote),
+		// then grant this one as the sole power. Use /projecthero power stack to add one alongside instead.
 		com.projecthero.mod.hero.HeroTiers.wipeAll(target);
+		if (com.projecthero.mod.symbiote.Symbiote.hasSymbiote(target)) {
+			com.projecthero.mod.symbiote.Symbiote.remove(target);
+		}
+		if (heroKey) {
+			return grantHeroByKey(c, target, rawKey);
+		}
 		ExperimentalPowers.grant(target, power);
 		com.projecthero.mod.hero.PowerPassives.reconcileActive(target);
 
@@ -339,6 +345,12 @@ public final class HeroCommand {
 			case "wolverine" -> {
 				return com.projecthero.mod.command.WolverineCommand.grant(c, target);
 			}
+			case "symbiote" -> {
+				boolean ok = com.projecthero.mod.symbiote.Symbiote.grant(target);
+				c.getSource().sendSuccess(() -> Component.literal(ok ? "Bonded " + name + " with the Symbiote"
+						: name + " already has the Symbiote"), true);
+				return ok ? 1 : 0;
+			}
 			default -> {
 				c.getSource().sendFailure(Component.literal(
 						"Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel, punisher, green_lantern, wolverine)"));
@@ -362,6 +374,7 @@ public final class HeroCommand {
 			case "punisher" -> com.projecthero.mod.punisher.Punisher.revoke(target);
 			case "green_lantern" -> com.projecthero.mod.greenlantern.GreenLantern.revoke(target);
 			case "wolverine" -> com.projecthero.mod.wolverine.Wolverine.revoke(target);
+			case "symbiote" -> com.projecthero.mod.symbiote.Symbiote.remove(target);
 			default -> {
 				c.getSource().sendFailure(Component.literal(
 						"Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel, punisher, green_lantern, wolverine)"));

@@ -381,3 +381,7 @@ exactly what to revisit:
   which replaces any mutation / other hero power and removes a bonded Symbiote. The old
   `trial_ineligible` refusal is gone. Green Lantern now also appears in the squad roster
   (`HeroIdentity`).
+
+## v0.12.20
+
+- The Ring Charge readout under the ability row is a percentage (was `charge / 10000`).

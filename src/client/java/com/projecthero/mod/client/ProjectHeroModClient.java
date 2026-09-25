@@ -153,6 +153,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
 				com.projecthero.mod.client.wolverine.WolverineClawsModel.LAYER,
 				com.projecthero.mod.client.wolverine.WolverineClawsModel::createLayer);
+		net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
+				com.projecthero.mod.client.spider.ImpactWebModel.LAYER,
+				com.projecthero.mod.client.spider.ImpactWebModel::createLayer);
 
 		// Arc Reactor on the player's chest (Tony Stark power, no Iron Man chestplate) + Max Steel's
 		// blue Turbo Flight wings.
@@ -168,6 +171,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineClawsLayer(
 								playerRenderer, context.getModelSet()));
 						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineFleshLayer(playerRenderer));
+						registrationHelper.register(new com.projecthero.mod.client.spider.SpiderHandTrackerLayer(playerRenderer));
 					}
 				});
 
@@ -236,6 +240,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 								.setGrabIntent(true);
 					}
 				}));
+
+		// v0.12.20: fading web strands (Web Zip, Combat Mode moves) from a player's hand to a target.
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.SpiderWebStrandPayload.TYPE,
+				(payload, context) -> context.client().execute(
+						() -> com.projecthero.mod.client.spider.SpiderStrands.accept(payload)));
 
 		// Firearms: server-accepted shot -> recoil kick; headshot -> HUD flash.
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.FirearmShotPayload.TYPE,
@@ -577,6 +586,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				&& com.projecthero.mod.maxsteel.MaxSteel.hasPower(client.player)) {
 			ClientPlayNetworking.send(new com.projecthero.mod.network.MaxSteelActionPayload(
 					com.projecthero.mod.network.MaxSteelActionPayload.Action.TRANSFORM_TOGGLE));
+		} else if (down && !maxSteelTransformWasDown && client.player != null
+				&& com.projecthero.mod.spider.SpiderMan.hasPower(client.player)) {
+			// v0.12.20: Spider-Man -- N swaps Traversal Mode and Combat Mode.
+			ClientPlayNetworking.send(new com.projecthero.mod.network.SpiderActionPayload(
+					com.projecthero.mod.network.SpiderActionPayload.Action.TOGGLE_MODE));
 		} else if (down && !maxSteelTransformWasDown && client.player != null
 				&& com.projecthero.mod.wolverine.Wolverine.hasPower(client.player)) {
 			// Wolverine: Utility 2 (N) sniffs -- highlights everything within 40 blocks for 20 s.

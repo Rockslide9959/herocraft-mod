@@ -10,29 +10,24 @@ public final class WolverineConfig {
 
 	private static final int S = 20;
 
-	// ---- healing factor (extends Super Regeneration's base rate: 1 HP / 0.25 s = 4 HP/s) ----
-	/** Multiples of Super Regeneration's calm base heal (4 HP/s): 3 / 6 / 9 HP per second (v0.12.16 nerf). */
-	public static final float REGEN_MULT_NORMAL = 0.75f;
-	public static final float REGEN_MULT_INJURED = 1.5f;
-	public static final float REGEN_MULT_CRITICAL = 2.25f;
-	public static final float INJURED_BELOW = 0.50f;
-	public static final float CRITICAL_BELOW = 0.25f;
-	/** Berserker Rage adds this much to the regeneration multiplier (+100%). */
-	public static final float RAGE_REGEN_BONUS = 1.0f;
+	// ---- healing factor (v0.12.20: flat -- no health tiers, no Rage bonus, no Death Surge halving) ----
+	/** Health restored every {@link #REGEN_INTERVAL_TICKS}: a flat 1.5 HP every 5 ticks (6 HP/s). */
+	public static final float REGEN_HP = 1.5f;
+	public static final int REGEN_INTERVAL_TICKS = 5;
 
 	// ---- emergency healing ----
 	/** Health (fraction of max) he is left at when the death resurrection fires. */
 	public static final float EMERGENCY_HEAL_FRACTION = 0.30f;
 	/** The Death Surge window: Slowness III + Blindness + Weakness I, red screen border, suit torn off. */
 	public static final int EMERGENCY_HEAL_TICKS = 20 * S;
-	/** ...of which the first part he cannot take any damage. */
-	public static final int EMERGENCY_INVULN_TICKS = 10 * S;
+	/** ...of which the first part he cannot take any damage (v0.12.20: 5 s, was 10 s). */
+	public static final int EMERGENCY_INVULN_TICKS = 5 * S;
+	/** The Death Surge keeps bleeding for this long (the bleed used to be tied to the invulnerability window). */
+	public static final int EMERGENCY_BLEED_TICKS = 15 * S;
 	public static final int EMERGENCY_COOLDOWN_TICKS = 180 * S;
 	/** Emergency resurrection look: full flesh for 10 s, then the skin fades back over another 10 s. */
 	public static final int FLESH_HOLD_TICKS = 20 * S;
 	public static final int FLESH_FADE_TICKS = 20 * S;
-	/** His healing factor runs at this fraction of normal for the whole flesh + fade period (40 s). */
-	public static final float SURGE_REGEN_FACTOR = 0.5f;
 	/** Deploying the claws tears through his hands: this much damage (armour-bypassing). */
 	public static final float CLAW_DEPLOY_DAMAGE = 4.0f;
 	/** A damaged suit stays torn this long per damage stage (4 stages: fully repaired 20 s after the last damage). */
@@ -84,7 +79,7 @@ public final class WolverineConfig {
 
 	// ---- Ability 3: Claw Dash (X) ----
 	public static final double DASH_BLOCKS = 21.0;
-	public static final float DASH_DAMAGE = 18.0f;
+	public static final float DASH_DAMAGE = 12.0f;
 	/** Safety cap only -- the dash normally ends the moment the Wolverine lands. */
 	public static final int DASH_MAX_TICKS = 30;
 	/** How far in front of the Wolverine a seized enemy is held while he drags it along. */

@@ -1,5 +1,10 @@
 package com.projecthero.mod.client.spider;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.spider.data.SpiderManState;
 
@@ -17,21 +22,30 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Draws the web line, for every swinging player the client can see.
+ * Draws the web line, for every swinging player the client can see -- and (v0.12.20) every fading strand from
+ * {@link SpiderStrands}: Web Zip, the Combat Mode moves, and the remnant of a released swing, all in the same
+ * line look so a zip reads as the same web the swing throws.
  *
- * <p>Purely a render: a handful of line segments straight into the world-render buffer, drawn from
- * the synced anchor. No entity of any kind is created, so there is nothing to accumulate, nothing to
- * leak and nothing left behind when the line is released -- the state flag flips and the line simply
- * stops being drawn on the next frame.
+ * <p>Purely a render: a handful of line segments straight into the world-render buffer. No entity of any kind
+ * is created, so there is nothing to accumulate, nothing to leak and nothing left behind when the line ends --
+ * the state flips and the line simply stops being drawn (or fades, for strands).
  *
- * <p>The line sags slightly toward its middle rather than being a taut straight segment, which reads
- * far more like webbing and costs one interpolation per segment.
+ * <p>The line sags slightly toward its middle rather than being a taut straight segment, which reads far more
+ * like webbing and costs one interpolation per segment. Both ends are pinned to real positions every frame: the
+ * near end to the tracked fist ({@link SpiderStrands#handPosition}), the far end to the anchor / target.
  */
 public final class SpiderWebLineRenderer {
 	private static final int SEGMENTS = 10;
 	private static final float R = 0.94f;
 	private static final float G = 0.96f;
 	private static final float B = 1.0f;
+	private static final float BASE_ALPHA = 0.9f;
+
+	/** playerId -> anchor + hand for players seen swinging last frame, so a release can be noticed. */
+	private static final Map<Integer, SwingMemo> LAST_SWING = new HashMap<>();
+
+	private record SwingMemo(Vec3 anchor, boolean rightHand) {
+	}
 
 	private SpiderWebLineRenderer() {
 	}
@@ -53,52 +67,76 @@ public final class SpiderWebLineRenderer {
 		}
 		float partial = context.tickCounter().getGameTimeDeltaPartialTick(false);
 
+		// Swings: draw live lines; notice releases and hand them to the strand list to fade out.
+		Set<Integer> swingingNow = new HashSet<>();
 		for (Player player : client.level.players()) {
 			SpiderManState state = player.getAttachedOrElse(ModAttachments.SPIDER_MAN_STATE, null);
 			if (state == null || !state.swinging) {
 				continue;
 			}
-			drawLine(poseStack, consumers, camera, player, partial,
-					new Vec3(state.anchorX, state.anchorY, state.anchorZ), state.swingHandRight);
+			Vec3 anchor = new Vec3(state.anchorX, state.anchorY, state.anchorZ);
+			swingingNow.add(player.getId());
+			if (!LAST_SWING.containsKey(player.getId())) {
+				// a fresh swing replaces the previous swing's fading remnant
+				SpiderStrands.removeSlot(player.getId(), SpiderStrands.SLOT_SWING_REMNANT);
+			}
+			LAST_SWING.put(player.getId(), new SwingMemo(anchor, state.swingHandRight));
+			drawLine(poseStack, consumers, camera,
+					SpiderStrands.handPosition(player, state.swingHandRight, partial, camera), anchor, BASE_ALPHA);
+		}
+		LAST_SWING.entrySet().removeIf(e -> {
+			if (swingingNow.contains(e.getKey())) {
+				return false;
+			}
+			SpiderStrands.swingReleased(e.getKey(), e.getValue().anchor(), e.getValue().rightHand());
+			return true;
+		});
+
+		// Strands.
+		SpiderStrands.prune(partial);
+		double now = client.level.getGameTime() + partial;
+		for (SpiderStrands.Strand s : SpiderStrands.strands()) {
+			Player owner = client.level.getEntity(s.playerId) instanceof Player p ? p : null;
+			if (owner == null) {
+				continue;
+			}
+			float alpha = s.alpha(now) * BASE_ALPHA;
+			if (alpha <= 0.0f) {
+				continue;
+			}
+			drawLine(poseStack, consumers, camera, SpiderStrands.handPosition(owner, s.rightHand, partial, camera),
+					SpiderStrands.endPoint(s, partial), alpha);
 		}
 	}
 
 	private static void drawLine(PoseStack poseStack, MultiBufferSource consumers, Camera camera,
-			Player player, float partial, Vec3 anchor, boolean rightHand) {
-		// v0.6.20: the line leaves the actual fist. The swing arm is pinned to a FIXED overhead pose in
-		// HumanoidModelMixin (xRot -2.65, yRot 0, zRot -/+0.15 on the firing arm), so the fist's offset
-		// from the body is deterministic -- resolve that fixed pose into world space rather than
-		// guessing at a shoulder height and walking toward the anchor (which drifted above the hand
-		// whenever the anchor was off to the side). Numbers are the fixed pose's hand tip (shoulder
-		// pivot + a 12px arm rotated by that pose), divided by 16 into blocks:
-		//   up  ~2.03   body-right (firing side)  ~0.41   body-forward  ~0.36
-		double px = net.minecraft.util.Mth.lerp(partial, player.xo, player.getX());
-		double py = net.minecraft.util.Mth.lerp(partial, player.yo, player.getY());
-		double pz = net.minecraft.util.Mth.lerp(partial, player.zo, player.getZ());
-		float bodyYaw = net.minecraft.util.Mth.rotLerp(partial, player.yBodyRotO, player.yBodyRot);
-		Vec3 bodyRight = Vec3.directionFromRotation(0.0f, bodyYaw + 90.0f);
-		Vec3 bodyForward = Vec3.directionFromRotation(0.0f, bodyYaw);
-		double side = rightHand ? 1.0 : -1.0;
-		Vec3 eye = new Vec3(px, py, pz)
-				.add(0.0, 2.03, 0.0)
-				.add(bodyRight.scale(side * 0.41))
-				.add(bodyForward.scale(0.36));
-
+			Vec3 hand, Vec3 anchor, float alpha) {
 		Vec3 cam = camera.getPosition();
 		poseStack.pushPose();
 		poseStack.translate(-cam.x, -cam.y, -cam.z);
 		var pose = poseStack.last();
-		VertexConsumer buffer = consumers.getBuffer(RenderType.lineStrip());
+		// Segment pairs (not a line strip): several strands share one buffer and must not be joined together.
+		VertexConsumer buffer = consumers.getBuffer(RenderType.lines());
 
-		double slack = Math.min(0.9, eye.distanceTo(anchor) * 0.035);
+		double slack = Math.min(0.9, hand.distanceTo(anchor) * 0.035);
+		Vec3 prev = null;
 		for (int i = 0; i <= SEGMENTS; i++) {
 			double t = (double) i / SEGMENTS;
-			Vec3 p = eye.lerp(anchor, t);
+			Vec3 p = hand.lerp(anchor, t);
 			// a parabola that is zero at both ends and deepest in the middle
 			p = p.subtract(0, slack * (4.0 * t * (1.0 - t)), 0);
-			buffer.addVertex(pose.pose(), (float) p.x, (float) p.y, (float) p.z)
-					.setColor(R, G, B, 0.9f)
-					.setNormal(pose, 0.0f, 1.0f, 0.0f);
+			if (prev != null) {
+				Vec3 d = p.subtract(prev);
+				double len = Math.max(1.0e-6, d.length());
+				float nx = (float) (d.x / len);
+				float ny = (float) (d.y / len);
+				float nz = (float) (d.z / len);
+				buffer.addVertex(pose.pose(), (float) prev.x, (float) prev.y, (float) prev.z)
+						.setColor(R, G, B, alpha).setNormal(pose, nx, ny, nz);
+				buffer.addVertex(pose.pose(), (float) p.x, (float) p.y, (float) p.z)
+						.setColor(R, G, B, alpha).setNormal(pose, nx, ny, nz);
+			}
+			prev = p;
 		}
 		poseStack.popPose();
 	}

@@ -29,6 +29,9 @@ public final class WolverineDamage {
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(WolverineDamage::onAllowDamage);
 		// Started by damage as well as the tick, so a single big hit cannot slip past the 5-tick scan.
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseAmount, dealtAmount, blocked) -> {
+			if (Wolverine.deployingClaws()) {
+				return; // v0.12.20: deploying the claws is not a fight -- no Rage, no combat timer
+			}
 			if (entity instanceof ServerPlayer p && Wolverine.hasPower(p)) {
 				Wolverine.markCombat(p);
 				Wolverine.addRage(p, WolverineConfig.RAGE_PER_HIT);

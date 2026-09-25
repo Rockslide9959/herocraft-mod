@@ -47,6 +47,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(SpiderSenseGlowPayload.TYPE, SpiderSenseGlowPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(WolverineSensePayload.TYPE, WolverineSensePayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SpiderClimbGrabPayload.TYPE, SpiderClimbGrabPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(SpiderWebStrandPayload.TYPE, SpiderWebStrandPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FirearmShotPayload.TYPE, FirearmShotPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FirearmHeadshotPayload.TYPE, FirearmHeadshotPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(BulletHolePayload.TYPE, BulletHolePayload.CODEC);
@@ -107,6 +108,7 @@ public final class ModNetworking {
 				case SUPER_JUMP -> com.projecthero.mod.spider.SpiderAbilities.superJump(context.player());
 				case TOGGLE_MASK -> com.projecthero.mod.spider.SpiderMask.toggle(context.player());
 				case TOGGLE_SYMBIOTE -> com.projecthero.mod.symbiote.Symbiote.toggle(context.player());
+				case TOGGLE_MODE -> com.projecthero.mod.spider.SpiderCombat.toggleMode(context.player());
 			}
 		});
 

@@ -178,3 +178,11 @@ untouched.
 
 - Death Surge bursts into a spray of blood (red dust + redstone-block chips) and keeps bleeding through the first ~15 s.
 - Claws deploy with the retract sound. Suit durability is now diamond level (multiplier 33).
+
+## v0.12.20
+
+- Healing factor is a flat **1.5 HP every 5 ticks** (no health tiers, no Rage bonus, no Death Surge halving).
+- Death Surge invulnerability is **5 s** (the surge itself, debuffs and the bleed are unchanged).
+- Deploying the claws still costs 4 HP but is not combat: `Wolverine.deployingClaws()` keeps it out of the Rage bar /
+  combat timer, and `WolverineSuitWear` ignores that wound for 3 s so the suit never tears from it.
+- Claw Dash damage 18 -> 12.

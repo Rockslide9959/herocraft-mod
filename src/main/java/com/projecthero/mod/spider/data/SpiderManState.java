@@ -80,16 +80,18 @@ public final class SpiderManState {
 	 * read by {@code SpiderWebLineRenderer} / {@code HumanoidModelMixin} to raise the matching arm.
 	 */
 	public boolean swingHandRight;
+	/** v0.12.20: true while in Combat Mode (N toggles); false = Traversal Mode, the original kit. */
+	public boolean combatMode;
 
 	public SpiderManState() {
 		this(false, com.projecthero.mod.spider.SpiderWebReserve.MAX, 0L, 0L, new HashMap<>(), 0,
-				false, 0.0, 0.0, 0.0, 0.0, 0.0, false, false, false);
+				false, 0.0, 0.0, 0.0, 0.0, 0.0, false, false, false, false);
 	}
 
 	public SpiderManState(boolean hasPower, float webReserve, long lastWebUseTick, long doubleJumpReadyAt,
 			Map<String, Long> abilityReadyAt, int climbState, boolean swinging,
 			double anchorX, double anchorY, double anchorZ, double ropeLength, double airSwingBaselineY,
-			boolean artificialAnchor, boolean wallCrawlEnabled, boolean swingHandRight) {
+			boolean artificialAnchor, boolean wallCrawlEnabled, boolean swingHandRight, boolean combatMode) {
 		this.hasPower = hasPower;
 		this.webReserve = webReserve;
 		this.lastWebUseTick = lastWebUseTick;
@@ -105,12 +107,13 @@ public final class SpiderManState {
 		this.artificialAnchor = artificialAnchor;
 		this.wallCrawlEnabled = wallCrawlEnabled;
 		this.swingHandRight = swingHandRight;
+		this.combatMode = combatMode;
 	}
 
 	public SpiderManState copy() {
 		return new SpiderManState(hasPower, webReserve, lastWebUseTick, doubleJumpReadyAt, abilityReadyAt,
 				climbState, swinging, anchorX, anchorY, anchorZ, ropeLength, airSwingBaselineY, artificialAnchor,
-				wallCrawlEnabled, swingHandRight);
+				wallCrawlEnabled, swingHandRight, combatMode);
 	}
 
 	public int climbMode() {
@@ -143,6 +146,7 @@ public final class SpiderManState {
 			Codec.DOUBLE.optionalFieldOf("air_swing_baseline_y", 0.0).forGetter(s -> s.airSwingBaselineY),
 			Codec.BOOL.optionalFieldOf("artificial_anchor", false).forGetter(s -> s.artificialAnchor),
 			Codec.BOOL.optionalFieldOf("wall_crawl_enabled", false).forGetter(s -> s.wallCrawlEnabled),
-			Codec.BOOL.optionalFieldOf("swing_hand_right", false).forGetter(s -> s.swingHandRight)
+			Codec.BOOL.optionalFieldOf("swing_hand_right", false).forGetter(s -> s.swingHandRight),
+			Codec.BOOL.optionalFieldOf("combat_mode", false).forGetter(s -> s.combatMode)
 	).apply(instance, SpiderManState::new));
 }

@@ -326,6 +326,13 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.spider_man.ability." + ability + ".desc");
 			}
 			blank(lines);
+			head(lines, "projecthero.guide.spider_man.combat");
+			para(lines, "projecthero.guide.spider_man.combat.body");
+			for (String c : new String[]{"r", "g", "x", "z", "v"}) {
+				lines.add(Component.literal(" • ").append(
+						Component.translatable("projecthero.guide.spider_man.combat." + c)).withStyle(ChatFormatting.GRAY));
+			}
+			blank(lines);
 			head(lines, "projecthero.guide.spider_man.passives");
 			for (String p : new String[]{"sense", "dodge", "arrows", "crawl", "ceiling", "wall_leap",
 					"double_jump", "super_jump", "web_blossom", "strength", "agility", "fall", "reserve"}) {

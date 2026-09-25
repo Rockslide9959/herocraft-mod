@@ -700,3 +700,20 @@ legible camera come first. Nothing about the crawl changes; only what onlookers 
 `grant` deliberately goes through the same evolution the survival path uses, so the tested path is the
 shipped path. The **Power Suppressor** strips Spider-Man along with every other power; the Spider
 Adhesion it grew out of is not handed back.
+
+## v0.12.20 -- Combat Mode, web strands, thin bars
+
+- **N toggles Traversal / Combat Mode** (`SpiderCombat.toggleMode`, `SpiderManState.combatMode`, the 16th and last field
+  of its record codec). Traversal is the original kit. Combat Mode (`SpiderCombat`): **R Web Strike** (pulled to the
+  target, 15 dmg + knockback, 3 s cd), **G Web Zip** (unchanged, but on an armed mob/player it yanks their held items to
+  you), **X Web-Throw** (hold: target orbits your head; release: hurled along the look vector; 3 s cd), **Z Impact Web**
+  (`ImpactWebEntity`, 10 dmg + knockback, pins to a wall for 6 s via `SpiderWebs.cocoonFor`; 1 s cd), **V** Web Blossom
+  charges in 2 s instead of 3 s. C / V-tap unchanged.
+- **Web strands** (`SpiderWebStrandPayload` -> `client.spider.SpiderStrands` / `SpiderWebLineRenderer`): Web Zip and the
+  combat moves draw the same web line as the swing, hand -> target, holding briefly then phasing out over 5 s; a released
+  swing also fades over 5 s instead of vanishing. The near end is tied to the *real* fist: `SpiderHandTrackerLayer`
+  captures the posed arm's world position each frame (third person / other players); first person uses the view-space
+  hand spot. Lines are drawn as segment pairs (`RenderType.lines`) so several strands never join up.
+- **HUD**: all bars thin (3 px, no border); Web Reserve reads as a percentage in a dark maroon.
+- N is shared with Max Steel (Go Turbo) / Wolverine (Sniff) / Symbiote host (Predator Vision): Max Steel wins, then
+  Spider-Man, then Wolverine, then the Symbiote host.

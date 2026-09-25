@@ -169,6 +169,13 @@ public final class Wolverine {
 
 	// ---------------- claws ----------------
 
+	private static final ThreadLocal<Boolean> DEPLOYING = ThreadLocal.withInitial(() -> false);
+
+	/** True only while the claw-deployment self-damage is being applied (v0.12.20). */
+	public static boolean deployingClaws() {
+		return DEPLOYING.get();
+	}
+
 	/** Deploy or retract the claws. Server-validated; returns the new state. */
 	public static boolean setClaws(ServerPlayer player, boolean out) {
 		WolverineState s = state(player);
@@ -188,11 +195,17 @@ public final class Wolverine {
 				out ? "message.projecthero.wolverine.claws_deployed" : "message.projecthero.wolverine.claws_retracted")
 				.withStyle(out ? ChatFormatting.GOLD : ChatFormatting.GRAY), true);
 		if (out && !player.isCreative() && !player.isSpectator()) {
-			// the blades tear out through his knuckles: 4 damage, but never enough to kill him
+			// the blades tear out through his knuckles: 4 damage, but never enough to kill him. v0.12.20: it is
+			// not combat -- it never fills the Rage bar (see WolverineDamage) and the client suit ignores it.
 			float dmg = Math.min(WolverineConfig.CLAW_DEPLOY_DAMAGE, player.getHealth() - 1.0f);
 			if (dmg > 0.0f) {
 				player.invulnerableTime = 0;
-				player.hurt(player.damageSources().magic(), dmg);
+				DEPLOYING.set(true);
+				try {
+					player.hurt(player.damageSources().magic(), dmg);
+				} finally {
+					DEPLOYING.set(false);
+				}
 			}
 		}
 		return out;

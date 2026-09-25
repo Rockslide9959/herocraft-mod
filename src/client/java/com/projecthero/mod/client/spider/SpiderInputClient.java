@@ -60,6 +60,7 @@ public final class SpiderInputClient {
 			airTicks = 0;
 			releaseWindow = 0;
 			SpiderSwingClient.reset();
+			SpiderStrands.reset();
 			return;
 		}
 		if (client.screen != null) {

@@ -154,8 +154,7 @@ public final class GreenLanternHud {
 		// mark where the emergency reserve begins
 		int reserveMark = x0 + Math.round(totalW * (GreenLanternConfig.EMERGENCY_RESERVE / GreenLanternConfig.MAX_RING_CHARGE));
 		g.fill(reserveMark, barY - 1, reserveMark + 1, barY + 5, 0xFFFFDD33);
-		g.drawString(mc.font, String.format(java.util.Locale.ROOT, "%d / %d", Math.round(charge),
-				Math.round(GreenLanternConfig.MAX_RING_CHARGE)), x0, barY + 5, low ? LOW : 0xFFA8E6B8, false);
+		g.drawString(mc.font, String.format(java.util.Locale.ROOT, "%d%%", Math.round(frac * 100.0f)), x0, barY + 5, low ? LOW : 0xFFA8E6B8, false);
 
 		labelY = renderBarrier(g, mc, player, x0, labelY, totalW);
 

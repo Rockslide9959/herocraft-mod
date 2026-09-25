@@ -108,6 +108,6 @@ jobs:
             --arg title "Project Hero $VERSION" \
             --arg desc "$CHANGELOG" \
             --arg url "$RELEASE_URL" \
-            '{embeds: [{title: $title, description: $desc, url: $url, color: 3066993}]}' \
+            '{content: "@everyone", allowed_mentions: {parse: ["everyone"]}, embeds: [{title: $title, description: $desc, url: $url, color: 3066993}]}' \
             > discord_payload.json
           curl -sf -H "Content-Type: application/json" -d @discord_payload.json "$DISCORD_WEBHOOK_URL"

@@ -33,12 +33,20 @@ public final class SpiderHud {
 	private static final int COLOR_COOLDOWN = 0xB0000000;
 	private static final int COLOR_KEY = 0xFFE8B0B8;
 	private static final int COLOR_WEB = 0xFFE8E8F4;
+	/** Dark maroon so the percentage stays readable over bright terrain. */
+	private static final int COLOR_WEB_TEXT = 0xFF3A1620;
 	private static final int COLOR_WEB_LOW = 0xFFFF7A3C;
 
 	/** Slot order 1..6 mapped to the ability that sits there -- see {@code SpiderAbilities}. */
 	private static final String[] SLOT_ABILITIES = {
 			SpiderAbilities.WEB_SWING, SpiderAbilities.WEB_ZIP, SpiderAbilities.WEB_YANK,
 			SpiderAbilities.WEB_SHOT, SpiderAbilities.WEB_NET, SpiderAbilities.WALL_CRAWL
+	};
+	/** v0.12.20: the Combat Mode layout (N). */
+	private static final String[] COMBAT_ABILITIES = {
+			com.projecthero.mod.spider.SpiderCombat.WEB_STRIKE, SpiderAbilities.WEB_ZIP,
+			com.projecthero.mod.spider.SpiderCombat.WEB_THROW, com.projecthero.mod.spider.SpiderCombat.IMPACT_WEB,
+			SpiderAbilities.WEB_NET, SpiderAbilities.WALL_CRAWL
 	};
 
 	// ---- Spider-Sense warning (v0.6.17; v0.6.19: one marker per kind, held until the danger passes) ----
@@ -133,7 +141,7 @@ public final class SpiderHud {
 		// The Spider-Sense warning shows regardless of which power holds the ability slots -- danger is
 		// danger whether or not you are also holding Mjolnir.
 		renderWarning(graphics, client, player);
-		renderBlossomCharge(graphics, client, player);
+		renderBlossomCharge(graphics, client, player, state.combatMode);
 		// Mirrors SpiderManAbilityManager.hasContext: a mutation selected in the wheel owns the slots.
 		ExperimentalState experimental = player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		if (experimental != null && !experimental.activePower.isEmpty()) {
@@ -156,13 +164,18 @@ public final class SpiderHud {
 
 		graphics.drawString(client.font, Component.translatable("projecthero.spider_man.name")
 				.withStyle(ChatFormatting.RED, ChatFormatting.BOLD), x0, y0 - 10, 0xFFFF6070);
+		Component modeLabel = Component.translatable(state.combatMode
+				? "hud.projecthero.spider_man.mode_combat" : "hud.projecthero.spider_man.mode_traversal");
+		graphics.drawString(client.font, modeLabel,
+				x0 + totalW - client.font.width(modeLabel), y0 - 10, 0xFFE0C8CC, false);
+		String[] layout = state.combatMode ? COMBAT_ABILITIES : SLOT_ABILITIES;
 
 		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(client.getWindow().getWindow(),
 				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
 
 		for (int i = 0; i < 6; i++) {
 			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
-			String ability = SLOT_ABILITIES[i];
+			String ability = layout[i];
 			int x = x0 + i * (BOX + GAP);
 
 			Long readyAt = state.abilityReadyAt.get(ability);
@@ -191,12 +204,12 @@ public final class SpiderHud {
 		float webMax = client.player != null ? SpiderWebReserve.maxFor(client.player) : SpiderWebReserve.MAX;
 		float ratio = Math.max(0.0f, Math.min(1.0f, state.webReserve / webMax));
 		int barY = y0 + BOX + 4;
-		graphics.fill(x0 - 1, barY - 1, x0 + totalW + 1, barY + 5, COLOR_BORDER);
-		graphics.fill(x0, barY, x0 + totalW, barY + 4, 0xAA180C10);
-		graphics.fill(x0, barY, x0 + Math.round(totalW * ratio), barY + 4,
+		// Thin bar in the Wolverine style (v0.12.20): 3px, no border, percentage readout in a dark colour.
+		graphics.fill(x0, barY, x0 + totalW, barY + 3, 0xAA180C10);
+		graphics.fill(x0, barY, x0 + Math.round(totalW * ratio), barY + 3,
 				ratio < 0.2f ? COLOR_WEB_LOW : COLOR_WEB);
 		graphics.drawString(client.font, Component.translatable("hud.projecthero.spider_man.web_reserve",
-				(int) Math.ceil(state.webReserve), (int) webMax), x0, barY + 5, 0xFFB8A0A8, false);
+				(int) Math.ceil(ratio * 100.0f)), x0, barY + 5, COLOR_WEB_TEXT, false);
 
 		// v0.6.19: the double-jump cooldown is no longer shown -- it is a 1-second passive and the HUD
 		// clutter was not worth it.
@@ -207,15 +220,15 @@ public final class SpiderHud {
 	 * ability keybind row in the bottom-right corner -- clear of the Web Reserve bar (which is below
 	 * the row) and of the "Spider-Man" label (just above it), so nothing in this HUD overlaps.
 	 */
-	private static void renderBlossomCharge(GuiGraphics g, Minecraft client, Player player) {
+	private static void renderBlossomCharge(GuiGraphics g, Minecraft client, Player player, boolean combatMode) {
 		int ticks = player.getAttachedOrElse(ModAttachments.SPIDER_BLOSSOM_CHARGE, 0);
 		if (ticks <= 0) {
 			return;
 		}
-		float ratio = Math.min(1.0f, ticks / (float) com.projecthero.mod.spider.SpiderAbilities.BLOSSOM_CHARGE_TICKS);
+		float ratio = Math.min(1.0f, ticks / (float) com.projecthero.mod.spider.SpiderAbilities.blossomChargeTicks(combatMode));
 		boolean full = ratio >= 1.0f;
 		int w = 6 * BOX + 5 * GAP;
-		int h = 5;
+		int h = 3;
 		int x = g.guiWidth() - MARGIN - w;
 		// The keybind boxes start here; the "Spider-Man" label sits 10px above that. Stack the bar and
 		// its own label above the label, with a small gap.
@@ -223,7 +236,6 @@ public final class SpiderHud {
 		int y = boxesY - 10 - 10 - h;
 		g.drawCenteredString(client.font, Component.translatable("hud.projecthero.spider_man.web_blossom"),
 				x + w / 2, y - 10, full ? 0xFFFFF0A0 : 0xFFE8E8F4);
-		g.fill(x - 1, y - 1, x + w + 1, y + h + 1, COLOR_BORDER);
 		g.fill(x, y, x + w, y + h, 0xC0180C10);
 		g.fill(x, y, x + Math.round(w * ratio), y + h, full ? 0xFFFF6070 : COLOR_WEB);
 	}

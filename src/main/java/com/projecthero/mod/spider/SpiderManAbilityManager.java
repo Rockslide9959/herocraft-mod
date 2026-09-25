@@ -39,23 +39,37 @@ public final class SpiderManAbilityManager {
 	}
 
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
+		boolean combat = SpiderCombat.inCombatMode(player);
 		switch (slot) {
-			// R -- held: the line stays attached for as long as the key is down.
+			// R -- Traversal: held, the line stays attached for as long as the key is down.
+			//      Combat: Web Strike (v0.12.20).
 			case SLOT_1 -> {
-				if (pressed) {
+				if (combat) {
+					if (pressed) {
+						SpiderCombat.webStrike(player);
+					}
+				} else if (pressed) {
 					SpiderSwing.fire(player);
 				} else {
 					SpiderSwing.detach(player, true);
 				}
 			}
+			// G -- Web Zip; in Combat Mode aimed at an armed mob/player it rips the weapon out of their hands.
 			case SLOT_2 -> {
-				if (pressed) {
+				if (pressed && !(combat && SpiderCombat.tryDisarm(player))) {
 					SpiderAbilities.webZip(player);
 				}
 			}
 			// X -- Black Suit: sneak = Symbiote Tendril Strike (a straight tendril melee hit, not a pull)
+			//      Combat: hold = Web-Throw (release hurls the target).
 			case SLOT_3 -> {
-				if (pressed) {
+				if (combat && !(blackSuit(player) && player.isShiftKeyDown())) {
+					if (pressed) {
+						SpiderCombat.beginThrow(player);
+					} else {
+						SpiderCombat.releaseThrow(player);
+					}
+				} else if (pressed) {
 					if (blackSuit(player) && player.isShiftKeyDown()) {
 						com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.tendrilStrike(player);
 					} else {
@@ -66,7 +80,9 @@ public final class SpiderManAbilityManager {
 			// Z -- Black Suit: sneak + hold = Symbiote Crush (release ends it)
 			case SLOT_4 -> {
 				if (pressed) {
-					if (blackSuit(player) && player.isShiftKeyDown()) {
+					if (combat && !(blackSuit(player) && player.isShiftKeyDown())) {
+						SpiderCombat.impactWeb(player);
+					} else if (blackSuit(player) && player.isShiftKeyDown()) {
 						com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.beginCrush(player);
 					} else {
 						SpiderAbilities.webShot(player);
@@ -113,6 +129,7 @@ public final class SpiderManAbilityManager {
 		SpiderSense.serverTick(player);
 		SpiderPassives.tick(player);
 		SpiderAbilities.tickWebBlossom(player);
+		SpiderCombat.tick(player);
 		com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.serverTick(player);
 	}
 }
