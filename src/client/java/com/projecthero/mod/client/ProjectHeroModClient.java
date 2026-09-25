@@ -33,7 +33,6 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	private static boolean powerSelectWasDown = false;
 	private static boolean powerInfoWasDown = false;
 	private static boolean squadMenuWasDown = false;
-	private static boolean titanShiftWasDown = false;
 
 	/** Green Lantern construct wheel: C (ability slot 6) held this many ticks so far, not shifted. */
 	private static int glConstructHeldTicks = 0;
@@ -310,7 +309,6 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			powerInfoWasDown = false;
 			maxSteelTransformWasDown = false;
 			squadMenuWasDown = false;
-			titanShiftWasDown = false;
 			glConstructHeldTicks = 0;
 			glWheelOpenedThisHold = false;
 			// Leaving a world must not carry the last server's squad roster into the next one.
@@ -355,7 +353,6 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		handlePowerSelect(client);
 		handlePowerInfo(client);
 		handleSquadMenu(client);
-		handleTitanShift(client);
 		handleMaxSteelTransform(client);
 		handleWolverineOffHand(client);
 		handleChargedPunch(client);
@@ -475,10 +472,12 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			// "changes 19": H while wearing any Iron Man armour opens / closes the helmet faceplate.
 			// v0.6.16: H while transformed as Max Steel does the same for its helmet. Otherwise H opens
 			// the experimental power wheel as before.
-			if (client.player != null && com.projecthero.mod.titanshifter.TitanShifter.inTitan(client.player)) {
-				// v0.12.31: H inside a Titan is Utility 1 -- Titan Hardening.
+			if (client.player != null && com.projecthero.mod.titanshifter.TitanShifter.isShifter(client.player)
+					&& (com.projecthero.mod.titanshifter.TitanShifter.phase(client.player).insideForm() || !Screen.hasShiftDown())) {
+				// v0.12.32: H is Titan Shift -- transform / detransform (the J key is gone). Inside the Titan it always
+				// reverts; outside, Shift+H still falls through to the power wheel / Thor armour below.
 				ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(
-						com.projecthero.mod.network.TitanShiftPayload.Action.HARDEN));
+						com.projecthero.mod.network.TitanShiftPayload.Action.TOGGLE_SHIFT));
 			} else if (client.player != null && wearingAnyIronMan(client.player)) {
 				ClientPlayNetworking.send(new com.projecthero.mod.network.IronManActionPayload(
 						com.projecthero.mod.network.IronManActionPayload.Action.TOGGLE_FACEPLATE));
@@ -510,6 +509,15 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				// v0.12.1: H as Wolverine deploys / retracts the claws (Shift+H still opens the power wheel).
 				ClientPlayNetworking.send(new com.projecthero.mod.network.WolverineActionPayload(
 						com.projecthero.mod.network.WolverineActionPayload.Action.TOGGLE_CLAWS));
+			} else if (client.player != null
+					&& client.player.getAttachedOrElse(ModAttachments.BOUND_HAMMER_ID, null) != null
+					&& (!Screen.hasShiftDown() || com.projecthero.mod.titanshifter.TitanShifter.isShifter(client.player)
+							|| com.projecthero.mod.wolverine.Wolverine.hasPower(client.player))) {
+				// v0.12.32: H as a Thor bound to Mjolnir -- lightning strikes down and Thor's Armour forms (H again
+				// dismisses it). Shift+H still opens the power wheel, unless another power already owns plain H,
+				// in which case Shift+H is the armour.
+				ClientPlayNetworking.send(new com.projecthero.mod.network.ThorActionPayload(
+						com.projecthero.mod.network.ThorActionPayload.Action.TOGGLE_ARMOUR));
 			} else {
 				client.setScreen(new PowerWheelScreen());
 			}
@@ -637,17 +645,6 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	}
 
 	/** P: the squad screen. Opens for everyone -- it explains how to start a squad if you have none. */
-	/** J: transform into / revert from the Titan. Edge-triggered; the server validates everything. */
-	private static void handleTitanShift(Minecraft client) {
-		boolean down = ModKeyBindings.TITAN_SHIFT.isDown();
-		if (down && !titanShiftWasDown && client.screen == null && client.player != null
-				&& com.projecthero.mod.titanshifter.TitanShifter.isShifter(client.player)) {
-			ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(
-					com.projecthero.mod.network.TitanShiftPayload.Action.TOGGLE_SHIFT));
-		}
-		titanShiftWasDown = down;
-	}
-
 	private static void handleSquadMenu(Minecraft client) {
 		boolean down = ModKeyBindings.SQUAD_MENU.isDown();
 		if (down && !squadMenuWasDown && client.screen == null) {

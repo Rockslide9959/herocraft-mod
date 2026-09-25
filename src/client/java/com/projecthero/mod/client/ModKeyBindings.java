@@ -81,13 +81,6 @@ public final class ModKeyBindings {
 	public static final KeyMapping SQUAD_MENU = new KeyMapping(
 			"key.projecthero.squad_menu", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_P, CATEGORY);
 
-	/**
-	 * Titan Shifter: transform into / revert from the Titan (v0.12.31). Default {@code J} -- unused by vanilla
-	 * 1.21.1 and by every other HeroPack key. Only does anything for a player who has used a Titan Serum.
-	 */
-	public static final KeyMapping TITAN_SHIFT = new KeyMapping(
-			"key.projecthero.titan_shift", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_J, CATEGORY);
-
 	private ModKeyBindings() {
 	}
 
@@ -99,6 +92,5 @@ public final class ModKeyBindings {
 		KeyBindingHelper.registerKeyBinding(POWER_INFO);
 		KeyBindingHelper.registerKeyBinding(MAX_STEEL_TRANSFORM);
 		KeyBindingHelper.registerKeyBinding(SQUAD_MENU);
-		KeyBindingHelper.registerKeyBinding(TITAN_SHIFT);
 	}
 }

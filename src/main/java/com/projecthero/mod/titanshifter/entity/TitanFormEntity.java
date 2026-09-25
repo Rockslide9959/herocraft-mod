@@ -252,7 +252,7 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 	protected EntityDimensions getDefaultDimensions(Pose pose) {
 		TitanType type = this.entityData == null ? TitanType.GENERIC_TITAN : titanType();
 		return EntityDimensions.scalable(type.dimensionWidth(), type.dimensionHeight())
-				.withEyeHeight(type.dimensionHeight() * 0.93f);
+				.withEyeHeight(type.dimensionHeight() * 0.9f); // a player's eyes sit at 0.9 of their height
 	}
 
 	// ---------------- riding ----------------

@@ -86,7 +86,8 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 	/** How long the hammer stays embedded in what it struck before turning for home. */
 	private static final int IMPACT_TICKS = 5;
 	private static final double RETURN_CATCH_DISTANCE = 1.1;
-	private static final float DAMAGE = 10.0f;
+	/** v0.12.32: a thrown Mjolnir hits for 11, the same as a swing. */
+	private static final float DAMAGE = 11.0f;
 	/** The return trip hits hard too, but not as hard as a committed throw. */
 	private static final float RETURN_DAMAGE = 6.0f;
 

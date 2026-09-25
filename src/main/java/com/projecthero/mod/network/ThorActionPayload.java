@@ -43,6 +43,8 @@ public record ThorActionPayload(Action action, boolean state) implements CustomP
 		LIGHTNING_LASER,
 		THUNDERCLAP,
 		STORM_CALL,
-		CHAIN_LIGHTNING
+		CHAIN_LIGHTNING,
+		/** v0.12.32: H -- call down lightning and form Thor's Armour (or dismiss it). */
+		TOGGLE_ARMOUR
 	}
 }

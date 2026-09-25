@@ -11,10 +11,12 @@ import net.minecraft.server.level.ServerPlayer;
  *
  * <pre>
  *   R (1)  Titan Punch  (Shift+R = Titan Kick, third swing of a combo = Heavy Punch)
- *   G (2)  Heavy Smash      X (3)  Titan Stomp      Z (4)  Titan Leap
- *   V (5)  Titan Roar       C (6)  Titan Regeneration
- *   H      Titan Hardening (Utility 1; swaps with C when {@code controls.slot6IsHardening})
- *   J      Titan Shift -- transform / revert
+ *   G (2)  Heavy Smash
+ *   X (3)  Titan Leap   (Shift+X = Titan Roar)
+ *   Z (4)  Titan Stomp
+ *   V (5)  Titan Roar
+ *   C (6)  Titan Regeneration  (Shift+C = Titan Hardening)
+ *   H      Titan Shift -- transform / revert (handled by {@link TitanShifter#requestToggle}, not a slot)
  * </pre>
  */
 public final class TitanShifterAbilityManager {
@@ -38,28 +40,22 @@ public final class TitanShifterAbilityManager {
 		switch (slot) {
 			case SLOT_1 -> TitanAbilities.punch(player);
 			case SLOT_2 -> TitanAbilities.heavySmash(player);
-			case SLOT_3 -> TitanAbilities.stomp(player);
-			case SLOT_4 -> TitanAbilities.leap(player);
+			case SLOT_3 -> {
+				if (player.isShiftKeyDown()) {
+					TitanAbilities.roar(player);
+				} else {
+					TitanAbilities.leap(player);
+				}
+			}
+			case SLOT_4 -> TitanAbilities.stomp(player);
 			case SLOT_5 -> TitanAbilities.roar(player);
 			case SLOT_6 -> {
-				if (TitanShifterConfig.controls().slot6IsHardening) {
+				if (player.isShiftKeyDown()) {
 					TitanAbilities.hardening(player);
 				} else {
 					TitanAbilities.regeneration(player);
 				}
 			}
-		}
-	}
-
-	/** The Utility-1 (H) ability: Hardening, or Regeneration when the slots are swapped. */
-	public static void handleUtility(ServerPlayer player) {
-		if (!hasContext(player)) {
-			return;
-		}
-		if (TitanShifterConfig.controls().slot6IsHardening) {
-			TitanAbilities.regeneration(player);
-		} else {
-			TitanAbilities.hardening(player);
 		}
 	}
 
@@ -73,10 +69,10 @@ public final class TitanShifterAbilityManager {
 		return switch (slot) {
 			case SLOT_1 -> TitanAbilities.PUNCH;
 			case SLOT_2 -> TitanAbilities.SMASH;
-			case SLOT_3 -> TitanAbilities.STOMP;
-			case SLOT_4 -> TitanAbilities.LEAP;
+			case SLOT_3 -> TitanAbilities.LEAP;
+			case SLOT_4 -> TitanAbilities.STOMP;
 			case SLOT_5 -> TitanAbilities.ROAR;
-			case SLOT_6 -> TitanShifterConfig.controls().slot6IsHardening ? TitanAbilities.HARDEN : TitanAbilities.REGEN;
+			case SLOT_6 -> TitanAbilities.REGEN;
 		};
 	}
 

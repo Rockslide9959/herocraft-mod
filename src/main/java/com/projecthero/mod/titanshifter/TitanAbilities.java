@@ -203,7 +203,7 @@ public final class TitanAbilities {
 			return;
 		}
 		var a = TitanShifterConfig.abilities();
-		TitanShifter.startCooldown(player, STOMP, a.stompCooldown, 3);
+		TitanShifter.startCooldown(player, STOMP, a.stompCooldown, 4);
 		ServerLevel level = level(form);
 		form.play("stomp");
 		form.schedule(10, () -> {
@@ -232,7 +232,7 @@ public final class TitanAbilities {
 			return;
 		}
 		var a = TitanShifterConfig.abilities();
-		TitanShifter.startCooldown(player, LEAP, a.leapCooldown, 4);
+		TitanShifter.startCooldown(player, LEAP, a.leapCooldown, 3);
 		ServerLevel level = level(form);
 		form.play("leap");
 		level.playSound(null, form.getX(), form.getY(), form.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 2.0f, 0.5f);
@@ -333,7 +333,7 @@ public final class TitanAbilities {
 		}
 		var a = TitanShifterConfig.abilities();
 		long now = player.level().getGameTime();
-		TitanShifter.startCooldown(player, HARDEN, a.hardenCooldown, 7);
+		TitanShifter.startCooldown(player, HARDEN, a.hardenCooldown, 6);
 		TitanShifterState s = TitanShifter.state(player).copy();
 		s.hardenUntil = now + a.hardenTicks;
 		TitanShifter.save(player, s);

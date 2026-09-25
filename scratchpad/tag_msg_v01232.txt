@@ -1,0 +1,35 @@
+v0.12.32 - Titan Shifter reworked (new player-shaped body, H to shift, Titan Energy), Thor's Armour, Thor buffs, Impact Web cocoons
+
+TITAN SHIFTER - NEW BODY
+- The Titan is now a regular Minecraft player model (your titanshifter skin) scaled up to exactly 11 blocks tall. Its hit-box is a regular player's hit-box scaled the same way (3.67 wide x 11 tall) and the camera/eyes sit where a player's would.
+- Every animation was remade for the new body: idle breathing, walk, run, punch, kick, heavy punch, heavy smash, stomp, leap, landing, roar, hurt, regeneration, hardening, transformation, reversion and death.
+- Titan Hardening still turns the Titan into crystal - the crystal texture is now a blue recolour of your skin.
+
+TITAN SHIFTER - CONTROLS
+- The J keybind is gone. H now transforms and detransforms.
+- R Titan Punch (Shift+R Titan Kick) | G Heavy Smash | Z Titan Stomp | X Titan Leap (Shift+X Titan Roar) | V Titan Roar | C Titan Regeneration (Shift+C Titan Hardening).
+- Shift+H still opens the power wheel while you are human.
+
+TITAN SHIFTER - TITAN ENERGY
+- New Titan Energy bar on the HUD, 100 max. You need at least 90% to transform (the white tick on the bar marks 90%).
+- After you detransform (or are defeated) the bar is emptied, then refills 1% every second while you are human.
+- The Titan now has base regeneration: it heals 3 HP per second whenever it is hurt, and that drains the Titan Energy bar (2 energy per second). It stops when the bar is empty.
+- The old 60 second shift cooldown is gone - the energy bar is the limit now.
+
+THOR
+- New: Thor's Armour. Press H while bound to Mjolnir and lightning strikes down on you as the armour (black and crimson chestplate, leggings and boots, full 3D model) forms on your body. Press H again to dismiss it. If it falls out of your inventory or you die, it despawns. (Shift+H still opens the power wheel.)
+- Base Resistance removed. Thor now takes 80% less damage from everything instead.
+- Thor now has Regeneration I at all times.
+- Unarmed melee is now +11 (was +10). Mjolnir now hits for 11, swung or thrown.
+- The Thor ability HUD no longer disappears when you are not holding Mjolnir - it stays up for as long as you are bound to a hammer.
+
+SPIDER-MAN
+- Impact Web now wraps whatever it hits in a web cocoon for 12 seconds (it used to only pin targets that were knocked into a wall, for 6 seconds).
+
+MENUS AND GUIDE
+- The Hero Pack guide, the Your Power screen, item names, HUD text and the CurseForge page are updated: new Thor chapter sections (the Power of Thor and Thor's Armour), the Titan Shifter chapter (H key, Titan Energy, new keys), and the Impact Web description.
+
+NOTES
+- Existing Titan Shifters start with a full Titan Energy bar. Your titan config file is upgraded automatically (new body size, no cooldown).
+
+Please wait about 20 minutes for CurseForge to verify the update.

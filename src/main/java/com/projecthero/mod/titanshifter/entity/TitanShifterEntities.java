@@ -21,7 +21,7 @@ public final class TitanShifterEntities {
 	public static final EntityType<TitanFormEntity> TITAN_FORM = register("titan_form",
 			EntityType.Builder.<TitanFormEntity>of(TitanFormEntity::new, MobCategory.MISC)
 					.sized((float) TitanShifterConfig.stats().widthBlocks, (float) TitanShifterConfig.stats().heightBlocks)
-					.eyeHeight((float) (TitanShifterConfig.stats().heightBlocks * 0.93))
+					.eyeHeight((float) (TitanShifterConfig.stats().heightBlocks * 0.9))
 					.clientTrackingRange(16)
 					.updateInterval(2)
 					.noSave()

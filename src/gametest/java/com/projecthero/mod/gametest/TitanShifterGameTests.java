@@ -6,6 +6,7 @@ import com.projecthero.mod.titanshifter.TitanAbilities;
 import com.projecthero.mod.titanshifter.TitanPhase;
 import com.projecthero.mod.titanshifter.TitanShifter;
 import com.projecthero.mod.titanshifter.TitanShifterConfig;
+import com.projecthero.mod.titanshifter.data.TitanShifterState;
 import com.projecthero.mod.titanshifter.entity.TitanFormEntity;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
@@ -42,6 +43,11 @@ public class TitanShifterGameTests implements FabricGameTest {
 		return p;
 	}
 
+	/** Mock players are not reliably ticked by the server: run the Titan tick ourselves, exactly as the server tick would. */
+	private static void pump(GameTestHelper helper, ServerPlayer p) {
+		helper.onEachTick(() -> TitanShifter.tick(p));
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void serumUnlocksOnce(GameTestHelper helper) {
 		ServerPlayer p = helper.makeMockServerPlayerInLevel();
@@ -73,7 +79,7 @@ public class TitanShifterGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
 	public void transformCreatesARealTitanThenReverts(GameTestHelper helper) {
 		ServerPlayer p = shifter(helper);
-		helper.onEachTick(() -> TitanShifter.tick(p));
+		pump(helper, p);
 		helper.assertTrue(TitanShifter.transform(p), "transform starts");
 		helper.assertTrue(TitanShifter.phase(p) == TitanPhase.TRANSFORMING, "TRANSFORMING first");
 		TitanFormEntity form = TitanShifter.formOf(p);
@@ -90,8 +96,9 @@ public class TitanShifterGameTests implements FabricGameTest {
 				helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN, "back to HUMAN, was " + TitanShifter.phase(p));
 				helper.assertTrue(p.getVehicle() == null, "no longer riding");
 				helper.assertTrue(form.isRemoved(), "the Titan was removed");
-				helper.assertTrue(TitanShifter.transformCooldownRemaining(p) > 0, "the shift cooldown is running");
-				helper.assertFalse(TitanShifter.transform(p), "cannot shift during the cooldown");
+				helper.assertTrue(TitanShifter.energy(p) == 0f, "reverting empties the Titan Energy bar, was " + TitanShifter.energy(p));
+				helper.assertFalse(TitanShifter.transform(p), "cannot shift again with an empty bar");
+				helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN, "still human after the refused shift");
 				helper.succeed();
 			});
 		});
@@ -100,7 +107,7 @@ public class TitanShifterGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
 	public void abilitiesGoThroughTheRouterWithCooldowns(GameTestHelper helper) {
 		ServerPlayer p = shifter(helper);
-		helper.onEachTick(() -> TitanShifter.tick(p));
+		pump(helper, p);
 		TitanShifter.transform(p);
 		helper.runAfterDelay(SETTLE, () -> {
 			TitanFormEntity form = TitanShifter.formOf(p);
@@ -116,8 +123,10 @@ public class TitanShifterGameTests implements FabricGameTest {
 			helper.assertTrue(TitanShifter.cooldownRemaining(p, TitanAbilities.PUNCH) > 0, "punch is on cooldown");
 			helper.runAfterDelay(15, () -> {
 				helper.assertTrue(z.getHealth() < before || !z.isAlive(), "the punch hurt the zombie");
-				AbilityRouter.handleInput(p, 4, true); // Ability 4 = Titan Leap
+				AbilityRouter.handleInput(p, 3, true); // Ability 3 (X) = Titan Leap
 				helper.assertTrue(TitanShifter.cooldownRemaining(p, TitanAbilities.LEAP) > 0, "leap is on cooldown");
+				AbilityRouter.handleInput(p, 4, true); // Ability 4 (Z) = Titan Stomp
+				helper.assertTrue(TitanShifter.cooldownRemaining(p, TitanAbilities.STOMP) > 0, "stomp is on cooldown");
 				helper.succeed();
 			});
 		});
@@ -126,7 +135,7 @@ public class TitanShifterGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 600)
 	public void defeatEjectsTheShifterAndAppliesRecovery(GameTestHelper helper) {
 		ServerPlayer p = shifter(helper);
-		helper.onEachTick(() -> TitanShifter.tick(p));
+		pump(helper, p);
 		TitanShifter.transform(p);
 		helper.runAfterDelay(SETTLE, () -> {
 			TitanFormEntity form = TitanShifter.formOf(p);
@@ -173,5 +182,81 @@ public class TitanShifterGameTests implements FabricGameTest {
 		helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN, "still human");
 		helper.assertTrue(p.getVehicle() == null, "not riding anything");
 		helper.succeed();
+	}
+
+// ---------------- v0.12.32: Titan Energy, the new hit-box, the new key layout ----------------
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void transformNeedsNinetyPercentEnergy(GameTestHelper helper) {
+		ServerPlayer p = shifter(helper);
+		helper.assertTrue(TitanShifter.energy(p) == (float) TitanShifterConfig.energy().max, "a fresh shifter has a full bar");
+		TitanShifterState low = TitanShifter.state(p).copy();
+		low.energy = 89.0f;
+		p.setAttached(com.projecthero.mod.attachment.ModAttachments.TITAN_SHIFTER_STATE, low);
+		helper.assertFalse(TitanShifter.transform(p), "89% is not enough");
+		helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN, "still human");
+		TitanShifterState ok = TitanShifter.state(p).copy();
+		ok.energy = 90.0f;
+		p.setAttached(com.projecthero.mod.attachment.ModAttachments.TITAN_SHIFTER_STATE, ok);
+		helper.assertTrue(TitanShifter.transform(p), "90% is enough");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void humanEnergyRefillsOnePercentPerSecond(GameTestHelper helper) {
+		ServerPlayer p = shifter(helper);
+		TitanShifterState s = TitanShifter.state(p).copy();
+		s.energy = 0f;
+		p.setAttached(com.projecthero.mod.attachment.ModAttachments.TITAN_SHIFTER_STATE, s);
+		pump(helper, p);
+		helper.runAfterDelay(65, () -> {
+			float e = TitanShifter.energy(p);
+			// ~3% after ~3 s (the mock player may also be ticked by the server itself, so allow up to double)
+			helper.assertTrue(e >= 2.0f && e <= 8.0f, "about 3% after ~3 s, got " + e);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
+	public void titanBaseRegenerationSpendsEnergy(GameTestHelper helper) {
+		ServerPlayer p = shifter(helper);
+		pump(helper, p);
+		TitanShifter.transform(p);
+		helper.runAfterDelay(SETTLE, () -> {
+			TitanFormEntity form = TitanShifter.formOf(p);
+			helper.assertTrue(TitanShifter.inTitan(p) && form != null, "in the Titan");
+			form.setHealth(form.getMaxHealth() - 200.0f);
+			float hp0 = form.getHealth();
+			float e0 = TitanShifter.energy(p);
+			helper.runAfterDelay(60, () -> {
+				helper.assertTrue(form.getHealth() > hp0 + 6.0f, "the Titan heals ~3 HP a second, was " + hp0 + " now " + form.getHealth());
+				helper.assertTrue(TitanShifter.energy(p) < e0 - 3.0f, "and it costs Titan Energy: " + e0 + " -> " + TitanShifter.energy(p));
+				helper.succeed();
+			});
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
+	public void shiftVariantsAndTheNewHitBox(GameTestHelper helper) {
+		ServerPlayer p = shifter(helper);
+		pump(helper, p);
+		TitanShifter.transform(p);
+		helper.runAfterDelay(SETTLE, () -> {
+			TitanFormEntity form = TitanShifter.formOf(p);
+			helper.assertTrue(form != null, "in the Titan");
+			helper.assertTrue(Math.abs(form.getBbHeight() - 11.0f) < 1e-3, "11 blocks tall, got " + form.getBbHeight());
+			helper.assertTrue(Math.abs(form.getBbWidth() - 3.67f) < 0.02f, "a player's proportions: 3.67 wide, got " + form.getBbWidth());
+			p.setShiftKeyDown(true);
+			AbilityRouter.handleInput(p, 3, true); // Shift+X = Titan Roar
+			helper.assertTrue(TitanShifter.cooldownRemaining(p, TitanAbilities.ROAR) > 0, "Shift+X roars");
+			helper.assertTrue(TitanShifter.cooldownRemaining(p, TitanAbilities.LEAP) == 0, "and does not leap");
+			// the roar locks the Titan for a second, so let it finish before the next ability
+			helper.runAfterDelay(40, () -> {
+				AbilityRouter.handleInput(p, 6, true); // Shift+C = Titan Hardening
+				helper.assertTrue(TitanShifter.cooldownRemaining(p, TitanAbilities.HARDEN) > 0, "Shift+C hardens");
+				helper.assertTrue(TitanShifter.cooldownRemaining(p, TitanAbilities.REGEN) == 0, "and does not regenerate");
+				helper.succeed();
+			});
+		});
 	}
 }

@@ -125,8 +125,10 @@ same clearance in; do **not** ship a bare vanilla-sized box.
 
 ## Textures — current state
 
-* `thor` and the `crimson_vanguard` default still ship `crimson_vanguard.png` — no bespoke Thor art
-  yet.
+* `thor` (v0.12.32) ships its own skin, `thor.png` (byte-for-byte from the supplied `thor.bbmodel`), on `geo/thor.geo.json` —
+  the standard player-armour rig (same cubes/UVs as `spider_man.geo.json`, `inflate` 0.3 / 0.55). The skin has no head art, so
+  Thor's Armour is three pieces (chest, legs, boots) conjured by H — see `com.projecthero.mod.thorarmor`. `crimson_vanguard` is
+  now only the fallback default.
 * Every Iron Man mark (`mark_1` … `mark_vii`) now has **real, hand-authored art**: the actual player
   skin supplied for that mark, on that mark's own UV layout. None of them are the crimson placeholder
   or a desaturated copy of it any more.
@@ -154,8 +156,7 @@ work for `mark_2` … `mark_vii`.
 The vanilla sleeve (second skin layer) is hidden by `PlayerModelMixin` while any superhero piece is
 worn, so nothing shows through.
 
-**Sets that still need bespoke GeckoLib-UV art:** `thor` only — it remains on the crimson placeholder.
-Every Iron Man mark is done.
+**Sets that still need bespoke GeckoLib-UV art:** none — Thor got his in v0.12.32 and every Iron Man mark is done.
 
 ---
 

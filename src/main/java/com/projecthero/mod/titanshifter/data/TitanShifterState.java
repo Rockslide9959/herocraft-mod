@@ -34,14 +34,16 @@ public final class TitanShifterState {
 	public long lastActionTick;
 	/** {@code abilityId} -> absolute game-time it is ready again. */
 	public final Map<String, Long> abilityReadyAt;
+	/** Titan Energy (v0.12.32): 0..{@code TitanShifterConfig.energy().max}. Synced so the HUD can draw the bar. */
+	public float energy;
 
 	public TitanShifterState() {
-		this(false, TitanPhase.HUMAN.name(), "generic_titan", 0L, 0L, 0L, 0L, 0L, 0f, 0f, 0, 0L, new HashMap<>());
+		this(false, TitanPhase.HUMAN.name(), "generic_titan", 0L, 0L, 0L, 0L, 0L, 0f, 0f, 0, 0L, new HashMap<>(), 0f);
 	}
 
 	public TitanShifterState(boolean unlocked, String phase, String typeId, long phaseStartedAt, long phaseUntil,
 			long cooldownUntil, long regenUntil, long hardenUntil, float titanHealth, float titanMaxHealth,
-			int lastAction, long lastActionTick, Map<String, Long> abilityReadyAt) {
+			int lastAction, long lastActionTick, Map<String, Long> abilityReadyAt, float energy) {
 		this.unlocked = unlocked;
 		this.phase = phase;
 		this.typeId = typeId;
@@ -55,6 +57,7 @@ public final class TitanShifterState {
 		this.lastAction = lastAction;
 		this.lastActionTick = lastActionTick;
 		this.abilityReadyAt = new HashMap<>(abilityReadyAt);
+		this.energy = energy;
 	}
 
 	public TitanPhase phase() {
@@ -63,7 +66,7 @@ public final class TitanShifterState {
 
 	public TitanShifterState copy() {
 		return new TitanShifterState(unlocked, phase, typeId, phaseStartedAt, phaseUntil, cooldownUntil, regenUntil,
-				hardenUntil, titanHealth, titanMaxHealth, lastAction, lastActionTick, abilityReadyAt);
+				hardenUntil, titanHealth, titanMaxHealth, lastAction, lastActionTick, abilityReadyAt, energy);
 	}
 
 	public static final Codec<TitanShifterState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -80,6 +83,8 @@ public final class TitanShifterState {
 			Codec.INT.optionalFieldOf("last_action", 0).forGetter(s -> s.lastAction),
 			Codec.LONG.optionalFieldOf("last_action_tick", 0L).forGetter(s -> s.lastActionTick),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", Map.of())
-					.forGetter(s -> new HashMap<>(s.abilityReadyAt))
+					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
+			// saves from v0.12.31 have no energy: an existing shifter simply starts with a full bar
+			Codec.FLOAT.optionalFieldOf("energy", 100f).forGetter(s -> s.energy)
 	).apply(instance, TitanShifterState::new));
 }

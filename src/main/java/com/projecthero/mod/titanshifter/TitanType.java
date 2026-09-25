@@ -11,7 +11,7 @@ import net.minecraft.resources.ResourceLocation;
  * next step: {@code TitanAbilities} dispatches on the type where a kit differs.
  */
 public enum TitanType {
-	GENERIC_TITAN("generic_titan", "titan_form", 11.0f, 4.0f, 500.0f, 25.0, 8.0, 0.45, 1.0f);
+	GENERIC_TITAN("generic_titan", "titan_form", 11.0f, 3.67f, 500.0f, 25.0, 8.0, 0.45, 1.0f);
 
 	public final String id;
 	private final String modelName;
@@ -82,9 +82,12 @@ public enum TitanType {
 		return "animation." + modelName + ".";
 	}
 
-	/** The model is authored at this height in blocks; the renderer scales by (dimension height / this). */
+	/**
+	 * The model is authored at this height in blocks; the renderer scales by (dimension height / this). v0.12.32:
+	 * the body is a regular player model (32 px = 2 blocks), so an 11-block Titan is drawn at 5.5x.
+	 */
 	public float modelHeight() {
-		return 11.0f;
+		return 2.0f;
 	}
 
 	public static TitanType byId(String id) {

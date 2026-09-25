@@ -68,6 +68,8 @@ public final class ModNetworking {
 		ServerPlayNetworking.registerGlobalReceiver(ThorActionPayload.TYPE, (payload, context) -> {
 			if (payload.action() == ThorActionPayload.Action.TOGGLE_FLIGHT) {
 				ThorPowers.toggleFlight(context.player());
+			} else if (payload.action() == ThorActionPayload.Action.TOGGLE_ARMOUR) {
+				com.projecthero.mod.thorarmor.ThorArmor.toggle(context.player());
 			}
 		});
 
@@ -140,13 +142,11 @@ public final class ModNetworking {
 			}
 		});
 
-		// Titan Shifter: the Titan Shift key (transform / revert) and the Hardening key. The server re-validates the
-		// unlock, phase, cooldowns and room -- these are only requests.
+		// Titan Shifter: the Titan Shift key (H -- transform / revert). The server re-validates the unlock, phase,
+		// Titan Energy, cooldown and room -- this is only a request.
 		ServerPlayNetworking.registerGlobalReceiver(TitanShiftPayload.TYPE, (payload, context) -> {
 			if (payload.action() == TitanShiftPayload.Action.TOGGLE_SHIFT) {
 				com.projecthero.mod.titanshifter.TitanShifter.requestToggle(context.player());
-			} else if (payload.action() == TitanShiftPayload.Action.HARDEN) {
-				com.projecthero.mod.titanshifter.TitanShifterAbilityManager.handleUtility(context.player());
 			}
 		});
 

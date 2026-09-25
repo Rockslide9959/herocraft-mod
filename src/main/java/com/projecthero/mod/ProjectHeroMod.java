@@ -85,6 +85,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.punisher.entity.PunisherEntityTypes.initialize();
 		com.projecthero.mod.greenlantern.item.GreenLanternItems.initialize();
 		com.projecthero.mod.wolverine.item.WolverineItems.initialize();
+		com.projecthero.mod.thorarmor.ThorArmorItems.initialize();
+		com.projecthero.mod.thorarmor.ThorArmor.initialize();
 		com.projecthero.mod.titanshifter.item.TitanShifterItems.initialize();
 		com.projecthero.mod.titanshifter.entity.TitanShifterEntities.initialize();
 		com.projecthero.mod.hero.power.p05.GeoEntityTypes.initialize();
@@ -224,6 +226,8 @@ public class ProjectHeroMod implements ModInitializer {
 				com.projecthero.mod.wolverine.Wolverine.clearTransient(sp);
 				// Titan Shifter: step out of the Titan onto the ground before dying (the unlock is kept).
 				com.projecthero.mod.titanshifter.TitanShifter.forceEnd(sp, true);
+				// Thor: the conjured armour dies with its wearer (never drops, never survives keepInventory).
+				com.projecthero.mod.thorarmor.ThorArmor.onDeath(sp);
 			}
 			return true;
 		});

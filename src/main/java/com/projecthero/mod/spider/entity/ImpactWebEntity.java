@@ -3,6 +3,7 @@ package com.projecthero.mod.spider.entity;
 import com.projecthero.mod.hero.HeroConfig;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.spider.SpiderCombat;
+import com.projecthero.mod.spider.SpiderWebs;
 
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
@@ -23,8 +24,9 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Combat Mode's Impact Web (v0.12.20): one heavy, fast, straight-flying ball of webbing. On an entity it deals
- * {@link SpiderCombat#IMPACT_DAMAGE} and a hard knockback, and -- if the knockback slams the target into a block
- * -- {@link SpiderCombat#watchImpact} pins it to that wall for six seconds. Terrain is never touched.
+ * {@link SpiderCombat#IMPACT_DAMAGE} and a hard knockback, and wraps it in a web cocoon for twelve seconds
+ * ({@link SpiderCombat#IMPACT_PIN_TICKS}); if the knockback also slams the target into a block,
+ * {@link SpiderCombat#watchImpact} pins it to that wall and renews the cocoon. Terrain is never touched.
  *
  * <p>Server-authoritative, like {@code TurboBoltEntity}: only {@link SpiderCombat#impactWeb} spawns it and only
  * this class resolves the hit.
@@ -104,6 +106,8 @@ public class ImpactWebEntity extends AbstractHurtingProjectile {
 		Vec3 origin = position();
 		AbilityHelpers.hurt(shooter, target, SpiderCombat.IMPACT_DAMAGE);
 		AbilityHelpers.knockbackFrom(target, origin, SpiderCombat.IMPACT_KNOCKBACK);
+		// v0.12.32: the ball itself cocoons whatever it hits (12 s), wall or no wall.
+		SpiderWebs.cocoonFor(shooter, target, SpiderCombat.IMPACT_PIN_TICKS);
 		SpiderCombat.watchImpact(shooter, target, getDeltaMovement());
 		splat(origin);
 	}

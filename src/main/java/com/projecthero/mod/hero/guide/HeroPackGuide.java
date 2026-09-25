@@ -287,7 +287,15 @@ public final class HeroPackGuide {
 			}
 		}));
 
-		out.add(chapter("projecthero.guide.thor", lines -> para(lines, "projecthero.guide.thor.body")));
+		out.add(chapter("projecthero.guide.thor", lines -> {
+			para(lines, "projecthero.guide.thor.body");
+			blank(lines);
+			head(lines, "projecthero.guide.thor.perks");
+			para(lines, "projecthero.guide.thor.perks.body");
+			blank(lines);
+			head(lines, "projecthero.guide.thor.armour");
+			para(lines, "projecthero.guide.thor.armour.body");
+		}));
 
 		out.add(chapter("projecthero.guide.iron_man", lines -> {
 			lines.add(Component.translatable("projecthero.guide.iron_man.tier").withStyle(ChatFormatting.DARK_AQUA));
@@ -590,12 +598,15 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.titan_shifter.transform");
 			para(lines, "projecthero.guide.titan_shifter.transform.body");
 			blank(lines);
+			head(lines, "projecthero.guide.titan_shifter.energy");
+			para(lines, "projecthero.guide.titan_shifter.energy.body");
+			blank(lines);
 			head(lines, "projecthero.guide.titan_shifter.controls");
-			lines.add(Component.literal(" J  ").withStyle(ChatFormatting.GOLD)
-					.append(Component.translatable("key.projecthero.titan_shift").withStyle(ChatFormatting.WHITE)));
-			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C", "H"}) {
+			lines.add(Component.literal(" H  ").withStyle(ChatFormatting.GOLD)
+					.append(Component.translatable("projecthero.guide.titan_shifter.shift_key").withStyle(ChatFormatting.WHITE)));
+			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C", "Shift+C"}) {
 				String key = switch (slot) {
-					case "R" -> "punch"; case "G" -> "heavy_smash"; case "X" -> "stomp"; case "Z" -> "leap";
+					case "R" -> "punch"; case "G" -> "heavy_smash"; case "X" -> "leap"; case "Z" -> "stomp";
 					case "V" -> "roar"; case "C" -> "regeneration"; default -> "hardening";
 				};
 				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)

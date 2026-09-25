@@ -56,9 +56,12 @@ Creative players bypass it.
 - **Abilities:** Lightning Strike (with Chain Lightning), Lightning Laser (held beam), Thunderclap
   shockwave, Storm Call (a personal storm that follows you), Mjolnir Parry, and flight via
   double-tap-jump while holding the hammer, with speed-based flight poses.
-- **Passives:** the Power of Thor — bonus strength, damage resistance, and fire immunity while the
-  hammer is bound to you.
-- Craftable **Thor armour** rendered as a full 3D GeckoLib model.
+- **Passives:** the Power of Thor while the hammer is bound to you — **+11 melee** bare-handed (Mjolnir itself
+  hits for **11**), **+10 hearts**, **80% less damage from everything**, permanent **Regeneration I**, and immunity to
+  falls and lightning. Your ability bar stays on screen while you are bound, even when the hammer is not in your hand.
+- **Thor's Armour (v0.12.32):** press **H** and lightning strikes down on you as a black-and-crimson 3D GeckoLib
+  armour set forms on your body (Shift+H still opens the power wheel). Press **H** again to dismiss it. It is
+  conjured, never crafted: if it falls out of your inventory or you die, it despawns.
 
 ### 🔴 Iron Man / Tony Stark
 A permanent **Hero-Tier** power. Build an **Arc Reactor**, craft the **Stark Fabricator** and a
@@ -195,21 +198,26 @@ regenerative mutation is consumed and rebuilt as Wolverine.
   strikes) · **V** Adamantium Execution (60-damage finisher).
 
 ### 🗿 Titan Shifter
-A permanent **Primary** power (v0.12.31). Craft a **Titan Serum** (4 titanium-gold plates, 2 netherite ingots, 2
-magma blocks, a nether star) and use it to unlock Titan Shifting — it never transforms you by itself. Press **J**
-to burst into an **11-block Titan** (lightning, steam, a 3 s transformation); press **J** again to change back.
+A permanent **Primary** power (v0.12.31, reworked in v0.12.32). Craft a **Titan Serum** (4 titanium-gold plates, 2
+netherite ingots, 2 magma blocks, a nether star) and use it to unlock Titan Shifting — it never transforms you by
+itself. Press **H** (with at least **90% Titan Energy**) to burst into an **11-block Titan** — a regular player-shaped
+body and hit-box scaled up to eleven blocks (lightning, steam, a 3 s transformation); press **H** again to change back.
+The old J key is gone.
 
 - **A real creature, not a big player.** The Titan is its own entity with **500 HP, 25 armour, 8 toughness** and
   full knockback immunity; you ride it as its controller and take no damage yourself — the Titan takes the hits.
   Everyone in the world sees and can fight it. Fall damage ×0.1, fire ×0.2, explosions ×0.5; tiny hits are shrugged off.
-- **Seven abilities:** **R** Titan Punch (20; third swing of a combo = Heavy Punch 35; **Shift+R** = Titan Kick 30) ·
-  **G** Heavy Smash (charge, then 50 in an area) · **X** Titan Stomp (25, 6 blocks) · **Z** Titan Leap (~3× a jump,
-  landing 20 in 5 blocks) · **V** Titan Roar (12 blocks: slow, weaken, scatter; bosses resist) · **C** Titan Regeneration
-  (10 HP/s for 10 s) · **H** Titan Hardening (60% less damage for 8 s, crystal skin).
+- **Titan Energy (v0.12.32):** a 100-point bar. You need **90%** to transform; changing back (or being defeated)
+  empties it and it refills **1% a second** while you are human. Inside the Titan the bar is spent by the Titan's
+  **base regeneration** — 3 HP per second whenever it is hurt, costing 2 energy a second.
+- **Abilities:** **R** Titan Punch (20; third swing of a combo = Heavy Punch 35; **Shift+R** = Titan Kick 30) ·
+  **G** Heavy Smash (charge, then 50 in an area) · **Z** Titan Stomp (25, 6 blocks) · **X** Titan Leap (~3× a jump,
+  landing 20 in 5 blocks; **Shift+X** = Titan Roar) · **V** Titan Roar (12 blocks: slow, weaken, scatter; bosses resist) ·
+  **C** Titan Regeneration (10 HP/s for 10 s; **Shift+C** = Titan Hardening: 60% less damage for 8 s, crystal skin).
 - **Heavy by design:** slow ground-shaking footsteps with dust and camera tremors, steam off the shoulders when hurt
   or healing, no terrain digging (it tramples leaves and plants; a server option lets attacks break weak blocks).
 - **State machine:** human → transforming → Titan → reverting → human, or Titan → defeated → recovering → human.
-  After reverting or being defeated you cannot shift for 60 s. Logging out inside a Titan drops you safely on the ground.
+  There is no lockout any more — the empty Titan Energy bar is the limit. Logging out inside a Titan drops you safely on the ground.
 - Server-authoritative, GeckoLib-animated (idle, walk, run, punch, kick, heavy punch, smash, stomp, leap, landing, roar,
   hurt, regeneration, hardening, transformation, reversion, death), built to add more Titan types later. Everything is in
   `config/projecthero_titan_shifter.json`.

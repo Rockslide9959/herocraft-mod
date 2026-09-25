@@ -35,7 +35,7 @@ import net.minecraft.world.phys.Vec3;
  *   R  Web Strike   web a target, get hauled straight at it, hit for 15 + knockback           (3 s cooldown)
  *   G  Web Zip      as ever -- but aimed at a mob/player it rips whatever they hold out of their hands
  *   X  Web-Throw    hold: web a target and whirl it around your head; release: hurl it where you look (3 s)
- *   Z  Impact Web   one heavy web ball: 10 damage, knockback, pins to a wall for 6 s                   (1 s)
+ *   Z  Impact Web   one heavy web ball: 10 damage, knockback, cocoons the target for 12 s                  (1 s)
  *   V  Web Net / sneak+hold Web Blossom (2 s charge here instead of 3 s)
  *   C  Wall Crawl toggle
  * </pre>
@@ -69,8 +69,8 @@ public final class SpiderCombat {
 	public static final double IMPACT_KNOCKBACK = 1.6;
 	public static final double IMPACT_SPEED = 2.2;
 	public static final int IMPACT_LIFE_TICKS = 30;
-	/** How long a target that hits a wall stays pinned to it: six seconds. */
-	public static final int IMPACT_PIN_TICKS = 6 * 20;
+	/** How long a target struck by an Impact Web stays cocooned (and, if it hits a wall, pinned to it): twelve seconds. */
+	public static final int IMPACT_PIN_TICKS = 12 * 20;
 	/** How long after the hit a knocked-back target is watched for a wall collision. */
 	private static final int PIN_WATCH_TICKS = 14;
 

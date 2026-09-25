@@ -18,7 +18,7 @@ import net.minecraft.world.entity.player.Player;
  * The Thor HUD (v0.6.22 rework). Built to mirror {@link SpiderHud} -- the same six ability boxes in
  * the same bottom-right corner, the same cooldown shading, the same hold-{@code ALT}-for-names, and a
  * resource meter beneath -- just recoloured for a storm god (deep blue panels, gold trim) instead of
- * Spider-Man's reds. Only drawn while the player is actually holding Mjolnir.
+ * Spider-Man's reds. Drawn while the player is holding Mjolnir or is bound to a hammer (v0.12.32).
  *
  * <p>The hammerless-flight countdown from the old HUD is kept: a single small line above the boxes
  * that turns urgent under five seconds.
@@ -64,7 +64,12 @@ public final class ThorHud {
 				|| player.getOffhandItem().is(ModItems.MJOLNIR);
 		int graceTicks = player.getAttachedOrElse(ModAttachments.HAMMERLESS_FLIGHT_TICKS, 0);
 
-		if (holdingMjolnir) {
+		// v0.12.32: a player who is BOUND to a hammer keeps the kit on screen even with Mjolnir out of their hands
+		// (the abilities themselves already work bound-or-holding); it steps aside only while they are inside a Titan.
+		boolean bound = player.getAttachedOrElse(ModAttachments.BOUND_HAMMER_ID, null) != null
+				&& !com.projecthero.mod.titanshifter.TitanShifter.phase(player).insideForm();
+
+		if (holdingMjolnir || bound) {
 			renderKit(graphics, client, player);
 			renderWrathCharge(graphics, client, player);
 		}

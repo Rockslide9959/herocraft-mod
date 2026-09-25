@@ -24,6 +24,13 @@ import net.fabricmc.loader.api.FabricLoader;
 public final class TitanShifterConfig {
 	private static TitanShifterConfig instance = new TitanShifterConfig();
 
+	/**
+	 * Config schema, bumped whenever a default changes in a way a stale file must not override (see {@link #load}).
+	 * Deliberately a nullable {@link Integer} with no initialiser: GSON builds the object through the no-arg
+	 * constructor, so an {@code int} defaulting to 2 would read as "2" for a v0.12.31 file that has no such key.
+	 */
+	public Integer configVersion;
+
 	public Stats stats = new Stats();
 	public Damage damage = new Damage();
 	public Abilities abilities = new Abilities();
@@ -31,12 +38,13 @@ public final class TitanShifterConfig {
 	public Resistances resistances = new Resistances();
 	public Effects effects = new Effects();
 	public World world = new World();
-	public Controls controls = new Controls();
+	public Energy energy = new Energy();
 
 	public static final class Stats {
-		/** Titan hit-box height in blocks (spec: 10-12). */
+		/** Titan hit-box height in blocks -- a regular player, scaled up to 11 blocks tall (v0.12.32). */
 		public double heightBlocks = 11.0;
-		public double widthBlocks = 4.0;
+		/** A player's 0.6 x 1.8 hit-box scaled by 11 / 1.8 = 6.11 keeps its proportions: 0.6 * 6.11 = 3.67. */
+		public double widthBlocks = 3.67;
 		public double maxHealth = 500.0;
 		public double armor = 25.0;
 		public double armorToughness = 8.0;
@@ -98,8 +106,8 @@ public final class TitanShifterConfig {
 		public int revertTicks = 40;
 		public int defeatTicks = 60;
 		public int recoveryTicks = 100;
-		/** Cooldown after a normal reversion, a defeat or a forced end. */
-		public int cooldownTicks = 1200;      // 60 s
+		/** Cooldown after a normal reversion, a defeat or a forced end. v0.12.32: none -- the Titan Energy bar is the gate. */
+		public int cooldownTicks = 0;
 		/** Weak blocks (leaves, plants, glass...) inside the Titan's footprint are burst apart when it forms. */
 		public boolean clearWeakBlocksOnTransform = true;
 		/** The Titan Serum only unlocks the power; it never transforms the player by itself. */
@@ -132,9 +140,17 @@ public final class TitanShifterConfig {
 		public int maxBlocksPerAction = 60;
 	}
 
-	public static final class Controls {
-		/** false: Ability 6 = Titan Regeneration, Utility 1 (H) = Titan Hardening. true swaps them. */
-		public boolean slot6IsHardening = false;
+	/** The Titan Energy bar (v0.12.32): fills while human, is spent by the Titan's base regeneration, empties on reverting. */
+	public static final class Energy {
+		public double max = 100.0;
+		/** Energy gained per second while NOT a Titan (1% of a 100 bar). */
+		public double regenPerSecond = 1.0;
+		/** A transformation needs at least this fraction of the bar. */
+		public double transformMinFraction = 0.9;
+		/** Base Titan regeneration: hit points restored per second whenever the Titan is not at full health ... */
+		public double baseRegenHpPerSecond = 3.0;
+		/** ... paid for with this much Titan Energy per second (the regeneration stops when the bar is empty). */
+		public double baseRegenEnergyPerSecond = 2.0;
 	}
 
 	public static TitanShifterConfig get() {
@@ -169,8 +185,8 @@ public final class TitanShifterConfig {
 		return instance.world;
 	}
 
-	public static Controls controls() {
-		return instance.controls;
+	public static Energy energy() {
+		return instance.energy;
 	}
 
 	private TitanShifterConfig() {
@@ -191,9 +207,16 @@ public final class TitanShifterConfig {
 					if (instance.resistances == null) instance.resistances = new Resistances();
 					if (instance.effects == null) instance.effects = new Effects();
 					if (instance.world == null) instance.world = new World();
-					if (instance.controls == null) instance.controls = new Controls();
+					if (instance.energy == null) instance.energy = new Energy();
+					if (loaded.configVersion == null || loaded.configVersion < 2) {
+						// v0.12.32 changed the body (regular player, 3.67 wide) and dropped the 60 s cooldown for the energy bar:
+						// a config file written by v0.12.31 must not keep the old values.
+						instance.stats.widthBlocks = new Stats().widthBlocks;
+						instance.transformation.cooldownTicks = new Transformation().cooldownTicks;
+					}
 				}
 			}
+			instance.configVersion = 2;
 			// always rewrite so newly added keys appear in existing files
 			Files.createDirectories(path.getParent());
 			Files.writeString(path, gson.toJson(instance));

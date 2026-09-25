@@ -144,6 +144,7 @@ public final class TitanShifter {
 		s.phase = TitanPhase.HUMAN.name();
 		s.cooldownUntil = 0L;
 		s.abilityReadyAt.clear();
+		s.energy = (float) TitanShifterConfig.energy().max; // a fresh shifter starts with a full Titan Energy bar
 		save(player, s);
 
 		ServerLevel level = (ServerLevel) player.level();
@@ -174,11 +175,24 @@ public final class TitanShifter {
 		s.regenUntil = 0L;
 		s.hardenUntil = 0L;
 		s.titanHealth = 0f;
+		s.energy = 0f;
 		s.abilityReadyAt.clear();
 		save(player, s);
 	}
 
 	// ---------------- transformation ----------------
+
+	/** Titan Energy (0..max) as the HUD and the transformation gate see it. */
+	public static float energy(Player player) {
+		TitanShifterState s = player.getAttachedOrElse(ModAttachments.TITAN_SHIFTER_STATE, null);
+		return s == null ? 0f : s.energy;
+	}
+
+	/** Energy needed to transform: 90% of the bar by default. */
+	public static float energyNeeded() {
+		var e = TitanShifterConfig.energy();
+		return (float) (e.max * e.transformMinFraction);
+	}
 
 	/** The Titan Shift key: transform when human, revert when a Titan. */
 	public static void requestToggle(ServerPlayer player) {
@@ -207,6 +221,11 @@ public final class TitanShifter {
 		if (now < s.cooldownUntil) {
 			say(player, "message.projecthero.titan_shifter.cooldown", ChatFormatting.RED,
 					String.format(java.util.Locale.ROOT, "%.0f", (s.cooldownUntil - now) / 20.0));
+			return false;
+		}
+		if (s.energy + 1.0e-3f < energyNeeded()) {
+			say(player, "message.projecthero.titan_shifter.low_energy", ChatFormatting.RED,
+					(int) Math.ceil(s.energy), (int) Math.ceil(energyNeeded()));
 			return false;
 		}
 		if (player.isSpectator() || player.isSleeping() || player.isPassenger() || !player.isAlive()) {
@@ -412,6 +431,7 @@ public final class TitanShifter {
 		s.regenUntil = 0L;
 		s.hardenUntil = 0L;
 		s.titanHealth = 0f;
+		s.energy = 0f; // leaving the Titan always drains the bar; it refills at 1% a second
 		save(player, s);
 	}
 
@@ -449,6 +469,7 @@ public final class TitanShifter {
 		n.regenUntil = 0L;
 		n.hardenUntil = 0L;
 		n.titanHealth = 0f;
+		n.energy = 0f;
 		save(player, n);
 	}
 
@@ -461,10 +482,12 @@ public final class TitanShifter {
 		}
 		TitanPhase phase = s.phase();
 		if (phase == TitanPhase.HUMAN) {
+			tickEnergy(player, s);
 			return;
 		}
 		long now = player.level().getGameTime();
 		if (phase == TitanPhase.RECOVERING) {
+			tickEnergy(player, s);
 			if (now >= s.phaseUntil) {
 				setPhase(player, TitanPhase.HUMAN, now);
 			}
@@ -520,6 +543,8 @@ public final class TitanShifter {
 	private static void tickTitan(ServerPlayer player, TitanShifterState s, TitanFormEntity form, long now) {
 		ServerLevel level = (ServerLevel) player.level();
 		var a = TitanShifterConfig.abilities();
+		tickBaseRegen(player, s, form);
+		s = state(player); // tickBaseRegen may have saved a new energy value
 		if (now < s.regenUntil) {
 			form.heal((float) (a.regenPerSecond / 20.0));
 			if (player.tickCount % 6 == 0) {
@@ -546,6 +571,44 @@ public final class TitanShifter {
 		}
 	}
 
+	/** Outside the Titan the bar refills: {@code regenPerSecond} (1%) every second, in whole steps so it syncs rarely. */
+	private static void tickEnergy(ServerPlayer player, TitanShifterState s) {
+		var e = TitanShifterConfig.energy();
+		if (player.level().getGameTime() % 20L != 0L || s.energy >= e.max) {
+			return;
+		}
+		TitanShifterState n = s.copy();
+		n.energy = (float) Math.min(e.max, s.energy + e.regenPerSecond);
+		save(player, n);
+	}
+
+	/**
+	 * v0.12.32 -- base Titan regeneration: while the Titan is below full health it heals
+	 * {@code baseRegenHpPerSecond} and pays {@code baseRegenEnergyPerSecond} Titan Energy for it (two ticks a
+	 * second in 10-tick steps, so the synced bar changes 2 times a second at most). Nothing is healed once
+	 * the bar is empty.
+	 */
+	private static void tickBaseRegen(ServerPlayer player, TitanShifterState s, TitanFormEntity form) {
+		if (player.level().getGameTime() % 10L != 0L || s.energy <= 0f || form.getHealth() >= form.getMaxHealth()) {
+			return;
+		}
+		var e = TitanShifterConfig.energy();
+		double stepFraction = 10.0 / 20.0;
+		float cost = (float) Math.min(s.energy, e.baseRegenEnergyPerSecond * stepFraction);
+		if (cost <= 0f) {
+			return;
+		}
+		float paid = (float) (cost / (e.baseRegenEnergyPerSecond * stepFraction));
+		form.heal((float) (e.baseRegenHpPerSecond * stepFraction) * paid);
+		TitanShifterState n = s.copy();
+		n.energy = Math.max(0f, s.energy - cost);
+		save(player, n);
+		ServerLevel level = (ServerLevel) player.level();
+		Vec3 p = form.position();
+		level.sendParticles(ParticleTypes.HAPPY_VILLAGER, p.x, p.y + form.getBbHeight() * 0.5, p.z, 3,
+				form.getBbWidth() * 0.5, form.getBbHeight() * 0.35, form.getBbWidth() * 0.5, 0.0);
+	}
+
 	// ---------------- lifecycle hooks ----------------
 
 	/** Reconnect: a Titan never survives a logout, so put the shifter back on the ground as a human. */
@@ -564,6 +627,7 @@ public final class TitanShifter {
 		n.regenUntil = 0L;
 		n.hardenUntil = 0L;
 		n.titanHealth = 0f;
+		n.energy = 0f;
 		// game time is per-world: keep a sane cooldown that cannot exceed the configured one
 		n.cooldownUntil = Math.min(n.cooldownUntil, now + TitanShifterConfig.transformation().cooldownTicks);
 		n.abilityReadyAt.entrySet().removeIf(e -> e.getValue() > now + 20L * 60L * 5L);

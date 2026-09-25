@@ -42,8 +42,10 @@ import net.minecraft.tags.DamageTypeTags;
  * hidden Resistance instance -- applied once when the powers are granted, not re-poured every tick.
  */
 public final class ThorPassives {
-	/** v0.6.22: a flat +10 weapon-independent melee bonus -- Thor hits like a god bare-handed. */
-	private static final double STRENGTH_BONUS = 10.0;
+	/** v0.12.32: a flat +11 weapon-independent melee bonus (was +10) -- Thor hits like a god bare-handed. */
+	private static final double STRENGTH_BONUS = 11.0;
+	/** v0.12.32: Thor takes 20% of incoming damage (80% less) -- replaces the old infinite Resistance IV. */
+	public static final float DAMAGE_TAKEN_FACTOR = 0.2f;
 	/** +18%: quick enough to feel Asgardian, slow enough that terrain still matters. */
 	private static final double SPEED_BONUS = 0.18;
 	/** Hard to shove, far from immovable. */
@@ -54,11 +56,8 @@ public final class ThorPassives {
 	/** How often the reconcile audit runs, in ticks. Cheap, and only a safety net. */
 	private static final int AUDIT_INTERVAL_TICKS = 20;
 
-	// ---------------- mild regeneration ----------------
-	/** How long after taking damage regeneration stays switched off. */
-	private static final int REGEN_COMBAT_LOCKOUT_TICKS = 160; // 8s
-	/** One half-heart per this many ticks, out of combat only -- well under vanilla's well-fed rate. */
-	private static final int REGEN_INTERVAL_TICKS = 100; // 5s
+	/** Re-entrancy guard for {@link #onAllowDamage}: the reduced hit is re-issued through the same event. */
+	private static final ThreadLocal<Boolean> REDUCING = ThreadLocal.withInitial(() -> false);
 
 	private static final ResourceLocation STRENGTH_ID = ProjectHeroMod.id("power_of_thor_strength");
 	private static final ResourceLocation SPEED_ID = ProjectHeroMod.id("power_of_thor_speed");
@@ -118,7 +117,8 @@ public final class ThorPassives {
 		setModifier(player, Attributes.MAX_HEALTH, MAX_HEALTH_ID, MAX_HEALTH_BONUS,
 				AttributeModifier.Operation.ADD_VALUE, shouldHave);
 
-		reconcileResistance(player, shouldHave);
+		reconcileRegeneration(player, shouldHave);
+		removeLegacyResistance(player);
 	}
 
 	private static void setModifier(ServerPlayer player, Holder<Attribute> attribute, ResourceLocation id,
@@ -139,19 +139,29 @@ public final class ThorPassives {
 	}
 
 	/**
-	 * Resistance IV (v0.9.3, was III in v0.9.2 / II in v0.6.22) as one infinite, invisible effect
-	 * instance rather than a per-tick reapplication. Only touched when the desired state and the actual
-	 * state disagree.
+	 * Regeneration I at all times (v0.12.32) as one infinite, invisible effect instance rather than a per-tick
+	 * reapplication. Only touched when the desired state and the actual state disagree.
 	 */
-	private static void reconcileResistance(ServerPlayer player, boolean wanted) {
-		MobEffectInstance active = player.getEffect(MobEffects.DAMAGE_RESISTANCE);
-		boolean ours = active != null && active.isInfiniteDuration() && active.getAmplifier() == 3
+	private static void reconcileRegeneration(ServerPlayer player, boolean wanted) {
+		MobEffectInstance active = player.getEffect(MobEffects.REGENERATION);
+		boolean ours = active != null && active.isInfiniteDuration() && active.getAmplifier() == 0
 				&& active.isAmbient();
 
 		if (wanted && !ours) {
-			player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE,
-					MobEffectInstance.INFINITE_DURATION, 3, true, false, false));
+			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION,
+					MobEffectInstance.INFINITE_DURATION, 0, true, false, false));
 		} else if (!wanted && ours) {
+			player.removeEffect(MobEffects.REGENERATION);
+		}
+	}
+
+	/**
+	 * v0.12.32: the base Resistance IV was replaced by a flat 80% damage reduction (see {@link #onAllowDamage}).
+	 * A player who logs in with the old infinite hidden Resistance instance still on them loses it here, once.
+	 */
+	private static void removeLegacyResistance(ServerPlayer player) {
+		MobEffectInstance active = player.getEffect(MobEffects.DAMAGE_RESISTANCE);
+		if (active != null && active.isInfiniteDuration() && active.isAmbient() && active.getAmplifier() == 3) {
 			player.removeEffect(MobEffects.DAMAGE_RESISTANCE);
 		}
 	}
@@ -164,27 +174,7 @@ public final class ThorPassives {
 			// most obviously a worthiness change from a command or from gameplay scoring.
 			reconcile(player);
 		}
-		tickRegeneration(player);
-	}
-
-	/**
-	 * Mild out-of-combat recovery: a single half-heart every five seconds, and only after eight
-	 * quiet seconds. Deliberately far weaker than a Regeneration effect -- it takes the edge off
-	 * chip damage without making fights meaningless, and it is switched off entirely the moment
-	 * anything hits you.
-	 */
-	private static void tickRegeneration(ServerPlayer player) {
-		if (!hasPowerOfThor(player) || player.tickCount % REGEN_INTERVAL_TICKS != 0) {
-			return;
-		}
-		if (player.getHealth() >= player.getMaxHealth() || player.isDeadOrDying()) {
-			return;
-		}
-		long lastHurt = player.getAttachedOrElse(ModAttachments.LAST_HURT_TICK, 0L);
-		if (player.level().getGameTime() - lastHurt < REGEN_COMBAT_LOCKOUT_TICKS) {
-			return;
-		}
-		player.heal(1.0f);
+		com.projecthero.mod.thorarmor.ThorArmor.audit(player);
 	}
 
 	// ---------------- damage rules ----------------
@@ -214,9 +204,21 @@ public final class ThorPassives {
 			return false;
 		}
 
-		// Anything that gets through resets the regeneration lockout.
 		player.setAttached(ModAttachments.LAST_HURT_TICK, player.level().getGameTime());
-		return true;
+
+		// v0.12.32: 80% less damage from everything that gets this far. Fabric's ALLOW_DAMAGE is a veto with no
+		// "reduce" -- so cancel the hit and re-apply 20% of it (the guard lets the re-issued hit straight through).
+		// Void / /kill-style damage is never reduced.
+		if (REDUCING.get() || source.is(DamageTypeTags.BYPASSES_INVULNERABILITY) || amount <= 0.0f) {
+			return true;
+		}
+		REDUCING.set(true);
+		try {
+			player.hurt(source, amount * DAMAGE_TAKEN_FACTOR);
+		} finally {
+			REDUCING.set(false);
+		}
+		return false;
 	}
 
 	// ---------------- lifecycle ----------------

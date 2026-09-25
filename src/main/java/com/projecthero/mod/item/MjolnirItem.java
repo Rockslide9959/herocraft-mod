@@ -35,8 +35,8 @@ import net.minecraft.world.level.Level;
  * knowing about: who the hammer answers to and what each of its abilities is bound to.
  */
 public class MjolnirItem extends Item {
-	/** Two points above a netherite sword: this is the weapon of a god, not a tool. */
-	private static final double ATTACK_DAMAGE_BONUS = 9.0;
+	/** v0.12.32: Mjolnir hits for exactly 11 (1 base + 10) -- the weapon of a god, not a tool. */
+	private static final double ATTACK_DAMAGE_BONUS = 10.0;
 	/** Base attack speed is 4.0, so this leaves one swing per second -- it's a very heavy hammer. */
 	private static final double ATTACK_SPEED_BONUS = -3.0;
 
