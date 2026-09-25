@@ -87,15 +87,6 @@ public final class Wolverine {
 		WolverinePassives.reconcile(player);
 	}
 
-	/** Bone Claw Serum: NONE -> BONE. Returns false (consuming nothing) unless the player is a clawless Wolverine. */
-	public static boolean unlockBoneClaws(ServerPlayer player) {
-		if (!hasPower(player) || state(player).clawTier != ClawTier.NONE) {
-			return false;
-		}
-		setClawTier(player, ClawTier.BONE, false);
-		return true;
-	}
-
 	/** Adamantium Serum: BONE -> ADAMANTIUM (adamantium claws come out already deployed). */
 	public static boolean upgradeToAdamantium(ServerPlayer player) {
 		if (!hasPower(player) || state(player).clawTier != ClawTier.BONE) {
@@ -166,7 +157,7 @@ public final class Wolverine {
 		WolverineState s = state(player).copy();
 		s.hasPower = true;
 		s.clawsOut = false;
-		s.clawTier = ClawTier.NONE; // the claws come from the Bone Claw Serum
+		s.clawTier = ClawTier.BONE; // v0.12.26: the Bone Claw Serum ascends Super Regeneration into bone-claw Wolverine
 		s.clawsChangedAt = now;
 		s.rageUntil = 0L;
 		s.emergencyHealUntil = 0L;

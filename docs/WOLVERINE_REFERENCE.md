@@ -8,7 +8,7 @@ reuses Super Regeneration's base heal tick and debuff-shortening mixin and scale
 ## Getting it
 
 1. Own **Super Regeneration** (power 12). Without it the serum does nothing and is not consumed.
-2. Craft a **Wolverine Serum** (`DND / BGB / DND`: D diamond, N netherite ingot, B blaze powder, G golden
+2. Craft a **Bone Claw Serum** (superseded in v0.12.26, see the end of this file) (`DND / BGB / DND`: D diamond, N netherite ingot, B blaze powder, G golden
    apple) and right-click it. It consumes Super Regeneration and, like every Primary power, replaces the
    mutation group (`HeroTiers.claimPrimary(player, "wolverine")`) — the oldest hero is replaced if two are held.
 3. Admin: `/wolverine power grant|revoke [player]`, `/wolverine claws deploy|retract`, `/wolverine status`
@@ -219,3 +219,7 @@ You no longer start with claws: **Wolverine → Bone Claw Serum → Bone Claws �
   extension animation all pick model + texture from the tier; exactly one model is ever drawn. No GeckoLib/animation
   file is used — the existing 6-tick extend/retract runs on both.
 - **Commands.** `/wolverine claws tier none|bone|adamantium` (op); `grant` starts a Wolverine at NONE.
+
+## v0.12.26 - progression simplified
+
+Super Regeneration -> **Bone Claw Serum** (consumes SR, makes a bone-claw Wolverine directly) -> **Adamantium Serum** (hold 3 s) -> adamantium Wolverine. The separate Wolverine Serum was removed; `Wolverine.ascendFromSuperRegeneration` now starts at `ClawTier.BONE`. `/wolverine power grant` also yields a bone-claw Wolverine.

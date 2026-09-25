@@ -104,11 +104,8 @@ public class WolverineGameTests implements FabricGameTest {
 		ExperimentalPowers.grant(p, Powers.byKey(Wolverine.SUPER_REGENERATION_KEY));
 		Wolverine.ascendFromSuperRegeneration(p);
 		com.projecthero.mod.wolverine.data.ClawTier none = com.projecthero.mod.wolverine.data.ClawTier.NONE;
-		helper.assertTrue(Wolverine.clawTier(p) == none, "a fresh Wolverine has no claws");
-		helper.assertFalse(Wolverine.setClaws(p, true), "no claws to deploy");
-		helper.assertFalse(Wolverine.upgradeToAdamantium(p), "cannot skip the bone claws");
-		helper.assertTrue(Wolverine.unlockBoneClaws(p), "bone serum unlocks bone claws");
-		helper.assertFalse(Wolverine.unlockBoneClaws(p), "bone serum only works once");
+		helper.assertTrue(Wolverine.clawTier(p) == com.projecthero.mod.wolverine.data.ClawTier.BONE, "ascension yields a bone-claw Wolverine");
+		helper.assertFalse(none == Wolverine.clawTier(p), "not clawless");
 		Wolverine.setClaws(p, true);
 		double bone = 1.0 + WolverineConfig.MELEE_BONUS_DAMAGE + WolverineConfig.BONE_CLAW_MELEE_BONUS;
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - bone) < 1e-6, "bone melee is 9");

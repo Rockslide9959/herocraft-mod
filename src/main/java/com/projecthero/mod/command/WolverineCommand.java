@@ -19,7 +19,7 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Admin / testing commands for Wolverine: {@code /wolverine power grant|revoke [player] | claws deploy|retract|tier none|bone|adamantium
- * | status}. Op 2. Survival route: own Super Regeneration, craft a Wolverine Serum, use it; then Bone Claw Serum -> Adamantium Serum.
+ * | status}. Op 2. Survival route: own Super Regeneration, craft a Bone Claw Serum and use it (bone-claw Wolverine); then an Adamantium Serum.
  */
 public final class WolverineCommand {
 	private WolverineCommand() {

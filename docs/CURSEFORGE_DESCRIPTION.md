@@ -175,9 +175,8 @@ someone else can try.
 
 ### 🐺 Wolverine
 A permanent **Primary** power — the **ascension of Super Regeneration**. Own Super Regeneration, craft an
-**Wolverine Serum** (4 diamonds, 2 netherite ingots, 2 blaze powder, a golden apple) and use it: your
-regenerative mutation is consumed and rebuilt as Wolverine — with no claws yet. Craft a **Bone Claw Serum** for
-three natural bone claws a hand (weaker: 9 bare-handed), then an **Adamantium Serum** (hold to use, 3 s) to
+**Bone Claw Serum** (bone blocks, netherite scrap, gold, glass bottle, ghast tear) and use it: your
+regenerative mutation is consumed and rebuilt as a bone-claw Wolverine (three natural claws a hand, weaker: 9 bare-handed). Then an **Adamantium Serum** (hold to use, 3 s) to
 turn them into full-strength adamantium claws and unlock Adamantium Execution.
 
 - **Healing factor:** 4 HP/s, 8 HP/s below half health, 12 HP/s below a quarter — it never slows in combat.

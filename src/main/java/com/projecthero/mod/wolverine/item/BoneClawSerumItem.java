@@ -3,7 +3,6 @@ package com.projecthero.mod.wolverine.item;
 import java.util.List;
 
 import com.projecthero.mod.wolverine.Wolverine;
-import com.projecthero.mod.wolverine.data.ClawTier;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleTypes;
@@ -24,8 +23,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Bone Claw Serum: unlocks a Wolverine's natural bone claws (NONE -> BONE). Only works for a Wolverine
- * who has no claws yet; anything else consumes nothing. All state changes are server-side.
+ * Bone Claw Serum: ascends Super Regeneration into Wolverine with natural bone claws (stage 1 of the
+ * progression). Needs Super Regeneration and no Wolverine power yet; anything else consumes nothing. All state changes are server-side.
  */
 public class BoneClawSerumItem extends Item {
 	public BoneClawSerumItem(Properties properties) {
@@ -38,17 +37,17 @@ public class BoneClawSerumItem extends Item {
 		if (level.isClientSide() || !(player instanceof ServerPlayer sp)) {
 			return InteractionResultHolder.success(held);
 		}
-		if (!Wolverine.hasPower(sp)) {
-			sp.displayClientMessage(Component.translatable("message.projecthero.bone_serum.not_wolverine")
-					.withStyle(ChatFormatting.RED), true);
-			return InteractionResultHolder.fail(held);
-		}
-		if (Wolverine.clawTier(sp) != ClawTier.NONE) {
+		if (Wolverine.hasPower(sp)) {
 			sp.displayClientMessage(Component.translatable("message.projecthero.bone_serum.already")
 					.withStyle(ChatFormatting.GRAY), true);
 			return InteractionResultHolder.fail(held);
 		}
-		if (!Wolverine.unlockBoneClaws(sp)) {
+		if (!Wolverine.hasSuperRegeneration(sp)) {
+			sp.displayClientMessage(Component.translatable("message.projecthero.bone_serum.no_regeneration")
+					.withStyle(ChatFormatting.RED), true);
+			return InteractionResultHolder.fail(held);
+		}
+		if (!Wolverine.ascendFromSuperRegeneration(sp)) {
 			return InteractionResultHolder.fail(held);
 		}
 		fx(sp);
