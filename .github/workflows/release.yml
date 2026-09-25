@@ -105,9 +105,10 @@ jobs:
             exit 0
           fi
           jq -n \
+            --arg content "@everyone Project Hero $VERSION is out! Please wait about 20 minutes for CurseForge to verify the mod update before it shows up." \
             --arg title "Project Hero $VERSION" \
             --arg desc "$CHANGELOG" \
             --arg url "$RELEASE_URL" \
-            '{content: "@everyone", allowed_mentions: {parse: ["everyone"]}, embeds: [{title: $title, description: $desc, url: $url, color: 3066993}]}' \
+            '{content: $content, allowed_mentions: {parse: ["everyone"]}, embeds: [{title: $title, description: $desc, url: $url, color: 3066993}]}' \
             > discord_payload.json
           curl -sf -H "Content-Type: application/json" -d @discord_payload.json "$DISCORD_WEBHOOK_URL"
