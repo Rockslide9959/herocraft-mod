@@ -27,6 +27,8 @@ public final class SpiderHud {
 	private static final int BOX = 20;
 	private static final int GAP = 2;
 	private static final int MARGIN = 4;
+	/** Height of the label stack under the key row (name, web %, bar, mode) -- also lifts the whole HUD. */
+	private static final int BOTTOM_STACK = 48;
 
 	private static final int COLOR_BOX_BG = 0xC0180C10;
 	private static final int COLOR_BORDER = 0xFF4A1E28;
@@ -160,14 +162,8 @@ public final class SpiderHud {
 		int screenH = graphics.guiHeight();
 		int totalW = 6 * BOX + 5 * GAP;
 		int x0 = screenW - MARGIN - totalW;
-		int y0 = screenH - MARGIN - BOX - 20;
-
-		graphics.drawString(client.font, Component.translatable("projecthero.spider_man.name")
-				.withStyle(ChatFormatting.RED, ChatFormatting.BOLD), x0, y0 - 10, 0xFFFF6070);
-		Component modeLabel = Component.translatable(state.combatMode
-				? "hud.projecthero.spider_man.mode_combat" : "hud.projecthero.spider_man.mode_traversal");
-		graphics.drawString(client.font, modeLabel,
-				x0 + totalW - client.font.width(modeLabel), y0 - 10, 0xFFE0C8CC, false);
+		// v0.12.21 layout, top to bottom: ability keys / Spider-Man / Web % + bar / mode [N]
+		int y0 = screenH - MARGIN - BOX - BOTTOM_STACK;
 		String[] layout = state.combatMode ? COMBAT_ABILITIES : SLOT_ABILITIES;
 
 		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(client.getWindow().getWindow(),
@@ -203,13 +199,20 @@ public final class SpiderHud {
 		// Web Reserve bar. The ceiling doubles while the Symbiote is active (v0.9.10).
 		float webMax = client.player != null ? SpiderWebReserve.maxFor(client.player) : SpiderWebReserve.MAX;
 		float ratio = Math.max(0.0f, Math.min(1.0f, state.webReserve / webMax));
-		int barY = y0 + BOX + 4;
-		// Thin bar in the Wolverine style (v0.12.20): 3px, no border, percentage readout in a dark colour.
+		int nameY = y0 + BOX + 3;
+		graphics.drawString(client.font, Component.translatable("projecthero.spider_man.name")
+				.withStyle(ChatFormatting.RED, ChatFormatting.BOLD), x0, nameY, 0xFFFF6070);
+		int webY = nameY + 10;
+		graphics.drawString(client.font, Component.translatable("hud.projecthero.spider_man.web_reserve",
+				(int) Math.ceil(ratio * 100.0f)), x0, webY, COLOR_WEB_TEXT, false);
+		// Thin bar in the Wolverine style: 3px, no border.
+		int barY = webY + 10;
 		graphics.fill(x0, barY, x0 + totalW, barY + 3, 0xAA180C10);
 		graphics.fill(x0, barY, x0 + Math.round(totalW * ratio), barY + 3,
 				ratio < 0.2f ? COLOR_WEB_LOW : COLOR_WEB);
-		graphics.drawString(client.font, Component.translatable("hud.projecthero.spider_man.web_reserve",
-				(int) Math.ceil(ratio * 100.0f)), x0, barY + 5, COLOR_WEB_TEXT, false);
+		graphics.drawString(client.font, Component.translatable(state.combatMode
+				? "hud.projecthero.spider_man.mode_combat" : "hud.projecthero.spider_man.mode_traversal"),
+				x0, barY + 6, 0xFFE0C8CC, false);
 
 		// v0.6.19: the double-jump cooldown is no longer shown -- it is a 1-second passive and the HUD
 		// clutter was not worth it.
@@ -232,8 +235,8 @@ public final class SpiderHud {
 		int x = g.guiWidth() - MARGIN - w;
 		// The keybind boxes start here; the "Spider-Man" label sits 10px above that. Stack the bar and
 		// its own label above the label, with a small gap.
-		int boxesY = g.guiHeight() - MARGIN - BOX - 20;
-		int y = boxesY - 10 - 10 - h;
+		int boxesY = g.guiHeight() - MARGIN - BOX - BOTTOM_STACK;
+		int y = boxesY - 14 - h;
 		g.drawCenteredString(client.font, Component.translatable("hud.projecthero.spider_man.web_blossom"),
 				x + w / 2, y - 10, full ? 0xFFFFF0A0 : 0xFFE8E8F4);
 		g.fill(x, y, x + w, y + h, 0xC0180C10);

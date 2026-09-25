@@ -36,6 +36,8 @@ public final class SpiderStrands {
 		public final int hold;
 		public final int fade;
 		public final boolean rightHand;
+		/** Where the near end was when the player let go (v0.12.21): once set, the strand never follows the hand again. */
+		public Vec3 frozenHand;
 
 		Strand(int playerId, int slot, int targetEntityId, Vec3 pos, double startTick, int hold, int fade, boolean rightHand) {
 			this.playerId = playerId;
@@ -102,9 +104,11 @@ public final class SpiderStrands {
 	}
 
 	/** A released swing does not vanish: its line stays where it was and phases out over five seconds. */
-	public static void swingReleased(int playerId, Vec3 anchor, boolean rightHand) {
+	public static void swingReleased(int playerId, Vec3 anchor, boolean rightHand, Vec3 lastHand) {
 		removeSlot(playerId, SLOT_SWING_REMNANT);
-		STRANDS.add(new Strand(playerId, SLOT_SWING_REMNANT, -1, anchor, now(0.0f), 0, SWING_REMNANT_FADE, rightHand));
+		Strand s = new Strand(playerId, SLOT_SWING_REMNANT, -1, anchor, now(0.0f), 0, SWING_REMNANT_FADE, rightHand);
+		s.frozenHand = lastHand; // released: the web is let go of, it does not follow the hand
+		STRANDS.add(s);
 	}
 
 	/** Drop expired strands and strands of players no longer in the world. Call once per frame. */

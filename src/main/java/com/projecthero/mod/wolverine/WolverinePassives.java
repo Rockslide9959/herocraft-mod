@@ -225,7 +225,7 @@ public final class WolverinePassives {
 		boolean dash = power && Wolverine.dashing(player);
 
 		set(player, Attributes.MOVEMENT_SPEED, SPEED, WolverineConfig.SPEED_BONUS,
-				AttributeModifier.Operation.ADD_MULTIPLIED_BASE, power);
+				AttributeModifier.Operation.ADD_MULTIPLIED_BASE, false);
 		set(player, Attributes.MOVEMENT_SPEED, RAGE_SPEED, WolverineConfig.RAGE_SPEED_BONUS,
 				AttributeModifier.Operation.ADD_MULTIPLIED_BASE, rage);
 		set(player, Attributes.JUMP_STRENGTH, JUMP, WolverineConfig.JUMP_BONUS,

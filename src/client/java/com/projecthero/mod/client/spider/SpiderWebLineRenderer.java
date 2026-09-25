@@ -44,7 +44,7 @@ public final class SpiderWebLineRenderer {
 	/** playerId -> anchor + hand for players seen swinging last frame, so a release can be noticed. */
 	private static final Map<Integer, SwingMemo> LAST_SWING = new HashMap<>();
 
-	private record SwingMemo(Vec3 anchor, boolean rightHand) {
+	private record SwingMemo(Vec3 anchor, boolean rightHand, Vec3 hand) {
 	}
 
 	private SpiderWebLineRenderer() {
@@ -80,15 +80,15 @@ public final class SpiderWebLineRenderer {
 				// a fresh swing replaces the previous swing's fading remnant
 				SpiderStrands.removeSlot(player.getId(), SpiderStrands.SLOT_SWING_REMNANT);
 			}
-			LAST_SWING.put(player.getId(), new SwingMemo(anchor, state.swingHandRight));
-			drawLine(poseStack, consumers, camera,
-					SpiderStrands.handPosition(player, state.swingHandRight, partial, camera), anchor, BASE_ALPHA);
+			Vec3 hand = SpiderStrands.handPosition(player, state.swingHandRight, partial, camera);
+			LAST_SWING.put(player.getId(), new SwingMemo(anchor, state.swingHandRight, hand));
+			drawLine(poseStack, consumers, camera, hand, anchor, BASE_ALPHA);
 		}
 		LAST_SWING.entrySet().removeIf(e -> {
 			if (swingingNow.contains(e.getKey())) {
 				return false;
 			}
-			SpiderStrands.swingReleased(e.getKey(), e.getValue().anchor(), e.getValue().rightHand());
+			SpiderStrands.swingReleased(e.getKey(), e.getValue().anchor(), e.getValue().rightHand(), e.getValue().hand());
 			return true;
 		});
 
@@ -104,8 +104,16 @@ public final class SpiderWebLineRenderer {
 			if (alpha <= 0.0f) {
 				continue;
 			}
-			drawLine(poseStack, consumers, camera, SpiderStrands.handPosition(owner, s.rightHand, partial, camera),
-					SpiderStrands.endPoint(s, partial), alpha);
+			// Attached to the hand only while the web is being held; the moment it starts to fade the near end
+			// is frozen where it was, so a fading web never trails the player's hand around.
+			Vec3 hand = s.frozenHand;
+			if (hand == null) {
+				hand = SpiderStrands.handPosition(owner, s.rightHand, partial, camera);
+				if (now - s.startTick >= s.hold) {
+					s.frozenHand = hand;
+				}
+			}
+			drawLine(poseStack, consumers, camera, hand, SpiderStrands.endPoint(s, partial), alpha);
 		}
 	}
 

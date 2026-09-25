@@ -68,10 +68,10 @@ public class WolverineGameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - baseAttack) < 1e-6,
 				"+8 melee, got " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
 		helper.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 0.75 - 1e-6, "75% knockback resistance");
-		helper.assertTrue(p.getAttribute(Attributes.MOVEMENT_SPEED).getModifiers().size() == 1, "one speed modifier, no duplicates");
+		helper.assertTrue(p.getAttribute(Attributes.MOVEMENT_SPEED).getModifiers().isEmpty(), "no passive speed modifier (v0.12.21)");
 		WolverinePassives.reconcile(p);
 		WolverinePassives.reconcile(p);
-		helper.assertTrue(p.getAttribute(Attributes.MOVEMENT_SPEED).getModifiers().size() == 1, "reconcile is idempotent");
+		helper.assertTrue(p.getAttribute(Attributes.MOVEMENT_SPEED).getModifiers().isEmpty(), "reconcile is idempotent");
 		Wolverine.revoke(p);
 		helper.assertFalse(Wolverine.hasPower(p), "revoked");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - 1.0) < 1e-6, "melee bonus gone");
@@ -115,7 +115,7 @@ public class WolverineGameTests implements FabricGameTest {
 		helper.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 1.0 - 1e-6, "near-total knockback resistance");
 		Wolverine.clearTransient(p);
 		helper.assertFalse(Wolverine.raging(p), "rage ends with transient state");
-		helper.assertTrue(p.getAttribute(Attributes.MOVEMENT_SPEED).getModifiers().size() == 1, "rage speed modifier removed");
+		helper.assertTrue(p.getAttribute(Attributes.MOVEMENT_SPEED).getModifiers().isEmpty(), "rage speed modifier removed");
 		helper.succeed();
 	}
 

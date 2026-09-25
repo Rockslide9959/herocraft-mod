@@ -186,3 +186,7 @@ untouched.
 - Deploying the claws still costs 4 HP but is not combat: `Wolverine.deployingClaws()` keeps it out of the Rage bar /
   combat timer, and `WolverineSuitWear` ignores that wound for 3 s so the suit never tears from it.
 - Claw Dash damage 18 -> 12.
+
+## v0.12.21
+
+- The passive +40% movement speed is removed (`SPEED_BONUS = 0`); Berserker Rage's +30% speed remains.

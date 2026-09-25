@@ -191,7 +191,10 @@ public final class SpiderAbilities {
 		// v0.10.2: a zip aimed well below the player is a pull to a lower ledge, not a wall pin -- treat
 		// it as an ordinary arced zip and do NOT arm adhesion, which is what used to leave the player
 		// stuck against the block they zipped down onto.
-		boolean sneaking = player.isShiftKeyDown() && dir.y > -0.35;
+		// v0.12.21: a sneaking zip is pulled ALL the way to the block (SpiderCombat.beginZipPull keeps hauling
+		// every tick until arrival); only a zip that is not aimed well downward also arms wall adhesion.
+		boolean sneaking = player.isShiftKeyDown();
+		boolean grab = sneaking && dir.y > -0.35;
 
 		if (sneaking) {
 			// v0.6.21 -- "pin me to the wall": fire straight at the exact point aimed at (dir already
@@ -202,9 +205,12 @@ public final class SpiderAbilities {
 			// climb engine sticks, no double-tap.
 			double speed = Math.min(3.0, 1.1 + dist * 0.08);
 			AbilityHelpers.launchSelf(player, dir.scale(speed));
-			SpiderClimb.requestGrab(player);
-			net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player,
-					new com.projecthero.mod.network.SpiderClimbGrabPayload());
+			SpiderCombat.beginZipPull(player, target);
+			if (grab) {
+				SpiderClimb.requestGrab(player);
+				net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player,
+						new com.projecthero.mod.network.SpiderClimbGrabPayload());
+			}
 		} else {
 			double speed = Math.min(2.6, 0.85 + dist * 0.075);
 			double lift = Math.min(0.4, dist * 0.02);

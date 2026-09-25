@@ -717,3 +717,11 @@ Adhesion it grew out of is not handed back.
 - **HUD**: all bars thin (3 px, no border); Web Reserve reads as a percentage in a dark maroon.
 - N is shared with Max Steel (Go Turbo) / Wolverine (Sniff) / Symbiote host (Predator Vision): Max Steel wins, then
   Spider-Man, then Wolverine, then the Symbiote host.
+
+## v0.12.21
+
+- Shift + Web Zip is hauled every tick (`SpiderCombat.beginZipPull`) until the eye is within 1.9 blocks of the aimed block
+  (stall/timeout guarded); wall adhesion is still only armed when the aim is not steeply downward.
+- Fading strands no longer follow the hand: the near end freezes where the hand was the moment the web is let go
+  (release of R, or the end of a strand's hold phase).
+- HUD restructured and lifted: ability keys / "Spider-Man" / "Web N%" + thin bar / "Traversal|Combat Mode [N]".

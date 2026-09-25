@@ -47,7 +47,7 @@ public final class WolverineConfig {
 	public static final double MELEE_BONUS_DAMAGE = 3.0; // bare-hand melee = 1 + 3 = 4
 	/** Claws out AND an empty hand: +8 unarmed damage on top (4 + 8 = 12). Not applied while holding an item. */
 	public static final double CLAW_MELEE_BONUS = 8.0;
-	public static final double SPEED_BONUS = 0.40; // Speed II
+	public static final double SPEED_BONUS = 0.0; // v0.12.21: the passive +40% (Speed II-III) is gone; Rage still adds speed
 	public static final double JUMP_BONUS = 0.30; // ~2.1 blocks: clears a 2-block wall
 	/** Passive strength mining bonus; claws add {@link #CLAW_MINING_BONUS} on top (1.5x total). */
 	public static final double STRENGTH_MINING_BONUS = 0.20;

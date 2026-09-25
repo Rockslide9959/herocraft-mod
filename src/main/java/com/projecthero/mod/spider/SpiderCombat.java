@@ -98,6 +98,21 @@ public final class SpiderCombat {
 		}
 	}
 
+	/** A shift-zip in progress: hauled toward {@code target} every tick until it arrives (v0.12.21). */
+	private static final class ZipPull {
+		final Vec3 target;
+		final long startedAt;
+		double lastDist = Double.MAX_VALUE;
+		int stalled;
+
+		ZipPull(Vec3 target, long startedAt) {
+			this.target = target;
+			this.startedAt = startedAt;
+		}
+	}
+
+	private static final Map<UUID, ZipPull> ZIPS = new ConcurrentHashMap<>();
+
 	private record Watch(int targetId, long until, Vec3 dir) {
 	}
 
@@ -112,6 +127,7 @@ public final class SpiderCombat {
 		STRIKES.clear();
 		THROWS.clear();
 		WATCHES.clear();
+		ZIPS.clear();
 	}
 
 	/** Death / relog / dimension change / mode switch: drop everything this player had going. */
@@ -124,6 +140,7 @@ public final class SpiderCombat {
 			sendStrand(player, SLOT_STRIKE, null, player.position(), 0, 0);
 		}
 		WATCHES.remove(id);
+		ZIPS.remove(id);
 	}
 
 	public static boolean inCombatMode(ServerPlayer player) {
@@ -393,11 +410,37 @@ public final class SpiderCombat {
 		});
 	}
 
+	// ---------------- shift + Web Zip ----------------
+
+	public static void beginZipPull(ServerPlayer player, Vec3 target) {
+		ZIPS.put(player.getUUID(), new ZipPull(target, player.level().getGameTime()));
+	}
+
+	private static void tickZip(ServerPlayer player, ZipPull zip) {
+		Vec3 delta = zip.target.subtract(player.getEyePosition());
+		double dist = delta.length();
+		boolean timedOut = player.level().getGameTime() - zip.startedAt > 60;
+		zip.stalled = dist > zip.lastDist - 0.05 ? zip.stalled + 1 : 0;
+		zip.lastDist = dist;
+		if (dist < 1.9 || timedOut || zip.stalled > 5 || SpiderSwing.isSwinging(player) || player.isSpectator()) {
+			ZIPS.remove(player.getUUID());
+			if (dist < 1.9) {
+				AbilityHelpers.launchSelf(player, player.getDeltaMovement().scale(0.2)); // arrive, do not overshoot
+			}
+			return;
+		}
+		AbilityHelpers.launchSelf(player, delta.normalize().scale(Math.min(3.0, 1.1 + dist * 0.08)));
+	}
+
 	// ---------------- tick ----------------
 
 	/** Per-owner server tick, called from {@code SpiderManAbilityManager.serverTick}. */
 	public static void tick(ServerPlayer player) {
 		UUID id = player.getUUID();
+		ZipPull zip = ZIPS.get(id);
+		if (zip != null) {
+			tickZip(player, zip);
+		}
 		Strike strike = STRIKES.get(id);
 		if (strike != null) {
 			tickStrike(player, strike);
