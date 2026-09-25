@@ -86,6 +86,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.greenlantern.item.GreenLanternItems.initialize();
 		com.projecthero.mod.wolverine.item.WolverineItems.initialize();
 		com.projecthero.mod.thorarmor.ThorArmorItems.initialize();
+		com.projecthero.mod.allmight.item.AllMightItems.initialize();
 		com.projecthero.mod.thorarmor.ThorArmor.initialize();
 		com.projecthero.mod.titanshifter.item.TitanShifterItems.initialize();
 		com.projecthero.mod.titanshifter.entity.TitanShifterEntities.initialize();
@@ -110,6 +111,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.greenlantern.GreenLanternDamage.initialize();
 		com.projecthero.mod.wolverine.Wolverine.initialize();
 		com.projecthero.mod.titanshifter.TitanShifterDamage.initialize();
+		com.projecthero.mod.allmight.AllMightDamage.initialize();
 		com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.initialize();
 		com.projecthero.mod.greenlantern.GreenLanternTrial.initialize();
 		com.projecthero.mod.symbiote.SymbioteDamageRules.initialize();
@@ -226,6 +228,8 @@ public class ProjectHeroMod implements ModInitializer {
 				com.projecthero.mod.wolverine.Wolverine.clearTransient(sp);
 				// Titan Shifter: step out of the Titan onto the ground before dying (the unlock is kept).
 				com.projecthero.mod.titanshifter.TitanShifter.forceEnd(sp, true);
+				// All Might: queued smashes end and the conjured costume never drops (the power itself is kept).
+				com.projecthero.mod.allmight.AllMight.onDeath(sp);
 				// Thor: the conjured armour dies with its wearer (never drops, never survives keepInventory).
 				com.projecthero.mod.thorarmor.ThorArmor.onDeath(sp);
 			}
@@ -293,6 +297,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.greenlantern.GreenLantern.onPlayerJoin(player);
 			com.projecthero.mod.wolverine.Wolverine.onPlayerJoin(player);
 			com.projecthero.mod.titanshifter.TitanShifter.onPlayerJoin(player);
+			com.projecthero.mod.allmight.AllMight.onPlayerJoin(player);
 		});
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
 			ThorPowers.onPlayerRespawn(newPlayer);
@@ -310,6 +315,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.greenlantern.GreenLantern.onPlayerRespawn(newPlayer);
 			com.projecthero.mod.wolverine.Wolverine.onPlayerRespawn(newPlayer);
 			com.projecthero.mod.titanshifter.TitanShifter.onPlayerRespawn(newPlayer);
+			com.projecthero.mod.allmight.AllMight.onPlayerRespawn(newPlayer);
 		});
 
 		// Spider-Man traversal cleanup (spec sections 39-41). A swing anchor is a raw coordinate, so
@@ -325,6 +331,7 @@ public class ProjectHeroMod implements ModInitializer {
 					com.projecthero.mod.greenlantern.GreenLantern.clearTransient(player);
 					com.projecthero.mod.wolverine.Wolverine.clearTransient(player);
 					com.projecthero.mod.titanshifter.TitanShifter.forceEnd(player, true);
+					com.projecthero.mod.allmight.AllMight.clearTransient(player);
 				});
 		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			com.projecthero.mod.spider.SpiderMan.clearTransient(handler.getPlayer());
@@ -336,6 +343,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.greenlantern.GreenLantern.clearTransient(handler.getPlayer());
 			com.projecthero.mod.wolverine.Wolverine.clearTransient(handler.getPlayer());
 			com.projecthero.mod.titanshifter.TitanShifter.clearTransient(handler.getPlayer());
+			com.projecthero.mod.allmight.AllMight.clearTransient(handler.getPlayer());
 		});
 		// A Titan never survives a server stop: put every shifter back on the ground before the world saves.
 		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPING.register(

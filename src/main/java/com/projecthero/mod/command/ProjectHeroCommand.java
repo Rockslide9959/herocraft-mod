@@ -45,6 +45,7 @@ public final class ProjectHeroCommand {
 
 		root.then(HeroCommand.buildAdmin());
 		root.then(TitanShifterCommand.build());
+		root.then(AllMightCommand.build());
 		root.then(LocateCommand.build());
 		root.then(RaidAdminCommand.build());
 

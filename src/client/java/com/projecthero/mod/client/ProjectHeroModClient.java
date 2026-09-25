@@ -90,6 +90,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.WolverineSurgeOverlay::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.WolverineHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.TitanShifterHud::render);
+		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.AllMightHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SymbioteHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternHud::render);
 
@@ -478,6 +479,10 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				// reverts; outside, Shift+H still falls through to the power wheel / Thor armour below.
 				ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(
 						com.projecthero.mod.network.TitanShiftPayload.Action.TOGGLE_SHIFT));
+			} else if (client.player != null && com.projecthero.mod.allmight.AllMight.hasPower(client.player) && !Screen.hasShiftDown()) {
+				// v0.12.33: H as All Might transforms / changes back (Shift+H still opens the power wheel).
+				ClientPlayNetworking.send(new com.projecthero.mod.network.AllMightActionPayload(
+						com.projecthero.mod.network.AllMightActionPayload.Action.TOGGLE_FORM));
 			} else if (client.player != null && wearingAnyIronMan(client.player)) {
 				ClientPlayNetworking.send(new com.projecthero.mod.network.IronManActionPayload(
 						com.projecthero.mod.network.IronManActionPayload.Action.TOGGLE_FACEPLATE));
@@ -512,7 +517,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			} else if (client.player != null
 					&& client.player.getAttachedOrElse(ModAttachments.BOUND_HAMMER_ID, null) != null
 					&& (!Screen.hasShiftDown() || com.projecthero.mod.titanshifter.TitanShifter.isShifter(client.player)
-							|| com.projecthero.mod.wolverine.Wolverine.hasPower(client.player))) {
+							|| com.projecthero.mod.wolverine.Wolverine.hasPower(client.player)
+							|| com.projecthero.mod.allmight.AllMight.hasPower(client.player))) {
 				// v0.12.32: H as a Thor bound to Mjolnir -- lightning strikes down and Thor's Armour forms (H again
 				// dismisses it). Shift+H still opens the power wheel, unless another power already owns plain H,
 				// in which case Shift+H is the armour.
@@ -618,6 +624,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			// v0.12.20: Spider-Man -- N swaps Traversal Mode and Combat Mode.
 			ClientPlayNetworking.send(new com.projecthero.mod.network.SpiderActionPayload(
 					com.projecthero.mod.network.SpiderActionPayload.Action.TOGGLE_MODE));
+		} else if (down && !maxSteelTransformWasDown && client.player != null
+				&& com.projecthero.mod.allmight.AllMight.hasPower(client.player)) {
+			// v0.12.33: Utility 2 (N) as All Might is the All Might Leap.
+			ClientPlayNetworking.send(new com.projecthero.mod.network.AllMightActionPayload(
+					com.projecthero.mod.network.AllMightActionPayload.Action.LEAP));
 		} else if (down && !maxSteelTransformWasDown && client.player != null
 				&& com.projecthero.mod.wolverine.Wolverine.hasPower(client.player)) {
 			// Wolverine: Utility 2 (N) sniffs -- highlights everything within 40 blocks for 20 s.

@@ -96,6 +96,10 @@ public final class HeroPackGuide {
 		return chapters().get(CH_TITAN_SHIFTER);
 	}
 
+	public static Chapter allMightChapter() {
+		return chapters().get(CH_ALL_MIGHT);
+	}
+
 	public static Chapter symbioteChapter() {
 		return chapters().get(CH_SYMBIOTE);
 	}
@@ -225,7 +229,8 @@ public final class HeroPackGuide {
 	private static final int CH_SQUADS = 15;
 	private static final int CH_WOLVERINE = 16;
 	private static final int CH_TITAN_SHIFTER = 17;
-	private static final int CHAPTER_POWER_BASE = 18;
+	private static final int CH_ALL_MIGHT = 18;
+	private static final int CHAPTER_POWER_BASE = 19;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -624,6 +629,36 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.titan_shifter.commands.body");
 		}));
 
+		// All Might (v0.12.33) -- Hero Tier. Appended after the Titan Shifter so every earlier index stays put.
+		out.add(chapter("projecthero.guide.all_might", lines -> {
+			lines.add(Component.translatable("projecthero.guide.all_might.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.all_might.body");
+			blank(lines);
+			head(lines, "projecthero.guide.all_might.progression");
+			para(lines, "projecthero.guide.all_might.step.vestige");
+			blank(lines);
+			head(lines, "projecthero.guide.all_might.ofa");
+			para(lines, "projecthero.guide.all_might.ofa.body");
+			blank(lines);
+			head(lines, "projecthero.guide.all_might.forms");
+			para(lines, "projecthero.guide.all_might.forms.body");
+			blank(lines);
+			head(lines, "projecthero.guide.all_might.controls");
+			for (String[] row : new String[][] {
+					{ "H", "transform" }, { "R", "detroit_smash" }, { "G", "texas_smash" }, { "Z", "carolina_smash" },
+					{ "X", "new_hampshire_smash" }, { "C", "full_cowl" }, { "V", "united_states_of_smash" }, { "N", "all_might_leap" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.all_might.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.guide.all_might.ability." + row[1]);
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.all_might.passives");
+			para(lines, "projecthero.guide.all_might.passives.body");
+			blank(lines);
+			head(lines, "projecthero.guide.all_might.commands");
+			para(lines, "projecthero.guide.all_might.commands.body");
+		}));
+
 		// one chapter per power, in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.all()) {
 			out.add(powerChapter(power));
@@ -654,6 +689,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.symbiote", CH_SYMBIOTE);
 		link(idx, "projecthero.guide.wolverine", CH_WOLVERINE);
 		link(idx, "projecthero.guide.titan_shifter", CH_TITAN_SHIFTER);
+		link(idx, "projecthero.guide.all_might", CH_ALL_MIGHT);
 
 		section(idx, "projecthero.guide.section.events", true);
 		link(idx, "projecthero.guide.zombie_raid", CH_ZOMBIE_RAID);

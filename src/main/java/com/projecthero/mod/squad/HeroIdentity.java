@@ -41,6 +41,9 @@ public final class HeroIdentity {
 		if (com.projecthero.mod.titanshifter.TitanShifter.isShifter(player)) {
 			return "projecthero.squad.identity.titan_shifter";
 		}
+		if (com.projecthero.mod.allmight.AllMightAbilityManager.hasContext(player)) {
+			return "projecthero.squad.identity.all_might";
+		}
 		if (com.projecthero.mod.wolverine.WolverineAbilityManager.hasContext(player)) {
 			return "projecthero.squad.identity.wolverine";
 		}

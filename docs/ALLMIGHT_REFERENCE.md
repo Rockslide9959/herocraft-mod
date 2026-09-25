@@ -1,0 +1,88 @@
+# All Might / One For All — reference (v0.12.33)
+
+A Hero-Tier **Primary** power. Package `com.projecthero.mod.allmight` (+ `.data`, `.item`); client half in
+`com.projecthero.mod.client.allmight` (`AllMightPose`) and `client.gui.AllMightHud`. **Every tunable number is a constant in
+`AllMightConfig`** — resource, costs, cooldowns, damage, ranges, both forms, Full Cowl, landing impacts, block destruction, particle
+intensity and screen shake. Nothing else in the package hard-codes balance.
+
+## Getting it
+
+- **Vestige of One For All** (`projecthero:one_for_all_vestige`): shaped `P E P / D N D / P E P` — titanium-gold plates (P), enchanted
+  golden apples (E), diamond blocks (D), a nether star (N). Using it calls `AllMight.grant` → `HeroTiers.claimPrimary` (so the usual
+  two-slot replace-the-oldest rule applies), sets the state, fills OFA, equips the costume. `/projecthero allmight grant|remove|form|ofa|status`
+  and `/projecthero power grant all_might` for admins.
+
+## Keys
+
+| Key | Ability | OFA | Cooldown | Notes |
+|---|---|---:|---:|---|
+| **H** | Transform (Full Power) | 0 | none (8-tick debounce) | persistent toggle; 1.5 s damage-proof transformation, 0.5 s to change back |
+| **R** (Ability 1) | Detroit Smash | 10 | 3 s | 50 dmg, 5 long × 3 wide, wind-up 6 ticks |
+| **G** (Ability 2) | Texas Smash | 15 | 6 s | 70 dmg, 10 long × 5 wide travelling wave (2 blocks/tick), wind-up 8 |
+| **X** (Ability 3) | New Hampshire Smash | 25 | 8 s | launch ~15 blocks up + forward, 80 dmg to everything flown through, 6-block landing burst; adapts when airborne |
+| **Z** (Ability 4) | Carolina Smash | 20 | 5 s | 10-block dash at 1.5 blocks/tick, 60 dmg along the path, stops at walls / unloaded chunks |
+| **C** (Ability 6) | Full Cowl | 20 | 20 s | 10 s buff; cannot be re-cast while active (no OFA charged) |
+| **V** (Ability 5) | United States of Smash | 100 | 60 s | 30-tick charge, 250 dmg 15-block cone, 25-block secondary wave, crater |
+| **N** | All Might Leap | 5 | 5 s | ~17 blocks up + forward; the landing shockwave is the generic hard-landing impact |
+
+(The slot numbers follow the mod's key layout: Ability 3 = X, 4 = Z, 5 = V, 6 = C.) N was implemented: the mod has no reusable enhanced-leap
+for this kit and every other key is an attack, so a cheap traversal move genuinely adds something.
+
+## Forms (stats recomputed from `(fullPower, cowl)` by `AllMight.reconcile`)
+
+| | Contained | Full Power | Full Cowl (on top) |
+|---|---|---|---|
+| Max health | +40 | +40 | — |
+| Melee damage | +25 | +35 | ×1.5 |
+| Speed | +25% | +40% | +75% (replaces the form's if higher) |
+| Knockback resistance | 80% | 100% | 100% |
+| Jump height | 2.0× | 2.5× | +1.0× |
+| Fall damage | −75% | −90% | — |
+| Damage taken | −35% | −50% | ×0.8 more (multiplicative) |
+| Smash damage | ×1 | ×1.15 | ×1.10 |
+
+Jump values are *height* multipliers, converted to a jump-velocity modifier (`sqrt(h) − 1`). All modifiers are fixed-id transient attribute
+modifiers set idempotently, so pressing H / C any number of times cannot stack anything.
+
+## Architecture
+
+| Piece | Role |
+|---|---|
+| `AllMightConfig` | every tunable |
+| `data.AllMightState` | one persistent + `copyOnDeath` attachment `projecthero:all_might_state`, synced to all clients: power, form, OFA, Cowl / transformation / busy / no-fall clocks, cooldown map, current pose animation |
+| `AllMight` | the server API: grant/revoke, OFA (`spendOfa` never goes negative), `reconcile`, `toggleForm`, per-tick regen / aura / landing detection, join / respawn / death hooks |
+| `AllMightAbilities` | the seven abilities behind one gate (`begin`: power → alive → not locked → cooldown → OFA → spend); a per-player task queue lands each hit on its animation's impact frame; `Move` sessions for the Carolina dash and New Hampshire flight |
+| `AllMightShockwave` | the reusable air-pressure utility: `sweep` (directional slab), `radial`, `strike`, `breakBlocks`, particles, shake. Boss-capped (10% max health per hit, no knockback) |
+| `AllMightDamage` | `ALLOW_DAMAGE` cancel-and-reissue for the reductions; own launches never cause fall damage; passive-punch knockback / air-burst hook |
+| `AllMightSuit` + `item.*` | the costume: four Curse-of-Binding-locked pieces synthesised on the wearer, rendered through the shared GeckoLib armour path; `armorSetId()` is resolved from the wearer's form (`all_might_base` / `all_might_full`) |
+| `AllMightAbilityManager` | slot bridge (router branch after Wolverine) + tick |
+| `network.AllMightActionPayload` | H and N requests; the server re-validates everything |
+
+Server-authoritative: the client only sends key presses; damage, knockback, movement, OFA, cooldowns, the form and every buff are decided
+server-side. The synced attachment is read client-side only for the HUD and the poses.
+
+## Poses / animation
+
+Player-shaped, so the Smash poses are keyframed limb rotations (`AllMightPose`) applied to the vanilla `HumanoidModel` from a `HumanoidModelMixin`
+inject, driven by the synced `animId` / `animStart` (the same game-time clock the server schedules hits with — the fist is fully extended on the
+keyframe where the hit lands). The GeckoLib costume copies its bones from the vanilla model, so it follows every pose. The body itself is GeckoLib
+geometry: `geo/all_might_base.geo.json` (lean) and `geo/all_might_full.geo.json` (heavily inflated arms/chest/legs, extra shoulder cubes), both with a
+cape bone and two hair-antenna bones; texture `textures/armor/all_might.png` (blond hair, face, blue suit with white V collar, yellow belt, white gloves,
+red boots and cape). All generated by `scratchpad/gen_allmight.js`.
+
+## Landing impacts
+
+`AllMight.tickLanding` tracks the peak fall distance and, on touching ground: ≥ 6 blocks small (2 dmg, r 2), ≥ 12 medium (8, r 4), ≥ 20 heavy (20, r 7) —
+knockback, dust, sound, shake on the bigger two. New Hampshire makes its own (bigger) burst and suppresses the generic one.
+
+## Block destruction
+
+`AllMightShockwave.breakBlocks`: needs `AllMightConfig.BLOCK_DESTRUCTION` and the mod's `AbilityHelpers.canGrief()`; never breaks unbreakable blocks
+(hardness < 0), fluids, anything harder than the ability's cap, or a block `level.mayInteract` refuses; capped per ability (Detroit 12, Texas 30, Carolina 4,
+New Hampshire 36, United States 160), nearest first, no drops.
+
+## Tests
+
+`AllMightGameTests`: grant + stats + costume, H toggling without stacking, damage/fall factors incl. Full Cowl multiplication, OFA never negative and gating,
+OFA regeneration, Detroit landing at its impact frame (and a spammed R costing nothing), United States of Smash staged and lethal, Full Cowl not stacking and
+expiring, codec persistence + revoke cleanup, Leap cost/cooldown.

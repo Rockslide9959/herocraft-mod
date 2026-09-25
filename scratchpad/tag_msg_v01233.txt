@@ -1,0 +1,36 @@
+v0.12.33 - NEW HERO-TIER POWER: ALL MIGHT / ONE FOR ALL
+
+GETTING IT
+- Craft a Vestige of One For All (4 Titanium-Gold Plates in the corners, 2 Enchanted Golden Apples above and below, 2 Diamond Blocks left and right, a Nether Star in the middle) and use it. Like every Primary power it replaces your oldest one if both slots are full. Admins: /projecthero allmight grant.
+- You get All Might's costume: blond hair with the two antennae and the big smile, blue suit with a white V collar and yellow belt, white gloves, red boots and a red cape.
+
+OFA POWER
+- A 100-point reserve on the HUD (OFA: 100 / 100). Smashes spend it, you cannot cast without enough. Refills 1 point every 0.75 s, 2.5x faster after 5 s out of combat.
+
+TWO FORMS - PRESS H (no cooldown)
+- Contained: +40 HP, +25 melee, +25% speed, 80% knockback resistance, jumps 2x as high, 75% less fall damage, 35% less damage.
+- Full Power: +35 melee, +40% speed, knockback immune, jumps 2.5x as high, 90% less fall damage, 50% less damage, Smashes hit 15% harder. The costume swells into a huge muscular silhouette. The transformation takes 1.5 s, you cannot be hurt during it, and it blasts a wind burst.
+
+THE SMASHES
+- R  Detroit Smash - a devastating close-range punch: 50 damage, 5 blocks long, 3 wide, huge knockback. 10 OFA, 3 s cooldown.
+- G  Texas Smash - a wide air-pressure wave that visibly travels forward: 70 damage, 10 blocks long, 5 wide, very strong knockback. 15 OFA, 6 s.
+- Z  Carolina Smash - a high-speed dash 10 blocks forward, 60 damage to everything in the path, wind trail, stops safely at walls. 20 OFA, 5 s.
+- X  New Hampshire Smash - launch ~15 blocks up and forward, 80 damage to everything you fly through, then crash down in a 6-block shockwave. Works from the air too. 25 OFA, 8 s.
+- C  Full Cowl - 10 s of +75% speed, +50% melee, +jump height, 100% knockback resistance, +20% more damage reduction, Smashes 10% stronger, green-and-white lightning aura. Cannot be stacked. 20 OFA, 20 s.
+- V  United States of Smash - the ultimate. A 1.5 s charge (growing aura, building wind), then a gigantic punch: 250 damage in a 15-block cone with extreme knockback and a crater, followed by a 25-block outer shockwave and screen shake. 100 OFA (a full bar), 60 s.
+- N  All Might Leap - a huge leap about 17 blocks up with forward momentum and a landing shockwave. 5 OFA, 5 s.
+
+PASSIVES
+- Ordinary punches knock enemies back hard with an air burst; sprinting punches hit harder still.
+- Hard landings from a real fall release a shockwave: small (2 dmg, 2 blocks), medium (8, 4) or heavy (20, 7).
+- His own launches can never hurt him. Bosses lose at most 10% of their health to a single Smash and are never knocked back.
+- Smashes break weak blocks only (never bedrock or protected blocks), capped per attack. Everything, including block breaking, is configurable in AllMightConfig.
+
+UNDER THE HOOD
+- Server-authoritative: the client only sends key presses. Damage, knockback, movement, OFA, cooldowns, form and buffs are all decided by the server; each hit lands on its animation's impact frame. Persists across relogs and death; no stacking when H or C is spammed.
+- New Smash poses for every attack, and a HUD with the six ability boxes plus N, the form, the OFA bar and the Full Cowl timer.
+
+MENUS AND GUIDE
+- New Hero Pack guide chapter for All Might and a Your Power page for it, plus new item names, HUD text and the CurseForge page.
+
+Please wait about 20 minutes for CurseForge to verify the update.

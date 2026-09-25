@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "PEP",
+    "DND",
+    "PEP"
+  ],
+  "key": {
+    "P": {
+      "item": "projecthero:titanium_gold_plate"
+    },
+    "E": {
+      "item": "minecraft:enchanted_golden_apple"
+    },
+    "D": {
+      "item": "minecraft:diamond_block"
+    },
+    "N": {
+      "item": "minecraft:nether_star"
+    }
+  },
+  "result": {
+    "id": "projecthero:one_for_all_vestige",
+    "count": 1
+  }
+}

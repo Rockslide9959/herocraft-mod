@@ -28,6 +28,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(MaxSteelActionPayload.TYPE, MaxSteelActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(WolverineActionPayload.TYPE, WolverineActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(TitanShiftPayload.TYPE, TitanShiftPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(AllMightActionPayload.TYPE, AllMightActionPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(TitanShakePayload.TYPE, TitanShakePayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(FirearmFirePayload.TYPE, FirearmFirePayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(FirearmActionPayload.TYPE, FirearmActionPayload.CODEC);
@@ -147,6 +148,18 @@ public final class ModNetworking {
 		ServerPlayNetworking.registerGlobalReceiver(TitanShiftPayload.TYPE, (payload, context) -> {
 			if (payload.action() == TitanShiftPayload.Action.TOGGLE_SHIFT) {
 				com.projecthero.mod.titanshifter.TitanShifter.requestToggle(context.player());
+			}
+		});
+
+		// All Might: H (transform / change back) and N (All Might Leap). Server re-validates power, cooldown, OFA and state.
+		ServerPlayNetworking.registerGlobalReceiver(AllMightActionPayload.TYPE, (payload, context) -> {
+			net.minecraft.server.level.ServerPlayer p = context.player();
+			if (!com.projecthero.mod.allmight.AllMight.hasPower(p)) {
+				return;
+			}
+			switch (payload.action()) {
+				case TOGGLE_FORM -> com.projecthero.mod.allmight.AllMight.toggleForm(p);
+				case LEAP -> com.projecthero.mod.allmight.AllMightAbilities.leap(p);
 			}
 		});
 

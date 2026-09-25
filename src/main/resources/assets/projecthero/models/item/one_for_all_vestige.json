@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "projecthero:item/one_for_all_vestige"
+  }
+}

@@ -121,6 +121,12 @@ public final class AbilityRouter {
 			return;
 		}
 
+		// All Might (v0.12.33) takes the slots on the same terms: has the power and has not selected a mutation.
+		if (com.projecthero.mod.allmight.AllMightAbilityManager.hasContext(player)) {
+			com.projecthero.mod.allmight.AllMightAbilityManager.handle(player, slot, pressed);
+			return;
+		}
+
 		// A Normal Symbiote host (bonded, suit active, NOT also Spider-Man -- that combination is Black
 		// Suit Spider-Man and stays on SpiderManAbilityManager above) gets its own six tendril/mobility/
 		// defence abilities. Moot in practice that this sits after every Hero-Tier check: bonding purges
@@ -202,6 +208,7 @@ public final class AbilityRouter {
 		com.projecthero.mod.greenlantern.GreenLanternAbilityManager.serverTick(player);
 		com.projecthero.mod.wolverine.WolverineAbilityManager.serverTick(player);
 		com.projecthero.mod.titanshifter.TitanShifterAbilityManager.serverTick(player);
+		com.projecthero.mod.allmight.AllMightAbilityManager.serverTick(player);
 		// v0.6.20: the Spider-Man costume mask (H key) is tied to the costume, not the power, so its
 		// "mask can't stay off once the hood comes off" reconcile has to run for every player.
 		com.projecthero.mod.spider.SpiderMask.reconcile(player);

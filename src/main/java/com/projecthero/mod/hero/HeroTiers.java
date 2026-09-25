@@ -48,7 +48,8 @@ public final class HeroTiers {
 				|| Punisher.hasPower(player)
 				|| GreenLantern.hasPower(player)
 				|| Wolverine.hasPower(player)
-				|| TitanShifter.isShifter(player);
+				|| TitanShifter.isShifter(player)
+				|| com.projecthero.mod.allmight.AllMight.hasPower(player);
 	}
 
 	/** How many Hero-Tier (non-experimental) Primary powers the player holds. */
@@ -72,7 +73,7 @@ public final class HeroTiers {
 
 	/** Every non-experimental Primary power key, as used by {@code HeroCommand}. */
 	public static final java.util.List<String> HERO_KEYS = java.util.List.of(
-			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter");
+			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter", "all_might");
 
 	/** Whether the player currently holds the Hero-Tier power named by {@code key}. */
 	public static boolean holdsHero(ServerPlayer player, String key) {
@@ -85,6 +86,7 @@ public final class HeroTiers {
 			case "green_lantern" -> GreenLantern.hasPower(player);
 			case "wolverine" -> Wolverine.hasPower(player);
 			case "titan_shifter" -> TitanShifter.isShifter(player);
+			case "all_might" -> com.projecthero.mod.allmight.AllMight.hasPower(player);
 			default -> false;
 		};
 	}
@@ -125,6 +127,11 @@ public final class HeroTiers {
 			case "titan_shifter" -> {
 				if (TitanShifter.isShifter(player)) {
 					TitanShifter.revoke(player);
+				}
+			}
+			case "all_might" -> {
+				if (com.projecthero.mod.allmight.AllMight.hasPower(player)) {
+					com.projecthero.mod.allmight.AllMight.revoke(player);
 				}
 			}
 			default -> {
@@ -314,6 +321,9 @@ public final class HeroTiers {
 			return true;
 		}
 		if (!excludeHeroKeys.contains("titan_shifter") && TitanShifter.isShifter(player)) {
+			return true;
+		}
+		if (!excludeHeroKeys.contains("all_might") && com.projecthero.mod.allmight.AllMight.hasPower(player)) {
 			return true;
 		}
 		return false;

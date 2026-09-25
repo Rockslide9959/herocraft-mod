@@ -79,6 +79,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.greenlantern.item.GreenLanternItems.addToCreativeTab(output);
 				// Wolverine: the Adamantium Serum that ascends Super Regeneration into the Hero Class.
 				com.projecthero.mod.wolverine.item.WolverineItems.addToCreativeTab(output);
+				// All Might: the Vestige of One For All and the costume pieces.
+				com.projecthero.mod.allmight.item.AllMightItems.addToCreativeTab(output);
 				// Thor: the H-conjured armour (creative-only for testing; in survival it is summoned, not crafted).
 				com.projecthero.mod.thorarmor.ThorArmorItems.addToCreativeTab(output);
 				// Titan Shifter: the Titan Serum.

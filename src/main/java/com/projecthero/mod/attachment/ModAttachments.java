@@ -395,6 +395,19 @@ public final class ModAttachments {
 									AttachmentSyncPredicate.targetOnly()));
 
 	/**
+	 * The whole All Might / One For All power for one player (v0.12.33): the power, the chosen form, OFA Power, Full Cowl
+	 * and transformation clocks, ability cooldowns and the current pose animation. Persistent + {@code copyOnDeath()}; synced
+	 * to every client (other players render the form and the poses from it); the server stays authoritative.
+	 */
+	public static final AttachmentType<com.projecthero.mod.allmight.data.AllMightState> ALL_MIGHT_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("all_might_state"),
+					builder -> builder.persistent(com.projecthero.mod.allmight.data.AllMightState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.allmight.data.AllMightState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.allmight.data.AllMightState.CODEC),
+									AttachmentSyncPredicate.all()));
+
+	/**
 	 * The Spider-Man Symbiote upgrade: {@code hasSymbiote} (has the player bonded with a Symbiote yet),
 	 * {@code active} (is the black suit on, or in the middle of coming on / going off), a tiny anti-spam
 	 * toggle cooldown, the suit-up/suit-down animation clock ({@code transformDir}/

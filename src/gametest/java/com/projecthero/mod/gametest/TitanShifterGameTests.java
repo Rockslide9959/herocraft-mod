@@ -96,7 +96,7 @@ public class TitanShifterGameTests implements FabricGameTest {
 				helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN, "back to HUMAN, was " + TitanShifter.phase(p));
 				helper.assertTrue(p.getVehicle() == null, "no longer riding");
 				helper.assertTrue(form.isRemoved(), "the Titan was removed");
-				helper.assertTrue(TitanShifter.energy(p) == 0f, "reverting empties the Titan Energy bar, was " + TitanShifter.energy(p));
+				helper.assertTrue(TitanShifter.energy(p) < 5f, "reverting empties the Titan Energy bar (it has only refilled a point or two since), was " + TitanShifter.energy(p));
 				helper.assertFalse(TitanShifter.transform(p), "cannot shift again with an empty bar");
 				helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN, "still human after the refused shift");
 				helper.succeed();

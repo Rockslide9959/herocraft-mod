@@ -1,0 +1,524 @@
+{
+ "format_version": "1.12.0",
+ "minecraft:geometry": [
+  {
+   "description": {
+    "identifier": "geometry.all_might_base",
+    "texture_width": 64,
+    "texture_height": 64,
+    "visible_bounds_width": 4,
+    "visible_bounds_height": 4,
+    "visible_bounds_offset": [
+     0,
+     1,
+     0
+    ]
+   },
+   "bones": [
+    {
+     "name": "armorBody",
+     "pivot": [
+      0,
+      24,
+      0
+     ],
+     "cubes": [
+      {
+       "origin": [
+        -4,
+        12,
+        -2
+       ],
+       "size": [
+        8,
+        12,
+        4
+       ],
+       "uv": [
+        16,
+        16
+       ],
+       "inflate": 0.3
+      }
+     ]
+    },
+    {
+     "name": "armorHead",
+     "pivot": [
+      0,
+      24,
+      0
+     ],
+     "cubes": [
+      {
+       "origin": [
+        -4,
+        24,
+        -4
+       ],
+       "size": [
+        8,
+        8,
+        8
+       ],
+       "uv": [
+        0,
+        0
+       ],
+       "inflate": 0.3
+      },
+      {
+       "origin": [
+        -4,
+        24,
+        -4
+       ],
+       "size": [
+        8,
+        8,
+        8
+       ],
+       "uv": [
+        32,
+        0
+       ],
+       "inflate": 0.55
+      }
+     ]
+    },
+    {
+     "name": "armorRightArm",
+     "pivot": [
+      -5,
+      22,
+      0
+     ],
+     "cubes": [
+      {
+       "origin": [
+        -8,
+        12,
+        -2
+       ],
+       "size": [
+        4,
+        12,
+        4
+       ],
+       "uv": [
+        40,
+        16
+       ],
+       "inflate": 0.25
+      }
+     ]
+    },
+    {
+     "name": "armorLeftArm",
+     "pivot": [
+      5,
+      22,
+      0
+     ],
+     "cubes": [
+      {
+       "origin": [
+        4,
+        12,
+        -2
+       ],
+       "size": [
+        4,
+        12,
+        4
+       ],
+       "uv": [
+        32,
+        48
+       ],
+       "inflate": 0.25
+      }
+     ]
+    },
+    {
+     "name": "armorRightLeg",
+     "pivot": [
+      -2,
+      12,
+      0
+     ],
+     "cubes": [
+      {
+       "origin": [
+        -4,
+        0,
+        -2
+       ],
+       "size": [
+        4,
+        12,
+        4
+       ],
+       "uv": [
+        0,
+        16
+       ],
+       "inflate": 0.25
+      }
+     ]
+    },
+    {
+     "name": "armorLeftLeg",
+     "pivot": [
+      2,
+      12,
+      0
+     ],
+     "cubes": [
+      {
+       "origin": [
+        0,
+        0,
+        -2
+       ],
+       "size": [
+        4,
+        12,
+        4
+       ],
+       "uv": [
+        16,
+        48
+       ],
+       "inflate": 0.25
+      }
+     ]
+    },
+    {
+     "name": "armorRightBoot",
+     "pivot": [
+      -2,
+      12,
+      0
+     ],
+     "cubes": [
+      {
+       "origin": [
+        -4,
+        0,
+        -2
+       ],
+       "size": [
+        4,
+        4,
+        4
+       ],
+       "uv": [
+        0,
+        24
+       ],
+       "inflate": 0.3
+      }
+     ]
+    },
+    {
+     "name": "armorLeftBoot",
+     "pivot": [
+      2,
+      12,
+      0
+     ],
+     "cubes": [
+      {
+       "origin": [
+        0,
+        0,
+        -2
+       ],
+       "size": [
+        4,
+        4,
+        4
+       ],
+       "uv": [
+        16,
+        56
+       ],
+       "inflate": 0.3
+      }
+     ]
+    },
+    {
+     "name": "cape",
+     "parent": "armorBody",
+     "pivot": [
+      0,
+      24,
+      2.65
+     ],
+     "rotation": [
+      7,
+      0,
+      0
+     ],
+     "cubes": [
+      {
+       "origin": [
+        -5,
+        3,
+        2.65
+       ],
+       "size": [
+        10,
+        21,
+        1
+       ],
+       "uv": {
+        "north": {
+         "uv": [
+          56,
+          16
+         ],
+         "uv_size": [
+          8,
+          16
+         ]
+        },
+        "east": {
+         "uv": [
+          56,
+          16
+         ],
+         "uv_size": [
+          8,
+          16
+         ]
+        },
+        "south": {
+         "uv": [
+          56,
+          16
+         ],
+         "uv_size": [
+          8,
+          16
+         ]
+        },
+        "west": {
+         "uv": [
+          56,
+          16
+         ],
+         "uv_size": [
+          8,
+          16
+         ]
+        },
+        "up": {
+         "uv": [
+          56,
+          16
+         ],
+         "uv_size": [
+          8,
+          16
+         ]
+        },
+        "down": {
+         "uv": [
+          56,
+          16
+         ],
+         "uv_size": [
+          8,
+          16
+         ]
+        }
+       }
+      }
+     ]
+    },
+    {
+     "name": "hair_left",
+     "parent": "armorHead",
+     "pivot": [
+      1.2,
+      32.2,
+      -4.6
+     ],
+     "rotation": [
+      -8,
+      0,
+      -16
+     ],
+     "cubes": [
+      {
+       "origin": [
+        0.6,
+        32,
+        -5.2
+       ],
+       "size": [
+        1.2,
+        5,
+        1.2
+       ],
+       "uv": {
+        "north": {
+         "uv": [
+          40,
+          0
+         ],
+         "uv_size": [
+          2,
+          2
+         ]
+        },
+        "east": {
+         "uv": [
+          40,
+          0
+         ],
+         "uv_size": [
+          2,
+          2
+         ]
+        },
+        "south": {
+         "uv": [
+          40,
+          0
+         ],
+         "uv_size": [
+          2,
+          2
+         ]
+        },
+        "west": {
+         "uv": [
+          40,
+          0
+         ],
+         "uv_size": [
+          2,
+          2
+         ]
+        },
+        "up": {
+         "uv": [
+          40,
+          0
+         ],
+         "uv_size": [
+          2,
+          2
+         ]
+        },
+        "down": {
+         "uv": [
+          40,
+          0
+         ],
+         "uv_size": [
+          2,
+          2
+         ]
+        }
+       }
+      }
+     ]
+    },
+    {
+     "name": "hair_right",
+     "parent": "armorHead",
+     "pivot": [
+      -1.2,
+      32.2,
+      -4.6
+     ],
+     "rotation": [
+      -8,
+      0,
+      16
+     ],
+     "cubes": [
+      {
+       "origin": [
+        -1.8,
+        32,
+        -5.2
+       ],
+       "size": [
+        1.2,
+        5,
+        1.2
+       ],
+       "uv": {
+        "north": {
+         "uv": [
+          40,
+          0
+         ],
+         "uv_size": [
+          2,
+          2
+         ]
+        },
+        "east": {
+         "uv": [
+          40,
+          0
+         ],
+         "uv_size": [
+          2,
+          2
+         ]
+        },
+        "south": {
+         "uv": [
+          40,
+          0
+         ],
+         "uv_size": [
+          2,
+          2
+         ]
+        },
+        "west": {
+         "uv": [
+          40,
+          0
+         ],
+         "uv_size": [
+          2,
+          2
+         ]
+        },
+        "up": {
+         "uv": [
+          40,
+          0
+         ],
+         "uv_size": [
+          2,
+          2
+         ]
+        },
+        "down": {
+         "uv": [
+          40,
+          0
+         ],
+         "uv_size": [
+          2,
+          2
+         ]
+        }
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

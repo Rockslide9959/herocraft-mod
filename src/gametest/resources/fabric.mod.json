@@ -20,7 +20,8 @@
       "com.projecthero.mod.gametest.SymbioteProtectionGameTests",
       "com.projecthero.mod.gametest.WolverineGameTests",
       "com.projecthero.mod.gametest.TitanShifterGameTests",
-      "com.projecthero.mod.gametest.ThorArmorGameTests"
+      "com.projecthero.mod.gametest.ThorArmorGameTests",
+      "com.projecthero.mod.gametest.AllMightGameTests"
     ]
   },
   "depends": {

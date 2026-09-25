@@ -43,7 +43,7 @@ import net.minecraft.server.level.ServerPlayer;
 public final class HeroCommand {
 	/** The four Hero-Tier powers, addressable by {@code /heropower grant|revoke hero <key>}. */
 	private static final java.util.List<String> HERO_TIER_KEYS =
-			java.util.List.of("thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter", "symbiote");
+			java.util.List.of("thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter", "all_might", "symbiote");
 
 	/**
 	 * The bare {@code /heropower grant <key>} form (v0.6.20): experimental keys <em>and</em> the four
@@ -348,6 +348,9 @@ public final class HeroCommand {
 			case "titan_shifter" -> {
 				return com.projecthero.mod.command.TitanShifterCommand.grant(c, target);
 			}
+			case "all_might" -> {
+				return com.projecthero.mod.command.AllMightCommand.grant(c, target);
+			}
 			case "symbiote" -> {
 				boolean ok = com.projecthero.mod.symbiote.Symbiote.grant(target);
 				c.getSource().sendSuccess(() -> Component.literal(ok ? "Bonded " + name + " with the Symbiote"
@@ -356,7 +359,7 @@ public final class HeroCommand {
 			}
 			default -> {
 				c.getSource().sendFailure(Component.literal(
-						"Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel, punisher, green_lantern, wolverine, titan_shifter)"));
+						"Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel, punisher, green_lantern, wolverine, titan_shifter, all_might)"));
 				return 0;
 			}
 		}
@@ -378,10 +381,11 @@ public final class HeroCommand {
 			case "green_lantern" -> com.projecthero.mod.greenlantern.GreenLantern.revoke(target);
 			case "wolverine" -> com.projecthero.mod.wolverine.Wolverine.revoke(target);
 			case "titan_shifter" -> com.projecthero.mod.titanshifter.TitanShifter.revoke(target);
+			case "all_might" -> com.projecthero.mod.allmight.AllMight.revoke(target);
 			case "symbiote" -> com.projecthero.mod.symbiote.Symbiote.remove(target);
 			default -> {
 				c.getSource().sendFailure(Component.literal(
-						"Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel, punisher, green_lantern, wolverine, titan_shifter)"));
+						"Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel, punisher, green_lantern, wolverine, titan_shifter, all_might)"));
 				return 0;
 			}
 		}

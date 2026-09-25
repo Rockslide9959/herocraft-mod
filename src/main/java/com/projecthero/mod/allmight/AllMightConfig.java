@@ -1,0 +1,189 @@
+package com.projecthero.mod.allmight;
+
+/**
+ * Every All Might / One For All tunable in one place (v0.12.33) -- resource, abilities, forms, Full Cowl,
+ * landing impacts and visuals. Nothing else in the package hard-codes a balance number. All times are game ticks
+ * (20 per second); all distances are blocks.
+ */
+public final class AllMightConfig {
+	private AllMightConfig() {
+	}
+
+	private static final int S = 20;
+
+	// ---------------------------------------------------------------- OFA Power (the resource)
+	public static final float OFA_MAX = 100.0f;
+	/** OFA restored every {@link #OFA_REGEN_INTERVAL_TICKS} ticks. */
+	public static final float OFA_REGEN_AMOUNT = 1.0f;
+	/** 15 ticks = 1 OFA every 0.75 s while in combat ... */
+	public static final int OFA_REGEN_INTERVAL_TICKS = 15;
+	/** ... and 8 ticks (2.5x faster) once {@link #OFA_COMBAT_LOCKOUT_TICKS} have passed without dealing/taking damage. */
+	public static final int OFA_REGEN_INTERVAL_OUT_OF_COMBAT_TICKS = 8;
+	public static final int OFA_COMBAT_LOCKOUT_TICKS = 5 * S;
+
+	// ---------------------------------------------------------------- forms
+	/** Contained / base All Might. */
+	public static final double BASE_HEALTH_BONUS = 40.0;
+	public static final double BASE_ATTACK_BONUS = 25.0;
+	public static final double BASE_SPEED_BONUS = 0.25;
+	public static final double BASE_KNOCKBACK_RESISTANCE = 0.80;
+	/** Jump HEIGHT multiplier (2.0 = jumps twice as high as vanilla). Converted to a jump-velocity modifier in code. */
+	public static final double BASE_JUMP_HEIGHT = 2.0;
+	public static final float BASE_FALL_REDUCTION = 0.75f;
+	public static final float BASE_DAMAGE_REDUCTION = 0.35f;
+
+	/** Full-power All Might (H). */
+	public static final double FULL_HEALTH_BONUS = 40.0;
+	public static final double FULL_ATTACK_BONUS = 35.0;
+	public static final double FULL_SPEED_BONUS = 0.40;
+	public static final double FULL_KNOCKBACK_RESISTANCE = 1.0;
+	public static final double FULL_JUMP_HEIGHT = 2.5;
+	public static final float FULL_FALL_REDUCTION = 0.90f;
+	public static final float FULL_DAMAGE_REDUCTION = 0.50f;
+	/** Smash damage multiplier while in the full-power form. */
+	public static final float FULL_SMASH_MULTIPLIER = 1.15f;
+
+	/** H: the damage-proof, ability-locked transformation window. */
+	public static final int TRANSFORM_TICKS = 30;
+	/** Changing back is quicker. */
+	public static final int DETRANSFORM_TICKS = 10;
+	/** Minimum gap between two H presses. */
+	public static final int FORM_TOGGLE_DEBOUNCE_TICKS = 8;
+
+	// ---------------------------------------------------------------- Full Cowl (C)
+	public static final int COWL_OFA_COST = 20;
+	public static final int COWL_DURATION_TICKS = 10 * S;
+	public static final int COWL_COOLDOWN_TICKS = 20 * S;
+	/** Movement speed while the Cowl is up (replaces the form's own bonus when higher). */
+	public static final double COWL_SPEED_BONUS = 0.75;
+	/** Extra melee damage multiplier (+50%). */
+	public static final double COWL_ATTACK_MULTIPLIER = 0.50;
+	/** Extra jump-height multiplier added to the form's (+100%). */
+	public static final double COWL_JUMP_HEIGHT_BONUS = 1.0;
+	public static final double COWL_KNOCKBACK_RESISTANCE = 1.0;
+	/** Additional damage reduction, multiplied with the form's (0.65 x 0.8 ...), never added up to invulnerability. */
+	public static final float COWL_DAMAGE_REDUCTION = 0.20f;
+	public static final float COWL_SMASH_MULTIPLIER = 1.10f;
+
+	// ---------------------------------------------------------------- Smashes
+	// Detroit Smash (R): a devastating close-range punch
+	public static final int DETROIT_COST = 10;
+	public static final int DETROIT_COOLDOWN = 3 * S;
+	public static final int DETROIT_WINDUP = 6;
+	public static final float DETROIT_DAMAGE = 50.0f;
+	public static final double DETROIT_RANGE = 5.0;
+	public static final double DETROIT_WIDTH = 3.0;
+	public static final double DETROIT_HEIGHT = 3.0;
+	public static final double DETROIT_KNOCKBACK = 2.2;
+	public static final double DETROIT_LIFT = 0.45;
+
+	// Texas Smash (G): a wide travelling air blast
+	public static final int TEXAS_COST = 15;
+	public static final int TEXAS_COOLDOWN = 6 * S;
+	public static final int TEXAS_WINDUP = 8;
+	public static final float TEXAS_DAMAGE = 70.0f;
+	public static final double TEXAS_RANGE = 10.0;
+	public static final double TEXAS_WIDTH = 5.0;
+	public static final double TEXAS_HEIGHT = 4.0;
+	public static final double TEXAS_KNOCKBACK = 3.0;
+	public static final double TEXAS_LIFT = 0.5;
+	/** The wave advances this many blocks per tick (10 blocks take 5 ticks). */
+	public static final double TEXAS_WAVE_SPEED = 2.0;
+
+	// Carolina Smash (Z): a high-speed offensive dash
+	public static final int CAROLINA_COST = 20;
+	public static final int CAROLINA_COOLDOWN = 5 * S;
+	public static final int CAROLINA_WINDUP = 5;
+	public static final float CAROLINA_DAMAGE = 60.0f;
+	public static final double CAROLINA_DISTANCE = 10.0;
+	public static final double CAROLINA_SPEED = 1.5;
+	public static final double CAROLINA_KNOCKBACK = 2.4;
+
+	// New Hampshire Smash (X): an aerial launch and a crashing landing
+	public static final int NEW_HAMPSHIRE_COST = 25;
+	public static final int NEW_HAMPSHIRE_COOLDOWN = 8 * S;
+	public static final int NEW_HAMPSHIRE_WINDUP = 6;
+	public static final float NEW_HAMPSHIRE_DAMAGE = 80.0f;
+	/** Launch apex height above the take-off point (12-18 blocks). */
+	public static final double NEW_HAMPSHIRE_HEIGHT = 15.0;
+	public static final double NEW_HAMPSHIRE_FORWARD_SPEED = 0.9;
+	public static final double NEW_HAMPSHIRE_LANDING_RADIUS = 6.0;
+	public static final double NEW_HAMPSHIRE_KNOCKBACK = 2.6;
+
+	// United States of Smash (V): the ultimate
+	public static final int UNITED_STATES_COST = 100;
+	public static final int UNITED_STATES_COOLDOWN = 60 * S;
+	/** The charge: aura grows, wind builds. The punch lands at the end of it. */
+	public static final int UNITED_STATES_WINDUP = 30;
+	public static final float UNITED_STATES_DAMAGE = 250.0f;
+	public static final double UNITED_STATES_RANGE = 15.0;
+	public static final double UNITED_STATES_WIDTH = 8.0;
+	public static final double UNITED_STATES_HEIGHT = 8.0;
+	public static final double UNITED_STATES_KNOCKBACK = 5.0;
+	public static final double UNITED_STATES_LIFT = 0.9;
+	/** The larger surrounding wave: radius and the damage it does (a fraction of the primary). */
+	public static final double UNITED_STATES_SECONDARY_RANGE = 25.0;
+	public static final float UNITED_STATES_SECONDARY_DAMAGE_FRACTION = 0.3f;
+	public static final double UNITED_STATES_SECONDARY_KNOCKBACK = 3.0;
+	/** Ticks between the primary punch and the secondary wave beginning to expand. */
+	public static final int UNITED_STATES_SECONDARY_DELAY = 6;
+	public static final int UNITED_STATES_SECONDARY_EXPAND_TICKS = 10;
+
+	// All Might Leap (N) -- a utility ability: the mod has no reusable enhanced-leap for this kit, and the Smashes are all attacks
+	public static final int LEAP_COST = 5;
+	public static final int LEAP_COOLDOWN = 5 * S;
+	public static final double LEAP_HEIGHT = 17.0;
+	public static final double LEAP_FORWARD_SPEED = 0.7;
+
+	// Every Smash is locked out for this long after another starts (except the ones that set their own, longer window)
+	public static final int GLOBAL_LOCK_TICKS = 6;
+
+	// ---------------------------------------------------------------- bosses
+	/** A boss (max health >= this, or a Wither / Ender Dragon) loses at most this fraction of its max health per Smash hit and is not knocked back. */
+	public static final float BOSS_HEALTH_THRESHOLD = 300.0f;
+	public static final float BOSS_MAX_FRACTION_PER_HIT = 0.10f;
+
+	// ---------------------------------------------------------------- passive punches
+	public static final double PUNCH_KNOCKBACK = 1.2;
+	public static final double SPRINT_PUNCH_KNOCKBACK = 1.9;
+
+	// ---------------------------------------------------------------- landing impacts (fall distance in blocks)
+	public static final float LANDING_SMALL_MIN_FALL = 6.0f;
+	public static final float LANDING_MEDIUM_MIN_FALL = 12.0f;
+	public static final float LANDING_HEAVY_MIN_FALL = 20.0f;
+	public static final float LANDING_SMALL_DAMAGE = 2.0f;
+	public static final float LANDING_MEDIUM_DAMAGE = 8.0f;
+	public static final float LANDING_HEAVY_DAMAGE = 20.0f;
+	public static final double LANDING_SMALL_RADIUS = 2.0;
+	public static final double LANDING_MEDIUM_RADIUS = 4.0;
+	public static final double LANDING_HEAVY_RADIUS = 7.0;
+	/** Fall damage is fully cancelled for this long after any of his own launches (Leap, New Hampshire, Carolina). */
+	public static final int LAUNCH_NO_FALL_TICKS = 15 * S;
+
+	// ---------------------------------------------------------------- environment (block destruction)
+	/** Master switch. Also requires the server's normal ability-griefing rule ({@code AbilityHelpers.canGrief}). */
+	public static final boolean BLOCK_DESTRUCTION = true;
+	/** Blocks harder than this are never broken (stone 1.5, obsidian 50; bedrock and other unbreakables are -1 and always excluded). */
+	public static final float DETROIT_BLOCK_HARDNESS = 2.0f;
+	public static final double DETROIT_BLOCK_RADIUS = 1.6;
+	public static final int DETROIT_BLOCK_MAX = 12;
+	public static final float TEXAS_BLOCK_HARDNESS = 2.0f;
+	public static final double TEXAS_BLOCK_RADIUS = 2.6;
+	public static final int TEXAS_BLOCK_MAX = 30;
+	public static final float CAROLINA_BLOCK_HARDNESS = 1.0f;
+	public static final double CAROLINA_BLOCK_RADIUS = 1.2;
+	public static final int CAROLINA_BLOCK_MAX = 4;
+	public static final float NEW_HAMPSHIRE_BLOCK_HARDNESS = 2.0f;
+	public static final double NEW_HAMPSHIRE_BLOCK_RADIUS = 3.2;
+	public static final int NEW_HAMPSHIRE_BLOCK_MAX = 36;
+	public static final float UNITED_STATES_BLOCK_HARDNESS = 5.0f;
+	public static final double UNITED_STATES_BLOCK_RADIUS = 6.0;
+	public static final int UNITED_STATES_BLOCK_MAX = 160;
+
+	// ---------------------------------------------------------------- visuals
+	/** Multiplies every particle count (1.0 = default; 0 turns the particles off). */
+	public static final float PARTICLE_INTENSITY = 1.0f;
+	/** Camera shake: radius in blocks within which players feel the big impacts. */
+	public static final double SHAKE_RADIUS = 40.0;
+	public static final boolean SCREEN_SHAKE = true;
+}

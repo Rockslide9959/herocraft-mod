@@ -108,6 +108,15 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		this.hat.xRot = this.head.xRot;
 	}
 
+	/** All Might's Smash / transformation poses (v0.12.33): driven by the synced power state, so every viewer and the armour shell agree. */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$allMightPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player player) {
+			com.projecthero.mod.client.allmight.AllMightPose.apply(player, (HumanoidModel<?>) (Object) this);
+		}
+	}
+
 	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
 	private void projecthero$flightPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
 			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {

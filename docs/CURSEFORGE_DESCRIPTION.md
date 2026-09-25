@@ -1,14 +1,14 @@
 # Project Hero
 
 **A large single-player-and-multiplayer superhero mod for Minecraft 1.21.1 (Fabric).** Become Thor,
-Iron Man, Spider-Man, Max Steel, the Punisher, Wolverine or a giant Titan Shifter, bond with an alien symbiote, mutate one of 27
+Iron Man, Spider-Man, Max Steel, the Punisher, Wolverine, All Might or a giant Titan Shifter, bond with an alien symbiote, mutate one of 27
 experimental superpowers, then put them to the test against world raids and a giant world boss.
 
 Every hero is a full progression system, not a creative-only toy — you earn each one in survival,
 power it, upgrade it, and can lose it again.
 
 **Primary & Secondary powers.** Every power is either *Primary* — who you are: Thor, Iron Man,
-Spider-Man, Max Steel, the Punisher, Green Lantern, Wolverine, the Titan Shifter and the mutations — or *Secondary* — an add-on that
+Spider-Man, Max Steel, the Punisher, Green Lantern, Wolverine, the Titan Shifter, All Might and the mutations — or *Secondary* — an add-on that
 rides on top. **You can hold two Primary powers at once** (v0.11.15): each hero power takes a slot, and
 your mutations (up to 3, stacking as before) share one. Gaining a hero power strips every mutation and,
 if you already hold two heroes, **replaces the oldest**; gaining a mutation keeps at most one hero beside
@@ -221,6 +221,23 @@ The old J key is gone.
 - Server-authoritative, GeckoLib-animated (idle, walk, run, punch, kick, heavy punch, smash, stomp, leap, landing, roar,
   hurt, regeneration, hardening, transformation, reversion, death), built to add more Titan types later. Everything is in
   `config/projecthero_titan_shifter.json`.
+
+### 💪 All Might / One For All
+A permanent **Hero-Tier Primary** power (v0.12.33) — the mod's strongest pure-strength hero. Craft a **Vestige of One For All** (4 titanium-gold
+plates, 2 enchanted golden apples, 2 diamond blocks, a nether star) and use it. You get a custom **All Might costume** (blond hair and smile, blue suit with
+a white V collar, white gloves, red boots and a cape) that swells into a huge muscular silhouette in Full Power.
+
+- **OFA Power:** a 100-point reserve on the HUD (`OFA: 100 / 100`) that every Smash spends; it refills 1 point per 0.75 s, 2.5× faster out of combat.
+- **H — Transform:** toggles the **Contained** form (+40 HP, +25 melee, +25% speed, 80% knockback resistance, 2× jump, −75% fall damage, −35% damage) and
+  **Full Power** (+35 melee, +40% speed, knockback immune, 2.5× jump, −90% fall damage, −50% damage, Smashes +15%). A 1.5 s damage-proof transformation with a
+  wind burst; no cooldown.
+- **The Smashes:** **R Detroit Smash** (50 dmg, 5 blocks, 10 OFA, 3 s) · **G Texas Smash** (70 dmg, a 10-block travelling air wave, 15 OFA, 6 s) ·
+  **Z Carolina Smash** (a 10-block dash, 60 dmg, 20 OFA, 5 s) · **X New Hampshire Smash** (launch ~15 blocks up, 80 dmg on the way through and on landing,
+  25 OFA, 8 s) · **C Full Cowl** (10 s of +75% speed, +50% melee, +jump, +20% more damage reduction, 20 OFA, 20 s) · **V United States of Smash** (a 1.5 s
+  charge, then 250 damage in a 15-block cone, a 25-block outer shockwave and a crater — 100 OFA, 60 s) · **N All Might Leap** (~17 blocks up, 5 OFA, 5 s).
+- **Passives:** punches that knock enemies back with an air burst, hard-landing shockwaves (small / medium / heavy by fall height), his own launches can never
+  hurt him, bosses lose at most 10% of their health to a single Smash and are not knocked back. Block damage is configurable and never touches bedrock.
+- Server-authoritative; every number is in `AllMightConfig`. Full details in `docs/ALLMIGHT_REFERENCE.md`.
 
 ---
 

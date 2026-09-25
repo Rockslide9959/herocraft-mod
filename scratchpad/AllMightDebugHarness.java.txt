@@ -1,0 +1,161 @@
+package com.projecthero.mod.client.allmight;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.allmight.AllMight;
+import com.projecthero.mod.allmight.AllMightAbilities;
+import com.projecthero.mod.allmight.data.AllMightState;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMPORARY dev harness (not shipped): scripted world + All Might tour + screenshots. Enabled by env var. */
+public final class AllMightDebugHarness {
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+
+	private AllMightDebugHarness() {
+	}
+
+	public static void init() {
+		ClientTickEvents.END_CLIENT_TICK.register(AllMightDebugHarness::tick);
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					fn.accept(p);
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.put(t, r);
+	}
+
+	private static void refill(Minecraft mc) {
+		server(mc, p -> {
+			AllMightState s = AllMight.state(p).copy();
+			s.ofa = 100f;
+			s.abilityReadyAt.clear();
+			s.busyUntil = 0L;
+			p.setAttached(com.projecthero.mod.attachment.ModAttachments.ALL_MIGHT_STATE, s);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				GameRules rules = new GameRules();
+				LevelSettings settings = new LevelSettings("AllMightDebug" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+						Difficulty.PEACEFUL, true, rules, WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		mc.options.pauseOnLostFocus = false;
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+			mc.options.hideGui = false;
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			server(mc, p -> {
+				Vec3 v = p.position();
+				p.teleportTo(p.serverLevel(), v.x, v.y, v.z, 0.0f, 5.0f);
+				AllMight.grant(p);
+				for (int i = 1; i <= 4; i++) {
+					var cow = EntityType.COW.create(p.serverLevel());
+					cow.moveTo(v.x + (i % 2 == 0 ? 1.2 : -1.2), v.y, v.z + i * 3.5, 0, 0);
+					cow.setNoAi(true);
+					p.serverLevel().addFreshEntity(cow);
+				}
+			});
+			t0 = inWorldTicks;
+			buildScript(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void buildScript(Minecraft mc) {
+		at(20, () -> shot(mc, "01_base_front"));
+		at(22, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+		at(32, () -> shot(mc, "02_base_back"));
+		at(34, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+		at(40, () -> server(mc, AllMight::toggleForm));
+		at(50, () -> shot(mc, "03_transform_a"));
+		at(60, () -> shot(mc, "03_transform_b"));
+		at(90, () -> shot(mc, "04_full_front"));
+		at(92, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+		at(102, () -> shot(mc, "05_full_back"));
+		at(104, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+		at(110, () -> refill(mc));
+		at(112, () -> server(mc, AllMightAbilities::detroit));
+		at(115, () -> shot(mc, "06_detroit_windup"));
+		at(119, () -> shot(mc, "06_detroit_hit"));
+		at(140, () -> refill(mc));
+		at(142, () -> server(mc, AllMightAbilities::texas));
+		at(148, () -> shot(mc, "07_texas_windup"));
+		at(152, () -> shot(mc, "07_texas_wave"));
+		at(170, () -> refill(mc));
+		at(172, () -> server(mc, AllMightAbilities::carolina));
+		at(180, () -> shot(mc, "08_carolina_dash"));
+		at(200, () -> refill(mc));
+		at(202, () -> server(mc, AllMightAbilities::newHampshire));
+		at(210, () -> shot(mc, "09_nh_rise"));
+		at(222, () -> shot(mc, "09_nh_air"));
+		at(260, () -> refill(mc));
+		at(262, () -> server(mc, AllMightAbilities::fullCowl));
+		at(270, () -> shot(mc, "10_cowl"));
+		at(290, () -> refill(mc));
+		at(292, () -> server(mc, AllMightAbilities::unitedStates));
+		at(306, () -> shot(mc, "11_usos_charge"));
+		at(322, () -> shot(mc, "11_usos_punch"));
+		at(330, () -> shot(mc, "11_usos_wave"));
+		at(345, () -> shot(mc, "11_usos_after"));
+		at(380, () -> server(mc, AllMight::toggleForm));
+		at(400, () -> shot(mc, "12_back_to_base"));
+		at(430, () -> mc.stop());
+	}
+}
