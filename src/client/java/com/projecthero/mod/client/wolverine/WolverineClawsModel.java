@@ -99,10 +99,10 @@ public final class WolverineClawsModel {
 			float s = side.startsWith("right") ? -1.0F : 1.0F;
 			PartDefinition hand = root.addOrReplaceChild(side, CubeListBuilder.create(), PartPose.offset(0.0F, HAND_END, 0.0F));
 			for (int i = 0; i < 3; i++) {
-				float z = (i - 1) * 1.7F;
-				float k = i == 1 ? 1.0F : 0.9F; // the outer blades are shorter
-				float fan = (i - 1) * 0.04F;    // ...and splay outward
-				float curve = (i == 1 ? 0.03F : 0.04F) * s;
+				float z = (i - 1) * BLADE_SPACING; // same knuckle line as the adamantium blades: side by side
+				float k = 1.0F;
+				float fan = 0.0F;   // parallel, no splay: three blades side by side
+				float curve = 0.035F * s;
 				PartDefinition parent = hand;
 				float prevLen = 0.0F;
 				for (int j = 0; j < seg.length; j++) {
