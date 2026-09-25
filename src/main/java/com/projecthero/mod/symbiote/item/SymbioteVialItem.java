@@ -51,11 +51,9 @@ public class SymbioteVialItem extends Item {
 			return InteractionResultHolder.success(held);
 		}
 		if (filled) {
-			if (SymbioteBonding.attemptFromVial(sp)) {
-				swapVial(sp, hand, held, new ItemStack(SymbioteHostItems.SYMBIOTE_VIAL));
-				return InteractionResultHolder.consume(player.getItemInHand(hand));
-			}
-			return InteractionResultHolder.fail(held);
+			// v0.12.25: this only starts the bonding minigame -- the vial is swapped for an empty one when it is won
+			return SymbioteBonding.attemptFromVial(sp)
+					? InteractionResultHolder.consume(held) : InteractionResultHolder.fail(held);
 		}
 
 		// Empty vial.
@@ -86,6 +84,18 @@ public class SymbioteVialItem extends Item {
 		swapVial(player, InteractionHand.MAIN_HAND, held, new ItemStack(SymbioteHostItems.SYMBIOTE_VIAL_FILLED));
 		player.displayClientMessage(Component.translatable("message.projecthero.symbiote_vial.captured")
 				.withStyle(ChatFormatting.DARK_PURPLE), true);
+	}
+
+	/** Bond minigame won: turn one filled vial (either hand) into an empty one. False if none is held. */
+	public static boolean consumeFilledVial(ServerPlayer player) {
+		for (InteractionHand hand : InteractionHand.values()) {
+			ItemStack held = player.getItemInHand(hand);
+			if (held.is(SymbioteHostItems.SYMBIOTE_VIAL_FILLED)) {
+				swapVial(player, hand, held, new ItemStack(SymbioteHostItems.SYMBIOTE_VIAL));
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Turn one vial of the held stack into {@code result}: replace it if alone, else split one off. */

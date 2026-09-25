@@ -291,7 +291,7 @@ public class SymbioteGameTests implements FabricGameTest {
 
 		ServerPlayer ordinary = helper.makeMockServerPlayerInLevel();
 		ordinary.setGameMode(GameType.SURVIVAL);
-		com.projecthero.mod.symbiote.SymbioteBonding.attempt(ordinary, blob);
+		com.projecthero.mod.symbiote.SymbioteBonding.bondNow(ordinary, blob);
 		helper.assertTrue(com.projecthero.mod.symbiote.Symbiote.hasSymbiote(ordinary),
 				"v0.9.14: an ordinary player bonds too, not only a Spider-Man");
 		helper.assertTrue(blob.isRemoved(), "and the entity is consumed");
@@ -306,7 +306,7 @@ public class SymbioteGameTests implements FabricGameTest {
 		helper.getLevel().addFreshEntity(blob);
 
 		ServerPlayer spider = spiderMan(helper);
-		com.projecthero.mod.symbiote.SymbioteBonding.attempt(spider, blob);
+		com.projecthero.mod.symbiote.SymbioteBonding.bondNow(spider, blob);
 		helper.assertTrue(com.projecthero.mod.symbiote.Symbiote.hasSymbiote(spider), "Spider-Man bonds too");
 		helper.assertTrue(SpiderMan.hasPower(spider), "and Spider-Man is NOT purged -- it's the compatible power");
 		helper.assertTrue(com.projecthero.mod.symbiote.SymbioteHostType.of(spider)
@@ -325,7 +325,7 @@ public class SymbioteGameTests implements FabricGameTest {
 				com.projecthero.mod.symbiote.entity.SymbioteEntityTypes.SYMBIOTE.create(helper.getLevel());
 		blob.moveTo(helper.absoluteVec(net.minecraft.world.phys.Vec3.ZERO));
 		helper.getLevel().addFreshEntity(blob);
-		com.projecthero.mod.symbiote.SymbioteBonding.attempt(player, blob);
+		com.projecthero.mod.symbiote.SymbioteBonding.bondNow(player, blob);
 
 		helper.assertTrue(Symbiote.hasSymbiote(player), "the bond still succeeds");
 		helper.assertFalse(com.projecthero.mod.ironman.TonyStark.hasPower(player),
@@ -345,7 +345,7 @@ public class SymbioteGameTests implements FabricGameTest {
 				com.projecthero.mod.symbiote.entity.SymbioteEntityTypes.SYMBIOTE.create(helper.getLevel());
 		blob.moveTo(helper.absoluteVec(net.minecraft.world.phys.Vec3.ZERO));
 		helper.getLevel().addFreshEntity(blob);
-		com.projecthero.mod.symbiote.SymbioteBonding.attempt(player, blob);
+		com.projecthero.mod.symbiote.SymbioteBonding.bondNow(player, blob);
 
 		helper.assertTrue(Symbiote.hasSymbiote(player), "the bond still succeeds");
 		helper.assertFalse(com.projecthero.mod.hero.HeroTiers.hasExperimental(player),

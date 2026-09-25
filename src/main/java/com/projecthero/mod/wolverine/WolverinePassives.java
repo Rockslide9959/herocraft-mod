@@ -232,7 +232,7 @@ public final class WolverinePassives {
 				AttributeModifier.Operation.ADD_MULTIPLIED_BASE, power);
 		set(player, Attributes.ATTACK_DAMAGE, ATTACK, WolverineConfig.MELEE_BONUS_DAMAGE,
 				AttributeModifier.Operation.ADD_VALUE, power);
-		set(player, Attributes.ATTACK_DAMAGE, CLAW_ATTACK, WolverineConfig.CLAW_MELEE_BONUS,
+		set(player, Attributes.ATTACK_DAMAGE, CLAW_ATTACK, WolverineConfig.clawMeleeBonus(Wolverine.clawTier(player)),
 				AttributeModifier.Operation.ADD_VALUE, unarmedClaws);
 		set(player, Attributes.ATTACK_DAMAGE, RAGE_ATTACK, WolverineConfig.RAGE_DAMAGE_BONUS,
 				AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL, rage);

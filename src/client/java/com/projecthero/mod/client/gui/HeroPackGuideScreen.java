@@ -25,6 +25,11 @@ public final class HeroPackGuideScreen extends Screen {
 	private static final int LINE_H = 11;
 	private static final int INDENT = 9;
 
+	// v0.12.25: the guide reopens on the page you left it on (kept for the whole game session)
+	private static int lastChapter = 0;
+	private static int lastIndexScroll = 0;
+	private static int lastContentScroll = 0;
+
 	private int chapter = 0;
 	private int indexScroll = 0;
 	private int contentScroll = 0;
@@ -35,6 +40,17 @@ public final class HeroPackGuideScreen extends Screen {
 
 	public HeroPackGuideScreen() {
 		super(Component.translatable("screen.projecthero.guide"));
+		this.chapter = clamp(lastChapter, 0, HeroPackGuide.chapters().size() - 1);
+		this.indexScroll = Math.max(0, lastIndexScroll);
+		this.contentScroll = Math.max(0, lastContentScroll);
+	}
+
+	@Override
+	public void removed() {
+		lastChapter = chapter;
+		lastIndexScroll = indexScroll;
+		lastContentScroll = contentScroll;
+		super.removed();
 	}
 
 	@Override
@@ -44,16 +60,18 @@ public final class HeroPackGuideScreen extends Screen {
 		this.bottom = this.height - 30;
 		addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
 				.bounds(INDEX_X, this.height - 24, INDEX_W, 18).build());
-		rewrap();
+		rewrap(true);
 	}
 
 	private List<IndexEntry> index() {
 		return HeroPackGuide.index();
 	}
 
-	private void rewrap() {
+	private void rewrap(boolean keepScroll) {
 		wrapped.clear();
-		contentScroll = 0;
+		if (!keepScroll) {
+			contentScroll = 0;
+		}
 		int w = Math.max(120, this.width - contentX - 16);
 		for (Component line : HeroPackGuide.chapters().get(chapter).lines()) {
 			var split = this.font.split(line, w);
@@ -63,6 +81,7 @@ public final class HeroPackGuideScreen extends Screen {
 				wrapped.addAll(split);
 			}
 		}
+		contentScroll = clamp(contentScroll, 0, Math.max(0, wrapped.size() * LINE_H + 20 - (bottom - top)));
 	}
 
 	@Override
@@ -74,7 +93,7 @@ public final class HeroPackGuideScreen extends Screen {
 				IndexEntry entry = index.get(row);
 				if (!entry.isHeading()) {
 					chapter = entry.chapterIndex();
-					rewrap();
+					rewrap(false);
 					return true;
 				}
 			}

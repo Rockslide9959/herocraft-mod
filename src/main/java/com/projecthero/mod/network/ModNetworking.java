@@ -57,6 +57,8 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(GreenLanternActionPayload.TYPE, GreenLanternActionPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(GreenLanternRingScanPayload.TYPE, GreenLanternRingScanPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(GreenLanternTrialPromptPayload.TYPE, GreenLanternTrialPromptPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(SymbioteBondGamePayload.TYPE, SymbioteBondGamePayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(SymbioteBondResultPayload.TYPE, SymbioteBondResultPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(GreenLanternTrialAnswerPayload.TYPE, GreenLanternTrialAnswerPayload.CODEC);
 
 		// Thor flight double-tap-jump (unchanged). The other Thor actions now arrive via the universal
@@ -178,6 +180,10 @@ public final class ModNetworking {
 		// Green Lantern construct wheel: the player picked a construct type (hold C).
 		ServerPlayNetworking.registerGlobalReceiver(GreenLanternConstructSelectPayload.TYPE, (payload, context) ->
 				com.projecthero.mod.greenlantern.GreenLanternAbilityManager.selectConstruct(context.player(), payload.ordinal()));
+
+		// Symbiote bonding minigame result (v0.12.25): the server replays the press ticks against its own seed.
+		ServerPlayNetworking.registerGlobalReceiver(SymbioteBondResultPayload.TYPE, (payload, context) ->
+				context.server().execute(() -> com.projecthero.mod.symbiote.SymbioteBondGame.handleResult(context.player(), payload.presses())));
 
 		// Will Trial "Are you afraid?" answer (v0.11.11).
 		ServerPlayNetworking.registerGlobalReceiver(GreenLanternTrialAnswerPayload.TYPE, (payload, context) ->

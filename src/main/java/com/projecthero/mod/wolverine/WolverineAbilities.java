@@ -11,6 +11,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.projecthero.mod.hero.power.AbilityHelpers;
+import com.projecthero.mod.wolverine.data.ClawTier;
 import com.projecthero.mod.wolverine.data.WolverineState;
 
 import net.minecraft.ChatFormatting;
@@ -60,7 +61,11 @@ public final class WolverineAbilities {
 
 	/** Common gate: has the power, off cooldown; auto-deploys the claws for a claw move. */
 	private static boolean prepare(ServerPlayer player, String id, String nameKey, boolean needsClaws) {
-		if (!Wolverine.hasPower(player)) {
+		if (!Wolverine.hasPower(player) || Wolverine.transforming(player)) {
+			return false;
+		}
+		if (id.equals(EXECUTION) && Wolverine.clawTier(player) != ClawTier.ADAMANTIUM) {
+			Wolverine.say(player, "message.projecthero.wolverine.adamantium_required", ChatFormatting.RED);
 			return false;
 		}
 		if (!Wolverine.abilityReady(player, id)) {
@@ -68,6 +73,10 @@ public final class WolverineAbilities {
 					Component.translatable(nameKey),
 					String.format(Locale.ROOT, "%.1f", Wolverine.cooldownRemaining(player, id) / 20.0f))
 					.withStyle(ChatFormatting.GRAY), true);
+			return false;
+		}
+		if (needsClaws && !Wolverine.clawTier(player).hasClaws()) {
+			Wolverine.say(player, "message.projecthero.wolverine.bone_claws_required", ChatFormatting.RED);
 			return false;
 		}
 		if (needsClaws && !Wolverine.clawsOut(player)) {
@@ -171,7 +180,7 @@ public final class WolverineAbilities {
 		swing(player, 1);
 		slashFx(player, 1.6, 0.0, 1.0f);
 		for (LivingEntity target : inBox(player, WolverineConfig.SLASH_RANGE, WolverineConfig.STRIKE_WIDTH)) {
-			strike(player, target, WolverineConfig.SLASH_DAMAGE, 0.6);
+			strike(player, target, WolverineConfig.slashDamage(Wolverine.clawTier(player)), 0.6);
 		}
 	}
 
@@ -193,7 +202,7 @@ public final class WolverineAbilities {
 	private static void crossHit(ServerPlayer player, double side, float pitch) {
 		slashFx(player, 1.5, side, pitch);
 		for (LivingEntity target : inBox(player, WolverineConfig.CROSS_RANGE, WolverineConfig.STRIKE_WIDTH)) {
-			strike(player, target, WolverineConfig.CROSS_DAMAGE_EACH, 0.35);
+			strike(player, target, WolverineConfig.crossDamageEach(Wolverine.clawTier(player)), 0.35);
 		}
 	}
 
@@ -263,7 +272,7 @@ public final class WolverineAbilities {
 			if (!hits.add(target.getId())) {
 				continue;
 			}
-			boolean hurt = strike(player, target, WolverineConfig.DASH_DAMAGE, 0.9);
+			boolean hurt = strike(player, target, WolverineConfig.dashDamage(Wolverine.clawTier(player)), 0.9);
 			if (hurt) {
 				slashFx(player, 0.9, 0.0, 0.8f);
 			}
@@ -408,7 +417,7 @@ public final class WolverineAbilities {
 			return;
 		}
 		hitCount.merge(best.getId(), 1, Integer::sum);
-		if (strike(player, best, WolverineConfig.FRENZY_DAMAGE, 0.15)) {
+		if (strike(player, best, WolverineConfig.frenzyDamage(Wolverine.clawTier(player)), 0.15)) {
 			AbilityHelpers.sound(player, SoundEvents.PLAYER_ATTACK_SWEEP, 0.7f, 1.3f + 0.1f * hitCount.size());
 			if (player.level() instanceof ServerLevel level) {
 				Vec3 p = best.position().add(0, best.getBbHeight() * 0.6, 0);

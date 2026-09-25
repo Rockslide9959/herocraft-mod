@@ -148,8 +148,7 @@ public final class SuperRegenerationHandlers {
 		}));
 
 		// Base passive regeneration, every 0.25 s. Rate depends on the situation:
-		//   - recently hurt / in combat: 0.5 HP per interval
-		//   - 3 s out of combat, or at/below 4 hearts: 1 HP per interval
+		// v0.12.25: a flat 1 HP per interval (4 HP/s) -- it no longer slows down in combat.
 		// Stacks with Regeneration Mode and Cellular Surge above.
 		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, player -> tickBaseRegen(player, 1.0f, false));
 
@@ -197,9 +196,8 @@ public final class SuperRegenerationHandlers {
 			return;
 		}
 		if (player.getHealth() < player.getMaxHealth()) {
-			boolean desperate = player.getHealth() <= DESPERATE_HP;
-			float heal = (!ignoreCombat && inCombat(player) && !desperate) ? BASE_HEAL_COMBAT : BASE_HEAL_CALM;
-			player.heal(heal * multiplier);
+			// v0.12.25: the heal never slows down -- combat or not, it is always the full rate
+			player.heal(BASE_HEAL_CALM * multiplier);
 		}
 	}
 

@@ -1239,18 +1239,47 @@ public final class GreenLanternConstructs {
 		double angle = (owner.tickCount % 20) * (Math.PI * 2 / 20.0);
 		owner.serverLevel().sendParticles(GREEN_DUST,
 				hand.x + Math.cos(angle) * 0.25, hand.y + Math.sin(angle) * 0.25, hand.z, 1, 0, 0, 0, 0.0);
-		if (owner.tickCount % 5 != 0) {
+		if (owner.tickCount % GreenLanternConfig.DRILL_INTERVAL_TICKS != 0) {
 			return;
 		}
 		BlockHitResult hit = AbilityHelpers.raycastBlock(owner, GreenLanternConfig.DRILL_REACH);
 		if (hit.getType() == HitResult.Type.MISS) {
 			return;
 		}
+		// v0.12.25: a 2x2 path -- the aimed block plus its nearest neighbour along each in-plane axis
+		// (the side of the block the crosshair is on), across the face that was hit.
 		BlockPos pos = hit.getBlockPos();
-		BlockState state = owner.level().getBlockState(pos);
-		if (state.isAir() || state.getDestroySpeed(owner.level(), pos) < 0) {
-			return;
+		Direction.Axis face = hit.getDirection().getAxis();
+		Vec3 rel = hit.getLocation().subtract(pos.getX(), pos.getY(), pos.getZ());
+		int dx = face == Direction.Axis.X ? 0 : (rel.x >= 0.5 ? 1 : -1);
+		int dy = face == Direction.Axis.Y ? 0 : (rel.y >= 0.5 ? 1 : -1);
+		int dz = face == Direction.Axis.Z ? 0 : (rel.z >= 0.5 ? 1 : -1);
+		java.util.List<BlockPos> path = new java.util.ArrayList<>(4);
+		path.add(pos);
+		if (dx != 0) {
+			path.add(pos.offset(dx, 0, 0));
 		}
-		owner.gameMode.destroyBlock(pos);
+		if (dy != 0) {
+			path.add(pos.offset(0, dy, 0));
+		}
+		if (dz != 0) {
+			path.add(pos.offset(0, 0, dz));
+		}
+		if (dx != 0 && dy != 0) {
+			path.add(pos.offset(dx, dy, 0));
+		}
+		if (dx != 0 && dz != 0) {
+			path.add(pos.offset(dx, 0, dz));
+		}
+		if (dy != 0 && dz != 0) {
+			path.add(pos.offset(0, dy, dz));
+		}
+		for (BlockPos p : path) {
+			BlockState state = owner.level().getBlockState(p);
+			if (state.isAir() || state.getDestroySpeed(owner.level(), p) < 0) {
+				continue;
+			}
+			owner.gameMode.destroyBlock(p);
+		}
 	}
 }

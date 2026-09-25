@@ -68,7 +68,7 @@ public final class WolverineSense {
 			// strength. The vanilla attack path scales by the swing cooldown, so a hit landed right
 			// after the other hand's swing was weak, and a held item changed the number.
 			if (hit.getEntity() instanceof LivingEntity target) {
-				float dmg = (float) (1.0 + WolverineConfig.MELEE_BONUS_DAMAGE + WolverineConfig.CLAW_MELEE_BONUS);
+				float dmg = (float) (1.0 + WolverineConfig.MELEE_BONUS_DAMAGE + WolverineConfig.clawMeleeBonus(Wolverine.clawTier(player)));
 				if (Wolverine.raging(player)) {
 					dmg *= 1.0f + (float) WolverineConfig.RAGE_DAMAGE_BONUS;
 				}

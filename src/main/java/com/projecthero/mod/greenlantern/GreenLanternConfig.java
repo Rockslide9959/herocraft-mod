@@ -246,6 +246,8 @@ public final class GreenLanternConfig {
 	public static final float DRILL_START_COST = 0f;
 	public static final float DRILL_UPKEEP_PER_SEC = 2f; // only drains while toggled on
 	public static final double DRILL_REACH = 5.0;
+	/** v0.12.25: the drill breaks a 2x2 path once every 0.75 s. */
+	public static final int DRILL_INTERVAL_TICKS = 15;
 	public static final int DRILL_SLOT_WEIGHT = 1;
 
 	/** v0.11.7: 1 to deploy, 1 charge every 5 seconds (0.2/sec) to maintain -- explicit user request. */

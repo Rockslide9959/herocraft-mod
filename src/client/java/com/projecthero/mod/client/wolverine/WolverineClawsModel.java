@@ -2,7 +2,7 @@ package com.projecthero.mod.client.wolverine;
 
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.attachment.ModAttachments;
-import com.projecthero.mod.wolverine.Wolverine;
+import com.projecthero.mod.wolverine.data.ClawTier;
 import com.projecthero.mod.wolverine.data.WolverineState;
 
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -30,7 +30,19 @@ import net.minecraft.resources.ResourceLocation;
  */
 public final class WolverineClawsModel {
 	public static final ModelLayerLocation LAYER = new ModelLayerLocation(ProjectHeroMod.id("wolverine_claws"), "main");
+	public static final ModelLayerLocation BONE_LAYER = new ModelLayerLocation(ProjectHeroMod.id("wolverine_bone_claws"), "main");
 	public static final ResourceLocation TEXTURE = ProjectHeroMod.id("textures/entity/wolverine_claws.png");
+	public static final ResourceLocation BONE_TEXTURE = ProjectHeroMod.id("textures/entity/wolverine_bone_claws.png");
+
+	/** The texture for a claw tier: ivory bone for {@link ClawTier#BONE}, silver adamantium otherwise. */
+	public static ResourceLocation textureFor(ClawTier tier) {
+		return tier == ClawTier.BONE ? BONE_TEXTURE : TEXTURE;
+	}
+
+	/** The model layer for a claw tier. */
+	public static ModelLayerLocation layerFor(ClawTier tier) {
+		return tier == ClawTier.BONE ? BONE_LAYER : LAYER;
+	}
 
 	/** Ticks the blades take to slide out / back in. */
 	private static final float EXTEND_TICKS = 6.0f;
@@ -72,10 +84,46 @@ public final class WolverineClawsModel {
 		return LayerDefinition.create(mesh, 16, 16);
 	}
 
+	/**
+	 * The bone claws: three thicker, shorter, organic blades per hand -- five tapering segments each that bend
+	 * inward more than the adamantium blades, with the outer two fanned slightly apart and a touch shorter, so
+	 * they read as grown bone rather than forged metal. Segments use four quadrants of the 16x16 bone texture
+	 * (darkest at the base, palest at the tip). 15 boxes a hand.
+	 */
+	public static LayerDefinition createBoneLayer() {
+		MeshDefinition mesh = new MeshDefinition();
+		PartDefinition root = mesh.getRoot();
+		// per segment: length, thickness, texture u, texture v
+		float[][] seg = {{4.0F, 1.5F, 0, 0}, {3.5F, 1.3F, 8, 0}, {3.0F, 1.1F, 0, 8}, {2.5F, 0.85F, 8, 8}, {1.5F, 0.5F, 8, 8}};
+		for (String side : new String[] {"right_hand", "left_hand"}) {
+			float s = side.startsWith("right") ? -1.0F : 1.0F;
+			PartDefinition hand = root.addOrReplaceChild(side, CubeListBuilder.create(), PartPose.offset(0.0F, HAND_END, 0.0F));
+			for (int i = 0; i < 3; i++) {
+				float z = (i - 1) * 1.55F;
+				float k = i == 1 ? 1.0F : 0.9F; // the outer blades are shorter
+				float fan = (i - 1) * 0.07F;    // ...and splay outward
+				float curve = (i == 1 ? 0.10F : 0.13F) * s;
+				PartDefinition parent = hand;
+				float prevLen = 0.0F;
+				for (int j = 0; j < seg.length; j++) {
+					float len = seg[j][0] * k;
+					float w = seg[j][1];
+					PartPose pose = j == 0
+							? PartPose.offsetAndRotation(0.0F, 0.0F, z, fan, 0.0F, 0.0F)
+							: PartPose.offsetAndRotation(0.0F, prevLen, 0.0F, 0.0F, 0.0F, curve * (0.7F + 0.25F * j));
+					parent = parent.addOrReplaceChild("seg" + j, CubeListBuilder.create()
+							.texOffs((int) seg[j][2], (int) seg[j][3]).addBox(-w / 2, 0.0F, -w / 2, w, len, w), pose);
+					prevLen = len;
+				}
+			}
+		}
+		return LayerDefinition.create(mesh, 16, 16);
+	}
+
 	/** How far out the claws are for {@code player} right now: 0 (hidden) to 1 (fully deployed). */
 	public static float extension(AbstractClientPlayer player, float partialTick) {
 		WolverineState s = player.getAttachedOrElse(ModAttachments.WOLVERINE_STATE, null);
-		if (s == null || !s.hasPower) {
+		if (s == null || !s.hasPower || !s.clawTier.hasClaws()) {
 			return 0.0f;
 		}
 		float t = (player.level().getGameTime() + partialTick - s.clawsChangedAt) / EXTEND_TICKS;
@@ -85,7 +133,7 @@ public final class WolverineClawsModel {
 
 	/** Whether a player currently needs the claws drawn at all (cheap early-out for the layer / mixin). */
 	public static boolean visible(AbstractClientPlayer player, float partialTick) {
-		return Wolverine.hasPower(player) && extension(player, partialTick) > 0.02f;
+		return extension(player, partialTick) > 0.02f;
 	}
 
 	/**

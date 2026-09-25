@@ -33,6 +33,7 @@ public class WolverineGameTests implements FabricGameTest {
 		p.setGameMode(GameType.SURVIVAL);
 		ExperimentalPowers.grant(p, Powers.byKey(Wolverine.SUPER_REGENERATION_KEY));
 		Wolverine.ascendFromSuperRegeneration(p);
+		Wolverine.setClawTier(p, com.projecthero.mod.wolverine.data.ClawTier.ADAMANTIUM, false);
 		return p;
 	}
 
@@ -93,6 +94,28 @@ public class WolverineGameTests implements FabricGameTest {
 		helper.assertFalse(Wolverine.clawsOut(p), "retracted");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE)
 				- (1.0 + WolverineConfig.MELEE_BONUS_DAMAGE)) < 1e-6, "claw bonus removed on retract");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void clawProgression(GameTestHelper helper) {
+		ServerPlayer p = helper.makeMockServerPlayerInLevel();
+		p.setGameMode(GameType.SURVIVAL);
+		ExperimentalPowers.grant(p, Powers.byKey(Wolverine.SUPER_REGENERATION_KEY));
+		Wolverine.ascendFromSuperRegeneration(p);
+		com.projecthero.mod.wolverine.data.ClawTier none = com.projecthero.mod.wolverine.data.ClawTier.NONE;
+		helper.assertTrue(Wolverine.clawTier(p) == none, "a fresh Wolverine has no claws");
+		helper.assertFalse(Wolverine.setClaws(p, true), "no claws to deploy");
+		helper.assertFalse(Wolverine.upgradeToAdamantium(p), "cannot skip the bone claws");
+		helper.assertTrue(Wolverine.unlockBoneClaws(p), "bone serum unlocks bone claws");
+		helper.assertFalse(Wolverine.unlockBoneClaws(p), "bone serum only works once");
+		Wolverine.setClaws(p, true);
+		double bone = 1.0 + WolverineConfig.MELEE_BONUS_DAMAGE + WolverineConfig.BONE_CLAW_MELEE_BONUS;
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - bone) < 1e-6, "bone melee is 9");
+		helper.assertTrue(Wolverine.upgradeToAdamantium(p), "adamantium serum upgrades bone claws");
+		helper.assertFalse(Wolverine.upgradeToAdamantium(p), "cannot upgrade twice");
+		double adam = 1.0 + WolverineConfig.MELEE_BONUS_DAMAGE + WolverineConfig.CLAW_MELEE_BONUS;
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - adam) < 1e-6, "adamantium melee is 12");
 		helper.succeed();
 	}
 

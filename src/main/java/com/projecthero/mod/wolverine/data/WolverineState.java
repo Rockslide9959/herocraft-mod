@@ -38,17 +38,20 @@ public final class WolverineState {
 	public long fleshStartedAt;
 	/** Game-time this Wolverine last dealt or took damage -- gates the Rage bar's slow drain. */
 	public long lastCombatAt;
+	/** Claw progression (v0.12.25): none -> bone -> adamantium. Synced so every viewer draws the right model. */
+	public ClawTier clawTier = ClawTier.NONE;
 	/** {@code abilityId} -> absolute game-time it is ready again. */
 	public final Map<String, Long> abilityReadyAt;
 
 	public WolverineState() {
-		this(false, false, 0L, 0L, 0L, 0L, 0L, 0, 0L, 0.0f, 0L, 0L, 0L, new HashMap<>());
+		this(false, false, 0L, 0L, 0L, 0L, 0L, 0, 0L, 0.0f, 0L, 0L, 0L, ClawTier.NONE, new HashMap<>());
 	}
 
 	public WolverineState(boolean hasPower, boolean clawsOut, long clawsChangedAt, long rageUntil,
 			long emergencyReadyAt, long emergencyHealUntil, long dashUntil, int lastAction, long lastActionTick,
-			float rageMeter, long chargeStartedAt, long fleshStartedAt, long lastCombatAt,
+			float rageMeter, long chargeStartedAt, long fleshStartedAt, long lastCombatAt, ClawTier clawTier,
 			Map<String, Long> abilityReadyAt) {
+		this.clawTier = clawTier;
 		this.fleshStartedAt = fleshStartedAt;
 		this.lastCombatAt = lastCombatAt;
 		this.hasPower = hasPower;
@@ -67,7 +70,7 @@ public final class WolverineState {
 
 	public WolverineState copy() {
 		return new WolverineState(hasPower, clawsOut, clawsChangedAt, rageUntil, emergencyReadyAt,
-				emergencyHealUntil, dashUntil, lastAction, lastActionTick, rageMeter, chargeStartedAt, fleshStartedAt, lastCombatAt, abilityReadyAt);
+				emergencyHealUntil, dashUntil, lastAction, lastActionTick, rageMeter, chargeStartedAt, fleshStartedAt, lastCombatAt, clawTier, abilityReadyAt);
 	}
 
 	public static final Codec<WolverineState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -84,6 +87,8 @@ public final class WolverineState {
 			Codec.LONG.optionalFieldOf("charge_started_at", 0L).forGetter(s -> s.chargeStartedAt),
 			Codec.LONG.optionalFieldOf("flesh_started_at", 0L).forGetter(s -> s.fleshStartedAt),
 			Codec.LONG.optionalFieldOf("last_combat_at", 0L).forGetter(s -> s.lastCombatAt),
+			// a save from before v0.12.25 has no tier: those Wolverines already owned adamantium claws
+			ClawTier.CODEC.optionalFieldOf("claw_tier", ClawTier.ADAMANTIUM).forGetter(s -> s.clawTier),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", Map.of())
 					.forGetter(s -> new HashMap<>(s.abilityReadyAt))
 	).apply(instance, WolverineState::new));

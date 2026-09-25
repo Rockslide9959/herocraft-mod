@@ -37,6 +37,12 @@ public final class SymbioteBonding {
 					.withStyle(ChatFormatting.GRAY), true);
 			return;
 		}
+		// v0.12.25: touching the Symbiote starts the bonding minigame; winning it calls bondNow.
+		SymbioteBondGame.begin(player, symbiote);
+	}
+
+	/** The bond itself, after the minigame is won (also what the gametests call directly). */
+	public static void bondNow(ServerPlayer player, SymbioteEntity symbiote) {
 		if (!symbiote.claimBond(player, 60)) {
 			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.entity_busy"), true);
 			return;
@@ -47,7 +53,7 @@ public final class SymbioteBonding {
 
 	/**
 	 * Bond from a filled {@link com.projecthero.mod.symbiote.item.SymbioteVialItem Symbiote Vial}: the same
-	 * flow as touching a free Symbiote, minus the entity. Returns false if the player is already bonded.
+	 * flow as touching a free Symbiote, minus the entity. Returns false if the player is already bonded. v0.12.25: starts the bonding minigame; the vial is only used up when it is won.
 	 */
 	public static boolean attemptFromVial(ServerPlayer player) {
 		if (Symbiote.hasSymbiote(player)) {
@@ -55,8 +61,13 @@ public final class SymbioteBonding {
 					.withStyle(ChatFormatting.GRAY), true);
 			return false;
 		}
-		completeBond(player, player.getX(), player.getY() + 1.0, player.getZ());
+		SymbioteBondGame.begin(player, null);
 		return true;
+	}
+
+	/** The vial bond itself, after the minigame is won. */
+	public static void bondFromVialNow(ServerPlayer player) {
+		completeBond(player, player.getX(), player.getY() + 1.0, player.getZ());
 	}
 
 	private static void completeBond(ServerPlayer player, double fxX, double fxY, double fxZ) {

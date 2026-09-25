@@ -154,6 +154,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				com.projecthero.mod.client.wolverine.WolverineClawsModel.LAYER,
 				com.projecthero.mod.client.wolverine.WolverineClawsModel::createLayer);
 		net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
+				com.projecthero.mod.client.wolverine.WolverineClawsModel.BONE_LAYER,
+				com.projecthero.mod.client.wolverine.WolverineClawsModel::createBoneLayer);
+		net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
 				com.projecthero.mod.client.spider.ImpactWebModel.LAYER,
 				com.projecthero.mod.client.spider.ImpactWebModel::createLayer);
 
@@ -229,6 +232,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 						},
 						net.minecraft.network.chat.Component.translatable("message.projecthero.green_lantern.trial_afraid.title"),
 						net.minecraft.network.chat.Component.empty()))));
+
+		// Symbiote bonding minigame (v0.12.25): the server sends the seed, the screen records press ticks.
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.SymbioteBondGamePayload.TYPE,
+				(payload, context) -> context.client().execute(() -> context.client().setScreen(
+						new com.projecthero.mod.client.gui.SymbioteBondGameScreen(payload.seed()))));
 
 		// Shift + Web Zip: the server tells the client to arm its adhesion grab intent so the zip lands
 		// the player flush against the wall and the climb engine sticks with no double-tap (v0.6.21).

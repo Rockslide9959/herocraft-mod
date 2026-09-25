@@ -1,0 +1,26 @@
+v0.12.25 - Wolverine claw progression, Symbiote bonding minigame, Green Lantern drill, guide remembers your page
+
+WOLVERINE
+- Wolverine no longer starts with claws. New progression: Wolverine -> Bone Claw Serum -> Bone Claws -> Adamantium Serum -> Adamantium Claws. Both stages are permanent, survive death and relogging, and are visible to other players.
+- The old "Adamantium Serum" that turns Super Regeneration into Wolverine is now the Wolverine Serum (same recipe: 4 diamonds, 2 netherite ingots, 2 blaze powder, golden apple).
+- Bone Claw Serum (bone blocks, netherite scrap, gold ingots, glass bottle, ghast tear): only works on a Wolverine with no claws. Grows six natural bone claws (3 per hand) with a burst of particles and a healing pulse.
+- Bone Claws are a brand-new model: ivory, thick-based, curved, organic and slightly fanned. Weaker than adamantium: 9 bare-handed, Claw Slash 15, Cross Slash 10+10, Claw Dash 10, Frenzy 6 each.
+- Adamantium Serum (4 netherite ingots, diamond block, 2 gold blocks, nether star, glass bottle): hold right-click for 3 seconds while the adamantium bonds to your bones (you are rooted and regenerating; letting go cancels without using it). The bone model is then replaced by the silver adamantium claws with the full kit (12 / Slash 18 / Cross 12+12 / Dash 12 / Frenzy 8) and Adamantium Execution unlocks.
+- Adamantium Execution is locked with Bone Claws ("Adamantium Claws required."). H shows "Bone Claws required." until you have claws. Berserker Rage works with either claws. Keys are unchanged.
+- The Serums refuse with a clear message if you are not Wolverine / lack Bone Claws / already have adamantium, and never get used up when refused. Wolverine HUD shows which claws you have. Admins: /wolverine claws tier none|bone|adamantium.
+- Existing Wolverines keep their adamantium claws.
+
+SYMBIOTE
+- Bonding now starts with a minigame: stop a sweeping marker inside the green zone three times running (faster and tighter each round) with Space or a click. Miss and the Symbiote recoils (nausea, 5 s before you can retry) and nothing is used up. Win and the usual 35-second bonding debuff follows. Works for wild Symbiotes and filled vials. The server re-checks every press, so it cannot be faked.
+
+GREEN LANTERN
+- The Mining Drill now breaks a 2x2 patch of blocks every 0.75 seconds.
+
+SUPER REGENERATION
+- The passive healing no longer slows down in combat: a steady 4 HP/s.
+
+HERO PACK GUIDE / MENUS
+- The guide now reopens on the page (and scroll position) you left it on instead of jumping back to the overview.
+- Wolverine, Symbiote, Green Lantern and Super Regeneration entries updated for all of the above, plus the new items in the Superheroes creative tab.
+
+Please wait about 20 minutes for CurseForge to verify the update.
