@@ -127,6 +127,8 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 	private float slowFactor = 1.0f;
 	private boolean leaping;
 	private long leapStartedAt;
+	/** v0.12.36: the Titan heals biteRegenPerSecond HP/s until this game-time (it just ate the mob it was holding). */
+	public long biteRegenUntil;
 	private boolean defeatStarted;
 	private long lastHurtAnimAt;
 	private long lastHurtAt = -1000;
@@ -817,7 +819,7 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 			TitanCombat.shake(sl, position(), 0.35f * power, 10);
 			play("landing");
 		}
-		return super.causeFallDamage(fallDistance, multiplier * (float) TitanShifterConfig.resistances().fallDamageFactor, source);
+		return false; // v0.12.36: the Titan takes no fall damage at all
 	}
 
 	/** A Titan never dies -- reaching 0 HP is the shifter's defeat, handled by {@link TitanShifter}. */

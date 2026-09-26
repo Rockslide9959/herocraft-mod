@@ -1,0 +1,26 @@
+v0.12.36 - TITAN CORPSES, CRAFTABLE ALL MIGHT COSTUME, GUIDEBOOK (includes the v0.12.35 changes)
+
+TITAN SHIFTER
+- New Titan skin (the Titan Hardening crystal look is generated from it, so hardening still works).
+- Changing back (H) no longer shrinks the Titan: you climb out through the back of its neck and drift down, while the Titan's body slumps where it stood, steams every 3 seconds and dissolves over one full minute, breaking apart piece by piece until nothing is left.
+- The Titan takes no fall damage.
+- Eating a grabbed mob (N, then N again) now restores your hunger and saturation and makes the Titan regenerate 5 HP per second for 5 seconds.
+- Passive base-form healing is now Regeneration II and drains 1.5% Titan Energy per second while it is healing you (the bar does not refill meanwhile).
+- Leaping while sprinting launches you about twice as far.
+- Trying to shift without a full bar shows "Titan Form exhausted, Recharge energy" in red above your hotbar.
+- Titan Roar reaches 32 blocks and hits everything from ground level up: Weakness II and Slowness III for 12 s, Nausea 3 s, Blindness 2 s, Mining Fatigue 3 s.
+- The Titan Serum now needs a Golden Apple in the middle instead of the Nether Star.
+- HUD: Titan HP now shows HP / 500, the bars have no border and the Titan Energy bar is yellow.
+
+ALL MIGHT
+- The All Might costume is back as a new armour model and is CRAFTABLE: All Might's Costume (blue, white and yellow wool) and All Might's Trousers (blue and red wool). Nobody spawns with it.
+- In the Power Form press N to open the costume locker and put the pieces in. Whenever you transform they are put on automatically, and they go back into the locker when you change back. The locker keeps its contents through death.
+- The costume has no helmet, so your own head and hat layer stay visible.
+- The Power Form takes no fall damage at all.
+- The Vestige of One For All now needs a Totem of Undying in the middle instead of the Nether Star.
+- HUD: the One For All bar has no border.
+
+GUIDEBOOK
+- The HeroPack Guide is now just "Guidebook" (item and screen title).
+- The first time you spawn into a world a message at the bottom of your screen tells you to craft it: Book + Feather + Spider Eye + Emerald.
+- Guide and power menus updated for everything above.

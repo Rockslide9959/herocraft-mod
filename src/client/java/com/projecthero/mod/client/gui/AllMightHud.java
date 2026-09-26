@@ -72,7 +72,6 @@ public final class AllMightHud {
 		y += 11;
 		g.fill(x0, y, x0 + totalW, y + BAR_H, COLOR_BOX_BG);
 		g.fill(x0, y, x0 + (int) (totalW * frac), y + BAR_H, s.ofa < AllMightConfig.LOW_OFA_STEAM ? COLOR_OFA_LOW : COLOR_OFA);
-		g.renderOutline(x0 - 1, y - 1, totalW + 2, BAR_H + 2, COLOR_BORDER);
 		y += BAR_H + 3;
 
 		if (power) {

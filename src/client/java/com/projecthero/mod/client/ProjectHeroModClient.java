@@ -647,6 +647,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			ClientPlayNetworking.send(new com.projecthero.mod.network.SpiderActionPayload(
 					com.projecthero.mod.network.SpiderActionPayload.Action.TOGGLE_MODE));
 		} else if (down && !maxSteelTransformWasDown && client.player != null
+				&& com.projecthero.mod.allmight.AllMight.isFullPower(client.player)) {
+			// v0.12.36: All Might -- N (Power Form) opens the costume locker.
+			ClientPlayNetworking.send(new com.projecthero.mod.network.AllMightActionPayload(
+					com.projecthero.mod.network.AllMightActionPayload.Action.OPEN_LOCKER));
+		} else if (down && !maxSteelTransformWasDown && client.player != null
 				&& com.projecthero.mod.wolverine.Wolverine.hasPower(client.player)) {
 			// Wolverine: Utility 2 (N) sniffs -- highlights everything within 40 blocks for 20 s.
 			ClientPlayNetworking.send(new com.projecthero.mod.network.WolverineActionPayload(

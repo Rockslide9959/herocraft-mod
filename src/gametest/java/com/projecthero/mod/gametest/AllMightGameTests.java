@@ -54,6 +54,42 @@ public class AllMightGameTests implements FabricGameTest {
 		helper.onEachTick(() -> AllMight.tick(p));
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void costumeLockerEquipsOnTransformAndReturnsOnRevert(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		pump(helper, p);
+		helper.assertFalse(com.projecthero.mod.allmight.AllMightSuit.wearing(p), "nobody starts in the costume");
+		helper.assertTrue(p.getInventory().isEmpty(), "nothing in the inventory at the start");
+		// two costume pieces in the locker
+		p.setAttached(com.projecthero.mod.attachment.ModAttachments.ALL_MIGHT_LOCKER,
+				net.minecraft.world.item.component.ItemContainerContents.fromItems(java.util.List.of(
+						new net.minecraft.world.item.ItemStack(com.projecthero.mod.allmight.item.AllMightItems.CHESTPLATE),
+						new net.minecraft.world.item.ItemStack(com.projecthero.mod.allmight.item.AllMightItems.LEGGINGS))));
+		AllMight.toggleForm(p);
+		helper.assertTrue(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).is(com.projecthero.mod.allmight.item.AllMightItems.CHESTPLATE), "the costume goes on when he transforms");
+		helper.assertTrue(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.LEGS).is(com.projecthero.mod.allmight.item.AllMightItems.LEGGINGS), "and the trousers");
+		helper.assertTrue(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).isEmpty(), "no helmet");
+		helper.runAfterDelay(AllMightConfig.TRANSFORM_TICKS + 5, () -> {
+			AllMight.toggleForm(p);
+			helper.assertFalse(com.projecthero.mod.allmight.AllMightSuit.wearing(p), "the costume comes off in the Base Form");
+			helper.assertTrue(p.getInventory().isEmpty(), "it went back into the locker, not the inventory");
+			var locker = p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.ALL_MIGHT_LOCKER,
+					net.minecraft.world.item.component.ItemContainerContents.EMPTY);
+			helper.assertTrue(locker.nonEmptyStream().count() == 2, "both pieces are back in the locker");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void powerFormTakesNoFallDamage(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		powerForm(p);
+		float before = p.getHealth();
+		p.hurt(p.damageSources().fall(), 10.0f);
+		helper.assertTrue(p.getHealth() >= before, "Power Form takes no fall damage, health " + before + " -> " + p.getHealth());
+		helper.succeed();
+	}
+
 	private static Zombie zombieAhead(GameTestHelper helper, ServerPlayer p, double distance) {
 		Zombie z = EntityType.ZOMBIE.create(helper.getLevel());
 		Vec3 fwd = Vec3.directionFromRotation(0, p.getYRot());

@@ -164,6 +164,7 @@ public final class ModNetworking {
 			}
 			switch (payload.action()) {
 				case TOGGLE_FORM -> com.projecthero.mod.allmight.AllMight.toggleForm(p);
+				case OPEN_LOCKER -> com.projecthero.mod.allmight.AllMightSuit.openLocker(p);
 			}
 		});
 

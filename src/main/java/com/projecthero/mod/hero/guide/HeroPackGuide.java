@@ -642,6 +642,8 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.all_might.forms");
 			para(lines, "projecthero.guide.all_might.forms.body");
+			head(lines, "projecthero.guide.all_might.costume");
+			para(lines, "projecthero.guide.all_might.costume.body");
 			blank(lines);
 			head(lines, "projecthero.guide.all_might.controls");
 			for (String[] row : new String[][] {

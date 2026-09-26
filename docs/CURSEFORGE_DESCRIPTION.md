@@ -198,41 +198,42 @@ regenerative mutation is consumed and rebuilt as Wolverine.
   strikes) · **V** Adamantium Execution (60-damage finisher).
 
 ### 🗿 Titan Shifter
-A permanent **Primary** power (v0.12.31, reworked in v0.12.32, updated in v0.12.34). Craft a **Titan Serum** (4 titanium-gold plates, 2
-netherite ingots, 2 magma blocks, a nether star) and use it to unlock Titan Shifting — it never transforms you by
+A permanent **Primary** power (v0.12.31, reworked in v0.12.32, updated in v0.12.34, v0.12.35 and v0.12.36). Craft a **Titan Serum** (4 titanium-gold plates, 2
+netherite ingots, 2 magma blocks, a **golden apple**) and use it to unlock Titan Shifting — it never transforms you by
 itself. Press **H** (with a **full Titan Energy bar**) to burst into an **11-block Titan** — a regular player-shaped
-body and hit-box scaled up to eleven blocks (lightning, steam, a 3 s transformation); press **H** again to change back.
+body (new skin in v0.12.35) and hit-box scaled up to eleven blocks (lightning, steam, a 3 s transformation); press **H** again to change back.
 
 - **A real creature, not a big player.** The Titan is its own entity with **500 HP, 25 armour, 8 toughness** and
   full knockback immunity; you ride it as its controller and take no damage yourself — the Titan takes the hits.
   Everyone in the world sees and can fight it. Fall damage ×0.1, fire ×0.2, explosions ×0.5; tiny hits from players are shrugged off,
   but **ordinary mobs ignore its armour and hurt it normally** (mobs hunting you attack the Titan).
 - **Titan Energy:** a 100-point bar shown as a percentage. **Titan Shift Ready [H]** appears at 100%; changing back (or being defeated)
-  empties it and it refills **1% a second** while you are human. The passive regeneration (Regeneration III) belongs to your **base form only** — the Titan has none.
+  empties it and it refills **1% a second** while you are human. Your **base form** heals with **Regeneration II** (v0.12.35), which **drains 1.5% Titan Energy a second** while it is healing you (the bar does not refill meanwhile, and at 0% the healing stops) — the Titan has none. Trying to shift on a partly empty bar flashes **"Titan Form exhausted, Recharge energy"** in red above your hotbar.
+- **Changing back (v0.12.36):** you climb out through the back of the Titan's neck and drift down; the Titan's body stays where it stood, **steams every 3 seconds and dissolves over one minute**, breaking apart piece by piece. The Titan takes **no fall damage**.
 - **Running (v0.12.34):** hold **Sprint** while walking for 3 seconds and the Titan breaks into a run.
 - **Shoulder ride (v0.12.34):** a squad-mate can right-click the Titan to sit on its shoulder (two seats) and ride along; sneak to hop off.
-- **Grab & bite (v0.12.34):** **N** picks up the mob you are looking at, **N** again bites it (26 damage, 10 s recharge), **Shift+N** sets it gently down.
+- **Grab & bite (v0.12.34):** **N** picks up the mob you are looking at, **N** again eats it (26 damage, 10 s recharge; restores your hunger and saturation and the Titan heals **5 HP/s for 5 s**), **Shift+N** sets it gently down.
 - **Abilities:** **R** Titan Punch (20; third swing of a combo = Heavy Punch 35; **Shift+R** = Titan Kick 30) ·
   **G** Heavy Smash (charge, then 50 in an area) · **Z** Titan Stomp (25, 6 blocks) · **X** Titan Leap (~3× a jump,
-  landing 20 in 5 blocks; **Shift+X** = Titan Roar) · **V** Titan Roar (12 blocks: slow, weaken, scatter; bosses resist) ·
+  landing 20 in 5 blocks; leap while **sprinting** to launch about twice as far; **Shift+X** = Titan Roar) · **V** Titan Roar (32 blocks, ground level and up: Weakness II + Slowness III 12 s, Nausea 3 s, Blindness 2 s, Mining Fatigue 3 s, mobs scattered; bosses resist) ·
   **C** Titan Regeneration (10 HP/s for 10 s; **Shift+C** = Titan Hardening: 60% less damage for 8 s, crystal skin).
-- **HUD (v0.12.34):** base form shows Titan Energy (thin bar, %); Titan form shows the six ability keys, a thin Titan HP bar and **Revert Form [H]**.
+- **HUD (v0.12.34, restyled v0.12.35/36):** bars have no border and the Titan Energy bar is yellow; base form shows Titan Energy (thin bar, %); Titan form shows the six ability keys, a thin Titan HP bar with **HP / 500** and **Revert Form [H]**.
 - **Heavy by design:** slow ground-shaking footsteps with dust and camera tremors, steam off the shoulders when hurt
   or healing, no terrain digging (it tramples leaves and plants; a server option lets attacks break weak blocks).
 - Server-authoritative, GeckoLib-animated, built to add more Titan types later. Everything is in
   `config/projecthero_titan_shifter.json`. Admins: `/projecthero power grant titan_shifter`.
 
 ### 💪 All Might / One For All
-A permanent **Hero-Tier Primary** power (v0.12.33, reworked in v0.12.34) — the mod's strongest pure-strength hero. Craft a **Vestige of One For All** (4 titanium-gold
-plates, 2 enchanted golden apples, 2 diamond blocks, a nether star) and use it. There is no costume any more — he keeps your own skin.
+A permanent **Hero-Tier Primary** power (v0.12.33, reworked in v0.12.34, craftable costume in v0.12.36) — the mod's strongest pure-strength hero. Craft a **Vestige of One For All** (4 titanium-gold
+plates, 2 enchanted golden apples, 2 diamond blocks, a **totem of undying**) and use it. The **All Might costume** (a new armour model: All Might's Costume + All Might's Trousers, both craftable from wool) is not given to you: in the **Power Form** press **N** to open the **costume locker**, leave the pieces in it, and they are put on automatically every time you transform (and go back into the locker when you change back). Your own head and hat layer stay visible.
 
 - **Two forms (H):** **Base Form** is a plain player (no abilities, no bonuses). **Power Form**: you grow to **2.7 blocks** over one second, venting steam, with
-  **13 melee, 40 max HP** (health % carries over), **50% less damage, Speed III, Regeneration I, a 3-block jump**.
+  **13 melee, 40 max HP** (health % carries over), **50% less damage, no fall damage, Speed III, Regeneration I, a 3-block jump**.
 - **OFA:** a 100-point reserve shown as a percentage; it refills 1 point per 0.75 s, 2.5× faster out of combat. Below 30% you vent steam.
 - **Power Form abilities:** **R Detroit Smash** (18 dmg) · **Shift+R New Hampshire Smash** (20) · **G Texas Smash** (24) · **X Leap** ·
   **Z United States of Smash** (hold 5 s: 75 dmg, a large crater, a 25-block shockwave) · **V Carolina Smash** (a long dash, 20 dmg) ·
   **C Plus Ultra** (drains OFA while on, every move +30%; 20 s cooldown after it ends; running out of OFA drops you back to Base Form).
-- **Passives (Power Form):** air-burst punches, hard-landing shockwaves, his own launches never hurt him, bosses lose at most 10% per Smash. Admins: `/projecthero power grant all_might`.
+- **Passives (Power Form):** air-burst punches, hard-landing shockwaves, **no fall damage at all**, bosses lose at most 10% per Smash. Admins: `/projecthero power grant all_might`.
 - Server-authoritative; every number is in `AllMightConfig`. Full details in `docs/ALLMIGHT_REFERENCE.md`.
 
 ---
@@ -244,7 +245,7 @@ and drinking an **experimental serum**, studying **research notes**, surviving a
 or using a **lab device**. Rare **research site** structures hold the recipes and hints.
 
 Powers **stack** — own up to three at once and all their passives and toggled modes run permanently;
-the one you have *selected* drives your six ability keys. A **HeroPack Guide** book documents every
+the one you have *selected* drives your six ability keys. The **Guidebook** (Book + Feather + Spider Eye + Emerald; new players are reminded to craft it when they first spawn into a world) documents every
 one, and there is an in-game "your power" screen on **I**.
 
 <details>

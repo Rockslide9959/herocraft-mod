@@ -8,6 +8,7 @@ import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.HeroTiers;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.titanshifter.data.TitanShifterState;
+import com.projecthero.mod.titanshifter.entity.TitanCorpseEntity;
 import com.projecthero.mod.titanshifter.entity.TitanFormEntity;
 import com.projecthero.mod.titanshifter.entity.TitanShifterEntities;
 
@@ -367,24 +368,42 @@ public final class TitanShifter {
 		if (s.phase() != TitanPhase.TITAN || form == null) {
 			return;
 		}
-		long now = player.level().getGameTime();
-		setPhase(player, TitanPhase.REVERTING, now + TitanShifterConfig.transformation().revertTicks);
-		form.setFormState(TitanFormEntity.FORM_REVERTING);
+		// v0.12.36: no shrinking -- the shifter climbs out of the neck and the Titan's body stays behind to dissolve
 		form.setHardened(false);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 p = form.position();
 		level.playSound(null, p.x, p.y, p.z, SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 2.5f, 0.5f);
 		level.playSound(null, p.x, p.y, p.z, SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 3.0f, 0.5f);
-		form.steamBurst(level, 10);
 		TitanCombat.shake(level, p, 0.5f, 20);
+		finishRevert(player, form);
 	}
 
 	private static void finishRevert(ServerPlayer player, TitanFormEntity form) {
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 p = form.position();
-		release(player, form);
-		steamPoof(level, p, form.getBbHeight());
-		level.playSound(null, p.x, p.y, p.z, SoundEvents.ENDER_DRAGON_FLAP, SoundSource.PLAYERS, 2.0f, 0.5f);
+		float yaw = form.getYRot();
+		double height = form.getBbHeight();
+		double width = form.getBbWidth();
+		TitanType type = form.titanType();
+		release(player, form, false);
+		// the abandoned body: it slumps where it stood and dissolves over a minute
+		TitanCorpseEntity corpse = TitanShifterEntities.TITAN_CORPSE.create(level);
+		if (corpse != null) {
+			corpse.bind(type);
+			corpse.moveTo(p.x, p.y, p.z, yaw, 0.0f);
+			level.addFreshEntity(corpse);
+		}
+		// out through the nape of the neck, popped up and back, drifting down under Slow Falling
+		Vec3 back = Vec3.directionFromRotation(0.0f, yaw).scale(-1.0);
+		Vec3 neck = p.add(0.0, height * 0.82, 0.0).add(back.scale(width * 0.2));
+		player.teleportTo(level, neck.x, neck.y, neck.z, yaw, 0.0f);
+		player.setDeltaMovement(back.x * 0.28, 0.42, back.z * 0.28);
+		player.hurtMarked = true;
+		player.fallDistance = 0.0f;
+		player.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 20 * 14, 0, false, false, false));
+		steamPoof(level, p.add(0.0, height * 0.55, 0.0), (float) height * 0.5f);
+		level.playSound(null, neck.x, neck.y, neck.z, SoundEvents.ENDER_DRAGON_FLAP, SoundSource.PLAYERS, 2.0f, 0.5f);
+		level.playSound(null, neck.x, neck.y, neck.z, SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 1.4f, 0.6f);
 		finishToHuman(player, TitanPhase.HUMAN, 0);
 	}
 
@@ -425,16 +444,22 @@ public final class TitanShifter {
 
 	/** Steps the shifter off the Titan onto the ground where it stood and removes the form without any death logic. */
 	private static void release(ServerPlayer player, TitanFormEntity form) {
+		release(player, form, true);
+	}
+
+	private static void release(ServerPlayer player, TitanFormEntity form, boolean toGround) {
 		Vec3 p = form.position();
 		float yaw = form.getYRot();
 		SPRINT_HELD.remove(player.getUUID());
 		form.releaseHeld();
 		player.stopRiding();
 		form.discard();
-		player.teleportTo((ServerLevel) player.level(), p.x, p.y, p.z, yaw, player.getXRot());
-		player.fallDistance = 0.0f;
-		player.setDeltaMovement(Vec3.ZERO);
-		player.hurtMarked = true;
+		if (toGround) {
+			player.teleportTo((ServerLevel) player.level(), p.x, p.y, p.z, yaw, player.getXRot());
+			player.fallDistance = 0.0f;
+			player.setDeltaMovement(Vec3.ZERO);
+			player.hurtMarked = true;
+		}
 	}
 
 	private static void finishToHuman(ServerPlayer player, TitanPhase next, int recoveryTicks) {
@@ -570,6 +595,14 @@ public final class TitanShifter {
 				form.steamBurst(level, 2);
 			}
 		}
+		if (now < form.biteRegenUntil) {
+			form.heal((float) (a.biteRegenPerSecond / 20.0));
+			if (player.tickCount % 8 == 0) {
+				Vec3 bp = form.position();
+				level.sendParticles(ParticleTypes.HEART, bp.x, bp.y + form.getBbHeight() * 0.6, bp.z, 3,
+						form.getBbWidth() * 0.4, form.getBbHeight() * 0.25, form.getBbWidth() * 0.4, 0.0);
+			}
+		}
 		if (player.tickCount % 10 == 0) {
 			redirectMobs(level, player, form);
 		}
@@ -608,6 +641,9 @@ public final class TitanShifter {
 		if (player.level().getGameTime() % 20L != 0L || s.energy >= e.max) {
 			return;
 		}
+		if (baseRegenActive(player, s)) {
+			return; // healing through the base-form regeneration: the bar drains instead of refilling
+		}
 		TitanShifterState n = s.copy();
 		n.energy = (float) Math.min(e.max, s.energy + e.regenPerSecond);
 		save(player, n);
@@ -619,14 +655,28 @@ public final class TitanShifter {
 	 * (only the C ability heals it), and the effect is simply not renewed, so it lapses within two seconds of shifting.
 	 */
 	private static void tickBaseFormRegen(ServerPlayer player) {
-		int amp = TitanShifterConfig.energy().baseFormRegenAmplifier;
-		if (amp < 0) {
-			return;
+		var e = TitanShifterConfig.energy();
+		int amp = e.baseFormRegenAmplifier;
+		TitanShifterState s = state(player);
+		if (amp < 0 || !baseRegenActive(player, s)) {
+			return; // the effect already on the player just lapses; nothing renews it
+		}
+		// v0.12.35: the regeneration is not free -- while it is healing it drains Titan Energy (in 10-tick steps)
+		if (player.level().getGameTime() % 10L == 0L) {
+			TitanShifterState n = s.copy();
+			n.energy = (float) Math.max(0.0, s.energy - e.baseFormRegenDrainPerSecond / 2.0);
+			save(player, n);
 		}
 		MobEffectInstance cur = player.getEffect(MobEffects.REGENERATION);
 		if (cur == null || (!cur.isInfiniteDuration() && cur.getAmplifier() <= amp && cur.getDuration() <= 20)) {
 			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 40, amp, false, false, false));
 		}
+	}
+
+	/** True while the base-form regeneration should run: a hurt human shifter with some Titan Energy left to spend on it. */
+	public static boolean baseRegenActive(Player player, TitanShifterState s) {
+		return TitanShifterConfig.energy().baseFormRegenAmplifier >= 0 && s.energy > 0f
+				&& s.phase() == TitanPhase.HUMAN && player.getHealth() < player.getMaxHealth();
 	}
 
 	// ---------------- lifecycle hooks ----------------

@@ -233,6 +233,10 @@ public final class TitanAbilities {
 			return;
 		}
 		var a = TitanShifterConfig.abilities();
+		// v0.12.35: leaping while sprinting (or already running) is a long jump
+		boolean sprintLeap = form.isRunning() || TitanShifter.sprintHeld(player.getUUID());
+		double leapH = sprintLeap ? a.leapSprintHorizontal : a.leapHorizontal;
+		double leapV = sprintLeap ? a.leapSprintVertical : a.leapVertical;
 		TitanShifter.startCooldown(player, LEAP, a.leapCooldown, 3);
 		ServerLevel level = level(form);
 		form.play("leap");
@@ -243,7 +247,7 @@ public final class TitanAbilities {
 				return;
 			}
 			Vec3 fwd = Vec3.directionFromRotation(0, form.getYRot());
-			form.setDeltaMovement(fwd.x * a.leapHorizontal, a.leapVertical, fwd.z * a.leapHorizontal);
+			form.setDeltaMovement(fwd.x * leapH, leapV, fwd.z * leapH);
 			form.hasImpulse = true;
 			form.hurtMarked = true;
 			form.beginLeap();
@@ -279,11 +283,14 @@ public final class TitanAbilities {
 			level.sendParticles(ParticleTypes.CLOUD, c.x, c.y, c.z, 40, 1.5, 1.0, 1.5, 0.4);
 			form.steamBurst(level, 6);
 			TitanCombat.shake(level, form.position(), 1.0f, 24);
-			for (LivingEntity t : TitanCombat.targetsAround(level, form.position(), a.roarRadius, form, player)) {
+			for (LivingEntity t : TitanCombat.targetsInCylinder(level, form, a.roarRadius, player)) {
 				boolean boss = TitanCombat.isBoss(t);
-				int ticks = (int) (a.roarEffectTicks * (boss ? a.roarBossResistance : 1.0));
-				AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, ticks, 2);
-				AbilityHelpers.applyControl(t, MobEffects.WEAKNESS, ticks, 1);
+				double f = boss ? a.roarBossResistance : 1.0;
+				AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, (int) (a.roarSlownessTicks * f), 2);
+				AbilityHelpers.applyControl(t, MobEffects.WEAKNESS, (int) (a.roarWeaknessTicks * f), 1);
+				AbilityHelpers.applyControl(t, MobEffects.CONFUSION, (int) (a.roarNauseaTicks * f), 0);
+				AbilityHelpers.applyControl(t, MobEffects.BLINDNESS, (int) (a.roarBlindnessTicks * f), 0);
+				AbilityHelpers.applyControl(t, MobEffects.DIG_SLOWDOWN, (int) (a.roarFatigueTicks * f), 0);
 				if (boss) {
 					continue;
 				}
@@ -401,6 +408,12 @@ public final class TitanAbilities {
 			level.sendParticles(ParticleTypes.DAMAGE_INDICATOR, c.x, c.y, c.z, 10, 0.4, 0.4, 0.4, 0.2);
 			level.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 20, 0.5, 0.5, 0.5, 0.3);
 			TitanCombat.shake(level, form.position(), 0.3f, 6);
+			// v0.12.36: eating it feeds the shifter and knits the Titan's flesh back together
+			var food = player.getFoodData();
+			food.setFoodLevel(Math.min(20, food.getFoodLevel() + a.biteFood));
+			food.setSaturation(20.0f);
+			form.biteRegenUntil = level.getGameTime() + a.biteRegenTicks;
+			level.playSound(null, form.getX(), form.getY() + form.getBbHeight() * 0.8, form.getZ(), SoundEvents.GENERIC_EAT, SoundSource.HOSTILE, 3.0f, 0.5f);
 			if (!held.isAlive()) {
 				form.releaseHeld();
 			}

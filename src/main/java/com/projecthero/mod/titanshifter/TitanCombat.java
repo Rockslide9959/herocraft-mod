@@ -48,6 +48,24 @@ public final class TitanCombat {
 		return AbilityHelpers.living(level, center, radius, e -> validTarget(e, form, owner));
 	}
 
+	/**
+	 * Everything within {@code radius} blocks horizontally of the Titan's body, from well below its feet (pits, ledges) up to
+	 * well above its head -- the roar is a shout, not a sphere centred on the feet, so ground-level mobs are always inside it.
+	 */
+	public static List<LivingEntity> targetsInCylinder(ServerLevel level, TitanFormEntity form, double radius,
+			ServerPlayer owner) {
+		Vec3 c = form.position();
+		double reachDown = 12.0;
+		double reachUp = form.getBbHeight() + 12.0;
+		AABB box = new AABB(c.x - radius, c.y - reachDown, c.z - radius, c.x + radius, c.y + reachUp, c.z + radius);
+		double r2 = radius * radius;
+		return level.getEntitiesOfClass(LivingEntity.class, box, e -> {
+			double dx = Math.max(Math.max(e.getBoundingBox().minX - c.x, c.x - e.getBoundingBox().maxX), 0.0);
+			double dz = Math.max(Math.max(e.getBoundingBox().minZ - c.z, c.z - e.getBoundingBox().maxZ), 0.0);
+			return dx * dx + dz * dz <= r2 && validTarget(e, form, owner);
+		});
+	}
+
 	private static boolean validTarget(LivingEntity e, TitanFormEntity form, ServerPlayer owner) {
 		if (e == form || e == owner || !e.isAlive() || e instanceof ArmorStand || e.isPassengerOfSameVehicle(form)) {
 			return false;

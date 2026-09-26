@@ -20,7 +20,7 @@ import net.minecraft.world.phys.Vec3;
  *
  * <ul>
  *   <li><b>Transformation:</b> nothing hurts him during the H transformation window (the void and /kill excepted).</li>
- *   <li><b>Fall damage:</b> completely cancelled after his own launches; otherwise reduced 75% (90% full power).</li>
+ *   <li><b>Fall damage:</b> none at all in the Power Form (v0.12.35); in the Base Form only cancelled after his own launches.</li>
  *   <li><b>Everything else:</b> reduced 35% (50% full power), multiplied by a further 20% during Full Cowl -- so it
  *       compounds (0.5 x 0.8 = 0.4 taken) and never adds up to invulnerability. Melee, projectiles, explosions, fire and
  *       environmental damage are all covered; only {@code BYPASSES_INVULNERABILITY} sources are left alone.</li>

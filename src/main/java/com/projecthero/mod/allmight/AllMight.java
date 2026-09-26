@@ -190,6 +190,7 @@ public final class AllMight {
 		AllMightState s = new AllMightState(); // hasPower=false
 		save(player, s);
 		reconcile(player);
+		AllMightSuit.returnAll(player);
 	}
 
 	// ---------------------------------------------------------------- stats
@@ -246,9 +247,9 @@ public final class AllMight {
 		}
 	}
 
-	/** The fall-damage reduction of the current form (the Power Form's flat 50%). */
+	/** The fall-damage reduction of the current form: v0.12.35 -- the Power Form takes no fall damage at all (Base Form: none). */
 	public static float fallReduction(ServerPlayer player) {
-		return isFullPower(player) ? AllMightConfig.FULL_DAMAGE_REDUCTION : 0.0f;
+		return isFullPower(player) ? 1.0f : 0.0f;
 	}
 
 	/** The damage-taken factor (1 - reduction) of the current form: 1.0 in the Base Form, 0.5 in the Power Form. */
@@ -291,6 +292,11 @@ public final class AllMight {
 		}
 		save(player, n);
 		reconcile(player);
+		if (toFull) {
+			AllMightSuit.equip(player); // whatever is in the costume locker (N) goes on
+		} else {
+			AllMightSuit.strip(player);
+		}
 		// 20 HP at 100% is 40 HP at 100%; 10 of 20 becomes 20 of 40 (and back)
 		player.setHealth(Math.max(0.5f, Math.min(player.getMaxHealth(), ratio * player.getMaxHealth())));
 		transformFx(player, toFull);
@@ -558,6 +564,7 @@ public final class AllMight {
 		reconcile(player);
 		if (n.fullPower) {
 			player.setHealth(player.getMaxHealth()); // a respawn starts at full health, whichever form
+			AllMightSuit.equip(player);
 		}
 	}
 
@@ -575,7 +582,7 @@ public final class AllMight {
 		}
 	}
 
-	/** Called when the player dies: drop everything transient (the power and the chosen form stay). */
+	/** Called when the player dies: drop everything transient (the power and the chosen form stay). The costume is real gear and drops like any armour. */
 	public static void onDeath(ServerPlayer player) {
 		clearTransient(player);
 	}

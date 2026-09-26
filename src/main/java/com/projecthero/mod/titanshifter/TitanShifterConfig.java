@@ -91,10 +91,18 @@ public final class TitanShifterConfig {
 		public int leapCooldown = 100;        // 5 s
 		public double leapVertical = 1.26;    // ~3x a normal jump
 		public double leapHorizontal = 3.0;   // ~20 blocks of flight (measured)
+		/** v0.12.35: a leap started while sprinting (or already running) launches this hard instead -- roughly twice as far. */
+		public double leapSprintHorizontal = 6.5;
+		public double leapSprintVertical = 1.5;
 		public double leapLandingRadius = 5.0;
 		public int roarCooldown = 300;        // 15 s
-		public double roarRadius = 12.0;
-		public int roarEffectTicks = 200;
+		/** v0.12.35: 12 -> 32; the roar now reaches everything in a cylinder this wide, from below the Titan's feet to above its head. */
+		public double roarRadius = 32.0;
+		public int roarWeaknessTicks = 240;   // Weakness II, 12 s
+		public int roarSlownessTicks = 240;   // Slowness III, 12 s
+		public int roarNauseaTicks = 60;      // 3 s
+		public int roarBlindnessTicks = 40;   // 2 s
+		public int roarFatigueTicks = 60;     // Mining Fatigue, 3 s
 		/** Bosses only get this fraction of the roar's effect duration and are not knocked back. */
 		public double roarBossResistance = 0.25;
 		public double regenPerSecond = 10.0;
@@ -107,6 +115,10 @@ public final class TitanShifterConfig {
 		public double grabReach = 24.0;
 		public double biteDamage = 26.0;
 		public int biteCooldown = 200;        // 10 s
+		/** v0.12.36: eating the grabbed mob feeds the shifter and heals the Titan biteRegenPerSecond HP/s for biteRegenTicks. */
+		public double biteRegenPerSecond = 5.0;
+		public int biteRegenTicks = 100;
+		public int biteFood = 8;
 		public double lowerSpeed = 0.25;      // blocks per tick while setting a grabbed mob down
 		/** How many squad-mates can ride the Titan's shoulders (right-click the Titan). */
 		public int maxShoulderRiders = 2;
@@ -117,6 +129,9 @@ public final class TitanShifterConfig {
 		public int revertTicks = 40;
 		public int defeatTicks = 60;
 		public int recoveryTicks = 100;
+		/** v0.12.36: the abandoned Titan body dissolves over this long (1 minute) and steams every corpseSteamTicks (3 s). */
+		public int corpseTicks = 1200;
+		public int corpseSteamTicks = 60;
 		/** Cooldown after a normal reversion, a defeat or a forced end. v0.12.32: none -- the Titan Energy bar is the gate. */
 		public int cooldownTicks = 0;
 		/** Weak blocks (leaves, plants, glass...) inside the Titan's footprint are burst apart when it forms. */
@@ -160,8 +175,10 @@ public final class TitanShifterConfig {
 		public double regenPerSecond = 1.0;
 		/** A transformation needs at least this fraction of the bar. */
 		public double transformMinFraction = 1.0;
-		/** v0.12.34: the shifter's own passive Regeneration while in base (human) form -- Regeneration III (amplifier 2), free. Not active inside the Titan. */
-		public int baseFormRegenAmplifier = 2;
+		/** v0.12.35: the shifter's passive Regeneration while in base (human) form -- Regeneration II (amplifier 1). Not active inside the Titan. */
+		public int baseFormRegenAmplifier = 1;
+		/** v0.12.35: while that Regeneration is actually healing (hurt, energy left) it drains this much Titan Energy a second and the bar does not refill. */
+		public double baseFormRegenDrainPerSecond = 1.5;
 	}
 
 	public static TitanShifterConfig get() {
@@ -229,9 +246,14 @@ public final class TitanShifterConfig {
 						// v0.12.34: the transformation now needs the full bar (the HUD only says Ready at 100%)
 						instance.energy.transformMinFraction = new Energy().transformMinFraction;
 					}
+					if (loaded.configVersion == null || loaded.configVersion < 4) {
+						// v0.12.35: Regeneration II with an energy drain, a much wider roar
+						instance.energy.baseFormRegenAmplifier = new Energy().baseFormRegenAmplifier;
+						instance.abilities.roarRadius = new Abilities().roarRadius;
+					}
 				}
 			}
-			instance.configVersion = 3;
+			instance.configVersion = 4;
 			// always rewrite so newly added keys appear in existing files
 			Files.createDirectories(path.getParent());
 			Files.writeString(path, gson.toJson(instance));

@@ -399,6 +399,22 @@ public final class ModAttachments {
 	 * and transformation clocks, ability cooldowns and the current pose animation. Persistent + {@code copyOnDeath()}; synced
 	 * to every client (other players render the form and the poses from it); the server stays authoritative.
 	 */
+	/** v0.12.36: the two costume pieces waiting in the All Might costume locker (N in the Power Form). Persistent, kept through death, not synced. */
+	/** v0.12.36: this player has already been shown the "craft the Guidebook" welcome message in this world. */
+	public static final AttachmentType<Boolean> GUIDEBOOK_HINT_SEEN = AttachmentRegistry.create(
+			ProjectHeroMod.id("guidebook_hint_seen"),
+			builder -> builder.persistent(com.mojang.serialization.Codec.BOOL).copyOnDeath().initializer(() -> false));
+
+	/** Transient countdown (ticks) for repeating that message on the action bar. */
+	public static final AttachmentType<Integer> GUIDEBOOK_HINT_LEFT = AttachmentRegistry.create(
+			ProjectHeroMod.id("guidebook_hint_left"));
+
+	public static final AttachmentType<net.minecraft.world.item.component.ItemContainerContents> ALL_MIGHT_LOCKER =
+			AttachmentRegistry.create(ProjectHeroMod.id("all_might_locker"),
+					builder -> builder.persistent(net.minecraft.world.item.component.ItemContainerContents.CODEC)
+							.copyOnDeath()
+							.initializer(() -> net.minecraft.world.item.component.ItemContainerContents.EMPTY));
+
 	public static final AttachmentType<com.projecthero.mod.allmight.data.AllMightState> ALL_MIGHT_STATE =
 			AttachmentRegistry.create(ProjectHeroMod.id("all_might_state"),
 					builder -> builder.persistent(com.projecthero.mod.allmight.data.AllMightState.CODEC)

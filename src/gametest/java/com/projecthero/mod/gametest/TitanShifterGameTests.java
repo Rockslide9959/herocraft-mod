@@ -91,12 +91,18 @@ public class TitanShifterGameTests implements FabricGameTest {
 			helper.assertTrue(TitanShifter.phase(p) == TitanPhase.TITAN, "TITAN after the transformation, was " + TitanShifter.phase(p));
 			helper.assertTrue(TitanShifter.formOf(p) == form && form.isAlive(), "same Titan, alive");
 			TitanShifter.requestToggle(p);
-			helper.assertTrue(TitanShifter.phase(p) == TitanPhase.REVERTING, "REVERTING");
+			// v0.12.36: changing back is immediate -- the shifter pops out of the neck and the body stays behind as a corpse
+			helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN, "HUMAN straight away, was " + TitanShifter.phase(p));
+			var corpses = helper.getLevel().getEntitiesOfClass(com.projecthero.mod.titanshifter.entity.TitanCorpseEntity.class,
+					form.getBoundingBox().inflate(12.0));
+			helper.assertTrue(corpses.size() == 1, "one Titan corpse was left behind, found " + corpses.size());
+			helper.assertTrue(p.getY() > form.getY() + 5.0, "the shifter is out at neck height, y=" + p.getY() + " vs " + form.getY());
+			helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.SLOW_FALLING), "drifting down under Slow Falling");
 			helper.runAfterDelay(50, () -> {
 				helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN, "back to HUMAN, was " + TitanShifter.phase(p));
 				helper.assertTrue(p.getVehicle() == null, "no longer riding");
 				helper.assertTrue(form.isRemoved(), "the Titan was removed");
-				helper.assertTrue(TitanShifter.energy(p) < 5f, "reverting empties the Titan Energy bar (it has only refilled a point or two since), was " + TitanShifter.energy(p));
+				helper.assertTrue(TitanShifter.energy(p) < 10f, "reverting empties the Titan Energy bar (it has only refilled a few points since), was " + TitanShifter.energy(p));
 				helper.assertFalse(TitanShifter.transform(p), "cannot shift again with an empty bar");
 				helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN, "still human after the refused shift");
 				helper.succeed();

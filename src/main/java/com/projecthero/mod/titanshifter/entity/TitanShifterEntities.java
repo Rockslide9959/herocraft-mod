@@ -28,6 +28,17 @@ public final class TitanShifterEntities {
 					.noSummon()
 					.build("titan_form"));
 
+	/** v0.12.36: the dissolving body left behind when the shifter changes back. */
+	public static final EntityType<TitanCorpseEntity> TITAN_CORPSE = register("titan_corpse",
+			EntityType.Builder.<TitanCorpseEntity>of(TitanCorpseEntity::new, MobCategory.MISC)
+					.sized((float) TitanShifterConfig.stats().widthBlocks, (float) TitanShifterConfig.stats().heightBlocks)
+					.clientTrackingRange(16)
+					.updateInterval(20)
+					.noSave()
+					.noSummon()
+					.fireImmune()
+					.build("titan_corpse"));
+
 	private TitanShifterEntities() {
 	}
 

@@ -18,7 +18,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
 /**
- * The Titan Shifter HUD (bottom-right). v0.12.34 layout:
+ * The Titan Shifter HUD (bottom-right). v0.12.34 layout (v0.12.35: the thin bars have no border, the energy bar is yellow):
  *
  * <pre>
  *   Base form:   Titan Shifter / Titan Energy NN% + thin bar / "Titan Shift Ready [H]" (only at 100%)
@@ -37,8 +37,7 @@ public final class TitanShifterHud {
 	private static final int COLOR_COOLDOWN = 0xB0000000;
 	private static final int COLOR_KEY = 0xFFD8D8D8;
 	private static final int COLOR_NAME = 0xFFE0E0E0;
-	private static final int COLOR_ENERGY = 0xFF38C8E8;
-	private static final int COLOR_ENERGY_READY = 0xFF60F0A0;
+	private static final int COLOR_ENERGY = 0xFFFFD53A; // v0.12.35: yellow, and it stays yellow when full
 
 	/** The six boxes in slot order (R G X Z V C). */
 	private static final String[] NAME_KEYS = {
@@ -120,7 +119,9 @@ public final class TitanShifterHud {
 			boolean hard = s.hardenUntil > now;
 			boolean regen = s.regenUntil > now;
 			int fill = hard ? 0xFF5AB0FF : regen ? 0xFF40E060 : frac > 0.5f ? 0xFFE0A020 : frac > 0.25f ? 0xFFE06020 : 0xFFD02020;
-			g.drawString(mc.font, Component.translatable("hud.projecthero.titan_shifter.hp"), x0, y, 0xFFE8E8E8, true);
+			Component hpLabel = Component.translatable("hud.projecthero.titan_shifter.hp");
+			g.drawString(mc.font, hpLabel, x0, y, 0xFFE8E8E8, true);
+			g.drawString(mc.font, " " + (int) Math.ceil(hp) + " / " + (int) Math.ceil(max), x0 + mc.font.width(hpLabel), y, 0xFFFFFFFF, true);
 			y += 11;
 			thinBar(g, x0, y, totalW, frac, fill);
 			y += BAR_H + 3;
@@ -138,7 +139,7 @@ public final class TitanShifterHud {
 		String pctText = pct + "%";
 		g.drawString(mc.font, pctText, x0 + totalW - mc.font.width(pctText), y, 0xFFFFFFFF, true);
 		y += 11;
-		thinBar(g, x0, y, totalW, eFrac, full ? COLOR_ENERGY_READY : COLOR_ENERGY);
+		thinBar(g, x0, y, totalW, eFrac, COLOR_ENERGY);
 		y += BAR_H + 3;
 
 		Component status = switch (phase) {
@@ -165,6 +166,5 @@ public final class TitanShifterHud {
 	private static void thinBar(GuiGraphics g, int x, int y, int w, float frac, int color) {
 		g.fill(x, y, x + w, y + BAR_H, COLOR_BOX_BG);
 		g.fill(x, y, x + (int) (w * frac), y + BAR_H, color);
-		g.renderOutline(x - 1, y - 1, w + 2, BAR_H + 2, COLOR_BORDER);
 	}
 }

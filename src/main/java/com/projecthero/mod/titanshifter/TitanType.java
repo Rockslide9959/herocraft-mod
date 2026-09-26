@@ -70,6 +70,15 @@ public enum TitanType {
 		return ProjectHeroMod.id("textures/entity/" + modelName + ".png");
 	}
 
+	/** v0.12.36: the sliced model and atlas of the dissolving corpse. */
+	public ResourceLocation corpseGeo() {
+		return ProjectHeroMod.id("geo/" + modelName + "_corpse.geo.json");
+	}
+
+	public ResourceLocation corpseTexture() {
+		return ProjectHeroMod.id("textures/entity/" + modelName + "_corpse.png");
+	}
+
 	public ResourceLocation hardenedTexture() {
 		return ProjectHeroMod.id("textures/entity/" + modelName + "_hardened.png");
 	}

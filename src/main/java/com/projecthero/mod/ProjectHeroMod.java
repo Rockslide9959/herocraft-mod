@@ -165,6 +165,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.greenlantern.GreenLanternTrial.tick(server);
 			server.getPlayerList().getPlayers().forEach(player -> {
 				TickWatchdog.run("ThorPowers.serverTick", () -> ThorPowers.serverTick(player));
+				TickWatchdog.run("GuidebookHint.tick", () -> com.projecthero.mod.hero.guide.GuidebookHint.tick(player));
 				TickWatchdog.run("HeroFlight.tick", () -> HeroFlight.tick(player));
 				TickWatchdog.run("AbilityRouter.serverTick", () -> AbilityRouter.serverTick(player));
 				TickWatchdog.run("MutationManager.serverTick", () -> MutationManager.serverTick(player));
@@ -289,6 +290,7 @@ public class ProjectHeroMod implements ModInitializer {
 			HeroFlight.clearStale(player);
 			IronManFlight.clearStale(player);
 			com.projecthero.mod.ironman.RepulsorBoots.clearStale(player);
+			com.projecthero.mod.hero.guide.GuidebookHint.onJoin(player);
 			TonyStark.onPlayerJoin(player);
 			com.projecthero.mod.ironman.ProtocolPhoenix.clearEmergency(player);
 			com.projecthero.mod.spider.SpiderMan.onPlayerJoin(player);

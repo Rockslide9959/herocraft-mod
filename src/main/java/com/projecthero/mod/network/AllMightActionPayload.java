@@ -10,11 +10,13 @@ import net.minecraft.resources.ResourceLocation;
 
 /**
  * Client to server All Might requests that are not one of the six ability slots: H (transform / change back) and N
- * (All Might Leap). Only requests -- the server checks the power, the cooldown, the OFA and the current state.
+ * (the costume locker). Only requests -- the server checks the power, the cooldown, the OFA and the current state.
  */
 public record AllMightActionPayload(Action action) implements CustomPacketPayload {
 	public enum Action {
-		TOGGLE_FORM
+		TOGGLE_FORM,
+		/** v0.12.36: N in the Power Form -- open the costume locker. */
+		OPEN_LOCKER
 	}
 
 	public static final CustomPacketPayload.Type<AllMightActionPayload> TYPE =
