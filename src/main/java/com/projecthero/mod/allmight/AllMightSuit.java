@@ -46,6 +46,56 @@ public final class AllMightSuit {
 		return stack.getItem() instanceof AllMightArmorItem a && a.getType().getSlot() == SLOTS[index];
 	}
 
+	private static final EquipmentSlot[] ARMOUR_SLOTS = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
+
+	/**
+	 * v0.12.43: the Power Form can only wear the All Might armour. On transforming, every regular piece he is wearing tears off his
+	 * body: it loses {@link AllMightConfig#ARMOUR_TEAR_DAMAGE} durability (and is destroyed if that is more than it has left), then it
+	 * unequips itself and falls to the ground.
+	 */
+	public static void tearOffRegularArmour(ServerPlayer player) {
+		boolean any = false;
+		for (EquipmentSlot slot : ARMOUR_SLOTS) {
+			ItemStack worn = player.getItemBySlot(slot);
+			if (worn.isEmpty() || worn.getItem() instanceof AllMightArmorItem) {
+				continue;
+			}
+			any = true;
+			player.setItemSlot(slot, ItemStack.EMPTY);
+			if (worn.isDamageableItem()) {
+				int damage = worn.getDamageValue() + AllMightConfig.ARMOUR_TEAR_DAMAGE;
+				if (damage >= worn.getMaxDamage()) {
+					player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, 0.9f, 1.0f);
+					continue; // torn apart completely
+				}
+				worn.setDamageValue(damage);
+			}
+			net.minecraft.world.entity.item.ItemEntity dropped = player.drop(worn, false);
+			if (dropped != null) {
+				dropped.setPickUpDelay(60);
+			}
+		}
+		if (any) {
+			player.displayClientMessage(Component.translatable("message.projecthero.all_might.armour_torn").withStyle(ChatFormatting.RED), true);
+			player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ARMOR_EQUIP_IRON.value(), SoundSource.PLAYERS, 1.0f, 0.5f);
+		}
+	}
+
+	/** v0.12.43: while in the Power Form, a regular piece that gets equipped is bounced straight back to the inventory (or dropped if it is full). */
+	public static void bounceRegularArmour(ServerPlayer player) {
+		for (EquipmentSlot slot : ARMOUR_SLOTS) {
+			ItemStack worn = player.getItemBySlot(slot);
+			if (worn.isEmpty() || worn.getItem() instanceof AllMightArmorItem) {
+				continue;
+			}
+			ItemStack piece = worn.copy();
+			player.setItemSlot(slot, ItemStack.EMPTY);
+			give(player, piece);
+			player.displayClientMessage(Component.translatable("message.projecthero.all_might.armour_refused", piece.getHoverName())
+					.withStyle(ChatFormatting.RED), true);
+		}
+	}
+
 	/** Power Form: put on whatever is in the locker (anything already worn in that slot is moved to the inventory). */
 	public static void equip(ServerPlayer player) {
 		List<ItemStack> locker = locker(player);

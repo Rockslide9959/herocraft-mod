@@ -59,6 +59,38 @@ public final class WolverineDamage {
 		});
 	}
 
+	/**
+	 * v0.12.43: a fall that would kill him leaves him at half a heart instead. The Healing Factor pool takes the damage (at most
+	 * {@code FALL_SURVIVE_MAX_ABSORB}; anything beyond that is simply not taken), his legs turn to raw flesh and he is slowed.
+	 * Needs some pool left -- with the healing factor spent, a lethal fall still kills.
+	 */
+	public static boolean survivedLethalFall(ServerPlayer player, float damage) {
+		var s = Wolverine.state(player);
+		if (damage < player.getHealth() + player.getAbsorptionAmount() || s.healPool <= 0.0f) {
+			return false;
+		}
+		long now = player.level().getGameTime();
+		var c = s.copy();
+		c.healPool = Math.max(0.0f, s.healPool - Math.min(damage, WolverineConfig.FALL_SURVIVE_MAX_ABSORB));
+		c.lastHurtAt = now;
+		c.legFleshStartedAt = now;
+		Wolverine.save(player, c);
+		player.setAbsorptionAmount(0.0f);
+		player.setHealth(1.0f);
+		player.fallDistance = 0.0f;
+		player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN,
+				WolverineConfig.FALL_SLOW_TICKS, WolverineConfig.FALL_SLOW_AMPLIFIER, true, false, false));
+		if (player.level() instanceof net.minecraft.server.level.ServerLevel level) {
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), net.minecraft.sounds.SoundEvents.PLAYER_BIG_FALL,
+					net.minecraft.sounds.SoundSource.PLAYERS, 1.2f, 0.6f);
+			level.sendParticles(new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.65f, 0.0f, 0.02f), 1.6f),
+					player.getX(), player.getY() + 0.3, player.getZ(), 40, 0.5, 0.3, 0.5, 0.1);
+		}
+		player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.wolverine.fall_survived")
+				.withStyle(net.minecraft.ChatFormatting.RED), true);
+		return true;
+	}
+
 	private static boolean onAllowDamage(LivingEntity entity, DamageSource source, float amount) {
 		if (REENTRANT.get() || !(entity instanceof ServerPlayer player) || amount <= 0f || !Wolverine.hasPower(player)) {
 			return true;
@@ -84,6 +116,9 @@ public final class WolverineDamage {
 		}
 		float reduced = amount * factor;
 		if (reduced < 0.1f) {
+			return false;
+		}
+		if (source.is(DamageTypes.FALL) && survivedLethalFall(player, reduced)) {
 			return false;
 		}
 		REENTRANT.set(true);

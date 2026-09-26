@@ -49,6 +49,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(SpiderSenseWarningPayload.TYPE, SpiderSenseWarningPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SpiderSenseGlowPayload.TYPE, SpiderSenseGlowPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(WolverineSensePayload.TYPE, WolverineSensePayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(TitanRoarSensePayload.TYPE, TitanRoarSensePayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SpiderClimbGrabPayload.TYPE, SpiderClimbGrabPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SpiderWebStrandPayload.TYPE, SpiderWebStrandPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FirearmShotPayload.TYPE, FirearmShotPayload.CODEC);
@@ -154,6 +155,7 @@ public final class ModNetworking {
 				case SPRINT_ON -> com.projecthero.mod.titanshifter.TitanShifter.setSprintHeld(p, true);
 				case SPRINT_OFF -> com.projecthero.mod.titanshifter.TitanShifter.setSprintHeld(p, false);
 				case EMERGENCY_RELEASE -> com.projecthero.mod.titanshifter.TitanShifter.cancelEmergencyHold(p);
+				case TOGGLE_REGEN -> com.projecthero.mod.titanshifter.TitanShifter.toggleRegen(p);
 			}
 		});
 

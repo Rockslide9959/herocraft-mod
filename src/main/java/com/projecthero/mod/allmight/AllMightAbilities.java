@@ -344,7 +344,7 @@ public final class AllMightAbilities {
 		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0f, 1.8f);
 		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 0.6f, 1.6f);
 		AllMightShockwave.burst(level, ParticleTypes.ELECTRIC_SPARK, c, 45, 0.6, 0.3);
-		AllMightShockwave.burst(level, new DustParticleOptions(new Vector3f(0.3f, 1.0f, 0.45f), 1.4f), c, 25, 0.6, 0.05);
+		AllMightShockwave.burst(level, new DustParticleOptions(new Vector3f(1.0f, 0.78f, 0.2f), 1.4f), c, 25, 0.6, 0.05);
 		AllMightShockwave.ring(level, ParticleTypes.END_ROD, p.position().add(0, 0.2, 0), 1.6, 16);
 		p.displayClientMessage(Component.translatable("message.projecthero.all_might.plus_ultra").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
 	}
@@ -386,7 +386,7 @@ public final class AllMightAbilities {
 				float grow = 0.4f + 0.6f * tt / (float) charge;
 				Vec3 c = p.position().add(0, p.getBbHeight() * 0.55, 0);
 				AllMightShockwave.burst(level, ParticleTypes.ELECTRIC_SPARK, c, (int) (8 + 14 * grow), 0.5 + 0.5 * grow, 0.3);
-				AllMightShockwave.burst(level, new DustParticleOptions(new Vector3f(0.3f, 1.0f, 0.45f), 1.2f + grow), c, (int) (6 + 10 * grow), 0.6, 0.05);
+				AllMightShockwave.burst(level, new DustParticleOptions(new Vector3f(1.0f, 0.78f, 0.2f), 1.2f + grow), c, (int) (6 + 10 * grow), 0.6, 0.05);
 				AllMightShockwave.ring(level, ParticleTypes.CLOUD, p.position().add(0, 0.15, 0), 3.0 - 2.2 * grow, 16);
 				if (tt % 8 == 0) {
 					AbilityHelpers.sound(p, SoundEvents.WIND_CHARGE_BURST.value(), 0.8f, 0.6f + 0.5f * grow);

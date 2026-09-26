@@ -176,6 +176,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineClawsLayer(
 								playerRenderer, context.getModelSet()));
 						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineFleshLayer(playerRenderer));
+						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineLegFleshLayer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.spider.SpiderHandTrackerLayer(playerRenderer));
 					}
 				});
@@ -208,6 +209,13 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.TitanShakePayload.TYPE,
 				(payload, context) -> context.client().execute(
 						() -> com.projecthero.mod.client.titanshifter.TitanShakeClient.accept(payload.intensity(), payload.ticks())));
+
+		// Titan Roar: everything within 50 blocks is outlined blue for the roaring shifter only (v0.12.43).
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.TitanRoarSensePayload.TYPE,
+				(payload, context) -> context.client().execute(() -> {
+					long now = context.client().level != null ? context.client().level.getGameTime() : 0L;
+					com.projecthero.mod.client.titanshifter.TitanRoarSenseClient.accept(payload.ids(), payload.ticks(), now);
+				}));
 
 		// Wolverine senses: the per-viewer orange hunter glow + the N-key sniff highlight.
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.WolverineSensePayload.TYPE,
@@ -640,7 +648,13 @@ public class ProjectHeroModClient implements ClientModInitializer {
 
 	private static void handleMaxSteelTransform(Minecraft client) {
 		boolean down = ModKeyBindings.MAX_STEEL_TRANSFORM.isDown();
-		if (down && !maxSteelTransformWasDown && client.player != null
+		boolean humanShifter = client.player != null && com.projecthero.mod.titanshifter.TitanShifter.isShifter(client.player)
+				&& com.projecthero.mod.titanshifter.TitanShifter.phase(client.player) == com.projecthero.mod.titanshifter.TitanPhase.HUMAN;
+		if (down && !maxSteelTransformWasDown && humanShifter && Screen.hasShiftDown()) {
+			// v0.12.43: Shift+N as a base-form Titan Shifter toggles the passive regeneration (always available, even if another power owns plain N).
+			ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(
+					com.projecthero.mod.network.TitanShiftPayload.Action.TOGGLE_REGEN));
+		} else if (down && !maxSteelTransformWasDown && client.player != null
 				&& com.projecthero.mod.titanshifter.TitanShifter.inTitan(client.player)) {
 			// v0.12.34: N inside the Titan grabs the mob you look at / bites it; Shift+N sets it down gently.
 			ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(Screen.hasShiftDown()
@@ -671,6 +685,10 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			boolean on = com.projecthero.mod.client.symbiote.SymbioteFxClient.togglePredatorVision();
 			client.player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
 					on ? "projecthero.symbiote.predator_vision.on" : "projecthero.symbiote.predator_vision.off"), true);
+		} else if (down && !maxSteelTransformWasDown && humanShifter) {
+			// v0.12.43: plain N as a base-form Titan Shifter (no other power claiming N) toggles the passive regeneration.
+			ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(
+					com.projecthero.mod.network.TitanShiftPayload.Action.TOGGLE_REGEN));
 		}
 		maxSteelTransformWasDown = down;
 	}

@@ -51,6 +51,7 @@ public final class WolverinePassives {
 		reconcile(player);
 
 		healingFactor(player);
+		tickLegFlesh(player, now);
 		tickEmergency(player, now);
 		drainRage(player, now);
 		clearHands(player);
@@ -144,6 +145,14 @@ public final class WolverinePassives {
 			player.removeEffect(MobEffects.WEAKNESS);
 		}
 		Wolverine.save(player, c);
+	}
+
+	/** v0.12.43: Slowness VI is kept on him for the 20 s after a survived lethal fall (re-applied because his debuff-halving would shorten it). */
+	private static void tickLegFlesh(ServerPlayer player, long now) {
+		WolverineState s = Wolverine.state(player);
+		if (s.legFleshStartedAt > 0L && now < s.legFleshStartedAt + WolverineConfig.FALL_SLOW_TICKS && player.tickCount % 5 == 0) {
+			player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 20, WolverineConfig.FALL_SLOW_AMPLIFIER, true, false, false));
+		}
 	}
 
 	// ---------------- healing factor ----------------

@@ -182,7 +182,8 @@ A permanent **Primary** power — the **ascension of Super Regeneration**. Own S
 **Adamantium Serum** (4 diamonds, 2 netherite ingots, 2 blaze powder, a golden apple) and use it: your
 regenerative mutation is consumed and rebuilt as Wolverine.
 
-- **Healing factor (v0.12.40):** heals 6 HP/s, but every HP is paid from a **250 HP Healing Factor pool** (green bar on the HUD with its %). At 0 the healing factor is off until the pool recharges; it refills **5 HP/s, only after 5 s without taking damage**. A single HUD pixel beside the bar shows the **Death Surge**: orange = ready, dark grey = recharging. A lethal hit triggers the Death Surge (3-minute cooldown).
+- **Healing factor (v0.12.40):** heals 6 HP/s, but every HP is paid from a **250 HP Healing Factor pool** (green bar on the HUD with its %). At 0 the healing factor is off until the pool recharges; it refills **5 HP/s, only after 5 s without taking damage**. A 3-pixel HUD marker beside the bar shows the **Death Surge**: orange = ready, dark grey = recharging. A lethal hit triggers the Death Surge (3-minute cooldown).
+- **Lethal falls (v0.12.43):** a fall that would kill you leaves you at half a heart; the Healing Factor pool soaks up to **100** of the damage, your legs turn to raw flesh and you get **Slowness VI for 20 s**, then your skin phases back in over another 20 s (needs pool left).
 - **Built to last:** 35% less physical damage, 75% knockback resistance, 75% less fall damage, strong Poison
   and Wither resistance, 4 melee damage (12 unarmed with claws out), +20% speed, +25% jump. Enemy monsters within 12 blocks glow for you
   alone.
@@ -208,6 +209,7 @@ body (new skin in v0.12.35) and hit-box scaled up to eleven blocks (lightning, s
 - **Titan Energy:** a 100-point bar shown as a percentage. **Titan Shift Ready [H]** appears at 100%; changing back (or being defeated)
   empties it and it refills **1% a second** while you are human. Your **base form** heals with **Regeneration II** (v0.12.35), which **drains 1.5% Titan Energy a second** while it is healing you (the bar does not refill meanwhile, and at 0% the healing stops) — the Titan has none. Trying to shift on a partly empty bar flashes **"Titan Form exhausted, Recharge energy"** in red above your hotbar.
 - **Emergency Titan (v0.12.39):** with at least **30%** Titan Energy (but under a full bar), **hold H for 5 seconds** — electricity crackles around you — and you shift into a **pale, 7-block Emergency Titan that is 40% weaker in everything** (health, armour, speed, damage). It lasts **at most 2 minutes**: a hairline bar above the *Titan Shifter* text drains, and you are forced out when it empties. Afterwards Titan Energy refills **3× slower**, you get **no passive regeneration until 50%**, and you cannot shift again (normally or in an emergency) until the bar is back at **100%**.
+- **Roar sight & regen toggle (v0.12.43):** the Titan Roar outlines everything within **50 blocks in blue** for you alone (10 s), and **Shift+N** (plain **N** if no other power claims it) in human form toggles the passive regeneration on/off.
 - **Changing back (v0.12.36):** you climb out through the back of the Titan's neck and drift down; the Titan's body stays where it stood, **steams every 3 seconds and dissolves over one minute**, breaking apart piece by piece (v0.12.39: each piece now shrinks fully away before it is removed). The Titan takes **no fall damage**.
 - **Running (v0.12.34):** hold **Sprint** while walking for 3 seconds and the Titan breaks into a run.
 - **Shoulder ride (v0.12.34):** a squad-mate can right-click the Titan to sit on its shoulder (two seats) and ride along; sneak to hop off.
@@ -232,6 +234,7 @@ plates, 2 enchanted golden apples, 2 diamond blocks, a **totem of undying**) and
 - **Power Form abilities:** **R Detroit Smash** (18 dmg) · **Shift+R New Hampshire Smash** (20) · **G Texas Smash** (24) · **X Leap** (launches along your look direction, 1.5 s cooldown) ·
   **Z United States of Smash** (hold 5 s with a charge bar; an AoE: 75 dmg in a 20-block shockwave all around you and a large crater; 100 OFA (once cast) and a **75 s cooldown**, both paid only once it is cast) · **V Carolina Smash** (a long ground slide in the direction you look, 20 dmg) ·
   **C Plus Ultra** (50 OFA, lasts exactly **22 s**, every move +30%; 20 s cooldown after it ends; running out of OFA drops you back to Base Form).
+- **Armour (v0.12.43):** the Power Form wears only the All Might armour — regular armour tears off when you transform (**-50 durability**, unequipped and dropped) and is refused afterwards. Particles are now **gold**.
 - **Passives (Power Form):** air-burst punches, hard-landing shockwaves, **no fall damage at all**, bosses lose at most 10% per Smash. Admins: `/projecthero power grant all_might`.
 - Server-authoritative; every number is in `AllMightConfig`. Full details in `docs/ALLMIGHT_REFERENCE.md`.
 

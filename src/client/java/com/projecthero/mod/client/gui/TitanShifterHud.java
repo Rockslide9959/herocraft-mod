@@ -73,7 +73,7 @@ public final class TitanShifterHud {
 		if (inside) {
 			height += BOX + 3 + 11 + BAR_H + 3 + 11; // keys, HP label + bar, revert line
 		} else {
-			height += 11 + BAR_H + 3 + 11; // energy label + bar, ready / status line
+			height += 11 + BAR_H + 3 + 11 + (s.regenOff ? 11 : 0); // energy label + bar, ready / status line (+ regen-off note)
 		}
 		int y = g.guiHeight() - 12 - height;
 
@@ -174,6 +174,11 @@ public final class TitanShifterHud {
 		};
 		if (status != null) {
 			g.drawString(mc.font, status, x0, y, 0xFFFFFFFF, true);
+		}
+		if (s.regenOff) {
+			// v0.12.43: N switched the passive regeneration off
+			g.drawString(mc.font, Component.translatable("hud.projecthero.titan_shifter.regen_off").withStyle(ChatFormatting.GRAY),
+					x0, y + 11, 0xFFAAAAAA, true);
 		}
 	}
 

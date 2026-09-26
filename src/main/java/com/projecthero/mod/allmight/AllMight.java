@@ -177,7 +177,7 @@ public final class AllMight {
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0f, 1.4f);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 0.8f, 1.6f);
 		AllMightShockwave.burst(level, ParticleTypes.ELECTRIC_SPARK, c, 50, 0.6, 0.35);
-		AllMightShockwave.burst(level, new DustParticleOptions(new Vector3f(0.3f, 1.0f, 0.45f), 1.4f), c, 25, 0.7, 0.05);
+		AllMightShockwave.burst(level, new DustParticleOptions(new Vector3f(1.0f, 0.78f, 0.2f), 1.4f), c, 25, 0.7, 0.05);
 		player.displayClientMessage(Component.translatable("message.projecthero.all_might.acquired")
 				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
 		player.displayClientMessage(Component.translatable("message.projecthero.all_might.acquired_hint")
@@ -300,6 +300,7 @@ public final class AllMight {
 		save(player, n);
 		reconcile(player);
 		if (toFull) {
+			AllMightSuit.tearOffRegularArmour(player); // v0.12.43: regular armour tears off (-50 durability) and drops
 			AllMightSuit.equip(player); // whatever is in the costume locker (N) goes on
 		} else {
 			AllMightSuit.strip(player);
@@ -342,7 +343,7 @@ public final class AllMight {
 			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 1.0f, 0.8f);
 			AllMightShockwave.burst(level, ParticleTypes.EXPLOSION, c, 3, 0.5, 0.0);
 			AllMightShockwave.burst(level, ParticleTypes.ELECTRIC_SPARK, c, 70, 0.7, 0.4);
-			AllMightShockwave.burst(level, new DustParticleOptions(new Vector3f(0.3f, 1.0f, 0.45f), 1.5f), c, 40, 0.8, 0.05);
+			AllMightShockwave.burst(level, new DustParticleOptions(new Vector3f(1.0f, 0.78f, 0.2f), 1.5f), c, 40, 0.8, 0.05);
 			steam(level, player, 10);
 			AllMightShockwave.ring(level, ParticleTypes.CLOUD, player.position().add(0, 0.2, 0), 2.5, 24);
 			AllMightShockwave.ring(level, ParticleTypes.CLOUD, player.position().add(0, 0.2, 0), 4.5, 24);
@@ -376,6 +377,9 @@ public final class AllMight {
 		long now = level.getGameTime();
 
 		tickScale(player, s);
+		if (s.fullPower && player.tickCount % 5 == 0) {
+			AllMightSuit.bounceRegularArmour(player); // v0.12.43: the Power Form only wears the All Might armour
+		}
 		// the once-a-second safety net (a respawn or another mod may have cleared the transient modifiers)
 		if (player.tickCount % 20 == 0) {
 			reconcile(player);
@@ -536,7 +540,7 @@ public final class AllMight {
 			Vec3 c = player.position().add(0, player.getBbHeight() * 0.5, 0);
 			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, AllMightShockwave.particles(3), 0.4, player.getBbHeight() * 0.4, 0.4, 0.1);
 			if (now % 4L == 0L) {
-				level.sendParticles(new DustParticleOptions(new Vector3f(0.3f, 1.0f, 0.45f), 1.1f), c.x, c.y, c.z,
+				level.sendParticles(new DustParticleOptions(new Vector3f(1.0f, 0.78f, 0.2f), 1.1f), c.x, c.y, c.z,
 						AllMightShockwave.particles(3), 0.45, player.getBbHeight() * 0.42, 0.45, 0.0);
 			}
 		}

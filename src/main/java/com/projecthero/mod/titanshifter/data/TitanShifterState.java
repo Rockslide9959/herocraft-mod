@@ -40,15 +40,17 @@ public final class TitanShifterState {
 	public long emergencyUntil;
 	/** v0.12.39: set when an Emergency Titan ends -- Titan Energy refills 3x slower and there is no passive regen until the penalty clears. */
 	public boolean emergencyPenalty;
+	/** v0.12.43: N in the base form switches the passive (Regeneration II) healing off / on. Persisted in the {@code flags} codec field. */
+	public boolean regenOff;
 
 	public TitanShifterState() {
-		this(false, TitanPhase.HUMAN.name(), "generic_titan", 0L, 0L, 0L, 0L, 0L, 0f, 0f, 0, 0L, new HashMap<>(), 0f, 0L, false);
+		this(false, TitanPhase.HUMAN.name(), "generic_titan", 0L, 0L, 0L, 0L, 0L, 0f, 0f, 0, 0L, new HashMap<>(), 0f, 0L, 0);
 	}
 
 	public TitanShifterState(boolean unlocked, String phase, String typeId, long phaseStartedAt, long phaseUntil,
 			long cooldownUntil, long regenUntil, long hardenUntil, float titanHealth, float titanMaxHealth,
 			int lastAction, long lastActionTick, Map<String, Long> abilityReadyAt, float energy,
-			long emergencyUntil, boolean emergencyPenalty) {
+			long emergencyUntil, int flags) {
 		this.unlocked = unlocked;
 		this.phase = phase;
 		this.typeId = typeId;
@@ -64,7 +66,13 @@ public final class TitanShifterState {
 		this.abilityReadyAt = new HashMap<>(abilityReadyAt);
 		this.energy = energy;
 		this.emergencyUntil = emergencyUntil;
-		this.emergencyPenalty = emergencyPenalty;
+		this.emergencyPenalty = (flags & 1) != 0;
+		this.regenOff = (flags & 2) != 0;
+	}
+
+	/** Bit 0 = emergency penalty, bit 1 = passive regeneration switched off (packed to stay within the codec's 16-field limit). */
+	public int flags() {
+		return (emergencyPenalty ? 1 : 0) | (regenOff ? 2 : 0);
 	}
 
 	public boolean inEmergency() {
@@ -85,7 +93,7 @@ public final class TitanShifterState {
 
 	public TitanShifterState copy() {
 		return new TitanShifterState(unlocked, phase, typeId, phaseStartedAt, phaseUntil, cooldownUntil, regenUntil,
-				hardenUntil, titanHealth, titanMaxHealth, lastAction, lastActionTick, abilityReadyAt, energy, emergencyUntil, emergencyPenalty);
+				hardenUntil, titanHealth, titanMaxHealth, lastAction, lastActionTick, abilityReadyAt, energy, emergencyUntil, flags());
 	}
 
 	public static final Codec<TitanShifterState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -106,6 +114,6 @@ public final class TitanShifterState {
 			// saves from v0.12.31 have no energy: an existing shifter simply starts with a full bar
 			Codec.FLOAT.optionalFieldOf("energy", 100f).forGetter(s -> s.energy),
 				Codec.LONG.optionalFieldOf("emergency_until", 0L).forGetter(s -> s.emergencyUntil),
-				Codec.BOOL.optionalFieldOf("emergency_penalty", false).forGetter(s -> s.emergencyPenalty)
+				Codec.INT.optionalFieldOf("flags", 0).forGetter(TitanShifterState::flags)
 	).apply(instance, TitanShifterState::new));
 }

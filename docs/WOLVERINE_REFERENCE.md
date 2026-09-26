@@ -5,6 +5,8 @@ Package `com.projecthero.mod.wolverine` (+ `client.wolverine`, `command.Wolverin
 mutation the same way Spider-Man ascends Spider Adhesion. It is not a second regeneration system: it
 reuses Super Regeneration's base heal tick and debuff-shortening mixin and scales them.
 
+> **v0.12.43:** `WolverineDamage.survivedLethalFall`: a FALL that would kill (after the 75% reduction) leaves 1 HP, the pool loses min(damage, `FALL_SURVIVE_MAX_ABSORB` 100), Slowness VI 20 s (`WolverinePassives.tickLegFlesh` keeps it up) and `WolverineState.legFleshStartedAt` drives `client.wolverine.WolverineLegFleshLayer` (legs-only flesh texture, hold 20 s then fade 20 s). Needs pool > 0. The state codec is at 16 fields, so healPool/lastHurtAt/legFleshStartedAt now live in the nested `Extra` record. Death Surge HUD marker is 3 px.
+>
 > **v0.12.41:** pool max 250, refill 5 HP/s, HUD shows only the percentage and the Death Surge marker is 2 px wide.
 >
 > **v0.12.40:** the healing factor is paid from `WolverineState.healPool` (`HEAL_POOL_MAX` 120 HP). `WolverinePassives.healingFactor` heals `REGEN_HP` (1.5) every 5 ticks and subtracts the HP actually healed; at 0 it does nothing. The pool refills `HEAL_POOL_REGEN_PER_SECOND` (3) only once `lastHurtAt` (set by `Wolverine.markHurt` when he TAKES damage) is `HEAL_POOL_REGEN_DELAY_TICKS` (100) old. The Death Surge is untouched by the pool. The HUD's rage bar is replaced by "Healing Factor N HP P%" over `[Death Surge pixel][1 px gap][pool bar]` (pixel orange when `emergencyReadyAt` has passed, dark grey while it recharges); the Berserker Rage meter still gates C and is shown as the fill of the C box.

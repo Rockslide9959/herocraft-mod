@@ -335,4 +335,35 @@ public class AllMightGameTests implements FabricGameTest {
 		helper.assertTrue(p.getDeltaMovement().y > 0.5 && p.getDeltaMovement().z > 1.5, "launched along the look direction, v=" + p.getDeltaMovement());
 		helper.succeed();
 	}
+
+	// ---------------- v0.12.43: the Power Form only wears the All Might armour ----------------
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void transformingTearsRegularArmourOffAndDropsIt(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		net.minecraft.world.item.ItemStack iron = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.IRON_CHESTPLATE);
+		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, iron);
+		AllMight.toggleForm(p);
+		helper.assertTrue(AllMight.isFullPower(p), "transformed");
+		helper.assertTrue(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).isEmpty(), "the regular armour unequipped itself");
+		var drops = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, p.getBoundingBox().inflate(4.0),
+				e -> e.getItem().is(net.minecraft.world.item.Items.IRON_CHESTPLATE));
+		helper.assertTrue(drops.size() == 1, "and dropped onto the ground");
+		helper.assertTrue(drops.get(0).getItem().getDamageValue() == 50, "after taking 50 durability damage, has " + drops.get(0).getItem().getDamageValue());
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void thePowerFormBouncesRegularArmourButKeepsAllMightArmour(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		powerForm(p);
+		p.tickCount = 5;
+		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.IRON_HELMET));
+		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new net.minecraft.world.item.ItemStack(com.projecthero.mod.allmight.item.AllMightItems.CHESTPLATE));
+		AllMight.tick(p);
+		helper.assertTrue(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).isEmpty(), "regular armour is refused in the Power Form");
+		helper.assertTrue(p.getInventory().contains(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.IRON_HELMET)), "and goes back to the inventory");
+		helper.assertTrue(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).is(com.projecthero.mod.allmight.item.AllMightItems.CHESTPLATE), "the All Might armour stays on");
+		helper.succeed();
+	}
 }

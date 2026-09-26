@@ -261,6 +261,19 @@ public final class TitanShifter {
 				SoundSource.PLAYERS, 1.2f, 1.7f);
 	}
 
+	/** v0.12.43: N (base form) switches the passive healing off / on. Off = no Regeneration II and no Titan Energy drain. */
+	public static void toggleRegen(ServerPlayer player) {
+		TitanShifterState s = state(player);
+		if (!s.unlocked || s.phase() != TitanPhase.HUMAN) {
+			return;
+		}
+		TitanShifterState n = s.copy();
+		n.regenOff = !s.regenOff;
+		save(player, n);
+		player.displayClientMessage(Component.translatable(n.regenOff ? "message.projecthero.titan_shifter.regen_off"
+				: "message.projecthero.titan_shifter.regen_on").withStyle(n.regenOff ? ChatFormatting.GRAY : ChatFormatting.GREEN), true);
+	}
+
 	/** H released before the hold completed (or a stray release): the emergency shift is cancelled. */
 	public static void cancelEmergencyHold(ServerPlayer player) {
 		if (EMERGENCY_HOLD.remove(player.getUUID()) != null) {
@@ -784,7 +797,7 @@ public final class TitanShifter {
 		var e = TitanShifterConfig.energy();
 		// v0.12.39: after an Emergency Titan there is no passive regeneration until the bar is back to half
 		boolean penalised = s.emergencyPenalty && s.energy < e.max * TitanShifterConfig.emergency().passiveRegenMinFraction;
-		return e.baseFormRegenAmplifier >= 0 && s.energy > 0f && !penalised
+		return e.baseFormRegenAmplifier >= 0 && s.energy > 0f && !penalised && !s.regenOff
 				&& s.phase() == TitanPhase.HUMAN && player.getHealth() < player.getMaxHealth();
 	}
 

@@ -58,6 +58,13 @@ public abstract class EntityGlowMixin {
 			}
 		}
 
+		// v0.12.43: Titan Roar -- everything the roar reached within 50 blocks is outlined blue for the roaring shifter alone.
+		if (self instanceof LivingEntity && com.projecthero.mod.client.titanshifter.TitanRoarSenseClient.isMarked(self.getId(),
+				viewer.level() != null ? viewer.level().getGameTime() : 0L)) {
+			cir.setReturnValue(true);
+			return;
+		}
+
 		// v0.10.19: Magnetic Sense is the one detection highlight that DOES light up another player --
 		// specifically one wearing magnetic (iron-family) equipment, since that gear is exactly what the
 		// power senses. Checked before the generic player exclusion below.
@@ -328,6 +335,23 @@ public abstract class EntityGlowMixin {
 			cir.setReturnValue(0xFF3B3B);
 		} else if (com.projecthero.mod.client.greenlantern.GreenLanternRingScanClient.isPassive(self.getId(), now)) {
 			cir.setReturnValue(0x3BFF6B);
+		}
+	}
+
+	/** v0.12.43: Titan Roar's blue outline (the viewer's own render only). */
+	@Inject(method = "getTeamColor", at = @At("HEAD"), cancellable = true)
+	private void projecthero$titanRoarColor(CallbackInfoReturnable<Integer> cir) {
+		if (cir.isCancelled()) {
+			return;
+		}
+		Entity self = (Entity) (Object) this;
+		LocalPlayer viewer = Minecraft.getInstance().player;
+		if (viewer == null || viewer == self || !(self instanceof LivingEntity)) {
+			return;
+		}
+		if (com.projecthero.mod.client.titanshifter.TitanRoarSenseClient.isMarked(self.getId(),
+				viewer.level() != null ? viewer.level().getGameTime() : 0L)) {
+			cir.setReturnValue(0x3C9BFF);
 		}
 	}
 

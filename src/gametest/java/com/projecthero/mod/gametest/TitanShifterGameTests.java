@@ -381,4 +381,17 @@ public class TitanShifterGameTests implements FabricGameTest {
 			});
 		});
 	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void nTogglesThePassiveRegenerationInTheBaseForm(GameTestHelper helper) {
+		ServerPlayer p = shifter(helper);
+		p.setHealth(10.0f);
+		helper.assertTrue(TitanShifter.baseRegenActive(p, TitanShifter.state(p)), "regeneration is on by default");
+		TitanShifter.toggleRegen(p);
+		helper.assertTrue(TitanShifter.state(p).regenOff, "N switched it off");
+		helper.assertFalse(TitanShifter.baseRegenActive(p, TitanShifter.state(p)), "no passive healing while it is off");
+		TitanShifter.toggleRegen(p);
+		helper.assertTrue(TitanShifter.baseRegenActive(p, TitanShifter.state(p)), "and back on");
+		helper.succeed();
+	}
 }

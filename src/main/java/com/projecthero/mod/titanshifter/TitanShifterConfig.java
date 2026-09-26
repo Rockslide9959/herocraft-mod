@@ -97,6 +97,9 @@ public final class TitanShifterConfig {
 		public double leapSprintVertical = 1.5;
 		public double leapLandingRadius = 5.0;
 		public int roarCooldown = 300;        // 15 s
+		/** v0.12.43: the roar outlines everything within this many blocks in BLUE, for the shifter's own client only, for roarHighlightTicks. */
+		public double roarHighlightRadius = 50.0;
+		public int roarHighlightTicks = 200;  // 10 s
 		/** v0.12.35: 12 -> 32; the roar now reaches everything in a cylinder this wide, from below the Titan's feet to above its head. */
 		public double roarRadius = 32.0;
 		public int roarWeaknessTicks = 240;   // Weakness II, 12 s

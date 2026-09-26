@@ -104,9 +104,9 @@ public final class WolverineHud {
 				x0, line, 0xFF55FF77, true);
 		line += 10;
 		boolean surgeReady = s.emergencyReadyAt <= now && s.emergencyHealUntil <= now;
-		g.fill(x0, line, x0 + 2, line + 3, surgeReady ? 0xFFFF8A00 : 0xFF2A2A2A);
-		int bx = x0 + 3; // 2 px Death Surge marker, 1 px gap
-		int bw = totalW - 3;
+		g.fill(x0, line, x0 + 3, line + 3, surgeReady ? 0xFFFF8A00 : 0xFF2A2A2A);
+		int bx = x0 + 4; // 3 px Death Surge marker, 1 px gap
+		int bw = totalW - 4;
 		g.fill(bx, line, bx + bw, line + 3, COLOR_BOX_BG);
 		g.fill(bx, line, bx + (int) (bw * pf), line + 3, pool <= 0f ? 0xFFB02020 : 0xFF3ADB5A);
 		line += 6;

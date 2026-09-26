@@ -24,7 +24,9 @@ public record TitanShiftPayload(Action action) implements CustomPacketPayload {
 		SPRINT_ON,
 		SPRINT_OFF,
 		/** H was released -- cancels an emergency-shift hold that has not finished. */
-		EMERGENCY_RELEASE
+		EMERGENCY_RELEASE,
+		/** N in the base form: switch the passive regeneration off / on. */
+		TOGGLE_REGEN
 	}
 
 	public static final CustomPacketPayload.Type<TitanShiftPayload> TYPE =

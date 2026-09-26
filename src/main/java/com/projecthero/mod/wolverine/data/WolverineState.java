@@ -42,17 +42,20 @@ public final class WolverineState {
 	public float healPool;
 	/** v0.12.40: game time he last TOOK damage -- the pool only refills once this is 5 s old. */
 	public long lastHurtAt;
+	/** v0.12.43: game time he survived a lethal fall (0 = never) -- his legs show the raw flesh model for 20 s, then the skin fades back over 20 s. */
+	public long legFleshStartedAt;
 	/** {@code abilityId} -> absolute game-time it is ready again. */
 	public final Map<String, Long> abilityReadyAt;
 
 	public WolverineState() {
-		this(false, false, 0L, 0L, 0L, 0L, 0L, 0, 0L, 0.0f, 0L, 0L, 0L, new HashMap<>(), 250.0f, 0L);
+		this(false, false, 0L, 0L, 0L, 0L, 0L, 0, 0L, 0.0f, 0L, 0L, 0L, new HashMap<>(), 250.0f, 0L, 0L);
 	}
 
 	public WolverineState(boolean hasPower, boolean clawsOut, long clawsChangedAt, long rageUntil,
 			long emergencyReadyAt, long emergencyHealUntil, long dashUntil, int lastAction, long lastActionTick,
 			float rageMeter, long chargeStartedAt, long fleshStartedAt, long lastCombatAt,
-			Map<String, Long> abilityReadyAt, float healPool, long lastHurtAt) {
+			Map<String, Long> abilityReadyAt, float healPool, long lastHurtAt, long legFleshStartedAt) {
+		this.legFleshStartedAt = legFleshStartedAt;
 		this.healPool = healPool;
 		this.lastHurtAt = lastHurtAt;
 		this.fleshStartedAt = fleshStartedAt;
@@ -73,7 +76,7 @@ public final class WolverineState {
 
 	public WolverineState copy() {
 		return new WolverineState(hasPower, clawsOut, clawsChangedAt, rageUntil, emergencyReadyAt,
-				emergencyHealUntil, dashUntil, lastAction, lastActionTick, rageMeter, chargeStartedAt, fleshStartedAt, lastCombatAt, abilityReadyAt, healPool, lastHurtAt);
+				emergencyHealUntil, dashUntil, lastAction, lastActionTick, rageMeter, chargeStartedAt, fleshStartedAt, lastCombatAt, abilityReadyAt, healPool, lastHurtAt, legFleshStartedAt);
 	}
 
 	public static final Codec<WolverineState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -92,7 +95,20 @@ public final class WolverineState {
 			Codec.LONG.optionalFieldOf("last_combat_at", 0L).forGetter(s -> s.lastCombatAt),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", Map.of())
 					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
-				Codec.FLOAT.optionalFieldOf("heal_pool", 250.0f).forGetter(s -> s.healPool),
-				Codec.LONG.optionalFieldOf("last_hurt_at", 0L).forGetter(s -> s.lastHurtAt)
-	).apply(instance, WolverineState::new));
+			// the v0.12.40+ fields live in one nested record: the state has hit the codec's 16-field limit
+			Extra.CODEC.optionalFieldOf("extra", Extra.DEFAULT).forGetter(s -> new Extra(s.healPool, s.lastHurtAt, s.legFleshStartedAt))
+	).apply(instance, (hasPower, clawsOut, clawsChangedAt, rageUntil, emergencyReadyAt, emergencyHealUntil, dashUntil, lastAction,
+			lastActionTick, rageMeter, chargeStartedAt, fleshStartedAt, lastCombatAt, abilityReadyAt, extra) -> new WolverineState(hasPower,
+			clawsOut, clawsChangedAt, rageUntil, emergencyReadyAt, emergencyHealUntil, dashUntil, lastAction, lastActionTick, rageMeter,
+			chargeStartedAt, fleshStartedAt, lastCombatAt, abilityReadyAt, extra.healPool(), extra.lastHurtAt(), extra.legFleshStartedAt())));
+
+	/** Healing Factor pool, last-hurt time and the lethal-fall leg-flesh time (v0.12.40 / v0.12.43). */
+	public record Extra(float healPool, long lastHurtAt, long legFleshStartedAt) {
+		public static final Extra DEFAULT = new Extra(250.0f, 0L, 0L);
+		public static final Codec<Extra> CODEC = RecordCodecBuilder.create(i -> i.group(
+				Codec.FLOAT.optionalFieldOf("heal_pool", 250.0f).forGetter(Extra::healPool),
+				Codec.LONG.optionalFieldOf("last_hurt_at", 0L).forGetter(Extra::lastHurtAt),
+				Codec.LONG.optionalFieldOf("leg_flesh_started_at", 0L).forGetter(Extra::legFleshStartedAt)
+		).apply(i, Extra::new));
+	}
 }

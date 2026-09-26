@@ -199,4 +199,25 @@ public class WolverineGameTests implements FabricGameTest {
 		helper.assertFalse(Wolverine.raging(p), "no Wolverine behaviour without the power");
 		helper.succeed();
 	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aLethalFallLeavesHalfAHeartAndTheHealingFactorTakesIt(GameTestHelper helper) {
+		ServerPlayer p = wolverine(helper);
+		p.setHealth(5.0f);
+		helper.assertTrue(com.projecthero.mod.wolverine.WolverineDamage.survivedLethalFall(p, 25.0f), "a 25-damage fall (100 after his 75% reduction) is lethal at 5 HP, so it is survived"); // mock players do not take real damage in GameTests
+		helper.assertTrue(p.isAlive() && Math.abs(p.getHealth() - 1.0f) < 1e-3f, "left at half a heart, has " + p.getHealth());
+		var st = Wolverine.state(p);
+		helper.assertTrue(Math.abs(st.healPool - (WolverineConfig.HEAL_POOL_MAX - 25.0f)) < 1e-3f, "the pool took the damage, has " + st.healPool);
+		helper.assertTrue(st.legFleshStartedAt > 0L, "legs turn to flesh");
+		var slow = p.getEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN);
+		helper.assertTrue(slow != null && slow.getAmplifier() == 5, "Slowness VI");
+		// a fall far beyond 100 only costs the pool 100
+		p.setHealth(5.0f);
+		var reset = st.copy();
+		reset.healPool = WolverineConfig.HEAL_POOL_MAX;
+		p.setAttached(com.projecthero.mod.attachment.ModAttachments.WOLVERINE_STATE, reset);
+		com.projecthero.mod.wolverine.WolverineDamage.survivedLethalFall(p, 2000.0f);
+		helper.assertTrue(p.isAlive() && Wolverine.state(p).healPool == WolverineConfig.HEAL_POOL_MAX - 100.0f, "at most 100 is taken from the pool, has " + Wolverine.state(p).healPool);
+		helper.succeed();
+	}
 }

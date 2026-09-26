@@ -131,6 +131,8 @@ public final class AllMightConfig {
 	/** v0.12.38: the leap launches along his look direction (with at least LEAP_MIN_LIFT of upward lift) at this speed. */
 	public static final double LEAP_SPEED = 2.4;
 	public static final double LEAP_MIN_LIFT = 0.45;
+	/** v0.12.43: a regular armour piece torn off by the transformation loses this much durability. */
+	public static final int ARMOUR_TEAR_DAMAGE = 50;
 	/** v0.12.38: extra entity reach (blocks) in the Power Form -- 3 + 3 = a 6-block hit range. */
 	public static final double FULL_REACH_BONUS = 3.0;
 

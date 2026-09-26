@@ -283,6 +283,10 @@ public final class TitanAbilities {
 			level.sendParticles(ParticleTypes.CLOUD, c.x, c.y, c.z, 40, 1.5, 1.0, 1.5, 0.4);
 			form.steamBurst(level, 6);
 			TitanCombat.shake(level, form.position(), 1.0f, 24);
+			// v0.12.43: everything within 50 blocks is outlined in blue -- for the roaring shifter's own client only
+			java.util.List<LivingEntity> seen = TitanCombat.targetsInCylinder(level, form, a.roarHighlightRadius, player);
+			net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player, new com.projecthero.mod.network.TitanRoarSensePayload(
+					seen.stream().mapToInt(LivingEntity::getId).toArray(), a.roarHighlightTicks));
 			for (LivingEntity t : TitanCombat.targetsInCylinder(level, form, a.roarRadius, player)) {
 				boolean boss = TitanCombat.isBoss(t);
 				double f = boss ? a.roarBossResistance : 1.0;

@@ -21,6 +21,15 @@ public final class WolverineConfig {
 	/** ...at this many HP a second. */
 	public static final float HEAL_POOL_REGEN_PER_SECOND = 5.0f;
 
+	// ---- lethal falls (v0.12.43) ----
+	/** A fall that would kill him is survived at half a heart: the Healing Factor pool soaks the damage, up to this much. Anything beyond is not taken. */
+	public static final float FALL_SURVIVE_MAX_ABSORB = 100.0f;
+	/** After such a fall: Slowness VI (amplifier 5) for 20 s; his legs show raw flesh for 20 s, then the skin fades back over 20 s. */
+	public static final int FALL_SLOW_TICKS = 20 * S;
+	public static final int FALL_SLOW_AMPLIFIER = 5;
+	public static final int LEG_FLESH_HOLD_TICKS = 20 * S;
+	public static final int LEG_FLESH_FADE_TICKS = 20 * S;
+
 	// ---- emergency healing ----
 	/** Health (fraction of max) he is left at when the death resurrection fires. */
 	public static final float EMERGENCY_HEAL_FRACTION = 0.30f;
