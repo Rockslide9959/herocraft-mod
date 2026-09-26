@@ -297,7 +297,7 @@ public class TitanShifterGameTests implements FabricGameTest {
 		pump(helper, p);
 		TitanShifter.requestToggle(p); // H pressed
 		helper.runAfterDelay(60, () -> helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN, "still just holding after 3 s"));
-		helper.runAfterDelay(110 + SETTLE, () -> {
+		helper.runAfterDelay(110 + 2 * SETTLE, () -> {
 			TitanFormEntity form = TitanShifter.formOf(p);
 			helper.assertTrue(TitanShifter.inTitan(p) && form != null, "the hold completed into a Titan");
 			helper.assertTrue(form.isEmergency() && TitanShifter.state(p).inEmergency(), "it is the Emergency Titan");
@@ -334,7 +334,7 @@ public class TitanShifterGameTests implements FabricGameTest {
 		setEnergy(p, 50.0f);
 		pump(helper, p);
 		helper.assertTrue(TitanShifter.transform(p, true), "emergency transform");
-		helper.runAfterDelay(SETTLE, () -> {
+		helper.runAfterDelay(2 * SETTLE, () -> {
 			helper.assertTrue(TitanShifter.inTitan(p), "in the Titan");
 			TitanShifter.revert(p);
 			TitanShifterState s = TitanShifter.state(p);
@@ -349,9 +349,16 @@ public class TitanShifterGameTests implements FabricGameTest {
 			helper.assertTrue(TitanShifter.baseRegenActive(p, TitanShifter.state(p)), "passive regeneration is back at 50%");
 			setEnergy(p, 0.0f);
 			float before = TitanShifter.energy(p);
+			float[] firstStep = { -1.0f };
+			helper.onEachTick(() -> {
+				float e = TitanShifter.energy(p);
+				if (firstStep[0] < 0.0f && e > before) {
+					firstStep[0] = e - before; // timing-independent: look at the size of the first refill step only
+				}
+			});
 			helper.runAfterDelay(65, () -> {
-				float gained = TitanShifter.energy(p) - before;
-				helper.assertTrue(gained > 0.5f && gained < 2.2f, "refills 3x slower (about 1% in 3 s, up to double if the mock player is ticked twice), got " + gained);
+				helper.assertTrue(firstStep[0] > 0.3f && firstStep[0] < 0.7f,
+						"each refill step is a third of the normal 1% (0.33, or 0.67 if the mock player is ticked twice), got " + firstStep[0]);
 				helper.succeed();
 			});
 		});
@@ -363,7 +370,7 @@ public class TitanShifterGameTests implements FabricGameTest {
 		setEnergy(p, 50.0f);
 		pump(helper, p);
 		helper.assertTrue(TitanShifter.transform(p, true), "emergency transform");
-		helper.runAfterDelay(SETTLE, () -> {
+		helper.runAfterDelay(2 * SETTLE, () -> {
 			TitanShifterState s = TitanShifter.state(p).copy();
 			s.emergencyUntil = p.level().getGameTime() + 5; // fast-forward the two minutes
 			p.setAttached(com.projecthero.mod.attachment.ModAttachments.TITAN_SHIFTER_STATE, s);
