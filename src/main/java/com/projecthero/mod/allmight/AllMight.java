@@ -48,6 +48,7 @@ public final class AllMight {
 	private static final ResourceLocation ATTACK_ID = PowerToggles.id("all_might_attack");
 	private static final ResourceLocation JUMP_ID = PowerToggles.id("all_might_jump");
 	private static final ResourceLocation SCALE_ID = PowerToggles.id("all_might_scale");
+	private static final ResourceLocation REACH_ID = PowerToggles.id("all_might_reach");
 
 	/** Highest fall distance seen since the last time the player stood on the ground (for the landing impacts). */
 	private static final Map<UUID, Float> PEAK_FALL = new HashMap<>();
@@ -211,6 +212,7 @@ public final class AllMight {
 			PowerToggles.clearModifier(player, Attributes.MAX_HEALTH, HEALTH_ID);
 			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, ATTACK_ID);
 			PowerToggles.clearModifier(player, Attributes.JUMP_STRENGTH, JUMP_ID);
+			PowerToggles.clearModifier(player, Attributes.ENTITY_INTERACTION_RANGE, REACH_ID);
 			clearOurEffect(player, MobEffects.MOVEMENT_SPEED, AllMightConfig.FULL_SPEED_AMPLIFIER);
 			clearOurEffect(player, MobEffects.REGENERATION, AllMightConfig.FULL_REGEN_AMPLIFIER);
 			if (!s.hasPower) {
@@ -225,6 +227,7 @@ public final class AllMight {
 		PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, ATTACK_ID, AllMightConfig.FULL_ATTACK_BONUS, AttributeModifier.Operation.ADD_VALUE);
 		PowerToggles.modifier(player, Attributes.JUMP_STRENGTH, JUMP_ID, jumpVelocityModifier(AllMightConfig.FULL_JUMP_BLOCKS),
 				AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		PowerToggles.modifier(player, Attributes.ENTITY_INTERACTION_RANGE, REACH_ID, AllMightConfig.FULL_REACH_BONUS, AttributeModifier.Operation.ADD_VALUE);
 		keepEffect(player, MobEffects.MOVEMENT_SPEED, AllMightConfig.FULL_SPEED_AMPLIFIER);
 		keepEffect(player, MobEffects.REGENERATION, AllMightConfig.FULL_REGEN_AMPLIFIER);
 	}
@@ -354,8 +357,6 @@ public final class AllMight {
 			steam(level, player, 10);
 			AllMightShockwave.burst(level, ParticleTypes.CLOUD, c, 20, 0.6, 0.05);
 			AllMightShockwave.burst(level, ParticleTypes.ELECTRIC_SPARK, c, 15, 0.5, 0.15);
-			player.displayClientMessage(Component.translatable("message.projecthero.all_might.contained")
-					.withStyle(ChatFormatting.GRAY), true);
 		}
 	}
 
@@ -541,6 +542,7 @@ public final class AllMight {
 		n.busyUntil = 0L;
 		n.transformUntil = 0L;
 		n.noFallUntil = 0L;
+		n.chargeStart = 0L;
 		n.animId = AllMightState.ANIM_NONE;
 		n.abilityReadyAt.entrySet().removeIf(e -> e.getValue() > now + 20L * 120L);
 		save(player, n);
@@ -577,6 +579,7 @@ public final class AllMight {
 		if (s != null && s.hasPower) {
 			AllMightState n = s.copy();
 			n.busyUntil = 0L;
+			n.chargeStart = 0L;
 			n.animId = AllMightState.ANIM_NONE;
 			save(player, n);
 		}

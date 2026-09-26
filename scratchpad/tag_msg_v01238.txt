@@ -1,0 +1,19 @@
+v0.12.38 - ALL MIGHT: NEW SMASHES, TWO-SLOT LOCKER, "I AM HERE"
+
+ALL MIGHT
+- Transforming now shows "I am HERE" (instead of "FULL POWER!"). Changing back shows no text at all.
+- Costume locker (N in the Power Form) is now a proper two-slot screen: one slot for All Might's Costume and one for All Might's Trousers. Each slot only accepts its own piece.
+- Hit range in the Power Form is now 6 blocks.
+- Carolina Smash (V) is now a slide: you skid along the ground in the direction you were looking, hitting everything in your path, stepping over low ledges and stopping at walls.
+- Leap (X) launches you along the direction you are looking (always with some lift) and its cooldown is down to 1.5 seconds.
+- United States of Smash (Z) reworked:
+  - A thin charge bar appears under your ability keys while you hold Z.
+  - It is now an AoE: a 75-damage shockwave bursts out from you in every direction to 20 blocks, with a huge crater around you.
+  - Charging is free. The 100 One For All is only spent when the punch is actually cast, and the 75 second cooldown only starts then too. Letting go early costs nothing.
+- HUD: "One For All" and its percentage now share one line with the bar directly beneath, then the ability keys, then "Base Form [H]" / "Power Form [H]".
+
+TITAN SHIFTER
+- "Titan Shift Ready [H]" in the base-form HUD is now yellow, the same as "Revert Form [H]".
+
+MENUS AND GUIDE
+- The Guidebook and power screens are updated for all of the above.

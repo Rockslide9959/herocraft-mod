@@ -105,30 +105,31 @@ public final class AllMightConfig {
 
 	// United States of Smash (Z, hold 5 s): the ultimate
 	public static final int UNITED_STATES_COST = 100;
-	public static final int UNITED_STATES_COOLDOWN = 60 * S;
+	public static final int UNITED_STATES_COOLDOWN = 75 * S; // starts only once the punch has been cast
 	/** Hold Z this long: the aura grows and the wind builds; the punch lands the moment the charge completes. */
 	public static final int UNITED_STATES_CHARGE_TICKS = 5 * S;
 	/** The punch pose starts this many ticks before the hit (the rest of the charge is aura and wind only). */
 	public static final int UNITED_STATES_POSE_LEAD = 30;
 	public static final float UNITED_STATES_DAMAGE = 75.0f;
-	public static final double UNITED_STATES_RANGE = 15.0;
+	/** v0.12.38: the punch is an AoE -- a full-damage shockwave that expands to this radius all around him. */
+	public static final double UNITED_STATES_RANGE = 20.0;
 	public static final double UNITED_STATES_WIDTH = 8.0;
 	public static final double UNITED_STATES_HEIGHT = 8.0;
 	public static final double UNITED_STATES_KNOCKBACK = 5.0;
 	public static final double UNITED_STATES_LIFT = 0.9;
-	/** The larger surrounding wave: radius and the damage it does (a fraction of the primary). */
-	public static final double UNITED_STATES_SECONDARY_RANGE = 25.0;
-	public static final float UNITED_STATES_SECONDARY_DAMAGE_FRACTION = 0.3f;
-	public static final double UNITED_STATES_SECONDARY_KNOCKBACK = 3.0;
-	/** Ticks between the primary punch and the secondary wave beginning to expand. */
-	public static final int UNITED_STATES_SECONDARY_DELAY = 6;
+	/** Ticks the shockwave takes to expand from him to the full range. */
 	public static final int UNITED_STATES_SECONDARY_EXPAND_TICKS = 10;
 
 	// Leap (X) -- a utility ability: the mod has no reusable enhanced-leap for this kit, and the Smashes are all attacks
 	public static final int LEAP_COST = 5;
-	public static final int LEAP_COOLDOWN = 5 * S;
+	public static final int LEAP_COOLDOWN = 30; // 1.5 s
 	public static final double LEAP_HEIGHT = 17.0;
 	public static final double LEAP_FORWARD_SPEED = 0.7;
+	/** v0.12.38: the leap launches along his look direction (with at least LEAP_MIN_LIFT of upward lift) at this speed. */
+	public static final double LEAP_SPEED = 2.4;
+	public static final double LEAP_MIN_LIFT = 0.45;
+	/** v0.12.38: extra entity reach (blocks) in the Power Form -- 3 + 3 = a 6-block hit range. */
+	public static final double FULL_REACH_BONUS = 3.0;
 
 	// Every Smash is locked out for this long after another starts (except the ones that set their own, longer window)
 	public static final int GLOBAL_LOCK_TICKS = 6;

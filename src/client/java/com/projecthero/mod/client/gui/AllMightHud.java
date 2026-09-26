@@ -57,17 +57,16 @@ public final class AllMightHud {
 		boolean power = s.fullPower;
 		int totalW = BOX * 6 + GAP * 5;
 		int x0 = g.guiWidth() - MARGIN - totalW;
-		int height = 11 + 11 + BAR_H + 3 + (power ? BOX + 3 : 0) + 11;
+		boolean charging = power && s.chargeStart > 0L;
+		int height = 11 + BAR_H + 3 + (power ? BOX + 3 : 0) + (charging ? BAR_H + 3 : 0) + 11;
 		int y = g.guiHeight() - 12 - height;
 
-		g.drawString(mc.font, Component.translatable("hud.projecthero.all_might.title")
-				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), x0, y, 0xFF40E070, true);
-		y += 11;
-
-		// One For All: thin bar + percentage
+		// v0.12.38: "One For All" and its percentage share a line, the hairline bar sits right under it
 		float frac = Math.max(0f, Math.min(1f, s.ofa / AllMightConfig.OFA_MAX));
 		int pct = (int) Math.floor(frac * 100.0f + 1.0e-3f);
 		String pctText = pct + "%";
+		g.drawString(mc.font, Component.translatable("hud.projecthero.all_might.title")
+				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), x0, y, 0xFF40E070, true);
 		g.drawString(mc.font, pctText, x0 + totalW - mc.font.width(pctText), y, 0xFFFFFFFF, true);
 		y += 11;
 		g.fill(x0, y, x0 + totalW, y + BAR_H, COLOR_BOX_BG);
@@ -103,6 +102,13 @@ public final class AllMightHud {
 				}
 			}
 			y += BOX + 3;
+			if (charging) {
+				// United States of Smash: a hairline charge bar while Z is held
+				float cf = Math.max(0f, Math.min(1f, (now - s.chargeStart) / (float) AllMightConfig.UNITED_STATES_CHARGE_TICKS));
+				g.fill(x0, y, x0 + totalW, y + BAR_H, COLOR_BOX_BG);
+				g.fill(x0, y, x0 + (int) (totalW * cf), y + BAR_H, 0xFFFFE04A);
+				y += BAR_H + 3;
+			}
 		}
 
 		Component key = ModKeyBindings.POWER_SELECT.getTranslatedKeyMessage();

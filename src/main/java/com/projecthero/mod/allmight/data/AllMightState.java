@@ -41,15 +41,17 @@ public final class AllMightState {
 	public long noFallUntil;
 	public int animId;
 	public long animStart;
+	/** v0.12.38: game time the United States of Smash charge began, 0 when not charging (drives the HUD's charge bar). */
+	public long chargeStart;
 	/** {@code abilityId} -> absolute game-time it is ready again. */
 	public final Map<String, Long> abilityReadyAt;
 
 	public AllMightState() {
-		this(false, false, 0f, false, 0L, 0L, 0L, 0L, 0L, 0, 0L, new HashMap<>());
+		this(false, false, 0f, false, 0L, 0L, 0L, 0L, 0L, 0, 0L, new HashMap<>(), 0L);
 	}
 
 	public AllMightState(boolean hasPower, boolean fullPower, float ofa, boolean plusUltra, long transformUntil, long busyUntil,
-			long formChangedAt, long lastCombatTick, long noFallUntil, int animId, long animStart, Map<String, Long> abilityReadyAt) {
+			long formChangedAt, long lastCombatTick, long noFallUntil, int animId, long animStart, Map<String, Long> abilityReadyAt, long chargeStart) {
 		this.hasPower = hasPower;
 		this.fullPower = fullPower;
 		this.ofa = ofa;
@@ -62,11 +64,12 @@ public final class AllMightState {
 		this.animId = animId;
 		this.animStart = animStart;
 		this.abilityReadyAt = new HashMap<>(abilityReadyAt);
+		this.chargeStart = chargeStart;
 	}
 
 	public AllMightState copy() {
 		return new AllMightState(hasPower, fullPower, ofa, plusUltra, transformUntil, busyUntil, formChangedAt, lastCombatTick,
-				noFallUntil, animId, animStart, abilityReadyAt);
+				noFallUntil, animId, animStart, abilityReadyAt, chargeStart);
 	}
 
 	public static final Codec<AllMightState> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -82,6 +85,7 @@ public final class AllMightState {
 			Codec.INT.optionalFieldOf("anim_id", 0).forGetter(s -> s.animId),
 			Codec.LONG.optionalFieldOf("anim_start", 0L).forGetter(s -> s.animStart),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", Map.of())
-					.forGetter(s -> new HashMap<>(s.abilityReadyAt))
+					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
+			Codec.LONG.optionalFieldOf("charge_start", 0L).forGetter(s -> s.chargeStart)
 	).apply(i, AllMightState::new));
 }

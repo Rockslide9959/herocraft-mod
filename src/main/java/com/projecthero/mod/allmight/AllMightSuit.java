@@ -12,20 +12,15 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
-import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ChestMenu;
-import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.ItemContainerContents;
 
 /**
- * The craftable All Might costume (v0.12.36). The two pieces -- the costume (chest) and the trousers (legs) -- are ordinary
- * craftable items. N in the Power Form opens the <em>costume locker</em>: a one-row chest screen where the pieces are left
+ * The craftable All Might costume (v0.12.36; v0.12.38: a custom two-slot locker). The two pieces -- the costume (chest) and the trousers (legs) -- are ordinary
+ * craftable items. N in the Power Form opens the <em>costume locker</em>: a two-slot screen (costume + trousers) where the pieces are left
  * (the contents live on the persistent {@code ALL_MIGHT_LOCKER} attachment, so they ride through death and dimension
  * changes). Whenever the player transforms into the Power Form the locker's pieces are put on automatically, and changing
  * back takes them off into the locker again. Nobody starts with the costume.
@@ -132,7 +127,7 @@ public final class AllMightSuit {
 		// a piece he is already wearing goes into the locker so it can be seen and swapped
 		strip(player);
 		List<ItemStack> locker = locker(player);
-		SimpleContainer container = new SimpleContainer(9) {
+		SimpleContainer container = new SimpleContainer(SLOTS.length) {
 			@Override
 			public boolean stillValid(Player p) {
 				return p == player && AllMight.isFullPower(player);
@@ -156,40 +151,23 @@ public final class AllMightSuit {
 		for (int i = 0; i < SLOTS.length; i++) {
 			container.setItem(i, locker.get(i));
 		}
-		player.openMenu(new SimpleMenuProvider((syncId, inv, p) -> lockerMenu(syncId, inv, container),
-				Component.translatable("container.projecthero.all_might_locker")));
-		player.playNotifySound(SoundEvents.ARMOR_EQUIP_IRON.value(), SoundSource.PLAYERS, 0.8f, 0.9f);
-	}
-
-	private static ChestMenu lockerMenu(int syncId, net.minecraft.world.entity.player.Inventory inv, Container container) {
-		ChestMenu menu = new ChestMenu(MenuType.GENERIC_9x1, syncId, inv, container, 1) {
+		player.openMenu(new net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory<Integer>() {
 			@Override
-			public void removed(Player p) {
-				super.removed(p);
-				if (p instanceof ServerPlayer sp && AllMight.isFullPower(sp)) {
-					equip(sp); // closing the locker in the Power Form puts the costume straight on
-				}
+			public Integer getScreenOpeningData(ServerPlayer p) {
+				return 0;
 			}
-		};
-		// only the costume pieces may be left in the locker: two typed slots, the rest of the row is dead
-		for (int i = 0; i < 9; i++) {
-			final int idx = i;
-			Slot old = menu.slots.get(i);
-			Slot typed = new Slot(container, i, old.x, old.y) {
-				@Override
-				public boolean mayPlace(ItemStack stack) {
-					return idx < SLOTS.length && fits(idx, stack);
-				}
 
-				@Override
-				public int getMaxStackSize() {
-					return 1;
-				}
-			};
-			typed.index = i;
-			menu.slots.set(i, typed);
-		}
-		return menu;
+			@Override
+			public Component getDisplayName() {
+				return Component.translatable("container.projecthero.all_might_locker");
+			}
+
+			@Override
+			public net.minecraft.world.inventory.AbstractContainerMenu createMenu(int syncId, net.minecraft.world.entity.player.Inventory inv, Player p) {
+				return new AllMightLockerMenu(syncId, inv, container);
+			}
+		});
+		player.playNotifySound(SoundEvents.ARMOR_EQUIP_IRON.value(), SoundSource.PLAYERS, 0.8f, 0.9f);
 	}
 
 	public static boolean wearing(Player player) {

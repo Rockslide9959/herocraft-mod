@@ -272,9 +272,8 @@ public final class AllMightAbilities {
 			if (!alive(p)) {
 				return;
 			}
-			Vec3 look = p.getLookAngle();
-			// nearly-level: a dash may angle a little up or down, never dive into the floor or shoot into the sky
-			Vec3 dir = new Vec3(look.x, Math.max(-0.25, Math.min(0.35, look.y)), look.z).normalize();
+			// v0.12.38: a SLIDE -- level along the ground in the direction he was looking, gravity still applies
+			Vec3 dir = flatLook(p);
 			long now = p.level().getGameTime();
 			grantNoFall(p);
 			MOVES.put(p.getUUID(), new Move(Kind.DASH, dir, now, now + dashTicks,
@@ -362,15 +361,22 @@ public final class AllMightAbilities {
 			return;
 		}
 		int charge = AllMightConfig.UNITED_STATES_CHARGE_TICKS;
-		int total = charge + AllMightConfig.UNITED_STATES_SECONDARY_DELAY + AllMightConfig.UNITED_STATES_SECONDARY_EXPAND_TICKS + 8;
-		if (!begin(p, UNITED_STATES, AllMightConfig.UNITED_STATES_COST, AllMightConfig.UNITED_STATES_COOLDOWN, total,
-				AllMightState.ANIM_UNITED_STATES)) {
+		int total = charge + AllMightConfig.UNITED_STATES_SECONDARY_EXPAND_TICKS + 8;
+		AllMightState gate = AllMight.state(p);
+		if (gate.hasPower && gate.fullPower && gate.ofa + 1.0e-3f < AllMightConfig.UNITED_STATES_COST) {
+			AllMight.say(p, "message.projecthero.all_might.low_ofa", ChatFormatting.RED,
+					AllMightConfig.UNITED_STATES_COST, (int) Math.floor(gate.ofa));
+			return;
+		}
+		// v0.12.38: nothing is spent and no cooldown starts until the punch is actually cast (begin with cost 0 / cooldown 0)
+		if (!begin(p, UNITED_STATES, 0f, 0, total, AllMightState.ANIM_UNITED_STATES)) {
 			return;
 		}
 		ServerLevel level = (ServerLevel) p.level();
 		long start = level.getGameTime();
 		AllMightState n = AllMight.state(p).copy();
 		n.animStart = start + charge - AllMightConfig.UNITED_STATES_POSE_LEAD; // the punch pose only plays at the end of the charge
+		n.chargeStart = start;
 		AllMight.save(p, n);
 		CHARGING.put(p.getUUID(), start);
 		p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, charge + 4, 3, false, false, false));
@@ -414,7 +420,7 @@ public final class AllMightAbilities {
 		}
 	}
 
-	/** Ends a charge in progress; with {@code refund} the OFA comes back and the cooldown is cleared. */
+	/** Ends a charge in progress. Nothing was spent and no cooldown started, so there is nothing to refund (v0.12.38). */
 	static void cancelCharge(ServerPlayer p, boolean refund) {
 		if (CHARGING.remove(p.getUUID()) == null) {
 			return;
@@ -422,10 +428,7 @@ public final class AllMightAbilities {
 		p.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
 		AllMightState s = AllMight.state(p);
 		AllMightState n = s.copy();
-		if (refund) {
-			n.ofa = Math.min(AllMightConfig.OFA_MAX, s.ofa + AllMightConfig.UNITED_STATES_COST);
-			n.abilityReadyAt.remove(UNITED_STATES);
-		}
+		n.chargeStart = 0L;
 		n.busyUntil = p.level().getGameTime();
 		n.animId = AllMightState.ANIM_NONE;
 		AllMight.save(p, n);
@@ -433,16 +436,18 @@ public final class AllMightAbilities {
 
 	private static void fireUnitedStates(ServerPlayer p) {
 		ServerLevel level = (ServerLevel) p.level();
+		long now = level.getGameTime();
+		// v0.12.38: the cost and the 75 s cooldown are paid now, when the punch is cast
+		AllMightState st = AllMight.state(p).copy();
+		st.ofa = Math.max(0f, st.ofa - AllMightConfig.UNITED_STATES_COST);
+		st.abilityReadyAt.put(UNITED_STATES, now + AllMightConfig.UNITED_STATES_COOLDOWN);
+		st.chargeStart = 0L;
+		AllMight.save(p, st);
+		grantNoFall(p);
 		p.swing(InteractionHand.MAIN_HAND, true);
 		Vec3 origin = p.position();
-		Vec3 look = p.getLookAngle();
 		Vec3 flat = flatLook(p);
 		Vec3 fist = origin.add(0, 1.3, 0).add(flat.scale(2.5));
-		var primary = new AllMightShockwave.Wave(AllMightConfig.UNITED_STATES_DAMAGE, AllMightConfig.UNITED_STATES_KNOCKBACK,
-				AllMightConfig.UNITED_STATES_LIFT);
-		AllMightShockwave.sweep(p, origin, look, 0.0, AllMightConfig.UNITED_STATES_RANGE, AllMightConfig.UNITED_STATES_WIDTH,
-				AllMightConfig.UNITED_STATES_HEIGHT, primary);
-		AllMightShockwave.windLine(level, origin.add(0, 1.2, 0), look, AllMightConfig.UNITED_STATES_RANGE, AllMightConfig.UNITED_STATES_WIDTH * 0.8, 3);
 		AllMightShockwave.burst(level, ParticleTypes.EXPLOSION_EMITTER, fist, 1, 0.0, 0.0);
 		AllMightShockwave.burst(level, ParticleTypes.CLOUD, fist, 40, 1.4, 0.3);
 		AllMightShockwave.burst(level, ParticleTypes.ELECTRIC_SPARK, fist, 40, 1.2, 0.5);
@@ -450,24 +455,22 @@ public final class AllMightAbilities {
 		level.playSound(null, fist.x, fist.y, fist.z, SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.PLAYERS, 1.8f, 0.4f);
 		level.playSound(null, fist.x, fist.y, fist.z, SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 1.4f, 0.8f);
 		AllMightShockwave.shake(level, fist, 1.0f, 24);
-		// the crater
-		Vec3 crater = origin.add(flat.scale(6.0)).add(0, -1.5, 0);
-		AllMightShockwave.breakBlocks(p, crater, AllMightConfig.UNITED_STATES_BLOCK_RADIUS, AllMightConfig.UNITED_STATES_BLOCK_MAX,
+		// the crater, all around him
+		AllMightShockwave.breakBlocks(p, origin.add(0, -1.5, 0), AllMightConfig.UNITED_STATES_BLOCK_RADIUS, AllMightConfig.UNITED_STATES_BLOCK_MAX,
 				AllMightConfig.UNITED_STATES_BLOCK_HARDNESS);
-		// the larger surrounding wave, expanding outward from where he stood
-		var secondary = new AllMightShockwave.Wave(AllMightConfig.UNITED_STATES_DAMAGE * AllMightConfig.UNITED_STATES_SECONDARY_DAMAGE_FRACTION,
-				AllMightConfig.UNITED_STATES_SECONDARY_KNOCKBACK, 0.5);
-		secondary.hit.addAll(primary.hit);
+		// an AoE: one full-damage shockwave expanding from where he stood to the full range, hitting everything once
+		var wave = new AllMightShockwave.Wave(AllMightConfig.UNITED_STATES_DAMAGE, AllMightConfig.UNITED_STATES_KNOCKBACK,
+				AllMightConfig.UNITED_STATES_LIFT);
 		int expand = AllMightConfig.UNITED_STATES_SECONDARY_EXPAND_TICKS;
 		for (int k = 1; k <= expand; k++) {
 			final int kk = k;
-			schedule(p, AllMightConfig.UNITED_STATES_SECONDARY_DELAY + k, () -> {
+			schedule(p, k - 1, () -> {
 				if (!alive(p)) {
 					return;
 				}
-				double r = AllMightConfig.UNITED_STATES_SECONDARY_RANGE * kk / expand;
-				AllMightShockwave.radial(p, origin, r, secondary, false);
-				AllMightShockwave.ring(level, ParticleTypes.CLOUD, origin.add(0, 0.25, 0), r, 24);
+				double r = AllMightConfig.UNITED_STATES_RANGE * kk / expand;
+				AllMightShockwave.radial(p, origin, r, wave, false);
+				AllMightShockwave.ring(level, ParticleTypes.CLOUD, origin.add(0, 0.25, 0), r, 28);
 				if (kk % 2 == 0) {
 					AllMightShockwave.ring(level, ParticleTypes.SWEEP_ATTACK, origin.add(0, 1.0, 0), r, 16);
 				}
@@ -488,9 +491,10 @@ public final class AllMightAbilities {
 			return;
 		}
 		ServerLevel level = (ServerLevel) p.level();
-		double vy = verticalSpeedForHeight(AllMightConfig.LEAP_HEIGHT);
-		Vec3 fwd = flatLook(p).scale(AllMightConfig.LEAP_FORWARD_SPEED);
-		AbilityHelpers.launchSelf(p, new Vec3(fwd.x, vy, fwd.z));
+		// v0.12.38: launched along the look direction (always with some lift)
+		Vec3 look = p.getLookAngle();
+		Vec3 dir = new Vec3(look.x, Math.max(look.y, AllMightConfig.LEAP_MIN_LIFT), look.z).normalize();
+		AbilityHelpers.launchSelf(p, dir.scale(AllMightConfig.LEAP_SPEED));
 		grantNoFall(p);
 		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 1.0f, 1.4f);
 		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 1.0f, 0.8f);
@@ -503,8 +507,7 @@ public final class AllMightAbilities {
 
 	public static void tick(ServerPlayer p) {
 		if (CHARGING.containsKey(p.getUUID()) && (!p.isAlive() || !AllMight.isFullPower(p))) {
-			CHARGING.remove(p.getUUID());
-			p.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+			cancelCharge(p, false);
 		}
 		List<Task> tasks = TASKS.get(p.getUUID());
 		if (tasks != null && !tasks.isEmpty()) {
@@ -541,7 +544,8 @@ public final class AllMightAbilities {
 		if (m.kind == Kind.DASH) {
 			Vec3 vel = m.dir.scale(AllMightConfig.CAROLINA_SPEED);
 			BlockPos ahead = BlockPos.containing(p.position().add(vel.scale(1.5)));
-			boolean blocked = !level.hasChunkAt(ahead) || !level.noCollision(p, p.getBoundingBox().move(vel));
+			// a low ledge (up to a step) does not stop the slide, a wall does
+			boolean blocked = !level.hasChunkAt(ahead) || !level.noCollision(p, p.getBoundingBox().move(vel.x, 0.6, vel.z));
 			if (blocked || now >= m.until) {
 				AbilityHelpers.launchSelf(p, m.dir.scale(0.2)); // stop, do not fling
 				if (blocked) {
@@ -551,7 +555,8 @@ public final class AllMightAbilities {
 				}
 				return false;
 			}
-			AbilityHelpers.launchSelf(p, vel);
+			double vy = p.onGround() ? -0.05 : Math.max(p.getDeltaMovement().y - 0.08, -1.0);
+			AbilityHelpers.launchSelf(p, new Vec3(vel.x, vy, vel.z));
 			AllMightShockwave.radial(p, center, 2.2, m.wave, false);
 			AllMightShockwave.windLine(level, center.subtract(m.dir.scale(0.4)), m.dir.scale(-1.0), 5.0, 1.2, 2);
 			if (m.step % 2 == 0) {

@@ -17,6 +17,9 @@ public final class AllMightItems {
 	/** Craftable: using it grants the power. */
 	public static Item ONE_FOR_ALL_VESTIGE;
 
+	/** v0.12.38: the two-slot costume locker (N in the Power Form). */
+	public static net.minecraft.world.inventory.MenuType<com.projecthero.mod.allmight.AllMightLockerMenu> LOCKER_MENU;
+
 	public static AllMightArmorItem CHESTPLATE;
 	public static AllMightArmorItem LEGGINGS;
 
@@ -27,6 +30,9 @@ public final class AllMightItems {
 		ONE_FOR_ALL_VESTIGE = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("one_for_all_vestige"),
 				new OneForAllVestigeItem(new Item.Properties().rarity(Rarity.EPIC)));
 
+		LOCKER_MENU = Registry.register(BuiltInRegistries.MENU, ProjectHeroMod.id("all_might_locker"),
+				new net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerType<>(com.projecthero.mod.allmight.AllMightLockerMenu::new,
+						net.minecraft.network.codec.ByteBufCodecs.VAR_INT));
 		CHESTPLATE = registerPiece("all_might_chestplate", ArmorItem.Type.CHESTPLATE);
 		LEGGINGS = registerPiece("all_might_leggings", ArmorItem.Type.LEGGINGS);
 

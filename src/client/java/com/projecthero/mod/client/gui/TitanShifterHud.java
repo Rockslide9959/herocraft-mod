@@ -149,7 +149,7 @@ public final class TitanShifterHud {
 					yield Component.translatable("hud.projecthero.titan_shifter.cooldown", (cd + 19) / 20).withStyle(ChatFormatting.RED);
 				}
 				// only at a full bar
-				yield full ? Component.translatable("hud.projecthero.titan_shifter.ready", key).withStyle(ChatFormatting.GREEN) : null;
+				yield full ? Component.translatable("hud.projecthero.titan_shifter.ready", key).withStyle(ChatFormatting.YELLOW) : null;
 			}
 			case TRANSFORMING -> Component.translatable("hud.projecthero.titan_shifter.transforming").withStyle(ChatFormatting.GOLD);
 			case TITAN -> null;

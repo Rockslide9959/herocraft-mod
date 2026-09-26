@@ -221,13 +221,16 @@ public class AllMightGameTests implements FabricGameTest {
 		Zombie z = zombieAhead(helper, p, 5.0);
 		z.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.FIRE_RESISTANCE, 1000, 0, false, false));
 		AbilityRouter.handleInput(p, 4, true); // Z held
-		helper.assertTrue(AllMight.ofa(p) == 100.0f - AllMightConfig.UNITED_STATES_COST, "costs the whole bar");
+		helper.assertTrue(AllMight.ofa(p) == 100.0f, "nothing is spent while charging (v0.12.38)");
+		helper.assertTrue(AllMight.state(p).chargeStart > 0L, "the synced charge start drives the HUD bar");
 		helper.assertTrue(z.isAlive() && z.getHealth() == z.getMaxHealth(), "the charge is not an instant hit");
 		helper.runAfterDelay(AllMightConfig.UNITED_STATES_CHARGE_TICKS - 10, () -> {
 			helper.assertTrue(z.isAlive() && z.getHealth() == z.getMaxHealth(), "still charging before 5 s");
 		});
 		helper.runAfterDelay(AllMightConfig.UNITED_STATES_CHARGE_TICKS + 6, () -> {
 			helper.assertTrue(z.getHealth() < z.getMaxHealth() || !z.isAlive(), "75 damage lands when the charge completes");
+			helper.assertTrue(AllMight.ofa(p) < 10.0f, "the whole bar is spent once it is cast, ofa=" + AllMight.ofa(p));
+			helper.assertTrue(AllMight.cooldownRemaining(p, AllMightAbilities.UNITED_STATES) > 60 * 20, "the 75 s cooldown starts once it is cast");
 			helper.succeed();
 		});
 	}
@@ -237,9 +240,9 @@ public class AllMightGameTests implements FabricGameTest {
 		ServerPlayer p = hero(helper);
 		powerForm(p);
 		AbilityRouter.handleInput(p, 4, true);
-		helper.assertTrue(AllMight.ofa(p) == 0.0f, "spent while charging");
+		helper.assertTrue(AllMight.ofa(p) == 100.0f, "nothing spent while charging");
 		AbilityRouter.handleInput(p, 4, false);
-		helper.assertTrue(AllMight.ofa(p) == 100.0f, "refunded on an early release");
+		helper.assertTrue(AllMight.ofa(p) == 100.0f, "still full after an early release");
 		helper.assertTrue(AllMight.cooldownRemaining(p, AllMightAbilities.UNITED_STATES) == 0, "no cooldown for a cancelled charge");
 		helper.succeed();
 	}
@@ -301,8 +304,8 @@ public class AllMightGameTests implements FabricGameTest {
 		powerForm(p);
 		AbilityRouter.handleInput(p, 3, true); // X = Leap
 		helper.assertTrue(AllMight.ofa(p) == 100.0f - AllMightConfig.LEAP_COST, "costs 5 OFA");
-		helper.assertTrue(AllMight.cooldownRemaining(p, AllMightAbilities.LEAP) > 0, "5 s cooldown");
-		helper.assertTrue(p.getDeltaMovement().y > 1.5, "launched hard upward, vy=" + p.getDeltaMovement().y);
+		helper.assertTrue(AllMight.cooldownRemaining(p, AllMightAbilities.LEAP) > 0 && AllMight.cooldownRemaining(p, AllMightAbilities.LEAP) <= 30, "1.5 s cooldown");
+		helper.assertTrue(p.getDeltaMovement().y > 0.5 && p.getDeltaMovement().z > 1.5, "launched along the look direction, v=" + p.getDeltaMovement());
 		helper.succeed();
 	}
 }

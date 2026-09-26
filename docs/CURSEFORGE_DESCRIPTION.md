@@ -225,13 +225,13 @@ body (new skin in v0.12.35) and hit-box scaled up to eleven blocks (lightning, s
 
 ### 💪 All Might / One For All
 A permanent **Hero-Tier Primary** power (v0.12.33, reworked in v0.12.34, craftable costume in v0.12.36) — the mod's strongest pure-strength hero. Craft a **Vestige of One For All** (4 titanium-gold
-plates, 2 enchanted golden apples, 2 diamond blocks, a **totem of undying**) and use it. The **All Might costume** (a new armour model: All Might's Costume + All Might's Trousers, both craftable from wool) is not given to you: in the **Power Form** press **N** to open the **costume locker**, leave the pieces in it, and they are put on automatically every time you transform (and go back into the locker when you change back). Your own head and hat layer stay visible.
+plates, 2 enchanted golden apples, 2 diamond blocks, a **totem of undying**) and use it. The **All Might costume** (a new armour model: All Might's Costume + All Might's Trousers, both craftable from wool) is not given to you: in the **Power Form** press **N** to open the **costume locker**, leave the pieces in its two slots (costume and trousers), and they are put on automatically every time you transform (and go back into the locker when you change back). Your own head and hat layer stay visible.
 
 - **Two forms (H):** **Base Form** is a plain player (no abilities, no bonuses). **Power Form**: you grow to **2.7 blocks** over one second, venting steam, with
-  **13 melee, 40 max HP** (health % carries over), **50% less damage, no fall damage, Speed III, Regeneration I, a 3-block jump**.
+  **13 melee, a 6-block hit range, 40 max HP** (health % carries over), **50% less damage, no fall damage, Speed III, Regeneration I, a 3-block jump**.
 - **OFA:** a 100-point reserve shown as a percentage; it refills 1 point per 0.75 s, 2.5× faster out of combat. Below 30% you vent steam.
-- **Power Form abilities:** **R Detroit Smash** (18 dmg) · **Shift+R New Hampshire Smash** (20) · **G Texas Smash** (24) · **X Leap** ·
-  **Z United States of Smash** (hold 5 s: 75 dmg, a large crater, a 25-block shockwave) · **V Carolina Smash** (a long dash, 20 dmg) ·
+- **Power Form abilities:** **R Detroit Smash** (18 dmg) · **Shift+R New Hampshire Smash** (20) · **G Texas Smash** (24) · **X Leap** (launches along your look direction, 1.5 s cooldown) ·
+  **Z United States of Smash** (hold 5 s with a charge bar; an AoE: 75 dmg in a 20-block shockwave all around you and a large crater; 100 OFA and a **75 s cooldown**, both paid only once it is cast) · **V Carolina Smash** (a long ground slide in the direction you look, 20 dmg) ·
   **C Plus Ultra** (drains OFA while on, every move +30%; 20 s cooldown after it ends; running out of OFA drops you back to Base Form).
 - **Passives (Power Form):** air-burst punches, hard-landing shockwaves, **no fall damage at all**, bosses lose at most 10% per Smash. Admins: `/projecthero power grant all_might`.
 - Server-authoritative; every number is in `AllMightConfig`. Full details in `docs/ALLMIGHT_REFERENCE.md`.
