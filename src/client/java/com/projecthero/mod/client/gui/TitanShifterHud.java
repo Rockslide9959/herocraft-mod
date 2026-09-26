@@ -18,15 +18,20 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
 /**
- * The Titan Shifter HUD (v0.12.31), laid out like {@link WolverineHud}: bottom-right, the six ability boxes with
- * their keys and cooldowns (hold Left-Alt for the move names) plus a Hardening box (Shift+C), the Titan health
- * bar and the phase line. v0.12.32 adds the Titan Energy bar, always shown to a shifter: it needs 90% (the tick
- * mark) to transform, refills 1% a second as a human and is spent by the Titan's base regeneration.
+ * The Titan Shifter HUD (bottom-right). v0.12.34 layout:
+ *
+ * <pre>
+ *   Base form:   Titan Shifter / Titan Energy NN% + thin bar / "Titan Shift Ready [H]" (only at 100%)
+ *   Titan form:  Titan Shifter / the six ability keys (R G X Z V C) / Titan HP + thin bar / "Revert Form [H]"
+ * </pre>
+ *
+ * Shift+C (Hardening) and N (grab / bite / set down) are deliberately not drawn as keys. Hold Left-Alt for the move names.
  */
 public final class TitanShifterHud {
 	private static final int BOX = 20;
 	private static final int GAP = 2;
 	private static final int MARGIN = 4;
+	private static final int BAR_H = 3;
 	private static final int COLOR_BOX_BG = 0xC0121212;
 	private static final int COLOR_BORDER = 0xFF3A3A3A;
 	private static final int COLOR_COOLDOWN = 0xB0000000;
@@ -35,12 +40,11 @@ public final class TitanShifterHud {
 	private static final int COLOR_ENERGY = 0xFF38C8E8;
 	private static final int COLOR_ENERGY_READY = 0xFF60F0A0;
 
-	/** Boxes 1..6 in slot order (R G X Z V C), then the Shift+C Hardening box. */
+	/** The six boxes in slot order (R G X Z V C). */
 	private static final String[] NAME_KEYS = {
 			"projecthero.titan_shifter.ability.punch", "projecthero.titan_shifter.ability.heavy_smash",
 			"projecthero.titan_shifter.ability.leap", "projecthero.titan_shifter.ability.stomp",
-			"projecthero.titan_shifter.ability.roar", "projecthero.titan_shifter.ability.regeneration",
-			"projecthero.titan_shifter.ability.hardening"
+			"projecthero.titan_shifter.ability.roar", "projecthero.titan_shifter.ability.regeneration"
 	};
 
 	private TitanShifterHud() {
@@ -57,117 +61,110 @@ public final class TitanShifterHud {
 		}
 		long now = mc.level.getGameTime();
 		TitanPhase phase = s.phase();
-		int totalW = BOX * 7 + GAP * 6;
-		int x0 = g.guiWidth() - MARGIN - totalW;
-		int y0 = g.guiHeight() - BOX - MARGIN - 26 - 24;
-		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(),
-				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
 		boolean inside = phase == TitanPhase.TITAN;
+		int totalW = BOX * 6 + GAP * 5;
+		int x0 = g.guiWidth() - MARGIN - totalW;
+		Component key = ModKeyBindings.POWER_SELECT.getTranslatedKeyMessage();
+
+		// total height of the block, so it can be stacked upward from the bottom edge
+		int height = 11; // title
+		if (inside) {
+			height += BOX + 3 + 11 + BAR_H + 3 + 11; // keys, HP label + bar, revert line
+		} else {
+			height += 11 + BAR_H + 3 + 11; // energy label + bar, ready / status line
+		}
+		int y = g.guiHeight() - 12 - height;
+
+		g.drawString(mc.font, Component.translatable("hud.projecthero.titan_shifter.title")
+				.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), x0, y, 0xFFFFAA00, true);
+		y += 11;
 
 		if (inside) {
-			for (int i = 0; i < 7; i++) {
+			boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(),
+					org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+			for (int i = 0; i < 6; i++) {
 				int x = x0 + i * (BOX + GAP);
-				g.fill(x, y0, x + BOX, y0 + BOX, COLOR_BOX_BG);
-				g.renderOutline(x, y0, BOX, BOX, COLOR_BORDER);
-				String id;
-				String key;
-				if (i < 6) {
-					AbilitySlot slot = AbilitySlot.byNumber(i + 1);
-					id = TitanShifterAbilityManager.abilityIdOf(slot);
-					key = String.valueOf(slot.defaultKey());
-				} else {
-					// Shift+C: the Titan's crystal Hardening
-					id = TitanAbilities.HARDEN;
-					key = "⇧C";
-				}
-				boolean active = (TitanAbilities.HARDEN.equals(id) && s.hardenUntil > now)
-						|| (TitanAbilities.REGEN.equals(id) && s.regenUntil > now);
+				g.fill(x, y, x + BOX, y + BOX, COLOR_BOX_BG);
+				g.renderOutline(x, y, BOX, BOX, COLOR_BORDER);
+				AbilitySlot slot = AbilitySlot.byNumber(i + 1);
+				String id = TitanShifterAbilityManager.abilityIdOf(slot);
+				boolean active = (TitanAbilities.REGEN.equals(id) && s.regenUntil > now)
+						|| (TitanAbilities.HARDEN.equals(id) && s.hardenUntil > now);
 				int cd = TitanShifter.cooldownRemaining(mc.player, id);
 				int max = TitanShifterAbilityManager.maxCooldown(id);
 				if (active) {
-					g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, TitanAbilities.HARDEN.equals(id) ? 0x805AB0FF : 0x8040E060);
+					g.fill(x + 1, y + 1, x + BOX - 1, y + BOX - 1, 0x8040E060);
 				}
 				if (cd > 0 && max > 0) {
 					int h = (int) (BOX * Math.min(1f, cd / (float) max));
-					g.fill(x, y0 + BOX - h, x + BOX, y0 + BOX, COLOR_COOLDOWN);
-					g.drawString(mc.font, String.valueOf((cd + 19) / 20), x + 5, y0 + 6, 0xFFFFFFFF, true);
+					g.fill(x, y + BOX - h, x + BOX, y + BOX, COLOR_COOLDOWN);
+					g.drawString(mc.font, String.valueOf((cd + 19) / 20), x + 5, y + 6, 0xFFFFFFFF, true);
 				} else {
-					g.drawString(mc.font, key, x + (i < 6 ? 7 : 3), y0 + 6, COLOR_KEY, true);
+					g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 7, y + 6, COLOR_KEY, true);
 				}
 				if (expanded) {
 					Component name = Component.translatable(NAME_KEYS[i]);
-					g.drawString(mc.font, name, x0 - 8 - mc.font.width(name), y0 + i * 10 - 62, COLOR_NAME, true);
+					g.drawString(mc.font, name, x0 - 8 - mc.font.width(name), y + i * 10 - 30, COLOR_NAME, true);
 				}
 			}
-		}
+			y += BOX + 3;
 
-		int line = y0 + BOX + 2;
-		g.drawString(mc.font, Component.translatable("hud.projecthero.titan_shifter.title")
-				.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), x0, line, 0xFFFFAA00, true);
-		line += 10;
-
-		// health bar above the ability boxes (live from the Titan the player is riding, else the synced mirror)
-		float hp = s.titanHealth;
-		float max = s.titanMaxHealth;
-		if (mc.player.getVehicle() instanceof TitanFormEntity form) {
-			hp = form.getHealth();
-			max = form.getMaxHealth();
-		}
-		if (phase.insideForm() && max > 0f) {
-			float frac = Math.max(0f, Math.min(1f, hp / max));
+			// Titan HP: label + thin bar (live from the Titan being ridden, else the synced mirror)
+			float hp = s.titanHealth;
+			float max = s.titanMaxHealth;
+			if (mc.player.getVehicle() instanceof TitanFormEntity form) {
+				hp = form.getHealth();
+				max = form.getMaxHealth();
+			}
+			float frac = max > 0f ? Math.max(0f, Math.min(1f, hp / max)) : 0f;
 			boolean hard = s.hardenUntil > now;
 			boolean regen = s.regenUntil > now;
 			int fill = hard ? 0xFF5AB0FF : regen ? 0xFF40E060 : frac > 0.5f ? 0xFFE0A020 : frac > 0.25f ? 0xFFE06020 : 0xFFD02020;
-			int by = y0 - 12;
-			g.fill(x0, by, x0 + totalW, by + 9, COLOR_BOX_BG);
-			g.fill(x0, by, x0 + (int) (totalW * frac), by + 9, fill);
-			g.renderOutline(x0 - 1, by - 1, totalW + 2, 11, COLOR_BORDER);
-			Component txt = Component.translatable("hud.projecthero.titan_shifter.health", (int) Math.ceil(hp), (int) max);
-			g.drawString(mc.font, txt, x0 + (totalW - mc.font.width(txt)) / 2, by + 1, 0xFFFFFFFF, true);
+			g.drawString(mc.font, Component.translatable("hud.projecthero.titan_shifter.hp"), x0, y, 0xFFE8E8E8, true);
+			y += 11;
+			thinBar(g, x0, y, totalW, frac, fill);
+			y += BAR_H + 3;
+			g.drawString(mc.font, Component.translatable("hud.projecthero.titan_shifter.revert", key).withStyle(ChatFormatting.YELLOW),
+					x0, y, 0xFFFFFFFF, true);
+			return;
 		}
 
-		Component key = ModKeyBindings.POWER_SELECT.getTranslatedKeyMessage();
+		// base form: Titan Energy as a percentage on a thin bar
+		double eMax = TitanShifterConfig.energy().max;
+		float eFrac = (float) Math.max(0.0, Math.min(1.0, s.energy / eMax));
+		int pct = (int) Math.floor(eFrac * 100.0f + 1.0e-3f);
+		boolean full = eFrac + 1.0e-4f >= 1.0f;
+		g.drawString(mc.font, Component.translatable("hud.projecthero.titan_shifter.energy_label"), x0, y, 0xFFE8E8E8, true);
+		String pctText = pct + "%";
+		g.drawString(mc.font, pctText, x0 + totalW - mc.font.width(pctText), y, 0xFFFFFFFF, true);
+		y += 11;
+		thinBar(g, x0, y, totalW, eFrac, full ? COLOR_ENERGY_READY : COLOR_ENERGY);
+		y += BAR_H + 3;
+
 		Component status = switch (phase) {
 			case HUMAN -> {
 				int cd = TitanShifter.transformCooldownRemaining(mc.player);
 				if (cd > 0) {
 					yield Component.translatable("hud.projecthero.titan_shifter.cooldown", (cd + 19) / 20).withStyle(ChatFormatting.RED);
 				}
-				yield s.energy + 1.0e-3f >= TitanShifter.energyNeeded()
-						? Component.translatable("hud.projecthero.titan_shifter.ready", key).withStyle(ChatFormatting.GREEN)
-						: Component.translatable("hud.projecthero.titan_shifter.charging").withStyle(ChatFormatting.GRAY);
+				// only at a full bar
+				yield full ? Component.translatable("hud.projecthero.titan_shifter.ready", key).withStyle(ChatFormatting.GREEN) : null;
 			}
 			case TRANSFORMING -> Component.translatable("hud.projecthero.titan_shifter.transforming").withStyle(ChatFormatting.GOLD);
-			case TITAN -> Component.translatable("hud.projecthero.titan_shifter.titan", key).withStyle(ChatFormatting.YELLOW);
+			case TITAN -> null;
 			case REVERTING -> Component.translatable("hud.projecthero.titan_shifter.reverting").withStyle(ChatFormatting.GRAY);
 			case DEFEATED -> Component.translatable("hud.projecthero.titan_shifter.defeated").withStyle(ChatFormatting.DARK_RED);
 			case RECOVERING -> Component.translatable("hud.projecthero.titan_shifter.recovering",
 					(int) Math.max(0, (s.phaseUntil - now + 19) / 20)).withStyle(ChatFormatting.GRAY);
 		};
-		g.drawString(mc.font, status, x0, line, 0xFFFFFFFF, true);
-		line += 11;
-
-		// Titan Energy bar (v0.12.32): 100 max, the tick mark is the 90% needed to transform.
-		double eMax = TitanShifterConfig.energy().max;
-		float eFrac = (float) Math.max(0.0, Math.min(1.0, s.energy / eMax));
-		float needFrac = (float) TitanShifterConfig.energy().transformMinFraction;
-		boolean enough = eFrac + 1.0e-4f >= needFrac;
-		g.fill(x0, line, x0 + totalW, line + 9, COLOR_BOX_BG);
-		g.fill(x0, line, x0 + (int) (totalW * eFrac), line + 9, enough ? COLOR_ENERGY_READY : COLOR_ENERGY);
-		g.fill(x0 + (int) (totalW * needFrac), line, x0 + (int) (totalW * needFrac) + 1, line + 9, 0xFFFFFFFF);
-		g.renderOutline(x0 - 1, line - 1, totalW + 2, 11, COLOR_BORDER);
-		Component etxt = Component.translatable("hud.projecthero.titan_shifter.energy", (int) Math.floor(s.energy), (int) eMax);
-		g.drawString(mc.font, etxt, x0 + (totalW - mc.font.width(etxt)) / 2, line + 1, 0xFFFFFFFF, true);
-		line += 12;
-
-		if (phase == TitanPhase.HUMAN) {
-			int cd = TitanShifter.transformCooldownRemaining(mc.player);
-			int cdMax = TitanShifterConfig.transformation().cooldownTicks;
-			if (cd > 0 && cdMax > 0) {
-				float frac = Math.min(1f, cd / (float) cdMax);
-				g.fill(x0, line, x0 + totalW, line + 3, COLOR_BOX_BG);
-				g.fill(x0, line, x0 + (int) (totalW * (1f - frac)), line + 3, 0xFFE08A00);
-			}
+		if (status != null) {
+			g.drawString(mc.font, status, x0, y, 0xFFFFFFFF, true);
 		}
+	}
+
+	private static void thinBar(GuiGraphics g, int x, int y, int w, float frac, int color) {
+		g.fill(x, y, x + w, y + BAR_H, COLOR_BOX_BG);
+		g.fill(x, y, x + (int) (w * frac), y + BAR_H, color);
+		g.renderOutline(x - 1, y - 1, w + 2, BAR_H + 2, COLOR_BORDER);
 	}
 }

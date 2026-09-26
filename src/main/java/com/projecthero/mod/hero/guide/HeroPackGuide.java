@@ -645,8 +645,8 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.all_might.controls");
 			for (String[] row : new String[][] {
-					{ "H", "transform" }, { "R", "detroit_smash" }, { "G", "texas_smash" }, { "Z", "carolina_smash" },
-					{ "X", "new_hampshire_smash" }, { "C", "full_cowl" }, { "V", "united_states_of_smash" }, { "N", "all_might_leap" } }) {
+					{ "H", "transform" }, { "R", "detroit_smash" }, { "Shift+R", "new_hampshire_smash" }, { "G", "texas_smash" },
+					{ "X", "all_might_leap" }, { "Z", "united_states_of_smash" }, { "V", "carolina_smash" }, { "C", "plus_ultra" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.all_might.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.guide.all_might.ability." + row[1]);

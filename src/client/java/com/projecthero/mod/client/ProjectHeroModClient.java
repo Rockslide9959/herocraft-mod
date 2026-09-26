@@ -309,6 +309,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			powerSelectWasDown = false;
 			powerInfoWasDown = false;
 			maxSteelTransformWasDown = false;
+			titanSprintWasDown = false;
 			squadMenuWasDown = false;
 			glConstructHeldTicks = 0;
 			glWheelOpenedThisHold = false;
@@ -318,6 +319,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		}
 
 		handleGreenLanternConstructWheelHold(client);
+		handleTitanSprint(client);
 
 		boolean flyingNow = client.player.getAttachedOrElse(ModAttachments.FLYING, false);
 		if (flyingNow && !wasFlying) {
@@ -613,9 +615,29 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		wolverineUseWasDown = down;
 	}
 
+	private static boolean titanSprintWasDown;
+
+	/** v0.12.34: a rider never reports sprinting, so the Titan is told whether Sprint is held (a run starts after 3 s of it while walking). */
+	private static void handleTitanSprint(Minecraft client) {
+		boolean now = client.player != null && client.screen == null && client.options.keySprint.isDown()
+				&& com.projecthero.mod.titanshifter.TitanShifter.inTitan(client.player);
+		if (now != titanSprintWasDown) {
+			titanSprintWasDown = now;
+			ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(now
+					? com.projecthero.mod.network.TitanShiftPayload.Action.SPRINT_ON
+					: com.projecthero.mod.network.TitanShiftPayload.Action.SPRINT_OFF));
+		}
+	}
+
 	private static void handleMaxSteelTransform(Minecraft client) {
 		boolean down = ModKeyBindings.MAX_STEEL_TRANSFORM.isDown();
 		if (down && !maxSteelTransformWasDown && client.player != null
+				&& com.projecthero.mod.titanshifter.TitanShifter.inTitan(client.player)) {
+			// v0.12.34: N inside the Titan grabs the mob you look at / bites it; Shift+N sets it down gently.
+			ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(Screen.hasShiftDown()
+					? com.projecthero.mod.network.TitanShiftPayload.Action.LET_DOWN
+					: com.projecthero.mod.network.TitanShiftPayload.Action.GRAB_BITE));
+		} else if (down && !maxSteelTransformWasDown && client.player != null
 				&& com.projecthero.mod.maxsteel.MaxSteel.hasPower(client.player)) {
 			ClientPlayNetworking.send(new com.projecthero.mod.network.MaxSteelActionPayload(
 					com.projecthero.mod.network.MaxSteelActionPayload.Action.TRANSFORM_TOGGLE));
@@ -624,11 +646,6 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			// v0.12.20: Spider-Man -- N swaps Traversal Mode and Combat Mode.
 			ClientPlayNetworking.send(new com.projecthero.mod.network.SpiderActionPayload(
 					com.projecthero.mod.network.SpiderActionPayload.Action.TOGGLE_MODE));
-		} else if (down && !maxSteelTransformWasDown && client.player != null
-				&& com.projecthero.mod.allmight.AllMight.hasPower(client.player)) {
-			// v0.12.33: Utility 2 (N) as All Might is the All Might Leap.
-			ClientPlayNetworking.send(new com.projecthero.mod.network.AllMightActionPayload(
-					com.projecthero.mod.network.AllMightActionPayload.Action.LEAP));
 		} else if (down && !maxSteelTransformWasDown && client.player != null
 				&& com.projecthero.mod.wolverine.Wolverine.hasPower(client.player)) {
 			// Wolverine: Utility 2 (N) sniffs -- highlights everything within 40 blocks for 20 s.

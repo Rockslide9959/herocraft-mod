@@ -1,0 +1,24 @@
+v0.12.34 - TITAN SHIFTER UPGRADES + ALL MIGHT REWORK
+
+TITAN SHIFTER
+- Running: hold Sprint while walking forward for 3 seconds and the Titan breaks into a run (about 1.8x speed).
+- Ordinary mobs can hurt the Titan again: their hits ignore its armour, and mobs that were hunting you now attack the Titan itself.
+- Passive regeneration is base form only: as a human you get Regeneration III. The Titan has no passive regeneration (only the C ability heals it).
+- Squad shoulder ride: a squad-mate right-clicks your Titan and sits on its shoulder (two seats) and rides along. Sneak to hop off.
+- N in Titan form: grab the mob you are looking at. N again: bite it for 26 damage (10 s cooldown). Shift+N: set it gently down. New grab / carry / bite animations.
+- New HUD. Base form: Titan Shifter, Titan Energy as a thin percentage bar, "Titan Shift Ready [H]" only at 100%. Titan form: the six ability keys (R G X Z V C), a thin Titan HP bar, "Revert Form [H]".
+- Transforming now needs a full (100%) Titan Energy bar.
+
+ALL MIGHT / ONE FOR ALL - REWORKED
+- The All Might armour is gone. You keep your own skin. Transforming grows you to 2.7 blocks tall over 1 second and vents steam (also when changing back).
+- Two forms on H. Base Form: a plain player, no abilities, no bonuses. Power Form: 13 melee damage, 40 max HP (your health percentage carries over), 50% less damage, Speed III, Regeneration I, 3-block jump.
+- Detroit Smash (R) 18 damage. Texas Smash (G) 24. New Hampshire Smash is now Shift+R, 20 damage. Carolina Smash is now V, 20 damage, and travels much further.
+- United States of Smash is now Z: hold for 5 seconds to charge, then 75 damage and a large crater (release early to cancel and get the energy back).
+- X is now Leap (renamed). The old N leap is gone.
+- C is Plus Ultra: drains One For All while active and makes all your moves 30% stronger. 20 second cooldown after it ends. Run out of energy during it and you drop back to Base Form.
+- Below 30 One For All you start venting steam to show you are running out of power.
+- HUD: One For All, thin energy bar with percentage, the six ability keys, and "Base Form [H]" / "Power Form [H]".
+
+OTHER
+- /projecthero no longer has titanshifter or allmight sub-commands. Use /projecthero power grant titan_shifter and /projecthero power grant all_might.
+- Guide and power menus updated for all of the above.

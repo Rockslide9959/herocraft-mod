@@ -19,7 +19,7 @@ public abstract class ItemInHandRendererTitanMixin {
 	@Inject(method = "renderHandsWithItems", at = @At("HEAD"), cancellable = true)
 	private void projecthero$noHandsInTitan(float partialTicks, PoseStack poseStack,
 			MultiBufferSource.BufferSource buffer, LocalPlayer player, int packedLight, CallbackInfo ci) {
-		if (player.getVehicle() instanceof TitanFormEntity) {
+		if (TitanFormEntity.isOwnerRider(player)) {
 			ci.cancel();
 		}
 	}

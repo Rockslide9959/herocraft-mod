@@ -86,7 +86,7 @@ public final class AllMightDamage {
 
 	/** A plain melee hit by All Might: strong knockback, a compressed-air burst and an impact sound. */
 	private static void onPunch(ServerPlayer attacker, LivingEntity target, DamageSource source, float dealt) {
-		if (AllMightShockwave.isAbilityHit() || dealt <= 0f || !source.is(DamageTypes.PLAYER_ATTACK)
+		if (!AllMight.isFullPower(attacker) || AllMightShockwave.isAbilityHit() || dealt <= 0f || !source.is(DamageTypes.PLAYER_ATTACK)
 				|| source.getDirectEntity() != attacker) {
 			return;
 		}

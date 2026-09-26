@@ -187,18 +187,18 @@ public class TitanShifterGameTests implements FabricGameTest {
 // ---------------- v0.12.32: Titan Energy, the new hit-box, the new key layout ----------------
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void transformNeedsNinetyPercentEnergy(GameTestHelper helper) {
+	public void transformNeedsAFullEnergyBar(GameTestHelper helper) {
 		ServerPlayer p = shifter(helper);
 		helper.assertTrue(TitanShifter.energy(p) == (float) TitanShifterConfig.energy().max, "a fresh shifter has a full bar");
 		TitanShifterState low = TitanShifter.state(p).copy();
-		low.energy = 89.0f;
+		low.energy = 99.0f;
 		p.setAttached(com.projecthero.mod.attachment.ModAttachments.TITAN_SHIFTER_STATE, low);
-		helper.assertFalse(TitanShifter.transform(p), "89% is not enough");
+		helper.assertFalse(TitanShifter.transform(p), "99% is not enough");
 		helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN, "still human");
 		TitanShifterState ok = TitanShifter.state(p).copy();
-		ok.energy = 90.0f;
+		ok.energy = 100.0f;
 		p.setAttached(com.projecthero.mod.attachment.ModAttachments.TITAN_SHIFTER_STATE, ok);
-		helper.assertTrue(TitanShifter.transform(p), "90% is enough");
+		helper.assertTrue(TitanShifter.transform(p), "100% is enough");
 		helper.succeed();
 	}
 
@@ -218,7 +218,7 @@ public class TitanShifterGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
-	public void titanBaseRegenerationSpendsEnergy(GameTestHelper helper) {
+	public void titanHasNoPassiveRegeneration(GameTestHelper helper) {
 		ServerPlayer p = shifter(helper);
 		pump(helper, p);
 		TitanShifter.transform(p);
@@ -227,12 +227,28 @@ public class TitanShifterGameTests implements FabricGameTest {
 			helper.assertTrue(TitanShifter.inTitan(p) && form != null, "in the Titan");
 			form.setHealth(form.getMaxHealth() - 200.0f);
 			float hp0 = form.getHealth();
-			float e0 = TitanShifter.energy(p);
 			helper.runAfterDelay(60, () -> {
-				helper.assertTrue(form.getHealth() > hp0 + 6.0f, "the Titan heals ~3 HP a second, was " + hp0 + " now " + form.getHealth());
-				helper.assertTrue(TitanShifter.energy(p) < e0 - 3.0f, "and it costs Titan Energy: " + e0 + " -> " + TitanShifter.energy(p));
+				helper.assertTrue(form.getHealth() <= hp0 + 0.01f, "the Titan does not regenerate on its own, was " + hp0 + " now " + form.getHealth());
 				helper.succeed();
 			});
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
+	public void ordinaryMobsStillHurtTheTitan(GameTestHelper helper) {
+		ServerPlayer p = shifter(helper);
+		pump(helper, p);
+		TitanShifter.transform(p);
+		helper.runAfterDelay(SETTLE, () -> {
+			TitanFormEntity form = TitanShifter.formOf(p);
+			helper.assertTrue(form != null, "in the Titan");
+			net.minecraft.world.entity.monster.Zombie z = net.minecraft.world.entity.EntityType.ZOMBIE.create(helper.getLevel());
+			z.setNoAi(true);
+			helper.getLevel().addFreshEntity(z);
+			float hp0 = form.getHealth();
+			form.hurt(helper.getLevel().damageSources().mobAttack(z), 3.0f);
+			helper.assertTrue(hp0 - form.getHealth() >= 2.9f, "a zombie's 3 damage goes straight through the armour, lost " + (hp0 - form.getHealth()));
+			helper.succeed();
 		});
 	}
 

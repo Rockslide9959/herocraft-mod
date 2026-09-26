@@ -32,6 +32,7 @@ public final class TitanAbilities {
 	public static final String ROAR = "roar";
 	public static final String REGEN = "regeneration";
 	public static final String HARDEN = "hardening";
+	public static final String BITE = "bite";
 
 	/** Punch combo: punch, punch, heavy punch -- the counter resets after this many ticks of no swings. */
 	private static final int COMBO_WINDOW = 30;
@@ -322,6 +323,98 @@ public final class TitanAbilities {
 		level.playSound(null, form.getX(), form.getY(), form.getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.HOSTILE, 2.5f, 0.6f);
 		level.playSound(null, form.getX(), form.getY(), form.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.HOSTILE, 2.5f, 0.5f);
 		form.steamBurst(level, 8);
+	}
+
+	// ---------------- N: grab / bite / set down ----------------
+
+	/** N: with an empty hand, pick up the mob you are looking at; with a mob in the hand, bite it. */
+	public static void grabOrBite(ServerPlayer player) {
+		TitanShifterState s = TitanShifter.state(player);
+		TitanFormEntity form = TitanShifter.formOf(player);
+		if (!s.unlocked || s.phase() != TitanPhase.TITAN || form == null || !form.isAlive() || form.isLocked()) {
+			return;
+		}
+		LivingEntity held = form.held();
+		if (held == null) {
+			grab(player, form);
+		} else {
+			bite(player, form, held);
+		}
+	}
+
+	private static void grab(ServerPlayer player, TitanFormEntity form) {
+		var a = TitanShifterConfig.abilities();
+		ServerLevel level = level(form);
+		Vec3 eye = player.getEyePosition();
+		Vec3 look = player.getLookAngle();
+		Vec3 end = eye.add(look.scale(a.grabReach + 12.0));
+		LivingEntity best = null;
+		double bestDist = Double.MAX_VALUE;
+		for (LivingEntity e : TitanCombat.targetsAround(level, form.position(), a.grabReach, form, player)) {
+			if (e instanceof Player || e.isPassenger() || e.isVehicle() || TitanCombat.isBoss(e) || e.getBbHeight() > 6.0f
+					|| e instanceof TitanFormEntity) {
+				continue;
+			}
+			var hitPos = e.getBoundingBox().inflate(0.8).clip(eye, end);
+			if (hitPos.isEmpty()) {
+				continue;
+			}
+			double d = hitPos.get().distanceToSqr(eye);
+			if (d < bestDist) {
+				bestDist = d;
+				best = e;
+			}
+		}
+		if (best == null) {
+			TitanShifter.say(player, "message.projecthero.titan_shifter.nothing_to_grab", ChatFormatting.GRAY);
+			return;
+		}
+		form.hold(best);
+		form.play("grab");
+		form.lockFor(8);
+		Vec3 c = best.position().add(0, best.getBbHeight() * 0.5, 0);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.IRON_GOLEM_ATTACK, SoundSource.HOSTILE, 2.0f, 0.5f);
+		level.sendParticles(ParticleTypes.POOF, c.x, c.y, c.z, 12, 0.5, 0.5, 0.5, 0.05);
+		TitanCombat.shake(level, form.position(), 0.2f, 5);
+	}
+
+	private static void bite(ServerPlayer player, TitanFormEntity form, LivingEntity held) {
+		int cd = TitanShifter.cooldownRemaining(player, BITE);
+		if (cd > 0) {
+			TitanShifter.say(player, "message.projecthero.titan_shifter.ability_cooldown", ChatFormatting.RED,
+					Component_translatable(BITE), String.format(java.util.Locale.ROOT, "%.1f", cd / 20.0));
+			return;
+		}
+		var a = TitanShifterConfig.abilities();
+		TitanShifter.startCooldown(player, BITE, a.biteCooldown, 7);
+		ServerLevel level = level(form);
+		form.play("bite");
+		form.lockFor(14);
+		form.schedule(8, () -> {
+			if (!stillGood(form) || form.held() != held) {
+				return;
+			}
+			AbilityHelpers.hurtBurst(player, held, (float) a.biteDamage);
+			Vec3 c = held.position().add(0, held.getBbHeight() * 0.5, 0);
+			level.playSound(null, c.x, c.y, c.z, SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.HOSTILE, 2.5f, 0.4f);
+			level.playSound(null, c.x, c.y, c.z, SoundEvents.RAVAGER_ATTACK, SoundSource.HOSTILE, 2.5f, 0.5f);
+			level.sendParticles(ParticleTypes.DAMAGE_INDICATOR, c.x, c.y, c.z, 10, 0.4, 0.4, 0.4, 0.2);
+			level.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 20, 0.5, 0.5, 0.5, 0.3);
+			TitanCombat.shake(level, form.position(), 0.3f, 6);
+			if (!held.isAlive()) {
+				form.releaseHeld();
+			}
+		});
+	}
+
+	/** Shift+N: set the held mob gently down. */
+	public static void letDown(ServerPlayer player) {
+		TitanShifterState s = TitanShifter.state(player);
+		TitanFormEntity form = TitanShifter.formOf(player);
+		if (!s.unlocked || s.phase() != TitanPhase.TITAN || form == null || !form.isAlive() || form.held() == null) {
+			return;
+		}
+		form.startLowering();
 	}
 
 	// ---------------- Titan Hardening ----------------

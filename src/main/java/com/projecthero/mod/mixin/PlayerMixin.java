@@ -37,7 +37,7 @@ public abstract class PlayerMixin {
 	@Inject(method = "wantsToStopRiding", at = @At("HEAD"), cancellable = true)
 	private void projecthero$titanStaysSeated(CallbackInfoReturnable<Boolean> cir) {
 		Player self = (Player) (Object) this;
-		if (self.getVehicle() instanceof com.projecthero.mod.titanshifter.entity.TitanFormEntity) {
+		if (com.projecthero.mod.titanshifter.entity.TitanFormEntity.isOwnerRider(self)) {
 			cir.setReturnValue(false);
 		}
 	}

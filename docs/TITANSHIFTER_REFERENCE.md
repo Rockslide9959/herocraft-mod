@@ -1,5 +1,8 @@
 # Titan Shifter — reference (v0.12.32)
 
+> **v0.12.34 changes (supersede below):** passive regeneration is base-form (human) only (Regeneration III, free); Titan has none. Ordinary mobs ignore Titan armour and hurt it (mobs targeting the shifter are re-aimed at the Titan). Hold Sprint 3 s while walking = run (x1.8). Squad-mates right-click to ride a shoulder (2 seats). N grab / N bite (26 dmg, 10 s) / Shift+N lower. Transform needs a full (100%) bar. HUD redesigned. Command: `/projecthero power grant titan_shifter` only.
+
+
 > **v0.12.32 changes** (everything below is current): the body is now a regular player model (the supplied
 > `aot/titanshifter.bbmodel` skin) scaled to 11 blocks — hit-box 3.67 × 11; **H** transforms / detransforms (the J key
 > is gone); new key layout (X Leap, Z Stomp, Shift+X Roar, Shift+C Hardening); the **Titan Energy** bar (100 max, 90% to

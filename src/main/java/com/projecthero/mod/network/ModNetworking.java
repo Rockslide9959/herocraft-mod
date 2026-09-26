@@ -146,12 +146,17 @@ public final class ModNetworking {
 		// Titan Shifter: the Titan Shift key (H -- transform / revert). The server re-validates the unlock, phase,
 		// Titan Energy, cooldown and room -- this is only a request.
 		ServerPlayNetworking.registerGlobalReceiver(TitanShiftPayload.TYPE, (payload, context) -> {
-			if (payload.action() == TitanShiftPayload.Action.TOGGLE_SHIFT) {
-				com.projecthero.mod.titanshifter.TitanShifter.requestToggle(context.player());
+			net.minecraft.server.level.ServerPlayer p = context.player();
+			switch (payload.action()) {
+				case TOGGLE_SHIFT -> com.projecthero.mod.titanshifter.TitanShifter.requestToggle(p);
+				case GRAB_BITE -> com.projecthero.mod.titanshifter.TitanAbilities.grabOrBite(p);
+				case LET_DOWN -> com.projecthero.mod.titanshifter.TitanAbilities.letDown(p);
+				case SPRINT_ON -> com.projecthero.mod.titanshifter.TitanShifter.setSprintHeld(p, true);
+				case SPRINT_OFF -> com.projecthero.mod.titanshifter.TitanShifter.setSprintHeld(p, false);
 			}
 		});
 
-		// All Might: H (transform / change back) and N (All Might Leap). Server re-validates power, cooldown, OFA and state.
+		// All Might: H (Base Form / Power Form). Server re-validates power, cooldown, OFA and state.
 		ServerPlayNetworking.registerGlobalReceiver(AllMightActionPayload.TYPE, (payload, context) -> {
 			net.minecraft.server.level.ServerPlayer p = context.player();
 			if (!com.projecthero.mod.allmight.AllMight.hasPower(p)) {
@@ -159,7 +164,6 @@ public final class ModNetworking {
 			}
 			switch (payload.action()) {
 				case TOGGLE_FORM -> com.projecthero.mod.allmight.AllMight.toggleForm(p);
-				case LEAP -> com.projecthero.mod.allmight.AllMightAbilities.leap(p);
 			}
 		});
 

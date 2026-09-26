@@ -47,12 +47,27 @@ public final class TitanShifter {
 
 	/** Per-player throttle for action-bar feedback so a held key cannot spam. */
 	private static final Map<UUID, Long> LAST_MESSAGE = new HashMap<>();
+	/** Shifters whose Sprint key is currently held (sent by the client: a rider never reports sprinting on its own). */
+	private static final java.util.Set<UUID> SPRINT_HELD = new java.util.HashSet<>();
 
 	private TitanShifter() {
 	}
 
 	public static void clearSessionState() {
 		LAST_MESSAGE.clear();
+		SPRINT_HELD.clear();
+	}
+
+	public static void setSprintHeld(ServerPlayer player, boolean held) {
+		if (held) {
+			SPRINT_HELD.add(player.getUUID());
+		} else {
+			SPRINT_HELD.remove(player.getUUID());
+		}
+	}
+
+	public static boolean sprintHeld(UUID id) {
+		return SPRINT_HELD.contains(id);
 	}
 
 	// ---------------- state access ----------------
@@ -412,6 +427,8 @@ public final class TitanShifter {
 	private static void release(ServerPlayer player, TitanFormEntity form) {
 		Vec3 p = form.position();
 		float yaw = form.getYRot();
+		SPRINT_HELD.remove(player.getUUID());
+		form.releaseHeld();
 		player.stopRiding();
 		form.discard();
 		player.teleportTo((ServerLevel) player.level(), p.x, p.y, p.z, yaw, player.getXRot());
@@ -483,6 +500,7 @@ public final class TitanShifter {
 		TitanPhase phase = s.phase();
 		if (phase == TitanPhase.HUMAN) {
 			tickEnergy(player, s);
+			tickBaseFormRegen(player);
 			return;
 		}
 		long now = player.level().getGameTime();
@@ -543,8 +561,6 @@ public final class TitanShifter {
 	private static void tickTitan(ServerPlayer player, TitanShifterState s, TitanFormEntity form, long now) {
 		ServerLevel level = (ServerLevel) player.level();
 		var a = TitanShifterConfig.abilities();
-		tickBaseRegen(player, s, form);
-		s = state(player); // tickBaseRegen may have saved a new energy value
 		if (now < s.regenUntil) {
 			form.heal((float) (a.regenPerSecond / 20.0));
 			if (player.tickCount % 6 == 0) {
@@ -553,6 +569,9 @@ public final class TitanShifter {
 						form.getBbWidth() * 0.5, form.getBbHeight() * 0.35, form.getBbWidth() * 0.5, 0.0);
 				form.steamBurst(level, 2);
 			}
+		}
+		if (player.tickCount % 10 == 0) {
+			redirectMobs(level, player, form);
 		}
 		if (form.isHardened() && now >= s.hardenUntil) {
 			form.setHardened(false);
@@ -571,6 +590,18 @@ public final class TitanShifter {
 		}
 	}
 
+	/**
+	 * v0.12.34 -- mobs that were hunting the shifter cannot reach a rider sitting 10 blocks up, so they are re-aimed at the
+	 * Titan itself (whose hit-box they can reach); its hurt() then lets their hits through armour.
+	 */
+	private static void redirectMobs(ServerLevel level, ServerPlayer player, TitanFormEntity form) {
+		var box = form.getBoundingBox().inflate(28.0, 6.0, 28.0);
+		for (net.minecraft.world.entity.Mob mob : level.getEntitiesOfClass(net.minecraft.world.entity.Mob.class, box,
+				m -> m.getTarget() == player)) {
+			mob.setTarget(form);
+		}
+	}
+
 	/** Outside the Titan the bar refills: {@code regenPerSecond} (1%) every second, in whole steps so it syncs rarely. */
 	private static void tickEnergy(ServerPlayer player, TitanShifterState s) {
 		var e = TitanShifterConfig.energy();
@@ -583,30 +614,19 @@ public final class TitanShifter {
 	}
 
 	/**
-	 * v0.12.32 -- base Titan regeneration: while the Titan is below full health it heals
-	 * {@code baseRegenHpPerSecond} and pays {@code baseRegenEnergyPerSecond} Titan Energy for it (two ticks a
-	 * second in 10-tick steps, so the synced bar changes 2 times a second at most). Nothing is healed once
-	 * the bar is empty.
+	 * v0.12.34 -- the passive regeneration belongs to the shifter's BASE (human) form only: a short, hidden Regeneration
+	 * effect kept topped up while the phase is HUMAN. Inside the Titan the Titan has no passive regeneration at all
+	 * (only the C ability heals it), and the effect is simply not renewed, so it lapses within two seconds of shifting.
 	 */
-	private static void tickBaseRegen(ServerPlayer player, TitanShifterState s, TitanFormEntity form) {
-		if (player.level().getGameTime() % 10L != 0L || s.energy <= 0f || form.getHealth() >= form.getMaxHealth()) {
+	private static void tickBaseFormRegen(ServerPlayer player) {
+		int amp = TitanShifterConfig.energy().baseFormRegenAmplifier;
+		if (amp < 0) {
 			return;
 		}
-		var e = TitanShifterConfig.energy();
-		double stepFraction = 10.0 / 20.0;
-		float cost = (float) Math.min(s.energy, e.baseRegenEnergyPerSecond * stepFraction);
-		if (cost <= 0f) {
-			return;
+		MobEffectInstance cur = player.getEffect(MobEffects.REGENERATION);
+		if (cur == null || (!cur.isInfiniteDuration() && cur.getAmplifier() <= amp && cur.getDuration() <= 20)) {
+			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 40, amp, false, false, false));
 		}
-		float paid = (float) (cost / (e.baseRegenEnergyPerSecond * stepFraction));
-		form.heal((float) (e.baseRegenHpPerSecond * stepFraction) * paid);
-		TitanShifterState n = s.copy();
-		n.energy = Math.max(0f, s.energy - cost);
-		save(player, n);
-		ServerLevel level = (ServerLevel) player.level();
-		Vec3 p = form.position();
-		level.sendParticles(ParticleTypes.HAPPY_VILLAGER, p.x, p.y + form.getBbHeight() * 0.5, p.z, 3,
-				form.getBbWidth() * 0.5, form.getBbHeight() * 0.35, form.getBbWidth() * 0.5, 0.0);
 	}
 
 	// ---------------- lifecycle hooks ----------------

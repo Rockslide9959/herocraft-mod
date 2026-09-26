@@ -1,5 +1,8 @@
 # All Might / One For All — reference (v0.12.33)
 
+> **v0.12.34 rework (supersedes the tables below where they differ):** costume removed (own skin). Two forms: Base Form (plain player, no abilities) and Power Form (H): 2.7 blocks tall (eased over 1 s, steam), 13 melee, 40 max HP (health % carries), 50% less damage, Speed III, Regeneration I, 3-block jump. Keys: R Detroit 18, Shift+R New Hampshire 20, G Texas 24, X Leap, Z United States of Smash (hold 5 s, 75 dmg, large crater), V Carolina 20 (26-block dash), C Plus Ultra (toggle: drains 5 OFA/s, all moves +30%, 20 s cooldown after; 0 OFA drops to Base Form; steam below 30 OFA). N no longer used. Command: `/projecthero power grant all_might` only.
+
+
 A Hero-Tier **Primary** power. Package `com.projecthero.mod.allmight` (+ `.data`, `.item`); client half in
 `com.projecthero.mod.client.allmight` (`AllMightPose`) and `client.gui.AllMightHud`. **Every tunable number is a constant in
 `AllMightConfig`** — resource, costs, cooldowns, damage, ranges, both forms, Full Cowl, landing impacts, block destruction, particle

@@ -20,7 +20,7 @@ public abstract class PlayerRendererTitanMixin {
 			at = @At("HEAD"), cancellable = true)
 	private void projecthero$hideTitanRider(AbstractClientPlayer player, float entityYaw, float partialTicks,
 			PoseStack poseStack, MultiBufferSource buffer, int packedLight, CallbackInfo ci) {
-		if (player.getVehicle() instanceof TitanFormEntity) {
+		if (TitanFormEntity.isOwnerRider(player)) {
 			ci.cancel();
 		}
 	}

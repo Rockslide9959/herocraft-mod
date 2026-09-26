@@ -21,56 +21,49 @@ public final class AllMightConfig {
 	public static final int OFA_REGEN_INTERVAL_OUT_OF_COMBAT_TICKS = 8;
 	public static final int OFA_COMBAT_LOCKOUT_TICKS = 5 * S;
 
-	// ---------------------------------------------------------------- forms
-	/** Contained / base All Might. */
-	public static final double BASE_HEALTH_BONUS = 40.0;
-	public static final double BASE_ATTACK_BONUS = 25.0;
-	public static final double BASE_SPEED_BONUS = 0.25;
-	public static final double BASE_KNOCKBACK_RESISTANCE = 0.80;
-	/** Jump HEIGHT multiplier (2.0 = jumps twice as high as vanilla). Converted to a jump-velocity modifier in code. */
-	public static final double BASE_JUMP_HEIGHT = 2.0;
-	public static final float BASE_FALL_REDUCTION = 0.75f;
-	public static final float BASE_DAMAGE_REDUCTION = 0.35f;
+	// ---------------------------------------------------------------- forms (v0.12.34: Base Form / Power Form)
+	// Base Form is a plain Minecraft player: no bonuses, no passives, no abilities. Everything below is the Power Form (H).
 
-	/** Full-power All Might (H). */
-	public static final double FULL_HEALTH_BONUS = 40.0;
-	public static final double FULL_ATTACK_BONUS = 35.0;
-	public static final double FULL_SPEED_BONUS = 0.40;
-	public static final double FULL_KNOCKBACK_RESISTANCE = 1.0;
-	public static final double FULL_JUMP_HEIGHT = 2.5;
-	public static final float FULL_FALL_REDUCTION = 0.90f;
+	/** Power Form melee damage: a player's base 1 plus 12 = 13. */
+	public static final double FULL_ATTACK_BONUS = 12.0;
+	/** Power Form max health: 20 + 20 = 40. The current health keeps its percentage across the change. */
+	public static final double FULL_HEALTH_BONUS = 20.0;
+	/** Damage taken is multiplied by (1 - this) in the Power Form -- 50% less from everything. */
 	public static final float FULL_DAMAGE_REDUCTION = 0.50f;
-	/** Smash damage multiplier while in the full-power form. */
-	public static final float FULL_SMASH_MULTIPLIER = 1.15f;
+	/** Speed III (amplifier 2). */
+	public static final int FULL_SPEED_AMPLIFIER = 2;
+	/** Regeneration I (amplifier 0). */
+	public static final int FULL_REGEN_AMPLIFIER = 0;
+	/** How high a jump carries him, in blocks (a vanilla jump is about 1.25). */
+	public static final double FULL_JUMP_BLOCKS = 3.0;
+	/** The Power Form is 1.5x as tall: 1.8 -> 2.7 blocks. Added to Attributes.SCALE and eased in / out over {@link #GROWTH_TICKS}. */
+	public static final double FULL_SCALE_BONUS = 0.5;
+	public static final int GROWTH_TICKS = 20;
 
-	/** H: the damage-proof, ability-locked transformation window. */
-	public static final int TRANSFORM_TICKS = 30;
-	/** Changing back is quicker. */
-	public static final int DETRANSFORM_TICKS = 10;
+	/** H: the damage-proof, ability-locked transformation window (the one second he grows). */
+	public static final int TRANSFORM_TICKS = 20;
+	/** Changing back takes the same second (he shrinks). */
+	public static final int DETRANSFORM_TICKS = 20;
 	/** Minimum gap between two H presses. */
 	public static final int FORM_TOGGLE_DEBOUNCE_TICKS = 8;
 
-	// ---------------------------------------------------------------- Full Cowl (C)
-	public static final int COWL_OFA_COST = 20;
-	public static final int COWL_DURATION_TICKS = 10 * S;
-	public static final int COWL_COOLDOWN_TICKS = 20 * S;
-	/** Movement speed while the Cowl is up (replaces the form's own bonus when higher). */
-	public static final double COWL_SPEED_BONUS = 0.75;
-	/** Extra melee damage multiplier (+50%). */
-	public static final double COWL_ATTACK_MULTIPLIER = 0.50;
-	/** Extra jump-height multiplier added to the form's (+100%). */
-	public static final double COWL_JUMP_HEIGHT_BONUS = 1.0;
-	public static final double COWL_KNOCKBACK_RESISTANCE = 1.0;
-	/** Additional damage reduction, multiplied with the form's (0.65 x 0.8 ...), never added up to invulnerability. */
-	public static final float COWL_DAMAGE_REDUCTION = 0.20f;
-	public static final float COWL_SMASH_MULTIPLIER = 1.10f;
+	// ---------------------------------------------------------------- Plus Ultra (C)
+	/** While Plus Ultra is on, OFA drains this much every {@link #PLUS_ULTRA_DRAIN_INTERVAL_TICKS} ticks (5 a second). */
+	public static final float PLUS_ULTRA_DRAIN_AMOUNT = 1.0f;
+	public static final int PLUS_ULTRA_DRAIN_INTERVAL_TICKS = 4;
+	/** Cooldown that starts when Plus Ultra is switched off (or runs out of OFA). */
+	public static final int PLUS_ULTRA_COOLDOWN_TICKS = 20 * S;
+	/** Every Smash / ability deals this much more damage while it is on (+30%). */
+	public static final float PLUS_ULTRA_MULTIPLIER = 1.30f;
+	/** Below this much OFA he starts venting steam, showing he is running out of power. */
+	public static final float LOW_OFA_STEAM = 30.0f;
 
 	// ---------------------------------------------------------------- Smashes
 	// Detroit Smash (R): a devastating close-range punch
 	public static final int DETROIT_COST = 10;
 	public static final int DETROIT_COOLDOWN = 3 * S;
 	public static final int DETROIT_WINDUP = 6;
-	public static final float DETROIT_DAMAGE = 50.0f;
+	public static final float DETROIT_DAMAGE = 18.0f;
 	public static final double DETROIT_RANGE = 5.0;
 	public static final double DETROIT_WIDTH = 3.0;
 	public static final double DETROIT_HEIGHT = 3.0;
@@ -81,7 +74,7 @@ public final class AllMightConfig {
 	public static final int TEXAS_COST = 15;
 	public static final int TEXAS_COOLDOWN = 6 * S;
 	public static final int TEXAS_WINDUP = 8;
-	public static final float TEXAS_DAMAGE = 70.0f;
+	public static final float TEXAS_DAMAGE = 24.0f;
 	public static final double TEXAS_RANGE = 10.0;
 	public static final double TEXAS_WIDTH = 5.0;
 	public static final double TEXAS_HEIGHT = 4.0;
@@ -90,32 +83,34 @@ public final class AllMightConfig {
 	/** The wave advances this many blocks per tick (10 blocks take 5 ticks). */
 	public static final double TEXAS_WAVE_SPEED = 2.0;
 
-	// Carolina Smash (Z): a high-speed offensive dash
+	// Carolina Smash (V): a high-speed offensive dash
 	public static final int CAROLINA_COST = 20;
 	public static final int CAROLINA_COOLDOWN = 5 * S;
 	public static final int CAROLINA_WINDUP = 5;
-	public static final float CAROLINA_DAMAGE = 60.0f;
-	public static final double CAROLINA_DISTANCE = 10.0;
+	public static final float CAROLINA_DAMAGE = 20.0f;
+	public static final double CAROLINA_DISTANCE = 26.0;
 	public static final double CAROLINA_SPEED = 1.5;
 	public static final double CAROLINA_KNOCKBACK = 2.4;
 
-	// New Hampshire Smash (X): an aerial launch and a crashing landing
+	// New Hampshire Smash (Shift+R): an aerial launch and a crashing landing
 	public static final int NEW_HAMPSHIRE_COST = 25;
 	public static final int NEW_HAMPSHIRE_COOLDOWN = 8 * S;
 	public static final int NEW_HAMPSHIRE_WINDUP = 6;
-	public static final float NEW_HAMPSHIRE_DAMAGE = 80.0f;
+	public static final float NEW_HAMPSHIRE_DAMAGE = 20.0f;
 	/** Launch apex height above the take-off point (12-18 blocks). */
 	public static final double NEW_HAMPSHIRE_HEIGHT = 15.0;
 	public static final double NEW_HAMPSHIRE_FORWARD_SPEED = 0.9;
 	public static final double NEW_HAMPSHIRE_LANDING_RADIUS = 6.0;
 	public static final double NEW_HAMPSHIRE_KNOCKBACK = 2.6;
 
-	// United States of Smash (V): the ultimate
+	// United States of Smash (Z, hold 5 s): the ultimate
 	public static final int UNITED_STATES_COST = 100;
 	public static final int UNITED_STATES_COOLDOWN = 60 * S;
-	/** The charge: aura grows, wind builds. The punch lands at the end of it. */
-	public static final int UNITED_STATES_WINDUP = 30;
-	public static final float UNITED_STATES_DAMAGE = 250.0f;
+	/** Hold Z this long: the aura grows and the wind builds; the punch lands the moment the charge completes. */
+	public static final int UNITED_STATES_CHARGE_TICKS = 5 * S;
+	/** The punch pose starts this many ticks before the hit (the rest of the charge is aura and wind only). */
+	public static final int UNITED_STATES_POSE_LEAD = 30;
+	public static final float UNITED_STATES_DAMAGE = 75.0f;
 	public static final double UNITED_STATES_RANGE = 15.0;
 	public static final double UNITED_STATES_WIDTH = 8.0;
 	public static final double UNITED_STATES_HEIGHT = 8.0;
@@ -129,7 +124,7 @@ public final class AllMightConfig {
 	public static final int UNITED_STATES_SECONDARY_DELAY = 6;
 	public static final int UNITED_STATES_SECONDARY_EXPAND_TICKS = 10;
 
-	// All Might Leap (N) -- a utility ability: the mod has no reusable enhanced-leap for this kit, and the Smashes are all attacks
+	// Leap (X) -- a utility ability: the mod has no reusable enhanced-leap for this kit, and the Smashes are all attacks
 	public static final int LEAP_COST = 5;
 	public static final int LEAP_COOLDOWN = 5 * S;
 	public static final double LEAP_HEIGHT = 17.0;
@@ -177,8 +172,8 @@ public final class AllMightConfig {
 	public static final double NEW_HAMPSHIRE_BLOCK_RADIUS = 3.2;
 	public static final int NEW_HAMPSHIRE_BLOCK_MAX = 36;
 	public static final float UNITED_STATES_BLOCK_HARDNESS = 5.0f;
-	public static final double UNITED_STATES_BLOCK_RADIUS = 6.0;
-	public static final int UNITED_STATES_BLOCK_MAX = 160;
+	public static final double UNITED_STATES_BLOCK_RADIUS = 9.0;
+	public static final int UNITED_STATES_BLOCK_MAX = 360;
 
 	// ---------------------------------------------------------------- visuals
 	/** Multiplies every particle count (1.0 = default; 0 turns the particles off). */

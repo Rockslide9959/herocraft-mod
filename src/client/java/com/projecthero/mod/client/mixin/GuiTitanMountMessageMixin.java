@@ -18,7 +18,7 @@ public abstract class GuiTitanMountMessageMixin {
 	@Inject(method = "setOverlayMessage", at = @At("HEAD"), cancellable = true)
 	private void projecthero$noDismountHint(Component message, boolean animate, CallbackInfo ci) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player != null && mc.player.getVehicle() instanceof TitanFormEntity
+		if (mc.player != null && TitanFormEntity.isOwnerRider(mc.player)
 				&& message.getContents() instanceof TranslatableContents tc && "mount.onboard".equals(tc.getKey())) {
 			ci.cancel();
 		}

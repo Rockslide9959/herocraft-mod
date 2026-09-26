@@ -56,6 +56,10 @@ public final class TitanShifterConfig {
 		public double stepHeight = 2.5;
 		/** Plain jump (Space) launch velocity; a player's is 0.42. */
 		public double jumpVelocity = 0.75;
+		/** v0.12.34: hold Sprint while walking forward this long and the Titan breaks into a run. */
+		public int runChargeTicks = 60;
+		/** Ridden speed multiplier while running. */
+		public double runSpeedMultiplier = 1.8;
 	}
 
 	public static final class Damage {
@@ -99,6 +103,13 @@ public final class TitanShifterConfig {
 		public double hardenDamageReduction = 0.6;
 		public int hardenTicks = 160;         // 8 s
 		public int hardenCooldown = 600;      // 30 s
+		/** v0.12.34: N in Titan form grabs the mob you look at, N again bites it, Shift+N sets it down gently. */
+		public double grabReach = 24.0;
+		public double biteDamage = 26.0;
+		public int biteCooldown = 200;        // 10 s
+		public double lowerSpeed = 0.25;      // blocks per tick while setting a grabbed mob down
+		/** How many squad-mates can ride the Titan's shoulders (right-click the Titan). */
+		public int maxShoulderRiders = 2;
 	}
 
 	public static final class Transformation {
@@ -121,6 +132,8 @@ public final class TitanShifterConfig {
 		/** Hits below this many damage are cut to {@link #minorHitFactor} of their value. */
 		public double minorHitThreshold = 4.0;
 		public double minorHitFactor = 0.25;
+		/** v0.12.34: hits from ordinary mobs ignore the Titan's armour and the minor-hit cut, then are scaled by this. */
+		public double mobDamageFactor = 1.0;
 	}
 
 	public static final class Effects {
@@ -140,17 +153,15 @@ public final class TitanShifterConfig {
 		public int maxBlocksPerAction = 60;
 	}
 
-	/** The Titan Energy bar (v0.12.32): fills while human, is spent by the Titan's base regeneration, empties on reverting. */
+	/** The Titan Energy bar (v0.12.32): fills while human, empties on reverting. */
 	public static final class Energy {
 		public double max = 100.0;
 		/** Energy gained per second while NOT a Titan (1% of a 100 bar). */
 		public double regenPerSecond = 1.0;
 		/** A transformation needs at least this fraction of the bar. */
-		public double transformMinFraction = 0.9;
-		/** Base Titan regeneration: hit points restored per second whenever the Titan is not at full health ... */
-		public double baseRegenHpPerSecond = 3.0;
-		/** ... paid for with this much Titan Energy per second (the regeneration stops when the bar is empty). */
-		public double baseRegenEnergyPerSecond = 2.0;
+		public double transformMinFraction = 1.0;
+		/** v0.12.34: the shifter's own passive Regeneration while in base (human) form -- Regeneration III (amplifier 2), free. Not active inside the Titan. */
+		public int baseFormRegenAmplifier = 2;
 	}
 
 	public static TitanShifterConfig get() {
@@ -214,9 +225,13 @@ public final class TitanShifterConfig {
 						instance.stats.widthBlocks = new Stats().widthBlocks;
 						instance.transformation.cooldownTicks = new Transformation().cooldownTicks;
 					}
+					if (loaded.configVersion == null || loaded.configVersion < 3) {
+						// v0.12.34: the transformation now needs the full bar (the HUD only says Ready at 100%)
+						instance.energy.transformMinFraction = new Energy().transformMinFraction;
+					}
 				}
 			}
-			instance.configVersion = 2;
+			instance.configVersion = 3;
 			// always rewrite so newly added keys appear in existing files
 			Files.createDirectories(path.getParent());
 			Files.writeString(path, gson.toJson(instance));

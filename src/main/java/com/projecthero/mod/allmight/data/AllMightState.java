@@ -25,11 +25,12 @@ public final class AllMightState {
 	public static final int ANIM_LEAP = 9;
 
 	public boolean hasPower;
-	/** false = contained / base form, true = full-power All Might (H). */
+	/** false = Base Form (a plain player), true = Power Form (H). */
 	public boolean fullPower;
 	/** OFA Power, 0..{@code AllMightConfig.OFA_MAX}. */
 	public float ofa;
-	public long cowlUntil;
+	/** Plus Ultra (C) is on: OFA drains and every ability hits 30% harder. */
+	public boolean plusUltra;
 	/** Damage-proof while {@code gameTime < transformUntil}. */
 	public long transformUntil;
 	/** No new ability may start before this game time (wind-ups, transformation). */
@@ -44,15 +45,15 @@ public final class AllMightState {
 	public final Map<String, Long> abilityReadyAt;
 
 	public AllMightState() {
-		this(false, false, 0f, 0L, 0L, 0L, 0L, 0L, 0L, 0, 0L, new HashMap<>());
+		this(false, false, 0f, false, 0L, 0L, 0L, 0L, 0L, 0, 0L, new HashMap<>());
 	}
 
-	public AllMightState(boolean hasPower, boolean fullPower, float ofa, long cowlUntil, long transformUntil, long busyUntil,
+	public AllMightState(boolean hasPower, boolean fullPower, float ofa, boolean plusUltra, long transformUntil, long busyUntil,
 			long formChangedAt, long lastCombatTick, long noFallUntil, int animId, long animStart, Map<String, Long> abilityReadyAt) {
 		this.hasPower = hasPower;
 		this.fullPower = fullPower;
 		this.ofa = ofa;
-		this.cowlUntil = cowlUntil;
+		this.plusUltra = plusUltra;
 		this.transformUntil = transformUntil;
 		this.busyUntil = busyUntil;
 		this.formChangedAt = formChangedAt;
@@ -64,7 +65,7 @@ public final class AllMightState {
 	}
 
 	public AllMightState copy() {
-		return new AllMightState(hasPower, fullPower, ofa, cowlUntil, transformUntil, busyUntil, formChangedAt, lastCombatTick,
+		return new AllMightState(hasPower, fullPower, ofa, plusUltra, transformUntil, busyUntil, formChangedAt, lastCombatTick,
 				noFallUntil, animId, animStart, abilityReadyAt);
 	}
 
@@ -72,7 +73,7 @@ public final class AllMightState {
 			Codec.BOOL.optionalFieldOf("has_power", false).forGetter(s -> s.hasPower),
 			Codec.BOOL.optionalFieldOf("full_power", false).forGetter(s -> s.fullPower),
 			Codec.FLOAT.optionalFieldOf("ofa", 0f).forGetter(s -> s.ofa),
-			Codec.LONG.optionalFieldOf("cowl_until", 0L).forGetter(s -> s.cowlUntil),
+			Codec.BOOL.optionalFieldOf("plus_ultra", false).forGetter(s -> s.plusUltra),
 			Codec.LONG.optionalFieldOf("transform_until", 0L).forGetter(s -> s.transformUntil),
 			Codec.LONG.optionalFieldOf("busy_until", 0L).forGetter(s -> s.busyUntil),
 			Codec.LONG.optionalFieldOf("form_changed_at", 0L).forGetter(s -> s.formChangedAt),

@@ -6,6 +6,7 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.entity.Mob;
 
 /**
  * While a shifter is inside their Titan, the <em>Titan</em> takes the hits (its own health pool), never the
@@ -18,8 +19,11 @@ public final class TitanShifterDamage {
 
 	public static void initialize() {
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
-			if (entity instanceof ServerPlayer p && p.getVehicle() instanceof TitanFormEntity f
-					&& p.getUUID().equals(f.ownerId())) {
+			if (entity instanceof ServerPlayer p && TitanFormEntity.isOwnerRider(p)) {
+				TitanFormEntity f = (TitanFormEntity) p.getVehicle();
+				if (source.getEntity() instanceof Mob && !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+					f.hurt(source, amount); // v0.12.34: a mob that somehow reached the rider hits the Titan instead
+				}
 				return source.is(DamageTypeTags.BYPASSES_INVULNERABILITY);
 			}
 			return true;

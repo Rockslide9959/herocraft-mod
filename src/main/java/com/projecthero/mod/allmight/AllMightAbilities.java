@@ -37,7 +37,7 @@ public final class AllMightAbilities {
 	public static final String TEXAS = "texas_smash";
 	public static final String CAROLINA = "carolina_smash";
 	public static final String NEW_HAMPSHIRE = "new_hampshire_smash";
-	public static final String COWL = "full_cowl";
+	public static final String PLUS_ULTRA = "plus_ultra";
 	public static final String UNITED_STATES = "united_states_of_smash";
 	public static final String LEAP = "all_might_leap";
 
@@ -70,6 +70,8 @@ public final class AllMightAbilities {
 	private static final Map<UUID, Move> MOVES = new HashMap<>();
 	/** Game time a New Hampshire landing burst last fired, so the generic landing impact does not double it. */
 	private static final Map<UUID, Long> NEW_HAMPSHIRE_LANDED = new HashMap<>();
+	/** Players holding Z for the United States of Smash: game time the charge began. */
+	private static final Map<UUID, Long> CHARGING = new HashMap<>();
 
 	private AllMightAbilities() {
 	}
@@ -78,12 +80,14 @@ public final class AllMightAbilities {
 		TASKS.clear();
 		MOVES.clear();
 		NEW_HAMPSHIRE_LANDED.clear();
+		CHARGING.clear();
 	}
 
 	public static void clear(UUID id) {
 		TASKS.remove(id);
 		MOVES.remove(id);
 		NEW_HAMPSHIRE_LANDED.remove(id);
+		CHARGING.remove(id);
 	}
 
 	/** True while a New Hampshire flight is under way (or just landed): it makes its own, bigger landing burst. */
@@ -112,8 +116,8 @@ public final class AllMightAbilities {
 	 */
 	private static boolean begin(ServerPlayer p, String id, float cost, int cooldown, int lockTicks, int anim) {
 		AllMightState s = AllMight.state(p);
-		if (!s.hasPower || !p.isAlive() || p.isSpectator()) {
-			return false;
+		if (!s.hasPower || !s.fullPower || !p.isAlive() || p.isSpectator()) {
+			return false; // the Base Form cannot use abilities
 		}
 		long now = p.level().getGameTime();
 		if (now < s.busyUntil || now < s.transformUntil) {
@@ -307,52 +311,78 @@ public final class AllMightAbilities {
 		});
 	}
 
-	// ---------------------------------------------------------------- C -- Full Cowl
+	// ---------------------------------------------------------------- C -- Plus Ultra
 
-	public static void fullCowl(ServerPlayer p) {
+	/** C: toggles Plus Ultra. On: OFA drains and every ability hits 30% harder. Off: a 20 s cooldown starts. */
+	public static void plusUltra(ServerPlayer p) {
 		AllMightState s = AllMight.state(p);
-		if (s.hasPower && s.cowlUntil > p.level().getGameTime()) {
-			AllMight.say(p, "message.projecthero.all_might.cowl_active", ChatFormatting.GRAY);
-			return; // no duplicate buff, and no OFA is spent on a press that does nothing
-		}
-		if (!begin(p, COWL, AllMightConfig.COWL_OFA_COST, AllMightConfig.COWL_COOLDOWN_TICKS, 12, AllMightState.ANIM_COWL)) {
+		if (!s.hasPower || !s.fullPower || !p.isAlive()) {
 			return;
 		}
-		AllMightState n = AllMight.state(p).copy();
-		n.cowlUntil = p.level().getGameTime() + AllMightConfig.COWL_DURATION_TICKS;
-		AllMight.save(p, n);
-		AllMight.reconcile(p);
+		long now = p.level().getGameTime();
 		ServerLevel level = (ServerLevel) p.level();
-		Vec3 c = p.position().add(0, 1.0, 0);
+		if (s.plusUltra) {
+			AllMightState n = s.copy();
+			n.plusUltra = false;
+			n.abilityReadyAt.put(PLUS_ULTRA, now + AllMightConfig.PLUS_ULTRA_COOLDOWN_TICKS);
+			AllMight.save(p, n);
+			level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.8f, 1.6f);
+			AllMight.steam(level, p, 6);
+			p.displayClientMessage(Component.translatable("message.projecthero.all_might.plus_ultra_off").withStyle(ChatFormatting.GRAY), true);
+			return;
+		}
+		Long ready = s.abilityReadyAt.get(PLUS_ULTRA);
+		if (ready != null && now < ready) {
+			AllMight.say(p, "message.projecthero.all_might.cooldown", ChatFormatting.RED,
+					Component.translatable("projecthero.all_might.ability." + PLUS_ULTRA), String.format(java.util.Locale.ROOT, "%.1f", (ready - now) / 20.0));
+			return;
+		}
+		if (now < s.busyUntil || s.ofa <= 0f) {
+			return;
+		}
+		AllMightState n = s.copy();
+		n.plusUltra = true;
+		n.animId = AllMightState.ANIM_COWL;
+		n.animStart = now;
+		AllMight.save(p, n);
+		Vec3 c = p.position().add(0, p.getBbHeight() * 0.5, 0);
 		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0f, 1.8f);
 		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 0.6f, 1.6f);
 		AllMightShockwave.burst(level, ParticleTypes.ELECTRIC_SPARK, c, 45, 0.6, 0.3);
 		AllMightShockwave.burst(level, new DustParticleOptions(new Vector3f(0.3f, 1.0f, 0.45f), 1.4f), c, 25, 0.6, 0.05);
 		AllMightShockwave.ring(level, ParticleTypes.END_ROD, p.position().add(0, 0.2, 0), 1.6, 16);
-		p.displayClientMessage(Component.translatable("message.projecthero.all_might.cowl").withStyle(ChatFormatting.GREEN), true);
+		p.displayClientMessage(Component.translatable("message.projecthero.all_might.plus_ultra").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
 	}
 
 	// ---------------------------------------------------------------- V -- United States of Smash
 
-	public static void unitedStates(ServerPlayer p) {
-		int windup = AllMightConfig.UNITED_STATES_WINDUP;
-		int total = windup + AllMightConfig.UNITED_STATES_SECONDARY_DELAY + AllMightConfig.UNITED_STATES_SECONDARY_EXPAND_TICKS + 8;
+	/** Z pressed: begin the 5 s charge (OFA is spent now and refunded if he lets go early). */
+	public static void unitedStatesPress(ServerPlayer p) {
+		if (CHARGING.containsKey(p.getUUID())) {
+			return;
+		}
+		int charge = AllMightConfig.UNITED_STATES_CHARGE_TICKS;
+		int total = charge + AllMightConfig.UNITED_STATES_SECONDARY_DELAY + AllMightConfig.UNITED_STATES_SECONDARY_EXPAND_TICKS + 8;
 		if (!begin(p, UNITED_STATES, AllMightConfig.UNITED_STATES_COST, AllMightConfig.UNITED_STATES_COOLDOWN, total,
 				AllMightState.ANIM_UNITED_STATES)) {
 			return;
 		}
 		ServerLevel level = (ServerLevel) p.level();
-		// Phase 1 -- preparation: a growing aura, building wind, the charge sound
-		p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, windup + 4, 3, false, false, false));
+		long start = level.getGameTime();
+		AllMightState n = AllMight.state(p).copy();
+		n.animStart = start + charge - AllMightConfig.UNITED_STATES_POSE_LEAD; // the punch pose only plays at the end of the charge
+		AllMight.save(p, n);
+		CHARGING.put(p.getUUID(), start);
+		p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, charge + 4, 3, false, false, false));
 		AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_CHARGE, 1.4f, 0.8f);
-		for (int t = 0; t < windup; t += 4) {
+		for (int t = 0; t < charge; t += 4) {
 			final int tt = t;
 			schedule(p, t, () -> {
-				if (!alive(p)) {
+				if (!charging(p, start)) {
 					return;
 				}
-				float grow = 0.4f + 0.6f * tt / (float) windup;
-				Vec3 c = p.position().add(0, 1.0, 0);
+				float grow = 0.4f + 0.6f * tt / (float) charge;
+				Vec3 c = p.position().add(0, p.getBbHeight() * 0.55, 0);
 				AllMightShockwave.burst(level, ParticleTypes.ELECTRIC_SPARK, c, (int) (8 + 14 * grow), 0.5 + 0.5 * grow, 0.3);
 				AllMightShockwave.burst(level, new DustParticleOptions(new Vector3f(0.3f, 1.0f, 0.45f), 1.2f + grow), c, (int) (6 + 10 * grow), 0.6, 0.05);
 				AllMightShockwave.ring(level, ParticleTypes.CLOUD, p.position().add(0, 0.15, 0), 3.0 - 2.2 * grow, 16);
@@ -362,62 +392,96 @@ public final class AllMightAbilities {
 				AllMightShockwave.shake(level, p.position(), 0.08f + 0.12f * grow, 6);
 			});
 		}
-		// Phase 2 -- the attack, on the animation's impact frame
-		schedule(p, windup, () -> {
-			if (!alive(p)) {
+		schedule(p, charge, () -> {
+			if (!charging(p, start)) {
 				return;
 			}
-			p.swing(InteractionHand.MAIN_HAND, true);
-			Vec3 origin = p.position();
-			Vec3 look = p.getLookAngle();
-			Vec3 flat = flatLook(p);
-			Vec3 fist = origin.add(0, 1.3, 0).add(flat.scale(2.5));
-			var primary = new AllMightShockwave.Wave(AllMightConfig.UNITED_STATES_DAMAGE, AllMightConfig.UNITED_STATES_KNOCKBACK,
-					AllMightConfig.UNITED_STATES_LIFT);
-			AllMightShockwave.sweep(p, origin, look, 0.0, AllMightConfig.UNITED_STATES_RANGE, AllMightConfig.UNITED_STATES_WIDTH,
-					AllMightConfig.UNITED_STATES_HEIGHT, primary);
-			AllMightShockwave.windLine(level, origin.add(0, 1.2, 0), look, AllMightConfig.UNITED_STATES_RANGE, AllMightConfig.UNITED_STATES_WIDTH * 0.8, 3);
-			AllMightShockwave.burst(level, ParticleTypes.EXPLOSION_EMITTER, fist, 1, 0.0, 0.0);
-			AllMightShockwave.burst(level, ParticleTypes.CLOUD, fist, 40, 1.4, 0.3);
-			AllMightShockwave.burst(level, ParticleTypes.ELECTRIC_SPARK, fist, 40, 1.2, 0.5);
-			level.playSound(null, fist.x, fist.y, fist.z, SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 2.0f, 0.7f);
-			level.playSound(null, fist.x, fist.y, fist.z, SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.PLAYERS, 1.8f, 0.4f);
-			level.playSound(null, fist.x, fist.y, fist.z, SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 1.4f, 0.8f);
-			AllMightShockwave.shake(level, fist, 1.0f, 24);
-			// Phase 4 (part) -- the crater
-			Vec3 crater = origin.add(flat.scale(5.0));
-			AllMightShockwave.breakBlocks(p, crater, AllMightConfig.UNITED_STATES_BLOCK_RADIUS, AllMightConfig.UNITED_STATES_BLOCK_MAX,
-					AllMightConfig.UNITED_STATES_BLOCK_HARDNESS);
-
-			// Phase 3 -- the larger surrounding wave, expanding outward from where he stood
-			var secondary = new AllMightShockwave.Wave(AllMightConfig.UNITED_STATES_DAMAGE * AllMightConfig.UNITED_STATES_SECONDARY_DAMAGE_FRACTION,
-					AllMightConfig.UNITED_STATES_SECONDARY_KNOCKBACK, 0.5);
-			secondary.hit.addAll(primary.hit); // whoever the punch itself struck is not hit again
-			int expand = AllMightConfig.UNITED_STATES_SECONDARY_EXPAND_TICKS;
-			for (int k = 1; k <= expand; k++) {
-				final int kk = k;
-				schedule(p, AllMightConfig.UNITED_STATES_SECONDARY_DELAY + k, () -> {
-					if (!alive(p)) {
-						return;
-					}
-					double r = AllMightConfig.UNITED_STATES_SECONDARY_RANGE * kk / expand;
-					AllMightShockwave.radial(p, origin, r, secondary, false);
-					AllMightShockwave.ring(level, ParticleTypes.CLOUD, origin.add(0, 0.25, 0), r, 24);
-					if (kk % 2 == 0) {
-						AllMightShockwave.ring(level, ParticleTypes.SWEEP_ATTACK, origin.add(0, 1.0, 0), r, 16);
-					}
-					if (kk == 1 || kk == expand) {
-						level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 1.6f, 0.7f);
-					}
-					if (kk == expand) {
-						AllMightShockwave.shake(level, origin, 0.6f, 16);
-					}
-				});
-			}
+			CHARGING.remove(p.getUUID());
+			fireUnitedStates(p);
 		});
 	}
 
-	// ---------------------------------------------------------------- N -- All Might Leap
+	private static boolean charging(ServerPlayer p, long start) {
+		Long c = CHARGING.get(p.getUUID());
+		return c != null && c == start;
+	}
+
+	/** Z released: an unfinished charge is cancelled for free. */
+	public static void unitedStatesRelease(ServerPlayer p) {
+		if (CHARGING.containsKey(p.getUUID())) {
+			cancelCharge(p, true);
+			p.displayClientMessage(Component.translatable("message.projecthero.all_might.charge_cancelled").withStyle(ChatFormatting.GRAY), true);
+		}
+	}
+
+	/** Ends a charge in progress; with {@code refund} the OFA comes back and the cooldown is cleared. */
+	static void cancelCharge(ServerPlayer p, boolean refund) {
+		if (CHARGING.remove(p.getUUID()) == null) {
+			return;
+		}
+		p.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+		AllMightState s = AllMight.state(p);
+		AllMightState n = s.copy();
+		if (refund) {
+			n.ofa = Math.min(AllMightConfig.OFA_MAX, s.ofa + AllMightConfig.UNITED_STATES_COST);
+			n.abilityReadyAt.remove(UNITED_STATES);
+		}
+		n.busyUntil = p.level().getGameTime();
+		n.animId = AllMightState.ANIM_NONE;
+		AllMight.save(p, n);
+	}
+
+	private static void fireUnitedStates(ServerPlayer p) {
+		ServerLevel level = (ServerLevel) p.level();
+		p.swing(InteractionHand.MAIN_HAND, true);
+		Vec3 origin = p.position();
+		Vec3 look = p.getLookAngle();
+		Vec3 flat = flatLook(p);
+		Vec3 fist = origin.add(0, 1.3, 0).add(flat.scale(2.5));
+		var primary = new AllMightShockwave.Wave(AllMightConfig.UNITED_STATES_DAMAGE, AllMightConfig.UNITED_STATES_KNOCKBACK,
+				AllMightConfig.UNITED_STATES_LIFT);
+		AllMightShockwave.sweep(p, origin, look, 0.0, AllMightConfig.UNITED_STATES_RANGE, AllMightConfig.UNITED_STATES_WIDTH,
+				AllMightConfig.UNITED_STATES_HEIGHT, primary);
+		AllMightShockwave.windLine(level, origin.add(0, 1.2, 0), look, AllMightConfig.UNITED_STATES_RANGE, AllMightConfig.UNITED_STATES_WIDTH * 0.8, 3);
+		AllMightShockwave.burst(level, ParticleTypes.EXPLOSION_EMITTER, fist, 1, 0.0, 0.0);
+		AllMightShockwave.burst(level, ParticleTypes.CLOUD, fist, 40, 1.4, 0.3);
+		AllMightShockwave.burst(level, ParticleTypes.ELECTRIC_SPARK, fist, 40, 1.2, 0.5);
+		level.playSound(null, fist.x, fist.y, fist.z, SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 2.0f, 0.7f);
+		level.playSound(null, fist.x, fist.y, fist.z, SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.PLAYERS, 1.8f, 0.4f);
+		level.playSound(null, fist.x, fist.y, fist.z, SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 1.4f, 0.8f);
+		AllMightShockwave.shake(level, fist, 1.0f, 24);
+		// the crater
+		Vec3 crater = origin.add(flat.scale(6.0)).add(0, -1.5, 0);
+		AllMightShockwave.breakBlocks(p, crater, AllMightConfig.UNITED_STATES_BLOCK_RADIUS, AllMightConfig.UNITED_STATES_BLOCK_MAX,
+				AllMightConfig.UNITED_STATES_BLOCK_HARDNESS);
+		// the larger surrounding wave, expanding outward from where he stood
+		var secondary = new AllMightShockwave.Wave(AllMightConfig.UNITED_STATES_DAMAGE * AllMightConfig.UNITED_STATES_SECONDARY_DAMAGE_FRACTION,
+				AllMightConfig.UNITED_STATES_SECONDARY_KNOCKBACK, 0.5);
+		secondary.hit.addAll(primary.hit);
+		int expand = AllMightConfig.UNITED_STATES_SECONDARY_EXPAND_TICKS;
+		for (int k = 1; k <= expand; k++) {
+			final int kk = k;
+			schedule(p, AllMightConfig.UNITED_STATES_SECONDARY_DELAY + k, () -> {
+				if (!alive(p)) {
+					return;
+				}
+				double r = AllMightConfig.UNITED_STATES_SECONDARY_RANGE * kk / expand;
+				AllMightShockwave.radial(p, origin, r, secondary, false);
+				AllMightShockwave.ring(level, ParticleTypes.CLOUD, origin.add(0, 0.25, 0), r, 24);
+				if (kk % 2 == 0) {
+					AllMightShockwave.ring(level, ParticleTypes.SWEEP_ATTACK, origin.add(0, 1.0, 0), r, 16);
+				}
+				if (kk == 1 || kk == expand) {
+					level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 1.6f, 0.7f);
+				}
+				if (kk == expand) {
+					AllMightShockwave.shake(level, origin, 0.6f, 16);
+				}
+			});
+		}
+	}
+
+	// ---------------------------------------------------------------- X -- Leap
 
 	public static void leap(ServerPlayer p) {
 		if (!begin(p, LEAP, AllMightConfig.LEAP_COST, AllMightConfig.LEAP_COOLDOWN, 8, AllMightState.ANIM_LEAP)) {
@@ -438,6 +502,10 @@ public final class AllMightAbilities {
 	// ---------------------------------------------------------------- per-tick
 
 	public static void tick(ServerPlayer p) {
+		if (CHARGING.containsKey(p.getUUID()) && (!p.isAlive() || !AllMight.isFullPower(p))) {
+			CHARGING.remove(p.getUUID());
+			p.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+		}
 		List<Task> tasks = TASKS.get(p.getUUID());
 		if (tasks != null && !tasks.isEmpty()) {
 			long now = p.level().getGameTime();

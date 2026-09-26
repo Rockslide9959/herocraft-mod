@@ -35,7 +35,7 @@ public abstract class TitanCameraMixin {
 	@Inject(method = "setup", at = @At("TAIL"))
 	private void projecthero$titanCamera(BlockGetter level, Entity entity, boolean detached, boolean thirdPersonReverse,
 			float partialTick, CallbackInfo ci) {
-		if (detached && entity != null && entity.getVehicle() instanceof TitanFormEntity form) {
+		if (detached && entity != null && TitanFormEntity.isOwnerRider(entity) && entity.getVehicle() instanceof TitanFormEntity form) {
 			// v0.12.32: further back and lower (the camera starts at the Titan's eyes, ~10 blocks up) so the whole
 			// body -- feet included -- is in frame, not just the head and shoulders.
 			move(-form.getBbHeight() * 1.1f, -form.getBbHeight() * 0.3f, 0.0f);

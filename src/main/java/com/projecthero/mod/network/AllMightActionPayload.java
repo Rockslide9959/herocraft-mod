@@ -14,8 +14,7 @@ import net.minecraft.resources.ResourceLocation;
  */
 public record AllMightActionPayload(Action action) implements CustomPacketPayload {
 	public enum Action {
-		TOGGLE_FORM,
-		LEAP
+		TOGGLE_FORM
 	}
 
 	public static final CustomPacketPayload.Type<AllMightActionPayload> TYPE =

@@ -19,6 +19,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
@@ -32,21 +34,20 @@ import org.joml.Vector3f;
  * {@link AllMightAbilities}, the shared air-pressure code in {@link AllMightShockwave}, the numbers in
  * {@link AllMightConfig}.
  *
- * <h2>Two separate systems</h2>
- * <b>H</b> toggles the persistent {@code fullPower} form. <b>C</b> (Full Cowl) is a temporary buff that expires on
- * its own. They never share state: the stats are recomputed from {@code (fullPower, cowlActive)} by {@link #reconcile},
- * which only ever sets fixed-id transient attribute modifiers -- so pressing either key any number of times cannot
- * stack anything.
+ * <h2>Two forms (v0.12.34)</h2>
+ * <b>Base Form</b> is a plain player -- no bonuses, no passives, no abilities. <b>H</b> switches to the <b>Power Form</b>: he grows to
+ * 2.7 blocks over a second (steaming), gets 13 melee, 40 max HP (the health percentage carries over), 50% less damage, Speed III,
+ * Regeneration I and a 3-block jump, and the six abilities unlock. <b>C</b> (Plus Ultra) is a drain-while-on toggle inside the Power
+ * Form. The stats are recomputed from {@code (fullPower)} by {@link #reconcile}, which only ever sets fixed-id transient attribute
+ * modifiers -- so pressing H any number of times cannot stack anything.
  */
 public final class AllMight {
 	public static final String KEY = "all_might";
 
 	private static final ResourceLocation HEALTH_ID = PowerToggles.id("all_might_health");
 	private static final ResourceLocation ATTACK_ID = PowerToggles.id("all_might_attack");
-	private static final ResourceLocation ATTACK_COWL_ID = PowerToggles.id("all_might_attack_cowl");
-	private static final ResourceLocation SPEED_ID = PowerToggles.id("all_might_speed");
-	private static final ResourceLocation KNOCKBACK_ID = PowerToggles.id("all_might_knockback");
 	private static final ResourceLocation JUMP_ID = PowerToggles.id("all_might_jump");
+	private static final ResourceLocation SCALE_ID = PowerToggles.id("all_might_scale");
 
 	/** Highest fall distance seen since the last time the player stood on the ground (for the landing impacts). */
 	private static final Map<UUID, Float> PEAK_FALL = new HashMap<>();
@@ -83,9 +84,9 @@ public final class AllMight {
 		return s != null && s.hasPower && s.fullPower;
 	}
 
-	public static boolean cowlActive(Player player) {
+	public static boolean plusUltraActive(Player player) {
 		AllMightState s = player.getAttachedOrElse(ModAttachments.ALL_MIGHT_STATE, null);
-		return s != null && s.hasPower && s.cowlUntil > player.level().getGameTime();
+		return s != null && s.hasPower && s.fullPower && s.plusUltra;
 	}
 
 	/** Inside the damage-proof transformation window. */
@@ -108,16 +109,9 @@ public final class AllMight {
 		return ready == null ? 0 : (int) Math.max(0L, ready - player.level().getGameTime());
 	}
 
-	/** Smash damage multiplier: the full-power form and an active Full Cowl each add a little. */
+	/** Ability damage multiplier: Plus Ultra makes every move 30% stronger. */
 	public static float smashMultiplier(ServerPlayer player) {
-		float m = 1.0f;
-		if (isFullPower(player)) {
-			m *= AllMightConfig.FULL_SMASH_MULTIPLIER;
-		}
-		if (cowlActive(player)) {
-			m *= AllMightConfig.COWL_SMASH_MULTIPLIER;
-		}
-		return m;
+		return plusUltraActive(player) ? AllMightConfig.PLUS_ULTRA_MULTIPLIER : 1.0f;
 	}
 
 	static void say(ServerPlayer player, String key, ChatFormatting colour, Object... args) {
@@ -177,7 +171,6 @@ public final class AllMight {
 		s.formChangedAt = now - AllMightConfig.FORM_TOGGLE_DEBOUNCE_TICKS; // H works straight away
 		save(player, s);
 		reconcile(player);
-		AllMightSuit.equip(player);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.0, 0);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0f, 1.4f);
@@ -197,76 +190,75 @@ public final class AllMight {
 		AllMightState s = new AllMightState(); // hasPower=false
 		save(player, s);
 		reconcile(player);
-		AllMightSuit.strip(player);
-		AllMightSuit.deleteLoose(player);
 	}
 
 	// ---------------------------------------------------------------- stats
 
-	/** Jump HEIGHT multiplier to the jump-VELOCITY modifier (height ~ velocity squared). */
-	static double jumpVelocityModifier(double heightMultiplier) {
-		return Math.sqrt(Math.max(1.0, heightMultiplier)) - 1.0;
+	/** The multiplier on the vanilla jump velocity (0.42) that carries a player {@code blocks} high. */
+	static double jumpVelocityModifier(double blocks) {
+		return AllMightAbilities.verticalSpeedForHeight(blocks) / 0.42 - 1.0;
 	}
 
 	/**
-	 * Brings every attribute modifier in line with {@code (hasPower, fullPower, cowl)}. Idempotent -- fixed ids, each branch
+	 * Brings every attribute modifier and effect in line with {@code (hasPower, fullPower)}. Idempotent -- fixed ids, each branch
 	 * checks before it writes -- so it is safe to call as often as you like (H spam, the once-a-second audit, join, respawn).
+	 * The body size is not set here: it eases in and out over a second ({@link #tickScale}).
 	 */
 	public static void reconcile(ServerPlayer player) {
 		AllMightState s = state(player);
-		if (!s.hasPower) {
+		if (!s.hasPower || !s.fullPower) {
 			PowerToggles.clearModifier(player, Attributes.MAX_HEALTH, HEALTH_ID);
 			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, ATTACK_ID);
-			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, ATTACK_COWL_ID);
-			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID);
-			PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, KNOCKBACK_ID);
 			PowerToggles.clearModifier(player, Attributes.JUMP_STRENGTH, JUMP_ID);
+			clearOurEffect(player, MobEffects.MOVEMENT_SPEED, AllMightConfig.FULL_SPEED_AMPLIFIER);
+			clearOurEffect(player, MobEffects.REGENERATION, AllMightConfig.FULL_REGEN_AMPLIFIER);
+			if (!s.hasPower) {
+				PowerToggles.clearModifier(player, Attributes.SCALE, SCALE_ID);
+			}
 			if (player.getHealth() > player.getMaxHealth()) {
 				player.setHealth(player.getMaxHealth());
 			}
 			return;
 		}
-		boolean full = s.fullPower;
-		boolean cowl = s.cowlUntil > player.level().getGameTime();
-		PowerToggles.modifier(player, Attributes.MAX_HEALTH, HEALTH_ID,
-				full ? AllMightConfig.FULL_HEALTH_BONUS : AllMightConfig.BASE_HEALTH_BONUS, AttributeModifier.Operation.ADD_VALUE);
-		PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, ATTACK_ID,
-				full ? AllMightConfig.FULL_ATTACK_BONUS : AllMightConfig.BASE_ATTACK_BONUS, AttributeModifier.Operation.ADD_VALUE);
-		if (cowl) {
-			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, ATTACK_COWL_ID, AllMightConfig.COWL_ATTACK_MULTIPLIER,
-					AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-		} else {
-			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, ATTACK_COWL_ID);
-		}
-		double formSpeed = full ? AllMightConfig.FULL_SPEED_BONUS : AllMightConfig.BASE_SPEED_BONUS;
-		PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID,
-				cowl ? Math.max(formSpeed, AllMightConfig.COWL_SPEED_BONUS) : formSpeed, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-		double formKb = full ? AllMightConfig.FULL_KNOCKBACK_RESISTANCE : AllMightConfig.BASE_KNOCKBACK_RESISTANCE;
-		PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, KNOCKBACK_ID,
-				cowl ? Math.max(formKb, AllMightConfig.COWL_KNOCKBACK_RESISTANCE) : formKb, AttributeModifier.Operation.ADD_VALUE);
-		double height = (full ? AllMightConfig.FULL_JUMP_HEIGHT : AllMightConfig.BASE_JUMP_HEIGHT)
-				+ (cowl ? AllMightConfig.COWL_JUMP_HEIGHT_BONUS : 0.0);
-		PowerToggles.modifier(player, Attributes.JUMP_STRENGTH, JUMP_ID, jumpVelocityModifier(height),
+		PowerToggles.modifier(player, Attributes.MAX_HEALTH, HEALTH_ID, AllMightConfig.FULL_HEALTH_BONUS, AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, ATTACK_ID, AllMightConfig.FULL_ATTACK_BONUS, AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(player, Attributes.JUMP_STRENGTH, JUMP_ID, jumpVelocityModifier(AllMightConfig.FULL_JUMP_BLOCKS),
 				AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		keepEffect(player, MobEffects.MOVEMENT_SPEED, AllMightConfig.FULL_SPEED_AMPLIFIER);
+		keepEffect(player, MobEffects.REGENERATION, AllMightConfig.FULL_REGEN_AMPLIFIER);
 	}
 
-	/** The fall-damage reduction of the player's current form. */
-	public static float fallReduction(ServerPlayer player) {
-		return isFullPower(player) ? AllMightConfig.FULL_FALL_REDUCTION : AllMightConfig.BASE_FALL_REDUCTION;
-	}
-
-	/** The damage-taken factor (1 - reduction) of the current form and Full Cowl, multiplied together. */
-	public static float damageTakenFactor(ServerPlayer player) {
-		float f = 1.0f - (isFullPower(player) ? AllMightConfig.FULL_DAMAGE_REDUCTION : AllMightConfig.BASE_DAMAGE_REDUCTION);
-		if (cowlActive(player)) {
-			f *= 1.0f - AllMightConfig.COWL_DAMAGE_REDUCTION;
+	/** A short hidden effect that is topped up while it is running low, so it never clobbers another power's infinite one and lapses on its own. */
+	private static void keepEffect(ServerPlayer player, net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect> effect, int amplifier) {
+		MobEffectInstance cur = player.getEffect(effect);
+		if (cur != null && (cur.isInfiniteDuration() || cur.getAmplifier() > amplifier)) {
+			return; // somebody else's stronger / permanent one
 		}
-		return f;
+		if (cur == null || cur.getAmplifier() < amplifier || cur.getDuration() <= 40) {
+			player.addEffect(new MobEffectInstance(effect, 100, amplifier, false, false, false));
+		}
+	}
+
+	private static void clearOurEffect(ServerPlayer player, net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect> effect, int amplifier) {
+		MobEffectInstance cur = player.getEffect(effect);
+		if (cur != null && !cur.isInfiniteDuration() && cur.getAmplifier() == amplifier && cur.getDuration() <= 100) {
+			player.removeEffect(effect);
+		}
+	}
+
+	/** The fall-damage reduction of the current form (the Power Form's flat 50%). */
+	public static float fallReduction(ServerPlayer player) {
+		return isFullPower(player) ? AllMightConfig.FULL_DAMAGE_REDUCTION : 0.0f;
+	}
+
+	/** The damage-taken factor (1 - reduction) of the current form: 1.0 in the Base Form, 0.5 in the Power Form. */
+	public static float damageTakenFactor(ServerPlayer player) {
+		return 1.0f - (isFullPower(player) ? AllMightConfig.FULL_DAMAGE_REDUCTION : 0.0f);
 	}
 
 	// ---------------------------------------------------------------- H: the form
 
-	/** The H key: toggle between the contained form and full-power All Might. Server-validated; safe to spam. */
+	/** The H key: toggle between the Base Form and the Power Form. Server-validated; safe to spam. */
 	public static void toggleForm(ServerPlayer player) {
 		AllMightState s = state(player);
 		if (!s.hasPower || !player.isAlive() || player.isSpectator()) {
@@ -276,20 +268,55 @@ public final class AllMight {
 		if (now - s.formChangedAt < AllMightConfig.FORM_TOGGLE_DEBOUNCE_TICKS || now < s.transformUntil) {
 			return;
 		}
-		boolean toFull = !s.fullPower;
+		changeForm(player, !s.fullPower);
+	}
+
+	/** Switches form: the health percentage carries over, the body grows / shrinks over a second and steam pours off. */
+	private static void changeForm(ServerPlayer player, boolean toFull) {
+		AllMightState s = state(player);
+		long now = player.level().getGameTime();
+		float ratio = player.getMaxHealth() <= 0f ? 1f : player.getHealth() / player.getMaxHealth();
+		AllMightAbilities.cancelCharge(player, true);
 		AllMightState n = s.copy();
 		n.fullPower = toFull;
 		n.formChangedAt = now;
 		int lock = toFull ? AllMightConfig.TRANSFORM_TICKS : AllMightConfig.DETRANSFORM_TICKS;
 		n.busyUntil = now + lock;
-		if (toFull) {
-			n.transformUntil = now + AllMightConfig.TRANSFORM_TICKS; // damage-proof while the form swells
-		}
+		n.transformUntil = now + lock; // damage-proof while the body changes size
 		n.animId = toFull ? AllMightState.ANIM_TRANSFORM_UP : AllMightState.ANIM_TRANSFORM_DOWN;
 		n.animStart = now;
+		if (!toFull && s.plusUltra) {
+			n.plusUltra = false;
+			n.abilityReadyAt.put(AllMightAbilities.PLUS_ULTRA, now + AllMightConfig.PLUS_ULTRA_COOLDOWN_TICKS);
+		}
 		save(player, n);
 		reconcile(player);
+		// 20 HP at 100% is 40 HP at 100%; 10 of 20 becomes 20 of 40 (and back)
+		player.setHealth(Math.max(0.5f, Math.min(player.getMaxHealth(), ratio * player.getMaxHealth())));
 		transformFx(player, toFull);
+	}
+
+	/** Runs out of One For All while Plus Ultra is on: the power gives out and he drops back to the Base Form. */
+	static void exhaust(ServerPlayer player) {
+		AllMightState s = state(player);
+		if (!s.hasPower || !s.fullPower) {
+			return;
+		}
+		ServerLevel level = (ServerLevel) player.level();
+		changeForm(player, false);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 1.2f, 0.7f);
+		player.displayClientMessage(Component.translatable("message.projecthero.all_might.exhausted").withStyle(ChatFormatting.RED), true);
+	}
+
+	/** Steam venting off the body: a puff of cloud and smoke at a few heights, scaled to how tall he currently is. */
+	static void steam(ServerLevel level, ServerPlayer player, int count) {
+		double h = Math.max(1.8, player.getBbHeight());
+		for (int i = 0; i < 3; i++) {
+			double y = player.getY() + h * (0.25 + 0.3 * i);
+			level.sendParticles(ParticleTypes.CLOUD, player.getX(), y, player.getZ(), AllMightShockwave.particles(count), 0.35, 0.15, 0.35, 0.03);
+			level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, player.getX(), y, player.getZ(), AllMightShockwave.particles(Math.max(1, count / 2)),
+					0.3, 0.15, 0.3, 0.02);
+		}
 	}
 
 	private static void transformFx(ServerPlayer player, boolean toFull) {
@@ -299,9 +326,11 @@ public final class AllMight {
 			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.4f, 0.6f);
 			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.1f, 1.3f);
 			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 0.7f, 1.4f);
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 1.0f, 0.8f);
 			AllMightShockwave.burst(level, ParticleTypes.EXPLOSION, c, 3, 0.5, 0.0);
 			AllMightShockwave.burst(level, ParticleTypes.ELECTRIC_SPARK, c, 70, 0.7, 0.4);
 			AllMightShockwave.burst(level, new DustParticleOptions(new Vector3f(0.3f, 1.0f, 0.45f), 1.5f), c, 40, 0.8, 0.05);
+			steam(level, player, 10);
 			AllMightShockwave.ring(level, ParticleTypes.CLOUD, player.position().add(0, 0.2, 0), 2.5, 24);
 			AllMightShockwave.ring(level, ParticleTypes.CLOUD, player.position().add(0, 0.2, 0), 4.5, 24);
 			AllMightShockwave.shake(level, player.position(), 0.5f, 20);
@@ -315,7 +344,8 @@ public final class AllMight {
 					.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), true);
 		} else {
 			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.9f, 1.2f);
-			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.8f, 1.0f);
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 1.2f, 0.9f);
+			steam(level, player, 10);
 			AllMightShockwave.burst(level, ParticleTypes.CLOUD, c, 20, 0.6, 0.05);
 			AllMightShockwave.burst(level, ParticleTypes.ELECTRIC_SPARK, c, 15, 0.5, 0.15);
 			player.displayClientMessage(Component.translatable("message.projecthero.all_might.contained")
@@ -334,21 +364,17 @@ public final class AllMight {
 		ServerLevel level = (ServerLevel) player.level();
 		long now = level.getGameTime();
 
-		// Full Cowl runs out on its own
-		if (s.cowlUntil != 0L && now >= s.cowlUntil) {
-			AllMightState n = s.copy();
-			n.cowlUntil = 0L;
-			save(player, n);
-			reconcile(player);
-			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.6f, 1.6f);
-			AllMightShockwave.burst(level, ParticleTypes.ELECTRIC_SPARK, player.position().add(0, 1.0, 0), 12, 0.4, 0.1);
-			s = n;
-		}
+		tickScale(player, s);
 		// the once-a-second safety net (a respawn or another mod may have cleared the transient modifiers)
 		if (player.tickCount % 20 == 0) {
 			reconcile(player);
-			AllMightSuit.reequipMissing(player);
-			AllMightSuit.deleteLoose(player);
+		}
+		if (s.fullPower && s.plusUltra) {
+			tickPlusUltra(player, s, now);
+			s = state(player);
+			if (!s.fullPower) {
+				return; // ran dry: he is back in the Base Form
+			}
 		}
 
 		tickOfa(player, s, now);
@@ -357,8 +383,56 @@ public final class AllMight {
 		tickAura(player, s, now);
 	}
 
+	/** Plus Ultra costs OFA continuously; at zero it gives out and he drops back to the Base Form. */
+	private static void tickPlusUltra(ServerPlayer player, AllMightState s, long now) {
+		if (now % AllMightConfig.PLUS_ULTRA_DRAIN_INTERVAL_TICKS != 0L) {
+			return;
+		}
+		AllMightState n = s.copy();
+		n.ofa = Math.max(0f, s.ofa - AllMightConfig.PLUS_ULTRA_DRAIN_AMOUNT);
+		save(player, n);
+		if (n.ofa <= 0f) {
+			exhaust(player);
+		}
+	}
+
+	/** Eases the body toward its target size (2.7 blocks in the Power Form, 1.8 in the Base Form) one twentieth of the difference a tick. */
+	private static void tickScale(ServerPlayer player, AllMightState s) {
+		net.minecraft.world.entity.ai.attributes.AttributeInstance inst = player.getAttribute(Attributes.SCALE);
+		if (inst == null) {
+			return;
+		}
+		AttributeModifier m = inst.getModifier(SCALE_ID);
+		double cur = m == null ? 0.0 : m.amount();
+		double target = s.fullPower ? AllMightConfig.FULL_SCALE_BONUS : 0.0;
+		if (Math.abs(cur - target) < 1.0e-4) {
+			if (!s.fullPower && m != null) {
+				PowerToggles.clearModifier(player, Attributes.SCALE, SCALE_ID);
+			}
+			return;
+		}
+		double step = AllMightConfig.FULL_SCALE_BONUS / Math.max(1, AllMightConfig.GROWTH_TICKS);
+		double next = cur < target ? Math.min(target, cur + step) : Math.max(target, cur - step);
+		next = Math.round(next * 1000.0) / 1000.0;
+		if (next > cur) {
+			// growth waits (and retries) if the bigger body would not fit where he stands
+			double w = 0.6 * (1.0 + next);
+			double h = 1.8 * (1.0 + next);
+			var box = new net.minecraft.world.phys.AABB(player.getX() - w / 2, player.getY(), player.getZ() - w / 2,
+					player.getX() + w / 2, player.getY() + h, player.getZ() + w / 2);
+			if (!player.level().noCollision(player, box)) {
+				return;
+			}
+		}
+		if (next <= 1.0e-4) {
+			PowerToggles.clearModifier(player, Attributes.SCALE, SCALE_ID);
+		} else {
+			PowerToggles.modifier(player, Attributes.SCALE, SCALE_ID, next, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		}
+	}
+
 	private static void tickOfa(ServerPlayer player, AllMightState s, long now) {
-		if (s.ofa >= AllMightConfig.OFA_MAX) {
+		if (s.ofa >= AllMightConfig.OFA_MAX || s.plusUltra) {
 			return;
 		}
 		boolean calm = now - s.lastCombatTick >= AllMightConfig.OFA_COMBAT_LOCKOUT_TICKS;
@@ -370,6 +444,10 @@ public final class AllMight {
 
 	/** Hard landings from a real fall release a shockwave sized by how far he fell. */
 	private static void tickLanding(ServerPlayer player, AllMightState s, long now) {
+		if (!s.fullPower) {
+			PEAK_FALL.remove(player.getUUID());
+			return;
+		}
 		if (player.onGround() || player.isInWater() || player.isPassenger() || player.getAbilities().flying) {
 			Float peak = PEAK_FALL.remove(player.getUUID());
 			if (peak != null && peak >= AllMightConfig.LANDING_SMALL_MIN_FALL && !AllMightAbilities.suppressLanding(player)) {
@@ -419,15 +497,26 @@ public final class AllMight {
 
 	private static void tickAura(ServerPlayer player, AllMightState s, long now) {
 		ServerLevel level = (ServerLevel) player.level();
-		if (s.cowlUntil > now && now % 2L == 0L) {
-			Vec3 c = player.position().add(0, 1.0, 0);
-			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, AllMightShockwave.particles(3), 0.4, 0.8, 0.4, 0.1);
+		// steam pours off him while the body grows or shrinks (the transformation second)
+		if (now - s.formChangedAt < AllMightConfig.GROWTH_TICKS && now % 2L == 0L) {
+			steam(level, player, 3);
+		}
+		if (!s.fullPower) {
+			return;
+		}
+		if (s.plusUltra && now % 2L == 0L) {
+			Vec3 c = player.position().add(0, player.getBbHeight() * 0.5, 0);
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, AllMightShockwave.particles(3), 0.4, player.getBbHeight() * 0.4, 0.4, 0.1);
 			if (now % 4L == 0L) {
 				level.sendParticles(new DustParticleOptions(new Vector3f(0.3f, 1.0f, 0.45f), 1.1f), c.x, c.y, c.z,
-						AllMightShockwave.particles(3), 0.45, 0.85, 0.45, 0.0);
+						AllMightShockwave.particles(3), 0.45, player.getBbHeight() * 0.42, 0.45, 0.0);
 			}
 		}
-		if (s.fullPower && now % 6L == 0L && player.getDeltaMovement().horizontalDistanceSqr() > 0.06) {
+		// running out of One For All: he vents steam to show it
+		if (s.ofa < AllMightConfig.LOW_OFA_STEAM && now % 3L == 0L) {
+			steam(level, player, 2);
+		}
+		if (now % 6L == 0L && player.getDeltaMovement().horizontalDistanceSqr() > 0.06) {
 			Vec3 f = player.position().add(0, 0.6, 0);
 			level.sendParticles(ParticleTypes.CLOUD, f.x, f.y, f.z, AllMightShockwave.particles(1), 0.2, 0.3, 0.2, 0.01);
 		}
@@ -447,9 +536,6 @@ public final class AllMight {
 		n.transformUntil = 0L;
 		n.noFallUntil = 0L;
 		n.animId = AllMightState.ANIM_NONE;
-		if (n.cowlUntil > now + AllMightConfig.COWL_DURATION_TICKS) {
-			n.cowlUntil = 0L;
-		}
 		n.abilityReadyAt.entrySet().removeIf(e -> e.getValue() > now + 20L * 120L);
 		save(player, n);
 		reconcile(player);
@@ -461,7 +547,7 @@ public final class AllMight {
 			return;
 		}
 		AllMightState n = s.copy();
-		n.cowlUntil = 0L;
+		n.plusUltra = false;
 		n.busyUntil = 0L;
 		n.transformUntil = 0L;
 		n.noFallUntil = 0L;
@@ -470,6 +556,9 @@ public final class AllMight {
 		n.abilityReadyAt.clear();
 		save(player, n);
 		reconcile(player);
+		if (n.fullPower) {
+			player.setHealth(player.getMaxHealth()); // a respawn starts at full health, whichever form
+		}
 	}
 
 	/** Death / logout / dimension change: drop everything transient (the power and the chosen form stay). */
@@ -486,11 +575,8 @@ public final class AllMight {
 		}
 	}
 
-	/** Called before vanilla drops a dying player's equipment: the conjured costume never drops. */
+	/** Called when the player dies: drop everything transient (the power and the chosen form stay). */
 	public static void onDeath(ServerPlayer player) {
 		clearTransient(player);
-		if (state(player).hasPower) {
-			AllMightSuit.strip(player);
-		}
 	}
 }

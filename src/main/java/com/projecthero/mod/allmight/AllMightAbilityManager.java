@@ -8,18 +8,15 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Bridges the six universal ability slots to the All Might kit and runs the power's per-player server tick.
- * {@link com.projecthero.mod.hero.AbilityRouter} hands All Might the slots when {@link #hasContext} is true (has the
- * power, no experimental mutation selected) -- the same terms as every other Hero-Tier power. The slots are numbered by
- * the mod's key layout (Ability 3 = X, Ability 4 = Z, Ability 5 = V, Ability 6 = C):
+ * {@link com.projecthero.mod.hero.AbilityRouter} hands All Might the slots when {@link #hasContext} is true (Power Form, no
+ * experimental mutation selected). The Base Form is a plain player and owns no keys. Ability 3 = X, 4 = Z, 5 = V, 6 = C:
  *
  * <pre>
- *   R (1)  Detroit Smash      G (2)  Texas Smash
- *   X (3)  New Hampshire Smash        Z (4)  Carolina Smash
- *   V (5)  United States of Smash     C (6)  Full Cowl
- *   H      Transform (full-power form)   N  All Might Leap (utility)
+ *   R (1)  Detroit Smash   (Shift+R = New Hampshire Smash)     G (2)  Texas Smash
+ *   X (3)  Leap            Z (4)  United States of Smash (hold 5 s)
+ *   V (5)  Carolina Smash  C (6)  Plus Ultra (toggle)
+ *   H      Base Form / Power Form
  * </pre>
- *
- * H and N are not ability slots -- see {@code AllMightActionPayload}.
  */
 public final class AllMightAbilityManager {
 	private AllMightAbilityManager() {
@@ -30,7 +27,7 @@ public final class AllMightAbilityManager {
 	}
 
 	public static boolean hasContext(ServerPlayer player) {
-		if (!AllMight.hasPower(player)) {
+		if (!AllMight.hasPower(player) || !AllMight.isFullPower(player)) {
 			return false;
 		}
 		ExperimentalState st = player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
@@ -38,16 +35,31 @@ public final class AllMightAbilityManager {
 	}
 
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
+		if (slot == AbilitySlot.SLOT_4) {
+			if (pressed) {
+				AllMightAbilities.unitedStatesPress(player);
+			} else {
+				AllMightAbilities.unitedStatesRelease(player);
+			}
+			return;
+		}
 		if (!pressed) {
 			return;
 		}
 		switch (slot) {
-			case SLOT_1 -> AllMightAbilities.detroit(player);
+			case SLOT_1 -> {
+				if (player.isShiftKeyDown()) {
+					AllMightAbilities.newHampshire(player);
+				} else {
+					AllMightAbilities.detroit(player);
+				}
+			}
 			case SLOT_2 -> AllMightAbilities.texas(player);
-			case SLOT_3 -> AllMightAbilities.newHampshire(player);
-			case SLOT_4 -> AllMightAbilities.carolina(player);
-			case SLOT_5 -> AllMightAbilities.unitedStates(player);
-			case SLOT_6 -> AllMightAbilities.fullCowl(player);
+			case SLOT_3 -> AllMightAbilities.leap(player);
+			case SLOT_5 -> AllMightAbilities.carolina(player);
+			case SLOT_6 -> AllMightAbilities.plusUltra(player);
+			default -> {
+			}
 		}
 	}
 
@@ -64,10 +76,10 @@ public final class AllMightAbilityManager {
 		return switch (slot) {
 			case SLOT_1 -> AllMightAbilities.DETROIT;
 			case SLOT_2 -> AllMightAbilities.TEXAS;
-			case SLOT_3 -> AllMightAbilities.NEW_HAMPSHIRE;
-			case SLOT_4 -> AllMightAbilities.CAROLINA;
-			case SLOT_5 -> AllMightAbilities.UNITED_STATES;
-			case SLOT_6 -> AllMightAbilities.COWL;
+			case SLOT_3 -> AllMightAbilities.LEAP;
+			case SLOT_4 -> AllMightAbilities.UNITED_STATES;
+			case SLOT_5 -> AllMightAbilities.CAROLINA;
+			case SLOT_6 -> AllMightAbilities.PLUS_ULTRA;
 		};
 	}
 
@@ -78,7 +90,7 @@ public final class AllMightAbilityManager {
 			case AllMightAbilities.NEW_HAMPSHIRE -> AllMightConfig.NEW_HAMPSHIRE_COOLDOWN;
 			case AllMightAbilities.CAROLINA -> AllMightConfig.CAROLINA_COOLDOWN;
 			case AllMightAbilities.UNITED_STATES -> AllMightConfig.UNITED_STATES_COOLDOWN;
-			case AllMightAbilities.COWL -> AllMightConfig.COWL_COOLDOWN_TICKS;
+			case AllMightAbilities.PLUS_ULTRA -> AllMightConfig.PLUS_ULTRA_COOLDOWN_TICKS;
 			case AllMightAbilities.LEAP -> AllMightConfig.LEAP_COOLDOWN;
 			default -> 0;
 		};
@@ -91,7 +103,6 @@ public final class AllMightAbilityManager {
 			case AllMightAbilities.NEW_HAMPSHIRE -> AllMightConfig.NEW_HAMPSHIRE_COST;
 			case AllMightAbilities.CAROLINA -> AllMightConfig.CAROLINA_COST;
 			case AllMightAbilities.UNITED_STATES -> AllMightConfig.UNITED_STATES_COST;
-			case AllMightAbilities.COWL -> AllMightConfig.COWL_OFA_COST;
 			case AllMightAbilities.LEAP -> AllMightConfig.LEAP_COST;
 			default -> 0;
 		};

@@ -5,7 +5,6 @@ import com.mojang.serialization.JsonOps;
 import com.projecthero.mod.allmight.AllMight;
 import com.projecthero.mod.allmight.AllMightAbilities;
 import com.projecthero.mod.allmight.AllMightConfig;
-import com.projecthero.mod.allmight.AllMightSuit;
 import com.projecthero.mod.allmight.data.AllMightState;
 import com.projecthero.mod.hero.AbilityRouter;
 import com.projecthero.mod.hero.HeroTiers;
@@ -23,7 +22,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Server-side coverage for All Might / One For All (v0.12.33): the grant, the two forms and their stats (no stacking),
+ * Server-side coverage for All Might / One For All (v0.12.34): the grant, the two forms and their stats (no stacking),
  * the OFA resource, the cooldown / OFA gates, Detroit and United States of Smash landing on real mobs at their impact
  * frame, Full Cowl not stacking, the damage factors, persistence and revoke. Mock players are not reliably ticked by the
  * server, so each test drives {@link AllMight#tick} itself, exactly as the server tick would.
@@ -43,6 +42,14 @@ public class AllMightGameTests implements FabricGameTest {
 		return p;
 	}
 
+	/** Puts the hero straight into the Power Form (no transformation window) for tests of the abilities. */
+	private static void powerForm(ServerPlayer p) {
+		AllMightState s = AllMight.state(p).copy();
+		s.fullPower = true;
+		p.setAttached(com.projecthero.mod.attachment.ModAttachments.ALL_MIGHT_STATE, s);
+		AllMight.reconcile(p);
+	}
+
 	private static void pump(GameTestHelper helper, ServerPlayer p) {
 		helper.onEachTick(() -> AllMight.tick(p));
 	}
@@ -57,19 +64,17 @@ public class AllMightGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void grantGivesThePowerTheCostumeAndTheContainedStats(GameTestHelper helper) {
+	public void grantGivesThePowerAsAPlainBaseForm(GameTestHelper helper) {
 		ServerPlayer p = helper.makeMockServerPlayerInLevel();
 		helper.assertFalse(AllMight.hasPower(p), "no power yet");
 		helper.assertTrue(AllMight.grant(p), "first grant works");
 		helper.assertFalse(AllMight.grant(p), "second grant refused");
 		helper.assertTrue(AllMight.hasPower(p) && HeroTiers.holdsHero(p, AllMight.KEY), "a registered Hero-Tier Primary power");
 		helper.assertTrue(AllMight.ofa(p) == AllMightConfig.OFA_MAX, "starts with a full OFA bar");
-		helper.assertTrue(AllMightSuit.wearing(p), "the costume forms on the wearer");
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (1.0 + AllMightConfig.BASE_ATTACK_BONUS)) < 1e-6,
-				"contained melee is 1 + 25, got " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
-		helper.assertTrue(Math.abs(p.getMaxHealth() - (20.0 + AllMightConfig.BASE_HEALTH_BONUS)) < 1e-6, "+40 max health, got " + p.getMaxHealth());
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) - AllMightConfig.BASE_KNOCKBACK_RESISTANCE) < 1e-6, "80% knockback resistance");
-		helper.assertTrue(p.getAttributeValue(Attributes.JUMP_STRENGTH) > 0.42 * 1.4, "jumps clearly higher than vanilla");
+		helper.assertFalse(AllMight.isFullPower(p), "starts in the Base Form");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - 1.0) < 1e-6, "Base Form melee is a plain 1");
+		helper.assertTrue(Math.abs(p.getMaxHealth() - 20.0) < 1e-6, "Base Form has 20 max health");
+		helper.assertTrue(AllMight.damageTakenFactor(p) == 1.0f, "Base Form takes full damage");
 		helper.succeed();
 	}
 
@@ -78,51 +83,68 @@ public class AllMightGameTests implements FabricGameTest {
 		ServerPlayer p = hero(helper);
 		pump(helper, p);
 		AllMight.toggleForm(p);
-		helper.assertTrue(AllMight.isFullPower(p), "H -> full power");
+		helper.assertTrue(AllMight.isFullPower(p), "H -> Power Form");
 		AllMight.toggleForm(p); // pressed again inside the debounce / transformation window: ignored
 		helper.assertTrue(AllMight.isFullPower(p), "a spammed H does nothing while transforming");
 		helper.assertTrue(AllMight.transforming(p), "damage-proof while transforming");
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (1.0 + AllMightConfig.FULL_ATTACK_BONUS)) < 1e-6,
-				"full-power melee is 1 + 35, got " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - 13.0) < 1e-6,
+				"Power Form melee is 13, got " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
+		helper.assertTrue(Math.abs(p.getMaxHealth() - 40.0) < 1e-6, "Power Form has 40 max health, got " + p.getMaxHealth());
 		helper.runAfterDelay(AllMightConfig.TRANSFORM_TICKS + 5, () -> {
 			AllMight.reconcile(p);
 			AllMight.reconcile(p);
-			helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (1.0 + AllMightConfig.FULL_ATTACK_BONUS)) < 1e-6, "reconciling never stacks");
-			AllMight.toggleForm(p);
-			helper.assertFalse(AllMight.isFullPower(p), "H again -> contained");
-			helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (1.0 + AllMightConfig.BASE_ATTACK_BONUS)) < 1e-6,
-					"back to the contained stats, got " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
-			helper.succeed();
+			helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - 13.0) < 1e-6, "reconciling never stacks");
+			helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SPEED)
+					&& p.getEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SPEED).getAmplifier() == 2, "Speed III");
+			helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.REGENERATION), "Regeneration I");
+			double grown = p.getAttributeValue(Attributes.SCALE);
+			helper.assertTrue(Math.abs(grown - 1.5) < 0.02, "grown to 1.5x (2.7 blocks), got " + grown);
+			helper.runAfterDelay(AllMightConfig.TRANSFORM_TICKS + 5, () -> {
+				AllMight.toggleForm(p);
+				helper.assertFalse(AllMight.isFullPower(p), "H again -> Base Form");
+				helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - 1.0) < 1e-6, "back to plain stats");
+				helper.succeed();
+			});
 		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void formDamageFactorsAndFallReduction(GameTestHelper helper) {
+	public void healthPercentageCarriesAcrossForms(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
-		helper.assertTrue(Math.abs(AllMight.damageTakenFactor(p) - 0.65f) < 1e-4f, "contained takes 65%");
-		helper.assertTrue(Math.abs(AllMight.fallReduction(p) - 0.75f) < 1e-4f, "75% fall reduction");
-		AllMightState s = AllMight.state(p).copy();
-		s.fullPower = true;
-		p.setAttached(com.projecthero.mod.attachment.ModAttachments.ALL_MIGHT_STATE, s);
-		helper.assertTrue(Math.abs(AllMight.damageTakenFactor(p) - 0.5f) < 1e-4f, "full power takes 50%");
-		helper.assertTrue(Math.abs(AllMight.fallReduction(p) - 0.90f) < 1e-4f, "90% fall reduction");
-		s = AllMight.state(p).copy();
-		s.cowlUntil = p.level().getGameTime() + 100;
-		p.setAttached(com.projecthero.mod.attachment.ModAttachments.ALL_MIGHT_STATE, s);
-		helper.assertTrue(Math.abs(AllMight.damageTakenFactor(p) - 0.4f) < 1e-4f, "Full Cowl multiplies in a further 20% (0.5 x 0.8)");
+		p.setHealth(10.0f); // 50%
+		AllMight.toggleForm(p);
+		helper.assertTrue(Math.abs(p.getHealth() - 20.0f) < 0.01f, "50% of 20 becomes 50% of 40, got " + p.getHealth());
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void formDamageFactors(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		helper.assertTrue(AllMight.damageTakenFactor(p) == 1.0f, "Base Form takes 100%");
+		powerForm(p);
+		helper.assertTrue(Math.abs(AllMight.damageTakenFactor(p) - 0.5f) < 1e-4f, "Power Form takes 50%");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void baseFormCannotUseAbilities(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		AbilityRouter.handleInput(p, 1, true);
+		AllMightAbilities.leap(p);
+		helper.assertTrue(AllMight.ofa(p) == 100.0f, "nothing was spent in the Base Form");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void ofaNeverGoesNegativeAndGatesAbilities(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
+		powerForm(p);
 		helper.assertFalse(AllMight.spendOfa(p, 101.0f), "cannot spend more than the bar holds");
 		helper.assertTrue(AllMight.ofa(p) == 100.0f, "a refused spend costs nothing");
 		helper.assertTrue(AllMight.spendOfa(p, 100.0f), "can spend it all");
 		helper.assertTrue(AllMight.ofa(p) == 0.0f, "empty, never negative");
 		AbilityRouter.handleInput(p, 1, true); // R with no OFA
 		helper.assertTrue(AllMight.cooldownRemaining(p, AllMightAbilities.DETROIT) == 0, "no OFA -> Detroit Smash does not start");
-		helper.assertTrue(AllMight.ofa(p) == 0.0f, "still zero");
 		helper.succeed();
 	}
 
@@ -141,6 +163,7 @@ public class AllMightGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void detroitSmashHitsAtTheImpactFrameAndCostsOfaAndCooldown(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
+		powerForm(p);
 		pump(helper, p);
 		Zombie z = zombieAhead(helper, p, 3.0);
 		float before = z.getHealth();
@@ -148,55 +171,70 @@ public class AllMightGameTests implements FabricGameTest {
 		helper.assertTrue(AllMight.ofa(p) == 100.0f - AllMightConfig.DETROIT_COST, "spent 10 OFA, has " + AllMight.ofa(p));
 		helper.assertTrue(AllMight.cooldownRemaining(p, AllMightAbilities.DETROIT) > 0, "on cooldown");
 		helper.assertTrue(z.getHealth() == before, "nothing lands before the wind-up ends");
-		AbilityRouter.handleInput(p, 1, true); // spammed: locked / cooling down
-		helper.assertTrue(AllMight.ofa(p) == 100.0f - AllMightConfig.DETROIT_COST, "a second press costs nothing");
 		helper.runAfterDelay(AllMightConfig.DETROIT_WINDUP + 4, () -> {
 			helper.assertTrue(z.getHealth() < before || !z.isAlive(), "the punch hurt the zombie at the impact frame");
 			helper.succeed();
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
-	public void unitedStatesOfSmashIsStagedAndDeadly(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
+	public void unitedStatesOfSmashNeedsAFiveSecondHold(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
+		powerForm(p);
 		pump(helper, p);
 		Zombie z = zombieAhead(helper, p, 5.0);
-		AbilityRouter.handleInput(p, 5, true); // V
-		helper.assertTrue(AllMight.ofa(p) == 0.0f, "costs the whole bar");
-		helper.assertTrue(AllMight.cooldownRemaining(p, AllMightAbilities.UNITED_STATES) >= AllMightConfig.UNITED_STATES_COOLDOWN - 2, "60 s cooldown");
+		z.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.FIRE_RESISTANCE, 1000, 0, false, false));
+		AbilityRouter.handleInput(p, 4, true); // Z held
+		helper.assertTrue(AllMight.ofa(p) == 100.0f - AllMightConfig.UNITED_STATES_COST, "costs the whole bar");
 		helper.assertTrue(z.isAlive() && z.getHealth() == z.getMaxHealth(), "the charge is not an instant hit");
-		helper.runAfterDelay(AllMightConfig.UNITED_STATES_WINDUP + 4, () -> {
-			helper.assertFalse(z.isAlive(), "250 damage kills a zombie");
+		helper.runAfterDelay(AllMightConfig.UNITED_STATES_CHARGE_TICKS - 10, () -> {
+			helper.assertTrue(z.isAlive() && z.getHealth() == z.getMaxHealth(), "still charging before 5 s");
+		});
+		helper.runAfterDelay(AllMightConfig.UNITED_STATES_CHARGE_TICKS + 6, () -> {
+			helper.assertTrue(z.getHealth() < z.getMaxHealth() || !z.isAlive(), "75 damage lands when the charge completes");
 			helper.succeed();
 		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void fullCowlDoesNotStack(GameTestHelper helper) {
+	public void releasingZEarlyCancelsAndRefunds(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
-		AbilityRouter.handleInput(p, 6, true); // C
-		helper.assertTrue(AllMight.cowlActive(p), "Full Cowl on");
-		float ofa = AllMight.ofa(p);
-		helper.assertTrue(ofa == 100.0f - AllMightConfig.COWL_OFA_COST, "costs 20 OFA");
-		double attack = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
-		helper.assertTrue(attack > (1.0 + AllMightConfig.BASE_ATTACK_BONUS) * 1.4, "+50% melee while active, got " + attack);
-		AbilityRouter.handleInput(p, 6, true); // pressed again while active
-		helper.assertTrue(AllMight.ofa(p) == ofa, "no second charge");
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - attack) < 1e-6, "no duplicated buff");
+		powerForm(p);
+		AbilityRouter.handleInput(p, 4, true);
+		helper.assertTrue(AllMight.ofa(p) == 0.0f, "spent while charging");
+		AbilityRouter.handleInput(p, 4, false);
+		helper.assertTrue(AllMight.ofa(p) == 100.0f, "refunded on an early release");
+		helper.assertTrue(AllMight.cooldownRemaining(p, AllMightAbilities.UNITED_STATES) == 0, "no cooldown for a cancelled charge");
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
-	public void fullCowlExpires(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void plusUltraTogglesDrainsAndCoolsDown(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
+		powerForm(p);
+		AbilityRouter.handleInput(p, 6, true); // C on
+		helper.assertTrue(AllMight.plusUltraActive(p), "Plus Ultra on");
+		helper.assertTrue(Math.abs(AllMight.smashMultiplier(p) - 1.3f) < 1e-4f, "+30% ability damage");
+		AbilityRouter.handleInput(p, 6, true); // C off
+		helper.assertFalse(AllMight.plusUltraActive(p), "Plus Ultra off");
+		helper.assertTrue(AllMight.cooldownRemaining(p, AllMightAbilities.PLUS_ULTRA) > 0, "20 s cooldown starts on deactivation");
+		AbilityRouter.handleInput(p, 6, true);
+		helper.assertFalse(AllMight.plusUltraActive(p), "cannot re-activate during the cooldown");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void runningOutOfOfaDuringPlusUltraDropsToTheBaseForm(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		powerForm(p);
 		pump(helper, p);
+		AbilityRouter.handleInput(p, 6, true);
 		AllMightState s = AllMight.state(p).copy();
-		s.cowlUntil = p.level().getGameTime() + 10;
+		s.ofa = 1.0f;
 		p.setAttached(com.projecthero.mod.attachment.ModAttachments.ALL_MIGHT_STATE, s);
-		AllMight.reconcile(p);
 		helper.runAfterDelay(20, () -> {
-			helper.assertFalse(AllMight.cowlActive(p), "expired by itself");
-			helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (1.0 + AllMightConfig.BASE_ATTACK_BONUS)) < 1e-6, "the buff was removed");
+			helper.assertFalse(AllMight.isFullPower(p), "back in the Base Form");
+			helper.assertFalse(AllMight.plusUltraActive(p), "Plus Ultra ended");
 			helper.succeed();
 		});
 	}
@@ -206,15 +244,16 @@ public class AllMightGameTests implements FabricGameTest {
 		ServerPlayer p = hero(helper);
 		AllMightState s = AllMight.state(p).copy();
 		s.fullPower = true;
+		s.plusUltra = true;
 		s.ofa = 42.0f;
 		s.abilityReadyAt.put(AllMightAbilities.TEXAS, 999L);
 		var json = AllMightState.CODEC.encodeStart(JsonOps.INSTANCE, s).getOrThrow();
 		AllMightState back = AllMightState.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow();
-		helper.assertTrue(back.hasPower && back.fullPower && back.ofa == 42.0f && back.abilityReadyAt.get(AllMightAbilities.TEXAS) == 999L,
+		helper.assertTrue(back.hasPower && back.fullPower && back.plusUltra && back.ofa == 42.0f && back.abilityReadyAt.get(AllMightAbilities.TEXAS) == 999L,
 				"power, form, OFA and cooldowns persist");
+		powerForm(p);
 		AllMight.revoke(p);
 		helper.assertFalse(AllMight.hasPower(p), "revoked");
-		helper.assertFalse(AllMightSuit.wearing(p), "costume removed");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - 1.0) < 1e-6, "every modifier removed");
 		helper.assertTrue(Math.abs(p.getMaxHealth() - 20.0) < 1e-6, "max health back to normal");
 		helper.succeed();
@@ -223,7 +262,8 @@ public class AllMightGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void leapIsCheapAndOnCooldown(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
-		AllMightAbilities.leap(p);
+		powerForm(p);
+		AbilityRouter.handleInput(p, 3, true); // X = Leap
 		helper.assertTrue(AllMight.ofa(p) == 100.0f - AllMightConfig.LEAP_COST, "costs 5 OFA");
 		helper.assertTrue(AllMight.cooldownRemaining(p, AllMightAbilities.LEAP) > 0, "5 s cooldown");
 		helper.assertTrue(p.getDeltaMovement().y > 1.5, "launched hard upward, vy=" + p.getDeltaMovement().y);

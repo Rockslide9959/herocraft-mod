@@ -2,9 +2,11 @@ package com.projecthero.mod.titanshifter.entity;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.projecthero.mod.mixin.LivingEntityAccessor;
+import com.projecthero.mod.squad.SquadManager;
 import com.projecthero.mod.titanshifter.TitanCombat;
 import com.projecthero.mod.titanshifter.TitanShifter;
 import com.projecthero.mod.titanshifter.TitanShifterConfig;
@@ -23,6 +25,8 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.Entity;
@@ -31,6 +35,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -78,6 +83,13 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 			SynchedEntityData.defineId(TitanFormEntity.class, EntityDataSerializers.BOOLEAN);
 	private static final EntityDataAccessor<Boolean> DATA_STEAMING =
 			SynchedEntityData.defineId(TitanFormEntity.class, EntityDataSerializers.BOOLEAN);
+	/** v0.12.34: the owner is synced so clients can tell the owner (hidden, 3rd-person camera) from a squad-mate on the shoulder (visible). */
+	private static final EntityDataAccessor<Optional<UUID>> DATA_OWNER =
+			SynchedEntityData.defineId(TitanFormEntity.class, EntityDataSerializers.OPTIONAL_UUID);
+	private static final EntityDataAccessor<Boolean> DATA_RUNNING =
+			SynchedEntityData.defineId(TitanFormEntity.class, EntityDataSerializers.BOOLEAN);
+	private static final EntityDataAccessor<Boolean> DATA_HOLDING =
+			SynchedEntityData.defineId(TitanFormEntity.class, EntityDataSerializers.BOOLEAN);
 
 	/** Every animation lives under this prefix in every Titan type's own animation file. */
 	public static final String ANIM = "animation.titan.";
@@ -88,11 +100,25 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 	private static final RawAnimation TRANSFORM = RawAnimation.begin().thenPlayAndHold(ANIM + "transformation");
 	private static final RawAnimation REVERT = RawAnimation.begin().thenPlayAndHold(ANIM + "reversion");
 	private static final RawAnimation DEATH = RawAnimation.begin().thenPlayAndHold(ANIM + "death");
+	private static final RawAnimation CARRY = RawAnimation.begin().thenLoop(ANIM + "carry");
 
 	private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
-	private UUID ownerId;
 	private final List<Scheduled> scheduled = new ArrayList<>();
+
+	/** Ticks the owner has held Sprint while walking forward (a run starts at runChargeTicks). */
+	private int sprintTicks;
+
+	// ---- the mob the Titan is carrying in its hand (server only) ----
+	private UUID heldId;
+	private boolean lowering;
+	private double lowerX;
+	private double lowerZ;
+	private boolean heldNoAi;
+	private boolean heldNoGravity;
+	private boolean heldNoPhysics;
+	/** True while the hit being applied is one from an ordinary mob, which ignores the Titan armour (see hurt). */
+	private boolean mobHit;
 
 	/** Movement and actions are locked until this game-time (roar, transformation ...). */
 	private long lockedUntil;
@@ -141,11 +167,14 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		builder.define(DATA_FORM_STATE, FORM_NORMAL);
 		builder.define(DATA_HARDENED, false);
 		builder.define(DATA_STEAMING, false);
+		builder.define(DATA_OWNER, Optional.empty());
+		builder.define(DATA_RUNNING, false);
+		builder.define(DATA_HOLDING, false);
 	}
 
 	/** Server: bind this Titan to its owner and stats. Call before adding to the world. */
 	public void bind(ServerPlayer owner, TitanType type) {
-		this.ownerId = owner.getUUID();
+		this.entityData.set(DATA_OWNER, Optional.of(owner.getUUID()));
 		this.entityData.set(DATA_TYPE, type.ordinal());
 		refreshDimensions();
 		applyTypeStats(type);
@@ -173,12 +202,27 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		return TitanType.byOrdinal(this.entityData.get(DATA_TYPE));
 	}
 
+	/** Safe on both sides (synced). */
 	public UUID ownerId() {
-		return ownerId;
+		return this.entityData.get(DATA_OWNER).orElse(null);
+	}
+
+	/** True if e is a player currently riding their OWN Titan (as opposed to a squad-mate on its shoulder). */
+	public static boolean isOwnerRider(Entity e) {
+		return e instanceof Player p && p.getVehicle() instanceof TitanFormEntity f && p.getUUID().equals(f.ownerId());
+	}
+
+	public boolean isRunning() {
+		return this.entityData.get(DATA_RUNNING);
+	}
+
+	public boolean isHolding() {
+		return this.entityData.get(DATA_HOLDING);
 	}
 
 	public ServerPlayer owner() {
-		return ownerId != null && level().getPlayerByUUID(ownerId) instanceof ServerPlayer sp ? sp : null;
+		UUID id = ownerId();
+		return id != null && level().getPlayerByUUID(id) instanceof ServerPlayer sp ? sp : null;
 	}
 
 	public int formState() {
@@ -259,18 +303,74 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 
 	@Override
 	protected Vec3 getPassengerAttachmentPoint(Entity passenger, EntityDimensions dims, float scale) {
-		// a riding player's feet sit 0.6 below the seat point and their eyes 1.62 above their feet, so seat = eye - 1.02
-		return new Vec3(0.0, dims.eyeHeight() * visualScale() - 1.02, 0.0);
+		float vs = visualScale();
+		UUID owner = ownerId();
+		if (owner == null || passenger.getUUID().equals(owner)) {
+			// a riding player's feet sit 0.6 below the seat point and their eyes 1.62 above their feet, so seat = eye - 1.02
+			return new Vec3(0.0, dims.eyeHeight() * vs - 1.02, 0.0);
+		}
+		// v0.12.34: squad-mates ride the shoulders -- the first on one side, the second on the other
+		int index = 0;
+		for (Entity other : getPassengers()) {
+			if (other == passenger) {
+				break;
+			}
+			if (!other.getUUID().equals(owner)) {
+				index++;
+			}
+		}
+		double side = (index % 2 == 0 ? 1.0 : -1.0) * dims.width() * 0.5;
+		return new Vec3(side * 0.95, dims.height() * vs * 0.75 + 0.6, 0.0);
 	}
 
 	@Override
 	protected boolean canAddPassenger(Entity passenger) {
-		return this.getPassengers().isEmpty() && passenger instanceof Player p && p.getUUID().equals(ownerId);
+		if (!(passenger instanceof Player p)) {
+			return false;
+		}
+		UUID owner = ownerId();
+		if (p.getUUID().equals(owner)) {
+			return getControllingPassenger() == null;
+		}
+		return owner != null && getControllingPassenger() != null
+				&& getPassengers().size() < 1 + TitanShifterConfig.abilities().maxShoulderRiders;
 	}
 
+	/** The shifter (never a squad-mate on the shoulder) steers the Titan. */
 	@Override
 	public LivingEntity getControllingPassenger() {
-		return getFirstPassenger() instanceof Player p ? p : null;
+		UUID owner = ownerId();
+		for (Entity e : getPassengers()) {
+			if (e instanceof Player p && p.getUUID().equals(owner)) {
+				return p;
+			}
+		}
+		return null;
+	}
+
+	/** v0.12.34: right-click a Titan as one of its owner's squad-mates and you climb onto its shoulder. */
+	@Override
+	public InteractionResult interact(Player player, InteractionHand hand) {
+		if (level().isClientSide || !(player instanceof ServerPlayer sp) || formState() != FORM_NORMAL || defeatStarted) {
+			return InteractionResult.PASS;
+		}
+		UUID owner = ownerId();
+		if (owner == null || sp.getUUID().equals(owner) || sp.isPassenger() || sp.isSpectator() || getControllingPassenger() == null) {
+			return InteractionResult.PASS;
+		}
+		var server = sp.getServer();
+		if (server == null || !SquadManager.get(server).sameSquad(owner, sp.getUUID())) {
+			return InteractionResult.PASS;
+		}
+		if (getPassengers().size() >= 1 + TitanShifterConfig.abilities().maxShoulderRiders) {
+			sp.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.titan_shifter.shoulders_full"), true);
+			return InteractionResult.SUCCESS;
+		}
+		if (sp.startRiding(this, true)) {
+			sp.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.titan_shifter.shoulder"), true);
+			return InteractionResult.SUCCESS;
+		}
+		return InteractionResult.PASS;
 	}
 
 	/** Server simulates the Titan; clients only interpolate it. */
@@ -322,6 +422,9 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		double speed = getAttributeValue(Attributes.MOVEMENT_SPEED) * TitanShifterConfig.stats().riddenSpeedFactor;
 		if (level().getGameTime() < slowedUntil) {
 			speed *= slowFactor;
+		}
+		if (isRunning()) {
+			speed *= TitanShifterConfig.stats().runSpeedMultiplier;
 		}
 		return (float) speed;
 	}
@@ -403,7 +506,7 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 				}
 			}
 		}
-		if (ownerId == null) {
+		if (ownerId() == null) {
 			tickSteam(sl, now); // ownerless debug Titan
 			return;
 		}
@@ -416,12 +519,130 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 			return;
 		}
 		ownerMissingTicks = 0;
+		if (formState() != FORM_NORMAL || defeatStarted) {
+			releaseHeld();
+			sprintTicks = 0;
+			if (isRunning()) {
+				this.entityData.set(DATA_RUNNING, false);
+			}
+		}
 		if (formState() == FORM_NORMAL) {
+			tickRun(owner);
+			tickHeld(sl);
 			tickLeap(sl, now);
 			tickFootsteps(sl);
 			tickTrample(sl, now);
 		}
 		tickSteam(sl, now);
+	}
+
+	/** v0.12.34: hold Sprint while walking forward for runChargeTicks and the Titan starts running; let go or stop and it walks again. */
+	private void tickRun(ServerPlayer owner) {
+		boolean forward = owner.zza > 0.1f && !isLocked();
+		if (forward && TitanShifter.sprintHeld(owner.getUUID())) {
+			sprintTicks = Math.min(sprintTicks + 1, 100000);
+		} else {
+			sprintTicks = 0;
+		}
+		boolean run = sprintTicks >= TitanShifterConfig.stats().runChargeTicks;
+		if (run != isRunning()) {
+			this.entityData.set(DATA_RUNNING, run);
+		}
+	}
+
+	// ---------------- carrying a mob (N) ----------------
+
+	/** The mob in the Titan's hand, or null. */
+	public LivingEntity held() {
+		if (heldId == null || !(level() instanceof ServerLevel sl)) {
+			return null;
+		}
+		return sl.getEntity(heldId) instanceof LivingEntity le && le.isAlive() ? le : null;
+	}
+
+	/** True while a mob is being set gently down. */
+	public boolean isLowering() {
+		return lowering;
+	}
+
+	/** Lifts target into the hand: it stops thinking, falling and colliding until it is put down or dies. */
+	public void hold(LivingEntity target) {
+		releaseHeld();
+		heldId = target.getUUID();
+		lowering = false;
+		heldNoAi = false;
+		if (target instanceof Mob mob) {
+			heldNoAi = mob.isNoAi();
+			mob.setNoAi(true);
+			mob.setTarget(null);
+		}
+		heldNoGravity = target.isNoGravity();
+		heldNoPhysics = target.noPhysics;
+		target.setNoGravity(true);
+		target.noPhysics = true;
+		target.setDeltaMovement(Vec3.ZERO);
+		this.entityData.set(DATA_HOLDING, true);
+	}
+
+	/** Starts setting the held mob gently down where it hangs. */
+	public boolean startLowering() {
+		LivingEntity h = held();
+		if (h == null || lowering) {
+			return false;
+		}
+		lowering = true;
+		lowerX = h.getX();
+		lowerZ = h.getZ();
+		return true;
+	}
+
+	/** Lets go of the held mob right now, giving its normal physics and AI back. */
+	public void releaseHeld() {
+		if (heldId == null) {
+			return;
+		}
+		if (level() instanceof ServerLevel sl && sl.getEntity(heldId) instanceof LivingEntity h) {
+			h.setNoGravity(heldNoGravity);
+			h.noPhysics = heldNoPhysics;
+			if (h instanceof Mob mob) {
+				mob.setNoAi(heldNoAi);
+			}
+			h.fallDistance = 0.0f;
+			h.setDeltaMovement(Vec3.ZERO);
+			h.hurtMarked = true;
+		}
+		heldId = null;
+		lowering = false;
+		this.entityData.set(DATA_HOLDING, false);
+	}
+
+	private void tickHeld(ServerLevel sl) {
+		if (heldId == null) {
+			return;
+		}
+		LivingEntity h = held();
+		if (h == null) {
+			releaseHeld();
+			return;
+		}
+		h.fallDistance = 0.0f;
+		h.setDeltaMovement(Vec3.ZERO);
+		if (lowering) {
+			double step = TitanShifterConfig.abilities().lowerSpeed;
+			var below = h.getBoundingBox().move(0.0, -step - 0.05, 0.0);
+			boolean grounded = !sl.noCollision(h, below) || h.getY() <= getY() + 0.05;
+			if (grounded) {
+				releaseHeld();
+				return;
+			}
+			h.moveTo(lowerX, h.getY() - step, lowerZ, h.getYRot(), h.getXRot());
+			return;
+		}
+		Vec3 fwd = Vec3.directionFromRotation(0, getYRot());
+		double hx = getX() + fwd.x * (getBbWidth() * 0.5 + 1.7);
+		double hz = getZ() + fwd.z * (getBbWidth() * 0.5 + 1.7);
+		double hy = getY() + getBbHeight() * 0.5 - h.getBbHeight() * 0.5;
+		h.moveTo(hx, hy, hz, getYRot() + 180.0f, 0.0f);
 	}
 
 	private void tickLeap(ServerLevel sl, long now) {
@@ -529,6 +750,7 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		if (formState() != FORM_NORMAL || defeatStarted) {
 			return false; // transforming / reverting / defeated: untouchable
 		}
+		boolean fromMob = attacker instanceof Mob;
 		float dealt = amount;
 		var res = TitanShifterConfig.resistances();
 		if (source.is(DamageTypeTags.IS_FIRE)) {
@@ -536,7 +758,10 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		} else if (source.is(DamageTypeTags.IS_EXPLOSION)) {
 			dealt *= (float) res.explosionDamageFactor;
 		}
-		if (dealt < res.minorHitThreshold) {
+		if (fromMob) {
+			// v0.12.34: ordinary mobs still hurt -- no armour, no minor-hit cut
+			dealt *= (float) res.mobDamageFactor;
+		} else if (dealt < res.minorHitThreshold) {
 			dealt *= (float) res.minorHitFactor;
 		}
 		if (isHardened()) {
@@ -545,7 +770,13 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		if (dealt <= 0.0f) {
 			return false;
 		}
-		boolean hit = super.hurt(source, dealt);
+		mobHit = fromMob;
+		boolean hit;
+		try {
+			hit = super.hurt(source, dealt);
+		} finally {
+			mobHit = false;
+		}
 		if (hit) {
 			long now = level().getGameTime();
 			lastHurtAt = now;
@@ -558,6 +789,11 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 			}
 		}
 		return hit;
+	}
+
+	@Override
+	protected float getDamageAfterArmorAbsorb(DamageSource source, float amount) {
+		return mobHit ? amount : super.getDamageAfterArmorAbsorb(source, amount);
 	}
 
 	@Override
@@ -590,6 +826,7 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		if (level().isClientSide || defeatStarted) {
 			return;
 		}
+		releaseHeld();
 		ServerPlayer owner = owner();
 		if (owner == null || owner.getVehicle() != this) {
 			defeatStarted = true;
@@ -669,6 +906,7 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 
 	@Override
 	public void remove(RemovalReason reason) {
+		releaseHeld();
 		scheduled.clear();
 		super.remove(reason);
 	}
@@ -679,10 +917,13 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 	public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
 		AnimationController<TitanFormEntity> action = new AnimationController<>(this, "action", 2, state -> PlayState.STOP);
 		for (String name : new String[] { "punch", "kick", "heavy_punch", "smash", "stomp", "leap", "landing", "roar", "hurt",
-				"regeneration", "hardening" }) {
+				"regeneration", "hardening", "grab", "bite" }) {
 			action.triggerableAnim(name, RawAnimation.begin().thenPlay(ANIM + name));
 		}
 		controllers.add(new AnimationController<>(this, "main", 4, this::mainPredicate));
+		// the raised right arm while a mob is in the hand (only that bone is keyed, so it layers over walk / run)
+		controllers.add(new AnimationController<>(this, "carry", 6, state -> isHolding() && formState() == FORM_NORMAL
+				? state.setAndContinue(CARRY) : PlayState.STOP));
 		controllers.add(action);
 	}
 
@@ -698,7 +939,7 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 				break;
 		}
 		float swing = state.getLimbSwingAmount();
-		if (swing > 0.55f) {
+		if (isRunning() && swing > 0.04f) {
 			return state.setAndContinue(RUN);
 		}
 		if (swing > 0.04f) {

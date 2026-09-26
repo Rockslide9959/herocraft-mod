@@ -15,7 +15,14 @@ import net.minecraft.resources.ResourceLocation;
  */
 public record TitanShiftPayload(Action action) implements CustomPacketPayload {
 	public enum Action {
-		TOGGLE_SHIFT
+		TOGGLE_SHIFT,
+		/** N inside the Titan: grab the mob you look at, or bite the one in your hand. */
+		GRAB_BITE,
+		/** Shift+N inside the Titan: set the held mob gently down. */
+		LET_DOWN,
+		/** The Sprint key went down / up while in Titan form (a rider never reports sprinting on its own). */
+		SPRINT_ON,
+		SPRINT_OFF
 	}
 
 	public static final CustomPacketPayload.Type<TitanShiftPayload> TYPE =
