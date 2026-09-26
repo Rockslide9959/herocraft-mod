@@ -1,0 +1,3 @@
+v0.12.37 - GUIDEBOOK HINT IN CHAT
+
+- The "craft the Guidebook" message for new players now appears once in chat (Book + Feather + Spider Eye + Emerald) instead of staying on the bar above the hotbar.

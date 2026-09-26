@@ -9,11 +9,11 @@ import net.minecraft.server.level.ServerPlayer;
 /**
  * v0.12.36 -- the first time a player ever joins a world they see a message at the bottom of the screen telling them to craft
  * the Guidebook. {@code GUIDEBOOK_HINT_SEEN} (persistent) makes it once per player per world; {@code GUIDEBOOK_HINT_LEFT}
- * (transient) counts down the few seconds the message is repeated on the action bar so it cannot be missed.
+ * (transient) counts down the few seconds the message is sent (once, in chat).
  */
 public final class GuidebookHint {
-	private static final int TOTAL_TICKS = 20 * 14;
-	private static final int FIRST_AT = TOTAL_TICKS - 40; // a two-second beat before the first message
+	private static final int TOTAL_TICKS = 20 * 5;
+	private static final int FIRST_AT = TOTAL_TICKS - 60; // a three-second beat so it lands after the join messages
 
 	private GuidebookHint() {
 	}
@@ -36,9 +36,10 @@ public final class GuidebookHint {
 			return;
 		}
 		player.setAttached(ModAttachments.GUIDEBOOK_HINT_LEFT, left - 1);
-		if (left <= FIRST_AT && left % 40 == 0) {
+		if (left == FIRST_AT) {
+			// v0.12.37: one chat line, not a permanent action-bar message
 			player.displayClientMessage(Component.translatable("message.projecthero.guidebook_hint")
-					.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), true);
+					.withStyle(ChatFormatting.GOLD), false);
 		}
 	}
 }
