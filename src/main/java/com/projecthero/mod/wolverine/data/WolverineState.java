@@ -38,17 +38,23 @@ public final class WolverineState {
 	public long fleshStartedAt;
 	/** Game-time this Wolverine last dealt or took damage -- gates the Rage bar's slow drain. */
 	public long lastCombatAt;
+	/** v0.12.40: the Healing Factor pool (0..HEAL_POOL_MAX). Every HP he heals passively is paid from it; at 0 the healing factor is off. */
+	public float healPool;
+	/** v0.12.40: game time he last TOOK damage -- the pool only refills once this is 5 s old. */
+	public long lastHurtAt;
 	/** {@code abilityId} -> absolute game-time it is ready again. */
 	public final Map<String, Long> abilityReadyAt;
 
 	public WolverineState() {
-		this(false, false, 0L, 0L, 0L, 0L, 0L, 0, 0L, 0.0f, 0L, 0L, 0L, new HashMap<>());
+		this(false, false, 0L, 0L, 0L, 0L, 0L, 0, 0L, 0.0f, 0L, 0L, 0L, new HashMap<>(), 120.0f, 0L);
 	}
 
 	public WolverineState(boolean hasPower, boolean clawsOut, long clawsChangedAt, long rageUntil,
 			long emergencyReadyAt, long emergencyHealUntil, long dashUntil, int lastAction, long lastActionTick,
 			float rageMeter, long chargeStartedAt, long fleshStartedAt, long lastCombatAt,
-			Map<String, Long> abilityReadyAt) {
+			Map<String, Long> abilityReadyAt, float healPool, long lastHurtAt) {
+		this.healPool = healPool;
+		this.lastHurtAt = lastHurtAt;
 		this.fleshStartedAt = fleshStartedAt;
 		this.lastCombatAt = lastCombatAt;
 		this.hasPower = hasPower;
@@ -67,7 +73,7 @@ public final class WolverineState {
 
 	public WolverineState copy() {
 		return new WolverineState(hasPower, clawsOut, clawsChangedAt, rageUntil, emergencyReadyAt,
-				emergencyHealUntil, dashUntil, lastAction, lastActionTick, rageMeter, chargeStartedAt, fleshStartedAt, lastCombatAt, abilityReadyAt);
+				emergencyHealUntil, dashUntil, lastAction, lastActionTick, rageMeter, chargeStartedAt, fleshStartedAt, lastCombatAt, abilityReadyAt, healPool, lastHurtAt);
 	}
 
 	public static final Codec<WolverineState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -85,6 +91,8 @@ public final class WolverineState {
 			Codec.LONG.optionalFieldOf("flesh_started_at", 0L).forGetter(s -> s.fleshStartedAt),
 			Codec.LONG.optionalFieldOf("last_combat_at", 0L).forGetter(s -> s.lastCombatAt),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", Map.of())
-					.forGetter(s -> new HashMap<>(s.abilityReadyAt))
+					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
+				Codec.FLOAT.optionalFieldOf("heal_pool", 120.0f).forGetter(s -> s.healPool),
+				Codec.LONG.optionalFieldOf("last_hurt_at", 0L).forGetter(s -> s.lastHurtAt)
 	).apply(instance, WolverineState::new));
 }

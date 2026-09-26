@@ -34,6 +34,7 @@ public final class WolverineDamage {
 			}
 			if (entity instanceof ServerPlayer p && Wolverine.hasPower(p)) {
 				Wolverine.markCombat(p);
+				Wolverine.markHurt(p);
 				Wolverine.addRage(p, WolverineConfig.RAGE_PER_HIT);
 			}
 			if (source.getEntity() instanceof ServerPlayer attacker && attacker != entity && Wolverine.hasPower(attacker)) {

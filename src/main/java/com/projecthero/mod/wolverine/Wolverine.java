@@ -124,6 +124,8 @@ public final class Wolverine {
 		s.emergencyReadyAt = 0L;
 		s.dashUntil = 0L;
 		s.rageMeter = 0.0f;
+		s.healPool = WolverineConfig.HEAL_POOL_MAX;
+		s.lastHurtAt = 0L;
 		s.chargeStartedAt = 0L;
 		s.abilityReadyAt.clear();
 		save(player, s);
@@ -245,6 +247,17 @@ public final class Wolverine {
 		save(player, c);
 	}
 
+	/** v0.12.40: he just TOOK damage -- restarts the 5 s wait before the Healing Factor pool refills. */
+	public static void markHurt(ServerPlayer player) {
+		WolverineState s = state(player);
+		if (!s.hasPower) {
+			return;
+		}
+		WolverineState c = s.copy();
+		c.lastHurtAt = player.level().getGameTime();
+		save(player, c);
+	}
+
 	/** Fill the Berserker Rage bar (taking or dealing damage). Does nothing while a rage is burning. */
 	public static void addRage(ServerPlayer player, float amount) {
 		WolverineState s = state(player);
@@ -310,9 +323,10 @@ public final class Wolverine {
 
 	public static void onPlayerRespawn(ServerPlayer player) {
 		clearTransient(player);
-		if (state(player).rageMeter != 0.0f) {
+		if (state(player).rageMeter != 0.0f || state(player).healPool < WolverineConfig.HEAL_POOL_MAX) {
 			WolverineState c = state(player).copy();
 			c.rageMeter = 0.0f;
+			c.healPool = WolverineConfig.HEAL_POOL_MAX; // a respawn brings the healing factor back
 			save(player, c);
 		}
 	}

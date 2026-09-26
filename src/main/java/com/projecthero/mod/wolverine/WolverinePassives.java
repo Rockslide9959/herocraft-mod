@@ -148,14 +148,30 @@ public final class WolverinePassives {
 
 	// ---------------- healing factor ----------------
 
-	/** Super Regeneration's base heal at 1x / 2x / 3x by health tier (4 / 8 / 12 HP/s), doubled in Rage. */
+	/**
+	 * v0.12.40: 1.5 HP every 5 ticks (6 HP/s), but every HP is paid from the Healing Factor pool (120 HP); with the pool at 0 there is no
+	 * healing. The pool refills 3 HP/s, starting only once he has gone 5 s without taking damage.
+	 */
 	private static void healingFactor(ServerPlayer player) {
-		// v0.12.20: flat 1.5 HP every 5 ticks, whatever his health, Rage or Death Surge state.
-		if (player.getAbilities().instabuild || player.tickCount % WolverineConfig.REGEN_INTERVAL_TICKS != 0) {
+		if (player.getAbilities().instabuild) {
 			return;
 		}
-		if (player.getHealth() < player.getMaxHealth()) {
-			player.heal(WolverineConfig.REGEN_HP);
+		WolverineState s = Wolverine.state(player);
+		long now = player.level().getGameTime();
+		float pool = s.healPool;
+		if (player.tickCount % WolverineConfig.REGEN_INTERVAL_TICKS == 0 && pool > 0.0f && player.getHealth() < player.getMaxHealth()) {
+			float before = player.getHealth();
+			player.heal(Math.min(WolverineConfig.REGEN_HP, pool));
+			pool = Math.max(0.0f, pool - Math.max(0.0f, player.getHealth() - before));
+		}
+		if (player.tickCount % 10 == 0 && pool < WolverineConfig.HEAL_POOL_MAX
+				&& now - s.lastHurtAt >= WolverineConfig.HEAL_POOL_REGEN_DELAY_TICKS) {
+			pool = Math.min(WolverineConfig.HEAL_POOL_MAX, pool + WolverineConfig.HEAL_POOL_REGEN_PER_SECOND * 10 / 20.0f);
+		}
+		if (pool != s.healPool) {
+			WolverineState c = s.copy();
+			c.healPool = pool;
+			Wolverine.save(player, c);
 		}
 	}
 

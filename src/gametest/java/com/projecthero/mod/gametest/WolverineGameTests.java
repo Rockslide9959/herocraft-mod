@@ -120,6 +120,28 @@ public class WolverineGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
+	public void healingIsPaidFromThePoolAndStopsAtZero(GameTestHelper helper) {
+		ServerPlayer p = wolverine(helper);
+		helper.assertTrue(Wolverine.state(p).healPool == WolverineConfig.HEAL_POOL_MAX, "starts with a full 120 HP pool");
+		p.setHealth(5.0f);
+		Wolverine.markHurt(p);
+		for (int i = 0; i < 40; i++) {
+			p.tickCount = 5 * (i + 1); // every REGEN_INTERVAL_TICKS
+			com.projecthero.mod.wolverine.WolverinePassives.tick(p);
+		}
+		com.projecthero.mod.wolverine.data.WolverineState st = Wolverine.state(p);
+		helper.assertTrue(p.getHealth() > 5.0f && st.healPool < WolverineConfig.HEAL_POOL_MAX, "healing drains the pool");
+		com.projecthero.mod.wolverine.data.WolverineState empty = st.copy();
+		empty.healPool = 0.0f;
+		p.setAttached(com.projecthero.mod.attachment.ModAttachments.WOLVERINE_STATE, empty);
+		float hp = p.getHealth();
+		p.tickCount = 5000;
+		com.projecthero.mod.wolverine.WolverinePassives.tick(p);
+		helper.assertTrue(p.getHealth() == hp, "an empty pool means no healing");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
 	public void slotRoutingAndCooldownGate(GameTestHelper helper) {
 		ServerPlayer p = wolverine(helper);
 		p.setYRot(0.0f);
