@@ -87,13 +87,16 @@ jobs:
           version: ${{ steps.meta.outputs.version }}
           version-type: release
           changelog: ${{ steps.meta.outputs.changelog }}
+          # CurseForge occasionally answers 500: retry hard before giving up (a failure stops the run visibly)
+          retry-attempts: 6
+          retry-delay: 20000
           files: build/libs/!(*-sources).jar
           # game versions, mod loaders and required dependencies (Fabric API,
           # GeckoLib) are read automatically from src/main/resources/fabric.mod.json
 
       - name: notify discord
         if: success()
-        continue-on-error: true   # a Discord hiccup should never fail the release
+        # no continue-on-error: a failed Discord post must show up as a failed run so it gets noticed and fixed
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           VERSION: ${{ steps.meta.outputs.version }}
@@ -101,14 +104,20 @@ jobs:
           RELEASE_URL: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
         run: |
           if [ -z "$DISCORD_WEBHOOK_URL" ]; then
-            echo "No DISCORD_WEBHOOK_URL secret set, skipping."
-            exit 0
+            echo "::error::DISCORD_WEBHOOK_URL secret is not set - the release was NOT announced"
+            exit 1
           fi
           jq -n \
             --arg content "@everyone Project Hero $VERSION is out! Please wait about 20 minutes for CurseForge to verify the mod update before it shows up." \
             --arg title "Project Hero $VERSION" \
-            --arg desc "$CHANGELOG" \
+            --arg desc "${CHANGELOG:0:4000}" \
             --arg url "$RELEASE_URL" \
             '{content: $content, allowed_mentions: {parse: ["everyone"]}, embeds: [{title: $title, description: $desc, url: $url, color: 3066993}]}' \
             > discord_payload.json
-          curl -sf -H "Content-Type: application/json" -d @discord_payload.json "$DISCORD_WEBHOOK_URL"
+          code=$(curl -s -o discord_response.txt -w "%{http_code}" --retry 5 --retry-delay 10 --retry-all-errors -H "Content-Type: application/json" -d @discord_payload.json "$DISCORD_WEBHOOK_URL")
+          echo "Discord answered HTTP $code"
+          if [ "$code" != "204" ] && [ "$code" != "200" ]; then
+            cat discord_response.txt
+            echo "::error::Discord post failed (HTTP $code)"
+            exit 1
+          fi
