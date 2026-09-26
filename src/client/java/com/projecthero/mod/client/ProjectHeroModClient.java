@@ -533,6 +533,12 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				client.setScreen(new PowerWheelScreen());
 			}
 		}
+		if (!down && powerSelectWasDown && client.player != null && com.projecthero.mod.titanshifter.TitanShifter.isShifter(client.player)
+				&& !com.projecthero.mod.titanshifter.TitanShifter.phase(client.player).insideForm()) {
+			// v0.12.39: letting go of H ends an emergency-shift hold that has not finished (the server ignores it otherwise)
+			ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(
+					com.projecthero.mod.network.TitanShiftPayload.Action.EMERGENCY_RELEASE));
+		}
 		powerSelectWasDown = down;
 	}
 

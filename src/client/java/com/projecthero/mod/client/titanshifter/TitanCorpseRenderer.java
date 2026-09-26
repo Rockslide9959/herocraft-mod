@@ -73,7 +73,8 @@ public class TitanCorpseRenderer extends GeoEntityRenderer<TitanCorpseEntity> {
 		float e = c * c;
 		float side = Math.signum(centre.x) * 0.9f + (index % 3 - 1) * 0.35f;
 		float shake = (float) Math.sin(age * 1.7f + index * 2.3f) * 0.012f * c;
-		float s = 1.0f - 0.65f * e;
+		// v0.12.39: shrinks all the way to nothing before it is dropped, so it never pops out of existence
+		float s = Math.max(0.001f, 1.0f - e);
 		poseStack.pushPose();
 		poseStack.translate(centre.x + side * 0.08f * e + shake, centre.y - 0.10f * e, centre.z + 0.05f * e - shake);
 		poseStack.scale(s, s, s);

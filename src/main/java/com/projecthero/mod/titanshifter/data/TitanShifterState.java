@@ -36,14 +36,19 @@ public final class TitanShifterState {
 	public final Map<String, Long> abilityReadyAt;
 	/** Titan Energy (v0.12.32): 0..{@code TitanShifterConfig.energy().max}. Synced so the HUD can draw the bar. */
 	public float energy;
+	/** v0.12.39: game time the Emergency Titan is forced out; 0 when the shifter is not in (or making) an emergency form. */
+	public long emergencyUntil;
+	/** v0.12.39: set when an Emergency Titan ends -- Titan Energy refills 3x slower and there is no passive regen until the penalty clears. */
+	public boolean emergencyPenalty;
 
 	public TitanShifterState() {
-		this(false, TitanPhase.HUMAN.name(), "generic_titan", 0L, 0L, 0L, 0L, 0L, 0f, 0f, 0, 0L, new HashMap<>(), 0f);
+		this(false, TitanPhase.HUMAN.name(), "generic_titan", 0L, 0L, 0L, 0L, 0L, 0f, 0f, 0, 0L, new HashMap<>(), 0f, 0L, false);
 	}
 
 	public TitanShifterState(boolean unlocked, String phase, String typeId, long phaseStartedAt, long phaseUntil,
 			long cooldownUntil, long regenUntil, long hardenUntil, float titanHealth, float titanMaxHealth,
-			int lastAction, long lastActionTick, Map<String, Long> abilityReadyAt, float energy) {
+			int lastAction, long lastActionTick, Map<String, Long> abilityReadyAt, float energy,
+			long emergencyUntil, boolean emergencyPenalty) {
 		this.unlocked = unlocked;
 		this.phase = phase;
 		this.typeId = typeId;
@@ -58,6 +63,20 @@ public final class TitanShifterState {
 		this.lastActionTick = lastActionTick;
 		this.abilityReadyAt = new HashMap<>(abilityReadyAt);
 		this.energy = energy;
+		this.emergencyUntil = emergencyUntil;
+		this.emergencyPenalty = emergencyPenalty;
+	}
+
+	public boolean inEmergency() {
+		return emergencyUntil > 0L;
+	}
+
+	/** The emergency form (or its penalty bookkeeping) just ended: the form is over and the penalty starts. */
+	public void endEmergency() {
+		if (emergencyUntil > 0L) {
+			emergencyUntil = 0L;
+			emergencyPenalty = true;
+		}
 	}
 
 	public TitanPhase phase() {
@@ -66,7 +85,7 @@ public final class TitanShifterState {
 
 	public TitanShifterState copy() {
 		return new TitanShifterState(unlocked, phase, typeId, phaseStartedAt, phaseUntil, cooldownUntil, regenUntil,
-				hardenUntil, titanHealth, titanMaxHealth, lastAction, lastActionTick, abilityReadyAt, energy);
+				hardenUntil, titanHealth, titanMaxHealth, lastAction, lastActionTick, abilityReadyAt, energy, emergencyUntil, emergencyPenalty);
 	}
 
 	public static final Codec<TitanShifterState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -85,6 +104,8 @@ public final class TitanShifterState {
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", Map.of())
 					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
 			// saves from v0.12.31 have no energy: an existing shifter simply starts with a full bar
-			Codec.FLOAT.optionalFieldOf("energy", 100f).forGetter(s -> s.energy)
+			Codec.FLOAT.optionalFieldOf("energy", 100f).forGetter(s -> s.energy),
+				Codec.LONG.optionalFieldOf("emergency_until", 0L).forGetter(s -> s.emergencyUntil),
+				Codec.BOOL.optionalFieldOf("emergency_penalty", false).forGetter(s -> s.emergencyPenalty)
 	).apply(instance, TitanShifterState::new));
 }

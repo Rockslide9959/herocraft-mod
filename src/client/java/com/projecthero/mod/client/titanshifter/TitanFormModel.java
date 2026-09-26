@@ -19,7 +19,8 @@ public class TitanFormModel extends GeoModel<TitanFormEntity> {
 
 	@Override
 	public ResourceLocation getTextureResource(TitanFormEntity animatable) {
-		return animatable.isHardened() ? animatable.titanType().hardenedTexture() : animatable.titanType().texture();
+		ResourceLocation tex = animatable.isHardened() ? animatable.titanType().hardenedTexture() : animatable.titanType().texture();
+		return animatable.isEmergency() ? PaleTextures.of(tex) : tex;
 	}
 
 	@Override

@@ -15,7 +15,7 @@ public class TitanCorpseModel extends GeoModel<TitanCorpseEntity> {
 
 	@Override
 	public ResourceLocation getTextureResource(TitanCorpseEntity animatable) {
-		return animatable.titanType().corpseTexture();
+		return animatable.isEmergency() ? PaleTextures.of(animatable.titanType().corpseTexture()) : animatable.titanType().corpseTexture();
 	}
 
 	@Override

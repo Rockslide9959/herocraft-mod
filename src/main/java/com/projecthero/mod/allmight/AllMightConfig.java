@@ -12,14 +12,14 @@ public final class AllMightConfig {
 	private static final int S = 20;
 
 	// ---------------------------------------------------------------- OFA Power (the resource)
-	public static final float OFA_MAX = 100.0f;
-	/** OFA restored every {@link #OFA_REGEN_INTERVAL_TICKS} ticks. */
+	/** v0.12.39: 300 OFA = exactly 5 minutes of Power Form (it drains 1 a second), and the HUD shows it as a timer. */
+	public static final float OFA_MAX = 300.0f;
+	/** v0.12.39: only the Base Form refills OFA: 1 every 2 seconds. */
 	public static final float OFA_REGEN_AMOUNT = 1.0f;
-	/** 15 ticks = 1 OFA every 0.75 s while in combat ... */
-	public static final int OFA_REGEN_INTERVAL_TICKS = 15;
-	/** ... and 8 ticks (2.5x faster) once {@link #OFA_COMBAT_LOCKOUT_TICKS} have passed without dealing/taking damage. */
-	public static final int OFA_REGEN_INTERVAL_OUT_OF_COMBAT_TICKS = 8;
-	public static final int OFA_COMBAT_LOCKOUT_TICKS = 5 * S;
+	public static final int OFA_REGEN_INTERVAL_TICKS = 2 * S;
+	/** v0.12.39: simply BEING in the Power Form drains this much OFA every {@link #FORM_DRAIN_INTERVAL_TICKS} ticks (1 a second). */
+	public static final float FORM_DRAIN_AMOUNT = 1.0f;
+	public static final int FORM_DRAIN_INTERVAL_TICKS = S;
 
 	// ---------------------------------------------------------------- forms (v0.12.34: Base Form / Power Form)
 	// Base Form is a plain Minecraft player: no bonuses, no passives, no abilities. Everything below is the Power Form (H).
@@ -32,8 +32,9 @@ public final class AllMightConfig {
 	public static final float FULL_DAMAGE_REDUCTION = 0.50f;
 	/** Speed III (amplifier 2). */
 	public static final int FULL_SPEED_AMPLIFIER = 2;
-	/** Regeneration I (amplifier 0). */
-	public static final int FULL_REGEN_AMPLIFIER = 0;
+	/** v0.12.39: below Regeneration I -- a plain heal of {@link #FULL_REGEN_AMOUNT} HP every {@link #FULL_REGEN_INTERVAL_TICKS} ticks (1 HP every 4 s; Regeneration I is 1 HP every 2.5 s). */
+	public static final int FULL_REGEN_INTERVAL_TICKS = 4 * S;
+	public static final float FULL_REGEN_AMOUNT = 1.0f;
 	/** How high a jump carries him, in blocks (a vanilla jump is about 1.25). */
 	public static final double FULL_JUMP_BLOCKS = 3.0;
 	/** The Power Form is 1.5x as tall: 1.8 -> 2.7 blocks. Added to Attributes.SCALE and eased in / out over {@link #GROWTH_TICKS}. */
@@ -48,9 +49,9 @@ public final class AllMightConfig {
 	public static final int FORM_TOGGLE_DEBOUNCE_TICKS = 8;
 
 	// ---------------------------------------------------------------- Plus Ultra (C)
-	/** While Plus Ultra is on, OFA drains this much every {@link #PLUS_ULTRA_DRAIN_INTERVAL_TICKS} ticks (5 a second). */
-	public static final float PLUS_ULTRA_DRAIN_AMOUNT = 1.0f;
-	public static final int PLUS_ULTRA_DRAIN_INTERVAL_TICKS = 4;
+	/** v0.12.39: pressing C spends this much OFA once, and Plus Ultra then lasts a fixed {@link #PLUS_ULTRA_DURATION_TICKS}. */
+	public static final int PLUS_ULTRA_COST = 50;
+	public static final int PLUS_ULTRA_DURATION_TICKS = 22 * S;
 	/** Cooldown that starts when Plus Ultra is switched off (or runs out of OFA). */
 	public static final int PLUS_ULTRA_COOLDOWN_TICKS = 20 * S;
 	/** Every Smash / ability deals this much more damage while it is on (+30%). */
@@ -59,8 +60,10 @@ public final class AllMightConfig {
 	public static final float LOW_OFA_STEAM = 30.0f;
 
 	// ---------------------------------------------------------------- Smashes
+	// v0.12.39: the Smashes and the Leap cost no OFA any more -- being in the Power Form is what drains it. Only Plus Ultra (50) and
+	// the United States of Smash (100) still spend a one-off amount.
 	// Detroit Smash (R): a devastating close-range punch
-	public static final int DETROIT_COST = 10;
+	public static final int DETROIT_COST = 0;
 	public static final int DETROIT_COOLDOWN = 3 * S;
 	public static final int DETROIT_WINDUP = 6;
 	public static final float DETROIT_DAMAGE = 18.0f;
@@ -71,7 +74,7 @@ public final class AllMightConfig {
 	public static final double DETROIT_LIFT = 0.45;
 
 	// Texas Smash (G): a wide travelling air blast
-	public static final int TEXAS_COST = 15;
+	public static final int TEXAS_COST = 0;
 	public static final int TEXAS_COOLDOWN = 6 * S;
 	public static final int TEXAS_WINDUP = 8;
 	public static final float TEXAS_DAMAGE = 24.0f;
@@ -84,7 +87,7 @@ public final class AllMightConfig {
 	public static final double TEXAS_WAVE_SPEED = 2.0;
 
 	// Carolina Smash (V): a high-speed offensive dash
-	public static final int CAROLINA_COST = 20;
+	public static final int CAROLINA_COST = 0;
 	public static final int CAROLINA_COOLDOWN = 5 * S;
 	public static final int CAROLINA_WINDUP = 5;
 	public static final float CAROLINA_DAMAGE = 20.0f;
@@ -93,7 +96,7 @@ public final class AllMightConfig {
 	public static final double CAROLINA_KNOCKBACK = 2.4;
 
 	// New Hampshire Smash (Shift+R): an aerial launch and a crashing landing
-	public static final int NEW_HAMPSHIRE_COST = 25;
+	public static final int NEW_HAMPSHIRE_COST = 0;
 	public static final int NEW_HAMPSHIRE_COOLDOWN = 8 * S;
 	public static final int NEW_HAMPSHIRE_WINDUP = 6;
 	public static final float NEW_HAMPSHIRE_DAMAGE = 20.0f;
@@ -121,7 +124,7 @@ public final class AllMightConfig {
 	public static final int UNITED_STATES_SECONDARY_EXPAND_TICKS = 10;
 
 	// Leap (X) -- a utility ability: the mod has no reusable enhanced-leap for this kit, and the Smashes are all attacks
-	public static final int LEAP_COST = 5;
+	public static final int LEAP_COST = 0;
 	public static final int LEAP_COOLDOWN = 30; // 1.5 s
 	public static final double LEAP_HEIGHT = 17.0;
 	public static final double LEAP_FORWARD_SPEED = 0.7;

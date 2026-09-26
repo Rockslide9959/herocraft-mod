@@ -38,6 +38,7 @@ public final class TitanShifterHud {
 	private static final int COLOR_KEY = 0xFFD8D8D8;
 	private static final int COLOR_NAME = 0xFFE0E0E0;
 	private static final int COLOR_ENERGY = 0xFFFFD53A; // v0.12.35: yellow, and it stays yellow when full
+	private static final int COLOR_EMERGENCY = 0xFFB8E4FF; // v0.12.39: pale electric blue
 
 	/** The six boxes in slot order (R G X Z V C). */
 	private static final String[] NAME_KEYS = {
@@ -66,7 +67,9 @@ public final class TitanShifterHud {
 		Component key = ModKeyBindings.POWER_SELECT.getTranslatedKeyMessage();
 
 		// total height of the block, so it can be stacked upward from the bottom edge
-		int height = 11; // title
+		// v0.12.39: the Emergency Titan's time-limit bar sits above the title
+		boolean emergency = inside && s.inEmergency();
+		int height = 11 + (emergency ? BAR_H + 3 : 0); // title
 		if (inside) {
 			height += BOX + 3 + 11 + BAR_H + 3 + 11; // keys, HP label + bar, revert line
 		} else {
@@ -74,6 +77,11 @@ public final class TitanShifterHud {
 		}
 		int y = g.guiHeight() - 12 - height;
 
+		if (emergency) {
+			float left = Math.max(0f, Math.min(1f, (s.emergencyUntil - now) / (float) TitanShifterConfig.emergency().durationTicks));
+			thinBar(g, x0, y, totalW, left, COLOR_EMERGENCY);
+			y += BAR_H + 3;
+		}
 		g.drawString(mc.font, Component.translatable("hud.projecthero.titan_shifter.title")
 				.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), x0, y, 0xFFFFAA00, true);
 		y += 11;
@@ -148,8 +156,14 @@ public final class TitanShifterHud {
 				if (cd > 0) {
 					yield Component.translatable("hud.projecthero.titan_shifter.cooldown", (cd + 19) / 20).withStyle(ChatFormatting.RED);
 				}
-				// only at a full bar
-				yield full ? Component.translatable("hud.projecthero.titan_shifter.ready", key).withStyle(ChatFormatting.YELLOW) : null;
+				if (full) {
+					yield Component.translatable("hud.projecthero.titan_shifter.ready", key).withStyle(ChatFormatting.YELLOW);
+				}
+				// v0.12.39: 30%+ (and no penalty from the last emergency form): hold H for an emergency shift
+				if (TitanShifter.emergencyAllowed(s)) {
+					yield Component.translatable("hud.projecthero.titan_shifter.emergency_ready", key).withStyle(ChatFormatting.AQUA);
+				}
+				yield s.emergencyPenalty ? Component.translatable("hud.projecthero.titan_shifter.drained").withStyle(ChatFormatting.GRAY) : null;
 			}
 			case TRANSFORMING -> Component.translatable("hud.projecthero.titan_shifter.transforming").withStyle(ChatFormatting.GOLD);
 			case TITAN -> null;

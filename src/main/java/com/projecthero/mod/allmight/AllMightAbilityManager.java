@@ -104,6 +104,7 @@ public final class AllMightAbilityManager {
 			case AllMightAbilities.CAROLINA -> AllMightConfig.CAROLINA_COST;
 			case AllMightAbilities.UNITED_STATES -> AllMightConfig.UNITED_STATES_COST;
 			case AllMightAbilities.LEAP -> AllMightConfig.LEAP_COST;
+			case AllMightAbilities.PLUS_ULTRA -> AllMightConfig.PLUS_ULTRA_COST;
 			default -> 0;
 		};
 	}

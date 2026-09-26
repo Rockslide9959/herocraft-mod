@@ -281,4 +281,97 @@ public class TitanShifterGameTests implements FabricGameTest {
 			});
 		});
 	}
+
+	// ---------------- v0.12.39: the Emergency Titan ----------------
+
+	private static void setEnergy(ServerPlayer p, float e) {
+		TitanShifterState s = TitanShifter.state(p).copy();
+		s.energy = e;
+		p.setAttached(com.projecthero.mod.attachment.ModAttachments.TITAN_SHIFTER_STATE, s);
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
+	public void holdingHForFiveSecondsAt30PercentMakesAWeakPaleSevenBlockTitan(GameTestHelper helper) {
+		ServerPlayer p = shifter(helper);
+		setEnergy(p, 40.0f);
+		pump(helper, p);
+		TitanShifter.requestToggle(p); // H pressed
+		helper.runAfterDelay(60, () -> helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN, "still just holding after 3 s"));
+		helper.runAfterDelay(110 + SETTLE, () -> {
+			TitanFormEntity form = TitanShifter.formOf(p);
+			helper.assertTrue(TitanShifter.inTitan(p) && form != null, "the hold completed into a Titan");
+			helper.assertTrue(form.isEmergency() && TitanShifter.state(p).inEmergency(), "it is the Emergency Titan");
+			helper.assertTrue(Math.abs(form.getBbHeight() - 7.0f) < 0.05f, "7 blocks tall, got " + form.getBbHeight());
+			helper.assertTrue(Math.abs(form.getMaxHealth() - 300.0f) < 0.5f, "40% less health (300), got " + form.getMaxHealth());
+			helper.assertTrue(Math.abs(form.strengthFactor() - 0.6f) < 1e-4f, "40% weaker hits");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
+	public void releasingHOrBeingUnder30PercentNeverStartsAnEmergencyShift(GameTestHelper helper) {
+		ServerPlayer p = shifter(helper);
+		setEnergy(p, 20.0f);
+		pump(helper, p);
+		TitanShifter.requestToggle(p);
+		helper.runAfterDelay(130, () -> {
+			helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN, "20% is not enough for an emergency shift");
+			setEnergy(p, 50.0f);
+			TitanShifter.requestToggle(p);
+			helper.runAfterDelay(30, () -> {
+				TitanShifter.cancelEmergencyHold(p); // H released early
+				helper.runAfterDelay(100, () -> {
+					helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN, "released early -> nothing happens");
+					helper.succeed();
+				});
+			});
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 500)
+	public void anEndedEmergencyTitanLeavesThePenalty(GameTestHelper helper) {
+		ServerPlayer p = shifter(helper);
+		setEnergy(p, 50.0f);
+		pump(helper, p);
+		helper.assertTrue(TitanShifter.transform(p, true), "emergency transform");
+		helper.runAfterDelay(SETTLE, () -> {
+			helper.assertTrue(TitanShifter.inTitan(p), "in the Titan");
+			TitanShifter.revert(p);
+			TitanShifterState s = TitanShifter.state(p);
+			helper.assertTrue(s.emergencyPenalty && !s.inEmergency(), "the penalty is set when the form ends");
+			setEnergy(p, 60.0f);
+			s = TitanShifter.state(p);
+			helper.assertFalse(TitanShifter.emergencyAllowed(s), "no second emergency shift until the bar is full");
+			p.setHealth(10.0f);
+			setEnergy(p, 40.0f);
+			helper.assertFalse(TitanShifter.baseRegenActive(p, TitanShifter.state(p)), "no passive regeneration below 50% after an emergency");
+			setEnergy(p, 60.0f);
+			helper.assertTrue(TitanShifter.baseRegenActive(p, TitanShifter.state(p)), "passive regeneration is back at 50%");
+			setEnergy(p, 0.0f);
+			float before = TitanShifter.energy(p);
+			helper.runAfterDelay(65, () -> {
+				float gained = TitanShifter.energy(p) - before;
+				helper.assertTrue(gained > 0.5f && gained < 2.2f, "refills 3x slower (about 1% in 3 s, up to double if the mock player is ticked twice), got " + gained);
+				helper.succeed();
+			});
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 500)
+	public void theEmergencyTitanIsForcedOutAfterTwoMinutes(GameTestHelper helper) {
+		ServerPlayer p = shifter(helper);
+		setEnergy(p, 50.0f);
+		pump(helper, p);
+		helper.assertTrue(TitanShifter.transform(p, true), "emergency transform");
+		helper.runAfterDelay(SETTLE, () -> {
+			TitanShifterState s = TitanShifter.state(p).copy();
+			s.emergencyUntil = p.level().getGameTime() + 5; // fast-forward the two minutes
+			p.setAttached(com.projecthero.mod.attachment.ModAttachments.TITAN_SHIFTER_STATE, s);
+			helper.runAfterDelay(20, () -> {
+				helper.assertTrue(TitanShifter.phase(p) == TitanPhase.HUMAN && TitanShifter.formOf(p) == null, "forced back out");
+				helper.assertTrue(TitanShifter.state(p).emergencyPenalty, "and drained");
+				helper.succeed();
+			});
+		});
+	}
 }

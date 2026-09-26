@@ -39,6 +39,7 @@ public final class TitanShifterConfig {
 	public Effects effects = new Effects();
 	public World world = new World();
 	public Energy energy = new Energy();
+	public Emergency emergency = new Emergency();
 
 	public static final class Stats {
 		/** Titan hit-box height in blocks -- a regular player, scaled up to 11 blocks tall (v0.12.32). */
@@ -181,6 +182,24 @@ public final class TitanShifterConfig {
 		public double baseFormRegenDrainPerSecond = 1.5;
 	}
 
+	/** v0.12.39: the Emergency Titan -- hold H for a few seconds with at least minFraction of the bar to become a pale, weaker Titan. */
+	public static final class Emergency {
+		/** Least Titan Energy (fraction of the bar) that allows an emergency shift. */
+		public double minFraction = 0.30;
+		/** Hold H this long (5 s) while electricity crackles round the shifter. */
+		public int holdTicks = 100;
+		/** The form lasts at most this long (2 minutes, counted from the moment the shift starts). */
+		public int durationTicks = 2400;
+		/** Emergency Titan hit-box height in blocks (the full Titan is 11). */
+		public double heightBlocks = 7.0;
+		/** 40% weaker in everything: health, armour, toughness, speed and every hit it lands. */
+		public double strengthFactor = 0.6;
+		/** After the form ends Titan Energy refills this many times slower until the bar is full again. */
+		public double regenSlowdown = 3.0;
+		/** After the form ends the base-form passive regeneration stays off until the bar is back to this fraction. */
+		public double passiveRegenMinFraction = 0.5;
+	}
+
 	public static TitanShifterConfig get() {
 		return instance;
 	}
@@ -217,6 +236,10 @@ public final class TitanShifterConfig {
 		return instance.energy;
 	}
 
+	public static Emergency emergency() {
+		return instance.emergency;
+	}
+
 	private TitanShifterConfig() {
 	}
 
@@ -236,6 +259,7 @@ public final class TitanShifterConfig {
 					if (instance.effects == null) instance.effects = new Effects();
 					if (instance.world == null) instance.world = new World();
 					if (instance.energy == null) instance.energy = new Energy();
+						if (instance.emergency == null) instance.emergency = new Emergency();
 					if (loaded.configVersion == null || loaded.configVersion < 2) {
 						// v0.12.32 changed the body (regular player, 3.67 wide) and dropped the 60 s cooldown for the energy bar:
 						// a config file written by v0.12.31 must not keep the old values.

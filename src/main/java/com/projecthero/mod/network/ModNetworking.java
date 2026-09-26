@@ -153,6 +153,7 @@ public final class ModNetworking {
 				case LET_DOWN -> com.projecthero.mod.titanshifter.TitanAbilities.letDown(p);
 				case SPRINT_ON -> com.projecthero.mod.titanshifter.TitanShifter.setSprintHeld(p, true);
 				case SPRINT_OFF -> com.projecthero.mod.titanshifter.TitanShifter.setSprintHeld(p, false);
+				case EMERGENCY_RELEASE -> com.projecthero.mod.titanshifter.TitanShifter.cancelEmergencyHold(p);
 			}
 		});
 

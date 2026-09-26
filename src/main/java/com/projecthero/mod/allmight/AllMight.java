@@ -214,7 +214,7 @@ public final class AllMight {
 			PowerToggles.clearModifier(player, Attributes.JUMP_STRENGTH, JUMP_ID);
 			PowerToggles.clearModifier(player, Attributes.ENTITY_INTERACTION_RANGE, REACH_ID);
 			clearOurEffect(player, MobEffects.MOVEMENT_SPEED, AllMightConfig.FULL_SPEED_AMPLIFIER);
-			clearOurEffect(player, MobEffects.REGENERATION, AllMightConfig.FULL_REGEN_AMPLIFIER);
+			clearOurEffect(player, MobEffects.REGENERATION, 0);
 			if (!s.hasPower) {
 				PowerToggles.clearModifier(player, Attributes.SCALE, SCALE_ID);
 			}
@@ -229,7 +229,6 @@ public final class AllMight {
 				AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		PowerToggles.modifier(player, Attributes.ENTITY_INTERACTION_RANGE, REACH_ID, AllMightConfig.FULL_REACH_BONUS, AttributeModifier.Operation.ADD_VALUE);
 		keepEffect(player, MobEffects.MOVEMENT_SPEED, AllMightConfig.FULL_SPEED_AMPLIFIER);
-		keepEffect(player, MobEffects.REGENERATION, AllMightConfig.FULL_REGEN_AMPLIFIER);
 	}
 
 	/** A short hidden effect that is topped up while it is running low, so it never clobbers another power's infinite one and lapses on its own. */
@@ -272,6 +271,10 @@ public final class AllMight {
 		if (now - s.formChangedAt < AllMightConfig.FORM_TOGGLE_DEBOUNCE_TICKS || now < s.transformUntil) {
 			return;
 		}
+		if (!s.fullPower && s.ofa < 1.0f) {
+			say(player, "message.projecthero.all_might.low_ofa", ChatFormatting.RED, 1, (int) Math.floor(s.ofa));
+			return; // no One For All left to power the form
+		}
 		changeForm(player, !s.fullPower);
 	}
 
@@ -291,6 +294,7 @@ public final class AllMight {
 		n.animStart = now;
 		if (!toFull && s.plusUltra) {
 			n.plusUltra = false;
+			n.plusUltraUntil = 0L;
 			n.abilityReadyAt.put(AllMightAbilities.PLUS_ULTRA, now + AllMightConfig.PLUS_ULTRA_COOLDOWN_TICKS);
 		}
 		save(player, n);
@@ -376,30 +380,40 @@ public final class AllMight {
 		if (player.tickCount % 20 == 0) {
 			reconcile(player);
 		}
-		if (s.fullPower && s.plusUltra) {
-			tickPlusUltra(player, s, now);
+		if (s.fullPower && s.plusUltra && now >= s.plusUltraUntil) {
+			endPlusUltra(player, s, now);
 			s = state(player);
-			if (!s.fullPower) {
-				return; // ran dry: he is back in the Base Form
-			}
 		}
 
 		tickOfa(player, s, now);
+		s = state(player);
+		if (s.hasPower && s.fullPower && s.ofa <= 0f) {
+			exhaust(player); // the One For All ran out: back to the Base Form
+			return;
+		}
+		tickPowerFormRegen(player, s);
 		AllMightAbilities.tick(player);
 		tickLanding(player, s, now);
 		tickAura(player, s, now);
 	}
 
-	/** Plus Ultra costs OFA continuously; at zero it gives out and he drops back to the Base Form. */
-	private static void tickPlusUltra(ServerPlayer player, AllMightState s, long now) {
-		if (now % AllMightConfig.PLUS_ULTRA_DRAIN_INTERVAL_TICKS != 0L) {
-			return;
-		}
+	/** v0.12.39: Plus Ultra is a fixed 22 s; when it runs out the 20 s cooldown starts. */
+	private static void endPlusUltra(ServerPlayer player, AllMightState s, long now) {
 		AllMightState n = s.copy();
-		n.ofa = Math.max(0f, s.ofa - AllMightConfig.PLUS_ULTRA_DRAIN_AMOUNT);
+		n.plusUltra = false;
+		n.plusUltraUntil = 0L;
+		n.abilityReadyAt.put(AllMightAbilities.PLUS_ULTRA, now + AllMightConfig.PLUS_ULTRA_COOLDOWN_TICKS);
 		save(player, n);
-		if (n.ofa <= 0f) {
-			exhaust(player);
+		ServerLevel level = (ServerLevel) player.level();
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.8f, 1.6f);
+		steam(level, player, 6);
+		player.displayClientMessage(Component.translatable("message.projecthero.all_might.plus_ultra_off").withStyle(ChatFormatting.GRAY), true);
+	}
+
+	/** v0.12.39: the Power Form's slow self-healing: 1 HP every 4 s (below Regeneration I). */
+	private static void tickPowerFormRegen(ServerPlayer player, AllMightState s) {
+		if (s.fullPower && player.tickCount % AllMightConfig.FULL_REGEN_INTERVAL_TICKS == 0 && player.getHealth() < player.getMaxHealth()) {
+			player.heal(AllMightConfig.FULL_REGEN_AMOUNT);
 		}
 	}
 
@@ -438,13 +452,20 @@ public final class AllMight {
 		}
 	}
 
+	/**
+	 * v0.12.39: One For All is a timer. Being in the Power Form drains 1 every second (300 = 5 minutes); only the Base Form refills it,
+	 * 1 every 2 seconds. Nothing else spends it except Plus Ultra (50) and the United States of Smash (100).
+	 */
 	private static void tickOfa(ServerPlayer player, AllMightState s, long now) {
-		if (s.ofa >= AllMightConfig.OFA_MAX || s.plusUltra) {
+		if (s.fullPower) {
+			if (now % AllMightConfig.FORM_DRAIN_INTERVAL_TICKS == 0L) {
+				AllMightState n = s.copy();
+				n.ofa = Math.max(0f, s.ofa - AllMightConfig.FORM_DRAIN_AMOUNT);
+				save(player, n);
+			}
 			return;
 		}
-		boolean calm = now - s.lastCombatTick >= AllMightConfig.OFA_COMBAT_LOCKOUT_TICKS;
-		int interval = calm ? AllMightConfig.OFA_REGEN_INTERVAL_OUT_OF_COMBAT_TICKS : AllMightConfig.OFA_REGEN_INTERVAL_TICKS;
-		if (now % interval == 0L) {
+		if (s.ofa < AllMightConfig.OFA_MAX && now % AllMightConfig.OFA_REGEN_INTERVAL_TICKS == 0L) {
 			addOfa(player, AllMightConfig.OFA_REGEN_AMOUNT);
 		}
 	}
@@ -556,6 +577,7 @@ public final class AllMight {
 		}
 		AllMightState n = s.copy();
 		n.plusUltra = false;
+		n.plusUltraUntil = 0L;
 		n.busyUntil = 0L;
 		n.transformUntil = 0L;
 		n.noFallUntil = 0L;

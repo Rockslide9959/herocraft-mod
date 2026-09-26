@@ -91,7 +91,7 @@ public final class TitanCombat {
 	/** Base damage scaled for the target: players softer, bosses capped to a fraction of their health per hit. */
 	public static float scaled(TitanFormEntity form, LivingEntity target, float base) {
 		var d = TitanShifterConfig.damage();
-		float dmg = base * form.titanType().damageScale;
+		float dmg = base * form.titanType().damageScale * form.strengthFactor();
 		dmg *= (float) (target instanceof Player ? d.playerFactor : d.mobFactor);
 		if (isBoss(target)) {
 			dmg = Math.min(dmg, (float) (target.getMaxHealth() * d.bossMaxFractionPerHit));

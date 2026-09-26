@@ -606,6 +606,9 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.titan_shifter.energy");
 			para(lines, "projecthero.guide.titan_shifter.energy.body");
 			blank(lines);
+			head(lines, "projecthero.guide.titan_shifter.emergency");
+			para(lines, "projecthero.guide.titan_shifter.emergency.body");
+			blank(lines);
 			head(lines, "projecthero.guide.titan_shifter.controls");
 			lines.add(Component.literal(" H  ").withStyle(ChatFormatting.GOLD)
 					.append(Component.translatable("projecthero.guide.titan_shifter.shift_key").withStyle(ChatFormatting.WHITE)));

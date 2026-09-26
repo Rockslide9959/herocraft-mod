@@ -22,7 +22,9 @@ public record TitanShiftPayload(Action action) implements CustomPacketPayload {
 		LET_DOWN,
 		/** The Sprint key went down / up while in Titan form (a rider never reports sprinting on its own). */
 		SPRINT_ON,
-		SPRINT_OFF
+		SPRINT_OFF,
+		/** H was released -- cancels an emergency-shift hold that has not finished. */
+		EMERGENCY_RELEASE
 	}
 
 	public static final CustomPacketPayload.Type<TitanShiftPayload> TYPE =

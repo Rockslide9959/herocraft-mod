@@ -50,6 +50,8 @@ public final class TitanShifter {
 	private static final Map<UUID, Long> LAST_MESSAGE = new HashMap<>();
 	/** Shifters whose Sprint key is currently held (sent by the client: a rider never reports sprinting on its own). */
 	private static final java.util.Set<UUID> SPRINT_HELD = new java.util.HashSet<>();
+	/** v0.12.39: shifters holding H for an emergency shift -> game time the hold began. */
+	private static final Map<UUID, Long> EMERGENCY_HOLD = new HashMap<>();
 
 	private TitanShifter() {
 	}
@@ -57,6 +59,7 @@ public final class TitanShifter {
 	public static void clearSessionState() {
 		LAST_MESSAGE.clear();
 		SPRINT_HELD.clear();
+		EMERGENCY_HOLD.clear();
 	}
 
 	public static void setSprintHeld(ServerPlayer player, boolean held) {
@@ -161,6 +164,8 @@ public final class TitanShifter {
 		s.cooldownUntil = 0L;
 		s.abilityReadyAt.clear();
 		s.energy = (float) TitanShifterConfig.energy().max; // a fresh shifter starts with a full Titan Energy bar
+		s.emergencyUntil = 0L;
+		s.emergencyPenalty = false;
 		save(player, s);
 
 		ServerLevel level = (ServerLevel) player.level();
@@ -192,6 +197,8 @@ public final class TitanShifter {
 		s.hardenUntil = 0L;
 		s.titanHealth = 0f;
 		s.energy = 0f;
+		s.emergencyUntil = 0L;
+		s.emergencyPenalty = false;
 		s.abilityReadyAt.clear();
 		save(player, s);
 	}
@@ -217,14 +224,93 @@ public final class TitanShifter {
 			return;
 		}
 		switch (s.phase()) {
-			case HUMAN -> transform(player);
+			case HUMAN -> {
+				// v0.12.39: a full bar shifts at once; between the emergency minimum and a full bar, HOLD H for an emergency shift
+				if (s.energy + 1.0e-3f >= energyNeeded() || !emergencyAllowed(s)) {
+					if (s.energy + 1.0e-3f < energyNeeded() && s.emergencyPenalty) {
+						say(player, "message.projecthero.titan_shifter.emergency_locked", ChatFormatting.RED);
+					} else {
+						transform(player);
+					}
+				} else {
+					beginEmergencyHold(player);
+				}
+			}
 			case TITAN -> revert(player);
 			case TRANSFORMING, REVERTING, DEFEATED -> say(player, "message.projecthero.titan_shifter.busy", ChatFormatting.GRAY);
 			case RECOVERING -> say(player, "message.projecthero.titan_shifter.recovering", ChatFormatting.GRAY);
 		}
 	}
 
+	/** True if the energy bar alone would allow an emergency shift (at least the configured fraction, and no penalty from the last one). */
+	public static boolean emergencyAllowed(TitanShifterState s) {
+		return !s.emergencyPenalty && s.energy + 1.0e-3f >= TitanShifterConfig.energy().max * TitanShifterConfig.emergency().minFraction;
+	}
+
+	/** H pressed with an emergency-range bar: start the hold (the electricity, and the shift itself, are driven by {@link #tickEmergencyHold}). */
+	private static void beginEmergencyHold(ServerPlayer player) {
+		if (EMERGENCY_HOLD.containsKey(player.getUUID())) {
+			return;
+		}
+		if (player.isSpectator() || player.isSleeping() || player.isPassenger() || !player.isAlive()) {
+			say(player, "message.projecthero.titan_shifter.cannot_now", ChatFormatting.RED);
+			return;
+		}
+		EMERGENCY_HOLD.put(player.getUUID(), player.level().getGameTime());
+		((ServerLevel) player.level()).playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_ACTIVATE,
+				SoundSource.PLAYERS, 1.2f, 1.7f);
+	}
+
+	/** H released before the hold completed (or a stray release): the emergency shift is cancelled. */
+	public static void cancelEmergencyHold(ServerPlayer player) {
+		if (EMERGENCY_HOLD.remove(player.getUUID()) != null) {
+			player.displayClientMessage(Component.translatable("message.projecthero.titan_shifter.emergency_cancelled")
+					.withStyle(ChatFormatting.GRAY), true);
+		}
+	}
+
+	private static void tickEmergencyHold(ServerPlayer player, TitanShifterState s) {
+		Long start = EMERGENCY_HOLD.get(player.getUUID());
+		if (start == null) {
+			return;
+		}
+		if (!emergencyAllowed(s) || s.phase() != TitanPhase.HUMAN || !player.isAlive() || player.isSpectator()
+				|| player.isPassenger() || player.containerMenu != player.inventoryMenu) {
+			EMERGENCY_HOLD.remove(player.getUUID());
+			return;
+		}
+		ServerLevel level = (ServerLevel) player.level();
+		long now = level.getGameTime();
+		int need = TitanShifterConfig.emergency().holdTicks;
+		long held = now - start;
+		float progress = Math.min(1.0f, held / (float) Math.max(1, need));
+		double h = player.getBbHeight();
+		// electricity crackles round the shifter, building as the hold goes on
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + h * 0.5, player.getZ(),
+				2 + (int) (7 * progress), 0.55, h * 0.5, 0.55, 0.12 + 0.2 * progress);
+		if (held % 6 == 0) {
+			level.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + h * 0.5, player.getZ(), 1, 0.5, h * 0.45, 0.5, 0.05);
+		}
+		if (held % 8 == 0) {
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS,
+					0.25f + 0.35f * progress, 1.4f + 0.6f * progress);
+		}
+		if (held % 10 == 0 && held < need) {
+			player.displayClientMessage(Component.translatable("message.projecthero.titan_shifter.emergency_hold",
+					String.format(java.util.Locale.ROOT, "%.1f", (need - held) / 20.0)).withStyle(ChatFormatting.AQUA), true);
+		}
+		if (held >= need) {
+			EMERGENCY_HOLD.remove(player.getUUID());
+			transform(player, true);
+		}
+	}
+
 	public static boolean transform(ServerPlayer player) {
+		return transform(player, false);
+	}
+
+	/** {@code emergency}: the pale Emergency Titan -- needs only the emergency minimum of the bar, but a form that is smaller, weaker and time-limited. */
+	public static boolean transform(ServerPlayer player, boolean emergency) {
 		TitanShifterState s = state(player);
 		if (!s.unlocked) {
 			return false;
@@ -239,7 +325,7 @@ public final class TitanShifter {
 					String.format(java.util.Locale.ROOT, "%.0f", (s.cooldownUntil - now) / 20.0));
 			return false;
 		}
-		if (s.energy + 1.0e-3f < energyNeeded()) {
+		if (emergency ? !emergencyAllowed(s) : s.energy + 1.0e-3f < energyNeeded()) {
 			say(player, "message.projecthero.titan_shifter.low_energy", ChatFormatting.RED,
 					(int) Math.ceil(s.energy), (int) Math.ceil(energyNeeded()));
 			return false;
@@ -254,7 +340,7 @@ public final class TitanShifter {
 		if (form == null) {
 			return false;
 		}
-		form.bind(player, type);
+		form.bind(player, type, emergency);
 		if (!placeForm(level, form, player)) {
 			form.discard();
 			say(player, "message.projecthero.titan_shifter.no_room", ChatFormatting.RED);
@@ -278,6 +364,7 @@ public final class TitanShifter {
 		next.titanMaxHealth = form.getMaxHealth();
 		next.regenUntil = 0L;
 		next.hardenUntil = 0L;
+		next.emergencyUntil = emergency ? now + TitanShifterConfig.emergency().durationTicks : 0L;
 		save(player, next);
 		setPhase(player, TitanPhase.TRANSFORMING, now + TitanShifterConfig.transformation().transformTicks);
 
@@ -385,11 +472,12 @@ public final class TitanShifter {
 		double height = form.getBbHeight();
 		double width = form.getBbWidth();
 		TitanType type = form.titanType();
+		boolean emergency = form.isEmergency();
 		release(player, form, false);
 		// the abandoned body: it slumps where it stood and dissolves over a minute
 		TitanCorpseEntity corpse = TitanShifterEntities.TITAN_CORPSE.create(level);
 		if (corpse != null) {
-			corpse.bind(type);
+			corpse.bind(type, emergency);
 			corpse.moveTo(p.x, p.y, p.z, yaw, 0.0f);
 			level.addFreshEntity(corpse);
 		}
@@ -474,6 +562,7 @@ public final class TitanShifter {
 		s.hardenUntil = 0L;
 		s.titanHealth = 0f;
 		s.energy = 0f; // leaving the Titan always drains the bar; it refills at 1% a second
+		s.endEmergency(); // an Emergency Titan ending starts the slow-refill / no-passive-regen penalty
 		save(player, s);
 	}
 
@@ -512,6 +601,7 @@ public final class TitanShifter {
 		n.hardenUntil = 0L;
 		n.titanHealth = 0f;
 		n.energy = 0f;
+		n.endEmergency();
 		save(player, n);
 	}
 
@@ -526,8 +616,10 @@ public final class TitanShifter {
 		if (phase == TitanPhase.HUMAN) {
 			tickEnergy(player, s);
 			tickBaseFormRegen(player);
+			tickEmergencyHold(player, s);
 			return;
 		}
+		EMERGENCY_HOLD.remove(player.getUUID());
 		long now = player.level().getGameTime();
 		if (phase == TitanPhase.RECOVERING) {
 			tickEnergy(player, s);
@@ -585,6 +677,13 @@ public final class TitanShifter {
 
 	private static void tickTitan(ServerPlayer player, TitanShifterState s, TitanFormEntity form, long now) {
 		ServerLevel level = (ServerLevel) player.level();
+		if (s.inEmergency() && now >= s.emergencyUntil) {
+			// the Emergency Titan cannot hold its shape any longer: forced back out
+			player.displayClientMessage(Component.translatable("message.projecthero.titan_shifter.emergency_over")
+					.withStyle(ChatFormatting.RED), true);
+			revert(player);
+			return;
+		}
 		var a = TitanShifterConfig.abilities();
 		if (now < s.regenUntil) {
 			form.heal((float) (a.regenPerSecond / 20.0));
@@ -638,6 +737,12 @@ public final class TitanShifter {
 	/** Outside the Titan the bar refills: {@code regenPerSecond} (1%) every second, in whole steps so it syncs rarely. */
 	private static void tickEnergy(ServerPlayer player, TitanShifterState s) {
 		var e = TitanShifterConfig.energy();
+		if (s.emergencyPenalty && s.energy >= e.max) {
+			TitanShifterState cleared = s.copy();
+			cleared.emergencyPenalty = false; // back at a full bar: the emergency penalty is over
+			save(player, cleared);
+			return;
+		}
 		if (player.level().getGameTime() % 20L != 0L || s.energy >= e.max) {
 			return;
 		}
@@ -645,7 +750,8 @@ public final class TitanShifter {
 			return; // healing through the base-form regeneration: the bar drains instead of refilling
 		}
 		TitanShifterState n = s.copy();
-		n.energy = (float) Math.min(e.max, s.energy + e.regenPerSecond);
+		double gain = s.emergencyPenalty ? e.regenPerSecond / Math.max(1.0, TitanShifterConfig.emergency().regenSlowdown) : e.regenPerSecond;
+		n.energy = (float) Math.min(e.max, s.energy + gain);
 		save(player, n);
 	}
 
@@ -675,7 +781,10 @@ public final class TitanShifter {
 
 	/** True while the base-form regeneration should run: a hurt human shifter with some Titan Energy left to spend on it. */
 	public static boolean baseRegenActive(Player player, TitanShifterState s) {
-		return TitanShifterConfig.energy().baseFormRegenAmplifier >= 0 && s.energy > 0f
+		var e = TitanShifterConfig.energy();
+		// v0.12.39: after an Emergency Titan there is no passive regeneration until the bar is back to half
+		boolean penalised = s.emergencyPenalty && s.energy < e.max * TitanShifterConfig.emergency().passiveRegenMinFraction;
+		return e.baseFormRegenAmplifier >= 0 && s.energy > 0f && !penalised
 				&& s.phase() == TitanPhase.HUMAN && player.getHealth() < player.getMaxHealth();
 	}
 
@@ -698,6 +807,7 @@ public final class TitanShifter {
 		n.hardenUntil = 0L;
 		n.titanHealth = 0f;
 		n.energy = 0f;
+		n.endEmergency();
 		// game time is per-world: keep a sane cooldown that cannot exceed the configured one
 		n.cooldownUntil = Math.min(n.cooldownUntil, now + TitanShifterConfig.transformation().cooldownTicks);
 		n.abilityReadyAt.entrySet().removeIf(e -> e.getValue() > now + 20L * 60L * 5L);
@@ -716,6 +826,7 @@ public final class TitanShifter {
 		n.regenUntil = 0L;
 		n.hardenUntil = 0L;
 		n.titanHealth = 0f;
+		n.endEmergency();
 		n.abilityReadyAt.clear();
 		save(player, n);
 	}
@@ -736,6 +847,7 @@ public final class TitanShifter {
 
 	public static void clearTransient(ServerPlayer player) {
 		LAST_MESSAGE.remove(player.getUUID());
+		EMERGENCY_HOLD.remove(player.getUUID());
 		forceEnd(player, true);
 	}
 

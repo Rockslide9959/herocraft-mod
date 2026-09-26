@@ -90,6 +90,9 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 			SynchedEntityData.defineId(TitanFormEntity.class, EntityDataSerializers.BOOLEAN);
 	private static final EntityDataAccessor<Boolean> DATA_HOLDING =
 			SynchedEntityData.defineId(TitanFormEntity.class, EntityDataSerializers.BOOLEAN);
+	/** v0.12.39: the pale, 7-block, 40%-weaker Emergency Titan. */
+	private static final EntityDataAccessor<Boolean> DATA_EMERGENCY =
+			SynchedEntityData.defineId(TitanFormEntity.class, EntityDataSerializers.BOOLEAN);
 
 	/** Every animation lives under this prefix in every Titan type's own animation file. */
 	public static final String ANIM = "animation.titan.";
@@ -172,10 +175,17 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		builder.define(DATA_OWNER, Optional.empty());
 		builder.define(DATA_RUNNING, false);
 		builder.define(DATA_HOLDING, false);
+		builder.define(DATA_EMERGENCY, false);
 	}
 
 	/** Server: bind this Titan to its owner and stats. Call before adding to the world. */
 	public void bind(ServerPlayer owner, TitanType type) {
+		bind(owner, type, false);
+	}
+
+	/** v0.12.39: {@code emergency} makes it the pale, smaller, weaker Emergency Titan (must be set before the stats and hit-box are applied). */
+	public void bind(ServerPlayer owner, TitanType type, boolean emergency) {
+		this.entityData.set(DATA_EMERGENCY, emergency);
 		this.entityData.set(DATA_OWNER, Optional.of(owner.getUUID()));
 		this.entityData.set(DATA_TYPE, type.ordinal());
 		refreshDimensions();
@@ -191,11 +201,21 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		setHealth(getMaxHealth());
 	}
 
+	public boolean isEmergency() {
+		return this.entityData.get(DATA_EMERGENCY);
+	}
+
+	/** 1.0 for a full Titan, the configured 0.6 for the Emergency Titan -- multiplies health, armour, speed and every hit it lands. */
+	public float strengthFactor() {
+		return isEmergency() ? (float) TitanShifterConfig.emergency().strengthFactor : 1.0f;
+	}
+
 	private void applyTypeStats(TitanType type) {
-		getAttribute(Attributes.MAX_HEALTH).setBaseValue(type.health());
-		getAttribute(Attributes.ARMOR).setBaseValue(type.armorValue());
-		getAttribute(Attributes.ARMOR_TOUGHNESS).setBaseValue(type.toughnessValue());
-		getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(type.speedValue());
+		double k = strengthFactor();
+		getAttribute(Attributes.MAX_HEALTH).setBaseValue(type.health() * k);
+		getAttribute(Attributes.ARMOR).setBaseValue(type.armorValue() * k);
+		getAttribute(Attributes.ARMOR_TOUGHNESS).setBaseValue(type.toughnessValue() * k);
+		getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(type.speedValue() * k);
 		getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(TitanShifterConfig.stats().knockbackResistance);
 		getAttribute(Attributes.STEP_HEIGHT).setBaseValue(TitanShifterConfig.stats().stepHeight);
 	}
@@ -254,7 +274,7 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 	@Override
 	public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
 		super.onSyncedDataUpdated(key);
-		if (DATA_TYPE.equals(key)) {
+		if (DATA_TYPE.equals(key) || DATA_EMERGENCY.equals(key)) {
 			refreshDimensions();
 		} else if (DATA_FORM_STATE.equals(key)) {
 			stateChangedTick = tickCount;
@@ -297,8 +317,10 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 	@Override
 	protected EntityDimensions getDefaultDimensions(Pose pose) {
 		TitanType type = this.entityData == null ? TitanType.GENERIC_TITAN : titanType();
-		return EntityDimensions.scalable(type.dimensionWidth(), type.dimensionHeight())
-				.withEyeHeight(type.dimensionHeight() * 0.9f); // a player's eyes sit at 0.9 of their height
+		float shrink = this.entityData == null || !isEmergency() ? 1.0f
+				: (float) (TitanShifterConfig.emergency().heightBlocks / TitanShifterConfig.stats().heightBlocks);
+		return EntityDimensions.scalable(type.dimensionWidth() * shrink, type.dimensionHeight() * shrink)
+				.withEyeHeight(type.dimensionHeight() * shrink * 0.9f); // a player's eyes sit at 0.9 of their height
 	}
 
 	// ---------------- riding ----------------

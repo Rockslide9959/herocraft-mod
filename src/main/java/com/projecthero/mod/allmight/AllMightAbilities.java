@@ -312,35 +312,31 @@ public final class AllMightAbilities {
 
 	// ---------------------------------------------------------------- C -- Plus Ultra
 
-	/** C: toggles Plus Ultra. On: OFA drains and every ability hits 30% harder. Off: a 20 s cooldown starts. */
+	/** C: Plus Ultra -- 50 OFA once, then every move hits 30% harder for a fixed 22 s. It cannot be switched off early; the 20 s cooldown starts when it ends. */
 	public static void plusUltra(ServerPlayer p) {
 		AllMightState s = AllMight.state(p);
-		if (!s.hasPower || !s.fullPower || !p.isAlive()) {
+		if (!s.hasPower || !s.fullPower || !p.isAlive() || s.plusUltra) {
 			return;
 		}
 		long now = p.level().getGameTime();
 		ServerLevel level = (ServerLevel) p.level();
-		if (s.plusUltra) {
-			AllMightState n = s.copy();
-			n.plusUltra = false;
-			n.abilityReadyAt.put(PLUS_ULTRA, now + AllMightConfig.PLUS_ULTRA_COOLDOWN_TICKS);
-			AllMight.save(p, n);
-			level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.8f, 1.6f);
-			AllMight.steam(level, p, 6);
-			p.displayClientMessage(Component.translatable("message.projecthero.all_might.plus_ultra_off").withStyle(ChatFormatting.GRAY), true);
-			return;
-		}
 		Long ready = s.abilityReadyAt.get(PLUS_ULTRA);
 		if (ready != null && now < ready) {
 			AllMight.say(p, "message.projecthero.all_might.cooldown", ChatFormatting.RED,
 					Component.translatable("projecthero.all_might.ability." + PLUS_ULTRA), String.format(java.util.Locale.ROOT, "%.1f", (ready - now) / 20.0));
 			return;
 		}
-		if (now < s.busyUntil || s.ofa <= 0f) {
+		if (now < s.busyUntil) {
+			return;
+		}
+		if (s.ofa < AllMightConfig.PLUS_ULTRA_COST + 1.0f) {
+			AllMight.say(p, "message.projecthero.all_might.low_ofa", ChatFormatting.RED, AllMightConfig.PLUS_ULTRA_COST, (int) Math.floor(s.ofa));
 			return;
 		}
 		AllMightState n = s.copy();
+		n.ofa = s.ofa - AllMightConfig.PLUS_ULTRA_COST;
 		n.plusUltra = true;
+		n.plusUltraUntil = now + AllMightConfig.PLUS_ULTRA_DURATION_TICKS;
 		n.animId = AllMightState.ANIM_COWL;
 		n.animStart = now;
 		AllMight.save(p, n);

@@ -43,15 +43,17 @@ public final class AllMightState {
 	public long animStart;
 	/** v0.12.38: game time the United States of Smash charge began, 0 when not charging (drives the HUD's charge bar). */
 	public long chargeStart;
+	/** v0.12.39: game time Plus Ultra runs out (it lasts a fixed 22 s); 0 when it is off. */
+	public long plusUltraUntil;
 	/** {@code abilityId} -> absolute game-time it is ready again. */
 	public final Map<String, Long> abilityReadyAt;
 
 	public AllMightState() {
-		this(false, false, 0f, false, 0L, 0L, 0L, 0L, 0L, 0, 0L, new HashMap<>(), 0L);
+		this(false, false, 0f, false, 0L, 0L, 0L, 0L, 0L, 0, 0L, new HashMap<>(), 0L, 0L);
 	}
 
 	public AllMightState(boolean hasPower, boolean fullPower, float ofa, boolean plusUltra, long transformUntil, long busyUntil,
-			long formChangedAt, long lastCombatTick, long noFallUntil, int animId, long animStart, Map<String, Long> abilityReadyAt, long chargeStart) {
+			long formChangedAt, long lastCombatTick, long noFallUntil, int animId, long animStart, Map<String, Long> abilityReadyAt, long chargeStart, long plusUltraUntil) {
 		this.hasPower = hasPower;
 		this.fullPower = fullPower;
 		this.ofa = ofa;
@@ -65,11 +67,12 @@ public final class AllMightState {
 		this.animStart = animStart;
 		this.abilityReadyAt = new HashMap<>(abilityReadyAt);
 		this.chargeStart = chargeStart;
+		this.plusUltraUntil = plusUltraUntil;
 	}
 
 	public AllMightState copy() {
 		return new AllMightState(hasPower, fullPower, ofa, plusUltra, transformUntil, busyUntil, formChangedAt, lastCombatTick,
-				noFallUntil, animId, animStart, abilityReadyAt, chargeStart);
+				noFallUntil, animId, animStart, abilityReadyAt, chargeStart, plusUltraUntil);
 	}
 
 	public static final Codec<AllMightState> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -86,6 +89,7 @@ public final class AllMightState {
 			Codec.LONG.optionalFieldOf("anim_start", 0L).forGetter(s -> s.animStart),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", Map.of())
 					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
-			Codec.LONG.optionalFieldOf("charge_start", 0L).forGetter(s -> s.chargeStart)
+			Codec.LONG.optionalFieldOf("charge_start", 0L).forGetter(s -> s.chargeStart),
+				Codec.LONG.optionalFieldOf("plus_ultra_until", 0L).forGetter(s -> s.plusUltraUntil)
 	).apply(i, AllMightState::new));
 }

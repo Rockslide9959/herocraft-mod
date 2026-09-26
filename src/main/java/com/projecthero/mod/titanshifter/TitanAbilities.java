@@ -401,7 +401,7 @@ public final class TitanAbilities {
 			if (!stillGood(form) || form.held() != held) {
 				return;
 			}
-			AbilityHelpers.hurtBurst(player, held, (float) a.biteDamage);
+			AbilityHelpers.hurtBurst(player, held, (float) a.biteDamage * form.strengthFactor());
 			Vec3 c = held.position().add(0, held.getBbHeight() * 0.5, 0);
 			level.playSound(null, c.x, c.y, c.z, SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.HOSTILE, 2.5f, 0.4f);
 			level.playSound(null, c.x, c.y, c.z, SoundEvents.RAVAGER_ATTACK, SoundSource.HOSTILE, 2.5f, 0.5f);

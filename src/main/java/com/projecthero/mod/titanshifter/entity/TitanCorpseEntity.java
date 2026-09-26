@@ -39,6 +39,9 @@ public class TitanCorpseEntity extends Entity implements GeoEntity {
 	private static final EntityDataAccessor<Integer> DATA_AGE =
 			SynchedEntityData.defineId(TitanCorpseEntity.class, EntityDataSerializers.INT);
 	private static final int SYNC_EVERY = 5;
+	/** v0.12.39: the corpse of an Emergency Titan -- smaller and pale. */
+	private static final EntityDataAccessor<Boolean> DATA_EMERGENCY =
+			SynchedEntityData.defineId(TitanCorpseEntity.class, EntityDataSerializers.BOOLEAN);
 
 	private static final RawAnimation DEATH = RawAnimation.begin().thenPlayAndHold("animation.titan.death");
 
@@ -62,6 +65,26 @@ public class TitanCorpseEntity extends Entity implements GeoEntity {
 
 	public void bind(TitanType type) {
 		this.entityData.set(DATA_TYPE, type.ordinal());
+	}
+
+	public void bind(TitanType type, boolean emergency) {
+		bind(type);
+		this.entityData.set(DATA_EMERGENCY, emergency);
+		refreshDimensions();
+	}
+
+	public boolean isEmergency() {
+		return this.entityData.get(DATA_EMERGENCY);
+	}
+
+	@Override
+	public net.minecraft.world.entity.EntityDimensions getDimensions(net.minecraft.world.entity.Pose pose) {
+		net.minecraft.world.entity.EntityDimensions base = super.getDimensions(pose);
+		if (this.entityData == null || !isEmergency()) {
+			return base;
+		}
+		float shrink = (float) (TitanShifterConfig.emergency().heightBlocks / TitanShifterConfig.stats().heightBlocks);
+		return base.scale(shrink);
 	}
 
 	public TitanType titanType() {
@@ -94,11 +117,15 @@ public class TitanCorpseEntity extends Entity implements GeoEntity {
 	protected void defineSynchedData(SynchedEntityData.Builder builder) {
 		builder.define(DATA_TYPE, 0);
 		builder.define(DATA_AGE, 0);
+		builder.define(DATA_EMERGENCY, false);
 	}
 
 	@Override
 	public void onSyncedDataUpdated(EntityDataAccessor<?> accessor) {
 		super.onSyncedDataUpdated(accessor);
+		if (DATA_EMERGENCY.equals(accessor)) {
+			refreshDimensions();
+		}
 		if (DATA_AGE.equals(accessor)) {
 			clientAge = this.entityData.get(DATA_AGE);
 			clientAgeAt = tickCount;

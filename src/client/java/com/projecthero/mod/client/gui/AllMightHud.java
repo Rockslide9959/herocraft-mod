@@ -61,10 +61,10 @@ public final class AllMightHud {
 		int height = 11 + BAR_H + 3 + (power ? BOX + 3 : 0) + (charging ? BAR_H + 3 : 0) + 11;
 		int y = g.guiHeight() - 12 - height;
 
-		// v0.12.38: "One For All" and its percentage share a line, the hairline bar sits right under it
+		// v0.12.39: One For All is a timer -- 300 OFA is 5:00 of Power Form -- shown as m:ss beside the title, hairline bar under it
 		float frac = Math.max(0f, Math.min(1f, s.ofa / AllMightConfig.OFA_MAX));
-		int pct = (int) Math.floor(frac * 100.0f + 1.0e-3f);
-		String pctText = pct + "%";
+		int secs = (int) Math.floor(Math.max(0f, s.ofa) + 1.0e-3f);
+		String pctText = String.format(java.util.Locale.ROOT, "%d:%02d", secs / 60, secs % 60);
 		g.drawString(mc.font, Component.translatable("hud.projecthero.all_might.title")
 				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), x0, y, 0xFF40E070, true);
 		g.drawString(mc.font, pctText, x0 + totalW - mc.font.width(pctText), y, 0xFFFFFFFF, true);
@@ -92,6 +92,9 @@ public final class AllMightHud {
 					int h = (int) (BOX * Math.min(1f, cd / (float) max));
 					g.fill(x, y + BOX - h, x + BOX, y + BOX, COLOR_COOLDOWN);
 					g.drawString(mc.font, String.valueOf((cd + 19) / 20), x + 5, y + 6, 0xFFFFFFFF, true);
+				} else if (on) {
+					// Plus Ultra is running: the seconds it has left
+					g.drawString(mc.font, String.valueOf((int) Math.max(0L, (s.plusUltraUntil - now + 19) / 20)), x + 5, y + 6, 0xFFFFFFFF, true);
 				} else {
 					g.drawString(mc.font, String.valueOf(AbilitySlot.byNumber(i + 1).defaultKey()), x + 7, y + 6,
 							poor ? 0xFF7A7A7A : (on ? 0xFFFFFFFF : COLOR_KEY), true);
