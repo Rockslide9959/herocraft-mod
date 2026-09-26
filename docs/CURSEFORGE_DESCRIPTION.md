@@ -182,7 +182,7 @@ A permanent **Primary** power — the **ascension of Super Regeneration**. Own S
 **Adamantium Serum** (4 diamonds, 2 netherite ingots, 2 blaze powder, a golden apple) and use it: your
 regenerative mutation is consumed and rebuilt as Wolverine.
 
-- **Healing factor (v0.12.40):** heals 6 HP/s, but every HP is paid from a **120 HP Healing Factor pool** (green bar on the HUD with HP and %). At 0 the healing factor is off until the pool recharges; it refills **3 HP/s, only after 5 s without taking damage**. A single HUD pixel beside the bar shows the **Death Surge**: orange = ready, dark grey = recharging. A lethal hit triggers the Death Surge (3-minute cooldown).
+- **Healing factor (v0.12.40):** heals 6 HP/s, but every HP is paid from a **250 HP Healing Factor pool** (green bar on the HUD with its %). At 0 the healing factor is off until the pool recharges; it refills **5 HP/s, only after 5 s without taking damage**. A single HUD pixel beside the bar shows the **Death Surge**: orange = ready, dark grey = recharging. A lethal hit triggers the Death Surge (3-minute cooldown).
 - **Built to last:** 35% less physical damage, 75% knockback resistance, 75% less fall damage, strong Poison
   and Wither resistance, 4 melee damage (12 unarmed with claws out), +20% speed, +25% jump. Enemy monsters within 12 blocks glow for you
   alone.

@@ -96,17 +96,17 @@ public final class WolverineHud {
 		line += 10;
 		g.drawString(mc.font, claws, x0, line, s.clawsOut ? 0xFFE8E8E8 : 0xFF909090, true);
 		line += 10;
-		// v0.12.40: Healing Factor pool: "Healing Factor 96 HP 80%", then [Death Surge pixel][1 px gap][pool bar]
+		// v0.12.41: Healing Factor pool: "Healing Factor 80%", then [Death Surge pixel][1 px gap][pool bar]
 		float pool = Math.max(0f, Math.min(WolverineConfig.HEAL_POOL_MAX, s.healPool));
 		float pf = pool / WolverineConfig.HEAL_POOL_MAX;
-		g.drawString(mc.font, Component.translatable("hud.projecthero.wolverine.healing", (int) Math.ceil(pool),
+		g.drawString(mc.font, Component.translatable("hud.projecthero.wolverine.healing",
 				(int) Math.floor(pf * 100.0f + 1.0e-3f)).withStyle(pool <= 0f ? ChatFormatting.RED : ChatFormatting.GREEN),
 				x0, line, 0xFF55FF77, true);
 		line += 10;
 		boolean surgeReady = s.emergencyReadyAt <= now && s.emergencyHealUntil <= now;
-		g.fill(x0, line, x0 + 1, line + 3, surgeReady ? 0xFFFF8A00 : 0xFF2A2A2A);
-		int bx = x0 + 2;
-		int bw = totalW - 2;
+		g.fill(x0, line, x0 + 2, line + 3, surgeReady ? 0xFFFF8A00 : 0xFF2A2A2A);
+		int bx = x0 + 3; // 2 px Death Surge marker, 1 px gap
+		int bw = totalW - 3;
 		g.fill(bx, line, bx + bw, line + 3, COLOR_BOX_BG);
 		g.fill(bx, line, bx + (int) (bw * pf), line + 3, pool <= 0f ? 0xFFB02020 : 0xFF3ADB5A);
 		line += 6;

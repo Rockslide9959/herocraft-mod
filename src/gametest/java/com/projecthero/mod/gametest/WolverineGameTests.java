@@ -122,7 +122,7 @@ public class WolverineGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void healingIsPaidFromThePoolAndStopsAtZero(GameTestHelper helper) {
 		ServerPlayer p = wolverine(helper);
-		helper.assertTrue(Wolverine.state(p).healPool == WolverineConfig.HEAL_POOL_MAX, "starts with a full 120 HP pool");
+		helper.assertTrue(Wolverine.state(p).healPool == WolverineConfig.HEAL_POOL_MAX, "starts with a full 250 HP pool");
 		p.setHealth(5.0f);
 		Wolverine.markHurt(p);
 		for (int i = 0; i < 40; i++) {

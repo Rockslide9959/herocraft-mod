@@ -14,12 +14,12 @@ public final class WolverineConfig {
 	/** Health restored every {@link #REGEN_INTERVAL_TICKS}: a flat 1.5 HP every 5 ticks (6 HP/s). */
 	public static final float REGEN_HP = 1.5f;
 	public static final int REGEN_INTERVAL_TICKS = 5;
-	/** v0.12.40: every HP the healing factor restores is paid from a pool of this many HP; at 0 it stops healing. */
-	public static final float HEAL_POOL_MAX = 120.0f;
+	/** v0.12.40: every HP the healing factor restores is paid from a pool of this many HP (v0.12.41: 250); at 0 it stops healing. */
+	public static final float HEAL_POOL_MAX = 250.0f;
 	/** The pool only refills after this long without TAKING damage... */
 	public static final int HEAL_POOL_REGEN_DELAY_TICKS = 5 * S;
 	/** ...at this many HP a second. */
-	public static final float HEAL_POOL_REGEN_PER_SECOND = 3.0f;
+	public static final float HEAL_POOL_REGEN_PER_SECOND = 5.0f;
 
 	// ---- emergency healing ----
 	/** Health (fraction of max) he is left at when the death resurrection fires. */

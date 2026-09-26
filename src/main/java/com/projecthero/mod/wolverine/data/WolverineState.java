@@ -46,7 +46,7 @@ public final class WolverineState {
 	public final Map<String, Long> abilityReadyAt;
 
 	public WolverineState() {
-		this(false, false, 0L, 0L, 0L, 0L, 0L, 0, 0L, 0.0f, 0L, 0L, 0L, new HashMap<>(), 120.0f, 0L);
+		this(false, false, 0L, 0L, 0L, 0L, 0L, 0, 0L, 0.0f, 0L, 0L, 0L, new HashMap<>(), 250.0f, 0L);
 	}
 
 	public WolverineState(boolean hasPower, boolean clawsOut, long clawsChangedAt, long rageUntil,
@@ -92,7 +92,7 @@ public final class WolverineState {
 			Codec.LONG.optionalFieldOf("last_combat_at", 0L).forGetter(s -> s.lastCombatAt),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", Map.of())
 					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
-				Codec.FLOAT.optionalFieldOf("heal_pool", 120.0f).forGetter(s -> s.healPool),
+				Codec.FLOAT.optionalFieldOf("heal_pool", 250.0f).forGetter(s -> s.healPool),
 				Codec.LONG.optionalFieldOf("last_hurt_at", 0L).forGetter(s -> s.lastHurtAt)
 	).apply(instance, WolverineState::new));
 }
