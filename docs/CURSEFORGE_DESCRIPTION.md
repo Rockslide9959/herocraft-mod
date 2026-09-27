@@ -296,7 +296,7 @@ readable; tunable in `config/projecthero_titan.json`.
 
 ### The Abyssal Behemoth
 A very rare, naturally-spawning **endgame Nether boss** — a nine-block, floating, ancient Ghast-like
-horror with a fully custom model, animations and 30,000 HP, never just "a Ghast with bigger numbers."
+horror with a fully custom model, animations and 3,000 HP, never just "a Ghast with bigger numbers."
 Nine attacks: **Abyssal Fireball** and **Hellfire Barrage** at range, **Magma Rain** and
 **Netherstorm** across the whole battlefield, a sweeping **Abyssal Beam**, **Cinder Tether** and
 **Sovereign Descent** to force it down for a real melee window, **Hellwind** to punish standing

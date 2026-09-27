@@ -28,7 +28,7 @@ public final class BehemothConfig {
 
 	/** Body stats. */
 	public static final class Stats {
-		public double health = 30000.0;
+		public double health = 3000.0;
 		/** Fraction of incoming damage removed before it lands (spec: 45-55%). */
 		public double damageReductionFraction = 0.50;
 		public double knockbackResistance = 0.95;

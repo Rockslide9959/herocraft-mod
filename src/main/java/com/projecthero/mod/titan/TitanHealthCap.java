@@ -12,12 +12,12 @@ import net.minecraft.world.entity.ai.attributes.RangedAttribute;
  * Applied once via {@link RangedAttributeAccessor} at mod init -- see that class's javadoc for why a
  * mixin accessor is the mechanism.
  *
- * <p>v0.13.1: also covers The Abyssal Behemoth's 30,000 HP -- {@code Attributes.MAX_HEALTH} is one
+ * <p>v0.13.1: also covers The Abyssal Behemoth's 3,000 HP -- {@code Attributes.MAX_HEALTH} is one
  * shared vanilla attribute, so raising the ceiling here is enough for every boss in the mod; there is
  * no need for a second, near-identical cap class.
  */
 public final class TitanHealthCap {
-	/** Comfortably above the Titan's 1500 HP and the Abyssal Behemoth's 30,000, with headroom to spare. */
+	/** Comfortably above the Titan's 1500 HP and the Abyssal Behemoth's 3,000, with headroom to spare. */
 	public static final double NEW_MAX_HEALTH_CEILING = 40000.0;
 
 	private TitanHealthCap() {

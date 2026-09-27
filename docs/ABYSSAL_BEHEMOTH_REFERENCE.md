@@ -110,9 +110,9 @@ and after a kill (`postKillCooldownTicks`, 90 min).
 
 ## Health cap
 
-30,000 HP is well past vanilla's 1024 `Attributes.MAX_HEALTH` clamp. Rather than a second cap class,
-`TitanHealthCap.NEW_MAX_HEALTH_CEILING` was simply raised from 2048 to 40000 -- it is one shared vanilla
-attribute, so one ceiling covers every boss in the mod.
+3,000 HP is well past vanilla's 1024 `Attributes.MAX_HEALTH` clamp. Rather than a second cap class,
+`TitanHealthCap.NEW_MAX_HEALTH_CEILING` was simply raised from 2048 to 40000 (with headroom well past
+this boss's 3,000) -- it is one shared vanilla attribute, so one ceiling covers every boss in the mod.
 
 ## Projectile (`BehemothFireballEntity`)
 
