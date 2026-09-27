@@ -53,15 +53,17 @@ Creative players bypass it.
   its head when it lands, and is **recalled to your hand from anywhere** — even out of another
   player's grip or an unloaded chunk.
 - Bind a hammer to yourself with shift-right-click so it always answers your call.
-- **Abilities:** Lightning Strike (with Chain Lightning), Lightning Laser (held beam), Thunderclap
-  shockwave, Storm Call (a personal storm that follows you), Mjolnir Parry, and flight via
-  double-tap-jump while holding the hammer, with speed-based flight poses.
+- **Abilities:** Lightning Strike (with Chain Lightning) and God of Thunder's Wrath now both snap onto a
+  nearby enemy on a near-miss rather than just the raw crosshair point, Lightning Laser (held beam) arcs
+  and jags like a real bolt instead of a straight dotted line, Thunderclap shockwave, Storm Call (a
+  personal storm that follows you), Mjolnir Parry, and flight via double-tap-jump while holding the
+  hammer, with speed-based flight poses.
 - **Passives:** the Power of Thor while the hammer is bound to you — **+11 melee** bare-handed (Mjolnir itself
   hits for **11**), **+10 hearts**, **80% less damage from everything**, permanent **Regeneration I**, and immunity to
   falls and lightning. Your ability bar stays on screen while you are bound, even when the hammer is not in your hand.
-- **Thor's Armour (v0.12.32):** press **H** and lightning strikes down on you as a black-and-crimson 3D GeckoLib
-  armour set forms on your body (Shift+H still opens the power wheel). Press **H** again to dismiss it. It is
-  conjured, never crafted: if it falls out of your inventory or you die, it despawns.
+- **Thor's Armour (redesigned v0.13.3):** press **H** and lightning strikes down on you as a black-and-crimson
+  3D GeckoLib armour set forms on your body (Shift+H still opens the power wheel). Press **H** again to
+  dismiss it. It is conjured, never crafted: if it falls out of your inventory or you die, it despawns.
 
 ### 🔴 Iron Man / Tony Stark
 A permanent **Hero-Tier** power. Build an **Arc Reactor**, craft the **Stark Fabricator** and a
@@ -295,8 +297,9 @@ scaled to your health so a healthy, armoured player is hit hard but never one-sh
 readable; tunable in `config/projecthero_titan.json`.
 
 ### The Abyssal Behemoth
-A very rare, naturally-spawning **endgame Nether boss** — a nine-block, floating, ancient Ghast-like
-horror with a fully custom model, animations and 3,000 HP, never just "a Ghast with bigger numbers."
+A very rare, naturally-spawning **endgame Nether boss** — a nine-block, floating, horned, ancient
+mutated Ghast with a fully custom model, animations and 3,000 HP, never just "a Ghast with bigger
+numbers." No damage resistance — every hit you land counts, and the boss bar tracks its real HP.
 Nine attacks: **Abyssal Fireball** and **Hellfire Barrage** at range, **Magma Rain** and
 **Netherstorm** across the whole battlefield, a sweeping **Abyssal Beam**, **Cinder Tether** and
 **Sovereign Descent** to force it down for a real melee window, **Hellwind** to punish standing

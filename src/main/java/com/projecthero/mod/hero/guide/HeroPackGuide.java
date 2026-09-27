@@ -293,11 +293,40 @@ public final class HeroPackGuide {
 			}
 		}));
 
+		// Thor (v0.13.3 rewrite) -- brought up to the same tier-line / progression / controls / bulleted
+		// passives structure every other Hero-Tier page already uses (see Wolverine above for the
+		// clearest example of the pattern).
 		out.add(chapter("projecthero.guide.thor", lines -> {
+			lines.add(Component.translatable("projecthero.guide.thor.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.thor.body");
 			blank(lines);
+			head(lines, "projecthero.guide.thor.progression");
+			for (String step : new String[]{"find_hammer", "worthy", "lift"}) {
+				lines.add(Component.literal("  ↓  ").withStyle(ChatFormatting.DARK_GRAY)
+						.append(Component.translatable("projecthero.guide.thor.step." + step).withStyle(ChatFormatting.WHITE)));
+			}
+			blank(lines);
+			para(lines, "projecthero.guide.thor.bind");
+			blank(lines);
 			head(lines, "projecthero.guide.thor.perks");
-			para(lines, "projecthero.guide.thor.perks.body");
+			for (String perk : new String[]{"melee", "hearts", "speed", "damage_reduction", "regen", "hammer_damage", "hud"}) {
+				lines.add(Component.literal("• ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.guide.thor.perk." + perk).withStyle(ChatFormatting.GRAY)));
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.thor.controls");
+			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {
+				String key = switch (slot) {
+					case "R" -> "call_mjolnir"; case "G" -> "lightning_strike"; case "X" -> "lightning_beam";
+					case "Z" -> "god_of_thunders_wrath"; case "V" -> "thunderclap"; default -> "chain_lightning";
+				};
+				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.thor.ability." + key).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.guide.thor.ability." + key);
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.thor.flight");
+			para(lines, "projecthero.guide.thor.flight.body");
 			blank(lines);
 			head(lines, "projecthero.guide.thor.armour");
 			para(lines, "projecthero.guide.thor.armour.body");

@@ -37,6 +37,11 @@ public final class ThorHud {
 	private static final int COLOR_ENERGY_LOW = 0xFF4C4C88;
 	private static final int COLOR_NAME = 0xFFCFE0FF;
 
+	/** Height of a "hairline" bar -- a thin fill line with no border box, used for Storm Energy and
+	 * the Wrath charge meter so neither one competes visually with the ability-key row above it. */
+	private static final int HAIRLINE_HEIGHT = 2;
+	private static final int COLOR_HAIRLINE_BG = 0x80000000;
+
 	/** Below this many ticks (5s) remaining, the hammerless-flight countdown text turns urgent. */
 	private static final int WARNING_TICKS = 5 * 20;
 
@@ -88,7 +93,7 @@ public final class ThorHud {
 		int x0 = screenW - MARGIN - totalW;
 		int y0 = screenH - MARGIN - BOX - 20;
 
-		graphics.drawString(client.font, Component.translatable("projecthero.guide.thor")
+		graphics.drawString(client.font, Component.translatable("hud.projecthero.thor.ability_keys")
 				.withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), x0, y0 - 10, 0xFF7FB0FF);
 
 		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(client.getWindow().getWindow(),
@@ -118,15 +123,21 @@ public final class ThorHud {
 			}
 		}
 
-		// Storm Energy bar.
+		// Storm Energy: name + percentage above a thin hairline bar.
 		float ratio = Math.max(0.0f, Math.min(1.0f, StormEnergy.get(player) / StormEnergy.MAX));
-		int barY = y0 + BOX + 4;
-		graphics.fill(x0 - 1, barY - 1, x0 + totalW + 1, barY + 5, COLOR_BORDER);
-		graphics.fill(x0, barY, x0 + totalW, barY + 4, 0xAA0A1526);
-		graphics.fill(x0, barY, x0 + Math.round(totalW * ratio), barY + 4,
-				ratio < 0.2f ? COLOR_ENERGY_LOW : COLOR_ENERGY);
-		graphics.drawString(client.font, Component.translatable("hud.projecthero.thor.storm_energy",
-				(int) Math.ceil(StormEnergy.get(player)), (int) StormEnergy.MAX), x0, barY + 5, 0xFFA8C0E0, false);
+		int percent = Math.round(ratio * 100.0f);
+		int labelY = y0 + BOX + 4;
+		graphics.drawString(client.font,
+				Component.translatable("hud.projecthero.thor.storm_energy", percent), x0, labelY, 0xFFA8C0E0, false);
+		int barY = labelY + client.font.lineHeight + 2;
+		hairlineBar(graphics, x0, barY, totalW, ratio, ratio < 0.2f ? COLOR_ENERGY_LOW : COLOR_ENERGY);
+	}
+
+	/** A thin fill line with a faint backing strip and no border box -- deliberately lighter-weight
+	 * than the ability boxes above it so the resource meters read as secondary information. */
+	private static void hairlineBar(GuiGraphics graphics, int x, int y, int w, float ratio, int fillColor) {
+		graphics.fill(x, y, x + w, y + HAIRLINE_HEIGHT, COLOR_HAIRLINE_BG);
+		graphics.fill(x, y, x + Math.round(w * Math.max(0.0f, Math.min(1.0f, ratio))), y + HAIRLINE_HEIGHT, fillColor);
 	}
 
 	/** Ticks the player must hold Z to charge God of Thunder's Wrath (mirrors {@code ThorPowers}). */
@@ -135,8 +146,9 @@ public final class ThorHud {
 	/**
 	 * The 5-second buildup bar for God of Thunder's Wrath, drawn while the player is holding Z. Sits
 	 * directly above the ability keybind row in the bottom-right corner -- clear of the Storm Energy
-	 * bar (below the row) and the "Thor" label (just above it), so nothing in this HUD overlaps.
-	 * Fills left-to-right; flashes gold as it completes.
+	 * bar (below the row) and the "Ability Keys" label (just above it), so nothing in this HUD
+	 * overlaps. Fills left-to-right as a hairline bar with no label -- the charging flash on the
+	 * ability box itself already tells the player which key this is.
 	 */
 	private static void renderWrathCharge(GuiGraphics graphics, Minecraft client, Player player) {
 		int ticks = player.getAttachedOrElse(ModAttachments.THOR_WRATH_CHARGE, 0);
@@ -145,19 +157,12 @@ public final class ThorHud {
 		}
 		float ratio = Math.min(1.0f, ticks / (float) WRATH_CHARGE_TICKS);
 		int w = 6 * BOX + 5 * GAP;
-		int h = 5;
 		int x = graphics.guiWidth() - MARGIN - w;
 		int boxesY = graphics.guiHeight() - MARGIN - BOX - 20;
-		int y = boxesY - 10 - 10 - h;
+		int y = boxesY - 10 - HAIRLINE_HEIGHT;
 		boolean full = ratio >= 1.0f;
 
-		Component label = Component.translatable("hud.projecthero.thor.wrath_charge")
-				.withStyle(full ? ChatFormatting.YELLOW : ChatFormatting.AQUA);
-		graphics.drawCenteredString(client.font, label, x + w / 2, y - 10, 0xFFFFFFFF);
-
-		graphics.fill(x - 1, y - 1, x + w + 1, y + h + 1, COLOR_BORDER);
-		graphics.fill(x, y, x + w, y + h, 0xC00A1526);
-		graphics.fill(x, y, x + Math.round(w * ratio), y + h, full ? COLOR_BORDER_ACTIVE : COLOR_ENERGY);
+		hairlineBar(graphics, x, y, w, ratio, full ? COLOR_BORDER_ACTIVE : COLOR_ENERGY);
 	}
 
 	/** Subtle by design -- a single small line above the ability boxes. Turns gold and flickers under

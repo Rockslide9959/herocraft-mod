@@ -58,7 +58,13 @@ public final class ThorPowers {
 	 * the strike snaps onto the living entity closest to the look vector within this half-angle (and
 	 * within {@link #LIGHTNING_RANGE}, with line of sight) so a near-miss lands on the target instead
 	 * of cracking down behind it. */
-	private static final double LIGHTNING_AIM_ASSIST_DEGREES = 14.0;
+	// v0.13.3: widened 14 -> 20 degrees -- players wanted Lightning Strike to snap onto a target more
+	// readily rather than fizzling to the bare impact point on a near-miss.
+	private static final double LIGHTNING_AIM_ASSIST_DEGREES = 20.0;
+	/** God of Thunder's Wrath now gets the same kind of soft aim assist, just a tighter cone since its
+	 * range (120 blocks) is four times Lightning Strike's -- the same angle there would sweep a much
+	 * wider area than intended. */
+	private static final double GOD_OF_THUNDER_AIM_ASSIST_DEGREES = 8.0;
 
 	// ---------------- auto-chain (Lightning Strike's own extra jump, not the standalone ability) ----------------
 	private static final double CHAIN_RANGE = 6.0;
@@ -500,7 +506,7 @@ public final class ThorPowers {
 		} else {
 			// The raw ray missed every entity -- try the soft aim assist before falling back to the
 			// block/air impact point, so looking near an enemy still lands the bolt on it.
-			LivingEntity assisted = findAimAssistTarget(player);
+			LivingEntity assisted = findAimAssistTarget(player, LIGHTNING_RANGE, LIGHTNING_AIM_ASSIST_DEGREES);
 			if (assisted != null) {
 				primaryTarget = assisted;
 				pos = assisted.position();
@@ -526,23 +532,24 @@ public final class ThorPowers {
 	}
 
 	/**
-	 * v0.7.5: soft aim assist for Lightning Strike -- returns the living entity whose direction from
-	 * the player's eye is closest to the look vector, provided it is inside
-	 * {@link #LIGHTNING_AIM_ASSIST_DEGREES}, within {@link #LIGHTNING_RANGE}, and in line of sight;
-	 * null if nothing qualifies. One AABB-bounded query plus a cone filter, never an unbounded scan.
+	 * v0.7.5: soft aim assist for Lightning Strike, generalized in v0.13.3 so God of Thunder's Wrath
+	 * can reuse it with its own range/cone -- returns the living entity whose direction from the
+	 * player's eye is closest to the look vector, provided it is inside {@code angleDegrees}, within
+	 * {@code range}, and in line of sight; null if nothing qualifies. One AABB-bounded query plus a
+	 * cone filter, never an unbounded scan.
 	 */
-	private static LivingEntity findAimAssistTarget(ServerPlayer player) {
+	private static LivingEntity findAimAssistTarget(ServerPlayer player, double range, double angleDegrees) {
 		Vec3 eye = player.getEyePosition();
 		Vec3 look = player.getLookAngle();
-		double bestDot = Math.cos(Math.toRadians(LIGHTNING_AIM_ASSIST_DEGREES));
+		double bestDot = Math.cos(Math.toRadians(angleDegrees));
 		LivingEntity best = null;
 		for (LivingEntity candidate : player.level().getEntitiesOfClass(LivingEntity.class,
-				player.getBoundingBox().inflate(LIGHTNING_RANGE),
+				player.getBoundingBox().inflate(range),
 				e -> e != player && e.isAlive() && e.isPickable()
 						&& !(e instanceof net.minecraft.world.entity.decoration.ArmorStand))) {
 			Vec3 to = candidate.position().add(0, candidate.getBbHeight() * 0.5, 0).subtract(eye);
 			double dist = to.length();
-			if (dist < 1.0E-3 || dist > LIGHTNING_RANGE) {
+			if (dist < 1.0E-3 || dist > range) {
 				continue;
 			}
 			double dot = to.scale(1.0 / dist).dot(look);
@@ -713,10 +720,18 @@ public final class ThorPowers {
 		Vec3 pos;
 		if (hit instanceof EntityHitResult entityHit) {
 			pos = entityHit.getEntity().position();
-		} else if (hit != null && hit.getType() != HitResult.Type.MISS) {
-			pos = hit.getLocation();
 		} else {
-			pos = player.getEyePosition().add(player.getLookAngle().scale(GOD_OF_THUNDER_RANGE));
+			// v0.13.3: same soft aim assist Lightning Strike uses (tighter cone -- see the constant's
+			// javadoc) so a near-miss on a distant enemy still lands the ultimate on them instead of
+			// the bare ground/air point.
+			LivingEntity assisted = findAimAssistTarget(player, GOD_OF_THUNDER_RANGE, GOD_OF_THUNDER_AIM_ASSIST_DEGREES);
+			if (assisted != null) {
+				pos = assisted.position();
+			} else if (hit != null && hit.getType() != HitResult.Type.MISS) {
+				pos = hit.getLocation();
+			} else {
+				pos = player.getEyePosition().add(player.getLookAngle().scale(GOD_OF_THUNDER_RANGE));
+			}
 		}
 
 		LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(serverLevel);
@@ -825,17 +840,44 @@ public final class ThorPowers {
 	}
 
 	/**
-	 * A visible electrical connection between two points -- a short particle line, the same technique
-	 * {@link #beamParticles} already uses for the Lightning Laser, kept consistent with the existing
+	 * A visible electrical connection between two points -- the same jagged {@link #arcParticles}
+	 * technique {@link #beamParticles} uses for the Lightning Laser, kept consistent with the existing
 	 * mod architecture rather than introducing a new rendering system. {@code ELECTRIC_SPARK}'s own
 	 * short natural particle lifetime is what gives the arc its brief, readable flash (requirement 12).
 	 */
 	private static void spawnArc(ServerLevel level, Vec3 from, Vec3 to) {
-		double length = from.distanceTo(to);
-		int steps = Math.max(2, (int) (length * 3));
+		arcParticles(level, from, to, Math.max(3, (int) (from.distanceTo(to) * 3)));
+	}
+
+	/**
+	 * v0.13.3: a helical wobble around the straight start-to-end line, instead of a flat lerp, so a
+	 * lightning arc actually reads as jagged/arcing rather than a plain dotted line -- from any camera
+	 * angle, since it mixes two perpendicular axes rather than displacing in just one plane. The wobble
+	 * tapers to zero at both ends so the arc still connects exactly to its start and end points, and a
+	 * fresh random phase each call gives it a flickering, never-identical-twice look tick to tick.
+	 */
+	private static void arcParticles(ServerLevel level, Vec3 start, Vec3 end, int steps) {
+		Vec3 delta = end.subtract(start);
+		double length = delta.length();
+		if (length < 1.0E-4) {
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, start.x, start.y, start.z, 1, 0.05, 0.05, 0.05, 0.0);
+			return;
+		}
+		Vec3 dir = delta.scale(1.0 / length);
+		Vec3 ref = Math.abs(dir.y) > 0.9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0);
+		Vec3 perpA = dir.cross(ref).normalize();
+		Vec3 perpB = dir.cross(perpA).normalize();
+
+		double amplitude = Math.min(0.5, 0.1 + length * 0.015);
+		double phase = level.random.nextDouble() * Math.PI * 2.0;
+		double freq = 2.5 + level.random.nextDouble();
 		for (int i = 0; i <= steps; i++) {
-			Vec3 point = from.lerp(to, (double) i / steps);
-			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, point.x, point.y, point.z, 1, 0.06, 0.06, 0.06, 0.0);
+			double t = (double) i / steps;
+			double wobble = amplitude * Math.sin(Math.PI * t); // tapers to 0 at both endpoints
+			double angle = phase + t * freq * Math.PI * 2.0;
+			Vec3 offset = perpA.scale(Math.cos(angle) * wobble).add(perpB.scale(Math.sin(angle) * wobble));
+			Vec3 point = start.lerp(end, t).add(offset);
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, point.x, point.y, point.z, 1, 0.04, 0.04, 0.04, 0.0);
 		}
 	}
 
@@ -909,12 +951,7 @@ public final class ThorPowers {
 	}
 
 	private static void beamParticles(ServerLevel level, Vec3 start, Vec3 end) {
-		double length = start.distanceTo(end);
-		int steps = Math.max(1, (int) (length * 2));
-		for (int i = 0; i <= steps; i++) {
-			Vec3 point = start.lerp(end, (double) i / steps);
-			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, point.x, point.y, point.z, 1, 0.05, 0.05, 0.05, 0.0);
-		}
+		arcParticles(level, start, end, Math.max(2, (int) (start.distanceTo(end) * 2)));
 	}
 
 	// ---------------- thunderclap shockwave ----------------

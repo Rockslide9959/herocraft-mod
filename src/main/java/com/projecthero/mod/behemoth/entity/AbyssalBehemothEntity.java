@@ -118,9 +118,7 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 				.add(Attributes.ATTACK_DAMAGE, stats.meleeDamage)
 				.add(Attributes.MOVEMENT_SPEED, stats.flightSpeed)
 				.add(Attributes.FOLLOW_RANGE, stats.followRange)
-				.add(Attributes.KNOCKBACK_RESISTANCE, stats.knockbackResistance)
-				.add(Attributes.ARMOR, 14.0)
-				.add(Attributes.ARMOR_TOUGHNESS, 10.0);
+				.add(Attributes.KNOCKBACK_RESISTANCE, stats.knockbackResistance);
 	}
 
 	// ---------------------------------------------------------------- no vanilla AI at all
@@ -176,16 +174,18 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 		return false; // no vanilla contact-melee -- melee only ever happens through Ground Attack (BehemothCombat)
 	}
 
-	// ---------------------------------------------------------------- incoming damage (spec 5: 45-55% reduction)
+	// ---------------------------------------------------------------- incoming damage
 
 	@Override
 	protected void actuallyHurt(DamageSource source, float amount) {
-		if (!source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) {
-			amount *= (float) (1.0 - BehemothConfig.stats().damageReductionFraction);
-		}
 		super.actuallyHurt(source, amount);
 		if (this.random.nextInt(3) == 0) {
 			triggerAnim("action", "hit");
+		}
+		// Refresh the boss bar the instant a hit lands, rather than waiting up to a tick for the next
+		// aiStep -- players reported the bar feeling like it lagged behind the boss's real health.
+		if (level() instanceof ServerLevel server) {
+			updateBossBar(server);
 		}
 	}
 
