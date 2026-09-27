@@ -67,8 +67,8 @@ public final class AllMightConfig {
 	public static final int DETROIT_COOLDOWN = 3 * S;
 	public static final int DETROIT_WINDUP = 6;
 	public static final float DETROIT_DAMAGE = 18.0f;
-	public static final double DETROIT_RANGE = 5.0;
-	public static final double DETROIT_WIDTH = 3.0;
+	public static final double DETROIT_RANGE = 10.0; // v0.12.44: air pressure, not reach
+	public static final double DETROIT_WIDTH = 3.5;
 	public static final double DETROIT_HEIGHT = 3.0;
 	public static final double DETROIT_KNOCKBACK = 2.2;
 	public static final double DETROIT_LIFT = 0.45;
@@ -78,12 +78,14 @@ public final class AllMightConfig {
 	public static final int TEXAS_COOLDOWN = 6 * S;
 	public static final int TEXAS_WINDUP = 8;
 	public static final float TEXAS_DAMAGE = 24.0f;
-	public static final double TEXAS_RANGE = 10.0;
-	public static final double TEXAS_WIDTH = 5.0;
+	public static final double TEXAS_RANGE = 18.0; // v0.12.44
+	/** v0.12.44: the wave starts this wide and widens to {@link #TEXAS_END_WIDTH} at the far end (an expanding cone). */
+	public static final double TEXAS_WIDTH = 4.0;
+	public static final double TEXAS_END_WIDTH = 10.0;
 	public static final double TEXAS_HEIGHT = 4.0;
 	public static final double TEXAS_KNOCKBACK = 3.0;
 	public static final double TEXAS_LIFT = 0.5;
-	/** The wave advances this many blocks per tick (10 blocks take 5 ticks). */
+	/** The wave advances this many blocks per tick (18 blocks take 9 ticks). */
 	public static final double TEXAS_WAVE_SPEED = 2.0;
 
 	// Carolina Smash (V): a high-speed offensive dash
@@ -91,7 +93,7 @@ public final class AllMightConfig {
 	public static final int CAROLINA_COOLDOWN = 5 * S;
 	public static final int CAROLINA_WINDUP = 5;
 	public static final float CAROLINA_DAMAGE = 20.0f;
-	public static final double CAROLINA_DISTANCE = 26.0;
+	public static final double CAROLINA_DISTANCE = 15.0; // v0.12.44: the slide covers 15 blocks
 	public static final double CAROLINA_SPEED = 1.5;
 	public static final double CAROLINA_KNOCKBACK = 2.4;
 
@@ -104,6 +106,10 @@ public final class AllMightConfig {
 	public static final double NEW_HAMPSHIRE_HEIGHT = 15.0;
 	public static final double NEW_HAMPSHIRE_FORWARD_SPEED = 0.9;
 	public static final double NEW_HAMPSHIRE_LANDING_RADIUS = 6.0;
+	/** v0.12.44: the launch fires a forward air-pressure blast this long / wide / tall (it reaches flyers and big bosses). */
+	public static final double NEW_HAMPSHIRE_RANGE = 20.0;
+	public static final double NEW_HAMPSHIRE_WIDTH = 6.0;
+	public static final double NEW_HAMPSHIRE_BLAST_HEIGHT = 8.0;
 	public static final double NEW_HAMPSHIRE_KNOCKBACK = 2.6;
 
 	// United States of Smash (Z, hold 5 s): the ultimate
@@ -115,7 +121,10 @@ public final class AllMightConfig {
 	public static final int UNITED_STATES_POSE_LEAD = 30;
 	public static final float UNITED_STATES_DAMAGE = 75.0f;
 	/** v0.12.38: the punch is an AoE -- a full-damage shockwave that expands to this radius all around him. */
-	public static final double UNITED_STATES_RANGE = 20.0;
+	public static final double UNITED_STATES_RANGE = 35.0; // v0.12.44: the secondary shockwave reaches 35 blocks
+	/** v0.12.44: the primary punch is a forward cone 25 blocks long, widening from {@link #UNITED_STATES_WIDTH} to {@link #UNITED_STATES_END_WIDTH}. */
+	public static final double UNITED_STATES_PRIMARY_RANGE = 25.0;
+	public static final double UNITED_STATES_END_WIDTH = 14.0;
 	public static final double UNITED_STATES_WIDTH = 8.0;
 	public static final double UNITED_STATES_HEIGHT = 8.0;
 	public static final double UNITED_STATES_KNOCKBACK = 5.0;

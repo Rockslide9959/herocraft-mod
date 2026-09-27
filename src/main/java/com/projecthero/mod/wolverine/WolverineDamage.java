@@ -86,8 +86,6 @@ public final class WolverineDamage {
 			level.sendParticles(new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.65f, 0.0f, 0.02f), 1.6f),
 					player.getX(), player.getY() + 0.3, player.getZ(), 40, 0.5, 0.3, 0.5, 0.1);
 		}
-		player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.wolverine.fall_survived")
-				.withStyle(net.minecraft.ChatFormatting.RED), true);
 		return true;
 	}
 

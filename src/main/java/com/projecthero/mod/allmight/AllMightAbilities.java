@@ -240,12 +240,13 @@ public final class AllMightAbilities {
 					}
 					double from = step * AllMightConfig.TEXAS_WAVE_SPEED;
 					double to = from + AllMightConfig.TEXAS_WAVE_SPEED + 0.5;
-					AllMightShockwave.sweep(p, origin, look, from, to, AllMightConfig.TEXAS_WIDTH, AllMightConfig.TEXAS_HEIGHT, wave);
+					double width = AllMightConfig.TEXAS_WIDTH + (AllMightConfig.TEXAS_END_WIDTH - AllMightConfig.TEXAS_WIDTH) * Math.min(1.0, to / AllMightConfig.TEXAS_RANGE);
+					AllMightShockwave.sweep(p, origin, look, from, to, width, AllMightConfig.TEXAS_HEIGHT, wave);
 					Vec3 seg = origin.add(0, 1.1, 0).add(flatLook(p).scale(from + 1.0));
-					AllMightShockwave.windLine(level, seg, look, AllMightConfig.TEXAS_WAVE_SPEED, AllMightConfig.TEXAS_WIDTH, 5);
-					AllMightShockwave.burst(level, ParticleTypes.CLOUD, seg, 6, AllMightConfig.TEXAS_WIDTH * 0.35, 0.1);
+					AllMightShockwave.windLine(level, seg, look, AllMightConfig.TEXAS_WAVE_SPEED, width, 5);
+					AllMightShockwave.burst(level, ParticleTypes.CLOUD, seg, 6, width * 0.35, 0.1);
 					if (step % 2 == 0) {
-						AllMightShockwave.burst(level, ParticleTypes.SWEEP_ATTACK, seg, 2, AllMightConfig.TEXAS_WIDTH * 0.3, 0.0);
+						AllMightShockwave.burst(level, ParticleTypes.SWEEP_ATTACK, seg, 2, width * 0.3, 0.0);
 					}
 					if (step == 1 || step == steps - 1) {
 						AllMightShockwave.breakBlocks(p, seg, AllMightConfig.TEXAS_BLOCK_RADIUS, AllMightConfig.TEXAS_BLOCK_MAX / 2,
@@ -307,6 +308,25 @@ public final class AllMightAbilities {
 			level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 1.0f, 1.1f);
 			AllMightShockwave.burst(level, ParticleTypes.EXPLOSION, p.position(), 1, 0.1, 0.0);
 			AllMightShockwave.ring(level, ParticleTypes.CLOUD, p.position().add(0, 0.2, 0), 2.0, 20);
+			// v0.12.44: a wide, tall forward air-pressure blast (own hit set, so the landing still hits everyone)
+			Vec3 look = p.getLookAngle();
+			Vec3 origin = p.position();
+			var blast = new AllMightShockwave.Wave(AllMightConfig.NEW_HAMPSHIRE_DAMAGE, AllMightConfig.NEW_HAMPSHIRE_KNOCKBACK, 0.5);
+			int steps = (int) Math.ceil(AllMightConfig.NEW_HAMPSHIRE_RANGE / 4.0);
+			for (int i = 0; i < steps; i++) {
+				final int step = i;
+				schedule(p, i, () -> {
+					if (!alive(p)) {
+						return;
+					}
+					double from = step * 4.0;
+					AllMightShockwave.sweep(p, origin, look, from, from + 4.5, AllMightConfig.NEW_HAMPSHIRE_WIDTH,
+							AllMightConfig.NEW_HAMPSHIRE_BLAST_HEIGHT, blast);
+					Vec3 seg = origin.add(0, 2.0, 0).add(flatLook(p).scale(from + 2.0));
+					AllMightShockwave.windLine(level, seg, look, 4.0, AllMightConfig.NEW_HAMPSHIRE_WIDTH, 3);
+					AllMightShockwave.burst(level, ParticleTypes.CLOUD, seg, 6, 1.6, 0.1);
+				});
+			}
 		});
 	}
 
@@ -457,6 +477,27 @@ public final class AllMightAbilities {
 		// an AoE: one full-damage shockwave expanding from where he stood to the full range, hitting everything once
 		var wave = new AllMightShockwave.Wave(AllMightConfig.UNITED_STATES_DAMAGE, AllMightConfig.UNITED_STATES_KNOCKBACK,
 				AllMightConfig.UNITED_STATES_LIFT);
+		// v0.12.44 phase 1: a 25-block forward cone (5 blocks a tick), widening as it goes; phase 2 below is the 35-block wave.
+		// Both share one hit set, so nothing takes the 75 damage twice.
+		Vec3 look = p.getLookAngle();
+		double primary = AllMightConfig.UNITED_STATES_PRIMARY_RANGE;
+		int pSteps = (int) Math.ceil(primary / 5.0);
+		for (int i = 0; i < pSteps; i++) {
+			final int step = i;
+			schedule(p, i, () -> {
+				if (!alive(p)) {
+					return;
+				}
+				double from = step * 5.0;
+				double to = Math.min(primary, from + 5.5);
+				double width = AllMightConfig.UNITED_STATES_WIDTH
+						+ (AllMightConfig.UNITED_STATES_END_WIDTH - AllMightConfig.UNITED_STATES_WIDTH) * Math.min(1.0, to / primary);
+				AllMightShockwave.sweep(p, origin, look, from, to, width, AllMightConfig.UNITED_STATES_HEIGHT, wave);
+				Vec3 seg = origin.add(0, 1.3, 0).add(flat.scale(from + 2.5));
+				AllMightShockwave.windLine(level, seg, look, 5.0, width, 3);
+				AllMightShockwave.burst(level, ParticleTypes.CLOUD, seg, 8, width * 0.3, 0.15);
+			});
+		}
 		int expand = AllMightConfig.UNITED_STATES_SECONDARY_EXPAND_TICKS;
 		for (int k = 1; k <= expand; k++) {
 			final int kk = k;
@@ -467,6 +508,7 @@ public final class AllMightAbilities {
 				double r = AllMightConfig.UNITED_STATES_RANGE * kk / expand;
 				AllMightShockwave.radial(p, origin, r, wave, false);
 				AllMightShockwave.ring(level, ParticleTypes.CLOUD, origin.add(0, 0.25, 0), r, 28);
+					AllMightShockwave.ring(level, ParticleTypes.CLOUD, origin.add(0, 0.25, 0), r * 0.97, 28);
 				if (kk % 2 == 0) {
 					AllMightShockwave.ring(level, ParticleTypes.SWEEP_ATTACK, origin.add(0, 1.0, 0), r, 16);
 				}
