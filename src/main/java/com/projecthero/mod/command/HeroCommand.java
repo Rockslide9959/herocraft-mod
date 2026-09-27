@@ -365,7 +365,8 @@ public final class HeroCommand {
 		}
 	}
 
-	/** Remove a Hero-Tier power: Thor loses worthiness, the other three tear their power down cleanly. */
+	/** Remove a Hero-Tier power, tearing every power's state down cleanly (v0.13.5: Thor included --
+	 * see {@code ThorPowers#revokePower} for why a bare worthiness reset used to leave it half-removed). */
 	private static int revokeHero(CommandContext<CommandSourceStack> c, ServerPlayer target) {
 		return revokeHeroByKey(c, target, StringArgumentType.getString(c, "hero"));
 	}
@@ -373,7 +374,7 @@ public final class HeroCommand {
 	private static int revokeHeroByKey(CommandContext<CommandSourceStack> c, ServerPlayer target, String hero) {
 		String name = target.getGameProfile().getName();
 		switch (hero) {
-			case "thor" -> Worthiness.setScore(target, 0);
+			case "thor" -> com.projecthero.mod.power.ThorPowers.revokePower(target);
 			case "iron_man" -> TonyStark.revoke(target);
 			case "spider_man" -> SpiderMan.revoke(target);
 			case "max_steel" -> MaxSteel.revoke(target);

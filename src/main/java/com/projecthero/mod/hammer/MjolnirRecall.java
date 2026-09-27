@@ -143,6 +143,53 @@ public final class MjolnirRecall {
 		return true;
 	}
 
+	/**
+	 * v0.13.5: force-unbinds {@code hammerId} from {@code player} wherever the physical hammer actually
+	 * is right now -- their own inventory first, then a loaded-entity sweep, exactly the same two steps
+	 * {@link #call} itself tries first -- clearing the stack's {@link ModDataComponents#BOUND_OWNER}
+	 * component and the registry's own owner record. Used when a Primary power is revoked or replaced
+	 * out from under a player (an admin command, or {@code HeroTiers} evicting the oldest Primary power
+	 * for a new one) so the hammer does not stay permanently bound to someone who no longer has the
+	 * power -- unlike an ordinary {@link com.projecthero.mod.power.ThorPowers#toggleBinding}, this does
+	 * not require the player to be the one holding it, or even for it to be reachable at all: if it is
+	 * genuinely unloaded/far away right now, the caller's own state is still cleared (see
+	 * {@code ThorPowers#revokePower}), and this residual stale component on the one specific physical
+	 * item is a bounded, rare edge case rather than a permanent leak -- the item still answers a fresh
+	 * bind attempt from anyone once {@link com.projecthero.mod.item.MjolnirItem#use} reaches it, since
+	 * that path only refuses a bind when the *current* owner differs from the caller.
+	 *
+	 * @return true if the physical hammer was found and its own binding cleared.
+	 */
+	public static boolean forceUnbind(ServerPlayer player, UUID hammerId) {
+		if (hammerId == null) {
+			return false;
+		}
+		MjolnirRegistry registry = MjolnirRegistry.get(player.serverLevel());
+
+		int slot = findInInventory(player, hammerId);
+		if (slot >= 0) {
+			ItemStack stack = player.getInventory().getItem(slot);
+			clearBinding(stack, registry);
+			return true;
+		}
+
+		MjolnirEntity loaded = findLoadedEntity(player, registry, hammerId);
+		if (loaded != null) {
+			ItemStack stack = loaded.getItem().copy();
+			clearBinding(stack, registry);
+			loaded.setItem(stack);
+			return true;
+		}
+
+		return false;
+	}
+
+	private static void clearBinding(ItemStack stack, MjolnirRegistry registry) {
+		stack.remove(ModDataComponents.BOUND_OWNER);
+		stack.remove(ModDataComponents.BOUND_OWNER_NAME);
+		registry.setOwner(stack, Optional.empty(), "");
+	}
+
 	// ---------------- resolution steps ----------------
 
 	/** @return the inventory slot the caller's own hammer is in, or -1. */

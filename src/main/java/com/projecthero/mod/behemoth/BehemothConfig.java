@@ -28,7 +28,7 @@ public final class BehemothConfig {
 
 	/** Body stats. */
 	public static final class Stats {
-		public double health = 3000.0;
+		public double health = 1000.0;
 		public double knockbackResistance = 0.95;
 		public double meleeDamage = 80.0;
 		public double meleeRange = 7.0;

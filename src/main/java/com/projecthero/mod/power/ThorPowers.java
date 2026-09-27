@@ -370,6 +370,32 @@ public final class ThorPowers {
 		}
 	}
 
+	/**
+	 * v0.13.5: fully strips the Power of Thor from {@code player} -- unlike every other Primary power
+	 * (a suit/serum item that is simply consumed), Thor's power comes from being <em>bound</em> to a
+	 * physical Mjolnir, so a plain {@code Worthiness.setScore(player, 0)} (all {@code revoke} call sites
+	 * used to do) left the hammer itself still bound to them, the HUD still rendering (it keys off the
+	 * binding, not worthiness), Storm Energy/Storm Call/Laser/Wrath-charge state untouched, and nobody
+	 * else able to ever bind that specific hammer again. Called from both
+	 * {@code HeroTiers#revokeHero} (an evicted Primary power) and {@code HeroCommand#revokeHeroByKey}
+	 * (the admin command), replacing their old bare worthiness reset.
+	 */
+	public static void revokePower(ServerPlayer player) {
+		UUID hammerId = ThorPassives.boundHammerId(player);
+		if (hammerId != null) {
+			MjolnirRecall.forceUnbind(player, hammerId);
+		}
+		// Clears BOUND_HAMMER_ID and reconciles every attribute/effect off immediately, whether or not
+		// the physical hammer itself was reachable above -- this alone is what fixes the lingering HUD.
+		ThorPassives.unbind(player);
+		Worthiness.setScore(player, 0);
+
+		StormEnergy.set(player, StormEnergy.MAX);
+		player.setAttached(ModAttachments.LASER_ACTIVE, false);
+		player.setAttached(ModAttachments.THOR_WRATH_CHARGE, 0);
+		player.setAttached(ModAttachments.STORM_CALL_STATE, new StormCallState());
+	}
+
 	// ---------------- flight ----------------
 
 	public static void toggleFlight(ServerPlayer player) {
@@ -1070,6 +1096,13 @@ public final class ThorPowers {
 
 	private static void tickStormCall(ServerPlayer player) {
 		if (!isStormCallActive(player) || !(player.level() instanceof ServerLevel serverLevel)) {
+			return;
+		}
+		// v0.13.5: every other continuous Thor effect (Laser, Wrath charge) already stops the instant
+		// worthiness is lost -- Storm Call was the one exception, which is exactly what let it keep
+		// calling down lightning after Thor was stripped via a command or a replaced Primary power.
+		if (!Worthiness.isWorthy(player)) {
+			player.setAttached(ModAttachments.STORM_CALL_STATE, new StormCallState());
 			return;
 		}
 		StormCallState state = player.getAttachedOrCreate(ModAttachments.STORM_CALL_STATE);

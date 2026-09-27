@@ -30,9 +30,13 @@ public final class ThorHud {
 	private static final int COLOR_BORDER_ACTIVE = 0xFFF2C24E;
 	private static final int COLOR_COOLDOWN = 0xB0000000;
 	private static final int COLOR_KEY = 0xFFE8D9B0;
-	private static final int COLOR_ENERGY = 0xFF6FA8FF;
+	/** v0.13.5: brightened -- the old 0xFF6FA8FF read as washed-out/pale against the dark HUD backing. */
+	private static final int COLOR_ENERGY = 0xFF1E96FF;
 	private static final int COLOR_ENERGY_LOW = 0xFF4C4C88;
 	private static final int COLOR_NAME = 0xFFCFE0FF;
+	/** v0.13.5: the Storm Energy label's own colour -- a dark, pale (desaturated) blue, distinct from
+	 * the brighter, saturated {@link #COLOR_ENERGY} the bar itself uses. */
+	private static final int COLOR_ENERGY_LABEL = 0xFF6E85AA;
 
 	/** Height of a "hairline" bar -- a thin fill line with no border box, used for Storm Energy and
 	 * the Wrath charge meter so neither one competes visually with the ability-key row above it. */
@@ -123,7 +127,7 @@ public final class ThorHud {
 		int percent = Math.round(ratio * 100.0f);
 		int labelY = y0 + BOX + 4;
 		graphics.drawString(client.font,
-				Component.translatable("hud.projecthero.thor.storm_energy", percent), x0, labelY, 0xFFA8C0E0, false);
+				Component.translatable("hud.projecthero.thor.storm_energy", percent), x0, labelY, COLOR_ENERGY_LABEL, false);
 		int barY = labelY + client.font.lineHeight + 2;
 		hairlineBar(graphics, x0, barY, totalW, ratio, ratio < 0.2f ? COLOR_ENERGY_LOW : COLOR_ENERGY);
 	}
@@ -138,12 +142,16 @@ public final class ThorHud {
 	/** Ticks the player must hold Z to charge God of Thunder's Wrath (mirrors {@code ThorPowers}). */
 	private static final int WRATH_CHARGE_TICKS = 5 * 20;
 
+	/** Clearance between the Wrath charge bar and the ability box row below it -- generous on purpose
+	 * (v0.13.5: widened from the old 12px) so it reads as clearly sitting above the whole ability-key
+	 * HUD rather than crowding it. */
+	private static final int WRATH_CHARGE_CLEARANCE = 18;
+
 	/**
-	 * The 5-second buildup bar for God of Thunder's Wrath, drawn while the player is holding Z. Sits
-	 * directly above the ability keybind row in the bottom-right corner -- clear of the Storm Energy
-	 * bar (below the row) and the "Ability Keys" label (just above it), so nothing in this HUD
-	 * overlaps. Fills left-to-right as a hairline bar with no label -- the charging flash on the
-	 * ability box itself already tells the player which key this is.
+	 * The 5-second buildup bar for God of Thunder's Wrath, drawn while the player is holding Z, above
+	 * the whole ability keybind row in the bottom-right corner. Fills left-to-right as a hairline bar
+	 * with no label -- the charging flash on the ability box itself already tells the player which key
+	 * this is.
 	 */
 	private static void renderWrathCharge(GuiGraphics graphics, Minecraft client, Player player) {
 		int ticks = player.getAttachedOrElse(ModAttachments.THOR_WRATH_CHARGE, 0);
@@ -154,7 +162,7 @@ public final class ThorHud {
 		int w = 6 * BOX + 5 * GAP;
 		int x = graphics.guiWidth() - MARGIN - w;
 		int boxesY = graphics.guiHeight() - MARGIN - BOX - 20;
-		int y = boxesY - 10 - HAIRLINE_HEIGHT;
+		int y = boxesY - WRATH_CHARGE_CLEARANCE - HAIRLINE_HEIGHT;
 		boolean full = ratio >= 1.0f;
 
 		hairlineBar(graphics, x, y, w, ratio, full ? COLOR_BORDER_ACTIVE : COLOR_ENERGY);

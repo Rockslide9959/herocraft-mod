@@ -525,7 +525,10 @@ public final class AllMightAbilities {
 	// ---------------------------------------------------------------- X -- Leap
 
 	public static void leap(ServerPlayer p) {
-		if (!begin(p, LEAP, AllMightConfig.LEAP_COST, AllMightConfig.LEAP_COOLDOWN, 8, AllMightState.ANIM_LEAP)) {
+		// v0.13.5: Plus Ultra removes Leap's cooldown entirely -- it's the whole point of the buff
+		// window, spamming mobility/repositioning without waiting it out.
+		boolean plusUltra = AllMight.state(p).plusUltra;
+		if (!begin(p, LEAP, AllMightConfig.LEAP_COST, plusUltra ? 0 : AllMightConfig.LEAP_COOLDOWN, 8, AllMightState.ANIM_LEAP)) {
 			return;
 		}
 		ServerLevel level = (ServerLevel) p.level();
@@ -580,25 +583,29 @@ public final class AllMightAbilities {
 		m.step++;
 		Vec3 center = p.position().add(0, 0.9, 0);
 		if (m.kind == Kind.DASH) {
-			Vec3 vel = m.dir.scale(AllMightConfig.CAROLINA_SPEED);
+			// v0.13.5: re-read the look direction every tick (rather than locking to the heading at
+			// launch) so the slide actually follows wherever the player is aiming throughout, not just
+			// wherever they happened to be looking the instant it started.
+			Vec3 dir = flatLook(p);
+			Vec3 vel = dir.scale(AllMightConfig.CAROLINA_SPEED);
 			BlockPos ahead = BlockPos.containing(p.position().add(vel.scale(1.5)));
 			// a low ledge (up to a step) does not stop the slide, a wall does
 			boolean blocked = !level.hasChunkAt(ahead) || !level.noCollision(p, p.getBoundingBox().move(vel.x, 0.6, vel.z));
 			if (blocked || now >= m.until) {
-				AbilityHelpers.launchSelf(p, m.dir.scale(0.2)); // stop, do not fling
+				AbilityHelpers.launchSelf(p, dir.scale(0.2)); // stop, do not fling
 				if (blocked) {
-					AllMightShockwave.breakBlocks(p, p.position().add(m.dir.scale(1.5)).add(0, 1.0, 0), AllMightConfig.CAROLINA_BLOCK_RADIUS,
+					AllMightShockwave.breakBlocks(p, p.position().add(dir.scale(1.5)).add(0, 1.0, 0), AllMightConfig.CAROLINA_BLOCK_RADIUS,
 							AllMightConfig.CAROLINA_BLOCK_MAX, AllMightConfig.CAROLINA_BLOCK_HARDNESS);
-					AllMightShockwave.burst(level, ParticleTypes.CLOUD, center.add(m.dir.scale(1.2)), 12, 0.5, 0.1);
+					AllMightShockwave.burst(level, ParticleTypes.CLOUD, center.add(dir.scale(1.2)), 12, 0.5, 0.1);
 				}
 				return false;
 			}
 			double vy = p.onGround() ? -0.05 : Math.max(p.getDeltaMovement().y - 0.08, -1.0);
 			AbilityHelpers.launchSelf(p, new Vec3(vel.x, vy, vel.z));
 			AllMightShockwave.radial(p, center, 2.2, m.wave, false);
-			AllMightShockwave.windLine(level, center.subtract(m.dir.scale(0.4)), m.dir.scale(-1.0), 5.0, 1.2, 2);
+			AllMightShockwave.windLine(level, center.subtract(dir.scale(0.4)), dir.scale(-1.0), 5.0, 1.2, 2);
 			if (m.step % 2 == 0) {
-				AllMightShockwave.burst(level, ParticleTypes.SWEEP_ATTACK, center.subtract(m.dir.scale(1.0)), 1, 0.3, 0.0);
+				AllMightShockwave.burst(level, ParticleTypes.SWEEP_ATTACK, center.subtract(dir.scale(1.0)), 1, 0.3, 0.0);
 			}
 			return true;
 		}

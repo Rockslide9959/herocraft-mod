@@ -194,9 +194,12 @@ public class TitanEntity extends RaidUndead {
 		if (level() instanceof ServerLevel server) {
 			server.playSound(null, blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 4.0f, 0.5f);
 			server.sendParticles(ParticleTypes.EXPLOSION, getX(), getY() + getBbHeight() * 0.5, getZ(), 1, 0, 0, 0, 0);
+			// v0.13.5: was an unconditional (ServerLevel) cast on level() outside this guard -- harmless
+			// today since this is only ever reached from the server-side transform, but a real
+			// ClassCastException waiting to happen the moment that stops being true.
+			bossBar().update(server, blockPosition(), TitanConfig.stats().detectionRange,
+					Component.translatable("entity.projecthero.titan"), 1.0f);
 		}
-		bossBar().update((ServerLevel) level(), blockPosition(), TitanConfig.stats().detectionRange,
-				Component.translatable("entity.projecthero.titan"), 1.0f);
 	}
 
 	private EventBossBar bossBar() {

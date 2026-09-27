@@ -4,6 +4,8 @@ import com.projecthero.mod.greenlantern.GreenLantern;
 import com.projecthero.mod.hero.power.HeroFlight;
 import com.projecthero.mod.ironman.TonyStark;
 import com.projecthero.mod.maxsteel.MaxSteel;
+import com.projecthero.mod.power.ThorPassives;
+import com.projecthero.mod.power.ThorPowers;
 import com.projecthero.mod.punisher.Punisher;
 import com.projecthero.mod.spider.SpiderMan;
 import com.projecthero.mod.symbiote.Symbiote;
@@ -78,7 +80,7 @@ public final class HeroTiers {
 	/** Whether the player currently holds the Hero-Tier power named by {@code key}. */
 	public static boolean holdsHero(ServerPlayer player, String key) {
 		return switch (key) {
-			case "thor" -> Worthiness.isWorthy(player);
+			case "thor" -> ThorPassives.hasPowerOfThor(player);
 			case "iron_man" -> TonyStark.hasPower(player);
 			case "spider_man" -> SpiderMan.hasPower(player);
 			case "max_steel" -> MaxSteel.hasPower(player);
@@ -93,7 +95,7 @@ public final class HeroTiers {
 
 	private static void revokeHero(ServerPlayer player, String key) {
 		switch (key) {
-			case "thor" -> Worthiness.setScore(player, 0);
+			case "thor" -> ThorPowers.revokePower(player);
 			case "iron_man" -> {
 				if (TonyStark.hasPower(player)) {
 					TonyStark.revoke(player);

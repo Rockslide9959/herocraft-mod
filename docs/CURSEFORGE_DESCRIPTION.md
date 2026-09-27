@@ -239,8 +239,8 @@ plates, 2 enchanted golden apples, 2 diamond blocks, a **totem of undying**) and
 - **Two forms (H):** **Base Form** is a plain player (no abilities, no bonuses). **Power Form**: you grow to **2.7 blocks** over one second, venting steam, with
   **13 melee, a 6-block hit range, 40 max HP** (health % carries over), **50% less damage, no fall damage, Speed III, slow self-healing (1 HP / 4 s), a 3-block jump**.
 - **OFA (v0.12.39):** a **300-point timer** (5:00, shown as m:ss on the HUD). **Being in the Power Form drains 1 a second**; only the **Base Form** refills it, **1 every 2 seconds**. The Smashes and Leap are free; only **Plus Ultra (50)** and **United States of Smash (100)** spend OFA. Power Form self-healing is now a slow **1 HP every 4 s**. Below 30 you vent steam.
-- **Power Form abilities:** **R Detroit Smash** (18 dmg, 10-block air-pressure reach) · **Shift+R New Hampshire Smash** (20, plus a 20-block forward blast) · **G Texas Smash** (24, an 18-block widening wave) · **X Leap** (launches along your look direction, 1.5 s cooldown) ·
-  **Z United States of Smash** (hold 5 s with a charge bar; an AoE: 75 dmg: a 25-block forward air blast, then a 35-block shockwave all around you and a large crater; 100 OFA (once cast) and a **75 s cooldown**, both paid only once it is cast) · **V Carolina Smash** (a 15-block ground slide in the direction you look, 20 dmg) ·
+- **Power Form abilities:** **R Detroit Smash** (18 dmg, 10-block air-pressure reach) · **Shift+R New Hampshire Smash** (20, plus a 20-block forward blast) · **G Texas Smash** (24, an 18-block widening wave) · **X Leap** (launches along your look direction, 1.5 s cooldown -- **no cooldown while Plus Ultra is active**) ·
+  **Z United States of Smash** (hold 5 s with a charge bar; an AoE: 75 dmg: a 25-block forward air blast, then a 35-block shockwave all around you and a large crater; 100 OFA (once cast) and a **75 s cooldown**, both paid only once it is cast) · **V Carolina Smash** (a 15-block ground slide that follows your look direction the whole way, 20 dmg) ·
   **C Plus Ultra** (50 OFA, lasts exactly **22 s**, every move +30%; 20 s cooldown after it ends; running out of OFA drops you back to Base Form).
 - **Armour (v0.12.43):** the Power Form wears only the All Might armour — regular armour tears off when you transform (**-50 durability**, unequipped and dropped) and is refused afterwards. Particles are now **gold**.
 - **Passives (Power Form):** air-burst punches, hard-landing shockwaves, **no fall damage at all**, bosses lose at most 10% per Smash. Admins: `/projecthero power grant all_might`.
@@ -304,7 +304,7 @@ readable; tunable in `config/projecthero_titan.json`.
 
 ### The Abyssal Behemoth
 A very rare, naturally-spawning **endgame Nether boss** — a nine-block, floating, horned, ancient
-mutated Ghast with a fully custom model, animations and 3,000 HP, never just "a Ghast with bigger
+mutated Ghast with a fully custom model, animations and 1,000 HP, never just "a Ghast with bigger
 numbers." No damage resistance — every hit you land counts, and the boss bar tracks its real HP.
 Nine attacks: **Abyssal Fireball** and **Hellfire Barrage** at range, **Magma Rain** and
 **Netherstorm** across the whole battlefield, a sweeping **Abyssal Beam**, **Cinder Tether** and
@@ -326,10 +326,11 @@ squadmates simply cannot hurt each other — not with a sword, an arrow, a grena
 identity or mutation currently holds their ability slots, their coordinates, and how far away they are
 and in which direction. Squads hold up to 12 and survive a restart.
 
-- **Locator Bar (v0.13.4):** a Bedrock Edition-style strip across the top of your screen showing every
-  online, same-dimension squadmate as a small face that slides toward the middle as you turn to face
-  them and pins to the edge when they're behind you, with their distance underneath. Toggle it from a
-  button on the **P** roster screen.
+- **Locator Bar (v0.13.4, reworked into a hairline bar in v0.13.5):** a thin Bedrock Edition-style line
+  across the top of your screen with every online, same-dimension squadmate's face sitting on it,
+  sliding toward the middle as you turn to face them (pinning to the edge when they're behind you) and
+  growing or shrinking with distance -- closer reads bigger. Toggle it from a button on the **P** roster
+  screen.
 
 ---
 

@@ -1,5 +1,11 @@
 # All Might / One For All — reference (v0.12.33)
 
+> **v0.13.5:** Carolina Smash's `tickMove` DASH branch now re-reads `flatLook(p)` every tick instead of
+> locking to the heading captured once at launch -- the slide follows your aim continuously rather than
+> just the direction you were facing the instant it started. Leap (`AllMightAbilities.leap`) passes
+> cooldown `0` to `begin(...)` whenever `AllMight.state(p).plusUltra` is true, so it has no cooldown at
+> all while Plus Ultra is active (its OFA cost, still 0, is unchanged).
+>
 > **v0.12.44 (ranges):** Smashes reach further (air pressure, not melee). `AllMightConfig`: `DETROIT_RANGE` 10 (width 3.5), `TEXAS_RANGE` 18 (width 4 -> `TEXAS_END_WIDTH` 10, swept per tick), `CAROLINA_DISTANCE` 15 (a physical slide, radial hits along the path), New Hampshire adds a launch-time forward sweep (`NEW_HAMPSHIRE_RANGE` 20 x `_WIDTH` 6 x `_BLAST_HEIGHT` 8, own hit set so the landing still hits), United States = `UNITED_STATES_PRIMARY_RANGE` 25 cone (width 8 -> 14) + `UNITED_STATES_RANGE` 35 expanding radial wave, sharing one hit set (no double damage). Plus Ultra unchanged (self-buff). Damage/cost/cooldown untouched. Wolverine lethal-fall chat message removed.
 >
 > **v0.12.43:** particles are gold (`Vector3f(1.0, 0.78, 0.2)` dust). `AllMightSuit.tearOffRegularArmour` (on transform: each non-All-Might armour piece takes `ARMOUR_TEAR_DAMAGE` 50 durability, is destroyed if that exceeds what it has, else unequipped and dropped with a 3 s pickup delay) and `bounceRegularArmour` (every 5 ticks in the Power Form: regular armour is moved back to the inventory).
