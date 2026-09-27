@@ -294,6 +294,18 @@ lands. Its moves: a single-target **Punch**, a wide backhand **Sweep**, ground-s
 scaled to your health so a healthy, armoured player is hit hard but never one-shot. Strong, but
 readable; tunable in `config/projecthero_titan.json`.
 
+### The Abyssal Behemoth
+A very rare, naturally-spawning **endgame Nether boss** — a nine-block, floating, ancient Ghast-like
+horror with a fully custom model, animations and 30,000 HP, never just "a Ghast with bigger numbers."
+Nine attacks: **Abyssal Fireball** and **Hellfire Barrage** at range, **Magma Rain** and
+**Netherstorm** across the whole battlefield, a sweeping **Abyssal Beam**, **Cinder Tether** and
+**Sovereign Descent** to force it down for a real melee window, **Hellwind** to punish standing
+underneath it, and **Skyfall** to punish hovering too high above it for too long. Three phases —
+Netherfury at 60% health, Cataclysm at 25% — make it faster and angrier as the fight goes on, and a
+five-minute Abyssal Enrage keeps a long fight from being cheesed. You do not need flight to beat it.
+Defeating it drops a unique **Abyssal Core** plus netherite scrap, ghast tears and blaze rods. At most
+one exists per Nether dimension at a time; tunable in `config/projecthero_behemoth.json`.
+
 ---
 
 ## Squads

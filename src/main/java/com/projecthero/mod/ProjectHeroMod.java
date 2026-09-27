@@ -65,6 +65,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.titan.TitanConfig.load();
 		// v0.12.31: Titan Shifter balance config (read before its entity type is built -- it sets the hit-box).
 		com.projecthero.mod.titanshifter.TitanShifterConfig.load();
+		com.projecthero.mod.behemoth.BehemothConfig.load();
 		ModAttachments.initialize();
 		ModItems.initialize();
 		IronManItems.initialize();
@@ -90,6 +91,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.thorarmor.ThorArmor.initialize();
 		com.projecthero.mod.titanshifter.item.TitanShifterItems.initialize();
 		com.projecthero.mod.titanshifter.entity.TitanShifterEntities.initialize();
+		com.projecthero.mod.behemoth.BehemothItems.initialize();
+		com.projecthero.mod.behemoth.entity.BehemothEntityTypes.initialize();
 		com.projecthero.mod.hero.power.p05.GeoEntityTypes.initialize();
 		Powers.initialize();
 		HeroPowerHandlers.registerAll();
@@ -155,6 +158,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.event.EventManager.tick(server);
 			com.projecthero.mod.event.raid.PillagerSpySpawner.tick(server);
 			com.projecthero.mod.titan.TitanSpawner.tick(server);
+			com.projecthero.mod.behemoth.BehemothSpawner.tick(server);
 			com.projecthero.mod.spider.SpiderWebs.tick(server);
 			com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.tick(server);
 			// Once/sec, for every online player (not just bonded Green Lanterns) -- a traded, gifted or

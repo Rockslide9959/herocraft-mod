@@ -96,6 +96,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.firearm.FirearmManager.clearSessionState();
 		com.projecthero.mod.punisher.ability.PunisherC4.clearSessionState();
 		com.projecthero.mod.punisher.PunisherAbilityManager.clearSessionState();
+		com.projecthero.mod.behemoth.BehemothSpawner.clearSessionState();
 		com.projecthero.mod.punisher.PunisherArmorGate.clearSessionState();
 		com.projecthero.mod.combat.SonicVulnerability.clearSessionState();
 		com.projecthero.mod.symbiote.SymbioteAbilityManager.clearSessionState();

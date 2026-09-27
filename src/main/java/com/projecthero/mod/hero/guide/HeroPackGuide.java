@@ -230,7 +230,8 @@ public final class HeroPackGuide {
 	private static final int CH_WOLVERINE = 16;
 	private static final int CH_TITAN_SHIFTER = 17;
 	private static final int CH_ALL_MIGHT = 18;
-	private static final int CHAPTER_POWER_BASE = 19;
+	private static final int CH_ABYSSAL_BEHEMOTH = 19;
+	private static final int CHAPTER_POWER_BASE = 20;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -664,6 +665,18 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.all_might.commands.body");
 		}));
 
+		// The Abyssal Behemoth (v0.13.1) -- a very rare, endgame Nether world boss, on the same footing
+		// as the Titan: not part of the scripted raid events, so it gets its own short entry.
+		out.add(chapter("projecthero.guide.abyssal_behemoth", lines -> {
+			para(lines, "projecthero.guide.abyssal_behemoth.body");
+			blank(lines);
+			for (String section : new String[]{"tell", "fight", "rewards"}) {
+				head(lines, "projecthero.guide.abyssal_behemoth." + section);
+				para(lines, "projecthero.guide.abyssal_behemoth." + section + ".body");
+				blank(lines);
+			}
+		}));
+
 		// one chapter per power, in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.all()) {
 			out.add(powerChapter(power));
@@ -700,6 +713,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.zombie_raid", CH_ZOMBIE_RAID);
 		link(idx, "projecthero.guide.supervillain_raid", CH_SUPERVILLAIN_RAID);
 		link(idx, "projecthero.guide.titan", CH_TITAN);
+		link(idx, "projecthero.guide.abyssal_behemoth", CH_ABYSSAL_BEHEMOTH);
 
 		section(idx, "projecthero.guide.section.squads", true);
 		link(idx, "projecthero.guide.squads", CH_SQUADS);

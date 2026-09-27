@@ -85,6 +85,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.thorarmor.ThorArmorItems.addToCreativeTab(output);
 				// Titan Shifter: the Titan Serum.
 				com.projecthero.mod.titanshifter.item.TitanShifterItems.addToCreativeTab(output);
+				// The Abyssal Behemoth: its unique boss material.
+				com.projecthero.mod.behemoth.BehemothItems.addToCreativeTab(output);
 			})
 			.build();
 

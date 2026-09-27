@@ -25,5 +25,11 @@ public final class ModEntityRenderers {
 		// Geokinesis' Colossal Rock -- a heavily over-scaled stone block billboard.
 		EntityRendererRegistry.register(com.projecthero.mod.hero.power.p05.GeoEntityTypes.COLOSSAL_ROCK,
 				ctx -> new net.minecraft.client.renderer.entity.ThrownItemRenderer(ctx, 5.0f, false));
+		EntityRendererRegistry.register(com.projecthero.mod.behemoth.entity.BehemothEntityTypes.ABYSSAL_BEHEMOTH,
+				com.projecthero.mod.client.behemoth.BehemothRenderer::new);
+		// Renders as a spinning, full-bright, over-scaled fire charge -- exactly how vanilla itself renders
+		// a Ghast's own fireball (ThrownItemRenderer(ctx, 3.0f, true)), just bigger.
+		EntityRendererRegistry.register(com.projecthero.mod.behemoth.entity.BehemothEntityTypes.BEHEMOTH_FIREBALL,
+				ctx -> new net.minecraft.client.renderer.entity.ThrownItemRenderer<>(ctx, 4.5f, true));
 	}
 }
