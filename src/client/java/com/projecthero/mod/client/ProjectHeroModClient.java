@@ -93,6 +93,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.AllMightHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SymbioteHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternHud::render);
+		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SquadLocatorBarHud::render);
 
 		net.minecraft.client.gui.screens.MenuScreens.register(
 				com.projecthero.mod.allmight.item.AllMightItems.LOCKER_MENU,
@@ -113,6 +114,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.render.SuperheroFirstPersonArm.initialize();
 		IronManBeamClient.register();
 		com.projecthero.mod.client.spider.SpiderWebLineRenderer.initialize();
+		com.projecthero.mod.client.thor.ThorLightningArcRenderer.initialize();
 		com.projecthero.mod.client.firearm.BulletHoleRenderer.initialize();
 		com.projecthero.mod.client.greenlantern.GreenLanternShieldRenderer.initialize();
 
@@ -225,6 +227,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 							payload.sniffTicks(), now);
 				}));
 
+		// v0.13.4: Adamantium Execution's lock-on target -- glows red for this viewer only.
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.WolverineExecutionTargetPayload.TYPE,
+				(payload, context) -> context.client().execute(
+						() -> com.projecthero.mod.client.wolverine.WolverineExecutionTargetClient.accept(payload.targetId())));
+
 		// Green Lantern Ring Scan: the per-viewer hostile/passive glow (v0.11.10). Replaces the client's
 		// whole scan set, same pattern as Spider-Sense above.
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.GreenLanternRingScanPayload.TYPE,
@@ -268,6 +275,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.SpiderWebStrandPayload.TYPE,
 				(payload, context) -> context.client().execute(
 						() -> com.projecthero.mod.client.spider.SpiderStrands.accept(payload)));
+
+		// v0.13.4: crackling lightning arc segments (Lightning Beam, Chain Lightning).
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.ThorLightningArcPayload.TYPE,
+				(payload, context) -> context.client().execute(
+						() -> com.projecthero.mod.client.thor.ThorLightningArcClient.accept(payload)));
 
 		// Firearms: server-accepted shot -> recoil kick; headshot -> HUD flash.
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.FirearmShotPayload.TYPE,

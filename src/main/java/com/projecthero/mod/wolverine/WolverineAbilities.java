@@ -487,6 +487,11 @@ public final class WolverineAbilities {
 		}
 	}
 
+	/**
+	 * v0.13.4: no more wind-up freeze -- the moment the charge releases, whatever mob Wolverine is
+	 * looking at (within {@link WolverineConfig#EXECUTION_RANGE}) is marked (see
+	 * {@link #setExecutionTarget}) and he launches directly at them right away.
+	 */
 	public static void execution(ServerPlayer player) {
 		if (!Wolverine.hasPower(player)) {
 			return;
@@ -495,9 +500,7 @@ public final class WolverineAbilities {
 			prepare(player, EXECUTION, "projecthero.wolverine.ability.adamantium_execution", true);
 			return;
 		}
-		// not a global attack: it needs a target near enough to lunge onto
-		double reach = WolverineConfig.EXECUTION_RANGE + WolverineConfig.EXECUTION_LUNGE_BLOCKS;
-		List<LivingEntity> targets = inCone(player, reach, 0.5);
+		List<LivingEntity> targets = inCone(player, WolverineConfig.EXECUTION_RANGE, 0.5);
 		if (targets.isEmpty()) {
 			player.displayClientMessage(Component.translatable("message.projecthero.wolverine.no_target")
 					.withStyle(ChatFormatting.GRAY), true);
@@ -508,24 +511,14 @@ public final class WolverineAbilities {
 		}
 		LivingEntity mark = targets.get(0);
 		Wolverine.triggerCooldown(player, EXECUTION, WolverineConfig.EXECUTION_COOLDOWN);
+		setExecutionTarget(player, mark);
 		swing(player, 4);
-		// wind-up: root in place, claws glinting
-		player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, WolverineConfig.EXECUTION_WINDUP_TICKS, 6, false, false, false));
 		AbilityHelpers.sound(player, SoundEvents.WOLF_GROWL, 0.9f, 0.5f);
 		AbilityHelpers.sound(player, SoundEvents.CHAIN_PLACE, 0.8f, 0.6f);
-		for (int t = 0; t < WolverineConfig.EXECUTION_WINDUP_TICKS; t += 2) {
-			WolverineScheduler.schedule(player, t, () -> {
-				if (player.level() instanceof ServerLevel level) {
-					Vec3 p = player.getEyePosition().add(player.getLookAngle().scale(0.8));
-					level.sendParticles(ParticleTypes.CRIT, p.x, p.y - 0.3, p.z, 4, 0.3, 0.2, 0.3, 0.05);
-				}
-			});
-		}
-		WolverineScheduler.schedule(player, WolverineConfig.EXECUTION_WINDUP_TICKS, () -> executionLunge(player, mark));
+		executionLunge(player, mark);
 	}
 
 	private static void executionLunge(ServerPlayer player, LivingEntity mark) {
-		player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
 		Vec3 aim = mark.isAlive() ? mark.position().add(0, mark.getBbHeight() * 0.5, 0).subtract(player.getEyePosition())
 				: player.getLookAngle();
 		double lunge = Math.min(WolverineConfig.EXECUTION_LUNGE_BLOCKS, Math.max(1.0, aim.length() - 1.5));
@@ -535,6 +528,7 @@ public final class WolverineAbilities {
 	}
 
 	private static void executionStrike(ServerPlayer player, LivingEntity mark) {
+		clearExecutionTarget(player);
 		swing(player, 4);
 		LivingEntity target = null;
 		double reach = WolverineConfig.EXECUTION_RANGE;
@@ -561,6 +555,23 @@ public final class WolverineAbilities {
 			AbilityHelpers.sound(player, SoundEvents.PLAYER_ATTACK_CRIT, 1.0f, 0.6f);
 			AbilityHelpers.sound(player, SoundEvents.IRON_GOLEM_DAMAGE, 0.9f, 0.7f);
 		}
+	}
+
+	/**
+	 * v0.13.4: marks the execution's locked target with a red glow visible only to the caster --
+	 * {@code EntityGlowMixin} renders it, fed by {@code WolverineExecutionTargetPayload}/Client, the
+	 * same "server tells one client, mixin forces the client-render glow true" shape Spider-Sense and
+	 * Wolverine's own Sniff/Hunter highlighting already use. Nothing is set on the mob itself, so no
+	 * other player's client is told anything.
+	 */
+	private static void setExecutionTarget(ServerPlayer player, LivingEntity target) {
+		net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player,
+				new com.projecthero.mod.network.WolverineExecutionTargetPayload(target.getId()));
+	}
+
+	private static void clearExecutionTarget(ServerPlayer player) {
+		net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player,
+				new com.projecthero.mod.network.WolverineExecutionTargetPayload(-1));
 	}
 
 	// ---------------- tick ----------------

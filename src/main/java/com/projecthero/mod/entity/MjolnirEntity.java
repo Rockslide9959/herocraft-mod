@@ -1,6 +1,9 @@
 package com.projecthero.mod.entity;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -63,15 +66,17 @@ import net.minecraft.world.phys.Vec3;
  */
 public class MjolnirEntity extends ThrowableItemProjectile {
 	/**
-	 * Outbound speed, in blocks per tick. ~35 blocks/second: quick enough to feel hurled rather than
-	 * lobbed, still slow enough to watch it cross a field. Held exactly every tick (see
-	 * {@link #tick()}) rather than being a one-off impulse, which -- with gravity off while airborne
-	 * -- is what makes the throw a dead-straight line instead of a trident-style arc.
+	 * Outbound speed, in blocks per tick. ~38.5 blocks/second (v0.13.4: raised 10% from the original
+	 * ~35): quick enough to feel hurled rather than lobbed, still slow enough to watch it cross a field.
+	 * Held exactly every tick (see {@link #tick()}) rather than being a one-off impulse, which -- with
+	 * gravity off while airborne -- is what makes the throw a dead-straight line instead of a
+	 * trident-style arc.
 	 */
-	private static final double THROW_SPEED = 1.75;
-	/** Return flight starts here and accelerates, so a long recall arrives with real momentum. */
-	private static final double RETURN_SPEED_MIN = 1.1;
-	private static final double RETURN_SPEED_MAX = 2.6;
+	private static final double THROW_SPEED = 1.925;
+	/** Return flight starts here and accelerates, so a long recall arrives with real momentum.
+	 * v0.13.4: both raised 10%, same as {@link #THROW_SPEED}. */
+	private static final double RETURN_SPEED_MIN = 1.21;
+	private static final double RETURN_SPEED_MAX = 2.86;
 	private static final double RETURN_ACCELERATION = 0.14;
 	/**
 	 * Final-approach easing: within this distance the hammer is speed-limited to a fraction of the
@@ -115,6 +120,16 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 	/** The owner's entity id, or -1. Present so the client can run the homing simulation too. */
 	private static final EntityDataAccessor<Integer> DATA_OWNER_ID =
 			SynchedEntityData.defineId(MjolnirEntity.class, EntityDataSerializers.INT);
+	/** Hammer Volley's current target entity id, or -1 -- synced (same reasoning as {@link #DATA_OWNER_ID})
+	 * so the client can render the same flight/orbit the server is actually doing, rather than the
+	 * client falling back to "no target" every tick since {@code getEntitiesOfClass} target *selection*
+	 * only ever runs on the server. */
+	private static final EntityDataAccessor<Integer> DATA_VOLLEY_TARGET_ID =
+			SynchedEntityData.defineId(MjolnirEntity.class, EntityDataSerializers.INT);
+	/** Whether the hammer is currently orbiting {@link #DATA_VOLLEY_TARGET_ID} (single-target case)
+	 * rather than closing in on it. */
+	private static final EntityDataAccessor<Boolean> DATA_VOLLEY_ORBITING =
+			SynchedEntityData.defineId(MjolnirEntity.class, EntityDataSerializers.BOOLEAN);
 
 	private static final String TAG_STATE = "ProjectHeroState";
 	private static final String TAG_TICKS_ALIVE = "ProjectHeroTicksAlive";
@@ -135,7 +150,12 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 		/** Flying home (impact, throw timeout, or the call keybind). Phases through terrain. */
 		RETURNING,
 		/** Lying in the world: dropped, ejected, or set down. Waits to be picked up or called. */
-		RESTING;
+		RESTING,
+		/** v0.13.4: "Hammer Volley" -- autonomously strikes nearby enemies in sequence for a fixed
+		 * duration, or orbits and re-strikes a single target if there is only one. Phases through
+		 * terrain like {@link #RETURNING}; ends early into {@link #RETURNING} if recalled. See
+		 * {@link com.projecthero.mod.power.ThorPowers#hammerVolley}. */
+		VOLLEY;
 
 		private static final State[] BY_ID = values();
 
@@ -148,6 +168,14 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 	private int impactTicks = 0;
 	private int pickupDelay = 0;
 	private double returnSpeed = RETURN_SPEED_MIN;
+
+	// ---------------- volley state (v0.13.4) ----------------
+	/** Server-only: ticks left in the whole volley, and ticks left before the next orbit re-strike.
+	 * The current target and whether it's being orbited are synced (see {@link #DATA_VOLLEY_TARGET_ID}
+	 * / {@link #DATA_VOLLEY_ORBITING}) since the client needs those to render the same flight the
+	 * server is actually doing -- target *selection* only ever runs on the server. */
+	private int volleyTicksLeft = 0;
+	private int volleyOrbitTicksLeft = 0;
 
 	/** Entities already struck during the current return flight -- see {@link #onHitEntity}. */
 	private final Set<UUID> hitDuringReturn = new HashSet<>();
@@ -193,6 +221,8 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 		super.defineSynchedData(builder);
 		builder.define(DATA_STATE, (byte) State.THROWN.ordinal());
 		builder.define(DATA_OWNER_ID, -1);
+		builder.define(DATA_VOLLEY_TARGET_ID, -1);
+		builder.define(DATA_VOLLEY_ORBITING, false);
 	}
 
 	/**
@@ -291,6 +321,9 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 			case IMPACT -> MjolnirStatus.IMPACT;
 			case RETURNING -> MjolnirStatus.RETURNING;
 			case RESTING -> MjolnirStatus.RESTING;
+			// No dedicated record status for a volley -- it is a form of being "out and flying under its
+			// own power," same as THROWN, for the purpose of describing an unloaded hammer's whereabouts.
+			case VOLLEY -> MjolnirStatus.THROWN;
 		};
 	}
 
@@ -417,6 +450,10 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 		switch (state) {
 			case IMPACT -> {
 				tickImpact();
+				return;
+			}
+			case VOLLEY -> {
+				tickVolley();
 				return;
 			}
 			case RETURNING -> {
@@ -546,6 +583,154 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 		}
 	}
 
+	// ---------------- hammer volley (v0.13.4, key V) ----------------
+
+	private static final double VOLLEY_RANGE = 25.0;
+	private static final double VOLLEY_SPEED = 2.0;
+	private static final double VOLLEY_CATCH_DISTANCE = 1.3;
+	private static final float VOLLEY_DAMAGE = 11.0f; // same as a thrown hammer's own hit (see DAMAGE above)
+	private static final int VOLLEY_ORBIT_TICKS = 2 * 20;
+	private static final double VOLLEY_ORBIT_RADIUS = 2.5;
+	private static final double VOLLEY_ORBIT_ANGULAR_SPEED = 0.35; // radians/tick
+
+	/** Launches the hammer out of {@code player}'s hand into Hammer Volley for {@code durationTicks}. */
+	public void startVolley(Player player, int durationTicks) {
+		this.setOwner(player);
+		this.setPos(player.getX(), player.getEyeY() - 0.1, player.getZ());
+		this.setDeltaMovement(Vec3.ZERO);
+		this.volleyTicksLeft = durationTicks;
+		this.volleyOrbitTicksLeft = 0;
+		setVolleyTarget(-1, false);
+		setState(State.VOLLEY);
+	}
+
+	/**
+	 * Autonomously strikes the nearest-to-owner living entities within {@link #VOLLEY_RANGE} in
+	 * sequence, looping through all of them for the volley's whole duration; a single target is
+	 * orbited for {@link #VOLLEY_ORBIT_TICKS} between hits instead (there is nowhere else to fly to).
+	 * Ends into {@link #RETURNING} when the duration runs out, or immediately if {@link #recall} is
+	 * called on this entity from anywhere (the outer {@link #tick} dispatch just reads the new state
+	 * next tick, same as any other interruption of an in-progress flight).
+	 *
+	 * <p>Target <em>selection</em> only ever runs on the server ({@code getEntitiesOfClass} against
+	 * whatever candidates the server considers valid), but the actual flight/orbit movement below runs
+	 * identically on both sides against the synced {@link #DATA_VOLLEY_TARGET_ID} /
+	 * {@link #DATA_VOLLEY_ORBITING} -- the same "client simulates the same thing the server does" shape
+	 * {@link #tickReturning} already uses, so the client renders the real flight instead of guessing.
+	 */
+	private void tickVolley() {
+		Player owner = resolveOwner();
+		if (owner == null || !owner.isAlive() || owner.level() != this.level()) {
+			if (!level().isClientSide()) {
+				settleAsResting();
+			}
+			return;
+		}
+
+		if (!level().isClientSide() && --volleyTicksLeft <= 0) {
+			beginReturn();
+			super.tick();
+			spawnFlightEffects();
+			return;
+		}
+
+		LivingEntity target = resolveVolleyTarget();
+		if (target == null && !level().isClientSide()) {
+			advanceVolleyTarget(owner, -1);
+			target = resolveVolleyTarget();
+		}
+
+		if (target == null) {
+			// Nothing in range: hover just above the owner rather than idling on the ground.
+			Vec3 hover = owner.position().add(0.0, owner.getBbHeight() + 1.5, 0.0);
+			this.setDeltaMovement(hover.subtract(this.position()).scale(0.15));
+			super.tick();
+			spawnFlightEffects();
+			return;
+		}
+
+		Vec3 center = target.position().add(0.0, target.getBbHeight() * 0.5, 0.0);
+		if (this.entityData.get(DATA_VOLLEY_ORBITING)) {
+			// A deterministic, unsynced angle derived from tickCount: both sides increment it every
+			// tick they exist, so the swirl looks the same on each side without needing to sync the
+			// angle itself -- only whether we are orbiting at all.
+			double angle = this.tickCount * VOLLEY_ORBIT_ANGULAR_SPEED;
+			Vec3 orbitPoint = center.add(Math.cos(angle) * VOLLEY_ORBIT_RADIUS, 0.0, Math.sin(angle) * VOLLEY_ORBIT_RADIUS);
+			this.setDeltaMovement(orbitPoint.subtract(this.position()).scale(0.5));
+			if (!level().isClientSide() && --volleyOrbitTicksLeft <= 0) {
+				strikeVolleyTarget(owner, target);
+			}
+		} else {
+			Vec3 toTarget = center.subtract(this.position());
+			double distance = toTarget.length();
+			if (distance < VOLLEY_CATCH_DISTANCE) {
+				if (!level().isClientSide()) {
+					strikeVolleyTarget(owner, target);
+				}
+			} else {
+				this.setDeltaMovement(toTarget.scale(VOLLEY_SPEED / distance));
+			}
+		}
+		super.tick();
+		spawnFlightEffects();
+	}
+
+	private void strikeVolleyTarget(Player owner, LivingEntity target) {
+		var damageSource = level().damageSources().trident(this, owner);
+		if (target.hurt(damageSource, VOLLEY_DAMAGE)) {
+			target.knockback(0.5, this.getX() - target.getX(), this.getZ() - target.getZ());
+			level().playSound(null, target.blockPosition(), SoundEvents.TRIDENT_HIT, SoundSource.PLAYERS, 1.0f, 1.0f);
+			if (level() instanceof ServerLevel serverLevel) {
+				serverLevel.sendParticles(ParticleTypes.ELECTRIC_SPARK,
+						target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(), 12, 0.3, 0.3, 0.3, 0.05);
+			}
+		}
+		advanceVolleyTarget(owner, target.getId());
+	}
+
+	/**
+	 * Picks the next target, closest-to-owner first among anything not just struck; if exactly one
+	 * candidate exists (so the "next" pick is unavoidably the one just hit), arms the orbit instead of
+	 * an instant re-hit. Also the initial pick (called with {@code justHitId == -1}), where the orbit
+	 * never arms before a target's first hit. Server-only -- every call site is already gated.
+	 */
+	private void advanceVolleyTarget(Player owner, int justHitId) {
+		List<LivingEntity> candidates = new ArrayList<>(level().getEntitiesOfClass(LivingEntity.class,
+				owner.getBoundingBox().inflate(VOLLEY_RANGE), e -> e != owner && e.isAlive()));
+		candidates.sort(Comparator.comparingDouble(e -> e.distanceToSqr(owner)));
+
+		if (candidates.isEmpty()) {
+			setVolleyTarget(-1, false);
+			return;
+		}
+
+		LivingEntity chosen = candidates.size() == 1 ? candidates.get(0)
+				: candidates.stream().filter(e -> e.getId() != justHitId).findFirst().orElse(candidates.get(0));
+		boolean orbit = candidates.size() == 1 && chosen.getId() == justHitId;
+		setVolleyTarget(chosen.getId(), orbit);
+		volleyOrbitTicksLeft = orbit ? VOLLEY_ORBIT_TICKS : 0;
+	}
+
+	private void setVolleyTarget(int id, boolean orbiting) {
+		if (!level().isClientSide()) {
+			this.entityData.set(DATA_VOLLEY_TARGET_ID, id);
+			this.entityData.set(DATA_VOLLEY_ORBITING, orbiting);
+		}
+	}
+
+	/** The current volley target, re-resolved by id every tick so a despawned/dead one is noticed.
+	 * Cross-side, like {@link #resolveOwner}: {@code DATA_VOLLEY_TARGET_ID} is synced, and
+	 * {@code level().getEntity(int)} (unlike the UUID-keyed registry lookups elsewhere in this class)
+	 * works on both a {@code ServerLevel} and a {@code ClientLevel}. */
+	private LivingEntity resolveVolleyTarget() {
+		int id = this.entityData.get(DATA_VOLLEY_TARGET_ID);
+		if (id < 0) {
+			return null;
+		}
+		Entity e = level().getEntity(id);
+		return (e instanceof LivingEntity living && living.isAlive()) ? living : null;
+	}
+
 	/**
 	 * Where the hammer aims for on the way home: the owner's <em>hand</em>, not their feet or their
 	 * eyes. Computed from position and look angle only, both of which the client also has for a
@@ -615,7 +800,10 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 		if (!super.canHitEntity(target)) {
 			return false;
 		}
-		if (getState() == State.RESTING || getState() == State.IMPACT) {
+		if (getState() == State.RESTING || getState() == State.IMPACT || getState() == State.VOLLEY) {
+			// Volley damage is applied by hand in tickVolley/strikeVolleyTarget on deliberate arrival at
+			// a chosen target, not by the generic projectile-collision path -- otherwise flying past an
+			// unrelated mob on the way to its actual target would hit it too.
 			return false;
 		}
 		Player owner = resolveOwner();
@@ -669,9 +857,9 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 	protected void onHitBlock(BlockHitResult result) {
 		State state = getState();
 
-		if (state == State.RETURNING) {
-			// The only case that phases through terrain: a hammer flying home to its owner is
-			// unstoppable. Doing nothing here means the block hit is ignored and the return flight
+		if (state == State.RETURNING || state == State.VOLLEY) {
+			// Phases through terrain: flying home, or autonomously hunting volley targets, either way
+			// the hammer is unstoppable. Doing nothing here means the block hit is ignored and flight
 			// continues unimpeded.
 			//
 			// It also has to stay a no-op rather than "stop and re-home": ThrowableProjectile.tick()

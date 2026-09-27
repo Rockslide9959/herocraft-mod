@@ -49,15 +49,19 @@ player* and you can carry it while the effect lasts, but it does **not** bind to
 untouched. Without the effect — or once it runs out — it will not move for anyone who isn't already Thor.
 Creative players bypass it.
 
-- **Mjolnir** flies straight and true when thrown, phases through terrain on the way home, stands on
-  its head when it lands, and is **recalled to your hand from anywhere** — even out of another
-  player's grip or an unloaded chunk.
+- **Mjolnir** flies straight and true when thrown (v0.13.4: 10% faster both ways), phases through terrain
+  on the way home, stands on its head when it lands, and is **recalled to your hand from anywhere** —
+  even out of another player's grip or an unloaded chunk. Attack speed raised to 1.1.
 - Bind a hammer to yourself with shift-right-click so it always answers your call.
-- **Abilities:** Lightning Strike (with Chain Lightning) and God of Thunder's Wrath now both snap onto a
-  nearby enemy on a near-miss rather than just the raw crosshair point, Lightning Laser (held beam) arcs
-  and jags like a real bolt instead of a straight dotted line, Thunderclap shockwave, Storm Call (a
-  personal storm that follows you), Mjolnir Parry, and flight via double-tap-jump while holding the
-  hammer, with speed-based flight poses.
+- **Abilities (v0.13.4 damage pass):** Lightning Strike (22) and God of Thunder's Wrath (100, drains 100
+  Storm Energy, now calls down a barrage of bolts instead of one) both snap onto a nearby enemy on a
+  near-miss rather than just the raw crosshair point; Lightning Beam (8/tick) and Chain Lightning (18) now
+  render as a genuine crackling, jagged bolt instead of a line of particles; Thunderclap (22 damage) moved
+  to **Shift+V**, and plain **V** is a new ability, **Hammer Volley**: the hammer flies out of your hand
+  and autonomously strikes every enemy within 25 blocks in sequence (orbiting a lone target between hits)
+  for 12 seconds, or until you call it back early — 32 s cooldown. Storm Energy raised to 300 to fuel it
+  all. Plus Storm Call (a personal storm that follows you), Mjolnir Parry, and flight via double-tap-jump
+  while holding the hammer, with speed-based flight poses.
 - **Passives:** the Power of Thor while the hammer is bound to you — **+11 melee** bare-handed (Mjolnir itself
   hits for **11**), **+10 hearts**, **80% less damage from everything**, permanent **Regeneration I**, and immunity to
   falls and lightning. Your ability bar stays on screen while you are bound, even when the hammer is not in your hand.
@@ -196,7 +200,9 @@ regenerative mutation is consumed and rebuilt as Wolverine.
   when a Wolverine dies his body gives way to raw flesh and bone.
 - **Six abilities on the standard keys:** **R** Claw Slash · **G** Cross Slash · **Z** Claw Dash (21-block
   lunge that grabs and drags the first enemy you hit) · **X** Berserker Rage (12 s of +50% damage, +30% speed, double healing; the bar fills 1% per hit dealt or taken) · **C** Frenzy (five rapid
-  strikes) · **V** Adamantium Execution (60-damage finisher).
+  strikes) · **V** Adamantium Execution -- hold 5 s to charge, release to fire (v0.13.4: no more wind-up
+  freeze): whatever you're looking at within 10 blocks glows red for you alone and Wolverine launches
+  straight at them for a 60-damage finisher.
 
 ### 🗿 Titan Shifter
 A permanent **Primary** power (v0.12.31, reworked in v0.12.32, updated in v0.12.34, v0.12.35 and v0.12.36). Craft a **Titan Serum** (4 titanium-gold plates, 2
@@ -319,6 +325,11 @@ squadmates simply cannot hurt each other — not with a sword, an arrow, a grena
 55-damage Psychic Detonation. Press **P** for the roster: every teammate's health, whichever hero
 identity or mutation currently holds their ability slots, their coordinates, and how far away they are
 and in which direction. Squads hold up to 12 and survive a restart.
+
+- **Locator Bar (v0.13.4):** a Bedrock Edition-style strip across the top of your screen showing every
+  online, same-dimension squadmate as a small face that slides toward the middle as you turn to face
+  them and pins to the edge when they're behind you, with their distance underneath. Toggle it from a
+  button on the **P** roster screen.
 
 ---
 

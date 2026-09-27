@@ -16,9 +16,13 @@ import com.projecthero.mod.hammer.MjolnirRecall;
 import com.projecthero.mod.hammer.MjolnirRegistry;
 import com.projecthero.mod.item.ModDataComponents;
 import com.projecthero.mod.item.ModItems;
+import com.projecthero.mod.network.ThorLightningArcPayload;
 import com.projecthero.mod.sound.ProjectHeroSounds;
 import com.projecthero.mod.worthiness.Worthiness;
 import com.projecthero.mod.worthiness.WorthinessEnforcer;
+
+import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.MinecraftServer;
@@ -52,8 +56,8 @@ import net.minecraft.world.phys.Vec3;
 public final class ThorPowers {
 	public static final int LIGHTNING_RANGE = 30;
 	public static final int LIGHTNING_COOLDOWN_TICKS = 50; // 2.5s
-	/** v0.6.22: raised 10 -> 13. */
-	private static final float LIGHTNING_STRIKE_DAMAGE = 13.0f;
+	/** v0.6.22: raised 10 -> 13. v0.13.4: raised again, 13 -> 22. */
+	private static final float LIGHTNING_STRIKE_DAMAGE = 22.0f;
 	/** v0.7.5: Lightning Strike soft aim assist. If the raw crosshair ray doesn't land on an entity,
 	 * the strike snaps onto the living entity closest to the look vector within this half-angle (and
 	 * within {@link #LIGHTNING_RANGE}, with line of sight) so a near-miss lands on the target instead
@@ -76,21 +80,27 @@ public final class ThorPowers {
 	private static final double CHAIN_LIGHTNING_CONE_RANGE = 122.0;
 	/** Cone half-angle: a mob whose direction from the caster is within this of the look vector is in. */
 	private static final double CHAIN_LIGHTNING_CONE_DEGREES = 40.0;
-	private static final float CHAIN_LIGHTNING_DAMAGE = 8.0f;
+	/** v0.13.4: raised 8 -> 18. */
+	private static final float CHAIN_LIGHTNING_DAMAGE = 18.0f;
 	private static final int CHAIN_LIGHTNING_COOLDOWN_TICKS = 160; // 8s
 
 	// ---------------- god of thunder's wrath (ultimate, key Z) ----------------
 	private static final double GOD_OF_THUNDER_RANGE = 120.0;
-	private static final float GOD_OF_THUNDER_DAMAGE = 80.0f;
-	private static final double GOD_OF_THUNDER_RADIUS = 5.0;
+	/** v0.13.4: raised 80 -> 100. */
+	private static final float GOD_OF_THUNDER_DAMAGE = 100.0f;
+	/** v0.13.4: raised 5 -> 7 -- "bigger" per the same request that raised the damage. */
+	private static final double GOD_OF_THUNDER_RADIUS = 7.0;
+	/** v0.13.4: how many extra bolts strike nearby (jittered) points inside the radius, on top of the
+	 * one dead-center on the impact point, so the ultimate reads as a barrage rather than one bolt. */
+	private static final int GOD_OF_THUNDER_EXTRA_BOLTS = 4;
 	private static final int GOD_OF_THUNDER_COOLDOWN_TICKS = 90 * 20; // 90s
 	/** v0.6.23: hold Z for this long (5 s) to charge the ultimate -- it can never be cast instantly. */
 	private static final int WRATH_CHARGE_TICKS = 5 * 20;
 
 	// ---------------- lightning laser ----------------
 	private static final int LASER_RANGE = 20;
-	/** v0.6.22: raised 3 -> 4 per tick. */
-	private static final float LASER_DAMAGE_PER_TICK = 4.0f;
+	/** v0.6.22: raised 3 -> 4 per tick. v0.13.4: raised again, 4 -> 8. */
+	private static final float LASER_DAMAGE_PER_TICK = 8.0f;
 
 	/** Any animal a lightning ability damages gets briefly ignited so a lethal hit drops cooked
 	 * food -- vanilla's own animal loot tables already smelt their drops when the entity is on
@@ -102,7 +112,8 @@ public final class ThorPowers {
 	private static final int THUNDERCLAP_COOLDOWN_TICKS = 100; // 5s -- short, "get them off me" panic button
 	/** v0.6.22: 5 -> 7 blocks, and it now deals damage as well as knocking back. */
 	private static final double THUNDERCLAP_RADIUS = 7.0;
-	private static final float THUNDERCLAP_DAMAGE = 10.0f;
+	/** v0.13.4: raised 10 -> 22. */
+	private static final float THUNDERCLAP_DAMAGE = 22.0f;
 
 	// ---------------- storm call ----------------
 	// Radius is centered on and follows the player (rather than staying fixed at the cast location)
@@ -227,6 +238,40 @@ public final class ThorPowers {
 		level.playSound(null, x, y, z, SoundEvents.MACE_SMASH_AIR, SoundSource.PLAYERS, 0.35f, 0.9f);
 		level.playSound(null, x, y, z, SoundEvents.WIND_CHARGE_THROW, SoundSource.PLAYERS, 0.45f, 0.8f);
 		level.playSound(null, x, y, z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 0.15f, 1.7f);
+	}
+
+	// ---------------- hammer volley (v0.13.4, key V) ----------------
+
+	private static final int HAMMER_VOLLEY_DURATION_TICKS = 12 * 20;
+	private static final int HAMMER_VOLLEY_COOLDOWN_TICKS = 32 * 20;
+
+	/**
+	 * Sends Mjolnir out of the player's hand to autonomously strike nearby enemies for
+	 * {@link #HAMMER_VOLLEY_DURATION_TICKS} (see {@link MjolnirEntity#startVolley} for the actual
+	 * targeting/flight behaviour) -- or until the player calls it back early with {@link #callHammer}.
+	 * Requires the hammer specifically in the main hand, like {@link #throwMjolnir}, since it has to
+	 * physically leave the hand for the volley to read as "the hammer flew off."
+	 */
+	public static void hammerVolley(ServerPlayer player) {
+		if (!Worthiness.isWorthy(player)) {
+			return;
+		}
+		ItemStack stack = player.getMainHandItem();
+		if (!stack.is(ModItems.MJOLNIR)) {
+			return;
+		}
+		if (!consumeCooldown(player, ThorAbility.HAMMER_VOLLEY, HAMMER_VOLLEY_COOLDOWN_TICKS)) {
+			return;
+		}
+
+		ItemStack sent = stack.copy();
+		player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+
+		MjolnirEntity entity = new MjolnirEntity(player.level(), player);
+		entity.setItem(sent);
+		entity.startVolley(player, HAMMER_VOLLEY_DURATION_TICKS);
+		player.level().addFreshEntity(entity);
+		playThrowSound(player);
 	}
 
 	// ---------------- call hammer ----------------
@@ -652,16 +697,17 @@ public final class ThorPowers {
 		}
 		inCone.sort(Comparator.comparingDouble(e -> e.distanceToSqr(player)));
 
-		Vec3 previousPoint = eye.add(look.scale(0.5));
+		Entity previousEntity = null; // null -- the caster's own hand, per sendLightningArc's contract
 		for (int i = 0; i < inCone.size(); i++) {
 			LivingEntity target = inCone.get(i);
 			Vec3 targetPoint = target.position().add(0, target.getBbHeight() * 0.5, 0);
 			// The first arc is the "cast" crack (louder); the rest are quiet so a big group reads as
 			// one fast chain rather than a wall of simultaneous thunderclaps.
 			float hitVolume = i == 0 ? 0.9f : 0.25f;
-			spawnArc(serverLevel, previousPoint, targetPoint);
+			sendLightningArc(player, i % LIGHTNING_ARC_CHAIN_SLOTS, previousEntity, target, targetPoint,
+					LIGHTNING_ARC_CHAIN_HOLD_TICKS, LIGHTNING_ARC_CHAIN_FADE_TICKS);
 			strikeEntity(serverLevel, player, target, CHAIN_LIGHTNING_DAMAGE, hitVolume);
-			previousPoint = targetPoint;
+			previousEntity = target;
 		}
 	}
 
@@ -734,12 +780,14 @@ public final class ThorPowers {
 			}
 		}
 
-		LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(serverLevel);
-		if (bolt != null) {
-			bolt.moveTo(pos.x, pos.y, pos.z);
-			bolt.setVisualOnly(true); // damage is dealt by hand below so the radius/amount are ours
-			bolt.setCause(player);
-			serverLevel.addFreshEntity(bolt);
+		spawnWrathBolt(serverLevel, player, pos);
+		// v0.13.4: a barrage of extra bolts on jittered points inside the radius, so the ultimate reads
+		// as a storm crashing down rather than one lone strike -- damage is still the single AABB sweep
+		// below, these are purely the spectacle.
+		for (int i = 0; i < GOD_OF_THUNDER_EXTRA_BOLTS; i++) {
+			double jx = pos.x + (serverLevel.random.nextDouble() - 0.5) * GOD_OF_THUNDER_RADIUS * 1.6;
+			double jz = pos.z + (serverLevel.random.nextDouble() - 0.5) * GOD_OF_THUNDER_RADIUS * 1.6;
+			spawnWrathBolt(serverLevel, player, new Vec3(jx, pos.y, jz));
 		}
 
 		DamageSource source = serverLevel.damageSources().lightningBolt();
@@ -765,6 +813,19 @@ public final class ThorPowers {
 		serverLevel.sendParticles(ParticleTypes.FLASH, pos.x, pos.y + 1.0, pos.z, 4, 0.1, 0.1, 0.1, 0.0);
 		serverLevel.playSound(null, pos.x, pos.y, pos.z, SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 4.0f, 0.6f);
 		serverLevel.playSound(null, pos.x, pos.y, pos.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 4.0f, 0.7f);
+	}
+
+	/** A single visual-only bolt at {@code pos} -- damage for the ultimate is always the one AABB sweep
+	 * in {@link #godOfThundersWrath}, this is purely the spectacle, so any number of these can be spawned
+	 * without touching how much damage actually lands. */
+	private static void spawnWrathBolt(ServerLevel serverLevel, ServerPlayer player, Vec3 pos) {
+		LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(serverLevel);
+		if (bolt != null) {
+			bolt.moveTo(pos.x, pos.y, pos.z);
+			bolt.setVisualOnly(true);
+			bolt.setCause(player);
+			serverLevel.addFreshEntity(bolt);
+		}
 	}
 
 	/**
@@ -839,45 +900,33 @@ public final class ThorPowers {
 		}
 	}
 
-	/**
-	 * A visible electrical connection between two points -- the same jagged {@link #arcParticles}
-	 * technique {@link #beamParticles} uses for the Lightning Laser, kept consistent with the existing
-	 * mod architecture rather than introducing a new rendering system. {@code ELECTRIC_SPARK}'s own
-	 * short natural particle lifetime is what gives the arc its brief, readable flash (requirement 12).
-	 */
-	private static void spawnArc(ServerLevel level, Vec3 from, Vec3 to) {
-		arcParticles(level, from, to, Math.max(3, (int) (from.distanceTo(to) * 3)));
-	}
+	// ---------------- crackling lightning arcs (v0.13.4: replaces the old particle-line arcs) ----------------
+
+	/** Reserved slot for Lightning Beam's continuous, self-replacing segment. */
+	private static final int LIGHTNING_ARC_SLOT_BEAM = 64;
+	/** Chain Lightning can hit an unbounded cone of targets; hop slots wrap rather than grow forever --
+	 * two hops sharing a slot in an extreme mob pile is a harmless cosmetic overlap, not a bug. */
+	private static final int LIGHTNING_ARC_CHAIN_SLOTS = 16;
+	private static final int LIGHTNING_ARC_BEAM_HOLD_TICKS = 2;
+	private static final int LIGHTNING_ARC_BEAM_FADE_TICKS = 5;
+	private static final int LIGHTNING_ARC_CHAIN_HOLD_TICKS = 6;
+	private static final int LIGHTNING_ARC_CHAIN_FADE_TICKS = 10;
 
 	/**
-	 * v0.13.3: a helical wobble around the straight start-to-end line, instead of a flat lerp, so a
-	 * lightning arc actually reads as jagged/arcing rather than a plain dotted line -- from any camera
-	 * angle, since it mixes two perpendicular axes rather than displacing in just one plane. The wobble
-	 * tapers to zero at both ends so the arc still connects exactly to its start and end points, and a
-	 * fresh random phase each call gives it a flickering, never-identical-twice look tick to tick.
+	 * Sends one crackling lightning arc segment ({@code ThorLightningArcRenderer}, client-side) to the
+	 * caster and everyone tracking them. {@code fromEntity == null} means "the caster's own hand" (the
+	 * client derives that point itself, the same formula {@link #tickLaser} used to use for its particle
+	 * beam's start); {@code toEntity == null} means the raw {@code toPoint}.
 	 */
-	private static void arcParticles(ServerLevel level, Vec3 start, Vec3 end, int steps) {
-		Vec3 delta = end.subtract(start);
-		double length = delta.length();
-		if (length < 1.0E-4) {
-			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, start.x, start.y, start.z, 1, 0.05, 0.05, 0.05, 0.0);
-			return;
-		}
-		Vec3 dir = delta.scale(1.0 / length);
-		Vec3 ref = Math.abs(dir.y) > 0.9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0);
-		Vec3 perpA = dir.cross(ref).normalize();
-		Vec3 perpB = dir.cross(perpA).normalize();
-
-		double amplitude = Math.min(0.5, 0.1 + length * 0.015);
-		double phase = level.random.nextDouble() * Math.PI * 2.0;
-		double freq = 2.5 + level.random.nextDouble();
-		for (int i = 0; i <= steps; i++) {
-			double t = (double) i / steps;
-			double wobble = amplitude * Math.sin(Math.PI * t); // tapers to 0 at both endpoints
-			double angle = phase + t * freq * Math.PI * 2.0;
-			Vec3 offset = perpA.scale(Math.cos(angle) * wobble).add(perpB.scale(Math.sin(angle) * wobble));
-			Vec3 point = start.lerp(end, t).add(offset);
-			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, point.x, point.y, point.z, 1, 0.04, 0.04, 0.04, 0.0);
+	private static void sendLightningArc(ServerPlayer caster, int slot, Entity fromEntity, Entity toEntity,
+			Vec3 toPoint, int holdTicks, int fadeTicks) {
+		Vec3 p = toEntity != null ? toEntity.position() : toPoint;
+		ThorLightningArcPayload payload = new ThorLightningArcPayload(caster.getId(), slot,
+				fromEntity == null ? -1 : fromEntity.getId(), toEntity == null ? -1 : toEntity.getId(),
+				p.x, p.y, p.z, holdTicks, fadeTicks);
+		ServerPlayNetworking.send(caster, payload);
+		for (ServerPlayer viewer : PlayerLookup.tracking(caster)) {
+			ServerPlayNetworking.send(viewer, payload);
 		}
 	}
 
@@ -929,11 +978,12 @@ public final class ThorPowers {
 		HitResult hit = ProjectileUtil.getHitResultOnViewVector(
 				player, target -> target != player && target.isPickable(), LASER_RANGE);
 
-		Vec3 start = player.position().add(0, player.getBbHeight() * 0.55, 0).add(player.getLookAngle().scale(0.5));
+		Entity hitEntity = null;
 		Vec3 end;
 		if (hit instanceof EntityHitResult entityHit) {
-			end = entityHit.getEntity().position().add(0, entityHit.getEntity().getBbHeight() / 2, 0);
-			if (entityHit.getEntity() instanceof LivingEntity living) {
+			hitEntity = entityHit.getEntity();
+			end = hitEntity.position().add(0, hitEntity.getBbHeight() / 2, 0);
+			if (hitEntity instanceof LivingEntity living) {
 				igniteIfAnimal(living);
 				living.hurt(serverLevel.damageSources().lightningBolt(), LASER_DAMAGE_PER_TICK);
 			}
@@ -943,15 +993,12 @@ public final class ThorPowers {
 			end = player.getEyePosition().add(player.getLookAngle().scale(LASER_RANGE));
 		}
 
-		beamParticles(serverLevel, start, end);
+		sendLightningArc(player, LIGHTNING_ARC_SLOT_BEAM, null, hitEntity, end,
+				LIGHTNING_ARC_BEAM_HOLD_TICKS, LIGHTNING_ARC_BEAM_FADE_TICKS);
 		if (player.tickCount % 4 == 0) {
 			serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
 					SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 0.5f, 1.6f);
 		}
-	}
-
-	private static void beamParticles(ServerLevel level, Vec3 start, Vec3 end) {
-		arcParticles(level, start, end, Math.max(2, (int) (start.distanceTo(end) * 2)));
 	}
 
 	// ---------------- thunderclap shockwave ----------------

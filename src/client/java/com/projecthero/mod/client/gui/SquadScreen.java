@@ -3,6 +3,7 @@ package com.projecthero.mod.client.gui;
 import java.util.Locale;
 
 import com.projecthero.mod.client.squad.SquadClient;
+import com.projecthero.mod.client.squad.SquadLocatorClient;
 import com.projecthero.mod.network.SquadInfoPayload;
 
 import net.minecraft.ChatFormatting;
@@ -46,8 +47,18 @@ public final class SquadScreen extends Screen {
 
 	@Override
 	protected void init() {
+		addRenderableWidget(Button.builder(locatorButtonLabel(), b -> {
+			SquadLocatorClient.toggle();
+			b.setMessage(locatorButtonLabel());
+		}).bounds(this.width / 2 - 100, this.height - 54, 200, 20).build());
+
 		addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
 				.bounds(this.width / 2 - 60, this.height - 28, 120, 20).build());
+	}
+
+	private static Component locatorButtonLabel() {
+		return Component.translatable("screen.projecthero.squad.locator",
+				Component.translatable(SquadLocatorClient.isEnabled() ? "options.on" : "options.off"));
 	}
 
 	@Override
@@ -68,7 +79,7 @@ public final class SquadScreen extends Screen {
 
 		int left = this.width / 2 - PANEL_W / 2;
 		int top = 30;
-		int bottom = this.height - 40;
+		int bottom = this.height - 64; // leave room for the locator-bar toggle + Done buttons below
 
 		if (squad.squadName().isEmpty() || squad.members().isEmpty()) {
 			graphics.drawCenteredString(this.font, Component.translatable("screen.projecthero.squad.none"),

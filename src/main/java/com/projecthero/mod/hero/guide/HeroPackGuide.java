@@ -315,14 +315,14 @@ public final class HeroPackGuide {
 			}
 			blank(lines);
 			head(lines, "projecthero.guide.thor.controls");
-			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {
-				String key = switch (slot) {
-					case "R" -> "call_mjolnir"; case "G" -> "lightning_strike"; case "X" -> "lightning_beam";
-					case "Z" -> "god_of_thunders_wrath"; case "V" -> "thunderclap"; default -> "chain_lightning";
-				};
-				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
-						.append(Component.translatable("projecthero.thor.ability." + key).withStyle(ChatFormatting.WHITE)));
-				para(lines, "projecthero.guide.thor.ability." + key);
+			for (String[] slot : new String[][]{
+					{"R", "call_mjolnir"}, {"G", "lightning_strike"}, {"X", "lightning_beam"},
+					{"Z", "god_of_thunders_wrath"}, {"V", "hammer_volley"}, {"Shift+V", "thunderclap"},
+					{"C", "chain_lightning"},
+			}) {
+				lines.add(Component.literal(" " + slot[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.thor.ability." + slot[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.guide.thor.ability." + slot[1]);
 			}
 			blank(lines);
 			head(lines, "projecthero.guide.thor.flight");

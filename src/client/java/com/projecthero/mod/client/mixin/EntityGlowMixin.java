@@ -56,6 +56,12 @@ public abstract class EntityGlowMixin {
 				cir.setReturnValue(true);
 				return;
 			}
+			// v0.13.4: Adamantium Execution's lock-on target, red, caster-only -- fed by
+			// WolverineExecutionTargetPayload, cleared the instant the ability resolves.
+			if (com.projecthero.mod.client.wolverine.WolverineExecutionTargetClient.isTarget(self.getId())) {
+				cir.setReturnValue(true);
+				return;
+			}
 		}
 
 		// v0.12.43: Titan Roar -- everything the roar reached within 50 blocks is outlined blue for the roaring shifter alone.
@@ -367,6 +373,10 @@ public abstract class EntityGlowMixin {
 		}
 		LocalPlayer viewer = Minecraft.getInstance().player;
 		if (viewer == null || viewer == self || !com.projecthero.mod.wolverine.Wolverine.hasPower(viewer)) {
+			return;
+		}
+		if (com.projecthero.mod.client.wolverine.WolverineExecutionTargetClient.isTarget(self.getId())) {
+			cir.setReturnValue(0xFF3333);
 			return;
 		}
 		long now = viewer.level() != null ? viewer.level().getGameTime() : 0L;

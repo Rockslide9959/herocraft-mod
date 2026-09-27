@@ -37,8 +37,9 @@ import net.minecraft.world.level.Level;
 public class MjolnirItem extends Item {
 	/** v0.12.32: Mjolnir hits for exactly 11 (1 base + 10) -- the weapon of a god, not a tool. */
 	private static final double ATTACK_DAMAGE_BONUS = 10.0;
-	/** Base attack speed is 4.0, so this leaves one swing per second -- it's a very heavy hammer. */
-	private static final double ATTACK_SPEED_BONUS = -3.0;
+	/** Base attack speed is 4.0; v0.13.4 raised the resulting speed 1.0 -> 1.1 attacks/second, so the
+	 * modifier is -2.9, not -3.0. Still a very heavy hammer, just very slightly less sluggish. */
+	private static final double ATTACK_SPEED_BONUS = -2.9;
 
 	public MjolnirItem(Properties properties) {
 		super(properties);

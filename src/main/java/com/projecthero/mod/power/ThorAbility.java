@@ -16,5 +16,7 @@ public enum ThorAbility {
 	CHAIN_LIGHTNING,
 	CALL_HAMMER,
 	/** v0.6.22 ultimate: "God of Thunder's Wrath". */
-	GOD_OF_THUNDER
+	GOD_OF_THUNDER,
+	/** v0.13.4: "Hammer Volley" -- V (without Shift; Shift+V is {@link #THUNDERCLAP}). */
+	HAMMER_VOLLEY
 }

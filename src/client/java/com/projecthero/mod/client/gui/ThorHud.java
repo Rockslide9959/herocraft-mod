@@ -19,9 +19,6 @@ import net.minecraft.world.entity.player.Player;
  * the same bottom-right corner, the same cooldown shading, the same hold-{@code ALT}-for-names, and a
  * resource meter beneath -- just recoloured for a storm god (deep blue panels, gold trim) instead of
  * Spider-Man's reds. Drawn while the player is holding Mjolnir or is bound to a hammer (v0.12.32).
- *
- * <p>The hammerless-flight countdown from the old HUD is kept: a single small line above the boxes
- * that turns urgent under five seconds.
  */
 public final class ThorHud {
 	private static final int BOX = 20;
@@ -42,17 +39,16 @@ public final class ThorHud {
 	private static final int HAIRLINE_HEIGHT = 2;
 	private static final int COLOR_HAIRLINE_BG = 0x80000000;
 
-	/** Below this many ticks (5s) remaining, the hammerless-flight countdown text turns urgent. */
-	private static final int WARNING_TICKS = 5 * 20;
-
-	/** Slot order 1..6 -> {@code (ability id, cooldown key or null)}. Matches {@code ThorAbilityAdapter}. */
+	/** Slot order 1..6 -> {@code (ability id, cooldown key or null)}. Matches {@code ThorAbilityAdapter}.
+	 * Slot 5 (V) shows Hammer Volley -- its plain-key action; Shift+V's Thunderclap shares the key but
+	 * not the HUD box, same as every other Shift-variant ability in the mod. */
 	private static final String[] SLOT_NAME_KEYS = {
 			"call_mjolnir", "lightning_strike", "lightning_beam",
-			"god_of_thunders_wrath", "thunderclap", "chain_lightning"
+			"god_of_thunders_wrath", "hammer_volley", "chain_lightning"
 	};
 	private static final ThorAbility[] SLOT_COOLDOWNS = {
 			ThorAbility.CALL_HAMMER, ThorAbility.LIGHTNING_STRIKE, null,
-			ThorAbility.GOD_OF_THUNDER, ThorAbility.THUNDERCLAP, ThorAbility.CHAIN_LIGHTNING
+			ThorAbility.GOD_OF_THUNDER, ThorAbility.HAMMER_VOLLEY, ThorAbility.CHAIN_LIGHTNING
 	};
 
 	private ThorHud() {
@@ -67,7 +63,6 @@ public final class ThorHud {
 
 		boolean holdingMjolnir = player.getMainHandItem().is(ModItems.MJOLNIR)
 				|| player.getOffhandItem().is(ModItems.MJOLNIR);
-		int graceTicks = player.getAttachedOrElse(ModAttachments.HAMMERLESS_FLIGHT_TICKS, 0);
 
 		// v0.12.32: a player who is BOUND to a hammer keeps the kit on screen even with Mjolnir out of their hands
 		// (the abilities themselves already work bound-or-holding); it steps aside only while they are inside a Titan.
@@ -78,9 +73,9 @@ public final class ThorHud {
 			renderKit(graphics, client, player);
 			renderWrathCharge(graphics, client, player);
 		}
-		if (graceTicks > 0) {
-			renderHammerlessFlightCountdown(graphics, client, graceTicks);
-		}
+		// v0.13.4: the hammerless-flight countdown text was removed per user request -- the grace
+		// period itself (ModAttachments.HAMMERLESS_FLIGHT_TICKS) is unchanged, it just no longer has an
+		// on-screen readout.
 	}
 
 	private static void renderKit(GuiGraphics graphics, Minecraft client, Player player) {
@@ -91,10 +86,10 @@ public final class ThorHud {
 		int screenH = graphics.guiHeight();
 		int totalW = 6 * BOX + 5 * GAP;
 		int x0 = screenW - MARGIN - totalW;
+		// v0.13.4: dropped the "Ability Keys" label that used to sit just above this row (per user
+		// request) -- y0 is kept as-is rather than closing the gap, since renderWrathCharge positions
+		// itself relative to this exact same offset (see its own boxesY) and the two must stay in sync.
 		int y0 = screenH - MARGIN - BOX - 20;
-
-		graphics.drawString(client.font, Component.translatable("hud.projecthero.thor.ability_keys")
-				.withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), x0, y0 - 10, 0xFF7FB0FF);
 
 		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(client.getWindow().getWindow(),
 				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
@@ -163,19 +158,5 @@ public final class ThorHud {
 		boolean full = ratio >= 1.0f;
 
 		hairlineBar(graphics, x, y, w, ratio, full ? COLOR_BORDER_ACTIVE : COLOR_ENERGY);
-	}
-
-	/** Subtle by design -- a single small line above the ability boxes. Turns gold and flickers under
-	 * {@link #WARNING_TICKS} remaining. */
-	private static void renderHammerlessFlightCountdown(GuiGraphics graphics, Minecraft client, int ticks) {
-		float seconds = ticks / 20.0f;
-		boolean urgent = ticks <= WARNING_TICKS;
-		boolean flicker = urgent && (client.level.getGameTime() / 4L) % 2L == 0L;
-
-		ChatFormatting color = urgent ? (flicker ? ChatFormatting.YELLOW : ChatFormatting.GOLD) : ChatFormatting.AQUA;
-		Component text = Component.translatable("message.projecthero.hammerless_flight.countdown",
-				String.format(java.util.Locale.ROOT, "%.1f", seconds)).withStyle(color);
-
-		graphics.drawString(client.font, text, 10, 12, 0xFFFFFFFF);
 	}
 }

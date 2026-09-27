@@ -10,7 +10,8 @@ import net.minecraft.server.level.ServerPlayer;
  * R is the recall bind now, full stop; throwing moved off the ability slot entirely and lives solely on
  * right-click while holding the hammer, see {@link com.projecthero.mod.item.MjolnirItem#use}, which
  * already called {@link ThorPowers#throwMjolnir} independently of this adapter), G = Lightning Strike,
- * X = Lightning Beam, Z = God of Thunder's Wrath (ultimate), V = Thunderclap, C = Chain Lightning.
+ * X = Lightning Beam, Z = God of Thunder's Wrath (ultimate), V = Hammer Volley (v0.13.4; Shift+V is
+ * Thunderclap, bumped off the plain key to make room), C = Chain Lightning.
  * Storm Call was dropped from the kit. Each {@code ThorPowers} method already does its own worthiness
  * / hold / cooldown / energy validation, so this class adds none.
  *
@@ -37,9 +38,13 @@ public final class ThorAbilityAdapter {
 					ThorPowers.setLaserActive(player, pressed);
 			case SLOT_4 -> // Z -- God of Thunder's Wrath: hold 5 s to charge, release cancels
 					ThorPowers.setWrathCharging(player, pressed);
-			case SLOT_5 -> { // V -- Thunderclap
+			case SLOT_5 -> { // V -- Hammer Volley, Shift+V -- Thunderclap
 				if (pressed) {
-					ThorPowers.thunderclap(player);
+					if (player.isShiftKeyDown()) {
+						ThorPowers.thunderclap(player);
+					} else {
+						ThorPowers.hammerVolley(player);
+					}
 				}
 			}
 			case SLOT_6 -> { // C -- Chain Lightning

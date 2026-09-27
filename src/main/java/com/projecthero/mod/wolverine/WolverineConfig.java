@@ -130,9 +130,11 @@ public final class WolverineConfig {
 	/** A charge whose release was never received (GUI opened, etc.) is dropped after this long. */
 	public static final int EXECUTION_CHARGE_TIMEOUT = 30 * S;
 	public static final float EXECUTION_DAMAGE = 60.0f;
-	public static final double EXECUTION_RANGE = 4.0;
-	public static final int EXECUTION_WINDUP_TICKS = 8;
-	public static final double EXECUTION_LUNGE_BLOCKS = 3.0;
+	/** v0.13.4: raised 4 -> 10 -- both the targeting reach and how far the lunge itself can cover, so
+	 * "launch directly towards the target" reaches the whole targetable distance, not just the last
+	 * couple of blocks of it. */
+	public static final double EXECUTION_RANGE = 10.0;
+	public static final double EXECUTION_LUNGE_BLOCKS = 10.0;
 	public static final int EXECUTION_COOLDOWN = 30 * S;
 	/** Cooldown when the strike finds nothing to hit -- no full 30 s penalty for a whiff. */
 	public static final int EXECUTION_MISS_COOLDOWN = 8 * S;
