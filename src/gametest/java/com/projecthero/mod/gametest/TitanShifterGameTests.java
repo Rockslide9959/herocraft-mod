@@ -138,6 +138,51 @@ public class TitanShifterGameTests implements FabricGameTest {
 		});
 	}
 
+	/** v0.13.10: a mob hovering above and ahead of the Titan -- out of the old punch volume -- is hit when aimed at. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
+	public void punchHitsWhereTheShifterAims(GameTestHelper helper) {
+		aimedHitTest(helper, 1, 5.0, 2.0);
+	}
+
+	/** v0.13.10: Heavy Smash lands on the aimed mob up in the air, not on the ground in front of the Titan. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
+	public void heavySmashLandsWhereTheShifterAims(GameTestHelper helper) {
+		aimedHitTest(helper, 2, 8.0, -4.0);
+	}
+
+	/** Floats a zombie {@code ahead} blocks in front and {@code aboveTop} blocks above the Titan's head, aims at it, fires the ability. */
+	private static void aimedHitTest(GameTestHelper helper, int ability, double ahead, double aboveTop) {
+		ServerPlayer p = shifter(helper);
+		for (BlockPos pos : BlockPos.betweenClosed(BlockPos.containing(p.position()).offset(-12, 0, -12),
+				BlockPos.containing(p.position()).offset(12, 18, 12))) {
+			helper.getLevel().setBlock(pos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 2);
+		}
+		pump(helper, p);
+		TitanShifter.transform(p);
+		helper.runAfterDelay(SETTLE, () -> {
+			TitanFormEntity form = TitanShifter.formOf(p);
+			helper.assertTrue(form != null && TitanShifter.inTitan(p), "in the Titan");
+			Zombie z = EntityType.ZOMBIE.create(helper.getLevel());
+			Vec3 fwd = Vec3.directionFromRotation(0, form.getYRot());
+			double reachOut = form.getBbWidth() * 0.5 + ahead;
+			z.moveTo(form.getX() + fwd.x * reachOut, form.getY() + form.getBbHeight() + aboveTop, form.getZ() + fwd.z * reachOut);
+			z.setNoAi(true);
+			z.setNoGravity(true);
+			helper.getLevel().addFreshEntity(z);
+			float before = z.getHealth();
+			helper.onEachTick(() -> p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES,
+					z.position().add(0, z.getBbHeight() * 0.5, 0)));
+			helper.runAfterDelay(2, () -> {
+				AbilityRouter.handleInput(p, ability, true);
+				helper.runAfterDelay(TitanShifterConfig.abilities().smashChargeTicks + 10, () -> {
+					helper.assertTrue(z.getHealth() < before || !z.isAlive(),
+							"the aimed ability hurt the zombie at " + z.position() + " (Titan at " + form.position() + ")");
+					helper.succeed();
+				});
+			});
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 600)
 	public void defeatEjectsTheShifterAndAppliesRecovery(GameTestHelper helper) {
 		ServerPlayer p = shifter(helper);

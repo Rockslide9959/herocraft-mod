@@ -1,5 +1,7 @@
 # Titan Shifter — reference (v0.12.32)
 
+> **v0.13.10 -- aimed Punch / Heavy Smash:** `TitanCombat.aim` casts the rider's own look ray (they sit at the Titan's eyes and share the camera's rotation) against blocks and valid targets. Punch: `aimedFistTip` = shoulder (75% height) toward the aim point, capped at bodyHalf + reach + 3; `hitAimedFist` hits the union of the old `fistBox` and a capsule (`targetsAlong`, radius max(1.5, spread*0.8)) along shoulder->tip, each target once; FX at the tip. Heavy Smash: `TitanAbilities.smashPoint` -- the aimed mob/block within bodyHalf + 12 (+30% height); nothing under the crosshair = 6 blocks down the look ray when pitched up more than 10 degrees, else the old ground spot 3.5 ahead. Titan Kick and Stomp are unchanged (self-centred by design). GameTests: `punchHitsWhereTheShifterAims`, `heavySmashLandsWhereTheShifterAims`.
+>
 > **v0.12.43:** `TitanShifter.toggleRegen` (Shift+N, or plain N when no other power claims it, in HUMAN phase via `TitanShiftPayload.TOGGLE_REGEN`) flips `TitanShifterState.regenOff` (packed with the penalty into the `flags` codec int); `baseRegenActive` respects it. The Roar sends `TitanRoarSensePayload` (everything within `roarHighlightRadius` 50, `roarHighlightTicks` 200) to the roaring player only; `client.titanshifter.TitanRoarSenseClient` + `EntityGlowMixin` draw the blue (0x3C9BFF) outline.
 >
 > **v0.12.41:** the post-emergency HUD status is "Titan Form Exhausted" (lang key `hud.projecthero.titan_shifter.drained`), shown until the penalty clears at 100%.

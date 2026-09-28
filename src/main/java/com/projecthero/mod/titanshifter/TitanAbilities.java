@@ -100,7 +100,7 @@ public final class TitanAbilities {
 				int n = TitanCombat.hitBox(form, player, new net.minecraft.world.phys.AABB(box.minX, form.getY(), box.minZ,
 						box.maxX, form.getY() + form.getBbHeight() * 0.3, box.maxZ), (float) d.kick, d.punchKnockback * 1.4, 0.55,
 						form.position());
-				meleeFx(level, form, 1.1f, n);
+				meleeFx(level, defaultFxSpot(form), 1.1f, n);
 			});
 			return;
 		}
@@ -116,9 +116,13 @@ public final class TitanAbilities {
 			}
 			float dmg = (float) (heavy ? d.heavyPunch : d.punch);
 			double kb = heavy ? d.punchKnockback * 1.8 : d.punchKnockback;
-			int n = TitanCombat.hitBox(form, player, TitanCombat.fistBox(form, heavy ? 5.5 : 4.5, form.getBbWidth() * 0.55),
-					dmg, kb, heavy ? 0.5 : 0.25, form.position());
-			meleeFx(level, form, heavy ? 1.3f : 1.0f, n);
+			// v0.13.10: aimed -- the fist swings from the shoulder toward the crosshair (up, level or down),
+			// on top of the old volume right in front of the Titan
+			double reach = heavy ? 5.5 : 4.5;
+			Vec3 tip = TitanCombat.aimedFistTip(form, player, form.getBbWidth() * 0.5 + reach + 3.0);
+			int n = TitanCombat.hitAimedFist(form, player, tip, reach, form.getBbWidth() * 0.55, dmg, kb,
+					heavy ? 0.5 : 0.25);
+			meleeFx(level, tip, heavy ? 1.3f : 1.0f, n);
 			if (heavy) {
 				TitanCombat.shake(level, form.position(), 0.5f, 8);
 			}
@@ -142,9 +146,12 @@ public final class TitanAbilities {
 		return step;
 	}
 
-	private static void meleeFx(ServerLevel level, TitanFormEntity form, float power, int hits) {
+	private static Vec3 defaultFxSpot(TitanFormEntity form) {
 		Vec3 fwd = Vec3.directionFromRotation(0, form.getYRot());
-		Vec3 at = form.position().add(fwd.scale(form.getBbWidth() * 0.5 + 3.0)).add(0, form.getBbHeight() * 0.35, 0);
+		return form.position().add(fwd.scale(form.getBbWidth() * 0.5 + 3.0)).add(0, form.getBbHeight() * 0.35, 0);
+	}
+
+	private static void meleeFx(ServerLevel level, Vec3 at, float power, int hits) {
 		level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y, at.z, hits > 0 ? 2 : 1, 0.6, 0.6, 0.6, 0.0);
 		level.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, 6, 0.6, 0.5, 0.6, 0.05);
 		if (hits > 0) {
@@ -186,8 +193,7 @@ public final class TitanAbilities {
 				return;
 			}
 			form.lockFor(8);
-			Vec3 fwd = Vec3.directionFromRotation(0, form.getYRot());
-			Vec3 at = form.position().add(fwd.scale(form.getBbWidth() * 0.5 + 3.5));
+			Vec3 at = smashPoint(form, player);
 			int n = TitanCombat.hitRadius(form, player, at, a.smashRadius, (float) d.heavySmash, d.smashKnockback, 0.7);
 			TitanCombat.impactFx(level, at, a.smashRadius * 1.3, 1.6f);
 			level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, at.x, at.y + 0.5, at.z, 1, 0, 0, 0, 0);
@@ -195,6 +201,27 @@ public final class TitanAbilities {
 			TitanCombat.shake(level, at, 1.0f, 16);
 		});
 	}
+
+	/**
+	 * v0.13.10: Heavy Smash lands where the shifter is aiming instead of always on the ground 3.5 blocks
+	 * ahead: on the mob or block under the crosshair (up to {@link #SMASH_AIM_RANGE} blocks past the body,
+	 * so something on a ledge or up in the air can be smashed); if the crosshair is on nothing, a point
+	 * straight down the look direction when looking up, or the old ground spot otherwise.
+	 */
+	private static Vec3 smashPoint(TitanFormEntity form, ServerPlayer player) {
+		double bodyHalf = form.getBbWidth() * 0.5;
+		TitanCombat.Aim aim = TitanCombat.aim(form, player, bodyHalf + SMASH_AIM_RANGE + form.getBbHeight() * 0.3);
+		if (aim.hitSomething()) {
+			return aim.point();
+		}
+		if (player.getXRot() < -10.0f) {
+			return player.getEyePosition().add(player.getLookAngle().scale(bodyHalf + 6.0));
+		}
+		Vec3 fwd = Vec3.directionFromRotation(0, form.getYRot());
+		return form.position().add(fwd.scale(bodyHalf + 3.5));
+	}
+
+	private static final double SMASH_AIM_RANGE = 12.0;
 
 	// ---------------- Ability 3: Titan Stomp ----------------
 

@@ -114,6 +114,11 @@ via the client debug harness (see `docs/OATHBREAKER_REFERENCE.md`'s notes on the
 file pre-seeded with the stale `30000.0` value, on a clean boot, was correctly reset to `1000.0`, and a
 subsequent 10%-max hit landed for exactly 10% -- no resistance, no stale ceiling.
 
+**v0.13.10**: with the fight confirmed beatable, health went back up 1000 -> 3000. `CONFIG_VERSION` 1 -> 2;
+`load()` still resets a version-less file wholesale, but a version-1 file only has `stats.health` raised to
+the new default (everything else in it is kept). `syncMaxHealthWithConfig()` then carries live Behemoths
+up to 3000, keeping their current health fraction.
+
 ## Texture
 
 v0.13.3 also recolored `textures/entity/abyssal_behemoth.png` (256x121) from a dark red/black lava

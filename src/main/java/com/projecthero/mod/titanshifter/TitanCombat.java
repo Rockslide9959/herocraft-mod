@@ -156,6 +156,90 @@ public final class TitanCombat {
 				c.z + hz);
 	}
 
+	// ---------------- aiming (v0.13.10) ----------------
+
+	/** Where the shifter's crosshair lands, and whether it actually landed on something. */
+	public record Aim(Vec3 point, boolean hitEntity, boolean hitBlock) {
+		public boolean hitSomething() {
+			return hitEntity || hitBlock;
+		}
+	}
+
+	/**
+	 * v0.13.10: the shifter sits at the Titan's eyes and looks where their camera looks, so their own look
+	 * ray is the crosshair. Returns the first valid target or solid block along it within {@code maxRange},
+	 * or the ray's end if it hits nothing. Punch and Heavy Smash aim with this instead of always striking
+	 * the same spot at the Titan's feet.
+	 */
+	public static Aim aim(TitanFormEntity form, ServerPlayer owner, double maxRange) {
+		ServerLevel level = (ServerLevel) form.level();
+		Vec3 eye = owner.getEyePosition();
+		Vec3 end = eye.add(owner.getLookAngle().scale(maxRange));
+		var blockHit = level.clip(new net.minecraft.world.level.ClipContext(eye, end,
+				net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, owner));
+		boolean hitBlock = blockHit.getType() != net.minecraft.world.phys.HitResult.Type.MISS;
+		Vec3 limit = hitBlock ? blockHit.getLocation() : end;
+		Vec3 best = null;
+		double bestDist = eye.distanceToSqr(limit);
+		for (LivingEntity e : targetsIn(level, new AABB(eye, limit).inflate(1.5), form, owner)) {
+			var p = e.getBoundingBox().inflate(0.6).clip(eye, limit);
+			if (p.isPresent() && p.get().distanceToSqr(eye) < bestDist) {
+				bestDist = p.get().distanceToSqr(eye);
+				best = p.get();
+			}
+		}
+		return best != null ? new Aim(best, true, false) : new Aim(limit, false, hitBlock);
+	}
+
+	/**
+	 * Everything within {@code radius} of the segment {@code from -> to} (a capsule, near enough: each
+	 * target's box grown by the radius, clipped against the segment).
+	 */
+	public static List<LivingEntity> targetsAlong(ServerLevel level, Vec3 from, Vec3 to, double radius,
+			TitanFormEntity form, ServerPlayer owner) {
+		return level.getEntitiesOfClass(LivingEntity.class, new AABB(from, to).inflate(radius), e -> {
+			AABB grown = e.getBoundingBox().inflate(radius);
+			return validTarget(e, form, owner) && (grown.contains(from) || grown.clip(from, to).isPresent());
+		});
+	}
+
+	private static Vec3 shoulder(TitanFormEntity form) {
+		return form.position().add(0.0, form.getBbHeight() * 0.75, 0.0);
+	}
+
+	/** Where an aimed fist ends: from the shoulder toward the crosshair, at most {@code maxReach} out. */
+	public static Vec3 aimedFistTip(TitanFormEntity form, ServerPlayer owner, double maxReach) {
+		Vec3 shoulder = shoulder(form);
+		Aim aim = aim(form, owner, maxReach + form.getBbHeight() * 0.3);
+		Vec3 dir = aim.point().subtract(shoulder);
+		if (dir.lengthSqr() < 1.0e-6) {
+			return shoulder;
+		}
+		return shoulder.add(dir.normalize().scale(Math.min(dir.length() + 1.0, maxReach)));
+	}
+
+	/**
+	 * v0.13.10: an aimed fist. Hits everything in the old {@link #fistBox} (so a mob right in front is still
+	 * hit whatever the camera is doing) PLUS everything along a swing from the Titan's shoulder toward the
+	 * crosshair -- up at something on a ledge or in the air, straight out at something level with its head,
+	 * or down at the ground -- ending at {@code tip} (see {@link #aimedFistTip}). Each target is hit once.
+	 */
+	public static int hitAimedFist(TitanFormEntity form, ServerPlayer owner, Vec3 tip, double reach, double spread,
+			float base, double knock, double lift) {
+		ServerLevel level = (ServerLevel) form.level();
+		Vec3 shoulder = shoulder(form);
+		java.util.Set<LivingEntity> targets = new java.util.LinkedHashSet<>(
+				targetsIn(level, fistBox(form, reach, spread), form, owner));
+		targets.addAll(targetsAlong(level, shoulder, tip, Math.max(1.5, spread * 0.8), form, owner));
+		int n = 0;
+		for (LivingEntity t : targets) {
+			if (hit(form, owner, t, base, knock, lift, form.position())) {
+				n++;
+			}
+		}
+		return n;
+	}
+
 	// ---------------- named actions used outside TitanAbilities ----------------
 
 	public static void leapLanding(TitanFormEntity form, ServerPlayer owner) {

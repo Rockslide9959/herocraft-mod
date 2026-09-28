@@ -26,8 +26,11 @@ public final class BehemothConfig {
 	 * kept reporting the Behemoth as "unbeatable" release after release. {@code configVersion} is
 	 * deliberately a boxed, uninitialized {@code Integer} (not a primitive with a literal default) so
 	 * Gson leaves it {@code null} for any file that predates this field -- the same migration-detection
-	 * trick {@code TitanShifterConfig} already uses. */
-	private static final int CONFIG_VERSION = 1;
+	 * trick {@code TitanShifterConfig} already uses.
+	 *
+	 * <p>v0.13.10: version 2 -- health back up 1000 -> 3000 now that the fight is actually beatable. A
+	 * version-1 file only has its health bumped (see {@link #load}); anything else it holds is kept. */
+	private static final int CONFIG_VERSION = 2;
 
 	private static BehemothConfig instance = new BehemothConfig();
 
@@ -39,7 +42,7 @@ public final class BehemothConfig {
 
 	/** Body stats. */
 	public static final class Stats {
-		public double health = 1000.0;
+		public double health = 3000.0; // v0.13.10: 1000 -> 3000
 		public double knockbackResistance = 0.95;
 		public double meleeDamage = 80.0;
 		public double meleeRange = 7.0;
@@ -185,6 +188,12 @@ public final class BehemothConfig {
 						"[ProjectHero] Abyssal Behemoth config predates v{} balance migration (was health={}) -- resetting to current defaults",
 						CONFIG_VERSION, instance.stats.health);
 				instance = new BehemothConfig();
+				instance.configVersion = CONFIG_VERSION;
+			} else if (instance.configVersion < 2) {
+				// v0.13.10: 1000 -> 3000. Only the health moves; any other tuning in the file stays as it is.
+				ProjectHeroMod.LOGGER.info("[ProjectHero] Abyssal Behemoth config v{} -> v{}: health {} -> {}",
+						instance.configVersion, CONFIG_VERSION, instance.stats.health, new Stats().health);
+				instance.stats.health = new Stats().health;
 				instance.configVersion = CONFIG_VERSION;
 			}
 			Files.writeString(path, gson.toJson(instance));

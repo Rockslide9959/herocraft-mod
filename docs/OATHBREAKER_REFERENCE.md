@@ -1,4 +1,8 @@
-# The Oathbreaker — reference (v0.14.0, tuned in v0.13.9)
+# The Oathbreaker — reference (v0.14.0, tuned in v0.13.9 and v0.13.10)
+
+> **v0.13.10**: every damage number roughly **halved** -- once v0.13.9 fixed his aim his hits finally landed,
+> and on top of the +40% pass he was overwhelming. Now: dash 20, combo 7/hit, riposte 13, leap 14, rend 9,
+> Judgement 24/7 + 3/s ring, Execution 28, spear 10, shockwave 6 (all `mobAttack`, so Hard still x1.5).
 
 > **v0.13.9** (released after 0.14.0 on purpose -- the user wanted the patch number, not a minor bump):
 > - **Aim fix.** Every damage cone is measured along `forward()` = his *yaw*, and vanilla only moves a mob's yaw
@@ -128,7 +132,8 @@ just below his feet to just above his head; anyone inside his footprint counts a
 **Weights.** Phase 1 melee pool: Stance Dash 35 / Combo 45 / Oath Guard 20. Phase 2: 25 / 35 / Soul Rend 20 /
 Oath Guard 10. Phase 3: 20 / 30 / 20 / 5, with Judgement and Execution offered first whenever off their own
 cooldowns (50% each). Shared cooldown 1.2 s / 0.9 s / 0.6 s (v0.13.9; was 2.5 / 2 / 1.5). The damage column
-below is v0.14.0's -- v0.13.9 raised every number ~40%, see the top of this file and `OathbreakerTuning`.
+below is v0.14.0's -- v0.13.9 raised every number ~40% and v0.13.10 then halved them; see the top of this
+file and `OathbreakerTuning` for the live values.
 
 **Chains decision (differs from the literal spec, on purpose).** The spec lists Chains at weight 10 "only when
 in range", but its range (6-16) never overlaps the 5-block trigger every melee attack uses, so a weighted pick
