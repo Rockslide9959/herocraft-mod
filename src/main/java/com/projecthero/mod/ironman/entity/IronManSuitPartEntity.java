@@ -150,7 +150,15 @@ public class IronManSuitPartEntity extends Entity {
 		if (tag.contains("SuitId")) {
 			getEntityData().set(SUIT_ID, tag.getString("SuitId"));
 		}
-		getEntityData().set(PART_ORDINAL, tag.getInt("Part"));
+		// A corrupted/legacy save (or a future save read by an older jar) could carry a "Part" outside
+		// ArmorItem.Type's range -- #part() indexes values() with this directly, so an out-of-range
+		// value used to throw ArrayIndexOutOfBoundsException the moment this courier next ticked,
+		// taking the whole chunk load down with it. Clamp to a valid ordinal (defaulting to the piece
+		// this entity already spawns with) instead.
+		int rawPart = tag.getInt("Part");
+		int partCount = ArmorItem.Type.values().length;
+		getEntityData().set(PART_ORDINAL,
+				rawPart >= 0 && rawPart < partCount ? rawPart : ArmorItem.Type.CHESTPLATE.ordinal());
 	}
 
 	@Override

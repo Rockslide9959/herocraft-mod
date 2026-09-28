@@ -17,6 +17,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
@@ -197,6 +198,7 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 		if (!(level() instanceof ServerLevel server)) {
 			return;
 		}
+		syncMaxHealthWithConfig();
 		acquireTarget(server);
 		updatePhaseAndEnrage(server);
 		tickAirborneTracking();
@@ -213,6 +215,31 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 		tickCombat(server);
 		updateBossBar(server);
 		ambientAura(server);
+	}
+
+	/**
+	 * v0.13.6: a Behemoth loaded from disk restores its <em>saved</em> {@code MAX_HEALTH} attribute from
+	 * NBT, which is whatever the config said when it first spawned -- not today's config. Every past
+	 * balance pass that lowered {@link BehemothConfig}'s health (30000 -> 3000 -> 1000) therefore did
+	 * nothing for a Behemoth that already existed in a save: it kept its old, far higher max forever, so
+	 * real hits landed but barely dented a bar sized for a much bigger number -- reading as "doesn't take
+	 * real damage." Reconciling the live attribute to the current config on every tick (current health
+	 * rescaled proportionally, so a hurt boss doesn't get topped back up) fixes existing saves too, not
+	 * just new spawns.
+	 */
+	private void syncMaxHealthWithConfig() {
+		var maxHealthAttr = getAttribute(Attributes.MAX_HEALTH);
+		if (maxHealthAttr == null) {
+			return;
+		}
+		double configured = BehemothConfig.stats().health;
+		double current = maxHealthAttr.getBaseValue();
+		if (Math.abs(current - configured) < 1.0e-3) {
+			return;
+		}
+		float frac = current > 0.0 ? getHealth() / (float) current : 1.0f;
+		maxHealthAttr.setBaseValue(configured);
+		setHealth((float) Mth.clamp(configured * frac, 1.0, configured));
 	}
 
 	private void ambientAura(ServerLevel server) {

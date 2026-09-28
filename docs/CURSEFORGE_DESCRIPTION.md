@@ -49,15 +49,19 @@ player* and you can carry it while the effect lasts, but it does **not** bind to
 untouched. Without the effect — or once it runs out — it will not move for anyone who isn't already Thor.
 Creative players bypass it.
 
-- **Mjolnir** flies straight and true when thrown (v0.13.4: 10% faster both ways), phases through terrain
+- **Mjolnir** flies straight and true when thrown (v0.13.4: 10% faster both ways; v0.13.6: a thrown hit
+  now deals **18**, up from 11), phases through terrain
   on the way home, stands on its head when it lands, and is **recalled to your hand from anywhere** —
   even out of another player's grip or an unloaded chunk. Attack speed raised to 1.1.
 - Bind a hammer to yourself with shift-right-click so it always answers your call.
 - **Abilities (v0.13.4 damage pass):** Lightning Strike (22) and God of Thunder's Wrath (100, drains 100
   Storm Energy, now calls down a barrage of bolts instead of one) both snap onto a nearby enemy on a
-  near-miss rather than just the raw crosshair point; Lightning Beam (8/tick) and Chain Lightning (18) now
-  render as a genuine crackling, jagged bolt instead of a line of particles; Thunderclap (22 damage) moved
-  to **Shift+V**, and plain **V** is a new ability, **Hammer Volley**: the hammer flies out of your hand
+  near-miss rather than just the raw crosshair point; Lightning Beam (8/tick) and Chain Lightning (18)
+  render as a genuine crackling, jagged bolt instead of a line of particles, and (v0.13.6) crackle from the
+  hammer in your hand rather than your chest, with a thicker, blockier arc closer to vanilla lightning;
+  Thunderclap (22 damage) moved
+  to **Shift+V**, and plain **V** is a new ability, **Hammer Volley** (v0.13.6: 20% slower in flight, and
+  circles you at a 3-block radius with nothing in range): the hammer flies out of your hand
   and autonomously strikes every enemy within 25 blocks in sequence (orbiting a lone target between hits)
   for 12 seconds, or until you call it back early — 32 s cooldown. Storm Energy raised to 300 to fuel it
   all. Plus Storm Call (a personal storm that follows you), Mjolnir Parry, and flight via double-tap-jump
@@ -314,6 +318,15 @@ Netherfury at 60% health, Cataclysm at 25% — make it faster and angrier as the
 five-minute Abyssal Enrage keeps a long fight from being cheesed. You do not need flight to beat it.
 Defeating it drops a unique **Abyssal Core** plus netherite scrap, ghast tears and blaze rods. At most
 one exists per Nether dimension at a time; tunable in `config/projecthero_behemoth.json`.
+
+### The Oathbreaker (v0.13.6)
+A summoned **4-block knight boss**. Craft a **Knight's Soul** (an Abyssal Core surrounded by 8 Grave
+Essence) and right-click it on a **Lodestone** to call him forth. He wields an oversized sword and fights
+in two moves: a **Stance Dash** — a 2-second wind-up, a lunging slice for **30 damage**, then held for
+another 2 seconds — and a **Four-Strike Combo**, four quick hits from four different directions
+(upper-right, upper-left, a sweep, an overhead slam) for **10 damage each**. 500 HP, 10% faster than a
+walking player, tracked on a boss bar. Defeating him drops a netherite sword, a stack of Grave Essence,
+and a chance at another Abyssal Core.
 
 ---
 

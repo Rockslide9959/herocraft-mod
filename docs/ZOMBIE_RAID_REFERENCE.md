@@ -172,8 +172,10 @@ Gravity Manipulation, Magnetic Manipulation.
 
 ### Rewards
 
-**Grave Essence** drops from everything in the raid — 0–1 from basic enemies, 1–2 from specials, 2–4
-from Juggernauts, 10–20 from a boss and 25–40 from the final boss. Cursed Zombies drop it too.
+**Grave Essence** drops from everything in the raid — a small chance from basic enemies, 0–1 from
+specials, 1–2 from Juggernauts, 4–8 from a boss and 10–18 from the final boss. Cursed Zombies drop it
+too. (v0.13.6: made much rarer across the board — it used to be a 50% drop off every single basic
+zombie, which flooded players; it is now also the key ingredient in Knight's Soul, see below.)
 
 Every Powered Zombie Boss drops a **Corrupted Power Core** stamped with its power ("Corrupted
 Geokinesis Core"). These are research and crafting reagents — **you cannot eat one to gain the power**.
@@ -183,7 +185,7 @@ to wear it, or place it as a block, exactly like a vanilla mob head.
 
 Clearing wave 12 spawns a **Cursed Grave Chest** at the raid centre with:
 
-- **Guaranteed:** 30–60 Grave Essence, and the final boss's Corrupted Power Core
+- **Guaranteed:** 10–20 Grave Essence, and the final boss's Corrupted Power Core
 - **Common:** diamonds, emeralds, golden apples, enchanted books, XP bottles
 - **Uncommon:** netherite scrap, ancient debris
 - **Rare:** Enchanted Golden Apple (~20%), Gravewalker Charm (~15%), Gravekeeper Shield (~10%),
@@ -202,6 +204,7 @@ Clearing wave 12 spawns a **Cursed Grave Chest** at the raid centre with:
 | **Gravekeeper Shield** | Blocks like a normal shield. 25% less damage from undead, 55% less from acid, and near-immunity to a Juggernaut charge's knockback. Nothing against anything else. |
 | **Heart of the Grave** | First-clear reward. The key to repeatable raids. |
 | **Grave Ritual Totem** | Use it in a Graveyard to curse yourself deliberately. Consumed on a successful activation. |
+| **Knight's Soul** | Right-click a Lodestone to summon The Oathbreaker, a 4-block knight boss. Consumed on a successful summon — see `docs/OATHBREAKER_REFERENCE.md`. |
 
 ### Recipes
 
@@ -219,6 +222,15 @@ Netherite Scrap | Gold Block   | Netherite Scrap
 Grave Essence | Soul Sand           | Grave Essence
 Rotten Flesh  | Heart of the Grave  | Rotten Flesh
 Soul Sand     | Skeleton Skull      | Soul Sand
+```
+
+**Knight's Soul** — an Abyssal Core (dropped by The Abyssal Behemoth, `docs/ABYSSAL_BEHEMOTH_REFERENCE.md`)
+surrounded by Grave Essence:
+
+```
+Grave Essence | Grave Essence | Grave Essence
+Grave Essence | Abyssal Core  | Grave Essence
+Grave Essence | Grave Essence | Grave Essence
 ```
 
 ### Power research

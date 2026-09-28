@@ -72,6 +72,16 @@ public final class ThorLightningArcRenderer {
 		}
 	}
 
+	/** v0.13.6: fewer, larger nodes than before -- vanilla's own {@code LightningBolt} zigzags in a
+	 * handful of sharp jumps rather than a smooth wave, and this is the main thing that reads as
+	 * "blocky" rather than "crackly wire." */
+	private static final int BLOCKY_NODES = 6;
+	/** How many near-parallel copies of the core strand are drawn (each nudged a hair sideways) to fake
+	 * real width -- {@code RenderType.lines()} is a 1px GL line with no width control, so "thicker" has
+	 * to come from bundling several of them into a tight bundle instead. */
+	private static final int CORE_THICKNESS_PLIES = 5;
+	private static final double CORE_THICKNESS_RADIUS = 0.05;
+
 	private static void drawArc(PoseStack poseStack, MultiBufferSource consumers, Camera camera,
 			Vec3 start, Vec3 end, float alpha, double timeSeed) {
 		Vec3 delta = end.subtract(start);
@@ -91,37 +101,69 @@ public final class ThorLightningArcRenderer {
 		Vec3 perpA = dir.cross(ref).normalize();
 		Vec3 perpB = dir.cross(perpA).normalize();
 
-		int segments = Math.max(6, (int) (length * 2.5));
-		double amplitude = Math.min(0.5, 0.08 + length * 0.012);
+		int nodes = Math.max(BLOCKY_NODES, (int) (length / 4.0));
+		double amplitude = Math.min(0.6, 0.12 + length * 0.014);
 
-		for (int strand = 0; strand < STRAND_COUNT; strand++) {
-			double phase = timeSeed * 9.0 + strand * 2.4;
-			double freq = 3.0 + strand * 0.9;
-			double strandAmplitude = strand == 0 ? amplitude : amplitude * 0.6;
-			float strandAlpha = alpha * (strand == 0 ? 1.0f : 0.4f);
+		// Core bolt: a handful of sharp, blocky zigzag segments (one consistent path per frame, not a
+		// smooth travelling wave), drawn as a tight bundle of parallel plies so it reads as thick.
+		Vec3[] corePath = blockyPath(start, end, perpA, perpB, nodes, amplitude, timeSeed, 0);
+		for (int ply = 0; ply < CORE_THICKNESS_PLIES; ply++) {
+			double plyAngle = (Math.PI * 2.0 * ply) / CORE_THICKNESS_PLIES;
+			Vec3 plyOffset = perpA.scale(Math.cos(plyAngle) * CORE_THICKNESS_RADIUS)
+					.add(perpB.scale(Math.sin(plyAngle) * CORE_THICKNESS_RADIUS));
+			drawPolyline(buffer, pose, corePath, plyOffset, alpha, CORE_R, CORE_G, CORE_B);
+		}
 
-			Vec3 prev = null;
-			for (int i = 0; i <= segments; i++) {
-				double t = (double) i / segments;
-				double wobble = strandAmplitude * Math.sin(Math.PI * t);
-				double angle = phase + t * freq * Math.PI * 2.0;
-				Vec3 offset = perpA.scale(Math.cos(angle) * wobble).add(perpB.scale(Math.sin(angle) * wobble));
-				Vec3 p = start.lerp(end, t).add(offset);
-				if (prev != null) {
-					Vec3 d = p.subtract(prev);
-					double len = Math.max(1.0e-6, d.length());
-					float nx = (float) (d.x / len);
-					float ny = (float) (d.y / len);
-					float nz = (float) (d.z / len);
-					buffer.addVertex(pose.pose(), (float) prev.x, (float) prev.y, (float) prev.z)
-							.setColor(CORE_R, CORE_G, CORE_B, strandAlpha).setNormal(pose, nx, ny, nz);
-					buffer.addVertex(pose.pose(), (float) p.x, (float) p.y, (float) p.z)
-							.setColor(CORE_R, CORE_G, CORE_B, strandAlpha).setNormal(pose, nx, ny, nz);
-				}
-				prev = p;
-			}
+		// Fainter secondary crackle strands, thin and offset further out, for texture around the core.
+		for (int strand = 1; strand < STRAND_COUNT; strand++) {
+			Vec3[] strandPath = blockyPath(start, end, perpA, perpB, nodes, amplitude * 0.7, timeSeed, strand);
+			drawPolyline(buffer, pose, strandPath, Vec3.ZERO, alpha * 0.4f, CORE_R, CORE_G, CORE_B);
 		}
 
 		poseStack.popPose();
+	}
+
+	/** Builds a jagged node path from {@code start} to {@code end}: a fixed random offset per node
+	 * (re-seeded on {@code timeSeed} so it still crackles over time) rather than a continuous sine wave,
+	 * so consecutive nodes connect with sharp angles instead of a smooth curve. */
+	private static Vec3[] blockyPath(Vec3 start, Vec3 end, Vec3 perpA, Vec3 perpB, int nodes,
+			double amplitude, double timeSeed, int strandIndex) {
+		Vec3[] path = new Vec3[nodes + 1];
+		path[0] = start;
+		path[nodes] = end;
+		for (int i = 1; i < nodes; i++) {
+			double t = (double) i / nodes;
+			// Discrete per-node seed (floor'd, not continuous) so the shape holds a jagged pose for a
+			// short stretch of time and then jumps to a new one, instead of smoothly animating.
+			double nodeSeed = Math.floor(timeSeed * 6.0) + i * 13.7 + strandIndex * 5.3;
+			double hash = fract(Math.sin(nodeSeed) * 43758.5453);
+			double hash2 = fract(Math.sin(nodeSeed * 1.37 + 7.1) * 12543.657);
+			double edgeTaper = Math.sin(Math.PI * t); // zero at both ends, so it always meets its endpoints
+			double a = (hash * 2.0 - 1.0) * amplitude * edgeTaper;
+			double b = (hash2 * 2.0 - 1.0) * amplitude * edgeTaper;
+			path[i] = start.lerp(end, t).add(perpA.scale(a)).add(perpB.scale(b));
+		}
+		return path;
+	}
+
+	private static double fract(double v) {
+		return v - Math.floor(v);
+	}
+
+	private static void drawPolyline(VertexConsumer buffer, PoseStack.Pose pose, Vec3[] path, Vec3 offset,
+			float alpha, float r, float g, float b) {
+		for (int i = 1; i < path.length; i++) {
+			Vec3 prev = path[i - 1].add(offset);
+			Vec3 p = path[i].add(offset);
+			Vec3 d = p.subtract(prev);
+			double len = Math.max(1.0e-6, d.length());
+			float nx = (float) (d.x / len);
+			float ny = (float) (d.y / len);
+			float nz = (float) (d.z / len);
+			buffer.addVertex(pose.pose(), (float) prev.x, (float) prev.y, (float) prev.z)
+					.setColor(r, g, b, alpha).setNormal(pose, nx, ny, nz);
+			buffer.addVertex(pose.pose(), (float) p.x, (float) p.y, (float) p.z)
+					.setColor(r, g, b, alpha).setNormal(pose, nx, ny, nz);
+		}
 	}
 }

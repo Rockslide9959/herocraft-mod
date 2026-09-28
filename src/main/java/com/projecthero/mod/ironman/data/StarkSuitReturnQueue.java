@@ -8,6 +8,7 @@ import java.util.UUID;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.ironman.IronManEnergy;
 import com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlockEntity;
+import com.projecthero.mod.ironman.item.IronManArmorItem;
 import com.projecthero.mod.ironman.item.IronManItems;
 
 import com.mojang.serialization.Codec;
@@ -190,7 +191,16 @@ public final class StarkSuitReturnQueue extends SavedData {
 			} else {
 				// platform is gone -- drop the reconstructed pieces where it stood so nothing is lost
 				for (ArmorItem.Type type : p.piecesPresent()) {
-					ItemStack stack = new ItemStack(IronManItems.armor(p.suitId(), type));
+					IronManArmorItem item = IronManItems.armor(p.suitId(), type);
+					if (item == null) {
+						// A stale/renamed suit id from an older save -- IronManItems.armor returns null for it,
+						// and new ItemStack(null) would NPE (ItemStack derefs the ItemLike immediately) and take
+						// the whole server tick down with it. Nothing sane to reconstruct, so drop just this piece.
+						ProjectHeroMod.LOGGER.warn(
+								"[ProjectHero] dropping unreturnable Stark suit piece: unknown suit '{}'", p.suitId());
+						continue;
+					}
+					ItemStack stack = new ItemStack(item);
 					IronManEnergy.stampStack(stack, p.energy(), p.integrity());
 					net.minecraft.world.entity.item.ItemEntity drop = new net.minecraft.world.entity.item.ItemEntity(
 							level, pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5, stack);
@@ -210,7 +220,15 @@ public final class StarkSuitReturnQueue extends SavedData {
 			if (be.holds(p.suitId(), type)) {
 				continue;
 			}
-			ItemStack stack = new ItemStack(IronManItems.armor(p.suitId(), type));
+			IronManArmorItem item = IronManItems.armor(p.suitId(), type);
+			if (item == null) {
+				// Same stale-suit-id guard as the sweep's drop branch above -- a bad id here used to NPE
+				// via new ItemStack(null) the instant a docked platform absorbed this record.
+				ProjectHeroMod.LOGGER.warn(
+						"[ProjectHero] dropping unreturnable Stark suit piece: unknown suit '{}'", p.suitId());
+				continue;
+			}
+			ItemStack stack = new ItemStack(item);
 			IronManEnergy.stampStack(stack, p.energy(), p.integrity());
 			be.store(stack);
 		}

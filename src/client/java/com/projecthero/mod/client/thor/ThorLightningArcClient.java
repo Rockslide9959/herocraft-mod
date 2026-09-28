@@ -88,8 +88,9 @@ public final class ThorLightningArcClient {
 		ARCS.removeIf(a -> a.alpha(now) <= 0.0f || mc.level == null || mc.level.getEntity(a.casterId) == null);
 	}
 
-	/** Where a segment's near end is right now: the given entity, or the caster's "hand" (matches the
-	 * server's own beam-start formula in {@code ThorPowers#tickLaser}). */
+	/** Where a segment's near end is right now: the given entity, or -- when {@code fromEntityId < 0} --
+	 * an approximation of Mjolnir's position in the caster's main hand (v0.13.6: previously this used a
+	 * point at chest height, which read as the bolt coming out of Thor's chest rather than the hammer). */
 	public static Vec3 fromPoint(Arc arc, float partial) {
 		Minecraft mc = Minecraft.getInstance();
 		if (arc.fromEntityId >= 0) {
@@ -100,10 +101,23 @@ public final class ThorLightningArcClient {
 		}
 		Entity caster = mc.level == null ? null : mc.level.getEntity(arc.casterId);
 		if (caster instanceof Player player) {
-			Vec3 look = player.getViewVector(partial);
-			return interpolated(player, partial).add(0.0, player.getBbHeight() * 0.55, 0.0).add(look.scale(0.5));
+			return hammerHandPosition(player, partial);
 		}
 		return arc.point;
+	}
+
+	/** Roughly where Mjolnir sits in the caster's main hand: down near the hip on the main-arm side and
+	 * a little forward, rather than up at the chest/head. */
+	private static Vec3 hammerHandPosition(Player player, float partial) {
+		Vec3 look = player.getViewVector(partial);
+		Vec3 forward = new Vec3(look.x, 0.0, look.z);
+		forward = forward.lengthSqr() < 1.0e-6 ? new Vec3(0.0, 0.0, 1.0) : forward.normalize();
+		Vec3 side = new Vec3(-forward.z, 0.0, forward.x);
+		double sideSign = player.getMainArm() == net.minecraft.world.entity.HumanoidArm.RIGHT ? 1.0 : -1.0;
+		return interpolated(player, partial)
+				.add(0.0, player.getBbHeight() * 0.42, 0.0)
+				.add(side.scale(0.4 * sideSign))
+				.add(forward.scale(0.3));
 	}
 
 	/** Where a segment's far end is right now: its entity (while it exists) or the stored raw point. */

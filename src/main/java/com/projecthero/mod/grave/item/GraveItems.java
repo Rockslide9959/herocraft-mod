@@ -37,6 +37,9 @@ public final class GraveItems {
 	public static Item GRAVE_RITUAL_TOTEM;
 	public static Item BOSS_TROPHY;
 	public static Item FINAL_BOSS_TROPHY;
+	/** v0.13.6: an Abyssal Core surrounded by Grave Essence. Right-click a Lodestone with it to summon
+	 * The Oathbreaker -- see {@link KnightsSoulItem}. */
+	public static Item KNIGHTS_SOUL;
 
 	/** The focal point of a Graveyard: right-click it to take the Gravebound Curse. */
 	public static Block CURSED_GRAVE;
@@ -96,6 +99,8 @@ public final class GraveItems {
 				new GraveChampionHeadItem(GRAVE_CHAMPION_HEAD,
 						new Item.Properties().stacksTo(16).rarity(Rarity.EPIC)));
 		((BlockItem) FINAL_BOSS_TROPHY).registerBlocks(Item.BY_BLOCK, FINAL_BOSS_TROPHY);
+		KNIGHTS_SOUL = register("knights_soul",
+				new KnightsSoulItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC)));
 	}
 
 	/** Appended to the existing {@code projecthero:superheroes} creative tab. */
@@ -110,6 +115,7 @@ public final class GraveItems {
 		output.accept(GRAVE_RITUAL_TOTEM);
 		output.accept(BOSS_TROPHY);
 		output.accept(FINAL_BOSS_TROPHY);
+		output.accept(KNIGHTS_SOUL);
 	}
 
 	private static Item register(String path, Item item) {

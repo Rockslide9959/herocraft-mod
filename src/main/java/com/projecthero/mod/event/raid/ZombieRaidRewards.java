@@ -194,7 +194,8 @@ public final class ZombieRaidRewards {
 			// than being wiped when the table unpacks on first open.
 			chest.unpackLootTable(null);
 
-			int essence = randomBetween(level.random, 30, 60);
+			// v0.13.6: lowered 30-60 -> 10-20 alongside the general Grave Essence rarity pass.
+			int essence = randomBetween(level.random, 10, 20);
 			addToChest(chest, new ItemStack(GraveItems.GRAVE_ESSENCE, Math.min(64, essence)));
 			if (essence > 64) {
 				addToChest(chest, new ItemStack(GraveItems.GRAVE_ESSENCE, essence - 64));

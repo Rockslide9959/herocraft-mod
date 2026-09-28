@@ -64,18 +64,6 @@ public final class ThorFeedback {
 		actionBar(wielder, "message.projecthero.recall.taken_from_you", ChatFormatting.GRAY);
 	}
 
-	// ---------------- hammerless flight grace ----------------
-
-	/** A flying throw just started the 15-second grace -- see {@link ThorPowers#throwMjolnir}. */
-	public static void hammerlessFlightStarted(Player player) {
-		actionBar(player, "message.projecthero.hammerless_flight.started", ChatFormatting.AQUA);
-	}
-
-	/** The grace ran out before Mjolnir came back -- flight has just ended. */
-	public static void hammerlessFlightFaded(Player player) {
-		actionBar(player, "message.projecthero.hammerless_flight.faded", ChatFormatting.GRAY);
-	}
-
 	// ---------------- binding ----------------
 
 	/**

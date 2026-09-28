@@ -207,7 +207,6 @@ public final class ThorPowers {
 
 		if (grantGrace) {
 			player.setAttached(ModAttachments.HAMMERLESS_FLIGHT_TICKS, HAMMERLESS_FLIGHT_GRACE_TICKS);
-			ThorFeedback.hammerlessFlightStarted(player);
 		}
 		return true;
 	}
@@ -534,7 +533,6 @@ public final class ThorPowers {
 		int remaining = player.getAttachedOrElse(ModAttachments.HAMMERLESS_FLIGHT_TICKS, 0) - 1;
 		if (remaining <= 0) {
 			setFlying(player, false);
-			ThorFeedback.hammerlessFlightFaded(player);
 			return;
 		}
 		player.setAttached(ModAttachments.HAMMERLESS_FLIGHT_TICKS, remaining);

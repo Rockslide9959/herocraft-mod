@@ -91,8 +91,8 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 	/** How long the hammer stays embedded in what it struck before turning for home. */
 	private static final int IMPACT_TICKS = 5;
 	private static final double RETURN_CATCH_DISTANCE = 1.1;
-	/** v0.12.32: a thrown Mjolnir hits for 11, the same as a swing. */
-	private static final float DAMAGE = 11.0f;
+	/** v0.13.6: raised 11 -> 18. */
+	private static final float DAMAGE = 18.0f;
 	/** The return trip hits hard too, but not as hard as a committed throw. */
 	private static final float RETURN_DAMAGE = 6.0f;
 
@@ -586,12 +586,16 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 	// ---------------- hammer volley (v0.13.4, key V) ----------------
 
 	private static final double VOLLEY_RANGE = 25.0;
-	private static final double VOLLEY_SPEED = 2.0;
+	/** v0.13.6: slowed 20% (2.0 -> 1.6) -- players wanted the volley to read less like a teleport. */
+	private static final double VOLLEY_SPEED = 1.6;
 	private static final double VOLLEY_CATCH_DISTANCE = 1.3;
 	private static final float VOLLEY_DAMAGE = 11.0f; // same as a thrown hammer's own hit (see DAMAGE above)
 	private static final int VOLLEY_ORBIT_TICKS = 2 * 20;
 	private static final double VOLLEY_ORBIT_RADIUS = 2.5;
 	private static final double VOLLEY_ORBIT_ANGULAR_SPEED = 0.35; // radians/tick
+	/** v0.13.6: with no target in range, Mjolnir circles the owner at this radius instead of just
+	 * hovering in place. */
+	private static final double VOLLEY_IDLE_ORBIT_RADIUS = 3.0;
 
 	/** Launches the hammer out of {@code player}'s hand into Hammer Volley for {@code durationTicks}. */
 	public void startVolley(Player player, int durationTicks) {
@@ -641,9 +645,12 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 		}
 
 		if (target == null) {
-			// Nothing in range: hover just above the owner rather than idling on the ground.
-			Vec3 hover = owner.position().add(0.0, owner.getBbHeight() + 1.5, 0.0);
-			this.setDeltaMovement(hover.subtract(this.position()).scale(0.15));
+			// Nothing in range: circle the owner at a 3-block radius rather than idling in place.
+			double angle = this.tickCount * VOLLEY_ORBIT_ANGULAR_SPEED;
+			Vec3 idleCenter = owner.position().add(0.0, owner.getBbHeight() + 1.0, 0.0);
+			Vec3 idleOrbitPoint = idleCenter.add(Math.cos(angle) * VOLLEY_IDLE_ORBIT_RADIUS, 0.0,
+					Math.sin(angle) * VOLLEY_IDLE_ORBIT_RADIUS);
+			this.setDeltaMovement(idleOrbitPoint.subtract(this.position()).scale(0.3));
 			super.tick();
 			spawnFlightEffects();
 			return;

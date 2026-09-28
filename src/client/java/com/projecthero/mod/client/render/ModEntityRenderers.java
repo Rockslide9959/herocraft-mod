@@ -31,5 +31,7 @@ public final class ModEntityRenderers {
 		// a Ghast's own fireball (ThrownItemRenderer(ctx, 3.0f, true)), just bigger.
 		EntityRendererRegistry.register(com.projecthero.mod.behemoth.entity.BehemothEntityTypes.BEHEMOTH_FIREBALL,
 				ctx -> new net.minecraft.client.renderer.entity.ThrownItemRenderer<>(ctx, 4.5f, true));
+		EntityRendererRegistry.register(com.projecthero.mod.oathbreaker.entity.OathbreakerEntityTypes.OATHBREAKER,
+				com.projecthero.mod.client.oathbreaker.OathbreakerRenderer::new);
 	}
 }

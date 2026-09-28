@@ -93,6 +93,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.titanshifter.entity.TitanShifterEntities.initialize();
 		com.projecthero.mod.behemoth.BehemothItems.initialize();
 		com.projecthero.mod.behemoth.entity.BehemothEntityTypes.initialize();
+		com.projecthero.mod.oathbreaker.entity.OathbreakerEntityTypes.initialize();
 		com.projecthero.mod.hero.power.p05.GeoEntityTypes.initialize();
 		Powers.initialize();
 		HeroPowerHandlers.registerAll();

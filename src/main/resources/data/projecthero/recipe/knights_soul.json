@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "EEE",
+    "ECE",
+    "EEE"
+  ],
+  "key": {
+    "E": {
+      "item": "projecthero:grave_essence"
+    },
+    "C": {
+      "item": "projecthero:abyssal_core"
+    }
+  },
+  "result": {
+    "id": "projecthero:knights_soul",
+    "count": 1
+  }
+}

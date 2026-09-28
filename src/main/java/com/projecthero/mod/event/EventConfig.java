@@ -105,18 +105,21 @@ public final class EventConfig {
 		public double finalBossDualPowerChance = 0.5;
 
 		// ---- drops ----
-		public double graveEssenceFromBasicChance = 0.5;
+		// v0.13.6: Grave Essence made much rarer across the board -- it was flooding players (a 50%
+		// chance off every single basic raid zombie, times dozens per wave, dwarfed everything else) and
+		// is now also the key ingredient in Knight's Soul, so it needs to stay meaningfully scarce.
+		public double graveEssenceFromBasicChance = 0.06;
 		public int graveEssenceFromSpecialMin = 1;
-		public int graveEssenceFromSpecialMax = 2;
-		public int graveEssenceFromJuggernautMin = 2;
-		public int graveEssenceFromJuggernautMax = 4;
-		public int graveEssenceFromBossMin = 10;
-		public int graveEssenceFromBossMax = 20;
-		public int graveEssenceFromFinalBossMin = 25;
-		public int graveEssenceFromFinalBossMax = 40;
+		public int graveEssenceFromSpecialMax = 1;
+		public int graveEssenceFromJuggernautMin = 1;
+		public int graveEssenceFromJuggernautMax = 2;
+		public int graveEssenceFromBossMin = 4;
+		public int graveEssenceFromBossMax = 8;
+		public int graveEssenceFromFinalBossMin = 10;
+		public int graveEssenceFromFinalBossMax = 18;
 		/** Cursed Zombie's Grave Essence drop chance, and the chance of a bonus second one. */
-		public double cursedZombieEssenceChance = 0.33;
-		public double cursedZombieBonusEssenceChance = 0.08;
+		public double cursedZombieEssenceChance = 0.12;
+		public double cursedZombieBonusEssenceChance = 0.03;
 		/** Chance a Powered Zombie Boss also drops its power trophy head. */
 		public double bossTrophyChance = 0.25;
 

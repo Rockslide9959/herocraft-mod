@@ -88,6 +88,16 @@ bar immediately after applying damage, rather than override the health math. `do
 (`return false`): there is no vanilla contact-melee -- Ground Attack is the only melee, applied through
 `BehemothCombat` like every other ability.
 
+**v0.13.6 fix**: none of that actually explained a real report of "he still doesn't seem to take real
+damage" on an existing save. The root cause was orthogonal to combat code entirely -- a `LivingEntity`
+loaded from disk restores its *saved* `MAX_HEALTH` attribute from NBT, which is whatever the config said
+when it first spawned, not today's config. Every past balance pass that lowered `BehemothConfig`'s health
+(30000 -> 3000 -> 1000) therefore did nothing for a Behemoth that already existed in a save: it kept its
+old, far higher max forever, so real hits landed but barely dented a bar sized for a much bigger number.
+`syncMaxHealthWithConfig()`, called every `aiStep`, reconciles the live `MAX_HEALTH` attribute to the
+current config value (rescaling current health proportionally so a hurt boss isn't topped back up) --
+this fixes existing saves too, not just new spawns.
+
 ## Texture
 
 v0.13.3 also recolored `textures/entity/abyssal_behemoth.png` (256x121) from a dark red/black lava

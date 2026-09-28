@@ -109,7 +109,8 @@ public final class SupervillainRaidItems {
 			// guaranteed core materials
 			rewards.add(new ItemStack(Items.EMERALD, 8 + random.nextInt(9)));
 			rewards.add(new ItemStack(Items.DIAMOND, 2 + random.nextInt(4)));
-			rewards.add(new ItemStack(com.projecthero.mod.grave.item.GraveItems.GRAVE_ESSENCE, 6 + random.nextInt(10)));
+			// v0.13.6: lowered alongside the general Grave Essence rarity pass.
+			rewards.add(new ItemStack(com.projecthero.mod.grave.item.GraveItems.GRAVE_ESSENCE, 3 + random.nextInt(5)));
 			// two random high-tier rolls
 			for (int i = 0; i < 2; i++) {
 				rewards.add(switch (random.nextInt(8)) {
