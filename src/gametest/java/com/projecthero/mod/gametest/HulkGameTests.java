@@ -179,15 +179,17 @@ public class HulkGameTests implements FabricGameTest {
 		return p;
 	}
 
-	private static net.minecraft.world.entity.monster.Zombie zombie(GameTestHelper helper, Vec3 at) {
-		var z = net.minecraft.world.entity.EntityType.ZOMBIE.create(helper.getLevel());
+	/** A husk: a zombie that does not burn in daylight, so the only damage it can take is the ability under test. */
+	private static net.minecraft.world.entity.monster.Husk zombie(GameTestHelper helper, Vec3 at) {
+		var z = net.minecraft.world.entity.EntityType.HUSK.create(helper.getLevel());
 		z.moveTo(at.x, at.y, at.z, 0.0f, 0.0f);
 		z.setNoAi(true);
 		helper.getLevel().addFreshEntity(z);
 		return z;
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	// own batch: no neighbouring test's shockwave can reach these mobs
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60, batch = "hulk_thunderclap")
 	public void thunderclapHitsWhatIsInFrontOnly(GameTestHelper helper) {
 		ServerPlayer p = hulk(helper);
 		var front = zombie(helper, p.position().add(0, 0, 4));
@@ -204,7 +206,7 @@ public class HulkGameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60, batch = "hulk_ground_smash")
 	public void groundSmashHitsAllRound(GameTestHelper helper) {
 		ServerPlayer p = hulk(helper);
 		var side = zombie(helper, p.position().add(3, 0, 0));
@@ -226,7 +228,7 @@ public class HulkGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
+	@GameTest(template = EMPTY_STRUCTURE, batch = "hulk_leap")
 	public void superLeapChargesAndLaunches(GameTestHelper helper) {
 		ServerPlayer p = hulk(helper);
 		p.setOnGround(true);
