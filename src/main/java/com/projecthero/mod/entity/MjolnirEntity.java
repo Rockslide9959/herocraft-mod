@@ -700,10 +700,18 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 	 * candidate exists (so the "next" pick is unavoidably the one just hit), arms the orbit instead of
 	 * an instant re-hit. Also the initial pick (called with {@code justHitId == -1}), where the orbit
 	 * never arms before a target's first hit. Server-only -- every call site is already gated.
+	 *
+	 * <p>v0.14.0: excludes the owner's own squadmates, the same {@code SquadManager.sameSquad} check
+	 * {@link com.projecthero.mod.greenlantern.construct.GreenLanternConstructs} already uses to keep a
+	 * friendly-fire-off ability from ever picking a teammate -- the hammer used to happily orbit-strike
+	 * squadmates standing near the fight.
 	 */
 	private void advanceVolleyTarget(Player owner, int justHitId) {
+		com.projecthero.mod.squad.SquadManager squads = owner.getServer() == null ? null
+				: com.projecthero.mod.squad.SquadManager.get(owner.getServer());
 		List<LivingEntity> candidates = new ArrayList<>(level().getEntitiesOfClass(LivingEntity.class,
-				owner.getBoundingBox().inflate(VOLLEY_RANGE), e -> e != owner && e.isAlive()));
+				owner.getBoundingBox().inflate(VOLLEY_RANGE), e -> e != owner && e.isAlive()
+						&& !(squads != null && e instanceof Player p && squads.sameSquad(owner.getUUID(), p.getUUID()))));
 		candidates.sort(Comparator.comparingDouble(e -> e.distanceToSqr(owner)));
 
 		if (candidates.isEmpty()) {
@@ -956,7 +964,7 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 				}
 				Worthiness.ascend(sp, this.getItem());
 			}
-			if (giveTo(player)) {
+			if (giveTo(player, false)) {
 				level().playSound(null, player.blockPosition(), SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 1.0f, 1.2f);
 				this.discard();
 			}
@@ -967,7 +975,11 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 	}
 
 	private void catchBy(Player player) {
-		if (!giveTo(player)) {
+		// v0.14.0: a recall (announceArrival) is a deliberate mid-fight call for the hammer, so a full
+		// hand-and-backpack forces it into the main hand and drops whatever was displaced instead of
+		// leaving the hammer uncollected at the owner's feet -- a walk-over/manual pickup (announceArrival
+		// false, via #interact) keeps the old gentle "stays on the ground" behaviour.
+		if (!giveTo(player, announceArrival)) {
 			// Inventory full: the hammer still comes home, it just waits at the owner's feet rather
 			// than being deleted. It stays a MjolnirEntity, so it is still callable.
 			ThorFeedback.recallInventoryFull(player);
@@ -1000,14 +1012,23 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 	 * has equipped there. Carries over the entity's actual held stack (not a fresh plain one) so the
 	 * bound owner, the hammer id and the generation all survive the round trip.
 	 *
+	 * @param forceIntoHand v0.14.0: if true and there is nowhere free to put it (main hand occupied,
+	 *        backpack full), the hammer still goes into the main hand and whatever was held is dropped
+	 *        on the ground instead of this method returning false -- used for a deliberate recall
+	 *        ({@link #catchBy}, {@code announceArrival}), never for a passive walk-over/manual pickup.
 	 * @return false if there was nowhere to put it -- the caller must not delete the hammer.
 	 */
-	private boolean giveTo(Player player) {
+	private boolean giveTo(Player player, boolean forceIntoHand) {
 		ItemStack stack = this.getItem().copy();
-		if (player.getMainHandItem().isEmpty()) {
+		ItemStack currentMainHand = player.getMainHandItem();
+		if (currentMainHand.isEmpty()) {
 			player.setItemInHand(InteractionHand.MAIN_HAND, stack);
 		} else if (!player.getInventory().add(stack)) {
-			return false;
+			if (!forceIntoHand) {
+				return false;
+			}
+			player.setItemInHand(InteractionHand.MAIN_HAND, stack);
+			player.drop(currentMainHand, false);
 		}
 		if (level() instanceof ServerLevel serverLevel) {
 			MjolnirRegistry.get(serverLevel).noteCarried(stack, player, true);

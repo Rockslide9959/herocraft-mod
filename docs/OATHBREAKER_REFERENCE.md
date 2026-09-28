@@ -1,205 +1,219 @@
-# The Oathbreaker — reference (v0.13.7)
+# The Oathbreaker — reference (v0.14.0)
 
-A 4-block-tall knight boss, summoned on demand (not a natural/random spawn) by right-clicking a
-**Knight's Soul** on a **Respawn Anchor**. Package `com.projecthero.mod.oathbreaker` (+ `.entity`); the
-summoning item (`KnightsSoulItem`) lives in `com.projecthero.mod.grave.item` since it is crafted from
-Gravebound materials. Client half in `com.projecthero.mod.client.oathbreaker`.
+A 4-block-tall fallen death knight, summoned on demand by using a **Knight's Soul** on a **Respawn
+Anchor**. v0.14.0 rebuilt him from "a knight that does two attacks" into a three-phase, Elden-Ring-style
+duel boss: every attack has a readable wind-up, a dodge window and a punishable recovery, a hidden poise
+meter can break him, and he gets more desperate as his health drops.
+
+Every tunable number (HP, damage, ranges, arcs, cooldowns, tick lengths, chances, weights) lives in
+**`com.projecthero.mod.oathbreaker.OathbreakerTuning`**. Balance there; nothing else hard-codes a number.
+
+## Files
+
+| What | Where |
+| --- | --- |
+| Tunables | `oathbreaker/OathbreakerTuning.java` |
+| Entity: lifecycle, phases + sync, poise/stagger, transitions, death, GeckoLib controllers, riding overrides | `oathbreaker/entity/OathbreakerEntity.java` |
+| Every attack (state machine, parry, scripted movement, hazards, anti-cheese) | `oathbreaker/entity/OathbreakerCombat.java` |
+| Shared shake/zoom/particle-shape cues | `oathbreaker/OathbreakerFx.java` |
+| Summon delay + multiplayer HP scaling | `oathbreaker/OathbreakerSummon.java` |
+| Model (texture per phase) / renderer (glow layer, sword item, death fade) | `client/oathbreaker/OathbreakerModel.java`, `OathbreakerRenderer.java` |
+| **All generated assets** (geo, animations, 3 textures + 3 glowmasks, Broken Oath icon) | `scratchpad/build_oathbreaker_assets.js` (single source of truth -- never hand-edit its outputs) |
+| Source skin (vanilla 64x64 player layout, base + second layer) | `scratchpad/oathbreaker/deathknight_source.png` (copied out of a session temp dir in v0.14.0 so it can't vanish) |
+| Unblockable damage type | `data/projecthero/damage_type/oathbreaker_execution.json` + `data/minecraft/tags/damage_type/bypasses_shield.json` |
+| Loot | `data/projecthero/loot_table/entities/oathbreaker.json` |
+| Guidebook chapter | `hero/guide/HeroPackGuide.java` (`CH_OATHBREAKER`), lang `projecthero.guide.oathbreaker.*` |
 
 ## Summoning
 
-**Knight's Soul** (`GraveItems.KNIGHTS_SOUL`) is crafted from an Abyssal Core (dropped by The Abyssal
-Behemoth) surrounded by 8 Grave Essence — a 3x3 shaped recipe, `data/projecthero/recipe/knights_soul.json`.
+Unchanged from v0.13.7: `KnightsSoulItem` -> `OathbreakerSummon.begin` -> 5 s of escalating rumble/zoom ->
+`spawnNow` -> `OathbreakerEntity.spawnIn` (a 1.25 s crouch-to-stand, invulnerable, no AI).
 
-Using it (`KnightsSoulItem.useOn`) on a Respawn Anchor (changed from a Lodestone in v0.13.7 — a better
-thematic fit for a death-knight-flavoured boss) is a two-step hand-off, not an instant spawn:
+**Multiplayer HP scaling** (new): in `spawnNow`, before the entity is added, every player within 48 blocks of
+the spawn point is counted; each extra player beyond the first adds 40% max health, capped at 3 extra (4
+players). Written once into the `MAX_HEALTH` attribute's base value and never touched again.
 
-1. **Item side** (`KnightsSoulItem`): the usual dedup/room guards (refuses if another live
-   `OathbreakerEntity` is within 48 blocks, or if `OathbreakerSummon.findSpot` can't find 4 blocks of
-   clear air over solid ground near the anchor), then the item is consumed immediately and
-   `OathbreakerSummon.begin(level, anchorPos)` takes over. Same shape as `GraveRitualTotemItem`/
-   `BehemothSpawner`.
-2. **`OathbreakerSummon`** (v0.13.7, new): a transient in-memory queue (ticked from the same
-   `ServerTickEvents.END_SERVER_TICK` hook as `BehemothSpawner`, cleared by `ServerStateReset` like every
-   other static cache this mod keeps) that waits **5 real seconds** before the boss actually appears —
-   "make world rumble a bit and make the players screen zoom in slightly and after 5 seconds the
-   oathbreaker spawns in in a crouched animation." During the wait it sends an escalating rumble
-   (`TitanShakePayload`, reused from Titan Shifter — despite the name it's already a generic camera-shake
-   packet) and ambient Soul particles to everyone within 32 blocks, plus a one-shot camera zoom-in cue
-   (`WorldEventZoomPayload`, new, same shape as the shake payload) at the start and again at the moment of
-   the actual spawn. `findSpot` is recomputed at spawn time in case the ground changed during the wait; if
-   it no longer qualifies, the summon just fizzles (the Knight's Soul is already spent, same as any other
-   spell that whiffs).
+## Stats
 
-## Camera cues (`WorldEventZoomPayload` / `WorldEventZoomClient` / `WorldEventZoomMixin`)
+| | |
+| --- | --- |
+| Max health | 4,000 (+40% per extra nearby player at spawn, max 4 players) |
+| Armor / toughness | 10 / 4 |
+| Knockback resistance | 0.8; **1.0 during any wind-up or active strike** ("hyper armor", `setHyperArmor`). Dropped back to 0.8 during every punish window (post-dash stance, chain miss, grab whiff) |
+| Movement speed | 0.15 / 0.18 / 0.22 by phase |
+| Follow range / boss-bar radius | 48 / 48 |
+| XP | 500 (actually dropped now -- see "Death") |
 
-A small new generic system, deliberately named for reuse beyond just this boss (matching how
-`TitanShakePayload` outgrew its own name): the server sends `(amount, ticks)`, the client eases a
-multiplier into `GameRenderer#getFov` (a second `@Inject` at the same point `GunFovMixin` already uses,
-composed multiplicatively) that decays linearly back to 1.0, exactly mirroring `TitanShakeClient`'s decay
-shape for camera shake.
+`TitanCombat.isBoss()` still trips (it's a `getMaxHealth() >= config threshold` check; 4,000 clears it --
+verified in the harness).
 
-## Model
+## Poise and stagger
 
-The geometry and texture started from a Blockbench file the project owner supplied
-(`3d minecraft models/knight/deathknight.bbmodel`) — a 64x64 skin using vanilla's own player-model box-UV
-layout (head/body/arms/legs at the exact vanilla coordinates) painted as a dark, red-eyed knight, but with
-**unnamed** bone groups (no `name`/`pivot`/`rotation` on any group node), which GeckoLib's geo format
-cannot use directly. `scratchpad/build_oathbreaker_assets.js` rebuilds the usable assets from it, and is
-the single source of truth for all three generated files below — never hand-edit the JSON/PNG outputs.
+Hidden meter, 400. `hurt()` (not `actuallyHurt`, which only sees armor-reduced damage) drains it one-for-one
+with the **raw** incoming amount, mirroring vanilla's i-frame rule (a hit inside the window only counts by
+how much it beats the last one). Hyper armor does **not** protect poise. 80 ticks with no damage -> poise
+snaps back to full. At 0: the current attack is cancelled, he kneels (`stagger`, 2.5 s, no AI), takes +30%
+damage, then gets up with full poise. Never during spawn, a phase transition, or death. The flinch clip only
+plays when he's idle.
 
-- Decodes the embedded base64 texture (`pnglib.js`, the same hand-rolled PNG decode/encode this project
-  uses everywhere — no Python in this dev environment), extends the canvas from 64x64 to 64x80, and paints
-  three flat sword swatches (blade/guard/grip) into the new strip. v0.13.7: the blade swatch recoloured
-  from a plain steel silver to netherite's own dark, slightly-purple grey ("make the sword a netherite
-  sword").
-- Builds `geo/oathbreaker.geo.json` by hand: six named bones (`head`/`body`/`right_arm`/`left_arm`/
-  `right_leg`/`left_leg`) at the model's own cuboid coordinates, with explicit per-face `{uv, uv_size}`
-  computed from Minecraft's standard box-UV packing formula (the exported geo format wants faces spelled
-  out, not an implicit box-UV origin — confirmed against how `abyssal_behemoth.geo.json` is shaped) so the
-  supplied texture drops straight on with no distortion. A seventh bone, `sword`, is a child of
-  `right_arm` (three cuboids: grip, guard, blade), textured from the new swatch strip.
-- Builds `animations/oathbreaker.animation.json` (16 clips): idle/walk/hit/death/**spawn** (new), plus the
-  two named attacks' wind-up and strike beats (see below).
+## Phases
 
-The model is authored at vanilla-player proportions (`OathbreakerEntity.MODEL_HEIGHT = 2.0f`); the
-renderer (`OathbreakerRenderer.preRender`) scales it up to the entity's real 4-block bounding box
-(`OathbreakerEntity.HEIGHT`) — the same `getBbHeight() / MODEL_HEIGHT` trick `TitanFormRenderer` and
-`BehemothRenderer` already use.
+`Phase { KNIGHT, FORSWORN, OATHLESS }`, synced in one `EntityDataAccessor<Byte>`; the model picks the
+texture from it. Never regresses.
 
-### The second-layer attempt, and why it isn't here
+- **Oath Shattered** (at 60%): 3 s scripted, invulnerable, no AI, no stagger. `phase_transition` clip: reels,
+  kneels, raises the sword in a reverse grip, **drives it into the ground at exactly 1.5 s** -- on that tick the
+  phase flips (texture swap), a soul-fire ring expands to 8 blocks over 8 ticks hitting each player once as
+  it passes (8 damage, big outward shove), plus a strong shake + zoom to everyone within 32 and respawn-anchor-
+  deplete / soul-escape sounds. Rips the sword out and stands. Boss bar becomes "The Oathbreaker — Forsworn".
+- **Enrage** (at 25%): 1.5 s roaring stance. Per spec **not** invulnerable (verified: hits land), but no AI and
+  no stagger. Phase 3 texture swaps in at the roar's peak (0.5 s) with a big shake. From then on he uses a
+  `run` loop instead of `walk` when chasing. Boss bar "The Oathbreaker — Oathless" (the spec only named phase
+  2's bar; phase 3's follows the same pattern).
+- A single huge hit that skips past 25% still plays Oath Shattered first; the enrage follows next tick.
 
-v0.13.7 tried restoring the vanilla-skin "layer" overlay (hat/jacket/sleeves/trousers) as a set of thin
-inflated child bones, one per base bone, reusing the source skin's own layer UV offsets — the user had
-flagged the base-only v0.13.6 model as missing it. Verified with the client debug harness (below):
-**adding the layer bones corrupted the whole model into an unreadable vertical blob**, badly enough that
-head/body/arms/legs stopped reading as separate parts at all — screenshotted before and after. Deleting
-just the layer bones (keeping everything else identical) restored a correctly-proportioned humanoid, so
-the layer shell was dropped again rather than shipping something worse than no second layer. This reads
-like a real GeckoLib child-bone quirk (the geo data itself, checked by hand, looked correct — every
-cube's origin/size/pivot matched the intended absolute position), but the root cause wasn't tracked down
-further; revisit with fresh eyes before trying again, and verify with the harness before assuming a fix
-works.
+## Attacks (`OathbreakerCombat`)
 
-### Sword: the "dragging on the ground" bug
+Every attack is a list of timed steps; every step length is a tuning constant that the build script checks
+against its clip length, and every damaging strike resolves on the clip's **contact keyframe** (also checked
+by the build script), never on the clip's first frame. Wind-ups track the target; committed strikes and
+flights don't -- that's the dodge. Movement during attacks (dash lunge, backstep, leaps, Judgement, the
+Execution lunge) is a **scripted move**: a start and end locked when it begins, driven by moving the entity
+along the path each tick (collisions still apply), gravity off.
 
-The very first version's blade ran from the hand (absolute model y=12, since vanilla-proportioned arms
-only reach hip height) down 22 units — but the ground is at y=0, so roughly 10 units of blade (a good
-1.25 blocks at the render-time 2x scale) rendered *through the floor* at rest. v0.13.7 shortened the blade
-to 7 units, which happens to land the tip exactly at y=0 hanging straight down (a deliberate "point
-planted on the ground" rest, not a clipping bug) — total visible length below the hand (guard + blade) is
-about 9 units, proportionate on a 4-block frame without ever going negative. Confirmed clear of the
-ground via the harness screenshots below.
+Damage cones (`arcTargets`) are measured on the **horizontal plane from his feet**, with a vertical band from
+just below his feet to just above his head; anyone inside his footprint counts as hit.
 
-## Movement and AI
+| Attack | Phases | Beats | Damage | Counterplay |
+| --- | --- | --- | --- | --- |
+| Stance Dash | all | 1.5 s wind-up (glint) -> 4-block lunge, contact 0.10 s -> 2 s committed stance | 30, 5-block 70° cone | dodge the lunge; punish the stance |
+| Dash feint | 2+ (25%) | weight shifts as if to go, settles back; the real dash fires 0.5 s later | -- | don't roll on the first twitch |
+| Combo | all | 4 hits (5 from phase 2), each wind-up -> strike (contact 0.10 s), wind-ups chain from the previous hit's follow-through | 10 each; the 5th is a thrust (4.5 range, 40°) | -- |
+| Delayed combo | 2+ | before each strike, a random 0-0.6 s extra hold (looping `combo_hold_N`) | | can't rhythm-roll it |
+| Oath Guard | all (only if the target hit him in the last 3 s) | 1.5 s guard; a **melee** hit from within 6 blocks inside his front 100° is negated (anvil ping) -> instant **Riposte** | riposte 18 + strong knockback | hit from behind, or at range |
+| Backstep | all | after any attack, target within 2.5 blocks, 30%: hops 3 blocks back | -- | spacing |
+| Leaping Cleave | all | target 8-20 blocks away for 3 s: 0.6 s crouch -> 0.8 s parabola to where you **were** at takeoff (landing ring on the ground the whole flight) -> 0.8 s chop + settle | 20 at centre -> 10 at 4 blocks | move out of the ring |
+| Soul Rend | 2+ | 0.8 s drag; the line **locks** for the last 0.5 s and soul particles flicker along all 12 blocks -> rising slash, eruptions walk out 1 block / 2 ticks | 12 per eruption (1.2 radius), 3 s fire | step off the line |
+| Chains of the Forsworn | 2+ (range 6-16, 35%/s roll) | 0.5 s off-hand wind-up -> a visible chain flies at where you were, 1.6 blocks/tick, 18 reach -> caught: dragged in over 0.5 s, then combo strike 1; missed: 1 s open recovery | strike 10 | sidestep the throw |
+| Judgement | 3 (own 20 s cooldown, 50% when up) | rises 8 blocks; hangs 1 s tracking you with a soul beam + ground ring; landing **locks**; 5-tick slam | 35 at centre -> 10 at 6 blocks; then a 6-block soul-fire circle, 4/s for 5 s | get out of the ring before the lock, then out of the circle |
+| Execution | 3 (own 25 s cooldown, 50% when up) | **red** flash + warden charge, 0.8 s wind-up, short lunge; a player in the 2.5-block 60° cone is grabbed and held up in front of him for 1.5 s, then impaled and thrown | 40, **unblockable** (bypasses shields; armor still counts) | leave the cone; allies deal 150 during the hold to free you (he staggers) |
+| Phantom Echo | 3 (passive) | every Combo/Stance Dash contact is repeated by a soul-fire ghost from where he stood, 1 s later | 60% of the original | don't dodge once and walk straight back in |
 
-Unlike the Titan/Behemoth family, the Oathbreaker uses **ordinary vanilla goals** for movement — it is
-grounded and single-target, so there is no need for the hand-rolled navigation those flying/giant bosses
-need: `FloatGoal`, `MeleeAttackGoal` (chase-into-range only), `WaterAvoidingRandomStrollGoal`,
-`HurtByTargetGoal`, `NearestAttackableTargetGoal<Player>`. `doHurtTarget` always returns `false` so
-`MeleeAttackGoal`'s own automatic attack call is harmless — every point of real damage comes from the
-timed state machine in `tickCombat`, called from `aiStep`, the same "goals only move it, a hand-timed
-state machine attacks" split `AbyssalBehemothEntity`/`TitanEntity` use.
+**Weights.** Phase 1 melee pool: Stance Dash 35 / Combo 45 / Oath Guard 20. Phase 2: 25 / 35 / Soul Rend 20 /
+Oath Guard 10. Phase 3: 20 / 30 / 20 / 5, with Judgement and Execution offered first whenever off their own
+cooldowns (50% each). Shared cooldown 2.5 s / 2 s / 1.5 s.
 
-Stats (v0.13.7): **3,000 HP** (up from 500), movement speed 0.15 (**50%** over vanilla's 0.1 player walk
-speed, up from 10%), knockback resistance 0.6. `TitanCombat.isBoss()` (a `getMaxHealth()` threshold check)
-picks it up automatically, so every other power's "don't one-shot a boss" damage cap already applies to
-it for free.
+**Chains decision (differs from the literal spec, on purpose).** The spec lists Chains at weight 10 "only when
+in range", but its range (6-16) never overlaps the 5-block trigger every melee attack uses, so a weighted pick
+would make it the *only* candidate out there and he'd throw it after every single cooldown. Instead, while
+the target sits in 6-16 blocks and he's off cooldown, he rolls `CHAIN_RANGED_CHANCE` (35%) once a second. In
+phase 3 the same roll can also offer Judgement.
 
-## Spawn sequence (`spawnIn`, v0.13.7)
+**Execution grab mechanics.** The victim rides him (`startRiding(boss, true)`); `positionRider` holds them
+1.4 blocks in front at 42% of his height, and a Monster's travel ignores rider input, so they can't move.
+Release paths: impale, the escape rule, his stagger/death/any cancel (`releaseVictim`), and a per-tick
+validity check (dead, removed, other dimension, creative/spectator, disconnected -> hold ends). A victim who
+sneak-dismounts is put straight back. `hasExactlyOnePlayerPassenger()` is overridden to `false`: otherwise
+vanilla would treat him like a horse and, on logout or world save, write him **into the player's save file**
+and remove him from the world. The Fabric disconnect hook also releases a logging-out victim first.
 
-Called by `OathbreakerSummon` the instant the entity is added to the world: sets `spawnTicksLeft =
-SPAWN_TICKS` (25 ticks, matched exactly to the `spawn` animation clip's own 1.25s length so AI waking up
-lines up with the moment he's actually finished standing), `setNoAi(true)` and `setInvulnerable(true)` for
-the duration, and triggers the `spawn` action animation (a held crouch that rises to standing over the
-clip). `aiStep` branches to `tickSpawn` while any ticks remain — ambient Soul Fire particles every 4
-ticks, then on the last tick: AI/invulnerability lift, an impact sound + particle burst, and the boss bar
-opens for the first time. Before this the boss bar does not exist yet, so nothing shows on-screen during
-the crouch.
+## Anti-cheese
 
-## Combat state machine
+- **Unreachable for 3 s** (pillared > 3 blocks above him, in water/lava, or no complete path -- pathfinding
+  re-checked every 10 ticks): phase 1 throws a **Soul Spear** (off-hand, chain-throw wind-up, then a fast
+  visible bolt, 2.5 blocks/tick, 15 damage, dodgeable); phase 2+ throws the **Chains**, which drag them down.
+- **Stuck for 5 s** (not attacking, target out of reach, barely moved or inside a block): a short Leaping
+  Cleave (max 6 blocks) toward the target.
+- Creative/spectator players are never valid targets or strike victims; a target that switches mid-fight is
+  dropped.
 
-Two named attacks, an `Attack` enum (`STANCE_DASH` / `COMBO`) plus a shared cooldown
-(`ATTACK_COOLDOWN_TICKS`, 2.5s) so they never overlap — `pickAttack()` rolls 40% Stance Dash / 60% Combo
-once in range (`ATTACK_TRIGGER_RANGE`, 5 blocks) and off cooldown.
+## Death
 
-**Stance Dash** (30 damage) — `StancePhase.WINDUP -> DASH -> POST`:
-1. 2s wind-up (`windup_dash`): sword drawn back overhead, stance held.
-2. `dashSlice`: a short forward lunge (cosmetic velocity only) plus one instant forward-cone damage sweep
-   (`arcTargets`, 5 blocks / 70°) — resolved in one shot, not a physically-simulated collision, the same
-   pattern `TitanEntity.doPunch`/`doSweep` etc. already use.
-3. 2s held stance (`post_dash`) before easing back to idle/walk, per spec ("stays in that stance for
-   another 2 seconds").
+`die()` now calls `super.die()` -- **the old override skipped it**, so the boss never set vanilla's dead flag,
+never credited the kill (advancements/kill score) and **never dropped its XP**; it hand-rolled only the loot.
+Vanilla's death path rolls the entity type's default loot table, which is the same
+`projecthero:entities/oathbreaker`. `tickDeath` is replaced: 3 s instead of vanilla's 20-tick poof; the
+`death` clip drops him to both knees with the sword planted and his head bowed, soul particles stream off him
+thicker every tick from 1.2 s, the renderer fades him out (translucent render type + alpha, no vanilla
+tip-over rotation, the sword item disappears halfway through since the item renderer can't fade), and
+everyone within 48 blocks gets "The oath... is fulfilled." on their action bar.
 
-**Four-Strike Combo** (10 damage per hit) — four hits, each its own wind-up (`combo_windup_N`) then a
-strike (`combo_strike_N`, resolved via `arcTargets`, 3.5 blocks / 80°) from a different direction:
-upper-right slash, upper-left slash, a horizontal sweep, an overhead slam — both the pose data
-(`comboPoses` in the build script) and the actual attack direction vary per hit, "like an Elden Ring
-boss." `progressCombo` alternates a wind-up sub-phase and a strike-then-hold sub-phase via one
-`strikePhasePending` flag rather than a second enum, since there are only two sub-states to track.
+Loot: netherite sword, 25-40 Grave Essence, a guaranteed Abyssal Core, and the new **Broken Oath** (crafting
+material, no recipe/use yet; icon generated by the build script).
 
-**v0.13.7 timing/animation fix**: the user reported the attack animations as not really working. Two real
-causes, both fixed:
-- The `AnimationController` transition time was 4 ticks, blending between two triggered clips — for the
-  original 0.2s combo strikes that ate a third or more of the entire beat, smearing one pose into the
-  next before it ever fully showed. Cut to 1 tick (and the "main" idle/walk controller's own transition
-  2, down from 6).
-- The beats themselves were too short to read even without blending: combo wind-up lengthened 0.4s -> 0.5s
-  and the strike hold 0.2s -> 0.35s (`COMBO_WINDUP_TICKS`/`COMBO_STRIKE_HOLD_TICKS`, matched exactly by
-  the animation clip lengths in the build script).
+## Model and assets
 
-Both attacks lock `getNavigation()` and hold the look control on the target for the whole sequence, so a
-windup can be genuinely dodged by moving out of the eventual strike's arc.
+- **Second skin layer is back.** v0.13.7's attempt built the layer as separate *child bones* and corrupted
+  the model. v0.14.0 does what the source Blockbench file itself does: each layer cube lives **inside the same
+  bone as its base cube** (inflate 0.5 hat, 0.25 elsewhere). No new bones. Screenshotted from all sides: reads
+  as a crested helm, pauldrons and plate, no corruption.
+- **The sword is the real vanilla netherite sword item**, drawn at the (now empty) `sword` bone by a
+  `BlockAndItemGeoLayer`. GeckoLib's stock layer applies the bone's rotation a *second* time on top of the
+  entity renderer's own bone transform, so the renderer overrides `renderForBone` to only move to the pivot
+  and orient the item itself (grip on the wrist, blade down the arm, edge leading).
+- **No new bones anywhere.** Kneels/crouches (stagger, transitions, death, landings) are faked by the
+  build script's `pose()` solver: give it a torso lean and the *world* angle each leg/arm/sword should end at,
+  and it returns local rotations plus the `root` offset that keeps a foot on the ground (the legs hang off
+  `body`, whose pivot is at the shoulders, so leaning the torso swings the hips).
+- **Glow:** `AutoGlowingGeoLayer` + a `_glowmask` twin per texture. Phase 1: the four eye pixels (they sit
+  behind eye slits cut into the helm layer's visor). Phases 2/3: plus the soul-fire crack cores. Phase 3's
+  cracks are phase 2's, widened, with a few extra forks (same seed).
+- **Build-script checks.** Every run prints every clip's length in ticks and fails on any mismatch with its
+  `OathbreakerTuning` constant, and checks every strike clip has a sword-arm keyframe on its contact tick.
 
-## Damage taken
+### Bugs found and fixed along the way (all harness-verified)
 
-No armor/resistance overrides — a plain `actuallyHurt` override only refreshes the boss bar immediately
-and occasionally triggers the `hit` flinch animation, the same shape `AbyssalBehemothEntity` uses.
+- **Walk/idle overrode every attack clip on the client.** The client never saw the server's attack state,
+  so the looping controller kept playing underneath triggered clips and won on shared bones -- the v0.13.7
+  wind-up screenshot shows the arm at the hip instead of overhead. A synced "busy" flag now stops it. Almost
+  certainly the real reason v0.13.7's attacks "didn't really work".
+- The melee-chase goal kept re-pathing mid-attack, so he crept forward during wind-ups. Now it stands down.
+- The glow layer rendered at 4x (floating crack shapes above his head): `preRender` scaled again on GeckoLib's
+  layer re-render pass. Now scales on the main pass only.
+- 3D damage cones from mid-height: a player hugging his legs couldn't be hit, and the Execution whiffed on a
+  player right in front of him. Now horizontal.
+- A held victim changing dimension crashed the server (an ended attack was advanced). Fixed.
 
-## Boss bar, loot, death
+## Verification (TEMPORARY client harness, deleted before release as always)
 
-`EventBossBar` (red, no darken-screen), 48-block radius, updates every tick and immediately after any hit
-lands (once it exists — see the spawn sequence above). `die()` stops AI, plays `death`, clears the boss
-bar, and rolls `data/projecthero/loot_table/entities/oathbreaker.json` (a netherite sword, 15-25 Grave
-Essence, a chance at another Abyssal Core) before a 1s collapse (`deathTicks`) removes the entity —
-shorter than the Behemoth's 3s cinematic since this is a grounded humanoid, not a giant collapsing
-creature. `xpReward = 250`.
+The harness (`scratchpad/OathbreakerDebugHarness.java.txt`, run with `PROJECTHERO_OATHBREAKER_DEBUG=1`,
+`Difficulty.NORMAL`, mob spawning off -- superflat slimes photobomb otherwise) was run after every stage.
 
-## Multiplayer
-
-Server-authoritative throughout: the state machine, targeting and movement all run only in
-`aiStep`/goal ticks on the logical server. Animation reaches every client through GeckoLib's networked
-`triggerAnim` (the whole attack sequence, one-shot per beat) and a synced `getLimbSwingAmount()` read in
-`mainPredicate` for the looping idle/walk state — the same two-controller convention every other GeoEntity
-boss in this mod uses. The rumble/zoom cues and the spawn sequence are likewise plain server -> client
-cosmetic payloads, no different from Titan Shifter's own shake packet.
-
-## Verifying visuals without a human (v0.13.7)
-
-Actually playtested this time, via the same TEMPORARY client debug harness
-`docs/TITANSHIFTER_REFERENCE.md`'s own notes and `project-titan-shifter` memory describe (env var
-`PROJECTHERO_OATHBREAKER_DEBUG=1 ./gradlew runClient --offline`, background, screenshots read back as
-images). Source saved at `scratchpad/OathbreakerDebugHarness.java.txt` for reuse; copy into
-`src/client/.../client/oathbreaker/`, add the guarded `init()` call, and delete both before committing,
-same discipline as every other harness use.
-
-**One gotcha specific to a `Monster`-tagged boss** (the Titan/All Might harnesses never hit this, since
-neither of those entities extends `Monster`): the harness world must be `Difficulty.NORMAL`, not
-`PEACEFUL`. On Peaceful, vanilla silently removes every `Monster`-category entity a few ticks after it
-spawns, with no exception or log line — the first run of this harness used Peaceful (copied from
-`TitanDebugHarness`) and both the Oathbreaker and a test Abyssal Behemoth vanished mid-script, which cost
-a full extra debug cycle to diagnose before the fix was obvious.
-
-Confirmed via the harness: the spawn sequence (crouch -> particle burst -> rise), both attacks with the
-new timing, the sword no longer touching the ground, the corrected (layer-less) model reading as a proper
-humanoid, and real damage (a forced hit reduced `getHealth()` by exactly the amount dealt, no resistance).
-Not covered: the rumble/zoom camera cues themselves (hard to verify from a static screenshot) and real
-multiplayer.
+- **Screenshot-verified:** spawn; idle/walk; stagger kneel; the busy-flag fix; Stance Dash, all combo
+  hits, guard, riposte, backstep, leap (with its ground ring); Oath Shattered sequence and the texture swap;
+  phase 2/3 textures by day and at night (glowing cracks, no floating layer); eyes glowing through the visor
+  at night; Soul Rend telegraph + line; chain flight, pull and miss; the delayed-combo hold and the thrust;
+  the feint; enrage; run; Judgement rise/beam/impact/ring; Execution red flash, hold and impale; Phantom Echo;
+  Soul Spear knocking a pillared player off; the second skin layer from all sides; the netherite sword in
+  every pose; the death kneel and fade; the Broken Oath icon; the guidebook index.
+- **Verified by harness numbers:** HP/armor/toughness/knockback/speed per phase; `isBoss`; poise maths,
+  regen, stagger through hyper armor, +30%; hyper armor 1.0/0.8; parry vs rear hit vs arrow; backstep distance;
+  leap trigger and landing accuracy; Soul Rend on-line vs sidestep; chain catch/pull/miss; the 5-hit combo's
+  random holds; a feint in phase-2 dashes; transitions (invulnerability, phase flip timing, shockwave shove);
+  enrage hittable and stagger-proof; Judgement height/centre damage/ring ticks; Execution hold height, impale
+  damage through Resistance III, escape at 160 (not 80), victim's own damage not counting, sneak re-grab,
+  release on dimension change / victim death / boss death; Phantom Echo timing and 60%; face-hug combo hit;
+  Soul Spear and Chains on pillaring players; creative switch; unsticking from a 3-deep pit (phase 1: the
+  short unstick leap; phase 2: a kite leap straight out -- the stuck timer keeps counting through ranged
+  attacks, and the move control is parked at attack start, which is what made an earlier pit leap fail);
+  the death message; loot and XP; the two Thor fixes (R swap, full-inventory recall).
+- **Code-read only:** multiplayer HP scaling with real extra players (single player can't simulate them);
+  release on the victim **logging out** (the disconnect hook + the `hasExactlyOnePlayerPassenger` override);
+  the Execution bypassing a raised shield (data tag).
+- **Not verified:** the camera shake/zoom cues themselves (they're existing payloads; a static screenshot
+  can't show them), and real multiplayer overall.
 
 ## Known simplifications
 
-- No second texture layer (see above) — base skin only.
-- The attack-arc damage sweep is a single instant AABB/cone check timed to the strike beat, not a
-  frame-by-frame hitbox on the actual swinging sword geometry — consistent with how every other boss in
-  this mod resolves its telegraphed attacks.
-- Attack-state and spawn-state fields are not persisted to NBT; a save/reload mid-attack or mid-spawn just
-  resets to idle/finishes spawning instantly, which only ever costs a few seconds of a wasted windup.
+- The Phantom Echo is particles only (no ghost entity/model), as the spec allowed.
+- Chains and the Soul Spear are server-side point-and-line math with particles, not projectile entities.
+- The phase is saved (`OathbreakerPhase` NBT byte, restored with its movement speed on load), so a reloaded
+  phase-2/3 boss doesn't replay its transition. Attack/stagger/transition timers aren't saved; instead the
+  vanilla flags they drive (NoAI, Invulnerable, NoGravity, the hyper-armor knockback base) are all reset on
+  load -- without that, a world saved mid-stagger or mid-transition would reload a permanently frozen,
+  invulnerable boss. A reload mid-attack simply resumes at idle; one saved before Oath Shattered's plunge
+  replays the transition. (Code-read only -- the harness never saved and reloaded a world.)
+- The glowing eyes/cracks don't fade with the body during death (the glow layer has its own render type);
+  they vanish when he's removed.
+- The whole model is mirrored relative to the skin (the `right_arm` bone renders on his left) -- inherited
+  from the original model and harmless, but camera angles in the harness use his *left* side as the sword side.

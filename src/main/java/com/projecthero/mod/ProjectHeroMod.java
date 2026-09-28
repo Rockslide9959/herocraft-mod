@@ -352,6 +352,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.wolverine.Wolverine.clearTransient(handler.getPlayer());
 			com.projecthero.mod.titanshifter.TitanShifter.clearTransient(handler.getPlayer());
 			com.projecthero.mod.allmight.AllMight.clearTransient(handler.getPlayer());
+			com.projecthero.mod.oathbreaker.entity.OathbreakerEntity.releaseIfHeld(handler.getPlayer());
 		});
 		// A Titan never survives a server stop: put every shifter back on the ground before the world saves.
 		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPING.register(

@@ -94,8 +94,9 @@ public final class MjolnirRecall {
 		UUID hammerId = player.getAttachedOrElse(ModAttachments.BOUND_HAMMER_ID, null);
 
 		// 1. Already ours.
-		if (findInInventory(player, hammerId) >= 0) {
-			ThorFeedback.recallAlreadyHeld(player);
+		int ownSlot = findInInventory(player, hammerId);
+		if (ownSlot >= 0) {
+			equipFromInventory(player, ownSlot);
 			return true;
 		}
 
@@ -188,6 +189,34 @@ public final class MjolnirRecall {
 		stack.remove(ModDataComponents.BOUND_OWNER);
 		stack.remove(ModDataComponents.BOUND_OWNER_NAME);
 		registry.setOwner(stack, Optional.empty(), "");
+	}
+
+	/**
+	 * v0.14.0: a hammer found anywhere in the backpack that isn't already the main hand is swapped
+	 * straight into it -- whatever was in the main hand takes the hammer's old slot -- so pressing R
+	 * mid-fight actually gets it into your hand instead of just confirming you technically have it
+	 * somewhere. This is always possible with no capacity check: it relocates two stacks that already
+	 * exist, it never needs a free slot. Only the ordinary 36-slot hotbar+storage range is eligible;
+	 * a hammer sitting in an armor or offhand slot (not a normal landing spot, but reachable by
+	 * manually shift-clicking one there) is left alone rather than risk swapping the displaced item
+	 * into an armor slot.
+	 */
+	private static void equipFromInventory(ServerPlayer player, int slot) {
+		Inventory inventory = player.getInventory();
+		int mainHandSlot = inventory.selected;
+		if (slot == mainHandSlot) {
+			ThorFeedback.recallAlreadyHeld(player);
+			return;
+		}
+		if (slot < 0 || slot >= 36) {
+			ThorFeedback.recallAlreadyHeld(player);
+			return;
+		}
+		ItemStack hammer = inventory.getItem(slot);
+		ItemStack heldItem = inventory.getItem(mainHandSlot);
+		inventory.setItem(mainHandSlot, hammer);
+		inventory.setItem(slot, heldItem);
+		ThorFeedback.recallEquipped(player);
 	}
 
 	// ---------------- resolution steps ----------------

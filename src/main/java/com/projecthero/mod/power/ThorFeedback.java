@@ -36,9 +36,15 @@ public final class ThorFeedback {
 		actionBar(player, "message.projecthero.recall.returned", ChatFormatting.GOLD);
 	}
 
-	/** Already in hand or inventory -- nothing to do, but say so rather than failing silently. */
+	/** Already in hand -- nothing to do, but say so rather than failing silently. */
 	public static void recallAlreadyHeld(Player player) {
 		actionBar(player, "message.projecthero.recall.already_held", ChatFormatting.GRAY);
+	}
+
+	/** v0.14.0: was elsewhere in the backpack -- swapped straight into the main hand mid-fight. */
+	public static void recallEquipped(Player player) {
+		actionBar(player, "message.projecthero.recall.equipped", ChatFormatting.AQUA);
+		thunderCue(player, 0.6f);
 	}
 
 	public static void recallNoHammer(Player player) {

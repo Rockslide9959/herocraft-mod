@@ -231,7 +231,8 @@ public final class HeroPackGuide {
 	private static final int CH_TITAN_SHIFTER = 17;
 	private static final int CH_ALL_MIGHT = 18;
 	private static final int CH_ABYSSAL_BEHEMOTH = 19;
-	private static final int CHAPTER_POWER_BASE = 20;
+	private static final int CH_OATHBREAKER = 20;
+	private static final int CHAPTER_POWER_BASE = 21;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -706,6 +707,17 @@ public final class HeroPackGuide {
 			}
 		}));
 
+		// The Oathbreaker (v0.14.0 rework) -- summoned, three-phase duel boss.
+		out.add(chapter("projecthero.guide.oathbreaker", lines -> {
+			para(lines, "projecthero.guide.oathbreaker.body");
+			blank(lines);
+			for (String section : new String[]{"summon", "poise", "phase1", "phase2", "phase3", "tells", "rewards"}) {
+				head(lines, "projecthero.guide.oathbreaker." + section);
+				para(lines, "projecthero.guide.oathbreaker." + section + ".body");
+				blank(lines);
+			}
+		}));
+
 		// one chapter per power, in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.all()) {
 			out.add(powerChapter(power));
@@ -743,6 +755,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.supervillain_raid", CH_SUPERVILLAIN_RAID);
 		link(idx, "projecthero.guide.titan", CH_TITAN);
 		link(idx, "projecthero.guide.abyssal_behemoth", CH_ABYSSAL_BEHEMOTH);
+		link(idx, "projecthero.guide.oathbreaker", CH_OATHBREAKER);
 
 		section(idx, "projecthero.guide.section.squads", true);
 		link(idx, "projecthero.guide.squads", CH_SQUADS);

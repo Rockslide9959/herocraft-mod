@@ -16,9 +16,12 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.phys.AABB;
 
 /**
  * The delay between using a Knight's Soul and The Oathbreaker actually appearing: the item consumes
@@ -102,6 +105,7 @@ public final class OathbreakerSummon {
 		oathbreaker.moveTo(spawnPos.getX() + 0.5, spawnPos.getY(), spawnPos.getZ() + 0.5,
 				level.random.nextFloat() * 360f, 0f);
 		oathbreaker.finalizeSpawn(level, level.getCurrentDifficultyAt(spawnPos), MobSpawnType.MOB_SUMMONED, null);
+		scaleHealthForParty(level, oathbreaker, spawnPos);
 		oathbreaker.setPersistenceRequired();
 		level.addFreshEntity(oathbreaker);
 		oathbreaker.spawnIn();
@@ -112,6 +116,29 @@ public final class OathbreakerSummon {
 		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, spawnPos.getX() + 0.5, spawnPos.getY() + 1.0, spawnPos.getZ() + 0.5, 1, 0, 0, 0, 0);
 		level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, spawnPos.getX() + 0.5, spawnPos.getY() + 0.5, spawnPos.getZ() + 0.5,
 				60, 0.6, 0.6, 0.6, 0.08);
+	}
+
+	/**
+	 * v0.14.0: max health scales up 40% per extra player within {@link OathbreakerTuning#HP_SCALE_RADIUS}
+	 * blocks of the spawn point, capped at {@link OathbreakerTuning#HP_SCALE_MAX_EXTRA_PLAYERS} extra (a
+	 * 4-player cap total) -- locked in right here at spawn and never touched again, per spec.
+	 */
+	private static void scaleHealthForParty(ServerLevel level, OathbreakerEntity oathbreaker, BlockPos spawnPos) {
+		AABB area = AABB.ofSize(spawnPos.getCenter(), OathbreakerTuning.HP_SCALE_RADIUS * 2,
+				OathbreakerTuning.HP_SCALE_RADIUS * 2, OathbreakerTuning.HP_SCALE_RADIUS * 2);
+		int nearbyPlayers = level.getEntitiesOfClass(ServerPlayer.class, area,
+				p -> p.distanceToSqr(spawnPos.getCenter()) <= OathbreakerTuning.HP_SCALE_RADIUS * OathbreakerTuning.HP_SCALE_RADIUS).size();
+		int extraPlayers = Math.min(OathbreakerTuning.HP_SCALE_MAX_EXTRA_PLAYERS, Math.max(0, nearbyPlayers - 1));
+		if (extraPlayers <= 0) {
+			return;
+		}
+		var maxHealth = oathbreaker.getAttribute(Attributes.MAX_HEALTH);
+		if (maxHealth == null) {
+			return;
+		}
+		double scaled = OathbreakerTuning.MAX_HEALTH_BASE * (1.0 + OathbreakerTuning.HP_SCALE_PER_EXTRA_PLAYER * extraPlayers);
+		maxHealth.setBaseValue(scaled);
+		oathbreaker.setHealth((float) scaled);
 	}
 
 	/** A legal, open spot for the boss right above/beside the anchor. Shared by {@code KnightsSoulItem}'s
