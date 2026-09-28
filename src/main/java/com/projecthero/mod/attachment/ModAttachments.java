@@ -485,6 +485,15 @@ public final class ModAttachments {
 					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
 
 	/**
+	 * v0.13.9: Wolverine is holding right-click to block with his claws (see {@code WolverineBlock}). Not
+	 * persisted (a relog lowers the guard); synced to everyone so other viewers see the crossed-claws pose.
+	 */
+	public static final AttachmentType<Boolean> WOLVERINE_BLOCKING = AttachmentRegistry.create(
+			ProjectHeroMod.id("wolverine_blocking"),
+			builder -> builder.initializer(() -> false)
+					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
+
+	/**
 	 * The entire Green Lantern Hero-Tier power for one player -- Ring Charge, suit state, selected
 	 * construct, Mastery progress, cumulative counters and ability cooldowns. Persistent + copyOnDeath
 	 * (the power and Mastery must survive death/relog), synced to everyone (other clients render the

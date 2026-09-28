@@ -49,43 +49,6 @@ public final class WolverineSense {
 		}
 	}
 
-	/** Right click with the claws out: strike with the off-hand claw at whatever is in reach. */
-	public static void offHandStrike(ServerPlayer player) {
-		if (!Wolverine.hasPower(player) || !Wolverine.clawsOut(player) || !player.getOffhandItem().isEmpty()
-				|| !Wolverine.abilityReady(player, "offhand_strike")) {
-			return;
-		}
-		Wolverine.triggerCooldown(player, "offhand_strike", WolverineConfig.OFFHAND_STRIKE_GUARD);
-		player.swing(net.minecraft.world.InteractionHand.OFF_HAND, true);
-		double reach = WolverineConfig.OFFHAND_STRIKE_REACH;
-		net.minecraft.world.phys.Vec3 eye = player.getEyePosition();
-		net.minecraft.world.phys.Vec3 end = eye.add(player.getLookAngle().scale(reach));
-		net.minecraft.world.phys.EntityHitResult hit = net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(
-				player, eye, end, player.getBoundingBox().expandTowards(player.getLookAngle().scale(reach)).inflate(1.0),
-				e -> !e.isSpectator() && e.isPickable() && e != player, reach * reach);
-		if (hit != null) {
-			// Same damage as the right hand (bare-hand 1 + 3 + 8 claw bonus, +50% in Rage) at full
-			// strength. The vanilla attack path scales by the swing cooldown, so a hit landed right
-			// after the other hand's swing was weak, and a held item changed the number.
-			if (hit.getEntity() instanceof LivingEntity target) {
-				float dmg = (float) (1.0 + WolverineConfig.MELEE_BONUS_DAMAGE + WolverineConfig.CLAW_MELEE_BONUS);
-				if (Wolverine.raging(player)) {
-					dmg *= 1.0f + (float) WolverineConfig.RAGE_DAMAGE_BONUS;
-				}
-				if (com.projecthero.mod.hero.power.AbilityHelpers.hurt(player, target, dmg)) {
-					com.projecthero.mod.hero.power.AbilityHelpers.knockbackFrom(target, player.position(), 0.5);
-					if (player.level() instanceof net.minecraft.server.level.ServerLevel level) {
-						net.minecraft.world.phys.Vec3 at = target.position().add(0, target.getBbHeight() * 0.55, 0);
-						level.sendParticles(net.minecraft.core.particles.ParticleTypes.CRIT, at.x, at.y, at.z, 6, 0.25, 0.3, 0.25, 0.15);
-					}
-				}
-			} else {
-				player.attack(hit.getEntity());
-			}
-			player.resetAttackStrengthTicker();
-		}
-	}
-
 	/** N key: sniff the air. Highlights every living entity within range for {@link WolverineConfig#SNIFF_TICKS}. */
 	public static void sniff(ServerPlayer player) {
 		if (!Wolverine.hasPower(player)) {

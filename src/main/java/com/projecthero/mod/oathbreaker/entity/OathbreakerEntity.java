@@ -770,6 +770,10 @@ public class OathbreakerEntity extends Monster implements GeoEntity {
 		if (this.entityData.get(DATA_BUSY)) {
 			return PlayState.STOP; // a triggered clip on the "action" controller owns the pose -- see #syncBusy
 		}
+		// v0.13.9: the walk clip's stride is authored for his phase-1 speed; phase 2 walks ~25% faster, so the
+		// clip plays 1.25x to keep his feet planted. Only ever changes with the phase -- which happens while
+		// this controller is stopped for the transition clip -- so it never jumps a loop mid-stride.
+		state.getController().setAnimationSpeed(getPhase() == Phase.FORSWORN ? 1.25 : 1.0);
 		if (state.getLimbSwingAmount() > 0.04f) {
 			// phase 3: a heavier forward-leaning run, sword dragging behind, instead of the measured walk
 			return state.setAndContinue(RawAnimation.begin().thenLoop(getPhase() == Phase.OATHLESS

@@ -27,9 +27,9 @@ public final class OathbreakerTuning {
 	public static final double KNOCKBACK_RESISTANCE_BASE = 0.8;
 	public static final double KNOCKBACK_RESISTANCE_HYPER_ARMOR = 1.0;
 
-	public static final double MOVEMENT_SPEED_PHASE1 = 0.15;
-	public static final double MOVEMENT_SPEED_PHASE2 = 0.18;
-	public static final double MOVEMENT_SPEED_PHASE3 = 0.22;
+	public static final double MOVEMENT_SPEED_PHASE1 = 0.19; // v0.13.9: 0.15/0.18/0.22 -> 0.19/0.22/0.26 (~1.6/2.1/3.0 blocks/s)
+	public static final double MOVEMENT_SPEED_PHASE2 = 0.22;
+	public static final double MOVEMENT_SPEED_PHASE3 = 0.26;
 
 	public static final double FOLLOW_RANGE = 48.0;
 	public static final double BOSS_BAR_RADIUS = 48.0;
@@ -52,7 +52,7 @@ public final class OathbreakerTuning {
 	/** The ring expands from him to {@link #SHOCKWAVE_RADIUS} over this many ticks; each player is hit once
 	 * as the front passes them. */
 	public static final int SHOCKWAVE_EXPAND_TICKS = 8;
-	public static final float SHOCKWAVE_DAMAGE = 8.0f;
+	public static final float SHOCKWAVE_DAMAGE = 12.0f;
 	public static final double SHOCKWAVE_KNOCKBACK = 2.2;
 	public static final double SHOCKWAVE_LIFT = 0.5;
 	public static final float TRANSITION_SHAKE_INTENSITY = 1.0f;
@@ -87,7 +87,7 @@ public final class OathbreakerTuning {
 	public static final double UNSTICK_LEAP_MAX_RANGE = 6.0;
 	/** Soul Spear (phase-1 ranged answer): thrown off-hand with the chain-throw wind-up
 	 * ({@link #CHAIN_THROW_TICKS}), then a fast, visible, dodgeable bolt. */
-	public static final float SOUL_SPEAR_DAMAGE = 15.0f;
+	public static final float SOUL_SPEAR_DAMAGE = 21.0f;
 	public static final double SOUL_SPEAR_SPEED = 2.5;
 	public static final double SOUL_SPEAR_REACH = 40.0;
 	public static final double SOUL_SPEAR_HIT_RADIUS = 0.6;
@@ -110,10 +110,17 @@ public final class OathbreakerTuning {
 	// ---------------- shared attack infrastructure ----------------
 
 	public static final int ATTACK_TRIGGER_RANGE = 5;
-	/** Shared cooldown between attack sequences in phase 1; phase 2 cuts this to 2s, phase 3 to 1.5s. */
-	public static final int ATTACK_COOLDOWN_TICKS_PHASE1 = 50;
-	public static final int ATTACK_COOLDOWN_TICKS_PHASE2 = 40;
-	public static final int ATTACK_COOLDOWN_TICKS_PHASE3 = 30;
+	/** Shared cooldown between attack sequences. v0.13.9: halved (2.5s/2s/1.5s -> 1.2s/0.9s/0.6s) -- he
+	 * attacks far more often. */
+	public static final int ATTACK_COOLDOWN_TICKS_PHASE1 = 24;
+	public static final int ATTACK_COOLDOWN_TICKS_PHASE2 = 18;
+	public static final int ATTACK_COOLDOWN_TICKS_PHASE3 = 12;
+	/** v0.13.9: while off cooldown he re-faces the target at this rate (degrees/tick) instead of waiting on
+	 * vanilla's lazy body rotation -- the reason a player standing still was sometimes never hit: his
+	 * body (which every cone is measured along) lagged up to ~75 degrees behind his head. */
+	public static final float TURN_DEGREES_PER_TICK = 30.0f;
+	/** During a wind-up he keeps turning toward the target at this rate; once the strike commits, he doesn't. */
+	public static final float WINDUP_TURN_DEGREES_PER_TICK = 20.0f;
 
 	// ---------------- Stance Dash ----------------
 
@@ -123,12 +130,24 @@ public final class OathbreakerTuning {
 	/** Ticks into the {@code dash_attack} clip at which the blade visibly connects -- damage resolves here,
 	 * not on the clip's first frame. */
 	public static final int STANCE_DASH_CONTACT_TICKS = 2;
-	/** The lunge itself: a scripted glide this far forward over this many ticks. */
-	public static final double STANCE_DASH_LUNGE_DISTANCE = 4.0;
+	/** The lunge itself: a scripted glide toward where the target stood when the dash committed, stopping
+	 * {@link #STANCE_DASH_STOP_SHORT} short of them, between these bounds, over this many ticks. v0.13.9: was
+	 * a fixed 4 blocks; it now reaches up to 9. */
+	public static final double STANCE_DASH_LUNGE_MIN = 3.0;
+	public static final double STANCE_DASH_LUNGE_DISTANCE = 9.0;
+	public static final double STANCE_DASH_STOP_SHORT = 1.0;
 	public static final int STANCE_DASH_LUNGE_TICKS = 4;
+	/** v0.13.9: the dash is also his gap-closer -- a target this far away (and beyond melee trigger range)
+	 * gets it, rolled {@link #STANCE_DASH_GAP_CHANCE} every {@link #STANCE_DASH_GAP_ROLL_TICKS}. */
+	public static final double STANCE_DASH_TRIGGER_RANGE = 10.0;
+	public static final float STANCE_DASH_GAP_CHANCE = 0.5f;
+	public static final int STANCE_DASH_GAP_ROLL_TICKS = 10;
+	/** v0.13.9: anyone the blade passes within this horizontal distance of along the whole lunge is cut
+	 * (plus the usual cone at the end) -- a dash can no longer glide straight through you and miss. */
+	public static final double STANCE_DASH_SWEEP_RADIUS = 2.0;
 	public static final int STANCE_POST_TICKS = 40; // 2s
-	public static final float STANCE_DAMAGE = 30.0f;
-	public static final double STANCE_RANGE = 5.0;
+	public static final float STANCE_DAMAGE = 42.0f; // v0.13.9: every damage number +40%
+	public static final double STANCE_RANGE = 6.0;
 	public static final double STANCE_ARC_DEGREES = 70.0;
 	public static final double STANCE_KNOCKBACK = 0.9;
 	/** Phase 2+: 25% chance the wind-up is followed by a feint before the real dash. */
@@ -147,8 +166,8 @@ public final class OathbreakerTuning {
 	public static final int COMBO_STRIKE_HOLD_TICKS = 7;
 	/** Ticks into a strike clip at which the blade connects and damage resolves. */
 	public static final int COMBO_STRIKE_CONTACT_TICKS = 2;
-	public static final float COMBO_DAMAGE_PER_HIT = 10.0f;
-	public static final double COMBO_RANGE = 3.5;
+	public static final float COMBO_DAMAGE_PER_HIT = 14.0f;
+	public static final double COMBO_RANGE = 4.0;
 	public static final double COMBO_ARC_DEGREES = 80.0;
 	public static final double COMBO_KNOCKBACK = 0.6;
 	/** Phase 2+: each wind-up gets a random extra hold on top of {@link #COMBO_WINDUP_TICKS}. */
@@ -168,7 +187,7 @@ public final class OathbreakerTuning {
 	public static final int RIPOSTE_TICKS = 8; // 0.4s
 	/** Ticks into the {@code riposte} clip at which the thrust lands. */
 	public static final int RIPOSTE_CONTACT_TICKS = 3;
-	public static final float RIPOSTE_DAMAGE = 18.0f;
+	public static final float RIPOSTE_DAMAGE = 26.0f;
 	public static final double RIPOSTE_RANGE = 4.5;
 	public static final double RIPOSTE_ARC_DEGREES = 60.0;
 	public static final double RIPOSTE_KNOCKBACK = 1.6;
@@ -198,7 +217,7 @@ public final class OathbreakerTuning {
 	public static final int LEAP_LAND_TICKS = 16; // 0.8s
 	public static final double LEAP_ARC_HEIGHT_BASE = 4.0;
 	public static final double LEAP_ARC_HEIGHT_PER_BLOCK = 0.2;
-	public static final float LEAP_DAMAGE = 20.0f;
+	public static final float LEAP_DAMAGE = 28.0f;
 	/** Damage at the very edge of {@link #LEAP_RADIUS}, as a fraction of {@link #LEAP_DAMAGE}. */
 	public static final float LEAP_EDGE_DAMAGE_FRACTION = 0.5f;
 	public static final double LEAP_RADIUS = 4.0;
@@ -219,7 +238,7 @@ public final class OathbreakerTuning {
 	public static final int SOUL_REND_LENGTH = 12;
 	public static final int SOUL_REND_TICKS_PER_BLOCK = 2;
 	public static final double SOUL_REND_RADIUS = 1.2;
-	public static final float SOUL_REND_DAMAGE = 12.0f;
+	public static final float SOUL_REND_DAMAGE = 17.0f;
 	public static final int SOUL_REND_FIRE_TICKS = 60; // 3s
 
 	// ---------------- Chains of the Forsworn (phase 2+) ----------------
@@ -272,8 +291,8 @@ public final class OathbreakerTuning {
 	public static final int JUDGEMENT_SLAM_TICKS = 24;
 	public static final int JUDGEMENT_FALL_TICKS = 5;
 	public static final double JUDGEMENT_RADIUS = 6.0;
-	public static final float JUDGEMENT_DAMAGE_CENTER = 35.0f;
-	public static final float JUDGEMENT_DAMAGE_EDGE = 10.0f;
+	public static final float JUDGEMENT_DAMAGE_CENTER = 48.0f;
+	public static final float JUDGEMENT_DAMAGE_EDGE = 14.0f;
 	public static final double JUDGEMENT_KNOCKBACK = 1.8;
 	public static final float JUDGEMENT_SHAKE_INTENSITY = 1.2f;
 	public static final int JUDGEMENT_SHAKE_TICKS = 30;
@@ -281,7 +300,7 @@ public final class OathbreakerTuning {
 	public static final int JUDGEMENT_ZOOM_TICKS = 20;
 	/** The lingering soul-fire circle left behind: everything inside burns until the players reposition. */
 	public static final double JUDGEMENT_RING_RADIUS = 6.0;
-	public static final float JUDGEMENT_RING_DAMAGE_PER_SECOND = 4.0f;
+	public static final float JUDGEMENT_RING_DAMAGE_PER_SECOND = 6.0f;
 	public static final int JUDGEMENT_RING_TICKS = 100; // 5s
 
 	// ---------------- Execution (phase 3, unblockable grab) ----------------
@@ -306,7 +325,7 @@ public final class OathbreakerTuning {
 	/** The impale -- matches {@code execution_impale}; the blade goes in on the contact frame. */
 	public static final int EXECUTION_IMPALE_TICKS = 16;
 	public static final int EXECUTION_IMPALE_CONTACT_TICKS = 6;
-	public static final float EXECUTION_DAMAGE = 40.0f;
+	public static final float EXECUTION_DAMAGE = 55.0f;
 	public static final double EXECUTION_THROW_KNOCKBACK = 2.4;
 	/** Whiffed grab -- matches {@code execution_whiff}; the punish window. */
 	public static final int EXECUTION_WHIFF_TICKS = 30; // 1.5s

@@ -96,6 +96,26 @@ public class WolverineGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.13.9: right-click guard -- only with the claws out and empty hands, and it drops when that stops. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void clawGuardNeedsClawsAndDropsWhenTheyGo(GameTestHelper helper) {
+		ServerPlayer p = wolverine(helper);
+		com.projecthero.mod.wolverine.WolverineBlock.start(p);
+		helper.assertFalse(com.projecthero.mod.wolverine.WolverineBlock.isBlocking(p), "no guard with the claws away");
+		Wolverine.setClaws(p, true);
+		com.projecthero.mod.wolverine.WolverineBlock.start(p);
+		helper.assertTrue(com.projecthero.mod.wolverine.WolverineBlock.isBlocking(p), "claws out: the guard goes up");
+		com.projecthero.mod.wolverine.WolverineBlock.stop(p);
+		helper.assertFalse(com.projecthero.mod.wolverine.WolverineBlock.isBlocking(p), "releasing lowers it");
+		com.projecthero.mod.wolverine.WolverineBlock.start(p);
+		Wolverine.setClaws(p, false);
+		com.projecthero.mod.wolverine.WolverineAbilityManager.serverTick(p);
+		helper.assertFalse(p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.WOLVERINE_BLOCKING, false),
+				"retracting the claws drops the guard flag on the next tick");
+		helper.assertTrue(WolverineConfig.BLOCK_DAMAGE_REDUCTION == 0.30f, "the guard cuts 30%");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void rageAppliesOnceAndCannotStack(GameTestHelper helper) {
 		ServerPlayer p = wolverine(helper);

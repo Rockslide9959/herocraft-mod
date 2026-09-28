@@ -67,6 +67,7 @@ public final class WolverineAbilityManager {
 			return;
 		}
 		WolverineSense.tick(player);
+		WolverineBlock.tick(player);
 		WolverinePassives.tick(player);
 		WolverineScheduler.tick(player);
 		WolverineAbilities.tick(player);

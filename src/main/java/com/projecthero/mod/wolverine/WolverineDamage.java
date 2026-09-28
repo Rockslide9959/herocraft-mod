@@ -10,7 +10,8 @@ import net.minecraft.world.entity.LivingEntity;
 
 /**
  * Wolverine's incoming-damage rules: 35% less physical damage (a further 20% during Rage, multiplied
- * -- 0.65 x 0.80, never additive-to-zero), 75% less fall damage, and the emergency-heal triggers.
+ * -- 0.65 x 0.80, never additive-to-zero), 75% less fall damage, a further 30% off anything shield-
+ * blockable while he holds the right-click claw guard (v0.13.9), and the emergency-heal triggers.
  * Fabric's {@code ALLOW_DAMAGE} is a boolean veto, so this uses the same cancel-and-re-apply-smaller
  * pattern as {@code PunisherDamage} / {@code SymbioteDamageRules}, behind a re-entrancy guard so the
  * reduced hit is never reduced again.
@@ -101,6 +102,11 @@ public final class WolverineDamage {
 			return false; // the resurrection window: nothing can hurt him (the void and /kill excepted above)
 		}
 		float factor = 1.0f;
+		// v0.13.9: the right-click claw guard -- stacks multiplicatively with the passive reduction below
+		boolean blocked = WolverineBlock.blocks(player, source);
+		if (blocked) {
+			factor *= 1.0f - WolverineConfig.BLOCK_DAMAGE_REDUCTION;
+		}
 		if (source.is(DamageTypes.FALL)) {
 			factor *= 1.0f - WolverineConfig.FALL_REDUCTION;
 		} else if (!source.is(DamageTypeTags.IS_FIRE) && !source.is(DamageTypeTags.BYPASSES_ARMOR)) {
@@ -121,7 +127,9 @@ public final class WolverineDamage {
 		}
 		REENTRANT.set(true);
 		try {
-			player.hurt(source, reduced);
+			if (player.hurt(source, reduced) && blocked) {
+				WolverineBlock.onBlockedHit(player);
+			}
 		} finally {
 			REENTRANT.set(false);
 		}

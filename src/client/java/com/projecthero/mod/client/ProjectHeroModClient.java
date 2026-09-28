@@ -635,19 +635,26 @@ public class ProjectHeroModClient implements ClientModInitializer {
 
 	private static boolean maxSteelTransformWasDown = false;
 
-	private static boolean wolverineUseWasDown;
+	/** v0.13.9: true while this client has told the server its claw guard is up (see {@link #handleWolverineOffHand}). */
+	public static boolean wolverineGuardSent;
 
-	/** Wolverine, claws out: right click strikes with the off-hand claw (the left hand that pops up). */
+	/**
+	 * Wolverine, claws out, empty hands: HOLDING right click raises the claw guard (v0.13.9 -- it used to be an
+	 * off-hand strike; left click now picks a random hand instead, see {@code WolverineAttackMixin}). Sends the
+	 * press/release edges; the server re-validates and syncs the flag everyone poses from.
+	 */
 	private static void handleWolverineOffHand(Minecraft client) {
-		boolean down = client.options.keyUse.isDown();
-		if (down && !wolverineUseWasDown && client.player != null && client.screen == null
-				&& com.projecthero.mod.wolverine.Wolverine.clawsOut(client.player)
-				&& client.player.getOffhandItem().isEmpty() && client.player.getMainHandItem().isEmpty()) {
-			client.player.swing(net.minecraft.world.InteractionHand.OFF_HAND);
-			ClientPlayNetworking.send(new com.projecthero.mod.network.WolverineActionPayload(
-					com.projecthero.mod.network.WolverineActionPayload.Action.CLAW_STRIKE));
+		boolean want = client.player != null && client.screen == null && client.options.keyUse.isDown()
+				&& com.projecthero.mod.wolverine.WolverineBlock.canBlock(client.player);
+		if (want != wolverineGuardSent) {
+			wolverineGuardSent = want;
+			if (client.getConnection() == null) {
+				return; // left the world with the guard up: nothing to tell (it isn't persisted)
+			}
+			ClientPlayNetworking.send(new com.projecthero.mod.network.WolverineActionPayload(want
+					? com.projecthero.mod.network.WolverineActionPayload.Action.BLOCK_START
+					: com.projecthero.mod.network.WolverineActionPayload.Action.BLOCK_STOP));
 		}
-		wolverineUseWasDown = down;
 	}
 
 	private static boolean titanSprintWasDown;

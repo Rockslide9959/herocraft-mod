@@ -139,9 +139,10 @@ public final class WolverineConfig {
 	/** Cooldown when the strike finds nothing to hit -- no full 30 s penalty for a whiff. */
 	public static final int EXECUTION_MISS_COOLDOWN = 8 * S;
 
-	/** Right-click claw strike (off hand) reach and swing guard. */
-	public static final double OFFHAND_STRIKE_REACH = 3.5;
-	public static final int OFFHAND_STRIKE_GUARD = 6;
+	/** v0.13.9: holding right-click with the claws out blocks -- incoming damage cut by this fraction (anything
+	 * a shield can't stop, e.g. fall, fire, starvation, magic, still goes through untouched). Replaces the old
+	 * right-click off-hand strike; left click now picks a random hand instead. */
+	public static final float BLOCK_DAMAGE_REDUCTION = 0.30f;
 
 	/** Claw toggle spam guard. */
 	public static final int TOGGLE_COOLDOWN = 8;

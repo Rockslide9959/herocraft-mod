@@ -5,6 +5,21 @@ Package `com.projecthero.mod.wolverine` (+ `client.wolverine`, `command.Wolverin
 mutation the same way Spider-Man ascends Spider Adhesion. It is not a second regeneration system: it
 reuses Super Regeneration's base heal tick and debuff-shortening mixin and scales them.
 
+> **v0.13.9 (mouse buttons):** the right-click off-hand strike is gone (`WolverineSense.offHandStrike` and
+> `OFFHAND_STRIKE_*` deleted). **Left click** with the claws out and both hands empty swings a random hand:
+> `client.mixin.WolverineAttackMixin` `@ModifyArg`s the `LocalPlayer.swing(hand)` call in
+> `Minecraft.startAttack` -- the swing packet carries the hand, so every viewer sees the same one; the hit is
+> vanilla's either way. **Holding right click** raises a claw guard (`WolverineBlock`): the client sends
+> `WolverineActionPayload` `BLOCK_START`/`BLOCK_STOP` on the press edges (`ProjectHeroModClient.handleWolverineOffHand`),
+> the server re-validates (`canBlock` = claws out + empty hands) and sets the synced, non-persistent
+> `ModAttachments.WOLVERINE_BLOCKING`; `WolverineBlock.tick` drops it when the guard stops being legal.
+> `WolverineDamage` multiplies by `1 - BLOCK_DAMAGE_REDUCTION` (0.30) for anything not tagged
+> `minecraft:bypasses_shield` (so falls, fire, drowning, magic go through), on top of the passive 35% --
+> harness: a raw 10 hit costs 6.50 unguarded, 4.55 guarded; a fall is unchanged. Like a raised shield he
+> can't attack while guarding (the mixin cancels `startAttack`/`continueAttack`). Poses: `HumanoidModelMixin`
+> raises both arms crossed in front of the face (every viewer); `ItemInHandRendererClawsMixin` tips both
+> first-person forearms 60 degrees in so the claws cross above the crosshair. Screenshot-verified.
+>
 > **v0.12.43:** `WolverineDamage.survivedLethalFall`: a FALL that would kill (after the 75% reduction) leaves 1 HP, the pool loses min(damage, `FALL_SURVIVE_MAX_ABSORB` 100), Slowness VI 20 s (`WolverinePassives.tickLegFlesh` keeps it up) and `WolverineState.legFleshStartedAt` drives `client.wolverine.WolverineLegFleshLayer` (legs-only flesh texture, hold 20 s then fade 20 s). Needs pool > 0. The state codec is at 16 fields, so healPool/lastHurtAt/legFleshStartedAt now live in the nested `Extra` record. Death Surge HUD marker is 3 px.
 >
 > **v0.12.41:** pool max 250, refill 5 HP/s, HUD shows only the percentage and the Death Surge marker is 2 px wide.
@@ -111,7 +126,7 @@ untouched.
 
 ## v0.12.12
 
-- **Left hand = right hand:** the right-click off-hand strike now deals a fixed 12 (+50% in Rage) at full
+- **Left hand = right hand:** (superseded in v0.13.9 -- see the top) the right-click off-hand strike now deals a fixed 12 (+50% in Rage) at full
   strength (`WolverineSense.offHandStrike`), no longer scaled by the swing cooldown or a held item.
 - **Claw Dash grab:** the first enemy struck is pinned 1.3 blocks ahead and carried with the player's velocity
   until the dash ends (landing; 30-tick safety cap), never through walls (`WolverineAbilities.dragGrabbed`).
@@ -122,7 +137,7 @@ untouched.
 
 - Claw Dash range 7 -> 21 blocks. The grabbed enemy is now placed ahead of the player by 2 ticks of their velocity
   (1.6 blocks in front) so it stays in front instead of trailing.
-- Claw moves alternate right / left hand (`WolverineAbilities.swing`); the right-click strike resets the attack cooldown.
+- Claw moves alternate right / left hand (`WolverineAbilities.swing`); (v0.13.9: there is no right-click strike any more -- right click blocks).
 - Symbiote suit growth is now base-host only (`Symbiote.tickGrowth`); Symbiote Spider-Man keeps his size.
 
 ## v0.12.14

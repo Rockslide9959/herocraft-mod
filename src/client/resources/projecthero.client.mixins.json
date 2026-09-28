@@ -29,6 +29,7 @@
 		"SoundEngineMixin",
 		"TitanCameraMixin",
 		"SpiderTravelMixin",
+		"WolverineAttackMixin",
 		"WorldEventZoomMixin"
 	],
 	"client": [],

@@ -19,7 +19,6 @@ import net.minecraft.world.item.Items;
 import software.bernie.geckolib.cache.object.BakedGeoModel;
 import software.bernie.geckolib.cache.object.GeoBone;
 import software.bernie.geckolib.renderer.GeoEntityRenderer;
-import software.bernie.geckolib.renderer.layer.AutoGlowingGeoLayer;
 import software.bernie.geckolib.renderer.layer.BlockAndItemGeoLayer;
 import software.bernie.geckolib.util.Color;
 import software.bernie.geckolib.util.RenderUtil;
@@ -29,10 +28,10 @@ import software.bernie.geckolib.util.RenderUtil;
  * scale (vanilla-player proportions), then stretched to the entity's real bounding-box height here -- the
  * same trick {@code TitanFormRenderer}/{@code BehemothRenderer} use.
  *
- * <p>v0.14.0: two render layers. {@link AutoGlowingGeoLayer} draws the current phase texture's
- * {@code _glowmask} twin full-bright (eyes; soul-fire cracks from phase 2). And the sword is the real
- * vanilla netherite sword item, drawn at the model's empty {@code sword} bone, so every clip's sword track
- * swings it exactly as it swung the old flat-coloured blade geometry.
+ * <p>The sword is the real vanilla netherite sword item, drawn at the model's empty {@code sword} bone, so
+ * every clip's sword track swings it exactly as it swung the old flat-coloured blade geometry. v0.13.9: the
+ * v0.14.0 full-bright glow layer (eyes, soul-fire cracks) is gone -- he doesn't glow; the cracks are still
+ * painted into the phase textures, lit like the rest of him.
  */
 public class OathbreakerRenderer extends GeoEntityRenderer<OathbreakerEntity> {
 	private static final ItemStack SWORD = new ItemStack(Items.NETHERITE_SWORD);
@@ -47,9 +46,6 @@ public class OathbreakerRenderer extends GeoEntityRenderer<OathbreakerEntity> {
 	public OathbreakerRenderer(EntityRendererProvider.Context context) {
 		super(context, new OathbreakerModel());
 		this.shadowRadius = 0.9f;
-		// glowing eyes (and, from phase 2, glowing soul-fire cracks) -- renders the current texture's
-		// `_glowmask` twin full-bright, so they read in the dark.
-		addRenderLayer(new AutoGlowingGeoLayer<>(this));
 		addRenderLayer(new BlockAndItemGeoLayer<>(this) {
 			@Override
 			protected ItemStack getStackForBone(GeoBone bone, OathbreakerEntity animatable) {
@@ -125,9 +121,9 @@ public class OathbreakerRenderer extends GeoEntityRenderer<OathbreakerEntity> {
 			MultiBufferSource bufferSource, VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight,
 			int packedOverlay, int colour) {
 		super.preRender(poseStack, animatable, model, bufferSource, buffer, isReRender, partialTick, packedLight, packedOverlay, colour);
-		// Main pass only. Render layers (the glowmask) go through reRender, which calls preRender again
-		// INSIDE the main pass's already-scaled pose stack -- scaling again drew the glow layer at 4x, as
-		// giant floating crack shapes above his head.
+		// Main pass only. Render layers that re-render the model go through reRender, which calls preRender
+		// again INSIDE the main pass's already-scaled pose stack -- scaling again drew v0.14.0's glow layer at
+		// 4x, as giant floating crack shapes above his head.
 		if (isReRender) {
 			return;
 		}

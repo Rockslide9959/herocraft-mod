@@ -174,10 +174,12 @@ public final class ModNetworking {
 			}
 		});
 
-		// Wolverine: the H-key claw toggle. Server re-validates power ownership + the spam guard.
+		// Wolverine: the H-key claw toggle, the N sniff and the right-click claw block. Server re-validates.
 		ServerPlayNetworking.registerGlobalReceiver(WolverineActionPayload.TYPE, (payload, context) -> {
-			if (payload.action() == WolverineActionPayload.Action.CLAW_STRIKE) {
-				com.projecthero.mod.wolverine.WolverineSense.offHandStrike(context.player());
+			if (payload.action() == WolverineActionPayload.Action.BLOCK_START) {
+				com.projecthero.mod.wolverine.WolverineBlock.start(context.player());
+			} else if (payload.action() == WolverineActionPayload.Action.BLOCK_STOP) {
+				com.projecthero.mod.wolverine.WolverineBlock.stop(context.player());
 			} else if (payload.action() == WolverineActionPayload.Action.SNIFF) {
 				com.projecthero.mod.wolverine.WolverineSense.sniff(context.player());
 			} else if (payload.action() == WolverineActionPayload.Action.TOGGLE_CLAWS) {

@@ -108,6 +108,24 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		this.hat.xRot = this.head.xRot;
 	}
 
+	/**
+	 * v0.13.9: Wolverine's right-click claw guard -- both forearms raised in front of his face and angled in so
+	 * the claws cross in an X. Driven by the synced blocking flag, so every viewer sees it.
+	 */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$wolverineGuardPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (!(entity instanceof Player player) || !com.projecthero.mod.wolverine.WolverineBlock.isBlocking(player)) {
+			return;
+		}
+		this.rightArm.xRot = -1.95f;
+		this.rightArm.yRot = -0.62f;
+		this.rightArm.zRot = 0.12f;
+		this.leftArm.xRot = -1.95f;
+		this.leftArm.yRot = 0.62f;
+		this.leftArm.zRot = -0.12f;
+	}
+
 	/** All Might's Smash / transformation poses (v0.12.33): driven by the synced power state, so every viewer and the armour shell agree. */
 	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
 	private void projecthero$allMightPose(LivingEntity entity, float limbSwing, float limbSwingAmount,

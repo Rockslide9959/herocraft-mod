@@ -104,6 +104,10 @@ final class OathbreakerCombat {
 	private boolean comboHolding;
 	/** Stance Dash, phase 2+: already feinted once this dash. */
 	private boolean feinted;
+	/** Stance Dash: everyone already cut by this dash (the lunge sweep and the end cone share it). */
+	private final java.util.Set<Integer> dashHit = new java.util.HashSet<>();
+	/** v0.13.9: ticks until the next gap-closing Stance Dash roll. */
+	private int dashRollTimer;
 
 	/** Soul Rend: the line's direction, locked at the start of the telegraph. */
 	private Vec3 rendDir;
@@ -180,6 +184,7 @@ final class OathbreakerCombat {
 		if (active != null) {
 			if (target != null && holdsLookOnTarget()) {
 				boss.getLookControl().setLookAt(target, 30.0f, 30.0f);
+				faceTarget(target, OathbreakerTuning.WINDUP_TURN_DEGREES_PER_TICK);
 			}
 			Attack before = active;
 			int stepBefore = step;
@@ -195,6 +200,10 @@ final class OathbreakerCombat {
 				advance(server);
 			}
 			return;
+		}
+		if (isValidTarget(target) && boss.distanceTo(target) <= OathbreakerTuning.STANCE_DASH_TRIGGER_RANGE + 2.0) {
+			// v0.13.9: squared up to the target between attacks too, so the next one starts aimed
+			faceTarget(target, OathbreakerTuning.TURN_DEGREES_PER_TICK);
 		}
 		if (cooldown > 0) {
 			cooldown--;
@@ -234,6 +243,15 @@ final class OathbreakerCombat {
 				begin(server, pickAttack());
 			}
 			return;
+		}
+		// v0.13.9: the Stance Dash doubles as his gap-closer -- out of melee reach but inside dash range,
+		// with a clear line, he rolls for it instead of just walking in
+		if (dist <= OathbreakerTuning.STANCE_DASH_TRIGGER_RANGE && --dashRollTimer <= 0) {
+			dashRollTimer = OathbreakerTuning.STANCE_DASH_GAP_ROLL_TICKS;
+			if (boss.hasLineOfSight(target) && boss.getRandom().nextFloat() < OathbreakerTuning.STANCE_DASH_GAP_CHANCE) {
+				begin(server, Attack.STANCE_DASH);
+				return;
+			}
 		}
 		if (boss.getPhase() != OathbreakerEntity.Phase.KNIGHT
 				&& dist >= OathbreakerTuning.CHAIN_MIN_RANGE && dist <= OathbreakerTuning.CHAIN_MAX_RANGE
@@ -426,10 +444,14 @@ final class OathbreakerCombat {
 		LivingEntity target = boss.getTarget();
 		if (target != null) {
 			boss.getLookControl().setLookAt(target, 30.0f, 30.0f);
+			if (attack != Attack.BACKSTEP) {
+				faceTarget(target, 180.0f); // every attack starts squared up to its target
+			}
 		}
 		switch (attack) {
 			case STANCE_DASH -> {
 				feinted = false;
+				dashHit.clear();
 				ticks = OathbreakerTuning.STANCE_WINDUP_TICKS;
 				anim("windup_dash");
 				glint(server, 0.9);
@@ -563,9 +585,13 @@ final class OathbreakerCombat {
 	private void onHold(ServerLevel server) {
 		switch (active) {
 			case STANCE_DASH -> {
-				if (step == 1 && elapsed(OathbreakerTuning.STANCE_DASH_TICKS) == OathbreakerTuning.STANCE_DASH_CONTACT_TICKS) {
-					resolveArc(server, OathbreakerTuning.STANCE_RANGE, OathbreakerTuning.STANCE_ARC_DEGREES,
-							OathbreakerTuning.STANCE_DAMAGE, OathbreakerTuning.STANCE_KNOCKBACK, SoundEvents.ANVIL_LAND);
+				if (step == 1) {
+					int e = elapsed(OathbreakerTuning.STANCE_DASH_TICKS);
+					if (e == OathbreakerTuning.STANCE_DASH_CONTACT_TICKS) {
+						dashContact(server);
+					} else if (e > OathbreakerTuning.STANCE_DASH_CONTACT_TICKS && e <= OathbreakerTuning.STANCE_DASH_LUNGE_TICKS + 1) {
+						dashSweep(server); // the rest of the lunge keeps cutting whoever it passes
+					}
 				}
 			}
 			case COMBO -> {
@@ -653,6 +679,79 @@ final class OathbreakerCombat {
 		return stepTicks - ticks + 1;
 	}
 
+	/** The dash's contact frame: the usual forward cone, plus everyone the lunge has already carried the blade
+	 * past. Each victim is cut once per dash. */
+	private void dashContact(ServerLevel server) {
+		Vec3 f = forward();
+		soulTrail(server, f, OathbreakerTuning.STANCE_RANGE, OathbreakerTuning.STANCE_ARC_DEGREES);
+		boolean hit = false;
+		for (LivingEntity victim : arcTargets(server, f, OathbreakerTuning.STANCE_RANGE, OathbreakerTuning.STANCE_ARC_DEGREES)) {
+			if (dashHit.add(victim.getId())) {
+				hit |= strike(victim, OathbreakerTuning.STANCE_DAMAGE, f, OathbreakerTuning.STANCE_KNOCKBACK);
+			}
+		}
+		hit |= dashSweep(server);
+		if (hit) {
+			server.playSound(null, boss.blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.HOSTILE, 1.3f, 1.1f);
+		}
+		if (boss.getPhase() == OathbreakerEntity.Phase.OATHLESS) {
+			scheduleEcho(f, OathbreakerTuning.STANCE_RANGE, OathbreakerTuning.STANCE_ARC_DEGREES, OathbreakerTuning.STANCE_DAMAGE,
+					OathbreakerTuning.STANCE_KNOCKBACK);
+		}
+	}
+
+	/** Everyone within {@link OathbreakerTuning#STANCE_DASH_SWEEP_RADIUS} of the path the lunge has covered so
+	 * far (start of the lunge to where he is now), measured horizontally. */
+	private boolean dashSweep(ServerLevel server) {
+		if (moveStart == null) {
+			return false;
+		}
+		Vec3 a = moveStart;
+		Vec3 b = boss.position();
+		double r = OathbreakerTuning.STANCE_DASH_SWEEP_RADIUS;
+		Vec3 f = forward();
+		boolean hit = false;
+		AABB box = new AABB(Math.min(a.x, b.x), Math.min(a.y, b.y) - 1.0, Math.min(a.z, b.z), Math.max(a.x, b.x),
+				Math.max(a.y, b.y) + boss.getBbHeight() + 1.0, Math.max(a.z, b.z)).inflate(r + 1.0, 0.0, r + 1.0);
+		for (LivingEntity victim : server.getEntitiesOfClass(LivingEntity.class, box,
+				e -> e != boss && e.isAlive() && e.isPickable() && isValidTarget(e) && !dashHit.contains(e.getId()))) {
+			if (horizontalSegmentDistSqr(victim.position(), a, b) <= Math.pow(r + victim.getBbWidth() * 0.5, 2)
+					&& dashHit.add(victim.getId())) {
+				hit |= strike(victim, OathbreakerTuning.STANCE_DAMAGE, f, OathbreakerTuning.STANCE_KNOCKBACK);
+			}
+		}
+		return hit;
+	}
+
+	private static double horizontalSegmentDistSqr(Vec3 p, Vec3 a, Vec3 b) {
+		double abx = b.x - a.x;
+		double abz = b.z - a.z;
+		double len = abx * abx + abz * abz;
+		double t = len < 1.0e-6 ? 0.0 : Math.max(0.0, Math.min(1.0, ((p.x - a.x) * abx + (p.z - a.z) * abz) / len));
+		double dx = p.x - (a.x + abx * t);
+		double dz = p.z - (a.z + abz * t);
+		return dx * dx + dz * dz;
+	}
+
+	/**
+	 * v0.13.9: turns his whole body (yaw, body, head) toward the target, at most {@code maxDegrees} this tick.
+	 * Every cone he swings is measured along {@link #forward()}, i.e. his yaw -- which vanilla only moves while
+	 * he's walking. Standing still, the look control turned just his head, so against a player who didn't move
+	 * the swings went out along a stale heading up to ~75 degrees off and whiffed.
+	 */
+	private void faceTarget(LivingEntity target, float maxDegrees) {
+		double dx = target.getX() - boss.getX();
+		double dz = target.getZ() - boss.getZ();
+		if (dx * dx + dz * dz < 1.0e-4) {
+			return;
+		}
+		float want = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float yaw = net.minecraft.util.Mth.approachDegrees(boss.getYRot(), want, maxDegrees);
+		boss.setYRot(yaw);
+		boss.setYBodyRot(yaw);
+		boss.setYHeadRot(yaw);
+	}
+
 	private void comboContact(ServerLevel server, int hit) {
 		boolean thrust = hit == OathbreakerTuning.COMBO_HITS_PHASE2;
 		resolveArc(server, thrust ? OathbreakerTuning.COMBO_THRUST_RANGE : OathbreakerTuning.COMBO_RANGE,
@@ -678,8 +777,15 @@ final class OathbreakerCombat {
 					step = 1;
 					ticks = OathbreakerTuning.STANCE_DASH_TICKS;
 					anim("dash_attack");
-					startMove(boss.position().add(forward().scale(OathbreakerTuning.STANCE_DASH_LUNGE_DISTANCE)),
-							OathbreakerTuning.STANCE_DASH_LUNGE_TICKS, 0.0);
+					// v0.13.9: the lunge carries him to where the target stood as the dash committed (up to 9
+					// blocks), instead of a fixed 4 -- the wind-up has already squared him up to them
+					LivingEntity target = boss.getTarget();
+					double lunge = OathbreakerTuning.STANCE_DASH_LUNGE_DISTANCE;
+					if (isValidTarget(target)) {
+						lunge = Math.sqrt(horizontalDistSqr(target.position(), boss.position())) - OathbreakerTuning.STANCE_DASH_STOP_SHORT;
+						lunge = Math.max(OathbreakerTuning.STANCE_DASH_LUNGE_MIN, Math.min(OathbreakerTuning.STANCE_DASH_LUNGE_DISTANCE, lunge));
+					}
+					startMove(boss.position().add(forward().scale(lunge)), OathbreakerTuning.STANCE_DASH_LUNGE_TICKS, 0.0);
 					server.playSound(null, boss.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 2.0f, 0.7f);
 				} else if (step == 1) {
 					step = 2;

@@ -10,14 +10,17 @@ import net.minecraft.resources.ResourceLocation;
 
 /**
  * Client &rarr; server Wolverine gestures that are not one of the six ability slots: the H-key claw
- * deploy / retract. Edge-triggered and re-validated on the server (power ownership + a short spam
- * guard), so a modified client can do nothing with it but toggle its own claws.
+ * deploy / retract, the N-key sniff, and (v0.13.9) raising / lowering the right-click claw block.
+ * Edge-triggered and re-validated on the server (power ownership, claws out, empty hands, spam guards).
  */
 public record WolverineActionPayload(Action action) implements CustomPacketPayload {
 	public enum Action {
 		TOGGLE_CLAWS,
 		SNIFF,
-		CLAW_STRIKE
+		/** v0.13.9: right-click pressed -- raise the claw guard (replaces the old off-hand claw strike). */
+		BLOCK_START,
+		/** Right-click released (or the guard became impossible) -- lower it. */
+		BLOCK_STOP
 	}
 
 	public static final CustomPacketPayload.Type<WolverineActionPayload> TYPE =

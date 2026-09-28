@@ -615,6 +615,11 @@ public final class HeroPackGuide {
 					.append(Component.translatable("projecthero.guide.wolverine.toggle").withStyle(ChatFormatting.WHITE)));
 			lines.add(Component.literal(" N  ").withStyle(ChatFormatting.GOLD)
 					.append(Component.translatable("projecthero.guide.wolverine.sniff").withStyle(ChatFormatting.WHITE)));
+			// v0.13.9: the mouse buttons with the claws out
+			lines.add(Component.literal(" LMB  ").withStyle(ChatFormatting.GOLD)
+					.append(Component.translatable("projecthero.guide.wolverine.lmb").withStyle(ChatFormatting.WHITE)));
+			lines.add(Component.literal(" RMB  ").withStyle(ChatFormatting.GOLD)
+					.append(Component.translatable("projecthero.guide.wolverine.rmb").withStyle(ChatFormatting.WHITE)));
 			blank(lines);
 			head(lines, "projecthero.guide.wolverine.passives");
 			para(lines, "projecthero.guide.wolverine.passives.body");

@@ -30,6 +30,11 @@ public abstract class EntityGlowMixin {
 		if (self instanceof LocalPlayer) {
 			return;
 		}
+		// v0.13.9: the Oathbreaker never glows -- no outline from any sense, highlight or Glowing effect
+		if (self instanceof com.projecthero.mod.oathbreaker.entity.OathbreakerEntity) {
+			cir.setReturnValue(false);
+			return;
+		}
 		LocalPlayer viewer = Minecraft.getInstance().player;
 		if (viewer == null || viewer == self) {
 			return;
