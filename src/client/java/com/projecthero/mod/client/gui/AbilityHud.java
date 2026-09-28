@@ -155,16 +155,26 @@ public final class AbilityHud {
 		int barY = y0 + BOX + 4;
 		for (Meter m : meters) {
 			float ratio = Math.max(0.0f, Math.min(1.0f, m.value / m.max));
-			graphics.fill(x0 - 1, barY - 1, x0 + bw + 1, barY + 5, COLOR_BORDER);
-			graphics.fill(x0, barY, x0 + bw, barY + 4, 0xAA101018);
-			graphics.fill(x0, barY, x0 + Math.round(bw * ratio), barY + 4, m.color);
+			if (m.hairline) {
+				// v0.13.11: a Hairline bar -- 3 px, no border (Pyrokinesis)
+				graphics.fill(x0, barY + 1, x0 + bw, barY + 4, 0xAA101018);
+				graphics.fill(x0, barY + 1, x0 + Math.round(bw * ratio), barY + 4, m.color);
+			} else {
+				graphics.fill(x0 - 1, barY - 1, x0 + bw + 1, barY + 5, COLOR_BORDER);
+				graphics.fill(x0, barY, x0 + bw, barY + 4, 0xAA101018);
+				graphics.fill(x0, barY, x0 + Math.round(bw * ratio), barY + 4, m.color);
+			}
 			graphics.drawString(client.font, m.label, x0, barY + 5, 0xFF9AA6D0, false);
 			barY += BAR_ROW_H;
 		}
 	}
 
-	private record Meter(Component label, float value, float max, int color) {
+	/** {@code hairline}: drawn as a borderless 3 px Hairline bar instead of the bordered Meter bar. */
+	private record Meter(Component label, float value, float max, int color, boolean hairline) {
 	}
+
+	/** v0.13.11: powers whose bars are all Hairline bars. */
+	private static final java.util.Set<String> HAIRLINE_POWERS = java.util.Set.of("power_08_pyrokinesis");
 
 	/** Shadow Manipulation's ambient-light strength indicator, shown above the ability row. */
 	private static void renderShadowLevel(GuiGraphics g, Minecraft client, int x, int y) {
@@ -313,7 +323,7 @@ public final class AbilityHud {
 				text = Component.literal("Energy: "
 						+ String.format(java.util.Locale.ROOT, "%.2f", value / max * 100.0f) + "%");
 			}
-			out.add(new Meter(text, value, max, color));
+			out.add(new Meter(text, value, max, color, HAIRLINE_POWERS.contains(power.key())));
 		}
 		return out;
 	}

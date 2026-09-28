@@ -48,6 +48,8 @@ public final class ProjectHeroCommand {
 		root.then(RaidAdminCommand.build());
 
 		dispatcher.register(root);
+		// v0.13.11: Hulk Phase 1 test commands (op-only; removed / locked down in Phase 4)
+		dispatcher.register(HulkCommand.build());
 		SquadCommand.initialize(dispatcher);
 	}
 }

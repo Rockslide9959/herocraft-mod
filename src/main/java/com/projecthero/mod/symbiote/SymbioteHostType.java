@@ -25,9 +25,20 @@ public enum SymbioteHostType {
 	 * black-suit armour ({@code SymbioteArmorItem}) and enhancements layered onto the existing
 	 * {@code SpiderManAbilityManager}/{@code SpiderAbilities}, never new keybinds.
 	 */
-	SPIDER_MAN;
+	SPIDER_MAN,
+	/**
+	 * v0.13.11: a bonded player who holds the Punisher (and not Spider-Man, who wins if a player holds
+	 * both) -- Agent Venom. Gets the Agent Venom suit ({@code AgentVenomArmorItem}) and keeps the whole
+	 * Punisher kit, with sneak-modified Symbiote extras layered onto it
+	 * ({@link SymbioteAgentVenomAbilities}) -- the same "enhance, never new keybinds" model as the Black
+	 * Suit. Like the Black Suit it has none of the Normal host's Biomass-bar passives.
+	 */
+	AGENT_VENOM;
 
 	public static SymbioteHostType of(Player player) {
-		return SpiderMan.hasPower(player) ? SPIDER_MAN : NORMAL;
+		if (SpiderMan.hasPower(player)) {
+			return SPIDER_MAN;
+		}
+		return com.projecthero.mod.punisher.Punisher.hasPower(player) ? AGENT_VENOM : NORMAL;
 	}
 }

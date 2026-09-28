@@ -134,6 +134,8 @@ hunt down — then right-click to bond.
   dark purple, everything else dark blue) — visible to **you only**. **N** toggles it off and on.
 - **Weaknesses:** sound attacks (Warden boom, bells, goat horns) tear the suit off and disable every
   Symbiote ability for 5 seconds; burning for more than 2 seconds deactivates the suit.
+- **Agent Venom (v0.13.11):** the Symbiote now also shares a host with **the Punisher**. A bonded Punisher presses **H** for the
+  **Agent Venom suit** and keeps his whole kit, plus Symbiote extras (see the Punisher below).
 - **Symbiote Vial:** craft one from Iron Blocks and Glass. Sneak-use to bottle your own Symbiote, or
   right-click a free one; use the filled vial to bond again.
 
@@ -164,6 +166,13 @@ A **non-superhuman** Hero-Tier power: firearms, explosives, gear and training. C
 - **Passives:** a per-gun regenerating ammo reserve (no ammo item to carry), plus infinite arrows and
   double bow/crossbow damage while powered.
 - Netherite/diamond-tier **tactical armour** (no helmet), craftable only by Punisher players.
+- **Agent Venom (Punisher + Symbiote, v0.13.11):** bond with a Symbiote as the Punisher and **H** wraps you in the
+  **Agent Venom suit** (diamond-plus protection, +25% melee, +15% speed and jump). Your guns and gadgets all still
+  work, and the suit adds: **Sneak+X Tendril Swing** (haul yourself to any block up to 36 away), **Sneak+Z Tendril
+  Snatch** (drag a mob to you, bound, and rip the weapon out of its hand), **Sneak+V Symbiote Unleashed** (10 s of
+  +50% melee, +20% speed and life-stealing punches), **Symbiote Rounds** (+20% gun damage, bullets lash targets with
+  tendrils) and **Living Ammunition** (reserve regenerates 3x, reloads 25% faster). Fire and loud noises still drive
+  the Symbiote off.
 
 ### 💚 Green Lantern
 A permanent **Primary** power. Find a **Fallen Lantern Site** — a rare, damaged crater holding a
@@ -230,6 +239,7 @@ body (new skin in v0.12.35) and hit-box scaled up to eleven blocks (lightning, s
   **G** Heavy Smash (charge, then 50 in an area) · **Z** Titan Stomp (25, 6 blocks) · **X** Titan Leap (~3× a jump,
   landing 20 in 5 blocks; leap while **sprinting** to launch about twice as far; **Shift+X** = Titan Roar) · **V** Titan Roar (32 blocks, ground level and up: Weakness II + Slowness III 12 s, Nausea 3 s, Blindness 2 s, Mining Fatigue 3 s, mobs scattered; bosses resist) ·
   **C** Titan Regeneration (10 HP/s for 10 s; **Shift+C** = Titan Hardening: 60% less damage for 8 s, crystal skin).
+- **Yellow lightning (v0.13.11):** the bolt that strikes when you transform is golden yellow, and the electricity that builds while you hold **H** for an Emergency Shift is yellow too.
 - **HUD (v0.12.34, restyled v0.12.35/36):** bars have no border and the Titan Energy bar is yellow; base form shows Titan Energy (thin bar, %); Titan form shows the six ability keys, a thin Titan HP bar with **HP / 500** and **Revert Form [H]**.
 - **Heavy by design:** slow ground-shaking footsteps with dust and camera tremors, steam off the shoulders when hurt
   or healing, no terrain digging (it tramples leaves and plants; a server option lets attacks break weak blocks).
@@ -249,6 +259,18 @@ plates, 2 enchanted golden apples, 2 diamond blocks, a **totem of undying**) and
 - **Armour (v0.12.43):** the Power Form wears only the All Might armour — regular armour tears off when you transform (**-50 durability**, unequipped and dropped) and is refused afterwards. Particles are now **gold**.
 - **Passives (Power Form):** air-burst punches, hard-landing shockwaves, **no fall damage at all**, bosses lose at most 10% per Smash. Admins: `/projecthero power grant all_might`.
 - Server-authoritative; every number is in `AllMightConfig`. Full details in `docs/ALLMIGHT_REFERENCE.md`.
+
+### 💚 The Hulk (in development)
+A new **Hero-Tier Primary** power, arriving in phases. **Phase 1 (v0.13.11)** is the core **rage loop**:
+
+- A **Rage** bar (0-100) in the bottom-right HUD fills when you are hurt and when you fight, and calms down if
+  you are left alone. At **75** press **H** to let the Hulk out; at **100** he comes out on his own.
+- **The Hulk:** 1.8x size, +12 attack, +40 max health, 90% knockback resistance, +8 armour toughness, fast
+  regeneration, longer reach. **Fists only** -- no tools, weapons, bows or guns.
+- As the Hulk, rage burns down every second, but every hit you take feeds it back. At 0 you shrink back to Banner,
+  **exhausted** (Weakness + Slowness) for 8 seconds.
+- For now it is granted with `/hulk grant` (op). Coming next: Thunderclap, Ground Smash, Super Leap and Sprint
+  Smash, the Hulk model, and the Gamma Serum found in a rare Gamma Lab ruin.
 
 ---
 

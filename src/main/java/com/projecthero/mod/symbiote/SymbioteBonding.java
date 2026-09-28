@@ -71,7 +71,8 @@ public final class SymbioteBonding {
 	}
 
 	private static void completeBond(ServerPlayer player, double fxX, double fxY, double fxZ) {
-		boolean spiderMan = SymbioteCompatibility.isSpiderMan(player);
+		// v0.13.11: Spider-Man and the Punisher both keep their power (Black Suit / Agent Venom)
+		boolean spiderMan = SymbioteCompatibility.isCompatibleHero(player);
 		boolean incompatible = !spiderMan && SymbioteCompatibility.hasIncompatiblePower(player);
 
 		if (spiderMan) {

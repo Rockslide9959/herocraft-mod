@@ -102,6 +102,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.combat.SonicVulnerability.clearSessionState();
 		com.projecthero.mod.symbiote.SymbioteAbilityManager.clearSessionState();
 		com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.clearSessionState();
+		com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.clearSessionState();
 		com.projecthero.mod.symbiote.SymbioteVitalsManager.clearSessionState();
 		com.projecthero.mod.symbiote.SymbioteDialogue.clearSessionState();
 		com.projecthero.mod.symbiote.SymbioteBondGame.clearSessionState();
@@ -111,6 +112,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.wolverine.WolverineAbilityManager.clearSessionState();
 		com.projecthero.mod.titanshifter.TitanShifterAbilityManager.clearSessionState();
 		com.projecthero.mod.allmight.AllMightAbilityManager.clearSessionState();
+		com.projecthero.mod.hulk.Hulk.clearSessionState();
 		com.projecthero.mod.hero.power.p23.GravityHandlers.clearSessionState();
 		com.projecthero.mod.hero.power.p22.PlantManipulationHandlers.clearSessionState();
 		com.projecthero.mod.greenlantern.GreenLanternAbilityManager.clearSessionState();

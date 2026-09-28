@@ -23,7 +23,6 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -298,11 +297,11 @@ public final class TitanShifter {
 		long held = now - start;
 		float progress = Math.min(1.0f, held / (float) Math.max(1, need));
 		double h = player.getBbHeight();
-		// electricity crackles round the shifter, building as the hold goes on
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + h * 0.5, player.getZ(),
+		// v0.13.11: yellow electricity crackles round the shifter, building as the hold goes on
+		level.sendParticles(YELLOW_SPARK, player.getX(), player.getY() + h * 0.5, player.getZ(),
 				2 + (int) (7 * progress), 0.55, h * 0.5, 0.55, 0.12 + 0.2 * progress);
 		if (held % 6 == 0) {
-			level.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + h * 0.5, player.getZ(), 1, 0.5, h * 0.45, 0.5, 0.05);
+			level.sendParticles(YELLOW_GLOW, player.getX(), player.getY() + h * 0.5, player.getZ(), 1, 0.5, h * 0.45, 0.5, 0.05);
 		}
 		if (held % 8 == 0) {
 			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS,
@@ -430,8 +429,15 @@ public final class TitanShifter {
 		return true;
 	}
 
+	/** v0.13.11: the transformation's electricity is yellow (the bolt itself is drawn yellow by the client). */
+	private static final net.minecraft.core.particles.DustParticleOptions YELLOW_SPARK =
+			new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(1.0f, 0.86f, 0.12f), 1.0f);
+	private static final net.minecraft.core.particles.DustParticleOptions YELLOW_GLOW =
+			new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(1.0f, 0.95f, 0.55f), 1.8f);
+
 	private static void lightning(ServerLevel level, Vec3 at) {
-		LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(level);
+		// v0.13.11: the shifter's own bolt type, which the client draws yellow
+		LightningBolt bolt = TitanShifterEntities.TITAN_LIGHTNING.create(level);
 		if (bolt != null) {
 			bolt.moveTo(at.x, at.y, at.z);
 			bolt.setVisualOnly(true); // no fire, no damage, no terrain
@@ -447,7 +453,8 @@ public final class TitanShifter {
 		level.playSound(null, p.x, p.y, p.z, SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 2.0f, 0.5f);
 		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, p.x, p.y + 1.0, p.z, 1, 0, 0, 0, 0);
 		level.sendParticles(ParticleTypes.FLASH, p.x, p.y + 2.0, p.z, 1, 0, 0, 0, 0);
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.x, p.y + 4.0, p.z, 120, 1.6, 4.0, 1.6, 0.4);
+		level.sendParticles(YELLOW_SPARK, p.x, p.y + 4.0, p.z, 120, 1.6, 4.0, 1.6, 0.4);
+		level.sendParticles(YELLOW_GLOW, p.x, p.y + 4.0, p.z, 30, 1.4, 3.5, 1.4, 0.1);
 		level.sendParticles(ParticleTypes.CLOUD, p.x, p.y + 1.0, p.z, 60, 1.8, 0.6, 1.8, 0.15);
 		form.steamBurst(level, 8);
 		// a shockwave that shoves bystanders clear (no damage) so nobody is standing inside the Titan

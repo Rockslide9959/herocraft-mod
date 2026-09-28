@@ -28,6 +28,9 @@ A Hero-Tier **Primary** power. Package `com.projecthero.mod.titanshifter`; clien
 `com.projecthero.mod.client.titanshifter`. Config: `config/projecthero_titan_shifter.json` (rewritten with any new
 keys on every start).
 
+
+> **v0.13.11:** the transformation bolt is its own entity type, `TitanShifterEntities.TITAN_LIGHTNING` (`TitanLightningBolt`, a visual-only vanilla bolt), drawn by `client/titanshifter/TitanLightningRenderer` -- vanilla's bolt geometry in golden yellow with ordinary translucency (vanilla's additive blend washes any tint to white against the sky). The Emergency Shift hold and the transform burst use yellow dust (`TitanShifter.YELLOW_SPARK` / `YELLOW_GLOW`) instead of electric sparks / end rods.
+
 ## Getting it
 
 - **Titan Serum** (`projecthero:titan_serum`, recipe `PNP / MSM / PNP`: titanium-gold plate, netherite ingot, magma

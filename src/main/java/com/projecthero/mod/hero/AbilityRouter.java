@@ -209,6 +209,8 @@ public final class AbilityRouter {
 		com.projecthero.mod.wolverine.WolverineAbilityManager.serverTick(player);
 		com.projecthero.mod.titanshifter.TitanShifterAbilityManager.serverTick(player);
 		com.projecthero.mod.allmight.AllMightAbilityManager.serverTick(player);
+		// v0.13.11: the Hulk -- rage, the change, the size easing, regeneration
+		com.projecthero.mod.hulk.Hulk.tick(player);
 		// v0.6.20: the Spider-Man costume mask (H key) is tied to the costume, not the power, so its
 		// "mask can't stay off once the hood comes off" reconcile has to run for every player.
 		com.projecthero.mod.spider.SpiderMask.reconcile(player);
@@ -222,6 +224,8 @@ public final class AbilityRouter {
 		// Symbiote host of either variant (traded away, chest-stored, ground pickup) so no duplicate
 		// suit can exist.
 		com.projecthero.mod.symbiote.Symbiote.enforce(player);
+		// v0.13.11: Agent Venom's swing fall-guard, Unleashed timer and suit stats (cheap when idle)
+		com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.serverTick(player);
 		// v0.9.14: a Normal Symbiote host's own tendril/leap/slam/shield/Frenzy upkeep (cooldowns,
 		// Frenzy/Shield timers, wall assistance) -- independent of whether it currently holds the
 		// ability slots.

@@ -236,6 +236,10 @@ public final class Symbiote {
 		fx(player, true);
 		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.activated")
 				.withStyle(ChatFormatting.DARK_GRAY), true);
+		if (SymbioteHostType.of(player) == SymbioteHostType.AGENT_VENOM) {
+			// v0.13.11: the Symbiote has opinions about working with a soldier
+			SymbioteDialogue.say(player, "agent_venom_suit_" + (1 + player.getRandom().nextInt(3)));
+		}
 	}
 
 	private static void beginSuitDown(ServerPlayer player) {
@@ -394,6 +398,7 @@ public final class Symbiote {
 	 */
 	public static void clearTransient(ServerPlayer player) {
 		SymbioteBlackSuitAbilities.clearFor(player);
+		SymbioteAgentVenomAbilities.clearFor(player);
 		SymbioteAbilityManager.clearFor(player);
 		SymbioteVitalsManager.clearTransient(player);
 		SymbioteDialogue.clearFor(player);

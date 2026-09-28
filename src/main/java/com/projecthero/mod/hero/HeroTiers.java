@@ -51,7 +51,8 @@ public final class HeroTiers {
 				|| GreenLantern.hasPower(player)
 				|| Wolverine.hasPower(player)
 				|| TitanShifter.isShifter(player)
-				|| com.projecthero.mod.allmight.AllMight.hasPower(player);
+				|| com.projecthero.mod.allmight.AllMight.hasPower(player)
+				|| com.projecthero.mod.hulk.Hulk.hasPower(player);
 	}
 
 	/** How many Hero-Tier (non-experimental) Primary powers the player holds. */
@@ -75,7 +76,7 @@ public final class HeroTiers {
 
 	/** Every non-experimental Primary power key, as used by {@code HeroCommand}. */
 	public static final java.util.List<String> HERO_KEYS = java.util.List.of(
-			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter", "all_might");
+			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter", "all_might", "hulk");
 
 	/** Whether the player currently holds the Hero-Tier power named by {@code key}. */
 	public static boolean holdsHero(ServerPlayer player, String key) {
@@ -89,6 +90,7 @@ public final class HeroTiers {
 			case "wolverine" -> Wolverine.hasPower(player);
 			case "titan_shifter" -> TitanShifter.isShifter(player);
 			case "all_might" -> com.projecthero.mod.allmight.AllMight.hasPower(player);
+			case "hulk" -> com.projecthero.mod.hulk.Hulk.hasPower(player);
 			default -> false;
 		};
 	}
@@ -134,6 +136,11 @@ public final class HeroTiers {
 			case "all_might" -> {
 				if (com.projecthero.mod.allmight.AllMight.hasPower(player)) {
 					com.projecthero.mod.allmight.AllMight.revoke(player);
+				}
+			}
+			case "hulk" -> {
+				if (com.projecthero.mod.hulk.Hulk.hasPower(player)) {
+					com.projecthero.mod.hulk.Hulk.revoke(player);
 				}
 			}
 			default -> {
@@ -224,7 +231,8 @@ public final class HeroTiers {
 		order.add(heroKey);
 		saveOrder(player, order);
 		PowerPassives.reconcileActive(player);
-		dropSymbioteUnless(player, "spider_man".equals(heroKey));
+		// v0.13.11: the Punisher shares a host with the Symbiote too (Agent Venom)
+		dropSymbioteUnless(player, com.projecthero.mod.symbiote.SymbioteCompatibility.COMPATIBLE_HERO_KEYS.contains(heroKey));
 	}
 
 	/**
@@ -326,6 +334,9 @@ public final class HeroTiers {
 			return true;
 		}
 		if (!excludeHeroKeys.contains("all_might") && com.projecthero.mod.allmight.AllMight.hasPower(player)) {
+			return true;
+		}
+		if (!excludeHeroKeys.contains("hulk") && com.projecthero.mod.hulk.Hulk.hasPower(player)) {
 			return true;
 		}
 		return false;

@@ -38,7 +38,8 @@ public final class SymbioteSuit {
 
 	/** True if {@code item} is either variant of the Symbiote's own synthesised armour. */
 	private static boolean isSymbiotePiece(Item item) {
-		return item instanceof SymbioteArmorItem || item instanceof SymbioteHostArmorItem;
+		return item instanceof SymbioteArmorItem || item instanceof SymbioteHostArmorItem
+				|| item instanceof com.projecthero.mod.symbiote.item.AgentVenomArmorItem;
 	}
 
 	/**
@@ -74,9 +75,11 @@ public final class SymbioteSuit {
 			if (!isSymbiotePiece(item)) {
 				continue;
 			}
-			boolean matches = type == SymbioteHostType.SPIDER_MAN
-					? item instanceof SymbioteArmorItem
-					: item instanceof SymbioteHostArmorItem;
+			boolean matches = switch (type) {
+				case SPIDER_MAN -> item instanceof SymbioteArmorItem;
+				case AGENT_VENOM -> item instanceof com.projecthero.mod.symbiote.item.AgentVenomArmorItem;
+				case NORMAL -> item instanceof SymbioteHostArmorItem;
+			};
 			if (!matches) {
 				return false;
 			}
@@ -202,6 +205,15 @@ public final class SymbioteSuit {
 				case LEGS -> SpiderItems.SYMBIOTE_LEGGINGS;
 				case FEET -> SpiderItems.SYMBIOTE_BOOTS;
 				default -> SpiderItems.SYMBIOTE_CHESTPLATE;
+			};
+		}
+		if (SymbioteHostType.of(player) == SymbioteHostType.AGENT_VENOM) {
+			return switch (slot) {
+				case HEAD -> SymbioteHostItems.AGENT_VENOM_HELMET;
+				case CHEST -> SymbioteHostItems.AGENT_VENOM_CHESTPLATE;
+				case LEGS -> SymbioteHostItems.AGENT_VENOM_LEGGINGS;
+				case FEET -> SymbioteHostItems.AGENT_VENOM_BOOTS;
+				default -> SymbioteHostItems.AGENT_VENOM_CHESTPLATE;
 			};
 		}
 		return switch (slot) {

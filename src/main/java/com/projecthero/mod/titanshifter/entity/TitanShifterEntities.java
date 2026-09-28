@@ -39,6 +39,16 @@ public final class TitanShifterEntities {
 					.fireImmune()
 					.build("titan_corpse"));
 
+	/** v0.13.11: the yellow transformation lightning (a visual-only vanilla bolt with its own renderer). */
+	public static final EntityType<TitanLightningBolt> TITAN_LIGHTNING = register("titan_lightning",
+			EntityType.Builder.<TitanLightningBolt>of(TitanLightningBolt::new, MobCategory.MISC)
+					.noSave()
+					.noSummon()
+					.sized(0.0f, 0.0f)
+					.clientTrackingRange(16)
+					.updateInterval(Integer.MAX_VALUE)
+					.build("titan_lightning"));
+
 	private TitanShifterEntities() {
 	}
 

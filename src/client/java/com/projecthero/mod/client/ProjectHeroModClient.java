@@ -91,6 +91,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.WolverineHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.TitanShifterHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.AllMightHud::render);
+		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.HulkHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SymbioteHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SquadLocatorBarHud::render);
@@ -514,6 +515,10 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				// v0.12.33: H as All Might transforms / changes back (Shift+H still opens the power wheel).
 				ClientPlayNetworking.send(new com.projecthero.mod.network.AllMightActionPayload(
 						com.projecthero.mod.network.AllMightActionPayload.Action.TOGGLE_FORM));
+			} else if (client.player != null && com.projecthero.mod.hulk.Hulk.hasPower(client.player) && !Screen.hasShiftDown()) {
+				// v0.13.11: H with the Gamma power lets the Hulk out (75+ rage; Shift+H still opens the power wheel).
+				ClientPlayNetworking.send(new com.projecthero.mod.network.HulkActionPayload(
+						com.projecthero.mod.network.HulkActionPayload.Action.TRANSFORM));
 			} else if (client.player != null && wearingAnyIronMan(client.player)) {
 				ClientPlayNetworking.send(new com.projecthero.mod.network.IronManActionPayload(
 						com.projecthero.mod.network.IronManActionPayload.Action.TOGGLE_FACEPLATE));
@@ -549,7 +554,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 					&& client.player.getAttachedOrElse(ModAttachments.BOUND_HAMMER_ID, null) != null
 					&& (!Screen.hasShiftDown() || com.projecthero.mod.titanshifter.TitanShifter.isShifter(client.player)
 							|| com.projecthero.mod.wolverine.Wolverine.hasPower(client.player)
-							|| com.projecthero.mod.allmight.AllMight.hasPower(client.player))) {
+							|| com.projecthero.mod.allmight.AllMight.hasPower(client.player)
+							|| com.projecthero.mod.hulk.Hulk.hasPower(client.player))) {
 				// v0.12.32: H as a Thor bound to Mjolnir -- lightning strikes down and Thor's Armour forms (H again
 				// dismisses it). Shift+H still opens the power wheel, unless another power already owns plain H,
 				// in which case Shift+H is the armour.

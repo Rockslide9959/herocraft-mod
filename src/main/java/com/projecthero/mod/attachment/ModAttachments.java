@@ -415,6 +415,18 @@ public final class ModAttachments {
 							.copyOnDeath()
 							.initializer(() -> net.minecraft.world.item.component.ItemContainerContents.EMPTY));
 
+	/**
+	 * v0.13.11: the Hulk -- the Gamma power, the rage meter and whether he is out. Persistent, kept through
+	 * death, synced to every client (others need to see the Hulk; the owner's HUD draws the rage bar).
+	 */
+	public static final AttachmentType<com.projecthero.mod.hulk.data.HulkState> HULK_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("hulk_state"),
+					builder -> builder.persistent(com.projecthero.mod.hulk.data.HulkState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.hulk.data.HulkState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.hulk.data.HulkState.CODEC),
+									AttachmentSyncPredicate.all()));
+
 	public static final AttachmentType<com.projecthero.mod.allmight.data.AllMightState> ALL_MIGHT_STATE =
 			AttachmentRegistry.create(ProjectHeroMod.id("all_might_state"),
 					builder -> builder.persistent(com.projecthero.mod.allmight.data.AllMightState.CODEC)

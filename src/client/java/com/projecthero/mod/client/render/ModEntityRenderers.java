@@ -16,6 +16,8 @@ public final class ModEntityRenderers {
 				com.projecthero.mod.client.titanshifter.TitanFormRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.titanshifter.entity.TitanShifterEntities.TITAN_CORPSE,
 				com.projecthero.mod.client.titanshifter.TitanCorpseRenderer::new);
+		EntityRendererRegistry.register(com.projecthero.mod.titanshifter.entity.TitanShifterEntities.TITAN_LIGHTNING,
+				com.projecthero.mod.client.titanshifter.TitanLightningRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.maxsteel.entity.MaxSteelEntityTypes.TURBO_BOLT,
 				TurboBoltRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.spider.entity.SpiderEntityTypes.IMPACT_WEB,

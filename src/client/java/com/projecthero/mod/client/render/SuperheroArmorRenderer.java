@@ -126,7 +126,8 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 		}
 		// Symbiote: same idea, chest -> arms+legs -> head.
 		if (getCurrentEntity() instanceof Player symbiotePlayer
-				&& symbiotePlayer.getItemBySlot(slot).getItem() instanceof com.projecthero.mod.spider.item.SymbioteArmorItem
+				&& (symbiotePlayer.getItemBySlot(slot).getItem() instanceof com.projecthero.mod.spider.item.SymbioteArmorItem
+						|| symbiotePlayer.getItemBySlot(slot).getItem() instanceof com.projecthero.mod.symbiote.item.AgentVenomArmorItem)
 				&& com.projecthero.mod.client.symbiote.SymbioteReveal.isRevealing(symbiotePlayer)) {
 			for (String bone : com.projecthero.mod.client.symbiote.SymbioteReveal.boneNames()) {
 				if (com.projecthero.mod.client.symbiote.SymbioteReveal.hidden(symbiotePlayer, bone)) {

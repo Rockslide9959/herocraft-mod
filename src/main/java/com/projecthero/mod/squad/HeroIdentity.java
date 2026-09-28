@@ -32,6 +32,10 @@ public final class HeroIdentity {
 		if (com.projecthero.mod.maxsteel.MaxSteelAbilityManager.hasContext(player)) {
 			return "projecthero.squad.identity.max_steel";
 		}
+		if (com.projecthero.mod.punisher.PunisherAbilityManager.hasContext(player)
+				&& com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.agentVenom(player)) {
+			return "projecthero.squad.identity.agent_venom";
+		}
 		if (com.projecthero.mod.punisher.PunisherAbilityManager.hasContext(player)) {
 			return "projecthero.squad.identity.punisher";
 		}
@@ -43,6 +47,9 @@ public final class HeroIdentity {
 		}
 		if (com.projecthero.mod.allmight.AllMightAbilityManager.hasContext(player)) {
 			return "projecthero.squad.identity.all_might";
+		}
+		if (com.projecthero.mod.hulk.Hulk.hasPower(player)) {
+			return com.projecthero.mod.hulk.Hulk.isHulk(player) ? "projecthero.squad.identity.hulk" : "projecthero.squad.identity.banner";
 		}
 		if (com.projecthero.mod.wolverine.WolverineAbilityManager.hasContext(player)) {
 			return "projecthero.squad.identity.wolverine";

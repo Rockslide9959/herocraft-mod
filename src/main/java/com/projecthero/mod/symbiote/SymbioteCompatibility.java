@@ -19,8 +19,8 @@ import net.minecraft.server.level.ServerPlayer;
  * automatically treated as incompatible here too -- nothing in this class needs to change.
  */
 public final class SymbioteCompatibility {
-	/** The only Hero-Tier key the Symbiote does not purge on bonding. */
-	private static final Set<String> COMPATIBLE_HERO_KEYS = Set.of("spider_man");
+	/** The Hero-Tier keys the Symbiote does not purge on bonding (v0.13.11: the Punisher too -- Agent Venom). */
+	public static final Set<String> COMPATIBLE_HERO_KEYS = Set.of("spider_man", "punisher");
 
 	private SymbioteCompatibility() {
 	}
@@ -28,6 +28,11 @@ public final class SymbioteCompatibility {
 	/** True if this player currently holds Spider-Man -- the one power the Symbiote can share a host with. */
 	public static boolean isSpiderMan(ServerPlayer player) {
 		return SpiderMan.hasPower(player);
+	}
+
+	/** v0.13.11: true if the player holds a power the Symbiote shares a host with (Spider-Man or the Punisher). */
+	public static boolean isCompatibleHero(ServerPlayer player) {
+		return SpiderMan.hasPower(player) || com.projecthero.mod.punisher.Punisher.hasPower(player);
 	}
 
 	/**

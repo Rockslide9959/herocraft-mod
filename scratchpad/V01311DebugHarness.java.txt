@@ -1,0 +1,166 @@
+package com.projecthero.mod.client;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): scripted world + v0.13.11 tour (Agent Venom, Hulk, yellow Titan lightning) + screenshots. */
+public final class V01311DebugHarness {
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+
+	private V01311DebugHarness() {
+	}
+
+	public static void init() {
+		ClientTickEvents.END_CLIENT_TICK.register(V01311DebugHarness::tick);
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					fn.accept(p);
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "v01311_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.put(t, r);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				LevelSettings settings = new LevelSettings("V01311Debug" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+						Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+			mc.options.hideGui = false;
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			server(mc, p -> {
+				Vec3 v = p.position();
+				p.teleportTo(p.serverLevel(), v.x, v.y, v.z, 0.0f, 5.0f);
+				p.serverLevel().setDayTime(6000L);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+			});
+			t0 = inWorldTicks;
+			buildScript(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void buildScript(Minecraft mc) {
+		// ---- Agent Venom ----
+		at(5, () -> server(mc, p -> {
+			com.projecthero.mod.punisher.Punisher.grant(p);
+			com.projecthero.mod.symbiote.Symbiote.grant(p);
+			com.projecthero.mod.symbiote.Symbiote.toggle(p);
+			System.out.println("[HARNESS] host type = " + com.projecthero.mod.symbiote.SymbioteHostType.of(p));
+		}));
+		at(20, () -> shot(mc, "01_av_suiting"));
+		at(70, () -> shot(mc, "02_av_front"));
+		at(72, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+		at(82, () -> shot(mc, "03_av_back"));
+		at(84, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+		at(90, () -> server(mc, p -> {
+			p.setShiftKeyDown(true);
+			System.out.println("[HARNESS] unleash handled=" + com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_5, true));
+			p.setShiftKeyDown(false);
+		}));
+		at(100, () -> shot(mc, "04_av_hud"));
+		at(110, () -> server(mc, p -> {
+			com.projecthero.mod.symbiote.Symbiote.remove(p);
+			com.projecthero.mod.punisher.Punisher.revoke(p);
+		}));
+
+		// ---- Hulk ----
+		at(130, () -> server(mc, p -> {
+			com.projecthero.mod.hulk.Hulk.grant(p);
+			com.projecthero.mod.hulk.Hulk.setRage(p, 62.0f);
+		}));
+		at(145, () -> shot(mc, "05_hulk_banner_hud"));
+		at(150, () -> server(mc, p -> com.projecthero.mod.hulk.Hulk.setRage(p, 100.0f)));
+		at(160, () -> shot(mc, "06_hulk_growing"));
+		at(200, () -> shot(mc, "07_hulk_full_front"));
+		at(202, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+		at(212, () -> shot(mc, "08_hulk_full_back"));
+		at(214, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+		at(220, () -> server(mc, p -> {
+			System.out.println("[HARNESS] hulk=" + com.projecthero.mod.hulk.Hulk.isHulk(p) + " maxHp=" + p.getMaxHealth()
+					+ " scale=" + p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.SCALE)
+					+ " attack=" + p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
+					+ " bbH=" + p.getBbHeight());
+			com.projecthero.mod.hulk.Hulk.setRage(p, 0.0f);
+		}));
+		at(250, () -> shot(mc, "09_hulk_reverted"));
+		at(255, () -> server(mc, p -> {
+			System.out.println("[HARNESS] after revert hulk=" + com.projecthero.mod.hulk.Hulk.isHulk(p) + " maxHp=" + p.getMaxHealth()
+					+ " scale=" + p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.SCALE)
+					+ " weak=" + p.hasEffect(net.minecraft.world.effect.MobEffects.WEAKNESS));
+			com.projecthero.mod.hulk.Hulk.revoke(p);
+		}));
+
+		// ---- Titan emergency (yellow particles) + yellow lightning ----
+		at(270, () -> server(mc, p -> {
+			com.projecthero.mod.titanshifter.TitanShifter.grant(p);
+			var s = com.projecthero.mod.titanshifter.TitanShifter.state(p).copy();
+			s.energy = 50.0f;
+			p.setAttached(com.projecthero.mod.attachment.ModAttachments.TITAN_SHIFTER_STATE, s);
+			com.projecthero.mod.titanshifter.TitanShifter.requestToggle(p);
+		}));
+		at(320, () -> shot(mc, "10_titan_emergency_hold"));
+		at(350, () -> shot(mc, "11_titan_emergency_hold_late"));
+		for (int i = 0; i < 12; i++) {
+			final int k = i;
+			at(368 + i * 2, () -> shot(mc, "12_titan_lightning_" + k));
+		}
+		at(480, () -> mc.stop());
+	}
+}

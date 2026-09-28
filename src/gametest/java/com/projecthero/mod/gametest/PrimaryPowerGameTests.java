@@ -87,12 +87,20 @@ public class PrimaryPowerGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void symbioteIsReplacedByAnyPrimaryButSpiderMan(GameTestHelper helper) {
+	public void symbioteIsReplacedByAnyPrimaryButSpiderManOrPunisher(GameTestHelper helper) {
 		ServerPlayer player = survivalPlayer(helper);
 		Symbiote.grant(player);
 		helper.assertTrue(Symbiote.hasSymbiote(player), "precondition: bonded");
-		Punisher.grant(player);
-		helper.assertFalse(Symbiote.hasSymbiote(player), "a non-Spider-Man Primary power removes the Symbiote");
+		TonyStark.grant(player);
+		helper.assertFalse(Symbiote.hasSymbiote(player), "an incompatible Primary power removes the Symbiote");
+
+		// v0.13.11: the Punisher keeps it -- Agent Venom
+		ServerPlayer frank = survivalPlayer(helper);
+		Symbiote.grant(frank);
+		Punisher.grant(frank);
+		helper.assertTrue(Symbiote.hasSymbiote(frank), "the Symbiote survives becoming the Punisher");
+		helper.assertTrue(com.projecthero.mod.symbiote.SymbioteHostType.of(frank)
+				== com.projecthero.mod.symbiote.SymbioteHostType.AGENT_VENOM, "and the host is Agent Venom");
 
 		ServerPlayer spider = survivalPlayer(helper);
 		Symbiote.grant(spider);

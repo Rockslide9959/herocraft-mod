@@ -241,3 +241,25 @@ Safehouse, the GeckoLib armour model in-world, and multiplayer with a Punisher +
 - Grenade cook is tracked by ability-key press-time, not a visible in-hand pin animation. C4 renders
   as a small rotating item model without placed-on-wall orientation.
 - All firearm sounds are vanilla placeholders (see the list above).
+
+## Agent Venom (v0.13.11) -- Punisher + Symbiote
+
+The Symbiote no longer purges the Punisher (`SymbioteCompatibility.COMPATIBLE_HERO_KEYS` = spider_man, punisher;
+`HeroTiers.claimPrimary` keeps the bond for either). `SymbioteHostType.AGENT_VENOM` = bonded + Punisher and not
+Spider-Man (Spider-Man wins if both are held). H toggles the Symbiote as for every host; `SymbioteSuit` synthesises
+`AgentVenomArmorItem` pieces (Black Suit material, geo `agent_venom.geo.json` = the Symbiote host's skin rig,
+texture = the user's `3d minecraft models/agent venom/agentvenom.bbmodel` skin; `scratchpad/gen_agent_venom.js`).
+Losing the Punisher demotes the host to a Normal one and `Symbiote.tick` swaps the suit.
+
+`symbiote/SymbioteAgentVenomAbilities` -- sneak-modified Punisher keys, consumed at the top of
+`PunisherAbilityManager.handle`; cooldowns live in the Punisher's synced `abilityReadyAt`:
+- Sneak+X Tendril Swing (block raycast 36, launch toward it, 3 s fall guard) -- 3 s.
+- Sneak+Z Tendril Snatch (entity raycast 18, 5 dmg, Slowness III 3 s, pull + disarm a Mob's main hand; bosses only held) -- 8 s.
+- Sneak+V Symbiote Unleashed (10 s: +50% attack, +20% speed, 30% melee life steal via AFTER_DAMAGE) -- 45 s from activation.
+- Suit stats (`reconcile`, every second from `AbilityRouter.serverTick`): +25% attack, +15% speed, +15% jump, +0.25 knockback resistance.
+- Symbiote Rounds (`PunisherPassives.Hooks#damageFactor` +0.20, `#onHit` Slowness I 1.5 s), Living Ammunition
+  (`PunisherAmmoReserve.tickRegen` x3, reload factor x0.75).
+- HUD: three boxes right-aligned above the Punisher row (`SymbioteHud#renderAgentVenomRow`); Left Alt lists them.
+- The Symbiote's weaknesses and instincts (fire / lava / sonic retreat, low-health auto-wrap) are unchanged. Like
+  the Black Suit, Agent Venom has none of the Normal host's Biomass passives.
+Tests: `gametest/AgentVenomGameTests`.

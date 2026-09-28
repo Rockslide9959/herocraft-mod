@@ -81,6 +81,9 @@ public final class PunisherAmmoReserve {
 		}
 		PunisherState s = Punisher.state(player).copy();
 		boolean changed = false;
+		// v0.13.11: Agent Venom's Living Ammunition -- the suit grows rounds three times as fast
+		double step = REGEN_FRACTION * (com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.agentVenom(player)
+				? com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.AMMO_REGEN_MULTIPLIER : 1);
 		for (AmmoKind kind : AmmoKind.values()) {
 			int cap = capacity(kind);
 			if (cap <= 0) {
@@ -90,7 +93,7 @@ public final class PunisherAmmoReserve {
 			if (have >= cap) {
 				continue;
 			}
-			s.ammoReserve.put(kind.lower(), Math.min(cap, have + cap * REGEN_FRACTION));
+			s.ammoReserve.put(kind.lower(), Math.min(cap, have + cap * step));
 			changed = true;
 		}
 		if (changed) {

@@ -55,6 +55,10 @@ public final class PunisherAbilityManager {
 	}
 
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
+		// v0.13.11: suited as Agent Venom, Sneak + X / Z / V are the Symbiote extras instead
+		if (com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.handle(player, slot, pressed)) {
+			return;
+		}
 		switch (slot) {
 			case SLOT_1 -> {
 				if (pressed) {

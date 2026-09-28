@@ -100,6 +100,10 @@ public final class HeroPackGuide {
 		return chapters().get(CH_ALL_MIGHT);
 	}
 
+	public static Chapter hulkChapter() {
+		return chapters().get(CH_HULK);
+	}
+
 	public static Chapter symbioteChapter() {
 		return chapters().get(CH_SYMBIOTE);
 	}
@@ -232,7 +236,8 @@ public final class HeroPackGuide {
 	private static final int CH_ALL_MIGHT = 18;
 	private static final int CH_ABYSSAL_BEHEMOTH = 19;
 	private static final int CH_OATHBREAKER = 20;
-	private static final int CHAPTER_POWER_BASE = 21;
+	private static final int CH_HULK = 21;
+	private static final int CHAPTER_POWER_BASE = 22;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -453,6 +458,18 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.punisher.passives");
 			para(lines, "projecthero.guide.punisher.passives.body");
 			blank(lines);
+			// v0.13.11: Punisher + Symbiote = Agent Venom
+			head(lines, "projecthero.guide.agent_venom");
+			para(lines, "projecthero.guide.agent_venom.body");
+			for (String[] row : new String[][] { { "H", "suit" }, { "Sneak+X", "agent_venom_tendril_swing" },
+					{ "Sneak+Z", "agent_venom_tendril_snatch" }, { "Sneak+V", "agent_venom_unleashed" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.agent_venom.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.agent_venom.ability." + row[1] + ".desc");
+			}
+			head(lines, "projecthero.guide.agent_venom.passives");
+			para(lines, "projecthero.guide.agent_venom.passives.body");
+			blank(lines);
 			para(lines, "projecthero.guide.punisher.crafting");
 		}));
 
@@ -507,6 +524,7 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.symbiote.hosts");
 			para(lines, "projecthero.guide.symbiote.host.normal");
 			para(lines, "projecthero.guide.symbiote.host.spider_man");
+			para(lines, "projecthero.guide.symbiote.host.agent_venom");
 			blank(lines);
 			head(lines, "projecthero.guide.symbiote.controls");
 			para(lines, "projecthero.guide.symbiote.controls.body");
@@ -723,6 +741,18 @@ public final class HeroPackGuide {
 			}
 		}));
 
+		// The Hulk (v0.13.11) -- Hero Tier, built in phases. Appended last so every earlier index stays put.
+		out.add(chapter("projecthero.guide.hulk", lines -> {
+			lines.add(Component.translatable("projecthero.guide.hulk.tier").withStyle(ChatFormatting.GREEN));
+			para(lines, "projecthero.guide.hulk.body");
+			blank(lines);
+			for (String section : new String[]{"rage", "change", "stats", "fists", "controls", "commands"}) {
+				head(lines, "projecthero.guide.hulk." + section);
+				para(lines, "projecthero.guide.hulk." + section + ".body");
+				blank(lines);
+			}
+		}));
+
 		// one chapter per power, in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.all()) {
 			out.add(powerChapter(power));
@@ -754,6 +784,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.wolverine", CH_WOLVERINE);
 		link(idx, "projecthero.guide.titan_shifter", CH_TITAN_SHIFTER);
 		link(idx, "projecthero.guide.all_might", CH_ALL_MIGHT);
+		link(idx, "projecthero.guide.hulk", CH_HULK);
 
 		section(idx, "projecthero.guide.section.events", true);
 		link(idx, "projecthero.guide.zombie_raid", CH_ZOMBIE_RAID);

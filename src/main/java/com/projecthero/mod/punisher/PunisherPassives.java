@@ -134,8 +134,13 @@ public final class PunisherPassives {
 				return 1.0f;
 			}
 			// Adrenaline supersedes the passive -- they do not compound.
-			return Punisher.adrenalineActive(player)
+			float f = Punisher.adrenalineActive(player)
 					? PunisherConfig.ADRENALINE_RELOAD_FACTOR : PunisherConfig.RELOAD_FACTOR;
+			// v0.13.11: Agent Venom's Living Ammunition -- the suit feeds the gun
+			if (com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.agentVenom(player)) {
+				f *= com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.RELOAD_FACTOR;
+			}
+			return f;
 		}
 
 		@Override
@@ -178,6 +183,10 @@ public final class PunisherPassives {
 			if (Punisher.adrenalineActive(player)) {
 				f += PunisherConfig.ADRENALINE_DAMAGE_BONUS;
 			}
+			// v0.13.11: Agent Venom's Symbiote Rounds
+			if (com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.agentVenom(player)) {
+				f += com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.ROUNDS_DAMAGE_BONUS;
+			}
 			float hp = target.getMaxHealth() <= 0 ? 1f : target.getHealth() / target.getMaxHealth();
 			if (hp < PunisherConfig.NO_MERCY_HEALTH_FRACTION && isHostile(target)) {
 				f += Punisher.isBoss(target)
@@ -188,6 +197,9 @@ public final class PunisherPassives {
 
 		@Override
 		public void onHit(ServerPlayer player, LivingEntity target, boolean headshot) {
+			if (com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.agentVenom(player)) {
+				com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.onBulletHit(player, target);
+			}
 			if (Punisher.hasPower(player) && Punisher.suppressiveActive(player)) {
 				target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN,
 						PunisherConfig.SUPPRESSIVE_SLOW_TICKS, PunisherConfig.SUPPRESSIVE_SLOW_AMP, false, true, true));

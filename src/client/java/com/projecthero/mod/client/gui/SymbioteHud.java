@@ -97,15 +97,18 @@ public final class SymbioteHud {
 			return;
 		}
 
-		boolean spiderMan = SymbioteHostType.of(player) == SymbioteHostType.SPIDER_MAN;
-		if (spiderMan && !s.active) {
+		SymbioteHostType type = SymbioteHostType.of(player);
+		boolean spiderMan = type == SymbioteHostType.SPIDER_MAN;
+		if (type != SymbioteHostType.NORMAL && !s.active) {
 			return;
 		}
 		long now = mc.level != null ? mc.level.getGameTime() : 0L;
 		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(),
 				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
 
-		if (spiderMan) {
+		if (type == SymbioteHostType.AGENT_VENOM) {
+			renderAgentVenomRow(g, mc, player, expanded);
+		} else if (spiderMan) {
 			renderBlackSuitRow(g, mc, player, now, expanded);
 		} else {
 			SymbioteVitals v = player.getAttachedOrElse(ModAttachments.SYMBIOTE_VITALS, new SymbioteVitals());
@@ -183,6 +186,43 @@ public final class SymbioteHud {
 			g.fill(x0 - 1, barY - 1, x0 + totalW + 1, barY + BAR_H + 1, COLOR_BORDER);
 			g.fill(x0, barY, x0 + totalW, barY + BAR_H, 0xAA0A0A0C);
 			g.fill(x0, barY, x0 + Math.round(totalW * ratio), barY + BAR_H, s.shieldHeld ? 0xFF8A5FE0 : 0xFF5A4080);
+		}
+	}
+
+	/**
+	 * v0.13.11: Agent Venom's three Symbiote extras (Sneak + X / Z / V), stacked right-aligned just above
+	 * the Punisher's own six-box row (clear of its key letters), with the "Agent Venom" label to their left.
+	 * Above rather than beside it so the row never runs into the hotbar's hunger bar at large GUI scales.
+	 */
+	private static void renderAgentVenomRow(GuiGraphics g, Minecraft mc, Player player, boolean expanded) {
+		String[] abilities = com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.ABILITIES;
+		AbilitySlot[] keys = com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.KEYED_ON;
+		int rowW = abilities.length * BOX + (abilities.length - 1) * GAP;
+		int x0 = g.guiWidth() - MARGIN - rowW;
+		int punisherY = g.guiHeight() - BOX - MARGIN - 26; // PunisherHud's row; its key letters sit 9 px above it
+		int y0 = punisherY - 13 - BOX;
+
+		Component title = Component.translatable("hud.projecthero.agent_venom.title").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD);
+		g.drawString(mc.font, title, x0 - 6 - mc.font.width(title), y0 + 6, 0xFFE8E8F0);
+		for (int i = 0; i < abilities.length; i++) {
+			int x = x0 + i * (BOX + GAP);
+			g.fill(x, y0, x + BOX, y0 + BOX, COLOR_BOX_BG);
+			g.renderOutline(x, y0, BOX, BOX, COLOR_BORDER);
+			g.drawString(mc.font, String.valueOf(keys[i].defaultKey()), x + 2, y0 + 2, COLOR_KEY, false);
+			int cd = com.projecthero.mod.punisher.Punisher.cooldownRemaining(player, abilities[i]);
+			if (cd > 0) {
+				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, COLOR_COOLDOWN);
+				g.drawCenteredString(mc.font, String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(cd / 20.0f)),
+						x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
+			} else {
+				g.drawCenteredString(mc.font, "✓", x + BOX / 2, y0 + BOX / 2 - 4, 0xFFE8E8F0);
+			}
+			if (expanded) {
+				// Sneak + key: name, listed above the row
+				Component name = Component.literal("Sneak+" + keys[i].defaultKey() + "  ")
+						.append(Component.translatable("projecthero.agent_venom.ability." + abilities[i]));
+				g.drawString(mc.font, name, g.guiWidth() - MARGIN - mc.font.width(name), y0 - 12 - (abilities.length - 1 - i) * 10, 0xFFD8D8E8);
+			}
 		}
 	}
 

@@ -29,6 +29,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(WolverineActionPayload.TYPE, WolverineActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(TitanShiftPayload.TYPE, TitanShiftPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(AllMightActionPayload.TYPE, AllMightActionPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(HulkActionPayload.TYPE, HulkActionPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(TitanShakePayload.TYPE, TitanShakePayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(WorldEventZoomPayload.TYPE, WorldEventZoomPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(FirearmFirePayload.TYPE, FirearmFirePayload.CODEC);
@@ -174,6 +175,13 @@ public final class ModNetworking {
 			}
 		});
 
+		// Hulk (v0.13.11): H lets the Hulk out at 75+ rage. Server re-validates the power, rage and state.
+		ServerPlayNetworking.registerGlobalReceiver(HulkActionPayload.TYPE, (payload, context) -> {
+			if (payload.action() == HulkActionPayload.Action.TRANSFORM) {
+				com.projecthero.mod.hulk.Hulk.tryTransform(context.player());
+			}
+		});
+
 		// Wolverine: the H-key claw toggle, the N sniff and the right-click claw block. Server re-validates.
 		ServerPlayNetworking.registerGlobalReceiver(WolverineActionPayload.TYPE, (payload, context) -> {
 			if (payload.action() == WolverineActionPayload.Action.BLOCK_START) {
@@ -188,8 +196,13 @@ public final class ModNetworking {
 		});
 
 		// Firearms: the attack button (fire) and the reload / aim / scope gestures. Server-authoritative.
-		ServerPlayNetworking.registerGlobalReceiver(FirearmFirePayload.TYPE, (payload, context) ->
-				com.projecthero.mod.firearm.FirearmManager.onFireInput(context.player(), payload.pressed()));
+		ServerPlayNetworking.registerGlobalReceiver(FirearmFirePayload.TYPE, (payload, context) -> {
+			// v0.13.11: the Hulk fights with his fists -- no guns (a release still goes through)
+			if (payload.pressed() && com.projecthero.mod.hulk.Hulk.isHulk(context.player())) {
+				return;
+			}
+			com.projecthero.mod.firearm.FirearmManager.onFireInput(context.player(), payload.pressed());
+		});
 		ServerPlayNetworking.registerGlobalReceiver(FirearmActionPayload.TYPE, (payload, context) -> {
 			net.minecraft.server.level.ServerPlayer p = context.player();
 			switch (payload.action()) {
