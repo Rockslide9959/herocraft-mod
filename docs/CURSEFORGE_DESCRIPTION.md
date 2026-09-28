@@ -260,17 +260,20 @@ plates, 2 enchanted golden apples, 2 diamond blocks, a **totem of undying**) and
 - **Passives (Power Form):** air-burst punches, hard-landing shockwaves, **no fall damage at all**, bosses lose at most 10% per Smash. Admins: `/projecthero power grant all_might`.
 - Server-authoritative; every number is in `AllMightConfig`. Full details in `docs/ALLMIGHT_REFERENCE.md`.
 
-### 💚 The Hulk (in development)
-A new **Hero-Tier Primary** power, arriving in phases. **Phase 1 (v0.13.11)** is the core **rage loop**:
+### 💚 The Hulk
+A **Hero-Tier Primary** power (v0.13.11-v0.13.12). Find a rare **Gamma Lab** ruin in the overworld -- blown-out concrete,
+green glass and a still-glowing **Gamma Reactor** -- and drink the **Gamma Serum** from its chest.
 
-- A **Rage** bar (0-100) in the bottom-right HUD fills when you are hurt and when you fight, and calms down if
-  you are left alone. At **75** press **H** to let the Hulk out; at **100** he comes out on his own.
-- **The Hulk:** 1.8x size, +12 attack, +40 max health, 90% knockback resistance, +8 armour toughness, fast
-  regeneration, longer reach. **Fists only** -- no tools, weapons, bows or guns.
-- As the Hulk, rage burns down every second, but every hit you take feeds it back. At 0 you shrink back to Banner,
-  **exhausted** (Weakness + Slowness) for 8 seconds.
-- For now it is granted with `/hulk grant` (op). Coming next: Thunderclap, Ground Smash, Super Leap and Sprint
-  Smash, the Hulk model, and the Gamma Serum found in a rare Gamma Lab ruin.
+- **Rage (0-100):** fills when you are hurt and when you fight (and beside a Gamma Reactor), calms down when you are
+  left alone. At **75** press **H** to let the Hulk out; at **100** he comes out on his own. As the Hulk, rage burns
+  down every second but every hit you take feeds it back; at 0 you shrink back to Banner, exhausted for 8 seconds.
+- **The Hulk:** your **own Hulk model**, 1.8x your size, with idle / walk / run / clap / smash / leap / transformation
+  animations; +12 attack, +40 max health, 90% knockback resistance, fast regeneration, no fall damage, **fists only**.
+- **R Thunderclap** -- a shockwave cone that hurls mobs back and shatters glass, ice and leaves. **G Ground Smash** --
+  a ring of damage and flying earth. **X Super Leap** -- hold to charge, release to fly up to 45 blocks and land with a
+  shockwave. **C Sprint Smash** -- sprint straight through dirt, wood and stone (the server can turn it off).
+- **The Hulk can't lift Mjolnir,** and nobody is both Thor and the Hulk. Every number and the block-breaking rules
+  are in `config/projecthero_hulk.json`. Admins: `/projecthero power grant hulk`.
 
 ---
 

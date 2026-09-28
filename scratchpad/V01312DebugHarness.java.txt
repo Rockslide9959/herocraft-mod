@@ -1,0 +1,113 @@
+package com.projecthero.mod.client;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): scripted world + v0.13.11 tour (Agent Venom, Hulk, yellow Titan lightning) + screenshots. */
+public final class V01312DebugHarness {
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+
+	private V01312DebugHarness() {
+	}
+
+	public static void init() {
+		ClientTickEvents.END_CLIENT_TICK.register(V01312DebugHarness::tick);
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					fn.accept(p);
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "v01312_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.put(t, r);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				LevelSettings settings = new LevelSettings("V01312Debug" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+						Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+			mc.options.hideGui = false;
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			server(mc, p -> {
+				Vec3 v = p.position();
+				p.teleportTo(p.serverLevel(), v.x, v.y, v.z, 0.0f, 5.0f);
+				p.serverLevel().setDayTime(6000L);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+			});
+			t0 = inWorldTicks;
+			buildScript(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void log(Minecraft mc, String tag) {
+		var st = mc.player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.HULK_STATE, null);
+		System.out.println("[HARNESS] " + tag + " clientOnGround=" + mc.player.onGround() + " leaping=" + (st != null && st.leaping)
+				+ " charge=" + (st == null ? -1 : st.leapChargeStart) + " y=" + mc.player.getY());
+	}
+
+	private static void buildScript(Minecraft mc) {
+		at(5, () -> server(mc, p -> { com.projecthero.mod.hulk.Hulk.grant(p); com.projecthero.mod.hulk.Hulk.setRage(p, 100.0f); }));
+		at(60, () -> server(mc, p -> { p.setOnGround(true); com.projecthero.mod.hulk.HulkAbilities.beginLeap(p); }));
+		at(75, () -> { log(mc, "charging"); shot(mc, "20_charge"); });
+		at(90, () -> server(mc, p -> { p.setXRot(-40); com.projecthero.mod.hulk.HulkAbilities.releaseLeap(p); }));
+		for (int k = 2; k <= 30; k += 4) { final int kk = k; at(90 + k, () -> { log(mc, "t+" + kk); shot(mc, "21_air_" + kk); }); }
+		at(160, () -> mc.stop());
+	}
+}

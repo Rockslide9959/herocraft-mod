@@ -29,11 +29,16 @@ import net.minecraft.resources.ResourceLocation;
 @Mixin(PlayerRenderer.class)
 public abstract class PlayerRendererFleshHandMixin {
 	private static final ResourceLocation FLESH = ProjectHeroMod.id("textures/entity/wolverine_flesh.png");
+	private static final ResourceLocation HULK = ProjectHeroMod.id("textures/entity/hulk.png");
 
 	@Redirect(method = "renderHand(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;ILnet/minecraft/client/player/AbstractClientPlayer;Lnet/minecraft/client/model/geom/ModelPart;Lnet/minecraft/client/model/geom/ModelPart;)V",
 			at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/AbstractClientPlayer;getSkin()Lnet/minecraft/client/resources/PlayerSkin;"))
 	private PlayerSkin projecthero$fleshHandSkin(AbstractClientPlayer player) {
 		PlayerSkin skin = player.getSkin();
+		// v0.13.12: the Hulk's first-person arm is the Hulk skin
+		if (com.projecthero.mod.hulk.Hulk.isHulk(player)) {
+			return new PlayerSkin(HULK, skin.textureUrl(), skin.capeTexture(), skin.elytraTexture(), PlayerSkin.Model.WIDE, skin.secure());
+		}
 		if (player == Minecraft.getInstance().player && WolverineFlesh.active(player, 1.0f)) {
 			return new PlayerSkin(FLESH, skin.textureUrl(), skin.capeTexture(), skin.elytraTexture(), skin.model(), skin.secure());
 		}

@@ -107,10 +107,12 @@ public abstract class ItemEntityMixin {
 		if (!stack.is(ModItems.MJOLNIR)) {
 			return;
 		}
-		if (WorthinessEnforcer.bypassesWorthiness(player) || Worthiness.isWorthy(player)) {
+		// v0.13.12: the Hulk cannot lift Mjolnir, worthy or not
+		boolean hulk = com.projecthero.mod.hulk.Hulk.isHulk(player);
+		if (WorthinessEnforcer.bypassesWorthiness(player) || (Worthiness.isWorthy(player) && !hulk)) {
 			return;
 		}
-		if (Worthiness.hasAscensionEffect(player) && player.getInventory().getFreeSlot() >= 0
+		if (!hulk && Worthiness.hasAscensionEffect(player) && player.getInventory().getFreeSlot() >= 0
 					&& player instanceof net.minecraft.server.level.ServerPlayer sp) {
 			// Hero of the Village lifting it: becomes Thor and the hammer arrives bound (mutated in place
 			// before vanilla's own pickup moves it into the inventory) -- unless it is already bound to

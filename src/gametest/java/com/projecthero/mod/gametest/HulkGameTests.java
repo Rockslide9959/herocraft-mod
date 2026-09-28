@@ -163,4 +163,153 @@ public class HulkGameTests implements FabricGameTest {
 		helper.assertTrue(ModAttachments.HULK_STATE != null, "the attachment is registered");
 		helper.succeed();
 	}
+
+	// ---------------------------------------------------------------- v0.13.12: Phases 2-5
+
+	/** A Gamma player already out as the Hulk, standing in a cleared room facing +Z. */
+	private static ServerPlayer hulk(GameTestHelper helper) {
+		ServerPlayer p = gamma(helper);
+		var base = net.minecraft.core.BlockPos.containing(p.position());
+		for (var pos : net.minecraft.core.BlockPos.betweenClosed(base.offset(-4, 0, -6), base.offset(4, 5, 8))) {
+			helper.getLevel().setBlock(pos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 2);
+		}
+		Hulk.setRage(p, 100.0f);
+		Hulk.tick(p);
+		helper.assertTrue(Hulk.isHulk(p), "precondition: Hulk");
+		return p;
+	}
+
+	private static net.minecraft.world.entity.monster.Zombie zombie(GameTestHelper helper, Vec3 at) {
+		var z = net.minecraft.world.entity.EntityType.ZOMBIE.create(helper.getLevel());
+		z.moveTo(at.x, at.y, at.z, 0.0f, 0.0f);
+		z.setNoAi(true);
+		helper.getLevel().addFreshEntity(z);
+		return z;
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void thunderclapHitsWhatIsInFrontOnly(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		var front = zombie(helper, p.position().add(0, 0, 4));
+		var behind = zombie(helper, p.position().add(0, 0, -4));
+		p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, front.getEyePosition());
+		com.projecthero.mod.hulk.HulkAbilities.thunderclap(p);
+		helper.assertTrue(com.projecthero.mod.hulk.HulkAbilities.cooldownRemaining(p, com.projecthero.mod.hulk.HulkAbilities.THUNDERCLAP) > 0,
+				"Thunderclap goes on cooldown");
+		helper.onEachTick(() -> Hulk.tick(p));
+		helper.runAfterDelay(com.projecthero.mod.hulk.HulkAbilities.CLAP_IMPACT_TICKS + 4, () -> {
+			helper.assertTrue(front.getHealth() < front.getMaxHealth(), "the zombie in front is hit");
+			helper.assertTrue(behind.getHealth() == behind.getMaxHealth(), "the one behind is not");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void groundSmashHitsAllRound(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		var side = zombie(helper, p.position().add(3, 0, 0));
+		var back = zombie(helper, p.position().add(0, 0, -3));
+		com.projecthero.mod.hulk.HulkAbilities.groundSmash(p);
+		helper.onEachTick(() -> Hulk.tick(p));
+		helper.runAfterDelay(com.projecthero.mod.hulk.HulkAbilities.SMASH_IMPACT_TICKS + 4, () -> {
+			helper.assertTrue(side.getHealth() < side.getMaxHealth() && back.getHealth() < back.getMaxHealth(), "a ring all round him");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void bannerCannotUseTheAbilities(GameTestHelper helper) {
+		ServerPlayer p = gamma(helper);
+		com.projecthero.mod.hulk.HulkAbilities.groundSmash(p);
+		helper.assertTrue(com.projecthero.mod.hulk.HulkAbilities.cooldownRemaining(p, com.projecthero.mod.hulk.HulkAbilities.GROUND_SMASH) == 0,
+				"Banner's smash does nothing (no cooldown spent)");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void superLeapChargesAndLaunches(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		p.setOnGround(true);
+		com.projecthero.mod.hulk.HulkAbilities.beginLeap(p);
+		helper.assertTrue(Hulk.state(p).leapChargeStart > 0L, "holding X charges");
+		com.projecthero.mod.hulk.HulkAbilities.releaseLeap(p);
+		helper.assertTrue(Hulk.state(p).leaping, "releasing launches him");
+		helper.assertTrue(Hulk.state(p).leapChargeStart == 0L, "and ends the charge");
+		helper.assertTrue(p.getDeltaMovement().length() > 0.3, "with real velocity");
+		helper.assertTrue(com.projecthero.mod.hulk.HulkAbilities.cooldownRemaining(p, com.projecthero.mod.hulk.HulkAbilities.SUPER_LEAP) > 0,
+				"and a cooldown");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void sprintSmashToggles(GameTestHelper helper) {
+		ServerPlayer p = gamma(helper);
+		boolean before = Hulk.state(p).sprintSmash;
+		com.projecthero.mod.hulk.HulkAbilities.toggleSprintSmash(p);
+		helper.assertTrue(Hulk.state(p).sprintSmash != before, "C flips Sprint Smash");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theHulkCannotLiftMjolnirAndIsNeverThor(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		p.getAbilities().instabuild = false;
+		p.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.HERO_OF_THE_VILLAGE, 600, 0));
+		helper.assertFalse(com.projecthero.mod.worthiness.Worthiness.canLift(p), "the Hulk cannot lift Mjolnir, even a Hero of the Village");
+		helper.assertFalse(com.projecthero.mod.worthiness.Worthiness.wouldAscend(p), "and never becomes Thor by lifting it");
+
+		// becoming the Hulk takes Thor away, and becoming Thor takes the Hulk away
+		ServerPlayer thor = helper.makeMockServerPlayerInLevel();
+		thor.setGameMode(GameType.SURVIVAL);
+		com.projecthero.mod.worthiness.Worthiness.setScore(thor, com.projecthero.mod.worthiness.Worthiness.TEST_WORTHY_SCORE);
+		helper.assertTrue(Hulk.grant(thor), "Gamma granted");
+		helper.assertFalse(com.projecthero.mod.worthiness.Worthiness.isWorthy(thor), "no longer worthy of Mjolnir");
+		HeroTiers.claimPrimary(thor, "thor");
+		helper.assertFalse(Hulk.hasPower(thor), "claiming Thor removes the Gamma power");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void aGammaReactorFeedsTheRage(GameTestHelper helper) {
+		ServerPlayer p = gamma(helper);
+		var at = net.minecraft.core.BlockPos.containing(p.position()).offset(2, 0, 0);
+		helper.getLevel().setBlock(at, com.projecthero.mod.hulk.item.HulkItems.GAMMA_REACTOR.defaultBlockState(), 2);
+		helper.onEachTick(() -> Hulk.tick(p));
+		helper.runAfterDelay(45, () -> {
+			helper.assertTrue(Hulk.rage(p) > 0.0f, "standing by a reactor builds rage, got " + Hulk.rage(p));
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void drinkingTheGammaSerumGrantsThePower(GameTestHelper helper) {
+		ServerPlayer p = helper.makeMockServerPlayerInLevel();
+		p.setGameMode(GameType.SURVIVAL);
+		p.getAbilities().instabuild = false;
+		ItemStack serum = new ItemStack(com.projecthero.mod.hulk.item.HulkItems.GAMMA_SERUM);
+		ItemStack left = serum.getItem().finishUsingItem(serum, helper.getLevel(), p);
+		helper.assertTrue(Hulk.hasPower(p), "the serum gives the Gamma power");
+		helper.assertTrue(left.is(Items.GLASS_BOTTLE), "and leaves an empty bottle");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void relogComesBackAsBannerWithTheRageKept(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		Hulk.setRage(p, 60.0f);
+		Hulk.onPlayerJoin(p);
+		helper.assertFalse(Hulk.isHulk(p), "logging back in ends the Hulk");
+		helper.assertTrue(Math.abs(Hulk.rage(p) - 60.0f) < 0.01f, "but keeps the rage");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.SCALE) - 1.0) < 0.001, "normal size");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theConfigHasSaneDefaults(GameTestHelper helper) {
+		var a = com.projecthero.mod.hulk.HulkConfig.abilities();
+		helper.assertTrue(a.thunderclapCooldownTicks > 0 && a.groundSmashCooldownTicks > 0 && a.leapCooldownTicks > 0, "cooldowns");
+		helper.assertTrue(a.leapMaxBlocks > a.leapMinBlocks, "leap range");
+		helper.assertTrue(com.projecthero.mod.hulk.HulkConfig.world().maxBreakableHardness < 50.0f, "obsidian is never sprint-smashed");
+		helper.succeed();
+	}
 }

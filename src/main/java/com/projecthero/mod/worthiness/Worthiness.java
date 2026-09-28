@@ -46,7 +46,9 @@ public final class Worthiness {
 
 	/** Whether {@code player} may physically lift a hammer right now: creative, already Thor, or Hero of the Village. */
 	public static boolean canLift(Player player) {
-		return WorthinessEnforcer.bypassesWorthiness(player) || isWorthy(player) || hasAscensionEffect(player);
+		// v0.13.12: the Hulk cannot lift Mjolnir, worthy or not
+		return WorthinessEnforcer.bypassesWorthiness(player)
+				|| (!com.projecthero.mod.hulk.Hulk.isHulk(player) && (isWorthy(player) || hasAscensionEffect(player)));
 	}
 
 	/**
@@ -55,7 +57,8 @@ public final class Worthiness {
 	 * {@link #ascend}.
 	 */
 	public static boolean wouldAscend(Player player) {
-		return !WorthinessEnforcer.bypassesWorthiness(player) && !isWorthy(player) && hasAscensionEffect(player);
+		return !WorthinessEnforcer.bypassesWorthiness(player) && !isWorthy(player) && hasAscensionEffect(player)
+				&& !com.projecthero.mod.hulk.Hulk.isHulk(player);
 	}
 
 	/**

@@ -24,6 +24,8 @@ public final class ModStructurePieceTypes {
 			register("symbiote_lab", com.projecthero.mod.symbiote.worldgen.SymbioteLabPiece::new);
 	public static final StructurePieceType FALLEN_LANTERN_SITE =
 			register("fallen_lantern_site", com.projecthero.mod.greenlantern.worldgen.FallenLanternSitePiece::new);
+	public static final StructurePieceType GAMMA_LAB =
+			register("gamma_lab", com.projecthero.mod.hulk.worldgen.GammaLabPiece::new);
 
 	private ModStructurePieceTypes() {
 	}

@@ -29,6 +29,10 @@ public final class HulkDamage {
 	}
 
 	public static void initialize() {
+		// v0.13.12: no fall damage while he is the Hulk
+		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) ->
+				!(entity instanceof ServerPlayer p && Hulk.isHulk(p)
+						&& source.is(net.minecraft.tags.DamageTypeTags.IS_FALL)));
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> {
 			if (taken <= 0.0f) {
 				return;

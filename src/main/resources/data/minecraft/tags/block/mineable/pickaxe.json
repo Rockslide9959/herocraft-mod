@@ -12,6 +12,7 @@
     "projecthero:mass_compression_chamber",
     "projecthero:pressure_chamber",
     "projecthero:hydrostatic_test_tank",
-    "projecthero:electromagnetic_coil"
+    "projecthero:electromagnetic_coil",
+    "projecthero:gamma_reactor"
   ]
 }

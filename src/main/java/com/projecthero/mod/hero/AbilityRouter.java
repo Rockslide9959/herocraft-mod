@@ -51,6 +51,12 @@ public final class AbilityRouter {
 			return;
 		}
 
+		// The Hulk (v0.13.12): while he is out, the six keys are his, whatever second power the player holds.
+		if (com.projecthero.mod.hulk.Hulk.isHulk(player)) {
+			com.projecthero.mod.hulk.HulkAbilityManager.handle(player, slot, pressed);
+			return;
+		}
+
 		// Call Armour (Special-Mode key, unarmoured) always wins for a Tony Stark player who is NOT
 		// holding Mjolnir -- "I'm not in my suit and I pressed the suit key" is unambiguous, and it must
 		// work regardless of whether the player also has Thor's context or an experimental power, and
@@ -124,6 +130,12 @@ public final class AbilityRouter {
 		// All Might (v0.12.33) takes the slots on the same terms: has the power and has not selected a mutation.
 		if (com.projecthero.mod.allmight.AllMightAbilityManager.hasContext(player)) {
 			com.projecthero.mod.allmight.AllMightAbilityManager.handle(player, slot, pressed);
+			return;
+		}
+
+		// The Hulk (v0.13.12) takes the slots on the same terms: has the Gamma power and has not selected a mutation.
+		if (com.projecthero.mod.hulk.HulkAbilityManager.hasContext(player)) {
+			com.projecthero.mod.hulk.HulkAbilityManager.handle(player, slot, pressed);
 			return;
 		}
 

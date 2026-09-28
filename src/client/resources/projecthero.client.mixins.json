@@ -24,6 +24,7 @@
 		"PlayerRendererFleshHandMixin",
 		"PlayerRendererFleshMixin",
 		"PlayerRendererHandMixin",
+		"PlayerRendererHulkMixin",
 		"PlayerRendererMixin",
 		"PlayerRendererTitanMixin",
 		"SoundEngineMixin",

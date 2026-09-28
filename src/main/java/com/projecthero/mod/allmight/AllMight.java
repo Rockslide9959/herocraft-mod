@@ -264,8 +264,8 @@ public final class AllMight {
 	/** The H key: toggle between the Base Form and the Power Form. Server-validated; safe to spam. */
 	public static void toggleForm(ServerPlayer player) {
 		AllMightState s = state(player);
-		if (!s.hasPower || !player.isAlive() || player.isSpectator()) {
-			return;
+		if (!s.hasPower || !player.isAlive() || player.isSpectator() || com.projecthero.mod.hulk.Hulk.isHulk(player)) {
+			return; // v0.13.12: not while he is the Hulk (the two growths would stack)
 		}
 		long now = player.level().getGameTime();
 		if (now - s.formChangedAt < AllMightConfig.FORM_TOGGLE_DEBOUNCE_TICKS || now < s.transformUntil) {

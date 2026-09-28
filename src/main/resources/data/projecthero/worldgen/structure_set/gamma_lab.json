@@ -1,0 +1,12 @@
+{
+  "structures": [
+    { "structure": "projecthero:gamma_lab", "weight": 1 }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1962051,
+    "spacing": 120,
+    "separation": 45,
+    "frequency": 0.8
+  }
+}

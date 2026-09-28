@@ -222,6 +222,12 @@ public final class HeroTiers {
 		if (!"thor".equals(heroKey)) {
 			unworthyIfHammerReleased(player);
 		}
+		// v0.13.12: nobody is both Thor and the Hulk -- becoming one takes the other away
+		if ("hulk".equals(heroKey) && (Worthiness.isWorthy(player) || holdsHero(player, "thor"))) {
+			revokeHero(player, "thor");
+		} else if ("thor".equals(heroKey) && holdsHero(player, "hulk")) {
+			revokeHero(player, "hulk");
+		}
 		if (hasExperimental(player)) {
 			wipeExperimental(player);
 		}

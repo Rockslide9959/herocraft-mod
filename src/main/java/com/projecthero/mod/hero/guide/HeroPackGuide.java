@@ -274,7 +274,7 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.structures.body");
 			blank(lines);
 			for (String s : new String[]{"research_facility", "meteor_impact", "power_station",
-					"geological_site", "government_site", "hydrostatic_facility"}) {
+					"geological_site", "government_site", "hydrostatic_facility", "gamma_lab"}) {
 				lines.add(Component.translatable("projecthero.guide.structure." + s).withStyle(ChatFormatting.WHITE));
 				para(lines, "projecthero.guide.structure." + s + ".desc");
 			}
@@ -746,7 +746,20 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.hulk.tier").withStyle(ChatFormatting.GREEN));
 			para(lines, "projecthero.guide.hulk.body");
 			blank(lines);
-			for (String section : new String[]{"rage", "change", "stats", "fists", "controls", "commands"}) {
+			for (String section : new String[]{"origin", "rage", "change", "stats", "fists"}) {
+				head(lines, "projecthero.guide.hulk." + section);
+				para(lines, "projecthero.guide.hulk." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.hulk.controls");
+			for (String[] row : new String[][] { { "H", "transform" }, { "R", "thunderclap" }, { "G", "ground_smash" },
+					{ "X", "super_leap" }, { "C", "sprint_smash" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.hulk.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.hulk.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			for (String section : new String[]{"looks", "limits", "commands"}) {
 				head(lines, "projecthero.guide.hulk." + section);
 				para(lines, "projecthero.guide.hulk." + section + ".body");
 				blank(lines);

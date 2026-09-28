@@ -47,7 +47,8 @@ public final class WorthinessEnforcer {
 	}
 
 	public static void serverTick(ServerPlayer player) {
-		if (bypassesWorthiness(player) || Worthiness.isWorthy(player)) {
+		boolean hulk = com.projecthero.mod.hulk.Hulk.isHulk(player);
+		if (bypassesWorthiness(player) || (Worthiness.isWorthy(player) && !hulk)) {
 			return;
 		}
 
@@ -67,7 +68,8 @@ public final class WorthinessEnforcer {
 			if (stack.is(ModItems.MJOLNIR)) {
 				// v0.11.15: a Hero of the Village who lifted another player's bound hammer keeps hold of it
 				// for as long as the effect lasts (it then drops back like any unworthy carry).
-				if (Worthiness.hasAscensionEffect(player) && Worthiness.boundToSomeoneElse(player, stack)) {
+				if (Worthiness.hasAscensionEffect(player) && Worthiness.boundToSomeoneElse(player, stack)
+						&& !com.projecthero.mod.hulk.Hulk.isHulk(player)) {
 					continue;
 				}
 				slots.set(i, ItemStack.EMPTY);

@@ -65,6 +65,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.titan.TitanConfig.load();
 		// v0.12.31: Titan Shifter balance config (read before its entity type is built -- it sets the hit-box).
 		com.projecthero.mod.titanshifter.TitanShifterConfig.load();
+		com.projecthero.mod.hulk.HulkConfig.load();
 		com.projecthero.mod.behemoth.BehemothConfig.load();
 		ModAttachments.initialize();
 		ModItems.initialize();
@@ -88,6 +89,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.wolverine.item.WolverineItems.initialize();
 		com.projecthero.mod.thorarmor.ThorArmorItems.initialize();
 		com.projecthero.mod.allmight.item.AllMightItems.initialize();
+		com.projecthero.mod.hulk.item.HulkItems.initialize();
 		com.projecthero.mod.thorarmor.ThorArmor.initialize();
 		com.projecthero.mod.titanshifter.item.TitanShifterItems.initialize();
 		com.projecthero.mod.titanshifter.entity.TitanShifterEntities.initialize();

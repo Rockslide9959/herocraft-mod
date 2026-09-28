@@ -50,6 +50,10 @@ public final class ModStructureTypes {
 	public static final StructureType<com.projecthero.mod.greenlantern.worldgen.FallenLanternSiteStructure> FALLEN_LANTERN_SITE =
 			register("fallen_lantern_site", com.projecthero.mod.greenlantern.worldgen.FallenLanternSiteStructure.CODEC);
 
+	/** Hulk (v0.13.12): the rare ruined Gamma Lab, its reactor still glowing, the Gamma Serum in its chest. */
+	public static final StructureType<com.projecthero.mod.hulk.worldgen.GammaLabStructure> GAMMA_LAB =
+			register("gamma_lab", com.projecthero.mod.hulk.worldgen.GammaLabStructure.CODEC);
+
 	private ModStructureTypes() {
 	}
 

@@ -1,58 +1,72 @@
-# The Hulk (Hero-Tier power, built in phases)
+# The Hulk (Hero-Tier power)
 
-Package `com.projecthero.mod.hulk`. Hero-Tier key `hulk` (the spec's "Gamma power"). Built one phase at a time;
-each phase ships as its own release and waits for an in-game test before the next starts.
+Package `com.projecthero.mod.hulk`. Hero-Tier key `hulk` (the spec's "Gamma power"). Built in five phases:
 
-| Phase | Scope | Status |
+| Phase | Scope | Release |
 |---|---|---|
-| 1 | Core: synced data, rage loop, transform / revert, stats, rage HUD bar, test commands, basic effect | **v0.13.11** |
-| 2 | Abilities: Thunderclap, Ground Smash, Super Leap, Sprint Smash, keybinds, packets, cooldowns + HUD, JSON config | next |
-| 3 | Looks: the user's Hulk skin (`3d minecraft models/hulk/hulk.bbmodel`, a 64x64 player skin) on the Hulk, GeckoLib model + animations, hidden armour, roar + growth effect | |
-| 4 | Origin: Gamma Serum (loot only), rare overworld Gamma Lab ruin with a glowing gamma reactor block; lock down `/hulk` | |
-| 5 | Balance + polish: Thor / Mjolnir conflict (Hulk cannot lift Mjolnir), death / respawn / logout / dimension audit, cleanup | |
+| 1 | Core: synced data, rage loop, transform / revert, stats, rage HUD bar, test commands | v0.13.11 |
+| 2 | Abilities: Thunderclap, Ground Smash, Super Leap, Sprint Smash, keys, cooldowns + HUD, JSON config | v0.13.12 |
+| 3 | Looks: the user's Hulk model (GeckoLib, drawn in place of the player), animations, hidden armour, roar + shake | v0.13.12 |
+| 4 | Origin: Gamma Serum (loot only), rare Gamma Lab ruin with a glowing Gamma Reactor block | v0.13.12 |
+| 5 | Balance + polish: Thor / Mjolnir rules, lifecycle, conflicts with other growing powers | v0.13.12 |
 
 The spec asked for Fabric 1.21.11 + GeckoLib 5; the project is (and stays) on **Fabric 1.21.1 + GeckoLib 4.9**.
 
-## Phase 1 (v0.13.11)
+## Files
 
-### Files
 | Role | Where |
 |---|---|
-| State (persistent, `copyOnDeath`, synced to all) | `hulk/data/HulkState` -> `ModAttachments.HULK_STATE` (`projecthero:hulk_state`) |
+| State (persistent, `copyOnDeath`, synced to all) | `hulk/data/HulkState` -> `ModAttachments.HULK_STATE` |
 | API: grant / revoke, rage, the change, stats, tick, lifecycle | `hulk/Hulk` |
-| Every number | `hulk/HulkConfig` (static finals; Phase 2 adds a JSON config for the ability numbers) |
-| Rage hooks + fists-only rule | `hulk/HulkDamage` (AFTER_DAMAGE, AttackEntityCallback, UseItemCallback, PlayerBlockBreakEvents.BEFORE) |
-| H key | `network/HulkActionPayload` (C2S `TRANSFORM`), receiver in `ModNetworking`, client branch in `ProjectHeroModClient#handlePowerSelect` (after All Might) |
-| Guns refused | `ModNetworking` firearm-fire receiver drops a press from a Hulk |
-| HUD | `client/gui/HulkHud` -- Thor's Storm Energy spot: label + 3 px Hairline bar, white tick at 75 |
-| Test commands | `command/HulkCommand` -- `/hulk grant|revoke [players]`, `/hulk setrage <0-100> [players]`, op level 2, registered from `ProjectHeroCommand` |
-| Guide | `HeroPackGuide` chapter `CH_HULK = 21` (`CHAPTER_POWER_BASE` is now 22); "Your Power" (I) screen; squad identity Hulk / Banner |
-| Tests | `gametest/HulkGameTests` |
+| Numbers | `hulk/HulkConfig`: core loop = static finals; abilities + world rules = `config/projecthero_hulk.json` |
+| The four abilities (task queue, cooldowns, landing, Sprint Smash) | `hulk/HulkAbilities` |
+| Keys -> abilities | `hulk/HulkAbilityManager` (routed from `AbilityRouter`; while he is out the Hulk takes the keys first) |
+| Rage hooks, fists-only, no fall damage | `hulk/HulkDamage` |
+| H key | `network/HulkActionPayload` + `ProjectHeroModClient#handlePowerSelect` |
+| Guns refused | `ModNetworking` firearm-fire receiver |
+| HUD | `client/gui/HulkHud` -- R / G / X cooldown boxes + C Sprint Smash state, leap charge hairline, rage bar in Thor's meter spot |
+| Model | `client/hulk/HulkAnimatable` (GeoReplacedEntity), `HulkModel`, `HulkRenderer`, `client/mixin/PlayerRendererHulkMixin`; first-person arm skin in `PlayerRendererFleshHandMixin` |
+| Assets | `geo/hulk.geo.json`, `animations/hulk.animation.json`, `textures/entity/hulk.png` -- `scratchpad/gen_hulk.js` from `3d minecraft models/hulk/hulk.bbmodel` |
+| Items / block | `hulk/item/HulkItems` (`gamma_serum`, `gamma_reactor`), `hulk/item/GammaSerumItem`, `hulk/block/GammaReactorBlock`; textures `scratchpad/gen_gamma.js` |
+| Structure | `hulk/worldgen/GammaLabStructure` + `GammaLabPiece`; `worldgen/structure(_set)/gamma_lab.json`; loot `chests/gamma_lab.json` (always one serum) |
+| Commands | `command/HulkCommand` -- `/hulk grant|revoke|setrage` (op 2, kept as testing helpers); `/projecthero power grant hulk` |
+| Tests | `gametest/HulkGameTests` (18) |
 
-Wiring follows the All Might checklist: `HeroTiers` (hasHeroTier, HERO_KEYS, holdsHero, revokeHero,
-hasIncompatibleWith), `AbilityRouter.serverTick` -> `Hulk.tick`, `HeroCommand` (grant / revoke / error texts),
-`ProjectHeroMod` (damage init, death, join, respawn, world change, disconnect), `ServerStateReset`,
-`HeroIdentity`, `PowerInfoScreen`, `HeroPackGuide`, HUD registration, lang.
+## Replacing the model in Blockbench
 
-### Rules
-- **Rage (0-100)**, only with the Gamma power. As Banner: +2.5 per point of damage taken, +0.8 per point dealt;
-  after 15 s without combat it bleeds off 0.5/s. Exhausted Banner builds none.
-- **H** at 75+ lets the Hulk out; at 100 he comes out on the next tick. 10-tick debounce.
-- **As the Hulk:** -1 rage/s; +1.5 per point of damage taken (dealing damage adds nothing). At 0 he reverts with
-  **Weakness I + Slowness I for 8 s** and no rage / no change for those 8 s.
-- **Stats** (fixed-id transient modifiers, re-applied every second by `reconcile`, idempotent): scale +0.8
-  (1.8x, eased over 30 ticks by `tickScale`, which waits if the bigger body would not fit), attack +12, max health
-  +40 (health % carried over, +20 HP on the way in), knockback resistance +0.9, armour toughness +8, step height
-  +0.5, entity + block reach +1.5, regeneration 1 HP every 10 ticks.
-- **Fists only:** `HulkDamage.isForbidden` = `TieredItem` (swords, tools), `ProjectileWeaponItem` (bow, crossbow),
-  trident, mace, the mod's firearms.
-- **Lifecycle:** respawn = calm Banner (no rage, no Hulk, size reset at once); join re-applies the saved form's
-  stats and clears world-relative timers; revoke drops everything at once. Dimension change keeps the Hulk (same
-  entity, attributes carried).
+Keep these names and the files drop straight in (re-run nothing):
 
-### Known Phase 1 simplifications (for Phase 5)
-- No invulnerability window while growing.
-- A Hulk can still lift Mjolnir / hold Thor at the same time -- Phase 5.
-- Hulk + Wolverine held together: plain H goes to the Hulk, so Wolverine's claw toggle is unreachable -- revisit in
-  Phase 5 with the other two-power conflicts.
-- Armour stays visible and is scaled with him -- Phase 3 hides it.
+- **Geometry** `geo/hulk.geo.json`, identifier `geometry.hulk`, 64x64 texture. Bones: `root` > `body` > `head`,
+  `right_arm`, `left_arm`; `root` > `right_leg`, `left_leg`. Player-sized -- the 1.8x comes from the scale attribute.
+  `head` is turned to the look direction on top of the animation.
+- **Animations** `animations/hulk.animation.json`: `animation.hulk.idle` (loop), `walk` (loop), `run` (loop, while
+  sprinting), `clap` (Thunderclap; impact at 0.3 s), `smash` (Ground Smash; impact at 0.5 s), `leap_charge` (hold),
+  `leap` (hold, in the air), `transform` (1.5 s), `punch` (melee swing, right arm only -- layered over the rest).
+- **Texture** `textures/entity/hulk.png`.
+
+## Rules
+
+- **Rage (0-100)**, Gamma players only. Banner: +2.5 per damage taken, +0.8 per damage dealt, -0.5/s after 15 s calm.
+  A Gamma Reactor within 4 blocks: +3/s. Exhausted Banner builds none.
+- **H** at 75+ lets the Hulk out; 100 forces it. Hulk: -1 rage/s, +1.5 per damage taken. 0 -> Banner, Weakness +
+  Slowness 8 s.
+- **Stats:** scale 1.8x (eased over 30 ticks), +12 attack, +40 max health (+20 HP on the way in), 0.9 knockback
+  resistance, +8 toughness, +0.5 step, +1.5 reach, 2 HP/s regeneration, no fall damage.
+- **Abilities** (Hulk only): R Thunderclap (12 dmg cone, 12 blocks, 70 degrees, shatters glass / ice / leaves /
+  plants, 8 s), G Ground Smash (16 dmg, 7 blocks, 10 s), X Super Leap (hold 1.5 s: 10-45 blocks; landing 8 dmg 4.5
+  blocks; 6 s), C Sprint Smash toggle (sprinting breaks blocks up to hardness 3 in front; no block entities).
+  Bosses (`TitanCombat.isBoss`) take damage but are never shoved.
+- **World switches** (json): `blockBreaking`, `sprintSmashEnabled`, `maxBreakableHardness`, `dropBrokenBlocks`,
+  `respectMobGriefing`, `screenShake`.
+- **Thor:** never both -- claiming Hulk revokes Thor (worthy or bound), claiming Thor revokes Hulk. The Hulk form can
+  never lift Mjolnir (`Worthiness.canLift` / `wouldAscend`, `ItemEntityMixin`, `WorthinessEnforcer` ejects it), even a
+  Hero of the Village. Creative still bypasses worthiness, as for everyone.
+- **Other growing powers:** no Hulk inside a Titan or in All Might's Power Form, and no Titan shift / All Might form
+  change while he is out (the scale bonuses would stack).
+- **Lifecycle:** death -> respawn is a calm Banner; logout -> join comes back as Banner with rage kept (a relog cannot
+  restore health above 20); dimension change keeps the Hulk.
+
+## Not covered by tests / known limits
+- Hulk + Wolverine held together: plain H goes to the Hulk (Wolverine's claw toggle unreachable).
+- Another client's Hulk model and animations only checked in single player (the harness), not on a server.
+- Sprint Smash measures speed from position change on the server; a slow walk into a wall does nothing by design.

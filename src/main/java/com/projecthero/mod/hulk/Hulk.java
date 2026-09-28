@@ -69,6 +69,7 @@ public final class Hulk {
 
 	public static void clearSessionState() {
 		LAST_MESSAGE.clear();
+		HulkAbilities.clearSessionState();
 	}
 
 	// ---------------------------------------------------------------- state
@@ -140,6 +141,7 @@ public final class Hulk {
 
 	/** Takes the Gamma power away; a Hulk shrinks straight back (no exhaustion). */
 	public static void revoke(ServerPlayer player) {
+		HulkAbilities.clear(player.getUUID());
 		save(player, new HulkState());
 		reconcile(player);
 		PowerToggles.clearModifier(player, Attributes.SCALE, SCALE_ID);
@@ -222,6 +224,12 @@ public final class Hulk {
 	public static void transform(ServerPlayer player, boolean forced) {
 		HulkState s = state(player);
 		if (!s.hasPower || s.hulk) {
+			return;
+		}
+		// v0.13.12 (Phase 5): not from inside a Titan, and not in All Might's Power Form (the growths would stack)
+		if (com.projecthero.mod.titanshifter.TitanShifter.phase(player).insideForm()
+				|| com.projecthero.mod.allmight.AllMight.isFullPower(player)) {
+			say(player, "message.projecthero.hulk.cannot_now", ChatFormatting.GRAY);
 			return;
 		}
 		float ratio = healthRatio(player);
@@ -351,6 +359,8 @@ public final class Hulk {
 		if (!player.isAlive() || player.isSpectator()) {
 			return;
 		}
+		HulkAbilities.tick(player);
+		s = state(player);
 
 		if (s.hulk) {
 			if (now % 20L == 0L) {
@@ -374,6 +384,13 @@ public final class Hulk {
 			transform(player, true);
 			return;
 		}
+		// v0.13.12: standing near a Gamma Reactor feeds the rage (once a second)
+		if (now % 20L == 0L && s.exhaustedUntil <= now && nearReactor(player)) {
+			gain(player, s, HulkConfig.REACTOR_RAGE_PER_SECOND);
+			s = state(player);
+			level.sendParticles(GAMMA_GREEN, player.getX(), player.getY() + 1.0, player.getZ(), 6, 0.4, 0.6, 0.4, 0.02);
+			return;
+		}
 		if (s.rage > 0.0f && now % 20L == 0L && now - s.lastCombatAt >= HulkConfig.CALM_DELAY_TICKS) {
 			HulkState n = s.copy();
 			n.rage = clampRage(s.rage - HulkConfig.CALM_DECAY_PER_SECOND);
@@ -383,6 +400,18 @@ public final class Hulk {
 		if (s.rage >= HulkConfig.MANUAL_TRANSFORM_RAGE && now % 10L == 0L) {
 			level.sendParticles(DEEP_GREEN, player.getX(), player.getY() + 1.0, player.getZ(), 2, 0.3, 0.5, 0.3, 0.0);
 		}
+	}
+
+	/** A Gamma Reactor within {@link HulkConfig#REACTOR_RADIUS} blocks. */
+	private static boolean nearReactor(ServerPlayer player) {
+		int r = HulkConfig.REACTOR_RADIUS;
+		net.minecraft.core.BlockPos c = player.blockPosition();
+		for (net.minecraft.core.BlockPos p : net.minecraft.core.BlockPos.betweenClosed(c.offset(-r, -r, -r), c.offset(r, r, r))) {
+			if (player.level().getBlockState(p).is(com.projecthero.mod.hulk.item.HulkItems.GAMMA_REACTOR)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static void tickAura(ServerLevel level, ServerPlayer player, HulkState s, long now) {
@@ -403,6 +432,11 @@ public final class Hulk {
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.0, 0);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 1.6f, 0.7f);
+		// v0.13.12 (Phase 3): the roar lands as he finishes growing, and the ground shakes under him
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.POLAR_BEAR_WARNING, SoundSource.PLAYERS, 1.8f, 0.45f);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ENDER_DRAGON_GROWL, SoundSource.PLAYERS, 0.6f, 1.6f);
+		HulkAbilities.shake(level, player.position(), 0.6f, HulkConfig.GROWTH_TICKS);
+		level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 0.1, player.getZ(), 30, 1.2, 0.1, 1.2, 0.08);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 2.0f, 0.6f);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 1.0f, 0.5f);
 		level.sendParticles(GAMMA_GREEN, c.x, c.y, c.z, 80, 0.7, 1.0, 0.7, 0.05);
@@ -425,19 +459,29 @@ public final class Hulk {
 
 	// ---------------------------------------------------------------- lifecycle
 
-	/** Join: re-apply the stats of whatever form was saved (transient modifiers do not survive a relog). */
+	/**
+	 * Join (v0.13.12, Phase 5): logging out ends the Hulk -- he comes back as Banner with his rage kept (so a player at
+	 * 75+ can press H straight away). A relog cannot restore a Hulk's health above Banner's 20 anyway: the transient
+	 * max-health bonus is gone by the time the saved health is read.
+	 */
 	public static void onPlayerJoin(ServerPlayer player) {
 		HulkState s = state(player);
 		if (!s.hasPower) {
 			return;
 		}
 		HulkState n = s.copy();
+		n.hulk = false;
 		// game time is per world: nothing carried over from another world may lock the player out
 		n.exhaustedUntil = 0L;
 		n.formChangedAt = 0L;
 		n.lastCombatAt = 0L;
+		n.leapChargeStart = 0L;
+		n.leaping = false;
+		n.animId = HulkState.ANIM_NONE;
+		n.abilityReadyAt.entrySet().removeIf(e -> e.getValue() > player.level().getGameTime() + 20L * 60L);
 		save(player, n);
 		reconcile(player);
+		PowerToggles.clearModifier(player, Attributes.SCALE, SCALE_ID);
 	}
 
 	/** Respawn: a fresh, calm Banner -- no rage, no Hulk, full size back to normal at once. */
@@ -451,6 +495,10 @@ public final class Hulk {
 		n.rage = 0.0f;
 		n.exhaustedUntil = 0L;
 		n.formChangedAt = 0L;
+		n.leapChargeStart = 0L;
+		n.leaping = false;
+		n.animId = HulkState.ANIM_NONE;
+		n.abilityReadyAt.clear();
 		save(player, n);
 		reconcile(player);
 		PowerToggles.clearModifier(player, Attributes.SCALE, SCALE_ID);
@@ -459,5 +507,14 @@ public final class Hulk {
 	/** Death / logout / dimension change: nothing transient to drop beyond the message throttle. */
 	public static void clearTransient(ServerPlayer player) {
 		LAST_MESSAGE.remove(player.getUUID());
+		HulkAbilities.clear(player.getUUID());
+		HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
+		if (s != null && (s.leapChargeStart != 0L || s.leaping || s.animId != HulkState.ANIM_NONE)) {
+			HulkState n = s.copy();
+			n.leapChargeStart = 0L;
+			n.leaping = false;
+			n.animId = HulkState.ANIM_NONE;
+			save(player, n);
+		}
 	}
 }

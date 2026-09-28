@@ -251,7 +251,8 @@ public final class TitanShifter {
 		if (EMERGENCY_HOLD.containsKey(player.getUUID())) {
 			return;
 		}
-		if (player.isSpectator() || player.isSleeping() || player.isPassenger() || !player.isAlive()) {
+		if (player.isSpectator() || player.isSleeping() || player.isPassenger() || !player.isAlive()
+				|| com.projecthero.mod.hulk.Hulk.isHulk(player)) { // v0.13.12: no Titan while he is the Hulk
 			say(player, "message.projecthero.titan_shifter.cannot_now", ChatFormatting.RED);
 			return;
 		}
@@ -342,7 +343,8 @@ public final class TitanShifter {
 					(int) Math.ceil(s.energy), (int) Math.ceil(energyNeeded()));
 			return false;
 		}
-		if (player.isSpectator() || player.isSleeping() || player.isPassenger() || !player.isAlive()) {
+		if (player.isSpectator() || player.isSleeping() || player.isPassenger() || !player.isAlive()
+				|| com.projecthero.mod.hulk.Hulk.isHulk(player)) { // v0.13.12: no Titan while he is the Hulk
 			say(player, "message.projecthero.titan_shifter.cannot_now", ChatFormatting.RED);
 			return false;
 		}
