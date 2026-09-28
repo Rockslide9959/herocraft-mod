@@ -212,6 +212,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				(payload, context) -> context.client().execute(
 						() -> com.projecthero.mod.client.titanshifter.TitanShakeClient.accept(payload.intensity(), payload.ticks())));
 
+		// A brief camera zoom-in cue for a world event building up (currently: the Oathbreaker's summon).
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.WorldEventZoomPayload.TYPE,
+				(payload, context) -> context.client().execute(
+						() -> com.projecthero.mod.client.oathbreaker.WorldEventZoomClient.accept(payload.amount(), payload.ticks())));
+
 		// Titan Roar: everything within 50 blocks is outlined blue for the roaring shifter only (v0.12.43).
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.TitanRoarSensePayload.TYPE,
 				(payload, context) -> context.client().execute(() -> {
@@ -316,6 +321,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.spider.SpiderInputClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.symbiote.SymbioteFxClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(client -> com.projecthero.mod.client.titanshifter.TitanShakeClient.tick());
+		ClientTickEvents.END_CLIENT_TICK.register(client -> com.projecthero.mod.client.oathbreaker.WorldEventZoomClient.tick());
 	}
 
 	private static void handleKeyBinds(Minecraft client) {

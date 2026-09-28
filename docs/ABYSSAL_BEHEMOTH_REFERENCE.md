@@ -98,6 +98,22 @@ old, far higher max forever, so real hits landed but barely dented a bar sized f
 current config value (rescaling current health proportionally so a hurt boss isn't topped back up) --
 this fixes existing saves too, not just new spawns.
 
+**v0.13.7 fix (the actual root cause)**: v0.13.6's fix above was real and necessary, but it wasn't
+sufficient -- players kept reporting the boss as "practically unbeatable" even on worlds with a
+freshly-spawned Behemoth. `BehemothConfig.load()` deserializes straight onto whatever `Stats` object
+already exists in the JSON on disk; every one of those three health-lowering patches only ever changed
+the *Java-side default*, and a config file generated back when the default was 30000 kept `"health":
+30000.0` in it forever -- `syncMaxHealthWithConfig()` was correctly syncing the entity to the config, but
+the config itself was still wrong. Verified directly: a real player config on disk was found holding
+`"health": 30000.0`, un-migrated since v0.13.1. Fixed with a `configVersion` field (a boxed, uninitialized
+`Integer`, not a primitive with a literal default -- the same trap `TitanShifterConfig`'s own migration
+hit and worked around, see its memory notes) that Gson leaves `null` for any file predating it; `load()`
+now resets the *whole* config to fresh defaults when `configVersion == null`, then stamps the version, so
+every past release's balance intent actually takes effect on old files too, not just new ones. Confirmed
+via the client debug harness (see `docs/OATHBREAKER_REFERENCE.md`'s notes on the same tool): a config
+file pre-seeded with the stale `30000.0` value, on a clean boot, was correctly reset to `1000.0`, and a
+subsequent 10%-max hit landed for exactly 10% -- no resistance, no stale ceiling.
+
 ## Texture
 
 v0.13.3 also recolored `textures/entity/abyssal_behemoth.png` (256x121) from a dark red/black lava

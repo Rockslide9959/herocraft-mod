@@ -28,7 +28,8 @@
 		"PlayerRendererTitanMixin",
 		"SoundEngineMixin",
 		"TitanCameraMixin",
-		"SpiderTravelMixin"
+		"SpiderTravelMixin",
+		"WorldEventZoomMixin"
 	],
 	"client": [],
 	"server": [],

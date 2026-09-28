@@ -64,9 +64,13 @@ public class OathbreakerEntity extends Monster implements GeoEntity {
 	public static final float HEIGHT = 4.0f;
 	public static final float WIDTH = 1.2f;
 
-	private static final float MAX_HEALTH = 500.0f;
-	/** v0.13.6: "10% faster than normal player walking speed" -- vanilla player walk speed is 0.1. */
-	private static final double MOVEMENT_SPEED = 0.11;
+	/** v0.13.7: raised 500 -> 3000. */
+	private static final float MAX_HEALTH = 3000.0f;
+	/** v0.13.7: "50% faster than normal player walking speed" (was 10%) -- vanilla player walk speed is 0.1. */
+	private static final double MOVEMENT_SPEED = 0.15;
+
+	/** v0.13.7: ticks spent in the crouched spawn pose before AI/combat wakes up -- see {@link #spawnIn}. */
+	private static final int SPAWN_TICKS = 25;
 
 	private static final int ATTACK_TRIGGER_RANGE = 5;
 	private static final int ATTACK_COOLDOWN_TICKS = 50; // 2.5s between attack sequences
@@ -79,8 +83,10 @@ public class OathbreakerEntity extends Monster implements GeoEntity {
 	private static final double STANCE_ARC_DEGREES = 70.0;
 
 	private static final int COMBO_HITS = 4;
-	private static final int COMBO_WINDUP_TICKS = 8;
-	private static final int COMBO_STRIKE_HOLD_TICKS = 4;
+	/** v0.13.7: lengthened 8 -> 10 and 4 -> 7 (see matching {@code animation.oathbreaker.combo_*} clip
+	 * lengths) so each beat is actually readable rather than a blur between two nearly-instant poses. */
+	private static final int COMBO_WINDUP_TICKS = 10;
+	private static final int COMBO_STRIKE_HOLD_TICKS = 7;
 	private static final float COMBO_DAMAGE_PER_HIT = 10.0f;
 	private static final double COMBO_RANGE = 3.5;
 	private static final double COMBO_ARC_DEGREES = 80.0;
@@ -96,11 +102,27 @@ public class OathbreakerEntity extends Monster implements GeoEntity {
 	private int comboHitIndex;
 	private int attackCooldownTicks;
 
+	/** v0.13.7: ticks left in the crouched spawn pose; &gt;0 means AI/targeting/combat are all still
+	 * asleep and the entity is invulnerable -- see {@link #spawnIn} and {@link #tickSpawn}. */
+	private int spawnTicksLeft;
+
 	private EventBossBar bossBar;
 
 	public OathbreakerEntity(EntityType<? extends OathbreakerEntity> type, Level level) {
 		super(type, level);
 		this.xpReward = 250;
+	}
+
+	/** Called the instant this entity is added to the world by {@code OathbreakerSummon} (or the item's
+	 * own fallback path): starts it crouched and inert for {@link #SPAWN_TICKS} before AI wakes up, so
+	 * the "he spawns in" beat the item already telegraphed (rumble, zoom, particles, a 5 s wait) is
+	 * followed by an actual crouch-to-standing rise rather than the boss just appearing mid-idle.
+	 */
+	public void spawnIn() {
+		spawnTicksLeft = SPAWN_TICKS;
+		setNoAi(true);
+		setInvulnerable(true);
+		triggerAnim("action", "spawn");
 	}
 
 	public static AttributeSupplier.Builder createAttributes() {
@@ -139,8 +161,27 @@ public class OathbreakerEntity extends Monster implements GeoEntity {
 		if (!(level() instanceof ServerLevel server)) {
 			return;
 		}
+		if (spawnTicksLeft > 0) {
+			tickSpawn(server);
+			return;
+		}
 		tickCombat(server);
 		updateBossBar(server);
+	}
+
+	private void tickSpawn(ServerLevel server) {
+		spawnTicksLeft--;
+		if (tickCount % 4 == 0) {
+			server.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, getX(), getY() + getBbHeight() * 0.3, getZ(),
+					6, getBbWidth() * 0.4, getBbHeight() * 0.2, getBbWidth() * 0.4, 0.02);
+		}
+		if (spawnTicksLeft <= 0) {
+			setNoAi(false);
+			setInvulnerable(false);
+			server.playSound(null, blockPosition(), SoundEvents.IRON_GOLEM_STEP, SoundSource.HOSTILE, 2.0f, 0.5f);
+			server.sendParticles(ParticleTypes.EXPLOSION, getX(), getY() + getBbHeight() * 0.4, getZ(), 1, 0, 0, 0, 0);
+			updateBossBar(server);
+		}
 	}
 
 	// ---------------------------------------------------------------- combat state machine
@@ -421,14 +462,18 @@ public class OathbreakerEntity extends Monster implements GeoEntity {
 
 	@Override
 	public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-		AnimationController<OathbreakerEntity> action = new AnimationController<>(this, "action", 4, state -> PlayState.STOP);
-		for (String name : new String[] { "windup_dash", "dash_attack", "post_dash",
+		// v0.13.7: transition time cut 4 -> 1 tick. At 4 the blend between two triggered clips ate a
+		// third or more of every short attack beat (the 0.2s combo strikes especially), which is almost
+		// certainly why the attacks read as "not working" -- the pose was smearing into the next one
+		// before it ever fully showed.
+		AnimationController<OathbreakerEntity> action = new AnimationController<>(this, "action", 1, state -> PlayState.STOP);
+		for (String name : new String[] { "spawn", "windup_dash", "dash_attack", "post_dash",
 				"combo_windup_1", "combo_strike_1", "combo_windup_2", "combo_strike_2",
 				"combo_windup_3", "combo_strike_3", "combo_windup_4", "combo_strike_4", "hit", "death" }) {
 			action.triggerableAnim(name, RawAnimation.begin().thenPlay("animation.oathbreaker." + name));
 		}
 		controllers.add(action);
-		controllers.add(new AnimationController<>(this, "main", 6, this::mainPredicate));
+		controllers.add(new AnimationController<>(this, "main", 2, this::mainPredicate));
 	}
 
 	private PlayState mainPredicate(AnimationState<OathbreakerEntity> state) {

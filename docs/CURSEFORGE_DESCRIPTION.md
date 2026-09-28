@@ -319,14 +319,15 @@ five-minute Abyssal Enrage keeps a long fight from being cheesed. You do not nee
 Defeating it drops a unique **Abyssal Core** plus netherite scrap, ghast tears and blaze rods. At most
 one exists per Nether dimension at a time; tunable in `config/projecthero_behemoth.json`.
 
-### The Oathbreaker (v0.13.6)
+### The Oathbreaker (v0.13.7)
 A summoned **4-block knight boss**. Craft a **Knight's Soul** (an Abyssal Core surrounded by 8 Grave
-Essence) and right-click it on a **Lodestone** to call him forth. He wields an oversized sword and fights
+Essence) and right-click it on a **Respawn Anchor** to call him forth. He wields an oversized sword and fights
 in two moves: a **Stance Dash** — a 2-second wind-up, a lunging slice for **30 damage**, then held for
 another 2 seconds — and a **Four-Strike Combo**, four quick hits from four different directions
-(upper-right, upper-left, a sweep, an overhead slam) for **10 damage each**. 500 HP, 10% faster than a
-walking player, tracked on a boss bar. Defeating him drops a netherite sword, a stack of Grave Essence,
-and a chance at another Abyssal Core.
+(upper-right, upper-left, a sweep, an overhead slam) for **10 damage each**. 3,000 HP, 50% faster than a
+walking player, tracked on a boss bar. He spawns in 5 seconds after the Knight's Soul is used (the
+ground rumbles, your view zooms in slightly, and he rises from a crouch), not instantly. Defeating him
+drops a netherite sword, a stack of Grave Essence, and a chance at another Abyssal Core.
 
 ---
 

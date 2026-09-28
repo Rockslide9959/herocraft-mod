@@ -160,6 +160,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.event.raid.PillagerSpySpawner.tick(server);
 			com.projecthero.mod.titan.TitanSpawner.tick(server);
 			com.projecthero.mod.behemoth.BehemothSpawner.tick(server);
+			com.projecthero.mod.oathbreaker.OathbreakerSummon.tick(server);
 			com.projecthero.mod.spider.SpiderWebs.tick(server);
 			com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.tick(server);
 			// Once/sec, for every online player (not just bonded Green Lanterns) -- a traded, gifted or

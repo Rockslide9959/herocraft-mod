@@ -19,8 +19,19 @@ import net.fabricmc.loader.api.FabricLoader;
  * scripted raid/event framework.
  */
 public final class BehemothConfig {
+	/** v0.13.7: every past balance pass that lowered {@code Stats.health} (30000 -> 3000 -> 1000) only
+	 * ever changed the Java-side default -- {@link #load} deserializes straight onto whatever is already
+	 * on disk, so a config file written before any of those patches existed kept its original 30000
+	 * forever, no matter how many times the code default was lowered. This is the actual reason players
+	 * kept reporting the Behemoth as "unbeatable" release after release. {@code configVersion} is
+	 * deliberately a boxed, uninitialized {@code Integer} (not a primitive with a literal default) so
+	 * Gson leaves it {@code null} for any file that predates this field -- the same migration-detection
+	 * trick {@code TitanShifterConfig} already uses. */
+	private static final int CONFIG_VERSION = 1;
+
 	private static BehemothConfig instance = new BehemothConfig();
 
+	public Integer configVersion;
 	public Stats stats = new Stats();
 	public Abilities abilities = new Abilities();
 	public Phases phases = new Phases();
@@ -166,6 +177,15 @@ public final class BehemothConfig {
 				if (loaded != null) {
 					instance = loaded;
 				}
+			}
+			if (instance.configVersion == null) {
+				// Pre-migration file (or none existed) -- wipe forward to today's intended tuning rather
+				// than trust whatever an old balance pass left on disk. See the class javadoc above.
+				ProjectHeroMod.LOGGER.info(
+						"[ProjectHero] Abyssal Behemoth config predates v{} balance migration (was health={}) -- resetting to current defaults",
+						CONFIG_VERSION, instance.stats.health);
+				instance = new BehemothConfig();
+				instance.configVersion = CONFIG_VERSION;
 			}
 			Files.writeString(path, gson.toJson(instance));
 		} catch (IOException | JsonSyntaxException e) {

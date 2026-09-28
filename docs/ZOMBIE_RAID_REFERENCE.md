@@ -204,7 +204,7 @@ Clearing wave 12 spawns a **Cursed Grave Chest** at the raid centre with:
 | **Gravekeeper Shield** | Blocks like a normal shield. 25% less damage from undead, 55% less from acid, and near-immunity to a Juggernaut charge's knockback. Nothing against anything else. |
 | **Heart of the Grave** | First-clear reward. The key to repeatable raids. |
 | **Grave Ritual Totem** | Use it in a Graveyard to curse yourself deliberately. Consumed on a successful activation. |
-| **Knight's Soul** | Right-click a Lodestone to summon The Oathbreaker, a 4-block knight boss. Consumed on a successful summon — see `docs/OATHBREAKER_REFERENCE.md`. |
+| **Knight's Soul** | Right-click a Respawn Anchor to summon The Oathbreaker, a 4-block knight boss. Consumed on use; he appears 5 seconds later — see `docs/OATHBREAKER_REFERENCE.md`. |
 
 ### Recipes
 

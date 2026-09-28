@@ -30,6 +30,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(TitanShiftPayload.TYPE, TitanShiftPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(AllMightActionPayload.TYPE, AllMightActionPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(TitanShakePayload.TYPE, TitanShakePayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(WorldEventZoomPayload.TYPE, WorldEventZoomPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(FirearmFirePayload.TYPE, FirearmFirePayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(FirearmActionPayload.TYPE, FirearmActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(PunisherArsenalPayload.TYPE, PunisherArsenalPayload.CODEC);
