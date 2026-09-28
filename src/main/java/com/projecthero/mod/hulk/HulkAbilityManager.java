@@ -4,18 +4,18 @@ import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.data.ExperimentalState;
 
-import net.minecraft.ChatFormatting;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * Bridges the six universal ability slots to the Hulk (v0.13.12). {@link com.projecthero.mod.hero.AbilityRouter}
- * hands him the slots when {@link #hasContext} is true -- has the Gamma power and no mutation selected on the
- * wheel -- on the same terms as every other Hero-Tier power.
+ * Bridges the six universal ability slots to the Hulk (v0.13.14 kit). {@link com.projecthero.mod.hero.AbilityRouter}
+ * hands him the slots when {@link #hasContext} is true -- has the Gamma power and no mutation selected on the wheel --
+ * and, while he is out, ahead of every other power.
  *
  * <pre>
- *   R (1)  Thunderclap        G (2)  Ground Smash
- *   X (3)  Super Leap (hold)  C (6)  Sprint Smash on / off
- *   Z (4), V (5)  -- unused
+ *   R (1)  Power Punch              G (2)  Ground Smash
+ *   X (3)  Super Leap (hold)        Z (4)  Thunderclap   /  Shift+Z (hold 5 s) HULK SMASH
+ *   V (5)  Grab / Throw, Shift+V Crush (holding) or Earth Chunk (empty-handed)
+ *   C (6)  Charge
  * </pre>
  */
 public final class HulkAbilityManager {
@@ -34,7 +34,7 @@ public final class HulkAbilityManager {
 		switch (slot) {
 			case SLOT_1 -> {
 				if (pressed) {
-					HulkAbilities.thunderclap(player);
+					HulkAbilities.powerPunch(player);
 				}
 			}
 			case SLOT_2 -> {
@@ -49,35 +49,52 @@ public final class HulkAbilityManager {
 					HulkAbilities.releaseLeap(player);
 				}
 			}
-			case SLOT_6 -> {
+			case SLOT_4 -> {
 				if (pressed) {
-					HulkAbilities.toggleSprintSmash(player);
+					if (player.isShiftKeyDown()) {
+						HulkAbilities.beginHulkSmash(player);
+					} else {
+						HulkAbilities.thunderclap(player);
+					}
+				} else {
+					HulkAbilities.releaseHulkSmash(player);
 				}
 			}
-			default -> {
+			case SLOT_5 -> {
 				if (pressed) {
-					Hulk.say(player, "message.projecthero.hulk.unbound_key", ChatFormatting.DARK_GRAY);
+					HulkGrab.press(player, player.isShiftKeyDown());
+				}
+			}
+			case SLOT_6 -> {
+				if (pressed) {
+					HulkAbilities.charge(player);
 				}
 			}
 		}
 	}
 
-	/** The ability id shown in each HUD box, or null for an unused slot. */
+	/** The ability id shown in each HUD box. */
 	public static String abilityIdOf(AbilitySlot slot) {
 		return switch (slot) {
-			case SLOT_1 -> HulkAbilities.THUNDERCLAP;
+			case SLOT_1 -> HulkAbilities.POWER_PUNCH;
 			case SLOT_2 -> HulkAbilities.GROUND_SMASH;
 			case SLOT_3 -> HulkAbilities.SUPER_LEAP;
-			default -> null;
+			case SLOT_4 -> HulkAbilities.THUNDERCLAP;
+			case SLOT_5 -> HulkAbilities.GRAB;
+			case SLOT_6 -> HulkAbilities.CHARGE;
 		};
 	}
 
 	public static int maxCooldown(String id) {
 		HulkConfig.Abilities cfg = HulkConfig.abilities();
 		return switch (id) {
-			case HulkAbilities.THUNDERCLAP -> cfg.thunderclapCooldownTicks;
+			case HulkAbilities.POWER_PUNCH -> cfg.powerPunchCooldownTicks;
 			case HulkAbilities.GROUND_SMASH -> cfg.groundSmashCooldownTicks;
 			case HulkAbilities.SUPER_LEAP -> cfg.leapCooldownTicks;
+			case HulkAbilities.THUNDERCLAP -> cfg.thunderclapCooldownTicks;
+			case HulkAbilities.HULK_SMASH -> cfg.hulkSmashCooldownTicks;
+			case HulkAbilities.GRAB -> cfg.grabCooldownTicks;
+			case HulkAbilities.CHARGE -> cfg.chargeCooldownTicks;
 			default -> 0;
 		};
 	}

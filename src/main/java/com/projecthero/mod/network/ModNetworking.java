@@ -177,8 +177,16 @@ public final class ModNetworking {
 
 		// Hulk (v0.13.11): H lets the Hulk out at 75+ rage. Server re-validates the power, rage and state.
 		ServerPlayNetworking.registerGlobalReceiver(HulkActionPayload.TYPE, (payload, context) -> {
-			if (payload.action() == HulkActionPayload.Action.TRANSFORM) {
-				com.projecthero.mod.hulk.Hulk.tryTransform(context.player());
+			net.minecraft.server.level.ServerPlayer p = context.player();
+			if (!com.projecthero.mod.hulk.Hulk.hasPower(p)) {
+				return;
+			}
+			switch (payload.action()) {
+				case TRANSFORM -> com.projecthero.mod.hulk.Hulk.tryTransform(p);
+				case CALM_START -> com.projecthero.mod.hulk.HulkCalm.start(p);
+				case CALM_REPORT -> com.projecthero.mod.hulk.HulkCalm.report(p, payload.a(), payload.b());
+				case CALM_STOP -> com.projecthero.mod.hulk.HulkCalm.stop(p);
+				case CONTROL -> com.projecthero.mod.hulk.HulkControl.answer(p, payload.a());
 			}
 		});
 

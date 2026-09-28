@@ -57,6 +57,9 @@ public final class Hulk {
 	private static final ResourceLocation STEP_ID = PowerToggles.id("hulk_step");
 	private static final ResourceLocation REACH_ID = PowerToggles.id("hulk_reach");
 	private static final ResourceLocation BLOCK_REACH_ID = PowerToggles.id("hulk_block_reach");
+	private static final ResourceLocation SPEED_ID = PowerToggles.id("hulk_speed");
+	private static final ResourceLocation ATTACK_KNOCKBACK_ID = PowerToggles.id("hulk_attack_knockback");
+	private static final ResourceLocation ARMOR_ID = PowerToggles.id("hulk_armor");
 
 	private static final DustParticleOptions GAMMA_GREEN = new DustParticleOptions(new Vector3f(0.3f, 0.95f, 0.2f), 1.6f);
 	private static final DustParticleOptions DEEP_GREEN = new DustParticleOptions(new Vector3f(0.12f, 0.55f, 0.1f), 1.2f);
@@ -70,6 +73,9 @@ public final class Hulk {
 	public static void clearSessionState() {
 		LAST_MESSAGE.clear();
 		HulkAbilities.clearSessionState();
+		HulkGrab.clearSessionState();
+		HulkControl.clearSessionState();
+		HulkCalm.clearSessionState();
 	}
 
 	// ---------------------------------------------------------------- state
@@ -142,6 +148,10 @@ public final class Hulk {
 	/** Takes the Gamma power away; a Hulk shrinks straight back (no exhaustion). */
 	public static void revoke(ServerPlayer player) {
 		HulkAbilities.clear(player.getUUID());
+		HulkGrab.release(player);
+		HulkCalm.clear(player.getUUID());
+		HulkControl.clear(player.getUUID());
+		ejectRider(player);
 		save(player, new HulkState());
 		reconcile(player);
 		PowerToggles.clearModifier(player, Attributes.SCALE, SCALE_ID);
@@ -169,6 +179,7 @@ public final class Hulk {
 		}
 		float per = s.hulk ? HulkConfig.HULK_RAGE_PER_DAMAGE_TAKEN : HulkConfig.RAGE_PER_DAMAGE_TAKEN;
 		gain(player, s, amount * per);
+		HulkCalm.interrupt(player); // pain breaks the focus
 	}
 
 	/** This player with the Gamma power just dealt {@code amount} to something. Only builds rage as Banner. */
@@ -178,6 +189,9 @@ public final class Hulk {
 			return;
 		}
 		gain(player, s, s.hulk ? 0.0f : amount * HulkConfig.RAGE_PER_DAMAGE_DEALT);
+		if (s.hulk) {
+			HulkControl.onDealtDamage(player); // hitting things is how he stays in charge
+		}
 	}
 
 	private static void gain(ServerPlayer player, HulkState s, float amount) {
@@ -236,7 +250,12 @@ public final class Hulk {
 		HulkState n = s.copy();
 		n.hulk = true;
 		n.formChangedAt = player.level().getGameTime();
+		n.combat.control = 100.0f;
+		n.combat.lastDealtAt = n.formChangedAt;
+		n.combat.promptKey = 0;
+		n.combat.rampageUntil = 0L;
 		save(player, n);
+		tearOffArmour(player); // v0.13.14: he bursts out of it
 		reconcile(player);
 		player.setHealth(Math.min(player.getMaxHealth(), ratio * player.getMaxHealth() + HulkConfig.TRANSFORM_HEAL));
 		transformFx(player, forced);
@@ -249,9 +268,16 @@ public final class Hulk {
 			return;
 		}
 		long now = player.level().getGameTime();
+		HulkGrab.release(player);
+		HulkAbilities.endCharge(player);
+		HulkControl.clear(player.getUUID());
+		ejectRider(player);
 		float ratio = healthRatio(player);
-		HulkState n = s.copy();
+		HulkState n = state(player).copy();
 		n.hulk = false;
+		n.combat.rampageUntil = 0L;
+		n.combat.promptKey = 0;
+		n.combat.control = 100.0f;
 		n.rage = 0.0f;
 		n.formChangedAt = now;
 		n.exhaustedUntil = exhaust ? now + HulkConfig.EXHAUSTED_TICKS : 0L;
@@ -285,6 +311,9 @@ public final class Hulk {
 			PowerToggles.clearModifier(player, Attributes.STEP_HEIGHT, STEP_ID);
 			PowerToggles.clearModifier(player, Attributes.ENTITY_INTERACTION_RANGE, REACH_ID);
 			PowerToggles.clearModifier(player, Attributes.BLOCK_INTERACTION_RANGE, BLOCK_REACH_ID);
+			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID);
+			PowerToggles.clearModifier(player, Attributes.ATTACK_KNOCKBACK, ATTACK_KNOCKBACK_ID);
+			PowerToggles.clearModifier(player, Attributes.ARMOR, ARMOR_ID);
 			if (!s.hasPower) {
 				PowerToggles.clearModifier(player, Attributes.SCALE, SCALE_ID);
 			}
@@ -304,6 +333,75 @@ public final class Hulk {
 				AttributeModifier.Operation.ADD_VALUE);
 		PowerToggles.modifier(player, Attributes.BLOCK_INTERACTION_RANGE, BLOCK_REACH_ID, HulkConfig.REACH_BONUS,
 				AttributeModifier.Operation.ADD_VALUE);
+		// v0.13.14: faster, harder-hitting, and diamond-level armour of his own
+		PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID, HulkConfig.SPEED_BONUS, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		PowerToggles.modifier(player, Attributes.ATTACK_KNOCKBACK, ATTACK_KNOCKBACK_ID, HulkConfig.ATTACK_KNOCKBACK_BONUS,
+				AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(player, Attributes.ARMOR, ARMOR_ID, HulkConfig.ARMOR_BONUS, AttributeModifier.Operation.ADD_VALUE);
+	}
+
+	// ---------------------------------------------------------------- armour, riders
+
+	private static final net.minecraft.world.entity.EquipmentSlot[] ARMOUR_SLOTS = {
+			net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST,
+			net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET };
+
+	/** Worn armour bursts off as he grows: each piece takes {@link HulkConfig#ARMOUR_TEAR_DAMAGE} durability and falls to the ground. */
+	static void tearOffArmour(ServerPlayer player) {
+		boolean any = false;
+		for (net.minecraft.world.entity.EquipmentSlot slot : ARMOUR_SLOTS) {
+			net.minecraft.world.item.ItemStack worn = player.getItemBySlot(slot);
+			if (worn.isEmpty() || boundToSlot(worn)) {
+				continue;
+			}
+			any = true;
+			player.setItemSlot(slot, net.minecraft.world.item.ItemStack.EMPTY);
+			if (worn.isDamageableItem()) {
+				int damage = worn.getDamageValue() + HulkConfig.ARMOUR_TEAR_DAMAGE;
+				if (damage >= worn.getMaxDamage()) {
+					player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, 0.9f, 1.0f);
+					continue; // torn apart completely
+				}
+				worn.setDamageValue(damage);
+			}
+			net.minecraft.world.entity.item.ItemEntity dropped = player.drop(worn, false);
+			if (dropped != null) {
+				dropped.setPickUpDelay(60);
+			}
+		}
+		if (any) {
+			player.displayClientMessage(Component.translatable("message.projecthero.hulk.armour_torn").withStyle(ChatFormatting.RED), true);
+			player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ARMOR_EQUIP_IRON.value(), SoundSource.PLAYERS, 1.0f, 0.5f);
+		}
+	}
+
+	/** While he is out, armour that gets put on is pushed straight back off (to the inventory, or dropped when it is full). */
+	private static void bounceArmour(ServerPlayer player) {
+		for (net.minecraft.world.entity.EquipmentSlot slot : ARMOUR_SLOTS) {
+			net.minecraft.world.item.ItemStack worn = player.getItemBySlot(slot);
+			if (worn.isEmpty() || boundToSlot(worn)) {
+				continue;
+			}
+			net.minecraft.world.item.ItemStack piece = worn.copy();
+			player.setItemSlot(slot, net.minecraft.world.item.ItemStack.EMPTY);
+			if (!player.getInventory().add(piece)) {
+				player.drop(piece, false);
+			}
+			say(player, "message.projecthero.hulk.armour_refused", ChatFormatting.RED);
+		}
+	}
+
+	/** Curse of Binding (and power suits bound that way) stays put -- those belong to other systems. */
+	private static boolean boundToSlot(net.minecraft.world.item.ItemStack stack) {
+		return net.minecraft.world.item.enchantment.EnchantmentHelper.has(stack,
+				net.minecraft.world.item.enchantment.EnchantmentEffectComponents.PREVENT_ARMOR_CHANGE);
+	}
+
+	/** Whoever is riding his back gets off (he changed back, died, rampaged, logged out). */
+	static void ejectRider(ServerPlayer player) {
+		if (!player.getPassengers().isEmpty()) {
+			player.ejectPassengers();
+		}
 	}
 
 	/** Current eased size bonus (0 = Banner size, {@link HulkConfig#SCALE_BONUS} = full Hulk). */
@@ -360,7 +458,13 @@ public final class Hulk {
 			return;
 		}
 		HulkAbilities.tick(player);
+		HulkGrab.tick(player);
+		HulkControl.tick(player);
+		HulkCalm.tick(player);
 		s = state(player);
+		if (!s.hulk && !player.getPassengers().isEmpty()) {
+			ejectRider(player);
+		}
 
 		if (s.hulk) {
 			if (now % 20L == 0L) {
@@ -375,6 +479,12 @@ public final class Hulk {
 			}
 			if (player.tickCount % HulkConfig.REGEN_INTERVAL_TICKS == 0 && player.getHealth() < player.getMaxHealth()) {
 				player.heal(HulkConfig.REGEN_AMOUNT);
+			}
+			if (player.isOnFire()) {
+				player.clearFire(); // fire does not touch him
+			}
+			if (player.tickCount % 5 == 0) {
+				bounceArmour(player);
 			}
 			tickAura(level, player, s, now);
 			return;
@@ -435,7 +545,7 @@ public final class Hulk {
 		// v0.13.12 (Phase 3): the roar lands as he finishes growing, and the ground shakes under him
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.POLAR_BEAR_WARNING, SoundSource.PLAYERS, 1.8f, 0.45f);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ENDER_DRAGON_GROWL, SoundSource.PLAYERS, 0.6f, 1.6f);
-		HulkAbilities.shake(level, player.position(), 0.6f, HulkConfig.GROWTH_TICKS);
+		HulkCombat.shake(level, player.position(), 0.6f, HulkConfig.GROWTH_TICKS, 24.0);
 		level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 0.1, player.getZ(), 30, 1.2, 0.1, 1.2, 0.08);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 2.0f, 0.6f);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 1.0f, 0.5f);
@@ -508,13 +618,71 @@ public final class Hulk {
 	public static void clearTransient(ServerPlayer player) {
 		LAST_MESSAGE.remove(player.getUUID());
 		HulkAbilities.clear(player.getUUID());
+		HulkGrab.release(player);
+		HulkCalm.clear(player.getUUID());
+		HulkControl.clear(player.getUUID());
+		ejectRider(player);
 		HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
-		if (s != null && (s.leapChargeStart != 0L || s.leaping || s.animId != HulkState.ANIM_NONE)) {
+		if (s != null && (s.leapChargeStart != 0L || s.leaping || s.animId != HulkState.ANIM_NONE || s.combat.chargeUntil != 0L
+				|| s.combat.smashChargeStart != 0L || s.combat.calming || s.combat.rampageUntil != 0L || s.combat.holding)) {
 			HulkState n = s.copy();
 			n.leapChargeStart = 0L;
 			n.leaping = false;
 			n.animId = HulkState.ANIM_NONE;
+			n.combat.chargeUntil = 0L;
+			n.combat.smashChargeStart = 0L;
+			n.combat.calming = false;
+			n.combat.rampageUntil = 0L;
+			n.combat.holding = false;
+			n.combat.promptKey = 0;
+			n.combat.control = 100.0f;
 			save(player, n);
 		}
+	}
+
+	// ---------------------------------------------------------------- the death save
+
+	/** Client-safe: can "the Hulk refuses to die" save him right now? */
+	public static boolean deathSaveReady(Player player) {
+		HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
+		return s != null && s.hasPower && player.level().getGameTime() >= s.combat.deathSaveReadyAt;
+	}
+
+	/**
+	 * v0.13.14: a Gamma player who would die is not allowed to -- the Hulk comes out (or, if he is already out, comes
+	 * back roaring) at full health with a full rage bar. Once every {@link HulkConfig#DEATH_SAVE_COOLDOWN_TICKS}. /kill
+	 * and the void still kill. Returns true if the death was prevented (the caller cancels it).
+	 */
+	public static boolean tryDeathSave(ServerPlayer player, net.minecraft.world.damagesource.DamageSource source) {
+		HulkState s = state(player);
+		long now = player.level().getGameTime();
+		if (!s.hasPower || player.isSpectator() || player.getAbilities().invulnerable || now < s.combat.deathSaveReadyAt
+				|| source.is(net.minecraft.world.damagesource.DamageTypes.GENERIC_KILL)
+				|| source.is(net.minecraft.world.damagesource.DamageTypes.FELL_OUT_OF_WORLD)) {
+			return false;
+		}
+		HulkState n = s.copy();
+		n.combat.deathSaveReadyAt = now + HulkConfig.DEATH_SAVE_COOLDOWN_TICKS;
+		n.rage = HulkConfig.RAGE_MAX;
+		n.exhaustedUntil = 0L;
+		n.combat.calming = false;
+		save(player, n);
+		player.setHealth(1.0f);
+		if (!n.hulk) {
+			transform(player, true);
+		}
+		player.setHealth(player.getMaxHealth());
+		player.clearFire();
+		player.invulnerableTime = 40;
+		player.removeEffect(MobEffects.WITHER);
+		player.removeEffect(MobEffects.POISON);
+		ServerLevel level = (ServerLevel) player.level();
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 3.0f, 0.5f);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.TOTEM_USE, SoundSource.PLAYERS, 0.8f, 0.7f);
+		level.sendParticles(GAMMA_GREEN, player.getX(), player.getY() + 1.0, player.getZ(), 80, 0.8, 1.2, 0.8, 0.1);
+		HulkAbilities.shockwave(player, player.position(), 5.0, 8.0f, 1.4, 0.5, 0.7f);
+		player.displayClientMessage(Component.translatable("message.projecthero.hulk.death_save")
+				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
+		return true;
 	}
 }

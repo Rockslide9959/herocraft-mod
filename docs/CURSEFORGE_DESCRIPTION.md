@@ -261,19 +261,20 @@ plates, 2 enchanted golden apples, 2 diamond blocks, a **totem of undying**) and
 - Server-authoritative; every number is in `AllMightConfig`. Full details in `docs/ALLMIGHT_REFERENCE.md`.
 
 ### 💚 The Hulk
-A **Hero-Tier Primary** power (v0.13.11-v0.13.12). Find a rare **Gamma Lab** ruin in the overworld -- blown-out concrete,
-green glass and a still-glowing **Gamma Reactor** -- and drink the **Gamma Serum** from its chest.
+A **Hero-Tier Primary** power. Find a rare **Gamma Lab** ruin in the overworld and drink the **Gamma Serum** from its chest.
 
-- **Rage (0-100):** fills when you are hurt and when you fight (and beside a Gamma Reactor), calms down when you are
-  left alone. At **75** press **H** to let the Hulk out; at **100** he comes out on his own. As the Hulk, rage burns
-  down every second but every hit you take feeds it back; at 0 you shrink back to Banner, exhausted for 8 seconds.
-- **The Hulk:** your **own Hulk model**, 1.8x your size, with idle / walk / run / clap / smash / leap / transformation
-  animations; +12 attack, +40 max health, 90% knockback resistance, fast regeneration, no fall damage, **fists only**.
-- **R Thunderclap** -- a shockwave cone that hurls mobs back and shatters glass, ice and leaves. **G Ground Smash** --
-  a ring of damage and flying earth. **X Super Leap** -- hold to charge, release to fly up to 45 blocks and land with a
-  shockwave. **C Sprint Smash** -- sprint straight through dirt, wood and stone (the server can turn it off).
-- **The Hulk can't lift Mjolnir,** and nobody is both Thor and the Hulk. Every number and the block-breaking rules
-  are in `config/projecthero_hulk.json`. Admins: `/projecthero power grant hulk`.
+- **Rage (0-100):** fills when you are hurt and when you fight; at **75** press **H** to let the Hulk out, at **100** he
+  comes out on his own. As the Hulk rage burns down, but every hit you take feeds it back.
+- **The Hulk:** your own Hulk model at 1.8x size, +50% speed, **20-damage punches** with big knockback, +40 health,
+  **diamond-level armour of his own**, fast regeneration, **immune to fire, arrows and falls**, tough against lava and
+  explosions, and hands that dig like stone tools. Armour you wear bursts off when he comes out.
+- **R Power Punch** (30) · **G Ground Smash** (30 + a crater) · **Z Thunderclap** (22) · **Shift+Z HULK SMASH** (hold 5 s:
+  100 damage, a huge crater) · **X Super Leap** (up to 70 blocks) · **C Charge** (8 s rampaging run, 20 to everything in
+  the way) · **V Grab** (pick up and throw a mob, Shift+V crush it, or Shift+V tear up a chunk of earth to throw).
+- **The Hulk refuses to die:** once every 3 minutes a fatal hit brings him out at full health.
+- **Keep control:** stop hitting things and the Hulk starts to take over -- answer the key prompts or he goes on a
+  **rampage** on his own. Hold **N** to calm down with a breathing minigame. Squad-mates can **ride his back**.
+- The Hulk can't lift Mjolnir, and nobody is both Thor and the Hulk. Everything is in `config/projecthero_hulk.json`.
 
 ---
 

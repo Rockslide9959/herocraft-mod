@@ -746,20 +746,20 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.hulk.tier").withStyle(ChatFormatting.GREEN));
 			para(lines, "projecthero.guide.hulk.body");
 			blank(lines);
-			for (String section : new String[]{"origin", "rage", "change", "stats", "fists"}) {
+			for (String section : new String[]{"origin", "rage", "change", "stats", "fists", "death_save"}) {
 				head(lines, "projecthero.guide.hulk." + section);
 				para(lines, "projecthero.guide.hulk." + section + ".body");
 				blank(lines);
 			}
 			head(lines, "projecthero.guide.hulk.controls");
-			for (String[] row : new String[][] { { "H", "transform" }, { "R", "thunderclap" }, { "G", "ground_smash" },
-					{ "X", "super_leap" }, { "C", "sprint_smash" } }) {
+			for (String[] row : new String[][] { { "H", "transform" }, { "R", "power_punch" }, { "G", "ground_smash" }, { "Z", "thunderclap" }, { "Shift+Z", "hulk_smash" },
+					{ "X", "super_leap" }, { "C", "charge" }, { "V", "grab" }, { "Shift+V", "earth_chunk" }, { "N (hold)", "calm" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.hulk.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.hulk.ability." + row[1] + ".desc");
 			}
 			blank(lines);
-			for (String section : new String[]{"looks", "limits", "commands"}) {
+			for (String section : new String[]{"sprint_smash", "control", "riding", "looks", "limits", "commands"}) {
 				head(lines, "projecthero.guide.hulk." + section);
 				para(lines, "projecthero.guide.hulk." + section + ".body");
 				blank(lines);

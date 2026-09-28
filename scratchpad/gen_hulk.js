@@ -151,6 +151,74 @@ anim('punch', 0.3, false, {
 	right_arm: R([[0, [-4, 0, OUT]], [0.08, [30, 0, OUT]], [0.16, [-100, 0, 4]], [0.3, [-4, 0, OUT]]]),
 });
 
+// ---- v0.13.14 kit ----
+// power_punch (the fist lands at 0.25 s = 5 ticks, HulkAbilities.PUNCH_IMPACT_TICKS): a huge wound-up right straight
+anim('power_punch', 0.6, false, {
+	right_arm: R([[0, [-4, 0, OUT]], [0.12, [50, 0, 20]], [0.25, [-96, 0, 2]], [0.4, [-88, 0, 4]], [0.6, [-4, 0, OUT]]]),
+	left_arm: R([[0, [-4, 0, -OUT]], [0.12, [-40, 0, -10]], [0.25, [30, 0, -OUT]], [0.6, [-4, 0, -OUT]]]),
+	body: R([[0, [8, 0, 0]], [0.12, [0, -34, 0]], [0.25, [18, 30, 0]], [0.6, [8, 0, 0]]]),
+	head: R([[0, [-8, 0, 0]], [0.25, [-14, 12, 0]], [0.6, [-8, 0, 0]]]),
+	right_leg: R([[0, [0, 0, 0]], [0.25, [18, 0, 0]], [0.6, [0, 0, 0]]]),
+	left_leg: R([[0, [0, 0, 0]], [0.25, [-24, 0, 0]], [0.6, [0, 0, 0]]]),
+	root: Pn([[0, [0, 0, 0]], [0.25, [0, -0.6, -1.2]], [0.6, [0, 0, 0]]]),
+});
+// hulk_smash_charge (held for the 5-second wind-up): crouched, both fists drawn back and up, shaking with rage
+anim('hulk_smash_charge', 1.0, 'hold', {
+	root: Pn([[0, [0, 0, 0]], [1.0, [0, -2.2, 0.6]]]),
+	body: R([[0, [8, 0, 0]], [1.0, [-18, 0, 0]]]),
+	head: R([[0, [-8, 0, 0]], [1.0, [-36, 0, 0]]]),
+	right_arm: R([[0, [-4, 0, OUT]], [1.0, [-176, 0, 22]]]),
+	left_arm: R([[0, [-4, 0, -OUT]], [1.0, [-176, 0, -22]]]),
+	right_leg: R([[0, [0, 0, 0]], [1.0, [-30, 0, 8]]]),
+	left_leg: R([[0, [0, 0, 0]], [1.0, [-30, 0, -8]]]),
+});
+// hulk_smash (the fists land at 0.4 s = 8 ticks, HulkAbilities.HULK_SMASH_IMPACT_TICKS): everything comes down at once
+anim('hulk_smash', 1.2, false, {
+	root: Pn([[0, [0, -2.2, 0.6]], [0.25, [0, 1.0, 0]], [0.4, [0, -3.4, 1.2]], [0.8, [0, -3.0, 1.0]], [1.2, [0, 0, 0]]]),
+	body: R([[0, [-18, 0, 0]], [0.25, [-24, 0, 0]], [0.4, [52, 0, 0]], [0.8, [46, 0, 0]], [1.2, [8, 0, 0]]]),
+	head: R([[0, [-36, 0, 0]], [0.4, [-44, 0, 0]], [1.2, [-8, 0, 0]]]),
+	right_arm: R([[0, [-176, 0, 22]], [0.25, [-180, 0, 8]], [0.4, [-34, 0, 4]], [0.8, [-28, 0, 4]], [1.2, [-4, 0, OUT]]]),
+	left_arm: R([[0, [-176, 0, -22]], [0.25, [-180, 0, -8]], [0.4, [-34, 0, -4]], [0.8, [-28, 0, -4]], [1.2, [-4, 0, -OUT]]]),
+	right_leg: R([[0, [-30, 0, 8]], [0.4, [-40, 0, 10]], [1.2, [0, 0, 0]]]),
+	left_leg: R([[0, [-30, 0, -8]], [0.4, [-40, 0, -10]], [1.2, [0, 0, 0]]]),
+});
+// charge (loop while C runs): shoulder down, head low, arms pumping, huge strides
+anim('charge', 0.5, true, {
+	root: Pn([[0, [0, -0.8, 0]], [0.125, [0, 0.2, 0]], [0.25, [0, -0.8, 0]], [0.375, [0, 0.2, 0]], [0.5, [0, -0.8, 0]]]),
+	body: R([[0, [30, 8, 0]], [0.25, [30, -8, 0]], [0.5, [30, 8, 0]]]),
+	head: R([[0, [-28, 0, 0]], [0.5, [-28, 0, 0]]]),
+	right_leg: R([[0, [-58, 0, 0]], [0.25, [52, 0, 0]], [0.5, [-58, 0, 0]]]),
+	left_leg: R([[0, [52, 0, 0]], [0.25, [-58, 0, 0]], [0.5, [52, 0, 0]]]),
+	right_arm: R([[0, [40, 0, OUT]], [0.25, [-50, 0, OUT]], [0.5, [40, 0, OUT]]]),
+	left_arm: R([[0, [-50, 0, -OUT]], [0.25, [40, 0, -OUT]], [0.5, [-50, 0, -OUT]]]),
+});
+// hold (loop, arms only -- layered over walk / run while V holds something overhead)
+anim('hold', 2.0, true, {
+	right_arm: R([[0, [-168, 0, 14]], [1.0, [-164, 0, 16]], [2.0, [-168, 0, 14]]]),
+	left_arm: R([[0, [-168, 0, -14]], [1.0, [-164, 0, -16]], [2.0, [-168, 0, -14]]]),
+});
+// pickup (0.4 s): a quick heave from the ground up overhead
+anim('pickup', 0.4, false, {
+	root: Pn([[0, [0, -1.5, 0]], [0.4, [0, 0, 0]]]),
+	body: R([[0, [36, 0, 0]], [0.4, [-6, 0, 0]]]),
+	right_arm: R([[0, [-60, 0, 10]], [0.4, [-168, 0, 14]]]),
+	left_arm: R([[0, [-60, 0, -10]], [0.4, [-168, 0, -14]]]),
+});
+// throw (0.5 s): both arms hurl forward from overhead
+anim('throw', 0.5, false, {
+	body: R([[0, [-12, 0, 0]], [0.15, [-20, 0, 0]], [0.3, [28, 0, 0]], [0.5, [8, 0, 0]]]),
+	right_arm: R([[0, [-168, 0, 14]], [0.15, [-190, 0, 10]], [0.3, [-70, 0, 6]], [0.5, [-4, 0, OUT]]]),
+	left_arm: R([[0, [-168, 0, -14]], [0.15, [-190, 0, -10]], [0.3, [-70, 0, -6]], [0.5, [-4, 0, -OUT]]]),
+	root: Pn([[0, [0, 0, 0]], [0.3, [0, -0.6, -0.8]], [0.5, [0, 0, 0]]]),
+});
+// crush (0.5 s): brings the held thing down in front and squeezes it between both fists
+anim('crush', 0.5, false, {
+	body: R([[0, [8, 0, 0]], [0.25, [26, 0, 0]], [0.5, [8, 0, 0]]]),
+	right_arm: R([[0, [-168, 0, 14]], [0.2, [-80, -30, 0]], [0.3, [-80, 18, 0]], [0.5, [-4, 0, OUT]]]),
+	left_arm: R([[0, [-168, 0, -14]], [0.2, [-80, 30, 0]], [0.3, [-80, -18, 0]], [0.5, [-4, 0, -OUT]]]),
+	head: R([[0, [-8, 0, 0]], [0.3, [-20, 0, 0]], [0.5, [-8, 0, 0]]]),
+});
+
 fs.mkdirSync(ROOT + 'animations', { recursive: true });
 fs.writeFileSync(ROOT + 'animations/hulk.animation.json', JSON.stringify({ format_version: '1.8.0', animations: A }, null, 1));
 console.log('wrote hulk geo, skin and', Object.keys(A).length, 'animations');

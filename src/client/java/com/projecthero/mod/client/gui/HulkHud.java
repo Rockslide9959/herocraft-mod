@@ -1,7 +1,12 @@
 package com.projecthero.mod.client.gui;
 
 import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.hulk.Hulk;
+import com.projecthero.mod.hulk.HulkAbilities;
+import com.projecthero.mod.hulk.HulkAbilityManager;
 import com.projecthero.mod.hulk.HulkConfig;
+import com.projecthero.mod.hulk.HulkControl;
 import com.projecthero.mod.hulk.data.HulkState;
 
 import net.minecraft.ChatFormatting;
@@ -12,10 +17,17 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * The Hulk HUD (v0.13.11, Phase 1): the Rage bar, drawn in the bottom-right ability HUD exactly where Thor's
- * Storm Energy meter sits (label + percentage, then a Hairline bar under it), with a white tick at the
- * 75-rage mark where H starts to work. Only drawn for a player with the Gamma power. Phase 2 adds the
- * Thunderclap / Ground Smash / Super Leap cooldown boxes in the row above it.
+ * The Hulk HUD (v0.13.14 layout), bottom-right:
+ * <pre>
+ *   Banner:        Rage 62%              Hulk:   [R][G][X][Z][V][C]
+ *                  o ==========                  Hulk Form
+ *                                                Rage 62%
+ *                                                o ==========
+ *                                                (Control 45% / bar -- only while control is slipping)
+ * </pre>
+ * {@code o} is the 3-pixel "the Hulk refuses to die" dot: bright when the death save is ready, dark while it recharges.
+ * Mid-screen: the keep-control prompt, the rampage timer, the HULK SMASH wind-up and the calm-down hold. Only drawn
+ * for a player with the Gamma power.
  */
 public final class HulkHud {
 	private static final int BOX = 20;
@@ -29,6 +41,8 @@ public final class HulkHud {
 	private static final int COLOR_RAGE_HULK = 0xFF9BFF3A;
 	private static final int COLOR_LABEL = 0xFF9FD890;
 	private static final int COLOR_EXHAUSTED = 0xFF8A8A8A;
+	private static final int COLOR_CONTROL = 0xFF8FC8FF;
+	private static final String[] KEY_NAMES = { "", "W", "A", "S", "D" };
 
 	private HulkHud() {
 	}
@@ -46,82 +60,142 @@ public final class HulkHud {
 		long now = mc.level.getGameTime();
 		int totalW = 6 * BOX + 5 * GAP;
 		int x0 = g.guiWidth() - MARGIN - totalW;
-		int y0 = g.guiHeight() - MARGIN - BOX - 20; // the ability row (Thor's), where Phase 2's boxes go
-		int labelY = y0 + BOX + 4;
-		int barY = labelY + mc.font.lineHeight + 2;
+		int bottom = g.guiHeight() - MARGIN;
 
-		// who is in charge right now
-		Component title = s.hulk
-				? Component.translatable("hud.projecthero.hulk.hulk").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)
-				: Component.translatable("hud.projecthero.hulk.banner").withStyle(ChatFormatting.DARK_GREEN);
-		g.drawString(mc.font, title, x0, labelY - 11, 0xFF55FF55, true);
+		// control (Hulk only, and only while it is slipping)
+		boolean rampage = s.rampaging(now);
+		if (s.hulk && (s.combat.control < 99.5f || rampage)) {
+			int cBar = bottom - HAIRLINE;
+			float c = rampage ? 0.0f : s.combat.control / 100.0f;
+			g.drawString(mc.font, Component.translatable(rampage ? "hud.projecthero.hulk.control_lost" : "hud.projecthero.hulk.control",
+					Math.round(c * 100.0f)), x0, cBar - 10, rampage ? 0xFFFF5544 : COLOR_CONTROL, false);
+			g.fill(x0, cBar, x0 + totalW, cBar + HAIRLINE, COLOR_BG);
+			g.fill(x0, cBar, x0 + Math.round(totalW * c), cBar + HAIRLINE, c < 0.3f ? 0xFFFF7755 : COLOR_CONTROL);
+			bottom = cBar - 14;
+		}
 
-		float ratio = Math.max(0.0f, Math.min(1.0f, s.rage / HulkConfig.RAGE_MAX));
+		// rage: label + the death-save dot and the bar
+		int rageBar = bottom - HAIRLINE;
 		boolean exhausted = s.exhaustedUntil > now;
+		int pct = Math.round(Math.max(0.0f, Math.min(1.0f, s.rage / HulkConfig.RAGE_MAX)) * 100.0f);
 		Component label = exhausted
-				? Component.translatable("hud.projecthero.hulk.exhausted", (int) Math.ceil((s.exhaustedUntil - now) / 20.0))
-				: Component.translatable("hud.projecthero.hulk.rage", (int) Math.floor(s.rage));
-		g.drawString(mc.font, label, x0, labelY, exhausted ? COLOR_EXHAUSTED : COLOR_LABEL, false);
-
+				? Component.translatable("hud.projecthero.hulk.rage_exhausted", pct, (int) Math.ceil((s.exhaustedUntil - now) / 20.0))
+				: Component.translatable("hud.projecthero.hulk.rage", pct);
+		g.drawString(mc.font, label, x0, rageBar - 11, exhausted ? COLOR_EXHAUSTED : COLOR_LABEL, false);
+		boolean saveReady = Hulk.deathSaveReady(player);
+		g.fill(x0, rageBar, x0 + 3, rageBar + 3, saveReady ? 0xFFD8FFB0 : 0xFF263626);
+		int bx = x0 + 4; // 3 px dot, 1 px gap
+		int bw = totalW - 4;
 		int fill = s.hulk ? COLOR_RAGE_HULK : (s.rage >= HulkConfig.MANUAL_TRANSFORM_RAGE ? COLOR_RAGE_READY : COLOR_RAGE);
-		// a Hulk about to shrink back pulses
 		if (s.hulk && s.rage < 15.0f && (now / 5L) % 2L == 0L) {
-			fill = 0xFF4F7F2A;
+			fill = 0xFF4F7F2A; // about to shrink back
 		}
-		g.fill(x0, barY, x0 + totalW, barY + HAIRLINE, COLOR_BG);
-		g.fill(x0, barY, x0 + Math.round(totalW * ratio), barY + HAIRLINE, exhausted ? COLOR_EXHAUSTED : fill);
+		g.fill(bx, rageBar, bx + bw, rageBar + HAIRLINE, COLOR_BG);
+		g.fill(bx, rageBar, bx + Math.round(bw * pct / 100.0f), rageBar + HAIRLINE, exhausted ? COLOR_EXHAUSTED : fill);
 		if (!s.hulk) {
-			int mark = x0 + Math.round(totalW * (HulkConfig.MANUAL_TRANSFORM_RAGE / HulkConfig.RAGE_MAX));
-			g.fill(mark, barY - 1, mark + 1, barY + HAIRLINE + 1, 0xFFFFFFFF);
+			int mark = bx + Math.round(bw * (HulkConfig.MANUAL_TRANSFORM_RAGE / HulkConfig.RAGE_MAX));
+			g.fill(mark, rageBar - 1, mark + 1, rageBar + HAIRLINE + 1, 0xFFFFFFFF);
 		}
-		renderAbilities(g, mc, player, s, x0, y0, totalW);
+
+		if (s.hulk) {
+			int formY = rageBar - 22;
+			g.drawString(mc.font, Component.translatable("hud.projecthero.hulk.form").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD),
+					x0, formY, 0xFF55FF55, true);
+			renderKeys(g, mc, player, s, x0, formY - 3 - BOX, now);
+		}
+		renderCentre(g, mc, player, s, now);
 	}
 
-	/**
-	 * v0.13.12 (Phase 2): the ability row -- Thunderclap (R), Ground Smash (G) and Super Leap (X) with their cooldowns,
-	 * and Sprint Smash (C) showing whether it is on. Right-aligned in the row above the rage bar, greyed out while he is
-	 * Banner (the abilities only work as the Hulk). A Hairline charge bar sits above it while Super Leap is held.
-	 */
-	private static void renderAbilities(GuiGraphics g, Minecraft mc, Player player, HulkState s, int x0, int y0, int totalW) {
-		com.projecthero.mod.hero.AbilitySlot[] slots = { com.projecthero.mod.hero.AbilitySlot.SLOT_1,
-				com.projecthero.mod.hero.AbilitySlot.SLOT_2, com.projecthero.mod.hero.AbilitySlot.SLOT_3,
-				com.projecthero.mod.hero.AbilitySlot.SLOT_6 };
-		String[] names = { "thunderclap", "ground_smash", "super_leap", "sprint_smash" };
-		int rowW = slots.length * BOX + (slots.length - 1) * GAP;
-		int rx = x0 + totalW - rowW;
+	private static void renderKeys(GuiGraphics g, Minecraft mc, Player player, HulkState s, int x0, int y0, long now) {
 		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(),
 				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
-		for (int i = 0; i < slots.length; i++) {
-			int x = rx + i * (BOX + GAP);
-			boolean sprint = i == 3;
-			boolean on = sprint && s.sprintSmash && com.projecthero.mod.hulk.HulkConfig.world().sprintSmashEnabled;
+		String[] names = { "power_punch", "ground_smash", "super_leap", "thunderclap", "grab", "charge" };
+		boolean locked = s.rampaging(now) || s.combat.calming;
+		for (int i = 0; i < 6; i++) {
+			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
+			int x = x0 + i * (BOX + GAP);
+			String id = HulkAbilityManager.abilityIdOf(slot);
+			boolean active = (slot == AbilitySlot.SLOT_5 && s.combat.holding) || (slot == AbilitySlot.SLOT_6 && s.combat.chargeUntil > now)
+					|| (slot == AbilitySlot.SLOT_4 && s.combat.smashChargeStart > 0L);
 			g.fill(x, y0, x + BOX, y0 + BOX, 0xC0101A10);
-			g.renderOutline(x, y0, BOX, BOX, on ? 0xFF7CFF4A : 0xFF2E6A3E);
-			g.drawString(mc.font, String.valueOf(slots[i].defaultKey()), x + 2, y0 + 2, s.hulk ? 0xFFD8F0DC : 0xFF6A7A6A, false);
-			if (!s.hulk) {
+			g.renderOutline(x, y0, BOX, BOX, active ? 0xFF7CFF4A : 0xFF2E6A3E);
+			g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 2, y0 + 2, locked ? 0xFF6A7A6A : 0xFFD8F0DC, false);
+			int cd = HulkAbilities.cooldownRemaining(player, id);
+			int max = HulkAbilityManager.maxCooldown(id);
+			if (locked) {
 				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, 0x90000000);
-			} else if (!sprint) {
-				String id = com.projecthero.mod.hulk.HulkAbilityManager.abilityIdOf(slots[i]);
-				int cd = com.projecthero.mod.hulk.HulkAbilities.cooldownRemaining(player, id);
-				int max = com.projecthero.mod.hulk.HulkAbilityManager.maxCooldown(id);
-				if (cd > 0 && max > 0) {
-					int h = (int) ((BOX - 2) * Math.min(1f, cd / (float) max));
-					g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, 0xB0000000);
-					g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + 6, 0xFFFFFFFF);
-				}
-			} else {
-				g.drawCenteredString(mc.font, on ? "ON" : "OFF", x + BOX / 2 + 1, y0 + 10, on ? 0xFF7CFF4A : 0xFF8A8A8A);
+			} else if (cd > 0 && max > 0) {
+				int h = (int) ((BOX - 2) * Math.min(1f, cd / (float) max));
+				g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, 0xB0000000);
+				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2 + 2, y0 + 10, 0xFFFFFFFF);
+			}
+			if (slot == AbilitySlot.SLOT_4) {
+				// HULK SMASH (Shift+Z) has its own long cooldown: a thin strip along the bottom of the Z box
+				int scd = HulkAbilities.cooldownRemaining(player, HulkAbilities.HULK_SMASH);
+				int smax = HulkAbilityManager.maxCooldown(HulkAbilities.HULK_SMASH);
+				float ready = smax <= 0 ? 1.0f : 1.0f - Math.min(1.0f, scd / (float) smax);
+				g.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * ready), y0 + BOX - 1, scd > 0 ? 0xFF4F7F2A : 0xFFB8FF9A);
 			}
 			if (expanded) {
 				Component name = Component.translatable("projecthero.hulk.ability." + names[i]);
-				g.drawString(mc.font, name, rx - 8 - mc.font.width(name), y0 + i * 10 - 30, 0xFFCFE8CF, true);
+				g.drawString(mc.font, name, x0 - 8 - mc.font.width(name), y0 + i * 10 - 52, 0xFFCFE8CF, true);
 			}
 		}
-		float charge = com.projecthero.mod.hulk.HulkAbilities.leapCharge(player);
-		if (charge > 0.0f) {
-			int cy = y0 - 6;
-			g.fill(rx, cy, rx + rowW, cy + HAIRLINE, COLOR_BG);
-			g.fill(rx, cy, rx + Math.round(rowW * charge), cy + HAIRLINE, charge >= 1.0f ? 0xFFFFFFFF : COLOR_RAGE_READY);
+		float leap = HulkAbilities.leapCharge(player);
+		if (leap > 0.0f) {
+			int w = 6 * BOX + 5 * GAP;
+			g.fill(x0, y0 - 6, x0 + w, y0 - 6 + HAIRLINE, COLOR_BG);
+			g.fill(x0, y0 - 6, x0 + Math.round(w * leap), y0 - 6 + HAIRLINE, leap >= 1.0f ? 0xFFFFFFFF : COLOR_RAGE_READY);
 		}
+	}
+
+	/** Mid-screen: the keep-control prompt, the rampage, the HULK SMASH wind-up, the calm-down hold. */
+	private static void renderCentre(GuiGraphics g, Minecraft mc, Player player, HulkState s, long now) {
+		int cx = g.guiWidth() / 2;
+		int y = g.guiHeight() / 2 - 62; // above the crosshair, clear of the action bar and the hotbar
+		if (s.rampaging(now)) {
+			int secs = (int) Math.ceil((s.combat.rampageUntil - now) / 20.0);
+			int col = (now / 4L) % 2L == 0L ? 0xFFFF5544 : 0xFF7CFF4A;
+			g.drawCenteredString(mc.font, Component.translatable("hud.projecthero.hulk.rampage", secs)
+					.withStyle(ChatFormatting.BOLD), cx, y, col);
+			return;
+		}
+		if (s.hulk && s.combat.promptKey > 0 && s.combat.promptKey < KEY_NAMES.length && now <= s.combat.promptUntil) {
+			float left = Math.max(0.0f, (s.combat.promptUntil - now) / (float) Math.max(1, HulkConfig.control().promptWindowTicks));
+			String key = keyName(mc, s.combat.promptKey);
+			g.drawCenteredString(mc.font, Component.translatable("hud.projecthero.hulk.prompt", key).withStyle(ChatFormatting.BOLD),
+					cx, y, 0xFFFFE070);
+			int w = 80;
+			g.fill(cx - w / 2, y + 11, cx + w / 2, y + 13, COLOR_BG);
+			g.fill(cx - w / 2, y + 11, cx - w / 2 + Math.round(w * left), y + 13, 0xFFFFE070);
+			y += 20;
+		}
+		float smash = HulkAbilities.hulkSmashCharge(player);
+		if (smash > 0.0f) {
+			int w = 120;
+			g.drawCenteredString(mc.font, Component.translatable("hud.projecthero.hulk.hulk_smash_charge", Math.round(smash * 100.0f))
+					.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), cx, y, 0xFF7CFF4A);
+			g.fill(cx - w / 2, y + 11, cx + w / 2, y + 14, COLOR_BG);
+			g.fill(cx - w / 2, y + 11, cx - w / 2 + Math.round(w * smash), y + 14, smash >= 1.0f ? 0xFFFFFFFF : 0xFF7CFF4A);
+			y += 20;
+		}
+		float calm = com.projecthero.mod.client.hulk.HulkClient.calmHoldProgress();
+		if (calm > 0.02f && !s.combat.calming) {
+			int w = 80;
+			g.drawCenteredString(mc.font, Component.translatable("hud.projecthero.hulk.calm_hold"), cx, y, 0xFF9FC8E8);
+			g.fill(cx - w / 2, y + 11, cx + w / 2, y + 13, COLOR_BG);
+			g.fill(cx - w / 2, y + 11, cx - w / 2 + Math.round(w * calm), y + 13, 0xFF9FC8E8);
+		}
+	}
+
+	/** The player's actual bound key for prompt 1-4 (forward / left / back / right). */
+	private static String keyName(Minecraft mc, int prompt) {
+		var mapping = switch (prompt) {
+			case HulkControl.KEY_FORWARD -> mc.options.keyUp;
+			case HulkControl.KEY_LEFT -> mc.options.keyLeft;
+			case HulkControl.KEY_BACK -> mc.options.keyDown;
+			default -> mc.options.keyRight;
+		};
+		return mapping.getTranslatedKeyMessage().getString().toUpperCase(java.util.Locale.ROOT);
 	}
 }

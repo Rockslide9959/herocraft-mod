@@ -9,8 +9,38 @@ Package `com.projecthero.mod.hulk`. Hero-Tier key `hulk` (the spec's "Gamma powe
 | 3 | Looks: the user's Hulk model (GeckoLib, drawn in place of the player), animations, hidden armour, roar + shake | v0.13.12 |
 | 4 | Origin: Gamma Serum (loot only), rare Gamma Lab ruin with a glowing Gamma Reactor block | v0.13.12 |
 | 5 | Balance + polish: Thor / Mjolnir rules, lifecycle, conflicts with other growing powers | v0.13.12 |
+| - | Overhaul: new kit, passives, death save, riding, calm minigame, control / rampage, HUD | v0.13.14 |
 
 The spec asked for Fabric 1.21.11 + GeckoLib 5; the project is (and stays) on **Fabric 1.21.1 + GeckoLib 4.9**.
+
+## v0.13.14 overhaul
+
+New kit (keys -> `HulkAbilityManager`): **R Power Punch** (3 wide x 6 long, 30, 5 s), **G Ground Smash** (30 in 7 blocks +
+crater, 5 s), **Z Thunderclap** (22, 8 s) / **Shift+Z HULK SMASH** (hold 5 s, 100 forward 25 + round 30, crater, 60 s),
+**X Super Leap** (15-70 blocks, 2 s), **C Charge** (8 s forced run, 20 to everything run through, breaks soft blocks, 12 s
+after), **V Grab** (`HulkGrab`: throw / Shift+V crush 26 / Shift+V empty-handed = `HulkBoulderEntity` earth chunk, 30
+in 4 on impact; 8 s). Sprint Smash is now a passive (config switch). All numbers: `config/projecthero_hulk.json` (config
+version 2 resets a 0.13.13 file's abilities section).
+
+Passives: +19 attack (20 punches), +1.5 attack knockback, +50% speed, +20 armour / +8 toughness, 0.75 HP per 5 ticks,
+fire / arrow / fall immune, lava x0.25, explosions x0.5 (`HulkDamage.allowDamage`), stone-tool hands (`HulkBareHands`
+via `PlayerMixin`), armour torn off on the change (-50 durability, dropped) and bounced while out.
+
+Systems:
+- **Death save** (`Hulk.tryDeathSave`, ALLOW_DEATH): every 3 min a fatal hit brings the Hulk out (or back) at full HP and
+  100 rage; the 3 px dot left of the rage bar shows it. /kill and the void still kill.
+- **Riding** (`HulkRiding`, `mixin/EntityHulkRideMixin`): a squad-mate right-clicks to ride his back, one at a time.
+- **Calm down** (`HulkCalm` + `client/hulk/HulkCalmScreen`): hold N 2 s after 3 s out of combat; a breathing exercise
+  (hold Space as the guide ring swells, let go as it shrinks). The client reports in/out-of-rhythm ticks once a second;
+  the server caps them. Hurt = broken. Calmed to 0 as the Hulk = revert without exhaustion.
+- **Control / rampage** (`HulkControl`): 8 s without dealing damage -> control drains 6/s, W/A/S/D prompts every 2.5 s
+  (1.5 s window, +25 / -15). 0 -> 15 s rampage (targets nearest living thing, attacks, leaps, stomps, smashes blocks;
+  abilities, riders and calm locked out), then 60 control back.
+- State: `HulkState.Combat` (nested codec -- the record codec caps at 16 fields).
+- HUD (`HulkHud`): Banner = "Rage N%" + bar; Hulk = keys, "Hulk Form", "Rage N%" + bar, control bar only while slipping;
+  prompts / rampage / HULK SMASH / calm-hold above the crosshair.
+- Animations added: power_punch, hulk_smash_charge, hulk_smash, charge, hold (arms layer), pickup, throw, crush.
+- Tests: `HulkGameTests` (28).
 
 ## Files
 

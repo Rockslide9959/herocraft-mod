@@ -1,0 +1,30 @@
+{
+ "format_version": "1.8.0",
+ "animations": {
+  "animation.hulk_boulder.tumble": {
+   "loop": true,
+   "animation_length": 1,
+   "bones": {
+    "boulder": {
+     "rotation": {
+      "0.0": [
+       0,
+       0,
+       0
+      ],
+      "0.5": [
+       180,
+       40,
+       0
+      ],
+      "1.0": [
+       360,
+       80,
+       0
+      ]
+     }
+    }
+   }
+  }
+ }
+}

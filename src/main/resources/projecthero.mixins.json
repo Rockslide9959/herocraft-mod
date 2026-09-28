@@ -7,6 +7,7 @@
 		"BossEventAccessor",
 		"ClipContextMixin",
 		"CraftingMenuMixin",
+		"EntityHulkRideMixin",
 		"EntityWebMixin",
 		"ItemEntityMixin",
 		"ItemStackMixin",

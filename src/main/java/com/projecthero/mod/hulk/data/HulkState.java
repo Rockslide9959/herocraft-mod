@@ -20,6 +20,11 @@ public final class HulkState {
 	public static final int ANIM_SMASH = 2;
 	public static final int ANIM_LEAP = 3;
 	public static final int ANIM_LEAP_CHARGE = 4;
+	public static final int ANIM_PUNCH = 5;
+	public static final int ANIM_HULK_SMASH = 6;
+	public static final int ANIM_THROW = 7;
+	public static final int ANIM_CRUSH = 8;
+	public static final int ANIM_PICKUP = 9;
 
 	/** Has the Gamma power. */
 	public boolean hasPower;
@@ -44,6 +49,77 @@ public final class HulkState {
 	public boolean leaping;
 	/** v0.13.12: the player's own Sprint Smash switch (C). */
 	public boolean sprintSmash;
+	/** v0.13.14 (the "combat" group, one nested codec: the record codec stops at 16 fields). */
+	public Combat combat = new Combat();
+
+	/**
+	 * v0.13.14: everything the new kit, the death save, the calm minigame and the control / rampage system need on
+	 * every client. Mutable; {@link HulkState#copy} deep-copies it.
+	 */
+	public static final class Combat {
+		/** Game time C's Charge run ends (0 = not charging). */
+		public long chargeUntil;
+		/** Game time Shift+Z started charging HULK SMASH (0 = not charging). */
+		public long smashChargeStart;
+		/** V: holding a mob or a chunk of earth overhead. */
+		public boolean holding;
+		/** 0..100: how much of the Hulk the player still controls. */
+		public float control = 100.0f;
+		/** Game time the Hulk last dealt damage (control only drains once this is old). */
+		public long lastDealtAt;
+		/** Game time the current rampage ends (0 = in control). */
+		public long rampageUntil;
+		/** The key the player must press to keep control: 0 none, 1 forward, 2 left, 3 back, 4 right. */
+		public int promptKey;
+		/** Game time the current prompt runs out. */
+		public long promptUntil;
+		/** In the calm-down minigame. */
+		public boolean calming;
+		/** Game time the "the Hulk refuses to die" save is ready again. */
+		public long deathSaveReadyAt;
+
+		public Combat copy() {
+			Combat c = new Combat();
+			c.chargeUntil = chargeUntil;
+			c.smashChargeStart = smashChargeStart;
+			c.holding = holding;
+			c.control = control;
+			c.lastDealtAt = lastDealtAt;
+			c.rampageUntil = rampageUntil;
+			c.promptKey = promptKey;
+			c.promptUntil = promptUntil;
+			c.calming = calming;
+			c.deathSaveReadyAt = deathSaveReadyAt;
+			return c;
+		}
+
+		public static final Codec<Combat> CODEC = RecordCodecBuilder.create(i -> i.group(
+				Codec.LONG.optionalFieldOf("charge_until", 0L).forGetter(c -> c.chargeUntil),
+				Codec.LONG.optionalFieldOf("smash_charge_start", 0L).forGetter(c -> c.smashChargeStart),
+				Codec.BOOL.optionalFieldOf("holding", false).forGetter(c -> c.holding),
+				Codec.FLOAT.optionalFieldOf("control", 100.0f).forGetter(c -> c.control),
+				Codec.LONG.optionalFieldOf("last_dealt_at", 0L).forGetter(c -> c.lastDealtAt),
+				Codec.LONG.optionalFieldOf("rampage_until", 0L).forGetter(c -> c.rampageUntil),
+				Codec.INT.optionalFieldOf("prompt_key", 0).forGetter(c -> c.promptKey),
+				Codec.LONG.optionalFieldOf("prompt_until", 0L).forGetter(c -> c.promptUntil),
+				Codec.BOOL.optionalFieldOf("calming", false).forGetter(c -> c.calming),
+				Codec.LONG.optionalFieldOf("death_save_ready_at", 0L).forGetter(c -> c.deathSaveReadyAt)
+		).apply(i, (chargeUntil, smashChargeStart, holding, control, lastDealtAt, rampageUntil, promptKey, promptUntil, calming,
+				deathSaveReadyAt) -> {
+			Combat c = new Combat();
+			c.chargeUntil = chargeUntil;
+			c.smashChargeStart = smashChargeStart;
+			c.holding = holding;
+			c.control = control;
+			c.lastDealtAt = lastDealtAt;
+			c.rampageUntil = rampageUntil;
+			c.promptKey = promptKey;
+			c.promptUntil = promptUntil;
+			c.calming = calming;
+			c.deathSaveReadyAt = deathSaveReadyAt;
+			return c;
+		}));
+	}
 
 	public HulkState() {
 		this(false, false, 0.0f, 0L, 0L, 0L, new HashMap<>(), ANIM_NONE, 0L, 0L, false, true);
@@ -70,8 +146,15 @@ public final class HulkState {
 	}
 
 	public HulkState copy() {
-		return new HulkState(hasPower, hulk, rage, lastCombatAt, exhaustedUntil, formChangedAt, abilityReadyAt, animId, animStart,
+		HulkState n = new HulkState(hasPower, hulk, rage, lastCombatAt, exhaustedUntil, formChangedAt, abilityReadyAt, animId, animStart,
 				leapChargeStart, leaping, sprintSmash);
+		n.combat = combat.copy();
+		return n;
+	}
+
+	/** True while the Hulk is rampaging on his own (client-safe with the synced game time). */
+	public boolean rampaging(long now) {
+		return hulk && combat.rampageUntil > now;
 	}
 
 	public static final Codec<HulkState> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -87,6 +170,13 @@ public final class HulkState {
 			Codec.LONG.optionalFieldOf("anim_start", 0L).forGetter(s -> s.animStart),
 			Codec.LONG.optionalFieldOf("leap_charge_start", 0L).forGetter(s -> s.leapChargeStart),
 			Codec.BOOL.optionalFieldOf("leaping", false).forGetter(s -> s.leaping),
-			Codec.BOOL.optionalFieldOf("sprint_smash", true).forGetter(s -> s.sprintSmash)
-	).apply(i, HulkState::new));
+			Codec.BOOL.optionalFieldOf("sprint_smash", true).forGetter(s -> s.sprintSmash),
+			Combat.CODEC.optionalFieldOf("combat").forGetter(s -> java.util.Optional.of(s.combat))
+	).apply(i, (hasPower, hulk, rage, lastCombatAt, exhaustedUntil, formChangedAt, ready, animId, animStart, leapCharge, leaping,
+			sprintSmash, combat) -> {
+		HulkState s = new HulkState(hasPower, hulk, rage, lastCombatAt, exhaustedUntil, formChangedAt, ready, animId, animStart,
+				leapCharge, leaping, sprintSmash);
+		s.combat = combat.orElseGet(Combat::new);
+		return s;
+	}));
 }

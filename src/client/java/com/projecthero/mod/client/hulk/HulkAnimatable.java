@@ -37,6 +37,14 @@ public final class HulkAnimatable implements GeoReplacedEntity {
 	private static final RawAnimation LEAP = RawAnimation.begin().thenPlayAndHold(P + "leap");
 	private static final RawAnimation TRANSFORM = RawAnimation.begin().thenPlay(P + "transform");
 	private static final RawAnimation PUNCH = RawAnimation.begin().thenPlay(P + "punch");
+	private static final RawAnimation POWER_PUNCH = RawAnimation.begin().thenPlay(P + "power_punch");
+	private static final RawAnimation HULK_SMASH_CHARGE = RawAnimation.begin().thenPlayAndHold(P + "hulk_smash_charge");
+	private static final RawAnimation HULK_SMASH = RawAnimation.begin().thenPlay(P + "hulk_smash");
+	private static final RawAnimation CHARGE = RawAnimation.begin().thenLoop(P + "charge");
+	private static final RawAnimation HOLD = RawAnimation.begin().thenLoop(P + "hold");
+	private static final RawAnimation PICKUP = RawAnimation.begin().thenPlay(P + "pickup");
+	private static final RawAnimation THROW = RawAnimation.begin().thenPlay(P + "throw");
+	private static final RawAnimation CRUSH = RawAnimation.begin().thenPlay(P + "crush");
 
 	/** Ticks each one-shot owns the body after it starts (a touch longer than the clip, so it finishes). */
 	private static final int CLAP_TICKS = 14;
@@ -55,6 +63,7 @@ public final class HulkAnimatable implements GeoReplacedEntity {
 	@Override
 	public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
 		controllers.add(new AnimationController<>(this, "main", 3, this::main));
+		controllers.add(new AnimationController<>(this, "hold", 3, this::hold));
 		controllers.add(new AnimationController<>(this, "swing", 1, this::swing));
 	}
 
@@ -73,6 +82,28 @@ public final class HulkAnimatable implements GeoReplacedEntity {
 		if (s.leapChargeStart > 0L) {
 			return state.setAndContinue(LEAP_CHARGE);
 		}
+		if (s.combat.smashChargeStart > 0L) {
+			return state.setAndContinue(HULK_SMASH_CHARGE);
+		}
+		long since = now - s.animStart;
+		if (s.animId == HulkState.ANIM_HULK_SMASH && since < 26) {
+			return state.setAndContinue(HULK_SMASH);
+		}
+		if (s.animId == HulkState.ANIM_PUNCH && since < 13) {
+			return state.setAndContinue(POWER_PUNCH);
+		}
+		if (s.animId == HulkState.ANIM_THROW && since < 11) {
+			return state.setAndContinue(THROW);
+		}
+		if (s.animId == HulkState.ANIM_CRUSH && since < 11) {
+			return state.setAndContinue(CRUSH);
+		}
+		if (s.animId == HulkState.ANIM_PICKUP && since < 9) {
+			return state.setAndContinue(PICKUP);
+		}
+		if (s.combat.chargeUntil > now) {
+			return state.setAndContinue(CHARGE);
+		}
 		if (s.animId == HulkState.ANIM_CLAP && now - s.animStart < CLAP_TICKS) {
 			return state.setAndContinue(CLAP);
 		}
@@ -88,8 +119,20 @@ public final class HulkAnimatable implements GeoReplacedEntity {
 		return state.setAndContinue(IDLE);
 	}
 
+	/** Both arms overhead while V holds a mob or a boulder (arms only, so it rides on top of walk / run). */
+	private PlayState hold(AnimationState<HulkAnimatable> state) {
+		if (state.getData(DataTickets.ENTITY) instanceof Player player) {
+			HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
+			if (s != null && s.combat.holding && !(s.animId == HulkState.ANIM_PICKUP && player.level().getGameTime() - s.animStart < 9)) {
+				return state.setAndContinue(HOLD);
+			}
+		}
+		return PlayState.STOP;
+	}
+
 	private PlayState swing(AnimationState<HulkAnimatable> state) {
-		if (state.getData(DataTickets.ENTITY) instanceof Player player && player.swinging) {
+		if (state.getData(DataTickets.ENTITY) instanceof Player player && player.swinging
+				&& !player.getAttachedOrElse(ModAttachments.HULK_STATE, new HulkState()).combat.holding) {
 			return state.setAndContinue(PUNCH);
 		}
 		state.getController().forceAnimationReset();

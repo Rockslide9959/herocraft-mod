@@ -243,12 +243,185 @@ public class HulkGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	// ---------------------------------------------------------------- v0.13.14: the new kit and systems
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60, batch = "hulk_power_punch")
+	public void powerPunchHitsInFrontOnly(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		var front = zombie(helper, p.position().add(0, 0, 4));
+		var behind = zombie(helper, p.position().add(0, 0, -4));
+		p.setYRot(0.0f);
+		com.projecthero.mod.hulk.HulkAbilities.powerPunch(p);
+		helper.onEachTick(() -> Hulk.tick(p));
+		helper.runAfterDelay(com.projecthero.mod.hulk.HulkAbilities.PUNCH_IMPACT_TICKS + 4, () -> {
+			helper.assertTrue(front.getHealth() < front.getMaxHealth(), "the mob in front is punched");
+			helper.assertTrue(behind.getHealth() == behind.getMaxHealth(), "the one behind is not");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "hulk_grab")
+	public void grabThenCrush(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		var mob = zombie(helper, p.position().add(0, 0, 3));
+		p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, mob.position().add(0, mob.getBbHeight() * 0.5, 0));
+		com.projecthero.mod.hulk.HulkGrab.press(p, false);
+		helper.assertTrue(Hulk.state(p).combat.holding, "V picks the mob up");
+		com.projecthero.mod.hulk.HulkGrab.press(p, true);
+		helper.assertFalse(Hulk.state(p).combat.holding, "Shift+V crushes it and lets go");
+		helper.assertTrue(mob.getHealth() < mob.getMaxHealth(), "the crush hurts");
+		helper.assertTrue(com.projecthero.mod.hulk.HulkAbilities.cooldownRemaining(p, com.projecthero.mod.hulk.HulkAbilities.GRAB) > 0,
+				"and starts the 8 s cooldown");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "hulk_grab")
+	public void shiftVTearsUpAChunkOfEarth(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		var floor = net.minecraft.core.BlockPos.containing(p.position()).below();
+		for (var pos : net.minecraft.core.BlockPos.betweenClosed(floor.offset(-3, 0, -3), floor.offset(3, 0, 3))) {
+			helper.getLevel().setBlock(pos, net.minecraft.world.level.block.Blocks.DIRT.defaultBlockState(), 2);
+		}
+		com.projecthero.mod.hulk.HulkGrab.press(p, true);
+		helper.assertTrue(Hulk.state(p).combat.holding, "he is holding the earth");
+		boolean boulder = !helper.getLevel().getEntitiesOfClass(com.projecthero.mod.hulk.entity.HulkBoulderEntity.class,
+				p.getBoundingBox().inflate(6.0)).isEmpty();
+		helper.assertTrue(boulder, "a boulder entity is over his head");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200, batch = "hulk_smash")
+	public void hulkSmashNeedsTheFullHoldAndHitsHard(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		var mob = zombie(helper, p.position().add(0, 0, 5));
+		com.projecthero.mod.hulk.HulkAbilities.beginHulkSmash(p);
+		helper.assertTrue(Hulk.state(p).combat.smashChargeStart > 0L, "Shift+Z starts the wind-up");
+		com.projecthero.mod.hulk.HulkAbilities.releaseHulkSmash(p);
+		helper.assertTrue(Hulk.state(p).combat.smashChargeStart == 0L, "letting go early calls it off");
+		helper.assertTrue(com.projecthero.mod.hulk.HulkAbilities.cooldownRemaining(p, com.projecthero.mod.hulk.HulkAbilities.HULK_SMASH) == 0,
+				"with no cooldown spent");
+		com.projecthero.mod.hulk.HulkAbilities.beginHulkSmash(p);
+		helper.onEachTick(() -> {
+			Hulk.setRage(p, 100.0f);
+			Hulk.tick(p);
+		});
+		helper.runAfterDelay(com.projecthero.mod.hulk.HulkConfig.abilities().hulkSmashChargeTicks + 20, () -> {
+			helper.assertTrue(com.projecthero.mod.hulk.HulkAbilities.cooldownRemaining(p, com.projecthero.mod.hulk.HulkAbilities.HULK_SMASH) > 0,
+					"a full hold fires it");
+			helper.assertTrue(mob.isDeadOrDying() || mob.getHealth() < mob.getMaxHealth() * 0.5f, "and it hits hard");
+			helper.succeed();
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void sprintSmashToggles(GameTestHelper helper) {
+	public void whatHurtsTheHulk(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		var src = p.damageSources();
+		helper.assertFalse(com.projecthero.mod.hulk.HulkDamage.allowDamage(p, src.fall(), 10.0f), "no fall damage");
+		helper.assertFalse(com.projecthero.mod.hulk.HulkDamage.allowDamage(p, src.onFire(), 2.0f), "fire does nothing");
+		helper.assertFalse(com.projecthero.mod.hulk.HulkDamage.allowDamage(p, src.inFire(), 2.0f), "nor standing in it");
+		var arrow = new net.minecraft.world.entity.projectile.Arrow(helper.getLevel(), p.getX(), p.getY() + 3, p.getZ(),
+				new ItemStack(Items.ARROW), null);
+		helper.assertFalse(com.projecthero.mod.hulk.HulkDamage.allowDamage(p, src.arrow(arrow, null), 6.0f), "arrows bounce off");
+		helper.assertFalse(com.projecthero.mod.hulk.HulkDamage.allowDamage(p, src.lava(), 4.0f), "lava is reduced (re-applied smaller)");
+		helper.assertTrue(com.projecthero.mod.hulk.HulkDamage.allowDamage(p, src.generic(), 4.0f), "ordinary damage lands");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theHulkRefusesToDie(GameTestHelper helper) {
 		ServerPlayer p = gamma(helper);
-		boolean before = Hulk.state(p).sprintSmash;
-		com.projecthero.mod.hulk.HulkAbilities.toggleSprintSmash(p);
-		helper.assertTrue(Hulk.state(p).sprintSmash != before, "C flips Sprint Smash");
+		p.getAbilities().invulnerable = false;
+		helper.assertTrue(Hulk.deathSaveReady(p), "the death save starts ready");
+		helper.assertTrue(Hulk.tryDeathSave(p, p.damageSources().generic()), "a fatal hit is refused");
+		helper.assertTrue(Hulk.isHulk(p), "and the Hulk comes out");
+		helper.assertTrue(p.getHealth() >= p.getMaxHealth() - 0.01f, "at full health");
+		helper.assertFalse(Hulk.deathSaveReady(p), "then it recharges (3 minutes)");
+		helper.assertFalse(Hulk.tryDeathSave(p, p.damageSources().generic()), "so a second one right away is not saved");
+		helper.assertFalse(Hulk.tryDeathSave(p, p.damageSources().genericKill()), "and /kill always works");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void controlSlipsIntoARampage(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		var n = Hulk.state(p).copy();
+		n.formChangedAt = -10_000L;
+		n.combat.lastDealtAt = -10_000L;
+		n.combat.control = 30.0f;
+		p.setAttached(ModAttachments.HULK_STATE, n);
+		helper.onEachTick(() -> {
+			Hulk.setRage(p, 100.0f);
+			Hulk.tick(p);
+		});
+		helper.runAfterDelay(5, () -> {
+			int key = Hulk.state(p).combat.promptKey;
+			helper.assertTrue(key > 0, "a keep-control prompt appears");
+			float before = Hulk.state(p).combat.control;
+			com.projecthero.mod.hulk.HulkControl.answer(p, key);
+			helper.assertTrue(Hulk.state(p).combat.control > before, "the right key wins control back");
+			var z = Hulk.state(p).copy();
+			z.combat.control = 0.5f;
+			z.combat.promptKey = 0;
+			p.setAttached(ModAttachments.HULK_STATE, z);
+		});
+		helper.runAfterDelay(60, () -> {
+			helper.assertTrue(com.projecthero.mod.hulk.HulkControl.rampaging(p), "at 0 control he rampages");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void breathingCalmsHimDown(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		Hulk.setRage(p, 20.0f);
+		var n = Hulk.state(p).copy();
+		n.lastCombatAt = -10_000L;
+		p.setAttached(ModAttachments.HULK_STATE, n);
+		com.projecthero.mod.hulk.HulkCalm.start(p);
+		helper.assertTrue(Hulk.state(p).combat.calming, "out of combat, N starts the calm-down");
+		helper.runAfterDelay(22, () -> com.projecthero.mod.hulk.HulkCalm.report(p, 20, 0));
+		helper.runAfterDelay(44, () -> com.projecthero.mod.hulk.HulkCalm.report(p, 20, 0));
+		helper.runAfterDelay(50, () -> {
+			helper.assertFalse(Hulk.isHulk(p), "breathing in rhythm drained the rage and he changed back");
+			helper.assertFalse(Hulk.exhausted(p), "calmly -- no exhaustion");
+			helper.assertFalse(Hulk.state(p).combat.calming, "the session is over");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void calmingNeedsToBeOutOfCombat(GameTestHelper helper) {
+		ServerPlayer p = gamma(helper);
+		Hulk.onHurt(p, 2.0f); // just got hit
+		com.projecthero.mod.hulk.HulkCalm.start(p);
+		helper.assertFalse(Hulk.state(p).combat.calming, "no calming down in the middle of a fight");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void armourTearsOffWhenHeChanges(GameTestHelper helper) {
+		ServerPlayer p = gamma(helper);
+		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+		Hulk.setRage(p, 100.0f);
+		Hulk.tick(p);
+		helper.assertTrue(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).isEmpty(), "the chestplate comes off");
+		var dropped = helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, p.getBoundingBox().inflate(4.0));
+		helper.assertTrue(dropped.stream().anyMatch(e -> e.getItem().is(Items.IRON_CHESTPLATE) && e.getItem().getDamageValue() == 50),
+				"and lands on the ground 50 durability down");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void hulkStatsV01314(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - 20.0) < 0.01, "punches land 20");
+		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR) >= 20.0 - 0.01, "diamond-level armour of his own");
+		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR_TOUGHNESS) >= 8.0 - 0.01, "and toughness");
+		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > 0.1 * 1.4, "faster");
+		helper.assertTrue(com.projecthero.mod.hulk.HulkBareHands.applies(p)
+				&& com.projecthero.mod.hulk.HulkBareHands.correctToolForDrops(net.minecraft.world.level.block.Blocks.IRON_ORE.defaultBlockState()),
+				"stone-tool hands: iron ore drops");
 		helper.succeed();
 	}
 

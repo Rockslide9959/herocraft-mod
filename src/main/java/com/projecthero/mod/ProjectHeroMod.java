@@ -90,6 +90,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.thorarmor.ThorArmorItems.initialize();
 		com.projecthero.mod.allmight.item.AllMightItems.initialize();
 		com.projecthero.mod.hulk.item.HulkItems.initialize();
+		com.projecthero.mod.hulk.entity.HulkEntities.initialize();
 		com.projecthero.mod.thorarmor.ThorArmor.initialize();
 		com.projecthero.mod.titanshifter.item.TitanShifterItems.initialize();
 		com.projecthero.mod.titanshifter.entity.TitanShifterEntities.initialize();

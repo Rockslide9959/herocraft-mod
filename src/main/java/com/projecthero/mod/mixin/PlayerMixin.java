@@ -120,6 +120,17 @@ public abstract class PlayerMixin {
 	}
 
 	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
+	private void projecthero$hulkHands(BlockState state, CallbackInfoReturnable<Float> cir) {
+		Player self = (Player) (Object) this;
+		if (com.projecthero.mod.hulk.HulkBareHands.applies(self)) {
+			float boosted = com.projecthero.mod.hulk.HulkBareHands.miningSpeed(state, cir.getReturnValue());
+			if (boosted > cir.getReturnValue()) {
+				cir.setReturnValue(boosted);
+			}
+		}
+	}
+
+	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
 	private void projecthero$wolverineClaws(BlockState state, CallbackInfoReturnable<Float> cir) {
 		Player self = (Player) (Object) this;
 		if (com.projecthero.mod.wolverine.WolverineBareHands.applies(self)) {
@@ -148,6 +159,9 @@ public abstract class PlayerMixin {
 		}
 		if (com.projecthero.mod.wolverine.WolverineBareHands.applies(self)
 				&& com.projecthero.mod.wolverine.WolverineBareHands.correctToolForDrops(state)) {
+			cir.setReturnValue(true);
+		}
+		if (com.projecthero.mod.hulk.HulkBareHands.applies(self) && com.projecthero.mod.hulk.HulkBareHands.correctToolForDrops(state)) {
 			cir.setReturnValue(true);
 		}
 	}
