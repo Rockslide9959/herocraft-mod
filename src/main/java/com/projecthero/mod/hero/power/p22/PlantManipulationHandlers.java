@@ -8,6 +8,7 @@ import com.projecthero.mod.hero.Powers;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.Handlers;
 import com.projecthero.mod.hero.power.TempBlocks;
+import com.projecthero.mod.hero.visual.MutationVisuals;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
@@ -25,7 +26,15 @@ import net.minecraft.world.level.block.SaplingBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
-/** Power 22 — Plant Manipulation / Chlorokinesis. */
+/**
+ * Power 22 — Plant Manipulation / Chlorokinesis.
+ *
+ * <p>v0.13.22 revamp (batch E) -- growth and plant minions: every move animates, damage is ~+20% and cooldowns
+ * ~-15%, Nature’s Blessing wraps you in a thin bark-and-leaf skin, and two new utility moves: H <b>Thorn Sentry</b>
+ * (plant a living turret -- {@link ThornSentryEntity} -- that shoots thorns at hostiles for 15 s, never at you or your
+ * squad) and N <b>Spore Cloud</b> (a drifting cloud that poisons and blinds enemies inside it while healing you and
+ * your allies). The always-on growth aura now samples random spots instead of scanning ~37k blocks every 5 s.
+ */
 public final class PlantManipulationHandlers {
 	private static final String KEY = "power_22_plant_manipulation_chlorokinesis";
 	private static final java.util.Map<java.util.UUID, Long> ROOTED_UNTIL = new java.util.HashMap<>();
@@ -67,15 +76,17 @@ public final class PlantManipulationHandlers {
 				if (t == null) {
 					return;
 				}
+				MutationVisuals.play(p, "summon_ground");
 				branchThrust(ctx, t);
-				ctx.triggerCooldown(10 * 20);
+				ctx.triggerCooldown(170);
 				return;
 			}
 			LivingEntity t = AbilityHelpers.raycastEntity(p, 22.0);
+			MutationVisuals.play(p, "cast_right");
 			Vec3 from = handOrigin(p);
 			AbilityHelpers.line(level, from, AbilityHelpers.aimPoint(p, 22.0), ParticleTypes.COMPOSTER, 3.0);
 			if (t != null) {
-				AbilityHelpers.hurt(p, t, 8.0f + natureBonus(p));
+				AbilityHelpers.hurt(p, t, 9.5f + natureBonus(p));
 				AbilityHelpers.applyControl(t, MobEffects.POISON, 160, 2); // Poison III, 8s
 			}
 			AbilityHelpers.sound(p, SoundEvents.SWEET_BERRY_BUSH_PICK_BERRIES, 1.0f, 0.8f);
@@ -86,6 +97,7 @@ public final class PlantManipulationHandlers {
 		AbilityHandlers.register(KEY, "vine_grab", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
 			if (p.isShiftKeyDown()) {
+				MutationVisuals.play(p, "cast_two_hand");
 				Vec3 look = p.getLookAngle();
 				boolean any = false;
 				for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 10.0)) {
@@ -103,7 +115,9 @@ public final class PlantManipulationHandlers {
 				return;
 			}
 			LivingEntity t = AbilityHelpers.raycastEntity(p, 16.0);
+			MutationVisuals.play(p, "grab_pull");
 			if (t != null) {
+				AbilityHelpers.line(ctx.level(), handOrigin(p), t.position().add(0, t.getBbHeight() * 0.5, 0), ParticleTypes.COMPOSTER, 3.0);
 				rootAndSnare(ctx, t);
 				ctx.level().sendParticles(ParticleTypes.HAPPY_VILLAGER, t.getX(), t.getY() + 1, t.getZ(), 15, 0.4, 0.6, 0.4, 0.0);
 			}
@@ -116,6 +130,7 @@ public final class PlantManipulationHandlers {
 			ServerPlayer p = ctx.player();
 			LivingEntity target = AbilityHelpers.raycastEntity(p, 30.0);
 			if (target != null) {
+				MutationVisuals.play(p, "grab_pull");
 				AbilityHelpers.push(target, p.position().subtract(target.position()).normalize().scale(1.6).add(0, 0.2, 0));
 				AbilityHelpers.line(ctx.level(), p.getEyePosition(), target.position(), ParticleTypes.COMPOSTER, 2.0);
 				AbilityHelpers.sound(p, SoundEvents.WEEPING_VINES_HIT, 1.0f, 0.9f);
@@ -127,6 +142,7 @@ public final class PlantManipulationHandlers {
 				return;
 			}
 			Vec3 anchor = Vec3.atCenterOf(hit.getBlockPos());
+			MutationVisuals.play(p, "p22.swing");
 			Vec3 pull = anchor.subtract(p.position());
 			AbilityHelpers.launchSelf(p, pull.normalize().scale(1.8).add(0, 0.4, 0));
 			AbilityHelpers.line(ctx.level(), p.getEyePosition(), anchor, ParticleTypes.COMPOSTER, 2.0);
@@ -143,6 +159,7 @@ public final class PlantManipulationHandlers {
 					return;
 				}
 				ctx.setResource("og_charging", 1, 1);
+				MutationVisuals.play(ctx.player(), "p22.gather");
 				ctx.setResource("og_charge_start", ctx.player().level().getGameTime(), 1.0e12f);
 				ctx.setResource("ult_charge", 0, 100);
 			}
@@ -152,6 +169,7 @@ public final class PlantManipulationHandlers {
 				if (ctx.resource("og_charging") > 0.5f) {
 					ctx.setResource("og_charging", 0, 1);
 					ctx.setResource("ult_charge", 0, 100);
+					MutationVisuals.stopIf(ctx.player(), "p22.gather");
 				}
 			}
 
@@ -163,6 +181,7 @@ public final class PlantManipulationHandlers {
 				ServerPlayer p = ctx.player();
 				long held = p.level().getGameTime() - (long) ctx.resource("og_charge_start");
 				ctx.setResource("ult_charge", (float) Math.min(100.0, held * 100.0 / (5 * 20)), 100);
+				MutationVisuals.ensure(p, "p22.gather");
 				if (p.tickCount % 3 == 0) {
 					ctx.level().sendParticles(ParticleTypes.HAPPY_VILLAGER, p.getX(), p.getY() + 1, p.getZ(), 4, 0.5, 0.6, 0.5, 0.0);
 				}
@@ -171,10 +190,11 @@ public final class PlantManipulationHandlers {
 				}
 				ctx.setResource("og_charging", 0, 1);
 				ctx.setResource("ult_charge", 0, 100);
+				MutationVisuals.play(p, "summon_ground");
 				ServerLevel level = ctx.level();
 				double r = 20.0;
 				for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
-					AbilityHelpers.hurt(p, e, 45.0f + natureBonus(p));
+					AbilityHelpers.hurt(p, e, 54.0f + natureBonus(p));
 					AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 200, 8);
 					AbilityHelpers.applyControl(e, MobEffects.POISON, 200, 9); // Poison X, 10s
 					ROOTED_UNTIL.put(e.getUUID(), p.level().getGameTime() + 200);
@@ -195,7 +215,7 @@ public final class PlantManipulationHandlers {
 				}
 				level.sendParticles(ParticleTypes.HAPPY_VILLAGER, p.getX(), p.getY() + 1, p.getZ(), 150, r / 2, 1, r / 2, 0.1);
 				AbilityHelpers.sound(p, SoundEvents.GRASS_BREAK, 1.6f, 0.4f);
-				ctx.triggerCooldown(60 * 20);
+				ctx.triggerCooldown(51 * 20);
 			}
 		});
 
@@ -205,6 +225,7 @@ public final class PlantManipulationHandlers {
 			ServerPlayer p = ctx.player();
 			ServerLevel level = ctx.level();
 			if (p.isShiftKeyDown()) {
+				MutationVisuals.play(p, "flex");
 				ctx.setResource("bonemeal_until", p.level().getGameTime() + 600, 1.0e12f);
 				ctx.actionBar("message.projecthero.plant.bonemeal_touch");
 				level.sendParticles(ParticleTypes.HAPPY_VILLAGER, p.getX(), p.getY() + 1.0, p.getZ(), 20, 0.4, 0.6, 0.4, 0.0);
@@ -214,6 +235,7 @@ public final class PlantManipulationHandlers {
 			}
 			BlockState leaves = Blocks.OAK_LEAVES.defaultBlockState();
 			float pitch = p.getXRot();
+			MutationVisuals.play(p, pitch < -75.0f ? "cast_raise_both" : "summon_ground");
 			boolean built;
 			if (pitch < -75.0f) {
 				built = com.projecthero.mod.hero.power.ConjuredStructures.dome(p, level, leaves);
@@ -284,7 +306,10 @@ public final class PlantManipulationHandlers {
 
 		// C -- Nature's Blessing.
 		AbilityHandlers.register(KEY, "natures_blessing", Handlers.toggle(
-				Handlers.noop(),
+				ctx -> {
+					MutationVisuals.play(ctx.player(), "power_up");
+					AbilityHelpers.sound(ctx.player(), SoundEvents.AZALEA_LEAVES_PLACE, 1.0f, 0.8f);
+				},
 				ctx -> com.projecthero.mod.hero.power.PowerToggles.clearModifier(ctx.player(),
 						net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE, BLESS_ATK),
 				ctx -> {
@@ -307,10 +332,44 @@ public final class PlantManipulationHandlers {
 					}
 				}));
 
+		// H -- Thorn Sentry: plant a living turret that shoots thorns at hostiles for 15 s.
+		AbilityHandlers.register(KEY, "thorn_sentry", Handlers.instantTicking(ctx -> {
+			ServerPlayer p = ctx.player();
+			ThornSentryEntity sentry = plantSentry(p);
+			if (sentry == null) {
+				ctx.actionBar("message.projecthero.plant.no_room");
+				return;
+			}
+			ctx.setResource("sentry_ticks", ThornSentryEntity.LIFETIME, ThornSentryEntity.LIFETIME);
+			MutationVisuals.play(p, "summon_ground");
+			ctx.triggerCooldown();
+		}, ctx -> {
+			float left = ctx.resource("sentry_ticks");
+			if (left > 0.5f) {
+				ctx.setResource("sentry_ticks", left - 1, ThornSentryEntity.LIFETIME);
+			}
+		}));
+
+		// N -- Spore Cloud: a drifting cloud that poisons + blinds enemies inside it and heals you and your allies.
+		// No sneak variant (Sneak+N is reserved for power combos).
+		AbilityHandlers.register(KEY, "spore_cloud", Handlers.instantTicking(ctx -> {
+			ServerPlayer p = ctx.player();
+			Vec3 look = p.getLookAngle();
+			Vec3 at = p.position().add(new Vec3(look.x, 0, look.z).normalize().scale(2.5)).add(0, 0.8, 0);
+			ExperimentalPowers.setMarker(p, ctx.power(), "spore", BlockPos.containing(at));
+			ctx.setResource("spore_ticks", SPORE_TICKS, SPORE_TICKS);
+			MutationVisuals.play(p, "p22.spore_blow");
+			ctx.level().sendParticles(ParticleTypes.SPORE_BLOSSOM_AIR, at.x, at.y, at.z, 60, 1.5, 0.8, 1.5, 0.02);
+			AbilityHelpers.sound(p, SoundEvents.SPORE_BLOSSOM_PLACE, 1.2f, 0.6f);
+			AbilityHelpers.sound(p, SoundEvents.PUFFER_FISH_BLOW_OUT, 0.8f, 0.7f);
+			ctx.triggerCooldown();
+		}, PlantManipulationHandlers::sporeTick));
+
 		com.projecthero.mod.hero.PowerPassives.register(KEY, (player, active) -> {
 			if (!active) {
 				com.projecthero.mod.hero.power.PowerToggles.clearModifier(player,
 						net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE, BLESS_ATK);
+				ThornSentryEntity.removeFor(player);
 			}
 		});
 		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, PlantManipulationHandlers::passiveTick);
@@ -332,13 +391,18 @@ public final class PlantManipulationHandlers {
 		}
 		// Plants within 30 blocks grow roughly 50% faster: an occasional bonemeal-tier assist.
 		if (player.tickCount % 100 == 0) {
+			// v0.13.22: random samples instead of walking all ~37k positions of the 30-block cylinder every 5 s
 			int budget = 25;
 			BlockPos origin = player.blockPosition();
-			for (BlockPos bp : BlockPos.betweenClosed(origin.offset(-30, -6, -30), origin.offset(30, 6, 30))) {
-				if (budget <= 0) {
-					break;
+			BlockPos.MutableBlockPos bp = new BlockPos.MutableBlockPos();
+			for (int i = 0; i < 900 && budget > 0; i++) {
+				int dx = level.random.nextInt(61) - 30;
+				int dz = level.random.nextInt(61) - 30;
+				if (dx * dx + dz * dz > 900) {
+					continue;
 				}
-				if (bp.distSqr(origin) > 30.0 * 30.0 || level.random.nextInt(6) != 0) {
+				bp.set(origin.getX() + dx, origin.getY() + level.random.nextInt(13) - 6, origin.getZ() + dz);
+				if (!level.isLoaded(bp)) {
 					continue;
 				}
 				BlockState state = level.getBlockState(bp);
@@ -368,6 +432,106 @@ public final class PlantManipulationHandlers {
 		}
 	}
 
+	/** Spore Cloud: 8 s, 4.5-block radius, pulses every half second. */
+	public static final int SPORE_TICKS = 160;
+	public static final double SPORE_RADIUS = 4.5;
+
+	/** Spore Cloud upkeep: particles, and every 10 ticks a pulse -- enemies poisoned + blinded, allies healed. */
+	private static void sporeTick(AbilityContext ctx) {
+		float left = ctx.resource("spore_ticks");
+		if (left <= 0.5f) {
+			return;
+		}
+		ServerPlayer p = ctx.player();
+		ctx.setResource("spore_ticks", left - 1, SPORE_TICKS);
+		BlockPos at = ExperimentalPowers.getMarker(p, ctx.power(), "spore");
+		var dim = ExperimentalPowers.getMarkerDimension(p, ctx.power(), "spore");
+		if (at == null || (dim != null && !dim.equals(p.level().dimension()))) {
+			return;
+		}
+		if (left - 1 <= 0.5f) {
+			ExperimentalPowers.clearMarker(p, ctx.power(), "spore");
+		}
+		ServerLevel level = ctx.level();
+		Vec3 c = Vec3.atCenterOf(at);
+		if (p.tickCount % 2 == 0) {
+			level.sendParticles(ParticleTypes.SPORE_BLOSSOM_AIR, c.x, c.y, c.z, 6, SPORE_RADIUS * 0.45, 0.7, SPORE_RADIUS * 0.45, 0.0);
+			level.sendParticles(new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.55f, 0.75f, 0.25f), 1.6f),
+					c.x, c.y, c.z, 4, SPORE_RADIUS * 0.4, 0.6, SPORE_RADIUS * 0.4, 0.0);
+		}
+		if (((int) left) % 10 != 0) {
+			return;
+		}
+		pulseSpores(p, c);
+	}
+
+	/** One Spore Cloud pulse centred on {@code c}. Public for the gametests. */
+	public static void pulseSpores(ServerPlayer p, Vec3 c) {
+		ServerLevel level = AbilityHelpers.level(p);
+		boolean pvp = p.getServer() != null && p.getServer().isPvpAllowed()
+				&& com.projecthero.mod.hero.HeroConfig.get().abilityPvpDamage;
+		for (LivingEntity e : AbilityHelpers.living(level, c, SPORE_RADIUS, e -> true)) {
+			if (e == p || com.projecthero.mod.squad.Squads.areAllies(p, e)) {
+				if (e.getHealth() < e.getMaxHealth()) {
+					e.heal(1.5f);
+				}
+				e.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 40, 0, false, false, true));
+				level.sendParticles(ParticleTypes.HAPPY_VILLAGER, e.getX(), e.getY() + 1.0, e.getZ(), 3, 0.3, 0.4, 0.3, 0.0);
+				continue;
+			}
+			if (e instanceof net.minecraft.world.entity.decoration.ArmorStand
+					|| (e instanceof net.minecraft.world.entity.player.Player && !pvp)) {
+				continue; // other players only when PvP is on
+			}
+			AbilityHelpers.applyControl(e, MobEffects.POISON, 60, 1);
+			AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 60, 0);
+		}
+	}
+
+	/**
+	 * Plants a Thorn Sentry on the ground where the player is looking (up to 6 blocks), or at their feet. Any older
+	 * sentry of theirs withers away first -- one at a time. Returns null if there is no room.
+	 */
+	public static ThornSentryEntity plantSentry(ServerPlayer p) {
+		ServerLevel level = AbilityHelpers.level(p);
+		Vec3 spot;
+		var hit = AbilityHelpers.raycastBlock(p, 6.0);
+		if (hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK && hit.getDirection() == net.minecraft.core.Direction.UP) {
+			spot = hit.getLocation();
+		} else {
+			Vec3 look = p.getLookAngle();
+			spot = p.position().add(new Vec3(look.x, 0, look.z).normalize().scale(1.5));
+		}
+		ThornSentryEntity.removeFor(p);
+		ThornSentryEntity sentry = new ThornSentryEntity(PlantEntities.THORN_SENTRY, level);
+		sentry.setOwner(p);
+		sentry.moveTo(spot.x, spot.y, spot.z, p.getYRot(), 0.0f);
+		if (!level.noCollision(sentry)) {
+			sentry.moveTo(p.getX(), p.getY(), p.getZ(), p.getYRot(), 0.0f);
+		}
+		level.addFreshEntity(sentry);
+		level.sendParticles(ParticleTypes.HAPPY_VILLAGER, spot.x, spot.y + 0.5, spot.z, 20, 0.4, 0.5, 0.4, 0.0);
+		level.sendParticles(new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK,
+				Blocks.MOSS_BLOCK.defaultBlockState()), spot.x, spot.y + 0.1, spot.z, 24, 0.4, 0.1, 0.4, 0.1);
+		AbilityHelpers.sound(p, SoundEvents.ROOTED_DIRT_PLACE, 1.2f, 0.7f);
+		AbilityHelpers.sound(p, SoundEvents.AZALEA_LEAVES_PLACE, 1.0f, 0.9f);
+		return sentry;
+	}
+
+	/** Nature’s Blessing is on (the leafy/bark shell overlay). Synced -- safe on either side. */
+	public static boolean blessingOn(net.minecraft.world.entity.player.Player p) {
+		com.projecthero.mod.hero.data.ExperimentalState st =
+				p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.EXPERIMENTAL_STATE, null);
+		return st != null && st.ownedPowers.contains(KEY) && st.activeToggles.contains(KEY + "/natures_blessing");
+	}
+
+	/** Overgrowth is charging (the root-gathering overlay). */
+	public static boolean overgrowthCharging(net.minecraft.world.entity.player.Player p) {
+		com.projecthero.mod.hero.data.ExperimentalState st =
+				p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.EXPERIMENTAL_STATE, null);
+		return st != null && st.ownedPowers.contains(KEY) && st.resources.getOrDefault(KEY + "/og_charging", 0.0f) > 0.5f;
+	}
+
 	public static void clearSessionState() {
 		ROOTED_UNTIL.clear();
 		PENDING_TREES.clear();
@@ -380,7 +544,7 @@ public final class PlantManipulationHandlers {
 		t.setDeltaMovement(t.getDeltaMovement().multiply(0, 1, 0));
 		t.hurtMarked = true;
 		ROOTED_UNTIL.put(t.getUUID(), p.level().getGameTime() + 160);
-		AbilityHelpers.hurt(p, t, 3.0f + natureBonus(p));
+		AbilityHelpers.hurt(p, t, 3.6f + natureBonus(p));
 	}
 
 	private static void branchThrust(AbilityContext ctx, LivingEntity target) {
@@ -400,7 +564,7 @@ public final class PlantManipulationHandlers {
 				trail.add(bp);
 			}
 		}
-		AbilityHelpers.hurt(p, target, 15.0f + natureBonus(p));
+		AbilityHelpers.hurt(p, target, 18.0f + natureBonus(p));
 		AbilityHelpers.knockbackFrom(target, from, 1.2);
 		AbilityHelpers.sound(p, SoundEvents.WOOD_BREAK, 1.0f, 0.7f);
 		if (AbilityHelpers.canGrief()) {
@@ -515,14 +679,14 @@ public final class PlantManipulationHandlers {
 	private static final net.minecraft.resources.ResourceLocation BLESS_ATK =
 			com.projecthero.mod.ProjectHeroMod.id("natures_blessing_atk");
 
-	/** +10 to Plant abilities while Nature's Blessing is on and the player is on living ground. */
+	/** +12 to Plant abilities while Nature's Blessing is on and the player is on living ground. */
 	static float natureBonus(ServerPlayer p) {
 		var power = Powers.byKey(KEY);
 		return power != null && ExperimentalPowers.owns(p, power)
 				&& ExperimentalPowers.isToggled(p, power,
 						power.ability(com.projecthero.mod.hero.AbilitySlot.SLOT_6))
 				&& isBlessed((ServerLevel) p.level(), p.blockPosition())
-				? 10.0f : 0.0f;
+				? 12.0f : 0.0f;
 	}
 
 	/** Standing on grass/moss, or within 5 blocks of any plant or leaf. */

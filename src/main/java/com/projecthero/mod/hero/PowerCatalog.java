@@ -419,13 +419,16 @@ final class PowerCatalog {
 	private static Power spiderClimbing() {
 		String k = "power_16_spider_climbing_adhesion";
 		return Power.Builder.of(Powers.id(k), PowerCategory.MOVEMENT)
-				.ability(ab(k, "adhesive_strike", SLOT_1, INSTANT, 4 * S))
-				.ability(ab(k, "pounce", SLOT_2, INSTANT, 5 * S))
-				.ability(ab(k, "wall_leap", SLOT_3, INSTANT, 3 * S))
-				.ability(ab(k, "predator_rush", SLOT_4, INSTANT, 35 * S))
+				// v0.13.22 revamp (batch E): -15% cooldowns, + H Spider-Sense Dodge / N Venom Bite
+				.ability(ab(k, "adhesive_strike", SLOT_1, INSTANT, 68))
+				.ability(ab(k, "pounce", SLOT_2, INSTANT, 85))
+				.ability(ab(k, "wall_leap", SLOT_3, INSTANT, 51))
+				.ability(ab(k, "predator_rush", SLOT_4, INSTANT, 30 * S))
 				.ability(ab(k, "wall_grip", SLOT_5, TOGGLE, 0))
 				.ability(ab(k, "adhesion_mode", SLOT_6, TOGGLE, 0))
-				.passives(pk(k, "passive.fall"), pk(k, "passive.jump"), pk(k, "passive.evolve"))
+				.ability(ab(k, "spider_sense", AbilitySlot.SLOT_7, INSTANT, 6 * S))
+				.ability(ab(k, "venom_bite", AbilitySlot.SLOT_8, INSTANT, 7 * S))
+				.passives(pk(k, "passive.fall"), pk(k, "passive.jump"), pk(k, "passive.sense"), pk(k, "passive.evolve"))
 				.serum(SerumRecipe.of("minecraft:leaping", pk(k, "serum"),
 						"minecraft:spider_eye", "minecraft:string", "minecraft:slime_ball"))
 				.trigger(MutationTrigger.of(Kind.SPIDER_VENOM, pk(k, "trigger"), null))
@@ -438,12 +441,15 @@ final class PowerCatalog {
 	private static Power elasticity() {
 		String k = "power_17_elasticity";
 		return Power.Builder.of(Powers.id(k), PowerCategory.MOLECULAR)
-				.ability(ab(k, "stretch_punch", SLOT_1, CHARGE, 2 * S))
-				.ability(ab(k, "double_fist_slam", SLOT_2, INSTANT, 7 * S))
-				.ability(ab(k, "slingshot", SLOT_3, INSTANT, 3 * S))
-				.ability(ab(k, "giant_hammer_fist", SLOT_4, INSTANT, 35 * S))
-				.ability(ab(k, "elastic_grab", SLOT_5, INSTANT, 6 * S))
+				// v0.13.22 revamp (batch E): -15% cooldowns, + H Rubber Shield / N Parachute Glide
+				.ability(ab(k, "stretch_punch", SLOT_1, CHARGE, 34))
+				.ability(ab(k, "double_fist_slam", SLOT_2, INSTANT, 119))
+				.ability(ab(k, "slingshot", SLOT_3, INSTANT, 51))
+				.ability(ab(k, "giant_hammer_fist", SLOT_4, INSTANT, 30 * S))
+				.ability(ab(k, "elastic_grab", SLOT_5, INSTANT, 102))
 				.ability(ab(k, "elastic_form", SLOT_6, TOGGLE, 0))
+				.ability(ab(k, "rubber_shield", AbilitySlot.SLOT_7, HOLD, 8 * S))
+				.ability(ab(k, "parachute_glide", AbilitySlot.SLOT_8, INSTANT, 5 * S))
 				.passives(pk(k, "passive.fall"), pk(k, "passive.bounce"), pk(k, "passive.squeeze"),
 						pk(k, "passive.melee"), pk(k, "passive.knockback"))
 				.serum(SerumRecipe.of("minecraft:leaping", pk(k, "serum"),
@@ -458,13 +464,16 @@ final class PowerCatalog {
 	private static Power densityManipulation() {
 		String k = "power_18_density_manipulation";
 		return Power.Builder.of(Powers.id(k), PowerCategory.MOLECULAR)
+				// v0.13.22 revamp (batch E): -15% cooldowns, + H Intangible Dodge / N Crushing Touch
 				.ability(ab(k, "increase_density", SLOT_1, INSTANT, 0))
 				.ability(ab(k, "decrease_density", SLOT_2, INSTANT, 0))
-				.ability(ab(k, "density_anchor", SLOT_3, INSTANT, 30 * S))
-				.ability(ab(k, "heavy_impact", SLOT_4, INSTANT, 10 * S))
+				.ability(ab(k, "density_anchor", SLOT_3, INSTANT, 510))
+				.ability(ab(k, "heavy_impact", SLOT_4, INSTANT, 170))
 				.ability(ab(k, "phase", SLOT_5, TOGGLE, 0))
-				.ability(ab(k, "zero_density", SLOT_6, INSTANT, 2 * S))
-				.passives(pk(k, "passive.mode"))
+				.ability(ab(k, "zero_density", SLOT_6, INSTANT, 34))
+				.ability(ab(k, "intangible_dodge", AbilitySlot.SLOT_7, INSTANT, 4 * S))
+				.ability(ab(k, "crushing_touch", AbilitySlot.SLOT_8, INSTANT, 12 * S))
+				.passives(pk(k, "passive.mode"), pk(k, "passive.shell"))
 				.serum(SerumRecipe.of("minecraft:slow_falling", pk(k, "serum"),
 						"minecraft:iron_ingot", "minecraft:feather", "minecraft:amethyst_shard"))
 				.trigger(MutationTrigger.of(Kind.MOLECULAR_COMPRESSION, pk(k, "trigger"), "projecthero.device.compression_chamber"))
@@ -546,12 +555,15 @@ final class PowerCatalog {
 	private static Power plantManipulation() {
 		String k = "power_22_plant_manipulation_chlorokinesis";
 		return Power.Builder.of(Powers.id(k), PowerCategory.NATURE)
-				.ability(ab(k, "thorn_shot", SLOT_1, INSTANT, 2 * S))
-				.ability(ab(k, "vine_grab", SLOT_2, INSTANT, 7 * S))
-				.ability(ab(k, "vine_swing", SLOT_3, INSTANT, 1 * S))
-				.ability(ab(k, "overgrowth", SLOT_4, CHARGE, 60 * S))
-				.ability(ab(k, "living_wall", SLOT_5, INSTANT, 8 * S))
+				// v0.13.22 revamp (batch E): -15% cooldowns, + H Thorn Sentry / N Spore Cloud
+				.ability(ab(k, "thorn_shot", SLOT_1, INSTANT, 34))
+				.ability(ab(k, "vine_grab", SLOT_2, INSTANT, 119))
+				.ability(ab(k, "vine_swing", SLOT_3, INSTANT, 17))
+				.ability(ab(k, "overgrowth", SLOT_4, CHARGE, 51 * S))
+				.ability(ab(k, "living_wall", SLOT_5, INSTANT, 136))
 				.ability(ab(k, "natures_blessing", SLOT_6, TOGGLE, 0))
+				.ability(ab(k, "thorn_sentry", AbilitySlot.SLOT_7, INSTANT, 25 * S))
+				.ability(ab(k, "spore_cloud", AbilitySlot.SLOT_8, INSTANT, 16 * S))
 				.passives(pk(k, "passive.bonemeal"), pk(k, "passive.lush_regen"), pk(k, "passive.swing_through_grass"))
 				.serum(SerumRecipe.of("minecraft:regeneration", pk(k, "serum"),
 						"minecraft:moss_block", "minecraft:vine", "minecraft:bone_meal"))
@@ -655,12 +667,15 @@ final class PowerCatalog {
 	private static Power sizeManipulation() {
 		String k = "power_27_size_manipulation";
 		return Power.Builder.of(Powers.id(k), PowerCategory.MOLECULAR)
-				.ability(ab(k, "giant_punch", SLOT_1, INSTANT, 3 * S))
-				.ability(ab(k, "stomp", SLOT_2, INSTANT, 8 * S))
+				// v0.13.22 revamp (batch E): -15% cooldowns, + H Shrink Punch / N Mount
+				.ability(ab(k, "giant_punch", SLOT_1, INSTANT, 51))
+				.ability(ab(k, "stomp", SLOT_2, INSTANT, 136))
 				.ability(ab(k, "shrink", SLOT_3, TOGGLE, 0))
 				.ability(ab(k, "giant_form", SLOT_4, TOGGLE, 0))
-				.ability(ab(k, "tiny_dash", SLOT_5, INSTANT, 5 * S))
+				.ability(ab(k, "tiny_dash", SLOT_5, INSTANT, 85))
 				.ability(ab(k, "large_form", SLOT_6, TOGGLE, 0))
+				.ability(ab(k, "shrink_punch", AbilitySlot.SLOT_7, INSTANT, 10 * S))
+				.ability(ab(k, "mount", AbilitySlot.SLOT_8, INSTANT, 2 * S))
 				.passives(pk(k, "passive.form"), pk(k, "passive.fall"))
 				.serum(SerumRecipe.of("minecraft:leaping", pk(k, "serum"),
 						"minecraft:slime_ball", "minecraft:rabbit_hide", "minecraft:fermented_spider_eye", "minecraft:redstone"))

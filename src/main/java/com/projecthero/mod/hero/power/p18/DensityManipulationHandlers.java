@@ -10,6 +10,7 @@ import com.projecthero.mod.hero.data.ExperimentalState;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.Handlers;
 import com.projecthero.mod.hero.power.PowerToggles;
+import com.projecthero.mod.hero.visual.MutationVisuals;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
@@ -30,6 +31,12 @@ import net.minecraft.world.phys.Vec3;
  * slammed to the extremes by Zero Density (C) and Density Anchor (X). The current density drives a
  * table of movement / damage-dealt / damage-taken / knockback modifiers (see {@link #chart}). Z is a
  * Heavy Impact ground pound, V is Phase (unchanged intangibility).
+ *
+ * <p>v0.13.22 revamp (batch E) -- a light pass: every move animates, Heavy Impact hits ~20% harder, cooldowns are
+ * ~15% shorter and the Phase reserve holds 15% more. New: H <b>Intangible Dodge</b> (a half-second phase-dash: immune
+ * to everything, attacks pass straight through) and N <b>Crushing Touch</b> (the next melee hit makes the target
+ * super-dense for 5 s -- see {@link CrushingDensityEffect}). A thin translucent shell over the body shows the
+ * current density: blue when light, orange when heavy.
  */
 public final class DensityManipulationHandlers {
 	private static final String KEY = "power_18_density_manipulation";
@@ -44,11 +51,19 @@ public final class DensityManipulationHandlers {
 	private static final float STEP = 5.0f;
 
 	private static final int ANCHOR_TICKS = 10 * 20;
-	private static final int ANCHOR_CD = 30 * 20;
+	private static final int ANCHOR_CD = 510;
 
-	private static final float MAX_PHASE = 100.0f;
+	/** v0.13.22: +15% Phase capacity (was 100), same drain -- so it lasts 15% longer. */
+	public static final float MAX_PHASE = 115.0f;
 	private static final float PHASE_DRAIN = 0.15f;
-	private static final float PHASE_REGEN = 0.2f;
+	private static final float PHASE_REGEN = 0.23f;
+
+	private static final float HEAVY_IMPACT_DAMAGE = 54.0f;
+	/** Intangible Dodge: half a second of total intangibility, with a short dash. */
+	public static final int DODGE_TICKS = 10;
+	/** Crushing Touch: the arm window, and how long the target stays super-dense. */
+	public static final int CRUSH_ARM_TICKS = 160;
+	public static final int CRUSH_TICKS = 100;
 	private static final double PHASE_MAX_HEIGHT = 2.0;
 	private static final int GROUND_SEARCH = 32;
 
@@ -74,6 +89,36 @@ public final class DensityManipulationHandlers {
 	public static boolean phasing(Player p) {
 		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		return st != null && st.ownedPowers.contains(KEY) && st.activeToggles.contains(KEY + "/phase");
+	}
+
+	private static float res(Player p, String name) {
+		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		return st == null ? 0.0f : st.resources.getOrDefault(KEY + "/" + name, 0.0f);
+	}
+
+	/** Whether {@code p} owns Density Manipulation (synced). */
+	public static boolean owns(Player p) {
+		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		return st != null && st.ownedPowers.contains(KEY);
+	}
+
+	/** Intangible Dodge is running: immune to everything (read by HeroDamageRules and the overlay). */
+	public static boolean intangible(Player p) {
+		return owns(p) && res(p, "dodge_ticks") > 0.5f;
+	}
+
+	/** Crushing Touch is armed: the next melee hit crushes. */
+	public static boolean crushArmed(Player p) {
+		return owns(p) && res(p, "crush_armed") > 0.5f;
+	}
+
+	/** The density shell is worth drawing: density visibly off 100%, or Density Anchor running. */
+	public static boolean shellVisible(Player p) {
+		if (!owns(p)) {
+			return false;
+		}
+		float d = density(p);
+		return Math.abs(d - DEFAULT_DENSITY) >= 4.9f || res(p, "anchor_until") > p.level().getGameTime();
 	}
 
 	/** True while Density Anchor is holding the player in place. */
@@ -124,15 +169,18 @@ public final class DensityManipulationHandlers {
 	public static void register() {
 		AbilityHandlers.register(KEY, "increase_density", Handlers.instant(ctx -> {
 			adjustDensity(ctx, STEP);
+			MutationVisuals.play(ctx.player(), "p18.dense");
 			ctx.triggerCooldown();
 		}));
 
 		AbilityHandlers.register(KEY, "decrease_density", Handlers.instant(ctx -> {
 			adjustDensity(ctx, -STEP);
+			MutationVisuals.play(ctx.player(), "p18.light");
 			ctx.triggerCooldown();
 		}));
 
 		AbilityHandlers.register(KEY, "zero_density", Handlers.instant(ctx -> {
+			MutationVisuals.play(ctx.player(), "p18.light");
 			setDensity(ctx, MIN_DENSITY);
 			ctx.actionBar("message.projecthero.density.set", (int) MIN_DENSITY);
 			AbilityHelpers.sound(ctx.player(), SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 1.8f);
@@ -161,6 +209,7 @@ public final class DensityManipulationHandlers {
 				ctx.setResource("anchor_until", p.level().getGameTime() + ANCHOR_TICKS, 1.0e12f);
 				p.setDeltaMovement(0, 0, 0);
 				p.hurtMarked = true;
+				MutationVisuals.play(p, "p18.anchor");
 				AbilityHelpers.sound(p, SoundEvents.ANVIL_LAND, 1.2f, 0.5f);
 				ctx.level().sendParticles(ParticleTypes.CRIT, p.getX(), p.getY(), p.getZ(), 40, 0.5, 0.1, 0.5, 0.1);
 				ctx.actionBar("message.projecthero.density.anchor_on");
@@ -180,11 +229,13 @@ public final class DensityManipulationHandlers {
 					setDensity(ctx, prev <= 0.0f ? DEFAULT_DENSITY : prev);
 					PowerToggles.clearModifier(p, Attributes.JUMP_STRENGTH, JUMP);
 					ctx.triggerCooldown(ANCHOR_CD);
+					MutationVisuals.stopIf(p, "p18.anchor");
 					ctx.actionBar("message.projecthero.density.anchor_off");
 					AbilityHelpers.sound(p, SoundEvents.BEACON_DEACTIVATE, 0.8f, 0.7f);
 					return;
 				}
 				// hold in place
+				MutationVisuals.ensure(p, "p18.anchor");
 				p.setSprinting(false);
 				PowerToggles.modifier(p, Attributes.JUMP_STRENGTH, JUMP, -1.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 				Vec3 v = p.getDeltaMovement();
@@ -202,8 +253,10 @@ public final class DensityManipulationHandlers {
 			ctx.setResource("hi_start", p.level().getGameTime(), 1.0e12f);
 			if (heightAboveGround(p) > HEAVY_MIN_HEIGHT) {
 				ctx.setResource("hi_state", 2, 3);
+				MutationVisuals.play(p, "p18.plunge");
 			} else {
 				ctx.setResource("hi_state", 1, 3);
+				MutationVisuals.play(p, "leap");
 				p.setDeltaMovement(p.getDeltaMovement().x * 0.3, 1.9, p.getDeltaMovement().z * 0.3);
 				AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 1.0f, 1.4f);
 			}
@@ -216,7 +269,71 @@ public final class DensityManipulationHandlers {
 		// V -- Phase (unchanged).
 		AbilityHandlers.register(KEY, "phase", phaseHandler());
 
+		// H -- Intangible Dodge: half a second where nothing can touch you, with a short dash through the threat.
+		AbilityHandlers.register(KEY, "intangible_dodge", Handlers.instantTicking(ctx -> {
+			ServerPlayer p = ctx.player();
+			ctx.setResource("dodge_ticks", DODGE_TICKS, DODGE_TICKS);
+			Vec3 look = p.getLookAngle();
+			Vec3 flat = new Vec3(look.x, 0, look.z);
+			flat = flat.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : flat.normalize();
+			AbilityHelpers.launchSelf(p, flat.scale(1.25).add(0, 0.12, 0));
+			MutationVisuals.play(p, "dash_forward");
+			ctx.level().sendParticles(ParticleTypes.PORTAL, p.getX(), p.getY() + 1.0, p.getZ(), 30, 0.3, 0.6, 0.3, 0.4);
+			AbilityHelpers.sound(p, SoundEvents.ENDERMAN_TELEPORT, 0.5f, 1.6f);
+			ctx.triggerCooldown();
+		}, ctx -> {
+			float left = ctx.resource("dodge_ticks");
+			if (left <= 0.5f) {
+				return;
+			}
+			ServerPlayer p = ctx.player();
+			ctx.setResource("dodge_ticks", left - 1, DODGE_TICKS);
+			p.resetFallDistance();
+			ctx.level().sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1.0, p.getZ(), 3, 0.25, 0.5, 0.25, 0.0);
+		}));
+
+		// N -- Crushing Touch: arm the hand; the next melee hit makes the target super-dense for 5 s.
+		// No sneak variant (Sneak+N is reserved for power combos).
+		AbilityHandlers.register(KEY, "crushing_touch", Handlers.instantTicking(ctx -> {
+			ServerPlayer p = ctx.player();
+			ctx.setResource("crush_armed", CRUSH_ARM_TICKS, CRUSH_ARM_TICKS);
+			MutationVisuals.play(p, "p18.charge_fist");
+			ctx.level().sendParticles(ParticleTypes.CRIT, p.getX(), p.getY() + 1.0, p.getZ(), 16, 0.4, 0.5, 0.4, 0.05);
+			AbilityHelpers.sound(p, SoundEvents.ANVIL_PLACE, 0.6f, 0.6f);
+			ctx.actionBar("message.projecthero.density.crush_armed");
+			ctx.triggerCooldown();
+		}, ctx -> {
+			float left = ctx.resource("crush_armed");
+			if (left > 0.5f) {
+				ctx.setResource("crush_armed", left - 1, CRUSH_ARM_TICKS);
+			}
+		}));
+		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DAMAGE.register(
+				(entity, source, base, taken, blocked) -> {
+					if (source.getEntity() instanceof ServerPlayer p && source.getDirectEntity() == p && entity != p
+							&& crushArmed(p)) {
+						crush(p, entity);
+					}
+				});
+
 		registerPassives();
+	}
+
+	/**
+	 * Crushing Touch landing: the target becomes super-dense for 5 s (Crushing Density: crawling pace, no jumping,
+	 * fliers drop out of the sky). Consumes the armed hand. Public for the gametests.
+	 */
+	public static void crush(ServerPlayer p, LivingEntity target) {
+		ExperimentalPowers.setResource(p, Powers.byKey(KEY), "crush_armed", 0, CRUSH_ARM_TICKS);
+		AbilityHelpers.applyControl(target, CrushingDensityEffect.HOLDER, CRUSH_TICKS, 0);
+		target.setDeltaMovement(target.getDeltaMovement().multiply(0.2, 1.0, 0.2).add(0, -0.4, 0));
+		target.hurtMarked = true;
+		ServerLevel level = AbilityHelpers.level(p);
+		level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(),
+				20, 0.3, 0.4, 0.3, 0.1);
+		level.sendParticles(new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(1.0f, 0.55f, 0.15f), 1.3f),
+				target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(), 16, 0.3, 0.4, 0.3, 0.0);
+		AbilityHelpers.sound(p, SoundEvents.ANVIL_LAND, 1.0f, 0.4f);
 	}
 
 	// ---- R / G / C: density value -----------------------------------------------------------
@@ -289,10 +406,11 @@ public final class DensityManipulationHandlers {
 		}
 		ctx.setResource("hi_state", 0, 3);
 		ctx.setResource("hi_start", 0, 1.0e12f);
+		MutationVisuals.play(p, "ground_pound");
 		double r = 20.0;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
 			double d = Math.sqrt(e.distanceToSqr(p));
-			float dmg = (float) (45.0 * (1.0 - Math.min(0.8, d / r)));
+			float dmg = (float) (HEAVY_IMPACT_DAMAGE * (1.0 - Math.min(0.8, d / r)));
 			AbilityHelpers.hurt(p, e, dmg);
 			AbilityHelpers.knockbackFrom(e, p.position(), 1.6);
 			AbilityHelpers.push(e, new Vec3(0, 0.4, 0));
@@ -324,6 +442,7 @@ public final class DensityManipulationHandlers {
 					return;
 				}
 				setPhaseAbilities(p, true);
+				MutationVisuals.play(p, "float_arms");
 				p.setDeltaMovement(p.getDeltaMovement().x, 0.0, p.getDeltaMovement().z);
 				p.hasImpulse = true;
 				p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(p));
@@ -333,12 +452,14 @@ public final class DensityManipulationHandlers {
 			@Override
 			public void onToggleOff(AbilityContext ctx) {
 				setPhaseAbilities(ctx.player(), false);
+				MutationVisuals.stopIf(ctx.player(), "float_arms");
 			}
 
 			@Override
 			public void onToggleTick(AbilityContext ctx) {
 				ServerPlayer p = ctx.player();
 				setPhaseAbilities(p, true);
+				MutationVisuals.ensure(p, "float_arms");
 				p.noPhysics = true;
 				p.resetFallDistance();
 				clampPhaseHeight(p);
@@ -413,6 +534,10 @@ public final class DensityManipulationHandlers {
 		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, player -> {
 			applyDensity(player);
 			var power = Powers.byKey(KEY);
+			// v0.13.22: seed the density value so the HUD gauge shows from the start
+			if (power != null && !ExperimentalPowers.state(player).resources.containsKey(KEY + "/density")) {
+				ExperimentalPowers.setResource(player, power, "density", DEFAULT_DENSITY, MAX_DENSITY);
+			}
 			if (power != null && !phasing(player)
 					&& ExperimentalPowers.getResource(player, power, "phase") < MAX_PHASE) {
 				ExperimentalPowers.addResource(player, power, "phase", PHASE_REGEN, MAX_PHASE);

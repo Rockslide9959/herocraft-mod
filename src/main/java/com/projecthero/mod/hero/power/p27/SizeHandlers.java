@@ -9,6 +9,7 @@ import com.projecthero.mod.hero.Powers;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.Handlers;
 import com.projecthero.mod.hero.power.PowerToggles;
+import com.projecthero.mod.hero.visual.MutationVisuals;
 
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
@@ -28,6 +29,12 @@ import net.minecraft.world.phys.Vec3;
  * C = Large, Z = Giant. Pressing a form key again returns to normal; pressing a different form key
  * swaps straight to that form. Uses {@link Attributes#SCALE}, validated against a hitbox-fit check so
  * growth never forces the player into blocks.
+ *
+ * <p>v0.13.22 revamp (batch E): every form change eases over one second (both ways, geometric), every move
+ * animates, damage ~+20%, cooldowns ~-15%, the Size Strain reserve holds 15% more, and two new utility moves:
+ * H <b>Shrink Punch</b> (the target is shrunk to half size and hits 40% softer for 8 s -- {@link ShrunkenEffect})
+ * and N <b>Mount</b> (Tiny: ride the mob you are looking at; Large / Giant: pick it up and carry it in your hand;
+ * press again to dismount / throw; always released safely on a form change, on death or after the time limit).
  */
 public final class SizeHandlers {
 	private static final String KEY = "power_27_size_manipulation";
@@ -43,12 +50,20 @@ public final class SizeHandlers {
 	private static final double LARGE_SCALE = 3.33;
 	private static final double GIANT_SCALE = 8.33;
 
-	private static final float MAX_STRAIN = 500.0f;
-	private static final float STRAIN_DRAIN = MAX_STRAIN / (23 * 20); // full Giant form lasts ~23 s
-	private static final float STRAIN_REGEN = MAX_STRAIN / (45 * 20); // and recovers slowly over ~45 s once out
+	/** v0.13.22: +15% capacity (was 500) at the same drain -- a full Giant form now lasts ~26 s. */
+	public static final float MAX_STRAIN = 575.0f;
+	private static final float STRAIN_DRAIN = 500.0f / (23 * 20);
+	private static final float STRAIN_REGEN = 500.0f / (45 * 20); // and recovers slowly once out
 	private static final float STRAIN_MIN_ENTER = 60.0f; // need a little in the tank to go Giant again
 
 	private enum Form { NORMAL, TINY, LARGE, GIANT }
+
+	static final float SHRINK_PUNCH_DAMAGE = 8.0f;
+	/** Shrunken lasts 8 s. */
+	public static final int SHRINK_TICKS = 160;
+	/** Mount bounds: ride up to 60 s, carry up to 20 s. */
+	public static final int RIDE_TICKS = 1200;
+	public static final int CARRY_TICKS = 400;
 
 	/** v0.12.1: every size change takes one second -- the scale eases from its current value to the target. */
 	private static final int SCALE_ANIM_TICKS = 20;
@@ -140,8 +155,8 @@ public final class SizeHandlers {
 		setScaleTarget(p, scale);
 		double atk = switch (f) {
 			case TINY -> -2.0;
-			case LARGE -> 5.0;
-			case GIANT -> 15.0;
+			case LARGE -> 6.0;
+			case GIANT -> 18.0;
 			default -> 0.0;
 		};
 		// v0.10.13: bigger forms reach proportionally further -- roughly their own height. Base
@@ -246,8 +261,8 @@ public final class SizeHandlers {
 
 	private static float formDamageBonus(ServerPlayer p) {
 		return switch (currentForm(p)) {
-			case GIANT -> 15.0f;
-			case LARGE -> 5.0f;
+			case GIANT -> 18.0f;
+			case LARGE -> 6.0f;
 			default -> 0.0f;
 		};
 	}
@@ -277,7 +292,8 @@ public final class SizeHandlers {
 			ServerPlayer p = ctx.player();
 			double range = 6.5 * reachScale(p);
 			LivingEntity t = AbilityHelpers.raycastEntity(p, range);
-			float punch = (10.0f + formDamageBonus(p)) * formDamageMult(p);
+			float punch = (12.0f + formDamageBonus(p)) * formDamageMult(p);
+			MutationVisuals.play(p, "haymaker");
 			if (t == null) {
 				// a giant's fist is wide -- sweep everything in an arc ahead, not just a pinpoint ray
 				for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.getEyePosition().add(p.getLookAngle().scale(range * 0.5)), range * 0.5)) {
@@ -296,7 +312,8 @@ public final class SizeHandlers {
 		AbilityHandlers.register(KEY, "stomp", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
 			double radius = (3.5 + currentForm(p).ordinal()) * reachScale(p);
-			float stompDmg = (8.0f + formDamageBonus(p)) * formDamageMult(p);
+			float stompDmg = (9.6f + formDamageBonus(p)) * formDamageMult(p);
+			MutationVisuals.play(p, "stomp");
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), radius)) {
 				AbilityHelpers.hurt(p, e, stompDmg);
 				AbilityHelpers.knockbackFrom(e, p.position(), 1.2);
@@ -339,19 +356,49 @@ public final class SizeHandlers {
 		AbilityHandlers.register(KEY, "tiny_dash", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
 			AbilityHelpers.addImpulse(p, p.getLookAngle().scale(1.8));
+			MutationVisuals.play(p, "dash_forward");
 			p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 40, 3, false, false, false));
 			p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 15, 2, false, false, false));
 			AbilityHelpers.burst(ctx.level(), p.position(), ParticleTypes.POOF, 12, 0.2);
 			ctx.triggerCooldown();
 		}));
 
+		// H -- Shrink Punch: the target shrinks to half size (smaller hitbox, shorter reach, 40% weaker) for 8 s.
+		AbilityHandlers.register(KEY, "shrink_punch", Handlers.instant(ctx -> {
+			ServerPlayer p = ctx.player();
+			MutationVisuals.play(p, "punch_right");
+			LivingEntity t = AbilityHelpers.raycastEntity(p, 4.5 * reachScale(p));
+			if (t == null) {
+				AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_WEAK, 0.8f, 1.2f);
+				return; // a whiff costs nothing
+			}
+			shrinkPunch(p, t);
+			ctx.triggerCooldown();
+		}));
+
+		// N -- Mount: Tiny -> ride the mob you look at; Large / Giant -> pick it up and carry it. Press again to
+		// dismount / throw. No sneak variant (Sneak+N is reserved for power combos).
+		AbilityHandlers.register(KEY, "mount", Handlers.instantTicking(SizeHandlers::mountPress, SizeHandlers::mountTick));
+
+		// dying with a mob in hand (or on a mount) lets it go safely
+		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+			if (entity instanceof ServerPlayer sp && ExperimentalPowers.owns(sp, KEY)) {
+				releaseAll(sp);
+			}
+		});
+
 		com.projecthero.mod.hero.PowerPassives.register(KEY, (player, active) -> {
 			if (!active) {
+				releaseAll(player);
 				clearFormNow(player);
 			}
 		});
 		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, player -> {
 			tickScale(player);
+			// v0.13.22: seed the Size Strain reserve so its (always-on) HUD bar shows from the start
+			if (!ExperimentalPowers.state(player).resources.containsKey(KEY + "/giant_form")) {
+				ExperimentalPowers.setResource(player, Powers.byKey(KEY), "giant_form", MAX_STRAIN, MAX_STRAIN);
+			}
 			// keep the current form's modifiers applied (respawn-safe); giant handled by its own tick
 			Form f = currentForm(player);
 			if ((f == Form.TINY || f == Form.LARGE) && player.tickCount % 20 == 0) {
@@ -364,6 +411,185 @@ public final class SizeHandlers {
 			com.projecthero.mod.hero.power.ModeMeter.regen(player, Powers.byKey(KEY), "giant_form",
 					MAX_STRAIN, STRAIN_REGEN, f == Form.GIANT);
 		});
+	}
+
+	// ---------------- H: Shrink Punch ----------------
+
+	/** Shrink Punch payload, public for the gametests: damage plus 8 s of {@link ShrunkenEffect} (bosses: damage only). */
+	public static void shrinkPunch(ServerPlayer p, LivingEntity t) {
+		AbilityHelpers.hurt(p, t, SHRINK_PUNCH_DAMAGE * formDamageMult(p));
+		if (t.getMaxHealth() <= 200.0f) {
+			AbilityHelpers.applyControl(t, ShrunkenEffect.HOLDER, SHRINK_TICKS, 0);
+		}
+		AbilityHelpers.knockbackFrom(t, p.position(), 0.5);
+		ServerLevel sl = AbilityHelpers.level(p);
+		double y = t.getY() + t.getBbHeight() * 0.5;
+		sl.sendParticles(ParticleTypes.REVERSE_PORTAL, t.getX(), y, t.getZ(), 30, t.getBbWidth() * 0.6, t.getBbHeight() * 0.4,
+				t.getBbWidth() * 0.6, 0.02);
+		sl.sendParticles(ParticleTypes.POOF, t.getX(), y, t.getZ(), 12, 0.3, 0.3, 0.3, -0.05);
+		AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_BREAK, 1.0f, 1.8f);
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_STRONG, 0.8f, 1.3f);
+	}
+
+	// ---------------- N: Mount / Carry ----------------
+
+	private static final int RIDE = 1;
+	private static final int CARRY = 2;
+
+	private static float res(net.minecraft.world.entity.player.Player p, String name) {
+		com.projecthero.mod.hero.data.ExperimentalState st =
+				p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.EXPERIMENTAL_STATE, null);
+		return st == null ? 0.0f : st.resources.getOrDefault(KEY + "/" + name, 0.0f);
+	}
+
+	/** Riding a mob in Tiny form (synced). */
+	public static boolean riding(net.minecraft.world.entity.player.Player p) {
+		return Math.round(res(p, "mount_mode")) == RIDE;
+	}
+
+	/** Carrying a mob in Large / Giant form (synced). */
+	public static boolean carrying(net.minecraft.world.entity.player.Player p) {
+		return Math.round(res(p, "mount_mode")) == CARRY;
+	}
+
+	/** The mob being ridden / carried, or null. */
+	public static LivingEntity mounted(ServerPlayer p) {
+		int id = Math.round(res(p, "mount_id"));
+		return id != 0 && p.level().getEntity(id) instanceof LivingEntity le && le.isAlive() ? le : null;
+	}
+
+	private static void mountPress(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (res(p, "mount_mode") > 0.5f) {
+			if (carrying(p)) {
+				LivingEntity held = mounted(p);
+				releaseAll(p);
+				if (held != null) {
+					// throw it where you look
+					held.setDeltaMovement(p.getLookAngle().scale(1.3 + reachScale(p) * 0.15).add(0, 0.35, 0));
+					held.hurtMarked = true;
+					held.hasImpulse = true;
+					MutationVisuals.play(p, "throw_right");
+					AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 0.5f);
+				}
+			} else {
+				releaseAll(p);
+			}
+			ctx.triggerCooldown();
+			return;
+		}
+		Form f = currentForm(p);
+		if (f == Form.NORMAL) {
+			ctx.actionBar("message.projecthero.size.mount_needs_form");
+			return;
+		}
+		LivingEntity t = AbilityHelpers.raycastEntity(p, f == Form.TINY ? 4.0 : 5.0 * reachScale(p));
+		if (t == null || t instanceof net.minecraft.world.entity.player.Player || t.getMaxHealth() > 200.0f
+				|| t instanceof net.minecraft.world.entity.decoration.ArmorStand || t.isPassenger() || t.isVehicle()) {
+			ctx.actionBar("message.projecthero.size.mount_none");
+			return;
+		}
+		if (!mountTarget(p, t)) {
+			ctx.actionBar(f == Form.TINY ? "message.projecthero.size.mount_none" : "message.projecthero.size.mount_too_big");
+			return;
+		}
+		ctx.level().sendParticles(ParticleTypes.POOF, t.getX(), t.getY() + t.getBbHeight() * 0.5, t.getZ(), 10, 0.3, 0.3, 0.3, 0.02);
+	}
+
+	/**
+	 * Mounts {@code t}: rides it in Tiny form, picks it up in Large / Giant form. Returns false when the form does not
+	 * allow it (Normal form; a mob more than 60% of your height to carry). Public for the gametests.
+	 */
+	public static boolean mountTarget(ServerPlayer p, LivingEntity t) {
+		Power power = Powers.byKey(KEY);
+		Form f = currentForm(p);
+		if (f == Form.TINY) {
+			if (!p.startRiding(t, true)) {
+				return false;
+			}
+			ExperimentalPowers.setResource(p, power, "mount_mode", RIDE, 3);
+			ExperimentalPowers.setResource(p, power, "mount_id", t.getId(), 1.0e9f);
+			ExperimentalPowers.setResource(p, power, "mount_ticks", RIDE_TICKS, RIDE_TICKS);
+			MutationVisuals.play(p, "p27.ride");
+			AbilityHelpers.sound(p, SoundEvents.HORSE_SADDLE, 0.8f, 1.6f);
+			return true;
+		}
+		if ((f != Form.LARGE && f != Form.GIANT) || t.getBbHeight() > p.getBbHeight() * 0.6) {
+			return false;
+		}
+		ExperimentalPowers.setResource(p, power, "mount_mode", CARRY, 3);
+		ExperimentalPowers.setResource(p, power, "mount_id", t.getId(), 1.0e9f);
+		ExperimentalPowers.setResource(p, power, "mount_ticks", CARRY_TICKS, RIDE_TICKS);
+		MutationVisuals.play(p, "p27.carry");
+		AbilityHelpers.sound(p, SoundEvents.ARMOR_EQUIP_LEATHER.value(), 1.0f, 0.5f);
+		return true;
+	}
+
+	private static void mountTick(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		int mode = Math.round(ctx.resource("mount_mode"));
+		if (mode == 0) {
+			return;
+		}
+		float left = ctx.resource("mount_ticks") - 1;
+		LivingEntity m = mounted(p);
+		Form f = currentForm(p);
+		boolean formOk = mode == RIDE ? f == Form.TINY : (f == Form.LARGE || f == Form.GIANT);
+		if (m == null || !p.isAlive() || left <= 0 || !formOk || p.distanceToSqr(m) > 24.0 * 24.0
+				|| (mode == RIDE && p.getVehicle() != m)) {
+			releaseAll(p);
+			ctx.triggerCooldown();
+			return;
+		}
+		ctx.setResource("mount_ticks", left, RIDE_TICKS);
+		if (mode == RIDE) {
+			MutationVisuals.ensure(p, "p27.ride");
+			p.resetFallDistance();
+			return;
+		}
+		holdCarried(p, m);
+		MutationVisuals.ensure(p, "p27.carry");
+	}
+
+	/** Carry: the mob sits in the right hand, out in front at about two-thirds of your height. */
+	static void holdCarried(ServerPlayer p, LivingEntity m) {
+		Vec3 look = p.getLookAngle();
+		Vec3 flat = new Vec3(look.x, 0, look.z);
+		flat = flat.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : flat.normalize();
+		Vec3 right = new Vec3(-flat.z, 0, flat.x);
+		Vec3 hold = p.position().add(flat.scale(p.getBbWidth() * 0.75 + m.getBbWidth() * 0.5))
+				.add(right.scale(p.getBbWidth() * 0.35)).add(0, p.getBbHeight() * 0.62 - m.getBbHeight() * 0.5, 0);
+		m.setPos(hold.x, hold.y, hold.z);
+		m.setDeltaMovement(Vec3.ZERO);
+		m.fallDistance = 0.0f;
+		m.hurtMarked = true;
+	}
+
+	/** Lets go of whatever is ridden / carried, safely: no launch, no fall damage (Slow Falling when airborne). */
+	public static void releaseAll(ServerPlayer p) {
+		Power power = Powers.byKey(KEY);
+		if (power == null || !ExperimentalPowers.owns(p, power) || res(p, "mount_mode") < 0.5f) {
+			return;
+		}
+		int mode = Math.round(res(p, "mount_mode"));
+		LivingEntity m = mounted(p);
+		ExperimentalPowers.setResource(p, power, "mount_mode", 0, 3);
+		ExperimentalPowers.setResource(p, power, "mount_id", 0, 1.0e9f);
+		ExperimentalPowers.setResource(p, power, "mount_ticks", 0, RIDE_TICKS);
+		MutationVisuals.stopIf(p, "p27.ride");
+		MutationVisuals.stopIf(p, "p27.carry");
+		if (mode == RIDE && p.isPassenger()) {
+			p.stopRiding();
+			p.resetFallDistance();
+		}
+		if (m != null) {
+			m.setDeltaMovement(0, -0.05, 0);
+			m.fallDistance = 0.0f;
+			m.hurtMarked = true;
+			if (mode == CARRY && !m.onGround()) {
+				m.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 100, 0, false, false, false));
+			}
+		}
 	}
 
 	/** Enter {@code form}, making it exclusive. Returns false (and un-toggles) if a big form will not fit. */
@@ -390,6 +616,7 @@ public final class SizeHandlers {
 		}
 		ctx.actionBar("message.projecthero.size.mode_" + form.name().toLowerCase(java.util.Locale.ROOT));
 		sizeChangeFx(p, was, form);
+		MutationVisuals.play(p, form == Form.TINY ? "p27.shrink" : form == Form.GIANT ? "power_up" : "flex");
 		return true;
 	}
 
@@ -398,6 +625,7 @@ public final class SizeHandlers {
 		Form was = currentForm(p);
 		clearForm(p);
 		sizeChangeFx(p, was, Form.NORMAL);
+		MutationVisuals.play(p, was == Form.TINY ? "flex" : "p27.shrink");
 	}
 
 	/**
@@ -454,7 +682,7 @@ public final class SizeHandlers {
 
 	private static void stepOn(ServerPlayer p) {
 		double foot = p.getBbWidth() * 0.6 + 1.0;
-		float dmg = 8.0f;
+		float dmg = 9.6f;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), foot)) {
 			if (e.getBbHeight() < p.getBbHeight() * 0.5 && e.invulnerableTime <= 0) {
 				AbilityHelpers.hurt(p, e, dmg);

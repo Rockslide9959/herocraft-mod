@@ -129,7 +129,8 @@ public final class HeroDamageRules {
 						&& com.projecthero.mod.hero.power.p17.ElasticityHandlers.deflectsProjectiles(player)) {
 					return Verdict.immune();
 				}
-				// v0.10.13: Inflated Form soaks half of every hit.
+				// v0.10.13: Inflated Form soaks half of every hit; v0.13.22: the held Rubber Shield (H) soaks 65%
+				// (and, via deflectsProjectiles above, bounces every projectile).
 				float elasticFactor = com.projecthero.mod.hero.power.p17.ElasticityHandlers.damageTakenFactor(player);
 				if (elasticFactor < 0.999f) {
 					return Verdict.mult(elasticFactor);
@@ -148,7 +149,9 @@ public final class HeroDamageRules {
 			}
 			case "power_18_density_manipulation" -> {
 				// Phasing makes you completely intangible -- nothing but the void or a command can hurt you.
-				if (com.projecthero.mod.hero.power.p18.DensityManipulationHandlers.phasing(player)
+				// v0.13.22: so does the half-second Intangible Dodge (H).
+				if ((com.projecthero.mod.hero.power.p18.DensityManipulationHandlers.phasing(player)
+						|| com.projecthero.mod.hero.power.p18.DensityManipulationHandlers.intangible(player))
 						&& !source.is(DamageTypes.GENERIC_KILL) && !source.is(DamageTypes.FELL_OUT_OF_WORLD)) {
 					return Verdict.immune();
 				}
