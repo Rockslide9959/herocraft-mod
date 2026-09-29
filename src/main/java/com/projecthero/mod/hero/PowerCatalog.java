@@ -166,12 +166,15 @@ final class PowerCatalog {
 	private static Power geokinesis() {
 		String k = "power_05_geokinesis";
 		return Power.Builder.of(Powers.id(k), PowerCategory.ELEMENTAL)
-				.ability(ab(k, "rock_shot", SLOT_1, INSTANT, 2 * S))
-				.ability(ab(k, "earth_spike", SLOT_2, INSTANT, 6 * S))
-				.ability(ab(k, "stone_wall", SLOT_3, INSTANT, 8 * S))
-				.ability(ab(k, "earthquake", SLOT_4, HOLD, 65 * S))
-				.ability(ab(k, "boulder_lift", SLOT_5, INSTANT, 8 * S))
+				// v0.13.22 revamp (batch B): the ground under you is your ammo
+				.ability(ab(k, "rock_shot", SLOT_1, INSTANT, 34))
+				.ability(ab(k, "earth_spike", SLOT_2, INSTANT, 85))
+				.ability(ab(k, "rock_surf", SLOT_3, TOGGLE, 85))
+				.ability(ab(k, "earthquake", SLOT_4, HOLD, 55 * S))
+				.ability(ab(k, "stone_wall", SLOT_5, INSTANT, 7 * S))
 				.ability(ab(k, "earth_armor", SLOT_6, TOGGLE, 0))
+				.ability(ab(k, "sinkhole", AbilitySlot.SLOT_7, INSTANT, 12 * S))
+				.ability(ab(k, "tectonic_pillar", AbilitySlot.SLOT_8, INSTANT, 153))
 				.passives(pk(k, "passive.mining"))
 				.serum(SerumRecipe.of("minecraft:weakness", pk(k, "serum"), "minecraft:amethyst_shard")
 						.withFuel("minecraft:lapis_lazuli"))
@@ -186,12 +189,15 @@ final class PowerCatalog {
 	private static Power crystalkinesis() {
 		String k = "power_06_crystalkinesis";
 		return Power.Builder.of(Powers.id(k), PowerCategory.ELEMENTAL)
-				.ability(ab(k, "crystal_shard", SLOT_1, INSTANT, 2 * S))
-				.ability(ab(k, "crystal_spikes", SLOT_2, INSTANT, 6 * S))
-				.ability(ab(k, "crystal_barrier", SLOT_3, INSTANT, 8 * S))
-				.ability(ab(k, "crystal_eruption", SLOT_4, HOLD, 70 * S))
-				.ability(ab(k, "crystal_prison", SLOT_5, INSTANT, 12 * S))
+				// v0.13.22 revamp (batch B): plant crystal nodes, then shatter them
+				.ability(ab(k, "crystal_shard", SLOT_1, INSTANT, 34))
+				.ability(ab(k, "shatter", SLOT_2, INSTANT, 4 * S))
+				.ability(ab(k, "crystal_path", SLOT_3, TOGGLE, 102))
+				.ability(ab(k, "crystal_eruption", SLOT_4, HOLD, 60 * S))
+				.ability(ab(k, "crystal_prison", SLOT_5, INSTANT, 204))
 				.ability(ab(k, "crystal_armor", SLOT_6, TOGGLE, 0))
+				.ability(ab(k, "resonance_spire", AbilitySlot.SLOT_7, INSTANT, 17 * S))
+				.ability(ab(k, "refract", AbilitySlot.SLOT_8, INSTANT, 85))
 				.passives(pk(k, "passive.crystal_immunity"))
 				.serum(SerumRecipe.of("minecraft:weakness", pk(k, "serum"),
 						"minecraft:amethyst_shard", "minecraft:glowstone_dust").withFuel("minecraft:lapis_lazuli"))
@@ -228,12 +234,15 @@ final class PowerCatalog {
 	private static Power pyrokinesis() {
 		String k = "power_08_pyrokinesis";
 		return Power.Builder.of(Powers.id(k), PowerCategory.ELEMENTAL)
-				.ability(ab(k, "fireball", SLOT_1, INSTANT, 2 * S))
+				// v0.13.22 revamp (batch B): one Heat bar -- hotter hits harder, blue above 75%, overheat burns
+				.ability(ab(k, "fireball", SLOT_1, INSTANT, 34))
 				.ability(ab(k, "flamethrower", SLOT_2, HOLD, 0))
-				.ability(ab(k, "flame_dash", SLOT_3, INSTANT, 4 * S))
-				.ability(ab(k, "inferno", SLOT_4, HOLD, 55 * S))
+				.ability(ab(k, "jet_flight", SLOT_3, HOLD, 0))
+				.ability(ab(k, "inferno", SLOT_4, HOLD, 47 * S))
 				.ability(ab(k, "flame_wall", SLOT_5, INSTANT, 1 * S))
 				.ability(ab(k, "flame_body", SLOT_6, TOGGLE, 0))
+				.ability(ab(k, "heat_wave", AbilitySlot.SLOT_7, INSTANT, 10 * S))
+				.ability(ab(k, "fire_whip", AbilitySlot.SLOT_8, INSTANT, 51))
 				.passives(pk(k, "passive.fire_resist"))
 				.serum(SerumRecipe.of("minecraft:fire_resistance", pk(k, "serum"),
 						"minecraft:fire_charge", "minecraft:charcoal", "minecraft:redstone"))
@@ -248,12 +257,15 @@ final class PowerCatalog {
 	private static Power cryokinesis() {
 		String k = "power_09_cryokinesis";
 		return Power.Builder.of(Powers.id(k), PowerCategory.ELEMENTAL)
-				.ability(ab(k, "ice_bolt", SLOT_1, HOLD, 2 * S))
+				// v0.13.22 revamp (batch B): frost stacks, then frozen solid
+				.ability(ab(k, "ice_bolt", SLOT_1, INSTANT, 34))
 				.ability(ab(k, "freeze_beam", SLOT_2, HOLD, 0))
 				.ability(ab(k, "ice_slide", SLOT_3, TOGGLE, 0))
-				.ability(ab(k, "absolute_zero", SLOT_4, HOLD, 45 * S))
-				.ability(ab(k, "ice_wall", SLOT_5, INSTANT, 8 * S))
+				.ability(ab(k, "absolute_zero", SLOT_4, HOLD, 38 * S))
+				.ability(ab(k, "ice_wall", SLOT_5, INSTANT, 7 * S))
 				.ability(ab(k, "frozen_armor", SLOT_6, TOGGLE, 0))
+				.ability(ab(k, "flash_freeze", AbilitySlot.SLOT_7, INSTANT, 12 * S))
+				.ability(ab(k, "ice_blade", AbilitySlot.SLOT_8, INSTANT, 32 * S))
 				.passives(pk(k, "passive.powder_snow"), pk(k, "passive.freeze_resist"))
 				.serum(SerumRecipe.of("minecraft:slowness", pk(k, "serum"),
 						"minecraft:snowball", "minecraft:ice", "minecraft:lapis_lazuli"))
@@ -581,13 +593,16 @@ final class PowerCatalog {
 	private static Power waterManipulation() {
 		String k = "power_25_water_manipulation";
 		return Power.Builder.of(Powers.id(k), PowerCategory.ELEMENTAL)
-				.ability(ab(k, "water_shot", SLOT_1, HOLD, 2 * S))
-				.ability(ab(k, "water_whip", SLOT_2, INSTANT, 6 * S))
-				.ability(ab(k, "riptide", SLOT_3, INSTANT, 6 * S))
-				.ability(ab(k, "tidal_wave", SLOT_4, HOLD, 45 * S))
-				.ability(ab(k, "water_prison", SLOT_5, HOLD, 12 * S))
+				// v0.13.22 revamp (batch B): a carried water supply
+				.ability(ab(k, "water_shot", SLOT_1, HOLD, 34))
+				.ability(ab(k, "water_whip", SLOT_2, INSTANT, 102))
+				.ability(ab(k, "riptide", SLOT_3, INSTANT, 102))
+				.ability(ab(k, "tidal_wave", SLOT_4, HOLD, 38 * S))
+				.ability(ab(k, "water_prison", SLOT_5, HOLD, 204))
 				.ability(ab(k, "aquatic_form", SLOT_6, TOGGLE, 0))
-				.passives(pk(k, "passive.swimming"), pk(k, "passive.no_drown"))
+				.ability(ab(k, "healing_water", AbilitySlot.SLOT_7, INSTANT, 12 * S))
+				.ability(ab(k, "geyser", AbilitySlot.SLOT_8, INSTANT, 150))
+				.passives(pk(k, "passive.swimming"), pk(k, "passive.no_drown"), pk(k, "passive.supply"))
 				.serum(SerumRecipe.of("minecraft:water_breathing", pk(k, "serum"),
 						"minecraft:kelp", "minecraft:clay_ball", "minecraft:lapis_lazuli"))
 				.trigger(MutationTrigger.of(Kind.SUBMERSION, pk(k, "trigger"), "projecthero.device.hydrostatic_tank"))
