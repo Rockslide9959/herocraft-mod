@@ -246,7 +246,7 @@ final class PowerCatalog {
 				.passives(pk(k, "passive.fire_resist"))
 				.serum(SerumRecipe.of("minecraft:fire_resistance", pk(k, "serum"),
 						"minecraft:fire_charge", "minecraft:charcoal", "minecraft:redstone"))
-				.trigger(MutationTrigger.of(Kind.FIRE_EXPOSURE, pk(k, "trigger"), null))
+				.trigger(MutationTrigger.of(Kind.FIRE_EXPOSURE, pk(k, "trigger"), "projecthero.device.blast_chamber"))
 				.combos("projecthero.combo.pyrokinesis_flight", "projecthero.combo.wind_fire")
 				.build();
 	}
@@ -269,7 +269,7 @@ final class PowerCatalog {
 				.passives(pk(k, "passive.powder_snow"), pk(k, "passive.freeze_resist"))
 				.serum(SerumRecipe.of("minecraft:slowness", pk(k, "serum"),
 						"minecraft:snowball", "minecraft:ice", "minecraft:lapis_lazuli"))
-				.trigger(MutationTrigger.of(Kind.POWDER_SNOW, pk(k, "trigger"), null))
+				.trigger(MutationTrigger.of(Kind.POWDER_SNOW, pk(k, "trigger"), "projecthero.device.crystal_chamber"))
 				.combos("projecthero.combo.cryokinesis_water")
 				.build();
 	}
@@ -315,8 +315,8 @@ final class PowerCatalog {
 				.ability(ab(k, "swap", AbilitySlot.SLOT_8, INSTANT, 6 * S))
 				.passives(pk(k, "passive.pearl_resist"))
 				.serum(SerumRecipe.of("minecraft:swiftness", pk(k, "serum"),
-						"minecraft:ender_pearl", "minecraft:amethyst_shard", "minecraft:redstone"))
-				.trigger(MutationTrigger.of(Kind.ENDER_PEARL, pk(k, "trigger"), null))
+						"minecraft:ender_pearl", "minecraft:amethyst_shard", "minecraft:chorus_fruit"))
+				.trigger(MutationTrigger.of(Kind.ENDER_PEARL, pk(k, "trigger"), "projecthero.device.enchanting_resonance"))
 				.combos("projecthero.combo.shadow_teleportation")
 				.build();
 	}
@@ -454,7 +454,7 @@ final class PowerCatalog {
 						pk(k, "passive.melee"), pk(k, "passive.knockback"))
 				.serum(SerumRecipe.of("minecraft:leaping", pk(k, "serum"),
 						"minecraft:slime_ball", "minecraft:string", "minecraft:rabbit_hide"))
-				.trigger(MutationTrigger.of(Kind.SLIME_IMPACT, pk(k, "trigger"), null))
+				.trigger(MutationTrigger.of(Kind.SLIME_IMPACT, pk(k, "trigger"), "projecthero.device.gravity_distortion_rig"))
 				.build();
 	}
 
@@ -522,7 +522,7 @@ final class PowerCatalog {
 				.passives(pk(k, "passive.meter"), pk(k, "passive.elements"))
 				.serum(SerumRecipe.of("minecraft:fire_resistance", pk(k, "serum"),
 						"minecraft:gold_ingot", "minecraft:copper_ingot", "minecraft:amethyst_shard"))
-				.trigger(MutationTrigger.of(Kind.ENERGY_OVERLOAD, pk(k, "trigger"), null))
+				.trigger(MutationTrigger.of(Kind.ENERGY_OVERLOAD, pk(k, "trigger"), "projecthero.device.blast_chamber"))
 				.combos("projecthero.combo.energy_absorption_laser")
 				.build();
 	}

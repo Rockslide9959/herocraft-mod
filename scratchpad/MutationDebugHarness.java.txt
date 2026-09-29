@@ -1,0 +1,141 @@
+package com.projecthero.mod.client;
+
+import java.util.HashMap;
+import java.util.Map;
+
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.14.1 mutation revamp tour -- every power with its mode on and a mid-move pose, plus
+ * the Green Lantern ring close-up. Shots land in run/screenshots/mut_*.png; the client quits itself.
+ */
+public final class MutationDebugHarness {
+	public static Vec3 camOffset;
+	public static double camLookY = 1.1;
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+
+	private MutationDebugHarness() {
+	}
+
+	public static void init() {
+		ClientTickEvents.END_CLIENT_TICK.register(MutationDebugHarness::tick);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					fn.accept(srv.getPlayerList().getPlayers().get(0));
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "mut_" + name + ".png", mc.getMainRenderTarget(), x -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.put(t, r);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				LevelSettings settings = new LevelSettings("MkDebug" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+						Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.hideGui = true;
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				p.setYRot(0);
+				p.setYHeadRot(0);
+				p.setYBodyRot(0);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void script(Minecraft mc) {
+		Vec3 front = new Vec3(1.4, 1.2, 3.0);
+		Vec3 side = new Vec3(3.2, 1.0, 0.8);
+		// --- Green Lantern ring close-up (right hand) ---
+		at(2, () -> server(mc, p -> com.projecthero.mod.hero.PowerGrants.grantHero(p, "green_lantern")));
+		at(8, () -> { camOffset = new Vec3(-0.9, 0.9, 0.9); camLookY = 0.75; });
+		at(14, () -> shot(mc, "00_gl_ring_close"));
+		at(15, () -> camOffset = new Vec3(-1.6, 0.8, -0.2));
+		at(19, () -> shot(mc, "00_gl_ring_side"));
+		at(20, () -> { camLookY = 1.1; server(mc, p -> {
+			com.projecthero.mod.hero.HeroTiers.wipeAll(p);
+		}); });
+		int base = 30;
+		int i = 0;
+		for (com.projecthero.mod.hero.Power power : com.projecthero.mod.hero.Powers.all()) {
+			final int t = base + i * 34;
+			final String tag = String.format("%02d_%s", i + 1, power.key().replaceFirst("power_[0-9]+_", ""));
+			at(t, () -> server(mc, p -> {
+				com.projecthero.mod.hero.ExperimentalPowers.clearAll(p);
+				com.projecthero.mod.hero.visual.MutationVisuals.clear(p);
+				com.projecthero.mod.hero.ExperimentalPowers.grant(p, power);
+				com.projecthero.mod.hero.ExperimentalPowers.setActive(p, power);
+				p.setYRot(0); p.setYHeadRot(0); p.setYBodyRot(0); p.setXRot(0);
+			}));
+			at(t + 2, () -> server(mc, p -> com.projecthero.mod.hero.AbilityRouter.handleInput(p, 6, true)));
+			at(t + 3, () -> server(mc, p -> com.projecthero.mod.hero.AbilityRouter.handleInput(p, 6, false)));
+			at(t + 4, () -> camOffset = front);
+			at(t + 12, () -> shot(mc, tag + "_a_mode"));
+			at(t + 13, () -> server(mc, p -> com.projecthero.mod.hero.AbilityRouter.handleInput(p, 1, true)));
+			at(t + 17, () -> camOffset = side);
+			at(t + 18, () -> shot(mc, tag + "_b_move"));
+			at(t + 19, () -> server(mc, p -> com.projecthero.mod.hero.AbilityRouter.handleInput(p, 1, false)));
+			at(t + 20, () -> server(mc, p -> com.projecthero.mod.hero.AbilityRouter.handleInput(p, 7, true)));
+			at(t + 24, () -> shot(mc, tag + "_c_utility"));
+			at(t + 25, () -> server(mc, p -> com.projecthero.mod.hero.AbilityRouter.handleInput(p, 7, false)));
+			at(t + 30, () -> server(mc, p -> p.teleportTo(p.getX() + 12, -60, p.getZ())));
+			i++;
+		}
+		at(base + i * 34 + 10, () -> mc.stop());
+	}
+}

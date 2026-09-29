@@ -9,6 +9,12 @@ below the AUTO marker.
 
 ---
 
+## v0.14.1 — full mutation revamp
+
+All 27 mutations were rebuilt in v0.14.1 (8 abilities each: the six keys plus H / N, a signature mechanic, animations,
+overlays, +~20% power) and every acquisition path was fixed. The per-power detail lives in [docs/revamp](revamp/README.md);
+the older tuning sections below describe earlier versions and the auto-generated encyclopedia at the bottom is stale.
+
 ## Implementation status
 
 | Batch | Scope | Status |

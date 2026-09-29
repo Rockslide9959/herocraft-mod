@@ -229,4 +229,25 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 				== com.projecthero.mod.hero.data.ResearchStage.MUTATION_CONFIRMED, "research should be recorded");
 		helper.succeed();
 	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void guideReagentMatchesRealRecipe(GameTestHelper helper) {
+		var recipes = helper.getLevel().getRecipeManager();
+		for (Power p : Powers.all()) {
+			String path = BuiltInRegistries.ITEM.getKey(HeroPackItems.reagent(p)).getPath();
+			var holder = recipes.byKey(ResourceLocation.fromNamespaceAndPath("projecthero", path)).orElseThrow();
+			TreeSet<String> real = new TreeSet<>();
+			for (Ingredient ing : holder.value().getIngredients()) {
+				for (ItemStack st : ing.getItems()) {
+					real.add(BuiltInRegistries.ITEM.getKey(st.getItem()).toString());
+				}
+			}
+			TreeSet<String> guide = new TreeSet<>(p.serum().additives());
+			if (p.serum().fuel() != null) {
+				guide.add(p.serum().fuel());
+			}
+			helper.assertTrue(real.equals(guide), p.key() + ": the guide lists " + guide + " but the recipe is " + real);
+		}
+		helper.succeed();
+	}
 }
