@@ -105,8 +105,11 @@ No superpowers: guns, explosives, gear and training. Complete the **Vigilante Tr
 
 ### 💚 Green Lantern
 Find a **Fallen Lantern Site**, pass the **Will Trial** and answer the ring's question. Are you afraid?
-- A 10,000-point **Ring Charge** fuels beams, a Construct Fist, a War Hammer, flight, shields, a Protective Dome and
-  **14 hard-light constructs**.
+- A 10,000-point **Ring Charge** fuels beams, a Construct Fist, a War Hammer, **directional flight** (fly wherever you
+  look), shields, a Protective Dome and
+  **14 hard-light constructs** of glowing green light -- walls, walkable ramps, a spinning turret, a travelling
+  battering ram, a blade or drill on your fist and more.
+- Your suit sweeps on one row of light at a time, and the ring glows on your right hand.
 - Hold **X** to recite the Oath for 22 seconds of doubled power.
 - The ring never recharges on its own: recite the Oath at your **Power Battery** to refill it.
 

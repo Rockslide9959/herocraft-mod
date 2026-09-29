@@ -385,3 +385,108 @@ exactly what to revisit:
 ## v0.12.20
 
 - The Ring Charge readout under the ability row is a percentage (was `charge / 10000`).
+
+## v0.13.21 -- constructs overhaul, suit sweep, directional flight, ring & battery models
+
+Four explicit user requests in one pass.
+
+### 1. Constructs look and work better
+
+**Shared (every construct):**
+
+- **New hard-light blocks** (`block/HardLightBlock`, `HardLightStairBlock`, `HardLightLampBlock`, registered in
+  `GreenLanternBlocks`): translucent Lantern-green with a bright rim on every face, drawn full-bright
+  (`emissiveRendering`), light level 7 (orb 15), occasional green motes. Never obtainable (no item, `noLootTable`),
+  unbreakable by normal means (strength -1, so creepers can't hole a Wall either), piston-immovable, no mob spawns, no
+  suffocation. `HardLightBlock.BRIGHT` is the paler Carry Platform variant. Replaces green/lime stained glass and the
+  Sea Lantern. Translucent render layer set in the new `client/greenlantern/GreenLanternClient` (also sets it for the
+  Power Battery).
+- **Orphan cleanup**: each placed hard-light block schedules a tick every 40 ticks
+  (`HardLightBlock.ORPHAN_CHECK_TICKS`) and removes itself unless `GreenLanternConstructs#isTrackedCell` says a live
+  construct owns it -- so a crash/restart mid-construct, or a construct ending while its chunk was unloaded, can no
+  longer leave blocks in the world forever (the stained glass could).
+- `GreenLanternConstructs#CELL_INDEX` (dimension -> cell -> construct) replaces the full scans in the punch / break /
+  seat callbacks; `placeCells` indexes a cell before placing it, `restore` un-indexes.
+- **Build-out**: block constructs appear over a few ticks (`Construct#buildPerTick`, `#tickBuild`) with a spark per
+  cell -- Wall 5 cells/tick (rises row by row, 4 ticks), Platform 4/tick from its middle outward, Bridge 6/tick (runs out
+  from you, 10 ticks), Stair/Ramp 3/tick (one step per tick). Cage, Carry Platform and Lantern Light place instantly. A
+  cell whose spot changed or that a player stepped into mid-build is skipped, not overwritten.
+- **Deploy FX**: a spark beam traces from the ring hand to aimed constructs (Wall, Platform, Lantern Light, Turret,
+  Cage) plus an amethyst chime at the construct.
+- **Despawn FX**: every construct now dissolves in green sparks with an amethyst-break sound whenever it ends (expiry,
+  upkeep, Shift+C, death...) -- it used to vanish silently unless punched down (`#end` / `#emitDissolve`).
+- **Expiry warning**: timed constructs flicker over their last 3 s (`CONSTRUCT_EXPIRY_WARN_TICKS` = 60) with one soft
+  chime when it starts.
+- **Placement**: aimed constructs use `#targetCell` -- the air cell in front of the face you point at (or the cell at
+  full range) instead of the raw hit point, which often resolved to the solid block itself. Wall and Turret then drop up
+  to 4 blocks (`CONSTRUCT_GROUND_SNAP_BLOCKS`) onto the ground. `#add` now refuses any cell inside ANY player, the caster
+  included (the caster used to be exempt -- a Wall aimed at your feet could entomb you).
+- Punching a Wall/Cage cell now gives feedback (sparks + an amethyst hit whose pitch drops as its HP does).
+- Carry Platform seat entities are removed if its placement fails (they used to leak).
+
+**Per construct:**
+
+| Construct | v0.13.21 change |
+|---|---|
+| Hard-Light Wall | hard-light blocks; on the ground under the aimed spot; rises row by row; hit feedback. |
+| Platform | **fixed**: aimed at the ground it used to fail ("invalid target", every cell was inside the ground) -- it now forms on the aimed air cell's layer (a raised floor), spreading from its middle. **New catch**: falling and looking down past 40 degrees (`PLATFORM_CATCH_PITCH`) forms it right under your feet. |
+| Bridge | hard light; runs out from your feet two rows a tick; cast in the air it starts directly under you. |
+| Stair/Ramp | **real stair steps** (`hard_light_stairs`, facing away from you) you can walk up -- the old full-block staircase needed a jump every block; first step now at your feet one block ahead (it used to start inside the ground); builds one step a tick. |
+| Lantern Light | a floating hard-light orb (no collision, light 15) on the aimed air cell, 16-block range (`LANTERN_LIGHT_RANGE`) -- was a Sea Lantern block, two blocks above an aimed floor. |
+| Containment Cage | a **closed** box sized to the target -- hollow 1-3 wide x 1-4 tall from its bounding box (`CAGE_MAX_INTERIOR_*`), floor/roof tried with the walls (solid ground skipped by `#add`), target snapped to the middle first so it never blocks a wall cell. Big mobs used to be shoved straight out of the fixed 1-wide hollow. Pulls an escaped target back in (e.g. enderman teleport) unless it is 12+ blocks away (cage ends); ends the moment the target dies (was ~20 ticks later). Target resolved before charging. |
+| Sentry Turret | visible at last: a spinning hard-light core balanced on a corner, floating 1.25 blocks up (`TURRET_HOVER_HEIGHT`) on a stalk of light -- two vanilla `block_display` entities built from NBT (setters are private), tagged `projecthero_hard_light`; `#LIVE_DISPLAYS` + a `ServerEntityEvents.ENTITY_LOAD` hook discard orphans. **Only fires at targets it can see** (it shot through walls); green bolt with flashes both ends instead of a white end-rod line. |
+| Battering Ram | a visible hard-light ram head (wire cube + trail) now **travels** from the ring hand along your aim at 2.5 blocks/tick (`RAM_SPEED_PER_TICK`) out to the same 16 blocks, smashing the first creature it passes within 0.9 blocks (`RAM_HIT_RADIUS`; same 12 damage / knockback) or bursting on the first solid block, opening a door there. Was an invisible instant 16-block hit-scan. `#RAM_ACTIVE` / `#tickRams`. Lunge unchanged. |
+| Rescue Tether | a visible tether line from the hand to the held target every 2 ticks; the hold point is pulled in short of walls (targets used to be pushed into blocks and suffocate when you looked at a wall); sparks on grab and throw. |
+| Atmosphere Bubble | **centred on the caster** (it was centred up to 24 blocks away on the aim point and often didn't cover you at all); also gives air to squadmates inside; shows its boundary as a shimmering Fibonacci-sphere shell every 0.5 s. |
+| Energy Blade | a translucent full-bright blade (crossguard + 14 px blade) drawn on the fist in first and third person while on (`client/greenlantern/GreenLanternHandRenderer`), synced via the new `ModAttachments.GREEN_LANTERN_HAND_CONSTRUCTS` bitmask; the particle swirl is now an occasional glint. |
+| Mining Drill | a stepped, spinning drill bit drawn on the fist while on (same path); sparks + whir when it actually mines. |
+| Carry Platform | bright hard-light variant (was lime glass). |
+| Hard-Light Tool Kit | pieces are unbreakable (a worn-out piece used to count as dropped and end the whole kit) and shimmer (enchantment glint). |
+
+### 2. Suit-up: a top-to-bottom pixel-row sweep
+
+- New shared helper `client/render/ArmorSweepReveal` (sibling of `SymbioteDissolve`, which is untouched -- Moon Knight's
+  and the Symbiote's paths are unchanged). It parses the suit's Bedrock geometry (box UV and per-face UV, inflate, cube
+  rotation about its pivot, parent-bone rest rotations), maps every texel of every face back onto the 3D face to get its
+  height on the body, buckets heights into model-pixel rows counted down from the top of the suit, and builds one
+  `DynamicTexture` per row (27 for the Green Lantern geo): frame k shows rows 0..k-1, with the newest row painted as a
+  bright green scan line (`EDGE_ARGB`). Reusable for any `SuperheroArmorItem` set.
+- `client/greenlantern/GreenLanternSuitReveal` reads the synced suit clock: 0 -> 1 over a suit-up, 1 -> 0 over a
+  suit-down (dissolves feet -> shoulders), 1 suited, and 0 when worn but neither suited nor animating (so the suit never
+  flashes on between the equipment and state packets). Hooked into `SuperheroArmorRenderer#getRenderType` and the
+  first-person sleeve (`SuperheroFirstPersonArm#render`).
+- Server (`GreenLanternSuit`): the armour is now equipped at the **start** of a suit-up (the renderer hides unreached
+  rows) instead of popping on at the end; suit-down still strips at the end. `SUIT_UP_TICKS` 16 -> 30 (1.5 s) so the
+  sweep is watchable. The particle ring now rides the sweep's edge (shoulders -> feet on, feet -> shoulders off).
+
+### 3. Directional flight
+
+- `client/greenlantern/GreenLanternFlightClient` via the new client mixin `GreenLanternFlightTravelMixin` (HEAD of
+  `Player#travel`, local player only -- Player's own creative-flight branch overwrites vertical velocity after the move,
+  so it is replaced whole). Forward/back fly along the full 3D look vector; strafe is horizontal; Space/Sneak add
+  straight up/down; no input eases to a dead hover. Velocity eases toward the wanted one (22% of the gap per tick
+  steering, 18% braking -- `FLIGHT_ACCELERATION` / `FLIGHT_BRAKING`) from the class's own record of last tick's velocity,
+  not `getDeltaMovement()` (vanilla's Space/Sneak nudges are already added to it), so there is no jitter.
+- Speeds unchanged: `flyingSpeed x 10` blocks/tick (x2 sprinting) -- the server still sets `flyingSpeed` (0.06 cruise,
+  Boost ratio above it) -- vertical 8 / 15 (boost) blocks/s from the config. Activation (double-tap Space), auto-land and
+  every cost unchanged. **Judgment call**: Boost stays Sneak+Sprint (server rule and cost untouched), but while boosting
+  Sneak no longer also descends (it used to -- every boost sank), since you now dive by looking down.
+
+### 4. Ring on the hand + new battery model
+
+- `client/greenlantern/GreenLanternHandRenderer`: a real ring model on the **right** hand (band round the knuckles, a
+  raised bezel and a full-bright gem on the back of the hand; slim-arm and over-the-gauntlet variants), in third person
+  via `PowerRingLayer` (rewritten; was a flat item-icon fleck on the main arm) and first person via the new mixin
+  `GreenLanternRingHandMixin` (TAIL of `renderHand`). New textures `textures/entity/green_lantern/power_ring_worn.png`,
+  `hard_light_construct.png`; new ring item icon `textures/item/power_ring.png`.
+- Personal Power Battery reshaped (14 elements, `parent: block/block` for proper inventory display): base plates, a
+  translucent glass barrel with a glowing core carrying the lantern emblem, four corner posts, top ring, cap, dome and a
+  carrying handle. New `power_battery_core.png`, redrawn `power_battery.png` (glass) and `power_battery_frame.png`;
+  real outline shape (`PowerBatteryBlock#SHAPE`) and rising green motes.
+- All assets generated by `scratchpad/gen_greenlantern_v01321.js` (pngkit), lang by
+  `scratchpad/lang_v01321_greenlantern.js`, CurseForge bullets by `scratchpad/docs_v01321_greenlantern.js`.
+
+Gametests added: suit armour on at the start of the sweep / off at the end of suit-down, platform catch (hard light,
+indexed, restored on dismiss), ramp steps are facing stairs, orphaned hard light removes itself, ram head hits the first
+creature on its path, bubble centred on the caster, blade toggle syncs the hand-construct flag, tool-kit pieces
+unbreakable.

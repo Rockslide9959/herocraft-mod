@@ -103,6 +103,12 @@ public final class SuperheroFirstPersonArm {
 		arm.copyFrom(vanillaArm);
 		arm.visible = true;
 		ResourceLocation texture = SuperheroArmorVisuals.get(armorSetId).texture();
+		// v0.13.21: the first-person sleeve follows the Green Lantern suit's pixel-row sweep too
+		if ("green_lantern".equals(armorSetId) && net.minecraft.client.Minecraft.getInstance().player != null) {
+			texture = com.projecthero.mod.client.greenlantern.GreenLanternSuitReveal.texture(
+					net.minecraft.client.Minecraft.getInstance().player, texture,
+					net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
+		}
 		arm.render(pose, buffers.getBuffer(RenderType.armorCutoutNoCull(texture)), light, OverlayTexture.NO_OVERLAY);
 	}
 }

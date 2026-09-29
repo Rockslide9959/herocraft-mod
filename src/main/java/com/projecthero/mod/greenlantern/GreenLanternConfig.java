@@ -40,7 +40,8 @@ public final class GreenLanternConfig {
 
 	// ---------------- suit ----------------
 
-	public static final int SUIT_UP_TICKS = 16; // 0.8s
+	/** v0.13.21: 1.5s, up from 0.8 -- long enough to actually watch the suit sweep on one pixel row at a time. */
+	public static final int SUIT_UP_TICKS = 30;
 	/** v0.11.5: cut from 100 -- summoning the suit is now a cheap gesture, not a real charge investment. */
 	public static final float SUIT_UP_COST = 10f;
 	/** v0.11.5: 1 charge every 5 seconds while worn -- the suit is no longer free to keep on. */
@@ -110,6 +111,12 @@ public final class GreenLanternConfig {
 	public static final double BOOST_SPEED_BPS = 22.0;
 	public static final double BOOST_VERTICAL_SPEED_BPS = 15.0;
 	public static final float BOOST_COST_PER_SEC = 40f;
+	/**
+	 * v0.13.21 directional flight ({@code GreenLanternFlightClient}): fraction of the gap to the wanted velocity closed
+	 * per tick while steering, and while coasting to a hover with no input -- a smooth ~0.25s ease either way.
+	 */
+	public static final double FLIGHT_ACCELERATION = 0.22;
+	public static final double FLIGHT_BRAKING = 0.18;
 	/** v0.11.4: the sprint-flying trail's own drain, added on top of {@link #BOOST_COST_PER_SEC}. */
 	public static final float FLIGHT_TRAIL_COST_PER_SEC = 1f;
 	public static final int EMERGENCY_DESCENT_TICKS = 60; // 3s
@@ -169,6 +176,10 @@ public final class GreenLanternConfig {
 	public static final double CONSTRUCT_PLACE_RANGE = 24.0;
 	public static final double CONSTRUCT_OWNER_OUTLINE_RANGE = 48.0;
 	public static final int CONSTRUCT_WHEEL_HOLD_TICKS = 10; // 0.5s
+	/** v0.13.21: a timed construct flickers (and chimes once) over its last 3 seconds before it fades. */
+	public static final int CONSTRUCT_EXPIRY_WARN_TICKS = 60;
+	/** v0.13.21: how far an aimed Wall / Sentry Turret drops to find the ground under the aimed spot. */
+	public static final int CONSTRUCT_GROUND_SNAP_BLOCKS = 4;
 
 	// ---------------- combat constructs ----------------
 	// v0.11.7: every construct's cost/upkeep/range renumbered again to the user's explicit per-construct
@@ -189,6 +200,9 @@ public final class GreenLanternConfig {
 	 *  see {@code GreenLanternConstructs#cooldownIdFor}. */
 	public static final int CAGE_MAX_DURATION_TICKS = 15 * 20;
 	public static final float CAGE_HP = 75f;
+	/** v0.13.21: the cage's hollow is sized to the target (1-3 blocks wide, 1-4 tall) instead of a fixed 1x2. */
+	public static final int CAGE_MAX_INTERIOR_WIDTH = 3;
+	public static final int CAGE_MAX_INTERIOR_HEIGHT = 4;
 
 	public static final float TURRET_COST = 20f;
 	public static final float TURRET_UPKEEP_PER_SEC = 1f;
@@ -200,10 +214,16 @@ public final class GreenLanternConfig {
 	/** v0.11.7: a hard per-player cap on live turrets specifically -- separate from the (now removed) generic
 	 *  construct-slot limit. v0.11.8: cut from 10 to 5 -- explicit user request. */
 	public static final int TURRET_MAX_LIVE = 5;
+	/** v0.13.21: the turret's hard-light core floats this far above the spot it was placed on. */
+	public static final double TURRET_HOVER_HEIGHT = 1.25;
 
 	public static final float RAM_COST = 20f;
 	public static final float RAM_DAMAGE = 12f;
 	public static final double RAM_DISTANCE = 16.0;
+	/** v0.13.21: the ram head now actually travels out to {@link #RAM_DISTANCE} (blocks per tick) instead of an instant hit-scan. */
+	public static final double RAM_SPEED_PER_TICK = 2.5;
+	/** How close (blocks) the travelling ram head has to pass to an entity to hit it. */
+	public static final double RAM_HIT_RADIUS = 0.9;
 	public static final int RAM_COOLDOWN_TICKS = 80; // 4s
 
 	public static final float WALL_COST = 20f;
@@ -224,6 +244,11 @@ public final class GreenLanternConfig {
 	public static final double PLATFORM_RANGE = 30.0;
 	public static final int PLATFORM_MAX_DURATION_TICKS = 20 * 20;
 	public static final int PLATFORM_SLOT_WEIGHT = 4;
+	/**
+	 * v0.13.21: deploying a Platform while falling and looking down past this pitch (degrees) catches you -- it forms
+	 * right under your feet instead of wherever the aim ray happened to land far below.
+	 */
+	public static final float PLATFORM_CATCH_PITCH = 40f;
 
 	/** v0.11.7: 3 blocks wide, 20 long, flat 20-energy deploy + 1/sec -- explicit user request (was a
 	 *  per-segment scaling cost for a variable-length bridge; length is now always the full 20). */
@@ -255,6 +280,8 @@ public final class GreenLanternConfig {
 	public static final float LANTERN_LIGHT_UPKEEP_PER_SEC = 0.2f;
 	public static final int LANTERN_LIGHT_MAX_DURATION_TICKS = 60 * 20;
 	public static final int LANTERN_LIGHT_SLOT_WEIGHT = 1;
+	/** v0.13.21: an aimed Lantern Light hangs where you point, up to this far (it used to share the generic 24). */
+	public static final double LANTERN_LIGHT_RANGE = 16.0;
 
 	public static final float BUBBLE_COST = 90f;
 	public static final float BUBBLE_UPKEEP_PER_SEC = 7f;

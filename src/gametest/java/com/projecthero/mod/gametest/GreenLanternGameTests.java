@@ -983,6 +983,156 @@ public class GreenLanternGameTests implements FabricGameTest {
 		});
 	}
 
+	// ================ v0.13.21: suit sweep / hard-light constructs ================
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void suitUpPutsTheArmourOnAtTheStartSoTheSweepCanShow(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		GreenLanternSuit.toggle(player);
+		helper.assertTrue(GreenLantern.state(player).suitAnimDir == GreenLanternState.SUIT_SUITING_UP, "V should start a suit-up");
+		helper.assertFalse(GreenLantern.isSuited(player), "not suited until the sweep finishes");
+		helper.assertTrue(GreenLanternSuitArmor.wearing(player),
+				"the pieces must be worn from the first tick of a suit-up -- the client reveals them row by row");
+
+		GreenLanternState s = GreenLantern.state(player).copy();
+		s.suitAnimStartTick = player.level().getGameTime() - GreenLanternConfig.SUIT_UP_TICKS;
+		GreenLantern.save(player, s);
+		GreenLanternSuit.tick(player);
+		helper.assertTrue(GreenLantern.isSuited(player) && GreenLanternSuitArmor.wearing(player), "suited once the sweep ends");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void suitDownKeepsTheArmourOnUntilTheSweepEnds(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		GreenLanternSuitArmor.equip(player);
+		GreenLanternState s = GreenLantern.state(player).copy();
+		s.suited = true;
+		GreenLantern.save(player, s);
+
+		GreenLanternSuit.toggle(player);
+		helper.assertTrue(GreenLantern.state(player).suitAnimDir == GreenLanternState.SUIT_SUITING_DOWN, "V should start a suit-down");
+		helper.assertTrue(GreenLanternSuitArmor.wearing(player), "the suit stays on while it sweeps off");
+
+		GreenLanternState c = GreenLantern.state(player).copy();
+		c.suitAnimStartTick = player.level().getGameTime() - GreenLanternConfig.SUIT_UP_TICKS;
+		GreenLantern.save(player, c);
+		GreenLanternSuit.tick(player);
+		helper.assertFalse(GreenLanternSuitArmor.wearing(player), "the pieces come off when the sweep ends");
+		helper.succeed();
+	}
+
+	/** Puts the mock player in mid-air inside the test's own volume, looking straight down. */
+	private static ServerPlayer airborne(GameTestHelper helper, float pitch) {
+		ServerPlayer player = bonded(helper);
+		GreenLanternState s = GreenLantern.state(player).copy();
+		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
+		GreenLantern.save(player, s);
+		BlockPos at = helper.absolutePos(new BlockPos(1, 4, 1));
+		player.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+		player.setYRot(0f);
+		player.setXRot(pitch);
+		player.setOnGround(false);
+		return player;
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void platformCatchesAFallingCasterUnderTheirFeetInHardLight(GameTestHelper helper) {
+		// v0.13.21: falling + looking down = the platform forms right under you (no aim raycast involved, so this is
+		// deterministic unlike the placement-raycast constructs)
+		ServerPlayer player = airborne(helper, 80f);
+		BlockPos below = player.blockPosition().below();
+		GreenLanternConstructs.deploy(player, ConstructType.PLATFORM);
+		helper.assertTrue(helper.getLevel().getBlockState(below).is(GreenLanternBlocks.HARD_LIGHT),
+				"the catch platform's middle should be hard light right under the caster, was " + helper.getLevel().getBlockState(below));
+		helper.assertTrue(GreenLanternConstructs.isTrackedCell(helper.getLevel(), below), "a placed cell must be indexed");
+
+		GreenLanternConstructs.dismissAll(player.getUUID());
+		helper.assertTrue(helper.getLevel().getBlockState(below).isAir(), "dismissing restores the air that was there");
+		helper.assertFalse(GreenLanternConstructs.isTrackedCell(helper.getLevel(), below), "and drops the cell from the index");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void stairRampIsBuiltFromWalkableStairSteps(GameTestHelper helper) {
+		ServerPlayer player = airborne(helper, 0f);
+		BlockPos firstStep = player.blockPosition().relative(player.getDirection());
+		GreenLanternConstructs.deploy(player, ConstructType.STAIR_RAMP);
+		net.minecraft.world.level.block.state.BlockState step = helper.getLevel().getBlockState(firstStep);
+		// dismissed straight away so the rest of the ramp never builds out into a neighbouring test's space
+		GreenLanternConstructs.dismissAll(player.getUUID());
+		helper.assertTrue(step.is(GreenLanternBlocks.HARD_LIGHT_STAIRS), "the ramp's first step should be a hard-light stair, was " + step);
+		helper.assertTrue(step.getValue(net.minecraft.world.level.block.StairBlock.FACING) == player.getDirection(),
+				"the steps should climb away from the caster");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void orphanedHardLightRemovesItself(GameTestHelper helper) {
+		BlockPos pos = helper.absolutePos(new BlockPos(2, 2, 2));
+		helper.getLevel().setBlock(pos, GreenLanternBlocks.HARD_LIGHT.defaultBlockState(), Block.UPDATE_ALL);
+		helper.assertFalse(GreenLanternConstructs.isTrackedCell(helper.getLevel(), pos), "test setup: nothing owns this cell");
+		helper.runAfterDelay(com.projecthero.mod.greenlantern.block.HardLightBlock.ORPHAN_CHECK_TICKS + 5, () -> {
+			helper.assertTrue(helper.getLevel().getBlockState(pos).isAir(),
+					"a hard-light block no construct owns must remove itself, was " + helper.getLevel().getBlockState(pos));
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void batteringRamHeadSmashesTheFirstCreatureAlongItsPath(GameTestHelper helper) {
+		// moved into the test's own volume: every mock player spawns on the same world-spawn block, and a parallel
+		// test's player/mob there would be "the first creature along the path" instead of this zombie
+		ServerPlayer player = bonded(helper);
+		BlockPos at = helper.absolutePos(new BlockPos(1, 1, 1));
+		player.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+		player.setYRot(0f);
+		player.setXRot(0f);
+		Zombie zombie = EntityType.ZOMBIE.create(helper.getLevel());
+		zombie.moveTo(player.getX(), player.getY(), player.getZ() + 3.0, 0f, 0f);
+		zombie.setNoAi(true);
+		helper.getLevel().addFreshEntity(zombie);
+		float before = zombie.getHealth();
+		GreenLanternConstructs.deploy(player, ConstructType.BATTERING_RAM);
+		helper.assertTrue(zombie.getHealth() < before, "the ram head should reach and hit a zombie 3 blocks ahead on its first step");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void atmosphereBubbleFormsAroundTheCaster(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		GreenLanternConstructs.deploy(player, ConstructType.ATMOSPHERE_BUBBLE);
+		helper.assertTrue(GreenLanternConstructs.of(player.getUUID()).size() == 1, "the bubble should deploy");
+		helper.assertTrue(GreenLanternConstructs.of(player.getUUID()).get(0).anchor.distanceTo(player.position()) < 1.0e-6,
+				"the bubble is centred on the caster, not out on the aim point");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void energyBladeTogglePublishesTheHandConstructForRendering(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		GreenLanternConstructs.deploy(player, ConstructType.ENERGY_BLADE); // equip
+		helper.assertTrue(player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_HAND_CONSTRUCTS, 0) == 0,
+				"merely equipped: nothing drawn on the hand yet");
+		GreenLanternConstructs.deploy(player, ConstructType.ENERGY_BLADE); // on
+		helper.assertTrue(player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_HAND_CONSTRUCTS, 0) == GreenLanternConstructs.HAND_BLADE,
+				"switched on: the blade flag is synced so every client draws it");
+		GreenLanternConstructs.dismissAll(player.getUUID());
+		helper.assertTrue(player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_HAND_CONSTRUCTS, 0) == 0,
+				"dismissed: the flag clears");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void toolKitPiecesAreUnbreakableHardLight(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		GreenLanternConstructs.deploy(player, ConstructType.HARD_LIGHT_TOOLS);
+		long unbreakable = player.getInventory().items.stream().filter(GreenLanternGameTests::isHardLightTool)
+				.filter(st -> st.has(net.minecraft.core.component.DataComponents.UNBREAKABLE)).count();
+		helper.assertTrue(unbreakable == 4, "all four hard-light tools should be unbreakable, got " + unbreakable);
+		helper.succeed();
+	}
+
 	private static long countHardLightTools(ServerPlayer player) {
 		return player.getInventory().items.stream().filter(GreenLanternGameTests::isHardLightTool).count();
 	}

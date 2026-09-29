@@ -20,8 +20,29 @@ import net.minecraft.world.phys.BlockHitResult;
  * {@link GreenLanternBattery} for the oath state machine and cancel conditions.
  */
 public class PowerBatteryBlock extends Block {
+	/** v0.13.21: the lantern's real footprint (base plate + barrel + cap) rather than a full cube. */
+	private static final net.minecraft.world.phys.shapes.VoxelShape SHAPE = net.minecraft.world.phys.shapes.Shapes.or(
+			Block.box(2, 0, 2, 14, 2, 14), Block.box(3, 2, 3, 13, 13, 13), Block.box(4, 13, 4, 12, 16, 12));
+	private static final net.minecraft.core.particles.DustParticleOptions GLOW =
+			new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.36f, 1.0f, 0.55f), 0.8f);
+
 	public PowerBatteryBlock(Properties properties) {
 		super(properties);
+	}
+
+	@Override
+	protected net.minecraft.world.phys.shapes.VoxelShape getShape(BlockState state, net.minecraft.world.level.BlockGetter level,
+			BlockPos pos, net.minecraft.world.phys.shapes.CollisionContext context) {
+		return SHAPE;
+	}
+
+	/** v0.13.21: a slow drift of green light rising out of the lantern's core. */
+	@Override
+	public void animateTick(BlockState state, Level level, BlockPos pos, net.minecraft.util.RandomSource random) {
+		if (random.nextInt(3) == 0) {
+			level.addParticle(GLOW, pos.getX() + 0.5 + (random.nextDouble() - 0.5) * 0.4, pos.getY() + 0.35 + random.nextDouble() * 0.5,
+					pos.getZ() + 0.5 + (random.nextDouble() - 0.5) * 0.4, 0.0, 0.02, 0.0);
+		}
 	}
 
 	@Override

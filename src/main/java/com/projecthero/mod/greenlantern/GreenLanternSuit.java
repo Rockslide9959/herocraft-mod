@@ -20,15 +20,21 @@ import org.joml.Vector3f;
  * suit is no longer free to keep on. A 0.25s debounce stops a double-tap from immediately reversing the
  * animation, and suit-down is refused while battery-recharging (Phase 4).
  *
- * <p>v0.11.4: a ring of green hard-light particles travels up the body while suiting up (and back down
- * while suiting down), read each tick straight off {@link GreenLanternState#suitAnimStartTick} rather
- * than a separate counter, so it can't drift out of sync with the animation it's decorating.
+ * <p>v0.11.4: a ring of green hard-light particles travels along the body while suiting up/down, read each
+ * tick straight off {@link GreenLanternState#suitAnimStartTick} rather than a separate counter, so it can't
+ * drift out of sync with the animation it's decorating.
+ *
+ * <p>v0.13.21: the suit now sweeps on from the shoulders down to the feet one pixel row at a time (and off again
+ * from the feet back up), drawn client-side by {@code GreenLanternSuitReveal} off the same synced clock. For that to
+ * be visible the armour pieces are put on at the START of a suit-up (the renderer hides the rows the sweep has not
+ * reached yet) instead of popping on at the end; suit-down still takes them off at the end. The particle ring rides
+ * the sweep's leading edge. The transition is 1.5s ({@link GreenLanternConfig#SUIT_UP_TICKS}, was 0.8s).
  */
 public final class GreenLanternSuit {
 	/** Lantern-Corps green, matching every other hard-light effect's dust colour in this power. */
-	private static final ParticleOptions SUIT_DUST = new DustParticleOptions(new Vector3f(0.208f, 0.941f, 0.459f), 1.3f);
-	private static final int RING_POINTS = 8;
-	private static final double RING_RADIUS = 0.4;
+	private static final ParticleOptions SUIT_DUST = new DustParticleOptions(new Vector3f(0.45f, 1.0f, 0.6f), 0.55f);
+	private static final int RING_POINTS = 10;
+	private static final double RING_RADIUS = 0.45;
 
 	private GreenLanternSuit() {
 	}
@@ -59,6 +65,8 @@ public final class GreenLanternSuit {
 		}
 		GreenLanternBattery.onAbilityUsed(player);
 		beginTransition(player, GreenLanternState.SUIT_SUITING_UP);
+		// v0.13.21: on now, revealed row by row by the client over the transition (see the class javadoc)
+		GreenLanternSuitArmor.equip(player);
 	}
 
 	/**
@@ -93,7 +101,9 @@ public final class GreenLanternSuit {
 			return;
 		}
 		long elapsed = player.level().getGameTime() - s.suitAnimStartTick;
-		emitSuitRing(player, s.suitAnimDir, elapsed);
+		if (elapsed % 2 == 0) {
+			emitSuitRing(player, s.suitAnimDir, elapsed); // v0.13.21: every other tick, finer dust -- it used to bury the sweep
+		}
 		if (elapsed < GreenLanternConfig.SUIT_UP_TICKS) {
 			return;
 		}
@@ -103,7 +113,7 @@ public final class GreenLanternSuit {
 		c.suitAnimDir = GreenLanternState.SUIT_IDLE;
 		GreenLantern.save(player, c);
 		if (suitingUp) {
-			GreenLanternSuitArmor.equip(player);
+			GreenLanternSuitArmor.reequipMissing(player);
 		} else {
 			GreenLanternSuitArmor.strip(player);
 			// Flight/shield no longer belong to the suit (the ring's powers work unsuited too), so
@@ -118,15 +128,16 @@ public final class GreenLanternSuit {
 	}
 
 	/**
-	 * A ring of green particles at {@code player}'s feet climbing to head height over the suit-up
-	 * animation (and the mirror image sinking back down on suit-down), so the hard-light suit reads as
-	 * materialising/dissolving up the body rather than just popping on.
+	 * A ring of green particles riding the leading edge of the suit's pixel-row sweep, so the hard-light suit reads
+	 * as materialising/dissolving along the body rather than just popping on. v0.13.21: shoulders -> feet on suit-up,
+	 * feet -> shoulders on suit-down, matching the client-side reveal (it used to climb feet -> head on suit-up).
 	 */
 	private static void emitSuitRing(ServerPlayer player, int dir, long elapsed) {
 		float progress = Mth.clamp(elapsed / (float) GreenLanternConfig.SUIT_UP_TICKS, 0f, 1f);
-		float ringHeight = dir == GreenLanternState.SUIT_SUITING_UP ? progress : 1f - progress;
+		float coverage = dir == GreenLanternState.SUIT_SUITING_UP ? progress : 1f - progress;
 		ServerLevel level = player.serverLevel();
-		double y = player.getY() + ringHeight * player.getBbHeight();
+		// the suit spans the feet to the shoulders -- 24.5 of the model's 32 pixel rows
+		double y = player.getY() + (1f - coverage) * player.getBbHeight() * (24.5 / 32.0);
 		for (int i = 0; i < RING_POINTS; i++) {
 			double angle = (2 * Math.PI * i) / RING_POINTS;
 			double x = player.getX() + Math.cos(angle) * RING_RADIUS;

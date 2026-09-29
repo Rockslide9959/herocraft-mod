@@ -125,7 +125,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.spider.SpiderWebLineRenderer.initialize();
 		com.projecthero.mod.client.thor.ThorLightningArcRenderer.initialize();
 		com.projecthero.mod.client.firearm.BulletHoleRenderer.initialize();
-		com.projecthero.mod.client.greenlantern.GreenLanternShieldRenderer.initialize();
+		com.projecthero.mod.client.greenlantern.GreenLanternClient.initialize();
 
 		// GeckoLib armour: give every SuperheroArmorItem (Thor + the five Iron Man marks) a client-only
 		// GeoRenderProvider so GeckoLib renders them with the shared crimson_vanguard model instead of

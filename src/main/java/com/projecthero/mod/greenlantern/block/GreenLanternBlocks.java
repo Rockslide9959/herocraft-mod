@@ -30,6 +30,17 @@ public final class GreenLanternBlocks {
 					.mapColor(MapColor.STONE).strength(50.0f, 1200.0f).sound(SoundType.DEEPSLATE)
 					.noOcclusion()));
 
+	/**
+	 * v0.13.21: the hard-light construct blocks (see {@link HardLightBlock}) -- never obtainable, unbreakable by
+	 * normal means, immovable, no drops, self-removing if no live construct owns them. Light level 7 for the panels
+	 * and steps, 15 for the Lantern Light orb.
+	 */
+	public static final Block HARD_LIGHT = register("hard_light", new HardLightBlock(hardLight().lightLevel(s -> 7)));
+	public static final Block HARD_LIGHT_STAIRS = register("hard_light_stairs",
+			new HardLightStairBlock(HARD_LIGHT.defaultBlockState(), hardLight().lightLevel(s -> 7)));
+	public static final Block HARD_LIGHT_LAMP = register("hard_light_lamp",
+			new HardLightLampBlock(hardLight().lightLevel(s -> 15).noCollission()));
+
 	public static final Item POWER_BATTERY_ITEM = registerItem("power_battery",
 			new BlockItem(POWER_BATTERY, new Item.Properties().rarity(Rarity.RARE)));
 
@@ -38,6 +49,18 @@ public final class GreenLanternBlocks {
 
 	public static void initialize() {
 		// Registration happens via the static initializers above; this exists for an explicit init call.
+	}
+
+	private static BlockBehaviour.Properties hardLight() {
+		return BlockBehaviour.Properties.of()
+				.mapColor(MapColor.COLOR_LIGHT_GREEN).strength(-1.0f, 3600000.0f).noLootTable()
+				.sound(SoundType.AMETHYST).noOcclusion()
+				.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK)
+				.isValidSpawn((state, level, pos, type) -> false)
+				.isRedstoneConductor((state, level, pos) -> false)
+				.isSuffocating((state, level, pos) -> false)
+				.isViewBlocking((state, level, pos) -> false)
+				.emissiveRendering((state, level, pos) -> true);
 	}
 
 	private static Block register(String path, Block block) {

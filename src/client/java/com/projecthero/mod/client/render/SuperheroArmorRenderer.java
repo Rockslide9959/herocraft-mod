@@ -155,6 +155,10 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 						com.projecthero.mod.client.moonknight.MoonKnightReveal.swapProgress(mk, partialTick));
 			}
 		}
+		// v0.13.21: the Green Lantern suit sweeps on from the shoulders down one pixel row at a time (ArmorSweepReveal)
+		if (getCurrentEntity() instanceof Player gl && animatable instanceof com.projecthero.mod.greenlantern.item.GreenLanternArmorItem) {
+			texture = com.projecthero.mod.client.greenlantern.GreenLanternSuitReveal.texture(gl, texture, partialTick);
+		}
 		return super.getRenderType(animatable, texture, bufferSource, partialTick);
 	}
 

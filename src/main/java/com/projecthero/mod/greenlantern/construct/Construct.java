@@ -57,6 +57,22 @@ public final class Construct {
 	 */
 	public boolean toggledOn;
 
+	// ---- v0.13.21 ----
+	/**
+	 * Block constructs build themselves out over a few ticks (a wall rising row by row, a bridge running out from the
+	 * caster's feet, ...): {@link #cells} is in build order, this many are already in the world, and
+	 * {@link #buildPerTick} more are placed each tick. 0 per tick = everything placed at once (cage, carry platform).
+	 */
+	public int built;
+	public int buildPerTick;
+	/** Hard-light display entities (the Sentry Turret's core and stalk) owned by this construct, discarded with it. */
+	public final List<UUID> displayEntities = new ArrayList<>();
+	/** CAGE: centre of the hollow at floor level, and its half-width -- the caged target is held inside it. */
+	public Vec3 cageCenter;
+	public double cageHalfWidth;
+	/** Whether the last-3-seconds expiry chime has already played. */
+	public boolean expiryWarned;
+
 	private static int nextInstanceId = 1;
 
 	public Construct(UUID owner, ConstructType type, ServerLevel level, Vec3 anchor, long now) {

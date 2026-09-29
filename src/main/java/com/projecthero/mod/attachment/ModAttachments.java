@@ -564,6 +564,16 @@ public final class ModAttachments {
 					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
 
 	/**
+	 * v0.13.21: which hand-held hard-light constructs are switched on right now, as a bitmask (1 = Energy Blade,
+	 * 2 = Mining Drill) -- lets every client draw the blade / drill on the wearer's hand. Not persisted (constructs
+	 * never survive a relog); synced to everyone.
+	 */
+	public static final AttachmentType<Integer> GREEN_LANTERN_HAND_CONSTRUCTS = AttachmentRegistry.create(
+			ProjectHeroMod.id("green_lantern_hand_constructs"),
+			builder -> builder.initializer(() -> 0)
+					.syncWith(ByteBufCodecs.VAR_INT, AttachmentSyncPredicate.all()));
+
+	/**
 	 * Current HP of the player's active Directional Shield/Protective Dome, or 0 when neither is up.
 	 * Deliberately not part of {@link #GREEN_LANTERN_STATE} -- combat state that must never survive a
 	 * relog. Synced to everyone so the barrier's translucency/HP can be inferred by anyone nearby.

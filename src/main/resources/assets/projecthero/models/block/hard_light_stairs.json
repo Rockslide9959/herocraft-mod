@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/stairs",
+  "textures": {
+    "bottom": "projecthero:block/hard_light",
+    "top": "projecthero:block/hard_light",
+    "side": "projecthero:block/hard_light"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "bright=false": {
+      "model": "projecthero:block/hard_light"
+    },
+    "bright=true": {
+      "model": "projecthero:block/hard_light_bright"
+    }
+  }
+}

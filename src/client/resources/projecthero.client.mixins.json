@@ -10,6 +10,8 @@
 		"FogRendererMixin",
 		"GunFovMixin",
 		"GameRendererPickMixin",
+		"GreenLanternFlightTravelMixin",
+		"GreenLanternRingHandMixin",
 		"GuiTitanMountMessageMixin",
 		"GuiArmorBarMixin",
 		"HumanoidArmorLayerMixin",
