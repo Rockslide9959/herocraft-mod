@@ -236,7 +236,8 @@ public final class MoonKnight {
 			MoonKnightState s = player.getAttachedOrElse(ModAttachments.MOON_KNIGHT_STATE, null);
 			boolean transformed = s != null && s.hasPact && s.transformed;
 			if (transformed || MoonKnightSuit.wearing(player) || (s != null && s.hasPact)) {
-				MoonKnightSuit.audit(player, transformed);
+				// a suit that is still materialising / dissolving is legitimately worn while not "transformed"
+				MoonKnightSuit.audit(player, transformed || MoonKnightTransform.inTransition(player));
 			}
 			if (transformed) {
 				com.projecthero.mod.moonknight.ability.MoonKnightAlters.reconcile(player);

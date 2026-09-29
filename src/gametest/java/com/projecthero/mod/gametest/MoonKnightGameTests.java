@@ -169,17 +169,28 @@ public class MoonKnightGameTests implements FabricGameTest {
 	}
 
 	/** Phase 2: H wraps the suit on over 1.5 s, untouchable while it forms. */
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
 	public void transformationTakesAMomentAndIsInvulnerable(GameTestHelper helper) {
 		ServerPlayer p = knight(helper);
 		com.projecthero.mod.moonknight.MoonKnightTransform.toggle(p);
 		helper.assertTrue(com.projecthero.mod.moonknight.MoonKnightTransform.isTransforming(p), "the bandages start");
 		helper.assertFalse(MoonKnight.isTransformed(p), "not suited yet");
+		helper.assertTrue(com.projecthero.mod.moonknight.MoonKnightSuit.wearing(p), "the suit is already on, materialising pixel by pixel");
 		helper.onEachTick(() -> com.projecthero.mod.moonknight.MoonKnightTransform.tick(p));
 		helper.runAfterDelay(com.projecthero.mod.moonknight.MoonKnightConfig.TRANSFORM_TICKS + 5, () -> {
 			helper.assertTrue(MoonKnight.isTransformed(p), "suited after 1.5 s");
 			helper.assertFalse(com.projecthero.mod.moonknight.MoonKnightTransform.isTransforming(p), "and the wrap has ended");
-			helper.succeed();
+			// past the H anti-spam window
+			com.projecthero.mod.moonknight.data.MoonKnightState st = MoonKnight.state(p).copy();
+			st.transformStart -= 40;
+			p.setAttached(com.projecthero.mod.attachment.ModAttachments.MOON_KNIGHT_STATE, st);
+			com.projecthero.mod.moonknight.MoonKnightTransform.toggle(p);
+			helper.assertFalse(MoonKnight.isTransformed(p), "H again: abilities off at once");
+			helper.assertTrue(com.projecthero.mod.moonknight.MoonKnightSuit.wearing(p), "while the suit dissolves away");
+			helper.runAfterDelay(com.projecthero.mod.moonknight.MoonKnightConfig.UNTRANSFORM_TICKS + 3, () -> {
+				helper.assertFalse(com.projecthero.mod.moonknight.MoonKnightSuit.wearing(p), "and then it is gone");
+				helper.succeed();
+			});
 		});
 	}
 }

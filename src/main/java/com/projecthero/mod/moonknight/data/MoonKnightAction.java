@@ -32,6 +32,8 @@ public final class MoonKnightAction {
 	public static final int FLAG_EYE = 1 << 8;
 	/** The alter radial picker is open (C hold). */
 	public static final int FLAG_ALTER_PICKER = 1 << 9;
+	/** The suit is dissolving away pixel by pixel after H (it is stripped when this ends). */
+	public static final int FLAG_UNTRANSFORMING = 1 << 10;
 
 	public int flags;
 	/** {@code MoonKnightAnim} id and the game time it started. */

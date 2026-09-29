@@ -57,6 +57,10 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 		if (com.projecthero.mod.client.symbiote.SymbioteReveal.isRevealing(player)) {
 			return;
 		}
+		// v0.13.20: same for Moon Knight's pixel-by-pixel suit
+		if (com.projecthero.mod.client.moonknight.MoonKnightReveal.progress(player, 0.0f) < 1.0f) {
+			return;
+		}
 		if (player.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof SuperheroArmorItem
 				&& !helmetRetracted(player)) {
 			model.hat.visible = false;

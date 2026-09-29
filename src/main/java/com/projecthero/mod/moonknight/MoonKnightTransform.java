@@ -15,9 +15,11 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 
 /**
- * H: the suit. Pressing it (with the pact) starts a 1.5 s transformation -- the player is invulnerable while white
- * bandages spiral up their body -- and then the full suit appears in the armour slots, with whatever armour they were
- * wearing stowed and handed back, exactly as it was, when they press H again.
+ * H: the suit. Pressing it (with the pact) starts a 1.5 s transformation: the suit goes into the armour slots at once
+ * (whatever armour they were wearing is stowed, and handed back exactly as it was when they press H again) and
+ * materialises on the player <b>one pixel at a time</b> over the 1.5 s (the client draws a pixel-dissolve copy of the
+ * suit texture matching the clock -- see {@code SuperheroArmorRenderer#getRenderType}), while white bandages spiral up
+ * the body and the player can't be hurt. H again dissolves it away pixel by pixel before it is stripped.
  */
 public final class MoonKnightTransform {
 	private static final DustParticleOptions BANDAGE = new DustParticleOptions(new org.joml.Vector3f(0.95f, 0.93f, 0.88f), 1.1f);
@@ -30,6 +32,12 @@ public final class MoonKnightTransform {
 		return MoonKnightAnim.flag(player, MoonKnightAction.FLAG_TRANSFORMING);
 	}
 
+	/** True while the suit is still on the player but coming or going (it must not be audited away). */
+	public static boolean inTransition(ServerPlayer player) {
+		MoonKnightAction a = MoonKnightAnim.action(player);
+		return a.has(MoonKnightAction.FLAG_TRANSFORMING) || a.has(MoonKnightAction.FLAG_UNTRANSFORMING);
+	}
+
 	/** The H key (server side, re-validated). */
 	public static void toggle(ServerPlayer player) {
 		MoonKnightState s = MoonKnight.state(player);
@@ -37,14 +45,16 @@ public final class MoonKnightTransform {
 			return;
 		}
 		long now = player.level().getGameTime();
-		if (isTransforming(player) || now - s.transformStart < MoonKnightConfig.TOGGLE_DEBOUNCE_TICKS) {
+		if (inTransition(player) || now - s.transformStart < MoonKnightConfig.TOGGLE_DEBOUNCE_TICKS) {
 			return;
 		}
 		if (s.transformed) {
 			suitDown(player, true);
 			return;
 		}
-		MoonKnightState c = s.copy();
+		// the suit goes on now, invisible -- the client reveals it pixel by pixel over the transformation clock
+		MoonKnightSuit.suitUp(player);
+		MoonKnightState c = MoonKnight.state(player).copy();
 		c.transformStart = now;
 		MoonKnight.saveState(player, c);
 		MoonKnightAnim.setFlag(player, MoonKnightAction.FLAG_TRANSFORMING, true);
@@ -65,26 +75,33 @@ public final class MoonKnightTransform {
 		finish(player);
 	}
 
-	/** Take the suit off. {@code animate} plays the unwinding bandages. */
+	/**
+	 * Take the suit off. {@code animate} (the H key) dissolves it away pixel by pixel over
+	 * {@link MoonKnightConfig#UNTRANSFORM_TICKS} before it is stripped and the stowed armour handed back; otherwise
+	 * (death, revoke, commands) it comes off at once.
+	 */
 	public static void suitDown(ServerPlayer player, boolean animate) {
 		MoonKnightState s = MoonKnight.state(player);
 		MoonKnightAbilityManager.onUntransform(player);
-		MoonKnightAnim.setFlag(player, MoonKnightAction.FLAG_TRANSFORMING, false);
 		if (!s.transformed && !MoonKnightSuit.wearing(player)) {
+			MoonKnightAnim.setFlag(player, MoonKnightAction.FLAG_TRANSFORMING, false);
+			MoonKnightAnim.setFlag(player, MoonKnightAction.FLAG_UNTRANSFORMING, false);
 			return;
 		}
-		MoonKnightSuit.suitDown(player);
 		MoonKnightState c = MoonKnight.state(player).copy();
 		c.transformed = false;
 		c.transformStart = player.level().getGameTime();
 		MoonKnight.saveState(player, c);
 		MoonKnightAlters.reconcile(player);
-		// every combat flag drops with the suit
+		// every combat flag drops with the suit (abilities are off from this moment)
 		MoonKnightAction a = MoonKnightAnim.action(player).copy();
-		a.flags = 0;
+		a.flags = animate ? MoonKnightAction.FLAG_UNTRANSFORMING : 0;
 		a.lineStart = -1L;
 		a.lineTargetId = -1;
 		MoonKnightAnim.save(player, a);
+		if (!animate) {
+			MoonKnightSuit.suitDown(player);
+		}
 		if (animate) {
 			MoonKnightAnim.play(player, MoonKnightAnim.UNTRANSFORM);
 			ServerLevel level = player.serverLevel();
@@ -99,8 +116,16 @@ public final class MoonKnightTransform {
 		}
 	}
 
-	/** Per tick: advance a transformation in progress. */
+	/** Per tick: advance a transformation in progress (or finish dissolving the suit away). */
 	public static void tick(ServerPlayer player) {
+		if (MoonKnightAnim.flag(player, MoonKnightAction.FLAG_UNTRANSFORMING)) {
+			long gone = player.level().getGameTime() - MoonKnight.state(player).transformStart;
+			if (gone >= MoonKnightConfig.UNTRANSFORM_TICKS || !MoonKnight.state(player).hasPact) {
+				MoonKnightSuit.suitDown(player);
+				MoonKnightAnim.setFlag(player, MoonKnightAction.FLAG_UNTRANSFORMING, false);
+			}
+			return;
+		}
 		if (!isTransforming(player)) {
 			return;
 		}
