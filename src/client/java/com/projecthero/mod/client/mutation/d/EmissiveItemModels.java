@@ -35,7 +35,8 @@ public final class EmissiveItemModels {
 			if (model == null || model instanceof Emissive) {
 				return model;
 			}
-			boolean match = MODELS.contains(context.resourceId())
+			// resourceId() is null for top-level (item/blockstate) models, and Set.of(...).contains(null) throws
+			boolean match = (context.resourceId() != null && MODELS.contains(context.resourceId()))
 					|| (context.topLevelId() != null && ITEMS.contains(context.topLevelId().id()));
 			if (!match) {
 				return model;

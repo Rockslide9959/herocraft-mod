@@ -1,0 +1,43 @@
+Project Hero v0.14.1 — the Mutation Revamp
+
+ALL 27 MUTATIONS REBUILT
+• Every mutation now has 8 abilities: the six keys plus two new ones on H (Utility 1) and N (Utility 2). 216 abilities in total.
+• Each power has its own signature mechanic, for example:
+  – Super Strength throws anything
+  – Laser Vision's beam sharpens as it heats
+  – Geokinesis uses the ground under you as ammo
+  – Crystalkinesis plants crystal nodes, then shatters them
+  – Pyrokinesis gets stronger the hotter it runs
+  – Cryokinesis freezes targets solid
+  – Electrokinesis stacks static on enemies
+  – Energy Absorption fires back whatever you absorbed
+  – Telekinesis juggles objects in orbit
+  – Shadow Manipulation lets you travel as a shadow
+  – Wind lets you glide on air currents
+• Slightly stronger overall: about +20% damage, −15% cooldowns, +15% resource bars.
+• Every move now has a body animation that other players see too.
+• New looks: stone, crystal, frost, flame, metal and shadow skins, glowing eyes, a stretching rubber arm, crystal nodes, a rideable tornado, thorn sentries, shadow servants, mirror images, Ice Blade and Hard-Light Blade swords.
+• Each power has its own HUD bars in four styles.
+
+KEYS
+• H / N fire your mutation's new abilities when no hero power uses those keys. Alt+H / Alt+N always fire them.
+• Shift+H opens the power wheel while a mutation is selected.
+• Sneak+N fires a COMBO MOVE when you own a matching pair of mutations. There are 10: Meteor Slam, Colossus Stomp, Boulder Barrage, Thunder Sprint, Storm Surge, Glacier Flood, Comet Dash, Fire Tornado, Solar Lance and Umbral Leap.
+
+EVERY MUTATION CAN BE OBTAINED
+• Elasticity can now be obtained: fall 10+ blocks onto a slime block, or use a Gravity Distortion Rig.
+• Water Manipulation takes 15 s underwater (was 60 s), and the serum keeps you breathing.
+• Telekinesis and Teleportation reagents no longer share a recipe. Teleportation now uses Chorus Fruit.
+• A serum drunk while you're at mutation capacity no longer costs you the Symbiote or a hero power.
+• A pending serum is no longer lost to milk, Purge, a totem, a suit transformation, death or relogging.
+• The newest serum you drink always replaces the pending one.
+• Fixed the Cryokinesis powder-snow trigger.
+• 6 new lab devices: Charged Copper Plates, Crystal Test Chamber, Enchanting Resonance Array, Controlled Blast Chamber, Resonant Chamber and Gravity Distortion Rig. Every device now also works on right-click.
+• Research sites now hold more devices. Meteor sites have enough amethyst for Crystalkinesis.
+• Mutagenic and Prismatic serums follow the same power-slot rules as everything else.
+
+GREEN LANTERN
+• The Power Ring is now a tiny glowing ring on your finger instead of a bracelet, with a new texture.
+• Carry Platform has no time limit and no cooldown. It stays until you dismiss it.
+
+Full details are in docs/revamp in the repository.
