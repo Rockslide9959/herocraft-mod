@@ -27,21 +27,22 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * G -- the Grappling Line (Moon Knight Phase 4).
+ * G -- the Grapple Kick, plus the Grappling Line it shares its rope with (Moon Knight Phase 4; keys moved in v0.13.21).
  * <ul>
- *   <li><b>TAP</b>: fire the line at the block under the crosshair (up to {@link MoonKnightConfig#GRAPPLE_RANGE} x power)
- *       and get pulled to it. Cooldown {@link MoonKnightConfig#GRAPPLE_COOLDOWN}.</li>
- *   <li><b>HOLD</b>: fire it into the targeted mob, get pulled in feet-first ({@code FLAG_DIVING}, DIVE_KICK pose) and
- *       finish with a flying dive kick on arrival ({@link MoonKnightConfig#DIVE_KICK_DAMAGE} x power + knockback).
+ *   <li><b>G</b> ({@code kick}): fire the line into the targeted mob (up to {@link MoonKnightConfig#GRAPPLE_RANGE}),
+ *       get pulled in feet-first ({@code FLAG_DIVING}, DIVE_KICK pose) and finish with a flying dive kick on arrival
+ *       ({@link MoonKnightConfig#DIVE_KICK_DAMAGE} x power + knockback). Fires on the press (G has no hold move).
  *       Cooldown {@link MoonKnightConfig#DIVE_KICK_COOLDOWN}.</li>
- *   <li><b>SNEAK+G</b>: Yank -- pull the targeted mob toward you (it lands about
- *       {@link MoonKnightConfig#YANK_STOP_DISTANCE} away) and stun it with Slowness IV for 1.5 s x power. Cooldown
- *       {@link MoonKnightConfig#YANK_COOLDOWN}.</li>
+ *   <li><b>SNEAK+G</b> ({@code kick_sneak}): Shadow Step ({@link MoonKnightCape#shadowStep}) -- it lost its old
+ *       Sneak+X home when X became the Dash.</li>
+ *   <li><b>SNEAK+X</b> ({@code dash_sneak}, from {@link MoonKnightDash}): the Grappling Line, {@link #fireLine} --
+ *       60 blocks. At a block it pulls you there; at a mob it reels the mob in to you and stuns it (Slowness IV);
+ *       a boss (or anything too heavy to move) pulls you to it instead.</li>
  * </ul>
  * The rope is drawn by every client from the synced {@code MoonKnightAction} line fields
- * ({@code MoonKnightLineRenderer}). The pull itself is server velocity, sent every tick with a motion packet (the
- * Iron Man flight / {@code AbilityHelpers.launchSelf} pattern): it is a velocity, never a position correction, so it
- * doesn't rubber-band. Falls are harmless while being pulled and for 2 s after.
+ * ({@code MoonKnightLineRenderer}). The pulls are server velocity, sent every tick with a motion packet (the Iron Man
+ * flight / {@code AbilityHelpers.launchSelf} pattern): a velocity, never a position correction, so they don't
+ * rubber-band. Falls are harmless while being pulled and for 2 s after.
  */
 public final class MoonKnightGrapple implements MoonKnightMove {
 	public static final MoonKnightGrapple INSTANCE = new MoonKnightGrapple();
@@ -65,59 +66,49 @@ public final class MoonKnightGrapple implements MoonKnightMove {
 		}
 	}
 
+	/** A mob being reeled in on the line (SNEAK+X at a mob). */
+	private record Reel(int targetId, long start, ResourceKey<Level> dimension) {
+	}
+
 	private static final Map<UUID, Pull> PULLS = new ConcurrentHashMap<>();
+	private static final Map<UUID, Reel> REELS = new ConcurrentHashMap<>();
 	/** Game time until which falls are harmless after a pull ended. */
 	private static final Map<UUID, Long> FALL_GRACE = new ConcurrentHashMap<>();
-	/** Game time the yank's rope stops being drawn. */
-	private static final Map<UUID, Long> YANK_LINE_UNTIL = new ConcurrentHashMap<>();
 
 	private static final int FALL_GRACE_TICKS = 40;
 
 	private MoonKnightGrapple() {
 	}
 
-	// ---------------------------------------------------------------- TAP: grapple to a block
+	@Override
+	public boolean firesOnPress() {
+		return true;
+	}
+
+	// ---------------------------------------------------------------- G: the Grapple Kick
 
 	@Override
 	public void tap(ServerPlayer player) {
-		if (!MoonKnightAbilities.ready(player, "grapple")) {
-			return;
-		}
-		double range = MoonKnightConfig.GRAPPLE_RANGE * MoonKnightAbilities.power(player);
-		BlockHitResult hit = AbilityHelpers.raycastBlock(player, range);
-		if (hit.getType() == HitResult.Type.MISS) {
-			player.displayClientMessage(Component.translatable("message.projecthero.moon_knight.grapple_nothing",
-					Math.round(range)).withStyle(ChatFormatting.GRAY), true);
-			return;
-		}
-		Vec3 anchor = hit.getLocation();
-		startPull(player, new Pull(false, anchor, -1, player.level().getGameTime(), player.level().dimension(), player.position()));
-		setLine(player, -1, anchor);
-		MoonKnightAnim.play(player, MoonKnightAnim.GRAPPLE_FIRE);
-		MoonKnightAbilities.cooldown(player, "grapple", MoonKnightConfig.GRAPPLE_COOLDOWN);
-		AbilityHelpers.sound(player, SoundEvents.FISHING_BOBBER_THROW, 0.9f, 0.6f);
-		player.level().playSound(null, anchor.x, anchor.y, anchor.z, SoundEvents.LEASH_KNOT_PLACE, SoundSource.PLAYERS, 1.0f, 1.2f);
-		player.serverLevel().sendParticles(ParticleTypes.CRIT, anchor.x, anchor.y, anchor.z, 6, 0.1, 0.1, 0.1, 0.15);
+		grappleKick(player);
 	}
 
-	// ---------------------------------------------------------------- HOLD: grapple + dive kick
-
-	@Override
-	public void holdStart(ServerPlayer player) {
-		if (!MoonKnightAbilities.ready(player, "grapple_hold")) {
-			return;
+	/** Grapple to the targeted mob and dive-kick it on arrival. True if the line went out. */
+	public static boolean grappleKick(ServerPlayer player) {
+		if (!MoonKnightAbilities.ready(player, "kick")) {
+			return false;
 		}
 		LivingEntity target = target(player);
 		if (target == null) {
-			return;
+			return false;
 		}
 		startPull(player, new Pull(true, null, target.getId(), player.level().getGameTime(), player.level().dimension(),
 				player.position()));
 		setLine(player, target.getId(), target.position());
 		MoonKnightAnim.setFlag(player, MoonKnightAction.FLAG_DIVING, true);
 		MoonKnightAnim.play(player, MoonKnightAnim.GRAPPLE_FIRE);
-		MoonKnightAbilities.cooldown(player, "grapple_hold", MoonKnightConfig.DIVE_KICK_COOLDOWN);
+		MoonKnightAbilities.cooldown(player, "kick", MoonKnightConfig.DIVE_KICK_COOLDOWN);
 		AbilityHelpers.sound(player, SoundEvents.FISHING_BOBBER_THROW, 0.9f, 0.5f);
+		return true;
 	}
 
 	private static void diveKick(ServerPlayer player, LivingEntity target, Vec3 dir) {
@@ -136,59 +127,139 @@ public final class MoonKnightGrapple implements MoonKnightMove {
 		AbilityHelpers.launchSelf(player, dir.scale(-0.35).add(0.0, 0.45, 0.0));
 	}
 
-	// ---------------------------------------------------------------- SNEAK: Yank
+	// ---------------------------------------------------------------- SNEAK+G: Shadow Step
 
 	@Override
 	public void sneak(ServerPlayer player) {
-		if (!MoonKnightAbilities.ready(player, "grapple_sneak")) {
+		if (!MoonKnightAbilities.ready(player, "kick_sneak")) {
 			return;
 		}
-		LivingEntity target = target(player);
-		if (target == null) {
-			return;
-		}
-		yank(player, target);
+		MoonKnightCape.shadowStep(player);
 	}
 
-	/** Pull {@code target} toward the player and stun it. Public for the gametests. */
-	public static void yank(ServerPlayer player, LivingEntity target) {
-		float power = MoonKnightAbilities.power(player);
+	// ---------------------------------------------------------------- SNEAK+X: the Grappling Line
+
+	/**
+	 * Fire the line (up to {@link MoonKnightConfig#GRAPPLE_RANGE}): a mob under the crosshair is reeled in (a boss or
+	 * anything too heavy pulls you to it instead); otherwise the looked-at block pulls you there. True if it fired.
+	 */
+	public static boolean fireLine(ServerPlayer player) {
+		if (!MoonKnightAbilities.ready(player, "dash_sneak")) {
+			return false;
+		}
+		double range = MoonKnightConfig.GRAPPLE_RANGE;
 		ServerLevel level = player.serverLevel();
-		boolean heavy = TitanCombat.isBoss(target) || !AbilityHelpers.isValidGrabTarget(target, player);
-		if (heavy) {
-			player.displayClientMessage(Component.translatable("message.projecthero.moon_knight.yank_heavy")
-					.withStyle(ChatFormatting.GRAY), true);
+		long now = level.getGameTime();
+		LivingEntity mob = AbilityHelpers.raycastEntity(player, range);
+		if (mob != null && !MoonKnightCombat.friendly(player, mob)) {
+			if (TitanCombat.isBoss(mob) || !AbilityHelpers.isValidGrabTarget(mob, player)) {
+				// too heavy to move: the line hauls the Moon Knight to it instead
+				Vec3 anchor = mob.position().add(0, mob.getBbHeight() * 0.5, 0);
+				startPull(player, new Pull(false, anchor, -1, now, level.dimension(), player.position()));
+				setLine(player, mob.getId(), anchor);
+				player.displayClientMessage(Component.translatable("message.projecthero.moon_knight.yank_heavy")
+						.withStyle(ChatFormatting.GRAY), true);
+			} else {
+				endPull(player);
+				MoonKnightCape.stopGlide(player);
+				REELS.put(player.getUUID(), new Reel(mob.getId(), now, level.dimension()));
+				setLine(player, mob.getId(), mob.position());
+				// it can't walk away while it is dragged in; the full stun lands when it arrives
+				AbilityHelpers.applyControl(mob, MobEffects.MOVEMENT_SLOWDOWN, MoonKnightConfig.GRAPPLE_MAX_PULL_TICKS,
+						MoonKnightConfig.YANK_SLOW_AMPLIFIER);
+				MoonKnightAnim.play(player, MoonKnightAnim.YANK);
+			}
+			Vec3 at = mob.position().add(0, mob.getBbHeight() * 0.5, 0);
+			AbilityHelpers.line(level, AbilityHelpers.handPosition(player), at, MoonKnightCombat.MOON, 2.0);
+			level.sendParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 8, 0.25, 0.25, 0.25, 0.2);
+			level.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.PLAYERS, 0.8f, 1.1f);
+			AbilityHelpers.sound(player, SoundEvents.FISHING_BOBBER_RETRIEVE, 1.0f, 0.7f);
 		} else {
-			Vec3 to = player.position().subtract(target.position());
-			double want = Math.max(0.0, to.length() - MoonKnightConfig.YANK_STOP_DISTANCE);
-			if (want > 0.1) {
-				Vec3 v = AbilityHelpers.ballisticLaunch(to.normalize(), want, target.onGround());
-				if (v.length() > 3.0) {
-					v = v.normalize().scale(3.0);
-				}
-				target.setDeltaMovement(v);
-				target.hurtMarked = true;
-				target.hasImpulse = true;
+			BlockHitResult hit = AbilityHelpers.raycastBlock(player, range);
+			if (hit.getType() == HitResult.Type.MISS) {
+				player.displayClientMessage(Component.translatable("message.projecthero.moon_knight.grapple_nothing",
+						Math.round(range)).withStyle(ChatFormatting.GRAY), true);
+				return false;
+			}
+			Vec3 anchor = hit.getLocation();
+			startPull(player, new Pull(false, anchor, -1, now, level.dimension(), player.position()));
+			setLine(player, -1, anchor);
+			MoonKnightAnim.play(player, MoonKnightAnim.GRAPPLE_FIRE);
+			level.playSound(null, anchor.x, anchor.y, anchor.z, SoundEvents.LEASH_KNOT_PLACE, SoundSource.PLAYERS, 1.0f, 1.2f);
+			level.sendParticles(ParticleTypes.CRIT, anchor.x, anchor.y, anchor.z, 6, 0.1, 0.1, 0.1, 0.15);
+		}
+		MoonKnightAbilities.cooldown(player, "dash_sneak", MoonKnightConfig.GRAPPLE_COOLDOWN);
+		AbilityHelpers.sound(player, SoundEvents.FISHING_BOBBER_THROW, 0.9f, 0.6f);
+		return true;
+	}
+
+	/** True while this player is reeling a mob in. */
+	public static boolean isReeling(ServerPlayer player) {
+		return REELS.containsKey(player.getUUID());
+	}
+
+	private static void endReel(ServerPlayer player, boolean arrived) {
+		Reel r = REELS.remove(player.getUUID());
+		if (r == null) {
+			return;
+		}
+		if (!isPulling(player)) {
+			clearLine(player);
+		}
+		Entity e = player.level().getEntity(r.targetId());
+		if (e instanceof LivingEntity mob && mob.isAlive()) {
+			mob.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+			if (arrived) {
+				Vec3 v = mob.getDeltaMovement();
+				mob.setDeltaMovement(v.x * 0.2, Math.min(v.y, 0.1), v.z * 0.2);
+				mob.hurtMarked = true;
+				AbilityHelpers.applyControl(mob, MobEffects.MOVEMENT_SLOWDOWN,
+						Math.round(MoonKnightConfig.YANK_STUN_TICKS * MoonKnightAbilities.power(player)),
+						MoonKnightConfig.YANK_SLOW_AMPLIFIER);
+				player.serverLevel().sendParticles(ParticleTypes.CRIT, mob.getX(), mob.getY() + mob.getBbHeight() * 0.5,
+						mob.getZ(), 8, 0.25, 0.25, 0.25, 0.2);
+				AbilityHelpers.sound(player, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 0.8f, 1.1f);
 			}
 		}
-		AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN,
-				Math.round(MoonKnightConfig.YANK_STUN_TICKS * power), MoonKnightConfig.YANK_SLOW_AMPLIFIER);
-		setLine(player, target.getId(), target.position());
-		YANK_LINE_UNTIL.put(player.getUUID(), level.getGameTime() + MoonKnightConfig.YANK_LINE_TICKS);
-		MoonKnightAnim.play(player, MoonKnightAnim.YANK);
-		MoonKnightAbilities.cooldown(player, "grapple_sneak", MoonKnightConfig.YANK_COOLDOWN);
-		Vec3 at = target.position().add(0, target.getBbHeight() * 0.5, 0);
-		AbilityHelpers.line(level, AbilityHelpers.handPosition(player), at, MoonKnightCombat.MOON, 2.0);
-		level.sendParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 8, 0.25, 0.25, 0.25, 0.2);
-		AbilityHelpers.sound(player, SoundEvents.FISHING_BOBBER_RETRIEVE, 1.0f, 0.7f);
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.PLAYERS, 0.8f, 1.1f);
+	}
+
+	/** Drag the reeled mob toward the player, every tick, until it is about two blocks in front of him. */
+	private static void tickReel(ServerPlayer player) {
+		Reel r = REELS.get(player.getUUID());
+		if (r == null) {
+			return;
+		}
+		long age = player.level().getGameTime() - r.start();
+		Entity e = player.level().getEntity(r.targetId());
+		if (player.level().dimension() != r.dimension() || !(e instanceof LivingEntity mob) || !mob.isAlive()
+				|| age > MoonKnightConfig.GRAPPLE_MAX_PULL_TICKS) {
+			endReel(player, false);
+			return;
+		}
+		if (age < MoonKnightConfig.GRAPPLE_LINE_TRAVEL_TICKS) {
+			return; // the line is still flying out
+		}
+		Vec3 to = player.position().subtract(mob.position());
+		double dist = to.length();
+		double stop = MoonKnightConfig.YANK_STOP_DISTANCE + mob.getBbWidth() * 0.5;
+		if (dist <= stop) {
+			endReel(player, true);
+			return;
+		}
+		Vec3 dir = to.scale(1.0 / dist);
+		double speed = Math.min(MoonKnightConfig.GRAPPLE_REEL_SPEED, Math.max(0.3, (dist - stop) * 0.5));
+		// a little lift so it drags over the ground instead of into it
+		double lift = mob.onGround() ? 0.25 : Math.max(-0.2, dir.y * speed);
+		mob.setDeltaMovement(dir.x * speed, Math.max(lift, dir.y * speed), dir.z * speed);
+		mob.hurtMarked = true;
+		mob.hasImpulse = true;
+		mob.resetFallDistance();
 	}
 
 	// ---------------------------------------------------------------- the pull
 
 	private static LivingEntity target(ServerPlayer player) {
-		double range = MoonKnightConfig.GRAPPLE_RANGE * MoonKnightAbilities.power(player);
-		LivingEntity target = AbilityHelpers.raycastEntity(player, range);
+		LivingEntity target = AbilityHelpers.raycastEntity(player, MoonKnightConfig.GRAPPLE_RANGE);
 		if (target == null || MoonKnightCombat.friendly(player, target)) {
 			player.displayClientMessage(Component.translatable("message.projecthero.moon_knight.grapple_no_target")
 					.withStyle(ChatFormatting.GRAY), true);
@@ -199,9 +270,9 @@ public final class MoonKnightGrapple implements MoonKnightMove {
 
 	private static void startPull(ServerPlayer player, Pull pull) {
 		endPull(player);
+		endReel(player, false);
 		MoonKnightCape.stopGlide(player); // the line takes over from the cape
 		PULLS.put(player.getUUID(), pull);
-		YANK_LINE_UNTIL.remove(player.getUUID());
 	}
 
 	/** True while this player is being pulled by the line. */
@@ -317,20 +388,14 @@ public final class MoonKnightGrapple implements MoonKnightMove {
 
 	@Override
 	public void tick(ServerPlayer player) {
-		Long lineUntil = YANK_LINE_UNTIL.get(player.getUUID());
-		if (lineUntil != null && player.level().getGameTime() >= lineUntil) {
-			YANK_LINE_UNTIL.remove(player.getUUID());
-			if (!isPulling(player)) {
-				clearLine(player);
-			}
-		}
+		tickReel(player);
 		tickPull(player);
 	}
 
 	@Override
 	public void onUntransform(ServerPlayer player) {
 		endPull(player);
-		YANK_LINE_UNTIL.remove(player.getUUID());
+		endReel(player, false);
 		clearLine(player);
 	}
 
@@ -345,7 +410,7 @@ public final class MoonKnightGrapple implements MoonKnightMove {
 
 	public static void clearSessionState() {
 		PULLS.clear();
+		REELS.clear();
 		FALL_GRACE.clear();
-		YANK_LINE_UNTIL.clear();
 	}
 }

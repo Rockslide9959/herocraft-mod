@@ -77,10 +77,30 @@ public final class MoonKnightConfig {
 
 	/** The H transformation: bandages spiral up the body for this long, invulnerable, then the suit is on. */
 	public static final int TRANSFORM_TICKS = 30;
-	/** Un-transforming: the bandages unwind for this long. */
-	public static final int UNTRANSFORM_TICKS = 10;
+	/** Un-transforming: the suit dissolves away pixel by pixel for this long (v0.13.21: 10 -> 30, 1.5 s like the suit-up). */
+	public static final int UNTRANSFORM_TICKS = 30;
 	/** Anti-spam gate on H. */
 	public static final int TOGGLE_DEBOUNCE_TICKS = 15;
+
+	// ---------------------------------------------------------------- the suit's own gifts (v0.13.21)
+
+	/** While the suit is on: heal {@link #SUIT_REGEN_AMOUNT} (half a heart) every {@link #SUIT_REGEN_INTERVAL} ticks. */
+	public static final int SUIT_REGEN_INTERVAL = 5;
+	public static final float SUIT_REGEN_AMOUNT = 1.0f;
+	/** While the suit is on: flat melee damage added to every hand-to-hand hit (an attack-damage modifier). */
+	public static final double SUIT_MELEE_BONUS = 7.0;
+	/** While the suit is on: every hit taken is multiplied by this (20% less damage). */
+	public static final float SUIT_DAMAGE_TAKEN = 0.80f;
+	/**
+	 * Khonshu will not let his fist fall: out of the suit, a single hit bigger than {@link #AUTO_SUIT_HIT}, or being
+	 * left below {@link #AUTO_SUIT_HEALTH} (4 hearts) by any hit, starts the suit-up on its own.
+	 */
+	public static final float AUTO_SUIT_HIT = 10.0f;
+	public static final float AUTO_SUIT_HEALTH = 8.0f;
+	/** ...but not within this long of taking the suit off by choice (H), so it can still come off mid-fight. */
+	public static final int AUTO_SUIT_GRACE_TICKS = 60;
+	/** Changing alter while suited: the new alter's suit rematerialises over the old one, pixel by pixel, this long. */
+	public static final int ALTER_SWAP_TICKS = 30;
 
 	// ---------------------------------------------------------------- keys: tap / hold / sneak (Phase 3+)
 
@@ -89,7 +109,8 @@ public final class MoonKnightConfig {
 
 	// ---------------------------------------------------------------- R: Crescent Darts (Phase 3)
 
-	public static final float DART_DAMAGE = 5.0f;
+	/** v0.13.21: 5 -> 15 (x lunar power like every ability number). */
+	public static final float DART_DAMAGE = 15.0f;
 	public static final double DART_SPEED = 1.9;
 	/** At night a dart gently homes toward a hostile mob within this radius of its path. */
 	public static final double DART_HOMING_RADIUS = 6.0;
@@ -103,42 +124,54 @@ public final class MoonKnightConfig {
 	public static final int DART_FAN_COUNT = 3;
 	public static final int DART_FAN_COUNT_FULL_MOON = 5;
 	public static final float DART_FAN_SPREAD_DEGREES = 12.0f;
-	public static final int DART_FAN_COOLDOWN = 100;
+	public static final int DART_FAN_COOLDOWN = 65;
 	/** SNEAK+R Moon Mark: the target glows and takes +30% from the Moon Knight for 10 s. */
 	public static final int MOON_MARK_TICKS = 200;
 	public static final float MOON_MARK_BONUS = 0.30f;
-	public static final int MOON_MARK_COOLDOWN = 240;
+	public static final int MOON_MARK_COOLDOWN = 160;
 
-	// ---------------------------------------------------------------- X: Cape (Phase 3)
+	// ---------------------------------------------------------------- the Cape (Phase 3; v0.13.21 off the keys: glide = jump + hold Sneak, block = hold right click)
 
 	/** Cape Glide: horizontal speed along the look (blocks/tick) and the slowest allowed fall. */
 	public static final double GLIDE_SPEED = 0.55;
 	public static final double GLIDE_SINK = 0.06;
 	/** At night glides carry further: the sink rate is divided by the lunar power. */
 	public static final boolean GLIDE_BETTER_AT_NIGHT = true;
-	/** HOLD X Cape Shroud: damage taken multipliers and the slow. */
-	public static final float SHROUD_PROJECTILE_FACTOR = 0.40f;
-	public static final float SHROUD_MELEE_FACTOR = 0.75f;
-	public static final int SHROUD_MAX_TICKS = 100;
-	public static final int SHROUD_COOLDOWN = 160;
-	/** SNEAK+X Shadow Step: a backward dash and invisibility. */
+	/** Glide starts once the player has been airborne this long with Sneak held (a jump, then Shift). */
+	public static final int GLIDE_MIN_AIR_TICKS = 3;
+	/** Gliding into a mob kicks it: damage (x lunar power), knockback, and the gap before the next kick can land. */
+	public static final float GLIDE_KICK_DAMAGE = 12.0f;
+	public static final double GLIDE_KICK_KNOCKBACK = 1.1;
+	public static final int GLIDE_KICK_GAP_TICKS = 10;
+	/** HOLD right click Cape Block: every hit taken is multiplied by this (30% less), for as long as it is held. */
+	public static final float CAPE_BLOCK_FACTOR = 0.70f;
+	/** SNEAK+G Shadow Step: a backward blink and invisibility. */
 	public static final double SHADOW_STEP_DISTANCE = 5.0;
 	public static final int SHADOW_STEP_INVIS_TICKS = 60;
-	public static final int SHADOW_STEP_COOLDOWN = 240;
+	public static final int SHADOW_STEP_COOLDOWN = 160;
 
-	// ---------------------------------------------------------------- G: Grappling Line (Phase 4)
+	// ---------------------------------------------------------------- X: Dash (v0.13.21)
 
-	public static final double GRAPPLE_RANGE = 24.0;
-	public static final int GRAPPLE_COOLDOWN = 60;
-	/** HOLD G: grapple to a mob and dive-kick it on arrival. */
+	/** TAP X: a burst along the look, this fast (blocks/tick) for this long -- about 7 blocks. */
+	public static final double DASH_SPEED = 1.5;
+	public static final int DASH_TICKS = 5;
+	public static final int DASH_COOLDOWN = 30;
+
+	// ---------------------------------------------------------------- SNEAK+X Grappling Line, G Grapple Kick (Phase 4; v0.13.21 keys)
+
+	/** v0.13.21: 24 x lunar power -> a flat 60 blocks, for the line and the kick. */
+	public static final double GRAPPLE_RANGE = 60.0;
+	public static final int GRAPPLE_COOLDOWN = 40;
+	/** TAP G Grapple Kick: grapple to a mob and dive-kick it on arrival. */
 	public static final float DIVE_KICK_DAMAGE = 8.0f;
 	public static final double DIVE_KICK_KNOCKBACK = 1.4;
-	public static final int DIVE_KICK_COOLDOWN = 160;
-	/** SNEAK+G Yank: pull the target to you and stun it (Slowness IV). */
+	public static final int DIVE_KICK_COOLDOWN = 100;
+	/** SNEAK+X at a mob: the line reels it in and it is stunned (Slowness IV) this long once it arrives. */
 	public static final int YANK_STUN_TICKS = 30;
-	public static final int YANK_COOLDOWN = 200;
+	/** How fast a reeled-in mob is dragged (blocks/tick). */
+	public static final double GRAPPLE_REEL_SPEED = 1.2;
 
-	// ---------------------------------------------------------------- Z: Truncheon / Staff (Phase 4)
+	// ---------------------------------------------------------------- C: Truncheon / Staff (Phase 4; Z before v0.13.21)
 
 	/** Every 3rd consecutive truncheon hit within this window is a slam. */
 	public static final int TRUNCHEON_COMBO_WINDOW = 30;
@@ -146,21 +179,21 @@ public final class MoonKnightConfig {
 	public static final double TRUNCHEON_SLAM_KNOCKBACK = 1.2;
 	/** Hitting mobs at night with the truncheon heals this much (half-hearts). */
 	public static final float TRUNCHEON_NIGHT_HEAL = 1.0f;
-	/** HOLD Z staff spin. */
+	/** HOLD C staff spin. */
 	public static final double STAFF_SPIN_RADIUS = 3.5;
 	public static final float STAFF_SPIN_DAMAGE = 6.0f;
-	public static final int STAFF_SPIN_COOLDOWN = 120;
-	/** SNEAK+Z: ground slam / aerial dive slam. */
+	public static final int STAFF_SPIN_COOLDOWN = 80;
+	/** SNEAK+C: ground slam / aerial dive slam. */
 	public static final double GROUND_SLAM_RADIUS = 4.0;
 	public static final float GROUND_SLAM_DAMAGE = 6.0f;
 	public static final float DIVE_SLAM_DAMAGE_PER_BLOCK = 1.0f;
 	public static final float DIVE_SLAM_MAX_DAMAGE = 24.0f;
-	public static final int SLAM_COOLDOWN = 200;
+	public static final int SLAM_COOLDOWN = 130;
 
-	// ---------------------------------------------------------------- C: Alters (Phase 5)
+	// ---------------------------------------------------------------- V: Alters (Phase 5; C before v0.13.21)
 
-	public static final int ALTER_SWITCH_COOLDOWN = 40;
-	public static final int ALTER_SPECIAL_COOLDOWN = 600;
+	public static final int ALTER_SWITCH_COOLDOWN = 28;
+	public static final int ALTER_SPECIAL_COOLDOWN = 400;
 	/** MARC "Fist of Khonshu". */
 	public static final int FIST_OF_KHONSHU_TICKS = 200;
 	public static final float FIST_OF_KHONSHU_COST = 15.0f;
@@ -178,22 +211,22 @@ public final class MoonKnightConfig {
 	public static final double JAKE_DETECTION_FACTOR = 0.5;
 	public static final float JAKE_BACKSTAB_BONUS = 0.5f;
 
-	// ---------------------------------------------------------------- V: Khonshu (Phase 6)
+	// ---------------------------------------------------------------- Z: Khonshu (Phase 6; V before v0.13.21)
 
 	public static final double MOONBEAM_RANGE = 40.0;
 	public static final double MOONBEAM_RADIUS = 2.0;
 	public static final float MOONBEAM_DAMAGE = 10.0f;
 	public static final float MOONBEAM_COST = 10.0f;
-	public static final int MOONBEAM_COOLDOWN = 300;
-	/** HOLD V (2 s) Eye of Khonshu: full moon + 100 Vengeance only, once per night. */
+	public static final int MOONBEAM_COOLDOWN = 200;
+	/** HOLD Z (2 s) Eye of Khonshu: full moon + 100 Vengeance only, once per night. */
 	public static final int EYE_HOLD_TICKS = 40;
 	public static final double EYE_RADIUS = 32.0;
 	public static final int EYE_DURATION = 600;
-	/** SNEAK+V Khonshu's Judgement. */
+	/** SNEAK+Z Khonshu's Judgement. */
 	public static final int JUDGEMENT_TICKS = 200;
 	public static final float JUDGEMENT_REFUND = 20.0f;
 	public static final float JUDGEMENT_HEAL = 6.0f;
-	public static final int JUDGEMENT_COOLDOWN = 400;
+	public static final int JUDGEMENT_COOLDOWN = 260;
 
 	// ---------------------------------------------------------------- Phase 3 / 4 extras (R, X, G, Z)
 
@@ -208,7 +241,7 @@ public final class MoonKnightConfig {
 	/** R HOLD: an uncharged fan throws at this fraction of full speed and damage (a full 1.5 s charge = 1.0). */
 	public static final float DART_FAN_MIN_CHARGE = 0.6f;
 
-	/** X TAP Cape Glide: never sink slower than this (the server's anti-float check needs a real descent). */
+	/** Cape Glide: never sink slower than this (the server's anti-float check needs a real descent). */
 	public static final double GLIDE_MIN_SINK = 0.04;
 	/** How quickly the glide turns toward where you look (0..1 per tick). */
 	public static final double GLIDE_STEER = 0.14;
@@ -216,36 +249,34 @@ public final class MoonKnightConfig {
 	public static final double GLIDE_DIVE_SPEED_BONUS = 0.6;
 	/** After a glide ends (landing, tap), fall damage stays off this long. */
 	public static final int GLIDE_FALL_GRACE_TICKS = 30;
-	/** X HOLD Cape Shroud: movement speed multiplier change while wrapped (-0.5 = half speed). */
-	public static final double SHROUD_SPEED_PENALTY = -0.5;
+	/** Cape Block: movement speed multiplier change while the cape is held up (-0.5 = half speed, as the old shroud). */
+	public static final double CAPE_BLOCK_SPEED_PENALTY = -0.5;
 
-	/** G: the line takes this long to fly out before the pull starts. */
+	/** The grappling line takes this long to fly out before the pull starts. */
 	public static final int GRAPPLE_LINE_TRAVEL_TICKS = 3;
-	/** G TAP: pull speed (blocks/tick), arrival distance, and the longest a pull may last. */
+	/** SNEAK+X at a block: pull speed (blocks/tick), arrival distance, and the longest a pull (or a reel) may last. */
 	public static final double GRAPPLE_PULL_SPEED = 1.3;
 	public static final double GRAPPLE_ARRIVE_DISTANCE = 1.6;
-	public static final int GRAPPLE_MAX_PULL_TICKS = 50;
-	/** G HOLD dive kick: pull speed toward the mob and the reach at which the kick lands. */
+	public static final int GRAPPLE_MAX_PULL_TICKS = 70;
+	/** TAP G Grapple Kick: pull speed toward the mob and the reach at which the kick lands. */
 	public static final double DIVE_KICK_PULL_SPEED = 1.5;
 	public static final double DIVE_KICK_REACH = 1.6;
-	/** SNEAK+G Yank: the mob lands about this far in front of you; Slowness IV = amplifier 3. */
+	/** SNEAK+X reel: the mob stops about this far in front of you; Slowness IV = amplifier 3. */
 	public static final double YANK_STOP_DISTANCE = 2.0;
 	public static final int YANK_SLOW_AMPLIFIER = 3;
-	/** How long the yank's rope stays drawn. */
-	public static final int YANK_LINE_TICKS = 8;
 
-	/** Z Truncheon melee: damage per swing (hearts x2) and attack speed modifier (-2.0 = 2 swings/s). */
+	/** C Truncheon melee: damage per swing (hearts x2) and attack speed modifier (-2.0 = 2 swings/s). */
 	public static final float TRUNCHEON_DAMAGE = 6.0f;
 	public static final float TRUNCHEON_ATTACK_SPEED = -2.0f;
 	/** Consecutive hits needed for the combo slam. */
 	public static final int TRUNCHEON_COMBO_HITS = 3;
-	/** Z HOLD staff: stays extended for the spin, and knocks everything outward this hard. */
+	/** C HOLD staff: stays extended for the spin, and knocks everything outward this hard. */
 	public static final int STAFF_SPIN_TICKS = 18;
 	public static final double STAFF_SPIN_KNOCKBACK = 0.7;
-	/** SNEAK+Z ground slam: upward launch and outward shove on every mob in the ring. */
+	/** SNEAK+C ground slam: upward launch and outward shove on every mob in the ring. */
 	public static final double GROUND_SLAM_LAUNCH = 0.85;
 	public static final double GROUND_SLAM_KNOCKBACK = 0.6;
-	/** SNEAK+Z in the air: dive speed (blocks/tick) and the longest a dive may last. */
+	/** SNEAK+C in the air: dive speed (blocks/tick) and the longest a dive may last. */
 	public static final double DIVE_SLAM_SPEED = 1.8;
 	public static final int DIVE_SLAM_MAX_TICKS = 100;
 	// ---------------------------------------------------------------- Phase 5 / 6 extras (appended)
@@ -266,7 +297,7 @@ public final class MoonKnightConfig {
 	public static final double STEVEN_TRADE_DISCOUNT = 0.2;
 	/** Jake: a melee hit counts as "from behind" when the attacker is within this many degrees of the target's back. */
 	public static final double JAKE_BACKSTAB_ARC_DEGREES = 60.0;
-	/** The radial alter picker: hold C this long (client ticks) before it opens -- a little over the server's hold threshold. */
+	/** The radial alter picker: hold V this long (client ticks) before it opens -- a little over the server's hold threshold. */
 	public static final int ALTER_PICKER_OPEN_TICKS = 12;
 	/** Moonbeam: undead take this multiple. */
 	public static final float MOONBEAM_UNDEAD_MULTIPLIER = 2.0f;

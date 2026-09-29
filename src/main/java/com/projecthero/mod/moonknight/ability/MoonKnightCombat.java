@@ -22,7 +22,7 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 
 /**
- * Shared combat plumbing for Moon Knight's R / X / G / Z moves (Phases 3-4): who counts as an enemy (never a squadmate
+ * Shared combat plumbing for Moon Knight's darts, cape, grapple, dash and truncheon (Phases 3-4): who counts as an enemy (never a squadmate
  * or your own pet), how an ability hit is dealt (lunar-scaled, boss-capped, PvP-gated through {@link AbilityHelpers}),
  * the moonlight particle colours, and the session reset for every static map those four keys keep.
  *
@@ -124,5 +124,6 @@ public final class MoonKnightCombat {
 		MoonKnightCape.clearSessionState();
 		MoonKnightGrapple.clearSessionState();
 		MoonKnightTruncheon.clearSessionState();
+		MoonKnightDash.clearSessionState();
 	}
 }

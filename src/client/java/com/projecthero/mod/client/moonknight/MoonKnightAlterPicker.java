@@ -15,19 +15,19 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * Moon Knight Phase 5: the radial alter picker (HOLD C).
+ * Moon Knight Phase 5: the radial alter picker (HOLD V; it was C before v0.13.21).
  *
  * <p><b>Controls</b> -- the mouse never leaves the game:
  * <ol>
- *   <li>hold C (Ability 5) for a moment ({@link MoonKnightConfig#ALTER_PICKER_OPEN_TICKS} ticks) while suited and not
+ *   <li>hold V for a moment ({@link MoonKnightConfig#ALTER_PICKER_OPEN_TICKS} ticks) while suited and not
  *       sneaking: the picker opens around the crosshair and the camera freezes;</li>
  *   <li>move the mouse toward an alter -- Marc (top), Steven (lower right), Jake (lower left). The mouse steers a small
  *       cursor from the centre (see {@code MoonKnightPickerMouseMixin}); the segment it points at lights up. Or roll
  *       the scroll wheel to step through them;</li>
- *   <li>let go of C to confirm. Letting go with the cursor still in the middle keeps the current alter.</li>
+ *   <li>let go of V to confirm. Letting go with the cursor still in the middle keeps the current alter.</li>
  * </ol>
  * The choice goes to the server as {@code MoonKnightActionPayload(SELECT_ALTER, ordinal)}; the server re-checks the
- * suit, the Fracture and the 2 s switch cooldown. Sneak+C is never the picker (it is the alter's special).
+ * suit, the Fracture and the 1.4 s switch cooldown. Sneak+V is never the picker (it is the alter's special).
  */
 public final class MoonKnightAlterPicker {
 	/** Screen-space directions of the three segments (degrees, 0 = right, 90 = down): Marc, Steven, Jake. */
@@ -60,7 +60,7 @@ public final class MoonKnightAlterPicker {
 	public static void tick(Minecraft mc) {
 		Player player = mc.player;
 		boolean usable = player != null && mc.screen == null && MoonKnight.isTransformed(player);
-		boolean down = usable && ModKeyBindings.ABILITY_SLOTS[5].isDown();
+		boolean down = usable && ModKeyBindings.ABILITY_SLOTS[4].isDown(); // V (slot 5) since v0.13.21
 		if (!usable) {
 			reset();
 			wasDown = false;

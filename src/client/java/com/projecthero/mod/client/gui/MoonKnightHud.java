@@ -25,7 +25,7 @@ import net.minecraft.world.entity.player.Player;
  * <pre>
  *   (moon) x1.50   Marc Spector       (crescent)
  *   [R][G][Z][X][C][V]
- *   Vengeance 62%                    GLIDE
+ *   Vengeance 62%                    GLIDE / BLOCK
  *   ------------------                          Hairline Vengeance bar
  * </pre>
  * The moon is the real current phase (dimmed by day or with no sky above), the multiplier is the live lunar power,
@@ -50,7 +50,8 @@ public final class MoonKnightHud {
 	private static final AbilitySlot[] ORDER = {
 			AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3, AbilitySlot.SLOT_6, AbilitySlot.SLOT_5
 	};
-	private static final String[] IDS = { "darts", "grapple", "truncheon", "cape", "alter", "khonshu" };
+	// v0.13.21 keys: R Darts, G Grapple Kick, Z Khonshu, X Dash, C Truncheon, V Alters
+	private static final String[] IDS = { "darts", "kick", "khonshu", "dash", "truncheon", "alter" };
 
 	private MoonKnightHud() {
 	}
@@ -109,7 +110,7 @@ public final class MoonKnightHud {
 			g.drawString(mc.font, keyLabel(ORDER[i]), x + 2, y0 + 2, COLOR_KEY, false);
 			// a charging HOLD (the dart fan, the Eye of Khonshu) fills its box from the bottom
 			if (action.has(com.projecthero.mod.moonknight.data.MoonKnightAction.FLAG_CHARGING) && action.chargeKey == ORDER[i].number()) {
-				int max = ORDER[i] == AbilitySlot.SLOT_5 ? com.projecthero.mod.moonknight.MoonKnightConfig.EYE_HOLD_TICKS
+				int max = ORDER[i] == AbilitySlot.SLOT_4 ? com.projecthero.mod.moonknight.MoonKnightConfig.EYE_HOLD_TICKS
 						: com.projecthero.mod.moonknight.MoonKnightConfig.DART_FAN_MAX_CHARGE;
 				float c = Math.min(1.0f, (now - action.chargeStart) / (float) Math.max(1, max));
 				int fillH = Math.round((BOX - 2) * c);
@@ -134,6 +135,10 @@ public final class MoonKnightHud {
 		if (action.has(com.projecthero.mod.moonknight.data.MoonKnightAction.FLAG_GLIDING)) {
 			Component glide = Component.translatable("hud.projecthero.moon_knight.glide").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD);
 			g.drawString(mc.font, glide, x0 + totalW - mc.font.width(glide), labelY, 0xFF8FE0FF, false);
+		} else if (action.has(com.projecthero.mod.moonknight.data.MoonKnightAction.FLAG_CAPE_BLOCK)) {
+			// v0.13.21: the Cape Block (hold right click)
+			Component block = Component.translatable("hud.projecthero.moon_knight.cape_block").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD);
+			g.drawString(mc.font, block, x0 + totalW - mc.font.width(block), labelY, 0xFFE8E4D8, false);
 		}
 		g.fill(x0, barY, x0 + totalW, barY + HAIRLINE, 0x80000000);
 		g.fill(x0, barY, x0 + Math.round(totalW * frac), barY + HAIRLINE, frac < 0.15f ? COLOR_VENGEANCE_LOW : COLOR_VENGEANCE);

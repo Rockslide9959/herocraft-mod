@@ -38,6 +38,9 @@ public final class MoonKnightAnim {
 	public static final int RESURRECT = 23;
 	public static final int UNTRANSFORM = 24;
 	public static final int TRUNCHEON_SLAM = 25;
+	/** v0.13.21: X Dash, and a glide kick landing. */
+	public static final int DASH = 26;
+	public static final int GLIDE_KICK = 27;
 
 	private MoonKnightAnim() {
 	}
@@ -70,6 +73,17 @@ public final class MoonKnightAnim {
 
 	public static boolean flag(Player player, int flag) {
 		return action(player).has(flag);
+	}
+
+	/**
+	 * v0.13.21: the alter just changed from {@code fromAlter} while suited -- every client rematerialises the new
+	 * alter's suit over the old one, pixel by pixel, from now ({@code MoonKnightConfig.ALTER_SWAP_TICKS}).
+	 */
+	public static void markSwap(ServerPlayer player, int fromAlter) {
+		MoonKnightAction c = action(player).copy();
+		c.swapFrom = fromAlter;
+		c.swapStart = player.level().getGameTime();
+		save(player, c);
 	}
 
 	public static void setFlag(ServerPlayer player, int flag, boolean on) {

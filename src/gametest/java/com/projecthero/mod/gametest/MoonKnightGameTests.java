@@ -193,4 +193,59 @@ public class MoonKnightGameTests implements FabricGameTest {
 			});
 		});
 	}
+
+	// ---------------------------------------------------------------- v0.13.21: the suit's own gifts
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void suitHealsHitsHarderAndTakesLess(GameTestHelper helper) {
+		ServerPlayer p = knight(helper);
+		p.setHealth(10.0f);
+		helper.assertFalse(MoonKnight.regenerate(p), "no regeneration out of the suit");
+		MoonKnight.setTransformedForTesting(p, true);
+		helper.assertTrue(MoonKnight.regenerate(p) && Math.abs(p.getHealth() - 11.0f) < 1.0e-4f,
+				"in the suit: half a heart per regen step (" + p.getHealth() + ")");
+		helper.assertTrue(MoonKnightConfig.SUIT_REGEN_INTERVAL == 5, "every 5 ticks");
+		var dmg = p.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
+				.getModifier(com.projecthero.mod.moonknight.ability.MoonKnightAlters.SUIT_STRENGTH);
+		helper.assertTrue(dmg != null && dmg.amount() == 7.0, "+7 melee damage while suited");
+		helper.assertTrue(Math.abs(com.projecthero.mod.moonknight.MoonKnightDamage.incomingFactor(p,
+				p.damageSources().generic()) - 0.8f) < 1.0e-4f, "20% less damage taken");
+		MoonKnight.setTransformedForTesting(p, false);
+		helper.assertTrue(p.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
+				.getModifier(com.projecthero.mod.moonknight.ability.MoonKnightAlters.SUIT_STRENGTH) == null,
+				"the +7 goes with the suit");
+		helper.assertTrue(com.projecthero.mod.moonknight.MoonKnightDamage.incomingFactor(p, p.damageSources().generic()) == 1.0f,
+				"and so does the damage cut");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aHardHitCallsTheSuit(GameTestHelper helper) {
+		helper.assertTrue(com.projecthero.mod.moonknight.MoonKnightTransform.callsTheSuit(10.5f, 18.0f),
+				"a hit of more than 10 calls the suit");
+		helper.assertTrue(com.projecthero.mod.moonknight.MoonKnightTransform.callsTheSuit(2.0f, 7.0f),
+				"so does being left under 4 hearts");
+		helper.assertFalse(com.projecthero.mod.moonknight.MoonKnightTransform.callsTheSuit(10.0f, 10.0f),
+				"a 10 that leaves 5 hearts does not");
+		ServerPlayer p = knight(helper);
+		p.setHealth(20.0f);
+		helper.assertFalse(com.projecthero.mod.moonknight.MoonKnightTransform.autoSuit(p, 4.0f), "a light hit: nothing");
+		helper.assertTrue(com.projecthero.mod.moonknight.MoonKnightTransform.autoSuit(p, 11.0f), "a big hit: the suit answers");
+		helper.assertTrue(com.projecthero.mod.moonknight.MoonKnightTransform.isTransforming(p),
+				"the normal 1.5 s suit-up (invulnerable) has started");
+		helper.assertFalse(com.projecthero.mod.moonknight.MoonKnightTransform.autoSuit(p, 11.0f), "not twice");
+
+		ServerPlayer q = knight(helper);
+		MoonKnight.setTransformedForTesting(q, true);
+		MoonKnight.setTransformedForTesting(q, false); // just took it off by choice
+		q.setHealth(5.0f);
+		helper.assertFalse(com.projecthero.mod.moonknight.MoonKnightTransform.autoSuit(q, 1.0f),
+				"not in the few seconds after taking it off");
+		MoonKnightState st = MoonKnight.state(q).copy();
+		st.transformStart -= MoonKnightConfig.AUTO_SUIT_GRACE_TICKS;
+		q.setAttached(ModAttachments.MOON_KNIGHT_STATE, st);
+		helper.assertTrue(com.projecthero.mod.moonknight.MoonKnightTransform.autoSuit(q, 1.0f),
+				"after that, under 4 hearts calls it");
+		helper.succeed();
+	}
 }

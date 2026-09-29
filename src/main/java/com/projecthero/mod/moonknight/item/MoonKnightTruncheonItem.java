@@ -17,8 +17,8 @@ import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.level.Level;
 
 /**
- * Z: the Truncheon of Khonshu -- a white-silver baton with a crescent head, summoned into the hand by a transformed
- * Moon Knight and gone again the moment it is stowed, dropped, stored or the suit comes off. HOLD Z extends it into
+ * C: the Truncheon of Khonshu -- a white-silver baton with a crescent head, summoned into the hand by a transformed
+ * Moon Knight and gone again the moment it is stowed, dropped, stored or the suit comes off. HOLD C extends it into
  * the staff (the {@code projecthero:staff} model predicate, driven by the synced {@code FLAG_STAFF}).
  *
  * <p>It is never crafted and cannot survive outside its owner's hands: any copy that is ticked in an inventory whose

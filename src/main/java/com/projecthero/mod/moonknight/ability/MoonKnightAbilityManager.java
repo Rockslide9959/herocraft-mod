@@ -15,9 +15,12 @@ import net.minecraft.server.level.ServerPlayer;
  * "slot N went down / up"; the hold is timed on the server clock and sneak is read from the server's own player.
  *
  * <pre>
- *   R  Crescent Darts   G  Grappling Line   Z  Truncheon / Staff
- *   X  Cape             C  Alters           V  Khonshu
+ *   R  Crescent Darts   G  Grapple Kick (Sneak: Shadow Step)   X  Dash (Sneak: Grappling Line)
+ *   Z  Khonshu          C  Truncheon / Staff                   V  Alters
  * </pre>
+ * v0.13.21 moved the keys (they were R Darts, G Grapple, X Cape, Z Truncheon, C Alters, V Khonshu). The Cape is no
+ * longer on a key at all: the glide is jump + hold Sneak and the block is hold right click ({@link MoonKnightCape});
+ * it still ticks here with the others.
  */
 public final class MoonKnightAbilityManager {
 	/** Per player: the game time each slot (index 0..5) went down, -1 if up / consumed, and whether its hold began. */
@@ -34,17 +37,17 @@ public final class MoonKnightAbilityManager {
 
 	public static MoonKnightMove moveFor(AbilitySlot slot) {
 		return switch (slot) {
-			case SLOT_1 -> MoonKnightDarts.INSTANCE;
-			case SLOT_2 -> MoonKnightGrapple.INSTANCE;
-			case SLOT_3 -> MoonKnightCape.INSTANCE;
-			case SLOT_4 -> MoonKnightTruncheon.INSTANCE;
-			case SLOT_5 -> MoonKnightKhonshu.INSTANCE;
-			case SLOT_6 -> MoonKnightAlters.INSTANCE;
+			case SLOT_1 -> MoonKnightDarts.INSTANCE;     // R
+			case SLOT_2 -> MoonKnightGrapple.INSTANCE;   // G
+			case SLOT_3 -> MoonKnightDash.INSTANCE;      // X
+			case SLOT_4 -> MoonKnightKhonshu.INSTANCE;   // Z
+			case SLOT_5 -> MoonKnightAlters.INSTANCE;    // V
+			case SLOT_6 -> MoonKnightTruncheon.INSTANCE; // C
 		};
 	}
 
 	private static final MoonKnightMove[] ALL = {
-			MoonKnightDarts.INSTANCE, MoonKnightGrapple.INSTANCE, MoonKnightCape.INSTANCE,
+			MoonKnightDarts.INSTANCE, MoonKnightGrapple.INSTANCE, MoonKnightDash.INSTANCE, MoonKnightCape.INSTANCE,
 			MoonKnightTruncheon.INSTANCE, MoonKnightKhonshu.INSTANCE, MoonKnightAlters.INSTANCE };
 
 	private static long[] pressed(ServerPlayer player) {
@@ -67,6 +70,12 @@ public final class MoonKnightAbilityManager {
 			}
 			if (player.isShiftKeyDown()) {
 				move.sneak(player);
+				p[i] = -1;
+				h[i] = false;
+				return;
+			}
+			if (move.firesOnPress()) {
+				move.tap(player); // no hold move on this key: no reason to wait for the release
 				p[i] = -1;
 				h[i] = false;
 				return;

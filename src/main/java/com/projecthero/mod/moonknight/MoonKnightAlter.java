@@ -4,7 +4,7 @@ import net.minecraft.ChatFormatting;
 
 /**
  * The three alters sharing Moon Knight's body. Stored by ordinal in {@code MoonKnightState}; their passives and
- * specials arrive in Phase 5, their suit textures hook in through {@link #suitTexture} (Phase 2).
+ * specials arrive in Phase 5, and each wears his own suit ({@link #suitTexture}, v0.13.21).
  */
 public enum MoonKnightAlter {
 	MARC("marc", ChatFormatting.WHITE),
@@ -38,11 +38,17 @@ public enum MoonKnightAlter {
 	}
 
 	/**
-	 * The suit texture for this alter, if the user's files include one (Phase 2 hook): {@code null} means use the
-	 * shared Moon Knight texture for every alter.
+	 * v0.13.21: this alter's own suit texture (path in the mod's namespace), from the user's per-alter Blockbench
+	 * models -- Marc's white-and-gold armour, Steven's Mr. Knight suit, Jake's dark suit. All three share
+	 * {@code geo/moon_knight.geo.json}.
 	 */
 	public String suitTexture() {
-		return null;
+		return "textures/armor/moon_knight_" + id + ".png";
+	}
+
+	/** v0.13.21: this alter's cape texture (Marc keeps the original off-white one). */
+	public String capeTexture() {
+		return this == MARC ? "textures/entity/moon_knight_cape.png" : "textures/entity/moon_knight_cape_" + id + ".png";
 	}
 
 	public static MoonKnightAlter byOrdinal(int i) {

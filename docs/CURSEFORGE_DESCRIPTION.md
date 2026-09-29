@@ -148,16 +148,21 @@ explodes, and the Gamma in your blood lets you walk out of the crater as the Hul
 ### 🌙 Moon Knight
 Find a rare **Temple of Khonshu** in the desert, take the **Scarab of Khonshu** from its hidden chamber, and at night lay
 it on the altar under the open sky and kneel. Khonshu speaks... you die in a flash of white, and rise again as his fist.
-- **H** summons the suit: it materialises over you **one pixel at a time** as bandages spiral up your body, with a
-  flowing **hooded cape**. Your own armour is kept safe and handed back when you take it off.
+- **H** summons the suit: it materialises over you **one pixel at a time** in 1.5 s as bandages spiral up your body,
+  with a flowing **hooded cape**. In it you **regenerate** fast, hit **+7** harder and take **20% less** damage. Your own
+  armour is kept safe and handed back when you take it off -- and out of the suit, a hard hit calls it back on its own.
 - **Lunar power:** everything scales with the moon -- x1.5 under a full moon, weaker as it wanes, x0.7 by day, and less
   underground. **Vengeance** builds by protecting villagers and travellers from monsters at night, and powers his
   strongest moves.
-- **Three alters (C):** **Marc** the fighter, **Steven** the scholar (Scholar's Sight finds chests and ores through walls,
-  better trades), **Jake** the shadow (backstabs, Vanish). Run out of Vengeance and your mind **Fractures**.
-- **R** Crescent Darts (homing at night, boomerang back; a charged fan; **Moon Mark**) · **G** Grappling Line (with a
-  dive kick and a Yank) · **Z** Truncheon (three-hit combo slams, a staff spin, ground / dive slams) · **X** Cape Glide,
-  Cape Shroud and Shadow Step · **V** Moonbeam, **Khonshu's Judgement** and the ultimate **Eye of Khonshu** under a full moon.
+- **Three alters (V), three suits:** **Marc** the fighter in white and gold, **Steven** the scholar in the Mr. Knight suit
+  (Scholar's Sight finds chests and ores through walls, better trades), **Jake** the shadow in black (backstabs, Vanish).
+  Switch and the new suit rematerialises over the old one. Run out of Vengeance and your mind **Fractures**.
+- **R** Crescent Darts (homing at night, boomerang back; a charged fan; **Moon Mark**) · **G** Grapple Kick · **X** Dash,
+  and **Sneak+X** a 60-block Grappling Line that reels mobs in · **Z** Moonbeam, **Khonshu's Judgement** and the ultimate
+  **Eye of Khonshu** under a full moon · **C** Truncheon (three-hit combo slams, a staff spin, ground / dive slams) ·
+  **Sneak+G** Shadow Step.
+- **The cape:** jump and hold Sneak to **glide** flat out on cape wings (glide into a mob to kick it); hold right click
+  to **block** with it.
 - **Khonshu's Resurrection:** once per lunar cycle, a fatal blow brings you back in a flash of moonlight.
 
 ---

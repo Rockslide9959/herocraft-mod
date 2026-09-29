@@ -53,15 +53,15 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * V -- Khonshu (Moon Knight Phase 6), plus the passive Khonshu's Resurrection.
+ * Z -- Khonshu (Moon Knight Phase 6; on V before v0.13.21), plus the passive Khonshu's Resurrection.
  * <ul>
- *   <li><b>TAP</b> Moonbeam ({@code khonshu}, 15 s): a column of moonlight falls on the looked-at block / mob up to 40
+ *   <li><b>TAP</b> Moonbeam ({@code khonshu}, 10 s): a column of moonlight falls on the looked-at block / mob up to 40
  *       blocks away -- 10 (x lunar power) to every hostile within 2 blocks, double to the undead. Night only, 10
  *       Vengeance.</li>
  *   <li><b>HOLD 2 s</b> Eye of Khonshu (the ultimate): full moon + 100 Vengeance, once per night. Consumes all
  *       Vengeance; every hostile within 32 blocks glows and is Weakened (II) for 30 s, the player gets Strength II +
  *       Speed II for 30 s, and Khonshu's skull is drawn across the sky. Letting go early cancels for free.</li>
- *   <li><b>SNEAK+V</b> Khonshu's Judgement ({@code khonshu_sneak}, 20 s): mark the targeted mob; if it dies within
+ *   <li><b>SNEAK+Z</b> Khonshu's Judgement ({@code khonshu_sneak}, 13 s): mark the targeted mob; if it dies within
  *       10 s, +20 Vengeance and 3 hearts back.</li>
  *   <li><b>Khonshu's Resurrection</b>: while suited, the first fatal hit of a lunar cycle is refused -- back to 6
  *       hearts with 2 s of invulnerability; it recharges at the next full moon night ({@code MoonKnight.tickSecond}).</li>
@@ -76,8 +76,8 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 	private static final String SNEAK = "khonshu_sneak";
 	/** {@code abilityReadyAt} key holding the night index ({@code dayTime / 24000}) the Eye was last opened on. */
 	public static final String EYE_NIGHT_KEY = "eye_night";
-	/** Slot number (1..6) of V, for {@code MoonKnightAction.chargeKey}. */
-	private static final int V_SLOT = 5;
+	/** Slot number (1..6) of Z, for {@code MoonKnightAction.chargeKey}. */
+	private static final int Z_SLOT = 4;
 
 	private static final DustParticleOptions MOONLIGHT = new DustParticleOptions(new org.joml.Vector3f(0.86f, 0.92f, 1.0f), 1.6f);
 	private static final DustParticleOptions PALE = new DustParticleOptions(new org.joml.Vector3f(0.97f, 0.97f, 0.94f), 1.0f);
@@ -258,7 +258,7 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 		}
 		EYE_HOLD.put(player.getUUID(), Hold.CHARGING);
 		MoonKnightAction c = MoonKnightAnim.action(player).with(MoonKnightAction.FLAG_CHARGING, true);
-		c.chargeKey = V_SLOT;
+		c.chargeKey = Z_SLOT;
 		c.chargeStart = player.level().getGameTime();
 		MoonKnightAnim.save(player, c);
 		MoonKnightAnim.play(player, MoonKnightAnim.EYE_CHARGE);
@@ -324,7 +324,7 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 
 	private static void endCharge(ServerPlayer player) {
 		MoonKnightAction a = MoonKnightAnim.action(player);
-		if (a.has(MoonKnightAction.FLAG_CHARGING) && a.chargeKey == V_SLOT) {
+		if (a.has(MoonKnightAction.FLAG_CHARGING) && a.chargeKey == Z_SLOT) {
 			MoonKnightAction c = a.with(MoonKnightAction.FLAG_CHARGING, false);
 			c.chargeKey = 0;
 			MoonKnightAnim.save(player, c);
@@ -410,7 +410,7 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 		return h.lengthSqr() < 1.0e-6 ? new Vec3(0.0, 0.0, 1.0) : h.normalize();
 	}
 
-	// ================================================================ SNEAK+V: Khonshu's Judgement
+	// ================================================================ SNEAK+Z: Khonshu's Judgement
 
 	@Override
 	public void sneak(ServerPlayer player) {

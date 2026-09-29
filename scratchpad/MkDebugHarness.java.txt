@@ -4,9 +4,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.projecthero.mod.moonknight.MoonKnight;
-import com.projecthero.mod.moonknight.MoonKnightAnim;
-import com.projecthero.mod.moonknight.MoonKnightTransform;
-import com.projecthero.mod.moonknight.data.MoonKnightAction;
+import com.projecthero.mod.moonknight.MoonKnightAlter;
+import com.projecthero.mod.moonknight.data.MoonKnightState;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 
@@ -26,14 +25,20 @@ import net.minecraft.world.level.levelgen.WorldOptions;
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
 import net.minecraft.world.phys.Vec3;
 
-/** TEMP-HARNESS (not shipped): Moon Knight suit / cape screenshot tour. */
+/**
+ * TEMP-HARNESS (not shipped): v0.13.21 Moon Knight alter suits / swap / glide / block screenshot tour.
+ * To use: copy to src/client/java/com/projecthero/mod/client/MkDebugHarness.java, copy HarnessCameraMixin.java.txt
+ * into client/mixin with V01315DebugHarness -> MkDebugHarness, add "HarnessCameraMixin" to
+ * projecthero.client.mixins.json, call MkDebugHarness.init() in ProjectHeroModClient, ./gradlew runClient -PmodpackModsDir=
+ * (shots land in run/screenshots/mk21_*.png, the client quits itself). Remove all four again before committing.
+ * The glide is driven for real: survival, 30 blocks up, keyShift.setDown(true) -> the server starts the glide.
+ */
 public final class MkDebugHarness {
 	public static Vec3 camOffset;
 	public static double camLookY = 1.1;
 	private static boolean createdWorld;
 	private static int inWorldTicks;
 	private static int t0 = -1;
-	private static com.projecthero.mod.moonknight.temple.TempleOfKhonshuPiece temple;
 	private static final Map<Integer, Runnable> AT = new HashMap<>();
 
 	private MkDebugHarness() {
@@ -55,12 +60,19 @@ public final class MkDebugHarness {
 	}
 
 	private static void shot(Minecraft mc, String name) {
-		Screenshot.grab(mc.gameDirectory, "mk_" + name + ".png", mc.getMainRenderTarget(), x -> {
+		Screenshot.grab(mc.gameDirectory, "mk21_" + name + ".png", mc.getMainRenderTarget(), x -> {
 		});
 	}
 
 	private static void at(int t, Runnable r) {
 		AT.put(t, r);
+	}
+
+	private static void alter(ServerPlayer p, MoonKnightAlter a) {
+		MoonKnightState c = MoonKnight.state(p).copy();
+		c.abilityReadyAt.clear();
+		MoonKnight.saveState(p, c);
+		com.projecthero.mod.moonknight.ability.MoonKnightAlters.select(p, a.ordinal());
 	}
 
 	private static void tick(Minecraft mc) {
@@ -102,63 +114,63 @@ public final class MkDebugHarness {
 	}
 
 	private static void script(Minecraft mc) {
-		// suit up instantly, face a line of husks
-		at(5, () -> server(mc, p -> {
-			MoonKnight.setTransformedForTesting(p, true);
-			ServerLevel level = p.serverLevel();
-			for (int i = 0; i < 3; i++) {
-				var h = net.minecraft.world.entity.EntityType.HUSK.create(level);
-				h.moveTo(p.getX() - 2 + i * 2, p.getY(), p.getZ() + 9, 180, 0);
-				h.setNoAi(true);
-				h.setPersistenceRequired();
-				level.addFreshEntity(h);
-			}
-			level.setBlock(p.blockPosition().offset(6, 3, 6), net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
-		}));
-		at(8, () -> camOffset = new Vec3(3.0, 1.6, -2.0));
-		at(30, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightDarts.INSTANCE.tap(p)));
-		at(32, () -> shot(mc, "q01_dart_throw"));
-		at(34, () -> shot(mc, "q02_dart_flight"));
-		at(48, () -> server(mc, p -> { com.projecthero.mod.moonknight.ability.MoonKnightDarts.INSTANCE.holdStart(p);
-			com.projecthero.mod.moonknight.ability.MoonKnightDarts.INSTANCE.holdRelease(p, 40); }));
-		at(50, () -> shot(mc, "q03_dart_fan"));
-		at(60, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightTruncheon.INSTANCE.tap(p)));
-		at(62, () -> camOffset = new Vec3(1.8, 1.4, 1.8));
-		at(75, () -> shot(mc, "q04_truncheon"));
-		at(78, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightTruncheon.INSTANCE.holdStart(p)));
-		at(80, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightTruncheon.INSTANCE.holdRelease(p, 20)));
-		at(83, () -> shot(mc, "q05_staff_spin"));
-		at(100, () -> server(mc, p -> { var tgt = p.blockPosition().offset(6, 3, 6).getCenter(); var d = tgt.subtract(p.getEyePosition()); p.setYRot((float) (Math.toDegrees(Math.atan2(d.z, d.x)) - 90)); p.setXRot((float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z))));
-			com.projecthero.mod.moonknight.ability.MoonKnightGrapple.INSTANCE.tap(p); }));
-		at(102, () -> camOffset = new Vec3(-3.0, 1.6, -1.5));
-		at(103, () -> shot(mc, "q06_grapple_rope"));
-		at(105, () -> shot(mc, "q06b_grapple_rope"));
-		at(130, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightCape.INSTANCE.sneak(p)));
-		at(132, () -> shot(mc, "q07_shadow_step"));
-		EXTRA.accept(mc);
-		for (int k = 20; k < 140; k++) { AT.remove(k); }
-	}
-
-	/** Phase 5-6 shots, filled in once C / V exist. */
-	private static java.util.function.Consumer<Minecraft> EXTRA = mc -> {
+		Vec3 front = new Vec3(1.2, 1.3, 3.2);
+		Vec3 back = new Vec3(-1.2, 1.5, -3.2);
+		at(5, () -> server(mc, p -> MoonKnight.setTransformedForTesting(p, true)));
+		at(8, () -> camOffset = front);
+		at(20, () -> shot(mc, "a01_marc_front"));
+		at(22, () -> camOffset = back);
+		at(26, () -> shot(mc, "a02_marc_back"));
+		at(28, () -> camOffset = front);
+		at(30, () -> server(mc, p -> alter(p, MoonKnightAlter.STEVEN)));
+		at(38, () -> shot(mc, "a03_swap_marc_to_steven_25"));
+		at(45, () -> shot(mc, "a04_swap_marc_to_steven_50"));
+		at(65, () -> shot(mc, "a05_steven_front"));
+		at(67, () -> camOffset = back);
+		at(71, () -> shot(mc, "a06_steven_back"));
+		at(73, () -> camOffset = front);
+		at(75, () -> server(mc, p -> alter(p, MoonKnightAlter.JAKE)));
+		at(90, () -> shot(mc, "a07_swap_steven_to_jake_50"));
+		at(110, () -> shot(mc, "a08_jake_front"));
+		at(112, () -> camOffset = back);
+		at(116, () -> shot(mc, "a09_jake_back"));
+		at(118, () -> server(mc, p -> alter(p, MoonKnightAlter.MARC)));
+		// the glide: survival, up in the air, then hold Sneak for real (the client sends it, the server starts the glide)
 		at(150, () -> server(mc, p -> {
-			for (ServerLevel l : p.server.getAllLevels()) { l.setDayTime(8L * 24000L * 3L + 18000L); }
-			MoonKnight.setVengeance(p, 100.0f);
-			p.setYRot(0f); p.setXRot(10f);
+			p.setGameMode(GameType.SURVIVAL);
+			p.teleportTo(p.getX(), p.getY() + 30, p.getZ());
+			p.setYRot(0);
+			p.setXRot(10);
 		}));
-		at(160, () -> camOffset = new Vec3(4.0, 2.5, -4.0));
-		at(165, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightKhonshu.INSTANCE.tap(p)));
-		at(170, () -> shot(mc, "r01_moonbeam"));
-		at(180, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightAlters.INSTANCE.tap(p)));
-		at(183, () -> shot(mc, "r02_alter_swap"));
-		at(195, () -> server(mc, p -> { MoonKnight.setVengeance(p, 100.0f); com.projecthero.mod.moonknight.ability.MoonKnightKhonshu.INSTANCE.holdStart(p); }));
-		for (int i = 0; i < 45; i++) { final int k = 196 + i; at(k, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightKhonshu.INSTANCE.holdTick(p, 10 + (k - 196)))); }
-		at(243, () -> { camOffset = new Vec3(0, 2.0, -6.0); camLookY = 12.0; });
-		at(265, () -> shot(mc, "r03_eye_skull"));
-		at(285, () -> shot(mc, "r04_eye_skull_later"));
-		at(290, () -> { camLookY = 1.1; camOffset = new Vec3(3.0, 1.6, -2.0); });
-		at(292, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightKhonshu.INSTANCE.sneak(p)));
-		at(300, () -> shot(mc, "r05_judgement"));
-		at(305, () -> mc.stop());
-	};
+		at(156, () -> mc.options.keyShift.setDown(true));
+		at(158, () -> camOffset = new Vec3(4.0, 0.6, 0.0));
+		at(168, () -> shot(mc, "b01_glide_side"));
+		at(170, () -> camOffset = new Vec3(-1.5, 3.2, -3.0));
+		at(174, () -> shot(mc, "b02_glide_above_behind"));
+		at(176, () -> camOffset = new Vec3(1.0, -0.8, 4.0));
+		at(180, () -> shot(mc, "b03_glide_front_below"));
+		at(182, () -> camOffset = new Vec3(0.3, 4.5, -0.3));
+		at(186, () -> shot(mc, "b04_glide_top"));
+		at(188, () -> server(mc, p -> alter(p, MoonKnightAlter.JAKE)));
+		at(220, () -> camOffset = new Vec3(3.0, 1.5, -2.5));
+		at(224, () -> shot(mc, "b05_glide_jake"));
+		at(226, () -> mc.options.keyShift.setDown(false));
+		at(232, () -> shot(mc, "b06_glide_released"));
+		// the cape block on the ground
+		at(240, () -> server(mc, p -> {
+			p.setGameMode(GameType.CREATIVE);
+			p.teleportTo(p.getX(), -60, p.getZ());
+			p.setXRot(0);
+		}));
+		at(250, () -> mc.options.keyUse.setDown(true));
+		at(256, () -> camOffset = front);
+		at(262, () -> shot(mc, "c01_cape_block_front"));
+		at(264, () -> camOffset = new Vec3(-2.5, 1.5, -2.0));
+		at(268, () -> shot(mc, "c02_cape_block_back"));
+		at(270, () -> mc.options.keyUse.setDown(false));
+		at(275, () -> camOffset = new Vec3(3.5, 1.4, 0.5));
+		at(278, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightDash.dash(p)));
+		at(280, () -> shot(mc, "c03_dash"));
+		at(290, () -> mc.stop());
+	}
 }

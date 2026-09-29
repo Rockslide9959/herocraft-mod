@@ -192,6 +192,9 @@ public final class ModNetworking {
 						com.projecthero.mod.moonknight.ability.MoonKnightAlters.select(p, payload.arg());
 					}
 				}
+				// v0.13.21: hold right click = Cape Block
+				case CAPE_BLOCK_START -> com.projecthero.mod.moonknight.ability.MoonKnightCape.startBlock(p);
+				case CAPE_BLOCK_STOP -> com.projecthero.mod.moonknight.ability.MoonKnightCape.stopBlock(p);
 			}
 		});
 

@@ -23,6 +23,16 @@ public final class MoonKnightPose {
 	private record Pose(float[][] frames, boolean aimRight, boolean aimLeft) {
 	}
 
+	/** v0.13.21 Cape Glide: how far the arms spread out as wings (radians of Z roll) and the legs part. */
+	static final float GLIDE_ARM_SPREAD = 1.3f;
+	static final float GLIDE_LEG_SPREAD = 0.16f;
+
+	/** v0.13.21: set while vanilla draws the first-person hand (render thread), which must not take the glide stance. */
+	public static boolean firstPersonHand;
+
+	/** Per player: the eased glide amount (0..1) and the last time it was advanced (ns). */
+	private static final java.util.Map<java.util.UUID, double[]> GLIDE_EASE = new java.util.concurrent.ConcurrentHashMap<>();
+
 	private static float[] f(float tick, float... v) {
 		float[] out = new float[12];
 		out[0] = tick;
@@ -137,6 +147,19 @@ public final class MoonKnightPose {
 			f(20, -0.4f, 0, 1.8f, -0.4f, 0, -1.8f, -0.25f, 0, 0, 0, -0.6f),
 			rest(30) }, false, false);
 
+	/** v0.13.21 X Dash: lean into it, arms swept back. */
+	private static final Pose DASH = new Pose(new float[][] {
+			rest(0),
+			f(2, 0.8f, 0, 0.25f, 0.8f, 0, -0.25f, 0.35f, 0, -0.6f, 0.5f, -0.25f),
+			f(6, 0.8f, 0, 0.25f, 0.8f, 0, -0.25f, 0.35f, 0, -0.6f, 0.5f, -0.25f),
+			rest(10) }, false, false);
+	/** v0.13.21 a glide kick: arms stay spread as wings, one leg snaps down into the mob. */
+	private static final Pose GLIDE_KICK = new Pose(new float[][] {
+			f(0, -0.15f, 0, GLIDE_ARM_SPREAD, -0.15f, 0, -GLIDE_ARM_SPREAD, 0, 0, 0, 0, 0),
+			f(2, -0.15f, 0, GLIDE_ARM_SPREAD, -0.15f, 0, -GLIDE_ARM_SPREAD, 0, 0, -1.4f, 0.35f, 0),
+			f(6, -0.15f, 0, GLIDE_ARM_SPREAD, -0.15f, 0, -GLIDE_ARM_SPREAD, 0, 0, -1.2f, 0.3f, 0),
+			f(10, -0.15f, 0, GLIDE_ARM_SPREAD, -0.15f, 0, -GLIDE_ARM_SPREAD, 0, 0, 0, 0, 0) }, false, false);
+
 	private static float[][] spinFrames() {
 		java.util.List<float[]> out = new java.util.ArrayList<>();
 		out.add(rest(0));
@@ -176,6 +199,8 @@ public final class MoonKnightPose {
 			case MoonKnightAnim.EYE_RELEASE -> EYE_RELEASE;
 			case MoonKnightAnim.JUDGEMENT -> JUDGEMENT;
 			case MoonKnightAnim.RESURRECT -> RESURRECT;
+			case MoonKnightAnim.DASH -> DASH;
+			case MoonKnightAnim.GLIDE_KICK -> GLIDE_KICK;
 			default -> null;
 		};
 	}
@@ -215,21 +240,69 @@ public final class MoonKnightPose {
 		}
 		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
 		long now = player.level().getGameTime();
-		if (a.animId != MoonKnightAnim.NONE) {
-			Pose p = poseFor(a.animId);
-			if (p != null && blend(m, p.frames(), now - a.animStart + partial, p.aimRight(), p.aimLeft())) {
-				return;
-			}
-		}
-		// held stances
-		if (a.has(MoonKnightAction.FLAG_SHROUD)) {
+		// held stances first; a move's animation then blends over them (and back to them as it ends)
+		if (a.has(MoonKnightAction.FLAG_GLIDING) && !firstPersonHand) {
+			// v0.13.21: flat out, arms spread as wings and legs apart -- the cape stretches between them. The body
+			// itself is tipped forward by MoonKnightGlidePoseMixin, so the head takes that lean back out and keeps
+			// looking where the player looks.
+			set(m, -0.15f, 0.0f, GLIDE_ARM_SPREAD, -0.15f, 0.0f, -GLIDE_ARM_SPREAD);
+			m.body.xRot = 0.0f;
+			m.rightLeg.xRot = 0.0f;
+			m.leftLeg.xRot = 0.0f;
+			m.rightLeg.yRot = 0.0f;
+			m.leftLeg.yRot = 0.0f;
+			m.rightLeg.zRot = GLIDE_LEG_SPREAD;
+			m.leftLeg.zRot = -GLIDE_LEG_SPREAD;
+			m.head.xRot -= glideLean(player, partial) * Mth.DEG_TO_RAD;
+			m.hat.copyFrom(m.head);
+		} else if (a.has(MoonKnightAction.FLAG_CAPE_BLOCK)) {
 			set(m, -1.35f, -0.6f, 0.0f, -1.35f, 0.6f, 0.0f);
-		} else if (a.has(MoonKnightAction.FLAG_GLIDING)) {
-			set(m, -0.15f, 0.0f, 1.35f, -0.15f, 0.0f, -1.35f);
 		} else if (a.has(MoonKnightAction.FLAG_CHARGING)) {
 			m.rightArm.xRot = -2.5f + m.head.xRot * 0.5f;
 			m.rightArm.yRot = -0.3f;
 		}
+		if (a.animId != MoonKnightAnim.NONE) {
+			Pose p = poseFor(a.animId);
+			if (p != null) {
+				blend(m, p.frames(), now - a.animStart + partial, p.aimRight(), p.aimLeft());
+			}
+		}
+	}
+
+	/** v0.13.21: is this player in a Cape Glide (synced flag, suited)? */
+	public static boolean isGliding(Player player) {
+		return MoonKnight.isTransformed(player) && MoonKnightAnim.flag(player, MoonKnightAction.FLAG_GLIDING);
+	}
+
+	/**
+	 * v0.13.21: how far (degrees) the gliding body is tipped forward right now: eased in / out over about a fifth of a
+	 * second, about 72 degrees level and steeper (up to 92) looking down. 0 when not gliding.
+	 */
+	public static float glideLean(Player player, float partialTick) {
+		boolean on = isGliding(player);
+		double[] e = GLIDE_EASE.get(player.getUUID());
+		if (e == null) {
+			if (!on) {
+				return 0.0f;
+			}
+			e = new double[]{0.0, System.nanoTime()};
+			GLIDE_EASE.put(player.getUUID(), e);
+		}
+		long t = System.nanoTime();
+		double dt = Math.min(0.2, (t - e[1]) / 1.0e9);
+		e[1] = t;
+		e[0] += ((on ? 1.0 : 0.0) - e[0]) * (1.0 - Math.exp(-dt * 12.0));
+		if (!on && e[0] < 0.01) {
+			GLIDE_EASE.remove(player.getUUID());
+			return 0.0f;
+		}
+		float pitch = Mth.clamp(player.getViewXRot(partialTick), -30.0f, 60.0f);
+		return (float) e[0] * (72.0f + pitch / 3.0f);
+	}
+
+	/** Forget every player's easing (world change). */
+	public static void clear() {
+		GLIDE_EASE.clear();
 	}
 
 	private static void set(HumanoidModel<?> m, float rx, float ry, float rz, float lx, float ly, float lz) {

@@ -218,6 +218,7 @@ public final class MoonKnight {
 		c.fractureUntil = now + MoonKnightConfig.FRACTURE_TICKS;
 		c.lastFracture = now;
 		save(player, c);
+		MoonKnightAnim.markSwap(player, s.alter); // v0.13.21: the forced alter's suit takes over pixel by pixel
 		player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, MoonKnightConfig.FRACTURE_NAUSEA_TICKS, 0, false, false, false));
 		player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
 				SoundEvents.ELDER_GUARDIAN_CURSE, SoundSource.PLAYERS, 0.35f, 1.4f);
@@ -231,6 +232,9 @@ public final class MoonKnight {
 	/** Per-player server tick (from {@code AbilityRouter.serverTick}). Cheap for anyone without the pact. */
 	public static void tick(ServerPlayer player) {
 		MoonKnightTransform.tick(player);
+		if (player.level().getGameTime() % MoonKnightConfig.SUIT_REGEN_INTERVAL == 0L) {
+			regenerate(player);
+		}
 		if (player.level().getGameTime() % 20L == 0L) {
 			tickSecond(player);
 			MoonKnightState s = player.getAttachedOrElse(ModAttachments.MOON_KNIGHT_STATE, null);
@@ -243,6 +247,18 @@ public final class MoonKnight {
 				com.projecthero.mod.moonknight.ability.MoonKnightAlters.reconcile(player);
 			}
 		}
+	}
+
+	/**
+	 * v0.13.21: the suit knits him back together -- half a heart every {@link MoonKnightConfig#SUIT_REGEN_INTERVAL}
+	 * ticks (2 hearts a second) while it is on, and only then. Returns true if it healed. Public for the gametests.
+	 */
+	public static boolean regenerate(ServerPlayer player) {
+		if (!isTransformed(player) || !player.isAlive() || player.getHealth() >= player.getMaxHealth()) {
+			return false;
+		}
+		player.heal(MoonKnightConfig.SUIT_REGEN_AMOUNT);
+		return true;
 	}
 
 	/**
@@ -293,6 +309,9 @@ public final class MoonKnight {
 		}
 		if (c != null) {
 			save(player, c);
+			if (c.alter != s.alter && s.transformed) {
+				MoonKnightAnim.markSwap(player, s.alter); // the fracture ended: his own suit comes back the same way
+			}
 		}
 		if (drained) {
 			tryFracture(player);

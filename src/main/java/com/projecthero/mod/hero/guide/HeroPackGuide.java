@@ -809,13 +809,15 @@ public final class HeroPackGuide {
 			}
 			head(lines, "projecthero.guide.moon_knight.controls");
 			para(lines, "projecthero.guide.moon_knight.controls.body");
+			// v0.13.21 key layout
 			for (String[] row : new String[][] {
 					{ "R", "darts" }, { "Hold R", "dart_fan" }, { "Sneak+R", "moon_mark" },
-					{ "G", "grapple" }, { "Hold G", "dive_kick" }, { "Sneak+G", "yank" },
-					{ "Z", "truncheon" }, { "Hold Z", "staff_spin" }, { "Sneak+Z", "slam" },
-					{ "X", "glide" }, { "Hold X", "shroud" }, { "Sneak+X", "shadow_step" },
-					{ "C", "alter" }, { "Hold C", "alter_pick" }, { "Sneak+C", "alter_special" },
-					{ "V", "moonbeam" }, { "Hold V", "eye" }, { "Sneak+V", "judgement" } }) {
+					{ "G", "dive_kick" }, { "Sneak+G", "shadow_step" },
+					{ "X", "dash" }, { "Sneak+X", "grapple" },
+					{ "Z", "moonbeam" }, { "Hold Z", "eye" }, { "Sneak+Z", "judgement" },
+					{ "C", "truncheon" }, { "Hold C", "staff_spin" }, { "Sneak+C", "slam" },
+					{ "V", "alter" }, { "Hold V", "alter_pick" }, { "Sneak+V", "alter_special" },
+					{ "Jump, hold Sneak", "glide" }, { "Hold right click", "shroud" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.moon_knight.move." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.moon_knight.move." + row[1] + ".desc");

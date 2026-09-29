@@ -79,7 +79,7 @@ public class MoonKnightPowerGameTests implements FabricGameTest {
 		helper.assertTrue(MoonKnight.alter(p) == MoonKnightAlter.MARC, "Marc is in control first");
 		MoonKnightAlters.INSTANCE.tap(p);
 		helper.assertTrue(MoonKnight.alter(p) == MoonKnightAlter.STEVEN, "tap: Marc -> Steven");
-		helper.assertTrue(MoonKnight.cooldownRemaining(p, "alter") > 0, "switching starts the 2 s alter cooldown");
+		helper.assertTrue(MoonKnight.cooldownRemaining(p, "alter") > 0, "switching starts the alter cooldown");
 		MoonKnightAlters.INSTANCE.tap(p);
 		helper.assertTrue(MoonKnight.alter(p) == MoonKnightAlter.STEVEN, "a second tap inside the cooldown does nothing");
 		clearCooldown(p, "alter");
@@ -89,6 +89,12 @@ public class MoonKnightPowerGameTests implements FabricGameTest {
 		MoonKnightAlters.INSTANCE.tap(p);
 		helper.assertTrue(MoonKnight.alter(p) == MoonKnightAlter.MARC, "tap: Jake -> Marc");
 		helper.assertTrue(MoonKnightAnim.action(p).animId == MoonKnightAnim.ALTER_SWAP, "the swap pose plays");
+		helper.assertTrue(MoonKnightAnim.action(p).swapFrom == MoonKnightAlter.JAKE.ordinal()
+				&& MoonKnightAnim.action(p).swapStart == p.level().getGameTime(),
+				"v0.13.21: Marc's suit rematerialises over Jake's from now (synced swapFrom / swapStart)");
+		helper.assertTrue(MoonKnightAlter.MARC.suitTexture().equals("textures/armor/moon_knight_marc.png")
+				&& com.projecthero.mod.armor.SuperheroArmorVisuals.has("moon_knight_steven")
+				&& com.projecthero.mod.armor.SuperheroArmorVisuals.has("moon_knight_jake"), "each alter has his own suit");
 		helper.succeed();
 	}
 

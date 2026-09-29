@@ -3,11 +3,12 @@ package com.projecthero.mod.moonknight.ability;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * One Moon Knight key (R, G, Z, X, C or V). {@link MoonKnightAbilityManager} turns the raw press / release edges into
+ * One Moon Knight key (R, G, X, Z, V or C). {@link MoonKnightAbilityManager} turns the raw press / release edges into
  * these calls, server-side (the client only reports edges, the server times them and reads sneak itself):
  * <ul>
  *   <li>{@link #sneak} -- the key was pressed while sneaking (fires on the press; the release is ignored);</li>
- *   <li>{@link #tap} -- released before {@code MoonKnightConfig.HOLD_THRESHOLD_TICKS};</li>
+ *   <li>{@link #tap} -- released before {@code MoonKnightConfig.HOLD_THRESHOLD_TICKS}; or, for a key with no hold
+ *       move ({@link #firesOnPress}), straight away on the press;</li>
  *   <li>{@link #holdStart} once it has been held that long, {@link #holdTick} every tick after, and
  *       {@link #holdRelease} on release (with the total ticks held);</li>
  *   <li>{@link #cancelHold} if a hold is interrupted (un-transform, death, screen opened);</li>
@@ -17,6 +18,14 @@ import net.minecraft.server.level.ServerPlayer;
  */
 public interface MoonKnightMove {
 	default void tap(ServerPlayer player) {
+	}
+
+	/**
+	 * v0.13.21: a key with no HOLD move fires its {@link #tap} on the press itself instead of waiting to see whether
+	 * it becomes a hold (the Dash and the Grapple Kick should not lag by a release).
+	 */
+	default boolean firesOnPress() {
+		return false;
 	}
 
 	default void holdStart(ServerPlayer player) {

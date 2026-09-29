@@ -17,9 +17,11 @@ import net.minecraft.world.entity.LivingEntity;
  * Every damage rule Moon Knight has, in one place, with the per-key numbers living in the ability classes:
  * <ul>
  *   <li>invulnerable while the suit is forming;</li>
- *   <li>incoming: Cape Shroud (X) and the Steven alter reduce hits; a glide takes no fall damage;</li>
+ *   <li>incoming: the suit itself takes 20% off every hit (v0.13.21), the Cape Block (hold right click) another 30%,
+ *       the Steven alter less from melee; a glide takes no fall damage;</li>
  *   <li>outgoing: Moon Mark (R), the Marc / Jake alter bonuses;</li>
  *   <li>a melee hit feeds the Truncheon combo;</li>
+ *   <li>out of the suit, a hard hit calls it (v0.13.21, {@link MoonKnightTransform#autoSuit});</li>
  *   <li>a fatal hit asks Khonshu's Resurrection first (from the mod's single {@code ALLOW_DEATH} hook).</li>
  * </ul>
  * Fabric's {@code ALLOW_DAMAGE} can only veto, so a changed amount is applied the same way Thor's passives do it:
@@ -38,8 +40,22 @@ public final class MoonKnightDamage {
 					&& MoonKnight.isTransformed(attacker) && source.getDirectEntity() == attacker) {
 				MoonKnightTruncheon.onMeleeHit(attacker, entity, taken);
 			}
+			// v0.13.21: an unsuited pact-holder hit hard (or left under 4 hearts) suits up on his own
+			if (entity instanceof ServerPlayer victim && !blocked && base > 0.0f && MoonKnight.hasPower(victim)
+					&& !MoonKnight.isTransformed(victim)) {
+				MoonKnightTransform.autoSuit(victim, base);
+			}
 		});
 		ServerLivingEntityEvents.AFTER_DEATH.register(MoonKnightKhonshu::onEntityKilled);
+	}
+
+	/** Incoming-damage multiplier for a suited Moon Knight (the suit, the cape block, the alter). Public for the tests. */
+	public static float incomingFactor(ServerPlayer player, DamageSource source) {
+		if (!MoonKnight.isTransformed(player)) {
+			return 1.0f;
+		}
+		return MoonKnightConfig.SUIT_DAMAGE_TAKEN * MoonKnightCape.incomingFactor(player, source)
+				* MoonKnightAlters.incomingFactor(player, source);
 	}
 
 	private static boolean allowDamage(LivingEntity victim, DamageSource source, float amount) {
@@ -55,8 +71,7 @@ public final class MoonKnightDamage {
 				if (source.is(DamageTypeTags.IS_FALL) && MoonKnightCape.negatesFall(player)) {
 					return false;
 				}
-				factor *= MoonKnightCape.incomingFactor(player, source);
-				factor *= MoonKnightAlters.incomingFactor(player, source);
+				factor *= incomingFactor(player, source);
 			}
 		}
 		if (source.getEntity() instanceof ServerPlayer attacker && attacker != victim && MoonKnight.isTransformed(attacker)) {

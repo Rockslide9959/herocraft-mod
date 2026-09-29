@@ -63,14 +63,15 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * C -- the Alters (Moon Knight Phase 5): Marc Spector, Steven Grant and Jake Lockley share the body, each with his own
- * passives and his own SNEAK+C special.
+ * V -- the Alters (Moon Knight Phase 5; on C before v0.13.21): Marc Spector, Steven Grant and Jake Lockley share the
+ * body, each with his own passives, his own suit and his own SNEAK+V special.
  * <ul>
- *   <li><b>TAP</b> -- cycle Marc -> Steven -> Jake -> Marc (2 s cooldown {@code alter}); refused during a Fracture.</li>
+ *   <li><b>TAP</b> -- cycle Marc -> Steven -> Jake -> Marc (1.4 s cooldown {@code alter}); while suited the new alter's suit
+ *       rematerialises over the old one pixel by pixel ({@code MoonKnightAnim.markSwap}); refused during a Fracture.</li>
  *   <li><b>HOLD</b> -- the client opens the radial picker ({@code MoonKnightAlterPicker}) and sends
  *       {@code SELECT_ALTER} on release, which lands in {@link #select}; the server's hold hooks only keep
  *       {@code FLAG_ALTER_PICKER} in step so other clients could show it.</li>
- *   <li><b>SNEAK+C</b> ({@code alter_sneak}, 30 s): Marc "Fist of Khonshu" (Strength II + knockback resistance, 15
+ *   <li><b>SNEAK+V</b> ({@code alter_sneak}, 20 s): Marc "Fist of Khonshu" (Strength II + knockback resistance, 15
  *       Vengeance), Steven "Scholar's Sight" (chests / ores / spawners outlined through walls, this player only),
  *       Jake "Vanish" (Invisibility, every mob hunting him loses the scent).</li>
  * </ul>
@@ -88,6 +89,8 @@ public final class MoonKnightAlters implements MoonKnightMove {
 	private static final ResourceLocation MARC_KNOCKBACK = PowerToggles.id("moon_knight_marc_knockback");
 	private static final ResourceLocation FIST_KNOCKBACK = PowerToggles.id("moon_knight_fist_knockback");
 	private static final ResourceLocation JAKE_SNEAK = PowerToggles.id("moon_knight_jake_sneak");
+	/** v0.13.21: the suit's own +7 melee, whoever is in control. */
+	public static final ResourceLocation SUIT_STRENGTH = PowerToggles.id("moon_knight_suit_strength");
 
 	private static final DustParticleOptions MOONDUST = new DustParticleOptions(new org.joml.Vector3f(0.93f, 0.95f, 1.0f), 1.0f);
 	private static final DustParticleOptions GOLD_DUST = new DustParticleOptions(new org.joml.Vector3f(1.0f, 0.82f, 0.35f), 0.9f);
@@ -170,8 +173,10 @@ public final class MoonKnightAlters implements MoonKnightMove {
 
 	private static void switchTo(ServerPlayer player, MoonKnightAlter target) {
 		MoonKnightState c = MoonKnight.state(player).copy();
+		int from = c.alter;
 		c.alter = target.ordinal();
 		MoonKnight.saveState(player, c);
+		MoonKnightAnim.markSwap(player, from); // v0.13.21: the new suit rematerialises over the old one
 		MoonKnightAbilities.cooldown(player, TAP, MoonKnightConfig.ALTER_SWITCH_COOLDOWN);
 		reconcile(player);
 		MoonKnightAnim.play(player, MoonKnightAnim.ALTER_SWAP);
@@ -198,7 +203,7 @@ public final class MoonKnightAlters implements MoonKnightMove {
 				Component.translatable(target.nameKey()).withStyle(target.colour(), ChatFormatting.BOLD)), true);
 	}
 
-	// ================================================================ SNEAK+C: the alter's special
+	// ================================================================ SNEAK+V: the alter's special
 
 	@Override
 	public void sneak(ServerPlayer player) {
@@ -415,12 +420,19 @@ public final class MoonKnightAlters implements MoonKnightMove {
 	}
 
 	/**
-	 * Keep the alter's attribute passives in step (once a second while transformed, on every switch, and on suit up /
-	 * down). Fixed-id transient modifiers, so re-applying is free and nothing survives a relog.
+	 * Keep the suit's and the alter's attribute passives in step (once a second while transformed, on every switch,
+	 * and on suit up / down). Fixed-id transient modifiers, so re-applying is free and nothing survives a relog.
 	 */
 	public static void reconcile(ServerPlayer player) {
 		boolean on = MoonKnight.isTransformed(player);
 		MoonKnightAlter alter = MoonKnight.alter(player);
+		// v0.13.21: the suit itself hits harder (+7 melee), for as long as it is on
+		if (on) {
+			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, SUIT_STRENGTH, MoonKnightConfig.SUIT_MELEE_BONUS,
+					AttributeModifier.Operation.ADD_VALUE);
+		} else {
+			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, SUIT_STRENGTH);
+		}
 		boolean marc = on && alter == MoonKnightAlter.MARC;
 		boolean jake = on && alter == MoonKnightAlter.JAKE;
 		Long fist = FIST_UNTIL.get(player.getUUID());

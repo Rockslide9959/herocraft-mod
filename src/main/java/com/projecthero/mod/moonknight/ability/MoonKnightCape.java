@@ -6,80 +6,71 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.hero.power.AbilityHelpers;
+import com.projecthero.mod.moonknight.MoonKnight;
 import com.projecthero.mod.moonknight.MoonKnightAnim;
 import com.projecthero.mod.moonknight.MoonKnightConfig;
 import com.projecthero.mod.moonknight.data.MoonKnightAction;
+import com.projecthero.mod.moonknight.item.MoonKnightTruncheonItem;
 
-import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * X -- the Cape (Moon Knight Phase 3).
+ * The Cape (Moon Knight Phase 3). Since v0.13.21 it is on no ability key at all:
  * <ul>
- *   <li><b>TAP</b>: Cape Glide on / off. While airborne the cape spreads ({@code FLAG_GLIDING}) and he glides like a
- *       weaker elytra -- no item, no rocket boost, no fall damage -- steering where he looks; a glide sinks
- *       {@link MoonKnightConfig#GLIDE_SINK} / lunar power per tick, so it carries much further at night. It ends on a
- *       second tap, on landing, in water, or on a ladder.</li>
- *   <li><b>HOLD</b>: Cape Shroud -- wrapped in the cape ({@code FLAG_SHROUD}): projectiles do 40%, melee 75%, and he
- *       moves at half speed. At most {@link MoonKnightConfig#SHROUD_MAX_TICKS} x power; cooldown
- *       {@link MoonKnightConfig#SHROUD_COOLDOWN} starts when it ends.</li>
- *   <li><b>SNEAK+X</b>: Shadow Step -- a blink {@link MoonKnightConfig#SHADOW_STEP_DISTANCE} x power blocks straight
- *       back (as far as there is room) in a puff of shadow, and 3 s x power of invisibility.</li>
+ *   <li><b>Cape Glide</b> -- jump, then hold Sneak in the air: the cape stretches into a triangle of webbing between
+ *       the arms and the legs ({@code FLAG_GLIDING}), he tips forward flat and glides like a weaker elytra -- no item,
+ *       no rocket boost, no fall damage -- steering where he looks; a glide sinks {@link MoonKnightConfig#GLIDE_SINK}
+ *       / lunar power per tick, so it carries much further at night. Letting go of Sneak, landing, water or a ladder
+ *       ends it. Gliding into a mob kicks it: {@link MoonKnightConfig#GLIDE_KICK_DAMAGE} x power and knockback.</li>
+ *   <li><b>Cape Block</b> -- hold right click with an empty main hand (or the Truncheon): the cape wraps round him
+ *       ({@code FLAG_CAPE_BLOCK}) and every hit does {@link MoonKnightConfig#CAPE_BLOCK_FACTOR} (30% less) for as
+ *       long as it is held -- no time limit, no cooldown -- at half speed. The client sends the press / release
+ *       ({@code MoonKnightActionPayload.CAPE_BLOCK_START / STOP}); the server re-validates.</li>
+ *   <li><b>Shadow Step</b> ({@link #shadowStep}, fired by SNEAK+G): a blink
+ *       {@link MoonKnightConfig#SHADOW_STEP_DISTANCE} x power blocks straight back in a puff of shadow, and 3 s x power
+ *       of invisibility.</li>
  * </ul>
  *
  * <p><b>How the glide moves.</b> The player's own client is authoritative for its movement (a server
  * {@code setDeltaMovement} every tick would fight it and rubber-band), so -- the same split as Spider-Man's swing --
- * the server only decides: it sets / clears the synced {@code FLAG_GLIDING}, keeps fall distance at zero, and ends
- * the glide on landing. The gliding player's client ({@code MoonKnightGlideClient}) reads its own synced flag every
- * tick and steers its velocity through {@link #glideVelocity}, the one pure function both sides share. The sink rate
- * never drops below {@link MoonKnightConfig#GLIDE_MIN_SINK}, so the server's "flying is not enabled" check stays happy.
+ * the server only decides: it reads the synced Sneak state and sets / clears {@code FLAG_GLIDING}, keeps fall distance
+ * at zero, and ends the glide on landing. The gliding player's client ({@code MoonKnightCombatClient}) reads its own
+ * synced flag every tick and steers its velocity through {@link #glideVelocity}, the one pure function both sides
+ * share. The sink rate never drops below {@link MoonKnightConfig#GLIDE_MIN_SINK}, so the server's "flying is not
+ * enabled" check stays happy.
  */
 public final class MoonKnightCape implements MoonKnightMove {
 	public static final MoonKnightCape INSTANCE = new MoonKnightCape();
 
-	private static final ResourceLocation SHROUD_SLOW = ProjectHeroMod.id("moon_knight_shroud_slow");
+	private static final ResourceLocation BLOCK_SLOW = ProjectHeroMod.id("moon_knight_shroud_slow");
 
 	/** Game time the last glide ended (for the landing grace). */
 	private static final Map<UUID, Long> GLIDE_ENDED = new ConcurrentHashMap<>();
-	/** Game time the current shroud started. */
-	private static final Map<UUID, Long> SHROUD_START = new ConcurrentHashMap<>();
+	/** Consecutive server ticks off the ground (a glide needs a jump first). */
+	private static final Map<UUID, Integer> AIR_TICKS = new ConcurrentHashMap<>();
+	/** Game time of the last glide kick (one kick per {@link MoonKnightConfig#GLIDE_KICK_GAP_TICKS}). */
+	private static final Map<UUID, Long> LAST_KICK = new ConcurrentHashMap<>();
 
 	private MoonKnightCape() {
 	}
 
-	// ---------------------------------------------------------------- TAP: Cape Glide
-
-	@Override
-	public void tap(ServerPlayer player) {
-		if (isGliding(player)) {
-			stopGlide(player);
-			return;
-		}
-		if (!canGlide(player)) {
-			player.displayClientMessage(Component.translatable("message.projecthero.moon_knight.glide_airborne")
-					.withStyle(ChatFormatting.GRAY), true);
-			return;
-		}
-		startGlide(player);
-	}
+	// ---------------------------------------------------------------- Cape Glide (jump + hold Sneak)
 
 	public static boolean isGliding(Player player) {
 		return MoonKnightAnim.flag(player, MoonKnightAction.FLAG_GLIDING);
@@ -160,19 +151,31 @@ public final class MoonKnightCape implements MoonKnightMove {
 		return -moved.y;
 	}
 
-	private static void tickGlide(ServerPlayer player) {
+	/**
+	 * Per tick: the glide follows Sneak. Airborne for {@link MoonKnightConfig#GLIDE_MIN_AIR_TICKS}+ with Sneak held
+	 * starts it; letting go of Sneak (or landing, water, a ladder...) ends it. Public for the gametests.
+	 */
+	public static void tickGlide(ServerPlayer player) {
+		UUID id = player.getUUID();
+		int air = player.onGround() ? 0 : AIR_TICKS.getOrDefault(id, 0) + 1;
+		AIR_TICKS.put(id, Math.min(air, 1000));
 		if (!isGliding(player)) {
+			if (player.isShiftKeyDown() && air >= MoonKnightConfig.GLIDE_MIN_AIR_TICKS && canGlide(player)
+					&& !MoonKnightGrapple.isPulling(player) && !MoonKnightDash.isDashing(player)) {
+				startGlide(player);
+			}
 			return;
 		}
-		if (!canGlide(player)) {
+		if (!canGlide(player) || !player.isShiftKeyDown()) {
 			stopGlide(player);
 			return;
 		}
 		player.resetFallDistance();
+		glideKick(player);
 		long t = player.level().getGameTime();
 		if (t % 3 == 0) {
 			Vec3 back = player.getLookAngle().multiply(1, 0, 1).normalize().scale(-0.6);
-			player.serverLevel().sendParticles(MoonKnightCombat.MOON, player.getX() + back.x, player.getY() + 1.1,
+			player.serverLevel().sendParticles(MoonKnightCombat.MOON, player.getX() + back.x, player.getY() + 0.6,
 					player.getZ() + back.z, 2, 0.5, 0.1, 0.5, 0.0);
 		}
 		if (t % 40 == 0) {
@@ -180,84 +183,101 @@ public final class MoonKnightCape implements MoonKnightMove {
 		}
 	}
 
-	// ---------------------------------------------------------------- HOLD: Cape Shroud
+	/**
+	 * Gliding into a mob: the first enemy the gliding body touches takes {@link MoonKnightConfig#GLIDE_KICK_DAMAGE} x
+	 * power and is knocked along the flight line; then {@link MoonKnightConfig#GLIDE_KICK_GAP_TICKS} before the next.
+	 * Returns how many were kicked (0 or 1). Public for the gametests.
+	 */
+	public static int glideKick(ServerPlayer player) {
+		long now = player.level().getGameTime();
+		Long last = LAST_KICK.get(player.getUUID());
+		if (last != null && now - last < MoonKnightConfig.GLIDE_KICK_GAP_TICKS) {
+			return 0;
+		}
+		Vec3 v = player.getDeltaMovement();
+		Vec3 flat = new Vec3(v.x, 0.0, v.z);
+		Vec3 ahead = flat.lengthSqr() < 1.0e-4 ? player.getLookAngle().multiply(1, 0, 1) : flat;
+		ahead = ahead.lengthSqr() < 1.0e-4 ? Vec3.ZERO : ahead.normalize();
+		// the prone body: a little forward of the feet box, and reaching down to the legs
+		AABB reach = player.getBoundingBox().inflate(0.5, 0.4, 0.5).move(ahead.scale(0.6));
+		LivingEntity hit = null;
+		double best = Double.MAX_VALUE;
+		for (LivingEntity e : player.serverLevel().getEntitiesOfClass(LivingEntity.class, reach,
+				e -> e != player && e.isAlive() && !MoonKnightCombat.friendly(player, e))) {
+			double d = e.distanceToSqr(player);
+			if (d < best) {
+				best = d;
+				hit = e;
+			}
+		}
+		if (hit == null) {
+			return 0;
+		}
+		float power = MoonKnightAbilities.power(player);
+		LAST_KICK.put(player.getUUID(), now);
+		MoonKnightCombat.hit(player, hit, MoonKnightConfig.GLIDE_KICK_DAMAGE * power);
+		MoonKnightCombat.knock(hit, player.position().subtract(ahead), MoonKnightConfig.GLIDE_KICK_KNOCKBACK * power, 0.25);
+		MoonKnightAnim.play(player, MoonKnightAnim.GLIDE_KICK);
+		ServerLevel level = player.serverLevel();
+		Vec3 at = hit.position().add(0, hit.getBbHeight() * 0.5, 0);
+		level.sendParticles(ParticleTypes.SWEEP_ATTACK, at.x, at.y, at.z, 1, 0.0, 0.0, 0.0, 0.0);
+		level.sendParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 12, 0.3, 0.3, 0.3, 0.3);
+		level.sendParticles(MoonKnightCombat.MOON, at.x, at.y, at.z, 10, 0.3, 0.3, 0.3, 0.02);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_ATTACK_KNOCKBACK, net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 0.9f);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.MACE_SMASH_AIR, net.minecraft.sounds.SoundSource.PLAYERS, 0.6f, 1.3f);
+		return 1;
+	}
 
-	@Override
-	public void holdStart(ServerPlayer player) {
-		if (!MoonKnightAbilities.ready(player, "cape_hold")) {
+	// ---------------------------------------------------------------- Cape Block (hold right click)
+
+	/** Is a Cape Block allowed right now: suited, the main hand empty or holding the Truncheon, not using an item. */
+	public static boolean canBlock(Player player) {
+		ItemStack main = player.getMainHandItem();
+		return MoonKnight.isTransformed(player) && !player.isSpectator() && !player.isUsingItem()
+				&& (main.isEmpty() || main.getItem() instanceof MoonKnightTruncheonItem);
+	}
+
+	public static boolean isBlocking(Player player) {
+		return MoonKnightAnim.flag(player, MoonKnightAction.FLAG_CAPE_BLOCK);
+	}
+
+	/** Right click went down (payload): raise the cape. */
+	public static void startBlock(ServerPlayer player) {
+		if (!canBlock(player) || isBlocking(player)) {
 			return;
 		}
-		SHROUD_START.put(player.getUUID(), player.level().getGameTime());
-		MoonKnightAnim.setFlag(player, MoonKnightAction.FLAG_SHROUD, true);
+		MoonKnightAnim.setFlag(player, MoonKnightAction.FLAG_CAPE_BLOCK, true);
 		AttributeInstance speed = player.getAttribute(Attributes.MOVEMENT_SPEED);
 		if (speed != null) {
-			speed.addOrUpdateTransientModifier(new AttributeModifier(SHROUD_SLOW, MoonKnightConfig.SHROUD_SPEED_PENALTY,
+			speed.addOrUpdateTransientModifier(new AttributeModifier(BLOCK_SLOW, MoonKnightConfig.CAPE_BLOCK_SPEED_PENALTY,
 					AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
 		}
 		ServerLevel level = player.serverLevel();
-		level.sendParticles(MoonKnightCombat.MOON, player.getX(), player.getY() + 1.0, player.getZ(), 20, 0.5, 0.6, 0.5, 0.02);
+		level.sendParticles(MoonKnightCombat.MOON, player.getX(), player.getY() + 1.0, player.getZ(), 12, 0.5, 0.6, 0.5, 0.02);
 		AbilityHelpers.sound(player, SoundEvents.ARMOR_EQUIP_LEATHER, 1.0f, 0.7f);
-		AbilityHelpers.sound(player, SoundEvents.PHANTOM_FLAP, 0.6f, 0.6f);
+		AbilityHelpers.sound(player, SoundEvents.PHANTOM_FLAP, 0.5f, 0.6f);
 	}
 
-	public static boolean isShrouded(Player player) {
-		return MoonKnightAnim.flag(player, MoonKnightAction.FLAG_SHROUD);
-	}
-
-	@Override
-	public void holdTick(ServerPlayer player, int ticksHeld) {
-		Long start = SHROUD_START.get(player.getUUID());
-		if (start == null) {
-			return;
+	/** Right click released (payload), or the block stopped being legal: lower the cape. */
+	public static void stopBlock(ServerPlayer player) {
+		AttributeInstance speed = player.getAttribute(Attributes.MOVEMENT_SPEED);
+		if (speed != null) {
+			speed.removeModifier(BLOCK_SLOW);
 		}
-		long now = player.level().getGameTime();
-		if (now - start >= Math.round(MoonKnightConfig.SHROUD_MAX_TICKS * MoonKnightAbilities.power(player))) {
-			endShroud(player);
-			return;
-		}
-		if (now % 4 == 0) {
-			player.serverLevel().sendParticles(MoonKnightCombat.PALE_BLUE, player.getX(), player.getY() + 1.0,
-					player.getZ(), 3, 0.45, 0.6, 0.45, 0.0);
-		}
-	}
-
-	@Override
-	public void holdRelease(ServerPlayer player, int ticksHeld) {
-		endShroud(player);
-	}
-
-	@Override
-	public void cancelHold(ServerPlayer player) {
-		endShroud(player);
-	}
-
-	/** End a shroud in progress (no-op if none) and start its cooldown. */
-	public static void endShroud(ServerPlayer player) {
-		Long start = SHROUD_START.remove(player.getUUID());
-		removeShroudSlow(player);
-		MoonKnightAnim.setFlag(player, MoonKnightAction.FLAG_SHROUD, false);
-		if (start != null) {
-			MoonKnightAbilities.cooldown(player, "cape_hold", MoonKnightConfig.SHROUD_COOLDOWN);
+		if (isBlocking(player)) {
+			MoonKnightAnim.setFlag(player, MoonKnightAction.FLAG_CAPE_BLOCK, false);
 			AbilityHelpers.sound(player, SoundEvents.ARMOR_EQUIP_LEATHER, 0.8f, 1.2f);
 		}
 	}
 
-	private static void removeShroudSlow(ServerPlayer player) {
-		AttributeInstance speed = player.getAttribute(Attributes.MOVEMENT_SPEED);
-		if (speed != null) {
-			speed.removeModifier(SHROUD_SLOW);
-		}
+	/** A hit landed on the raised cape. */
+	private static void onBlockedHit(ServerPlayer player) {
+		player.serverLevel().sendParticles(MoonKnightCombat.PALE_BLUE, player.getX(), player.getY() + 1.0, player.getZ(),
+				6, 0.4, 0.5, 0.4, 0.02);
+		AbilityHelpers.sound(player, SoundEvents.WOOL_HIT, 1.0f, 0.8f);
 	}
 
-	// ---------------------------------------------------------------- SNEAK: Shadow Step
-
-	@Override
-	public void sneak(ServerPlayer player) {
-		if (!MoonKnightAbilities.ready(player, "cape_sneak")) {
-			return;
-		}
-		shadowStep(player);
-	}
+	// ---------------------------------------------------------------- Shadow Step (SNEAK+G)
 
 	/** Blink straight back as far as there is room (up to 5 x power blocks); returns the distance moved. */
 	public static double shadowStep(ServerPlayer player) {
@@ -294,7 +314,7 @@ public final class MoonKnightCape implements MoonKnightMove {
 		int invis = Math.round(MoonKnightConfig.SHADOW_STEP_INVIS_TICKS * power);
 		player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, invis, 0, false, false, true));
 		MoonKnightAnim.play(player, MoonKnightAnim.SHADOW_STEP);
-		MoonKnightAbilities.cooldown(player, "cape_sneak", MoonKnightConfig.SHADOW_STEP_COOLDOWN);
+		MoonKnightAbilities.cooldown(player, "kick_sneak", MoonKnightConfig.SHADOW_STEP_COOLDOWN);
 		level.playSound(null, to.x, to.y, to.z, SoundEvents.ILLUSIONER_MIRROR_MOVE, net.minecraft.sounds.SoundSource.PLAYERS, 0.9f, 0.8f);
 		level.playSound(null, from.x, from.y, from.z, SoundEvents.PHANTOM_FLAP, net.minecraft.sounds.SoundSource.PLAYERS, 0.6f, 0.6f);
 		return moved;
@@ -305,34 +325,28 @@ public final class MoonKnightCape implements MoonKnightMove {
 	@Override
 	public void tick(ServerPlayer player) {
 		tickGlide(player);
-		// a shroud with no key behind it (a relog mid-hold) never outlives its flag
-		if (isShrouded(player) && !SHROUD_START.containsKey(player.getUUID())) {
-			endShroud(player);
+		if (isBlocking(player) && !canBlock(player)) {
+			stopBlock(player); // picked something up, started eating, ...
 		}
 	}
 
 	@Override
 	public void onUntransform(ServerPlayer player) {
 		stopGlide(player);
-		endShroud(player);
+		stopBlock(player);
+		AIR_TICKS.remove(player.getUUID());
 	}
 
-	/** Incoming-damage multiplier from this key (Cape Shroud: projectiles 40%, melee 75%). */
+	/** Incoming-damage multiplier from the cape (Cape Block: every hit 30% less). */
 	public static float incomingFactor(ServerPlayer player, DamageSource source) {
-		if (!isShrouded(player)) {
+		if (!isBlocking(player)) {
 			return 1.0f;
 		}
-		if (source.is(DamageTypeTags.IS_PROJECTILE)) {
-			return MoonKnightConfig.SHROUD_PROJECTILE_FACTOR;
-		}
-		Entity direct = source.getDirectEntity();
-		if (direct instanceof LivingEntity && direct == source.getEntity() && !source.is(DamageTypeTags.IS_EXPLOSION)) {
-			return MoonKnightConfig.SHROUD_MELEE_FACTOR;
-		}
-		return 1.0f;
+		onBlockedHit(player);
+		return MoonKnightConfig.CAPE_BLOCK_FACTOR;
 	}
 
-	/** True if a fall should do no damage right now: gliding, just landed from a glide, or mid grapple / dive. */
+	/** True if a fall should do no damage right now: gliding, just landed from a glide, or mid grapple / dash / dive. */
 	public static boolean negatesFall(ServerPlayer player) {
 		if (isGliding(player)) {
 			return true;
@@ -341,11 +355,13 @@ public final class MoonKnightCape implements MoonKnightMove {
 		if (ended != null && player.level().getGameTime() - ended <= MoonKnightConfig.GLIDE_FALL_GRACE_TICKS) {
 			return true;
 		}
-		return MoonKnightGrapple.protectsFromFall(player) || MoonKnightTruncheon.protectsFromFall(player);
+		return MoonKnightGrapple.protectsFromFall(player) || MoonKnightTruncheon.protectsFromFall(player)
+				|| MoonKnightDash.protectsFromFall(player);
 	}
 
 	public static void clearSessionState() {
 		GLIDE_ENDED.clear();
-		SHROUD_START.clear();
+		AIR_TICKS.clear();
+		LAST_KICK.clear();
 	}
 }

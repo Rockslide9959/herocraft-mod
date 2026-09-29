@@ -4,6 +4,7 @@ import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.armor.ArmorVisualDefinition;
 import com.projecthero.mod.armor.SuperheroArmorVisuals;
 import com.projecthero.mod.item.ModArmorMaterials;
+import com.projecthero.mod.moonknight.MoonKnightAlter;
 
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -30,19 +31,27 @@ public final class MoonKnightItems {
 		LEGGINGS = register("moon_knight_leggings", ArmorItem.Type.LEGGINGS);
 		BOOTS = register("moon_knight_boots", ArmorItem.Type.BOOTS);
 
+		// v0.13.21: one suit per alter, from the user's three Blockbench models (moonknightmarc / moonknightsteven /
+		// moonknightJake.bbmodel, converted by scratchpad/gen_moonknight_alters.js). The three rigs are identical 64x64
+		// player skins, so they share one geometry and differ only in texture; each alter picks its own set up through
+		// MoonKnightArmorItem#armorSetId. The plain "moon_knight" set (no wearer known) is Marc's.
 		SuperheroArmorVisuals.register(MoonKnightArmorItem.SET_ID, new ArmorVisualDefinition(
 				ProjectHeroMod.id("geo/moon_knight.geo.json"),
-				ProjectHeroMod.id("textures/armor/moon_knight.png"),
+				ProjectHeroMod.id("textures/armor/moon_knight_marc.png"),
 				SuperheroArmorVisuals.SHARED_ANIMATION));
-		// Per-alter suits: register "moon_knight_marc" / "_steven" / "_jake" here with their own texture and each
-		// alter picks it up automatically (MoonKnightArmorItem#armorSetId). One texture for all three for now.
+		for (MoonKnightAlter alter : MoonKnightAlter.values()) {
+			SuperheroArmorVisuals.register(MoonKnightArmorItem.SET_ID + "_" + alter.id(), new ArmorVisualDefinition(
+					ProjectHeroMod.id("geo/moon_knight.geo.json"),
+					ProjectHeroMod.id(alter.suitTexture()),
+					SuperheroArmorVisuals.SHARED_ANIMATION));
+		}
 
-		// Phase 4: the Truncheon (Z) -- only ever exists in a transformed Moon Knight's hands.
+		// Phase 4: the Truncheon (C since v0.13.21) -- only ever exists in a transformed Moon Knight's hands.
 		TRUNCHEON = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("moon_knight_truncheon"),
 				new MoonKnightTruncheonItem());
 	}
 
-	/** Phase 4: Z's summoned weapon. */
+	/** Phase 4: C's summoned weapon. */
 	public static MoonKnightTruncheonItem TRUNCHEON;
 
 	private static MoonKnightArmorItem register(String path, ArmorItem.Type type) {

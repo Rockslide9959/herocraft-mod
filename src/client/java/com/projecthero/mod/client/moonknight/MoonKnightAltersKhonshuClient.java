@@ -10,7 +10,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 
 /**
- * Client wiring for Moon Knight Phases 5 and 6 (C Alters, V Khonshu): the radial alter picker, Scholar's Sight
+ * Client wiring for Moon Knight Phases 5 and 6 (V Alters, Z Khonshu since v0.13.21): the radial alter picker, Scholar's Sight
  * outlines, the Moonbeam column, the Eye of Khonshu sky skull and the resurrection flash. One call from
  * {@code ProjectHeroModClient}.
  */

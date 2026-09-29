@@ -1,4 +1,4 @@
-# Moon Knight (v0.13.20)
+# Moon Knight (v0.13.20; reworked in v0.13.21 -- see the last section for the current keys and numbers)
 
 A Hero-Tier power built in 8 phases, one at a time, each handed back as a jar for testing before the next starts.
 Every tunable number lives in `moonknight/MoonKnightConfig.java` (base values: damage / range / duration are multiplied
@@ -163,3 +163,84 @@ rebirth ticks. Both are in the Superheroes creative tab.
 - The suit materialises one pixel at a time (the suit is equipped at the start of H and revealed with `SymbioteDissolve` over the transformation clock -- `client/moonknight/MoonKnightReveal`; H again dissolves it before it is stripped).
 - Screenshot-checked in the dev client: suit, cape (idle / shroud / glide), pixel reveal + dissolve, Temple exterior / hall / oculus, darts, truncheon, staff spin, Moonbeam, the Eye of Khonshu skull. Harness kept at `scratchpad/MkDebugHarness.java.txt`.
 - Not verified: real multiplayer, glide feel under lag, the radial picker and Scholar's Sight outlines in play, natural temple generation in a desert.
+
+## v0.13.21 -- new keys, the suit's gifts, three alter suits, the glide rework
+
+The sections above describe v0.13.20; where they disagree, this section wins.
+
+**Key layout** (`MoonKnightAbilityManager.moveFor`; cooldown ids in brackets; base values -- the lunar power still
+multiplies damage / duration and divides cooldowns):
+
+| Key | Tap | Hold | Sneak+key |
+| --- | --- | --- | --- |
+| R | Crescent Dart, 15 dmg, 1 s (`darts`) | Crescent Fan, 3.25 s (`darts_hold`) | Moon Mark, 8 s (`darts_sneak`) |
+| G | Grapple Kick, 60 blocks, 5 s (`kick`) -- fires on press | -- | Shadow Step, 8 s (`kick_sneak`) |
+| X | Dash, ~7 blocks, 1.5 s (`dash`) -- fires on press | -- | Grappling Line, 60 blocks, 2 s (`dash_sneak`) |
+| Z | Moonbeam, 10 s (`khonshu`) | Eye of Khonshu (2 s hold, once per night) | Khonshu's Judgement, 13 s (`khonshu_sneak`) |
+| C | Truncheon summon / stow | Staff Spin, 4 s (`truncheon_hold`) | Ground / Dive Slam, 6.5 s (`truncheon_sneak`) |
+| V | next alter, 1.4 s (`alter`) | radial alter picker | alter special, 20 s (`alter_sneak`) |
+| jump, then hold Sneak | Cape Glide (no cooldown) | | |
+| hold right click | Cape Block (no cooldown, no time limit) | | |
+
+Keys with no hold move (G, X) fire on the press (`MoonKnightMove.firesOnPress`). The old V (Khonshu) moved to Z, the
+old C (Alters) to V, the old Z (Truncheon) to C; the Cape left the keys entirely; the old G tap (grapple to a block)
+and Sneak+G Yank merged into Sneak+X; Shadow Step moved from Sneak+X to Sneak+G.
+
+**Cooldowns cut ~35%** (old -> new ticks): fan 100 -> 65, Moon Mark 240 -> 160, Shadow Step 240 -> 160, grappling
+line 60 -> 40, grapple kick 160 -> 100, staff spin 120 -> 80, slam 200 -> 130, alter switch 40 -> 28, alter special
+600 -> 400, Moonbeam 300 -> 200, Judgement 400 -> 260. The shroud's 160 cooldown and 5 s cap are gone (Cape Block).
+Dart damage 5 -> 15 (cooldown stays 20 = 1 s). Grapple range 24 x power -> a flat 60.
+
+**The suit** (`MoonKnightConfig`, "the suit's own gifts"):
+- Regenerates 1 HP every 5 ticks while transformed (`MoonKnight.regenerate`, from `MoonKnight.tick`).
+- +7 attack damage (`MoonKnightAlters.SUIT_STRENGTH`, a transient modifier kept by `MoonKnightAlters.reconcile`, so it
+  goes the moment the suit comes off).
+- Every hit x0.8 (`MoonKnightDamage.incomingFactor`), stacking with the Cape Block (x0.7) and Steven (melee x0.85).
+- Auto suit-up (`MoonKnightTransform.autoSuit`, from `AFTER_DAMAGE`): an unsuited pact-holder hit for more than 10 in
+  one hit **or** left under 8 HP starts the normal 1.5 s suit-up (invulnerable while it forms). The user wrote "more
+  than 10 damage and below 4 hearts"; either condition triggers (`callsTheSuit`). The hit size is the hit's base
+  damage (before armour). Not within 3 s (`AUTO_SUIT_GRACE_TICKS`) of taking it off with H, so it can still come off.
+- Suit up and suit down both take exactly 30 ticks; `MoonKnightReveal` maps the pixel reveal / dissolve onto the whole
+  30 (the v0.13.20 reveal finished 4 ticks early and the dissolve took 10).
+
+**Three alter suits.** `scratchpad/gen_moonknight_alters.js` converts the user's `moonknightmarc.bbmodel`,
+`moonknightsteven.bbmodel` (Mr. Knight) and `moonknightJake.bbmodel`. The script checks the three rigs are identical
+(12 cubes, same from / to / inflate / uv) -- the same 64x64 player-skin rig as the v0.13.20 model -- so all three
+share `geo/moon_knight.geo.json` and each gets its embedded PNG byte for byte:
+`textures/armor/moon_knight_{marc,steven,jake}.png` (Jake's is the old `moon_knight.png`, which is removed). Sets
+`moon_knight_<alter>` are registered in `MoonKnightItems`; `MoonKnightArmorItem.armorSetId` picks the wearer's alter.
+Item icons are re-cut from Marc's skin. Capes per alter (`MoonKnightAlter.capeTexture`): Marc the original off-white,
+Steven crisp white without crescents, Jake charcoal with pale crescents.
+
+**Alter swap rematerialise.** `MoonKnightAction.swapFrom / swapStart` (synced; set by `MoonKnightAnim.markSwap` on a
+switch, a Fracture and a Fracture ending). For `ALTER_SWAP_TICKS` (30) the armour renderer draws
+`client/moonknight/MoonKnightSuitSwap`'s composite texture: 32 frames per (old, new) pair, each taking a few more
+pixels from the new suit (the same chest -> limbs -> head random sweep as the H reveal). One shared geometry means no
+second, z-fighting pass. The cape changes over halfway through.
+
+**Cape Glide rework.** Server: `MoonKnightCape.tickGlide` -- airborne 3+ ticks with Sneak held starts it; releasing
+Sneak, landing, water or a ladder ends it; gliding into a mob kicks it (`glideKick`: 12 x power, knockback, one kick
+per 10 ticks, `GLIDE_KICK` pose). Client: `mixin/MoonKnightGlidePoseMixin` switches the model's crouch off (and the
+crouch render offset) and tips the whole body forward about 72 deg (up to 92 looking down) about the middle of the
+body; `MoonKnightPose` spreads the arms (Z roll 1.3) and legs and takes the lean back out of the head. The cape becomes
+webbing (`MoonKnightCapeLayer.drawWebbing`): columns right wrist / right shoulder / left shoulder / left wrist, all
+running down to the ankles, so each side is a wrist-shoulder-ankle triangle with the back panel between; the corners
+are read from the model's own arm / leg / body parts every frame, and the wings belly out and ripple.
+
+**Cape Block.** `MoonKnightCombatClient.tickCapeBlock` sends `MoonKnightActionPayload.CAPE_BLOCK_START / STOP` while
+right click is held with the main hand empty or holding the Truncheon, nothing being used, and (if the off hand holds
+something) the crosshair on nothing -- so using items, placing an off-hand torch, eating etc. are untouched. Server
+`MoonKnightCape.startBlock / stopBlock` re-validate (`canBlock`), keep `FLAG_CAPE_BLOCK` (the old `FLAG_SHROUD` bit and
+its wrapped-cape / crossed-arms visuals) and the half-speed modifier.
+
+**Grappling Line (Sneak+X).** `MoonKnightGrapple.fireLine`: a mob under the crosshair is reeled in (`REELS`: dragged at
+1.2 blocks/tick, Slowness IV while dragged, stunned 1.5 s x power on arrival about 2 blocks away); a boss or anything
+`isValidGrabTarget` refuses pulls the player to it instead; otherwise the block pull as before. Pulls and reels last at
+most 70 ticks.
+
+**Dash (X).** `ability/MoonKnightDash`: 1.5 blocks/tick along the flattened look for 5 ticks (server velocity re-sent
+each tick), then bled to 30%; no fall damage during it and for 1 s after.
+
+Tests: `MoonKnightAbilityGameTests` (layout, cape block, glide start / stop, glide kick, Shadow Step on Sneak+G, grapple
+kick, dash, the line to a block, reeling a mob), `MoonKnightGameTests` (regen / +7 / -20% on and off with the suit,
+auto suit-up and its grace), `MoonKnightPowerGameTests` (swap marks, per-alter visual sets).

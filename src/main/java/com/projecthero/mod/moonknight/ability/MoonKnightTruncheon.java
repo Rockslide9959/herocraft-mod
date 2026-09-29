@@ -29,7 +29,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Z -- the Truncheon / Staff (Moon Knight Phase 4).
+ * C -- the Truncheon / Staff (Moon Knight Phase 4; on Z before v0.13.21).
  * <ul>
  *   <li><b>TAP</b>: summon the Truncheon into the main hand (whatever was there moves into a free inventory slot first,
  *       and comes back to the hand when it is stowed; a full inventory refuses), or stow it. It only exists while
@@ -40,7 +40,7 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>HOLD</b>: extend it into the staff ({@code FLAG_STAFF}) and spin: {@link MoonKnightConfig#STAFF_SPIN_DAMAGE}
  *       x power to everything within {@link MoonKnightConfig#STAFF_SPIN_RADIUS} x power. Summons the truncheon first
  *       if it isn't out. Cooldown {@link MoonKnightConfig#STAFF_SPIN_COOLDOWN}.</li>
- *   <li><b>SNEAK+Z</b>: on the ground, a shockwave ({@link MoonKnightConfig#GROUND_SLAM_RADIUS} x power) that launches
+ *   <li><b>SNEAK+C</b>: on the ground, a shockwave ({@link MoonKnightConfig#GROUND_SLAM_RADIUS} x power) that launches
  *       mobs up; in the air, dive straight down and slam where you land -- damage grows with the height dived
  *       ({@link MoonKnightConfig#DIVE_SLAM_DAMAGE_PER_BLOCK} per block, max {@link MoonKnightConfig#DIVE_SLAM_MAX_DAMAGE},
  *       x power), with no fall damage. Cooldown {@link MoonKnightConfig#SLAM_COOLDOWN}.</li>

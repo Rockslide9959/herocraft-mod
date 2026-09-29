@@ -19,7 +19,9 @@ import net.minecraft.sounds.SoundSource;
  * (whatever armour they were wearing is stowed, and handed back exactly as it was when they press H again) and
  * materialises on the player <b>one pixel at a time</b> over the 1.5 s (the client draws a pixel-dissolve copy of the
  * suit texture matching the clock -- see {@code SuperheroArmorRenderer#getRenderType}), while white bandages spiral up
- * the body and the player can't be hurt. H again dissolves it away pixel by pixel before it is stripped.
+ * the body and the player can't be hurt. H again dissolves it away pixel by pixel before it is stripped -- also over
+ * 1.5 s since v0.13.21 ({@link MoonKnightConfig#UNTRANSFORM_TICKS}). v0.13.21 also lets a hard hit call the suit on
+ * its own ({@link #autoSuit}).
  */
 public final class MoonKnightTransform {
 	private static final DustParticleOptions BANDAGE = new DustParticleOptions(new org.joml.Vector3f(0.95f, 0.93f, 0.88f), 1.1f);
@@ -52,6 +54,12 @@ public final class MoonKnightTransform {
 			suitDown(player, true);
 			return;
 		}
+		begin(player);
+	}
+
+	/** Start the 1.5 s suit-up (the checks are the caller's). */
+	private static void begin(ServerPlayer player) {
+		long now = player.level().getGameTime();
 		// the suit goes on now, invisible -- the client reveals it pixel by pixel over the transformation clock
 		MoonKnightSuit.suitUp(player);
 		MoonKnightState c = MoonKnight.state(player).copy();
@@ -64,6 +72,37 @@ public final class MoonKnightTransform {
 				SoundSource.PLAYERS, 1.0f, 0.7f);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_POWER_SELECT,
 				SoundSource.PLAYERS, 0.6f, 1.6f);
+	}
+
+	/**
+	 * v0.13.21: does a hit this big, leaving him at this much health, call the suit on its own? A single hit of more
+	 * than {@link MoonKnightConfig#AUTO_SUIT_HIT} (5 hearts), or being left below {@link MoonKnightConfig#AUTO_SUIT_HEALTH}
+	 * (4 hearts). Either one is enough.
+	 */
+	public static boolean callsTheSuit(float hit, float healthAfter) {
+		return hit > MoonKnightConfig.AUTO_SUIT_HIT || healthAfter < MoonKnightConfig.AUTO_SUIT_HEALTH;
+	}
+
+	/**
+	 * v0.13.21: Khonshu will not let his fist fall -- a pact-holder out of the suit who is hit hard, or left badly
+	 * hurt ({@link #callsTheSuit}), starts suiting up on his own (the same 1.5 s, invulnerable while it forms).
+	 * Not while it is already coming or going, and not within {@link MoonKnightConfig#AUTO_SUIT_GRACE_TICKS} of
+	 * taking it off with H. Called after every hit the player survives; returns true if it started the suit-up.
+	 */
+	public static boolean autoSuit(ServerPlayer player, float hit) {
+		MoonKnightState s = MoonKnight.state(player);
+		if (!s.hasPact || s.transformed || !player.isAlive() || player.isSpectator() || inTransition(player)
+				|| !callsTheSuit(hit, player.getHealth())) {
+			return false;
+		}
+		long now = player.level().getGameTime();
+		if (now - s.transformStart < MoonKnightConfig.AUTO_SUIT_GRACE_TICKS) {
+			return false;
+		}
+		begin(player);
+		player.displayClientMessage(Component.translatable("message.projecthero.moon_knight.auto_suit")
+				.withStyle(ChatFormatting.WHITE, ChatFormatting.ITALIC), true);
+		return true;
 	}
 
 	/** Instantly on (tests / commands): skip the 1.5 s wrap. */

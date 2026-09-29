@@ -12,11 +12,11 @@ import net.minecraft.world.item.ArmorMaterial;
 
 /**
  * One piece of the Moon Knight suit, synthesised onto the wearer by {@code MoonKnightSuit} when they transform (H) --
- * never crafted, never dropped. Drawn from the user's own Blockbench model ({@code geo/moon_knight.geo.json} +
- * {@code textures/armor/moon_knight.png}, converted by {@code scratchpad/gen_moonknight.js}).
+ * never crafted, never dropped. Drawn from the user's own Blockbench models ({@code geo/moon_knight.geo.json} +
+ * {@code textures/armor/moon_knight_<alter>.png}, converted by {@code scratchpad/gen_moonknight_alters.js}).
  *
- * <p>Per-alter hook: while rendering, the set id resolves to {@code moon_knight_<alter>} if a visual set with that id
- * has been registered (a Mr. Knight texture for Steven, say); otherwise every alter shares {@code moon_knight}.
+ * <p>Per alter (v0.13.21): while rendering, the set id resolves to {@code moon_knight_<alter>} -- Marc's armour,
+ * Steven's Mr. Knight suit or Jake's -- so the suit always matches who is in control.
  */
 public class MoonKnightArmorItem extends SuperheroArmorItem {
 	public static final String SET_ID = "moon_knight";

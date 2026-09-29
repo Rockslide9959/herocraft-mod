@@ -13,8 +13,8 @@ import net.minecraft.server.level.ServerPlayer;
 /**
  * Shared helpers for every Moon Knight ability: the lunar power, cooldowns (divided by the lunar power), Vengeance
  * costs and feedback. Cooldown ids follow the HUD's convention: {@code <key id>} for the TAP, {@code <key id>_hold},
- * {@code <key id>_sneak}, where the key ids are {@code darts} (R), {@code grapple} (G), {@code truncheon} (Z),
- * {@code cape} (X), {@code alter} (C) and {@code khonshu} (V).
+ * {@code <key id>_sneak}, where the key ids are (v0.13.21) {@code darts} (R), {@code kick} (G), {@code dash} (X),
+ * {@code khonshu} (Z), {@code truncheon} (C) and {@code alter} (V). The Cape (glide, block) has no cooldown.
  */
 public final class MoonKnightAbilities {
 	private MoonKnightAbilities() {

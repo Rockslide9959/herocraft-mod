@@ -11,7 +11,7 @@ import net.minecraft.client.Minecraft;
 
 /**
  * v0.13.19: vanilla's creative-mode hotbar save / load activators (default C and X) share keys with Moon Knight's
- * Alters (C) and Cape (X). While a Moon Knight is transformed his keys take priority: the two activators read as
+ * Truncheon (C) and Dash (X) (v0.13.21; Alters and Cape before). While a Moon Knight is transformed his keys take priority: the two activators read as
  * "not held" in {@code handleKeybinds}, so pressing a number key never saves or loads a hotbar underneath an ability.
  * Every other time vanilla behaves exactly as before.
  */

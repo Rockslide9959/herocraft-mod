@@ -2,13 +2,19 @@ package com.projecthero.mod.gametest;
 
 import java.util.List;
 
+import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.moonknight.MoonKnight;
 import com.projecthero.mod.moonknight.MoonKnightAnim;
 import com.projecthero.mod.moonknight.MoonKnightConfig;
+import com.projecthero.mod.moonknight.MoonKnightDamage;
 import com.projecthero.mod.moonknight.ability.MoonKnightAbilities;
+import com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager;
+import com.projecthero.mod.moonknight.ability.MoonKnightAlters;
 import com.projecthero.mod.moonknight.ability.MoonKnightCape;
+import com.projecthero.mod.moonknight.ability.MoonKnightDash;
 import com.projecthero.mod.moonknight.ability.MoonKnightDarts;
 import com.projecthero.mod.moonknight.ability.MoonKnightGrapple;
+import com.projecthero.mod.moonknight.ability.MoonKnightKhonshu;
 import com.projecthero.mod.moonknight.ability.MoonKnightTruncheon;
 import com.projecthero.mod.moonknight.data.MoonKnightAction;
 import com.projecthero.mod.moonknight.entity.CrescentDartEntity;
@@ -33,7 +39,8 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Moon Knight Phases 3-4: R Crescent Darts, X Cape, G Grappling Line, Z Truncheon / Staff. Mock players are not
+ * Moon Knight Phases 3-4 (keys as of v0.13.21): R Crescent Darts, G Grapple Kick / Shadow Step, X Dash / Grappling
+ * Line, C Truncheon / Staff, and the Cape (jump + Sneak glide, right-click block). Mock players are not
  * reliably ticked, so each move's own tick is driven directly; mobs are NoAI husks (no daylight burning, no wandering),
  * and every test that hits mobs has its own batch so no neighbour's AoE can reach them. Numbers are asserted relative
  * to the live lunar power, since the test world's time of day isn't fixed.
@@ -120,44 +127,95 @@ public class MoonKnightAbilityGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	// ---------------------------------------------------------------- X
+	// ---------------------------------------------------------------- v0.13.21 key layout
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void keysFollowTheNewLayout(GameTestHelper helper) {
+		helper.assertTrue(MoonKnightAbilityManager.moveFor(AbilitySlot.SLOT_1) == MoonKnightDarts.INSTANCE, "R = Crescent Darts");
+		helper.assertTrue(MoonKnightAbilityManager.moveFor(AbilitySlot.SLOT_2) == MoonKnightGrapple.INSTANCE, "G = Grapple Kick");
+		helper.assertTrue(MoonKnightAbilityManager.moveFor(AbilitySlot.SLOT_3) == MoonKnightDash.INSTANCE, "X = Dash");
+		helper.assertTrue(MoonKnightAbilityManager.moveFor(AbilitySlot.SLOT_4) == MoonKnightKhonshu.INSTANCE, "Z = Khonshu (Moonbeam)");
+		helper.assertTrue(MoonKnightAbilityManager.moveFor(AbilitySlot.SLOT_5) == MoonKnightAlters.INSTANCE, "V = Alters");
+		helper.assertTrue(MoonKnightAbilityManager.moveFor(AbilitySlot.SLOT_6) == MoonKnightTruncheon.INSTANCE, "C = Truncheon");
+		helper.assertTrue(MoonKnightDash.INSTANCE.firesOnPress() && MoonKnightGrapple.INSTANCE.firesOnPress(),
+				"X and G have no hold move, so they fire on the press");
+		helper.assertFalse(MoonKnightAlters.INSTANCE.firesOnPress() || MoonKnightKhonshu.INSTANCE.firesOnPress(),
+				"V and Z still wait for a hold");
+		helper.assertTrue(MoonKnightConfig.DART_DAMAGE == 15.0f && MoonKnightConfig.DART_COOLDOWN == 20,
+				"the dart: 15 damage, 1 s cooldown (base, before the moon)");
+		helper.assertTrue(MoonKnightConfig.GRAPPLE_RANGE == 60.0, "the grappling line reaches 60 blocks");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- the Cape (no key since v0.13.21)
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = "mk_shroud")
-	public void shroudReducesProjectileDamage(GameTestHelper helper) {
+	public void capeBlockCutsDamageWithNoTimeLimit(GameTestHelper helper) {
 		ServerPlayer p = knight(helper, new Vec3(2.5, 2.0, 2.5), 0.0f);
 		clearSpawnInvulnerability(p);
 		Arrow shot = new Arrow(p.level(), p.getX(), p.getY() + 4.0, p.getZ(), new ItemStack(Items.ARROW), null);
 		DamageSource arrow = p.damageSources().arrow(shot, null);
+		helper.assertTrue(Math.abs(MoonKnightDamage.incomingFactor(p, arrow) - MoonKnightConfig.SUIT_DAMAGE_TAKEN) < 1.0e-4f,
+				"the suit alone takes 20% off");
 		p.hurt(arrow, 8.0f);
 		float open = p.getMaxHealth() - p.getHealth();
 		p.setHealth(p.getMaxHealth());
 		p.invulnerableTime = 0;
 
-		MoonKnightCape.INSTANCE.holdStart(p);
-		helper.assertTrue(MoonKnightCape.isShrouded(p), "holding X wraps the cape (FLAG_SHROUD)");
-		helper.assertTrue(Math.abs(MoonKnightCape.incomingFactor(p, arrow) - MoonKnightConfig.SHROUD_PROJECTILE_FACTOR) < 1.0e-4f,
-				"projectiles do 40%");
+		helper.assertTrue(MoonKnightCape.canBlock(p), "an empty main hand can raise the cape");
+		MoonKnightCape.startBlock(p);
+		helper.assertTrue(MoonKnightCape.isBlocking(p), "holding right click raises the cape (FLAG_CAPE_BLOCK)");
+		helper.assertTrue(Math.abs(MoonKnightCape.incomingFactor(p, arrow) - MoonKnightConfig.CAPE_BLOCK_FACTOR) < 1.0e-4f,
+				"every hit does 70%");
+		helper.assertTrue(Math.abs(MoonKnightDamage.incomingFactor(p, arrow)
+				- MoonKnightConfig.SUIT_DAMAGE_TAKEN * MoonKnightConfig.CAPE_BLOCK_FACTOR) < 1.0e-4f, "on top of the suit's 20%");
 		p.hurt(arrow, 8.0f);
-		float shrouded = p.getMaxHealth() - p.getHealth();
-		helper.assertTrue(open > 0.0f && shrouded < open * 0.6f,
-				"the shrouded arrow hurts much less (" + shrouded + " vs " + open + ")");
-		MoonKnightCape.INSTANCE.holdRelease(p, 20);
-		helper.assertFalse(MoonKnightCape.isShrouded(p), "letting go unwraps it");
-		helper.assertTrue(MoonKnight.cooldownRemaining(p, "cape_hold") > 0, "and starts the shroud cooldown");
+		float blocked = p.getMaxHealth() - p.getHealth();
+		helper.assertTrue(open > 0.0f && blocked < open * 0.8f,
+				"the blocked arrow hurts less (" + blocked + " vs " + open + ")");
+		for (int i = 0; i < 400; i++) {
+			MoonKnightCape.INSTANCE.tick(p);
+		}
+		helper.assertTrue(MoonKnightCape.isBlocking(p), "no time limit: still up 20 s later");
+		MoonKnightCape.stopBlock(p);
+		helper.assertFalse(MoonKnightCape.isBlocking(p), "letting go lowers it");
+		p.getInventory().items.set(p.getInventory().selected, new ItemStack(Items.DIRT));
+		helper.assertFalse(MoonKnightCape.canBlock(p), "not with a block in the hand (right click keeps its vanilla use)");
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, batch = "mk_shadow_step")
-	public void shadowStepMovesBackAndHides(GameTestHelper helper) {
-		ServerPlayer p = knight(helper, new Vec3(3.5, 2.0, 7.5), 0.0f); // facing +Z, so "back" is -Z inside the plot
-		double z0 = p.getZ();
-		MoonKnightCape.INSTANCE.sneak(p);
-		double moved = z0 - p.getZ();
-		double min = MoonKnightConfig.SHADOW_STEP_DISTANCE * MoonKnightConfig.LUNAR_MIN - 0.3;
-		helper.assertTrue(moved >= min, "Shadow Step blinks straight back (" + moved + " blocks)");
-		helper.assertTrue(Math.abs(p.getX() - helper.absoluteVec(new Vec3(3.5, 2.0, 7.5)).x) < 0.01, "and only back");
-		helper.assertTrue(p.hasEffect(MobEffects.INVISIBILITY), "cloaked in shadow (invisibility)");
-		helper.assertTrue(MoonKnight.cooldownRemaining(p, "cape_sneak") > 0, "cooldown started");
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void glideIsJumpThenHoldSneak(GameTestHelper helper) {
+		ServerPlayer p = knight(helper, new Vec3(2.5, 3.0, 2.5), 0.0f);
+		p.setOnGround(true);
+		p.setShiftKeyDown(true);
+		for (int i = 0; i < 5; i++) {
+			MoonKnightCape.tickGlide(p);
+		}
+		helper.assertFalse(MoonKnightCape.isGliding(p), "sneaking on the ground is just sneaking");
+		p.setOnGround(false);
+		MoonKnightCape.tickGlide(p);
+		helper.assertFalse(MoonKnightCape.isGliding(p), "not the instant he leaves the ground");
+		for (int i = 0; i < MoonKnightConfig.GLIDE_MIN_AIR_TICKS; i++) {
+			MoonKnightCape.tickGlide(p);
+		}
+		helper.assertTrue(MoonKnightCape.isGliding(p), "airborne with Sneak held: the cape glide starts");
+		p.setShiftKeyDown(false);
+		MoonKnightCape.tickGlide(p);
+		helper.assertFalse(MoonKnightCape.isGliding(p), "letting go of Sneak ends it");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "mk_glide_kick")
+	public void glidingIntoAMobKicksIt(GameTestHelper helper) {
+		ServerPlayer p = knight(helper, new Vec3(2.5, 2.0, 2.5), 0.0f); // facing +Z
+		Husk h = husk(helper, p.position().add(0, 0, 1.0));
+		MoonKnightCape.startGlide(p);
+		helper.assertTrue(MoonKnightCape.glideKick(p) == 1, "the gliding body kicks the husk in its path");
+		helper.assertTrue(h.getHealth() < h.getMaxHealth(), "and hurts it");
+		helper.assertTrue(MoonKnightAnim.action(p).animId == MoonKnightAnim.GLIDE_KICK, "with the kick pose");
+		helper.assertTrue(MoonKnightCape.glideKick(p) == 0, "one kick at a time");
+		helper.assertTrue(MoonKnightConfig.GLIDE_KICK_DAMAGE == 12.0f, "12 damage (base)");
 		helper.succeed();
 	}
 
@@ -172,10 +230,55 @@ public class MoonKnightAbilityGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	// ---------------------------------------------------------------- G
+	// ---------------------------------------------------------------- G: Grapple Kick / Shadow Step
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "mk_shadow_step")
+	public void shadowStepMovesBackAndHides(GameTestHelper helper) {
+		ServerPlayer p = knight(helper, new Vec3(3.5, 2.0, 7.5), 0.0f); // facing +Z, so "back" is -Z inside the plot
+		double z0 = p.getZ();
+		MoonKnightGrapple.INSTANCE.sneak(p);
+		double moved = z0 - p.getZ();
+		double min = MoonKnightConfig.SHADOW_STEP_DISTANCE * MoonKnightConfig.LUNAR_MIN - 0.3;
+		helper.assertTrue(moved >= min, "Sneak+G Shadow Step blinks straight back (" + moved + " blocks)");
+		helper.assertTrue(Math.abs(p.getX() - helper.absoluteVec(new Vec3(3.5, 2.0, 7.5)).x) < 0.01, "and only back");
+		helper.assertTrue(p.hasEffect(MobEffects.INVISIBILITY), "cloaked in shadow (invisibility)");
+		helper.assertTrue(MoonKnight.cooldownRemaining(p, "kick_sneak") > 0, "cooldown started");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "mk_kick")
+	public void grappleKickPullsInFeetFirst(GameTestHelper helper) {
+		ServerPlayer p = knight(helper, new Vec3(2.5, 2.0, 1.5), 0.0f);
+		Husk h = husk(helper, p.position().add(0, 0, 6));
+		lookAt(p, h);
+		MoonKnightGrapple.INSTANCE.tap(p);
+		helper.assertTrue(MoonKnightGrapple.isPulling(p), "G fires the line into the husk and pulls him in");
+		helper.assertTrue(MoonKnightAnim.flag(p, MoonKnightAction.FLAG_DIVING), "feet first (FLAG_DIVING)");
+		helper.assertTrue(MoonKnightAnim.action(p).lineTargetId == h.getId(), "the rope is drawn to it");
+		helper.assertTrue(MoonKnight.cooldownRemaining(p, "kick") > 0, "cooldown started");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- X: Dash / Grappling Line
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40, batch = "mk_dash")
+	public void dashBurstsAlongTheLook(GameTestHelper helper) {
+		ServerPlayer p = knight(helper, new Vec3(2.5, 2.0, 1.5), 0.0f); // facing +Z
+		MoonKnightDash.INSTANCE.tap(p);
+		helper.assertTrue(MoonKnightDash.isDashing(p), "X dashes");
+		helper.assertTrue(p.getDeltaMovement().z > MoonKnightConfig.DASH_SPEED * 0.9 && Math.abs(p.getDeltaMovement().x) < 0.05,
+				"hard along the look, flat (" + p.getDeltaMovement() + ")");
+		helper.assertTrue(MoonKnight.cooldownRemaining(p, "dash") > 0, "cooldown started");
+		helper.assertTrue(MoonKnightAnim.action(p).animId == MoonKnightAnim.DASH, "DASH pose");
+		helper.onEachTick(() -> MoonKnightDash.INSTANCE.tick(p));
+		helper.runAfterDelay(MoonKnightConfig.DASH_TICKS + 3, () -> {
+			helper.assertFalse(MoonKnightDash.isDashing(p), "and it ends after a moment");
+			helper.succeed();
+		});
+	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40, batch = "mk_grapple")
-	public void grappleTapPullsTowardABlock(GameTestHelper helper) {
+	public void grapplingLinePullsTowardABlock(GameTestHelper helper) {
 		ServerPlayer p = knight(helper, new Vec3(2.5, 2.0, 1.5), 0.0f);
 		for (int x = 0; x < 6; x++) {
 			for (int y = 1; y < 6; y++) {
@@ -183,11 +286,11 @@ public class MoonKnightAbilityGameTests implements FabricGameTest {
 			}
 		}
 		p.lookAt(EntityAnchorArgument.Anchor.EYES, helper.absoluteVec(new Vec3(2.5, 3.5, 7.0)));
-		MoonKnightGrapple.INSTANCE.tap(p);
+		MoonKnightDash.INSTANCE.sneak(p);
 		MoonKnightAction a = MoonKnightAnim.action(p);
-		helper.assertTrue(a.lineStart >= 0 && a.lineTargetId < 0, "the line is fastened to the wall (synced for the rope)");
+		helper.assertTrue(a.lineStart >= 0 && a.lineTargetId < 0, "Sneak+X fastens the line to the wall (synced for the rope)");
 		helper.assertTrue(MoonKnightGrapple.isPulling(p), "and starts pulling");
-		helper.assertTrue(MoonKnight.cooldownRemaining(p, "grapple") > 0, "cooldown started");
+		helper.assertTrue(MoonKnight.cooldownRemaining(p, "dash_sneak") > 0, "cooldown started");
 		helper.onEachTick(() -> MoonKnightGrapple.INSTANCE.tick(p));
 		helper.runAfterDelay(MoonKnightConfig.GRAPPLE_LINE_TRAVEL_TICKS + 2, () -> {
 			helper.assertTrue(p.getDeltaMovement().z > 0.5, "pulled hard toward the wall (" + p.getDeltaMovement() + ")");
@@ -195,22 +298,27 @@ public class MoonKnightAbilityGameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, batch = "mk_yank")
-	public void yankPullsAndSlows(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40, batch = "mk_yank")
+	public void grapplingLineReelsAMobIn(GameTestHelper helper) {
 		ServerPlayer p = knight(helper, new Vec3(2.5, 2.0, 1.5), 0.0f);
 		Husk h = husk(helper, p.position().add(0, 0, 6));
 		lookAt(p, h);
-		MoonKnightGrapple.INSTANCE.sneak(p);
-		helper.assertTrue(h.getDeltaMovement().z < -0.3, "the husk is yanked toward him (" + h.getDeltaMovement() + ")");
+		MoonKnightGrapple.fireLine(p);
+		helper.assertTrue(MoonKnightGrapple.isReeling(p), "Sneak+X at a mob reels it in");
+		helper.assertFalse(MoonKnightGrapple.isPulling(p), "(it comes to him, not the other way round)");
 		helper.assertTrue(h.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)
 				&& h.getEffect(MobEffects.MOVEMENT_SLOWDOWN).getAmplifier() == MoonKnightConfig.YANK_SLOW_AMPLIFIER,
-				"and stunned with Slowness IV");
+				"held with Slowness IV while it is dragged");
 		helper.assertTrue(MoonKnightAnim.action(p).lineTargetId == h.getId(), "the rope is drawn to it");
-		helper.assertTrue(MoonKnight.cooldownRemaining(p, "grapple_sneak") > 0, "cooldown started");
-		helper.succeed();
+		helper.assertTrue(MoonKnight.cooldownRemaining(p, "dash_sneak") > 0, "cooldown started");
+		helper.onEachTick(() -> MoonKnightGrapple.INSTANCE.tick(p));
+		helper.runAfterDelay(MoonKnightConfig.GRAPPLE_LINE_TRAVEL_TICKS + 2, () -> {
+			helper.assertTrue(h.getDeltaMovement().z < -0.3, "the husk is dragged toward him (" + h.getDeltaMovement() + ")");
+			helper.succeed();
+		});
 	}
 
-	// ---------------------------------------------------------------- Z
+	// ---------------------------------------------------------------- C
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = "mk_truncheon")
 	public void truncheonSummonAndStowKeepsItems(GameTestHelper helper) {
@@ -218,11 +326,11 @@ public class MoonKnightAbilityGameTests implements FabricGameTest {
 		p.getInventory().selected = 0;
 		p.getInventory().items.set(0, new ItemStack(Items.DIAMOND, 7));
 		MoonKnightTruncheon.INSTANCE.tap(p);
-		helper.assertTrue(MoonKnightTruncheon.isTruncheon(p.getMainHandItem()), "Z puts the truncheon in the hand");
+		helper.assertTrue(MoonKnightTruncheon.isTruncheon(p.getMainHandItem()), "C puts the truncheon in the hand");
 		helper.assertTrue(MoonKnightAnim.flag(p, MoonKnightAction.FLAG_TRUNCHEON), "FLAG_TRUNCHEON is on");
 		helper.assertTrue(p.getInventory().countItem(Items.DIAMOND) == 7, "the held diamonds moved into the inventory, not deleted");
 		MoonKnightTruncheon.INSTANCE.tap(p);
-		helper.assertFalse(MoonKnightTruncheon.isTruncheon(p.getMainHandItem()), "Z again stows it");
+		helper.assertFalse(MoonKnightTruncheon.isTruncheon(p.getMainHandItem()), "C again stows it");
 		helper.assertFalse(MoonKnightAnim.flag(p, MoonKnightAction.FLAG_TRUNCHEON), "flag off");
 		helper.assertTrue(p.getMainHandItem().is(Items.DIAMOND) && p.getMainHandItem().getCount() == 7,
 				"and the diamonds come back to the hand");
