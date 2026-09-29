@@ -140,6 +140,8 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			com.projecthero.mod.client.moonknight.MoonKnightPose.apply(player, (HumanoidModel<?>) (Object) this);
 			// v0.13.22: experimental mutation move animations
 			com.projecthero.mod.client.mutation.MutationPose.apply(player, (HumanoidModel<?>) (Object) this);
+			// v0.14.2: Max Steel armour up / power down / mode swap / Turbo Blast / Turbo Cannon
+			com.projecthero.mod.client.maxsteel.MaxSteelPose.apply(player, (HumanoidModel<?>) (Object) this);
 		}
 	}
 

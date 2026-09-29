@@ -165,8 +165,9 @@ public final class MaxSteel {
 	public static void clearTransient(ServerPlayer player) {
 		MaxSteelModes.clearAll(player);
 		MaxSteelSuitArmor.strip(player);
-		MaxSteelCannon.endFlight(player);
+		MaxSteelCannon.cancel(player);
 		MaxSteelAbilityManager.onCleanup(player.getUUID());
+		MaxSteelVisuals.clear(player);
 		player.setAttached(ModAttachments.MAX_STEEL_FACEPLATE_OPEN, false);
 		MaxSteelState s = state(player);
 		if (!s.transformed && s.mode == MaxSteelMode.BASE.ordinal() && s.transformDir == MaxSteelState.DIR_IDLE

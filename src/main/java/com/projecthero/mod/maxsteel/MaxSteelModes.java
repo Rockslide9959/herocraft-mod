@@ -55,12 +55,14 @@ public final class MaxSteelModes {
 		}
 
 		// end whatever was running
+		MaxSteelMode was = s.modeEnum();
 		clearModeEffects(player);
 
 		MaxSteelState c = MaxSteel.state(player).copy();
 		c.mode = mode.ordinal();
 		c.modeEndsAt = 0L; // v0.6.20: no hard duration -- energy drain is the only clock
 		MaxSteel.save(player, c);
+		MaxSteelVisuals.swap(player, was); // v0.14.2: the new form rematerialises over the old one
 
 		MaxSteelAttributes.reconcile(player);
 		switch (mode) {
@@ -83,6 +85,9 @@ public final class MaxSteelModes {
 		c.modeEndsAt = 0L;
 		MaxSteel.save(player, c);
 		MaxSteelAttributes.reconcile(player);
+		if (was != MaxSteelMode.BASE) {
+			MaxSteelVisuals.swap(player, was);
+		}
 		if (flourish && was != MaxSteelMode.BASE) {
 			reconfigureFx(player, MaxSteelMode.BASE);
 		}
@@ -90,6 +95,7 @@ public final class MaxSteelModes {
 
 	/** Energy ran out mid-mode: hard drop to Base + a 4s lock-out + a harmless overload flourish. */
 	public static void overload(ServerPlayer player) {
+		MaxSteelMode was = MaxSteel.mode(player);
 		clearModeEffects(player);
 		MaxSteelState c = MaxSteel.state(player).copy();
 		c.mode = MaxSteelMode.BASE.ordinal();
@@ -97,6 +103,9 @@ public final class MaxSteelModes {
 		MaxSteel.save(player, c);
 		MaxSteelEnergy.triggerOverloadLockout(player);
 		MaxSteelAttributes.reconcile(player);
+		if (was != MaxSteelMode.BASE) {
+			MaxSteelVisuals.swap(player, was);
+		}
 
 		ServerLevel level = player.serverLevel();
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1.0, player.getZ(),
@@ -119,7 +128,7 @@ public final class MaxSteelModes {
 		MaxSteelFlight.forceStop(player, false);
 		MaxSteelStealth.forceStop(player);
 		MaxSteelSpeed.forceStop(player);
-		MaxSteelCannon.endFlight(player);
+		MaxSteelCannon.cancel(player);
 	}
 
 	private static void reconfigureFx(ServerPlayer player, MaxSteelMode mode) {

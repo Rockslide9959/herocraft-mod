@@ -29,6 +29,11 @@ import net.minecraft.world.phys.Vec3;
  * this class resolves the hit; a modified client cannot claim the kill.
  */
 public class TurboBoltEntity extends AbstractHurtingProjectile {
+	/** v0.14.2: synced so the client model can size / colour itself to the charge. */
+	private static final net.minecraft.network.syncher.EntityDataAccessor<Float> CHARGE_DATA =
+			net.minecraft.network.syncher.SynchedEntityData.defineId(TurboBoltEntity.class,
+					net.minecraft.network.syncher.EntityDataSerializers.FLOAT);
+
 	private int life;
 	private float damage = MaxSteelConfig.BLAST_DAMAGE;
 	private float charge; // 0..1
@@ -49,7 +54,19 @@ public class TurboBoltEntity extends AbstractHurtingProjectile {
 		this.damage = damage;
 		this.charge = Math.max(0f, Math.min(1f, charge));
 		this.knockback = 0.35f + 0.4f * this.charge;
+		this.entityData.set(CHARGE_DATA, this.charge);
 		return this;
+	}
+
+	@Override
+	protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {
+		super.defineSynchedData(builder);
+		builder.define(CHARGE_DATA, 0.0f);
+	}
+
+	/** 0..1, on both sides (the client model scales with it). */
+	public float charge() {
+		return this.entityData.get(CHARGE_DATA);
 	}
 
 	@Override
@@ -80,8 +97,10 @@ public class TurboBoltEntity extends AbstractHurtingProjectile {
 		}
 		super.tick();
 		if (level().isClientSide()) {
-			level().addParticle(ParticleTypes.END_ROD, getX(), getY(), getZ(), 0, 0, 0);
-			level().addParticle(ParticleTypes.SOUL_FIRE_FLAME, getX(), getY(), getZ(), 0, 0, 0);
+			// v0.14.2: the bolt has a real model now (TurboBoltRenderer); the particles are just its wake
+			if (this.tickCount % 2 == 0) {
+				level().addParticle(ParticleTypes.END_ROD, getX(), getY(), getZ(), 0, 0, 0);
+			}
 			return;
 		}
 		if (++life > MaxSteelConfig.BLAST_PROJECTILE_LIFE_TICKS) {
@@ -89,10 +108,8 @@ public class TurboBoltEntity extends AbstractHurtingProjectile {
 			return;
 		}
 		ServerLevel level = (ServerLevel) level();
-		float spread = 0.1f + 0.12f * charge;
-		level.sendParticles(ParticleTypes.END_ROD, getX(), getY(), getZ(), 2 + (int) (charge * 3),
-				spread, spread, spread, 0.0);
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, getX(), getY(), getZ(), 3 + (int) (charge * 4),
+		float spread = 0.06f + 0.1f * charge;
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, getX(), getY(), getZ(), 1 + (int) (charge * 4),
 				spread, spread, spread, 0.02);
 	}
 
@@ -172,6 +189,7 @@ public class TurboBoltEntity extends AbstractHurtingProjectile {
 			damage = tag.getFloat("Damage");
 		}
 		charge = tag.getFloat("Charge");
+		this.entityData.set(CHARGE_DATA, charge);
 		knockback = tag.contains("Knockback") ? tag.getFloat("Knockback") : 0.35f;
 		life = tag.getInt("Life");
 	}

@@ -425,6 +425,9 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.max_steel.energy");
 			para(lines, "projecthero.guide.max_steel.energy.body");
 			blank(lines);
+			head(lines, "projecthero.guide.max_steel.suit");
+			para(lines, "projecthero.guide.max_steel.suit.body");
+			blank(lines);
 			head(lines, "projecthero.guide.max_steel.controls");
 			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {
 				String key = switch (slot) {
@@ -435,6 +438,9 @@ public final class HeroPackGuide {
 						.append(Component.translatable("projecthero.max_steel.ability." + key).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.guide.max_steel.ability." + key);
 			}
+			blank(lines);
+			head(lines, "projecthero.guide.max_steel.hud");
+			para(lines, "projecthero.guide.max_steel.hud.body");
 			blank(lines);
 			head(lines, "projecthero.guide.max_steel.passives");
 			para(lines, "projecthero.guide.max_steel.passives.body");

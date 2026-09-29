@@ -16,11 +16,11 @@ import net.minecraft.resources.ResourceLocation;
  */
 public record MaxSteelActionPayload(Action action) implements CustomPacketPayload {
 	public enum Action {
-		/** Dedicated key (default N): Go Turbo. v0.6.17 -- no longer powers down (that is Shift+H). */
+		/** v0.14.2: the H key -- Go Turbo when unsuited, power down when suited (refused in combat). */
 		TRANSFORM_TOGGLE,
-		/** H key while transformed (no shift): retract / seal the helmet. */
+		/** Shift + H while transformed (v0.14.2; was plain H): retract / seal the helmet. */
 		TOGGLE_HELMET,
-		/** Shift + H while transformed: power down (v0.6.17). Refused in combat. */
+		/** Kept for the wire format (ordinal 2); power down now goes through {@link #TRANSFORM_TOGGLE}. */
 		POWER_DOWN
 	}
 

@@ -15,9 +15,10 @@ import net.minecraft.server.level.ServerPlayer;
  * is true -- the player has the power and has not deliberately selected an experimental mutation.
  * Sits after Thor, Iron Man and Spider-Man in the router priority.
  *
- * <p>Slot mapping (the mod's existing Ability 1-6 keys, in spec order):
+ * <p>Slot mapping (the mod's existing Ability 1-6 keys, in spec order). v0.14.2: H is the only key that transforms
+ * and powers down ({@link MaxSteelTransform#toggle}); every ability key used while unsuited just says so.
  * <pre>
- *   R (slot 1)  Turbo Blast / transform     G (slot 2)  Turbo Strength
+ *   R (slot 1)  Turbo Blast                 G (slot 2)  Turbo Strength
  *   X (slot 3)  Turbo Speed                 Z (slot 4)  Turbo Flight
  *   V (slot 5)  Turbo Stealth               C (slot 6)  Turbo Cannon
  * </pre>
@@ -100,13 +101,13 @@ public final class MaxSteelAbilityManager {
 	}
 
 	/**
-	 * Run {@code action} if suited; if unsuited, armour up straight into {@code mode} (v0.6.17) so the
-	 * key does what it says instead of just standing the player up in Base.
+	 * Run {@code action} if suited. v0.14.2: unsuited, the key no longer armours up on its own (only H transforms) --
+	 * it just tells the pilot to press H.
 	 */
 	private static void requireSuit(ServerPlayer player, MaxSteelMode mode, Runnable action) {
 		MaxSteelState s = MaxSteel.state(player);
 		if (!s.transformed && !MaxSteelTransform.isAnimating(s)) {
-			MaxSteelTransform.beginSuitUpIntoMode(player, mode);
+			pressHHint(player);
 			return;
 		}
 		if (s.transformDir != MaxSteelState.DIR_IDLE) {
@@ -115,36 +116,67 @@ public final class MaxSteelAbilityManager {
 		action.run();
 	}
 
-	// ---------------- Ability 1 (R): transform / suit-down / Turbo Blast ----------------
+	/** v0.14.2: an ability key pressed while unsuited -- only H transforms now. */
+	private static void pressHHint(ServerPlayer player) {
+		player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.max_steel.press_h")
+				.withStyle(net.minecraft.ChatFormatting.AQUA), true);
+	}
+
+	// ---------------- Ability 1 (R): Turbo Blast (tap / hold to charge) ----------------
 
 	private static void handleAbilityOne(ServerPlayer player, boolean pressed) {
 		long now = player.level().getGameTime();
+		MaxSteelState s = MaxSteel.state(player);
 		if (pressed) {
+			if (!s.transformed && !MaxSteelTransform.isAnimating(s)) {
+				pressHHint(player);
+				return;
+			}
+			if (s.transformDir != MaxSteelState.DIR_IDLE) {
+				return;
+			}
 			ABILITY1_PRESSED.put(player.getUUID(), now);
+			// the orb only starts forming in the hand for a shot that can actually go off
+			if (MaxSteel.abilityReady(player, MaxSteelBlast.ABILITY) && MaxSteelEnergy.get(player) >= MaxSteelConfig.BLAST_COST) {
+				MaxSteelVisuals.blastCharge(player, now);
+			}
 			return;
 		}
 		Long since = ABILITY1_PRESSED.remove(player.getUUID());
-		if (since == null) {
+		MaxSteelVisuals.blastCharge(player, 0L);
+		if (since == null || !s.transformed || s.transformDir != MaxSteelState.DIR_IDLE) {
 			return;
 		}
 		long held = now - since;
-		MaxSteelState s = MaxSteel.state(player);
-
-		if (!s.transformed && !MaxSteelTransform.isAnimating(s)) {
-			MaxSteelTransform.beginSuitUp(player, false);
-			return;
-		}
-		if (s.transformDir != MaxSteelState.DIR_IDLE) {
-			return;
-		}
-
-		// v0.6.21: holding Ability 1 no longer suits the player down -- that gesture fought with the
-		// charged Turbo Blast and surprised players mid-fight. Power down is Shift+H / the N key only.
-		if (held < 7) {
+		if (held < MaxSteelConfig.BLAST_TAP_TICKS) {
 			MaxSteelBlast.tap(player);
 		} else {
 			float frac = Math.min(1f, (float) held / MaxSteelConfig.BLAST_MAX_CHARGE_TICKS);
 			MaxSteelBlast.charged(player, frac);
+		}
+	}
+
+	/** v0.14.2: the charge-stage cues while R is held -- a rising chime at each third, a surge at full. */
+	private static void tickBlastCharge(ServerPlayer player) {
+		Long since = ABILITY1_PRESSED.get(player.getUUID());
+		if (since == null || MaxSteelVisuals.get(player).blastChargeStart() == 0L) {
+			return;
+		}
+		long held = player.level().getGameTime() - since;
+		for (int i = 0; i < MaxSteelConfig.BLAST_STAGES.length; i++) {
+			if (held == Math.round(MaxSteelConfig.BLAST_STAGES[i] * MaxSteelConfig.BLAST_MAX_CHARGE_TICKS)) {
+				boolean full = i == MaxSteelConfig.BLAST_STAGES.length - 1;
+				com.projecthero.mod.hero.power.AbilityHelpers.sound(player, full
+						? net.minecraft.sounds.SoundEvents.BEACON_ACTIVATE : net.minecraft.sounds.SoundEvents.AMETHYST_BLOCK_CHIME,
+						full ? 0.6f : 0.9f, full ? 2.0f : 1.2f + 0.3f * i);
+				net.minecraft.world.phys.Vec3 hand = com.projecthero.mod.hero.power.AbilityHelpers.handPosition(player);
+				for (ServerPlayer viewer : player.serverLevel().players()) {
+					if (viewer != player && viewer.distanceToSqr(player) < 64 * 64) { // not in the pilot's own face
+						player.serverLevel().sendParticles(viewer, net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK,
+								false, hand.x, hand.y, hand.z, 6 + 6 * i, 0.15, 0.15, 0.15, 0.08);
+					}
+				}
+			}
 		}
 	}
 
@@ -154,7 +186,7 @@ public final class MaxSteelAbilityManager {
 		MaxSteelState s = MaxSteel.state(player);
 		if (!s.transformed && !MaxSteelTransform.isAnimating(s)) {
 			if (pressed) {
-				MaxSteelTransform.beginSuitUp(player, false);
+				pressHHint(player);
 			}
 			return;
 		}
@@ -186,6 +218,7 @@ public final class MaxSteelAbilityManager {
 		MaxSteelState s = MaxSteel.state(player);
 		if (!s.transformed) {
 			ABILITY6_PRESSED.remove(player.getUUID());
+			ABILITY1_PRESSED.remove(player.getUUID());
 			return;
 		}
 		MaxSteelSuitArmor.reequipMissing(player);
@@ -193,6 +226,7 @@ public final class MaxSteelAbilityManager {
 		MaxSteelModeRuntime.tick(player);
 		MaxSteelStealth.tick(player);
 		MaxSteelCannon.tick(player);
+		tickBlastCharge(player);
 		boolean modeDraining = s.modeEnum().isSpecialised();
 		MaxSteelEnergy.tickRegen(player, modeDraining, MaxSteelCannon.isCharging(player));
 		if (player.tickCount % 40 == 0) {

@@ -20,14 +20,11 @@ import net.minecraft.world.phys.Vec3;
  * </ul>
  */
 public final class MaxSteelFlightFxClient {
-	private static int chargeTicks;
-
 	private MaxSteelFlightFxClient() {
 	}
 
 	public static void clientTick(Minecraft client) {
 		if (client.level == null || client.player == null) {
-			chargeTicks = 0;
 			return;
 		}
 		float pt = client.getTimer().getGameTimeDeltaPartialTick(false);
@@ -58,7 +55,7 @@ public final class MaxSteelFlightFxClient {
 		Vec3 fwd = Vec3.directionFromRotation(0.0f, bodyYaw);
 		Vec3 feet = new Vec3(x, y + 0.1, z);
 		// The wings mount near the neck, spread ~0.95 to each side and swept a little back and down
-		// in the glide pose held by MaxSteelWingsModel.
+		// on the Turbo Flight form's own wings (v0.14.2; was the tinted-elytra layer).
 		Vec3 wingRoot = new Vec3(x, y + player.getBbHeight() * 0.72, z).add(fwd.scale(-0.15));
 		Vec3 leftTip = wingRoot.add(right.scale(-0.95)).add(0.0, -0.15, 0.0);
 		Vec3 rightTip = wingRoot.add(right.scale(0.95)).add(0.0, -0.15, 0.0);
@@ -84,45 +81,39 @@ public final class MaxSteelFlightFxClient {
 		}
 	}
 
+	/**
+	 * v0.14.2: sparks drawn in to the fist while any Max Steel in view charges a Turbo Blast -- read off the synced
+	 * {@code MaxSteelFx} charge clock (not the local key), so everyone sees it. The orb itself is a model now
+	 * ({@code MaxSteelGearLayer}); these are just the energy being pulled into it.
+	 */
 	private static void tickBlastCharge(Minecraft client, float pt) {
-		Player player = client.player;
-		boolean holding = com.projecthero.mod.client.ModKeyBindings.ABILITY_1.isDown()
-				&& MaxSteel.isTransformed(player) && client.screen == null;
-		if (!holding) {
-			chargeTicks = 0;
-			return;
-		}
-		chargeTicks = Math.min(chargeTicks + 1, 40);
-		if (chargeTicks < 4) {
-			return; // let the hold-to-power-down / tap gestures happen without FX noise
-		}
-		float frac = Math.min(1.0f, chargeTicks / 30.0f);
-
-		Vec3 look = player.getViewVector(pt);
-		Vec3 side = new Vec3(-look.z, 0, look.x);
-		if (side.lengthSqr() > 1.0E-4) {
-			side = side.normalize().scale(0.32);
-		}
-		Vec3 hand = player.getEyePosition().add(look.scale(0.7)).add(side).subtract(0, 0.25, 0);
-
-		int count = 2 + Math.round(frac * 6);
 		var rand = client.level.random;
-		for (int i = 0; i < count; i++) {
-			double r = 0.7 + rand.nextDouble() * 0.9 * (1.0 - frac * 0.4);
-			double a = rand.nextDouble() * Math.PI * 2;
-			double e = (rand.nextDouble() - 0.5) * 1.4;
-			double px = hand.x + Math.cos(a) * r;
-			double py = hand.y + e;
-			double pz = hand.z + Math.sin(a) * r;
-			// velocity points back at the hand -- particles collect
-			Vec3 pull = hand.subtract(new Vec3(px, py, pz)).scale(0.35);
-			client.level.addParticle(ParticleTypes.ELECTRIC_SPARK, px, py, pz, pull.x, pull.y, pull.z);
-			if (frac > 0.5 && rand.nextBoolean()) {
-				client.level.addParticle(ParticleTypes.END_ROD, px, py, pz, pull.x, pull.y, pull.z);
+		long now = client.level.getGameTime();
+		for (Player player : client.level.players()) {
+			com.projecthero.mod.maxsteel.data.MaxSteelFx fx = player.getAttachedOrElse(ModAttachments.MAX_STEEL_FX, null);
+			if (fx == null || fx.blastChargeStart() == 0L || !MaxSteel.isTransformed(player)) {
+				continue;
 			}
-		}
-		if (frac >= 1.0f && (client.level.getGameTime() % 3) == 0) {
-			client.level.addParticle(ParticleTypes.SOUL_FIRE_FLAME, hand.x, hand.y, hand.z, 0, 0, 0);
+			if (player == client.player && client.options.getCameraType().isFirstPerson()) {
+				continue; // right in front of the camera it just blinds the pilot -- they see the orb in their fist
+			}
+			long held = now - fx.blastChargeStart();
+			if (held < 4) {
+				continue;
+			}
+			float frac = Math.min(1.0f, held / (float) com.projecthero.mod.maxsteel.MaxSteelConfig.BLAST_MAX_CHARGE_TICKS);
+			Vec3 hand = com.projecthero.mod.hero.power.AbilityHelpers.handPosition(player).add(player.getViewVector(pt).scale(0.4));
+			int count = 1 + Math.round(frac * 3);
+			for (int i = 0; i < count; i++) {
+				double r = 0.6 + rand.nextDouble() * 0.7 * (1.0 - frac * 0.4);
+				double a = rand.nextDouble() * Math.PI * 2;
+				double e = (rand.nextDouble() - 0.5) * 1.2;
+				double px = hand.x + Math.cos(a) * r;
+				double py = hand.y + e;
+				double pz = hand.z + Math.sin(a) * r;
+				Vec3 pull = hand.subtract(new Vec3(px, py, pz)).scale(0.35);
+				client.level.addParticle(ParticleTypes.ELECTRIC_SPARK, px, py, pz, pull.x, pull.y, pull.z);
+			}
 		}
 	}
 }

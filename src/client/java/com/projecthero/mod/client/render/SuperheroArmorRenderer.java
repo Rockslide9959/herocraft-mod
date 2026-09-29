@@ -112,18 +112,8 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			}
 		}
 
-		// Max Steel: while a suit-up / suit-down is animating, hide the bones the pixel-reveal clock has
-		// not reached yet. The reveal set is global (not per-slot), so re-applying it after every slot's
-		// visibility pass is correct -- the last write for this pass wins.
-		if (getCurrentEntity() instanceof Player player
-				&& player.getItemBySlot(slot).getItem() instanceof com.projecthero.mod.maxsteel.item.MaxSteelArmorItem
-				&& com.projecthero.mod.client.maxsteel.MaxSteelReveal.isRevealing(player)) {
-			for (String bone : com.projecthero.mod.client.maxsteel.MaxSteelReveal.boneNames()) {
-				if (com.projecthero.mod.client.maxsteel.MaxSteelReveal.hidden(player, bone)) {
-					getGeoModel().getBone(bone).ifPresent(b -> b.setHidden(true));
-				}
-			}
-		}
+		// Max Steel (v0.14.2) and the Symbiote no longer hide whole bones -- their suits materialise pixel by pixel in
+		// the texture instead, see getRenderType below (MaxSteelNano / SymbioteDissolve).
 		// Symbiote: v0.13.19 no longer hides whole bones -- the suit materialises pixel by pixel instead, see
 		// getRenderType below and SymbioteDissolve.
 	}
@@ -154,6 +144,10 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 						com.projecthero.mod.ProjectHeroMod.id(from.suitTexture()), texture,
 						com.projecthero.mod.client.moonknight.MoonKnightReveal.swapProgress(mk, partialTick));
 			}
+		}
+		// v0.14.2: Max Steel's nanotech reveal / power-down / mode swap, one texel at a time from the chest core
+		if (getCurrentEntity() instanceof Player ms && animatable instanceof com.projecthero.mod.maxsteel.item.MaxSteelArmorItem) {
+			texture = com.projecthero.mod.client.maxsteel.MaxSteelNano.texture(ms, texture, partialTick);
 		}
 		// v0.13.21: the Green Lantern suit sweeps on from the shoulders down one pixel row at a time (ArmorSweepReveal)
 		if (getCurrentEntity() instanceof Player gl && animatable instanceof com.projecthero.mod.greenlantern.item.GreenLanternArmorItem) {

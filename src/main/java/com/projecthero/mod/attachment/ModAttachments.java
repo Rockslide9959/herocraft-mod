@@ -319,15 +319,14 @@ public final class ModAttachments {
 					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
 
 	/**
-	 * v0.9.3: how many ticks the player has been charging the Turbo Cannon (0 = not charging). Drives the
-	 * bottom-right HUD charge bar so the pilot can see how much of the 5-second charge window is left.
-	 * Target-only (only the charging player's own HUD reads it) and not persisted (a relog cancels the
-	 * charge). Written each tick by {@code MaxSteelCannon}.
+	 * v0.14.2: Max Steel's visible-to-everyone animation state -- move poses, the Turbo Blast / Turbo Cannon charge
+	 * clocks, the cannon lock-on target and the mode-swap clock (see {@link com.projecthero.mod.maxsteel.data.MaxSteelFx}).
+	 * Synced to all, not persisted. Replaces the v0.9.3 target-only cannon-charge counter.
 	 */
-	public static final AttachmentType<Integer> MAX_STEEL_CANNON_CHARGE = AttachmentRegistry.create(
-			ProjectHeroMod.id("max_steel_cannon_charge"),
-			builder -> builder.initializer(() -> 0)
-					.syncWith(ByteBufCodecs.VAR_INT, AttachmentSyncPredicate.targetOnly()));
+	public static final AttachmentType<com.projecthero.mod.maxsteel.data.MaxSteelFx> MAX_STEEL_FX = AttachmentRegistry.create(
+			ProjectHeroMod.id("max_steel_fx"),
+			builder -> builder.initializer(() -> com.projecthero.mod.maxsteel.data.MaxSteelFx.EMPTY)
+					.syncWith(com.projecthero.mod.maxsteel.data.MaxSteelFx.STREAM_CODEC, AttachmentSyncPredicate.all()));
 
 	/**
 	 * Whether the Max Steel helmet is retracted (H key), revealing the pilot's face -- the direct

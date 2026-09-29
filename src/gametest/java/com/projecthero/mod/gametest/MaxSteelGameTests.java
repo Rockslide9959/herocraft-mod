@@ -1,7 +1,10 @@
 package com.projecthero.mod.gametest;
 
 import com.projecthero.mod.maxsteel.MaxSteel;
+import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.maxsteel.MaxSteelAbilityManager;
 import com.projecthero.mod.maxsteel.MaxSteelBlast;
+import com.projecthero.mod.maxsteel.MaxSteelCannon;
 import com.projecthero.mod.maxsteel.MaxSteelBonding;
 import com.projecthero.mod.maxsteel.MaxSteelConfig;
 import com.projecthero.mod.maxsteel.MaxSteelEnergy;
@@ -9,6 +12,7 @@ import com.projecthero.mod.maxsteel.MaxSteelMode;
 import com.projecthero.mod.maxsteel.MaxSteelModes;
 import com.projecthero.mod.maxsteel.MaxSteelSuitArmor;
 import com.projecthero.mod.maxsteel.MaxSteelTransform;
+import com.projecthero.mod.maxsteel.MaxSteelVisuals;
 import com.projecthero.mod.maxsteel.data.MaxSteelState;
 import com.projecthero.mod.maxsteel.entity.MaxSteelEntityTypes;
 import com.projecthero.mod.maxsteel.entity.SteelEntity;
@@ -17,19 +21,23 @@ import com.projecthero.mod.maxsteel.item.MaxSteelItems;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Server-side coverage for Max Steel: bonding rules, the T.U.R.B.O. Energy pool, the transform state
  * machine, the specialised-mode framework, ability gates, and lifecycle cleanup. Movement itself
- * (flight, the Cannon flight arc) is client/physics and belongs to the manual test plan; what is
+ * (flight) is client/physics and belongs to the manual test plan; what is
  * checked here is every rule the server enforces around it.
  */
 public class MaxSteelGameTests implements FabricGameTest {
@@ -256,6 +264,84 @@ public class MaxSteelGameTests implements FabricGameTest {
 		helper.assertTrue(MaxSteelEnergy.get(player) <= 100f - MaxSteelConfig.BLAST_COST + 0.01f,
 				"a suited Turbo Blast spends energy");
 		helper.assertFalse(MaxSteel.abilityReady(player, MaxSteelBlast.ABILITY), "and starts a cooldown");
+		helper.succeed();
+	}
+
+	// ---------------- v0.14.2: H-only transform, the Turbo Cannon rework ----------------
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void hTogglesTheSuitOnAndOff(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		MaxSteelTransform.toggle(player);
+		helper.assertTrue(MaxSteel.state(player).transformDir == MaxSteelState.DIR_SUITING_UP, "H while unsuited goes Turbo");
+		MaxSteelTransform.toggle(player);
+		helper.assertTrue(MaxSteel.state(player).transformDir == MaxSteelState.DIR_SUITING_UP, "H mid-animation is ignored");
+		settleSuit(player);
+		helper.assertTrue(MaxSteel.isTransformed(player), "the suit settles on");
+		MaxSteelTransform.toggle(player);
+		helper.assertTrue(MaxSteel.state(player).transformDir == MaxSteelState.DIR_SUITING_DOWN, "H while suited (out of combat) powers down");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void abilityKeysNoLongerTransform(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		for (AbilitySlot slot : new AbilitySlot[] { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_3,
+				AbilitySlot.SLOT_4, AbilitySlot.SLOT_5, AbilitySlot.SLOT_6 }) {
+			MaxSteelAbilityManager.handle(player, slot, true);
+			MaxSteelAbilityManager.handle(player, slot, false);
+		}
+		MaxSteelState s = MaxSteel.state(player);
+		helper.assertFalse(s.transformed || s.transformDir != MaxSteelState.DIR_IDLE, "only H transforms -- R/G/X/Z/V/C just hint");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void turboCannonLetGoEarlyIsFree(GameTestHelper helper) {
+		ServerPlayer player = suited(helper);
+		helper.assertTrue(MaxSteelCannon.beginCharge(player), "the cannon starts charging");
+		helper.assertTrue(MaxSteelVisuals.get(player).cannonChargeStart() != 0L, "and everyone can see it forming");
+		MaxSteelCannon.release(player, 1f); // same tick: far below CANNON_MIN_CHARGE_TICKS
+		helper.assertTrue(MaxSteelEnergy.get(player) == 100f, "an aborted charge costs nothing");
+		helper.assertTrue(MaxSteel.abilityReady(player, MaxSteelCannon.ABILITY), "and does not start the recharge");
+		helper.assertTrue(MaxSteelVisuals.get(player).cannonChargeStart() == 0L, "the cannon folds away");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void turboCannonBeamHitsWhatItIsAimedAt(GameTestHelper helper) {
+		ServerPlayer player = suited(helper);
+		Vec3 at = helper.absoluteVec(new Vec3(2.5, 2.0, 1.5));
+		BlockPos base = BlockPos.containing(at);
+		for (BlockPos pos : BlockPos.betweenClosed(base.offset(-1, 0, -1), base.offset(1, 3, 9))) {
+			helper.getLevel().setBlock(pos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 2);
+		}
+		player.moveTo(at.x, at.y, at.z, 0.0f, 0.0f); // yaw 0 = looking +Z
+		Zombie zombie = EntityType.ZOMBIE.create(helper.getLevel());
+		zombie.moveTo(at.x, at.y, at.z + 6.0, 180.0f, 0.0f);
+		zombie.setNoAi(true);
+		helper.getLevel().addFreshEntity(zombie);
+		float before = zombie.getHealth();
+		helper.assertTrue(MaxSteelCannon.beginCharge(player), "the cannon starts charging");
+		helper.runAfterDelay(MaxSteelConfig.CANNON_MIN_CHARGE_TICKS + 4, () -> {
+			MaxSteelCannon.release(player, 1f);
+			helper.assertTrue(!zombie.isAlive() || zombie.getHealth() <= before - MaxSteelConfig.CANNON_MIN_DAMAGE + 0.01f,
+					"the beam deals at least the minimum cannon damage to the zombie in the crosshair");
+			helper.assertTrue(MaxSteelEnergy.get(player) <= 100f - MaxSteelConfig.CANNON_MIN_COST + 0.01f, "a real shot costs energy");
+			helper.assertFalse(MaxSteel.abilityReady(player, MaxSteelCannon.ABILITY), "and starts the 8 s recharge");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void modeChangeStampsTheSwapAnimation(GameTestHelper helper) {
+		ServerPlayer player = suited(helper);
+		MaxSteelModes.toggle(player, MaxSteelMode.STRENGTH, MaxSteelConfig.STRENGTH_ACTIVATION_COST);
+		helper.assertTrue(MaxSteelVisuals.get(player).swapFrom() == MaxSteelMode.BASE.ordinal(),
+				"entering Strength rematerialises the suit from the Base form");
+		MaxSteelModes.exitToBase(player, true);
+		helper.assertTrue(MaxSteelVisuals.get(player).swapFrom() == MaxSteelMode.STRENGTH.ordinal(),
+				"and back to Base from the Strength form");
 		helper.succeed();
 	}
 

@@ -146,7 +146,7 @@ public final class ModNetworking {
 				return;
 			}
 			switch (payload.action()) {
-				case TRANSFORM_TOGGLE -> com.projecthero.mod.maxsteel.MaxSteelTransform.goTurbo(p);
+				case TRANSFORM_TOGGLE -> com.projecthero.mod.maxsteel.MaxSteelTransform.toggle(p);
 				case TOGGLE_HELMET -> com.projecthero.mod.maxsteel.MaxSteelFaceplate.toggle(p);
 				case POWER_DOWN -> com.projecthero.mod.maxsteel.MaxSteelTransform.powerDown(p);
 			}

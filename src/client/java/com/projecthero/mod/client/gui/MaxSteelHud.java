@@ -5,6 +5,7 @@ import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.maxsteel.MaxSteel;
 import com.projecthero.mod.maxsteel.MaxSteelConfig;
 import com.projecthero.mod.maxsteel.MaxSteelMode;
+import com.projecthero.mod.maxsteel.data.MaxSteelFx;
 import com.projecthero.mod.maxsteel.data.MaxSteelState;
 
 import net.minecraft.ChatFormatting;
@@ -15,10 +16,17 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * The Max Steel HUD (v0.9.2 rework). Now built like {@link ThorHud} / {@link SpiderHud}: the six
- * abilities as keybind boxes in the bottom-right corner with cooldown shading, the active Turbo Mode
- * highlighted, a cyan T.U.R.B.O. Energy meter beneath, the current mode name and an IN COMBAT /
- * READY / OVERLOAD status line. Only drawn while the suit is on.
+ * The Max Steel HUD, v0.14.2 layout (bottom-right, top to bottom):
+ * <pre>
+ *   [R][G][X][Z][V][C]                    ability keys -- cooldowns drain up from the bottom of each box
+ *   MAX STEEL                    READY    title + IN COMBAT / READY / OVERLOAD
+ *   Base  Flight  Strength  Speed  Stealth   the Turbo Modes, the active one lit in its colour
+ *   T.U.R.B.O. 82%                         energy, then its <b>hairline</b> bar
+ *   Turbo Cannon READY / Recharging 3.4s / Charging 45%, then its hairline bar
+ *   (Turbo Blast 67% while R is held · Going Turbo / Powering Down while the suit forms)
+ * </pre>
+ * Every bar is a <b>Hairline</b> bar (3 px, no border, the label on the line above). Hold Left-Alt for the move names.
+ * Unsuited, a compact version shows just the title, the "press H" hint and the energy.
  *
  * <p>Also keeps the brief directional threat marker fed by
  * {@link com.projecthero.mod.network.MaxSteelWarningPayload} (see {@link #flashWarning}).
@@ -27,22 +35,37 @@ public final class MaxSteelHud {
 	private static final int BOX = 20;
 	private static final int GAP = 2;
 	private static final int MARGIN = 4;
+	private static final int HAIR = 3;
 
 	private static final int CYAN = 0xFF35E0F0;
-	private static final int CYAN_DIM = 0xFF1A6A78;
 	private static final int LOW = 0xFFFF5A5A;
+	private static final int TRACK = 0x90071820;
 	private static final int BOX_BG = 0xC0071820;
 	private static final int BORDER = 0xFF1E5A66;
-	private static final int BORDER_ACTIVE = 0xFF35E0F0;
 	private static final int COOLDOWN = 0xB0000000;
 	private static final int KEY = 0xFFCFF4F8;
+	private static final int DIM = 0xFF6F8A90;
+	private static final int BLUE = 0xFF3FA8FF;
+	private static final int WHITE = 0xFFE8FFFF;
 
-	/** Slot 1..6 -> the ability id whose cooldown that box should show (or null). */
+	/** Slot 1..6 -> the ability id whose cooldown that box shows (or null), and its full length. */
 	private static final String[] SLOT_COOLDOWNS = {
 			"turbo_blast", "turbo_slam", "turbo_dash", null, "turbo_stealth", "turbo_cannon"
 	};
+	private static final int[] SLOT_MAX = {
+			MaxSteelConfig.BLAST_COOLDOWN_TICKS, MaxSteelConfig.STRENGTH_SLAM_COOLDOWN_TICKS,
+			MaxSteelConfig.TURBO_DASH_COOLDOWN_TICKS, 1, MaxSteelConfig.STEALTH_COOLDOWN_TICKS,
+			MaxSteelConfig.CANNON_COOLDOWN_TICKS
+	};
 	private static final MaxSteelMode[] SLOT_MODE = {
 			null, MaxSteelMode.STRENGTH, MaxSteelMode.SPEED, MaxSteelMode.FLIGHT, MaxSteelMode.STEALTH, null
+	};
+	private static final String[] SLOT_NAMES = {
+			"turbo_blast", "turbo_strength", "turbo_speed", "turbo_flight", "turbo_stealth", "turbo_cannon"
+	};
+	/** The mode row, in the order the user asked for. */
+	private static final MaxSteelMode[] MODE_ROW = {
+			MaxSteelMode.BASE, MaxSteelMode.FLIGHT, MaxSteelMode.STRENGTH, MaxSteelMode.SPEED, MaxSteelMode.STEALTH
 	};
 
 	private static long warningUntil;
@@ -58,86 +81,173 @@ public final class MaxSteelHud {
 		warningYaw = yawToThreat;
 	}
 
+	/** The colour the active mode lights up in. */
+	public static int modeColour(MaxSteelMode mode) {
+		return CYAN; // v0.14.2: Max Steel stays blue in every mode
+	}
+
 	public static void render(GuiGraphics g, DeltaTracker delta) {
 		Minecraft mc = Minecraft.getInstance();
 		Player player = mc.player;
-		if (player == null || mc.options.hideGui) {
+		if (player == null || mc.options.hideGui || mc.level == null) {
 			return;
 		}
 		MaxSteelState s = player.getAttachedOrElse(ModAttachments.MAX_STEEL_STATE, null);
-		if (s == null || !s.hasPower || !s.transformed) {
+		if (s == null || !s.hasPower) {
+			return;
+		}
+		long now = mc.level.getGameTime();
+		float pt = delta.getGameTimeDeltaPartialTick(false);
+		float energy = Math.max(0f, Math.min(MaxSteelConfig.MAX_TURBO_ENERGY, s.turboEnergy));
+		boolean overloaded = s.lockoutUntil != 0L && energy < MaxSteelConfig.OVERLOAD_RECOVER_ENERGY;
+		int totalW = 6 * BOX + 5 * GAP;
+		int x0 = g.guiWidth() - MARGIN - totalW;
+		int right = x0 + totalW;
+
+		if (!s.transformed) {
+			// compact: title, the H hint and the pool
+			int y = g.guiHeight() - MARGIN - 34;
+			g.drawString(mc.font, Component.translatable("hud.projecthero.max_steel.title")
+					.withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), x0, y, CYAN, true);
+			y += 10;
+			g.drawString(mc.font, Component.translatable("hud.projecthero.max_steel.press_h"), x0, y, DIM, true);
+			y += 10;
+			energyBar(g, mc, x0, y, totalW, energy, overloaded, now);
 			return;
 		}
 
-		long now = mc.level != null ? mc.level.getGameTime() : 0L;
+		MaxSteelFx fx = player.getAttachedOrElse(ModAttachments.MAX_STEEL_FX, null);
+		if (fx == null) {
+			fx = MaxSteelFx.EMPTY;
+		}
+		boolean blastCharging = fx.blastChargeStart() != 0L && now - fx.blastChargeStart() >= 2;
+		boolean forming = s.transformDir != MaxSteelState.DIR_IDLE;
+		// height: boxes + title + modes + energy(label+bar) + cannon(label+bar) [+ blast] [+ forming]
+		int height = BOX + 2 + 10 + 11 + 10 + HAIR + 3 + 10 + HAIR + (blastCharging ? 3 + 10 + HAIR : 0) + (forming ? 3 + 10 + HAIR : 0);
+		int y0 = g.guiHeight() - MARGIN - height;
 		MaxSteelMode mode = s.modeEnum();
-		float energy = Math.max(0f, Math.min(MaxSteelConfig.MAX_TURBO_ENERGY, s.turboEnergy));
-		boolean overloaded = s.lockoutUntil != 0L && energy < MaxSteelConfig.OVERLOAD_RECOVER_ENERGY;
+		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(),
+				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
 
-		int totalW = 6 * BOX + 5 * GAP;
-		int x0 = g.guiWidth() - MARGIN - totalW;
-		int y0 = g.guiHeight() - MARGIN - BOX - 20;
-
-		g.drawString(mc.font, Component.translatable("projecthero.guide.max_steel")
-				.withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), x0, y0 - 10, CYAN);
-
+		// ---- ability keys
 		for (int i = 0; i < 6; i++) {
 			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
 			int x = x0 + i * (BOX + GAP);
 			boolean active = SLOT_MODE[i] != null && SLOT_MODE[i] == mode;
-
+			int accent = active ? modeColour(mode) : BORDER;
 			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
-			g.renderOutline(x, y0, BOX, BOX, active ? BORDER_ACTIVE : BORDER);
-			g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 2, y0 + 2, KEY, false);
-
+			g.renderOutline(x, y0, BOX, BOX, accent);
+			if (active) {
+				g.fill(x + 1, y0 + BOX - 2, x + BOX - 1, y0 + BOX - 1, accent); // lit underline for the active mode
+			}
 			int cd = SLOT_COOLDOWNS[i] != null ? MaxSteel.cooldownRemaining(player, SLOT_COOLDOWNS[i]) : 0;
 			if (overloaded) {
 				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
+				g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 7, y0 + 6, DIM, true);
 			} else if (cd > 0) {
-				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
-				g.drawCenteredString(mc.font, String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(cd / 20.0f)),
-						x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
+				int h = (int) (BOX * Math.min(1f, cd / (float) SLOT_MAX[i]));
+				g.fill(x, y0 + BOX - h, x + BOX, y0 + BOX, COOLDOWN);
+				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + 6, 0xFFFFFFFF);
+			} else {
+				g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 7, y0 + 6, active ? 0xFFFFFFFF : KEY, true);
+			}
+			if (expanded) {
+				Component name = Component.translatable("projecthero.max_steel.ability." + SLOT_NAMES[i]);
+				g.drawString(mc.font, name, x0 - 8 - mc.font.width(name), y0 + i * 10, 0xFFE0E0E0, true);
 			}
 		}
-
-		// T.U.R.B.O. Energy bar below the row.
-		float frac = energy / MaxSteelConfig.MAX_TURBO_ENERGY;
-		boolean low = energy < MaxSteelConfig.LOW_ENERGY_WARN;
-		boolean pulseOff = (low || overloaded) && (now % 10) < 4;
-		int barY = y0 + BOX + 4;
-		g.fill(x0 - 1, barY - 1, x0 + totalW + 1, barY + 5, BORDER);
-		g.fill(x0, barY, x0 + totalW, barY + 4, 0xAA071820);
-		if (!pulseOff) {
-			g.fill(x0, barY, x0 + Math.round(totalW * frac), barY + 4, low ? LOW : CYAN);
+		if (expanded) {
+			Component h = Component.translatable("hud.projecthero.max_steel.key_h");
+			g.drawString(mc.font, h, x0 - 8 - mc.font.width(h), y0 + 60, 0xFFE0E0E0, true);
 		}
-		if (overloaded) {
-			// mark where regen has to reach for the lock-out to lift
-			int mark = x0 + Math.round(totalW * (MaxSteelConfig.OVERLOAD_RECOVER_ENERGY / MaxSteelConfig.MAX_TURBO_ENERGY));
-			g.fill(mark, barY - 1, mark + 1, barY + 5, 0xFFFFDD33);
-		}
-		g.drawString(mc.font, String.format(java.util.Locale.ROOT, "%d / %d", Math.round(energy),
-				Math.round(MaxSteelConfig.MAX_TURBO_ENERGY)), x0, barY + 5, low ? LOW : 0xFFA8DDE6, false);
 
-		// mode name + status, above the label / row.
-		Component modeName = Component.translatable("projecthero.max_steel.mode." + mode.lower())
-				.withStyle(ChatFormatting.AQUA);
+		// ---- title + status
+		int y = y0 + BOX + 2;
+		g.drawString(mc.font, Component.translatable("hud.projecthero.max_steel.title")
+				.withStyle(ChatFormatting.BOLD), x0, y, modeColour(mode), true);
 		Component status = overloaded
 				? Component.translatable("message.projecthero.max_steel.overloaded").withStyle(ChatFormatting.RED)
 				: Component.translatable(now < s.combatUntil
 						? "hud.projecthero.max_steel.in_combat" : "hud.projecthero.max_steel.ready")
 						.withStyle(now < s.combatUntil ? ChatFormatting.RED : ChatFormatting.GREEN);
-		int sw = mc.font.width(status);
-		g.drawString(mc.font, modeName, x0, y0 - 20, CYAN_DIM, false);
-		g.drawString(mc.font, status, x0 + totalW - sw, y0 - 20, 0xFFFFFFFF, false);
+		g.drawString(mc.font, status, right - mc.font.width(status), y, 0xFFFFFFFF, true);
+		y += 10;
 
-		// suit-up / suit-down progress cue
-		if (s.transformDir != MaxSteelState.DIR_IDLE) {
-			long elapsed = now - s.transformStartTick;
-			float p = Math.max(0f, Math.min(1f, (float) elapsed / Math.max(1, s.transformDurationTicks)));
-			g.fill(x0, y0 - 24, x0 + Math.round(totalW * p), y0 - 22, 0xFFFFFFFF);
+		// ---- Base / Flight / Strength / Speed / Stealth
+		int rowW = 0;
+		Component[] labels = new Component[MODE_ROW.length];
+		for (int i = 0; i < MODE_ROW.length; i++) {
+			labels[i] = Component.translatable("hud.projecthero.max_steel.mode_row." + MODE_ROW[i].lower());
+			rowW += mc.font.width(labels[i]) + (i > 0 ? 6 : 0);
+		}
+		int mx = right - rowW;
+		for (int i = 0; i < MODE_ROW.length; i++) {
+			boolean on = MODE_ROW[i] == mode;
+			int w = mc.font.width(labels[i]);
+			g.drawString(mc.font, labels[i], mx, y, on ? modeColour(MODE_ROW[i]) : DIM, true);
+			if (on) {
+				g.fill(mx, y + 9, mx + w, y + 10, modeColour(MODE_ROW[i]));
+			}
+			mx += w + 6;
+		}
+		y += 11;
+
+		// ---- T.U.R.B.O. energy
+		energyBar(g, mc, x0, y, totalW, energy, overloaded, now);
+		y += 10 + HAIR + 3;
+
+		// ---- Turbo Cannon: charging / recharging / ready
+		int cannonCd = MaxSteel.cooldownRemaining(player, "turbo_cannon");
+		if (fx.cannonChargeStart() != 0L) {
+			float c = Math.min(1f, (now - fx.cannonChargeStart() + pt) / MaxSteelConfig.CANNON_MAX_CHARGE_TICKS);
+			boolean locked = fx.cannonTarget() >= 0;
+			Component label = Component.translatable(c >= 1f ? "hud.projecthero.max_steel.cannon_full"
+					: "hud.projecthero.max_steel.cannon_charging", pct(c));
+			g.drawString(mc.font, label, x0, y, c >= 1f ? WHITE : BLUE, true);
+			Component lock = Component.translatable(locked ? "hud.projecthero.max_steel.cannon_locked"
+					: "hud.projecthero.max_steel.cannon_free");
+			g.drawString(mc.font, lock, right - mc.font.width(lock), y, locked ? WHITE : DIM, true);
+			hairline(g, x0, y + 10, totalW, c, c >= 1f ? WHITE : BLUE);
+		} else if (cannonCd > 0) {
+			float c = 1f - cannonCd / (float) MaxSteelConfig.CANNON_COOLDOWN_TICKS;
+			g.drawString(mc.font, Component.translatable("hud.projecthero.max_steel.cannon_recharging",
+					String.format(java.util.Locale.ROOT, "%.1f", cannonCd / 20f)), x0, y, DIM, true);
+			hairline(g, x0, y + 10, totalW, c, 0xFF1F5A80);
+		} else {
+			g.drawString(mc.font, Component.translatable("hud.projecthero.max_steel.cannon_ready"), x0, y, BLUE, true);
+			hairline(g, x0, y + 10, totalW, 1f, BLUE);
+		}
+		y += 10 + HAIR;
+
+		// ---- Turbo Blast charge (while R is held)
+		if (blastCharging) {
+			y += 3;
+			float c = Math.min(1f, (now - fx.blastChargeStart() + pt) / MaxSteelConfig.BLAST_MAX_CHARGE_TICKS);
+			int stage = 0;
+			for (float st : MaxSteelConfig.BLAST_STAGES) {
+				if (c >= st) {
+					stage++;
+				}
+			}
+			g.drawString(mc.font, Component.translatable(c >= 1f ? "hud.projecthero.max_steel.blast_full"
+					: "hud.projecthero.max_steel.blast_charging", pct(c), stage), x0, y, c >= 1f ? 0xFFFFFFFF : CYAN, true);
+			hairline(g, x0, y + 10, totalW, c, c >= 1f ? 0xFFE8FFFF : CYAN);
+			for (float st : MaxSteelConfig.BLAST_STAGES) {
+				int sx = x0 + Math.round(totalW * st) - 1;
+				g.fill(sx, y + 10, sx + 1, y + 10 + HAIR, 0xFF071820); // stage notches
+			}
+			y += 10 + HAIR;
 		}
 
-		renderCannonCharge(g, mc, player, x0, y0, totalW);
+		// ---- suit forming / retracting
+		if (forming) {
+			y += 3;
+			float p = Math.max(0f, Math.min(1f, (now - s.transformStartTick + pt) / Math.max(1, s.transformDurationTicks)));
+			boolean up = s.transformDir == MaxSteelState.DIR_SUITING_UP;
+			g.drawString(mc.font, Component.translatable(up ? "hud.projecthero.max_steel.going_turbo"
+					: "hud.projecthero.max_steel.powering_down", pct(p)), x0, y, 0xFFFFFFFF, true);
+			hairline(g, x0, y + 10, totalW, up ? p : 1f - p, CYAN);
+		}
 
 		// directional threat marker
 		if (now < warningUntil) {
@@ -145,34 +255,36 @@ public final class MaxSteelHud {
 			int cx = g.guiWidth() / 2;
 			int cy = g.guiHeight() / 2;
 			double rad = Math.toRadians(rel);
-			int mx = cx + (int) (Math.sin(rad) * 40);
-			int my = cy - (int) (Math.cos(rad) * 40);
-			g.fill(mx - 3, my - 3, mx + 3, my + 3, ((now % 6) < 3) ? 0xFFFFDD33 : 0xFFFF6633);
+			int wx = cx + (int) (Math.sin(rad) * 40);
+			int wy = cy - (int) (Math.cos(rad) * 40);
+			g.fill(wx - 3, wy - 3, wx + 3, wy + 3, ((now % 6) < 3) ? 0xFFFFDD33 : 0xFFFF6633);
 		}
 	}
 
-	/**
-	 * v0.9.3: the Turbo Cannon charge bar. Drawn only while the player is charging the cannon, sitting
-	 * above the ability row / mode-name line in the bottom-right corner. Fills left-to-right as the
-	 * 5-second charge window builds; turns gold and shows "FULL" once it is maxed.
-	 */
-	private static void renderCannonCharge(GuiGraphics g, Minecraft mc, Player player, int x0, int y0, int totalW) {
-		int ticks = player.getAttachedOrElse(ModAttachments.MAX_STEEL_CANNON_CHARGE, 0);
-		if (ticks <= 0) {
-			return;
+	/** "T.U.R.B.O. 82%" then its hairline, with the overload recovery mark while locked out. */
+	private static void energyBar(GuiGraphics g, Minecraft mc, int x0, int y, int w, float energy, boolean overloaded, long now) {
+		float frac = energy / MaxSteelConfig.MAX_TURBO_ENERGY;
+		boolean low = energy < MaxSteelConfig.LOW_ENERGY_WARN;
+		boolean pulseOff = (low || overloaded) && (now % 10) < 4;
+		g.drawString(mc.font, Component.translatable("hud.projecthero.max_steel.turbo_pct", pct(frac)), x0, y,
+				low || overloaded ? LOW : 0xFFA8DDE6, true);
+		hairline(g, x0, y + 10, w, pulseOff ? 0f : frac, low ? LOW : CYAN);
+		if (overloaded) {
+			int mark = x0 + Math.round(w * (MaxSteelConfig.OVERLOAD_RECOVER_ENERGY / MaxSteelConfig.MAX_TURBO_ENERGY));
+			g.fill(mark, y + 9, mark + 1, y + 10 + HAIR + 1, 0xFFFFDD33);
 		}
-		float ratio = Math.min(1f, ticks / (float) MaxSteelConfig.CANNON_MAX_CHARGE_TICKS);
-		boolean full = ratio >= 1f;
-		int h = 5;
-		int y = y0 - 40;
+	}
 
-		Component label = Component.translatable(full
-				? "hud.projecthero.max_steel.cannon_full" : "hud.projecthero.max_steel.cannon_charge")
-				.withStyle(full ? ChatFormatting.YELLOW : ChatFormatting.AQUA);
-		g.drawCenteredString(mc.font, label, x0 + totalW / 2, y - 10, 0xFFFFFFFF);
+	/** A Hairline bar: 3 px, no border, no text -- a dim track and the fill. */
+	private static void hairline(GuiGraphics g, int x, int y, int w, float frac, int colour) {
+		g.fill(x, y, x + w, y + HAIR, TRACK);
+		int fw = Math.round(w * Math.max(0f, Math.min(1f, frac)));
+		if (fw > 0) {
+			g.fill(x, y, x + fw, y + HAIR, colour);
+		}
+	}
 
-		g.fill(x0 - 1, y - 1, x0 + totalW + 1, y + h + 1, BORDER);
-		g.fill(x0, y, x0 + totalW, y + h, 0xAA071820);
-		g.fill(x0, y, x0 + Math.round(totalW * ratio), y + h, full ? BORDER_ACTIVE : CYAN);
+	private static int pct(float frac) {
+		return (int) Math.floor(Math.max(0f, Math.min(1f, frac)) * 100f + 1.0e-3f);
 	}
 }

@@ -47,7 +47,7 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 		// Max Steel's suit-up / suit-down is a pixel-by-pixel reveal -- the player's own skin (second
 		// layer included) must stay visible underneath while the suit forms, so do not suppress it
 		// until the reveal has settled.
-		if (com.projecthero.mod.client.maxsteel.MaxSteelReveal.isRevealing(player)) {
+		if (com.projecthero.mod.client.maxsteel.MaxSteelNano.skinShows(player)) {
 			return;
 		}
 		// Same reasoning for the Symbiote's chest -> limbs -> head reveal: the real armour is stowed and

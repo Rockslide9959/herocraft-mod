@@ -46,7 +46,8 @@ public final class MaxSteelConfig {
 	// ---------------- transformation ----------------
 
 	/** Normal suit-up / suit-down duration. */
-	public static final int TRANSFORM_TICKS = 25; // ~1.25 s
+	/** v0.14.2: 25 -> 40 so the pixel-by-pixel nanotech build (and retract) has time to read. */
+	public static final int TRANSFORM_TICKS = 40; // 2 s
 	/** First-ever bonding cut-scene duration. */
 	public static final int FIRST_BOND_TICKS = 80; // ~4 s
 	/** Hold Ability 1 this long while unsuited to transform without attacking. */
@@ -70,13 +71,21 @@ public final class MaxSteelConfig {
 
 	// ---------------- Ability 1: Turbo Blast ----------------
 
-	public static final float BLAST_DAMAGE = 10f;
+	/** v0.14.2: 10 -> 15 per tap. */
+	public static final float BLAST_DAMAGE = 15f;
 	public static final float BLAST_COST = 4f;
 	public static final int BLAST_COOLDOWN_TICKS = 9; // 0.45 s
-	public static final int BLAST_MAX_CHARGE_TICKS = 30; // 1.5 s
-	public static final float CHARGED_BLAST_MAX_DAMAGE = 22f;
+	/** v0.14.2: a 2 s charge in three stages (see {@link #BLAST_STAGES}); held this long it is fully charged. */
+	public static final int BLAST_MAX_CHARGE_TICKS = 40;
+	/** Held shorter than this it is a tap, not a charge. */
+	public static final int BLAST_TAP_TICKS = 6;
+	/** Charge stages -- each one crossed plays a rising cue and grows the orb in the hand (fractions of a full charge). */
+	public static final float[] BLAST_STAGES = { 0.34f, 0.67f, 1.0f };
+	/** v0.14.2: 22 -> 34 at a full charge (damage climbs from {@link #BLAST_DAMAGE} with the charge). */
+	public static final float CHARGED_BLAST_MAX_DAMAGE = 34f;
 	public static final float CHARGED_BLAST_MAX_COST = 16f;
-	public static final double CHARGED_BLAST_BURST_RADIUS = 2.5;
+	/** v0.14.2: 2.5 -> 3.5; a full charge detonates for half its damage on everything around the hit. */
+	public static final double CHARGED_BLAST_BURST_RADIUS = 3.5;
 	/**
 	 * v0.9.4: 4.0 blocks/tick and now held <b>constant</b> the whole flight (the entity re-asserts it
 	 * every tick, and inertia/acceleration are neutralised) -- an arrow leaves a bow at ~3.0 and only
@@ -153,21 +162,32 @@ public final class MaxSteelConfig {
 	// ---------------- Ability 6: Turbo Cannon ----------------
 
 	/**
-	 * v0.9.2: the Turbo Cannon now charges for a full 5 seconds. Instant-cast deals
-	 * {@link #CANNON_MIN_DAMAGE}; every extra second held adds {@link #CANNON_PER_SECOND_DAMAGE} up to
-	 * the 5-second cap ({@link #CANNON_FULL_DAMAGE}). Energy cost scales the same way -- the longer the
-	 * charge, the more of the pool it burns.
+	 * v0.14.2 rework: the Turbo Cannon is an arm cannon, not a living-projectile dash. Hold to form the cannon and
+	 * charge (it locks onto the enemy nearest the crosshair), release to fire a piercing T.U.R.B.O. beam at the lock
+	 * (or straight down the crosshair). Damage and cost climb with the charge; the beam hits everything along it and
+	 * detonates where it stops. No terrain damage.
 	 */
-	public static final int CANNON_MAX_CHARGE_TICKS = 100; // 5 s
+	public static final int CANNON_MAX_CHARGE_TICKS = 60; // 3 s
+	/** Released sooner than this the cannon just powers down again -- no shot, no cost. */
+	public static final int CANNON_MIN_CHARGE_TICKS = 8;
+	/** Held this long past a full charge, it fires on its own. */
+	public static final int CANNON_OVERHOLD_TICKS = 30;
 	public static final float CANNON_MIN_COST = 18f;
 	public static final float CANNON_FULL_COST = 60f;
-	public static final float CANNON_MIN_DAMAGE = 12f;
-	public static final float CANNON_PER_SECOND_DAMAGE = 5f;
-	public static final float CANNON_FULL_DAMAGE = 37f; // 12 + 5 * 5
-	public static final float CANNON_AOE_DAMAGE = 16f;
-	public static final double CANNON_AOE_RADIUS = 4.0;
+	public static final float CANNON_MIN_DAMAGE = 16f;
+	public static final float CANNON_FULL_DAMAGE = 45f;
+	/** Fraction of the beam damage dealt to everything caught in the detonation at its end. */
+	public static final float CANNON_AOE_FRACTION = 0.45f;
+	public static final double CANNON_AOE_RADIUS_MIN = 2.5;
+	public static final double CANNON_AOE_RADIUS_MAX = 5.0;
+	public static final double CANNON_RANGE = 48.0;
+	/** Beam half-width at the lowest / a full charge. */
+	public static final double CANNON_BEAM_WIDTH_MIN = 0.45;
+	public static final double CANNON_BEAM_WIDTH_MAX = 1.2;
+	/** A target this close to the crosshair (degrees) is locked; a lock holds until it drifts past the keep cone. */
+	public static final double CANNON_LOCK_CONE_DEGREES = 9.0;
+	public static final double CANNON_LOCK_KEEP_DEGREES = 16.0;
 	public static final int CANNON_COOLDOWN_TICKS = 160; // 8 s
-	public static final float CANNON_LAUNCH_SPEED = 2.6f;
-	/** Ticks the living-projectile state runs before it force-ends even with no collision. */
-	public static final int CANNON_MAX_FLIGHT_TICKS = 40;
+	/** Recoil pushed back through the pilot at a full charge (blocks/tick); Strength Mode plants its feet instead. */
+	public static final double CANNON_RECOIL = 0.7;
 }

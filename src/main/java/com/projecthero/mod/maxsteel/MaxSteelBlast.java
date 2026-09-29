@@ -30,7 +30,7 @@ public final class MaxSteelBlast {
 		fire(player, 0f);
 	}
 
-	/** Released after a hold: {@code chargeFrac} 0..1 scales damage 10..22 and cost 4..16. */
+	/** Released after a hold: {@code chargeFrac} 0..1 scales damage 15..34 and cost 4..16 (v0.14.2). */
 	public static void charged(ServerPlayer player, float chargeFrac) {
 		fire(player, Math.max(0f, Math.min(1f, chargeFrac)));
 	}
@@ -77,6 +77,7 @@ public final class MaxSteelBlast {
 		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_BLAST, 0.5f, pitch + 0.2f);
 
 		MaxSteel.triggerCooldown(player, ABILITY, MaxSteelConfig.BLAST_COOLDOWN_TICKS);
+		MaxSteelVisuals.play(player, com.projecthero.mod.maxsteel.data.MaxSteelFx.ANIM_BLAST);
 	}
 
 	private static float lerp(float a, float b, float t) {

@@ -51,11 +51,6 @@ public final class MaxSteelDamage {
 			return true;
 		}
 
-		// self-inflicted Turbo Cannon impact never hurts the pilot (spec)
-		if (MaxSteelCannon.isOwnCannonDamage(player, source)) {
-			return false;
-		}
-
 		MaxSteelEnergy.markCombat(player);
 
 		// Stealth breaks on a real hit.

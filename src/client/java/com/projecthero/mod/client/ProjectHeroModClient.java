@@ -170,9 +170,10 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				(payload, context) -> context.client().execute(() -> context.client().setScreen(
 						new com.projecthero.mod.client.gui.BlankBlueprintScreen(payload.entries()))));
 
-		net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
-				com.projecthero.mod.client.maxsteel.MaxSteelWingsModel.LAYER,
-				com.projecthero.mod.client.maxsteel.MaxSteelWingsModel::createLayer);
+		// v0.14.2: the Turbo Cannon arm cannon (the old tinted-elytra wings are gone -- Turbo Flight's form has its own)
+		com.projecthero.mod.client.maxsteel.MaxSteelArmCannon.initialize();
+		com.projecthero.mod.client.maxsteel.MaxSteelLockOnRenderer.initialize();
+		com.projecthero.mod.client.render.MaxSteelFirstPersonArm.initialize();
 		net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
 				com.projecthero.mod.client.wolverine.WolverineClawsModel.LAYER,
 				com.projecthero.mod.client.wolverine.WolverineClawsModel::createLayer);
@@ -181,14 +182,13 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				com.projecthero.mod.client.spider.ImpactWebModel::createLayer);
 
 		// Arc Reactor on the player's chest (Tony Stark power, no Iron Man chestplate) + Max Steel's
-		// blue Turbo Flight wings.
+		// Turbo Blast charge orb / Turbo Cannon arm cannon (v0.14.2).
 		net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback.EVENT.register(
 				(entityType, entityRenderer, registrationHelper, context) -> {
 					if (entityRenderer instanceof net.minecraft.client.renderer.entity.player.PlayerRenderer playerRenderer) {
 						registrationHelper.register(new com.projecthero.mod.client.render.ArcReactorLayer(
 								playerRenderer, context.getItemRenderer()));
-						registrationHelper.register(new com.projecthero.mod.client.maxsteel.MaxSteelWingsLayer(
-								playerRenderer, context.getModelSet()));
+						registrationHelper.register(new com.projecthero.mod.client.maxsteel.MaxSteelGearLayer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.render.PowerRingLayer(
 								playerRenderer, context.getItemRenderer()));
 						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineClawsLayer(
@@ -615,12 +615,14 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			} else if (client.player != null && wearingAnyIronMan(client.player)) {
 				ClientPlayNetworking.send(new com.projecthero.mod.network.IronManActionPayload(
 						com.projecthero.mod.network.IronManActionPayload.Action.TOGGLE_FACEPLATE));
-			} else if (client.player != null && com.projecthero.mod.maxsteel.MaxSteel.isTransformed(client.player)) {
-				// v0.6.17: Shift+H powers down; plain H toggles the helmet.
+			} else if (client.player != null && com.projecthero.mod.maxsteel.MaxSteel.hasPower(client.player)
+					&& (!Screen.hasShiftDown() || com.projecthero.mod.maxsteel.MaxSteel.isTransformed(client.player))) {
+				// v0.14.2: plain H is THE Max Steel key -- Go Turbo / power down (N no longer does it). Shift+H while
+				// suited opens / seals the helmet; Shift+H unsuited still falls through to the power wheel.
 				ClientPlayNetworking.send(new com.projecthero.mod.network.MaxSteelActionPayload(
 						Screen.hasShiftDown()
-								? com.projecthero.mod.network.MaxSteelActionPayload.Action.POWER_DOWN
-								: com.projecthero.mod.network.MaxSteelActionPayload.Action.TOGGLE_HELMET));
+								? com.projecthero.mod.network.MaxSteelActionPayload.Action.TOGGLE_HELMET
+								: com.projecthero.mod.network.MaxSteelActionPayload.Action.TRANSFORM_TOGGLE));
 			} else if (client.player != null
 					&& com.projecthero.mod.symbiote.Symbiote.canToggle(client.player)) {
 				// v0.9.10: a Spider-Man who has bonded with the Symbiote -- plain H engages / retracts the
@@ -792,10 +794,6 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(Screen.hasShiftDown()
 					? com.projecthero.mod.network.TitanShiftPayload.Action.LET_DOWN
 					: com.projecthero.mod.network.TitanShiftPayload.Action.GRAB_BITE));
-		} else if (down && !maxSteelTransformWasDown && client.player != null
-				&& com.projecthero.mod.maxsteel.MaxSteel.hasPower(client.player)) {
-			ClientPlayNetworking.send(new com.projecthero.mod.network.MaxSteelActionPayload(
-					com.projecthero.mod.network.MaxSteelActionPayload.Action.TRANSFORM_TOGGLE));
 		} else if (down && !maxSteelTransformWasDown && client.player != null
 				&& com.projecthero.mod.spider.SpiderMan.hasPower(client.player)) {
 			// v0.12.20: Spider-Man -- N swaps Traversal Mode and Combat Mode.

@@ -39,9 +39,22 @@ public final class MaxSteelTransform {
 	}
 
 	/**
-	 * The dedicated N key (v0.6.17): Go Turbo only. It no longer powers down -- Shift+H does that
-	 * ({@link #powerDown}). A no-op if already suited or mid-animation.
+	 * v0.14.2: the H key -- the one key that transforms and powers down. Unsuited: Go Turbo. Suited: power down
+	 * (refused in combat, see {@link #powerDown}). Ignored while the suit is still forming / retracting.
 	 */
+	public static void toggle(ServerPlayer player) {
+		MaxSteelState s = MaxSteel.state(player);
+		if (isAnimating(s)) {
+			return;
+		}
+		if (s.transformed) {
+			powerDown(player);
+		} else {
+			goTurbo(player);
+		}
+	}
+
+	/** Go Turbo. A no-op if already suited or mid-animation. */
 	public static void goTurbo(ServerPlayer player) {
 		MaxSteelState s = MaxSteel.state(player);
 		if (isAnimating(s) || s.transformed) {
@@ -50,7 +63,7 @@ public final class MaxSteelTransform {
 		beginSuitUp(player, false);
 	}
 
-	/** Shift + H while transformed (v0.6.17): power down, unless in combat. */
+	/** Power down (H while suited, v0.14.2), unless in combat. */
 	public static void powerDown(ServerPlayer player) {
 		MaxSteelState s = MaxSteel.state(player);
 		if (isAnimating(s) || !s.transformed) {
@@ -104,6 +117,7 @@ public final class MaxSteelTransform {
 			return false;
 		}
 		MaxSteelModes.clearAll(player);
+		MaxSteelVisuals.clear(player);
 		MaxSteelState c = MaxSteel.state(player).copy();
 		c.transformDir = MaxSteelState.DIR_SUITING_DOWN;
 		c.transformStartTick = player.level().getGameTime();

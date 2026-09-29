@@ -22,6 +22,9 @@ public final class ModEntityRenderers {
 				com.projecthero.mod.client.titanshifter.TitanLightningRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.maxsteel.entity.MaxSteelEntityTypes.TURBO_BOLT,
 				TurboBoltRenderer::new);
+		// v0.14.2: the Turbo Cannon discharge beam
+		EntityRendererRegistry.register(com.projecthero.mod.maxsteel.entity.MaxSteelEntityTypes.TURBO_CANNON_BEAM,
+				TurboCannonBeamRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.spider.entity.SpiderEntityTypes.IMPACT_WEB,
 				com.projecthero.mod.client.spider.ImpactWebRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.symbiote.entity.SymbioteEntityTypes.SYMBIOTE,

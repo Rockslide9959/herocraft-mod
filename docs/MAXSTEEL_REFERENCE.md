@@ -4,6 +4,49 @@ Added across **v0.6.7 – v0.6.13** (Phases 1–8). Package `com.projecthero.mod
 Power id `max_steel`. A Hero Tier power, peer of Thor / Tony Stark / Spider-Man: its own attachment,
 granted server-authoritatively when Steel bonds, permanent, survives death / relog / restart.
 
+## v0.14.2 changes (at a glance)
+
+- **Controls**: **H is the only transform key** — Go Turbo when unsuited, power down when suited (still refused
+  IN COMBAT): `MaxSteelActionPayload.TRANSFORM_TOGGLE` → `MaxSteelTransform.toggle`. **Shift+H** while suited =
+  helmet (`TOGGLE_HELMET`). N no longer does anything for Max Steel (it falls through to Spider-Man / mutations).
+  R / G / X / Z / V / C while unsuited no longer armour up — they show "Press H to Go Turbo".
+  `POWER_DOWN` stays in the enum only for the wire ordinal.
+- **The user's own model** (`3d minecraft models/Max Steel/MaxSteelmodel(My own attempt)/Max - Converted.bbmodel` —
+  a plain player rig with their own 64x64 skin) is now every form. `scratchpad/gen_maxsteel_v0142.js` regenerates
+  all of it: six **128x128** suit textures (the user's skin 1:1 in the top-left quadrant, the geo keeps the same UVs
+  and declares 128x128; the other quadrants hold each form's extra armour), six geos, six **order maps**
+  (`textures/armor/max_steel_order/<set>.png`, R = when that texel forms: distance from the chest core, shell and
+  extra plates lagging, jitter) and the arm-cannon texture + order map. Strength (pauldrons, gauntlets, chest
+  plate, power pack, knee guards, heavy boots), Speed (crest, ear fins, forearm blades, spoiler, calf fins,
+  heel spurs), Flight (thruster pack, two swept wings, helmet fins, ankle + arm jets). Stealth / Cannon = the base
+  form. **Every form keeps the suit's own cyan/violet colours** (user request) — they differ only in extra armour. The tinted-elytra wings layer
+  (`MaxSteelWingsLayer/Model`) is gone — the Flight form has real wings.
+- **Pixel-by-pixel nanotech** (`client/maxsteel/MaxSteelNano`): armour up, power down and every mode swap composite
+  "from" → "to" texel by texel off the order map, with a glowing cyan leading edge, into one 128x128
+  `DynamicTexture` per animating player (re-uploaded only when the step changes). Hooked in
+  `SuperheroArmorRenderer.getRenderType`; the bone-threshold reveal is gone. `TRANSFORM_TICKS` 25 → **40**.
+  Mode swaps are stamped server-side (`MaxSteelVisuals.swap` from `MaxSteelModes.toggle/exitToBase/overload`),
+  `SWAP_TICKS` = 14. First person has its own 128x128 sleeve (`render/MaxSteelFirstPersonArm`).
+- **`MaxSteelFx`** (new, `ModAttachments.MAX_STEEL_FX`, synced to all, not persisted; replaces the target-only
+  `MAX_STEEL_CANNON_CHARGE`): anim + start, blast / cannon charge clocks, cannon lock target, swap-from + start.
+  Server writes go through `MaxSteelVisuals`.
+- **Poses** (`client/maxsteel/MaxSteelPose`, from `HumanoidModelMixin`): armour up (fist to core → arms wide),
+  power down (reverse), mode-swap flex, blast aim + recoil, cannon brace + recoil.
+- **Turbo Blast**: 10 → **15** dmg; charged max 22 → **34**; charge 1.5 s → **2 s** in three stages (chime per
+  stage), full-charge burst radius 2.5 → **3.5** (17 dmg). Real model (`render/TurboBoltRenderer`: core, sheaths,
+  spinning vanes, collar; scales with a synced charge). Charging shows an energy orb in the fist
+  (`client/maxsteel/MaxSteelGearLayer`) with orbiting sparks from stage 2.
+- **Turbo Cannon — reworked**: no more living-projectile dash. Hold C: an arm cannon (`MaxSteelArmCannon`, a
+  ModelPart copying the right arm) forms texel by texel, the pilot braces and aims; while charging (≤3 s) it
+  **locks onto** the living enemy nearest the crosshair (9° cone, kept to 16°, line of sight, 48 blocks; reticle =
+  `MaxSteelLockOnRenderer`). Release: a piercing beam from the muzzle to the lock (or the crosshair point) —
+  `lerp(16,45)` to everything along it, then a detonation at the end for 45% over `lerp(2.5,5)` blocks, entity-only.
+  Released under 8 ticks = folds away, free. Cost `lerp(18,60)`, 8 s recharge, recoil unless in Strength. Beam =
+  `TurboCannonBeamEntity` (visual only, synced end/width/charge, 14 ticks) + `TurboCannonBeamRenderer`.
+- **HUD** (`MaxSteelHud`): ability keys (cooldowns drain up), MAX STEEL + status, the mode row
+  Base/Flight/Strength/Speed/Stealth, then **hairline** bars — T.U.R.B.O. %, Turbo Cannon (charge % + lock /
+  recharge / ready), Turbo Blast charge with stage notches, Going Turbo / Powering Down. Compact version unsuited.
+
 ## v0.9.12 changes (at a glance)
 
 - **Fixed a duplication exploit**: a player could shift-click/drag a suit piece out of its armour slot;
@@ -149,14 +192,15 @@ The six universal HeroPack slots, assigned in spec order to the mod's existing k
 
 | Key | Slot | Ability |
 |-----|------|---------|
-| **R** | 1 | Turbo Blast · hold-unsuited = Go Turbo (hold-suited = charged blast; v0.6.21 removed hold-to-power-down) |
+| **R** | 1 | Turbo Blast · hold to charge (3 stages, 2 s) |
 | **G** | 2 | Turbo Strength Mode (toggle) |
 | **X** | 3 | Turbo Speed Mode (toggle) · tap again = Turbo Dash |
 | **Z** | 4 | Turbo Flight Mode (toggle) |
 | **V** | 5 | Turbo Stealth Mode (toggle) |
-| **C** | 6 | Turbo Cannon (hold to charge, release to launch) |
+| **C** | 6 | Turbo Cannon (hold: arm cannon forms + lock-on; release: piercing beam) |
 
-Plus (v0.6.16): **N** (`key.projecthero.max_steel_transform`, rebindable) = Go Turbo / power down —
+**v0.14.2: H = Go Turbo / power down, Shift+H = helmet, N unused — see the v0.14.2 notes above; the rest of
+this paragraph is history.** Plus (v0.6.16): **N** (`key.projecthero.max_steel_transform`, rebindable) = Go Turbo / power down —
 `MaxSteelActionPayload.TRANSFORM_TOGGLE` → `MaxSteelTransform.toggle`. **H** while transformed =
 retract / seal the helmet (`MaxSteelFaceplate`, exactly the Iron Man faceplate pattern —
 `MAX_STEEL_FACEPLATE_OPEN` synced attachment, `SuperheroArmorRenderer.setHelmetHidden` +
@@ -201,6 +245,7 @@ skin swap to the matching form (`geo/max_steel_<mode>.geo.json`, `textures/armor
 
 ## 5. Abilities
 
+- (v0.14.2 numbers and the new Cannon are in the notes at the top.)
 - **Turbo Blast** (`MaxSteelBlast`) — hitscan, server-authoritative. Tap: 10 dmg, 4 e, 0.45 s cd.
   Hold ≤1.5 s: scales to 22 dmg / 16 e, full charge adds a 2.5-block entity-only burst. Terrain
   never damaged. Breaks Stealth.

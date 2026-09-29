@@ -55,6 +55,24 @@ public abstract class PlayerRendererHandMixin {
 		}
 		PlayerModel<AbstractClientPlayer> model = ((PlayerRenderer) (Object) this).getModel();
 		boolean rightArm = arm == model.rightArm;
+		if (piece instanceof com.projecthero.mod.maxsteel.item.MaxSteelArmorItem) {
+			// v0.14.2: Max Steel's own 128x128 sleeve (nanotech reveal included) + the charge orb / arm cannon
+			if (com.projecthero.mod.client.maxsteel.MaxSteelReveal.isStealthed(player)) {
+				return;
+			}
+			com.projecthero.mod.armor.ArmorRenderContext.set(player);
+			String set;
+			try {
+				set = piece.armorSetId();
+			} finally {
+				com.projecthero.mod.armor.ArmorRenderContext.clear();
+			}
+			com.projecthero.mod.client.render.MaxSteelFirstPersonArm.render(pose, buffers, light, arm, rightArm, set, player);
+			if (rightArm) {
+				com.projecthero.mod.client.maxsteel.MaxSteelGearLayer.renderFirstPerson(pose, buffers, light, player, arm);
+			}
+			return;
+		}
 		SuperheroFirstPersonArm.render(pose, buffers, light, arm, rightArm, piece.armorSetId());
 	}
 }

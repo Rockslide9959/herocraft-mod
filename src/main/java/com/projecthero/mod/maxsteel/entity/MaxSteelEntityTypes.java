@@ -33,6 +33,18 @@ public final class MaxSteelEntityTypes {
 					.fireImmune()
 					.build());
 
+	/**
+	 * v0.14.2: the Turbo Cannon discharge -- a short-lived, purely visual beam (start = its position, end + width +
+	 * charge in synced data). All the hits are resolved by {@code MaxSteelCannon} the tick it fires.
+	 */
+	public static final EntityType<TurboCannonBeamEntity> TURBO_CANNON_BEAM = register("turbo_cannon_beam",
+			FabricEntityTypeBuilder.<TurboCannonBeamEntity>create(MobCategory.MISC, TurboCannonBeamEntity::new)
+					.dimensions(EntityDimensions.fixed(0.5f, 0.5f))
+					.trackRangeBlocks(128)
+					.trackedUpdateRate(20)
+					.fireImmune()
+					.build());
+
 	private MaxSteelEntityTypes() {
 	}
 
