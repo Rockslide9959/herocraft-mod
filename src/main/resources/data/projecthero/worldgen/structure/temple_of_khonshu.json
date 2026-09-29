@@ -1,0 +1,6 @@
+{
+  "type": "projecthero:temple_of_khonshu",
+  "biomes": "#projecthero:has_structure/temple_of_khonshu",
+  "step": "surface_structures",
+  "spawn_overrides": {}
+}

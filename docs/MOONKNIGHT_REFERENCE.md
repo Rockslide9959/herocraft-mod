@@ -93,3 +93,62 @@ rig (as Thor's and the Hulk's skins were) and hangs the cape off `Body` (-> `arm
   `data/MoonKnightAction` (flags, pose, charge, rope). Poses in `client/moonknight/MoonKnightPose`.
 - **Vanilla C / X:** `client/mixin/MinecraftHotbarKeysMixin` makes the creative hotbar save / load activators read as not held
   while a Moon Knight is transformed.
+## Phase 7: the Temple of Khonshu, the Scarab, the ritual, the advancement
+
+Code: `moonknight/temple/` (`KhonshuTemple` registry + hooks, `ScarabOfKhonshuItem`, `KhonshuAltarBlock` +
+`KhonshuAltarBlockEntity`, `KhonshuRitual`, `MoonKnightRitualFadePayload`, `TempleOfKhonshuStructure` + `TempleOfKhonshuPiece`);
+client `client/moonknight/KhonshuTempleClient` (fade overlay + receiver) and `KhonshuAltarRenderer`. Tests:
+`MoonKnightTempleGameTests`.
+
+**The structure** (`projecthero:temple_of_khonshu`, desert only via `#projecthero:has_structure/temple_of_khonshu`):
+`random_spread` spacing 110 / separation 40 / frequency 0.6 (salt 1978040621) -- vanilla desert pyramids are 32 / 8,
+so it is far rarer, about as rare as the Gamma Lab (120 / 45 / 0.8). One code-generated piece, 31 x 31 (fits in
+3 x 3 chunks), entrance to the south, levels fixed from the generator's estimated height at construction:
+
+- sand-blown smooth-sandstone forecourt, two lantern-topped obelisks, a flight of sandstone steps up a one-block podium
+  with two campfire braziers by the door and sand drifted against the walls;
+- a 21 x 21 hall, walls 7 high (cut-sandstone base and cornice, a chiselled band, pilasters every four blocks, window
+  slits, a few sand-blasted gaps high up), four corner towers with lanterns, a crenellated roof, and over the door a
+  raised pediment with a quartz **crescent**;
+- inside: eight columns, hanging lanterns, a quartz crescent in the floor with its horns toward the altar, a 5 x 5 dais
+  with a campfire at each corner and the **Altar of Khonshu** on top, directly under a round **oculus** (radius 3.5,
+  chiselled rim) so the altar always sees the sky;
+- the **hidden chamber** six blocks down (7 x 7 x 3): behind the dais an iron hatch in the floor, flanked by two urns,
+  opens with the lever on the wall above it; a ladder shaft leads down to a room with a second quartz crescent pointing
+  at the one chest (`chests/temple_of_khonshu`: pool 1 = exactly one Scarab of Khonshu, pool 2 = 4-8 rolls of bones,
+  rotten flesh, gold, sand, nuggets, string, spider eyes, emeralds, lapis, iron, quartz, a saddle, a golden apple
+  (weight 3) or a diamond (2)), soul lanterns, candles, urns, a bone block and a skull.
+
+**Items / blocks.** `scarab_of_khonshu`: epic, always glinting, stack 1, fire-resistant, tooltip; loot-only (no recipe,
+no other loot table). `khonshu_altar`: sandstone/quartz crescent texture, `spent` blockstate -> cracked texture, light
+6 while unspent; **unbreakable in survival** (bedrock strength, no loot table, pistons blocked) so a spent altar stays
+spent. Block entity: `AltarState` DORMANT_READY / HOLDING_SCARAB / SPENT, the ritual player's UUID, kneel progress,
+rebirth ticks. Both are in the Superheroes creative tab.
+
+**The ritual** (`KhonshuRitual`, all server-side):
+1. Right-click the altar holding the Scarab. Refused (action-bar message) if the altar is spent or busy, the player
+   already has the pact, it is not night (`MoonKnightLunar.isMoonNight`) or the altar cannot see the sky
+   (`MoonKnightLunar.hasSky(level, altar.above())`). Otherwise the scarab is consumed into the altar (the renderer
+   shows it turning and bobbing on top, full-bright).
+2. The player has 30 s to stand on the altar and sneak ("kneel"), then 200 unbroken ticks of kneeling: action-bar
+   `Kneel before Khonshu ▮▮▮▯▯▯`, a moonbeam of end-rod / white dust particles falling onto the altar, a rising beacon
+   tone, and Khonshu speaking five lines in chat. Standing up, stepping off, dawn, the sky being covered, dying,
+   wandering 24+ blocks away or logging out cancels: the scarab pops back out on top of the altar.
+3. At 200 ticks: a white flash, thunder, the fade to white (`MoonKnightRitualFadePayload(70)`: in ~8 ticks, held,
+   out ~24); for 40 ticks the player is invisible, pinned to the altar top and cannot take damage
+   (`ServerLivingEntityEvents.ALLOW_DAMAGE`) -- no real death, no drops, no death screen. Then they rise on the altar
+   with a burst of particles and the totem sound, `MoonKnight.grant(player, fullMoon)` (full moon = 100 Vengeance) and
+   the advancement `projecthero:moon_knight/pact` "Fist of Khonshu" (its own tab, `minecraft:impossible` awarded via
+   `GraveboundCurse.award`). The altar cracks: SPENT forever. One ritual per altar at a time; different temples are
+   independent.
+- A ritual cannot survive a reload: an altar read back from disk while holding a scarab (server stopped, chunk
+  unloaded) cancels on its first tick and returns the scarab. The only static state (`KhonshuRitual.REBORN`, players
+  mid-rebirth) is cleared on disconnect and in `ServerStateReset`.
+
+**Shared files touched (one line or entry each):** `ProjectHeroMod` (init), `ModNetworking` (payload),
+`ProjectHeroModClient` (client init), `ModStructureTypes` / `ModStructurePieceTypes`, `ModCreativeTab`,
+`ServerStateReset`, `HeroPackGuide` (structures chapter), gametest `fabric.mod.json`; lang via
+`scratchpad/lang_mk_temple.js`; textures via `scratchpad/build_khonshu_textures.js`.
+
+**GameTest hooks:** `KhonshuAltarBlockEntity.testDriven` (the level ticker skips it; tests call `KhonshuRitual.tick`),
+`forcedNight` / `forcedSky` (per altar, instead of changing the shared world clock).

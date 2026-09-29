@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "projecthero:block/khonshu_altar_top_spent",
+    "side": "projecthero:block/khonshu_altar_side_spent",
+    "bottom": "minecraft:block/sandstone_bottom"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "variants": {
+    "spent=false": { "model": "projecthero:block/khonshu_altar" },
+    "spent=true": { "model": "projecthero:block/khonshu_altar_spent" }
+  }
+}

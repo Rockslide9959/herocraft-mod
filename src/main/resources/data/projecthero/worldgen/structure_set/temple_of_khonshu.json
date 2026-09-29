@@ -1,0 +1,12 @@
+{
+  "structures": [
+    { "structure": "projecthero:temple_of_khonshu", "weight": 1 }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1978040621,
+    "spacing": 110,
+    "separation": 40,
+    "frequency": 0.6
+  }
+}

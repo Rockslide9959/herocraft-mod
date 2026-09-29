@@ -96,6 +96,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.moonknight.item.MoonKnightItems.initialize();
 		com.projecthero.mod.moonknight.MoonKnightSuit.initialize();
 		com.projecthero.mod.moonknight.MoonKnightDamage.initialize();
+		// Moon Knight Phase 7: the Scarab of Khonshu, the Altar of Khonshu (+ block entity) and the ritual's hooks.
+		com.projecthero.mod.moonknight.temple.KhonshuTemple.initialize();
 		com.projecthero.mod.hulk.entity.HulkEntities.initialize();
 		com.projecthero.mod.thorarmor.ThorArmor.initialize();
 		com.projecthero.mod.titanshifter.item.TitanShifterItems.initialize();

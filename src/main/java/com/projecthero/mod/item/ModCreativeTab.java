@@ -87,6 +87,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.allmight.item.AllMightItems.addToCreativeTab(output);
 				// Hulk: the Gamma Serum (loot-only in survival) and the Gamma Reactor block.
 				com.projecthero.mod.hulk.item.HulkItems.addToCreativeTab(output);
+				// Moon Knight: the Scarab of Khonshu (loot-only in survival) and the Altar of Khonshu.
+				com.projecthero.mod.moonknight.temple.KhonshuTemple.addToCreativeTab(output);
 				// Thor: the H-conjured armour (creative-only for testing; in survival it is summoned, not crafted).
 				com.projecthero.mod.thorarmor.ThorArmorItems.addToCreativeTab(output);
 				// Titan Shifter: the Titan Serum.

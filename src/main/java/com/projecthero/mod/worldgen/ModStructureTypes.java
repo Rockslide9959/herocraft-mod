@@ -54,6 +54,10 @@ public final class ModStructureTypes {
 	public static final StructureType<com.projecthero.mod.hulk.worldgen.GammaLabStructure> GAMMA_LAB =
 			register("gamma_lab", com.projecthero.mod.hulk.worldgen.GammaLabStructure.CODEC);
 
+	/** Moon Knight (Phase 7): the rare desert Temple of Khonshu, its altar open to the moon, the Scarab below. */
+	public static final StructureType<com.projecthero.mod.moonknight.temple.TempleOfKhonshuStructure> TEMPLE_OF_KHONSHU =
+			register("temple_of_khonshu", com.projecthero.mod.moonknight.temple.TempleOfKhonshuStructure.CODEC);
+
 	private ModStructureTypes() {
 	}
 

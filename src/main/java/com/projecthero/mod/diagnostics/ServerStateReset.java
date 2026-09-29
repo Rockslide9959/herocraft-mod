@@ -114,6 +114,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.allmight.AllMightAbilityManager.clearSessionState();
 		com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.clearSessionState();
 		com.projecthero.mod.hulk.Hulk.clearSessionState();
+		com.projecthero.mod.moonknight.temple.KhonshuRitual.clearSessionState();
 		com.projecthero.mod.hero.power.p23.GravityHandlers.clearSessionState();
 		com.projecthero.mod.hero.power.p22.PlantManipulationHandlers.clearSessionState();
 		com.projecthero.mod.greenlantern.GreenLanternAbilityManager.clearSessionState();

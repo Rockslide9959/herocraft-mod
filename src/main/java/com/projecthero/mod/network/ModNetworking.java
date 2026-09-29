@@ -67,6 +67,9 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(GreenLanternRingScanPayload.TYPE, GreenLanternRingScanPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(GreenLanternTrialPromptPayload.TYPE, GreenLanternTrialPromptPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SymbioteBondGamePayload.TYPE, SymbioteBondGamePayload.CODEC);
+		// Moon Knight Phase 7: the Khonshu ritual's fade to white (cosmetic).
+		PayloadTypeRegistry.playS2C().register(com.projecthero.mod.moonknight.temple.MoonKnightRitualFadePayload.TYPE,
+				com.projecthero.mod.moonknight.temple.MoonKnightRitualFadePayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(SymbioteBondResultPayload.TYPE, SymbioteBondResultPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(GreenLanternTrialAnswerPayload.TYPE, GreenLanternTrialAnswerPayload.CODEC);
 

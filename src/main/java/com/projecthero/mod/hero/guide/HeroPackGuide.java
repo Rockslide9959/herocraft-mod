@@ -288,7 +288,7 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.structures.body");
 			blank(lines);
 			for (String s : new String[]{"research_facility", "meteor_impact", "power_station",
-					"geological_site", "government_site", "hydrostatic_facility", "gamma_lab"}) {
+					"geological_site", "government_site", "hydrostatic_facility", "gamma_lab", "temple_of_khonshu"}) {
 				lines.add(Component.translatable("projecthero.guide.structure." + s).withStyle(ChatFormatting.WHITE));
 				para(lines, "projecthero.guide.structure." + s + ".desc");
 			}

@@ -1,0 +1,28 @@
+{
+  "display": {
+    "icon": {
+      "id": "projecthero:scarab_of_khonshu"
+    },
+    "title": {
+      "translate": "advancement.projecthero.moon_knight.pact.title"
+    },
+    "description": {
+      "translate": "advancement.projecthero.moon_knight.pact.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false,
+    "background": "minecraft:textures/block/chiseled_sandstone.png"
+  },
+  "criteria": {
+    "code_trigger": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "code_trigger"
+    ]
+  ]
+}

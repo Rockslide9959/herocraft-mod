@@ -26,6 +26,8 @@ public final class ModStructurePieceTypes {
 			register("fallen_lantern_site", com.projecthero.mod.greenlantern.worldgen.FallenLanternSitePiece::new);
 	public static final StructurePieceType GAMMA_LAB =
 			register("gamma_lab", com.projecthero.mod.hulk.worldgen.GammaLabPiece::new);
+	public static final StructurePieceType TEMPLE_OF_KHONSHU =
+			register("temple_of_khonshu", com.projecthero.mod.moonknight.temple.TempleOfKhonshuPiece::new);
 
 	private ModStructurePieceTypes() {
 	}
