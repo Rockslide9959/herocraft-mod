@@ -73,12 +73,15 @@ final class PowerCatalog {
 	private static Power superStrength() {
 		String k = "power_01_super_strength";
 		return Power.Builder.of(Powers.id(k), PowerCategory.PHYSICAL)
-				.ability(ab(k, "ground_slam", SLOT_1, INSTANT, 8 * S))
-				.ability(ab(k, "air_punch", SLOT_2, INSTANT, 10 * S))
-				.ability(ab(k, "power_leap", SLOT_3, CHARGE, 3 * S))
-				.ability(ab(k, "bull_rush", SLOT_4, HOLD, 40 * S))
-				.ability(ab(k, "grab_carry", SLOT_5, INSTANT, 5 * S))
-				.ability(ab(k, "maximum_effort", SLOT_6, INSTANT, 60 * S))
+				// v0.13.22 revamp: throw anything + hero landings
+				.ability(ab(k, "haymaker", SLOT_1, INSTANT, 102))
+				.ability(ab(k, "ground_slam", SLOT_2, INSTANT, 136))
+				.ability(ab(k, "power_leap", SLOT_3, CHARGE, 51))
+				.ability(ab(k, "maximum_effort", SLOT_4, INSTANT, 1020))
+				.ability(ab(k, "grab_throw", SLOT_5, INSTANT, 68))
+				.ability(ab(k, "bull_rush", SLOT_6, HOLD, 680))
+				.ability(ab(k, "thunderclap", AbilitySlot.SLOT_7, INSTANT, 160))
+				.ability(ab(k, "rip_hurl", AbilitySlot.SLOT_8, INSTANT, 187))
 				.passives(pk(k, "passive.melee"), pk(k, "passive.defense"), pk(k, "passive.jump"),
 						pk(k, "passive.mining"), pk(k, "passive.fall"), pk(k, "passive.charged"))
 				.serum(SerumRecipe.of("minecraft:strength", pk(k, "serum"),
@@ -94,13 +97,16 @@ final class PowerCatalog {
 	private static Power laserVision() {
 		String k = "power_02_laser_vision";
 		return Power.Builder.of(Powers.id(k), PowerCategory.ENERGY)
+				// v0.13.22 revamp: the heat gauge -- hotter means a sharper beam
 				.ability(ab(k, "heat_vision", SLOT_1, HOLD, 0))
-				.ability(ab(k, "focused_beam", SLOT_2, HOLD, 9 * S))
-				.ability(ab(k, "heat_burst", SLOT_3, INSTANT, 5 * S))
-				.ability(ab(k, "maximum_output", SLOT_4, HOLD, 65 * S))
-				.ability(ab(k, "precision_vision", SLOT_5, INSTANT, 1 * S))
+				.ability(ab(k, "piercing_lance", SLOT_2, CHARGE, 150))
+				.ability(ab(k, "recoil_blast", SLOT_3, INSTANT, 85))
+				.ability(ab(k, "maximum_output", SLOT_4, HOLD, 1100))
+				.ability(ab(k, "ricochet_shot", SLOT_5, INSTANT, 70))
 				.ability(ab(k, "thermal_vision", SLOT_6, TOGGLE, 0))
-				.passives(pk(k, "passive.blindness"), pk(k, "passive.glow"))
+				.ability(ab(k, "sweeping_arc", AbilitySlot.SLOT_7, INSTANT, 170))
+				.ability(ab(k, "cauterize", AbilitySlot.SLOT_8, INSTANT, 280))
+				.passives(pk(k, "passive.heat"), pk(k, "passive.blindness"), pk(k, "passive.glow"))
 				.serum(SerumRecipe.of("minecraft:night_vision", pk(k, "serum"),
 						"minecraft:redstone", "minecraft:fire_charge", "minecraft:amethyst_shard"))
 				.trigger(MutationTrigger.of(Kind.HIGH_INTENSITY_LIGHT, pk(k, "trigger"), "projecthero.device.light_projector"))
@@ -114,12 +120,15 @@ final class PowerCatalog {
 	private static Power flight() {
 		String k = "power_03_flight";
 		return Power.Builder.of(Powers.id(k), PowerCategory.MOVEMENT)
-				.ability(ab(k, "air_dash", SLOT_1, INSTANT, 3 * S))
-				.ability(ab(k, "dive_bomb", SLOT_2, INSTANT, 8 * S))
+				// v0.13.22 revamp: speed tiers + the sonic boom
+				.ability(ab(k, "air_dash", SLOT_1, INSTANT, 51))
+				.ability(ab(k, "dive_bomb", SLOT_2, INSTANT, 136))
 				.ability(ab(k, "flight_toggle", SLOT_3, TOGGLE, 0))
-				.ability(ab(k, "sonic_flight", SLOT_4, INSTANT, 30 * S))
+				.ability(ab(k, "orbital_drop", SLOT_4, INSTANT, 900))
 				.ability(ab(k, "carry", SLOT_5, TOGGLE, 0))
-				.ability(ab(k, "aerial_burst", SLOT_6, INSTANT, 6 * S))
+				.ability(ab(k, "sonic_flight", SLOT_6, INSTANT, 510))
+				.ability(ab(k, "slipstream", AbilitySlot.SLOT_7, INSTANT, 320))
+				.ability(ab(k, "barrel_roll", AbilitySlot.SLOT_8, INSTANT, 70))
 				.passives(pk(k, "passive.air_control"), pk(k, "passive.fall"))
 				.serum(SerumRecipe.of("minecraft:slow_falling", pk(k, "serum"),
 						"minecraft:feather", "minecraft:rabbit_foot", "minecraft:amethyst_shard"))
@@ -134,12 +143,15 @@ final class PowerCatalog {
 	private static Power superSpeed() {
 		String k = "power_04_super_speed";
 		return Power.Builder.of(Powers.id(k), PowerCategory.MOVEMENT)
-				.ability(ab(k, "speed_carry", SLOT_1, INSTANT, 3 * S))
-				.ability(ab(k, "rapid_assault", SLOT_2, INSTANT, 0))
-				.ability(ab(k, "momentum_dash", SLOT_3, INSTANT, 2 * S))
-				.ability(ab(k, "overdrive", SLOT_4, INSTANT, 50 * S))
-				.ability(ab(k, "whirlwind", SLOT_5, HOLD, 12 * S))
+				// v0.13.22 revamp: momentum builds while you run
+				.ability(ab(k, "rapid_assault", SLOT_1, INSTANT, 30))
+				.ability(ab(k, "speed_carry", SLOT_2, INSTANT, 51))
+				.ability(ab(k, "momentum_dash", SLOT_3, INSTANT, 34))
+				.ability(ab(k, "overdrive", SLOT_4, INSTANT, 850))
+				.ability(ab(k, "vortex", SLOT_5, HOLD, 204))
 				.ability(ab(k, "speed_mode", SLOT_6, TOGGLE, 0))
+				.ability(ab(k, "phase_vibrate", AbilitySlot.SLOT_7, INSTANT, 102))
+				.ability(ab(k, "lightning_throw", AbilitySlot.SLOT_8, INSTANT, 80))
 				.passives(pk(k, "passive.sprint"), pk(k, "passive.step"), pk(k, "passive.collision"))
 				.serum(SerumRecipe.of("minecraft:swiftness", pk(k, "serum"),
 						"minecraft:sugar", "minecraft:rabbit_foot", "minecraft:redstone"))
@@ -296,13 +308,16 @@ final class PowerCatalog {
 	private static Power superRegeneration() {
 		String k = "power_12_super_regeneration";
 		return Power.Builder.of(Powers.id(k), PowerCategory.PHYSICAL)
-				.ability(ab(k, "rapid_heal", SLOT_1, INSTANT, 6 * S))
-				.ability(ab(k, "purge", SLOT_2, INSTANT, 12 * S))
-				.ability(ab(k, "recovery_burst", SLOT_3, INSTANT, 15 * S))
-				.ability(ab(k, "resurrection", SLOT_4, INSTANT, 60 * S))
-				.ability(ab(k, "cellular_surge", SLOT_5, INSTANT, 45 * S))
+				// v0.13.22 revamp: Adrenaline -- damage taken fills it, bursts spend it
+				.ability(ab(k, "rapid_heal", SLOT_1, INSTANT, 102))
+				.ability(ab(k, "purge", SLOT_2, INSTANT, 204))
+				.ability(ab(k, "adrenal_rush", SLOT_3, INSTANT, 170))
+				.ability(ab(k, "resurrection", SLOT_4, INSTANT, 1020))
+				.ability(ab(k, "cellular_surge", SLOT_5, INSTANT, 765))
 				.ability(ab(k, "regeneration_mode", SLOT_6, TOGGLE, 0))
-				.passives(pk(k, "passive.regen"), pk(k, "passive.debuff"))
+				.ability(ab(k, "blood_rage", AbilitySlot.SLOT_7, INSTANT, 400))
+				.ability(ab(k, "mend", AbilitySlot.SLOT_8, INSTANT, 240))
+				.passives(pk(k, "passive.adrenaline"), pk(k, "passive.regen"), pk(k, "passive.debuff"))
 				.serum(SerumRecipe.of("minecraft:regeneration", pk(k, "serum"),
 						"minecraft:golden_apple", "minecraft:spider_eye", "minecraft:bone_meal"))
 				.trigger(MutationTrigger.of(Kind.NEAR_DEATH, pk(k, "trigger"), null))
@@ -316,13 +331,16 @@ final class PowerCatalog {
 	private static Power superDurability() {
 		String k = "power_13_super_durability";
 		return Power.Builder.of(Powers.id(k), PowerCategory.PHYSICAL)
-				.ability(ab(k, "heavy_strike", SLOT_1, INSTANT, 3 * S))
-				.ability(ab(k, "shoulder_charge", SLOT_2, INSTANT, 8 * S))
+				// v0.13.22 revamp: blocked damage fills Impact
+				.ability(ab(k, "heavy_strike", SLOT_1, INSTANT, 51))
+				.ability(ab(k, "shoulder_charge", SLOT_2, INSTANT, 136))
 				.ability(ab(k, "block", SLOT_3, HOLD, 0))
-				.ability(ab(k, "unbreakable", SLOT_4, INSTANT, 50 * S))
+				.ability(ab(k, "unbreakable", SLOT_4, INSTANT, 850))
 				.ability(ab(k, "projectile_deflection", SLOT_5, HOLD, 0))
 				.ability(ab(k, "tank_mode", SLOT_6, TOGGLE, 0))
-				.passives(pk(k, "passive.resist"), pk(k, "passive.health"))
+				.ability(ab(k, "impact_release", AbilitySlot.SLOT_7, INSTANT, 160))
+				.ability(ab(k, "taunt", AbilitySlot.SLOT_8, INSTANT, 300))
+				.passives(pk(k, "passive.impact"), pk(k, "passive.resist"), pk(k, "passive.health"))
 				.serum(SerumRecipe.of("minecraft:awkward", pk(k, "serum"),
 						"minecraft:iron_ingot", "minecraft:flint", "minecraft:leather"))
 				.trigger(MutationTrigger.of(Kind.EXPLOSION, pk(k, "trigger"), "projecthero.device.blast_chamber"))

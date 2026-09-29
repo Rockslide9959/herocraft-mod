@@ -12,6 +12,8 @@ import com.projecthero.mod.hero.data.ExperimentalState;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.Handlers;
 import com.projecthero.mod.hero.power.PowerToggles;
+import com.projecthero.mod.hero.revamp.batcha.BatchA;
+import com.projecthero.mod.hero.visual.MutationVisuals;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
@@ -26,17 +28,33 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
-/** Power 04 — Super Speed. */
+/**
+ * Power 04 — Super Speed (v0.13.22 revamp: <b>momentum builds while you run</b>).
+ *
+ * <p>Sprinting on the ground fills a 0..115 Momentum gauge (twice as fast in Speed Mode, three times in
+ * Overdrive); it bleeds away a second after you stop. Momentum adds hits to Rapid Assault, distance to Momentum
+ * Dash, and is the ammunition for Lightning Throw.
+ *
+ * <p>R Rapid Assault, G Speed Carry, X Momentum Dash, Z Overdrive ("time slows": everything near you is slowed,
+ * your attacks hit twice as hard), V Vortex (run circles that drag mobs in), C Speed Mode, H Phase Vibrate (pass
+ * through up to two blocks of wall), N Lightning Throw.
+ */
 public final class SuperSpeedHandlers {
-	private static final String KEY = "power_04_super_speed";
+	public static final String KEY = "power_04_super_speed";
 
 	/** Absolute game time until which Overdrive is running (0 = off). Persisted; read client-side too. */
 	public static final String OVERDRIVE_UNTIL = "overdrive_until";
 	private static final int OVERDRIVE_TICKS = 30 * 20;
 	/** Countdown mirror of {@link #OVERDRIVE_UNTIL} purely so the ability HUD can draw an Overdrive bar. */
 	private static final String OVERDRIVE_LEFT = "overdrive_ticks";
+
+	public static final String MOMENTUM = "momentum";
+	public static final float MAX_MOMENTUM = 115f;
+	private static final int VORTEX_TICKS = 160;
+	private static final double VORTEX_RADIUS = 3.5;
 
 	private static final ResourceLocation PASSIVE_STEP = com.projecthero.mod.ProjectHeroMod.id("speed_passive_step");
 
@@ -48,6 +66,7 @@ public final class SuperSpeedHandlers {
 
 	private static final ResourceLocation OD_SPEED = com.projecthero.mod.ProjectHeroMod.id("overdrive_speed");
 	private static final ResourceLocation OD_ATTACK = com.projecthero.mod.ProjectHeroMod.id("overdrive_attack_speed");
+	private static final ResourceLocation OD_DAMAGE = com.projecthero.mod.ProjectHeroMod.id("overdrive_attack_damage");
 	private static final ResourceLocation OD_STEP = com.projecthero.mod.ProjectHeroMod.id("overdrive_step");
 	private static final ResourceLocation OD_FALL = com.projecthero.mod.ProjectHeroMod.id("overdrive_fall");
 
@@ -61,72 +80,104 @@ public final class SuperSpeedHandlers {
 	private SuperSpeedHandlers() {
 	}
 
+	private static float res(ServerPlayer p, String name) {
+		return BatchA.res(p, KEY, name);
+	}
+
+	private static void set(ServerPlayer p, String name, float v) {
+		BatchA.set(p, KEY, name, v, 1e12f);
+	}
+
+	public static float momentum(ServerPlayer p) {
+		return res(p, MOMENTUM);
+	}
+
 	public static void register() {
-		// v0.10.13: R replaced by a grab-and-carry -- snatch up the creature or player you are looking at
-		// and run with them tucked in front of you; press again to hurl them forward. Same GrabHelper flow
-		// as Elasticity's Elastic Grab.
+		// R -- Rapid Assault: a blur of blows on everything in front; every 25 Momentum adds another hit.
+		AbilityHandlers.register(KEY, "rapid_assault", Handlers.instant(ctx -> {
+			ServerPlayer p = ctx.player();
+			float m = overdriveMult(p);
+			int hits = 4 + (int) (momentum(p) / 25f);
+			int struck = 0;
+			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.getEyePosition().add(p.getLookAngle().scale(1.5)), 3.5)) {
+				for (int i = 0; i < hits; i++) {
+					AbilityHelpers.hurtBurst(p, e, 2.4f * m);
+				}
+				AbilityHelpers.knockbackFrom(e, p.position(), 0.35 * m);
+				ctx.level().sendParticles(ParticleTypes.CRIT, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(),
+						hits * 3, 0.35, 0.35, 0.35, 0.3);
+				ctx.level().sendParticles(ParticleTypes.ELECTRIC_SPARK, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(),
+						hits, 0.3, 0.3, 0.3, 0.2);
+				struck++;
+			}
+			BatchA.play(p, KEY, "p04.flurry", 12);
+			trail(ctx.level(), p);
+			AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 1.8f);
+			if (struck > 0) {
+				AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.8f, 2.0f);
+			}
+			ctx.triggerCooldown();
+		}));
+
+		// G -- Speed Carry: snatch up the creature or player you are looking at and run with them. A second press
+		// sets them down unharmed.
 		AbilityHandlers.register(KEY, "speed_carry", Handlers.instantTicking(ctx -> {
 			ServerPlayer p = ctx.player();
 			if (com.projecthero.mod.hero.power.GrabHelper.isHolding(ctx)) {
-				// Speed Carry is a carry, not an attack: a second press just sets the passenger down
-				// unharmed -- no throw, no damage.
 				com.projecthero.mod.hero.power.GrabHelper.dropHeld(ctx);
 				trail(ctx.level(), p);
+				MutationVisuals.stopIf(p, "p04.carry");
 				AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.7f, 1.2f);
 				ctx.triggerCooldown();
 			} else if (com.projecthero.mod.hero.power.GrabHelper.tryGrab(ctx, 6.0, 300)) {
 				ctx.actionBar("message.projecthero.ability.grabbed");
+				BatchA.play(p, KEY, "grab_pull", 8);
 				AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.8f, 1.2f);
 			}
-		}, ctx -> com.projecthero.mod.hero.power.GrabHelper.tick(ctx, 1.8)));
-
-		AbilityHandlers.register(KEY, "rapid_assault", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			float m = overdriveMult(p);
-			int hits = 0;
-			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.getEyePosition().add(p.getLookAngle().scale(1.5)), 3.5)) {
-				for (int i = 0; i < 4; i++) {
-					AbilityHelpers.hurt(p, e, 2.0f * m);
-				}
-				AbilityHelpers.knockbackFrom(e, p.position(), 0.3 * m);
-				hits++;
+		}, ctx -> {
+			com.projecthero.mod.hero.power.GrabHelper.tick(ctx, 1.8);
+			if (com.projecthero.mod.hero.power.GrabHelper.isHolding(ctx)) {
+				BatchA.stance(ctx.player(), KEY, "p04.carry");
+			} else {
+				MutationVisuals.stopIf(ctx.player(), "p04.carry");
 			}
-			trail(ctx.level(), p);
-			AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 1.8f);
-			if (hits == 0) {
-				return;
-			}
-			ctx.triggerCooldown();
 		}));
 
+		// X -- Momentum Dash: a directional burst; Momentum carries it up to 80% further.
 		AbilityHandlers.register(KEY, "momentum_dash", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
-			float m = selfMult(overdriveMult(p));
+			float m = selfMult(overdriveMult(p)) * (1f + 0.8f * momentum(p) / MAX_MOMENTUM);
 			Vec3 v = p.getDeltaMovement();
 			Vec3 dir = (v.horizontalDistanceSqr() > 0.01) ? new Vec3(v.x, 0, v.z).normalize() : p.getLookAngle();
+			Vec3 from = p.position();
 			AbilityHelpers.launchSelf(p, new Vec3(dir.x * 1.7 * m, 0.25, dir.z * 1.7 * m));
-			trail(ctx.level(), p);
+			afterimage(ctx.level(), from, dir, 3.0 * m);
+			BatchA.play(p, KEY, "dash_forward", 10);
+			AbilityHelpers.sound(p, SoundEvents.BREEZE_SHOOT, 0.6f, 1.8f);
 			ctx.triggerCooldown();
 		}));
 
+		// Z -- Overdrive: 30 s of the fastest tier; the world around you crawls and your blows land twice as hard.
 		AbilityHandlers.register(KEY, "overdrive", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
-			ctx.setResource(OVERDRIVE_UNTIL, p.level().getGameTime() + OVERDRIVE_TICKS, 1e12f);
-			ctx.setResource(OVERDRIVE_LEFT, OVERDRIVE_TICKS, OVERDRIVE_TICKS);
+			set(p, OVERDRIVE_UNTIL, p.level().getGameTime() + OVERDRIVE_TICKS);
+			set(p, OVERDRIVE_LEFT, OVERDRIVE_TICKS);
 			reconcileSpeed(p);
 			p.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, OVERDRIVE_TICKS, 2, false, true, true));
 			overdriveBurst(ctx.level(), p);
-			// A real detonation, not a trickle.
+			BatchA.ring(ctx.level(), p.position().add(0, 0.2, 0), 0.6, ParticleTypes.ELECTRIC_SPARK, 30, 0.8);
+			BatchA.play(p, KEY, "power_up", 20);
 			AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 1.4f, 1.5f);
 			AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 1.2f, 1.3f);
 			ctx.triggerCooldown();
 		}));
 
-		// Whirlwind: hold to spin, up to 8 s; releasing (or the timer running out) starts an 8 s cooldown.
-		AbilityHandlers.register(KEY, "whirlwind", new AbilityHandler() {
+		// V -- Vortex: hold to run tight circles; the whirlwind drags everything nearby into its eye.
+		AbilityHandlers.register(KEY, "vortex", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
-				if (ctx.resource("whirl_ticks") > 0.5f) {
+				ServerPlayer p = ctx.player();
+				if (res(p, "vortex_ticks") > 0.5f) {
 					return;
 				}
 				if (!ctx.cooldownReady()) {
@@ -135,80 +186,252 @@ public final class SuperSpeedHandlers {
 							String.format(java.util.Locale.ROOT, "%.1f", ctx.cooldownRemaining() / 20.0f));
 					return;
 				}
-				ctx.setResource("whirl_ticks", 160, 160);
-				AbilityHelpers.sound(ctx.player(), SoundEvents.WIND_CHARGE_THROW, 1.0f, 1.2f);
+				set(p, "vortex_ticks", VORTEX_TICKS);
+				// start on the circle: the eye of the vortex sits one radius in front of you
+				Vec3 f = BatchA.flatLook(p);
+				double a = Math.atan2(-f.z, -f.x);
+				set(p, "vortex_angle", (float) ((a + Math.PI * 4) % (Math.PI * 2)));
+				MutationVisuals.play(p, "spin_arms");
+				AbilityHelpers.sound(p, SoundEvents.WIND_CHARGE_THROW, 1.0f, 1.2f);
 			}
 
 			@Override
 			public void onRelease(AbilityContext ctx) {
-				endWhirl(ctx);
+				endVortex(ctx);
 			}
 
 			@Override
 			public void onServerTick(AbilityContext ctx) {
-				float t = ctx.resource("whirl_ticks");
+				float t = res(ctx.player(), "vortex_ticks");
 				if (t <= 0.5f) {
 					return;
 				}
-				whirlTick(ctx);
+				vortexTick(ctx);
 				t -= 1.0f;
-				ctx.setResource("whirl_ticks", t, 160);
+				set(ctx.player(), "vortex_ticks", t);
 				if (t <= 0.5f) {
-					endWhirl(ctx);
+					endVortex(ctx);
 				}
 			}
 		});
 
 		AbilityHandlers.register(KEY, "speed_mode", Handlers.toggle(
-				ctx -> reconcileSpeed(ctx.player()),
+				ctx -> {
+					reconcileSpeed(ctx.player());
+					BatchA.play(ctx.player(), KEY, "dash_forward", 10);
+					AbilityHelpers.sound(ctx.player(), SoundEvents.BEACON_POWER_SELECT, 0.6f, 2.0f);
+				},
 				ctx -> reconcileSpeed(ctx.player()),
 				ctx -> {
 					reconcileSpeed(ctx.player());
-					AbilityHelpers.modeAura(ctx.player(), ParticleTypes.CRIT, 3);
+					AbilityHelpers.modeAura(ctx.player(), ParticleTypes.ELECTRIC_SPARK, 3);
 				}));
+
+		// H -- Phase Vibrate: vibrate your molecules and step through up to two blocks of wall.
+		AbilityHandlers.register(KEY, "phase_vibrate", Handlers.instant(SuperSpeedHandlers::phaseVibrate));
+
+		// N -- Lightning Throw: spend your Momentum as a hurled bolt of static.
+		AbilityHandlers.register(KEY, "lightning_throw", Handlers.instant(SuperSpeedHandlers::lightningThrow));
 
 		PowerPassives.register(KEY, (player, active) -> {
 			if (active) {
-				// v0.10.13: base movement speed is left NORMAL now -- no always-on speed passive. Only the
-				// step-up help stays passive so a speedster does not trip on every slab.
 				PowerToggles.modifier(player, Attributes.STEP_HEIGHT, PASSIVE_STEP, 0.6, AttributeModifier.Operation.ADD_VALUE);
 			} else {
 				PowerToggles.clearModifier(player, Attributes.STEP_HEIGHT, PASSIVE_STEP);
 				speedModeClear(player);
 				clearOverdrive(player);
 				PowerToggles.clearModifier(player, Attributes.STEP_HEIGHT, WALLRUN_STEP);
-				ExperimentalPowers.setResource(player, Powers.byKey(KEY), OVERDRIVE_UNTIL, 0, 1e12f);
-				ExperimentalPowers.setResource(player, Powers.byKey(KEY), OVERDRIVE_LEFT, 0, OVERDRIVE_TICKS);
-				ExperimentalPowers.setResource(player, Powers.byKey(KEY), "wallrun", 0, 1);
+				set(player, OVERDRIVE_UNTIL, 0);
+				set(player, OVERDRIVE_LEFT, 0);
+				set(player, "wallrun", 0);
+				set(player, "vortex_ticks", 0);
 			}
 		});
 		PowerPassives.registerTick(KEY, SuperSpeedHandlers::serverTick);
 	}
 
-	private static void endWhirl(AbilityContext ctx) {
-		if (ctx.resource("whirl_ticks") > 0.5f) {
-			ctx.setResource("whirl_ticks", 0, 160);
+	// ---- Vortex ------------------------------------------------------------------------------
+
+	private static void endVortex(AbilityContext ctx) {
+		if (res(ctx.player(), "vortex_ticks") > 0.5f) {
+			set(ctx.player(), "vortex_ticks", 0);
+			MutationVisuals.stopIf(ctx.player(), "spin_arms");
 			ctx.triggerCooldown();
 		}
 	}
 
-	private static void whirlTick(AbilityContext ctx) {
+	/**
+	 * One step around the circle. The eye is recovered from where you are and the current angle, so it needs no
+	 * stored position (resources cannot hold negative coordinates).
+	 */
+	private static void vortexTick(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		ServerLevel level = ctx.level();
 		float m = overdriveMult(p);
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 4.0)) {
-			AbilityHelpers.knockbackFrom(e, p.position(), 0.9 * m);
+		double a = res(p, "vortex_angle");
+		Vec3 center = p.position().subtract(Math.cos(a) * VORTEX_RADIUS, 0, Math.sin(a) * VORTEX_RADIUS);
+		double step = 0.34;
+		double next = (a + step) % (Math.PI * 2);
+		set(p, "vortex_angle", (float) next);
+		Vec3 target = center.add(Math.cos(next) * VORTEX_RADIUS, 0, Math.sin(next) * VORTEX_RADIUS);
+		Vec3 v = target.subtract(p.position());
+		p.setDeltaMovement(v.x, Math.min(p.getDeltaMovement().y, 0.1), v.z);
+		p.hurtMarked = true;
+		p.hasImpulse = true;
+		p.resetFallDistance();
+		MutationVisuals.ensure(p, "spin_arms");
+		int t = (int) res(p, "vortex_ticks");
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, center, 10.0)) {
+			Vec3 in = center.subtract(e.position());
+			double d = Math.max(0.1, in.horizontalDistance());
+			Vec3 pull = new Vec3(in.x / d, 0, in.z / d).scale(Math.min(0.45, 0.12 + d * 0.04));
+			// a touch of swirl so they spiral in rather than walk straight
+			Vec3 swirl = new Vec3(-in.z / d, 0, in.x / d).scale(0.12);
+			e.setDeltaMovement(e.getDeltaMovement().scale(0.6).add(pull).add(swirl).add(0, d < 4 ? 0.09 : 0.0, 0));
+			e.hurtMarked = true;
+			if (d < 4.5 && t % 10 == 0) {
+				AbilityHelpers.hurt(p, e, 3.6f * m);
+			}
 		}
 		for (var proj : level.getEntitiesOfClass(net.minecraft.world.entity.projectile.Projectile.class,
-				p.getBoundingBox().inflate(4.0))) {
+				new AABB(center, center).inflate(6.0), pr -> pr.getOwner() != p)) {
 			proj.setDeltaMovement(proj.getDeltaMovement().reverse().scale(0.6));
 		}
 		p.clearFire();
-		if (p.tickCount % 3 == 0) {
-			level.sendParticles(ParticleTypes.SWEEP_ATTACK, p.getX(), p.getY() + 1, p.getZ(), 4, 1.6, 0.5, 1.6, 0.1);
+		if (p.tickCount % 2 == 0) {
+			BatchA.ring(level, center.add(0, 0.3 + (t % 6) * 0.3, 0), VORTEX_RADIUS * (0.6 + (t % 3) * 0.2),
+					ParticleTypes.CLOUD, 10, 0.05);
+			level.sendParticles(ParticleTypes.SWEEP_ATTACK, center.x, center.y + 1, center.z, 2, 1.6, 0.5, 1.6, 0.1);
+		}
+		if (p.tickCount % 5 == 0) {
 			AbilityHelpers.sound(p, SoundEvents.WIND_CHARGE_THROW, 0.5f, 1.6f);
 		}
 	}
+
+	// ---- Phase Vibrate -----------------------------------------------------------------------
+
+	private static void phaseVibrate(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		Vec3 d = BatchA.flatLook(p);
+		Vec3 from = p.position();
+		boolean wall = false;
+		int solidColumns = 0;
+		BlockPos lastColumn = null;
+		Vec3 dest = null;
+		for (double dist = 0.5; dist <= 4.0; dist += 0.25) {
+			Vec3 at = from.add(d.scale(dist));
+			BlockPos feet = BlockPos.containing(at.x, from.y + 0.1, at.z);
+			BlockPos head = feet.above();
+			boolean solid = !level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
+					|| !level.getBlockState(head).getCollisionShape(level, head).isEmpty();
+			if (solid) {
+				if (level.getBlockState(feet).getDestroySpeed(level, feet) < 0 || level.getBlockState(head).getDestroySpeed(level, head) < 0) {
+					break; // bedrock, barriers, end portal frames: never
+				}
+				if (!feet.equals(lastColumn)) {
+					solidColumns++;
+					lastColumn = feet;
+				}
+				if (solidColumns > 2) {
+					break;
+				}
+				wall = true;
+				continue;
+			}
+			if (!wall) {
+				if (dist > 1.5) {
+					break; // no wall right in front of you
+				}
+				continue;
+			}
+			AABB box = p.getBoundingBox().move(at.x - from.x, 0, at.z - from.z);
+			if (level.noCollision(p, box)) {
+				dest = at;
+				break;
+			}
+		}
+		if (dest == null) {
+			ctx.actionBar("message.projecthero.speed.cannot_phase");
+			return;
+		}
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, from.x, from.y + 1, from.z, 20, 0.3, 0.6, 0.3, 0.1);
+		afterimage(level, from, d, from.distanceTo(dest));
+		p.teleportTo(dest.x, dest.y, dest.z);
+		p.resetFallDistance();
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, dest.x, dest.y + 1, dest.z, 20, 0.3, 0.6, 0.3, 0.1);
+		BatchA.play(p, KEY, "p04.vibrate", 10);
+		AbilityHelpers.sound(p, SoundEvents.BEACON_DEACTIVATE, 0.7f, 2.0f);
+		AbilityHelpers.sound(p, SoundEvents.CHORUS_FRUIT_TELEPORT, 0.5f, 1.6f);
+		ctx.triggerCooldown();
+	}
+
+	// ---- Lightning Throw ---------------------------------------------------------------------
+
+	private static void lightningThrow(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		float mom = momentum(p);
+		if (mom < 30f) {
+			ctx.actionBar("message.projecthero.speed.no_momentum");
+			return;
+		}
+		set(p, MOMENTUM, 0);
+		float dmg = (8f + mom * 0.14f) * overdriveMult(p);
+		LivingEntity target = AbilityHelpers.raycastEntity(p, 32.0);
+		Vec3 start = AbilityHelpers.handPosition(p);
+		Vec3 end = target != null ? target.position().add(0, target.getBbHeight() * 0.5, 0) : AbilityHelpers.aimPoint(p, 32.0);
+		zigzag(level, start, end);
+		if (target != null) {
+			AbilityHelpers.hurtBurst(p, target, dmg);
+			AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, 30, 2);
+			// the static arcs on to one more creature close by
+			for (LivingEntity e : AbilityHelpers.enemiesAround(p, end, 5.0)) {
+				if (e != target) {
+					zigzag(level, end, e.position().add(0, e.getBbHeight() * 0.5, 0));
+					AbilityHelpers.hurt(p, e, dmg * 0.5f);
+					break;
+				}
+			}
+		} else {
+			for (LivingEntity e : AbilityHelpers.enemiesAround(p, end, 2.0)) {
+				AbilityHelpers.hurt(p, e, dmg * 0.6f);
+			}
+		}
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, end.x, end.y, end.z, 25, 0.3, 0.3, 0.3, 0.3);
+		level.sendParticles(ParticleTypes.FLASH, end.x, end.y, end.z, 1, 0, 0, 0, 0);
+		BatchA.play(p, KEY, "throw_right", 12);
+		AbilityHelpers.sound(p, SoundEvents.LIGHTNING_BOLT_IMPACT, 0.8f, 1.6f);
+		AbilityHelpers.sound(p, SoundEvents.BEACON_POWER_SELECT, 0.6f, 2.0f);
+		ctx.triggerCooldown();
+	}
+
+	/** A jagged electric line from {@code a} to {@code b}. */
+	private static void zigzag(ServerLevel level, Vec3 a, Vec3 b) {
+		Vec3 prev = a;
+		int segs = Math.max(3, (int) (a.distanceTo(b) / 1.5));
+		java.util.Random r = new java.util.Random((long) (a.x * 31 + b.z * 17));
+		for (int i = 1; i <= segs; i++) {
+			Vec3 at = a.lerp(b, i / (double) segs);
+			if (i < segs) {
+				at = at.add((r.nextDouble() - 0.5) * 0.7, (r.nextDouble() - 0.5) * 0.7, (r.nextDouble() - 0.5) * 0.7);
+			}
+			AbilityHelpers.line(level, prev, at, ParticleTypes.ELECTRIC_SPARK, 4.0);
+			prev = at;
+		}
+		AbilityHelpers.line(level, a, b, ParticleTypes.WAX_OFF, 1.0);
+	}
+
+	/** A streak of fading after-images along a dash. */
+	private static void afterimage(ServerLevel level, Vec3 from, Vec3 dir, double length) {
+		for (double s = 0; s <= length; s += 0.6) {
+			Vec3 at = from.add(dir.scale(s));
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y + 1.0, at.z, 2, 0.15, 0.5, 0.15, 0.01);
+			level.sendParticles(ParticleTypes.CLOUD, at.x, at.y + 0.1, at.z, 1, 0.1, 0.02, 0.1, 0.005);
+		}
+	}
+
+	// ---- per-tick upkeep -------------------------------------------------------------------------
 
 	private static void serverTick(ServerPlayer player) {
 		com.projecthero.mod.hero.power.PowerCombos.speedGeneratesCharge(player);
@@ -218,49 +441,69 @@ public final class SuperSpeedHandlers {
 		long now = player.level().getGameTime();
 		boolean overdrive = until > now;
 		if (overdrive) {
-			ExperimentalPowers.setResource(player, power, OVERDRIVE_LEFT, Math.max(0.0f, until - now), OVERDRIVE_TICKS);
+			set(player, OVERDRIVE_LEFT, Math.max(0.0f, until - now));
 		} else if (until > 0.0f) {
-			ExperimentalPowers.setResource(player, power, OVERDRIVE_UNTIL, 0, 1e12f);
-			ExperimentalPowers.setResource(player, power, OVERDRIVE_LEFT, 0, OVERDRIVE_TICKS);
+			set(player, OVERDRIVE_UNTIL, 0);
+			set(player, OVERDRIVE_LEFT, 0);
 		}
 		reconcileSpeed(player);
 
 		boolean speedMode = ExperimentalPowers.isToggled(player, power,
 				power.ability(com.projecthero.mod.hero.AbilitySlot.SLOT_6));
 
+		// ---- Momentum: builds while sprinting on the ground, bleeds away a second after you stop ----
+		float mom = momentum(player);
+		if (player.isSprinting() && (player.onGround() || speedMode || overdrive)) {
+			float gain = overdrive ? 1.5f : speedMode ? 1.0f : 0.5f;
+			set(player, MOMENTUM, Math.min(MAX_MOMENTUM, mom + gain));
+			set(player, "mom_idle", 20);
+		} else if (mom > 0f) {
+			float idle = res(player, "mom_idle");
+			if (idle > 0.5f) {
+				set(player, "mom_idle", idle - 1);
+			} else {
+				set(player, MOMENTUM, Math.max(0f, mom - 1.2f));
+			}
+		}
+
 		if (!(player.level() instanceof ServerLevel sl)) {
 			return;
 		}
 
 		Vec3 v = player.getDeltaMovement();
-		boolean moving = v.horizontalDistanceSqr() > 0.02;
+		boolean moving = v.horizontalDistanceSqr() > 0.02 || player.isSprinting();
 
 		// Speed Mode burns hunger 50% faster than normal as a balancing cost.
 		if (speedMode && !player.getAbilities().instabuild && moving) {
 			player.getFoodData().addExhaustion(0.05f);
 		}
 
-		// Bursting-with-power visuals while Overdrive is up.
-		if (overdrive && player.tickCount % 2 == 0) {
-			overdriveBurst(sl, player);
+		// Overdrive: bursting-with-power visuals, and "time slows" -- everything hostile near you crawls.
+		if (overdrive) {
+			if (player.tickCount % 2 == 0) {
+				overdriveBurst(sl, player);
+			}
+			if (player.tickCount % 5 == 0) {
+				for (LivingEntity e : AbilityHelpers.enemiesAround(player, player.position(), 12.0)) {
+					AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 14, 3);
+					if (!(e instanceof Player)) {
+						e.setDeltaMovement(e.getDeltaMovement().scale(0.5));
+					}
+				}
+			}
 		}
 
 		// Run THROUGH living things: anything within ~2 blocks while you're moving fast takes a hit.
 		if ((speedMode || overdrive) && moving) {
 			for (LivingEntity e : AbilityHelpers.enemiesAround(player, player.position(), 2.0)) {
 				if (e.invulnerableTime <= 0) {
-					AbilityHelpers.hurt(player, e, 5.0f);
+					AbilityHelpers.hurt(player, e, 6.0f * overdriveMult(player));
 					AbilityHelpers.knockbackFrom(e, player.position(), 0.5);
 				}
 			}
 		}
 
-		// Running on water: splash and footfall feedback so it reads as running, not gliding. The
-		// client mixin (LocalPlayerMixin) is what actually keeps the player on the surface; here we
-		// only need to notice that they are skimming a water surface and throw up the wake. Checked
-		// generously -- water at the feet OR one block down, and a wide vertical band -- because at
-		// Super Speed the player crosses many water columns per tick and the old tight check missed
-		// most of them, which is why the splash and sound almost never fired.
+		// Running on water: splash and footfall feedback (the client mixin keeps the player on the surface).
 		if ((speedMode || overdrive) && moving && !player.isShiftKeyDown() && !player.getAbilities().flying) {
 			BlockPos feet = player.blockPosition();
 			var atFeet = sl.getFluidState(feet);
@@ -271,7 +514,6 @@ public final class SuperSpeedHandlers {
 				double surfaceY = player.getY();
 				sl.sendParticles(ParticleTypes.SPLASH,
 						player.getX(), surfaceY + 0.05, player.getZ(), 12, 0.35, 0.02, 0.35, 0.12);
-				// a trailing spray just behind the direction of travel, so every stride kicks up water
 				Vec3 back = new Vec3(v.x, 0, v.z);
 				back = back.lengthSqr() > 1.0e-4 ? back.normalize() : player.getLookAngle();
 				sl.sendParticles(ParticleTypes.BUBBLE,
@@ -284,9 +526,12 @@ public final class SuperSpeedHandlers {
 			}
 		}
 
-		// Sprint trail only while Speed Mode is toggled on -- not on every ordinary sprint.
-		if (speedMode && player.isSprinting() && player.tickCount % 3 == 0) {
+		// Sprint trail only while Speed Mode / Overdrive is on -- not on every ordinary sprint.
+		if ((speedMode || overdrive) && player.isSprinting() && player.tickCount % 3 == 0) {
 			bodyTrail(sl, player, 1);
+			if (momentum(player) > MAX_MOMENTUM * 0.6f) {
+				sl.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1.0, player.getZ(), 2, 0.3, 0.5, 0.3, 0.05);
+			}
 		}
 
 		wallRunTick(player, sl);
@@ -294,14 +539,10 @@ public final class SuperSpeedHandlers {
 
 	/**
 	 * Wall Running: sprint into a wall while looking steeply up it and you run straight up instead of
-	 * stalling against it. A generous step-height assist rides along with it so an overhanging lip or
-	 * the rim of a deep hole does not just bump your head -- and the moment the wall in front runs out
-	 * (you have topped out) one forward-and-up nudge carries you over the edge instead of leaving you
-	 * to float at the lip and drop back in.
+	 * stalling against it; topping out gives one mantle nudge over the edge.
 	 */
 	private static void wallRunTick(ServerPlayer p, ServerLevel sl) {
-		Power power = Powers.byKey(KEY);
-		boolean wasClimbing = ExperimentalPowers.getResource(p, power, "wallrun") > 0.5f;
+		boolean wasClimbing = res(p, "wallrun") > 0.5f;
 		boolean climbing = p.isSprinting() && p.horizontalCollision && !p.isInWater()
 				&& !p.getAbilities().flying && p.getXRot() < WALLRUN_PITCH && wallAhead(p);
 		if (climbing) {
@@ -311,22 +552,20 @@ public final class SuperSpeedHandlers {
 			p.hasImpulse = true;
 			p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(p));
 			PowerToggles.modifier(p, Attributes.STEP_HEIGHT, WALLRUN_STEP, 1.2, AttributeModifier.Operation.ADD_VALUE);
-			ExperimentalPowers.setResource(p, power, "wallrun", 1, 1);
+			set(p, "wallrun", 1);
 			if (p.tickCount % 2 == 0) {
 				sl.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.2, p.getZ(), 3, 0.2, 0.05, 0.2, 0.01);
 			}
 			return;
 		}
 		if (wasClimbing) {
-			// Just topped out (or let go): a single mantle nudge so the crest of the wall carries you
-			// onto the ledge instead of leaving you stalled right at its lip.
 			Vec3 look = p.getLookAngle();
 			Vec3 v = p.getDeltaMovement();
 			p.setDeltaMovement(v.x + look.x * 0.5, Math.max(v.y, 0.35), v.z + look.z * 0.5);
 			p.hasImpulse = true;
 			p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(p));
 		}
-		ExperimentalPowers.setResource(p, power, "wallrun", 0, 1);
+		set(p, "wallrun", 0);
 		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, WALLRUN_STEP);
 	}
 
@@ -346,7 +585,7 @@ public final class SuperSpeedHandlers {
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + h * 0.5, p.getZ(),
 				14, 0.5, h * 0.5, 0.5, 0.25);
 		level.sendParticles(ParticleTypes.EXPLOSION, p.getX(), p.getY() + h * 0.6, p.getZ(),
-				2, 0.4, 0.4, 0.4, 0.0);
+				1, 0.4, 0.4, 0.4, 0.0);
 		level.sendParticles(ParticleTypes.CRIT, p.getX(), p.getY() + h * 0.5, p.getZ(),
 				10, 0.5, h * 0.5, 0.5, 0.2);
 	}
@@ -369,10 +608,19 @@ public final class SuperSpeedHandlers {
 		return speedMode ? 5.0f : 1.0f;
 	}
 
+	/** Whether Overdrive is running (server). */
+	public static boolean overdrive(ServerPlayer p) {
+		return res(p, OVERDRIVE_UNTIL) > p.level().getGameTime();
+	}
+
+	/** Whether Speed Mode is on (server). */
+	public static boolean speedMode(ServerPlayer p) {
+		return ExperimentalPowers.state(p).activeToggles.contains(KEY + "/speed_mode");
+	}
+
 	/**
-	 * Single authority for the movement modifiers. Overdrive and Speed Mode no longer stack -- Overdrive
-	 * is a strictly faster tier that replaces Speed Mode while it runs, so the top speed is a clean
-	 * ~64 blocks/s rather than an uncapped sum. Called every server tick plus on every state change.
+	 * Single authority for the movement modifiers. Overdrive and Speed Mode never stack -- Overdrive is a strictly
+	 * faster tier that replaces Speed Mode while it runs. Called every server tick plus on every state change.
 	 */
 	private static void reconcileSpeed(ServerPlayer p) {
 		Power power = Powers.byKey(KEY);
@@ -392,7 +640,7 @@ public final class SuperSpeedHandlers {
 	}
 
 	private static float overdriveMult(ServerPlayer p) {
-		return ExperimentalPowers.getResource(p, Powers.byKey(KEY), OVERDRIVE_UNTIL) > p.level().getGameTime() ? 2.0f : 1.0f;
+		return overdrive(p) ? 2.0f : 1.0f;
 	}
 
 	private static float selfMult(float overdriveMult) {
@@ -400,7 +648,6 @@ public final class SuperSpeedHandlers {
 	}
 
 	private static void speedModeApply(ServerPlayer p) {
-		// v0.10.13: sized so a sprinting speedster tops out around 32 blocks/s in Speed Mode.
 		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, SM_SPEED, 4.7, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.ATTACK_SPEED, SM_ATTACK, 0.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, SM_STEP, 0.8, AttributeModifier.Operation.ADD_VALUE);
@@ -417,11 +664,10 @@ public final class SuperSpeedHandlers {
 	}
 
 	private static void applyOverdrive(ServerPlayer p) {
-		// v0.10.13: sized so a sprinting speedster tops out around 64 blocks/s. Replaces Speed Mode
-		// while it runs (see reconcileSpeed) rather than stacking on top of it.
 		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, OD_SPEED, 10.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.ATTACK_SPEED, OD_ATTACK, 1.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-		// 10-block step assist so Overdrive doesn't stall on every ledge at that speed.
+		// "your attacks x2": melee doubles while Overdrive runs (the Super Speed moves double through overdriveMult)
+		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, OD_DAMAGE, 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, OD_STEP, 10.0, AttributeModifier.Operation.ADD_VALUE);
 		PowerToggles.modifier(p, Attributes.FALL_DAMAGE_MULTIPLIER, OD_FALL, -1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 	}
@@ -429,6 +675,7 @@ public final class SuperSpeedHandlers {
 	private static void clearOverdrive(ServerPlayer p) {
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, OD_SPEED);
 		PowerToggles.clearModifier(p, Attributes.ATTACK_SPEED, OD_ATTACK);
+		PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, OD_DAMAGE);
 		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, OD_STEP);
 		PowerToggles.clearModifier(p, Attributes.FALL_DAMAGE_MULTIPLIER, OD_FALL);
 	}
@@ -437,10 +684,7 @@ public final class SuperSpeedHandlers {
 		bodyTrail(level, p, 3);
 	}
 
-	/**
-	 * The speed trail: a low scuff of particles right at the player's feet, trailing just behind the
-	 * direction of travel. Deliberately foot-level only -- no full-body column.
-	 */
+	/** The speed trail: a low scuff of particles right at the player's feet, trailing behind the direction of travel. */
 	private static void bodyTrail(ServerLevel level, ServerPlayer p, int density) {
 		Vec3 v = p.getDeltaMovement();
 		Vec3 dir = v.horizontalDistanceSqr() > 1.0e-4 ? new Vec3(v.x, 0, v.z).normalize() : p.getLookAngle();

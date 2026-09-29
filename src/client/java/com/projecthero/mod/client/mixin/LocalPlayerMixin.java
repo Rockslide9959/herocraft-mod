@@ -130,7 +130,9 @@ public abstract class LocalPlayerMixin {
 			if (sonic) {
 				capPerTick = 50.0 / 20.0;
 			} else {
-				capPerTick = (self.isSprinting() ? 25.0 : 15.0) / 20.0;
+				// v0.13.22: sprinting climbs Flight's speed tiers (synced by FlightHandlers): 25 / 32 / 39 / 46 blocks/s
+				int tier = Math.round(st.resources.getOrDefault("power_03_flight/speed_tier", 0.0f));
+				capPerTick = (self.isSprinting() ? 25.0 + 7.0 * Math.max(0, Math.min(3, tier)) : 15.0) / 20.0;
 			}
 			if (horiz > capPerTick) {
 				double f = capPerTick / horiz;
