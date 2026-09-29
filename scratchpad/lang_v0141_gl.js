@@ -4,6 +4,7 @@ const lang = JSON.parse(fs.readFileSync(__dirname + '/../src/main/resources/asse
 const key = 'projecthero.guide.green_lantern.constructs.body';
 const old = lang[key];
 const from = 'Carry Platform is a bright 3x3 platform spawned level with you;';
+if (old.includes('no time limit and no cooldown')) { console.log('already applied'); process.exit(0); }
 if (!old.includes(from)) throw new Error('anchor text moved');
 require('./langset.js')([{ entries: {
 	[key]: old.replace(from, 'Carry Platform is a bright 3x3 platform spawned level with you that stays for as long as you like — no time limit and no cooldown (it only costs its small upkeep; Shift the construct key to dismiss it);'),

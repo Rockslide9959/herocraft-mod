@@ -244,7 +244,7 @@ public final class AbilityHud {
 
 		if (effort > 0.5f) {
 			strengthBar(g, client, x, w, rowY, "Maximum Effort  " + (int) Math.ceil(effort / 20.0f) + "s",
-					Math.min(1.0f, effort / 440.0f), 0xFFB98CFF, 0xFFCBB6FF);
+					Math.min(1.0f, effort / (float) com.projecthero.mod.hero.power.p01.SuperStrengthHandlers.EFFORT_TICKS), 0xFFB98CFF, 0xFFCBB6FF);
 		}
 		if (zCharge > 0.5f) {
 			float held = Math.max(0f, now - zCharge);
@@ -304,11 +304,9 @@ public final class AbilityHud {
 	 */
 	private static List<Meter> collectMeters(ExperimentalState state, Power power, long gameTime) {
 		List<Meter> out = new ArrayList<>();
-		// Super Strength keeps only transient bookkeeping in its resource map -- its charged-punch
-		// and Maximum Effort indicators are drawn separately (see renderStrengthExtras).
-		if (power.key().equals("power_01_super_strength")) {
-			return out;
-		}
+		// Super Strength's legacy charged-punch / Maximum Effort indicators are drawn separately (renderStrengthExtras);
+		// only its v0.14.1 registered meters (MutationMeters) are gathered here.
+		boolean registeredOnly = power.key().equals("power_01_super_strength");
 		String prefix = power.key() + "/";
 		for (var e : state.resources.entrySet()) {
 			if (!e.getKey().startsWith(prefix)) {
@@ -329,6 +327,9 @@ public final class AbilityHud {
 					out.add(new Meter(Component.literal(text), v, spec.max(), spec.color(),
 							spec.style() == com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE, spec.style()));
 				}
+				continue;
+			}
+			if (registeredOnly) {
 				continue;
 			}
 			Kind kind = kindOf(name);
