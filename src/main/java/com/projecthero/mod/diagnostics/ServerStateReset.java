@@ -82,6 +82,7 @@ public final class ServerStateReset {
 		CraterAmbience.clearSessionState();
 		TempBlocks.clearSessionState();
 		ConjuredStructures.clearSessionState();
+		com.projecthero.mod.hero.power.ComboMoves.reset();
 		MagneticHandlers.clearSessionState();
 		ElectrokinesisHandlers.clearSessionState();
 		ShadowManipulationHandlers.clearSessionState();

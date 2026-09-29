@@ -73,11 +73,22 @@ public final class PowerGrants {
 		return out;
 	}
 
-	/** Add one experimental power alongside what the player has (fails when mutation capacity is full). */
+	/**
+	 * Add one experimental power alongside what the player has (fails when mutation capacity is full). v0.13.22: goes
+	 * through the same rules as a mutation from a serum -- the capacity check comes first (nothing is lost when full),
+	 * then the mutation group claims its Primary slot ({@link HeroTiers#claimExperimental}), and the research
+	 * stages / advancements are recorded. It used to skip the slot rule, so a random serum could leave a player with
+	 * two heroes, the Symbiote AND mutations.
+	 */
 	public static boolean grantExperimental(ServerPlayer target, Power power) {
+		if (ExperimentalPowers.owns(target, power) || ExperimentalPowers.atCapacity(target)) {
+			return false;
+		}
+		HeroTiers.claimExperimental(target);
 		boolean ok = ExperimentalPowers.grant(target, power);
 		if (ok) {
 			PowerPassives.reconcileActive(target);
+			com.projecthero.mod.hero.mutation.MutationManager.recordConfirmed(target, power);
 		}
 		return ok;
 	}

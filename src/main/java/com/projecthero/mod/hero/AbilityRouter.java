@@ -44,6 +44,14 @@ public final class AbilityRouter {
 					|| com.projecthero.mod.hulk.Hulk.isHulk(player)) {
 				return;
 			}
+			// Sneak + N fires a power combo when the player owns a matching pair of mutations (v0.13.22)
+			if (slot == AbilitySlot.SLOT_8 && player.isShiftKeyDown()
+					&& com.projecthero.mod.hero.power.ComboMoves.available(player) != null) {
+				if (pressed) {
+					com.projecthero.mod.hero.power.ComboMoves.tryFire(player);
+				}
+				return;
+			}
 			dispatchExperimental(player, slot, pressed);
 			return;
 		}

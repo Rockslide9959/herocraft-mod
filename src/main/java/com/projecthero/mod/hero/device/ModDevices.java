@@ -18,7 +18,7 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 
-/** The 8 (+1) reusable laboratory device blocks. All in the {@code projecthero:superheroes} tab. */
+/** The reusable laboratory device blocks (9 original + 6 added in v0.13.22). All in the {@code projecthero:superheroes} tab. */
 public final class ModDevices {
 	private static final Map<String, Block> BLOCKS = new LinkedHashMap<>();
 	private static final Map<String, Item> ITEMS = new LinkedHashMap<>();
@@ -32,6 +32,14 @@ public final class ModDevices {
 	public static final Block PRESSURE_CHAMBER = device("pressure_chamber", MapColor.COLOR_LIGHT_BLUE, true, Kind.PRESSURE_CHAMBER);
 	public static final Block HYDROSTATIC_TEST_TANK = device("hydrostatic_test_tank", MapColor.WATER, false, Kind.SUBMERSION);
 	public static final Block ELECTROMAGNETIC_COIL = device("electromagnetic_coil", MapColor.COLOR_ORANGE, true, Kind.MAGNETIC_FIELD);
+	// v0.13.22: the six devices the guide always named but that were never built -- every trigger that had no reliable
+	// lab route now has one.
+	public static final Block CHARGED_COPPER_PLATES = device("charged_copper_plates", MapColor.COLOR_ORANGE, true, Kind.ELECTRICAL_DISCHARGE);
+	public static final Block CRYSTAL_CHAMBER = device("crystal_chamber", MapColor.COLOR_PURPLE, false, Kind.AMETHYST_GEODE, Kind.POWDER_SNOW);
+	public static final Block ENCHANTING_RESONANCE = device("enchanting_resonance", MapColor.COLOR_MAGENTA, false, Kind.PSIONIC_RESONANCE, Kind.ENDER_PEARL);
+	public static final Block BLAST_CHAMBER = device("blast_chamber", MapColor.COLOR_BLACK, true, Kind.EXPLOSION, Kind.FIRE_EXPOSURE, Kind.ENERGY_OVERLOAD);
+	public static final Block RESONANT_CHAMBER = device("resonant_chamber", MapColor.WOOD, false, Kind.RESONANT_HORN);
+	public static final Block GRAVITY_DISTORTION_RIG = device("gravity_distortion_rig", MapColor.COLOR_PURPLE, true, Kind.GRAVITY_DISTORTION, Kind.SLIME_IMPACT);
 
 	private ModDevices() {
 	}

@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "AGA",
+    "GSG",
+    "AIA"
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:amethyst_block"
+    },
+    "G": {
+      "item": "minecraft:glass"
+    },
+    "S": {
+      "item": "minecraft:snow_block"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "result": {
+    "id": "projecthero:crystal_chamber",
+    "count": 1
+  }
+}

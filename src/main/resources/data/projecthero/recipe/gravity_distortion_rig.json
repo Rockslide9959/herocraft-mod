@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "ICI",
+    "SOS",
+    "IRI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "C": {
+      "item": "minecraft:compass"
+    },
+    "S": {
+      "item": "minecraft:slime_block"
+    },
+    "O": {
+      "item": "minecraft:crying_obsidian"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    }
+  },
+  "result": {
+    "id": "projecthero:gravity_distortion_rig",
+    "count": 1
+  }
+}

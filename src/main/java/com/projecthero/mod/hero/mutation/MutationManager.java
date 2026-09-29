@@ -48,7 +48,10 @@ public final class MutationManager {
 	private static final int DWELL_SUNLIGHT = 100;
 	private static final int DWELL_DARKNESS = 60;
 	private static final int DWELL_PLANTS = 40;
-	private static final int DWELL_SUBMERSION = 1200;
+	// v0.13.22: was 1200 -- exactly the serum's whole duration, so any breath of air made it impossible
+	private static final int DWELL_SUBMERSION = 300;
+	/** Elasticity: fall at least this far and land on a slime block. */
+	private static final float SLIME_FALL = 10.0f;
 	private static final int DWELL_STONE = 100;
 	private static final int DWELL_GEODE = 60;
 	private static final int DWELL_PSIONIC = 60;
@@ -73,12 +76,20 @@ public final class MutationManager {
 		var effect = player.getEffect(ModMobEffects.UNSTABLE_MUTATION);
 
 		if (effect == null) {
-			if (!s.pendingMutationPower.isEmpty()) {
-				s.pendingMutationPower = "";
-				s.pendingExposureProgress.clear();
-				s.pendingExposureTicks = 0;
-				MutationFeedback.serumFaded(player);
+			if (s.pendingMutationPower.isEmpty()) {
+				return;
 			}
+			long left = s.pendingMutationExpiryTick - level.getGameTime();
+			Power pending = com.projecthero.mod.hero.Powers.byKey(s.pendingMutationPower);
+			if (left > 0 && pending != null && !ExperimentalPowers.owns(player, pending)) {
+				// v0.13.22: something stripped the marker effect (milk, Purge, a totem, a suit transform, death) but the
+				// attempt has not run out -- put it back rather than silently cancelling the serum.
+				player.addEffect(new net.minecraft.world.effect.MobEffectInstance(ModMobEffects.UNSTABLE_MUTATION,
+						(int) Math.min(Integer.MAX_VALUE, left), ModSerums.amplifierFor(pending), false, true, true));
+				return;
+			}
+			endAttempt(s);
+			MutationFeedback.serumFaded(player);
 			return;
 		}
 
@@ -113,7 +124,10 @@ public final class MutationManager {
 		switch (kind) {
 			case FIRE_EXPOSURE -> dwell(player, s, player.getRemainingFireTicks() > 0
 					|| level.getBlockState(pos).is(BlockTags.FIRE), DWELL_FIRE, power, kind);
-			case POWDER_SNOW -> dwell(player, s, player.isInPowderSnow, DWELL_POWDER_SNOW, power, kind);
+			// v0.13.22: Entity.isInPowderSnow is reset every tick before the server tick hook runs -- read the blocks
+			case POWDER_SNOW -> dwell(player, s, level.getBlockState(pos).is(Blocks.POWDER_SNOW)
+					|| level.getBlockState(BlockPos.containing(player.getEyePosition())).is(Blocks.POWDER_SNOW),
+					DWELL_POWDER_SNOW, power, kind);
 			case DIRECT_SUNLIGHT -> dwell(player, s, level.isDay() && !level.isRaining()
 					&& level.canSeeSky(pos) && level.getBrightness(net.minecraft.world.level.LightLayer.SKY, pos) >= 15,
 					DWELL_SUNLIGHT, power, kind);
@@ -121,7 +135,28 @@ public final class MutationManager {
 					&& level.getMaxLocalRawBrightness(pos) == 0, DWELL_DARKNESS, power, kind);
 			case PLANT_SURROUNDINGS -> dwell(player, s, level.canSeeSky(pos) && countPlants(level, pos) >= 6,
 					DWELL_PLANTS, power, kind);
-			case SUBMERSION -> dwell(player, s, player.isUnderWater(), DWELL_SUBMERSION, power, kind);
+			case SUBMERSION -> {
+				// v0.13.22: the Water serum replaces its water-breathing base, so keep the diver breathing while they try
+				if (player.isUnderWater()) {
+					player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+							net.minecraft.world.effect.MobEffects.WATER_BREATHING, 60, 0, true, false, true));
+				}
+				dwell(player, s, player.isUnderWater(), DWELL_SUBMERSION, power, kind);
+			}
+			case SLIME_IMPACT -> {
+				// v0.13.22: Elasticity's trigger never had a detector -- fall 10+ blocks and land on a slime block
+				if (player.fallDistance >= SLIME_FALL) {
+					s.pendingExposureProgress.add("slimefall");
+				}
+				if (s.pendingExposureProgress.contains("slimefall")) {
+					BlockState under = level.getBlockState(BlockPos.containing(player.getX(), player.getY() - 0.25, player.getZ()));
+					if (under.is(Blocks.SLIME_BLOCK)) {
+						attemptExposure(player, power, kind);
+					} else if (player.onGround() || player.isInWater()) {
+						s.pendingExposureProgress.remove("slimefall");
+					}
+				}
+			}
 			case GEOLOGICAL_RESONANCE -> dwell(player, s, isNaturalStone(level.getBlockState(pos.below())),
 					DWELL_STONE, power, kind);
 			case AMETHYST_GEODE -> dwell(player, s, countAmethyst(level, pos) >= 8, DWELL_GEODE, power, kind);
@@ -142,7 +177,7 @@ public final class MutationManager {
 					&& player.getXRot() < -55.0f, DWELL_SUNLIGHT, power, kind);
 			default -> {
 				// ELECTRICAL_DISCHARGE / LIGHTNING / EXPLOSION / NEAR_DEATH / SPIDER_VENOM / ENDER_PEARL /
-				// RESONANT_HORN / SLIME_IMPACT / ENERGY_OVERLOAD -> event-driven (see onAfterDamage / onUseItem)
+				// RESONANT_HORN / ENERGY_OVERLOAD -> event-driven (see onAfterDamage / onUseItem)
 				// MOLECULAR_COMPRESSION / MASS_COMPRESSION -> laboratory device only (devices batch).
 			}
 		}
@@ -264,6 +299,15 @@ public final class MutationManager {
 		if (!power.key().equals(s.pendingMutationPower) || ExperimentalPowers.owns(player, power)) {
 			return;
 		}
+		// v0.13.22: capacity FIRST. This used to claim the Primary slot (costing the player their Symbiote / oldest
+		// hero) and only then notice they had no room for the mutation -- and, for dwell triggers, repeat that every
+		// tick. Now a full player keeps everything, is told once, and the attempt ends.
+		if (ExperimentalPowers.atCapacity(player)) {
+			MutationFeedback.capacityFull(player);
+			player.removeEffect(ModMobEffects.UNSTABLE_MUTATION);
+			endAttempt(s);
+			return;
+		}
 		// v0.11.15: the mutation group takes one of the two Primary slots. If the player already holds two
 		// Hero-Tier powers the oldest is replaced (and the Symbiote is removed); with one or none nothing is
 		// lost. Mutations still stack with each other up to the mutation capacity.
@@ -272,10 +316,6 @@ public final class MutationManager {
 				&& com.projecthero.mod.hero.HeroTiers.heroCount(player) < heroesBefore) {
 			player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
 					"message.projecthero.mutation.replaced_hero_tier").withStyle(net.minecraft.ChatFormatting.YELLOW), false);
-		}
-		if (ExperimentalPowers.atCapacity(player)) {
-			MutationFeedback.capacityFull(player);
-			return;
 		}
 		ExperimentalPowers.advanceResearch(player, power, ResearchStage.EXPOSURE_SURVIVED);
 		award(player, "exposure_survived");
@@ -287,16 +327,30 @@ public final class MutationManager {
 		boolean granted = ExperimentalPowers.grant(player, power);
 		player.removeEffect(ModMobEffects.UNSTABLE_MUTATION);
 
-		ExperimentalState s = ExperimentalPowers.state(player);
-		s.pendingMutationPower = "";
-		s.pendingExposureProgress.clear();
-		s.pendingExposureTicks = 0;
+		endAttempt(ExperimentalPowers.state(player));
 
 		if (granted) {
 			ExperimentalPowers.advanceResearch(player, power, ResearchStage.MUTATION_CONFIRMED);
 			award(player, "mutation_confirmed");
 			MutationFeedback.mutationConfirmed(player, power);
 		}
+	}
+
+	/**
+	 * Research + advancement bookkeeping for a mutation gained some other way than the serum exposure (a random
+	 * serum), so the guide and advancements treat it exactly like a naturally confirmed mutation.
+	 */
+	public static void recordConfirmed(ServerPlayer player, Power power) {
+		ExperimentalPowers.advanceResearch(player, power, ResearchStage.MUTATION_CONFIRMED);
+		award(player, "mutation_confirmed");
+	}
+
+	/** Clears the pending attempt (granted, expired, or refused). */
+	private static void endAttempt(ExperimentalState s) {
+		s.pendingMutationPower = "";
+		s.pendingMutationExpiryTick = 0L;
+		s.pendingExposureProgress.clear();
+		s.pendingExposureTicks = 0;
 	}
 
 	// ---------------- research notes ----------------

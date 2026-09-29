@@ -26,8 +26,9 @@ import net.minecraft.world.phys.BlockHitResult;
  * currently has the matching unstable serum active — a <em>small local</em> entity query run only
  * when the device activates, never a per-tick scan.
  *
- * <p>Redstone-activated devices fire on the rising edge of a redstone signal; interaction devices
- * fire on right-click.
+ * <p>Redstone-activated devices fire on the rising edge of a redstone signal; since v0.13.22 every device
+ * (redstone ones included) also fires on right-click, so a device found at a research site works without
+ * bringing a lever.
  */
 public class LabDeviceBlock extends Block {
 	public static final BooleanProperty POWERED = BlockStateProperties.POWERED;
@@ -64,9 +65,6 @@ public class LabDeviceBlock extends Block {
 
 	@Override
 	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-		if (redstoneActivated) {
-			return InteractionResult.PASS;
-		}
 		if (level instanceof ServerLevel serverLevel) {
 			activate(serverLevel, pos);
 		}

@@ -47,17 +47,31 @@ public final class ExperimentalState {
 	 */
 	public final Map<String, String> markerDims;
 
-	// --- transient (not persisted): the in-progress "drank the serum, now do the exposure" attempt ---
-	public transient String pendingMutationPower = "";
-	public transient long pendingMutationExpiryTick = 0L;
-	/** kinds of energy damage already survived this attempt (for Energy Absorption's two-source trigger). */
-	public final transient Set<String> pendingExposureProgress = new HashSet<>();
+	// --- the in-progress "drank the serum, now do the exposure" attempt ---
+	// v0.13.22: persisted (they used to be transient), so a relog, death or anything that strips potion effects
+	// (milk, Purge, a totem, a suit transform) no longer silently cancels a serum -- MutationManager restores the
+	// marker effect from these until the attempt's real expiry.
+	public String pendingMutationPower = "";
+	public long pendingMutationExpiryTick = 0L;
+	/** multi-step progress flags for this attempt (Energy Absorption's two sources, a long fall, a slime impact). */
+	public final Set<String> pendingExposureProgress = new HashSet<>();
 	/** consecutive ticks the current ambient exposure condition has been satisfied. */
 	public transient int pendingExposureTicks = 0;
 
 	public ExperimentalState() {
 		this(new HashSet<>(), "", new HashMap<>(), new HashSet<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(),
 				new HashMap<>(), new HashMap<>());
+	}
+
+	/** Codec constructor: the base state plus the persisted pending-mutation attempt. */
+	private ExperimentalState(Set<String> ownedPowers, String activePower, Map<String, Long> abilityReadyAt,
+			Set<String> activeToggles, Map<String, Integer> cycleModes, Map<String, Float> resources,
+			Map<String, Integer> researchStage, Map<String, Long> markers, Map<String, String> markerDims,
+			String pendingPower, long pendingExpiry, Set<String> pendingProgress) {
+		this(ownedPowers, activePower, abilityReadyAt, activeToggles, cycleModes, resources, researchStage, markers, markerDims);
+		this.pendingMutationPower = pendingPower == null ? "" : pendingPower;
+		this.pendingMutationExpiryTick = pendingExpiry;
+		this.pendingExposureProgress.addAll(pendingProgress);
 	}
 
 	public ExperimentalState(Set<String> ownedPowers, String activePower, Map<String, Long> abilityReadyAt,
@@ -103,6 +117,11 @@ public final class ExperimentalState {
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("markers", new HashMap<>())
 					.forGetter(s -> new HashMap<>(s.markers)),
 			Codec.unboundedMap(Codec.STRING, Codec.STRING).optionalFieldOf("marker_dims", new HashMap<>())
-					.forGetter(s -> new HashMap<>(s.markerDims))
+					.forGetter(s -> new HashMap<>(s.markerDims)),
+			Codec.STRING.optionalFieldOf("pending_power", "").forGetter(s -> s.pendingMutationPower),
+			Codec.LONG.optionalFieldOf("pending_expiry", 0L).forGetter(s -> s.pendingMutationExpiryTick),
+			Codec.STRING.listOf().xmap(HashSet::new, java.util.ArrayList::new)
+					.optionalFieldOf("pending_progress", new HashSet<>())
+					.forGetter(s -> new HashSet<>(s.pendingExposureProgress))
 	).apply(instance, ExperimentalState::new));
 }

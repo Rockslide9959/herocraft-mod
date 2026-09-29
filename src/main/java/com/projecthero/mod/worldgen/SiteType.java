@@ -48,6 +48,28 @@ public enum SiteType implements StringRepresentable {
 		return accent;
 	}
 
+	/**
+	 * v0.13.22: extra lab devices a site also houses, so the new devices (and the Size power's Mass Compression
+	 * Chamber, which used to spawn nowhere) can be found in the world as well as crafted.
+	 */
+	public java.util.List<Block> extraDevices() {
+		java.util.List<String> ids = switch (this) {
+			case RESEARCH_FACILITY -> java.util.List.of("crystal_chamber", "resonant_chamber", "enchanting_resonance");
+			case POWER_STATION -> java.util.List.of("charged_copper_plates", "blast_chamber");
+			case GEOLOGICAL_SITE -> java.util.List.of("crystal_chamber");
+			case GOVERNMENT_SITE -> java.util.List.of("mass_compression_chamber", "gravity_distortion_rig", "blast_chamber");
+			default -> java.util.List.of();
+		};
+		java.util.List<Block> out = new java.util.ArrayList<>();
+		for (String id : ids) {
+			Block b = ModDevices.block(id);
+			if (b != null) {
+				out.add(b);
+			}
+		}
+		return out;
+	}
+
 	/** The lab-device block this site houses, or {@code null} (meteor sites have no device). */
 	public Block device() {
 		return deviceId == null ? null : ModDevices.block(deviceId);

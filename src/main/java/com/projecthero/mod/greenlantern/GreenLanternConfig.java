@@ -310,7 +310,8 @@ public final class GreenLanternConfig {
 
 	public static final float CARRY_PLATFORM_COST = 20f;
 	public static final float CARRY_PLATFORM_UPKEEP_PER_SEC = 1f;
-	public static final int CARRY_PLATFORM_MAX_DURATION_TICKS = 30 * 20;
+	/** v0.14.1, explicit user request: no time limit -- the platform stays until dismissed (Shift+C) or the charge runs out. */
+	public static final int CARRY_PLATFORM_MAX_DURATION_TICKS = 0;
 	public static final int CARRY_PLATFORM_SLOT_WEIGHT = 3;
 	/** v0.11.10: 24, up from 8 -- explicit user request ("track the players aim much quicker"). */
 	public static final double CARRY_PLATFORM_SPEED_CAP_BPS = 24.0;

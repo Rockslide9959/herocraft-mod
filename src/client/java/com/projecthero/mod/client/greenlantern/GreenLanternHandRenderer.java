@@ -11,11 +11,9 @@ import com.mojang.math.Axis;
 
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
-import net.minecraft.client.model.geom.builders.CubeDeformation;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
-import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -29,10 +27,9 @@ import net.minecraft.world.entity.EquipmentSlot;
  * v0.13.21: everything a Green Lantern wears or shapes on the right hand, drawn in both views -- third person through
  * {@code PowerRingLayer}, first person through {@code GreenLanternRingHandMixin} (the arm the player sees).
  * <ul>
- *   <li><b>The Power Ring</b> (explicit user request, "a new ring model that shows up on the player's hand while they
- *   are a Green Lantern"): a real little ring -- a band wrapped round the knuckles and a raised bezel with a
- *   full-bright lantern-green gem on the back of the hand -- replacing the flat item-icon fleck of v0.11.10. It sits a
- *   touch wider over the suit's gauntlet than over a bare hand, and follows slim (Alex) arms.</li>
+ *   <li><b>The Power Ring</b>: v0.14.1, explicit user request -- the v0.13.21 band wrapped the whole hand and read as a
+ *   bracelet, so the ring is now literally one tiny glowing lantern-green pixel cube on the ring finger (front, outer
+ *   corner of the knuckles). It sits a touch prouder over the suit's gauntlet and follows slim (Alex) arms.</li>
  *   <li><b>The Energy Blade</b> and <b>Mining Drill</b> while switched on (see
  *   {@link ModAttachments#GREEN_LANTERN_HAND_CONSTRUCTS}): a translucent full-bright blade out of the fist, or a
  *   stepped spinning drill bit -- the constructs used to be nothing but a few particles.</li>
@@ -45,8 +42,7 @@ public final class GreenLanternHandRenderer {
 	private static final ResourceLocation LIGHT_TEXTURE = ProjectHeroMod.id("textures/entity/green_lantern/hard_light_construct.png");
 
 	/** [slim][suited] */
-	private static final ModelPart[][] BANDS = new ModelPart[2][2];
-	private static final ModelPart[][] GEMS = new ModelPart[2][2];
+	private static final ModelPart[][] RINGS = new ModelPart[2][2];
 	private static final ModelPart[] BLADES = new ModelPart[2];
 	private static final ModelPart[][] DRILL_TIERS = new ModelPart[2][];
 	private static boolean baked;
@@ -73,9 +69,7 @@ public final class GreenLanternHandRenderer {
 		int suited = player.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof GreenLanternArmorItem ? 1 : 0;
 		pose.pushPose();
 		arm.translateAndRotate(pose);
-		BANDS[slim][suited].render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(RING_TEXTURE)), light,
-				OverlayTexture.NO_OVERLAY);
-		GEMS[slim][suited].render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(RING_TEXTURE)),
+		RINGS[slim][suited].render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(RING_TEXTURE)),
 				LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
 
 		int hand = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_HAND_CONSTRUCTS, 0);
@@ -109,8 +103,7 @@ public final class GreenLanternHandRenderer {
 			float xMax = 1f;
 			for (int suited = 0; suited < 2; suited++) {
 				float gap = suited == 1 ? 0.62f : 0.08f;
-				BANDS[slim][suited] = band(xMin, xMax, gap);
-				GEMS[slim][suited] = gem(xMin, gap);
+				RINGS[slim][suited] = ring(xMin, gap);
 			}
 			float cx = (xMin + xMax) / 2f;
 			BLADES[slim] = blade(cx, xMin, xMax);
@@ -118,33 +111,14 @@ public final class GreenLanternHandRenderer {
 		}
 	}
 
-	/** A thin (0.8 px tall, 0.35 px thick) square band round the hand at the knuckles, {@code gap} proud of its surface. */
-	private static ModelPart band(float xMin, float xMax, float gap) {
+	/**
+	 * The ring: a single 1 px cube on the ring finger -- at the front / outer corner of the knuckles, half a pixel proud of
+	 * both faces so it reads from the front and the side, {@code gap} further out over the suit's gauntlet.
+	 */
+	private static ModelPart ring(float xMin, float gap) {
 		MeshDefinition mesh = new MeshDefinition();
-		PartDefinition root = mesh.getRoot();
-		float t = 0.35f;
-		float y = 8.2f;
-		float x0 = xMin - gap - t;
-		float x1 = xMax + gap + t;
-		float z0 = -2f - gap - t;
-		float z1 = 2f + gap + t;
-		CubeListBuilder cubes = CubeListBuilder.create().texOffs(0, 0)
-				.addBox(x0, y, z0, x1 - x0, 0.8f, t)                      // front
-				.addBox(x0, y, z1 - t, x1 - x0, 0.8f, t)                  // back
-				.addBox(x0, y, z0 + t, t, 0.8f, z1 - z0 - 2 * t)          // outer side (back of the hand)
-				.addBox(x1 - t, y, z0 + t, t, 0.8f, z1 - z0 - 2 * t)      // inner side (palm)
-				// the bezel the gem sits in, raised off the back of the hand
-				.addBox(x0 - 0.5f, 7.8f, -0.85f, 0.5f, 1.6f, 1.7f, new CubeDeformation(0f));
-		root.addOrReplaceChild("band", cubes, PartPose.ZERO);
-		return LayerDefinition.create(mesh, 16, 16).bakeRoot();
-	}
-
-	/** The glowing lantern-green gem, set in the bezel on the back of the hand. */
-	private static ModelPart gem(float xMin, float gap) {
-		MeshDefinition mesh = new MeshDefinition();
-		float x0 = xMin - gap - 0.35f - 0.5f;
-		mesh.getRoot().addOrReplaceChild("gem", CubeListBuilder.create().texOffs(0, 8)
-				.addBox(x0 - 0.35f, 8.05f, -0.55f, 0.35f, 1.1f, 1.1f), PartPose.ZERO);
+		mesh.getRoot().addOrReplaceChild("ring", CubeListBuilder.create().texOffs(0, 0)
+				.addBox(xMin - 0.5f - gap, 8.4f, -2.5f - gap, 1.0f, 1.0f, 1.0f), PartPose.ZERO);
 		return LayerDefinition.create(mesh, 16, 16).bakeRoot();
 	}
 

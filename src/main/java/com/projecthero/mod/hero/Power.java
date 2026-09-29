@@ -116,7 +116,7 @@ public record Power(
 			if ((abilities[6] == null) != (abilities[7] == null)) {
 				throw new IllegalStateException(id + " must define both utility slots (H and N) or neither");
 			}
-			List<Ability> list = abilities[6] == null ? List.of(abilities).subList(0, 6) : List.of(abilities);
+			List<Ability> list = java.util.Arrays.asList(abilities).subList(0, abilities[6] == null ? 6 : 8);
 			return new Power(id, base + ".name", category, base + ".desc",
 					List.copyOf(list), passiveKeys, serum, trigger, comboKeys);
 		}

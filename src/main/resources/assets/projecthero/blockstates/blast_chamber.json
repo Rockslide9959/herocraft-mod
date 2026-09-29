@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "powered=false": {
+      "model": "projecthero:block/blast_chamber"
+    },
+    "powered=true": {
+      "model": "projecthero:block/blast_chamber"
+    }
+  }
+}

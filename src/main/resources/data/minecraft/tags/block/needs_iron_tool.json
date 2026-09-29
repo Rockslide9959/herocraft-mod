@@ -12,6 +12,12 @@
     "projecthero:pressure_chamber",
     "projecthero:hydrostatic_test_tank",
     "projecthero:electromagnetic_coil",
-    "projecthero:symbiote_meteorite"
+    "projecthero:symbiote_meteorite",
+    "projecthero:charged_copper_plates",
+    "projecthero:crystal_chamber",
+    "projecthero:enchanting_resonance",
+    "projecthero:blast_chamber",
+    "projecthero:resonant_chamber",
+    "projecthero:gravity_distortion_rig"
   ]
 }

@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "powered=false": {
+      "model": "projecthero:block/charged_copper_plates"
+    },
+    "powered=true": {
+      "model": "projecthero:block/charged_copper_plates"
+    }
+  }
+}

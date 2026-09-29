@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "CRC",
+    "RLR",
+    "CRC"
+  ],
+  "key": {
+    "C": {
+      "item": "minecraft:copper_block"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "L": {
+      "item": "minecraft:lightning_rod"
+    }
+  },
+  "result": {
+    "id": "projecthero:charged_copper_plates",
+    "count": 1
+  }
+}

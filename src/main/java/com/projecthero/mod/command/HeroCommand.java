@@ -87,7 +87,31 @@ public final class HeroCommand {
 						.then(Commands.argument("power", StringArgumentType.word()).suggests(POWER_KEYS)
 								.executes(c -> stack(c, self(c)))
 								.then(Commands.argument("player", EntityArgument.player())
-										.executes(c -> stack(c, EntityArgument.getPlayer(c, "player"))))));
+										.executes(c -> stack(c, EntityArgument.getPlayer(c, "player"))))))
+				// v0.13.22: the mutation test commands were only ever on the unregistered legacy tree -- expose them
+				.then(Commands.literal("active")
+						.then(Commands.argument("power", StringArgumentType.word()).suggests(POWER_KEYS)
+								.executes(c -> active(c, self(c)))
+								.then(Commands.argument("player", EntityArgument.player())
+										.executes(c -> active(c, EntityArgument.getPlayer(c, "player"))))))
+				.then(Commands.literal("list")
+						.executes(c -> list(c, self(c)))
+						.then(Commands.argument("player", EntityArgument.player())
+								.executes(c -> list(c, EntityArgument.getPlayer(c, "player")))))
+				.then(Commands.literal("serum")
+						.then(Commands.argument("power", StringArgumentType.word()).suggests(POWER_KEYS)
+								.executes(c -> serum(c, self(c)))
+								.then(Commands.argument("player", EntityArgument.player())
+										.executes(c -> serum(c, EntityArgument.getPlayer(c, "player"))))))
+				.then(Commands.literal("research")
+						.then(Commands.argument("power", StringArgumentType.word()).suggests(POWER_KEYS)
+								.executes(c -> research(c, self(c)))
+								.then(Commands.argument("player", EntityArgument.player())
+										.executes(c -> research(c, EntityArgument.getPlayer(c, "player"))))))
+				.then(Commands.literal("status")
+						.executes(c -> status(c, self(c)))
+						.then(Commands.argument("player", EntityArgument.player())
+								.executes(c -> status(c, EntityArgument.getPlayer(c, "player")))));
 	}
 
 	public static LiteralArgumentBuilder<CommandSourceStack> build() {

@@ -99,11 +99,32 @@ public class ResearchSitePiece extends StructurePiece {
 			c.set(centerX, surf, centerZ);
 			level.setBlock(c, siteType.device().defaultBlockState(), 2);
 		}
-		if (siteType == SiteType.METEOR_IMPACT && inChunk(chunkBox, centerX, centerZ)) {
-			c.set(centerX, surf, centerZ);
-			level.setBlock(c, Blocks.AMETHYST_CLUSTER.defaultBlockState(), 2);
-			c.set(centerX, surf - 1, centerZ);
-			level.setBlock(c, Blocks.BUDDING_AMETHYST.defaultBlockState(), 2);
+		// v0.13.22: the extra devices sit on a ring around the centre (chests use +2,+2 and -3,-1)
+		int[][] ring = { { -2, 2 }, { 2, -2 }, { -2, -2 } };
+		java.util.List<net.minecraft.world.level.block.Block> extras = siteType.extraDevices();
+		for (int i = 0; i < extras.size() && i < ring.length; i++) {
+			int x = centerX + ring[i][0];
+			int z = centerZ + ring[i][1];
+			if (inChunk(chunkBox, x, z)) {
+				c.set(x, level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, x, z), z);
+				level.setBlock(c, extras.get(i).defaultBlockState(), 2);
+			}
+		}
+		if (siteType == SiteType.METEOR_IMPACT) {
+			// v0.13.22: the Crystalkinesis trigger needs 8+ amethyst blocks nearby -- the crater used to hold just 2.
+			// A 3x3 amethyst floor with budding amethyst at its heart and a cluster on top.
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int dz = -1; dz <= 1; dz++) {
+					if (inChunk(chunkBox, centerX + dx, centerZ + dz)) {
+						c.set(centerX + dx, surf - 1, centerZ + dz);
+						level.setBlock(c, (dx == 0 && dz == 0 ? Blocks.BUDDING_AMETHYST : Blocks.AMETHYST_BLOCK).defaultBlockState(), 2);
+					}
+				}
+			}
+			if (inChunk(chunkBox, centerX, centerZ)) {
+				c.set(centerX, surf, centerZ);
+				level.setBlock(c, Blocks.AMETHYST_CLUSTER.defaultBlockState(), 2);
+			}
 		}
 
 		// chests

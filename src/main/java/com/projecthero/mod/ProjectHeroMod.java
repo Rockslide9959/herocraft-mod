@@ -187,6 +187,7 @@ public class ProjectHeroMod implements ModInitializer {
 			TempBlocks.tick(server);
 			com.projecthero.mod.hero.power.ConjuredStructures.tick(server);
 			com.projecthero.mod.hero.power.p26.MagneticHandlers.tick(server);
+			com.projecthero.mod.hero.power.ComboMoves.tick(server);
 			com.projecthero.mod.hero.revamp.RevampBatchA.serverTick(server);
 			com.projecthero.mod.hero.revamp.RevampBatchB.serverTick(server);
 			com.projecthero.mod.hero.revamp.RevampBatchC.serverTick(server);

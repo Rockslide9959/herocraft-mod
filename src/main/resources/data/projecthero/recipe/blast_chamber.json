@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "OTO",
+    "FBF",
+    "OIO"
+  ],
+  "key": {
+    "O": {
+      "item": "minecraft:obsidian"
+    },
+    "T": {
+      "item": "minecraft:tnt"
+    },
+    "F": {
+      "item": "minecraft:fire_charge"
+    },
+    "B": {
+      "item": "minecraft:blast_furnace"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "result": {
+    "id": "projecthero:blast_chamber",
+    "count": 1
+  }
+}
