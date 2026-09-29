@@ -1,0 +1,34 @@
+Project Hero 0.13.17 -- New Hulk rage rules, an unkillable Banner, carrying your squad, and a deadlier Oathbreaker
+
+THE HULK -- NEW RAGE RULES
+- Rage now comes from the damage you take: every point of damage is 1% rage (take 5 damage, gain 5%). This works in both forms.
+- As Banner, the damage you deal yourself no longer builds rage.
+- Banner calms down faster: after 5 seconds without being hurt, rage drops 2% a second.
+- As the Hulk, every hit you land adds 2% rage: punches, and every creature your abilities hit.
+- The Hulk's rage only burns down once you've been out of combat for 5 seconds, and then slowly (0.75% a second). Keep fighting and he stays out.
+
+THE HULK REFUSES TO DIE -- NO COOLDOWN
+- Banner can no longer be killed. Every hit that would kill you as Banner brings the Hulk bursting out at full health, every single time.
+- To kill a Gamma player you have to beat the Hulk. If the Hulk himself takes a killing blow, he dies.
+- The little dot beside the rage bar is bright while you're protected (Banner) and dark as the Hulk.
+- /kill and the void still kill, and so does dying inside a Titan or in All Might's Power Form, since the Hulk can't come out there.
+
+THE HULK -- CARRY YOUR SQUAD
+- The Hulk can now pick up his squad-mates with V. They ride safely overhead.
+- Shift+V sets them down gently, or they can sneak to hop down.
+- Press V to throw them. They bowl over enemies where they land and take no fall damage.
+
+THE HULK -- MORE FIXES AND CHANGES
+- Fixed the Hulk's head spinning and wobbling around when he picks things up or throws them.
+- Webs can't trap the Hulk any more. He wades straight through them, and sprinting tears them down (cobwebs now count as soft blocks for Sprint Smash).
+- Thunderclap now reaches 25 blocks (was 12). Servers that had the old default are moved up automatically; a range a server set itself is kept.
+- A rampaging Hulk now hunts anything out in the open up to 100 blocks away (was 20), but never goes after creatures down in caves.
+
+THE OATHBREAKER -- STRONGER THAN THE BEHEMOTH
+- Every one of his moves hits about 30% harder: Stance Dash 26, combo hits 9, Riposte 17, Leaping Cleave 18, Soul Rend 12, Judgement 31, Execution 36.
+- He also hits 10% harder in phase 2 (Forsworn) and 25% harder in phase 3 (Oathless).
+
+GUIDEBOOK
+- The guidebook's item id is now projecthero:guidebook (was projecthero:heropack_guide), so /give shows just "guidebook". If you had one of the old books, craft a new one (book + feather + spider eye + emerald) or /give it again.
+- Other leftover "HeroPack" names are gone too: the keybind category is now "Project Hero Abilities" (it was misspelled before) and the info key is "Your Power (info)".
+- The Hulk and Oathbreaker chapters cover all of the above.

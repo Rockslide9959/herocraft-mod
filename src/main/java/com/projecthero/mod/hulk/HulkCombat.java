@@ -53,7 +53,7 @@ public final class HulkCombat {
 				&& !e.hasPassenger(hulk) && !hulk.hasPassenger(e) && !ally(hulk, e) && (!(e instanceof Player) || pvp));
 	}
 
-	private static boolean ally(ServerPlayer hulk, LivingEntity e) {
+	static boolean ally(ServerPlayer hulk, LivingEntity e) {
 		if (!(e instanceof ServerPlayer other) || hulk.getServer() == null) {
 			return false;
 		}
@@ -137,6 +137,9 @@ public final class HulkCombat {
 	public static boolean breakable(ServerLevel level, BlockPos pos, BlockState state) {
 		if (state.isAir() || state.hasBlockEntity() || !state.getFluidState().isEmpty()) {
 			return false;
+		}
+		if (state.is(net.minecraft.world.level.block.Blocks.COBWEB)) {
+			return true; // v0.13.17: webs are soft to the Hulk (hardness 4 would otherwise keep them out)
 		}
 		float h = state.getDestroySpeed(level, pos);
 		return h >= 0.0f && h <= HulkConfig.world().maxBreakableHardness;

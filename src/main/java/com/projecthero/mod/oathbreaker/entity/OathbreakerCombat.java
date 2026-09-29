@@ -1286,7 +1286,7 @@ final class OathbreakerCombat {
 		for (LivingEntity victim : server.getEntitiesOfClass(LivingEntity.class,
 				new AABB(ring.center, ring.center).inflate(r, 2.5, r),
 				e -> e != boss && e.isAlive() && isValidTarget(e) && horizontalDistSqr(e.position(), ring.center) <= r * r)) {
-			victim.hurt(boss.damageSources().mobAttack(boss), OathbreakerTuning.JUDGEMENT_RING_DAMAGE_PER_SECOND);
+			victim.hurt(boss.damageSources().mobAttack(boss), OathbreakerTuning.JUDGEMENT_RING_DAMAGE_PER_SECOND * boss.phaseDamageMultiplier());
 		}
 	}
 
@@ -1398,7 +1398,7 @@ final class OathbreakerCombat {
 		if (v == null || !v.isAlive() || v.level() != boss.level()) {
 			return;
 		}
-		float damage = OathbreakerTuning.EXECUTION_DAMAGE;
+		float damage = OathbreakerTuning.EXECUTION_DAMAGE * boss.phaseDamageMultiplier();
 		if (TitanCombat.isBoss(v)) {
 			damage = Math.min(damage, (float) (v.getMaxHealth() * 0.10));
 		}
@@ -1603,6 +1603,7 @@ final class OathbreakerCombat {
 	}
 
 	boolean strike(LivingEntity target, float damage, Vec3 direction, double knockback) {
+		damage *= boss.phaseDamageMultiplier(); // v0.13.17
 		if (TitanCombat.isBoss(target)) {
 			damage = Math.min(damage, (float) (target.getMaxHealth() * 0.10));
 		}

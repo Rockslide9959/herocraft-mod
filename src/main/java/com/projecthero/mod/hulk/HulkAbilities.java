@@ -602,7 +602,8 @@ public final class HulkAbilities {
 				if (!HulkCombat.breakable(level, pos, state)) {
 					continue;
 				}
-				if (state.getCollisionShape(level, pos).isEmpty() && !isFragile(level, pos, state)) {
+				if (state.getCollisionShape(level, pos).isEmpty() && !isFragile(level, pos, state)
+						&& !state.is(net.minecraft.world.level.block.Blocks.COBWEB)) { // v0.13.17: he tears through webs
 					continue;
 				}
 				level.destroyBlock(pos, w.dropBrokenBlocks, player);

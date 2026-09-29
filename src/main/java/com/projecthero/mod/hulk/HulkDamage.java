@@ -89,6 +89,11 @@ public final class HulkDamage {
 	 * hit and re-applies a smaller one behind a re-entrancy guard -- the pattern every power here uses.
 	 */
 	public static boolean allowDamage(LivingEntity entity, net.minecraft.world.damagesource.DamageSource source, float amount) {
+		// v0.13.17: a squad-mate the Hulk just carried or threw lands unhurt
+		if (entity instanceof ServerPlayer mate && source.is(net.minecraft.tags.DamageTypeTags.IS_FALL) && HulkGrab.safeLanding(mate)) {
+			mate.resetFallDistance();
+			return false;
+		}
 		if (REENTRANT.get() || !(entity instanceof ServerPlayer player) || !Hulk.isHulk(player) || amount <= 0.0f) {
 			return true;
 		}

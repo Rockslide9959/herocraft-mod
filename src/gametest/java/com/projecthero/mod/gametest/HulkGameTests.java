@@ -55,13 +55,119 @@ public class HulkGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void takingDamageBuildsRage(GameTestHelper helper) {
 		ServerPlayer p = gamma(helper);
+		// v0.13.17: Banner gets nothing for the damage he deals; every point he takes is 1%
 		Hulk.onDealt(p, 5.0f);
-		helper.assertTrue(Math.abs(Hulk.rage(p) - 5.0f * HulkConfig.RAGE_PER_DAMAGE_DEALT) < 0.01f, "fighting builds rage too");
-		Hulk.setRage(p, 0.0f);
+		helper.assertTrue(Hulk.rage(p) == 0.0f, "Banner's own hits build no rage, got " + Hulk.rage(p));
 		// player.hurt() on a mock player never reaches the damage events (see HeroPackGameTests): drive the hook directly
-		Hulk.onHurt(p, 4.0f);
-		float expected = 4.0f * HulkConfig.RAGE_PER_DAMAGE_TAKEN;
-		helper.assertTrue(Math.abs(Hulk.rage(p) - expected) < 0.01f, "4 damage = " + expected + " rage, got " + Hulk.rage(p));
+		Hulk.onHurt(p, 5.0f);
+		helper.assertTrue(Math.abs(Hulk.rage(p) - 5.0f) < 0.01f, "5 damage = 5% rage, got " + Hulk.rage(p));
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void everyHulkHitAddsTwoRage(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		Hulk.setRage(p, 50.0f);
+		Hulk.onDealt(p, 20.0f);
+		Hulk.onDealt(p, 3.0f);
+		helper.assertTrue(Math.abs(Hulk.rage(p) - 54.0f) < 0.01f, "two hits = +4, whatever they did, got " + Hulk.rage(p));
+		Hulk.onHurt(p, 6.0f);
+		helper.assertTrue(Math.abs(Hulk.rage(p) - 60.0f) < 0.01f, "and 6 damage taken = +6, got " + Hulk.rage(p));
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void theHulkOnlyBurnsRageOutOfCombat(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		var n = Hulk.state(p).copy();
+		n.formChangedAt = -10_000L;
+		n.rage = 50.0f;
+		n.lastCombatAt = helper.getLevel().getGameTime();
+		p.setAttached(ModAttachments.HULK_STATE, n);
+		helper.onEachTick(() -> Hulk.tick(p));
+		helper.runAfterDelay(40, () -> {
+			helper.assertTrue(Hulk.rage(p) >= 50.0f - 1.0e-3f, "in a fight (hit 2 s ago) he keeps it all, got " + Hulk.rage(p));
+			var z = Hulk.state(p).copy();
+			z.lastCombatAt = -10_000L;
+			p.setAttached(ModAttachments.HULK_STATE, z);
+		});
+		helper.runAfterDelay(85, () -> {
+			float r = Hulk.rage(p);
+			helper.assertTrue(r < 50.0f && r > 40.0f, "out of combat it burns slowly (0.75/s), got " + r);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void bannerCoolsOffFiveSecondsAfterTheLastHit(GameTestHelper helper) {
+		ServerPlayer p = gamma(helper);
+		var n = Hulk.state(p).copy();
+		n.rage = 50.0f;
+		n.combat.lastHurtAt = helper.getLevel().getGameTime();
+		n.lastCombatAt = n.combat.lastHurtAt;
+		p.setAttached(ModAttachments.HULK_STATE, n);
+		helper.onEachTick(() -> Hulk.tick(p));
+		helper.runAfterDelay(40, () -> {
+			helper.assertTrue(Hulk.rage(p) >= 50.0f - 1.0e-3f, "hurt 2 s ago: no cooling yet, got " + Hulk.rage(p));
+			Hulk.onDealt(p, 10.0f); // his own hits don't keep him angry...
+			var z = Hulk.state(p).copy();
+			z.combat.lastHurtAt = -10_000L; // ...only getting hurt does
+			p.setAttached(ModAttachments.HULK_STATE, z);
+		});
+		helper.runAfterDelay(85, () -> {
+			float r = Hulk.rage(p);
+			helper.assertTrue(r <= 48.0f && r >= 30.0f, "5 s unhurt: 2/s off, got " + r);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theHulkCarriesASquadMate(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		ServerPlayer mate = helper.makeMockServerPlayerInLevel();
+		mate.setGameMode(GameType.SURVIVAL);
+		mate.moveTo(p.getX(), p.getY(), p.getZ() + 2.0, 180.0f, 0.0f);
+		var squads = com.projecthero.mod.squad.SquadManager.get(helper.getLevel().getServer());
+		var squad = squads.create("HulkTestSquad" + helper.getLevel().getGameTime(), p.getUUID());
+		squads.addMember(squad, mate.getUUID());
+		try {
+			p.moveTo(p.getX(), p.getY(), p.getZ(), 0.0f, 0.0f);
+			com.projecthero.mod.hulk.HulkGrab.press(p, false);
+			helper.assertTrue(com.projecthero.mod.hulk.HulkGrab.holding(p), "a squad-mate can be picked up");
+			com.projecthero.mod.hulk.HulkGrab.press(p, true);
+			helper.assertFalse(com.projecthero.mod.hulk.HulkGrab.holding(p), "Shift+V sets them down");
+			helper.assertTrue(mate.isAlive() && mate.getHealth() >= mate.getMaxHealth() - 0.01f, "unhurt -- never crushed");
+			helper.assertFalse(HulkDamage.allowDamage(mate, mate.damageSources().fall(), 6.0f), "and the landing doesn't hurt");
+		} finally {
+			squads.disband(squad);
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void websAreSoftAndTheRampageStaysOnTheSurface(GameTestHelper helper) {
+		var pos = helper.absolutePos(new net.minecraft.core.BlockPos(1, 2, 1));
+		helper.getLevel().setBlock(pos, net.minecraft.world.level.block.Blocks.COBWEB.defaultBlockState(), 2);
+		helper.assertTrue(com.projecthero.mod.hulk.HulkCombat.breakable(helper.getLevel(), pos, helper.getLevel().getBlockState(pos)),
+				"cobweb is a soft block to the Hulk");
+		helper.assertTrue(com.projecthero.mod.hulk.HulkControl.RAMPAGE_RANGE >= 100.0, "rampage hunts out to 100 blocks");
+		var pig = net.minecraft.world.entity.EntityType.PIG.create(helper.getLevel());
+		int surface = helper.getLevel().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, pos.getX(), pos.getZ());
+		pig.moveTo(pos.getX() + 0.5, surface, pos.getZ() + 0.5);
+		helper.assertTrue(com.projecthero.mod.hulk.HulkControl.aboveGround(pig), "a pig on the surface is fair game");
+		pig.moveTo(pos.getX() + 0.5, surface - 12.0, pos.getZ() + 0.5);
+		helper.assertFalse(com.projecthero.mod.hulk.HulkControl.aboveGround(pig), "one down in a cave is not");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theGuidebookIsJustTheGuidebook(GameTestHelper helper) {
+		var key = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(com.projecthero.mod.hero.item.HeroPackItems.GUIDE);
+		helper.assertTrue("projecthero:guidebook".equals(key.toString()), "/give id is projecthero:guidebook, got " + key);
+		helper.assertTrue(com.projecthero.mod.oathbreaker.OathbreakerTuning.PHASE_3_DAMAGE_MULTIPLIER
+				> com.projecthero.mod.oathbreaker.OathbreakerTuning.PHASE_2_DAMAGE_MULTIPLIER
+				&& com.projecthero.mod.oathbreaker.OathbreakerTuning.PHASE_2_DAMAGE_MULTIPLIER > 1.0f, "the Oathbreaker hits harder each phase");
+		helper.assertTrue(HulkConfig.abilities().thunderclapRange >= 25.0, "Thunderclap reaches 25 blocks");
 		helper.succeed();
 	}
 
@@ -403,12 +509,16 @@ public class HulkGameTests implements FabricGameTest {
 	public void theHulkRefusesToDie(GameTestHelper helper) {
 		ServerPlayer p = gamma(helper);
 		p.getAbilities().invulnerable = false;
-		helper.assertTrue(Hulk.deathSaveReady(p), "the death save starts ready");
+		helper.assertTrue(Hulk.deathSaveReady(p), "Banner is protected");
 		helper.assertTrue(Hulk.tryDeathSave(p, p.damageSources().generic()), "a fatal hit is refused");
 		helper.assertTrue(Hulk.isHulk(p), "and the Hulk comes out");
 		helper.assertTrue(p.getHealth() >= p.getMaxHealth() - 0.01f, "at full health");
-		helper.assertFalse(Hulk.deathSaveReady(p), "then it recharges (3 minutes)");
-		helper.assertFalse(Hulk.tryDeathSave(p, p.damageSources().generic()), "so a second one right away is not saved");
+		// v0.13.17: no cooldown -- but the Hulk himself can be beaten
+		helper.assertFalse(Hulk.deathSaveReady(p), "the Hulk is not protected");
+		helper.assertFalse(Hulk.tryDeathSave(p, p.damageSources().generic()), "so killing the Hulk kills him");
+		Hulk.revert(p, true);
+		helper.assertTrue(Hulk.tryDeathSave(p, p.damageSources().generic()), "back as Banner, it saves him again at once -- no cooldown");
+		Hulk.revert(p, false);
 		helper.assertFalse(Hulk.tryDeathSave(p, p.damageSources().genericKill()), "and /kill always works");
 		helper.succeed();
 	}

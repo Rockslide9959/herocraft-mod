@@ -116,6 +116,15 @@ public class OathbreakerEntity extends Monster implements GeoEntity {
 
 	// ---------------------------------------------------------------- phases
 
+	/** v0.13.17: every hit he lands is scaled by his phase (see {@link OathbreakerTuning#PHASE_2_DAMAGE_MULTIPLIER}). */
+	public float phaseDamageMultiplier() {
+		return switch (getPhase()) {
+			case KNIGHT -> 1.0f;
+			case FORSWORN -> OathbreakerTuning.PHASE_2_DAMAGE_MULTIPLIER;
+			case OATHLESS -> OathbreakerTuning.PHASE_3_DAMAGE_MULTIPLIER;
+		};
+	}
+
 	public Phase getPhase() {
 		return Phase.values()[this.entityData.get(DATA_PHASE)];
 	}
@@ -333,7 +342,7 @@ public class OathbreakerEntity extends Monster implements GeoEntity {
 			double dz = player.getZ() - c.z;
 			double d = Math.sqrt(dx * dx + dz * dz);
 			if (d <= r && shockwaveHit.add(player.getId())) {
-				if (player.hurt(damageSources().mobAttack(this), OathbreakerTuning.SHOCKWAVE_DAMAGE)) {
+				if (player.hurt(damageSources().mobAttack(this), OathbreakerTuning.SHOCKWAVE_DAMAGE * phaseDamageMultiplier())) {
 					double len = Math.max(1.0e-3, d);
 					player.knockback(OathbreakerTuning.SHOCKWAVE_KNOCKBACK, -dx / len, -dz / len);
 					player.setDeltaMovement(player.getDeltaMovement().add(0, OathbreakerTuning.SHOCKWAVE_LIFT, 0));

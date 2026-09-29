@@ -35,11 +35,12 @@ import org.joml.Vector3f;
  * live in {@link HulkConfig}.
  *
  * <h2>The rage loop</h2>
- * Only a player with the Gamma power ({@link HulkState#hasPower}) builds rage. As Banner it climbs when he is
- * hurt or fights ({@link HulkDamage}) and bleeds off once he has been left alone for a while. At 75 he can let
- * the Hulk out with H; at 100 the Hulk comes out on his own. As the Hulk, rage burns down every second and
- * every hit he takes pours some back in. At 0 he shrinks back to Banner, exhausted (Weakness + Slowness, no
- * rage, no change) for a few seconds.
+ * Only a player with the Gamma power ({@link HulkState#hasPower}) builds rage. v0.13.17 rules: every point of damage
+ * he TAKES is 1 rage, in either form. As Banner, the damage he deals builds nothing, and 5 s after the last hit he
+ * took his rage bleeds off at 2 a second. As the Hulk, every hit he lands adds 2, and only once he has been out of
+ * combat for 5 s does rage burn down (0.75 a second). At 75 Banner can let the Hulk out with H; at 100 the Hulk comes
+ * out on his own. At 0 the Hulk shrinks back to Banner, exhausted (Weakness + Slowness, no rage, no change) for a few
+ * seconds.
  *
  * <h2>The body</h2>
  * {@link #reconcile} sets every stat as a fixed-id transient attribute modifier from {@code (hasPower, hulk)}
@@ -224,26 +225,33 @@ public final class Hulk {
 			return;
 		}
 		float per = s.hulk ? HulkConfig.HULK_RAGE_PER_DAMAGE_TAKEN : HulkConfig.RAGE_PER_DAMAGE_TAKEN;
-		gain(player, s, amount * per);
+		gain(player, s, amount * per, true);
 		HulkCalm.interrupt(player); // pain breaks the focus
 	}
 
-	/** This player with the Gamma power just dealt {@code amount} to something. Only builds rage as Banner. */
+	/**
+	 * This player with the Gamma power just hit something for {@code amount}. v0.13.17: Banner gains nothing from the damage
+	 * he deals; the Hulk gains {@link HulkConfig#HULK_RAGE_PER_HIT} per hit (a punch, or each thing an ability hits).
+	 */
 	public static void onDealt(ServerPlayer player, float amount) {
 		HulkState s = state(player);
 		if (!s.hasPower || player.isSpectator()) {
 			return;
 		}
-		gain(player, s, s.hulk ? 0.0f : amount * HulkConfig.RAGE_PER_DAMAGE_DEALT);
+		gain(player, s, s.hulk ? HulkConfig.HULK_RAGE_PER_HIT : 0.0f, false);
 		if (s.hulk) {
 			HulkControl.onDealtDamage(player); // hitting things is how he stays in charge
 		}
 	}
 
-	private static void gain(ServerPlayer player, HulkState s, float amount) {
+	/** {@code hurt}: he took the hit (Banner's rage only bleeds off 5 s after the last one). */
+	private static void gain(ServerPlayer player, HulkState s, float amount, boolean hurt) {
 		long now = player.level().getGameTime();
 		HulkState n = s.copy();
 		n.lastCombatAt = now;
+		if (hurt) {
+			n.combat.lastHurtAt = now;
+		}
 		// an exhausted Banner has nothing left to get angry with
 		if (amount > 0.0f && (s.hulk || s.exhaustedUntil <= now)) {
 			n.rage = clampRage(s.rage + amount);
@@ -331,6 +339,7 @@ public final class Hulk {
 		n.combat.control = 100.0f;
 		n.combat.unwilling = false;
 		n.rage = 0.0f;
+		n.combat.lastHurtAt = 0L;
 		n.formChangedAt = now;
 		n.exhaustedUntil = exhaust ? now + HulkConfig.EXHAUSTED_TICKS : 0L;
 		save(player, n);
@@ -552,7 +561,9 @@ public final class Hulk {
 		}
 
 		if (s.hulk) {
-			if (now % 20L == 0L) {
+			// v0.13.17: the Hulk only burns rage once he has been out of combat (no hit taken or dealt) for 5 s
+			long quiet = now - Math.max(s.lastCombatAt, s.formChangedAt + changeTicks(s));
+			if (now % 20L == 0L && quiet >= HulkConfig.HULK_OUT_OF_COMBAT_TICKS) {
 				HulkState n = s.copy();
 				n.rage = clampRage(s.rage - HulkConfig.HULK_DRAIN_PER_SECOND);
 				save(player, n);
@@ -585,12 +596,13 @@ public final class Hulk {
 		}
 		// v0.13.12: standing near a Gamma Reactor feeds the rage (once a second)
 		if (now % 20L == 0L && s.exhaustedUntil <= now && nearReactor(player)) {
-			gain(player, s, HulkConfig.REACTOR_RAGE_PER_SECOND);
+			gain(player, s, HulkConfig.REACTOR_RAGE_PER_SECOND, false);
 			s = state(player);
 			level.sendParticles(GAMMA_GREEN, player.getX(), player.getY() + 1.0, player.getZ(), 6, 0.4, 0.6, 0.4, 0.02);
 			return;
 		}
-		if (s.rage > 0.0f && now % 20L == 0L && now - s.lastCombatAt >= HulkConfig.CALM_DELAY_TICKS) {
+		// v0.13.17: Banner cools off 2 a second once he has gone 5 s without being hurt (hitting things doesn't count)
+		if (s.rage > 0.0f && now % 20L == 0L && now - s.combat.lastHurtAt >= HulkConfig.CALM_DELAY_TICKS) {
 			HulkState n = s.copy();
 			n.rage = clampRage(s.rage - HulkConfig.CALM_DECAY_PER_SECOND);
 			save(player, n);
@@ -746,6 +758,7 @@ public final class Hulk {
 		n.exhaustedUntil = 0L;
 		n.formChangedAt = 0L;
 		n.lastCombatAt = 0L;
+		n.combat.lastHurtAt = 0L;
 		n.leapChargeStart = 0L;
 		n.leaping = false;
 		n.animId = HulkState.ANIM_NONE;
@@ -804,35 +817,34 @@ public final class Hulk {
 
 	// ---------------------------------------------------------------- the death save
 
-	/** Client-safe: can "the Hulk refuses to die" save him right now? */
+	/** Client-safe: would "the Hulk refuses to die" save him right now? v0.13.17: always, as Banner -- never as the Hulk. */
 	public static boolean deathSaveReady(Player player) {
 		HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
-		return s != null && s.hasPower && player.level().getGameTime() >= s.combat.deathSaveReadyAt;
+		return s != null && s.hasPower && !s.hulk;
 	}
 
 	/**
-	 * v0.13.14: a Gamma player who would die is not allowed to -- the Hulk comes out (or, if he is already out, comes
-	 * back roaring) at full health with a full rage bar. Once every {@link HulkConfig#DEATH_SAVE_COOLDOWN_TICKS}. /kill
-	 * and the void still kill. Returns true if the death was prevented (the caller cancels it).
+	 * v0.13.14: a Gamma player who would die is not allowed to -- the Hulk comes out at full health with a full rage bar
+	 * (the unwilling change). v0.13.17: no cooldown -- Banner can never be killed; to kill a Gamma player you have to beat
+	 * the Hulk, so a Hulk who would die dies. /kill and the void still kill, and so does anything that stops the Hulk
+	 * coming out (inside a Titan, All Might's Power Form). Returns true if the death was prevented (the caller cancels it).
 	 */
 	public static boolean tryDeathSave(ServerPlayer player, net.minecraft.world.damagesource.DamageSource source) {
 		HulkState s = state(player);
-		long now = player.level().getGameTime();
-		if (!s.hasPower || player.isSpectator() || player.getAbilities().invulnerable || now < s.combat.deathSaveReadyAt
+		if (!s.hasPower || s.hulk || player.isSpectator() || player.getAbilities().invulnerable
+				|| com.projecthero.mod.titanshifter.TitanShifter.phase(player).insideForm()
+				|| com.projecthero.mod.allmight.AllMight.isFullPower(player)
 				|| source.is(net.minecraft.world.damagesource.DamageTypes.GENERIC_KILL)
 				|| source.is(net.minecraft.world.damagesource.DamageTypes.FELL_OUT_OF_WORLD)) {
 			return false;
 		}
 		HulkState n = s.copy();
-		n.combat.deathSaveReadyAt = now + HulkConfig.DEATH_SAVE_COOLDOWN_TICKS;
 		n.rage = HulkConfig.RAGE_MAX;
 		n.exhaustedUntil = 0L;
 		n.combat.calming = false;
 		save(player, n);
 		player.setHealth(1.0f);
-		if (!n.hulk) {
-			transform(player, true);
-		}
+		transform(player, true);
 		player.setHealth(player.getMaxHealth());
 		player.clearFire();
 		player.invulnerableTime = 40;

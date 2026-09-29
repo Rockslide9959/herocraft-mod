@@ -39,7 +39,8 @@ public final class HeroPackItems {
 			REAGENTS.put(power.key(), item);
 		}
 		RESEARCH_NOTE = register("research_note", new ResearchNoteItem(new Item.Properties().stacksTo(16)));
-		GUIDE = register("heropack_guide", new com.projecthero.mod.hero.guide.HeroPackGuideItem(new Item.Properties()));
+		// v0.13.17: id was "heropack_guide" -- /give now reads projecthero:guidebook
+		GUIDE = register("guidebook", new com.projecthero.mod.hero.guide.HeroPackGuideItem(new Item.Properties()));
 	}
 
 	public static Item reagent(String powerKey) {

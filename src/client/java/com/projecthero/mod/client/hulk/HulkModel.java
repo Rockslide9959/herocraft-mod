@@ -19,6 +19,8 @@ public class HulkModel extends GeoModel<HulkAnimatable> {
 	private static final ResourceLocation GEO = ProjectHeroMod.id("geo/hulk.geo.json");
 	private static final ResourceLocation TEXTURE = ProjectHeroMod.id("textures/entity/hulk.png");
 	private static final ResourceLocation ANIMATION = ProjectHeroMod.id("animations/hulk.animation.json");
+	/** Per animatable instance: {head X, head Y as written, look X, look Y as added} from the last frame. */
+	private static final java.util.Map<Long, float[]> LAST_HEAD = new java.util.concurrent.ConcurrentHashMap<>();
 
 	@Override
 	public ResourceLocation getModelResource(HulkAnimatable animatable) {
@@ -42,8 +44,19 @@ public class HulkModel extends GeoModel<HulkAnimatable> {
 			return;
 		}
 		getBone("head").ifPresent(head -> {
-			head.setRotX(head.getRotX() + data.headPitch() * Mth.DEG_TO_RAD);
-			head.setRotY(head.getRotY() + data.netHeadYaw() * Mth.DEG_TO_RAD);
+			// v0.13.17: a clip that doesn't key the head (throw, pickup) leaves last frame's value in the bone, so adding the
+			// look on top piled up every frame and spun his head. If the bone still holds exactly what we wrote last frame,
+			// no clip touched it: take our own look offset back off before adding this frame's.
+			float curX = head.getRotX();
+			float curY = head.getRotY();
+			float[] last = LAST_HEAD.get(instanceId);
+			float baseX = last != null && curX == last[0] ? curX - last[2] : curX;
+			float baseY = last != null && curY == last[1] ? curY - last[3] : curY;
+			float addX = data.headPitch() * Mth.DEG_TO_RAD;
+			float addY = data.netHeadYaw() * Mth.DEG_TO_RAD;
+			head.setRotX(baseX + addX);
+			head.setRotY(baseY + addY);
+			LAST_HEAD.put(instanceId, new float[] { baseX + addX, baseY + addY, addX, addY });
 		});
 	}
 }

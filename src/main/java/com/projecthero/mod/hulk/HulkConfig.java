@@ -35,7 +35,8 @@ public final class HulkConfig {
 
 		// ---- Z Thunderclap: a cone shockwave in front of him ----
 		public float thunderclapDamage = 22.0f;
-		public double thunderclapRange = 12.0;
+		/** v0.13.17: 12 -> 25 blocks (a 12.0 in an older config file is moved up too -- see {@link #load}). */
+		public double thunderclapRange = 25.0;
 		/** Full width of the cone in degrees. */
 		public double thunderclapConeDegrees = 70.0;
 		public double thunderclapKnockback = 2.2;
@@ -165,9 +166,13 @@ public final class HulkConfig {
 						// v0.13.14 rebuilt the kit (new keys, new damage and cooldowns): a 0.13.13 file must not keep the old numbers
 						instance.abilities = new Abilities();
 					}
+					if (loaded.configVersion != null && loaded.configVersion < 3 && instance.abilities.thunderclapRange == 12.0) {
+						// v0.13.17: Thunderclap reaches 25 blocks -- move the old default up, but keep a range a server chose itself
+						instance.abilities.thunderclapRange = 25.0;
+					}
 				}
 			}
-			instance.configVersion = 2;
+			instance.configVersion = 3;
 			java.nio.file.Files.createDirectories(path.getParent());
 			java.nio.file.Files.writeString(path, gson.toJson(instance));
 		} catch (java.io.IOException | RuntimeException e) {
@@ -180,17 +185,24 @@ public final class HulkConfig {
 	public static final float RAGE_MAX = 100.0f;
 	/** H transforms by hand from this much rage; at {@link #RAGE_MAX} the change is forced. */
 	public static final float MANUAL_TRANSFORM_RAGE = 75.0f;
-	/** Rage per point of damage TAKEN as Banner (10 hearts of damage = +50). */
-	public static final float RAGE_PER_DAMAGE_TAKEN = 2.5f;
-	/** Rage per point of damage DEALT to a mob as Banner (fighting builds it too, slower than getting hurt). */
-	public static final float RAGE_PER_DAMAGE_DEALT = 0.8f;
-	/** Rage per point of damage TAKEN as the Hulk -- the angrier he gets, the longer he stays. */
-	public static final float HULK_RAGE_PER_DAMAGE_TAKEN = 1.5f;
-	/** Rage the Hulk burns every second. 100 rage = 100 s of Hulk without being hurt. */
-	public static final float HULK_DRAIN_PER_SECOND = 1.0f;
-	/** Banner calms down when left alone: rage bleeds off this fast once {@link #CALM_DELAY_TICKS} pass without a fight. */
-	public static final float CALM_DECAY_PER_SECOND = 0.5f;
-	public static final int CALM_DELAY_TICKS = 15 * 20;
+	/**
+	 * v0.13.17: rage per point of damage TAKEN, both forms -- 5 damage = 5% (was 2.5 as Banner, 1.5 as the Hulk). Banner
+	 * gets nothing for the damage he deals himself.
+	 */
+	public static final float RAGE_PER_DAMAGE_TAKEN = 1.0f;
+	public static final float HULK_RAGE_PER_DAMAGE_TAKEN = 1.0f;
+	/** v0.13.17: the Hulk gains this much rage every time he hits something (a punch, or each thing an ability hits). */
+	public static final float HULK_RAGE_PER_HIT = 2.0f;
+	/** v0.13.17: out of combat (no hit taken or dealt) this long, the Hulk's rage burns off at {@link #HULK_DRAIN_PER_SECOND}. */
+	public static final int HULK_OUT_OF_COMBAT_TICKS = 5 * 20;
+	/** Rage the Hulk burns every second once out of combat (v0.13.17: was 1.0 a second, all the time). */
+	public static final float HULK_DRAIN_PER_SECOND = 0.75f;
+	/**
+	 * Banner calms down when left alone: rage bleeds off this fast once {@link #CALM_DELAY_TICKS} pass without being
+	 * HURT (v0.13.17: 2 a second after 5 s; was 0.5 after 15 s of no fighting at all).
+	 */
+	public static final float CALM_DECAY_PER_SECOND = 2.0f;
+	public static final int CALM_DELAY_TICKS = 5 * 20;
 	/** v0.13.12: a Gamma Reactor within this many blocks feeds a Gamma player's rage... */
 	public static final int REACTOR_RADIUS = 4;
 	/** ...by this much a second (also counts as not being calm, so it never bleeds off beside one). */
@@ -241,6 +253,4 @@ public final class HulkConfig {
 	/** v0.13.14: lava and explosions only do this fraction of their damage to the Hulk (fire, arrows and falls: none). */
 	public static final float LAVA_FACTOR = 0.25f;
 	public static final float EXPLOSION_FACTOR = 0.5f;
-	/** v0.13.14: "the Hulk refuses to die" -- once every 3 minutes. */
-	public static final int DEATH_SAVE_COOLDOWN_TICKS = 3 * 60 * 20;
 }

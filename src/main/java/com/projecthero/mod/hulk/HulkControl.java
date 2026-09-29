@@ -200,6 +200,18 @@ public final class HulkControl {
 				.withStyle(ChatFormatting.GREEN), true);
 	}
 
+	/** v0.13.17: how far a rampaging Hulk looks for something to smash. */
+	public static final double RAMPAGE_RANGE = 100.0;
+
+	/**
+	 * v0.13.17: out in the open -- standing at (or above) the surface: no more than 2 blocks under the highest solid block
+	 * of its column (leaves don't count, so things under trees are fair game; things in caves are not).
+	 */
+	public static boolean aboveGround(LivingEntity e) {
+		int surface = e.level().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, e.getBlockX(), e.getBlockZ());
+		return e.getY() >= surface - 2.0;
+	}
+
 	private static boolean fairGame(ServerPlayer player, LivingEntity e) {
 		if (e instanceof OwnableEntity pet && player.getUUID().equals(pet.getOwnerUUID())) {
 			return false; // never his own pets
@@ -210,11 +222,12 @@ public final class HulkControl {
 	private static void tickRampage(ServerPlayer player, long now) {
 		Rampage r = RAMPAGES.computeIfAbsent(player.getUUID(), k -> new Rampage());
 		ServerLevel level = (ServerLevel) player.level();
+		// v0.13.17: he hunts anything above ground within 100 blocks (was 20) -- nothing down in caves under him
 		LivingEntity target = r.targetId < 0 || !(level.getEntity(r.targetId) instanceof LivingEntity l) || !l.isAlive()
-				|| l.distanceToSqr(player) > 30 * 30 ? null : l;
+				|| l.distanceToSqr(player) > (RAMPAGE_RANGE + 10.0) * (RAMPAGE_RANGE + 10.0) || !aboveGround(l) ? null : l;
 		if (target == null || now % 20L == 0L) {
-			target = HulkCombat.targets(player, player.getBoundingBox().inflate(20.0)).stream()
-					.filter(e -> fairGame(player, e))
+			target = HulkCombat.targets(player, player.getBoundingBox().inflate(RAMPAGE_RANGE, 64.0, RAMPAGE_RANGE)).stream()
+					.filter(e -> e.distanceToSqr(player) <= RAMPAGE_RANGE * RAMPAGE_RANGE && aboveGround(e) && fairGame(player, e))
 					.min(Comparator.comparingDouble(e -> e.distanceToSqr(player))).orElse(null);
 			r.targetId = target == null ? -1 : target.getId();
 		}

@@ -18,6 +18,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * Nets are footing and cover rather than a trap he has to get out of, and naturally-occurring cobweb
  * in a mineshaft stops slowing him down too.
  *
+ * <p>v0.13.17: the Hulk is never caught by webs either -- he wades through them, and Sprint Smash tears them down
+ * ({@code HulkCombat.breakable} counts cobweb as a soft block).
+ *
  * <p>Deliberately narrow: only cobweb, only a player with the power. Every other entity -- including
  * other players -- is stuck by his nets exactly as they would be by any other web, which is what
  * makes Web Net a usable trap.
@@ -26,7 +29,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class EntityWebMixin {
 	@Inject(method = "makeStuckInBlock", at = @At("HEAD"), cancellable = true)
 	private void projecthero$spiderIgnoresWebbing(BlockState state, Vec3 motionMultiplier, CallbackInfo ci) {
-		if (state.is(Blocks.COBWEB) && SpiderWebs.movesFreelyThroughWebbing((Entity) (Object) this)) {
+		Entity self = (Entity) (Object) this;
+		if (state.is(Blocks.COBWEB) && (SpiderWebs.movesFreelyThroughWebbing(self)
+				|| (self instanceof net.minecraft.world.entity.player.Player p && com.projecthero.mod.hulk.Hulk.isHulk(p)))) {
 			ci.cancel();
 		}
 	}

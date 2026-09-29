@@ -14,6 +14,26 @@ Package `com.projecthero.mod.hulk`. Hero-Tier key `hulk` (the spec's "Gamma powe
 
 The spec asked for Fabric 1.21.11 + GeckoLib 5; the project is (and stays) on **Fabric 1.21.1 + GeckoLib 4.9**.
 
+## v0.13.17: rage rules, death save, carrying, webs
+
+- **Rage**: 1 per point of damage TAKEN in both forms (`RAGE_PER_DAMAGE_TAKEN` / `HULK_RAGE_PER_DAMAGE_TAKEN`). Banner gains
+  nothing from damage he deals; he cools 2/s once 5 s pass since `Combat.lastHurtAt` (NOT `lastCombatAt`). The Hulk gains
+  `HULK_RAGE_PER_HIT` (2) per AFTER_DAMAGE event he causes, and burns 0.75/s only after `HULK_OUT_OF_COMBAT_TICKS` (5 s)
+  since max(lastCombatAt, end of the change).
+- **Death save**: no cooldown. Banner always changes (unwilling) instead of dying; a Hulk who takes a killing blow dies.
+  Not saved: /kill, the void, inside a Titan, All Might Power Form. `Combat.deathSaveReadyAt` is now unused (kept for codec).
+- **Carrying squad-mates** (`HulkGrab`): allies bypass the `HulkCombat.targets` filter; Shift+V / the mate sneaking =
+  `setDown`; thrown mates skip the impact strike; `SAFE_LANDING` (8 s) vetoes their fall damage in `HulkDamage`.
+- **Webs**: `EntityWebMixin` skips cobweb slowdown for a Hulk; `HulkCombat.breakable` counts cobweb soft, and
+  `breakAhead` breaks it despite its empty collision shape.
+- **Rampage** targets anything within `HulkControl.RAMPAGE_RANGE` (100) that is `aboveGround` (within 2 blocks of the
+  MOTION_BLOCKING_NO_LEAVES heightmap).
+- **Thunderclap** range 12 -> 25; config v3 moves an old 12.0 up to 25 (a server-chosen value is kept).
+- **Head spin on throw/pickup**: those clips do not key the head, so GeckoLib left last frame's value in the bone and
+  `HulkModel.setCustomAnimations` kept adding the look offset on top (logged: -10 deg per frame). It now subtracts its own
+  previous offset when the bone still holds exactly what it wrote. `GeoBone.hasRotationChanged()` is false even for
+  keyed bones at that point -- do not use it for this.
+
 ## v0.13.15: willing and unwilling changes
 
 - **Willing** (H at 75+): `Hulk.transform(p, false)` -- 30-tick growth, `HulkState.Combat.unwilling = false`, and

@@ -75,7 +75,7 @@ public final class HulkState {
 		public long promptUntil;
 		/** In the calm-down minigame. */
 		public boolean calming;
-		/** Game time the "the Hulk refuses to die" save is ready again. */
+		/** Game time the "the Hulk refuses to die" save was ready again (v0.13.17: unused -- the save has no cooldown; kept so old saves load). */
 		public long deathSaveReadyAt;
 		/**
 		 * v0.13.15: this Hulk came out on his own (rage hit the top, or the death save) rather than by the player's H. Only
@@ -83,6 +83,8 @@ public final class HulkState {
 		 * for control.
 		 */
 		public boolean unwilling;
+		/** v0.13.17: game time he last TOOK damage -- Banner's rage only starts bleeding off 5 s after that. */
+		public long lastHurtAt;
 
 		public Combat copy() {
 			Combat c = new Combat();
@@ -97,6 +99,7 @@ public final class HulkState {
 			c.calming = calming;
 			c.deathSaveReadyAt = deathSaveReadyAt;
 			c.unwilling = unwilling;
+			c.lastHurtAt = lastHurtAt;
 			return c;
 		}
 
@@ -111,9 +114,10 @@ public final class HulkState {
 				Codec.LONG.optionalFieldOf("prompt_until", 0L).forGetter(c -> c.promptUntil),
 				Codec.BOOL.optionalFieldOf("calming", false).forGetter(c -> c.calming),
 				Codec.LONG.optionalFieldOf("death_save_ready_at", 0L).forGetter(c -> c.deathSaveReadyAt),
-				Codec.BOOL.optionalFieldOf("unwilling", false).forGetter(c -> c.unwilling)
+				Codec.BOOL.optionalFieldOf("unwilling", false).forGetter(c -> c.unwilling),
+				Codec.LONG.optionalFieldOf("last_hurt_at", 0L).forGetter(c -> c.lastHurtAt)
 		).apply(i, (chargeUntil, smashChargeStart, holding, control, lastDealtAt, rampageUntil, promptKey, promptUntil, calming,
-				deathSaveReadyAt, unwilling) -> {
+				deathSaveReadyAt, unwilling, lastHurtAt) -> {
 			Combat c = new Combat();
 			c.chargeUntil = chargeUntil;
 			c.smashChargeStart = smashChargeStart;
@@ -126,6 +130,7 @@ public final class HulkState {
 			c.calming = calming;
 			c.deathSaveReadyAt = deathSaveReadyAt;
 			c.unwilling = unwilling;
+			c.lastHurtAt = lastHurtAt;
 			return c;
 		}));
 	}
