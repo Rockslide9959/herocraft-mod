@@ -57,6 +57,12 @@ public final class AbilityRouter {
 			return;
 		}
 
+		// Moon Knight (v0.13.19): while the suit is on, the six keys are his (TAP / HOLD / SNEAK+KEY).
+		if (com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.hasContext(player)) {
+			com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.handle(player, slot, pressed);
+			return;
+		}
+
 		// Call Armour (Special-Mode key, unarmoured) always wins for a Tony Stark player who is NOT
 		// holding Mjolnir -- "I'm not in my suit and I pressed the suit key" is unambiguous, and it must
 		// work regardless of whether the player also has Thor's context or an experimental power, and
@@ -223,8 +229,9 @@ public final class AbilityRouter {
 		com.projecthero.mod.allmight.AllMightAbilityManager.serverTick(player);
 		// v0.13.11: the Hulk -- rage, the change, the size easing, regeneration
 		com.projecthero.mod.hulk.Hulk.tick(player);
-		// v0.13.19: Moon Knight -- Vengeance drain, the Fracture, Khonshu's Resurrection recharge
+		// v0.13.19: Moon Knight -- Vengeance drain, the Fracture, Khonshu's Resurrection recharge, the suit
 		com.projecthero.mod.moonknight.MoonKnight.tick(player);
+		com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.serverTick(player);
 		// v0.6.20: the Spider-Man costume mask (H key) is tied to the costume, not the power, so its
 		// "mask can't stay off once the hood comes off" reconcile has to run for every player.
 		com.projecthero.mod.spider.SpiderMask.reconcile(player);

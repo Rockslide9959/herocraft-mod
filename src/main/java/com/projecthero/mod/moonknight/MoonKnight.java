@@ -48,6 +48,11 @@ public final class MoonKnight {
 		player.setAttached(ModAttachments.MOON_KNIGHT_STATE, s);
 	}
 
+	/** Save a changed copy of the state (for the ability classes in {@code moonknight.ability}). */
+	public static void saveState(ServerPlayer player, MoonKnightState s) {
+		save(player, s);
+	}
+
 	/** Client-safe: the synced state, or null. */
 	public static MoonKnightState peek(Player player) {
 		return player.getAttachedOrElse(ModAttachments.MOON_KNIGHT_STATE, null);
@@ -116,23 +121,27 @@ public final class MoonKnight {
 	}
 
 	public static void revoke(ServerPlayer player) {
+		if (state(player).transformed || MoonKnightSuit.wearing(player)) {
+			MoonKnightTransform.suitDown(player, false);
+		}
 		clearTransient(player);
 		save(player, new MoonKnightState()); // hasPact = false
 	}
 
 	/**
-	 * Phase 1 test hook (the {@code /moonknight suit} command): flip the transformed flag without the suit, so the
-	 * HUD and the Vengeance / Fracture rules can be checked before Phase 2 builds the real H transformation.
+	 * Suit on or off instantly, skipping the 1.5 s wrap (the {@code /moonknight suit} command and the gametests).
+	 * The H key goes through {@link MoonKnightTransform#toggle} instead.
 	 */
 	public static boolean setTransformedForTesting(ServerPlayer player, boolean on) {
 		MoonKnightState s = state(player);
 		if (!s.hasPact) {
 			return false;
 		}
-		MoonKnightState c = s.copy();
-		c.transformed = on;
-		c.gliding = false;
-		save(player, c);
+		if (on) {
+			MoonKnightTransform.suitUpNow(player);
+		} else {
+			MoonKnightTransform.suitDown(player, false);
+		}
 		return true;
 	}
 
@@ -221,9 +230,30 @@ public final class MoonKnight {
 
 	/** Per-player server tick (from {@code AbilityRouter.serverTick}). Cheap for anyone without the pact. */
 	public static void tick(ServerPlayer player) {
+		MoonKnightTransform.tick(player);
 		if (player.level().getGameTime() % 20L == 0L) {
 			tickSecond(player);
+			MoonKnightState s = player.getAttachedOrElse(ModAttachments.MOON_KNIGHT_STATE, null);
+			boolean transformed = s != null && s.hasPact && s.transformed;
+			if (transformed || MoonKnightSuit.wearing(player) || (s != null && s.hasPact)) {
+				MoonKnightSuit.audit(player, transformed);
+			}
+			if (transformed) {
+				com.projecthero.mod.moonknight.ability.MoonKnightAlters.reconcile(player);
+			}
 		}
+	}
+
+	/**
+	 * Death: the suit never drops and never survives into the next life -- it comes off and the stowed armour goes
+	 * back into the armour slots first, so the player's own gear follows the normal death rules (keepInventory
+	 * included). Called from the mod's {@code ALLOW_DEATH} hook, after Khonshu's Resurrection has had its chance.
+	 */
+	public static void onDeath(ServerPlayer player) {
+		if (state(player).transformed || MoonKnightSuit.wearing(player)) {
+			MoonKnightTransform.suitDown(player, false);
+		}
+		clearTransient(player);
 	}
 
 	/** Once a second: the Fracture wearing off, the Resurrection recharging, the Vengeance drain. (Public for the gametests.) */
@@ -268,8 +298,9 @@ public final class MoonKnight {
 		}
 	}
 
-	/** Death / relog / dimension change: nothing transient to drop yet beyond the glide flag and the pose. */
+	/** Death / relog / dimension change: drop held keys, the glide flag and the pose (the suit itself stays on). */
 	public static void clearTransient(ServerPlayer player) {
+		com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.clearFor(player);
 		MoonKnightState s = player.getAttachedOrElse(ModAttachments.MOON_KNIGHT_STATE, null);
 		if (s == null || (!s.gliding && s.animId == 0)) {
 			return;

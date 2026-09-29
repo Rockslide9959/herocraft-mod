@@ -2628,7 +2628,7 @@
   "subtitles.projecthero.parademon_wings": "Wings beat",
   "subtitles.projecthero.apokolips_music": "Music plays",
   "message.projecthero.moon_knight.acquired": "You who have fallen... Khonshu has chosen you. You are his fist.",
-  "message.projecthero.moon_knight.acquired_hint": "Moon Knight is still being forged: the suit, the cape and the abilities arrive in coming updates.",
+  "message.projecthero.moon_knight.acquired_hint": "Press H to wear the suit of Khonshu. R, G, Z, X, C and V each have a tap, a hold, and a Sneak version.",
   "message.projecthero.moon_knight.protector_kill": "You protect those who travel at night (+5 Vengeance)",
   "message.projecthero.moon_knight.fracture": "Your mind fractures -- %s takes over",
   "message.projecthero.moon_knight.fracture_end": "%s steadies again",
@@ -2644,5 +2644,13 @@
   "projecthero.moon_knight.ability.khonshu": "Khonshu",
   "hud.projecthero.moon_knight.vengeance": "Vengeance %s%%",
   "hud.projecthero.moon_knight.glide": "GLIDE",
-  "hud.projecthero.moon_knight.fractured": "%s -- fractured %ss"
+  "hud.projecthero.moon_knight.fractured": "%s -- fractured %ss",
+  "item.projecthero.moon_knight_helmet": "Moon Knight Cowl",
+  "item.projecthero.moon_knight_chestplate": "Moon Knight Suit",
+  "item.projecthero.moon_knight_leggings": "Moon Knight Leggings",
+  "item.projecthero.moon_knight_boots": "Moon Knight Boots",
+  "message.projecthero.moon_knight.suited": "Khonshu's fist rises",
+  "message.projecthero.moon_knight.cooldown": "Recharging: %ss",
+  "message.projecthero.moon_knight.no_vengeance": "Not enough Vengeance (needs %s)",
+  "message.projecthero.moon_knight.not_ready": "That move is still being forged"
 }

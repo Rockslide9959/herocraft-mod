@@ -440,6 +440,13 @@ public final class ModAttachments {
 							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.moonknight.data.MoonKnightState.CODEC),
 									AttachmentSyncPredicate.all()));
 
+	/** Moon Knight's live combat state (cape / weapon / pose flags): synced to all, not saved -- a relog starts clean. */
+	public static final AttachmentType<com.projecthero.mod.moonknight.data.MoonKnightAction> MOON_KNIGHT_ACTION =
+			AttachmentRegistry.create(ProjectHeroMod.id("moon_knight_action"),
+					builder -> builder.initializer(com.projecthero.mod.moonknight.data.MoonKnightAction::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.moonknight.data.MoonKnightAction.CODEC),
+									AttachmentSyncPredicate.all()));
+
 	public static final AttachmentType<com.projecthero.mod.allmight.data.AllMightState> ALL_MIGHT_STATE =
 			AttachmentRegistry.create(ProjectHeroMod.id("all_might_state"),
 					builder -> builder.persistent(com.projecthero.mod.allmight.data.AllMightState.CODEC)

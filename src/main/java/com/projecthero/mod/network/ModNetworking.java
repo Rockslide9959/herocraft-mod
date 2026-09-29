@@ -29,6 +29,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(WolverineActionPayload.TYPE, WolverineActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(TitanShiftPayload.TYPE, TitanShiftPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(AllMightActionPayload.TYPE, AllMightActionPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(MoonKnightActionPayload.TYPE, MoonKnightActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(HulkActionPayload.TYPE, HulkActionPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(TitanShakePayload.TYPE, TitanShakePayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(WorldEventZoomPayload.TYPE, WorldEventZoomPayload.CODEC);
@@ -172,6 +173,22 @@ public final class ModNetworking {
 			switch (payload.action()) {
 				case TOGGLE_FORM -> com.projecthero.mod.allmight.AllMight.toggleForm(p);
 				case OPEN_LOCKER -> com.projecthero.mod.allmight.AllMightSuit.openLocker(p);
+			}
+		});
+
+		// Moon Knight (v0.13.19): H suits up / down; the alter picker sends its choice. Server re-validates.
+		ServerPlayNetworking.registerGlobalReceiver(MoonKnightActionPayload.TYPE, (payload, context) -> {
+			net.minecraft.server.level.ServerPlayer p = context.player();
+			if (!com.projecthero.mod.moonknight.MoonKnight.hasPower(p)) {
+				return;
+			}
+			switch (payload.action()) {
+				case TOGGLE_SUIT -> com.projecthero.mod.moonknight.MoonKnightTransform.toggle(p);
+				case SELECT_ALTER -> {
+					if (com.projecthero.mod.moonknight.MoonKnight.isTransformed(p)) {
+						com.projecthero.mod.moonknight.ability.MoonKnightAlters.select(p, payload.arg());
+					}
+				}
 			}
 		});
 

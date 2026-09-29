@@ -93,6 +93,9 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.thorarmor.ThorArmorItems.initialize();
 		com.projecthero.mod.allmight.item.AllMightItems.initialize();
 		com.projecthero.mod.hulk.item.HulkItems.initialize();
+		com.projecthero.mod.moonknight.item.MoonKnightItems.initialize();
+		com.projecthero.mod.moonknight.MoonKnightSuit.initialize();
+		com.projecthero.mod.moonknight.MoonKnightDamage.initialize();
 		com.projecthero.mod.hulk.entity.HulkEntities.initialize();
 		com.projecthero.mod.thorarmor.ThorArmor.initialize();
 		com.projecthero.mod.titanshifter.item.TitanShifterItems.initialize();
@@ -229,6 +232,10 @@ public class ProjectHeroMod implements ModInitializer {
 				if (com.projecthero.mod.symbiote.Symbiote.tryResurrect(sp)) {
 					return false;
 				}
+				// v0.13.19: Khonshu's Resurrection -- once per moon cycle, while suited
+				if (com.projecthero.mod.moonknight.MoonKnightDamage.tryResurrect(sp)) {
+					return false;
+				}
 				com.projecthero.mod.ironman.suit.IronManSuitCall.recoverSuitOnDeath(sp);
 				// A web line must not still be drawn on a corpse -- drop the anchor as the player dies
 				// rather than waiting for the respawn (spec section 39).
@@ -254,7 +261,7 @@ public class ProjectHeroMod implements ModInitializer {
 				com.projecthero.mod.allmight.AllMight.onDeath(sp);
 				// Hulk: nothing transient survives death (rage + the change reset on respawn; the power is kept).
 				com.projecthero.mod.hulk.Hulk.clearTransient(sp);
-				com.projecthero.mod.moonknight.MoonKnight.clearTransient(sp);
+				com.projecthero.mod.moonknight.MoonKnight.onDeath(sp);
 				// Thor: the conjured armour dies with its wearer (never drops, never survives keepInventory).
 				com.projecthero.mod.thorarmor.ThorArmor.onDeath(sp);
 			}

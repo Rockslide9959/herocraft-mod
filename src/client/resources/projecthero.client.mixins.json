@@ -21,6 +21,7 @@
 		"LivingEntityPhaseMixin",
 		"MouseHandlerMixin",
 		"LocalPlayerMixin",
+		"MinecraftHotbarKeysMixin",
 		"PlayerModelMixin",
 		"PlayerRendererClawsMixin",
 		"PlayerRendererSymbioteBladeMixin",

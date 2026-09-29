@@ -64,4 +64,9 @@ public final class SuperheroArmorVisuals {
 	public static ArmorVisualDefinition get(String setId) {
 		return BY_SET.getOrDefault(setId, DEFAULT);
 	}
+
+	/** Whether a visual set with this id has been registered (v0.13.19: Moon Knight's per-alter texture hook). */
+	public static boolean has(String setId) {
+		return BY_SET.containsKey(setId);
+	}
 }

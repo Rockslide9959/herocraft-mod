@@ -65,6 +65,7 @@ public final class MoonKnightHud {
 		if (s == null || !s.hasPact || !s.transformed) {
 			return;
 		}
+		com.projecthero.mod.moonknight.data.MoonKnightAction action = com.projecthero.mod.moonknight.MoonKnightAnim.action(player);
 		long now = mc.level.getGameTime();
 		int totalW = 6 * BOX + 5 * GAP;
 		int x0 = g.guiWidth() - MARGIN - totalW;
@@ -122,7 +123,7 @@ public final class MoonKnightHud {
 		int pct = Math.round(frac * 100.0f);
 		g.drawString(mc.font, Component.translatable("hud.projecthero.moon_knight.vengeance", pct), x0, labelY,
 				frac < 0.15f ? COLOR_VENGEANCE_LOW : COLOR_LABEL, false);
-		if (s.gliding) {
+		if (action.has(com.projecthero.mod.moonknight.data.MoonKnightAction.FLAG_GLIDING)) {
 			Component glide = Component.translatable("hud.projecthero.moon_knight.glide").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD);
 			g.drawString(mc.font, glide, x0 + totalW - mc.font.width(glide), labelY, 0xFF8FE0FF, false);
 		}

@@ -146,4 +146,40 @@ public class MoonKnightGameTests implements FabricGameTest {
 		helper.assertFalse(MoonKnight.state(p).resurrectionCharged, "never within the same moon cycle it was spent in");
 		helper.succeed();
 	}
+	/** Phase 2: the suit stows the player's own armour and hands it back exactly as it was. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void suitStowsAndReturnsArmour(GameTestHelper helper) {
+		ServerPlayer p = knight(helper);
+		net.minecraft.world.item.ItemStack chest = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE);
+		chest.setDamageValue(17);
+		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, chest);
+		MoonKnight.setTransformedForTesting(p, true);
+		helper.assertTrue(MoonKnight.isTransformed(p), "transformed");
+		helper.assertTrue(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).getItem()
+				instanceof com.projecthero.mod.moonknight.item.MoonKnightArmorItem, "the suit is on");
+		helper.assertTrue(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).getItem()
+				instanceof com.projecthero.mod.moonknight.item.MoonKnightArmorItem, "all four pieces, the cowl too");
+		helper.assertFalse(p.getInventory().contains(chest), "the old chestplate is stowed, not dumped in the inventory");
+		MoonKnight.setTransformedForTesting(p, false);
+		net.minecraft.world.item.ItemStack back = p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST);
+		helper.assertTrue(back.is(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE) && back.getDamageValue() == 17,
+				"the very same chestplate comes back");
+		helper.assertTrue(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).isEmpty(), "and the suit is gone");
+		helper.succeed();
+	}
+
+	/** Phase 2: H wraps the suit on over 1.5 s, untouchable while it forms. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void transformationTakesAMomentAndIsInvulnerable(GameTestHelper helper) {
+		ServerPlayer p = knight(helper);
+		com.projecthero.mod.moonknight.MoonKnightTransform.toggle(p);
+		helper.assertTrue(com.projecthero.mod.moonknight.MoonKnightTransform.isTransforming(p), "the bandages start");
+		helper.assertFalse(MoonKnight.isTransformed(p), "not suited yet");
+		helper.onEachTick(() -> com.projecthero.mod.moonknight.MoonKnightTransform.tick(p));
+		helper.runAfterDelay(com.projecthero.mod.moonknight.MoonKnightConfig.TRANSFORM_TICKS + 5, () -> {
+			helper.assertTrue(MoonKnight.isTransformed(p), "suited after 1.5 s");
+			helper.assertFalse(com.projecthero.mod.moonknight.MoonKnightTransform.isTransforming(p), "and the wrap has ended");
+			helper.succeed();
+		});
+	}
 }
