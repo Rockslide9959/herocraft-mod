@@ -100,6 +100,11 @@ public final class HeroPackGuide {
 		return chapters().get(CH_ALL_MIGHT);
 	}
 
+	/** Moon Knight (v0.13.20). */
+	public static Chapter moonKnightChapter() {
+		return chapters().get(CH_MOON_KNIGHT);
+	}
+
 	public static Chapter hulkChapter() {
 		return chapters().get(CH_HULK);
 	}
@@ -243,7 +248,8 @@ public final class HeroPackGuide {
 	private static final int CH_OATHBREAKER = 20;
 	private static final int CH_HULK = 21;
 	private static final int CH_DARKSEID_RAID = 22;
-	private static final int CHAPTER_POWER_BASE = 23;
+	private static final int CH_MOON_KNIGHT = 23;
+	private static final int CHAPTER_POWER_BASE = 24;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -790,6 +796,34 @@ public final class HeroPackGuide {
 			}
 		}));
 
+		// Moon Knight (v0.13.20). Appended after the Darkseid Raid so every earlier index stays put.
+		out.add(chapter("projecthero.guide.moon_knight", lines -> {
+			lines.add(Component.translatable("projecthero.guide.moon_knight.tier").withStyle(ChatFormatting.WHITE));
+			para(lines, "projecthero.guide.moon_knight.body");
+			blank(lines);
+			for (String section : new String[]{"origin", "suit", "lunar", "vengeance", "alters", "resurrection"}) {
+				head(lines, "projecthero.guide.moon_knight." + section);
+				para(lines, "projecthero.guide.moon_knight." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.moon_knight.controls");
+			para(lines, "projecthero.guide.moon_knight.controls.body");
+			for (String[] row : new String[][] {
+					{ "R", "darts" }, { "Hold R", "dart_fan" }, { "Sneak+R", "moon_mark" },
+					{ "G", "grapple" }, { "Hold G", "dive_kick" }, { "Sneak+G", "yank" },
+					{ "Z", "truncheon" }, { "Hold Z", "staff_spin" }, { "Sneak+Z", "slam" },
+					{ "X", "glide" }, { "Hold X", "shroud" }, { "Sneak+X", "shadow_step" },
+					{ "C", "alter" }, { "Hold C", "alter_pick" }, { "Sneak+C", "alter_special" },
+					{ "V", "moonbeam" }, { "Hold V", "eye" }, { "Sneak+V", "judgement" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.moon_knight.move." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.moon_knight.move." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.moon_knight.commands");
+			para(lines, "projecthero.guide.moon_knight.commands.body");
+		}));
+
 		// one chapter per power, in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.all()) {
 			out.add(powerChapter(power));
@@ -822,6 +856,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.titan_shifter", CH_TITAN_SHIFTER);
 		link(idx, "projecthero.guide.all_might", CH_ALL_MIGHT);
 		link(idx, "projecthero.guide.hulk", CH_HULK);
+		link(idx, "projecthero.guide.moon_knight", CH_MOON_KNIGHT);
 
 		section(idx, "projecthero.guide.section.events", true);
 		link(idx, "projecthero.guide.zombie_raid", CH_ZOMBIE_RAID);

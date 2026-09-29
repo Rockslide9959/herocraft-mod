@@ -7,7 +7,7 @@ by the lunar power, cooldowns divided by it).
 | Phase | Scope | Status |
 | --- | --- | --- |
 | 1 | Player data, lunar power helper, Vengeance meter, Fracture, Resurrection charge, debug commands, HUD section | **done (v0.13.19)** |
-| 2 | Armour item + GeckoLib renderer (user's `moonknight.bbmodel`), H transformation with armour storing/restoring, the cape renderer | next |
+| 2 | Armour item + GeckoLib renderer (user's `moonknight.bbmodel`), H transformation with armour storing/restoring, the cape renderer | **done** |
 | 3 | R Crescent Darts, X Cape Glide / Shroud / Shadow Step | |
 | 4 | G Grappling Line, Z Truncheon / Staff | |
 | 5 | C Alters (passives + specials + radial picker) | |
@@ -72,3 +72,24 @@ rig, 64x64 texture, bones `Head`, `Body`, `Right Arm`, `Left Arm`, `Right Leg`, 
 base cube and a second-layer cube (inflate 0.25 / 0.5), no animations, one texture (so one texture for all three
 alters, with `MoonKnightAlter.suitTexture()` as the per-alter hook). Phase 2 converts it onto the shared player-armour
 rig (as Thor's and the Hulk's skins were) and hangs the cape off `Body` (-> `armorBody`).
+
+## Phase 2 -- the suit, H and the cape
+
+- **Model:** `scratchpad/gen_moonknight.js` converts the user's `moonknight.bbmodel` (a 64x64 player-skin rig) onto the shared
+  GeckoLib armour rig (`geo/moon_knight.geo.json` = the Symbiote host's rig, renamed; `textures/armor/moon_knight.png` = the
+  embedded skin byte for byte; icons cut from the skin) and paints the original cape texture.
+- **Items:** `moonknight/item/MoonKnightArmorItem` (set id `moon_knight`; resolves `moon_knight_<alter>` first if registered --
+  the per-alter texture hook) + `MoonKnightItems`. Pieces are synthesised by `MoonKnightSuit`: Curse of Binding, unbreakable,
+  deleted if found anywhere but the armour slots (inventory, cursor, a dropped item entity).
+- **H:** `MoonKnightTransform.toggle` (client -> `MoonKnightActionPayload.TOGGLE_SUIT`). 30 ticks of spiralling bandage
+  particles, invulnerable (`MoonKnightDamage`), then `MoonKnightSuit.suitUp` stows the worn armour in `MoonKnightState.storedArmor`.
+  H again (or death / revoke) strips the suit and hands the armour back into the slots (on death before vanilla drops, so
+  keepInventory rules apply to the player's own gear).
+- **Cape:** `client/moonknight/MoonKnightCapeLayer` -- vanilla CapeLayer physics (cloak lag, body yaw, bob, crouch), 20 px long,
+  a centre panel + two folding two-segment side panels, a hood flap, spread for FLAG_GLIDING, wrapped round the front for
+  FLAG_SHROUD. Screenshot-checked in the dev client (front / back / side / shroud / glide).
+- **Key framework:** `ability/MoonKnightAbilityManager` (press/release edges -> TAP / HOLD (10 ticks) / SNEAK+KEY, timed on the
+  server), `MoonKnightMove`, `MoonKnightAbilities` (lunar-scaled cooldowns, Vengeance costs). Synced live state in
+  `data/MoonKnightAction` (flags, pose, charge, rope). Poses in `client/moonknight/MoonKnightPose`.
+- **Vanilla C / X:** `client/mixin/MinecraftHotbarKeysMixin` makes the creative hotbar save / load activators read as not held
+  while a Moon Knight is transformed.

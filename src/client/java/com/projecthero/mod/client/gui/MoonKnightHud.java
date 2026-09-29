@@ -107,6 +107,14 @@ public final class MoonKnightHud {
 			g.fill(x, y0, x + BOX, y0 + BOX, COLOR_BOX_BG);
 			g.renderOutline(x, y0, BOX, BOX, COLOR_BORDER);
 			g.drawString(mc.font, keyLabel(ORDER[i]), x + 2, y0 + 2, COLOR_KEY, false);
+			// a charging HOLD (the dart fan, the Eye of Khonshu) fills its box from the bottom
+			if (action.has(com.projecthero.mod.moonknight.data.MoonKnightAction.FLAG_CHARGING) && action.chargeKey == ORDER[i].number()) {
+				int max = ORDER[i] == AbilitySlot.SLOT_5 ? com.projecthero.mod.moonknight.MoonKnightConfig.EYE_HOLD_TICKS
+						: com.projecthero.mod.moonknight.MoonKnightConfig.DART_FAN_MAX_CHARGE;
+				float c = Math.min(1.0f, (now - action.chargeStart) / (float) Math.max(1, max));
+				int fillH = Math.round((BOX - 2) * c);
+				g.fill(x + 1, y0 + BOX - 1 - fillH, x + BOX - 1, y0 + BOX - 1, 0x99E8F0FF);
+			}
 			int cd = cooldown(player, IDS[i]);
 			if (cd > 0) {
 				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, 0xB0000000);

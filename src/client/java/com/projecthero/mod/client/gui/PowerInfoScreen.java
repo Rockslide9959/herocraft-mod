@@ -177,6 +177,9 @@ public final class PowerInfoScreen extends Screen {
 		if (com.projecthero.mod.allmight.AllMight.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.allMightChapter();
 		}
+		if (com.projecthero.mod.moonknight.MoonKnight.hasPower(mc.player)) {
+			return com.projecthero.mod.hero.guide.HeroPackGuide.moonKnightChapter();
+		}
 		if (com.projecthero.mod.hulk.Hulk.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.hulkChapter();
 		}

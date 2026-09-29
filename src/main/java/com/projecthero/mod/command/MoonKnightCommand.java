@@ -34,7 +34,7 @@ import net.minecraft.world.level.levelgen.structure.Structure;
  *   /moonknight vengeance &lt;0-100&gt; [players]
  *   /moonknight locate_temple              the nearest Temple of Khonshu (Phase 7)
  *   /moonknight moon &lt;phase 0-7&gt; [day|night]  jump the world clock to that moon phase (0 = full, 4 = new)
- *   /moonknight suit &lt;on|off&gt;              Phase 1 only: flip "transformed" without the suit, to test the HUD
+ *   /moonknight suit &lt;on|off&gt;              suit up / down instantly (H plays the full transformation)
  *   /moonknight status [player]
  * </pre>
  * The permanent admin path is still {@code /projecthero power grant moon_knight}.
@@ -163,8 +163,8 @@ public final class MoonKnightCommand {
 			c.getSource().sendFailure(Component.literal("No pact with Khonshu -- /moonknight grant first"));
 			return 0;
 		}
-		c.getSource().sendSuccess(() -> Component.literal("Moon Knight transformed flag " + (on ? "ON" : "OFF")
-				+ " (Phase 1 test hook -- the real H transformation arrives in Phase 2)"), false);
+		c.getSource().sendSuccess(() -> Component.literal("Moon Knight suit " + (on ? "ON" : "OFF")
+				+ " (instant -- H plays the full transformation)"), false);
 		return 1;
 	}
 
