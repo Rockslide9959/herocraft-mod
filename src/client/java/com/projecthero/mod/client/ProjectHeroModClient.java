@@ -91,6 +91,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.WolverineHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.TitanShifterHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.AllMightHud::render);
+		// v0.13.19: Moon Knight (Phase 1 -- lunar power, Vengeance, alter, resurrection, the six keys)
+		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.MoonKnightHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.HulkHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SymbioteHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternHud::render);
@@ -181,6 +183,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineFleshLayer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineLegFleshLayer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.spider.SpiderHandTrackerLayer(playerRenderer));
+						registrationHelper.register(new com.projecthero.mod.client.symbiote.SymbioteBladeRenderer.Layer(playerRenderer));
 					}
 				});
 

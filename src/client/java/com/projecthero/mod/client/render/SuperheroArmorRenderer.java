@@ -124,17 +124,31 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 				}
 			}
 		}
-		// Symbiote: same idea, chest -> arms+legs -> head.
-		if (getCurrentEntity() instanceof Player symbiotePlayer
-				&& (symbiotePlayer.getItemBySlot(slot).getItem() instanceof com.projecthero.mod.spider.item.SymbioteArmorItem
-						|| symbiotePlayer.getItemBySlot(slot).getItem() instanceof com.projecthero.mod.symbiote.item.AgentVenomArmorItem)
-				&& com.projecthero.mod.client.symbiote.SymbioteReveal.isRevealing(symbiotePlayer)) {
-			for (String bone : com.projecthero.mod.client.symbiote.SymbioteReveal.boneNames()) {
-				if (com.projecthero.mod.client.symbiote.SymbioteReveal.hidden(symbiotePlayer, bone)) {
-					getGeoModel().getBone(bone).ifPresent(b -> b.setHidden(true));
-				}
-			}
+		// Symbiote: v0.13.19 no longer hides whole bones -- the suit materialises pixel by pixel instead, see
+		// getRenderType below and SymbioteDissolve.
+	}
+
+	/**
+	 * v0.13.19: while a Symbiote suit (Normal host, Black Suit Spider-Man or Agent Venom) is coming on or going
+	 * off, draw it with the pixel-dissolve copy of its texture that matches the transform clock, so it spreads
+	 * over the host one pixel at a time.
+	 */
+	@Override
+	public net.minecraft.client.renderer.RenderType getRenderType(SuperheroArmorItem animatable,
+			net.minecraft.resources.ResourceLocation texture, @Nullable net.minecraft.client.renderer.MultiBufferSource bufferSource,
+			float partialTick) {
+		if (getCurrentEntity() instanceof Player p && isSymbioteSuit(animatable)
+				&& com.projecthero.mod.client.symbiote.SymbioteReveal.isRevealing(p)) {
+			texture = com.projecthero.mod.client.symbiote.SymbioteDissolve.texture(texture,
+					com.projecthero.mod.client.symbiote.SymbioteReveal.progress(p, partialTick));
 		}
+		return super.getRenderType(animatable, texture, bufferSource, partialTick);
+	}
+
+	private static boolean isSymbioteSuit(SuperheroArmorItem item) {
+		return item instanceof com.projecthero.mod.spider.item.SymbioteArmorItem
+				|| item instanceof com.projecthero.mod.symbiote.item.AgentVenomArmorItem
+				|| item instanceof com.projecthero.mod.symbiote.item.SymbioteHostArmorItem;
 	}
 
 	/**

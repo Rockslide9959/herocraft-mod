@@ -1,5 +1,6 @@
 package com.projecthero.mod.symbiote.worldgen;
 
+import com.projecthero.mod.symbiote.block.SymbioteBlocks;
 import com.projecthero.mod.worldgen.ModStructurePieceTypes;
 
 import net.minecraft.core.BlockPos;
@@ -20,8 +21,10 @@ import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceSeriali
 /**
  * The impact crater: a shallow, imperfect bowl carved into whatever terrain is really there, scorched
  * black at the centre with a knot of obsidian / crying obsidian where the alien rock struck, and a
- * scatter of blackstone / basalt / sculk in the debris. The Symbiote itself is spawned by
- * {@link SymbioteWorldgen}, not here.
+ * scatter of blackstone / basalt / sculk in the debris. v0.13.19: the core is a
+ * {@link SymbioteBlocks#SYMBIOTE_METEORITE Symbiote Meteorite} block with the organism dormant inside --
+ * a free Symbiote crawls out only when a player breaks it. ({@link SymbioteWorldgen} places one in an
+ * older crater that was generated before the block existed.)
  *
  * <p>Modelled on {@code SteelCrashSitePiece}: no stored state beyond the base-class bounding box;
  * carving at {@link #postProcess} time (real terrain exists then).
@@ -111,8 +114,10 @@ public class SymbioteMeteorPiece extends StructurePiece implements SymbioteSpawn
 							: Blocks.OBSIDIAN.defaultBlockState(), 2);
 				}
 			}
+			// v0.13.19: the meteorite itself sits proud of the crater floor on the crying-obsidian scar --
+			// the Symbiote is dormant inside it and crawls out when a player breaks it open.
 			cursor.set(centerX, floorY + 1, centerZ);
-			level.setBlock(cursor, Blocks.SCULK_SHRIEKER.defaultBlockState(), 2);
+			level.setBlock(cursor, SymbioteBlocks.SYMBIOTE_METEORITE.defaultBlockState(), 2);
 		}
 	}
 
@@ -157,6 +162,40 @@ public class SymbioteMeteorPiece extends StructurePiece implements SymbioteSpawn
 			return Blocks.GRAVEL.defaultBlockState();
 		}
 		return Blocks.BASALT.defaultBlockState();
+	}
+
+	/**
+	 * The meteorite block near the crater centre, or null if there is none (an older crater generated
+	 * before v0.13.19, or one a player already broke open). Bounded 5x5 column scan. Deferred-tick only.
+	 */
+	public BlockPos findMeteorite(LevelReader level) {
+		int centerX = (this.boundingBox.minX() + this.boundingBox.maxX()) / 2;
+		int centerZ = (this.boundingBox.minZ() + this.boundingBox.maxZ()) / 2;
+		int top = level.getHeight(Heightmap.Types.WORLD_SURFACE, centerX, centerZ);
+		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+		for (int dx = -2; dx <= 2; dx++) {
+			for (int dz = -2; dz <= 2; dz++) {
+				for (int y = top + 2; y >= top - MAX_DEPTH - 4; y--) {
+					cursor.set(centerX + dx, y, centerZ + dz);
+					if (level.getBlockState(cursor).is(SymbioteBlocks.SYMBIOTE_METEORITE)) {
+						return cursor.immutable();
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Where a missing meteorite goes in an older crater: replacing the old sculk shrieker if it is still
+	 * on top of the centre column, otherwise resting on top of whatever is there.
+	 */
+	public BlockPos meteoritePos(LevelReader level) {
+		int centerX = (this.boundingBox.minX() + this.boundingBox.maxX()) / 2;
+		int centerZ = (this.boundingBox.minZ() + this.boundingBox.maxZ()) / 2;
+		int y = level.getHeight(Heightmap.Types.WORLD_SURFACE, centerX, centerZ);
+		BlockPos top = new BlockPos(centerX, y - 1, centerZ);
+		return level.getBlockState(top).is(Blocks.SCULK_SHRIEKER) ? top : top.above();
 	}
 
 	@Override

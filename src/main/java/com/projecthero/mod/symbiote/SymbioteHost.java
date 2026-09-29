@@ -40,7 +40,10 @@ public final class SymbioteHost {
 		return mob.getAttachedOrElse(ModAttachments.SYMBIOTE_HOST, false);
 	}
 
-	/** Take over a freshly spawned mob. Called once, from the spawn hook. */
+	/**
+	 * Take over a mob. Called once per mob: from the natural-spawn hook, or when a free
+	 * {@link SymbioteEntity} crawls onto a mob and takes control of it (never onto an existing host).
+	 */
 	public static void mark(Mob mob) {
 		mob.setAttached(ModAttachments.SYMBIOTE_HOST, true);
 
@@ -86,6 +89,9 @@ public final class SymbioteHost {
 		level.sendParticles(ParticleTypes.SQUID_INK, mob.getX(), mob.getY() + 0.6, mob.getZ(),
 				50, 0.5, 0.5, 0.5, 0.15);
 		if (dropped != null) {
+			// v0.13.19: it is a real creature now and will go looking for a new host on its own -- give
+			// whoever killed the old one five seconds to reach it first.
+			dropped.setHuntDelay(100);
 			for (Player p : level.getEntitiesOfClass(Player.class, mob.getBoundingBox().inflate(28.0))) {
 				p.displayClientMessage(Component.translatable("message.projecthero.symbiote.host_freed")
 						.withStyle(ChatFormatting.DARK_GRAY), false);

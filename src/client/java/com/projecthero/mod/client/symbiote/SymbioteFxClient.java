@@ -37,6 +37,8 @@ public final class SymbioteFxClient {
 	 * client-side view preference -- the outline is this viewer's own render, nothing is sent to the server.
 	 */
 	private static boolean predatorVision = true;
+	/** v0.13.19: the transformation no longer throws off black particles -- the suit materialises pixel by pixel (SymbioteDissolve). */
+	private static final boolean TRANSFORM_PARTICLES = false;
 
 	private SymbioteFxClient() {
 	}
@@ -61,7 +63,7 @@ public final class SymbioteFxClient {
 	 * not a persistent effect "with the armour".
 	 */
 	public static void clientTick(Minecraft client) {
-		if (client.level == null || client.player == null) {
+		if (!TRANSFORM_PARTICLES || client.level == null || client.player == null) {
 			return;
 		}
 		Vec3 eye = client.player.getEyePosition();

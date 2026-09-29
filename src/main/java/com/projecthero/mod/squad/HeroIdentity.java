@@ -48,6 +48,9 @@ public final class HeroIdentity {
 		if (com.projecthero.mod.allmight.AllMightAbilityManager.hasContext(player)) {
 			return "projecthero.squad.identity.all_might";
 		}
+		if (com.projecthero.mod.moonknight.MoonKnight.isTransformed(player)) {
+			return "projecthero.squad.identity.moon_knight";
+		}
 		if (com.projecthero.mod.hulk.Hulk.hasPower(player)) {
 			return com.projecthero.mod.hulk.Hulk.isHulk(player) ? "projecthero.squad.identity.hulk" : "projecthero.squad.identity.banner";
 		}

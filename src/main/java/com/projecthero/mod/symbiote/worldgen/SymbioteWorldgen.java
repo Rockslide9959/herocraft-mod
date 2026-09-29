@@ -4,6 +4,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import com.projecthero.mod.diagnostics.TickWatchdog;
+import com.projecthero.mod.symbiote.block.SymbioteBlocks;
 import com.projecthero.mod.symbiote.entity.SymbioteEntity;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
@@ -21,9 +22,10 @@ import net.minecraft.world.level.levelgen.structure.StructurePiece;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
 
 /**
- * Places the one-time {@link SymbioteEntity} at a {@link SymbioteMeteorStructure} or
- * {@link SymbioteLabStructure} the first time its chunk loads. One class handles both, since the only
- * difference is which structure key to look up and which {@link SymbioteSpawnPiece} to ask.
+ * One-time setup of a {@link SymbioteMeteorStructure} or {@link SymbioteLabStructure} the first time its
+ * chunk loads. A lab gets its confined {@link SymbioteEntity}; a meteor (v0.13.19) gets nothing -- its
+ * Symbiote is inside the Symbiote Meteorite block the crater generates with -- unless it is an older crater
+ * with no meteorite, which gets one placed at its centre.
  *
  * <p>Directly modelled on {@code SteelCrashAmbience}, including the load-bearing part:
  *
@@ -94,12 +96,23 @@ public final class SymbioteWorldgen {
 	private static void place(ServerLevel level, SymbioteSpawnPiece piece, long siteKey) {
 		SymbioteSpawnState state = SymbioteSpawnState.get(level);
 		if (state.hasSpawned(siteKey)) {
-			return; // spawned once already; the entity persisted or was bonded. Never a second one.
+			return; // handled once already; the entity persisted / bonded, or the meteorite is there. Never again.
 		}
-		BlockPos pos = piece.symbiotePos(level);
-		// Mark BEFORE spawning: a crash mid-spawn can only ever leave a site with no Symbiote.
+		// Mark BEFORE touching the world: a crash mid-way can only ever leave a site with nothing extra.
 		state.markSpawned(siteKey);
-		SymbioteEntity.spawn(level, pos.getX() + 0.5, pos.getY() + 0.2, pos.getZ() + 0.5);
+		if (piece instanceof SymbioteMeteorPiece meteor) {
+			// v0.13.19: the meteor's Symbiote waits inside the Symbiote Meteorite block and only crawls out when
+			// a player breaks it (SymbioteMeteoriteBlock). New craters generate the block themselves; an older
+			// crater from before the block existed gets one placed at its centre instead of a free entity.
+			if (meteor.findMeteorite(level) == null) {
+				level.setBlock(meteor.meteoritePos(level), SymbioteBlocks.SYMBIOTE_METEORITE.defaultBlockState(), 3);
+			}
+			return;
+		}
+		// A lab: the Symbiote is loose in its containment cell -- confined to it for good.
+		BlockPos pos = piece.symbiotePos(level);
+		SymbioteEntity.spawnConfined(level, pos.getX() + 0.5, pos.getY() + 0.2, pos.getZ() + 0.5,
+				SymbioteEntity.LAB_HOME_RADIUS);
 	}
 
 	private record Pending(ServerLevel level, ChunkPos originChunk, long siteKey, SymbioteSpawnPiece piece) {

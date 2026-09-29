@@ -52,6 +52,11 @@ public class MotherBoxEntity extends Entity {
 	private static final EntityDataAccessor<Float> DATA_PROGRESS = SynchedEntityData.defineId(MotherBoxEntity.class, EntityDataSerializers.FLOAT);
 	/** 0..1 -- how close the raid's neglect timer is to overloading this box (the renderer pulses red with it). */
 	private static final EntityDataAccessor<Float> DATA_WARNING = SynchedEntityData.defineId(MotherBoxEntity.class, EntityDataSerializers.FLOAT);
+	/**
+	 * v0.13.19: 0..1 -- a disabled box the raid is about to switch back on during the fight (the few seconds of warning
+	 * before {@link #reactivate}); the renderer lifts, spins up and brightens it, the box sparks and its name warns.
+	 */
+	private static final EntityDataAccessor<Float> DATA_WAKING = SynchedEntityData.defineId(MotherBoxEntity.class, EntityDataSerializers.FLOAT);
 
 	private static final DustParticleOptions CYAN = new DustParticleOptions(new Vector3f(0.3f, 0.95f, 1.0f), 1.0f);
 	private static final DustParticleOptions RED = new DustParticleOptions(new Vector3f(1.0f, 0.15f, 0.1f), 1.2f);
@@ -85,6 +90,7 @@ public class MotherBoxEntity extends Entity {
 		builder.define(DATA_STATE, (byte) STATE_ACTIVE);
 		builder.define(DATA_PROGRESS, 0.0f);
 		builder.define(DATA_WARNING, 0.0f);
+		builder.define(DATA_WAKING, 0.0f);
 	}
 
 	// ---------------------------------------------------------------- state
@@ -108,6 +114,20 @@ public class MotherBoxEntity extends Entity {
 		}
 	}
 
+	/** 0..1 while a disabled box is powering back up (see {@link #setWaking}); 0 otherwise. */
+	public float waking() {
+		return entityData.get(DATA_WAKING);
+	}
+
+	/** The raid's reactivation warning: {@code f} rises 0 -> 1 over the warning, then {@link #reactivate} clears it. */
+	public void setWaking(float f) {
+		float v = Math.max(0.0f, Math.min(1.0f, f));
+		if (entityData.get(DATA_WAKING) != v) {
+			entityData.set(DATA_WAKING, v);
+			refreshName();
+		}
+	}
+
 	public int index() {
 		return index;
 	}
@@ -125,10 +145,12 @@ public class MotherBoxEntity extends Entity {
 		return channelerId == null ? null : level.getServer().getPlayerList().getPlayer(channelerId);
 	}
 
-	/** Soft-enrage: the box powers back up. */
+	/** The box powers back up (soft enrage, or v0.13.19's periodic reactivation during the fight). */
 	public void reactivate(ServerLevel level) {
 		entityData.set(DATA_STATE, (byte) STATE_ACTIVE);
 		entityData.set(DATA_PROGRESS, 0.0f);
+		entityData.set(DATA_WAKING, 0.0f);
+		entityData.set(DATA_WARNING, 0.0f);
 		channelerId = null;
 		idleTicks = 0;
 		refreshName();
@@ -236,7 +258,15 @@ public class MotherBoxEntity extends Entity {
 			return;
 		}
 		if (!isActive()) {
-			if (tickCount % 10 == 0) {
+			float waking = waking();
+			if (waking > 0.0f) {
+				// powering back up: sparks and a rising cyan/red pillar, faster as it nears
+				if (tickCount % Math.max(1, 4 - (int) (waking * 3)) == 0) {
+					server.sendParticles(ParticleTypes.ELECTRIC_SPARK, getX(), getY() + 0.5, getZ(), 3, 0.35, 0.35, 0.35, 0.15);
+					server.sendParticles(tickCount % 2 == 0 ? CYAN : RED, getX(), getY() + 0.5 + random.nextDouble() * 3.0 * waking,
+							getZ(), 2, 0.15, 0.1, 0.15, 0.0);
+				}
+			} else if (tickCount % 10 == 0) {
 				server.sendParticles(ParticleTypes.SMOKE, getX(), getY() + 0.6, getZ(), 1, 0.15, 0.05, 0.15, 0.01);
 			}
 			return;
@@ -297,7 +327,9 @@ public class MotherBoxEntity extends Entity {
 
 	private void refreshName() {
 		Component name;
-		if (!isActive()) {
+		if (!isActive() && waking() > 0.0f) {
+			name = Component.translatable("entity.projecthero.mother_box.waking").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD);
+		} else if (!isActive()) {
 			name = Component.translatable("entity.projecthero.mother_box.disabled").withStyle(ChatFormatting.DARK_GRAY);
 		} else if (progress() > 0.0f) {
 			name = Component.translatable("entity.projecthero.mother_box.disrupting", Math.round(progress() * 100))

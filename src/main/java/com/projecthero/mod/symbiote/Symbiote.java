@@ -88,10 +88,6 @@ public final class Symbiote {
 	private static final java.util.Map<Integer, Long> AUTO_EQUIP_SUPPRESS = new java.util.concurrent.ConcurrentHashMap<>();
 	/** Host health (in half-hearts) below which the Symbiote wraps its host on its own: 5 hearts. */
 	private static final float AUTO_EQUIP_HEALTH = 10.0f;
-	/** Biomass a resurrection costs: half of a full bar. */
-	private static final float RESURRECT_COST = SymbioteVitalsManager.MAX_HP / 2.0f;
-	private static final int RESURRECT_COOLDOWN_TICKS = 1200;
-	private static final java.util.Map<Integer, Long> RESURRECT_READY_AT = new java.util.concurrent.ConcurrentHashMap<>();
 	private static final java.util.Map<Integer, Integer> HAZARD_EXPOSURE = new java.util.concurrent.ConcurrentHashMap<>();
 
 	private Symbiote() {
@@ -579,10 +575,12 @@ public final class Symbiote {
 	}
 
 	/**
-	 * The Symbiote refuses to let its host die. Called from {@code ALLOW_DEATH}: if the bond can pay
-	 * {@link #RESURRECT_COST} Biomass (half a full bar), is not locked out by a sound attack and is not still
-	 * recovering from its last resurrection, the host is brought back, the Symbiote throws massive tendrils
-	 * that hurl everything within 20 blocks away, and the host gets Resistance for 20 seconds.
+	 * The Symbiote refuses to let its host die. Called from {@code ALLOW_DEATH}: unless it is locked out by a
+	 * sound attack or still recovering from its last resurrection, the host is brought back, the Symbiote throws
+	 * massive tendrils that hurl everything within 20 blocks away, and the host gets Resistance for 20 seconds.
+	 * v0.13.19: it no longer costs Biomass -- it is on a flat ten-minute cooldown instead
+	 * ({@link SymbioteVitalsManager#RESURRECT_COOLDOWN_TICKS}), saved with the player so a relog or restart
+	 * cannot reset it.
 	 *
 	 * @return true if the death was averted (the caller must then cancel it)
 	 */
@@ -591,12 +589,10 @@ public final class Symbiote {
 			return false;
 		}
 		long now = player.level().getGameTime();
-		if (now < RESURRECT_READY_AT.getOrDefault(player.getId(), 0L)
-				|| SymbioteVitalsManager.biomass(player) < RESURRECT_COST) {
+		if (now < SymbioteVitalsManager.resurrectReadyAt(player)) {
 			return false;
 		}
-		RESURRECT_READY_AT.put(player.getId(), now + RESURRECT_COOLDOWN_TICKS);
-		SymbioteVitalsManager.spendBiomass(player, RESURRECT_COST);
+		SymbioteVitalsManager.markResurrected(player);
 		SymbioteVitalsManager.markCombat(player);
 
 		player.setHealth(Math.max(4.0f, player.getMaxHealth() * 0.5f));
@@ -627,7 +623,6 @@ public final class Symbiote {
 		HAZARD_EXPOSURE.clear();
 		SONIC_HANDLED.clear();
 		AUTO_EQUIP_SUPPRESS.clear();
-		RESURRECT_READY_AT.clear();
 	}
 
 	private static void fx(ServerPlayer player, boolean on) {

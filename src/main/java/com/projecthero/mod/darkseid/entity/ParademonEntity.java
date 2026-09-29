@@ -55,6 +55,12 @@ import software.bernie.geckolib.util.GeckoLibUtil;
  * path-find) like any mob until their target is well above them, then fly straight at it, and drop back to the
  * ground once it lands. Raid-owned Parademons target raid participants first and remove themselves if their raid
  * no longer exists (see {@link #checkRaid}).
+ *
+ * <p>v0.13.19: gunners never stand still to shoot. On the ground they strafe around their target at
+ * {@link DarkseidConfig.Parademons#rangedPreferredRange} (backing off when crowded, closing in when too far or out of
+ * sight); in the air they circle it with a vertical bob. Either way the strafe direction flips every 1-3 s (and on
+ * bumping into something), and they fire on the move. Every variant also has leathery wings now (own GeckoLib
+ * "wings" controller: a flapping loop in flight, folded on the ground).
  */
 public class ParademonEntity extends Monster implements GeoEntity {
 	public enum Variant {
@@ -80,10 +86,16 @@ public class ParademonEntity extends Monster implements GeoEntity {
 	private int airAttackCooldown;
 	private int wingSoundCooldown;
 	private int repositionCooldown;
+	/** Gunner strafing: +1 / -1 around the target, flipped every {@link #strafeTicks}. */
+	private int strafeDir = 1;
+	private int strafeTicks;
+	private final float bobPhase;
 
 	public ParademonEntity(EntityType<? extends ParademonEntity> type, Level level) {
 		super(type, level);
 		this.xpReward = 8;
+		this.bobPhase = random.nextFloat() * 100.0f;
+		this.strafeDir = random.nextBoolean() ? 1 : -1;
 	}
 
 	public static AttributeSupplier.Builder createAttributes() {
@@ -286,8 +298,9 @@ public class ParademonEntity extends Monster implements GeoEntity {
 		if (!flying) {
 			return;
 		}
-		if (target == null || (target.onGround() && getY() - target.getY() < 2.5)) {
-			// the target landed (or is gone): glide down and walk again
+		boolean gunner = variant() == Variant.RANGED;
+		if (target == null || (target.onGround() && (gunner || getY() - target.getY() < 2.5))) {
+			// the target landed (or is gone): glide down and walk again (a gunner drops straight back to its strafe)
 			setNoGravity(false);
 			if (onGround() || target == null) {
 				setFlying(false);
@@ -299,12 +312,9 @@ public class ParademonEntity extends Monster implements GeoEntity {
 		double speed = DarkseidConfig.parademons().flightSpeed * (variant() == Variant.ELITE ? 1.25 : 1.0);
 		Vec3 aim = target.position().add(0, target.getBbHeight() * 0.5, 0);
 		Vec3 want;
-		if (variant() == Variant.RANGED) {
-			// hold station off to one side of the flyer, slightly above, and shoot
-			Vec3 away = position().subtract(aim);
-			Vec3 flat = new Vec3(away.x, 0, away.z);
-			flat = flat.lengthSqr() < 1.0e-3 ? new Vec3(1, 0, 0) : flat.normalize();
-			want = aim.add(flat.scale(9.0)).add(0, 2.5, 0);
+		if (gunner) {
+			// v0.13.19: circle the flyer at firing range with a vertical bob, never holding still
+			want = orbitPoint(aim, true);
 		} else {
 			want = aim;
 		}
@@ -338,23 +348,56 @@ public class ParademonEntity extends Monster implements GeoEntity {
 		}
 	}
 
+	/** Flip the strafe every 1-3 s, and at once on running into something. */
+	private void tickStrafeTimer() {
+		if (--strafeTicks <= 0 || horizontalCollision) {
+			if (strafeTicks <= 0 || random.nextFloat() < 0.5f) {
+				strafeDir = -strafeDir;
+			}
+			strafeTicks = 20 + random.nextInt(41);
+		}
+	}
+
+	/**
+	 * A point a little way around the circle of radius {@code rangedPreferredRange} about {@code aim}, in the current
+	 * strafe direction -- steering at it every tick is what makes a gunner orbit. Too close: the circle widens (back
+	 * off); too far: the same point pulls it in. In the air it also bobs up and down.
+	 */
+	private Vec3 orbitPoint(Vec3 aim, boolean air) {
+		double range = DarkseidConfig.parademons().rangedPreferredRange;
+		Vec3 away = position().subtract(aim);
+		Vec3 flat = new Vec3(away.x, 0, away.z);
+		double d = flat.length();
+		double ang = d < 1.0e-3 ? random.nextDouble() * Math.PI * 2.0 : Math.atan2(flat.z, flat.x);
+		ang += strafeDir * 0.45; // ~26 degrees ahead around the circle
+		double radius = d < range * 0.6 ? range + 3.0 : range;
+		double up = air ? 2.5 + Math.sin((tickCount + bobPhase) * 0.09) * 1.8 : 0.0;
+		return aim.add(Math.cos(ang) * radius, up, Math.sin(ang) * radius);
+	}
+
 	private void tickRanged(ServerLevel server, LivingEntity target) {
 		if (target == null) {
 			return;
 		}
 		double d = distanceTo(target);
+		tickStrafeTimer();
 		if (!isFlying()) {
-			getLookControl().setLookAt(target, 30.0f, 30.0f);
-			if (--repositionCooldown <= 0) {
-				repositionCooldown = 20;
-				if (d < 7.0) {
-					Vec3 away = position().subtract(target.position()).normalize().scale(8.0).add(position());
-					getNavigation().moveTo(away.x, away.y, away.z, 1.15);
-				} else if (d > 18.0 || !hasLineOfSight(target)) {
+			// v0.13.19: strafe while shooting (like a skeleton, but faster and never standing still)
+			double range = DarkseidConfig.parademons().rangedPreferredRange;
+			boolean sight = getSensing().hasLineOfSight(target);
+			if (d > range * 1.8 || !sight) {
+				if (--repositionCooldown <= 0) {
+					repositionCooldown = 10;
 					getNavigation().moveTo(target, 1.0);
-				} else {
-					getNavigation().stop();
 				}
+				getLookControl().setLookAt(target, 30.0f, 30.0f);
+			} else {
+				repositionCooldown = 0;
+				getNavigation().stop();
+				float forward = d < range * 0.65 ? -1.0f : d > range * 1.35 ? 0.7f : 0.0f;
+				getMoveControl().strafe(forward, strafeDir * 1.0f);
+				lookAt(target, 30.0f, 30.0f);
+				getLookControl().setLookAt(target, 30.0f, 30.0f);
 			}
 		}
 		if (--shootCooldown > 0) {
@@ -444,13 +487,31 @@ public class ParademonEntity extends Monster implements GeoEntity {
 		return cache;
 	}
 
+	/**
+	 * Order matters -- GeckoLib applies controllers in registration order and the last one to key a bone wins:
+	 * <ol>
+	 *   <li>"main" -- the looping body clip (idle / walk / fly);</li>
+	 *   <li>"action" -- the triggered attack / shoot clips, after main so a gunner's shot shows while it strafes (the
+	 *       clips only key the arms, torso and head, so the legs keep walking);</li>
+	 *   <li>"wings" -- v0.13.19: the wing bones only, their own loop (flapping in the air, folded on the ground).</li>
+	 * </ol>
+	 */
 	@Override
 	public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+		controllers.add(new AnimationController<>(this, "main", 3, this::mainPredicate));
 		AnimationController<ParademonEntity> action = new AnimationController<>(this, "action", 2, state -> PlayState.STOP);
 		action.triggerableAnim("attack", RawAnimation.begin().thenPlay("animation.parademon.attack"));
 		action.triggerableAnim("shoot", RawAnimation.begin().thenPlay("animation.parademon.shoot"));
 		controllers.add(action);
-		controllers.add(new AnimationController<>(this, "main", 3, this::mainPredicate));
+		controllers.add(new AnimationController<>(this, "wings", 4, this::wingPredicate));
+	}
+
+	private static final RawAnimation WINGS_FLAP = RawAnimation.begin().thenLoop("animation.parademon.wings_flap");
+	private static final RawAnimation WINGS_FOLD = RawAnimation.begin().thenLoop("animation.parademon.wings_fold");
+
+	private PlayState wingPredicate(AnimationState<ParademonEntity> state) {
+		boolean airborne = isFlying() || (!onGround() && !isInWater() && getDeltaMovement().y < -0.15);
+		return state.setAndContinue(airborne ? WINGS_FLAP : WINGS_FOLD);
 	}
 
 	private PlayState mainPredicate(AnimationState<ParademonEntity> state) {

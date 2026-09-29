@@ -22,10 +22,16 @@ import net.fabricmc.loader.api.FabricLoader;
  * attacks ({@link Abilities}), the Mother Boxes ({@link MotherBoxes}), the Parademons ({@link Parademons}) and
  * the loot ({@link Rewards}). Every key the design spec names is here under the spec's own name.
  * See {@code docs/DARKSEID_RAID_REFERENCE.md}.
+ *
+ * <p>v0.13.19: version 2 -- five invasion waves with ~35% more Parademons each (enemy cap 26 -> 34), Parademons +20%
+ * health / +15% damage, Darkseid's shared attack cooldown 30 -> 19 ticks, Omega Beams far more often (cooldown 11 s -> 7 s,
+ * weight 4.5/6 -> 7/8.5) and zig-zagging, Boom Tube Reinforcements more often (cooldown 26 s -> 20 s, weight 2 -> 2.5),
+ * and Mother Boxes coming back online during the fight. {@link #load} moves a v1
+ * file's changed values to the new defaults; everything else in the file is kept.
  */
 public final class DarkseidConfig {
 	/** Bump when a default changes in a way existing files must pick up (and migrate in {@link #load}). */
-	private static final int CONFIG_VERSION = 1;
+	private static final int CONFIG_VERSION = 2;
 
 	private static DarkseidConfig instance = new DarkseidConfig();
 
@@ -66,17 +72,27 @@ public final class DarkseidConfig {
 		/** While enraged, one disabled Mother Box reactivates this often (seconds). */
 		public int enrageMotherBoxReactivateSeconds = 75;
 		/** Hard ceiling on raid enemies (Parademons) alive at once. */
-		public int enemyCap = 26;
+		public int enemyCap = 34;
+		/** Invasion waves before Darkseid arrives (1-5; v0.13.19 default 5). */
+		public int invasionWaves = 5;
 		/** Extra wave Parademons per participant beyond the first, as a fraction of the base count. */
 		public double waveScalingPerExtraPlayer = 0.35;
 		/** Base wave compositions (solo counts). */
-		public int wave1Standard = 8;
-		public int wave2Standard = 6;
-		public int wave2Ranged = 5;
-		public int wave3Elite = 4;
+		public int wave1Standard = 11;
+		public int wave2Standard = 8;
+		public int wave2Ranged = 7;
+		public int wave3Elite = 5;
 		public int wave3Brute = 2;
-		public int wave3Ranged = 5;
-		public int wave3Standard = 4;
+		public int wave3Ranged = 7;
+		public int wave3Standard = 6;
+		public int wave4Elite = 6;
+		public int wave4Brute = 3;
+		public int wave4Ranged = 8;
+		public int wave4Standard = 6;
+		public int wave5Elite = 8;
+		public int wave5Brute = 4;
+		public int wave5Ranged = 9;
+		public int wave5Standard = 6;
 		/** Seconds a wave may sit with an unchanged enemy count before stragglers are pulled back in. */
 		public int waveStallSeconds = 40;
 	}
@@ -104,7 +120,7 @@ public final class DarkseidConfig {
 		/** Knockback multiplier in phase 3. */
 		public double knockbackMultiplierPhase3 = 1.35;
 		/** Ticks of breathing room between two attacks, phase 1 (scaled by the cooldown multiplier). */
-		public int globalCooldownTicks = 30;
+		public int globalCooldownTicks = 19;
 		/** Model/hit-box scale (1.0 = 4.2 blocks tall). Read at startup. */
 		public double modelScale = 1.0;
 		/** Extra damage taken while staggered. */
@@ -118,8 +134,24 @@ public final class DarkseidConfig {
 	public static final class Abilities {
 		// Omega Beams
 		public float omegaBeamDamage = 16.0f;
-		public int omegaBeamCooldown = 11 * 20;
-		/** Ticks the two beams keep steering after they are fired. */
+		public int omegaBeamCooldown = 7 * 20;
+		/** Weight of the Omega Beams in his attack pick against a grounded / an airborne target (v0.13.18: 4.5 / 6). */
+		public double omegaBeamWeight = 7.0;
+		public double omegaBeamAirWeight = 8.5;
+		/**
+		 * v0.13.19: sharp angular legs each beam snakes through before it homes in (0 = the old smooth curve). Each leg
+		 * breaks away from the straight line to the target by a random angle, alternating sides; closer than
+		 * {@code omegaBeamZigZagStopDistance} blocks the beam stops zig-zagging and homes (still turn-limited).
+		 */
+		public int omegaBeamZigZagTurns = 4;
+		public int omegaBeamZigZagLegTicksMin = 4;
+		public int omegaBeamZigZagLegTicksMax = 7;
+		public double omegaBeamZigZagAngleMin = 35.0;
+		public double omegaBeamZigZagAngleMax = 70.0;
+		/** Speed multiplier while zig-zagging, so the detour does not make them arrive late. */
+		public double omegaBeamZigZagSpeedMultiplier = 1.3;
+		public double omegaBeamZigZagStopDistance = 6.0;
+		/** Ticks the two beams keep steering (homing) once their zig-zag is done. */
 		public int omegaBeamTrackingTime = 60;
 		/** Ticks of warning between the Omega Mark and the beams firing. */
 		public int omegaBeamChargeTicks = 32;
@@ -167,7 +199,9 @@ public final class DarkseidConfig {
 		public int chargeCooldown = 13 * 20;
 
 		// Boom Tube Reinforcements
-		public int reinforcementCooldown = 26 * 20;
+		/** v0.13.19: 26 s -> 20 s, and weight 2.0 -> 2.5 (+1 from phase 2) -- he calls tubes more often, still within the cap. */
+		public int reinforcementCooldown = 20 * 20;
+		public double reinforcementWeight = 2.5;
 
 		// Omega Beam Sweep (phase 2+)
 		public float omegaSweepDamage = 11.0f;
@@ -207,18 +241,35 @@ public final class DarkseidConfig {
 		public float dangerZoneDamagePerSecond = 4.0f;
 		/** Distance of the boxes from the arena centre. */
 		public double distanceFromCenter = 24.0;
+		/**
+		 * v0.13.19: once every box is disabled during Darkseid's phases 1-3, some come back online after a random
+		 * {@code fightReactivateMinSeconds}-{@code fightReactivateMaxSeconds} delay (the clock only runs while all four
+		 * are dark), with a {@code fightReactivateWarningSeconds} warning first. Each active box takes 25% off the damage
+		 * he takes and runs the normal neglect/overload clock until it is disabled again.
+		 */
+		public boolean fightReactivateEnabled = true;
+		public int fightReactivateMinSeconds = 70;
+		public int fightReactivateMaxSeconds = 100;
+		public int fightReactivateWarningSeconds = 5;
+		public int fightReactivateBoxesPhase1 = 1;
+		public int fightReactivateBoxesPhase2Min = 1;
+		public int fightReactivateBoxesPhase2Max = 2;
+		public int fightReactivateBoxesPhase3 = 2;
 	}
 
 	/** Parademon stats per variant. */
 	public static final class Parademons {
-		public double standardHealth = 30.0;
-		public double standardDamage = 6.0;
-		public double rangedHealth = 24.0;
-		public float rangedBoltDamage = 5.0f;
-		public double eliteHealth = 60.0;
-		public double eliteDamage = 10.0;
-		public double bruteHealth = 100.0;
-		public double bruteDamage = 15.0;
+		// v0.13.19: +20% health, +15% damage (v0.13.18: 30/6, 24/5, 60/10, 100/15)
+		public double standardHealth = 36.0;
+		public double standardDamage = 6.9;
+		public double rangedHealth = 28.8;
+		public float rangedBoltDamage = 5.75f;
+		public double eliteHealth = 72.0;
+		public double eliteDamage = 11.5;
+		public double bruteHealth = 120.0;
+		public double bruteDamage = 17.25;
+		/** v0.13.19: the distance gunners circle their target at while strafing and firing. */
+		public double rangedPreferredRange = 10.0;
 		/** Blocks per tick while flying after an airborne target. */
 		public double flightSpeed = 0.42;
 	}
@@ -266,6 +317,59 @@ public final class DarkseidConfig {
 		return boss().baseDarkseidHealth + boss().healthPerParticipant * Math.max(0, participants - 1);
 	}
 
+	/**
+	 * v1 -> v2 (v0.13.19): every value this balance pass changed moves to its new default -- a v1 file on disk would
+	 * otherwise silently keep the old numbers (the Behemoth "unbeatable" lesson). Keys new in v2 arrive at their
+	 * defaults on their own (Gson builds each section with its constructor); keys this pass did not touch keep
+	 * whatever the file says. Package-visible for the gametest.
+	 */
+	static void migrateToV2(DarkseidConfig c) {
+		ProjectHeroMod.LOGGER.info("[ProjectHero] Darkseid Raid config v{} -> v{}: v0.13.19 balance (5 waves, more and tougher"
+				+ " Parademons, faster Darkseid, more Omega Beams)", c.configVersion, CONFIG_VERSION);
+		if (c.raid != null) {
+			Raid d = new Raid();
+			c.raid.enemyCap = d.enemyCap;
+			c.raid.wave1Standard = d.wave1Standard;
+			c.raid.wave2Standard = d.wave2Standard;
+			c.raid.wave2Ranged = d.wave2Ranged;
+			c.raid.wave3Elite = d.wave3Elite;
+			c.raid.wave3Brute = d.wave3Brute;
+			c.raid.wave3Ranged = d.wave3Ranged;
+			c.raid.wave3Standard = d.wave3Standard;
+		}
+		if (c.boss != null) {
+			c.boss.globalCooldownTicks = new Boss().globalCooldownTicks;
+		}
+		if (c.abilities != null) {
+			Abilities d = new Abilities();
+			c.abilities.omegaBeamCooldown = d.omegaBeamCooldown;
+			c.abilities.reinforcementCooldown = d.reinforcementCooldown;
+		}
+		if (c.parademons != null) {
+			Parademons d = new Parademons();
+			c.parademons.standardHealth = d.standardHealth;
+			c.parademons.standardDamage = d.standardDamage;
+			c.parademons.rangedHealth = d.rangedHealth;
+			c.parademons.rangedBoltDamage = d.rangedBoltDamage;
+			c.parademons.eliteHealth = d.eliteHealth;
+			c.parademons.eliteDamage = d.eliteDamage;
+			c.parademons.bruteHealth = d.bruteHealth;
+			c.parademons.bruteDamage = d.bruteDamage;
+		}
+	}
+
+	/**
+	 * Test hook: run the v1 file migration on a JSON string and return the result (nothing is written or installed).
+	 */
+	public static DarkseidConfig migrateForTest(String json) {
+		DarkseidConfig c = new Gson().fromJson(json, DarkseidConfig.class);
+		if (c.configVersion != null && c.configVersion < 2) {
+			migrateToV2(c);
+			c.configVersion = CONFIG_VERSION;
+		}
+		return c;
+	}
+
 	public static void load() {
 		Path path = FabricLoader.getInstance().getConfigDir().resolve("projecthero_darkseid.json");
 		Gson gson = new GsonBuilder().setPrettyPrinting().create();
@@ -278,6 +382,9 @@ public final class DarkseidConfig {
 			}
 			if (instance.configVersion == null) {
 				instance = new DarkseidConfig();
+				instance.configVersion = CONFIG_VERSION;
+			} else if (instance.configVersion < 2) {
+				migrateToV2(instance);
 				instance.configVersion = CONFIG_VERSION;
 			}
 			// Sections added by a later version land at their defaults rather than null.

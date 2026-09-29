@@ -387,7 +387,8 @@ public final class DarkseidCombat {
 			w.put(Attack.GROUND_SLAM, d <= reach ? 2.0 : 3.0);
 		}
 		if (!shielded && (d >= 6.0 || air)) {
-			w.put(Attack.OMEGA_BEAMS, air ? 6.0 : 4.5);
+			// v0.13.19: his signature move comes up far more often (was 6.0 / 4.5)
+			w.put(Attack.OMEGA_BEAMS, air ? cfg.omegaBeamAirWeight : cfg.omegaBeamWeight);
 		}
 		if (d >= 5.0 || air) {
 			w.put(Attack.OMEGA_BARRAGE, shielded ? 4.0 : 3.0);
@@ -403,7 +404,7 @@ public final class DarkseidCombat {
 			w.put(Attack.CHARGE, 3.0);
 		}
 		if (!shielded && raid != null && raid.enemiesAlive(server) < raid.enemyCap() / 2) {
-			w.put(Attack.REINFORCEMENTS, 2.0 + (phase >= 2 ? 1.0 : 0.0));
+			w.put(Attack.REINFORCEMENTS, cfg.reinforcementWeight + (phase >= 2 ? 1.0 : 0.0)); // v0.13.19: was 2.0
 		}
 		if (phase >= 2) {
 			w.put(Attack.OMEGA_SWEEP, 2.5);
@@ -821,9 +822,10 @@ public final class DarkseidCombat {
 			float dmg = cfg.omegaBeamDamage * damageMultiplier();
 			for (int s = -1; s <= 1; s += 2) {
 				Vec3 from = eyes.add(side.scale(0.22 * s));
-				// they leave splayed outward and curl back in -- the curve is the tell of where they will meet
+				// they leave splayed outward, then snake toward the target in sharp zig-zags (v0.13.19) before homing in
 				Vec3 dir = toTarget.add(side.scale(0.55 * s)).add(0, 0.2, 0);
-				OmegaBeamEntity.fire(server, boss, from, dir, tgt, dmg, cfg.omegaBeamSpeed, turn, cfg.omegaBeamTrackingTime);
+				OmegaBeamEntity.fire(server, boss, from, dir, tgt, dmg, cfg.omegaBeamSpeed, turn, cfg.omegaBeamTrackingTime,
+						cfg.omegaBeamZigZagTurns);
 			}
 			server.playSound(null, boss.blockPosition(), DarkseidSounds.OMEGA_FIRE, SoundSource.HOSTILE, 4.0f, 0.8f);
 			DarkseidFx.shake(server, boss.position(), 32.0, 0.5f, 8);

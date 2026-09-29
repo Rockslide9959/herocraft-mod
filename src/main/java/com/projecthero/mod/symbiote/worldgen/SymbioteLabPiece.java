@@ -24,8 +24,9 @@ import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceSeriali
 
 /**
  * A small half-buried containment lab: an 11x11 deepslate-brick room sunk into the terrain, its roof
- * flush with the surface with a single ladder shaft up through it. Dead centre is a 3x3x3 tinted-glass
- * containment cell -- {@link SymbioteWorldgen} spawns the Symbiote inside it. Two chests carry the
+ * flush with the surface with a single ladder shaft up through it. Dead centre is a 5x5 tinted-glass
+ * containment cell (3x3 inside, around a lodestone pedestal) -- {@link SymbioteWorldgen} spawns the
+ * Symbiote inside it, confined to the cell for good. Two chests carry the
  * shared {@code research_facility} loot; sculk creeps out from under the cell.
  *
  * <p>Everything is a bounded loop clipped to the current chunk box -- no scanning, no recursion, same
@@ -35,6 +36,7 @@ public class SymbioteLabPiece extends StructurePiece implements SymbioteSpawnPie
 	private static final int HALF = 5;         // 11x11 footprint
 	private static final int FLOOR_BELOW = 6;  // floor sits this far below the surface
 	private static final int HEIGHT = 6;       // floor..ceiling interior height
+	private static final int CELL = 2;         // containment cell half-size: 5x5 shell, 3x3 inside
 
 	/** The interior floor Y. Estimated at construction, made exact in {@link #postProcess}, persisted. */
 	private int floorY;
@@ -104,11 +106,12 @@ public class SymbioteLabPiece extends StructurePiece implements SymbioteSpawnPie
 			place(level, chunkBox, c, cx + o[0], ceilY, cz + o[1], Blocks.REDSTONE_BLOCK.defaultBlockState());
 		}
 
-		// the containment cell: 3x3 tinted-glass shell, floor..floor+3, hollow inside
-		for (int dx = -1; dx <= 1; dx++) {
-			for (int dz = -1; dz <= 1; dz++) {
+		// the containment cell: 5x5 tinted-glass shell, floor..floor+4, with a 3x3 hollow inside. v0.13.19:
+		// widened from 3x3 so the (now crawling) Symbiote has a chamber to pace -- it is confined to it.
+		for (int dx = -CELL; dx <= CELL; dx++) {
+			for (int dz = -CELL; dz <= CELL; dz++) {
 				for (int y = floorY + 1; y <= floorY + 4; y++) {
-					boolean shell = Math.abs(dx) == 1 || Math.abs(dz) == 1 || y == floorY + 4;
+					boolean shell = Math.abs(dx) == CELL || Math.abs(dz) == CELL || y == floorY + 4;
 					place(level, chunkBox, c, cx + dx, y, cz + dz,
 							shell ? glass : Blocks.AIR.defaultBlockState());
 				}
@@ -136,7 +139,7 @@ public class SymbioteLabPiece extends StructurePiece implements SymbioteSpawnPie
 		}
 
 		// a little clutter
-		place(level, chunkBox, c, cx - 2, floorY + 1, cz - 2, Blocks.CRAFTING_TABLE.defaultBlockState());
+		place(level, chunkBox, c, cx - 3, floorY + 1, cz - 3, Blocks.CRAFTING_TABLE.defaultBlockState());
 		place(level, chunkBox, c, cx + 3, floorY + 1, cz + 3, Blocks.IRON_BARS.defaultBlockState());
 		place(level, chunkBox, c, cx + 3, floorY + 2, cz + 3, Blocks.IRON_BARS.defaultBlockState());
 	}

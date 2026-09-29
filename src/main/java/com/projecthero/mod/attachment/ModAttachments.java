@@ -427,6 +427,19 @@ public final class ModAttachments {
 							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.hulk.data.HulkState.CODEC),
 									AttachmentSyncPredicate.all()));
 
+	/**
+	 * Moon Knight (v0.13.19): the pact, the suit flag, the alter, Vengeance, Khonshu's Resurrection charge, the stowed
+	 * armour and the cooldowns. Persistent and copied on death (the Resurrection charge and Vengeance must survive
+	 * dying); synced to everyone (other players need the suit / alter / glide flags to draw the suit and cape).
+	 */
+	public static final AttachmentType<com.projecthero.mod.moonknight.data.MoonKnightState> MOON_KNIGHT_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("moon_knight_state"),
+					builder -> builder.persistent(com.projecthero.mod.moonknight.data.MoonKnightState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.moonknight.data.MoonKnightState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.moonknight.data.MoonKnightState.CODEC),
+									AttachmentSyncPredicate.all()));
+
 	public static final AttachmentType<com.projecthero.mod.allmight.data.AllMightState> ALL_MIGHT_STATE =
 			AttachmentRegistry.create(ProjectHeroMod.id("all_might_state"),
 					builder -> builder.persistent(com.projecthero.mod.allmight.data.AllMightState.CODEC)

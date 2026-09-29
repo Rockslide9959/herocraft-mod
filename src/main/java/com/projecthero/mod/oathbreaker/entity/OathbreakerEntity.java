@@ -16,14 +16,15 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
-import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
+import net.minecraft.world.entity.ai.targeting.TargetingConditions;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -151,6 +152,12 @@ public class OathbreakerEntity extends Monster implements GeoEntity {
 		setInvulnerable(false);
 		setNoGravity(false);
 		setHyperArmor(false);
+		// v0.13.19: attribute BASE values are saved too, so a boss already in a world would keep the old 48-block
+		// follow range forever. Always the current tuning value.
+		var follow = getAttribute(Attributes.FOLLOW_RANGE);
+		if (follow != null) {
+			follow.setBaseValue(OathbreakerTuning.FOLLOW_RANGE);
+		}
 		if (tag.contains(TAG_PHASE)) {
 			int ordinal = tag.getByte(TAG_PHASE);
 			if (ordinal > 0 && ordinal < Phase.values().length) {
@@ -421,8 +428,25 @@ public class OathbreakerEntity extends Monster implements GeoEntity {
 				return !isBusy() && super.canUse();
 			}
 		});
-		this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
-		this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true));
+		// v0.13.19: no HurtByTargetGoal any more. It only retargets when it STARTS, so while it was running with
+		// one player as the target nobody else's hits registered ("my friend lures him one way and I can spam hit
+		// him and he never turns round"). Retaliation and switching are the threat table's job now
+		// (OathbreakerCombat#noteDamageTaken / OathbreakerThreat). This goal only picks someone up when he has
+		// nobody: the nearest player within FOLLOW_RANGE (50), line of sight NOT required, and -- mustSee false --
+		// never dropped for stepping out of view, only for leaving the follow range or becoming invalid.
+		this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, false) {
+			{
+				this.targetConditions = TargetingConditions.forCombat().range(OathbreakerTuning.FOLLOW_RANGE).ignoreLineOfSight()
+						.selector(OathbreakerCombat::isValidTarget);
+			}
+
+			@Override
+			public boolean canUse() {
+				LivingEntity current = getTarget();
+				// the threat system may have set a target directly: don't overwrite it with "nearest"
+				return (current == null || !current.isAlive()) && super.canUse();
+			}
+		});
 	}
 
 	@Override
@@ -581,6 +605,34 @@ public class OathbreakerEntity extends Monster implements GeoEntity {
 		return poise;
 	}
 
+	// ---------------------------------------------------------------- test hooks (GameTests live in another package)
+
+	/** Starts the named {@code OathbreakerCombat.Attack} right now, bypassing selection. Server only. */
+	public void debugBeginAttack(String attackName) {
+		if (level() instanceof ServerLevel server) {
+			combat.debugBegin(server, OathbreakerCombat.Attack.valueOf(attackName));
+		}
+	}
+
+	/** The running attack's name, or null when idle. */
+	public String debugActiveAttack() {
+		OathbreakerCombat.Attack a = combat.activeAttack();
+		return a == null ? null : a.name();
+	}
+
+	public int debugAttackStep() {
+		return combat.activeStep();
+	}
+
+	/** Cancels any attack and keeps him from starting another for {@code ticks}. */
+	public void debugHoldAttacks(int ticks) {
+		combat.holdAttacks(ticks);
+	}
+
+	public OathbreakerThreat debugThreat() {
+		return combat.threat();
+	}
+
 	public boolean isStaggered() {
 		return staggerTicksLeft > 0;
 	}
@@ -600,7 +652,6 @@ public class OathbreakerEntity extends Monster implements GeoEntity {
 			return super.hurt(source, amount);
 		}
 		if (deathTicks < 0 && spawnTicksLeft <= 0) {
-			combat.noteHurtBy(source.getEntity());
 			if (combat.tryParry(server, source)) {
 				return false;
 			}
@@ -746,6 +797,7 @@ public class OathbreakerEntity extends Monster implements GeoEntity {
 			"chain_throw", "chain_pull", "chain_recover",
 			"enrage", "judgement_rise", "judgement_hang", "judgement_slam",
 			"execution_windup", "execution_lunge", "execution_hold", "execution_impale", "execution_whiff",
+			"whirlwind_windup", "whirlwind_strike", "geyser_windup", "geyser_plunge", "geyser_bowed",
 	};
 	/** Triggered clips that loop until the next trigger replaces them (their length is decided in Java). */
 	private static final String[] ACTION_LOOPS = {

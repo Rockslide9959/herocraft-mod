@@ -7,11 +7,13 @@ import com.projecthero.mod.darkseid.entity.EnergyProjectile;
 
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -63,6 +65,26 @@ public class EnergyTrailRenderer<T extends EnergyProjectile> extends EntityRende
 			}
 		}
 		super.render(entity, yaw, partialTick, poseStack, buffers, light);
+	}
+
+	/**
+	 * Cull on the whole ribbon, not just the head: a zig-zagging Omega Beam's trail can stretch 30+ blocks back to
+	 * Darkseid, and it must not vanish just because its head is off-screen.
+	 */
+	@Override
+	public boolean shouldRender(T entity, Frustum frustum, double camX, double camY, double camZ) {
+		if (!entity.shouldRender(camX, camY, camZ)) {
+			return false;
+		}
+		AABB box = entity.getBoundingBoxForCulling();
+		for (int i = 0; i < entity.trailCount; i++) {
+			Vec3 p = entity.trail[i];
+			if (p == null) {
+				break;
+			}
+			box = box.minmax(new AABB(p, p));
+		}
+		return frustum.isVisible(box.inflate(0.5));
 	}
 
 	@Override

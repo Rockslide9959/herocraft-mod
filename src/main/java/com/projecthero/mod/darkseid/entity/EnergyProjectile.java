@@ -27,9 +27,9 @@ import net.minecraft.world.phys.Vec3;
  * sending a single particle for it.
  */
 public abstract class EnergyProjectile extends Entity {
-	/** Client-side trail history, newest first. */
+	/** Client-side trail history, newest first. Default length (a Parademon bolt's short streak). */
 	public static final int TRAIL_LENGTH = 14;
-	public final Vec3[] trail = new Vec3[TRAIL_LENGTH];
+	public final Vec3[] trail;
 	public int trailCount;
 
 	private UUID ownerId;
@@ -37,8 +37,14 @@ public abstract class EnergyProjectile extends Entity {
 	protected int life;
 
 	protected EnergyProjectile(EntityType<? extends EnergyProjectile> type, Level level) {
+		this(type, level, TRAIL_LENGTH);
+	}
+
+	/** {@code trailLength}: how many past positions the client keeps (and draws) -- the ribbon's length in ticks. */
+	protected EnergyProjectile(EntityType<? extends EnergyProjectile> type, Level level, int trailLength) {
 		super(type, level);
 		this.noPhysics = true;
+		this.trail = new Vec3[Math.max(2, trailLength)];
 	}
 
 	public void setOwner(Entity owner) {
@@ -84,11 +90,11 @@ public abstract class EnergyProjectile extends Entity {
 	public void tick() {
 		super.tick();
 		if (level().isClientSide()) {
-			for (int i = TRAIL_LENGTH - 1; i > 0; i--) {
+			for (int i = trail.length - 1; i > 0; i--) {
 				trail[i] = trail[i - 1];
 			}
 			trail[0] = position();
-			trailCount = Math.min(TRAIL_LENGTH, trailCount + 1);
+			trailCount = Math.min(trail.length, trailCount + 1);
 			return;
 		}
 		ServerLevel server = (ServerLevel) level();

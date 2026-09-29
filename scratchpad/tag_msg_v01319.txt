@@ -1,0 +1,34 @@
+Project Hero v0.13.19 -- the Symbiote comes alive, the Oathbreaker learns new tricks, and Apokolips hits harder
+
+SYMBIOTE
+- The free Symbiote is now a living pool of black goo: it crawls, climbs walls, flees fire and hunts for a host -- reach a mob and it takes control of it. Lab Symbiotes are trapped in their cell; meteor ones escape when you break the new Symbiote Meteorite.
+- Every move now comes out of your hands as a real living tendril or spike, and every move (and the suit-up) has its own animation.
+- The suit now materialises over you one pixel at a time -- no more black particle cloud.
+- Tendril Strike: 15 damage, fires even when you're not aiming at anything (it can miss). Tendril Sweep hits harder.
+- Symbiote Spike (G): a real spike projectile, 14 damage + Wither V for 5 s, 4 s cooldown. Sneak+G fires five in a fan (10 s).
+- Tendril Grab moved to Sneak+C (C again to throw).
+- Tendril Barrage: reaches 30 blocks and fires down your aim whether or not something is there.
+- Symbiote Onslaught reworked: a pool of living black and a crown of huge tendrils -- 20 damage, Wither III, Blindness, Slowness IV, Weakness II. 90 s cooldown.
+- Symbiote Blade is a real blade model growing from your hand. Blade and Shield have no time limit: they drain 0.3 / 0.5 Biomass a second.
+- Revive: 10-minute cooldown, no longer costs Biomass. Dying no longer refills your Biomass.
+- Suited melee bonus +4 -> +5. New HUD: ability keys (your real bindings), "Symbiote", "Biomass %", hairline bar.
+
+OATHBREAKER
+- Two new attacks: Oathbound Whirlwind (two full spins -- stop hiding behind him) and Grave Geysers (soul-fire columns erupt under every player within 30 blocks).
+- Tracks players from 50 blocks, even out of sight.
+- New aggro system: he turns on whoever is actually hurting him. No more beating on him while a friend kites him around.
+
+APOKOLIPS INVASION
+- Five Parademon waves instead of three, more Parademons per wave, and they're 20% tougher / hit 15% harder.
+- Parademons have wings, and gunners strafe and circle while shooting instead of standing still.
+- Darkseid attacks more often, calls reinforcements more often and fires Omega Beams more often -- which now zig-zag through the air before homing in.
+- Mother Boxes reawaken 70-100 s after you shut them all down (with a warning), so you have to keep disabling them.
+- Your config/projecthero_darkseid.json is migrated to the new values automatically.
+
+HULK
+- Removed the death-save dot next to the rage bar (the save has no cooldown any more).
+
+COMING SOON: MOON KNIGHT
+- Khonshu's fist is being forged. This update lays the groundwork (lunar power, Vengeance, the Fracture, Khonshu's Resurrection); the suit, cape, abilities and the Temple of Khonshu arrive in the next updates. Not obtainable yet.
+
+Guide and I-menu entries are updated for all of the above.

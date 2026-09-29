@@ -26,6 +26,11 @@ public final class ModEntityRenderers {
 				com.projecthero.mod.client.spider.ImpactWebRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.symbiote.entity.SymbioteEntityTypes.SYMBIOTE,
 				com.projecthero.mod.client.symbiote.SymbioteEntityRenderer::new);
+		// v0.13.19: the Symbiote Spike projectile and the living tendril
+		EntityRendererRegistry.register(com.projecthero.mod.symbiote.entity.SymbioteEntityTypes.SPIKE,
+				com.projecthero.mod.client.symbiote.SymbioteSpikeRenderer::new);
+		EntityRendererRegistry.register(com.projecthero.mod.symbiote.entity.SymbioteEntityTypes.TENDRIL,
+				com.projecthero.mod.client.symbiote.SymbioteTendrilRenderer::new);
 		// Geokinesis' Colossal Rock -- a heavily over-scaled stone block billboard.
 		EntityRendererRegistry.register(com.projecthero.mod.hero.power.p05.GeoEntityTypes.COLOSSAL_ROCK,
 				ctx -> new net.minecraft.client.renderer.entity.ThrownItemRenderer(ctx, 5.0f, false));

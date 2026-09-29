@@ -65,10 +65,13 @@ import org.joml.Vector3f;
  * pause/abandon rules; this class is the raid's state machine.
  *
  * <pre>
- * INACTIVE -> PREPARATION -> INVASION_WAVE_1 -> INVASION_WAVE_2 -> INVASION_WAVE_3 -> DARKSEID_ENTRANCE
+ * INACTIVE -> PREPARATION -> INVASION_WAVE_1 -> _2 -> _3 -> _4 -> _5 -> DARKSEID_ENTRANCE
  *   -> MOTHER_BOX_PHASE -> DARKSEID_PHASE_1 -(60%)-> DARKSEID_PHASE_2 -(25%)-> DARKSEID_PHASE_3 -> VICTORY
  *                                         (all participants down at once, at any point) -> DEFEAT
  * </pre>
+ * v0.13.19: five invasion waves (configurable 1-5, {@link DarkseidConfig.Raid#invasionWaves}); the stage is saved by
+ * name, so a v0.13.18 save in wave 3 carries on into the new waves 4 and 5. During phases 1-3, once every Mother Box is
+ * dark, some come back online after a randomised delay and a warning ({@link #tickBoxReturn}).
  *
  * <h2>What lives where</h2>
  * The raid decides the <em>encounter</em>: who is taking part ({@link DarkseidRoster}), the arena boundary, the
@@ -90,12 +93,20 @@ import org.joml.Vector3f;
 public class DarkseidRaid extends EventInstance {
 	public static final String TYPE_ID = "darkseid_raid";
 
+	/**
+	 * The raid's stages, in order (code compares ordinals, so a new stage goes where it happens). Saved by
+	 * {@link #name()}, never by ordinal: v0.13.19 inserted {@link #INVASION_WAVE_4}/{@link #INVASION_WAVE_5} after wave 3
+	 * and older saves still load.
+	 */
 	public enum Stage {
-		INACTIVE, PREPARATION, INVASION_WAVE_1, INVASION_WAVE_2, INVASION_WAVE_3, DARKSEID_ENTRANCE, MOTHER_BOX_PHASE,
-		DARKSEID_PHASE_1, DARKSEID_PHASE_2, DARKSEID_PHASE_3, VICTORY, DEFEAT;
+		INACTIVE, PREPARATION, INVASION_WAVE_1, INVASION_WAVE_2, INVASION_WAVE_3, INVASION_WAVE_4, INVASION_WAVE_5,
+		DARKSEID_ENTRANCE, MOTHER_BOX_PHASE, DARKSEID_PHASE_1, DARKSEID_PHASE_2, DARKSEID_PHASE_3, VICTORY, DEFEAT;
+
+		/** The most invasion waves there can be (the configured count is clamped to 1..this). */
+		public static final int MAX_WAVES = 5;
 
 		public boolean isWave() {
-			return this == INVASION_WAVE_1 || this == INVASION_WAVE_2 || this == INVASION_WAVE_3;
+			return waveNumber() > 0;
 		}
 
 		public boolean isFight() {
@@ -103,8 +114,46 @@ public class DarkseidRaid extends EventInstance {
 		}
 
 		public int waveNumber() {
-			return this == INVASION_WAVE_1 ? 1 : this == INVASION_WAVE_2 ? 2 : this == INVASION_WAVE_3 ? 3 : 0;
+			return switch (this) {
+				case INVASION_WAVE_1 -> 1;
+				case INVASION_WAVE_2 -> 2;
+				case INVASION_WAVE_3 -> 3;
+				case INVASION_WAVE_4 -> 4;
+				case INVASION_WAVE_5 -> 5;
+				default -> 0;
+			};
 		}
+
+		/** The stage for invasion wave {@code n} (clamped to 1..{@link #MAX_WAVES}). */
+		public static Stage wave(int n) {
+			return switch (Math.max(1, Math.min(MAX_WAVES, n))) {
+				case 1 -> INVASION_WAVE_1;
+				case 2 -> INVASION_WAVE_2;
+				case 3 -> INVASION_WAVE_3;
+				case 4 -> INVASION_WAVE_4;
+				default -> INVASION_WAVE_5;
+			};
+		}
+	}
+
+	/** The configured number of invasion waves before Darkseid arrives, 1..{@link Stage#MAX_WAVES}. */
+	public static int waveCount() {
+		return Math.max(1, Math.min(Stage.MAX_WAVES, DarkseidConfig.raid().invasionWaves));
+	}
+
+	/**
+	 * Solo composition of wave {@code n} from the config, as {standard, ranged, elite, brute} (before the per-player
+	 * scaling). Wave 1 is plain Parademons, wave 2 adds gunners, 3-5 bring Elites and Brutes in rising numbers.
+	 */
+	public static int[] waveComposition(int n) {
+		DarkseidConfig.Raid cfg = DarkseidConfig.raid();
+		return switch (Math.max(1, Math.min(Stage.MAX_WAVES, n))) {
+			case 1 -> new int[] { cfg.wave1Standard, 0, 0, 0 };
+			case 2 -> new int[] { cfg.wave2Standard, cfg.wave2Ranged, 0, 0 };
+			case 3 -> new int[] { cfg.wave3Standard, cfg.wave3Ranged, cfg.wave3Elite, cfg.wave3Brute };
+			case 4 -> new int[] { cfg.wave4Standard, cfg.wave4Ranged, cfg.wave4Elite, cfg.wave4Brute };
+			default -> new int[] { cfg.wave5Standard, cfg.wave5Ranged, cfg.wave5Elite, cfg.wave5Brute };
+		};
 	}
 
 	private static final DustParticleOptions RED = new DustParticleOptions(new Vector3f(1.0f, 0.1f, 0.05f), 1.5f);
@@ -153,6 +202,14 @@ public class DarkseidRaid extends EventInstance {
 	private int enrageLevel;
 	private long arrivedAtAge = -1;
 	private int reactivateTicks;
+	/**
+	 * v0.13.19 fight-time Mother Box return: ticks until the warning starts (-1 = not counting -- it only counts while
+	 * every box is dark), ticks left in the warning (-1 = none), and which boxes (indices into {@link #boxes}) wake.
+	 */
+	private int boxReturnTicks = -1;
+	private int boxWarnTicks = -1;
+	private int boxWarnTotal = 1;
+	private final List<Integer> boxReturnPicks = new ArrayList<>();
 	private int enrageTubeTicks;
 	private boolean rewardsGranted;
 	private int waveTotal = 1;
@@ -372,7 +429,7 @@ public class DarkseidRaid extends EventInstance {
 		}
 		switch (stage) {
 			case PREPARATION -> tickPreparation(level);
-			case INVASION_WAVE_1, INVASION_WAVE_2, INVASION_WAVE_3 -> tickWave(level, dt);
+			case INVASION_WAVE_1, INVASION_WAVE_2, INVASION_WAVE_3, INVASION_WAVE_4, INVASION_WAVE_5 -> tickWave(level, dt);
 			case DARKSEID_ENTRANCE -> tickEntrance(level);
 			case MOTHER_BOX_PHASE, DARKSEID_PHASE_1, DARKSEID_PHASE_2, DARKSEID_PHASE_3 -> tickDarkseid(level, dt);
 			default -> {
@@ -549,30 +606,23 @@ public class DarkseidRaid extends EventInstance {
 
 	private void startWave(ServerLevel level, int n) {
 		DarkseidConfig.Raid cfg = DarkseidConfig.raid();
-		setStage(n == 1 ? Stage.INVASION_WAVE_1 : n == 2 ? Stage.INVASION_WAVE_2 : Stage.INVASION_WAVE_3);
+		n = Math.max(1, Math.min(Stage.MAX_WAVES, n));
+		setStage(Stage.wave(n));
 		waveCleared = false;
 		lastAliveCount = -1;
 		unchangedTicks = 0;
 		double scale = 1.0 + cfg.waveScalingPerExtraPlayer * Math.max(0, roster.size() - 1);
 		List<ParademonEntity.Variant> ground = new ArrayList<>();
 		List<ParademonEntity.Variant> air = new ArrayList<>();
-		switch (n) {
-			case 1 -> addN(ground, ParademonEntity.Variant.STANDARD, cfg.wave1Standard, scale);
-			case 2 -> {
-				addN(ground, ParademonEntity.Variant.STANDARD, cfg.wave2Standard, scale);
-				addN(air, ParademonEntity.Variant.RANGED, cfg.wave2Ranged, scale);
-			}
-			default -> {
-				addN(ground, ParademonEntity.Variant.ELITE, cfg.wave3Elite, scale);
-				addN(ground, ParademonEntity.Variant.BRUTE, cfg.wave3Brute, scale);
-				addN(ground, ParademonEntity.Variant.STANDARD, cfg.wave3Standard, scale);
-				addN(air, ParademonEntity.Variant.RANGED, cfg.wave3Ranged, scale);
-			}
-		}
+		int[] mix = waveComposition(n); // standard, ranged, elite, brute
+		addN(ground, ParademonEntity.Variant.ELITE, mix[2], scale);
+		addN(ground, ParademonEntity.Variant.BRUTE, mix[3], scale);
+		addN(ground, ParademonEntity.Variant.STANDARD, mix[0], scale);
+		addN(air, ParademonEntity.Variant.RANGED, mix[1], scale);
 		waveTotal = Math.max(1, ground.size() + air.size());
-		int groundTubes = n + 1;
-		int airTubes = air.isEmpty() ? 0 : 1 + (n == 3 ? 1 : 0);
-		distribute(level, ground, groundTubes, n == 3 ? BoomTubeEntity.Kind.ELITE : BoomTubeEntity.Kind.MELEE, false);
+		int groundTubes = Math.min(6, n + 1);
+		int airTubes = air.isEmpty() ? 0 : n >= 5 ? 3 : n >= 3 ? 2 : 1;
+		distribute(level, ground, groundTubes, n >= 3 ? BoomTubeEntity.Kind.ELITE : BoomTubeEntity.Kind.MELEE, false);
 		distribute(level, air, airTubes, BoomTubeEntity.Kind.RANGED, true);
 
 		announce(level, Component.translatable("title.projecthero.darkseid_raid.wave", n).withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
@@ -633,10 +683,11 @@ public class DarkseidRaid extends EventInstance {
 
 	private void tickWave(ServerLevel level, int dt) {
 		int n = stage.waveNumber();
+		boolean last = n >= waveCount();
 		if (waveCleared) {
 			breakTicks -= dt;
 			if (breakTicks <= 0) {
-				if (n >= 3) {
+				if (last) {
 					beginEntrance(level);
 				} else {
 					startWave(level, n + 1);
@@ -647,7 +698,7 @@ public class DarkseidRaid extends EventInstance {
 		int alive = enemiesAlive(level);
 		if (alive == 0 && enemiesQueued() == 0 && stageTicks > 40) {
 			waveCleared = true;
-			breakTicks = n >= 3 ? 60 : DarkseidConfig.raid().betweenWaveSeconds * 20;
+			breakTicks = last ? 60 : DarkseidConfig.raid().betweenWaveSeconds * 20;
 			tellAll(level, Component.translatable("message.projecthero.darkseid_raid.wave_cleared", n).withStyle(ChatFormatting.GREEN));
 			level.playSound(null, center(), net.minecraft.sounds.SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 0.8f);
 			return;
@@ -1108,7 +1159,165 @@ public class DarkseidRaid extends EventInstance {
 		if (stage == Stage.DARKSEID_PHASE_3) {
 			rageAmbience(level);
 		}
+		tickBoxReturn(level, d, dt);
 		tickEnrage(level, d, dt);
+	}
+
+	// ================================================================ v0.13.19: Mother Boxes come back online
+
+	/** Boxes to wake in the current phase: 1 in phase 1, 1-2 in phase 2, 2 in phase 3 (config). */
+	private int boxesToWake(ServerLevel level) {
+		DarkseidConfig.MotherBoxes cfg = DarkseidConfig.motherBoxes();
+		return switch (stage) {
+			case DARKSEID_PHASE_2 -> {
+				int lo = Math.min(cfg.fightReactivateBoxesPhase2Min, cfg.fightReactivateBoxesPhase2Max);
+				int hi = Math.max(cfg.fightReactivateBoxesPhase2Min, cfg.fightReactivateBoxesPhase2Max);
+				yield lo + level.random.nextInt(Math.max(1, hi - lo + 1));
+			}
+			case DARKSEID_PHASE_3 -> cfg.fightReactivateBoxesPhase3;
+			default -> cfg.fightReactivateBoxesPhase1;
+		};
+	}
+
+	private int rollBoxReturnDelay(ServerLevel level) {
+		DarkseidConfig.MotherBoxes cfg = DarkseidConfig.motherBoxes();
+		int lo = Math.max(5, Math.min(cfg.fightReactivateMinSeconds, cfg.fightReactivateMaxSeconds));
+		int hi = Math.max(lo, Math.max(cfg.fightReactivateMinSeconds, cfg.fightReactivateMaxSeconds));
+		return (lo + level.random.nextInt(hi - lo + 1)) * 20;
+	}
+
+	/**
+	 * The fight keeps the Mother Boxes in play: once every box is dark during phases 1-3, a randomised
+	 * {@code fightReactivateMinSeconds}-{@code fightReactivateMaxSeconds} clock runs (only while all four stay dark); when it
+	 * expires, a few seconds of warning (title, chat, sound, the chosen boxes rising and sparking, a red line from Darkseid
+	 * to each), then those boxes power back up. From then on they are ordinary active boxes: each takes 25% off the
+	 * damage Darkseid receives (his boss bar and the raid bar say so), each runs the neglect/overload clock, and players
+	 * channel them down again as before.
+	 */
+	private void tickBoxReturn(ServerLevel level, DarkseidEntity d, int dt) {
+		DarkseidConfig.MotherBoxes cfg = DarkseidConfig.motherBoxes();
+		if (!cfg.fightReactivateEnabled || !stage.isFight() || boxes.isEmpty()) {
+			cancelBoxWarning(level);
+			boxReturnTicks = -1;
+			return;
+		}
+		if (boxWarnTicks >= 0) {
+			boxWarnTicks -= dt;
+			float f = 1.0f - Math.max(0, boxWarnTicks) / (float) Math.max(1, boxWarnTotal);
+			for (int i : boxReturnPicks) {
+				Box b = i >= 0 && i < boxes.size() ? boxes.get(i) : null;
+				if (b != null && level.getEntity(b.id) instanceof MotherBoxEntity box) {
+					box.setWaking(Math.max(0.05f, f));
+					Vec3 p = box.position().add(0, 0.5, 0);
+					DarkseidFx.column(level, RED, p, 2.0 + 4.0 * f, 8);
+					if (d != null) {
+						DarkseidFx.line(level, RED, d.position().add(0, d.getBbHeight() * 0.8, 0), p, 1.5, 24);
+					}
+					level.playSound(null, p.x, p.y, p.z, DarkseidSounds.MOTHER_BOX_HUM, SoundSource.HOSTILE, 2.0f, 0.6f + f * 0.9f);
+				}
+			}
+			if (boxWarnTicks <= 0) {
+				boxWarnTicks = -1;
+				boxReturnTicks = -1;
+				wakePickedBoxes(level);
+			}
+			return;
+		}
+		if (activeBoxes() > 0) {
+			boxReturnTicks = -1; // the clock only runs while every box is dark
+			return;
+		}
+		if (boxReturnTicks < 0) {
+			boxReturnTicks = rollBoxReturnDelay(level);
+		}
+		boxReturnTicks -= dt;
+		if (boxReturnTicks <= 0) {
+			beginBoxWarning(level, d);
+		}
+	}
+
+	private void beginBoxWarning(ServerLevel level, DarkseidEntity d) {
+		DarkseidConfig.MotherBoxes cfg = DarkseidConfig.motherBoxes();
+		List<Integer> candidates = new ArrayList<>();
+		for (int i = 0; i < boxes.size(); i++) {
+			Box b = boxes.get(i);
+			if (b.disabled && level.getEntity(b.id) instanceof MotherBoxEntity) {
+				candidates.add(i);
+			}
+		}
+		if (candidates.isEmpty()) {
+			boxReturnTicks = 20 * 20; // their chunks are unloaded right now -- try again shortly
+			return;
+		}
+		java.util.Collections.shuffle(candidates, new java.util.Random(level.random.nextLong()));
+		int n = Math.max(1, Math.min(candidates.size(), boxesToWake(level)));
+		boxReturnPicks.clear();
+		boxReturnPicks.addAll(candidates.subList(0, n));
+		boxWarnTotal = Math.max(20, cfg.fightReactivateWarningSeconds * 20);
+		boxWarnTicks = boxWarnTotal;
+		int secs = Math.max(1, boxWarnTotal / 20);
+		announce(level, Component.translatable("title.projecthero.darkseid_raid.boxes_stir").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD),
+				Component.translatable("title.projecthero.darkseid_raid.boxes_stir.sub", n, secs).withStyle(ChatFormatting.RED));
+		tellAll(level, Component.translatable("message.projecthero.darkseid_raid.boxes_stir", n, secs)
+				.withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+		level.playSound(null, center(), DarkseidSounds.MOTHER_BOX_ACTIVATE, SoundSource.HOSTILE, 4.0f, 0.5f);
+		if (d != null) {
+			level.playSound(null, d.blockPosition(), DarkseidSounds.PHASE, SoundSource.HOSTILE, 3.0f, 0.8f);
+		}
+		for (int i : boxReturnPicks) {
+			if (level.getEntity(boxes.get(i).id) instanceof MotherBoxEntity box) {
+				box.setWaking(0.05f);
+				DarkseidFx.ring(level, RED, box.position().add(0, 0.2, 0), 2.5, 20);
+			}
+		}
+	}
+
+	private void cancelBoxWarning(ServerLevel level) {
+		if (boxWarnTicks < 0 && boxReturnPicks.isEmpty()) {
+			return;
+		}
+		for (int i : boxReturnPicks) {
+			if (i >= 0 && i < boxes.size() && level.getEntity(boxes.get(i).id) instanceof MotherBoxEntity box) {
+				box.setWaking(0.0f);
+			}
+		}
+		boxReturnPicks.clear();
+		boxWarnTicks = -1;
+	}
+
+	private void wakePickedBoxes(ServerLevel level) {
+		int woke = 0;
+		for (int i : boxReturnPicks) {
+			Box b = i >= 0 && i < boxes.size() ? boxes.get(i) : null;
+			if (b != null && b.disabled && level.getEntity(b.id) instanceof MotherBoxEntity box) {
+				reactivateBox(level, b, box, false);
+				woke++;
+			}
+		}
+		boxReturnPicks.clear();
+		if (woke == 0) {
+			return;
+		}
+		DarkseidEntity d = darkseid(level);
+		float shield = currentShield(level);
+		if (d != null) {
+			d.setShield(shield);
+		}
+		announce(level, Component.translatable("title.projecthero.darkseid_raid.boxes_online").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD),
+				Component.translatable("title.projecthero.darkseid_raid.boxes_online.sub", Math.round(shield * 100)).withStyle(ChatFormatting.AQUA));
+		tellAll(level, Component.translatable("message.projecthero.darkseid_raid.boxes_online", woke, Math.round(shield * 100))
+				.withStyle(ChatFormatting.LIGHT_PURPLE));
+	}
+
+	/** Power one disabled box back up (the fight's periodic return, or the soft enrage). */
+	private void reactivateBox(ServerLevel level, Box b, MotherBoxEntity box, boolean tell) {
+		b.disabled = false;
+		b.neglectTicks = 0;
+		box.reactivate(level);
+		strikeVisualLightning(level, box.position());
+		if (tell) {
+			tellAll(level, Component.translatable("message.projecthero.darkseid_raid.box_reactivated").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+		}
 	}
 
 	/** Omega Rage: the arena itself cracks and burns. */
@@ -1150,12 +1359,10 @@ public class DarkseidRaid extends EventInstance {
 		reactivateTicks += dt;
 		if (reactivateTicks >= cfg.enrageMotherBoxReactivateSeconds * 20) {
 			reactivateTicks = 0;
-			for (Box b : boxes) {
-				if (b.disabled && level.getEntity(b.id) instanceof MotherBoxEntity box) {
-					b.disabled = false;
-					b.neglectTicks = 0;
-					box.reactivate(level);
-					tellAll(level, Component.translatable("message.projecthero.darkseid_raid.box_reactivated").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+			for (int i = 0; i < boxes.size(); i++) {
+				Box b = boxes.get(i);
+				if (b.disabled && !boxReturnPicks.contains(i) && level.getEntity(b.id) instanceof MotherBoxEntity box) {
+					reactivateBox(level, b, box, true);
 					break;
 				}
 			}
@@ -1327,7 +1534,7 @@ public class DarkseidRaid extends EventInstance {
 				name = Component.translatable("bar.projecthero.darkseid_raid.preparation", Math.max(0, (length - stageTicks) / 20));
 				progress = Math.min(1.0f, stageTicks / (float) Math.max(1, length));
 			}
-			case INVASION_WAVE_1, INVASION_WAVE_2, INVASION_WAVE_3 -> {
+			case INVASION_WAVE_1, INVASION_WAVE_2, INVASION_WAVE_3, INVASION_WAVE_4, INVASION_WAVE_5 -> {
 				int n = stage.waveNumber();
 				if (waveCleared) {
 					name = Component.translatable("bar.projecthero.darkseid_raid.wave_cleared", n, Math.max(0, breakTicks / 20));
@@ -1335,7 +1542,7 @@ public class DarkseidRaid extends EventInstance {
 					color = BossEvent.BossBarColor.GREEN;
 				} else {
 					int remaining = enemiesAlive(level) + enemiesQueued();
-					name = Component.translatable("bar.projecthero.darkseid_raid.wave", n, remaining);
+					name = Component.translatable("bar.projecthero.darkseid_raid.wave", n, Math.max(n, waveCount()), remaining);
 					progress = Math.min(1.0f, remaining / (float) waveTotal);
 				}
 			}
@@ -1355,7 +1562,26 @@ public class DarkseidRaid extends EventInstance {
 				int enemies = enemiesAlive(level) + enemiesQueued();
 				long since = arrivedAtAge < 0 ? 0 : ageTicks() - arrivedAtAge;
 				long left = cfg.raidSoftEnrageTime * 20L - since;
-				if (enrageLevel > 0) {
+				int online = activeBoxes();
+				if (boxWarnTicks >= 0) {
+					// v0.13.19: the Mother Box return warning takes over the raid bar for its few seconds
+					name = Component.translatable("bar.projecthero.darkseid_raid.boxes_stir", boxReturnPicks.size(),
+							Math.max(0, (boxWarnTicks + 19) / 20));
+					progress = Math.max(0.0f, Math.min(1.0f, boxWarnTicks / (float) Math.max(1, boxWarnTotal)));
+					color = BossEvent.BossBarColor.PURPLE;
+				} else if (online > 0 && enrageLevel == 0) {
+					// reactivated boxes: say how many and how much of his damage they are soaking
+					long secs = Math.max(0, left / 20);
+					name = Component.translatable("bar.projecthero.darkseid_raid.fight_boxes", phase, enemies,
+							String.format("%d:%02d", secs / 60, secs % 60), online, Math.round(currentShield(level) * 100));
+					progress = Math.max(0.0f, Math.min(1.0f, left / (float) Math.max(1, cfg.raidSoftEnrageTime * 20)));
+					color = BossEvent.BossBarColor.PINK;
+				} else if (online > 0) {
+					name = Component.translatable("bar.projecthero.darkseid_raid.enraged_boxes", phase, enemies, enrageLevel, online,
+							Math.round(currentShield(level) * 100));
+					progress = 1.0f;
+					color = BossEvent.BossBarColor.PINK;
+				} else if (enrageLevel > 0) {
 					name = Component.translatable("bar.projecthero.darkseid_raid.enraged", phase, enemies, enrageLevel);
 					progress = 1.0f;
 					color = BossEvent.BossBarColor.YELLOW;
@@ -1364,7 +1590,7 @@ public class DarkseidRaid extends EventInstance {
 					name = Component.translatable("bar.projecthero.darkseid_raid.fight", phase, enemies,
 							String.format("%d:%02d", secs / 60, secs % 60));
 					progress = Math.max(0.0f, Math.min(1.0f, left / (float) Math.max(1, cfg.raidSoftEnrageTime * 20)));
-					color = activeBoxes() > 0 ? BossEvent.BossBarColor.PINK : BossEvent.BossBarColor.RED;
+					color = BossEvent.BossBarColor.RED;
 				}
 			}
 			case VICTORY -> {
@@ -1458,17 +1684,23 @@ public class DarkseidRaid extends EventInstance {
 				startWave(level, 1);
 				return "wave 1";
 			}
-			case INVASION_WAVE_1, INVASION_WAVE_2, INVASION_WAVE_3 -> {
+			case INVASION_WAVE_1, INVASION_WAVE_2, INVASION_WAVE_3, INVASION_WAVE_4, INVASION_WAVE_5 -> {
 				for (Mob mob : liveOwnedMobs(level)) {
 					if (mob instanceof ParademonEntity) {
 						disown(mob.getUUID());
 						mob.discard();
 					}
 				}
+				for (Tube t : tubes) {
+					if (t.entityId != null && level.getEntity(t.entityId) instanceof BoomTubeEntity tube) {
+						tube.discard();
+					}
+				}
 				tubes.clear();
 				waveCleared = true;
 				breakTicks = 0;
-				return "wave " + stage.waveNumber() + " cleared";
+				int n = stage.waveNumber();
+				return "wave " + n + "/" + waveCount() + " cleared" + (n >= waveCount() ? " -- Darkseid next" : "");
 			}
 			case DARKSEID_ENTRANCE -> {
 				stageTicks = DarkseidConfig.raid().entranceSeconds * 20;
@@ -1512,11 +1744,69 @@ public class DarkseidRaid extends EventInstance {
 		arrivedAtAge = ageTicks() - DarkseidConfig.raid().raidSoftEnrageTime * 20L - 1;
 	}
 
+	/**
+	 * {@code /projecthero raid darkseid boxes}: make the fight's Mother Box return happen now -- the warning starts on the
+	 * next raid tick (if every box is dark), or skips to the reactivation if it is already warning.
+	 *
+	 * @return false outside Darkseid's phases 1-3
+	 */
+	public boolean debugBoxReturnNow() {
+		if (!stage.isFight() || boxes.isEmpty()) {
+			return false;
+		}
+		if (boxWarnTicks >= 0) {
+			boxWarnTicks = 0;
+		} else {
+			boxReturnTicks = 0;
+		}
+		return true;
+	}
+
+	/**
+	 * Test hook: jump straight to Darkseid's phase {@code phase} (1-3) with the four Mother Boxes spawned and all
+	 * disabled -- without Darkseid himself, so nothing fights the test.
+	 */
+	public void debugEnterFight(ServerLevel level, int phase) {
+		spawnMotherBoxes(level);
+		for (Box b : boxes) {
+			b.disabled = true;
+			if (level.getEntity(b.id) instanceof MotherBoxEntity box) {
+				box.forceDisable(level);
+			}
+		}
+		setStage(phase >= 3 ? Stage.DARKSEID_PHASE_3 : phase == 2 ? Stage.DARKSEID_PHASE_2 : Stage.DARKSEID_PHASE_1);
+		boxReturnTicks = -1;
+		boxWarnTicks = -1;
+		boxReturnPicks.clear();
+	}
+
+	/** Test hook: run the fight's Mother Box return clock for {@code ticks} ticks. */
+	public void debugTickBoxReturn(ServerLevel level, int ticks) {
+		tickBoxReturn(level, darkseid(level), ticks);
+	}
+
+	/** Active (powered) Mother Boxes right now. */
+	public int activeMotherBoxes() {
+		return activeBoxes();
+	}
+
+	/** True during the few seconds of warning before boxes reactivate. */
+	public boolean motherBoxesWaking() {
+		return boxWarnTicks >= 0;
+	}
+
+	/** Test hook: set the stage directly (save/load checks). */
+	public void debugSetStage(Stage s) {
+		setStage(s);
+	}
+
 	/** A one-line state summary for {@code /projecthero raid status darkseid}. */
 	public String describe(ServerLevel level) {
 		DarkseidEntity d = darkseid(level);
-		return stage.name() + " | roster " + roster.size() + (rosterSealed ? " (sealed)" : "") + " | boxes " + activeBoxes() + "/"
-				+ boxes.size() + " | enemies " + enemiesAlive(level) + "+" + enemiesQueued() + " | Darkseid "
+		String boxClock = boxWarnTicks >= 0 ? " (waking in " + (boxWarnTicks / 20) + "s)"
+				: boxReturnTicks >= 0 ? " (return in " + (boxReturnTicks / 20) + "s)" : "";
+		return stage.name() + (stage.isWave() ? " (" + stage.waveNumber() + "/" + waveCount() + ")" : "") + " | roster " + roster.size()
+				+ (rosterSealed ? " (sealed)" : "") + " | boxes " + activeBoxes() + "/" + boxes.size() + boxClock + " | enemies " + enemiesAlive(level) + "+" + enemiesQueued() + " | Darkseid "
 				+ (d == null ? "-" : Math.round(d.getHealth()) + "/" + Math.round(d.getMaxHealth())) + " | enrage " + enrageLevel
 				+ (overloadHappened ? " | overloaded" : "");
 	}
@@ -1542,6 +1832,10 @@ public class DarkseidRaid extends EventInstance {
 		tag.putInt("Enrage", enrageLevel);
 		tag.putLong("ArrivedAt", arrivedAtAge);
 		tag.putInt("Reactivate", reactivateTicks);
+		tag.putInt("BoxReturn", boxReturnTicks);
+		tag.putInt("BoxWarn", boxWarnTicks);
+		tag.putInt("BoxWarnTotal", boxWarnTotal);
+		tag.putIntArray("BoxPicks", boxReturnPicks.stream().mapToInt(Integer::intValue).toArray());
 		tag.putBoolean("Rewarded", rewardsGranted);
 		ListTag boxList = new ListTag();
 		for (Box b : boxes) {
@@ -1593,6 +1887,17 @@ public class DarkseidRaid extends EventInstance {
 		enrageLevel = tag.getInt("Enrage");
 		arrivedAtAge = tag.contains("ArrivedAt") ? tag.getLong("ArrivedAt") : -1;
 		reactivateTicks = tag.getInt("Reactivate");
+		// v0.13.19 keys -- absent from older saves, which then simply start the clock fresh
+		boxReturnTicks = tag.contains("BoxReturn") ? tag.getInt("BoxReturn") : -1;
+		boxWarnTicks = tag.contains("BoxWarn") ? tag.getInt("BoxWarn") : -1;
+		boxWarnTotal = Math.max(1, tag.contains("BoxWarnTotal") ? tag.getInt("BoxWarnTotal") : 1);
+		boxReturnPicks.clear();
+		for (int i : tag.getIntArray("BoxPicks")) {
+			boxReturnPicks.add(i);
+		}
+		if (boxWarnTicks >= 0 && boxReturnPicks.isEmpty()) {
+			boxWarnTicks = -1;
+		}
 		rewardsGranted = tag.getBoolean("Rewarded");
 		boxes.clear();
 		ListTag boxList = tag.getList("Boxes", Tag.TAG_COMPOUND);

@@ -1,4 +1,5 @@
-// v0.13.18 Darkseid Raid assets. Run from the repo root:  node scratchpad/darkseid/gen_darkseid_assets.js
+// v0.13.18 Darkseid Raid assets (v0.13.19: Parademon wings + wing clips). Run from the repo root:
+//   node scratchpad/darkseid/gen_darkseid_assets.js
 //
 // Writes:
 //   geo/darkseid.geo.json, animations/darkseid.animation.json, textures/entity/darkseid(_glowmask).png
@@ -94,9 +95,11 @@ function animSet(prefix, rest) {
 				const f = frames[bn] || {};
 				const r = rest[bn] || { rotation: [0, 0, 0], position: [0, 0, 0] };
 				const ob = {};
-				for (const ch of ['rotation', 'position']) {
+				for (const ch of ['rotation', 'position', 'scale']) {
+					// scale is only written for bones whose rest (or frames) mention it -- the wings (v0.13.19)
+					if (ch === 'scale' && !f.scale && !r.scale) continue;
 					let keys = f[ch] ? [...f[ch]] : [];
-					const restV = (r[ch] || [0, 0, 0]);
+					const restV = (r[ch] || (ch === 'scale' ? [1, 1, 1] : [0, 0, 0]));
 					if (!keys.length) keys = [[0, restV], [length, restV]];
 					if (keys[0][0] > 0) keys.unshift([0, keys[0][1]]);
 					if (keys[keys.length - 1][0] < length) keys.push([length, keys[keys.length - 1][1]]);
@@ -154,8 +157,9 @@ function skinRig(extraBones) {
 		...extraBones,
 	];
 }
-/** Geo writer for pre-assigned UVs. The UV space is the skin's 64x64 layout whatever the image resolution. */
-function writeGeo(file, identifier, bones) {
+/** Geo writer for pre-assigned UVs. The UV space is the skin's 64x64 layout whatever the image resolution (the
+ *  Parademon's is 64x128 since v0.13.19: its wings live below the skin). */
+function writeGeo(file, identifier, bones, texW = 64, texH = 64) {
 	const out = bones.map(b => {
 		const o = { name: b.name, pivot: b.pivot };
 		if (b.parent) o.parent = b.parent;
@@ -163,7 +167,7 @@ function writeGeo(file, identifier, bones) {
 		return o;
 	});
 	fs.writeFileSync(ASSETS + 'geo/' + file, JSON.stringify({ format_version: '1.12.0', 'minecraft:geometry': [{
-		description: { identifier, texture_width: 64, texture_height: 64, visible_bounds_width: 3, visible_bounds_height: 3, visible_bounds_offset: [0, 1, 0] },
+		description: { identifier, texture_width: texW, texture_height: texH, visible_bounds_width: 3, visible_bounds_height: 3, visible_bounds_offset: [0, 1, 0] },
 		bones: out }] }, null, 1));
 }
 writeGeo('darkseid.geo.json', 'geometry.darkseid', skinRig([
@@ -190,7 +194,7 @@ function skinAndGlow(bbFile, outName, isEye) {
 		}
 	}
 	save(glow, 'textures/entity/' + outName + '_glowmask.png');
-	return { im, glowPixels: n };
+	return { im, glow, glowPixels: n };
 }
 const dsSkin = skinAndGlow('darkseid.bbmodel', 'darkseid', c => c[0] > 180 && c[1] > 60 && c[1] < 200 && c[2] < 90);
 console.log('darkseid: your skin ' + dsSkin.im.w + 'x' + dsSkin.im.h + ', ' + dsSkin.glowPixels + ' glowing eye pixels');
@@ -540,8 +544,106 @@ fs.writeFileSync(ASSETS + 'animations/darkseid.animation.json', JSON.stringify({
 }
 
 // ==================================================================== PARADEMON (the user's parademon.bbmodel, 32 px = 2 blocks)
-writeGeo('parademon.geo.json', 'geometry.parademon', skinRig([]));
+// ---- v0.13.19 wings: a bat/insect-like leathery pair on the back, parented to the torso (the body's chest bone, so they
+// follow every lean). Each wing is an inner and an outer (tip) bone -- the flap whips, the fold tucks -- and each part is
+// a 1x1 bone strut along the leading edge plus a zero-thickness membrane hanging below it (both faces drawn; the
+// renderer does not cull). Their pixels live in rows 64-127 of a 64x128 sheet: the skin keeps rows 0-63 and every one
+// of its UVs (GeckoLib normalises UVs by texture_height, so the glowmask is extended to 64x128 too).
+const WING_TEX_H = 128;
+const WING = { innerLen: 11, outerLen: 12, innerDrop: 12, outerDrop: 10, rootX: 2, y: 21, z: 2 };
+const WING_UV = { rInner: [0, 64], lInner: [22, 64], rOuter: [0, 76], lOuter: [24, 76], strutInner: [0, 88], strutOuter: [26, 88] };
+const wingCubes = { membranes: [], struts: [] };
+function wingBones() {
+	const W = WING, out = [];
+	for (const side of ['right', 'left']) {
+		const s = side === 'right' ? -1 : 1; // the entity's right is -X
+		const P = side === 'right' ? 'r' : 'l';
+		const rootX = s * W.rootX, jointX = s * (W.rootX + W.innerLen), tipX = s * (W.rootX + W.innerLen + W.outerLen);
+		const strutI = cube([Math.min(rootX, jointX), W.y, W.z], [W.innerLen, 1, 1], WING_UV.strutInner);
+		const memI = cube([Math.min(rootX, jointX), W.y - W.innerDrop, W.z + 0.5], [W.innerLen, W.innerDrop, 0], WING_UV[P + 'Inner']);
+		const strutO = cube([Math.min(jointX, tipX), W.y, W.z], [W.outerLen, 1, 1], WING_UV.strutOuter);
+		const memO = cube([Math.min(jointX, tipX), W.y - W.outerDrop, W.z + 0.5], [W.outerLen, W.outerDrop, 0], WING_UV[P + 'Outer']);
+		wingCubes.struts.push(strutI, strutO);
+		wingCubes.membranes.push({ side, part: 'inner', c: memI }, { side, part: 'outer', c: memO });
+		out.push({ name: side + '_wing', parent: 'torso', pivot: [rootX, W.y + 0.5, W.z + 0.5], cubes: [strutI, memI] });
+		out.push({ name: side + '_wing_tip', parent: side + '_wing', pivot: [jointX, W.y + 0.5, W.z + 0.5], cubes: [strutO, memO] });
+	}
+	return out;
+}
+writeGeo('parademon.geo.json', 'geometry.parademon', skinRig(wingBones()), 64, WING_TEX_H);
 const pdSkin = skinAndGlow('parademon.bbmodel', 'parademon', c => c[0] > 170 && c[1] < 90 && c[2] < 90);
+/**
+ * Paint the wings into rows 64+ of the (extended) skin. The pattern is drawn in wing space -- S = distance from the root
+ * along the span (0..23), r = rows down from the leading edge -- and mapped onto each membrane face, so the two faces of
+ * a membrane (north = the side facing the body, south = the outside) and the two wings all line up: a bat wing with a
+ * scalloped trailing edge, dark finger bones fanning from the wrist (the inner/outer joint), a darker rim, leathery mottling.
+ */
+function paintWings(im) {
+	const MEM = [84, 68, 61], RIM = [44, 35, 32], BONE = [36, 29, 27], BONE_HI = [98, 84, 75];
+	const SPAN = WING.innerLen + WING.outerLen;
+	const FINGERS = [5.5, 12.5, 17.0, 21.0];
+	const depth = S => {
+		const base = WING.innerDrop - 0.30 * S;
+		const stops = [0, ...FINGERS, SPAN];
+		let k = 0;
+		while (k < stops.length - 2 && S > stops[k + 1]) k++;
+		const t = (S - stops[k]) / Math.max(0.01, stops[k + 1] - stops[k]);
+		const scallop = (k === 0 ? 1.4 : 2.4) * Math.sin(Math.PI * Math.max(0, Math.min(1, t)));
+		return Math.max(1.5, base - scallop);
+	};
+	const wrist = [WING.innerLen, 0.2];
+	const bones = FINGERS.map(F => [wrist, [F, depth(F) - 0.3]]);
+	bones.push([[0, 0.2], [WING.innerLen, 0.2]]);      // the arm, just under the strut
+	bones.push([wrist, [SPAN - 0.5, 0.8]]);             // the leading "finger" out to the tip
+	const segDist = (p, a, b) => {
+		const vx = b[0] - a[0], vy = b[1] - a[1], wx = p[0] - a[0], wy = p[1] - a[1];
+		const t = Math.max(0, Math.min(1, (wx * vx + wy * vy) / (vx * vx + vy * vy)));
+		return Math.hypot(wx - vx * t, wy - vy * t);
+	};
+	const pixel = (S, r) => {
+		const p = [S + 0.5, r + 0.5], d = depth(p[0]);
+		if (p[1] > d) return null;
+		let bd = Infinity;
+		for (const [a, b] of bones) bd = Math.min(bd, segDist(p, a, b));
+		if (bd < 0.55) return (r + Math.floor(S)) % 5 === 0 ? BONE_HI : BONE;
+		if (d - p[1] < 0.9) return RIM;
+		const k = 0.82 + hash(Math.floor(S), r, 41) * 0.22 - (p[1] / d) * 0.12 - (bd < 1.4 ? 0.12 : 0);
+		const vein = hash(Math.floor(S / 2), Math.floor(r / 3), 43) > 0.86 ? 0.9 : 1.0;
+		return shade(MEM, k * vein);
+	};
+	for (const { side, part, c } of wingCubes.membranes) {
+		const [u, v] = c.uv, w = c.size[0], h = c.size[1];
+		const off = part === 'outer' ? WING.innerLen : 0;
+		for (const face of ['north', 'south']) {
+			const u0 = face === 'north' ? u : u + w;
+			// north faces run +X left to right, south faces -X: work out which end of this face is the root
+			const rootAtLeft = (side === 'right') === (face === 'south');
+			for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+				const S = off + (rootAtLeft ? x : w - 1 - x);
+				const col = pixel(S, y);
+				if (col) set(im, u0 + x, v + y, col);
+			}
+		}
+	}
+	// struts: dark bone with a lighter top and a pale claw at the outer tip
+	for (const c of [wingCubes.struts[0], wingCubes.struts[1]]) {
+		paintCube(im, c, (x, y, w, h, ax, ay, face) => face === 'up' ? BONE_HI : shade(BONE, 0.9 + hash(ax, ay, 45) * 0.25));
+	}
+	const claw = [196, 184, 160];
+	const so = wingCubes.struts[1], f = faces(so);
+	for (const face of ['east', 'west']) { const [x0, y0] = f[face]; set(im, x0, y0, claw); }
+}
+{
+	// extend the skin and its glowmask to 64x128, paint the wings, and hand the result to the recolours below
+	if (pdSkin.im.w !== 64 || pdSkin.im.h !== 64) throw new Error('parademon skin is ' + pdSkin.im.w + 'x' + pdSkin.im.h + ', expected 64x64');
+	const full = img(64, WING_TEX_H), glow = img(64, WING_TEX_H);
+	pdSkin.im.px.copy(full.px, 0, 0, pdSkin.im.px.length);
+	pdSkin.glow.px.copy(glow.px, 0, 0, pdSkin.glow.px.length);
+	paintWings(full);
+	save(full, 'textures/entity/parademon.png');
+	save(glow, 'textures/entity/parademon_glowmask.png');
+	pdSkin.im = full;
+}
 // the other three variants are recolours of the same skin, sharing its eye glowmask
 function recolour(outName, fn) {
 	const im = pdSkin.im;
@@ -565,7 +667,7 @@ recolour('parademon_elite', c => isEyeRed(c) ? c : isOrange(c) ? [230, 180, 50] 
 recolour('parademon_brute', c => isEyeRed(c) ? c : isOrange(c) ? [255, 90, 30] : mix(c, [lum(c) * 1.2, lum(c) * 0.7, lum(c) * 0.55], 0.6));
 console.log('parademon: your skin + 3 recoloured variants, ' + pdSkin.glowPixels + ' glowing eye pixels');
 
-// ---- Parademon animations (no wings on this model: flight is a forward-leaning dive)
+// ---- Parademon animations (flight is a forward-leaning dive; the wings have their own clips below, v0.13.19)
 const PREST = {
 	root: { rotation: Z3, position: Z3 }, body: { rotation: Z3, position: Z3 }, torso: { rotation: Z3, position: Z3 }, head: { rotation: Z3, position: Z3 },
 	right_arm: { rotation: [0, 0, 4], position: Z3 }, left_arm: { rotation: [0, 0, -4], position: Z3 },
@@ -608,18 +710,51 @@ PA.anim('fly', 0.6, true, {
 	right_shin: R([[0, [25, 0, 0]], [0.6, [25, 0, 0]]]),
 	left_shin: R([[0, [25, 0, 0]], [0.6, [25, 0, 0]]]),
 });
-PA.anim('attack', 0.6, false, {
+// The triggered clips (the "action" controller, which runs after "main" since v0.13.19) key only the bones they move,
+// so a gunner's shot shows while its legs keep strafing -- an empty rest table means no other bone is touched.
+const PX = animSet('parademon', {});
+PX.anim('attack', 0.6, false, {
 	torso: R([[0, Z3], [0.18, [-6, -20, 0]], [0.3, [14, 20, 0]], [0.6, Z3]]),
 	right_arm: R([[0, [0, 0, 4]], [0.18, [-150, 0, 10]], [0.3, [-50, 0, 0]], [0.6, [0, 0, 4]]]),
 	right_forearm: R([[0, [-6, 0, 0]], [0.18, [-40, 0, 0]], [0.3, [-5, 0, 0]], [0.6, [-6, 0, 0]]]),
 	left_arm: R([[0, [0, 0, -4]], [0.3, [-60, 0, -10]], [0.6, [0, 0, -4]]]),
 });
-PA.anim('shoot', 0.6, false, {
+PX.anim('shoot', 0.6, false, {
 	right_arm: R([[0, [0, 0, 4]], [0.2, [-88, 0, 0]], [0.3, [-100, 0, 0]], [0.45, [-88, 0, 0]], [0.6, [0, 0, 4]]]),
 	right_forearm: R([[0, [-6, 0, 0]], [0.2, [0, 0, 0]], [0.6, [-6, 0, 0]]]),
 	torso: R([[0, Z3], [0.3, [-5, 0, 0]], [0.6, Z3]]),
 	head: R([[0, Z3], [0.2, [0, 10, 0]], [0.6, Z3]]),
 });
+Object.assign(PA.A, PX.A);
+// v0.13.19 wings -- their own "wings" controller, keyed on the four wing bones only. Signs (from the rig above): a
+// negative Y swings the right wing's tip backward (+Z, the side the back faces), a positive Z raises it; the left wing
+// mirrors both. In the fly pose the body is pitched ~55 degrees forward, so the back faces the sky and the Y swing is a
+// true up/down wing-beat; the tip lags the root for a whip.
+const ONE = [1, 1, 1];
+const WREST = { right_wing: { rotation: Z3, position: Z3, scale: ONE }, right_wing_tip: { rotation: Z3, position: Z3, scale: ONE },
+	left_wing: { rotation: Z3, position: Z3, scale: ONE }, left_wing_tip: { rotation: Z3, position: Z3, scale: ONE } };
+const WA = animSet('parademon', WREST);
+const mirror = keys => keys.map(([t, v]) => [t, [v[0], -v[1], -v[2]]]);
+function wingClip(name, len, rightRoot, rightTip, rootScale) {
+	const root = rootScale ? { rotation: rightRoot, scale: rootScale } : R(rightRoot);
+	const rootL = rootScale ? { rotation: mirror(rightRoot), scale: rootScale } : R(mirror(rightRoot));
+	WA.anim(name, len, true, { right_wing: root, right_wing_tip: R(rightTip), left_wing: rootL, left_wing_tip: R(mirror(rightTip)) });
+}
+// 0.5 s beat (the server's wing-flap sound plays every 10 ticks): a quick downstroke, a slower recovery
+wingClip('wings_flap', 0.5,
+	[[0, [0, -42, 14]], [0.2, [0, 36, -6]], [0.5, [0, -42, 14]]],
+	[[0, [0, -15, 0]], [0.1, [0, -22, 0]], [0.2, [0, 20, 0]], [0.35, [0, 14, 0]], [0.5, [0, -15, 0]]]);
+// folded: rigid planes cannot crumple like a real membrane, so the fold squeezes the span (bone scale, along the strut)
+// as it sweeps the wing straight back: two narrow leathery blades down the back, the outer wing hanging from the wrist
+// toward the knees. A slow breathing shift keeps a standing Parademon from being quite still.
+wingClip('wings_fold', 2.0,
+	[[0, [0, -80, 8]], [1.0, [0, -76, 5]], [2.0, [0, -80, 8]]],
+	[[0, [0, -18, -100]], [1.0, [0, -15, -95]], [2.0, [0, -18, -100]]],
+	[[0, [0.5, 0.9, 1]], [2.0, [0.5, 0.9, 1]]]);
+Object.assign(PA.A, WA.A);
+for (const n of ['idle', 'walk', 'fly', 'attack', 'shoot', 'wings_flap', 'wings_fold']) {
+	if (!PA.A['animation.parademon.' + n]) { console.error('missing parademon clip ' + n); process.exit(1); }
+}
 fs.writeFileSync(ASSETS + 'animations/parademon.animation.json', JSON.stringify({ format_version: '1.8.0', animations: PA.A }, null, 1));
 console.log('parademon: ' + Object.keys(PA.A).length + ' clips');
 

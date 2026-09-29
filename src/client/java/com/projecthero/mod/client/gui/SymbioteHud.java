@@ -44,6 +44,7 @@ public final class SymbioteHud {
 	private static final int GAP = 2;
 	private static final int MARGIN = 4;
 	private static final int BAR_H = 4;
+	private static final int HAIRLINE = 3;
 
 	private static final int COLOR_BOX_BG = 0xC00A0A0C;
 	private static final int COLOR_BORDER = 0xFF2A2A32;
@@ -116,27 +117,36 @@ public final class SymbioteHud {
 		}
 	}
 
+	/**
+	 * v0.13.19 layout (bottom-right, top to bottom):
+	 * <pre>
+	 *   [R][G][X][Z][V][C]      the six ability boxes, labelled with the keys actually bound
+	 *   Symbiote
+	 *   Biomass 85%
+	 *   ------------------      Hairline Biomass bar
+	 * </pre>
+	 * The blade and shield have no time limit any more (they feed on Biomass), so their old charge bars are gone.
+	 */
 	private static void renderNormalHostRow(GuiGraphics g, Minecraft mc, SymbioteState s, SymbioteVitals v,
 			long now, boolean expanded) {
 		int totalW = 6 * BOX + 5 * GAP;
 		int x0 = g.guiWidth() - MARGIN - totalW;
-		int y0 = g.guiHeight() - MARGIN - BOX - 32;
+		int barY = g.guiHeight() - MARGIN - HAIRLINE;
+		int biomassY = barY - 11;
+		int titleY = biomassY - 10;
+		int y0 = titleY - 3 - BOX;
 
-		g.drawString(mc.font, Component.translatable("entity.projecthero.symbiote")
-				.withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), x0, y0 - 10, COLOR_LABEL);
-
-		boolean shield = s.shieldHeld;
 		boolean charging = s.onslaughtChargeStart >= 0;
 		float chargeFrac = charging ? Math.min(1.0f, (now - s.onslaughtChargeStart) / 60.0f) : 0.0f;
 
 		for (int i = 0; i < 6; i++) {
-			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
 			int x = x0 + i * (BOX + GAP);
-			boolean active = (i == 3 && charging) || (i == 4 && v.bladeActive) || (i == 5 && v.thornsMode);
+			boolean active = (i == 3 && charging) || (i == 4 && (v.bladeActive || s.shieldHeld))
+					|| (i == 5 && (v.thornsMode || s.tendrilGrabHeld));
 
 			g.fill(x, y0, x + BOX, y0 + BOX, COLOR_BOX_BG);
 			g.renderOutline(x, y0, BOX, BOX, active ? COLOR_BORDER_ACTIVE : COLOR_BORDER);
-			g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 2, y0 + 2, COLOR_KEY, false);
+			g.drawString(mc.font, boundKey(i), x + 2, y0 + 2, COLOR_KEY, false);
 
 			if (i == 3 && charging) {
 				int fill = Math.round((BOX - 2) * chargeFrac);
@@ -149,44 +159,44 @@ public final class SymbioteHud {
 				g.drawCenteredString(mc.font, String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(cd / 20.0f)),
 						x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
 			}
+			// Shift+G's Spike Fan runs its own cooldown: a thin strip along the bottom of the G box
+			if (i == 1 && v.spikeConeReadyAt > now) {
+				float left = Math.min(1.0f, (v.spikeConeReadyAt - now) / 200.0f);
+				g.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * left), y0 + BOX - 1, 0xFF8A5FE0);
+			}
 			if (v.broken) {
 				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, 0xB0400000);
 			}
 			if (expanded) {
 				Component name = Component.translatable("projecthero.symbiote.ability." + NORMAL_SLOT_ABILITIES[i]);
 				int tw = mc.font.width(name);
-				g.drawString(mc.font, name, x0 - 8 - tw, y0 + i * 10 - 52, 0xFFD8C8F0);
+				g.drawString(mc.font, name, x0 - 8 - tw, y0 + i * 10 - 40, 0xFFD8C8F0);
 			}
 		}
 
-		// Symbiote health bar -- always shown while bonded; it is the headline mechanic.
-		int hpY = y0 + BOX + 3;
-		float hpRatio = Math.max(0.0f, Math.min(1.0f, v.hp / com.projecthero.mod.symbiote.SymbioteVitalsManager.MAX_HP));
-		g.fill(x0 - 1, hpY - 1, x0 + totalW + 1, hpY + BAR_H + 1, COLOR_BORDER);
-		g.fill(x0, hpY, x0 + totalW, hpY + BAR_H, 0xAA0A0A0C);
-		g.fill(x0, hpY, x0 + Math.round(totalW * hpRatio), hpY + BAR_H,
-				v.broken ? 0xFFC03030 : (hpRatio < 0.35f ? 0xFFE0A030 : 0xFF8A5FE0));
-		g.drawString(mc.font, Component.translatable(v.broken
-						? "hud.projecthero.symbiote.hp_broken" : "hud.projecthero.symbiote.hp")
-				.withStyle(v.broken ? ChatFormatting.RED : ChatFormatting.LIGHT_PURPLE), x0, hpY + BAR_H + 1, 0xFFB090F0, false);
+		g.drawString(mc.font, Component.translatable("entity.projecthero.symbiote")
+				.withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD), x0, titleY, COLOR_LABEL, false);
 
-		// Symbiote Blade charge bar -- only while out or refilling.
-		if (v.bladeActive || v.bladeCharge < com.projecthero.mod.symbiote.SymbioteVitalsManager.BLADE_MAX - 0.5f) {
-			int bY = hpY + BAR_H + 10;
-			float r = Math.max(0.0f, Math.min(1.0f, v.bladeCharge / com.projecthero.mod.symbiote.SymbioteVitalsManager.BLADE_MAX));
-			g.fill(x0 - 1, bY - 1, x0 + totalW + 1, bY + BAR_H + 1, COLOR_BORDER);
-			g.fill(x0, bY, x0 + totalW, bY + BAR_H, 0xAA0A0A0C);
-			g.fill(x0, bY, x0 + Math.round(totalW * r), bY + BAR_H, v.bladeActive ? 0xFF6A2FB0 : 0xFF4A3070);
-		}
+		float ratio = Math.max(0.0f, Math.min(1.0f, v.hp / com.projecthero.mod.symbiote.SymbioteVitalsManager.MAX_HP));
+		int pct = Math.round(ratio * 100.0f);
+		Component label = v.broken
+				? Component.translatable("hud.projecthero.symbiote.hp_broken").withStyle(ChatFormatting.RED)
+				: Component.translatable("hud.projecthero.symbiote.biomass", pct);
+		g.drawString(mc.font, label, x0, biomassY, v.broken ? 0xFFFF6060 : COLOR_LABEL, false);
 
-		// Symbiote Shield's guard bar, shown only while it is actually in play.
-		if (s.shieldHeld || s.shieldGuard < SymbioteState.SHIELD_GUARD_MAX - 0.5f) {
-			int barY = hpY + BAR_H + (v.bladeActive || v.bladeCharge < com.projecthero.mod.symbiote.SymbioteVitalsManager.BLADE_MAX - 0.5f ? 20 : 10);
-			float ratio = Math.max(0.0f, Math.min(1.0f, s.shieldGuard / SymbioteState.SHIELD_GUARD_MAX));
-			g.fill(x0 - 1, barY - 1, x0 + totalW + 1, barY + BAR_H + 1, COLOR_BORDER);
-			g.fill(x0, barY, x0 + totalW, barY + BAR_H, 0xAA0A0A0C);
-			g.fill(x0, barY, x0 + Math.round(totalW * ratio), barY + BAR_H, s.shieldHeld ? 0xFF8A5FE0 : 0xFF5A4080);
+		int fill = v.broken ? 0xFFC03030 : (ratio < 0.35f ? 0xFFE0A030 : 0xFF8A5FE0);
+		if (v.bladeActive || s.shieldHeld) {
+			// feeding the blade / shield: the bar breathes so you can see it is being spent
+			fill = ((now / 6L) % 2L == 0L) ? fill : 0xFFB38AF5;
 		}
+		g.fill(x0, barY, x0 + totalW, barY + HAIRLINE, 0x80000000);
+		g.fill(x0, barY, x0 + Math.round(totalW * ratio), barY + HAIRLINE, fill);
+	}
+
+	/** The key actually bound to ability slot {@code i} (0-based), so a rebind shows up on the HUD. */
+	private static String boundKey(int i) {
+		String k = com.projecthero.mod.client.ModKeyBindings.ABILITY_SLOTS[i].getTranslatedKeyMessage().getString();
+		return k.length() > 2 ? k.substring(0, 2).toUpperCase(java.util.Locale.ROOT) : k.toUpperCase(java.util.Locale.ROOT);
 	}
 
 	/**

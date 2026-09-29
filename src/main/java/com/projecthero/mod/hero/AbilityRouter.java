@@ -223,6 +223,8 @@ public final class AbilityRouter {
 		com.projecthero.mod.allmight.AllMightAbilityManager.serverTick(player);
 		// v0.13.11: the Hulk -- rage, the change, the size easing, regeneration
 		com.projecthero.mod.hulk.Hulk.tick(player);
+		// v0.13.19: Moon Knight -- Vengeance drain, the Fracture, Khonshu's Resurrection recharge
+		com.projecthero.mod.moonknight.MoonKnight.tick(player);
 		// v0.6.20: the Spider-Man costume mask (H key) is tied to the costume, not the power, so its
 		// "mask can't stay off once the hood comes off" reconcile has to run for every player.
 		com.projecthero.mod.spider.SpiderMask.reconcile(player);

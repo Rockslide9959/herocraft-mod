@@ -50,6 +50,8 @@ public final class ProjectHeroCommand {
 		dispatcher.register(root);
 		// v0.13.11: Hulk Phase 1 test commands (op-only; removed / locked down in Phase 4)
 		dispatcher.register(HulkCommand.build());
+		// v0.13.19: Moon Knight debug / test commands (op only), as the user asked: /moonknight ...
+		dispatcher.register(MoonKnightCommand.build());
 		SquadCommand.initialize(dispatcher);
 	}
 }

@@ -42,8 +42,10 @@ public final class OathbreakerTuning {
 	public static final double MOVEMENT_SPEED_PHASE2 = 0.22;
 	public static final double MOVEMENT_SPEED_PHASE3 = 0.26;
 
-	public static final double FOLLOW_RANGE = 48.0;
-	public static final double BOSS_BAR_RADIUS = 48.0;
+	/** v0.13.19: 48 -> 50. He acquires (and keeps chasing) a player this far away WITHOUT needing line of sight --
+	 * see {@code OathbreakerEntity#registerGoals}. Re-applied on load, since vanilla saves attribute bases. */
+	public static final double FOLLOW_RANGE = 50.0;
+	public static final double BOSS_BAR_RADIUS = 50.0; // v0.13.19: 48 -> 50 (at least the follow range)
 	public static final int XP_REWARD = 500;
 
 	// ---------------- phases ----------------
@@ -347,20 +349,119 @@ public final class OathbreakerTuning {
 	public static final int ECHO_DELAY_TICKS = 20; // 1s
 	public static final float ECHO_DAMAGE_FRACTION = 0.6f;
 
+	// ---------------- threat / target switching (v0.13.19) ----------------
+	// "If my friend is just luring him in one direction I can spam hit him and he doesn't change priority to
+	// me": vanilla HurtByTargetGoal only retargets when it STARTS, so once it was running with the friend as
+	// target, nobody else's hits mattered. Replaced by a threat table (OathbreakerThreat): every landed hit adds
+	// its raw damage as threat for the attacker, threat halves every THREAT_HALF_LIFE_TICKS, and he switches to
+	// an attacker who isn't his target when they out-threat the target by THREAT_SWITCH_MARGIN, or when the
+	// target hasn't hurt him for THREAT_IDLE_TICKS while the attacker has and is closer. Checked on every hit
+	// and every THREAT_CHECK_INTERVAL_TICKS.
+
+	/** Threat halves this often (5s). */
+	public static final int THREAT_HALF_LIFE_TICKS = 100;
+	/** Every landed hit adds at least this much threat, however little damage it did. */
+	public static final float THREAT_MIN_PER_HIT = 1.0f;
+	/** An attacker needs more than this multiple of the current target's threat to take his attention. */
+	public static final float THREAT_SWITCH_MARGIN = 1.25f;
+	/** A target who hasn't hurt him in this long loses him to anyone closer who has (4s). */
+	public static final int THREAT_IDLE_TICKS = 80;
+	/** After any threat switch he won't switch again for this long -- no ping-pong between two hitters. */
+	public static final int THREAT_SWITCH_LOCKOUT_TICKS = 35;
+	/** The periodic re-check (on top of the one every hit triggers). */
+	public static final int THREAT_CHECK_INTERVAL_TICKS = 20;
+
+	// ---------------- Oathbound Whirlwind (v0.13.19, all phases) ----------------
+	// Answers being circled: favoured whenever a player stands BEHIND him or two or more crowd his melee range.
+
+	/** Sword drawn low behind him, weight sunk -- matches {@code whirlwind_windup}. Tracks the target. */
+	public static final int WHIRLWIND_WINDUP_TICKS = 14; // 0.7s
+	/** The whole {@code whirlwind_strike} clip: two full spins ({@link #WHIRLWIND_SPIN_TICKS}) then the dizzy
+	 * recovery ({@link #WHIRLWIND_RECOVER_TICKS}). One clip on purpose: the root bone ends the spins at 719
+	 * degrees, and GeckoLib only snaps a "completed rotation" back to 0 when the bone stops being animated --
+	 * a second clip keyed back at 0 would lerp him 720 degrees BACKWARDS in one tick. Must equal SPIN + RECOVER
+	 * (the build script checks). */
+	public static final int WHIRLWIND_STRIKE_TICKS = 46;
+	public static final int WHIRLWIND_SPIN_TICKS = 16; // 0.8s, hyper armor
+	/** Dizzy, sword dragging, swaying -- the punish window (no hyper armor). */
+	public static final int WHIRLWIND_RECOVER_TICKS = 30; // 1.5s
+	/** The two contact frames, one per spin (ticks into the strike clip). */
+	public static final int WHIRLWIND_HIT1_TICKS = 4;
+	public static final int WHIRLWIND_HIT2_TICKS = 12;
+	/** Everything within this (horizontally, from his feet) is cut on each contact frame -- all the way round. */
+	public static final double WHIRLWIND_RADIUS = 5.0;
+	public static final float WHIRLWIND_DAMAGE = 11.0f; // per spin; cf. combo 9/hit, riposte 17
+	/** The first spin barely shoves (so the second can still connect); the second throws everyone out. */
+	public static final double WHIRLWIND_KNOCKBACK_FIRST = 0.35;
+	public static final double WHIRLWIND_KNOCKBACK = 1.1;
+	/** Its own cooldown (from the start of the wind-up), on top of the shared one -- in a group fight someone is
+	 * nearly always "surrounding" him, and this keeps it to roughly every other attack at most, not back to back. */
+	public static final int WHIRLWIND_COOLDOWN_TICKS = 160; // 8s
+	/** "Behind" = a player within {@link #WHIRLWIND_RADIUS} more than this many degrees off his facing. */
+	public static final double WHIRLWIND_BEHIND_ANGLE_DEGREES = 100.0;
+	/** This many players inside {@link #WHIRLWIND_RADIUS} also count as "surrounded". */
+	public static final int WHIRLWIND_CROWD_COUNT = 2;
+	/** While surrounded and off cooldown, rolled every {@link #WHIRLWIND_ROLL_INTERVAL_TICKS} before any other pick. */
+	public static final float WHIRLWIND_SURROUNDED_CHANCE = 0.5f;
+	public static final int WHIRLWIND_ROLL_INTERVAL_TICKS = 10;
+	/** Its weight in the melee pool when surrounded (replaces the phase's normal whirlwind weight). */
+	public static final int WEIGHT_WHIRLWIND_SURROUNDED = 50;
+
+	// ---------------- Grave Geysers (v0.13.19, phase 2+) ----------------
+	// Answers range (6-30 blocks) and groups: a soul-fire column under EVERY player nearby.
+
+	/** Two-handed reverse grip, sword raised overhead -- matches {@code geyser_windup}. Tracks the target. */
+	public static final int GEYSER_WINDUP_TICKS = 16; // 0.8s
+	/** Drives the sword into the ground, down onto one knee -- matches {@code geyser_plunge}; the blade goes in on
+	 * {@link #GEYSER_PLUNGE_CONTACT_TICKS}, which is when the telegraph rings appear. */
+	public static final int GEYSER_PLUNGE_TICKS = 10;
+	public static final int GEYSER_PLUNGE_CONTACT_TICKS = 3;
+	/** Bowed over the planted sword -- matches {@code geyser_bowed}; the punish window (no hyper armor). The
+	 * geysers go off 18 ticks in, leaving ~1.3s to punish after dodging them. */
+	public static final int GEYSER_BOWED_TICKS = 44; // 2.2s
+	/** A ring appears under every valid player this close, follows them for {@link #GEYSER_TRACK_TICKS}, then
+	 * LOCKS; the column erupts {@link #GEYSER_ERUPT_DELAY_TICKS} after the lock. */
+	public static final double GEYSER_RANGE = 30.0;
+	public static final int GEYSER_MAX_MARKS = 8;
+	public static final int GEYSER_TRACK_TICKS = 10; // 0.5s
+	public static final int GEYSER_ERUPT_DELAY_TICKS = 15; // 0.75s
+	public static final double GEYSER_RADIUS = 1.6;
+	/** The column reaches this high above the ground it erupts from. */
+	public static final double GEYSER_HEIGHT = 4.5;
+	public static final float GEYSER_DAMAGE = 15.0f; // cf. soul rend 12 per eruption, leap 18
+	/** Upward velocity anyone caught is launched with (~3.5 blocks up), and a short burn. */
+	public static final double GEYSER_LAUNCH = 0.75;
+	public static final int GEYSER_FIRE_TICKS = 40; // 2s
+	/** Its own cooldown, separate from the shared one. */
+	public static final int GEYSER_COOLDOWN_TICKS = 240; // 12s
+	/** At range it's rolled alongside the Chains every {@link #CHAIN_ROLL_INTERVAL_TICKS}; more likely with 2+
+	 * players inside {@link #GEYSER_RANGE}. */
+	public static final double GEYSER_MIN_RANGE = 6.0;
+	public static final double GEYSER_MAX_RANGE = 30.0;
+	public static final float GEYSER_RANGED_CHANCE = 0.25f;
+	public static final float GEYSER_RANGED_CHANCE_GROUP = 0.45f;
+
 	// ---------------- weights ----------------
 
 	/** Phase 1, once in trigger range. Oath Guard only if the target hit him recently. */
 	public static final int WEIGHT_P1_STANCE_DASH = 35;
 	public static final int WEIGHT_P1_COMBO = 45;
 	public static final int WEIGHT_P1_OATH_GUARD = 20;
+	/** v0.13.19: only while off its own cooldown; {@link #WEIGHT_WHIRLWIND_SURROUNDED} instead when surrounded. */
+	public static final int WEIGHT_P1_WHIRLWIND = 12;
 	/** Phase 2 melee pool (Chains is rolled separately at range -- see {@link #CHAIN_RANGED_CHANCE}). */
 	public static final int WEIGHT_P2_STANCE_DASH = 25;
 	public static final int WEIGHT_P2_COMBO = 35;
 	public static final int WEIGHT_P2_SOUL_REND = 20;
 	public static final int WEIGHT_P2_OATH_GUARD = 10;
+	public static final int WEIGHT_P2_WHIRLWIND = 10;
+	/** v0.13.19: only while off its own cooldown; doubled with 2+ players inside {@link #GEYSER_RANGE}. */
+	public static final int WEIGHT_P2_GRAVE_GEYSERS = 8;
 	/** Phase 3 melee pool; Judgement and Execution sit outside the weights (their own cooldowns, 50% when up). */
 	public static final int WEIGHT_P3_STANCE_DASH = 20;
 	public static final int WEIGHT_P3_COMBO = 30;
 	public static final int WEIGHT_P3_SOUL_REND = 20;
 	public static final int WEIGHT_P3_OATH_GUARD = 5;
+	public static final int WEIGHT_P3_WHIRLWIND = 10;
+	public static final int WEIGHT_P3_GRAVE_GEYSERS = 10;
 }

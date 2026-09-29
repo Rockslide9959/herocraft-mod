@@ -1,0 +1,191 @@
+package com.projecthero.mod.client;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.symbiote.SymbioteHost;
+import com.projecthero.mod.symbiote.block.SymbioteBlocks;
+import com.projecthero.mod.symbiote.entity.SymbioteEntity;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): free Symbiote goo visual tour. */
+public final class SymDebugHarness {
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 base;
+	private static SymbioteEntity a;
+	private static SymbioteEntity b;
+	private static SymbioteEntity c;
+	private static Husk husk;
+
+	private SymDebugHarness() {
+	}
+
+	public static void init() {
+		ClientTickEvents.END_CLIENT_TICK.register(SymDebugHarness::tick);
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					fn.accept(p);
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "sym_" + name + ".png", mc.getMainRenderTarget(), x -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.put(t, r);
+	}
+
+	private static void view(Minecraft mc, double dx, double dy, double dz, Vec3 look) {
+		server(mc, p -> {
+			Vec3 from = base.add(dx, dy, dz);
+			Vec3 to = base.add(look);
+			Vec3 d = to.subtract(from);
+			float yaw = (float) (Math.atan2(d.z, d.x) * 180.0 / Math.PI) - 90.0f;
+			float pitch = (float) -(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)) * 180.0 / Math.PI);
+			p.teleportTo(p.serverLevel(), from.x, from.y, from.z, yaw, pitch);
+		});
+	}
+
+	/** Camera {@code off} away from entity {@code e}, looking at it. */
+	private static void viewAt(Minecraft mc, java.util.function.Supplier<net.minecraft.world.entity.Entity> e, double ox, double oy, double oz) {
+		server(mc, p -> {
+			net.minecraft.world.entity.Entity t = e.get();
+			Vec3 to = t.position().add(0, 0.25, 0);
+			Vec3 from = to.add(ox, oy, oz);
+			Vec3 d = to.subtract(from);
+			float yaw = (float) (Math.atan2(d.z, d.x) * 180.0 / Math.PI) - 90.0f;
+			float pitch = (float) -(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)) * 180.0 / Math.PI);
+			p.teleportTo(p.serverLevel(), from.x, from.y - 1.62, from.z, yaw, pitch);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				LevelSettings settings = new LevelSettings("SymDebug" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+						Difficulty.NORMAL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.hideGui = true;
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				base = Vec3.atBottomCenterOf(p.blockPosition());
+				level.setBlock(BlockPos.containing(base.add(-2.5, 0, 4)), SymbioteBlocks.SYMBIOTE_METEORITE.defaultBlockState(), 3);
+				a = SymbioteEntity.spawn(level, base.x, base.y, base.z + 4);
+				a.setHuntDelay(100000);
+				b = SymbioteEntity.spawn(level, base.x + 2.5, base.y, base.z + 4);
+				b.setHuntDelay(100000);
+				b.claimBond(p, 100000);
+			});
+			t0 = inWorldTicks;
+			buildScript(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void buildScript(Minecraft mc) {
+		at(5, () -> view(mc, 0, 1.8, 0.5, new Vec3(0, 0.2, 4)));
+		at(40, () -> shot(mc, "a01_trio"));
+		at(42, () -> viewAt(mc, () -> a, 0.3, 0.9, -1.3));
+		at(60, () -> shot(mc, "a02_close"));
+		at(75, () -> shot(mc, "a03_close_later"));
+		at(77, () -> viewAt(mc, () -> b, 0.2, 0.8, -1.4));
+		at(90, () -> shot(mc, "a04_held"));
+		at(95, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			husk = EntityType.HUSK.create(level);
+			husk.moveTo(base.x - 6, base.y, base.z + 14, 0, 0);
+			husk.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED).setBaseValue(0.0);
+			husk.setPersistenceRequired();
+			level.addFreshEntity(husk);
+			c = SymbioteEntity.spawn(level, base.x + 6, base.y, base.z + 14);
+		}));
+		at(97, () -> viewAt(mc, () -> c, 0, 2.5, -4));
+		for (int i = 0; i < 12; i++) {
+			final int k = 100 + i * 10;
+			at(k, () -> server(mc, p -> System.out.println("[HARNESS] t=" + k + " c=" + (c.isRemoved() ? "removed" : c.position())
+					+ " mood=" + c.mood() + " huskHost=" + SymbioteHost.is(husk))));
+		}
+		at(118, () -> shot(mc, "b01_hunting"));
+		at(124, () -> viewAt(mc, () -> c, 0.0, 1.0, -1.6));
+		at(128, () -> server(mc, p -> System.out.println("[HARNESS] c now " + c.position())));
+		at(131, () -> shot(mc, "b02_hunting_close"));
+		at(133, () -> viewAt(mc, () -> c, -1.6, 0.9, 0.3));
+		at(138, () -> shot(mc, "b03_hunting_side"));
+		at(200, () -> view(mc, 0, 2.5, 9, new Vec3(-6, 1, 14)));
+		at(215, () -> shot(mc, "b04_after_takeover"));
+		at(220, () -> server(mc, p -> a.recoil()));
+		at(221, () -> viewAt(mc, () -> a, 0.3, 0.9, -1.3));
+		at(230, () -> shot(mc, "c01_recoil"));
+		at(240, () -> view(mc, -2.5, 1.6, 1.5, new Vec3(-2.5, 0.5, 4)));
+		at(255, () -> shot(mc, "d01_meteorite"));
+		at(257, () -> server(mc, p -> {
+			p.setGameMode(GameType.SURVIVAL);
+			p.gameMode.destroyBlock(BlockPos.containing(base.add(-2.5, 0, 4)));
+			p.setGameMode(GameType.CREATIVE);
+			p.getAbilities().flying = true;
+			p.onUpdateAbilities();
+		}));
+		at(262, () -> shot(mc, "d02_breach"));
+		at(290, () -> shot(mc, "d03_released"));
+		at(300, () -> mc.stop());
+	}
+}

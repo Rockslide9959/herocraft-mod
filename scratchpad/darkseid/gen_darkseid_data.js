@@ -213,7 +213,7 @@ const L = {
 	'message.projecthero.darkseid_raid.relic': "You claimed Darkseid's Omega Relic!",
 	'message.projecthero.darkseid_raid.mother_box_drop': 'You claimed a Mother Box!',
 	'bar.projecthero.darkseid_raid.preparation': 'APOKOLIPS INVASION — the Boom Tubes open in %ss',
-	'bar.projecthero.darkseid_raid.wave': 'APOKOLIPS INVASION — Wave %s/3 · %s Parademons',
+	'bar.projecthero.darkseid_raid.wave': 'APOKOLIPS INVASION — Wave %s/%s · %s Parademons',
 	'bar.projecthero.darkseid_raid.wave_cleared': 'Wave %s repelled — next in %ss',
 	'bar.projecthero.darkseid_raid.entrance': 'THE LORD OF APOKOLIPS APPROACHES',
 	'bar.projecthero.darkseid_raid.mother_boxes': 'MOTHER BOXES %s/4 DISABLED — DARKSEID SHIELD %s%%',
@@ -231,11 +231,11 @@ const L = {
 	'projecthero.guide.darkseid_raid.start': 'Starting it',
 	'projecthero.guide.darkseid_raid.start.body': 'Craft a Boom Tube Beacon (Nether Star, 4 Supervillain Tokens, 2 Echo Shards, 3 Crying Obsidian -- or a Nether Star with 4 Omega Shards and 4 Crying Obsidian) and use it. Every survival player within 48 blocks joins the roster (max 8). Others can join while Darkseid is above half health; after that the roster is sealed. The arena is 64 blocks across the beacon -- stray outside and you are warned, then pulled back after a few seconds. Flight is never disabled.',
 	'projecthero.guide.darkseid_raid.waves': 'The invasion',
-	'projecthero.guide.darkseid_raid.waves.body': 'Three waves pour through Boom Tubes: Parademons; then Parademons with Ranged gunners (they hover level with flyers and lead their shots); then Elites, Brutes and gunners. Parademons take to the air after flying heroes.',
+	'projecthero.guide.darkseid_raid.waves.body': 'Five waves pour through Boom Tubes: Parademons; then Parademons with Ranged gunners (they strafe and circle you while they shoot, hover level with flyers and lead their shots); then Elites, Brutes and gunners in growing numbers for the last three. Parademons spread their wings and take to the air after flying heroes.',
 	'projecthero.guide.darkseid_raid.mother_boxes': 'The Mother Boxes',
-	'projecthero.guide.darkseid_raid.mother_boxes.body': 'Darkseid arrives shielded; four Mother Boxes around the arena each power 25% of the shield and he takes no damage until all four are down. Right-click a box and stay within 4 blocks for 10 seconds to disrupt it (hits do not interrupt you -- walking away, or his Grip, does). A box left alone for 90 seconds OVERLOADS: Darkseid heals, the box explodes, Parademons pour out and the ground burns.',
+	'projecthero.guide.darkseid_raid.mother_boxes.body': 'Darkseid arrives shielded; four Mother Boxes around the arena each power 25% of the shield and he takes no damage until all four are down. Right-click a box and stay within 4 blocks for 10 seconds to disrupt it (hits do not interrupt you -- walking away, or his Grip, does). A box left alone for 90 seconds OVERLOADS: Darkseid heals, the box explodes, Parademons pour out and the ground burns. Even after the shield falls he calls them back: a minute or so after all four are dark, one or two power up again (you get a few seconds of warning) -- each takes 25% off the damage he takes until you disable it again.',
 	'projecthero.guide.darkseid_raid.phase1': 'Phase 1',
-	'projecthero.guide.darkseid_raid.phase1.body': 'Fists and a two-handed hammer up close; the Godly Ground Slam (the ring drawn on the ground is its reach -- it also hits flyers up to 10 blocks); OMEGA BEAMS (you glow and get a warning -- two beams curve after you; blocks stop them and sharp turns make them overshoot); the Omega Barrage (warning circles where you are and where you are running -- leave them); DARKSEID’S GRIP (a purple line -- break line of sight before it closes; hitting him hard frees a gripped ally); the Omega Teleport (stay far away and he comes to you, even in the air); the Apokoliptian Charge (the lane is drawn on the ground -- step out of it); and Boom Tube reinforcements.',
+	'projecthero.guide.darkseid_raid.phase1.body': 'Fists and a two-handed hammer up close; the Godly Ground Slam (the ring drawn on the ground is its reach -- it also hits flyers up to 10 blocks); OMEGA BEAMS, his favourite (you glow and get a warning -- two beams snake toward you in sharp zig-zags, then home in; blocks stop them and sharp turns make them overshoot); the Omega Barrage (warning circles where you are and where you are running -- leave them); DARKSEID’S GRIP (a purple line -- break line of sight before it closes; hitting him hard frees a gripped ally); the Omega Teleport (stay far away and he comes to you, even in the air); the Apokoliptian Charge (the lane is drawn on the ground -- step out of it); and Boom Tube reinforcements.',
 	'projecthero.guide.darkseid_raid.phase2': 'Phase 2 -- Omega Empowered (60%)',
 	'projecthero.guide.darkseid_raid.phase2.body': 'Faster, stronger, shorter cooldowns, more reinforcements, and the OMEGA BEAM SWEEP: a knee-high beam that turns a full circle around him. Jump it, fly over it, or put a block between you and him.',
 	'projecthero.guide.darkseid_raid.phase3': 'Phase 3 -- Omega Rage (25%)',
@@ -285,10 +285,44 @@ Object.assign(L, {
  "title.projecthero.darkseid.staggered.sub": "Darkseid is staggered — strike now!"
 });
 
+// ---------------------------------------------------------------- v0.13.19 keys (waves 4-5, Mother Boxes returning mid-fight)
+// New keys go right after a related existing key (not at the end of the file); INSERT_AFTER is idempotent on re-runs.
+const V01319 = {
+	'title.projecthero.darkseid_raid.wave4.sub': 'The Parademon legions blot out the sky',
+	'title.projecthero.darkseid_raid.wave5.sub': "Darkseid's honour guard leads the last assault",
+	'entity.projecthero.mother_box.waking': '⚠ REAWAKENING ⚠',
+	'title.projecthero.darkseid_raid.boxes_stir': 'BOXES AWAKEN',
+	'title.projecthero.darkseid_raid.boxes_stir.sub': '%s Mother Box(es) power up in %ss — be ready to disable them!',
+	'title.projecthero.darkseid_raid.boxes_online': 'BOXES ONLINE',
+	'title.projecthero.darkseid_raid.boxes_online.sub': 'Darkseid shrugs off %s%% of all damage — disable them!',
+	'message.projecthero.darkseid_raid.boxes_stir': 'Darkseid calls on the Mother Boxes! %s will come back online in %s seconds.',
+	'message.projecthero.darkseid_raid.boxes_online': '%s Mother Box(es) back online — Darkseid takes %s%% less damage until they are disabled again.',
+	'bar.projecthero.darkseid_raid.fight_boxes': 'Phase %s · %s Parademons · Enrage in %s · %s Mother Box(es) online (-%s%% dmg)',
+	'bar.projecthero.darkseid_raid.enraged_boxes': 'Phase %s · %s Parademons · ENRAGED %s · %s Mother Box(es) online (-%s%% dmg)',
+	'bar.projecthero.darkseid_raid.boxes_stir': 'MOTHER BOXES REAWAKENING — %s in %ss',
+};
+Object.assign(L, V01319);
+const INSERT_AFTER = {
+	'entity.projecthero.mother_box.disabled': ['entity.projecthero.mother_box.waking'],
+	'title.projecthero.darkseid_raid.wave3.sub': ['title.projecthero.darkseid_raid.wave4.sub', 'title.projecthero.darkseid_raid.wave5.sub'],
+	'title.projecthero.darkseid_raid.overload.sub': ['title.projecthero.darkseid_raid.boxes_stir', 'title.projecthero.darkseid_raid.boxes_stir.sub',
+		'title.projecthero.darkseid_raid.boxes_online', 'title.projecthero.darkseid_raid.boxes_online.sub'],
+	'message.projecthero.darkseid_raid.box_reactivated': ['message.projecthero.darkseid_raid.boxes_stir', 'message.projecthero.darkseid_raid.boxes_online'],
+	'bar.projecthero.darkseid_raid.enraged': ['bar.projecthero.darkseid_raid.fight_boxes', 'bar.projecthero.darkseid_raid.enraged_boxes',
+		'bar.projecthero.darkseid_raid.boxes_stir'],
+};
+
 const LANG = ASSETS + 'lang/en_us.json';
 const raw = fs.readFileSync(LANG, 'utf8');
-const lang = JSON.parse(raw);
-Object.assign(lang, L);
+const old = JSON.parse(raw);
+const placed = new Set(Object.values(INSERT_AFTER).flat());
+const lang = {};
+for (const [k, v] of Object.entries(old)) {
+	if (placed.has(k)) continue;
+	lang[k] = k in L ? L[k] : v;
+	for (const nk of INSERT_AFTER[k] || []) lang[nk] = L[nk];
+}
+for (const [k, v] of Object.entries(L)) if (!(k in lang)) lang[k] = v;
 fs.writeFileSync(LANG, JSON.stringify(lang, null, 2) + '\n');
 
 // ---------------------------------------------------------------- verify every translatable key in the new code
@@ -303,6 +337,6 @@ for (const f of files) {
 	}
 }
 for (const k of ['entity.projecthero.darkseid', 'entity.projecthero.parademon']) if (!(k in lang)) missing++;
-for (let n = 1; n <= 3; n++) if (!('title.projecthero.darkseid_raid.wave' + n + '.sub' in lang)) missing++;
+for (let n = 1; n <= 5; n++) if (!('title.projecthero.darkseid_raid.wave' + n + '.sub' in lang)) missing++; // v0.13.19: five waves
 if (missing) { console.error(missing + ' missing keys'); process.exit(1); }
 console.log('data + lang written; ' + Object.keys(L).length + ' lang keys, all referenced keys present');

@@ -22,12 +22,11 @@ import net.minecraft.world.entity.player.Player;
  *   Banner:        Rage 62%              Hulk:   [R][G][X][Z][V][C]
  *     (or Exhausted 7s, the bar
  *      running down the timer)
- *                  o ==========                  Hulk Form
+ *                  ============                  Hulk Form
  *                                                Rage 62%
- *                                                o ==========
+ *                                                ============
  *                                                (Control 45% / bar -- only while control is slipping)
  * </pre>
- * {@code o} is the 3-pixel "the Hulk refuses to die" dot: bright when the death save is ready, dark while it recharges.
  * Mid-screen: the keep-control prompt, the rampage timer, the HULK SMASH wind-up and the calm-down hold. Only drawn
  * for a player with the Gamma power.
  */
@@ -76,7 +75,7 @@ public final class HulkHud {
 			bottom = cBar - 14;
 		}
 
-		// rage: label + the death-save dot and the bar
+		// rage: label and the bar
 		int rageBar = bottom - HAIRLINE;
 		boolean exhausted = s.exhaustedUntil > now;
 		int pct = Math.round(Math.max(0.0f, Math.min(1.0f, s.rage / HulkConfig.RAGE_MAX)) * 100.0f);
@@ -85,10 +84,9 @@ public final class HulkHud {
 				? Component.translatable("hud.projecthero.hulk.exhausted", (int) Math.ceil((s.exhaustedUntil - now) / 20.0))
 				: Component.translatable("hud.projecthero.hulk.rage", pct);
 		g.drawString(mc.font, label, x0, rageBar - 11, exhausted ? COLOR_EXHAUSTED : COLOR_LABEL, false);
-		boolean saveReady = Hulk.deathSaveReady(player);
-		g.fill(x0, rageBar, x0 + 3, rageBar + 3, saveReady ? 0xFFD8FFB0 : 0xFF263626);
-		int bx = x0 + 4; // 3 px dot, 1 px gap
-		int bw = totalW - 4;
+		// v0.13.19: the death-save dot is gone -- the save has no cooldown, so it was always lit
+		int bx = x0;
+		int bw = totalW;
 		int fill = s.hulk ? COLOR_RAGE_HULK : (s.rage >= HulkConfig.MANUAL_TRANSFORM_RAGE ? COLOR_RAGE_READY : COLOR_RAGE);
 		if (s.hulk && s.rage < 15.0f && (now / 5L) % 2L == 0L) {
 			fill = 0xFF4F7F2A; // about to shrink back

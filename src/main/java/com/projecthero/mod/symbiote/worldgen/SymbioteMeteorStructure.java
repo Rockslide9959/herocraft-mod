@@ -18,8 +18,8 @@ import net.minecraft.world.level.levelgen.structure.pieces.StructurePiecesBuilde
 
 /**
  * "Symbiote Meteor" -- a rare above-ground impact crater where a chunk of alien rock came down with a
- * Symbiote riding it. A free-floating {@link com.projecthero.mod.symbiote.entity.SymbioteEntity}
- * writhes at its centre; a Spider-Man who finds it can bond.
+ * Symbiote riding it. The organism lies dormant inside the Symbiote Meteorite block at its centre
+ * (v0.13.19); breaking the rock releases a free {@link com.projecthero.mod.symbiote.entity.SymbioteEntity}.
  *
  * <p>Same shape as the Mjolnir Crater and the Steel Crash Site: one procedural
  * {@link SymbioteMeteorPiece} (not a jigsaw template) so the crater follows real terrain, with

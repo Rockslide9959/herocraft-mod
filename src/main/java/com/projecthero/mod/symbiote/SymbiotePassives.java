@@ -77,9 +77,9 @@ public final class SymbiotePassives {
 		PowerToggles.clearModifier(player, Attributes.FALL_DAMAGE_MULTIPLIER, FALL_MULT);
 
 		if (suited) {
-			// Unarmed lands 5 (vanilla base 1.0 + 4.0) and jumps are noticeably higher -- the "powered
-			// up" feel of actually wearing the suit. Kept off the bonded-only baseline on purpose.
-			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, ATTACK, 4.0,
+			// Unarmed lands 6 (vanilla base 1.0 + 5.0; v0.13.19: +4 -> +5) and jumps are noticeably higher --
+			// the "powered up" feel of actually wearing the suit. Kept off the bonded-only baseline on purpose.
+			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, ATTACK, 5.0,
 					AttributeModifier.Operation.ADD_VALUE);
 			PowerToggles.modifier(player, Attributes.JUMP_STRENGTH, JUMP, 0.20,
 					AttributeModifier.Operation.ADD_MULTIPLIED_BASE);

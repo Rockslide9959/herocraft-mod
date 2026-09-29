@@ -404,12 +404,16 @@ public class DarkseidEntity extends Monster implements GeoEntity {
 						getBbWidth() * 0.5, getBbHeight() * 0.3, getBbWidth() * 0.5, 0.0);
 			}
 		}
-		if (isShielded() && tickCount % 4 == 0) {
+		// the Mother Box shield -- also (v0.13.19) the partial one that reactivated boxes give him mid-fight, one
+		// orbiting mote per active box, so the damage reduction is visible on him and not only on the boss bar
+		boolean partial = !isShielded() && getPhase() > 0 && shield() > 0.0f && !isDeadOrDying();
+		if ((isShielded() || partial) && tickCount % 4 == 0) {
 			double a = tickCount * 0.25;
 			double r = getBbWidth() * 1.3;
-			for (int i = 0; i < 3; i++) {
-				double ang = a + i * (Math.PI * 2 / 3);
-				server.sendParticles(SHIELD_BLUE, getX() + Math.cos(ang) * r, getY() + getBbHeight() * (0.2 + 0.3 * i),
+			int motes = isShielded() ? 3 : Math.max(1, Math.round(shield() * 4));
+			for (int i = 0; i < motes; i++) {
+				double ang = a + i * (Math.PI * 2 / motes);
+				server.sendParticles(SHIELD_BLUE, getX() + Math.cos(ang) * r, getY() + getBbHeight() * (0.2 + 0.6 * i / Math.max(1, motes - 1)),
 						getZ() + Math.sin(ang) * r, 1, 0, 0, 0, 0);
 			}
 		}

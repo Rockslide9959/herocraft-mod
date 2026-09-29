@@ -23,11 +23,28 @@ public final class SymbioteEntityTypes {
 					.fireImmune()
 					.build());
 
+	/** v0.13.19: the Symbiote Spike projectile (G / Shift+G). Modelled, never saved. */
+	public static final EntityType<SymbioteSpikeEntity> SPIKE = register("symbiote_spike",
+			FabricEntityTypeBuilder.<SymbioteSpikeEntity>create(MobCategory.MISC, SymbioteSpikeEntity::new)
+					.dimensions(EntityDimensions.fixed(0.3f, 0.3f))
+					.trackRangeBlocks(80)
+					.trackedUpdateRate(10)
+					.build());
+
+	/** v0.13.19: the living tendril drawn for every tendril move. Visual only, never saved. */
+	public static final EntityType<SymbioteTendrilEntity> TENDRIL = register("symbiote_tendril",
+			FabricEntityTypeBuilder.<SymbioteTendrilEntity>create(MobCategory.MISC, SymbioteTendrilEntity::new)
+					.dimensions(EntityDimensions.fixed(0.2f, 0.2f))
+					.trackRangeBlocks(80)
+					.trackedUpdateRate(20)
+					.disableSummon()
+					.build());
+
 	private SymbioteEntityTypes() {
 	}
 
 	public static void initialize() {
-		// Referencing this class loads it and registers SYMBIOTE.
+		// Referencing this class loads it and registers SYMBIOTE, SPIKE and TENDRIL.
 	}
 
 	private static <T extends net.minecraft.world.entity.Entity> EntityType<T> register(String path, EntityType<T> type) {

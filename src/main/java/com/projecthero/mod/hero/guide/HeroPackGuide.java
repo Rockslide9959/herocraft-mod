@@ -133,6 +133,11 @@ public final class HeroPackGuide {
 			lines.add(Component.literal(" Sneak+X  ").withStyle(ChatFormatting.GOLD)
 					.append(Component.translatable("projecthero.symbiote.ability.grapple").withStyle(ChatFormatting.WHITE)));
 			para(lines, "projecthero.symbiote.ability.grapple.desc");
+			for (String[] extra : new String[][]{{"Sneak+G", "spike_fan"}, {"Sneak+C", "tendril_grab"}}) {
+				lines.add(Component.literal(" " + extra[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.symbiote.ability." + extra[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.symbiote.ability." + extra[1] + ".desc");
+			}
 			blank(lines);
 			head(lines, "projecthero.guide.symbiote.passives");
 			lines.add(Component.literal(" • ").append(
@@ -543,6 +548,11 @@ public final class HeroPackGuide {
 			lines.add(Component.literal(" Sneak+X  ").withStyle(ChatFormatting.GOLD)
 					.append(Component.translatable("projecthero.symbiote.ability.grapple").withStyle(ChatFormatting.WHITE)));
 			para(lines, "projecthero.symbiote.ability.grapple.desc");
+			for (String[] extra : new String[][]{{"Sneak+G", "spike_fan"}, {"Sneak+C", "tendril_grab"}}) {
+				lines.add(Component.literal(" " + extra[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.symbiote.ability." + extra[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.symbiote.ability." + extra[1] + ".desc");
+			}
 			blank(lines);
 			head(lines, "projecthero.guide.symbiote.black_suit");
 			para(lines, "projecthero.guide.symbiote.black_suit.body");

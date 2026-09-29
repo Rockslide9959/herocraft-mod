@@ -21,7 +21,13 @@ public final class PowerGrants {
 	/** Every Hero-Tier key a grant accepts: the {@link HeroTiers#HERO_KEYS} Primary heroes plus the Symbiote. */
 	public static final List<String> HERO_TIER_KEYS = List.of(
 			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter",
-			"all_might", "hulk", "symbiote");
+			"all_might", "hulk", "moon_knight", "symbiote");
+
+	/**
+	 * v0.13.19: Hero-Tier powers still being built in phases. Grantable by an operator for testing, but the random
+	 * serums never roll them -- players should not be handed a half-finished hero.
+	 */
+	public static final java.util.Set<String> IN_DEVELOPMENT = java.util.Set.of("moon_knight");
 
 	/** What a grant did, with the line to show whoever asked for it. */
 	public record Result(boolean ok, Component message) {
@@ -49,7 +55,7 @@ public final class PowerGrants {
 	public static List<String> missingHeroTiers(ServerPlayer player) {
 		List<String> out = new ArrayList<>();
 		for (String key : HERO_TIER_KEYS) {
-			if (!holdsHeroTier(player, key)) {
+			if (!holdsHeroTier(player, key) && !IN_DEVELOPMENT.contains(key)) {
 				out.add(key);
 			}
 		}
@@ -158,6 +164,10 @@ public final class PowerGrants {
 			case "hulk" -> {
 				boolean ok = com.projecthero.mod.hulk.Hulk.grant(target);
 				return new Result(ok, Component.literal(ok ? "Gave " + name + " the Gamma power (Hulk)" : name + " already has the Gamma power"));
+			}
+			case "moon_knight" -> {
+				boolean ok = com.projecthero.mod.moonknight.MoonKnight.grant(target);
+				return new Result(ok, Component.literal(ok ? "Sealed " + name + "'s pact with Khonshu (Moon Knight)" : name + " already serves Khonshu"));
 			}
 			default -> {
 				boolean ok = com.projecthero.mod.symbiote.Symbiote.grant(target);

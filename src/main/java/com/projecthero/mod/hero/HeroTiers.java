@@ -52,7 +52,8 @@ public final class HeroTiers {
 				|| Wolverine.hasPower(player)
 				|| TitanShifter.isShifter(player)
 				|| com.projecthero.mod.allmight.AllMight.hasPower(player)
-				|| com.projecthero.mod.hulk.Hulk.hasPower(player);
+				|| com.projecthero.mod.hulk.Hulk.hasPower(player)
+				|| com.projecthero.mod.moonknight.MoonKnight.hasPower(player);
 	}
 
 	/** How many Hero-Tier (non-experimental) Primary powers the player holds. */
@@ -76,7 +77,7 @@ public final class HeroTiers {
 
 	/** Every non-experimental Primary power key, as used by {@code HeroCommand}. */
 	public static final java.util.List<String> HERO_KEYS = java.util.List.of(
-			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter", "all_might", "hulk");
+			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter", "all_might", "hulk", "moon_knight");
 
 	/** Whether the player currently holds the Hero-Tier power named by {@code key}. */
 	public static boolean holdsHero(ServerPlayer player, String key) {
@@ -91,6 +92,7 @@ public final class HeroTiers {
 			case "titan_shifter" -> TitanShifter.isShifter(player);
 			case "all_might" -> com.projecthero.mod.allmight.AllMight.hasPower(player);
 			case "hulk" -> com.projecthero.mod.hulk.Hulk.hasPower(player);
+			case "moon_knight" -> com.projecthero.mod.moonknight.MoonKnight.hasPower(player);
 			default -> false;
 		};
 	}
@@ -141,6 +143,11 @@ public final class HeroTiers {
 			case "hulk" -> {
 				if (com.projecthero.mod.hulk.Hulk.hasPower(player)) {
 					com.projecthero.mod.hulk.Hulk.revoke(player);
+				}
+			}
+			case "moon_knight" -> {
+				if (com.projecthero.mod.moonknight.MoonKnight.hasPower(player)) {
+					com.projecthero.mod.moonknight.MoonKnight.revoke(player);
 				}
 			}
 			default -> {
@@ -343,6 +350,9 @@ public final class HeroTiers {
 			return true;
 		}
 		if (!excludeHeroKeys.contains("hulk") && com.projecthero.mod.hulk.Hulk.hasPower(player)) {
+			return true;
+		}
+		if (!excludeHeroKeys.contains("moon_knight") && com.projecthero.mod.moonknight.MoonKnight.hasPower(player)) {
 			return true;
 		}
 		return false;

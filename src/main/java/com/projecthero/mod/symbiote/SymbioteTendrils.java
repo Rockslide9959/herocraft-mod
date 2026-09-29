@@ -25,7 +25,7 @@ final class SymbioteTendrils {
 			return false;
 		}
 		ServerLevel level = AbilityHelpers.level(player);
-		Vec3 hand = player.getEyePosition().add(player.getLookAngle().scale(0.6)).add(0, -0.3, 0);
+		Vec3 hand = SymbioteHands.right(player);
 		AbilityHelpers.line(level, hand, target.position().add(0, target.getBbHeight() * 0.5, 0),
 				ParticleTypes.SQUID_INK, 3.0);
 		SymbioteSounds.organic(player, 0.8f, 0.6f);

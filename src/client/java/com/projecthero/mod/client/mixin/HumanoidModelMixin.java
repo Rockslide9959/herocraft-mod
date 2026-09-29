@@ -134,6 +134,8 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			com.projecthero.mod.client.allmight.AllMightPose.apply(player, (HumanoidModel<?>) (Object) this);
 			// v0.13.15: Banner on his knees through the unwilling Hulk change
 			com.projecthero.mod.client.hulk.HulkPose.apply(player, (HumanoidModel<?>) (Object) this);
+			// v0.13.19: Symbiote move animations + suit-up pose
+			com.projecthero.mod.client.symbiote.SymbiotePose.apply(player, (HumanoidModel<?>) (Object) this);
 		}
 	}
 

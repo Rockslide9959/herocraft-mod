@@ -98,9 +98,9 @@ public final class SymbioteBlackSuitAbilities {
 		}
 		AbilityHelpers.knockbackFrom(target, player.position(), 0.9);
 		ServerLevel level = AbilityHelpers.level(player);
-		Vec3 hand = player.getEyePosition().add(player.getLookAngle().scale(0.6));
 		Vec3 hit = target.position().add(0, target.getBbHeight() * 0.5, 0);
-		AbilityHelpers.line(level, hand, hit, ParticleTypes.SQUID_INK, 4.0);
+		// v0.13.19: a real tendril from the hand, not a particle line from the face
+		com.projecthero.mod.symbiote.entity.SymbioteTendrilEntity.fromHand(player, true, hit, target, 10, 3, 0.12f);
 		AbilityHelpers.burst(level, hit, ParticleTypes.SQUID_INK, 14, 0.3);
 		AbilityHelpers.burst(level, hit, ParticleTypes.CRIT, 6, 0.3);
 		SymbioteSounds.organic(player, 0.8f, 0.5f);
@@ -229,7 +229,7 @@ public final class SymbioteBlackSuitAbilities {
 		if (player.tickCount % 3 == 0) {
 			level.sendParticles(ParticleTypes.SMOKE, mid.x, mid.y, mid.z, 4, rx, 0.35, rx, 0.0);
 		}
-		AbilityHelpers.line(level, player.getEyePosition().add(player.getLookAngle().scale(0.5)), mid,
+		AbilityHelpers.line(level, SymbioteHands.right(player), mid,
 				ParticleTypes.SQUID_INK, 2.5);
 
 		if (now - c[2] >= CRUSH_DAMAGE_INTERVAL) {

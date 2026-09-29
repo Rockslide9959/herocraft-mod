@@ -51,6 +51,18 @@ public final class SymbioteReveal {
 		return s != null && SymbioteTransform.isAnimating(s);
 	}
 
+	/** v0.13.19: how far on the suit looks right now (0 bare .. 1 fully on), smoothed with the partial tick. */
+	public static float progress(Player player, float partialTick) {
+		SymbioteState s = state(player);
+		if (s == null) {
+			return 1.0f;
+		}
+		long now = player.level().getGameTime();
+		float a = SymbioteTransform.effectiveProgress(s, now);
+		float b = SymbioteTransform.effectiveProgress(s, now + 1);
+		return Math.max(0.0f, Math.min(1.0f, a + (b - a) * partialTick));
+	}
+
 	/** Whether {@code boneName} should be hidden this frame. */
 	public static boolean hidden(Player player, String boneName) {
 		SymbioteState s = state(player);

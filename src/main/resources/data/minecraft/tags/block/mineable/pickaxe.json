@@ -13,6 +13,7 @@
     "projecthero:pressure_chamber",
     "projecthero:hydrostatic_test_tank",
     "projecthero:electromagnetic_coil",
-    "projecthero:gamma_reactor"
+    "projecthero:gamma_reactor",
+    "projecthero:symbiote_meteorite"
   ]
 }

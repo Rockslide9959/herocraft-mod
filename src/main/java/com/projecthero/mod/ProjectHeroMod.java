@@ -81,6 +81,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.maxsteel.item.MaxSteelItems.initialize();
 		com.projecthero.mod.maxsteel.entity.MaxSteelEntityTypes.initialize();
 		com.projecthero.mod.spider.entity.SpiderEntityTypes.initialize();
+		com.projecthero.mod.symbiote.block.SymbioteBlocks.initialize();
 		com.projecthero.mod.symbiote.entity.SymbioteEntityTypes.initialize();
 		com.projecthero.mod.symbiote.item.SymbioteHostItems.initialize();
 		com.projecthero.mod.titan.entity.TitanEntityTypes.initialize();
@@ -253,6 +254,7 @@ public class ProjectHeroMod implements ModInitializer {
 				com.projecthero.mod.allmight.AllMight.onDeath(sp);
 				// Hulk: nothing transient survives death (rage + the change reset on respawn; the power is kept).
 				com.projecthero.mod.hulk.Hulk.clearTransient(sp);
+				com.projecthero.mod.moonknight.MoonKnight.clearTransient(sp);
 				// Thor: the conjured armour dies with its wearer (never drops, never survives keepInventory).
 				com.projecthero.mod.thorarmor.ThorArmor.onDeath(sp);
 			}
@@ -263,6 +265,8 @@ public class ProjectHeroMod implements ModInitializer {
 		// free-floating entity a Spider-Man can bond with.
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) ->
 				com.projecthero.mod.symbiote.SymbioteHost.onDeath(entity));
+		// v0.13.19 Moon Knight: hostile kills feed Vengeance.
+		ServerLivingEntityEvents.AFTER_DEATH.register(com.projecthero.mod.moonknight.MoonKnight::onEntityKilled);
 
 		// "changes 17": while Protocol Phoenix has a player incapacitated, veto every interaction --
 		// attacking, breaking / placing / using blocks, using items, interacting with entities.
@@ -321,8 +325,10 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.greenlantern.GreenLantern.onPlayerJoin(player);
 			com.projecthero.mod.wolverine.Wolverine.onPlayerJoin(player);
 			com.projecthero.mod.titanshifter.TitanShifter.onPlayerJoin(player);
+			com.projecthero.mod.symbiote.SymbioteVitalsManager.onPlayerJoin(player);
 			com.projecthero.mod.allmight.AllMight.onPlayerJoin(player);
 			com.projecthero.mod.hulk.Hulk.onPlayerJoin(player);
+			com.projecthero.mod.moonknight.MoonKnight.onPlayerJoin(player);
 		});
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
 			ThorPowers.onPlayerRespawn(newPlayer);
@@ -359,6 +365,7 @@ public class ProjectHeroMod implements ModInitializer {
 					com.projecthero.mod.titanshifter.TitanShifter.forceEnd(player, true);
 					com.projecthero.mod.allmight.AllMight.clearTransient(player);
 					com.projecthero.mod.hulk.Hulk.clearTransient(player);
+					com.projecthero.mod.moonknight.MoonKnight.clearTransient(player);
 				});
 		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			com.projecthero.mod.spider.SpiderMan.clearTransient(handler.getPlayer());
@@ -372,6 +379,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.titanshifter.TitanShifter.clearTransient(handler.getPlayer());
 			com.projecthero.mod.allmight.AllMight.clearTransient(handler.getPlayer());
 			com.projecthero.mod.hulk.Hulk.clearTransient(handler.getPlayer());
+			com.projecthero.mod.moonknight.MoonKnight.clearTransient(handler.getPlayer());
 			com.projecthero.mod.oathbreaker.entity.OathbreakerEntity.releaseIfHeld(handler.getPlayer());
 		});
 		// A Titan never survives a server stop: put every shifter back on the ground before the world saves.

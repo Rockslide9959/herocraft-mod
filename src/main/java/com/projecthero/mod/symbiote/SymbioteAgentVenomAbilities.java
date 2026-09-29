@@ -193,7 +193,7 @@ public final class SymbioteAgentVenomAbilities {
 		boolean boss = com.projecthero.mod.titanshifter.TitanCombat.isBoss(target);
 		ServerLevel level = AbilityHelpers.level(player);
 		Vec3 from = target.position().add(0, target.getBbHeight() * 0.5, 0);
-		AbilityHelpers.line(level, player.getEyePosition().add(player.getLookAngle().scale(0.6)), from,
+		AbilityHelpers.line(level, SymbioteHands.right(player), from,
 				ParticleTypes.SQUID_INK, 3.0);
 		AbilityHelpers.hurt(player, target, SNATCH_DAMAGE);
 		AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, 60, 2);

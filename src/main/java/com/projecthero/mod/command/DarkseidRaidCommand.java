@@ -30,6 +30,7 @@ import net.minecraft.server.level.ServerPlayer;
  *   <li>{@code raid removetimer darkseid} -- the invasion has no pending timer to cancel; reports status instead.</li>
  *   <li>{@code raid darkseid status | enrage | attack <name> | stagger} -- inspect the nearest invasion, trigger its
  *       soft enrage, make Darkseid use one attack now, or stagger him.</li>
+ *   <li>{@code raid darkseid boxes} (v0.13.19) -- make the fight's Mother Box return happen now.</li>
  * </ul>
  */
 public final class DarkseidRaidCommand {
@@ -57,6 +58,16 @@ public final class DarkseidRaidCommand {
 					raid.debugEnrage();
 					c.getSource().sendSuccess(() -> Component.literal("Soft enrage triggered."), true);
 					return 1;
+				}))
+				.then(Commands.literal("boxes").executes(c -> {
+					DarkseidRaid raid = nearest(c);
+					if (raid == null) {
+						return 0;
+					}
+					boolean ok = raid.debugBoxReturnNow();
+					c.getSource().sendSuccess(() -> Component.literal(ok ? "Mother Box return triggered (needs every box dark)."
+							: "Only during Darkseid's phases 1-3."), true);
+					return ok ? 1 : 0;
 				}))
 				.then(Commands.literal("stagger").executes(c -> {
 					DarkseidEntity d = nearestDarkseid(c);

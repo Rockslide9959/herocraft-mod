@@ -53,11 +53,15 @@ public final class SymbioteVitalsManager {
 	 */
 	public static final float BIOMASS_HIT_FRACTION = 0.4f;
 
-	/** Symbiote Blade: 15 s of hold time (1 charge point per tick), refills a little faster while sheathed. */
+	/** Legacy Symbiote Blade charge cap -- v0.13.19 removed the blade's time limit; kept for the save format. */
 	public static final float BLADE_MAX = 300.0f;
-	private static final float BLADE_DRAIN_PER_TICK = 1.0f;
-	private static final float BLADE_REGEN_PER_TICK = 1.4f;
 	private static final float BLADE_BONUS_DAMAGE = 5.0f;
+	/** v0.13.19: the blade has no time limit -- it costs 0.3 Biomass a second while it is out instead. */
+	public static final float BLADE_BIOMASS_PER_SECOND = 0.3f;
+	/** v0.13.19: the Symbiote Shield has no time limit -- it costs 0.5 Biomass a second while it is up. */
+	public static final float SHIELD_BIOMASS_PER_SECOND = 0.5f;
+	/** v0.13.19: a Symbiote revive is ready again ten minutes after the last one (no Biomass cost). */
+	public static final int RESURRECT_COOLDOWN_TICKS = 12000;
 
 	/** A wild bond takes this long to settle: protection but no abilities, and the host feels sick. */
 	public static final int BONDING_TICKS = 700; // 35 s
@@ -82,6 +86,8 @@ public final class SymbioteVitalsManager {
 	private static final Map<Integer, Long> LAST_WARN = new ConcurrentHashMap<>();
 	/** Per-player last game time a hit was dealt or taken -- gates Biomass regen and feeds the dialogue. */
 	private static final Map<Integer, Long> LAST_COMBAT = new ConcurrentHashMap<>();
+	/** v0.13.19: game time of the last blade / shield Biomass charge -- at most one per tick, however often tick() runs. */
+	private static final Map<Integer, Long> LAST_DRAIN = new ConcurrentHashMap<>();
 	/** Per-player last game time the Symbiote lost a large chunk of Biomass from a single hit. */
 	private static final Map<Integer, Long> LAST_BIG_HIT = new ConcurrentHashMap<>();
 
@@ -294,17 +300,17 @@ public final class SymbioteVitalsManager {
 			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.blade_hands_full"), true);
 			return;
 		}
-		if (v.bladeCharge < BLADE_MAX * 0.1f) {
+		if (v.hp <= 0.0f) {
 			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.blade_spent"), true);
 			return;
 		}
 		setBlade(player, v, true);
+		SymbioteAnim.play(player, SymbioteAnim.BLADE_FORM);
 		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.blade_on")
 				.withStyle(ChatFormatting.DARK_PURPLE), true);
 		if (player.level() instanceof ServerLevel level) {
-			level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 1.2, player.getZ(),
-					24, 0.3, 0.4, 0.3, 0.02);
 			SymbioteSounds.organic(level, player.getX(), player.getY(), player.getZ(), 0.9f, 0.4f);
+			SymbioteSounds.lash(player, 0.8f, 1.2f);
 		}
 	}
 
@@ -333,6 +339,9 @@ public final class SymbioteVitalsManager {
 		SymbioteVitals c = v.copy();
 		c.thornsMode = !v.thornsMode;
 		save(player, c);
+		if (c.thornsMode) {
+			SymbioteAnim.play(player, SymbioteAnim.SPIKES_FLEX);
+		}
 		player.displayClientMessage(Component.translatable(c.thornsMode
 						? "message.projecthero.symbiote.spikes_on" : "message.projecthero.symbiote.spikes_off")
 				.withStyle(ChatFormatting.DARK_PURPLE), true);
@@ -364,8 +373,25 @@ public final class SymbioteVitalsManager {
 
 		// Regeneration -- 9 Biomass per second, but only after 5 s clear of combat. A broken bar
 		// climbs the same way (that is how the ability lock lifts), so staying in a fight keeps it locked.
+		// v0.13.19: the blade and the shield feed on Biomass while they are out, and it does not grow back
+		// while it is being spent.
 		long nowTime = player.level().getGameTime();
-		if (c.hp < MAX_HP && outOfCombat(player, nowTime)) {
+		boolean shieldUp = Symbiote.state(player).shieldHeld;
+		float drain = (c.bladeActive ? BLADE_BIOMASS_PER_SECOND : 0.0f) + (shieldUp ? SHIELD_BIOMASS_PER_SECOND : 0.0f);
+		if (drain > 0.0f && c.hp > 0.0f) {
+			// charged in 4-tick installments on the game clock, each saved at once, so none of it is lost
+			// between the throttled saves below
+			if (nowTime % 4L == 0L && !Long.valueOf(nowTime).equals(LAST_DRAIN.put(player.getId(), nowTime))) {
+				c.hp = Math.max(0.0f, c.hp - drain * 4.0f / 20.0f);
+				transition = true;
+			}
+			if (c.hp <= 0.0f && !c.broken) {
+				c.broken = true;
+				transition = true;
+				player.displayClientMessage(Component.translatable("message.projecthero.symbiote.spent")
+						.withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD), true);
+			}
+		} else if (c.hp < MAX_HP && outOfCombat(player, nowTime)) {
 			c.hp = Math.min(MAX_HP, c.hp
 					+ (Symbiote.isActive(player) ? REGEN_PER_TICK * SUITED_REGEN_FACTOR : REGEN_PER_TICK));
 			dirty = true;
@@ -377,30 +403,20 @@ public final class SymbioteVitalsManager {
 					.withStyle(ChatFormatting.DARK_PURPLE), true);
 		}
 
-		// Blade upkeep: drain while out, sheathe it if the charge runs dry or the hand is filled.
+		// Blade upkeep (v0.13.19: no time limit, no particle sheath -- it has a model now): sheathe it if the
+		// hand is filled or the Biomass runs dry.
 		if (c.bladeActive) {
 			if (!player.getMainHandItem().isEmpty()) {
 				c.bladeActive = false;
 				reconcileBlade(player, false);
 				player.displayClientMessage(Component.translatable("message.projecthero.symbiote.blade_hands_full"), true);
 				transition = true;
-			} else {
-				c.bladeCharge = Math.max(0.0f, c.bladeCharge - BLADE_DRAIN_PER_TICK);
-				dirty = true;
-				if (c.bladeCharge <= 0.0f) {
-					c.bladeActive = false;
-					reconcileBlade(player, false);
-					player.displayClientMessage(Component.translatable("message.projecthero.symbiote.blade_spent"), true);
-					transition = true;
-				} else if (player.tickCount % 3 == 0 && player.level() instanceof ServerLevel level) {
-					level.sendParticles(ParticleTypes.SQUID_INK,
-							player.getX(), player.getY() + player.getBbHeight() * 0.6, player.getZ(),
-							2, 0.25, 0.3, 0.25, 0.0);
-				}
+			} else if (c.broken || c.hp <= 0.0f) {
+				c.bladeActive = false;
+				reconcileBlade(player, false);
+				player.displayClientMessage(Component.translatable("message.projecthero.symbiote.blade_spent"), true);
+				transition = true;
 			}
-		} else if (c.bladeCharge < BLADE_MAX) {
-			c.bladeCharge = Math.min(BLADE_MAX, c.bladeCharge + BLADE_REGEN_PER_TICK);
-			dirty = true;
 		} else {
 			reconcileBlade(player, false);
 		}
@@ -554,7 +570,10 @@ public final class SymbioteVitalsManager {
 
 	// ---------------- lifecycle ----------------
 
-	/** Death / relog / dimension change / unbond: heal the Symbiote back up and drop its toggles. */
+	/**
+	 * Death / relog / dimension change: drop the Symbiote's toggles. v0.13.19: the Biomass itself is KEPT --
+	 * dying used to hand the host a full bar on respawn; now they come back with exactly what they had.
+	 */
 	public static void clearTransient(ServerPlayer player) {
 		SNEAK_START.remove(player.getId());
 		LAST_WARN.remove(player.getId());
@@ -566,15 +585,45 @@ public final class SymbioteVitalsManager {
 			return;
 		}
 		SymbioteVitals c = v.copy();
-		c.hp = MAX_HP;
-		c.broken = false;
 		c.bladeActive = false;
 		c.bladeCharge = BLADE_MAX;
 		c.thornsMode = false;
+		c.animId = SymbioteAnim.NONE;
+		save(player, c);
+	}
+
+	/**
+	 * Join: game time is per world, so a revive cooldown stamped in another world (or before a /time change)
+	 * could sit hours in the future. Never let it wait longer than one full cooldown from now.
+	 */
+	public static void onPlayerJoin(ServerPlayer player) {
+		SymbioteVitals v = player.getAttachedOrElse(ModAttachments.SYMBIOTE_VITALS, null);
+		if (v == null) {
+			return;
+		}
+		long now = player.level().getGameTime();
+		long cap = now + RESURRECT_COOLDOWN_TICKS;
+		if (v.resurrectReadyAt > cap || v.spikeConeReadyAt > now + 400L) {
+			SymbioteVitals c = v.copy();
+			c.resurrectReadyAt = Math.min(c.resurrectReadyAt, cap);
+			c.spikeConeReadyAt = Math.min(c.spikeConeReadyAt, now + 400L);
+			save(player, c);
+		}
+	}
+
+	/** Game time the host's next Symbiote revive is ready (v0.13.19). */
+	public static long resurrectReadyAt(ServerPlayer player) {
+		return vitals(player).resurrectReadyAt;
+	}
+
+	static void markResurrected(ServerPlayer player) {
+		SymbioteVitals c = vitals(player).copy();
+		c.resurrectReadyAt = player.level().getGameTime() + RESURRECT_COOLDOWN_TICKS;
 		save(player, c);
 	}
 
 	public static void clearSessionState() {
+		LAST_DRAIN.clear();
 		SNEAK_START.clear();
 		LAST_WARN.clear();
 		LAST_COMBAT.clear();

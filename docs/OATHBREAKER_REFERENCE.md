@@ -1,4 +1,71 @@
-# The Oathbreaker — reference (v0.14.0, tuned in v0.13.9 and v0.13.10)
+# The Oathbreaker — reference (v0.14.0, tuned in v0.13.9 and v0.13.10, extended in v0.13.19)
+
+> **v0.13.19**: two new attacks, 50-block tracking, and a threat system so he actually turns on whoever is
+> hurting him. All numbers in `OathbreakerTuning` (sections "threat / target switching", "Oathbound Whirlwind",
+> "Grave Geysers"); damage goes through `strike()`, so the phase multipliers (x1.1 / x1.25) and the 10%-of-max-HP
+> cap against other bosses apply as usual.
+>
+> - **Oathbound Whirlwind** (`Attack.WHIRLWIND`, all phases). 0.7 s wind-up, sword drawn low behind him (low
+>   glint, grindstone scrape) -> **two full spins** in 0.8 s (hyper armor), each cutting **everyone within 5 blocks
+>   all the way round** (horizontal, from his feet -- `radiusTargets`) for **11** on the contact frames at 0.20 s
+>   and 0.60 s: the first barely shoves (0.35), the second throws you out (1.1) -> **1.5 s dizzy recovery**, no
+>   hyper armor, soul wisps circling his helm (the punish window). Own 8 s cooldown. Favoured whenever he's
+>   **surrounded**: a valid player within 5 blocks more than 100 degrees off his facing (behind him), or 2+ players
+>   within 5 blocks. While surrounded and off cooldown he rolls 50% every 0.5 s *before any other pick* (whoever
+>   his target is and wherever they stand), and in the melee pool its weight jumps from 12/10/10 to 50. Phase 2+
+>   adds a soul-fire ring on each contact.
+>   - *Animation*: `whirlwind_windup` (14 ticks) and `whirlwind_strike` (46 ticks = spins 16 + recovery 30, one
+>     clip across two Java steps). The spin is a **root-bone Y rotation 0 -> 719 degrees**, linear, held at 719 to
+>     the end of the clip. Why 719 and why one clip: GeckoLib's bone reset (`AnimationProcessor`) snaps a
+>     "suspected completed rotation" back to 0 when no clip animates the bone any more -- but only for values at or
+>     just *below* a whole number of turns -- whereas a following clip keyed at 0 would lerp him 719 degrees
+>     backwards over the controller's 1-tick transition. The build script fails if any other clip keys root
+>     rotation, if the root isn't 719 from the end of the spins, or if SPIN + RECOVER != STRIKE.
+> - **Grave Geysers** (`Attack.GRAVE_GEYSERS`, phase 2+). 0.8 s: both hands on the hilt overhead, reverse grip
+>   (glint up high, respawn-anchor charge) -> plunge, down on one knee; the blade goes in 0.15 s into
+>   `geyser_plunge` (small shake, mace slam, anchor deplete) and **a ring of soul particles appears under every
+>   valid player within 30 blocks** (plus his target if it isn't a player; nearest 8). The rings **follow their
+>   player for 0.5 s, then lock** (anchor-charge ping, ring turns to soul fire), and **0.75 s later** a 4.5-block
+>   soul-fire column erupts on each: **15** damage, launched ~3.5 blocks up (y velocity 0.75), 2 s of fire, once
+>   per cast even where columns overlap. He stays **bowed over the planted sword for 2.2 s** (`geyser_bowed`, no
+>   hyper armor); the columns go off 0.9 s into it, leaving ~1.3 s to punish. Own 12 s cooldown. At range (6-30
+>   blocks) it's rolled alongside the Chains once a second -- 25%, or 45% with 2+ players within 30 blocks -- and
+>   it's in the phase 2/3 melee pools at weight 8/10 (doubled with 2+ players). The casts are hazards (like Soul
+>   Rend's lines): a stagger after the plunge doesn't stop columns that are already coming.
+> - **Tracking from 50 blocks.** `FOLLOW_RANGE` and the boss-bar radius 48 -> 50. The only target goal left is a
+>   `NearestAttackableTargetGoal` (priority 2) with `mustSee = false` and its `TargetingConditions` rebuilt with
+>   `ignoreLineOfSight()` -- in 1.21.1 `mustSee` only affects *keeping* a target; *acquiring* one checked line of
+>   sight regardless. So he picks up the nearest valid player within 50 blocks through walls and never drops one
+>   for stepping out of view -- only for leaving 50 blocks, dying, going creative/spectator or changing dimension.
+>   Its `canUse` is overridden to stand down while he already has a target, so it never overwrites a target the
+>   threat system chose. **Saved worlds:** vanilla saves attribute base values, so `readAdditionalSaveData` now
+>   re-applies `FOLLOW_RANGE` (a boss saved by an older version would otherwise keep 48 forever).
+> - **Threat / target switching** (`entity/OathbreakerThreat.java`). User report: "if my friend is just luring him
+>   in 1 direction I'm able to just spam hit him and he doesn't change priority to me". Root cause: vanilla
+>   `HurtByTargetGoal` only retargets in `start()`; once it was running with the friend as target, other players'
+>   hits did nothing, and the lower-priority nearest-player goal couldn't interrupt it. **`HurtByTargetGoal` is
+>   gone.** Every landed hit (`OathbreakerEntity#hurt` -> `OathbreakerCombat#noteDamageTaken`) adds its raw
+>   damage (min 1) as threat for the attacker (projectiles count for the shooter); threat halves every 5 s. On
+>   every hit from someone who isn't his target, and every 1 s for the strongest non-target attacker, he
+>   **switches** when: he has no target; or -- outside a **1.75 s lockout** after the last switch -- the attacker's
+>   threat is **more than 1.25x** the target's (a target who has never hit him has 0, which is exactly the lure
+>   case), or the target **hasn't hurt him for 4 s** while the attacker has and is **closer**. Candidates must be
+>   valid (`isValidTarget`: never creative/spectator), attackable (`Mob#canAttack`: not invulnerable, not
+>   peaceful), in his dimension and within 50 blocks. **Never** while holding an Execution victim (hold, and the
+>   impale up to its contact frame). A switch mid-wind-up re-aims naturally: every wind-up tracks
+>   `boss.getTarget()`. Oath Guard eligibility ("the target hit him in the last 3 s") now reads the threat table,
+>   so it follows the current target. Because the threat system sets targets outside any goal, combat also drops a
+>   target that's left the dimension or gone past 54 blocks. Parried hits add no threat (the riposte answers them).
+> - **GameTests** (`src/gametest/.../OathbreakerGameTests.java`, each boss test in its own batch): the switching
+>   rule directly (lure case, margin, lockout, idle rule, half-life); the rule on the real entity via `hurt()` from
+>   NoAI husks (the mock player is always "creative"); the follow range surviving a save/load from 48; both new
+>   attacks run every step with the right hyper-armor state, the whirlwind hits a husk in front AND behind, the
+>   geysers hit (and ignite) a target 10 blocks away and not a bystander. Test hooks: `OathbreakerEntity`
+>   `debugBeginAttack / debugActiveAttack / debugAttackStep / debugHoldAttacks / debugThreat`.
+> - **Not verified in-client:** how the two new clips actually look (the spin direction relative to the blade edge,
+>   the dizzy sway, the reverse-grip raise and plunge), the particle telegraphs, and real multiplayer switching.
+>   Known edge: a **stagger mid-spin** interrupts `whirlwind_strike` at a non-whole rotation, so GeckoLib lerps the
+>   root back to 0 over one tick (a brief reverse whip) -- accepted, it's already a violent interruption.
 
 > **v0.13.10**: every damage number roughly **halved** -- once v0.13.9 fixed his aim his hits finally landed,
 > and on top of the +40% pass he was overwhelming. Now: dash 20, combo 7/hit, riposte 13, leap 14, rend 9,
@@ -45,6 +112,7 @@ Every tunable number (HP, damage, ranges, arcs, cooldowns, tick lengths, chances
 | Tunables | `oathbreaker/OathbreakerTuning.java` |
 | Entity: lifecycle, phases + sync, poise/stagger, transitions, death, GeckoLib controllers, riding overrides | `oathbreaker/entity/OathbreakerEntity.java` |
 | Every attack (state machine, parry, scripted movement, hazards, anti-cheese) | `oathbreaker/entity/OathbreakerCombat.java` |
+| Threat table / target-switching rule (v0.13.19) | `oathbreaker/entity/OathbreakerThreat.java` |
 | Shared shake/zoom/particle-shape cues | `oathbreaker/OathbreakerFx.java` |
 | Summon delay + multiplayer HP scaling | `oathbreaker/OathbreakerSummon.java` |
 | Model (texture per phase) / renderer (glow layer, sword item, death fade) | `client/oathbreaker/OathbreakerModel.java`, `OathbreakerRenderer.java` |
@@ -71,7 +139,7 @@ players). Written once into the `MAX_HEALTH` attribute's base value and never to
 | Armor / toughness | 10 / 4 |
 | Knockback resistance | 0.8; **1.0 during any wind-up or active strike** ("hyper armor", `setHyperArmor`). Dropped back to 0.8 during every punish window (post-dash stance, chain miss, grab whiff) |
 | Movement speed | 0.19 / 0.22 / 0.26 by phase (v0.13.9; was 0.15 / 0.18 / 0.22) |
-| Follow range / boss-bar radius | 48 / 48 |
+| Follow range / boss-bar radius | 50 / 50 (v0.13.19; was 48 / 48) -- acquired without line of sight |
 | XP | 500 (actually dropped now -- see "Death") |
 
 `TitanCombat.isBoss()` still trips (it's a `getMaxHealth() >= config threshold` check; 4,000 clears it --
@@ -127,11 +195,14 @@ just below his feet to just above his head; anyone inside his footprint counts a
 | Chains of the Forsworn | 2+ (range 6-16, 35%/s roll) | 0.5 s off-hand wind-up -> a visible chain flies at where you were, 1.6 blocks/tick, 18 reach -> caught: dragged in over 0.5 s, then combo strike 1; missed: 1 s open recovery | strike 10 | sidestep the throw |
 | Judgement | 3 (own 20 s cooldown, 50% when up) | rises 8 blocks; hangs 1 s tracking you with a soul beam + ground ring; landing **locks**; 5-tick slam | 35 at centre -> 10 at 6 blocks; then a 6-block soul-fire circle, 4/s for 5 s | get out of the ring before the lock, then out of the circle |
 | Execution | 3 (own 25 s cooldown, 50% when up) | **red** flash + warden charge, 0.8 s wind-up, short lunge; a player in the 2.5-block 60° cone is grabbed and held up in front of him for 1.5 s, then impaled and thrown | 40, **unblockable** (bypasses shields; armor still counts) | leave the cone; allies deal 150 during the hold to free you (he staggers) |
+| Oathbound Whirlwind (v0.13.19) | all (own 8 s cooldown; favoured when someone is behind him or 2+ crowd him) | 0.7 s low draw -> two spins in 0.8 s, contacts 0.20 / 0.60 s -> 1.5 s dizzy | 11 per spin, everyone within 5 blocks all round | back off or jump; punish the dizzy |
+| Grave Geysers (v0.13.19) | 2+ (own 12 s cooldown; at 6-30 blocks with the Chains roll, and in the melee pools) | 0.8 s reverse-grip raise -> plunge (contact 0.15 s): a ring under every player within 30 tracks 0.5 s, locks, erupts 0.75 s later -> 2.2 s bowed | 15, launch up, 2 s fire | step off your ring after it locks; punish the bow |
 | Phantom Echo | 3 (passive) | every Combo/Stance Dash contact is repeated by a soul-fire ghost from where he stood, 1 s later | 60% of the original | don't dodge once and walk straight back in |
 
 **Weights.** Phase 1 melee pool: Stance Dash 35 / Combo 45 / Oath Guard 20. Phase 2: 25 / 35 / Soul Rend 20 /
 Oath Guard 10. Phase 3: 20 / 30 / 20 / 5, with Judgement and Execution offered first whenever off their own
-cooldowns (50% each). Shared cooldown 1.2 s / 0.9 s / 0.6 s (v0.13.9; was 2.5 / 2 / 1.5). The damage column
+cooldowns (50% each). v0.13.19 adds Whirlwind 12 / 10 / 10 (50 when surrounded) and Grave Geysers - / 8 / 10
+(doubled with 2+ players within 30), each only while off its own cooldown. Shared cooldown 1.2 s / 0.9 s / 0.6 s (v0.13.9; was 2.5 / 2 / 1.5). The damage column
 below is v0.14.0's -- v0.13.9 raised every number ~40% and v0.13.10 then halved them; see the top of this
 file and `OathbreakerTuning` for the live values.
 

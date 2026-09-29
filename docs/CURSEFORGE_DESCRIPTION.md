@@ -111,33 +111,40 @@ into*. Craft an **Arachnid Mutagen** and use it while you already carry that ada
 - **Zero fall damage.** Craftable **Spider-Man Suit** with a removable mask (**H**).
 
 ### 🖤 The Symbiote
-An **upgrade for Spider-Man**, or a standalone power for a **Normal Host**. Find it in a crashed
-rare **symbiote meteor**, a rarer buried **containment lab**, or on a rare **symbiote-infected mob** you have to
-hunt down — then right-click to bond.
+An **upgrade for Spider-Man**, or a standalone power for a **Normal Host**. It is a living creature now (v0.13.19): a
+pool of **black goo** that crawls along the ground, climbs walls, flees fire and hunts for a host -- reach a mob and it
+**takes control of it**, turning it into a Symbiote Host until that mob dies and it crawls free again. Find it by
+breaking the **Symbiote Meteorite** at the heart of a crashed meteor (it escapes into the world), trapped in the cell of
+a buried **containment lab** (it can't get out), or riding a **symbiote-infected mob** you have to hunt down -- then
+right-click it to bond.
 
-- Toggle the **black suit** on and off (**H**) with a progressive, particle-covered suit-up.
-- **Tendril abilities:** Tendril Strike, a hold-to-raise **Symbiote Shield**, a Spike volley, a
-  20-block **Symbiote Lunge** (Ability 4 / X — you keep your momentum when it ends), **Symbiote Onslaught** (a charged Wither/Blind/Slow AoE
-  ultimate), a hardened tendril **Blade**, a body-**Spikes** toggle, and a 25-block **Grapple** (sneak +
-  Ability 4 / X) that needs something to hold onto.
-- A **Normal Host** gets a **Biomass** health bar that drains alongside every hit and regenerates out of
-  combat (70% slower while the suit is on); Regeneration II heals you whenever you are hurt, at a small Biomass cost. Symbiote Spider-Man gets none of
-  these passives -- just the black suit, his extra abilities and a doubled Web Reserve. The suit is unbreakable while worn.
-- **It protects its host.** A hit over 3 damage, a hit that would leave you under 5 hearts, or a fatal
-  hit makes the Symbiote wrap you in the suit on its own — and if you *would* die it resurrects you for
-  half its Biomass, hurls everything within 20 blocks away with massive tendrils and gives you
-  Resistance for 20 seconds. Its voice appears above your hotbar. The suit stays on until you retract it.
-- **Living armour:** wearing the suit cuts all damage you take by 10%. The suit forms over **2 seconds**, piece by
-  piece, and a normal host visibly grows to **150% size** as it does (shrinking back when it retracts; Symbiote Spider-Man stays his own size). Crouch for
-  5 seconds with the suit on and the Symbiote **camouflages** you completely.
-- **Predator Vision:** a bonded host sees living things within 20 blocks outlined (hostile red, players
-  dark purple, everything else dark blue) — visible to **you only**. **N** toggles it off and on.
-- **Weaknesses:** sound attacks (Warden boom, bells, goat horns) tear the suit off and disable every
-  Symbiote ability for 5 seconds; burning for more than 2 seconds deactivates the suit.
-- **Agent Venom (v0.13.11):** the Symbiote now also shares a host with **the Punisher**. A bonded Punisher presses **H** for the
-  **Agent Venom suit** and keeps his whole kit, plus Symbiote extras (see the Punisher below).
-- **Symbiote Vial:** craft one from Iron Blocks and Glass. Sneak-use to bottle your own Symbiote, or
-  right-click a free one; use the filled vial to bond again.
+- Toggle the **black suit** on and off (**H**): the living armour materialises over you **one pixel at a time**, chest
+  first, then limbs, then head, while you throw your arms out.
+- **Every move comes out of your hands** as a real living **tendril** or **spike**, with its own animation:
+  **Tendril Strike** (R, 15 damage, 30 blocks -- it can miss), **Tendril Sweep** (Sneak+R), **Symbiote Spike** (G, a real
+  projectile: 14 damage + Wither V for 5 s, 4 s cooldown) and the **Spike Fan** (Sneak+G, five spikes, 10 s), the
+  20-block **Symbiote Lunge** (X) and **Grapple** (Sneak+X), **Tendril Barrage** (Z, a flurry of tendrils down your aim
+  -- it can miss), the **Symbiote Blade** (V -- a real blade grows out of your hand) and **Symbiote Shield** (Sneak+V),
+  **Symbiote Spikes** (C) and **Tendril Grab** (Sneak+C, C again to throw).
+- **Symbiote Onslaught** (Sneak + hold Z): a pool of living black spreads under you while tendrils claw up out of it,
+  then it erupts -- a crown of huge tendrils and a tendril spearing up into every enemy within 9 blocks: 20 damage,
+  Wither III, Blindness, Slowness IV and Weakness II. 90-second cooldown.
+- A **Normal Host** gets a **Biomass** bar (shown as "Biomass %" under the ability keys). It drains alongside every hit,
+  regenerates out of combat, and **feeds the Blade (0.3/s) and Shield (0.5/s)**, which have no time limit any more.
+  Dying no longer refills it. Suited, your unarmed hits deal +5. Symbiote Spider-Man gets none of these passives -- just
+  the black suit, his extra abilities and a doubled Web Reserve.
+- **It protects its host.** A heavy or fatal hit makes the Symbiote wrap you in the suit on its own -- and if you *would*
+  die it resurrects you, hurls everything within 20 blocks away with massive tendrils and gives you Resistance for 20
+  seconds. That costs no Biomass, but it can only happen **once every 10 minutes**.
+- **Living armour:** the suit cuts all damage you take by 10% and a normal host grows to **150% size**. Crouch for 5
+  seconds with the suit on and the Symbiote **camouflages** you completely.
+- **Predator Vision:** a bonded host sees living things within 20 blocks outlined -- visible to **you only**. **N**
+  toggles it.
+- **Weaknesses:** sound attacks (Warden boom, bells, goat horns) tear the suit off and disable every Symbiote ability for
+  5 seconds; burning for more than 2 seconds deactivates the suit.
+- **Agent Venom (v0.13.11):** the Symbiote also shares a host with **the Punisher** (see the Punisher below).
+- **Symbiote Vial:** craft one from Iron Blocks and Glass. Sneak-use to bottle your own Symbiote, or right-click a free
+  one; use the filled vial to bond again.
 
 ### 🔵 Max Steel
 Find **Steel** — a floating alien companion hovering over a **crash site** — and bond by spending 30
@@ -278,13 +285,19 @@ A **Hero-Tier Primary** power. Find a rare **Gamma Lab** ruin in the overworld a
   the way) · **V Grab** (pick up and throw a mob, Shift+V crush it, or Shift+V tear up a chunk of earth to throw -- and
   **carry or throw your squad-mates**, who land unhurt).
 - **The Hulk refuses to die:** Banner **can't be killed** -- every fatal hit brings the Hulk bursting out at full
-  health, no cooldown. To kill a Gamma player you have to beat the Hulk.
+  health, no cooldown (so the HUD no longer shows a death-save dot). To kill a Gamma player you have to beat the Hulk.
 - **Keep control:** only a Hulk who came out **on his own** fights you -- stop hitting things and he starts to take over;
   answer the key prompts or he goes on a **rampage**, hunting anything out in the open up to **100 blocks** away. Hold
   **N** to calm down with a breathing minigame. Squad-mates can **ride his back**.
 - The Hulk can't lift Mjolnir, and nobody is both Thor and the Hulk. Everything is in `config/projecthero_hulk.json`.
 
 ---
+
+### 🌙 Moon Knight (coming soon)
+Khonshu's fist is being built right now. v0.13.19 lays the foundations -- the pact with Khonshu, a **lunar power** that
+makes him strongest under a full moon (and weaker by day or underground), a **Vengeance** meter fed by protecting
+villagers and travellers at night, the **Fracture** between his three alters and **Khonshu's Resurrection**. The suit,
+the cape, the six abilities and the desert **Temple of Khonshu** arrive in the next updates.
 
 ## 27 Experimental Powers · 162 Abilities
 
@@ -363,6 +376,10 @@ hidden **poise** meter you can break to stagger him, and **three phases**: the d
 Combo, Oath Guard parries, Leaping Cleave), the Forsworn at 60% (Soul Rend, Chains of the Forsworn, a fifth combo hit,
 feints) and the Oathless below 25% (Judgement slam, the unblockable Execution grab, phantom echoes of his swings).
 **v0.13.17:** every move hits ~30% harder, and he hits a further **10% harder in phase 2** and **25% harder in phase 3**.
+**v0.13.19:** two new attacks -- the **Oathbound Whirlwind** (two full 360-degree spins that punish anyone circling behind
+him) and **Grave Geysers** (he plunges his sword and soul-fire columns erupt under every player within 30 blocks). He
+tracks players from **50 blocks** away, even out of sight, and his aggro follows whoever is actually hurting him -- you
+can no longer beat on him while a friend kites him around.
 Defeating him drops a netherite sword, Grave Essence, a guaranteed Abyssal Core and the Broken Oath.
 
 
@@ -370,7 +387,7 @@ Defeating him drops a netherite sword, Grave Essence, a guaranteed Abyssal Core 
 An **endgame co-op raid for up to 8 heroes** that never happens on its own. Craft a **Boom Tube Beacon** (a Nether Star,
 4 Supervillain Tokens, 2 Echo Shards and 3 Crying Obsidian -- or a Nether Star, 4 Omega Shards and 4 Crying Obsidian) and
 use it: every survival player within 48 blocks joins the roster, the sky turns Apokolips red and a 64-block arena opens.
-- **Three Parademon waves** pour through Boom Tubes: winged Parademons that take to the air after flyers, Ranged gunners
+- **Five Parademon waves** pour through Boom Tubes: winged Parademons that take to the air after flyers, Ranged gunners
   that hover level with you and lead their shots, then Elites and Brutes.
 - **DARKSEID -- LORD OF APOKOLIPS** steps out of a giant Boom Tube, shielded by **four Mother Boxes**. Right-click a box and
   stay beside it for 10 seconds to disrupt it; ignore one for 90 seconds and it **overloads** (he heals, it explodes,
@@ -385,6 +402,10 @@ use it: every survival player within 48 blocks joins the roster, the sky turns A
 - **Rewards** for every official participant: Darkseid's **Omega Core**, **Omega Shards**, a rare **Mother Box** (a personal
   Boom Tube home) and a very rare **Omega Relic** (24 charges of homing Omega Beams). Advancements *Anti-Life* and
   *Apokolips Falls*. Everything is tunable in `config/projecthero_darkseid.json`.
+- **v0.13.19:** **five** Parademon waves (bigger, and Parademons are 20% tougher and hit 15% harder), Parademons have
+  **wings**, and gunners strafe and circle while they shoot. Darkseid attacks more often, calls reinforcements more
+  often, and fires Omega Beams more often -- and the beams now **zig-zag** through the air before homing in. Once every
+  Mother Box is down, some of them **reawaken** 70-100 seconds later (with a warning), so you have to keep shutting them off.
 
 ---
 

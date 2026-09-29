@@ -37,7 +37,42 @@ import net.minecraft.world.phys.Vec3;
  * exactly what makes a leap dodgeable.
  */
 final class OathbreakerCombat {
-	enum Attack { STANCE_DASH, COMBO, OATH_GUARD, RIPOSTE, BACKSTEP, LEAPING_CLEAVE, SOUL_REND, CHAINS, JUDGEMENT, EXECUTION, SOUL_SPEAR }
+	enum Attack {
+		STANCE_DASH, COMBO, OATH_GUARD, RIPOSTE, BACKSTEP, LEAPING_CLEAVE, SOUL_REND, CHAINS, JUDGEMENT, EXECUTION, SOUL_SPEAR,
+		/** v0.13.19: two full spins hitting all round him, then a dizzy recovery. All phases. */
+		WHIRLWIND,
+		/** v0.13.19: sword plunged into the ground, a soul-fire column erupts under every nearby player. Phase 2+. */
+		GRAVE_GEYSERS
+	}
+
+	// ---- v0.13.19: threat / target switching (see OathbreakerThreat) ----
+	private final OathbreakerThreat threat = new OathbreakerThreat();
+	private int threatCheckTimer;
+
+	// ---- v0.13.19: Oathbound Whirlwind / Grave Geysers ----
+	private int whirlwindCooldown;
+	private int whirlwindRollTimer;
+	private int geyserCooldown;
+
+	/** One Grave Geysers cast: a mark under each player, tracking then locked, all erupting together. Ticked as
+	 * a hazard, so a stagger after the plunge doesn't cancel columns that are already coming. */
+	private static final class GeyserMark {
+		final LivingEntity tracked;
+		Vec3 pos;
+
+		GeyserMark(LivingEntity tracked, Vec3 pos) {
+			this.tracked = tracked;
+			this.pos = pos;
+		}
+	}
+
+	private static final class GeyserCast {
+		final List<GeyserMark> marks = new ArrayList<>();
+		final java.util.Set<Integer> hit = new java.util.HashSet<>();
+		int age;
+	}
+
+	private final List<GeyserCast> geyserCasts = new ArrayList<>();
 
 	// ---- anti-cheese state ----
 	private int unreachableTicks;
@@ -141,8 +176,6 @@ final class OathbreakerCombat {
 
 	/** Consecutive ticks the target has spent in the Leaping Cleave band. */
 	private int kiteTicks;
-	/** {@code boss.tickCount} of the last time the current target hit him (Oath Guard eligibility). */
-	private int lastHitByTargetTick = -100000;
 
 	// scripted move
 	private Vec3 moveStart;
@@ -163,6 +196,26 @@ final class OathbreakerCombat {
 		return active;
 	}
 
+	int activeStep() {
+		return step;
+	}
+
+	OathbreakerThreat threat() {
+		return threat;
+	}
+
+	/** Test hook: start an attack right now, bypassing selection. */
+	void debugBegin(ServerLevel server, Attack attack) {
+		cancel();
+		begin(server, attack);
+	}
+
+	/** Test hook: stop whatever he's doing and don't start anything for {@code ticks}. */
+	void holdAttacks(int ticks) {
+		cancel();
+		cooldown = ticks;
+	}
+
 	// ---------------------------------------------------------------- per-tick
 
 	void tick(ServerLevel server) {
@@ -173,11 +226,29 @@ final class OathbreakerCombat {
 		if (executionCooldown > 0) {
 			executionCooldown--;
 		}
+		if (whirlwindCooldown > 0) {
+			whirlwindCooldown--;
+		}
+		if (geyserCooldown > 0) {
+			geyserCooldown--;
+		}
 		LivingEntity target = boss.getTarget();
 		if (target != null && !isValidTarget(target)) {
 			// switched to creative/spectator (or died) mid-fight: stop chasing and swinging at them
 			boss.setTarget(null);
 			target = null;
+		}
+		if (target != null && !isExecutionVictim(target) && (target.level() != boss.level()
+				|| boss.distanceToSqr(target) > Math.pow(OathbreakerTuning.FOLLOW_RANGE + 4.0, 2))) {
+			// v0.13.19: the threat system sets targets directly, outside any target goal, so it also owns
+			// letting go of one that's left (another dimension, or well past his follow range)
+			boss.setTarget(null);
+			target = null;
+		}
+		if (--threatCheckTimer <= 0) {
+			threatCheckTimer = OathbreakerTuning.THREAT_CHECK_INTERVAL_TICKS;
+			periodicThreatCheck();
+			target = boss.getTarget();
 		}
 		trackKiting(target);
 		trackCheese(target);
@@ -232,6 +303,15 @@ final class OathbreakerCombat {
 			begin(server, Attack.LEAPING_CLEAVE);
 			return;
 		}
+		// v0.13.19: someone behind him, or a crowd in his face -- circling round him isn't free any more. Rolled
+		// before anything else (and regardless of how far his actual target is), on its own cooldown.
+		if (whirlwindCooldown <= 0 && --whirlwindRollTimer <= 0) {
+			whirlwindRollTimer = OathbreakerTuning.WHIRLWIND_ROLL_INTERVAL_TICKS;
+			if (isSurrounded(server) && boss.getRandom().nextFloat() < OathbreakerTuning.WHIRLWIND_SURROUNDED_CHANCE) {
+				begin(server, Attack.WHIRLWIND);
+				return;
+			}
+		}
 		boolean oathless = boss.getPhase() == OathbreakerEntity.Phase.OATHLESS;
 		if (dist <= OathbreakerTuning.ATTACK_TRIGGER_RANGE) {
 			// phase 3: Judgement / Execution whenever their own cooldowns are up, 50% each time they're offered
@@ -240,7 +320,7 @@ final class OathbreakerCombat {
 			} else if (oathless && executionCooldown <= 0 && boss.getRandom().nextFloat() < OathbreakerTuning.EXECUTION_USE_CHANCE) {
 				begin(server, Attack.EXECUTION);
 			} else {
-				begin(server, pickAttack());
+				begin(server, pickAttack(server));
 			}
 			return;
 		}
@@ -253,17 +333,101 @@ final class OathbreakerCombat {
 				return;
 			}
 		}
-		if (boss.getPhase() != OathbreakerEntity.Phase.KNIGHT
-				&& dist >= OathbreakerTuning.CHAIN_MIN_RANGE && dist <= OathbreakerTuning.CHAIN_MAX_RANGE
-				&& --chainRollTimer <= 0) {
+		// Phase 2+ ranged answers, one roll a second: Chains at 6-16, and (v0.13.19) Grave Geysers at 6-30 -- the
+		// only thing he has for a target 20-30 blocks off, and likelier the more players there are to hit.
+		boolean forsworn = boss.getPhase() != OathbreakerEntity.Phase.KNIGHT;
+		boolean chainBand = forsworn && dist >= OathbreakerTuning.CHAIN_MIN_RANGE && dist <= OathbreakerTuning.CHAIN_MAX_RANGE;
+		boolean geyserBand = forsworn && geyserCooldown <= 0
+				&& dist >= OathbreakerTuning.GEYSER_MIN_RANGE && dist <= OathbreakerTuning.GEYSER_MAX_RANGE;
+		if ((chainBand || geyserBand) && --chainRollTimer <= 0) {
 			chainRollTimer = OathbreakerTuning.CHAIN_ROLL_INTERVAL_TICKS;
 			// Judgement also answers range in phase 3 -- it tracks the target from the air anyway
-			if (oathless && judgementCooldown <= 0 && boss.getRandom().nextFloat() < OathbreakerTuning.JUDGEMENT_USE_CHANCE) {
+			if (oathless && chainBand && judgementCooldown <= 0 && boss.getRandom().nextFloat() < OathbreakerTuning.JUDGEMENT_USE_CHANCE) {
 				begin(server, Attack.JUDGEMENT);
-			} else if (boss.getRandom().nextFloat() < OathbreakerTuning.CHAIN_RANGED_CHANCE) {
+			} else if (geyserBand && boss.getRandom().nextFloat() < (playersWithin(server, OathbreakerTuning.GEYSER_RANGE) >= 2
+					? OathbreakerTuning.GEYSER_RANGED_CHANCE_GROUP : OathbreakerTuning.GEYSER_RANGED_CHANCE)) {
+				begin(server, Attack.GRAVE_GEYSERS);
+			} else if (chainBand && boss.getRandom().nextFloat() < OathbreakerTuning.CHAIN_RANGED_CHANCE) {
 				begin(server, Attack.CHAINS);
 			}
 		}
+	}
+
+	// ---------------------------------------------------------------- v0.13.19: threat / target switching
+
+	/** Never retarget away from an Execution victim he's holding (or about to impale). */
+	private boolean canRetarget() {
+		return !(active == Attack.EXECUTION && executionVictim != null);
+	}
+
+	/** Someone he could switch to: a valid target he's allowed to attack, here, and inside his follow range. */
+	private boolean isThreatCandidate(LivingEntity e) {
+		return e != null && e != boss && isValidTarget(e) && e.level() == boss.level() && boss.canAttack(e)
+				&& boss.distanceToSqr(e) <= OathbreakerTuning.FOLLOW_RANGE * OathbreakerTuning.FOLLOW_RANGE;
+	}
+
+	/** Applies {@link OathbreakerThreat#shouldSwitch} to {@code candidate}; switches if it says so. Attacks in a
+	 * wind-up re-aim on their own, since they all track {@code boss.getTarget()}. */
+	private void considerSwitch(LivingEntity candidate) {
+		if (!canRetarget() || !isThreatCandidate(candidate)) {
+			return;
+		}
+		LivingEntity current = boss.getTarget();
+		if (current != null && !isThreatCandidate(current)) {
+			current = null;
+		}
+		int now = boss.tickCount;
+		double currentDist = current == null ? Double.MAX_VALUE : boss.distanceToSqr(current);
+		if (threat.shouldSwitch(current, candidate, now, currentDist, boss.distanceToSqr(candidate))) {
+			boss.setTarget(candidate);
+			threat.noteSwitched(now);
+			kiteTicks = 0;
+			unreachableTicks = 0;
+		}
+	}
+
+	/** Every {@link OathbreakerTuning#THREAT_CHECK_INTERVAL_TICKS}: forget stale entries, then give the strongest
+	 * non-target attacker a shot at his attention (catches a target who simply stopped hitting him). */
+	private void periodicThreatCheck() {
+		int now = boss.tickCount;
+		threat.prune(now);
+		if (!canRetarget()) {
+			return;
+		}
+		LivingEntity best = threat.strongest(now, boss.getTarget(), this::isThreatCandidate);
+		if (best != null) {
+			considerSwitch(best);
+		}
+	}
+
+	/** Valid (non-creative, non-spectator) players within {@code radius} of him. */
+	private int playersWithin(ServerLevel server, double radius) {
+		return server.getEntitiesOfClass(Player.class, boss.getBoundingBox().inflate(radius, radius * 0.5, radius),
+				p -> isValidTarget(p) && p.distanceToSqr(boss) <= radius * radius).size();
+	}
+
+	/** Whirlwind trigger: a valid player within {@link OathbreakerTuning#WHIRLWIND_RADIUS} standing behind him
+	 * (more than {@link OathbreakerTuning#WHIRLWIND_BEHIND_ANGLE_DEGREES} off his facing), or
+	 * {@link OathbreakerTuning#WHIRLWIND_CROWD_COUNT}+ players inside that radius. Measured from his feet. */
+	private boolean isSurrounded(ServerLevel server) {
+		double r = OathbreakerTuning.WHIRLWIND_RADIUS;
+		double cosBehind = Math.cos(Math.toRadians(OathbreakerTuning.WHIRLWIND_BEHIND_ANGLE_DEGREES));
+		Vec3 f = forward();
+		int count = 0;
+		for (Player p : server.getEntitiesOfClass(Player.class, boss.getBoundingBox().inflate(r + 1.0, 2.0, r + 1.0),
+				OathbreakerCombat::isValidTarget)) {
+			double dx = p.getX() - boss.getX();
+			double dz = p.getZ() - boss.getZ();
+			double d = Math.sqrt(dx * dx + dz * dz);
+			if (d > r + p.getBbWidth() * 0.5) {
+				continue;
+			}
+			count++;
+			if (d > 1.0e-3 && (dx * f.x + dz * f.z) / d < cosBehind) {
+				return true;
+			}
+		}
+		return count >= OathbreakerTuning.WHIRLWIND_CROWD_COUNT;
 	}
 
 	/**
@@ -345,6 +509,149 @@ final class OathbreakerCombat {
 				it.remove();
 			}
 		}
+		for (java.util.Iterator<GeyserCast> it = geyserCasts.iterator(); it.hasNext();) {
+			if (tickGeyserCast(server, it.next())) {
+				it.remove();
+			}
+		}
+	}
+
+	// ---------------------------------------------------------------- v0.13.19: Oathbound Whirlwind
+
+	/** One spin's contact frame: everyone within {@link OathbreakerTuning#WHIRLWIND_RADIUS}, all the way round,
+	 * shoved straight out from him. */
+	private void whirlwindContact(ServerLevel server, double knockback) {
+		boolean hit = false;
+		Vec3 c = boss.position();
+		for (LivingEntity victim : radiusTargets(server, c, OathbreakerTuning.WHIRLWIND_RADIUS)) {
+			hit |= strike(victim, OathbreakerTuning.WHIRLWIND_DAMAGE, horizontal(victim.position().subtract(c)), knockback);
+		}
+		double y = boss.getBbHeight() * 0.5;
+		OathbreakerFx.ring(server, ParticleTypes.SWEEP_ATTACK, c.add(0, y, 0), OathbreakerTuning.WHIRLWIND_RADIUS * 0.6, 10, 0.0);
+		if (boss.getPhase() != OathbreakerEntity.Phase.KNIGHT) {
+			// phase 2+: soul fire streams off the blade (cf. soulTrail), here all the way round
+			OathbreakerFx.ring(server, ParticleTypes.SOUL_FIRE_FLAME, c.add(0, y, 0), OathbreakerTuning.WHIRLWIND_RADIUS * 0.75, 24, 0.01);
+		}
+		server.playSound(null, boss.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 2.0f, 0.6f);
+		if (hit) {
+			server.playSound(null, boss.blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.HOSTILE, 1.1f, 1.2f);
+		}
+	}
+
+	/** Every valid living target within {@code range} of {@code feet}, measured horizontally, with the same
+	 * vertical band as {@link #arcTargets} -- i.e. a full circle, no cone (a 360-degree cone's cosine test can
+	 * drop someone dead behind him to floating-point error). */
+	List<LivingEntity> radiusTargets(ServerLevel server, Vec3 feet, double range) {
+		double reach = range + 1.0;
+		AABB box = new AABB(feet.x - reach, feet.y - 1.5, feet.z - reach, feet.x + reach, feet.y + boss.getBbHeight() + 1.5,
+				feet.z + reach);
+		List<LivingEntity> out = new ArrayList<>();
+		for (LivingEntity candidate : server.getEntitiesOfClass(LivingEntity.class, box,
+				e -> e != boss && e.isAlive() && e.isPickable() && isValidTarget(e))) {
+			double r = range + candidate.getBbWidth() * 0.5;
+			if (horizontalDistSqr(candidate.position(), feet) <= r * r) {
+				out.add(candidate);
+			}
+		}
+		return out;
+	}
+
+	// ---------------------------------------------------------------- v0.13.19: Grave Geysers
+
+	/** The sword goes into the ground: a telegraph ring appears under every valid player within
+	 * {@link OathbreakerTuning#GEYSER_RANGE} (plus his target, whatever it is), nearest first. */
+	private void geyserPlunge(ServerLevel server) {
+		Vec3 c = boss.position();
+		double range = OathbreakerTuning.GEYSER_RANGE;
+		List<LivingEntity> victims = new ArrayList<>(server.getEntitiesOfClass(Player.class,
+				boss.getBoundingBox().inflate(range, range * 0.5, range),
+				p -> isValidTarget(p) && p.distanceToSqr(boss) <= range * range));
+		LivingEntity target = boss.getTarget();
+		if (isValidTarget(target) && !victims.contains(target) && target.level() == boss.level()
+				&& target.distanceToSqr(boss) <= range * range) {
+			victims.add(target);
+		}
+		victims.sort(java.util.Comparator.comparingDouble(e -> e.distanceToSqr(boss)));
+		GeyserCast cast = new GeyserCast();
+		for (LivingEntity v : victims) {
+			if (cast.marks.size() >= OathbreakerTuning.GEYSER_MAX_MARKS) {
+				break;
+			}
+			cast.marks.add(new GeyserMark(v, groundBelow(v.position())));
+		}
+		if (!cast.marks.isEmpty()) {
+			geyserCasts.add(cast);
+		}
+		OathbreakerFx.shake(server, c, 0.5f, 10);
+		Vec3 blade = c.add(forward().scale(0.9));
+		OathbreakerFx.ring(server, ParticleTypes.SOUL_FIRE_FLAME, blade.add(0, 0.15, 0), 1.5, 16, 0.06);
+		server.sendParticles(ParticleTypes.SOUL, blade.x, blade.y + 0.3, blade.z, 20, 0.4, 0.2, 0.4, 0.06);
+		server.playSound(null, boss.blockPosition(), SoundEvents.MACE_SMASH_GROUND_HEAVY, SoundSource.HOSTILE, 1.8f, 0.6f);
+		server.playSound(null, boss.blockPosition(), SoundEvents.RESPAWN_ANCHOR_DEPLETE.value(), SoundSource.HOSTILE, 2.0f, 0.7f);
+		server.playSound(null, boss.blockPosition(), SoundEvents.SOUL_ESCAPE.value(), SoundSource.HOSTILE, 2.0f, 0.5f);
+	}
+
+	/** Ticks one cast: marks follow their player for {@link OathbreakerTuning#GEYSER_TRACK_TICKS}, then lock
+	 * (sound + brighter ring), then all erupt together. @return true once it's erupted. */
+	private boolean tickGeyserCast(ServerLevel server, GeyserCast cast) {
+		cast.age++;
+		int lockAt = OathbreakerTuning.GEYSER_TRACK_TICKS;
+		int eruptAt = lockAt + OathbreakerTuning.GEYSER_ERUPT_DELAY_TICKS;
+		double r = OathbreakerTuning.GEYSER_RADIUS;
+		for (GeyserMark mark : cast.marks) {
+			if (cast.age <= lockAt) {
+				LivingEntity t = mark.tracked;
+				if (t.isAlive() && !t.isRemoved() && t.level() == boss.level()) {
+					mark.pos = groundBelow(t.position());
+				}
+				if (cast.age % 2 == 0) {
+					OathbreakerFx.ring(server, ParticleTypes.SOUL, mark.pos.add(0, 0.12, 0), r, 12, 0.0);
+				}
+				if (cast.age == lockAt) {
+					server.playSound(null, mark.pos.x, mark.pos.y, mark.pos.z, SoundEvents.RESPAWN_ANCHOR_CHARGE, SoundSource.HOSTILE, 1.4f, 1.3f);
+				}
+			} else if (cast.age < eruptAt) {
+				// locked: the ring burns brighter and the ground inside starts to smoke with soul fire -- step off
+				if (cast.age % 2 == 0) {
+					OathbreakerFx.ring(server, ParticleTypes.SOUL_FIRE_FLAME, mark.pos.add(0, 0.1, 0), r, 14, 0.0);
+					server.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, mark.pos.x, mark.pos.y + 0.1, mark.pos.z, 3, r * 0.4, 0.02, r * 0.4, 0.0);
+				}
+			} else {
+				eruptGeyser(server, cast, mark);
+			}
+		}
+		return cast.age >= eruptAt;
+	}
+
+	/** The column: {@link OathbreakerTuning#GEYSER_DAMAGE}, a launch straight up and a short burn to anyone
+	 * inside it (each once per cast, however many columns overlap them). */
+	private void eruptGeyser(ServerLevel server, GeyserCast cast, GeyserMark mark) {
+		Vec3 p = mark.pos;
+		double r = OathbreakerTuning.GEYSER_RADIUS;
+		double h = OathbreakerTuning.GEYSER_HEIGHT;
+		for (double y = 0.1; y < h; y += 0.4) {
+			server.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, p.x, p.y + y, p.z, 3, r * 0.3, 0.1, r * 0.3, 0.03);
+		}
+		server.sendParticles(ParticleTypes.SOUL, p.x, p.y + h, p.z, 8, 0.4, 0.3, 0.4, 0.08);
+		OathbreakerFx.ring(server, ParticleTypes.SOUL_FIRE_FLAME, p.add(0, 0.2, 0), r, 14, 0.1);
+		server.playSound(null, p.x, p.y, p.z, SoundEvents.FIRECHARGE_USE, SoundSource.HOSTILE, 1.4f, 0.6f);
+		server.playSound(null, p.x, p.y, p.z, SoundEvents.SOUL_ESCAPE.value(), SoundSource.HOSTILE, 1.6f, 0.7f);
+		server.playSound(null, p.x, p.y, p.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 0.6f, 0.8f);
+		AABB box = new AABB(p.x - r - 1.0, p.y - 1.0, p.z - r - 1.0, p.x + r + 1.0, p.y + h, p.z + r + 1.0);
+		for (LivingEntity victim : server.getEntitiesOfClass(LivingEntity.class, box,
+				e -> e != boss && e.isAlive() && isValidTarget(e) && !cast.hit.contains(e.getId()))) {
+			double reach = r + victim.getBbWidth() * 0.5;
+			if (horizontalDistSqr(victim.position(), p) > reach * reach) {
+				continue;
+			}
+			cast.hit.add(victim.getId());
+			if (strike(victim, OathbreakerTuning.GEYSER_DAMAGE, horizontal(victim.position().subtract(p)), 0.2)) {
+				victim.setRemainingFireTicks(Math.max(victim.getRemainingFireTicks(), OathbreakerTuning.GEYSER_FIRE_TICKS));
+				Vec3 v = victim.getDeltaMovement();
+				victim.setDeltaMovement(v.x, Math.max(v.y, OathbreakerTuning.GEYSER_LAUNCH), v.z);
+				victim.hurtMarked = true;
+			}
+		}
 	}
 
 	private void trackKiting(LivingEntity target) {
@@ -372,6 +679,7 @@ final class OathbreakerCombat {
 			case CHAINS -> step == 0;
 			case JUDGEMENT -> step == 1;
 			case EXECUTION -> step == 0;
+			case WHIRLWIND, GRAVE_GEYSERS -> step == 0;
 			default -> false;
 		};
 	}
@@ -385,15 +693,26 @@ final class OathbreakerCombat {
 
 	/** Weighted pick from the current phase's melee pool (the Oath Guard only while the target has hit him
 	 * recently). Chains and the Leaping Cleave aren't in here -- they're range-triggered, see {@link #tick}. */
-	private Attack pickAttack() {
+	private Attack pickAttack(ServerLevel server) {
 		List<Attack> pool = new ArrayList<>();
 		List<Integer> weights = new ArrayList<>();
-		boolean guardEligible = boss.tickCount - lastHitByTargetTick <= OathbreakerTuning.GUARD_ELIGIBLE_AFTER_HIT_TICKS;
+		// v0.13.19: from the threat table -- "has the CURRENT target hit him lately", whoever that is now
+		boolean guardEligible = threat.hitRecently(boss.getTarget(), boss.tickCount, OathbreakerTuning.GUARD_ELIGIBLE_AFTER_HIT_TICKS);
+		// v0.13.19: the Whirlwind (own cooldown) is much likelier when he's being circled or crowded; the
+		// Geysers (phase 2+, own cooldown) twice as likely with a group around
+		boolean whirlwindReady = whirlwindCooldown <= 0;
+		boolean surrounded = whirlwindReady && isSurrounded(server);
+		boolean geysersReady = geyserCooldown <= 0;
+		int geyserGroup = geysersReady && playersWithin(server, OathbreakerTuning.GEYSER_RANGE) >= 2 ? 2 : 1;
 		if (boss.getPhase() == OathbreakerEntity.Phase.KNIGHT) {
 			add(pool, weights, Attack.STANCE_DASH, OathbreakerTuning.WEIGHT_P1_STANCE_DASH);
 			add(pool, weights, Attack.COMBO, OathbreakerTuning.WEIGHT_P1_COMBO);
 			if (guardEligible) {
 				add(pool, weights, Attack.OATH_GUARD, OathbreakerTuning.WEIGHT_P1_OATH_GUARD);
+			}
+			if (whirlwindReady) {
+				add(pool, weights, Attack.WHIRLWIND, surrounded ? OathbreakerTuning.WEIGHT_WHIRLWIND_SURROUNDED
+						: OathbreakerTuning.WEIGHT_P1_WHIRLWIND);
 			}
 		} else if (boss.getPhase() == OathbreakerEntity.Phase.FORSWORN) {
 			add(pool, weights, Attack.STANCE_DASH, OathbreakerTuning.WEIGHT_P2_STANCE_DASH);
@@ -402,12 +721,26 @@ final class OathbreakerCombat {
 			if (guardEligible) {
 				add(pool, weights, Attack.OATH_GUARD, OathbreakerTuning.WEIGHT_P2_OATH_GUARD);
 			}
+			if (whirlwindReady) {
+				add(pool, weights, Attack.WHIRLWIND, surrounded ? OathbreakerTuning.WEIGHT_WHIRLWIND_SURROUNDED
+						: OathbreakerTuning.WEIGHT_P2_WHIRLWIND);
+			}
+			if (geysersReady) {
+				add(pool, weights, Attack.GRAVE_GEYSERS, OathbreakerTuning.WEIGHT_P2_GRAVE_GEYSERS * geyserGroup);
+			}
 		} else {
 			add(pool, weights, Attack.STANCE_DASH, OathbreakerTuning.WEIGHT_P3_STANCE_DASH);
 			add(pool, weights, Attack.COMBO, OathbreakerTuning.WEIGHT_P3_COMBO);
 			add(pool, weights, Attack.SOUL_REND, OathbreakerTuning.WEIGHT_P3_SOUL_REND);
 			if (guardEligible) {
 				add(pool, weights, Attack.OATH_GUARD, OathbreakerTuning.WEIGHT_P3_OATH_GUARD);
+			}
+			if (whirlwindReady) {
+				add(pool, weights, Attack.WHIRLWIND, surrounded ? OathbreakerTuning.WEIGHT_WHIRLWIND_SURROUNDED
+						: OathbreakerTuning.WEIGHT_P3_WHIRLWIND);
+			}
+			if (geysersReady) {
+				add(pool, weights, Attack.GRAVE_GEYSERS, OathbreakerTuning.WEIGHT_P3_GRAVE_GEYSERS * geyserGroup);
 			}
 		}
 		int total = 0;
@@ -528,6 +861,22 @@ final class OathbreakerCombat {
 				glint(server, 0.5);
 				server.playSound(null, boss.blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 1.4f, 0.6f);
 			}
+			case WHIRLWIND -> {
+				whirlwindCooldown = OathbreakerTuning.WHIRLWIND_COOLDOWN_TICKS;
+				ticks = OathbreakerTuning.WHIRLWIND_WINDUP_TICKS;
+				anim("whirlwind_windup");
+				glint(server, 0.3); // the blade is drawn low behind him
+				server.playSound(null, boss.blockPosition(), SoundEvents.GRINDSTONE_USE, SoundSource.HOSTILE, 1.4f, 0.4f);
+				server.playSound(null, boss.blockPosition(), SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.HOSTILE, 1.6f, 0.6f);
+			}
+			case GRAVE_GEYSERS -> {
+				geyserCooldown = OathbreakerTuning.GEYSER_COOLDOWN_TICKS;
+				ticks = OathbreakerTuning.GEYSER_WINDUP_TICKS;
+				anim("geyser_windup");
+				glint(server, 1.05); // raised overhead in a reverse grip
+				server.playSound(null, boss.blockPosition(), SoundEvents.RESPAWN_ANCHOR_CHARGE, SoundSource.HOSTILE, 2.0f, 0.5f);
+				server.playSound(null, boss.blockPosition(), SoundEvents.SOUL_ESCAPE.value(), SoundSource.HOSTILE, 2.0f, 0.5f);
+			}
 			case RIPOSTE -> throw new IllegalStateException("riposte only starts from a parry");
 		}
 	}
@@ -580,10 +929,52 @@ final class OathbreakerCombat {
 	 *
 	 * <p>Step numbering per attack: STANCE_DASH 0 wind-up / 1 dash / 2 post / 3 feint. COMBO even = wind-up
 	 * (+hold), odd = strike. SOUL_REND 0 wind-up / 1 slash. CHAINS 0 throw wind-up / 1 flying / 2 pull /
-	 * 3 follow-up strike / 4 miss recovery. LEAPING_CLEAVE 0 wind-up / 1 air / 2 land.
+	 * 3 follow-up strike / 4 miss recovery. LEAPING_CLEAVE 0 wind-up / 1 air / 2 land. WHIRLWIND 0 wind-up /
+	 * 1 spins (hyper armor) / 2 dizzy recovery (both play the one {@code whirlwind_strike} clip). GRAVE_GEYSERS
+	 * 0 raise / 1 plunge / 2 bowed.
 	 */
 	private void onHold(ServerLevel server) {
 		switch (active) {
+			case WHIRLWIND -> {
+				if (step == 1) {
+					int e = elapsed(OathbreakerTuning.WHIRLWIND_SPIN_TICKS);
+					if (e == OathbreakerTuning.WHIRLWIND_HIT1_TICKS) {
+						whirlwindContact(server, OathbreakerTuning.WHIRLWIND_KNOCKBACK_FIRST);
+					} else if (e == OathbreakerTuning.WHIRLWIND_HIT2_TICKS) {
+						whirlwindContact(server, OathbreakerTuning.WHIRLWIND_KNOCKBACK);
+					}
+					if (boss.tickCount % 2 == 0) {
+						// the blade's wake: a loose ring of crits at sword reach
+						for (int i = 0; i < 6; i++) {
+							double a = boss.getRandom().nextDouble() * Math.PI * 2.0;
+							double r = OathbreakerTuning.WHIRLWIND_RADIUS * (0.5 + 0.4 * boss.getRandom().nextDouble());
+							server.sendParticles(ParticleTypes.CRIT, boss.getX() + Math.cos(a) * r, boss.getY() + boss.getBbHeight() * 0.5,
+									boss.getZ() + Math.sin(a) * r, 1, 0.05, 0.1, 0.05, 0.02);
+						}
+					}
+				} else if (step == 2 && boss.tickCount % 5 == 0) {
+					// dizzy: a few soul wisps circling his helm -- the "hit him now" cue
+					double a0 = boss.tickCount * 0.45;
+					for (int i = 0; i < 3; i++) {
+						double a = a0 + i * (Math.PI * 2.0 / 3.0);
+						server.sendParticles(ParticleTypes.SOUL, boss.getX() + Math.cos(a) * 0.7, boss.getY() + boss.getBbHeight() + 0.2,
+								boss.getZ() + Math.sin(a) * 0.7, 1, 0.02, 0.02, 0.02, 0.0);
+					}
+				}
+			}
+			case GRAVE_GEYSERS -> {
+				if (step == 0 && boss.tickCount % 3 == 0) {
+					// soul fire gathering on the raised blade
+					Vec3 p = boss.position().add(forward().scale(0.4)).add(0, boss.getBbHeight() * 1.05, 0);
+					server.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, p.x, p.y, p.z, 3, 0.15, 0.3, 0.15, 0.01);
+				} else if (step == 1 && elapsed(OathbreakerTuning.GEYSER_PLUNGE_TICKS) == OathbreakerTuning.GEYSER_PLUNGE_CONTACT_TICKS) {
+					geyserPlunge(server);
+				} else if (step == 2 && boss.tickCount % 4 == 0) {
+					// soul fire bleeding up around the planted blade while he's bowed over it
+					Vec3 p = boss.position().add(forward().scale(0.9));
+					server.sendParticles(ParticleTypes.SOUL, p.x, p.y + 0.2, p.z, 2, 0.2, 0.1, 0.2, 0.02);
+				}
+			}
 			case STANCE_DASH -> {
 				if (step == 1) {
 					int e = elapsed(OathbreakerTuning.STANCE_DASH_TICKS);
@@ -761,6 +1152,39 @@ final class OathbreakerCombat {
 
 	private void advance(ServerLevel server) {
 		switch (active) {
+			case WHIRLWIND -> {
+				if (step == 0) {
+					step = 1;
+					ticks = OathbreakerTuning.WHIRLWIND_SPIN_TICKS;
+					anim("whirlwind_strike");
+					server.playSound(null, boss.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 2.0f, 0.5f);
+					server.playSound(null, boss.blockPosition(), SoundEvents.SOUL_ESCAPE.value(), SoundSource.HOSTILE, 1.6f, 0.9f);
+				} else if (step == 1) {
+					// dizzy: no new clip -- the tail of whirlwind_strike IS the recovery (see WHIRLWIND_STRIKE_TICKS)
+					step = 2;
+					ticks = OathbreakerTuning.WHIRLWIND_RECOVER_TICKS;
+					boss.setHyperArmor(false);
+					server.playSound(null, boss.blockPosition(), SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.HOSTILE, 1.6f, 0.5f);
+				} else {
+					finish(server);
+				}
+			}
+			case GRAVE_GEYSERS -> {
+				if (step == 0) {
+					step = 1;
+					ticks = OathbreakerTuning.GEYSER_PLUNGE_TICKS;
+					anim("geyser_plunge");
+					server.playSound(null, boss.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 1.6f, 0.5f);
+				} else if (step == 1) {
+					// bowed over the planted sword while the geysers come -- the punish window
+					step = 2;
+					ticks = OathbreakerTuning.GEYSER_BOWED_TICKS;
+					anim("geyser_bowed");
+					boss.setHyperArmor(false);
+				} else {
+					finish(server);
+				}
+			}
 			case STANCE_DASH -> {
 				if (step == 0 && !feinted && boss.getPhase() != OathbreakerEntity.Phase.KNIGHT
 						&& boss.getRandom().nextFloat() < OathbreakerTuning.STANCE_FEINT_CHANCE) {
@@ -1115,14 +1539,6 @@ final class OathbreakerCombat {
 
 	// ---------------------------------------------------------------- Oath Guard / Riposte
 
-	/** Notes that the current target just hit him -- the Oath Guard is only offered to someone who's been
-	 * attacking recently. */
-	void noteHurtBy(Entity attacker) {
-		if (attacker != null && attacker == boss.getTarget()) {
-			lastHitByTargetTick = boss.tickCount;
-		}
-	}
-
 	/**
 	 * Called from {@code OathbreakerEntity#hurt} before any damage applies. During the guard stance a
 	 * <em>melee</em> hit from inside his front cone is negated outright and answered with an instant
@@ -1373,6 +1789,14 @@ final class OathbreakerCombat {
 	 * damage adds up, and at {@link OathbreakerTuning#EXECUTION_ESCAPE_DAMAGE} they rip the victim free and
 	 * he staggers. */
 	void noteDamageTaken(ServerLevel server, DamageSource source, float raw) {
+		// v0.13.19: every landed hit is threat -- and a hit from someone who isn't his target is a chance to
+		// turn on them (see OathbreakerThreat#shouldSwitch)
+		if (source.getEntity() instanceof LivingEntity attacker && attacker != boss) {
+			threat.addHit(attacker, Math.max(0.0f, raw), boss.tickCount);
+			if (attacker != boss.getTarget()) {
+				considerSwitch(attacker);
+			}
+		}
 		if (active != Attack.EXECUTION || step != 2 || executionVictim == null) {
 			return;
 		}

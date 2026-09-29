@@ -63,6 +63,8 @@ public final class ModCreativeTab {
 				output.accept(ModItems.POWER_SUPPRESSOR);
 				output.accept(com.projecthero.mod.symbiote.item.SymbioteHostItems.SYMBIOTE_VIAL);
 				output.accept(com.projecthero.mod.symbiote.item.SymbioteHostItems.SYMBIOTE_VIAL_FILLED);
+				// v0.13.19: the Symbiote Meteorite (break it and a free Symbiote crawls out) -- for admins.
+				output.accept(com.projecthero.mod.symbiote.block.SymbioteBlocks.SYMBIOTE_METEORITE_ITEM);
 				// HeroPack experimental-power items (research notes, reagents, serums, guide).
 				com.projecthero.mod.hero.item.HeroPackItems.addToCreativeTab(output);
 				// v0.13.18: the three random-power serums.
