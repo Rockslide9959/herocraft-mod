@@ -1,7 +1,7 @@
 # Project Hero
 
 **A huge superhero mod for Minecraft 1.21.1 (Fabric).** Become Thor, Iron Man, Spider-Man, Max Steel, the Punisher,
-Green Lantern, Wolverine, a Titan Shifter, All Might or the Hulk, bond with a living alien Symbiote, or mutate one of 27
+Green Lantern, Wolverine, a Titan Shifter, All Might, the Hulk or Moon Knight, bond with a living alien Symbiote, or mutate one of 27
 experimental superpowers. Then put them to the test against world raids, the Oathbreaker and Darkseid himself.
 
 Every hero is a full survival progression, not a creative-only toy: you earn each power, fuel it, master it, and can
@@ -144,9 +144,20 @@ Find a ruined **Gamma Lab** and drink the **Gamma Serum**.
 - **Banner can't be killed:** a fatal hit just unleashes the Hulk. Lose control and he goes on a rampage, and you'll
   need the breathing minigame to calm him down.
 
-### 🌙 Moon Knight (coming soon)
-Khonshu's fist is being forged: a lunar-powered hero whose strength waxes and wanes with the moon, a Vengeance meter, three
-alters, a cape, a crescent-dart arsenal and a desert **Temple of Khonshu**. Arriving over the next updates.
+### 🌙 Moon Knight
+Find a rare **Temple of Khonshu** in the desert, take the **Scarab of Khonshu** from its hidden chamber, and at night lay
+it on the altar under the open sky and kneel. Khonshu speaks... you die in a flash of white, and rise again as his fist.
+- **H** summons the suit: it materialises over you **one pixel at a time** as bandages spiral up your body, with a
+  flowing **hooded cape**. Your own armour is kept safe and handed back when you take it off.
+- **Lunar power:** everything scales with the moon -- x1.5 under a full moon, weaker as it wanes, x0.7 by day, and less
+  underground. **Vengeance** builds by protecting villagers and travellers from monsters at night, and powers his
+  strongest moves.
+- **Three alters (C):** **Marc** the fighter, **Steven** the scholar (Scholar's Sight finds chests and ores through walls,
+  better trades), **Jake** the shadow (backstabs, Vanish). Run out of Vengeance and your mind **Fractures**.
+- **R** Crescent Darts (homing at night, boomerang back; a charged fan; **Moon Mark**) · **G** Grappling Line (with a
+  dive kick and a Yank) · **Z** Truncheon (three-hit combo slams, a staff spin, ground / dive slams) · **X** Cape Glide,
+  Cape Shroud and Shadow Step · **V** Moonbeam, **Khonshu's Judgement** and the ultimate **Eye of Khonshu** under a full moon.
+- **Khonshu's Resurrection:** once per lunar cycle, a fatal blow brings you back in a flash of moonlight.
 
 ---
 

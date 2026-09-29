@@ -27,7 +27,7 @@ public final class PowerGrants {
 	 * v0.13.19: Hero-Tier powers still being built in phases. Grantable by an operator for testing, but the random
 	 * serums never roll them -- players should not be handed a half-finished hero.
 	 */
-	public static final java.util.Set<String> IN_DEVELOPMENT = java.util.Set.of("moon_knight");
+	public static final java.util.Set<String> IN_DEVELOPMENT = java.util.Set.of();
 
 	/** What a grant did, with the line to show whoever asked for it. */
 	public record Result(boolean ok, Component message) {
