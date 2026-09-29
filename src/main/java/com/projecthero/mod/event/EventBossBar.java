@@ -31,7 +31,7 @@ import net.minecraft.world.BossEvent;
  */
 public final class EventBossBar {
 	private final UUID stableId;
-	private final BossEvent.BossBarColor color;
+	private BossEvent.BossBarColor color;
 	private final BossEvent.BossBarOverlay overlay;
 	private final boolean darkenScreen;
 
@@ -77,6 +77,14 @@ public final class EventBossBar {
 			if (!online.contains(player)) {
 				bar.removePlayer(player);
 			}
+		}
+	}
+
+	/** Change the bar colour (v0.13.18: the Darkseid Raid turns its bar purple while he is shielded). */
+	public void setColor(BossEvent.BossBarColor newColor) {
+		this.color = newColor;
+		if (bar != null && bar.getColor() != newColor) {
+			bar.setColor(newColor);
 		}
 	}
 

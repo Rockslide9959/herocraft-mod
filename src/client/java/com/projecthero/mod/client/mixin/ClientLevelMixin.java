@@ -23,7 +23,9 @@ public class ClientLevelMixin {
 		if (s <= 0.0f) {
 			return;
 		}
-		Vec3 purple = new Vec3(0.16, 0.03, 0.24);
-		cir.setReturnValue(cir.getReturnValue().lerp(purple, Math.min(1.0f, s)));
+		// v0.13.18: the raid's own colour (violet for the Zombie Raid, reds for Apokolips), the dome a touch brighter
+		Vec3 tint = new Vec3(Math.min(1.0, RaidSkyTint.red() * 1.2), Math.min(1.0, RaidSkyTint.green() * 1.2),
+				Math.min(1.0, RaidSkyTint.blue() * 1.2));
+		cir.setReturnValue(cir.getReturnValue().lerp(tint, Math.min(1.0f, s)));
 	}
 }

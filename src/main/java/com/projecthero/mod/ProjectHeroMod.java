@@ -67,6 +67,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.titanshifter.TitanShifterConfig.load();
 		com.projecthero.mod.hulk.HulkConfig.load();
 		com.projecthero.mod.behemoth.BehemothConfig.load();
+		// v0.13.18: the Darkseid Raid (read before its entity types -- they take attributes and hit-box scale from it).
+		com.projecthero.mod.darkseid.DarkseidConfig.load();
 		ModAttachments.initialize();
 		ModItems.initialize();
 		IronManItems.initialize();
@@ -97,6 +99,9 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.behemoth.BehemothItems.initialize();
 		com.projecthero.mod.behemoth.entity.BehemothEntityTypes.initialize();
 		com.projecthero.mod.oathbreaker.entity.OathbreakerEntityTypes.initialize();
+		com.projecthero.mod.darkseid.DarkseidSounds.initialize();
+		com.projecthero.mod.darkseid.entity.DarkseidEntityTypes.initialize();
+		com.projecthero.mod.darkseid.item.DarkseidItems.initialize();
 		com.projecthero.mod.hero.power.p05.GeoEntityTypes.initialize();
 		Powers.initialize();
 		HeroPowerHandlers.registerAll();
@@ -104,6 +109,8 @@ public class ProjectHeroMod implements ModInitializer {
 		ModMobEffects.initialize();
 		ModSerums.initialize();
 		HeroPackItems.initialize();
+		// v0.13.18: Prismatic / Mutagenic / Heroic serums -- a random power (any / Experimental / Hero-Tier).
+		com.projecthero.mod.hero.item.RandomPowerSerumItem.initialize();
 		ModBrewing.initialize();
 		MutationManager.initialize();
 		HeroDamageRules.initialize();
@@ -138,6 +145,8 @@ public class ProjectHeroMod implements ModInitializer {
 		// ---- Supervillain Village Raid ----
 		com.projecthero.mod.event.raid.SupervillainRaidItems.initialize();
 		com.projecthero.mod.event.raid.SupervillainRaidEvents.initialize();
+		// ---- Darkseid Raid (Apokolips Invasion): death / server start+stop hooks. ----
+		com.projecthero.mod.darkseid.raid.DarkseidRaidEvents.initialize();
 		// The one and only command root: /projecthero, which assembles every hero/event subtree from
 		// each command class's build().
 		com.projecthero.mod.command.ProjectHeroCommand.initialize();

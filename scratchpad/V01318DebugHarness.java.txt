@@ -1,0 +1,241 @@
+package com.projecthero.mod.client;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.darkseid.entity.BoomTubeEntity;
+import com.projecthero.mod.darkseid.entity.DarkseidCombat;
+import com.projecthero.mod.darkseid.entity.DarkseidEntity;
+import com.projecthero.mod.darkseid.entity.DarkseidEntityTypes;
+import com.projecthero.mod.darkseid.entity.MotherBoxEntity;
+import com.projecthero.mod.darkseid.entity.ParademonEntity;
+import com.projecthero.mod.darkseid.raid.DarkseidRaid;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.animal.Pig;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.13.18 Darkseid Raid visual tour. */
+public final class V01318DebugHarness {
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static DarkseidEntity boss;
+	private static Vec3 base;
+	private static DarkseidRaid raid;
+
+	private V01318DebugHarness() {
+	}
+
+	public static void init() {
+		ClientTickEvents.END_CLIENT_TICK.register(V01318DebugHarness::tick);
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					fn.accept(p);
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "v01318_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.put(t, r);
+	}
+
+	/** Put the (flying, creative) player at base + (dx, dy, dz) looking at base + look. */
+	private static void view(Minecraft mc, double dx, double dy, double dz, Vec3 look) {
+		server(mc, p -> {
+			Vec3 from = base.add(dx, dy, dz);
+			Vec3 to = base.add(look);
+			Vec3 d = to.subtract(from);
+			float yaw = (float) (Math.atan2(d.z, d.x) * 180.0 / Math.PI) - 90.0f;
+			float pitch = (float) -(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)) * 180.0 / Math.PI);
+			p.teleportTo(p.serverLevel(), from.x, from.y, from.z, yaw, pitch);
+		});
+	}
+
+	private static void anim(Minecraft mc, String clip) {
+		server(mc, p -> boss.playClip(clip, 120));
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				LevelSettings settings = new LevelSettings("V01318Debug" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+						Difficulty.NORMAL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.hideGui = true;
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				base = Vec3.atBottomCenterOf(p.blockPosition());
+				boss = DarkseidEntityTypes.DARKSEID.create(level);
+				boss.moveTo(base.x, base.y, base.z + 10, 180.0f, 0.0f);
+				boss.setYHeadRot(180.0f);
+				boss.yBodyRot = 180.0f;
+				boss.setNoAi(true);
+				boss.setPhaseImmediate(1);
+				level.addFreshEntity(boss);
+				ParademonEntity.Variant[] vs = ParademonEntity.Variant.values();
+				for (int i = 0; i < vs.length; i++) {
+					ParademonEntity pd = DarkseidEntityTypes.PARADEMON.create(level);
+					pd.setup(vs[i], null);
+					pd.moveTo(base.x - 7.5 + i * 2.2, base.y, base.z + 5, 180.0f, 0.0f);
+					pd.setYHeadRot(180.0f);
+					pd.yBodyRot = 180.0f;
+					pd.setNoAi(true);
+					level.addFreshEntity(pd);
+				}
+				BoomTubeEntity.open(level, base.add(6, 2.2, 6), BoomTubeEntity.Kind.MELEE, 3.2f, 20000, null);
+			});
+			t0 = inWorldTicks;
+			buildScript(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void buildScript(Minecraft mc) {
+		Vec3 bossMid = new Vec3(0, 2.2, 10);
+		at(5, () -> view(mc, 0, 2.0, -4, new Vec3(0, 2.0, 8)));
+		at(25, () -> shot(mc, "a01_lineup"));
+		at(27, () -> view(mc, 0, 2.5, 2, bossMid));
+		at(40, () -> shot(mc, "a02_darkseid_front"));
+		at(42, () -> view(mc, 7, 2.5, 10, bossMid));
+		at(55, () -> shot(mc, "a03_darkseid_side"));
+		at(57, () -> view(mc, 0, 3.0, 20, bossMid));
+		at(70, () -> shot(mc, "a04_darkseid_back"));
+		at(72, () -> view(mc, 4, 2.5, 3, bossMid));
+		int t = 80;
+		String[][] clips = { { "omega_beam_charge", "20" } };
+		for (String[] c : clips) {
+			String clip = c[0];
+			int wait = Integer.parseInt(c[1]);
+			if (clip.equals("walk") || clip.equals("run")) {
+				continue; // looping main-controller clips are covered by the live raid below
+			}
+			final int start = t;
+						at(start + 4, () -> anim(mc, clip));
+			at(start + 4 + wait, () -> shot(mc, "b_" + clip + "_" + wait));
+			t = start + 4 + wait + 10;
+		}
+		// the Omega Beam Sweep, forced at a pig
+		final int sweepAt = t;
+		at(sweepAt, () -> server(mc, p -> {
+			Pig pig = EntityType.PIG.create(p.serverLevel());
+			pig.moveTo(base.x + 6, base.y, base.z + 14);
+			pig.setNoAi(true);
+			p.serverLevel().addFreshEntity(pig);
+			boolean ok = boss.combat().forceAttack(p.serverLevel(), DarkseidCombat.Attack.OMEGA_SWEEP, pig);
+			System.out.println("[HARNESS] sweep forced=" + ok + " attack=" + boss.combat().currentAttack());
+		}));
+		at(sweepAt + 2, () -> view(mc, -12, 4, 10, new Vec3(0, 0.8, 10)));
+		at(sweepAt + 50, () -> {
+			shot(mc, "c01_sweep");
+			var client = mc.level.getEntity(boss.getId());
+			System.out.println("[HARNESS] server sweep=" + boss.sweepYaw() + " attack=" + boss.combat().currentAttack()
+					+ " client=" + (client instanceof DarkseidEntity d ? d.sweepYaw() : "missing") + " player=" + mc.player.position());
+		});
+		at(sweepAt + 70, () -> shot(mc, "c02_sweep_later"));
+		// Omega Beams: two beams from his eyes at a pig off to the side
+		at(sweepAt + 125, () -> server(mc, p -> {
+			Pig pig = EntityType.PIG.create(p.serverLevel());
+			pig.moveTo(base.x - 12, base.y, base.z + 18);
+			pig.setNoAi(true);
+			p.serverLevel().addFreshEntity(pig);
+			boss.combat().forceAttack(p.serverLevel(), DarkseidCombat.Attack.OMEGA_BEAMS, pig);
+		}));
+		at(sweepAt + 125 + 32 + 5, () -> shot(mc, "c03_omega_beams"));
+		at(sweepAt + 125 + 32 + 12, () -> shot(mc, "c04_omega_beams_curving"));
+		// a Mother Box up close
+		at(sweepAt + 200, () -> server(mc, p -> {
+			boss.discard();
+			MotherBoxEntity.spawn(p.serverLevel(), base.add(0, 1.2, 4), null, 0);
+		}));
+		at(sweepAt + 202, () -> view(mc, 0, 2.0, 0.5, new Vec3(0, 1.5, 4)));
+		at(sweepAt + 210, () -> shot(mc, "d01_mother_box_orphan"));
+		// ---- a real invasion, fast-forwarded ----
+		int r = sweepAt + 230;
+		at(r - 5, () -> mc.stop());
+		at(r, () -> server(mc, p -> {
+			p.serverLevel().getEntities(p, p.getBoundingBox().inflate(40), e -> !(e instanceof ServerPlayer)).forEach(e -> e.discard());
+			raid = DarkseidRaid.startAt(p.serverLevel(), BlockPos.containing(base.add(0, 0, 20)), p);
+		}));
+		at(r + 2, () -> { mc.options.hideGui = false; view(mc, 0, 6, -6, new Vec3(0, 3, 20)); });
+		at(r + 30, () -> shot(mc, "e01_invasion_start"));
+		at(r + 40, () -> server(mc, p -> raid.debugAdvance(p.serverLevel())));
+		at(r + 110, () -> shot(mc, "e02_wave1"));
+		for (int i = 0; i < 3; i++) {
+			final int k = r + 120 + i * 40;
+			at(k, () -> server(mc, p -> raid.debugAdvance(p.serverLevel())));
+		}
+		at(r + 250, () -> shot(mc, "e03_entrance_tube"));
+		at(r + 285, () -> shot(mc, "e04_darkseid_emerges"));
+		at(r + 360, () -> shot(mc, "e05_mother_boxes"));
+		at(r + 420, () -> { view(mc, 0, 3, -2, new Vec3(0, 2, 20)); });
+		at(r + 440, () -> shot(mc, "e06_shielded"));
+		at(r + 450, () -> server(mc, p -> raid.debugAdvance(p.serverLevel())));
+		at(r + 520, () -> shot(mc, "e07_shield_fallen"));
+		at(r + 530, () -> server(mc, p -> raid.debugAdvance(p.serverLevel())));
+		at(r + 620, () -> shot(mc, "e08_phase2"));
+		at(r + 630, () -> server(mc, p -> raid.debugAdvance(p.serverLevel())));
+		at(r + 720, () -> shot(mc, "e09_omega_rage"));
+		at(r + 730, () -> server(mc, p -> raid.debugAdvance(p.serverLevel())));
+		at(r + 800, () -> shot(mc, "e10_death_burst"));
+		at(r + 878, () -> shot(mc, "e11_victory"));
+		at(r + 960, () -> mc.stop());
+	}
+}

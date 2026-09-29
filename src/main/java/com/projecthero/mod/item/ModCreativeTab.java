@@ -65,6 +65,8 @@ public final class ModCreativeTab {
 				output.accept(com.projecthero.mod.symbiote.item.SymbioteHostItems.SYMBIOTE_VIAL_FILLED);
 				// HeroPack experimental-power items (research notes, reagents, serums, guide).
 				com.projecthero.mod.hero.item.HeroPackItems.addToCreativeTab(output);
+				// v0.13.18: the three random-power serums.
+				com.projecthero.mod.hero.item.RandomPowerSerumItem.addToCreativeTab(output);
 				com.projecthero.mod.hero.device.ModDevices.addToCreativeTab(output);
 				// Iron Man has its own dedicated tab now (v0.6.19) — nothing Iron Man goes in here.
 				// Zombie Raid: Grave Essence, artifacts, raid weapons, trophies, the Cursed Grave block.
@@ -89,6 +91,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.titanshifter.item.TitanShifterItems.addToCreativeTab(output);
 				// The Abyssal Behemoth: its unique boss material.
 				com.projecthero.mod.behemoth.BehemothItems.addToCreativeTab(output);
+				// v0.13.18 Darkseid Raid: Boom Tube Beacon, Omega Core/Shard, Mother Box, Omega Relic, spawn eggs.
+				com.projecthero.mod.darkseid.item.DarkseidItems.addToCreativeTab(output);
 			})
 			.build();
 

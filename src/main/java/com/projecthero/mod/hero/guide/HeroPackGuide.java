@@ -237,7 +237,8 @@ public final class HeroPackGuide {
 	private static final int CH_ABYSSAL_BEHEMOTH = 19;
 	private static final int CH_OATHBREAKER = 20;
 	private static final int CH_HULK = 21;
-	private static final int CHAPTER_POWER_BASE = 22;
+	private static final int CH_DARKSEID_RAID = 22;
+	private static final int CHAPTER_POWER_BASE = 23;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -268,6 +269,8 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.mutation.capacity");
 			blank(lines);
 			para(lines, "projecthero.guide.mutation.research");
+			blank(lines);
+			para(lines, "projecthero.guide.mutation.random_serums");
 		}));
 
 		out.add(chapter("projecthero.guide.structures", lines -> {
@@ -766,6 +769,17 @@ public final class HeroPackGuide {
 			}
 		}));
 
+		// The Apokolips Invasion (v0.13.18) -- the Darkseid Raid. Appended after Hulk so every earlier index stays put.
+		out.add(chapter("projecthero.guide.darkseid_raid", lines -> {
+			para(lines, "projecthero.guide.darkseid_raid.body");
+			blank(lines);
+			for (String section : new String[]{"start", "waves", "mother_boxes", "phase1", "phase2", "phase3", "death", "rewards"}) {
+				head(lines, "projecthero.guide.darkseid_raid." + section);
+				para(lines, "projecthero.guide.darkseid_raid." + section + ".body");
+				blank(lines);
+			}
+		}));
+
 		// one chapter per power, in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.all()) {
 			out.add(powerChapter(power));
@@ -805,6 +819,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.titan", CH_TITAN);
 		link(idx, "projecthero.guide.abyssal_behemoth", CH_ABYSSAL_BEHEMOTH);
 		link(idx, "projecthero.guide.oathbreaker", CH_OATHBREAKER);
+		link(idx, "projecthero.guide.darkseid_raid", CH_DARKSEID_RAID);
 
 		section(idx, "projecthero.guide.section.squads", true);
 		link(idx, "projecthero.guide.squads", CH_SQUADS);

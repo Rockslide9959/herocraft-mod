@@ -51,9 +51,9 @@ public class FogRendererMixin {
 			return;
 		}
 		s = Math.min(1.0f, s); // at the centre of the raid, no daytime colour is left at all
-		fogRed = Mth.lerp(s, fogRed, 0.13f);
-		fogGreen = Mth.lerp(s, fogGreen, 0.02f);
-		fogBlue = Mth.lerp(s, fogBlue, 0.21f);
+		fogRed = Mth.lerp(s, fogRed, RaidSkyTint.red());
+		fogGreen = Mth.lerp(s, fogGreen, RaidSkyTint.green());
+		fogBlue = Mth.lerp(s, fogBlue, RaidSkyTint.blue());
 		// Re-issue the GL clear colour: vanilla already set it from the pre-tint fog colour earlier in
 		// setupColor, which is the blue band that was showing between the sky dome and the horizon.
 		RenderSystem.clearColor(fogRed, fogGreen, fogBlue, 0.0f);

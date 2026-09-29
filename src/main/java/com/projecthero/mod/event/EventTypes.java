@@ -19,6 +19,7 @@ public final class EventTypes {
 
 	public static final String ZOMBIE_RAID = "zombie_raid";
 	public static final String SUPERVILLAIN_RAID = SupervillainRaid.TYPE_ID;
+	public static final String DARKSEID_RAID = com.projecthero.mod.darkseid.raid.DarkseidRaid.TYPE_ID;
 
 	private EventTypes() {
 	}
@@ -26,6 +27,7 @@ public final class EventTypes {
 	public static void initialize() {
 		register(ZOMBIE_RAID, ZombieRaid::new);
 		register(SUPERVILLAIN_RAID, SupervillainRaid::new);
+		register(DARKSEID_RAID, com.projecthero.mod.darkseid.raid.DarkseidRaid::new);
 	}
 
 	public static void register(String typeId, Function<UUID, EventInstance> factory) {

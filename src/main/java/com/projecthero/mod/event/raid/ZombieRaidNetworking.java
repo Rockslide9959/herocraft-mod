@@ -31,11 +31,18 @@ public final class ZombieRaidNetworking {
 	}
 
 	public static void pushSky(ServerLevel level, ZombieRaid raid, double radius) {
-		BlockPos c = raid.center();
+		pushSky(level, raid.center(), radius, RaidSkyPayload.ZOMBIE_RAID_VIOLET);
+	}
+
+	/**
+	 * v0.13.18: the same zone push for any raid, with its own sky colour (the Darkseid Raid uses it too). A colour
+	 * change for a player already inside is just another de-duplicated packet.
+	 */
+	public static void pushSky(ServerLevel level, BlockPos c, double radius, int color) {
 		if (c == null) {
 			return;
 		}
-		RaidSkyPayload active = new RaidSkyPayload(true, c.getX(), c.getY(), c.getZ(), (float) radius);
+		RaidSkyPayload active = new RaidSkyPayload(true, c.getX(), c.getY(), c.getZ(), (float) radius, color);
 		double outer = radius + FADE_MARGIN;
 		double outerSq = outer * outer;
 		for (ServerPlayer player : level.players()) {
@@ -47,6 +54,9 @@ public final class ZombieRaidNetworking {
 			}
 			if (!want.active() && previous == null) {
 				continue; // never showed this player the tint -- nothing to clear
+			}
+			if (!want.active() && (previous.x() != c.getX() || previous.z() != c.getZ())) {
+				continue; // they are being shown a different raid's sky -- that raid clears its own
 			}
 			if (want.active()) {
 				LAST_SENT.put(player.getUUID(), want);
@@ -61,6 +71,21 @@ public final class ZombieRaidNetworking {
 	public static void clearSky(ServerLevel level) {
 		for (ServerPlayer player : level.players()) {
 			if (LAST_SENT.remove(player.getUUID()) != null) {
+				ServerPlayNetworking.send(player, RaidSkyPayload.CLEAR);
+			}
+		}
+	}
+
+	/** v0.13.18: clear only the players currently shown the sky of the raid centred at {@code c}. */
+	public static void clearSky(ServerLevel level, BlockPos c) {
+		if (c == null) {
+			clearSky(level);
+			return;
+		}
+		for (ServerPlayer player : level.players()) {
+			RaidSkyPayload previous = LAST_SENT.get(player.getUUID());
+			if (previous != null && previous.x() == c.getX() && previous.z() == c.getZ()) {
+				LAST_SENT.remove(player.getUUID());
 				ServerPlayNetworking.send(player, RaidSkyPayload.CLEAR);
 			}
 		}

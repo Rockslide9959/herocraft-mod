@@ -1,0 +1,28 @@
+{
+  "display": {
+    "icon": {
+      "id": "projecthero:mother_box"
+    },
+    "title": {
+      "translate": "advancement.projecthero.darkseid.apokolips_falls.title"
+    },
+    "description": {
+      "translate": "advancement.projecthero.darkseid.apokolips_falls.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "code_trigger": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "code_trigger"
+    ]
+  ],
+  "parent": "projecthero:darkseid/anti_life"
+}

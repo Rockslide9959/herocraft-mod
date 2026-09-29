@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "SXS",
+    "XCX",
+    "SXS"
+  ],
+  "key": {
+    "S": {
+      "item": "projecthero:omega_shard"
+    },
+    "X": {
+      "item": "minecraft:netherite_scrap"
+    },
+    "C": {
+      "item": "projecthero:omega_core"
+    }
+  },
+  "result": {
+    "id": "projecthero:mother_box",
+    "count": 1
+  }
+}

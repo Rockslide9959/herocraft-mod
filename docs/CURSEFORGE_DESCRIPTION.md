@@ -288,6 +288,9 @@ A **Hero-Tier Primary** power. Find a rare **Gamma Lab** ruin in the overworld a
 
 ## 27 Experimental Powers · 162 Abilities
 
+**Random-power serums (v0.13.18):** the **Mutagenic Serum** grants a random Experimental power, the **Heroic Serum** a random
+Hero-Tier power and the **Prismatic Serum** any power at all -- always one you don't have yet (kept if nothing new fits).
+
 A whole second progression system layered on top of the named heroes. **Mutate** a power by brewing
 and drinking an **experimental serum**, studying **research notes**, surviving an **exposure event**,
 or using a **lab device**. Rare **research site** structures hold the recipes and hints.
@@ -362,6 +365,27 @@ feints) and the Oathless below 25% (Judgement slam, the unblockable Execution gr
 **v0.13.17:** every move hits ~30% harder, and he hits a further **10% harder in phase 2** and **25% harder in phase 3**.
 Defeating him drops a netherite sword, Grave Essence, a guaranteed Abyssal Core and the Broken Oath.
 
+
+### Apokolips Invasion -- the Darkseid Raid (v0.13.18)
+An **endgame co-op raid for up to 8 heroes** that never happens on its own. Craft a **Boom Tube Beacon** (a Nether Star,
+4 Supervillain Tokens, 2 Echo Shards and 3 Crying Obsidian -- or a Nether Star, 4 Omega Shards and 4 Crying Obsidian) and
+use it: every survival player within 48 blocks joins the roster, the sky turns Apokolips red and a 64-block arena opens.
+- **Three Parademon waves** pour through Boom Tubes: winged Parademons that take to the air after flyers, Ranged gunners
+  that hover level with you and lead their shots, then Elites and Brutes.
+- **DARKSEID -- LORD OF APOKOLIPS** steps out of a giant Boom Tube, shielded by **four Mother Boxes**. Right-click a box and
+  stay beside it for 10 seconds to disrupt it; ignore one for 90 seconds and it **overloads** (he heals, it explodes,
+  Parademons pour out, the ground burns).
+- **Three phases** (3,000 HP + 600 per extra participant): **Omega Beams** that curve after you (blocks stop them), the
+  **Omega Barrage**, a **Godly Ground Slam** that reaches flyers, **Darkseid's Grip**, the **Omega Teleport**, the
+  **Apokoliptian Charge** and Boom Tube reinforcements; at 60% the **Omega Effect** adds a rotating **Omega Beam Sweep**;
+  at 25% **Omega Rage** brings **Omega Annihilation** -- hit him hard enough during the 5-second charge to stagger him,
+  or take an arena-wide blast.
+- Dying isn't the end: respawn and return after 25 seconds. The raid is lost only if every hero is down at once. After
+  15 minutes he soft-enrages instead of wiping you. Flight is never disabled -- he just has answers for it.
+- **Rewards** for every official participant: Darkseid's **Omega Core**, **Omega Shards**, a rare **Mother Box** (a personal
+  Boom Tube home) and a very rare **Omega Relic** (24 charges of homing Omega Beams). Advancements *Anti-Life* and
+  *Apokolips Falls*. Everything is tunable in `config/projecthero_darkseid.json`.
+
 ---
 
 ## Squads
@@ -395,7 +419,7 @@ Symbiote (or bottle the Symbiote alone with a Symbiote Vial).
 - **`/squad`** is the one player-facing command (see Squads above); everything else is admin tooling.
 - **Admin commands** (op-only) are just three, under `/projecthero`: `power grant|remove|stack <power>`
   (every power in the mod), `locate <structure>` (every mod structure) and
-  `raid start|end|removetimer|advancetimer <supervillain|gravebound>`.
+  `raid start|end|removetimer|advancetimer <supervillain|gravebound|darkseid>` (plus `raid darkseid status|enrage|attack|stagger`).
 - Built on a shared GeckoLib armour-model pipeline and backed by 200+ automated in-game tests.
 - **License:** All Rights Reserved. This is a personal project shared as-is; please don't redistribute
   or reupload the jar.

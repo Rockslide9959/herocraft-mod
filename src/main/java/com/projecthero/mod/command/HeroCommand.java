@@ -6,7 +6,6 @@ import com.projecthero.mod.hero.Powers;
 import com.projecthero.mod.ironman.TonyStark;
 import com.projecthero.mod.maxsteel.MaxSteel;
 import com.projecthero.mod.spider.SpiderMan;
-import com.projecthero.mod.worthiness.Worthiness;
 
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -42,8 +41,7 @@ import net.minecraft.server.level.ServerPlayer;
  */
 public final class HeroCommand {
 	/** The four Hero-Tier powers, addressable by {@code /heropower grant|revoke hero <key>}. */
-	private static final java.util.List<String> HERO_TIER_KEYS =
-			java.util.List.of("thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter", "all_might", "hulk", "symbiote");
+	private static final java.util.List<String> HERO_TIER_KEYS = com.projecthero.mod.hero.PowerGrants.HERO_TIER_KEYS;
 
 	/**
 	 * The bare {@code /heropower grant <key>} form (v0.6.20): experimental keys <em>and</em> the four
@@ -279,93 +277,14 @@ public final class HeroCommand {
 	}
 
 	private static int grantHeroByKey(CommandContext<CommandSourceStack> c, ServerPlayer target, String hero) {
-		String name = target.getGameProfile().getName();
-		if (!HERO_TIER_KEYS.contains(hero)) {
-			c.getSource().sendFailure(Component.literal("Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel)"));
-			return 0;
+		// v0.13.18: the grant itself lives in PowerGrants (shared with the random-power serums).
+		com.projecthero.mod.hero.PowerGrants.Result result = com.projecthero.mod.hero.PowerGrants.grantHero(target, hero);
+		if (result.ok()) {
+			c.getSource().sendSuccess(result::message, true);
+			return 1;
 		}
-		// Claim a Primary slot (the oldest power is replaced if the player already holds two). The other heroes'
-		// grant routines claim for themselves; Thor has no routine of its own, and Spider-Man needs the
-		// mutations cleared for its Adhesion prerequisite.
-		if ("spider_man".equals(hero)) {
-			com.projecthero.mod.hero.HeroTiers.wipeExperimental(target);
-		}
-		switch (hero) {
-			case "thor" -> {
-				com.projecthero.mod.hero.HeroTiers.claimPrimary(target, "thor");
-				Worthiness.setScore(target, Worthiness.TEST_WORTHY_SCORE);
-				c.getSource().sendSuccess(() -> Component.literal(
-						"Made " + name + " worthy of Mjolnir (grab the hammer to wield Thor's power)"), true);
-				return 1;
-			}
-			case "iron_man" -> {
-				boolean ok = TonyStark.grant(target);
-				c.getSource().sendSuccess(() -> Component.literal((ok ? "Granted Tony Stark to " : "Already had Tony Stark: ")
-						+ name), true);
-				return ok ? 1 : 0;
-			}
-			case "spider_man" -> {
-				if (SpiderMan.hasPower(target)) {
-					c.getSource().sendFailure(Component.literal(name + " is already Spider-Man"));
-					return 0;
-				}
-				if (!SpiderMan.hasSpiderAdhesion(target)) {
-					Power adhesion = Powers.byKey(SpiderMan.SPIDER_ADHESION_KEY);
-					if (adhesion == null || !ExperimentalPowers.grant(target, adhesion)) {
-						c.getSource().sendFailure(Component.literal(
-								"Could not give " + name + " the Spider Adhesion prerequisite (mutation slots full?)"));
-						return 0;
-					}
-				}
-				if (!SpiderMan.evolveFromAdhesion(target)) {
-					c.getSource().sendFailure(Component.literal("Could not evolve " + name + " into Spider-Man"));
-					return 0;
-				}
-				c.getSource().sendSuccess(() -> Component.literal("Evolved " + name + " into Spider-Man"), true);
-				return 1;
-			}
-			case "max_steel" -> {
-				boolean ok = MaxSteel.bond(target);
-				c.getSource().sendSuccess(() -> Component.literal(ok ? "Bonded " + name + " with Steel (Max Steel)"
-						: name + " is already Max Steel"), true);
-				return ok ? 1 : 0;
-			}
-			case "punisher" -> {
-				boolean ok = com.projecthero.mod.punisher.Punisher.grant(target);
-				c.getSource().sendSuccess(() -> Component.literal(ok ? "Granted the Punisher to " + name
-						: name + " is already the Punisher"), true);
-				return ok ? 1 : 0;
-			}
-			case "green_lantern" -> {
-				boolean ok = com.projecthero.mod.greenlantern.GreenLantern.bond(target);
-				c.getSource().sendSuccess(() -> Component.literal(ok ? "Bonded " + name + " with a Power Ring (Green Lantern)"
-						: name + " is already Green Lantern"), true);
-				return ok ? 1 : 0;
-			}
-			case "wolverine" -> {
-				return com.projecthero.mod.command.WolverineCommand.grant(c, target);
-			}
-			case "titan_shifter" -> {
-				return com.projecthero.mod.command.TitanShifterCommand.grant(c, target);
-			}
-			case "all_might" -> {
-				return com.projecthero.mod.command.AllMightCommand.grant(c, target);
-			}
-			case "hulk" -> {
-				return com.projecthero.mod.command.HulkCommand.grant(c, target);
-			}
-			case "symbiote" -> {
-				boolean ok = com.projecthero.mod.symbiote.Symbiote.grant(target);
-				c.getSource().sendSuccess(() -> Component.literal(ok ? "Bonded " + name + " with the Symbiote"
-						: name + " already has the Symbiote"), true);
-				return ok ? 1 : 0;
-			}
-			default -> {
-				c.getSource().sendFailure(Component.literal(
-						"Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel, punisher, green_lantern, wolverine, titan_shifter, all_might, hulk)"));
-				return 0;
-			}
-		}
+		c.getSource().sendFailure(result.message());
+		return 0;
 	}
 
 	/** Remove a Hero-Tier power, tearing every power's state down cleanly (v0.13.5: Thor included --

@@ -28,6 +28,19 @@ public final class RaidSkyTint {
 		state = RaidSkyPayload.CLEAR;
 	}
 
+	/** The fog/horizon colour being washed toward, as r/g/b 0..1 (v0.13.18: per raid). */
+	public static float red() {
+		return ((state.color() >> 16) & 0xFF) / 255.0f;
+	}
+
+	public static float green() {
+		return ((state.color() >> 8) & 0xFF) / 255.0f;
+	}
+
+	public static float blue() {
+		return (state.color() & 0xFF) / 255.0f;
+	}
+
 	/** 0 = untinted, 1 = full dark purple, by the local player's horizontal distance to the raid. */
 	public static float strength() {
 		RaidSkyPayload s = state;

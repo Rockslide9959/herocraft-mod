@@ -36,9 +36,11 @@ import java.util.List;
  *   <li>{@code advancetimer} finishes the pending timer now: the Supervillain countdown is skipped, or every
  *       Gravebound Curse countdown expires immediately and the raid begins.</li>
  * </ul>
+ * v0.13.18: {@code darkseid} is a third raid -- see {@link DarkseidRaidCommand} for what each verb does to it, plus
+ * its own {@code /projecthero raid darkseid ...} test tools.
  */
 public final class RaidAdminCommand {
-	private static final List<String> RAIDS = List.of("supervillain", "gravebound");
+	private static final List<String> RAIDS = List.of("supervillain", "gravebound", "darkseid");
 	private static final SuggestionProvider<CommandSourceStack> RAID_KEYS =
 			(ctx, builder) -> SharedSuggestionProvider.suggest(RAIDS, builder);
 
@@ -51,7 +53,8 @@ public final class RaidAdminCommand {
 				.then(verb("start", RaidAdminCommand::start))
 				.then(verb("end", RaidAdminCommand::end))
 				.then(verb("removetimer", RaidAdminCommand::removeTimer))
-				.then(verb("advancetimer", RaidAdminCommand::advanceTimer));
+				.then(verb("advancetimer", RaidAdminCommand::advanceTimer))
+				.then(DarkseidRaidCommand.build());
 	}
 
 	private interface Action {
@@ -64,8 +67,11 @@ public final class RaidAdminCommand {
 						.executes(c -> {
 							String raid = StringArgumentType.getString(c, "raid");
 							if (!RAIDS.contains(raid)) {
-								c.getSource().sendFailure(Component.literal("Unknown raid (supervillain, gravebound)"));
+								c.getSource().sendFailure(Component.literal("Unknown raid (supervillain, gravebound, darkseid)"));
 								return 0;
+							}
+							if (raid.equals("darkseid")) {
+								return DarkseidRaidCommand.verb(c, name);
 							}
 							return action.run(c, raid.equals("supervillain"));
 						}));

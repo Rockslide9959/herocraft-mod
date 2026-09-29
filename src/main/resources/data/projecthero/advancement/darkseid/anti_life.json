@@ -1,0 +1,28 @@
+{
+  "display": {
+    "icon": {
+      "id": "projecthero:omega_core"
+    },
+    "title": {
+      "translate": "advancement.projecthero.darkseid.anti_life.title"
+    },
+    "description": {
+      "translate": "advancement.projecthero.darkseid.anti_life.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false,
+    "background": "minecraft:textures/block/blackstone.png"
+  },
+  "criteria": {
+    "code_trigger": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "code_trigger"
+    ]
+  ]
+}

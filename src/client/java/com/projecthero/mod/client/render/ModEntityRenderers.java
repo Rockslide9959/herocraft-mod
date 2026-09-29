@@ -37,5 +37,18 @@ public final class ModEntityRenderers {
 				ctx -> new net.minecraft.client.renderer.entity.ThrownItemRenderer<>(ctx, 4.5f, true));
 		EntityRendererRegistry.register(com.projecthero.mod.oathbreaker.entity.OathbreakerEntityTypes.OATHBREAKER,
 				com.projecthero.mod.client.oathbreaker.OathbreakerRenderer::new);
+		// v0.13.18 Darkseid Raid
+		EntityRendererRegistry.register(com.projecthero.mod.darkseid.entity.DarkseidEntityTypes.DARKSEID,
+				com.projecthero.mod.client.darkseid.DarkseidRenderer::new);
+		EntityRendererRegistry.register(com.projecthero.mod.darkseid.entity.DarkseidEntityTypes.PARADEMON,
+				com.projecthero.mod.client.darkseid.ParademonRenderer::new);
+		EntityRendererRegistry.register(com.projecthero.mod.darkseid.entity.DarkseidEntityTypes.MOTHER_BOX,
+				com.projecthero.mod.client.darkseid.MotherBoxRenderer::new);
+		EntityRendererRegistry.register(com.projecthero.mod.darkseid.entity.DarkseidEntityTypes.BOOM_TUBE,
+				com.projecthero.mod.client.darkseid.BoomTubeRenderer::new);
+		EntityRendererRegistry.register(com.projecthero.mod.darkseid.entity.DarkseidEntityTypes.OMEGA_BEAM,
+				com.projecthero.mod.client.darkseid.EnergyTrailRenderer::new);
+		EntityRendererRegistry.register(com.projecthero.mod.darkseid.entity.DarkseidEntityTypes.PARADEMON_BOLT,
+				com.projecthero.mod.client.darkseid.EnergyTrailRenderer::new);
 	}
 }
