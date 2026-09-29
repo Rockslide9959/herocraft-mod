@@ -197,8 +197,17 @@ public final class HulkConfig {
 	public static final float REACTOR_RAGE_PER_SECOND = 3.0f;
 
 	// ---------------- the change ----------------
-	/** Ticks the body takes to grow (or shrink back); damage-proof while it happens. */
+	/** Ticks the body takes to grow (or shrink back) -- the change the player chose with H, and every change back. */
 	public static final int GROWTH_TICKS = 30;
+	/**
+	 * v0.13.15: the unwilling change (rage hit the top, or the death save) is slower and happens on his knees: Banner drops for
+	 * {@link #FORCED_KNEEL_TICKS}, grows over {@link #FORCED_GROWTH_TICKS} while the Hulk takes him over, then rises and roars over
+	 * {@link #FORCED_RISE_TICKS}. He cannot move or use abilities until it is over.
+	 */
+	public static final int FORCED_KNEEL_TICKS = 20;
+	public static final int FORCED_GROWTH_TICKS = 60;
+	public static final int FORCED_RISE_TICKS = 24;
+	public static final int FORCED_CHANGE_TICKS = FORCED_KNEEL_TICKS + FORCED_GROWTH_TICKS + FORCED_RISE_TICKS;
 	/** Anti-spam gate on H. */
 	public static final int TOGGLE_DEBOUNCE_TICKS = 10;
 	/** Health healed on top of the carried-over health percentage when the Hulk comes out. */

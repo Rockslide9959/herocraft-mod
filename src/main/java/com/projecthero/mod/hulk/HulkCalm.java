@@ -40,7 +40,7 @@ public final class HulkCalm {
 	public static void start(ServerPlayer player) {
 		HulkState s = Hulk.state(player);
 		long now = player.level().getGameTime();
-		if (!s.hasPower || s.combat.calming || s.rampaging(now) || !player.isAlive()) {
+		if (!s.hasPower || s.combat.calming || s.rampaging(now) || Hulk.changing(s, now) || !player.isAlive()) {
 			return;
 		}
 		if (s.rage <= 0.0f) {

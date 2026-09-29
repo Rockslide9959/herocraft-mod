@@ -20,6 +20,8 @@ import net.minecraft.world.entity.player.Player;
  * The Hulk HUD (v0.13.14 layout), bottom-right:
  * <pre>
  *   Banner:        Rage 62%              Hulk:   [R][G][X][Z][V][C]
+ *     (or Exhausted 7s, the bar
+ *      running down the timer)
  *                  o ==========                  Hulk Form
  *                                                Rage 62%
  *                                                o ==========
@@ -78,8 +80,9 @@ public final class HulkHud {
 		int rageBar = bottom - HAIRLINE;
 		boolean exhausted = s.exhaustedUntil > now;
 		int pct = Math.round(Math.max(0.0f, Math.min(1.0f, s.rage / HulkConfig.RAGE_MAX)) * 100.0f);
+		// v0.13.15: Banner's bar is "Rage 62%", or -- while he is worn out -- "Exhausted 7s" with the bar running down the timer
 		Component label = exhausted
-				? Component.translatable("hud.projecthero.hulk.rage_exhausted", pct, (int) Math.ceil((s.exhaustedUntil - now) / 20.0))
+				? Component.translatable("hud.projecthero.hulk.exhausted", (int) Math.ceil((s.exhaustedUntil - now) / 20.0))
 				: Component.translatable("hud.projecthero.hulk.rage", pct);
 		g.drawString(mc.font, label, x0, rageBar - 11, exhausted ? COLOR_EXHAUSTED : COLOR_LABEL, false);
 		boolean saveReady = Hulk.deathSaveReady(player);
@@ -90,9 +93,18 @@ public final class HulkHud {
 		if (s.hulk && s.rage < 15.0f && (now / 5L) % 2L == 0L) {
 			fill = 0xFF4F7F2A; // about to shrink back
 		}
+		if (!s.hulk && s.rage > HulkConfig.MANUAL_TRANSFORM_RAGE && !exhausted) {
+			// past 75: the bar throbs with his heartbeat, faster as it nears 100
+			float heat = (s.rage - HulkConfig.MANUAL_TRANSFORM_RAGE) / (HulkConfig.RAGE_MAX - HulkConfig.MANUAL_TRANSFORM_RAGE);
+			float t = (now + delta.getGameTimeDeltaPartialTick(false)) * (0.25f + 0.35f * heat);
+			fill = (Math.sin(t) > 0.3) ? 0xFFB8FF7A : COLOR_RAGE_READY;
+		}
+		float barFrac = exhausted
+				? Math.min(1.0f, (s.exhaustedUntil - now) / (float) HulkConfig.EXHAUSTED_TICKS)
+				: pct / 100.0f;
 		g.fill(bx, rageBar, bx + bw, rageBar + HAIRLINE, COLOR_BG);
-		g.fill(bx, rageBar, bx + Math.round(bw * pct / 100.0f), rageBar + HAIRLINE, exhausted ? COLOR_EXHAUSTED : fill);
-		if (!s.hulk) {
+		g.fill(bx, rageBar, bx + Math.round(bw * barFrac), rageBar + HAIRLINE, exhausted ? COLOR_EXHAUSTED : fill);
+		if (!s.hulk && !exhausted) {
 			int mark = bx + Math.round(bw * (HulkConfig.MANUAL_TRANSFORM_RAGE / HulkConfig.RAGE_MAX));
 			g.fill(mark, rageBar - 1, mark + 1, rageBar + HAIRLINE + 1, 0xFFFFFFFF);
 		}
@@ -153,6 +165,16 @@ public final class HulkHud {
 	private static void renderCentre(GuiGraphics g, Minecraft mc, Player player, HulkState s, long now) {
 		int cx = g.guiWidth() / 2;
 		int y = g.guiHeight() / 2 - 62; // above the crosshair, clear of the action bar and the hotbar
+		if (Hulk.changing(s, now)) {
+			// v0.13.15: the unwilling change -- nothing to do but ride it out
+			float f = Math.min(1.0f, (now - s.formChangedAt) / (float) HulkConfig.FORCED_CHANGE_TICKS);
+			int w = 120;
+			int col = (now / 6L) % 2L == 0L ? 0xFF7CFF4A : 0xFF3FAF3A;
+			g.drawCenteredString(mc.font, Component.translatable("hud.projecthero.hulk.changing").withStyle(ChatFormatting.BOLD), cx, y, col);
+			g.fill(cx - w / 2, y + 11, cx + w / 2, y + 13, COLOR_BG);
+			g.fill(cx - w / 2, y + 11, cx - w / 2 + Math.round(w * f), y + 13, 0xFF7CFF4A);
+			return;
+		}
 		if (s.rampaging(now)) {
 			int secs = (int) Math.ceil((s.combat.rampageUntil - now) / 20.0);
 			int col = (now / 4L) % 2L == 0L ? 0xFFFF5544 : 0xFF7CFF4A;

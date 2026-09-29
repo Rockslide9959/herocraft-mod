@@ -7,8 +7,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 
+import com.projecthero.mod.client.hulk.HulkFade;
 import com.projecthero.mod.client.hulk.HulkRenderer;
-import com.projecthero.mod.hulk.Hulk;
 
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -31,13 +31,30 @@ public abstract class PlayerRendererHulkMixin {
 	private void projecthero$renderHulk(AbstractClientPlayer player, float entityYaw, float partialTicks,
 			PoseStack poseStack, MultiBufferSource buffer, int packedLight, CallbackInfo ci) {
 		HulkRenderer renderer = HulkRenderer.get();
-		if (renderer == null || !Hulk.isHulk(player)) {
-			return;
+		if (renderer == null || !HulkFade.drawHulk(player, partialTicks) || HulkFade.hulkAlpha(player, partialTicks) < 0.999f) {
+			return; // Banner, or mid-change: vanilla draws Banner first and the Hulk goes on top at RETURN
 		}
 		ci.cancel();
-		if (player.isInvisible()) {
+		if (!player.isInvisible()) {
+			renderer.renderFaded(player, entityYaw, partialTicks, poseStack, buffer, packedLight, 1.0f);
+		}
+	}
+
+	/**
+	 * v0.13.15: mid-change both bodies are drawn -- Banner by vanilla (made see-through by LivingEntityHulkFadeMixin), then
+	 * the Hulk over him at his share of the fade -- so the Hulk phases onto him as he grows and off him as he shrinks.
+	 */
+	@Inject(method = "render(Lnet/minecraft/client/player/AbstractClientPlayer;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",
+			at = @At("RETURN"))
+	private void projecthero$renderHulkFading(AbstractClientPlayer player, float entityYaw, float partialTicks,
+			PoseStack poseStack, MultiBufferSource buffer, int packedLight, CallbackInfo ci) {
+		HulkRenderer renderer = HulkRenderer.get();
+		if (renderer == null || player.isInvisible() || !HulkFade.drawHulk(player, partialTicks)) {
 			return;
 		}
-		renderer.render(player, entityYaw, partialTicks, poseStack, buffer, packedLight);
+		float alpha = HulkFade.hulkAlpha(player, partialTicks);
+		if (alpha < 0.999f) {
+			renderer.renderFaded(player, entityYaw, partialTicks, poseStack, buffer, packedLight, alpha);
+		}
 	}
 }

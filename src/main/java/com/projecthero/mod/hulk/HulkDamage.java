@@ -57,6 +57,9 @@ public final class HulkDamage {
 		});
 
 		AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
+			if (Hulk.changing(player)) {
+				return InteractionResult.FAIL; // v0.13.15: on his knees, mid-change
+			}
 			if (Hulk.isHulk(player) && isForbidden(player.getMainHandItem())) {
 				refuse(player);
 				return InteractionResult.FAIL;
@@ -91,6 +94,9 @@ public final class HulkDamage {
 		}
 		if (source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) {
 			return true;
+		}
+		if (Hulk.changing(player)) {
+			return false; // v0.13.15: nothing gets through while he is changing on his knees
 		}
 		if (source.is(net.minecraft.tags.DamageTypeTags.IS_FALL)) {
 			player.resetFallDistance();

@@ -263,8 +263,10 @@ plates, 2 enchanted golden apples, 2 diamond blocks, a **totem of undying**) and
 ### 💚 The Hulk
 A **Hero-Tier Primary** power. Find a rare **Gamma Lab** ruin in the overworld and drink the **Gamma Serum** from its chest.
 
-- **Rage (0-100):** fills when you are hurt and when you fight; at **75** press **H** to let the Hulk out, at **100** he
-  comes out on his own. As the Hulk rage burns down, but every hit you take feeds it back.
+- **Rage (0-100):** fills when you are hurt and when you fight; past **75** Banner starts pouring off green gamma. At
+  **75** press **H** to let the Hulk out -- a quick change, and he is **yours to command**. At **100** he comes out on his
+  own: Banner **drops to his knees** clutching his head and the Hulk slowly takes him over, then rises roaring. The Hulk
+  **phases onto you as you grow** and back off as you shrink. As the Hulk rage burns down, but every hit you take feeds it back.
 - **The Hulk:** your own Hulk model at 1.8x size, +50% speed, **20-damage punches** with big knockback, +40 health,
   **diamond-level armour of his own**, fast regeneration, **immune to fire, arrows and falls**, tough against lava and
   explosions, and hands that dig like stone tools. Armour you wear bursts off when he comes out.
@@ -272,7 +274,8 @@ A **Hero-Tier Primary** power. Find a rare **Gamma Lab** ruin in the overworld a
   100 damage, a huge crater) · **X Super Leap** (up to 70 blocks) · **C Charge** (8 s rampaging run, 20 to everything in
   the way) · **V Grab** (pick up and throw a mob, Shift+V crush it, or Shift+V tear up a chunk of earth to throw).
 - **The Hulk refuses to die:** once every 3 minutes a fatal hit brings him out at full health.
-- **Keep control:** stop hitting things and the Hulk starts to take over -- answer the key prompts or he goes on a
+- **Keep control:** only a Hulk who came out **on his own** fights you -- stop hitting things and he starts to take over;
+  answer the key prompts or he goes on a
   **rampage** on his own. Hold **N** to calm down with a breathing minigame. Squad-mates can **ride his back**.
 - The Hulk can't lift Mjolnir, and nobody is both Thor and the Hulk. Everything is in `config/projecthero_hulk.json`.
 

@@ -132,6 +132,10 @@ public final class HulkAbilities {
 		if (s.rampaging(now) || s.combat.calming) {
 			return false;
 		}
+		if (Hulk.changing(s, now)) {
+			Hulk.say(player, "message.projecthero.hulk.changing", ChatFormatting.DARK_GREEN);
+			return false; // v0.13.15: not until the unwilling change is over
+		}
 		return player.isAlive() && !player.isSpectator();
 	}
 

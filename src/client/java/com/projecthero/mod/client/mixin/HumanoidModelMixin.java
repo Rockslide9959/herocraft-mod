@@ -132,6 +132,8 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
 		if (entity instanceof Player player) {
 			com.projecthero.mod.client.allmight.AllMightPose.apply(player, (HumanoidModel<?>) (Object) this);
+			// v0.13.15: Banner on his knees through the unwilling Hulk change
+			com.projecthero.mod.client.hulk.HulkPose.apply(player, (HumanoidModel<?>) (Object) this);
 		}
 	}
 

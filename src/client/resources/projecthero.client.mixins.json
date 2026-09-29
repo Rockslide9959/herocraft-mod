@@ -16,6 +16,7 @@
 		"ItemInHandLayerMixin",
 		"ItemInHandRendererTitanMixin",
 		"ItemInHandRendererClawsMixin",
+		"LivingEntityHulkFadeMixin",
 		"LivingEntityPhaseMixin",
 		"MouseHandlerMixin",
 		"LocalPlayerMixin",

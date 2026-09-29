@@ -77,7 +77,7 @@ public class HulkGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 180)
 	public void fullRageForcesTheChangeAndTheStatsGoOn(GameTestHelper helper) {
 		ServerPlayer p = gamma(helper);
 		Hulk.setRage(p, HulkConfig.RAGE_MAX);
@@ -90,12 +90,82 @@ public class HulkGameTests implements FabricGameTest {
 		Hulk.reconcile(p);
 		Hulk.reconcile(p);
 		helper.assertTrue(Math.abs(p.getMaxHealth() - (20.0f + HulkConfig.HEALTH_BONUS)) < 0.01f, "no stacking");
+		// v0.13.15: the forced change is the unwilling one -- on his knees, pinned, untouchable, growing slowly
+		helper.assertTrue(Hulk.state(p).combat.unwilling, "100 rage is the unwilling change");
+		helper.assertTrue(Hulk.changing(p), "and he is changing");
 		helper.onEachTick(() -> Hulk.tick(p));
-		helper.runAfterDelay(HulkConfig.GROWTH_TICKS + 10, () -> {
+		helper.runAfterDelay(HulkConfig.FORCED_KNEEL_TICKS - 4, () -> {
+			helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.SCALE) - 1.0) < 0.01, "nothing grows while he drops to his knees");
+			helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) < 1.0e-6, "pinned in place, got " + p.getAttributeValue(Attributes.MOVEMENT_SPEED));
+			helper.assertFalse(HulkDamage.allowDamage(p, p.damageSources().generic(), 4.0f), "nothing hurts him mid-change");
+		});
+		helper.runAfterDelay(HulkConfig.FORCED_CHANGE_TICKS + 10, () -> {
 			helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.SCALE) - (1.0 + HulkConfig.SCALE_BONUS)) < 0.01,
 					"grown to 1.8x, got " + p.getAttributeValue(Attributes.SCALE));
+			helper.assertFalse(Hulk.changing(p), "the change is over");
+			helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > 0.1, "and he can move again");
 			helper.succeed();
 		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void theWillingHulkNeverFightsForControl(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		helper.assertFalse(Hulk.state(p).combat.unwilling, "H is the willing change");
+		helper.assertFalse(Hulk.changing(p), "which is not the slow kneeling one");
+		var n = Hulk.state(p).copy();
+		n.formChangedAt = -10_000L;
+		n.combat.lastDealtAt = -10_000L;
+		p.setAttached(ModAttachments.HULK_STATE, n);
+		helper.onEachTick(() -> {
+			Hulk.setRage(p, 100.0f);
+			Hulk.tick(p);
+		});
+		helper.runAfterDelay(60, () -> {
+			helper.assertTrue(Hulk.state(p).combat.control >= 100.0f, "control never slips, got " + Hulk.state(p).combat.control);
+			helper.assertTrue(Hulk.state(p).combat.promptKey == 0, "no keep-control prompts");
+			helper.assertFalse(com.projecthero.mod.hulk.HulkControl.rampaging(p), "and no rampage");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theHulkPhasesOnAndOff(GameTestHelper helper) {
+		ServerPlayer p = gamma(helper);
+		helper.assertTrue(Hulk.visibility(p, 0.0f) == 0.0f, "a fresh Banner shows no Hulk");
+		Hulk.setRage(p, 90.0f);
+		Hulk.tryTransform(p);
+		helper.assertTrue(Hulk.visibility(p, 0.0f) < 0.05f, "the Hulk starts to phase on as he grows");
+		var n = Hulk.state(p).copy();
+		n.formChangedAt -= HulkConfig.GROWTH_TICKS / 2;
+		p.setAttached(ModAttachments.HULK_STATE, n);
+		float mid = Hulk.visibility(p, 0.0f);
+		helper.assertTrue(mid > 0.3f && mid < 0.7f, "half way through the growth he is half there, got " + mid);
+		n = Hulk.state(p).copy();
+		n.formChangedAt -= HulkConfig.GROWTH_TICKS;
+		p.setAttached(ModAttachments.HULK_STATE, n);
+		helper.assertTrue(Hulk.visibility(p, 0.0f) > 0.999f, "then fully the Hulk");
+		Hulk.revert(p, false);
+		helper.assertTrue(Hulk.visibility(p, 0.0f) > 0.95f, "shrinking back starts from the Hulk");
+		n = Hulk.state(p).copy();
+		n.formChangedAt -= HulkConfig.GROWTH_TICKS;
+		p.setAttached(ModAttachments.HULK_STATE, n);
+		helper.assertTrue(Hulk.visibility(p, 0.0f) < 0.001f, "and phases off him completely");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theBondingMarkerMovesSmoothly(GameTestHelper helper) {
+		int seed = 0x5EED1234;
+		for (int round = 0; round < com.projecthero.mod.symbiote.SymbioteBondGame.ROUNDS; round++) {
+			double a = com.projecthero.mod.symbiote.SymbioteBondGame.marker(seed, round, 10.0);
+			double b = com.projecthero.mod.symbiote.SymbioteBondGame.marker(seed, round, 10.5);
+			double c = com.projecthero.mod.symbiote.SymbioteBondGame.marker(seed, round, 11.0);
+			// between whole ticks the marker is somewhere in between -- not stuck on the last tick
+			helper.assertTrue(Math.abs(b - (a + c) / 2.0) < 0.02, "sub-tick position interpolates, round " + round);
+			helper.assertTrue(Math.abs(b - a) > 1.0e-4, "and actually moves, round " + round);
+		}
+		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -173,8 +243,9 @@ public class HulkGameTests implements FabricGameTest {
 		for (var pos : net.minecraft.core.BlockPos.betweenClosed(base.offset(-4, 0, -6), base.offset(4, 5, 8))) {
 			helper.getLevel().setBlock(pos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 2);
 		}
+		// v0.13.15: the willing change (H) -- quick, abilities straight away; the unwilling one kneels for 5 s first
 		Hulk.setRage(p, 100.0f);
-		Hulk.tick(p);
+		Hulk.tryTransform(p);
 		helper.assertTrue(Hulk.isHulk(p), "precondition: Hulk");
 		return p;
 	}
@@ -349,6 +420,7 @@ public class HulkGameTests implements FabricGameTest {
 		n.formChangedAt = -10_000L;
 		n.combat.lastDealtAt = -10_000L;
 		n.combat.control = 30.0f;
+		n.combat.unwilling = true; // v0.13.15: only a Hulk who came out on his own fights for control
 		p.setAttached(ModAttachments.HULK_STATE, n);
 		helper.onEachTick(() -> {
 			Hulk.setRage(p, 100.0f);

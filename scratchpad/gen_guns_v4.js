@@ -6,7 +6,7 @@ const WOOD = [92, 64, 40];
 const rx = (o, a) => ({ origin: o, axis: 'x', angle: a });
 
 // firstperson: solved from world = armT * translate(json/16) * rotXYZ * scale * translate(-0.5) * (v/16)
-// (NO center-back). thirdperson kept simple.
+// (NO center-back). thirdperson kept simple -- SUPERSEDED in v0.13.15 by scratchpad/fix_gun_thirdperson_v01315.js (run it after this).
 function disp(fp) {
   const fr = fp.frot || [-3, 12, 0], ft = fp.ftr || [-4, 4, -1], fs = fp.fsc || [0.7, 0.7, 0.7];
   return {

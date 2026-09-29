@@ -1,0 +1,31 @@
+Project Hero 0.13.15 -- The Hulk takes over: seamless changes, the kneeling transformation, and straighter guns
+
+THE HULK -- A SEAMLESS CHANGE
+- The Hulk now phases onto you as you grow: Banner fades out and the Hulk fades in over the growth, so there is no more snapping from one model to the other.
+- Changing back works the same way in reverse: the Hulk fades off you as you shrink back to Banner.
+
+THE HULK -- CHOOSING TO CHANGE vs LOSING IT
+- Let the Hulk out yourself (H at 75+ rage) and he's yours: a quick change, and you never have to fight him for control. No key prompts, no rampages, for as long as he lasts.
+- If rage hits 100 and the Hulk comes out on his own (or when the Hulk refuses to die), that's the unwilling change. Only this Hulk has to be kept under control with the key prompts, and only this Hulk can go on a rampage.
+
+THE UNWILLING TRANSFORMATION
+- A new, slower transformation plays when the change is forced on you. Banner drops to his knees clutching his head and shaking, with heartbeats pounding and gamma leaking off him. The Hulk slowly takes him over as he grows (about 5 seconds), pounds his fists into the ground, then rises and ROARS.
+- You can't move, fight or be hurt while it happens. "THE HULK IS TAKING OVER..." shows above your crosshair with a progress bar.
+
+RAGE YOU CAN SEE
+- Past 75 rage, Banner starts pouring off green gamma particles. The closer he gets to 100, the thicker the particles and the faster the heartbeat, so everyone can see he's about to lose it.
+
+HUD (Banner)
+- "Rage 62%" and the rage bar, which throbs green once you're past 75.
+- After the Hulk shrinks back: "Exhausted 7s", with the bar counting the exhaustion down.
+
+SYMBIOTE -- SMOOTHER BONDING MINIGAME
+- The marker now glides across the bar every frame instead of jumping 20 times a second, with a short motion trail. Your press now counts exactly where you saw the marker.
+- A little easier: the marker moves slower each round, the green zone is a bit wider, and a press right on the edge of the zone counts.
+- The zone glows and pulses gently instead of blinking, and hits and misses fade out smoothly.
+
+PUNISHER -- GUNS HELD PROPERLY
+- In third person the Punisher's guns were held sideways, pointing across the body. Every gun (pistol, assault rifle, shotgun, sniper) is now held upright with the barrel pointing forward and the grip in your hand.
+
+GUIDEBOOK
+- The Hulk chapter covers the willing and unwilling changes, the kneeling transformation, the rage glow, the new HUD and the updated "Keeping control" rules.

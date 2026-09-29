@@ -77,6 +77,12 @@ public final class HulkState {
 		public boolean calming;
 		/** Game time the "the Hulk refuses to die" save is ready again. */
 		public long deathSaveReadyAt;
+		/**
+		 * v0.13.15: this Hulk came out on his own (rage hit the top, or the death save) rather than by the player's H. Only
+		 * an unwilling change drops Banner to his knees for the slow change, and only an unwilling Hulk fights the player
+		 * for control.
+		 */
+		public boolean unwilling;
 
 		public Combat copy() {
 			Combat c = new Combat();
@@ -90,6 +96,7 @@ public final class HulkState {
 			c.promptUntil = promptUntil;
 			c.calming = calming;
 			c.deathSaveReadyAt = deathSaveReadyAt;
+			c.unwilling = unwilling;
 			return c;
 		}
 
@@ -103,9 +110,10 @@ public final class HulkState {
 				Codec.INT.optionalFieldOf("prompt_key", 0).forGetter(c -> c.promptKey),
 				Codec.LONG.optionalFieldOf("prompt_until", 0L).forGetter(c -> c.promptUntil),
 				Codec.BOOL.optionalFieldOf("calming", false).forGetter(c -> c.calming),
-				Codec.LONG.optionalFieldOf("death_save_ready_at", 0L).forGetter(c -> c.deathSaveReadyAt)
+				Codec.LONG.optionalFieldOf("death_save_ready_at", 0L).forGetter(c -> c.deathSaveReadyAt),
+				Codec.BOOL.optionalFieldOf("unwilling", false).forGetter(c -> c.unwilling)
 		).apply(i, (chargeUntil, smashChargeStart, holding, control, lastDealtAt, rampageUntil, promptKey, promptUntil, calming,
-				deathSaveReadyAt) -> {
+				deathSaveReadyAt, unwilling) -> {
 			Combat c = new Combat();
 			c.chargeUntil = chargeUntil;
 			c.smashChargeStart = smashChargeStart;
@@ -117,6 +125,7 @@ public final class HulkState {
 			c.promptUntil = promptUntil;
 			c.calming = calming;
 			c.deathSaveReadyAt = deathSaveReadyAt;
+			c.unwilling = unwilling;
 			return c;
 		}));
 	}

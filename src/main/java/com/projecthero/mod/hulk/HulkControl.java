@@ -28,6 +28,9 @@ import net.minecraft.world.phys.Vec3;
  * picks the nearest living thing, turns on it, charges and pounds it, leaps about, smashes the ground and anything soft
  * in his way -- and the player's ability keys, H, the calm-down and riders are all shut out until it ends. Then the
  * player wrestles back {@code rampageRestore} control. Numbers in {@link HulkConfig#control()}.
+ *
+ * <p>v0.13.15: only an <b>unwilling</b> Hulk ({@link HulkState.Combat#unwilling} -- rage hit 100, or the death save) fights
+ * for control. A Hulk the player let out with H stays theirs for as long as he lasts.
  */
 public final class HulkControl {
 	public static final int KEY_FORWARD = 1;
@@ -105,7 +108,7 @@ public final class HulkControl {
 	static void tick(ServerPlayer player) {
 		HulkState s = Hulk.state(player);
 		long now = player.level().getGameTime();
-		if (!s.hulk || !HulkConfig.control().enabled) {
+		if (!s.hulk || !HulkConfig.control().enabled || !s.combat.unwilling) {
 			if (s.combat.rampageUntil != 0L || s.combat.promptKey != 0 || s.combat.control != 100.0f) {
 				HulkState n = s.copy();
 				n.combat.rampageUntil = 0L;
@@ -128,7 +131,7 @@ public final class HulkControl {
 		}
 		HulkConfig.Control cfg = HulkConfig.control();
 		// a fresh Hulk (or one straight out of the change) starts in full control
-		long since = now - Math.max(s.combat.lastDealtAt, s.formChangedAt);
+		long since = now - Math.max(s.combat.lastDealtAt, s.formChangedAt + HulkConfig.FORCED_CHANGE_TICKS);
 		if (since < cfg.graceTicks || s.combat.calming) {
 			return;
 		}

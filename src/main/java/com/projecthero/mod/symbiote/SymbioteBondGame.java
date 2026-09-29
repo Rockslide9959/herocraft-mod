@@ -34,10 +34,17 @@ public final class SymbioteBondGame {
 	public static final int ROUND_GAP = 12;
 	/** A round with no press after this long counts as a miss (the client gives up first). */
 	public static final int ROUND_TIMEOUT = 200;
-	/** Marker sweep period per round (ticks for there-and-back) -- faster each round. */
-	public static final int[] PERIOD = {40, 32, 26};
-	/** Half-width of the target zone per round, as a fraction of the bar. */
-	public static final double[] HALF_ZONE = {0.16, 0.14, 0.12};
+	/**
+	 * v0.13.15: presses are reported in hundredths of a tick, so a press lands where the smoothly drawn marker actually was
+	 * (the screen interpolates between ticks) rather than snapping to the last whole tick.
+	 */
+	public static final int SUBTICKS = 100;
+	/** Marker sweep period per round (ticks for there-and-back) -- faster each round (v0.13.15: gentler than 40/32/26). */
+	public static final int[] PERIOD = {52, 44, 36};
+	/** Half-width of the target zone per round, as a fraction of the bar (v0.13.15: wider than 0.16/0.14/0.12). */
+	public static final double[] HALF_ZONE = {0.17, 0.15, 0.135};
+	/** v0.13.15: a hair of forgiveness past the drawn edge of the zone (a press on the edge line counts). */
+	public static final double EDGE_GRACE = 0.012;
 	private static final int SESSION_TICKS = 20 * 60;
 	private static final int RETRY_TICKS = 20 * 5;
 	/** Real-time slack (ticks) between the client's claimed duration and the server's clock. */
@@ -59,10 +66,10 @@ public final class SymbioteBondGame {
 
 	// ---------------- the deterministic game (shared with the client screen) ----------------
 
-	/** Marker position 0..1, {@code t} ticks into round {@code round}. */
-	public static double marker(int seed, int round, int t) {
+	/** Marker position 0..1, {@code t} ticks (fractional -- v0.13.15) into round {@code round}. */
+	public static double marker(int seed, int round, double t) {
 		double phase = ((seed >>> (round * 7)) & 0x7F) / 127.0;
-		double x = ((double) t / PERIOD[round] + phase) % 1.0;
+		double x = (Math.max(0.0, t) / PERIOD[round] + phase) % 1.0;
 		return x < 0.5 ? x * 2.0 : (1.0 - x) * 2.0;
 	}
 
@@ -71,8 +78,8 @@ public final class SymbioteBondGame {
 		return 0.25 + ((seed >>> (round * 5 + 3)) & 0xFF) / 255.0 * 0.5;
 	}
 
-	public static boolean hit(int seed, int round, int t) {
-		return Math.abs(marker(seed, round, t) - zoneCenter(seed, round)) <= HALF_ZONE[round];
+	public static boolean hit(int seed, int round, double t) {
+		return Math.abs(marker(seed, round, t) - zoneCenter(seed, round)) <= HALF_ZONE[round] + EDGE_GRACE;
 	}
 
 	// ---------------- server flow ----------------
@@ -110,12 +117,13 @@ public final class SymbioteBondGame {
 			return;
 		}
 		boolean ok = presses.size() == ROUNDS && now - s.startedAt <= SESSION_TICKS + SLACK_TICKS;
-		int roundStart = 0;
+		// presses are in 1/SUBTICKS of a tick since the screen opened
+		long roundStart = 0L;
 		for (int r = 0; ok && r < ROUNDS; r++) {
-			int press = presses.get(r);
-			int t = press - roundStart;
-			ok = t >= 3 && t <= ROUND_TIMEOUT && hit(s.seed, r, t);
-			roundStart = press + ROUND_GAP;
+			long press = presses.get(r);
+			double t = (press - roundStart) / (double) SUBTICKS;
+			ok = t >= 3.0 && t <= ROUND_TIMEOUT && hit(s.seed, r, t);
+			roundStart = press + (long) ROUND_GAP * SUBTICKS;
 		}
 		// the claimed run must also have had time to happen
 		ok = ok && hadTime(presses, now - s.startedAt);
@@ -143,7 +151,7 @@ public final class SymbioteBondGame {
 	}
 
 	private static boolean hadTime(List<Integer> presses, long serverElapsed) {
-		return serverElapsed >= presses.get(presses.size() - 1) - SLACK_TICKS;
+		return serverElapsed >= presses.get(presses.size() - 1) / SUBTICKS - SLACK_TICKS;
 	}
 
 	private static void release(ServerPlayer player, Session s) {

@@ -1,7 +1,6 @@
 package com.projecthero.mod.client.hulk;
 
 import com.projecthero.mod.attachment.ModAttachments;
-import com.projecthero.mod.hulk.HulkConfig;
 import com.projecthero.mod.hulk.data.HulkState;
 
 import net.minecraft.world.entity.EntityType;
@@ -36,6 +35,8 @@ public final class HulkAnimatable implements GeoReplacedEntity {
 	private static final RawAnimation LEAP_CHARGE = RawAnimation.begin().thenPlayAndHold(P + "leap_charge");
 	private static final RawAnimation LEAP = RawAnimation.begin().thenPlayAndHold(P + "leap");
 	private static final RawAnimation TRANSFORM = RawAnimation.begin().thenPlay(P + "transform");
+	/** v0.13.15: the unwilling change -- on his knees, clutching his head, then up into the roar. */
+	private static final RawAnimation TRANSFORM_FORCED = RawAnimation.begin().thenPlay(P + "transform_forced");
 	private static final RawAnimation PUNCH = RawAnimation.begin().thenPlay(P + "punch");
 	private static final RawAnimation POWER_PUNCH = RawAnimation.begin().thenPlay(P + "power_punch");
 	private static final RawAnimation HULK_SMASH_CHARGE = RawAnimation.begin().thenPlayAndHold(P + "hulk_smash_charge");
@@ -76,8 +77,8 @@ public final class HulkAnimatable implements GeoReplacedEntity {
 			return state.setAndContinue(IDLE);
 		}
 		long now = player.level().getGameTime();
-		if (s.hulk && now - s.formChangedAt < HulkConfig.GROWTH_TICKS) {
-			return state.setAndContinue(TRANSFORM);
+		if (s.hulk && now - s.formChangedAt < com.projecthero.mod.hulk.Hulk.changeTicks(s)) {
+			return state.setAndContinue(s.combat.unwilling ? TRANSFORM_FORCED : TRANSFORM);
 		}
 		if (s.leapChargeStart > 0L) {
 			return state.setAndContinue(LEAP_CHARGE);

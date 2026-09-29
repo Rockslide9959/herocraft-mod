@@ -786,36 +786,36 @@
   "display": {
     "thirdperson_righthand": {
       "rotation": [
+        74,
         0,
-        -90,
         0
       ],
       "translation": [
         0,
-        3.5,
-        1.5
+        2.12,
+        1.44
       ],
       "scale": [
-        0.5,
-        0.5,
-        0.5
+        0.55,
+        0.55,
+        0.55
       ]
     },
     "thirdperson_lefthand": {
       "rotation": [
+        74,
         0,
-        90,
         0
       ],
       "translation": [
         0,
-        3.5,
-        1.5
+        2.12,
+        1.44
       ],
       "scale": [
-        0.5,
-        0.5,
-        0.5
+        0.55,
+        0.55,
+        0.55
       ]
     },
     "firstperson_righthand": {
