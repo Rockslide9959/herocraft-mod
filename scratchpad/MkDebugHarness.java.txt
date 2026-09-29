@@ -1,0 +1,164 @@
+package com.projecthero.mod.client;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.moonknight.MoonKnight;
+import com.projecthero.mod.moonknight.MoonKnightAnim;
+import com.projecthero.mod.moonknight.MoonKnightTransform;
+import com.projecthero.mod.moonknight.data.MoonKnightAction;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): Moon Knight suit / cape screenshot tour. */
+public final class MkDebugHarness {
+	public static Vec3 camOffset;
+	public static double camLookY = 1.1;
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static com.projecthero.mod.moonknight.temple.TempleOfKhonshuPiece temple;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+
+	private MkDebugHarness() {
+	}
+
+	public static void init() {
+		ClientTickEvents.END_CLIENT_TICK.register(MkDebugHarness::tick);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					fn.accept(srv.getPlayerList().getPlayers().get(0));
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "mk_" + name + ".png", mc.getMainRenderTarget(), x -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.put(t, r);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				LevelSettings settings = new LevelSettings("MkDebug" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+						Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.hideGui = true;
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				MoonKnight.grant(p, true);
+				p.setYRot(0);
+				p.setYHeadRot(0);
+				p.setYBodyRot(0);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void script(Minecraft mc) {
+		// suit up instantly, face a line of husks
+		at(5, () -> server(mc, p -> {
+			MoonKnight.setTransformedForTesting(p, true);
+			ServerLevel level = p.serverLevel();
+			for (int i = 0; i < 3; i++) {
+				var h = net.minecraft.world.entity.EntityType.HUSK.create(level);
+				h.moveTo(p.getX() - 2 + i * 2, p.getY(), p.getZ() + 9, 180, 0);
+				h.setNoAi(true);
+				h.setPersistenceRequired();
+				level.addFreshEntity(h);
+			}
+			level.setBlock(p.blockPosition().offset(6, 3, 6), net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
+		}));
+		at(8, () -> camOffset = new Vec3(3.0, 1.6, -2.0));
+		at(30, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightDarts.INSTANCE.tap(p)));
+		at(32, () -> shot(mc, "q01_dart_throw"));
+		at(34, () -> shot(mc, "q02_dart_flight"));
+		at(48, () -> server(mc, p -> { com.projecthero.mod.moonknight.ability.MoonKnightDarts.INSTANCE.holdStart(p);
+			com.projecthero.mod.moonknight.ability.MoonKnightDarts.INSTANCE.holdRelease(p, 40); }));
+		at(50, () -> shot(mc, "q03_dart_fan"));
+		at(60, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightTruncheon.INSTANCE.tap(p)));
+		at(62, () -> camOffset = new Vec3(1.8, 1.4, 1.8));
+		at(75, () -> shot(mc, "q04_truncheon"));
+		at(78, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightTruncheon.INSTANCE.holdStart(p)));
+		at(80, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightTruncheon.INSTANCE.holdRelease(p, 20)));
+		at(83, () -> shot(mc, "q05_staff_spin"));
+		at(100, () -> server(mc, p -> { var tgt = p.blockPosition().offset(6, 3, 6).getCenter(); var d = tgt.subtract(p.getEyePosition()); p.setYRot((float) (Math.toDegrees(Math.atan2(d.z, d.x)) - 90)); p.setXRot((float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z))));
+			com.projecthero.mod.moonknight.ability.MoonKnightGrapple.INSTANCE.tap(p); }));
+		at(102, () -> camOffset = new Vec3(-3.0, 1.6, -1.5));
+		at(103, () -> shot(mc, "q06_grapple_rope"));
+		at(105, () -> shot(mc, "q06b_grapple_rope"));
+		at(130, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightCape.INSTANCE.sneak(p)));
+		at(132, () -> shot(mc, "q07_shadow_step"));
+		EXTRA.accept(mc);
+		for (int k = 20; k < 140; k++) { AT.remove(k); }
+	}
+
+	/** Phase 5-6 shots, filled in once C / V exist. */
+	private static java.util.function.Consumer<Minecraft> EXTRA = mc -> {
+		at(150, () -> server(mc, p -> {
+			for (ServerLevel l : p.server.getAllLevels()) { l.setDayTime(8L * 24000L * 3L + 18000L); }
+			MoonKnight.setVengeance(p, 100.0f);
+			p.setYRot(0f); p.setXRot(10f);
+		}));
+		at(160, () -> camOffset = new Vec3(4.0, 2.5, -4.0));
+		at(165, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightKhonshu.INSTANCE.tap(p)));
+		at(170, () -> shot(mc, "r01_moonbeam"));
+		at(180, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightAlters.INSTANCE.tap(p)));
+		at(183, () -> shot(mc, "r02_alter_swap"));
+		at(195, () -> server(mc, p -> { MoonKnight.setVengeance(p, 100.0f); com.projecthero.mod.moonknight.ability.MoonKnightKhonshu.INSTANCE.holdStart(p); }));
+		for (int i = 0; i < 45; i++) { final int k = 196 + i; at(k, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightKhonshu.INSTANCE.holdTick(p, 10 + (k - 196)))); }
+		at(243, () -> { camOffset = new Vec3(0, 2.0, -6.0); camLookY = 12.0; });
+		at(265, () -> shot(mc, "r03_eye_skull"));
+		at(285, () -> shot(mc, "r04_eye_skull_later"));
+		at(290, () -> { camLookY = 1.1; camOffset = new Vec3(3.0, 1.6, -2.0); });
+		at(292, () -> server(mc, p -> com.projecthero.mod.moonknight.ability.MoonKnightKhonshu.INSTANCE.sneak(p)));
+		at(300, () -> shot(mc, "r05_judgement"));
+		at(305, () -> mc.stop());
+	};
+}

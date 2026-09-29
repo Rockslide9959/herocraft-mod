@@ -1,4 +1,4 @@
-# Moon Knight (in development, v0.13.19+)
+# Moon Knight (v0.13.20)
 
 A Hero-Tier power built in 8 phases, one at a time, each handed back as a jar for testing before the next starts.
 Every tunable number lives in `moonknight/MoonKnightConfig.java` (base values: damage / range / duration are multiplied
@@ -8,15 +8,14 @@ by the lunar power, cooldowns divided by it).
 | --- | --- | --- |
 | 1 | Player data, lunar power helper, Vengeance meter, Fracture, Resurrection charge, debug commands, HUD section | **done (v0.13.19)** |
 | 2 | Armour item + GeckoLib renderer (user's `moonknight.bbmodel`), H transformation with armour storing/restoring, the cape renderer | **done** |
-| 3 | R Crescent Darts, X Cape Glide / Shroud / Shadow Step | |
-| 4 | G Grappling Line, Z Truncheon / Staff | |
-| 5 | C Alters (passives + specials + radial picker) | |
-| 6 | V Moonbeam / Eye of Khonshu / Judgement + Khonshu's Resurrection (the actual death save) | |
-| 7 | Temple of Khonshu, Scarab of Khonshu, the night ritual, advancement | |
-| 8 | Balance pass, multiplayer sync check, particle / sound polish, final jar | |
+| 3 | R Crescent Darts, X Cape Glide / Shroud / Shadow Step | **done** |
+| 4 | G Grappling Line, Z Truncheon / Staff | **done** |
+| 5 | C Alters (passives + specials + radial picker) | **done** |
+| 6 | V Moonbeam / Eye of Khonshu / Judgement + Khonshu's Resurrection (the actual death save) | **done** |
+| 7 | Temple of Khonshu, Scarab of Khonshu, the night ritual, advancement | **done** |
+| 8 | Balance pass, multiplayer sync check, particle / sound polish, final jar | **done (v0.13.20)** |
 
-While it is in development Moon Knight is in `PowerGrants.IN_DEVELOPMENT`: operators can grant it, but the random
-power serums never roll it.
+Released in v0.13.20 (`PowerGrants.IN_DEVELOPMENT` is empty again, so the Heroic / Prismatic serums can roll it).
 
 ## How it plugs into the existing hero systems (no parallel systems)
 
@@ -152,3 +151,15 @@ rebirth ticks. Both are in the Superheroes creative tab.
 
 **GameTest hooks:** `KhonshuAltarBlockEntity.testDriven` (the level ticker skips it; tests call `KhonshuRitual.tick`),
 `forcedNight` / `forcedSky` (per altar, instead of changing the shared world clock).
+
+## Phases 3-6 (abilities)
+
+- R `ability/MoonKnightDarts` + `entity/CrescentDartEntity` (+ `client/moonknight/CrescentDartRenderer`); X `MoonKnightCape` (glide velocity is applied client-side from the synced FLAG_GLIDING by `MoonKnightCombatClient`, the Spider-Man split); G `MoonKnightGrapple` (+ `MoonKnightLineRenderer` rope); Z `MoonKnightTruncheon` + `item/MoonKnightTruncheonItem` (staff via the `projecthero:staff` model predicate); shared helpers in `MoonKnightCombat`.
+- C `MoonKnightAlters` (passives as transient modifiers, Steven loot + `mixin/MoonKnightVillagerPricesMixin`, Jake `mixin/MoonKnightVisibilityMixin`, radial picker `client/moonknight/MoonKnightAlterPicker` + `MoonKnightPickerMouseMixin`, Scholar's Sight `MoonKnightScholarSightRenderer`); V `MoonKnightKhonshu` (Moonbeam beacon-beam FX, Eye of Khonshu skull `MoonKnightSkull` + `MoonKnightKhonshuFxPayload`, Judgement, Khonshu's Resurrection).
+- Tests: `MoonKnightAbilityGameTests`, `MoonKnightPowerGameTests`, `MoonKnightTempleGameTests`, `MoonKnightGameTests`.
+
+## Phase 8 (v0.13.20)
+
+- The suit materialises one pixel at a time (the suit is equipped at the start of H and revealed with `SymbioteDissolve` over the transformation clock -- `client/moonknight/MoonKnightReveal`; H again dissolves it before it is stripped).
+- Screenshot-checked in the dev client: suit, cape (idle / shroud / glide), pixel reveal + dissolve, Temple exterior / hall / oculus, darts, truncheon, staff spin, Moonbeam, the Eye of Khonshu skull. Harness kept at `scratchpad/MkDebugHarness.java.txt`.
+- Not verified: real multiplayer, glide feel under lag, the radial picker and Scholar's Sight outlines in play, natural temple generation in a desert.

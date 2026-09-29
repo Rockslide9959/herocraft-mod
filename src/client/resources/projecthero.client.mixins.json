@@ -22,6 +22,8 @@
 		"MouseHandlerMixin",
 		"LocalPlayerMixin",
 		"MinecraftHotbarKeysMixin",
+		"MoonKnightInvisibleSuitMixin",
+		"MoonKnightPickerMouseMixin",
 		"PlayerModelMixin",
 		"PlayerRendererClawsMixin",
 		"PlayerRendererSymbioteBladeMixin",

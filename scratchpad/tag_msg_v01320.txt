@@ -1,0 +1,29 @@
+Project Hero v0.13.20 -- MOON KNIGHT has arrived
+
+A brand-new Primary hero: Khonshu's fist.
+
+BECOMING MOON KNIGHT
+- Find a rare Temple of Khonshu in the desert (rarer than a desert pyramid). A hidden chamber below the hall holds the Scarab of Khonshu.
+- At night, lay the Scarab on the altar under the temple's open roof, stand on it and kneel (sneak) for 10 seconds while Khonshu speaks. You die in a flash of white... and rise again as his fist. Each altar only answers once. Sealed under a full moon, you start with full Vengeance.
+- New advancement: Fist of Khonshu.
+
+THE SUIT
+- Press H: the suit materialises over you one pixel at a time while bandages spiral up your body, with a flowing hooded cape (it spreads like wings when you glide and wraps around you when you shroud). Your own armour is kept safe and handed back when you take it off. Built from the custom Moon Knight model.
+
+LUNAR POWER & VENGEANCE
+- Every ability scales with the moon: x1.5 under a full moon, weaker as it wanes, x0.7 by day, and weaker again with no sky above you. The HUD shows tonight's moon and your multiplier.
+- Vengeance builds by killing monsters that hunt villagers, traders, golems and other players. Run dry while suited and your mind Fractures into another alter.
+- Khonshu's Resurrection: once per lunar cycle, a fatal blow brings you back in a flash of moonlight.
+
+ABILITIES (tap / hold / sneak on every key)
+- R Crescent Darts: homing at night, boomerang back; hold for a fan; sneak for Moon Mark (+30% damage to the target).
+- G Grappling Line: grapple to blocks; hold to dive-kick a mob; sneak to Yank a mob to you.
+- Z Truncheon: three-hit combo slams and night healing; hold for a staff spin; sneak for a ground or dive slam.
+- X Cape: Glide, Cape Shroud (take less damage) and Shadow Step.
+- C Alters: Marc the fighter, Steven the scholar (Scholar's Sight sees chests and ores through walls, better trades) and Jake the shadow (backstabs, Vanish). Hold C for a picker.
+- V Khonshu: Moonbeam from the sky, Khonshu's Judgement, and the ultimate EYE OF KHONSHU under a full moon -- his skull appears in the sky.
+
+ALSO
+- While suited, Moon Knight's keys take priority over vanilla's creative hotbar save/load (C/X).
+- New Guidebook chapter and I-menu page for Moon Knight; the Temple is in the structures chapter.
+- Operators: /moonknight grant | revoke | vengeance | locate_temple | moon <phase> | suit on/off | status.

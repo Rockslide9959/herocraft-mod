@@ -248,4 +248,39 @@ public final class MoonKnightConfig {
 	/** SNEAK+Z in the air: dive speed (blocks/tick) and the longest a dive may last. */
 	public static final double DIVE_SLAM_SPEED = 1.8;
 	public static final int DIVE_SLAM_MAX_TICKS = 100;
+	// ---------------------------------------------------------------- Phase 5 / 6 extras (appended)
+
+	/** Fist of Khonshu: extra knockback resistance on top of Marc's passive while it lasts. */
+	public static final double FIST_KNOCKBACK_RESISTANCE = 0.5;
+	/** Fist of Khonshu: Strength amplifier (1 = Strength II). */
+	public static final int FIST_STRENGTH_AMPLIFIER = 1;
+	/** Scholar's Sight: never send more outlines than this (nearest first). */
+	public static final int SCHOLARS_SIGHT_MAX_BLOCKS = 400;
+	/** Vanish: mobs targeting the player within this radius drop their aggro. */
+	public static final double VANISH_AGGRO_RADIUS = 48.0;
+	/** Vanish (Jake): mob detection-range factor while vanished (on top of the Invisibility effect). */
+	public static final double VANISH_DETECTION_FACTOR = 0.15;
+	/** Steven: the chance of one extra roll of a slain mob's loot table (averages out close to Looting +1). */
+	public static final float STEVEN_EXTRA_LOOT_CHANCE = 0.5f;
+	/** Steven: villager prices drop by this fraction of the base cost (min 1), like a gentler Hero of the Village. */
+	public static final double STEVEN_TRADE_DISCOUNT = 0.2;
+	/** Jake: a melee hit counts as "from behind" when the attacker is within this many degrees of the target's back. */
+	public static final double JAKE_BACKSTAB_ARC_DEGREES = 60.0;
+	/** The radial alter picker: hold C this long (client ticks) before it opens -- a little over the server's hold threshold. */
+	public static final int ALTER_PICKER_OPEN_TICKS = 12;
+	/** Moonbeam: undead take this multiple. */
+	public static final float MOONBEAM_UNDEAD_MULTIPLIER = 2.0f;
+	/** Eye of Khonshu: effect amplifiers (1 = level II) on the player (Strength, Speed) and on hostiles (Weakness). */
+	public static final int EYE_PLAYER_AMPLIFIER = 1;
+	public static final int EYE_WEAKNESS_AMPLIFIER = 1;
+	/** Eye of Khonshu: how long the skull takes to draw in the sky, and how long it lingers after. */
+	public static final int EYE_SKULL_DRAW_TICKS = 40;
+	public static final int EYE_SKULL_LINGER_TICKS = 60;
+	/** Eye of Khonshu: the skull's height above the player and its size (blocks per skull unit). */
+	public static final double EYE_SKULL_HEIGHT = 18.0;
+	public static final double EYE_SKULL_SCALE = 1.1;
+	/** Khonshu's Judgement: how far the mark reaches. */
+	public static final double JUDGEMENT_RANGE = 32.0;
+	/** Bosses never take more than this fraction of their max health from one Khonshu hit (like All Might). */
+	public static final float KHONSHU_BOSS_MAX_FRACTION = 0.10f;
 }

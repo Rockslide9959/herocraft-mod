@@ -115,6 +115,9 @@ public final class ServerStateReset {
 		com.projecthero.mod.titanshifter.TitanShifterAbilityManager.clearSessionState();
 		com.projecthero.mod.allmight.AllMightAbilityManager.clearSessionState();
 		com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.clearSessionState();
+		// Moon Knight Phases 5 + 6: Fist / Vanish timers, Eye holds, Judgement marks, the resurrection shield
+		com.projecthero.mod.moonknight.ability.MoonKnightAlters.clearSessionState();
+		com.projecthero.mod.moonknight.ability.MoonKnightKhonshu.clearSessionState();
 		com.projecthero.mod.hulk.Hulk.clearSessionState();
 		com.projecthero.mod.moonknight.temple.KhonshuRitual.clearSessionState();
 		com.projecthero.mod.hero.power.p23.GravityHandlers.clearSessionState();

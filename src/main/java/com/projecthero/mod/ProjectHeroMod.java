@@ -100,6 +100,9 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.moonknight.temple.KhonshuTemple.initialize();
 		// Moon Knight Phase 3-4: the Crescent Dart entity + the Truncheon's "never lies in the world" rule
 		com.projecthero.mod.moonknight.entity.MoonKnightEntities.initialize();
+		// Moon Knight Phases 5 + 6: C Alters (Steven loot, Scholar's Sight payload) and V Khonshu (FX payload, resurrection shield)
+		com.projecthero.mod.moonknight.ability.MoonKnightAlters.initialize();
+		com.projecthero.mod.moonknight.ability.MoonKnightKhonshu.initialize();
 		com.projecthero.mod.hulk.entity.HulkEntities.initialize();
 		com.projecthero.mod.thorarmor.ThorArmor.initialize();
 		com.projecthero.mod.titanshifter.item.TitanShifterItems.initialize();

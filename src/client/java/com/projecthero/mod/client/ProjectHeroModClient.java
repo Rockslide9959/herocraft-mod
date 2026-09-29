@@ -93,6 +93,10 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.AllMightHud::render);
 		// v0.13.19: Moon Knight (Phase 1 -- lunar power, Vengeance, alter, resurrection, the six keys)
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.MoonKnightHud::render);
+		// Moon Knight Phases 5 + 6: radial alter picker, Scholar's Sight outlines, Moonbeam / Eye of Khonshu / resurrection FX
+		com.projecthero.mod.client.moonknight.MoonKnightAltersKhonshuClient.initialize();
+		// Moon Knight Phase 3-4: grappling line render, Cape Glide client movement, Truncheon staff model predicate
+		com.projecthero.mod.client.moonknight.MoonKnightCombatClient.initialize();
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.HulkHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SymbioteHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternHud::render);

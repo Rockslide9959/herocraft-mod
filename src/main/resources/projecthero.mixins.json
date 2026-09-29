@@ -17,6 +17,8 @@
 		"LivingEntityEatMixin",
 		"LivingEntityEffectMixin",
 		"MobSymbioteMixin",
+		"MoonKnightVillagerPricesMixin",
+		"MoonKnightVisibilityMixin",
 		"PlayerMixin",
 		"PowderSnowBlockMixin",
 		"PowderSnowSlowMixin",

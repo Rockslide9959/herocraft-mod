@@ -1,0 +1,27 @@
+// Moon Knight Phases 5 (C Alters) + 6 (V Khonshu, Khonshu's Resurrection) lang.
+require('./langset.js')([
+	{ anchor: null, entries: {
+		'message.projecthero.moon_knight.alter_switch': '%s takes control',
+		'message.projecthero.moon_knight.alter_fractured': 'The Fracture holds -- you cannot choose who you are right now',
+		'message.projecthero.moon_knight.fist': 'Fist of Khonshu!',
+		'message.projecthero.moon_knight.scholars_sight': 'Scholar\'s Sight: %s things worth knowing about nearby',
+		'message.projecthero.moon_knight.vanish': 'Jake slips into the shadows (%s lost your trail)',
+		'message.projecthero.moon_knight.moonbeam_day': 'Khonshu cannot hear you in daylight',
+		'message.projecthero.moon_knight.moonbeam_no_target': 'Nothing for the moonlight to fall on',
+		'message.projecthero.moon_knight.eye_need_full_moon': 'The Eye of Khonshu opens only under a full moon',
+		'message.projecthero.moon_knight.eye_need_vengeance': 'The Eye of Khonshu needs full Vengeance (%s/100)',
+		'message.projecthero.moon_knight.eye_used': 'Khonshu has already opened his Eye tonight',
+		'message.projecthero.moon_knight.eye_charging': 'Khonshu turns his gaze upon the night...',
+		'message.projecthero.moon_knight.eye_cancel': 'The Eye closes',
+		'message.projecthero.moon_knight.eye': 'THE EYE OF KHONSHU OPENS -- %s revealed',
+		'message.projecthero.moon_knight.judgement': '%s is judged',
+		'message.projecthero.moon_knight.judgement_no_target': 'There is no one there to judge',
+		'message.projecthero.moon_knight.judgement_fulfilled': 'Judgement is done (+%s Vengeance)',
+		'message.projecthero.moon_knight.resurrected': 'Khonshu is not done with you.',
+		'hud.projecthero.moon_knight.picker_current': '%s (now)',
+		'hud.projecthero.moon_knight.picker_hint': 'Move the mouse or scroll - release to choose',
+		'projecthero.moon_knight.alter_special.marc': 'Fist of Khonshu',
+		'projecthero.moon_knight.alter_special.steven': 'Scholar\'s Sight',
+		'projecthero.moon_knight.alter_special.jake': 'Vanish',
+	} },
+]);
