@@ -137,6 +137,12 @@ public final class HeroDamageRules {
 			}
 			case "power_24_wind_manipulation" -> {
 				if (fall) {
+					// v0.13.22: landing out of a glide or off a tornado is free; otherwise 80% less fall damage
+					if (com.projecthero.mod.hero.power.p24.WindHandlers.isGliding(player)
+							|| com.projecthero.mod.hero.power.p24.WindHandlers.ridingTornado(player)) {
+						player.resetFallDistance();
+						return Verdict.immune();
+					}
 					return Verdict.mult(0.2f); // v0.10.9: 80% less fall damage (was full immunity)
 				}
 			}
@@ -208,6 +214,13 @@ public final class HeroDamageRules {
 				if (source.is(DamageTypes.SONIC_BOOM)) {
 					return Verdict.mult(0.25f);
 				}
+				// v0.13.22: a projectile flying through your own Sound Barrier is shredded before it lands
+				if (source.is(DamageTypeTags.IS_PROJECTILE) && source.getDirectEntity() != null) {
+					var barrier = com.projecthero.mod.hero.power.p14.SonicScreamHandlers.barrier(player);
+					if (barrier != null && barrier.contains(source.getDirectEntity().position())) {
+						return Verdict.immune();
+					}
+				}
 			}
 			case "power_13_super_durability" -> {
 				// Projectile Deflection (held) -- and now Block too -- give total projectile immunity.
@@ -263,19 +276,29 @@ public final class HeroDamageRules {
 				}
 			}
 			case "power_21_shockwave_manipulation" -> {
-				if (source.is(DamageTypeTags.IS_EXPLOSION)) {
-					return Verdict.mult(0.5f);
+				// v0.13.22 kinetic storage: melee hits, falls and explosions are partly dampened and the blocked
+				// force is banked in the Kinetic gauge; an open Kinetic Parry negates a melee hit outright.
+				if (fall) {
+					player.resetFallDistance();
+				}
+				float kinetic = com.projecthero.mod.hero.power.p21.ShockwaveHandlers.onIncoming(player, source, amount);
+				if (kinetic < 0.0f) {
+					return Verdict.immune();
+				}
+				if (kinetic < 0.999f) {
+					return Verdict.mult(kinetic);
 				}
 			}
 			case "power_20_energy_absorption" -> {
-				// v0.10.19: an unconditional passive -- half of every hit becomes energy, all the time,
-				// unless Overload Release has just locked the meter out. v0.10.20: holding V's
-				// Absorption Field boosts that split to 90%.
-				if (com.projecthero.mod.hero.power.p20.EnergyAbsorptionHandlers.canAbsorb(player)) {
-					float soak = com.projecthero.mod.hero.power.p20.EnergyAbsorptionHandlers.fieldActive(player) ? 0.9f : 0.5f;
-					ExperimentalPowers.addResource(player, active, "energy", amount * soak, 500.0f);
-					com.projecthero.mod.hero.power.p20.EnergyAbsorptionHandlers.markAbsorbed(player);
-					return Verdict.mult(1.0f - soak);
+				// v0.13.22: Redirect catches the next projectile / melee hit and fires it back; otherwise elemental
+				// damage (fire, lightning, explosion, magic) soaks 60% into the meter and sets its element, plain
+				// hits 25% (80% / 40% in Absorption Mode).
+				if (com.projecthero.mod.hero.power.p20.EnergyAbsorptionHandlers.tryRedirect(player, source, amount)) {
+					return Verdict.immune();
+				}
+				float left = com.projecthero.mod.hero.power.p20.EnergyAbsorptionHandlers.absorb(player, source, amount);
+				if (left < 0.999f) {
+					return Verdict.mult(left);
 				}
 			}
 			default -> {
