@@ -1,8 +1,12 @@
 package com.projecthero.mod.hero.power.p10;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
 
 import com.projecthero.mod.hero.AbilityContext;
 import com.projecthero.mod.hero.AbilityHandler;
@@ -12,10 +16,12 @@ import com.projecthero.mod.hero.ExperimentalPowers;
 import com.projecthero.mod.hero.Power;
 import com.projecthero.mod.hero.Powers;
 import com.projecthero.mod.hero.power.AbilityHelpers;
-import com.projecthero.mod.hero.power.GrabHelper;
 import com.projecthero.mod.hero.power.Handlers;
 import com.projecthero.mod.hero.power.HeroFlight;
 import com.projecthero.mod.hero.power.PowerToggles;
+import com.projecthero.mod.hero.revamp.d.BatchDFx;
+import com.projecthero.mod.hero.visual.MutationVisuals;
+import com.projecthero.mod.squad.Squads;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
@@ -23,109 +29,135 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Power 10 — Telekinesis.
+ * Power 10 — Telekinesis. v0.13.22 revamp (batch D): <b>juggling</b>.
  *
- * <h2>Psi (v0.10.10)</h2>
- * Every ability in the kit is paid for out of one shared <b>Psi</b> meter, and nothing in the kit works
- * without it. Psi refills on its own, but if it is driven all the way to empty the mind blows a fuse:
- * for {@link #BURNOUT_TICKS} ticks (10 s) every telekinetic ability is locked out, every toggle drops,
- * and the meter only starts refilling once that is over. That is the whole risk model of the power —
- * spend freely, but run the tank dry and you are a normal person for ten seconds.
+ * <h2>Psi</h2>
+ * Every ability in the kit is paid for out of one shared <b>Psi</b> meter ({@link #MAX_PSI}, +15% in the revamp).
+ * Psi refills on its own, but if it is driven all the way to empty the mind blows a fuse: for
+ * {@link #BURNOUT_TICKS} ticks every telekinetic ability is locked out, every toggle drops, the orbit falls, and
+ * the meter only starts refilling once that is over.
+ *
+ * <h2>The orbit</h2>
+ * Up to {@link #ORBIT_MAX} grabbed objects -- creatures, dropped items, lifted blocks -- circle the telekinetic
+ * at chest height, each costing a trickle of Psi per tick. V throws them one at a time at the crosshair, H
+ * launches the whole orbit at once. Thrown objects are tracked and hit the first creature they reach.
  *
  * <h2>Slots</h2>
  * <ul>
- *   <li><b>R</b> Force Push (sneak: Force Pull — creatures <em>and</em> loose items), 1 s cooldown.</li>
- *   <li><b>G</b> Telekinetic Barrier — a toggle that makes you untouchable while it burns Psi.</li>
- *   <li><b>X</b> Psychic Flight — cheap, steady Psi drain.</li>
- *   <li><b>Z</b> Psychic Detonation — hold 5 s, hauling everything within 20 blocks off the ground and
- *       in toward you (never closer than 2 blocks), then blow it all apart for 55.</li>
- *   <li><b>V</b> Telekinetic Grab (sneak while empty-handed: Force Crush; sneak while holding: set the
- *       victim down unharmed).</li>
- *   <li><b>C</b> Block Manipulation, cursor-smooth (sneak: tear a 3x3 chunk out of the ground).</li>
+ *   <li><b>R</b> Force Push (sneak: Force Pull -- creatures and loose items).</li>
+ *   <li><b>G</b> Telekinetic Barrier -- untouchable while it burns Psi.</li>
+ *   <li><b>X</b> Psychic Flight.</li>
+ *   <li><b>Z</b> Psychic Detonation -- hold 5 s, haul everything in, blow it apart.</li>
+ *   <li><b>V</b> Telekinetic Grab -- add the creature/item under the crosshair to the orbit; with the orbit full
+ *       or nothing grabbable aimed at, throw one. Sneak: set the orbit down gently, or (empty) Force Crush.</li>
+ *   <li><b>C</b> Block Manipulation -- hold to lift and steer, release to throw; a quick tap plucks the block
+ *       into the orbit instead. Sneak: tear a 3x3 chunk out of the ground.</li>
+ *   <li><b>H</b> Launch Orbit -- everything orbiting flies at the crosshair together.</li>
+ *   <li><b>N</b> Mind Lock -- freeze a target in mid-air for 4 s.</li>
  * </ul>
  */
 public final class TelekinesisHandlers {
 	private static final String KEY = "power_10_telekinesis";
-	static final float MAX_PSI = 1000.0f;
-	// v0.10.14: slower regeneration + heavier per-use costs so the Psi bar visibly moves on every use.
-	// At 1.0/tick a full bar is ~50 s of regeneration, and the discrete costs below each take a clear
-	// bite out of it.
-	private static final float PSI_REGEN_PER_TICK = 1.0f;
+	public static final float MAX_PSI = 1150.0f;
+	private static final float PSI_REGEN_PER_TICK = 1.1f;
 
 	/** How long the power is dead for after the meter is emptied. */
 	private static final int BURNOUT_TICKS = 10 * 20;
-	/**
-	 * Psi does not regenerate for this long after anything spends it. Without a hold-off the trickle
-	 * simply outruns every per-tick drain in the kit -- Psychic Flight costs 0.4/tick against 1.6/tick
-	 * of regeneration, so flying would REFILL the bar and no channel would ever cost anything.
-	 */
+	/** Psi does not regenerate for this long after anything spends it (see the v0.10.14 notes). */
 	private static final int REGEN_HOLDOFF_TICKS = 20;
-	/**
-	 * Continuous drains stop at this floor instead of emptying the meter. Only a deliberate spend (or a
-	 * blow soaked by the barrier) can burn you out -- having Psychic Flight cut out AND lock your powers
-	 * for ten seconds while you are two hundred blocks up is a death sentence, not a risk.
-	 */
+	/** Continuous drains stop at this floor instead of emptying the meter. */
 	private static final float SOFT_FLOOR = 12.0f;
 
-	/** How long, and by how much, the ultimate suppresses Psi regeneration afterwards. */
 	private static final int ULT_REGEN_PENALTY_TICKS = 10 * 20;
 	private static final float ULT_REGEN_PENALTY = 0.2f;
 
 	// --- costs ---
-	// v0.10.15: back down to their pre-v0.10.14 values -- the v0.10.14 hike made every ability too
-	// expensive to actually use. The Psi bar's HUD max was the real bug behind "the bar looks half
-	// empty already" (see AbilityHud#maxOf); these costs just needed to come back down on their own.
 	private static final float COST_PUSH = 35.0f;
 	private static final float COST_PULL = 25.0f;
 	private static final float COST_GRAB = 55.0f;
+	private static final float COST_GRAB_ITEM = 20.0f;
 	private static final float COST_BLOCK = 40.0f;
 	private static final float COST_CHUNK = 90.0f;
 	private static final float COST_ULTIMATE = 320.0f;
+	private static final float COST_LAUNCH = 30.0f;
+	private static final float COST_MIND_LOCK = 90.0f;
 	private static final float DRAIN_FLIGHT = 0.4f;
 	private static final float DRAIN_BARRIER = 1.6f;
 	private static final float DRAIN_BARRIER_PER_DAMAGE = 4.0f;
 	private static final float DRAIN_HOLD = 1.0f;
+	private static final float DRAIN_ORBIT_EACH = 0.45f;
 	private static final float DRAIN_CRUSH = 2.5f;
 
-	/**
-	 * v0.10.11: every telekinetic move reaches 50 blocks. Force Push's cone, Force Pull's grab, the
-	 * detonation's radius, Telekinetic Grab, Force Crush and Block Manipulation all key off this.
-	 */
+	/** Every telekinetic move reaches 50 blocks. */
 	static final double RANGE = 50.0;
+
+	// --- R ---
+	private static final float PUSH_DAMAGE = 12.0f;
+	private static final double PUSH_SPLASH = 3.0;
 
 	// --- Z: Psychic Detonation ---
 	private static final int ULT_CHARGE_TICKS = 5 * 20;
-	private static final int ULT_COOLDOWN = 90 * 20;
+	private static final int ULT_COOLDOWN = 76 * 20;
 	private static final double ULT_RANGE = RANGE;
 	private static final double ULT_MIN_DISTANCE = 2.0;
-	private static final float ULT_DAMAGE = 55.0f;
+	private static final float ULT_DAMAGE = 66.0f;
 
 	// --- V: Force Crush ---
 	private static final int CRUSH_TICKS = 8 * 20;
-	private static final float CRUSH_DAMAGE_PER_SECOND = 10.0f;
+	private static final float CRUSH_DAMAGE_PER_SECOND = 12.0f;
 	private static final net.minecraft.resources.ResourceLocation CRUSH_SLOW =
 			com.projecthero.mod.ProjectHeroMod.id("telekinesis_crush_slow");
 
+	// --- the orbit (V / C tap / H) ---
+	public static final int ORBIT_MAX = 3;
+	private static final double ORBIT_RADIUS = 2.4;
+	private static final float THROW_DAMAGE_CREATURE = 14.0f;
+	private static final float THROW_DAMAGE_ITEM = 9.0f;
+	private static final float THROW_DAMAGE_BLOCK = 16.0f;
+	/** A creature thrown into something (or a wall) takes this itself. */
+	private static final float THROWN_SELF_DAMAGE = 8.0f;
+	private static final float LAUNCH_BONUS = 1.2f;
+	private static final int THROWN_LIFE = 50;
+
+	// --- N: Mind Lock ---
+	public static final int MIND_LOCK_TICKS = 4 * 20;
+
 	// --- C: Block Manipulation ---
 	private static final int CHUNK_RADIUS = 1; // 3x3
-	private static final float CHUNK_IMPACT_DAMAGE = 26.0f;
+	private static final float CHUNK_IMPACT_DAMAGE = 31.0f;
 	private static final int CHUNK_FLIGHT_TICKS = 40;
+	/** A C press released within this many ticks is a "tap": the block goes into the orbit instead of flying. */
+	private static final int PLUCK_TAP_TICKS = 7;
+
+	/** owner -> entity ids circling them (insertion order = oldest first). */
+	private static final Map<UUID, List<Integer>> ORBIT = new HashMap<>();
+	/** Objects in flight from a throw, until they hit something or run out of life. */
+	private static final List<Thrown> THROWN = new ArrayList<>();
+	/** locked entity id -> lock. */
+	private static final Map<Integer, Lock> LOCKS = new HashMap<>();
 
 	private TelekinesisHandlers() {
 	}
@@ -134,19 +166,18 @@ public final class TelekinesisHandlers {
 		return Powers.byKey(KEY);
 	}
 
+	public static void clearSessionState() {
+		ORBIT.clear();
+		THROWN.clear();
+		LOCKS.clear();
+	}
+
 	// ================================================================================ Psi
 
-	/** True while the power is burnt out — every ability refuses and every toggle is forced off. */
 	private static boolean burntOut(AbilityContext ctx) {
 		return ctx.resource("burnout_until") > ctx.player().level().getGameTime();
 	}
 
-	/**
-	 * The single gate every ability goes through: refuse outright while burnt out, otherwise spend
-	 * {@code amount} of Psi (refusing if there is not enough). Emptying the meter here is what trips the
-	 * burnout, so a spend that lands exactly on zero still goes through — you get the ability, and then
-	 * you pay for it.
-	 */
 	private static boolean spendPsi(AbilityContext ctx, float amount) {
 		if (burntOut(ctx)) {
 			burnoutMessage(ctx);
@@ -162,10 +193,6 @@ public final class TelekinesisHandlers {
 		return true;
 	}
 
-	/**
-	 * Drain applied per tick by a channel or toggle that is <em>allowed</em> to burn you out -- the
-	 * Barrier, Force Crush, and holding a mass aloft. Returns false the moment the meter gives out.
-	 */
 	private static boolean drainPsi(AbilityContext ctx, float amount) {
 		if (burntOut(ctx)) {
 			return false;
@@ -175,7 +202,6 @@ public final class TelekinesisHandlers {
 		return !checkBurnout(ctx);
 	}
 
-	/** As {@link #drainPsi}, but cuts out at {@link #SOFT_FLOOR} rather than emptying the meter. */
 	private static boolean drainPsiSoft(AbilityContext ctx, float amount) {
 		if (burntOut(ctx) || ctx.resource("psi") <= SOFT_FLOOR) {
 			return false;
@@ -185,7 +211,6 @@ public final class TelekinesisHandlers {
 		return true;
 	}
 
-	/** Anything that spends Psi parks its regeneration for a second. */
 	private static void holdOffRegen(ServerPlayer p) {
 		Power power = power();
 		if (power != null) {
@@ -194,7 +219,6 @@ public final class TelekinesisHandlers {
 		}
 	}
 
-	/** Trip the burnout if the meter has just hit zero. Returns true if the power is now down. */
 	private static boolean checkBurnout(AbilityContext ctx) {
 		if (ctx.resource("psi") > 0.0f) {
 			return false;
@@ -210,6 +234,7 @@ public final class TelekinesisHandlers {
 		}
 		ExperimentalPowers.setResource(p, power, "burnout_until",
 				p.level().getGameTime() + BURNOUT_TICKS, 1.0e12f);
+		ExperimentalPowers.setResource(p, power, "burnout_left", BURNOUT_TICKS, BURNOUT_TICKS);
 		// Everything currently running stops dead: the mind has nothing left to hold any of it up.
 		for (com.projecthero.mod.hero.Ability a : power.abilities()) {
 			ExperimentalPowers.setToggled(p, power, a, false);
@@ -217,8 +242,10 @@ public final class TelekinesisHandlers {
 		HeroFlight.setFlying(p, false);
 		endCrush(p);
 		clearChunk(p);
+		releaseOrbit(p, true);
 		ExperimentalPowers.setResource(p, power, "ult_start", 0, 1.0e12f);
 		ExperimentalPowers.setResource(p, power, "ult_charge", 0, 100);
+		MutationVisuals.stop(p);
 		p.displayClientMessage(Component.translatable("message.projecthero.telekinesis.burnout")
 				.withStyle(net.minecraft.ChatFormatting.DARK_PURPLE), true);
 		p.level().playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BEACON_DEACTIVATE,
@@ -257,6 +284,7 @@ public final class TelekinesisHandlers {
 						return;
 					}
 					ctx.actionBar("message.projecthero.telekinesis.barrier_up");
+					MutationVisuals.play(ctx.player(), "p10.barrier");
 					AbilityHelpers.sound(ctx.player(), SoundEvents.SHIELD_BLOCK, 1.0f, 0.5f);
 				},
 				ctx -> AbilityHelpers.sound(ctx.player(), SoundEvents.AMETHYST_BLOCK_BREAK, 0.8f, 0.7f),
@@ -267,7 +295,6 @@ public final class TelekinesisHandlers {
 						return;
 					}
 					ServerPlayer p = ctx.player();
-					// A visible shell, so both the wearer and whoever is shooting at them can see it is up.
 					if (p.tickCount % 2 == 0) {
 						for (int i = 0; i < 4; i++) {
 							double a = (p.tickCount * 0.12) + i * Math.PI / 2.0;
@@ -275,6 +302,9 @@ public final class TelekinesisHandlers {
 							ctx.level().sendParticles(ParticleTypes.SCULK_SOUL,
 									p.getX() + Math.cos(a) * 1.1, p.getY() + h, p.getZ() + Math.sin(a) * 1.1,
 									1, 0.0, 0.0, 0.0, 0.0);
+							ctx.level().sendParticles(BatchDFx.PSI,
+									p.getX() + Math.cos(a + 0.8) * 1.15, p.getY() + 0.9, p.getZ() + Math.sin(a + 0.8) * 1.15,
+									1, 0.0, 0.3, 0.0, 0.0);
 						}
 					}
 				}));
@@ -288,12 +318,15 @@ public final class TelekinesisHandlers {
 					if (burntOut(ctx)) {
 						burnoutMessage(ctx);
 					}
+					return;
 				}
+				MutationVisuals.play(ctx.player(), "leap");
 			}
 
 			@Override
 			public void onToggleOff(AbilityContext ctx) {
 				HeroFlight.setFlying(ctx.player(), false);
+				MutationVisuals.stopIf(ctx.player(), "float_arms");
 			}
 
 			@Override
@@ -301,19 +334,21 @@ public final class TelekinesisHandlers {
 				ServerPlayer p = ctx.player();
 				if (!HeroFlight.isFlying(p)) {
 					ctx.setToggled(false);
+					MutationVisuals.stopIf(p, "float_arms");
 					return;
 				}
-				// v0.10.10: a low, steady trickle -- around a minute of continuous flight on a full bar,
-				// so flying is something you can just do, and what actually costs Psi is what you do while
-				// you are up there. It cuts out at the soft floor rather than emptying the meter, so it can
-				// never drop you out of the sky AND lock your powers at the same time.
 				if (!drainPsiSoft(ctx, DRAIN_FLIGHT)) {
 					ctx.setToggled(false);
 					HeroFlight.setFlying(p, false);
+					MutationVisuals.stopIf(p, "float_arms");
 					ctx.actionBar("message.projecthero.telekinesis.drained");
 					return;
 				}
+				BatchDFx.ensureIdle(p, "float_arms");
 				ctx.level().sendParticles(ParticleTypes.SCULK_SOUL, p.getX(), p.getY() + 0.2, p.getZ(), 2, 0.3, 0.3, 0.3, 0.0);
+				if (p.tickCount % 3 == 0) {
+					ctx.level().sendParticles(BatchDFx.PSI, p.getX(), p.getY() + 0.1, p.getZ(), 2, 0.35, 0.05, 0.35, 0.0);
+				}
 			}
 		});
 
@@ -335,9 +370,9 @@ public final class TelekinesisHandlers {
 			}
 		});
 
-		// ---- V: Telekinetic Grab / Force Crush -----------------------------------------------------
+		// ---- V: Telekinetic Grab (orbit) / Force Crush ---------------------------------------------
 		AbilityHandlers.register(KEY, "telekinetic_grab", Handlers.instantTicking(
-				TelekinesisHandlers::grabPress, TelekinesisHandlers::grabTick));
+				TelekinesisHandlers::grabPress, TelekinesisHandlers::crushTick));
 
 		// ---- C: Block Manipulation -----------------------------------------------------------------
 		AbilityHandlers.register(KEY, "block_manipulation", new AbilityHandler() {
@@ -362,20 +397,20 @@ public final class TelekinesisHandlers {
 			}
 		});
 
+		// ---- H: Launch Orbit -----------------------------------------------------------------------
+		AbilityHandlers.register(KEY, "launch_orbit", Handlers.instant(TelekinesisHandlers::launchOrbit));
+
+		// ---- N: Mind Lock --------------------------------------------------------------------------
+		AbilityHandlers.register(KEY, "mind_lock", Handlers.instant(TelekinesisHandlers::mindLock));
+
 		registerPassives();
 	}
 
 	// ================================================================================ R
 
-	/** Force Push only reaches the extra targets within this radius of the one you are aiming at. */
-	private static final double PUSH_SPLASH = 3.0;
-
 	private static void forcePush(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		Vec3 eye = p.getEyePosition();
-		Vec3 look = p.getLookAngle();
-		// v0.10.12: no longer a 50-block cone that shoves everything in front of you. It hits exactly
-		// the entity you are aiming at, plus anything within 3 blocks of that entity.
 		LivingEntity aimed = AbilityHelpers.raycastEntity(p, RANGE);
 		if (aimed == null) {
 			ctx.actionBar("message.projecthero.telekinesis.no_target");
@@ -389,41 +424,46 @@ public final class TelekinesisHandlers {
 		hit.add(aimed);
 		hit.addAll(AbilityHelpers.enemiesAround(p, focus, PUSH_SPLASH));
 		for (LivingEntity e : hit) {
-			// a hard shove -- several blocks of launch on a clear line
+			if (Squads.areAllies(p, e)) {
+				continue;
+			}
 			Vec3 dir = e.position().subtract(eye).normalize().scale(2.0).add(0, 0.5, 0);
 			AbilityHelpers.push(e, dir);
 			AbilityHelpers.knockbackFrom(e, p.position(), 1.6);
-			AbilityHelpers.hurt(p, e, 10.0f);
+			AbilityHelpers.hurt(p, e, PUSH_DAMAGE);
 		}
-		AbilityHelpers.line(ctx.level(), eye, focus.add(0, aimed.getBbHeight() * 0.5, 0), ParticleTypes.SCULK_SOUL, 2.0);
-		AbilityHelpers.burst(ctx.level(), focus.add(0, aimed.getBbHeight() * 0.5, 0), ParticleTypes.SCULK_SOUL, 20, PUSH_SPLASH);
+		Vec3 mid = focus.add(0, aimed.getBbHeight() * 0.5, 0);
+		AbilityHelpers.line(ctx.level(), eye, mid, ParticleTypes.SCULK_SOUL, 2.0);
+		AbilityHelpers.line(ctx.level(), AbilityHelpers.handPosition(p), mid, BatchDFx.PSI, 1.5);
+		AbilityHelpers.burst(ctx.level(), mid, ParticleTypes.SCULK_SOUL, 20, PUSH_SPLASH);
+		ctx.level().sendParticles(BatchDFx.PSI_BIG, mid.x, mid.y, mid.z, 16, 0.6, 0.6, 0.6, 0.0);
+		MutationVisuals.play(p, "cast_right");
 		AbilityHelpers.sound(p, SoundEvents.ILLUSIONER_CAST_SPELL, 1.0f, 0.7f);
 		ctx.triggerCooldown();
 	}
 
-	/**
-	 * v0.10.10: Force Pull is R's sneak variant and reels in <em>items</em> properly — they come to your
-	 * feet and are picked up, rather than being nudged vaguely in your direction and left on the floor.
-	 */
 	private static void forcePull(AbilityContext ctx) {
 		if (!spendPsi(ctx, COST_PULL)) {
 			return;
 		}
 		ServerPlayer p = ctx.player();
 		LivingEntity t = AbilityHelpers.raycastEntity(p, RANGE);
-		if (t != null) {
+		if (t != null && !Squads.areAllies(p, t)) {
 			Vec3 dir = p.position().subtract(t.position()).normalize().scale(1.6).add(0, 0.3, 0);
 			AbilityHelpers.push(t, dir);
 		}
 		int items = 0;
 		for (ItemEntity item : ctx.level().getEntitiesOfClass(ItemEntity.class, p.getBoundingBox().inflate(RANGE))) {
+			if (inAnyOrbit(item.getId())) {
+				continue;
+			}
 			Vec3 to = p.position().add(0, 0.3, 0).subtract(item.position());
 			double dist = to.length();
 			if (dist > RANGE) {
 				continue;
 			}
 			if (dist < 1.5) {
-				item.setNoPickUpDelay(); // close enough: hand it over instead of orbiting the player
+				item.setNoPickUpDelay();
 			} else {
 				item.setDeltaMovement(to.normalize().scale(Math.min(1.4, 0.35 + dist * 0.08)));
 				item.hasImpulse = true;
@@ -431,6 +471,7 @@ public final class TelekinesisHandlers {
 			items++;
 		}
 		AbilityHelpers.line(ctx.level(), p.getEyePosition(), AbilityHelpers.aimPoint(p, RANGE), ParticleTypes.SCULK_SOUL, 3.0);
+		MutationVisuals.play(p, "grab_pull");
 		AbilityHelpers.sound(p, SoundEvents.ILLUSIONER_CAST_SPELL, 1.0f, 1.3f);
 		if (t == null && items == 0) {
 			ctx.actionBar("message.projecthero.telekinesis.nothing_to_pull");
@@ -461,6 +502,7 @@ public final class TelekinesisHandlers {
 		}
 		ctx.setResource("ult_start", p.level().getGameTime(), 1.0e12f);
 		ctx.setResource("ult_charge", 0, 100);
+		MutationVisuals.play(p, "p10.detonate_charge");
 		AbilityHelpers.sound(p, SoundEvents.WARDEN_HEARTBEAT, 1.0f, 0.6f);
 	}
 
@@ -476,11 +518,6 @@ public final class TelekinesisHandlers {
 		}
 	}
 
-	/**
-	 * The 5-second wind-up. Everything alive within {@link #ULT_RANGE} is torn off the ground and dragged
-	 * toward the caster — but never inside {@link #ULT_MIN_DISTANCE}, so the crowd hangs in a ring around
-	 * them instead of piling into their face and shoving them around.
-	 */
 	private static void ultChargeTick(AbilityContext ctx) {
 		float start = ctx.resource("ult_start");
 		if (start <= 0.5f) {
@@ -494,14 +531,17 @@ public final class TelekinesisHandlers {
 		}
 		double frac = Math.min(1.0, held / (double) ULT_CHARGE_TICKS);
 		ctx.setResource("ult_charge", (float) (frac * 100.0), 100);
+		MutationVisuals.ensure(p, "p10.detonate_charge");
 
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), ULT_RANGE)) {
+			if (Squads.areAllies(p, e)) {
+				continue;
+			}
 			Vec3 toCaster = p.position().subtract(e.position());
 			double dist = toCaster.length();
 			double lift = e.onGround() ? 0.42 : 0.09;
 			Vec3 pull = dist > ULT_MIN_DISTANCE
 					? toCaster.normalize().scale(Math.min(0.35, 0.05 + dist * 0.02))
-					// already at the minimum standoff: hold them out there rather than let them close
 					: toCaster.normalize().scale(-0.18);
 			e.setDeltaMovement(e.getDeltaMovement().scale(0.6).add(pull.x, lift, pull.z));
 			e.hurtMarked = true;
@@ -517,6 +557,7 @@ public final class TelekinesisHandlers {
 					p.getX() + Math.cos(a) * r, p.getY() + 0.6 + ctx.level().random.nextDouble() * 2.0,
 					p.getZ() + Math.sin(a) * r, 1, 0.0, 0.0, 0.0, 0.0);
 		}
+		BatchDFx.ring(ctx.level(), p.position().add(0, 1.0, 0), 1.2 + frac, BatchDFx.PSI, 10, held * 0.3);
 		if (held % 10 == 0) {
 			AbilityHelpers.sound(p, SoundEvents.WARDEN_HEARTBEAT, 1.1f, 0.5f + (float) frac);
 		}
@@ -528,6 +569,7 @@ public final class TelekinesisHandlers {
 	private static void ultCancel(AbilityContext ctx, boolean announce) {
 		ctx.setResource("ult_start", 0, 1.0e12f);
 		ctx.setResource("ult_charge", 0, 100);
+		MutationVisuals.stopIf(ctx.player(), "p10.detonate_charge");
 		if (announce) {
 			AbilityHelpers.sound(ctx.player(), SoundEvents.AMETHYST_BLOCK_BREAK, 0.7f, 0.8f);
 		}
@@ -540,10 +582,12 @@ public final class TelekinesisHandlers {
 		if (!spendPsi(ctx, COST_ULTIMATE)) {
 			return;
 		}
-		// The mind is wrung out afterwards: Psi crawls back for the next ten seconds.
 		ctx.setResource("regen_slow_until", p.level().getGameTime() + ULT_REGEN_PENALTY_TICKS, 1.0e12f);
 
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), ULT_RANGE)) {
+			if (Squads.areAllies(p, e)) {
+				continue;
+			}
 			Vec3 dir = e.position().subtract(p.position()).normalize().scale(2.8).add(0, 0.6, 0);
 			AbilityHelpers.push(e, dir);
 			AbilityHelpers.hurtBurst(p, e, ULT_DAMAGE);
@@ -553,69 +597,510 @@ public final class TelekinesisHandlers {
 			level.sendParticles(ParticleTypes.SCULK_CHARGE_POP, p.getX(), p.getY() + 1, p.getZ(),
 					40, r / 2.0, 1.0, r / 2.0, 0.4);
 		}
+		level.sendParticles(BatchDFx.PSI_BIG, p.getX(), p.getY() + 1, p.getZ(), 60, 3.0, 1.2, 3.0, 0.0);
 		level.sendParticles(ParticleTypes.FLASH, p.getX(), p.getY() + 1, p.getZ(), 1, 0, 0, 0, 0);
+		MutationVisuals.play(p, "p10.detonate");
 		AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 1.4f, 1.2f);
 		AbilityHelpers.sound(p, SoundEvents.ILLUSIONER_MIRROR_MOVE, 1.4f, 0.6f);
 		ctx.triggerCooldown(ULT_COOLDOWN);
 	}
 
-	// ================================================================================ V
+	// ================================================================================ V: the orbit
+
+	/** The ids currently orbiting {@code p} (live list; never null). */
+	private static List<Integer> orbit(ServerPlayer p) {
+		return ORBIT.computeIfAbsent(p.getUUID(), k -> new ArrayList<>());
+	}
+
+	public static int orbitSize(ServerPlayer p) {
+		List<Integer> l = ORBIT.get(p.getUUID());
+		return l == null ? 0 : l.size();
+	}
+
+	private static boolean inAnyOrbit(int id) {
+		for (List<Integer> l : ORBIT.values()) {
+			if (l.contains(id)) {
+				return true;
+			}
+		}
+		return LOCKS.containsKey(id);
+	}
 
 	private static void grabPress(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		boolean sneaking = p.isShiftKeyDown();
 
 		if (ctx.resource("crush_id") > 0.5f) {
-			endCrush(p); // sneak or not, a second press lets the victim go
+			endCrush(p);
 			return;
 		}
-		if (GrabHelper.isHolding(ctx)) {
-			if (sneaking) {
-				// v0.10.10: put them down instead of throwing them. Held victims are floated to the ground
-				// and given the same brief fall-immunity window the rest of the mod uses, so "I only wanted
-				// to move you" no longer costs the target a fall to death.
-				setDownSafely(ctx);
-			} else {
-				GrabHelper.throwHeld(ctx, 2.4, 4.0f);
-				AbilityHelpers.sound(p, SoundEvents.ILLUSIONER_CAST_SPELL, 1.0f, 0.6f);
-				ctx.triggerCooldown();
-			}
-			return;
-		}
+		List<Integer> orbit = orbit(p);
 		if (sneaking) {
+			if (!orbit.isEmpty()) {
+				releaseOrbit(p, false);
+				ctx.actionBar("message.projecthero.telekinesis.set_down");
+				AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 0.8f, 1.4f);
+				MutationVisuals.play(p, "p10.set_down");
+				ctx.triggerCooldown();
+				return;
+			}
 			startCrush(ctx);
 			return;
 		}
-		if (spendPsi(ctx, COST_GRAB) && GrabHelper.tryGrab(ctx, RANGE, 160)) {
-			ctx.actionBar("message.projecthero.ability.grabbed");
+		if (burntOut(ctx)) {
+			burnoutMessage(ctx);
+			return;
+		}
+		Entity target = orbit.size() < ORBIT_MAX ? grabbableUnderCrosshair(p) : null;
+		if (target != null) {
+			float cost = target instanceof ItemEntity ? COST_GRAB_ITEM : COST_GRAB;
+			if (!spendPsi(ctx, cost)) {
+				return;
+			}
+			addToOrbit(p, target);
+			ctx.actionBar("message.projecthero.telekinesis.orbit_add", orbit.size(), ORBIT_MAX);
+			MutationVisuals.play(p, "grab_pull");
+			AbilityHelpers.line(ctx.level(), AbilityHelpers.handPosition(p), BatchDFx.centre(target), BatchDFx.PSI, 2.0);
+			AbilityHelpers.sound(p, SoundEvents.ILLUSIONER_PREPARE_MIRROR, 0.9f, 1.3f);
+			ctx.triggerCooldown();
+			return;
+		}
+		if (!orbit.isEmpty()) {
+			throwOne(p, AbilityHelpers.aimPoint(p, RANGE), 1.0f);
+			MutationVisuals.play(p, "throw_right");
+			AbilityHelpers.sound(p, SoundEvents.ILLUSIONER_CAST_SPELL, 1.0f, 0.6f);
+			ctx.triggerCooldown();
+			return;
+		}
+		ctx.actionBar("message.projecthero.telekinesis.no_target");
+	}
+
+	/** The creature or loose item under the crosshair that can join the orbit, or null. */
+	private static Entity grabbableUnderCrosshair(ServerPlayer p) {
+		LivingEntity le = AbilityHelpers.raycastEntity(p, RANGE);
+		if (le != null && AbilityHelpers.isValidGrabTarget(le, p) && !Squads.areAllies(p, le) && !inAnyOrbit(le.getId())
+				&& !(le instanceof com.projecthero.mod.hero.revamp.d.MirrorImageEntity)) {
+			return le;
+		}
+		Vec3 eye = p.getEyePosition();
+		Vec3 end = eye.add(p.getLookAngle().scale(RANGE));
+		AABB box = p.getBoundingBox().expandTowards(p.getLookAngle().scale(RANGE)).inflate(1.0);
+		EntityHitResult hit = ProjectileUtil.getEntityHitResult(p.level(), p, eye, end, box,
+				e -> e instanceof ItemEntity ie && ie.isAlive() && !inAnyOrbit(ie.getId()), 0.6f);
+		if (hit != null && AbilityHelpers.raycastBlock(p, RANGE).getLocation().distanceToSqr(eye)
+				+ 1.0 >= hit.getLocation().distanceToSqr(eye)) {
+			return hit.getEntity();
+		}
+		return null;
+	}
+
+	/** Puts {@code e} into {@code p}'s orbit (public for the C-tap pluck and tests). */
+	public static void addToOrbit(ServerPlayer p, Entity e) {
+		List<Integer> orbit = orbit(p);
+		if (orbit.size() >= ORBIT_MAX || orbit.contains(e.getId())) {
+			return;
+		}
+		orbit.add(e.getId());
+		if (e instanceof ItemEntity ie) {
+			ie.setNoGravity(true);
+			ie.setPickUpDelay(32767);
+		} else if (e instanceof FallingBlockEntity fb) {
+			fb.setNoGravity(true);
+			fb.time = 1;
+		} else if (e instanceof Mob mob) {
+			mob.getNavigation().stop();
+		}
+		syncOrbitCount(p);
+	}
+
+	private static void syncOrbitCount(ServerPlayer p) {
+		Power power = power();
+		if (power != null && ExperimentalPowers.owns(p, power)) {
+			ExperimentalPowers.setResource(p, power, "orbit", orbitSize(p), ORBIT_MAX);
 		}
 	}
 
-	private static void setDownSafely(AbilityContext ctx) {
-		LivingEntity le = GrabHelper.held(ctx);
-		GrabHelper.clear(ctx);
-		if (le == null) {
+	/** Lets everything in the orbit go gently (no damage): creatures float down, items become pick-up-able again. */
+	public static void releaseOrbit(ServerPlayer p, boolean announce) {
+		List<Integer> orbit = ORBIT.remove(p.getUUID());
+		if (orbit == null || !(p.level() instanceof ServerLevel level)) {
 			return;
 		}
-		le.setDeltaMovement(0, -0.08, 0);
-		le.fallDistance = 0.0f;
-		le.hurtMarked = true;
-		le.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 100, 0, false, false, false));
-		ctx.level().sendParticles(ParticleTypes.SCULK_SOUL, le.getX(), le.getY() + 0.5, le.getZ(), 12, 0.3, 0.3, 0.3, 0.0);
-		AbilityHelpers.sound(ctx.player(), SoundEvents.AMETHYST_BLOCK_CHIME, 0.8f, 1.4f);
-		ctx.actionBar("message.projecthero.telekinesis.set_down");
+		for (int id : orbit) {
+			Entity e = level.getEntity(id);
+			if (e != null && e.isAlive()) {
+				setDown(level, e);
+			}
+		}
+		syncOrbitCount(p);
+		if (announce && !orbit.isEmpty()) {
+			AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_BREAK, 0.8f, 0.6f);
+		}
+	}
+
+	private static void setDown(ServerLevel level, Entity e) {
+		if (e instanceof ItemEntity ie) {
+			ie.setNoGravity(false);
+			ie.setPickUpDelay(10);
+			ie.setDeltaMovement(0, -0.05, 0);
+		} else if (e instanceof FallingBlockEntity fb) {
+			fb.setNoGravity(false);
+			fb.setDeltaMovement(0, -0.1, 0);
+		} else if (e instanceof LivingEntity le) {
+			le.setDeltaMovement(0, -0.08, 0);
+			le.fallDistance = 0.0f;
+			le.hurtMarked = true;
+			le.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 100, 0, false, false, false));
+		}
+		level.sendParticles(BatchDFx.PSI, e.getX(), e.getY() + e.getBbHeight() * 0.5, e.getZ(), 10, 0.3, 0.3, 0.3, 0.0);
+	}
+
+	/** Flings the orbiter nearest the look direction at {@code aim}. Returns false if the orbit was empty. */
+	public static boolean throwOne(ServerPlayer p, Vec3 aim, float damageMult) {
+		List<Integer> orbit = ORBIT.get(p.getUUID());
+		if (orbit == null || orbit.isEmpty() || !(p.level() instanceof ServerLevel level)) {
+			return false;
+		}
+		Vec3 look = p.getLookAngle();
+		int bestIdx = 0;
+		double best = -2;
+		for (int i = 0; i < orbit.size(); i++) {
+			Entity e = level.getEntity(orbit.get(i));
+			if (e == null) {
+				continue;
+			}
+			double dot = e.position().subtract(p.position()).normalize().dot(look);
+			if (dot > best) {
+				best = dot;
+				bestIdx = i;
+			}
+		}
+		int id = orbit.remove(bestIdx);
+		syncOrbitCount(p);
+		Entity e = level.getEntity(id);
+		if (e == null || !e.isAlive()) {
+			return true;
+		}
+		launch(level, p, e, aim, damageMult);
+		return true;
+	}
+
+	private static void launch(ServerLevel level, ServerPlayer p, Entity e, Vec3 aim, float damageMult) {
+		Vec3 from = BatchDFx.centre(e);
+		Vec3 dir = aim.subtract(from);
+		dir = dir.lengthSqr() < 1.0e-4 ? p.getLookAngle() : dir.normalize();
+		float damage;
+		double speed;
+		if (e instanceof ItemEntity ie) {
+			ie.setNoGravity(true);
+			ie.setPickUpDelay(40);
+			speed = 2.6;
+			damage = THROW_DAMAGE_ITEM;
+		} else if (e instanceof FallingBlockEntity fb) {
+			fb.setNoGravity(false);
+			fb.time = 1;
+			fb.setHurtsEntities(2.0f, 20);
+			speed = 2.1;
+			damage = THROW_DAMAGE_BLOCK;
+		} else {
+			speed = 2.2;
+			damage = THROW_DAMAGE_CREATURE;
+		}
+		e.setDeltaMovement(dir.scale(speed));
+		e.hasImpulse = true;
+		e.hurtMarked = true;
+		if (e instanceof LivingEntity le) {
+			le.fallDistance = 0.0f;
+		}
+		broadcastPos(level, e);
+		THROWN.add(new Thrown(level, e, p.getUUID(), damage * damageMult, THROWN_LIFE));
+		AbilityHelpers.line(level, from, from.add(dir.scale(3.0)), BatchDFx.PSI, 3.0);
+	}
+
+	/** Per-tick upkeep of every orbit, every throw and every Mind Lock (from {@code RevampBatchD.serverTick}). */
+	public static void worldTick(MinecraftServer server) {
+		if (!ORBIT.isEmpty()) {
+			Iterator<Map.Entry<UUID, List<Integer>>> it = ORBIT.entrySet().iterator();
+			List<ServerPlayer> dropAll = new ArrayList<>();
+			List<ServerPlayer> burnouts = new ArrayList<>();
+			while (it.hasNext()) {
+				var entry = it.next();
+				if (entry.getValue().isEmpty()) {
+					continue;
+				}
+				ServerPlayer p = server.getPlayerList().getPlayer(entry.getKey());
+				Power power = power();
+				if (p == null || !p.isAlive() || power == null || !ExperimentalPowers.owns(p, power)) {
+					if (p != null) {
+						dropAll.add(p);
+					} else {
+						it.remove(); // owner logged out: the objects simply stop being held
+					}
+					continue;
+				}
+				if (!tickOrbit(p, entry.getValue())) {
+					burnouts.add(p);
+				}
+			}
+			for (ServerPlayer p : dropAll) {
+				releaseOrbit(p, false);
+			}
+			for (ServerPlayer p : burnouts) {
+				startBurnout(p);
+			}
+		}
+		if (!THROWN.isEmpty()) {
+			THROWN.removeIf(t -> !t.tick(server));
+		}
+		if (!LOCKS.isEmpty()) {
+			LOCKS.entrySet().removeIf(e -> !e.getValue().tick(server, e.getKey()));
+		}
+	}
+
+	/** @return false when holding the orbit just emptied the Psi meter (the caller trips the burnout). */
+	private static boolean tickOrbit(ServerPlayer p, List<Integer> orbit) {
+		ServerLevel level = p.serverLevel();
+		boolean lost = orbit.removeIf(id -> {
+			Entity e = level.getEntity(id);
+			return e == null || !e.isAlive() || e.distanceToSqr(p) > 40 * 40;
+		});
+		if (lost) {
+			syncOrbitCount(p);
+		}
+		int n = orbit.size();
+		if (n == 0) {
+			return true;
+		}
+		Power power = power();
+		// the Psi cost of holding them all aloft
+		ExperimentalPowers.addResource(p, power, "psi", -DRAIN_ORBIT_EACH * n, MAX_PSI);
+		holdOffRegen(p);
+		if (ExperimentalPowers.getResource(p, power, "psi") <= 0.0f) {
+			return false;
+		}
+		double t = level.getGameTime() * 0.16;
+		Vec3 c = p.position().add(0, 1.25, 0);
+		for (int i = 0; i < n; i++) {
+			Entity e = level.getEntity(orbit.get(i));
+			double a = t + i * (Math.PI * 2.0 / n);
+			double r = ORBIT_RADIUS + e.getBbWidth() * 0.5;
+			double y = c.y + Math.sin(t * 0.7 + i * 2.1) * 0.25 - e.getBbHeight() * 0.5;
+			Vec3 at = new Vec3(c.x + Math.cos(a) * r, y, c.z + Math.sin(a) * r);
+			if (e instanceof ServerPlayer sp) {
+				sp.connection.teleport(at.x, at.y, at.z, sp.getYRot(), sp.getXRot());
+			} else {
+				e.setPos(at.x, at.y, at.z);
+			}
+			e.setDeltaMovement(Vec3.ZERO);
+			e.fallDistance = 0.0f;
+			if (e instanceof FallingBlockEntity fb) {
+				fb.time = 1;
+				fb.setNoGravity(true);
+				broadcastPos(level, fb);
+			} else if (e instanceof ItemEntity ie) {
+				ie.setNoGravity(true);
+				ie.setPickUpDelay(32767);
+				broadcastPos(level, ie);
+			} else if (e instanceof LivingEntity le) {
+				le.hurtMarked = true;
+				if (le instanceof Mob mob) {
+					mob.getNavigation().stop();
+				}
+			}
+			if (p.tickCount % 2 == 0) {
+				level.sendParticles(BatchDFx.PSI, at.x, at.y + e.getBbHeight() * 0.5, at.z, 2, 0.2, 0.2, 0.2, 0.0);
+			}
+		}
+		if (p.tickCount % 5 == 0) {
+			BatchDFx.ring(level, c, ORBIT_RADIUS, ParticleTypes.SCULK_SOUL, 6, t);
+		}
+		return true;
+	}
+
+	private static void broadcastPos(ServerLevel level, Entity e) {
+		level.getChunkSource().broadcastAndSend(e, new ClientboundTeleportEntityPacket(e));
+	}
+
+	/** One thrown orbit object in flight. */
+	private static final class Thrown {
+		private final ServerLevel level;
+		private final Entity entity;
+		private final UUID owner;
+		private final float damage;
+		private int life;
+		private int age;
+
+		Thrown(ServerLevel level, Entity entity, UUID owner, float damage, int life) {
+			this.level = level;
+			this.entity = entity;
+			this.owner = owner;
+			this.damage = damage;
+			this.life = life;
+		}
+
+		boolean tick(MinecraftServer server) {
+			age++;
+			ServerPlayer p = server.getPlayerList().getPlayer(owner);
+			if (!entity.isAlive() || --life <= 0 || p == null || entity.level() != level) {
+				settle();
+				return false;
+			}
+			if (age % 2 == 0) {
+				level.sendParticles(BatchDFx.PSI, entity.getX(), entity.getY() + entity.getBbHeight() * 0.5, entity.getZ(),
+						2, 0.1, 0.1, 0.1, 0.0);
+			}
+			if (entity instanceof ItemEntity ie && ie.getDeltaMovement().lengthSqr() < 0.05) {
+				settle();
+				return false;
+			}
+			for (LivingEntity le : level.getEntitiesOfClass(LivingEntity.class, entity.getBoundingBox().inflate(0.6),
+					x -> x.isAlive() && x != entity && x != p && !(x instanceof ArmorStand) && !Squads.areAllies(p, x))) {
+				AbilityHelpers.hurtBurst(p, le, damage);
+				AbilityHelpers.knockbackFrom(le, entity.position(), 1.2);
+				if (entity instanceof LivingEntity thrown) {
+					AbilityHelpers.hurtBurst(p, thrown, THROWN_SELF_DAMAGE);
+				}
+				level.sendParticles(ParticleTypes.SCULK_CHARGE_POP, le.getX(), le.getY() + le.getBbHeight() * 0.5, le.getZ(),
+						16, 0.4, 0.4, 0.4, 0.1);
+				level.sendParticles(BatchDFx.PSI_BIG, le.getX(), le.getY() + le.getBbHeight() * 0.5, le.getZ(),
+						8, 0.4, 0.4, 0.4, 0.0);
+				level.playSound(null, le.getX(), le.getY(), le.getZ(), SoundEvents.GENERIC_EXPLODE.value(),
+						net.minecraft.sounds.SoundSource.PLAYERS, 0.6f, 1.4f);
+				settle();
+				return false;
+			}
+			if (entity instanceof LivingEntity thrown && age > 3 && (thrown.horizontalCollision || thrown.onGround())) {
+				if (thrown.horizontalCollision) {
+					AbilityHelpers.hurtBurst(p, thrown, THROWN_SELF_DAMAGE);
+				}
+				settle();
+				return false;
+			}
+			return true;
+		}
+
+		private void settle() {
+			if (entity instanceof ItemEntity ie && ie.isAlive()) {
+				ie.setNoGravity(false);
+				ie.setPickUpDelay(10);
+			}
+		}
+	}
+
+	// ================================================================================ H
+
+	private static void launchOrbit(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (orbitSize(p) == 0) {
+			ctx.actionBar("message.projecthero.telekinesis.orbit_empty");
+			return;
+		}
+		if (!spendPsi(ctx, COST_LAUNCH)) {
+			return;
+		}
+		Vec3 aim = AbilityHelpers.aimPoint(p, RANGE);
+		int n = 0;
+		while (throwOne(p, aim, LAUNCH_BONUS)) {
+			n++;
+		}
+		ctx.level().sendParticles(BatchDFx.PSI_BIG, p.getX(), p.getY() + 1.2, p.getZ(), 20 + n * 6, 1.2, 0.6, 1.2, 0.0);
+		MutationVisuals.play(p, "p10.launch");
+		AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 0.8f, 1.6f);
 		ctx.triggerCooldown();
 	}
 
-	/**
-	 * Force Crush: hold a victim in the air, reel them in toward you, and squeeze. Ten damage a second
-	 * for as long as the Psi lasts. The caster is nearly rooted while it runs — this is a commitment, not
-	 * something you kite with.
-	 */
+	// ================================================================================ N
+
+	private static void mindLock(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		LivingEntity t = AbilityHelpers.raycastEntity(p, RANGE);
+		if (t == null || !AbilityHelpers.isValidGrabTarget(t, p) || Squads.areAllies(p, t) || inAnyOrbit(t.getId())) {
+			ctx.actionBar("message.projecthero.telekinesis.no_target");
+			return;
+		}
+		if (!spendPsi(ctx, COST_MIND_LOCK)) {
+			return;
+		}
+		lock(p, t);
+		MutationVisuals.play(p, "p10.mind_lock");
+		AbilityHelpers.line(ctx.level(), p.getEyePosition(), BatchDFx.centre(t), BatchDFx.PSI, 2.0);
+		AbilityHelpers.sound(p, SoundEvents.ILLUSIONER_PREPARE_BLINDNESS, 1.0f, 0.8f);
+		ctx.triggerCooldown();
+	}
+
+	/** Freezes {@code t} 1.5 blocks up for {@link #MIND_LOCK_TICKS} (public for tests). */
+	public static void lock(ServerPlayer owner, LivingEntity t) {
+		Vec3 anchor = t.position().add(0, 1.5, 0);
+		LOCKS.put(t.getId(), new Lock((ServerLevel) t.level(), owner.getUUID(), anchor, MIND_LOCK_TICKS));
+	}
+
+	public static boolean isLocked(LivingEntity t) {
+		return LOCKS.containsKey(t.getId());
+	}
+
+	private static boolean locksSomething(ServerPlayer p) {
+		for (Lock l : LOCKS.values()) {
+			if (l.owner.equals(p.getUUID())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static final class Lock {
+		private final ServerLevel level;
+		private final UUID owner;
+		private final Vec3 anchor;
+		private int left;
+
+		Lock(ServerLevel level, UUID owner, Vec3 anchor, int left) {
+			this.level = level;
+			this.owner = owner;
+			this.anchor = anchor;
+			this.left = left;
+		}
+
+		boolean tick(MinecraftServer server, int id) {
+			if (!(level.getEntity(id) instanceof LivingEntity le) || !le.isAlive() || --left <= 0) {
+				if (level.getEntity(id) instanceof LivingEntity le2 && le2.isAlive()) {
+					le2.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 30, 0, false, false, false));
+					level.sendParticles(BatchDFx.PSI, le2.getX(), le2.getY() + 1.0, le2.getZ(), 16, 0.4, 0.5, 0.4, 0.0);
+				}
+				return false;
+			}
+			// the rise into the lock, then held perfectly still
+			Vec3 cur = le.position();
+			Vec3 next = cur.add(anchor.subtract(cur).scale(0.35));
+			if (le instanceof ServerPlayer sp) {
+				sp.connection.teleport(next.x, next.y, next.z, sp.getYRot(), sp.getXRot());
+			} else {
+				le.setPos(next.x, next.y, next.z);
+			}
+			le.setDeltaMovement(Vec3.ZERO);
+			le.fallDistance = 0.0f;
+			le.hurtMarked = true;
+			if (le instanceof Mob mob) {
+				mob.getNavigation().stop();
+				mob.setTarget(null);
+			}
+			if (left % 10 == 0) {
+				AbilityHelpers.applyControl(le, MobEffects.MOVEMENT_SLOWDOWN, 20, 9);
+				AbilityHelpers.applyControl(le, MobEffects.WEAKNESS, 20, 9);
+			}
+			if (left % 2 == 0) {
+				BatchDFx.ring(level, le.position().add(0, le.getBbHeight() * 0.5, 0), le.getBbWidth() * 0.8 + 0.4,
+						BatchDFx.PSI, 8, left * 0.25);
+			}
+			return true;
+		}
+	}
+
+	// ================================================================================ V sneak: Force Crush
+
 	private static void startCrush(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		LivingEntity target = AbilityHelpers.raycastEntity(p, RANGE);
-		if (target == null || !AbilityHelpers.isValidGrabTarget(target, p)) {
+		if (target == null || !AbilityHelpers.isValidGrabTarget(target, p) || Squads.areAllies(p, target)) {
 			ctx.actionBar("message.projecthero.telekinesis.no_target");
 			return;
 		}
@@ -626,6 +1111,7 @@ public final class TelekinesisHandlers {
 		ctx.setResource("crush_ticks", CRUSH_TICKS, CRUSH_TICKS);
 		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, CRUSH_SLOW, -0.85,
 				AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		MutationVisuals.play(p, "p10.crush");
 		ctx.actionBar("message.projecthero.telekinesis.crush");
 		AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_CHARGE, 1.0f, 1.2f);
 	}
@@ -635,21 +1121,16 @@ public final class TelekinesisHandlers {
 		if (power == null) {
 			return;
 		}
+		if (ExperimentalPowers.getResource(p, power, "crush_id") > 0.5f) {
+			MutationVisuals.stopIf(p, "p10.crush");
+		}
 		ExperimentalPowers.setResource(p, power, "crush_id", 0, 1.0e9f);
 		ExperimentalPowers.setResource(p, power, "crush_ticks", 0, CRUSH_TICKS);
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, CRUSH_SLOW);
 	}
 
-	private static void grabTick(AbilityContext ctx) {
+	private static void crushTick(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
-
-		if (GrabHelper.isHolding(ctx)) {
-			if (!drainPsi(ctx, DRAIN_HOLD)) {
-				GrabHelper.throwHeld(ctx, 0.0, 0.0f);
-			}
-			GrabHelper.tick(ctx, 3.0);
-		}
-
 		int crushId = (int) ctx.resource("crush_id");
 		if (crushId == 0) {
 			return;
@@ -666,7 +1147,7 @@ public final class TelekinesisHandlers {
 			return;
 		}
 		ctx.setResource("crush_ticks", left, CRUSH_TICKS);
-		// reel them in to just out of arm's reach and hold them there, wringing them out
+		MutationVisuals.ensure(p, "p10.crush");
 		Vec3 hold = p.getEyePosition().add(p.getLookAngle().scale(3.5));
 		Vec3 to = hold.subtract(victim.position().add(0, victim.getBbHeight() * 0.5, 0));
 		victim.setDeltaMovement(to.scale(0.35));
@@ -679,22 +1160,11 @@ public final class TelekinesisHandlers {
 		}
 		ctx.level().sendParticles(ParticleTypes.SCULK_CHARGE_POP,
 				victim.getX(), victim.getY() + victim.getBbHeight() * 0.5, victim.getZ(), 6, 0.4, 0.4, 0.4, 0.05);
+		ctx.level().sendParticles(BatchDFx.PSI,
+				victim.getX(), victim.getY() + victim.getBbHeight() * 0.5, victim.getZ(), 4, 0.35, 0.35, 0.35, 0.0);
 	}
 
 	// ================================================================================ C
-
-	/**
-	 * v0.10.10: the held block tracks the cursor every single tick.
-	 *
-	 * <p>It always <em>was</em> repositioned every tick server-side — but {@code EntityType.FALLING_BLOCK}
-	 * is registered with {@code updateInterval(20)}, so the tracker only broadcast its new position once a
-	 * second and every client saw it teleport in one-second steps ("the block lags and only moves with
-	 * the cursor every 2 seconds"). Pushing a teleport packet ourselves each tick is what makes it
-	 * actually follow the crosshair.
-	 */
-	private static void broadcastPos(ServerLevel level, net.minecraft.world.entity.Entity e) {
-		level.getChunkSource().broadcastAndSend(e, new ClientboundTeleportEntityPacket(e));
-	}
 
 	private static void grabSingleBlock(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
@@ -715,13 +1185,11 @@ public final class TelekinesisHandlers {
 		}
 		ctx.level().removeBlock(bp, false);
 		spawnHeldBlock(ctx, 0, state, Vec3.ZERO);
+		ctx.setResource("block_grab_at", p.level().getGameTime(), 1.0e12f);
+		MutationVisuals.play(p, "channel_right");
 		AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 0.7f, 0.8f);
 	}
 
-	/**
-	 * The sneak variant: tear a 3x3 slab of ground out from under the aim point. Thrown, it hits far
-	 * harder than a single block — it is a small landslide rather than a brick.
-	 */
 	private static void grabChunk(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		if (!AbilityHelpers.canGrief() || heldBlockCount(ctx) > 0) {
@@ -756,6 +1224,7 @@ public final class TelekinesisHandlers {
 			spawnHeldBlock(ctx, i, state, Vec3.atCenterOf(bp).subtract(origin));
 		}
 		ctx.setResource("chunk_mode", 1, 1);
+		MutationVisuals.play(p, "carry_overhead");
 		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 0.8f, 0.6f);
 		ctx.actionBar("message.projecthero.telekinesis.chunk");
 	}
@@ -812,7 +1281,7 @@ public final class TelekinesisHandlers {
 	private static void heldBlockTick(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		if (ctx.resource("chunk_fly") > 0.5f) {
-			return; // in flight: thrownChunkTick owns the pieces now
+			return;
 		}
 		Vec3 hold = holdPoint(p);
 		boolean any = false;
@@ -838,7 +1307,10 @@ public final class TelekinesisHandlers {
 		if (!any) {
 			return;
 		}
-		// holding a mass aloft steadily bleeds Psi
+		MutationVisuals.ensure(p, ctx.resource("chunk_mode") > 0.5f ? "carry_overhead" : "channel_right");
+		if (p.tickCount % 3 == 0) {
+			AbilityHelpers.line(ctx.level(), AbilityHelpers.handPosition(p), hold, BatchDFx.PSI, 1.2);
+		}
 		if (!drainPsi(ctx, DRAIN_HOLD)) {
 			clearChunk(p);
 		}
@@ -850,16 +1322,31 @@ public final class TelekinesisHandlers {
 			return;
 		}
 		boolean chunk = ctx.resource("chunk_mode") > 0.5f;
+		MutationVisuals.stopIf(p, "channel_right");
+		MutationVisuals.stopIf(p, "carry_overhead");
+		long heldFor = p.level().getGameTime() - (long) ctx.resource("block_grab_at");
+		if (!chunk && heldFor <= PLUCK_TAP_TICKS && orbitSize(p) < ORBIT_MAX) {
+			// a quick tap plucks the block into the orbit instead of throwing it
+			int id = (int) ctx.resource("block_id0");
+			if (p.level().getEntity(id) instanceof FallingBlockEntity fb) {
+				addToOrbit(p, fb);
+				ctx.actionBar("message.projecthero.telekinesis.orbit_add", orbitSize(p), ORBIT_MAX);
+			}
+			clearBlockSlots(p);
+			ctx.setResource("chunk_mode", 0, 1);
+			return;
+		}
 		Vec3 dir = p.getLookAngle();
 		for (int i = 0; i < maxHeldBlocks(); i++) {
 			int id = (int) ctx.resource("block_id" + i);
 			if (id != 0 && p.level().getEntity(id) instanceof FallingBlockEntity fb) {
 				fb.setNoGravity(false);
 				fb.setDeltaMovement(dir.scale(chunk ? 2.2 : 1.8));
-				fb.setHurtsEntities(chunk ? 6.0f : 2.0f, chunk ? 60 : 20);
+				fb.setHurtsEntities(chunk ? 6.0f : 2.4f, chunk ? 72 : 24);
 				fb.time = 1;
 			}
 		}
+		MutationVisuals.play(p, "throw_right");
 		if (chunk) {
 			ctx.setResource("chunk_fly", CHUNK_FLIGHT_TICKS, CHUNK_FLIGHT_TICKS);
 			AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 1.2f, 0.5f);
@@ -869,10 +1356,6 @@ public final class TelekinesisHandlers {
 		ctx.setResource("chunk_mode", 0, 1);
 	}
 
-	/**
-	 * A thrown chunk is a moving wall of rock: whatever it reaches first takes {@link #CHUNK_IMPACT_DAMAGE}
-	 * — far more than the single block's landing damage — and the slab bursts apart on the hit.
-	 */
 	private static void thrownChunkTick(AbilityContext ctx) {
 		float left = ctx.resource("chunk_fly");
 		if (left <= 0.5f) {
@@ -892,6 +1375,9 @@ public final class TelekinesisHandlers {
 			return;
 		}
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, lead.position(), 2.5)) {
+			if (Squads.areAllies(p, e)) {
+				continue;
+			}
 			AbilityHelpers.hurtBurst(p, e, CHUNK_IMPACT_DAMAGE);
 			AbilityHelpers.knockbackFrom(e, lead.position(), 1.8);
 			ctx.level().sendParticles(ParticleTypes.SCULK_CHARGE_POP,
@@ -902,7 +1388,6 @@ public final class TelekinesisHandlers {
 		}
 	}
 
-	/** Discard every held/thrown piece (they place nothing) and forget them. */
 	private static void clearChunk(ServerPlayer p) {
 		Power power = power();
 		if (power == null) {
@@ -936,6 +1421,26 @@ public final class TelekinesisHandlers {
 		}
 	}
 
+	// ================================================================================ visuals
+
+	/** The purple-eyes overlay: on while the telekinetic is channelling or holding anything at all. */
+	public static boolean channelling(ServerPlayer p) {
+		Power power = power();
+		if (power == null || !ExperimentalPowers.owns(p, power)) {
+			return false;
+		}
+		if (orbitSize(p) > 0 || locksSomething(p)) {
+			return true;
+		}
+		if (ExperimentalPowers.getResource(p, power, "crush_id") > 0.5f
+				|| ExperimentalPowers.getResource(p, power, "block_id0") > 0.5f
+				|| ExperimentalPowers.getResource(p, power, "ult_start") > 0.5f) {
+			return true;
+		}
+		return ExperimentalPowers.isToggled(p, power, power.ability(AbilitySlot.SLOT_2))
+				|| ExperimentalPowers.isToggled(p, power, power.ability(AbilitySlot.SLOT_3));
+	}
+
 	// ================================================================================ passives
 
 	private static void registerPassives() {
@@ -947,6 +1452,7 @@ public final class TelekinesisHandlers {
 			if (!active) {
 				endCrush(player);
 				clearChunk(player);
+				releaseOrbit(player, false);
 				return;
 			}
 			if (ExperimentalPowers.getResource(player, power, "psi") <= 0.0f
@@ -963,20 +1469,20 @@ public final class TelekinesisHandlers {
 			long now = player.level().getGameTime();
 			float burnoutUntil = ExperimentalPowers.getResource(player, power, "burnout_until");
 			if (burnoutUntil > now) {
-				// Nothing regenerates during the lockout, and the mind is visibly rattled.
+				ExperimentalPowers.setResource(player, power, "burnout_left", burnoutUntil - now, BURNOUT_TICKS);
 				if (player.tickCount % 5 == 0) {
 					player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 40, 0, false, false, false));
 				}
 				return;
 			}
 			if (burnoutUntil > 0.0f) {
-				// the lockout has just expired -- clear it and hand back a working (empty) meter
 				ExperimentalPowers.setResource(player, power, "burnout_until", 0, 1.0e12f);
+				ExperimentalPowers.setResource(player, power, "burnout_left", 0, BURNOUT_TICKS);
 				player.displayClientMessage(
 						Component.translatable("message.projecthero.telekinesis.recovered"), true);
 			}
 			if (ExperimentalPowers.getResource(player, power, "spend_until") > now) {
-				return; // something is still spending: no free top-up while a channel is running
+				return;
 			}
 			float regen = PSI_REGEN_PER_TICK;
 			if (ExperimentalPowers.getResource(player, power, "regen_slow_until") > now) {
@@ -985,22 +1491,22 @@ public final class TelekinesisHandlers {
 			if (ExperimentalPowers.getResource(player, power, "psi") < MAX_PSI) {
 				ExperimentalPowers.addResource(player, power, "psi", regen, MAX_PSI);
 			}
-			if (player.level() instanceof ServerLevel sl) {
+			if (player.level() instanceof ServerLevel sl && player.tickCount % 2 == 0) {
 				for (ItemEntity item : sl.getEntitiesOfClass(ItemEntity.class, player.getBoundingBox().inflate(5.0))) {
-					item.setDeltaMovement(item.getDeltaMovement().add(
-							player.position().subtract(item.position()).normalize().scale(0.02)));
+					if (!inAnyOrbit(item.getId())) {
+						item.setDeltaMovement(item.getDeltaMovement().add(
+								player.position().subtract(item.position()).normalize().scale(0.04)));
+					}
 				}
 			}
 		});
 	}
 
-	/** Psi drained per point of fall damage a telekinetic cushions. */
 	private static final float FALL_PSI_PER_DAMAGE = 6.0f;
 
 	/**
-	 * A telekinetic never takes fall damage — they catch themselves — but the reflex costs Psi in
-	 * proportion to the fall it absorbed. Called from {@link com.projecthero.mod.hero.power.HeroDamageRules};
-	 * always cushions the landing even if the meter is dry (it just cannot drain past empty).
+	 * A telekinetic never takes fall damage -- they catch themselves -- but the reflex costs Psi in proportion to the
+	 * fall it absorbed. Called from {@link com.projecthero.mod.hero.power.HeroDamageRules}.
 	 */
 	public static void absorbFall(ServerPlayer player, float fallAmount) {
 		Power power = power();
@@ -1008,7 +1514,7 @@ public final class TelekinesisHandlers {
 			return;
 		}
 		if (ExperimentalPowers.getResource(player, power, "burnout_until") > player.level().getGameTime()) {
-			return; // burnt out: no cushioning cost while the power is down (still no fall damage though)
+			return;
 		}
 		ExperimentalPowers.addResource(player, power, "psi", -fallAmount * FALL_PSI_PER_DAMAGE, MAX_PSI);
 		holdOffRegen(player);
@@ -1023,8 +1529,7 @@ public final class TelekinesisHandlers {
 
 	/**
 	 * The Telekinetic Barrier's damage rule, called from {@link com.projecthero.mod.hero.power.HeroDamageRules}:
-	 * while the barrier is up nothing gets through, but every blow costs Psi in proportion to what it
-	 * would have done. A big enough hit can therefore break the barrier by emptying the meter.
+	 * while the barrier is up nothing gets through, but every blow costs Psi in proportion to what it would have done.
 	 */
 	public static boolean barrierAbsorbs(ServerPlayer player, float amount) {
 		Power power = power();

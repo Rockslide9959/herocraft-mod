@@ -17,6 +17,7 @@
 		"HumanoidArmorLayerMixin",
 		"HumanoidModelMixin",
 		"ItemInHandLayerMixin",
+		"ItemInHandLayerCloakMixin",
 		"ItemInHandRendererTitanMixin",
 		"ItemInHandRendererClawsMixin",
 		"LivingEntityHulkFadeMixin",

@@ -13,6 +13,9 @@ import com.projecthero.mod.hero.AbilityHandlers;
 import com.projecthero.mod.hero.Powers;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.Handlers;
+import com.projecthero.mod.hero.revamp.d.BatchDFx;
+import com.projecthero.mod.hero.visual.MutationVisuals;
+import com.projecthero.mod.squad.Squads;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleOptions;
@@ -53,7 +56,9 @@ public final class MagneticHandlers {
 	private static final double CRUSH_RANGE = 18.0;
 	private static final double STORM_RANGE = 12.0;
 	private static final int STORM_MAX_OBJECTS = 8;
-	private static final float STORM_PER_TARGET_CAP = 30.0f;
+	private static final float STORM_PER_TARGET_CAP = 36.0f;
+	/** v0.13.22 revamp: every magnetic impact hits 20% harder. */
+	private static final float DAMAGE_MULT = 1.2f;
 
 	/** Live magnetic projectiles: entity id -> flight/damage bookkeeping. */
 	private static final Map<Integer, Proj> PROJECTILES = new HashMap<>();
@@ -78,7 +83,10 @@ public final class MagneticHandlers {
 		AbilityHandlers.register(KEY, "magnetic_crush", Handlers.instant(MagneticHandlers::magneticCrush));
 
 		AbilityHandlers.register(KEY, "magnetic_sense", Handlers.toggle(
-				ctx -> AbilityHelpers.sound(ctx.player(), SoundEvents.LODESTONE_COMPASS_LOCK, 0.7f, 1.4f),
+				ctx -> {
+					AbilityHelpers.sound(ctx.player(), SoundEvents.LODESTONE_COMPASS_LOCK, 0.7f, 1.4f);
+					MutationVisuals.play(ctx.player(), "p26.sense");
+				},
 				Handlers.noop(),
 				ctx -> {
 					AbilityHelpers.modeAura(ctx.player(), ParticleTypes.ELECTRIC_SPARK, 2);
@@ -86,10 +94,18 @@ public final class MagneticHandlers {
 					// MagneticSenseClient) so the server does zero scanning here.
 				}));
 
+		// H -- Magneto Hover (v0.13.22).
+		AbilityHandlers.register(KEY, "magneto_hover", Handlers.toggle(
+				MagneticHandlers::hoverOn, ctx -> hoverOff(ctx.player(), true), MagneticHandlers::hoverTick));
+
+		// N -- Disarm (v0.13.22).
+		AbilityHandlers.register(KEY, "disarm", Handlers.instant(MagneticHandlers::disarm));
+
 		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, MagneticHandlers::passiveTick);
 		com.projecthero.mod.hero.PowerPassives.register(KEY, (player, active) -> {
 			if (!active) {
 				releaseGrip(player, false);
+				hoverOff(player, false);
 			}
 		});
 	}
@@ -157,6 +173,7 @@ public final class MagneticHandlers {
 			streak(level, from, look, ParticleTypes.ELECTRIC_SPARK);
 			AbilityHelpers.sound(p, SoundEvents.IRON_GOLEM_HURT, 0.6f, 1.7f);
 		}
+		MutationVisuals.play(p, "cast_right");
 		ctx.triggerCooldown();
 	}
 
@@ -262,14 +279,15 @@ public final class MagneticHandlers {
 				g.hasImpulse = true;
 				if (g instanceof LivingEntity le) {
 					le.hurtMarked = true;
-					AbilityHelpers.hurt(p, le, mass.damage * 0.5f);
+					AbilityHelpers.hurt(p, le, mass.damage * 0.5f * DAMAGE_MULT);
 				}
 			}
 			AbilityHelpers.sound(p, SoundEvents.IRON_GOLEM_REPAIR, 0.8f, 0.9f);
 			AbilityHelpers.burst(level, g.position(), ParticleTypes.ELECTRIC_SPARK, 12, 0.3);
 		}
 		clearGrip(ctx);
-		ctx.triggerCooldown(30); // ~1.5 s between grips
+		MutationVisuals.play(p, "throw_right");
+		ctx.triggerCooldown(25); // ~1.25 s between grips
 	}
 
 	private static void releaseGrip(ServerPlayer player, boolean unused) {
@@ -313,6 +331,8 @@ public final class MagneticHandlers {
 
 	private static void gripFx(ServerLevel level, ServerPlayer p, Vec3 at) {
 		AbilityHelpers.line(level, p.getEyePosition(), at, ParticleTypes.ELECTRIC_SPARK, 2.0);
+		AbilityHelpers.line(level, AbilityHelpers.handPosition(p), at, BatchDFx.MAGNET, 1.0);
+		MutationVisuals.play(p, "grab_pull");
 		AbilityHelpers.sound(p, SoundEvents.IRON_DOOR_OPEN, 0.6f, 1.3f);
 	}
 
@@ -347,6 +367,7 @@ public final class MagneticHandlers {
 		AbilityHelpers.line(level, eye, anchor, ParticleTypes.ELECTRIC_SPARK, 2.5);
 		AbilityHelpers.burst(level, p.position(), ParticleTypes.CRIT, 16, 0.3);
 		AbilityHelpers.sound(p, SoundEvents.IRON_GOLEM_REPAIR, 0.9f, 1.3f);
+		MutationVisuals.play(p, "leap");
 		ctx.triggerCooldown();
 	}
 
@@ -405,6 +426,7 @@ public final class MagneticHandlers {
 		}
 
 		STORMS.put(p.getUUID(), new Storm(level, p, objs));
+		MutationVisuals.play(p, "cast_raise_both");
 		AbilityHelpers.sound(p, SoundEvents.IRON_GOLEM_DAMAGE, 1.1f, 0.6f);
 		AbilityHelpers.burst(level, p.position().add(0, 1, 0), ParticleTypes.ELECTRIC_SPARK, 30, 1.5);
 		ctx.triggerCooldown();
@@ -426,7 +448,7 @@ public final class MagneticHandlers {
 			return;
 		}
 		int pieces = lo.pieces();
-		float dmg = 3.0f + pieces * 4.0f; // 1->7 ... 4->19 ... 6->27
+		float dmg = (3.0f + pieces * 4.0f) * DAMAGE_MULT; // 1->8.4 ... 4->22.8 ... 6->32.4
 		if (lo.netherite()) {
 			dmg *= 0.6f; // netherite resists the force -- but the lockdown still lands
 		}
@@ -448,6 +470,7 @@ public final class MagneticHandlers {
 		level.sendParticles(ParticleTypes.CRIT, t.getX(), t.getY() + t.getBbHeight() * 0.5, t.getZ(),
 				12, 0.2, 0.3, 0.2, 0.0);
 		AbilityHelpers.sound(p, SoundEvents.ANVIL_LAND, 0.7f, 1.3f);
+		MutationVisuals.play(p, "p26.clench");
 		ctx.triggerCooldown();
 	}
 
@@ -456,6 +479,14 @@ public final class MagneticHandlers {
 	private static void passiveTick(ServerPlayer player) {
 		if (!(player.level() instanceof ServerLevel level)) {
 			return;
+		}
+		var power = Powers.byKey(KEY);
+		if (power != null && !hovering(player)) {
+			if (!com.projecthero.mod.hero.ExperimentalPowers.state(player).resources.containsKey(KEY + "/hover")) {
+				com.projecthero.mod.hero.ExperimentalPowers.setResource(player, power, "hover", MAX_HOVER, MAX_HOVER);
+			} else if (com.projecthero.mod.hero.ExperimentalPowers.getResource(player, power, "hover") < MAX_HOVER) {
+				com.projecthero.mod.hero.ExperimentalPowers.addResource(player, power, "hover", HOVER_REGEN, MAX_HOVER);
+			}
 		}
 		// Metal Attraction: magnetic drops within 30 blocks drift toward the player, with a little lift
 		// so they climb a one-block step instead of getting stuck against it.
@@ -473,6 +504,200 @@ public final class MagneticHandlers {
 						2, 0.25, 0.25, 0.25, 0.0);
 			}
 		}
+	}
+
+	// ================================================================= H — Magneto Hover (v0.13.22)
+
+	public static final float MAX_HOVER = 115.0f;
+	private static final float HOVER_DRAIN = MAX_HOVER / (15 * 20);
+	private static final float HOVER_REGEN = MAX_HOVER / (20 * 20);
+
+	/** True while Magneto Hover (H) is toggled on. */
+	public static boolean hovering(ServerPlayer p) {
+		var power = Powers.byKey(KEY);
+		return power != null && com.projecthero.mod.hero.ExperimentalPowers.owns(p, power)
+				&& power.hasSlot(com.projecthero.mod.hero.AbilitySlot.SLOT_7)
+				&& com.projecthero.mod.hero.ExperimentalPowers.isToggled(p, power,
+						power.ability(com.projecthero.mod.hero.AbilitySlot.SLOT_7));
+	}
+
+	/** Something magnetic to push against: metal blocks within a few blocks below/around, or iron in hand. */
+	public static BlockPos hoverSource(ServerPlayer p) {
+		if (MagneticMaterials.isMagnetic(p.getMainHandItem()) || MagneticMaterials.isMagnetic(p.getOffhandItem())) {
+			return p.blockPosition();
+		}
+		BlockPos feet = p.blockPosition();
+		BlockPos best = null;
+		double bestD = Double.MAX_VALUE;
+		for (BlockPos bp : BlockPos.betweenClosed(feet.offset(-2, -6, -2), feet.offset(2, 1, 2))) {
+			if (MagneticMaterials.isMagnetic(p.level().getBlockState(bp))) {
+				double d = bp.distSqr(feet);
+				if (d < bestD) {
+					bestD = d;
+					best = bp.immutable();
+				}
+			}
+		}
+		return best;
+	}
+
+	private static boolean otherFlight(ServerPlayer p) {
+		return p.getAbilities().instabuild || p.isSpectator() || com.projecthero.mod.power.ThorPowers.isFlying(p)
+				|| com.projecthero.mod.hero.power.HeroFlight.isFlying(p);
+	}
+
+	private static void hoverOn(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (!com.projecthero.mod.hero.ExperimentalPowers.state(p).resources.containsKey(KEY + "/hover")) {
+			ctx.setResource("hover", MAX_HOVER, MAX_HOVER);
+		}
+		if (ctx.resource("hover") < 10.0f) {
+			ctx.actionBar("message.projecthero.magnetic.hover_low");
+			ctx.setToggled(false);
+			return;
+		}
+		if (hoverSource(p) == null) {
+			ctx.actionBar("message.projecthero.magnetic.hover_no_metal");
+			ctx.setToggled(false);
+			return;
+		}
+		ctx.setResource("hover_src", 1, 1);
+		if (!otherFlight(p)) {
+			p.getAbilities().mayfly = true;
+			p.getAbilities().flying = true;
+			p.onUpdateAbilities();
+		}
+		AbilityHelpers.addImpulse(p, new Vec3(0, 0.35, 0));
+		MutationVisuals.play(p, "leap");
+		AbilityHelpers.burst(ctx.level(), p.position(), ParticleTypes.ELECTRIC_SPARK, 16, 0.4);
+		AbilityHelpers.sound(p, SoundEvents.BEACON_ACTIVATE, 0.6f, 1.8f);
+	}
+
+	private static void hoverTick(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		ctx.addResource("hover", -HOVER_DRAIN, MAX_HOVER);
+		if (ctx.resource("hover") <= 0.0f || !p.isAlive()) {
+			ctx.setToggled(false);
+			hoverOff(p, true);
+			ctx.actionBar("message.projecthero.magnetic.hover_out");
+			return;
+		}
+		BlockPos src = p.tickCount % 5 == 0 ? hoverSource(p) : null;
+		if (p.tickCount % 5 == 0) {
+			ctx.setResource("hover_src", src != null ? 1 : 0, 1);
+		}
+		boolean lift = ctx.resource("hover_src") > 0.5f;
+		if (!otherFlight(p)) {
+			boolean want = lift;
+			if (p.getAbilities().mayfly != want || p.getAbilities().flying != want) {
+				p.getAbilities().mayfly = want;
+				p.getAbilities().flying = want;
+				p.onUpdateAbilities();
+			}
+			if (!want) {
+				p.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.SLOW_FALLING, 20, 0, false, false, false));
+			}
+		}
+		p.resetFallDistance();
+		if (lift) {
+			BatchDFx.ensureIdle(p, "float_arms");
+			if (src != null && p.tickCount % 10 == 0 && !src.equals(p.blockPosition())) {
+				AbilityHelpers.line(level, Vec3.atCenterOf(src), p.position(), ParticleTypes.ELECTRIC_SPARK, 1.0);
+			}
+			if (p.tickCount % 3 == 0) {
+				level.sendParticles(BatchDFx.MAGNET, p.getX(), p.getY() - 0.1, p.getZ(), 3, 0.35, 0.05, 0.35, 0.0);
+				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY(), p.getZ(), 1, 0.3, 0.05, 0.3, 0.0);
+			}
+		} else {
+			MutationVisuals.stopIf(p, "float_arms");
+		}
+	}
+
+	private static void hoverOff(ServerPlayer p, boolean fx) {
+		var power = Powers.byKey(KEY);
+		// (also reached from the passive reconcile for players who never owned the power -- touch nothing then)
+		if (power == null || !com.projecthero.mod.hero.ExperimentalPowers.owns(p, power)) {
+			return;
+		}
+		boolean was = com.projecthero.mod.hero.ExperimentalPowers.getResource(p, power, "hover_src") > 0.5f;
+		com.projecthero.mod.hero.ExperimentalPowers.setResource(p, power, "hover_src", 0, 1);
+		if (!otherFlight(p) && was) {
+			p.getAbilities().mayfly = false;
+			p.getAbilities().flying = false;
+			p.onUpdateAbilities();
+		}
+		MutationVisuals.stopIf(p, "float_arms");
+		if (fx) {
+			p.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.SLOW_FALLING, 60, 0, false, false, false));
+			com.projecthero.mod.hero.ExperimentalPowers.setResource(p, power, "no_fall_until",
+					p.level().getGameTime() + 60, 1.0e12f);
+			AbilityHelpers.sound(p, SoundEvents.BEACON_DEACTIVATE, 0.5f, 1.8f);
+		}
+	}
+
+	// ================================================================= N — Disarm (v0.13.22)
+
+	private static final double DISARM_RANGE = 20.0;
+	private static final float DISARM_DAMAGE = 4.0f;
+	private static final net.minecraft.world.entity.EquipmentSlot[] DISARM_ORDER = {
+			net.minecraft.world.entity.EquipmentSlot.MAINHAND, net.minecraft.world.entity.EquipmentSlot.OFFHAND,
+			net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.HEAD,
+			net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET };
+
+	private static void disarm(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		LivingEntity t = AbilityHelpers.raycastEntity(p, DISARM_RANGE);
+		if (t == null || Squads.areAllies(p, t) || t instanceof com.projecthero.mod.hero.revamp.d.MirrorImageEntity) {
+			ctx.actionBar("message.projecthero.magnetic.no_metal");
+			return;
+		}
+		if (t instanceof net.minecraft.world.entity.player.Player tp && (tp.isCreative() || tp.isSpectator()
+				|| p.getServer() == null || !p.getServer().isPvpAllowed()
+				|| !com.projecthero.mod.hero.HeroConfig.get().abilityPvpDamage)) {
+			ctx.actionBar("message.projecthero.magnetic.no_metal");
+			return;
+		}
+		ItemStack ripped = ripMetal(t);
+		if (ripped.isEmpty()) {
+			ctx.actionBar("message.projecthero.magnetic.no_metal");
+			return;
+		}
+		Vec3 at = t.position().add(0, t.getBbHeight() * 0.6, 0);
+		ItemEntity drop = new ItemEntity(level, at.x, at.y, at.z, ripped);
+		Vec3 toward = p.position().subtract(at);
+		toward = toward.lengthSqr() < 1.0e-4 ? Vec3.ZERO : toward.normalize().scale(0.45);
+		drop.setDeltaMovement(toward.x, 0.3, toward.z);
+		drop.setPickUpDelay(20);
+		level.addFreshEntity(drop);
+		if (!MagneticMaterials.isNetherite(ripped)) {
+			AbilityHelpers.hurt(p, t, DISARM_DAMAGE);
+		}
+		AbilityHelpers.line(level, AbilityHelpers.handPosition(p), at, ParticleTypes.ELECTRIC_SPARK, 2.0);
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 20, 0.3, 0.3, 0.3, 0.15);
+		level.sendParticles(BatchDFx.MAGNET, at.x, at.y, at.z, 12, 0.3, 0.3, 0.3, 0.0);
+		MutationVisuals.play(p, "grab_pull");
+		AbilityHelpers.sound(p, SoundEvents.IRON_DOOR_OPEN, 1.0f, 0.6f);
+		AbilityHelpers.sound(p, SoundEvents.ITEM_BREAK, 0.6f, 0.6f);
+		ctx.triggerCooldown();
+	}
+
+	/**
+	 * Removes the first magnetic piece of equipment {@code t} carries (weapon first, then armour) and returns that very
+	 * stack -- moved, never copied, so nothing can be duplicated. Mjolnir, copper and gold are never magnetic.
+	 * Returns {@link ItemStack#EMPTY} if there was nothing to take.
+	 */
+	public static ItemStack ripMetal(LivingEntity t) {
+		for (net.minecraft.world.entity.EquipmentSlot slot : DISARM_ORDER) {
+			ItemStack s = t.getItemBySlot(slot);
+			if (!s.isEmpty() && MagneticMaterials.isMagnetic(s)) {
+				ItemStack taken = s.copy();
+				t.setItemSlot(slot, ItemStack.EMPTY);
+				return taken;
+			}
+		}
+		return ItemStack.EMPTY;
 	}
 
 	// ================================================================= global tick (ProjectHeroMod)
@@ -508,7 +733,7 @@ public final class MagneticHandlers {
 	}
 
 	private static void track(ServerLevel level, Entity entity, ServerPlayer owner, float damage, double knockback, int life) {
-		PROJECTILES.put(entity.getId(), new Proj(level, entity, owner, damage, knockback, life));
+		PROJECTILES.put(entity.getId(), new Proj(level, entity, owner, damage * DAMAGE_MULT, knockback, life));
 	}
 
 	// ================================================================= tracked projectile
@@ -624,6 +849,7 @@ public final class MagneticHandlers {
 		private void fire() {
 			Vec3 aimPoint = AbilityHelpers.aimPoint(owner, 24.0);
 			AbilityHelpers.sound(owner, SoundEvents.IRON_GOLEM_ATTACK, 1.1f, 0.7f);
+			MutationVisuals.play(owner, "throw_right");
 			for (Entity e : objs) {
 				MagneticMass mass = MagneticMass.of(e);
 				Vec3 dir = aimPoint.subtract(e.position());
@@ -652,7 +878,7 @@ public final class MagneticHandlers {
 					continue;
 				}
 				float done = dealt.getOrDefault(hit.getId(), 0.0f);
-				float d = Math.min(mass.damage, STORM_PER_TARGET_CAP - done);
+				float d = Math.min(mass.damage * DAMAGE_MULT, STORM_PER_TARGET_CAP - done);
 				AbilityHelpers.hurt(owner, hit, d);
 				AbilityHelpers.knockbackFrom(hit, e.position(), mass.knockback);
 				dealt.put(hit.getId(), done + d);

@@ -270,6 +270,23 @@ public final class HeroDamageRules {
 					return Verdict.immune();
 				}
 			}
+			case "power_15_invisibility_light_manipulation" -> {
+				// v0.13.22: the Prism Shield refracts projectiles and beams coming at your front back at the sender.
+				if (!source.is(DamageTypes.GENERIC_KILL) && !source.is(DamageTypes.FELL_OUT_OF_WORLD)
+						&& com.projecthero.mod.hero.power.p15.InvisibilityLightHandlers.prismReflects(player, source, amount)) {
+					return Verdict.immune();
+				}
+			}
+			case "power_19_shadow_manipulation" -> {
+				// v0.13.22: a Shadow Walker is a puddle on the floor -- no fall damage, and half of everything else.
+				if (com.projecthero.mod.hero.power.p19.ShadowManipulationHandlers.shadowWalking(player)) {
+					if (fall) {
+						player.resetFallDistance();
+						return Verdict.immune();
+					}
+					return Verdict.mult(0.5f);
+				}
+			}
 			case "power_23_gravity_manipulation" -> {
 				if (fall) {
 					return Verdict.mult(0.2f);

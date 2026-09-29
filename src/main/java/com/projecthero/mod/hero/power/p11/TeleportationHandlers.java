@@ -13,6 +13,9 @@ import com.projecthero.mod.hero.Powers;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.Handlers;
 import com.projecthero.mod.hero.power.SafeTeleport;
+import com.projecthero.mod.hero.revamp.d.BatchDFx;
+import com.projecthero.mod.hero.visual.MutationVisuals;
+import com.projecthero.mod.squad.Squads;
 
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 
@@ -41,7 +44,7 @@ public final class TeleportationHandlers {
 
 	/** Portal (Z): hold this long to arm the destination picker. */
 	private static final int PORTAL_CHARGE_TICKS = 5 * 20;
-	private static final int PORTAL_CD = 60 * 20;
+	private static final int PORTAL_CD = 51 * 20;
 	/** Ticks for the portal to finish forming out of particles. */
 	private static final int PORTAL_FORM_TICKS = 60;
 
@@ -54,6 +57,19 @@ public final class TeleportationHandlers {
 	private static void poof(ServerLevel level, Vec3 at) {
 		level.sendParticles(ParticleTypes.PORTAL, at.x, at.y + 1, at.z, 30, 0.3, 0.6, 0.3, 0.4);
 		level.sendParticles(ParticleTypes.REVERSE_PORTAL, at.x, at.y + 1, at.z, 20, 0.3, 0.6, 0.3, 0.1);
+		BatchDFx.puff(level, at);
+	}
+
+	/** v0.13.22: the departure point gets the smoke puff plus a brief body-shaped afterimage of the teleporter. */
+	private static void depart(ServerLevel level, Vec3 at, float yaw) {
+		poof(level, at);
+		BatchDFx.silhouette(level, at, yaw, BatchDFx.TELE_GLOW);
+	}
+
+	/** Turns the player's camera toward {@code at} (a server-side lookAt alone never reaches the client). */
+	private static void face(ServerPlayer p, Vec3 at) {
+		p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, at);
+		p.connection.teleport(p.getX(), p.getY(), p.getZ(), p.getYRot(), p.getXRot());
 	}
 
 	private static Power power() {
@@ -89,8 +105,9 @@ public final class TeleportationHandlers {
 					}
 					Vec3 from = p.position();
 					if (SafeTeleport.phaseThrough(p, p.getLookAngle(), 4.5)) {
-						poof(ctx.level(), from);
+						depart(ctx.level(), from, p.getYRot());
 						poof(ctx.level(), p.position());
+						MutationVisuals.play(p, "dash_forward");
 						AbilityHelpers.sound(p, SoundEvents.ENDERMAN_TELEPORT, 0.8f, 1.4f);
 						ctx.triggerCooldown();
 					} else {
@@ -101,6 +118,7 @@ public final class TeleportationHandlers {
 				}
 				if (ctx.cooldownReady()) {
 					ctx.setResource("aiming", 1, 1);
+					MutationVisuals.play(p, "channel_right");
 				}
 			}
 
@@ -110,6 +128,7 @@ public final class TeleportationHandlers {
 					return;
 				}
 				ServerPlayer p = ctx.player();
+				MutationVisuals.ensure(p, "channel_right");
 				Vec3 d = blinkDest(p);
 				if (p.tickCount % 2 == 0) {
 					ctx.level().sendParticles(ParticleTypes.PORTAL, d.x, d.y + 0.1, d.z, 14, 0.35, 0.1, 0.35, 0.05);
@@ -128,11 +147,14 @@ public final class TeleportationHandlers {
 				}
 				ctx.setResource("aiming", 0, 1);
 				ServerPlayer p = ctx.player();
+				MutationVisuals.stopIf(p, "channel_right");
 				Vec3 from = p.position();
+				float yaw = p.getYRot();
 				Vec3 dest = blinkDest(p);
 				if (SafeTeleport.tryTeleport(p, dest) || SafeTeleport.blink(p, p.getLookAngle(), BLINK_RANGE)) {
-					poof(ctx.level(), from);
+					depart(ctx.level(), from, yaw);
 					poof(ctx.level(), p.position());
+					MutationVisuals.play(p, "dash_forward");
 					AbilityHelpers.sound(p, SoundEvents.ENDERMAN_TELEPORT, 1.0f, 1.2f);
 					ctx.triggerCooldown();
 				}
@@ -145,12 +167,12 @@ public final class TeleportationHandlers {
 			if (t == null) {
 				return;
 			}
-			Vec3 behind = t.position().subtract(t.getLookAngle().scale(1.5));
 			Vec3 from = p.position();
-			if (SafeTeleport.tryTeleport(p, behind)) {
-				p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, t.getEyePosition());
-				poof(ctx.level(), from);
+			float yaw = p.getYRot();
+			if (teleportBehind(p, t)) {
+				depart(ctx.level(), from, yaw);
 				poof(ctx.level(), p.position());
+				MutationVisuals.play(p, "hero_landing");
 				AbilityHelpers.sound(p, SoundEvents.ENDERMAN_TELEPORT, 1.0f, 1.0f);
 				ctx.triggerCooldown();
 			}
@@ -159,16 +181,25 @@ public final class TeleportationHandlers {
 		AbilityHandlers.register(KEY, "escape_blink", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
 			Vec3 from = p.position();
+			float yaw = p.getYRot();
 			Vec3 back = p.getLookAngle().reverse();
-			if (SafeTeleport.blink(p, back, 8.0)) {
+			if (SafeTeleport.blink(p, back, 9.5)) {
 				p.addEffect(new net.minecraft.world.effect.MobEffectInstance(
-						net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 20, 2, false, false, false));
-				poof(ctx.level(), from);
+						net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 24, 2, false, false, false));
+				depart(ctx.level(), from, yaw);
 				poof(ctx.level(), p.position());
+				MutationVisuals.play(p, "leap");
 				AbilityHelpers.sound(p, SoundEvents.ENDERMAN_TELEPORT, 1.0f, 1.6f);
 				ctx.triggerCooldown();
 			}
 		}));
+
+		// H -- Bamf Strike: vanish behind the looked-at target, hit, and chain to up to 4 targets.
+		AbilityHandlers.register(KEY, "bamf_strike", Handlers.instantTicking(
+				TeleportationHandlers::bamfStart, TeleportationHandlers::bamfTick));
+
+		// N -- Swap: trade places with the looked-at creature.
+		AbilityHandlers.register(KEY, "swap", Handlers.instant(TeleportationHandlers::swap));
 
 		// Z -- Portal. Hold 5 s to arm, then pick an exact destination (coords + dimension) in a screen.
 		// A gateway forms slowly out of particles where you stand and a matching one at the destination;
@@ -188,6 +219,7 @@ public final class TeleportationHandlers {
 					return;
 				}
 				ctx.setResource("portal_charge_start", ctx.player().level().getGameTime(), 1.0e12f);
+				MutationVisuals.play(ctx.player(), "channel_two_hand");
 			}
 
 			@Override
@@ -205,7 +237,9 @@ public final class TeleportationHandlers {
 				long held = ctx.player().level().getGameTime() - (long) start;
 				ctx.setResource("portal_charge_start", 0, 1.0e12f);
 				ctx.setResource("portal_charge", 0, 100);
+				MutationVisuals.stopIf(ctx.player(), "channel_two_hand");
 				if (held >= PORTAL_CHARGE_TICKS) {
+					MutationVisuals.play(ctx.player(), "cast_raise_both");
 					sendPortalPicker(ctx);
 				} else {
 					AbilityHelpers.sound(ctx.player(), SoundEvents.AMETHYST_BLOCK_BREAK, 0.6f, 0.8f);
@@ -237,6 +271,8 @@ public final class TeleportationHandlers {
 					ctx.actionBar("message.projecthero.teleport.anchor_linked");
 				}
 				AbilityHelpers.burst(ctx.level(), Vec3.atCenterOf(target), ParticleTypes.REVERSE_PORTAL, 40, 0.4);
+				BatchDFx.puff(ctx.level(), Vec3.atBottomCenterOf(target));
+				MutationVisuals.play(p, "point_right");
 				AbilityHelpers.sound(p, SoundEvents.ENDERMAN_TELEPORT, 1.0f, 0.7f);
 				ctx.triggerCooldown();
 			}
@@ -259,9 +295,11 @@ public final class TeleportationHandlers {
 				}
 				ServerLevel originLevel = ctx.level();
 				Vec3 from = p.position();
+				float yaw = p.getYRot();
 				if (SafeTeleport.tryTeleport(p, target, Vec3.atBottomCenterOf(mark))) {
-					poof(originLevel, from);
+					depart(originLevel, from, yaw);
 					poof((ServerLevel) p.level(), p.position());
+					MutationVisuals.play(p, "flex");
 					AbilityHelpers.sound(p, SoundEvents.ENDERMAN_TELEPORT, 1.0f, 0.9f);
 					ExperimentalPowers.clearMarker(p, ctx.power(), "return");
 					ctx.triggerCooldown();
@@ -272,6 +310,8 @@ public final class TeleportationHandlers {
 			} else {
 				ExperimentalPowers.setMarker(p, ctx.power(), "return", p.blockPosition());
 				ctx.actionBar("message.projecthero.teleport.mark_placed");
+				MutationVisuals.play(p, "summon_ground");
+				BatchDFx.ring(ctx.level(), p.position().add(0, 0.1, 0), 0.8, BatchDFx.TELE_GLOW, 12, 0);
 				AbilityHelpers.burst(ctx.level(), p.position(), ParticleTypes.REVERSE_PORTAL, 20, 0.3);
 			}
 		}));
@@ -309,6 +349,172 @@ public final class TeleportationHandlers {
 		});
 	}
 
+	// ---- G / H helpers -------------------------------------------------------------------------
+
+	/** Teleports {@code p} to a safe spot behind {@code t} (else beside it), facing it. */
+	private static boolean teleportBehind(ServerPlayer p, LivingEntity t) {
+		Vec3 back = t.getLookAngle().multiply(1, 0, 1);
+		if (back.lengthSqr() < 1.0e-4) {
+			back = t.position().subtract(p.position()).multiply(1, 0, 1);
+		}
+		back = back.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : back.normalize();
+		double dist = 1.2 + t.getBbWidth() * 0.5;
+		Vec3 side = new Vec3(-back.z, 0, back.x);
+		for (Vec3 off : new Vec3[] { back.scale(-dist), side.scale(dist), side.scale(-dist), back.scale(dist) }) {
+			if (SafeTeleport.tryTeleport(p, t.position().add(off))) {
+				face(p, t.getEyePosition());
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// ---- H: Bamf Strike ------------------------------------------------------------------------
+
+	private static final int BAMF_MAX_TARGETS = 4;
+	private static final float BAMF_DAMAGE = 11.0f;
+	private static final double BAMF_RANGE = 30.0;
+	private static final double BAMF_CHAIN_RANGE = 10.0;
+	private static final int BAMF_HOP_TICKS = 6;
+	/** caster -> ids already struck in the running chain. */
+	private static final Map<UUID, java.util.List<Integer>> BAMF_HIT = new HashMap<>();
+
+	private static boolean bamfTarget(ServerPlayer p, LivingEntity t) {
+		return t != null && t.isAlive() && t != p && !(t instanceof net.minecraft.world.entity.decoration.ArmorStand)
+				&& !Squads.areAllies(p, t) && !(t instanceof com.projecthero.mod.hero.revamp.d.MirrorImageEntity)
+				&& (!(t instanceof net.minecraft.world.entity.player.Player) || (p.getServer() != null
+						&& p.getServer().isPvpAllowed() && com.projecthero.mod.hero.HeroConfig.get().abilityPvpDamage));
+	}
+
+	private static void bamfStart(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		LivingEntity t = AbilityHelpers.raycastEntity(p, BAMF_RANGE);
+		if (!bamfTarget(p, t)) {
+			ctx.actionBar("message.projecthero.teleport.no_target");
+			return;
+		}
+		java.util.List<Integer> hit = new java.util.ArrayList<>();
+		if (!bamfHop(ctx.level(), p, t, 0)) {
+			ctx.actionBar("message.projecthero.teleport.no_room");
+			return;
+		}
+		hit.add(t.getId());
+		BAMF_HIT.put(p.getUUID(), hit);
+		ctx.setResource("bamf_timer", BAMF_HOP_TICKS, BAMF_HOP_TICKS);
+		ctx.triggerCooldown();
+	}
+
+	/** One hop of the chain: vanish, reappear behind {@code t}, strike. */
+	private static boolean bamfHop(ServerLevel level, ServerPlayer p, LivingEntity t, int index) {
+		Vec3 from = p.position();
+		float yaw = p.getYRot();
+		if (!teleportBehind(p, t)) {
+			return false;
+		}
+		depart(level, from, yaw);
+		BatchDFx.puff(level, p.position());
+		AbilityHelpers.hurtBurst(p, t, BAMF_DAMAGE);
+		AbilityHelpers.knockbackFrom(t, p.position(), 0.5);
+		Vec3 c = t.position().add(0, t.getBbHeight() * 0.5, 0);
+		level.sendParticles(ParticleTypes.SWEEP_ATTACK, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+		level.sendParticles(BatchDFx.TELE_SMOKE, c.x, c.y, c.z, 8, 0.3, 0.4, 0.3, 0.0);
+		String[] strikes = { "slash_right", "punch_left", "punch_right", "haymaker" };
+		MutationVisuals.play(p, strikes[Math.min(index, strikes.length - 1)]);
+		AbilityHelpers.sound(p, SoundEvents.ENDERMAN_TELEPORT, 0.9f, 1.3f + index * 0.1f);
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.9f, 1.0f);
+		return true;
+	}
+
+	private static void bamfTick(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		java.util.List<Integer> hit = BAMF_HIT.get(p.getUUID());
+		if (hit == null) {
+			return;
+		}
+		float timer = ctx.resource("bamf_timer") - 1;
+		if (timer > 0) {
+			ctx.setResource("bamf_timer", timer, BAMF_HOP_TICKS);
+			return;
+		}
+		if (hit.size() >= BAMF_MAX_TARGETS || !p.isAlive()) {
+			bamfEnd(ctx);
+			return;
+		}
+		LivingEntity next = null;
+		double best = BAMF_CHAIN_RANGE * BAMF_CHAIN_RANGE;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), BAMF_CHAIN_RANGE)) {
+			double d = e.distanceToSqr(p);
+			if (d < best && !hit.contains(e.getId()) && bamfTarget(p, e)) {
+				best = d;
+				next = e;
+			}
+		}
+		if (next == null || !bamfHop(ctx.level(), p, next, hit.size())) {
+			bamfEnd(ctx);
+			return;
+		}
+		hit.add(next.getId());
+		ctx.setResource("bamf_timer", BAMF_HOP_TICKS, BAMF_HOP_TICKS);
+	}
+
+	private static void bamfEnd(AbilityContext ctx) {
+		BAMF_HIT.remove(ctx.player().getUUID());
+		ctx.setResource("bamf_timer", 0, BAMF_HOP_TICKS);
+	}
+
+	/** Test hook: how many targets the running chain has struck (0 when none is running). */
+	public static int bamfChainLength(ServerPlayer p) {
+		java.util.List<Integer> hit = BAMF_HIT.get(p.getUUID());
+		return hit == null ? 0 : hit.size();
+	}
+
+	// ---- N: Swap -------------------------------------------------------------------------------
+
+	private static final double SWAP_RANGE = 40.0;
+
+	private static void swap(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		LivingEntity t = AbilityHelpers.raycastEntity(p, SWAP_RANGE);
+		if (t == null || !(AbilityHelpers.isValidGrabTarget(t, p) || Squads.areAllies(p, t))) {
+			ctx.actionBar("message.projecthero.teleport.no_target");
+			return;
+		}
+		Vec3 mine = p.position();
+		Vec3 theirs = t.position();
+		float yaw = p.getYRot();
+		// both ends must be clear for both bodies -- the player's usual safety check, plus the target's hitbox
+		if (!SafeTeleport.isSafe(level, p, theirs)
+				|| !level.noCollision(t, t.getBoundingBox().move(mine.subtract(theirs)))) {
+			ctx.actionBar("message.projecthero.teleport.no_room");
+			return;
+		}
+		if (t instanceof ServerPlayer tp) {
+			tp.teleportTo(mine.x, mine.y, mine.z);
+			tp.connection.resetPosition();
+		} else {
+			t.teleportTo(mine.x, mine.y, mine.z);
+		}
+		t.resetFallDistance();
+		if (!SafeTeleport.tryTeleport(p, theirs)) {
+			// cannot happen after the check above, but never leave the target stranded in our spot
+			t.teleportTo(theirs.x, theirs.y, theirs.z);
+			return;
+		}
+		if (t instanceof net.minecraft.world.entity.Mob mob && !Squads.areAllies(p, t)) {
+			AbilityHelpers.applyControl(mob, net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, 30, 1);
+			mob.getNavigation().stop();
+		}
+		depart(level, mine, yaw);
+		BatchDFx.silhouette(level, theirs, t.getYRot(), BatchDFx.TELE_GLOW);
+		poof(level, p.position());
+		BatchDFx.tether(level, mine.add(0, 1, 0), theirs.add(0, 1, 0), BatchDFx.TELE_GLOW, 24);
+		MutationVisuals.play(p, "clap");
+		AbilityHelpers.sound(p, SoundEvents.ENDERMAN_TELEPORT, 1.0f, 0.8f);
+		AbilityHelpers.sound(p, SoundEvents.CHORUS_FRUIT_TELEPORT, 1.0f, 1.2f);
+		ctx.triggerCooldown();
+	}
+
 	// ---- Z: Portal ---------------------------------------------------------------------------
 
 	private static void portalChargeTick(AbilityContext ctx) {
@@ -325,6 +531,10 @@ public final class TeleportationHandlers {
 		}
 		double frac = Math.min(1.0, held / (double) PORTAL_CHARGE_TICKS);
 		ctx.setResource("portal_charge", (float) (frac * 100.0), 100);
+		MutationVisuals.ensure(p, "channel_two_hand");
+		if (p.tickCount % 2 == 0) {
+			BatchDFx.ring(ctx.level(), p.position().add(0, 0.1, 0), 0.6 + frac, BatchDFx.TELE_GLOW, 10, held * 0.2);
+		}
 		ctx.level().sendParticles(ParticleTypes.PORTAL, p.getX(), p.getY() + 1.0, p.getZ(),
 				4 + (int) (frac * 20), 0.5 + frac, 0.9, 0.5 + frac, 0.05);
 		if (held % 10 == 0) {
@@ -502,5 +712,6 @@ public final class TeleportationHandlers {
 	/** Drop the tiny per-player portal-anchor warp cooldown map when a server stops. */
 	public static void clearSessionState() {
 		ANCHOR_WARP_READY.clear();
+		BAMF_HIT.clear();
 	}
 }

@@ -280,15 +280,17 @@ final class PowerCatalog {
 	private static Power telekinesis() {
 		String k = "power_10_telekinesis";
 		return Power.Builder.of(Powers.id(k), PowerCategory.MENTAL)
-				// v0.10.10: Force Pull moved onto R's sneak variant, freeing G for the Telekinetic Barrier;
-				// both halves of R are down to a 1 s cooldown, and the ultimate is a 5 s hold on 90 s.
-				.ability(ab(k, "force_push", SLOT_1, INSTANT, 1 * S))
+				// v0.13.22 revamp (batch D): the juggling kit -- V feeds up to three objects into an orbit around
+				// you, V throws them one at a time, H launches the whole orbit, N Mind-Locks a target in mid-air.
+				.ability(ab(k, "force_push", SLOT_1, INSTANT, 17))
 				.ability(ab(k, "telekinetic_barrier", SLOT_2, TOGGLE, 0))
 				.ability(ab(k, "psychic_flight", SLOT_3, TOGGLE, 0))
-				.ability(ab(k, "telekinetic_explosion", SLOT_4, HOLD, 90 * S))
-				.ability(ab(k, "telekinetic_grab", SLOT_5, INSTANT, 5 * S))
+				.ability(ab(k, "telekinetic_explosion", SLOT_4, HOLD, 76 * S))
+				.ability(ab(k, "telekinetic_grab", SLOT_5, INSTANT, 15))
 				.ability(ab(k, "block_manipulation", SLOT_6, HOLD, 0))
-				.passives(pk(k, "passive.psi"), pk(k, "passive.fall"), pk(k, "passive.item_drift"))
+				.ability(ab(k, "launch_orbit", AbilitySlot.SLOT_7, INSTANT, 3 * S))
+				.ability(ab(k, "mind_lock", AbilitySlot.SLOT_8, INSTANT, 12 * S))
+				.passives(pk(k, "passive.psi"), pk(k, "passive.fall"), pk(k, "passive.item_drift"), pk(k, "passive.orbit"))
 				.serum(SerumRecipe.of("minecraft:slow_falling", pk(k, "serum"),
 						"minecraft:ender_pearl", "minecraft:amethyst_shard", "minecraft:redstone"))
 				.trigger(MutationTrigger.of(Kind.PSIONIC_RESONANCE, pk(k, "trigger"), "projecthero.device.enchanting_resonance"))
@@ -302,12 +304,15 @@ final class PowerCatalog {
 	private static Power teleportation() {
 		String k = "power_11_teleportation";
 		return Power.Builder.of(Powers.id(k), PowerCategory.MOVEMENT)
-				.ability(ab(k, "blink", SLOT_1, HOLD, 3 * S))
-				.ability(ab(k, "target_teleport", SLOT_2, INSTANT, 7 * S))
-				.ability(ab(k, "escape_blink", SLOT_3, INSTANT, 4 * S))
-				.ability(ab(k, "portal", SLOT_4, CHARGE, 60 * S))
-				.ability(ab(k, "teleport_mark", SLOT_5, INSTANT, 20 * S))
-				.ability(ab(k, "portal_anchor", SLOT_6, INSTANT, 3 * S))
+				// v0.13.22 revamp (batch D): light pass -- 15% shorter cooldowns, plus H Bamf Strike and N Swap.
+				.ability(ab(k, "blink", SLOT_1, HOLD, 51))
+				.ability(ab(k, "target_teleport", SLOT_2, INSTANT, 6 * S))
+				.ability(ab(k, "escape_blink", SLOT_3, INSTANT, 68))
+				.ability(ab(k, "portal", SLOT_4, CHARGE, 51 * S))
+				.ability(ab(k, "teleport_mark", SLOT_5, INSTANT, 17 * S))
+				.ability(ab(k, "portal_anchor", SLOT_6, INSTANT, 51))
+				.ability(ab(k, "bamf_strike", AbilitySlot.SLOT_7, INSTANT, 12 * S))
+				.ability(ab(k, "swap", AbilitySlot.SLOT_8, INSTANT, 6 * S))
 				.passives(pk(k, "passive.pearl_resist"))
 				.serum(SerumRecipe.of("minecraft:swiftness", pk(k, "serum"),
 						"minecraft:ender_pearl", "minecraft:amethyst_shard", "minecraft:redstone"))
@@ -390,13 +395,17 @@ final class PowerCatalog {
 	private static Power invisibilityLight() {
 		String k = "power_15_invisibility_light_manipulation";
 		return Power.Builder.of(Powers.id(k), PowerCategory.LIGHT)
-				.ability(ab(k, "light_blast", SLOT_1, CHARGE, 1 * S))
-				.ability(ab(k, "flash", SLOT_2, INSTANT, 6 * S))
-				.ability(ab(k, "mirage_dash", SLOT_3, HOLD, 3 * S))
-				.ability(ab(k, "perfect_cloak", SLOT_4, CHARGE, 75 * S))
-				.ability(ab(k, "decoy", SLOT_5, INSTANT, 10 * S))
+				// v0.13.22 revamp (batch D): refraction -- V Mirror Images, H Hard-Light Blade, N Prism Shield;
+				// Flash moved to G (Radiant Lance on its sneak variant).
+				.ability(ab(k, "light_blast", SLOT_1, CHARGE, 17))
+				.ability(ab(k, "flash", SLOT_2, INSTANT, 170))
+				.ability(ab(k, "mirage_dash", SLOT_3, HOLD, 51))
+				.ability(ab(k, "perfect_cloak", SLOT_4, CHARGE, 64 * S))
+				.ability(ab(k, "decoy", SLOT_5, INSTANT, 16 * S))
 				.ability(ab(k, "cloaking_toggle", SLOT_6, TOGGLE, 0))
-				.passives(pk(k, "passive.detection"))
+				.ability(ab(k, "hard_light_blade", AbilitySlot.SLOT_7, INSTANT, 20 * S))
+				.ability(ab(k, "prism_shield", AbilitySlot.SLOT_8, HOLD, 0))
+				.passives(pk(k, "passive.detection"), pk(k, "passive.refraction"))
 				.serum(SerumRecipe.of("minecraft:invisibility", pk(k, "serum"),
 						"minecraft:glass", "minecraft:amethyst_shard", "minecraft:glow_ink_sac"))
 				.trigger(MutationTrigger.of(Kind.DIRECT_SUNLIGHT, pk(k, "trigger"), null))
@@ -469,13 +478,17 @@ final class PowerCatalog {
 	private static Power shadowManipulation() {
 		String k = "power_19_shadow_manipulation";
 		return Power.Builder.of(Powers.id(k), PowerCategory.ENERGY)
-				.ability(ab(k, "shadow_bolt", SLOT_1, INSTANT, 2 * S))
-				.ability(ab(k, "shadow_tendrils", SLOT_2, INSTANT, 8 * S))
-				.ability(ab(k, "shadow_step", SLOT_3, INSTANT, 3 * S))
-				.ability(ab(k, "total_darkness", SLOT_4, CHARGE, 60 * S))
-				.ability(ab(k, "shadow_clone", SLOT_5, INSTANT, 1 * S))
+				// v0.13.22 revamp (batch D): shadow travel -- V Shadow Bind (Shadow Grab kept on Sneak+V),
+				// H Shadow Walk, N Shadow Servant.
+				.ability(ab(k, "shadow_bolt", SLOT_1, INSTANT, 34))
+				.ability(ab(k, "shadow_tendrils", SLOT_2, INSTANT, 136))
+				.ability(ab(k, "shadow_step", SLOT_3, INSTANT, 51))
+				.ability(ab(k, "total_darkness", SLOT_4, CHARGE, 51 * S))
+				.ability(ab(k, "shadow_bind", SLOT_5, INSTANT, 10 * S))
 				.ability(ab(k, "shadow_form", SLOT_6, TOGGLE, 0))
-				.passives(pk(k, "passive.darkness_regen"))
+				.ability(ab(k, "shadow_walk", AbilitySlot.SLOT_7, TOGGLE, 0))
+				.ability(ab(k, "shadow_servant", AbilitySlot.SLOT_8, INSTANT, 30 * S))
+				.passives(pk(k, "passive.darkness_regen"), pk(k, "passive.shadow_travel"))
 				.serum(SerumRecipe.of("minecraft:night_vision", pk(k, "serum"),
 						"minecraft:ink_sac", "minecraft:coal", "minecraft:fermented_spider_eye"))
 				.trigger(MutationTrigger.of(Kind.TRUE_DARKNESS, pk(k, "trigger"), null))
@@ -552,12 +565,15 @@ final class PowerCatalog {
 	private static Power gravityManipulation() {
 		String k = "power_23_gravity_manipulation";
 		return Power.Builder.of(Powers.id(k), PowerCategory.FORCE)
-				.ability(ab(k, "gravity_push", SLOT_1, INSTANT, 2 * S))
-				.ability(ab(k, "gravity_crush", SLOT_2, INSTANT, 20 * S))
+				// v0.13.22 revamp (batch D): changing which way gravity pulls -- H Invert, N Heavy Ground.
+				.ability(ab(k, "gravity_push", SLOT_1, INSTANT, 34))
+				.ability(ab(k, "gravity_crush", SLOT_2, INSTANT, 17 * S))
 				.ability(ab(k, "zero_g", SLOT_3, TOGGLE, 0))
-				.ability(ab(k, "gravity_well", SLOT_4, CHARGE, 120 * S))
-				.ability(ab(k, "levitate", SLOT_5, INSTANT, 6 * S))
+				.ability(ab(k, "gravity_well", SLOT_4, CHARGE, 102 * S))
+				.ability(ab(k, "levitate", SLOT_5, INSTANT, 5 * S))
 				.ability(ab(k, "gravity_field", SLOT_6, TOGGLE, 0))
+				.ability(ab(k, "invert", AbilitySlot.SLOT_7, INSTANT, 9 * S))
+				.ability(ab(k, "heavy_ground", AbilitySlot.SLOT_8, INSTANT, 17 * S))
 				.passives(pk(k, "passive.low_g_fall"))
 				.serum(SerumRecipe.of("minecraft:slow_falling", pk(k, "serum"),
 						"minecraft:compass", "minecraft:iron_nugget", "minecraft:amethyst_shard", "minecraft:redstone"))
@@ -616,12 +632,16 @@ final class PowerCatalog {
 	private static Power magneticManipulation() {
 		String k = "power_26_magnetic_manipulation";
 		return Power.Builder.of(Powers.id(k), PowerCategory.FORCE)
-				.ability(ab(k, "ferrous_shot", SLOT_1, INSTANT, 3 * S))
+				// v0.13.22 revamp (batch D): light pass -- +20% damage, 15% shorter cooldowns, plus H Magneto
+				// Hover and N Disarm.
+				.ability(ab(k, "ferrous_shot", SLOT_1, INSTANT, 51))
 				.ability(ab(k, "magnetic_grip", SLOT_2, INSTANT, 0))
-				.ability(ab(k, "polarity_leap", SLOT_3, INSTANT, 2 * S))
-				.ability(ab(k, "metal_storm", SLOT_4, INSTANT, 18 * S))
-				.ability(ab(k, "magnetic_crush", SLOT_5, INSTANT, 9 * S))
+				.ability(ab(k, "polarity_leap", SLOT_3, INSTANT, 34))
+				.ability(ab(k, "metal_storm", SLOT_4, INSTANT, 15 * S))
+				.ability(ab(k, "magnetic_crush", SLOT_5, INSTANT, 152))
 				.ability(ab(k, "magnetic_sense", SLOT_6, TOGGLE, 0))
+				.ability(ab(k, "magneto_hover", AbilitySlot.SLOT_7, TOGGLE, 0))
+				.ability(ab(k, "disarm", AbilitySlot.SLOT_8, INSTANT, 10 * S))
 				.passives(pk(k, "passive.metal_attraction"), pk(k, "passive.projectile_immunity"))
 				.serum(SerumRecipe.of("minecraft:swiftness", pk(k, "serum"),
 						"minecraft:iron_nugget", "minecraft:copper_ingot", "minecraft:redstone"))
