@@ -91,6 +91,9 @@ public final class MoonKnightAlters implements MoonKnightMove {
 	private static final ResourceLocation JAKE_SNEAK = PowerToggles.id("moon_knight_jake_sneak");
 	/** v0.13.21: the suit's own +7 melee, whoever is in control. */
 	public static final ResourceLocation SUIT_STRENGTH = PowerToggles.id("moon_knight_suit_strength");
+	private static final ResourceLocation SUIT_SPEED = PowerToggles.id("moon_knight_suit_speed");
+	private static final ResourceLocation SUIT_JUMP = PowerToggles.id("moon_knight_suit_jump");
+	private static final ResourceLocation SUIT_SAFE_FALL = PowerToggles.id("moon_knight_suit_safe_fall");
 
 	private static final DustParticleOptions MOONDUST = new DustParticleOptions(new org.joml.Vector3f(0.93f, 0.95f, 1.0f), 1.0f);
 	private static final DustParticleOptions GOLD_DUST = new DustParticleOptions(new org.joml.Vector3f(1.0f, 0.82f, 0.35f), 0.9f);
@@ -430,8 +433,18 @@ public final class MoonKnightAlters implements MoonKnightMove {
 		if (on) {
 			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, SUIT_STRENGTH, MoonKnightConfig.SUIT_MELEE_BONUS,
 					AttributeModifier.Operation.ADD_VALUE);
+			// v0.14.3: faster, and a jump that clears two blocks
+			PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, SUIT_SPEED, MoonKnightConfig.SUIT_SPEED_BONUS,
+					AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+			PowerToggles.modifier(player, Attributes.JUMP_STRENGTH, SUIT_JUMP, MoonKnightConfig.SUIT_JUMP_BONUS,
+					AttributeModifier.Operation.ADD_VALUE);
+			PowerToggles.modifier(player, Attributes.SAFE_FALL_DISTANCE, SUIT_SAFE_FALL, MoonKnightConfig.SUIT_SAFE_FALL_BONUS,
+					AttributeModifier.Operation.ADD_VALUE);
 		} else {
 			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, SUIT_STRENGTH);
+			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SUIT_SPEED);
+			PowerToggles.clearModifier(player, Attributes.JUMP_STRENGTH, SUIT_JUMP);
+			PowerToggles.clearModifier(player, Attributes.SAFE_FALL_DISTANCE, SUIT_SAFE_FALL);
 		}
 		boolean marc = on && alter == MoonKnightAlter.MARC;
 		boolean jake = on && alter == MoonKnightAlter.JAKE;

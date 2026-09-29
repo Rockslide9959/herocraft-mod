@@ -26,6 +26,8 @@ import net.minecraft.server.level.ServerPlayer;
  * <pre>
  *   R (slot 1)  Ring Bolt / Shift+R Continuous Beam
  *   G (slot 2)  Construct Fist / Shift+G War Hammer Slam
+ *   (v0.14.3: Shift+X hold = Emerald Gatling, Shift+C = Missile Barrage, H = Giant Hand, N = dismiss constructs,
+ *    Shift + hold N 5 s = take the ring off -- see the class javadoc of GreenLanternConstructAttacks)
  *   X (slot 3)  hold: recite the Oath -- "Green Lantern's Light!" empowerment mode (v0.11.7,
  *               replaces Ring Grapple). Ring Flight is a double-tap of the vanilla jump key
  *               (boost is automatic while sprint-holding while flying, read live each tick)
@@ -41,6 +43,8 @@ public final class GreenLanternAbilityManager {
 	/** Ring Charge as of the last once-per-second check -- lets low-charge warnings fire on a real
 	 *  crossing instead of a fabricated "value + one second of regen" estimate. */
 	private static final Map<UUID, Float> LAST_CHARGE_CHECK = new ConcurrentHashMap<>();
+	/** v0.14.3: Shift + N press game-time per player, while the ring is being taken off. */
+	private static final Map<UUID, Long> RING_REMOVE = new ConcurrentHashMap<>();
 
 	private GreenLanternAbilityManager() {
 	}
@@ -48,11 +52,14 @@ public final class GreenLanternAbilityManager {
 	public static void clearSessionState() {
 		ABILITY6_PRESSED.clear();
 		LAST_CHARGE_CHECK.clear();
+		RING_REMOVE.clear();
+		GreenLanternConstructAttacks.clearSessionState();
 	}
 
 	public static void onCleanup(UUID playerId) {
 		ABILITY6_PRESSED.remove(playerId);
 		LAST_CHARGE_CHECK.remove(playerId);
+		RING_REMOVE.remove(playerId);
 		GreenLanternCombat.onCleanup(playerId);
 	}
 
@@ -91,8 +98,14 @@ public final class GreenLanternAbilityManager {
 			}
 			case SLOT_3 -> {
 				if (pressed) {
-					GreenLanternOath.onPress(player);
+					// v0.14.3: Shift+X (hold) spins up the Emerald Gatling; plain X still recites the Oath
+					if (player.isShiftKeyDown()) {
+						GreenLanternConstructAttacks.gatlingStart(player);
+					} else {
+						GreenLanternOath.onPress(player);
+					}
 				} else {
+					GreenLanternConstructAttacks.gatlingStop(player, true);
 					GreenLanternOath.onRelease(player);
 				}
 			}
@@ -106,6 +119,9 @@ public final class GreenLanternAbilityManager {
 							GreenLanternShield.dismissDomeVoluntarily(player);
 						} else {
 							GreenLanternShield.deployDome(player);
+							if (GreenLanternShield.isActive(player) && GreenLanternShield.isDome(player)) {
+								GreenLanternVisuals.anim(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_DOME);
+							}
 						}
 					} else {
 						GreenLanternShield.startShield(player);
@@ -118,6 +134,7 @@ public final class GreenLanternAbilityManager {
 				if (pressed) {
 					if (player.isShiftKeyDown()) {
 						GreenLanternScan.scan(player);
+						GreenLanternVisuals.anim(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_SCAN);
 					} else {
 						GreenLanternSuit.toggle(player);
 					}
@@ -148,6 +165,72 @@ public final class GreenLanternAbilityManager {
 		GreenLanternFlight.onEnter(player);
 	}
 
+	// ---------------- v0.14.3: H / N ----------------
+
+	/** H: the Giant Hand -- grab what you aim at, or hurl what it is holding. */
+	public static void giantHand(ServerPlayer player) {
+		if (hasContext(player)) {
+			GreenLanternConstructAttacks.giantHand(player);
+		}
+	}
+
+	/**
+	 * N: dismiss every construct (was Shift+C). A Rescue Tether hold is set down safely first, and anything in the
+	 * Giant Hand is let go; a second N then dismisses the rest.
+	 */
+	public static void clearConstructs(ServerPlayer player) {
+		if (!hasContext(player)) {
+			return;
+		}
+		if (GreenLanternConstructs.releaseRescueHeldSafely(player)) {
+			return;
+		}
+		GreenLanternConstructAttacks.dismissAll(player.getUUID());
+		GreenLanternConstructs.dismissRequested(player);
+	}
+
+	/** Shift + N pressed: start taking the ring off (it comes off after {@link GreenLanternConfig#RING_REMOVE_HOLD_TICKS}). */
+	public static void ringRemoveStart(ServerPlayer player) {
+		if (!hasContext(player) || !player.isShiftKeyDown() || RING_REMOVE.containsKey(player.getUUID())) {
+			return;
+		}
+		long now = player.level().getGameTime();
+		RING_REMOVE.put(player.getUUID(), now);
+		GreenLanternVisuals.ringRemove(player, now);
+		player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.ring_remove_hold")
+				.withStyle(net.minecraft.ChatFormatting.YELLOW), true);
+	}
+
+	/** N released (or Sneak let go): the ring stays on. */
+	public static void ringRemoveStop(ServerPlayer player) {
+		if (RING_REMOVE.remove(player.getUUID()) != null) {
+			GreenLanternVisuals.ringRemove(player, 0L);
+			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.ring_remove_cancel")
+					.withStyle(net.minecraft.ChatFormatting.GRAY), true);
+		}
+	}
+
+	private static void tickRingRemove(ServerPlayer player) {
+		Long since = RING_REMOVE.get(player.getUUID());
+		if (since == null) {
+			return;
+		}
+		if (!player.isShiftKeyDown()) {
+			ringRemoveStop(player);
+			return;
+		}
+		long held = player.level().getGameTime() - since;
+		if (held % 10 == 0) {
+			player.serverLevel().sendParticles(new net.minecraft.core.particles.DustParticleOptions(
+					new org.joml.Vector3f(0.208f, 0.941f, 0.459f), 1.0f), player.getX(), player.getY() + 1.0, player.getZ(),
+					4 + (int) (held / 10), 0.3, 0.4, 0.3, 0.02);
+		}
+		if (held >= GreenLanternConfig.RING_REMOVE_HOLD_TICKS) {
+			RING_REMOVE.remove(player.getUUID());
+			GreenLantern.removeRing(player);
+		}
+	}
+
 	// ---------------- Ability 6 (C): deploy / hold-for-wheel / dismiss ----------------
 
 	/**
@@ -162,11 +245,9 @@ public final class GreenLanternAbilityManager {
 	private static void handleAbilitySix(ServerPlayer player, boolean pressed) {
 		if (pressed) {
 			if (player.isShiftKeyDown()) {
-				// v0.11.6: Shift+C sets down a Rescue Tether hold safely instead of dismissing constructs,
-				// if one is active -- the ordinary dismiss-all only runs when nothing is being held.
-				if (!GreenLanternConstructs.releaseRescueHeldSafely(player)) {
-					GreenLanternConstructs.dismissRequested(player);
-				}
+				// v0.14.3: Shift+C is the Missile Barrage now -- dismissing constructs (and setting a tethered
+				// creature down) moved to N, see #clearConstructs.
+				GreenLanternConstructAttacks.missileBarrage(player);
 				return;
 			}
 			ABILITY6_PRESSED.put(player.getUUID(), player.level().getGameTime());
@@ -236,6 +317,8 @@ public final class GreenLanternAbilityManager {
 		if (beamChannelling) {
 			GreenLanternCombat.beamTick(player);
 		}
+		GreenLanternConstructAttacks.gatlingTick(player);
+		tickRingRemove(player);
 		GreenLanternShield.tickShieldUpkeep(player);
 		GreenLanternShield.tickDomeUpkeep(player);
 		GreenLanternShield.tickMeterRegen(player);

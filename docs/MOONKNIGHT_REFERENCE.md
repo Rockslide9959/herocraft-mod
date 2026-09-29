@@ -244,3 +244,13 @@ each tick), then bled to 30%; no fall damage during it and for 1 s after.
 Tests: `MoonKnightAbilityGameTests` (layout, cape block, glide start / stop, glide kick, Shadow Step on Sneak+G, grapple
 kick, dash, the line to a block, reeling a mob), `MoonKnightGameTests` (regen / +7 / -20% on and off with the suit,
 auto suit-up and its grace), `MoonKnightPowerGameTests` (swap marks, per-alter visual sets).
+
+## v0.14.3
+
+- Suit passives (`MoonKnightAlters#reconcile`): +30% movement speed (`SUIT_SPEED_BONUS`, ADD_MULTIPLIED_BASE), jump
+  strength +0.16 (0.58 total, ~2.2 blocks -- clears two), safe fall +1 block.
+- Grappling Line / Grapple Kick range 60 -> 100 (`GRAPPLE_RANGE`); pull 1.3 -> 1.8 blocks/tick and max pull 70 -> 100
+  ticks so a full-length line still arrives.
+- Cape Glide speed 0.55 -> 0.85 (`GLIDE_SPEED`).
+- X Dash follows the full 3D aim (`MoonKnightDash#dash` / `#push`) -- it used to be flattened to the horizontal.
+

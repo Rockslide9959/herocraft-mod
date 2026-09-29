@@ -82,6 +82,30 @@ public final class GreenLantern {
 		clearTransient(player);
 	}
 
+	/**
+	 * v0.14.3: Shift + hold N for five seconds -- the Lantern takes the ring off. The power goes (exactly as a revoke:
+	 * suit, constructs, flight all end, the Primary slot frees up) and the Power Ring item comes back to the inventory
+	 * (or drops at their feet if it is full), so it can be put back on -- or handed to someone else -- with a right-click.
+	 */
+	public static void removeRing(ServerPlayer player) {
+		if (!hasPower(player)) {
+			return;
+		}
+		revoke(player);
+		net.minecraft.world.item.ItemStack ring = new net.minecraft.world.item.ItemStack(
+				com.projecthero.mod.greenlantern.item.GreenLanternItems.POWER_RING);
+		if (!player.getInventory().add(ring)) {
+			player.drop(ring, false);
+		}
+		ServerLevel level = player.serverLevel();
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_DEACTIVATE,
+				SoundSource.PLAYERS, 1.0f, 0.8f);
+		level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, player.getX(), player.getY() + 1.0, player.getZ(),
+				30, 0.4, 0.7, 0.4, 0.03);
+		player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.ring_removed")
+				.withStyle(ChatFormatting.GREEN), false);
+	}
+
 	// ---------------- ability cooldowns (absolute ready-at game time) ----------------
 
 	public static boolean abilityReady(ServerPlayer player, String abilityId) {
@@ -124,6 +148,7 @@ public final class GreenLantern {
 		com.projecthero.mod.greenlantern.GreenLanternOath.clearFor(player);
 		com.projecthero.mod.greenlantern.GreenLanternAirTank.clearFor(player);
 		com.projecthero.mod.greenlantern.GreenLanternAbilityManager.onCleanup(player.getUUID());
+		com.projecthero.mod.greenlantern.GreenLanternConstructAttacks.onCleanup(player); // v0.14.3
 		com.projecthero.mod.greenlantern.GreenLanternEnergy.onCleanup(player.getUUID());
 		com.projecthero.mod.greenlantern.item.GreenLanternSuitArmor.strip(player);
 		GreenLanternState s = state(player);

@@ -626,6 +626,13 @@ public final class ModAttachments {
 			builder -> builder.initializer(() -> false)
 					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
 
+	/** v0.14.3: Green Lantern move animations / channelled moves / ring removal, for every viewer. Never persisted. */
+	public static final AttachmentType<com.projecthero.mod.greenlantern.data.GreenLanternFx> GREEN_LANTERN_FX =
+			AttachmentRegistry.create(ProjectHeroMod.id("green_lantern_fx"),
+					builder -> builder.initializer(() -> com.projecthero.mod.greenlantern.data.GreenLanternFx.EMPTY)
+							.syncWith(com.projecthero.mod.greenlantern.data.GreenLanternFx.STREAM_CODEC,
+									AttachmentSyncPredicate.all()));
+
 	/**
 	 * v0.13.22: experimental-mutation visuals every viewer needs (move animation + overlay flags). Never persisted --
 	 * {@code MutationVisuals.tick} rebuilds it from the real power state -- and synced to everyone tracking the player.

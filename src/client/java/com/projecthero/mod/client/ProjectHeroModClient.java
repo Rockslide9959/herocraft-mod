@@ -37,6 +37,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	/** Green Lantern construct wheel: C (ability slot 6) held this many ticks so far, not shifted. */
 	private static int glConstructHeldTicks = 0;
 	private static boolean glWheelOpenedThisHold = false;
+	/** v0.14.3: Shift+N went down as a Green Lantern -- the release must tell the server to stop taking the ring off. */
+	private static boolean glRingRemoveHeld = false;
 
 	/** Ability-1 (R) tap vs hold while a firearm is held: tap = reload, hold = open the Arsenal wheel. */
 	private static int firearmAbilityOneHeld = -1;
@@ -657,6 +659,10 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				// in which case Shift+H is the armour.
 				ClientPlayNetworking.send(new com.projecthero.mod.network.ThorActionPayload(
 						com.projecthero.mod.network.ThorActionPayload.Action.TOGGLE_ARMOUR));
+			} else if (client.player != null && !Screen.hasShiftDown() && greenLanternHasWheelContext(client.player)) {
+				// v0.14.3: H as Green Lantern -- the Giant Hand: grab, then H again to hurl (Shift+H still opens the power wheel).
+				ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternActionPayload(
+						com.projecthero.mod.network.GreenLanternActionPayload.Action.GIANT_HAND));
 			} else if (!Screen.hasShiftDown() && mutationHasUtility(client)) {
 				// v0.13.22: a mutation with H / N abilities -- plain H is its Utility 1; Shift+H opens the power wheel.
 				pressUtility(7);
@@ -815,6 +821,16 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			boolean on = com.projecthero.mod.client.symbiote.SymbioteFxClient.togglePredatorVision();
 			client.player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
 					on ? "projecthero.symbiote.predator_vision.on" : "projecthero.symbiote.predator_vision.off"), true);
+		} else if (down && !maxSteelTransformWasDown && client.player != null && greenLanternHasWheelContext(client.player)) {
+			// v0.14.3: Green Lantern -- N dismisses every construct (was Shift+C); Shift + hold N for 5 s takes the ring off.
+			if (Screen.hasShiftDown()) {
+				glRingRemoveHeld = true;
+				ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternActionPayload(
+						com.projecthero.mod.network.GreenLanternActionPayload.Action.RING_REMOVE_START));
+			} else {
+				ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternActionPayload(
+						com.projecthero.mod.network.GreenLanternActionPayload.Action.CLEAR_CONSTRUCTS));
+			}
 		} else if (down && !maxSteelTransformWasDown && humanShifter) {
 			// v0.12.43: plain N as a base-form Titan Shifter (no other power claiming N) toggles the passive regeneration.
 			ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(
@@ -822,6 +838,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		} else if (down && !maxSteelTransformWasDown && mutationHasUtility(client)) {
 			// v0.13.22: nothing else owns N -- it is the selected mutation's Utility 2.
 			pressUtility(8);
+		}
+		if (!down && glRingRemoveHeld) {
+			glRingRemoveHeld = false;
+			ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternActionPayload(
+					com.projecthero.mod.network.GreenLanternActionPayload.Action.RING_REMOVE_STOP));
 		}
 		maxSteelTransformWasDown = down;
 	}

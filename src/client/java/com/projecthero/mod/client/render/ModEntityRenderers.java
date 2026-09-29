@@ -25,6 +25,9 @@ public final class ModEntityRenderers {
 		// v0.14.2: the Turbo Cannon discharge beam
 		EntityRendererRegistry.register(com.projecthero.mod.maxsteel.entity.MaxSteelEntityTypes.TURBO_CANNON_BEAM,
 				TurboCannonBeamRenderer::new);
+		// v0.14.3: every Green Lantern hard-light model that is not made of blocks
+		EntityRendererRegistry.register(com.projecthero.mod.greenlantern.entity.GreenLanternEntityTypes.HARD_LIGHT_CONSTRUCT,
+				com.projecthero.mod.client.greenlantern.HardLightConstructRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.spider.entity.SpiderEntityTypes.IMPACT_WEB,
 				com.projecthero.mod.client.spider.ImpactWebRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.symbiote.entity.SymbioteEntityTypes.SYMBIOTE,

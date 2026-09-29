@@ -143,7 +143,7 @@ public class MoonKnightAbilityGameTests implements FabricGameTest {
 				"V and Z still wait for a hold");
 		helper.assertTrue(MoonKnightConfig.DART_DAMAGE == 15.0f && MoonKnightConfig.DART_COOLDOWN == 20,
 				"the dart: 15 damage, 1 s cooldown (base, before the moon)");
-		helper.assertTrue(MoonKnightConfig.GRAPPLE_RANGE == 60.0, "the grappling line reaches 60 blocks");
+		helper.assertTrue(MoonKnightConfig.GRAPPLE_RANGE == 100.0, "the grappling line reaches 100 blocks (v0.14.3)");
 		helper.succeed();
 	}
 

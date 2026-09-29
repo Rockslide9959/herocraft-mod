@@ -56,7 +56,19 @@ public final class Squads {
 		if (!(attacker instanceof Player dealer) || dealer.getUUID().equals(hurt.getUUID())) {
 			return false;
 		}
-		return SquadManager.get(hurt.server).sameSquad(hurt.getUUID(), dealer.getUUID());
+		return shields(dealer, hurt);
+	}
+
+	/**
+	 * v0.14.3: does squad membership protect {@code victim} from {@code dealer}? Same squad -- unless the dealer is a
+	 * Hulk on an unwilling rampage, who no longer knows friend from foe and hits his squad too.
+	 */
+	public static boolean shields(Player dealer, Player victim) {
+		if (dealer == null || victim == null || dealer == victim || dealer.getServer() == null
+				|| !SquadManager.get(dealer.getServer()).sameSquad(dealer.getUUID(), victim.getUUID())) {
+			return false;
+		}
+		return !com.projecthero.mod.hulk.HulkControl.rampaging(dealer);
 	}
 
 	/** v0.13.21: public face of {@link #blocks} -- would this hit be swallowed as squad friendly fire? */

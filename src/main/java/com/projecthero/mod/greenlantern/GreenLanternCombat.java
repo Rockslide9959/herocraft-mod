@@ -8,7 +8,6 @@ import com.projecthero.mod.hero.power.AbilityHelpers;
 
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -70,42 +69,6 @@ public final class GreenLanternCombat {
 		return eye.add(player.getLookAngle().scale(0.5)).add(rightVector(player).scale(0.35)).add(0.0, -0.45, 0.0);
 	}
 
-	/**
-	 * A wireframe cube of particles at {@code center} -- Construct Fist's hard-light "model" (v0.11.2).
-	 * Cheap and asset-free (reuses {@link AbilityHelpers#line}'s existing particle-line drawing) but
-	 * reads as a fist-sized solid shape rather than a shapeless burst, consistent with every other
-	 * Green Lantern effect being particle-driven rather than a spawned entity/model (see
-	 * docs/GREENLANTERN_REFERENCE.md's deliberate-simplifications list).
-	 */
-	private static void drawFistShape(ServerLevel level, Vec3 center) {
-		double h = 0.35;
-		Vec3[] c = {
-				center.add(-h, -h, -h), center.add(h, -h, -h), center.add(h, -h, h), center.add(-h, -h, h),
-				center.add(-h, h, -h), center.add(h, h, -h), center.add(h, h, h), center.add(-h, h, h),
-		};
-		int[][] edges = {
-				{0, 1}, {1, 2}, {2, 3}, {3, 0},
-				{4, 5}, {5, 6}, {6, 7}, {7, 4},
-				{0, 4}, {1, 5}, {2, 6}, {3, 7},
-		};
-		for (int[] e : edges) {
-			AbilityHelpers.line(level, c[e[0]], c[e[1]], GREEN_DUST, 6.0);
-		}
-	}
-
-	/**
-	 * A hammer silhouette (a mallet-head bar crossing the swing, plus a handle rising from the impact
-	 * point) in particles -- War Hammer Slam's equivalent of {@link #drawFistShape}.
-	 */
-	private static void drawHammerShape(ServerLevel level, Vec3 center, Vec3 right) {
-		double headHalf = 0.7;
-		Vec3 headA = center.add(right.scale(-headHalf)).add(0, 0.55, 0);
-		Vec3 headB = center.add(right.scale(headHalf)).add(0, 0.55, 0);
-		AbilityHelpers.line(level, headA, headB, GREEN_DUST, 8.0);
-		AbilityHelpers.line(level, headA.add(0, 0.3, 0), headB.add(0, 0.3, 0), GREEN_DUST, 8.0);
-		AbilityHelpers.line(level, center.add(0, 0.55, 0), center.add(0, 1.7, 0), GREEN_DUST, 6.0);
-	}
-
 	public static void clearSessionState() {
 		BEAM_CHANNEL.clear();
 	}
@@ -130,12 +93,16 @@ public final class GreenLanternCombat {
 		ServerLevel level = player.serverLevel();
 		LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.BOLT_RANGE);
 		Vec3 endPoint = AbilityHelpers.aimPoint(player, GreenLanternConfig.BOLT_RANGE);
-		AbilityHelpers.line(level, handOrigin(player), endPoint, ParticleTypes.HAPPY_VILLAGER, 4.0);
+		// v0.14.3: a real streak of hard light from the ring (was a line of villager sparkles) + the shot animation
+		GreenLanternConstructAttacks.boltStreak(player, handOrigin(player), endPoint, 1.0f, 6);
+		GreenLanternVisuals.anim(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_BOLT);
+		level.sendParticles(GREEN_DUST, endPoint.x, endPoint.y, endPoint.z, 6, 0.15, 0.15, 0.15, 0.05);
 		if (target != null) {
 			AbilityHelpers.hurt(player, target, GreenLanternConfig.BOLT_DAMAGE * GreenLanternOath.multiplier(player));
 			AbilityHelpers.knockbackFrom(target, player.position(), GreenLanternConfig.BOLT_KNOCKBACK);
 		}
 		AbilityHelpers.sound(player, SoundEvents.GUARDIAN_ATTACK, 0.5f, 1.8f);
+		AbilityHelpers.sound(player, SoundEvents.AMETHYST_BLOCK_CHIME, 0.6f, 1.6f);
 	}
 
 	// ---------------- Continuous Beam ----------------
@@ -153,12 +120,15 @@ public final class GreenLanternCombat {
 			return;
 		}
 		BEAM_CHANNEL.put(player.getUUID(), 0);
+		GreenLanternVisuals.channel(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.CH_BEAM, true);
 		player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 6, movementPenaltyAmplifier(), false, false, false));
 		AbilityHelpers.sound(player, SoundEvents.GUARDIAN_ATTACK, 0.5f, 0.7f);
 	}
 
 	public static void beamStop(ServerPlayer player) {
 		BEAM_CHANNEL.remove(player.getUUID());
+		GreenLanternVisuals.channel(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.CH_BEAM, false);
+		GreenLanternConstructAttacks.beamVisualEnd(player);
 	}
 
 	/** Called every server tick for a channelling player. */
@@ -190,7 +160,11 @@ public final class GreenLanternCombat {
 		}
 		ServerLevel level = player.serverLevel();
 		Vec3 end = AbilityHelpers.aimPoint(player, GreenLanternConfig.BEAM_RANGE);
-		AbilityHelpers.line(level, handOrigin(player), end, ParticleTypes.HAPPY_VILLAGER, 3.0);
+		// v0.14.3: a solid beam of hard light (was a line of villager sparkles)
+		GreenLanternConstructAttacks.beamVisual(player, handOrigin(player), end);
+		if (ticks % 2 == 0) {
+			level.sendParticles(GREEN_DUST, end.x, end.y, end.z, 2, 0.1, 0.1, 0.1, 0.03);
+		}
 		BEAM_CHANNEL.put(player.getUUID(), ticks + 1);
 	}
 
@@ -212,17 +186,11 @@ public final class GreenLanternCombat {
 		GreenLanternBattery.onAbilityUsed(player);
 		GreenLantern.triggerCooldown(player, FIST_CD, GreenLanternConfig.FIST_COOLDOWN_TICKS);
 
-		ServerLevel level = player.serverLevel();
-		Vec3 aim = AbilityHelpers.aimPoint(player, GreenLanternConfig.FIST_RANGE);
-		AbilityHelpers.line(level, handOrigin(player), aim, GREEN_DUST, 5.0);
-		LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.FIST_RANGE);
-		Vec3 impact = target != null ? target.position().add(0, target.getBbHeight() * 0.5, 0) : aim;
-		drawFistShape(level, impact);
-		if (target != null) {
-			AbilityHelpers.hurt(player, target, GreenLanternConfig.FIST_DAMAGE * GreenLanternOath.multiplier(player));
-			AbilityHelpers.knockbackFrom(target, player.position(), GreenLanternConfig.FIST_KNOCKBACK);
-		}
-		AbilityHelpers.sound(player, SoundEvents.IRON_GOLEM_ATTACK, 0.8f, 1.1f);
+		// v0.14.3: a giant hard-light fist flies from the ring and smashes the first thing in its path (was an
+		// instant hit-scan with a particle cube)
+		GreenLanternConstructAttacks.launchFist(player, GreenLanternConfig.FIST_DAMAGE * GreenLanternOath.multiplier(player));
+		GreenLanternVisuals.anim(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_FIST);
+		AbilityHelpers.sound(player, SoundEvents.BEACON_POWER_SELECT, 0.7f, 1.7f);
 	}
 
 	public static void warHammerSlam(ServerPlayer player) {
@@ -236,23 +204,9 @@ public final class GreenLanternCombat {
 		GreenLanternBattery.onAbilityUsed(player);
 		GreenLantern.triggerCooldown(player, HAMMER_CD, GreenLanternConfig.HAMMER_COOLDOWN_TICKS);
 
-		ServerLevel level = player.serverLevel();
-		Vec3 center = player.position().add(player.getLookAngle().scale(2.0));
-		float oathMultiplier = GreenLanternOath.multiplier(player);
-		for (LivingEntity e : AbilityHelpers.enemiesAround(player, center, GreenLanternConfig.HAMMER_RADIUS)) {
-			double dist = e.position().distanceTo(center);
-			boolean isBoss = e.getMaxHealth() >= GreenLanternConfig.HAMMER_BOSS_MAX_HEALTH_THRESHOLD;
-			float damage = (dist <= 1.5 ? GreenLanternConfig.HAMMER_CENTER_DAMAGE : GreenLanternConfig.HAMMER_OUTER_DAMAGE) * oathMultiplier;
-			AbilityHelpers.hurt(player, e, damage);
-			double knockback = isBoss ? 0.25 : 1.0; // bosses: full damage, only 25% normal knockback
-			AbilityHelpers.knockbackFrom(e, center, knockback);
-			e.setDeltaMovement(e.getDeltaMovement().x, GreenLanternConfig.HAMMER_KNOCKUP, e.getDeltaMovement().z);
-			e.hurtMarked = true;
-		}
-		drawHammerShape(level, center, rightVector(player));
-		AbilityHelpers.burst(level, center, GREEN_DUST, 40, GreenLanternConfig.HAMMER_RADIUS * 0.6);
-		level.sendParticles(GREEN_DUST, center.x, center.y, center.z, 30, GreenLanternConfig.HAMMER_RADIUS,
-				0.2, GreenLanternConfig.HAMMER_RADIUS, 0.05);
-		AbilityHelpers.sound(player, SoundEvents.ANVIL_LAND, 1.0f, 0.6f);
+		// v0.14.3: a giant war hammer forms over your head and comes down on the ground ahead; the blow lands when it
+		// hits (GreenLanternConstructAttacks#tickHammer) instead of the instant the key was pressed
+		GreenLanternConstructAttacks.swingHammer(player, GreenLanternConfig.HAMMER_CENTER_DAMAGE * GreenLanternOath.multiplier(player));
+		GreenLanternVisuals.anim(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_HAMMER);
 	}
 }

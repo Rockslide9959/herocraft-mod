@@ -305,3 +305,9 @@ Base).
 ```
 
 The Power Suppressor strips Max Steel along with every other power.
+
+## v0.14.3
+
+HUD: the mode row shows only the Turbo Mode he is in ("TURBO MODE  Strength", blue, underlined) instead of all five with
+the active one lit (`MaxSteelHud`, lang `hud.projecthero.max_steel.mode_label`).
+

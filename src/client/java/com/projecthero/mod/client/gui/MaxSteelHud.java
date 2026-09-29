@@ -20,7 +20,7 @@ import net.minecraft.world.entity.player.Player;
  * <pre>
  *   [R][G][X][Z][V][C]                    ability keys -- cooldowns drain up from the bottom of each box
  *   MAX STEEL                    READY    title + IN COMBAT / READY / OVERLOAD
- *   Base  Flight  Strength  Speed  Stealth   the Turbo Modes, the active one lit in its colour
+ *                         TURBO MODE  Strength   v0.14.3: only the mode he is in, lit blue
  *   T.U.R.B.O. 82%                         energy, then its <b>hairline</b> bar
  *   Turbo Cannon READY / Recharging 3.4s / Charging 45%, then its hairline bar
  *   (Turbo Blast 67% while R is held · Going Turbo / Powering Down while the suit forms)
@@ -62,10 +62,6 @@ public final class MaxSteelHud {
 	};
 	private static final String[] SLOT_NAMES = {
 			"turbo_blast", "turbo_strength", "turbo_speed", "turbo_flight", "turbo_stealth", "turbo_cannon"
-	};
-	/** The mode row, in the order the user asked for. */
-	private static final MaxSteelMode[] MODE_ROW = {
-			MaxSteelMode.BASE, MaxSteelMode.FLIGHT, MaxSteelMode.STRENGTH, MaxSteelMode.SPEED, MaxSteelMode.STEALTH
 	};
 
 	private static long warningUntil;
@@ -173,23 +169,15 @@ public final class MaxSteelHud {
 		g.drawString(mc.font, status, right - mc.font.width(status), y, 0xFFFFFFFF, true);
 		y += 10;
 
-		// ---- Base / Flight / Strength / Speed / Stealth
-		int rowW = 0;
-		Component[] labels = new Component[MODE_ROW.length];
-		for (int i = 0; i < MODE_ROW.length; i++) {
-			labels[i] = Component.translatable("hud.projecthero.max_steel.mode_row." + MODE_ROW[i].lower());
-			rowW += mc.font.width(labels[i]) + (i > 0 ? 6 : 0);
-		}
-		int mx = right - rowW;
-		for (int i = 0; i < MODE_ROW.length; i++) {
-			boolean on = MODE_ROW[i] == mode;
-			int w = mc.font.width(labels[i]);
-			g.drawString(mc.font, labels[i], mx, y, on ? modeColour(MODE_ROW[i]) : DIM, true);
-			if (on) {
-				g.fill(mx, y + 9, mx + w, y + 10, modeColour(MODE_ROW[i]));
-			}
-			mx += w + 6;
-		}
+		// ---- v0.14.3: only the Turbo Mode he is in right now (was all five with the active one lit)
+		Component modeTag = Component.translatable("hud.projecthero.max_steel.mode_label");
+		Component modeName = Component.translatable("hud.projecthero.max_steel.mode_row." + mode.lower())
+				.withStyle(ChatFormatting.BOLD);
+		int nameW = mc.font.width(modeName);
+		int mx = right - nameW;
+		g.drawString(mc.font, modeTag, mx - 4 - mc.font.width(modeTag), y, DIM, true);
+		g.drawString(mc.font, modeName, mx, y, modeColour(mode), true);
+		g.fill(mx, y + 9, mx + nameW, y + 10, modeColour(mode));
 		y += 11;
 
 		// ---- T.U.R.B.O. energy

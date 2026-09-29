@@ -29,6 +29,13 @@ public record GreenLanternActionPayload(Action action) implements CustomPacketPa
 	}
 
 	public enum Action {
-		TOGGLE_FLIGHT
+		TOGGLE_FLIGHT,
+		/** v0.14.3: H -- the Giant Hand (grab / hurl). */
+		GIANT_HAND,
+		/** v0.14.3: N -- dismiss every construct (was Shift+C). */
+		CLEAR_CONSTRUCTS,
+		/** v0.14.3: Shift + N pressed / N released -- take the ring off after a 5 s hold. */
+		RING_REMOVE_START,
+		RING_REMOVE_STOP
 	}
 }

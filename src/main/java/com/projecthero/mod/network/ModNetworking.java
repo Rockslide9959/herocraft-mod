@@ -86,8 +86,13 @@ public final class ModNetworking {
 		// Green Lantern Ring Flight double-tap-jump (v0.11.5 -- moved off the X ability slot, which now
 		// fires the "Green Lantern's Light!" Oath empowerment mode instead, v0.11.7).
 		ServerPlayNetworking.registerGlobalReceiver(GreenLanternActionPayload.TYPE, (payload, context) -> {
-			if (payload.action() == GreenLanternActionPayload.Action.TOGGLE_FLIGHT) {
-				com.projecthero.mod.greenlantern.GreenLanternAbilityManager.toggleFlight(context.player());
+			switch (payload.action()) {
+				case TOGGLE_FLIGHT -> com.projecthero.mod.greenlantern.GreenLanternAbilityManager.toggleFlight(context.player());
+				// v0.14.3: H / N / Shift + hold N
+				case GIANT_HAND -> com.projecthero.mod.greenlantern.GreenLanternAbilityManager.giantHand(context.player());
+				case CLEAR_CONSTRUCTS -> com.projecthero.mod.greenlantern.GreenLanternAbilityManager.clearConstructs(context.player());
+				case RING_REMOVE_START -> com.projecthero.mod.greenlantern.GreenLanternAbilityManager.ringRemoveStart(context.player());
+				case RING_REMOVE_STOP -> com.projecthero.mod.greenlantern.GreenLanternAbilityManager.ringRemoveStop(context.player());
 			}
 		});
 

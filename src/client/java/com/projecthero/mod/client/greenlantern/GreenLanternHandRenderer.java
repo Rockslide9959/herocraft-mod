@@ -27,9 +27,11 @@ import net.minecraft.world.entity.EquipmentSlot;
  * v0.13.21: everything a Green Lantern wears or shapes on the right hand, drawn in both views -- third person through
  * {@code PowerRingLayer}, first person through {@code GreenLanternRingHandMixin} (the arm the player sees).
  * <ul>
- *   <li><b>The Power Ring</b>: v0.14.1, explicit user request -- the v0.13.21 band wrapped the whole hand and read as a
- *   bracelet, so the ring is now literally one tiny glowing lantern-green pixel cube on the ring finger (front, outer
- *   corner of the knuckles). It sits a touch prouder over the suit's gauntlet and follows slim (Alex) arms.</li>
+ *   <li><b>The Power Ring</b>: v0.14.3 redesign (still finger-sized, per v0.14.1's "not a bracelet"): a slim band round
+ *   the ring finger at the front / outer corner of the knuckles, a dark raised bezel, a white-hot gem set in it and a
+ *   soft halo of green light that breathes -- and flares whenever the ring is used. It sits a touch prouder over the
+ *   suit's gauntlet and follows slim (Alex) arms.</li>
+ *   <li><b>The Emerald Gatling</b> (v0.14.3, Shift+X held): six spinning barrels of light built onto the fist.</li>
  *   <li><b>The Energy Blade</b> and <b>Mining Drill</b> while switched on (see
  *   {@link ModAttachments#GREEN_LANTERN_HAND_CONSTRUCTS}): a translucent full-bright blade out of the fist, or a
  *   stepped spinning drill bit -- the constructs used to be nothing but a few particles.</li>
@@ -38,11 +40,8 @@ import net.minecraft.world.entity.EquipmentSlot;
  * with {@link LayerDefinition#bakeRoot()} -- no model-layer registration needed.
  */
 public final class GreenLanternHandRenderer {
-	private static final ResourceLocation RING_TEXTURE = ProjectHeroMod.id("textures/entity/green_lantern/power_ring_worn.png");
 	private static final ResourceLocation LIGHT_TEXTURE = ProjectHeroMod.id("textures/entity/green_lantern/hard_light_construct.png");
 
-	/** [slim][suited] */
-	private static final ModelPart[][] RINGS = new ModelPart[2][2];
 	private static final ModelPart[] BLADES = new ModelPart[2];
 	private static final ModelPart[][] DRILL_TIERS = new ModelPart[2][];
 	private static boolean baked;
@@ -69,8 +68,12 @@ public final class GreenLanternHandRenderer {
 		int suited = player.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof GreenLanternArmorItem ? 1 : 0;
 		pose.pushPose();
 		arm.translateAndRotate(pose);
-		RINGS[slim][suited].render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(RING_TEXTURE)),
-				LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
+		ring(pose, buffers, player, slim == 1 ? -2f : -3f, suited == 1 ? 0.62f : 0.08f, ageInTicks);
+		com.projecthero.mod.greenlantern.data.GreenLanternFx fx = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FX,
+				com.projecthero.mod.greenlantern.data.GreenLanternFx.EMPTY);
+		if (fx.has(com.projecthero.mod.greenlantern.data.GreenLanternFx.CH_GATLING)) {
+			gatling(pose, buffers, slim == 1 ? -0.5f : -1.0f, ageInTicks);
+		}
 
 		int hand = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_HAND_CONSTRUCTS, 0);
 		if ((hand & GreenLanternConstructs.HAND_BLADE) != 0) {
@@ -101,10 +104,6 @@ public final class GreenLanternHandRenderer {
 		for (int slim = 0; slim < 2; slim++) {
 			float xMin = slim == 1 ? -2f : -3f;
 			float xMax = 1f;
-			for (int suited = 0; suited < 2; suited++) {
-				float gap = suited == 1 ? 0.62f : 0.08f;
-				RINGS[slim][suited] = ring(xMin, gap);
-			}
 			float cx = (xMin + xMax) / 2f;
 			BLADES[slim] = blade(cx, xMin, xMax);
 			DRILL_TIERS[slim] = drill(cx);
@@ -112,14 +111,67 @@ public final class GreenLanternHandRenderer {
 	}
 
 	/**
-	 * The ring: a single 1 px cube on the ring finger -- at the front / outer corner of the knuckles, half a pixel proud of
-	 * both faces so it reads from the front and the side, {@code gap} further out over the suit's gauntlet.
+	 * v0.14.3: the ring, drawn in the arm's pixel space. The ring finger is the 1 x 1 px column at the front / outer
+	 * corner of the fist ({@code xMin..xMin+1}, {@code z -2..-1}); {@code gap} lifts everything off the suit's gauntlet.
 	 */
-	private static ModelPart ring(float xMin, float gap) {
-		MeshDefinition mesh = new MeshDefinition();
-		mesh.getRoot().addOrReplaceChild("ring", CubeListBuilder.create().texOffs(0, 0)
-				.addBox(xMin - 0.5f - gap, 8.4f, -2.5f - gap, 1.0f, 1.0f, 1.0f), PartPose.ZERO);
-		return LayerDefinition.create(mesh, 16, 16).bakeRoot();
+	private static void ring(PoseStack pose, MultiBufferSource buffers, AbstractClientPlayer player, float xMin, float gap,
+			float age) {
+		com.mojang.blaze3d.vertex.VertexConsumer vc = HardLightDraw.buffer(buffers);
+		com.projecthero.mod.greenlantern.data.GreenLanternFx fx = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FX,
+				com.projecthero.mod.greenlantern.data.GreenLanternFx.EMPTY);
+		long now = player.level().getGameTime();
+		boolean busy = fx.channels() != 0 || (fx.anim() != 0 && now - fx.animStart() < 12);
+		float breathe = 0.5f + 0.5f * net.minecraft.util.Mth.sin(age * 0.12f);
+		pose.pushPose();
+		pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
+		float fx0 = xMin + 0.5f;          // finger centre, x
+		float front = -2f - gap;          // the fist's front face
+		float outer = xMin - gap;         // its outer face
+		float y = 9.0f;
+		// the band: across the front of the finger and round its outer side, with a bright top edge
+		box(vc, pose, fx0, y, front - 0.14f, 0.62f, 0.3f, 0.14f, 0x1F9A48, 1f);
+		box(vc, pose, outer - 0.14f, y, -1.5f, 0.14f, 0.3f, 0.62f, 0x1F9A48, 1f);
+		box(vc, pose, outer - 0.14f, y, front - 0.14f, 0.14f, 0.3f, 0.14f, 0x1F9A48, 1f);
+		box(vc, pose, fx0, y - 0.28f, front - 0.16f, 0.64f, 0.04f, 0.16f, 0x9CFFB8, 1f);
+		box(vc, pose, outer - 0.16f, y - 0.28f, -1.5f, 0.16f, 0.04f, 0.64f, 0x9CFFB8, 1f);
+		// the bezel, then the gem set proud of it
+		box(vc, pose, fx0, y, front - 0.42f, 0.5f, 0.5f, 0.16f, 0x0B3D1C, 1f);
+		box(vc, pose, fx0, y, front - 0.62f, 0.32f, 0.32f, 0.08f, 0xEFFFF2, 1f);
+		box(vc, pose, fx0, y, front - 0.6f, 0.4f, 0.4f, 0.06f, 0x5CFF8E, 0.9f);
+		// the halo: breathes softly, flares while the ring is working
+		float halo = busy ? 1.1f : 0.7f + 0.1f * breathe;
+		float haloAlpha = busy ? 0.4f : 0.1f + 0.1f * breathe;
+		box(vc, pose, fx0, y, front - 0.55f, halo, halo, halo * 0.6f, 0x35F075, haloAlpha);
+		box(vc, pose, fx0, y, front - 0.55f, halo * 1.35f, halo * 1.35f, halo * 0.8f, 0x35F075, haloAlpha * 0.3f);
+		pose.popPose();
+	}
+
+	private static void box(com.mojang.blaze3d.vertex.VertexConsumer vc, PoseStack pose, float x, float y, float z, float hx,
+			float hy, float hz, int rgb, float alpha) {
+		pose.pushPose();
+		pose.translate(x, y, z);
+		com.projecthero.mod.client.maxsteel.TurboDraw.box(vc, pose.last(), hx, hy, hz, rgb, alpha);
+		pose.popPose();
+	}
+
+	/** v0.14.3: the Emerald Gatling -- a housing round the fist and six spinning barrels running on past the knuckles. */
+	private static void gatling(PoseStack pose, MultiBufferSource buffers, float cx, float age) {
+		com.mojang.blaze3d.vertex.VertexConsumer vc = HardLightDraw.buffer(buffers);
+		pose.pushPose();
+		pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
+		pose.translate(cx, 0f, 0f);
+		HardLightDraw.part(vc, pose, 0f, 10.6f, 0f, 2.6f, 1.0f, 2.6f, 0.9f);
+		HardLightDraw.part(vc, pose, 0f, 12.2f, 0f, 1.9f, 0.6f, 1.9f, 0.9f);
+		pose.mulPose(Axis.YP.rotationDegrees(age * 42f));
+		for (int i = 0; i < 6; i++) {
+			pose.pushPose();
+			pose.mulPose(Axis.YP.rotationDegrees(i * 60f));
+			HardLightDraw.part(vc, pose, 1.15f, 16.0f, 0f, 0.38f, 4.2f, 0.38f, 0.95f);
+			pose.popPose();
+		}
+		HardLightDraw.part(vc, pose, 0f, 19.6f, 0f, 1.75f, 0.35f, 1.75f, 0.9f);
+		HardLightDraw.glow(vc, pose, 0f, 20.2f, 0f, 0.5f, 0.2f, 0.5f, 0.9f);
+		pose.popPose();
 	}
 
 	/** A broad, flat blade of light out of the fist with a small crossguard, 14 px (almost a block) long. */

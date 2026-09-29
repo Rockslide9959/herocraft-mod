@@ -147,3 +147,11 @@ Keep these names and the files drop straight in (re-run nothing):
 - Hulk + Wolverine held together: plain H goes to the Hulk (Wolverine's claw toggle unreachable).
 - Another client's Hulk model and animations only checked in single player (the harness), not on a server.
 - Sprint Smash measures speed from position change on the server; a slow walk into a wall does nothing by design.
+
+## v0.14.3
+
+A rampaging Hulk hits his squadmates. `Squads#shields(dealer, victim)` is the one squad-protection check (same squad AND
+the dealer is not `HulkControl.rampaging`); used by the friendly-fire veto, `AbilityHelpers#hurtLands` and
+`HulkCombat#ally` (so the rampage AI also targets them). PvP / `abilityPvpDamage` still apply. The squadmate still
+can't hurt the Hulk back.
+

@@ -46,12 +46,29 @@ public enum ConstructType {
 	// block/marker construct -- dismiss-only (no automatic expiry), ended by upkeep failure, Shift+C,
 	// or the player dropping any one of the three tools (see GreenLanternConstructs#tickKind's TOOL_KIT case).
 	HARD_LIGHT_TOOLS(Kind.TOOL_KIT, GreenLanternConfig.TOOL_KIT_COST, GreenLanternConfig.TOOL_KIT_UPKEEP_PER_SEC,
-			0f, 0, GreenLanternConfig.TOOL_KIT_SLOT_WEIGHT);
+			0f, 0, GreenLanternConfig.TOOL_KIT_SLOT_WEIGHT),
+	// v0.14.3: construct attacks and summons -- hard-light entities (HardLightConstructEntity) run by
+	// GreenLanternConstructAttacks rather than block constructs; appended so saved selections keep their ordinals.
+	BUZZSAW(Kind.ATTACK, GreenLanternConfig.BUZZSAW_COST, 0f, 0f, 0, 0),
+	ANVIL_DROP(Kind.ATTACK, GreenLanternConfig.ANVIL_COST, 0f, 0f, 0, 0),
+	CHAIN_SNARE(Kind.ATTACK, GreenLanternConfig.CHAINS_COST, 0f, 0f, GreenLanternConfig.CHAINS_DURATION_TICKS, 0),
+	LAUNCH_PAD(Kind.SUMMON, GreenLanternConfig.PAD_COST, 0f, 0f, GreenLanternConfig.PAD_DURATION_TICKS, 1),
+	EMERALD_WARRIOR(Kind.SUMMON, GreenLanternConfig.WARRIOR_COST, GreenLanternConfig.WARRIOR_UPKEEP_PER_SEC, 0f,
+			GreenLanternConfig.WARRIOR_DURATION_TICKS, 3);
+
+	/** v0.14.3: the construct wheel groups constructs into these four arcs. */
+	public enum Category {
+		ATTACK, DEFENSE, MOBILITY, UTILITY
+	}
 
 	/** How {@link GreenLanternConstructs} spawns/ticks/dismisses a construct of this type. */
 	public enum Kind {
 		MELEE_BUFF, CAGE, TURRET, INSTANT, WALL, PLATFORM_BLOCKS, BRIDGE_BLOCKS, RAMP_BLOCKS,
-		DRILL, LIGHT_BLOCKS, BUBBLE, TOOL_KIT
+		DRILL, LIGHT_BLOCKS, BUBBLE, TOOL_KIT,
+		/** v0.14.3: a one-shot hard-light attack entity (Buzzsaw, Anvil Drop, Chain Snare). */
+		ATTACK,
+		/** v0.14.3: a lasting hard-light entity (Launch Pad, Emerald Warrior). */
+		SUMMON
 	}
 
 	private final Kind kind;
@@ -93,6 +110,21 @@ public enum ConstructType {
 
 	public int slotWeight() {
 		return slotWeight;
+	}
+
+	/** v0.14.3: which arc of the construct wheel this sits in. */
+	public Category category() {
+		return switch (this) {
+			case BATTERING_RAM, SENTRY_TURRET, ENERGY_BLADE, BUZZSAW, ANVIL_DROP, EMERALD_WARRIOR -> Category.ATTACK;
+			case HARD_LIGHT_WALL, CONTAINMENT_CAGE, CHAIN_SNARE, ATMOSPHERE_BUBBLE, RESCUE_TETHER -> Category.DEFENSE;
+			case PLATFORM, BRIDGE, STAIR_RAMP, CARRY_PLATFORM, LAUNCH_PAD -> Category.MOBILITY;
+			default -> Category.UTILITY;
+		};
+	}
+
+	/** v0.14.3: the one-line description the construct wheel shows for the hovered construct. */
+	public String descriptionKey() {
+		return translationKey() + ".desc";
 	}
 
 	public String translationKey() {

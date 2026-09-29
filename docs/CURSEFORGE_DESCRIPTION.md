@@ -105,12 +105,16 @@ No superpowers: guns, explosives, gear and training. Complete the **Vigilante Tr
 
 ### 💚 Green Lantern
 Find a **Fallen Lantern Site**, pass the **Will Trial** and answer the ring's question. Are you afraid?
-- A 10,000-point **Ring Charge** fuels beams, a Construct Fist, a War Hammer, **directional flight** (fly wherever you
-  look), shields, a Protective Dome and
-  **14 hard-light constructs** of glowing green light -- walls, walkable ramps, a spinning turret, a travelling
-  battering ram, a blade or drill on your fist and more.
-- Your suit sweeps on one row of light at a time, and the ring glows on your right hand.
-- Hold **X** to recite the Oath for 22 seconds of doubled power.
+- A 10,000-point **Ring Charge** fuels beams, **directional flight** (fly wherever you look), shields, a Protective Dome
+  and everything the ring can imagine -- and every attack is a real shape of hard light: a **giant fist** that flies,
+  a **war hammer** swung down from the sky, **homing missiles**, an **Emerald Gatling** on your fist and a **Giant
+  Hand** (**H**) that crushes and hurls whatever you aim at.
+- **19 hard-light constructs** on a new construct wheel (Attack / Defence / Mobility / Utility) -- walls, walkable
+  ramps, a spinning turret, a **Buzzsaw** that ricochets between enemies, an **Anvil Drop**, a **Chain Snare**, a
+  **Launch Pad** and an **Emerald Warrior** that fights at your side. **N** dismisses them all.
+- Every move has its own animation, the HUD is a framed ring-charge panel, and the ring on your hand glows and flares
+  as you use it. Hold **Sneak + N** for 5 seconds to take the ring off (and give it to someone else).
+- Hold **X** to recite the Oath for 30 seconds of doubled power.
 - The ring never recharges on its own: recite the Oath at your **Power Battery** to refill it.
 
 ### 🐺 Wolverine
@@ -145,14 +149,15 @@ explodes, and the Gamma in your blood lets you walk out of the crater as the Hul
 - 1.8x size, 20-damage punches, his own armour, fast regeneration, immunity to fire, arrows, falls and webs.
 - Power Punch, Ground Smash, Thunderclap, **HULK SMASH**, a 70-block Super Leap, a rampaging Charge, and Grab (throw mobs,
   tear up the earth, or carry your squadmates).
-- **Banner can't be killed:** a fatal hit just unleashes the Hulk. Lose control and he goes on a rampage, and you'll
-  need the breathing minigame to calm him down.
+- **Banner can't be killed:** a fatal hit just unleashes the Hulk. Lose control and he goes on a rampage -- hitting
+  friend and foe alike, squadmates included -- and you'll need the breathing minigame to calm him down.
 
 ### 🌙 Moon Knight
 Find a rare **Temple of Khonshu** in the desert, take the **Scarab of Khonshu** from its hidden chamber, and at night lay
 it on the altar under the open sky and kneel. Khonshu speaks... you die in a flash of white, and rise again as his fist.
 - **H** summons the suit: it materialises over you **one pixel at a time** in 1.5 s as bandages spiral up your body,
-  with a flowing **hooded cape**. In it you **regenerate** fast, hit **+7** harder and take **20% less** damage. Your own
+  with a flowing **hooded cape**. In it you **regenerate** fast, hit **+7** harder, run **30% faster**, jump over
+  **two blocks** and take **20% less** damage. Your own
   armour is kept safe and handed back when you take it off -- and out of the suit, a hard hit calls it back on its own.
 - **Lunar power:** everything scales with the moon -- x1.5 under a full moon, weaker as it wanes, x0.7 by day, and less
   underground. **Vengeance** builds by protecting villagers and travellers from monsters at night, and powers his
@@ -161,10 +166,10 @@ it on the altar under the open sky and kneel. Khonshu speaks... you die in a fla
   (Scholar's Sight finds chests and ores through walls, better trades), **Jake** the shadow in black (backstabs, Vanish).
   Switch and the new suit rematerialises over the old one. Run out of Vengeance and your mind **Fractures**.
 - **R** Crescent Darts (homing at night, boomerang back; a charged fan; **Moon Mark**) · **G** Grapple Kick · **X** Dash,
-  and **Sneak+X** a 60-block Grappling Line that reels mobs in · **Z** Moonbeam, **Khonshu's Judgement** and the ultimate
+  that goes wherever you aim, and **Sneak+X** a 100-block Grappling Line that reels mobs in · **Z** Moonbeam, **Khonshu's Judgement** and the ultimate
   **Eye of Khonshu** under a full moon · **C** Truncheon (three-hit combo slams, a staff spin, ground / dive slams) ·
   **Sneak+G** Shadow Step.
-- **The cape:** jump and hold Sneak to **glide** flat out on cape wings (glide into a mob to kick it); hold right click
+- **The cape:** jump and hold Sneak to **glide** fast and flat out on cape wings (glide into a mob to kick it); hold right click
   to **block** with it.
 - **Khonshu's Resurrection:** once per lunar cycle, a fatal blow brings you back in a flash of moonlight.
 

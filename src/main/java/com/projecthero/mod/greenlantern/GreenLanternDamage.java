@@ -27,6 +27,11 @@ public final class GreenLanternDamage {
 	}
 
 	private static boolean onAllowDamage(LivingEntity entity, DamageSource source, float amount) {
+		// v0.14.3: whoever a Launch Pad threw (its owner and their squad) lands without a scratch
+		if (source.is(DamageTypeTags.IS_FALL) && GreenLanternConstructAttacks.consumeFallSafe(entity)) {
+			entity.resetFallDistance();
+			return false;
+		}
 		if (REENTRANT.get() || !(entity instanceof ServerPlayer player) || !GreenLantern.hasPower(player)) {
 			return true;
 		}

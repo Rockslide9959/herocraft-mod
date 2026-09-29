@@ -89,6 +89,11 @@ public final class MoonKnightConfig {
 	public static final float SUIT_REGEN_AMOUNT = 1.0f;
 	/** While the suit is on: flat melee damage added to every hand-to-hand hit (an attack-damage modifier). */
 	public static final double SUIT_MELEE_BONUS = 7.0;
+	/** v0.14.3: the suit is faster (+30% movement speed) and jumps over two blocks (jump strength +0.16 = 0.58, ~2.2 blocks). */
+	public static final double SUIT_SPEED_BONUS = 0.30;
+	public static final double SUIT_JUMP_BONUS = 0.16;
+	/** v0.14.3: so the higher jump never costs a heart on landing. */
+	public static final double SUIT_SAFE_FALL_BONUS = 1.0;
 	/** While the suit is on: every hit taken is multiplied by this (20% less damage). */
 	public static final float SUIT_DAMAGE_TAKEN = 0.80f;
 	/**
@@ -133,7 +138,7 @@ public final class MoonKnightConfig {
 	// ---------------------------------------------------------------- the Cape (Phase 3; v0.13.21 off the keys: glide = jump + hold Sneak, block = hold right click)
 
 	/** Cape Glide: horizontal speed along the look (blocks/tick) and the slowest allowed fall. */
-	public static final double GLIDE_SPEED = 0.55;
+	public static final double GLIDE_SPEED = 0.85; // v0.14.3: was 0.55
 	public static final double GLIDE_SINK = 0.06;
 	/** At night glides carry further: the sink rate is divided by the lunar power. */
 	public static final boolean GLIDE_BETTER_AT_NIGHT = true;
@@ -160,7 +165,7 @@ public final class MoonKnightConfig {
 	// ---------------------------------------------------------------- SNEAK+X Grappling Line, G Grapple Kick (Phase 4; v0.13.21 keys)
 
 	/** v0.13.21: 24 x lunar power -> a flat 60 blocks, for the line and the kick. */
-	public static final double GRAPPLE_RANGE = 60.0;
+	public static final double GRAPPLE_RANGE = 100.0; // v0.14.3: was 60
 	public static final int GRAPPLE_COOLDOWN = 40;
 	/** TAP G Grapple Kick: grapple to a mob and dive-kick it on arrival. */
 	public static final float DIVE_KICK_DAMAGE = 8.0f;
@@ -255,9 +260,9 @@ public final class MoonKnightConfig {
 	/** The grappling line takes this long to fly out before the pull starts. */
 	public static final int GRAPPLE_LINE_TRAVEL_TICKS = 3;
 	/** SNEAK+X at a block: pull speed (blocks/tick), arrival distance, and the longest a pull (or a reel) may last. */
-	public static final double GRAPPLE_PULL_SPEED = 1.3;
+	public static final double GRAPPLE_PULL_SPEED = 1.8; // v0.14.3: was 1.3 (a 100-block line has to arrive)
 	public static final double GRAPPLE_ARRIVE_DISTANCE = 1.6;
-	public static final int GRAPPLE_MAX_PULL_TICKS = 70;
+	public static final int GRAPPLE_MAX_PULL_TICKS = 100; // v0.14.3: was 70
 	/** TAP G Grapple Kick: pull speed toward the mob and the reach at which the kick lands. */
 	public static final double DIVE_KICK_PULL_SPEED = 1.5;
 	public static final double DIVE_KICK_REACH = 1.6;

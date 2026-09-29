@@ -24,7 +24,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.13.14: the Hulk's shared hitting and wrecking code, used by every ability, the Charge, the thrown mobs and
- * boulders and the rampage. Targets never include the Hulk himself, whoever is riding his back, his squad-mates or
+ * boulders and the rampage. Targets never include the Hulk himself, whoever is riding his back, his squad-mates (v0.14.3: except on a rampage) or
  * armour stands; other players only with PvP on. Bosses take the damage but are never shoved.
  */
 public final class HulkCombat {
@@ -57,7 +57,7 @@ public final class HulkCombat {
 		if (!(e instanceof ServerPlayer other) || hulk.getServer() == null) {
 			return false;
 		}
-		return com.projecthero.mod.squad.SquadManager.get(hulk.getServer()).sameSquad(hulk.getUUID(), other.getUUID());
+		return com.projecthero.mod.squad.Squads.shields(hulk, other); // v0.14.3: not while he rampages
 	}
 
 	/** Damage + shove away from {@code origin}. False if this hit already landed on the target. */

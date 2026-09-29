@@ -514,10 +514,12 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.green_lantern.air_tank.body");
 			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.controls");
-			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {
+			// v0.14.3: H (Giant Hand) and N (dismiss / take off the ring) joined the kit
+			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C", "H", "N"}) {
 				String key = switch (slot) {
 					case "R" -> "ring_bolt"; case "G" -> "construct_fist"; case "X" -> "oath";
-					case "Z" -> "shield"; case "V" -> "suit"; default -> "construct";
+					case "Z" -> "shield"; case "V" -> "suit"; case "H" -> "giant_hand"; case "N" -> "dismiss";
+					default -> "construct";
 				};
 				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.guide.green_lantern.ability." + key).withStyle(ChatFormatting.WHITE)));

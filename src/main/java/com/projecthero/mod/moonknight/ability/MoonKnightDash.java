@@ -18,7 +18,8 @@ import net.minecraft.world.phys.Vec3;
 /**
  * X -- the Dash (v0.13.21), and SNEAK+X the Grappling Line.
  * <ul>
- *   <li><b>X</b> ({@code dash}): a burst of speed along the look, flattened to the horizontal
+ *   <li><b>X</b> ({@code dash}): a burst of speed exactly where the crosshair points -- up, down or level (v0.14.3; it
+ *       used to be flattened to the horizontal)
  *       ({@link MoonKnightConfig#DASH_SPEED} blocks/tick for {@link MoonKnightConfig#DASH_TICKS} ticks -- about 7
  *       blocks), trailing moonlight; no fall damage for a moment after. Fires on the press. Cooldown
  *       {@link MoonKnightConfig#DASH_COOLDOWN}.</li>
@@ -59,10 +60,9 @@ public final class MoonKnightDash implements MoonKnightMove {
 		MoonKnightGrapple.fireLine(player);
 	}
 
-	/** Start a dash along the (horizontal) look. Public for the gametests. */
+	/** Start a dash along the look, in 3D (v0.14.3: aim up to dash up, down to dive). Public for the gametests. */
 	public static void dash(ServerPlayer player) {
-		Vec3 look = player.getLookAngle();
-		Vec3 dir = new Vec3(look.x, 0.0, look.z);
+		Vec3 dir = player.getLookAngle();
 		if (dir.lengthSqr() < 1.0e-4) {
 			float yaw = player.getYRot() * Mth.DEG_TO_RAD;
 			dir = new Vec3(-Mth.sin(yaw), 0.0, Mth.cos(yaw));
@@ -85,9 +85,8 @@ public final class MoonKnightDash implements MoonKnightMove {
 	}
 
 	private static void push(ServerPlayer player, Vec3 dir) {
-		// keep a little of the vertical so a dash off a ledge still falls, but never sink faster than walking off it
-		double vy = Math.max(-0.1, Math.min(0.1, player.getDeltaMovement().y));
-		AbilityHelpers.launchSelf(player, new Vec3(dir.x * MoonKnightConfig.DASH_SPEED, vy, dir.z * MoonKnightConfig.DASH_SPEED));
+		// v0.14.3: the whole burst follows the aim, vertical included
+		AbilityHelpers.launchSelf(player, dir.scale(MoonKnightConfig.DASH_SPEED));
 	}
 
 	private static void end(ServerPlayer player) {

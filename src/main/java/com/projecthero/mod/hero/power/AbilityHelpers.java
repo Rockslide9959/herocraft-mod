@@ -117,7 +117,7 @@ public final class AbilityHelpers {
 		if (server == null || !server.isPvpAllowed() || !HeroConfig.get().abilityPvpDamage) {
 			return false;
 		}
-		return !com.projecthero.mod.squad.SquadManager.get(server).sameSquad(source.getUUID(), tp.getUUID());
+		return !com.projecthero.mod.squad.Squads.shields(source, tp);
 	}
 
 	public static boolean hurt(ServerPlayer source, LivingEntity target, float amount) {

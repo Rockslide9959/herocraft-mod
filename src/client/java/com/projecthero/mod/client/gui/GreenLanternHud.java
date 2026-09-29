@@ -3,13 +3,16 @@ package com.projecthero.mod.client.gui;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.greenlantern.GreenLantern;
 import com.projecthero.mod.greenlantern.GreenLanternConfig;
 import com.projecthero.mod.greenlantern.construct.ConstructType;
 import com.projecthero.mod.greenlantern.construct.GreenLanternConstructs;
+import com.projecthero.mod.greenlantern.data.GreenLanternFx;
 import com.projecthero.mod.greenlantern.data.GreenLanternState;
-import com.projecthero.mod.hero.AbilitySlot;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.DeltaTracker;
@@ -17,39 +20,50 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * The Green Lantern HUD: the six ability keys with cooldown shading in the bottom-right corner (same
- * layout convention as {@link MaxSteelHud}/{@link ThorHud}), a green Ring Charge bar beneath it, the
- * selected construct's name, and -- while up -- the Directional Shield/Protective Dome HP bar. Drawn
- * whenever the player has the power at all -- Green Lantern's abilities work unsuited (only the suit's
- * own armour bonus requires actually wearing it; the ring's fall-damage immunity does not), so the HUD
- * is not suit-gated either, or an unsuited player would get zero charge/cooldown feedback.
- *
- * <p>Holding Alt reveals each slot's ability name (see {@link #renderAltPanel}), reusing the same
- * {@code projecthero.guide.green_lantern.ability.<key>} strings the guide chapter already shows.
+ * The Green Lantern HUD -- v0.14.3 redesign. One framed panel in the bottom-right corner:
+ * <pre>
+ *   [emblem] GREEN LANTERN              OATH 18s · FLYING
+ *   RING CHARGE                                     87%
+ *   ████████████████████████░░░░░  (Gauge: segmented every 10%, the emergency reserve marked)
+ *   [R][G][X][Z][V][C][H][N]        cooldowns drain from the top, lit outlines while a move is running
+ *   [icon] Buzzsaw                          35 charge
+ * </pre>
+ * Above the panel, stacking upward: taking the ring off (a filling Gauge), the shield / dome meter, and every
+ * construct on cooldown (icon, name, seconds, a Hairline bar running down). Hold Alt for every key's move names.
+ * Drawn whenever the player has the power at all -- the ring works unsuited, so the HUD is not suit-gated.
  */
 public final class GreenLanternHud {
-	private static final int BOX = 20;
+	public static final ResourceLocation ICONS = ProjectHeroMod.id("textures/gui/green_lantern/constructs.png");
+	public static final int EMBLEM_ICON = 31;
+
+	private static final int BOX = 18;
 	private static final int GAP = 2;
 	private static final int MARGIN = 4;
-	/** Vertical spacing between stacked label rows above the ability-key boxes. */
+	private static final int PAD = 4;
 	private static final int LINE = 10;
+	private static final int KEYS = 8;
 
 	private static final int GREEN = 0xFF35F075;
-	private static final int GREEN_DIM = 0xFF1A7838;
+	private static final int PALE = 0xFFA8FFC0;
+	private static final int DIM = 0xFF6FA882;
+	private static final int DEEP = 0xFF1A7838;
 	private static final int LOW = 0xFFFF5A5A;
-	private static final int BOX_BG = 0xC00A2412;
-	private static final int BORDER = 0xFF1E661E;
-	private static final int BORDER_ACTIVE = 0xFF35F075;
+	private static final int GOLD = 0xFFFFD23A;
+	private static final int PANEL = 0xB8050F08;
+	private static final int FRAME = 0xFF1E661E;
+	private static final int BOX_BG = 0xCC0A2412;
 	private static final int COOLDOWN = 0xB0000000;
-	private static final int KEY = 0xFFCFF8D4;
-	private static final int PANEL_BG = 0xD0071812;
+	private static final int TRACK = 0xCC06180C;
 
-	/** Slot 1..6 -> the {@code projecthero.guide.green_lantern.ability.<key>} suffix for its name. */
-	private static final String[] SLOT_ABILITY_KEYS = {
-			"ring_bolt", "construct_fist", "oath", "shield", "suit", "construct"
+	private static final String[] KEY_LABELS = {"R", "G", "X", "Z", "V", "C", "H", "N"};
+	/** Alt panel: {@code projecthero.guide.green_lantern.ability.<key>} per box. */
+	private static final String[] KEY_NAMES = {
+			"ring_bolt", "construct_fist", "oath", "shield", "suit", "construct", "giant_hand", "dismiss"
 	};
 
 	private GreenLanternHud() {
@@ -58,144 +72,241 @@ public final class GreenLanternHud {
 	public static void render(GuiGraphics g, DeltaTracker delta) {
 		Minecraft mc = Minecraft.getInstance();
 		Player player = mc.player;
-		if (player == null || mc.options.hideGui) {
+		if (player == null || mc.options.hideGui || mc.level == null
+				|| mc.screen instanceof GreenLanternConstructWheelScreen) {
 			return;
 		}
 		GreenLanternState s = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_STATE, null);
 		if (s == null || !s.hasPower) {
 			return;
 		}
-		// The six slots belong to Green Lantern only while no experimental mutation is selected from
-		// the wheel (see GreenLanternAbilityManager.hasContext) -- mirror that here, or a bonded
-		// Lantern with a mutation active gets this HUD's boxes drawn on top of AbilityHud's.
+		// The keys belong to Green Lantern only while no mutation is selected (GreenLanternAbilityManager.hasContext).
 		com.projecthero.mod.hero.data.ExperimentalState experimental =
 				player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		if (experimental != null && !experimental.activePower.isEmpty()) {
 			return;
 		}
+		long now = mc.level.getGameTime();
+		float pt = delta.getGameTimeDeltaPartialTick(false);
+		GreenLanternFx fx = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FX, GreenLanternFx.EMPTY);
 
-		long now = mc.level != null ? mc.level.getGameTime() : 0L;
-		float charge = Math.max(0f, Math.min(GreenLanternConfig.MAX_RING_CHARGE, s.ringCharge));
+		int innerW = KEYS * BOX + (KEYS - 1) * GAP;
+		int panelW = innerW + PAD * 2;
+		int panelH = PAD + 12 + LINE + 6 + 4 + BOX + 4 + 12 + PAD;
+		int px = g.guiWidth() - MARGIN - panelW;
+		int py = g.guiHeight() - MARGIN - panelH;
+		int x0 = px + PAD;
+		int right = x0 + innerW;
 
-		int totalW = 6 * BOX + 5 * GAP;
-		int x0 = g.guiWidth() - MARGIN - totalW;
-		int y0 = g.guiHeight() - MARGIN - BOX - 20;
+		// ---- the frame
+		g.fill(px, py, px + panelW, py + panelH, PANEL);
+		g.renderOutline(px, py, panelW, panelH, FRAME);
+		g.fill(px + 1, py, px + panelW - 1, py + 1, GREEN);
+		g.fill(px + 1, py + 1, px + panelW - 1, py + 2, 0x6035F075);
 
-		// Two stacked label rows above the ability boxes (the Mastery badge row is gone -- v0.11.5
-		// removed the Willpower Mastery progression system entirely, every construct is unlocked from
-		// the moment the ring bonds).
-		int labelY = y0 - LINE;
-		g.drawString(mc.font, Component.translatable("projecthero.guide.green_lantern")
-				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), x0, labelY, GREEN);
-		labelY -= LINE;
-		Component construct = Component.translatable(ConstructType.byOrdinal(s.selectedConstruct).translationKey())
-				.withStyle(ChatFormatting.DARK_GREEN);
-		g.drawString(mc.font, construct, x0, labelY, GREEN_DIM, false);
-		labelY -= LINE;
-
-		// v0.11.8: constructs on cooldown get their own persistent row above the ability keys (explicit
-		// user request: "show it above the HUD ... dont show it as a bar just show the construct with a
-		// timer going down"), instead of only the fleeting action-bar message from trying to redeploy one.
-		labelY = renderConstructCooldowns(g, mc, player, x0, labelY, totalW);
-
-		boolean suited = s.suited;
-		boolean barrierUp = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f) > 0f;
-		// v0.11.7: X's "Green Lantern's Light!" Oath empowerment mode -- both are synced non-persisted
-		// attachments (same pattern as the barrier HP above), so the HUD can read them directly.
+		// ---- title row: emblem, name, status tags
+		int y = py + PAD;
+		icon(g, EMBLEM_ICON, x0, y - 1, 12);
+		g.drawString(mc.font, Component.translatable("projecthero.guide.green_lantern").withStyle(ChatFormatting.BOLD),
+				x0 + 15, y + 1, GREEN, true);
 		long oathUntil = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_OATH_UNTIL, 0L);
-		long oathRecitingSince = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_OATH_RECITING_SINCE, 0L);
 		boolean oathActive = oathUntil > now;
-		boolean oathReciting = !oathActive && oathRecitingSince > 0L;
-		for (int i = 0; i < 6; i++) {
-			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
-			int x = x0 + i * (BOX + GAP);
-			// v0.11.5: "make the toggleable abilities ability key outlines glow when used" -- Z glows
-			// while a Shield/Dome is up, V glows while the suit is worn, same convention as
-			// MaxSteelHud/ThorHud's own BORDER_ACTIVE use for an engaged mode/toggle. X (v0.11.7) glows
-			// while reciting the Oath or empowered by it.
-			boolean active = (i == 3 && barrierUp) || (i == 4 && suited) || (i == 2 && (oathActive || oathReciting));
-			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
-			g.renderOutline(x, y0, BOX, BOX, active ? BORDER_ACTIVE : BORDER);
-			g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 2, y0 + 2, KEY, false);
-
-			if (i == 2 && oathActive) {
-				// Empowered -- a green (not the ordinary dark cooldown) overlay showing the countdown,
-				// so it reads as "active buff" rather than "can't use this".
-				int remaining = (int) Math.max(0L, oathUntil - now);
-				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, 0x8010A040);
-				g.drawCenteredString(mc.font, String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(remaining / 20.0f)),
-						x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
-			} else if (i == 2 && oathReciting) {
-				g.drawCenteredString(mc.font, "...", x + BOX / 2, y0 + BOX / 2 - 4, GREEN);
-			} else {
-				int cd = cooldownForSlot(player, i, s);
-				if (cd > 0) {
-					g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
-					g.drawCenteredString(mc.font, String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(cd / 20.0f)),
-							x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
-				}
-			}
+		boolean oathReciting = !oathActive && player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_OATH_RECITING_SINCE, 0L) > 0L;
+		List<Component> tags = new ArrayList<>();
+		if (oathActive) {
+			int secs = (int) Math.ceil((oathUntil - now) / 20.0);
+			tags.add(Component.translatable("hud.projecthero.green_lantern.tag.oath", secs).withStyle(ChatFormatting.GOLD));
+		} else if (oathReciting) {
+			tags.add(Component.translatable("hud.projecthero.green_lantern.tag.reciting").withStyle(ChatFormatting.YELLOW));
 		}
+		if (player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FLYING, false)) {
+			tags.add(Component.translatable(player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BOOSTING, false)
+					? "hud.projecthero.green_lantern.tag.boost" : "hud.projecthero.green_lantern.tag.flying")
+					.withStyle(ChatFormatting.AQUA));
+		}
+		if (s.suited) {
+			tags.add(Component.translatable("hud.projecthero.green_lantern.tag.suited").withStyle(ChatFormatting.DARK_GREEN));
+		}
+		// never run into the title: drop the least important tags (the list is in priority order) until they fit
+		int room = innerW - 15 - mc.font.width(Component.translatable("projecthero.guide.green_lantern")
+				.withStyle(ChatFormatting.BOLD)) - 6;
+		while (!tags.isEmpty() && tagsWidth(mc, tags) > room) {
+			tags.remove(tags.size() - 1);
+		}
+		int tx = right;
+		for (int i = tags.size() - 1; i >= 0; i--) {
+			Component t = tags.get(i);
+			tx -= mc.font.width(t);
+			g.drawString(mc.font, t, tx, y + 1, 0xFFFFFFFF, true);
+			tx -= 6;
+		}
+		y += 12;
 
-		// Ring Charge bar below the row. v0.11.7: the pulse now reacts to all eight escalating low-charge
-		// thresholds (was a single hardcoded 10% cutoff) and speeds up the lower charge gets, so the bar
-		// itself is the continuous "flash above the hotbar" the warning sounds/messages announce.
+		// ---- Ring Charge (Gauge)
+		float charge = Mth.clamp(s.ringCharge, 0f, GreenLanternConfig.MAX_RING_CHARGE);
 		float frac = charge / GreenLanternConfig.MAX_RING_CHARGE;
 		int severity = com.projecthero.mod.greenlantern.GreenLanternEnergy.severityTier(frac);
 		boolean low = severity > 0;
 		int pulsePeriod = Math.max(3, 16 - severity * 2);
 		boolean pulseOff = low && (now % pulsePeriod) < Math.max(1, pulsePeriod / 3);
-		int barY = y0 + BOX + 4;
-		// v0.12.23: thin 3px bar, no border, like Wolverine's
-		g.fill(x0, barY, x0 + totalW, barY + 3, 0xAA0A2412);
+		g.drawString(mc.font, Component.translatable("hud.projecthero.green_lantern.ring_charge"), x0, y, DIM, true);
+		String pct = Math.round(frac * 100f) + "%";
+		g.drawString(mc.font, pct, right - mc.font.width(pct), y, low ? LOW : PALE, true);
+		y += LINE;
+		int barH = 4;
+		g.fill(x0 - 1, y - 1, right + 1, y + barH + 1, FRAME);
+		g.fill(x0, y, right, y + barH, TRACK);
 		if (!pulseOff) {
-			g.fill(x0, barY, x0 + Math.round(totalW * frac), barY + 3, low ? LOW : GREEN);
+			int fillW = Math.round(innerW * frac);
+			g.fillGradient(x0, y, x0 + fillW, y + barH, low ? 0xFFFF8080 : 0xFF8CFFAE, low ? LOW : 0xFF1FBF55);
+			if (fillW > 1) {
+				g.fill(x0 + fillW - 1, y, x0 + fillW, y + barH, 0xFFFFFFFF);
+			}
 		}
-		// mark where the emergency reserve begins
-		int reserveMark = x0 + Math.round(totalW * (GreenLanternConfig.EMERGENCY_RESERVE / GreenLanternConfig.MAX_RING_CHARGE));
-		g.fill(reserveMark, barY - 1, reserveMark + 1, barY + 4, 0xFFFFDD33);
-		g.drawString(mc.font, String.format(java.util.Locale.ROOT, "%d%%", Math.round(frac * 100.0f)), x0, barY + 5, low ? LOW : 0xFFA8E6B8, false);
+		for (int k = 1; k < 10; k++) {
+			int sx = x0 + innerW * k / 10;
+			g.fill(sx, y, sx + 1, y + barH, 0x80000000);
+		}
+		int reserve = x0 + Math.round(innerW * (GreenLanternConfig.EMERGENCY_RESERVE / GreenLanternConfig.MAX_RING_CHARGE));
+		g.fill(reserve, y - 1, reserve + 1, y + barH + 1, GOLD);
+		y += barH + 6;
 
-		labelY = renderBarrier(g, mc, player, x0, labelY, totalW);
+		// ---- the keys
+		boolean barrierUp = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f) > 0f;
+		for (int i = 0; i < KEYS; i++) {
+			int bx = x0 + i * (BOX + GAP);
+			boolean active = switch (i) {
+				case 0 -> fx.has(GreenLanternFx.CH_BEAM);
+				case 2 -> oathActive || oathReciting || fx.has(GreenLanternFx.CH_GATLING);
+				case 3 -> barrierUp;
+				case 4 -> s.suited;
+				case 6 -> fx.has(GreenLanternFx.CH_HAND);
+				case 7 -> fx.has(GreenLanternFx.CH_RING_REMOVE);
+				default -> false;
+			};
+			boolean flash = fx.anim() != GreenLanternFx.ANIM_NONE && now - fx.animStart() < 6 && animKey(fx.anim()) == i;
+			g.fill(bx, y, bx + BOX, y + BOX, BOX_BG);
+			if (active || flash) {
+				g.fill(bx + 1, y + 1, bx + BOX - 1, y + BOX - 1, active ? 0x5035F075 : 0x3035F075);
+			}
+			g.renderOutline(bx, y, BOX, BOX, active || flash ? GREEN : FRAME);
+			int cd = cooldownFor(player, i, s);
+			int max = cooldownMax(i, s);
+			if (i == 2 && oathActive) {
+				int secs = (int) Math.ceil((oathUntil - now) / 20.0);
+				g.fill(bx + 1, y + 1, bx + BOX - 1, y + BOX - 1, 0x8010A040);
+				g.drawCenteredString(mc.font, String.valueOf(secs), bx + BOX / 2, y + 5, GOLD);
+			} else if (cd > 0) {
+				int h = Math.max(1, Math.round((BOX - 2) * Math.min(1f, cd / (float) Math.max(1, max))));
+				g.fill(bx + 1, y + 1, bx + BOX - 1, y + 1 + h, COOLDOWN);
+				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), bx + BOX / 2, y + 5, 0xFFFFFFFF);
+			} else {
+				g.drawCenteredString(mc.font, KEY_LABELS[i], bx + BOX / 2, y + 5, active ? 0xFFFFFFFF : PALE);
+			}
+		}
+		y += BOX + 4;
 
+		// ---- the selected construct
+		ConstructType sel = ConstructType.byOrdinal(s.selectedConstruct);
+		icon(g, sel.ordinal(), x0, y, 12);
+		g.drawString(mc.font, Component.translatable(sel.translationKey()), x0 + 15, y + 2, 0xFFE8FFEE, true);
+		int selCd = GreenLanternConstructs.cooldownRemainingFor(player, sel);
+		Component costLine = selCd > 0
+				? Component.translatable("hud.projecthero.green_lantern.cooldown_short", (selCd + 19) / 20).withStyle(ChatFormatting.RED)
+				: Component.translatable("hud.projecthero.green_lantern.cost", Math.round(sel.initialCost())).withStyle(ChatFormatting.GRAY);
+		g.drawString(mc.font, costLine, right - mc.font.width(costLine), y + 2, 0xFFFFFFFF, true);
+
+		// ---- stacked above the panel
+		int top = py - 3;
+		top = renderRingRemoval(g, mc, fx, now, pt, px, top, panelW);
+		top = renderBarrier(g, mc, player, px, top, panelW);
+		top = renderConstructCooldowns(g, mc, player, px, top, panelW);
 		if (Screen.hasAltDown()) {
-			renderAltPanel(g, mc, x0, labelY, totalW);
+			renderAltPanel(g, mc, px, top, panelW);
 		}
 	}
 
+	private static int tagsWidth(Minecraft mc, List<Component> tags) {
+		int w = 0;
+		for (Component t : tags) {
+			w += mc.font.width(t) + 6;
+		}
+		return w - 6;
+	}
+
+	/** Which key box a move animation belongs to (so the box flashes as the move goes off). */
+	private static int animKey(int anim) {
+		return switch (anim) {
+			case GreenLanternFx.ANIM_BOLT -> 0;
+			case GreenLanternFx.ANIM_FIST, GreenLanternFx.ANIM_HAMMER -> 1;
+			case GreenLanternFx.ANIM_OATH -> 2;
+			case GreenLanternFx.ANIM_DOME -> 3;
+			case GreenLanternFx.ANIM_SCAN -> 4;
+			case GreenLanternFx.ANIM_MISSILES, GreenLanternFx.ANIM_CONSTRUCT -> 5;
+			case GreenLanternFx.ANIM_GRAB, GreenLanternFx.ANIM_THROW -> 6;
+			default -> -1;
+		};
+	}
+
+	/** Draws cell {@code index} of the construct icon atlas at {@code size} px. */
+	public static void icon(GuiGraphics g, int index, int x, int y, int size) {
+		RenderSystem.enableBlend();
+		g.blit(ICONS, x, y, size, size, (index % 8) * 16f, (index / 8) * 16f, 16, 16, 128, 64);
+		RenderSystem.disableBlend();
+	}
+
+	/** Shift + hold N: a Gauge filling toward the ring coming off. */
+	private static int renderRingRemoval(GuiGraphics g, Minecraft mc, GreenLanternFx fx, long now, float pt, int px, int top,
+			int w) {
+		if (!fx.has(GreenLanternFx.CH_RING_REMOVE) || fx.ringRemoveStart() == 0L) {
+			return top;
+		}
+		float f = Mth.clamp((now - fx.ringRemoveStart() + pt) / GreenLanternConfig.RING_REMOVE_HOLD_TICKS, 0f, 1f);
+		int barY = top - 4;
+		int labelY = barY - 11;
+		g.fill(px, labelY - 3, px + w, barY + 7, PANEL);
+		Component label = Component.translatable("hud.projecthero.green_lantern.ring_remove");
+		g.drawString(mc.font, label, px + PAD, labelY, GOLD, true);
+		String pct = Math.round(f * 100) + "%";
+		g.drawString(mc.font, pct, px + w - PAD - mc.font.width(pct), labelY, 0xFFFFFFFF, true);
+		int x0 = px + PAD;
+		int x1 = px + w - PAD;
+		g.fill(x0 - 1, barY - 1, x1 + 1, barY + 4, FRAME);
+		g.fill(x0, barY, x1, barY + 3, TRACK);
+		g.fill(x0, barY, x0 + Math.round((x1 - x0) * f), barY + 3, GOLD);
+		return labelY - 6;
+	}
+
 	/**
-	 * The shared shield/dome uptime meter row -- v0.11.8 rework. Previously showed the barrier's HP
-	 * fraction, which only visibly moved when it actually absorbed a hit; explicit user request was "the
-	 * dome bar doesn't deplete as the dome usage goes up ... make the bar stay while its regenerating and
-	 * disappear once its full", i.e. this should track time-in-use, not damage taken. Visible whenever a
-	 * barrier is actually up, OR the meter hasn't finished refilling yet; hidden entirely once neither is
-	 * true. Returns the y just above whatever this drew, so the caller can keep stacking upward.
+	 * The shield / dome uptime meter (v0.11.8 semantics: time in use, not damage taken) -- shown while a barrier is up or
+	 * the meter is refilling, as a Gauge with its label above.
 	 */
-	private static int renderBarrier(GuiGraphics g, Minecraft mc, Player player, int x0, int topY, int totalW) {
+	private static int renderBarrier(GuiGraphics g, Minecraft mc, Player player, int px, int top, int w) {
 		boolean active = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f) > 0f;
 		float meter = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_METER, 1f);
 		if (!active && meter >= 1f) {
-			return topY;
+			return top;
 		}
 		boolean dome = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, false);
-		int h = 5;
-		int y = topY - LINE - h;
+		int barY = top - 4;
+		int labelY = barY - 11;
+		g.fill(px, labelY - 3, px + w, barY + 7, PANEL);
 		Component label = Component.translatable(active
 				? (dome ? "hud.projecthero.green_lantern.dome" : "hud.projecthero.green_lantern.shield")
-				: "hud.projecthero.green_lantern.barrier").withStyle(ChatFormatting.AQUA);
-		g.drawCenteredString(mc.font, label, x0 + totalW / 2, y - 10, 0xFFFFFFFF);
-		g.fill(x0 - 1, y - 1, x0 + totalW + 1, y + h + 1, BORDER);
-		g.fill(x0, y, x0 + totalW, y + h, 0xAA0A2412);
-		g.fill(x0, y, x0 + Math.round(totalW * meter), y + h, active ? 0xFF35C8F0 : 0xFF1E7A94);
-		return y - LINE;
+				: "hud.projecthero.green_lantern.barrier");
+		g.drawString(mc.font, label, px + PAD, labelY, 0xFF7FE8FF, true);
+		String pct = Math.round(meter * 100) + "%";
+		g.drawString(mc.font, pct, px + w - PAD - mc.font.width(pct), labelY, 0xFFFFFFFF, true);
+		int x0 = px + PAD;
+		int x1 = px + w - PAD;
+		g.fill(x0 - 1, barY - 1, x1 + 1, barY + 4, FRAME);
+		g.fill(x0, barY, x1, barY + 3, TRACK);
+		g.fill(x0, barY, x0 + Math.round((x1 - x0) * meter), barY + 3, active ? 0xFF35C8F0 : 0xFF1E7A94);
+		return labelY - 6;
 	}
 
-	/**
-	 * One right-aligned line per construct currently on its post-use cooldown, each with a countdown --
-	 * not the generic per-slot ability-key boxes (those only ever show the currently *selected*
-	 * construct's cooldown; this shows every one, including a type that isn't selected any more).
-	 */
-	private static int renderConstructCooldowns(GuiGraphics g, Minecraft mc, Player player, int x0, int topY, int totalW) {
+	/** One row per construct on cooldown: icon, name, seconds, and a Hairline bar running down under it. */
+	private static int renderConstructCooldowns(GuiGraphics g, Minecraft mc, Player player, int px, int top, int w) {
 		List<ConstructType> onCooldown = new ArrayList<>();
 		for (ConstructType type : ConstructType.values()) {
 			if (GreenLanternConstructs.cooldownRemainingFor(player, type) > 0) {
@@ -203,79 +314,94 @@ public final class GreenLanternHud {
 			}
 		}
 		if (onCooldown.isEmpty()) {
-			return topY;
+			return top;
 		}
-		int y = topY;
+		int rowH = 14;
+		int h = onCooldown.size() * rowH + 4;
+		int y = top - h;
+		g.fill(px, y, px + w, top, PANEL);
+		int ry = y + 3;
 		for (ConstructType type : onCooldown) {
-			y -= LINE;
-			int seconds = (int) Math.ceil(GreenLanternConstructs.cooldownRemainingFor(player, type) / 20.0);
-			Component label = Component.literal("■ ").withStyle(s -> s.withColor(GREEN_DIM))
-					.append(Component.translatable(type.translationKey()).withStyle(ChatFormatting.GRAY))
-					.append(Component.literal("  " + seconds + "s").withStyle(ChatFormatting.WHITE));
-			int w = mc.font.width(label);
-			g.drawString(mc.font, label, x0 + totalW - w, y, 0xFFFFFFFF, false);
+			int cd = GreenLanternConstructs.cooldownRemainingFor(player, type);
+			int max = constructCooldownMax(type);
+			icon(g, type.ordinal(), px + PAD, ry, 10);
+			g.drawString(mc.font, Component.translatable(type.translationKey()), px + PAD + 13, ry + 1, 0xFFB8D8C0, true);
+			String secs = ((cd + 19) / 20) + "s";
+			g.drawString(mc.font, secs, px + w - PAD - mc.font.width(secs), ry + 1, 0xFFFFFFFF, true);
+			int bx0 = px + PAD + 13;
+			int bx1 = px + w - PAD;
+			g.fill(bx0, ry + 10, bx1, ry + 11, 0x60000000);
+			g.fill(bx0, ry + 10, bx0 + Math.round((bx1 - bx0) * Math.min(1f, cd / (float) Math.max(1, max))), ry + 11, DEEP | 0xFF000000);
+			ry += rowH;
 		}
-		return y - 2;
+		return y - 3;
 	}
 
-	/**
-	 * Alt-hold panel: one line per ability slot naming what it does (tap and shift variants together,
-	 * e.g. "R  Ring Bolt / Shift: Continuous Beam"), reusing the guide chapter's own strings so the two
-	 * never drift. Grows upward from {@code topY} (the caller has already cleared every other stacked
-	 * element) and its RIGHT edge lines up with the ability-key row's right edge, growing leftward --
-	 * several of these lines are wider than the 130px key row, so left-anchoring at {@code x0} like
-	 * every other element here would run most of the panel off the edge of the screen (the same reason
-	 * {@code AbilityHud}'s own Alt-expanded names right-align instead of left-align).
-	 */
-	private static void renderAltPanel(GuiGraphics g, Minecraft mc, int x0, int topY, int totalW) {
-		int lines = SLOT_ABILITY_KEYS.length;
-		Component[] labels = new Component[lines];
-		int panelW = 0;
-		for (int i = 0; i < lines; i++) {
-			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
-			labels[i] = Component.literal(slot.defaultKey() + "  ").withStyle(ChatFormatting.GOLD)
-					.append(Component.translatable("projecthero.guide.green_lantern.ability." + SLOT_ABILITY_KEYS[i])
-							.withStyle(ChatFormatting.WHITE));
-			panelW = Math.max(panelW, mc.font.width(labels[i]));
+	/** Alt held: every key's move names, right-aligned with the panel, growing upward. */
+	private static void renderAltPanel(GuiGraphics g, Minecraft mc, int px, int top, int panelW) {
+		Component[] labels = new Component[KEYS];
+		int w = 0;
+		for (int i = 0; i < KEYS; i++) {
+			labels[i] = Component.literal(KEY_LABELS[i] + "  ").withStyle(ChatFormatting.GOLD)
+					.append(Component.translatable("projecthero.guide.green_lantern.ability." + KEY_NAMES[i]).withStyle(ChatFormatting.WHITE));
+			w = Math.max(w, mc.font.width(labels[i]));
 		}
-		panelW = Math.max(panelW + 8, totalW);
-		// Clamp the width itself (not just the origin) so a narrow/auto-scaled GUI (Minecraft's scaled
-		// width can be as low as ~320px) can't push the right edge off-screen the same way the
-		// left-anchored version used to.
-		panelW = Math.min(panelW, g.guiWidth() - 6);
-		int panelH = lines * LINE + 4;
-		int panelBottom = topY - 4;
-		int panelTop = panelBottom - panelH;
-		int px = Math.max(2, x0 + totalW - panelW);
-		g.fill(px - 2, panelTop - 2, px + panelW, panelBottom + 2, PANEL_BG);
-		g.renderOutline(px - 2, panelTop - 2, panelW + 2, panelH + 4, BORDER);
-
-		int y = panelTop + 2;
+		w = Math.min(Math.max(w + 8, panelW), g.guiWidth() - 6);
+		int h = KEYS * LINE + 6;
+		int x = Math.max(2, px + panelW - w);
+		int y = top - h - 2;
+		g.fill(x, y, x + w, y + h, 0xE0050F08);
+		g.renderOutline(x, y, w, h, FRAME);
+		int ly = y + 4;
 		for (Component label : labels) {
-			g.drawString(mc.font, label, px + 2, y, 0xFFFFFFFF, false);
-			y += LINE;
+			g.drawString(mc.font, label, x + 4, ly, 0xFFFFFFFF, false);
+			ly += LINE;
 		}
 	}
 
-	/**
-	 * Slot 0/1/3 (R/G/Z) each have a tap AND a shift ability with their own separate cooldown key --
-	 * v0.11.5 fix: previously only the tap half's key was checked, so e.g. War Hammer Slam's cooldown
-	 * never showed on the G box at all. Slot 5 (C) shows whatever the currently *selected* construct's
-	 * own cooldown is, since C can deploy any of them.
-	 */
-	private static int cooldownForSlot(Player player, int slot, GreenLanternState s) {
+	private static int cooldownFor(Player player, int slot, GreenLanternState s) {
 		return switch (slot) {
 			case 0 -> Math.max(GreenLantern.cooldownRemaining(player, "ring_bolt"),
 					GreenLantern.cooldownRemaining(player, "continuous_beam"));
 			case 1 -> Math.max(GreenLantern.cooldownRemaining(player, "construct_fist"),
 					GreenLantern.cooldownRemaining(player, "war_hammer_slam"));
-			case 2 -> GreenLantern.cooldownRemaining(player, "oath_mode");
+			case 2 -> Math.max(GreenLantern.cooldownRemaining(player, "oath_mode"),
+					GreenLantern.cooldownRemaining(player, "emerald_gatling"));
 			case 3 -> Math.max(GreenLantern.cooldownRemaining(player, "directional_shield"),
 					GreenLantern.cooldownRemaining(player, "protective_dome"));
 			case 4 -> GreenLantern.cooldownRemaining(player, "ring_scan");
-			case 5 -> com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.cooldownRemainingFor(
-					player, ConstructType.byOrdinal(s.selectedConstruct));
+			case 5 -> Math.max(GreenLanternConstructs.cooldownRemainingFor(player, ConstructType.byOrdinal(s.selectedConstruct)),
+					GreenLantern.cooldownRemaining(player, "missile_barrage"));
+			case 6 -> GreenLantern.cooldownRemaining(player, "giant_hand");
 			default -> 0;
+		};
+	}
+
+	/** The full length of whatever is most likely draining that box, so the shade drains at the right pace. */
+	private static int cooldownMax(int slot, GreenLanternState s) {
+		return switch (slot) {
+			case 0 -> GreenLanternConfig.BEAM_FORCED_COOLDOWN_TICKS;
+			case 1 -> GreenLanternConfig.HAMMER_COOLDOWN_TICKS;
+			case 2 -> GreenLanternConfig.OATH_MODE_COOLDOWN_TICKS;
+			case 3 -> GreenLanternConfig.DOME_COOLDOWN_TICKS;
+			case 4 -> GreenLanternConfig.SCAN_COOLDOWN_TICKS;
+			case 5 -> Math.max(GreenLanternConfig.MISSILE_COOLDOWN_TICKS, constructCooldownMax(ConstructType.byOrdinal(s.selectedConstruct)));
+			case 6 -> GreenLanternConfig.HAND_COOLDOWN_TICKS;
+			default -> 1;
+		};
+	}
+
+	private static int constructCooldownMax(ConstructType type) {
+		return switch (type) {
+			case SENTRY_TURRET -> GreenLanternConfig.TURRET_COOLDOWN_TICKS;
+			case HARD_LIGHT_WALL -> GreenLanternConfig.WALL_COOLDOWN_TICKS;
+			case BATTERING_RAM -> GreenLanternConfig.RAM_COOLDOWN_TICKS;
+			case RESCUE_TETHER -> GreenLanternConfig.TETHER_COOLDOWN_TICKS;
+			case BUZZSAW -> GreenLanternConfig.BUZZSAW_COOLDOWN_TICKS;
+			case ANVIL_DROP -> GreenLanternConfig.ANVIL_COOLDOWN_TICKS;
+			case CHAIN_SNARE -> GreenLanternConfig.CHAINS_COOLDOWN_TICKS;
+			case EMERALD_WARRIOR -> GreenLanternConfig.WARRIOR_COOLDOWN_TICKS;
+			default -> 20;
 		};
 	}
 }

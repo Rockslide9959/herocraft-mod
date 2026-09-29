@@ -1,0 +1,55 @@
+Project Hero v0.14.3 -- Green Lantern Reforged
+
+GREEN LANTERN -- FULL REVAMP
+The ring now makes real shapes of hard light, and the Lantern moves with every one of them.
+
+New models for his moves
+- Construct Fist (G) is a giant fist of light that FLIES up to 20 blocks and smashes the first thing in its path (24 damage + splash).
+- War Hammer (Shift+G): a huge hammer forms over your head and swings down onto the ground ahead (26 damage, 10-block knock-up).
+- Ring Bolt and Continuous Beam are solid streaks and beams of light instead of sparkles.
+
+New attacks
+- Emerald Gatling (hold Shift+X): six spinning barrels of light on your fist, 10 bolts a second.
+- Missile Barrage (Shift+C): six homing hard-light missiles at the hostiles in front of you.
+- Giant Hand (H): a huge hand grabs what you aim at, crushes it, and H again hurls it into whatever is behind it.
+
+5 new constructs (19 total)
+- Buzzsaw: ricochets between up to 5 enemies, then flies back to you.
+- Anvil Drop: a giant anvil of light falls on the spot you aim at.
+- Chain Snare: chains burst from the ground and pin every hostile within 10 blocks.
+- Launch Pad: a springboard that flings anything ~25 blocks up (you and your squad land safely).
+- Emerald Warrior: a hard-light knight with sword and shield fights beside you for 30 seconds.
+
+Animations
+- Every ability has its own pose: the bolt kick, the punch, the two-handed hammer slam, the missile sweep, the wrist-gripped beam, the braced Gatling, the construct-shaping gesture, arms flung wide for the Dome, the fist raised while reciting the Oath and punched to the sky when it completes, and the suit-up.
+
+Construct wheel -- rebuilt
+- A real ring of light: every construct has its own icon, grouped into Attack / Defence / Mobility / Utility. The hovered wedge lifts out, and the centre shows its name, group and cost with a description underneath.
+
+HUD -- rebuilt
+- A framed panel: emblem, status tags (Oath / Flying / Suited), a segmented Ring Charge gauge, all 8 keys (R G X Z V C H N) with cooldowns and lit outlines, and your selected construct with its cost. Construct cooldowns, the shield/dome meter and ring removal stack above it with icons and bars.
+
+New ring
+- The ring on your hand has a band, a dark setting and a white-hot gem with a green glow that flares when you use it.
+- The Power Ring item is now a real 3D ring.
+
+Controls changes
+- N now dismisses every construct (was Shift+C). If you are carrying something on the Rescue Tether, the first N sets it down.
+- Hold Sneak + N for 5 seconds to take the ring off. The power leaves you and the ring goes back into your inventory, so you can put it back on or give it to someone else.
+
+Stronger
+- Resistance II (was I), suit +10 melee, Ring Bolt 18, Beam ~17 DPS, Fist 24, Hammer 26, Oath lasts 30 s, Shield 140 HP, Dome 400 HP, tougher Walls and Cages, harder-hitting Turret, Ram and Energy Blade.
+
+MOON KNIGHT
+- 30% faster in the suit, and he jumps clean over two blocks.
+- Grappling Line and Grapple Kick reach 100 blocks (was 60).
+- Cape Glide is much faster.
+- The X Dash now goes exactly where you aim: up, down or level.
+
+HULK
+- A rampaging Hulk no longer knows friend from foe. He can hurt his own squad-mates (PvP permitting).
+
+MAX STEEL
+- The HUD shows only the Turbo Mode you're in, not all five.
+
+Guidebook and ability menus are updated with all of the above.

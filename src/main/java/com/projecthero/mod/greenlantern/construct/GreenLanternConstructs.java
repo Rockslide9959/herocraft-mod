@@ -309,6 +309,10 @@ public final class GreenLanternConstructs {
 			java.util.EnumSet.of(ConstructType.MINING_DRILL, ConstructType.ENERGY_BLADE, ConstructType.CARRY_PLATFORM);
 
 	public static void deploy(ServerPlayer player, ConstructType type) {
+		// v0.14.3: Buzzsaw / Anvil Drop / Chain Snare / Launch Pad / Emerald Warrior are hard-light entities
+		if (com.projecthero.mod.greenlantern.GreenLanternConstructAttacks.deploy(player, type)) {
+			return;
+		}
 		if (type == ConstructType.BATTERING_RAM) {
 			batteringRam(player);
 			return;
@@ -391,6 +395,8 @@ public final class GreenLanternConstructs {
 			return;
 		}
 		BY_OWNER.computeIfAbsent(player.getUUID(), k -> new ArrayList<>()).add(c);
+		com.projecthero.mod.greenlantern.GreenLanternVisuals.anim(player,
+				com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_CONSTRUCT); // v0.14.3: the shaping gesture
 		startBuild(c);
 		if (type.kind() == ConstructType.Kind.TURRET) {
 			spawnTurretDisplays(c);
@@ -514,6 +520,8 @@ public final class GreenLanternConstructs {
 		String id = switch (type) {
 			case BATTERING_RAM -> "battering_ram";
 			case RESCUE_TETHER -> "rescue_tether";
+			case BUZZSAW, ANVIL_DROP, CHAIN_SNARE, EMERALD_WARRIOR ->
+					com.projecthero.mod.greenlantern.GreenLanternConstructAttacks.cooldownIdFor(type);
 			default -> cooldownIdFor(type);
 		};
 		return id == null ? 0 : GreenLantern.cooldownRemaining(player, id);
@@ -1461,7 +1469,7 @@ public final class GreenLanternConstructs {
 		syncHandConstructs(server, owner);
 	}
 
-	/** Shift+C -- dismiss every owned construct except the suit (the suit is never tracked here anyway). */
+	/** N (v0.14.3; was Shift+C) -- dismiss every owned construct except the suit (the suit is never tracked here anyway). */
 	public static void dismissRequested(ServerPlayer player) {
 		dismissAll(player.getUUID());
 		player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.constructs_dismissed"), true);
@@ -1487,6 +1495,9 @@ public final class GreenLanternConstructs {
 		}
 		tickRams(server);
 		long now = server.overworld().getGameTime();
+		if (now % 20 == 0) {
+			com.projecthero.mod.greenlantern.GreenLanternConstructAttacks.pruneLive(server);
+		}
 		for (Iterator<Map.Entry<UUID, List<Construct>>> ownerIt = BY_OWNER.entrySet().iterator(); ownerIt.hasNext();) {
 			Map.Entry<UUID, List<Construct>> entry = ownerIt.next();
 			ServerPlayer owner = server.getPlayerList().getPlayer(entry.getKey());
@@ -1682,13 +1693,13 @@ public final class GreenLanternConstructs {
 		c.level.playSound(null, muzzle.x, muzzle.y, muzzle.z, SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.35f, 2.0f);
 	}
 
-	private static boolean canSee(ServerLevel level, Vec3 from, LivingEntity e, ServerPlayer owner) {
+	public static boolean canSee(ServerLevel level, Vec3 from, LivingEntity e, ServerPlayer owner) {
 		Vec3 to = e.position().add(0, e.getBbHeight() * 0.6, 0);
 		return level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, owner))
 				.getType() == HitResult.Type.MISS;
 	}
 
-	private static boolean isHostileTarget(ServerPlayer owner, LivingEntity e) {
+	public static boolean isHostileTarget(ServerPlayer owner, LivingEntity e) {
 		if (e == owner || !e.isAlive()) {
 			return false;
 		}
