@@ -1,0 +1,43 @@
+Project Hero 0.13.21 -- Moon Knight rework, Green Lantern overhaul, Symbiote balance, new Hulk origin
+
+MOON KNIGHT
+- Three alter suits from new models: Marc, Steven (white Mr. Knight) and Jake, each with its own cape. Switching alter while suited rebuilds the new suit over the old one, pixel by pixel.
+- New keys: R Crescent Dart, G Grapple Kick, X Dash, Sneak+X Grappling Line, Z Moonbeam (hold: Eye of Khonshu, Sneak: Judgement), C Truncheon. V: tap for next alter, hold for the wheel, Sneak+V for the alter special.
+- In the suit: heal half a heart every 5 ticks, +7 melee, 20% less damage. Suiting up or down takes 1.5 s.
+- The suit goes on by itself after a hit over 10 damage or under 4 hearts.
+- Crescent Dart 5 -> 15 damage, 1 s cooldown. Other cooldowns about 35% shorter.
+- Hold right click to Cape Block: 30% less damage, no time limit.
+- Grappling Line reaches 60 blocks and pulls mobs to you.
+- Cape Glide: jump, then hold Sneak. You lean forward, the cape spreads into a triangle from arms to legs, and gliding into a mob kicks it for 12.
+
+GREEN LANTERN
+- The suit sweeps on one pixel row at a time, head to feet (feet to head when it comes off), over 1.5 s.
+- Directional flight: hold forward to fly where you look, including up and down, with creative-style strafe, Space, Sneak and hover. Boost (Sneak+Sprint) no longer sinks you.
+- A new 3D ring on your right hand, plus a new ring icon and a new lantern-shaped Power Battery.
+- Constructs are built from glowing hard-light blocks that build out and burst into sparks when they end. They can't be mined, blown up or pushed, and leftovers clean themselves up.
+- Platform works on the ground and catches you mid-fall. Ramp is real stairs. Lantern Light is a floating orb. Cage fits the target and pulls escapees back.
+- Sentry Turret is visible and only fires at what it can see. Battering Ram is a flying ram head (16 blocks). Rescue Tether shows its line. Atmosphere Bubble surrounds you and shares air with squadmates.
+- Energy Blade and Mining Drill show on your fist. Tool Kit tools never break.
+
+SYMBIOTE
+- At 0 Biomass the suit melts off. It stays off, and won't wrap you automatically, until Biomass is back to 20%.
+- Blade out = empty hand: items move into your inventory, never dropped.
+- Biomass regen was bugged to a quarter of its listed rate. It's now a real 8/s unsuited, 4/s suited, starting 3 s after combat.
+- Squadmates are safe: their hits never drain Biomass and your powers never target them. Only damage that lands drains Biomass.
+- Grapple 25 -> 30 blocks. Falls no longer drain Biomass.
+
+SYMBIOTE SPIDER-MAN (less tanky)
+- Armour 24/3 -> 20/2, Resistance II -> I while suited, revive cooldown 10 -> 20 min. Cleaner HUD panel.
+
+AGENT VENOM (a little less tanky)
+- Armour 24/3 -> 22/2.5, knockback resistance 25% -> 15%, Unleashed life steal 30% -> 20%, revive 10 -> 20 min. Cleaner HUD panel.
+
+HULK
+- New origin: drink the Gamma Serum, then right-click the Gamma Reactor. It goes critical and explodes, far bigger than TNT. The gamma in your blood lets you walk out of the crater as the Hulk.
+
+APOKOLIPS INVASION
+- Parademons are back to their original strength. Existing configs update automatically.
+
+FIXES
+- "/projecthero power remove all" now removes hero powers too, not just mutations.
+- Guidebook and menus updated.
