@@ -639,14 +639,32 @@ public class HulkGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void drinkingTheGammaSerumGrantsThePower(GameTestHelper helper) {
+	public void drinkingTheGammaSerumDosesButDoesNotGrant(GameTestHelper helper) {
 		ServerPlayer p = helper.makeMockServerPlayerInLevel();
 		p.setGameMode(GameType.SURVIVAL);
 		p.getAbilities().instabuild = false;
 		ItemStack serum = new ItemStack(com.projecthero.mod.hulk.item.HulkItems.GAMMA_SERUM);
 		ItemStack left = serum.getItem().finishUsingItem(serum, helper.getLevel(), p);
-		helper.assertTrue(Hulk.hasPower(p), "the serum gives the Gamma power");
+		helper.assertFalse(Hulk.hasPower(p), "v0.13.21: the serum alone no longer gives the power");
+		helper.assertTrue(com.projecthero.mod.hulk.GammaOverload.isDosed(p), "it doses the drinker");
 		helper.assertTrue(left.is(Items.GLASS_BOTTLE), "and leaves an empty bottle");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aDosedPlayerOverloadsTheReactor(GameTestHelper helper) {
+		ServerPlayer p = helper.makeMockServerPlayerInLevel();
+		var at = net.minecraft.core.BlockPos.containing(p.position()).offset(2, 0, 0);
+		helper.getLevel().setBlock(at, com.projecthero.mod.hulk.item.HulkItems.GAMMA_REACTOR.defaultBlockState(), 2);
+		com.projecthero.mod.hulk.GammaOverload.onReactorUsed(p, at);
+		helper.assertFalse(com.projecthero.mod.hulk.GammaOverload.overloading(at), "no serum in the blood: nothing happens");
+		com.projecthero.mod.hulk.GammaOverload.setDosed(p, true);
+		com.projecthero.mod.hulk.GammaOverload.onReactorUsed(p, at);
+		boolean started = com.projecthero.mod.hulk.GammaOverload.overloading(at);
+		// never let it actually go off in the test world
+		com.projecthero.mod.hulk.GammaOverload.cancel(at);
+		helper.assertTrue(started, "dosed: the reactor goes critical");
+		helper.assertFalse(com.projecthero.mod.hulk.GammaOverload.isDosed(p), "the dose is spent");
 		helper.succeed();
 	}
 

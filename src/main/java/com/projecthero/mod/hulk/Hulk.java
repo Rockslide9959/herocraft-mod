@@ -80,6 +80,7 @@ public final class Hulk {
 		HulkGrab.clearSessionState();
 		HulkControl.clearSessionState();
 		HulkCalm.clearSessionState();
+		GammaOverload.clearSessionState();
 	}
 
 	// ---------------------------------------------------------------- state

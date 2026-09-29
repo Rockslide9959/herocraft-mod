@@ -282,13 +282,13 @@ public class DarkseidRaidGameTests implements FabricGameTest {
 				+ "\"boss\":{\"globalCooldownTicks\":30,\"baseDarkseidHealth\":4000.0},"
 				+ "\"abilities\":{\"omegaBeamCooldown\":220,\"reinforcementCooldown\":520,\"omegaBeamDamage\":20.0},"
 				+ "\"parademons\":{\"standardHealth\":30.0,\"bruteDamage\":15.0}}");
-		helper.assertTrue(c.configVersion == 2, "migrated to v2, got " + c.configVersion);
+		helper.assertTrue(c.configVersion == 3, "migrated to v3, got " + c.configVersion);
 		helper.assertTrue(c.raid.enemyCap == 34 && c.raid.wave1Standard == 11 && c.raid.wave3Elite == 5, "wave numbers moved");
 		helper.assertTrue(c.raid.invasionWaves == 5 && c.raid.wave5Brute > 0, "new keys arrive at their defaults");
 		helper.assertTrue(c.boss.globalCooldownTicks == 19, "shared cooldown moved, got " + c.boss.globalCooldownTicks);
 		helper.assertTrue(c.abilities.omegaBeamCooldown == 140 && c.abilities.reinforcementCooldown == 400, "beam/reinforcement cooldowns moved");
-		helper.assertTrue(Math.abs(c.parademons.standardHealth - 36.0) < 1e-6 && Math.abs(c.parademons.bruteDamage - 17.25) < 1e-6,
-				"Parademons +20% health / +15% damage");
+		helper.assertTrue(Math.abs(c.parademons.standardHealth - 30.0) < 1e-6 && Math.abs(c.parademons.bruteDamage - 15.0) < 1e-6,
+				"Parademons at their (v0.13.21 restored) original strength");
 		helper.assertTrue(c.raid.maxParticipants == 6 && Math.abs(c.boss.baseDarkseidHealth - 4000.0) < 1e-6
 				&& Math.abs(c.abilities.omegaBeamDamage - 20.0f) < 1e-6, "keys this pass did not touch keep the file's values");
 		helper.assertTrue(c.motherBoxes.fightReactivateMinSeconds == 70 && c.motherBoxes.fightReactivateMaxSeconds == 100,
@@ -297,12 +297,25 @@ public class DarkseidRaidGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void parademonsAreTougherThanBefore(GameTestHelper helper) {
+	public void aVersionTwoConfigFileGetsTheOriginalParademons(GameTestHelper helper) {
+		DarkseidConfig c = DarkseidConfig.migrateForTest("{\"configVersion\":2,"
+				+ "\"raid\":{\"enemyCap\":34,\"wave1Standard\":11},"
+				+ "\"parademons\":{\"standardHealth\":36.0,\"standardDamage\":6.9,\"bruteHealth\":120.0,\"rangedBoltDamage\":5.75}}");
+		helper.assertTrue(c.configVersion == 3, "migrated to v3, got " + c.configVersion);
+		helper.assertTrue(Math.abs(c.parademons.standardHealth - 30.0) < 1e-6 && Math.abs(c.parademons.standardDamage - 6.0) < 1e-6
+				&& Math.abs(c.parademons.bruteHealth - 100.0) < 1e-6 && Math.abs(c.parademons.rangedBoltDamage - 5.0f) < 1e-6,
+				"Parademon stats back to v0.13.18");
+		helper.assertTrue(c.raid.enemyCap == 34 && c.raid.wave1Standard == 11, "wave numbers untouched");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void parademonsAreBackToTheirOriginalStrength(GameTestHelper helper) {
 		DarkseidConfig.Parademons cfg = DarkseidConfig.parademons();
-		helper.assertTrue(cfg.standardHealth >= 30.0 * 1.2 - 1e-6 && cfg.eliteHealth >= 60.0 * 1.2 - 1e-6
-				&& cfg.bruteHealth >= 100.0 * 1.2 - 1e-6 && cfg.rangedHealth >= 24.0 * 1.2 - 1e-6, "+20% health");
-		helper.assertTrue(cfg.standardDamage >= 6.0 * 1.15 - 1e-6 && cfg.eliteDamage >= 10.0 * 1.15 - 1e-6
-				&& cfg.bruteDamage >= 15.0 * 1.15 - 1e-6 && cfg.rangedBoltDamage >= 5.0f * 1.15f - 1e-4, "+15% damage");
+		helper.assertTrue(cfg.standardHealth == 30.0 && cfg.eliteHealth == 60.0 && cfg.bruteHealth == 100.0
+				&& cfg.rangedHealth == 24.0, "v0.13.18 health");
+		helper.assertTrue(cfg.standardDamage == 6.0 && cfg.eliteDamage == 10.0 && cfg.bruteDamage == 15.0
+				&& cfg.rangedBoltDamage == 5.0f, "v0.13.18 damage");
 		ParademonEntity elite = DarkseidEntityTypes.PARADEMON.create(helper.getLevel());
 		elite.setup(ParademonEntity.Variant.ELITE, null);
 		helper.assertTrue(Math.abs(elite.getMaxHealth() - (float) cfg.eliteHealth) < 0.01f, "setup applies the new health");

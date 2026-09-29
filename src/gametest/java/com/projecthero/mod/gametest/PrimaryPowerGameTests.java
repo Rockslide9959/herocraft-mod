@@ -137,4 +137,19 @@ public class PrimaryPowerGameTests implements FabricGameTest {
 		helper.assertTrue(Worthiness.wouldAscend(player, free), "a free hammer still ascends the lifter");
 		helper.succeed();
 	}
+
+	/** v0.13.21: "/projecthero power remove all" used to clear only the mutations, leaving every Hero-Tier power. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void removeAllStripsHeroTierPowersToo(GameTestHelper helper) {
+		ServerPlayer player = helper.makeMockServerPlayerInLevel();
+		helper.assertTrue(com.projecthero.mod.hulk.Hulk.grant(player), "Gamma granted");
+		helper.assertTrue(TonyStark.grant(player), "Tony Stark granted");
+		var server = helper.getLevel().getServer();
+		server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withEntity(player).withSuppressedOutput(),
+				"projecthero power remove all");
+		helper.assertFalse(com.projecthero.mod.hulk.Hulk.hasPower(player), "Hulk removed");
+		helper.assertFalse(TonyStark.hasPower(player), "Tony Stark removed");
+		helper.assertFalse(com.projecthero.mod.hero.HeroTiers.hasHeroTier(player), "no Hero-Tier power left");
+		helper.succeed();
+	}
 }

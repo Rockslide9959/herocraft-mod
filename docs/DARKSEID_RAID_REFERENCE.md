@@ -96,8 +96,8 @@ between wave 3 and the entrance; the stage is saved by name, so a v0.13.18 save 
 waves 4 and 5). The raid bar reads "Wave n/5", `status` shows "(n/5)", and `advancetimer` clears any of the five.
 `DarkseidRaid.waveComposition(n)` / `waveCount()` are the single source of the wave table.
 
-**Parademons.** +20% health / +15% damage (standard 36 HP / 6.9, ranged 28.8 HP / 5.75 bolt, elite 72 / 11.5, brute
-120 / 17.25). Gunners never stand still to shoot: on the ground they strafe around their target at
+**Parademons.** v0.13.21: back to the v0.13.18 stats (standard 30 HP / 6, ranged 24 HP / 5 bolt, elite 60 / 10, brute
+100 / 15; v0.13.19-20 ran +20% health / +15% damage, config v3 migrates a v2 file). Gunners never stand still to shoot: on the ground they strafe around their target at
 `parademons.rangedPreferredRange` (10) using vanilla's strafe move-control (backing off inside 6.5 blocks, closing in
 beyond 13.5, pathing in when out of sight or beyond 18); in the air they orbit it with a vertical bob. The strafe direction
 flips every 1-3 s and on bumping into something; they fire on the move.

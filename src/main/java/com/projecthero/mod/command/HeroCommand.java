@@ -235,13 +235,20 @@ public final class HeroCommand {
 			return revokeHeroByKey(c, target, rawKey);
 		}
 		if (rawKey.equalsIgnoreCase("all")) {
-			int owned = ExperimentalPowers.state(target).ownedPowers.size();
-			ExperimentalPowers.setActive(target, null);
-			if (com.projecthero.mod.hero.power.HeroFlight.isFlying(target)) {
-				com.projecthero.mod.hero.power.HeroFlight.setFlying(target, false);
+			// v0.13.21: "all" used to clear only the mutations, leaving every Hero-Tier power (Thor, Hulk, Moon
+			// Knight, the Symbiote...) in place -- which is why "remove all" looked like it did nothing. Tear each
+			// held Hero-Tier power down through its own revoke first, then the mutations.
+			int heroes = 0;
+			for (String hero : HERO_TIER_KEYS) {
+				if (com.projecthero.mod.hero.PowerGrants.holdsHeroTier(target, hero)) {
+					revokeHeroTier(target, hero);
+					heroes++;
+				}
 			}
-			ExperimentalPowers.clearAll(target);
-			com.projecthero.mod.hero.PowerPassives.reconcileActive(target);
+			int owned = ExperimentalPowers.state(target).ownedPowers.size() + heroes;
+			// stands the active mutation down, stops hero flight, clears every mutation and re-saves the
+			// Primary-slot order the revokes above just emptied
+			com.projecthero.mod.hero.HeroTiers.wipeAll(target);
 			final int removed = owned;
 			c.getSource().sendSuccess(() -> Component.literal("Revoked all " + removed + " power(s) from "
 					+ target.getGameProfile().getName()), true);
@@ -295,6 +302,17 @@ public final class HeroCommand {
 
 	private static int revokeHeroByKey(CommandContext<CommandSourceStack> c, ServerPlayer target, String hero) {
 		String name = target.getGameProfile().getName();
+		if (!revokeHeroTier(target, hero)) {
+			c.getSource().sendFailure(Component.literal(
+					"Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel, punisher, green_lantern, wolverine, titan_shifter, all_might, hulk, moon_knight, symbiote)"));
+			return 0;
+		}
+		c.getSource().sendSuccess(() -> Component.literal("Revoked " + hero + " from " + name), true);
+		return 1;
+	}
+
+	/** Tear one Hero-Tier power down; false for an unknown key. */
+	private static boolean revokeHeroTier(ServerPlayer target, String hero) {
 		switch (hero) {
 			case "thor" -> com.projecthero.mod.power.ThorPowers.revokePower(target);
 			case "iron_man" -> TonyStark.revoke(target);
@@ -309,13 +327,10 @@ public final class HeroCommand {
 			case "moon_knight" -> com.projecthero.mod.moonknight.MoonKnight.revoke(target);
 			case "symbiote" -> com.projecthero.mod.symbiote.Symbiote.remove(target);
 			default -> {
-				c.getSource().sendFailure(Component.literal(
-						"Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel, punisher, green_lantern, wolverine, titan_shifter, all_might, hulk, moon_knight, symbiote)"));
-				return 0;
+				return false;
 			}
 		}
-		c.getSource().sendSuccess(() -> Component.literal("Revoked " + hero + " from " + name), true);
-		return 1;
+		return true;
 	}
 
 	private static int active(CommandContext<CommandSourceStack> c, ServerPlayer target) {

@@ -135,7 +135,8 @@ Use a **Vestige of One For All**. **H** swaps between your Base Form and a tower
   from your locker (**N**).
 
 ### 💚 The Hulk
-Find a ruined **Gamma Lab** and drink the **Gamma Serum**.
+Find a ruined **Gamma Lab**, drink the **Gamma Serum**, then right-click the **Gamma Reactor** -- it goes critical and
+explodes, and the Gamma in your blood lets you walk out of the crater as the Hulk.
 - Rage builds as you get hurt. Let the Hulk out at 75 (**H**), or at 100 he takes over: you drop to your knees and he
   rises roaring.
 - 1.8x size, 20-damage punches, his own armour, fast regeneration, immunity to fire, arrows, falls and webs.

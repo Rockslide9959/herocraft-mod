@@ -8,6 +8,7 @@ Package `com.projecthero.mod.hulk`. Hero-Tier key `hulk` (the spec's "Gamma powe
 | 2 | Abilities: Thunderclap, Ground Smash, Super Leap, Sprint Smash, keys, cooldowns + HUD, JSON config | v0.13.12 |
 | 3 | Looks: the user's Hulk model (GeckoLib, drawn in place of the player), animations, hidden armour, roar + shake | v0.13.12 |
 | 4 | Origin: Gamma Serum (loot only), rare Gamma Lab ruin with a glowing Gamma Reactor block | v0.13.12 |
+| - | v0.13.21: the serum only doses you (`GAMMA_DOSED` attachment); right-clicking a Gamma Reactor then overloads it (`hulk/GammaOverload`: 3 s charge, core blast power 18, ring of 8 power-9 blasts at 14 blocks, power-12 after-blast; BLOCK interaction so drop decay applies). The power is granted at detonation with a 10 s explosion/fall/fire shield, and the Hulk comes out | v0.13.21 |
 | 5 | Balance + polish: Thor / Mjolnir rules, lifecycle, conflicts with other growing powers | v0.13.12 |
 | - | Overhaul: new kit, passives, death save, riding, calm minigame, control / rampage, HUD | v0.13.14 |
 | - | Willing vs unwilling change, kneeling change, cross-fade, rage glow, Banner HUD | v0.13.15 |

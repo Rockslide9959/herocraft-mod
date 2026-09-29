@@ -416,6 +416,14 @@ public final class ModAttachments {
 							.initializer(() -> net.minecraft.world.item.component.ItemContainerContents.EMPTY));
 
 	/**
+	 * v0.13.21: the Gamma Serum is in this player's blood -- right-clicking a Gamma Reactor now overloads it and grants
+	 * the Gamma power ({@code hulk.GammaOverload}). Persistent and kept through death (the serum is loot-only).
+	 */
+	public static final AttachmentType<Boolean> GAMMA_DOSED = AttachmentRegistry.create(
+			ProjectHeroMod.id("gamma_dosed"),
+			builder -> builder.persistent(com.mojang.serialization.Codec.BOOL).copyOnDeath().initializer(() -> false));
+
+	/**
 	 * v0.13.11: the Hulk -- the Gamma power, the rage meter and whether he is out. Persistent, kept through
 	 * death, synced to every client (others need to see the Hulk; the owner's HUD draws the rage bar).
 	 */

@@ -28,10 +28,13 @@ import net.fabricmc.loader.api.FabricLoader;
  * weight 4.5/6 -> 7/8.5) and zig-zagging, Boom Tube Reinforcements more often (cooldown 26 s -> 20 s, weight 2 -> 2.5),
  * and Mother Boxes coming back online during the fight. {@link #load} moves a v1
  * file's changed values to the new defaults; everything else in the file is kept.
+ *
+ * <p>v0.13.21: version 3 -- Parademons back to their v0.13.18 strength (the +20% health / +15% damage is gone; the
+ * five waves and the gunners' strafing stay). A v2 file's Parademon stats move to the restored defaults.
  */
 public final class DarkseidConfig {
 	/** Bump when a default changes in a way existing files must pick up (and migrate in {@link #load}). */
-	private static final int CONFIG_VERSION = 2;
+	private static final int CONFIG_VERSION = 3;
 
 	private static DarkseidConfig instance = new DarkseidConfig();
 
@@ -259,15 +262,16 @@ public final class DarkseidConfig {
 
 	/** Parademon stats per variant. */
 	public static final class Parademons {
-		// v0.13.19: +20% health, +15% damage (v0.13.18: 30/6, 24/5, 60/10, 100/15)
-		public double standardHealth = 36.0;
-		public double standardDamage = 6.9;
-		public double rangedHealth = 28.8;
-		public float rangedBoltDamage = 5.75f;
-		public double eliteHealth = 72.0;
-		public double eliteDamage = 11.5;
-		public double bruteHealth = 120.0;
-		public double bruteDamage = 17.25;
+		// v0.13.21: back to the v0.13.18 numbers (v0.13.19-20 ran +20% health / +15% damage: 36/6.9, 28.8/5.75,
+		// 72/11.5, 120/17.25)
+		public double standardHealth = 30.0;
+		public double standardDamage = 6.0;
+		public double rangedHealth = 24.0;
+		public float rangedBoltDamage = 5.0f;
+		public double eliteHealth = 60.0;
+		public double eliteDamage = 10.0;
+		public double bruteHealth = 100.0;
+		public double bruteDamage = 15.0;
 		/** v0.13.19: the distance gunners circle their target at while strafing and firing. */
 		public double rangedPreferredRange = 10.0;
 		/** Blocks per tick while flying after an airborne target. */
@@ -345,6 +349,20 @@ public final class DarkseidConfig {
 			c.abilities.omegaBeamCooldown = d.omegaBeamCooldown;
 			c.abilities.reinforcementCooldown = d.reinforcementCooldown;
 		}
+		migrateParademonStats(c);
+	}
+
+	/**
+	 * v2 -> v3 (v0.13.21): the Parademons go back to their v0.13.18 stats; nothing else in the file changes.
+	 * Package-visible for the gametest.
+	 */
+	static void migrateToV3(DarkseidConfig c) {
+		ProjectHeroMod.LOGGER.info("[ProjectHero] Darkseid Raid config v{} -> v{}: v0.13.21 Parademons back to their"
+				+ " original strength", c.configVersion, CONFIG_VERSION);
+		migrateParademonStats(c);
+	}
+
+	private static void migrateParademonStats(DarkseidConfig c) {
 		if (c.parademons != null) {
 			Parademons d = new Parademons();
 			c.parademons.standardHealth = d.standardHealth;
@@ -366,6 +384,9 @@ public final class DarkseidConfig {
 		if (c.configVersion != null && c.configVersion < 2) {
 			migrateToV2(c);
 			c.configVersion = CONFIG_VERSION;
+		} else if (c.configVersion != null && c.configVersion < 3) {
+			migrateToV3(c);
+			c.configVersion = CONFIG_VERSION;
 		}
 		return c;
 	}
@@ -385,6 +406,9 @@ public final class DarkseidConfig {
 				instance.configVersion = CONFIG_VERSION;
 			} else if (instance.configVersion < 2) {
 				migrateToV2(instance);
+				instance.configVersion = CONFIG_VERSION;
+			} else if (instance.configVersion < 3) {
+				migrateToV3(instance);
 				instance.configVersion = CONFIG_VERSION;
 			}
 			// Sections added by a later version land at their defaults rather than null.
