@@ -84,9 +84,11 @@ public final class AbilityHud {
 
 		int screenW = graphics.guiWidth();
 		int screenH = graphics.guiHeight();
-		int totalW = 6 * BOX + 5 * GAP;
+		int slots = power.abilities().size(); // 6, or 8 with the H / N utility slots (v0.13.22)
+		int totalW = slots * BOX + (slots - 1) * GAP + (slots > 6 ? UTILITY_GAP : 0);
 		int x0 = screenW - MARGIN - totalW;
-		int barsBlock = meters.isEmpty() ? 0 : meters.size() * BAR_ROW_H + 4;
+		int slabs = (int) meters.stream().filter(m -> m.style == com.projecthero.mod.hero.visual.MutationMeters.Style.SLAB).count();
+		int barsBlock = meters.isEmpty() ? 0 : meters.size() * BAR_ROW_H + slabs * 2 + 4;
 		int y0 = screenH - MARGIN - BOX - barsBlock;
 
 		long gameTime = client.level != null ? client.level.getGameTime() : 0L;
@@ -95,10 +97,10 @@ public final class AbilityHud {
 		// Power name above the row.
 		graphics.drawString(client.font, Component.translatable(power.nameKey()), x0, y0 - 10, 0xFFD8D8F0);
 
-		for (int i = 0; i < 6; i++) {
+		for (int i = 0; i < slots; i++) {
 			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
 			Ability ability = power.ability(slot);
-			int x = x0 + i * (BOX + GAP);
+			int x = x0 + i * (BOX + GAP) + (slot.isUtility() ? UTILITY_GAP : 0);
 
 			boolean toggled = ability.activation() == AbilityActivation.TOGGLE
 					&& state.activeToggles.contains(power.key() + "/" + ability.id());
@@ -117,7 +119,7 @@ public final class AbilityHud {
 			int border = toggled ? COLOR_BORDER_ACTIVE : COLOR_BORDER;
 			graphics.renderOutline(x, y0, BOX, BOX, border);
 
-			graphics.drawString(client.font, String.valueOf(slot.defaultKey()), x + 2, y0 + 2, COLOR_KEY, false);
+			graphics.drawString(client.font, keyLabel(i), x + 2, y0 + 2, slot.isUtility() ? COLOR_KEY_UTILITY : COLOR_KEY, false);
 
 			if (cdRemain > 0) {
 				graphics.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, COLOR_COOLDOWN);
@@ -151,11 +153,29 @@ public final class AbilityHud {
 			graphics.drawString(client.font, line, x0, y0 - 20, col);
 		}
 
-		int bw = 6 * BOX + 5 * GAP;
+		int bw = totalW;
 		int barY = y0 + BOX + 4;
 		for (Meter m : meters) {
 			float ratio = Math.max(0.0f, Math.min(1.0f, m.value / m.max));
-			if (m.hairline) {
+			if (m.style == com.projecthero.mod.hero.visual.MutationMeters.Style.SLAB) {
+				// Slab: a thick 7 px bar
+				graphics.fill(x0 - 1, barY - 1, x0 + bw + 1, barY + 7, COLOR_BORDER);
+				graphics.fill(x0, barY, x0 + bw, barY + 6, 0xAA101018);
+				graphics.fill(x0, barY, x0 + Math.round(bw * ratio), barY + 6, m.color);
+				graphics.drawString(client.font, m.label, x0, barY + 7, 0xFF9AA6D0, false);
+				barY += BAR_ROW_H + 2;
+				continue;
+			}
+			if (m.style == com.projecthero.mod.hero.visual.MutationMeters.Style.GAUGE) {
+				// Gauge: ten separate cells
+				int cells = 10;
+				int cw = (bw - (cells - 1)) / cells;
+				int lit = (int) Math.ceil(ratio * cells - 1e-4);
+				for (int c = 0; c < cells; c++) {
+					int cx = x0 + c * (cw + 1);
+					graphics.fill(cx, barY, cx + cw, barY + 4, c < lit ? m.color : 0xAA101018);
+				}
+			} else if (m.hairline) {
 				// v0.13.11: a Hairline bar -- 3 px, no border (Pyrokinesis)
 				graphics.fill(x0, barY + 1, x0 + bw, barY + 4, 0xAA101018);
 				graphics.fill(x0, barY + 1, x0 + Math.round(bw * ratio), barY + 4, m.color);
@@ -170,7 +190,25 @@ public final class AbilityHud {
 	}
 
 	/** {@code hairline}: drawn as a borderless 3 px Hairline bar instead of the bordered Meter bar. */
-	private record Meter(Component label, float value, float max, int color, boolean hairline) {
+	private record Meter(Component label, float value, float max, int color, boolean hairline,
+			com.projecthero.mod.hero.visual.MutationMeters.Style style) {
+		Meter(Component label, float value, float max, int color, boolean hairline) {
+			this(label, value, max, color, hairline, hairline ? com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE
+					: com.projecthero.mod.hero.visual.MutationMeters.Style.METER);
+		}
+	}
+
+	/** v0.13.22: a small gap sets the two utility boxes (H / N) apart from the six core keys. */
+	private static final int UTILITY_GAP = 4;
+	private static final int COLOR_KEY_UTILITY = 0xFFE0C890;
+
+	/** The key actually bound to slot {@code i} (tracks rebinds; H / N are the Utility 1 / 2 keys). */
+	private static String keyLabel(int i) {
+		net.minecraft.client.KeyMapping km = i < 6 ? com.projecthero.mod.client.ModKeyBindings.ABILITY_SLOTS[i]
+				: i == 6 ? com.projecthero.mod.client.ModKeyBindings.POWER_SELECT
+				: com.projecthero.mod.client.ModKeyBindings.MAX_STEEL_TRANSFORM;
+		String text = km.getTranslatedKeyMessage().getString();
+		return text.length() > 2 ? text.substring(0, 2) : text;
 	}
 
 	/** v0.13.11: powers whose bars are all Hairline bars. */
@@ -277,6 +315,22 @@ public final class AbilityHud {
 				continue;
 			}
 			String name = e.getKey().substring(prefix.length());
+			com.projecthero.mod.hero.visual.MutationMeters.Spec spec =
+					com.projecthero.mod.hero.visual.MutationMeters.get(power.key(), name);
+			if (spec != null) {
+				float v = e.getValue();
+				boolean visible = spec.always() || switch (spec.kind()) {
+					case RESERVE -> v < spec.max() - 1.0f;
+					case BUILD, TIMER -> v > 0.5f;
+				};
+				if (visible) {
+					String text = spec.label() + (spec.showValue()
+							? "  " + Math.round(Math.max(0f, Math.min(1f, v / spec.max())) * 100) + "%" : "");
+					out.add(new Meter(Component.literal(text), v, spec.max(), spec.color(),
+							spec.style() == com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE, spec.style()));
+				}
+				continue;
+			}
 			Kind kind = kindOf(name);
 			if (kind == null) {
 				continue; // bookkeeping: a flag, an entity id, a packed position, a tick counter

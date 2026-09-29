@@ -42,7 +42,7 @@ public final class MoonKnightAbilityManager {
 			case SLOT_3 -> MoonKnightDash.INSTANCE;      // X
 			case SLOT_4 -> MoonKnightKhonshu.INSTANCE;   // Z
 			case SLOT_5 -> MoonKnightAlters.INSTANCE;    // V
-			case SLOT_6 -> MoonKnightTruncheon.INSTANCE; // C
+			case SLOT_6, SLOT_7, SLOT_8 -> MoonKnightTruncheon.INSTANCE; // H / N are mutation-only (v0.13.22); never routed here // C
 		};
 	}
 

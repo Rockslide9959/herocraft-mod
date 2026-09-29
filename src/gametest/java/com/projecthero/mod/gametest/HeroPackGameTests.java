@@ -43,7 +43,8 @@ public class HeroPackGameTests implements FabricGameTest {
 	public void allPowersRegisteredWithSixAbilities(GameTestHelper helper) {
 		helper.assertTrue(Powers.count() == 27, "Expected 27 experimental powers, got " + Powers.count());
 		for (Power p : Powers.all()) {
-			helper.assertTrue(p.abilities().size() == 6, p.key() + " must have exactly 6 abilities");
+			// v0.13.22: every mutation now has the two H / N utility abilities as well
+			helper.assertTrue(p.abilities().size() == 8, p.key() + " must have 8 abilities (6 + H / N)");
 			for (AbilitySlot slot : AbilitySlot.values()) {
 				Ability a = p.ability(slot);
 				helper.assertTrue(a != null && a.slot() == slot, p.key() + " slot " + slot + " mismapped");

@@ -32,10 +32,21 @@ public final class AbilityRouter {
 	}
 
 	public static void handleInput(ServerPlayer player, int slotNumber, boolean pressed) {
-		if (slotNumber < 1 || slotNumber > 6) {
+		if (slotNumber < 1 || slotNumber > 8) {
 			return;
 		}
 		AbilitySlot slot = AbilitySlot.byNumber(slotNumber);
+		if (slot.isUtility()) {
+			// v0.13.22: H / N (slots 7-8) are mutation-only -- the client only sends them when no Hero-Tier power
+			// owns the key (or with Alt held), so they skip the whole hero chain and go straight to the mutation.
+			if (com.projecthero.mod.ironman.ProtocolPhoenix.incapacitated(player)
+					|| com.projecthero.mod.titanshifter.TitanShifter.phase(player).insideForm()
+					|| com.projecthero.mod.hulk.Hulk.isHulk(player)) {
+				return;
+			}
+			dispatchExperimental(player, slot, pressed);
+			return;
+		}
 
 		// "changes 17": while Protocol Phoenix has the player incapacitated, no ability of any system
 		// can be activated -- the emergency suit is inbound and the pilot is a passenger.
@@ -154,12 +165,20 @@ public final class AbilityRouter {
 			return;
 		}
 
+		dispatchExperimental(player, slot, pressed);
+	}
+
+	/** Hands one slot edge to the selected experimental power's handler (cooldown / activation-mode aware). */
+	public static void dispatchExperimental(ServerPlayer player, AbilitySlot slot, boolean pressed) {
 		Power active = ExperimentalPowers.getActive(player);
 		if (active == null || !ExperimentalPowers.owns(player, active)) {
 			return;
 		}
 
 		Ability ability = active.ability(slot);
+		if (ability == null) {
+			return;
+		}
 		AbilityHandler handler = AbilityHandlers.get(active, ability);
 		AbilityContext ctx = new AbilityContext(player, active, ability, pressed);
 
@@ -212,6 +231,8 @@ public final class AbilityRouter {
 	/** Called once per player per server tick (from {@code ProjectHeroMod}). */
 	public static void serverTick(ServerPlayer player) {
 		ExperimentalPowers.serverTick(player);
+		// v0.13.22: re-evaluate the mutation overlay flags everyone else sees (cheap: every 4th tick, syncs on change)
+		com.projecthero.mod.hero.visual.MutationVisuals.tick(player);
 		// Spider-Man's own upkeep runs regardless of which power holds the slots, because his
 		// passives do too.
 		com.projecthero.mod.spider.SpiderManAbilityManager.serverTick(player);

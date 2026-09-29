@@ -57,7 +57,7 @@ public final class AllMightAbilityManager {
 			case SLOT_2 -> AllMightAbilities.texas(player);
 			case SLOT_3 -> AllMightAbilities.leap(player);
 			case SLOT_5 -> AllMightAbilities.carolina(player);
-			case SLOT_6 -> AllMightAbilities.plusUltra(player);
+			case SLOT_6, SLOT_7, SLOT_8 -> AllMightAbilities.plusUltra(player); // H / N are mutation-only (v0.13.22); never routed here
 			default -> {
 			}
 		}
@@ -79,7 +79,7 @@ public final class AllMightAbilityManager {
 			case SLOT_3 -> AllMightAbilities.LEAP;
 			case SLOT_4 -> AllMightAbilities.UNITED_STATES;
 			case SLOT_5 -> AllMightAbilities.CAROLINA;
-			case SLOT_6 -> AllMightAbilities.PLUS_ULTRA;
+			case SLOT_6, SLOT_7, SLOT_8 -> AllMightAbilities.PLUS_ULTRA; // H / N are mutation-only (v0.13.22); never routed here
 		};
 	}
 

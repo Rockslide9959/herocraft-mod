@@ -81,7 +81,7 @@ public final class HulkAbilityManager {
 			case SLOT_3 -> HulkAbilities.SUPER_LEAP;
 			case SLOT_4 -> HulkAbilities.THUNDERCLAP;
 			case SLOT_5 -> HulkAbilities.GRAB;
-			case SLOT_6 -> HulkAbilities.CHARGE;
+			case SLOT_6, SLOT_7, SLOT_8 -> HulkAbilities.CHARGE; // H / N are mutation-only (v0.13.22); never routed here
 		};
 	}
 

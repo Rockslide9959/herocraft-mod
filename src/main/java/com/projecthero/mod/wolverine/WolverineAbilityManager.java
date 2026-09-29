@@ -55,7 +55,7 @@ public final class WolverineAbilityManager {
 			case SLOT_2 -> WolverineAbilities.crossSlash(player);
 			case SLOT_3 -> WolverineAbilities.clawDash(player);
 			case SLOT_5 -> WolverineAbilities.frenzy(player);
-			case SLOT_6 -> WolverineAbilities.berserkerRage(player);
+			case SLOT_6, SLOT_7, SLOT_8 -> WolverineAbilities.berserkerRage(player); // H / N are mutation-only (v0.13.22); never routed here
 			default -> {
 			}
 		}
@@ -81,7 +81,7 @@ public final class WolverineAbilityManager {
 			case SLOT_3 -> WolverineAbilities.DASH;
 			case SLOT_4 -> WolverineAbilities.EXECUTION;
 			case SLOT_5 -> WolverineAbilities.FRENZY;
-			case SLOT_6 -> WolverineAbilities.RAGE;
+			case SLOT_6, SLOT_7, SLOT_8 -> WolverineAbilities.RAGE; // H / N are mutation-only (v0.13.22); never routed here
 		};
 	}
 
@@ -93,7 +93,7 @@ public final class WolverineAbilityManager {
 			case SLOT_3 -> WolverineConfig.DASH_COOLDOWN;
 			case SLOT_4 -> WolverineConfig.EXECUTION_COOLDOWN;
 			case SLOT_5 -> WolverineConfig.FRENZY_COOLDOWN;
-			case SLOT_6 -> 0; // the rage bar gates it, not a cooldown
+			case SLOT_6, SLOT_7, SLOT_8 -> 0; // H / N are mutation-only (v0.13.22); never routed here // the rage bar gates it, not a cooldown
 		};
 	}
 }

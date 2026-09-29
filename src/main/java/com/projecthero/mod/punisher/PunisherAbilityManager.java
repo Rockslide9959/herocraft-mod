@@ -131,7 +131,7 @@ public final class PunisherAbilityManager {
 			case SLOT_3 -> PunisherRoll.ABILITY;
 			case SLOT_4 -> PunisherSuppressive.ABILITY;
 			case SLOT_5 -> PunisherAdrenaline.ABILITY;
-			case SLOT_6 -> PunisherC4.ABILITY;
+			case SLOT_6, SLOT_7, SLOT_8 -> PunisherC4.ABILITY; // H / N are mutation-only (v0.13.22); never routed here
 		};
 	}
 }

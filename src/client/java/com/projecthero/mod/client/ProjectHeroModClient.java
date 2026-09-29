@@ -72,6 +72,13 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		ModKeyBindings.initialize();
 		ModEntityRenderers.initialize();
+		// v0.13.22: mutation move animations + per-batch client registration (poses, overlays, renderers)
+		com.projecthero.mod.client.mutation.MutationPoseLibrary.init();
+		com.projecthero.mod.client.mutation.RevampClientA.init();
+		com.projecthero.mod.client.mutation.RevampClientB.init();
+		com.projecthero.mod.client.mutation.RevampClientC.init();
+		com.projecthero.mod.client.mutation.RevampClientD.init();
+		com.projecthero.mod.client.mutation.RevampClientE.init();
 
 		MjolnirTooltip.expandKeyHeld = Screen::hasShiftDown;
 		com.projecthero.mod.hero.guide.HeroPackGuideItem.clientOpener =
@@ -191,6 +198,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 						registrationHelper.register(new com.projecthero.mod.client.spider.SpiderHandTrackerLayer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.symbiote.SymbioteBladeRenderer.Layer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.moonknight.MoonKnightCapeLayer(playerRenderer));
+						// v0.13.22: mutation overlays (stone skin, frost armour, glowing eyes, ...)
+						registrationHelper.register(new com.projecthero.mod.client.mutation.MutationOverlayLayer(playerRenderer));
 					}
 				});
 
@@ -389,6 +398,15 @@ public class ProjectHeroModClient implements ClientModInitializer {
 					ClientPlayNetworking.send(new AbilityInputPayload(i + 1, false));
 				}
 			}
+			// v0.13.22: same for a mutation's H / N utility channel
+			if (utility7Held) {
+				utility7Held = false;
+				ClientPlayNetworking.send(new AbilityInputPayload(7, false));
+			}
+			if (utility8Held) {
+				utility8Held = false;
+				ClientPlayNetworking.send(new AbilityInputPayload(8, false));
+			}
 			jumpWasDown = false;
 			return;
 		}
@@ -510,8 +528,68 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		return experimental == null || experimental.activePower.isEmpty();
 	}
 
+	/** v0.13.22: whether H / N are currently held down on behalf of a mutation's utility slot (7 / 8). */
+	private static boolean utility7Held;
+	private static boolean utility8Held;
+
+	/** Left or right Alt held -- Alt+H / Alt+N always reach the mutation's utility slots, whatever else owns H / N. */
+	private static boolean altDown(Minecraft client) {
+		long w = client.getWindow().getWindow();
+		return org.lwjgl.glfw.GLFW.glfwGetKey(w, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS
+				|| org.lwjgl.glfw.GLFW.glfwGetKey(w, org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+	}
+
+	/** Whether the player's selected mutation defines the H / N utility slots (and Mjolnir is not in hand). */
+	private static boolean mutationHasUtility(Minecraft client) {
+		LocalPlayer p = client.player;
+		if (p == null || client.screen != null || ThorPowers.isHoldingMjolnir(p)) {
+			return false;
+		}
+		com.projecthero.mod.hero.data.ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		if (st == null || st.activePower.isEmpty()) {
+			return false;
+		}
+		com.projecthero.mod.hero.Power power = com.projecthero.mod.hero.Powers.byKey(st.activePower);
+		return power != null && power.hasSlot(com.projecthero.mod.hero.AbilitySlot.SLOT_7);
+	}
+
+	/**
+	 * Sends a utility-slot press / release. Returns true if this tick's H or N edge was consumed by the mutation
+	 * (Alt held, or the key being released after a mutation press), so the Hero-Tier chain must not see it.
+	 */
+	private static boolean handleUtilityEdge(Minecraft client, boolean down, boolean wasDown, int slot) {
+		boolean held = slot == 7 ? utility7Held : utility8Held;
+		if (held && (!down || client.screen != null)) {
+			ClientPlayNetworking.send(new AbilityInputPayload(slot, false));
+			if (slot == 7) {
+				utility7Held = false;
+			} else {
+				utility8Held = false;
+			}
+			return true;
+		}
+		if (down && !wasDown && altDown(client) && mutationHasUtility(client)) {
+			pressUtility(slot);
+			return true;
+		}
+		return held;
+	}
+
+	private static void pressUtility(int slot) {
+		ClientPlayNetworking.send(new AbilityInputPayload(slot, true));
+		if (slot == 7) {
+			utility7Held = true;
+		} else {
+			utility8Held = true;
+		}
+	}
+
 	private static void handlePowerSelect(Minecraft client) {
 		boolean down = ModKeyBindings.POWER_SELECT.isDown();
+		if (handleUtilityEdge(client, down, powerSelectWasDown, 7)) {
+			powerSelectWasDown = down;
+			return;
+		}
 		if (down && !powerSelectWasDown) {
 			// "changes 19": H while wearing any Iron Man armour opens / closes the helmet faceplate.
 			// v0.6.16: H while transformed as Max Steel does the same for its helmet. Otherwise H opens
@@ -577,6 +655,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				// in which case Shift+H is the armour.
 				ClientPlayNetworking.send(new com.projecthero.mod.network.ThorActionPayload(
 						com.projecthero.mod.network.ThorActionPayload.Action.TOGGLE_ARMOUR));
+			} else if (!Screen.hasShiftDown() && mutationHasUtility(client)) {
+				// v0.13.22: a mutation with H / N abilities -- plain H is its Utility 1; Shift+H opens the power wheel.
+				pressUtility(7);
 			} else {
 				client.setScreen(new PowerWheelScreen());
 			}
@@ -695,6 +776,10 @@ public class ProjectHeroModClient implements ClientModInitializer {
 
 	private static void handleMaxSteelTransform(Minecraft client) {
 		boolean down = ModKeyBindings.MAX_STEEL_TRANSFORM.isDown();
+		if (handleUtilityEdge(client, down, maxSteelTransformWasDown, 8)) {
+			maxSteelTransformWasDown = down;
+			return;
+		}
 		boolean humanShifter = client.player != null && com.projecthero.mod.titanshifter.TitanShifter.isShifter(client.player)
 				&& com.projecthero.mod.titanshifter.TitanShifter.phase(client.player) == com.projecthero.mod.titanshifter.TitanPhase.HUMAN;
 		if (down && !maxSteelTransformWasDown && humanShifter && Screen.hasShiftDown()) {
@@ -736,6 +821,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			// v0.12.43: plain N as a base-form Titan Shifter (no other power claiming N) toggles the passive regeneration.
 			ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(
 					com.projecthero.mod.network.TitanShiftPayload.Action.TOGGLE_REGEN));
+		} else if (down && !maxSteelTransformWasDown && mutationHasUtility(client)) {
+			// v0.13.22: nothing else owns N -- it is the selected mutation's Utility 2.
+			pressUtility(8);
 		}
 		maxSteelTransformWasDown = down;
 	}

@@ -31,7 +31,14 @@
       "com.projecthero.mod.gametest.MoonKnightPowerGameTests",
       "com.projecthero.mod.gametest.OathbreakerGameTests",
       "com.projecthero.mod.gametest.SymbioteCreatureGameTests",
-      "com.projecthero.mod.gametest.MoonKnightTempleGameTests"
+      "com.projecthero.mod.gametest.MoonKnightTempleGameTests",
+      "com.projecthero.mod.gametest.MutationAcquisitionGameTests",
+      "com.projecthero.mod.gametest.MutationFrameworkGameTests",
+      "com.projecthero.mod.gametest.RevampBatchAGameTests",
+      "com.projecthero.mod.gametest.RevampBatchBGameTests",
+      "com.projecthero.mod.gametest.RevampBatchCGameTests",
+      "com.projecthero.mod.gametest.RevampBatchDGameTests",
+      "com.projecthero.mod.gametest.RevampBatchEGameTests"
     ]
   },
   "depends": {

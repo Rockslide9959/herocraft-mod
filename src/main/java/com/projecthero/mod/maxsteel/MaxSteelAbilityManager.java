@@ -95,7 +95,7 @@ public final class MaxSteelAbilityManager {
 							MaxSteelMode.STEALTH, MaxSteelConfig.STEALTH_ACTIVATION_COST));
 				}
 			}
-			case SLOT_6 -> handleAbilitySix(player, pressed);
+			case SLOT_6, SLOT_7, SLOT_8 -> handleAbilitySix(player, pressed); // H / N are mutation-only (v0.13.22); never routed here
 		}
 	}
 
@@ -210,7 +210,7 @@ public final class MaxSteelAbilityManager {
 			case SLOT_3 -> "turbo_speed";
 			case SLOT_4 -> "turbo_flight";
 			case SLOT_5 -> "turbo_stealth";
-			case SLOT_6 -> "turbo_cannon";
+			case SLOT_6, SLOT_7, SLOT_8 -> "turbo_cannon"; // H / N are mutation-only (v0.13.22); never routed here
 		};
 	}
 }

@@ -924,6 +924,9 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.power.abilities");
 			for (AbilitySlot slot : AbilitySlot.values()) {
 				Ability a = power.ability(slot);
+				if (a == null) {
+					continue;
+				}
 				lines.add(Component.literal(" " + slot.defaultKey() + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable(a.nameKey()).withStyle(ChatFormatting.WHITE)));
 				para(lines, a.descKey());

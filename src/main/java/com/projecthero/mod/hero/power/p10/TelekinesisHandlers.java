@@ -211,8 +211,8 @@ public final class TelekinesisHandlers {
 		ExperimentalPowers.setResource(p, power, "burnout_until",
 				p.level().getGameTime() + BURNOUT_TICKS, 1.0e12f);
 		// Everything currently running stops dead: the mind has nothing left to hold any of it up.
-		for (AbilitySlot slot : AbilitySlot.values()) {
-			ExperimentalPowers.setToggled(p, power, power.ability(slot), false);
+		for (com.projecthero.mod.hero.Ability a : power.abilities()) {
+			ExperimentalPowers.setToggled(p, power, a, false);
 		}
 		HeroFlight.setFlying(p, false);
 		endCrush(p);

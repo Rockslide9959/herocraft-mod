@@ -14,7 +14,14 @@ public enum AbilitySlot {
 	SLOT_3('X', "Movement"),
 	SLOT_4('Z', "Ultimate"),
 	SLOT_5('V', "Utility / Control"),
-	SLOT_6('C', "Special Mode");
+	SLOT_6('C', "Special Mode"),
+	/** v0.13.22: Utility 1 (H) -- experimental mutations only; the Hero-Tier powers keep their own H behaviour. */
+	SLOT_7('H', "Utility 1"),
+	/** v0.13.22: Utility 2 (N) -- experimental mutations only. */
+	SLOT_8('N', "Utility 2");
+
+	/** The six universal slots every power has; mutations additionally define {@link #SLOT_7} and {@link #SLOT_8}. */
+	public static final int CORE_COUNT = 6;
 
 	private final char defaultKey;
 	private final String role;
@@ -29,7 +36,7 @@ public enum AbilitySlot {
 		return ordinal();
 	}
 
-	/** Human "slot number", 1..6. */
+	/** Human "slot number", 1..8. */
 	public int number() {
 		return ordinal() + 1;
 	}
@@ -44,11 +51,22 @@ public enum AbilitySlot {
 
 	/** The controls-screen translation key (rendered "Ability 1" ... "Ability 6"). */
 	public String keyBindingTranslationKey() {
+		if (this == SLOT_7) {
+			return "key.projecthero.power_select"; // H: Utility 1
+		}
+		if (this == SLOT_8) {
+			return "key.projecthero.max_steel_transform"; // N: Utility 2
+		}
 		return "key.projecthero.ability_" + number();
 	}
 
+	/** Whether this is one of the two mutation-only utility slots (H / N). */
+	public boolean isUtility() {
+		return this == SLOT_7 || this == SLOT_8;
+	}
+
 	public static AbilitySlot byNumber(int number) {
-		if (number < 1 || number > 6) {
+		if (number < 1 || number > 8) {
 			throw new IllegalArgumentException("ability slot out of range: " + number);
 		}
 		return values()[number - 1];

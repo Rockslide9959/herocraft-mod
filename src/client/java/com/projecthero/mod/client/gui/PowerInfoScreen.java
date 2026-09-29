@@ -121,6 +121,9 @@ public final class PowerInfoScreen extends Screen {
 		wrap(Component.translatable("screen.projecthero.power_info.controls").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), wrapW);
 		for (AbilitySlot slot : AbilitySlot.values()) {
 			Ability a = power.ability(slot);
+			if (a == null) {
+				continue;
+			}
 			wrap(Component.empty()
 					.append(Component.literal(" [").withStyle(ChatFormatting.DARK_GRAY))
 					.append(Component.keybind(slot.keyBindingTranslationKey()).withStyle(ChatFormatting.GOLD))

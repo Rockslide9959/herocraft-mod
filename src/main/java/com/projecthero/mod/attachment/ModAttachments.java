@@ -627,6 +627,15 @@ public final class ModAttachments {
 			builder -> builder.initializer(() -> false)
 					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
 
+	/**
+	 * v0.13.22: experimental-mutation visuals every viewer needs (move animation + overlay flags). Never persisted --
+	 * {@code MutationVisuals.tick} rebuilds it from the real power state -- and synced to everyone tracking the player.
+	 */
+	public static final AttachmentType<com.projecthero.mod.hero.visual.MutationVisualState> MUTATION_VISUALS = AttachmentRegistry.create(
+			ProjectHeroMod.id("mutation_visuals"),
+			builder -> builder.initializer(() -> com.projecthero.mod.hero.visual.MutationVisualState.EMPTY)
+					.syncWith(com.projecthero.mod.hero.visual.MutationVisualState.STREAM_CODEC, AttachmentSyncPredicate.all()));
+
 	private ModAttachments() {
 	}
 

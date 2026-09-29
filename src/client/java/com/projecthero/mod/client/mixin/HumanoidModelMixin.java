@@ -138,6 +138,8 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			com.projecthero.mod.client.symbiote.SymbiotePose.apply(player, (HumanoidModel<?>) (Object) this);
 			// v0.13.19: Moon Knight moves, glide / shroud stances
 			com.projecthero.mod.client.moonknight.MoonKnightPose.apply(player, (HumanoidModel<?>) (Object) this);
+			// v0.13.22: experimental mutation move animations
+			com.projecthero.mod.client.mutation.MutationPose.apply(player, (HumanoidModel<?>) (Object) this);
 		}
 	}
 

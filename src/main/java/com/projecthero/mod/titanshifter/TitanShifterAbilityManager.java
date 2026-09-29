@@ -72,7 +72,7 @@ public final class TitanShifterAbilityManager {
 			case SLOT_3 -> TitanAbilities.LEAP;
 			case SLOT_4 -> TitanAbilities.STOMP;
 			case SLOT_5 -> TitanAbilities.ROAR;
-			case SLOT_6 -> TitanAbilities.REGEN;
+			case SLOT_6, SLOT_7, SLOT_8 -> TitanAbilities.REGEN; // H / N are mutation-only (v0.13.22); never routed here
 		};
 	}
 

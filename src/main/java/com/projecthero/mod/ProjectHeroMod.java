@@ -116,6 +116,12 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.hero.power.p05.GeoEntityTypes.initialize();
 		Powers.initialize();
 		HeroPowerHandlers.registerAll();
+		// v0.13.22: the mutation revamp -- each batch registers its own entities, visual flags and HUD meters
+		com.projecthero.mod.hero.revamp.RevampBatchA.init();
+		com.projecthero.mod.hero.revamp.RevampBatchB.init();
+		com.projecthero.mod.hero.revamp.RevampBatchC.init();
+		com.projecthero.mod.hero.revamp.RevampBatchD.init();
+		com.projecthero.mod.hero.revamp.RevampBatchE.init();
 		ModDevices.initialize();
 		ModMobEffects.initialize();
 		ModSerums.initialize();
@@ -181,6 +187,11 @@ public class ProjectHeroMod implements ModInitializer {
 			TempBlocks.tick(server);
 			com.projecthero.mod.hero.power.ConjuredStructures.tick(server);
 			com.projecthero.mod.hero.power.p26.MagneticHandlers.tick(server);
+			com.projecthero.mod.hero.revamp.RevampBatchA.serverTick(server);
+			com.projecthero.mod.hero.revamp.RevampBatchB.serverTick(server);
+			com.projecthero.mod.hero.revamp.RevampBatchC.serverTick(server);
+			com.projecthero.mod.hero.revamp.RevampBatchD.serverTick(server);
+			com.projecthero.mod.hero.revamp.RevampBatchE.serverTick(server);
 			com.projecthero.mod.ironman.data.StarkSuitReturnQueue.tick(server);
 			com.projecthero.mod.event.EventManager.tick(server);
 			com.projecthero.mod.event.raid.PillagerSpySpawner.tick(server);

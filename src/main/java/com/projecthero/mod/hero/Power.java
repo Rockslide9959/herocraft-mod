@@ -13,7 +13,7 @@ import net.minecraft.resources.ResourceLocation;
  * @param nameKey     translation key for the display name
  * @param category    broad family
  * @param descKey     translation key for the flavour/summary line
- * @param abilities   exactly six, ordered slot 1..6
+ * @param abilities   six (slots 1..6) or, since v0.13.22, eight (plus the H / N utility slots 7..8)
  * @param passiveKeys translation keys for passive-trait lines
  * @param serum       brewing recipe data
  * @param trigger     mutation exposure event data
@@ -31,8 +31,8 @@ public record Power(
 		List<String> comboKeys) {
 
 	public Power {
-		if (abilities.size() != 6) {
-			throw new IllegalArgumentException(id + " must define exactly 6 abilities, got " + abilities.size());
+		if (abilities.size() != 6 && abilities.size() != 8) {
+			throw new IllegalArgumentException(id + " must define 6 or 8 abilities, got " + abilities.size());
 		}
 	}
 
@@ -48,8 +48,14 @@ public record Power(
 		return PowerTier.EXPERIMENTAL;
 	}
 
+	/** The ability in {@code slot}, or {@code null} for a utility slot (H / N) this power does not define. */
 	public Ability ability(AbilitySlot slot) {
-		return abilities.get(slot.index());
+		return slot.index() < abilities.size() ? abilities.get(slot.index()) : null;
+	}
+
+	/** Whether the power defines an ability for {@code slot}. */
+	public boolean hasSlot(AbilitySlot slot) {
+		return slot.index() < abilities.size();
 	}
 
 	/** The short path segment of the id, e.g. {@code power_01_super_strength}. */
@@ -60,7 +66,7 @@ public record Power(
 	public static final class Builder {
 		private final ResourceLocation id;
 		private final PowerCategory category;
-		private final Ability[] abilities = new Ability[6];
+		private final Ability[] abilities = new Ability[8];
 		private List<String> passiveKeys = List.of();
 		private SerumRecipe serum;
 		private MutationTrigger trigger;
@@ -107,8 +113,12 @@ public record Power(
 					throw new IllegalStateException(id + " missing ability for slot " + (i + 1));
 				}
 			}
+			if ((abilities[6] == null) != (abilities[7] == null)) {
+				throw new IllegalStateException(id + " must define both utility slots (H and N) or neither");
+			}
+			List<Ability> list = abilities[6] == null ? List.of(abilities).subList(0, 6) : List.of(abilities);
 			return new Power(id, base + ".name", category, base + ".desc",
-					List.of(abilities), passiveKeys, serum, trigger, comboKeys);
+					List.copyOf(list), passiveKeys, serum, trigger, comboKeys);
 		}
 	}
 }
