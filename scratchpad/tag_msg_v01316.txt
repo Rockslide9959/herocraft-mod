@@ -1,0 +1,4 @@
+Project Hero 0.13.16 -- Hulk quick fix
+
+THE HULK
+- Fixed: during the new unwilling (kneeling) transformation your screen zoomed right in, because the game ties the field of view to your movement speed and you're held in place while you change. Your view now stays steady for the whole transformation, then eases back to normal once the Hulk is up.
