@@ -27,6 +27,7 @@
       "com.projecthero.mod.gametest.DarkseidRaidGameTests",
       "com.projecthero.mod.gametest.RandomPowerSerumGameTests",
       "com.projecthero.mod.gametest.MoonKnightGameTests",
+      "com.projecthero.mod.gametest.MoonKnightAbilityGameTests",
       "com.projecthero.mod.gametest.OathbreakerGameTests",
       "com.projecthero.mod.gametest.SymbioteCreatureGameTests",
       "com.projecthero.mod.gametest.MoonKnightTempleGameTests"

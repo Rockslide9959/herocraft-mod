@@ -77,6 +77,8 @@ public final class ServerStateReset {
 	 * none of it is persisted state, and everything that owns it re-populates on demand.
 	 */
 	public static void clearAll() {
+		// Moon Knight Phase 3-4 (R / X / G / Z static maps)
+		com.projecthero.mod.moonknight.ability.MoonKnightCombat.clearSessionState();
 		CraterAmbience.clearSessionState();
 		TempBlocks.clearSessionState();
 		ConjuredStructures.clearSessionState();

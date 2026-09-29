@@ -55,5 +55,8 @@ public final class ModEntityRenderers {
 				com.projecthero.mod.client.darkseid.EnergyTrailRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.darkseid.entity.DarkseidEntityTypes.PARADEMON_BOLT,
 				com.projecthero.mod.client.darkseid.EnergyTrailRenderer::new);
+		// Moon Knight Phase 3: the Crescent Dart (R)
+		EntityRendererRegistry.register(com.projecthero.mod.moonknight.entity.MoonKnightEntities.CRESCENT_DART,
+				com.projecthero.mod.client.moonknight.CrescentDartRenderer::new);
 	}
 }

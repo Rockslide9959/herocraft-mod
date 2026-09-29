@@ -2740,5 +2740,13 @@
   "advancement.projecthero.moon_knight.pact.title": "Fist of Khonshu",
   "advancement.projecthero.moon_knight.pact.description": "Die on Khonshu's altar and rise again as the moon's avenger",
   "projecthero.guide.structure.temple_of_khonshu": "Temple of Khonshu",
-  "projecthero.guide.structure.temple_of_khonshu.desc": "A rare sandstone temple found only in deserts, marked by a silver crescent over its door. Its roof is open to the moon above the Altar of Khonshu, and a hidden chamber beneath holds the Scarab of Khonshu. Lay the scarab on the altar at night and kneel to become Moon Knight."
+  "projecthero.guide.structure.temple_of_khonshu.desc": "A rare sandstone temple found only in deserts, marked by a silver crescent over its door. Its roof is open to the moon above the Altar of Khonshu, and a hidden chamber beneath holds the Scarab of Khonshu. Lay the scarab on the altar at night and kneel to become Moon Knight.",
+  "entity.projecthero.crescent_dart": "Crescent Dart",
+  "item.projecthero.moon_knight_truncheon": "Truncheon of Khonshu",
+  "message.projecthero.moon_knight.marked": "%s is marked by the moon",
+  "message.projecthero.moon_knight.glide_airborne": "Jump or fall first -- the cape needs air under it",
+  "message.projecthero.moon_knight.grapple_nothing": "Nothing to grapple within %s blocks",
+  "message.projecthero.moon_knight.grapple_no_target": "No target in your sights",
+  "message.projecthero.moon_knight.yank_heavy": "Too heavy to yank -- but it is stunned",
+  "message.projecthero.moon_knight.truncheon_full": "Your inventory is full -- nowhere to put what you are holding"
 }

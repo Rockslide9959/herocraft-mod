@@ -36,7 +36,14 @@ public final class MoonKnightItems {
 				SuperheroArmorVisuals.SHARED_ANIMATION));
 		// Per-alter suits: register "moon_knight_marc" / "_steven" / "_jake" here with their own texture and each
 		// alter picks it up automatically (MoonKnightArmorItem#armorSetId). One texture for all three for now.
+
+		// Phase 4: the Truncheon (Z) -- only ever exists in a transformed Moon Knight's hands.
+		TRUNCHEON = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("moon_knight_truncheon"),
+				new MoonKnightTruncheonItem());
 	}
+
+	/** Phase 4: Z's summoned weapon. */
+	public static MoonKnightTruncheonItem TRUNCHEON;
 
 	private static MoonKnightArmorItem register(String path, ArmorItem.Type type) {
 		MoonKnightArmorItem item = new MoonKnightArmorItem(ModArmorMaterials.THOR, type,

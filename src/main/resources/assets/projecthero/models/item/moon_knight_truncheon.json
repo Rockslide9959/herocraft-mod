@@ -1,0 +1,14 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "projecthero:item/moon_knight_truncheon"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "projecthero:staff": 1
+      },
+      "model": "projecthero:item/moon_knight_staff"
+    }
+  ]
+}

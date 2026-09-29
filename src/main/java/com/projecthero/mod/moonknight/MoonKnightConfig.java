@@ -194,4 +194,58 @@ public final class MoonKnightConfig {
 	public static final float JUDGEMENT_REFUND = 20.0f;
 	public static final float JUDGEMENT_HEAL = 6.0f;
 	public static final int JUDGEMENT_COOLDOWN = 400;
+
+	// ---------------------------------------------------------------- Phase 3 / 4 extras (R, X, G, Z)
+
+	/** Every Moon Knight ability hit on a boss (TitanCombat.isBoss) is capped at this fraction of its max health. */
+	public static final float BOSS_MAX_FRACTION_PER_HIT = 0.05f;
+
+	/** R: a dart turning back flies home at this speed (blocks/tick) and is caught within this distance. */
+	public static final double DART_RETURN_SPEED = 1.5;
+	public static final double DART_CATCH_DISTANCE = 1.4;
+	/** R: a dart that has been out this long without being caught simply fades. */
+	public static final int DART_MAX_LIFE_TICKS = 160;
+	/** R HOLD: an uncharged fan throws at this fraction of full speed and damage (a full 1.5 s charge = 1.0). */
+	public static final float DART_FAN_MIN_CHARGE = 0.6f;
+
+	/** X TAP Cape Glide: never sink slower than this (the server's anti-float check needs a real descent). */
+	public static final double GLIDE_MIN_SINK = 0.04;
+	/** How quickly the glide turns toward where you look (0..1 per tick). */
+	public static final double GLIDE_STEER = 0.14;
+	/** Looking down: up to this much extra speed (and a steeper dive). */
+	public static final double GLIDE_DIVE_SPEED_BONUS = 0.6;
+	/** After a glide ends (landing, tap), fall damage stays off this long. */
+	public static final int GLIDE_FALL_GRACE_TICKS = 30;
+	/** X HOLD Cape Shroud: movement speed multiplier change while wrapped (-0.5 = half speed). */
+	public static final double SHROUD_SPEED_PENALTY = -0.5;
+
+	/** G: the line takes this long to fly out before the pull starts. */
+	public static final int GRAPPLE_LINE_TRAVEL_TICKS = 3;
+	/** G TAP: pull speed (blocks/tick), arrival distance, and the longest a pull may last. */
+	public static final double GRAPPLE_PULL_SPEED = 1.3;
+	public static final double GRAPPLE_ARRIVE_DISTANCE = 1.6;
+	public static final int GRAPPLE_MAX_PULL_TICKS = 50;
+	/** G HOLD dive kick: pull speed toward the mob and the reach at which the kick lands. */
+	public static final double DIVE_KICK_PULL_SPEED = 1.5;
+	public static final double DIVE_KICK_REACH = 1.6;
+	/** SNEAK+G Yank: the mob lands about this far in front of you; Slowness IV = amplifier 3. */
+	public static final double YANK_STOP_DISTANCE = 2.0;
+	public static final int YANK_SLOW_AMPLIFIER = 3;
+	/** How long the yank's rope stays drawn. */
+	public static final int YANK_LINE_TICKS = 8;
+
+	/** Z Truncheon melee: damage per swing (hearts x2) and attack speed modifier (-2.0 = 2 swings/s). */
+	public static final float TRUNCHEON_DAMAGE = 6.0f;
+	public static final float TRUNCHEON_ATTACK_SPEED = -2.0f;
+	/** Consecutive hits needed for the combo slam. */
+	public static final int TRUNCHEON_COMBO_HITS = 3;
+	/** Z HOLD staff: stays extended for the spin, and knocks everything outward this hard. */
+	public static final int STAFF_SPIN_TICKS = 18;
+	public static final double STAFF_SPIN_KNOCKBACK = 0.7;
+	/** SNEAK+Z ground slam: upward launch and outward shove on every mob in the ring. */
+	public static final double GROUND_SLAM_LAUNCH = 0.85;
+	public static final double GROUND_SLAM_KNOCKBACK = 0.6;
+	/** SNEAK+Z in the air: dive speed (blocks/tick) and the longest a dive may last. */
+	public static final double DIVE_SLAM_SPEED = 1.8;
+	public static final int DIVE_SLAM_MAX_TICKS = 100;
 }
