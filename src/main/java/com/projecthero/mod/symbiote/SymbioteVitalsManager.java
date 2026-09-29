@@ -6,23 +6,32 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.power.PowerToggles;
+import com.projecthero.mod.squad.Squads;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.event.player.UseItemCallback;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.AbstractArrow;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * The Symbiote health bar and the two toggles that hang off {@link SymbioteVitals} (Symbiote Blade,
@@ -37,13 +46,23 @@ import net.minecraft.world.entity.projectile.AbstractArrow;
 public final class SymbioteVitalsManager {
 	/** Full Biomass -- the Symbiote's own life pool, shown in game as the "Biomass" bar. */
 	public static final float MAX_HP = 200.0f;
-	/** Regen once safe: 9 Biomass per second (0.45/tick), after {@link #REGEN_SAFE_TICKS} out of combat. */
-	private static final float REGEN_PER_TICK = 9.0f / 20.0f;
-	/** Suit up and the Biomass climbs 70% slower -- wearing the armour is a drain of its own. */
-	private static final float SUITED_REGEN_FACTOR = 0.3f;
-	/** Biomass only regenerates after this long with no damage dealt or taken (5 s). */
-	private static final int REGEN_SAFE_TICKS = 100;
-	/** Once the bar has emptied, abilities stay locked until it climbs back to this fraction. */
+	/**
+	 * Regen once safe, in Biomass per second, after {@link #REGEN_SAFE_TICKS} out of combat. v0.13.21: 9 -> 8 on
+	 * paper, but the old 9 only ever landed a quarter of the time (the per-tick gain was recomputed from the saved
+	 * value and only saved every 4th tick, so three ticks in four were thrown away -- 2.25/s in practice). It is
+	 * now paid in {@link #REGEN_STEP_TICKS}-tick installments that are all kept: 8/s for real, ~3.5x as fast.
+	 */
+	public static final float REGEN_PER_SECOND = 8.0f;
+	/** v0.13.21: regen (and its save) happens once every this many ticks, a whole installment at a time. */
+	private static final int REGEN_STEP_TICKS = 4;
+	/** Suit up and the Biomass climbs slower -- wearing the armour is a drain of its own. v0.13.21: 0.3 -> 0.5 (4/s). */
+	public static final float SUITED_REGEN_FACTOR = 0.5f;
+	/** Biomass only regenerates after this long with no damage dealt or taken. v0.13.21: 5 s -> 3 s. */
+	public static final int REGEN_SAFE_TICKS = 60;
+	/**
+	 * Once the bar has emptied, abilities stay locked -- and (v0.13.21) the suit stays off, and will not form or
+	 * wrap the host on its own -- until it climbs back to this fraction (40 Biomass).
+	 */
 	public static final float RECOVER_FRACTION = 0.20f;
 	/** The Symbiote starts warning its host below this fraction. */
 	private static final float WARN_FRACTION = 0.35f;
@@ -62,6 +81,11 @@ public final class SymbioteVitalsManager {
 	public static final float SHIELD_BIOMASS_PER_SECOND = 0.5f;
 	/** v0.13.19: a Symbiote revive is ready again ten minutes after the last one (no Biomass cost). */
 	public static final int RESURRECT_COOLDOWN_TICKS = 12000;
+	/**
+	 * v0.13.21: Symbiote Spider-Man and Agent Venom already bring a whole hero's kit of their own (Spider-Man's
+	 * Resistance, the Punisher's armour-grade suit) -- their revive waits twice as long, twenty minutes.
+	 */
+	public static final int HERO_HOST_RESURRECT_COOLDOWN_TICKS = 24000;
 
 	/** A wild bond takes this long to settle: protection but no abilities, and the host feels sick. */
 	public static final int BONDING_TICKS = 700; // 35 s
@@ -90,12 +114,25 @@ public final class SymbioteVitalsManager {
 	private static final Map<Integer, Long> LAST_DRAIN = new ConcurrentHashMap<>();
 	/** Per-player last game time the Symbiote lost a large chunk of Biomass from a single hit. */
 	private static final Map<Integer, Long> LAST_BIG_HIT = new ConcurrentHashMap<>();
+	/** v0.13.21: game time of the last Biomass regen installment -- at most one per tick, however often tick() runs. */
+	private static final Map<Integer, Long> LAST_REGEN = new ConcurrentHashMap<>();
+	/** v0.13.21: the (empty) hotbar slot the Symbiote Blade was last held in -- a scroll onto an item snaps back here. */
+	private static final Map<Integer, Integer> BLADE_SLOT = new ConcurrentHashMap<>();
 
 	private SymbioteVitalsManager() {
 	}
 
 	public static void initialize() {
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> {
+			// v0.13.21: the Biomass drain lives here, after the hit, rather than in SymbioteDamageRules' ALLOW_DAMAGE:
+			// only damage that actually LANDED costs Biomass. A squadmate's blow (vetoed by Squads further down the
+			// ALLOW_DAMAGE chain), one eaten by invulnerability frames, a fall -- none of them touch the bar. The
+			// squadmate check is repeated here as a belt-and-braces guard.
+			if (entity instanceof ServerPlayer host && taken > 0.0f && !source.is(DamageTypeTags.IS_FALL)
+					&& !Squads.areAllies(host, source.getEntity())) {
+				onHostHit(host, taken);
+			}
+
 			// Any hit a bonded host lands counts as "in combat" for the Biomass regen gate.
 			if (source.getEntity() instanceof ServerPlayer attackerPlayer && Symbiote.hasSymbiote(attackerPlayer)
 					&& entity != attackerPlayer && taken > 0.0f) {
@@ -104,7 +141,7 @@ public final class SymbioteVitalsManager {
 
 			// Symbiote Blade: an extra armour-bypassing bite on a melee hit while it is out.
 			if (source.getEntity() instanceof ServerPlayer sp && entity instanceof LivingEntity living
-					&& living != sp && taken > 0.0f && bladeActive(sp)
+					&& living != sp && taken > 0.0f && bladeActive(sp) && !Squads.areAllies(sp, living)
 					&& source.is(net.minecraft.world.damagesource.DamageTypes.PLAYER_ATTACK)) {
 				living.invulnerableTime = 0;
 				living.hurt(sp.damageSources().magic(), 2.0f);
@@ -118,6 +155,7 @@ public final class SymbioteVitalsManager {
 			if (entity instanceof ServerPlayer player && Symbiote.hasSymbiote(player)
 					&& thornsMode(player) && taken > 0.0f
 					&& source.getEntity() instanceof LivingEntity attacker && attacker != player
+					&& !Squads.areAllies(player, attacker)
 					&& player.distanceToSqr(attacker) < 36.0 && player.getRandom().nextFloat() < 0.66f) {
 				float reflect = 2.0f + player.getRandom().nextFloat() * 2.0f;
 				attacker.hurt(player.damageSources().thorns(player), reflect);
@@ -126,6 +164,17 @@ public final class SymbioteVitalsManager {
 							attacker.getY() + attacker.getBbHeight() * 0.5, attacker.getZ(), 8, 0.25, 0.3, 0.25, 0.01);
 				}
 			}
+		});
+
+		// v0.13.21: nothing can be used from the blade hand while the Symbiote Blade is out. The server keeps the
+		// hand empty every tick (keepBladeHandEmpty); this closes the one-tick window before it does. Runs on both
+		// sides -- the vitals attachment is synced.
+		UseItemCallback.EVENT.register((player, world, hand) -> {
+			ItemStack stack = player.getItemInHand(hand);
+			if (hand == InteractionHand.MAIN_HAND && !stack.isEmpty() && bladeOut(player)) {
+				return InteractionResultHolder.fail(stack);
+			}
+			return InteractionResultHolder.pass(stack);
 		});
 	}
 
@@ -176,8 +225,27 @@ public final class SymbioteVitalsManager {
 	}
 
 	public static boolean bladeActive(ServerPlayer player) {
+		return bladeOut(player);
+	}
+
+	/** {@link #bladeActive} for either side (the attachment is synced) -- the client-side item-use guard needs it. */
+	public static boolean bladeOut(Player player) {
 		SymbioteVitals v = player.getAttachedOrElse(ModAttachments.SYMBIOTE_VITALS, null);
 		return v != null && v.bladeActive;
+	}
+
+	/**
+	 * v0.13.21: a Normal host whose Biomass has run dry cannot wear the suit -- it melts off at zero and will not
+	 * form again (by H, by the Symbiote's own protective wrap, or on a resurrection) until the bar has climbed back
+	 * to {@link #RECOVER_FRACTION}, the same threshold that lifts the ability lock. Hosts without a Biomass bar
+	 * (Symbiote Spider-Man, Agent Venom) are never locked.
+	 */
+	public static boolean suitLocked(Player player) {
+		if (!Symbiote.isNormalHost(player)) {
+			return false;
+		}
+		SymbioteVitals v = player.getAttachedOrElse(ModAttachments.SYMBIOTE_VITALS, null);
+		return v != null && (v.broken || v.hp <= 0.0f);
 	}
 
 	public static boolean thornsMode(ServerPlayer player) {
@@ -305,6 +373,7 @@ public final class SymbioteVitalsManager {
 			return;
 		}
 		setBlade(player, v, true);
+		BLADE_SLOT.put(player.getId(), player.getInventory().selected);
 		SymbioteAnim.play(player, SymbioteAnim.BLADE_FORM);
 		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.blade_on")
 				.withStyle(ChatFormatting.DARK_PURPLE), true);
@@ -371,7 +440,7 @@ public final class SymbioteVitalsManager {
 		boolean dirty = false;
 		boolean transition = false;
 
-		// Regeneration -- 9 Biomass per second, but only after 5 s clear of combat. A broken bar
+		// Regeneration -- REGEN_PER_SECOND, but only after REGEN_SAFE_TICKS clear of combat. A broken bar
 		// climbs the same way (that is how the ability lock lifts), so staying in a fight keeps it locked.
 		// v0.13.19: the blade and the shield feed on Biomass while they are out, and it does not grow back
 		// while it is being spent.
@@ -392,9 +461,14 @@ public final class SymbioteVitalsManager {
 						.withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD), true);
 			}
 		} else if (c.hp < MAX_HP && outOfCombat(player, nowTime)) {
-			c.hp = Math.min(MAX_HP, c.hp
-					+ (Symbiote.isActive(player) ? REGEN_PER_TICK * SUITED_REGEN_FACTOR : REGEN_PER_TICK));
-			dirty = true;
+			// v0.13.21: paid in whole REGEN_STEP_TICKS installments on the game clock and saved on the spot, like the
+			// drain above. The old per-tick gain was recomputed from the saved value but only saved every 4th tick,
+			// so three ticks' worth in four simply vanished.
+			if (nowTime % REGEN_STEP_TICKS == 0L && !Long.valueOf(nowTime).equals(LAST_REGEN.put(player.getId(), nowTime))) {
+				float perSecond = Symbiote.isActive(player) ? REGEN_PER_SECOND * SUITED_REGEN_FACTOR : REGEN_PER_SECOND;
+				c.hp = Math.min(MAX_HP, c.hp + perSecond * REGEN_STEP_TICKS / 20.0f);
+				dirty = true;
+			}
 		}
 		if (c.broken && c.hp >= MAX_HP * RECOVER_FRACTION) {
 			c.broken = false;
@@ -404,27 +478,34 @@ public final class SymbioteVitalsManager {
 		}
 
 		// Blade upkeep (v0.13.19: no time limit, no particle sheath -- it has a model now): sheathe it if the
-		// hand is filled or the Biomass runs dry.
+		// Biomass runs dry. v0.13.21: an item reaching the hand no longer sheathes it -- the hand is kept empty
+		// instead (keepBladeHandEmpty); only when there is truly nowhere to put the item does the blade give way.
 		if (c.bladeActive) {
-			if (!player.getMainHandItem().isEmpty()) {
-				c.bladeActive = false;
-				reconcileBlade(player, false);
-				player.displayClientMessage(Component.translatable("message.projecthero.symbiote.blade_hands_full"), true);
-				transition = true;
-			} else if (c.broken || c.hp <= 0.0f) {
+			if (c.broken || c.hp <= 0.0f) {
 				c.bladeActive = false;
 				reconcileBlade(player, false);
 				player.displayClientMessage(Component.translatable("message.projecthero.symbiote.blade_spent"), true);
 				transition = true;
+			} else if (!keepBladeHandEmpty(player)) {
+				c.bladeActive = false;
+				reconcileBlade(player, false);
+				player.displayClientMessage(Component.translatable("message.projecthero.symbiote.blade_hands_full"), true);
+				transition = true;
 			}
 		} else {
+			BLADE_SLOT.remove(player.getId());
 			reconcileBlade(player, false);
 		}
 
-		// Persist on a real transition immediately; otherwise let the slow drift ride ~4 ticks so the
-		// synced attachment is not rewritten and re-broadcast to every client every single tick.
-		if (transition || (dirty && player.tickCount % 4 == 0)) {
+		// Persist on a real transition immediately; the regen installment (dirty) only comes every
+		// REGEN_STEP_TICKS, so the synced attachment is still not rewritten and re-broadcast every single tick.
+		if (transition || dirty) {
 			save(player, c);
+		}
+
+		// v0.13.21: out of Biomass, out of the suit -- it melts off, and suitLocked keeps it off until the bar recovers.
+		if (c.broken && Symbiote.isActive(player)) {
+			Symbiote.collapseSuit(player);
 		}
 
 		// Low-health warnings from the Symbiote itself.
@@ -440,6 +521,56 @@ public final class SymbioteVitalsManager {
 
 		sneakInvisibility(player);
 		catchArrows(player, c);
+	}
+
+	/**
+	 * v0.13.21: nothing can be held in the hand the Symbiote Blade grows from. Scroll (or number-key) onto a slot
+	 * with an item in it and the selection snaps straight back to the empty slot the blade was in; an item that
+	 * lands in the blade's own slot (a pickup) is tucked into the backpack, or failing that another empty hotbar
+	 * slot. Nothing is ever dropped or deleted.
+	 *
+	 * @return false only when the hand holds an item and there is nowhere at all to put it -- the caller then
+	 *         sheathes the blade instead, leaving the item where it is
+	 */
+	private static boolean keepBladeHandEmpty(ServerPlayer player) {
+		Inventory inv = player.getInventory();
+		int held = inv.selected;
+		if (inv.getItem(held).isEmpty()) {
+			BLADE_SLOT.put(player.getId(), held);
+			return true;
+		}
+		Integer last = BLADE_SLOT.get(player.getId());
+		if (last != null && last != held && Inventory.isHotbarSlot(last) && inv.getItem(last).isEmpty()) {
+			selectSlot(player, last);
+			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.blade_no_items"), true);
+			return true;
+		}
+		int free = -1;
+		for (int i = Inventory.getSelectionSize(); i < inv.items.size() && free < 0; i++) {
+			if (inv.items.get(i).isEmpty()) {
+				free = i;
+			}
+		}
+		for (int i = 0; i < Inventory.getSelectionSize() && free < 0; i++) {
+			if (i != held && inv.items.get(i).isEmpty()) {
+				free = i;
+			}
+		}
+		if (free < 0) {
+			return false;
+		}
+		inv.setItem(free, inv.getItem(held));
+		inv.setItem(held, ItemStack.EMPTY);
+		BLADE_SLOT.put(player.getId(), held);
+		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.blade_no_items"), true);
+		return true;
+	}
+
+	private static void selectSlot(ServerPlayer player, int slot) {
+		player.getInventory().selected = slot;
+		if (player.connection != null) {
+			player.connection.send(new ClientboundSetCarriedItemPacket(slot));
+		}
 	}
 
 	/**
@@ -541,7 +672,8 @@ public final class SymbioteVitalsManager {
 		boolean caught = false;
 		for (AbstractArrow arrow : level.getEntitiesOfClass(AbstractArrow.class,
 				player.getBoundingBox().inflate(ARROW_CATCH_RADIUS))) {
-			if (arrow.isRemoved() || arrow.getOwner() == player) {
+			// v0.13.21: a squadmate's arrow is left alone -- it cannot hurt the host anyway, and catching it cost Biomass
+			if (arrow.isRemoved() || arrow.getOwner() == player || Squads.areAllies(player, arrow.getOwner())) {
 				continue;
 			}
 			// A stuck / spent arrow has near-zero velocity -- only catch ones still in flight.
@@ -579,6 +711,8 @@ public final class SymbioteVitalsManager {
 		LAST_WARN.remove(player.getId());
 		LAST_COMBAT.remove(player.getId());
 		LAST_BIG_HIT.remove(player.getId());
+		LAST_REGEN.remove(player.getId());
+		BLADE_SLOT.remove(player.getId());
 		reconcileBlade(player, false);
 		SymbioteVitals v = player.getAttachedOrElse(ModAttachments.SYMBIOTE_VITALS, null);
 		if (v == null) {
@@ -602,7 +736,7 @@ public final class SymbioteVitalsManager {
 			return;
 		}
 		long now = player.level().getGameTime();
-		long cap = now + RESURRECT_COOLDOWN_TICKS;
+		long cap = now + resurrectCooldownFor(player);
 		if (v.resurrectReadyAt > cap || v.spikeConeReadyAt > now + 400L) {
 			SymbioteVitals c = v.copy();
 			c.resurrectReadyAt = Math.min(c.resurrectReadyAt, cap);
@@ -616,14 +750,22 @@ public final class SymbioteVitalsManager {
 		return vitals(player).resurrectReadyAt;
 	}
 
+	/** How long this host waits between Symbiote revives: 10 minutes for a Normal host, 20 (v0.13.21) for the hero hosts. */
+	public static int resurrectCooldownFor(Player player) {
+		return SymbioteHostType.of(player) == SymbioteHostType.NORMAL
+				? RESURRECT_COOLDOWN_TICKS : HERO_HOST_RESURRECT_COOLDOWN_TICKS;
+	}
+
 	static void markResurrected(ServerPlayer player) {
 		SymbioteVitals c = vitals(player).copy();
-		c.resurrectReadyAt = player.level().getGameTime() + RESURRECT_COOLDOWN_TICKS;
+		c.resurrectReadyAt = player.level().getGameTime() + resurrectCooldownFor(player);
 		save(player, c);
 	}
 
 	public static void clearSessionState() {
 		LAST_DRAIN.clear();
+		LAST_REGEN.clear();
+		BLADE_SLOT.clear();
 		SNEAK_START.clear();
 		LAST_WARN.clear();
 		LAST_COMBAT.clear();

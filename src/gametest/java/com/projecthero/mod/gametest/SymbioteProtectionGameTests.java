@@ -95,6 +95,137 @@ public class SymbioteProtectionGameTests implements FabricGameTest {
 		});
 	}
 
+	/** Push the suit-up / retract clock past its end so it settles this tick. */
+	private static void settle(ServerPlayer player) {
+		Symbiote.state(player).transformStartTick -= 10_000L;
+		Symbiote.tick(player);
+	}
+
+	/**
+	 * v0.13.21: at zero Biomass the suit melts off, and it cannot come back -- not by H, not by the Symbiote's own
+	 * protective wrap, not on a resurrection -- until the bar has recovered to RECOVER_FRACTION.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void spentBiomassMeltsTheSuitAndLocksItOff(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		Symbiote.state(player).toggleReadyAt = 0L;
+		helper.assertTrue(Symbiote.autoEquip(player, true), "precondition: suited");
+		settle(player);
+
+		SymbioteVitalsManager.vitals(player).hp = 0.0f;
+		SymbioteVitalsManager.vitals(player).broken = true;
+		SymbioteVitalsManager.tick(player);
+		settle(player);
+		helper.assertFalse(Symbiote.isActive(player), "the suit melts off at zero Biomass");
+		helper.assertTrue(SymbioteVitalsManager.suitLocked(player), "and is locked off");
+
+		Symbiote.state(player).toggleReadyAt = 0L;
+		helper.assertFalse(Symbiote.autoEquip(player, true), "no protective wrap while spent -- not even a forced one");
+		Symbiote.toggle(player);
+		helper.assertFalse(Symbiote.isActive(player), "H cannot form it either");
+		player.setHealth(1.0f);
+		helper.assertTrue(Symbiote.tryResurrect(player), "the resurrection itself still works");
+		helper.assertFalse(Symbiote.isActive(player), "but it brings the host back bare");
+
+		SymbioteVitalsManager.vitals(player).hp = SymbioteVitalsManager.MAX_HP * SymbioteVitalsManager.RECOVER_FRACTION + 1.0f;
+		SymbioteVitalsManager.tick(player);
+		helper.assertFalse(SymbioteVitalsManager.suitLocked(player), "recovered past 20%: the lock lifts");
+		Symbiote.state(player).toggleReadyAt = 0L;
+		helper.assertTrue(Symbiote.autoEquip(player, true), "and the suit can form again");
+		helper.succeed();
+	}
+
+	/**
+	 * v0.13.21: out-of-combat regen is 8 Biomass a second and every bit of it is kept (it used to be computed every
+	 * tick but saved only every 4th, so three quarters of it vanished).
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void biomassRegenLandsInFull(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		SymbioteVitalsManager.vitals(player).hp = 100.0f;
+		helper.onEachTick(() -> SymbioteVitalsManager.tick(player));
+		helper.runAfterDelay(40, () -> {
+			float gained = SymbioteVitalsManager.biomass(player) - 100.0f;
+			helper.assertTrue(gained > 12.5f && gained < 19.5f, "2 s out of combat regrows ~16 Biomass (" + gained + ")");
+			helper.succeed();
+		});
+	}
+
+	/**
+	 * v0.13.21: only damage that actually lands drains Biomass -- the drain moved to AFTER_DAMAGE. A squadmate's hit
+	 * (and a fall) never costs any; an ordinary hit costs 40%. Mock players cannot be hurt, so the events are fired
+	 * directly.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void onlyLandedNonSquadHitsDrainBiomass(GameTestHelper helper) {
+		ServerPlayer host = bonded(helper);
+		ServerPlayer mate = helper.makeMockServerPlayerInLevel();
+		mate.setGameMode(GameType.SURVIVAL);
+		var squads = com.projecthero.mod.squad.SquadManager.get(helper.getLevel().getServer());
+		var squad = squads.create("SymbioteTestSquad" + helper.getLevel().getGameTime(), host.getUUID());
+		squads.addMember(squad, mate.getUUID());
+		try {
+			helper.assertTrue(com.projecthero.mod.squad.Squads.areAllies(host, mate), "the two are squadmates");
+			var afterDamage = net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DAMAGE.invoker();
+			float before = SymbioteVitalsManager.biomass(host);
+			afterDamage.afterDamage(host, host.damageSources().playerAttack(mate), 10.0f, 10.0f, false);
+			helper.assertTrue(Math.abs(SymbioteVitalsManager.biomass(host) - before) < 0.01f, "a squadmate's hit costs nothing");
+			afterDamage.afterDamage(host, host.damageSources().fall(), 10.0f, 10.0f, false);
+			helper.assertTrue(Math.abs(SymbioteVitalsManager.biomass(host) - before) < 0.01f, "a fall costs nothing");
+			helper.assertFalse(net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.ALLOW_DAMAGE.invoker()
+					.allowDamage(host, host.damageSources().fall(), 12.0f), "falls are still negated");
+			helper.assertTrue(Math.abs(SymbioteVitalsManager.biomass(host) - before) < 0.01f, "negating it is free too");
+			afterDamage.afterDamage(host, host.damageSources().generic(), 10.0f, 10.0f, false);
+			helper.assertTrue(Math.abs(SymbioteVitalsManager.biomass(host) - (before - 4.0f)) < 0.01f,
+					"a real landed hit drains 40% (" + SymbioteVitalsManager.biomass(host) + ")");
+
+			// and no Symbiote move picks the squadmate as a target
+			mate.moveTo(host.getX() + 1.0, host.getY(), host.getZ());
+			helper.assertFalse(com.projecthero.mod.symbiote.SymbioteAbilityManager.enemiesAround(host, host.position(), 6.0)
+					.contains(mate), "a squadmate is never an area target");
+		} finally {
+			squads.disband(squad);
+		}
+		helper.assertFalse(com.projecthero.mod.squad.Squads.areAllies(host, mate), "no squad, no allies");
+		helper.succeed();
+	}
+
+	/**
+	 * v0.13.21: nothing can be held in the Symbiote Blade's hand. An item landing in it is tucked into the pack, and
+	 * scrolling onto an item snaps the selection back -- the blade stays out and nothing is lost.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theBladeKeepsItsHandEmpty(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		var inv = player.getInventory();
+		inv.clearContent();
+		inv.selected = 0;
+		SymbioteVitalsManager.vitals(player).hp = 100.0f;
+		SymbioteVitalsManager.toggleBlade(player);
+		helper.assertTrue(SymbioteVitalsManager.bladeActive(player), "the blade comes out");
+
+		inv.setItem(0, new ItemStack(net.minecraft.world.item.Items.STICK));
+		SymbioteVitalsManager.tick(player);
+		helper.assertTrue(SymbioteVitalsManager.bladeActive(player), "a pickup does not sheathe the blade");
+		helper.assertTrue(player.getMainHandItem().isEmpty(), "the item is moved out of the blade hand");
+		helper.assertTrue(inv.countItem(net.minecraft.world.item.Items.STICK) == 1, "and kept, not lost");
+
+		inv.setItem(1, new ItemStack(net.minecraft.world.item.Items.DIAMOND));
+		inv.selected = 1;
+		SymbioteVitalsManager.tick(player);
+		helper.assertTrue(inv.selected == 0, "scrolling onto an item snaps back to the blade's slot");
+		helper.assertTrue(inv.getItem(1).is(net.minecraft.world.item.Items.DIAMOND), "the diamond stays where it was");
+		helper.assertTrue(SymbioteVitalsManager.bladeActive(player), "the blade is still out");
+		helper.succeed();
+	}
+
+	/** v0.13.21: the Grapple reaches 30 blocks. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void grappleReachesThirtyBlocks(GameTestHelper helper) {
+		helper.assertTrue(com.projecthero.mod.symbiote.SymbioteAbilityManager.GRAPPLE_RANGE == 30.0, "Grapple range is 30");
+		helper.succeed();
+	}
+
 	/** v0.13.19: the blade has no time limit -- it feeds on 0.3 Biomass a second, and Biomass does not regrow meanwhile. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 260)
 	public void theBladeFeedsOnBiomass(GameTestHelper helper) {

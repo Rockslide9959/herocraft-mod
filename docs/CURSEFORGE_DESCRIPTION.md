@@ -81,7 +81,7 @@ mob. Right-click it and survive the bonding.
   impale, wither, blind and cripple everything around you.
 - A **Biomass** bar that suffers alongside you, feeds the Blade and Shield, and regenerates when you're safe.
 - **It protects its host:** it wraps you on its own when you're hurt and **drags you back from death** once every ten
-  minutes. Camouflage while crouching, and a Predator Vision that outlines living things (**N**).
+  minutes (twenty as Black Suit Spider-Man or Agent Venom). Camouflage while crouching, and a Predator Vision that outlines living things (**N**).
 - **Weaknesses:** fire and sound. Bells, goat horns and Warden booms tear the suit right off you.
 - **Black Suit Spider-Man** and **Agent Venom** (with the Punisher) get their own Symbiote extras. Bottle a Symbiote in
   a **Symbiote Vial**.

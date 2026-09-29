@@ -28,7 +28,7 @@ public final class SpiderHud {
 	private static final int GAP = 2;
 	private static final int MARGIN = 4;
 	/** Height of the label stack under the key row (name, web %, bar, mode) -- also lifts the whole HUD. */
-	private static final int BOTTOM_STACK = 48;
+	static final int BOTTOM_STACK = 48; // package-private (v0.13.21): SymbioteHud stacks the Black Suit panel on it
 
 	private static final int COLOR_BOX_BG = 0xC0180C10;
 	private static final int COLOR_BORDER = 0xFF4A1E28;
@@ -236,7 +236,8 @@ public final class SpiderHud {
 		// The keybind boxes start here; the "Spider-Man" label sits 10px above that. Stack the bar and
 		// its own label above the label, with a small gap.
 		int boxesY = g.guiHeight() - MARGIN - BOX - BOTTOM_STACK;
-		int y = boxesY - 14 - h;
+		// v0.13.21: with the black suit on, the Symbiote panel sits directly above the row -- go above that too
+		int y = boxesY - 14 - h - SymbioteHud.blackSuitPanelLift(player);
 		g.drawCenteredString(client.font, Component.translatable("hud.projecthero.spider_man.web_blossom"),
 				x + w / 2, y - 10, full ? 0xFFFFF0A0 : 0xFFE8E8F4);
 		g.fill(x, y, x + w, y + h, 0xC0180C10);

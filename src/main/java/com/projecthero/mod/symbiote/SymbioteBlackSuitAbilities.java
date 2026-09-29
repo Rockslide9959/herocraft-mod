@@ -46,9 +46,10 @@ public final class SymbioteBlackSuitAbilities {
 	public static final String CRUSH = "symbiote_crush";
 	public static final String SLAM_ENHANCED = "symbiote_slam_enhanced";
 
-	private static final int CD_TENDRIL_STRIKE = 80;  // 4s
-	private static final int CD_CRUSH = 200;          // 10s after the crush ends
-	private static final int CD_SLAM_ENHANCED = 200;  // 10s
+	// public (v0.13.21) so SymbioteHud can size the draining cooldown overlay on each box
+	public static final int CD_TENDRIL_STRIKE = 80;  // 4s
+	public static final int CD_CRUSH = 200;          // 10s after the crush ends
+	public static final int CD_SLAM_ENHANCED = 200;  // 10s
 
 	// ---- Symbiote Tendril Strike ----
 	private static final double TENDRIL_STRIKE_RANGE = 8.0;
@@ -89,8 +90,8 @@ public final class SymbioteBlackSuitAbilities {
 			return;
 		}
 		LivingEntity target = AbilityHelpers.raycastEntity(player, TENDRIL_STRIKE_RANGE);
-		if (target == null) {
-			return;
+		if (target == null || com.projecthero.mod.squad.Squads.areAllies(player, target)) {
+			return; // v0.13.21: never a squadmate
 		}
 		float damage = 9.0f + player.getRandom().nextFloat() * 2.0f;
 		if (!AbilityHelpers.hurtLands(player, target, damage)) {
@@ -120,7 +121,7 @@ public final class SymbioteBlackSuitAbilities {
 			return;
 		}
 		LivingEntity target = AbilityHelpers.raycastEntity(player, CRUSH_RANGE);
-		if (target == null || !target.isAlive()) {
+		if (target == null || !target.isAlive() || com.projecthero.mod.squad.Squads.areAllies(player, target)) {
 			return;
 		}
 		long now = player.level().getGameTime();
@@ -168,7 +169,7 @@ public final class SymbioteBlackSuitAbilities {
 	private static void slamImpact(ServerPlayer player) {
 		ServerLevel level = AbilityHelpers.level(player);
 		Vec3 center = player.position();
-		for (LivingEntity target : AbilityHelpers.enemiesAround(player, center, SLAM_RADIUS)) {
+		for (LivingEntity target : SymbioteAbilityManager.enemiesAround(player, center, SLAM_RADIUS)) {
 			if (AbilityHelpers.hurtLands(player, target, SLAM_DAMAGE)) {
 				AbilityHelpers.knockbackFrom(target, center, 1.3);
 			}
@@ -208,7 +209,8 @@ public final class SymbioteBlackSuitAbilities {
 		ServerLevel level = AbilityHelpers.level(player);
 		Entity e = level.getEntity((int) c[0]);
 		if (!(e instanceof LivingEntity target) || !target.isAlive()
-				|| player.distanceToSqr(target) > CRUSH_RANGE * CRUSH_RANGE * 1.6) {
+				|| player.distanceToSqr(target) > CRUSH_RANGE * CRUSH_RANGE * 1.6
+				|| com.projecthero.mod.squad.Squads.areAllies(player, target)) {
 			endCrush(player);
 			return;
 		}

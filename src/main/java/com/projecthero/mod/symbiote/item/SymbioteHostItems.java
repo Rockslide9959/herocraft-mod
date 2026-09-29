@@ -61,9 +61,9 @@ public final class SymbioteHostItems {
 				SuperheroArmorVisuals.SHARED_ANIMATION));
 	}
 
-	/** Agent Venom wears the Black Suit's material: a notch above diamond (4/7/9/4, toughness 3). */
+	/** Agent Venom's suit: v0.13.21 gives it its own material, 3/7/9/3 and toughness 2.5 (was the Black Suit's 4/7/9/4, 3). */
 	private static AgentVenomArmorItem registerAgentVenom(String path, ArmorItem.Type type) {
-		AgentVenomArmorItem item = new AgentVenomArmorItem(ModArmorMaterials.SYMBIOTE, type,
+		AgentVenomArmorItem item = new AgentVenomArmorItem(ModArmorMaterials.AGENT_VENOM, type,
 				new Item.Properties().rarity(Rarity.EPIC).fireResistant());
 		return (AgentVenomArmorItem) Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id(path), item);
 	}

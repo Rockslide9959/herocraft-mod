@@ -247,7 +247,7 @@ Safehouse, the GeckoLib armour model in-world, and multiplayer with a Punisher +
 The Symbiote no longer purges the Punisher (`SymbioteCompatibility.COMPATIBLE_HERO_KEYS` = spider_man, punisher;
 `HeroTiers.claimPrimary` keeps the bond for either). `SymbioteHostType.AGENT_VENOM` = bonded + Punisher and not
 Spider-Man (Spider-Man wins if both are held). H toggles the Symbiote as for every host; `SymbioteSuit` synthesises
-`AgentVenomArmorItem` pieces (Black Suit material, geo `agent_venom.geo.json` = the Symbiote host's skin rig,
+`AgentVenomArmorItem` pieces (own `AGENT_VENOM` material since v0.13.21, was the Black Suit's, geo `agent_venom.geo.json` = the Symbiote host's skin rig,
 texture = the user's `3d minecraft models/agent venom/agentvenom.bbmodel` skin; `scratchpad/gen_agent_venom.js`).
 Losing the Punisher demotes the host to a Normal one and `Symbiote.tick` swaps the suit.
 
@@ -255,11 +255,14 @@ Losing the Punisher demotes the host to a Normal one and `Symbiote.tick` swaps t
 `PunisherAbilityManager.handle`; cooldowns live in the Punisher's synced `abilityReadyAt`:
 - Sneak+X Tendril Swing (block raycast 36, launch toward it, 3 s fall guard) -- 3 s.
 - Sneak+Z Tendril Snatch (entity raycast 18, 5 dmg, Slowness III 3 s, pull + disarm a Mob's main hand; bosses only held) -- 8 s.
-- Sneak+V Symbiote Unleashed (10 s: +50% attack, +20% speed, 30% melee life steal via AFTER_DAMAGE) -- 45 s from activation.
-- Suit stats (`reconcile`, every second from `AbilityRouter.serverTick`): +25% attack, +15% speed, +15% jump, +0.25 knockback resistance.
+- Sneak+V Symbiote Unleashed (10 s: +50% attack, +20% speed, 20% melee life steal via AFTER_DAMAGE; 30% before v0.13.21) -- 45 s from activation.
+- Suit stats (`reconcile`, every second from `AbilityRouter.serverTick`): +25% attack, +15% speed, +15% jump, +0.15 knockback resistance (0.25 before v0.13.21).
+- v0.13.21: the suit has its own `ModArmorMaterials.AGENT_VENOM` (3/7/9/3 = 22, toughness 2.5; was the Black Suit's 24 / 3),
+  and the Symbiote revive waits 20 minutes for Agent Venom (`SymbioteVitalsManager.HERO_HOST_RESURRECT_COOLDOWN_TICKS`).
 - Symbiote Rounds (`PunisherPassives.Hooks#damageFactor` +0.20, `#onHit` Slowness I 1.5 s), Living Ammunition
   (`PunisherAmmoReserve.tickRegen` x3, reload factor x0.75).
-- HUD: three boxes right-aligned above the Punisher row (`SymbioteHud#renderAgentVenomRow`); Left Alt lists them.
+- HUD: v0.13.21 panel above the Punisher row (`SymbioteHud#renderHeroHostPanel`): title, the three Sneak extras
+  (draining cooldowns, V glows with the Unleashed timer), the Symbiote revive timer and a revive Hairline; Left Alt lists them.
 - The Symbiote's weaknesses and instincts (fire / lava / sonic retreat, low-health auto-wrap) are unchanged. Like
   the Black Suit, Agent Venom has none of the Normal host's Biomass passives.
 Tests: `gametest/AgentVenomGameTests`.

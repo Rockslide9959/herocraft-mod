@@ -115,6 +115,37 @@ public class SymbioteGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/**
+	 * v0.13.21: Symbiote Spider-Man was far too tanky. The black suit is diamond-grade now (20 armour, 2 toughness,
+	 * was 24 / 3), Spider-Man's own Resistance drops II -> I while it is on, and his Symbiote revive waits 20 minutes.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void blackSuitSpiderManIsTrimmed(GameTestHelper helper) {
+		ServerPlayer player = spiderMan(helper);
+		Symbiote.grant(player);
+		var material = com.projecthero.mod.item.ModArmorMaterials.SYMBIOTE.value();
+		int total = 0;
+		for (net.minecraft.world.item.ArmorItem.Type t : net.minecraft.world.item.ArmorItem.Type.values()) {
+			if (t != net.minecraft.world.item.ArmorItem.Type.BODY) {
+				total += material.defense().getOrDefault(t, 0);
+			}
+		}
+		helper.assertTrue(total == 20 && material.toughness() == 2.0f, "diamond-grade black suit, was " + total);
+
+		// the unsuited passive's Resistance II, then suit up: it must drop to I straight away
+		player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+				net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 120, 1, true, false, false));
+		Symbiote.toggle(player);
+		forceSettle(player);
+		helper.assertTrue(Symbiote.isActive(player), "precondition: suited");
+		com.projecthero.mod.spider.SpiderPassives.tick(player);
+		var res = player.getEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE);
+		helper.assertTrue(res != null && res.getAmplifier() == 0, "Resistance I while the black suit is on");
+		helper.assertTrue(com.projecthero.mod.symbiote.SymbioteVitalsManager.resurrectCooldownFor(player)
+				== com.projecthero.mod.symbiote.SymbioteVitalsManager.HERO_HOST_RESURRECT_COOLDOWN_TICKS, "a 20-minute revive");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void spammingHNeverStacksAnything(GameTestHelper helper) {
 		ServerPlayer player = spiderMan(helper);

@@ -151,7 +151,7 @@ public final class HeroPackGuide {
 					Component.translatable("projecthero.guide.symbiote.passive.recovery")).withStyle(ChatFormatting.GRAY));
 			lines.add(Component.literal(" • ").append(
 					Component.translatable("projecthero.guide.symbiote.passive.bare_hands")).withStyle(ChatFormatting.GRAY));
-			for (String p : new String[]{"protect", "resist", "growth", "cloak", "predator", "resurrect", "vial"}) {
+			for (String p : new String[]{"protect", "resist", "growth", "cloak", "predator", "resurrect", "squad", "vial"}) {
 				lines.add(Component.literal(" • ").append(
 						Component.translatable("projecthero.guide.symbiote.passive." + p)).withStyle(ChatFormatting.GRAY));
 			}
@@ -205,11 +205,12 @@ public final class HeroPackGuide {
 			}
 			blank(lines);
 			head(lines, "projecthero.guide.symbiote_spider_man.passives");
-			for (String p : new String[]{"melee", "speed", "jump", "knockback", "web_capacity", "recovery"}) {
+			// v0.13.21: the armour line is new; "resist" (the Normal host's -10% suit damage cut) never applied to him
+			for (String p : new String[]{"armour", "melee", "speed", "jump", "knockback", "web_capacity", "recovery"}) {
 				lines.add(Component.literal(" • ").append(
 						Component.translatable("projecthero.guide.symbiote_spider_man.passive." + p)).withStyle(ChatFormatting.GRAY));
 			}
-			for (String p : new String[]{"protect", "resist", "growth", "cloak", "predator", "resurrect", "vial"}) {
+			for (String p : new String[]{"protect", "growth", "cloak", "predator", "resurrect", "squad", "vial"}) {
 				lines.add(Component.literal(" • ").append(
 						Component.translatable("projecthero.guide.symbiote.passive." + p)).withStyle(ChatFormatting.GRAY));
 			}

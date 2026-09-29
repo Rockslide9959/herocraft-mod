@@ -59,6 +59,25 @@ public final class Squads {
 		return SquadManager.get(hurt.server).sameSquad(hurt.getUUID(), dealer.getUUID());
 	}
 
+	/** v0.13.21: public face of {@link #blocks} -- would this hit be swallowed as squad friendly fire? */
+	public static boolean isFriendlyFire(LivingEntity victim, DamageSource source) {
+		return blocks(victim, source);
+	}
+
+	/**
+	 * v0.13.21: are {@code a} and {@code b} two different players in the same squad? The one check an ability
+	 * uses to leave squadmates alone entirely -- no damage, no slow, no grab, no shove -- rather than relying on
+	 * the friendly-fire veto above, which only ever stops the damage itself. Null-safe, and false for anything
+	 * that is not a player (a squad has no pets) or when there is no server to ask.
+	 */
+	public static boolean areAllies(Entity a, Entity b) {
+		if (a == null || b == null || a == b || !(a instanceof Player pa) || !(b instanceof Player pb)
+				|| pa.getServer() == null) {
+			return false;
+		}
+		return SquadManager.get(pa.getServer()).sameSquad(pa.getUUID(), pb.getUUID());
+	}
+
 	// ---------------- sync ----------------
 
 	/** Called once per player per server tick from the mod's own tick hook. */

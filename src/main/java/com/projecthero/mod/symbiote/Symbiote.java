@@ -211,9 +211,33 @@ public final class Symbiote {
 		if (s.active) {
 			AUTO_EQUIP_SUPPRESS.put(player.getId(), now + 200L);
 			beginSuitDown(player);
+		} else if (SymbioteVitalsManager.suitLocked(player)) {
+			// v0.13.21: no Biomass, no suit -- not until the bar has climbed back to RECOVER_FRACTION
+			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.suit_locked",
+					Math.round(SymbioteVitalsManager.RECOVER_FRACTION * 100.0f)).withStyle(ChatFormatting.DARK_RED), true);
 		} else {
 			beginSuitUp(player);
 		}
+	}
+
+	/**
+	 * v0.13.21: the Normal host's Biomass has hit zero -- the Symbiote has nothing left to hold the suit together
+	 * with and it melts off (the ordinary animated retract). {@link SymbioteVitalsManager#suitLocked} then keeps it
+	 * off -- no H, no protective wrap -- until the Biomass recovers. Called from {@link SymbioteVitalsManager#tick}.
+	 */
+	public static void collapseSuit(ServerPlayer player) {
+		SymbioteState s = state(player);
+		if (!s.active || s.transformDir == SymbioteState.DIR_DOWN) {
+			return;
+		}
+		beginSuitDown(player);
+		ServerLevel level = player.serverLevel();
+		level.sendParticles(net.minecraft.core.particles.ParticleTypes.SQUID_INK,
+				player.getX(), player.getY() + 1, player.getZ(), 50, 0.5, 0.8, 0.5, 0.06);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(),
+				SoundEvents.WARDEN_DEATH, SoundSource.PLAYERS, 0.5f, 1.8f);
+		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.suit_collapsed")
+				.withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD), true);
 	}
 
 	private static void beginSuitUp(ServerPlayer player) {
@@ -536,15 +560,17 @@ public final class Symbiote {
 	/**
 	 * The Symbiote wraps its host without being asked. Refuses (returns false) while the host is not bonded,
 	 * is already suited / mid-animation, is still bonding, is locked out (sonic shock, fire / lava retreat,
-	 * the toggle cooldown), is on fire, or is creative/spectator. {@code force} ignores the short stand-down
-	 * that follows the host retracting the suit by hand -- a hard hit or a fatal one overrides it.
+	 * the toggle cooldown), is on fire, or is creative/spectator -- and (v0.13.21) while a Normal host's Biomass is
+	 * spent ({@link SymbioteVitalsManager#suitLocked}). {@code force} ignores the short stand-down that follows the
+	 * host retracting the suit by hand -- a hard hit or a fatal one overrides it -- but never the Biomass lock.
 	 *
 	 * @return true if the suit went on
 	 */
 	public static boolean autoEquip(ServerPlayer player, boolean force) {
 		SymbioteState s = state(player);
 		if (!s.hasSymbiote || s.active || SymbioteTransform.isAnimating(s)
-				|| player.isSpectator() || player.getAbilities().invulnerable) {
+				|| player.isSpectator() || player.getAbilities().invulnerable
+				|| SymbioteVitalsManager.suitLocked(player)) {
 			return false;
 		}
 		long now = player.level().getGameTime();
@@ -606,9 +632,10 @@ public final class Symbiote {
 				net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 400, 0, false, true, true));
 
 		SymbioteAbilityManager.resurrectionBlast(player);
-		// The suit wraps its host too (no lockout can stop a resurrection wrap).
+		// The suit wraps its host too (no lockout can stop a resurrection wrap -- except, v0.13.21, a spent Biomass
+		// bar: with nothing left to form it from, the host is brought back bare).
 		SymbioteState s = state(player);
-		if (!s.active && !SymbioteTransform.isAnimating(s)) {
+		if (!s.active && !SymbioteTransform.isAnimating(s) && !SymbioteVitalsManager.suitLocked(player)) {
 			SymbioteState c = s.copy();
 			c.toggleReadyAt = 0L;
 			save(player, c);

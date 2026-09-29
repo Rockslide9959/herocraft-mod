@@ -50,6 +50,11 @@ public final class SymbioteDamageRules {
 		if (REENTRANT.get() || !(entity instanceof ServerPlayer player) || !Symbiote.isNormalHost(player)) {
 			return true;
 		}
+		// v0.13.21: a squadmate's hit is none of the Symbiote's business -- Squads vetoes it, and nothing here
+		// (the auto-wrap, the damage rules) may react to it first.
+		if (com.projecthero.mod.squad.Squads.isFriendlyFire(player, source)) {
+			return true;
+		}
 		long now = player.level().getGameTime();
 		boolean active = Symbiote.isActive(player);
 
@@ -60,14 +65,10 @@ public final class SymbioteDamageRules {
 			return false;
 		}
 
-		// v0.10.2: a bonded host takes NO fall damage at all -- the Symbiote catches every landing. It
-		// costs a little Biomass to do it (scaled to the fall, always small), and nothing when the host
-		// is invulnerable (creative / spectator).
+		// v0.10.2: a bonded host takes NO fall damage at all -- the Symbiote catches every landing.
+		// v0.13.21: and it no longer costs any Biomass to do it.
 		if (source.is(DamageTypeTags.IS_FALL)) {
 			player.resetFallDistance();
-			if (!player.getAbilities().invulnerable) {
-				SymbioteVitalsManager.spendBiomass(player, Math.min(5.0f, 1.0f + amount * 0.25f));
-			}
 			return false;
 		}
 
@@ -92,9 +93,10 @@ public final class SymbioteDamageRules {
 		float scaled = amount * factor;
 		// v0.11.15: a heavy, dangerous or fatal hit makes the Symbiote wrap its host on its own.
 		Symbiote.onIncomingHit(player, scaled);
-		// v0.9.24: the host takes the hit IN FULL -- no redirect. Separately, the Symbiote loses a
-		// fraction of that hit from its own Biomass bar, in parallel.
-		SymbioteVitalsManager.onHostHit(player, scaled);
+		// v0.9.24: the host takes the hit IN FULL -- no redirect. Separately, the Symbiote loses a fraction of
+		// that hit from its own Biomass bar, in parallel. v0.13.21: that drain moved to AFTER_DAMAGE
+		// (SymbioteVitalsManager#initialize), so it only ever follows a hit that actually LANDED -- never one a
+		// later ALLOW_DAMAGE listener vetoes (squad friendly fire) or one the invulnerability frames swallow.
 		if (Math.abs(scaled - amount) < 0.01f) {
 			return true;
 		}

@@ -35,7 +35,7 @@ public final class SymbiotePassives {
 
 	/** Regeneration is re-applied (and paid for) once a second. */
 	private static final int REGEN_PULSE_TICKS = 20;
-	/** Biomass one second of Symbiote healing costs -- small next to the 9/s it regenerates out of combat. */
+	/** Biomass one second of Symbiote healing costs -- small next to the 8/s (v0.13.21) it regenerates out of combat. */
 	private static final float REGEN_BIOMASS_PER_PULSE = 2.0f;
 
 	private SymbiotePassives() {
@@ -72,8 +72,8 @@ public final class SymbiotePassives {
 		PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, KNOCKBACK, suited ? 0.20 : 0.10,
 				AttributeModifier.Operation.ADD_VALUE);
 		// v0.10.2: fall damage is no longer softened by an attribute here -- the Symbiote negates it
-		// outright (for a small Biomass cost) in SymbioteDamageRules, which needs the vanilla fall
-		// amount to survive this far so it can size the cost. Clear any modifier a prior version left.
+		// outright in SymbioteDamageRules (free since v0.13.21; it used to cost a little Biomass).
+		// Clear any modifier a prior version left.
 		PowerToggles.clearModifier(player, Attributes.FALL_DAMAGE_MULTIPLIER, FALL_MULT);
 
 		if (suited) {

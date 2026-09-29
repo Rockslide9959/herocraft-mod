@@ -82,6 +82,39 @@ public class AgentVenomGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/**
+	 * v0.13.21: Agent Venom is a little less tanky -- his own armour material (22 armour / 2.5 toughness instead of
+	 * the Black Suit's 24 / 3), 15% knockback resistance (was 25%), 20% Unleashed life steal (was 30%) and a
+	 * 20-minute Symbiote revive (was 10).
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void agentVenomIsTrimmed(GameTestHelper helper) {
+		ServerPlayer p = punisher(helper);
+		Symbiote.grant(p);
+		suitUp(p);
+		var material = ((net.minecraft.world.item.ArmorItem) p.getItemBySlot(EquipmentSlot.CHEST).getItem()).getMaterial();
+		helper.assertTrue(material.value() == com.projecthero.mod.item.ModArmorMaterials.AGENT_VENOM.value(),
+				"the suit wears its own material");
+		int total = 0;
+		for (net.minecraft.world.item.ArmorItem.Type t : net.minecraft.world.item.ArmorItem.Type.values()) {
+			if (t != net.minecraft.world.item.ArmorItem.Type.BODY) {
+				total += material.value().defense().getOrDefault(t, 0);
+			}
+		}
+		helper.assertTrue(total == 22, "22 armour for the full suit, was " + total);
+		helper.assertTrue(material.value().toughness() == 2.5f, "2.5 toughness");
+		SymbioteAgentVenomAbilities.reconcile(p);
+		var kb = p.getAttribute(Attributes.KNOCKBACK_RESISTANCE)
+				.getModifier(com.projecthero.mod.ProjectHeroMod.id("agent_venom_knockback"));
+		helper.assertTrue(kb != null && Math.abs(kb.amount() - 0.15) < 1.0e-6, "15% knockback resistance");
+		helper.assertTrue(SymbioteAgentVenomAbilities.LIFE_STEAL == 0.20f, "20% life steal");
+		helper.assertTrue(com.projecthero.mod.symbiote.SymbioteVitalsManager.resurrectCooldownFor(p)
+				== com.projecthero.mod.symbiote.SymbioteVitalsManager.HERO_HOST_RESURRECT_COOLDOWN_TICKS
+				&& com.projecthero.mod.symbiote.SymbioteVitalsManager.HERO_HOST_RESURRECT_COOLDOWN_TICKS == 24000,
+				"a 20-minute revive");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
 	public void tendrilSnatchDisarmsAMob(GameTestHelper helper) {
 		ServerPlayer p = punisher(helper);

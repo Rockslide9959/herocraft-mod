@@ -8,6 +8,7 @@ import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.combat.SonicVulnerability;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.power.AbilityHelpers;
+import com.projecthero.mod.squad.Squads;
 import com.projecthero.mod.symbiote.entity.SymbioteSpikeEntity;
 import com.projecthero.mod.symbiote.entity.SymbioteTendrilEntity;
 
@@ -39,7 +40,7 @@ import net.minecraft.world.phys.Vec3;
  * <pre>
  *   R  Tendril Strike (30 blocks, can miss)        Shift+R  Tendril Sweep (cone, Slow 7 s)
  *   G  Symbiote Spike (one spike, 4 s)             Shift+G  Spike Fan (five spikes, 10 s)
- *   X  Symbiote Lunge (20 blocks, ram = 15 dmg)    Shift+X  Symbiote Grapple (25 blocks)
+ *   X  Symbiote Lunge (20 blocks, ram = 15 dmg)    Shift+X  Symbiote Grapple (30 blocks)
  *   Z  Tendril Barrage / Blade Slash               Shift+hold Z  Symbiote Onslaught (ultimate)
  *   V  Symbiote Blade (toggle)                     Shift+V  Symbiote Shield (toggle)
  *   C  Symbiote Spikes (Thorns toggle)             Shift+C  Tendril Grab (C again to throw)
@@ -96,7 +97,8 @@ public final class SymbioteAbilityManager {
 	private static final float ONSLAUGHT_DAMAGE = 20.0f;
 	private static final int ONSLAUGHT_DOT_TICKS = 160;
 
-	private static final double GRAPPLE_RANGE = 25.0;
+	/** v0.13.21: 25 -> 30 blocks. */
+	public static final double GRAPPLE_RANGE = 30.0;
 	private static final int CD_GRAPPLE = 60;
 	private static final int GRAPPLE_PULL_TICKS = 20;
 
@@ -292,6 +294,16 @@ public final class SymbioteAbilityManager {
 	// ---------------- aiming helpers ----------------
 
 	/**
+	 * v0.13.21: {@link AbilityHelpers#enemiesAround} minus the caster's squadmates. Every Symbiote move -- the
+	 * Normal host's, the Black Suit's and Agent Venom's -- picks its area targets through this, so a squadmate is
+	 * never hit, slowed, withered, blinded or thrown, not merely spared the damage by the friendly-fire veto.
+	 */
+	public static List<LivingEntity> enemiesAround(ServerPlayer player, Vec3 center, double radius) {
+		return AbilityHelpers.enemiesAround(player, center, radius).stream()
+				.filter(e -> !Squads.areAllies(player, e)).toList();
+	}
+
+	/**
 	 * What a tendril flying from the eyes along {@code dir} runs into first, within {@code range}: the first
 	 * living thing, else the block face, else the end of its reach. Blocks stop it -- nothing through walls.
 	 */
@@ -303,7 +315,8 @@ public final class SymbioteAbilityManager {
 		Vec3 end = block.getType() == HitResult.Type.MISS ? far : block.getLocation();
 		AABB sweep = player.getBoundingBox().expandTowards(end.subtract(eye)).inflate(1.0);
 		EntityHitResult ehr = ProjectileUtil.getEntityHitResult(level, player, eye, end, sweep,
-				e -> e != player && e.isPickable() && e.isAlive() && e instanceof LivingEntity && !(e instanceof ArmorStand));
+				e -> e != player && e.isPickable() && e.isAlive() && e instanceof LivingEntity && !(e instanceof ArmorStand)
+						&& !Squads.areAllies(player, e)); // v0.13.21: tendrils pass a squadmate by
 		if (ehr != null && ehr.getEntity() instanceof LivingEntity le) {
 			hitOut[0] = le;
 			return le.position().add(0, le.getBbHeight() * 0.5, 0);
@@ -375,7 +388,7 @@ public final class SymbioteAbilityManager {
 	private static List<LivingEntity> coneTargets(ServerPlayer player, double range, double dotThreshold) {
 		Vec3 eye = player.getEyePosition();
 		Vec3 look = player.getLookAngle();
-		return AbilityHelpers.enemiesAround(player, player.position(), range).stream().filter(e -> {
+		return enemiesAround(player, player.position(), range).stream().filter(e -> {
 			Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);
 			return to.lengthSqr() > 0.01 && to.normalize().dot(look) >= dotThreshold;
 		}).toList();
@@ -423,7 +436,7 @@ public final class SymbioteAbilityManager {
 			return;
 		}
 		LivingEntity target = AbilityHelpers.raycastEntity(player, GRAB_RANGE);
-		if (target == null || !AbilityHelpers.isValidGrabTarget(target, player)) {
+		if (target == null || !AbilityHelpers.isValidGrabTarget(target, player) || Squads.areAllies(player, target)) {
 			// the tendril still lashes out and comes back empty
 			SymbioteAnim.play(player, SymbioteAnim.TENDRIL_STRIKE);
 			SymbioteTendrilEntity.fromHand(player, true, AbilityHelpers.aimPoint(player, GRAB_RANGE), null, 9, 3, 0.12f);
@@ -566,7 +579,7 @@ public final class SymbioteAbilityManager {
 		}
 		// v0.12.1: the launch is a real impulse now (vanilla gravity and drag carry it), so the only
 		// per-tick work is the ram check -- the host punches through the first creature it meets.
-		for (LivingEntity target : AbilityHelpers.enemiesAround(player, player.position().add(0, 0.9 * player.getScale(), 0), 2.0 * player.getScale())) {
+		for (LivingEntity target : enemiesAround(player, player.position().add(0, 0.9 * player.getScale(), 0), 2.0 * player.getScale())) {
 			if (AbilityHelpers.hurtLands(player, target, LEAP_RAM_DAMAGE)) {
 				AbilityHelpers.knockbackFrom(target, player.position(), 1.6);
 				AbilityHelpers.burst(AbilityHelpers.level(player),
@@ -814,7 +827,7 @@ public final class SymbioteAbilityManager {
 			}
 		}
 		// enemies caught in the radius are already slowed while it charges
-		for (LivingEntity target : AbilityHelpers.enemiesAround(player, player.position(), ONSLAUGHT_RADIUS)) {
+		for (LivingEntity target : enemiesAround(player, player.position(), ONSLAUGHT_RADIUS)) {
 			AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, 20, 1);
 		}
 		if (player.tickCount % 6 == 0) {
@@ -842,7 +855,7 @@ public final class SymbioteAbilityManager {
 		ServerLevel level = AbilityHelpers.level(player);
 		Vec3 center = player.position();
 		SymbioteAnim.play(player, SymbioteAnim.ONSLAUGHT_RELEASE);
-		List<LivingEntity> victims = AbilityHelpers.enemiesAround(player, center, ONSLAUGHT_RADIUS);
+		List<LivingEntity> victims = enemiesAround(player, center, ONSLAUGHT_RADIUS);
 		long[] track = new long[victims.size() + 1];
 		track[0] = now + ONSLAUGHT_DOT_TICKS;
 		int idx = 1;
@@ -1046,7 +1059,7 @@ public final class SymbioteAbilityManager {
 
 		AABB box = player.getBoundingBox().inflate(RESURRECT_RADIUS);
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box,
-				x -> x != player && x.isAlive() && !x.isSpectator())) {
+				x -> x != player && x.isAlive() && !x.isSpectator() && !Squads.areAllies(player, x))) {
 			Vec3 away = e.position().subtract(player.position());
 			Vec3 flat = new Vec3(away.x, 0, away.z);
 			if (flat.lengthSqr() < 0.01) {

@@ -80,16 +80,38 @@ public final class ModArmorMaterials {
 	 * The extra defence only exists while the suit is worn, and the suit is only worn while the Symbiote
 	 * is active -- so toggling it off returns the player to their exact normal values with nothing
 	 * stacked.
+	 *
+	 * <p>v0.13.21: Symbiote Spider-Man was far too tanky (this on top of Spider-Man's own Resistance II), so the
+	 * suit drops to exactly diamond -- 3 / 6 / 8 / 3 (= 20) and 2.0 toughness, down from 24 / 3.0. Agent Venom
+	 * used to share this material; he has his own ({@link #AGENT_VENOM}) now.
 	 */
 	public static final Holder<ArmorMaterial> SYMBIOTE = registerWithLayer("spider_man_symbiote", "thor",
 			Map.of(
-					ArmorItem.Type.BOOTS, 4,
-					ArmorItem.Type.LEGGINGS, 7,
-					ArmorItem.Type.CHESTPLATE, 9,
-					ArmorItem.Type.HELMET, 4),
+					ArmorItem.Type.BOOTS, 3,
+					ArmorItem.Type.LEGGINGS, 6,
+					ArmorItem.Type.CHESTPLATE, 8,
+					ArmorItem.Type.HELMET, 3),
 			15,
 			SoundEvents.ARMOR_EQUIP_NETHERITE,
-			3.0f,
+			2.0f,
+			0.0f,
+			() -> Ingredient.of(Items.STRING));
+
+	/**
+	 * v0.13.21: the Agent Venom suit's own material, split off {@link #SYMBIOTE} so the two hosts can be tuned
+	 * apart. A small trim from the old shared 24 / 3.0: 3 / 7 / 9 / 3 (= 22) and 2.5 toughness -- still a hair
+	 * under the Punisher's own diamond-plus plate it replaces, but not much. Synthesised, never crafted; the flat
+	 * fallback layer reuses Thor's (never seen -- GeckoLib renders the real model).
+	 */
+	public static final Holder<ArmorMaterial> AGENT_VENOM = registerWithLayer("agent_venom", "thor",
+			Map.of(
+					ArmorItem.Type.BOOTS, 3,
+					ArmorItem.Type.LEGGINGS, 7,
+					ArmorItem.Type.CHESTPLATE, 9,
+					ArmorItem.Type.HELMET, 3),
+			15,
+			SoundEvents.ARMOR_EQUIP_NETHERITE,
+			2.5f,
 			0.0f,
 			() -> Ingredient.of(Items.STRING));
 

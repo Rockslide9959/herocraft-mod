@@ -70,7 +70,9 @@ public class SymbioteSpikeEntity extends ThrowableProjectile {
 
 	@Override
 	protected boolean canHitEntity(Entity target) {
-		return super.canHitEntity(target) && target != getOwner();
+		// v0.13.21: a spike flies straight past its owner's squadmates
+		return super.canHitEntity(target) && target != getOwner()
+				&& !com.projecthero.mod.squad.Squads.areAllies(getOwner(), target);
 	}
 
 	@Override

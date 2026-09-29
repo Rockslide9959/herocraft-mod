@@ -134,9 +134,21 @@ public final class SpiderPassives {
 		if (!SpiderMan.hasPower(player)) {
 			return;
 		}
+		// v0.13.21: with the black Symbiote suit on, the passive Resistance drops II -> I -- the suit's own armour
+		// does the protecting now, and the two together made Symbiote Spider-Man far too tanky. Checked every
+		// tick so the stronger ambient effect is swapped out the moment the suit comes on, not up to 6 s later.
+		boolean blackSuit = com.projecthero.mod.symbiote.Symbiote.isActive(player)
+				&& com.projecthero.mod.symbiote.SymbioteHostType.of(player)
+						== com.projecthero.mod.symbiote.SymbioteHostType.SPIDER_MAN;
+		int resistance = blackSuit ? 0 : 1;
+		MobEffectInstance current = player.getEffect(MobEffects.DAMAGE_RESISTANCE);
+		if (current != null && current.isAmbient() && current.getAmplifier() > resistance) {
+			player.removeEffect(MobEffects.DAMAGE_RESISTANCE);
+			player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 120, resistance, true, false, false));
+		}
 		if (player.tickCount % 40 == 0) {
 			player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 120, 1, true, false, false));
-			player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 120, 1, true, false, false));
+			player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 120, resistance, true, false, false));
 			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 120, 0, true, false, false));
 		}
 		// Symbiote Recovery (spec): Black Suit Spider-Man refreshes the same Regeneration I a little

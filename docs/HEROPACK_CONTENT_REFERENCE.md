@@ -1247,8 +1247,8 @@ slot; the experimental mutations are one group in one slot (still capped by `mut
   toggle for 5 s, calls `SymbioteAbilityManager.disrupt` and `SymbioteVitalsManager.disruptToggles`, and the
   Symbiote speaks (`sonic_stunned`, later `sonic_recovered`).
 - **Fire:** `HAZARD_RETRACT_TICKS` is 40 (2 s of fire/lava) -> forced retract + 10 s lockout.
-- **Grapple:** 25-block range and needs an anchor (block or creature); aimed at air the tendril is drawn the full
-  25 blocks and the ability fails without a cooldown (`grapple_no_anchor`).
+- **Grapple:** 25-block range (30 since v0.13.21) and needs an anchor (block or creature); aimed at air the tendril is
+  drawn the full range and the ability fails without a cooldown (`grapple_no_anchor`).
 - **Symbiote Lunge** replaces Leap (slot 3): 2 blocks/tick for 10 ticks along the full look vector (20 blocks), 15
   damage ram, fall damage negated, 2 s cooldown.
 - **Symbiote Vial** (`symbiote/item/SymbioteVialItem`): empty + sneak-use extracts the bond, empty + right-click on a
@@ -1297,3 +1297,36 @@ Max Steel, the Punisher, Green Lantern, Wolverine (v0.12.1) and the 27 experimen
   ~20 blocks (`AbilityHelpers.ballisticLaunch`).
 - **Size Manipulation** (Tiny / Large / Giant) scale changes ease over 1 second (`SizeHandlers.SCALE_ANIM`, cleared by
   `ServerStateReset`).
+
+## v0.13.21 -- Symbiote
+
+- **Biomass lock on the suit:** at 0 Biomass (`SymbioteVitals.broken`) `SymbioteVitalsManager.tick` calls
+  `Symbiote.collapseSuit` (the ordinary animated retract). `SymbioteVitalsManager.suitLocked` (Normal host only) then
+  refuses H (`Symbiote.toggle`), the protective wrap (`Symbiote.autoEquip`, even forced) and the resurrection wrap until
+  the bar is back to `RECOVER_FRACTION` (20% = 40 Biomass) -- the same threshold that lifts the ability lock.
+- **Biomass regen:** the old per-tick gain was rebuilt from the saved value each tick but saved only every 4th, so only
+  a quarter landed (9/s on paper, 2.25/s real). Now paid in 4-tick installments on the game clock and saved each time
+  (`LAST_REGEN` dedupes a second `tick()` in the same tick): **8/s** unsuited, **4/s** suited (`SUITED_REGEN_FACTOR`
+  0.3 -> 0.5), after **3 s** out of combat (was 5 s).
+- **Only landed damage drains Biomass:** the 40% drain moved from `SymbioteDamageRules` (ALLOW_DAMAGE, which ran
+  *before* `Squads` could veto a friendly hit, and before invulnerability frames) to `SymbioteVitalsManager`'s
+  AFTER_DAMAGE listener. Falls and squadmates never drain it; fall negation is free (was 1-5 Biomass).
+- **Squads:** `Squads.areAllies(a, b)` (+ `Squads.isFriendlyFire`) is the shared check. Symbiote moves pick targets
+  through `SymbioteAbilityManager.enemiesAround` (ally-filtered); tendril traces, Tendril Grab, spikes
+  (`SymbioteSpikeEntity.canHitEntity`), the resurrection blast, Thorns, the blade bite, arrow catching, the Black Suit
+  extras and Agent Venom's Snatch / life steal all skip squadmates.
+- **Symbiote Blade:** the hand is kept empty instead of sheathing the blade (`keepBladeHandEmpty`): a scroll onto an
+  item snaps the selection back to the blade's slot (`ClientboundSetCarriedItemPacket`); an item landing in the slot
+  is moved to the first empty pack slot (then hotbar); only a completely full inventory sheathes it. `UseItemCallback`
+  refuses main-hand item use while it is out. Nothing is dropped or deleted.
+- **Grapple** range 25 -> 30.
+- **Symbiote Spider-Man trim:** `ModArmorMaterials.SYMBIOTE` 4/7/9/4 t3 -> 3/6/8/3 t2 (diamond); `SpiderPassives`
+  Resistance II -> I while the black suit is on (swapped the same tick); revive cooldown 20 min
+  (`HERO_HOST_RESURRECT_COOLDOWN_TICKS`, via `resurrectCooldownFor`).
+- **Agent Venom trim:** own material `ModArmorMaterials.AGENT_VENOM` 3/7/9/3 t2.5 (was the Black Suit's 24 / 3),
+  knockback resistance 0.25 -> 0.15, Unleashed life steal 30% -> 20%, revive cooldown 20 min.
+- **HUD** (`SymbioteHud#renderHeroHostPanel`): Black Suit and Agent Venom share one 130-px panel stacked above their
+  hero row (Black Suit now above SpiderHud's boxes; `SpiderHud` lifts the Web Blossom bar by `blackSuitPanelLift`):
+  bold title, the three Sneak extras (key + sneak chevron, draining cooldown, accent tint + seconds while running),
+  the revive timer (or Agent Venom's Unleashed timer) left of them, and a Hairline that fills as the revive recharges.
+  The Normal host's Biomass bar marks the 20% recovery point while spent.

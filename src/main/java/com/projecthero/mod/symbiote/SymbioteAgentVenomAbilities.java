@@ -44,14 +44,17 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>Sneak + Z (Suppressive Fire's key)</b> -- Tendril Snatch: yank the mob you are aiming at
  *       (18 blocks) to you, bound (Slowness III), and rip the weapon out of its hand.</li>
  *   <li><b>Sneak + V (Adrenaline's key)</b> -- Symbiote Unleashed: 10 s of +50% melee, +20% speed and
- *       30% life steal on punches.</li>
+ *       20% life steal on punches (v0.13.21: was 30%).</li>
  * </ul>
  *
  * <p>Passives while suited (applied where the numbers live): <b>Symbiote Rounds</b> -- firearm damage +20%
  * and every hit lashes the target with tendrils (brief Slowness) ({@code PunisherPassives.Hooks});
  * <b>Living Ammunition</b> -- the suit feeds the guns: reserve ammo regenerates three times as fast and
  * reloads are 25% quicker ({@code PunisherAmmoReserve}, {@code PunisherPassives.Hooks}); and the suit's
- * own stats ({@link #reconcile}): +25% melee, +15% speed, +15% jump, +25% knockback resistance.
+ * own stats ({@link #reconcile}): +25% melee, +15% speed, +15% jump, +15% knockback resistance.
+ * v0.13.21 trims how tanky the suit is: its own armour material ({@code ModArmorMaterials#AGENT_VENOM}, 22 armour /
+ * 2.5 toughness instead of the Black Suit's 24 / 3), knockback resistance 25% -> 15%, Unleashed life steal
+ * 30% -> 20%, and a 20-minute Symbiote revive ({@link SymbioteVitalsManager#HERO_HOST_RESURRECT_COOLDOWN_TICKS}).
  * The Symbiote's weaknesses (fire, lava, sound) and its instincts (wrapping its host at low health) apply
  * exactly as they do to every other host -- see {@link Symbiote#tick}.
  */
@@ -73,8 +76,12 @@ public final class SymbioteAgentVenomAbilities {
 	private static final int SWING_SAFE_TICKS = 60;
 	private static final double SNATCH_RANGE = 18.0;
 	private static final float SNATCH_DAMAGE = 5.0f;
-	private static final int UNLEASHED_TICKS = 200;
-	private static final float LIFE_STEAL = 0.30f;
+	/** Public (v0.13.21) so the HUD can tell the live 10 s of Unleashed apart from the rest of its cooldown. */
+	public static final int UNLEASHED_TICKS = 200;
+	/** v0.13.21: 30% -> 20%. */
+	public static final float LIFE_STEAL = 0.20f;
+	/** v0.13.21: the suit's knockback resistance, 25% -> 15%. */
+	public static final double KNOCKBACK_RESIST = 0.15;
 
 	/** Firearm damage bonus while suited (Symbiote Rounds). */
 	public static final float ROUNDS_DAMAGE_BONUS = 0.20f;
@@ -102,7 +109,7 @@ public final class SymbioteAgentVenomAbilities {
 	public static void initialize() {
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> {
 			if (taken > 0.0f && source.getDirectEntity() instanceof ServerPlayer sp && source.getEntity() == sp
-					&& entity != sp && unleashed(sp)) {
+					&& entity != sp && unleashed(sp) && !com.projecthero.mod.squad.Squads.areAllies(sp, entity)) {
 				sp.heal(taken * LIFE_STEAL);
 			}
 		});
@@ -187,8 +194,8 @@ public final class SymbioteAgentVenomAbilities {
 			return;
 		}
 		LivingEntity target = AbilityHelpers.raycastEntity(player, SNATCH_RANGE);
-		if (target == null || !target.isAlive()) {
-			return;
+		if (target == null || !target.isAlive() || com.projecthero.mod.squad.Squads.areAllies(player, target)) {
+			return; // v0.13.21: never a squadmate
 		}
 		boolean boss = com.projecthero.mod.titanshifter.TitanCombat.isBoss(target);
 		ServerLevel level = AbilityHelpers.level(player);
@@ -261,7 +268,7 @@ public final class SymbioteAgentVenomAbilities {
 			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, ATTACK, 0.25, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 			PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, SPEED, 0.15, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 			PowerToggles.modifier(player, Attributes.JUMP_STRENGTH, JUMP, 0.15, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-			PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, KNOCKBACK, 0.25, AttributeModifier.Operation.ADD_VALUE);
+			PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, KNOCKBACK, KNOCKBACK_RESIST, AttributeModifier.Operation.ADD_VALUE);
 		} else {
 			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, ATTACK);
 			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SPEED);
