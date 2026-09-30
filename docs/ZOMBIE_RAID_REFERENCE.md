@@ -440,3 +440,10 @@ curse expiring 150 blocks from a running raid is deferred, not lost; a lit Curse
 Also noticed (not changed here): the user's `config/projecthero_events.json` still carries the pre-v0.13.6
 Grave Essence values (`graveEssenceFromBasicChance` 0.5 etc.) -- `EventConfig` re-writes loaded values, so
 default changes never reach existing configs (same stale-config pattern as the Behemoth fix).
+
+## v0.14.4 -- event config migration
+`config/projecthero_events.json` is re-written with whatever it loaded, so changed defaults never reached an existing
+file: installs from before v0.13.6 still dropped Grave Essence at the old flood rates (0.5 per basic raid zombie, boss
+10-20, final boss 25-40, Cursed Zombie 0.33). The file now carries `configVersion`; a file without it has exactly the
+Grave Essence / Cursed Zombie drop values reset to the current defaults (every other value is kept) and is stamped v1.
+Test: `RaidRepeatGameTests#aPreVersionEventConfigGetsTheCurrentGraveEssenceDrops`.

@@ -23,8 +23,18 @@ import net.fabricmc.loader.api.FabricLoader;
  * uprising -- would need, and {@link ZombieRaid} holds only what is specific to this one event.
  */
 public final class EventConfig {
+	/**
+	 * v0.14.4: this file is always re-written with whatever it loaded, so a changed default never reached a config
+	 * written before the change -- the v0.13.6 Grave Essence rebalance (0.5 -> 0.06 per basic zombie, ...) never
+	 * arrived in existing installs, the same stale-config trap as the Behemoth's. {@code configVersion} is a boxed,
+	 * uninitialised {@code Integer} so Gson leaves it {@code null} for any file that predates it (the
+	 * {@code BehemothConfig} / {@code TitanShifterConfig} trick). See {@link #migrate}.
+	 */
+	public static final int CONFIG_VERSION = 1;
+
 	private static EventConfig instance = new EventConfig();
 
+	public Integer configVersion;
 	public Framework framework = new Framework();
 	public ZombieRaid zombieRaid = new ZombieRaid();
 	public SupervillainRaid supervillainRaid = new SupervillainRaid();
@@ -218,6 +228,41 @@ public final class EventConfig {
 	private EventConfig() {
 	}
 
+	/** A config as a brand-new install writes it (today's defaults, current version). */
+	public static EventConfig fresh() {
+		EventConfig c = new EventConfig();
+		c.configVersion = CONFIG_VERSION;
+		return c;
+	}
+
+	/**
+	 * Brings a loaded config up to {@link #CONFIG_VERSION}. v1 (v0.14.4): a file from before versioning gets the
+	 * v0.13.6 Grave Essence / Cursed Zombie drop values reset to today's defaults. Nothing else it holds is touched,
+	 * so a server's own tuning survives. Returns true if anything changed.
+	 */
+	public static boolean migrate(EventConfig c) {
+		if (c.configVersion != null && c.configVersion >= CONFIG_VERSION) {
+			return false;
+		}
+		ZombieRaid d = new ZombieRaid();
+		ZombieRaid r = c.zombieRaid;
+		ProjectHeroMod.LOGGER.info("[ProjectHero] event config predates v{} -- Grave Essence drops reset to the v0.13.6 values"
+				+ " (basic zombie chance {} -> {})", CONFIG_VERSION, r.graveEssenceFromBasicChance, d.graveEssenceFromBasicChance);
+		r.graveEssenceFromBasicChance = d.graveEssenceFromBasicChance;
+		r.graveEssenceFromSpecialMin = d.graveEssenceFromSpecialMin;
+		r.graveEssenceFromSpecialMax = d.graveEssenceFromSpecialMax;
+		r.graveEssenceFromJuggernautMin = d.graveEssenceFromJuggernautMin;
+		r.graveEssenceFromJuggernautMax = d.graveEssenceFromJuggernautMax;
+		r.graveEssenceFromBossMin = d.graveEssenceFromBossMin;
+		r.graveEssenceFromBossMax = d.graveEssenceFromBossMax;
+		r.graveEssenceFromFinalBossMin = d.graveEssenceFromFinalBossMin;
+		r.graveEssenceFromFinalBossMax = d.graveEssenceFromFinalBossMax;
+		r.cursedZombieEssenceChance = d.cursedZombieEssenceChance;
+		r.cursedZombieBonusEssenceChance = d.cursedZombieBonusEssenceChance;
+		c.configVersion = CONFIG_VERSION;
+		return true;
+	}
+
 	public static EventConfig get() {
 		return instance;
 	}
@@ -247,14 +292,17 @@ public final class EventConfig {
 					if (instance.supervillainRaid == null) {
 						instance.supervillainRaid = new SupervillainRaid();
 					}
+					migrate(instance);
 				}
+			} else {
+				instance = fresh();
 			}
 			// Always (re)write so new keys appear after a mod update, exactly like HeroConfig.
 			Files.createDirectories(path.getParent());
 			Files.writeString(path, gson.toJson(instance));
 		} catch (IOException | JsonSyntaxException e) {
 			ProjectHeroMod.LOGGER.warn("[ProjectHero] could not load event config, using defaults", e);
-			instance = new EventConfig();
+			instance = fresh();
 		}
 	}
 }
