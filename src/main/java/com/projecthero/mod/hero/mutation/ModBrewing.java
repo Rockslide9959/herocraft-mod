@@ -23,7 +23,7 @@ public final class ModBrewing {
 
 	public static void initialize() {
 		FabricBrewingRecipeRegistryBuilder.BUILD.register(builder -> {
-			for (Power power : Powers.all()) {
+			for (Power power : Powers.enabled()) { // v0.14.8: disabled powers brew nothing
 				builder.registerPotionRecipe(
 						ModSerums.basePotion(power.serum().basePotion()),
 						Ingredient.of(HeroPackItems.reagent(power)),

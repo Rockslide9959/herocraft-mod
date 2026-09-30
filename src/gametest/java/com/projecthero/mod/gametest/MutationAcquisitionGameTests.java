@@ -61,6 +61,11 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 		for (Power p : Powers.all()) {
 			String path = BuiltInRegistries.ITEM.getKey(HeroPackItems.reagent(p)).getPath();
 			var holder = recipes.byKey(ResourceLocation.fromNamespaceAndPath("projecthero", path));
+			if (!p.enabled()) {
+				// v0.14.8: a disabled power's reagent recipe is held back by the projecthero:power_enabled condition
+				helper.assertFalse(holder.isPresent(), p.key() + " is disabled but its reagent recipe loaded");
+				continue;
+			}
 			helper.assertTrue(holder.isPresent(), p.key() + " has no reagent recipe");
 			TreeSet<String> items = new TreeSet<>();
 			for (Ingredient ing : holder.get().value().getIngredients()) {
@@ -81,6 +86,10 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 		for (Power p : Powers.all()) {
 			ItemStack base = PotionContents.createItemStack(Items.POTION, ModSerums.basePotion(p.serum().basePotion()));
 			ItemStack reagent = new ItemStack(HeroPackItems.reagent(p));
+			if (!p.enabled()) {
+				helper.assertFalse(brewing.hasMix(base, reagent), p.key() + " is disabled but still brews");
+				continue;
+			}
 			helper.assertTrue(brewing.hasMix(base, reagent), p.key() + ": base + reagent does not brew");
 			ItemStack out = brewing.mix(reagent, base);
 			PotionContents contents = out.get(net.minecraft.core.component.DataComponents.POTION_CONTENTS);
@@ -93,7 +102,7 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void strippedSerumEffectIsRestored(GameTestHelper helper) {
 		ServerPlayer p = player(helper);
-		Power flight = Powers.byKey("power_03_flight");
+		Power flight = Powers.byKey("power_04_super_speed");
 		drink(p, flight);
 		p.removeEffect(ModMobEffects.UNSTABLE_MUTATION); // milk / Purge / a totem / a suit transform
 		MutationManager.serverTick(p);
@@ -105,7 +114,7 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void pendingSerumSurvivesSaveAndLoad(GameTestHelper helper) {
 		ServerPlayer p = player(helper);
-		Power flight = Powers.byKey("power_03_flight");
+		Power flight = Powers.byKey("power_04_super_speed");
 		drink(p, flight);
 		var state = ExperimentalPowers.state(p);
 		var tag = com.projecthero.mod.hero.data.ExperimentalState.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, state)
@@ -119,10 +128,10 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void newestSerumReplacesTheOld(GameTestHelper helper) {
 		ServerPlayer p = player(helper);
-		Power size = Powers.byKey("power_27_size_manipulation");
+		Power speed = Powers.byKey("power_04_super_speed");
 		Power strength = Powers.byKey("power_01_super_strength");
-		drink(p, size);
-		drink(p, strength); // lower amplifier: vanilla merging used to keep Size
+		drink(p, speed);
+		drink(p, strength); // lower amplifier: vanilla merging used to keep the first
 		helper.assertTrue(p.getEffect(ModMobEffects.UNSTABLE_MUTATION).getAmplifier() == ModSerums.amplifierFor(strength),
 				"the newest serum should win");
 		helper.assertTrue(strength.key().equals(ExperimentalPowers.state(p).pendingMutationPower), "pending should follow");
@@ -140,10 +149,12 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 			ExperimentalPowers.grant(p, pw);
 		}
 		int before = ExperimentalPowers.ownedCount(p);
-		Power durability = Powers.byKey("power_21_shockwave_manipulation"); // EXPLOSION, Blast Chamber
-		drink(p, durability);
-		MutationManager.triggerExposure(p, MutationTrigger.Kind.EXPLOSION);
-		helper.assertFalse(ExperimentalPowers.owns(p, durability), "no room: must not be granted");
+		// v0.14.8: the first three registered powers are owned (Strength, Laser Vision, Flight); a Super Speed serum
+		Power speed = Powers.byKey("power_04_super_speed"); // ELECTRICAL_DISCHARGE
+		drink(p, speed);
+		helper.assertTrue(speed.key().equals(ExperimentalPowers.state(p).pendingMutationPower), "the serum takes hold");
+		MutationManager.triggerExposure(p, MutationTrigger.Kind.ELECTRICAL_DISCHARGE);
+		helper.assertFalse(ExperimentalPowers.owns(p, speed), "no room: must not be granted");
 		helper.assertTrue(ExperimentalPowers.ownedCount(p) == before, "nothing owned may be lost");
 		helper.assertTrue(ExperimentalPowers.state(p).pendingMutationPower.isEmpty(), "the attempt should end, not repeat");
 		helper.succeed();
@@ -159,7 +170,9 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 		drink(p, elastic);
 		p.fallDistance = 12.0f;
 		MutationManager.serverTick(p);
-		helper.assertTrue(ExperimentalPowers.owns(p, elastic), "falling 10+ blocks onto slime should grant Elasticity");
+		// v0.14.8: Elasticity is disabled (Powers.ENABLED) -- its serum takes no hold and the slime impact grants nothing
+		helper.assertFalse(ExperimentalPowers.owns(p, elastic), "a disabled power must not be granted by its detector");
+		helper.assertTrue(ExperimentalPowers.state(p).pendingMutationPower.isEmpty(), "a disabled serum takes no hold");
 		helper.succeed();
 	}
 
@@ -174,22 +187,24 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 		for (int t = 0; t < 70 && !ExperimentalPowers.owns(p, cryo); t++) {
 			MutationManager.serverTick(p);
 		}
-		helper.assertTrue(ExperimentalPowers.owns(p, cryo), "standing in powder snow should grant Cryokinesis");
+		// v0.14.8: Cryokinesis is disabled
+		helper.assertFalse(ExperimentalPowers.owns(p, cryo), "a disabled power must not be granted by its detector");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void everyDeviceFiresOnRightClick(GameTestHelper helper) {
-		// Blast Chamber is a redstone device: it used to ignore right-clicks entirely (research sites had no lever)
+		// redstone devices used to ignore right-clicks entirely (research sites had no lever). v0.14.8: the Blast
+		// Chamber's powers are all disabled, so this uses the Charged Copper Plates and Super Speed.
 		ServerPlayer p = player(helper);
-		Power durability = Powers.byKey("power_21_shockwave_manipulation"); // EXPLOSION, Blast Chamber
+		Power speed = Powers.byKey("power_04_super_speed"); // ELECTRICAL_DISCHARGE, Charged Copper Plates
 		BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1));
-		helper.getLevel().setBlockAndUpdate(pos, ModDevices.BLAST_CHAMBER.defaultBlockState());
+		helper.getLevel().setBlockAndUpdate(pos, ModDevices.CHARGED_COPPER_PLATES.defaultBlockState());
 		p.moveTo(pos.getX() + 1.5, pos.getY(), pos.getZ() + 0.5);
-		drink(p, durability);
+		drink(p, speed);
 		helper.getLevel().getBlockState(pos).useWithoutItem(helper.getLevel(), p,
 				new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
-		helper.assertTrue(ExperimentalPowers.owns(p, durability), "right-clicking the Blast Chamber should expose the player");
+		helper.assertTrue(ExperimentalPowers.owns(p, speed), "right-clicking the Charged Copper Plates should expose the player");
 		helper.succeed();
 	}
 
@@ -215,7 +230,7 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 			}
 			ExperimentalPowers.grant(p, pw);
 		}
-		helper.assertFalse(PowerGrants.grantExperimental(p, Powers.byKey("power_27_size_manipulation")),
+		helper.assertFalse(PowerGrants.grantExperimental(p, Powers.byKey("power_04_super_speed")),
 				"a full player must not get another mutation from a random serum");
 		helper.succeed();
 	}
@@ -223,9 +238,11 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void randomSerumRecordsResearch(GameTestHelper helper) {
 		ServerPlayer p = player(helper);
-		Power wind = Powers.byKey("power_24_wind_manipulation");
-		helper.assertTrue(PowerGrants.grantExperimental(p, wind), "grant should succeed");
-		helper.assertTrue(ExperimentalPowers.researchStage(p, wind)
+		Power speed = Powers.byKey("power_04_super_speed");
+		helper.assertTrue(PowerGrants.grantExperimental(p, speed), "grant should succeed");
+		helper.assertFalse(PowerGrants.grantExperimental(helper.makeMockServerPlayerInLevel(),
+				Powers.byKey("power_24_wind_manipulation")), "v0.14.8: a disabled power is never handed out");
+		helper.assertTrue(ExperimentalPowers.researchStage(p, speed)
 				== com.projecthero.mod.hero.data.ResearchStage.MUTATION_CONFIRMED, "research should be recorded");
 		helper.succeed();
 	}
@@ -233,7 +250,7 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void guideReagentMatchesRealRecipe(GameTestHelper helper) {
 		var recipes = helper.getLevel().getRecipeManager();
-		for (Power p : Powers.all()) {
+		for (Power p : Powers.enabled()) { // v0.14.8: disabled powers have no guide chapter and no recipe
 			String path = BuiltInRegistries.ITEM.getKey(HeroPackItems.reagent(p)).getPath();
 			var holder = recipes.byKey(ResourceLocation.fromNamespaceAndPath("projecthero", path)).orElseThrow();
 			TreeSet<String> real = new TreeSet<>();

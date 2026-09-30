@@ -26,6 +26,10 @@ public final class SuperSpeedV0145 {
 	/** Speed Mode / Overdrive after-image trail (everyone sees it); {@link #TRAIL_RED} = 1 while Overdrive runs. */
 	public static final String TRAIL = "p04.trail";
 	public static final String TRAIL_RED = "p04.trail_red";
+	/** v0.14.8: Shift+C Phase is running -- synced to every viewer, who draw the vibrating body + ghost copies. */
+	public static final String PHASE = "p04.phase";
+	/** v0.14.8: Z is being held to charge Time Slow -- viewers draw the same vibration as Phase. */
+	public static final String TS_CHARGING = "p04.ts_charging";
 
 	private SuperSpeedV0145() {
 	}
@@ -33,12 +37,19 @@ public final class SuperSpeedV0145 {
 	public static void init() {
 		MutationVisuals.registerFlag(TRAIL, p -> owns(p) && (SuperSpeedHandlers.speedMode(p) || SuperSpeedHandlers.overdrive(p)));
 		MutationVisuals.registerValue(TRAIL_RED, p -> owns(p) && SuperSpeedHandlers.overdrive(p) ? 1 : 0);
+		MutationVisuals.registerFlag(PHASE, p -> owns(p) && SuperSpeedHandlers.phasing(p));
+		MutationVisuals.registerFlag(TS_CHARGING, p -> owns(p) && SuperSpeedHandlers.timeSlowCharging(p));
 
 		// HUD: running timers as Hairline bars above the key row (the Momentum gauge is gone with Momentum)
 		MutationMeters.register(new Spec(SuperSpeedHandlers.KEY, SuperSpeedHandlers.OVERDRIVE_LEFT, Kind.TIMER, Style.HAIRLINE,
 				"Overdrive", 600f, 0xFFE03A3A, false, false, true, 0));
 		MutationMeters.register(new Spec(SuperSpeedHandlers.KEY, SuperSpeedTimeSlow.LEFT, Kind.TIMER, Style.HAIRLINE,
 				"Time Slow", SuperSpeedTimeSlow.DURATION_TICKS, 0xFFB8B8B8, false, false, true, 0));
+		// v0.14.8: the 5 s Time Slow charge filling up, and the 30 s of exhaustion after it draining away
+		MutationMeters.register(new Spec(SuperSpeedHandlers.KEY, SuperSpeedHandlers.TS_CHARGE, Kind.BUILD, Style.HAIRLINE,
+				"Time Slow — charging", SuperSpeedHandlers.TS_CHARGE_TICKS, 0xFFF0F0F0, false, false, true, 0));
+		MutationMeters.register(new Spec(SuperSpeedHandlers.KEY, SuperSpeedHandlers.EXHAUST, Kind.TIMER, Style.HAIRLINE,
+				"Exhausted", SuperSpeedHandlers.EXHAUST_TICKS, 0xFF7A7A7A, false, false, true, 0));
 
 		// v0.14.7: after-image streaks (Blitz / Speed Sweep hops, the Vortex ring), and the game-wide Time Slow state
 		net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playS2C().register(
@@ -72,6 +83,13 @@ public final class SuperSpeedV0145 {
 				return false;
 			}
 			return true;
+		});
+		// v0.14.8: dying ends the exhaustion and any Time Slow charge
+		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+			if (entity instanceof ServerPlayer sp && owns(sp)) {
+				SuperSpeedHandlers.cancelTimeSlowCharge(sp);
+				SuperSpeedHandlers.clearExhaustion(sp);
+			}
 		});
 		AttackEntityCallback.EVENT.register((player, level, hand, target, hit) ->
 				SuperSpeedHandlers.phasing(player) ? InteractionResult.FAIL : InteractionResult.PASS);

@@ -55,7 +55,7 @@ public final class HeroPackItems {
 	public static void addToCreativeTab(CreativeModeTab.Output output) {
 		output.accept(GUIDE);
 		output.accept(RESEARCH_NOTE);
-		for (Power power : Powers.all()) {
+		for (Power power : Powers.enabled()) { // v0.14.8: disabled powers' reagents / serums stay registered, hidden
 			output.accept(new net.minecraft.world.item.ItemStack(REAGENTS.get(power.key())));
 			output.accept(PotionContents.createItemStack(Items.POTION, ModSerums.serum(power)));
 		}

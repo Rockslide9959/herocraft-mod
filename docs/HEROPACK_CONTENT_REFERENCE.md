@@ -9,6 +9,30 @@ below the AUTO marker.
 
 ---
 
+## v0.14.8 — only the remade mutations are enabled
+
+`Powers.ENABLED` (in `hero/Powers.java`) is the single switch for which experimental powers are live. Today it holds the
+four powers that have been remade: `power_01_super_strength`, `power_02_laser_vision`, `power_04_super_speed`,
+`power_12_super_regeneration`. The other 22 stay registered (code, ability handlers, items, potions, recipe JSON, loot
+JSON and lang are all untouched) but are **disabled**:
+
+- **Not obtainable**: their serums do nothing and exposure never grants them (`MutationManager`), brewing has no recipe
+  for them (`ModBrewing`), their reagent recipes do not load (every `*_reagent.json` carries a
+  `fabric:load_conditions` entry `{"condition": "projecthero:power_enabled", "power": "<key>"}` —
+  `PowerEnabledCondition`; stamped by `scratchpad/reagent_conditions_v0148.js`), loot drops their reagents / serums /
+  research notes silently (`LootTableDisabledPowerMixin` → `PowerItems.isDisabledPowerItem`), random serums and blank
+  research notes never roll them (`PowerGrants`, `MutationManager.studyRandomResearch`), a research note written about
+  one reads as a blank note, and `/projecthero power grant|stack|serum|research|active` reject them (revoke still works).
+- **Hidden**: no guidebook chapter / index row, no creative-tab reagent or serum, never listed in the power wheel.
+- **Pruned on join**: `ExperimentalPowers.pruneRemovedPowers` `forget()`s any disabled power a player still holds
+  (toggles off, passives torn down, cooldowns / resources / markers wiped), clears a disabled pending serum, and points
+  the active power at another held enabled one, or none.
+- The gate sits at acquisition / UI / join level only — `ExperimentalPowers.grant` itself is ungated, so the Spider-Man
+  evolution (which grants and immediately forgets Spider Adhesion) and gametests that grant a disabled power directly still
+  work. While Spider Adhesion is disabled, the Arachnid Mutagen supplies that prerequisite itself.
+
+**Re-enabling a power** = add its key to `Powers.ENABLED`. Nothing else changes.
+
 ## v0.14.1 — full mutation revamp
 
 All 27 mutations were rebuilt in v0.14.1 (8 abilities each: the six keys plus H / N, a signature mechanic, animations,

@@ -309,7 +309,10 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		ServerPlayer other = helper.makeMockServerPlayerInLevel();
 		ExperimentalPowers.grant(other, power());
 		ExperimentalPowers.setActive(other, power());
-		AbilityRouter.handleInput(p, 4, true); // Z
+		AbilityRouter.handleInput(p, 4, true); // Z held: v0.14.8 charges for 5 s, then fires by itself
+		for (int i = 0; i <= SuperSpeedHandlers.TS_CHARGE_TICKS && !SuperSpeedTimeSlow.isCasting(p); i++) {
+			ExperimentalPowers.serverTick(p);
+		}
 		try {
 			helper.assertTrue(SuperSpeedTimeSlow.isCasting(p), "Time Slow starts");
 			helper.assertTrue(server.tickRateManager().tickrate() == SuperSpeedTimeSlow.SLOW_RATE,

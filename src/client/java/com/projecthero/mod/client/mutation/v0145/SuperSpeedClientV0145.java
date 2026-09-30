@@ -94,6 +94,7 @@ public final class SuperSpeedClientV0145 {
 		ClientTickEvents.END_CLIENT_TICK.register(SuperSpeedClientV0145::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(SpeedRunPose::tick);
 		TimeSlowClient.init();
+		SpeedPhaseFx.init(); // v0.14.8: Phase vibration
 		WorldRenderEvents.AFTER_ENTITIES.register(SuperSpeedClientV0145::renderTrails);
 		ClientPlayNetworking.registerGlobalReceiver(SpeedStreakPayload.TYPE,
 				(payload, context) -> context.client().execute(() -> acceptStreak(payload)));
@@ -133,6 +134,10 @@ public final class SuperSpeedClientV0145 {
 		float[] sR = f(0, -1.6f, -0.1f, 0, 0.4f, 0.2f, 0, 0.25f, -0.4f, -0.3f, 0.3f, 0);
 		float[] sL = f(0, 0.4f, -0.2f, 0, -1.6f, 0.1f, 0, 0.25f, 0.4f, 0.3f, -0.3f, 0);
 		MutationPose.registerLoop("p04.sweep", 1, new float[][] { z(0), at(1, sR), at(3, sL), at(5, sR) });
+		// v0.14.8 Z held: bracing to charge Time Slow -- low, leaned in, fists clenched at the hips, a shaking build-up
+		float[] brace = f(0, 0.55f, 0.1f, 0.35f, 0.55f, -0.1f, -0.35f, 0.42f, 0f, -0.45f, 0.35f, -0.25f);
+		float[] braceB = f(0, 0.65f, 0.1f, 0.42f, 0.45f, -0.1f, -0.3f, 0.45f, 0.04f, -0.42f, 0.38f, -0.28f);
+		MutationPose.registerLoop(SuperSpeedHandlers.ANIM_TS_CHARGE, 4, new float[][] { z(0), at(4, brace), at(5, braceB), at(6, brace) });
 	}
 
 	// ---- Time Slow (the caster's own client) --------------------------------------------------------
@@ -316,20 +321,25 @@ public final class SuperSpeedClientV0145 {
 				if (own && firstPerson && cam.distanceToSqr(s.x(), s.y() + 1.0, s.z()) < 2.25) {
 					continue;
 				}
-				// Overdrive: lightning between every third red trail copy, re-shaped every other tick (the crackle)
+				// v0.14.8 Overdrive lightning trail: jagged yellow / orange-white bolts strung between every pair of
+				// consecutive trail copies (so only ever BEHIND the runner), two per gap at different heights, re-shaped
+				// several times a tick and randomly dropping out (the flicker), fading with the copies over a second
 				if (s.overdrive() && !s.fixed()) {
-					if (prevRed != null && redIndex % 3 == 0) {
-						double seed = Math.floor((now + partial) / 2.0) * 3.7 + s.time() * 0.91;
-						if (ThorDraw.hash(seed) > 0.35) {
-							Vec3 a = new Vec3(prevRed.x(), prevRed.y() + 0.4 + ThorDraw.hash(seed + 1) * 1.2, prevRed.z()).subtract(cam);
-							Vec3 b = new Vec3(s.x(), s.y() + 0.4 + ThorDraw.hash(seed + 2) * 1.2, s.z()).subtract(cam);
-							arcs.add(ThorDraw.jagged(a, b, 6, 0.28, seed));
-							arcAlpha.add(Math.min(1.0f, fade * 1.2f));
+					if (prevRed != null && Math.abs(s.time() - prevRed.time()) <= 3
+							&& new Vec3(s.x() - prevRed.x(), s.y() - prevRed.y(), s.z() - prevRed.z()).lengthSqr() < 16.0) {
+						double frame = Math.floor((now + partial) * 3.0);
+						for (int bolt = 0; bolt < 2; bolt++) {
+							double seed = frame * 3.7 + s.time() * 0.91 + bolt * 17.3;
+							if (ThorDraw.hash(seed) < 0.3) {
+								continue;
+							}
+							Vec3 a = new Vec3(prevRed.x(), prevRed.y() + 0.25 + ThorDraw.hash(seed + 1) * 1.45, prevRed.z()).subtract(cam);
+							Vec3 b = new Vec3(s.x(), s.y() + 0.25 + ThorDraw.hash(seed + 2) * 1.45, s.z()).subtract(cam);
+							arcs.add(ThorDraw.jagged(a, b, 5, 0.22, seed));
+							arcAlpha.add(Math.min(1.0f, fade * 1.3f));
 						}
-						prevRed = s;
-					} else if (prevRed == null) {
-						prevRed = s;
 					}
+					prevRed = s;
 					redIndex++;
 				}
 				int alpha = Math.round(Math.min(1.0f, fade) * s.alpha() * 255.0f);
@@ -363,9 +373,9 @@ public final class SuperSpeedClientV0145 {
 			for (int i = 0; i < arcs.size(); i++) {
 				Vec3[] path = arcs.get(i);
 				float a = arcAlpha.get(i);
-				ThorDraw.ribbon(vc, last, path, 0.16f, 0xFF2020, 0.28f * a);
-				ThorDraw.ribbon(vc, last, path, 0.065f, 0xFF7050, 0.6f * a);
-				ThorDraw.ribbon(vc, last, path, 0.025f, 0xFFF4E0, 0.95f * a);
+				ThorDraw.ribbon(vc, last, path, 0.15f, 0xFF9A1A, 0.3f * a);
+				ThorDraw.ribbon(vc, last, path, 0.06f, 0xFFD84A, 0.65f * a);
+				ThorDraw.ribbon(vc, last, path, 0.022f, 0xFFFBEA, 0.95f * a);
 			}
 		}
 	}

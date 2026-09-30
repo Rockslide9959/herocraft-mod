@@ -139,7 +139,7 @@ public final class PowerWheelScreen extends Screen {
 		entries.add(new Entry("", noneLabel, active.isEmpty(), null));
 
 		if (state != null) {
-			for (Power p : Powers.all()) {
+			for (Power p : Powers.enabled()) {
 				if (state.ownedPowers.contains(p.key())) {
 					entries.add(new Entry(p.key(), Component.translatable(p.nameKey()), p.key().equals(active), p));
 				}

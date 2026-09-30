@@ -137,6 +137,8 @@ public class ProjectHeroMod implements ModInitializer {
 		// v0.13.18: Prismatic / Mutagenic / Heroic serums -- a random power (any / Experimental / Hero-Tier).
 		com.projecthero.mod.hero.item.RandomPowerSerumItem.initialize();
 		ModBrewing.initialize();
+		// v0.14.8: disabled experimental powers (Powers.ENABLED) -- reagent recipe condition + loot filter
+		com.projecthero.mod.hero.PowerEnabledCondition.initialize();
 		MutationManager.initialize();
 		HeroDamageRules.initialize();
 		com.projecthero.mod.ironman.IronManDamage.initialize();

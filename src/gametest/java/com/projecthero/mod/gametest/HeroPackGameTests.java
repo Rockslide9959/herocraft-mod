@@ -166,7 +166,7 @@ public class HeroPackGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void serumMarksPendingPowerButDoesNotGrant(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
-		Power durability = power("power_21_shockwave_manipulation"); // trigger kind = EXPLOSION
+		Power durability = power("power_04_super_speed"); // v0.14.8: an enabled power; trigger kind = ELECTRICAL_DISCHARGE
 		int amp = com.projecthero.mod.hero.mutation.ModSerums.amplifierFor(durability);
 		player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
 				com.projecthero.mod.hero.mutation.ModMobEffects.UNSTABLE_MUTATION, 1200, amp, false, true, true));
@@ -185,14 +185,14 @@ public class HeroPackGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void exposureEventGrantsPermanentPower(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
-		Power durability = power("power_21_shockwave_manipulation"); // trigger kind = EXPLOSION // trigger kind = EXPLOSION
+		Power durability = power("power_04_super_speed"); // v0.14.8: an enabled power; trigger kind = ELECTRICAL_DISCHARGE
 		int amp = com.projecthero.mod.hero.mutation.ModSerums.amplifierFor(durability);
 		player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
 				com.projecthero.mod.hero.mutation.ModMobEffects.UNSTABLE_MUTATION, 1200, amp, false, true, true));
 		com.projecthero.mod.hero.mutation.MutationManager.serverTick(player);
 
 		com.projecthero.mod.hero.mutation.MutationManager.triggerExposure(player,
-				com.projecthero.mod.hero.MutationTrigger.Kind.EXPLOSION);
+				com.projecthero.mod.hero.MutationTrigger.Kind.ELECTRICAL_DISCHARGE);
 
 		helper.assertTrue(ExperimentalPowers.owns(player, durability), "surviving the exposure event should unlock the power");
 		helper.assertTrue(player.getEffect(com.projecthero.mod.hero.mutation.ModMobEffects.UNSTABLE_MUTATION) == null,
@@ -205,7 +205,7 @@ public class HeroPackGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void wrongExposureKindDoesNotGrant(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
-		Power durability = power("power_21_shockwave_manipulation"); // trigger kind = EXPLOSION // wants EXPLOSION
+		Power durability = power("power_04_super_speed"); // v0.14.8: an enabled power; trigger kind = ELECTRICAL_DISCHARGE
 		int amp = com.projecthero.mod.hero.mutation.ModSerums.amplifierFor(durability);
 		player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
 				com.projecthero.mod.hero.mutation.ModMobEffects.UNSTABLE_MUTATION, 1200, amp, false, true, true));
@@ -256,12 +256,12 @@ public class HeroPackGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void guideChaptersBuildFromRegistry(GameTestHelper helper) {
 		var chapters = com.projecthero.mod.hero.guide.HeroPackGuide.chapters();
-		// 24 framing chapters (overview, mutation, structures, devices, combos, Thor, Iron Man,
+		// 25 framing chapters (overview, mutation, structures, devices, combos, Thor, Iron Man,
 		// Spider-Man, Max Steel, Punisher, Green Lantern, Symbiote, Zombie Raid, Supervillain Raid,
 		// Titan, Squads, Wolverine, Titan Shifter, All Might, The Abyssal Behemoth, The Oathbreaker, Hulk,
 		// Apokolips Invasion, Moon Knight, Super Soldier)
-		// + one per power
-		helper.assertTrue(chapters.size() == 25 + Powers.count(),
+		// + one per ENABLED power (v0.14.8: disabled powers have no chapter)
+		helper.assertTrue(chapters.size() == 25 + Powers.enabled().size(),
 				"guide should have a chapter per power plus framing chapters, got " + chapters.size());
 		for (var ch : chapters) {
 			helper.assertFalse(ch.lines().isEmpty(), "chapter '" + ch.title().getString() + "' has no content");

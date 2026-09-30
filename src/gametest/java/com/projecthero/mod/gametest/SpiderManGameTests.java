@@ -63,10 +63,16 @@ public class SpiderManGameTests implements FabricGameTest {
 
 		SpiderItems.ARACHNID_MUTAGEN.use(player.level(), player, InteractionHand.MAIN_HAND);
 
-		helper.assertFalse(SpiderMan.hasPower(player),
-				"a player with no arachnid adaptation must not become Spider-Man");
-		helper.assertTrue(player.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 1,
-				"a failed mutation must not consume the Arachnid Mutagen");
+		if (adhesion().enabled()) {
+			helper.assertFalse(SpiderMan.hasPower(player),
+					"a player with no arachnid adaptation must not become Spider-Man");
+			helper.assertTrue(player.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 1,
+					"a failed mutation must not consume the Arachnid Mutagen");
+		} else {
+			// v0.14.8: Spider Adhesion is a disabled power nobody can hold, so the mutagen supplies the prerequisite itself
+			helper.assertTrue(SpiderMan.hasPower(player), "with Spider Adhesion disabled the mutagen evolves straight to Spider-Man");
+			helper.assertFalse(SpiderMan.hasSpiderAdhesion(player), "leaving no Spider Adhesion behind");
+		}
 		helper.succeed();
 	}
 

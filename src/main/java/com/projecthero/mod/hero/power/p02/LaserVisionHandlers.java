@@ -42,9 +42,9 @@ import net.minecraft.world.phys.Vec3;
 /**
  * Power 02 -- Laser Vision (v0.14.5 rework: <b>six keys, a 0-100 heat gauge, real beam models</b>).
  *
- * <p>Every laser adds heat to a 0..100 gauge and hits harder the hotter your eyes are running (up to +60% at a
- * full gauge). Fill it and you overheat: 3 s locked out while it vents. Heat vents on its own a second after you
- * stop firing.
+ * <p>Every laser adds heat to a 0..100 gauge (v0.14.8: heat no longer scales any damage -- every move always hits for
+ * its baseline). Fill it and you overheat: 3 s locked out. v0.14.8: heat only vents once no Laser Vision move has been
+ * used for 5 s, and then at 3 heat a second ({@link #VENT_DELAY}, {@link #VENT_RATE}).
  *
  * <p>R Heat Vision (hold: +1 heat a second; aimed down in mid-air it slows your fall) / Shift+R Piercing Blast
  * (+10), G Sweeping Arc (+10), X Recoil Blast (+5), Z Maximum Output (1.5 s charge, then a 10 s powered-up beam that
@@ -72,9 +72,10 @@ public final class LaserVisionHandlers {
 	public static final float MAX_OUTPUT_HEAT_LIMIT = 50.0f;
 
 	public static final int OVERHEAT_TICKS = 60;
-	private static final int VENT_DELAY = 20;
-	/** ~15 heat a second: a full gauge vents in under 7 s (x2.5 while overheated). */
-	private static final float VENT_RATE = 0.75f;
+	/** v0.14.8: heat starts venting 5 s after the last use of any Laser Vision move (every use re-arms it). */
+	public static final int VENT_DELAY = 100;
+	/** v0.14.8: 3 heat (3%) a second, overheated or not -- a full gauge takes ~33 s to vent. */
+	public static final float VENT_RATE = 3.0f / 20.0f;
 	/** Thermal Vision keeps the eyes warm: ~1.4 heat a second while it is on. */
 	private static final float THERMAL_TRICKLE = 0.07f;
 
@@ -121,10 +122,6 @@ public final class LaserVisionHandlers {
 		return maxOutputRunning(p) || res(p, "mo_charging") > 0.5f;
 	}
 
-	/** Beam damage multiplier from the heat gauge: x1.0 cold, x1.6 at a full gauge. */
-	public static float heatMult(ServerPlayer p) {
-		return 1.0f + 0.6f * Math.min(1f, res(p, "heat") / MAX_HEAT);
-	}
 
 	public static boolean overheated(ServerPlayer p) {
 		return res(p, "overheat") > 0.5f;
@@ -282,7 +279,7 @@ public final class LaserVisionHandlers {
 			Vec3 blast = AbilityHelpers.aimPoint(p, RANGE);
 			AbilityHelpers.launchSelf(p, look.scale(-1.9).add(0, 0.25, 0));
 			set(p, "no_fall_until", p.level().getGameTime() + 80);
-			float dmg = 9.6f * heatMult(p);
+			float dmg = 9.6f;
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, blast, 2.5)) {
 				AbilityHelpers.hurt(p, e, AbilityHelpers.fire(p), dmg);
 				AbilityHelpers.knockbackFrom(e, blast, 1.2);
@@ -333,7 +330,8 @@ public final class LaserVisionHandlers {
 					if (maxOutputRunning(p)) {
 						return;
 					}
-					// running the thermal overlay keeps the eyes warm: a slow trickle of heat
+					// running the thermal overlay keeps the eyes warm: a slow trickle of heat (and it counts as use)
+					set(p, "vent_delay", VENT_DELAY);
 					float h = Math.min(MAX_HEAT, res(p, "heat") + THERMAL_TRICKLE);
 					set(p, "heat", h);
 					if (h >= MAX_HEAT - 0.01f) {
@@ -376,8 +374,7 @@ public final class LaserVisionHandlers {
 			set(player, "vent_delay", delay - 1);
 		} else if (!firing(player) && res(player, "heat") > 0f
 				&& !ExperimentalPowers.state(player).activeToggles.contains(KEY + "/thermal_vision")) {
-			float rate = over > 0.5f ? VENT_RATE * 2.5f : VENT_RATE;
-			set(player, "heat", Math.max(0f, res(player, "heat") - rate));
+			set(player, "heat", Math.max(0f, res(player, "heat") - VENT_RATE));
 		}
 	}
 
@@ -401,7 +398,7 @@ public final class LaserVisionHandlers {
 		ensureLoop(p, ANIM_BEAM);
 		if (p.tickCount % 10 == 0) {
 			float ramp = 1.0f + Math.min(1.5f, held / 40.0f);
-			Vec3 end = beamDamage(ctx, 4.8f * ramp * heatMult(p), 0.0);
+			Vec3 end = beamDamage(ctx, 4.8f * ramp, 0.0);
 			impact(ctx.level(), end, 3);
 		}
 		if (!p.onGround() && p.getXRot() > 40.0f) {
@@ -434,7 +431,7 @@ public final class LaserVisionHandlers {
 	private static void firePiercingBlast(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		ServerLevel level = ctx.level();
-		float dmg = 29f * heatMult(p);
+		float dmg = 29f;
 		int pierce = 4;
 		Vec3 start = p.getEyePosition();
 		Vec3 dir = p.getLookAngle();
@@ -502,7 +499,7 @@ public final class LaserVisionHandlers {
 		set(p, "vent_delay", VENT_DELAY);
 		ensureLoop(p, ANIM_MAX);
 		ServerLevel level = ctx.level();
-		Vec3 end = beamDamage(ctx, 14.0f * heatMult(p), 0.9);
+		Vec3 end = beamDamage(ctx, 14.0f, 0.9);
 		if (left % 2 == 0) {
 			burnThrough(p, level);
 		}
@@ -625,7 +622,7 @@ public final class LaserVisionHandlers {
 		BlockHitResult bhr = level.clip(new ClipContext(start, start.add(dir.scale(RANGE)), ClipContext.Block.COLLIDER,
 				ClipContext.Fluid.NONE, p));
 		Vec3 end = bhr.getType() == HitResult.Type.BLOCK ? bhr.getLocation() : start.add(dir.scale(RANGE));
-		float dmg = 14.4f * heatMult(p);
+		float dmg = 14.4f;
 		double len = start.distanceTo(end);
 		for (double d = 0.5; d <= len; d += 1.0) {
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, start.add(dir.scale(d)), 1.0)) {

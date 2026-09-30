@@ -53,7 +53,8 @@
       "com.projecthero.mod.gametest.SuperRegenerationV0145GameTests",
       "com.projecthero.mod.gametest.SuperSpeedV0145GameTests",
       "com.projecthero.mod.gametest.SuperSpeedV0147GameTests",
-      "com.projecthero.mod.gametest.SuperSoldierGameTests"
+      "com.projecthero.mod.gametest.SuperSoldierGameTests",
+      "com.projecthero.mod.gametest.V0148MiscGameTests"
     ]
   },
   "depends": {

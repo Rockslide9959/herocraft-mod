@@ -65,7 +65,11 @@ public class RandomPowerSerumGameTests implements FabricGameTest {
 		Component got = RandomPowerSerumItem.grantRandom(p, RandomPowerSerumItem.Pool.ANY, new Random(3));
 		helper.assertTrue(got != null, "some power was granted");
 		int after = PowerGrants.missingExperimental(p).size() + PowerGrants.missingHeroTiers(p).size();
-		helper.assertTrue(after < before, "the pool of powers they lack shrank (" + before + " -> " + after + ")");
+		// Thor is the one grant that is not "held" yet: it makes you worthy, and you become Thor when you lift Mjolnir
+		boolean thor = got.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents tc
+				&& "projecthero.hero_tier.thor".equals(tc.getKey());
+		helper.assertTrue(after < before || thor, "the pool of powers they lack shrank (" + before + " -> " + after + ", got "
+				+ got.getString() + ")");
 		helper.succeed();
 	}
 }

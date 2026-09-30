@@ -41,6 +41,8 @@
 		"PlayerRendererMixin",
 		"PlayerRendererTitanMixin",
 		"SoundEngineMixin",
+		"SpeedPhaseHandJitterMixin",
+		"SpeedPhaseJitterMixin",
 		"TitanCameraMixin",
 		"SpiderTravelMixin",
 		"SuperSpeedClientLevelMixin",

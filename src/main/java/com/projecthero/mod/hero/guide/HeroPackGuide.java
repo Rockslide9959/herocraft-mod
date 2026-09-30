@@ -871,8 +871,9 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.super_soldier.commands.body");
 		}));
 
-		// one chapter per power, in registration order (CHAPTER_POWER_BASE + i)
-		for (Power power : Powers.all()) {
+
+		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
+		for (Power power : Powers.enabled()) {
 			out.add(powerChapter(power));
 		}
 		return out;
@@ -918,7 +919,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.squads", CH_SQUADS);
 
 		section(idx, "projecthero.guide.section.powers", true);
-		List<Power> powers = new ArrayList<>(Powers.all());
+		List<Power> powers = new ArrayList<>(Powers.enabled());
 		for (PowerCategory category : PowerCategory.values()) {
 			boolean started = false;
 			for (int i = 0; i < powers.size(); i++) {

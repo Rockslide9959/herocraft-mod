@@ -68,6 +68,11 @@ public record Power(
 		return null;
 	}
 
+	/** v0.14.8: whether this power can be obtained / shown at all ({@link Powers#ENABLED}). */
+	public boolean enabled() {
+		return Powers.isEnabled(this);
+	}
+
 	/** Whether the power defines an ability for {@code slot}. */
 	public boolean hasSlot(AbilitySlot slot) {
 		return ability(slot) != null;

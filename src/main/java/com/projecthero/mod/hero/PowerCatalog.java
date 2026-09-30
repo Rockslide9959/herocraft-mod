@@ -145,7 +145,7 @@ final class PowerCatalog {
 				.ability(ab(k, "rapid_assault", SLOT_1, HOLD, 30))
 				.ability(ab(k, "blitz", SLOT_2, HOLD, 80))
 				.ability(ab(k, "momentum_dash", SLOT_3, HOLD, 34))
-				.ability(ab(k, "time_slow", SLOT_4, INSTANT, 3000))
+				.ability(ab(k, "time_slow", SLOT_4, HOLD, 6000)) // v0.14.8: hold 5 s to charge; 300 s cooldown
 				.ability(ab(k, "overdrive", SLOT_5, INSTANT, 850))
 				.ability(ab(k, "speed_mode", SLOT_6, TOGGLE, 0))
 				.ability(ab(k, "speed_carry", AbilitySlot.SLOT_8, INSTANT, 51))

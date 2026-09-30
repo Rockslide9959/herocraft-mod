@@ -50,12 +50,12 @@ public final class HeroCommand {
 	 */
 	private static final SuggestionProvider<CommandSourceStack> POWER_KEYS = (ctx, builder) ->
 			SharedSuggestionProvider.suggest(java.util.stream.Stream.concat(
-					HERO_TIER_KEYS.stream(), Powers.all().stream().map(Power::key)), builder);
+					HERO_TIER_KEYS.stream(), Powers.enabled().stream().map(Power::key)), builder);
 
 	private static final SuggestionProvider<CommandSourceStack> POWER_KEYS_OR_ALL = (ctx, builder) ->
 			SharedSuggestionProvider.suggest(java.util.stream.Stream.concat(
 					java.util.stream.Stream.of("all"),
-					java.util.stream.Stream.concat(HERO_TIER_KEYS.stream(), Powers.all().stream().map(Power::key))),
+					java.util.stream.Stream.concat(HERO_TIER_KEYS.stream(), Powers.enabled().stream().map(Power::key))),
 					builder);
 
 	private static final SuggestionProvider<CommandSourceStack> HERO_TIER =
@@ -189,7 +189,14 @@ public final class HeroCommand {
 		return c.getSource().getPlayerOrException();
 	}
 
+	/** v0.14.8: a disabled power ({@code Powers.ENABLED}) resolves to null -- it cannot be granted, served or studied. */
 	private static Power resolve(CommandContext<CommandSourceStack> c) {
+		Power power = resolveAny(c);
+		return power != null && power.enabled() ? power : null;
+	}
+
+	/** Any registered power, enabled or not (revoking a disabled power must still work). */
+	private static Power resolveAny(CommandContext<CommandSourceStack> c) {
 		String key = StringArgumentType.getString(c, "power");
 		Power power = Powers.byKey(key);
 		return power != null ? power : Powers.get(com.projecthero.mod.ProjectHeroMod.id(key));
@@ -209,7 +216,7 @@ public final class HeroCommand {
 		boolean heroKey = HERO_TIER_KEYS.contains(rawKey);
 		Power power = heroKey ? null : resolve(c);
 		if (power == null && !heroKey) {
-			c.getSource().sendFailure(Component.literal("Unknown power (experimental key or "
+			c.getSource().sendFailure(Component.literal("Unknown or disabled power (experimental key or "
 					+ String.join("/", HERO_TIER_KEYS) + ")"));
 			return 0;
 		}
@@ -278,7 +285,7 @@ public final class HeroCommand {
 					+ target.getGameProfile().getName()), true);
 			return removed;
 		}
-		Power power = resolve(c);
+		Power power = resolveAny(c);
 		if (power == null) {
 			c.getSource().sendFailure(Component.literal("Unknown power (or use 'all')"));
 			return 0;

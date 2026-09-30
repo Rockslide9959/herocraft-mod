@@ -63,10 +63,20 @@ public final class SuperSpeedHandlers {
 
 	/** 1 while Shift+C Phase is held. Owner-synced, so the local player's collision mixin can read it. */
 	public static final String PHASING = "phasing";
-	/** Carried entity id (0 = nothing) and the ticks left on the carry. */
+	/** Carried entity id (0 = nothing). v0.14.8: no time limit -- the carry lasts until you set it down. */
 	private static final String CARRY_ID = "carry_id";
-	private static final String CARRY_TICKS = "carry_ticks";
-	private static final int CARRY_MAX_TICKS = 30 * 20;
+
+	/** v0.14.8 Time Slow: Z must be HELD this long to fire; releasing earlier cancels at no cost. */
+	public static final int TS_CHARGE_TICKS = 5 * 20;
+	/** Ticks Z has been held so far (the HUD charge bar); 0 when not charging. */
+	public static final String TS_CHARGE = "ts_charge";
+	/** 1 while Z is being held to charge Time Slow. */
+	public static final String TS_CHARGING = "ts_charging";
+	/** v0.14.8: after a Time Slow the speedster is spent for this long (the HUD bar counts it down). */
+	public static final int EXHAUST_TICKS = 30 * 20;
+	public static final String EXHAUST = "exhaust_ticks";
+	private static final net.minecraft.core.particles.DustParticleOptions CHARGE_SPARK =
+			new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(1.0f, 0.92f, 0.45f), 0.9f);
 	/** After a carry ends the creature keeps its fall / suffocation immunity this long. */
 	public static final int CARRY_GRACE_TICKS = 3 * 20;
 
@@ -176,15 +186,43 @@ public final class SuperSpeedHandlers {
 			ctx.triggerCooldown();
 		}, ctx -> { }));
 
-		// Z -- Time Slow: 45 s (v0.14.7) of everything else at 5%. Press again to end it early; the cooldown starts at the end.
-		AbilityHandlers.register(KEY, "time_slow", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			if (SuperSpeedTimeSlow.isCasting(p)) {
-				SuperSpeedTimeSlow.end(p, true);
-			} else {
-				SuperSpeedTimeSlow.start(p);
+		// Z -- Time Slow: 45 s (v0.14.7) of everything else at 5%. v0.14.8: HOLD Z for 5 s to charge it (it fires by
+		// itself when full; letting go early cancels at no cost). Press Z during it to end it early; the 300 s cooldown
+		// starts at the end, and so do 30 s of exhaustion.
+		AbilityHandlers.register(KEY, "time_slow", new com.projecthero.mod.hero.AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (SuperSpeedTimeSlow.isCasting(p)) {
+					SuperSpeedTimeSlow.end(p, true);
+					return;
+				}
+				if (timeSlowCharging(p)) {
+					return;
+				}
+				if (!ctx.cooldownReady()) {
+					cooldownMessage(ctx);
+					return;
+				}
+				if (SuperSpeedTimeSlow.anyActive()) {
+					p.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.speed.time_taken"), true);
+					return;
+				}
+				startTimeSlowCharge(p);
 			}
-		}));
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				if (timeSlowCharging(ctx.player())) {
+					cancelTimeSlowCharge(ctx.player());
+				}
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				timeSlowChargeTick(ctx.player());
+			}
+		});
 
 		// V -- Overdrive: 30 s of the fastest tier; your blows land twice as hard and a red trail follows you.
 		AbilityHandlers.register(KEY, "overdrive", Handlers.instant(ctx -> {
@@ -223,6 +261,10 @@ public final class SuperSpeedHandlers {
 				if (phasing(player) && !player.noPhysics) {
 					endPhase(player);
 				}
+				// ... nor a Time Slow charge (Z is not held any more either)
+				if (timeSlowCharging(player)) {
+					cancelTimeSlowCharge(player);
+				}
 			} else {
 				PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, PASSIVE_SPEED);
 				PowerToggles.clearModifier(player, Attributes.WATER_MOVEMENT_EFFICIENCY, PASSIVE_SWIM);
@@ -239,6 +281,8 @@ public final class SuperSpeedHandlers {
 					releaseCarry(player, stillOurs(player, player.level().getEntity(carried)));
 				}
 				SuperSpeedTimeSlow.end(player, false);
+				cancelTimeSlowCharge(player);
+				clearExhaustion(player);
 				set(player, OVERDRIVE_UNTIL, 0);
 				set(player, OVERDRIVE_LEFT, 0);
 				LAST_POS.remove(player.getUUID());
@@ -381,9 +425,9 @@ public final class SuperSpeedHandlers {
 		if (!target.startRiding(p, true)) {
 			return;
 		}
+		syncPassengersToSelf(p);
 		target.fallDistance = 0;
 		set(p, CARRY_ID, target.getId());
-		set(p, CARRY_TICKS, CARRY_MAX_TICKS);
 		ctx.actionBar("message.projecthero.ability.grabbed");
 		BatchA.play(p, KEY, "grab_pull", 8);
 		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.8f, 1.2f);
@@ -396,12 +440,14 @@ public final class SuperSpeedHandlers {
 			return;
 		}
 		Entity e = p.level().getEntity(id);
-		int ticks = (int) res(p, CARRY_TICKS) - 1;
-		if (!(e instanceof LivingEntity le) || !le.isAlive() || le.getVehicle() != p || ticks <= 0 || !p.isAlive()) {
+		// v0.14.8: no time limit any more -- it lasts until you set it down (or die, lose the power, or are exhausted)
+		if (!(e instanceof LivingEntity le) || !le.isAlive() || le.getVehicle() != p || !p.isAlive() || exhausted(p)) {
 			releaseCarry(p, stillOurs(p, e));
 			return;
 		}
-		set(p, CARRY_TICKS, ticks);
+		if (p.tickCount % 20 == 0) {
+			syncPassengersToSelf(p); // belt and braces (a relog, a dimension change)
+		}
 		le.fallDistance = 0;
 		le.resetFallDistance();
 		BatchA.stance(p, KEY, "p04.carry");
@@ -422,13 +468,13 @@ public final class SuperSpeedHandlers {
 	/** Ends a carry: sets the creature down in front of you (or at your feet) with a short immunity window. */
 	public static void releaseCarry(ServerPlayer p, LivingEntity le) {
 		set(p, CARRY_ID, 0);
-		set(p, CARRY_TICKS, 0);
 		MutationVisuals.stopIf(p, "p04.carry");
 		if (le == null) {
 			return;
 		}
 		if (le.getVehicle() == p) {
 			le.stopRiding();
+			syncPassengersToSelf(p);
 		}
 		Vec3 f = BatchA.flatLook(p);
 		Vec3 front = p.position().add(f.scale(1.2));
@@ -439,6 +485,18 @@ public final class SuperSpeedHandlers {
 		le.resetFallDistance();
 		le.hurtMarked = true;
 		CARRY_GRACE.put(le.getUUID(), p.level().getGameTime() + CARRY_GRACE_TICKS);
+	}
+
+	/**
+	 * v0.14.8 fix ("the carrier can't see what they carry"): vanilla only ever tells the players <em>tracking</em> an entity
+	 * about its passengers ({@code ServerEntity.sendChanges} broadcasts {@code ClientboundSetPassengersPacket} without the
+	 * "and self" variant), because vanilla never seats anything on a player. So everyone else saw the creature ride
+	 * the speedster, but the speedster's own client never learned it was a passenger -- and since the server stops
+	 * sending a passenger's own position, it stayed frozen, invisible to them, wherever it was snatched up. Telling the
+	 * carrier directly makes their client seat it on them (and position it from their own movement, smoothly).
+	 */
+	public static void syncPassengersToSelf(ServerPlayer p) {
+		p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetPassengersPacket(p));
 	}
 
 	/** Whether {@code e} is being carried by a speedster right now, or was set down less than 3 s ago. */
@@ -550,17 +608,188 @@ public final class SuperSpeedHandlers {
 		return true;
 	}
 
-	/** Called at the head of {@code AbilityRouter.dispatchExperimental}: Shift+C on Super Speed starts Phase. */
+	/**
+	 * Called at the head of {@code AbilityRouter.dispatchExperimental}: Shift+C on Super Speed starts Phase, and
+	 * (v0.14.8) while exhausted after a Time Slow every Super Speed key is refused.
+	 */
 	public static boolean interceptDispatch(ServerPlayer p, AbilitySlot slot, boolean pressed) {
-		if (slot != AbilitySlot.SLOT_6 || !pressed || !p.isShiftKeyDown()) {
-			return false;
-		}
 		Power active = ExperimentalPowers.getActive(p);
 		if (active == null || !KEY.equals(active.key()) || !ExperimentalPowers.owns(p, active)) {
 			return false;
 		}
+		if (exhausted(p)) {
+			if (pressed) {
+				p.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.speed.exhausted",
+						String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(res(p, EXHAUST) / 20.0))), true);
+			}
+			return true;
+		}
+		if (slot != AbilitySlot.SLOT_6 || !pressed || !p.isShiftKeyDown()) {
+			return false;
+		}
 		startPhase(p);
 		return true;
+	}
+
+	// ---- Z: Time Slow charge-up (v0.14.8) --------------------------------------------------------
+
+	public static boolean timeSlowCharging(Player p) {
+		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		return st != null && st.resources.getOrDefault(KEY + "/" + TS_CHARGING, 0f) > 0.5f;
+	}
+
+	/** Z pressed: start holding the charge. The body braces, vibrates and crackles while it builds (see the tick). */
+	public static void startTimeSlowCharge(ServerPlayer p) {
+		set(p, TS_CHARGING, 1);
+		set(p, TS_CHARGE, 0);
+		MutationVisuals.play(p, ANIM_TS_CHARGE);
+		AbilityHelpers.sound(p, SoundEvents.BEACON_POWER_SELECT, 0.7f, 0.5f);
+	}
+
+	/** Z let go early (or the charge was interrupted): nothing happens, no cooldown. */
+	public static void cancelTimeSlowCharge(ServerPlayer p) {
+		if (res(p, TS_CHARGING) <= 0.5f && res(p, TS_CHARGE) <= 0f) {
+			return;
+		}
+		set(p, TS_CHARGING, 0);
+		set(p, TS_CHARGE, 0);
+		MutationVisuals.stopIf(p, ANIM_TS_CHARGE);
+	}
+
+	/** Per tick while Z is held: build the charge; at {@link #TS_CHARGE_TICKS} Time Slow fires by itself. */
+	public static void timeSlowChargeTick(ServerPlayer p) {
+		if (res(p, TS_CHARGING) <= 0.5f) {
+			return;
+		}
+		if (!p.isAlive() || SuperSpeedTimeSlow.anyActive() || exhausted(p)) {
+			cancelTimeSlowCharge(p);
+			return;
+		}
+		int held = (int) res(p, TS_CHARGE) + 1;
+		set(p, TS_CHARGE, held);
+		float progress = Math.min(1f, held / (float) TS_CHARGE_TICKS);
+		if (!MutationVisuals.state(p).anim().equals(ANIM_TS_CHARGE)) {
+			MutationVisuals.play(p, ANIM_TS_CHARGE);
+		}
+		if (p.level() instanceof ServerLevel sl && held % 2 == 0) {
+			int n = 1 + Math.round(progress * 7);
+			double r = 0.35 + 0.35 * progress;
+			sl.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1.0, p.getZ(), n, r, 0.7, r, 0.08 + 0.2 * progress);
+			sl.sendParticles(CHARGE_SPARK, p.getX(), p.getY() + 1.0, p.getZ(), 1 + n / 2, r, 0.6, r, 0.0);
+		}
+		if (held % 10 == 0) {
+			// a rising electric hum
+			AbilityHelpers.sound(p, SoundEvents.BEACON_AMBIENT, 0.5f + 0.5f * progress, 0.6f + 1.4f * progress);
+		}
+		if (held >= TS_CHARGE_TICKS) {
+			set(p, TS_CHARGING, 0);
+			set(p, TS_CHARGE, 0);
+			MutationVisuals.stopIf(p, ANIM_TS_CHARGE);
+			SuperSpeedTimeSlow.start(p);
+			if (SuperSpeedTimeSlow.isCasting(p) && p.level() instanceof ServerLevel sl) {
+				// the release: a shockwave ring of sparks and a flash
+				BatchA.ring(sl, p.position().add(0, 0.2, 0), 0.6, ParticleTypes.ELECTRIC_SPARK, 48, 1.4);
+				sl.sendParticles(ParticleTypes.FLASH, p.getX(), p.getY() + 1.0, p.getZ(), 1, 0, 0, 0, 0);
+				sl.sendParticles(ParticleTypes.SONIC_BOOM, p.getX(), p.getY() + 1.0, p.getZ(), 1, 0, 0, 0, 0);
+				AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 0.9f, 1.6f);
+			}
+		}
+	}
+
+	/** The charging pose (registered client-side by {@code SuperSpeedClientV0145}). */
+	public static final String ANIM_TS_CHARGE = "p04.ts_charge";
+
+	// ---- exhaustion after a Time Slow (v0.14.8) --------------------------------------------------
+
+	/** Whether {@code p} is exhausted after a Time Slow (either side, from the synced attachment). */
+	public static boolean exhausted(Player p) {
+		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		return st != null && st.ownedPowers.contains(KEY) && st.resources.getOrDefault(KEY + "/" + EXHAUST, 0f) > 0.5f;
+	}
+
+	/**
+	 * A Time Slow just ended: 30 s spent. Speed Mode and Overdrive are switched off (and can't come back), the carry
+	 * is set down, every Super Speed key is refused ({@link #interceptDispatch}) and the speed passives are off, with
+	 * a Slowness I and some panting for flavour.
+	 */
+	public static void startExhaustion(ServerPlayer p) {
+		Power power = Powers.byKey(KEY);
+		if (power == null || !ExperimentalPowers.owns(p, power)) {
+			return;
+		}
+		set(p, EXHAUST, EXHAUST_TICKS);
+		cancelTimeSlowCharge(p);
+		com.projecthero.mod.hero.Ability sm = power.ability(AbilitySlot.SLOT_6);
+		if (sm != null && ExperimentalPowers.isToggled(p, power, sm)) {
+			ExperimentalPowers.setToggled(p, power, sm, false);
+		}
+		set(p, OVERDRIVE_UNTIL, 0);
+		set(p, OVERDRIVE_LEFT, 0);
+		MobEffectInstance haste = p.getEffect(MobEffects.DIG_SPEED);
+		if (haste != null && haste.getAmplifier() == 2) {
+			p.removeEffect(MobEffects.DIG_SPEED); // Overdrive's
+		}
+		SuperSpeedMoves.stopAll(p);
+		if (phasing(p)) {
+			endPhase(p);
+		}
+		int carried = (int) res(p, CARRY_ID);
+		if (carried != 0) {
+			releaseCarry(p, stillOurs(p, p.level().getEntity(carried)));
+		}
+		reconcileSpeed(p);
+		applySpeedPassives(p, false);
+		p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, EXHAUST_TICKS, 0, false, false, true));
+		p.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.speed.exhausted_start"), true);
+	}
+
+	/** Ends exhaustion now (death, the power going away). */
+	public static void clearExhaustion(ServerPlayer p) {
+		if (res(p, EXHAUST) <= 0f) {
+			return;
+		}
+		set(p, EXHAUST, 0);
+		MobEffectInstance slow = p.getEffect(MobEffects.MOVEMENT_SLOWDOWN);
+		if (slow != null && slow.getAmplifier() == 0 && !slow.isVisible()) {
+			p.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+		}
+	}
+
+	private static void exhaustionTick(ServerPlayer p) {
+		int left = (int) res(p, EXHAUST);
+		if (left <= 0) {
+			return;
+		}
+		set(p, EXHAUST, left - 1);
+		if (left % 30 == 0 && p.level() instanceof ServerLevel sl) {
+			// panting
+			Vec3 mouth = p.getEyePosition().add(p.getLookAngle().scale(0.4)).subtract(0, 0.15, 0);
+			sl.sendParticles(ParticleTypes.CLOUD, mouth.x, mouth.y, mouth.z, 2, 0.05, 0.02, 0.05, 0.01);
+			AbilityHelpers.sound(p, SoundEvents.PLAYER_BREATH, 0.5f, 1.3f);
+		}
+		if (left - 1 <= 0) {
+			p.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.speed.exhausted_end"), true);
+		}
+	}
+
+	/** Movement passives (+30% speed, swim, 3-block step): off while Time Slow runs and while exhausted. */
+	private static void applySpeedPassives(ServerPlayer p, boolean on) {
+		if (on) {
+			PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, PASSIVE_SPEED, PASSIVE_SPEED_BONUS,
+					AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+			PowerToggles.modifier(p, Attributes.WATER_MOVEMENT_EFFICIENCY, PASSIVE_SWIM, PASSIVE_SWIM_EFFICIENCY,
+					AttributeModifier.Operation.ADD_VALUE);
+			PowerToggles.modifier(p, Attributes.STEP_HEIGHT, PASSIVE_STEP, PASSIVE_STEP_BONUS, AttributeModifier.Operation.ADD_VALUE);
+		} else {
+			PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, PASSIVE_SPEED);
+			PowerToggles.clearModifier(p, Attributes.WATER_MOVEMENT_EFFICIENCY, PASSIVE_SWIM);
+			PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, PASSIVE_STEP);
+		}
+	}
+
+	/** v0.14.8: whether the speed boosts are suspended right now (Time Slow running, or exhausted afterwards). */
+	public static boolean speedSuspended(ServerPlayer p) {
+		return SuperSpeedTimeSlow.isCasting(p) || exhausted(p);
 	}
 
 	// ---- per-tick upkeep -------------------------------------------------------------------------
@@ -578,13 +807,11 @@ public final class SuperSpeedHandlers {
 			set(player, OVERDRIVE_UNTIL, 0);
 			set(player, OVERDRIVE_LEFT, 0);
 		}
+		exhaustionTick(player);
 		reconcileSpeed(player);
-		// the passive is re-asserted every tick (cheap: PowerToggles only touches the attribute on a change)
-		PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, PASSIVE_SPEED, PASSIVE_SPEED_BONUS,
-				AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-		PowerToggles.modifier(player, Attributes.WATER_MOVEMENT_EFFICIENCY, PASSIVE_SWIM, PASSIVE_SWIM_EFFICIENCY,
-				AttributeModifier.Operation.ADD_VALUE);
-		PowerToggles.modifier(player, Attributes.STEP_HEIGHT, PASSIVE_STEP, PASSIVE_STEP_BONUS, AttributeModifier.Operation.ADD_VALUE);
+		// the passive is re-asserted every tick (cheap: PowerToggles only touches the attribute on a change);
+		// v0.14.8: suspended while Time Slow runs and while exhausted -- the caster moves at a normal player's speed
+		applySpeedPassives(player, !speedSuspended(player));
 		applyRegen(player);
 		SuperSpeedMoves.tick(player);
 		wallRunTick(player);
@@ -720,6 +947,11 @@ public final class SuperSpeedHandlers {
 	private static void reconcileSpeed(ServerPlayer p) {
 		boolean overdrive = overdrive(p);
 		boolean speedMode = speedMode(p);
+		if (exhausted(p)) {
+			speedModeClear(p);
+			clearOverdrive(p);
+			return;
+		}
 		if (overdrive) {
 			applyOverdrive(p);
 			speedModeClear(p);
@@ -740,11 +972,24 @@ public final class SuperSpeedHandlers {
 		return 1.0f + (overdriveMult - 1.0f) * 0.5f;
 	}
 
+	/**
+	 * v0.14.8: while Time Slow runs only the movement boosts go (the extra ticks are the advantage) -- the modes' attack
+	 * speed / damage / fall protection stay -- and they come back the tick it ends.
+	 */
+	private static void movementBoost(ServerPlayer p, net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute> attr,
+			ResourceLocation id, double amount, AttributeModifier.Operation op) {
+		if (SuperSpeedTimeSlow.isCasting(p)) {
+			PowerToggles.clearModifier(p, attr, id);
+		} else {
+			PowerToggles.modifier(p, attr, id, amount, op);
+		}
+	}
+
 	private static void speedModeApply(ServerPlayer p) {
-		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, SM_SPEED, 4.7, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		movementBoost(p, Attributes.MOVEMENT_SPEED, SM_SPEED, 4.7, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.ATTACK_SPEED, SM_ATTACK, 0.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, SM_STEP); // v0.14.6: the 3-block passive step covers Speed Mode
-		PowerToggles.modifier(p, Attributes.WATER_MOVEMENT_EFFICIENCY, SM_WATER, 1.0, AttributeModifier.Operation.ADD_VALUE);
+		movementBoost(p, Attributes.WATER_MOVEMENT_EFFICIENCY, SM_WATER, 1.0, AttributeModifier.Operation.ADD_VALUE);
 		PowerToggles.modifier(p, Attributes.FALL_DAMAGE_MULTIPLIER, SM_FALL, -0.8, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 	}
 
@@ -757,11 +1002,11 @@ public final class SuperSpeedHandlers {
 	}
 
 	private static void applyOverdrive(ServerPlayer p) {
-		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, OD_SPEED, 10.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		movementBoost(p, Attributes.MOVEMENT_SPEED, OD_SPEED, 10.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.ATTACK_SPEED, OD_ATTACK, 1.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		// "your attacks x2": melee doubles while Overdrive runs (the Super Speed moves double through overdriveMult)
 		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, OD_DAMAGE, 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, OD_STEP, 7.0, AttributeModifier.Operation.ADD_VALUE); // 3-block passive + 7 = 10
+		movementBoost(p, Attributes.STEP_HEIGHT, OD_STEP, 7.0, AttributeModifier.Operation.ADD_VALUE); // 3-block passive + 7 = 10
 		PowerToggles.modifier(p, Attributes.FALL_DAMAGE_MULTIPLIER, OD_FALL, -1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 	}
 

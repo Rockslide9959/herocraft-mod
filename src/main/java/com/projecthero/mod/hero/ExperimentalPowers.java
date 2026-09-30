@@ -448,7 +448,43 @@ public final class ExperimentalPowers {
 	 * along with their cooldowns, toggles and resources. Run on join. Returns whether anything was removed.
 	 */
 	public static boolean pruneRemovedPowers(ServerPlayer player) {
-		ExperimentalState s = state(player);
+		// v0.14.8: powers switched off in Powers.ENABLED are forgotten the proper way first (toggles off, passives
+		// torn down, cooldowns / resources / markers wiped). forget() re-points the active power at another owned
+		// one, so after this loop the active power is an enabled one or none.
+		boolean disabledGone = false;
+		for (String key : new ArrayList<>(state(player).ownedPowers)) {
+			Power p = Powers.byKey(key);
+			if (p != null && !p.enabled()) {
+				disabledGone |= forget(player, p);
+			}
+		}
+		ExperimentalState cur = state(player);
+		if (!cur.activePower.isEmpty() && Powers.byKey(cur.activePower) != null
+				&& !Powers.isEnabled(cur.activePower)) {
+			ExperimentalState fix = cur.copy();
+			fix.activePower = "";
+			for (String key : fix.ownedPowers) {
+				if (Powers.isEnabled(key)) {
+					fix.activePower = key;
+					break;
+				}
+			}
+			save(player, fix);
+			disabledGone = true;
+		}
+		if (!cur.pendingMutationPower.isEmpty() && Powers.byKey(cur.pendingMutationPower) != null
+				&& !Powers.isEnabled(cur.pendingMutationPower)) {
+			ExperimentalState fix = state(player).copy();
+			fix.pendingMutationPower = "";
+			save(player, fix);
+			disabledGone = true;
+		}
+		return pruneUnknownPowers(player) | disabledGone;
+	}
+
+	/** v0.14.5: the part of {@link #pruneRemovedPowers} for keys that no longer exist at all. */
+	private static boolean pruneUnknownPowers(ServerPlayer player) {
+		ExperimentalState s = state(player).copy();
 		java.util.List<String> gone = new java.util.ArrayList<>();
 		for (String key : s.ownedPowers) {
 			if (Powers.byKey(key) == null) {

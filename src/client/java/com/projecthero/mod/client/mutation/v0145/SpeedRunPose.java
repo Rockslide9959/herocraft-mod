@@ -22,11 +22,7 @@ import net.minecraft.world.entity.player.Player;
  * v0.14.7: the speedster run, for every player with Speed Mode or Overdrive on (the synced {@code p04.trail} flag,
  * {@code p04.trail_red} = Overdrive) who is actually running -- so every viewer sees it.
  *
- * <ul>
- *   <li>Speed Mode: the classic sprint -- torso leaned ~27 degrees forward from the hips, head up looking ahead, arms
- *       pumping hard close to the body, long strides at twice vanilla's cadence.</li>
- *   <li>Overdrive: deeper (~40 degree) lean, arms swept straight back, strides faster still.</li>
- * </ul>
+ * v0.14.8: one upright sprint for both modes (see {@link #apply}); Overdrive only changes the trail colour.
  * Blends in / out over ~4 ticks ({@link #tick}). Walking, standing, sneaking, swimming, riding and phasing keep
  * vanilla's animation, and a move animation ({@code MutationPose}) always wins. The first-person hand is left alone.
  *
@@ -35,8 +31,17 @@ import net.minecraft.world.entity.player.Player;
  * the limb back.
  */
 public final class SpeedRunPose {
-	private static final float LEAN_SPEED = 0.48f;
-	private static final float LEAN_OVERDRIVE = 0.70f;
+	/** v0.14.8: torso lean about the hips, radians (~17 degrees) -- was 27 / 40, which read as a crouch. */
+	private static final float LEAN = 0.30f;
+	/** Stride cycles per vanilla walk cycle. */
+	private static final float CADENCE = 2.0f;
+	/** Per-footfall bounce, model pixels. */
+	private static final float BOUNCE = 0.7f;
+	private static final float ARM_SWING = 1.2f;
+	/** The arms swing about a point this far forward of hanging straight down. */
+	private static final float ARM_FORWARD = 0.2f;
+	private static final float LEG_FORWARD = 1.15f;
+	private static final float LEG_BACK = 0.9f;
 	private static final float BLEND_PER_TICK = 0.25f;
 	/** Blocks per tick (3-D, so a wall run counts) above which a speedster is "running". */
 	private static final double RUN_SPEED = 0.12;
@@ -120,72 +125,80 @@ public final class SpeedRunPose {
 		return def.loops() || p.level().getGameTime() - s.animStart() < def.end();
 	}
 
-	/** Called at the tail of {@code HumanoidModel.setupAnim}, before the mutation move poses. */
+	/**
+	 * Called at the tail of {@code HumanoidModel.setupAnim}, before the mutation move poses.
+	 *
+	 * <p>v0.14.8 redesign (it read as sneaking: a crouch-deep lean, a lowered head and arms folded back along the torso).
+	 * Now an upright athletic sprint, the same in Speed Mode and Overdrive:
+	 * <ul>
+	 *   <li>the torso leans a modest {@link #LEAN} (~17 degrees) forward <em>about the hips</em> -- the body pivot moves
+	 *       to wherever the neck ends up, so the hips (and the legs hung from them) stay exactly where they were and the
+	 *       head only moves forward with the neck, never down into a crouch; the head keeps the look pitch (level);</li>
+	 *   <li>the arms pump hard in opposition to the legs, in world space (not folded back with the torso): well
+	 *       forward-and-up on the drive, back past the hip on the recovery, tucked toward the centre line;</li>
+	 *   <li>the legs take long strides with a higher forward knee drive than the push-off behind;</li>
+	 *   <li>a small bounce every step and a shoulder twist with the arms; the cadence follows {@code limbSwing}, which
+	 *       advances with how fast the player actually moves.</li>
+	 * </ul>
+	 */
 	public static void apply(Player player, HumanoidModel<?> m, float limbSwing) {
 		if (MoonKnightPose.firstPersonHand) {
 			return;
 		}
 		float w;
-		boolean od;
 		if (!Float.isNaN(overrideWeight)) {
 			w = overrideWeight;
-			od = overrideOverdrive;
 		} else {
 			if (moveAnimPlaying(player)) {
 				return;
 			}
 			w = weight(player, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
-			od = overdrive(player);
 		}
 		if (w <= 0.001f) {
 			return;
 		}
 		w = w * w * (3f - 2f * w);
-		float lean = (od ? LEAN_OVERDRIVE : LEAN_SPEED) * w;
-		float phase = limbSwing * 0.6662f * (od ? 2.6f : 2.0f);
-		float stride = Mth.cos(phase);
+		float lean = LEAN * w;
+		float phase = limbSwing * 0.6662f * CADENCE;
+		float c = Mth.cos(phase);
+		float s = Mth.sin(phase);
+		// a little bounce twice per stride cycle (every footfall), in model pixels (+Y is down)
+		float bob = -Math.abs(s) * BOUNCE * w;
 
-		// the body leans from the hips: the neck swings forward and down
-		float neckY = 12.0f - 12.0f * Mth.cos(lean);
+		// the torso leans about the hip point (y 12, z 0): the neck swings forward, barely down
+		float neckY = 12.0f - 12.0f * Mth.cos(lean) + bob;
 		float neckZ = -12.0f * Mth.sin(lean);
 		m.body.xRot = lean;
 		m.body.y = neckY;
 		m.body.z = neckZ;
-		m.body.yRot = Mth.lerp(w, m.body.yRot, Mth.sin(phase) * 0.08f);
+		m.body.yRot = Mth.lerp(w, m.body.yRot, s * 0.12f);
 		m.head.y = neckY;
 		m.head.z = neckZ;
 		m.hat.copyFrom(m.head);
 
-		// shoulders 2 px below the neck, in the leaning body's frame
-		float shoulderY = neckY + 2.0f * Mth.cos(lean);
-		float shoulderZ = neckZ + 2.0f * Mth.sin(lean);
-		m.rightArm.y = shoulderY;
-		m.leftArm.y = shoulderY;
-		m.rightArm.z = shoulderZ;
-		m.leftArm.z = shoulderZ;
-		if (od) {
-			// arms swept straight back, flickering
-			float jitter = Mth.sin(phase * 1.5f) * 0.1f;
-			m.rightArm.xRot = Mth.lerp(w, m.rightArm.xRot, 1.15f + lean + jitter);
-			m.leftArm.xRot = Mth.lerp(w, m.leftArm.xRot, 1.15f + lean - jitter);
-			m.rightArm.yRot = Mth.lerp(w, m.rightArm.yRot, 0.0f);
-			m.leftArm.yRot = Mth.lerp(w, m.leftArm.yRot, 0.0f);
-			m.rightArm.zRot = Mth.lerp(w, m.rightArm.zRot, 0.28f);
-			m.leftArm.zRot = Mth.lerp(w, m.leftArm.zRot, -0.28f);
-		} else {
-			// arms pumping hard, opposite to the legs, held a little forward like bent elbows
-			m.rightArm.xRot = Mth.lerp(w, m.rightArm.xRot, -stride * 1.15f - 0.3f + lean);
-			m.leftArm.xRot = Mth.lerp(w, m.leftArm.xRot, stride * 1.15f - 0.3f + lean);
-			m.rightArm.yRot = Mth.lerp(w, m.rightArm.yRot, -0.12f);
-			m.leftArm.yRot = Mth.lerp(w, m.leftArm.yRot, 0.12f);
-			m.rightArm.zRot = Mth.lerp(w, m.rightArm.zRot, 0.1f);
-			m.leftArm.zRot = Mth.lerp(w, m.leftArm.zRot, -0.1f);
-		}
+		// shoulders 2 px down the leaning torso
+		m.rightArm.y = neckY + 2.0f * Mth.cos(lean);
+		m.leftArm.y = m.rightArm.y;
+		m.rightArm.z = neckZ + 2.0f * Mth.sin(lean);
+		m.leftArm.z = m.rightArm.z;
+		// arms pump opposite the legs (right arm forward while the right leg is back); negative X = forward / up
+		m.rightArm.xRot = Mth.lerp(w, m.rightArm.xRot, -c * ARM_SWING - ARM_FORWARD);
+		m.leftArm.xRot = Mth.lerp(w, m.leftArm.xRot, c * ARM_SWING - ARM_FORWARD);
+		// on the forward drive the hand comes in toward the centre line, like a bent elbow
+		m.rightArm.yRot = Mth.lerp(w, m.rightArm.yRot, -Math.max(0f, c) * 0.25f);
+		m.leftArm.yRot = Mth.lerp(w, m.leftArm.yRot, Math.max(0f, -c) * 0.25f);
+		m.rightArm.zRot = Mth.lerp(w, m.rightArm.zRot, 0.08f);
+		m.leftArm.zRot = Mth.lerp(w, m.leftArm.zRot, -0.08f);
 
-		// long, fast strides
-		float legAmp = od ? 1.15f : 1.0f;
-		m.rightLeg.xRot = Mth.lerp(w, m.rightLeg.xRot, stride * legAmp - 0.1f * lean);
-		m.leftLeg.xRot = Mth.lerp(w, m.leftLeg.xRot, -stride * legAmp - 0.1f * lean);
+		// legs from the (unmoved) hips: long strides, the knee driven further forward than the push-off goes back
+		float right = c > 0f ? c * LEG_BACK : c * LEG_FORWARD;
+		float left = c > 0f ? -c * LEG_FORWARD : -c * LEG_BACK;
+		m.rightLeg.y = 12.0f + bob;
+		m.leftLeg.y = 12.0f + bob;
+		m.rightLeg.z = 0.0f;
+		m.leftLeg.z = 0.0f;
+		m.rightLeg.xRot = Mth.lerp(w, m.rightLeg.xRot, right);
+		m.leftLeg.xRot = Mth.lerp(w, m.leftLeg.xRot, left);
 		m.rightLeg.yRot = Mth.lerp(w, m.rightLeg.yRot, 0.0f);
 		m.leftLeg.yRot = Mth.lerp(w, m.leftLeg.yRot, 0.0f);
 		m.rightLeg.zRot = Mth.lerp(w, m.rightLeg.zRot, 0.0f);

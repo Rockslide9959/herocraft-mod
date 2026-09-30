@@ -48,11 +48,14 @@ import net.minecraft.world.entity.LivingEntity;
  * <p>Only one Time Slow runs at a time (a second speedster's Z is refused). It ends when Z is pressed again, after 45
  * of the caster's seconds, or when the caster dies, logs out or loses the power; the rate that was there before is
  * always put back (also on server stop, and on a player join if a stale slowed rate is ever found with no caster).
- * Press Z again to end it early; the 150 s cooldown starts when it ends.
+ * Press Z again to end it early; the 300 s cooldown starts when it ends. v0.14.8: Z has to be HELD for 5 s to charge
+ * it ({@code SuperSpeedHandlers#timeSlowChargeTick}); while it runs the caster gets no movement boosts from the
+ * passive, Speed Mode or Overdrive (the extra ticks are the advantage); and when it ends they are exhausted for 30 s
+ * ({@code SuperSpeedHandlers#startExhaustion}).
  */
 public final class SuperSpeedTimeSlow {
 	public static final int DURATION_TICKS = 45 * 20; // v0.14.7: 45 s (was 30)
-	public static final int COOLDOWN_TICKS = 150 * 20;
+	public static final int COOLDOWN_TICKS = 300 * 20; // v0.14.8: 300 s (was 150)
 	/** The world's tick rate while slowed: 1 tick a second, 5% of 20. */
 	public static final float SLOW_RATE = 1.0f;
 	/** 20 ticks a second / {@link #SLOW_RATE}. */
@@ -144,6 +147,10 @@ public final class SuperSpeedTimeSlow {
 			}
 		}
 		AbilityHelpers.sound(p, SoundEvents.BEACON_DEACTIVATE, 1.2f, 0.6f);
+		// v0.14.8: 30 s of exhaustion follow (not for a caster who died or logged out -- death clears it anyway)
+		if (p.isAlive() && !p.isRemoved()) {
+			SuperSpeedHandlers.startExhaustion(p);
+		}
 	}
 
 	private static void restoreRate(MinecraftServer server) {
@@ -229,6 +236,7 @@ public final class SuperSpeedTimeSlow {
 		if (p.isRemoved() || !isCasting(p)) {
 			return;
 		}
+		tickLootPickupDelays(p, sl);
 		sl.tickNonPassenger(p);
 		com.projecthero.mod.ProjectHeroMod.tickPlayerSystems(p);
 		if (!isCasting(p)) {
@@ -238,6 +246,28 @@ public final class SuperSpeedTimeSlow {
 		MutationVisuals.advanceAnimation(p, 1);
 		SuperSpeedHandlers.advanceClocks(p, 1);
 		casterTick();
+	}
+
+	/** How far around the caster dropped items have their pickup delay counted on the caster's clock. */
+	public static final double LOOT_RADIUS = 24.0;
+	/** {@code ItemEntity.INFINITE_PICKUP_DELAY}: never-collectable items (the /give decoration) are left alone. */
+	private static final int NEVER_PICK_UP = 32767;
+
+	/**
+	 * v0.14.8: an item's pickup delay (vanilla: 10 ticks for loot, 40 for a thrown item) only counts down on the
+	 * item's own ticks -- one a second while slowed -- so loot from a kill sat untouchable for ~10 s. Each extra caster
+	 * tick now counts one tick off every nearby item's delay as well, so for the caster items become collectable after
+	 * the same real time as normal (their own thrown items included: ~2 s, as always). XP orbs have no delay of their
+	 * own -- the caster's {@code takeXpDelay} already runs on the caster's ticks. Outside Time Slow nothing calls this.
+	 */
+	public static void tickLootPickupDelays(ServerPlayer p, ServerLevel level) {
+		for (net.minecraft.world.entity.item.ItemEntity item : level.getEntitiesOfClass(
+				net.minecraft.world.entity.item.ItemEntity.class, p.getBoundingBox().inflate(LOOT_RADIUS))) {
+			int delay = ((com.projecthero.mod.mixin.ItemEntityPickupAccessor) item).projecthero$getPickupDelay();
+			if (delay > 0 && delay != NEVER_PICK_UP) {
+				item.setPickUpDelay(delay - 1);
+			}
+		}
 	}
 
 	// ---- damage --------------------------------------------------------------------------------------

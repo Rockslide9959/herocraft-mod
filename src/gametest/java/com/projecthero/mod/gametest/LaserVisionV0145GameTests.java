@@ -195,6 +195,8 @@ public class LaserVisionV0145GameTests implements FabricGameTest {
 		helper.assertFalse(onCooldown(p, AbilitySlot.SLOT_2), "nothing fires while overheated");
 		tick(p, LaserVisionHandlers.OVERHEAT_TICKS + 1);
 		helper.assertFalse(LaserVisionHandlers.overheated(p), "the lockout ends");
+		// v0.14.8: venting waits for 5 s without a Laser Vision move
+		tick(p, LaserVisionHandlers.VENT_DELAY - LaserVisionHandlers.OVERHEAT_TICKS + 1);
 		helper.assertTrue(res(p, "heat") < 100f, "and it vents");
 		helper.succeed();
 	}

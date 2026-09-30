@@ -94,7 +94,8 @@ public final class MutationManager {
 		}
 
 		Power target = ModSerums.powerForAmplifier(effect.getAmplifier());
-		if (target == null) {
+		// v0.14.8: a serum for a disabled power (Powers.ENABLED) does nothing
+		if (target == null || !target.enabled()) {
 			return;
 		}
 
@@ -296,7 +297,7 @@ public final class MutationManager {
 
 	private static void attemptExposure(ServerPlayer player, Power power, MutationTrigger.Kind kind) {
 		ExperimentalState s = ExperimentalPowers.state(player);
-		if (!power.key().equals(s.pendingMutationPower) || ExperimentalPowers.owns(player, power)) {
+		if (!power.key().equals(s.pendingMutationPower) || ExperimentalPowers.owns(player, power) || !power.enabled()) {
 			return;
 		}
 		// v0.13.22: capacity FIRST. This used to claim the Primary slot (costing the player their Symbiote / oldest
@@ -369,7 +370,7 @@ public final class MutationManager {
 	/** A "blank" research note: reveals a random power the player has not yet begun researching. */
 	public static boolean studyRandomResearch(ServerPlayer player) {
 		java.util.List<Power> candidates = new java.util.ArrayList<>();
-		for (Power p : com.projecthero.mod.hero.Powers.all()) {
+		for (Power p : com.projecthero.mod.hero.Powers.enabled()) {
 			if (ExperimentalPowers.researchStage(player, p) == ResearchStage.UNKNOWN) {
 				candidates.add(p);
 			}

@@ -65,7 +65,7 @@ public final class PowerGrants {
 	/** Experimental powers the player does not own yet. */
 	public static List<Power> missingExperimental(ServerPlayer player) {
 		List<Power> out = new ArrayList<>();
-		for (Power p : Powers.all()) {
+		for (Power p : Powers.enabled()) {
 			if (!ExperimentalPowers.owns(player, p)) {
 				out.add(p);
 			}
@@ -81,7 +81,7 @@ public final class PowerGrants {
 	 * two heroes, the Symbiote AND mutations.
 	 */
 	public static boolean grantExperimental(ServerPlayer target, Power power) {
-		if (ExperimentalPowers.owns(target, power) || ExperimentalPowers.atCapacity(target)) {
+		if (!power.enabled() || ExperimentalPowers.owns(target, power) || ExperimentalPowers.atCapacity(target)) {
 			return false;
 		}
 		HeroTiers.claimExperimental(target);

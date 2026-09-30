@@ -2,7 +2,9 @@ package com.projecthero.mod.hero;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.projecthero.mod.ProjectHeroMod;
 
@@ -15,6 +17,22 @@ import net.minecraft.resources.ResourceLocation;
 public final class Powers {
 	private static final Map<ResourceLocation, Power> BY_ID = new LinkedHashMap<>();
 	private static final Map<String, Power> BY_KEY = new LinkedHashMap<>();
+
+	/**
+	 * v0.14.8: THE switch for which experimental powers are live. Only the powers that have been remade are enabled;
+	 * every other power stays registered (its code, handlers, items, potions, recipe JSON and lang all remain) but
+	 * cannot be obtained by any path -- serums / exposure triggers / lab devices, brewing, reagent crafting (the
+	 * {@code projecthero:power_enabled} recipe condition), chest loot, random serums, research notes, the admin
+	 * command -- is hidden from the creative tab, the guidebook and the power wheel, and is pruned from players who
+	 * still hold it when they join ({@link ExperimentalPowers#pruneRemovedPowers}).
+	 *
+	 * <p>Re-enabling a power later = adding its key here. See docs/HEROPACK_CONTENT_REFERENCE.md.
+	 */
+	public static final Set<String> ENABLED = Set.of(
+			"power_01_super_strength",
+			"power_02_laser_vision",
+			"power_04_super_speed",
+			"power_12_super_regeneration");
 
 	private Powers() {
 	}
@@ -37,6 +55,20 @@ public final class Powers {
 
 	public static Collection<Power> all() {
 		return BY_ID.values();
+	}
+
+	/** Whether the power with {@code key} is registered AND enabled ({@link #ENABLED}). */
+	public static boolean isEnabled(String key) {
+		return key != null && ENABLED.contains(key) && BY_KEY.containsKey(key);
+	}
+
+	public static boolean isEnabled(Power power) {
+		return power != null && isEnabled(power.key());
+	}
+
+	/** The enabled powers, in registration order: what every acquisition path, the guide and the UI offer. */
+	public static List<Power> enabled() {
+		return BY_ID.values().stream().filter(Powers::isEnabled).toList();
 	}
 
 	public static int count() {
