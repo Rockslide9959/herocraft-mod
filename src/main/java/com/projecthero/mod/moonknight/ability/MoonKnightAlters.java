@@ -106,9 +106,11 @@ public final class MoonKnightAlters implements MoonKnightMove {
 	private static final DustParticleOptions GOLD_DUST = new DustParticleOptions(new org.joml.Vector3f(1.0f, 0.82f, 0.35f), 0.9f);
 	private static final DustParticleOptions SHADOW = new DustParticleOptions(new org.joml.Vector3f(0.08f, 0.08f, 0.1f), 1.4f);
 
-	/** Per player (UUID): game time Fist of Khonshu / Vanish end. Server-only; cleared on untransform + server stop. */
+	/**
+	 * Per player (UUID): game time Fist of Khonshu ends. Server-only; cleared on untransform + server stop. (Vanish needs
+	 * no map since v0.14.4: it is a toggle, and its state is the infinite Invisibility effect itself -- see {@link #vanish}.)
+	 */
 	private static final Map<UUID, Long> FIST_UNTIL = new ConcurrentHashMap<>();
-	private static final Map<UUID, Long> VANISH_UNTIL = new ConcurrentHashMap<>();
 
 	private MoonKnightAlters() {
 	}
@@ -122,12 +124,10 @@ public final class MoonKnightAlters implements MoonKnightMove {
 
 	public static void clearSessionState() {
 		FIST_UNTIL.clear();
-		VANISH_UNTIL.clear();
 	}
 
 	private static void forget(UUID id) {
 		FIST_UNTIL.remove(id);
-		VANISH_UNTIL.remove(id);
 	}
 
 	// ================================================================ TAP / HOLD: switching
@@ -217,6 +217,12 @@ public final class MoonKnightAlters implements MoonKnightMove {
 
 	@Override
 	public void sneak(ServerPlayer player) {
+		// v0.14.4: Vanish is a toggle -- Sneak+V again steps back out (always allowed), and the cooldown starts then
+		if (MoonKnight.alter(player) == MoonKnightAlter.JAKE && inVanish(player)) {
+			endVanish(player, true);
+			MoonKnightAbilities.cooldown(player, SNEAK, MoonKnightConfig.ALTER_SPECIAL_COOLDOWN);
+			return;
+		}
 		if (!MoonKnightAbilities.ready(player, SNEAK)) {
 			return;
 		}
@@ -225,7 +231,7 @@ public final class MoonKnightAlters implements MoonKnightMove {
 			case STEVEN -> scholarsSight(player);
 			case JAKE -> vanish(player);
 		};
-		if (used) {
+		if (used && MoonKnight.alter(player) != MoonKnightAlter.JAKE) {
 			MoonKnightAbilities.cooldown(player, SNEAK, MoonKnightConfig.ALTER_SPECIAL_COOLDOWN);
 		}
 	}
@@ -350,11 +356,13 @@ public final class MoonKnightAlters implements MoonKnightMove {
 		return -1;
 	}
 
-	/** Jake: 8 s (x lunar power) of Invisibility, and every mob hunting him loses the scent. */
+	/**
+	 * Jake: Invisibility until he ends it (v0.14.4: a toggle, no time limit -- Sneak+V again, an alter switch, the suit
+	 * coming off or death), and every mob hunting him loses the scent. While it lasts no mob can target him at all
+	 * ({@link #isVanished}). The infinite effect IS the state, so it survives a relog.
+	 */
 	public static boolean vanish(ServerPlayer player) {
-		int ticks = Math.round(MoonKnightLunar.scale(MoonKnightConfig.VANISH_TICKS, MoonKnightAbilities.power(player)));
-		player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, ticks, 0, false, false, true));
-		VANISH_UNTIL.put(player.getUUID(), player.level().getGameTime() + ticks);
+		player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, MobEffectInstance.INFINITE_DURATION, 0, false, false, true));
 		int lost = dropAggro(player, MoonKnightConfig.VANISH_AGGRO_RADIUS);
 		MoonKnightAnim.play(player, MoonKnightAnim.VANISH);
 		ServerLevel level = player.serverLevel();
@@ -366,6 +374,29 @@ public final class MoonKnightAlters implements MoonKnightMove {
 		player.displayClientMessage(Component.translatable("message.projecthero.moon_knight.vanish", lost)
 				.withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC), true);
 		return true;
+	}
+
+	/** True while Jake's own Vanish is on (the infinite Invisibility it applies). */
+	public static boolean inVanish(Player player) {
+		MobEffectInstance inv = player.getEffect(MobEffects.INVISIBILITY);
+		return inv != null && inv.isInfiniteDuration();
+	}
+
+	/** Ends Vanish (Sneak+V again, an alter switch, suit off). {@code announce}: the step-out effect and message. */
+	public static void endVanish(ServerPlayer player, boolean announce) {
+		if (!inVanish(player)) {
+			return;
+		}
+		player.removeEffect(MobEffects.INVISIBILITY);
+		if (announce) {
+			ServerLevel level = player.serverLevel();
+			level.sendParticles(ParticleTypes.LARGE_SMOKE, player.getX(), player.getY() + 1.0, player.getZ(), 20, 0.3, 0.7, 0.3, 0.02);
+			level.sendParticles(SHADOW, player.getX(), player.getY() + 1.0, player.getZ(), 16, 0.4, 0.8, 0.4, 0.0);
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ILLUSIONER_MIRROR_MOVE,
+					SoundSource.PLAYERS, 0.7f, 0.6f);
+			player.displayClientMessage(Component.translatable("message.projecthero.moon_knight.vanish_end")
+					.withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC), true);
+		}
 	}
 
 	/** Every mob within {@code radius} that is targeting {@code player} forgets him. Returns how many did. */
@@ -412,10 +443,20 @@ public final class MoonKnightAlters implements MoonKnightMove {
 				player.serverLevel().sendParticles(ParticleTypes.END_ROD, hand.x, hand.y, hand.z, 1, 0.08, 0.08, 0.08, 0.005);
 			}
 		}
-		Long vanish = VANISH_UNTIL.get(player.getUUID());
-		if (vanish != null && now >= vanish) {
-			VANISH_UNTIL.remove(player.getUUID());
+		// v0.14.4: while Jake is invisible nothing may hunt him. Mob#setTarget refuses him (MoonKnightVanishTargetMixin);
+		// this sweep also clears brain-driven mobs (piglins, hoglins, ...) that keep their target in a memory instead.
+		if (now % 5L == 0L && isVanished(player)) {
+			dropAggro(player, MoonKnightConfig.VANISH_AGGRO_RADIUS);
 		}
+	}
+
+	/**
+	 * v0.14.4: Jake Lockley, suited and invisible (his Vanish, or any Invisibility effect) -- mobs cannot target him at
+	 * all, even when he strikes them. Checked by {@code MoonKnightVanishTargetMixin} on every {@code Mob#setTarget}.
+	 */
+	public static boolean isVanished(Player player) {
+		return player.hasEffect(MobEffects.INVISIBILITY) && MoonKnight.isTransformed(player)
+				&& MoonKnight.alter(player) == MoonKnightAlter.JAKE;
 	}
 
 	@Override
@@ -423,7 +464,7 @@ public final class MoonKnightAlters implements MoonKnightMove {
 		if (FIST_UNTIL.remove(player.getUUID()) != null) {
 			player.removeEffect(MobEffects.DAMAGE_BOOST);
 		}
-		VANISH_UNTIL.remove(player.getUUID());
+		endVanish(player, false);
 		MoonKnightAnim.setFlag(player, MoonKnightAction.FLAG_FIST, false);
 		MoonKnightAnim.setFlag(player, MoonKnightAction.FLAG_ALTER_PICKER, false);
 		PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, FIST_KNOCKBACK);
@@ -436,6 +477,10 @@ public final class MoonKnightAlters implements MoonKnightMove {
 	public static void reconcile(ServerPlayer player) {
 		boolean on = MoonKnight.isTransformed(player);
 		MoonKnightAlter alter = MoonKnight.alter(player);
+		// v0.14.4: Vanish is Jake's -- switching alter or taking the suit off ends it
+		if ((!on || alter != MoonKnightAlter.JAKE) && inVanish(player)) {
+			endVanish(player, on);
+		}
 		// v0.13.21: the suit itself hits harder (+7 melee), for as long as it is on
 		if (on) {
 			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, SUIT_STRENGTH, MoonKnightConfig.SUIT_MELEE_BONUS,
@@ -537,7 +582,7 @@ public final class MoonKnightAlters implements MoonKnightMove {
 			return 1.0;
 		}
 		if (player.hasEffect(MobEffects.INVISIBILITY)) {
-			return MoonKnightConfig.VANISH_DETECTION_FACTOR;
+			return 0.0; // v0.14.4: invisible Jake cannot be noticed at all (was VANISH_DETECTION_FACTOR)
 		}
 		return MoonKnightConfig.JAKE_DETECTION_FACTOR;
 	}

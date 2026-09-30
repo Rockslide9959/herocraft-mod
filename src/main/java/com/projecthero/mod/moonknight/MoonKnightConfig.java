@@ -196,6 +196,7 @@ public final class MoonKnightConfig {
 	public static final int SCHOLARS_SIGHT_TICKS = 160;
 	public static final int SCHOLARS_SIGHT_RADIUS = 16;
 	/** JAKE "Vanish". */
+	/** Unused since v0.14.4 (Vanish is a toggle with no time limit); kept for reference. */
 	public static final int VANISH_TICKS = 160;
 	/** Passives. */
 	public static final double MARC_ARMOR = 4.0;

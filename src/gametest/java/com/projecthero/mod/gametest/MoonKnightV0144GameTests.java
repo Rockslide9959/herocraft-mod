@@ -365,4 +365,33 @@ public class MoonKnightV0144GameTests implements FabricGameTest {
 		disband(helper, p);
 		helper.succeed();
 	}
+
+	/** v0.14.4: an invisible Jake cannot be targeted -- not even by a mob he has just hit. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void anInvisibleJakeCannotBeTargeted(GameTestHelper helper) {
+		helper.getLevel().getServer().getWorldData().setDifficulty(net.minecraft.world.Difficulty.NORMAL);
+		ServerPlayer p = knight(helper, new Vec3(2.5, 2.0, 2.5), 0.0f);
+		setAlter(p, MoonKnightAlter.JAKE);
+		Husk husk = helper.spawn(EntityType.HUSK, new BlockPos(4, 2, 2));
+		husk.setTarget(p);
+		helper.assertTrue(husk.getTarget() == p, "a visible Jake can be targeted");
+		helper.assertTrue(MoonKnightAlters.vanish(p), "Jake vanishes");
+		helper.assertTrue(MoonKnightAlters.isVanished(p), "and counts as vanished");
+		helper.assertTrue(husk.getTarget() == null, "Vanish drops the aggro");
+		husk.setTarget(p);
+		husk.setLastHurtByMob(p);
+		helper.assertTrue(husk.getTarget() == null, "and nothing can target him while he is invisible");
+		helper.assertTrue(MoonKnightAlters.detectionFactor(p) == 0.0, "nor even notice him");
+		helper.assertTrue(p.getEffect(MobEffects.INVISIBILITY).isInfiniteDuration(), "Vanish has no time limit");
+		MoonKnightAlters.endVanish(p, true);
+		helper.assertFalse(MoonKnightAlters.inVanish(p), "until he ends it");
+		husk.setTarget(p);
+		helper.assertTrue(husk.getTarget() == p, "once visible he can be targeted again");
+		MoonKnightAlters.vanish(p);
+		setAlter(p, MoonKnightAlter.STEVEN);
+		MoonKnightAlters.reconcile(p);
+		helper.assertFalse(MoonKnightAlters.inVanish(p), "switching away from Jake ends Vanish");
+		husk.discard();
+		helper.succeed();
+	}
 }

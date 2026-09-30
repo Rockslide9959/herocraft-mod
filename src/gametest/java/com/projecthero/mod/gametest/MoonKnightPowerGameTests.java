@@ -209,8 +209,11 @@ public class MoonKnightPowerGameTests implements FabricGameTest {
 		MoonKnightAlters.INSTANCE.sneak(p);
 		helper.assertTrue(husk.getTarget() == null, "Vanish: it loses him");
 		helper.assertTrue(p.hasEffect(MobEffects.INVISIBILITY), "and he is invisible");
-		helper.assertTrue(MoonKnightAlters.detectionFactor(p) == MoonKnightConfig.VANISH_DETECTION_FACTOR, "and very hard to notice");
-		helper.assertTrue(MoonKnight.cooldownRemaining(p, "alter_sneak") > 0, "30 s special cooldown");
+		helper.assertTrue(MoonKnightAlters.detectionFactor(p) == 0.0, "and impossible to notice (v0.14.4)");
+		helper.assertTrue(MoonKnight.cooldownRemaining(p, "alter_sneak") == 0, "v0.14.4: no cooldown while Vanish is on");
+		MoonKnightAlters.INSTANCE.sneak(p);
+		helper.assertFalse(p.hasEffect(MobEffects.INVISIBILITY), "Sneak+V again steps back out");
+		helper.assertTrue(MoonKnight.cooldownRemaining(p, "alter_sneak") > 0, "and the special cooldown starts then");
 		helper.succeed();
 	}
 
