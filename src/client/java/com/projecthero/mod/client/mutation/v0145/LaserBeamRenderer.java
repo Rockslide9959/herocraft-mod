@@ -54,6 +54,9 @@ public final class LaserBeamRenderer {
 	private record Ribbon(Vec3 a, Vec3 b, float widthA, float widthB, int rgb, float alphaA, float alphaB, boolean glow) {
 	}
 
+	/** v0.14.8: the near stretch of your own beams in the third-person back view, drawn without depth test. */
+	private static final List<Ribbon> OVERLAY = new ArrayList<>();
+
 	private LaserBeamRenderer() {
 	}
 
@@ -85,6 +88,7 @@ public final class LaserBeamRenderer {
 		float partial = context.tickCounter().getGameTimeDeltaPartialTick(false);
 		long gameTime = level.getGameTime();
 		List<Ribbon> ribbons = new ArrayList<>();
+		OVERLAY.clear();
 		for (Player player : level.players()) {
 			MutationVisualState s = MutationVisuals.state(player);
 			String anim = s.anim();
@@ -121,7 +125,7 @@ public final class LaserBeamRenderer {
 				}
 			}
 		}
-		if (ribbons.isEmpty()) {
+		if (ribbons.isEmpty() && OVERLAY.isEmpty()) {
 			return;
 		}
 		Camera camera = context.camera();
@@ -140,6 +144,13 @@ public final class LaserBeamRenderer {
 		for (Ribbon r : ribbons) {
 			if (!r.glow()) {
 				BeamDraw.segment(core, pose, r.a(), r.b(), cam, r.widthA(), r.widthB(), r.rgb(), r.alphaA(), r.alphaB());
+			}
+		}
+		if (!OVERLAY.isEmpty()) {
+			// your own beams seen from behind in third person: drawn over your head (no depth test)
+			VertexConsumer over = consumers.getBuffer(RenderType.guiOverlay());
+			for (Ribbon r : OVERLAY) {
+				BeamDraw.segment(over, pose, r.a(), r.b(), cam, r.widthA(), r.widthB(), r.rgb(), r.alphaA(), r.alphaB());
 			}
 		}
 		poseStack.popPose();
@@ -161,6 +172,22 @@ public final class LaserBeamRenderer {
 		right = right.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : right.normalize();
 		Vec3 up = right.cross(dir).normalize();
 		boolean firstPerson = player == client.getCameraEntity() && client.options.getCameraType().isFirstPerson();
+		// v0.14.8 fix ("can't hold Heat Vision in third person"): the beam WAS firing, but vanilla's third-person camera
+		// sits exactly on your own line of sight -- behind the head (back view) or in front of the face (front view) --
+		// so a beam drawn straight out of the eyes was either hidden end-on behind your head or pointed straight through
+		// the camera and flooded the screen. For your own beams: from behind, the first 8 blocks are also drawn over your
+		// head (OVERLAY, no depth test) and the impact flare is doubled; from the front they stop short of the camera.
+		boolean ownDetached = player == client.getCameraEntity() && !client.options.getCameraType().isFirstPerson();
+		boolean ownFront = ownDetached && client.options.getCameraType().isMirrored();
+		boolean capped = false;
+		if (ownFront) {
+			Vec3 camPos = client.gameRenderer.getMainCamera().getPosition();
+			double camAlong = camPos.subtract(eye).dot(dir);
+			if (camAlong > 0.8 && eye.distanceTo(end) > camAlong - 0.8) {
+				end = eye.add(dir.scale(camAlong - 0.8));
+				capped = true;
+			}
+		}
 		boolean max = kind == Kind.MAX;
 		float pulse = max ? 0.8f + 0.2f * Mth.sin(age * 0.9f) : 1f;
 
@@ -168,7 +195,7 @@ public final class LaserBeamRenderer {
 		// camera, one per eye, and sweep in from the lower screen edges to the crosshair, so they fill a good part of the
 		// view. They stay see-through (lower alpha, not thinner), so you can still see and aim at what you're burning.
 		Vec3 base = firstPerson ? eye.add(dir.scale(0.12)).add(up.scale(-0.045)) : eye.add(dir.scale(0.28)).add(up.scale(0.02));
-		double spread = firstPerson ? 0.06 : 0.065;
+		double spread = firstPerson ? 0.06 : ownDetached && !ownFront ? 0.14 : 0.065;
 		double nearLen = firstPerson ? Math.min(4.0, base.distanceTo(end) * 0.5) : 0.0;
 		float nearAlpha = firstPerson ? 0.55f : 1f;
 		float nearWidth = firstPerson ? 0.8f : 1f;
@@ -180,6 +207,15 @@ public final class LaserBeamRenderer {
 			Vec3 a = base.add(right.scale(spread * side));
 			addLayer(out, a, end, dir, nearLen, kind.glow * pulse, nearWidth, RED, 0.42f * alpha * fpGlow, nearAlpha, true);
 			addLayer(out, a, end, dir, nearLen, kind.core * pulse, nearWidth, CORE, 0.95f * alpha * fpCore, nearAlpha, false);
+			if (ownDetached && !ownFront) {
+				// the camera sits on your line of sight, so from behind the beam hides behind your own head: its first
+				// few blocks are drawn over the head, fading out, so you can see it leave your eyes toward the target
+				Vec3 toEnd = end.subtract(a);
+				double len = Math.min(8.0, toEnd.length());
+				Vec3 far = a.add(toEnd.normalize().scale(len));
+				OVERLAY.add(new Ribbon(a, far, kind.glow * pulse * 1.6f, kind.glow * pulse * 0.6f, RED, 0.5f * alpha, 0f, true));
+				OVERLAY.add(new Ribbon(a, far, kind.core * pulse, kind.core * pulse * 0.5f, CORE, 0.9f * alpha, 0f, false));
+			}
 		}
 		if (max) {
 			// Maximum Output: a white-hot core and a wide pulsing halo down the middle of the pair
@@ -187,8 +223,11 @@ public final class LaserBeamRenderer {
 					true);
 			addLayer(out, base, end, dir, nearLen, 0.05f * pulse, nearWidth, WHITE, 0.9f * alpha * fpCore, nearAlpha, false);
 		}
+		if (capped) {
+			return; // the real impact is behind the camera
+		}
 		// a small flare where it lands
-		float flare = (max ? 0.55f : kind == Kind.IGNITE ? 0.12f : 0.25f) * pulse;
+		float flare = (max ? 0.55f : kind == Kind.IGNITE ? 0.12f : 0.25f) * pulse * (ownDetached && !ownFront ? 2.0f : 1.0f);
 		Vec3 camUp = new Vec3(0, 1, 0);
 		out.add(new Ribbon(end.subtract(camUp.scale(flare)), end.add(camUp.scale(flare)), flare, flare, RED, 0.35f * alpha,
 				0.35f * alpha, true));
