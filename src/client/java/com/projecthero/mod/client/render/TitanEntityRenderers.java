@@ -34,8 +34,8 @@ public final class TitanEntityRenderers {
 		EntityRendererRegistry.register(TitanEntityTypes.DISGUISED_TITAN,
 				context -> new RaidZombieRenderer<>(context, RaidZombieRenderer.fixed(DISGUISED_TITAN), 1.0f));
 
-		EntityRendererRegistry.register(TitanEntityTypes.TITAN,
-				context -> new RaidZombieRenderer<>(context, RaidZombieRenderer.fixed(TITAN), TitanEntity.SCALE));
+		// v0.14.4: its own renderer -- same rig/texture/scale, but animated (TitanModel) and holding its boulder.
+		EntityRendererRegistry.register(TitanEntityTypes.TITAN, context -> new TitanRenderer(context, TITAN));
 
 		EntityRendererRegistry.register(TitanEntityTypes.TITAN_BOULDER, ThrownItemRenderer::new);
 	}

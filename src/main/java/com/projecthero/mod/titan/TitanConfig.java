@@ -26,6 +26,8 @@ public final class TitanConfig {
 	public Attacks attacks = new Attacks();
 	public Cooldowns cooldowns = new Cooldowns();
 	public World world = new World();
+	/** v0.14.4: threat / target-switching. Missing from an older config file = these defaults. */
+	public Aggro aggro = new Aggro();
 
 	/** Titan body stats. */
 	public static final class Stats {
@@ -84,6 +86,29 @@ public final class TitanConfig {
 		public double chargeThrowMin = 8.0;
 		public double chargeThrowMax = 12.0;
 		public double chargeMaxDistance = 40.0;
+		/** v0.14.4: the always-on melee swat now winds up for this many ticks (a raised arm) before it lands. */
+		public int meleeWindupTicks = 10;
+		/** v0.14.4 Leaping Slam: jumps onto the target from this range band, crushes whoever is under the
+		 *  landing, then sends a ground ring outward that players can jump over. */
+		public double leapMinDistance = 10.0;
+		public double leapMaxDistance = 32.0;
+		public double leapDamage = 30.0;
+		/** Crush radius beyond the Titan's own half-width at the landing point. */
+		public double leapCrushRadius = 4.0;
+		public double leapRingDamage = 16.0;
+		public double leapRingRadius = 18.0;
+		/** How fast the landing ring travels outward, blocks per tick. */
+		public double leapRingSpeed = 0.9;
+		/** v0.14.4 Grave Roar: drags every player in range toward the Titan, slows them, and raises Husks. */
+		public double roarRadius = 24.0;
+		public double roarDamage = 6.0;
+		/** Horizontal speed of each drag pulse (one every 5 ticks while the roar lasts). */
+		public double roarPullStrength = 0.55;
+		public int roarDurationTicks = 30;
+		public int roarSlownessTicks = 80;
+		public int roarSummonCount = 3;
+		/** Hard cap on the Titan's raised Husks alive at once (performance + fairness). */
+		public int roarMaxMinions = 6;
 	}
 
 	/** Per-attack cooldowns, in ticks. */
@@ -96,8 +121,31 @@ public final class TitanConfig {
 		public int grab = 160;          // 8s
 		public int boulder = 120;       // 6s
 		public int charge = 180;        // 9s
+		public int leap = 200;          // 10s (v0.14.4)
+		public int roar = 320;          // 16s (v0.14.4)
 		/** Minimum ticks between ANY two telegraphed attacks, so the Titan reads one move at a time. */
 		public int globalAttackDelay = 16;
+	}
+
+	/** v0.14.4: the threat table ({@link TitanThreat}). */
+	public static final class Aggro {
+		/** Threat per point of (raw) damage a player deals the Titan. */
+		public double damageThreatMultiplier = 1.0;
+		/** Threat per second for standing within {@link #proximityRange} of the Titan's edge. */
+		public double proximityThreatPerSecond = 3.0;
+		public double proximityRange = 14.0;
+		/** Threat halves over this many ticks, so old damage stops counting. */
+		public int threatHalfLifeTicks = 200;
+		/** How often (ticks) the Titan reconsiders who it is chasing. */
+		public int retargetIntervalTicks = 40;
+		/** A "closest player" bonus of up to this much threat, fading to 0 at {@link #nearbyRange} blocks. */
+		public double nearbyWeight = 12.0;
+		public double nearbyRange = 32.0;
+		/** A challenger must beat the current target's score by this factor to steal aggro. */
+		public double switchMargin = 1.25;
+		/** Chance per re-evaluation to pick at random among players scoring at least {@link #randomScoreFloor} of the best. */
+		public double randomSwitchChance = 0.2;
+		public double randomScoreFloor = 0.6;
 	}
 
 	/** Natural spawning and terrain-destruction toggles. */
@@ -141,6 +189,10 @@ public final class TitanConfig {
 		return instance.cooldowns;
 	}
 
+	public static Aggro aggro() {
+		return instance.aggro;
+	}
+
 	public static World world() {
 		return instance.world;
 	}
@@ -164,6 +216,9 @@ public final class TitanConfig {
 					}
 					if (instance.cooldowns == null) {
 						instance.cooldowns = new Cooldowns();
+					}
+					if (instance.aggro == null) {
+						instance.aggro = new Aggro();
 					}
 					if (instance.world == null) {
 						instance.world = new World();

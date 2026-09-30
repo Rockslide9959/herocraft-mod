@@ -1,0 +1,168 @@
+package com.projecthero.mod.client;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.titan.entity.TitanEntity;
+import com.projecthero.mod.titan.entity.TitanEntityTypes;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.14.4 Titan boss animation tour. */
+public final class TitanBossDebugHarness {
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static TitanEntity titan;
+	private static Vec3 base;
+	private static Vec3 titanAt;
+	private static final float TITAN_YAW = 105.0f;
+
+	private TitanBossDebugHarness() {
+	}
+
+	public static void init() {
+		ClientTickEvents.END_CLIENT_TICK.register(TitanBossDebugHarness::tick);
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					fn.accept(p);
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "v0144_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.put(t, r);
+	}
+
+	private static void view(Minecraft mc, Vec3 from, Vec3 to) {
+		server(mc, p -> {
+			Vec3 d = to.subtract(from);
+			float yaw = (float) (Math.atan2(d.z, d.x) * 180.0 / Math.PI) - 90.0f;
+			float pitch = (float) -(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)) * 180.0 / Math.PI);
+			p.teleportTo(p.serverLevel(), from.x, from.y, from.z, yaw, pitch);
+		});
+	}
+
+	private static void resetTitan(Minecraft mc) {
+		server(mc, p -> {
+			titan.setDeltaMovement(Vec3.ZERO);
+			titan.moveTo(titanAt.x, titanAt.y, titanAt.z, TITAN_YAW, 0.0f);
+			titan.setYHeadRot(TITAN_YAW);
+			titan.yBodyRot = TITAN_YAW;
+			titan.getMoveControl().setWantedPosition(titanAt.x, titanAt.y, titanAt.z, 0.0);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				LevelSettings settings = new LevelSettings("TitanV0144Debug" + System.currentTimeMillis() % 100000,
+						GameType.CREATIVE, false, Difficulty.NORMAL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.hideGui = true;
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				base = Vec3.atBottomCenterOf(p.blockPosition());
+				int gy = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(base.x), (int) Math.floor(base.z + 30));
+				titanAt = new Vec3(base.x, gy, base.z + 30);
+				System.out.println("[HARNESS] base=" + base + " titanAt=" + titanAt);
+				titan = TitanEntityTypes.TITAN.create(level);
+				titan.moveTo(titanAt.x, titanAt.y, titanAt.z, TITAN_YAW, 0.0f);
+				titan.setYHeadRot(TITAN_YAW);
+				titan.yBodyRot = TITAN_YAW;
+				level.addFreshEntity(titan);
+			});
+			t0 = inWorldTicks;
+			buildScript(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void buildScript(Minecraft mc) {
+		at(5, () -> view(mc, titanAt.add(-24, 11, -34), titanAt.add(0, 8, 0)));
+		at(40, () -> shot(mc, "a00_idle"));
+		// walk sideways past the camera
+		at(45, () -> server(mc, p -> titan.getMoveControl().setWantedPosition(titanAt.x + 40, titanAt.y, titanAt.z, 1.0)));
+		at(70, () -> shot(mc, "a01_walk_a"));
+		at(74, () -> shot(mc, "a02_walk_b"));
+		at(78, () -> shot(mc, "a03_walk_c"));
+		at(90, () -> resetTitan(mc));
+		int t = 110;
+		String[] attacks = {"PUNCH", "SWEEP", "STOMP", "SLAM", "SHOCKWAVE", "GRAB", "BOULDER", "CHARGE", "LEAP", "ROAR"};
+		for (String a : attacks) {
+			final int s = t;
+			at(s, () -> server(mc, p -> {
+				boolean ok = titan.debugBeginAttack(a, false);
+				System.out.println("[HARNESS] begin " + a + " ok=" + ok + " anim=" + titan.currentAnim());
+			}));
+			at(s + 20, () -> shot(mc, "b_" + a + "_1windup"));
+			at(s + 38, () -> shot(mc, "b_" + a + "_2cocked"));
+			at(s + 42, () -> shot(mc, "b_" + a + "_3strike"));
+			at(s + 52, () -> shot(mc, "b_" + a + "_4after"));
+			if (a.equals("LEAP") || a.equals("CHARGE") || a.equals("ROAR")) {
+				at(s + 60, () -> shot(mc, "b_" + a + "_5later"));
+				at(s + 70, () -> shot(mc, "b_" + a + "_6later"));
+				at(s + 85, () -> shot(mc, "b_" + a + "_7later"));
+			}
+			at(s + 110, () -> resetTitan(mc));
+			t = s + 120;
+		}
+		at(t + 10, () -> mc.stop());
+	}
+}

@@ -61,6 +61,8 @@ public class TitanGameTests implements FabricGameTest {
 					disguised.getBoundingBox().inflate(16)).get(0);
 			helper.assertTrue(titan.getHealth() == titan.getMaxHealth(), "the Titan must start at full health, got "
 					+ titan.getHealth() + "/" + titan.getMaxHealth());
+			// v0.14.4: don't leave a live 150-block-range boss hunting (and grabbing) other tests' mock players.
+			titan.discard();
 			helper.succeed();
 		});
 	}
@@ -102,6 +104,7 @@ public class TitanGameTests implements FabricGameTest {
 		helper.getLevel().addFreshEntity(titan);
 		helper.assertTrue(helper.getLevel().getBlockState(underTitan) == before,
 				"spawning the Titan alone must not touch the ground beneath it");
+		titan.discard(); // v0.14.4: see disguisedTitanTransformsExactlyOnce
 		helper.succeed();
 	}
 }

@@ -615,7 +615,8 @@ public final class HeroPackGuide {
 		out.add(chapter("projecthero.guide.titan", lines -> {
 			para(lines, "projecthero.guide.titan.body");
 			blank(lines);
-			for (String section : new String[]{"tell", "fight", "rewards"}) {
+			// v0.14.4: "moves" (every attack and its tell, incl. Leaping Slam / Grave Roar) and "threat" (aggro).
+			for (String section : new String[]{"tell", "fight", "moves", "threat", "rewards"}) {
 				head(lines, "projecthero.guide.titan." + section);
 				para(lines, "projecthero.guide.titan." + section + ".body");
 				blank(lines);

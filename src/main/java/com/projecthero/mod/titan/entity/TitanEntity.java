@@ -46,13 +46,42 @@ import net.minecraft.world.phys.Vec3;
  * stack of vanilla {@code Goal}s: {@link #tickCombat} runs every tick, resolving an in-progress
  * attack's wind-up/active/recovery phases or, if idle and off the global cooldown, picking a new one
  * via {@link #chooseAttack}.
+ *
+ * <p>v0.14.4: every move plays a synced body animation ({@link Anim}, posed client-side by {@code TitanModel}),
+ * two new moves (Leaping Slam, Grave Roar), and targeting is a threat table ({@link #tickThreat}) instead of
+ * "lock the first player forever". Full move list: {@code docs/TITAN_BOSS_REFERENCE.md}.
  */
 public class TitanEntity extends RaidUndead {
 	/** Height 18 / vanilla zombie height 1.95 -- see {@code TitanConfig.Stats#heightBlocks}'s javadoc
 	 *  for why this is a compile-time constant rather than a live-reconfigurable one. */
 	public static final float SCALE = 18.0f / 1.95f;
 
-	private enum Attack { NONE, PUNCH, SWEEP, STOMP, SLAM, SHOCKWAVE, GRAB, BOULDER, CHARGE }
+	private enum Attack { NONE, PUNCH, SWEEP, STOMP, SLAM, SHOCKWAVE, GRAB, BOULDER, CHARGE, LEAP, ROAR }
+
+	/**
+	 * v0.14.4: the body animation the client should be playing. Synced as {@link #DATA_ANIM} (ordinal in the
+	 * low byte, a bump counter above it so replaying the same move still reads as a change); the client
+	 * times it from the moment the value arrives ({@link #onSyncedDataUpdated}) and {@code TitanModel} poses
+	 * the giant from it. Every telegraphed attack's clip strikes at tick {@link #WINDUP_TICKS}, matching the
+	 * server's resolution, so the swing lands on screen exactly when the damage does.
+	 */
+	public enum Anim {
+		NONE, PUNCH, SWEEP, STOMP, SLAM, SHOCKWAVE, GRAB, GRAB_THROW, BOULDER, CHARGE,
+		LEAP, LEAP_AIR, LEAP_LAND, ROAR, SWAT, INTRO;
+
+		private static final Anim[] VALUES = values();
+
+		public static Anim byId(int id) {
+			return id >= 0 && id < VALUES.length ? VALUES[id] : NONE;
+		}
+	}
+
+	private static final net.minecraft.network.syncher.EntityDataAccessor<Integer> DATA_ANIM =
+			net.minecraft.network.syncher.SynchedEntityData.defineId(TitanEntity.class,
+					net.minecraft.network.syncher.EntityDataSerializers.INT);
+
+	/** Tag carried by the Husks a Grave Roar raises, so they can be counted (cap) and cleared on death. */
+	public static final String MINION_TAG = "projecthero_titan_minion";
 
 	/**
 	 * v0.10.11: every telegraphed attack now winds up for a uniform 2 seconds, with its own distinct
@@ -82,9 +111,92 @@ public class TitanEntity extends RaidUndead {
 
 	private EventBossBar bossBar;
 
+	// v0.14.4 threat / aggro
+	private final com.projecthero.mod.titan.TitanThreat threat = new com.projecthero.mod.titan.TitanThreat();
+	private int retargetTimer;
+
+	// v0.14.4 melee swat wind-up
+	private int swatWindup;
+	private Vec3 swatDir = Vec3.ZERO;
+
+	// v0.14.4 Leaping Slam: 0 = winding up, 1 = airborne, 2 = landing ring travelling outward
+	private int leapPhase;
+	private int leapTick;
+	private int leapFlightTicks;
+	private double leapApex;
+	private Vec3 leapFrom = Vec3.ZERO;
+	private Vec3 leapTo = Vec3.ZERO;
+	private Vec3 ringCenter = Vec3.ZERO;
+	private double ringRadius;
+	private final java.util.Set<UUID> ringHit = new java.util.HashSet<>();
+
+	// v0.14.4 Grave Roar
+	private int roarTick;
+
+	// v0.14.4 animation sync -- server side
+	private int animSeq;
+	private int animTicksLeft;
+	// ...and client side (plain fields, only ever written on the client copy of the entity)
+	private Anim clientAnim = Anim.NONE;
+	private int clientAnimStart;
+	private Anim clientPrevAnim = Anim.NONE;
+	private int clientPrevAnimStart;
+
 	public TitanEntity(EntityType<? extends TitanEntity> type, Level level) {
 		super(type, level);
 		this.xpReward = 200;
+	}
+
+	@Override
+	protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {
+		super.defineSynchedData(builder);
+		builder.define(DATA_ANIM, 0);
+	}
+
+	@Override
+	public void onSyncedDataUpdated(net.minecraft.network.syncher.EntityDataAccessor<?> key) {
+		super.onSyncedDataUpdated(key);
+		if (DATA_ANIM.equals(key) && level() != null && level().isClientSide()) {
+			clientPrevAnim = clientAnim;
+			clientPrevAnimStart = clientAnimStart;
+			clientAnim = Anim.byId(entityData.get(DATA_ANIM) & 0xFF);
+			clientAnimStart = tickCount;
+		}
+	}
+
+	/** Server: start playing {@code anim}; {@code duration > 0} returns to {@link Anim#NONE} after that many ticks. */
+	private void setAnim(Anim anim, int duration) {
+		animSeq = (animSeq + 1) & 0x7FFFFF;
+		entityData.set(DATA_ANIM, anim.ordinal() | (animSeq << 8));
+		animTicksLeft = duration;
+	}
+
+	private void tickAnim() {
+		if (animTicksLeft > 0 && --animTicksLeft == 0) {
+			setAnim(Anim.NONE, 0);
+		}
+	}
+
+	/** The animation currently synced (server or client). */
+	public Anim currentAnim() {
+		return Anim.byId(entityData.get(DATA_ANIM) & 0xFF);
+	}
+
+	/** Client: the clip being played, when it started (entity tickCount) and the one it is blending from. */
+	public Anim clientAnim() {
+		return clientAnim;
+	}
+
+	public int clientAnimStart() {
+		return clientAnimStart;
+	}
+
+	public Anim clientPrevAnim() {
+		return clientPrevAnim;
+	}
+
+	public int clientPrevAnimStart() {
+		return clientPrevAnimStart;
 	}
 
 	/**
@@ -119,8 +231,12 @@ public class TitanEntity extends RaidUndead {
 						|| goal instanceof net.minecraft.world.entity.ai.goal.BreakDoorGoal);
 		// Target scans are cheap, but only the player scan is wanted: a world boss chasing a wandering
 		// villager or a turtle across the map is both wrong and (via the chase) expensive.
-		this.targetSelector.removeAllGoals(goal ->
-				goal instanceof net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal);
+		//
+		// v0.14.4: every target goal goes, HurtByTargetGoal included. That goal only retargets when it
+		// *starts*; once running against player A it ignored every hit from player B -- the "he only targets
+		// one person while the others hit him for free" report. Targeting is the threat table's job now
+		// (tickThreat / TitanThreat).
+		this.targetSelector.removeAllGoals(goal -> true);
 	}
 
 	public static AttributeSupplier.Builder createAttributes() {
@@ -194,6 +310,9 @@ public class TitanEntity extends RaidUndead {
 		if (level() instanceof ServerLevel server) {
 			server.playSound(null, blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 4.0f, 0.5f);
 			server.sendParticles(ParticleTypes.EXPLOSION, getX(), getY() + getBbHeight() * 0.5, getZ(), 1, 0, 0, 0, 0);
+			// v0.14.4: rises roaring -- and doesn't swing at anyone until the roar has finished.
+			setAnim(Anim.INTRO, 56);
+			globalAttackCooldown = Math.max(globalAttackCooldown, 50);
 			// v0.13.5: was an unconditional (ServerLevel) cast on level() outside this guard -- harmless
 			// today since this is only ever reached from the server-side transform, but a real
 			// ClassCastException waiting to happen the moment that stops being true.
@@ -216,11 +335,15 @@ public class TitanEntity extends RaidUndead {
 			return;
 		}
 		ServerLevel server = (ServerLevel) level();
+		tickAnim();
+		if (deathTicks >= 0 || isDeadOrDying()) {
+			return; // collapsing -- no more attacks, targeting or terrain
+		}
 		footsteps(server);
 		if (TitanConfig.world().passiveWalkingDestructionEnabled) {
 			passiveDestruction(server);
 		}
-		acquireTarget(server);
+		tickThreat(server);
 		tickGrab(server);
 		tickApproach();
 		tickUnstick(server);
@@ -251,56 +374,225 @@ public class TitanEntity extends RaidUndead {
 		}
 	}
 
-	/**
-	 * "changes 25": the Titan actively hunts. If it currently has no target, lock onto the nearest
-	 * non-creative player inside its detection range straight away rather than waiting on vanilla's
-	 * periodic target scan -- a world boss should never lose interest or wander off while a player is
-	 * anywhere nearby.
-	 */
-	private void acquireTarget(ServerLevel server) {
-		LivingEntity current = getTarget();
-		if (current != null && current.isAlive() && !((current instanceof Player p) && (p.isCreative() || p.isSpectator()))) {
-			return;
+	// ---------------- v0.14.4 threat / aggro ----------------
+
+	/** A player the Titan may chase: alive, in this level, and not creative or spectator. */
+	public boolean isValidTarget(LivingEntity e) {
+		return e instanceof Player p && p.isAlive() && !p.isRemoved() && !creativeOrSpectator(p) && p.level() == level();
+	}
+
+	/** Reads a server player's actual game mode (the GameTest mock player overrides {@code isCreative()}). */
+	private static boolean creativeOrSpectator(Player p) {
+		if (p instanceof ServerPlayer sp) {
+			var mode = sp.gameMode.getGameModeForPlayer();
+			return mode == net.minecraft.world.level.GameType.CREATIVE || mode == net.minecraft.world.level.GameType.SPECTATOR;
 		}
-		Player nearest = server.getNearestPlayer(this, TitanConfig.stats().detectionRange);
-		if (nearest != null && nearest.isAlive() && !nearest.isCreative() && !nearest.isSpectator()) {
-			setTarget(nearest);
+		return p.isCreative() || p.isSpectator();
+	}
+
+	/** Damage from a player builds that player's threat (see {@link com.projecthero.mod.titan.TitanThreat}). */
+	@Override
+	public boolean hurt(DamageSource source, float amount) {
+		boolean hurt = super.hurt(source, amount);
+		if (hurt && !level().isClientSide() && source.getEntity() instanceof Player p && isValidTarget(p)) {
+			var cfg = TitanConfig.aggro();
+			threat.add(p, amount * cfg.damageThreatMultiplier, tickCount, cfg.threatHalfLifeTicks);
+			if (!isValidTarget(getTarget())) {
+				switchTarget(p);
+			}
 		}
+		return hurt;
 	}
 
 	/**
-	 * "changes 25": a plain, reliable melee. The telegraphed PUNCH/STOMP/SLAM moves are the Titan's
-	 * showpiece attacks, but between them a player standing right at its feet used to be able to just
-	 * hug the leg and whittle it down untouched (vanilla's own melee goal having been stripped in
-	 * {@link #registerGoals}). This is a short-cooldown swipe -- big damage, hard knockback -- that lands
-	 * whenever a player is within arm's reach, independent of the state machine's global cooldown.
+	 * v0.14.4 (replaces "changes 25"'s acquireTarget): proximity threat every half second, and a re-evaluation
+	 * of who to chase every {@link TitanConfig.Aggro#retargetIntervalTicks} -- immediately if the current target
+	 * has become invalid (died, logged out, went creative/spectator, left the dimension or outran follow range).
+	 * Not mid-attack or mid-grab: turning round halfway through a wind-up would make the telegraph lie.
+	 */
+	private void tickThreat(ServerLevel server) {
+		var cfg = TitanConfig.aggro();
+		if (tickCount % 10 == 0) {
+			double range = cfg.proximityRange + getBbWidth() * 0.5;
+			for (ServerPlayer p : server.players()) {
+				if (!isValidTarget(p)) {
+					continue;
+				}
+				double d = Math.sqrt(distanceToSqr(p));
+				if (d <= range) {
+					threat.add(p, cfg.proximityThreatPerSecond * 0.5 * (1.0 - 0.5 * d / range), tickCount,
+							cfg.threatHalfLifeTicks);
+				}
+			}
+			threat.prune(tickCount, cfg.threatHalfLifeTicks, this::isValidTarget);
+		}
+		LivingEntity current = getTarget();
+		double follow = TitanConfig.stats().followRange;
+		boolean currentValid = isValidTarget(current) && distanceToSqr(current) <= follow * follow;
+		if (currentValid) {
+			boolean busy = activeAttack != Attack.NONE || grabbedPlayer != null || swatWindup > 0;
+			if (busy || --retargetTimer > 0) {
+				return;
+			}
+		}
+		retargetTimer = Math.max(1, cfg.retargetIntervalTicks);
+		reevaluateTarget(server, false);
+	}
+
+	/**
+	 * Pick who to chase from every valid player within detection range. {@code deterministic} skips the random
+	 * pick (tests); the live loop passes false. Returns the chosen target (may be unchanged, or null).
+	 */
+	public LivingEntity reevaluateTarget(ServerLevel server, boolean deterministic) {
+		double range = TitanConfig.stats().detectionRange;
+		java.util.List<Player> candidates = new java.util.ArrayList<>();
+		for (ServerPlayer p : server.players()) {
+			if (isValidTarget(p) && distanceToSqr(p) <= range * range) {
+				candidates.add(p);
+			}
+		}
+		LivingEntity current = getTarget();
+		Player currentPlayer = isValidTarget(current) ? (Player) current : null;
+		if (currentPlayer != null && !candidates.contains(currentPlayer)) {
+			double follow = TitanConfig.stats().followRange;
+			if (distanceToSqr(currentPlayer) <= follow * follow) {
+				candidates.add(currentPlayer); // still being chased, just past the detection radius
+			}
+		}
+		Player chosen = threat.pick(candidates, currentPlayer, position(), tickCount, TitanConfig.aggro(),
+				deterministic ? null : getRandom());
+		if (chosen != current) {
+			switchTarget(chosen);
+		}
+		return chosen;
+	}
+
+	private void switchTarget(Player next) {
+		LivingEntity previous = getTarget();
+		setTarget(next);
+		lastDistanceToTarget = -1;
+		fleeSignal = 0;
+		if (next != null && previous != null && previous != next && level() instanceof ServerLevel server) {
+			// A readable "he's coming for YOU now": a low growl and a burst of angry sparks over the new target.
+			server.playSound(null, blockPosition(), SoundEvents.RAVAGER_AMBIENT, SoundSource.HOSTILE, 3.0f, 0.45f);
+			server.sendParticles(ParticleTypes.ANGRY_VILLAGER, next.getX(), next.getY() + next.getBbHeight() + 0.6,
+					next.getZ(), 4, 0.3, 0.2, 0.3, 0.0);
+		}
+	}
+
+	/** Test/debug view of a player's current threat. */
+	public double threatOf(Player p) {
+		return threat.threatOf(p, tickCount, TitanConfig.aggro().threatHalfLifeTicks);
+	}
+
+	/**
+	 * "changes 25": a plain, reliable melee so nobody can hug the leg untouched. v0.14.4: it now has a short,
+	 * readable wind-up (a raised arm, {@link TitanConfig.Attacks#meleeWindupTicks}) and swats <em>every</em>
+	 * player in reach in a wide frontal arc -- not just the current target -- so the rest of the group can't
+	 * stand at his feet for free either.
 	 */
 	private void tickMeleeSwipe(ServerLevel server) {
 		if (meleeCooldown > 0) {
 			meleeCooldown--;
 		}
+		if (swatWindup > 0) {
+			if (--swatWindup == 0) {
+				doSwat(server);
+			}
+			return;
+		}
 		if (meleeCooldown > 0 || activeAttack != Attack.NONE || grabbedPlayer != null) {
 			return;
 		}
+		double reach = TitanConfig.attacks().meleeRange + getBbWidth() * 0.5;
 		LivingEntity target = getTarget();
-		if (target == null || !target.isAlive() || !(target instanceof Player)) {
+		Player victim = null;
+		if (isValidTarget(target) && inSwatReach(target, reach)) {
+			victim = (Player) target;
+		} else {
+			double best = Double.MAX_VALUE;
+			for (Player p : nearbyLiving(reach).stream().filter(le -> le instanceof Player).map(le -> (Player) le).toList()) {
+				double d = distanceToSqr(p);
+				if (inSwatReach(p, reach) && d < best) {
+					best = d;
+					victim = p;
+				}
+			}
+		}
+		if (victim == null) {
 			return;
 		}
+		Vec3 dir = new Vec3(victim.getX() - getX(), 0, victim.getZ() - getZ());
+		swatDir = dir.lengthSqr() < 1.0e-4 ? Vec3.directionFromRotation(0, getYRot()) : dir.normalize();
+		faceDirection(swatDir);
+		int windup = Math.max(1, TitanConfig.attacks().meleeWindupTicks);
+		swatWindup = windup;
+		setAnim(Anim.SWAT, windup + 14);
+		server.playSound(null, blockPosition(), SoundEvents.ZOMBIE_AMBIENT, SoundSource.HOSTILE, 2.5f, 0.35f);
+	}
+
+	private boolean inSwatReach(LivingEntity e, double reach) {
+		double dx = e.getX() - getX();
+		double dz = e.getZ() - getZ();
+		double dy = e.getY() - getY();
+		return dx * dx + dz * dz <= reach * reach && dy >= -3.0 && dy <= getBbHeight() + 2.0;
+	}
+
+	private void doSwat(ServerLevel server) {
 		double reach = TitanConfig.attacks().meleeRange + getBbWidth() * 0.5;
+		boolean hitAny = false;
+		for (LivingEntity le : nearbyLiving(reach)) {
+			if (!inSwatReach(le, reach)) {
+				continue;
+			}
+			Vec3 flat = new Vec3(le.getX() - getX(), 0, le.getZ() - getZ());
+			if (flat.lengthSqr() > 1.0e-4 && flat.normalize().dot(swatDir) < -0.2) {
+				continue; // behind the swing
+			}
+			le.hurt(damageSources().mobAttack(this), scaleForPlayer(le, TitanConfig.attacks().meleeDamage));
+			Vec3 push = flat.lengthSqr() < 1.0e-4 ? swatDir : flat.normalize();
+			le.setDeltaMovement(le.getDeltaMovement().add(push.x * 1.4, 0.42, push.z * 1.4));
+			le.hurtMarked = true;
+			server.sendParticles(ParticleTypes.CRIT, le.getX(), le.getY() + 1, le.getZ(), 12, 0.3, 0.3, 0.3, 0.1);
+			hitAny = true;
+		}
+		meleeCooldown = TitanConfig.attacks().meleeCooldownTicks;
+		server.playSound(null, blockPosition(), hitAny ? SoundEvents.PLAYER_ATTACK_STRONG : SoundEvents.PLAYER_ATTACK_SWEEP,
+				SoundSource.HOSTILE, 2.0f, 0.6f);
+	}
+
+	/** Snap body, head and yaw to face along {@code dir} (flat), so the animation swings where the hit lands. */
+	private void faceDirection(Vec3 dir) {
+		if (dir.lengthSqr() < 1.0e-6) {
+			return;
+		}
+		float yaw = (float) (Mth.atan2(dir.z, dir.x) * (180.0 / Math.PI)) - 90.0f;
+		setYRot(yaw);
+		yBodyRot = yaw;
+		yHeadRot = yaw;
+	}
+
+	private void faceTarget(LivingEntity target) {
+		if (target != null) {
+			faceDirection(new Vec3(target.getX() - getX(), 0, target.getZ() - getZ()));
+		}
+	}
+
+	/** Turn toward {@code target} by at most {@code maxDegrees} this tick (tracking during a wind-up). */
+	private void turnToward(LivingEntity target, float maxDegrees) {
+		if (target == null || !target.isAlive()) {
+			return;
+		}
 		double dx = target.getX() - getX();
 		double dz = target.getZ() - getZ();
-		double dy = target.getY() - getY();
-		if (dx * dx + dz * dz > reach * reach || dy < -3.0 || dy > getBbHeight() + 2.0) {
+		if (dx * dx + dz * dz < 1.0e-4) {
 			return;
 		}
-		getLookControl().setLookAt(target, 60.0f, 60.0f);
-		target.hurt(damageSources().mobAttack(this), scaleForPlayer(target, TitanConfig.attacks().meleeDamage));
-		Vec3 push = target.position().subtract(position()).normalize();
-		target.setDeltaMovement(target.getDeltaMovement().add(push.x * 1.4, 0.42, push.z * 1.4));
-		target.hurtMarked = true;
-		meleeCooldown = TitanConfig.attacks().meleeCooldownTicks;
-		server.playSound(null, blockPosition(), SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.HOSTILE, 2.0f, 0.6f);
-		server.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1, target.getZ(), 12, 0.3, 0.3, 0.3, 0.1);
+		float want = (float) (Mth.atan2(dz, dx) * (180.0 / Math.PI)) - 90.0f;
+		float yaw = Mth.approachDegrees(getYRot(), want, maxDegrees);
+		setYRot(yaw);
+		yBodyRot = yaw;
+		yHeadRot = yaw;
 	}
 
 	private static final net.minecraft.resources.ResourceLocation CHASE_SPEED_ID =
@@ -483,7 +775,7 @@ public class TitanEntity extends RaidUndead {
 			resolveActiveAttack(server, target);
 			return;
 		}
-		if (target == null || !target.isAlive() || globalAttackCooldown > 0 || grabbedPlayer != null) {
+		if (target == null || !target.isAlive() || globalAttackCooldown > 0 || grabbedPlayer != null || swatWindup > 0) {
 			return;
 		}
 		trackFleeSignal(target);
@@ -550,6 +842,17 @@ public class TitanEntity extends RaidUndead {
 		if (dist > 6.0 && dist < TitanConfig.attacks().chargeMaxDistance && hasLineOfSight(target) && ready(Attack.CHARGE)) {
 			addWeighted(pool, Attack.CHARGE, fleeing ? 5 : 2);
 		}
+		// v0.14.4 Leaping Slam: the answer to a target kiting at mid range -- it lands on them.
+		var atk = TitanConfig.attacks();
+		if (dist >= atk.leapMinDistance && dist <= atk.leapMaxDistance && !airborne && ready(Attack.LEAP)) {
+			addWeighted(pool, Attack.LEAP, fleeing ? 5 : 3);
+		}
+		// v0.14.4 Grave Roar: favoured when a group is around him (drags them all in, raises Husks on them) or
+		// when the target is keeping its distance.
+		if (dist <= atk.roarRadius && ready(Attack.ROAR)) {
+			int around = countValidPlayersWithin(atk.roarRadius);
+			addWeighted(pool, Attack.ROAR, (around >= 2 ? 3 : 1) + (fleeing || dist > 12.0 ? 2 : 0));
+		}
 		if (pool.isEmpty()) {
 			return Attack.NONE;
 		}
@@ -580,12 +883,49 @@ public class TitanEntity extends RaidUndead {
 			chargeDirection = dir.lengthSqr() < 1.0e-4 ? Vec3.directionFromRotation(0, getYRot()) : dir.normalize();
 			chargeDistanceLeft = TitanConfig.attacks().chargeMaxDistance;
 		}
+		if (attack == Attack.LEAP) {
+			leapPhase = 0;
+			leapTick = 0;
+		}
+		if (attack == Attack.ROAR) {
+			roarTick = 0;
+		}
+		// v0.14.4: square up to the target so the wind-up animation visibly points at who it's for.
+		faceTarget(target);
+		setAnim(animFor(attack), animLengthFor(attack));
 		server.playSound(null, blockPosition(), telegraphSound(attack), SoundSource.HOSTILE, 2.6f, 0.5f);
+	}
+
+	private static Anim animFor(Attack a) {
+		return switch (a) {
+			case PUNCH -> Anim.PUNCH;
+			case SWEEP -> Anim.SWEEP;
+			case STOMP -> Anim.STOMP;
+			case SLAM -> Anim.SLAM;
+			case SHOCKWAVE -> Anim.SHOCKWAVE;
+			case GRAB -> Anim.GRAB;
+			case BOULDER -> Anim.BOULDER;
+			case CHARGE -> Anim.CHARGE;
+			case LEAP -> Anim.LEAP;
+			case ROAR -> Anim.ROAR;
+			default -> Anim.NONE;
+		};
+	}
+
+	/** Server-side lifetime of each attack's clip: wind-up + ~1 s recovery; 0 = held until replaced. */
+	private static int animLengthFor(Attack a) {
+		return switch (a) {
+			case CHARGE, LEAP -> 0;
+			case ROAR -> WINDUP_TICKS + TitanConfig.attacks().roarDurationTicks + 16;
+			default -> WINDUP_TICKS + 24;
+		};
 	}
 
 	private static net.minecraft.sounds.SoundEvent telegraphSound(Attack a) {
 		return switch (a) {
 			case CHARGE -> SoundEvents.RAVAGER_ROAR;
+			case LEAP -> SoundEvents.HOGLIN_ANGRY;
+			case ROAR -> SoundEvents.WARDEN_AGITATED;
 			case SLAM, SHOCKWAVE -> SoundEvents.WARDEN_SONIC_CHARGE;
 			case BOULDER -> SoundEvents.RAVAGER_STUNNED;
 			case GRAB -> SoundEvents.WARDEN_TENDRIL_CLICKS;
@@ -601,6 +941,12 @@ public class TitanEntity extends RaidUndead {
 			emitTelegraph(server, activeAttack, attackTicks, target);
 			if (activeAttack == Attack.CHARGE) {
 				return; // still winding up
+			}
+			// v0.14.4: aimed moves keep slowly tracking their target through the wind-up (max 3 deg/tick), so
+			// a sidestep still has to be a real one -- but the body visibly swings round to follow.
+			if (activeAttack == Attack.PUNCH || activeAttack == Attack.GRAB || activeAttack == Attack.BOULDER
+					|| activeAttack == Attack.SWEEP || activeAttack == Attack.LEAP) {
+				turnToward(target, 3.0f);
 			}
 		}
 		switch (activeAttack) {
@@ -641,6 +987,18 @@ public class TitanEntity extends RaidUndead {
 			}
 			case CHARGE -> {
 				tickCharge(server);
+				return;
+			}
+			case LEAP -> {
+				if (attackTicks <= 0) {
+					tickLeap(server);
+				}
+				return;
+			}
+			case ROAR -> {
+				if (attackTicks <= 0) {
+					tickRoar(server);
+				}
 				return;
 			}
 			default -> {
@@ -718,12 +1076,45 @@ public class TitanEntity extends RaidUndead {
 						cx + back.x * w * 0.5, cy + 0.1, cz + back.z * w * 0.5,
 						4, w * 0.2, 0.05, w * 0.2, 0.03);
 			}
+			case LEAP -> {
+				// Dust kicked up around the crouching feet, and a red warning ring on the target's spot.
+				server.sendParticles(ParticleTypes.CLOUD, cx, cy + 0.1, cz, 3, w * 0.4, 0.05, w * 0.4, 0.02);
+				if (target != null && target.isAlive() && remaining % 2 == 0) {
+					leapWarningRing(server, target.position(), w * 0.5 + TitanConfig.attacks().leapCrushRadius);
+				}
+			}
+			case ROAR -> {
+				// The inhale: souls drawn up out of the ground into the Titan's chest.
+				for (int i = 0; i < 4; i++) {
+					double aa = server.random.nextDouble() * Math.PI * 2;
+					double rr = w * (0.8 + 1.6 * (remaining / (double) WINDUP_TICKS));
+					server.sendParticles(ParticleTypes.SOUL, cx + Math.cos(aa) * rr, cy + 0.3, cz + Math.sin(aa) * rr,
+							0, -Math.cos(aa) * 0.3, 0.25, -Math.sin(aa) * 0.3, 0.6);
+				}
+				server.sendParticles(ParticleTypes.SCULK_SOUL, cx + aim.x * w * 0.4, cy + h * 0.9, cz + aim.z * w * 0.4,
+						2, 0.4, 0.3, 0.4, 0.01);
+			}
 			default -> {
 			}
 		}
 	}
 
+	private static final net.minecraft.core.particles.DustParticleOptions WARNING_DUST =
+			new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.95f, 0.15f, 0.1f), 2.5f);
+
+	private void leapWarningRing(ServerLevel server, Vec3 at, double radius) {
+		int points = 16;
+		for (int i = 0; i < points; i++) {
+			double a = i / (double) points * Math.PI * 2;
+			server.sendParticles(WARNING_DUST, at.x + Math.cos(a) * radius, at.y + 0.2, at.z + Math.sin(a) * radius,
+					1, 0.0, 0.0, 0.0, 0.0);
+		}
+	}
+
 	private void endAttack(Attack a) {
+		if (a == Attack.CHARGE) {
+			setAnim(Anim.NONE, 0);
+		}
 		attackCooldowns[a.ordinal()] = cooldownFor(a);
 		globalAttackCooldown = TitanConfig.cooldowns().globalAttackDelay;
 		activeAttack = Attack.NONE;
@@ -741,6 +1132,8 @@ public class TitanEntity extends RaidUndead {
 			case GRAB -> cd.grab;
 			case BOULDER -> cd.boulder;
 			case CHARGE -> cd.charge;
+			case LEAP -> cd.leap;
+			case ROAR -> cd.roar;
 			default -> 20;
 		};
 	}
@@ -868,6 +1261,7 @@ public class TitanEntity extends RaidUndead {
 		player.hurt(damageSources().mobAttack(this), scaleForPlayer(player, TitanConfig.attacks().grabDamage));
 		grabbedPlayer = player.getUUID();
 		grabTicksLeft = 30; // 1.5s hold
+		setAnim(Anim.GRAB_THROW, 30 + 22); // lift to the shoulder, wind back, hurl (clip throws at tick 30)
 		server.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 1, player.getZ(), 10, 0.3, 0.3, 0.3, 0.02);
 		server.playSound(null, blockPosition(), SoundEvents.PLAYER_HURT, SoundSource.HOSTILE, 2.0f, 0.4f);
 	}
@@ -883,10 +1277,12 @@ public class TitanEntity extends RaidUndead {
 			releaseGrab();
 			return;
 		}
-		// Hold near the Titan's "hand" -- shoulder height, one body-width off to the side.
-		Vec3 look = Vec3.directionFromRotation(0, getYRot());
+		// Hold in the Titan's right fist. v0.14.4: moved out to where the animated arm actually holds it
+		// (in front and to the right, just under shoulder height) -- the old spot was inside its own body.
+		Vec3 look = Vec3.directionFromRotation(0, yBodyRot);
 		Vec3 side = new Vec3(-look.z, 0, look.x);
-		Vec3 hold = position().add(0, getBbHeight() * 0.55, 0).add(side.scale(getBbWidth() * 0.4));
+		Vec3 hold = position().add(0, getBbHeight() * 0.62, 0).add(look.scale(getBbWidth() * 1.05))
+				.add(side.scale(getBbWidth() * 0.5));
 		player.teleportTo(hold.x, hold.y, hold.z);
 		player.setDeltaMovement(Vec3.ZERO);
 		player.fallDistance = 0;
@@ -928,6 +1324,36 @@ public class TitanEntity extends RaidUndead {
 		return playerId.equals(grabbedPlayer);
 	}
 
+	/**
+	 * Test/debug: start attack {@code name} (an {@code Attack} constant, e.g. "LEAP", "ROAR") against the current
+	 * target right now, ignoring cooldowns and range checks. {@code skipWindup} resolves it on the next tick.
+	 * Returns false for an unknown name or when no server level is available.
+	 */
+	public boolean debugBeginAttack(String name, boolean skipWindup) {
+		if (!(level() instanceof ServerLevel server)) {
+			return false;
+		}
+		Attack a;
+		try {
+			a = Attack.valueOf(name);
+		} catch (IllegalArgumentException e) {
+			return false;
+		}
+		if (a == Attack.NONE) {
+			return false;
+		}
+		LivingEntity t = getTarget();
+		beginAttack(server, a, t != null ? t : this);
+		if (skipWindup) {
+			attackTicks = 1;
+		}
+		return true;
+	}
+
+	public boolean isAttacking() {
+		return activeAttack != Attack.NONE;
+	}
+
 	private void doBoulder(ServerLevel server, LivingEntity target) {
 		attackResolved = true;
 		if (target == null) {
@@ -935,7 +1361,9 @@ public class TitanEntity extends RaidUndead {
 		}
 		var ground = server.getBlockState(blockPosition().below());
 		TitanBoulderEntity boulder = new TitanBoulderEntity(server, this, TitanBoulderEntity.itemForGround(ground));
-		Vec3 from = position().add(0, getBbHeight() * 0.6, 0);
+		// v0.14.4: released from above the head and a little forward, where the throw animation's hands are.
+		Vec3 from = position().add(0, getBbHeight() * 0.8, 0)
+				.add(Vec3.directionFromRotation(0, yBodyRot).scale(getBbWidth() * 0.5));
 		// Lead the target's current velocity a little -- a simple, dodgeable prediction.
 		Vec3 aim = target.position().add(target.getDeltaMovement().scale(8)).subtract(from);
 		double dist = aim.length();
@@ -991,9 +1419,292 @@ public class TitanEntity extends RaidUndead {
 		}
 	}
 
+	/** Every player the Titan can hurt within {@code radius} of its bounding box. v0.14.4: creative and
+	 *  spectator players are skipped (they used to still be flung around by the knockback). */
 	private java.util.List<LivingEntity> nearbyLiving(double radius) {
 		return level().getEntitiesOfClass(LivingEntity.class, getBoundingBox().inflate(radius),
-				le -> le != this && le.isAlive() && (le instanceof Player));
+				le -> le != this && isValidTarget(le));
+	}
+
+	private int countValidPlayersWithin(double radius) {
+		if (!(level() instanceof ServerLevel server)) {
+			return 0;
+		}
+		int n = 0;
+		for (ServerPlayer p : server.players()) {
+			if (isValidTarget(p) && distanceToSqr(p) <= radius * radius) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	// ---------------- v0.14.4 Leaping Slam ----------------
+
+	/**
+	 * Leaping Slam. After the 2 s crouch (red warning ring on the target's spot), the Titan launches on a
+	 * scripted arc -- its velocity is set every tick to follow the parabola, so an 18-block body lands where it
+	 * meant to rather than wherever vanilla drag/gravity would drop it -- onto the target's position at launch.
+	 * Landing crushes everyone under it, then a shockwave ring travels outward along the ground: anyone standing
+	 * on the ground when the ring passes is hit and thrown, anyone mid-jump is not.
+	 */
+	private void tickLeap(ServerLevel server) {
+		var atk = TitanConfig.attacks();
+		if (leapPhase == 0) {
+			LivingEntity t = getTarget();
+			Vec3 facing = Vec3.directionFromRotation(0, getYRot());
+			Vec3 dest = t != null && t.isAlive() ? t.position() : position().add(facing.scale(atk.leapMinDistance));
+			Vec3 flat = new Vec3(dest.x - getX(), 0, dest.z - getZ());
+			double d = flat.length();
+			if (d > atk.leapMaxDistance) {
+				flat = flat.scale(atk.leapMaxDistance / d);
+				d = atk.leapMaxDistance;
+			}
+			leapFrom = position();
+			leapTo = new Vec3(getX() + flat.x, dest.y, getZ() + flat.z);
+			leapFlightTicks = (int) Mth.clamp(18 + d * 0.6, 20, 40);
+			leapApex = 7.0 + d * 0.2;
+			leapTick = 0;
+			leapPhase = 1;
+			faceDirection(flat);
+			setAnim(Anim.LEAP_AIR, 0);
+			server.playSound(null, blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 2.5f, 0.5f);
+			server.sendParticles(ParticleTypes.EXPLOSION, getX(), getY() + 0.5, getZ(), 3, getBbWidth() * 0.4, 0.2,
+					getBbWidth() * 0.4, 0.0);
+			server.sendParticles(ParticleTypes.CLOUD, getX(), getY() + 0.2, getZ(), 30, getBbWidth() * 0.6, 0.1,
+					getBbWidth() * 0.6, 0.08);
+		}
+		if (leapPhase == 1) {
+			leapTick++;
+			fallDistance = 0;
+			if (leapTick % 3 == 0) {
+				leapWarningRing(server, leapTo, getBbWidth() * 0.5 + atk.leapCrushRadius);
+			}
+			if (leapTick > leapFlightTicks / 2 && onGround() && getDeltaMovement().y <= 0.0) {
+				leapLand(server); // came down early (a hill in the way) -- land here
+				return;
+			}
+			if (leapTick <= leapFlightTicks) {
+				Vec3 next = leapPoint(Math.min(1.0, leapTick / (double) leapFlightTicks));
+				Vec3 step = next.subtract(position());
+				double maxH = Math.max(1.0, leapFrom.distanceTo(leapTo) / leapFlightTicks * 1.6);
+				double h = Math.sqrt(step.x * step.x + step.z * step.z);
+				if (h > maxH) {
+					step = new Vec3(step.x * maxH / h, step.y, step.z * maxH / h);
+				}
+				setDeltaMovement(step);
+				hasImpulse = true;
+				return;
+			}
+			// Past the arc's end: let gravity finish it if it's still above the ground (landing lower down).
+			setDeltaMovement(0, Math.min(getDeltaMovement().y, -0.4), 0);
+			if (onGround() || leapTick > leapFlightTicks + 40) {
+				leapLand(server);
+			}
+			return;
+		}
+		// phase 2: the ring travels outward
+		double prev = ringRadius;
+		ringRadius += Math.max(0.1, atk.leapRingSpeed);
+		for (LivingEntity le : level().getEntitiesOfClass(LivingEntity.class,
+				new net.minecraft.world.phys.AABB(ringCenter, ringCenter).inflate(ringRadius + 1.0, 4.0, ringRadius + 1.0),
+				le -> le != this && isValidTarget(le))) {
+			double dx = le.getX() - ringCenter.x;
+			double dz = le.getZ() - ringCenter.z;
+			double r = Math.sqrt(dx * dx + dz * dz);
+			double dy = le.getY() - ringCenter.y;
+			boolean grounded = le.onGround() ? Math.abs(dy) <= 3.0 : dy < 0.5 && dy > -3.0;
+			if (r <= prev || r > ringRadius || !grounded || ringHit.contains(le.getUUID())) {
+				continue;
+			}
+			ringHit.add(le.getUUID());
+			le.hurt(damageSources().mobAttack(this), scaleForPlayer(le, atk.leapRingDamage));
+			Vec3 push = r < 1.0e-3 ? Vec3.directionFromRotation(0, getYRot()) : new Vec3(dx / r, 0, dz / r);
+			le.setDeltaMovement(push.x * 0.9, 0.8, push.z * 0.9);
+			le.hurtMarked = true;
+		}
+		int points = Math.min(28, Math.max(10, (int) (ringRadius * 2.0)));
+		for (int i = 0; i < points; i++) {
+			double a = (i + server.random.nextDouble() * 0.5) / points * Math.PI * 2;
+			server.sendParticles(ParticleTypes.CLOUD, ringCenter.x + Math.cos(a) * ringRadius, ringCenter.y + 0.3,
+					ringCenter.z + Math.sin(a) * ringRadius, 1, 0.0, 0.05, 0.0, 0.0);
+		}
+		if (ringRadius >= atk.leapRingRadius) {
+			leapPhase = 0;
+			endAttack(Attack.LEAP);
+		}
+	}
+
+	/** The scripted arc: a straight line from take-off to landing plus a parabola of height {@link #leapApex}. */
+	private Vec3 leapPoint(double s) {
+		double x = Mth.lerp(s, leapFrom.x, leapTo.x);
+		double z = Mth.lerp(s, leapFrom.z, leapTo.z);
+		double y = Mth.lerp(s, leapFrom.y, leapTo.y) + 4.0 * leapApex * s * (1.0 - s);
+		return new Vec3(x, y, z);
+	}
+
+	private void leapLand(ServerLevel server) {
+		var atk = TitanConfig.attacks();
+		leapPhase = 2;
+		setDeltaMovement(0, getDeltaMovement().y, 0);
+		ringCenter = position();
+		ringRadius = getBbWidth() * 0.5 + atk.leapCrushRadius;
+		ringHit.clear();
+		for (LivingEntity le : nearbyLiving(atk.leapCrushRadius + 1.0)) {
+			double dx = le.getX() - getX();
+			double dz = le.getZ() - getZ();
+			if (dx * dx + dz * dz > ringRadius * ringRadius) {
+				continue;
+			}
+			ringHit.add(le.getUUID()); // crushed -- the ring won't hit them a second time
+			le.hurt(damageSources().mobAttack(this), scaleForPlayer(le, atk.leapDamage));
+			Vec3 push = new Vec3(dx, 0, dz);
+			push = push.lengthSqr() < 1.0e-4 ? Vec3.directionFromRotation(0, getYRot()) : push.normalize();
+			le.setDeltaMovement(push.x * 1.6, 0.6, push.z * 1.6);
+			le.hurtMarked = true;
+		}
+		setAnim(Anim.LEAP_LAND, 34);
+		// Floor-preserving (includeBelow = false) -- see the v0.9.17 "dug itself into a hole" fix.
+		TitanTerrain.breakCluster(server, blockPosition(), Math.min(4.0, atk.leapCrushRadius), false);
+		server.sendParticles(ParticleTypes.EXPLOSION_EMITTER, getX(), getY(), getZ(), 1, 0, 0, 0, 0);
+		server.sendParticles(new net.minecraft.core.particles.DustParticleOptions(
+						new org.joml.Vector3f(1.0f, 0.82f, 0.15f), 2.6f),
+				getX(), getY() + 0.5, getZ(), 40, getBbWidth() * 0.6, 0.4, getBbWidth() * 0.6, 0.1);
+		server.playSound(null, blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 3.5f, 0.35f);
+		server.playSound(null, blockPosition(), SoundEvents.WARDEN_SONIC_BOOM, SoundSource.HOSTILE, 2.5f, 0.6f);
+	}
+
+	/** Test/debug: was {@code id} hit by the last Leaping Slam's crush or ring? */
+	public boolean debugHitByLeap(UUID id) {
+		return ringHit.contains(id);
+	}
+
+	/** Test/debug: where the last Leaping Slam aimed and where it actually landed. */
+	public String debugLeapInfo() {
+		return "from=" + leapFrom + " to=" + leapTo + " landed=" + ringCenter + " flightTicks=" + leapFlightTicks
+				+ " phase=" + leapPhase + " hits=" + ringHit.size();
+	}
+
+	// ---------------- v0.14.4 Grave Roar ----------------
+
+	/**
+	 * Grave Roar. After a 2 s inhale (souls drawn up into its chest) the Titan roars for
+	 * {@link TitanConfig.Attacks#roarDurationTicks}: the release hits every player in {@code roarRadius} for a
+	 * little damage and Slowness II and raises Husks out of the ground beside them (spread across the group,
+	 * players it isn't chasing first -- so the undead pressure the people the Titan itself is ignoring), then a
+	 * drag pulse every 5 ticks pulls everyone toward it. Kiting at range stops being free.
+	 */
+	private void tickRoar(ServerLevel server) {
+		var atk = TitanConfig.attacks();
+		roarTick++;
+		java.util.List<LivingEntity> inRange = nearbyLiving(atk.roarRadius);
+		inRange.removeIf(le -> le.distanceToSqr(this) > atk.roarRadius * atk.roarRadius);
+		if (roarTick == 1) {
+			server.playSound(null, blockPosition(), SoundEvents.WARDEN_ROAR, SoundSource.HOSTILE, 4.0f, 0.55f);
+			server.playSound(null, blockPosition(), SoundEvents.ENDER_DRAGON_GROWL, SoundSource.HOSTILE, 3.0f, 0.5f);
+			Vec3 mouth = position().add(0, getBbHeight() * 0.9, 0)
+					.add(Vec3.directionFromRotation(0, yBodyRot).scale(getBbWidth() * 0.5));
+			server.sendParticles(ParticleTypes.SONIC_BOOM, mouth.x, mouth.y, mouth.z, 1, 0, 0, 0, 0);
+			for (LivingEntity le : inRange) {
+				le.hurt(damageSources().mobAttack(this), scaleForPlayer(le, atk.roarDamage));
+				le.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+						net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, Math.max(1, atk.roarSlownessTicks), 1), this);
+			}
+			summonMinions(server, inRange);
+		}
+		if (roarTick % 5 == 1) {
+			double stop = getBbWidth() * 0.5 + 4.0;
+			for (LivingEntity le : inRange) {
+				Vec3 to = new Vec3(getX() - le.getX(), 0, getZ() - le.getZ());
+				double d = to.length();
+				if (d <= stop || d < 1.0e-3) {
+					continue;
+				}
+				double s = atk.roarPullStrength * (0.6 + 0.4 * Math.min(1.0, d / atk.roarRadius));
+				le.setDeltaMovement(to.x / d * s, 0.2, to.z / d * s);
+				le.hurtMarked = true;
+			}
+			// A visible pressure wave rolling in from the edge.
+			double r = atk.roarRadius * (1.0 - (roarTick % 20) / 20.0);
+			for (int i = 0; i < 16; i++) {
+				double a = i / 16.0 * Math.PI * 2;
+				server.sendParticles(ParticleTypes.SCULK_SOUL, getX() + Math.cos(a) * r, getY() + 0.5,
+						getZ() + Math.sin(a) * r, 1, 0, 0.05, 0, 0.0);
+			}
+		}
+		if (roarTick >= Math.max(1, atk.roarDurationTicks)) {
+			roarTick = 0;
+			endAttack(Attack.ROAR);
+		}
+	}
+
+	private void summonMinions(ServerLevel server, java.util.List<LivingEntity> victims) {
+		var atk = TitanConfig.attacks();
+		if (victims.isEmpty() || atk.roarSummonCount <= 0) {
+			return;
+		}
+		int alive = server.getEntitiesOfClass(net.minecraft.world.entity.monster.Zombie.class,
+				getBoundingBox().inflate(64.0), z -> z.isAlive() && z.getTags().contains(MINION_TAG)).size();
+		int toSpawn = Math.min(atk.roarSummonCount, atk.roarMaxMinions - alive);
+		if (toSpawn <= 0) {
+			return;
+		}
+		// Players the Titan is NOT chasing come first: the Husks are its way of pressuring the rest of the group.
+		java.util.List<LivingEntity> order = new java.util.ArrayList<>(victims);
+		LivingEntity target = getTarget();
+		order.sort((a, b) -> Boolean.compare(a == target, b == target));
+		for (int i = 0; i < toSpawn; i++) {
+			LivingEntity victim = order.get(i % order.size());
+			BlockPos spot = findMinionSpot(server, victim.blockPosition());
+			if (spot == null) {
+				continue;
+			}
+			var husk = EntityType.HUSK.create(server);
+			if (husk == null) {
+				continue;
+			}
+			husk.moveTo(spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5, server.random.nextFloat() * 360.0f, 0.0f);
+			husk.addTag(MINION_TAG);
+			husk.setTarget(victim);
+			server.addFreshEntity(husk);
+			var ground = server.getBlockState(spot.below());
+			server.sendParticles(new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK, ground),
+					spot.getX() + 0.5, spot.getY() + 0.2, spot.getZ() + 0.5, 20, 0.4, 0.2, 0.4, 0.1);
+			server.sendParticles(ParticleTypes.SOUL, spot.getX() + 0.5, spot.getY() + 0.5, spot.getZ() + 0.5,
+					6, 0.3, 0.5, 0.3, 0.02);
+			server.playSound(null, spot, SoundEvents.HUSK_AMBIENT, SoundSource.HOSTILE, 1.5f, 0.7f);
+		}
+	}
+
+	/** A free, floored spot 3-6 blocks from {@code near} (searching a few blocks up and down), or null. */
+	private BlockPos findMinionSpot(ServerLevel server, BlockPos near) {
+		for (int attempt = 0; attempt < 8; attempt++) {
+			double a = server.random.nextDouble() * Math.PI * 2;
+			double r = 3.0 + server.random.nextDouble() * 3.0;
+			int x = near.getX() + (int) Math.round(Math.cos(a) * r);
+			int z = near.getZ() + (int) Math.round(Math.sin(a) * r);
+			for (int dy = 3; dy >= -4; dy--) {
+				BlockPos p = new BlockPos(x, near.getY() + dy, z);
+				if (!server.getBlockState(p.below()).isFaceSturdy(server, p.below(), net.minecraft.core.Direction.UP)) {
+					continue;
+				}
+				if (server.noCollision(EntityType.HUSK.getSpawnAABB(x + 0.5, p.getY(), z + 0.5))) {
+					return p;
+				}
+			}
+		}
+		// Fallback: right where the player stands, if that's open.
+		return server.noCollision(EntityType.HUSK.getSpawnAABB(near.getX() + 0.5, near.getY(), near.getZ() + 0.5))
+				? near : null;
+	}
+
+	/** On the Titan's death its raised undead crumble with it. */
+	private void clearMinions(ServerLevel server) {
+		for (var z : server.getEntitiesOfClass(net.minecraft.world.entity.monster.Zombie.class,
+				getBoundingBox().inflate(96.0), z -> z.getTags().contains(MINION_TAG))) {
+			server.sendParticles(ParticleTypes.SOUL, z.getX(), z.getY() + 1.0, z.getZ(), 8, 0.3, 0.5, 0.3, 0.02);
+			z.discard();
+		}
 	}
 
 	// ---------------- death ----------------
@@ -1007,10 +1718,15 @@ public class TitanEntity extends RaidUndead {
 		}
 		releaseGrab();
 		activeAttack = Attack.NONE;
+		swatWindup = 0;
+		leapPhase = 0;
 		setDeltaMovement(Vec3.ZERO);
 		setNoAi(true);
 		deathTicks = 30; // 1.5s stagger/collapse before removal
 		if (level() instanceof ServerLevel server) {
+			setAnim(Anim.NONE, 0);
+			clearMinions(server);
+			threat.clear();
 			server.playSound(null, blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 3.0f, 0.3f);
 			server.sendParticles(ParticleTypes.LARGE_SMOKE, getX(), getY() + getBbHeight() * 0.5, getZ(),
 					40, getBbWidth() * 0.4, getBbHeight() * 0.3, getBbWidth() * 0.4, 0.03);
