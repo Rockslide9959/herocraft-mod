@@ -169,7 +169,9 @@ public abstract class EntityGlowMixin {
 			cir.setReturnValue(self.distanceToSqr(viewer) <= 40.0 * 40.0);
 			return;
 		}
-		double range = magnetic ? 20.0 : (echo ? 20.0 : 24.0);
+		// v0.14.5: Laser Vision's Thermal Vision reaches 50 blocks
+		double range = thermal ? com.projecthero.mod.hero.power.p02.LaserVisionHandlers.THERMAL_RANGE
+				: magnetic ? 20.0 : (echo ? 20.0 : 24.0);
 		if (self.distanceToSqr(viewer) > range * range) {
 			return;
 		}

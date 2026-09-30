@@ -145,7 +145,7 @@ public class RevampBatchAGameTests implements FabricGameTest {
 				"Speed Mode stays on C");
 		helper.assertTrue(Powers.byKey(SuperRegenerationHandlers.KEY).abilities().isEmpty(),
 				"Super Regeneration is passive-only since v0.14.5");
-		helper.assertTrue(MutationVisuals.registeredFlags().containsAll(java.util.List.of("p01.effort", "p02.eyes", "p03.wind",
+		helper.assertTrue(MutationVisuals.registeredFlags().containsAll(java.util.List.of("p01.effort", "p03.wind",
 				"p04.crackle", SuperRegenerationHandlers.VEINS_FLAG)), "batch A overlay flags registered");
 		helper.succeed();
 	}
@@ -270,68 +270,7 @@ public class RevampBatchAGameTests implements FabricGameTest {
 	}
 
 	// ---------------- 02 Laser Vision ----------------
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_heat")
-	public void laserHeatVisionBuildsHeatAndBrightensTheEyes(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, LaserVisionHandlers.KEY);
-		refreshVisuals(p);
-		helper.assertTrue(MutationVisuals.hasFlag(p, "p02.eyes"), "the eyes always glow");
-		AbilityRouter.handleInput(p, 1, true);
-		tick(p, 20);
-		helper.assertTrue(res(p, LaserVisionHandlers.KEY, "heat") > 20f, "beaming builds heat");
-		helper.assertTrue(LaserVisionHandlers.firing(p), "while firing");
-		helper.assertTrue("beam_eyes".equals(MutationVisuals.anim(p)), "the beam pose plays");
-		refreshVisuals(p);
-		helper.assertTrue(MutationVisuals.state(p).value("p02.eye_glow", 0f) > 0.99f, "the eyes blaze while firing");
-		AbilityRouter.handleInput(p, 1, false);
-		helper.assertFalse(LaserVisionHandlers.firing(p), "release stops the beam");
-		helper.assertTrue(LaserVisionHandlers.heatMult(p) > 1.0f, "a hot gauge sharpens the next beam");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_overheat")
-	public void laserOverheatLocksTheBeamsOut(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, LaserVisionHandlers.KEY);
-		setRes(p, LaserVisionHandlers.KEY, "heat", LaserVisionHandlers.MAX_HEAT - 10f);
-		AbilityRouter.handleInput(p, 3, true); // X = Recoil Blast (+50 heat) -> overheat
-		helper.assertTrue(res(p, LaserVisionHandlers.KEY, "overheat") > 0.5f, "a full gauge overheats");
-		AbilityRouter.handleInput(p, 5, true); // V = Ricochet Shot: refused while overheated
-		helper.assertFalse(onCooldown(p, LaserVisionHandlers.KEY, AbilitySlot.SLOT_5), "nothing fires while overheated");
-		helper.assertTrue(Math.abs(LaserVisionHandlers.heatMult(p) - 1.6f) < 0.01f, "a full gauge is x1.6");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_lance")
-	public void laserPiercingLanceRunsThroughTwoTargets(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, LaserVisionHandlers.KEY);
-		Zombie a = zombieAhead(helper, p, 3.0);
-		Zombie b = zombieAhead(helper, p, 5.5);
-		float ha = a.getHealth();
-		float hb = b.getHealth();
-		p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, a.position().add(0, 1.0, 0));
-		AbilityRouter.handleInput(p, 2, true);
-		setRes(p, LaserVisionHandlers.KEY, "lance_held", 40);
-		AbilityRouter.handleInput(p, 2, false);
-		helper.assertTrue(a.getHealth() < ha, "the lance hits the first zombie");
-		helper.assertTrue(b.getHealth() < hb, "and pierces into the second");
-		helper.assertTrue(onCooldown(p, LaserVisionHandlers.KEY, AbilitySlot.SLOT_2), "then cools down");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_cauterize")
-	public void laserCauterizeTurnsHeatIntoHealing(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, LaserVisionHandlers.KEY);
-		AbilityRouter.handleInput(p, 8, true);
-		helper.assertFalse(onCooldown(p, LaserVisionHandlers.KEY, AbilitySlot.SLOT_8), "cold eyes cannot cauterize");
-		p.setHealth(6f);
-		p.addEffect(new MobEffectInstance(MobEffects.WITHER, 200, 0));
-		setRes(p, LaserVisionHandlers.KEY, "heat", 400f);
-		AbilityRouter.handleInput(p, 8, true);
-		helper.assertTrue(p.getHealth() > 12f, "heat becomes health");
-		helper.assertFalse(p.hasEffect(MobEffects.WITHER), "wither is burned out");
-		helper.assertTrue(res(p, LaserVisionHandlers.KEY, "heat") == 0f, "the gauge is emptied");
-		helper.succeed();
-	}
+	// v0.14.5: see LaserVisionV0145GameTests
 
 	// ---------------- 03 Flight ----------------
 

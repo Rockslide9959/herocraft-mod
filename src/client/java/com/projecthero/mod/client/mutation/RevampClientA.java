@@ -83,9 +83,6 @@ public final class RevampClientA {
 		float[] sweepL = f(0, 0.2f, 0, 0.3f, 0.2f, 0, -0.3f, 0, 0.85f, 0, 0, 0);
 		float[] sweepR = f(0, 0.2f, 0, 0.3f, 0.2f, 0, -0.3f, 0, -0.85f, 0, 0, 0);
 		MutationPose.register("p02.sweep", new float[][] { z(0), at(2, sweepL), at(12, sweepR), z(16) });
-		float[] cauter = f(0, -1.15f, -0.75f, 0, -1.15f, 0.75f, 0, 0.2f, 0, 0.1f, -0.1f, 0.35f);
-		float[] cauter2 = f(0, -0.3f, 0, 0.9f, -0.3f, 0, -0.9f, -0.15f, 0, 0, 0, -0.25f);
-		MutationPose.register("p02.cauterize", new float[][] { z(0), at(4, cauter), at(11, cauter), at(15, cauter2), z(20) });
 
 		// ---- 03 Flight ----
 		float[] superA = f(0, -3.0f, 0.1f, 0.05f, 0.25f, 0, -0.18f, 0.08f, 0, 0.3f, 0.45f, 0);
@@ -145,12 +142,7 @@ public final class RevampClientA {
 		MutationOverlays.register("p01.effort", ctx -> MutationRender.shell(ctx, P01_VEINS, MutationRender.Shell.THIN,
 				glow(0.55f + 0.45f * MutationRender.pulse(ctx, 14f), 255, 45, 25), true));
 
-		// 02: glowing red eyes -- smouldering at rest, brighter with heat, blazing while a beam fires
-		MutationOverlays.register("p02.eyes", ctx -> {
-			float v = ctx.state().value("p02.eye_glow", 0.35f);
-			float flicker = v >= 0.99f ? 0.9f + 0.1f * MutationRender.pulse(ctx, 3f) : 1f;
-			MutationRender.eyes(ctx, glow(v * flicker, 255, 50, 30));
-		});
+		// 02: v0.14.5 -- no eye glow any more (the beams are models: v0145/LaserBeamRenderer)
 
 		// 03: a sheath of wind streaks at the upper speed tiers / Sonic Flight
 		MutationOverlays.register("p03.wind", ctx -> {

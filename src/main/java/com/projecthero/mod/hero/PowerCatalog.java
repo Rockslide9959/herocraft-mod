@@ -96,16 +96,15 @@ final class PowerCatalog {
 	private static Power laserVision() {
 		String k = "power_02_laser_vision";
 		return Power.Builder.of(Powers.id(k), PowerCategory.ENERGY)
-				// v0.13.22 revamp: the heat gauge -- hotter means a sharper beam
+				// v0.14.5 rework: six keys (no H / N), a 0-100 heat gauge, 100-block beams drawn as models.
+				// heat_vision's cooldown is Shift+R Piercing Blast's (set by the handler), shown on the R box.
 				.ability(ab(k, "heat_vision", SLOT_1, HOLD, 0))
-				.ability(ab(k, "piercing_lance", SLOT_2, CHARGE, 150))
+				.ability(ab(k, "sweeping_arc", SLOT_2, INSTANT, 170))
 				.ability(ab(k, "recoil_blast", SLOT_3, INSTANT, 85))
-				.ability(ab(k, "maximum_output", SLOT_4, HOLD, 1100))
-				.ability(ab(k, "ricochet_shot", SLOT_5, INSTANT, 70))
+				.ability(ab(k, "maximum_output", SLOT_4, INSTANT, 1100))
+				.ability(ab(k, "ignite", SLOT_5, INSTANT, 10))
 				.ability(ab(k, "thermal_vision", SLOT_6, TOGGLE, 0))
-				.ability(ab(k, "sweeping_arc", AbilitySlot.SLOT_7, INSTANT, 170))
-				.ability(ab(k, "cauterize", AbilitySlot.SLOT_8, INSTANT, 280))
-				.passives(pk(k, "passive.heat"), pk(k, "passive.blindness"), pk(k, "passive.glow"))
+				.passives(pk(k, "passive.heat"))
 				.serum(SerumRecipe.of("minecraft:night_vision", pk(k, "serum"),
 						"minecraft:redstone", "minecraft:fire_charge", "minecraft:amethyst_shard"))
 				.trigger(MutationTrigger.of(Kind.HIGH_INTENSITY_LIGHT, pk(k, "trigger"), "projecthero.device.light_projector"))

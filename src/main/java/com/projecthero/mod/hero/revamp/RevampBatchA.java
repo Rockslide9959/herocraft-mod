@@ -64,17 +64,7 @@ public final class RevampBatchA {
 		// 01 Super Strength: red veins light up under the skin during Maximum Effort
 		MutationVisuals.registerFlag("p01.effort", p -> owns(p, SuperStrengthHandlers.KEY) && SuperStrengthHandlers.maxEffortActive(p));
 
-		// 02 Laser Vision: the eyes always smoulder; brighter the hotter they run, blazing while a beam fires
-		MutationVisuals.registerFlag("p02.eyes", p -> owns(p, LaserVisionHandlers.KEY));
-		MutationVisuals.registerValue("p02.eye_glow", p -> {
-			if (!owns(p, LaserVisionHandlers.KEY)) {
-				return 0;
-			}
-			if (LaserVisionHandlers.firing(p)) {
-				return 1.0;
-			}
-			return 0.35 + 0.45 * Math.min(1.0, BatchA.res(p, LaserVisionHandlers.KEY, "heat") / LaserVisionHandlers.MAX_HEAT);
-		});
+		// 02 Laser Vision: v0.14.5 -- no eye glow any more; its beam flag lives in v0145/LaserVisionV0145
 
 		// 03 Flight: a sheath of wind streaks at the upper speed tiers and in Sonic Flight
 		MutationVisuals.registerFlag("p03.wind", p -> owns(p, FlightHandlers.KEY)
@@ -104,15 +94,7 @@ public final class RevampBatchA {
 		// 01 Super Strength: AbilityHud draws this power's bars itself (charged punch / leap / effort / rush) and
 		// skips registered meters for it -- see docs/revamp/batch_a.md.
 
-		// 02 Laser Vision
-		MutationMeters.register(new Spec(LaserVisionHandlers.KEY, "heat", Kind.BUILD, Style.GAUGE, "Heat",
-				LaserVisionHandlers.MAX_HEAT, 0xFFFF6A2A, true, true));
-		MutationMeters.register(new Spec(LaserVisionHandlers.KEY, "overheat", Kind.TIMER, Style.METER, "OVERHEATED",
-				60f, 0xFFE03030, false, false));
-		MutationMeters.register(new Spec(LaserVisionHandlers.KEY, "lance_charge", Kind.BUILD, Style.HAIRLINE, "Piercing Lance",
-				100f, 0xFFFFD27A, false, true));
-		MutationMeters.register(new Spec(LaserVisionHandlers.KEY, "ult_charge", Kind.BUILD, Style.SLAB, "Maximum Output — charging",
-				100f, 0xFFFF3B1F, false, true));
+		// 02 Laser Vision: v0.14.5 -- its meters live in v0145/LaserVisionV0145
 
 		// 03 Flight
 		MutationMeters.register(new Spec(FlightHandlers.KEY, "speed_tier", Kind.BUILD, Style.METER, "Airspeed",

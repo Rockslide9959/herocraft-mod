@@ -6,53 +6,95 @@ import java.util.Set;
 import com.projecthero.mod.hero.AbilityContext;
 import com.projecthero.mod.hero.AbilityHandler;
 import com.projecthero.mod.hero.AbilityHandlers;
+import com.projecthero.mod.hero.ExperimentalPowers;
 import com.projecthero.mod.hero.PowerPassives;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.Handlers;
 import com.projecthero.mod.hero.revamp.batcha.BatchA;
+import com.projecthero.mod.hero.visual.MutationVisualState;
 import com.projecthero.mod.hero.visual.MutationVisuals;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.block.BaseFireBlock;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CampfireBlock;
+import net.minecraft.world.level.block.CandleBlock;
+import net.minecraft.world.level.block.CandleCakeBlock;
 import net.minecraft.world.level.block.IronBarsBlock;
 import net.minecraft.world.level.block.StainedGlassPaneBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Power 02 — Laser Vision (v0.13.22 revamp: <b>the heat gauge -- hotter means a sharper beam</b>).
+ * Power 02 -- Laser Vision (v0.14.5 rework: <b>six keys, a 0-100 heat gauge, real beam models</b>).
  *
- * <p>Every laser adds heat to a 0..575 gauge, and every laser hits harder the hotter your eyes are running
- * (up to +60% at a full gauge). Fill it completely and you overheat: 3 s locked out while it vents. Heat vents
- * on its own a second after you stop firing, or Cauterize (N) dumps all of it at once to heal you.
+ * <p>Every laser adds heat to a 0..100 gauge and hits harder the hotter your eyes are running (up to +60% at a
+ * full gauge). Fill it and you overheat: 3 s locked out while it vents. Heat vents on its own a second after you
+ * stop firing.
  *
- * <p>R Heat Vision (hold, damage ramps the longer you hold; Shift+R mines), G Piercing Lance (charge, pierces up
- * to four targets and cuts glass / leaves / panes), X Recoil Blast (fire at your feet to launch yourself),
- * Z Maximum Output, V Ricochet Shot (bounces off blocks up to 3 times), C Thermal Vision, H Sweeping Arc,
- * N Cauterize. The eyes glow red all the time (brighter while firing -- see {@code RevampClientA}).
+ * <p>R Heat Vision (hold: +1 heat a second; aimed down in mid-air it slows your fall) / Shift+R Piercing Blast
+ * (+10), G Sweeping Arc (+10), X Recoil Blast (+5), Z Maximum Output (1.5 s charge, then a 10 s powered-up beam that
+ * pins heat at 100; refused above 50 heat), V Ignite (flint and steel at range, +2), C Thermal Vision (50 blocks).
+ * Every move reaches 100 blocks.
+ *
+ * <p>The beams are drawn client-side as geometry ({@code client/mutation/v0145/LaserBeamRenderer}) from the
+ * {@code p02.*} animation each move plays -- the animation is synced to every viewer, so everyone sees the beam.
+ * No eye glow, no particle streams.
  */
 public final class LaserVisionHandlers {
 	public static final String KEY = "power_02_laser_vision";
-	public static final float MAX_HEAT = 575.0f;
-	private static final int OVERHEAT_TICKS = 60;
-	private static final int VENT_DELAY = 20;
-	private static final float VENT_RATE = 4.5f;
+	public static final float MAX_HEAT = 100.0f;
+	/** Every Laser Vision move reaches this far. */
+	public static final double RANGE = 100.0;
+	/** Thermal Vision outlines living things within this many blocks (read by the client glow mixin). */
+	public static final double THERMAL_RANGE = 50.0;
 
-	/** Maximum Output: hold Z this long to build the heat before the beam fires. */
-	private static final int MAX_OUTPUT_CHARGE_TICKS = 4 * 20;
-	private static final int LANCE_FULL = 40;
+	public static final float HEAT_BEAM_PER_TICK = 1.0f / 20.0f;
+	public static final float HEAT_PIERCING_BLAST = 10.0f;
+	public static final float HEAT_SWEEPING_ARC = 10.0f;
+	public static final float HEAT_RECOIL_BLAST = 5.0f;
+	public static final float HEAT_IGNITE = 2.0f;
+	/** Maximum Output cannot start above this much heat. */
+	public static final float MAX_OUTPUT_HEAT_LIMIT = 50.0f;
+
+	public static final int OVERHEAT_TICKS = 60;
+	private static final int VENT_DELAY = 20;
+	/** ~15 heat a second: a full gauge vents in under 7 s (x2.5 while overheated). */
+	private static final float VENT_RATE = 0.75f;
+	/** Thermal Vision keeps the eyes warm: ~1.4 heat a second while it is on. */
+	private static final float THERMAL_TRICKLE = 0.07f;
+
+	public static final int PIERCING_BLAST_COOLDOWN = 150;
+	public static final int MAX_OUTPUT_CHARGE_TICKS = 30;
+	public static final int MAX_OUTPUT_TICKS = 200;
+	public static final int SWEEP_TICKS = 10;
+
+	/** The one-shot beam animations, with how long each one's beam is on screen (a running beam never cuts them off). */
+	public static final String ANIM_BEAM = "p02.beam";
+	public static final String ANIM_MAX = "p02.max";
+	public static final String ANIM_MAX_CHARGE = "p02.max_charge";
+	public static final String ANIM_PIERCE = "p02.pierce";
+	public static final String ANIM_SWEEP = "p02.sweep";
+	public static final String ANIM_RECOIL = "p02.recoil";
+	public static final String ANIM_IGNITE = "p02.ignite";
+
+	/** Pre-v0.14.5 resources that must not linger in a save (ult_charge is still a legacy HUD meter name). */
+	private static final String[] STALE = { "ult_charge", "lance_charge", "lance_on", "lance_held", "mo_on", "mo_held",
+			"beam_util", "mine_budget" };
 
 	private LaserVisionHandlers() {
 	}
@@ -65,10 +107,18 @@ public final class LaserVisionHandlers {
 		BatchA.set(p, KEY, name, v, 1e9f);
 	}
 
-	/** True while any Laser Vision beam is actively firing or charging -- drives the bright eye glow. */
+	/** True while any Laser Vision beam is running or charging. */
 	public static boolean firing(ServerPlayer p) {
-		return res(p, "beaming") > 0.5f || res(p, "lance_on") > 0.5f || res(p, "mo_on") > 0.5f
-				|| res(p, "max_ticks") > 0.5f || res(p, "sweep_ticks") > 0.5f;
+		return res(p, "beaming") > 0.5f || res(p, "mo_charging") > 0.5f || res(p, "max_ticks") > 0.5f
+				|| res(p, "sweep_ticks") > 0.5f;
+	}
+
+	public static boolean maxOutputRunning(ServerPlayer p) {
+		return res(p, "max_ticks") > 0.5f;
+	}
+
+	private static boolean maxOutputBusy(ServerPlayer p) {
+		return maxOutputRunning(p) || res(p, "mo_charging") > 0.5f;
 	}
 
 	/** Beam damage multiplier from the heat gauge: x1.0 cold, x1.6 at a full gauge. */
@@ -76,7 +126,7 @@ public final class LaserVisionHandlers {
 		return 1.0f + 0.6f * Math.min(1f, res(p, "heat") / MAX_HEAT);
 	}
 
-	private static boolean overheated(ServerPlayer p) {
+	public static boolean overheated(ServerPlayer p) {
 		return res(p, "overheat") > 0.5f;
 	}
 
@@ -89,57 +139,109 @@ public final class LaserVisionHandlers {
 		return true;
 	}
 
-	/** Adds heat; a full gauge trips the 3 s overheat lockout and cuts every channel. */
-	private static void addHeat(ServerPlayer p, float amount) {
+	/**
+	 * Adds heat; a full gauge trips the 3 s overheat lockout and cuts every channel. While Maximum Output runs the
+	 * gauge is pinned at 100 and nothing overheats until it ends.
+	 */
+	public static void addHeat(ServerPlayer p, float amount) {
+		set(p, "vent_delay", VENT_DELAY);
+		if (maxOutputRunning(p)) {
+			set(p, "heat", MAX_HEAT);
+			return;
+		}
 		float h = Math.min(MAX_HEAT, res(p, "heat") + amount);
 		set(p, "heat", h);
-		set(p, "vent_delay", VENT_DELAY);
 		if (h >= MAX_HEAT - 0.01f && !overheated(p)) {
-			set(p, "overheat", OVERHEAT_TICKS);
-			stopChannels(p);
-			p.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.laser.overheated"), true);
-			p.level().playSound(null, p.blockPosition(), SoundEvents.FIRE_EXTINGUISH, net.minecraft.sounds.SoundSource.PLAYERS,
-					1.0f, 0.6f);
+			overheat(p);
 		}
+	}
+
+	private static void overheat(ServerPlayer p) {
+		set(p, "heat", MAX_HEAT);
+		set(p, "overheat", OVERHEAT_TICKS);
+		stopChannels(p);
+		p.displayClientMessage(Component.translatable("message.projecthero.laser.overheated"), true);
+		p.level().playSound(null, p.blockPosition(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 1.0f, 0.6f);
 	}
 
 	private static void stopChannels(ServerPlayer p) {
 		set(p, "beaming", 0);
-		set(p, "beam_util", 0);
-		set(p, "lance_on", 0);
-		set(p, "lance_charge", 0);
-		set(p, "mo_on", 0);
-		set(p, "ult_charge", 0);
-		MutationVisuals.stopIf(p, "beam_eyes");
+		set(p, "beam_held", 0);
+		set(p, "mo_charging", 0);
+		set(p, "mo_charge", 0);
+		set(p, "max_ticks", 0);
+		MutationVisuals.stopIf(p, ANIM_BEAM);
+		MutationVisuals.stopIf(p, ANIM_MAX);
+		MutationVisuals.stopIf(p, ANIM_MAX_CHARGE);
 	}
 
 	private static void cooldownMessage(AbilityContext ctx) {
 		ctx.actionBar("message.projecthero.ability.on_cooldown",
-				net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
+				Component.translatable(ctx.ability().nameKey()),
 				String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(ctx.cooldownRemaining() / 20.0f)));
 	}
 
+	/** How long a one-shot beam animation keeps its beam on screen. */
+	public static int oneShotTicks(String anim) {
+		return switch (anim) {
+			case ANIM_PIERCE -> 10;
+			case ANIM_SWEEP -> SWEEP_TICKS + 2;
+			case ANIM_RECOIL -> 7;
+			case ANIM_IGNITE -> 5;
+			default -> 0;
+		};
+	}
+
+	/**
+	 * Re-asserts a running beam's loop animation, but never over a one-shot laser move that is still on screen
+	 * (a Sweeping Arc fired while holding R keeps its sweep until it is done).
+	 */
+	private static void ensureLoop(ServerPlayer p, String anim) {
+		MutationVisualState s = MutationVisuals.state(p);
+		if (anim.equals(s.anim())) {
+			return;
+		}
+		int shot = oneShotTicks(s.anim());
+		if (shot > 0 && p.level().getGameTime() - s.animStart() < shot) {
+			return;
+		}
+		MutationVisuals.play(p, anim);
+	}
+
 	public static void register() {
-		// R -- Heat Vision. Hold to beam; the damage ramps up the longer you hold it (to x2.5 after 3 s).
-		// Shift + R switches to utility mode, which mines blocks as fast as a diamond tool but runs hotter.
+		// R -- Heat Vision. Hold to beam (+1 heat a second); the damage ramps up the longer you hold it (to x2.5 after
+		// 3 s). Aimed down while airborne, the beam holds you up like slow falling. Shift + R: Piercing Blast.
 		AbilityHandlers.register(KEY, "heat_vision", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (maxOutputBusy(p)) {
+					return; // Maximum Output already owns the eyes
+				}
+				if (p.isShiftKeyDown()) {
+					if (!ctx.cooldownReady()) {
+						cooldownMessage(ctx);
+						return;
+					}
+					if (!canFire(ctx)) {
+						return;
+					}
+					firePiercingBlast(ctx);
+					return;
+				}
 				if (!canFire(ctx)) {
 					return;
 				}
-				set(ctx.player(), "beaming", 1);
-				set(ctx.player(), "beam_held", 0);
-				set(ctx.player(), "beam_util", ctx.player().isShiftKeyDown() ? 1 : 0);
-				MutationVisuals.play(ctx.player(), "beam_eyes");
+				set(p, "beaming", 1);
+				set(p, "beam_held", 0);
+				MutationVisuals.play(p, ANIM_BEAM);
 			}
 
 			@Override
 			public void onRelease(AbilityContext ctx) {
 				set(ctx.player(), "beaming", 0);
-				set(ctx.player(), "beam_util", 0);
 				set(ctx.player(), "beam_held", 0);
-				MutationVisuals.stopIf(ctx.player(), "beam_eyes");
+				MutationVisuals.stopIf(ctx.player(), ANIM_BEAM);
 			}
 
 			@Override
@@ -148,72 +250,28 @@ public final class LaserVisionHandlers {
 				if (res(p, "beaming") <= 0.5f) {
 					return;
 				}
-				float held = res(p, "beam_held") + 1;
-				set(p, "beam_held", Math.min(held, 2000));
-				MutationVisuals.ensure(p, "beam_eyes");
-				if (res(p, "beam_util") > 0.5f) {
-					utilityBeamTick(ctx);
-					addHeat(p, 3.0f);
-				} else {
-					drawBeam(ctx, 21.0, 1);
-					if (p.tickCount % 10 == 0) {
-						float ramp = 1.0f + Math.min(1.5f, held / 40.0f);
-						beamDamage(ctx, 21.0, 4.8f * ramp * heatMult(p), 0.0);
-					}
-					addHeat(p, 2.0f);
+				if (maxOutputBusy(p)) {
+					set(p, "beaming", 0);
+					return;
 				}
+				heatVisionTick(ctx);
 			}
 		});
 
-		// G -- Piercing Lance. Hold to charge (2 s for full), release: a needle of light that runs through up to
-		// four creatures and cuts through glass, leaves and panes on its way.
-		AbilityHandlers.register(KEY, "piercing_lance", new AbilityHandler() {
-			@Override
-			public void onActivate(AbilityContext ctx) {
-				ServerPlayer p = ctx.player();
-				if (res(p, "lance_on") > 0.5f) {
-					return;
-				}
-				if (!ctx.cooldownReady()) {
-					cooldownMessage(ctx);
-					return;
-				}
-				if (!canFire(ctx)) {
-					return;
-				}
-				set(p, "lance_on", 1);
-				set(p, "lance_held", 0);
-				MutationVisuals.play(p, "beam_eyes");
+		// G -- Sweeping Arc: the beam swings through a 150-degree arc across your view in half a second.
+		AbilityHandlers.register(KEY, "sweeping_arc", Handlers.instantTicking(ctx -> {
+			if (!canFire(ctx)) {
+				return;
 			}
+			ServerPlayer p = ctx.player();
+			set(p, "sweep_ticks", SWEEP_TICKS);
+			BatchA.play(p, KEY, ANIM_SWEEP, 14);
+			AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.0f, 0.8f);
+			addHeat(p, HEAT_SWEEPING_ARC);
+			ctx.triggerCooldown();
+		}, LaserVisionHandlers::sweepTick));
 
-			@Override
-			public void onServerTick(AbilityContext ctx) {
-				ServerPlayer p = ctx.player();
-				if (res(p, "lance_on") <= 0.5f) {
-					return;
-				}
-				float held = res(p, "lance_held") + 1;
-				set(p, "lance_held", held);
-				set(p, "lance_charge", Math.min(100f, held / LANCE_FULL * 100f));
-				MutationVisuals.ensure(p, "beam_eyes");
-				eyeSpark(ctx, p, 1 + (int) Math.min(6, held / 6));
-				if (held == LANCE_FULL) {
-					AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 1.6f);
-				}
-				if (held > LANCE_FULL * 3) {
-					fireLance(ctx); // held far too long: it goes off by itself
-				}
-			}
-
-			@Override
-			public void onRelease(AbilityContext ctx) {
-				if (res(ctx.player(), "lance_on") > 0.5f) {
-					fireLance(ctx);
-				}
-			}
-		});
-
-		// X -- Recoil Blast: a point-blank eye blast into the ground (or behind you) that throws you the other way.
+		// X -- Recoil Blast: an eye blast wherever you look (the ground, a wall, behind you) that throws you the other way.
 		AbilityHandlers.register(KEY, "recoil_blast", Handlers.instant(ctx -> {
 			if (!canFire(ctx)) {
 				return;
@@ -221,10 +279,8 @@ public final class LaserVisionHandlers {
 			ServerPlayer p = ctx.player();
 			ServerLevel level = ctx.level();
 			Vec3 look = p.getLookAngle();
-			BlockHitResult bhr = AbilityHelpers.raycastBlock(p, 6.0);
-			Vec3 blast = bhr.getType() == HitResult.Type.BLOCK ? bhr.getLocation() : p.getEyePosition().add(look.scale(3.0));
-			Vec3 launch = look.scale(-1.9).add(0, 0.25, 0);
-			AbilityHelpers.launchSelf(p, launch);
+			Vec3 blast = AbilityHelpers.aimPoint(p, RANGE);
+			AbilityHelpers.launchSelf(p, look.scale(-1.9).add(0, 0.25, 0));
 			set(p, "no_fall_until", p.level().getGameTime() + 80);
 			float dmg = 9.6f * heatMult(p);
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, blast, 2.5)) {
@@ -232,110 +288,41 @@ public final class LaserVisionHandlers {
 				AbilityHelpers.knockbackFrom(e, blast, 1.2);
 				e.setRemainingFireTicks(60);
 			}
-			drawBeamTo(level, p, blast, 2);
 			level.sendParticles(ParticleTypes.EXPLOSION, blast.x, blast.y, blast.z, 1, 0, 0, 0, 0);
-			level.sendParticles(ParticleTypes.FLAME, blast.x, blast.y, blast.z, 30, 0.6, 0.3, 0.6, 0.12);
-			level.sendParticles(ParticleTypes.LAVA, blast.x, blast.y, blast.z, 6, 0.4, 0.2, 0.4, 0.0);
+			impact(level, blast, 10);
 			AbilityHelpers.sound(p, SoundEvents.FIRECHARGE_USE, 1.0f, 0.7f);
 			AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 0.5f, 1.5f);
-			BatchA.play(p, KEY, "p02.recoil", 14);
-			addHeat(p, 50f);
+			BatchA.play(p, KEY, ANIM_RECOIL, 14);
+			addHeat(p, HEAT_RECOIL_BLAST);
 			ctx.triggerCooldown();
 		}));
 
-		// Z -- Maximum Output. Hold Z for 4 s while heat gathers at the eyes, then a thick beam tears out for ~3 s.
-		AbilityHandlers.register(KEY, "maximum_output", new AbilityHandler() {
-			@Override
-			public void onActivate(AbilityContext ctx) {
-				ServerPlayer p = ctx.player();
-				if (res(p, "mo_on") > 0.5f || res(p, "max_ticks") > 0.5f) {
-					return;
-				}
-				if (!ctx.cooldownReady()) {
-					cooldownMessage(ctx);
-					return;
-				}
-				if (!canFire(ctx)) {
-					return;
-				}
-				set(p, "mo_on", 1);
-				set(p, "mo_held", 0);
-				MutationVisuals.play(p, "beam_eyes");
+		// Z -- Maximum Output: press once, 1.5 s charge-up, then a 10 s powered-up beam that follows your aim.
+		// Refused above 50 heat; pins the gauge at 100 while it runs, and you overheat when it ends.
+		AbilityHandlers.register(KEY, "maximum_output", Handlers.instantTicking(ctx -> {
+			ServerPlayer p = ctx.player();
+			if (maxOutputBusy(p) || !canFire(ctx)) {
+				return;
 			}
-
-			@Override
-			public void onRelease(AbilityContext ctx) {
-				ServerPlayer p = ctx.player();
-				if (res(p, "mo_on") <= 0.5f) {
-					return;
-				}
-				float held = res(p, "mo_held");
-				set(p, "mo_on", 0);
-				set(p, "ult_charge", 0);
-				if (held >= MAX_OUTPUT_CHARGE_TICKS) {
-					fireMaxOutput(ctx);
-				} else {
-					MutationVisuals.stopIf(p, "beam_eyes");
-					AbilityHelpers.sound(p, SoundEvents.FIRE_EXTINGUISH, 0.6f, 0.8f);
-				}
+			if (res(p, "heat") > MAX_OUTPUT_HEAT_LIMIT) {
+				ctx.actionBar("message.projecthero.laser.too_hot_for_max");
+				return;
 			}
+			set(p, "beaming", 0);
+			set(p, "mo_charging", 1);
+			set(p, "mo_charge", 0);
+			MutationVisuals.play(p, ANIM_MAX_CHARGE);
+			AbilityHelpers.sound(p, SoundEvents.BEACON_POWER_SELECT, 1.0f, 1.4f);
+			ctx.triggerCooldown();
+		}, LaserVisionHandlers::maxOutputTick));
 
-			@Override
-			public void onServerTick(AbilityContext ctx) {
-				ServerPlayer p = ctx.player();
-				if (res(p, "mo_on") > 0.5f) {
-					float held = res(p, "mo_held") + 1;
-					set(p, "mo_held", held);
-					if (held > MAX_OUTPUT_CHARGE_TICKS + 40) {
-						set(p, "mo_on", 0);
-						fireMaxOutput(ctx);
-						return;
-					}
-					MutationVisuals.ensure(p, "beam_eyes");
-					double frac = Math.min(1.0, held / (double) MAX_OUTPUT_CHARGE_TICKS);
-					set(p, "ult_charge", (float) (frac * 100.0));
-					eyeSpark(ctx, p, 3 + (int) (frac * 12));
-					if ((int) held % 12 == 0) {
-						AbilityHelpers.sound(p, SoundEvents.BLAZE_AMBIENT, 0.6f, 0.6f + (float) frac);
-					}
-					if (held >= MAX_OUTPUT_CHARGE_TICKS && (int) held % 20 == 0) {
-						p.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-								"message.projecthero.laser.max_ready"), true);
-					}
-					return;
-				}
-				int t = (int) res(p, "max_ticks");
-				if (t <= 0) {
-					return;
-				}
-				set(p, "max_ticks", t - 1);
-				MutationVisuals.ensure(p, "beam_eyes");
-				drawBeam(ctx, 48.0, 3);
-				beamDamage(ctx, 48.0, 9.6f * heatMult(p), 0.6);
-				if (t % 10 == 0) {
-					Vec3 impact = AbilityHelpers.aimPoint(p, 48.0);
-					for (LivingEntity e : AbilityHelpers.enemiesAround(p, impact, 5.0)) {
-						AbilityHelpers.hurt(p, e, AbilityHelpers.fire(p), 41.0f);
-						e.setRemainingFireTicks(120);
-					}
-					ctx.level().sendParticles(ParticleTypes.EXPLOSION, impact.x, impact.y, impact.z, 1, 0, 0, 0, 0);
-				}
-				if (t - 1 <= 0) {
-					MutationVisuals.stopIf(p, "beam_eyes");
-				}
-			}
-		});
-
-		// V -- Ricochet Shot: a bolt that caroms off up to three surfaces, hitting harder after every bounce.
-		AbilityHandlers.register(KEY, "ricochet_shot", Handlers.instant(ctx -> {
+		// V -- Ignite: a pin-point flick of heat that works like flint and steel, 100 blocks out.
+		AbilityHandlers.register(KEY, "ignite", Handlers.instant(ctx -> {
 			if (!canFire(ctx)) {
 				return;
 			}
-			ServerPlayer p = ctx.player();
-			BatchA.play(p, KEY, "p02.glare", 10);
-			ricochet(ctx);
-			AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 0.9f, 1.5f);
-			addHeat(p, 40f);
+			ignite(ctx);
+			addHeat(ctx.player(), HEAT_IGNITE);
 			ctx.triggerCooldown();
 		}));
 
@@ -343,8 +330,11 @@ public final class LaserVisionHandlers {
 		AbilityHandlers.register(KEY, "thermal_vision", Handlers.toggle(ctx -> BatchA.play(ctx.player(), KEY, "p02.glare", 10),
 				Handlers.noop(), ctx -> {
 					ServerPlayer p = ctx.player();
+					if (maxOutputRunning(p)) {
+						return;
+					}
 					// running the thermal overlay keeps the eyes warm: a slow trickle of heat
-					float h = Math.min(MAX_HEAT, res(p, "heat") + 0.4f);
+					float h = Math.min(MAX_HEAT, res(p, "heat") + THERMAL_TRICKLE);
 					set(p, "heat", h);
 					if (h >= MAX_HEAT - 0.01f) {
 						ctx.setToggled(false);
@@ -352,176 +342,107 @@ public final class LaserVisionHandlers {
 					}
 				}));
 
-		// H -- Sweeping Arc: the beam swings through a 150-degree arc in half a second.
-		AbilityHandlers.register(KEY, "sweeping_arc", Handlers.instantTicking(ctx -> {
-			if (!canFire(ctx)) {
-				return;
-			}
-			ServerPlayer p = ctx.player();
-			set(p, "sweep_ticks", 10);
-			set(p, "sweep_yaw", p.getYRot() + 7200f);
-			set(p, "sweep_pitch", p.getXRot() + 90f);
-			BatchA.play(p, KEY, "p02.sweep", 14);
-			AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.0f, 0.8f);
-			addHeat(p, 80f);
-			ctx.triggerCooldown();
-		}, LaserVisionHandlers::sweepTick));
-
-		// N -- Cauterize: vent all of your heat into your own wounds.
-		AbilityHandlers.register(KEY, "cauterize", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			float heat = res(p, "heat");
-			if (heat < 60f) {
-				ctx.actionBar("message.projecthero.laser.not_hot_enough");
-				return;
-			}
-			float heal = 3f + 13f * Math.min(1f, heat / MAX_HEAT);
-			p.heal(heal);
-			p.clearFire();
-			p.removeEffect(MobEffects.WITHER);
-			p.removeEffect(MobEffects.POISON);
-			set(p, "heat", 0);
-			set(p, "overheat", 0);
-			ServerLevel level = ctx.level();
-			level.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 1.0, p.getZ(), 30, 0.35, 0.6, 0.35, 0.03);
-			level.sendParticles(ParticleTypes.LARGE_SMOKE, p.getX(), p.getY() + 1.2, p.getZ(), 12, 0.3, 0.5, 0.3, 0.02);
-			BatchA.ring(level, p.position().add(0, 0.1, 0), 0.4, ParticleTypes.SMALL_FLAME, 18, 0.2);
-			AbilityHelpers.sound(p, SoundEvents.FIRE_EXTINGUISH, 1.0f, 0.8f);
-			AbilityHelpers.sound(p, SoundEvents.BLAZE_HURT, 0.4f, 1.5f);
-			BatchA.play(p, KEY, "p02.cauterize", 18);
-			ctx.triggerCooldown();
-		}));
-
 		PowerPassives.register(KEY, (player, active) -> {
 			if (!active) {
 				stopChannels(player);
-				set(player, "max_ticks", 0);
 				set(player, "sweep_ticks", 0);
 			}
 		});
 
-		PowerPassives.registerTick(KEY, player -> {
-			// Immune to blindness / darkness, and permanently able to see in the dark.
-			if (player.hasEffect(MobEffects.BLINDNESS)) {
-				player.removeEffect(MobEffects.BLINDNESS);
-			}
-			if (player.hasEffect(MobEffects.DARKNESS)) {
-				player.removeEffect(MobEffects.DARKNESS);
-			}
-			var nv = player.getEffect(MobEffects.NIGHT_VISION);
-			if (nv == null || nv.getDuration() < 30) {
-				player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION,
-						MobEffectInstance.INFINITE_DURATION, 0, false, false, false));
-			}
-			// the heat gauge: overheat lockout, then venting a second after the last shot
-			float over = res(player, "overheat");
-			if (over > 0.5f) {
-				set(player, "overheat", over - 1);
-			}
-			float delay = res(player, "vent_delay");
-			if (delay > 0.5f) {
-				set(player, "vent_delay", delay - 1);
-			} else if (!firing(player) && res(player, "heat") > 0f
-					&& !com.projecthero.mod.hero.ExperimentalPowers.state(player).activeToggles.contains(KEY + "/thermal_vision")) {
-				float rate = over > 0.5f ? VENT_RATE * 2.5f : VENT_RATE;
-				set(player, "heat", Math.max(0f, res(player, "heat") - rate));
-			}
-			// white-hot sparks off the eyes while a beam runs hot
-			if (firing(player) && res(player, "heat") > MAX_HEAT * 0.6f && player.tickCount % 3 == 0
-					&& player.level() instanceof ServerLevel sl) {
-				Vec3 e = player.getEyePosition().add(player.getLookAngle().scale(0.35));
-				sl.sendParticles(ParticleTypes.ELECTRIC_SPARK, e.x, e.y, e.z, 2, 0.08, 0.05, 0.08, 0.02);
-			}
-		});
+		PowerPassives.registerTick(KEY, LaserVisionHandlers::passiveTick);
 	}
 
-	// ---- shared beam helpers -----------------------------------------------------------------
+	// ---- the heat gauge ------------------------------------------------------------------------
 
-	private static void eyeSpark(AbilityContext ctx, ServerPlayer p, int count) {
-		Vec3 look = p.getLookAngle();
-		Vec3 eye = p.getEyePosition().add(look.scale(0.3));
-		Vec3 right = look.cross(new Vec3(0, 1, 0));
-		right = right.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : right.normalize();
-		for (int s = -1; s <= 1; s += 2) {
-			Vec3 e = eye.add(right.scale(0.13 * s));
-			ctx.level().sendParticles(ParticleTypes.FLAME, e.x, e.y, e.z, count, 0.06, 0.06, 0.06, 0.02);
-			ctx.level().sendParticles(ParticleTypes.SMALL_FLAME, e.x, e.y, e.z, count, 0.05, 0.05, 0.05, 0.01);
-		}
-	}
-
-	/** Damage whatever the beam is pointed at (entity hit, plus a small splash if {@code splash > 0}). */
-	private static void beamDamage(AbilityContext ctx, double range, float damage, double splash) {
-		ServerPlayer p = ctx.player();
-		LivingEntity target = AbilityHelpers.raycastEntity(p, range);
-		Vec3 impact = target != null
-				? target.position().add(0, target.getBbHeight() * 0.5, 0)
-				: AbilityHelpers.aimPoint(p, range);
-		if (target != null) {
-			AbilityHelpers.hurt(p, target, AbilityHelpers.fire(p), damage);
-			target.setRemainingFireTicks(60);
-		}
-		if (splash > 0.0) {
-			for (LivingEntity e : AbilityHelpers.enemiesAround(p, impact, splash)) {
-				if (e == target) {
-					continue;
-				}
-				AbilityHelpers.hurt(p, e, AbilityHelpers.fire(p), damage * 0.6f);
-				e.setRemainingFireTicks(40);
+	private static void passiveTick(ServerPlayer player) {
+		if (player.tickCount % 100 == 0) {
+			for (String s : STALE) {
+				set(player, s, 0);
 			}
+			dropLegacyNightVision(player);
 		}
-	}
-
-	/** Utility mode: bore through the block the beam lands on as fast as a diamond tool would. */
-	private static void utilityBeamTick(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		drawBeam(ctx, 20.0, 1);
-		BlockHitResult bhr = AbilityHelpers.raycastBlock(p, 20.0);
-		if (bhr.getType() != HitResult.Type.BLOCK || !AbilityHelpers.canGrief()) {
+		if (res(player, "heat") > MAX_HEAT) {
+			set(player, "heat", MAX_HEAT); // a pre-v0.14.5 save on the old 0-575 scale
+		}
+		float over = res(player, "overheat");
+		if (over > 0.5f) {
+			set(player, "overheat", over - 1);
+		}
+		if (maxOutputRunning(player)) {
 			return;
 		}
-		BlockPos bp = bhr.getBlockPos();
-		BlockState st = level.getBlockState(bp);
-		float hardness = st.getDestroySpeed(level, bp);
-		if (hardness < 0.0f || st.isAir()) {
-			return; // bedrock / unbreakable / nothing there
-		}
-		float budget = res(p, "mine_budget") + 8.0f / 20.0f;
-		float need = Math.max(0.15f, hardness * 1.5f);
-		if (budget >= need) {
-			level.destroyBlock(bp, true, p);
-			set(p, "mine_budget", 0);
-		} else {
-			set(p, "mine_budget", budget);
+		float delay = res(player, "vent_delay");
+		if (delay > 0.5f) {
+			set(player, "vent_delay", delay - 1);
+		} else if (!firing(player) && res(player, "heat") > 0f
+				&& !ExperimentalPowers.state(player).activeToggles.contains(KEY + "/thermal_vision")) {
+			float rate = over > 0.5f ? VENT_RATE * 2.5f : VENT_RATE;
+			set(player, "heat", Math.max(0f, res(player, "heat") - rate));
 		}
 	}
 
-	/** Glass, leaves and panes -- what a Piercing Lance cuts straight through. */
+	/**
+	 * Before v0.14.5 Laser Vision gave a permanent, hidden Night Vision. Nothing in the mod hands out an infinite
+	 * hidden Night Vision any more, so one that is still there is that leftover: take it off.
+	 */
+	public static void dropLegacyNightVision(ServerPlayer player) {
+		MobEffectInstance nv = player.getEffect(MobEffects.NIGHT_VISION);
+		if (nv != null && nv.isInfiniteDuration() && !nv.isVisible() && !nv.showIcon()) {
+			player.removeEffect(MobEffects.NIGHT_VISION);
+		}
+	}
+
+	// ---- R: Heat Vision / Piercing Blast ---------------------------------------------------------
+
+	private static void heatVisionTick(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		float held = res(p, "beam_held") + 1;
+		set(p, "beam_held", Math.min(held, 2000));
+		ensureLoop(p, ANIM_BEAM);
+		if (p.tickCount % 10 == 0) {
+			float ramp = 1.0f + Math.min(1.5f, held / 40.0f);
+			Vec3 end = beamDamage(ctx, 4.8f * ramp * heatMult(p), 0.0);
+			impact(ctx.level(), end, 3);
+		}
+		if (!p.onGround() && p.getXRot() > 40.0f) {
+			slowFall(p);
+		}
+		addHeat(p, HEAT_BEAM_PER_TICK);
+	}
+
+	/** Beaming straight down in mid-air holds you up like slow falling (and cancels the fall damage). */
+	public static void slowFall(ServerPlayer p) {
+		p.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 6, 0, false, false, false));
+		p.resetFallDistance();
+		set(p, "no_fall_until", p.level().getGameTime() + 20);
+		Vec3 v = p.getDeltaMovement();
+		if (v.y < -0.2) {
+			p.setDeltaMovement(v.x, -0.2, v.z);
+			p.hurtMarked = true;
+			p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(p));
+		}
+	}
+
+	/** Glass, leaves and panes -- what a Piercing Blast cuts straight through. */
 	private static boolean cuttable(BlockState st) {
 		// IMPERMEABLE = every glass block; glass panes (plain and stained) are IronBarsBlocks that are not iron bars
 		return st.is(BlockTags.LEAVES) || st.is(BlockTags.IMPERMEABLE) || st.getBlock() instanceof StainedGlassPaneBlock
 				|| (st.getBlock() instanceof IronBarsBlock && !st.is(Blocks.IRON_BARS));
 	}
 
-	private static void fireLance(AbilityContext ctx) {
+	/** Shift + R: a needle of light, 100 blocks, through up to four creatures and any glass / leaves / panes. */
+	private static void firePiercingBlast(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		ServerLevel level = ctx.level();
-		float held = res(p, "lance_held");
-		set(p, "lance_on", 0);
-		set(p, "lance_charge", 0);
-		set(p, "lance_held", 0);
-		MutationVisuals.stopIf(p, "beam_eyes");
-		float frac = Math.min(1f, held / LANCE_FULL);
-		float dmg = (18f + 11f * frac) * heatMult(p);
-		int pierce = 2 + Math.round(2 * frac);
-		double range = 40.0;
+		float dmg = 29f * heatMult(p);
+		int pierce = 4;
 		Vec3 start = p.getEyePosition();
 		Vec3 dir = p.getLookAngle();
-		Vec3 end = start.add(dir.scale(range));
+		Vec3 end = start.add(dir.scale(RANGE));
 		Set<Integer> hit = new HashSet<>();
 		int cut = 0;
 		boolean grief = AbilityHelpers.canGrief();
-		for (double d = 0.5; d <= range; d += 0.5) {
+		for (double d = 0.5; d <= RANGE; d += 0.5) {
 			Vec3 at = start.add(dir.scale(d));
 			BlockPos bp = BlockPos.containing(at);
 			BlockState st = level.getBlockState(bp);
@@ -541,76 +462,153 @@ public final class LaserVisionHandlers {
 					}
 					AbilityHelpers.hurtBurst(p, e, AbilityHelpers.fire(p), dmg);
 					e.setRemainingFireTicks(80);
-					level.sendParticles(ParticleTypes.LAVA, e.getX(), e.getY() + e.getBbHeight() * 0.5, e.getZ(), 4, 0.2, 0.2, 0.2, 0);
 				}
 			}
-		}
-		drawBeamTo(level, p, end, 2);
-		if (heatMult(p) > 1.35f) {
-			AbilityHelpers.line(level, start.add(0, -0.1, 0).add(dir.scale(0.4)), end, ParticleTypes.END_ROD, 1.5);
 		}
 		level.sendParticles(ParticleTypes.FLASH, end.x, end.y, end.z, 1, 0, 0, 0, 0);
-		BatchA.play(p, KEY, "p02.glare", 10);
+		impact(level, end, 6);
+		BatchA.play(p, KEY, ANIM_PIERCE, 10);
 		AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.0f, 0.6f);
 		AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_RESONATE, 1.0f, 1.8f);
-		addHeat(p, 90f);
-		ctx.triggerCooldown();
+		addHeat(p, HEAT_PIERCING_BLAST);
+		ctx.triggerCooldown(PIERCING_BLAST_COOLDOWN); // on R's own box
 	}
 
-	private static void fireMaxOutput(AbilityContext ctx) {
+	// ---- Z: Maximum Output -----------------------------------------------------------------------
+
+	private static void maxOutputTick(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
-		set(p, "mo_on", 0);
-		set(p, "ult_charge", 0);
-		set(p, "max_ticks", 60);
+		float charging = res(p, "mo_charging");
+		if (charging > 0.5f) {
+			float t = charging + 1;
+			if (t > MAX_OUTPUT_CHARGE_TICKS) {
+				startMaxOutput(p);
+				return;
+			}
+			set(p, "mo_charging", t);
+			set(p, "mo_charge", Math.min(100f, (t - 1) / MAX_OUTPUT_CHARGE_TICKS * 100f));
+			ensureLoop(p, ANIM_MAX_CHARGE);
+			if ((int) t % 6 == 0) {
+				AbilityHelpers.sound(p, SoundEvents.BLAZE_AMBIENT, 0.6f, 0.6f + t / MAX_OUTPUT_CHARGE_TICKS);
+			}
+			return;
+		}
+		int left = (int) res(p, "max_ticks");
+		if (left <= 0) {
+			return;
+		}
+		set(p, "max_ticks", left - 1);
+		set(p, "heat", MAX_HEAT);
+		set(p, "vent_delay", VENT_DELAY);
+		ensureLoop(p, ANIM_MAX);
+		ServerLevel level = ctx.level();
+		Vec3 end = beamDamage(ctx, 14.0f * heatMult(p), 0.9);
+		if (left % 2 == 0) {
+			burnThrough(p, level);
+		}
+		if (left % 10 == 0) {
+			for (LivingEntity e : AbilityHelpers.enemiesAround(p, end, 3.5)) {
+				AbilityHelpers.hurt(p, e, AbilityHelpers.fire(p), 12.0f);
+				e.setRemainingFireTicks(120);
+			}
+			level.sendParticles(ParticleTypes.EXPLOSION, end.x, end.y, end.z, 1, 0, 0, 0, 0);
+		}
+		if (left % 3 == 0) {
+			impact(level, end, 4);
+		}
+		if (left % 20 == 0) {
+			AbilityHelpers.sound(p, SoundEvents.BEACON_AMBIENT, 1.2f, 1.6f);
+		}
+		if (left - 1 <= 0) {
+			MutationVisuals.stopIf(p, ANIM_MAX);
+			overheat(p); // the eyes are spent: the ordinary overheat lockout and vent follow
+		}
+	}
+
+	private static void startMaxOutput(ServerPlayer p) {
+		set(p, "mo_charging", 0);
+		set(p, "mo_charge", 0);
+		set(p, "max_ticks", MAX_OUTPUT_TICKS);
+		set(p, "heat", MAX_HEAT);
+		set(p, "vent_delay", VENT_DELAY);
+		MutationVisuals.play(p, ANIM_MAX);
 		AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.4f, 0.35f);
 		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 1.0f, 0.7f);
-		addHeat(p, 250f);
-		ctx.triggerCooldown();
 	}
 
-	/** Ricochet: trace the bolt, bouncing off up to three block faces over 48 blocks. */
-	private static void ricochet(AbilityContext ctx) {
+	/** Maximum Output burns through soft blocks where it lands (with terrain damage on). */
+	private static void burnThrough(ServerPlayer p, ServerLevel level) {
+		if (!AbilityHelpers.canGrief() || AbilityHelpers.raycastEntity(p, RANGE) != null) {
+			return;
+		}
+		BlockHitResult bhr = AbilityHelpers.raycastBlock(p, RANGE);
+		if (bhr.getType() != HitResult.Type.BLOCK) {
+			return;
+		}
+		BlockPos bp = bhr.getBlockPos();
+		float hard = level.getBlockState(bp).getDestroySpeed(level, bp);
+		if (hard < 3.0f && hard >= 0) {
+			level.destroyBlock(bp, false, p);
+		}
+	}
+
+	// ---- V: Ignite ---------------------------------------------------------------------------
+
+	private static void ignite(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		ServerLevel level = ctx.level();
-		Vec3 pos = p.getEyePosition();
-		Vec3 dir = p.getLookAngle();
-		double remaining = 48.0;
-		Set<Integer> hit = new HashSet<>();
-		float base = 11f * heatMult(p);
-		for (int bounce = 0; bounce <= 3 && remaining > 0.5; bounce++) {
-			Vec3 target = pos.add(dir.scale(remaining));
-			BlockHitResult bhr = level.clip(new ClipContext(pos, target, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
-			Vec3 end = bhr.getType() == HitResult.Type.BLOCK ? bhr.getLocation() : target;
-			float dmg = base * (1f + 0.25f * bounce);
-			double len = pos.distanceTo(end);
-			for (double d = 0; d <= len; d += 0.5) {
-				Vec3 at = pos.add(dir.scale(d));
-				for (LivingEntity e : AbilityHelpers.enemiesAround(p, at, 0.7)) {
-					if (hit.add(e.getId())) {
-						AbilityHelpers.hurtBurst(p, e, AbilityHelpers.fire(p), dmg);
-						e.setRemainingFireTicks(60);
-					}
-				}
-			}
-			AbilityHelpers.line(level, pos, end, ParticleTypes.FLAME, 2.0);
-			AbilityHelpers.line(level, pos, end, ParticleTypes.SMALL_FLAME, 1.0);
-			remaining -= len;
-			if (bhr.getType() != HitResult.Type.BLOCK) {
-				break;
-			}
-			BlockPos bp = bhr.getBlockPos();
-			if (level.getBlockState(bp).is(Blocks.TNT)) {
-				level.removeBlock(bp, false);
-				level.addFreshEntity(new net.minecraft.world.entity.item.PrimedTnt(level, bp.getX() + 0.5, bp.getY(), bp.getZ() + 0.5, p));
-				break;
-			}
-			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, end.x, end.y, end.z, 10, 0.1, 0.1, 0.1, 0.2);
-			level.playSound(null, bp, SoundEvents.AMETHYST_BLOCK_HIT, net.minecraft.sounds.SoundSource.PLAYERS, 0.8f, 1.6f + bounce * 0.1f);
-			Direction face = bhr.getDirection();
-			Vec3 n = new Vec3(face.getStepX(), face.getStepY(), face.getStepZ());
-			dir = dir.subtract(n.scale(2 * dir.dot(n))).normalize();
-			pos = end.add(n.scale(0.05));
+		BatchA.play(p, KEY, ANIM_IGNITE, 8);
+		LivingEntity target = AbilityHelpers.raycastEntity(p, RANGE);
+		if (target != null) {
+			AbilityHelpers.hurt(p, target, AbilityHelpers.fire(p), 2.0f);
+			target.setRemainingFireTicks(Math.max(target.getRemainingFireTicks(), 100));
+			level.playSound(null, target.blockPosition(), SoundEvents.FLINTANDSTEEL_USE, SoundSource.PLAYERS, 1.0f, 1.0f);
+			return;
 		}
+		BlockHitResult hit = AbilityHelpers.raycastBlock(p, RANGE);
+		if (hit.getType() != HitResult.Type.BLOCK) {
+			AbilityHelpers.sound(p, SoundEvents.FLINTANDSTEEL_USE, 0.6f, 1.2f);
+			return;
+		}
+		igniteBlock(level, p, hit);
+		level.playSound(null, hit.getBlockPos(), SoundEvents.FLINTANDSTEEL_USE, SoundSource.PLAYERS, 1.0f, 1.0f);
+		AbilityHelpers.sound(p, SoundEvents.FLINTANDSTEEL_USE, 0.5f, 1.2f);
+	}
+
+	/**
+	 * Flint and steel on a block face: lights campfires / candles / candle cakes, primes TNT, otherwise sets fire on
+	 * the face. Placing fire and priming TNT need terrain damage on ({@code abilityTerrainDamage}).
+	 *
+	 * @return true when something was lit
+	 */
+	public static boolean igniteBlock(ServerLevel level, ServerPlayer p, BlockHitResult hit) {
+		BlockPos pos = hit.getBlockPos();
+		BlockState st = level.getBlockState(pos);
+		if (CampfireBlock.canLight(st) || CandleBlock.canLight(st) || CandleCakeBlock.canLight(st)) {
+			level.setBlockAndUpdate(pos, st.setValue(BlockStateProperties.LIT, true));
+			return true;
+		}
+		if (!AbilityHelpers.canGrief()) {
+			return false;
+		}
+		if (st.is(Blocks.TNT)) {
+			level.removeBlock(pos, false);
+			level.addFreshEntity(new net.minecraft.world.entity.item.PrimedTnt(level, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, p));
+			return true;
+		}
+		BlockPos face = pos.relative(hit.getDirection());
+		if (BaseFireBlock.canBePlacedAt(level, face, p.getDirection())) {
+			level.setBlockAndUpdate(face, BaseFireBlock.getState(level, face));
+			return true;
+		}
+		return false;
+	}
+
+	// ---- G: Sweeping Arc ---------------------------------------------------------------------
+
+	/** The arc's direction {@code progress} (0..1) of the way through, relative to where you look now. */
+	public static Vec3 sweepDirection(float yaw, float pitch, float progress) {
+		return Vec3.directionFromRotation(pitch, yaw - 75f + 150f * Math.max(0f, Math.min(1f, progress)));
 	}
 
 	private static void sweepTick(AbilityContext ctx) {
@@ -621,75 +619,49 @@ public final class LaserVisionHandlers {
 		}
 		set(p, "sweep_ticks", t - 1);
 		ServerLevel level = ctx.level();
-		float progress = (10 - t) / 9.0f;
-		float yaw = res(p, "sweep_yaw") - 7200f - 75f + 150f * progress;
-		float pitch = res(p, "sweep_pitch") - 90f;
-		Vec3 dir = Vec3.directionFromRotation(pitch, yaw);
+		float progress = (SWEEP_TICKS - t) / (float) (SWEEP_TICKS - 1);
+		Vec3 dir = sweepDirection(p.getYRot(), p.getXRot(), progress);
 		Vec3 start = p.getEyePosition();
-		double range = 14.0;
-		BlockHitResult bhr = level.clip(new ClipContext(start, start.add(dir.scale(range)), ClipContext.Block.COLLIDER,
+		BlockHitResult bhr = level.clip(new ClipContext(start, start.add(dir.scale(RANGE)), ClipContext.Block.COLLIDER,
 				ClipContext.Fluid.NONE, p));
-		Vec3 end = bhr.getType() == HitResult.Type.BLOCK ? bhr.getLocation() : start.add(dir.scale(range));
+		Vec3 end = bhr.getType() == HitResult.Type.BLOCK ? bhr.getLocation() : start.add(dir.scale(RANGE));
 		float dmg = 14.4f * heatMult(p);
 		double len = start.distanceTo(end);
-		for (double d = 0.5; d <= len; d += 0.6) {
-			for (LivingEntity e : AbilityHelpers.enemiesAround(p, start.add(dir.scale(d)), 0.8)) {
+		for (double d = 0.5; d <= len; d += 1.0) {
+			for (LivingEntity e : AbilityHelpers.enemiesAround(p, start.add(dir.scale(d)), 1.0)) {
 				if (AbilityHelpers.hurt(p, e, AbilityHelpers.fire(p), dmg)) {
 					e.setRemainingFireTicks(60);
 				}
 			}
 		}
-		drawBeamTo(level, p, end, 1, dir);
-		level.sendParticles(ParticleTypes.FLAME, end.x, end.y, end.z, 4, 0.15, 0.15, 0.15, 0.03);
-		level.sendParticles(ParticleTypes.SMOKE, end.x, end.y, end.z, 2, 0.1, 0.1, 0.1, 0.01);
+		impact(level, end, 3);
 	}
 
-	/** Draws the twin eye beam along the look direction and cuts soft blocks for a heavy beam. */
-	private static void drawBeam(AbilityContext ctx, double range, int width) {
+	// ---- shared ------------------------------------------------------------------------------
+
+	/** A small scorch where a beam lands -- the beam itself is a model, drawn client-side. */
+	private static void impact(ServerLevel level, Vec3 at, int count) {
+		level.sendParticles(ParticleTypes.SMALL_FLAME, at.x, at.y, at.z, count, 0.12, 0.12, 0.12, 0.02);
+		level.sendParticles(ParticleTypes.SMOKE, at.x, at.y, at.z, Math.max(1, count / 2), 0.1, 0.1, 0.1, 0.01);
+	}
+
+	/** Damages whatever the beam is pointed at (plus a splash if {@code splash > 0}); returns where it lands. */
+	private static Vec3 beamDamage(AbilityContext ctx, float damage, double splash) {
 		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		Vec3 start = p.getEyePosition();
-		LivingEntity target = AbilityHelpers.raycastEntity(p, range);
-		Vec3 end;
-		if (target != null) {
-			end = target.position().add(0, target.getBbHeight() * 0.5, 0);
-		} else {
-			BlockHitResult bhr = AbilityHelpers.raycastBlock(p, range);
-			end = bhr.getType() == HitResult.Type.BLOCK ? bhr.getLocation() : start.add(p.getLookAngle().scale(range));
-			if (width >= 3 && bhr.getType() == HitResult.Type.BLOCK && AbilityHelpers.canGrief()) {
-				BlockPos bp = bhr.getBlockPos();
-				float hard = level.getBlockState(bp).getDestroySpeed(level, bp);
-				if (hard < 3.0f && hard >= 0) {
-					level.destroyBlock(bp, false, p);
+		LivingEntity target = AbilityHelpers.raycastEntity(p, RANGE);
+		Vec3 impact = target != null
+				? target.position().add(0, target.getBbHeight() * 0.5, 0)
+				: AbilityHelpers.aimPoint(p, RANGE);
+		if (target != null && AbilityHelpers.hurt(p, target, AbilityHelpers.fire(p), damage)) {
+			target.setRemainingFireTicks(60);
+		}
+		if (splash > 0.0) {
+			for (LivingEntity e : AbilityHelpers.enemiesAround(p, impact, splash)) {
+				if (e != target && AbilityHelpers.hurt(p, e, AbilityHelpers.fire(p), damage * 0.6f)) {
+					e.setRemainingFireTicks(40);
 				}
 			}
 		}
-		drawBeamTo(level, p, end, width);
-	}
-
-	private static void drawBeamTo(ServerLevel level, ServerPlayer p, Vec3 end, int width) {
-		drawBeamTo(level, p, end, width, p.getLookAngle());
-	}
-
-	/**
-	 * The twin eye beam from the eyes to {@code end}. {@code width} 1 is the ordinary beam; 2-3 fan extra parallel
-	 * streaks out for a thicker one. Past 60% heat a white-hot core runs down the middle (the "sharper" beam).
-	 */
-	private static void drawBeamTo(ServerLevel level, ServerPlayer p, Vec3 end, int width, Vec3 look) {
-		Vec3 start = p.getEyePosition();
-		Vec3 right = look.cross(new Vec3(0.0, 1.0, 0.0));
-		right = right.lengthSqr() < 1.0e-6 ? new Vec3(1.0, 0.0, 0.0) : right.normalize();
-		Vec3 up = right.cross(look).normalize();
-		Vec3 eyeLine = start.add(0.0, -0.1, 0.0).add(look.scale(0.35));
-		double spread = 0.13 * width;
-		for (int i = -width; i <= width; i++) {
-			Vec3 off = right.scale(i / (double) width * spread);
-			Vec3 vOff = up.scale((Math.abs(i) == width ? 0.0 : 0.06) * (width - 1));
-			AbilityHelpers.line(level, eyeLine.add(off).add(vOff), end.add(off).add(vOff), ParticleTypes.FLAME, 2.0 * width);
-			AbilityHelpers.line(level, eyeLine.add(off).add(vOff), end.add(off).add(vOff), ParticleTypes.SMALL_FLAME, 1.2 * width);
-		}
-		if (BatchA.res(p, KEY, "heat") > MAX_HEAT * 0.6f) {
-			AbilityHelpers.line(level, eyeLine, end, ParticleTypes.END_ROD, 1.0);
-		}
+		return impact;
 	}
 }
