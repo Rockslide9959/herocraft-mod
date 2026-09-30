@@ -16,6 +16,7 @@
 		"LivingEntityClimbMixin",
 		"LivingEntityEatMixin",
 		"LivingEntityEffectMixin",
+		"MobGoalsAccessor",
 		"MobMindLockMixin",
 		"MobSymbioteMixin",
 		"MoonKnightVillagerPricesMixin",

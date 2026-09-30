@@ -151,7 +151,7 @@ public final class HeroPackGuide {
 					Component.translatable("projecthero.guide.symbiote.passive.recovery")).withStyle(ChatFormatting.GRAY));
 			lines.add(Component.literal(" • ").append(
 					Component.translatable("projecthero.guide.symbiote.passive.bare_hands")).withStyle(ChatFormatting.GRAY));
-			for (String p : new String[]{"protect", "resist", "growth", "cloak", "predator", "resurrect", "squad", "vial"}) {
+			for (String p : new String[]{"protect", "resist", "growth", "cloak", "predator", "resurrect", "squad", "pet", "vial"}) {
 				lines.add(Component.literal(" • ").append(
 						Component.translatable("projecthero.guide.symbiote.passive." + p)).withStyle(ChatFormatting.GRAY));
 			}
@@ -210,7 +210,7 @@ public final class HeroPackGuide {
 				lines.add(Component.literal(" • ").append(
 						Component.translatable("projecthero.guide.symbiote_spider_man.passive." + p)).withStyle(ChatFormatting.GRAY));
 			}
-			for (String p : new String[]{"protect", "growth", "cloak", "predator", "resurrect", "squad", "vial"}) {
+			for (String p : new String[]{"protect", "growth", "cloak", "predator", "resurrect", "squad", "pet", "vial"}) {
 				lines.add(Component.literal(" • ").append(
 						Component.translatable("projecthero.guide.symbiote.passive." + p)).withStyle(ChatFormatting.GRAY));
 			}
@@ -548,6 +548,12 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.symbiote.host.normal");
 			para(lines, "projecthero.guide.symbiote.host.spider_man");
 			para(lines, "projecthero.guide.symbiote.host.agent_venom");
+			blank(lines);
+			// v0.14.4: infested animals and Symbiote Pets
+			head(lines, "projecthero.guide.symbiote.creatures");
+			para(lines, "projecthero.guide.symbiote.creatures.wild");
+			para(lines, "projecthero.guide.symbiote.creatures.pet");
+			para(lines, "projecthero.guide.symbiote.creatures.release");
 			blank(lines);
 			head(lines, "projecthero.guide.symbiote.controls");
 			para(lines, "projecthero.guide.symbiote.controls.body");

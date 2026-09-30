@@ -151,6 +151,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.symbiote.SymbioteDamageRules.initialize();
 		com.projecthero.mod.symbiote.SymbioteVitalsManager.initialize();
 		com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.initialize();
+		// v0.14.4: Symbiote Pets (share / recall interaction, loyalty damage veto, goal re-install on load)
+		com.projecthero.mod.symbiote.SymbiotePet.initialize();
 		com.projecthero.mod.combat.SonicTriggers.initialize();
 		ModNetworking.initialize();
 		// ---- Zombie Raid / world-event framework ----

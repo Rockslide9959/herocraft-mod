@@ -28,6 +28,11 @@ import net.minecraft.world.entity.player.Player;
  *       walk into it (or right-click it) as a Spider-Man to bond.</li>
  * </ul>
  *
+ * <p>v0.14.4: a free Symbiote can now also take over passive animals ({@link #isPassiveHostSpecies}) -- they
+ * turn on players ({@code SymbioteMobGoals}) -- and a tamed wolf or cat, which becomes a loyal
+ * {@link SymbiotePet} instead ({@link #takeOver} dispatches). Hosts are drawn black on the client (the attachment
+ * is synced now).
+ *
  * <p>Attribute changes are applied to the mob's <em>base</em> values (which vanilla persists), so a
  * chunk reload needs no re-apply and repeated marking is impossible -- {@link #mark} runs exactly once,
  * from {@code SymbioteHostSpawns} on the spawn path.
@@ -44,8 +49,49 @@ public final class SymbioteHost {
 	 * Take over a mob. Called once per mob: from the natural-spawn hook, or when a free
 	 * {@link SymbioteEntity} crawls onto a mob and takes control of it (never onto an existing host).
 	 */
+	/**
+	 * v0.14.4: the one entry point for "a Symbiote takes this mob": a tamed wolf or cat becomes a loyal
+	 * {@link SymbiotePet}; anything else becomes a hostile host ({@link #mark}).
+	 */
+	public static void takeOver(Mob mob) {
+		if (SymbiotePet.canBond(mob) && mob instanceof net.minecraft.world.entity.TamableAnimal pet) {
+			SymbiotePet.bond(pet, SymbiotePet.WILD);
+			return;
+		}
+		mark(mob);
+	}
+
+	/**
+	 * v0.14.4: the passive animals a free Symbiote may now take over, on top of every mob that can already fight.
+	 * Goal-driven animals only -- brain-driven ones (goats, axolotls, frogs, camels, sniffers, armadillos) would
+	 * run the Symbiote's goals and their own brain at once.
+	 */
+	public static boolean isPassiveHostSpecies(Mob mob) {
+		return mob instanceof net.minecraft.world.entity.animal.Cow
+				|| mob instanceof net.minecraft.world.entity.animal.Pig
+				|| mob instanceof net.minecraft.world.entity.animal.Sheep
+				|| mob instanceof net.minecraft.world.entity.animal.Chicken
+				|| mob instanceof net.minecraft.world.entity.animal.Rabbit
+				|| mob instanceof net.minecraft.world.entity.animal.Fox
+				|| mob instanceof net.minecraft.world.entity.animal.Ocelot
+				|| mob instanceof net.minecraft.world.entity.animal.Wolf
+				|| mob instanceof net.minecraft.world.entity.animal.Cat;
+	}
+
 	public static void mark(Mob mob) {
 		mob.setAttached(ModAttachments.SYMBIOTE_HOST, true);
+		// v0.14.4: an infested animal stops being prey -- it hunts players (SymbioteMobGoals), its wool turns
+		// black, and the goo hardens over it a little.
+		if (SymbioteMobGoals.isInfestedAnimal(mob)) {
+			if (mob instanceof net.minecraft.world.entity.animal.Sheep sheep) {
+				sheep.setColor(net.minecraft.world.item.DyeColor.BLACK);
+			}
+			if (mob instanceof net.minecraft.world.entity.animal.Animal animal) {
+				animal.resetLove();
+			}
+			addBase(mob, Attributes.ARMOR, 4.0);
+			SymbioteMobGoals.installHostile(mob);
+		}
 
 		scaleBase(mob, Attributes.MAX_HEALTH, 1.6);
 		mob.setHealth(mob.getMaxHealth());
@@ -67,6 +113,12 @@ public final class SymbioteHost {
 		if (!(mob.level() instanceof ServerLevel level) || !is(mob)) {
 			return;
 		}
+		// v0.14.4: someone tamed an infested wolf / stray cat -- the Symbiote takes its new owner's side.
+		if (mob instanceof net.minecraft.world.entity.TamableAnimal tamed && tamed.isTame()
+				&& SymbiotePet.isPetSpecies(mob)) {
+			convertTamed(tamed);
+			return;
+		}
 		if (mob.tickCount % 6 == 0) {
 			level.sendParticles(ParticleTypes.SQUID_INK,
 					mob.getX(), mob.getY() + mob.getBbHeight() * 0.55, mob.getZ(),
@@ -79,8 +131,22 @@ public final class SymbioteHost {
 		}
 	}
 
+	/** An infested wolf/cat was tamed: stop being a hostile host and become a (wild-origin) Symbiote Pet. */
+	static void convertTamed(net.minecraft.world.entity.TamableAnimal pet) {
+		pet.removeAttached(ModAttachments.SYMBIOTE_HOST);
+		SymbioteMobGoals.removeAll(pet);
+		pet.setTarget(null);
+		Component name = pet.getCustomName();
+		if (name != null && name.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t
+				&& "entity.projecthero.symbiote_host".equals(t.getKey())) {
+			pet.setCustomName(null);
+		}
+		SymbiotePet.bond(pet, SymbiotePet.WILD);
+	}
+
 	/** Death hook: the Symbiote abandons its dead host and waits nearby for a new one. */
 	public static void onDeath(LivingEntity entity) {
+		SymbiotePet.onDeath(entity);
 		if (!(entity instanceof Mob mob) || !(mob.level() instanceof ServerLevel level) || !is(mob)) {
 			return;
 		}

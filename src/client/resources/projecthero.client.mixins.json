@@ -23,6 +23,7 @@
 		"ItemInHandRendererTruncheonMixin",
 		"LivingEntityHulkFadeMixin",
 		"LivingEntityPhaseMixin",
+		"LivingEntitySymbioteSkinMixin",
 		"MouseHandlerMixin",
 		"LocalPlayerMixin",
 		"MinecraftHotbarKeysMixin",

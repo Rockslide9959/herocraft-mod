@@ -1,0 +1,161 @@
+package com.projecthero.mod.client;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.symbiote.SymbioteHost;
+import com.projecthero.mod.symbiote.SymbiotePet;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.TamableAnimal;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): Symbiote pet / infested animal visual tour. */
+public final class PetDebugHarness {
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 base;
+
+	private PetDebugHarness() {
+	}
+
+	public static void init() {
+		ClientTickEvents.END_CLIENT_TICK.register(PetDebugHarness::tick);
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					fn.accept(p);
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "pet_" + name + ".png", mc.getMainRenderTarget(), x -> {
+		});
+	}
+
+	private static void view(Minecraft mc, double dx, double dy, double dz, Vec3 look) {
+		server(mc, p -> {
+			Vec3 from = base.add(dx, dy, dz);
+			Vec3 to = base.add(look);
+			Vec3 d = to.subtract(from);
+			float yaw = (float) (Math.atan2(d.z, d.x) * 180.0 / Math.PI) - 90.0f;
+			float pitch = (float) -(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)) * 180.0 / Math.PI);
+			p.teleportTo(p.serverLevel(), from.x, from.y - 1.62, from.z, yaw, pitch);
+		});
+	}
+
+	private static <T extends Mob> T put(ServerLevel level, EntityType<T> type, double x, double z, float yaw) {
+		T m = type.create(level);
+		m.moveTo(base.x + x, base.y, base.z + z, yaw, 0);
+		m.setYHeadRot(yaw);
+		m.setYBodyRot(yaw);
+		m.setNoAi(true);
+		m.setPersistenceRequired();
+		level.addFreshEntity(m);
+		return m;
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				LevelSettings settings = new LevelSettings("PetDebug" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+						Difficulty.NORMAL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.hideGui = true;
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				base = Vec3.atBottomCenterOf(p.blockPosition());
+				// row at z+6, facing the camera (yaw 180 = facing -z)
+				var plainWolf = put(level, EntityType.WOLF, -3, 6, 180);
+				plainWolf.tame(p);
+				var petWolf = put(level, EntityType.WOLF, -1, 6, 180);
+				petWolf.tame(p);
+				SymbiotePet.bond(petWolf, SymbiotePet.SHARED);
+				var petCat = put(level, EntityType.CAT, 1, 6, 180);
+				petCat.tame(p);
+				SymbiotePet.bond(petCat, SymbiotePet.SHARED);
+				var wildWolf = put(level, EntityType.WOLF, 3, 6, 180);
+				SymbioteHost.takeOver(wildWolf);
+				var cow = put(level, EntityType.COW, -3, 10, 180);
+				SymbioteHost.takeOver(cow);
+				var sheep = put(level, EntityType.SHEEP, 0, 10, 180);
+				SymbioteHost.takeOver(sheep);
+				var pig = put(level, EntityType.PIG, 3, 10, 180);
+				SymbioteHost.takeOver(pig);
+				var husk = put(level, EntityType.HUSK, 6, 10, 180);
+				SymbioteHost.takeOver(husk);
+				var normalCow = put(level, EntityType.COW, -6, 10, 180);
+				System.out.println("[HARNESS] petWolf pet=" + SymbiotePet.is(petWolf) + " hp=" + petWolf.getMaxHealth()
+						+ " scale=" + petWolf.getScale() + " cat pet=" + SymbiotePet.is(petCat) + " cow host=" + SymbioteHost.is(cow)
+						+ " normalCow=" + SymbioteHost.is(normalCow) + " tame=" + ((TamableAnimal) petWolf).isTame());
+			});
+			t0 = inWorldTicks;
+			AT.put(5, () -> view(mc, 0, 2.2, 1.0, new Vec3(0, 0.4, 6)));
+			AT.put(40, () -> server(mc, p -> System.out.println("[HARNESS] client pet flag seen: "
+					+ mc.level.getEntitiesOfClass(net.minecraft.world.entity.animal.Wolf.class, mc.player.getBoundingBox().inflate(20))
+							.stream().map(w -> w.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.SYMBIOTE_PET, 0)).toList())));
+			AT.put(45, () -> shot(mc, "a01_row_pets"));
+			AT.put(47, () -> view(mc, 0, 1.3, 3.2, new Vec3(-1, 0.5, 6)));
+			AT.put(70, () -> shot(mc, "a02_pets_close"));
+			AT.put(72, () -> view(mc, 0, 2.6, 3.0, new Vec3(0, 0.5, 10)));
+			AT.put(95, () -> shot(mc, "a03_infested_animals"));
+			AT.put(97, () -> view(mc, 0, 3.0, 0.0, new Vec3(0, 0.3, 8)));
+			AT.put(100, () -> server(mc, p -> p.serverLevel().setDayTime(18000L)));
+			AT.put(125, () -> shot(mc, "a04_night"));
+			AT.put(135, () -> mc.stop());
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+}

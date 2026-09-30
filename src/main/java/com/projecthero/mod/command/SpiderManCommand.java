@@ -77,16 +77,19 @@ public final class SpiderManCommand {
 	private static int spawnHost(CommandContext<CommandSourceStack> c, ServerPlayer player) {
 		net.minecraft.world.entity.Mob target = player.serverLevel().getEntitiesOfClass(
 				net.minecraft.world.entity.Mob.class, player.getBoundingBox().inflate(12.0),
-				m -> m instanceof net.minecraft.world.entity.monster.Monster && m.isAlive()
-						&& !com.projecthero.mod.symbiote.SymbioteHost.is(m))
+				// v0.14.4: passive animals and tamed wolves / cats (which become Symbiote Pets) count too
+				m -> m.isAlive() && !com.projecthero.mod.symbiote.SymbioteHost.is(m)
+						&& (m instanceof net.minecraft.world.entity.monster.Monster
+								|| com.projecthero.mod.symbiote.entity.SymbioteEntity.isValidHost(m)))
 				.stream().min(java.util.Comparator.comparingDouble(player::distanceToSqr)).orElse(null);
 		if (target == null) {
-			c.getSource().sendFailure(Component.literal("No eligible hostile mob within 12 blocks."));
+			c.getSource().sendFailure(Component.literal("No eligible mob within 12 blocks."));
 			return 0;
 		}
-		com.projecthero.mod.symbiote.SymbioteHost.mark(target);
+		com.projecthero.mod.symbiote.SymbioteHost.takeOver(target);
+		boolean pet = com.projecthero.mod.symbiote.SymbiotePet.is(target);
 		c.getSource().sendSuccess(() -> Component.literal("Marked " + target.getName().getString()
-				+ " as a Symbiote Host."), false);
+				+ (pet ? " as a Symbiote Pet." : " as a Symbiote Host.")), false);
 		return 1;
 	}
 

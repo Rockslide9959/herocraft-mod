@@ -60,9 +60,10 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>It crawls</b> with gravity and real block collision, oozes up 1-block steps and creeps up
  *       walls when something is in its way, and wanders with pauses when it has nothing to do.</li>
  *   <li><b>It hunts for a host</b>: every {@value #HOST_SCAN_INTERVAL} ticks it looks (one bounded AABB
- *       query) for a hostile-capable mob within {@value #SEEK_RANGE} blocks -- anything with an attack
- *       damage attribute, monsters preferred; never bosses, the mod's event/raid mobs, tamed or owned
- *       mobs, no-AI display mobs or an existing Symbiote Host -- crawls to it and, on contact,
+ *       query) for a host within {@value #SEEK_RANGE} blocks -- anything with an attack damage attribute or
+ *       (v0.14.4) a grown passive animal, monsters preferred; never bosses, the mod's event/raid mobs, owned
+ *       mobs other than a tamed wolf or cat (which becomes a loyal Symbiote Pet), no-AI display mobs or an
+ *       existing Symbiote Host -- crawls to it and, on contact,
  *       <b>takes control</b>: the mob becomes a Symbiote Host ({@link SymbioteHost#mark}) and this entity
  *       is discarded. When that host dies, {@link SymbioteHost#onDeath} frees a Symbiote again.</li>
  *   <li><b>It fears fire and sound</b>: every {@value #THREAT_SCAN_INTERVAL} ticks it checks for burning
@@ -576,18 +577,25 @@ public class SymbioteEntity extends Entity {
 	}
 
 	/**
-	 * A mob this organism may take over: alive, able to fight (has an attack-damage attribute), not a
-	 * boss of any kind, not a mod event/raid mob, not tamed or owned, not a no-AI display mob, and not
-	 * already a Symbiote Host.
+	 * A mob this organism may take over: alive, able to fight (has an attack-damage attribute) or -- v0.14.4 --
+	 * one of the grown passive animals {@link SymbioteHost#isPassiveHostSpecies} lists, not a boss of any kind,
+	 * not a mod event/raid mob, not a no-AI display mob, and not already a Symbiote Host or Symbiote Pet. Owned
+	 * mobs are off-limits, except (v0.14.4) a tamed wolf or cat, which becomes a loyal
+	 * {@link com.projecthero.mod.symbiote.SymbiotePet Symbiote Pet} rather than a hostile host.
 	 */
 	public static boolean isValidHost(Mob mob) {
 		if (!mob.isAlive() || mob.isRemoved() || mob.isNoAi() || mob.isSpectator()) {
 			return false;
 		}
-		if (SymbioteHost.is(mob) || mob.getAttribute(Attributes.ATTACK_DAMAGE) == null) {
+		if (SymbioteHost.is(mob) || com.projecthero.mod.symbiote.SymbiotePet.is(mob)) {
 			return false;
 		}
 		if (mob instanceof OwnableEntity owned && owned.getOwnerUUID() != null) {
+			return com.projecthero.mod.symbiote.SymbiotePet.canBond(mob)
+					&& !mob.getTags().contains(com.projecthero.mod.event.EventInstance.EVENT_TAG);
+		}
+		boolean passive = SymbioteHost.isPassiveHostSpecies(mob);
+		if (passive ? mob.isBaby() : mob.getAttribute(Attributes.ATTACK_DAMAGE) == null) {
 			return false;
 		}
 		if (mob.getTags().contains(com.projecthero.mod.event.EventInstance.EVENT_TAG)) {
@@ -628,10 +636,14 @@ public class SymbioteEntity extends Entity {
 		}
 	}
 
-	/** Pour into the mob and take control of it. This entity is consumed. */
+	/**
+	 * Pour into the mob and take control of it. This entity is consumed. v0.14.4: a tamed wolf or cat becomes a
+	 * loyal Symbiote Pet instead of a hostile host ({@link SymbioteHost#takeOver}).
+	 */
 	public void takeOver(ServerLevel server, Mob mob) {
 		Component victim = mob.getDisplayName();
-		SymbioteHost.mark(mob);
+		boolean pet = com.projecthero.mod.symbiote.SymbiotePet.canBond(mob);
+		SymbioteHost.takeOver(mob);
 		double cx = mob.getX();
 		double cy = mob.getY() + mob.getBbHeight() * 0.5;
 		double cz = mob.getZ();
@@ -646,6 +658,9 @@ public class SymbioteEntity extends Entity {
 		server.playSound(null, cx, cy, cz, SoundEvents.WARDEN_HEARTBEAT, SoundSource.HOSTILE, 1.2f, 0.7f);
 		server.playSound(null, cx, cy, cz, SoundEvents.SCULK_CATALYST_BLOOM, SoundSource.HOSTILE, 1.0f, 0.6f);
 		for (Player p : server.getEntitiesOfClass(Player.class, mob.getBoundingBox().inflate(24.0))) {
+			if (pet) {
+				continue; // the owner already got the "bonds with your pet" line; nobody else needs a warning
+			}
 			p.displayClientMessage(Component.translatable("message.projecthero.symbiote.took_host", victim)
 					.withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.ITALIC), false);
 		}
@@ -807,6 +822,12 @@ public class SymbioteEntity extends Entity {
 	/** Ticks before it starts looking for a host (fresh from a meteorite or a dead host). */
 	public void setHuntDelay(int ticks) {
 		this.huntDelay = ticks;
+	}
+
+	/** v0.14.4: leave this mob alone for {@code ticks} (a pet that just shook this Symbiote loose). */
+	public void ignoreHost(UUID mob, int ticks) {
+		this.ignoredTarget = mob;
+		this.ignoreUntil = level().getGameTime() + ticks;
 	}
 
 	/**

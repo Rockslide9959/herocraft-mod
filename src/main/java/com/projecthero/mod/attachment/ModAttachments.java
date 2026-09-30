@@ -510,7 +510,30 @@ public final class ModAttachments {
 	 */
 	public static final AttachmentType<Boolean> SYMBIOTE_HOST = AttachmentRegistry.create(
 			ProjectHeroMod.id("symbiote_host"),
-			builder -> builder.persistent(Codec.BOOL).initializer(() -> false));
+			// v0.14.4: synced to everyone so clients can draw the host black (the Symbiote skin tint).
+			builder -> builder.persistent(Codec.BOOL).initializer(() -> false)
+					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
+
+	/**
+	 * v0.14.4: a tamed wolf or cat bonded with a Symbiote -- a <b>Symbiote Pet</b>
+	 * ({@link com.projecthero.mod.symbiote.SymbiotePet}). The value is where its Symbiote came from:
+	 * {@code 1} shared by its Symbiote-bonded owner, {@code 2} a wild Symbiote that crawled onto it (only a
+	 * wild one tears free as a new free Symbiote when the pet dies or is shaken loose). Absent = not a pet.
+	 * Persistent (the bond survives chunk reloads and restarts; the stat boosts are permanent attribute
+	 * modifiers vanilla already saves) and synced to everyone for the transformed render.
+	 */
+	public static final AttachmentType<Integer> SYMBIOTE_PET = AttachmentRegistry.create(
+			ProjectHeroMod.id("symbiote_pet"),
+			builder -> builder.persistent(Codec.INT)
+					.syncWith(ByteBufCodecs.VAR_INT, AttachmentSyncPredicate.all()));
+
+	/**
+	 * v0.14.4: a Symbiote Pet's transient combat brain (ability cooldowns, pounce state). Not persisted, not
+	 * synced -- it lives and dies with the entity instance, so there is no static per-entity cache to leak.
+	 */
+	public static final AttachmentType<com.projecthero.mod.symbiote.SymbiotePet.Brain> SYMBIOTE_PET_BRAIN =
+			AttachmentRegistry.create(ProjectHeroMod.id("symbiote_pet_brain"),
+					builder -> builder.initializer(com.projecthero.mod.symbiote.SymbiotePet.Brain::new));
 
 	/**
 	 * Whether the player is currently aiming a firearm down its sights / through its scope (holding

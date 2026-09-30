@@ -185,6 +185,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 
 		// Arc Reactor on the player's chest (Tony Stark power, no Iron Man chestplate) + Max Steel's
 		// Turbo Blast charge orb / Turbo Cannon arm cannon (v0.14.2).
+		// v0.14.4: white Symbiote eyes on infested / Symbiote Pet wolves, cats and cows
+		com.projecthero.mod.client.symbiote.SymbioteSkin.registerLayers();
 		net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback.EVENT.register(
 				(entityType, entityRenderer, registrationHelper, context) -> {
 					if (entityRenderer instanceof net.minecraft.client.renderer.entity.player.PlayerRenderer playerRenderer) {
