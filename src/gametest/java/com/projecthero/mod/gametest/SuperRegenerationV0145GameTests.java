@@ -65,11 +65,11 @@ public class SuperRegenerationV0145GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void healTickRestoresTenAndShowsTheVeins(GameTestHelper helper) {
+	public void healTickRestoresTwoAndShowsTheVeins(GameTestHelper helper) {
 		ServerPlayer p = regen(helper);
 		p.setHealth(4f);
 		helper.assertTrue(SuperRegenerationHandlers.healTick(p), "hurt: it heals");
-		helper.assertTrue(Math.abs(p.getHealth() - 14f) < 0.01f, "10 HP per heal tick, got " + p.getHealth());
+		helper.assertTrue(Math.abs(p.getHealth() - 6f) < 0.01f, "2 HP per heal tick, got " + p.getHealth());
 		for (int i = 0; i < 4; i++) {
 			p.tickCount = i;
 			MutationVisuals.tick(p);

@@ -35,7 +35,7 @@ import net.minecraft.world.effect.MobEffectInstance;
  *
  * <p>No ability keys at all. Three always-on passives while the power is owned (selected or not):
  * <ul>
- *   <li><b>Healing</b> -- 10 HP every 5 ticks while below max health, no hunger cost. Red pixel veins pulse and
+ *   <li><b>Healing</b> -- 2 HP every tick while below max health, no hunger cost. Red pixel veins pulse and
  *       trickle over the whole body while it runs (flag {@link #VEINS_FLAG}, visible to everyone).</li>
  *   <li><b>Cleansing</b> -- every harmful effect is burned off once it has been on you for 2 s; it dissolves out
  *       of the body in its own colour. The unstable mutation is not a poison and is never touched.</li>
@@ -50,8 +50,8 @@ public final class SuperRegenerationHandlers {
 	/** MutationVisuals flag for the red healing veins. */
 	public static final String VEINS_FLAG = "p12.veins";
 
-	public static final int HEAL_INTERVAL = 5;
-	public static final float HEAL_AMOUNT = 10.0f;
+	public static final int HEAL_INTERVAL = 1; // v0.14.7: every tick (was 10 HP every 5)
+	public static final float HEAL_AMOUNT = 2.0f;
 	/** A harmful effect is removed once it has been on the player this long. */
 	public static final int CLEANSE_TICKS = 40;
 	public static final int REVIVE_CHARGES = 3;
@@ -108,7 +108,7 @@ public final class SuperRegenerationHandlers {
 
 	// ---------------------------------------------------------------- healing
 
-	/** One heal interval: +10 HP if hurt. Returns whether it healed. */
+	/** One heal tick: +2 HP if hurt. Returns whether it healed. */
 	public static boolean healTick(ServerPlayer p) {
 		if (!p.isAlive() || p.getHealth() >= p.getMaxHealth()) {
 			return false;

@@ -303,7 +303,7 @@
   "projecthero.power.power_12_super_regeneration.desc": "Pure cellular regeneration, always on: no keys to press. You heal 10 health every quarter second, burn off any harmful effect within 2 seconds, and carry 3 revive charges that each recharge on their own. Ascends into Wolverine with an Adamantium Serum.",
   "projecthero.power.power_12_super_regeneration.serum": "Cellular Regeneration Serum",
   "projecthero.power.power_12_super_regeneration.trigger": "While the serum is active, survive being reduced below 3 hearts without dying.",
-  "projecthero.power.power_12_super_regeneration.passive.regen": "Healing: 10 health every 5 ticks (40 health a second) whenever you are hurt, with no hunger cost. Red veins pulse and trickle over your whole body while it works",
+  "projecthero.power.power_12_super_regeneration.passive.regen": "Healing: 2 health every tick (40 health a second) whenever you are hurt, with no hunger cost. Red veins pulse and trickle over your whole body while it works",
   "projecthero.power.power_12_super_regeneration.passive.cleanse": "Cleansing: any harmful effect (poison, wither, slowness, weakness...) dissolves out of you after 2 seconds. The unstable mutation is not a poison and is never touched",
   "projecthero.power.power_12_super_regeneration.passive.revive": "Revive charges: 3 charges, shown as green dots beside the power name (grey while recharging). A killing blow spends one before any Totem of Undying: you get back up at half health, cleansed, with 1 second of damage immunity. Each spent charge recharges on its own 60-second timer. /kill and the void still kill you",
   "projecthero.power.power_14_sonic_scream.name": "Sonic Scream",

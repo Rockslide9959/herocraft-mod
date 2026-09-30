@@ -22,7 +22,7 @@ const REMOVE = [
 // [key, value, key to insert after when missing]
 const SET = [
 	[P + 'desc', 'Pure cellular regeneration, always on: no keys to press. You heal 10 health every quarter second, burn off any harmful effect within 2 seconds, and carry 3 revive charges that each recharge on their own. Ascends into Wolverine with an Adamantium Serum.', P + 'name'],
-	[P + 'passive.regen', 'Healing: 10 health every 5 ticks (40 health a second) whenever you are hurt, with no hunger cost. Red veins pulse and trickle over your whole body while it works', P + 'trigger'],
+	[P + 'passive.regen', 'Healing: 2 health every tick (40 health a second) whenever you are hurt, with no hunger cost. Red veins pulse and trickle over your whole body while it works', P + 'trigger'],
 	[P + 'passive.cleanse', 'Cleansing: any harmful effect (poison, wither, slowness, weakness...) dissolves out of you after 2 seconds. The unstable mutation is not a poison and is never touched', P + 'passive.regen'],
 	[P + 'passive.revive', 'Revive charges: 3 charges, shown as green dots beside the power name (grey while recharging). A killing blow spends one before any Totem of Undying: you get back up at half health, cleansed, with 1 second of damage immunity. Each spent charge recharges on its own 60-second timer. /kill and the void still kill you', P + 'passive.cleanse'],
 	['projecthero.guide.power.no_abilities', 'No ability keys: %s is always on.', 'projecthero.guide.power.abilities'],
