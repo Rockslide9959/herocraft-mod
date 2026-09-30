@@ -139,16 +139,14 @@ final class PowerCatalog {
 	private static Power superSpeed() {
 		String k = "power_04_super_speed";
 		return Power.Builder.of(Powers.id(k), PowerCategory.MOVEMENT)
-				// v0.13.22 revamp: momentum builds while you run
+				// v0.14.5 rework: six keys (Shift+C = Phase), Time Slow on Z; passives = +30% speed, faster eating
 				.ability(ab(k, "rapid_assault", SLOT_1, INSTANT, 30))
 				.ability(ab(k, "speed_carry", SLOT_2, INSTANT, 51))
 				.ability(ab(k, "momentum_dash", SLOT_3, INSTANT, 34))
-				.ability(ab(k, "overdrive", SLOT_4, INSTANT, 850))
-				.ability(ab(k, "vortex", SLOT_5, HOLD, 204))
+				.ability(ab(k, "time_slow", SLOT_4, INSTANT, 3000))
+				.ability(ab(k, "overdrive", SLOT_5, INSTANT, 850))
 				.ability(ab(k, "speed_mode", SLOT_6, TOGGLE, 0))
-				.ability(ab(k, "phase_vibrate", AbilitySlot.SLOT_7, INSTANT, 102))
-				.ability(ab(k, "lightning_throw", AbilitySlot.SLOT_8, INSTANT, 80))
-				.passives(pk(k, "passive.sprint"), pk(k, "passive.step"), pk(k, "passive.collision"))
+				.passives(pk(k, "passive.speed"), pk(k, "passive.metabolism"))
 				.serum(SerumRecipe.of("minecraft:swiftness", pk(k, "serum"),
 						"minecraft:sugar", "minecraft:rabbit_foot", "minecraft:redstone"))
 				.trigger(MutationTrigger.of(Kind.ELECTRICAL_DISCHARGE, pk(k, "trigger"), "projecthero.device.charged_copper_plates"))

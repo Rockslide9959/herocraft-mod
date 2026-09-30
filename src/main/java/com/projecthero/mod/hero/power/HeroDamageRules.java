@@ -243,6 +243,14 @@ public final class HeroDamageRules {
 					return Verdict.mult(0.5f);
 				}
 			}
+			case "power_04_super_speed" -> {
+				// v0.14.5: Shift+C Phase -- nothing touches a vibrating speedster (except /kill and the void)
+				if (com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.phasing(player)
+						&& !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+					player.resetFallDistance();
+					return Verdict.immune();
+				}
+			}
 			case "power_23_gravity_manipulation" -> {
 				if (fall) {
 					return Verdict.mult(0.2f);

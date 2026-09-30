@@ -30,8 +30,6 @@ import net.minecraft.resources.ResourceLocation;
 public final class RevampClientA {
 	private static final ResourceLocation P01_VEINS = tex("p01_veins");
 	private static final ResourceLocation P03_STREAKS = tex("p03_streaks");
-	private static final ResourceLocation P04_CRACKLE_A = tex("p04_crackle_a");
-	private static final ResourceLocation P04_CRACKLE_B = tex("p04_crackle_b");
 
 	private static final String FLIGHT = "power_03_flight";
 	private static final String STRENGTH = "power_01_super_strength";
@@ -110,12 +108,9 @@ public final class RevampClientA {
 		float[] jR = f(0, -1.6f, -0.1f, 0, 0.4f, 0.2f, 0, 0.15f, -0.4f, -0.2f, 0.2f, 0);
 		float[] jL = f(0, 0.4f, -0.2f, 0, -1.6f, 0.1f, 0, 0.15f, 0.4f, 0.2f, -0.2f, 0);
 		MutationPose.register("p04.flurry", new float[][] { z(0), at(1, jR), at(3, jL), at(5, jR), at(7, jL), at(9, jR), z(13) });
-		float[] hold = f(0, -1.35f, -0.28f, 0, -1.35f, 0.28f, 0, 0.12f, 0, 0, 0, 0);
+		// v0.14.5: the carried creature rides on your shoulders -- both arms up to steady it
+		float[] hold = f(0, -2.7f, -0.25f, 0, -2.7f, 0.25f, 0, 0.05f, 0, 0, 0, 0);
 		MutationPose.registerLoop("p04.carry", 4, new float[][] { z(0), at(4, hold), at(14, hold) });
-		float[] vibA = f(0, -0.3f, 0, 0.35f, -0.3f, 0, -0.35f, 0.1f, 0.18f, 0.1f, -0.1f, 0);
-		float[] vibB = f(0, -0.3f, 0, 0.4f, -0.3f, 0, -0.4f, 0.1f, -0.18f, -0.1f, 0.1f, 0);
-		MutationPose.register("p04.vibrate", new float[][] { z(0), at(1, vibA), at(2, vibB), at(3, vibA), at(4, vibB),
-				at(5, vibA), at(6, vibB), at(7, vibA), z(10) });
 
 		// ---- 12 Super Regeneration: v0.14.5 passive-only, no poses ----
 
@@ -149,14 +144,6 @@ public final class RevampClientA {
 			float speed = ctx.state().value("p03.speed", 2f);
 			float k = Math.min(1f, 0.25f + speed * 0.15f) * (0.8f + 0.2f * MutationRender.pulse(ctx, 4f));
 			MutationRender.shell(ctx, P03_STREAKS, MutationRender.Shell.THICK, glow(k, 230, 240, 255), true);
-		});
-
-		// 04: yellow lightning crackling over the body (two frames swapped every other tick)
-		MutationOverlays.register("p04.crackle", ctx -> {
-			float intensity = ctx.state().value("p04.intensity", 1f);
-			boolean frameA = ((int) ((ctx.ageInTicks() + ctx.partialTick()) / 2f)) % 2 == 0;
-			float k = (intensity >= 2f ? 1.0f : 0.6f) * (0.75f + 0.25f * MutationRender.pulse(ctx, 5f));
-			MutationRender.shell(ctx, frameA ? P04_CRACKLE_A : P04_CRACKLE_B, MutationRender.Shell.THIN, glow(k, 255, 225, 70), true);
 		});
 
 		// 12: v0.14.5 -- the red healing veins live in v0145.SuperRegenerationClientV0145

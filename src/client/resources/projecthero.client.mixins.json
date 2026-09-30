@@ -43,6 +43,10 @@
 		"SoundEngineMixin",
 		"TitanCameraMixin",
 		"SpiderTravelMixin",
+		"SuperSpeedClientLevelMixin",
+		"SuperSpeedPhaseClientMixin",
+		"SuperSpeedScreenEffectMixin",
+		"SuperSpeedWalkAnimationAccessor",
 		"WolverineAttackMixin",
 		"WorldEventZoomMixin"
 	],

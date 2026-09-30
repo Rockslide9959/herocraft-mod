@@ -327,7 +327,7 @@ public class HeroPackGameTests implements FabricGameTest {
 	public void ownedExperimentalPowersStackTheirPassives(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
 		var atkAttr = net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE;
-		var stepAttr = net.minecraft.world.entity.ai.attributes.Attributes.STEP_HEIGHT;
+		var stepAttr = net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED; // v0.14.5: Speed's passive is +30% speed
 		Power strength = power("power_01_super_strength");
 		Power speed = power("power_04_super_speed");
 		double atkBase = player.getAttributeValue(atkAttr);
@@ -341,7 +341,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		helper.assertTrue(player.getAttributeValue(atkAttr) > atkBase + 0.001,
 				"Super Strength's attack passive should be live even though Super Speed is selected");
 		helper.assertTrue(player.getAttributeValue(stepAttr) > stepBase + 0.001,
-				"Super Speed's own step-height passive should be live too -- both stack");
+				"Super Speed's own +30% speed passive should be live too -- both stack");
 		helper.succeed();
 	}
 

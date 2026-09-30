@@ -4,7 +4,6 @@ import com.projecthero.mod.hero.ExperimentalPowers;
 import com.projecthero.mod.hero.power.p01.SuperStrengthHandlers;
 import com.projecthero.mod.hero.power.p02.LaserVisionHandlers;
 import com.projecthero.mod.hero.power.p03.FlightHandlers;
-import com.projecthero.mod.hero.power.p04.SuperSpeedHandlers;
 import com.projecthero.mod.hero.power.p12.SuperRegenerationHandlers;
 import com.projecthero.mod.hero.revamp.batcha.BatchA;
 import com.projecthero.mod.hero.revamp.batcha.BatchAEntities;
@@ -76,15 +75,7 @@ public final class RevampBatchA {
 			return BatchA.res(p, FlightHandlers.KEY, "sonic_ticks") > 0.5f ? 4 : BatchA.res(p, FlightHandlers.KEY, "speed_tier");
 		});
 
-		// 04 Super Speed: yellow lightning crackles over the body in Speed Mode, fiercer in Overdrive
-		MutationVisuals.registerFlag("p04.crackle", p -> owns(p, SuperSpeedHandlers.KEY)
-				&& (SuperSpeedHandlers.speedMode(p) || SuperSpeedHandlers.overdrive(p)));
-		MutationVisuals.registerValue("p04.intensity", p -> {
-			if (!owns(p, SuperSpeedHandlers.KEY)) {
-				return 0;
-			}
-			return SuperSpeedHandlers.overdrive(p) ? 2 : SuperSpeedHandlers.speedMode(p) ? 1 : 0;
-		});
+		// 04 Super Speed: v0.14.5 -- its after-image trail flags live in v0145.SuperSpeedV0145
 
 		// 12 Super Regeneration: v0.14.5 -- its veins flag lives in v0145.SuperRegenerationV0145
 
@@ -104,13 +95,7 @@ public final class RevampBatchA {
 		MutationMeters.register(new Spec(FlightHandlers.KEY, "slip_ticks", Kind.TIMER, Style.HAIRLINE, "Slipstream",
 				240f, 0xFFB8E8D8, false, false));
 
-		// 04 Super Speed
-		MutationMeters.register(new Spec(SuperSpeedHandlers.KEY, SuperSpeedHandlers.MOMENTUM, Kind.BUILD, Style.GAUGE, "Momentum",
-				SuperSpeedHandlers.MAX_MOMENTUM, 0xFFFFD83A, true, true));
-		MutationMeters.register(new Spec(SuperSpeedHandlers.KEY, "overdrive_ticks", Kind.TIMER, Style.SLAB, "Overdrive",
-				600f, 0xFFFFB020, false, false));
-		MutationMeters.register(new Spec(SuperSpeedHandlers.KEY, "vortex_ticks", Kind.TIMER, Style.HAIRLINE, "Vortex",
-				160f, 0xFFD8E8FF, false, false));
+		// 04 Super Speed: v0.14.5 -- meters registered in v0145.SuperSpeedV0145
 
 		// 12 Super Regeneration: v0.14.5 -- no meters (the revive-charge dots are drawn on the HUD's name line)
 

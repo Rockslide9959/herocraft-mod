@@ -34,6 +34,11 @@
 		"RangedAttributeAccessor",
 		"RangedBowAttackGoalMixin",
 		"RangedCrossbowAttackGoalMixin",
+		"SuperSpeedAbilityRouterMixin",
+		"SuperSpeedEatMixin",
+		"SuperSpeedPhaseCollideMixin",
+		"SuperSpeedPhasePoseMixin",
+		"SuperSpeedTimeSlowMixin",
 		"ZombieSpawnMixin"
 	],
 	"client": [],

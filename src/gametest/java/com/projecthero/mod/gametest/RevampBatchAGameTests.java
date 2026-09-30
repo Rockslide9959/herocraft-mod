@@ -146,7 +146,7 @@ public class RevampBatchAGameTests implements FabricGameTest {
 		helper.assertTrue(Powers.byKey(SuperRegenerationHandlers.KEY).abilities().isEmpty(),
 				"Super Regeneration is passive-only since v0.14.5");
 		helper.assertTrue(MutationVisuals.registeredFlags().containsAll(java.util.List.of("p01.effort", "p03.wind",
-				"p04.crackle", SuperRegenerationHandlers.VEINS_FLAG)), "batch A overlay flags registered");
+				"p04.trail", SuperRegenerationHandlers.VEINS_FLAG)), "batch A overlay flags registered");
 		helper.succeed();
 	}
 
@@ -345,68 +345,18 @@ public class RevampBatchAGameTests implements FabricGameTest {
 	}
 
 	// ---------------- 04 Super Speed ----------------
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_momentum")
-	public void speedMomentumBuildsAndLightningThrowSpendsIt(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, SuperSpeedHandlers.KEY);
-		p.setSprinting(true);
-		p.setOnGround(true);
-		tick(p, 20);
-		helper.assertTrue(SuperSpeedHandlers.momentum(p) > 5f, "sprinting builds Momentum");
-		Zombie z = zombieAhead(helper, p, 4.0);
-		p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, z.getEyePosition());
-		setRes(p, SuperSpeedHandlers.KEY, SuperSpeedHandlers.MOMENTUM, 20f);
-		AbilityRouter.handleInput(p, 8, true); // N = Lightning Throw
-		helper.assertFalse(onCooldown(p, SuperSpeedHandlers.KEY, AbilitySlot.SLOT_8), "needs 30 Momentum");
-		float before = z.getHealth();
-		setRes(p, SuperSpeedHandlers.KEY, SuperSpeedHandlers.MOMENTUM, 100f);
-		AbilityRouter.handleInput(p, 8, true);
-		helper.assertTrue(z.getHealth() < before, "the bolt strikes");
-		helper.assertTrue(SuperSpeedHandlers.momentum(p) == 0f, "and spends the Momentum");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_vortex")
-	public void speedVortexDragsMobsIn(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, SuperSpeedHandlers.KEY);
-		Zombie z = zombieAhead(helper, p, 8.0);
-		AbilityRouter.handleInput(p, 5, true); // V = Vortex (hold)
-		helper.assertTrue(res(p, SuperSpeedHandlers.KEY, "vortex_ticks") > 0f, "the vortex spins up");
-		tick(p, 1);
-		helper.assertTrue(z.getDeltaMovement().z < -0.05, "the zombie is dragged toward the eye");
-		helper.assertTrue("spin_arms".equals(MutationVisuals.anim(p)), "the spin pose plays");
-		AbilityRouter.handleInput(p, 5, false);
-		helper.assertTrue(res(p, SuperSpeedHandlers.KEY, "vortex_ticks") == 0f, "release ends it");
-		helper.assertTrue(onCooldown(p, SuperSpeedHandlers.KEY, AbilitySlot.SLOT_5), "and starts the cooldown");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_phase")
-	public void speedPhaseVibratePassesThroughAThinWall(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, SuperSpeedHandlers.KEY);
-		BlockPos feet = p.blockPosition();
-		helper.getLevel().setBlock(feet.offset(0, 0, 1), Blocks.STONE.defaultBlockState(), 2);
-		helper.getLevel().setBlock(feet.offset(0, 1, 1), Blocks.STONE.defaultBlockState(), 2);
-		double z0 = p.getZ();
-		AbilityRouter.handleInput(p, 7, true); // H = Phase Vibrate
-		helper.assertTrue(p.getZ() > z0 + 1.2, "you come out the far side of the wall (z " + p.getZ() + " from " + z0 + ")");
-		helper.assertTrue(p.level().noCollision(p, p.getBoundingBox()), "somewhere you fit");
-		helper.succeed();
-	}
+	// v0.14.5: the reworked kit is covered in SuperSpeedV0145GameTests; this keeps Overdrive's basics.
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_overdrive")
-	public void speedOverdriveSlowsTheWorldAndCrackles(GameTestHelper helper) {
+	public void speedOverdriveRunsAndLeavesARedTrail(GameTestHelper helper) {
 		ServerPlayer p = hero(helper, SuperSpeedHandlers.KEY);
-		Zombie z = zombieAhead(helper, p, 5.0);
-		AbilityRouter.handleInput(p, 4, true); // Z = Overdrive
+		AbilityRouter.handleInput(p, 5, true); // V = Overdrive
 		helper.assertTrue(SuperSpeedHandlers.overdrive(p), "Overdrive runs");
-		for (int i = 0; i < 5; i++) {
-			p.tickCount = i;
-			ExperimentalPowers.serverTick(p);
-		}
-		helper.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "time slows for the zombie");
+		helper.assertTrue(onCooldown(p, SuperSpeedHandlers.KEY, AbilitySlot.SLOT_5), "and starts its cooldown");
+		tick(p, 1);
 		refreshVisuals(p);
-		helper.assertTrue(MutationVisuals.hasFlag(p, "p04.crackle"), "lightning crackles over you");
+		helper.assertTrue(MutationVisuals.hasFlag(p, "p04.trail"), "the after-image trail is on");
+		helper.assertTrue(MutationVisuals.state(p).value("p04.trail_red", 0f) > 0.5f, "and red in Overdrive");
 		helper.succeed();
 	}
 }
