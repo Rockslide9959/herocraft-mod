@@ -1,0 +1,27 @@
+Project Hero v0.14.7 -- Speedster Update + New Power Wheel
+
+SUPER SPEED
+- Keys: R Rapid Assault / Shift+R Mach Punch, G Blitz / Shift+G Speed Vortex, X Momentum Dash / Shift+X Speed Sweep, Z Time Slow, V Overdrive, C Speed Mode / Shift+C Phase, N Speed Carry. H is only the power wheel; the HUD shows just R G X Z V C.
+- G Blitz (new): zip to the enemy under your crosshair (24 blocks) and hit for 20 (40 in Overdrive). 4 s cooldown.
+- Rapid Assault now ignores hit immunity: all 4 punches land for the full 32, on mobs and players.
+- Shift+R Mach Punch (new): 12 damage standing, up to 30 at top Overdrive speed, with a shockwave. 10 s cooldown.
+- Shift+G Speed Vortex (new): a 3 s cyclone that drags everything within 8 blocks round and up, then flings them out (23 total). 14 s cooldown.
+- Shift+X Speed Sweep (new): teleport through every enemy within 30 blocks (up to 16), 12 damage each, then snap back to exactly where you started. Untouchable while it runs. 20 s cooldown.
+- N Speed Carry: moved from G.
+- Z Time Slow, now game-wide: for 45 s EVERYTHING except you runs at 5%. That means mobs, other players, projectiles, falling blocks, redstone, water, block animations, particles, the sky, clouds and weather. You stay at full speed, and everything you hit takes full damage every time. Kills, loot and XP land at once. New screen effect. Only one Time Slow at a time. 150 s cooldown.
+- Wall run: in Speed Mode or Overdrive, run into a wall and look up to sprint straight up it.
+- New speedster run animation for Speed Mode (forward lean, pumping arms) and Overdrive (deep lean, arms swept back). Your after-images copy the pose.
+- Overdrive trail crackles with red lightning arcs and sparks.
+- Passive: permanent Regeneration II.
+- Water running is much quieter.
+
+SUPER REGENERATION
+- Heals 2 HP every tick (smooth, 40 health a second).
+
+POWER WHEEL
+- Brand-new black and grey wheel (Shift+H), built for your 1-3 mutations: big segments, hover lift, an active-power marker, and a centre panel with the power's details and slot pips. "No experimental power" is a button under the ring.
+
+FIXES
+- Long item tooltips (Heroic Serum and others) now wrap instead of running across the whole screen.
+
+Guidebook and power screens updated.
