@@ -96,14 +96,7 @@ public final class RevampBatchA {
 			return SuperSpeedHandlers.overdrive(p) ? 2 : SuperSpeedHandlers.speedMode(p) ? 1 : 0;
 		});
 
-		// 12 Super Regeneration: green veins while regenerating hard, red while Blood Rage runs
-		MutationVisuals.registerFlag("p12.regen", p -> owns(p, SuperRegenerationHandlers.KEY)
-				&& (ExperimentalPowers.state(p).activeToggles.contains(SuperRegenerationHandlers.KEY + "/regeneration_mode")
-						|| BatchA.res(p, SuperRegenerationHandlers.KEY, "surge_left") > 0.5f));
-		MutationVisuals.registerValue("p12.surge", p -> owns(p, SuperRegenerationHandlers.KEY)
-				&& BatchA.res(p, SuperRegenerationHandlers.KEY, "surge_left") > 0.5f ? 1 : 0);
-		MutationVisuals.registerFlag("p12.rage", p -> owns(p, SuperRegenerationHandlers.KEY)
-				&& SuperRegenerationHandlers.bloodRaging(p));
+		// 12 Super Regeneration: v0.14.5 -- its veins flag lives in v0145.SuperRegenerationV0145
 
 	}
 
@@ -137,13 +130,7 @@ public final class RevampBatchA {
 		MutationMeters.register(new Spec(SuperSpeedHandlers.KEY, "vortex_ticks", Kind.TIMER, Style.HAIRLINE, "Vortex",
 				160f, 0xFFD8E8FF, false, false));
 
-		// 12 Super Regeneration
-		MutationMeters.register(new Spec(SuperRegenerationHandlers.KEY, SuperRegenerationHandlers.ADRENALINE, Kind.BUILD,
-				Style.GAUGE, "Adrenaline", SuperRegenerationHandlers.MAX_ADRENALINE, 0xFFE0303A, true, true));
-		MutationMeters.register(new Spec(SuperRegenerationHandlers.KEY, "surge_left", Kind.TIMER, Style.HAIRLINE, "Cellular Surge",
-				600f, 0xFF6FE08A, false, false));
-		MutationMeters.register(new Spec(SuperRegenerationHandlers.KEY, "rage_left", Kind.TIMER, Style.HAIRLINE, "Blood Rage",
-				200f, 0xFFB01020, false, false));
+		// 12 Super Regeneration: v0.14.5 -- no meters (the revive-charge dots are drawn on the HUD's name line)
 
 	}
 }

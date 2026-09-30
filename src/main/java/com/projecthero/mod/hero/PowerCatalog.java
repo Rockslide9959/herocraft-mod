@@ -326,16 +326,9 @@ final class PowerCatalog {
 	private static Power superRegeneration() {
 		String k = "power_12_super_regeneration";
 		return Power.Builder.of(Powers.id(k), PowerCategory.PHYSICAL)
-				// v0.13.22 revamp: Adrenaline -- damage taken fills it, bursts spend it
-				.ability(ab(k, "rapid_heal", SLOT_1, INSTANT, 102))
-				.ability(ab(k, "purge", SLOT_2, INSTANT, 204))
-				.ability(ab(k, "adrenal_rush", SLOT_3, INSTANT, 170))
-				.ability(ab(k, "resurrection", SLOT_4, INSTANT, 1020))
-				.ability(ab(k, "cellular_surge", SLOT_5, INSTANT, 765))
-				.ability(ab(k, "regeneration_mode", SLOT_6, TOGGLE, 0))
-				.ability(ab(k, "blood_rage", AbilitySlot.SLOT_7, INSTANT, 400))
-				.ability(ab(k, "mend", AbilitySlot.SLOT_8, INSTANT, 240))
-				.passives(pk(k, "passive.adrenaline"), pk(k, "passive.regen"), pk(k, "passive.debuff"))
+				// v0.14.5 rework: passive-only -- no ability keys, just healing, cleansing and revive charges
+				.passiveOnly()
+				.passives(pk(k, "passive.regen"), pk(k, "passive.cleanse"), pk(k, "passive.revive"))
 				.serum(SerumRecipe.of("minecraft:regeneration", pk(k, "serum"),
 						"minecraft:golden_apple", "minecraft:spider_eye", "minecraft:bone_meal"))
 				.trigger(MutationTrigger.of(Kind.NEAR_DEATH, pk(k, "trigger"), null))

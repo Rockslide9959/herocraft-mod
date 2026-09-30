@@ -939,6 +939,11 @@ public final class HeroPackGuide {
 			para(lines, power.descKey());
 			blank(lines);
 			head(lines, "projecthero.guide.power.abilities");
+			if (power.abilities().isEmpty()) {
+				// v0.14.5: a passive-only power (Super Regeneration) has no keys at all
+				lines.add(Component.translatable("projecthero.guide.power.no_abilities",
+						Component.translatable(power.nameKey())).withStyle(ChatFormatting.GRAY));
+			}
 			for (AbilitySlot slot : AbilitySlot.values()) {
 				Ability a = power.ability(slot);
 				if (a == null) {

@@ -199,13 +199,6 @@ public final class HeroDamageRules {
 					return Verdict.immune(); // reduced ender-pearl / short-fall damage
 				}
 			}
-			case "power_12_super_regeneration" -> {
-				// Mild passive toughness; lethal hits are handled by the Resurrection ability's
-				// totem-style death protection (see SuperRegenerationHandlers).
-				if (amount > 2.0f && !fall) {
-					return Verdict.mult(0.85f);
-				}
-			}
 			case "power_07_electrokinesis" -> {
 				if (source.is(DamageTypes.LIGHTNING_BOLT)) {
 					return Verdict.immune(); // v0.10.14: an electrokinetic is untouched by lightning

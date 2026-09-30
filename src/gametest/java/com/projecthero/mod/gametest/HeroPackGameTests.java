@@ -515,20 +515,6 @@ public class HeroPackGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void superRegenerationRapidHealRestoresHealth(GameTestHelper helper) {
-		ServerPlayer player = survivalMockPlayer(helper);
-		Power heal = power("power_12_super_regeneration");
-		ExperimentalPowers.grant(player, heal);
-		ExperimentalPowers.setActive(player, heal);
-		player.setHealth(6.0f);
-
-		AbilityRouter.handleInput(player, 1, true); // R = rapid_heal
-
-		helper.assertTrue(player.getHealth() > 6.0f, "Rapid Heal should restore health");
-		helper.succeed();
-	}
-
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 140)
 	public void invisibilityHolyLightChannels(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);

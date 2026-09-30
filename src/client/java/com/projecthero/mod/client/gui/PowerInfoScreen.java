@@ -119,6 +119,11 @@ public final class PowerInfoScreen extends Screen {
 
 		// A quick "which key does what" line-up first, with the player's live (possibly rebound) keys.
 		wrap(Component.translatable("screen.projecthero.power_info.controls").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), wrapW);
+		if (power.abilities().isEmpty()) {
+			// v0.14.5: a passive-only power (Super Regeneration) has no keys at all
+			wrap(Component.translatable("projecthero.guide.power.no_abilities", Component.translatable(power.nameKey()))
+					.withStyle(ChatFormatting.GRAY), wrapW);
+		}
 		for (AbilitySlot slot : AbilitySlot.values()) {
 			Ability a = power.ability(slot);
 			if (a == null) {

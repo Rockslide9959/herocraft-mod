@@ -1,376 +1,325 @@
 package com.projecthero.mod.hero.power.p12;
 
-import com.projecthero.mod.hero.Ability;
-import com.projecthero.mod.hero.AbilityContext;
-import com.projecthero.mod.hero.AbilityHandlers;
-import com.projecthero.mod.hero.AbilitySlot;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
 import com.projecthero.mod.hero.ExperimentalPowers;
-import com.projecthero.mod.hero.Power;
-import com.projecthero.mod.hero.Powers;
-import com.projecthero.mod.hero.power.AbilityHelpers;
-import com.projecthero.mod.hero.power.Handlers;
-import com.projecthero.mod.hero.power.PowerToggles;
+import com.projecthero.mod.hero.PowerPassives;
+import com.projecthero.mod.hero.mutation.ModMobEffects;
 import com.projecthero.mod.hero.revamp.batcha.BatchA;
 
-import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import org.joml.Vector3f;
 
+import net.minecraft.core.Holder;
+import net.minecraft.core.particles.ColorParticleOption;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.stats.Stats;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.ai.attributes.AttributeModifier;
-import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.food.FoodData;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.phys.Vec3;
 
 /**
- * Power 12 — Super Regeneration (v0.13.22 revamp: <b>Adrenaline</b>). Key {@code power_12_super_regeneration}
- * -- Wolverine ascends from this power via the Adamantium Serum, so the key and {@link #tickBaseRegen} are
- * load-bearing.
+ * Power 12 -- Super Regeneration (v0.14.5 rework: <b>passive-only</b>). Key {@code power_12_super_regeneration}
+ * -- Wolverine ascends from this power via the Adamantium Serum, so the key is load-bearing.
  *
- * <p>Taking damage fills a 0..115 Adrenaline gauge (4 per point of damage taken); it drains slowly once you are
- * out of combat. Adrenaline supercharges Rapid Heal, Adrenal Rush and Mend, and is the whole fuel of Blood Rage.
- *
- * <p>Passive: 4 HP/s regeneration that never slows down. R Rapid Heal, G Purge (never touches the unstable
- * mutation), X Adrenal Rush, Z Resurrection (automatic), V Cellular Surge, C Regeneration Mode, H Blood Rage,
- * N Mend (heals squad-mates, your pets and villagers around you).
+ * <p>No ability keys at all. Three always-on passives while the power is owned (selected or not):
+ * <ul>
+ *   <li><b>Healing</b> -- 10 HP every 5 ticks while below max health, no hunger cost. Red pixel veins pulse and
+ *       trickle over the whole body while it runs (flag {@link #VEINS_FLAG}, visible to everyone).</li>
+ *   <li><b>Cleansing</b> -- every harmful effect is burned off once it has been on you for 2 s; it dissolves out
+ *       of the body in its own colour. The unstable mutation is not a poison and is never touched.</li>
+ *   <li><b>Revive charges</b> -- 3 charges. A lethal hit spends a ready one (before any Totem of Undying): back
+ *       up at half health, harmful effects gone, 1 s of damage immunity. Each spent charge recharges on its own
+ *       60 s timer.</li>
+ * </ul>
  */
 public final class SuperRegenerationHandlers {
 	public static final String KEY = "power_12_super_regeneration";
-	public static final String ADRENALINE = "adrenaline";
-	public static final float MAX_ADRENALINE = 115f;
-	private static final int HEAL_INTERVAL = 5;
-	/** Base passive heal per interval (4 HP/s). */
-	private static final float BASE_HEAL_CALM = 1.0f;
-	/** Regeneration Mode adds this per interval on top of the base. */
-	private static final float MODE_HEAL = 1.0f;
-	/** Cellular Surge adds twice that on top (v0.12.16): +8 HP/s. */
-	private static final float SURGE_HEAL = 2.0f;
-	private static final int SURGE_TICKS = 600;
-	private static final int RAGE_TICKS = 200;
-	/** How long after taking or dealing damage the player counts as "in combat" (3 s). */
-	private static final int COMBAT_TICKS = 60;
-	private static final ResourceLocation RAGE_ATK = com.projecthero.mod.ProjectHeroMod.id("regen_blood_rage");
 
-	/** Mark the Super Regeneration owner as in combat (called from the damage listeners). */
-	public static void markCombat(ServerPlayer player) {
-		Power power = Powers.byKey(KEY);
-		if (power != null && ExperimentalPowers.owns(player, power)) {
-			BatchA.set(player, KEY, "combat_left", COMBAT_TICKS);
+	/** MutationVisuals flag for the red healing veins. */
+	public static final String VEINS_FLAG = "p12.veins";
+
+	public static final int HEAL_INTERVAL = 5;
+	public static final float HEAL_AMOUNT = 10.0f;
+	/** A harmful effect is removed once it has been on the player this long. */
+	public static final int CLEANSE_TICKS = 40;
+	public static final int REVIVE_CHARGES = 3;
+	public static final int REVIVE_COOLDOWN = 1200;
+	/** Charges count down in steps this size (one resource write per second, not per tick). */
+	private static final int CHARGE_STEP = 20;
+	private static final int REVIVE_IMMUNITY = 20;
+	/** How long the veins keep showing after the last heal tick. */
+	private static final int VEINS_LINGER = 30;
+	private static final int DISSOLVE_TICKS = 10;
+
+	/** Last game time the passive actually healed, per player (drives the veins flag). Transient. */
+	private static final Map<UUID, Long> LAST_HEAL = new HashMap<>();
+	/** First game time each harmful effect was seen on the player. Transient. */
+	private static final Map<UUID, Map<Holder<MobEffect>, Long>> FIRST_SEEN = new HashMap<>();
+	/** Post-revive damage immunity, game time it ends. Transient. */
+	private static final Map<UUID, Long> IMMUNE_UNTIL = new HashMap<>();
+	/** Running "dissolve out" particle effects. */
+	private static final List<Dissolve> DISSOLVES = new ArrayList<>();
+
+	private static final class Dissolve {
+		final UUID player;
+		final float r;
+		final float g;
+		final float b;
+		int age;
+
+		Dissolve(UUID player, int rgb) {
+			this.player = player;
+			this.r = ((rgb >> 16) & 255) / 255f;
+			this.g = ((rgb >> 8) & 255) / 255f;
+			this.b = (rgb & 255) / 255f;
 		}
-	}
-
-	private static boolean inCombat(ServerPlayer player) {
-		return BatchA.res(player, KEY, "combat_left") > 0.5f;
 	}
 
 	private SuperRegenerationHandlers() {
 	}
 
-	private static float res(ServerPlayer p, String name) {
-		return BatchA.res(p, KEY, name);
+	public static void register() {
+		// No abilities: the three passives run every tick the power is owned, selected or not.
+		PowerPassives.registerTick(KEY, SuperRegenerationHandlers::passiveTick);
 	}
 
-	private static void set(ServerPlayer p, String name, float v) {
-		BatchA.set(p, KEY, name, v, 1e9f);
+	private static void passiveTick(ServerPlayer p) {
+		long now = p.level().getGameTime();
+		if (now % HEAL_INTERVAL == 0) {
+			healTick(p);
+		}
+		tickCleanse(p, now);
+		if (now % CHARGE_STEP == 0) {
+			tickCharges(p, CHARGE_STEP);
+		}
 	}
 
-	public static float adrenaline(ServerPlayer p) {
-		return res(p, ADRENALINE);
-	}
+	// ---------------------------------------------------------------- healing
 
-	/** Spends {@code amount} Adrenaline if there is that much; returns whether it did. */
-	private static boolean spendAdrenaline(ServerPlayer p, float amount) {
-		float a = adrenaline(p);
-		if (a < amount) {
+	/** One heal interval: +10 HP if hurt. Returns whether it healed. */
+	public static boolean healTick(ServerPlayer p) {
+		if (!p.isAlive() || p.getHealth() >= p.getMaxHealth()) {
 			return false;
 		}
-		set(p, ADRENALINE, a - amount);
+		p.heal(HEAL_AMOUNT);
+		LAST_HEAL.put(p.getUUID(), p.level().getGameTime());
 		return true;
 	}
 
-	/** Adrenaline gained from a hit taken (also used by the gametests). */
-	public static void gainAdrenaline(ServerPlayer p, float damageTaken) {
-		if (!ExperimentalPowers.owns(p, KEY) || damageTaken <= 0f) {
+	/** Whether the veins should show: owns the power and healed in the last 1.5 s. */
+	public static boolean regenerating(ServerPlayer p) {
+		if (!ExperimentalPowers.owns(p, KEY)) {
+			return false;
+		}
+		Long at = LAST_HEAL.get(p.getUUID());
+		return at != null && p.level().getGameTime() - at <= VEINS_LINGER;
+	}
+
+	// ---------------------------------------------------------------- cleansing
+
+	private static boolean cleansable(Holder<MobEffect> effect) {
+		return effect.value().getCategory() == MobEffectCategory.HARMFUL
+				&& effect.value() != ModMobEffects.UNSTABLE_MUTATION.value();
+	}
+
+	/**
+	 * Stamps each harmful effect the first time it is seen and removes it once it has been on the player for
+	 * {@link #CLEANSE_TICKS}. {@code now} is the game time (passed in so the gametests can drive it).
+	 */
+	public static void tickCleanse(ServerPlayer p, long now) {
+		Map<Holder<MobEffect>, Long> seen = FIRST_SEEN.get(p.getUUID());
+		boolean any = false;
+		for (MobEffectInstance inst : p.getActiveEffects()) {
+			if (cleansable(inst.getEffect())) {
+				any = true;
+				break;
+			}
+		}
+		if (!any) {
+			if (seen != null) {
+				FIRST_SEEN.remove(p.getUUID());
+			}
 			return;
 		}
-		BatchA.set(p, KEY, ADRENALINE, Math.min(MAX_ADRENALINE, adrenaline(p) + damageTaken * 4f), MAX_ADRENALINE);
+		if (seen == null) {
+			seen = new HashMap<>();
+			FIRST_SEEN.put(p.getUUID(), seen);
+		}
+		List<Holder<MobEffect>> expired = new ArrayList<>();
+		for (MobEffectInstance inst : p.getActiveEffects()) {
+			Holder<MobEffect> effect = inst.getEffect();
+			if (!cleansable(effect)) {
+				continue;
+			}
+			long first = seen.computeIfAbsent(effect, e -> now);
+			if (now - first >= CLEANSE_TICKS) {
+				expired.add(effect);
+			}
+		}
+		// forget effects that ran out (or were removed) so a fresh application restarts its timer
+		seen.keySet().removeIf(e -> !p.hasEffect(e));
+		for (Holder<MobEffect> effect : expired) {
+			p.removeEffect(effect);
+			seen.remove(effect);
+			startDissolve(p, effect.value().getColor());
+		}
 	}
 
-	public static boolean bloodRaging(ServerPlayer p) {
-		return res(p, "rage_left") > 0.5f;
-	}
-
-	public static void register() {
-		// R -- Rapid Heal: a burst of health; 20 Adrenaline adds another 6.
-		AbilityHandlers.register(KEY, "rapid_heal", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			float heal = 7.2f;
-			if (spendAdrenaline(p, 20f)) {
-				heal += 6f;
-				ctx.level().sendParticles(ParticleTypes.CRIMSON_SPORE, p.getX(), p.getY() + 1, p.getZ(), 20, 0.4, 0.5, 0.4, 0.02);
-			}
-			p.heal(heal);
-			particles(ctx);
-			BatchA.play(p, KEY, "p12.heal", 16);
-			AbilityHelpers.sound(p, SoundEvents.PLAYER_LEVELUP, 0.6f, 2.0f);
-			ctx.triggerCooldown();
-		}));
-
-		// G -- Purge: burn every harmful effect out of your blood (the unstable mutation is not a poison -- it stays).
-		AbilityHandlers.register(KEY, "purge", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			purgeHarmful(p);
-			particles(ctx);
-			ctx.level().sendParticles(ParticleTypes.EFFECT, p.getX(), p.getY() + 1, p.getZ(), 30, 0.4, 0.6, 0.4, 0.1);
-			BatchA.play(p, KEY, "p12.purge", 16);
-			AbilityHelpers.sound(p, SoundEvents.BREWING_STAND_BREW, 0.8f, 1.5f);
-			ctx.triggerCooldown();
-		}));
-
-		// X -- Adrenal Rush: a lunge forward and 6 s of speed and jump; 25 Adrenaline makes it Speed III + Resistance.
-		AbilityHandlers.register(KEY, "adrenal_rush", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			boolean pumped = spendAdrenaline(p, 25f);
-			p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 120, pumped ? 2 : 1, false, true, true));
-			p.addEffect(new MobEffectInstance(MobEffects.JUMP, 120, 1, false, true, true));
-			if (pumped) {
-				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 120, 0, false, true, true));
-			}
-			Vec3 f = BatchA.flatLook(p);
-			AbilityHelpers.addImpulse(p, new Vec3(f.x * 1.1, 0.45, f.z * 1.1));
-			ServerLevel level = ctx.level();
-			level.sendParticles(pumped ? ParticleTypes.CRIMSON_SPORE : ParticleTypes.CLOUD, p.getX(), p.getY() + 0.2, p.getZ(),
-					24, 0.4, 0.2, 0.4, 0.05);
-			BatchA.play(p, KEY, "dash_forward", 12);
-			AbilityHelpers.sound(p, SoundEvents.PLAYER_BREATH, 1.0f, 0.8f);
-			AbilityHelpers.sound(p, SoundEvents.WARDEN_HEARTBEAT, 1.0f, 1.4f);
-			ctx.triggerCooldown();
-		}));
-
-		// Z -- Resurrection is automatic: whenever the player dies while it is off cooldown, they are brought back
-		// with the vanilla totem-of-undying rescue. Pressing the key just explains that.
-		AbilityHandlers.register(KEY, "resurrection", Handlers.instant(ctx -> {
-			boolean ready = ctx.cooldownReady();
-			ctx.actionBar(ready ? "message.projecthero.heal.resurrection_ready"
-					: "message.projecthero.heal.resurrection_cooldown",
-					String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(ctx.cooldownRemaining() / 20.0f)));
-		}));
-
-		// V -- Cellular Surge: an extra 2 HP / 0.25 s for 30 s on top of everything else, plus mobility.
-		AbilityHandlers.register(KEY, "cellular_surge", Handlers.instantTicking(ctx -> {
-			ServerPlayer p = ctx.player();
-			set(p, "surge_left", SURGE_TICKS);
-			p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, SURGE_TICKS, 0, false, true, true));
-			p.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, SURGE_TICKS, 0, false, true, true));
-			particles(ctx);
-			BatchA.play(p, KEY, "power_up", 20);
-			AbilityHelpers.sound(p, SoundEvents.PLAYER_LEVELUP, 0.7f, 1.7f);
-			ctx.triggerCooldown();
-		}, ctx -> {
-			ServerPlayer p = ctx.player();
-			float left = BatchA.countDown(p, KEY, "surge_left");
-			if (left <= 0f || p.tickCount % HEAL_INTERVAL != 0) {
-				return;
-			}
-			if (p.getHealth() < p.getMaxHealth()) {
-				p.heal(SURGE_HEAL);
-				ctx.level().sendParticles(ParticleTypes.HEART, p.getX(), p.getY() + 1, p.getZ(), 1, 0.2, 0.3, 0.2, 0.0);
-			}
-		}));
-
-		// C -- Regeneration Mode: an extra 1 HP / 0.25 s while toggled, at the cost of saturation.
-		AbilityHandlers.register(KEY, "regeneration_mode", Handlers.toggle(
-				ctx -> BatchA.play(ctx.player(), KEY, "flex", 16), Handlers.noop(), ctx -> {
-					ServerPlayer p = ctx.player();
-					AbilityHelpers.modeAura(p, ParticleTypes.HEART, 1);
-					if (p.getAbilities().instabuild) {
-						return;
-					}
-					if (p.tickCount % HEAL_INTERVAL == 0 && p.getHealth() < p.getMaxHealth()) {
-						p.heal(MODE_HEAL);
-					}
-					if (p.tickCount % 100 == 0) {
-						FoodData food = p.getFoodData();
-						float sat = food.getSaturationLevel();
-						if (sat > 0.0f) {
-							food.setSaturation(Math.max(0.0f, sat - 2.0f));
-						} else {
-							food.setFoodLevel(Math.max(0, food.getFoodLevel() - 1));
-						}
-					}
-				}));
-
-		// H -- Blood Rage: pour all your Adrenaline (40 minimum) into 10 s of fury -- melee +25%, rising to +100% the
-		// closer you are to death.
-		AbilityHandlers.register(KEY, "blood_rage", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			if (adrenaline(p) < 40f) {
-				ctx.actionBar("message.projecthero.regen.no_adrenaline", 40);
-				return;
-			}
-			set(p, ADRENALINE, 0);
-			set(p, "rage_left", RAGE_TICKS);
-			applyRage(p);
-			ServerLevel level = ctx.level();
-			level.sendParticles(ParticleTypes.CRIMSON_SPORE, p.getX(), p.getY() + 1, p.getZ(), 40, 0.5, 0.7, 0.5, 0.05);
-			level.sendParticles(ParticleTypes.ANGRY_VILLAGER, p.getX(), p.getY() + 2.1, p.getZ(), 3, 0.3, 0.1, 0.3, 0);
-			BatchA.play(p, KEY, "p12.roar", 22);
-			AbilityHelpers.sound(p, SoundEvents.RAVAGER_ROAR, 1.0f, 1.2f);
-			AbilityHelpers.sound(p, SoundEvents.WARDEN_HEARTBEAT, 1.2f, 1.0f);
-			ctx.triggerCooldown();
-		}));
-
-		// N -- Mend: close the wounds of everyone you protect within 8 blocks.
-		AbilityHandlers.register(KEY, "mend", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			ServerLevel level = ctx.level();
-			java.util.List<LivingEntity> allies = AbilityHelpers.living(level, p.position(), 8.0, e -> BatchA.isAlly(p, e));
-			if (allies.isEmpty()) {
-				ctx.actionBar("message.projecthero.regen.no_allies");
-				return;
-			}
-			boolean pumped = spendAdrenaline(p, 20f);
-			for (LivingEntity e : allies) {
-				e.heal(pumped ? 12f : 8f);
-				if (pumped) {
-					e.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 100, 0, false, true, true));
-				}
-				AbilityHelpers.line(level, p.position().add(0, 1.2, 0), e.position().add(0, e.getBbHeight() * 0.6, 0),
-						ParticleTypes.HAPPY_VILLAGER, 2.0);
-				level.sendParticles(ParticleTypes.HEART, e.getX(), e.getY() + e.getBbHeight(), e.getZ(), 5, 0.3, 0.3, 0.3, 0);
-			}
-			BatchA.play(p, KEY, "cast_two_hand", 16);
-			AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 1.2f);
-			AbilityHelpers.sound(p, SoundEvents.PLAYER_LEVELUP, 0.5f, 1.8f);
-			ctx.triggerCooldown();
-		}));
-
-		com.projecthero.mod.hero.PowerPassives.register(KEY, (player, active) -> {
-			if (!active) {
-				PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, RAGE_ATK);
-				set(player, "rage_left", 0);
-				set(player, "surge_left", 0);
-			}
-		});
-
-		// Base passive regeneration (4 HP/s) and the Adrenaline / Blood Rage upkeep.
-		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, player -> {
-			tickBaseRegen(player, 1.0f, false);
-			BatchA.countDown(player, KEY, "combat_left");
-			float a = adrenaline(player);
-			if (a > 0f && !inCombat(player)) {
-				set(player, ADRENALINE, Math.max(0f, a - 0.15f));
-			}
-			float rage = res(player, "rage_left");
-			if (rage > 0.5f) {
-				set(player, "rage_left", rage - 1);
-				if (rage - 1 <= 0.5f) {
-					PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, RAGE_ATK);
-				} else if (player.tickCount % 10 == 0) {
-					applyRage(player);
-				}
-				if (player.tickCount % 4 == 0 && player.level() instanceof ServerLevel sl) {
-					sl.sendParticles(ParticleTypes.CRIMSON_SPORE, player.getX(), player.getY() + 1, player.getZ(), 2, 0.3, 0.5, 0.3, 0.0);
-				}
-			}
-		});
-
-		// "In combat" = the owner took or dealt damage in the last 3 s. Damage taken also fills Adrenaline.
-		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseAmount, dealtAmount, blocked) -> {
-			if (entity instanceof ServerPlayer hurt) {
-				markCombat(hurt);
-				gainAdrenaline(hurt, dealtAmount);
-			}
-			if (source.getEntity() instanceof ServerPlayer attacker) {
-				markCombat(attacker);
-			}
-		});
-
-		// Automatic Resurrection: cancel death whenever the Ultimate slot is off cooldown.
-		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> {
-			if (!(entity instanceof ServerPlayer p)) {
-				return true;
-			}
-			Power power = Powers.byKey(KEY);
-			if (power == null || !ExperimentalPowers.owns(p, power)) {
-				return true;
-			}
-			if (source.is(net.minecraft.world.damagesource.DamageTypes.GENERIC_KILL)
-					|| source.is(net.minecraft.world.damagesource.DamageTypes.FELL_OUT_OF_WORLD)) {
-				return true; // /kill and the void still kill you, like a totem
-			}
-			Ability z = power.ability(AbilitySlot.SLOT_4);
-			if (!ExperimentalPowers.cooldownReady(p, power, z)) {
-				return true;
-			}
-			resurrect(p);
-			ExperimentalPowers.triggerCooldown(p, power, z,
-					com.projecthero.mod.hero.HeroConfig.get().scaledCooldown(z.cooldownTicks()));
-			return false; // death cancelled
-		});
-	}
-
-	/** Melee bonus: +25%, plus the fraction of health you are missing, capped at +100%. */
-	private static void applyRage(ServerPlayer p) {
-		float missing = 1f - p.getHealth() / Math.max(1f, p.getMaxHealth());
-		double bonus = Math.min(1.0, 0.25 + missing);
-		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, RAGE_ATK, bonus, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-	}
-
-	/** Removes every harmful effect except the unstable mutation (acquisition owns that one). */
+	/** Removes every harmful effect except the unstable mutation, dissolving each out. */
 	public static void purgeHarmful(ServerPlayer p) {
-		for (var effect : new java.util.ArrayList<>(p.getActiveEffects())) {
-			if (effect.getEffect().value().isBeneficial()) {
+		List<Holder<MobEffect>> harmful = new ArrayList<>();
+		for (MobEffectInstance inst : p.getActiveEffects()) {
+			if (cleansable(inst.getEffect())) {
+				harmful.add(inst.getEffect());
+			}
+		}
+		for (Holder<MobEffect> effect : harmful) {
+			p.removeEffect(effect);
+			startDissolve(p, effect.value().getColor());
+		}
+		FIRST_SEEN.remove(p.getUUID());
+	}
+
+	private static void startDissolve(ServerPlayer p, int rgb) {
+		DISSOLVES.add(new Dissolve(p.getUUID(), rgb));
+		p.level().playSound(null, p.getX(), p.getY() + 1.0, p.getZ(), SoundEvents.BREWING_STAND_BREW, SoundSource.PLAYERS,
+				0.35f, 1.8f);
+		p.level().playSound(null, p.getX(), p.getY() + 1.0, p.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS,
+				0.3f, 0.7f);
+	}
+
+	/**
+	 * Advances every running dissolve by one tick: over half a second the effect's colour breaks off the body
+	 * from the feet up and drifts away (potion swirls plus square "pixel" flecks), seen by every nearby player.
+	 */
+	public static void tickDissolves(MinecraftServer server) {
+		if (DISSOLVES.isEmpty()) {
+			return;
+		}
+		for (Iterator<Dissolve> it = DISSOLVES.iterator(); it.hasNext();) {
+			Dissolve d = it.next();
+			ServerPlayer p = server.getPlayerList().getPlayer(d.player);
+			if (p == null || d.age >= DISSOLVE_TICKS) {
+				it.remove();
 				continue;
 			}
-			if (effect.getEffect().value() == com.projecthero.mod.hero.mutation.ModMobEffects.UNSTABLE_MUTATION.value()) {
-				continue;
+			ServerLevel level = p.serverLevel();
+			float t = d.age / (float) (DISSOLVE_TICKS - 1);
+			double y = p.getY() + 0.1 + t * p.getBbHeight();
+			level.sendParticles(ColorParticleOption.create(ParticleTypes.ENTITY_EFFECT, d.r, d.g, d.b),
+					p.getX(), y, p.getZ(), 4, 0.3, 0.15, 0.3, 0.6);
+			level.sendParticles(new DustParticleOptions(new Vector3f(d.r, d.g, d.b), 0.9f),
+					p.getX(), y, p.getZ(), 5, 0.32, 0.18, 0.32, 0.02);
+			d.age++;
+		}
+	}
+
+	// ---------------------------------------------------------------- revive charges
+
+	private static String chargeKey(int i) {
+		return "revive_cd_" + i;
+	}
+
+	/** Remaining cooldown ticks of charge {@code i} (0 = ready). Persisted in the power's resources. */
+	public static float chargeCooldown(ServerPlayer p, int i) {
+		return BatchA.res(p, KEY, chargeKey(i));
+	}
+
+	public static int readyCharges(ServerPlayer p) {
+		int n = 0;
+		for (int i = 0; i < REVIVE_CHARGES; i++) {
+			if (chargeCooldown(p, i) <= 0f) {
+				n++;
 			}
-			p.removeEffect(effect.getEffect());
+		}
+		return n;
+	}
+
+	/** Counts every recharging charge down by {@code ticks}. */
+	public static void tickCharges(ServerPlayer p, int ticks) {
+		for (int i = 0; i < REVIVE_CHARGES; i++) {
+			float cd = chargeCooldown(p, i);
+			if (cd > 0f) {
+				BatchA.set(p, KEY, chargeKey(i), Math.max(0f, cd - ticks), REVIVE_COOLDOWN);
+			}
 		}
 	}
 
 	/**
-	 * The base passive heal, factored out so an ascension can reuse and scale it instead of duplicating it.
-	 * Wolverine (v0.12.1) calls this with a 1x / 2x / 3x multiplier by health tier and
-	 * {@code ignoreCombat = true} (his healing factor never slows down mid-fight).
+	 * The lethal-hit hook ({@code ALLOW_DEATH}, which fires before a Totem of Undying is checked). Spends one
+	 * ready charge and brings the player back; returns whether it did (the death is then cancelled).
 	 */
-	public static void tickBaseRegen(ServerPlayer player, float multiplier, boolean ignoreCombat) {
-		if (player.getAbilities().instabuild || player.tickCount % HEAL_INTERVAL != 0) {
-			return;
+	public static boolean tryRevive(ServerPlayer p, DamageSource source) {
+		if (!ExperimentalPowers.owns(p, KEY)) {
+			return false;
 		}
-		if (player.getHealth() < player.getMaxHealth()) {
-			// v0.12.25: the heal never slows down -- combat or not, it is always the full rate
-			player.heal(BASE_HEAL_CALM * multiplier);
+		if (source.is(DamageTypes.GENERIC_KILL) || source.is(DamageTypes.FELL_OUT_OF_WORLD)) {
+			return false; // /kill and the void still kill you, like a totem
 		}
+		int charge = -1;
+		for (int i = 0; i < REVIVE_CHARGES; i++) {
+			if (chargeCooldown(p, i) <= 0f) {
+				charge = i;
+				break;
+			}
+		}
+		if (charge < 0) {
+			return false;
+		}
+		BatchA.set(p, KEY, chargeKey(charge), REVIVE_COOLDOWN, REVIVE_COOLDOWN);
+		p.setHealth(p.getMaxHealth() * 0.5f);
+		purgeHarmful(p);
+		p.clearFire();
+		IMMUNE_UNTIL.put(p.getUUID(), p.level().getGameTime() + REVIVE_IMMUNITY);
+		LAST_HEAL.put(p.getUUID(), p.level().getGameTime());
+		if (p.level() instanceof ServerLevel level) {
+			DustParticleOptions blood = new DustParticleOptions(new Vector3f(0.85f, 0.05f, 0.08f), 1.6f);
+			level.sendParticles(blood, p.getX(), p.getY() + 1.0, p.getZ(), 60, 0.5, 0.8, 0.5, 0.15);
+			level.sendParticles(ParticleTypes.DAMAGE_INDICATOR, p.getX(), p.getY() + 1.0, p.getZ(), 12, 0.4, 0.6, 0.4, 0.2);
+			level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 1.6f, 1.0f);
+			level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.TOTEM_USE, SoundSource.PLAYERS, 0.5f, 1.4f);
+		}
+		return true;
 	}
 
-	/** Exactly what a Totem of Undying does on a lethal hit -- except the unstable mutation survives it. */
-	private static void resurrect(ServerPlayer p) {
-		MobEffectInstance mutation = p.getEffect(com.projecthero.mod.hero.mutation.ModMobEffects.UNSTABLE_MUTATION);
-		p.setHealth(1.0f);
-		p.removeAllEffects();
-		if (mutation != null) {
-			p.addEffect(new MobEffectInstance(mutation));
+	/** Whether the post-revive immunity is still running. */
+	public static boolean immune(ServerPlayer p) {
+		Long until = IMMUNE_UNTIL.get(p.getUUID());
+		if (until == null) {
+			return false;
 		}
-		p.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 900, 1));
-		p.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 100, 1));
-		p.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 800, 0));
-		p.level().broadcastEntityEvent(p, (byte) 35); // totem particle + sound on every client
-		p.awardStat(Stats.ITEM_USED.get(Items.TOTEM_OF_UNDYING));
-		BatchA.set(p, KEY, ADRENALINE, MAX_ADRENALINE, MAX_ADRENALINE); // coming back from the dead is quite a rush
-		BatchA.play(p, KEY, "p12.roar", 22);
+		if (p.level().getGameTime() >= until) {
+			IMMUNE_UNTIL.remove(p.getUUID());
+			return false;
+		}
+		return true;
 	}
 
-	private static void particles(AbilityContext ctx) {
-		ctx.level().sendParticles(ParticleTypes.HEART, ctx.player().getX(), ctx.player().getY() + 1.0,
-				ctx.player().getZ(), 8, 0.3, 0.5, 0.3, 0.0);
+	// ---------------------------------------------------------------- transient state lifecycle
+
+	public static void forget(UUID player) {
+		LAST_HEAL.remove(player);
+		FIRST_SEEN.remove(player);
+		IMMUNE_UNTIL.remove(player);
+		DISSOLVES.removeIf(d -> d.player.equals(player));
+	}
+
+	public static void clearAll() {
+		LAST_HEAL.clear();
+		FIRST_SEEN.clear();
+		IMMUNE_UNTIL.clear();
+		DISSOLVES.clear();
 	}
 }

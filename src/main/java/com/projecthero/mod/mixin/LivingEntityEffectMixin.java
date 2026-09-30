@@ -2,8 +2,6 @@ package com.projecthero.mod.mixin;
 
 import java.util.Set;
 
-import com.projecthero.mod.hero.ExperimentalPowers;
-
 import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffect;
@@ -17,7 +15,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 /**
- * Super Regeneration (power 12) and its Wolverine ascension: the listed negative effects affect the mutant 50% less. Implemented
+ * Wolverine (the ascension of Super Regeneration; since v0.14.5 plain Super Regeneration no longer halves debuffs,
+ * it cleanses them after 2 s instead): the listed negative effects affect him 50% less. Implemented
  * by halving the duration of a fresh application before vanilla stores it, so Poison, Wither,
  * Weakness, Slowness, Mining Fatigue, Nausea and Hunger all wear off in half the time. Amplifier is
  * left alone. Inert for every other entity / power.
@@ -45,7 +44,7 @@ public abstract class LivingEntityEffectMixin {
 		}
 		boolean wolverine = com.projecthero.mod.wolverine.Wolverine.hasPower(player);
 		if (!PROJECTHERO$HALVED.contains(instance.getEffect())
-				|| !(wolverine || ExperimentalPowers.owns(player, "power_12_super_regeneration"))) {
+				|| !wolverine) { // v0.14.5: plain Super Regeneration cleanses debuffs after 2 s instead
 			return instance;
 		}
 		// Wolverine ascends Super Regeneration: it keeps the 50% debuff cut, and Poison / Wither are cut harder.

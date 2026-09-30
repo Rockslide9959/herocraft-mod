@@ -32,7 +32,6 @@ public final class RevampClientA {
 	private static final ResourceLocation P03_STREAKS = tex("p03_streaks");
 	private static final ResourceLocation P04_CRACKLE_A = tex("p04_crackle_a");
 	private static final ResourceLocation P04_CRACKLE_B = tex("p04_crackle_b");
-	private static final ResourceLocation P12_VEINS = tex("p12_veins");
 
 	private static final String FLIGHT = "power_03_flight";
 	private static final String STRENGTH = "power_01_super_strength";
@@ -121,16 +120,7 @@ public final class RevampClientA {
 		MutationPose.register("p04.vibrate", new float[][] { z(0), at(1, vibA), at(2, vibB), at(3, vibA), at(4, vibB),
 				at(5, vibA), at(6, vibB), at(7, vibA), z(10) });
 
-		// ---- 12 Super Regeneration ----
-		float[] chest = f(0, -1.1f, -0.8f, 0, -1.1f, 0.8f, 0, 0.1f, 0, 0, 0, 0.3f);
-		float[] open = f(0, -0.6f, 0, 1.1f, -0.6f, 0, -1.1f, -0.1f, 0, 0, 0, -0.25f);
-		MutationPose.register("p12.heal", new float[][] { z(0), at(3, chest), at(8, chest), at(12, open), z(18) });
-		float[] hunch = f(0, 0.3f, 0, 0.2f, 0.3f, 0, -0.2f, 0.5f, 0, 0.2f, -0.1f, 0.4f);
-		float[] fling = f(0, -0.4f, 0, 1.3f, -0.4f, 0, -1.3f, -0.2f, 0, 0, 0, -0.3f);
-		MutationPose.register("p12.purge", new float[][] { z(0), at(4, hunch), at(8, fling), at(12, fling), z(17) });
-		float[] roar = f(0, 0.4f, 0, 1.0f, 0.4f, 0, -1.0f, -0.25f, 0, 0.1f, -0.1f, -0.6f);
-		float[] roar2 = f(0, 0.45f, 0, 1.1f, 0.45f, 0, -1.1f, -0.3f, 0, 0.1f, -0.1f, -0.65f);
-		MutationPose.register("p12.roar", new float[][] { z(0), at(5, roar), at(10, roar2), at(16, roar), z(22) });
+		// ---- 12 Super Regeneration: v0.14.5 passive-only, no poses ----
 
 	}
 
@@ -177,14 +167,7 @@ public final class RevampClientA {
 			MutationRender.shell(ctx, frameA ? P04_CRACKLE_A : P04_CRACKLE_B, MutationRender.Shell.THIN, glow(k, 255, 225, 70), true);
 		});
 
-		// 12: green veins while regenerating hard (brighter in a Cellular Surge), red while Blood Rage runs
-		MutationOverlays.register("p12.regen", ctx -> {
-			float surge = ctx.state().value("p12.surge", 0f);
-			float k = (surge > 0.5f ? 0.85f : 0.45f) * (0.6f + 0.4f * MutationRender.pulse(ctx, 20f));
-			MutationRender.shell(ctx, P12_VEINS, MutationRender.Shell.THIN, glow(k, 80, 255, 120), true);
-		});
-		MutationOverlays.register("p12.rage", ctx -> MutationRender.shell(ctx, P12_VEINS, MutationRender.Shell.THIN,
-				glow(0.6f + 0.4f * MutationRender.pulse(ctx, 10f), 255, 30, 30), true));
+		// 12: v0.14.5 -- the red healing veins live in v0145.SuperRegenerationClientV0145
 
 	}
 

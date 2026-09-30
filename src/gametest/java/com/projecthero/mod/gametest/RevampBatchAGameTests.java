@@ -143,10 +143,10 @@ public class RevampBatchAGameTests implements FabricGameTest {
 				"Flight stays on X");
 		helper.assertTrue("speed_mode".equals(Powers.byKey(SuperSpeedHandlers.KEY).ability(AbilitySlot.SLOT_6).id()),
 				"Speed Mode stays on C");
-		helper.assertTrue("resurrection".equals(Powers.byKey(SuperRegenerationHandlers.KEY).ability(AbilitySlot.SLOT_4).id()),
-				"Resurrection stays on Z");
+		helper.assertTrue(Powers.byKey(SuperRegenerationHandlers.KEY).abilities().isEmpty(),
+				"Super Regeneration is passive-only since v0.14.5");
 		helper.assertTrue(MutationVisuals.registeredFlags().containsAll(java.util.List.of("p01.effort", "p02.eyes", "p03.wind",
-				"p04.crackle", "p12.regen", "p12.rage")), "batch A overlay flags registered");
+				"p04.crackle", SuperRegenerationHandlers.VEINS_FLAG)), "batch A overlay flags registered");
 		helper.succeed();
 	}
 
@@ -464,58 +464,6 @@ public class RevampBatchAGameTests implements FabricGameTest {
 		helper.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "time slows for the zombie");
 		refreshVisuals(p);
 		helper.assertTrue(MutationVisuals.hasFlag(p, "p04.crackle"), "lightning crackles over you");
-		helper.succeed();
-	}
-
-	// ---------------- 12 Super Regeneration ----------------
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_rage")
-	public void regenAdrenalineFuelsBloodRage(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, SuperRegenerationHandlers.KEY);
-		AbilityRouter.handleInput(p, 7, true); // H = Blood Rage, no Adrenaline yet
-		helper.assertFalse(SuperRegenerationHandlers.bloodRaging(p), "Blood Rage needs Adrenaline");
-		SuperRegenerationHandlers.gainAdrenaline(p, 12f);
-		helper.assertTrue(SuperRegenerationHandlers.adrenaline(p) >= 47f, "damage taken fills Adrenaline (4 per point)");
-		double atk = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
-		AbilityRouter.handleInput(p, 7, true);
-		helper.assertTrue(SuperRegenerationHandlers.bloodRaging(p), "Blood Rage runs");
-		helper.assertTrue(SuperRegenerationHandlers.adrenaline(p) == 0f, "and spends all of it");
-		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) > atk * 1.2, "melee is boosted");
-		refreshVisuals(p);
-		helper.assertTrue(MutationVisuals.hasFlag(p, "p12.rage"), "the red veins show");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_purge")
-	public void regenPurgeAndResurrectionKeepTheUnstableMutation(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, SuperRegenerationHandlers.KEY);
-		p.addEffect(new MobEffectInstance(MobEffects.POISON, 400, 0));
-		p.addEffect(new MobEffectInstance(com.projecthero.mod.hero.mutation.ModMobEffects.UNSTABLE_MUTATION, 1200, 0));
-		AbilityRouter.handleInput(p, 2, true); // G = Purge
-		helper.assertFalse(p.hasEffect(MobEffects.POISON), "Purge removes poison");
-		helper.assertTrue(p.hasEffect(com.projecthero.mod.hero.mutation.ModMobEffects.UNSTABLE_MUTATION),
-				"but never the unstable mutation");
-		boolean dies = ServerLivingEntityEvents.ALLOW_DEATH.invoker().allowDeath(p, p.level().damageSources().generic(), 100f);
-		helper.assertFalse(dies, "Resurrection cancels the death");
-		helper.assertTrue(p.hasEffect(com.projecthero.mod.hero.mutation.ModMobEffects.UNSTABLE_MUTATION),
-				"and the unstable mutation survives it");
-		helper.assertTrue(SuperRegenerationHandlers.adrenaline(p) >= SuperRegenerationHandlers.MAX_ADRENALINE - 0.01f,
-				"coming back tops Adrenaline off");
-		helper.assertTrue(onCooldown(p, SuperRegenerationHandlers.KEY, AbilitySlot.SLOT_4), "Resurrection then recharges");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_mend")
-	public void regenMendHealsAllies(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, SuperRegenerationHandlers.KEY);
-		AbilityRouter.handleInput(p, 8, true);
-		helper.assertFalse(onCooldown(p, SuperRegenerationHandlers.KEY, AbilitySlot.SLOT_8), "nobody to mend: no cooldown");
-		Wolf w = petWolf(helper, p, 2.0, 2.0);
-		w.setHealth(3f);
-		AbilityRouter.handleInput(p, 8, true); // N = Mend
-		helper.assertTrue(w.getHealth() > 8f, "your pet is healed");
-		helper.assertTrue(com.projecthero.mod.wolverine.Wolverine.hasSuperRegeneration(p),
-				"the Wolverine ascension prerequisite still reads this power");
 		helper.succeed();
 	}
 }
