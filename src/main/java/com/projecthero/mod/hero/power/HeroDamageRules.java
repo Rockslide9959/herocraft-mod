@@ -97,19 +97,11 @@ public final class HeroDamageRules {
 
 		switch (active.key()) {
 			case "power_01_super_strength" -> {
-				// 65% less fall damage, 20% less explosion damage, 15% off everything else -- and
-				// Maximum Effort hardens the body further while it runs.
-				if (fall) {
-					return Verdict.mult(0.35f);
+				// v0.14.5: no passive mitigation any more -- only Maximum Effort hardens the body (30% less
+				// damage from everything but falls) while it runs.
+				if (!fall && com.projecthero.mod.hero.power.p01.SuperStrengthHandlers.maxEffortActive(player)) {
+					return Verdict.mult(0.7f);
 				}
-				float f = 0.85f;
-				if (source.is(DamageTypeTags.IS_EXPLOSION)) {
-					f *= 0.8f;
-				}
-				if (com.projecthero.mod.hero.power.p01.SuperStrengthHandlers.maxEffortActive(player)) {
-					f *= 0.7f;
-				}
-				return Verdict.mult(f);
 			}
 			case "power_03_flight", "power_16_spider_climbing_adhesion" -> {
 				if (fall) {

@@ -227,7 +227,8 @@ public final class RevampClientA {
 		int cy = g.guiHeight() / 2 + 10;
 		for (int i = 0; i < 3; i++) {
 			int x = cx - 10 + i * 8;
-			int color = i < combo ? 0xFFFFB347 : (i == combo ? 0xFFFFE0A0 : 0x66FFFFFF);
+			// v0.14.5: black-and-gray like the rest of the Super Strength HUD
+			int color = i < combo ? 0xFFE6E6E6 : (i == combo ? 0xFF9A9A9A : 0x66FFFFFF);
 			g.fill(x, cy, x + 5, cy + 3, color);
 		}
 	}

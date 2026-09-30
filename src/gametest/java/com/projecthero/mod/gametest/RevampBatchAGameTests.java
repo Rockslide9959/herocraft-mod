@@ -216,19 +216,22 @@ public class RevampBatchAGameTests implements FabricGameTest {
 		BlockPos fire = BlockPos.containing(p.getX() + 1, p.getY(), p.getZ() + 4);
 		helper.getLevel().setBlock(fire, Blocks.FIRE.defaultBlockState(), 2);
 		p.setRemainingFireTicks(100);
-		AbilityRouter.handleInput(p, 7, true); // H = Thunderclap
+		p.setShiftKeyDown(true);
+		AbilityRouter.handleInput(p, 2, true); // v0.14.5: Shift+G = Thunderclap
 		helper.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "the clap stuns what is in the cone");
 		helper.assertFalse(z.isOnFire(), "and puts it out");
 		helper.assertFalse(p.isOnFire(), "and you");
 		helper.assertTrue(helper.getLevel().getBlockState(fire).isAir(), "and the fire on the ground");
-		helper.assertTrue(onCooldown(p, SuperStrengthHandlers.KEY, AbilitySlot.SLOT_7), "Thunderclap goes on cooldown");
+		helper.assertTrue(res(p, SuperStrengthHandlers.KEY, "clap_cd") > 100f, "Thunderclap goes on its own cooldown");
+		helper.assertFalse(onCooldown(p, SuperStrengthHandlers.KEY, AbilitySlot.SLOT_2), "Ground Slam's cooldown is untouched");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_rip", timeoutTicks = 100)
 	public void strengthRipAndHurlTearsUpABoulderAndThrowsIt(GameTestHelper helper) {
 		ServerPlayer p = hero(helper, SuperStrengthHandlers.KEY);
-		AbilityRouter.handleInput(p, 8, true); // N = Rip & Hurl
+		p.setShiftKeyDown(true);
+		AbilityRouter.handleInput(p, 5, true); // v0.14.5: Shift+V = Rip & Hurl
 		int id = (int) res(p, SuperStrengthHandlers.KEY, "rip_id");
 		helper.assertTrue(id != 0, "a boulder is torn up");
 		ThrownChunkEntity chunk = helper.getLevel().getEntity(id) instanceof ThrownChunkEntity c ? c : null;
@@ -243,7 +246,7 @@ public class RevampBatchAGameTests implements FabricGameTest {
 	public void strengthMaximumEffortDoublesAndShowsVeins(GameTestHelper helper) {
 		ServerPlayer p = hero(helper, SuperStrengthHandlers.KEY);
 		double atk = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
-		AbilityRouter.handleInput(p, 4, true); // Z = Maximum Effort
+		AbilityRouter.handleInput(p, 6, true); // v0.14.5: C = Maximum Effort
 		helper.assertTrue(SuperStrengthHandlers.maxEffortActive(p), "Maximum Effort runs");
 		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) > atk * 1.9, "melee doubles");
 		helper.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 1.0, "knockback immune");
@@ -266,6 +269,7 @@ public class RevampBatchAGameTests implements FabricGameTest {
 		tick(p, 1);
 		helper.assertTrue(res(p, SuperStrengthHandlers.KEY, "leap_air") == 0f, "touching down triggers the landing");
 		helper.assertTrue(z.getHealth() < before, "the crater hits what is around you");
+		helper.assertTrue(SuperStrengthHandlers.LANDING_POSE.equals(MutationVisuals.anim(p)), "the superhero landing pose plays");
 		helper.succeed();
 	}
 

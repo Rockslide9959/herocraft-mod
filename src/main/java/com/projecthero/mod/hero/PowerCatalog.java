@@ -72,17 +72,15 @@ final class PowerCatalog {
 	private static Power superStrength() {
 		String k = "power_01_super_strength";
 		return Power.Builder.of(Powers.id(k), PowerCategory.PHYSICAL)
-				// v0.13.22 revamp: throw anything + hero landings
+				// v0.14.5 rework: six keys, no H / N. G and V are HOLD slots so their Shift variants (Thunderclap,
+				// Rip & Hurl) are not gated by the main move's cooldown -- the handlers check both themselves.
 				.ability(ab(k, "haymaker", SLOT_1, INSTANT, 102))
-				.ability(ab(k, "ground_slam", SLOT_2, INSTANT, 136))
+				.ability(ab(k, "ground_slam", SLOT_2, HOLD, 136))
 				.ability(ab(k, "power_leap", SLOT_3, CHARGE, 51))
-				.ability(ab(k, "maximum_effort", SLOT_4, INSTANT, 1020))
-				.ability(ab(k, "grab_throw", SLOT_5, INSTANT, 68))
-				.ability(ab(k, "bull_rush", SLOT_6, HOLD, 680))
-				.ability(ab(k, "thunderclap", AbilitySlot.SLOT_7, INSTANT, 160))
-				.ability(ab(k, "rip_hurl", AbilitySlot.SLOT_8, INSTANT, 187))
-				.passives(pk(k, "passive.melee"), pk(k, "passive.defense"), pk(k, "passive.jump"),
-						pk(k, "passive.mining"), pk(k, "passive.fall"), pk(k, "passive.charged"))
+				.ability(ab(k, "bull_rush", SLOT_4, HOLD, 680))
+				.ability(ab(k, "grab_throw", SLOT_5, HOLD, 68))
+				.ability(ab(k, "maximum_effort", SLOT_6, INSTANT, 1400))
+				.passives(pk(k, "passive.melee"), pk(k, "passive.knockback"), pk(k, "passive.charged"))
 				.serum(SerumRecipe.of("minecraft:strength", pk(k, "serum"),
 						"minecraft:iron_nugget", "minecraft:redstone").withFuel("minecraft:coal"))
 				.trigger(MutationTrigger.of(Kind.ELECTRICAL_DISCHARGE, pk(k, "trigger"), "projecthero.device.overloaded_redstone_coil"))

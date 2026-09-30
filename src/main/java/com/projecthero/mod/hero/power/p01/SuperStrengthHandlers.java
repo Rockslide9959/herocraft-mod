@@ -8,13 +8,13 @@ import com.projecthero.mod.hero.Power;
 import com.projecthero.mod.hero.Powers;
 import com.projecthero.mod.hero.data.ExperimentalState;
 import com.projecthero.mod.hero.power.AbilityHelpers;
-import com.projecthero.mod.hero.power.Handlers;
 import com.projecthero.mod.hero.power.PowerToggles;
 import com.projecthero.mod.hero.revamp.batcha.BatchA;
 import com.projecthero.mod.hero.revamp.batcha.ThrownChunkEntity;
 import com.projecthero.mod.hero.visual.MutationVisuals;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
@@ -30,7 +30,9 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
@@ -38,28 +40,31 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Power 01 — Super Strength (v0.13.22 revamp: <b>throw anything + hero landings</b>).
+ * Power 01 — Super Strength (v0.14.5 rework: six keys, three passives).
  *
- * <h2>Passives (see {@link com.projecthero.mod.hero.power.HeroDamageRules} for the mitigation half)</h2>
- * 14 unarmed damage, +150% attack knockback, ~2-block jump, 15% flat damage reduction, 70% knockback
- * resistance, 20% explosion reduction, 65% less fall damage, +25% mining, +15% sprint speed, +30%
- * swim speed, and stone-tool hands ({@link StrengthBareHands}).
+ * <h2>Passives</h2>
+ * Exactly three: +10 unarmed damage (only while the main hand holds nothing that deals attack damage of its own),
+ * 150% melee knockback, and the Charged Punch.
  *
  * <h2>Charged Punch</h2>
- * Hold the attack key for 2 s (client-tracked, {@code StrengthActionPayload}) to arm a single 24-damage
- * blow with massive knockback that disables shields. A 2.5 s cooldown starts <em>after</em> the punch
- * lands.
+ * Hold the attack key for 1 s (client-tracked, {@code StrengthActionPayload}) and release: your current melee
+ * damage +15, massive knockback, shields disabled. A 2 s cooldown starts once it lands. A Hairline bar above the
+ * keys fills during the wind-up and drains over the cooldown.
  *
  * <h2>Slots</h2>
- * R Haymaker (3-hit combo), G Ground Slam (air = dive), X Power Leap (charge, crater hero landing),
- * Z Maximum Effort, V Grab &amp; Throw (mobs, players or blocks), C Bull Rush / sneak Impact Smash,
- * H Thunderclap, N Rip &amp; Hurl.
+ * R Haymaker (3-hit combo), G Ground Slam (air = dive) / Shift+G Thunderclap, X Power Leap (charge, superhero
+ * landing), Z Bull Rush, V Grab &amp; Throw / Shift+V Rip &amp; Hurl, C Maximum Effort (30 s, 70 s cooldown).
+ * Thunderclap and Rip &amp; Hurl keep their own cooldowns ({@code clap_cd} / {@code rip_cd}, in ticks), which the
+ * HUD folds into the G / V boxes.
  */
 public final class SuperStrengthHandlers {
 	public static final String KEY = "power_01_super_strength";
 
-	private static final ResourceLocation PASSIVE_ATK = id("strength_passive_attack");
-	private static final ResourceLocation PASSIVE_ATK_KB = id("strength_passive_attack_kb");
+	/** +10 unarmed damage, only while the main hand carries no attack-damage item of its own. */
+	public static final ResourceLocation PASSIVE_ATK = id("strength_passive_attack");
+	/** 150% knockback on melee hits. */
+	public static final ResourceLocation PASSIVE_ATK_KB = id("strength_passive_attack_kb");
+	/** Pre-v0.14.5 passives: never applied any more, only cleared so a live session drops them. */
 	private static final ResourceLocation PASSIVE_JUMP = id("strength_passive_jump");
 	private static final ResourceLocation PASSIVE_KB_RES = id("strength_passive_kb_resist");
 	private static final ResourceLocation PASSIVE_SWIM = id("strength_passive_swim");
@@ -69,9 +74,17 @@ public final class SuperStrengthHandlers {
 	private static final ResourceLocation EFFORT_KB = id("strength_effort_kb");
 	private static final ResourceLocation EFFORT_ATK = id("strength_effort_attack");
 
-	/** 2 s hold, 2.5 s post-hit cooldown. */
-	private static final int CHARGED_DAMAGE = 24;
-	private static final int CHARGED_CD_TICKS = 50;
+	public static final double UNARMED_BONUS = 10.0;
+	/**
+	 * A plain hit already knocks back 0.4 (vanilla {@code hurt}); {@code Player.attack} then halves that and adds a
+	 * second push of {@code ATTACK_KNOCKBACK * 0.5}. +0.8 makes it 0.2 + 0.4 = 0.6, i.e. 150% of a normal hit.
+	 */
+	public static final double KNOCKBACK_BONUS = 0.8;
+
+	/** Charged Punch: 1 s hold, your melee damage +15, 2 s cooldown after it lands. */
+	public static final int CHARGED_HOLD_TICKS = 20;
+	public static final float CHARGED_BONUS = 15f;
+	public static final int CHARGED_CD_TICKS = 40;
 	/** Haymaker: jab, cross, then the launching haymaker; each follow-up must land within 1.5 s. */
 	private static final float[] HAYMAKER_DAMAGE = { 10f, 12f, 22f };
 	private static final int COMBO_WINDOW = 30;
@@ -79,19 +92,22 @@ public final class SuperStrengthHandlers {
 	private static final int HAYMAKER_CD = 102;
 	/** A combo abandoned after one or two hits costs a short cooldown, so it never out-damages finishing it. */
 	private static final int COMBO_DROP_CD = 50;
-	/**
-	 * C is a 5 s hold-to-charge for both moves. Bull Rush then plows forward for 8 s. Bull Rush and Impact
-	 * Smash share the C cooldown: 34 s after a rush, 76 s after a smash.
-	 */
-	private static final int SMASH_CHARGE = 100;
-	private static final int RUSH_RUN = 160;
+	/** G: Ground Slam on the ground. */
+	public static final float SLAM_DAMAGE = 20f;
+	private static final int SLAM_CD = 136;
+	/** Z: Bull Rush is a 5 s hold-to-charge, then 8 s of ploughing forward; 34 s cooldown. */
+	public static final int RUSH_CHARGE = 100;
+	public static final int RUSH_RUN = 160;
 	private static final int RUSH_CD = 680;
-	private static final int SMASH_CD = 1530;
-	/** Maximum Effort: 15 s active, 51 s cooldown. */
-	public static final int EFFORT_TICKS = 300;
-	private static final int THUNDERCLAP_CD = 160;
-	private static final int RIP_CD = 187;
+	/** C: Maximum Effort runs 30 s; its 70 s cooldown is the catalog's. */
+	public static final int EFFORT_TICKS = 600;
+	public static final int EFFORT_CD = 1400;
+	/** Shift+G Thunderclap / Shift+V Rip & Hurl keep their own cooldowns (the clap_cd / rip_cd resources). */
+	public static final int THUNDERCLAP_CD = 160;
+	public static final int RIP_CD = 187;
 	private static final int RIP_RISE = 12;
+	/** Rip & Hurl launch speed (1.9 before v0.14.5 -- the boulder now flies about twice as far). */
+	public static final double RIP_THROW_SPEED = 3.2;
 	private static final int GRAB_HOLD = 300;
 	private static final int THROW_CD = 68;
 
@@ -116,7 +132,7 @@ public final class SuperStrengthHandlers {
 		return res(player, "effort_left") > 0.5f;
 	}
 
-	/** Maximum Effort doubles the damage of every Super Strength move (Bull Rush / Impact Smash: x1.25). */
+	/** Maximum Effort doubles the damage of every Super Strength move (Bull Rush: x1.25). */
 	private static float effort(ServerPlayer p) {
 		return maxEffortActive(p) ? 2.0f : 1.0f;
 	}
@@ -130,23 +146,70 @@ public final class SuperStrengthHandlers {
 	}
 
 	/** Cooldown ticks, halved while Maximum Effort is running. */
+	private static int effortCd(ServerPlayer p, int baseTicks) {
+		return maxEffortActive(p) ? baseTicks / 2 : baseTicks;
+	}
+
 	private static void triggerCd(AbilityContext ctx, int baseTicks) {
-		ctx.triggerCooldown(maxEffortActive(ctx.player()) ? baseTicks / 2 : baseTicks);
+		ctx.triggerCooldown(effortCd(ctx.player(), baseTicks));
 	}
 
 	private static void cooldownMessage(AbilityContext ctx) {
-		ctx.actionBar("message.projecthero.ability.on_cooldown",
-				net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
-				String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(ctx.cooldownRemaining() / 20.0f)));
+		cooldownMessage(ctx, ctx.ability().nameKey(), ctx.cooldownRemaining());
+	}
+
+	private static void cooldownMessage(AbilityContext ctx, String nameKey, int ticks) {
+		ctx.actionBar("message.projecthero.ability.on_cooldown", net.minecraft.network.chat.Component.translatable(nameKey),
+				String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(ticks / 20.0f)));
+	}
+
+	private static String moveName(String id) {
+		return "projecthero.power." + KEY + ".ability." + id;
 	}
 
 	// ============================================================================================
 
 	public static void register() {
-		AbilityHandlers.register(KEY, "haymaker",
-				Handlers.instantTicking(SuperStrengthHandlers::haymaker, SuperStrengthHandlers::haymakerTick));
-		AbilityHandlers.register(KEY, "ground_slam",
-				Handlers.instantTicking(SuperStrengthHandlers::groundSlamActivate, SuperStrengthHandlers::groundSlamTick));
+		AbilityHandlers.register(KEY, "haymaker", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				haymaker(ctx);
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				haymakerTick(ctx);
+			}
+		});
+		// G is a HOLD slot so the router does not gate it on the slam's cooldown: Shift+G (Thunderclap) has its own.
+		AbilityHandlers.register(KEY, "ground_slam", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					float cd = res(p, "clap_cd");
+					if (cd > 0.5f) {
+						cooldownMessage(ctx, moveName("thunderclap"), (int) cd);
+						return;
+					}
+					thunderclap(ctx);
+					return;
+				}
+				if (res(p, "diving") > 0.5f) {
+					return; // already mid-dive
+				}
+				if (!ctx.cooldownReady()) {
+					cooldownMessage(ctx);
+					return;
+				}
+				groundSlamActivate(ctx);
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				groundSlamTick(ctx);
+			}
+		});
 		// Power Leap's timing is owned entirely by the client (StrengthActionPayload.PERFORM_POWER_LEAP)
 		// so the launch is deterministic. The slot handler draws the wind-up and runs the hero landing.
 		AbilityHandlers.register(KEY, "power_leap", new AbilityHandler() {
@@ -168,9 +231,6 @@ public final class SuperStrengthHandlers {
 				leapTick(ctx);
 			}
 		});
-		AbilityHandlers.register(KEY, "maximum_effort", Handlers.instant(SuperStrengthHandlers::maximumEffort));
-		AbilityHandlers.register(KEY, "grab_throw",
-				Handlers.instantTicking(SuperStrengthHandlers::grabThrow, SuperStrengthHandlers::grabTick));
 		AbilityHandlers.register(KEY, "bull_rush", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
@@ -187,34 +247,94 @@ public final class SuperStrengthHandlers {
 				bullRushTick(ctx);
 			}
 		});
-		AbilityHandlers.register(KEY, "thunderclap", Handlers.instant(SuperStrengthHandlers::thunderclap));
-		AbilityHandlers.register(KEY, "rip_hurl",
-				Handlers.instantTicking(SuperStrengthHandlers::ripHurl, SuperStrengthHandlers::ripTick));
+		// V is a HOLD slot for the same reason as G: Shift+V (Rip & Hurl) keeps its own cooldown.
+		AbilityHandlers.register(KEY, "grab_throw", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				boolean holding = res(p, "grabbed") > 0.5f || res(p, "chunk_id") > 0.5f;
+				if (holding) {
+					grabThrow(ctx); // throw it (sneaking: set a creature down) -- never blocked by the cooldown
+					return;
+				}
+				if (p.isShiftKeyDown()) {
+					if (res(p, "rip_id") > 0.5f) {
+						return; // one already coming up
+					}
+					float cd = res(p, "rip_cd");
+					if (cd > 0.5f) {
+						cooldownMessage(ctx, moveName("rip_hurl"), (int) cd);
+						return;
+					}
+					ripHurl(ctx);
+					return;
+				}
+				if (!ctx.cooldownReady()) {
+					cooldownMessage(ctx);
+					return;
+				}
+				grabThrow(ctx);
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				grabTick(ctx);
+				ripTick(ctx);
+			}
+		});
+		AbilityHandlers.register(KEY, "maximum_effort", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				maximumEffort(ctx);
+			}
+		});
 
 		registerPassives();
 	}
 
 	// ---- passives ---------------------------------------------------------------------------------
 
+	/** Whether {@code stack} deals attack damage of its own (a sword, axe, trident, mace ...). */
+	private static boolean isWeapon(ItemStack stack) {
+		if (stack.isEmpty()) {
+			return false;
+		}
+		ItemAttributeModifiers mods = stack.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY);
+		for (ItemAttributeModifiers.Entry e : mods.modifiers()) {
+			if (e.attribute().value() == Attributes.ATTACK_DAMAGE.value()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** +10 while the main hand is empty (or holds something that is not a weapon), nothing otherwise. */
+	public static void updateUnarmed(ServerPlayer player) {
+		if (isWeapon(player.getMainHandItem())) {
+			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, PASSIVE_ATK);
+		} else {
+			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, PASSIVE_ATK, UNARMED_BONUS, AttributeModifier.Operation.ADD_VALUE);
+		}
+	}
+
+	/** The passive modifiers this power no longer grants -- cleared whenever the passives are reconciled. */
+	private static void clearLegacyPassives(ServerPlayer player) {
+		PowerToggles.clearModifier(player, Attributes.JUMP_STRENGTH, PASSIVE_JUMP);
+		PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, PASSIVE_KB_RES);
+		PowerToggles.clearModifier(player, Attributes.WATER_MOVEMENT_EFFICIENCY, PASSIVE_SWIM);
+		PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SPRINT_SPD);
+	}
+
 	private static void registerPassives() {
 		com.projecthero.mod.hero.PowerPassives.register(KEY, (player, active) -> {
+			clearLegacyPassives(player);
 			if (active) {
-				// Vanilla unarmed ATTACK_DAMAGE base is 1.0, so +13 makes an unarmed hit land at 14.
-				PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, PASSIVE_ATK, 13.0, AttributeModifier.Operation.ADD_VALUE);
-				PowerToggles.modifier(player, Attributes.ATTACK_KNOCKBACK, PASSIVE_ATK_KB, 1.0, AttributeModifier.Operation.ADD_VALUE);
-				PowerToggles.modifier(player, Attributes.JUMP_STRENGTH, PASSIVE_JUMP, 0.35, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-				PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, PASSIVE_KB_RES, 0.70, AttributeModifier.Operation.ADD_VALUE);
-				PowerToggles.modifier(player, Attributes.WATER_MOVEMENT_EFFICIENCY, PASSIVE_SWIM, 0.30, AttributeModifier.Operation.ADD_VALUE);
-				// v0.13.22: Bull Rush moved from Z to C and uses the ordinary ability cooldown -- a stale z_cd from an
-				// older save would otherwise sit on the Z (Maximum Effort) keybind box forever.
-				res(player, "z_cd", 0);
+				updateUnarmed(player);
+				PowerToggles.modifier(player, Attributes.ATTACK_KNOCKBACK, PASSIVE_ATK_KB, KNOCKBACK_BONUS,
+						AttributeModifier.Operation.ADD_VALUE);
 			} else {
 				PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, PASSIVE_ATK);
 				PowerToggles.clearModifier(player, Attributes.ATTACK_KNOCKBACK, PASSIVE_ATK_KB);
-				PowerToggles.clearModifier(player, Attributes.JUMP_STRENGTH, PASSIVE_JUMP);
-				PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, PASSIVE_KB_RES);
-				PowerToggles.clearModifier(player, Attributes.WATER_MOVEMENT_EFFICIENCY, PASSIVE_SWIM);
-				PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SPRINT_SPD);
 				PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, EFFORT_KB);
 				PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, EFFORT_ATK);
 				PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, RUSH_KB);
@@ -224,10 +344,13 @@ public final class SuperStrengthHandlers {
 		});
 
 		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, player -> {
-			// Countdown timers used by the HUD.
-			float cd = res(player, "charged_cd");
-			if (cd > 0) {
-				res(player, "charged_cd", cd - 1);
+			updateUnarmed(player);
+			// Countdown timers (also read by the HUD).
+			for (String cdName : new String[] { "charged_cd", "clap_cd", "rip_cd" }) {
+				float cd = res(player, cdName);
+				if (cd > 0) {
+					res(player, cdName, Math.max(0, cd - 1));
+				}
 			}
 			float eff = res(player, "effort_left");
 			if (eff > 0) {
@@ -241,28 +364,27 @@ public final class SuperStrengthHandlers {
 					PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, EFFORT_ATK);
 				}
 			}
-			// +15% speed while sprinting only.
-			if (player.isSprinting()) {
-				PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, SPRINT_SPD, 0.15, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-			} else {
-				PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SPRINT_SPD);
-			}
 		});
 	}
 
 	// ---- charged punch --------------------------------------------------------------------------
 
+	/** Charged Punch damage right now: the player's melee damage (unarmed bonus, Maximum Effort included) + 15. */
+	public static float chargedPunchDamage(ServerPlayer p) {
+		return (float) p.getAttributeValue(Attributes.ATTACK_DAMAGE) + CHARGED_BONUS;
+	}
+
 	/**
-	 * The client held the attack key for ~2 s (while not aimed at a minable block) and then released
-	 * it. Throw the charged punch now: 24 to whatever is in front, massive knockback, shields broken,
-	 * then a 2.5 s cooldown.
+	 * The client held the attack key for 1 s (while not aimed at a minable block) and then released it. Throw the
+	 * charged punch now: melee damage +15 to whatever is in front, massive knockback, shields broken, then a 2 s
+	 * cooldown.
 	 */
 	public static void performChargedPunch(ServerPlayer p) {
 		if (!owns(p) || res(p, "charged_cd") > 0.5f || !(p.level() instanceof ServerLevel level)) {
 			return;
 		}
-		res(p, "charged_cd", maxEffortActive(p) ? CHARGED_CD_TICKS / 2 : CHARGED_CD_TICKS);
-		float dmg = CHARGED_DAMAGE * effort(p);
+		res(p, "charged_cd", effortCd(p, CHARGED_CD_TICKS));
+		float dmg = chargedPunchDamage(p);
 		BatchA.play(p, KEY, "haymaker", 14);
 
 		Vec3 look = p.getLookAngle();
@@ -382,13 +504,10 @@ public final class SuperStrengthHandlers {
 
 	private static void groundSlamActivate(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
-		if (res(p, "diving") > 0.5f) {
-			return; // already mid-dive
-		}
 		if (p.onGround()) {
 			BatchA.play(p, KEY, "slam_two_hand", 18);
-			groundSlam(ctx, 17.0f, 5.0, 0.85, 1.0);
-			triggerCd(ctx, 136);
+			groundSlam(ctx, SLAM_DAMAGE, 5.0, 0.85, 1.0);
+			triggerCd(ctx, SLAM_CD);
 		} else {
 			res(p, "diving", 1);
 			res(p, "dive_from_y", (float) Math.max(0, p.getY() + 1000));
@@ -408,24 +527,22 @@ public final class SuperStrengthHandlers {
 			double dist = Math.max(0, (res(p, "dive_from_y") - 1000) - p.getY());
 			float dmg;
 			if (dist < 6) {
-				dmg = 17f;
+				dmg = SLAM_DAMAGE;
 			} else if (dist < 10) {
-				dmg = 19f;
+				dmg = 22f;
 			} else if (dist < 20) {
-				dmg = 24f;
+				dmg = 26f;
 			} else if (dist < 30) {
-				dmg = 29f;
+				dmg = 30f;
 			} else {
 				dmg = 34f;
 			}
 			res(p, "diving", 0);
 			res(p, "dive_from_y", 0);
 			p.resetFallDistance(); // committed dive: the landing shrugs off fall damage
-			BatchA.play(p, KEY, "hero_landing", 20);
 			groundSlam(ctx, dmg, 5.0, 0.6, 1.4);
-			((ServerLevel) p.level()).sendParticles(ParticleTypes.EXPLOSION_EMITTER, p.getX(), p.getY(), p.getZ(), 1, 0, 0, 0, 0);
-			p.level().playSound(null, p.blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.2f, 0.5f);
-			triggerCd(ctx, 136);
+			landingImpact(ctx.level(), p, 3);
+			triggerCd(ctx, SLAM_CD);
 		}
 	}
 
@@ -449,6 +566,78 @@ public final class SuperStrengthHandlers {
 		BatchA.debrisRing(level, p.position(), radius * 0.45, 16);
 		BatchA.debrisRing(level, p.position(), radius * 0.8, 24);
 		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE.value(), 0.9f, 1.1f);
+	}
+
+	// ---- Shift+G: Thunderclap --------------------------------------------------------------------
+
+	/** A clap that sends a cone of air out in front: stuns, throws back, reverses projectiles and snuffs fire. */
+	private static void thunderclap(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		double range = maxEffortActive(p) ? 11.0 : 9.0;
+		double minDot = 0.5; // a 120-degree cone
+		BatchA.play(p, KEY, "clap", 16);
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		float dmg = 9f * effort(p);
+		for (LivingEntity e : AbilityHelpers.living(level, eye, range, e -> e != p)) {
+			if (!BatchA.inCone(p, e, minDot)) {
+				continue;
+			}
+			e.clearFire();
+			if (!AbilityHelpers.enemiesAround(p, e.position(), 0.05).contains(e)) {
+				continue; // allies / protected players: just put out, never hit
+			}
+			AbilityHelpers.hurt(p, e, dmg);
+			AbilityHelpers.knockbackFrom(e, p.position(), 2.4);
+			AbilityHelpers.push(e, new Vec3(0, 0.3, 0));
+			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 50, 4);
+			AbilityHelpers.applyControl(e, MobEffects.WEAKNESS, 50, 1);
+			level.sendParticles(ParticleTypes.CRIT, e.getX(), e.getY() + e.getBbHeight(), e.getZ(), 6, 0.3, 0.2, 0.3, 0.1);
+		}
+		for (Projectile proj : level.getEntitiesOfClass(Projectile.class, p.getBoundingBox().inflate(range))) {
+			Vec3 to = proj.position().subtract(eye);
+			if (to.lengthSqr() > 1.0e-3 && to.normalize().dot(look) >= minDot) {
+				proj.setDeltaMovement(to.normalize().scale(Math.max(1.0, proj.getDeltaMovement().length())));
+				proj.hurtMarked = true;
+			}
+		}
+		// snuff out fire in the cone (and on yourself) -- extinguishing is never griefing
+		p.clearFire();
+		BlockPos c = p.blockPosition();
+		int r = (int) Math.ceil(range);
+		int put = 0;
+		for (BlockPos bp : BlockPos.betweenClosed(c.offset(-r, -2, -r), c.offset(r, 3, r))) {
+			BlockState st = level.getBlockState(bp);
+			if (!st.is(net.minecraft.tags.BlockTags.FIRE)) {
+				continue;
+			}
+			Vec3 to = Vec3.atCenterOf(bp).subtract(eye);
+			if (to.length() <= range && to.normalize().dot(look) >= minDot - 0.15) {
+				level.removeBlock(bp, false);
+				put++;
+			}
+		}
+		if (put > 0) {
+			level.playSound(null, p.blockPosition(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 1.0f, 1.0f);
+		}
+		// the visible blast: a cone of air rolling out from the hands
+		Vec3 hands = eye.add(look.scale(0.8)).add(0, -0.35, 0);
+		level.sendParticles(ParticleTypes.GUST_EMITTER_SMALL, hands.x, hands.y, hands.z, 1, 0, 0, 0, 0);
+		Vec3 right = look.cross(new Vec3(0, 1, 0));
+		right = right.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : right.normalize();
+		Vec3 up = right.cross(look).normalize();
+		for (int i = 0; i < 40; i++) {
+			double dist = 1.0 + (i % 8) * range / 8.0;
+			double a = i * 2.39996;
+			double spread = dist * 0.55 * ((i % 5) / 4.0);
+			Vec3 at = hands.add(look.scale(dist)).add(right.scale(Math.cos(a) * spread)).add(up.scale(Math.sin(a) * spread * 0.6));
+			level.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, 1, look.x * 0.4, look.y * 0.4, look.z * 0.4, 1.0);
+		}
+		level.sendParticles(ParticleTypes.EXPLOSION, hands.x, hands.y, hands.z, 1, 0, 0, 0, 0);
+		level.playSound(null, p.blockPosition(), SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 0.7f, 1.7f);
+		level.playSound(null, p.blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.6f, 1.6f);
+		res(p, "clap_cd", com.projecthero.mod.hero.HeroConfig.get().scaledCooldown(effortCd(p, THUNDERCLAP_CD)));
 	}
 
 	// ---- X: Power Leap ----------------------------------------------------------------------
@@ -536,6 +725,9 @@ public final class SuperStrengthHandlers {
 		}
 	}
 
+	/** The v0.14.5 superhero-landing pose (client: {@code StrengthLandingPose}): one knee down, fist planted, head bowed. */
+	public static final String LANDING_POSE = "p01.landing";
+
 	/** Crater impact at the end of a Power Leap: bigger and harder the more the leap was charged. */
 	private static void heroLanding(AbilityContext ctx, int tier) {
 		ServerPlayer p = ctx.player();
@@ -543,25 +735,71 @@ public final class SuperStrengthHandlers {
 		double radius = 2.5 + tier * 0.6;
 		float dmg = (7f + tier * 3.0f) * effort(p);
 		p.resetFallDistance();
-		BatchA.play(p, KEY, "hero_landing", 20);
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), radius)) {
 			AbilityHelpers.hurt(p, e, dmg);
 			AbilityHelpers.knockbackFrom(e, p.position(), 0.8 + tier * 0.2);
 			AbilityHelpers.push(e, new Vec3(0, 0.35 + tier * 0.06, 0));
 		}
-		Vec3 c = p.position();
-		level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y + 0.1, c.z, tier >= 3 ? 3 : 1, 0.6, 0.1, 0.6, 0);
-		BatchA.debrisRing(level, c, 0.8, 10);
-		BatchA.debrisRing(level, c, radius * 0.55, 18);
-		BatchA.debrisRing(level, c, radius, 28);
-		BatchA.ring(level, c.add(0, 0.15, 0), 0.6, ParticleTypes.CLOUD, 20, 0.35 + tier * 0.05);
-		level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, c.x, c.y + 0.1, c.z, 4 + tier * 2, radius * 0.4, 0.05,
-				radius * 0.4, 0.01);
-		level.playSound(null, p.blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.6f + tier * 0.12f, 0.6f);
-		level.playSound(null, p.blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.5f, 0.5f);
+		landingImpact(level, p, tier);
 	}
 
-	// ---- Z: Maximum Effort -----------------------------------------------------------------
+	/**
+	 * The look of a Super Strength landing, synced to everyone: the superhero-landing pose, a ring of cracks radiating
+	 * out through the block you landed on, a rolling dust ring, the ground's own break sound under the boom, and a
+	 * short camera shake for anyone close by. {@code tier} 0..5 scales it.
+	 */
+	static void landingImpact(ServerLevel level, ServerPlayer p, int tier) {
+		MutationVisuals.play(p, LANDING_POSE);
+		Vec3 c = p.position();
+		double radius = 2.5 + tier * 0.6;
+		BlockPos below = BlockPos.containing(c.x, c.y - 0.2, c.z);
+		BlockState ground = level.getBlockState(below);
+		if (ground.isAir() || !ground.getFluidState().isEmpty()) {
+			ground = Blocks.DIRT.defaultBlockState();
+		}
+		BlockParticleOption crack = new BlockParticleOption(ParticleTypes.BLOCK, ground);
+		// radial cracks: seven jagged spokes of the landed-on block kicked up along the ground
+		int spokes = 7;
+		double phase = (p.getId() % 16) * 0.39;
+		for (int i = 0; i < spokes; i++) {
+			double a = phase + i * Math.PI * 2 / spokes;
+			for (double d = 0.4; d <= radius; d += 0.35) {
+				double wob = Math.sin(d * 3.1 + i) * 0.18;
+				double x = c.x + Math.cos(a + wob) * d;
+				double z = c.z + Math.sin(a + wob) * d;
+				level.sendParticles(crack, x, c.y + 0.05, z, 2, 0.06, 0.02, 0.06, 0.05);
+			}
+		}
+		// the fist-plant burst and the ground heaving at the rim
+		level.sendParticles(crack, c.x, c.y + 0.15, c.z, 30 + tier * 6, 0.35, 0.1, 0.35, 0.25);
+		BatchA.debrisRing(level, c, radius, 20 + tier * 3);
+		// a low rolling dust ring
+		BatchA.ring(level, c.add(0, 0.12, 0), 0.5, ParticleTypes.CLOUD, 24, 0.28 + tier * 0.05);
+		level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, c.x, c.y + 0.1, c.z, 3 + tier, radius * 0.35, 0.05,
+				radius * 0.35, 0.01);
+		if (tier >= 3) {
+			level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y + 0.1, c.z, 1, 0, 0, 0, 0);
+		}
+		level.playSound(null, p.blockPosition(), ground.getSoundType().getBreakSound(), SoundSource.PLAYERS, 1.4f, 0.55f);
+		level.playSound(null, p.blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS,
+				0.45f + tier * 0.1f, 0.55f);
+		level.playSound(null, p.blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.35f, 0.5f);
+		// a short camera shake for anyone near the impact (purely cosmetic)
+		float intensity = 0.18f + tier * 0.06f;
+		for (ServerPlayer viewer : level.players()) {
+			double d2 = viewer.distanceToSqr(c);
+			if (d2 <= 16 * 16) {
+				try {
+					net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(viewer,
+							new com.projecthero.mod.network.TitanShakePayload(intensity * (float) (1.0 - Math.sqrt(d2) / 16.0 * 0.8), 8));
+				} catch (RuntimeException ignored) {
+					// a connection that cannot take the packet (e.g. a test mock) just misses the shake
+				}
+			}
+		}
+	}
+
+	// ---- C: Maximum Effort -----------------------------------------------------------------
 
 	private static void maximumEffort(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
@@ -767,266 +1005,12 @@ public final class SuperStrengthHandlers {
 		}
 	}
 
-	// ---- C: Bull Rush / Impact Smash (both hold-to-charge for 5 s) --------------------------
-
-	/**
-	 * Press C (hold): begin charging. Sneak while pressing charges Impact Smash instead of Bull Rush.
-	 * Idempotent -- a repeated press while already charging or rushing is ignored.
-	 */
-	private static void bullRushPress(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		if (res(p, "z_charge") > 0.5f || res(p, "z_run_end") > 0.5f) {
-			return;
-		}
-		if (!ctx.cooldownReady()) {
-			cooldownMessage(ctx);
-			return;
-		}
-		boolean smash = p.isShiftKeyDown();
-		res(p, "z_charge", p.level().getGameTime());
-		res(p, "z_smash", smash ? 1 : 0);
-		rushGuards(p, true);
-		MutationVisuals.play(p, "crouch_charge");
-		AbilityHelpers.sound(p, SoundEvents.RAVAGER_ROAR, 0.8f, 0.55f);
-	}
-
-	/** Release C: fire if the 5 s charge finished, otherwise cancel it. */
-	private static void bullRushRelease(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		if (res(p, "z_charge") <= 0.5f) {
-			return;
-		}
-		long held = p.level().getGameTime() - (long) res(p, "z_charge");
-		if (held >= SMASH_CHARGE) {
-			fireRush(ctx);
-		} else {
-			cancelRush(p);
-		}
-	}
-
-	private static void bullRushTick(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		long now = p.level().getGameTime();
-		ServerLevel level = ctx.level();
-
-		// ---- charging ----
-		float charge = res(p, "z_charge");
-		if (charge > 0.5f) {
-			long held = now - (long) charge;
-			boolean smash = res(p, "z_smash") > 0.5f;
-			p.setDeltaMovement(p.getDeltaMovement().multiply(0.15, 1.0, 0.15));
-			p.hurtMarked = true;
-			MutationVisuals.ensure(p, "crouch_charge");
-			double frac = Math.min(1.0, held / (double) SMASH_CHARGE);
-			level.sendParticles(smash ? ParticleTypes.CRIT : ParticleTypes.CLOUD,
-					p.getX(), p.getY() + 0.1, p.getZ(), 4 + (int) (frac * 8), 0.5 * frac + 0.2, 0.05, 0.5 * frac + 0.2, 0.02);
-			if (held == 20 || held == 60) {
-				AbilityHelpers.sound(p, SoundEvents.PISTON_CONTRACT, 0.5f, 0.6f + (float) frac * 0.5f);
-			}
-			if (held >= SMASH_CHARGE) {
-				fireRush(ctx);
-			} else if (held > SMASH_CHARGE + 200 || held < 0) {
-				cancelRush(p);
-			}
-			return;
-		}
-
-		// ---- rushing (Bull Rush only) ----
-		float runEnd = res(p, "z_run_end");
-		if (runEnd <= 0.5f) {
-			return;
-		}
-		Vec3 flat = BatchA.flatLook(p);
-		double sprint = maxEffortActive(p) ? 0.62 : 0.55;
-		p.setDeltaMovement(flat.x * sprint, Math.max(p.getDeltaMovement().y, -0.25), flat.z * sprint);
-		p.hurtMarked = true;
-		p.hasImpulse = true;
-		BatchA.stance(p, KEY, "p01.rush");
-		level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 5, 0.3, 0.05, 0.3, 0.04);
-
-		// Plough straight through -- hitting an enemy does NOT stop the rush.
-		float m = maxEffortActive(p) ? 1.25f : 1.0f;
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position().add(flat.scale(1.3)), 2.0)) {
-			AbilityHelpers.hurt(p, e, 24f * m);
-			AbilityHelpers.knockbackFrom(e, p.position(), 4.2);
-			AbilityHelpers.push(e, new Vec3(0, 0.45, 0));
-		}
-		long ticksRun = RUSH_RUN - ((long) runEnd - now);
-		boolean stuck = ticksRun > 6 && p.horizontalCollision
-				&& p.getDeltaMovement().horizontalDistanceSqr() < 0.06;
-		if (now >= (long) runEnd || stuck || ticksRun > RUSH_RUN + 40) {
-			endRush(ctx);
-		}
-	}
-
-	/** The 5 s charge finished: launch the rush, or detonate the smash. */
-	private static void fireRush(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		boolean smash = res(p, "z_smash") > 0.5f;
-		res(p, "z_charge", 0);
-		res(p, "z_smash", 0);
-		MutationVisuals.stopIf(p, "crouch_charge");
-		if (smash) {
-			rushGuards(p, false);
-			BatchA.play(p, KEY, "ground_pound", 20);
-			impactSmash(ctx);
-			triggerCd(ctx, SMASH_CD);
-		} else {
-			res(p, "z_run_end", p.level().getGameTime() + RUSH_RUN);
-			PowerToggles.modifier(p, Attributes.STEP_HEIGHT, RUSH_STEP, 4.0, AttributeModifier.Operation.ADD_VALUE);
-			MutationVisuals.play(p, "p01.rush");
-			AbilityHelpers.sound(p, SoundEvents.RAVAGER_ROAR, 1.3f, 1.1f);
-		}
-	}
-
-	private static void cancelRush(ServerPlayer p) {
-		res(p, "z_charge", 0);
-		res(p, "z_smash", 0);
-		rushGuards(p, false);
-		MutationVisuals.stopIf(p, "crouch_charge");
-		AbilityHelpers.sound(p, SoundEvents.FIRE_EXTINGUISH, 0.5f, 1.2f);
-	}
-
-	private static void endRush(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		res(p, "z_run_end", 0);
-		rushGuards(p, false);
-		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, RUSH_STEP);
-		MutationVisuals.stopIf(p, "p01.rush");
-		triggerCd(ctx, RUSH_CD);
-		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.7f);
-	}
-
-	/** Damage resistance + full knockback resistance, on while charging and rushing. */
-	private static void rushGuards(ServerPlayer p, boolean on) {
-		if (on) {
-			PowerToggles.modifier(p, Attributes.KNOCKBACK_RESISTANCE, RUSH_KB, 1.0, AttributeModifier.Operation.ADD_VALUE);
-			p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, SMASH_CHARGE + RUSH_RUN + 40, 0, false, false, true));
-		} else {
-			PowerToggles.clearModifier(p, Attributes.KNOCKBACK_RESISTANCE, RUSH_KB);
-			p.removeEffect(MobEffects.DAMAGE_RESISTANCE);
-		}
-	}
-
-	private static void impactSmash(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		float dmg = maxEffortActive(p) ? 90f : 72f;
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 20.0)) {
-			double d = e.position().distanceTo(p.position());
-			AbilityHelpers.hurt(p, e, (float) (dmg * (1.0 - Math.min(0.6, d / 20.0))));
-			AbilityHelpers.knockbackFrom(e, p.position(), 2.4);
-			AbilityHelpers.push(e, new Vec3(0, 0.9, 0));
-			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 60, 2);
-		}
-		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, p.getX(), p.getY(), p.getZ(), 3, 3, 1, 3, 0);
-		level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.2, p.getZ(), 120, 6, 0.5, 6, 0.1);
-		BatchA.debrisRing(level, p.position(), 4, 24);
-		BatchA.debrisRing(level, p.position(), 9, 36);
-		level.playSound(null, p.blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.4f, 0.4f);
-		level.playSound(null, p.blockPosition(), SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 0.8f, 0.6f);
-		if (AbilityHelpers.canGrief()) {
-			BlockPos base = p.blockPosition();
-			int r = 6;
-			for (int dx = -r; dx <= r; dx++) {
-				for (int dz = -r; dz <= r; dz++) {
-					for (int dy = -2; dy <= 1; dy++) {
-						if (dx * dx + dy * dy + dz * dz > r * r) {
-							continue;
-						}
-						BlockPos bp = base.offset(dx, dy, dz);
-						var st = level.getBlockState(bp);
-						float hard = st.getDestroySpeed(level, bp);
-						if (!st.isAir() && hard >= 0 && hard < 3.0f) {
-							level.destroyBlock(bp, true, p);
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// ---- H: Thunderclap --------------------------------------------------------------------
-
-	/** A clap that sends a cone of air out in front: stuns, throws back, reverses projectiles and snuffs fire. */
-	private static void thunderclap(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		double range = maxEffortActive(p) ? 11.0 : 9.0;
-		double minDot = 0.5; // a 120-degree cone
-		BatchA.play(p, KEY, "clap", 16);
-		Vec3 eye = p.getEyePosition();
-		Vec3 look = p.getLookAngle();
-		float dmg = 9f * effort(p);
-		for (LivingEntity e : AbilityHelpers.living(level, eye, range, e -> e != p)) {
-			if (!BatchA.inCone(p, e, minDot)) {
-				continue;
-			}
-			e.clearFire();
-			if (!AbilityHelpers.enemiesAround(p, e.position(), 0.05).contains(e)) {
-				continue; // allies / protected players: just put out, never hit
-			}
-			AbilityHelpers.hurt(p, e, dmg);
-			AbilityHelpers.knockbackFrom(e, p.position(), 2.4);
-			AbilityHelpers.push(e, new Vec3(0, 0.3, 0));
-			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 50, 4);
-			AbilityHelpers.applyControl(e, MobEffects.WEAKNESS, 50, 1);
-			level.sendParticles(ParticleTypes.CRIT, e.getX(), e.getY() + e.getBbHeight(), e.getZ(), 6, 0.3, 0.2, 0.3, 0.1);
-		}
-		for (Projectile proj : level.getEntitiesOfClass(Projectile.class, p.getBoundingBox().inflate(range))) {
-			Vec3 to = proj.position().subtract(eye);
-			if (to.lengthSqr() > 1.0e-3 && to.normalize().dot(look) >= minDot) {
-				proj.setDeltaMovement(to.normalize().scale(Math.max(1.0, proj.getDeltaMovement().length())));
-				proj.hurtMarked = true;
-			}
-		}
-		// snuff out fire in the cone (and on yourself) -- extinguishing is never griefing
-		p.clearFire();
-		BlockPos c = p.blockPosition();
-		int r = (int) Math.ceil(range);
-		int put = 0;
-		for (BlockPos bp : BlockPos.betweenClosed(c.offset(-r, -2, -r), c.offset(r, 3, r))) {
-			BlockState st = level.getBlockState(bp);
-			if (!st.is(net.minecraft.tags.BlockTags.FIRE)) {
-				continue;
-			}
-			Vec3 to = Vec3.atCenterOf(bp).subtract(eye);
-			if (to.length() <= range && to.normalize().dot(look) >= minDot - 0.15) {
-				level.removeBlock(bp, false);
-				put++;
-			}
-		}
-		if (put > 0) {
-			level.playSound(null, p.blockPosition(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 1.0f, 1.0f);
-		}
-		// the visible blast: a cone of air rolling out from the hands
-		Vec3 hands = eye.add(look.scale(0.8)).add(0, -0.35, 0);
-		level.sendParticles(ParticleTypes.GUST_EMITTER_SMALL, hands.x, hands.y, hands.z, 1, 0, 0, 0, 0);
-		Vec3 right = look.cross(new Vec3(0, 1, 0));
-		right = right.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : right.normalize();
-		Vec3 up = right.cross(look).normalize();
-		for (int i = 0; i < 40; i++) {
-			double dist = 1.0 + (i % 8) * range / 8.0;
-			double a = i * 2.39996;
-			double spread = dist * 0.55 * ((i % 5) / 4.0);
-			Vec3 at = hands.add(look.scale(dist)).add(right.scale(Math.cos(a) * spread)).add(up.scale(Math.sin(a) * spread * 0.6));
-			level.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, 1, look.x * 0.4, look.y * 0.4, look.z * 0.4, 1.0);
-		}
-		level.sendParticles(ParticleTypes.EXPLOSION, hands.x, hands.y, hands.z, 1, 0, 0, 0, 0);
-		level.playSound(null, p.blockPosition(), SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 0.7f, 1.7f);
-		level.playSound(null, p.blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.6f, 1.6f);
-		triggerCd(ctx, THUNDERCLAP_CD);
-	}
-
-	// ---- N: Rip & Hurl -----------------------------------------------------------------------
+	// ---- Shift+V: Rip & Hurl -----------------------------------------------------------------
 
 	/** Tear a boulder out of the ground in front of you; it rises over your head and is hurled where you aim. */
 	private static void ripHurl(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		ServerLevel level = ctx.level();
-		if (res(p, "rip_id") > 0.5f) {
-			return; // one already coming up
-		}
 		Vec3 f = BatchA.flatLook(p);
 		BlockPos probe = BlockPos.containing(p.getX() + f.x * 1.8, p.getY() - 0.5, p.getZ() + f.z * 1.8);
 		BlockPos ground = null;
@@ -1059,7 +1043,7 @@ public final class SuperStrengthHandlers {
 		BatchA.debrisRing(level, Vec3.atBottomCenterOf(ground.above()), 1.4, 14);
 		level.playSound(null, ground, SoundEvents.ROOTED_DIRT_BREAK, SoundSource.PLAYERS, 1.5f, 0.6f);
 		level.playSound(null, ground, boulder.getSoundType().getBreakSound(), SoundSource.PLAYERS, 1.5f, 0.5f);
-		triggerCd(ctx, RIP_CD);
+		res(p, "rip_cd", com.projecthero.mod.hero.HeroConfig.get().scaledCooldown(effortCd(p, RIP_CD)));
 	}
 
 	private static void ripTick(AbilityContext ctx) {
@@ -1090,9 +1074,135 @@ public final class SuperStrengthHandlers {
 		res(p, "rip_ticks", 0);
 		float m = effort(p);
 		chunk.hold(overhead(p, 0.4));
-		chunk.launch(p.getLookAngle().scale(1.9).add(0, 0.15, 0), 26f * m, 14f * m, 3.2);
+		// v0.14.5: a much harder throw -- about twice the old range
+		chunk.launch(p.getLookAngle().scale(RIP_THROW_SPEED).add(0, 0.25, 0), 26f * m, 14f * m, 3.2);
 		BatchA.play(p, KEY, "throw_right", 14);
 		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_STRONG, 1.2f, 0.5f);
 		level.playSound(null, p.blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 0.5f, 1.3f);
+	}
+
+	// ---- Z: Bull Rush (hold to charge for 5 s) ----------------------------------------------
+
+	/** Press Z (hold): begin charging. Idempotent -- a repeated press while already charging or rushing is ignored. */
+	private static void bullRushPress(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (res(p, "z_charge") > 0.5f || res(p, "z_run_end") > 0.5f) {
+			return;
+		}
+		if (!ctx.cooldownReady()) {
+			cooldownMessage(ctx);
+			return;
+		}
+		res(p, "z_charge", p.level().getGameTime());
+		rushGuards(p, true);
+		MutationVisuals.play(p, "crouch_charge");
+		AbilityHelpers.sound(p, SoundEvents.RAVAGER_ROAR, 0.8f, 0.55f);
+	}
+
+	/** Release Z: fire if the 5 s charge finished, otherwise cancel it. */
+	private static void bullRushRelease(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (res(p, "z_charge") <= 0.5f) {
+			return;
+		}
+		long held = p.level().getGameTime() - (long) res(p, "z_charge");
+		if (held >= RUSH_CHARGE) {
+			fireRush(ctx);
+		} else {
+			cancelRush(p);
+		}
+	}
+
+	private static void bullRushTick(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		long now = p.level().getGameTime();
+		ServerLevel level = ctx.level();
+
+		// ---- charging ----
+		float charge = res(p, "z_charge");
+		if (charge > 0.5f) {
+			long held = now - (long) charge;
+			p.setDeltaMovement(p.getDeltaMovement().multiply(0.15, 1.0, 0.15));
+			p.hurtMarked = true;
+			MutationVisuals.ensure(p, "crouch_charge");
+			double frac = Math.min(1.0, held / (double) RUSH_CHARGE);
+			level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 4 + (int) (frac * 8),
+					0.5 * frac + 0.2, 0.05, 0.5 * frac + 0.2, 0.02);
+			if (held == 20 || held == 60) {
+				AbilityHelpers.sound(p, SoundEvents.PISTON_CONTRACT, 0.5f, 0.6f + (float) frac * 0.5f);
+			}
+			if (held >= RUSH_CHARGE) {
+				fireRush(ctx);
+			} else if (held > RUSH_CHARGE + 200 || held < 0) {
+				cancelRush(p);
+			}
+			return;
+		}
+
+		// ---- rushing ----
+		float runEnd = res(p, "z_run_end");
+		if (runEnd <= 0.5f) {
+			return;
+		}
+		Vec3 flat = BatchA.flatLook(p);
+		double sprint = maxEffortActive(p) ? 0.62 : 0.55;
+		p.setDeltaMovement(flat.x * sprint, Math.max(p.getDeltaMovement().y, -0.25), flat.z * sprint);
+		p.hurtMarked = true;
+		p.hasImpulse = true;
+		BatchA.stance(p, KEY, "p01.rush");
+		level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 5, 0.3, 0.05, 0.3, 0.04);
+
+		// Plough straight through -- hitting an enemy does NOT stop the rush.
+		float m = maxEffortActive(p) ? 1.25f : 1.0f;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position().add(flat.scale(1.3)), 2.0)) {
+			AbilityHelpers.hurt(p, e, 24f * m);
+			AbilityHelpers.knockbackFrom(e, p.position(), 4.2);
+			AbilityHelpers.push(e, new Vec3(0, 0.45, 0));
+		}
+		long ticksRun = RUSH_RUN - ((long) runEnd - now);
+		boolean stuck = ticksRun > 6 && p.horizontalCollision
+				&& p.getDeltaMovement().horizontalDistanceSqr() < 0.06;
+		if (now >= (long) runEnd || stuck || ticksRun > RUSH_RUN + 40) {
+			endRush(ctx);
+		}
+	}
+
+	/** The 5 s charge finished: launch the rush. */
+	private static void fireRush(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		res(p, "z_charge", 0);
+		MutationVisuals.stopIf(p, "crouch_charge");
+		res(p, "z_run_end", p.level().getGameTime() + RUSH_RUN);
+		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, RUSH_STEP, 4.0, AttributeModifier.Operation.ADD_VALUE);
+		MutationVisuals.play(p, "p01.rush");
+		AbilityHelpers.sound(p, SoundEvents.RAVAGER_ROAR, 1.3f, 1.1f);
+	}
+
+	private static void cancelRush(ServerPlayer p) {
+		res(p, "z_charge", 0);
+		rushGuards(p, false);
+		MutationVisuals.stopIf(p, "crouch_charge");
+		AbilityHelpers.sound(p, SoundEvents.FIRE_EXTINGUISH, 0.5f, 1.2f);
+	}
+
+	private static void endRush(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		res(p, "z_run_end", 0);
+		rushGuards(p, false);
+		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, RUSH_STEP);
+		MutationVisuals.stopIf(p, "p01.rush");
+		triggerCd(ctx, RUSH_CD);
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.7f);
+	}
+
+	/** Damage resistance + full knockback resistance, on while charging and rushing. */
+	private static void rushGuards(ServerPlayer p, boolean on) {
+		if (on) {
+			PowerToggles.modifier(p, Attributes.KNOCKBACK_RESISTANCE, RUSH_KB, 1.0, AttributeModifier.Operation.ADD_VALUE);
+			p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, RUSH_CHARGE + RUSH_RUN + 40, 0, false, false, true));
+		} else {
+			PowerToggles.clearModifier(p, Attributes.KNOCKBACK_RESISTANCE, RUSH_KB);
+			p.removeEffect(MobEffects.DAMAGE_RESISTANCE);
+		}
 	}
 }

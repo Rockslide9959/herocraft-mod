@@ -7,8 +7,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import com.projecthero.mod.hero.power.p01.StrengthBareHands;
-import com.projecthero.mod.hero.power.p01.SuperStrengthHandlers;
 import com.projecthero.mod.hero.power.p04.SuperSpeedHandlers;
 import com.projecthero.mod.hero.power.p05.GeoBareHands;
 import com.projecthero.mod.hero.power.p17.ElasticityHandlers;
@@ -87,16 +85,6 @@ public abstract class PlayerMixin {
 	}
 
 	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
-	private void projecthero$strengthMining(BlockState state, CallbackInfoReturnable<Float> cir) {
-		Player self = (Player) (Object) this;
-		if (SuperStrengthHandlers.owns(self)) {
-			// A stone-tool floor no matter what's in hand (a better tool still wins), then +25%.
-			float floored = Math.max(cir.getReturnValue(), StrengthBareHands.miningSpeed(state, cir.getReturnValue()));
-			cir.setReturnValue(floored * 1.25f);
-		}
-	}
-
-	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
 	private void projecthero$geoMining(BlockState state, CallbackInfoReturnable<Float> cir) {
 		Player self = (Player) (Object) this;
 		if (GeoBareHands.applies(self)) {
@@ -149,9 +137,6 @@ public abstract class PlayerMixin {
 		}
 		Player self = (Player) (Object) this;
 		if (SymbioteBareHands.applies(self) && SymbioteBareHands.correctToolForDrops(state)) {
-			cir.setReturnValue(true);
-		}
-		if (StrengthBareHands.applies(self) && StrengthBareHands.correctToolForDrops(state)) {
 			cir.setReturnValue(true);
 		}
 		if (GeoBareHands.applies(self) && GeoBareHands.correctToolForDrops(state)) {

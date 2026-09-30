@@ -45,8 +45,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	private static boolean firearmAbilityOneSentPress = false;
 	private static final int FIREARM_RELOAD_TAP_TICKS = 8;
 
-	/** Super Strength charged punch: attack key held this many ticks (not while aimed at a block). */
-	public static final int CHARGED_PUNCH_HOLD_TICKS = 40;
+	/** Super Strength charged punch: attack key held this many ticks (not while aimed at a block). v0.14.5: 1 s. */
+	public static final int CHARGED_PUNCH_HOLD_TICKS = com.projecthero.mod.hero.power.p01.SuperStrengthHandlers.CHARGED_HOLD_TICKS;
 	private static int chargedPunchHold = 0;
 	private static boolean chargedPunchWasCharging = false;
 
@@ -567,6 +567,16 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		return power != null && power.hasSlot(com.projecthero.mod.hero.AbilitySlot.SLOT_7);
 	}
 
+	/** v0.14.5: whether a mutation is selected at all (and Mjolnir is not in hand) -- Sneak+N combos need no N slot. */
+	private static boolean mutationSelected(Minecraft client) {
+		LocalPlayer p = client.player;
+		if (p == null || client.screen != null || ThorPowers.isHoldingMjolnir(p)) {
+			return false;
+		}
+		com.projecthero.mod.hero.data.ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		return st != null && !st.activePower.isEmpty() && com.projecthero.mod.hero.Powers.byKey(st.activePower) != null;
+	}
+
 	/**
 	 * Sends a utility-slot press / release. Returns true if this tick's H or N edge was consumed by the mutation
 	 * (Alt held, or the key being released after a mutation press), so the Hero-Tier chain must not see it.
@@ -694,7 +704,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	/**
 	 * Super Strength client gestures that vanilla never reports on its own:
 	 * <ul>
-	 *   <li><b>Charged Punch</b> -- hold the attack key ~2 s (charge does not build while the
+	 *   <li><b>Charged Punch</b> -- hold the attack key 1 s (charge does not build while the
 	 *       crosshair is on a minable block, so ordinary mining never winds it up), then release to
 	 *       throw it ({@code PERFORM_CHARGED_PUNCH}).</li>
 	 *   <li><b>Power Leap charge bar</b> -- how long X has been held, so the HUD can show the tier.</li>
@@ -847,8 +857,10 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			// v0.12.43: plain N as a base-form Titan Shifter (no other power claiming N) toggles the passive regeneration.
 			ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(
 					com.projecthero.mod.network.TitanShiftPayload.Action.TOGGLE_REGEN));
-		} else if (down && !maxSteelTransformWasDown && mutationHasUtility(client)) {
+		} else if (down && !maxSteelTransformWasDown && (mutationHasUtility(client)
+				|| (Screen.hasShiftDown() && mutationSelected(client)))) {
 			// v0.13.22: nothing else owns N -- it is the selected mutation's Utility 2.
+			// v0.14.5: a six-key mutation (no H / N, e.g. Super Strength) still sends Sneak+N so power combos fire.
 			pressUtility(8);
 		}
 		if (!down && glRingRemoveHeld) {

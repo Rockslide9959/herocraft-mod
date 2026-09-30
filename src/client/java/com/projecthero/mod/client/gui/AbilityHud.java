@@ -145,12 +145,14 @@ public final class AbilityHud {
 					&& state.activeToggles.contains(power.key() + "/" + ability.id());
 			Long readyAt = state.abilityReadyAt.get(power.key() + "/" + ability.id());
 			int cdRemain = readyAt == null ? 0 : (int) Math.max(0L, readyAt - gameTime);
-			// Super Strength's Z (Bull Rush / Impact Smash) tracks its shared cooldown in the z_cd
-			// resource, not abilityReadyAt -- surface it on the keybind box like every other cooldown.
-			if (power.key().equals("power_01_super_strength") && slot == AbilitySlot.SLOT_4) {
-				int zcd = Math.round(state.resources.getOrDefault("power_01_super_strength/z_cd", 0.0f));
-				if (zcd > cdRemain) {
-					cdRemain = zcd;
+			// v0.14.5: Super Strength's Shift+G (Thunderclap) and Shift+V (Rip & Hurl) keep their own cooldowns in
+			// the clap_cd / rip_cd resources (ticks) -- the G / V box shows whichever of the two moves is longer.
+			if (power.key().equals("power_01_super_strength")
+					&& (slot == AbilitySlot.SLOT_2 || slot == AbilitySlot.SLOT_5)) {
+				String extra = slot == AbilitySlot.SLOT_2 ? "clap_cd" : "rip_cd";
+				int alt = Math.round(state.resources.getOrDefault("power_01_super_strength/" + extra, 0.0f));
+				if (alt > cdRemain) {
+					cdRemain = alt;
 				}
 			}
 
@@ -175,9 +177,6 @@ public final class AbilityHud {
 			}
 		}
 
-		if (power.key().equals("power_01_super_strength")) {
-			renderStrengthExtras(graphics, client, state, x0, nameY - 10);
-		}
 		if (power.key().equals("power_19_shadow_manipulation")) {
 			renderShadowLevel(graphics, client, x0, nameY - 10);
 		}
@@ -276,59 +275,6 @@ public final class AbilityHud {
 		g.drawString(client.font, "Shadow Strength: " + pct + "%", x, y, color, false);
 	}
 
-	/** Charged Punch / Power Leap / Bull Rush charge + cooldown bars, stacked above the ability row. */
-	private static void renderStrengthExtras(GuiGraphics g, Minecraft client, ExperimentalState state, int x, int y) {
-		String pk = "power_01_super_strength/";
-		float cd = state.resources.getOrDefault(pk + "charged_cd", 0.0f);
-		float effort = state.resources.getOrDefault(pk + "effort_left", 0.0f);
-		float zCharge = state.resources.getOrDefault(pk + "z_charge", 0.0f);
-		float zSmash = state.resources.getOrDefault(pk + "z_smash", 0.0f);
-		float zRunEnd = state.resources.getOrDefault(pk + "z_run_end", 0.0f);
-		float punchProg = com.projecthero.mod.client.ProjectHeroModClient.chargedPunchProgress();
-		boolean punchReady = com.projecthero.mod.client.ProjectHeroModClient.chargedPunchReady();
-		float leapProg = com.projecthero.mod.client.ProjectHeroModClient.leapChargeProgress();
-		long now = client.level != null ? client.level.getGameTime() : 0L;
-
-		int w = 6 * BOX + 5 * GAP;
-		int[] rowY = { y };
-
-		if (effort > 0.5f) {
-			strengthBar(g, client, x, w, rowY, "Maximum Effort  " + (int) Math.ceil(effort / 20.0f) + "s",
-					Math.min(1.0f, effort / (float) com.projecthero.mod.hero.power.p01.SuperStrengthHandlers.EFFORT_TICKS), 0xFFB98CFF, 0xFFCBB6FF);
-		}
-		if (zCharge > 0.5f) {
-			float held = Math.max(0f, now - zCharge);
-			strengthBar(g, client, x, w, rowY, zSmash > 0.5f ? "Impact Smash — charging" : "Bull Rush — charging",
-					Math.min(1.0f, held / 100.0f), 0xFFE0703A, 0xFFF0A070);
-		} else if (zRunEnd > 0.5f) {
-			strengthBar(g, client, x, w, rowY, "BULL RUSH", 1.0f, 0xFFFFC24A, 0xFFFFE0A0);
-		}
-		// The Bull Rush / Impact Smash cooldown is drawn on the Z keybind box now, not as a bar.
-		if (leapProg > 0.01f) {
-			strengthBar(g, client, x, w, rowY, "Power Leap", leapProg, 0xFF6FA8FF, 0xFFB8D0FF);
-		}
-		// The Charged Punch cannot be wound up while its own cooldown is running, so the cooldown bar
-		// and the charge bar are mutually exclusive.
-		if (cd > 0.5f) {
-			strengthBar(g, client, x, w, rowY, "Charged Punch  " + (int) Math.ceil(cd / 20.0f) + "s",
-					1.0f - Math.min(1.0f, cd / 50.0f), 0xFF7A5A2A, 0xFFE8C98A);
-		} else if (punchReady) {
-			strengthBar(g, client, x, w, rowY, "Charged Punch — RELEASE", 1.0f, 0xFFFFC24A, 0xFFFFE0A0);
-		} else if (punchProg > 0.01f) {
-			strengthBar(g, client, x, w, rowY, "Charged Punch", punchProg, 0xFFE0A040, 0xFFE8C98A);
-		}
-	}
-
-	private static void strengthBar(GuiGraphics g, Minecraft client, int x, int w, int[] rowY,
-			String label, float ratio, int fill, int textColor) {
-		int ry = rowY[0];
-		g.fill(x - 1, ry - 1, x + w + 1, ry + 5, COLOR_BORDER);
-		g.fill(x, ry, x + w, ry + 4, 0xAA101018);
-		g.fill(x, ry, x + Math.round(w * Math.max(0f, Math.min(1f, ratio))), ry + 4, fill);
-		g.drawString(client.font, label, x, ry - 9, textColor, false);
-		rowY[0] = ry - 18;
-	}
-
 	/**
 	 * Build the list of meters worth drawing right now for one owned power.
 	 *
@@ -354,8 +300,8 @@ public final class AbilityHud {
 	 */
 	private static List<Meter> collectMeters(ExperimentalState state, Power power, long gameTime) {
 		List<Meter> out = new ArrayList<>();
-		// Super Strength's legacy charged-punch / Maximum Effort indicators are drawn separately (renderStrengthExtras);
-		// only its v0.14.1 registered meters (MutationMeters) are gathered here.
+		// Super Strength's Charged Punch / Power Leap / Bull Rush / Maximum Effort bars are Hairlines above the keys
+		// (SuperStrengthClientV0145, via AbilityHudExtras); only registered meters (MutationMeters) are gathered here.
 		boolean registeredOnly = power.key().equals("power_01_super_strength");
 		String prefix = power.key() + "/";
 		for (var e : state.resources.entrySet()) {
