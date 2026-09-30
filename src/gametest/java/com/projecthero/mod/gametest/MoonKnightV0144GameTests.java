@@ -394,4 +394,31 @@ public class MoonKnightV0144GameTests implements FabricGameTest {
 		husk.discard();
 		helper.succeed();
 	}
+
+	/**
+	 * v0.14.4: Cape Glide is held with Sneak, but it must not get vanilla's sneak edge-guard -- near the floor that
+	 * snagged the glide at every ledge (and the server's replay of it rubber-banded him). A sneaking non-glider at the
+	 * same ledge is still held back, proving the guard is really there to skip.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void capeGlideIsNotHeldBackAtLedges(GameTestHelper helper) {
+		BlockPos pillar = new BlockPos(1, 3, 1);
+		helper.setBlock(pillar, Blocks.STONE);
+		Vec3 top = helper.absoluteVec(new Vec3(1.8, 4.0, 1.5));
+		ServerPlayer walker = knight(helper, new Vec3(1.8, 4.0, 1.5), 0.0f);
+		ServerPlayer glider = knight(helper, new Vec3(1.8, 4.0, 1.5), 0.0f);
+		for (ServerPlayer p : List.of(walker, glider)) {
+			p.teleportTo(top.x, top.y, top.z);
+			p.setShiftKeyDown(true);
+			p.setOnGround(true);
+		}
+		MoonKnightCape.startGlide(glider);
+		helper.assertTrue(MoonKnightCape.isGliding(glider) && !MoonKnightCape.isGliding(walker), "one glides, one does not");
+		Vec3 step = new Vec3(1.0, 0.0, 0.0);
+		walker.move(net.minecraft.world.entity.MoverType.SELF, step);
+		glider.move(net.minecraft.world.entity.MoverType.SELF, step);
+		helper.assertTrue(walker.getX() - top.x < 0.9, "sanity: a sneaking walker is held at the ledge (moved " + (walker.getX() - top.x) + ")");
+		helper.assertTrue(glider.getX() - top.x > 0.95, "a glider sails straight off it (moved " + (glider.getX() - top.x) + ")");
+		helper.succeed();
+	}
 }

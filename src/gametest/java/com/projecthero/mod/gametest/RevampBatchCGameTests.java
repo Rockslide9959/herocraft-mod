@@ -363,7 +363,7 @@ public class RevampBatchCGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_c_wave", timeoutTicks = 120)
 	public void shockwaveGroundWaveThenAftershock(GameTestHelper helper) {
 		ServerPlayer p = hero(helper, RevampBatchC.SHOCK);
-		IronGolem g = golemAhead(helper, p, 6.0);
+		IronGolem g = golemAhead(helper, p, 4.0); // v0.14.4: 6 put it in the 8x8x8 test cage's barrier wall (z 8.5)
 		float max = g.getMaxHealth();
 		float[] afterWave = new float[1];
 		press(p, 2);
