@@ -1,0 +1,58 @@
+Project Hero v0.14.5 -- Mutation Overhaul: Laser Vision, Strength, Regeneration, Speed
+
+LASER VISION
+- New HUD: black and gray keys (R G Z X C V), with a red Heat hairline bar and a red "Heat %" label.
+- Heat is now out of 100. Filling it overheats you: 3 s locked out, then it vents.
+- The beams are now real models instead of particles. They pour out of your eyes and cover your view, but stay see-through so you can still aim.
+- No more glowing eyes or vision effects.
+- Every move reaches 100 blocks.
+- R Heat Vision: twin beams, +1 heat/s. Aim down in mid-air to slow your fall (no fall damage).
+- Shift+R Piercing Blast (the old Piercing Lance): 29 damage through up to 4 targets, +10 heat.
+- G Sweeping Arc: a 150 degree sweep, 14.4 damage, +10 heat.
+- X Recoil Blast: blast where you aim and get thrown back, +5 heat.
+- Z Maximum Output: a 1.5 s charge-up (bar above your keys), then a 10 s beam that is much bigger and brighter. Can't be used above 50% heat, and it takes you to max heat.
+- V Ignite (new): works like flint and steel. Sets blocks on fire, primes TNT, lights campfires and candles. +2 heat.
+- C Thermal Vision: range raised to 50 blocks.
+- Cauterize and Ricochet Shot removed; H and N do nothing.
+
+SUPER STRENGTH
+- Only three passives now: +10 unarmed damage, 150% knockback, and the Charged Punch.
+- Charged Punch: 1 s charge, +15 damage, 2 s cooldown. Its charge and cooldown share one hairline bar above your keys.
+- New HUD: black and gray keys, with every charge and timer as a hairline bar above them.
+- R Haymaker: still the 3-hit combo.
+- G Ground Slam: 20 damage.
+- Shift+G Thunderclap.
+- X Power Leap: new superhero landing (knee and fist in the ground, cracks, dust ring, camera shake).
+- Z Bull Rush: the bar fills while it charges, then drains while you rush.
+- V Grab & Throw.
+- Shift+V Rip & Hurl: throws the boulder about twice as far.
+- C Maximum Effort: 30 s, 70 s cooldown.
+- H and N abilities removed.
+
+SUPER REGENERATION
+- No ability keys any more: it's pure regeneration.
+- Heals 10 HP every 5 ticks while you're hurt, with no hunger cost.
+- Harmful effects are burned off after 2 s. They visibly dissolve out of your body in their own colour.
+- 3 revive charges: a killing blow brings you back at 50% health. Each charge has its own 1 minute cooldown.
+- HUD: three pixel dots, green when a charge is ready and grey when it is used.
+- While you heal, animated red veins pulse and trickle over your whole body.
+
+SUPER SPEED
+- Only two passives now: 30% faster walking, sprinting and swimming, and eating and drinking 50% faster.
+- New HUD: black and gray keys, and the name shows your mode: Regular, Speed or Overdrive.
+- R Rapid Assault: 8 damage per punch.
+- G Speed Carry: carried mobs ride steadily on your shoulders and take no fall damage, while carried or for 3 s after.
+- X Momentum Dash: dashes wherever you look, including up and down.
+- Z Time Slow (new): everything within 96 blocks drops to 5% speed for 30 s, other players included. Press Z again to end it early. 150 s cooldown.
+- V Overdrive: a red afterimage trail, and speed bursts only while you're running.
+- C Speed Mode: a yellow afterimage trail, a copy left behind every tick that fades over 1 s. It replaces the old body effect.
+- Shift+C Phase: hold to walk through walls on your level (not up or down). You can't take or deal damage, or use other abilities, while phasing.
+- Vortex, Phase Vibrate and Lightning Throw removed.
+
+SUPER DURABILITY REMOVED
+- There are now 26 mutations. If you had Super Durability, it is cleared when you next join.
+
+PUNISHER
+- The sniper rifle has a brand-new, fully modelled 3D look.
+
+Guidebook and power screens are updated with all of the above.

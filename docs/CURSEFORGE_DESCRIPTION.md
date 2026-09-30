@@ -1,7 +1,7 @@
 # Project Hero
 
 **A huge superhero mod for Minecraft 1.21.1 (Fabric).** Become Thor, Iron Man, Spider-Man, Max Steel, the Punisher,
-Green Lantern, Wolverine, a Titan Shifter, All Might, the Hulk or Moon Knight, bond with a living alien Symbiote, or mutate one of 27
+Green Lantern, Wolverine, a Titan Shifter, All Might, the Hulk or Moon Knight, bond with a living alien Symbiote, or mutate one of 26
 experimental superpowers. Then put them to the test against world raids, the Oathbreaker and Darkseid himself.
 
 Every hero is a full survival progression, not a creative-only toy: you earn each power, fuel it, master it, and can
@@ -105,7 +105,7 @@ Bond with **Steel**, the alien companion floating over a crash site.
 ### 💀 The Punisher
 No superpowers: guns, explosives, gear and training. Complete the **Vigilante Training Manual** or find a
 **Vigilante Safehouse**.
-- Pistol, Rifle, Shotgun and a scoped Sniper, with recoil, spread, range falloff and **headshots**. Ammo regenerates, so
+- Pistol, Rifle, Shotgun and a fully modelled, scoped Sniper, with recoil, spread, range falloff and **headshots**. Ammo regenerates, so
   there's nothing to carry.
 - Tactical Satchel, cook-and-throw Frag Grenades, Tactical Roll, Suppressive Fire, Adrenaline and remote **C4**.
 - Tactical armour only a Punisher can craft.
@@ -186,17 +186,19 @@ it on the altar under the open sky and kneel. Khonshu speaks... you die in a fla
 
 ---
 
-## 27 Experimental Powers · 162 Abilities
+## 26 Experimental Powers
 
 A whole second progression system. Mutate powers with **experimental serums**, **research notes**, **exposure events**
 or **lab devices**, found in rare research sites. The **Mutagenic**, **Heroic** and **Prismatic Serums** grant a random
 power you don't have yet.
 
-Own up to three at once: all their passives run permanently, and the one you select drives your six ability keys. Each
-power has six abilities, passives, and **combos** when the right two are paired.
+Own up to three at once: all their passives run permanently, and the one you select drives your ability keys. Each
+power has its own abilities (six keys, most with **H** / **N** extras), passives, and **combos** when the right two are
+paired. **Super Regeneration** has no keys at all: it heals 10 HP every 5 ticks, burns off harmful effects in 2 seconds
+and holds **three revive charges**, each recharging on its own minute.
 
 **Super Strength · Laser Vision · Flight · Super Speed · Geokinesis · Crystalkinesis · Electrokinesis · Pyrokinesis ·
-Cryokinesis · Telekinesis · Teleportation · Super Regeneration · Super Durability · Sonic Scream · Invisibility & Light
+Cryokinesis · Telekinesis · Teleportation · Super Regeneration · Sonic Scream · Invisibility & Light
 Manipulation · Spider Climbing / Adhesion · Elasticity · Density Manipulation · Shadow Manipulation · Energy Absorption ·
 Shockwave Manipulation · Plant Manipulation · Gravity Manipulation · Wind Manipulation · Water Manipulation · Magnetic
 Manipulation · Size Manipulation**

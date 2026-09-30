@@ -164,26 +164,28 @@ public final class LaserBeamRenderer {
 		boolean max = kind == Kind.MAX;
 		float pulse = max ? 0.8f + 0.2f * Mth.sin(age * 0.9f) : 1f;
 
-		// first person: from just below / ahead of the camera, spread a little so they frame the crosshair
-		Vec3 base = firstPerson ? eye.add(dir.scale(0.45)).add(up.scale(-0.17)) : eye.add(dir.scale(0.28)).add(up.scale(0.02));
-		double spread = firstPerson ? 0.075 : 0.065;
-		// near the camera the first person beam is thin and see-through: it frames the view, never fills it
-		double nearLen = firstPerson ? Math.min(3.0, base.distanceTo(end) * 0.5) : 0.0;
-		float nearAlpha = firstPerson ? 0.12f : 1f;
-		float nearWidth = firstPerson ? 0.3f : 1f;
+		// v0.14.5 (user request): in first person the beams come straight out of your eyes -- they start right at the
+		// camera, one per eye, and sweep in from the lower screen edges to the crosshair, so they fill a good part of the
+		// view. They stay see-through (lower alpha, not thinner), so you can still see and aim at what you're burning.
+		Vec3 base = firstPerson ? eye.add(dir.scale(0.12)).add(up.scale(-0.045)) : eye.add(dir.scale(0.28)).add(up.scale(0.02));
+		double spread = firstPerson ? 0.06 : 0.065;
+		double nearLen = firstPerson ? Math.min(4.0, base.distanceTo(end) * 0.5) : 0.0;
+		float nearAlpha = firstPerson ? 0.55f : 1f;
+		float nearWidth = firstPerson ? 0.8f : 1f;
 		float alpha = fade * pulse;
-		float fpGlow = firstPerson ? 0.7f : 1f;
+		float fpGlow = firstPerson ? 0.75f : 1f;
+		float fpCore = firstPerson ? 0.6f : 1f;
 
 		for (int side = -1; side <= 1; side += 2) {
 			Vec3 a = base.add(right.scale(spread * side));
 			addLayer(out, a, end, dir, nearLen, kind.glow * pulse, nearWidth, RED, 0.42f * alpha * fpGlow, nearAlpha, true);
-			addLayer(out, a, end, dir, nearLen, kind.core * pulse, nearWidth, CORE, 0.95f * alpha, nearAlpha, false);
+			addLayer(out, a, end, dir, nearLen, kind.core * pulse, nearWidth, CORE, 0.95f * alpha * fpCore, nearAlpha, false);
 		}
 		if (max) {
 			// Maximum Output: a white-hot core and a wide pulsing halo down the middle of the pair
-			addLayer(out, base, end, dir, nearLen, 0.42f * pulse, nearWidth * 0.6f, HALO, (firstPerson ? 0.10f : 0.22f) * alpha, nearAlpha,
+			addLayer(out, base, end, dir, nearLen, 0.42f * pulse, nearWidth * 0.6f, HALO, (firstPerson ? 0.16f : 0.22f) * alpha, nearAlpha,
 					true);
-			addLayer(out, base, end, dir, nearLen, 0.05f * pulse, nearWidth, WHITE, 0.9f * alpha, nearAlpha, false);
+			addLayer(out, base, end, dir, nearLen, 0.05f * pulse, nearWidth, WHITE, 0.9f * alpha * fpCore, nearAlpha, false);
 		}
 		// a small flare where it lands
 		float flare = (max ? 0.55f : kind == Kind.IGNITE ? 0.12f : 0.25f) * pulse;

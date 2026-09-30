@@ -42,7 +42,7 @@ import net.minecraft.world.phys.Vec3;
  * <ul>
  *   <li>HUD: black-and-gray theme, and the current speed mode ("Regular" / "Speed" / "Overdrive") right of the
  *       power name.</li>
- *   <li>After-image trail: every 5 ticks a running speedster with the {@code p04.trail} flag (Speed Mode or
+ *   <li>After-image trail: every tick a running speedster with the {@code p04.trail} flag (Speed Mode or
  *       Overdrive) leaves a translucent copy of their body behind -- yellow, red in Overdrive -- that fades out
  *       over one second. Every client records its own copies for every such player it can see.</li>
  *   <li>Time Slow: the client mirror of the server's 1-in-20 entity ticks ({@link #skipClientTick}), and a faint
@@ -50,7 +50,7 @@ import net.minecraft.world.phys.Vec3;
  * </ul>
  */
 public final class SuperSpeedClientV0145 {
-	private static final int TRAIL_EVERY = 5;
+	private static final int TRAIL_EVERY = 1; // v0.14.5: every tick, for a continuous trail (was 5)
 	private static final int TRAIL_LIFE = 20;
 	private static final int YELLOW = 0xFFD83A;
 	private static final int RED = 0xFF3030;
@@ -148,8 +148,10 @@ public final class SuperSpeedClientV0145 {
 				continue; // only while actually moving
 			}
 			boolean red = MutationVisuals.state(p).value(SuperSpeedV0145.TRAIL_RED, 0f) > 0.5f;
-			TRAILS.computeIfAbsent(p.getUUID(), k -> new ArrayDeque<>()).addLast(new Snapshot(now, p.getX(), p.getY(), p.getZ(),
-					p.yBodyRot, p.yHeadRot, p.getXRot(), p.walkAnimation.position(), p.walkAnimation.speed(),
+			// an after-image is left where the player WAS (last tick), never where they are about to be -- the rendered
+			// player is interpolated between xo and x, so a copy at x would pop up just ahead of them
+			TRAILS.computeIfAbsent(p.getUUID(), k -> new ArrayDeque<>()).addLast(new Snapshot(now, p.xo, p.yo, p.zo,
+					p.yBodyRotO, p.yHeadRotO, p.xRotO, p.walkAnimation.position(0f), p.walkAnimation.speed(0f),
 					p.isCrouching(), red ? RED : YELLOW));
 		}
 		casters = found.isEmpty() ? List.of() : found;
@@ -191,7 +193,14 @@ public final class SuperSpeedClientV0145 {
 			PlayerModel<AbstractClientPlayer> model = pr.getModel();
 			ResourceLocation skin = acp.getSkin().texture();
 			boolean own = player == mc.player;
+			Vec3 at = acp.getPosition(partial);
+			Vec3 heading = at.subtract(acp.xo, acp.yo, acp.zo);
 			for (Snapshot s : e.getValue()) {
+				// only copies the player has left BEHIND: at least 0.6 blocks back, never ahead along their movement
+				Vec3 off = new Vec3(s.x(), s.y(), s.z()).subtract(at);
+				if (off.lengthSqr() < 0.36 || (heading.lengthSqr() > 1.0e-4 && off.dot(heading) > 0.0)) {
+					continue;
+				}
 				float age = (now - s.time()) + partial;
 				float fade = 1.0f - age / TRAIL_LIFE;
 				if (fade <= 0.0f) {
@@ -201,7 +210,7 @@ public final class SuperSpeedClientV0145 {
 				if (own && firstPerson && cam.distanceToSqr(s.x(), s.y() + 1.0, s.z()) < 2.25) {
 					continue;
 				}
-				int alpha = Math.round(Math.min(1.0f, fade) * 0.55f * 255.0f);
+				int alpha = Math.round(Math.min(1.0f, fade) * 0.4f * 255.0f);
 				int color = (alpha << 24) | s.rgb();
 				pose.pushPose();
 				pose.translate(s.x() - cam.x, s.y() - cam.y, s.z() - cam.z);
