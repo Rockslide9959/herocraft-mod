@@ -28,6 +28,13 @@ public interface MoonKnightMove {
 		return false;
 	}
 
+	/**
+	 * v0.14.4: the key just went down (not sneaking), before it is known whether this will be a TAP or a HOLD. The
+	 * truncheon uses it to appear in the hand on the press itself.
+	 */
+	default void press(ServerPlayer player) {
+	}
+
 	default void holdStart(ServerPlayer player) {
 	}
 

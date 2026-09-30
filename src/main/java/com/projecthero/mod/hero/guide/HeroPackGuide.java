@@ -823,7 +823,7 @@ public final class HeroPackGuide {
 					{ "G", "dive_kick" }, { "Sneak+G", "shadow_step" },
 					{ "X", "dash" }, { "Sneak+X", "grapple" },
 					{ "Z", "moonbeam" }, { "Hold Z", "eye" }, { "Sneak+Z", "judgement" },
-					{ "C", "truncheon" }, { "Hold C", "staff_spin" }, { "Sneak+C", "slam" },
+					{ "C", "truncheon" }, { "Truncheon hits", "truncheon_combo" }, { "Hold C", "staff_spin" }, { "Sneak+C", "slam" },
 					{ "V", "alter" }, { "Hold V", "alter_pick" }, { "Sneak+V", "alter_special" },
 					{ "Jump, hold Sneak", "glide" }, { "Hold right click", "shroud" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)

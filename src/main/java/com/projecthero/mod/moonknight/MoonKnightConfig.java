@@ -178,15 +178,16 @@ public final class MoonKnightConfig {
 
 	// ---------------------------------------------------------------- C: Truncheon / Staff (Phase 4; Z before v0.13.21)
 
-	/** Every 3rd consecutive truncheon hit within this window is a slam. */
+	/** v0.14.4: the combo resets if the next truncheon hit comes later than this after the last one. */
 	public static final int TRUNCHEON_COMBO_WINDOW = 30;
-	public static final float TRUNCHEON_SLAM_BONUS = 4.0f;
+	/** v0.14.4: the combo's 3rd hit, the overhead smash: extra damage (x power) and knockback. Was 4. */
+	public static final float TRUNCHEON_SLAM_BONUS = 6.0f;
 	public static final double TRUNCHEON_SLAM_KNOCKBACK = 1.2;
 	/** Hitting mobs at night with the truncheon heals this much (half-hearts). */
 	public static final float TRUNCHEON_NIGHT_HEAL = 1.0f;
 	/** HOLD C staff spin. */
 	public static final double STAFF_SPIN_RADIUS = 3.5;
-	public static final float STAFF_SPIN_DAMAGE = 6.0f;
+	public static final float STAFF_SPIN_DAMAGE = 15.0f; // v0.14.4: was 6
 	public static final int STAFF_SPIN_COOLDOWN = 80;
 	/** SNEAK+C: ground slam / aerial dive slam. */
 	public static final double GROUND_SLAM_RADIUS = 4.0;
@@ -271,7 +272,7 @@ public final class MoonKnightConfig {
 	public static final int YANK_SLOW_AMPLIFIER = 3;
 
 	/** C Truncheon melee: damage per swing (hearts x2) and attack speed modifier (-2.0 = 2 swings/s). */
-	public static final float TRUNCHEON_DAMAGE = 6.0f;
+	public static final float TRUNCHEON_DAMAGE = 7.0f; // v0.14.4: was 6
 	public static final float TRUNCHEON_ATTACK_SPEED = -2.0f;
 	/** Consecutive hits needed for the combo slam. */
 	public static final int TRUNCHEON_COMBO_HITS = 3;
@@ -319,4 +320,20 @@ public final class MoonKnightConfig {
 	public static final double JUDGEMENT_RANGE = 32.0;
 	/** Bosses never take more than this fraction of their max health from one Khonshu hit (like All Might). */
 	public static final float KHONSHU_BOSS_MAX_FRACTION = 0.10f;
+
+	// ---------------------------------------------------------------- v0.14.4 truncheon
+
+	/**
+	 * The 3-hit truncheon combo: hit 1 a forehand swing (plain), hit 2 a backhand (+{@link #TRUNCHEON_BACKHAND_BONUS}
+	 * x power, a shove), hit 3 the overhead smash (+{@link #TRUNCHEON_SLAM_BONUS} x power, {@link #TRUNCHEON_SLAM_KNOCKBACK}
+	 * x power knockback, a small lift). Hits must be at least {@link #TRUNCHEON_COMBO_MIN_GAP} ticks apart to advance it
+	 * (a fully charged swing is 10), so click-spamming doesn't reach the smash; more than {@link #TRUNCHEON_COMBO_WINDOW}
+	 * after the last hit and it starts over at hit 1.
+	 */
+	public static final float TRUNCHEON_BACKHAND_BONUS = 3.0f;
+	public static final double TRUNCHEON_BACKHAND_KNOCKBACK = 0.6;
+	public static final double TRUNCHEON_SLAM_LIFT = 0.3;
+	public static final int TRUNCHEON_COMBO_MIN_GAP = 6;
+	/** The staff spin's whole-body turn (every viewer): one full turn over this many ticks. */
+	public static final int STAFF_SPIN_TURN_TICKS = 10;
 }

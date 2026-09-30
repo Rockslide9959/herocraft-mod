@@ -21,7 +21,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -31,12 +30,12 @@ import net.minecraft.world.phys.Vec3;
 /**
  * C -- the Truncheon / Staff (Moon Knight Phase 4; on Z before v0.13.21).
  * <ul>
- *   <li><b>TAP</b>: summon the Truncheon into the main hand (whatever was there moves into a free inventory slot first,
- *       and comes back to the hand when it is stowed; a full inventory refuses), or stow it. It only exists while
- *       transformed and out ({@code FLAG_TRUNCHEON}): dropped, stored, stowed or un-suited, it is gone. Every
- *       {@link MoonKnightConfig#TRUNCHEON_COMBO_HITS}rd consecutive hit within {@link MoonKnightConfig#TRUNCHEON_COMBO_WINDOW}
- *       is a slam (+{@link MoonKnightConfig#TRUNCHEON_SLAM_BONUS} x power and knockback); at night each hit on a mob
- *       heals {@link MoonKnightConfig#TRUNCHEON_NIGHT_HEAL} x power.</li>
+ *   <li><b>PRESS</b> (v0.14.4): the truncheon appears in the main hand the moment C goes down, if it isn't out
+ *       already (whatever was held moves into a free inventory slot first, and comes back to that hotbar slot when it
+ *       is stowed; a full inventory refuses). <b>TAP</b> with it already out stows it. It only exists while transformed
+ *       and out ({@code FLAG_TRUNCHEON}): dropped, stored, stowed or un-suited, it is gone. Its melee hits run the
+ *       3-hit combo ({@link MoonKnightTruncheonCombo}); at night each hit on a mob heals
+ *       {@link MoonKnightConfig#TRUNCHEON_NIGHT_HEAL} x power.</li>
  *   <li><b>HOLD</b>: extend it into the staff ({@code FLAG_STAFF}) and spin: {@link MoonKnightConfig#STAFF_SPIN_DAMAGE}
  *       x power to everything within {@link MoonKnightConfig#STAFF_SPIN_RADIUS} x power. Summons the truncheon first
  *       if it isn't out. Cooldown {@link MoonKnightConfig#STAFF_SPIN_COOLDOWN}.</li>
@@ -49,7 +48,8 @@ import net.minecraft.world.phys.Vec3;
 public final class MoonKnightTruncheon implements MoonKnightMove {
 	public static final MoonKnightTruncheon INSTANCE = new MoonKnightTruncheon();
 
-	private record Displaced(int slot, ItemStack stack) {
+	/** v0.14.4: {@code handSlot} = the hotbar slot the truncheon was put in (where the item goes back to). */
+	private record Displaced(int slot, ItemStack stack, int handSlot) {
 	}
 
 	private record Dive(double startY, long start) {
@@ -57,8 +57,8 @@ public final class MoonKnightTruncheon implements MoonKnightMove {
 
 	/** What the summon moved out of the hand, so the stow can hand it back. */
 	private static final Map<UUID, Displaced> DISPLACED = new ConcurrentHashMap<>();
-	/** Combo: {hits so far, game time of the last hit}. */
-	private static final Map<UUID, long[]> COMBO = new ConcurrentHashMap<>();
+	/** v0.14.4: players whose current C press already summoned (or tried to), so its release doesn't also stow. */
+	private static final java.util.Set<UUID> SUMMONED_ON_PRESS = ConcurrentHashMap.newKeySet();
 	/** Game time the staff folds back into the truncheon. */
 	private static final Map<UUID, Long> STAFF_UNTIL = new ConcurrentHashMap<>();
 	private static final Map<UUID, Dive> DIVES = new ConcurrentHashMap<>();
@@ -70,13 +70,30 @@ public final class MoonKnightTruncheon implements MoonKnightMove {
 
 	// ---------------------------------------------------------------- TAP: summon / stow
 
+	/** v0.14.4: C going down summons the truncheon straight away (a tap then does nothing more; a hold spins). */
+	@Override
+	public void press(ServerPlayer player) {
+		if (!isOut(player)) {
+			SUMMONED_ON_PRESS.add(player.getUUID()); // even if it is refused: one "inventory full" message per press
+			summon(player);
+		}
+	}
+
 	@Override
 	public void tap(ServerPlayer player) {
+		if (SUMMONED_ON_PRESS.remove(player.getUUID())) {
+			return; // this press already brought it out
+		}
 		if (isOut(player)) {
 			stow(player, true);
 		} else {
 			summon(player);
 		}
+	}
+
+	@Override
+	public void cancelHold(ServerPlayer player) {
+		SUMMONED_ON_PRESS.remove(player.getUUID());
 	}
 
 	public static boolean isOut(ServerPlayer player) {
@@ -103,7 +120,7 @@ public final class MoonKnightTruncheon implements MoonKnightMove {
 				return false;
 			}
 			inv.items.set(free, held);
-			DISPLACED.put(player.getUUID(), new Displaced(free, held));
+			DISPLACED.put(player.getUUID(), new Displaced(free, held, inv.selected));
 		} else {
 			DISPLACED.remove(player.getUUID());
 		}
@@ -123,17 +140,33 @@ public final class MoonKnightTruncheon implements MoonKnightMove {
 		MoonKnightAnim.setFlag(player, MoonKnightAction.FLAG_TRUNCHEON, false);
 		MoonKnightAnim.setFlag(player, MoonKnightAction.FLAG_STAFF, false);
 		STAFF_UNTIL.remove(player.getUUID());
-		COMBO.remove(player.getUUID());
+		SUMMONED_ON_PRESS.remove(player.getUUID());
+		MoonKnightTruncheonCombo.reset(player);
+		Inventory inv = player.getInventory();
+		// v0.14.4: the displaced item goes back to the slot the truncheon was in (even if the player has scrolled
+		// away since), or, if the truncheon was lost, to the slot it was summoned into -- never onto some other item
+		int back = -1;
+		for (int i = 0; i < Inventory.getSelectionSize(); i++) {
+			if (isTruncheon(inv.items.get(i))) {
+				back = i;
+				break;
+			}
+		}
 		removeAll(player);
 		Displaced d = DISPLACED.remove(player.getUUID());
-		Inventory inv = player.getInventory();
-		if (d != null && inv.getSelected().isEmpty() && d.slot() != inv.selected
-				&& d.slot() < inv.items.size() && inv.items.get(d.slot()) == d.stack()) {
-			inv.items.set(inv.selected, d.stack());
-			inv.items.set(d.slot(), ItemStack.EMPTY);
-			inv.setChanged();
+		if (d != null) {
+			int to = back >= 0 ? back : d.handSlot();
+			if (to >= 0 && to < inv.items.size() && to != d.slot() && inv.items.get(to).isEmpty()
+					&& d.slot() < inv.items.size() && inv.items.get(d.slot()) == d.stack()) {
+				inv.items.set(to, d.stack());
+				inv.items.set(d.slot(), ItemStack.EMPTY);
+				inv.setChanged();
+			}
 		}
 		if (feedback) {
+			MoonKnightAnim.play(player, MoonKnightAnim.TRUNCHEON_STOW);
+			Vec3 hand = AbilityHelpers.handPosition(player);
+			player.serverLevel().sendParticles(MoonKnightCombat.MOON, hand.x, hand.y, hand.z, 6, 0.1, 0.15, 0.1, 0.01);
 			AbilityHelpers.sound(player, SoundEvents.ARMOR_EQUIP_NETHERITE, 0.6f, 1.8f);
 		}
 	}
@@ -222,41 +255,23 @@ public final class MoonKnightTruncheon implements MoonKnightMove {
 
 	// ---------------------------------------------------------------- the combo (every melee hit)
 
-	/** A melee hit landed by the Moon Knight (combo slams, night healing). */
-	public static void onMeleeHit(ServerPlayer attacker, LivingEntity target, float amount) {
+	/**
+	 * A melee hit landed by the Moon Knight: with the truncheon out it is the next step of the 3-hit combo
+	 * ({@link MoonKnightTruncheonCombo}, v0.14.4). Returns the step dealt (1..3), 0 if it wasn't a truncheon hit or
+	 * came too quickly to count.
+	 */
+	public static int onMeleeHit(ServerPlayer attacker, LivingEntity target, float amount) {
 		if (MoonKnightCombat.isAbilityHit() || !isTruncheon(attacker.getMainHandItem()) || !isOut(attacker)) {
-			return;
+			return 0;
 		}
-		float power = MoonKnightAbilities.power(attacker);
-		long now = attacker.level().getGameTime();
-		long[] c = COMBO.computeIfAbsent(attacker.getUUID(), k -> new long[]{0L, Long.MIN_VALUE / 2});
-		c[0] = now - c[1] <= MoonKnightConfig.TRUNCHEON_COMBO_WINDOW ? c[0] + 1 : 1;
-		c[1] = now;
-		ServerLevel level = attacker.serverLevel();
-		if (target instanceof Mob && MoonKnightAbilities.night(attacker)) {
-			attacker.heal(MoonKnightConfig.TRUNCHEON_NIGHT_HEAL * power);
-			level.sendParticles(MoonKnightCombat.PALE_BLUE, attacker.getX(), attacker.getY() + 1.2, attacker.getZ(),
-					3, 0.3, 0.3, 0.3, 0.0);
-		}
-		if (c[0] < MoonKnightConfig.TRUNCHEON_COMBO_HITS) {
-			return;
-		}
-		c[0] = 0;
-		MoonKnightCombat.hit(attacker, target, MoonKnightConfig.TRUNCHEON_SLAM_BONUS * power);
-		MoonKnightCombat.knock(target, attacker.position(), MoonKnightConfig.TRUNCHEON_SLAM_KNOCKBACK * power, 0.25);
-		MoonKnightAnim.play(attacker, MoonKnightAnim.TRUNCHEON_SLAM);
-		Vec3 at = target.position().add(0, target.getBbHeight() * 0.5, 0);
-		level.sendParticles(ParticleTypes.SWEEP_ATTACK, at.x, at.y, at.z, 1, 0.0, 0.0, 0.0, 0.0);
-		level.sendParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 12, 0.3, 0.3, 0.3, 0.3);
-		level.sendParticles(MoonKnightCombat.MOON, at.x, at.y, at.z, 10, 0.3, 0.3, 0.3, 0.02);
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.PLAYERS, 1.0f, 0.7f);
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.MACE_SMASH_AIR, SoundSource.PLAYERS, 0.7f, 1.3f);
+		return MoonKnightTruncheonCombo.onHit(attacker, target);
 	}
 
 	// ---------------------------------------------------------------- HOLD: staff spin
 
 	@Override
 	public void holdStart(ServerPlayer player) {
+		SUMMONED_ON_PRESS.remove(player.getUUID());
 		if (!MoonKnightAbilities.ready(player, "truncheon_hold")) {
 			return;
 		}
@@ -440,7 +455,8 @@ public final class MoonKnightTruncheon implements MoonKnightMove {
 
 	public static void clearSessionState() {
 		DISPLACED.clear();
-		COMBO.clear();
+		SUMMONED_ON_PRESS.clear();
+		MoonKnightTruncheonCombo.clearSessionState();
 		STAFF_UNTIL.clear();
 		DIVES.clear();
 		FALL_GRACE.clear();

@@ -2982,9 +2982,9 @@
   "projecthero.moon_knight.move.yank": "Yank",
   "projecthero.moon_knight.move.yank.desc": "Pull the mob you are looking at to you and stun it for 1.5 s.",
   "projecthero.moon_knight.move.truncheon": "Truncheon",
-  "projecthero.moon_knight.move.truncheon.desc": "Summon or stow your truncheon. Every third hit in a quick chain is a heavy slam, and each hit at night heals you half a heart. It only exists while you are suited.",
+  "projecthero.moon_knight.move.truncheon.desc": "Press C and the Truncheon of Khonshu appears in your hand at once (whatever you were holding slides into your inventory and goes back to that slot when you put it away). Tap C again to stow it. It hits for 7, and only exists while you are suited: drop it, store it or take the suit off and it is simply gone.",
   "projecthero.moon_knight.move.staff_spin": "Staff Spin",
-  "projecthero.moon_knight.move.staff_spin.desc": "Extend the truncheon into a staff and spin, hitting everything within 3.5 blocks (6).",
+  "projecthero.moon_knight.move.staff_spin.desc": "Hold C: the truncheon extends into a staff and you spin a full circle, hitting everything within 3.5 blocks for 15 and knocking it away. Brings the truncheon out first if it was not already.",
   "projecthero.moon_knight.move.slam": "Crescent Slam",
   "projecthero.moon_knight.move.slam.desc": "On the ground: a shockwave that throws everything within 4 blocks into the air. In the air: dive straight down and slam where you land -- harder the further you fell, and you take no fall damage.",
   "projecthero.moon_knight.move.glide": "Cape Glide",
@@ -3093,5 +3093,7 @@
   "entity.projecthero.mirror_image": "Mirror Image",
   "entity.projecthero.shadow_servant": "Shadow Servant",
   "item.projecthero.hard_light_blade": "Hard-Light Blade",
-  "message.projecthero.one_power_limit": "Project Hero now allows one power at a time -- you keep your newest hero power."
+  "message.projecthero.one_power_limit": "Project Hero now allows one power at a time -- you keep your newest hero power.",
+  "projecthero.moon_knight.move.truncheon_combo": "Truncheon combo",
+  "projecthero.moon_knight.move.truncheon_combo.desc": "Hits with the truncheon chain into a 3-hit combo: a forehand swing, a backhand (+3 damage and a shove), then a two-handed overhead smash (+6 damage and heavy knockback), and round again. Land each hit within 1.5 seconds of the last or it starts over; spam-clicking does not advance it. At night every hit on a mob heals you half a heart. The bonuses grow with the moon."
 }

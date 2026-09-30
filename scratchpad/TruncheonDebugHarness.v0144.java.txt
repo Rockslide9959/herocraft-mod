@@ -1,0 +1,193 @@
+package com.projecthero.mod.client;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.moonknight.MoonKnight;
+import com.projecthero.mod.moonknight.MoonKnightAnim;
+import com.projecthero.mod.moonknight.ability.MoonKnightTruncheon;
+import com.projecthero.mod.moonknight.data.MoonKnightAction;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.14.4 truncheon pose screenshot tour. Remove before committing. */
+public final class TruncheonDebugHarness {
+	public static Vec3 camOffset;
+	public static double camLookY = 1.1;
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	/** Pinned pose: anim id and the tick into it to hold (-1 none). */
+	private static int pinId = -1;
+	private static int pinTick;
+
+	private TruncheonDebugHarness() {
+	}
+
+	public static void init() {
+		ClientTickEvents.END_CLIENT_TICK.register(TruncheonDebugHarness::tick);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					fn.accept(srv.getPlayerList().getPlayers().get(0));
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "tr_" + name + ".png", mc.getMainRenderTarget(), x -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.put(t, r);
+	}
+
+	private static void pin(int id, int tick) {
+		pinId = id;
+		pinTick = tick;
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				LevelSettings settings = new LevelSettings("TrDebug" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+						Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (pinId >= 0) {
+			int id = pinId;
+			int k = pinTick;
+			server(mc, p -> {
+				MoonKnightAction c = MoonKnightAnim.action(p).copy();
+				c.animId = id;
+				c.animStart = p.level().getGameTime() - k;
+				MoonKnightAnim.save(p, c);
+			});
+		}
+		if (inWorldTicks == 100) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.hideGui = true;
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				MoonKnight.grant(p, true);
+				p.setYRot(0);
+				p.setYHeadRot(0);
+				p.setYBodyRot(0);
+				p.setXRot(0);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void script(Minecraft mc) {
+		Vec3 front = new Vec3(1.6, 1.4, 3.4);
+		Vec3 side = new Vec3(3.6, 1.3, 0.4);
+		Vec3 top = new Vec3(0.4, 4.2, 1.6);
+		at(5, () -> server(mc, p -> MoonKnight.setTransformedForTesting(p, true)));
+		at(10, () -> server(mc, MoonKnightTruncheon::summon));
+		at(12, () -> camOffset = front);
+		at(40, () -> shot(mc, "a00_idle_front"));
+		int t = 44;
+		int[][] poses = {
+				{MoonKnightAnim.TRUNCHEON_DRAW, 3}, {MoonKnightAnim.TRUNCHEON_DRAW, 7},
+				{MoonKnightAnim.TRUNCHEON_HIT_1, 0}, {MoonKnightAnim.TRUNCHEON_HIT_1, 3},
+				{MoonKnightAnim.TRUNCHEON_HIT_2, 0}, {MoonKnightAnim.TRUNCHEON_HIT_2, 3},
+				{MoonKnightAnim.TRUNCHEON_SLAM, 2}, {MoonKnightAnim.TRUNCHEON_SLAM, 5},
+				{MoonKnightAnim.TRUNCHEON_STOW, 3} };
+		for (int[] pose : poses) {
+			int id = pose[0];
+			int k = pose[1];
+			String n = "b_" + id + "_" + k;
+			at(t, () -> {
+				pin(id, k);
+				camOffset = front;
+			});
+			at(t + 6, () -> shot(mc, n + "_front"));
+			at(t + 8, () -> camOffset = top);
+			at(t + 12, () -> shot(mc, n + "_top"));
+			at(t + 14, () -> camOffset = side);
+			at(t + 18, () -> shot(mc, n + "_side"));
+			t += 20;
+		}
+		// the staff spin: staff flag on, pinned at several points of the turn
+		at(t, () -> server(mc, p -> MoonKnightAnim.setFlag(p, MoonKnightAction.FLAG_STAFF, true)));
+		for (int k : new int[]{1, 3, 6, 9}) {
+			String n = "c_spin_" + k;
+			at(t + 1, () -> {
+				pin(MoonKnightAnim.STAFF_SPIN, k);
+				camOffset = front;
+			});
+			at(t + 7, () -> shot(mc, n + "_front"));
+			at(t + 9, () -> camOffset = side);
+			at(t + 13, () -> shot(mc, n + "_side"));
+			t += 14;
+		}
+		// first person
+		at(t, () -> {
+			pin(-1, 0);
+			camOffset = null;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.hideGui = false;
+		});
+		t += 4;
+		at(t, () -> shot(mc, "d_fp_staff_idle"));
+		at(t + 2, () -> server(mc, p -> MoonKnightAnim.setFlag(p, MoonKnightAction.FLAG_STAFF, false)));
+		t += 6;
+		at(t, () -> shot(mc, "d_fp_idle"));
+		t += 2;
+		int[][] fp = {
+				{MoonKnightAnim.TRUNCHEON_HIT_1, 1}, {MoonKnightAnim.TRUNCHEON_HIT_1, 3},
+				{MoonKnightAnim.TRUNCHEON_HIT_2, 1}, {MoonKnightAnim.TRUNCHEON_HIT_2, 3},
+				{MoonKnightAnim.TRUNCHEON_SLAM, 2}, {MoonKnightAnim.TRUNCHEON_SLAM, 5},
+				{MoonKnightAnim.STAFF_SPIN, 3}, {MoonKnightAnim.TRUNCHEON_DRAW, 3} };
+		for (int[] pose : fp) {
+			int id = pose[0];
+			int k = pose[1];
+			at(t, () -> pin(id, k));
+			at(t + 5, () -> shot(mc, "d_fp_" + id + "_" + k));
+			t += 7;
+		}
+		at(t, () -> pin(-1, 0));
+		at(t + 5, () -> mc.stop());
+	}
+}

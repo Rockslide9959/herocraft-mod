@@ -74,6 +74,7 @@ public final class MoonKnightAbilityManager {
 				h[i] = false;
 				return;
 			}
+			move.press(player); // v0.14.4
 			if (move.firesOnPress()) {
 				move.tap(player); // no hold move on this key: no reason to wait for the release
 				p[i] = -1;

@@ -254,3 +254,58 @@ auto suit-up and its grace), `MoonKnightPowerGameTests` (swap marks, per-alter v
 - Cape Glide speed 0.55 -> 0.85 (`GLIDE_SPEED`).
 - X Dash follows the full 3D aim (`MoonKnightDash#dash` / `#push`) -- it used to be flattened to the horizontal.
 
+## v0.14.4 -- truncheon
+
+Numbers in the `// v0.14.4 truncheon` block at the end of `MoonKnightConfig` plus three in-place value changes
+(`TRUNCHEON_DAMAGE` 6 -> 7, `STAFF_SPIN_DAMAGE` 6 -> 15, `TRUNCHEON_SLAM_BONUS` 4 -> 6). Sneak+C (ground / dive slam)
+is untouched here.
+
+**C summons on the press.** `MoonKnightMove#press` (new, called by `MoonKnightAbilityManager.handle` on every
+non-sneak press edge) lets `MoonKnightTruncheon` put the truncheon in the main hand the moment C goes down; that
+press's release is swallowed (`SUMMONED_ON_PRESS`) so it doesn't stow it again, and holding on into a HOLD still spins
+the staff. A later tap with it out stows it. The held item handling is the v0.13.21 one, tightened:
+- whatever was in the hand moves to the first free inventory slot (`Inventory#getFreeSlot`, hotbar first); a full
+  inventory refuses with the action-bar message rather than deleting anything;
+- on stow the item goes back to the hotbar slot the truncheon is in (so scrolling away and back doesn't matter), or,
+  if the truncheon was dropped / lost, to the slot it was summoned into -- only if that slot is empty and the item is
+  still the same stack in the slot it was moved to (otherwise it just stays where it is: never overwritten, never
+  duplicated);
+- the truncheon itself still can't exist anywhere else: stow / drop / container / un-suit / revoke / death delete it
+  (`removeAll`, `sweepContainer`, `keepOne`, `MoonKnightTruncheonItem#inventoryTick`, the dropped-item discard).
+
+**Damage.** The truncheon item's attack damage is 7 (tooltip "7 Attack Damage"); the suit's own +7 melee bonus and the
+alter bonuses still stack on top, as for fists. Staff Spin is 15 x lunar power to everything within 3.5 x power.
+
+**3-hit combo** (`ability/MoonKnightTruncheonCombo`, fed by `MoonKnightTruncheon.onMeleeHit` from `AFTER_DAMAGE`):
+
+| Step | Move | Extra (ability hit, x power) | Knockback | Pose |
+| --- | --- | --- | --- | --- |
+| 1 | forehand, right to left | -- | vanilla | `TRUNCHEON_HIT_1` (60) |
+| 2 | backhand, left to right | +3 (`TRUNCHEON_BACKHAND_BONUS`) | 0.6 x power | `TRUNCHEON_HIT_2` (61) |
+| 3 | two-handed overhead smash | +6 (`TRUNCHEON_SLAM_BONUS`) | 1.2 x power + 0.3 lift | `TRUNCHEON_SLAM` (25) |
+
+After the smash it goes round again. A hit more than `TRUNCHEON_COMBO_WINDOW` (30 ticks, 1.5 s) after the last one
+starts over at step 1; a hit less than `TRUNCHEON_COMBO_MIN_GAP` (6 ticks) after the last counted one doesn't advance
+it (a full-strength swing is 10 ticks at the truncheon's attack speed), so click-spamming can't reach the smash.
+Missed swings don't touch it; stowing clears it. Night healing per hit is unchanged. Only hits with the summoned
+truncheon in the main hand count (bare hands never do).
+
+**Animations** (all from the synced `MoonKnightAction` anim id + start, so every viewer sees them):
+- third person, `client/moonknight/MoonKnightTruncheonPose` (hooked from `MoonKnightPose.apply`; the old truncheon /
+  spin / slam poses moved out of `MoonKnightPose`): draw (raised to the moon, swung down to ready), stow (new id
+  `TRUNCHEON_STOW` 62, tucked to the hip), forehand, backhand, overhead smash with a lunge, and the Staff Spin, where
+  both hands hold the staff out level and the whole body turns one full circle over `STAFF_SPIN_TURN_TICKS` (10)
+  (`mixin/MoonKnightTruncheonSpinMixin`, a Y rotation in `PlayerRenderer.setupRotations`, so suit and cape turn with
+  it). While the torso is twisted the shoulder pivots follow it (as vanilla's attack swing does);
+- first person, `mixin/ItemInHandRendererTruncheonMixin` (before `renderItem`, inside vanilla's push / pop): the held
+  truncheon sweeps left / right for the forehand / backhand, rises and chops down for the smash, twirls in the middle
+  of the view for the spin, and flicks up on the draw -- on top of vanilla's swing.
+- The combo poses are stamped when the server registers the hit, so they begin at the strike (1 tick fade-in) rather
+  than with a slow wind-up.
+
+Screenshot-checked with `scratchpad/TruncheonDebugHarness.v0144.java.txt` (pins each pose at a chosen tick; needs the
+usual `HarnessCameraMixin` pointed at it): draw, forehand, backhand, smash raised / down, stow, spin at 1 / 3 / 6 / 9
+ticks, and the first-person frames. Tests: `MoonKnightTruncheonGameTests` (press summons + release keeps it + tap
+stows, item back in its slot, one copy only, revoke removes it; 7 / 15 numbers; combo steps, bonuses, anti-spam gap,
+window reset, stow reset; bare hands never combo).
+

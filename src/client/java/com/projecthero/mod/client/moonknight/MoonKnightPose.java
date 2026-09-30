@@ -82,15 +82,7 @@ public final class MoonKnightPose {
 			f(2, -1.7f, 0, 0, 0.2f, 0, 0, 0, -0.2f, 0, 0, 0),
 			f(6, -0.6f, 0.3f, 0, 0.2f, 0, 0, -0.15f, 0.2f, 0.2f, -0.2f, 0),
 			rest(12) }, true, false);
-	private static final Pose TRUNCHEON_DRAW = new Pose(new float[][] {
-			rest(0),
-			f(3, -1.1f, -0.4f, 0.3f, 0, 0, 0, 0, 0, 0, 0, 0),
-			rest(10) }, false, false);
-	private static final Pose TRUNCHEON_SLAM = new Pose(new float[][] {
-			f(0, -2.8f, 0.2f, 0, 0.2f, 0, 0, -0.1f, 0.2f, 0, 0, 0),
-			f(3, -0.5f, -0.2f, 0, 0.2f, 0, 0, 0.3f, -0.2f, -0.3f, 0.3f, 0.1f),
-			rest(10) }, false, false);
-	private static final Pose STAFF_SPIN = new Pose(spinFrames(), false, false);
+	// v0.14.4: TRUNCHEON_DRAW / _STOW / _HIT_1 / _HIT_2 / TRUNCHEON_SLAM / STAFF_SPIN live in MoonKnightTruncheonPose
 	private static final Pose GROUND_SLAM = new Pose(new float[][] {
 			f(0, -2.9f, 0, 0.2f, -2.9f, 0, -0.2f, -0.2f, 0, 0, 0, -0.2f),
 			f(4, -0.4f, 0, 0.2f, -0.4f, 0, -0.2f, 0.45f, 0, -0.6f, 0.6f, 0.2f),
@@ -160,17 +152,6 @@ public final class MoonKnightPose {
 			f(6, -0.15f, 0, GLIDE_ARM_SPREAD, -0.15f, 0, -GLIDE_ARM_SPREAD, 0, 0, -1.2f, 0.3f, 0),
 			f(10, -0.15f, 0, GLIDE_ARM_SPREAD, -0.15f, 0, -GLIDE_ARM_SPREAD, 0, 0, 0, 0, 0) }, false, false);
 
-	private static float[][] spinFrames() {
-		java.util.List<float[]> out = new java.util.ArrayList<>();
-		out.add(rest(0));
-		for (int t = 2; t <= 14; t += 2) {
-			float yaw = (t % 4 == 0) ? 1.2f : -1.2f;
-			out.add(f(t, -1.55f, 0, 1.2f, -1.55f, 0, -1.2f, 0, yaw, 0.2f, -0.2f, 0));
-		}
-		out.add(rest(18));
-		return out.toArray(new float[0][]);
-	}
-
 	private MoonKnightPose() {
 	}
 
@@ -184,9 +165,6 @@ public final class MoonKnightPose {
 			case MoonKnightAnim.GRAPPLE_FIRE -> GRAPPLE_FIRE;
 			case MoonKnightAnim.DIVE_KICK -> DIVE_KICK;
 			case MoonKnightAnim.YANK -> YANK;
-			case MoonKnightAnim.TRUNCHEON_DRAW -> TRUNCHEON_DRAW;
-			case MoonKnightAnim.TRUNCHEON_SLAM -> TRUNCHEON_SLAM;
-			case MoonKnightAnim.STAFF_SPIN -> STAFF_SPIN;
 			case MoonKnightAnim.GROUND_SLAM -> GROUND_SLAM;
 			case MoonKnightAnim.DIVE_SLAM -> DIVE_SLAM;
 			case MoonKnightAnim.SHADOW_STEP -> SHADOW_STEP;
@@ -266,6 +244,7 @@ public final class MoonKnightPose {
 			if (p != null) {
 				blend(m, p.frames(), now - a.animStart + partial, p.aimRight(), p.aimLeft());
 			}
+			MoonKnightTruncheonPose.apply(m, a, now, partial); // v0.14.4: the truncheon's moves
 		}
 	}
 

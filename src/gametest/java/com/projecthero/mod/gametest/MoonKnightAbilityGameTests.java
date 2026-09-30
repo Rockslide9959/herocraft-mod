@@ -352,19 +352,7 @@ public class MoonKnightAbilityGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, batch = "mk_combo")
-	public void everyThirdTruncheonHitSlams(GameTestHelper helper) {
-		ServerPlayer p = knight(helper, new Vec3(2.5, 2.0, 2.5), 0.0f);
-		Husk h = husk(helper, p.position().add(0, 0, 2));
-		MoonKnightTruncheon.summon(p);
-		MoonKnightTruncheon.onMeleeHit(p, h, 6.0f);
-		MoonKnightTruncheon.onMeleeHit(p, h, 6.0f);
-		helper.assertTrue(h.getHealth() == h.getMaxHealth(), "the first two hits are plain swings (no slam)");
-		MoonKnightTruncheon.onMeleeHit(p, h, 6.0f);
-		helper.assertTrue(h.getHealth() < h.getMaxHealth(), "the third consecutive hit is a slam");
-		helper.assertTrue(MoonKnightAnim.action(p).animId == MoonKnightAnim.TRUNCHEON_SLAM, "with its pose");
-		helper.succeed();
-	}
+	// v0.14.4: the 3-hit combo's tests are in MoonKnightTruncheonGameTests
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = "mk_staff")
 	public void staffSpinHitsAllAround(GameTestHelper helper) {

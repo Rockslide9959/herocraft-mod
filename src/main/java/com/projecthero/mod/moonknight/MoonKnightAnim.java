@@ -38,6 +38,13 @@ public final class MoonKnightAnim {
 	public static final int RESURRECT = 23;
 	public static final int UNTRANSFORM = 24;
 	public static final int TRUNCHEON_SLAM = 25;
+	/**
+	 * v0.14.4 truncheon: the combo's forehand (hit 1) and backhand (hit 2) -- hit 3 is {@link #TRUNCHEON_SLAM}, the
+	 * overhead smash -- and putting the truncheon away. Numbered well clear of the other moves' ids.
+	 */
+	public static final int TRUNCHEON_HIT_1 = 60;
+	public static final int TRUNCHEON_HIT_2 = 61;
+	public static final int TRUNCHEON_STOW = 62;
 	/** v0.13.21: X Dash, and a glide kick landing. */
 	public static final int DASH = 26;
 	public static final int GLIDE_KICK = 27;
