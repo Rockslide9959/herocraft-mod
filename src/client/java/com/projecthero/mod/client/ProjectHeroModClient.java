@@ -144,6 +144,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.firearm.BulletHoleRenderer.initialize();
 		com.projecthero.mod.client.greenlantern.GreenLanternClient.initialize();
 		com.projecthero.mod.client.grave.TrophyHeadClient.initialize(); // v0.14.4 trophy heads: cutout, power tint, glow
+		com.projecthero.mod.client.firearm.GunMeshModels.initialize(); // v0.14.5 Punisher sniper drawn from the user's polygon mesh
 
 		// GeckoLib armour: give every SuperheroArmorItem (Thor + the five Iron Man marks) a client-only
 		// GeoRenderProvider so GeckoLib renders them with the shared crimson_vanguard model instead of
