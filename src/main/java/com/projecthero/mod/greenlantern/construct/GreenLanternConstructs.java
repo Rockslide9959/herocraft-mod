@@ -629,17 +629,30 @@ public final class GreenLanternConstructs {
 	/** One invisible, unkillable seat per cell -- a rider on one follows it automatically as it moves. */
 	private static void spawnCarryPlatformSeats(Construct c) {
 		for (Construct.Cell cell : c.cells) {
-			ArmorStand stand = new ArmorStand(net.minecraft.world.entity.EntityType.ARMOR_STAND, c.level);
-			stand.setPos(cell.pos().getX() + 0.5, cell.pos().getY() + 1.0, cell.pos().getZ() + 0.5);
-			stand.setInvisible(true);
-			stand.setNoGravity(true);
-			stand.setInvulnerable(true);
-			stand.setSilent(true);
-			stand.setNoBasePlate(true);
-			stand.setShowArms(false);
+			ArmorStand stand = newCarrySeat(c.level, cell.pos());
 			c.level.addFreshEntity(stand);
 			c.seatEntityIds.add(stand.getId());
 		}
+	}
+
+	/**
+	 * The invisible seat over one Carry Platform cell (not yet added to the level). v0.14.4: a zero-size MARKER stand
+	 * standing on the cell's top surface -- a stand's seat point is its own height, so a normal 2-block stand sat riders
+	 * two blocks above the platform; a marker's is its feet, so the rider sits ON the platform.
+	 */
+	public static ArmorStand newCarrySeat(net.minecraft.world.level.Level level, BlockPos cell) {
+		ArmorStand stand = new ArmorStand(net.minecraft.world.entity.EntityType.ARMOR_STAND, level);
+		stand.setPos(cell.getX() + 0.5, cell.getY() + 1.0, cell.getZ() + 0.5);
+		stand.setInvisible(true);
+		stand.setNoGravity(true);
+		stand.setInvulnerable(true);
+		stand.setSilent(true);
+		stand.setNoBasePlate(true);
+		stand.setShowArms(false);
+		stand.getEntityData().set(ArmorStand.DATA_CLIENT_FLAGS,
+				(byte) (stand.getEntityData().get(ArmorStand.DATA_CLIENT_FLAGS) | ArmorStand.CLIENT_FLAG_MARKER));
+		stand.refreshDimensions();
+		return stand;
 	}
 
 	private static void removeCarrySeats(Construct c) {

@@ -1152,4 +1152,24 @@ public class GreenLanternGameTests implements FabricGameTest {
 				|| stack.getItem() == Items.DIAMOND_SHOVEL || stack.getItem() == Items.FLINT_AND_STEEL)
 				&& stack.has(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
 	}
+
+	/** v0.14.4: a Carry Platform rider sits ON the platform (hips at its surface), not two blocks above it. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void carryPlatformRidersSitOnThePlatform(GameTestHelper helper) {
+		ServerPlayer player = helper.makeMockServerPlayerInLevel();
+		net.minecraft.core.BlockPos cell = helper.absolutePos(new net.minecraft.core.BlockPos(1, 1, 1));
+		net.minecraft.world.entity.decoration.ArmorStand seat =
+				com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.newCarrySeat(helper.getLevel(), cell);
+		helper.getLevel().addFreshEntity(seat);
+		player.teleportTo(seat.getX(), seat.getY(), seat.getZ());
+		helper.assertTrue(player.startRiding(seat, true), "the player takes the seat");
+		double surface = cell.getY() + 1.0;
+		double feet = seat.getPassengerRidingPosition(player).y - player.getVehicleAttachmentPoint(seat).y;
+		helper.assertTrue(seat.isMarker(), "the seat is a zero-size marker");
+		helper.assertTrue(feet < surface && feet > surface - 1.0,
+				"a seated rider's feet sit just under the platform surface (hips on it), got " + (feet - surface));
+		player.stopRiding();
+		seat.discard();
+		helper.succeed();
+	}
 }

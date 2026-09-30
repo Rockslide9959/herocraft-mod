@@ -586,3 +586,9 @@ the construct wheel the way it looks, it's nice. I don't like the border around 
 - Verified in-client with `scratchpad/V0144HudDebugHarness.java.txt` (same install as the v0.14.3 harness, removed
   afterwards): idle, busy (shield + cooldowns), low charge + barrier refill, reciting, ring removal, wheel.
 
+
+### v0.14.4 -- Carry Platform seats
+Riders used to float about two blocks above the Carry Platform: each cell's invisible seat was a full-size armour
+stand, and a stand seats its rider at its own 2-block height. The seats are now zero-size MARKER stands on the cell's
+top surface (`GreenLanternConstructs#newCarrySeat`), so a rider sits on the platform itself. Test:
+`GreenLanternGameTests#carryPlatformRidersSitOnThePlatform`.
