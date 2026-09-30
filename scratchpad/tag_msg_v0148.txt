@@ -1,0 +1,49 @@
+Project Hero v0.14.8 -- Super Soldier & Kryptonian
+
+TWO NEW HERO-TIER POWERS
+
+SUPER SOLDIER (new)
+- How to get it: combine a Potion of Strength, a Potion of Swiftness and a Potion of Leaping in a crafting table (long and strong versions work) to make the Unrefined Super Soldier Serum. Drink it: 10% chance you become a Super Soldier, 90% chance your body rejects it and you die (creative won't save you). Or put it in a Blast Furnace for 10 minutes to get the Refined Serum, which always works.
+- Passives: +50% speed, +5 hearts, +7 bare-handed damage, 30% less damage taken, jump 2 blocks high, safer falls, some knockback resistance, faster swings, healing out of combat, immune to Poison and Nausea.
+- R Combo Strike (3 punches: 5 + 5 + 7) / Shift+R Uppercut Launcher (10, launches up about 5 blocks)
+- G Shield Throw: ricochets between up to 3 enemies for 8 each, then flies back to your hand / Shift+G Shield Bash Charge (7 to everything in your path)
+- Z Leaping Slam (12 in a 5-block radius) / Shift+Z ULTIMATE Super Soldier Onslaught: shockwave, then 10 s of +5 melee, Resistance, Speed and +25% move damage, and every punch shocks nearby enemies. 100 s cooldown.
+- X Tactical Roll (you can't be hurt mid-roll) / Shift+X High Leap
+- V Battle Cry (you and your squad get Strength + Speed, enemies get Weakness) / Shift+V Tactical Focus (enemies within 30 blocks glow and your hits on them do 1.5x)
+- New black and grey HUD with Hairline bars (ultimate, focus).
+
+KRYPTONIAN (new)
+- How to get it: some nights a green KRYPTONITE METEOR streaks across the sky and crashes nearby. You're told which way it fell. At the bottom of the crater, ringed with kryptonite ore, sits the Meteor Core. Mine it (iron pickaxe or better) for the Kryptonian Crystal, then hold right-click with it under the open daytime sky.
+- Passives: 60 health, 75% less damage, and no damage at all from falls, fire, lava, drowning or freezing. 15-damage fists, no knockback, 40% faster, a 4-block jump, and the sun heals and feeds you.
+- Solar Energy (0-100): charges fast in direct sunlight, slowly at night, barely underground. It fuels your moves.
+- Directional flight: double-tap jump and fly wherever you look. S brakes to a hover. Sprint is 40 blocks a second with a sonic boom. Space and Sneak go up and down.
+- R Kryptonian Punch (32, launches the target) / Shift+R Heat Vision (hold: beams from your eyes, sets targets on fire)
+- G Freeze Breath (freezes and slows, turns water to ice) / Shift+G Thunderclap (a huge cone of knockback, stuns)
+- Z Ground Slam (dive from the sky, up to 30) / Shift+Z ULTIMATE SOLAR FLARE: spend all your Solar Energy on a 12-block blast of 60-120 damage. Afterwards you're burnt out for 30 s. 90 s cooldown.
+- X Super Dash (rams everything for 20) / Shift+X Sky Launch (rocket 40 blocks up and start flying)
+- V X-Ray Vision (see every creature within 48 blocks through walls) / Shift+V Super Grab & Throw
+- KRYPTONITE is your weakness. Nearby ore or blocks, or a shard in your inventory or anyone's hand, strip your powers, drop you out of the sky and hurt you. Mine the ore for shards; 9 shards make a block.
+- New black and grey HUD with Hairline bars (Solar Energy, Flare, burn-out, X-Ray).
+
+SUPER SPEED
+- Time Slow reworked: hold Z for 5 seconds to charge it. You brace and vibrate with speed energy while lightning crackles around you and a hum builds, then it bursts out. Let go early and nothing is spent. 300 s cooldown.
+- During Time Slow you move at normal walking speed. Speed Mode and Overdrive give no extra speed; everyone else being frozen is the advantage.
+- After Time Slow ends you're exhausted for 30 s: no Super Speed moves, Speed Mode and Overdrive are off, and you drop anything you're carrying. A grey Exhaustion bar drains as you recover.
+- Fixed: loot from kills during Time Slow can now be picked up straight away instead of after ~10 seconds.
+- New running animation: an upright, arms-pumping sprint instead of the crouched look. Speed Mode and Overdrive now use the same run.
+- Phase (Shift+C) makes you vibrate violently, with flickering ghost copies. Other players can see it.
+- Overdrive now leaves jagged lightning trails behind you.
+- Speed Carry (N) has no time limit any more. You carry until you let go.
+- Fixed: you can now see the creature you're carrying above your head.
+
+LASER VISION
+- Moves always deal their base damage; a high heat gauge no longer makes them stronger.
+- Heat now cools at 3% per second, and only after 5 seconds without using Laser Vision.
+- Fixed: in third person the held beam seemed to stop working. It was still firing, but hidden behind your head (or filling the camera from the front). Your own beam is now drawn clearly in every camera view.
+
+EXPERIMENTAL POWERS
+- Only the four remade mutations are available for now: Super Strength, Laser Vision, Super Speed and Super Regeneration. The others are switched off until they're rebuilt.
+- Switched-off powers can't be obtained from serums, recipes, research notes, loot, lab devices or random serums, and they're hidden from the guide, the creative tab and the power wheel. If you had one, it's removed when you next join.
+- Spider-Man: while Spider Adhesion is switched off, the Arachnid Mutagen turns you straight into Spider-Man.
+
+Guidebook, power screens and CurseForge page updated.

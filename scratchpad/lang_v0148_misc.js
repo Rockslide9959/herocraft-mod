@@ -67,3 +67,12 @@ JSON.parse(out); // validate
 if (crlf) out = out.replace(/\n/g, '\r\n');
 fs.writeFileSync(FILE, out);
 console.log('en_us.json: set ' + Object.keys(SET).length + ' keys');
+
+// Release pass: overview names the two new heroes and the four available mutations.
+{
+	const fs = require('fs');
+	const f = 'src/main/resources/assets/projecthero/lang/en_us.json';
+	const j = JSON.parse(fs.readFileSync(f, 'utf8'));
+	j['projecthero.guide.overview.body'] = "Project Hero turns Minecraft into a superhero sandbox. Alongside iconic heroes like Thor, Iron Man, Spider-Man, Max Steel, the Punisher, Green Lantern, Wolverine, the Titan Shifter, All Might, Moon Knight, the Hulk, the Super Soldier and the Kryptonian, you can undergo experimental mutations to permanently gain minor powers. The mutations are being remade one by one: Super Strength, Laser Vision, Super Speed and Super Regeneration are available now, the rest return as they are rebuilt.";
+	fs.writeFileSync(f, JSON.stringify(j, null, 2) + '\n');
+}

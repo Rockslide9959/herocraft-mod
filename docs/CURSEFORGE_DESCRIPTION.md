@@ -1,7 +1,7 @@
 # Project Hero
 
 **A huge superhero mod for Minecraft 1.21.1 (Fabric).** Become Thor, Iron Man, Spider-Man, Max Steel, the Punisher,
-Green Lantern, Wolverine, a Titan Shifter, All Might, the Hulk, Moon Knight or a Super Soldier, bond with a living alien Symbiote, or mutate one of 26
+Green Lantern, Wolverine, a Titan Shifter, All Might, the Hulk, Moon Knight, a Super Soldier or a Kryptonian, bond with a living alien Symbiote, or mutate
 experimental superpowers. Then put them to the test against world raids, the Oathbreaker and Darkseid himself.
 
 Every hero is a full survival progression, not a creative-only toy: you earn each power, fuel it, master it, and can
@@ -215,22 +215,21 @@ one **Kryptonian Crystal** it holds, then hold it up to the **daytime sun**. The
 
 ---
 
-## 26 Experimental Powers
+## Experimental Powers
 
 A whole second progression system. Mutate powers with **experimental serums**, **research notes**, **exposure events**
 or **lab devices**, found in rare research sites. The **Mutagenic**, **Heroic** and **Prismatic Serums** grant a random
 power you don't have yet.
 
-Own up to three at once: all their passives run permanently, and the one you select drives your ability keys. Each
-power has its own abilities (six keys, most with **H** / **N** extras), passives, and **combos** when the right two are
-paired. **Super Regeneration** has no keys at all: it heals 10 HP every 5 ticks, burns off harmful effects in 2 seconds
-and holds **three revive charges**, each recharging on its own minute.
+Own up to three at once: all their passives run permanently, and the one you select drives your ability keys. The
+experimental powers are being remade one by one; **four are available right now**, the rest return as they're rebuilt:
 
-**Super Strength · Laser Vision · Flight · Super Speed · Geokinesis · Crystalkinesis · Electrokinesis · Pyrokinesis ·
-Cryokinesis · Telekinesis · Teleportation · Super Regeneration · Sonic Scream · Invisibility & Light
-Manipulation · Spider Climbing / Adhesion · Elasticity · Density Manipulation · Shadow Manipulation · Energy Absorption ·
-Shockwave Manipulation · Plant Manipulation · Gravity Manipulation · Wind Manipulation · Water Manipulation · Magnetic
-Manipulation · Size Manipulation**
+- **Super Strength** -- six heavy-hitting keys, three passives and a superhero landing.
+- **Laser Vision** -- beams straight from your eyes, driven by a 0-100 heat gauge that cools once you stop firing.
+- **Super Speed** -- Speed Mode and Overdrive (lightning trails), Mach Punch, Blitz, Speed Vortex, Phase (vibrate
+  through walls), carry anyone on **N**, and a charged, game-wide **Time Slow** that leaves you exhausted.
+- **Super Regeneration** -- no keys at all: heals 2 HP every tick, burns off harmful effects in 2 seconds and holds
+  **three revive charges**.
 
 ---
 

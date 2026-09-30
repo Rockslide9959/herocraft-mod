@@ -107,13 +107,43 @@ jobs:
             echo "::error::DISCORD_WEBHOOK_URL secret is not set - the release was NOT announced"
             exit 1
           fi
-          jq -n \
-            --arg content "@everyone Project Hero $VERSION is out! Please wait about 20 minutes for CurseForge to verify the mod update before it shows up." \
-            --arg title "Project Hero $VERSION" \
-            --arg desc "${CHANGELOG:0:4000}" \
-            --arg url "$RELEASE_URL" \
-            '{content: $content, allowed_mentions: {parse: ["everyone"]}, embeds: [{title: $title, description: $desc, url: $url, color: 3066993}]}' \
-            > discord_payload.json
+          # Long changelogs are split at line breaks into several embeds (Discord: 4096 chars per embed
+          # description, 6000 across all embeds, 10 embeds max) instead of being cut off at 4000.
+          python3 - <<'PY'
+          import json, os
+          version = os.environ["VERSION"]
+          chunks, cur = [], ""
+          for line in os.environ["CHANGELOG"].split("\n"):
+              while len(line) > 3900:
+                  chunks.append(line[:3900])
+                  line = line[3900:]
+              if cur and len(cur) + len(line) + 1 > 3900:
+                  chunks.append(cur)
+                  cur = ""
+              cur += ("\n" if cur else "") + line
+          if cur:
+              chunks.append(cur)
+          embeds, total = [], len("Project Hero " + version)
+          for i, c in enumerate(chunks[:10]):
+              if total + len(c) > 5900:
+                  c = c[:max(0, 5900 - total - 40)] + "\n... (full changelog on GitHub)"
+              e = {"description": c, "color": 3066993}
+              if i == 0:
+                  e["title"] = "Project Hero " + version
+                  e["url"] = os.environ["RELEASE_URL"]
+              embeds.append(e)
+              total += len(c)
+              if total >= 5900:
+                  break
+          payload = {
+              "content": "@everyone Project Hero " + version + " is out! Please wait about 20 minutes for CurseForge to verify the mod update before it shows up.",
+              "allowed_mentions": {"parse": ["everyone"]},
+              "embeds": embeds,
+          }
+          with open("discord_payload.json", "w") as f:
+              json.dump(payload, f)
+          print("Discord embeds:", len(embeds), "chars:", total)
+          PY
           code=$(curl -s -o discord_response.txt -w "%{http_code}" --retry 5 --retry-delay 10 --retry-all-errors -H "Content-Type: application/json" -d @discord_payload.json "$DISCORD_WEBHOOK_URL")
           echo "Discord answered HTTP $code"
           if [ "$code" != "204" ] && [ "$code" != "200" ]; then
