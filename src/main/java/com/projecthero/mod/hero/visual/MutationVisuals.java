@@ -144,6 +144,19 @@ public final class MutationVisuals {
 		}
 	}
 
+	/**
+	 * v0.14.7 (Super Speed Time Slow): moves the playing animation's start {@code ticks} earlier, so a move animation
+	 * of the full-speed caster keeps playing at full speed while the world's clock crawls.
+	 */
+	public static void advanceAnimation(ServerPlayer player, int ticks) {
+		MutationVisualState s = player.getAttachedOrElse(ModAttachments.MUTATION_VISUALS, null);
+		// only a move that is still playing (a long-finished one-shot or an old loop is left alone: no sync spam)
+		if (s == null || s.anim().isEmpty() || player.level().getGameTime() - s.animStart() > 100) {
+			return;
+		}
+		set(player, new MutationVisualState(s.anim(), s.animStart() - ticks, s.flags(), s.values()));
+	}
+
 	private static void set(ServerPlayer player, MutationVisualState s) {
 		player.setAttached(ModAttachments.MUTATION_VISUALS, s);
 	}

@@ -554,8 +554,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				|| org.lwjgl.glfw.GLFW.glfwGetKey(w, org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
 	}
 
-	/** Whether the player's selected mutation defines the H / N utility slots (and Mjolnir is not in hand). */
-	private static boolean mutationHasUtility(Minecraft client) {
+	/**
+	 * Whether the player's selected mutation defines utility slot {@code slot} (7 = H, 8 = N) and Mjolnir is not in
+	 * hand. v0.14.7: checked per key -- Super Speed has N (Speed Carry) but no H, so its plain H stays the power wheel.
+	 */
+	private static boolean mutationHasUtility(Minecraft client, int slot) {
 		LocalPlayer p = client.player;
 		if (p == null || client.screen != null || ThorPowers.isHoldingMjolnir(p)) {
 			return false;
@@ -565,7 +568,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			return false;
 		}
 		com.projecthero.mod.hero.Power power = com.projecthero.mod.hero.Powers.byKey(st.activePower);
-		return power != null && power.hasSlot(com.projecthero.mod.hero.AbilitySlot.SLOT_7);
+		return power != null && power.hasSlot(com.projecthero.mod.hero.AbilitySlot.byNumber(slot));
 	}
 
 	/** v0.14.5: whether a mutation is selected at all (and Mjolnir is not in hand) -- Sneak+N combos need no N slot. */
@@ -593,7 +596,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			}
 			return true;
 		}
-		if (down && !wasDown && altDown(client) && mutationHasUtility(client)) {
+		if (down && !wasDown && altDown(client) && mutationHasUtility(client, slot)) {
 			pressUtility(slot);
 			return true;
 		}
@@ -686,7 +689,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				// v0.14.3: H as Green Lantern -- the Giant Hand: grab, then H again to hurl (Shift+H still opens the power wheel).
 				ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternActionPayload(
 						com.projecthero.mod.network.GreenLanternActionPayload.Action.GIANT_HAND));
-			} else if (!Screen.hasShiftDown() && mutationHasUtility(client)) {
+			} else if (!Screen.hasShiftDown() && mutationHasUtility(client, 7)) {
 				// v0.13.22: a mutation with H / N abilities -- plain H is its Utility 1; Shift+H opens the power wheel.
 				pressUtility(7);
 			} else {
@@ -858,7 +861,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			// v0.12.43: plain N as a base-form Titan Shifter (no other power claiming N) toggles the passive regeneration.
 			ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(
 					com.projecthero.mod.network.TitanShiftPayload.Action.TOGGLE_REGEN));
-		} else if (down && !maxSteelTransformWasDown && (mutationHasUtility(client)
+		} else if (down && !maxSteelTransformWasDown && (mutationHasUtility(client, 8)
 				|| (Screen.hasShiftDown() && mutationSelected(client)))) {
 			// v0.13.22: nothing else owns N -- it is the selected mutation's Utility 2.
 			// v0.14.5: a six-key mutation (no H / N, e.g. Super Strength) still sends Sneak+N so power combos fire.

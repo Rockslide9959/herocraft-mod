@@ -245,7 +245,9 @@ public final class HeroDamageRules {
 			}
 			case "power_04_super_speed" -> {
 				// v0.14.5: Shift+C Phase -- nothing touches a vibrating speedster (except /kill and the void)
-				if (com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.phasing(player)
+				// v0.14.7: ... and nothing touches one mid Speed Sweep either
+				if ((com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.phasing(player)
+						|| com.projecthero.mod.hero.power.p04.SuperSpeedMoves.sweeping(player))
 						&& !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
 					player.resetFallDistance();
 					return Verdict.immune();

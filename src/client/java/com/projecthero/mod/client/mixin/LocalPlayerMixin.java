@@ -37,6 +37,9 @@ public abstract class LocalPlayerMixin {
 	private double projecthero$elasticFall;
 	@Unique
 	private boolean projecthero$wasOnGround = true;
+	/** v0.14.7: running up a wall last tick (Super Speed). */
+	@Unique
+	private boolean projecthero$wallRunning;
 
 	/**
 	 * Elasticity bounce, local player only (v0.10.13):
@@ -167,7 +170,35 @@ public abstract class LocalPlayerMixin {
 		LocalPlayer self = (LocalPlayer) (Object) this;
 		if (!projecthero$speedModeActive(self)) {
 			projecthero$groundSpeed = 0.0;
+			projecthero$wallRunning = false;
 			return;
+		}
+
+		// v0.14.7 wall run: running into a wall while looking steeply up runs you straight up it; clearing the top
+		// edge gives a small forward hop onto it. Look away, stop pressing forward or leave the wall -> normal physics.
+		boolean canWallRun = self.getXRot() <= com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.WALL_RUN_PITCH
+				&& self.zza > 0.0f && !self.isShiftKeyDown() && !self.getAbilities().flying && !self.isPassenger()
+				&& !self.isInWater() && !self.isFallFlying()
+				&& !com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.phasing(self);
+		if (canWallRun && self.horizontalCollision) {
+			Float until = self.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null) == null ? null
+					: self.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null).resources.get("power_04_super_speed/overdrive_until");
+			boolean overdrive = until != null && until > self.level().getGameTime();
+			Vec3 cur = self.getDeltaMovement();
+			self.setDeltaMovement(cur.x, overdrive ? 1.0 : 0.7, cur.z);
+			self.resetFallDistance();
+			projecthero$wallRunning = true;
+			return;
+		}
+		if (projecthero$wallRunning) {
+			projecthero$wallRunning = false;
+			if (canWallRun && !self.onGround()) {
+				// over the top: hop forward onto it
+				float yaw = self.getYRot() * ((float) Math.PI / 180.0f);
+				self.setDeltaMovement(-Math.sin(yaw) * 0.45, 0.5, Math.cos(yaw) * 0.45);
+				self.resetFallDistance();
+				return;
+			}
 		}
 
 		Vec3 v = self.getDeltaMovement();

@@ -127,10 +127,9 @@ public class RevampBatchAGameTests implements FabricGameTest {
 		for (String key : BATCH_A) {
 			Power p = Powers.byKey(key);
 			helper.assertTrue(p != null, key + " registered");
-			for (int i = 0; i < p.abilities().size(); i++) {
-				AbilitySlot slot = AbilitySlot.byNumber(i + 1);
-				Ability a = p.ability(slot);
-				helper.assertTrue(a != null && a.slot() == slot, key + " slot " + slot + " mismapped");
+			for (Ability a : p.abilities()) {
+				AbilitySlot slot = a.slot();
+				helper.assertTrue(p.ability(slot) == a, key + " slot " + slot + " mismapped");
 				helper.assertTrue(AbilityHandlers.has(p, a), key + "/" + a.id() + " has no handler");
 			}
 		}

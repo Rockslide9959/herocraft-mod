@@ -39,13 +39,15 @@ import net.minecraft.world.phys.Vec3;
 /**
  * Power 04 — Super Speed (v0.14.5 rework).
  *
- * <p>Six keys, no H / N: R Rapid Assault (4 punches of 8), G Speed Carry (carry anything overhead; no fall damage
- * while carried or for 3 s after), X Momentum Dash (along the full look vector), Z Time Slow (see
+ * <p>v0.14.7: the six keys plus N (no H -- H stays the power wheel). R Rapid Assault (4 punches of 8, each landing in full) / Shift+R Mach Punch, G Blitz /
+ * Shift+G Speed Vortex, X Momentum Dash (along the full look vector) / Shift+X Speed Sweep, Z Time Slow (see
  * {@link SuperSpeedTimeSlow}), V Overdrive, C Speed Mode — and Shift+C Phase (hold C: walk through walls on your
- * own level; see {@link #startPhase}).
+ * own level; see {@link #startPhase}), N Speed Carry (carry anything overhead; no fall damage
+ * while carried or for 3 s after). The new moves live in {@link SuperSpeedMoves}.
  *
- * <p>Passives, and only these: +30% walking / sprinting / swimming speed, and eating / drinking 50% faster
- * ({@code SuperSpeedEatMixin}).
+ * <p>Passives: +30% walking / sprinting / swimming speed, a 3-block step assist, eating / drinking 50% faster
+ * ({@code SuperSpeedEatMixin}) and a permanent Regeneration II. In Speed Mode / Overdrive you also run on water and
+ * run straight up walls (look up while running into one).
  *
  * <p>Speed Mode and Overdrive leave a trail of after-images behind a running speedster (yellow / red) -- the
  * {@code p04.trail} visual flag, rendered client-side.
@@ -93,6 +95,9 @@ public final class SuperSpeedHandlers {
 	private static final ResourceLocation OD_STEP = com.projecthero.mod.ProjectHeroMod.id("overdrive_step");
 	private static final ResourceLocation OD_FALL = com.projecthero.mod.ProjectHeroMod.id("overdrive_fall");
 
+	private static final net.minecraft.core.particles.DustParticleOptions OVERDRIVE_SPARK =
+			new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(1.0f, 0.25f, 0.2f), 0.8f);
+
 	/** Horizontal blocks/tick above which Overdrive's burst effects fire (normal sprint is ~0.28). */
 	private static final double RUNNING_SPEED = 0.3;
 
@@ -100,6 +105,14 @@ public final class SuperSpeedHandlers {
 	private static final Map<UUID, Vec3> LAST_POS = new HashMap<>();
 	/** Entities set down from a carry -> game time their fall / suffocation immunity ends. */
 	private static final Map<UUID, Long> CARRY_GRACE = new HashMap<>();
+	/** Recent horizontal speed per speedster (blocks/tick, a decaying peak -- movement packets arrive unevenly). */
+	private static final Map<UUID, Double> RECENT_SPEED = new HashMap<>();
+
+	/** v0.14.7 passive: Regeneration II (amplifier 1). */
+	public static final int REGEN_AMPLIFIER = 1;
+	/** Water running: the soft splash plays at most this often (ticks), this loud. */
+	public static final int WATER_SOUND_EVERY = 8;
+	public static final float WATER_SOUND_VOLUME = 0.15f;
 
 	private SuperSpeedHandlers() {
 	}
@@ -114,37 +127,45 @@ public final class SuperSpeedHandlers {
 
 	public static void register() {
 		// R -- Rapid Assault: four punches of 8 on everything in front of you.
-		AbilityHandlers.register(KEY, "rapid_assault", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			float m = overdriveMult(p);
-			int struck = 0;
-			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.getEyePosition().add(p.getLookAngle().scale(1.5)), 3.5)) {
-				for (int i = 0; i < PUNCHES; i++) {
-					AbilityHelpers.hurtBurst(p, e, PUNCH_DAMAGE * m);
-				}
-				AbilityHelpers.knockbackFrom(e, p.position(), 0.35 * m);
-				ctx.level().sendParticles(ParticleTypes.CRIT, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(),
-						PUNCHES * 3, 0.35, 0.35, 0.35, 0.3);
-				ctx.level().sendParticles(ParticleTypes.ELECTRIC_SPARK, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(),
-						PUNCHES, 0.3, 0.3, 0.3, 0.2);
-				struck++;
+		// v0.14.7: R, G and X are HOLD slots so the router does not gate their Shift variants (Mach Punch, Speed
+		// Vortex, Speed Sweep -- each on its own cooldown) on the main move's cooldown; both check their own.
+		AbilityHandlers.register(KEY, "rapid_assault", Handlers.hold(ctx -> {
+			if (ctx.player().isShiftKeyDown()) {
+				SuperSpeedMoves.machPunch(ctx);
+				return;
 			}
-			BatchA.play(p, KEY, "p04.flurry", 12);
-			AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 1.8f);
-			if (struck > 0) {
-				AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.8f, 2.0f);
+			if (!ctx.cooldownReady()) {
+				cooldownMessage(ctx);
+				return;
 			}
-			ctx.triggerCooldown();
-		}));
+			rapidAssault(ctx);
+		}, ctx -> { }));
 
-		// G -- Speed Carry: snatch up the creature or player you are looking at and carry it overhead. A second
-		// press sets it down in front of you. Carried things take no fall damage and never suffocate.
+		// G -- Blitz: zip to the enemy under the crosshair and hit it for 20. Shift+G -- Speed Vortex.
+		AbilityHandlers.register(KEY, "blitz", Handlers.hold(ctx -> {
+			if (ctx.player().isShiftKeyDown()) {
+				SuperSpeedMoves.startVortex(ctx);
+				return;
+			}
+			SuperSpeedMoves.blitz(ctx);
+		}, ctx -> { }));
+
+		// N -- Speed Carry (G before v0.14.7; Super Speed has no H move -- H stays the power wheel): snatch up the creature or player you are looking at and carry it
+		// overhead. A second press sets it down in front of you. Carried things take no fall damage and never suffocate.
 		AbilityHandlers.register(KEY, "speed_carry", Handlers.instantTicking(SuperSpeedHandlers::carryPress,
 				ctx -> carryTick(ctx.player())));
 
-		// X -- Momentum Dash: a burst along exactly where you are looking (up, down or level).
-		AbilityHandlers.register(KEY, "momentum_dash", Handlers.instant(ctx -> {
+		// X -- Momentum Dash: a burst along exactly where you are looking (up, down or level). Shift+X -- Speed Sweep.
+		AbilityHandlers.register(KEY, "momentum_dash", Handlers.hold(ctx -> {
 			ServerPlayer p = ctx.player();
+			if (p.isShiftKeyDown()) {
+				SuperSpeedMoves.startSweep(ctx);
+				return;
+			}
+			if (!ctx.cooldownReady()) {
+				cooldownMessage(ctx);
+				return;
+			}
 			float m = selfMult(overdriveMult(p));
 			Vec3 dir = dashVelocity(p.getLookAngle(), p.onGround(), 1.7 * m);
 			Vec3 from = p.position();
@@ -153,9 +174,9 @@ public final class SuperSpeedHandlers {
 			BatchA.play(p, KEY, "dash_forward", 10);
 			AbilityHelpers.sound(p, SoundEvents.BREEZE_SHOOT, 0.6f, 1.8f);
 			ctx.triggerCooldown();
-		}));
+		}, ctx -> { }));
 
-		// Z -- Time Slow: 30 s of everything else at 5%. Press again to end it early; the cooldown starts at the end.
+		// Z -- Time Slow: 45 s (v0.14.7) of everything else at 5%. Press again to end it early; the cooldown starts at the end.
 		AbilityHandlers.register(KEY, "time_slow", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
 			if (SuperSpeedTimeSlow.isCasting(p)) {
@@ -197,6 +218,7 @@ public final class SuperSpeedHandlers {
 						AttributeModifier.Operation.ADD_VALUE);
 				PowerToggles.modifier(player, Attributes.STEP_HEIGHT, PASSIVE_STEP, PASSIVE_STEP_BONUS,
 						AttributeModifier.Operation.ADD_VALUE);
+				applyRegen(player);
 				// join / respawn: a phase saved mid-hold (C is not held any more) must not linger
 				if (phasing(player) && !player.noPhysics) {
 					endPhase(player);
@@ -205,6 +227,8 @@ public final class SuperSpeedHandlers {
 				PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, PASSIVE_SPEED);
 				PowerToggles.clearModifier(player, Attributes.WATER_MOVEMENT_EFFICIENCY, PASSIVE_SWIM);
 				PowerToggles.clearModifier(player, Attributes.STEP_HEIGHT, PASSIVE_STEP);
+				clearRegen(player);
+				SuperSpeedMoves.stopAll(player);
 				speedModeClear(player);
 				clearOverdrive(player);
 				if (phasing(player)) {
@@ -218,6 +242,7 @@ public final class SuperSpeedHandlers {
 				set(player, OVERDRIVE_UNTIL, 0);
 				set(player, OVERDRIVE_LEFT, 0);
 				LAST_POS.remove(player.getUUID());
+				RECENT_SPEED.remove(player.getUUID());
 			}
 		});
 		PowerPassives.registerTick(KEY, SuperSpeedHandlers::serverTick);
@@ -230,6 +255,109 @@ public final class SuperSpeedHandlers {
 			v = new Vec3(v.x, 0.25, v.z);
 		}
 		return v;
+	}
+
+	// ---- R: Rapid Assault ------------------------------------------------------------------------
+
+	/** Four punches of 8 on everything in front of you; every blow lands in full, even on a player or a mob just hit. */
+	public static void rapidAssault(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		float m = overdriveMult(p);
+		int struck = 0;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.getEyePosition().add(p.getLookAngle().scale(1.5)), 3.5)) {
+			if (!SuperSpeedMoves.validFoe(p, e)) {
+				continue;
+			}
+			for (int i = 0; i < PUNCHES; i++) {
+				SuperSpeedMoves.punchThrough(p, e, PUNCH_DAMAGE * m);
+			}
+			AbilityHelpers.knockbackFrom(e, p.position(), 0.35 * m);
+			ctx.level().sendParticles(ParticleTypes.CRIT, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(),
+					PUNCHES * 3, 0.35, 0.35, 0.35, 0.3);
+			ctx.level().sendParticles(ParticleTypes.ELECTRIC_SPARK, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(),
+					PUNCHES, 0.3, 0.3, 0.3, 0.2);
+			struck++;
+		}
+		BatchA.play(p, KEY, "p04.flurry", 12);
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 1.8f);
+		if (struck > 0) {
+			AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.8f, 2.0f);
+		}
+		ctx.triggerCooldown();
+	}
+
+	private static void cooldownMessage(AbilityContext ctx) {
+		ctx.actionBar("message.projecthero.ability.on_cooldown", net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
+				String.format(java.util.Locale.ROOT, "%.1f", ctx.cooldownRemaining() / 20.0f));
+	}
+
+	// ---- passive: Regeneration II ----------------------------------------------------------------
+
+	/** v0.14.7: owning Super Speed keeps a permanent, hidden Regeneration II on you (never weakens a stronger regen). */
+	public static void applyRegen(ServerPlayer p) {
+		MobEffectInstance cur = p.getEffect(MobEffects.REGENERATION);
+		if (cur == null || cur.getAmplifier() < REGEN_AMPLIFIER
+				|| (cur.getAmplifier() == REGEN_AMPLIFIER && !cur.isInfiniteDuration())) {
+			if (cur != null) {
+				p.removeEffect(MobEffects.REGENERATION);
+			}
+			p.addEffect(new MobEffectInstance(MobEffects.REGENERATION, MobEffectInstance.INFINITE_DURATION, REGEN_AMPLIFIER,
+					false, false, true));
+		}
+	}
+
+	public static void clearRegen(ServerPlayer p) {
+		MobEffectInstance cur = p.getEffect(MobEffects.REGENERATION);
+		if (cur != null && cur.isInfiniteDuration() && cur.getAmplifier() == REGEN_AMPLIFIER) {
+			p.removeEffect(MobEffects.REGENERATION);
+		}
+	}
+
+	/**
+	 * Time Slow caster: pulls Super Speed's running absolute-time clocks (Overdrive, the Shift-move cooldowns) in by
+	 * {@code ticks}, one per extra full-speed tick, so they run at the caster's pace while the world's clock crawls.
+	 */
+	public static void advanceClocks(ServerPlayer p, int ticks) {
+		long now = p.level().getGameTime();
+		for (String name : new String[] { OVERDRIVE_UNTIL, SuperSpeedMoves.MACH_READY, SuperSpeedMoves.VORTEX_READY,
+				SuperSpeedMoves.SWEEP_READY }) {
+			float v = res(p, name);
+			if (v > now) {
+				set(p, name, Math.max(now, v - ticks));
+			}
+		}
+	}
+
+	/** Recent horizontal speed in blocks per tick (a peak that decays), for the Mach Punch. */
+	public static double recentSpeed(ServerPlayer p) {
+		return RECENT_SPEED.getOrDefault(p.getUUID(), 0.0);
+	}
+
+	// ---- Speed Mode: wall run (server half) ------------------------------------------------------
+
+	/** Pitch at or above which (looking up) a speedster against a wall runs up it. */
+	public static final float WALL_RUN_PITCH = -60.0f;
+
+	/**
+	 * Whether {@code p} is set up to run up a wall: Speed Mode or Overdrive on, looking steeply up, and a solid
+	 * block right in front of them at body height. The climb itself is simulated by the player's own client
+	 * ({@code LocalPlayerMixin}); the server only keeps them safe from fall damage while they do it.
+	 */
+	public static boolean wallRunReady(ServerPlayer p) {
+		if (!(speedMode(p) || overdrive(p)) || p.getXRot() > WALL_RUN_PITCH || p.isShiftKeyDown()
+				|| p.getAbilities().flying || p.isPassenger() || phasing(p)) {
+			return false;
+		}
+		Vec3 f = BatchA.flatLook(p);
+		AABB probe = p.getBoundingBox().move(f.scale(0.3)).deflate(0.02, 0.1, 0.02);
+		return !p.level().noCollision(p, probe);
+	}
+
+	/** Server upkeep for a wall run: no fall damage accumulates while climbing. */
+	public static void wallRunTick(ServerPlayer p) {
+		if (wallRunReady(p)) {
+			p.resetFallDistance();
+		}
 	}
 
 	// ---- G: Speed Carry ------------------------------------------------------------------------
@@ -457,6 +585,9 @@ public final class SuperSpeedHandlers {
 		PowerToggles.modifier(player, Attributes.WATER_MOVEMENT_EFFICIENCY, PASSIVE_SWIM, PASSIVE_SWIM_EFFICIENCY,
 				AttributeModifier.Operation.ADD_VALUE);
 		PowerToggles.modifier(player, Attributes.STEP_HEIGHT, PASSIVE_STEP, PASSIVE_STEP_BONUS, AttributeModifier.Operation.ADD_VALUE);
+		applyRegen(player);
+		SuperSpeedMoves.tick(player);
+		wallRunTick(player);
 
 		if (phasing(player)) {
 			if (!player.isAlive()) {
@@ -477,6 +608,10 @@ public final class SuperSpeedHandlers {
 
 		Vec3 last = LAST_POS.put(player.getUUID(), player.position());
 		double speed = last == null ? 0.0 : Math.sqrt(sq(player.getX() - last.x) + sq(player.getZ() - last.z));
+		if (speed > 8.0) {
+			speed = 0.0; // a teleport, not running
+		}
+		RECENT_SPEED.put(player.getUUID(), Math.max(speed, recentSpeed(player) * 0.85));
 		boolean speedMode = speedMode(player);
 		boolean moving = speed > 0.08 || player.isSprinting();
 
@@ -491,6 +626,14 @@ public final class SuperSpeedHandlers {
 			Vec3 dir = new Vec3(player.getX() - last.x, 0, player.getZ() - last.z).normalize();
 			overdriveBurst(sl, player, dir);
 		}
+		// v0.14.7: the Overdrive trail crackles -- small spark bursts at your heels (the arcs between the red
+		// after-images are drawn client-side)
+		if (overdrive && speed > 0.15 && player.tickCount % 2 == 1 && last != null) {
+			Vec3 dir = new Vec3(player.getX() - last.x, 0, player.getZ() - last.z).normalize();
+			Vec3 heel = player.position().subtract(dir.scale(1.3));
+			sl.sendParticles(ParticleTypes.ELECTRIC_SPARK, heel.x, heel.y + 0.15, heel.z, 3, 0.25, 0.1, 0.25, 0.12);
+			sl.sendParticles(OVERDRIVE_SPARK, heel.x, heel.y + 0.6, heel.z, 2, 0.3, 0.4, 0.3, 0.0);
+		}
 
 		// Running on water: splash and footfall feedback (the client mixin keeps the player on the surface).
 		if ((speedMode || overdrive) && moving && !player.isShiftKeyDown() && !player.getAbilities().flying) {
@@ -500,10 +643,12 @@ public final class SuperSpeedHandlers {
 			boolean onWaterSurface = (atFeet.is(FluidTags.WATER) || below.is(FluidTags.WATER)) && !player.isInWater();
 			if (onWaterSurface) {
 				double surfaceY = player.getY();
-				sl.sendParticles(ParticleTypes.SPLASH, player.getX(), surfaceY + 0.05, player.getZ(), 12, 0.35, 0.02, 0.35, 0.12);
-				if (player.tickCount % 3 == 0) {
-					sl.playSound(null, player.blockPosition(), SoundEvents.PLAYER_SPLASH_HIGH_SPEED,
-							net.minecraft.sounds.SoundSource.PLAYERS, 0.9f, 1.2f + sl.random.nextFloat() * 0.3f);
+				sl.sendParticles(ParticleTypes.SPLASH, player.getX(), surfaceY + 0.05, player.getZ(), 8, 0.35, 0.02, 0.35, 0.12);
+				// v0.14.7: a soft patter, not a loud splash every few ticks (vanilla's own splash / swim sounds are
+				// muted while water running -- SuperSpeedWaterSoundMixin)
+				if (player.tickCount % WATER_SOUND_EVERY == 0) {
+					sl.playSound(null, player.blockPosition(), SoundEvents.PLAYER_SWIM,
+							net.minecraft.sounds.SoundSource.PLAYERS, WATER_SOUND_VOLUME, 1.3f + sl.random.nextFloat() * 0.3f);
 				}
 			}
 		}
@@ -628,10 +773,26 @@ public final class SuperSpeedHandlers {
 		PowerToggles.clearModifier(p, Attributes.FALL_DAMAGE_MULTIPLIER, OD_FALL);
 	}
 
+	/**
+	 * Whether {@code player} is running across water right now (either side, for the owner): Speed Mode / Overdrive
+	 * on, moving, not sneaking, head above the surface. Vanilla's splash / swim sounds are muted while this holds.
+	 */
+	public static boolean waterRunning(Player player) {
+		if (speedFactor(player) <= 1.0f || player.isShiftKeyDown() || player.isUnderWater()
+				|| player.getAbilities().flying) {
+			return false;
+		}
+		Vec3 v = player.getDeltaMovement();
+		double moved = Math.max(v.horizontalDistance(), Math.sqrt(sq(player.getX() - player.xo) + sq(player.getZ() - player.zo)));
+		return moved > 0.08 || player.isSprinting();
+	}
+
 	/** Drops the static scratch maps (server stop). */
 	public static void clearSessionState() {
 		LAST_POS.clear();
 		CARRY_GRACE.clear();
+		RECENT_SPEED.clear();
+		SuperSpeedMoves.clearSessionState();
 	}
 
 	/** Slow sweep: forget expired carry-grace entries and players who left. */
@@ -639,5 +800,7 @@ public final class SuperSpeedHandlers {
 		long now = server.overworld().getGameTime();
 		CARRY_GRACE.values().removeIf(t -> t <= now);
 		LAST_POS.keySet().removeIf(id -> server.getPlayerList().getPlayer(id) == null);
+		RECENT_SPEED.keySet().removeIf(id -> server.getPlayerList().getPlayer(id) == null);
+		SuperSpeedMoves.prune(server);
 	}
 }

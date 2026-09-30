@@ -46,11 +46,18 @@ public class HeroPackGameTests implements FabricGameTest {
 			// v0.13.22: most mutations have the two H / N utility abilities as well; v0.14.5: some are back to the
 			// six core keys, and Super Regeneration is passive-only (no keys at all)
 			int n = p.abilities().size();
-			helper.assertTrue(n == 0 || n == 6 || n == 8, p.key() + " must have 0, 6 or 8 abilities, has " + n);
-			for (int i = 0; i < n; i++) {
+			// v0.14.7: 7 = the six keys plus N alone (Super Speed's Speed Carry; H stays the power wheel)
+			helper.assertTrue(n == 0 || n == 6 || n == 7 || n == 8, p.key() + " must have 0, 6, 7 or 8 abilities, has " + n);
+			for (int i = 0; i < Math.min(n, 6); i++) {
 				AbilitySlot slot = AbilitySlot.byNumber(i + 1);
 				Ability a = p.ability(slot);
 				helper.assertTrue(a != null && a.slot() == slot, p.key() + " slot " + slot + " mismapped");
+			}
+			for (Ability a : p.abilities()) {
+				helper.assertTrue(p.ability(a.slot()) == a, p.key() + " " + a.id() + " not found on its own slot");
+			}
+			if (n == 7) {
+				helper.assertTrue(!p.hasSlot(AbilitySlot.SLOT_7) && p.hasSlot(AbilitySlot.SLOT_8), p.key() + ": 7 keys means N without H");
 			}
 		}
 		helper.succeed();

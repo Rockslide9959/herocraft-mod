@@ -139,14 +139,17 @@ final class PowerCatalog {
 	private static Power superSpeed() {
 		String k = "power_04_super_speed";
 		return Power.Builder.of(Powers.id(k), PowerCategory.MOVEMENT)
-				// v0.14.5 rework: six keys (Shift+C = Phase), Time Slow on Z; passives = +30% speed, faster eating
-				.ability(ab(k, "rapid_assault", SLOT_1, INSTANT, 30))
-				.ability(ab(k, "speed_carry", SLOT_2, INSTANT, 51))
-				.ability(ab(k, "momentum_dash", SLOT_3, INSTANT, 34))
+				// v0.14.5 rework: Shift+C = Phase, Time Slow on Z. v0.14.7: eight keys -- R / G / X are HOLD slots so
+				// their Shift variants (Mach Punch, Speed Vortex, Speed Sweep) keep their own cooldowns; G is Blitz and
+				// Speed Carry moved to N (N only -- H stays the power wheel). Passives add Regeneration II.
+				.ability(ab(k, "rapid_assault", SLOT_1, HOLD, 30))
+				.ability(ab(k, "blitz", SLOT_2, HOLD, 80))
+				.ability(ab(k, "momentum_dash", SLOT_3, HOLD, 34))
 				.ability(ab(k, "time_slow", SLOT_4, INSTANT, 3000))
 				.ability(ab(k, "overdrive", SLOT_5, INSTANT, 850))
 				.ability(ab(k, "speed_mode", SLOT_6, TOGGLE, 0))
-				.passives(pk(k, "passive.speed"), pk(k, "passive.metabolism"))
+				.ability(ab(k, "speed_carry", AbilitySlot.SLOT_8, INSTANT, 51))
+				.passives(pk(k, "passive.speed"), pk(k, "passive.metabolism"), pk(k, "passive.regen"))
 				.serum(SerumRecipe.of("minecraft:swiftness", pk(k, "serum"),
 						"minecraft:sugar", "minecraft:rabbit_foot", "minecraft:redstone"))
 				.trigger(MutationTrigger.of(Kind.ELECTRICAL_DISCHARGE, pk(k, "trigger"), "projecthero.device.charged_copper_plates"))

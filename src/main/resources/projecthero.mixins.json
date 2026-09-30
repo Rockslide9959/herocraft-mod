@@ -39,6 +39,7 @@
 		"SuperSpeedPhaseCollideMixin",
 		"SuperSpeedPhasePoseMixin",
 		"SuperSpeedTimeSlowMixin",
+		"SuperSpeedWaterSoundMixin",
 		"ZombieSpawnMixin"
 	],
 	"client": [],

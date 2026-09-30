@@ -74,17 +74,20 @@ public class SuperSpeedV0145GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void sixAbilitiesInOrder(GameTestHelper helper) {
+	public void sixKeysPlusCarryOnN(GameTestHelper helper) {
+		// v0.14.7: G is Blitz, Speed Carry moved to N -- and no H move (H stays the power wheel)
 		Power power = power();
-		String[] ids = { "rapid_assault", "speed_carry", "momentum_dash", "time_slow", "overdrive", "speed_mode" };
-		helper.assertTrue(power.abilities().size() == 6, "exactly six abilities (no H / N), got " + power.abilities().size());
+		String[] ids = { "rapid_assault", "blitz", "momentum_dash", "time_slow", "overdrive", "speed_mode" };
+		helper.assertTrue(power.abilities().size() == 7, "the six keys plus N, got " + power.abilities().size());
 		for (int i = 0; i < ids.length; i++) {
 			var a = power.ability(AbilitySlot.byNumber(i + 1));
 			helper.assertTrue(a != null && ids[i].equals(a.id()), "slot " + (i + 1) + " should be " + ids[i]);
 			helper.assertTrue(AbilityHandlers.has(power, a), ids[i] + " has a handler");
 		}
-		helper.assertTrue(power.ability(AbilitySlot.SLOT_7) == null && power.ability(AbilitySlot.SLOT_8) == null,
-				"no H / N abilities");
+		helper.assertTrue(power.ability(AbilitySlot.SLOT_7) == null && !power.hasSlot(AbilitySlot.SLOT_7), "no H ability");
+		var carry = power.ability(AbilitySlot.SLOT_8);
+		helper.assertTrue(carry != null && "speed_carry".equals(carry.id()) && AbilityHandlers.has(power, carry),
+				"N is Speed Carry");
 		helper.succeed();
 	}
 
@@ -143,14 +146,14 @@ public class SuperSpeedV0145GameTests implements FabricGameTest {
 		ServerPlayer p = hero(helper);
 		Zombie z = mobAhead(helper, p, EntityType.ZOMBIE, 2.0);
 		p.lookAt(EntityAnchorArgument.Anchor.EYES, z.getEyePosition());
-		AbilityRouter.handleInput(p, 2, true); // G
+		AbilityRouter.handleInput(p, 8, true); // N (v0.14.7: Speed Carry moved from G)
 		helper.assertTrue(z.getVehicle() == p, "the zombie is carried");
 		float before = z.getHealth();
 		z.hurt(helper.getLevel().damageSources().fall(), 10f);
 		helper.assertTrue(z.getHealth() == before, "no fall damage while carried");
 		helper.assertFalse(ServerLivingEntityEvents.ALLOW_DAMAGE.invoker().allowDamage(p,
 				helper.getLevel().damageSources().mobAttack(z), 3f), "the carried zombie can't hurt its carrier");
-		AbilityRouter.handleInput(p, 2, true); // G again: set it down
+		AbilityRouter.handleInput(p, 8, true); // N again: set it down
 		helper.assertTrue(z.getVehicle() == null, "set down");
 		z.hurt(helper.getLevel().damageSources().fall(), 10f);
 		helper.assertTrue(z.getHealth() == before, "and still safe from the fall for 3 s");
@@ -178,29 +181,5 @@ public class SuperSpeedV0145GameTests implements FabricGameTest {
 		AbilityRouter.handleInput(p, 6, true); // plain C: Speed Mode as before
 		helper.assertTrue(SuperSpeedHandlers.speedMode(p), "plain C still toggles Speed Mode");
 		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "speed_v0145_timeslow", timeoutTicks = 200)
-	public void timeSlowSlowsMobsAndTogglesOff(GameTestHelper helper) {
-		ServerPlayer p = hero(helper);
-		Zombie z = mobAhead(helper, p, EntityType.ZOMBIE, 3.0);
-		AbilityRouter.handleInput(p, 4, true); // Z
-		helper.assertTrue(SuperSpeedTimeSlow.isCasting(p), "Time Slow starts");
-		helper.assertTrue(ExperimentalPowers.cooldownReady(p, power(), power().ability(AbilitySlot.SLOT_4)),
-				"no cooldown while it runs");
-		int t0 = z.tickCount;
-		int[] t1 = new int[1];
-		helper.startSequence().thenIdle(40).thenExecute(() -> {
-			int advanced = z.tickCount - t0;
-			AbilityRouter.handleInput(p, 4, true); // Z again: end early
-			SuperSpeedTimeSlow.end(p, false); // belt and braces: never leave a 96-block field behind a failed test
-			helper.assertTrue(advanced <= 4, "the zombie only ticked " + advanced + " of 40 ticks");
-			helper.assertFalse(SuperSpeedTimeSlow.isCasting(p), "a second press ends it");
-			int cd = ExperimentalPowers.cooldownRemainingTicks(p, power(), power().ability(AbilitySlot.SLOT_4));
-			int expected = HeroConfig.get().scaledCooldown(SuperSpeedTimeSlow.COOLDOWN_TICKS);
-			helper.assertTrue(Math.abs(cd - expected) <= 1, "150 s cooldown starts at the end (" + cd + " / " + expected + ")");
-		}).thenExecute(() -> t1[0] = z.tickCount).thenIdle(10).thenExecute(() ->
-				helper.assertTrue(z.tickCount - t1[0] >= 8, "and the zombie runs at full speed again (" + (z.tickCount - t1[0]) + ")"))
-				.thenSucceed();
 	}
 }

@@ -26,8 +26,6 @@ public final class SuperSpeedV0145 {
 	/** Speed Mode / Overdrive after-image trail (everyone sees it); {@link #TRAIL_RED} = 1 while Overdrive runs. */
 	public static final String TRAIL = "p04.trail";
 	public static final String TRAIL_RED = "p04.trail_red";
-	/** The caster's Time Slow field -- clients use it to slow their own copies of the entities around it. */
-	public static final String TIME_SLOW = "p04.timeslow";
 
 	private SuperSpeedV0145() {
 	}
@@ -35,7 +33,6 @@ public final class SuperSpeedV0145 {
 	public static void init() {
 		MutationVisuals.registerFlag(TRAIL, p -> owns(p) && (SuperSpeedHandlers.speedMode(p) || SuperSpeedHandlers.overdrive(p)));
 		MutationVisuals.registerValue(TRAIL_RED, p -> owns(p) && SuperSpeedHandlers.overdrive(p) ? 1 : 0);
-		MutationVisuals.registerFlag(TIME_SLOW, SuperSpeedTimeSlow::isCasting);
 
 		// HUD: running timers as Hairline bars above the key row (the Momentum gauge is gone with Momentum)
 		MutationMeters.register(new Spec(SuperSpeedHandlers.KEY, SuperSpeedHandlers.OVERDRIVE_LEFT, Kind.TIMER, Style.HAIRLINE,
@@ -43,7 +40,23 @@ public final class SuperSpeedV0145 {
 		MutationMeters.register(new Spec(SuperSpeedHandlers.KEY, SuperSpeedTimeSlow.LEFT, Kind.TIMER, Style.HAIRLINE,
 				"Time Slow", SuperSpeedTimeSlow.DURATION_TICKS, 0xFFB8B8B8, false, false, true, 0));
 
+		// v0.14.7: after-image streaks (Blitz / Speed Sweep hops, the Vortex ring), and the game-wide Time Slow state
+		net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playS2C().register(
+				com.projecthero.mod.network.SpeedStreakPayload.TYPE, com.projecthero.mod.network.SpeedStreakPayload.CODEC);
+		net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playS2C().register(
+				com.projecthero.mod.network.TimeSlowStatePayload.TYPE, com.projecthero.mod.network.TimeSlowStatePayload.CODEC);
+		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
+				SuperSpeedTimeSlow.onJoin(handler.getPlayer()));
+		// ... a speedster logging out mid-Sweep is put back where they started before being saved
+		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
+				{
+					com.projecthero.mod.hero.power.p04.SuperSpeedMoves.onDisconnect(handler.getPlayer());
+					SuperSpeedTimeSlow.onDisconnect(handler.getPlayer());
+				});
+
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
+			// Time Slow: the full-speed caster can keep hitting slowed victims at the normal cadence
+			SuperSpeedTimeSlow.onIncomingDamage(entity, source);
 			// Phase: a phasing speedster can't deal damage (their own immunity lives in HeroDamageRules)
 			if (source.getEntity() instanceof ServerPlayer attacker && attacker != entity && SuperSpeedHandlers.phasing(attacker)) {
 				return false;
@@ -62,6 +75,7 @@ public final class SuperSpeedV0145 {
 		});
 		AttackEntityCallback.EVENT.register((player, level, hand, target, hit) ->
 				SuperSpeedHandlers.phasing(player) ? InteractionResult.FAIL : InteractionResult.PASS);
+		ServerLifecycleEvents.SERVER_STOPPING.register(SuperSpeedTimeSlow::onServerStopping);
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			SuperSpeedTimeSlow.clearSessionState();
 			SuperSpeedHandlers.clearSessionState();

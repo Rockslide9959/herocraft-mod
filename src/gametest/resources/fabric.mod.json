@@ -51,7 +51,8 @@
       "com.projecthero.mod.gametest.LaserVisionV0145GameTests",
       "com.projecthero.mod.gametest.SuperStrengthV0145GameTests",
       "com.projecthero.mod.gametest.SuperRegenerationV0145GameTests",
-      "com.projecthero.mod.gametest.SuperSpeedV0145GameTests"
+      "com.projecthero.mod.gametest.SuperSpeedV0145GameTests",
+      "com.projecthero.mod.gametest.SuperSpeedV0147GameTests"
     ]
   },
   "depends": {

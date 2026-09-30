@@ -10,19 +10,22 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import com.projecthero.mod.client.gui.AbilityHudExtras;
+import com.projecthero.mod.client.mutation.MutationPose;
+import com.projecthero.mod.client.thor.ThorDraw;
 import com.projecthero.mod.hero.power.p04.SuperSpeedHandlers;
 import com.projecthero.mod.hero.power.p04.SuperSpeedTimeSlow;
 import com.projecthero.mod.hero.revamp.v0145.SuperSpeedV0145;
 import com.projecthero.mod.hero.visual.MutationVisuals;
+import com.projecthero.mod.network.SpeedStreakPayload;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.LightTexture;
@@ -37,16 +40,20 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.14.5 Super Speed rework: client registration.
+ * v0.14.5 Super Speed rework: client registration (v0.14.7 additions marked).
  *
  * <ul>
  *   <li>HUD: black-and-gray theme, and the current speed mode ("Regular" / "Speed" / "Overdrive") right of the
  *       power name.</li>
  *   <li>After-image trail: every tick a running speedster with the {@code p04.trail} flag (Speed Mode or
  *       Overdrive) leaves a translucent copy of their body behind -- yellow, red in Overdrive -- that fades out
- *       over one second. Every client records its own copies for every such player it can see.</li>
- *   <li>Time Slow: the client mirror of the server's 1-in-20 entity ticks ({@link #skipClientTick}), and a faint
- *       cold tint for the caster and anyone caught in the field.</li>
+ *       over one second. Every client records its own copies for every such player it can see. v0.14.7: the copies
+ *       keep the speedster run pose ({@link SpeedRunPose}) they were left in, wall runs leave them too, and in
+ *       Overdrive red-and-white lightning crackles between them.</li>
+ *   <li>v0.14.7: {@link SpeedStreakPayload} -- lines of after-images along a Blitz / Speed Sweep zip or round a Speed
+ *       Vortex.</li>
+ *   <li>Time Slow: the client mirror of the server's 1-in-20 entity ticks ({@link #skipClientTick}); v0.14.7: the
+ *       screen effect is {@link TimeSlowOverlay}.</li>
  * </ul>
  */
 public final class SuperSpeedClientV0145 {
@@ -55,13 +62,16 @@ public final class SuperSpeedClientV0145 {
 	private static final int YELLOW = 0xFFD83A;
 	private static final int RED = 0xFF3030;
 
-	private record Snapshot(long time, double x, double y, double z, float bodyYaw, float headYaw, float pitch,
-			float limbPos, float limbSpeed, boolean crouching, int rgb) {
+	/**
+	 * One after-image. {@code fixed} copies (streaks, the decoy) are drawn wherever they are; trail copies only once
+	 * the speedster has left them behind.
+	 */
+	private record Snapshot(long time, int life, float alpha, double x, double y, double z, float bodyYaw, float headYaw,
+			float pitch, float limbPos, float limbSpeed, boolean crouching, int rgb, float run, boolean overdrive,
+			boolean fixed) {
 	}
 
 	private static final Map<UUID, Deque<Snapshot>> TRAILS = new HashMap<>();
-	/** Time Slow casters in the client level, refreshed each client tick (read by SuperSpeedClientLevelMixin). */
-	private static List<Player> casters = List.of();
 
 	private SuperSpeedClientV0145() {
 	}
@@ -75,52 +85,124 @@ public final class SuperSpeedClientV0145 {
 			boolean speed = state.activeToggles.contains(SuperSpeedHandlers.KEY + "/speed_mode");
 			String text = overdrive ? "Overdrive" : speed ? "Speed" : "Regular";
 			int color = overdrive ? 0xFFFF4040 : speed ? 0xFFFFD83A : 0xFF9A9A9A;
+			// v0.14.7: Speed Carry (N) has no box on the HUD -- say so here while you are carrying something
+			if (state.resources.getOrDefault(SuperSpeedHandlers.KEY + "/carry_id", 0f) > 0.5f) {
+				text += " - Carrying";
+			}
 			g.drawString(client.font, "- " + text, x, y, color);
 		});
 		ClientTickEvents.END_CLIENT_TICK.register(SuperSpeedClientV0145::tick);
+		ClientTickEvents.END_CLIENT_TICK.register(SpeedRunPose::tick);
+		TimeSlowClient.init();
 		WorldRenderEvents.AFTER_ENTITIES.register(SuperSpeedClientV0145::renderTrails);
-		HudRenderCallback.EVENT.register((g, delta) -> renderTint(g));
+		ClientPlayNetworking.registerGlobalReceiver(SpeedStreakPayload.TYPE,
+				(payload, context) -> context.client().execute(() -> acceptStreak(payload)));
+		registerPoses();
 	}
 
-	// ---- Time Slow ------------------------------------------------------------------------------
+	// ---- v0.14.7 move poses: {tick, rArmX, rArmY, rArmZ, lArmX, lArmY, lArmZ, bodyX, bodyY, rLegX, lLegX, headX} ----
 
-	/** Whether the client should skip this tick of {@code e} (same rule as the server's SuperSpeedTimeSlow). */
+	private static float[] f(float tick, float rX, float rY, float rZ, float lX, float lY, float lZ, float bX, float bY,
+			float rL, float lL, float h) {
+		return new float[] { tick, rX, rY, rZ, lX, lY, lZ, bX, bY, rL, lL, h };
+	}
+
+	private static float[] z(float tick) {
+		return new float[] { tick, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+	}
+
+	private static float[] at(float tick, float[] pose) {
+		float[] p = pose.clone();
+		p[0] = tick;
+		return p;
+	}
+
+	private static void registerPoses() {
+		// G Blitz: arrive mid-lunge with a straight right
+		float[] blitz = f(0, -1.65f, -0.1f, 0, 0.5f, 0.2f, -0.1f, 0.2f, -0.45f, -0.55f, 0.55f, -0.1f);
+		MutationPose.register("p04.blitz", new float[][] { at(0, blitz), at(6, blitz), z(11) });
+		// Shift+R Mach Punch: coil (fist back, body turned), then the punch thrown through with the whole body
+		float[] coil = f(0, 0.95f, 0.3f, 0.15f, -0.9f, 0.3f, -0.1f, 0.1f, 0.55f, -0.35f, 0.35f, 0);
+		float[] mach = f(0, -1.75f, -0.05f, 0, 0.7f, 0.15f, -0.2f, 0.3f, -0.65f, 0.6f, -0.6f, -0.15f);
+		MutationPose.register("p04.mach_punch", new float[][] { z(0), at(2, coil), at(4, mach), at(12, mach), z(17) });
+		// Shift+G Speed Vortex: running tight circles -- leaned in, arms swept back, legs blurring
+		float[] vA = f(0, 1.05f, 0, 0.3f, 1.05f, 0, -0.3f, 0.4f, 0.25f, 1.0f, -1.0f, -0.25f);
+		float[] vB = f(0, 1.05f, 0, 0.3f, 1.05f, 0, -0.3f, 0.4f, 0.25f, -1.0f, 1.0f, -0.25f);
+		MutationPose.registerLoop("p04.vortex", 2, new float[][] { z(0), at(2, vA), at(4, vB), at(6, vA) });
+		// Shift+X Speed Sweep: alternating straights at every stop
+		float[] sR = f(0, -1.6f, -0.1f, 0, 0.4f, 0.2f, 0, 0.25f, -0.4f, -0.3f, 0.3f, 0);
+		float[] sL = f(0, 0.4f, -0.2f, 0, -1.6f, 0.1f, 0, 0.25f, 0.4f, 0.3f, -0.3f, 0);
+		MutationPose.registerLoop("p04.sweep", 1, new float[][] { z(0), at(1, sR), at(3, sL), at(5, sR) });
+	}
+
+	// ---- Time Slow (the caster's own client) --------------------------------------------------------
+
+	/**
+	 * v0.14.7, game-wide Time Slow: every other client simply runs at the synced 1 tick/s. The caster's client keeps
+	 * its 20 tick/s timer ({@code TimeSlowClient}), so here everything but the caster (and what they ride / carry) is
+	 * stepped once every 20 of its ticks -- the same pace the server runs them at. A skipped living thing's "previous"
+	 * pose is pinned to the current one so frames in between never flicker.
+	 */
 	public static boolean skipClientTick(Entity e) {
-		List<Player> list = casters;
-		if (list.isEmpty() || e instanceof Player) {
+		if (!TimeSlowClient.skipWorldTick()) {
 			return false;
 		}
-		if ((e.level().getGameTime() + e.getId()) % SuperSpeedTimeSlow.TICK_DIVISOR == 0) {
-			return false;
-		}
-		if (e.hasPassenger(x -> x instanceof Player)) {
-			return false;
-		}
-		double r2 = SuperSpeedTimeSlow.RADIUS * SuperSpeedTimeSlow.RADIUS;
-		for (Player p : list) {
-			if (!p.isRemoved() && p.level() == e.level() && p.distanceToSqr(e) <= r2) {
-				return true;
-			}
-		}
-		return false;
+		Minecraft mc = Minecraft.getInstance();
+		Player me = mc.player;
+		return me == null || (e != me && e != me.getVehicle() && !e.hasPassenger(me) && e.getVehicle() != me);
 	}
 
-	private static void renderTint(GuiGraphics g) {
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.options.hideGui) {
-			return;
+	/** Things the client simulates on its own between server updates: they glide instead of stepping. */
+	private static boolean glides(Entity e) {
+		return e instanceof net.minecraft.world.entity.projectile.Projectile
+				|| e instanceof net.minecraft.world.entity.item.FallingBlockEntity
+				|| e instanceof net.minecraft.world.entity.item.PrimedTnt
+				|| e instanceof net.minecraft.world.entity.item.ItemEntity
+				|| e instanceof net.minecraft.world.entity.ExperienceOrb;
+	}
+
+	/**
+	 * On the caster's client, projectiles, falling blocks, TNT, items and XP orbs glide 1/20th of their velocity on
+	 * every skipped tick (exactly the distance the server moves them per real tick) instead of stepping once a
+	 * second; the server's position / velocity updates keep them honest. Returns true when it handled the tick.
+	 */
+	public static boolean glideClientTick(Entity e) {
+		if (!glides(e) || e.isPassenger() || !skipClientTick(e)) {
+			return false;
 		}
-		boolean caster = MutationVisuals.hasFlag(mc.player, SuperSpeedV0145.TIME_SLOW);
-		boolean slowed = SuperSpeedTimeSlow.slowedByAttribute(mc.player);
-		if (!caster && !slowed) {
-			return;
+		e.setOldPosAndRot();
+		Vec3 v = e.getDeltaMovement();
+		double k = 1.0 / SuperSpeedTimeSlow.TICK_DIVISOR;
+		e.setPos(e.getX() + v.x * k, e.getY() + v.y * k, e.getZ() + v.z * k);
+		return true;
+	}
+
+	/** Particles this close to the caster keep their pace -- the speedster's own sparks and bursts. */
+	private static final double PARTICLE_EXEMPT_SQ = 2.5 * 2.5;
+
+	/**
+	 * On the caster's client, particles tick once every 20 client ticks like the rest of the world; on the ticks in
+	 * between they creep 1/20th of their velocity so the slow motion stays smooth. False straight away otherwise.
+	 */
+	public static boolean slowParticle(net.minecraft.client.particle.Particle particle) {
+		if (!TimeSlowClient.skipWorldTick()) {
+			return false;
 		}
-		int w = g.guiWidth();
-		int h = g.guiHeight();
-		g.fill(0, 0, w, h, slowed ? 0x2A405070 : 0x1A506080);
-		int edge = Math.max(12, h / 6);
-		g.fillGradient(0, 0, w, edge, 0x50101828, 0x00101828);
-		g.fillGradient(0, h - edge, w, h, 0x00101828, 0x50101828);
+		Player me = Minecraft.getInstance().player;
+		com.projecthero.mod.client.mixin.SuperSpeedParticleAccessor a =
+				(com.projecthero.mod.client.mixin.SuperSpeedParticleAccessor) particle;
+		double x = a.projecthero$x();
+		double y = a.projecthero$y();
+		double z = a.projecthero$z();
+		if (me != null && me.distanceToSqr(x, y, z) <= PARTICLE_EXEMPT_SQ) {
+			return false;
+		}
+		a.projecthero$setXo(x);
+		a.projecthero$setYo(y);
+		a.projecthero$setZo(z);
+		double k = 1.0 / SuperSpeedTimeSlow.TICK_DIVISOR;
+		particle.move(a.projecthero$xd() * k, a.projecthero$yd() * k, a.projecthero$zd() * k);
+		return true;
 	}
 
 	// ---- After-image trail ----------------------------------------------------------------------
@@ -128,42 +210,60 @@ public final class SuperSpeedClientV0145 {
 	private static void tick(Minecraft mc) {
 		if (mc.level == null) {
 			TRAILS.clear();
-			casters = List.of();
 			return;
 		}
-		List<Player> found = new ArrayList<>();
 		long now = mc.level.getGameTime();
 		java.util.Set<UUID> present = new java.util.HashSet<>();
 		for (AbstractClientPlayer p : mc.level.players()) {
-			if (MutationVisuals.hasFlag(p, SuperSpeedV0145.TIME_SLOW)) {
-				found.add(p);
-			}
 			present.add(p.getUUID());
 			if (!MutationVisuals.hasFlag(p, SuperSpeedV0145.TRAIL) || p.isSpectator() || p.tickCount % TRAIL_EVERY != 0) {
 				continue;
 			}
 			double dx = p.getX() - p.xo;
+			double dy = p.getY() - p.yo;
 			double dz = p.getZ() - p.zo;
-			if (dx * dx + dz * dz < 0.05 * 0.05) {
+			// v0.14.7: 3-D, so running up a wall leaves after-images on it too
+			if (dx * dx + dz * dz < 0.05 * 0.05 && Math.abs(dy) < 0.25) {
 				continue; // only while actually moving
 			}
-			boolean red = MutationVisuals.state(p).value(SuperSpeedV0145.TRAIL_RED, 0f) > 0.5f;
+			boolean red = SpeedRunPose.overdrive(p);
 			// an after-image is left where the player WAS (last tick), never where they are about to be -- the rendered
 			// player is interpolated between xo and x, so a copy at x would pop up just ahead of them
-			TRAILS.computeIfAbsent(p.getUUID(), k -> new ArrayDeque<>()).addLast(new Snapshot(now, p.xo, p.yo, p.zo,
-					p.yBodyRotO, p.yHeadRotO, p.xRotO, p.walkAnimation.position(0f), p.walkAnimation.speed(0f),
-					p.isCrouching(), red ? RED : YELLOW));
+			TRAILS.computeIfAbsent(p.getUUID(), k -> new ArrayDeque<>()).addLast(new Snapshot(now, TRAIL_LIFE, 0.4f,
+					p.xo, p.yo, p.zo, p.yBodyRotO, p.yHeadRotO, p.xRotO, p.walkAnimation.position(0f),
+					p.walkAnimation.speed(0f), p.isCrouching(), red ? RED : YELLOW, SpeedRunPose.weight(p, 0f), red, false));
 		}
-		casters = found.isEmpty() ? List.of() : found;
 		for (Iterator<Map.Entry<UUID, Deque<Snapshot>>> it = TRAILS.entrySet().iterator(); it.hasNext();) {
 			Map.Entry<UUID, Deque<Snapshot>> e = it.next();
 			Deque<Snapshot> q = e.getValue();
-			while (!q.isEmpty() && now - q.peekFirst().time() > TRAIL_LIFE) {
-				q.pollFirst();
-			}
+			q.removeIf(s -> now - s.time() > s.life());
 			if (q.isEmpty() || !present.contains(e.getKey())) {
 				it.remove();
 			}
+		}
+	}
+
+	/** v0.14.7: a streak of after-images along a zip. */
+	private static void acceptStreak(SpeedStreakPayload msg) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.level == null || !(mc.level.getEntity(msg.playerId()) instanceof AbstractClientPlayer p)) {
+			return;
+		}
+		long now = mc.level.getGameTime();
+		Deque<Snapshot> q = TRAILS.computeIfAbsent(p.getUUID(), k -> new ArrayDeque<>());
+		boolean red = msg.rgb() == RED;
+		float limb = p.walkAnimation.position(0f);
+		Vec3 from = new Vec3(msg.fx(), msg.fy(), msg.fz());
+		Vec3 to = new Vec3(msg.tx(), msg.ty(), msg.tz());
+		double len = from.distanceTo(to);
+		int n = (int) Math.max(2, Math.min(40, Math.round(len / 0.8)));
+		for (int i = 0; i < n; i++) {
+			double t = n == 1 ? 1.0 : i / (double) (n - 1);
+			Vec3 at = from.lerp(to, t);
+			// copies nearer the start fade first, so the zip reads as a blur racing toward its end
+			int life = Math.max(3, Math.round(msg.life() * (0.45f + 0.55f * (float) t)));
+			q.addLast(new Snapshot(now, life, 0.45f, at.x, at.y, at.z, msg.yaw(), msg.yaw(), 0f, limb + i * 1.1f, 1.0f,
+					false, msg.rgb(), 1.0f, red, true));
 		}
 	}
 
@@ -181,6 +281,8 @@ public final class SuperSpeedClientV0145 {
 		float partial = context.tickCounter().getGameTimeDeltaPartialTick(false);
 		long now = mc.level.getGameTime();
 		boolean firstPerson = mc.options.getCameraType().isFirstPerson();
+		List<Vec3[]> arcs = new ArrayList<>();
+		List<Float> arcAlpha = new ArrayList<>();
 		for (Map.Entry<UUID, Deque<Snapshot>> e : TRAILS.entrySet()) {
 			Player player = mc.level.getPlayerByUUID(e.getKey());
 			if (!(player instanceof AbstractClientPlayer acp)) {
@@ -195,14 +297,18 @@ public final class SuperSpeedClientV0145 {
 			boolean own = player == mc.player;
 			Vec3 at = acp.getPosition(partial);
 			Vec3 heading = at.subtract(acp.xo, acp.yo, acp.zo);
+			Snapshot prevRed = null;
+			int redIndex = 0;
 			for (Snapshot s : e.getValue()) {
-				// only copies the player has left BEHIND: at least 0.6 blocks back, never ahead along their movement
-				Vec3 off = new Vec3(s.x(), s.y(), s.z()).subtract(at);
-				if (off.lengthSqr() < 0.36 || (heading.lengthSqr() > 1.0e-4 && off.dot(heading) > 0.0)) {
-					continue;
+				if (!s.fixed()) {
+					// only copies the player has left BEHIND: at least 0.6 blocks back, never ahead along their movement
+					Vec3 off = new Vec3(s.x(), s.y(), s.z()).subtract(at);
+					if (off.lengthSqr() < 0.36 || (heading.lengthSqr() > 1.0e-4 && off.dot(heading) > 0.0)) {
+						continue;
+					}
 				}
 				float age = (now - s.time()) + partial;
-				float fade = 1.0f - age / TRAIL_LIFE;
+				float fade = 1.0f - age / s.life();
 				if (fade <= 0.0f) {
 					continue;
 				}
@@ -210,7 +316,23 @@ public final class SuperSpeedClientV0145 {
 				if (own && firstPerson && cam.distanceToSqr(s.x(), s.y() + 1.0, s.z()) < 2.25) {
 					continue;
 				}
-				int alpha = Math.round(Math.min(1.0f, fade) * 0.4f * 255.0f);
+				// Overdrive: lightning between every third red trail copy, re-shaped every other tick (the crackle)
+				if (s.overdrive() && !s.fixed()) {
+					if (prevRed != null && redIndex % 3 == 0) {
+						double seed = Math.floor((now + partial) / 2.0) * 3.7 + s.time() * 0.91;
+						if (ThorDraw.hash(seed) > 0.35) {
+							Vec3 a = new Vec3(prevRed.x(), prevRed.y() + 0.4 + ThorDraw.hash(seed + 1) * 1.2, prevRed.z()).subtract(cam);
+							Vec3 b = new Vec3(s.x(), s.y() + 0.4 + ThorDraw.hash(seed + 2) * 1.2, s.z()).subtract(cam);
+							arcs.add(ThorDraw.jagged(a, b, 6, 0.28, seed));
+							arcAlpha.add(Math.min(1.0f, fade * 1.2f));
+						}
+						prevRed = s;
+					} else if (prevRed == null) {
+						prevRed = s;
+					}
+					redIndex++;
+				}
+				int alpha = Math.round(Math.min(1.0f, fade) * s.alpha() * 255.0f);
 				int color = (alpha << 24) | s.rgb();
 				pose.pushPose();
 				pose.translate(s.x() - cam.x, s.y() - cam.y, s.z() - cam.z);
@@ -222,11 +344,28 @@ public final class SuperSpeedClientV0145 {
 				model.riding = false;
 				model.young = false;
 				model.crouching = s.crouching();
-				model.setupAnim(acp, s.limbPos(), s.limbSpeed(), acp.tickCount + partial,
-						s.headYaw() - s.bodyYaw(), s.pitch());
+				SpeedRunPose.overrideWeight = s.run();
+				SpeedRunPose.overrideOverdrive = s.overdrive();
+				try {
+					model.setupAnim(acp, s.limbPos(), s.limbSpeed(), acp.tickCount + partial,
+							s.headYaw() - s.bodyYaw(), s.pitch());
+				} finally {
+					SpeedRunPose.overrideWeight = Float.NaN;
+				}
 				model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(skin)),
 						LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, color);
 				pose.popPose();
+			}
+		}
+		if (!arcs.isEmpty()) {
+			VertexConsumer vc = ThorDraw.buffer(buffers);
+			PoseStack.Pose last = pose.last();
+			for (int i = 0; i < arcs.size(); i++) {
+				Vec3[] path = arcs.get(i);
+				float a = arcAlpha.get(i);
+				ThorDraw.ribbon(vc, last, path, 0.16f, 0xFF2020, 0.28f * a);
+				ThorDraw.ribbon(vc, last, path, 0.065f, 0xFF7050, 0.6f * a);
+				ThorDraw.ribbon(vc, last, path, 0.025f, 0xFFF4E0, 0.95f * a);
 			}
 		}
 	}

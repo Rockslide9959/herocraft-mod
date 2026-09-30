@@ -86,6 +86,11 @@ public final class AbilityHud {
 		int screenH = graphics.guiHeight();
 		// 6, or 8 with the H / N utility slots (v0.13.22), or 0 for a passive-only power (v0.14.5)
 		int slots = power.abilities().size();
+		// v0.14.7: the H / N boxes only for a power that has H -- an N-only power (Super Speed's Speed Carry) shows
+		// just its six core keys, and H stays the power wheel
+		if (slots > 6 && !power.hasSlot(AbilitySlot.SLOT_7)) {
+			slots = 6;
+		}
 		// A passive-only power still lays out as wide as a six-key row so its name + bars have room.
 		int layoutSlots = Math.max(6, slots);
 		int totalW = layoutSlots * BOX + (layoutSlots - 1) * GAP + (slots > 6 ? UTILITY_GAP : 0);
@@ -151,6 +156,17 @@ public final class AbilityHud {
 					&& (slot == AbilitySlot.SLOT_2 || slot == AbilitySlot.SLOT_5)) {
 				String extra = slot == AbilitySlot.SLOT_2 ? "clap_cd" : "rip_cd";
 				int alt = Math.round(state.resources.getOrDefault("power_01_super_strength/" + extra, 0.0f));
+				if (alt > cdRemain) {
+					cdRemain = alt;
+				}
+			}
+			// v0.14.7: Super Speed's Shift+R / Shift+G / Shift+X (Mach Punch, Speed Vortex, Speed Sweep) keep absolute
+			// ready-at times in their own resources -- the R / G / X box shows the longer of the two waits.
+			if (power.key().equals("power_04_super_speed")
+					&& (slot == AbilitySlot.SLOT_1 || slot == AbilitySlot.SLOT_2 || slot == AbilitySlot.SLOT_3)) {
+				String extra = slot == AbilitySlot.SLOT_1 ? "mach_ready" : slot == AbilitySlot.SLOT_2 ? "vortex_ready" : "sweep_ready";
+				float readyAtAlt = state.resources.getOrDefault("power_04_super_speed/" + extra, 0.0f);
+				int alt = (int) Math.max(0L, (long) readyAtAlt - gameTime);
 				if (alt > cdRemain) {
 					cdRemain = alt;
 				}

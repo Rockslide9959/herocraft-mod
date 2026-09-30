@@ -202,6 +202,29 @@ public final class ExperimentalPowers {
 		return (int) Math.max(0L, readyAt - player.level().getGameTime());
 	}
 
+	/**
+	 * v0.14.7 (Super Speed Time Slow): brings every running cooldown of {@code player} {@code ticks} ticks closer. The
+	 * Time Slow caster keeps living at 20 ticks a second while the world's clock crawls at 1, so their cooldowns --
+	 * absolute game times -- are pulled in by one tick for each extra tick they get. No-op (no sync) if none is running.
+	 */
+	public static void advanceCooldowns(ServerPlayer player, int ticks) {
+		ExperimentalState cur = state(player);
+		long now = player.level().getGameTime();
+		boolean any = false;
+		for (Long readyAt : cur.abilityReadyAt.values()) {
+			if (readyAt != null && readyAt > now) {
+				any = true;
+				break;
+			}
+		}
+		if (!any) {
+			return;
+		}
+		ExperimentalState s = cur.copy();
+		s.abilityReadyAt.replaceAll((k, v) -> v != null && v > now ? Math.max(now, v - ticks) : v);
+		save(player, s);
+	}
+
 	public static void triggerCooldown(ServerPlayer player, Power power, Ability ability, int ticks) {
 		if (ticks <= 0) {
 			return;

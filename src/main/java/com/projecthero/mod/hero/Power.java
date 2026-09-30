@@ -13,7 +13,8 @@ import net.minecraft.resources.ResourceLocation;
  * @param nameKey     translation key for the display name
  * @param category    broad family
  * @param descKey     translation key for the flavour/summary line
- * @param abilities   six (slots 1..6) or, since v0.13.22, eight (plus the H / N utility slots 7..8); since v0.14.5
+ * @param abilities   six (slots 1..6) or, since v0.13.22, eight (plus the H / N utility slots 7..8); since v0.14.7
+ *                    seven (the six plus N alone -- H then stays the power wheel); since v0.14.5
  *                    zero for a passive-only power ({@link Builder#passiveOnly()})
  * @param passiveKeys translation keys for passive-trait lines
  * @param serum       brewing recipe data
@@ -32,8 +33,9 @@ public record Power(
 		List<String> comboKeys) {
 
 	public Power {
-		if (abilities.size() != 0 && abilities.size() != 6 && abilities.size() != 8) {
-			throw new IllegalArgumentException(id + " must define 0, 6 or 8 abilities, got " + abilities.size());
+		// v0.14.7: 7 = the six keys plus N only (Super Speed's Speed Carry) -- H stays the power wheel
+		if (abilities.size() != 0 && abilities.size() != 6 && abilities.size() != 7 && abilities.size() != 8) {
+			throw new IllegalArgumentException(id + " must define 0, 6, 7 or 8 abilities, got " + abilities.size());
 		}
 	}
 
@@ -51,12 +53,24 @@ public record Power(
 
 	/** The ability in {@code slot}, or {@code null} for a utility slot (H / N) this power does not define. */
 	public Ability ability(AbilitySlot slot) {
-		return slot.index() < abilities.size() ? abilities.get(slot.index()) : null;
+		if (slot.index() < abilities.size()) {
+			Ability a = abilities.get(slot.index());
+			if (a.slot() == slot) {
+				return a;
+			}
+		}
+		// v0.14.7: an N-only power keeps N at list index 6
+		for (Ability a : abilities) {
+			if (a.slot() == slot) {
+				return a;
+			}
+		}
+		return null;
 	}
 
 	/** Whether the power defines an ability for {@code slot}. */
 	public boolean hasSlot(AbilitySlot slot) {
-		return slot.index() < abilities.size();
+		return ability(slot) != null;
 	}
 
 	/** The short path segment of the id, e.g. {@code power_01_super_strength}. */
@@ -133,10 +147,16 @@ public record Power(
 					throw new IllegalStateException(id + " missing ability for slot " + (i + 1));
 				}
 			}
-			if ((abilities[6] == null) != (abilities[7] == null)) {
-				throw new IllegalStateException(id + " must define both utility slots (H and N) or neither");
+			if (abilities[6] != null && abilities[7] == null) {
+				throw new IllegalStateException(id + " defines H but not N (both, neither, or N alone)");
 			}
-			List<Ability> list = java.util.Arrays.asList(abilities).subList(0, abilities[6] == null ? 6 : 8);
+			List<Ability> list = new java.util.ArrayList<>(java.util.Arrays.asList(abilities).subList(0, 6));
+			if (abilities[6] != null) {
+				list.add(abilities[6]);
+			}
+			if (abilities[7] != null) {
+				list.add(abilities[7]); // v0.14.7: N alone is allowed (Super Speed) -- H then stays the power wheel
+			}
 			return new Power(id, base + ".name", category, base + ".desc",
 					List.copyOf(list), passiveKeys, serum, trigger, comboKeys);
 		}

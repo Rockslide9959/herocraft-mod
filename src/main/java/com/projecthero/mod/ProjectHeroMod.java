@@ -219,19 +219,7 @@ public class ProjectHeroMod implements ModInitializer {
 				com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.sweepLooseToolKitPieces(server);
 			}
 			com.projecthero.mod.greenlantern.GreenLanternTrial.tick(server);
-			server.getPlayerList().getPlayers().forEach(player -> {
-				TickWatchdog.run("ThorPowers.serverTick", () -> ThorPowers.serverTick(player));
-				TickWatchdog.run("GuidebookHint.tick", () -> com.projecthero.mod.hero.guide.GuidebookHint.tick(player));
-				TickWatchdog.run("HeroFlight.tick", () -> HeroFlight.tick(player));
-				TickWatchdog.run("AbilityRouter.serverTick", () -> AbilityRouter.serverTick(player));
-				TickWatchdog.run("MutationManager.serverTick", () -> MutationManager.serverTick(player));
-				TickWatchdog.run("IronManSuitTicker.tick", () -> IronManSuitTicker.tick(player));
-				// "changes 22": bare Repulsor boots -- flight without a suit, so it has its own tick.
-				TickWatchdog.run("RepulsorBoots.tick", () -> com.projecthero.mod.ironman.RepulsorBoots.tick(player));
-				TickWatchdog.run("GraveboundEvents.serverTick", () -> com.projecthero.mod.grave.GraveboundEvents.serverTick(player));
-				TickWatchdog.run("FirearmManager.serverTick", () -> com.projecthero.mod.firearm.FirearmManager.serverTick(player));
-				TickWatchdog.run("Squads.serverTick", () -> com.projecthero.mod.squad.Squads.serverTick(player));
-			});
+			server.getPlayerList().getPlayers().forEach(ProjectHeroMod::tickPlayerSystems);
 		});
 
 		// Every static server-side scratch collection in the mod (Iron Man "armour is travelling to you"
@@ -430,6 +418,25 @@ public class ProjectHeroMod implements ModInitializer {
 				com.projecthero.mod.titanshifter.TitanShifter::onServerStopping);
 
 		LOGGER.info("ProjectHero is assembling!");
+	}
+
+	/**
+	 * Every per-player system tick of the mod (once per server tick for every online player). v0.14.7: public so a
+	 * Super Speed Time Slow caster -- who keeps living at 20 ticks a second while the world crawls -- can be given
+	 * the ticks the slowed server loop does not run for them.
+	 */
+	public static void tickPlayerSystems(net.minecraft.server.level.ServerPlayer player) {
+		TickWatchdog.run("ThorPowers.serverTick", () -> ThorPowers.serverTick(player));
+		TickWatchdog.run("GuidebookHint.tick", () -> com.projecthero.mod.hero.guide.GuidebookHint.tick(player));
+		TickWatchdog.run("HeroFlight.tick", () -> HeroFlight.tick(player));
+		TickWatchdog.run("AbilityRouter.serverTick", () -> AbilityRouter.serverTick(player));
+		TickWatchdog.run("MutationManager.serverTick", () -> MutationManager.serverTick(player));
+		TickWatchdog.run("IronManSuitTicker.tick", () -> IronManSuitTicker.tick(player));
+		// "changes 22": bare Repulsor boots -- flight without a suit, so it has its own tick.
+		TickWatchdog.run("RepulsorBoots.tick", () -> com.projecthero.mod.ironman.RepulsorBoots.tick(player));
+		TickWatchdog.run("GraveboundEvents.serverTick", () -> com.projecthero.mod.grave.GraveboundEvents.serverTick(player));
+		TickWatchdog.run("FirearmManager.serverTick", () -> com.projecthero.mod.firearm.FirearmManager.serverTick(player));
+		TickWatchdog.run("Squads.serverTick", () -> com.projecthero.mod.squad.Squads.serverTick(player));
 	}
 
 	/**
