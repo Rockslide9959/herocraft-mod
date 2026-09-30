@@ -24,6 +24,7 @@
       "com.projecthero.mod.gametest.WolverineGameTests",
       "com.projecthero.mod.gametest.TitanShifterGameTests",
       "com.projecthero.mod.gametest.ThorArmorGameTests",
+      "com.projecthero.mod.gametest.ThorSquadGameTests",
       "com.projecthero.mod.gametest.AllMightGameTests",
       "com.projecthero.mod.gametest.HulkGameTests",
       "com.projecthero.mod.gametest.AgentVenomGameTests",

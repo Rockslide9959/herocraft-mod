@@ -684,7 +684,7 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 
 	private void strikeVolleyTarget(Player owner, LivingEntity target) {
 		var damageSource = level().damageSources().trident(this, owner);
-		if (target.hurt(damageSource, VOLLEY_DAMAGE)) {
+		if (com.projecthero.mod.power.ThorTargets.canAffect(owner, target) && target.hurt(damageSource, VOLLEY_DAMAGE)) {
 			target.knockback(0.5, this.getX() - target.getX(), this.getZ() - target.getZ());
 			level().playSound(null, target.blockPosition(), SoundEvents.TRIDENT_HIT, SoundSource.PLAYERS, 1.0f, 1.0f);
 			if (level() instanceof ServerLevel serverLevel) {
@@ -707,11 +707,9 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 	 * squadmates standing near the fight.
 	 */
 	private void advanceVolleyTarget(Player owner, int justHitId) {
-		com.projecthero.mod.squad.SquadManager squads = owner.getServer() == null ? null
-				: com.projecthero.mod.squad.SquadManager.get(owner.getServer());
+		// v0.14.4: the shared Thor target rule -- also spares squad pets and, with PvP off, every other player
 		List<LivingEntity> candidates = new ArrayList<>(level().getEntitiesOfClass(LivingEntity.class,
-				owner.getBoundingBox().inflate(VOLLEY_RANGE), e -> e != owner && e.isAlive()
-						&& !(squads != null && e instanceof Player p && com.projecthero.mod.squad.Squads.areAllies(owner, p))));
+				owner.getBoundingBox().inflate(VOLLEY_RANGE), e -> com.projecthero.mod.power.ThorTargets.canAffect(owner, e)));
 		candidates.sort(Comparator.comparingDouble(e -> e.distanceToSqr(owner)));
 
 		if (candidates.isEmpty()) {
@@ -824,6 +822,11 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 		Player owner = resolveOwner();
 		if (owner != null && target == owner) {
 			// Mjolnir never strikes the hand that threw it, outbound or on the way back.
+			return false;
+		}
+		if (owner != null && target instanceof net.minecraft.world.entity.LivingEntity
+				&& !com.projecthero.mod.power.ThorTargets.canAffect(owner, target)) {
+			// v0.14.4: nor the owner's squad (or their pets) -- it flies straight past them instead of stopping dead
 			return false;
 		}
 		// One hit per entity per return trip: without this the hammer, which is travelling toward the

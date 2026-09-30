@@ -9,27 +9,22 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Draws every live {@link ThorLightningArcClient.Arc} as a crackling, jagged multi-strand line instead
- * of a straight line of particles (v0.13.4) -- Lightning Beam's continuous bolt and every hop of Chain
- * Lightning both go through here. Purely a render, same shape as {@code SpiderWebLineRenderer}: no
- * entity is created, nothing to leak, the segment simply stops being drawn once it fades out.
+ * Draws every live {@link ThorLightningArcClient.Arc} -- Lightning Beam's continuous bolt and every hop of Chain
+ * Lightning. Purely a render, same shape as {@code SpiderWebLineRenderer}: no entity is created, nothing to leak, the
+ * segment simply stops being drawn once it fades out.
  *
- * <p>The jaggedness is a helical wobble around the straight start-to-end line -- two perpendicular axes
- * mixed with different phases, so it reads as jagged from any camera angle, tapering to zero at both
- * ends so it always connects exactly to its real endpoints. It is re-randomized every frame from the
- * game clock (not from the network payload), which is what makes it flicker/crackle continuously for as
- * long as the segment is held, rather than holding one static zigzag shape.
+ * <p>v0.14.4 look: each arc is a real glowing bolt instead of a bundle of 1-pixel lines -- a jagged main channel drawn
+ * as camera-facing ribbons (storm-blue halo, electric-blue glow, white-hot core, see {@link ThorDraw#bolt}), a thinner
+ * second channel twisting round it, a few short forks spitting off the bends, and a crackling ball of light where it
+ * leaves the hammer and where it lands. The Beam is drawn heavier than a chain hop. The shape is re-seeded from the
+ * game clock several times a second (held, then jumping -- never a smooth wave), and the brightness flickers with it.
  */
 public final class ThorLightningArcRenderer {
-	private static final float CORE_R = 0.85f;
-	private static final float CORE_G = 0.90f;
-	private static final float CORE_B = 1.0f;
-	/** Secondary crackle strands, fainter than the core bolt. */
-	private static final int STRAND_COUNT = 3;
+	/** The Beam's reserved slot ({@code ThorPowers.LIGHTNING_ARC_SLOT_BEAM}). */
+	private static final int BEAM_SLOT = 64;
 
 	private ThorLightningArcRenderer() {
 	}
@@ -56,114 +51,70 @@ public final class ThorLightningArcRenderer {
 			return;
 		}
 
-		double timeSeed = (client.level.getGameTime() + partial) / 20.0;
 		double now = client.level.getGameTime() + partial;
-
+		Vec3 cam = camera.getPosition();
+		VertexConsumer vc = ThorDraw.buffer(consumers);
 		for (ThorLightningArcClient.Arc arc : ThorLightningArcClient.arcs()) {
 			float alpha = arc.alpha(now);
 			if (alpha <= 0.0f) {
 				continue;
 			}
-			Vec3 from = ThorLightningArcClient.fromPoint(arc, partial);
-			Vec3 to = ThorLightningArcClient.targetPoint(arc, partial);
+			Vec3 from = ThorLightningArcClient.fromPoint(arc, partial).subtract(cam);
+			Vec3 to = ThorLightningArcClient.targetPoint(arc, partial).subtract(cam);
 			// A stable per-segment offset so a multi-hop chain's strands don't all crackle in lockstep.
-			double seed = timeSeed + arc.slot * 1.7 + arc.casterId * 0.31;
-			drawArc(poseStack, consumers, camera, from, to, alpha, seed);
+			double seed = arc.slot * 17.3 + arc.casterId * 3.1;
+			drawArc(poseStack, vc, from, to, alpha, seed, now, arc.slot == BEAM_SLOT,
+					!ThorLightningArcClient.startsAtOwnFirstPersonHand(arc));
 		}
 	}
 
-	/** v0.13.6: fewer, larger nodes than before -- vanilla's own {@code LightningBolt} zigzags in a
-	 * handful of sharp jumps rather than a smooth wave, and this is the main thing that reads as
-	 * "blocky" rather than "crackly wire." */
-	private static final int BLOCKY_NODES = 6;
-	/** How many near-parallel copies of the core strand are drawn (each nudged a hair sideways) to fake
-	 * real width -- {@code RenderType.lines()} is a 1px GL line with no width control, so "thicker" has
-	 * to come from bundling several of them into a tight bundle instead. */
-	private static final int CORE_THICKNESS_PLIES = 5;
-	private static final double CORE_THICKNESS_RADIUS = 0.05;
-
-	private static void drawArc(PoseStack poseStack, MultiBufferSource consumers, Camera camera,
-			Vec3 start, Vec3 end, float alpha, double timeSeed) {
-		Vec3 delta = end.subtract(start);
-		double length = delta.length();
-		if (length < 1.0E-4) {
+	private static void drawArc(PoseStack poseStack, VertexConsumer vc, Vec3 start, Vec3 end, float alpha, double seed,
+			double now, boolean beam, boolean startFlare) {
+		double length = end.subtract(start).length();
+		if (length < 1.0E-3) {
 			return;
 		}
+		// a new jagged shape ~7 times a second, and a flicker in brightness that jumps with it
+		double frame = Math.floor(now * (beam ? 0.45 : 0.35));
+		double frameSeed = seed + frame * 31.7;
+		float flicker = 0.78f + 0.22f * (float) ThorDraw.hash(frameSeed + 0.5);
+		float a = alpha * flicker;
+		float width = beam ? 1.35f : 1.0f;
 
-		Vec3 cam = camera.getPosition();
-		poseStack.pushPose();
-		poseStack.translate(-cam.x, -cam.y, -cam.z);
-		var pose = poseStack.last();
-		VertexConsumer buffer = consumers.getBuffer(RenderType.lines());
+		int nodes = Math.max(6, Math.min(40, (int) (length / 1.4)));
+		double amplitude = Math.min(0.75, 0.15 + length * 0.02);
+		PoseStack.Pose pose = poseStack.last();
 
-		Vec3 dir = delta.scale(1.0 / length);
-		Vec3 ref = Math.abs(dir.y) > 0.9 ? new Vec3(1.0, 0.0, 0.0) : new Vec3(0.0, 1.0, 0.0);
-		Vec3 perpA = dir.cross(ref).normalize();
-		Vec3 perpB = dir.cross(perpA).normalize();
+		Vec3[] main = ThorDraw.jagged(start, end, nodes, amplitude, frameSeed);
+		ThorDraw.bolt(vc, pose, main, width, a);
 
-		int nodes = Math.max(BLOCKY_NODES, (int) (length / 4.0));
-		double amplitude = Math.min(0.6, 0.12 + length * 0.014);
+		// a thinner second channel twisting round the first
+		Vec3[] second = ThorDraw.jagged(start, end, nodes, amplitude * 0.8, frameSeed + 101.0);
+		ThorDraw.ribbon(vc, pose, second, 0.07f * width, ThorDraw.GLOW, 0.4f * a);
+		ThorDraw.ribbon(vc, pose, second, 0.022f * width, ThorDraw.CORE, 0.7f * a);
 
-		// Core bolt: a handful of sharp, blocky zigzag segments (one consistent path per frame, not a
-		// smooth travelling wave), drawn as a tight bundle of parallel plies so it reads as thick.
-		Vec3[] corePath = blockyPath(start, end, perpA, perpB, nodes, amplitude, timeSeed, 0);
-		for (int ply = 0; ply < CORE_THICKNESS_PLIES; ply++) {
-			double plyAngle = (Math.PI * 2.0 * ply) / CORE_THICKNESS_PLIES;
-			Vec3 plyOffset = perpA.scale(Math.cos(plyAngle) * CORE_THICKNESS_RADIUS)
-					.add(perpB.scale(Math.sin(plyAngle) * CORE_THICKNESS_RADIUS));
-			drawPolyline(buffer, pose, corePath, plyOffset, alpha, CORE_R, CORE_G, CORE_B);
+		// short forks spitting off a few of the bends
+		int forks = beam ? 3 : 2;
+		for (int k = 0; k < forks; k++) {
+			double h = ThorDraw.hash(frameSeed + 57.0 + k * 9.1);
+			int at = 1 + (int) (h * (nodes - 2));
+			Vec3 base = main[Math.max(1, Math.min(nodes - 1, at))];
+			Vec3 dir = end.subtract(start).normalize();
+			Vec3 jitter = new Vec3(ThorDraw.hash(frameSeed + k * 3.3) - 0.5, ThorDraw.hash(frameSeed + k * 5.9) - 0.5,
+					ThorDraw.hash(frameSeed + k * 8.7) - 0.5).normalize();
+			double forkLen = Math.min(2.6, 0.6 + length * 0.12) * (0.6 + 0.4 * ThorDraw.hash(frameSeed + k * 1.7));
+			Vec3 tip = base.add(dir.scale(forkLen * 0.55)).add(jitter.scale(forkLen * 0.75));
+			Vec3[] fork = ThorDraw.jagged(base, tip, 3, forkLen * 0.18, frameSeed + k * 43.0);
+			ThorDraw.ribbon(vc, pose, fork, 0.06f * width, ThorDraw.GLOW, 0.4f * a);
+			ThorDraw.ribbon(vc, pose, fork, 0.02f * width, ThorDraw.CORE, 0.8f * a);
 		}
 
-		// Fainter secondary crackle strands, thin and offset further out, for texture around the core.
-		for (int strand = 1; strand < STRAND_COUNT; strand++) {
-			Vec3[] strandPath = blockyPath(start, end, perpA, perpB, nodes, amplitude * 0.7, timeSeed, strand);
-			drawPolyline(buffer, pose, strandPath, Vec3.ZERO, alpha * 0.4f, CORE_R, CORE_G, CORE_B);
+		// crackling balls of light at the hammer and at the point of impact
+		float spin = (float) (now * 40.0 % 360.0);
+		if (startFlare) {
+			// (not in your own first-person view, where it would sit in the middle of the screen)
+			ThorDraw.flare(vc, poseStack, start, (beam ? 0.2f : 0.15f) * flicker, spin, 0.85f * a);
 		}
-
-		poseStack.popPose();
-	}
-
-	/** Builds a jagged node path from {@code start} to {@code end}: a fixed random offset per node
-	 * (re-seeded on {@code timeSeed} so it still crackles over time) rather than a continuous sine wave,
-	 * so consecutive nodes connect with sharp angles instead of a smooth curve. */
-	private static Vec3[] blockyPath(Vec3 start, Vec3 end, Vec3 perpA, Vec3 perpB, int nodes,
-			double amplitude, double timeSeed, int strandIndex) {
-		Vec3[] path = new Vec3[nodes + 1];
-		path[0] = start;
-		path[nodes] = end;
-		for (int i = 1; i < nodes; i++) {
-			double t = (double) i / nodes;
-			// Discrete per-node seed (floor'd, not continuous) so the shape holds a jagged pose for a
-			// short stretch of time and then jumps to a new one, instead of smoothly animating.
-			double nodeSeed = Math.floor(timeSeed * 6.0) + i * 13.7 + strandIndex * 5.3;
-			double hash = fract(Math.sin(nodeSeed) * 43758.5453);
-			double hash2 = fract(Math.sin(nodeSeed * 1.37 + 7.1) * 12543.657);
-			double edgeTaper = Math.sin(Math.PI * t); // zero at both ends, so it always meets its endpoints
-			double a = (hash * 2.0 - 1.0) * amplitude * edgeTaper;
-			double b = (hash2 * 2.0 - 1.0) * amplitude * edgeTaper;
-			path[i] = start.lerp(end, t).add(perpA.scale(a)).add(perpB.scale(b));
-		}
-		return path;
-	}
-
-	private static double fract(double v) {
-		return v - Math.floor(v);
-	}
-
-	private static void drawPolyline(VertexConsumer buffer, PoseStack.Pose pose, Vec3[] path, Vec3 offset,
-			float alpha, float r, float g, float b) {
-		for (int i = 1; i < path.length; i++) {
-			Vec3 prev = path[i - 1].add(offset);
-			Vec3 p = path[i].add(offset);
-			Vec3 d = p.subtract(prev);
-			double len = Math.max(1.0e-6, d.length());
-			float nx = (float) (d.x / len);
-			float ny = (float) (d.y / len);
-			float nz = (float) (d.z / len);
-			buffer.addVertex(pose.pose(), (float) prev.x, (float) prev.y, (float) prev.z)
-					.setColor(r, g, b, alpha).setNormal(pose, nx, ny, nz);
-			buffer.addVertex(pose.pose(), (float) p.x, (float) p.y, (float) p.z)
-					.setColor(r, g, b, alpha).setNormal(pose, nx, ny, nz);
-		}
+		ThorDraw.flare(vc, poseStack, end, (beam ? 0.34f : 0.26f) * flicker, -spin, 0.8f * a);
 	}
 }

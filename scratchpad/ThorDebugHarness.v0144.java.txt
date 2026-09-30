@@ -1,0 +1,220 @@
+package com.projecthero.mod.client;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.attachment.CooldownState;
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.item.ModItems;
+import com.projecthero.mod.power.StormEnergy;
+import com.projecthero.mod.power.ThorPowers;
+import com.projecthero.mod.thorarmor.ThorArmor;
+import com.projecthero.mod.thorarmor.ThorArmorItems;
+import com.projecthero.mod.worthiness.Worthiness;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.14.4 Thor tour. Shots land in run/screenshots/thor_*.png; the client quits. */
+public final class ThorDebugHarness {
+	public static Vec3 camOffset;
+	public static Vec3 camTarget = new Vec3(0, 1.1, 0);
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+
+	private ThorDebugHarness() {
+	}
+
+	public static void init() {
+		ClientTickEvents.END_CLIENT_TICK.register(ThorDebugHarness::tick);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					fn.accept(srv.getPlayerList().getPlayers().get(0));
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		mc.gui.getChat().clearMessages(false);
+		Screenshot.grab(mc.gameDirectory, "thor_" + name + ".png", mc.getMainRenderTarget(), x -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				LevelSettings settings = new LevelSettings("ThorDebug" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+						Difficulty.NORMAL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.hideGui = false;
+			org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), 1280, 720);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				face(p, 0f);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void face(ServerPlayer p, float pitch) {
+		p.setYRot(0);
+		p.setYHeadRot(0);
+		p.setYBodyRot(0);
+		p.setXRot(pitch);
+		p.connection.teleport(p.getX(), p.getY(), p.getZ(), 0f, pitch);
+	}
+
+	private static void ready(ServerPlayer p) {
+		p.setAttached(ModAttachments.COOLDOWNS, new CooldownState());
+		StormEnergy.set(p, StormEnergy.MAX);
+		if (!ThorPowers.isHoldingMjolnir(p)) {
+			ThorPowers.callHammer(p);
+		}
+	}
+
+	private static void husks(ServerPlayer p, double z) {
+		for (int i = -1; i <= 1; i++) {
+			Husk h = EntityType.HUSK.create(p.serverLevel());
+			h.moveTo(p.getX() + i * 2.5, p.getY(), p.getZ() + z, 180f, 0f);
+			h.setNoAi(true);
+			h.setInvulnerable(true);
+			p.serverLevel().addFreshEntity(h);
+		}
+	}
+
+	private static void script(Minecraft mc) {
+		Vec3 front = new Vec3(0.8, 1.4, 3.4);
+		Vec3 rside = new Vec3(-4.2, 1.6, 1.4);
+		Vec3 far = new Vec3(-8.0, 4.5, 2.0);
+		at(2, () -> server(mc, p -> {
+			Worthiness.setScore(p, Worthiness.TEST_WORTHY_SCORE);
+			ItemStack hammer = new ItemStack(ModItems.MJOLNIR);
+			p.getInventory().selected = 0;
+			p.setItemInHand(InteractionHand.MAIN_HAND, hammer);
+			ThorPowers.toggleBinding(p, hammer);
+		}));
+		at(3, () -> mc.player.getInventory().selected = 0);
+		// suit-up, piece by piece
+		at(8, () -> { camOffset = new Vec3(0.6, 0.9, 2.6); camTarget = new Vec3(0, 0.6, 0); server(mc, ThorArmor::toggle); });
+		at(24, () -> { camOffset = front; camTarget = new Vec3(0, 1.1, 0); });
+		at(11, () -> shot(mc, "a01_boots"));
+		at(15, () -> shot(mc, "a02_boots_done"));
+		at(21, () -> shot(mc, "a03_legs"));
+		at(26, () -> shot(mc, "a04_legs_done"));
+		at(32, () -> shot(mc, "a05_chest"));
+		at(38, () -> shot(mc, "a06_chest_more"));
+		at(50, () -> shot(mc, "a07_suited"));
+		at(52, () -> camOffset = new Vec3(-0.4, 1.5, -3.2));
+		at(55, () -> shot(mc, "a08_suited_back"));
+		// lightning strike
+		at(58, () -> { camOffset = new Vec3(-3.0, 2.6, -3.5); camTarget = new Vec3(0, 1.2, 6.0); server(mc, p -> { husks(p, 9); ready(p); }); });
+		at(64, () -> server(mc, ThorPowers::lightningStrike));
+		at(66, () -> shot(mc, "b01_strike_raise"));
+		at(68, () -> shot(mc, "b02_strike_ring"));
+		at(73, () -> shot(mc, "b03_strike_down"));
+		// thunderclap
+		at(88, () -> { camOffset = far; camTarget = new Vec3(0, 1.1, 0); server(mc, ThorDebugHarness::ready); });
+		at(90, () -> server(mc, ThorPowers::thunderclap));
+		at(91, () -> shot(mc, "c01_clap_overhead"));
+		at(93, () -> shot(mc, "c02_clap_slam"));
+		at(96, () -> shot(mc, "c03_clap_ring"));
+		at(100, () -> shot(mc, "c04_clap_ring_late"));
+		// chain lightning
+		at(118, () -> { camOffset = new Vec3(-3.0, 2.6, -3.5); camTarget = new Vec3(0, 1.2, 6.0); server(mc, ThorDebugHarness::ready); });
+		at(120, () -> server(mc, ThorPowers::chainLightningCast));
+		at(122, () -> shot(mc, "d01_chain"));
+		at(124, () -> shot(mc, "d02_chain_b"));
+		// lightning beam
+		at(138, () -> { camOffset = rside; camTarget = new Vec3(0, 1.1, 0); });
+		at(140, () -> server(mc, p -> { ready(p); ThorPowers.setLaserActive(p, true); }));
+		at(150, () -> shot(mc, "e01_beam"));
+		at(152, () -> camOffset = new Vec3(3.5, 2.0, 5.0));
+		at(156, () -> shot(mc, "e02_beam_front"));
+		at(158, () -> mc.options.setCameraType(CameraType.FIRST_PERSON));
+		at(164, () -> shot(mc, "e03_beam_fp"));
+		at(166, () -> { mc.options.setCameraType(CameraType.THIRD_PERSON_BACK); camOffset = rside; });
+		at(168, () -> server(mc, p -> ThorPowers.setLaserActive(p, false)));
+		// god of thunder's wrath: charge 5 s then it fires
+		at(180, () -> { camOffset = new Vec3(-5.0, 2.2, 2.5); server(mc, p -> { ready(p); face(p, 12f); ThorPowers.setWrathCharging(p, true); }); });
+		at(200, () -> shot(mc, "f01_wrath_charge_early"));
+		at(240, () -> shot(mc, "f02_wrath_charge_mid"));
+		at(272, () -> shot(mc, "f03_wrath_charge_late"));
+		at(276, () -> camOffset = new Vec3(-10.0, 6.0, -2.0));
+		at(283, () -> shot(mc, "f04_wrath_release"));
+		at(287, () -> shot(mc, "f05_wrath_rings"));
+		at(293, () -> shot(mc, "f06_wrath_rings_late"));
+		// hammer volley
+		at(300, () -> { camOffset = rside; server(mc, p -> { face(p, 0f); ready(p); }); });
+		at(304, () -> server(mc, ThorPowers::hammerVolley));
+		at(305, () -> shot(mc, "g01_volley_fling"));
+		at(311, () -> shot(mc, "g02_volley_direct"));
+		at(330, () -> server(mc, ThorPowers::callHammer));
+		// throw
+		at(350, () -> server(mc, ThorDebugHarness::ready));
+		at(356, () -> server(mc, ThorPowers::throwMjolnir));
+		at(357, () -> shot(mc, "h01_throw"));
+		at(359, () -> shot(mc, "h02_throw_follow"));
+		// suit-down
+		at(390, () -> { camOffset = front; server(mc, p -> { ready(p); p.getCooldowns().removeCooldown(ThorArmorItems.CHESTPLATE); ThorArmor.toggle(p); }); });
+		at(394, () -> shot(mc, "i01_dissolve"));
+		at(399, () -> shot(mc, "i02_dissolve_b"));
+		at(410, () -> shot(mc, "i03_gone"));
+		at(420, () -> mc.stop());
+	}
+}

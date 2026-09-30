@@ -61,6 +61,18 @@ public abstract class ItemInHandLayerMixin {
 			return;
 		}
 
+		// v0.14.4: a Thor move pose (ThorPose) owns the arm -- re-grip the hammer along it so it points straight out of
+		// the fist (to the sky when raised, at the target when thrust out). Turning the item a quarter turn about the
+		// hand's X axis is exactly "the hammer's long axis follows the arm", whatever angle the arm itself is at.
+		float thorWeight = com.projecthero.mod.client.thor.ThorPose.armWeight(player);
+		float grip = com.projecthero.mod.client.thor.ThorPose.hammerGrip(player);
+		if (grip > 0.001f) {
+			poseStack.mulPose(Axis.XP.rotationDegrees(-90.0f * grip));
+		}
+		if (thorWeight >= 0.999f) {
+			return;
+		}
+
 		// HOVER only -- see the class javadoc. FAST (sprint) also raises the arm, via the same
 		// ARM_RAISED_XROT in HumanoidModelMixin, but PlayerRendererMixin's 90-degree body tilt for
 		// that pose already reorients the item frame correctly on its own; applying this correction
@@ -76,7 +88,7 @@ public abstract class ItemInHandLayerMixin {
 			return;
 		}
 
-		projecthero$uprightWhileRaised(poseStack, raise);
+		projecthero$uprightWhileRaised(poseStack, raise * (1.0f - thorWeight));
 	}
 
 	/**

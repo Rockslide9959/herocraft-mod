@@ -114,10 +114,34 @@ public final class ThorLightningArcClient {
 		forward = forward.lengthSqr() < 1.0e-6 ? new Vec3(0.0, 0.0, 1.0) : forward.normalize();
 		Vec3 side = new Vec3(-forward.z, 0.0, forward.x);
 		double sideSign = player.getMainArm() == net.minecraft.world.entity.HumanoidArm.RIGHT ? 1.0 : -1.0;
+		// v0.14.4: while the Beam / Chain Lightning pose has the hammer thrust out along the aim (ThorPose), the bolt
+		// leaves the hammer's head, out at arm's length, not the hip
+		// (not for your own first-person view: that would put the bolt right across your crosshair -- it stays at the hip)
+		com.projecthero.mod.power.ThorFx fx = com.projecthero.mod.power.ThorVisuals.fx(player);
+		double since = player.level().getGameTime() - fx.animStart() + partial;
+		if (!firstPersonSelf(player) && fx.has(com.projecthero.mod.power.ThorFx.CH_BEAM)
+				|| (fx.anim() == com.projecthero.mod.power.ThorFx.ANIM_CHAIN && since >= 0 && since < 12)) {
+			return interpolated(player, partial)
+					.add(0.0, player.getBbHeight() * 0.76, 0.0)
+					.add(side.scale(0.36 * sideSign))
+					.add(look.scale(1.35));
+		}
 		return interpolated(player, partial)
 				.add(0.0, player.getBbHeight() * 0.42, 0.0)
 				.add(side.scale(0.4 * sideSign))
 				.add(forward.scale(0.3));
+	}
+
+	/** v0.14.4: is {@code player} the one whose eyes the first-person camera is looking through right now? */
+	public static boolean firstPersonSelf(Entity player) {
+		Minecraft mc = Minecraft.getInstance();
+		return player != null && player == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson();
+	}
+
+	/** v0.14.4: does this segment start at the hand of the player we are looking through (first person)? */
+	public static boolean startsAtOwnFirstPersonHand(Arc arc) {
+		Minecraft mc = Minecraft.getInstance();
+		return arc.fromEntityId < 0 && mc.level != null && firstPersonSelf(mc.level.getEntity(arc.casterId));
 	}
 
 	/** Where a segment's far end is right now: its entity (while it exists) or the stored raw point. */

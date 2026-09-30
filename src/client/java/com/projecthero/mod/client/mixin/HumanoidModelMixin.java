@@ -220,6 +220,19 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 	}
 
 	/**
+	 * v0.14.4: Thor's move animations (Lightning Strike, Thunderclap, Chain Lightning, the throw, Hammer Volley, the
+	 * Beam, the Wrath charge and release, the suit-up). Declared after {@link #projecthero$flightPose} so a move made
+	 * mid-flight overrides the flight arm pose (the flight body lean still applies underneath).
+	 */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$thorPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player player) {
+			com.projecthero.mod.client.thor.ThorPose.apply(player, (HumanoidModel<?>) (Object) this);
+		}
+	}
+
+	/**
 	 * Cancels the body tilt out of the head, so a sprint-flying player looks where they are actually
 	 * looking -- straight ahead down the flight path -- instead of having their face rotated a full
 	 * 90 degrees into the ground along with the rest of the body.

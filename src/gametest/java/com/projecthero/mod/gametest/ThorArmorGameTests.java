@@ -40,7 +40,7 @@ public class ThorArmorGameTests implements FabricGameTest {
 		return p;
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
 	public void hTogglesTheArmourOnAndOff(GameTestHelper helper) {
 		ServerPlayer p = boundThor(helper);
 		helper.assertTrue(ThorPassives.hasPowerOfThor(p), "bound Thor");
@@ -50,8 +50,9 @@ public class ThorArmorGameTests implements FabricGameTest {
 		helper.assertTrue(p.getItemBySlot(EquipmentSlot.FEET).is(ThorArmorItems.BOOTS), "boots formed");
 		p.getCooldowns().removeCooldown(ThorArmorItems.CHESTPLATE);
 		ThorArmor.toggle(p);
-		helper.assertFalse(ThorArmor.hasAnyPiece(p), "H again dismisses every piece");
-		helper.succeed();
+		// v0.14.4: the suit dissolves chest-first before it is actually removed
+		helper.assertTrue(ThorArmor.isDissolving(p), "H again starts the dissolve");
+		helper.succeedWhen(() -> helper.assertFalse(ThorArmor.hasAnyPiece(p), "and then every piece is gone"));
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

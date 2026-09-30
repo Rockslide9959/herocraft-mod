@@ -122,6 +122,9 @@ public final class ThorPowers {
 	private static final int STORM_CALL_COOLDOWN_TICKS = 2400; // 2min
 	private static final double STORM_CALL_RADIUS = 12.0;
 	private static final int STORM_CALL_STRIKE_INTERVAL_TICKS = 50;
+	/** v0.14.4: Storm Call's bolts are Thor's own now (see {@link #tickStormCall}): damage and splash per bolt. */
+	private static final float STORM_CALL_STRIKE_DAMAGE = 8.0f;
+	private static final double STORM_CALL_SPLASH_RADIUS = 3.0;
 
 	// ---------------- flight ----------------
 	/**
@@ -204,6 +207,7 @@ public final class ThorPowers {
 		entity.throwFromPlayer(player, player.getLookAngle());
 		player.level().addFreshEntity(entity);
 		playThrowSound(player);
+		ThorVisuals.anim(player, ThorFx.ANIM_THROW);
 
 		if (grantGrace) {
 			player.setAttached(ModAttachments.HAMMERLESS_FLIGHT_TICKS, HAMMERLESS_FLIGHT_GRACE_TICKS);
@@ -271,6 +275,7 @@ public final class ThorPowers {
 		entity.startVolley(player, HAMMER_VOLLEY_DURATION_TICKS);
 		player.level().addFreshEntity(entity);
 		playThrowSound(player);
+		ThorVisuals.anim(player, ThorFx.ANIM_VOLLEY);
 	}
 
 	// ---------------- call hammer ----------------
@@ -393,6 +398,7 @@ public final class ThorPowers {
 		player.setAttached(ModAttachments.LASER_ACTIVE, false);
 		player.setAttached(ModAttachments.THOR_WRATH_CHARGE, 0);
 		player.setAttached(ModAttachments.STORM_CALL_STATE, new StormCallState());
+		player.setAttached(ModAttachments.THOR_FX, ThorFx.EMPTY);
 	}
 
 	// ---------------- flight ----------------
@@ -565,7 +571,7 @@ public final class ThorPowers {
 		triggerCooldown(player, ThorAbility.LIGHTNING_STRIKE, LIGHTNING_COOLDOWN_TICKS);
 
 		HitResult hit = ProjectileUtil.getHitResultOnViewVector(
-				player, target -> target != player && target.isPickable(), LIGHTNING_RANGE);
+				player, target -> aimable(player, target), LIGHTNING_RANGE);
 
 		Vec3 pos;
 		Entity primaryTarget = null;
@@ -586,10 +592,11 @@ public final class ThorPowers {
 			}
 		}
 
+		ThorVisuals.anim(player, ThorFx.ANIM_STRIKE, pos);
 		if (player.level() instanceof ServerLevel serverLevel) {
 			spawnVisualBolt(serverLevel, player, pos);
 
-			if (primaryTarget instanceof LivingEntity livingPrimary) {
+			if (primaryTarget instanceof LivingEntity livingPrimary && ThorTargets.canAffect(player, livingPrimary)) {
 				Set<Entity> struck = new HashSet<>();
 				struck.add(livingPrimary);
 				strikeEntity(serverLevel, player, livingPrimary, LIGHTNING_STRIKE_DAMAGE);
@@ -607,6 +614,16 @@ public final class ThorPowers {
 	 * {@code range}, and in line of sight; null if nothing qualifies. One AABB-bounded query plus a
 	 * cone filter, never an unbounded scan.
 	 */
+	/**
+	 * v0.14.4: what a Thor aim ray (Lightning Strike, the Beam, Wrath) stops on. A squadmate (or anything else
+	 * {@link ThorTargets#canAffect} spares) is see-through -- the bolt goes past them to whatever is behind, rather than
+	 * stopping on a friend and fizzling.
+	 */
+	static boolean aimable(Player player, Entity target) {
+		return target != player && target.isPickable()
+				&& (!(target instanceof LivingEntity) || ThorTargets.canAffect(player, target));
+	}
+
 	private static LivingEntity findAimAssistTarget(ServerPlayer player, double range, double angleDegrees) {
 		Vec3 eye = player.getEyePosition();
 		Vec3 look = player.getLookAngle();
@@ -614,8 +631,7 @@ public final class ThorPowers {
 		LivingEntity best = null;
 		for (LivingEntity candidate : player.level().getEntitiesOfClass(LivingEntity.class,
 				player.getBoundingBox().inflate(range),
-				e -> e != player && e.isAlive() && e.isPickable()
-						&& !(e instanceof net.minecraft.world.entity.decoration.ArmorStand))) {
+				e -> e.isPickable() && ThorTargets.canAffect(player, e))) {
 			Vec3 to = candidate.position().add(0, candidate.getBbHeight() * 0.5, 0).subtract(eye);
 			double dist = to.length();
 			if (dist < 1.0E-3 || dist > range) {
@@ -634,7 +650,7 @@ public final class ThorPowers {
 		float jumpDamage = incomingDamage * CHAIN_DAMAGE_FALLOFF;
 		List<LivingEntity> candidates = new ArrayList<>(level.getEntitiesOfClass(LivingEntity.class,
 				from.getBoundingBox().inflate(CHAIN_RANGE),
-				e -> e.isAlive() && e instanceof Monster && !struck.contains(e)));
+				e -> e instanceof Monster && !struck.contains(e) && ThorTargets.canAffect(player, e)));
 		candidates.sort(Comparator.comparingDouble(e -> e.distanceToSqr(from)));
 
 		int jumps = Math.min(CHAIN_MAX_JUMPS, candidates.size());
@@ -661,7 +677,11 @@ public final class ThorPowers {
 	}
 
 	private static void strikeEntity(ServerLevel level, ServerPlayer player, LivingEntity target, float damage, float hitSoundVolume) {
-		DamageSource source = level.damageSources().lightningBolt();
+		// v0.14.4: the last line of squad safety -- nothing below (fire, damage, knockback) ever reaches a squadmate
+		if (!ThorTargets.canAffect(player, target)) {
+			return;
+		}
+		DamageSource source = ThorTargets.lightning(level, player);
 		igniteIfAnimal(target);
 		if (target.hurt(source, damage)) {
 			target.knockback(0.3, player.getX() - target.getX(), player.getZ() - target.getZ());
@@ -698,28 +718,13 @@ public final class ThorPowers {
 			return;
 		}
 
-		Vec3 eye = player.getEyePosition();
-		Vec3 look = player.getLookAngle();
-		double cosLimit = Math.cos(Math.toRadians(CHAIN_LIGHTNING_CONE_DEGREES));
-
-		List<LivingEntity> inCone = new ArrayList<>();
-		for (LivingEntity candidate : serverLevel.getEntitiesOfClass(LivingEntity.class,
-				player.getBoundingBox().inflate(CHAIN_LIGHTNING_CONE_RANGE),
-				e -> isValidChainLightningTarget(player, e))) {
-			Vec3 to = candidate.position().add(0, candidate.getBbHeight() * 0.5, 0).subtract(eye);
-			double dist = to.length();
-			if (dist < 1.0E-3 || dist > CHAIN_LIGHTNING_CONE_RANGE) {
-				continue;
-			}
-			if (to.scale(1.0 / dist).dot(look) >= cosLimit) {
-				inCone.add(candidate);
-			}
-		}
+		List<LivingEntity> inCone = chainLightningTargets(player);
+		ThorVisuals.anim(player, ThorFx.ANIM_CHAIN,
+				inCone.isEmpty() ? player.getEyePosition().add(player.getLookAngle().scale(8.0)) : inCone.get(0).position());
 		if (inCone.isEmpty()) {
 			// Nothing in front to chain through -- a quiet whiff, not a wasted loud cast.
 			return;
 		}
-		inCone.sort(Comparator.comparingDouble(e -> e.distanceToSqr(player)));
 
 		Entity previousEntity = null; // null -- the caster's own hand, per sendLightningArc's contract
 		for (int i = 0; i < inCone.size(); i++) {
@@ -736,22 +741,38 @@ public final class ThorPowers {
 	}
 
 	/**
+	 * Everything Chain Lightning would hit right now, nearest first: every valid target inside the forward cone. Public
+	 * so the squad-safety gametests can check exactly who is picked.
+	 */
+	public static List<LivingEntity> chainLightningTargets(ServerPlayer player) {
+		Vec3 eye = player.getEyePosition();
+		Vec3 look = player.getLookAngle();
+		double cosLimit = Math.cos(Math.toRadians(CHAIN_LIGHTNING_CONE_DEGREES));
+
+		List<LivingEntity> inCone = new ArrayList<>();
+		for (LivingEntity candidate : player.serverLevel().getEntitiesOfClass(LivingEntity.class,
+				player.getBoundingBox().inflate(CHAIN_LIGHTNING_CONE_RANGE),
+				e -> isValidChainLightningTarget(player, e))) {
+			Vec3 to = candidate.position().add(0, candidate.getBbHeight() * 0.5, 0).subtract(eye);
+			double dist = to.length();
+			if (dist < 1.0E-3 || dist > CHAIN_LIGHTNING_CONE_RANGE) {
+				continue;
+			}
+			if (to.scale(1.0 / dist).dot(look) >= cosLimit) {
+				inCone.add(candidate);
+			}
+		}
+		inCone.sort(Comparator.comparingDouble(e -> e.distanceToSqr(player)));
+		return inCone;
+	}
+
+	/**
 	 * Hostile mobs, valid combat targets, and players (only if the server allows PvP) -- never the
 	 * caster, non-living decoration (armor stands, item entities, XP orbs), or Mjolnir itself. See
-	 * requirements 10-11.
+	 * requirements 10-11. v0.14.4: and never a squadmate or a squad pet ({@link ThorTargets#canAffect}).
 	 */
 	private static boolean isValidChainLightningTarget(Player caster, Entity target) {
-		if (target == caster || !target.isAlive() || !target.isPickable()) {
-			return false;
-		}
-		if (!(target instanceof LivingEntity living) || living instanceof net.minecraft.world.entity.decoration.ArmorStand) {
-			return false;
-		}
-		if (target instanceof Player) {
-			MinecraftServer server = caster.level().getServer();
-			return server != null && server.isPvpAllowed();
-		}
-		return true;
+		return target instanceof LivingEntity && target.isPickable() && ThorTargets.canAffect(caster, target);
 	}
 
 	// ---------------- god of thunder's wrath (ultimate, key Z) ----------------
@@ -786,7 +807,7 @@ public final class ThorPowers {
 		StormEnergy.spend(player, StormEnergy.GOD_OF_THUNDER_COST);
 
 		HitResult hit = ProjectileUtil.getHitResultOnViewVector(
-				player, target -> target != player && target.isPickable(), GOD_OF_THUNDER_RANGE);
+				player, target -> aimable(player, target), GOD_OF_THUNDER_RANGE);
 		Vec3 pos;
 		if (hit instanceof EntityHitResult entityHit) {
 			pos = entityHit.getEntity().position();
@@ -814,14 +835,9 @@ public final class ThorPowers {
 			spawnWrathBolt(serverLevel, player, new Vec3(jx, pos.y, jz));
 		}
 
-		DamageSource source = serverLevel.damageSources().lightningBolt();
-		net.minecraft.world.phys.AABB area = new net.minecraft.world.phys.AABB(pos, pos).inflate(GOD_OF_THUNDER_RADIUS);
-		for (LivingEntity target : serverLevel.getEntitiesOfClass(LivingEntity.class, area,
-				e -> e != player && e.isAlive())) {
-			if (com.projecthero.mod.hero.power.AbilityHelpers.distanceSqToBox(target, pos)
-					> GOD_OF_THUNDER_RADIUS * GOD_OF_THUNDER_RADIUS + 4.0) {
-				continue;
-			}
+		ThorVisuals.anim(player, ThorFx.ANIM_WRATH, pos);
+		DamageSource source = ThorTargets.lightning(serverLevel, player);
+		for (LivingEntity target : wrathTargets(serverLevel, player, pos)) {
 			igniteIfAnimal(target);
 			// v0.10.11: a one-shot ultimate must land its full hit even if the boss is mid-i-frame from
 			// a melee swing -- clear the window for non-players first.
@@ -837,6 +853,15 @@ public final class ThorPowers {
 		serverLevel.sendParticles(ParticleTypes.FLASH, pos.x, pos.y + 1.0, pos.z, 4, 0.1, 0.1, 0.1, 0.0);
 		serverLevel.playSound(null, pos.x, pos.y, pos.z, SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 4.0f, 0.6f);
 		serverLevel.playSound(null, pos.x, pos.y, pos.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 4.0f, 0.7f);
+	}
+
+	/**
+	 * Everything the ultimate's blast at {@code pos} lands on: within {@link #GOD_OF_THUNDER_RADIUS} (box distance,
+	 * with the same two-block grace it always had), minus the caster, their squad and anything else
+	 * {@link ThorTargets#canAffect} spares. Public for the squad-safety gametests.
+	 */
+	public static List<LivingEntity> wrathTargets(ServerLevel level, ServerPlayer player, Vec3 pos) {
+		return ThorTargets.inRadius(level, player, pos, Math.sqrt(GOD_OF_THUNDER_RADIUS * GOD_OF_THUNDER_RADIUS + 4.0));
 	}
 
 	/** A single visual-only bolt at {@code pos} -- damage for the ultimate is always the one AABB sweep
@@ -898,6 +923,9 @@ public final class ThorPowers {
 	/** Advances an in-progress Wrath charge; fires {@link #godOfThundersWrath} at 5 s. */
 	private static void tickWrathCharge(ServerPlayer player) {
 		int c = player.getAttachedOrElse(ModAttachments.THOR_WRATH_CHARGE, 0);
+		// v0.14.4: every viewer sees the charge (the pose + the storm gathering on the hammer); the counter itself is
+		// only synced to the caster's own HUD
+		ThorVisuals.channel(player, ThorFx.CH_WRATH, c > 0);
 		if (c <= 0) {
 			return;
 		}
@@ -982,13 +1010,16 @@ public final class ThorPowers {
 
 	private static void tickLaser(ServerPlayer player) {
 		if (!isLaserActive(player)) {
+			ThorVisuals.channel(player, ThorFx.CH_BEAM, false);
 			return;
 		}
 		if (!Worthiness.isWorthy(player) || !isHoldingMjolnir(player)
 				|| !StormEnergy.has(player, StormEnergy.LASER_DRAIN_PER_SECOND / 20.0f)) {
 			player.setAttached(ModAttachments.LASER_ACTIVE, false);
+			ThorVisuals.channel(player, ThorFx.CH_BEAM, false);
 			return;
 		}
+		ThorVisuals.channel(player, ThorFx.CH_BEAM, true);
 
 		StormEnergy.spend(player, StormEnergy.LASER_DRAIN_PER_SECOND / 20.0f);
 
@@ -1000,16 +1031,16 @@ public final class ThorPowers {
 		// below is lowered, so firing the laser doesn't put a particle stream right in the player's
 		// own first-person sightline.
 		HitResult hit = ProjectileUtil.getHitResultOnViewVector(
-				player, target -> target != player && target.isPickable(), LASER_RANGE);
+				player, target -> aimable(player, target), LASER_RANGE);
 
 		Entity hitEntity = null;
 		Vec3 end;
 		if (hit instanceof EntityHitResult entityHit) {
 			hitEntity = entityHit.getEntity();
 			end = hitEntity.position().add(0, hitEntity.getBbHeight() / 2, 0);
-			if (hitEntity instanceof LivingEntity living) {
+			if (hitEntity instanceof LivingEntity living && ThorTargets.canAffect(player, living)) {
 				igniteIfAnimal(living);
-				living.hurt(serverLevel.damageSources().lightningBolt(), LASER_DAMAGE_PER_TICK);
+				living.hurt(ThorTargets.lightning(serverLevel, player), LASER_DAMAGE_PER_TICK);
 			}
 		} else if (hit != null) {
 			end = hit.getLocation();
@@ -1041,10 +1072,12 @@ public final class ThorPowers {
 		}
 		StormEnergy.spend(player, StormEnergy.THUNDERCLAP_COST);
 
+		ThorVisuals.anim(player, ThorFx.ANIM_THUNDERCLAP);
 		if (player.level() instanceof ServerLevel serverLevel) {
-			DamageSource clap = serverLevel.damageSources().lightningBolt();
+			DamageSource clap = ThorTargets.lightning(serverLevel, player);
+			// v0.14.4: squadmates (and their pets) are spared the damage, the shove and the slow alike
 			for (LivingEntity target : serverLevel.getEntitiesOfClass(LivingEntity.class,
-					player.getBoundingBox().inflate(THUNDERCLAP_RADIUS), e -> e != player && e.isAlive())) {
+					player.getBoundingBox().inflate(THUNDERCLAP_RADIUS), e -> ThorTargets.canAffect(player, e))) {
 				double dx = target.getX() - player.getX();
 				double dz = target.getZ() - player.getZ();
 				double dist = Math.max(0.1, Math.sqrt(dx * dx + dz * dz));
@@ -1078,6 +1111,7 @@ public final class ThorPowers {
 		state.activeUntilTick = tick + STORM_CALL_DURATION_TICKS;
 		state.nextStrikeTick = tick + 20;
 		player.setAttached(ModAttachments.STORM_CALL_STATE, state);
+		ThorVisuals.anim(player, ThorFx.ANIM_STORM);
 
 		if (player.level() instanceof ServerLevel serverLevel) {
 			serverLevel.playSound(null, player.getX(), player.getY(), player.getZ(),
@@ -1113,14 +1147,15 @@ public final class ThorPowers {
 
 		if (tick >= state.nextStrikeTick) {
 			List<Monster> hostiles = serverLevel.getEntitiesOfClass(Monster.class,
-					player.getBoundingBox().inflate(STORM_CALL_RADIUS), Entity::isAlive);
+					player.getBoundingBox().inflate(STORM_CALL_RADIUS), e -> ThorTargets.canAffect(player, e));
 			if (!hostiles.isEmpty()) {
 				Monster target = hostiles.get(serverLevel.random.nextInt(hostiles.size()));
-				LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(serverLevel);
-				if (bolt != null) {
-					bolt.moveTo(target.getX(), target.getY(), target.getZ());
-					bolt.setCause(player);
-					serverLevel.addFreshEntity(bolt);
+				// v0.14.4: a visual-only bolt plus Thor's own damage, instead of a real vanilla bolt -- a real one hits
+				// everything within 3 blocks (squadmates included), sets the ground alight and turns villagers into
+				// witches. Same 3-block splash, but only on things this Thor may affect.
+				spawnVisualBolt(serverLevel, player, target.position());
+				for (LivingEntity hit : ThorTargets.inRadius(serverLevel, player, target.position(), STORM_CALL_SPLASH_RADIUS)) {
+					strikeEntity(serverLevel, player, hit, STORM_CALL_STRIKE_DAMAGE, 0.4f);
 				}
 			}
 			state.nextStrikeTick = tick + STORM_CALL_STRIKE_INTERVAL_TICKS;

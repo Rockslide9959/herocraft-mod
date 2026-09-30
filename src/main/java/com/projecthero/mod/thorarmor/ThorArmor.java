@@ -1,6 +1,8 @@
 package com.projecthero.mod.thorarmor;
 
+import com.projecthero.mod.power.ThorFx;
 import com.projecthero.mod.power.ThorPassives;
+import com.projecthero.mod.power.ThorVisuals;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 
@@ -41,6 +43,55 @@ public final class ThorArmor {
 	private static final EquipmentSlot[] SLOTS = { EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
 	/** Debounce so a held / double-tapped H cannot machine-gun lightning. */
 	private static final int TOGGLE_COOLDOWN_TICKS = 20;
+
+	// ---------------- v0.14.4: the piece-by-piece suit-up ----------------
+	// Every piece is worn from the first tick (so the protection is instant and nothing can be interrupted half-way);
+	// what arrives piece by piece is the look: boots, then greaves, then the chestplate and cape, each sweeping up the
+	// body from a bright crackling edge (client ThorSuitReveal) as its own lightning flash lands. Suit-down plays it
+	// backwards, chest first, and the pieces are only removed once the dissolve has finished.
+
+	/** How long the whole suit-up takes. */
+	public static final int SUIT_UP_TICKS = 36;
+	/** How long the reverse dissolve takes before the pieces are actually removed. */
+	public static final int SUIT_DOWN_TICKS = 14;
+	/** Per piece (FEET, LEGS, CHEST): when its reveal starts and ends, in ticks from the suit-up's start. */
+	private static final int[][] UP_WINDOWS = { { 0, 12 }, { 10, 24 }, { 22, SUIT_UP_TICKS } };
+	/** Per piece (FEET, LEGS, CHEST): when its dissolve starts and ends, in ticks from the suit-down's start. */
+	private static final int[][] DOWN_WINDOWS = { { 6, SUIT_DOWN_TICKS }, { 3, 11 }, { 0, 8 } };
+
+	private static int pieceIndex(EquipmentSlot slot) {
+		return switch (slot) {
+			case FEET -> 0;
+			case LEGS -> 1;
+			default -> 2;
+		};
+	}
+
+	/** When {@code slot}'s piece starts forming, in ticks after the suit-up began. */
+	public static int arrivalTick(EquipmentSlot slot) {
+		return UP_WINDOWS[pieceIndex(slot)][0];
+	}
+
+	/**
+	 * How much of {@code slot}'s piece is showing (0..1), {@code elapsed} ticks into the suit clock {@code dir}
+	 * ({@code ThorFx.SUIT_*}). Outside a transition every piece is fully shown. Shared by the client reveal and the
+	 * gametests, so both agree on the timeline.
+	 */
+	public static float pieceProgress(int dir, EquipmentSlot slot, float elapsed) {
+		if (dir == com.projecthero.mod.power.ThorFx.SUIT_UP) {
+			int[] w = UP_WINDOWS[pieceIndex(slot)];
+			return clamp((elapsed - w[0]) / (float) (w[1] - w[0]));
+		}
+		if (dir == com.projecthero.mod.power.ThorFx.SUIT_DOWN) {
+			int[] w = DOWN_WINDOWS[pieceIndex(slot)];
+			return 1.0f - clamp((elapsed - w[0]) / (float) (w[1] - w[0]));
+		}
+		return 1.0f;
+	}
+
+	private static float clamp(float v) {
+		return Math.max(0.0f, Math.min(1.0f, v));
+	}
 
 	private ThorArmor() {
 	}
@@ -98,9 +149,13 @@ public final class ThorArmor {
 		if (player.getCooldowns().isOnCooldown(ThorArmorItems.CHESTPLATE)) {
 			return;
 		}
-		player.getCooldowns().addCooldown(ThorArmorItems.CHESTPLATE, TOGGLE_COOLDOWN_TICKS);
 		if (hasAnyPiece(player)) {
-			strip(player);
+			if (isDissolving(player)) {
+				return;
+			}
+			player.getCooldowns().addCooldown(ThorArmorItems.CHESTPLATE, TOGGLE_COOLDOWN_TICKS);
+			// v0.14.4: the suit crackles away chest-first (client ThorSuitReveal); tick() removes it when that is done
+			ThorVisuals.suit(player, ThorFx.SUIT_DOWN);
 			ServerLevel level = player.serverLevel();
 			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_DEACTIVATE,
 					SoundSource.PLAYERS, 0.8f, 1.4f);
@@ -110,11 +165,17 @@ public final class ThorArmor {
 					.withStyle(ChatFormatting.AQUA), true);
 			return;
 		}
+		// the whole suit-up plays out before H can dismiss it again
+		player.getCooldowns().addCooldown(ThorArmorItems.CHESTPLATE, SUIT_UP_TICKS + 4);
 		equip(player);
 	}
 
 	private static void equip(ServerPlayer player) {
 		ServerLevel level = player.serverLevel();
+		// the suit clock goes out before the equipment does, so no viewer ever sees the whole set pop in for a frame
+		ThorVisuals.suit(player, ThorFx.SUIT_UP);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ARMOR_EQUIP_NETHERITE.value(),
+				SoundSource.PLAYERS, 0.9f, 0.8f);
 		LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(level);
 		if (bolt != null) {
 			bolt.moveTo(player.getX(), player.getY(), player.getZ());
@@ -188,16 +249,68 @@ public final class ThorArmor {
 	/** Dying takes the armour with it -- called before vanilla drops the equipment. */
 	public static void onDeath(ServerPlayer player) {
 		strip(player);
+		ThorVisuals.suit(player, ThorFx.SUIT_NONE);
 	}
 
 	/** Once a second: a player who is no longer Thor (and is not in Creative, testing) keeps no armour. */
 	public static void audit(ServerPlayer player) {
+		tick(player);
 		// (the game mode itself, not Player#isCreative(): GameTest mock players override that to always be true)
 		if (player.tickCount % 20 != 0 || player.gameMode.getGameModeForPlayer().isCreative()) {
 			return;
 		}
 		if (!ThorPassives.hasPowerOfThor(player) && hasAnyPiece(player)) {
 			strip(player);
+			ThorVisuals.suit(player, ThorFx.SUIT_NONE);
 		}
+	}
+
+	/**
+	 * v0.14.4, every tick: drives the suit clock -- each later piece's lightning flash as it arrives, the end of the
+	 * suit-up, and removing the pieces once a suit-down's dissolve has played out.
+	 */
+	private static void tick(ServerPlayer player) {
+		ThorFx fx = ThorVisuals.fx(player);
+		if (fx.suitDir() == ThorFx.SUIT_NONE) {
+			return;
+		}
+		long elapsed = player.level().getGameTime() - fx.suitStart();
+		if (fx.suitDir() == ThorFx.SUIT_UP) {
+			if (elapsed == arrivalTick(EquipmentSlot.LEGS)) {
+				pieceArrives(player, 0.75);
+			} else if (elapsed == arrivalTick(EquipmentSlot.CHEST)) {
+				pieceArrives(player, 1.35);
+			}
+			if (elapsed >= SUIT_UP_TICKS || elapsed < 0) {
+				ThorVisuals.suit(player, ThorFx.SUIT_NONE);
+			}
+			return;
+		}
+		if (elapsed >= SUIT_DOWN_TICKS || elapsed < 0) {
+			strip(player);
+		}
+		// The clock is only cleared a second later: cleared at once, the "no transition = fully shown" state could reach
+		// a viewer a frame before the removed equipment does and flash the whole suit back on.
+		if (elapsed >= SUIT_DOWN_TICKS + 20 || elapsed < 0) {
+			ThorVisuals.suit(player, ThorFx.SUIT_NONE);
+		}
+	}
+
+	/** True while the suit is dissolving after H (it is removed when that finishes). */
+	public static boolean isDissolving(Player player) {
+		ThorFx fx = ThorVisuals.fx(player);
+		return fx.suitDir() == ThorFx.SUIT_DOWN && player.level().getGameTime() - fx.suitStart() < SUIT_DOWN_TICKS;
+	}
+
+	/** A later piece lands: a crack of lightning at its height (the client draws the bolt from the sky). */
+	private static void pieceArrives(ServerPlayer player, double height) {
+		ServerLevel level = player.serverLevel();
+		double y = player.getY() + height;
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), y, player.getZ(), 26, 0.35, 0.3, 0.35, 0.25);
+		level.sendParticles(ParticleTypes.FLASH, player.getX(), y, player.getZ(), 1, 0.0, 0.0, 0.0, 0.0);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.LIGHTNING_BOLT_IMPACT,
+				SoundSource.PLAYERS, 0.7f, 1.5f + (float) height * 0.2f);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ARMOR_EQUIP_NETHERITE.value(),
+				SoundSource.PLAYERS, 0.9f, 0.9f + (float) height * 0.1f);
 	}
 }

@@ -330,7 +330,7 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.thor.bind");
 			blank(lines);
 			head(lines, "projecthero.guide.thor.perks");
-			for (String perk : new String[]{"melee", "hearts", "speed", "damage_reduction", "regen", "hammer_damage", "hud"}) {
+			for (String perk : new String[]{"melee", "hearts", "speed", "damage_reduction", "regen", "hammer_damage", "hud", "squad"}) {
 				lines.add(Component.literal("• ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.guide.thor.perk." + perk).withStyle(ChatFormatting.GRAY)));
 			}

@@ -53,10 +53,25 @@ public final class ArmorSweepReveal {
 	 * full progress, or if the geometry/texture could not be read.
 	 */
 	public static ResourceLocation texture(ResourceLocation geometry, ResourceLocation base, float progress) {
+		return texture(geometry, base, progress, Sweep.WHOLE_SUIT_DOWN);
+	}
+
+	/**
+	 * v0.14.4: how a sweep runs -- which bones take part ({@code null} = all; a bone is in if it or any ancestor is
+	 * listed, and texels of other bones keep their original alpha), which way it travels, and the colours of the newest
+	 * row ({@code edgeArgb}) and the row just behind it ({@code trailArgb}, 0 = none). {@code key} names the cache
+	 * entry. Used by Thor's Armour to sweep each piece up the body on its own, with a crackling blue-white edge.
+	 */
+	public record Sweep(String key, java.util.Set<String> bones, boolean bottomUp, int edgeArgb, int trailArgb) {
+		public static final Sweep WHOLE_SUIT_DOWN = new Sweep("all", null, false, EDGE_ARGB, 0);
+	}
+
+	/** {@link #texture(ResourceLocation, ResourceLocation, float)} with an explicit {@link Sweep}. */
+	public static ResourceLocation texture(ResourceLocation geometry, ResourceLocation base, float progress, Sweep sweep) {
 		if (progress >= 0.999f) {
 			return base;
 		}
-		ResourceLocation[] frames = CACHE.computeIfAbsent(geometry + "|" + base, k -> build(geometry, base));
+		ResourceLocation[] frames = CACHE.computeIfAbsent(geometry + "|" + base + "|" + sweep.key(), k -> build(geometry, base, sweep));
 		if (frames.length == 0) {
 			return base;
 		}
@@ -64,7 +79,7 @@ public final class ArmorSweepReveal {
 		return frames[step];
 	}
 
-	private static ResourceLocation[] build(ResourceLocation geometry, ResourceLocation base) {
+	private static ResourceLocation[] build(ResourceLocation geometry, ResourceLocation base, Sweep sweep) {
 		Minecraft mc = Minecraft.getInstance();
 		Optional<Resource> texRes = mc.getResourceManager().getResource(base);
 		Optional<Resource> geoRes = mc.getResourceManager().getResource(geometry);
@@ -85,7 +100,7 @@ public final class ArmorSweepReveal {
 		float[] height = new float[w * h];
 		java.util.Arrays.fill(height, Float.NaN);
 		try {
-			mapHeights(geo, w, h, height);
+			mapHeights(geo, w, h, height, sweep.bones());
 		} catch (RuntimeException e) {
 			ProjectHeroMod.LOGGER.warn("[ProjectHero] could not read the geometry {} for the suit sweep: {}", geometry, e.toString());
 			src.close();
@@ -106,10 +121,12 @@ public final class ArmorSweepReveal {
 		int rows = Math.max(1, (int) Math.ceil(top - bottom) + 1);
 		int[] row = new int[w * h];
 		for (int i = 0; i < row.length; i++) {
-			row[i] = Float.isNaN(height[i]) ? -1 : Math.min(rows - 1, (int) Math.floor(top - height[i]));
+			float fromStart = sweep.bottomUp() ? height[i] - bottom : top - height[i];
+			row[i] = Float.isNaN(height[i]) ? -1 : Math.min(rows - 1, (int) Math.floor(fromStart));
 		}
 		ResourceLocation[] frames = new ResourceLocation[rows + 1];
-		String tag = base.getNamespace() + "_" + base.getPath().replaceAll("[^a-z0-9_]", "_");
+		String tag = base.getNamespace() + "_" + base.getPath().replaceAll("[^a-z0-9_]", "_")
+				+ ("all".equals(sweep.key()) ? "" : "_" + sweep.key().replaceAll("[^a-z0-9_]", "_"));
 		for (int k = 0; k <= rows; k++) {
 			NativeImage img = new NativeImage(w, h, true);
 			img.copyFrom(src);
@@ -119,10 +136,13 @@ public final class ArmorSweepReveal {
 					if (r < 0) {
 						continue;
 					}
+					boolean opaque = ((src.getPixelRGBA(x, y) >>> 24) & 0xFF) != 0;
 					if (r >= k) {
 						img.setPixelRGBA(x, y, 0);
-					} else if (r == k - 1 && ((src.getPixelRGBA(x, y) >>> 24) & 0xFF) != 0) {
-						img.setPixelRGBA(x, y, argbToAbgr(EDGE_ARGB));
+					} else if (r == k - 1 && opaque) {
+						img.setPixelRGBA(x, y, argbToAbgr(sweep.edgeArgb()));
+					} else if (r == k - 2 && opaque && sweep.trailArgb() != 0 && k < rows) {
+						img.setPixelRGBA(x, y, argbToAbgr(sweep.trailArgb()));
 					}
 				}
 			}
@@ -145,7 +165,7 @@ public final class ArmorSweepReveal {
 
 	// ---------------- geometry -> texel heights ----------------
 
-	private static void mapHeights(JsonObject root, int texW, int texH, float[] height) {
+	private static void mapHeights(JsonObject root, int texW, int texH, float[] height, java.util.Set<String> only) {
 		JsonObject model = root.getAsJsonArray("minecraft:geometry").get(0).getAsJsonObject();
 		JsonObject desc = model.getAsJsonObject("description");
 		float geoW = desc.has("texture_width") ? desc.get("texture_width").getAsFloat() : 64f;
@@ -160,7 +180,7 @@ public final class ArmorSweepReveal {
 		}
 		for (JsonElement b : boneList) {
 			JsonObject bone = b.getAsJsonObject();
-			if (!bone.has("cubes")) {
+			if (!bone.has("cubes") || (only != null && !inSet(bone, bones, only))) {
 				continue;
 			}
 			Matrix4f boneMatrix = boneRest(bone, bones);
@@ -181,6 +201,17 @@ public final class ArmorSweepReveal {
 				}
 			}
 		}
+	}
+
+	/** Is {@code bone}, or any of its ancestors, one of {@code names}? */
+	private static boolean inSet(JsonObject bone, Map<String, JsonObject> bones, java.util.Set<String> names) {
+		int guard = 0;
+		for (JsonObject b = bone; b != null && guard++ < 64; b = b.has("parent") ? bones.get(b.get("parent").getAsString()) : null) {
+			if (names.contains(b.get("name").getAsString())) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** The accumulated rest rotation of {@code bone} and its parents (each about its own pivot). */
