@@ -41,11 +41,14 @@ public class HeroPackGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void allPowersRegisteredWithSixAbilities(GameTestHelper helper) {
-		helper.assertTrue(Powers.count() == 27, "Expected 27 experimental powers, got " + Powers.count());
+		helper.assertTrue(Powers.count() == 26, "Expected 26 experimental powers, got " + Powers.count());
 		for (Power p : Powers.all()) {
-			// v0.13.22: every mutation now has the two H / N utility abilities as well
-			helper.assertTrue(p.abilities().size() == 8, p.key() + " must have 8 abilities (6 + H / N)");
-			for (AbilitySlot slot : AbilitySlot.values()) {
+			// v0.13.22: most mutations have the two H / N utility abilities as well; v0.14.5: some are back to the
+			// six core keys, and Super Regeneration is passive-only (no keys at all)
+			int n = p.abilities().size();
+			helper.assertTrue(n == 0 || n == 6 || n == 8, p.key() + " must have 0, 6 or 8 abilities, has " + n);
+			for (int i = 0; i < n; i++) {
+				AbilitySlot slot = AbilitySlot.byNumber(i + 1);
 				Ability a = p.ability(slot);
 				helper.assertTrue(a != null && a.slot() == slot, p.key() + " slot " + slot + " mismapped");
 			}
@@ -125,7 +128,7 @@ public class HeroPackGameTests implements FabricGameTest {
 	public void switchingActivePowerKeepsCooldownsAndKeepsOtherPowersModes(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
 		Power strength = power("power_01_super_strength");
-		Power durability = power("power_13_super_durability");
+		Power durability = power("power_09_cryokinesis"); // any second power with a C toggle
 		ExperimentalPowers.grant(player, strength);
 		ExperimentalPowers.grant(player, durability);
 
@@ -156,7 +159,7 @@ public class HeroPackGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void serumMarksPendingPowerButDoesNotGrant(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
-		Power durability = power("power_13_super_durability");
+		Power durability = power("power_21_shockwave_manipulation"); // trigger kind = EXPLOSION
 		int amp = com.projecthero.mod.hero.mutation.ModSerums.amplifierFor(durability);
 		player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
 				com.projecthero.mod.hero.mutation.ModMobEffects.UNSTABLE_MUTATION, 1200, amp, false, true, true));
@@ -175,7 +178,7 @@ public class HeroPackGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void exposureEventGrantsPermanentPower(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
-		Power durability = power("power_13_super_durability"); // trigger kind = EXPLOSION
+		Power durability = power("power_21_shockwave_manipulation"); // trigger kind = EXPLOSION // trigger kind = EXPLOSION
 		int amp = com.projecthero.mod.hero.mutation.ModSerums.amplifierFor(durability);
 		player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
 				com.projecthero.mod.hero.mutation.ModMobEffects.UNSTABLE_MUTATION, 1200, amp, false, true, true));
@@ -195,7 +198,7 @@ public class HeroPackGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void wrongExposureKindDoesNotGrant(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
-		Power durability = power("power_13_super_durability"); // wants EXPLOSION
+		Power durability = power("power_21_shockwave_manipulation"); // trigger kind = EXPLOSION // wants EXPLOSION
 		int amp = com.projecthero.mod.hero.mutation.ModSerums.amplifierFor(durability);
 		player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
 				com.projecthero.mod.hero.mutation.ModMobEffects.UNSTABLE_MUTATION, 1200, amp, false, true, true));
@@ -523,20 +526,6 @@ public class HeroPackGameTests implements FabricGameTest {
 		AbilityRouter.handleInput(player, 1, true); // R = rapid_heal
 
 		helper.assertTrue(player.getHealth() > 6.0f, "Rapid Heal should restore health");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void superDurabilityUnbreakableGrantsResistance(GameTestHelper helper) {
-		ServerPlayer player = survivalMockPlayer(helper);
-		Power dur = power("power_13_super_durability");
-		ExperimentalPowers.grant(player, dur);
-		ExperimentalPowers.setActive(player, dur);
-
-		AbilityRouter.handleInput(player, 4, true); // Z = unbreakable
-
-		helper.assertTrue(player.hasEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE),
-				"Unbreakable should grant strong Resistance");
 		helper.succeed();
 	}
 

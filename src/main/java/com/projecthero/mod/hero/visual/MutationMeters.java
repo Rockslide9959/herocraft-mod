@@ -34,9 +34,15 @@ public final class MutationMeters {
 	 * @param color     ARGB fill colour
 	 * @param always    draw even when full / empty (the power's main fuel gauge)
 	 * @param showValue append the value as a percentage to the label
+	 * @param above     v0.14.5: drawn as a Hairline bar ABOVE the ability-key row instead of below it
+	 * @param textColor v0.14.5: label colour (0 = the HUD default)
 	 */
 	public record Spec(String powerKey, String resource, Kind kind, Style style, String label, float max, int color,
-			boolean always, boolean showValue) {
+			boolean always, boolean showValue, boolean above, int textColor) {
+		public Spec(String powerKey, String resource, Kind kind, Style style, String label, float max, int color,
+				boolean always, boolean showValue) {
+			this(powerKey, resource, kind, style, label, max, color, always, showValue, false, 0);
+		}
 	}
 
 	private static final Map<String, Spec> SPECS = new LinkedHashMap<>();

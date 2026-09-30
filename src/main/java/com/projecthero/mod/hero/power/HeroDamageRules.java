@@ -225,38 +225,6 @@ public final class HeroDamageRules {
 					}
 				}
 			}
-			case "power_13_super_durability" -> {
-				// Projectile Deflection (held) -- and now Block too -- give total projectile immunity.
-				// v0.13.22: every point these layers stop is banked as Impact (SuperDurabilityHandlers.gainImpact).
-				if (source.is(DamageTypeTags.IS_PROJECTILE)
-						&& (ExperimentalPowers.getResource(player, active, "deflecting") > 0.5f
-								|| ExperimentalPowers.getResource(player, active, "blocking") > 0.5f)) {
-					com.projecthero.mod.hero.power.p13.SuperDurabilityHandlers.gainImpact(player, amount);
-					return Verdict.immune();
-				}
-				// Unbreakable: 100% of all damage for 15s (barring world-removal / commands).
-				float unbreakableUntil = ExperimentalPowers.getResource(player, active, "unbreakable_until");
-				if (unbreakableUntil > player.level().getGameTime()
-						&& !source.is(DamageTypes.GENERIC_KILL) && !source.is(DamageTypes.FELL_OUT_OF_WORLD)) {
-					com.projecthero.mod.hero.power.p13.SuperDurabilityHandlers.gainImpact(player, amount);
-					return Verdict.immune();
-				}
-				float durability = 0.6f; // passive: 40% less damage from every source
-				if (ExperimentalPowers.getResource(player, active, "blocking") > 0.5f && isFrontal(player, source)) {
-					durability *= 0.4f; // Block: an additional 60% off the frontal 180-degree arc
-				}
-				if (ExperimentalPowers.isToggled(player, active, active.ability(AbilitySlot.SLOT_6))) {
-					durability *= 0.7f; // Tank Mode: an additional 30%
-				}
-				if (source.is(DamageTypeTags.IS_EXPLOSION)) {
-					durability *= 0.5f;
-				}
-				if (fall) {
-					durability *= 0.5f; // 70% less fall damage overall (0.6 * 0.5)
-				}
-				com.projecthero.mod.hero.power.p13.SuperDurabilityHandlers.gainImpact(player, amount * (1.0f - durability));
-				return Verdict.mult(durability);
-			}
 			case "power_10_telekinesis" -> {
 				// v0.10.12: a telekinetic catches their own fall -- no fall damage ever -- but the reflex
 				// draws on the Psi reserve in proportion to the fall it just absorbed.

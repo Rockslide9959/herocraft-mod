@@ -24,7 +24,6 @@ import net.minecraft.resources.ResourceLocation;
  * <li>03 Flight</li>
  * <li>04 Super Speed</li>
  * <li>12 Super Regeneration</li>
- * <li>13 Super Durability</li>
  * </ul>
  * Also owns Flight's double-tap-jump toggle and the Haymaker combo pips under the crosshair.
  */
@@ -34,8 +33,6 @@ public final class RevampClientA {
 	private static final ResourceLocation P04_CRACKLE_A = tex("p04_crackle_a");
 	private static final ResourceLocation P04_CRACKLE_B = tex("p04_crackle_b");
 	private static final ResourceLocation P12_VEINS = tex("p12_veins");
-	private static final ResourceLocation P13_PLATING = tex("p13_plating");
-	private static final ResourceLocation P13_GLINT = tex("p13_glint");
 
 	private static final String FLIGHT = "power_03_flight";
 	private static final String STRENGTH = "power_01_super_strength";
@@ -135,13 +132,6 @@ public final class RevampClientA {
 		float[] roar2 = f(0, 0.45f, 0, 1.1f, 0.45f, 0, -1.1f, -0.3f, 0, 0.1f, -0.1f, -0.65f);
 		MutationPose.register("p12.roar", new float[][] { z(0), at(5, roar), at(10, roar2), at(16, roar), z(22) });
 
-		// ---- 13 Super Durability ----
-		float[] shoulder = f(0, -0.25f, 0.2f, 0.15f, -1.0f, 0.3f, 0, 0.35f, 0.75f, 0.6f, -0.6f, -0.1f);
-		float[] shoulder2 = f(0, -0.25f, 0.2f, 0.15f, -1.0f, 0.3f, 0, 0.35f, 0.75f, -0.6f, 0.6f, -0.1f);
-		MutationPose.register("p13.shoulder", new float[][] { z(0), at(3, shoulder), at(7, shoulder2), at(10, shoulder), z(14) });
-		float[] spread = f(0, -0.3f, 0, 1.2f, -0.3f, 0, -1.2f, -0.15f, 0, 0, 0, -0.2f);
-		float[] come = f(0, -1.5f, 0, 0.2f, -0.3f, 0, -1.2f, -0.15f, 0, 0, 0, -0.2f);
-		MutationPose.register("p13.taunt", new float[][] { z(0), at(4, spread), at(9, spread), at(12, come), at(15, spread), z(20) });
 	}
 
 	private static float[] at(int tick, float[] pose) {
@@ -196,14 +186,6 @@ public final class RevampClientA {
 		MutationOverlays.register("p12.rage", ctx -> MutationRender.shell(ctx, P12_VEINS, MutationRender.Shell.THIN,
 				glow(0.6f + 0.4f * MutationRender.pulse(ctx, 10f), 255, 30, 30), true));
 
-		// 13: thin metallic plating in Tank Mode; gilded, with a glinting sheen, while Unbreakable
-		MutationOverlays.register("p13.steel", ctx -> {
-			boolean gold = ctx.state().has("p13.gold");
-			int tint = gold ? MutationRender.argb(255, 255, 205, 90) : MutationRender.argb(255, 215, 220, 230);
-			MutationRender.shell(ctx, P13_PLATING, MutationRender.Shell.THIN, tint, false);
-		});
-		MutationOverlays.register("p13.gold", ctx -> MutationRender.shell(ctx, P13_GLINT, MutationRender.Shell.THIN,
-				glow(0.35f + 0.65f * MutationRender.pulse(ctx, 9f), 255, 235, 150), true));
 	}
 
 	// =============================================================================================

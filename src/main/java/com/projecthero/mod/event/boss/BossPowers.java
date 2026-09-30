@@ -8,7 +8,6 @@ import java.util.function.Function;
 
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.event.boss.power.CryokinesisBoss;
-import com.projecthero.mod.event.boss.power.DurabilityBoss;
 import com.projecthero.mod.event.boss.power.ElectrokinesisBoss;
 import com.projecthero.mod.event.boss.power.FlightBoss;
 import com.projecthero.mod.event.boss.power.GeokinesisBoss;
@@ -63,7 +62,6 @@ public final class BossPowers {
 		register(PyrokinesisBoss.POWER_KEY, PyrokinesisBoss::new);
 		register(CryokinesisBoss.POWER_KEY, CryokinesisBoss::new);
 		register(TeleportationBoss.POWER_KEY, TeleportationBoss::new);
-		register(DurabilityBoss.POWER_KEY, DurabilityBoss::new);
 		register(SonicScreamBoss.POWER_KEY, SonicScreamBoss::new);
 		register(ShockwaveBoss.POWER_KEY, ShockwaveBoss::new);
 		register(GravityBoss.POWER_KEY, GravityBoss::new);

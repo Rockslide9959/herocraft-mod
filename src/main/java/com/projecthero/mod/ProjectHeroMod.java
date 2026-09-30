@@ -123,6 +123,11 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.hero.revamp.RevampBatchC.init();
 		com.projecthero.mod.hero.revamp.RevampBatchD.init();
 		com.projecthero.mod.hero.revamp.RevampBatchE.init();
+		// v0.14.5: Laser Vision / Super Strength / Super Regeneration / Super Speed reworks
+		com.projecthero.mod.hero.revamp.v0145.LaserVisionV0145.init();
+		com.projecthero.mod.hero.revamp.v0145.SuperStrengthV0145.init();
+		com.projecthero.mod.hero.revamp.v0145.SuperRegenerationV0145.init();
+		com.projecthero.mod.hero.revamp.v0145.SuperSpeedV0145.init();
 		ModDevices.initialize();
 		ModMobEffects.initialize();
 		ModSerums.initialize();
@@ -196,6 +201,10 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.hero.revamp.RevampBatchC.serverTick(server);
 			com.projecthero.mod.hero.revamp.RevampBatchD.serverTick(server);
 			com.projecthero.mod.hero.revamp.RevampBatchE.serverTick(server);
+			com.projecthero.mod.hero.revamp.v0145.LaserVisionV0145.serverTick(server);
+			com.projecthero.mod.hero.revamp.v0145.SuperStrengthV0145.serverTick(server);
+			com.projecthero.mod.hero.revamp.v0145.SuperRegenerationV0145.serverTick(server);
+			com.projecthero.mod.hero.revamp.v0145.SuperSpeedV0145.serverTick(server);
 			com.projecthero.mod.ironman.data.StarkSuitReturnQueue.tick(server);
 			com.projecthero.mod.event.EventManager.tick(server);
 			com.projecthero.mod.event.raid.PillagerSpySpawner.tick(server);
@@ -341,6 +350,8 @@ public class ProjectHeroMod implements ModInitializer {
 		ServerPlayerEvents.JOIN.register(ThorPowers::onPlayerJoin);
 		ServerPlayerEvents.JOIN.register(ThorPassives::onPlayerJoin);
 		ServerPlayerEvents.JOIN.register(player -> {
+			// v0.14.5: powers removed from the mod (Super Durability) are dropped from old saves
+			com.projecthero.mod.hero.ExperimentalPowers.pruneRemovedPowers(player);
 			// v0.14.4: one Primary power at a time -- trim saves made under the old two-slot rule
 			com.projecthero.mod.hero.HeroTiers.enforceLimit(player);
 			PowerPassives.reconcileActive(player);

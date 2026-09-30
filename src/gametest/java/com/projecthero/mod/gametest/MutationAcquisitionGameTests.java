@@ -140,7 +140,7 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 			ExperimentalPowers.grant(p, pw);
 		}
 		int before = ExperimentalPowers.ownedCount(p);
-		Power durability = Powers.byKey("power_13_super_durability");
+		Power durability = Powers.byKey("power_21_shockwave_manipulation"); // EXPLOSION, Blast Chamber
 		drink(p, durability);
 		MutationManager.triggerExposure(p, MutationTrigger.Kind.EXPLOSION);
 		helper.assertFalse(ExperimentalPowers.owns(p, durability), "no room: must not be granted");
@@ -182,7 +182,7 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 	public void everyDeviceFiresOnRightClick(GameTestHelper helper) {
 		// Blast Chamber is a redstone device: it used to ignore right-clicks entirely (research sites had no lever)
 		ServerPlayer p = player(helper);
-		Power durability = Powers.byKey("power_13_super_durability");
+		Power durability = Powers.byKey("power_21_shockwave_manipulation"); // EXPLOSION, Blast Chamber
 		BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1));
 		helper.getLevel().setBlockAndUpdate(pos, ModDevices.BLAST_CHAMBER.defaultBlockState());
 		p.moveTo(pos.getX() + 1.5, pos.getY(), pos.getZ() + 0.5);

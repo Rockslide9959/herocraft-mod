@@ -81,6 +81,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.mutation.RevampClientC.init();
 		com.projecthero.mod.client.mutation.RevampClientD.init();
 		com.projecthero.mod.client.mutation.RevampClientE.init();
+		// v0.14.5 power reworks
+		com.projecthero.mod.client.mutation.v0145.LaserVisionClientV0145.init();
+		com.projecthero.mod.client.mutation.v0145.SuperStrengthClientV0145.init();
+		com.projecthero.mod.client.mutation.v0145.SuperRegenerationClientV0145.init();
+		com.projecthero.mod.client.mutation.v0145.SuperSpeedClientV0145.init();
 
 		MjolnirTooltip.expandKeyHeld = Screen::hasShiftDown;
 		com.projecthero.mod.hero.guide.HeroPackGuideItem.clientOpener =

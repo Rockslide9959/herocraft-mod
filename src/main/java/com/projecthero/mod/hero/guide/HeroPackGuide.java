@@ -979,7 +979,7 @@ public final class HeroPackGuide {
 
 	private static final String[] COMBO_KEYS = {
 			"strength_flight", "speed_electrokinesis", "water_electrokinesis", "geokinesis_strength",
-			"cryokinesis_water", "pyrokinesis_flight", "energy_absorption_laser", "durability_size",
+			"cryokinesis_water", "pyrokinesis_flight", "energy_absorption_laser",
 			"wind_fire", "shadow_teleportation",
 	};
 

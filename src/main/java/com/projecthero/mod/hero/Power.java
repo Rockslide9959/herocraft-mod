@@ -13,7 +13,8 @@ import net.minecraft.resources.ResourceLocation;
  * @param nameKey     translation key for the display name
  * @param category    broad family
  * @param descKey     translation key for the flavour/summary line
- * @param abilities   six (slots 1..6) or, since v0.13.22, eight (plus the H / N utility slots 7..8)
+ * @param abilities   six (slots 1..6) or, since v0.13.22, eight (plus the H / N utility slots 7..8); since v0.14.5
+ *                    zero for a passive-only power ({@link Builder#passiveOnly()})
  * @param passiveKeys translation keys for passive-trait lines
  * @param serum       brewing recipe data
  * @param trigger     mutation exposure event data
@@ -31,8 +32,8 @@ public record Power(
 		List<String> comboKeys) {
 
 	public Power {
-		if (abilities.size() != 6 && abilities.size() != 8) {
-			throw new IllegalArgumentException(id + " must define 6 or 8 abilities, got " + abilities.size());
+		if (abilities.size() != 0 && abilities.size() != 6 && abilities.size() != 8) {
+			throw new IllegalArgumentException(id + " must define 0, 6 or 8 abilities, got " + abilities.size());
 		}
 	}
 
@@ -71,6 +72,7 @@ public record Power(
 		private SerumRecipe serum;
 		private MutationTrigger trigger;
 		private List<String> comboKeys = List.of();
+		private boolean passiveOnly;
 
 		private Builder(ResourceLocation id, PowerCategory category) {
 			this.id = id;
@@ -106,8 +108,26 @@ public record Power(
 			return this;
 		}
 
+		/**
+		 * v0.14.5: a passive-only power with no ability keys at all (Super Regeneration). The HUD then shows
+		 * no keybind boxes and every key press is ignored by the router.
+		 */
+		public Builder passiveOnly() {
+			this.passiveOnly = true;
+			return this;
+		}
+
 		public Power build() {
 			String base = "projecthero.power." + id.getPath();
+			if (passiveOnly) {
+				for (Ability a : abilities) {
+					if (a != null) {
+						throw new IllegalStateException(id + " is passive-only but defines " + a.id());
+					}
+				}
+				return new Power(id, base + ".name", category, base + ".desc",
+						List.of(), passiveKeys, serum, trigger, comboKeys);
+			}
 			for (int i = 0; i < 6; i++) {
 				if (abilities[i] == null) {
 					throw new IllegalStateException(id + " missing ability for slot " + (i + 1));

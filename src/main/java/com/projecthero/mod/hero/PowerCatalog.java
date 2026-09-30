@@ -15,7 +15,7 @@ import static com.projecthero.mod.hero.AbilitySlot.SLOT_6;
 import com.projecthero.mod.hero.MutationTrigger.Kind;
 
 /**
- * Builds the data definitions for all 27 experimental powers (spec section 5). This file is
+ * Builds the data definitions for all the experimental powers (26 since Super Durability was removed in v0.14.5) (spec section 5). This file is
  * <em>data only</em> -- cooldown seconds from the spec are converted to ticks here as starting
  * values (scaled at runtime by {@link HeroConfig#cooldownMultiplier}); ability mechanics live in
  * per-power handler classes registered into {@link AbilityHandlers} by later batches.
@@ -39,7 +39,6 @@ final class PowerCatalog {
 		Powers.register(telekinesis());
 		Powers.register(teleportation());
 		Powers.register(superRegeneration());
-		Powers.register(superDurability());
 		Powers.register(sonicScream());
 		Powers.register(invisibilityLight());
 		Powers.register(spiderClimbing());
@@ -345,29 +344,6 @@ final class PowerCatalog {
 	}
 
 	// ==================================================================================
-	// 13 Super Durability
-	// ==================================================================================
-	private static Power superDurability() {
-		String k = "power_13_super_durability";
-		return Power.Builder.of(Powers.id(k), PowerCategory.PHYSICAL)
-				// v0.13.22 revamp: blocked damage fills Impact
-				.ability(ab(k, "heavy_strike", SLOT_1, INSTANT, 51))
-				.ability(ab(k, "shoulder_charge", SLOT_2, INSTANT, 136))
-				.ability(ab(k, "block", SLOT_3, HOLD, 0))
-				.ability(ab(k, "unbreakable", SLOT_4, INSTANT, 850))
-				.ability(ab(k, "projectile_deflection", SLOT_5, HOLD, 0))
-				.ability(ab(k, "tank_mode", SLOT_6, TOGGLE, 0))
-				.ability(ab(k, "impact_release", AbilitySlot.SLOT_7, INSTANT, 160))
-				.ability(ab(k, "taunt", AbilitySlot.SLOT_8, INSTANT, 300))
-				.passives(pk(k, "passive.impact"), pk(k, "passive.resist"), pk(k, "passive.health"))
-				.serum(SerumRecipe.of("minecraft:awkward", pk(k, "serum"),
-						"minecraft:iron_ingot", "minecraft:flint", "minecraft:leather"))
-				.trigger(MutationTrigger.of(Kind.EXPLOSION, pk(k, "trigger"), "projecthero.device.blast_chamber"))
-				.combos("projecthero.combo.durability_size", "projecthero.combo.flying_brick_set")
-				.build();
-	}
-
-	// ==================================================================================
 	// 14 Sonic Scream
 	// ==================================================================================
 	private static Power sonicScream() {
@@ -477,7 +453,6 @@ final class PowerCatalog {
 				.serum(SerumRecipe.of("minecraft:slow_falling", pk(k, "serum"),
 						"minecraft:iron_ingot", "minecraft:feather", "minecraft:amethyst_shard"))
 				.trigger(MutationTrigger.of(Kind.MOLECULAR_COMPRESSION, pk(k, "trigger"), "projecthero.device.compression_chamber"))
-				.combos("projecthero.combo.durability_size")
 				.build();
 	}
 
@@ -680,7 +655,6 @@ final class PowerCatalog {
 				.serum(SerumRecipe.of("minecraft:leaping", pk(k, "serum"),
 						"minecraft:slime_ball", "minecraft:rabbit_hide", "minecraft:fermented_spider_eye", "minecraft:redstone"))
 				.trigger(MutationTrigger.of(Kind.MASS_COMPRESSION, pk(k, "trigger"), "projecthero.device.mass_compression_chamber"))
-				.combos("projecthero.combo.durability_size")
 				.build();
 	}
 }

@@ -12,7 +12,6 @@ import com.projecthero.mod.hero.power.p02.LaserVisionHandlers;
 import com.projecthero.mod.hero.power.p03.FlightHandlers;
 import com.projecthero.mod.hero.power.p04.SuperSpeedHandlers;
 import com.projecthero.mod.hero.power.p12.SuperRegenerationHandlers;
-import com.projecthero.mod.hero.power.p13.SuperDurabilityHandlers;
 import com.projecthero.mod.hero.revamp.batcha.ThrownChunkEntity;
 import com.projecthero.mod.hero.visual.MutationVisuals;
 
@@ -45,7 +44,7 @@ import net.minecraft.world.phys.Vec3;
  */
 public class RevampBatchAGameTests implements FabricGameTest {
 	private static final String[] BATCH_A = { SuperStrengthHandlers.KEY, LaserVisionHandlers.KEY, FlightHandlers.KEY,
-			SuperSpeedHandlers.KEY, SuperRegenerationHandlers.KEY, SuperDurabilityHandlers.KEY };
+			SuperSpeedHandlers.KEY, SuperRegenerationHandlers.KEY };
 
 	// ---------------- helpers ----------------
 
@@ -124,11 +123,12 @@ public class RevampBatchAGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void batchPowersRegistered(GameTestHelper helper) {
-		helper.assertTrue(Powers.count() == 27, "expected 27 powers");
+		helper.assertTrue(Powers.count() == 26, "expected 26 powers (Super Durability removed in v0.14.5)");
 		for (String key : BATCH_A) {
 			Power p = Powers.byKey(key);
-			helper.assertTrue(p != null && p.abilities().size() == 8, key + " must have 8 abilities");
-			for (AbilitySlot slot : AbilitySlot.values()) {
+			helper.assertTrue(p != null, key + " registered");
+			for (int i = 0; i < p.abilities().size(); i++) {
+				AbilitySlot slot = AbilitySlot.byNumber(i + 1);
 				Ability a = p.ability(slot);
 				helper.assertTrue(a != null && a.slot() == slot, key + " slot " + slot + " mismapped");
 				helper.assertTrue(AbilityHandlers.has(p, a), key + "/" + a.id() + " has no handler");
@@ -146,7 +146,7 @@ public class RevampBatchAGameTests implements FabricGameTest {
 		helper.assertTrue("resurrection".equals(Powers.byKey(SuperRegenerationHandlers.KEY).ability(AbilitySlot.SLOT_4).id()),
 				"Resurrection stays on Z");
 		helper.assertTrue(MutationVisuals.registeredFlags().containsAll(java.util.List.of("p01.effort", "p02.eyes", "p03.wind",
-				"p04.crackle", "p12.regen", "p12.rage", "p13.steel", "p13.gold")), "batch A overlay flags registered");
+				"p04.crackle", "p12.regen", "p12.rage")), "batch A overlay flags registered");
 		helper.succeed();
 	}
 
@@ -516,56 +516,6 @@ public class RevampBatchAGameTests implements FabricGameTest {
 		helper.assertTrue(w.getHealth() > 8f, "your pet is healed");
 		helper.assertTrue(com.projecthero.mod.wolverine.Wolverine.hasSuperRegeneration(p),
 				"the Wolverine ascension prerequisite still reads this power");
-		helper.succeed();
-	}
-
-	// ---------------- 13 Super Durability ----------------
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_impact")
-	public void durabilityImpactReleaseSlamsWhatWasAbsorbed(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, SuperDurabilityHandlers.KEY);
-		Zombie z = zombieAhead(helper, p, 2.0);
-		AbilityRouter.handleInput(p, 7, true); // H = Impact Release, nothing banked
-		helper.assertFalse(onCooldown(p, SuperDurabilityHandlers.KEY, AbilitySlot.SLOT_7), "needs Impact first");
-		SuperDurabilityHandlers.gainImpact(p, 20f);
-		helper.assertTrue(res(p, SuperDurabilityHandlers.KEY, SuperDurabilityHandlers.IMPACT) >= 59f, "blocked damage banks Impact");
-		float before = z.getHealth();
-		AbilityRouter.handleInput(p, 7, true);
-		helper.assertTrue(z.getHealth() < before - 10f, "the release hits hard");
-		helper.assertTrue(res(p, SuperDurabilityHandlers.KEY, SuperDurabilityHandlers.IMPACT) == 0f, "and empties the bank");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_deflect")
-	public void durabilityDeflectionReturnsArrowsToTheShooter(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, SuperDurabilityHandlers.KEY);
-		Skeleton s = EntityType.SKELETON.create(helper.getLevel());
-		s.moveTo(p.getX(), p.getY(), p.getZ() + 8, 180f, 0f);
-		s.setNoAi(true);
-		helper.getLevel().addFreshEntity(s);
-		Arrow arrow = new Arrow(helper.getLevel(), s, new ItemStack(Items.ARROW), null);
-		arrow.setPos(p.getX(), p.getY() + 1.2, p.getZ() + 2.0);
-		arrow.setDeltaMovement(0, 0, -1.5);
-		helper.getLevel().addFreshEntity(arrow);
-		AbilityRouter.handleInput(p, 5, true); // V = Deflection (hold)
-		tick(p, 1);
-		helper.assertTrue(arrow.getOwner() == p, "the arrow becomes yours");
-		helper.assertTrue(arrow.getDeltaMovement().z > 1.0, "and flies back toward the skeleton");
-		helper.assertTrue("shield_brace".equals(MutationVisuals.anim(p)), "the brace pose holds");
-		AbilityRouter.handleInput(p, 5, false);
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_taunt")
-	public void durabilityTauntAndUnbreakableGold(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, SuperDurabilityHandlers.KEY);
-		Zombie z = zombieAhead(helper, p, 8.0);
-		AbilityRouter.handleInput(p, 8, true); // N = Taunt
-		helper.assertTrue(z.getTarget() == p, "the zombie turns on you");
-		AbilityRouter.handleInput(p, 4, true); // Z = Unbreakable
-		refreshVisuals(p);
-		helper.assertTrue(MutationVisuals.hasFlag(p, "p13.steel") && MutationVisuals.hasFlag(p, "p13.gold"),
-				"Unbreakable gilds the metal shell");
 		helper.succeed();
 	}
 }

@@ -84,18 +84,57 @@ public final class AbilityHud {
 
 		int screenW = graphics.guiWidth();
 		int screenH = graphics.guiHeight();
-		int slots = power.abilities().size(); // 6, or 8 with the H / N utility slots (v0.13.22)
-		int totalW = slots * BOX + (slots - 1) * GAP + (slots > 6 ? UTILITY_GAP : 0);
+		// 6, or 8 with the H / N utility slots (v0.13.22), or 0 for a passive-only power (v0.14.5)
+		int slots = power.abilities().size();
+		// A passive-only power still lays out as wide as a six-key row so its name + bars have room.
+		int layoutSlots = Math.max(6, slots);
+		int totalW = layoutSlots * BOX + (layoutSlots - 1) * GAP + (slots > 6 ? UTILITY_GAP : 0);
 		int x0 = screenW - MARGIN - totalW;
+		// v0.14.5: registered meters flagged "above" are drawn as Hairline bars over the key row instead.
+		List<AbilityHudExtras.AboveBar> above = new ArrayList<>();
+		for (java.util.Iterator<Meter> it = meters.iterator(); it.hasNext();) {
+			Meter m = it.next();
+			if (m.above) {
+				above.add(new AbilityHudExtras.AboveBar(m.label.getString(), Math.max(0f, Math.min(1f, m.value / m.max)),
+						m.color, m.textColor));
+				it.remove();
+			}
+		}
+		above.addAll(AbilityHudExtras.above(power.key(), client, state, meterTime));
 		int slabs = (int) meters.stream().filter(m -> m.style == com.projecthero.mod.hero.visual.MutationMeters.Style.SLAB).count();
 		int barsBlock = meters.isEmpty() ? 0 : meters.size() * BAR_ROW_H + slabs * 2 + 4;
-		int y0 = screenH - MARGIN - BOX - barsBlock;
+		int y0 = screenH - MARGIN - (slots == 0 ? 0 : BOX) - barsBlock;
 
 		long gameTime = client.level != null ? client.level.getGameTime() : 0L;
 		boolean expanded = GLFW.glfwGetKey(client.getWindow().getWindow(), GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS;
 
-		// Power name above the row.
-		graphics.drawString(client.font, Component.translatable(power.nameKey()), x0, y0 - 10, 0xFFD8D8F0);
+		// v0.14.5: black-and-gray theme for the powers that ask for it.
+		boolean mono = AbilityHudExtras.isMono(power.key());
+		int boxBg = mono ? MONO_BOX_BG : COLOR_BOX_BG;
+		int borderIdle = mono ? MONO_BORDER : COLOR_BORDER;
+		int borderActive = mono ? MONO_BORDER_ACTIVE : COLOR_BORDER_ACTIVE;
+		int keyColor = mono ? MONO_KEY : COLOR_KEY;
+		int labelColor = mono ? MONO_LABEL : 0xFF9AA6D0;
+		int barBg = mono ? MONO_BAR_BG : 0xAA101018;
+
+		// Hairline bars above the key row, bottom-up.
+		int aboveH = above.size() * ABOVE_ROW_H;
+		for (int k = 0; k < above.size(); k++) {
+			AbilityHudExtras.AboveBar b = above.get(k);
+			int by = y0 - 5 - k * ABOVE_ROW_H;
+			graphics.fill(x0, by, x0 + totalW, by + 3, barBg);
+			graphics.fill(x0, by, x0 + Math.round(totalW * Math.max(0f, Math.min(1f, b.ratio()))), by + 3, b.fill());
+			graphics.drawString(client.font, b.label(), x0, by - 9, b.textColor() != 0 ? b.textColor() : labelColor, false);
+		}
+
+		// Power name above the row (and above any Hairline bars).
+		int nameY = y0 - 10 - aboveH;
+		Component powerName = Component.translatable(power.nameKey());
+		graphics.drawString(client.font, powerName, x0, nameY, mono ? MONO_NAME : 0xFFD8D8F0);
+		AbilityHudExtras.Decor decor = AbilityHudExtras.decor(power.key());
+		if (decor != null) {
+			decor.draw(graphics, client, state, x0 + client.font.width(powerName) + 6, nameY);
+		}
 
 		for (int i = 0; i < slots; i++) {
 			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
@@ -115,11 +154,11 @@ public final class AbilityHud {
 				}
 			}
 
-			graphics.fill(x, y0, x + BOX, y0 + BOX, COLOR_BOX_BG);
-			int border = toggled ? COLOR_BORDER_ACTIVE : COLOR_BORDER;
+			graphics.fill(x, y0, x + BOX, y0 + BOX, boxBg);
+			int border = toggled ? borderActive : borderIdle;
 			graphics.renderOutline(x, y0, BOX, BOX, border);
 
-			graphics.drawString(client.font, keyLabel(i), x + 2, y0 + 2, slot.isUtility() ? COLOR_KEY_UTILITY : COLOR_KEY, false);
+			graphics.drawString(client.font, keyLabel(i), x + 2, y0 + 2, slot.isUtility() ? COLOR_KEY_UTILITY : keyColor, false);
 
 			if (cdRemain > 0) {
 				graphics.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, COLOR_COOLDOWN);
@@ -137,10 +176,10 @@ public final class AbilityHud {
 		}
 
 		if (power.key().equals("power_01_super_strength")) {
-			renderStrengthExtras(graphics, client, state, x0, y0 - 20);
+			renderStrengthExtras(graphics, client, state, x0, nameY - 10);
 		}
 		if (power.key().equals("power_19_shadow_manipulation")) {
-			renderShadowLevel(graphics, client, x0, y0 - 20);
+			renderShadowLevel(graphics, client, x0, nameY - 10);
 		}
 		if (power.key().equals("power_18_density_manipulation")) {
 			float d = state.resources.getOrDefault("power_18_density_manipulation/density", 100.0f);
@@ -150,19 +189,19 @@ public final class AbilityHud {
 			boolean anchored = state.resources.getOrDefault("power_18_density_manipulation/anchor_until", 0.0f) > gameTime;
 			Component line = Component.literal("Density: " + Math.round(d) + "%" + (anchored ? "  [ANCHOR]" : ""));
 			int col = d < 100 ? 0xFF7FD0FF : (d > 100 ? 0xFFFFB24A : 0xFFD8D8F0);
-			graphics.drawString(client.font, line, x0, y0 - 20, col);
+			graphics.drawString(client.font, line, x0, nameY - 10, col);
 		}
 
 		int bw = totalW;
-		int barY = y0 + BOX + 4;
+		int barY = y0 + (slots == 0 ? 0 : BOX) + 4;
 		for (Meter m : meters) {
 			float ratio = Math.max(0.0f, Math.min(1.0f, m.value / m.max));
 			if (m.style == com.projecthero.mod.hero.visual.MutationMeters.Style.SLAB) {
 				// Slab: a thick 7 px bar
-				graphics.fill(x0 - 1, barY - 1, x0 + bw + 1, barY + 7, COLOR_BORDER);
-				graphics.fill(x0, barY, x0 + bw, barY + 6, 0xAA101018);
+				graphics.fill(x0 - 1, barY - 1, x0 + bw + 1, barY + 7, borderIdle);
+				graphics.fill(x0, barY, x0 + bw, barY + 6, barBg);
 				graphics.fill(x0, barY, x0 + Math.round(bw * ratio), barY + 6, m.color);
-				graphics.drawString(client.font, m.label, x0, barY + 7, 0xFF9AA6D0, false);
+				graphics.drawString(client.font, m.label, x0, barY + 7, m.textColor != 0 ? m.textColor : labelColor, false);
 				barY += BAR_ROW_H + 2;
 				continue;
 			}
@@ -173,30 +212,41 @@ public final class AbilityHud {
 				int lit = (int) Math.ceil(ratio * cells - 1e-4);
 				for (int c = 0; c < cells; c++) {
 					int cx = x0 + c * (cw + 1);
-					graphics.fill(cx, barY, cx + cw, barY + 4, c < lit ? m.color : 0xAA101018);
+					graphics.fill(cx, barY, cx + cw, barY + 4, c < lit ? m.color : barBg);
 				}
 			} else if (m.hairline) {
 				// v0.13.11: a Hairline bar -- 3 px, no border (Pyrokinesis)
-				graphics.fill(x0, barY + 1, x0 + bw, barY + 4, 0xAA101018);
+				graphics.fill(x0, barY + 1, x0 + bw, barY + 4, barBg);
 				graphics.fill(x0, barY + 1, x0 + Math.round(bw * ratio), barY + 4, m.color);
 			} else {
-				graphics.fill(x0 - 1, barY - 1, x0 + bw + 1, barY + 5, COLOR_BORDER);
-				graphics.fill(x0, barY, x0 + bw, barY + 4, 0xAA101018);
+				graphics.fill(x0 - 1, barY - 1, x0 + bw + 1, barY + 5, borderIdle);
+				graphics.fill(x0, barY, x0 + bw, barY + 4, barBg);
 				graphics.fill(x0, barY, x0 + Math.round(bw * ratio), barY + 4, m.color);
 			}
-			graphics.drawString(client.font, m.label, x0, barY + 5, 0xFF9AA6D0, false);
+			graphics.drawString(client.font, m.label, x0, barY + 5, m.textColor != 0 ? m.textColor : labelColor, false);
 			barY += BAR_ROW_H;
 		}
 	}
 
 	/** {@code hairline}: drawn as a borderless 3 px Hairline bar instead of the bordered Meter bar. */
 	private record Meter(Component label, float value, float max, int color, boolean hairline,
-			com.projecthero.mod.hero.visual.MutationMeters.Style style) {
+			com.projecthero.mod.hero.visual.MutationMeters.Style style, boolean above, int textColor) {
 		Meter(Component label, float value, float max, int color, boolean hairline) {
 			this(label, value, max, color, hairline, hairline ? com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE
-					: com.projecthero.mod.hero.visual.MutationMeters.Style.METER);
+					: com.projecthero.mod.hero.visual.MutationMeters.Style.METER, false, 0);
 		}
 	}
+
+	/** v0.14.5 black-and-gray theme ({@link AbilityHudExtras#mono}). */
+	private static final int MONO_BOX_BG = 0xD0080808;
+	private static final int MONO_BORDER = 0xFF4A4A4A;
+	private static final int MONO_BORDER_ACTIVE = 0xFFC8C8C8;
+	private static final int MONO_KEY = 0xFFB4B4B4;
+	private static final int MONO_NAME = 0xFFE2E2E2;
+	private static final int MONO_LABEL = 0xFF9A9A9A;
+	private static final int MONO_BAR_BG = 0xAA0C0C0C;
+	/** One Hairline bar above the keys: 9 px label + 3 px bar. */
+	private static final int ABOVE_ROW_H = 13;
 
 	/** v0.13.22: a small gap sets the two utility boxes (H / N) apart from the six core keys. */
 	private static final int UTILITY_GAP = 4;
@@ -325,7 +375,8 @@ public final class AbilityHud {
 					String text = spec.label() + (spec.showValue()
 							? "  " + Math.round(Math.max(0f, Math.min(1f, v / spec.max())) * 100) + "%" : "");
 					out.add(new Meter(Component.literal(text), v, spec.max(), spec.color(),
-							spec.style() == com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE, spec.style()));
+							spec.style() == com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE || spec.above(),
+						spec.style(), spec.above(), spec.textColor()));
 				}
 				continue;
 			}
@@ -395,7 +446,6 @@ public final class AbilityHud {
 			java.util.Map.entry("psi", Kind.RESERVE),            // Telekinesis
 			java.util.Map.entry("flight", Kind.RESERVE),         // HeroFlight stamina
 			java.util.Map.entry("phase", Kind.RESERVE),          // Density Manipulation
-			java.util.Map.entry("guard", Kind.RESERVE),          // Super Durability
 			java.util.Map.entry("sparkle", Kind.RESERVE),        // Invisibility / Light
 			java.util.Map.entry("charged_mode", Kind.RESERVE),   // Electrokinesis stance
 			java.util.Map.entry("crystal_armor", Kind.RESERVE),  // Crystalkinesis stance

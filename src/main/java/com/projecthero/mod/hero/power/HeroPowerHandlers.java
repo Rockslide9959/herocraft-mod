@@ -29,7 +29,6 @@ public final class HeroPowerHandlers {
 		// Batch 5 — powers 11-15
 		com.projecthero.mod.hero.power.p11.TeleportationHandlers.register();
 		com.projecthero.mod.hero.power.p12.SuperRegenerationHandlers.register();
-		com.projecthero.mod.hero.power.p13.SuperDurabilityHandlers.register();
 		com.projecthero.mod.hero.power.p14.SonicScreamHandlers.register();
 		com.projecthero.mod.hero.power.p15.InvisibilityLightHandlers.register();
 

@@ -20,7 +20,6 @@ public final class PowerCombos {
 	public static final String ELECTRO = "power_07_electrokinesis";
 	public static final String PYRO = "power_08_pyrokinesis";
 	public static final String CRYO = "power_09_cryokinesis";
-	public static final String DURABILITY = "power_13_super_durability";
 	public static final String ENERGY = "power_20_energy_absorption";
 	public static final String WATER = "power_25_water_manipulation";
 	public static final String SIZE = "power_27_size_manipulation";
@@ -65,11 +64,6 @@ public final class PowerCombos {
 	/** Geokinesis + Super Strength: bigger boulders / stronger earth attacks. */
 	public static float geoStrengthBonus(ServerPlayer player) {
 		return has(player, GEO, STRENGTH) ? 4.0f : 0.0f;
-	}
-
-	/** Super Durability + Size: Giant/Large form is steadier and takes less self-impact damage. */
-	public static float sizeStabilityFactor(ServerPlayer player) {
-		return has(player, DURABILITY, SIZE) ? 0.5f : 1.0f;
 	}
 
 	/** Energy Absorption + Laser Vision: stored energy tops up Laser's heat budget. */

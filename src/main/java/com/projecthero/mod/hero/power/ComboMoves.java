@@ -42,7 +42,6 @@ public final class ComboMoves {
 
 	private static final List<Combo> COMBOS = List.of(
 			new Combo("meteor_slam", PowerCombos.STRENGTH, PowerCombos.FLIGHT, 40 * 20, ComboMoves::meteorSlam),
-			new Combo("colossus_stomp", PowerCombos.DURABILITY, PowerCombos.SIZE, 40 * 20, ComboMoves::colossusStomp),
 			new Combo("boulder_barrage", PowerCombos.GEO, PowerCombos.STRENGTH, 30 * 20, ComboMoves::boulderBarrage),
 			new Combo("thunder_sprint", PowerCombos.SPEED, PowerCombos.ELECTRO, 30 * 20, ComboMoves::thunderSprint),
 			new Combo("storm_surge", PowerCombos.WATER, PowerCombos.ELECTRO, 35 * 20, ComboMoves::stormSurge),
@@ -118,23 +117,6 @@ public final class ComboMoves {
 		AbilityHelpers.burst(level, c, new BlockParticleOption(ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState()), 120, 3.0);
 		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 1.6f, 0.6f);
 		p.fallDistance = 0;
-	}
-
-	/** Durability + Size: a ground-shaking stomp that scales with your size. */
-	private static void colossusStomp(ServerPlayer p, ServerLevel level) {
-		MutationVisuals.play(p, "stomp");
-		float scale = (float) p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.SCALE);
-		double r = 7.0 + 2.0 * Math.max(0, scale - 1);
-		Vec3 c = p.position();
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, c, r)) {
-			AbilityHelpers.hurt(p, e, 24.0f);
-			AbilityHelpers.push(e, e.position().subtract(c).normalize().scale(1.2).add(0, 0.9, 0));
-		}
-		for (int i = 0; i < 24; i++) {
-			double a = i * Math.PI * 2 / 24;
-			AbilityHelpers.burst(level, c.add(Math.cos(a) * r * 0.7, 0.1, Math.sin(a) * r * 0.7), ParticleTypes.CLOUD, 4, 0.3);
-		}
-		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 1.4f, 0.5f);
 	}
 
 	/** Geokinesis + Strength: tear up three boulders and hurl them. */

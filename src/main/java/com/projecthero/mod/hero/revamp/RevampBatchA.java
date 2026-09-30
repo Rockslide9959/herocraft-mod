@@ -6,7 +6,6 @@ import com.projecthero.mod.hero.power.p02.LaserVisionHandlers;
 import com.projecthero.mod.hero.power.p03.FlightHandlers;
 import com.projecthero.mod.hero.power.p04.SuperSpeedHandlers;
 import com.projecthero.mod.hero.power.p12.SuperRegenerationHandlers;
-import com.projecthero.mod.hero.power.p13.SuperDurabilityHandlers;
 import com.projecthero.mod.hero.revamp.batcha.BatchA;
 import com.projecthero.mod.hero.revamp.batcha.BatchAEntities;
 import com.projecthero.mod.hero.visual.MutationMeters;
@@ -28,7 +27,6 @@ import net.minecraft.world.damagesource.DamageTypes;
  * <li>03 Flight</li>
  * <li>04 Super Speed</li>
  * <li>12 Super Regeneration</li>
- * <li>13 Super Durability</li>
  * </ul>
  * Entities, payloads, visual flags ({@code MutationVisuals.registerFlag}), HUD meters ({@code MutationMeters}) and any
  * world-level upkeep for these powers are registered here, so each batch owns its own file. The abilities themselves
@@ -107,10 +105,6 @@ public final class RevampBatchA {
 		MutationVisuals.registerFlag("p12.rage", p -> owns(p, SuperRegenerationHandlers.KEY)
 				&& SuperRegenerationHandlers.bloodRaging(p));
 
-		// 13 Super Durability: a thin metallic shell in Tank Mode / Unbreakable, gilded while Unbreakable
-		MutationVisuals.registerFlag("p13.steel", p -> owns(p, SuperDurabilityHandlers.KEY)
-				&& (SuperDurabilityHandlers.tankMode(p) || SuperDurabilityHandlers.unbreakable(p)));
-		MutationVisuals.registerFlag("p13.gold", p -> owns(p, SuperDurabilityHandlers.KEY) && SuperDurabilityHandlers.unbreakable(p));
 	}
 
 	private static void registerMeters() {
@@ -151,12 +145,5 @@ public final class RevampBatchA {
 		MutationMeters.register(new Spec(SuperRegenerationHandlers.KEY, "rage_left", Kind.TIMER, Style.HAIRLINE, "Blood Rage",
 				200f, 0xFFB01020, false, false));
 
-		// 13 Super Durability
-		MutationMeters.register(new Spec(SuperDurabilityHandlers.KEY, SuperDurabilityHandlers.IMPACT, Kind.BUILD, Style.GAUGE,
-				"Impact", SuperDurabilityHandlers.MAX_IMPACT, 0xFFE8A53A, true, true));
-		MutationMeters.register(new Spec(SuperDurabilityHandlers.KEY, SuperDurabilityHandlers.GUARD, Kind.RESERVE, Style.METER,
-				"Guard", SuperDurabilityHandlers.GUARD_MAX, 0xFF9AA8B8, false, false));
-		MutationMeters.register(new Spec(SuperDurabilityHandlers.KEY, "unbreakable_left", Kind.TIMER, Style.HAIRLINE, "Unbreakable",
-				300f, 0xFFFFD86A, false, false));
 	}
 }

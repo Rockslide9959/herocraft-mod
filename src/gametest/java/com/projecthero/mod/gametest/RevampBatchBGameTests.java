@@ -94,7 +94,7 @@ public class RevampBatchBGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void batchPowersRegistered(GameTestHelper helper) {
-		helper.assertTrue(Powers.count() == 27, "expected 27 powers");
+		helper.assertTrue(Powers.count() == 26, "expected 26 powers (Super Durability removed in v0.14.5)");
 		for (String key : new String[] { GEO, CRYSTAL, PYRO, CRYO, WATER }) {
 			Power p = Powers.byKey(key);
 			helper.assertTrue(p.abilities().size() == 8, key + " must define 8 abilities");

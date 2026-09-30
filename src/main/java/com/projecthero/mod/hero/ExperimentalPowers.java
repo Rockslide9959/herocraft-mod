@@ -420,6 +420,39 @@ public final class ExperimentalPowers {
 		}
 	}
 
+	/**
+	 * v0.14.5: drops owned / active / pending powers whose key no longer exists (Super Durability was removed),
+	 * along with their cooldowns, toggles and resources. Run on join. Returns whether anything was removed.
+	 */
+	public static boolean pruneRemovedPowers(ServerPlayer player) {
+		ExperimentalState s = state(player);
+		java.util.List<String> gone = new java.util.ArrayList<>();
+		for (String key : s.ownedPowers) {
+			if (Powers.byKey(key) == null) {
+				gone.add(key);
+			}
+		}
+		boolean pendingGone = !s.pendingMutationPower.isEmpty() && Powers.byKey(s.pendingMutationPower) == null;
+		if (gone.isEmpty() && !pendingGone && (s.activePower.isEmpty() || Powers.byKey(s.activePower) != null)) {
+			return false;
+		}
+		for (String key : gone) {
+			s.ownedPowers.remove(key);
+			String prefix = key + "/";
+			s.abilityReadyAt.keySet().removeIf(k -> k.startsWith(prefix));
+			s.activeToggles.removeIf(k -> k.startsWith(prefix));
+			s.resources.keySet().removeIf(k -> k.startsWith(prefix));
+		}
+		if (pendingGone) {
+			s.pendingMutationPower = "";
+		}
+		if (!s.activePower.isEmpty() && Powers.byKey(s.activePower) == null) {
+			s.activePower = s.ownedPowers.isEmpty() ? "" : s.ownedPowers.iterator().next();
+		}
+		save(player, s);
+		return true;
+	}
+
 	public static void clearAll(ServerPlayer player) {
 		tearDownAll(player);
 		save(player, new ExperimentalState());
