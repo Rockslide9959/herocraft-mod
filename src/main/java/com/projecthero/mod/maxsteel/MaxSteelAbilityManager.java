@@ -15,8 +15,9 @@ import net.minecraft.server.level.ServerPlayer;
  * is true -- the player has the power and has not deliberately selected an experimental mutation.
  * Sits after Thor, Iron Man and Spider-Man in the router priority.
  *
- * <p>Slot mapping (the mod's existing Ability 1-6 keys, in spec order). v0.14.2: H is the only key that transforms
- * and powers down ({@link MaxSteelTransform#toggle}); every ability key used while unsuited just says so.
+ * <p>Slot mapping (the mod's existing Ability 1-6 keys, in spec order). v0.14.2: H transforms and powers down
+ * ({@link MaxSteelTransform#toggle}). v0.14.4: a mode key (G / X / Z / V) while unsuited suits up straight into that
+ * mode; R and C (attacks, not modes) still only hint at H while unsuited.
  * <pre>
  *   R (slot 1)  Turbo Blast                 G (slot 2)  Turbo Strength
  *   X (slot 3)  Turbo Speed                 Z (slot 4)  Turbo Flight
@@ -101,13 +102,14 @@ public final class MaxSteelAbilityManager {
 	}
 
 	/**
-	 * Run {@code action} if suited. v0.14.2: unsuited, the key no longer armours up on its own (only H transforms) --
-	 * it just tells the pilot to press H.
+	 * Run {@code action} if suited. v0.14.4: unsuited, a mode key goes straight into that Turbo Mode -- the suit forms
+	 * as that mode's form and the mode switches on the moment it settles ({@link MaxSteelTransform#beginSuitUpIntoMode}),
+	 * no stop in Base first. (v0.14.2 had made these keys only hint at H.)
 	 */
 	private static void requireSuit(ServerPlayer player, MaxSteelMode mode, Runnable action) {
 		MaxSteelState s = MaxSteel.state(player);
 		if (!s.transformed && !MaxSteelTransform.isAnimating(s)) {
-			pressHHint(player);
+			MaxSteelTransform.beginSuitUpIntoMode(player, mode);
 			return;
 		}
 		if (s.transformDir != MaxSteelState.DIR_IDLE) {
@@ -219,6 +221,8 @@ public final class MaxSteelAbilityManager {
 		if (!s.transformed) {
 			ABILITY6_PRESSED.remove(player.getUUID());
 			ABILITY1_PRESSED.remove(player.getUUID());
+			// v0.14.4: Max generates T.U.R.B.O. Energy himself, suit or no suit -- it refills in Normal form too
+			MaxSteelEnergy.tickRegen(player, false, false);
 			return;
 		}
 		MaxSteelSuitArmor.reequipMissing(player);

@@ -78,26 +78,47 @@ public final class MaxSteelTransform {
 	}
 
 	/**
-	 * Start suiting up straight into a specialised mode (v0.6.17): a mode key pressed while unsuited
-	 * plays the ordinary armour-up animation and then drops into {@code mode} the instant it settles,
-	 * instead of leaving the player in Base.
+	 * Start suiting up straight into a specialised mode (v0.6.17; restored in v0.14.4): a mode key (G / X / Z / V) pressed
+	 * while unsuited armours up and drops into {@code mode} the instant the suit settles, in one step. The nanotech
+	 * builds that mode's form directly ({@link MaxSteel#formMode}), so there is no Base-then-swap double animation.
+	 *
+	 * <p>Checked up front, before anything forms: a mode that could not be entered at the end (overload lock-out,
+	 * Stealth on cooldown, not enough T.U.R.B.O. Energy for the activation cost) says why and does not transform at all.
 	 */
 	public static boolean beginSuitUpIntoMode(ServerPlayer player, MaxSteelMode mode) {
-		if (!beginSuitUp(player, false)) {
+		MaxSteelState s = MaxSteel.state(player);
+		if (!s.hasPower || s.transformed || isAnimating(s) || !mode.isSpecialised()) {
 			return false;
 		}
-		MaxSteelState c = MaxSteel.state(player).copy();
-		c.pendingMode = mode.ordinal();
-		MaxSteel.save(player, c);
-		return true;
+		if (MaxSteelEnergy.isLockedOut(player)) {
+			player.displayClientMessage(net.minecraft.network.chat.Component
+					.translatable("message.projecthero.max_steel.locked_out"), true);
+			return false;
+		}
+		if (mode == MaxSteelMode.STEALTH && MaxSteelStealth.onCooldown(player)) {
+			MaxSteelFeedback.onCooldown(player, MaxSteelStealth.ABILITY,
+					MaxSteel.cooldownRemaining(player, MaxSteelStealth.ABILITY));
+			return false;
+		}
+		float cost = activationCost(mode);
+		if (!MaxSteelEnergy.has(player, cost)) {
+			MaxSteelFeedback.noEnergy(player, cost);
+			return false;
+		}
+		return beginSuitUp(player, false, mode.ordinal());
 	}
 
 	public static boolean beginSuitUp(ServerPlayer player, boolean firstBond) {
+		return beginSuitUp(player, firstBond, -1);
+	}
+
+	private static boolean beginSuitUp(ServerPlayer player, boolean firstBond, int pendingMode) {
 		MaxSteelState s = MaxSteel.state(player);
 		if (!s.hasPower || s.transformed || isAnimating(s)) {
 			return false;
 		}
 		MaxSteelState c = s.copy();
+		c.pendingMode = pendingMode; // v0.14.4: set in the same save, so viewers never see a Base form first
 		c.transformed = true; // "on or coming on"
 		c.transformDir = MaxSteelState.DIR_SUITING_UP;
 		c.transformStartTick = player.level().getGameTime();
@@ -151,7 +172,13 @@ public final class MaxSteelTransform {
 			if (pending >= 0) {
 				MaxSteelMode m = MaxSteelMode.byOrdinal(pending);
 				if (m.isSpecialised()) {
-					MaxSteelModes.toggle(player, m, activationCost(m));
+					if (MaxSteelModes.toggle(player, m, activationCost(m))) {
+						// v0.14.4: the suit already formed as this mode -- no Base -> mode swap animation on top
+						MaxSteelVisuals.clearSwap(player);
+					} else {
+						// could not enter it after all: the form it was built as rematerialises back to Base
+						MaxSteelVisuals.swap(player, m);
+					}
 				}
 			}
 		} else {

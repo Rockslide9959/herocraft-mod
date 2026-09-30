@@ -127,9 +127,8 @@ public final class GreenLanternConstructWheelScreen extends Screen {
 				sector(vc, m, cx, cy, outer + lift - 1.5f, outer + lift, a0, a1, 0xFFA8FFC0);
 			}
 		}
-		// ---- the centre disc and its rim
+		// ---- the centre disc (v0.14.4: no border ring round it any more -- the user didn't like the border)
 		sector(vc, m, cx, cy, 0f, inner - 8f, 0, Math.PI * 2, 0xE6050F08);
-		sector(vc, m, cx, cy, inner - 10f, inner - 8f, 0, Math.PI * 2, 0xFF1E661E);
 		g.flush();
 
 		// ---- icons

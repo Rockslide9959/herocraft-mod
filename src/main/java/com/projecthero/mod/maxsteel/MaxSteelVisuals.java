@@ -46,6 +46,18 @@ public final class MaxSteelVisuals {
 		set(player, get(player).withSwap(from.ordinal(), now).withAnim(MaxSteelFx.ANIM_SWAP, now));
 	}
 
+	/**
+	 * v0.14.4: cancel a mode-swap animation (and its flex pose) -- used when the suit formed straight into a Turbo Mode,
+	 * so entering the mode at the end of the armour-up does not rebuild the same form a second time.
+	 */
+	public static void clearSwap(ServerPlayer player) {
+		MaxSteelFx fx = get(player).withSwap(-1, 0L);
+		if (fx.anim() == MaxSteelFx.ANIM_SWAP) {
+			fx = fx.withAnim(MaxSteelFx.ANIM_NONE, 0L);
+		}
+		set(player, fx);
+	}
+
 	/** Drop everything (suit-down, death, logout, power loss). */
 	public static void clear(ServerPlayer player) {
 		set(player, MaxSteelFx.EMPTY);

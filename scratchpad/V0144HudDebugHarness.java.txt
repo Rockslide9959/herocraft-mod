@@ -1,0 +1,184 @@
+package com.projecthero.mod.client;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.greenlantern.GreenLantern;
+import com.projecthero.mod.greenlantern.GreenLanternAbilityManager;
+import com.projecthero.mod.greenlantern.GreenLanternConfig;
+import com.projecthero.mod.greenlantern.construct.ConstructType;
+import com.projecthero.mod.greenlantern.construct.GreenLanternConstructs;
+import com.projecthero.mod.greenlantern.data.GreenLanternState;
+import com.projecthero.mod.hero.AbilitySlot;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.14.4 Green Lantern HUD + Max Steel Normal HUD / straight-into-mode shots.
+ * Install as src/client/java/com/projecthero/mod/client/GreenLanternDebugHarness.java (the class name the
+ * HarnessCameraMixin.gl mixin reads) and call init() from ProjectHeroModClient when PROJECTHERO_GL_DEBUG is set.
+ * Shots land in run/screenshots/gl_*.png; the client quits.
+ */
+public final class GreenLanternDebugHarness {
+	public static Vec3 camOffset;
+	public static Vec3 camTarget = new Vec3(0, 1.1, 0);
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+
+	private GreenLanternDebugHarness() {
+	}
+
+	public static void init() {
+		ClientTickEvents.END_CLIENT_TICK.register(GreenLanternDebugHarness::tick);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					fn.accept(srv.getPlayerList().getPlayers().get(0));
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "gl_" + name + ".png", mc.getMainRenderTarget(), x -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				LevelSettings settings = new LevelSettings("HudDebug" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+						Difficulty.NORMAL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.hideGui = false;
+			org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), 1280, 720);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void charge(ServerPlayer p, float frac) {
+		GreenLanternState s = GreenLantern.state(p).copy();
+		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE * frac;
+		GreenLantern.save(p, s);
+	}
+
+	private static void press(ServerPlayer p, int slot, boolean shift, boolean down) {
+		p.setShiftKeyDown(shift);
+		GreenLanternAbilityManager.handle(p, AbilitySlot.byNumber(slot), down);
+		p.setShiftKeyDown(false);
+	}
+
+	private static void msPress(ServerPlayer p, int slot) {
+		com.projecthero.mod.maxsteel.MaxSteelAbilityManager.handle(p, AbilitySlot.byNumber(slot), true);
+		com.projecthero.mod.maxsteel.MaxSteelAbilityManager.handle(p, AbilitySlot.byNumber(slot), false);
+	}
+
+	private static void script(Minecraft mc) {
+		Vec3 back = new Vec3(0.0, 1.8, -3.6);
+		Vec3 front = new Vec3(0.6, 1.3, 3.2);
+		at(2, () -> { camOffset = back; server(mc, p -> { GreenLantern.bond(p); charge(p, 0.87f); }); });
+		at(20, () -> shot(mc, "h01_hud_idle"));
+		// suit, shield, a couple of constructs on cooldown, the Oath
+		at(22, () -> server(mc, com.projecthero.mod.greenlantern.GreenLanternSuit::toggle));
+		at(40, () -> server(mc, p -> { charge(p, 0.87f); press(p, 4, false, true); }));
+		at(44, () -> server(mc, p -> { GreenLanternConstructs.deploy(p, ConstructType.BUZZSAW); GreenLanternConstructs.deploy(p, ConstructType.ANVIL_DROP); }));
+		at(48, () -> server(mc, p -> press(p, 2, false, true)));
+		at(52, () -> shot(mc, "h02_hud_busy"));
+		at(54, () -> server(mc, p -> press(p, 4, false, false)));
+		at(60, () -> server(mc, p -> charge(p, 0.08f)));
+		at(66, () -> shot(mc, "h03_hud_low_barrier_refill"));
+		at(68, () -> server(mc, p -> { charge(p, 0.9f); press(p, 3, false, true); }));
+		at(90, () -> shot(mc, "h04_hud_reciting"));
+		at(92, () -> server(mc, p -> press(p, 3, false, false)));
+		at(96, () -> server(mc, p -> { p.setShiftKeyDown(true); GreenLanternAbilityManager.ringRemoveStart(p); }));
+		at(130, () -> shot(mc, "h05_hud_ring_removal"));
+		at(132, () -> server(mc, p -> { p.setShiftKeyDown(false); GreenLanternAbilityManager.ringRemoveStop(p); }));
+		// the wheel, hovered and centre
+		at(140, () -> {
+			mc.setScreen(new com.projecthero.mod.client.gui.GreenLanternConstructWheelScreen());
+			var w = mc.getWindow();
+			org.lwjgl.glfw.GLFW.glfwSetCursorPos(w.getWindow(), w.getWidth() * 0.5 + w.getHeight() * 0.22, w.getHeight() * 0.5 - w.getHeight() * 0.18);
+		});
+		at(148, () -> shot(mc, "c01_wheel"));
+		at(149, () -> {
+			var w = mc.getWindow();
+			org.lwjgl.glfw.GLFW.glfwSetCursorPos(w.getWindow(), w.getWidth() * 0.5, w.getHeight() * 0.5);
+		});
+		at(154, () -> shot(mc, "c02_wheel_centre"));
+		at(155, () -> mc.setScreen(null));
+		// Max Steel: Normal-form HUD, then Z straight into Flight
+		at(160, () -> server(mc, p -> {
+			GreenLantern.revoke(p);
+			com.projecthero.mod.maxsteel.MaxSteel.bond(p);
+			com.projecthero.mod.maxsteel.data.MaxSteelState s = com.projecthero.mod.maxsteel.MaxSteel.state(p).copy();
+			s.turboEnergy = 120f;
+			com.projecthero.mod.maxsteel.MaxSteel.save(p, s);
+		}));
+		at(170, () -> shot(mc, "m01_ms_normal_hud"));
+		at(200, () -> shot(mc, "m02_ms_normal_hud_regen"));
+		at(202, () -> { camOffset = front; server(mc, p -> msPress(p, 4)); });
+		at(216, () -> shot(mc, "m03_ms_z_forming_flight"));
+		at(228, () -> shot(mc, "m04_ms_z_forming_flight_b"));
+		at(250, () -> shot(mc, "m05_ms_flight_settled"));
+		at(254, () -> server(mc, p -> msPress(p, 4))); // back to Base
+		at(262, () -> server(mc, com.projecthero.mod.maxsteel.MaxSteelTransform::toggle)); // power down
+		at(310, () -> server(mc, p -> msPress(p, 2))); // G straight into Strength
+		at(330, () -> shot(mc, "m06_ms_g_forming_strength"));
+		at(356, () -> shot(mc, "m07_ms_strength_settled"));
+		at(370, () -> mc.stop());
+	}
+}

@@ -76,6 +76,26 @@ public final class MaxSteel {
 		return s == null ? MaxSteelMode.BASE : s.modeEnum();
 	}
 
+	/**
+	 * v0.14.4: the form the suit should <em>look</em> like -- {@link #mode} normally, but while the suit is still forming
+	 * straight into a Turbo Mode (a mode key pressed while unsuited, {@link MaxSteelState#pendingMode}) it is already that
+	 * mode's form, so the nanotech builds the Flight / Strength / Speed armour directly instead of Base first and a swap
+	 * after. Visual only -- every gameplay check keeps using {@link #mode}.
+	 */
+	public static MaxSteelMode formMode(Player player) {
+		MaxSteelState s = player.getAttachedOrElse(ModAttachments.MAX_STEEL_STATE, null);
+		if (s == null) {
+			return MaxSteelMode.BASE;
+		}
+		if (s.transformDir == MaxSteelState.DIR_SUITING_UP && s.pendingMode >= 0) {
+			MaxSteelMode pending = MaxSteelMode.byOrdinal(s.pendingMode);
+			if (pending.isSpecialised()) {
+				return pending;
+			}
+		}
+		return s.modeEnum();
+	}
+
 	// ---------------- bonding ----------------
 
 	/**
@@ -171,10 +191,11 @@ public final class MaxSteel {
 		player.setAttached(ModAttachments.MAX_STEEL_FACEPLATE_OPEN, false);
 		MaxSteelState s = state(player);
 		if (!s.transformed && s.mode == MaxSteelMode.BASE.ordinal() && s.transformDir == MaxSteelState.DIR_IDLE
-				&& s.modeEndsAt == 0L && s.lockoutUntil == 0L) {
+				&& s.modeEndsAt == 0L && s.lockoutUntil == 0L && s.pendingMode < 0) {
 			return;
 		}
 		MaxSteelState c = s.copy();
+		c.pendingMode = -1; // v0.14.4: a suit-up cut short (death / logout) must not leave a stale mode to drop into later
 		c.transformed = false;
 		c.mode = MaxSteelMode.BASE.ordinal();
 		c.transformDir = MaxSteelState.DIR_IDLE;

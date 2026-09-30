@@ -4,6 +4,45 @@ Added across **v0.6.7 – v0.6.13** (Phases 1–8). Package `com.projecthero.mod
 Power id `max_steel`. A Hero Tier power, peer of Thor / Tony Stark / Spider-Man: its own attachment,
 granted server-authoritatively when Steel bonds, permanent, survives death / relog / restart.
 
+## v0.14.4
+
+User requests: go straight into any Turbo mode without first transforming into Base; regenerate Turbo energy in
+Normal form and show the bar there; no "press H to go Turbo" on the HUD when unsuited, just "Normal"; Turbo charges
+too quickly -- restore the old recharge.
+
+- **Straight into a mode.** G / X / Z / V while unsuited → `MaxSteelTransform.beginSuitUpIntoMode` (the v0.6.17
+  path, revived; v0.14.2 had made those keys only hint at H). It is checked up front -- overload lock-out, Stealth
+  cooldown, activation cost -- and refused with the usual message (no transform at all) if the mode couldn't be
+  entered. Otherwise one suit-up with `pendingMode` set **in the same save** as the suit-up (viewers never see a Base
+  frame); when it settles `MaxSteelModes.toggle` enters the mode and `MaxSteelVisuals.clearSwap` cancels the
+  Base → mode swap animation that toggle stamps. If the toggle still fails at the end, a swap from the pending form
+  back to Base plays instead of a pop. R and C (attacks, not modes) still only hint at H while unsuited.
+- **Visuals:** new `MaxSteel.formMode(Player)` = the pending mode while `DIR_SUITING_UP` with a specialised
+  `pendingMode`, else `mode`. `MaxSteelArmorItem.armorSetId` uses it, so the nanotech armour-up
+  (`MaxSteelNano.reveal`) builds the Flight / Strength / Speed form (extra armour and all) directly in one pass.
+  `MaxSteelHud` uses it too, so the mode row reads "Flight" while he is still forming. Gameplay checks keep `mode`
+  (no Flight drain / attributes until the suit has formed; `MaxSteelModeRuntime` sees Base during the build).
+- **Stale pending mode:** `beginSuitUp` now always writes `pendingMode` (−1 for a plain H suit-up) and
+  `MaxSteel.clearTransient` resets it, so a suit-up cut short by death / logout can't leave a mode to drop into on
+  the next plain H.
+- **Normal-form regen:** `MaxSteelEnergy.tickRegen` only needs `hasPower` now (was `hasPower && transformed`);
+  `MaxSteelAbilityManager.serverTick` calls it on the unsuited early-return path. Same rates, same combat window.
+- **Recharge slowed:** `OUT_OF_COMBAT_REGEN_PER_SEC` **18 → 10**, `COMBAT_REGEN_PER_SEC` **9 → 5**. Git history
+  showed the rate was *not* changed by v0.14.2 (18/9 since v0.9.2, and before that 20/10 since v0.6.17), so there was
+  no "pre-v0.14.2" number to restore. What did change historically: v0.6.20 halved the pool 500 → 250 without halving
+  the regen, doubling the refill speed (full in ~14 s instead of the original 25 s, v0.6.7: 4/s on 100). 10/5 puts it
+  back at the original 25-second refill. Constants only -- Max Steel has no config file, so no migration is needed.
+- **HUD unsuited:** "MAX STEEL · MODE Normal" (`hud.projecthero.max_steel.mode_label_normal` / `mode_row.normal`)
+  and the T.U.R.B.O. bar -- the "H  Go Turbo" line is gone (`hud.projecthero.max_steel.press_h` is now unused).
+- Guide (power info) text: energy (10/5, refills suited or not), controls, HUD, suit, the four mode abilities.
+  Lang via `scratchpad/lang_v0144_maxsteel_gl.js`.
+- Gametests (`MaxSteelGameTests`): `modeKeyWhileUnsuitedGoesStraightIntoThatMode`,
+  `modeKeyWhileUnsuitedIsRefusedWithoutTheEnergy`, `energyRegeneratesInNormalForm`, `turboRechargesAtTheRestoredRate`;
+  `abilityKeysNoLongerTransform` → `attackKeysDoNotTransform` (R / C only).
+- Verified in-client with a temporary harness (`scratchpad/V0144HudDebugHarness.java.txt`, installed like
+  `GreenLanternDebugHarness.v0143` + `HarnessCameraMixin.gl`, removed afterwards): Normal HUD + regen, Z → Flight
+  and G → Strength forming directly as those forms.
+
 ## v0.14.2 changes (at a glance)
 
 - **Controls**: **H is the only transform key** — Go Turbo when unsuited, power down when suited (still refused

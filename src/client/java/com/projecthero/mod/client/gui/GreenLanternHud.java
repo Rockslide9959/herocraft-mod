@@ -25,43 +25,49 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * The Green Lantern HUD -- v0.14.3 redesign. One framed panel in the bottom-right corner:
+ * The Green Lantern HUD. v0.14.4: back to the simpler pre-v0.14.3 look the user preferred -- no framed panel, no
+ * borders around anything but the key boxes themselves -- keeping what the v0.14.3 kit needs (the H and N keys, the Oath
+ * timer, Gatling / Missile Barrage / Giant Hand cooldowns and glows, taking the ring off). Bottom-right, stacking upward:
  * <pre>
- *   [emblem] GREEN LANTERN              OATH 18s · FLYING
- *   RING CHARGE                                     87%
- *   ████████████████████████░░░░░  (Gauge: segmented every 10%, the emergency reserve marked)
- *   [R][G][X][Z][V][C][H][N]        cooldowns drain from the top, lit outlines while a move is running
- *   [icon] Buzzsaw                          35 charge
+ *   (Alt held: every key's move names, plain text)
+ *   ■ Buzzsaw  12s                        one line per construct on cooldown
+ *   SHIELD / DOME / BARRIER + thin bar     while a barrier is up or its meter refills
+ *   TAKING OFF THE RING 60% + thin bar     while Sneak + N is held
+ *   Buzzsaw                     35 charge  the selected construct
+ *   Green Lantern             OATH 18s     title + Oath / Reciting / Flying / Boost
+ *   [R][G][X][Z][V][C][H][N]               cooldowns shade the box, lit outline while a move runs
+ *   ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬               Ring Charge, 3 px, no border, the emergency reserve marked
+ *   87%
  * </pre>
- * Above the panel, stacking upward: taking the ring off (a filling Gauge), the shield / dome meter, and every
- * construct on cooldown (icon, name, seconds, a Hairline bar running down). Hold Alt for every key's move names.
- * Drawn whenever the player has the power at all -- the ring works unsuited, so the HUD is not suit-gated.
+ * Drawn whenever the player has the power at all -- the ring works unsuited, so the HUD is not suit-gated. Hidden while
+ * the construct wheel is open. {@link #icon} and the atlas constants stay here because the wheel draws with them.
  */
 public final class GreenLanternHud {
 	public static final ResourceLocation ICONS = ProjectHeroMod.id("textures/gui/green_lantern/constructs.png");
 	public static final int EMBLEM_ICON = 31;
 
-	private static final int BOX = 18;
+	private static final int BOX = 20;
 	private static final int GAP = 2;
 	private static final int MARGIN = 4;
-	private static final int PAD = 4;
+	/** Vertical spacing between stacked label rows above the ability-key boxes. */
 	private static final int LINE = 10;
 	private static final int KEYS = 8;
 
 	private static final int GREEN = 0xFF35F075;
-	private static final int PALE = 0xFFA8FFC0;
-	private static final int DIM = 0xFF6FA882;
-	private static final int DEEP = 0xFF1A7838;
+	private static final int GREEN_DIM = 0xFF1A7838;
+	/** The selected construct's name -- a mid green that still reads over grass (v0.14.4; was the darker GREEN_DIM). */
+	private static final int SELECTED = 0xFF5FD08A;
 	private static final int LOW = 0xFFFF5A5A;
 	private static final int GOLD = 0xFFFFD23A;
-	private static final int PANEL = 0xB8050F08;
-	private static final int FRAME = 0xFF1E661E;
-	private static final int BOX_BG = 0xCC0A2412;
+	private static final int BOX_BG = 0xC00A2412;
+	private static final int BORDER = 0xFF1E661E;
+	private static final int BORDER_ACTIVE = 0xFF35F075;
 	private static final int COOLDOWN = 0xB0000000;
-	private static final int TRACK = 0xCC06180C;
+	private static final int KEY = 0xFFCFF8D4;
+	private static final int TRACK = 0xAA0A2412;
 
 	private static final String[] KEY_LABELS = {"R", "G", "X", "Z", "V", "C", "H", "N"};
-	/** Alt panel: {@code projecthero.guide.green_lantern.ability.<key>} per box. */
+	/** Alt names: {@code projecthero.guide.green_lantern.ability.<key>} per box. */
 	private static final String[] KEY_NAMES = {
 			"ring_bolt", "construct_fist", "oath", "shield", "suit", "construct", "giant_hand", "dismiss"
 	};
@@ -80,7 +86,8 @@ public final class GreenLanternHud {
 		if (s == null || !s.hasPower) {
 			return;
 		}
-		// The keys belong to Green Lantern only while no mutation is selected (GreenLanternAbilityManager.hasContext).
+		// The keys belong to Green Lantern only while no mutation is selected (GreenLanternAbilityManager.hasContext) --
+		// mirror that here, or a bonded Lantern with a mutation active gets these boxes drawn on top of AbilityHud's.
 		com.projecthero.mod.hero.data.ExperimentalState experimental =
 				player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		if (experimental != null && !experimental.activePower.isEmpty()) {
@@ -90,91 +97,40 @@ public final class GreenLanternHud {
 		float pt = delta.getGameTimeDeltaPartialTick(false);
 		GreenLanternFx fx = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FX, GreenLanternFx.EMPTY);
 
-		int innerW = KEYS * BOX + (KEYS - 1) * GAP;
-		int panelW = innerW + PAD * 2;
-		int panelH = PAD + 12 + LINE + 6 + 4 + BOX + 4 + 12 + PAD;
-		int px = g.guiWidth() - MARGIN - panelW;
-		int py = g.guiHeight() - MARGIN - panelH;
-		int x0 = px + PAD;
-		int right = x0 + innerW;
+		int totalW = KEYS * BOX + (KEYS - 1) * GAP;
+		int x0 = g.guiWidth() - MARGIN - totalW;
+		int right = x0 + totalW;
+		int y0 = g.guiHeight() - MARGIN - BOX - 20;
 
-		// ---- the frame
-		g.fill(px, py, px + panelW, py + panelH, PANEL);
-		g.renderOutline(px, py, panelW, panelH, FRAME);
-		g.fill(px + 1, py, px + panelW - 1, py + 1, GREEN);
-		g.fill(px + 1, py + 1, px + panelW - 1, py + 2, 0x6035F075);
-
-		// ---- title row: emblem, name, status tags
-		int y = py + PAD;
-		icon(g, EMBLEM_ICON, x0, y - 1, 12);
-		g.drawString(mc.font, Component.translatable("projecthero.guide.green_lantern").withStyle(ChatFormatting.BOLD),
-				x0 + 15, y + 1, GREEN, true);
 		long oathUntil = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_OATH_UNTIL, 0L);
 		boolean oathActive = oathUntil > now;
 		boolean oathReciting = !oathActive && player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_OATH_RECITING_SINCE, 0L) > 0L;
-		List<Component> tags = new ArrayList<>();
-		if (oathActive) {
-			int secs = (int) Math.ceil((oathUntil - now) / 20.0);
-			tags.add(Component.translatable("hud.projecthero.green_lantern.tag.oath", secs).withStyle(ChatFormatting.GOLD));
-		} else if (oathReciting) {
-			tags.add(Component.translatable("hud.projecthero.green_lantern.tag.reciting").withStyle(ChatFormatting.YELLOW));
-		}
-		if (player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FLYING, false)) {
-			tags.add(Component.translatable(player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BOOSTING, false)
-					? "hud.projecthero.green_lantern.tag.boost" : "hud.projecthero.green_lantern.tag.flying")
-					.withStyle(ChatFormatting.AQUA));
-		}
-		if (s.suited) {
-			tags.add(Component.translatable("hud.projecthero.green_lantern.tag.suited").withStyle(ChatFormatting.DARK_GREEN));
-		}
-		// never run into the title: drop the least important tags (the list is in priority order) until they fit
-		int room = innerW - 15 - mc.font.width(Component.translatable("projecthero.guide.green_lantern")
-				.withStyle(ChatFormatting.BOLD)) - 6;
-		while (!tags.isEmpty() && tagsWidth(mc, tags) > room) {
-			tags.remove(tags.size() - 1);
-		}
-		int tx = right;
-		for (int i = tags.size() - 1; i >= 0; i--) {
-			Component t = tags.get(i);
-			tx -= mc.font.width(t);
-			g.drawString(mc.font, t, tx, y + 1, 0xFFFFFFFF, true);
-			tx -= 6;
-		}
-		y += 12;
 
-		// ---- Ring Charge (Gauge)
-		float charge = Mth.clamp(s.ringCharge, 0f, GreenLanternConfig.MAX_RING_CHARGE);
-		float frac = charge / GreenLanternConfig.MAX_RING_CHARGE;
-		int severity = com.projecthero.mod.greenlantern.GreenLanternEnergy.severityTier(frac);
-		boolean low = severity > 0;
-		int pulsePeriod = Math.max(3, 16 - severity * 2);
-		boolean pulseOff = low && (now % pulsePeriod) < Math.max(1, pulsePeriod / 3);
-		g.drawString(mc.font, Component.translatable("hud.projecthero.green_lantern.ring_charge"), x0, y, DIM, true);
-		String pct = Math.round(frac * 100f) + "%";
-		g.drawString(mc.font, pct, right - mc.font.width(pct), y, low ? LOW : PALE, true);
-		y += LINE;
-		int barH = 4;
-		g.fill(x0 - 1, y - 1, right + 1, y + barH + 1, FRAME);
-		g.fill(x0, y, right, y + barH, TRACK);
-		if (!pulseOff) {
-			int fillW = Math.round(innerW * frac);
-			g.fillGradient(x0, y, x0 + fillW, y + barH, low ? 0xFFFF8080 : 0xFF8CFFAE, low ? LOW : 0xFF1FBF55);
-			if (fillW > 1) {
-				g.fill(x0 + fillW - 1, y, x0 + fillW, y + barH, 0xFFFFFFFF);
-			}
+		// ---- title row, just above the keys: the name, and what is running right now on the right
+		int labelY = y0 - LINE;
+		Component title = Component.translatable("projecthero.guide.green_lantern").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD);
+		g.drawString(mc.font, title, x0, labelY, GREEN, true);
+		Component status = status(player, oathActive, oathReciting, oathUntil, now);
+		if (status != null && mc.font.width(title) + 6 + mc.font.width(status) <= totalW) {
+			g.drawString(mc.font, status, right - mc.font.width(status), labelY, 0xFFFFFFFF, true);
 		}
-		for (int k = 1; k < 10; k++) {
-			int sx = x0 + innerW * k / 10;
-			g.fill(sx, y, sx + 1, y + barH, 0x80000000);
-		}
-		int reserve = x0 + Math.round(innerW * (GreenLanternConfig.EMERGENCY_RESERVE / GreenLanternConfig.MAX_RING_CHARGE));
-		g.fill(reserve, y - 1, reserve + 1, y + barH + 1, GOLD);
-		y += barH + 6;
+		labelY -= LINE;
+
+		// ---- the selected construct, with its cost (or its cooldown) on the right
+		ConstructType sel = ConstructType.byOrdinal(s.selectedConstruct);
+		g.drawString(mc.font, Component.translatable(sel.translationKey()), x0, labelY, SELECTED, true);
+		int selCd = GreenLanternConstructs.cooldownRemainingFor(player, sel);
+		Component costLine = selCd > 0
+				? Component.translatable("hud.projecthero.green_lantern.cooldown_short", (selCd + 19) / 20).withStyle(ChatFormatting.RED)
+				: Component.translatable("hud.projecthero.green_lantern.cost", Math.round(sel.initialCost())).withStyle(ChatFormatting.GRAY);
+		g.drawString(mc.font, costLine, right - mc.font.width(costLine), labelY, 0xFFFFFFFF, true);
+		labelY -= LINE;
 
 		// ---- the keys
 		boolean barrierUp = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f) > 0f;
 		for (int i = 0; i < KEYS; i++) {
-			int bx = x0 + i * (BOX + GAP);
+			int x = x0 + i * (BOX + GAP);
+			// glow while the key's move is running: beam, Oath / Gatling, shield / dome, suit, Giant Hand, ring removal
 			boolean active = switch (i) {
 				case 0 -> fx.has(GreenLanternFx.CH_BEAM);
 				case 2 -> oathActive || oathReciting || fx.has(GreenLanternFx.CH_GATLING);
@@ -185,53 +141,65 @@ public final class GreenLanternHud {
 				default -> false;
 			};
 			boolean flash = fx.anim() != GreenLanternFx.ANIM_NONE && now - fx.animStart() < 6 && animKey(fx.anim()) == i;
-			g.fill(bx, y, bx + BOX, y + BOX, BOX_BG);
-			if (active || flash) {
-				g.fill(bx + 1, y + 1, bx + BOX - 1, y + BOX - 1, active ? 0x5035F075 : 0x3035F075);
-			}
-			g.renderOutline(bx, y, BOX, BOX, active || flash ? GREEN : FRAME);
-			int cd = cooldownFor(player, i, s);
-			int max = cooldownMax(i, s);
+			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
+			g.renderOutline(x, y0, BOX, BOX, active || flash ? BORDER_ACTIVE : BORDER);
+			g.drawString(mc.font, KEY_LABELS[i], x + 2, y0 + 2, KEY, false);
+
 			if (i == 2 && oathActive) {
-				int secs = (int) Math.ceil((oathUntil - now) / 20.0);
-				g.fill(bx + 1, y + 1, bx + BOX - 1, y + BOX - 1, 0x8010A040);
-				g.drawCenteredString(mc.font, String.valueOf(secs), bx + BOX / 2, y + 5, GOLD);
-			} else if (cd > 0) {
-				int h = Math.max(1, Math.round((BOX - 2) * Math.min(1f, cd / (float) Math.max(1, max))));
-				g.fill(bx + 1, y + 1, bx + BOX - 1, y + 1 + h, COOLDOWN);
-				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), bx + BOX / 2, y + 5, 0xFFFFFFFF);
+				// empowered: a green (not the ordinary dark cooldown) overlay counting down, so it reads as a buff
+				int remaining = (int) Math.max(0L, oathUntil - now);
+				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, 0x8010A040);
+				g.drawCenteredString(mc.font, String.valueOf((remaining + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
+			} else if (i == 2 && oathReciting) {
+				g.drawCenteredString(mc.font, "...", x + BOX / 2, y0 + BOX / 2 - 4, GREEN);
 			} else {
-				g.drawCenteredString(mc.font, KEY_LABELS[i], bx + BOX / 2, y + 5, active ? 0xFFFFFFFF : PALE);
+				int cd = cooldownFor(player, i, s);
+				if (cd > 0) {
+					g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
+					g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
+				}
 			}
 		}
-		y += BOX + 4;
 
-		// ---- the selected construct
-		ConstructType sel = ConstructType.byOrdinal(s.selectedConstruct);
-		icon(g, sel.ordinal(), x0, y, 12);
-		g.drawString(mc.font, Component.translatable(sel.translationKey()), x0 + 15, y + 2, 0xFFE8FFEE, true);
-		int selCd = GreenLanternConstructs.cooldownRemainingFor(player, sel);
-		Component costLine = selCd > 0
-				? Component.translatable("hud.projecthero.green_lantern.cooldown_short", (selCd + 19) / 20).withStyle(ChatFormatting.RED)
-				: Component.translatable("hud.projecthero.green_lantern.cost", Math.round(sel.initialCost())).withStyle(ChatFormatting.GRAY);
-		g.drawString(mc.font, costLine, right - mc.font.width(costLine), y + 2, 0xFFFFFFFF, true);
+		// ---- Ring Charge below the keys: a thin 3 px bar, no border, pulsing faster the lower it gets
+		float frac = Mth.clamp(s.ringCharge, 0f, GreenLanternConfig.MAX_RING_CHARGE) / GreenLanternConfig.MAX_RING_CHARGE;
+		int severity = com.projecthero.mod.greenlantern.GreenLanternEnergy.severityTier(frac);
+		boolean low = severity > 0;
+		int pulsePeriod = Math.max(3, 16 - severity * 2);
+		boolean pulseOff = low && (now % pulsePeriod) < Math.max(1, pulsePeriod / 3);
+		int barY = y0 + BOX + 4;
+		g.fill(x0, barY, right, barY + 3, TRACK);
+		if (!pulseOff) {
+			g.fill(x0, barY, x0 + Math.round(totalW * frac), barY + 3, low ? LOW : GREEN);
+		}
+		int reserveMark = x0 + Math.round(totalW * (GreenLanternConfig.EMERGENCY_RESERVE / GreenLanternConfig.MAX_RING_CHARGE));
+		g.fill(reserveMark, barY - 1, reserveMark + 1, barY + 4, 0xFFFFDD33);
+		g.drawString(mc.font, Math.round(frac * 100.0f) + "%", x0, barY + 5, low ? LOW : 0xFFA8E6B8, true);
 
-		// ---- stacked above the panel
-		int top = py - 3;
-		top = renderRingRemoval(g, mc, fx, now, pt, px, top, panelW);
-		top = renderBarrier(g, mc, player, px, top, panelW);
-		top = renderConstructCooldowns(g, mc, player, px, top, panelW);
+		// ---- stacked above the title rows
+		labelY = renderRingRemoval(g, mc, fx, now, pt, x0, labelY, totalW);
+		labelY = renderBarrier(g, mc, player, x0, labelY, totalW);
+		labelY = renderConstructCooldowns(g, mc, player, x0, labelY, totalW);
 		if (Screen.hasAltDown()) {
-			renderAltPanel(g, mc, px, top, panelW);
+			renderAltNames(g, mc, x0, labelY, totalW);
 		}
 	}
 
-	private static int tagsWidth(Minecraft mc, List<Component> tags) {
-		int w = 0;
-		for (Component t : tags) {
-			w += mc.font.width(t) + 6;
+	/** What is running right now, for the right end of the title row (most important first), or null. */
+	private static Component status(Player player, boolean oathActive, boolean oathReciting, long oathUntil, long now) {
+		if (oathActive) {
+			return Component.translatable("hud.projecthero.green_lantern.tag.oath", (int) Math.ceil((oathUntil - now) / 20.0))
+					.withStyle(ChatFormatting.GOLD);
 		}
-		return w - 6;
+		if (oathReciting) {
+			return Component.translatable("hud.projecthero.green_lantern.tag.reciting").withStyle(ChatFormatting.YELLOW);
+		}
+		if (player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FLYING, false)) {
+			return Component.translatable(player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BOOSTING, false)
+					? "hud.projecthero.green_lantern.tag.boost" : "hud.projecthero.green_lantern.tag.flying")
+					.withStyle(ChatFormatting.AQUA);
+		}
+		return null;
 	}
 
 	/** Which key box a move animation belongs to (so the box flashes as the move goes off). */
@@ -248,65 +216,54 @@ public final class GreenLanternHud {
 		};
 	}
 
-	/** Draws cell {@code index} of the construct icon atlas at {@code size} px. */
+	/** Draws cell {@code index} of the construct icon atlas at {@code size} px (used by the construct wheel). */
 	public static void icon(GuiGraphics g, int index, int x, int y, int size) {
 		RenderSystem.enableBlend();
 		g.blit(ICONS, x, y, size, size, (index % 8) * 16f, (index / 8) * 16f, 16, 16, 128, 64);
 		RenderSystem.disableBlend();
 	}
 
-	/** Shift + hold N: a Gauge filling toward the ring coming off. */
-	private static int renderRingRemoval(GuiGraphics g, Minecraft mc, GreenLanternFx fx, long now, float pt, int px, int top,
+	/** Sneak + hold N: a label and a thin gold bar filling toward the ring coming off. Returns the y above it. */
+	private static int renderRingRemoval(GuiGraphics g, Minecraft mc, GreenLanternFx fx, long now, float pt, int x0, int topY,
 			int w) {
 		if (!fx.has(GreenLanternFx.CH_RING_REMOVE) || fx.ringRemoveStart() == 0L) {
-			return top;
+			return topY;
 		}
 		float f = Mth.clamp((now - fx.ringRemoveStart() + pt) / GreenLanternConfig.RING_REMOVE_HOLD_TICKS, 0f, 1f);
-		int barY = top - 4;
-		int labelY = barY - 11;
-		g.fill(px, labelY - 3, px + w, barY + 7, PANEL);
-		Component label = Component.translatable("hud.projecthero.green_lantern.ring_remove");
-		g.drawString(mc.font, label, px + PAD, labelY, GOLD, true);
-		String pct = Math.round(f * 100) + "%";
-		g.drawString(mc.font, pct, px + w - PAD - mc.font.width(pct), labelY, 0xFFFFFFFF, true);
-		int x0 = px + PAD;
-		int x1 = px + w - PAD;
-		g.fill(x0 - 1, barY - 1, x1 + 1, barY + 4, FRAME);
-		g.fill(x0, barY, x1, barY + 3, TRACK);
-		g.fill(x0, barY, x0 + Math.round((x1 - x0) * f), barY + 3, GOLD);
-		return labelY - 6;
+		int barY = topY + 4;
+		int labelY = barY - 10;
+		Component label = Component.translatable("hud.projecthero.green_lantern.ring_remove")
+				.append(" " + Math.round(f * 100) + "%");
+		g.drawCenteredString(mc.font, label, x0 + w / 2, labelY, GOLD);
+		g.fill(x0, barY, x0 + w, barY + 3, TRACK);
+		g.fill(x0, barY, x0 + Math.round(w * f), barY + 3, GOLD);
+		return labelY - LINE - 2;
 	}
 
 	/**
-	 * The shield / dome uptime meter (v0.11.8 semantics: time in use, not damage taken) -- shown while a barrier is up or
-	 * the meter is refilling, as a Gauge with its label above.
+	 * The shield / dome uptime meter (v0.11.8 semantics: time in use, not damage taken) -- a centred label and a thin
+	 * bar, shown while a barrier is up or the meter is refilling, hidden once neither is true. Returns the y above it.
 	 */
-	private static int renderBarrier(GuiGraphics g, Minecraft mc, Player player, int px, int top, int w) {
+	private static int renderBarrier(GuiGraphics g, Minecraft mc, Player player, int x0, int topY, int w) {
 		boolean active = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f) > 0f;
 		float meter = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_METER, 1f);
 		if (!active && meter >= 1f) {
-			return top;
+			return topY;
 		}
 		boolean dome = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, false);
-		int barY = top - 4;
-		int labelY = barY - 11;
-		g.fill(px, labelY - 3, px + w, barY + 7, PANEL);
+		int barY = topY + 4;
+		int labelY = barY - 10;
 		Component label = Component.translatable(active
 				? (dome ? "hud.projecthero.green_lantern.dome" : "hud.projecthero.green_lantern.shield")
-				: "hud.projecthero.green_lantern.barrier");
-		g.drawString(mc.font, label, px + PAD, labelY, 0xFF7FE8FF, true);
-		String pct = Math.round(meter * 100) + "%";
-		g.drawString(mc.font, pct, px + w - PAD - mc.font.width(pct), labelY, 0xFFFFFFFF, true);
-		int x0 = px + PAD;
-		int x1 = px + w - PAD;
-		g.fill(x0 - 1, barY - 1, x1 + 1, barY + 4, FRAME);
-		g.fill(x0, barY, x1, barY + 3, TRACK);
-		g.fill(x0, barY, x0 + Math.round((x1 - x0) * meter), barY + 3, active ? 0xFF35C8F0 : 0xFF1E7A94);
-		return labelY - 6;
+				: "hud.projecthero.green_lantern.barrier").withStyle(ChatFormatting.AQUA);
+		g.drawCenteredString(mc.font, label, x0 + w / 2, labelY, 0xFFFFFFFF);
+		g.fill(x0, barY, x0 + w, barY + 3, TRACK);
+		g.fill(x0, barY, x0 + Math.round(w * meter), barY + 3, active ? 0xFF35C8F0 : 0xFF1E7A94);
+		return labelY - LINE - 2;
 	}
 
-	/** One row per construct on cooldown: icon, name, seconds, and a Hairline bar running down under it. */
-	private static int renderConstructCooldowns(GuiGraphics g, Minecraft mc, Player player, int px, int top, int w) {
+	/** One right-aligned line per construct on its post-use cooldown, with the seconds left. Returns the y above them. */
+	private static int renderConstructCooldowns(GuiGraphics g, Minecraft mc, Player player, int x0, int topY, int w) {
 		List<ConstructType> onCooldown = new ArrayList<>();
 		for (ConstructType type : ConstructType.values()) {
 			if (GreenLanternConstructs.cooldownRemainingFor(player, type) > 0) {
@@ -314,48 +271,32 @@ public final class GreenLanternHud {
 			}
 		}
 		if (onCooldown.isEmpty()) {
-			return top;
+			return topY;
 		}
-		int rowH = 14;
-		int h = onCooldown.size() * rowH + 4;
-		int y = top - h;
-		g.fill(px, y, px + w, top, PANEL);
-		int ry = y + 3;
+		int y = topY + LINE;
 		for (ConstructType type : onCooldown) {
-			int cd = GreenLanternConstructs.cooldownRemainingFor(player, type);
-			int max = constructCooldownMax(type);
-			icon(g, type.ordinal(), px + PAD, ry, 10);
-			g.drawString(mc.font, Component.translatable(type.translationKey()), px + PAD + 13, ry + 1, 0xFFB8D8C0, true);
-			String secs = ((cd + 19) / 20) + "s";
-			g.drawString(mc.font, secs, px + w - PAD - mc.font.width(secs), ry + 1, 0xFFFFFFFF, true);
-			int bx0 = px + PAD + 13;
-			int bx1 = px + w - PAD;
-			g.fill(bx0, ry + 10, bx1, ry + 11, 0x60000000);
-			g.fill(bx0, ry + 10, bx0 + Math.round((bx1 - bx0) * Math.min(1f, cd / (float) Math.max(1, max))), ry + 11, DEEP | 0xFF000000);
-			ry += rowH;
+			y -= LINE;
+			int seconds = (GreenLanternConstructs.cooldownRemainingFor(player, type) + 19) / 20;
+			Component label = Component.literal("■ ").withStyle(st -> st.withColor(GREEN_DIM))
+					.append(Component.translatable(type.translationKey()).withStyle(ChatFormatting.GRAY))
+					.append(Component.literal("  " + seconds + "s").withStyle(ChatFormatting.WHITE));
+			g.drawString(mc.font, label, x0 + w - mc.font.width(label), y, 0xFFFFFFFF, true);
 		}
-		return y - 3;
+		return y - LINE - 2;
 	}
 
-	/** Alt held: every key's move names, right-aligned with the panel, growing upward. */
-	private static void renderAltPanel(GuiGraphics g, Minecraft mc, int px, int top, int panelW) {
-		Component[] labels = new Component[KEYS];
-		int w = 0;
+	/**
+	 * Alt held: every key's move names as plain lines (no panel), right-aligned with the key row and growing upward.
+	 * Several lines are wider than the key row, so right-anchoring keeps them on screen.
+	 */
+	private static void renderAltNames(GuiGraphics g, Minecraft mc, int x0, int topY, int w) {
+		int right = x0 + w;
+		int y = topY + LINE - KEYS * LINE;
 		for (int i = 0; i < KEYS; i++) {
-			labels[i] = Component.literal(KEY_LABELS[i] + "  ").withStyle(ChatFormatting.GOLD)
+			Component label = Component.literal(KEY_LABELS[i] + "  ").withStyle(ChatFormatting.GOLD)
 					.append(Component.translatable("projecthero.guide.green_lantern.ability." + KEY_NAMES[i]).withStyle(ChatFormatting.WHITE));
-			w = Math.max(w, mc.font.width(labels[i]));
-		}
-		w = Math.min(Math.max(w + 8, panelW), g.guiWidth() - 6);
-		int h = KEYS * LINE + 6;
-		int x = Math.max(2, px + panelW - w);
-		int y = top - h - 2;
-		g.fill(x, y, x + w, y + h, 0xE0050F08);
-		g.renderOutline(x, y, w, h, FRAME);
-		int ly = y + 4;
-		for (Component label : labels) {
-			g.drawString(mc.font, label, x + 4, ly, 0xFFFFFFFF, false);
-			ly += LINE;
+			g.drawString(mc.font, label, Math.max(2, right - mc.font.width(label)), y, 0xFFFFFFFF, true);
+			y += LINE;
 		}
 	}
 
@@ -374,34 +315,6 @@ public final class GreenLanternHud {
 					GreenLantern.cooldownRemaining(player, "missile_barrage"));
 			case 6 -> GreenLantern.cooldownRemaining(player, "giant_hand");
 			default -> 0;
-		};
-	}
-
-	/** The full length of whatever is most likely draining that box, so the shade drains at the right pace. */
-	private static int cooldownMax(int slot, GreenLanternState s) {
-		return switch (slot) {
-			case 0 -> GreenLanternConfig.BEAM_FORCED_COOLDOWN_TICKS;
-			case 1 -> GreenLanternConfig.HAMMER_COOLDOWN_TICKS;
-			case 2 -> GreenLanternConfig.OATH_MODE_COOLDOWN_TICKS;
-			case 3 -> GreenLanternConfig.DOME_COOLDOWN_TICKS;
-			case 4 -> GreenLanternConfig.SCAN_COOLDOWN_TICKS;
-			case 5 -> Math.max(GreenLanternConfig.MISSILE_COOLDOWN_TICKS, constructCooldownMax(ConstructType.byOrdinal(s.selectedConstruct)));
-			case 6 -> GreenLanternConfig.HAND_COOLDOWN_TICKS;
-			default -> 1;
-		};
-	}
-
-	private static int constructCooldownMax(ConstructType type) {
-		return switch (type) {
-			case SENTRY_TURRET -> GreenLanternConfig.TURRET_COOLDOWN_TICKS;
-			case HARD_LIGHT_WALL -> GreenLanternConfig.WALL_COOLDOWN_TICKS;
-			case BATTERING_RAM -> GreenLanternConfig.RAM_COOLDOWN_TICKS;
-			case RESCUE_TETHER -> GreenLanternConfig.TETHER_COOLDOWN_TICKS;
-			case BUZZSAW -> GreenLanternConfig.BUZZSAW_COOLDOWN_TICKS;
-			case ANVIL_DROP -> GreenLanternConfig.ANVIL_COOLDOWN_TICKS;
-			case CHAIN_SNARE -> GreenLanternConfig.CHAINS_COOLDOWN_TICKS;
-			case EMERALD_WARRIOR -> GreenLanternConfig.WARRIOR_COOLDOWN_TICKS;
-			default -> 20;
 		};
 	}
 }

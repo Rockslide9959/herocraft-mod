@@ -29,7 +29,7 @@ public class MaxSteelArmorItem extends SuperheroArmorItem {
 	@Override
 	public String armorSetId() {
 		if (ArmorRenderContext.wearer() instanceof Player wearer && MaxSteel.hasPower(wearer)) {
-			MaxSteelMode mode = MaxSteel.mode(wearer);
+			MaxSteelMode mode = MaxSteel.formMode(wearer); // v0.14.4: already the target form while suiting up into a mode
 			if (mode.isSpecialised()) {
 				return "max_steel_" + mode.lower();
 			}

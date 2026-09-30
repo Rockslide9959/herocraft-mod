@@ -26,7 +26,8 @@ import net.minecraft.world.entity.player.Player;
  *   (Turbo Blast 67% while R is held · Going Turbo / Powering Down while the suit forms)
  * </pre>
  * Every bar is a <b>Hairline</b> bar (3 px, no border, the label on the line above). Hold Left-Alt for the move names.
- * Unsuited, a compact version shows just the title, the "press H" hint and the energy.
+ * Unsuited, a compact version shows the title, "MODE Normal" (v0.14.4: no "press H" hint any more) and the energy,
+ * which regenerates in Normal form too. While the suit forms straight into a Turbo Mode the mode row already shows it.
  *
  * <p>Also keeps the brief directional threat marker fed by
  * {@link com.projecthero.mod.network.MaxSteelWarningPayload} (see {@link #flashWarning}).
@@ -101,12 +102,15 @@ public final class MaxSteelHud {
 		int right = x0 + totalW;
 
 		if (!s.transformed) {
-			// compact: title, the H hint and the pool
-			int y = g.guiHeight() - MARGIN - 34;
+			// compact (v0.14.4): the title with "MODE Normal" beside it, then the pool -- it regenerates here too
+			int y = g.guiHeight() - MARGIN - 24;
 			g.drawString(mc.font, Component.translatable("hud.projecthero.max_steel.title")
 					.withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), x0, y, CYAN, true);
-			y += 10;
-			g.drawString(mc.font, Component.translatable("hud.projecthero.max_steel.press_h"), x0, y, DIM, true);
+			Component normalTag = Component.translatable("hud.projecthero.max_steel.mode_label_normal");
+			Component normal = Component.translatable("hud.projecthero.max_steel.mode_row.normal");
+			int nx = right - mc.font.width(normal);
+			g.drawString(mc.font, normalTag, nx - 4 - mc.font.width(normalTag), y, DIM, true);
+			g.drawString(mc.font, normal, nx, y, 0xFFE0E0E0, true);
 			y += 10;
 			energyBar(g, mc, x0, y, totalW, energy, overloaded, now);
 			return;
@@ -121,7 +125,7 @@ public final class MaxSteelHud {
 		// height: boxes + title + modes + energy(label+bar) + cannon(label+bar) [+ blast] [+ forming]
 		int height = BOX + 2 + 10 + 11 + 10 + HAIR + 3 + 10 + HAIR + (blastCharging ? 3 + 10 + HAIR : 0) + (forming ? 3 + 10 + HAIR : 0);
 		int y0 = g.guiHeight() - MARGIN - height;
-		MaxSteelMode mode = s.modeEnum();
+		MaxSteelMode mode = MaxSteel.formMode(player); // v0.14.4: the target mode already, while suiting up into one
 		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(),
 				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
 

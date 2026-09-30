@@ -284,15 +284,90 @@ public class MaxSteelGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void abilityKeysNoLongerTransform(GameTestHelper helper) {
+	public void attackKeysDoNotTransform(GameTestHelper helper) {
 		ServerPlayer player = bonded(helper);
-		for (AbilitySlot slot : new AbilitySlot[] { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_3,
-				AbilitySlot.SLOT_4, AbilitySlot.SLOT_5, AbilitySlot.SLOT_6 }) {
+		for (AbilitySlot slot : new AbilitySlot[] { AbilitySlot.SLOT_1, AbilitySlot.SLOT_6 }) {
 			MaxSteelAbilityManager.handle(player, slot, true);
 			MaxSteelAbilityManager.handle(player, slot, false);
 		}
 		MaxSteelState s = MaxSteel.state(player);
-		helper.assertFalse(s.transformed || s.transformDir != MaxSteelState.DIR_IDLE, "only H transforms -- R/G/X/Z/V/C just hint");
+		helper.assertFalse(s.transformed || s.transformDir != MaxSteelState.DIR_IDLE, "R and C (attacks) need the suit -- they just hint at H");
+		helper.succeed();
+	}
+
+	// ---------------- v0.14.4: straight into a mode, Normal-form regen, the slower recharge ----------------
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void modeKeyWhileUnsuitedGoesStraightIntoThatMode(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		setEnergy(player, 100f);
+		MaxSteelAbilityManager.handle(player, AbilitySlot.SLOT_4, true); // Z = Turbo Flight
+		MaxSteelAbilityManager.handle(player, AbilitySlot.SLOT_4, false);
+		MaxSteelState s = MaxSteel.state(player);
+		helper.assertTrue(s.transformDir == MaxSteelState.DIR_SUITING_UP, "Z while unsuited starts the suit forming");
+		helper.assertTrue(s.pendingMode == MaxSteelMode.FLIGHT.ordinal(), "headed straight for Flight");
+		helper.assertTrue(MaxSteel.mode(player) == MaxSteelMode.BASE, "no Flight effects until the suit has formed");
+		helper.assertTrue(MaxSteel.formMode(player) == MaxSteelMode.FLIGHT, "but it is already built as the Flight form");
+
+		settleSuit(player);
+		helper.assertTrue(MaxSteel.isTransformed(player) && MaxSteel.state(player).transformDir == MaxSteelState.DIR_IDLE,
+				"the suit settles on");
+		helper.assertTrue(MaxSteel.mode(player) == MaxSteelMode.FLIGHT, "and he is in Flight mode in one step");
+		helper.assertTrue(MaxSteel.state(player).pendingMode == -1, "the pending mode is used up");
+		helper.assertTrue(MaxSteelEnergy.get(player) <= 100f - MaxSteelConfig.FLIGHT_ACTIVATION_COST + 0.01f,
+				"entering it still costs the activation energy");
+		helper.assertTrue(MaxSteelVisuals.get(player).swapFrom() < 0,
+				"no Base -> Flight swap animation on top of a suit that formed as Flight");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void modeKeyWhileUnsuitedIsRefusedWithoutTheEnergy(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		setEnergy(player, MaxSteelConfig.STRENGTH_ACTIVATION_COST - 1f);
+		MaxSteelAbilityManager.handle(player, AbilitySlot.SLOT_2, true); // G = Turbo Strength
+		MaxSteelState s = MaxSteel.state(player);
+		helper.assertFalse(s.transformed || s.transformDir != MaxSteelState.DIR_IDLE,
+				"a mode he cannot afford does not start a suit-up that would end in Base");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void energyRegeneratesInNormalForm(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		setEnergy(player, 20f);
+		helper.assertFalse(MaxSteel.isTransformed(player), "unsuited");
+		for (int i = 0; i < 20; i++) {
+			MaxSteelAbilityManager.serverTick(player); // the real per-tick path, not just tickRegen
+		}
+		helper.assertTrue(MaxSteel.state(player).turboEnergy > 20f,
+				"T.U.R.B.O. Energy should refill out of the suit too, got " + MaxSteel.state(player).turboEnergy);
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void turboRechargesAtTheRestoredRate(GameTestHelper helper) {
+		helper.assertTrue(MaxSteelConfig.OUT_OF_COMBAT_REGEN_PER_SEC == 10f && MaxSteelConfig.COMBAT_REGEN_PER_SEC == 5f,
+				"v0.14.4 recharge: 10/s out of combat, 5/s in combat");
+		ServerPlayer player = bonded(helper);
+		setEnergy(player, 20f);
+		for (int i = 0; i < 20; i++) {
+			MaxSteelEnergy.tickRegen(player, false, false);
+		}
+		float gained = MaxSteel.state(player).turboEnergy - 20f;
+		helper.assertTrue(Math.abs(gained - MaxSteelConfig.OUT_OF_COMBAT_REGEN_PER_SEC) < 0.05f,
+				"20 regen ticks out of combat = one second's worth, got " + gained);
+
+		setEnergy(player, 20f);
+		MaxSteelState s = MaxSteel.state(player).copy();
+		s.combatUntil = player.level().getGameTime() + 1000L;
+		MaxSteel.save(player, s);
+		for (int i = 0; i < 20; i++) {
+			MaxSteelEnergy.tickRegen(player, false, false);
+		}
+		gained = MaxSteel.state(player).turboEnergy - 20f;
+		helper.assertTrue(Math.abs(gained - MaxSteelConfig.COMBAT_REGEN_PER_SEC) < 0.05f,
+				"20 regen ticks in combat = one second's worth, got " + gained);
 		helper.succeed();
 	}
 

@@ -18,10 +18,15 @@ public final class MaxSteelConfig {
 	/** v0.6.20: lowered from 500 to 250 -- with the Turbo Modes no longer time-capped, the pool size is
 	 *  the real limiter on how long a mode can stay up, and 500 made that effectively unlimited. */
 	public static final float MAX_TURBO_ENERGY = 250f;
-	/** Regen per second while not draining a specialised mode and out of combat. v0.9.2: 10% slower (was 20). */
-	public static final float OUT_OF_COMBAT_REGEN_PER_SEC = 18f;
-	/** Regen per second while "in combat" (hurt or dealt damage recently). v0.9.2: 10% slower (was 10). */
-	public static final float COMBAT_REGEN_PER_SEC = 9f;
+	/**
+	 * Regen per second while not draining a specialised mode and out of combat. v0.9.2: 10% slower (was 20).
+	 * v0.14.4: 18 -> 10 ("Turbo charges too quickly") -- back to the original pace relative to the pool, a full
+	 * refill in 25 s (v0.6.7: 4/s on a 100 pool; v0.6.17: 20/s on 500). v0.6.20 halved the pool to 250 without
+	 * halving the regen, which quietly doubled how fast it refilled. Also runs in Normal form now.
+	 */
+	public static final float OUT_OF_COMBAT_REGEN_PER_SEC = 10f;
+	/** Regen per second while "in combat" (hurt or dealt damage recently). v0.9.2: 10 -> 9. v0.14.4: 9 -> 5 (half the out-of-combat rate, as always). */
+	public static final float COMBAT_REGEN_PER_SEC = 5f;
 	/** Ticks a hit (given or taken) keeps the player "in combat" for regen purposes. */
 	public static final int COMBAT_WINDOW_TICKS = 100;
 	/** No regen at all for this long after a high-cost ability. */

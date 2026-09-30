@@ -562,3 +562,27 @@ Verified in-client with `scratchpad/GreenLanternDebugHarness.v0143.java.txt` + `
 mock players are placed at world spawn -- move them into the test area (`helper.absoluteVec`) before testing anything
 that is a ticking entity, and never use a NoAI mob to test a push (NoAI mobs ignore velocity).
 
+## v0.14.4 -- simpler HUD again
+
+User: "Change the HUD to make it look more similar to how it looked before, I preferred the simpler design. You can keep
+the construct wheel the way it looks, it's nice. I don't like the border around his menu though."
+
+- `GreenLanternHud` rebuilt on the pre-v0.14.3 layout (`git show ffe1912:.../GreenLanternHud.java`): **no framed panel,
+  no panel backgrounds, no bordered bars** -- just the key boxes, text rows and thin 3 px bars, bottom-right. Top to
+  bottom: (Alt) move names as plain shadowed lines, constructs on cooldown ("■ Buzzsaw 12s"), the shield / dome /
+  barrier meter (centred label + thin bar), the ring-removal bar (Sneak + hold N), the selected construct + its cost /
+  cooldown, "Green Lantern" + one status (OATH 18s / RECITING / BOOST / FLYING), the eight keys, the Ring Charge bar
+  with the reserve mark, and the %.
+- Kept from v0.14.3 in the old style: H and N boxes (8 keys, `BOX` back to 20 = 174 px wide), the Oath countdown in the
+  X box (green overlay) and "..." while reciting, the Gatling / beam / Giant Hand / ring-removal glows, the flash when a
+  move goes off, the Missile Barrage / Gatling / Giant Hand cooldowns, the ring-removal progress, hidden while the
+  construct wheel is open. Dropped: the emblem icon, the SUITED tag (the V box already glows), the segmented Gauge,
+  the construct icons and per-construct cooldown bars.
+- Text is drawn with a shadow and the selected construct in a mid green (`SELECTED` 0xFF5FD08A) -- the old dark
+  green with no shadow disappeared over grass.
+- Construct wheel: unchanged except the thin dark-green **border ring round the centre disc** is gone (the only
+  border it drew). `icon`, `ICONS`, `EMBLEM_ICON` stay on `GreenLanternHud` because the wheel uses them.
+- `hud.projecthero.green_lantern.ring_charge` / `tag.suited` are now unused (left in the lang file).
+- Verified in-client with `scratchpad/V0144HudDebugHarness.java.txt` (same install as the v0.14.3 harness, removed
+  afterwards): idle, busy (shield + cooldowns), low charge + barrier refill, reciting, ring removal, wheel.
+

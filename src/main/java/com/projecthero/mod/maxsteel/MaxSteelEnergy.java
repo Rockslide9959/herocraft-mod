@@ -6,8 +6,9 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * The T.U.R.B.O. Energy resource. Max generates it naturally -- it is "safe channelable energy", not a
- * finite battery -- so it always trends back toward full. Regeneration is 18/sec out of combat, 9/sec
- * in combat, paused for {@link MaxSteelConfig#HIGH_COST_REGEN_DELAY_TICKS} after a high-cost ability
+ * finite battery -- so it always trends back toward full, suited or not (v0.14.4: Normal form regenerates too).
+ * Regeneration is {@link MaxSteelConfig#OUT_OF_COMBAT_REGEN_PER_SEC}/sec out of combat,
+ * {@link MaxSteelConfig#COMBAT_REGEN_PER_SEC}/sec in combat, paused for {@link MaxSteelConfig#HIGH_COST_REGEN_DELAY_TICKS} after a high-cost ability
  * and entirely while a specialised mode's own drain is running (that drain is applied by
  * {@link MaxSteelModes}). At 0 energy the suit drops to Base Mode and every ability locks until natural
  * regen brings the pool back up to {@link MaxSteelConfig#OVERLOAD_RECOVER_ENERGY}.
@@ -95,12 +96,12 @@ public final class MaxSteelEnergy {
 
 	/**
 	 * Natural regeneration, once per server tick. Does nothing while a specialised mode is draining
-	 * (the mode owns the pool then), during the post-high-cost delay, during the overload lock-out, or
-	 * while charging the Turbo Cannon.
+	 * (the mode owns the pool then), during the post-high-cost delay, or while charging the Turbo Cannon.
+	 * v0.14.4: runs in Normal (unsuited) form as well -- only owning the power is required.
 	 */
 	public static void tickRegen(ServerPlayer player, boolean modeDraining, boolean cannonCharging) {
 		MaxSteelState s = MaxSteel.state(player);
-		if (!s.hasPower || !s.transformed) {
+		if (!s.hasPower) {
 			return;
 		}
 		if (s.turboEnergy >= MaxSteelConfig.MAX_TURBO_ENERGY) {
