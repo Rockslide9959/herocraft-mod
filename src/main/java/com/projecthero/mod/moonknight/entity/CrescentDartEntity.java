@@ -46,6 +46,9 @@ public class CrescentDartEntity extends ThrowableProjectile {
 			EntityDataSerializers.INT);
 	private static final EntityDataAccessor<Integer> STUCK_ID = SynchedEntityData.defineId(CrescentDartEntity.class,
 			EntityDataSerializers.INT);
+	/** v0.14.4 Crescent Fan: locked on to one target (TARGET_ID) from the throw, turning hard -- synced so clients bend the same. */
+	private static final EntityDataAccessor<Boolean> LOCKED = SynchedEntityData.defineId(CrescentDartEntity.class,
+			EntityDataSerializers.BOOLEAN);
 
 	// server-only flight parameters
 	private float damage = MoonKnightConfig.DART_DAMAGE;
@@ -89,6 +92,7 @@ public class CrescentDartEntity extends ThrowableProjectile {
 		builder.define(RETURNING, false);
 		builder.define(TARGET_ID, -1);
 		builder.define(STUCK_ID, -1);
+		builder.define(LOCKED, false);
 	}
 
 	@Override
@@ -102,6 +106,25 @@ public class CrescentDartEntity extends ThrowableProjectile {
 
 	public boolean isStuck() {
 		return entityData.get(STUCK_ID) >= 0;
+	}
+
+	/**
+	 * v0.14.4 Crescent Fan: lock this dart on to {@code target} -- it steers hard toward it every tick, never re-picks,
+	 * and keeps flying (no boomerang at the usual range) until it hits, the target dies, or it runs out of life.
+	 */
+	public void lockOn(LivingEntity target) {
+		entityData.set(TARGET_ID, target.getId());
+		entityData.set(LOCKED, true);
+		range = Math.max(range, MoonKnightConfig.DART_FAN_TARGET_RANGE * 2.0);
+	}
+
+	public boolean isLocked() {
+		return entityData.get(LOCKED);
+	}
+
+	/** The entity id this dart is homing on, or -1. */
+	public int targetId() {
+		return entityData.get(TARGET_ID);
 	}
 
 	public boolean isMoonMark() {
@@ -138,7 +161,13 @@ public class CrescentDartEntity extends ThrowableProjectile {
 				tickReturn();
 				return;
 			}
-			if (homing && tickCount % 2 == 0) {
+			if (isLocked()) {
+				Entity t = level().getEntity(entityData.get(TARGET_ID));
+				if (t == null || !t.isAlive()) {
+					entityData.set(LOCKED, false); // its target is gone: fly on as a plain dart
+					entityData.set(TARGET_ID, -1);
+				}
+			} else if (homing && tickCount % 2 == 0) {
 				pickHomingTarget();
 			}
 		}
@@ -193,7 +222,7 @@ public class CrescentDartEntity extends ThrowableProjectile {
 		Vec3 dir = v.normalize();
 		Vec3 to = t.position().add(0, t.getBbHeight() * 0.5, 0).subtract(position()).normalize();
 		double angle = Math.acos(Mth.clamp(dir.dot(to), -1.0, 1.0));
-		double maxTurn = Math.toRadians(MoonKnightConfig.DART_HOMING_TURN);
+		double maxTurn = Math.toRadians(isLocked() ? MoonKnightConfig.DART_LOCKED_TURN : MoonKnightConfig.DART_HOMING_TURN);
 		double f = angle <= maxTurn ? 1.0 : maxTurn / angle;
 		Vec3 turned = dir.lerp(to, f).normalize();
 		setDeltaMovement(turned.scale(speed));
@@ -204,6 +233,7 @@ public class CrescentDartEntity extends ThrowableProjectile {
 	private void startReturn() {
 		entityData.set(RETURNING, true);
 		entityData.set(TARGET_ID, -1);
+		entityData.set(LOCKED, false);
 		if (level() instanceof ServerLevel level) {
 			level.playSound(null, getX(), getY(), getZ(), SoundEvents.PHANTOM_FLAP, SoundSource.PLAYERS, 0.4f, 1.9f);
 		}

@@ -19,6 +19,7 @@
 		"MobGoalsAccessor",
 		"MobMindLockMixin",
 		"MobSymbioteMixin",
+		"MoonKnightStevenFortuneMixin",
 		"MoonKnightVillagerPricesMixin",
 		"MoonKnightVisibilityMixin",
 		"TrophyHeadVisibilityMixin",

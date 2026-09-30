@@ -32,6 +32,7 @@
       "com.projecthero.mod.gametest.MoonKnightAbilityGameTests",
       "com.projecthero.mod.gametest.MoonKnightPowerGameTests",
       "com.projecthero.mod.gametest.MoonKnightTruncheonGameTests",
+      "com.projecthero.mod.gametest.MoonKnightV0144GameTests",
       "com.projecthero.mod.gametest.OathbreakerGameTests",
       "com.projecthero.mod.gametest.SymbioteCreatureGameTests",
       "com.projecthero.mod.gametest.SymbiotePetGameTests",

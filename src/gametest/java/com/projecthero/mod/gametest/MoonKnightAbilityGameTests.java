@@ -92,17 +92,15 @@ public class MoonKnightAbilityGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = "mk_dart_fan")
-	public void fanThrowsThreeDarts(GameTestHelper helper) {
+	public void fanThrowsFiveDarts(GameTestHelper helper) {
 		ServerPlayer p = knight(helper, new Vec3(2.5, 2.0, 2.5), 0.0f);
+		// v0.14.4: no charge -- the fan flies the moment the hold registers, always five darts
 		MoonKnightDarts.INSTANCE.holdStart(p);
-		helper.assertTrue(MoonKnightAnim.flag(p, MoonKnightAction.FLAG_CHARGING), "holding R charges (FLAG_CHARGING)");
-		helper.assertTrue(MoonKnightAnim.action(p).chargeKey == 1, "chargeKey is R's slot");
-		MoonKnightDarts.INSTANCE.holdRelease(p, MoonKnightConfig.HOLD_THRESHOLD_TICKS + MoonKnightConfig.DART_FAN_MAX_CHARGE);
-		int expected = MoonKnightAbilities.fullMoon(p) ? MoonKnightConfig.DART_FAN_COUNT_FULL_MOON : MoonKnightConfig.DART_FAN_COUNT;
+		helper.assertFalse(MoonKnightAnim.flag(p, MoonKnightAction.FLAG_CHARGING), "the fan no longer charges");
+		int expected = MoonKnightConfig.DART_FAN_COUNT;
 		List<CrescentDartEntity> darts = helper.getLevel().getEntitiesOfClass(CrescentDartEntity.class,
 				new AABB(p.blockPosition()).inflate(4.0));
-		helper.assertTrue(darts.size() == expected, "the fan throws " + expected + " darts (" + darts.size() + ")");
-		helper.assertFalse(MoonKnightAnim.flag(p, MoonKnightAction.FLAG_CHARGING), "releasing ends the charge");
+		helper.assertTrue(expected == 5 && darts.size() == expected, "the fan throws 5 darts (" + darts.size() + ")");
 		helper.assertTrue(MoonKnight.cooldownRemaining(p, "darts_hold") > 0, "and starts the fan cooldown");
 		darts.forEach(d -> d.discard());
 		helper.succeed();
@@ -238,7 +236,7 @@ public class MoonKnightAbilityGameTests implements FabricGameTest {
 		double z0 = p.getZ();
 		MoonKnightGrapple.INSTANCE.sneak(p);
 		double moved = z0 - p.getZ();
-		double min = MoonKnightConfig.SHADOW_STEP_DISTANCE * MoonKnightConfig.LUNAR_MIN - 0.3;
+		double min = MoonKnightConfig.SHADOW_STEP_DISTANCE * MoonKnightConfig.LUNAR_DAY - 0.3;
 		helper.assertTrue(moved >= min, "Sneak+G Shadow Step blinks straight back (" + moved + " blocks)");
 		helper.assertTrue(Math.abs(p.getX() - helper.absoluteVec(new Vec3(3.5, 2.0, 7.5)).x) < 0.01, "and only back");
 		helper.assertTrue(p.hasEffect(MobEffects.INVISIBILITY), "cloaked in shadow (invisibility)");

@@ -78,6 +78,10 @@ public class MoonKnightCapeLayer extends RenderLayer<AbstractClientPlayer, Playe
 		if (player.isInvisible() || !MoonKnight.isTransformed(player)) {
 			return;
 		}
+		MoonKnightAlter shown = shownAlter(player, pt);
+		if (!shown.hasCape()) {
+			return; // v0.14.4: Steven's Mr. Knight suit has no cape (it goes / comes back halfway through a swap)
+		}
 		MoonKnightAction action = MoonKnightAnim.action(player);
 		double[] ease = EASE.computeIfAbsent(player.getUUID(), k -> new double[]{0, 0, System.nanoTime()});
 		double dt = Math.min(0.2, (System.nanoTime() - ease[2]) / 1.0e9);
@@ -86,7 +90,7 @@ public class MoonKnightCapeLayer extends RenderLayer<AbstractClientPlayer, Playe
 		ease[1] += ((action.has(MoonKnightAction.FLAG_CAPE_BLOCK) ? 1 : 0) - ease[1]) * k;
 		double shroud = ease[1];
 
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(texture(player, pt)));
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURES[shown.ordinal()]));
 		if (action.has(MoonKnightAction.FLAG_GLIDING)) {
 			drawWebbing(vc, pose.last(), light, getParentModel(), ageInTicks + pt);
 			pose.pushPose();
@@ -126,13 +130,13 @@ public class MoonKnightCapeLayer extends RenderLayer<AbstractClientPlayer, Playe
 		pose.popPose();
 	}
 
-	/** This alter's cape; during an alter swap the old one until halfway through. */
-	private static ResourceLocation texture(AbstractClientPlayer player, float pt) {
+	/** Whose cape is shown: this alter's; during an alter swap the old one until halfway through. */
+	private static MoonKnightAlter shownAlter(AbstractClientPlayer player, float pt) {
 		MoonKnightAlter from = MoonKnightReveal.swapFrom(player);
 		if (from != null && MoonKnightReveal.swapProgress(player, pt) < 0.5f) {
-			return TEXTURES[from.ordinal()];
+			return from;
 		}
-		return TEXTURES[MoonKnight.alter(player).ordinal()];
+		return MoonKnight.alter(player);
 	}
 
 	// ---------------------------------------------------------------- the glide webbing (v0.13.21)

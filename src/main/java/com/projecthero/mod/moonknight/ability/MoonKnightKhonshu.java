@@ -15,6 +15,7 @@ import com.projecthero.mod.moonknight.MoonKnightLunar;
 import com.projecthero.mod.moonknight.data.MoonKnightAction;
 import com.projecthero.mod.moonknight.data.MoonKnightState;
 import com.projecthero.mod.network.MoonKnightKhonshuFxPayload;
+import com.projecthero.mod.squad.Squads;
 import com.projecthero.mod.titanshifter.TitanCombat;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
@@ -54,14 +55,16 @@ import net.minecraft.world.phys.Vec3;
 /**
  * Z -- Khonshu (Moon Knight Phase 6; on V before v0.13.21), plus the passive Khonshu's Resurrection.
  * <ul>
- *   <li><b>TAP</b> Moonbeam ({@code khonshu}, 10 s): a column of moonlight falls on the looked-at block / mob up to 40
- *       blocks away -- 10 (x lunar power) to every hostile within 2 blocks, double to the undead. Night only, 10
- *       Vengeance.</li>
+ *   <li><b>TAP</b> Moonbeam ({@code khonshu}, v0.14.4: 5 s): moonlight falls on the looked-at block / mob up to 40
+ *       blocks away -- an AoE: 35 (x lunar power) at the centre down to 60% at 4.5 blocks, to every foe in the
+ *       radius (never the player or a squad-mate), double to the undead. Night only, 10 Vengeance (10%).</li>
  *   <li><b>HOLD 2 s</b> Eye of Khonshu (the ultimate): full moon + 100 Vengeance, once per night. Consumes all
- *       Vengeance; every hostile within 32 blocks glows and is Weakened (II) for 30 s, the player gets Strength II +
- *       Speed II for 30 s, and Khonshu's skull is drawn across the sky. Letting go early cancels for free.</li>
- *   <li><b>SNEAK+Z</b> Khonshu's Judgement ({@code khonshu_sneak}, 13 s): mark the targeted mob; if it dies within
- *       10 s, +20 Vengeance and 3 hearts back.</li>
+ *       Vengeance; v0.14.4: for one minute every hostile within 30 blocks of the player (the area follows him) glows
+ *       and is Weakened (II) until it ends, the player keeps Strength II + Speed II, and every 2 s a free Moonbeam falls
+ *       on a random foe in the area. Khonshu's skull is drawn across the sky. Letting go early cancels for free.</li>
+ *   <li><b>SNEAK+Z</b> Khonshu's Judgement ({@code khonshu_sneak}, v0.14.4: 20 s, 10 Vengeance): the targeted mob burns
+ *       for 10 (x lunar power) a second for 15 s, and every point of damage the player deals it meanwhile (the burn
+ *       and his own hits) heals him.</li>
  *   <li><b>Khonshu's Resurrection</b>: while suited, the first fatal hit of a lunar cycle is refused -- back to 6
  *       hearts with 2 s of invulnerability; it recharges at the next full moon night ({@code MoonKnight.tickSecond}).</li>
  * </ul>
@@ -162,9 +165,17 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 		return hit.getLocation();
 	}
 
-	/** Moonbeam damage for one target: base x lunar power, doubled against the undead, capped against bosses. */
+	/** Moonbeam damage for one target at the centre: base x lunar power, doubled against the undead, capped against bosses. */
 	public static float moonbeamDamage(LivingEntity target, float power) {
-		float dmg = MoonKnightLunar.scale(MoonKnightConfig.MOONBEAM_DAMAGE, power);
+		return moonbeamDamage(target, power, 1.0f);
+	}
+
+	/**
+	 * v0.14.4: Moonbeam damage for one target {@code falloff} (0..1 of the radius) out from the strike point -- full at
+	 * the centre, {@link MoonKnightConfig#MOONBEAM_EDGE_FACTOR} of it at the very edge, linear in between.
+	 */
+	public static float moonbeamDamage(LivingEntity target, float power, float falloffFactor) {
+		float dmg = MoonKnightLunar.scale(MoonKnightConfig.MOONBEAM_DAMAGE, power) * falloffFactor;
 		if (target.getType().is(EntityTypeTags.UNDEAD)) {
 			dmg *= MoonKnightConfig.MOONBEAM_UNDEAD_MULTIPLIER;
 		}
@@ -174,11 +185,27 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 		return dmg;
 	}
 
-	/** Bring the moonlight down at {@code at}: hurt everything hostile in the column, draw it for everyone. Returns hits. */
+	/** The falloff multiplier at {@code distance} blocks from the strike point (1 at the centre, 0.6 at the radius). */
+	public static float moonbeamFalloff(double distance) {
+		double f = Math.min(1.0, Math.max(0.0, distance / MoonKnightConfig.MOONBEAM_RADIUS));
+		return (float) (1.0 - (1.0 - MoonKnightConfig.MOONBEAM_EDGE_FACTOR) * f);
+	}
+
+	/** Bring the moonlight down at {@code at} (Z: the player's own cast, with his casting pose). Returns hits. */
 	public static int strikeMoonbeam(ServerPlayer player, Vec3 at, float power) {
+		return strikeMoonbeam(player, at, power, true);
+	}
+
+	/**
+	 * Bring the moonlight down at {@code at}: v0.14.4 an AoE -- every foe ({@link #isFoe}: never the player, never a
+	 * squad-mate) within {@link MoonKnightConfig#MOONBEAM_RADIUS} blocks of the strike point takes the beam, with the
+	 * falloff; drawn for everyone. {@code cast} = false for the Eye of Khonshu's random strikes (no casting pose, no
+	 * casting sound at the player). Returns hits.
+	 */
+	public static int strikeMoonbeam(ServerPlayer player, Vec3 at, float power, boolean cast) {
 		ServerLevel level = player.serverLevel();
 		double r = MoonKnightConfig.MOONBEAM_RADIUS;
-		AABB column = new AABB(at.x - r, at.y - 1.5, at.z - r, at.x + r, at.y + 5.0, at.z + r);
+		AABB column = new AABB(at.x - r, at.y - 2.0, at.z - r, at.x + r, at.y + 6.0, at.z + r);
 		// moonlight: indirect magic credited to the player but with no direct entity, so it never counts as his melee
 		// (the truncheon combo / alter melee bonuses key off a direct hit)
 		DamageSource source = new DamageSource(level.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE)
@@ -187,10 +214,11 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, column, e -> isFoe(player, e))) {
 			double dx = Math.max(Math.max(e.getBoundingBox().minX - at.x, at.x - e.getBoundingBox().maxX), 0.0);
 			double dz = Math.max(Math.max(e.getBoundingBox().minZ - at.z, at.z - e.getBoundingBox().maxZ), 0.0);
-			if (dx * dx + dz * dz > r * r) {
+			double d = Math.sqrt(dx * dx + dz * dz);
+			if (d > r) {
 				continue;
 			}
-			if (AbilityHelpers.hurtBurst(player, e, source, moonbeamDamage(e, power))) {
+			if (AbilityHelpers.hurtBurst(player, e, source, moonbeamDamage(e, power, moonbeamFalloff(d)))) {
 				hits++;
 				level.sendParticles(ParticleTypes.END_ROD, e.getX(), e.getY() + e.getBbHeight() * 0.5, e.getZ(), 10,
 						0.2, 0.3, 0.2, 0.08);
@@ -200,25 +228,30 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 				}
 			}
 		}
-		moonbeamFx(player, level, at);
+		moonbeamFx(player, level, at, cast);
 		return hits;
 	}
 
-	/** Whom Khonshu's light burns: hostile mobs, anything hunting the player, and players only where PvP allows. */
-	static boolean isFoe(ServerPlayer player, LivingEntity e) {
+	/**
+	 * Whom Khonshu's light burns: hostile mobs, anything hunting the player, and players only where PvP allows --
+	 * never a squad-mate ({@code Squads.areAllies}). Public for the gametests.
+	 */
+	public static boolean isFoe(ServerPlayer player, LivingEntity e) {
 		if (e == player || !e.isAlive() || e instanceof ArmorStand) {
 			return false;
 		}
 		if (e instanceof Player other) {
 			MinecraftServer server = player.getServer();
 			return server != null && server.isPvpAllowed() && HeroConfig.get().abilityPvpDamage
-					&& !other.isSpectator() && !com.projecthero.mod.squad.Squads.areAllies(player, other);
+					&& !other.isSpectator() && !Squads.areAllies(player, other);
 		}
 		return e instanceof Enemy || (e instanceof Mob mob && mob.getTarget() == player);
 	}
 
-	private static void moonbeamFx(ServerPlayer player, ServerLevel level, Vec3 at) {
-		MoonKnightAnim.play(player, MoonKnightAnim.MOONBEAM);
+	private static void moonbeamFx(ServerPlayer player, ServerLevel level, Vec3 at, boolean cast) {
+		if (cast) {
+			MoonKnightAnim.play(player, MoonKnightAnim.MOONBEAM);
+		}
 		// every nearby client draws the beam itself (a beacon-style column fading out)
 		MoonKnightKhonshuFxPayload beam = new MoonKnightKhonshuFxPayload(MoonKnightKhonshuFxPayload.Kind.MOONBEAM,
 				at.x, at.y, at.z, 30);
@@ -241,8 +274,10 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.2f, 1.7f);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.4f, 0.6f);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.TRIDENT_THUNDER.value(), SoundSource.PLAYERS, 0.35f, 1.8f);
-		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ILLUSIONER_CAST_SPELL,
-				SoundSource.PLAYERS, 0.7f, 1.3f);
+		if (cast) {
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ILLUSIONER_CAST_SPELL,
+					SoundSource.PLAYERS, 0.7f, 1.3f);
+		}
 	}
 
 	// ================================================================ HOLD: Eye of Khonshu
@@ -357,8 +392,10 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 
 	/**
 	 * Open the Eye (conditions already checked): consume all Vengeance -- deliberately, so it never triggers a Fracture
-	 * -- mark tonight as used, reveal and weaken every hostile within 32 blocks, empower the player, draw the skull.
-	 * Returns how many hostiles were caught.
+	 * -- mark tonight as used, and for the next minute (v0.14.4) keep every hostile within 30 blocks of the player
+	 * (the area follows him) revealed and weakened, keep the player empowered, and bring random Moonbeams down on the
+	 * hostiles around him ({@link #eyePulse}, {@link #eyeStrike}). Draws the skull. Returns how many hostiles were
+	 * caught by the first pulse.
 	 */
 	public static int openEye(ServerPlayer player) {
 		ServerLevel level = player.serverLevel();
@@ -368,18 +405,11 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 		c.abilityReadyAt.put(EYE_NIGHT_KEY, nightIndex(player));
 		MoonKnight.saveState(player, c);
 
-		int ticks = MoonKnightConfig.EYE_DURATION;
-		player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, ticks, MoonKnightConfig.EYE_PLAYER_AMPLIFIER, false, true, true));
-		player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, ticks, MoonKnightConfig.EYE_PLAYER_AMPLIFIER, false, true, true));
-		List<LivingEntity> foes = AbilityHelpers.living(level, player.position(), MoonKnightConfig.EYE_RADIUS,
-				e -> e instanceof Enemy && e != player);
+		EYE_UNTIL.put(player.getUUID(), now + MoonKnightConfig.EYE_DURATION);
+		List<LivingEntity> foes = eyePulse(player);
 		for (LivingEntity e : foes) {
-			e.addEffect(new MobEffectInstance(MobEffects.GLOWING, ticks, 0, false, false, true), player);
-			int weak = TitanCombat.isBoss(e) ? 0 : MoonKnightConfig.EYE_WEAKNESS_AMPLIFIER;
-			e.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, ticks, weak, false, true, true), player);
 			level.sendParticles(ParticleTypes.END_ROD, e.getX(), e.getY() + e.getBbHeight() + 0.3, e.getZ(), 4, 0.1, 0.1, 0.1, 0.02);
 		}
-		EYE_UNTIL.put(player.getUUID(), now + ticks);
 		MoonKnightAnim.setFlag(player, MoonKnightAction.FLAG_EYE, true);
 		MoonKnightAnim.play(player, MoonKnightAnim.EYE_RELEASE);
 
@@ -404,6 +434,68 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 		return foes.size();
 	}
 
+	/** Ticks left on this player's open Eye, 0 if it is closed. */
+	public static int eyeTicksLeft(ServerPlayer player) {
+		Long until = EYE_UNTIL.get(player.getUUID());
+		return until == null ? 0 : (int) Math.max(0L, until - player.level().getGameTime());
+	}
+
+	/**
+	 * v0.14.4, once a second while the Eye is open: the player keeps Strength II + Speed II, and every hostile mob
+	 * within {@link MoonKnightConfig#EYE_RADIUS} of him right now glows and is Weakened (II; I on a boss) until the Eye
+	 * closes -- so the debuffs cover the whole minute, including mobs that walk in late. Never a squad-mate (players
+	 * are never touched by the debuff). Returns the hostiles caught.
+	 */
+	public static List<LivingEntity> eyePulse(ServerPlayer player) {
+		int left = eyeTicksLeft(player);
+		if (left <= 0) {
+			return List.of();
+		}
+		refreshEffect(player, MobEffects.DAMAGE_BOOST, left, MoonKnightConfig.EYE_PLAYER_AMPLIFIER);
+		refreshEffect(player, MobEffects.MOVEMENT_SPEED, left, MoonKnightConfig.EYE_PLAYER_AMPLIFIER);
+		List<LivingEntity> foes = AbilityHelpers.living(player.serverLevel(), player.position(), MoonKnightConfig.EYE_RADIUS,
+				e -> e instanceof Enemy && e != player && !(e instanceof Player));
+		for (LivingEntity e : foes) {
+			refreshEffect(e, MobEffects.GLOWING, left, 0);
+			refreshEffect(e, MobEffects.WEAKNESS, left, TitanCombat.isBoss(e) ? 0 : MoonKnightConfig.EYE_WEAKNESS_AMPLIFIER);
+		}
+		return foes;
+	}
+
+	/** Give {@code e} the effect for {@code ticks} unless it already has at least that much of it. */
+	private static void refreshEffect(LivingEntity e, net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect> effect,
+			int ticks, int amplifier) {
+		MobEffectInstance cur = e.getEffect(effect);
+		if (cur != null && cur.getAmplifier() >= amplifier && (cur.isInfiniteDuration() || cur.getDuration() >= ticks - 25)) {
+			return;
+		}
+		boolean visible = effect != MobEffects.GLOWING;
+		e.addEffect(new MobEffectInstance(effect, ticks, amplifier, false, visible, true));
+	}
+
+	/**
+	 * v0.14.4, every {@link MoonKnightConfig#EYE_STRIKE_INTERVAL} ticks while the Eye is open: a Moonbeam (the same AoE
+	 * strike as Z, free) falls on a random foe within {@link MoonKnightConfig#EYE_RADIUS} of the player ({@link #isFoe}:
+	 * never him, never a squad-mate). Returns the struck foe, or null if there was nobody to strike.
+	 */
+	public static LivingEntity eyeStrike(ServerPlayer player) {
+		if (eyeTicksLeft(player) <= 0) {
+			return null;
+		}
+		List<LivingEntity> foes = eyeTargets(player);
+		if (foes.isEmpty()) {
+			return null;
+		}
+		LivingEntity target = foes.get(player.getRandom().nextInt(foes.size()));
+		strikeMoonbeam(player, target.position(), MoonKnightAbilities.power(player), false);
+		return target;
+	}
+
+	/** Everyone the Eye's random Moonbeams may fall on: foes within the Eye's radius of the player. */
+	public static List<LivingEntity> eyeTargets(ServerPlayer player) {
+		return AbilityHelpers.living(player.serverLevel(), player.position(), MoonKnightConfig.EYE_RADIUS, e -> isFoe(player, e));
+	}
+
 	private static Vec3 horizontal(Vec3 look) {
 		Vec3 h = new Vec3(look.x, 0.0, look.z);
 		return h.lengthSqr() < 1.0e-6 ? new Vec3(0.0, 0.0, 1.0) : h.normalize();
@@ -417,15 +509,22 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 			return;
 		}
 		LivingEntity target = AbilityHelpers.raycastEntity(player, MoonKnightConfig.JUDGEMENT_RANGE);
-		if (target == null || target instanceof Player) {
+		if (target == null || target instanceof Player || MoonKnightCombat.friendly(player, target)) {
 			MoonKnightAbilities.say(player, "message.projecthero.moon_knight.judgement_no_target");
+			return;
+		}
+		if (!MoonKnightAbilities.spendVengeance(player, MoonKnightConfig.JUDGEMENT_COST)) {
 			return;
 		}
 		judge(player, target);
 		MoonKnightAbilities.cooldown(player, SNEAK, MoonKnightConfig.JUDGEMENT_COOLDOWN);
 	}
 
-	/** Mark {@code target}: if it dies within {@link MoonKnightConfig#JUDGEMENT_TICKS}, the Moon Knight is repaid. */
+	/**
+	 * Judge {@code target} for {@link MoonKnightConfig#JUDGEMENT_TICKS} (v0.14.4: 15 s): it burns for
+	 * {@link MoonKnightConfig#JUDGEMENT_DAMAGE_PER_SECOND} (x lunar power) every second ({@link #judgementBurn}), and
+	 * every point of damage this player deals it while the mark lasts heals him ({@link #onJudgedDamaged}).
+	 */
 	public static void judge(ServerPlayer player, LivingEntity target) {
 		ServerLevel level = player.serverLevel();
 		JUDGED.put(player.getUUID(), new Mark(target.getUUID(), level.getGameTime() + MoonKnightConfig.JUDGEMENT_TICKS));
@@ -440,7 +539,54 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 				.withStyle(ChatFormatting.WHITE), true);
 	}
 
-	/** A mob died (AFTER_DEATH): whoever judged it within the window is repaid. */
+	/**
+	 * v0.14.4: one second of Judgement's burn on this player's judged target -- {@link MoonKnightConfig#JUDGEMENT_DAMAGE_PER_SECOND}
+	 * x lunar power of moonlight (indirect magic credited to him, boss-capped). The heal comes back through
+	 * {@link #onJudgedDamaged} like any other damage he deals it. Returns true if it landed. Public for the gametests.
+	 */
+	public static boolean judgementBurn(ServerPlayer player) {
+		Mark m = JUDGED.get(player.getUUID());
+		if (m == null || m.until() < player.level().getGameTime()
+				|| !(player.serverLevel().getEntity(m.target()) instanceof LivingEntity target) || !target.isAlive()) {
+			return false;
+		}
+		ServerLevel level = player.serverLevel();
+		DamageSource source = new DamageSource(level.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE)
+				.getHolderOrThrow(DamageTypes.INDIRECT_MAGIC), null, player);
+		float amount = MoonKnightCombat.bossCapped(target,
+				MoonKnightConfig.JUDGEMENT_DAMAGE_PER_SECOND * MoonKnightAbilities.power(player));
+		boolean landed = AbilityHelpers.hurtBurst(player, target, source, amount);
+		if (landed) {
+			level.sendParticles(MOONLIGHT, target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(), 8,
+					0.3, 0.4, 0.3, 0.0);
+			level.sendParticles(ParticleTypes.END_ROD, target.getX(), target.getY() + target.getBbHeight() + 0.6, target.getZ(), 0,
+					0.0, -0.4, 0.0, 0.3);
+			level.playSound(null, target.getX(), target.getY(), target.getZ(), SoundEvents.AMETHYST_BLOCK_HIT, SoundSource.PLAYERS, 0.8f, 0.6f);
+		}
+		return landed;
+	}
+
+	/**
+	 * v0.14.4 lifesteal (from {@code MoonKnightDamage}'s AFTER_DAMAGE): damage {@code dealer} just dealt {@code victim}
+	 * heals him point for point while {@code victim} is under his Judgement -- the burn and his own hits alike.
+	 */
+	public static void onJudgedDamaged(ServerPlayer dealer, LivingEntity victim, float taken) {
+		if (JUDGED.isEmpty() || taken <= 0.0f) {
+			return;
+		}
+		Mark m = JUDGED.get(dealer.getUUID());
+		if (m == null || !m.target().equals(victim.getUUID()) || m.until() < dealer.level().getGameTime()
+				|| !dealer.isAlive()) {
+			return;
+		}
+		if (dealer.getHealth() < dealer.getMaxHealth()) {
+			dealer.heal(taken);
+			dealer.serverLevel().sendParticles(ParticleTypes.HEART, dealer.getX(), dealer.getY() + 2.0, dealer.getZ(), 1,
+					0.3, 0.1, 0.3, 0.0);
+		}
+	}
+
+	/** A mob died (AFTER_DEATH): a Judgement on it ends (v0.14.4: no more kill refund -- the heal is the reward). */
 	public static void onEntityKilled(LivingEntity victim, DamageSource source) {
 		if (JUDGED.isEmpty() || !(victim.level() instanceof ServerLevel level) || level.getServer() == null) {
 			return;
@@ -462,8 +608,6 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 	}
 
 	private static void fulfil(ServerPlayer player, LivingEntity victim) {
-		MoonKnight.addVengeance(player, MoonKnightConfig.JUDGEMENT_REFUND);
-		player.heal(MoonKnightConfig.JUDGEMENT_HEAL);
 		ServerLevel level = player.serverLevel();
 		if (victim.level() == level) {
 			level.sendParticles(ParticleTypes.END_ROD, victim.getX(), victim.getY() + victim.getBbHeight() * 0.5, victim.getZ(),
@@ -474,8 +618,8 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 		level.sendParticles(ParticleTypes.HEART, player.getX(), player.getY() + 2.0, player.getZ(), 3, 0.4, 0.2, 0.4, 0.0);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.2f, 0.8f);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BELL_BLOCK, SoundSource.PLAYERS, 0.6f, 1.6f);
-		player.displayClientMessage(Component.translatable("message.projecthero.moon_knight.judgement_fulfilled",
-				Math.round(MoonKnightConfig.JUDGEMENT_REFUND)).withStyle(ChatFormatting.WHITE, ChatFormatting.ITALIC), true);
+		player.displayClientMessage(Component.translatable("message.projecthero.moon_knight.judgement_fulfilled")
+				.withStyle(ChatFormatting.WHITE, ChatFormatting.ITALIC), true);
 	}
 
 	/** Is {@code target} currently under this player's Judgement? (tests / future HUD) */
@@ -571,6 +715,14 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 				MoonKnightAnim.setFlag(player, MoonKnightAction.FLAG_EYE, false);
 			} else {
 				AbilityHelpers.modeAura(player, MOONLIGHT, 3); // self-throttled (every 6 ticks)
+				long left = eye - now;
+				// v0.14.4: the whole minute -- keep the area debuffed / the player buffed, and rain Moonbeams on it
+				if (left % MoonKnightConfig.EYE_PULSE_INTERVAL == 0L) {
+					eyePulse(player);
+				}
+				if (left % MoonKnightConfig.EYE_STRIKE_INTERVAL == 0L) {
+					eyeStrike(player);
+				}
 			}
 		}
 		Mark mark = JUDGED.get(id);
@@ -580,8 +732,15 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 				if (now > mark.until()) {
 					JUDGED.remove(id);
 				}
-			} else if (now % 4L == 0L) {
-				drawMark(player.serverLevel(), living, now);
+			} else {
+				long left = mark.until() - now;
+				// v0.14.4: the burn, once a second for the whole 15 s
+				if (left < MoonKnightConfig.JUDGEMENT_TICKS && left % 20L == 0L) {
+					judgementBurn(player);
+				}
+				if (now % 4L == 0L) {
+					drawMark(player.serverLevel(), living, now);
+				}
 			}
 		}
 	}

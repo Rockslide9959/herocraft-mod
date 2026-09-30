@@ -171,9 +171,8 @@ public final class MoonKnight {
 	}
 
 	/**
-	 * A mob died ({@code AFTER_DEATH}). A pact-holder who killed a hostile mob gains Vengeance: +5 if it was hunting a
-	 * villager, wandering trader, iron golem or another player; otherwise +2 at night, +1 by day. Every hostile kill
-	 * also resets the two-day drain timer.
+	 * A mob died ({@code AFTER_DEATH}). A pact-holder who killed a hostile mob gains Vengeance: +6 if it was hunting a
+	 * villager, wandering trader, iron golem or another player; otherwise +3 at night, +2 by day (v0.14.4: was 5 / 2 / 1).
 	 */
 	public static void onEntityKilled(LivingEntity victim, DamageSource source) {
 		if (!(source.getEntity() instanceof ServerPlayer killer) || !(victim instanceof Enemy) || !hasPower(killer)) {
@@ -193,8 +192,8 @@ public final class MoonKnight {
 		c.vengeance = Math.min(MoonKnightConfig.VENGEANCE_MAX, c.vengeance + gain);
 		save(killer, c);
 		if (protector) {
-			killer.displayClientMessage(Component.translatable("message.projecthero.moon_knight.protector_kill")
-					.withStyle(ChatFormatting.WHITE), true);
+			killer.displayClientMessage(Component.translatable("message.projecthero.moon_knight.protector_kill",
+					Math.round(gain)).withStyle(ChatFormatting.WHITE), true);
 		}
 	}
 
@@ -300,12 +299,11 @@ public final class MoonKnight {
 					.withStyle(ChatFormatting.WHITE, ChatFormatting.ITALIC), false);
 		}
 
-		// Vengeance slowly fades after two in-game days without a hostile kill
-		boolean drained = false;
-		if (s.vengeance > 0.0f && now - s.lastHostileKill > MoonKnightConfig.VENGEANCE_IDLE_BEFORE_DRAIN) {
+		// v0.14.4: Vengeance regenerates 0.5% of the meter a second while out of combat (the old two-idle-days drain is gone)
+		if (s.vengeance < MoonKnightConfig.VENGEANCE_MAX && !inCombat(player)) {
 			c = c == null ? s.copy() : c;
-			c.vengeance = Math.max(0.0f, s.vengeance - MoonKnightConfig.VENGEANCE_DRAIN_PER_SECOND);
-			drained = c.vengeance <= 0.0f;
+			c.vengeance = Math.min(MoonKnightConfig.VENGEANCE_MAX,
+					s.vengeance + MoonKnightConfig.VENGEANCE_REGEN_FRACTION_PER_SECOND * MoonKnightConfig.VENGEANCE_MAX);
 		}
 		if (c != null) {
 			save(player, c);
@@ -313,9 +311,36 @@ public final class MoonKnight {
 				MoonKnightAnim.markSwap(player, s.alter); // the fracture ended: his own suit comes back the same way
 			}
 		}
-		if (drained) {
-			tryFracture(player);
+	}
+
+	// ---------------------------------------------------------------- v0.14.4: combat tracking (for the Vengeance regen)
+
+	/** Pact-holder UUID -> game time of the last damage he dealt or took. Missing = out of combat. */
+	private static final Map<java.util.UUID, Long> LAST_COMBAT = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/** He just dealt or took damage (from {@code MoonKnightDamage}'s AFTER_DAMAGE hook). Public for the gametests. */
+	public static void markCombat(ServerPlayer player) {
+		LAST_COMBAT.put(player.getUUID(), player.level().getGameTime());
+	}
+
+	/** Dealt or took damage within the last {@link MoonKnightConfig#OUT_OF_COMBAT_TICKS} (5 s). */
+	public static boolean inCombat(ServerPlayer player) {
+		Long last = LAST_COMBAT.get(player.getUUID());
+		if (last == null) {
+			return false;
 		}
+		long since = player.level().getGameTime() - last;
+		return since >= 0L && since < MoonKnightConfig.OUT_OF_COMBAT_TICKS;
+	}
+
+	/** Test hook: forget the last hit, as if the fight ended long ago. */
+	public static void clearCombat(ServerPlayer player) {
+		LAST_COMBAT.remove(player.getUUID());
+	}
+
+	/** Server stop (from {@code ServerStateReset}). */
+	public static void clearSessionState() {
+		LAST_COMBAT.clear();
 	}
 
 	/** Death / relog / dimension change: drop held keys, the glide flag and the pose (the suit itself stays on). */

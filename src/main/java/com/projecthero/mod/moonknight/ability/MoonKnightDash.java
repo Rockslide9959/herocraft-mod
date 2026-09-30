@@ -20,7 +20,7 @@ import net.minecraft.world.phys.Vec3;
  * <ul>
  *   <li><b>X</b> ({@code dash}): a burst of speed exactly where the crosshair points -- up, down or level (v0.14.3; it
  *       used to be flattened to the horizontal)
- *       ({@link MoonKnightConfig#DASH_SPEED} blocks/tick for {@link MoonKnightConfig#DASH_TICKS} ticks -- about 7
+ *       ({@link MoonKnightConfig#DASH_SPEED} blocks/tick for {@link MoonKnightConfig#DASH_TICKS} ticks -- about 12 (v0.14.4; it was 7)
  *       blocks), trailing moonlight; no fall damage for a moment after. Fires on the press. Cooldown
  *       {@link MoonKnightConfig#DASH_COOLDOWN}.</li>
  *   <li><b>SNEAK+X</b> ({@code dash_sneak}): {@link MoonKnightGrapple#fireLine} -- 60 blocks; a block pulls you

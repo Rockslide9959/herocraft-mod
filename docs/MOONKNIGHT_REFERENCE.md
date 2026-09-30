@@ -309,3 +309,78 @@ ticks, and the first-person frames. Tests: `MoonKnightTruncheonGameTests` (press
 stows, item back in its slot, one copy only, revoke removes it; 7 / 15 numbers; combo steps, bonuses, anti-spam gap,
 window reset, stow reset; bare hands never combo).
 
+## v0.14.4 -- balance pass, three lunar states, AoE Moonbeam, the minute-long Eye, Steven's Fortune
+
+Where this disagrees with the sections above, this section wins. New numbers live in the `// v0.14.4` block at the
+end of `MoonKnightConfig`; changed ones are edited in place with a `// v0.14.4` comment. Tests:
+`MoonKnightV0144GameTests` (+ updated `MoonKnightGameTests` / `MoonKnightAbilityGameTests` / `MoonKnightPowerGameTests`).
+Lang: `scratchpad/lang_v0144_moonknight.js` (idempotent, re-runnable after a merge).
+
+**Lunar power: exactly three states** (`MoonKnightLunar.State`, pure resolver `MoonKnightLunar.resolve(hasMoon, night,
+phase)`): DAY x0.7 (daytime, and always in the Nether and the End -- `hasMoon` is false for a fixed-time or
+skylight-less dimension), NIGHT x1.0 (any night that isn't a full moon), FULL MOON x1.5 (night, moon phase 0). The
+per-phase table (gibbous 1.3 / quarter 1.15 / crescent 1.0 / new 0.8) and the no-sky -0.15 penalty (min 0.6) are gone,
+so the base numbers everywhere are now the night numbers. Night-only behaviour is unchanged and keys off
+`State.isNight()` (NIGHT or FULL MOON): homing darts, Moonbeam, Truncheon night heal, +3 kill Vengeance, longer glides;
+FULL MOON alone opens the Eye and recharges the Resurrection. HUD: the sun (DAY), tonight's moon (NIGHT) or a haloed
+full moon (FULL MOON) with `x0.7` / `x1.0` / `x1.5`; Left Alt shows the state's name
+(`hud.projecthero.moon_knight.lunar.*`).
+
+**Vengeance.** Kills: protector 5 -> 6, night 2 -> 3, day 1 -> 2. The two-idle-days drain is gone; instead it
+regenerates 0.5% of the meter (0.5 points) a second while **out of combat** = no damage dealt to or taken from anything
+for 5 s (`OUT_OF_COMBAT_TICKS`). Tracked in `MoonKnight.LAST_COMBAT` (a static map, cleared by `ServerStateReset`),
+stamped from `MoonKnightDamage`'s `AFTER_DAMAGE` hook for any hit a pact-holder takes or deals (fall / fire damage count
+as "taken"); applies to every pact-holder, suited or not, in `MoonKnight.tickSecond`.
+
+**Suit passives.** Falls: x0.5 on top of the suit's x0.8 (`SUIT_FALL_DAMAGE_TAKEN`, in `MoonKnightDamage.incomingFactor`,
+so a suited fall does 40% of vanilla; the glide / dash / grapple fall immunities still apply first). Step assist:
+`Attributes.STEP_HEIGHT` +0.4 (0.6 -> 1.0) with the fixed id `projecthero:moon_knight_suit_step`, a transient modifier
+kept by `MoonKnightAlters.reconcile` like the other suit passives.
+
+**Alters.** Marc Spector (the fighter / "strength" alter) gets Resistance I while suited as Marc
+(`MoonKnightAlters.marcResistance`: a 3 s effect refreshed every reconcile, removed on switch / suit-off, never touching
+a stronger or longer Resistance from elsewhere). Git history shows Moon Knight never had Resistance before -- Marc was
+the closest match for "strength mode". Steven Grant: no cape (`MoonKnightAlter.hasCape()`; `MoonKnightCapeLayer` skips
+him, changing over halfway through a swap like the textures did), so no Cape Glide (`MoonKnightCape.canGlide`, ends one in
+progress) and no Cape Block (`canBlock`); and **Fortune III** on everything he mines: `mixin/MoonKnightStevenFortuneMixin`
+swaps the TOOL handed to `Block.getDrops(state, level, pos, be, miner, tool)` for `MoonKnightAlters.fortuneTool` -- a copy
+with Fortune upgraded to at least III (the higher level wins, no stacking), a stick carrying it when bare-handed.
+
+**R.** Crescent Fan: no charge -- the moment the hold registers, 5 darts (`DART_FAN_COUNT`, was 3 / 5 under a full moon)
+each lock on (`CrescentDartEntity.lockOn`, synced `LOCKED` flag, 25 deg/tick turn, no boomerang while locked) to one of
+the 5 closest hostiles within 32 blocks in line of sight (`MoonKnightDarts.fanTargets` -- the Green Lantern Missile
+Barrage's selection without its in-front cone), a normal dart's damage each; spare darts double up, none = the old
+spread. Moon Mark cooldown 8 s -> 5 s.
+
+**G.** Grapple Kick 8 -> 20. Aim assist (`MoonKnightAim.kickTarget`, side-neutral): the crosshair ray first (squad-mates /
+own pets are see-through), else the best target within 9 deg of the crosshair (body angular size subtracted; the angle
+decides, distance breaks near-ties), in line of sight, up to 100 blocks. Lock-on preview, owner only:
+`client/moonknight/MoonKnightKickPreviewClient` runs the same selection every other client tick and draws a turning ring
+of moonlight over the pick (grey while the kick recharges); the HUD writes `[G] Zombie 23m` under the crosshair. In
+flight the pull steers at the target's current body centre led by its horizontal velocity (`kickAnchor`, up to 8 ticks),
+and the kick lands when the player's box grown by 0.8 touches the target's (`kickConnects`, or the old reach). With no
+target it still does nothing but say so (the old behaviour).
+
+**X.** Dash 5 -> 8 ticks (~7 -> ~12 blocks). Sneak+X Grappling Line: a squad-mate (`Squads.areAllies`) or your own pet on
+the end of the line is reeled in too (`MoonKnightGrapple.pullableFriend`), with no Slowness and no stun; a reeled player
+gets `ClientboundSetEntityMotionPacket` every tick (`drag`) as well as `hurtMarked`. A non-squad player while PvP is off
+still counts as friendly-but-not-pullable and the line goes to the block behind.
+
+**C.** Crescent Slam (Sneak+C) 6 -> 18; the dive slam is now 9 + 1.5 per block dived (18 from 6 blocks), max 36 (config
+only -- the Truncheon code itself belongs to the truncheon rework).
+
+**Z.** Moonbeam: 35 (was 10), 5 s cooldown (was 10 s), 10% Vengeance -- and an **AoE**: every foe (`isFoe`: never the
+player, never a squad-mate) within 4.5 blocks of the strike point (was a 2-block column), full damage at the centre
+falling off linearly to 60% at the edge (`moonbeamFalloff`), undead x2 as before. Eye of Khonshu: lasts a minute (was
+30 s); the area is 30 blocks round the player and follows him; every second (`eyePulse`) the player's Strength II +
+Speed II and every hostile's Glowing + Weakness II in the area are topped up to the Eye's remaining time (so late
+arrivals are caught and the debuffs cover the whole minute; players are never debuffed), and every 2 s (`eyeStrike`) a
+free Moonbeam (the same AoE, no casting pose) falls on a random foe in the area. Khonshu's Judgement: 15 s (was 10 s),
+10% Vengeance (was free), 20 s cooldown (was 13 s); the target burns for 10 x lunar power a second (`judgementBurn`,
+indirect magic credited to the player, boss-capped), and every point of damage the player deals it while judged -- the
+burn and his own hits, via `MoonKnightKhonshu.onJudgedDamaged` from the `AFTER_DAMAGE` hook -- heals him. The old kill
+refund (+20 Vengeance, 3 hearts) is gone; the target dying just ends it.
+
+Not verified in a real client: the HUD sun / moon icons and kick label layout, the lock-on ring, the capeless Steven
+render and swap, how the locked fan darts look in flight, the step assist feel, the Eye's strike cadence in a big fight.
+

@@ -22,22 +22,13 @@ public final class MoonKnightConfig {
 
 	// ---------------------------------------------------------------- lunar power
 
-	/** Night, sky visible, full moon (moon phase 0). */
+	// v0.14.4: exactly three lunar states (MoonKnightLunar.State) -- the per-phase table and the no-sky penalty are gone.
+	/** FULL MOON: night with moon phase 0 -- the strongest. */
 	public static final float LUNAR_FULL_MOON = 1.5f;
-	/** Night: the gibbous moons (phases 1 and 7). The quarter and crescent values follow smoothly below. */
-	public static final float LUNAR_GIBBOUS = 1.3f;
-	/** Night: the half moons (phases 2 and 6). */
-	public static final float LUNAR_QUARTER = 1.15f;
-	/** Night: the crescents (phases 3 and 5). */
-	public static final float LUNAR_CRESCENT = 1.0f;
-	/** Night, new moon (phase 4). */
-	public static final float LUNAR_NEW_MOON = 0.8f;
-	/** Daytime (and dimensions with no day/night cycle). */
+	/** NIGHT: any other night. The base numbers below are the night numbers (x1.0). */
+	public static final float LUNAR_NIGHT = 1.0f;
+	/** DAY: daytime, and always in the Nether and the End (no moon there) -- the weakest. */
 	public static final float LUNAR_DAY = 0.7f;
-	/** Subtracted when the sky is not visible (underground / indoors)... */
-	public static final float LUNAR_NO_SKY_PENALTY = 0.15f;
-	/** ...but never below this. */
-	public static final float LUNAR_MIN = 0.6f;
 
 	// ---------------------------------------------------------------- vengeance
 
@@ -47,15 +38,12 @@ public final class MoonKnightConfig {
 	/** Starting Vengeance when the ritual is completed under a full moon. */
 	public static final float VENGEANCE_START_FULL_MOON = 100.0f;
 	/** Killing a hostile mob that was targeting a villager, wandering trader, iron golem or another player. */
-	public static final float VENGEANCE_PROTECTOR_KILL = 5.0f;
-	/** Any other hostile mob kill at night. */
-	public static final float VENGEANCE_NIGHT_KILL = 2.0f;
+	public static final float VENGEANCE_PROTECTOR_KILL = 6.0f; // v0.14.4: was 5
+	/** Any other hostile mob kill at night (or under the full moon). */
+	public static final float VENGEANCE_NIGHT_KILL = 3.0f; // v0.14.4: was 2
 	/** Any other hostile mob kill during the day. */
-	public static final float VENGEANCE_DAY_KILL = 1.0f;
-	/** No hostile kill for this long (two in-game days) and Vengeance starts to drain. */
-	public static final long VENGEANCE_IDLE_BEFORE_DRAIN = 2L * DAY_TICKS;
-	/** How fast it drains once it does: one point every 30 seconds. */
-	public static final float VENGEANCE_DRAIN_PER_SECOND = 1.0f / 30.0f;
+	public static final float VENGEANCE_DAY_KILL = 2.0f; // v0.14.4: was 1
+	// v0.14.4: the two-idle-days drain is gone -- Vengeance now regenerates out of combat (see the v0.14.4 block).
 
 	// ---------------------------------------------------------------- fracture
 
@@ -126,14 +114,14 @@ public final class MoonKnightConfig {
 	public static final int DART_COOLDOWN = 20;
 	/** HOLD: charge up to this long, release to throw the fan. */
 	public static final int DART_FAN_MAX_CHARGE = 30;
-	public static final int DART_FAN_COUNT = 3;
-	public static final int DART_FAN_COUNT_FULL_MOON = 5;
+	/** v0.14.4: always 5 (was 3, 5 under a full moon); each homes on one of the 5 closest hostiles. */
+	public static final int DART_FAN_COUNT = 5;
 	public static final float DART_FAN_SPREAD_DEGREES = 12.0f;
 	public static final int DART_FAN_COOLDOWN = 65;
 	/** SNEAK+R Moon Mark: the target glows and takes +30% from the Moon Knight for 10 s. */
 	public static final int MOON_MARK_TICKS = 200;
 	public static final float MOON_MARK_BONUS = 0.30f;
-	public static final int MOON_MARK_COOLDOWN = 160;
+	public static final int MOON_MARK_COOLDOWN = 100; // v0.14.4: 5 s (was 8 s)
 
 	// ---------------------------------------------------------------- the Cape (Phase 3; v0.13.21 off the keys: glide = jump + hold Sneak, block = hold right click)
 
@@ -157,9 +145,9 @@ public final class MoonKnightConfig {
 
 	// ---------------------------------------------------------------- X: Dash (v0.13.21)
 
-	/** TAP X: a burst along the look, this fast (blocks/tick) for this long -- about 7 blocks. */
+	/** TAP X: a burst along the look, this fast (blocks/tick) for this long -- about 12 blocks (v0.14.4: was 5 ticks, ~7). */
 	public static final double DASH_SPEED = 1.5;
-	public static final int DASH_TICKS = 5;
+	public static final int DASH_TICKS = 8;
 	public static final int DASH_COOLDOWN = 30;
 
 	// ---------------------------------------------------------------- SNEAK+X Grappling Line, G Grapple Kick (Phase 4; v0.13.21 keys)
@@ -168,7 +156,7 @@ public final class MoonKnightConfig {
 	public static final double GRAPPLE_RANGE = 100.0; // v0.14.3: was 60
 	public static final int GRAPPLE_COOLDOWN = 40;
 	/** TAP G Grapple Kick: grapple to a mob and dive-kick it on arrival. */
-	public static final float DIVE_KICK_DAMAGE = 8.0f;
+	public static final float DIVE_KICK_DAMAGE = 20.0f; // v0.14.4: was 8
 	public static final double DIVE_KICK_KNOCKBACK = 1.4;
 	public static final int DIVE_KICK_COOLDOWN = 100;
 	/** SNEAK+X at a mob: the line reels it in and it is stunned (Slowness IV) this long once it arrives. */
@@ -191,9 +179,10 @@ public final class MoonKnightConfig {
 	public static final int STAFF_SPIN_COOLDOWN = 80;
 	/** SNEAK+C: ground slam / aerial dive slam. */
 	public static final double GROUND_SLAM_RADIUS = 4.0;
-	public static final float GROUND_SLAM_DAMAGE = 6.0f;
-	public static final float DIVE_SLAM_DAMAGE_PER_BLOCK = 1.0f;
-	public static final float DIVE_SLAM_MAX_DAMAGE = 24.0f;
+	public static final float GROUND_SLAM_DAMAGE = 18.0f; // v0.14.4 Crescent Slam: was 6
+	/** v0.14.4: the dive slam is 9 + 1.5 per block dived (18 from 6 blocks up), max 36 (was 3 + 1 per block, max 24). */
+	public static final float DIVE_SLAM_DAMAGE_PER_BLOCK = 1.5f;
+	public static final float DIVE_SLAM_MAX_DAMAGE = 36.0f;
 	public static final int SLAM_COOLDOWN = 130;
 
 	// ---------------------------------------------------------------- V: Alters (Phase 5; C before v0.13.21)
@@ -220,19 +209,22 @@ public final class MoonKnightConfig {
 	// ---------------------------------------------------------------- Z: Khonshu (Phase 6; V before v0.13.21)
 
 	public static final double MOONBEAM_RANGE = 40.0;
-	public static final double MOONBEAM_RADIUS = 2.0;
-	public static final float MOONBEAM_DAMAGE = 10.0f;
-	public static final float MOONBEAM_COST = 10.0f;
-	public static final int MOONBEAM_COOLDOWN = 200;
+	/** v0.14.4: an AoE -- every hostile within 4.5 blocks of the strike point (was a 2-block column). */
+	public static final double MOONBEAM_RADIUS = 4.5;
+	/** v0.14.4: 35 at the centre (was 10), falling off to {@link #MOONBEAM_EDGE_FACTOR} of that at the edge. */
+	public static final float MOONBEAM_DAMAGE = 35.0f;
+	/** v0.14.4: 10% of the Vengeance meter. */
+	public static final float MOONBEAM_COST = 0.10f * VENGEANCE_MAX;
+	public static final int MOONBEAM_COOLDOWN = 100; // v0.14.4: 5 s (was 10 s)
 	/** HOLD Z (2 s) Eye of Khonshu: full moon + 100 Vengeance only, once per night. */
 	public static final int EYE_HOLD_TICKS = 40;
-	public static final double EYE_RADIUS = 32.0;
-	public static final int EYE_DURATION = 600;
-	/** SNEAK+Z Khonshu's Judgement. */
-	public static final int JUDGEMENT_TICKS = 200;
-	public static final float JUDGEMENT_REFUND = 20.0f;
-	public static final float JUDGEMENT_HEAL = 6.0f;
-	public static final int JUDGEMENT_COOLDOWN = 260;
+	/** v0.14.4: a 30-block radius that follows the player (was a one-off 32-block pulse). */
+	public static final double EYE_RADIUS = 30.0;
+	/** v0.14.4: one minute (was 30 s). Not lunar-scaled. */
+	public static final int EYE_DURATION = 1200;
+	/** SNEAK+Z Khonshu's Judgement: v0.14.4 lasts 15 s (was 10 s), 20 s cooldown (was 13 s). */
+	public static final int JUDGEMENT_TICKS = 300;
+	public static final int JUDGEMENT_COOLDOWN = 400;
 
 	// ---------------------------------------------------------------- Phase 3 / 4 extras (R, X, G, Z)
 
@@ -244,8 +236,6 @@ public final class MoonKnightConfig {
 	public static final double DART_CATCH_DISTANCE = 1.4;
 	/** R: a dart that has been out this long without being caught simply fades. */
 	public static final int DART_MAX_LIFE_TICKS = 160;
-	/** R HOLD: an uncharged fan throws at this fraction of full speed and damage (a full 1.5 s charge = 1.0). */
-	public static final float DART_FAN_MIN_CHARGE = 0.6f;
 
 	/** Cape Glide: never sink slower than this (the server's anti-float check needs a real descent). */
 	public static final double GLIDE_MIN_SINK = 0.04;
@@ -336,4 +326,38 @@ public final class MoonKnightConfig {
 	public static final int TRUNCHEON_COMBO_MIN_GAP = 6;
 	/** The staff spin's whole-body turn (every viewer): one full turn over this many ticks. */
 	public static final int STAFF_SPIN_TURN_TICKS = 10;
+
+	// ---------------------------------------------------------------- v0.14.4 (Moon Knight balance pass)
+
+	/** Vengeance regenerates this fraction of the meter per second (0.5%/s = 0.5 points/s) while out of combat. */
+	public static final float VENGEANCE_REGEN_FRACTION_PER_SECOND = 0.005f;
+	/** "Out of combat" = no damage dealt to or taken from anything for this long (5 s). */
+	public static final int OUT_OF_COMBAT_TICKS = 5 * SECOND;
+	/** While suited, fall damage is multiplied by this (50% less), on top of the suit's 20% off every hit. */
+	public static final float SUIT_FALL_DAMAGE_TAKEN = 0.5f;
+	/** Marc Spector (the fighter alter): Resistance I while suited as Marc (amplifier 0), refreshed every second. */
+	public static final int MARC_RESISTANCE_AMPLIFIER = 0;
+	public static final int MARC_RESISTANCE_REFRESH_TICKS = 60;
+	/** Moonbeam AoE falloff: a mob at the very edge of the radius takes this fraction of the centre damage (linear). */
+	public static final float MOONBEAM_EDGE_FACTOR = 0.6f;
+	/** Eye of Khonshu: debuffs re-applied to every hostile in the radius this often; a random Moonbeam falls this often. */
+	public static final int EYE_PULSE_INTERVAL = 20;
+	public static final int EYE_STRIKE_INTERVAL = 40;
+	/** Khonshu's Judgement: costs 10% Vengeance; the target takes this much per second (x lunar power), and the
+	 * player heals every point of damage he deals the judged target (the burn and his own hits) while it lasts. */
+	public static final float JUDGEMENT_COST = 0.10f * VENGEANCE_MAX;
+	public static final float JUDGEMENT_DAMAGE_PER_SECOND = 10.0f;
+	/** Crescent Fan: the darts lock on to the closest hostiles within this range (in line of sight), and turn this hard. */
+	public static final double DART_FAN_TARGET_RANGE = 32.0;
+	public static final float DART_LOCKED_TURN = 25.0f;
+	/** Grapple Kick aim assist: with nothing under the crosshair, the best target within this many degrees of it. */
+	public static final double KICK_AIM_CONE_DEGREES = 9.0;
+	/** Grapple Kick: the kick lands once the player's box, grown by this much, touches the target's box. */
+	public static final double KICK_HIT_INFLATE = 0.8;
+	/** Grapple Kick: the pull aims where a moving target will be, leading it by up to this many ticks. */
+	public static final int KICK_LEAD_MAX_TICKS = 8;
+	/** Steven Grant mines as if his tool had Fortune III (the higher of this and a real Fortune tool). */
+	public static final int STEVEN_FORTUNE_LEVEL = 3;
+	/** Moon Knight steps straight up full blocks while suited: +0.4 step height (vanilla 0.6 -> 1.0). */
+	public static final double SUIT_STEP_HEIGHT_BONUS = 0.4;
 }

@@ -77,7 +77,8 @@ public final class MoonKnightCape implements MoonKnightMove {
 	}
 
 	private static boolean canGlide(ServerPlayer player) {
-		return !player.onGround() && !player.isInWater() && !player.isInLava() && !player.isFallFlying()
+		// v0.14.4: no cape, no glide -- Steven's Mr. Knight suit has none (switching to him mid-glide ends it)
+		return MoonKnight.alter(player).hasCape() && !player.onGround() && !player.isInWater() && !player.isInLava() && !player.isFallFlying()
 				&& !player.getAbilities().flying && !player.isPassenger() && !player.onClimbable();
 	}
 
@@ -233,7 +234,8 @@ public final class MoonKnightCape implements MoonKnightMove {
 	/** Is a Cape Block allowed right now: suited, the main hand empty or holding the Truncheon, not using an item. */
 	public static boolean canBlock(Player player) {
 		ItemStack main = player.getMainHandItem();
-		return MoonKnight.isTransformed(player) && !player.isSpectator() && !player.isUsingItem()
+		// v0.14.4: no cape, no Cape Block (Steven)
+		return MoonKnight.isTransformed(player) && MoonKnight.alter(player).hasCape() && !player.isSpectator() && !player.isUsingItem()
 				&& (main.isEmpty() || main.getItem() instanceof MoonKnightTruncheonItem);
 	}
 

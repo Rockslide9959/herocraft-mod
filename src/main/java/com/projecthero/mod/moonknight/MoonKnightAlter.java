@@ -46,6 +46,14 @@ public enum MoonKnightAlter {
 		return "textures/armor/moon_knight_" + id + ".png";
 	}
 
+	/**
+	 * v0.14.4: Steven Grant's Mr. Knight suit has no cape -- no cape drawn, and so no Cape Glide or Cape Block while
+	 * he is in control.
+	 */
+	public boolean hasCape() {
+		return this != STEVEN;
+	}
+
 	/** v0.13.21: this alter's cape texture (Marc keeps the original off-white one). */
 	public String capeTexture() {
 		return this == MARC ? "textures/entity/moon_knight_cape.png" : "textures/entity/moon_knight_cape_" + id + ".png";

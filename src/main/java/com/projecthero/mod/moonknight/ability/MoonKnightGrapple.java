@@ -5,14 +5,17 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.projecthero.mod.hero.power.AbilityHelpers;
+import com.projecthero.mod.moonknight.MoonKnightAim;
 import com.projecthero.mod.moonknight.MoonKnightAnim;
 import com.projecthero.mod.moonknight.MoonKnightConfig;
 import com.projecthero.mod.moonknight.data.MoonKnightAction;
+import com.projecthero.mod.squad.Squads;
 import com.projecthero.mod.titanshifter.TitanCombat;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -21,6 +24,8 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.OwnableEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -32,12 +37,15 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>G</b> ({@code kick}): fire the line into the targeted mob (up to {@link MoonKnightConfig#GRAPPLE_RANGE}),
  *       get pulled in feet-first ({@code FLAG_DIVING}, DIVE_KICK pose) and finish with a flying dive kick on arrival
  *       ({@link MoonKnightConfig#DIVE_KICK_DAMAGE} x power + knockback). Fires on the press (G has no hold move).
+ *       v0.14.4: forgiving aim ({@link #kickTarget} -- a cone round the crosshair when the ray misses), the pull
+ *       leads a moving target ({@link #kickAnchor}) and the kick lands on a generous box check ({@link #kickConnects}).
  *       Cooldown {@link MoonKnightConfig#DIVE_KICK_COOLDOWN}.</li>
  *   <li><b>SNEAK+G</b> ({@code kick_sneak}): Shadow Step ({@link MoonKnightCape#shadowStep}) -- it lost its old
  *       Sneak+X home when X became the Dash.</li>
  *   <li><b>SNEAK+X</b> ({@code dash_sneak}, from {@link MoonKnightDash}): the Grappling Line, {@link #fireLine} --
  *       60 blocks. At a block it pulls you there; at a mob it reels the mob in to you and stuns it (Slowness IV);
- *       a boss (or anything too heavy to move) pulls you to it instead.</li>
+ *       a boss (or anything too heavy to move) pulls you to it instead. v0.14.4: a squad-mate or your own pet on the
+ *       end of the line is reeled in too, with no Slowness and no stun ({@link #pullableFriend}).</li>
  * </ul>
  * The rope is drawn by every client from the synced {@code MoonKnightAction} line fields
  * ({@code MoonKnightLineRenderer}). The pulls are server velocity, sent every tick with a motion packet (the Iron Man
@@ -66,8 +74,11 @@ public final class MoonKnightGrapple implements MoonKnightMove {
 		}
 	}
 
-	/** A mob being reeled in on the line (SNEAK+X at a mob). */
-	private record Reel(int targetId, long start, ResourceKey<Level> dimension) {
+	/**
+	 * A mob (or, v0.14.4, a squad-mate / pet) being reeled in on the line (SNEAK+X at an entity). {@code friendly}
+	 * pulls are a rescue: no Slowness while dragged and no stun on arrival.
+	 */
+	private record Reel(int targetId, long start, ResourceKey<Level> dimension, boolean friendly) {
 	}
 
 	private static final Map<UUID, Pull> PULLS = new ConcurrentHashMap<>();
@@ -151,8 +162,10 @@ public final class MoonKnightGrapple implements MoonKnightMove {
 		ServerLevel level = player.serverLevel();
 		long now = level.getGameTime();
 		LivingEntity mob = AbilityHelpers.raycastEntity(player, range);
-		if (mob != null && !MoonKnightCombat.friendly(player, mob)) {
-			if (TitanCombat.isBoss(mob) || !AbilityHelpers.isValidGrabTarget(mob, player)) {
+		// v0.14.4: a squad-mate (or his own pet) on the end of the line is reeled in too -- a rescue, not an attack
+		boolean friend = mob != null && pullableFriend(player, mob);
+		if (mob != null && (friend || !MoonKnightCombat.friendly(player, mob))) {
+			if (!friend && (TitanCombat.isBoss(mob) || !AbilityHelpers.isValidGrabTarget(mob, player))) {
 				// too heavy to move: the line hauls the Moon Knight to it instead
 				Vec3 anchor = mob.position().add(0, mob.getBbHeight() * 0.5, 0);
 				startPull(player, new Pull(false, anchor, -1, now, level.dimension(), player.position()));
@@ -162,11 +175,13 @@ public final class MoonKnightGrapple implements MoonKnightMove {
 			} else {
 				endPull(player);
 				MoonKnightCape.stopGlide(player);
-				REELS.put(player.getUUID(), new Reel(mob.getId(), now, level.dimension()));
+				REELS.put(player.getUUID(), new Reel(mob.getId(), now, level.dimension(), friend));
 				setLine(player, mob.getId(), mob.position());
-				// it can't walk away while it is dragged in; the full stun lands when it arrives
-				AbilityHelpers.applyControl(mob, MobEffects.MOVEMENT_SLOWDOWN, MoonKnightConfig.GRAPPLE_MAX_PULL_TICKS,
-						MoonKnightConfig.YANK_SLOW_AMPLIFIER);
+				if (!friend) {
+					// it can't walk away while it is dragged in; the full stun lands when it arrives
+					AbilityHelpers.applyControl(mob, MobEffects.MOVEMENT_SLOWDOWN, MoonKnightConfig.GRAPPLE_MAX_PULL_TICKS,
+							MoonKnightConfig.YANK_SLOW_AMPLIFIER);
+				}
 				MoonKnightAnim.play(player, MoonKnightAnim.YANK);
 			}
 			Vec3 at = mob.position().add(0, mob.getBbHeight() * 0.5, 0);
@@ -198,6 +213,37 @@ public final class MoonKnightGrapple implements MoonKnightMove {
 		return REELS.containsKey(player.getUUID());
 	}
 
+	/** v0.14.4: the entity id on the end of this player's reel, or -1. */
+	public static int reelTargetId(ServerPlayer player) {
+		Reel r = REELS.get(player.getUUID());
+		return r == null ? -1 : r.targetId();
+	}
+
+	/** v0.14.4: a squad-mate, or a pet of his own, that the line may pull in without hurting or stunning it. */
+	public static boolean pullableFriend(ServerPlayer player, LivingEntity e) {
+		if (e == player || !e.isAlive() || TitanCombat.isBoss(e)) {
+			return false;
+		}
+		if (e instanceof Player other) {
+			return !other.isSpectator() && Squads.areAllies(player, other);
+		}
+		return e instanceof OwnableEntity own && player.getUUID().equals(own.getOwnerUUID());
+	}
+
+	/**
+	 * Set a reeled entity's velocity. A player moves on his own client, so a player on the line also gets the motion
+	 * packet straight away ({@code hurtMarked} alone would only reach him with the next entity-tracker pass).
+	 */
+	private static void drag(LivingEntity e, Vec3 velocity) {
+		e.setDeltaMovement(velocity);
+		e.hurtMarked = true;
+		e.hasImpulse = true;
+		e.resetFallDistance();
+		if (e instanceof ServerPlayer sp && sp.connection != null) {
+			sp.connection.send(new ClientboundSetEntityMotionPacket(sp));
+		}
+	}
+
 	private static void endReel(ServerPlayer player, boolean arrived) {
 		Reel r = REELS.remove(player.getUUID());
 		if (r == null) {
@@ -208,11 +254,16 @@ public final class MoonKnightGrapple implements MoonKnightMove {
 		}
 		Entity e = player.level().getEntity(r.targetId());
 		if (e instanceof LivingEntity mob && mob.isAlive()) {
-			mob.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+			if (!r.friendly()) {
+				mob.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+			}
 			if (arrived) {
 				Vec3 v = mob.getDeltaMovement();
-				mob.setDeltaMovement(v.x * 0.2, Math.min(v.y, 0.1), v.z * 0.2);
-				mob.hurtMarked = true;
+				drag(mob, new Vec3(v.x * 0.2, Math.min(v.y, 0.1), v.z * 0.2));
+				if (r.friendly()) {
+					AbilityHelpers.sound(player, SoundEvents.LEASH_KNOT_BREAK, 0.6f, 1.3f);
+					return;
+				}
 				AbilityHelpers.applyControl(mob, MobEffects.MOVEMENT_SLOWDOWN,
 						Math.round(MoonKnightConfig.YANK_STUN_TICKS * MoonKnightAbilities.power(player)),
 						MoonKnightConfig.YANK_SLOW_AMPLIFIER);
@@ -250,17 +301,23 @@ public final class MoonKnightGrapple implements MoonKnightMove {
 		double speed = Math.min(MoonKnightConfig.GRAPPLE_REEL_SPEED, Math.max(0.3, (dist - stop) * 0.5));
 		// a little lift so it drags over the ground instead of into it
 		double lift = mob.onGround() ? 0.25 : Math.max(-0.2, dir.y * speed);
-		mob.setDeltaMovement(dir.x * speed, Math.max(lift, dir.y * speed), dir.z * speed);
-		mob.hurtMarked = true;
-		mob.hasImpulse = true;
-		mob.resetFallDistance();
+		drag(mob, new Vec3(dir.x * speed, Math.max(lift, dir.y * speed), dir.z * speed));
 	}
 
 	// ---------------------------------------------------------------- the pull
 
+	/**
+	 * v0.14.4: the Grapple Kick's target -- the crosshair ray first, else the best enemy within
+	 * {@link MoonKnightConfig#KICK_AIM_CONE_DEGREES} of the crosshair (in sight, up to the full range); never himself,
+	 * a squad-mate or his own pet ({@link MoonKnightAim#kickTarget}). The owner's client previews the same pick.
+	 */
+	public static LivingEntity kickTarget(ServerPlayer player) {
+		return MoonKnightAim.kickTarget(player, MoonKnightConfig.GRAPPLE_RANGE, e -> !MoonKnightCombat.friendly(player, e));
+	}
+
 	private static LivingEntity target(ServerPlayer player) {
-		LivingEntity target = AbilityHelpers.raycastEntity(player, MoonKnightConfig.GRAPPLE_RANGE);
-		if (target == null || MoonKnightCombat.friendly(player, target)) {
+		LivingEntity target = kickTarget(player);
+		if (target == null) {
 			player.displayClientMessage(Component.translatable("message.projecthero.moon_knight.grapple_no_target")
 					.withStyle(ChatFormatting.GRAY), true);
 			return null;
@@ -319,7 +376,7 @@ public final class MoonKnightGrapple implements MoonKnightMove {
 				return;
 			}
 			target = le;
-			anchor = le.position().add(0, le.getBbHeight() * 0.5, 0);
+			anchor = kickAnchor(player, le);
 			if (age == MoonKnightConfig.GRAPPLE_LINE_TRAVEL_TICKS) {
 				MoonKnightAnim.play(player, MoonKnightAnim.DIVE_KICK);
 				AbilityHelpers.sound(player, SoundEvents.PHANTOM_FLAP, 0.7f, 1.4f);
@@ -332,9 +389,10 @@ public final class MoonKnightGrapple implements MoonKnightMove {
 		double dist = to.length();
 		Vec3 dir = dist < 1.0e-4 ? Vec3.ZERO : to.scale(1.0 / dist);
 		if (p.toMob) {
-			if (dist <= MoonKnightConfig.DIVE_KICK_REACH + target.getBbWidth() * 0.5) {
+			if (kickConnects(player, target)) {
+				Vec3 toBody = target.getBoundingBox().getCenter().subtract(center);
 				endPull(player);
-				diveKick(player, target, dir);
+				diveKick(player, target, toBody.lengthSqr() < 1.0e-6 ? dir : toBody.normalize());
 				return;
 			}
 		} else if (dist <= MoonKnightConfig.GRAPPLE_ARRIVE_DISTANCE) {
@@ -359,6 +417,31 @@ public final class MoonKnightGrapple implements MoonKnightMove {
 		if (age % 2 == 0) {
 			player.serverLevel().sendParticles(MoonKnightCombat.MOON, center.x, center.y, center.z, 2, 0.2, 0.3, 0.2, 0.0);
 		}
+	}
+
+	/**
+	 * v0.14.4: where the Grapple Kick steers this tick -- the target's CURRENT body centre, led by its horizontal
+	 * velocity for about as many ticks as the rest of the pull will take (at most {@link MoonKnightConfig#KICK_LEAD_MAX_TICKS}),
+	 * so a mob walking or running away still gets caught.
+	 */
+	public static Vec3 kickAnchor(ServerPlayer player, LivingEntity target) {
+		Vec3 centre = target.getBoundingBox().getCenter();
+		double dist = centre.distanceTo(player.position().add(0, player.getBbHeight() * 0.5, 0));
+		double lead = Math.min(MoonKnightConfig.KICK_LEAD_MAX_TICKS, dist / MoonKnightConfig.DIVE_KICK_PULL_SPEED);
+		Vec3 v = target.getDeltaMovement();
+		return centre.add(v.x * lead, 0.0, v.z * lead);
+	}
+
+	/**
+	 * v0.14.4: a generous hit check so the kick never whiffs at the end -- the player's box grown by
+	 * {@link MoonKnightConfig#KICK_HIT_INFLATE} touching the target's box, or the old centre-to-centre reach.
+	 */
+	public static boolean kickConnects(ServerPlayer player, LivingEntity target) {
+		if (player.getBoundingBox().inflate(MoonKnightConfig.KICK_HIT_INFLATE).intersects(target.getBoundingBox())) {
+			return true;
+		}
+		Vec3 center = player.position().add(0, player.getBbHeight() * 0.5, 0);
+		return center.distanceTo(target.getBoundingBox().getCenter()) <= MoonKnightConfig.DIVE_KICK_REACH + target.getBbWidth() * 0.5;
 	}
 
 	// ---------------------------------------------------------------- the rope (synced to every client)

@@ -1,5 +1,7 @@
 package com.projecthero.mod.moonknight.ability;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -17,6 +19,8 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -24,9 +28,9 @@ import net.minecraft.world.phys.Vec3;
  * <ul>
  *   <li><b>TAP</b>: one {@link CrescentDartEntity} ({@link MoonKnightConfig#DART_DAMAGE}, homing at night, boomerangs
  *       home on a miss). Cooldown {@link MoonKnightConfig#DART_COOLDOWN}.</li>
- *   <li><b>HOLD</b>: charge up to {@link MoonKnightConfig#DART_FAN_MAX_CHARGE} ({@code FLAG_CHARGING}, chargeKey 1), release
- *       to throw a fan of 3 (5 under a full moon). Charge sets the fan's speed and damage
- *       ({@link MoonKnightConfig#DART_FAN_MIN_CHARGE} .. 1). Cooldown {@link MoonKnightConfig#DART_FAN_COOLDOWN}.</li>
+ *   <li><b>HOLD</b> Crescent Fan (v0.14.4): as soon as the hold registers, five darts fly, each locked on to one of the
+ *       five closest hostiles ({@link #fanTargets}, the Green Lantern Missile Barrage's targeting) for a normal dart's
+ *       damage. Cooldown {@link MoonKnightConfig#DART_FAN_COOLDOWN}.</li>
  *   <li><b>SNEAK+R</b>: Moon Mark -- a single dart that sticks in; the target glows and takes
  *       +{@link MoonKnightConfig#MOON_MARK_BONUS} from everything this player does to it while the mark lasts
  *       ({@link #outgoingFactor}). Cooldown {@link MoonKnightConfig#MOON_MARK_COOLDOWN}.</li>
@@ -63,16 +67,16 @@ public final class MoonKnightDarts implements MoonKnightMove {
 
 	// ---------------------------------------------------------------- HOLD: the fan
 
+	/**
+	 * v0.14.4: the fan no longer charges -- the moment the hold registers (0.5 s) the five darts fly, each locked on to
+	 * one of the five closest hostiles (see {@link #throwFan}).
+	 */
 	@Override
 	public void holdStart(ServerPlayer player) {
 		if (!MoonKnightAbilities.ready(player, "darts_hold")) {
 			return;
 		}
-		MoonKnightAction c = MoonKnightAnim.action(player).with(MoonKnightAction.FLAG_CHARGING, true);
-		c.chargeKey = SLOT_NUMBER;
-		c.chargeStart = player.level().getGameTime();
-		MoonKnightAnim.save(player, c);
-		AbilityHelpers.sound(player, SoundEvents.CROSSBOW_QUICK_CHARGE_1, 0.6f, 1.3f);
+		throwFan(player);
 	}
 
 	private static boolean charging(ServerPlayer player) {
@@ -100,13 +104,9 @@ public final class MoonKnightDarts implements MoonKnightMove {
 
 	@Override
 	public void holdRelease(ServerPlayer player, int ticksHeld) {
-		if (!charging(player)) {
-			return;
+		if (charging(player)) {
+			endCharge(player); // (nothing charges since v0.14.4; a stale flag from an older session is simply dropped)
 		}
-		endCharge(player);
-		float charge = Math.min(1.0f, Math.max(0.0f,
-				(ticksHeld - MoonKnightConfig.HOLD_THRESHOLD_TICKS) / (float) MoonKnightConfig.DART_FAN_MAX_CHARGE));
-		throwFan(player, charge);
 	}
 
 	@Override
@@ -122,17 +122,48 @@ public final class MoonKnightDarts implements MoonKnightMove {
 		MoonKnightAnim.save(player, c);
 	}
 
-	/** Throw the fan: 3 darts, 5 under a full moon, spread evenly around the aim. Returns how many were thrown. */
-	public static int throwFan(ServerPlayer player, float charge) {
+	/**
+	 * The Crescent Fan's targets (v0.14.4): the {@link MoonKnightConfig#DART_FAN_COUNT} closest hostile mobs (or mobs
+	 * hunting him) within {@link MoonKnightConfig#DART_FAN_TARGET_RANGE} that he can see -- never himself, a
+	 * squad-mate or his own pet (the Green Lantern Missile Barrage's targeting, without the in-front-of-you cone).
+	 */
+	public static List<LivingEntity> fanTargets(ServerPlayer player) {
+		Vec3 eye = player.getEyePosition();
+		return AbilityHelpers.living(player.serverLevel(), eye, MoonKnightConfig.DART_FAN_TARGET_RANGE,
+				e -> e != player && (e instanceof Enemy || (e instanceof Mob m && m.getTarget() == player))
+						&& !MoonKnightCombat.friendly(player, e) && player.hasLineOfSight(e)).stream()
+				.sorted(Comparator.comparingDouble(e -> e.distanceToSqr(player)))
+				.limit(MoonKnightConfig.DART_FAN_COUNT)
+				.toList();
+	}
+
+	/**
+	 * Throw the fan (v0.14.4): always five darts, each locked on to one of the five closest hostiles
+	 * ({@link #fanTargets}) and doing a normal dart's damage. With fewer than five targets the spare darts double up
+	 * on the closest ones; with none at all they fan out along the aim like before. Returns how many were thrown.
+	 */
+	public static int throwFan(ServerPlayer player) {
 		float power = MoonKnightAbilities.power(player);
-		int count = MoonKnightAbilities.fullMoon(player) ? MoonKnightConfig.DART_FAN_COUNT_FULL_MOON : MoonKnightConfig.DART_FAN_COUNT;
-		float scale = MoonKnightConfig.DART_FAN_MIN_CHARGE + (1.0f - MoonKnightConfig.DART_FAN_MIN_CHARGE) * charge;
+		int count = MoonKnightConfig.DART_FAN_COUNT;
+		List<LivingEntity> targets = fanTargets(player);
 		Vec3 aim = aimDirection(player);
+		Vec3 hand = AbilityHelpers.handPosition(player);
 		float spread = MoonKnightConfig.DART_FAN_SPREAD_DEGREES;
 		for (int i = 0; i < count; i++) {
 			float offset = (i - (count - 1) / 2.0f) * spread;
 			Vec3 dir = aim.yRot((float) Math.toRadians(-offset));
-			throwOne(player, dir, MoonKnightConfig.DART_SPEED * scale, MoonKnightConfig.DART_DAMAGE * power * scale, 0);
+			LivingEntity target = targets.isEmpty() ? null : targets.get(i % targets.size());
+			if (target != null) {
+				// leave the hand fanned out a little toward its own target, then the lock bends it in
+				Vec3 to = target.position().add(0, target.getBbHeight() * 0.5, 0).subtract(hand);
+				if (to.lengthSqr() > 1.0e-4) {
+					dir = to.normalize().add(dir.scale(0.25)).normalize();
+				}
+			}
+			CrescentDartEntity dart = throwOne(player, dir, MoonKnightConfig.DART_SPEED, MoonKnightConfig.DART_DAMAGE * power, 0);
+			if (target != null) {
+				dart.lockOn(target);
+			}
 		}
 		MoonKnightAnim.play(player, MoonKnightAnim.DART_FAN);
 		MoonKnightAbilities.cooldown(player, "darts_hold", MoonKnightConfig.DART_FAN_COOLDOWN);

@@ -18,7 +18,9 @@ import net.minecraft.world.entity.LivingEntity;
  * <ul>
  *   <li>invulnerable while the suit is forming;</li>
  *   <li>incoming: the suit itself takes 20% off every hit (v0.13.21), the Cape Block (hold right click) another 30%,
- *       the Steven alter less from melee; a glide takes no fall damage;</li>
+ *       the Steven alter less from melee; a glide takes no fall damage, and any other fall is halved (v0.14.4);</li>
+ *   <li>v0.14.4: every hit dealt or taken by a pact-holder marks him "in combat" (Vengeance only regenerates out of
+ *       combat), and damage he deals a target under his Judgement heals him;</li>
  *   <li>outgoing: Moon Mark (R), the Marc / Jake alter bonuses;</li>
  *   <li>a melee hit feeds the Truncheon combo;</li>
  *   <li>out of the suit, a hard hit calls it (v0.13.21, {@link MoonKnightTransform#autoSuit});</li>
@@ -40,6 +42,16 @@ public final class MoonKnightDamage {
 					&& MoonKnight.isTransformed(attacker) && source.getDirectEntity() == attacker) {
 				MoonKnightTruncheon.onMeleeHit(attacker, entity, taken);
 			}
+			// v0.14.4: combat tracking for the out-of-combat Vengeance regen, and Khonshu's Judgement lifesteal
+			if (base > 0.0f && entity instanceof ServerPlayer victim && MoonKnight.hasPower(victim)) {
+				MoonKnight.markCombat(victim);
+			}
+			if (base > 0.0f && source.getEntity() instanceof ServerPlayer dealer && dealer != entity && MoonKnight.hasPower(dealer)) {
+				MoonKnight.markCombat(dealer);
+				if (taken > 0.0f) {
+					MoonKnightKhonshu.onJudgedDamaged(dealer, entity, taken);
+				}
+			}
 			// v0.13.21: an unsuited pact-holder hit hard (or left under 4 hearts) suits up on his own
 			if (entity instanceof ServerPlayer victim && !blocked && base > 0.0f && MoonKnight.hasPower(victim)
 					&& !MoonKnight.isTransformed(victim)) {
@@ -49,12 +61,16 @@ public final class MoonKnightDamage {
 		ServerLivingEntityEvents.AFTER_DEATH.register(MoonKnightKhonshu::onEntityKilled);
 	}
 
-	/** Incoming-damage multiplier for a suited Moon Knight (the suit, the cape block, the alter). Public for the tests. */
+	/**
+	 * Incoming-damage multiplier for a suited Moon Knight (the suit, the cape block, the alter, and v0.14.4's halved
+	 * fall damage). Public for the tests.
+	 */
 	public static float incomingFactor(ServerPlayer player, DamageSource source) {
 		if (!MoonKnight.isTransformed(player)) {
 			return 1.0f;
 		}
-		return MoonKnightConfig.SUIT_DAMAGE_TAKEN * MoonKnightCape.incomingFactor(player, source)
+		float fall = source.is(DamageTypeTags.IS_FALL) ? MoonKnightConfig.SUIT_FALL_DAMAGE_TAKEN : 1.0f;
+		return MoonKnightConfig.SUIT_DAMAGE_TAKEN * fall * MoonKnightCape.incomingFactor(player, source)
 				* MoonKnightAlters.incomingFactor(player, source);
 	}
 

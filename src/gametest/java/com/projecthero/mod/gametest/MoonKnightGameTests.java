@@ -54,16 +54,15 @@ public class MoonKnightGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void lunarPowerFollowsTheMoon(GameTestHelper helper) {
-		helper.assertTrue(MoonKnightLunar.byPhase(0) == 1.5f, "full moon = 1.5");
-		helper.assertTrue(MoonKnightLunar.byPhase(4) == 0.8f, "new moon = 0.8");
-		helper.assertTrue(MoonKnightLunar.byPhase(1) == MoonKnightLunar.byPhase(7), "waning and waxing gibbous match");
-		helper.assertTrue(MoonKnightLunar.byPhase(1) > MoonKnightLunar.byPhase(2) && MoonKnightLunar.byPhase(2) > MoonKnightLunar.byPhase(3)
-				&& MoonKnightLunar.byPhase(3) > MoonKnightLunar.byPhase(4), "it shrinks smoothly toward the new moon");
-		helper.assertTrue(MoonKnightLunar.byPhase(1) <= 1.3f && MoonKnightLunar.byPhase(3) >= 1.0f, "other nights sit between 1.3 and 1.0");
+		// v0.14.4: exactly three states
+		helper.assertTrue(MoonKnightLunar.resolve(true, true, 0).power() == 1.5f, "full moon = 1.5");
+		helper.assertTrue(MoonKnightLunar.resolve(true, true, 4).power() == 1.0f, "any other night = 1.0");
+		helper.assertTrue(MoonKnightLunar.resolve(true, false, 0).power() == 0.7f, "day = 0.7");
 		helper.assertTrue(MoonKnightLunar.cooldown(100, 1.5f) < 100 && MoonKnightLunar.cooldown(100, 0.7f) > 100,
 				"cooldowns are divided by the lunar power");
 		float here = MoonKnightLunar.power(helper.getLevel(), helper.absolutePos(new net.minecraft.core.BlockPos(1, 2, 1)));
-		helper.assertTrue(here >= MoonKnightConfig.LUNAR_MIN && here <= MoonKnightConfig.LUNAR_FULL_MOON, "live power is in range");
+		helper.assertTrue(here == MoonKnightConfig.LUNAR_DAY || here == MoonKnightConfig.LUNAR_NIGHT || here == MoonKnightConfig.LUNAR_FULL_MOON,
+				"live power is one of the three states (" + here + ")");
 		helper.succeed();
 	}
 
@@ -75,12 +74,13 @@ public class MoonKnightGameTests implements FabricGameTest {
 		Villager prey = helper.spawn(EntityType.VILLAGER, 1, 2, 1);
 		hunter.setTarget(prey);
 		MoonKnight.onEntityKilled(hunter, helper.getLevel().damageSources().playerAttack(p));
-		helper.assertTrue(Math.abs(MoonKnight.state(p).vengeance - 25.0f) < 0.01f, "killing a mob hunting a villager gives +5");
+		helper.assertTrue(Math.abs(MoonKnight.state(p).vengeance - 26.0f) < 0.01f, "killing a mob hunting a villager gives +6 (v0.14.4)");
 
 		Husk loner = helper.spawn(EntityType.HUSK, 4, 2, 4);
 		MoonKnight.onEntityKilled(loner, helper.getLevel().damageSources().playerAttack(p));
 		float v = MoonKnight.state(p).vengeance;
-		helper.assertTrue(Math.abs(v - 26.0f) < 0.01f || Math.abs(v - 27.0f) < 0.01f, "any other hostile kill gives +1 by day / +2 at night");
+		boolean night = MoonKnightLunar.isMoonNight(p.level());
+		helper.assertTrue(Math.abs(v - (night ? 29.0f : 28.0f)) < 0.01f, "any other hostile kill gives +2 by day / +3 at night (" + v + ")");
 
 		Villager bystander = helper.spawn(EntityType.VILLAGER, 5, 2, 5);
 		MoonKnight.onEntityKilled(bystander, helper.getLevel().damageSources().playerAttack(p));
@@ -89,21 +89,24 @@ public class MoonKnightGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void vengeanceDrainsAfterTwoIdleDays(GameTestHelper helper) {
+	public void vengeanceRegeneratesOutOfCombat(GameTestHelper helper) {
+		// v0.14.4: the two-idle-days drain became a 0.5%/s regen while out of combat (5 s without dealing / taking damage)
 		ServerPlayer p = knight(helper);
-		long now = p.level().getGameTime();
 		MoonKnightState c = MoonKnight.state(p).copy();
 		c.vengeance = 10.0f;
-		c.lastHostileKill = now - 10L;
+		c.lastHostileKill = p.level().getGameTime() - 10L * MoonKnightConfig.DAY_TICKS;
 		p.setAttached(ModAttachments.MOON_KNIGHT_STATE, c);
+		MoonKnight.markCombat(p);
+		helper.assertTrue(MoonKnight.inCombat(p), "a hit puts him in combat");
 		MoonKnight.tickSecond(p);
-		helper.assertTrue(MoonKnight.state(p).vengeance == 10.0f, "no drain while the last kill is recent");
-		c = MoonKnight.state(p).copy();
-		c.lastHostileKill = now - MoonKnightConfig.VENGEANCE_IDLE_BEFORE_DRAIN - 20L;
-		p.setAttached(ModAttachments.MOON_KNIGHT_STATE, c);
+		helper.assertTrue(MoonKnight.state(p).vengeance == 10.0f, "no regen in combat, and no drain however long since a kill");
+		MoonKnight.clearCombat(p);
 		MoonKnight.tickSecond(p);
 		float after = MoonKnight.state(p).vengeance;
-		helper.assertTrue(after < 10.0f && after > 9.9f, "after two idle days it drains slowly (" + after + ")");
+		helper.assertTrue(Math.abs(after - 10.5f) < 1.0e-3f, "out of combat: +0.5 (0.5% of 100) a second (" + after + ")");
+		MoonKnight.setVengeance(p, 100.0f);
+		MoonKnight.tickSecond(p);
+		helper.assertTrue(MoonKnight.state(p).vengeance == 100.0f, "never past the top");
 		helper.succeed();
 	}
 

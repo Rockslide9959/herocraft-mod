@@ -14,7 +14,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
@@ -28,7 +27,9 @@ import net.minecraft.world.entity.player.Player;
  *   Vengeance 62%                    GLIDE / BLOCK
  *   ------------------                          Hairline Vengeance bar
  * </pre>
- * The moon is the real current phase (dimmed by day or with no sky above), the multiplier is the live lunar power,
+ * v0.14.4: the icon is the lunar state -- the sun by day (and always in the Nether / End), tonight's moon on an
+ * ordinary night, a haloed full moon under the full moon -- with its multiplier (x0.7 / x1.0 / x1.5; hold Left Alt
+ * for the state's name). Under the crosshair it names the Grapple Kick's current lock-on target. The rest:
  * the crescent is Khonshu's Resurrection (bright = charged, dark = spent), and every box is labelled with the key
  * actually bound to it -- rebind a key and the HUD follows. Hold Left Alt for the ability names.
  */
@@ -45,6 +46,7 @@ public final class MoonKnightHud {
 	private static final int COLOR_VENGEANCE = 0xFFF2EEE0;
 	private static final int COLOR_VENGEANCE_LOW = 0xFFB04040;
 	private static final ResourceLocation MOON_PHASES = ResourceLocation.withDefaultNamespace("textures/environment/moon_phases.png");
+	private static final ResourceLocation SUN = ResourceLocation.withDefaultNamespace("textures/environment/sun.png");
 
 	/** The six keys in the order the user listed them, with the ability-id prefix each box's cooldowns use. */
 	private static final AbilitySlot[] ORDER = {
@@ -77,19 +79,37 @@ public final class MoonKnightHud {
 		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(),
 				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
 
-		// ---- top line: moon phase + lunar multiplier, alter, resurrection
-		BlockPos eye = BlockPos.containing(player.getEyePosition());
-		boolean night = MoonKnightLunar.isMoonNight(mc.level);
-		boolean sky = MoonKnightLunar.hasSky(mc.level, eye);
-		int phase = mc.level.getMoonPhase();
-		float alpha = night && sky ? 1.0f : 0.45f;
-		g.setColor(alpha, alpha, alpha, 1.0f);
-		g.blit(MOON_PHASES, x0, topY, 12, 12, (phase % 4) * 32, (phase / 4) * 32, 32, 32, 128, 64);
+		// ---- top line: lunar state (v0.14.4: DAY sun / NIGHT tonight's moon / FULL MOON) + multiplier, alter, resurrection
+		MoonKnightLunar.State lunar = MoonKnightLunar.state(mc.level);
+		switch (lunar) {
+			case DAY -> {
+				g.setColor(0.8f, 0.78f, 0.62f, 1.0f);
+				g.blit(SUN, x0 - 2, topY - 2, 16, 16, 0, 0, 32, 32, 32, 32);
+			}
+			case NIGHT -> {
+				int phase = mc.level.getMoonPhase();
+				g.setColor(0.78f, 0.8f, 0.86f, 1.0f);
+				g.blit(MOON_PHASES, x0, topY, 12, 12, (phase % 4) * 32, (phase / 4) * 32, 32, 32, 128, 64);
+			}
+			case FULL_MOON -> {
+				// the full moon, with a faint halo so it reads as the strongest state at a glance
+				g.fill(x0 - 1, topY - 1, x0 + 13, topY + 13, 0x30E8F0FF);
+				g.blit(MOON_PHASES, x0, topY, 12, 12, 0, 0, 32, 32, 128, 64);
+			}
+		}
 		g.setColor(1.0f, 1.0f, 1.0f, 1.0f);
-		float power = MoonKnightLunar.power(mc.level, eye);
-		int powerColor = power >= 1.3f ? 0xFFFFFFFF : (power >= 1.0f ? 0xFFD8D4C8 : 0xFF9A968C);
-		String mult = String.format(Locale.ROOT, "x%.2f", power);
+		float power = lunar.power();
+		int powerColor = switch (lunar) {
+			case FULL_MOON -> 0xFFFFFFFF;
+			case NIGHT -> 0xFFD8D4C8;
+			case DAY -> 0xFF9A968C;
+		};
+		String mult = String.format(Locale.ROOT, "x%.1f", power);
 		g.drawString(mc.font, mult, x0 + 15, topY + 2, powerColor, false);
+		if (expanded) {
+			g.drawString(mc.font, Component.translatable(lunar.nameKey()), x0, topY - 11, powerColor, false);
+		}
+		drawKickTarget(g, mc, player, now);
 
 		MoonKnightAlter alter = MoonKnightAlter.byOrdinal(s.alter);
 		Component alterName = Component.translatable(alter.nameKey()).withStyle(alter.colour());
@@ -142,6 +162,22 @@ public final class MoonKnightHud {
 		}
 		g.fill(x0, barY, x0 + totalW, barY + HAIRLINE, 0x80000000);
 		g.fill(x0, barY, x0 + Math.round(totalW * frac), barY + HAIRLINE, frac < 0.15f ? COLOR_VENGEANCE_LOW : COLOR_VENGEANCE);
+	}
+
+	/**
+	 * v0.14.4: under the crosshair, who the Grapple Kick would hit right now ({@code MoonKnightKickPreviewClient}) --
+	 * "[G] Zombie 23m", white while it is ready, grey while it recharges.
+	 */
+	private static void drawKickTarget(GuiGraphics g, Minecraft mc, Player player, long now) {
+		net.minecraft.world.entity.LivingEntity t = com.projecthero.mod.client.moonknight.MoonKnightKickPreviewClient.target();
+		if (t == null || mc.screen != null) {
+			return;
+		}
+		boolean ready = MoonKnight.cooldownRemaining(player, "kick") <= 0;
+		Component text = Component.translatable("hud.projecthero.moon_knight.kick_target", keyLabel(AbilitySlot.SLOT_2),
+				t.getDisplayName(), Math.round(player.distanceTo(t)));
+		int w = mc.font.width(text);
+		g.drawString(mc.font, text, g.guiWidth() / 2 - w / 2, g.guiHeight() / 2 + 10, ready ? 0xE0F2F0E8 : 0xA0909090, true);
 	}
 
 	/** The longest cooldown among a key's tap / hold / sneak variants ({@code <id>}, {@code <id>_hold}, {@code <id>_sneak}). */

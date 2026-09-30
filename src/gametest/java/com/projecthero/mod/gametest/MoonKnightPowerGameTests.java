@@ -287,9 +287,9 @@ public class MoonKnightPowerGameTests implements FabricGameTest {
 		helper.assertTrue(huskLoss > vindLoss * 1.8f, "the undead take double (" + huskLoss + " vs " + vindLoss + ")");
 		helper.assertTrue(Math.abs(MoonKnightKhonshu.moonbeamDamage(vindicator, 1.0f) - MoonKnightConfig.MOONBEAM_DAMAGE) < 1.0e-3f
 				&& Math.abs(MoonKnightKhonshu.moonbeamDamage(husk, 1.0f) - 2.0f * MoonKnightConfig.MOONBEAM_DAMAGE) < 1.0e-3f,
-				"base 10, 20 to undead (live power " + power + ")");
+				"base 35, 70 to undead (live power " + power + ")");
 		helper.assertTrue(Math.abs(MoonKnight.vengeance(p) - 40.0f) < 0.01f, "costs 10 Vengeance");
-		helper.assertTrue(MoonKnight.cooldownRemaining(p, "khonshu") > 0, "15 s cooldown");
+		helper.assertTrue(MoonKnight.cooldownRemaining(p, "khonshu") > 0, "5 s cooldown");
 		helper.succeed();
 	}
 
@@ -318,24 +318,42 @@ public class MoonKnightPowerGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = "moonknight_judgement")
-	public void judgementRepaysAKillWithinTenSeconds(GameTestHelper helper) {
+	public void judgementBurnsAndHealsForFifteenSeconds(GameTestHelper helper) {
+		// v0.14.4: 15 s, 10/s (x lunar power) burn, every point dealt to the judged target heals; no kill refund
 		ServerPlayer p = knight(helper);
 		MoonKnight.setVengeance(p, 50.0f);
-		p.setHealth(10.0f);
+		p.setHealth(4.0f);
 		Husk judged = helper.spawnWithNoFreeWill(EntityType.HUSK, 5, 2, 5);
 		Husk bystander = helper.spawnWithNoFreeWill(EntityType.HUSK, 6, 2, 3);
+		for (Husk h : new Husk[] { judged, bystander }) {
+			h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(200.0);
+			h.setHealth(200.0f);
+		}
 		MoonKnightKhonshu.judge(p, judged);
 		helper.assertTrue(MoonKnightKhonshu.isJudged(p, judged), "the mark is set");
+		helper.assertTrue(MoonKnightConfig.JUDGEMENT_TICKS == 300 && MoonKnightConfig.JUDGEMENT_COOLDOWN == 400
+				&& MoonKnightConfig.JUDGEMENT_COST == 10.0f, "15 s, 20 s cooldown, 10 Vengeance");
 
-		MoonKnightKhonshu.onEntityKilled(bystander, helper.getLevel().damageSources().playerAttack(p));
-		helper.assertTrue(Math.abs(MoonKnight.vengeance(p) - 50.0f) < 0.01f, "another mob dying repays nothing");
+		float power = MoonKnightLunar.power(p);
+		helper.assertTrue(MoonKnightKhonshu.judgementBurn(p), "the judged target burns");
+		float dealt = 200.0f - judged.getHealth();
+		helper.assertTrue(Math.abs(dealt - 10.0f * power) < 0.05f, "10 x lunar power a second (" + dealt + ", power " + power + ")");
+		float healed = p.getHealth() - 4.0f;
+		helper.assertTrue(Math.abs(healed - Math.min(dealt, p.getMaxHealth() - 4.0f)) < 0.05f,
+				"and he heals what it took (" + healed + " of " + dealt + ")");
+
+		// his own hits on the judged target heal too; hits on anyone else don't
+		p.setHealth(4.0f);
+		judged.invulnerableTime = 0;
+		judged.hurt(p.damageSources().playerAttack(p), 3.0f);
+		helper.assertTrue(p.getHealth() > 4.0f, "a hit on the judged target heals (" + p.getHealth() + ")");
+		p.setHealth(4.0f);
+		bystander.hurt(p.damageSources().playerAttack(p), 3.0f);
+		helper.assertTrue(p.getHealth() == 4.0f, "a hit on anyone else doesn't");
 
 		MoonKnightKhonshu.onEntityKilled(judged, helper.getLevel().damageSources().playerAttack(p));
-		helper.assertTrue(Math.abs(MoonKnight.vengeance(p) - 70.0f) < 0.01f, "+20 Vengeance (" + MoonKnight.vengeance(p) + ")");
-		helper.assertTrue(Math.abs(p.getHealth() - 16.0f) < 0.01f, "and 3 hearts back (" + p.getHealth() + ")");
-		helper.assertFalse(MoonKnightKhonshu.isJudged(p, judged), "the mark is spent");
-		MoonKnightKhonshu.onEntityKilled(judged, helper.getLevel().damageSources().playerAttack(p));
-		helper.assertTrue(Math.abs(MoonKnight.vengeance(p) - 70.0f) < 0.01f, "only once");
+		helper.assertFalse(MoonKnightKhonshu.isJudged(p, judged), "its death ends the Judgement");
+		helper.assertTrue(Math.abs(MoonKnight.vengeance(p) - 50.0f) < 0.01f, "no kill refund any more");
 		helper.succeed();
 	}
 

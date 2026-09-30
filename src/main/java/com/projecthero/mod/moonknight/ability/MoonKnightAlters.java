@@ -26,6 +26,7 @@ import net.fabricmc.fabric.api.tag.convention.v2.ConventionalBlockTags;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
@@ -49,6 +50,10 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.block.BarrelBlock;
@@ -75,7 +80,7 @@ import net.minecraft.world.phys.Vec3;
  *       Vengeance), Steven "Scholar's Sight" (chests / ores / spawners outlined through walls, this player only),
  *       Jake "Vanish" (Invisibility, every mob hunting him loses the scent).</li>
  * </ul>
- * Passives (only while transformed and in that alter): Marc +4 armour, +20% melee, knockback resistance; Steven -15%
+ * Passives (only while transformed and in that alter): Marc +4 armour, +20% melee, knockback resistance, Resistance I (v0.14.4); Steven -15%
  * melee taken, an extra loot roll on half his kills, cheaper villager trades; Jake faster sneaking, mobs notice him at
  * half the range, +50% melee from behind. Durations scale with the lunar power, cooldowns divide by it.
  */
@@ -94,6 +99,8 @@ public final class MoonKnightAlters implements MoonKnightMove {
 	private static final ResourceLocation SUIT_SPEED = PowerToggles.id("moon_knight_suit_speed");
 	private static final ResourceLocation SUIT_JUMP = PowerToggles.id("moon_knight_suit_jump");
 	private static final ResourceLocation SUIT_SAFE_FALL = PowerToggles.id("moon_knight_suit_safe_fall");
+	/** v0.14.4: 1-block step assist while suited (fixed id, transient: re-adding is free and it never saves). */
+	public static final ResourceLocation SUIT_STEP = PowerToggles.id("moon_knight_suit_step");
 
 	private static final DustParticleOptions MOONDUST = new DustParticleOptions(new org.joml.Vector3f(0.93f, 0.95f, 1.0f), 1.0f);
 	private static final DustParticleOptions GOLD_DUST = new DustParticleOptions(new org.joml.Vector3f(1.0f, 0.82f, 0.35f), 0.9f);
@@ -440,11 +447,15 @@ public final class MoonKnightAlters implements MoonKnightMove {
 					AttributeModifier.Operation.ADD_VALUE);
 			PowerToggles.modifier(player, Attributes.SAFE_FALL_DISTANCE, SUIT_SAFE_FALL, MoonKnightConfig.SUIT_SAFE_FALL_BONUS,
 					AttributeModifier.Operation.ADD_VALUE);
+			// v0.14.4: walks straight up full blocks (step height 0.6 -> 1.0)
+			PowerToggles.modifier(player, Attributes.STEP_HEIGHT, SUIT_STEP, MoonKnightConfig.SUIT_STEP_HEIGHT_BONUS,
+					AttributeModifier.Operation.ADD_VALUE);
 		} else {
 			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, SUIT_STRENGTH);
 			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SUIT_SPEED);
 			PowerToggles.clearModifier(player, Attributes.JUMP_STRENGTH, SUIT_JUMP);
 			PowerToggles.clearModifier(player, Attributes.SAFE_FALL_DISTANCE, SUIT_SAFE_FALL);
+			PowerToggles.clearModifier(player, Attributes.STEP_HEIGHT, SUIT_STEP);
 		}
 		boolean marc = on && alter == MoonKnightAlter.MARC;
 		boolean jake = on && alter == MoonKnightAlter.JAKE;
@@ -458,6 +469,7 @@ public final class MoonKnightAlters implements MoonKnightMove {
 			PowerToggles.clearModifier(player, Attributes.ARMOR, MARC_ARMOR);
 			PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, MARC_KNOCKBACK);
 		}
+		marcResistance(player, marc);
 		if (fistOn) {
 			PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, FIST_KNOCKBACK,
 					MoonKnightConfig.FIST_KNOCKBACK_RESISTANCE, AttributeModifier.Operation.ADD_VALUE);
@@ -469,6 +481,26 @@ public final class MoonKnightAlters implements MoonKnightMove {
 					AttributeModifier.Operation.ADD_VALUE);
 		} else {
 			PowerToggles.clearModifier(player, Attributes.SNEAKING_SPEED, JAKE_SNEAK);
+		}
+	}
+
+	/**
+	 * v0.14.4: Marc Spector, the fighter ("strength") alter, has Resistance I while suited as Marc. A short effect
+	 * refreshed by every reconcile (once a second) rather than an infinite one, so it can never outlive the suit or
+	 * the alter by more than a couple of seconds -- even across a relog. Never touches a stronger or longer
+	 * Resistance from somewhere else (a potion, another power).
+	 */
+	private static void marcResistance(ServerPlayer player, boolean on) {
+		MobEffectInstance current = player.getEffect(MobEffects.DAMAGE_RESISTANCE);
+		boolean ours = current != null && current.getAmplifier() == MoonKnightConfig.MARC_RESISTANCE_AMPLIFIER
+				&& !current.isInfiniteDuration() && current.getDuration() <= MoonKnightConfig.MARC_RESISTANCE_REFRESH_TICKS;
+		if (on) {
+			if (current == null || (ours && current.getDuration() < MoonKnightConfig.MARC_RESISTANCE_REFRESH_TICKS - 20)) {
+				player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, MoonKnightConfig.MARC_RESISTANCE_REFRESH_TICKS,
+						MoonKnightConfig.MARC_RESISTANCE_AMPLIFIER, false, false, true));
+			}
+		} else if (ours) {
+			player.removeEffect(MobEffects.DAMAGE_RESISTANCE);
 		}
 	}
 
@@ -578,5 +610,36 @@ public final class MoonKnightAlters implements MoonKnightMove {
 			int cut = (int) Math.floor(MoonKnightConfig.STEVEN_TRADE_DISCOUNT * offer.getBaseCostA().getCount());
 			offer.addToSpecialPriceDiff(-Math.max(cut, 1));
 		}
+	}
+
+	/** v0.14.4: the Fortune level Steven's mining counts as having (0 for anyone else). Public for the gametests. */
+	public static int stevenFortuneLevel(Entity miner) {
+		return miner instanceof Player p && MoonKnight.isTransformed(p) && MoonKnight.alter(p) == MoonKnightAlter.STEVEN
+				? MoonKnightConfig.STEVEN_FORTUNE_LEVEL : 0;
+	}
+
+	/**
+	 * v0.14.4 (from {@code mixin/MoonKnightStevenFortuneMixin}, on {@code Block#getDrops} with a miner and a tool):
+	 * blocks a transformed Steven breaks drop as if his tool had Fortune {@link MoonKnightConfig#STEVEN_FORTUNE_LEVEL}.
+	 * The loot tables read Fortune off the TOOL loot parameter, so this hands them a copy of his tool with Fortune
+	 * raised to at least that level -- a real Fortune tool keeps the higher of the two (never stacked), and a bare hand
+	 * becomes a plain stick carrying it (a stick changes nothing else a block's loot looks at; whether the block drops
+	 * at all was already decided from the real tool). Anyone else's tool comes back untouched.
+	 */
+	public static ItemStack fortuneTool(Entity miner, ItemStack tool, ServerLevel level) {
+		int fortune = stevenFortuneLevel(miner);
+		if (fortune <= 0 || level == null) {
+			return tool;
+		}
+		var holder = level.registryAccess().registryOrThrow(Registries.ENCHANTMENT).getHolder(Enchantments.FORTUNE);
+		if (holder.isEmpty()) {
+			return tool;
+		}
+		ItemStack copy = tool == null || tool.isEmpty() ? new ItemStack(Items.STICK) : tool.copy();
+		if (EnchantmentHelper.getItemEnchantmentLevel(holder.get(), copy) >= fortune) {
+			return tool;
+		}
+		copy.enchant(holder.get(), fortune); // upgrade: the higher level wins
+		return copy;
 	}
 }
