@@ -335,9 +335,6 @@ public final class MoonKnightConfig {
 	public static final int OUT_OF_COMBAT_TICKS = 5 * SECOND;
 	/** While suited, fall damage is multiplied by this (50% less), on top of the suit's 20% off every hit. */
 	public static final float SUIT_FALL_DAMAGE_TAKEN = 0.5f;
-	/** Marc Spector (the fighter alter): Resistance I while suited as Marc (amplifier 0), refreshed every second. */
-	public static final int MARC_RESISTANCE_AMPLIFIER = 0;
-	public static final int MARC_RESISTANCE_REFRESH_TICKS = 60;
 	/** Moonbeam AoE falloff: a mob at the very edge of the radius takes this fraction of the centre damage (linear). */
 	public static final float MOONBEAM_EDGE_FACTOR = 0.6f;
 	/** Eye of Khonshu: debuffs re-applied to every hostile in the radius this often; a random Moonbeam falls this often. */

@@ -17,8 +17,8 @@ import net.minecraft.world.phys.Vec3;
  * {@link MaxSteelDamage}; this class owns only the Heavy Punch, which fires when the player lands a
  * melee hit while <em>sprinting</em> in Strength Mode.
  *
- * <p>v0.9.4: the standing Resistance effect is gone -- Strength Mode's defence is now just the +KB
- * resistance attribute and the crouch shield block.
+ * <p>v0.9.4: the standing Resistance effect was dropped for the +KB resistance attribute and the crouch shield block.
+ * v0.14.4: Resistance I is back on top of both ({@link MaxSteelPassives#strengthResistance}).
  */
 public final class MaxSteelStrength {
 	public static final String HEAVY_PUNCH = "heavy_punch";

@@ -350,3 +350,7 @@ The Power Suppressor strips Max Steel along with every other power.
 HUD: the mode row shows only the Turbo Mode he is in ("TURBO MODE  Strength", blue, underlined) instead of all five with
 the active one lit (`MaxSteelHud`, lang `hud.projecthero.max_steel.mode_label`).
 
+### v0.14.4 -- Strength Mode Resistance I
+Turbo Strength Mode has **Resistance I** again (it had it in v0.9.2; v0.9.4 dropped it for the crouch block alone). A
+3 s particle-free effect topped up by `MaxSteelPassives#strengthResistance` while the mode lasts and removed as soon as it
+ends; a stronger or longer Resistance from elsewhere is never touched. Test: `MaxSteelGameTests#strengthModeHasResistanceOne`.

@@ -337,10 +337,8 @@ so a suited fall does 40% of vanilla; the glide / dash / grapple fall immunities
 `Attributes.STEP_HEIGHT` +0.4 (0.6 -> 1.0) with the fixed id `projecthero:moon_knight_suit_step`, a transient modifier
 kept by `MoonKnightAlters.reconcile` like the other suit passives.
 
-**Alters.** Marc Spector (the fighter / "strength" alter) gets Resistance I while suited as Marc
-(`MoonKnightAlters.marcResistance`: a 3 s effect refreshed every reconcile, removed on switch / suit-off, never touching
-a stronger or longer Resistance from elsewhere). Git history shows Moon Knight never had Resistance before -- Marc was
-the closest match for "strength mode". Steven Grant: no cape (`MoonKnightAlter.hasCape()`; `MoonKnightCapeLayer` skips
+**Alters.** (The "strength mode gets Resistance I" request meant Max Steel's Turbo Strength Mode -- see
+MAXSTEEL_REFERENCE v0.14.4; Marc briefly had it during development and does not.) Steven Grant: no cape (`MoonKnightAlter.hasCape()`; `MoonKnightCapeLayer` skips
 him, changing over halfway through a swap like the textures did), so no Cape Glide (`MoonKnightCape.canGlide`, ends one in
 progress) and no Cape Block (`canBlock`); and **Fortune III** on everything he mines: `mixin/MoonKnightStevenFortuneMixin`
 swaps the TOOL handed to `Block.getDrops(state, level, pos, be, miner, tool)` for `MoonKnightAlters.fortuneTool` -- a copy

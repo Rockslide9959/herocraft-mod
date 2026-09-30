@@ -500,4 +500,19 @@ public class MaxSteelGameTests implements FabricGameTest {
 		s.lastHighCostTick = -1000L;
 		MaxSteel.save(player, s);
 	}
+
+	/** v0.14.4: Turbo Strength Mode has Resistance I, and loses it the moment the mode ends. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void strengthModeHasResistanceOne(GameTestHelper helper) {
+		ServerPlayer player = suited(helper);
+		helper.assertTrue(MaxSteelModes.toggle(player, MaxSteelMode.STRENGTH, 0f), "enters Strength");
+		com.projecthero.mod.maxsteel.MaxSteelPassives.tick(player);
+		var res = player.getEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE);
+		helper.assertTrue(res != null && res.getAmplifier() == 0, "Strength Mode has Resistance I");
+		MaxSteelModes.toggle(player, MaxSteelMode.STRENGTH, 0f);
+		helper.assertTrue(MaxSteel.mode(player) == MaxSteelMode.BASE, "back in Base");
+		com.projecthero.mod.maxsteel.MaxSteelPassives.tick(player);
+		helper.assertFalse(player.hasEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE), "and loses it out of the mode");
+		helper.succeed();
+	}
 }

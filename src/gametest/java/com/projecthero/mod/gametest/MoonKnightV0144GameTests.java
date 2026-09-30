@@ -42,7 +42,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.14.4 Moon Knight balance pass: the three lunar states (Nether / End = day), halved falls, Marc's Resistance I,
+ * v0.14.4 Moon Knight balance pass: the three lunar states (Nether / End = day), halved falls,
  * the AoE Moonbeam, the minute-long Eye of Khonshu, the Crescent Fan's targets, the Grappling Line pulling a
  * squad-mate, and the Grapple Kick's aim assist / lead / hit check. Mock players are not reliably ticked, so every
  * move is driven directly; mobs are NoAI husks, and every test that hurts mobs has its own batch.
@@ -140,23 +140,6 @@ public class MoonKnightV0144GameTests implements FabricGameTest {
 				"a fall is halved on top of the suit's -20% (" + fall + " vs " + generic + ")");
 		MoonKnight.setTransformedForTesting(p, false);
 		helper.assertTrue(MoonKnightDamage.incomingFactor(p, p.damageSources().fall()) == 1.0f, "only while suited");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void marcHasResistanceOne(GameTestHelper helper) {
-		ServerPlayer p = knight(helper, new Vec3(2.5, 2.0, 2.5), 0.0f);
-		MoonKnightState c = MoonKnight.state(p).copy();
-		c.alter = MoonKnightAlter.MARC.ordinal();
-		MoonKnight.saveState(p, c);
-		MoonKnightAlters.reconcile(p);
-		var res = p.getEffect(MobEffects.DAMAGE_RESISTANCE);
-		helper.assertTrue(res != null && res.getAmplifier() == 0, "Marc (the fighter) has Resistance I while suited");
-		c = MoonKnight.state(p).copy();
-		c.alter = MoonKnightAlter.STEVEN.ordinal();
-		MoonKnight.saveState(p, c);
-		MoonKnightAlters.reconcile(p);
-		helper.assertFalse(p.hasEffect(MobEffects.DAMAGE_RESISTANCE), "and loses it as another alter");
 		helper.succeed();
 	}
 

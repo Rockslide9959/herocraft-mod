@@ -80,7 +80,7 @@ import net.minecraft.world.phys.Vec3;
  *       Vengeance), Steven "Scholar's Sight" (chests / ores / spawners outlined through walls, this player only),
  *       Jake "Vanish" (Invisibility, every mob hunting him loses the scent).</li>
  * </ul>
- * Passives (only while transformed and in that alter): Marc +4 armour, +20% melee, knockback resistance, Resistance I (v0.14.4); Steven -15%
+ * Passives (only while transformed and in that alter): Marc +4 armour, +20% melee, knockback resistance; Steven -15%
  * melee taken, an extra loot roll on half his kills, cheaper villager trades; Jake faster sneaking, mobs notice him at
  * half the range, +50% melee from behind. Durations scale with the lunar power, cooldowns divide by it.
  */
@@ -469,7 +469,6 @@ public final class MoonKnightAlters implements MoonKnightMove {
 			PowerToggles.clearModifier(player, Attributes.ARMOR, MARC_ARMOR);
 			PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, MARC_KNOCKBACK);
 		}
-		marcResistance(player, marc);
 		if (fistOn) {
 			PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, FIST_KNOCKBACK,
 					MoonKnightConfig.FIST_KNOCKBACK_RESISTANCE, AttributeModifier.Operation.ADD_VALUE);
@@ -481,26 +480,6 @@ public final class MoonKnightAlters implements MoonKnightMove {
 					AttributeModifier.Operation.ADD_VALUE);
 		} else {
 			PowerToggles.clearModifier(player, Attributes.SNEAKING_SPEED, JAKE_SNEAK);
-		}
-	}
-
-	/**
-	 * v0.14.4: Marc Spector, the fighter ("strength") alter, has Resistance I while suited as Marc. A short effect
-	 * refreshed by every reconcile (once a second) rather than an infinite one, so it can never outlive the suit or
-	 * the alter by more than a couple of seconds -- even across a relog. Never touches a stronger or longer
-	 * Resistance from somewhere else (a potion, another power).
-	 */
-	private static void marcResistance(ServerPlayer player, boolean on) {
-		MobEffectInstance current = player.getEffect(MobEffects.DAMAGE_RESISTANCE);
-		boolean ours = current != null && current.getAmplifier() == MoonKnightConfig.MARC_RESISTANCE_AMPLIFIER
-				&& !current.isInfiniteDuration() && current.getDuration() <= MoonKnightConfig.MARC_RESISTANCE_REFRESH_TICKS;
-		if (on) {
-			if (current == null || (ours && current.getDuration() < MoonKnightConfig.MARC_RESISTANCE_REFRESH_TICKS - 20)) {
-				player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, MoonKnightConfig.MARC_RESISTANCE_REFRESH_TICKS,
-						MoonKnightConfig.MARC_RESISTANCE_AMPLIFIER, false, false, true));
-			}
-		} else if (ours) {
-			player.removeEffect(MobEffects.DAMAGE_RESISTANCE);
 		}
 	}
 

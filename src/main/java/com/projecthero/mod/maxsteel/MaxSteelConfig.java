@@ -195,4 +195,12 @@ public final class MaxSteelConfig {
 	public static final int CANNON_COOLDOWN_TICKS = 160; // 8 s
 	/** Recoil pushed back through the pilot at a full charge (blocks/tick); Strength Mode plants its feet instead. */
 	public static final double CANNON_RECOIL = 0.7;
+
+	// ---------------------------------------------------------------- v0.14.4 Strength Mode Resistance
+	/**
+	 * Turbo Strength Mode: Resistance I (amplifier 0) while in the mode -- back from v0.9.2 (v0.9.4 had dropped it for
+	 * the crouch block alone). A short effect refreshed every tick it runs low, so it never outlives the mode.
+	 */
+	public static final int STRENGTH_RESISTANCE_AMPLIFIER = 0;
+	public static final int STRENGTH_RESISTANCE_TICKS = 60;
 }

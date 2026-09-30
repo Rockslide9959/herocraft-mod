@@ -21,6 +21,7 @@ public final class MaxSteelPassives {
 	}
 
 	public static void tick(ServerPlayer player) {
+		strengthResistance(player, MaxSteel.isTransformed(player) && MaxSteel.mode(player) == MaxSteelMode.STRENGTH);
 		if (!MaxSteel.isTransformed(player)) {
 			return;
 		}
@@ -32,6 +33,25 @@ public final class MaxSteelPassives {
 		MobEffectInstance regen = player.getEffect(MobEffects.REGENERATION);
 		if (regen == null || (!regen.isInfiniteDuration() && regen.getDuration() < 20)) {
 			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 60, 0, false, false, true));
+		}
+	}
+
+	/**
+	 * v0.14.4: Turbo Strength Mode has Resistance I. A short, particle-free effect topped up while the mode lasts and
+	 * taken off the moment it ends; a stronger or longer Resistance from somewhere else (a potion, another power) is
+	 * never touched.
+	 */
+	public static void strengthResistance(ServerPlayer player, boolean on) {
+		MobEffectInstance current = player.getEffect(MobEffects.DAMAGE_RESISTANCE);
+		boolean ours = current != null && current.getAmplifier() == MaxSteelConfig.STRENGTH_RESISTANCE_AMPLIFIER
+				&& !current.isInfiniteDuration() && current.getDuration() <= MaxSteelConfig.STRENGTH_RESISTANCE_TICKS;
+		if (on) {
+			if (current == null || (ours && current.getDuration() < MaxSteelConfig.STRENGTH_RESISTANCE_TICKS - 20)) {
+				player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, MaxSteelConfig.STRENGTH_RESISTANCE_TICKS,
+						MaxSteelConfig.STRENGTH_RESISTANCE_AMPLIFIER, false, false, true));
+			}
+		} else if (ours) {
+			player.removeEffect(MobEffects.DAMAGE_RESISTANCE);
 		}
 	}
 }
