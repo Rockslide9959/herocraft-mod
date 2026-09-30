@@ -55,7 +55,8 @@ public final class HeroTiers {
 				|| com.projecthero.mod.allmight.AllMight.hasPower(player)
 				|| com.projecthero.mod.hulk.Hulk.hasPower(player)
 				|| com.projecthero.mod.moonknight.MoonKnight.hasPower(player)
-				|| com.projecthero.mod.supersoldier.SuperSoldier.hasPower(player);
+				|| com.projecthero.mod.supersoldier.SuperSoldier.hasPower(player)
+				|| com.projecthero.mod.kryptonian.Kryptonian.hasPower(player);
 	}
 
 	/** How many Hero-Tier (non-experimental) Primary powers the player holds. */
@@ -82,7 +83,7 @@ public final class HeroTiers {
 
 	/** Every non-experimental Primary power key, as used by {@code HeroCommand}. */
 	public static final java.util.List<String> HERO_KEYS = java.util.List.of(
-			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter", "all_might", "hulk", "moon_knight", "super_soldier");
+			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter", "all_might", "hulk", "moon_knight", "super_soldier", "kryptonian");
 
 	/** Whether the player currently holds the Hero-Tier power named by {@code key}. */
 	public static boolean holdsHero(ServerPlayer player, String key) {
@@ -99,6 +100,7 @@ public final class HeroTiers {
 			case "hulk" -> com.projecthero.mod.hulk.Hulk.hasPower(player);
 			case "moon_knight" -> com.projecthero.mod.moonknight.MoonKnight.hasPower(player);
 			case "super_soldier" -> com.projecthero.mod.supersoldier.SuperSoldier.hasPower(player);
+			case "kryptonian" -> com.projecthero.mod.kryptonian.Kryptonian.hasPower(player);
 			default -> false;
 		};
 	}
@@ -159,6 +161,11 @@ public final class HeroTiers {
 			case "super_soldier" -> {
 				if (com.projecthero.mod.supersoldier.SuperSoldier.hasPower(player)) {
 					com.projecthero.mod.supersoldier.SuperSoldier.revoke(player);
+				}
+			}
+			case "kryptonian" -> {
+				if (com.projecthero.mod.kryptonian.Kryptonian.hasPower(player)) {
+					com.projecthero.mod.kryptonian.Kryptonian.revoke(player);
 				}
 			}
 			default -> {
@@ -388,6 +395,9 @@ public final class HeroTiers {
 			return true;
 		}
 		if (!excludeHeroKeys.contains("super_soldier") && com.projecthero.mod.supersoldier.SuperSoldier.hasPower(player)) {
+			return true;
+		}
+		if (!excludeHeroKeys.contains("kryptonian") && com.projecthero.mod.kryptonian.Kryptonian.hasPower(player)) {
 			return true;
 		}
 		return false;

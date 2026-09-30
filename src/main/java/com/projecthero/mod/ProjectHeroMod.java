@@ -107,6 +107,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.moonknight.ability.MoonKnightAlters.initialize();
 		com.projecthero.mod.moonknight.ability.MoonKnightKhonshu.initialize();
 		com.projecthero.mod.hulk.entity.HulkEntities.initialize();
+		// v0.14.8: the Kryptonian -- meteor blocks / items / entity, damage rules, flight payload, lifecycle hooks, meteor event
+		com.projecthero.mod.kryptonian.KryptonianMod.initialize();
 		com.projecthero.mod.thorarmor.ThorArmor.initialize();
 		com.projecthero.mod.titanshifter.item.TitanShifterItems.initialize();
 		com.projecthero.mod.titanshifter.entity.TitanShifterEntities.initialize();

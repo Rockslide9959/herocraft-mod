@@ -20,6 +20,9 @@
     "projecthero:enchanting_resonance",
     "projecthero:blast_chamber",
     "projecthero:resonant_chamber",
-    "projecthero:gravity_distortion_rig"
+    "projecthero:gravity_distortion_rig",
+    "projecthero:kryptonite_ore",
+    "projecthero:kryptonite_block",
+    "projecthero:meteor_core"
   ]
 }

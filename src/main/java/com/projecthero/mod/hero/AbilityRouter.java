@@ -169,6 +169,11 @@ public final class AbilityRouter {
 			com.projecthero.mod.supersoldier.SuperSoldierAbilityManager.handle(player, slot, pressed);
 			return;
 		}
+		// The Kryptonian (v0.14.8) takes the slots on the same terms: has the power and has not selected a mutation.
+		if (com.projecthero.mod.kryptonian.KryptonianAbilityManager.hasContext(player)) {
+			com.projecthero.mod.kryptonian.KryptonianAbilityManager.handle(player, slot, pressed);
+			return;
+		}
 
 		// A Normal Symbiote host (bonded, suit active, NOT also Spider-Man -- that combination is Black
 		// Suit Spider-Man and stays on SpiderManAbilityManager above) gets its own six tendril/mobility/
@@ -264,6 +269,8 @@ public final class AbilityRouter {
 		com.projecthero.mod.allmight.AllMightAbilityManager.serverTick(player);
 		// v0.13.11: the Hulk -- rage, the change, the size easing, regeneration
 		com.projecthero.mod.hulk.Hulk.tick(player);
+		// v0.14.8: the Kryptonian -- Solar Energy, sun healing, kryptonite, flight, the running moves
+		com.projecthero.mod.kryptonian.Kryptonian.tick(player);
 		// v0.13.19: Moon Knight -- Vengeance drain, the Fracture, Khonshu's Resurrection recharge, the suit
 		com.projecthero.mod.moonknight.MoonKnight.tick(player);
 		com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.serverTick(player);

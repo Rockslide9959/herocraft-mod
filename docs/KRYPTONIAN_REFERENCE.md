@@ -1,0 +1,80 @@
+# The Kryptonian (Hero-Tier power)
+
+Package `com.projecthero.mod.kryptonian` (+ client `com.projecthero.mod.client.kryptonian`). Hero-Tier key `kryptonian`.
+Added in v0.14.8. Every number is a static final in `KryptonianConfig`.
+
+## Architecture
+
+| Class | Role |
+|---|---|
+| `data/KryptonianState` | The one attachment (`projecthero:kryptonian_state`): persistent, `copyOnDeath`, synced to all. `hasPower`, `solar`, `flying`, `weakened`, `depoweredUntil`, `xrayUntil`, `heatVision`, `animId/animStart`, `flareChargeStart`, `abilityReadyAt`. |
+| `Kryptonian` | The API: state access, `grant` (claims the ONE Primary slot), `revoke`, `reconcile` (fixed-id transient modifiers from `empowered()`), the per-tick body (Solar Energy once a second, sun healing / feeding, fire + air), lifecycle. |
+| `KryptonianDamage` | ALLOW_DAMAGE: /kill + void pass; weakened/burnt out = full damage; falls, fly-into-wall, fire, lava, hot floor, drowning, freezing, suffocation, cactus/berry, starving = none; everything else x0.25 (cancel-and-reissue). AFTER_DAMAGE: melee knockback. |
+| `Kryptonite` | Every 10 ticks: ore/block within a 5-block cube (chunk-section palette pre-check), shard item entities or anyone holding one within 6, a shard in his own inventory. Sets `weakened`; lingers 2 s. Weakness II + Slowness II, 1 magic dmg/s, -5 solar/s. |
+| `KryptonianFlight` | Server half of flight: `mayfly/flying`, lands on ground contact (10-tick lift-off grace) or when the client drops vanilla flight, trail particles, sonic boom (position-delta speed >= 1.5 b/t, re-arms under 0.9). |
+| `KryptonianAbilities` | The ten moves; one `begin()` gate (power, kryptonite, burn-out, cooldown, solar); per-player sessions for held / multi-tick moves; `clear()` / `clearSessionState()`. |
+| `KryptonianAbilityManager` | Slot dispatch; Shift read server-side (`isShiftKeyDown`). `idsOf(slot)` = [plain, shift] for the HUD. |
+| `KryptonianCombat` | Targets (never self, squad-mates, creative players; players only with PvP), boss cap (8% max HP, no knockback), cone, radial, crater (needs `abilityTerrainDamage`, hardness <= 5, no block entities), shake. |
+| `meteor/MeteorManager` | The nightly roll, `summonNear`, `launch`, scheduled impacts, `impact` (crater + core + ore). |
+| `meteor/KryptoniteMeteorEntity` | The fireball: moves along a straight line, particles, never saved. Purely visual. |
+| `item/*`, `block/*` | Kryptonite ore / block, Meteor Core, Kryptonite Shard, Kryptonian Crystal. |
+| `KryptonianMod` | One `initialize()` from `ProjectHeroMod`: items, damage, payload + receiver, JOIN / AFTER_RESPAWN / AFTER_DEATH / world change / DISCONNECT hooks, meteor tick. `clearSessionState()` from `ServerStateReset`. |
+| `KryptonianCommand` | `/projecthero meteor [here]`, `/projecthero kryptonian solar <n>` (op). |
+
+Client: `KryptonianHud` (mono style, Hairline bars only), `KryptonianFlightClient` + `mixin/KryptonianFlightTravelMixin`
+(directional flight, local player), `KryptonianBeamRenderer` (heat vision, `BeamDraw` ribbons like `LaserBeamRenderer`),
+`KryptonianPose` (from `HumanoidModelMixin`), `mixin/KryptonianXRayGlowMixin` (per-viewer outlines),
+`KryptoniteMeteorRenderer` (a tumbling 2x kryptonite-ore block + vanilla fire overlay). `FlightPoseHelper` counts
+Kryptonian flight as hero flight (body lean); the double-tap is in `ProjectHeroModClient.handleDoubleJump`.
+
+## Passives (always on while `empowered`)
+
+60 max HP (+40), 15 fist damage (+14), knockback resistance 1.0, +40% speed, +0.5 step, +1 reach, ~4-block jump,
+safe-fall 1000, 75% damage reduction, the immunities above, no air loss, fire cleared. Sun: `DIRECT` (day, sky at the
+eyes, no rain) heals 1 HP / 10 ticks, feeds 1 food / 10 s; otherwise 1 HP / 40 ticks.
+
+Solar Energy per second: DIRECT 4, SHADE (day, no direct sun) 1, NIGHT 0.5, DARK (underground, Nether, End) 0.25.
+
+## Moves
+
+| Key | Move | Numbers | Cost | Cooldown |
+|---|---|---|---|---|
+| R | Kryptonian Punch | 32 to the aimed target (6 blocks), pushed 3.0 along the look + 0.6 up; 12 in 3 blocks round it. Air punch: 14 in a 7-block 40-deg cone | 8 | 4 s |
+| Shift+R | Heat Vision (hold) | 32 blocks from the eyes; 4 dmg every 5 ticks (burst), 5 s fire; sets blocks alight every second (terrain damage on); max 6 s | 3/s (1.5 per 10 ticks) | 5 s after release |
+| G | Freeze Breath | 30 ticks, 12-block 60-deg cone, 5 dmg every 5 ticks, frozen + Slowness IV 6 s; source water -> frosted ice, fire out | 12 | 8 s |
+| Shift+G | Thunderclap | 20-block 80-deg cone, up to 20 dmg (50% at the far end), knockback 3.0 + 0.4 up, Slowness VII + Weakness II 2 s | 15 | 10 s |
+| Z | Ground Slam | grounded: slam now (75%); airborne: dive at 2.6 b/t, slam on landing (75% -> 100% after 20 ticks of dive). 30 dmg in 7 blocks, lift 1.0; 2.5-block crater (30 blocks max) | 15 | 8 s |
+| Shift+Z | SOLAR FLARE | needs 50 solar; 40-tick charge; 60 + 0.6 x solar (60..120) in 12 blocks (falloff to 60%), knockback 3.5, lift 1.0, 8 s fire; 4-block crater (80 max); then burnt out 30 s (no flight / moves / passives / solar) | all | 90 s |
+| X | Super Dash | 16 blocks at 2 b/t along the look (flat-ish on foot), 20 dmg + 2.5 knockback to everything within 1.8; resumes flight if flying | 6 | 3 s |
+| Shift+X | Sky Launch | 8 dmg / lift 0.8 in 4 blocks at the base, launched ~40 blocks, auto-flight at the apex | 5 | 8 s |
+| V | X-Ray Vision | 10 s, living things within 48 outlined (client only) + Night Vision | 5 | 20 s |
+| Shift+V | Super Grab / Throw | grab (6 blocks, not bosses / width > 3 / riders), held 10 s max; throw 3.0 b/t -> 24 to it, 18 in 3 blocks | 5 | 10 s from throw |
+
+Bosses (max HP >= 300 or `TitanCombat.isBoss`) take at most 8% of max HP per hit and are never knocked back.
+
+## Flight
+
+Double-tap jump in the air -> `KryptonianActionPayload.TOGGLE_FLIGHT`. Client model: W flies along the look
+(0.9 b/t, Sprint 2.0 b/t), S brakes (0.35 of the gap/tick), A/D strafe (70%), Space/Sneak 0.6 b/t vertical, coast to a
+hover (0.08). Big outside pushes (> 0.6 b/t off the model) are adopted. Dash / Slam / Launch stop flight while they
+run (the server launches him) and Dash / Launch restore it.
+
+## The Kryptonite Meteor
+
+Overworld dusk (day time 13000-14000, once per day): 20% chance (guaranteed on the 6th meteor-less night) to schedule
+one 400-8400 ticks later near a random online player, 80-200 blocks away (up to 8 tries for dry land). Chat line to
+the whole Overworld + direction/distance to that player. Fall 100 ticks from ~140 above. Impact (scheduled by game time,
+independent of the entity): `explode` power 3 with `ExplosionInteraction.NONE`, bowl radius 4 x 2.8 deep + the column
+above cleared (never block entities, unbreakable blocks, fluids), floor scorched (magma / blackstone / basalt / coarse
+dirt), some fire, **one Meteor Core** at the centre (loot: exactly one Kryptonian Crystal, never itself) and up to 10
+kryptonite ore around it. Static state (pending impacts, roll day, pity counter) is dropped by `ServerStateReset`; a
+meteor in flight at shutdown never lands.
+
+## Wiring checklist used
+
+ModAttachments, HeroTiers (hasHeroTier, HERO_KEYS, holdsHero, revokeHero, hasIncompatibleWith), PowerGrants (key +
+grant), AbilityRouter (branch + serverTick), HeroCommand (revoke + error text), ProjectHeroCommand, ProjectHeroMod
+(one `KryptonianMod.initialize()`), ServerStateReset, ModCreativeTab, HeroIdentity + SquadScreen colour,
+PowerInfoScreen, HeroPackGuide (CH_KRYPTONIAN, CHAPTER_POWER_BASE +1, `HeroPackGameTests` count), client mixins json,
+FlightPoseHelper, HumanoidModelMixin, ProjectHeroModClient (init + double-tap), lang via
+`scratchpad/lang_v0148_kryptonian.js`, assets/data via `scratchpad/gen_kryptonian.js`.

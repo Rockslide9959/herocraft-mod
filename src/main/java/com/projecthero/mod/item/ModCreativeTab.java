@@ -89,6 +89,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.hulk.item.HulkItems.addToCreativeTab(output);
 				// v0.14.8 Super Soldier: the unrefined and refined Super Soldier Serum.
 				com.projecthero.mod.supersoldier.item.SuperSoldierItems.addToCreativeTab(output);
+				// Kryptonian (v0.14.8): the Kryptonian Crystal, kryptonite and the Meteor Core.
+				com.projecthero.mod.kryptonian.item.KryptonianItems.addToCreativeTab(output);
 				// Moon Knight: the Scarab of Khonshu (loot-only in survival) and the Altar of Khonshu.
 				com.projecthero.mod.moonknight.temple.KhonshuTemple.addToCreativeTab(output);
 				// Thor: the H-conjured armour (creative-only for testing; in survival it is summoned, not crafted).

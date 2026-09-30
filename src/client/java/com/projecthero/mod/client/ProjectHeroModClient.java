@@ -116,6 +116,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.HulkHud::render);
 		// v0.14.8: Super Soldier -- mono HUD + the thrown shield renderer
 		com.projecthero.mod.client.supersoldier.SuperSoldierClient.initialize();
+		// v0.14.8: the Kryptonian -- HUD, heat-vision beams, the meteor renderer
+		com.projecthero.mod.client.kryptonian.KryptonianClient.initialize();
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SymbioteHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SquadLocatorBarHud::render);
@@ -933,6 +935,14 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		if (!player.onGround() && ThorPowers.isHoldingMjolnir(player)) {
 			ticksSinceJumpPress = Integer.MAX_VALUE;
 			ClientPlayNetworking.send(new ThorActionPayload(ThorActionPayload.Action.TOGGLE_FLIGHT));
+			return;
+		}
+
+		// v0.14.8: the Kryptonian -- double-tap jump in the air takes off / drops out of flight (server re-validates).
+		if (!player.onGround() && com.projecthero.mod.kryptonian.Kryptonian.hasPower(player)) {
+			ticksSinceJumpPress = Integer.MAX_VALUE;
+			ClientPlayNetworking.send(new com.projecthero.mod.kryptonian.network.KryptonianActionPayload(
+					com.projecthero.mod.kryptonian.network.KryptonianActionPayload.Action.TOGGLE_FLIGHT));
 			return;
 		}
 

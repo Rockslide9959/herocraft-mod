@@ -223,6 +223,15 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		this.leftLeg.zRot = Mth.lerp(raise, this.leftLeg.zRot, 0.0f);
 	}
 
+	/** v0.14.8: the Kryptonian -- the one-fist-forward flight pose and the move poses. After the flight pose so it wins. */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$kryptonianPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player player) {
+			com.projecthero.mod.client.kryptonian.KryptonianPose.apply(player, (HumanoidModel<?>) (Object) this);
+		}
+	}
+
 	/**
 	 * v0.14.4: Thor's move animations (Lightning Strike, Thunderclap, Chain Lightning, the throw, Hammer Volley, the
 	 * Beam, the Wrath charge and release, the suit-up). Declared after {@link #projecthero$flightPose} so a move made

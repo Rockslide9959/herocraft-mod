@@ -46,6 +46,9 @@ public final class ProjectHeroCommand {
 		root.then(HeroCommand.buildAdmin());
 		root.then(LocateCommand.build());
 		root.then(RaidAdminCommand.build());
+		// v0.14.8: /projecthero meteor [here] and /projecthero kryptonian solar <n> (op only)
+		root.then(com.projecthero.mod.kryptonian.KryptonianCommand.buildMeteor());
+		root.then(com.projecthero.mod.kryptonian.KryptonianCommand.buildKryptonian());
 
 		dispatcher.register(root);
 		// v0.13.11: Hulk Phase 1 test commands (op-only; removed / locked down in Phase 4)

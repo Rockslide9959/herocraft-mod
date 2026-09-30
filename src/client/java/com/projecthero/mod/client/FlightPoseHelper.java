@@ -100,8 +100,10 @@ public final class FlightPoseHelper {
 		// skin's hat layer glued to the head while flying (see HumanoidModelMixin#levelHead), which was
 		// never happening for Ring Flight before since it never drove a body lean at all.
 		boolean greenLanternFlying = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FLYING, false);
+		// v0.14.8: the Kryptonian leans into his flight too (his own arm pose is KryptonianPose)
+		boolean kryptonianFlying = com.projecthero.mod.kryptonian.Kryptonian.isFlying(player);
 		boolean heroFlying = player.getAttachedOrElse(ModAttachments.HERO_FLYING, false)
-				|| ironManFlying || maxSteelFlying || greenLanternFlying;
+				|| ironManFlying || maxSteelFlying || greenLanternFlying || kryptonianFlying;
 		boolean flying = thorFlying || heroFlying;
 		anim.heroOnly = heroFlying && !thorFlying;
 		if (flying) {

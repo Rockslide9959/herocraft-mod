@@ -11,6 +11,8 @@
 		"GunFovMixin",
 		"GameRendererPickMixin",
 		"GreenLanternFlightTravelMixin",
+		"KryptonianFlightTravelMixin",
+		"KryptonianXRayGlowMixin",
 		"GreenLanternRingHandMixin",
 		"GuiTitanMountMessageMixin",
 		"GuiArmorBarMixin",

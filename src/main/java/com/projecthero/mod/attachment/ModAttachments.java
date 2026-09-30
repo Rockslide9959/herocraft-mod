@@ -694,6 +694,18 @@ public final class ModAttachments {
 			builder -> builder.initializer(() -> com.projecthero.mod.hero.visual.MutationVisualState.EMPTY)
 					.syncWith(com.projecthero.mod.hero.visual.MutationVisualState.STREAM_CODEC, AttachmentSyncPredicate.all()));
 
+	/**
+	 * v0.14.8: the Kryptonian -- the power, Solar Energy, flight, kryptonite weakness, the move timers. Persistent, kept
+	 * through death and synced to every client (others draw the flight pose and heat-vision beams).
+	 */
+	public static final AttachmentType<com.projecthero.mod.kryptonian.data.KryptonianState> KRYPTONIAN_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("kryptonian_state"),
+					builder -> builder.persistent(com.projecthero.mod.kryptonian.data.KryptonianState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.kryptonian.data.KryptonianState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.kryptonian.data.KryptonianState.CODEC),
+									AttachmentSyncPredicate.all()));
+
 	private ModAttachments() {
 	}
 

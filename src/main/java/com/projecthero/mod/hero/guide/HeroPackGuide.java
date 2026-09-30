@@ -114,6 +114,11 @@ public final class HeroPackGuide {
 		return chapters().get(CH_HULK);
 	}
 
+	/** The Kryptonian (v0.14.8). */
+	public static Chapter kryptonianChapter() {
+		return chapters().get(CH_KRYPTONIAN);
+	}
+
 	public static Chapter symbioteChapter() {
 		return chapters().get(CH_SYMBIOTE);
 	}
@@ -256,7 +261,8 @@ public final class HeroPackGuide {
 	private static final int CH_DARKSEID_RAID = 22;
 	private static final int CH_MOON_KNIGHT = 23;
 	private static final int CH_SUPER_SOLDIER = 24;
-	private static final int CHAPTER_POWER_BASE = 25;
+	private static final int CH_KRYPTONIAN = 25;
+	private static final int CHAPTER_POWER_BASE = 26;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -871,6 +877,32 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.super_soldier.commands.body");
 		}));
 
+		// The Kryptonian (v0.14.8). Appended after Moon Knight so every earlier index stays put.
+		out.add(chapter("projecthero.guide.kryptonian", lines -> {
+			lines.add(Component.translatable("projecthero.guide.kryptonian.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.kryptonian.body");
+			blank(lines);
+			for (String section : new String[]{"origin", "body_stats", "solar", "flight", "kryptonite"}) {
+				head(lines, "projecthero.guide.kryptonian." + section);
+				para(lines, "projecthero.guide.kryptonian." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.kryptonian.controls");
+			for (String[] row : new String[][] { { "R", "punch" }, { "Shift+R", "heat_vision" }, { "G", "freeze_breath" },
+					{ "Shift+G", "thunderclap" }, { "Z", "ground_slam" }, { "Shift+Z", "solar_flare" }, { "X", "super_dash" },
+					{ "Shift+X", "sky_launch" }, { "V", "xray_vision" }, { "Shift+V", "super_grab" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.kryptonian.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.kryptonian.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.kryptonian.meteor");
+			para(lines, "projecthero.guide.kryptonian.meteor.body");
+			blank(lines);
+			head(lines, "projecthero.guide.kryptonian.commands");
+			para(lines, "projecthero.guide.kryptonian.commands.body");
+		}));
+
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
@@ -906,6 +938,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.hulk", CH_HULK);
 		link(idx, "projecthero.guide.moon_knight", CH_MOON_KNIGHT);
 		link(idx, "projecthero.guide.super_soldier", CH_SUPER_SOLDIER);
+		link(idx, "projecthero.guide.kryptonian", CH_KRYPTONIAN);
 
 		section(idx, "projecthero.guide.section.events", true);
 		link(idx, "projecthero.guide.zombie_raid", CH_ZOMBIE_RAID);

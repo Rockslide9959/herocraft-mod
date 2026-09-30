@@ -194,6 +194,9 @@ public final class PowerInfoScreen extends Screen {
 		if (com.projecthero.mod.supersoldier.SuperSoldier.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.superSoldierChapter();
 		}
+		if (com.projecthero.mod.kryptonian.Kryptonian.hasPower(mc.player)) {
+			return com.projecthero.mod.hero.guide.HeroPackGuide.kryptonianChapter();
+		}
 		if (com.projecthero.mod.wolverine.Wolverine.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.wolverineChapter();
 		}

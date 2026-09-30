@@ -197,6 +197,22 @@ into the **Refined Serum**, which always works.
   Leap · **V** Battle Cry (buffs your squad, weakens the enemy) / **Shift+V** Tactical Focus (marks every enemy within
   30 blocks; your hits on them crit).
 
+### ☀️ The Kryptonian
+Some nights a **green meteor** streaks across the sky and slams into the ground nearby (you're told which way it fell).
+At the bottom of its scorched crater, ringed with glowing **kryptonite ore**, sits the **Meteor Core** -- mine it for the
+one **Kryptonian Crystal** it holds, then hold it up to the **daytime sun**. The stored sunlight pours into you.
+- **The body:** 60 health, **75% less damage**, and nothing at all from falls, fire, lava, drowning or freezing. 15-damage
+  fists that send things flying, no knockback, 40% faster, a 4-block jump, and the sun heals and feeds you.
+- **True flight:** double-tap jump and fly wherever you look -- **S** brakes to a hover, **Sprint** is 40 blocks a second
+  with a **sonic boom** as you break into it, and he flies one fist forward.
+- **Solar Energy** charges in sunlight (fast in direct sun, slowly at night, barely underground) and fuels ten moves:
+  **R** Kryptonian Punch (32, launches) · **Shift+R** held **Heat Vision** from your eyes · **G** Freeze Breath (ices
+  water) · **Shift+G** Thunderclap · **Z** Ground Slam (dive from the sky) · **Shift+Z** **SOLAR FLARE** -- dump every
+  drop of sunlight in a 12-block blast of up to 120 damage, then you're burnt out for 30 s · **X** Super Dash ·
+  **Shift+X** Sky Launch (40 blocks straight up) · **V** X-Ray Vision · **Shift+V** Super Grab & Throw.
+- **Kryptonite:** ore, blocks and shards (mine the ore with an iron pickaxe) within a few blocks strip every power, drop
+  you out of the sky and hurt you. Your enemies can carry it too.
+
 ---
 
 ## 26 Experimental Powers

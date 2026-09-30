@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "SSS",
+    "SSS",
+    "SSS"
+  ],
+  "key": {
+    "S": {
+      "item": "projecthero:kryptonite_shard"
+    }
+  },
+  "result": {
+    "id": "projecthero:kryptonite_block",
+    "count": 1
+  }
+}

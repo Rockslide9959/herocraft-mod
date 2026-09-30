@@ -57,6 +57,9 @@ public final class HeroIdentity {
 		if (com.projecthero.mod.supersoldier.SuperSoldierAbilityManager.hasContext(player)) {
 			return "projecthero.squad.identity.super_soldier";
 		}
+		if (com.projecthero.mod.kryptonian.Kryptonian.hasPower(player)) {
+			return "projecthero.squad.identity.kryptonian";
+		}
 		if (com.projecthero.mod.wolverine.WolverineAbilityManager.hasContext(player)) {
 			return "projecthero.squad.identity.wolverine";
 		}
