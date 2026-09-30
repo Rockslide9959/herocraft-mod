@@ -27,8 +27,9 @@ different heroes side by side. Almost everything is tunable in generated config 
 
 ## How powers work
 
-- **Primary powers** are who you are: every hero below, plus your experimental mutations. You can hold **two Primary
-  powers at once**; your mutations (up to three, stacking) share a single slot. Gaining a new hero replaces your oldest.
+- **Primary powers** are who you are: every hero below, plus your experimental mutations. You hold **one Primary
+  power at a time**; your mutations (up to three, stacking) count as that one power. Gaining a new hero -- lifting
+  Mjolnir included -- replaces what you had.
 - **Secondary powers** ride on top. The **Symbiote** is the Secondary power: it bonds with anyone, but only shares a host
   with Spider-Man (Black Suit) or the Punisher (Agent Venom).
 - **Controls:** six ability keys, **Ability 1–6** in Options › Controls (default **R, G, Z, X, C, V**), plus **H**
@@ -49,7 +50,10 @@ Lightning Rod). The hammer only moves for a **Hero of the Village**. Lift it wit
 - Lightning Strike, God of Thunder's Wrath, a crackling Lightning Beam, Chain Lightning, **Hammer Volley** (the hammer hunts
   every enemy around you), Thunderclap, Storm Call and Mjolnir Parry.
 - **The Power of Thor:** +11 melee, +10 hearts, 80% less damage, permanent Regeneration, no fall or lightning damage.
-- **H** calls down lightning and conjures **Thor's Armour** onto you.
+- **H** calls down lightning and forges **Thor's Armour** onto you piece by piece -- boots, greaves, then chestplate and
+  cape, each arriving with its own bolt from the sky.
+- Every move has its own animation, the Beam and Chain Lightning are thick forking bolts, Thunderclap sends a shockwave
+  ring across the ground -- and none of it ever hurts your squad.
 
 ### 🔴 Iron Man / Tony Stark
 Build an **Arc Reactor**, the **Stark Fabricator** and a **Suit Platform**, then climb the ladder from the cave-built
@@ -83,13 +87,18 @@ mob. Right-click it and survive the bonding.
 - **It protects its host:** it wraps you on its own when you're hurt and **drags you back from death** once every ten
   minutes (twenty as Black Suit Spider-Man or Agent Venom). Camouflage while crouching, and a Predator Vision that outlines living things (**N**).
 - **Weaknesses:** fire and sound. Bells, goat horns and Warden booms tear the suit right off you.
+- **Symbiote Pets:** a free Symbiote also takes over animals -- and it hunts for your tamed wolf or cat (or share
+  yours: Sneak + right-click it while suited). Your pet becomes the host and stays loyal, and in a fight the Symbiote
+  spreads over it **pixel by pixel**: bigger, white-eyed, regenerating, with a Tendril Lash, Pounce, Spike Burst,
+  Latching Bite and a **Guardian Shroud** that wraps you in the Symbiote when you're in danger.
 - **Black Suit Spider-Man** and **Agent Venom** (with the Punisher) get their own Symbiote extras. Bottle a Symbiote in
   a **Symbiote Vial**.
 
 ### 🔵 Max Steel
 Bond with **Steel**, the alien companion floating over a crash site.
-- **Go Turbo** (**N**) into the nanotech suit, powered by T.U.R.B.O. energy.
-- Six Turbo modes, each with its own suit: Blast, Strength, Speed, Flight (with wings), Stealth and the **Turbo Cannon**
+- **Go Turbo** (**N**) into the nanotech suit, powered by T.U.R.B.O. energy -- or press a mode key and go straight from
+  Normal form into that Turbo mode. T.U.R.B.O. energy recharges in Normal form too.
+- Six Turbo modes, each with its own suit: Blast, Strength (with Resistance I), Speed, Flight (with wings), Stealth and the **Turbo Cannon**
   that fires you as a guided projectile.
 - Burn out and you overload. An emergency revive fires if you have enough energy banked.
 
@@ -112,7 +121,7 @@ Find a **Fallen Lantern Site**, pass the **Will Trial** and answer the ring's qu
 - **19 hard-light constructs** on a new construct wheel (Attack / Defence / Mobility / Utility) -- walls, walkable
   ramps, a spinning turret, a **Buzzsaw** that ricochets between enemies, an **Anvil Drop**, a **Chain Snare**, a
   **Launch Pad** and an **Emerald Warrior** that fights at your side. **N** dismisses them all.
-- Every move has its own animation, the HUD is a framed ring-charge panel, and the ring on your hand glows and flares
+- Every move has its own animation, a clean ring-charge HUD shows every key, and the ring on your hand glows and flares
   as you use it. Hold **Sneak + N** for 5 seconds to take the ring off (and give it to someone else).
 - Hold **X** to recite the Oath for 30 seconds of doubled power.
 - The ring never recharges on its own: recite the Oath at your **Power Battery** to refill it.
@@ -150,25 +159,27 @@ explodes, and the Gamma in your blood lets you walk out of the crater as the Hul
 - Power Punch, Ground Smash, Thunderclap, **HULK SMASH**, a 70-block Super Leap, a rampaging Charge, and Grab (throw mobs,
   tear up the earth, or carry your squadmates).
 - **Banner can't be killed:** a fatal hit just unleashes the Hulk. Lose control and he goes on a rampage -- hitting
-  friend and foe alike, squadmates included -- and you'll need the breathing minigame to calm him down.
+  friend and foe alike, squadmates included, who can fight back -- and you'll need the breathing minigame to calm him down.
 
 ### 🌙 Moon Knight
 Find a rare **Temple of Khonshu** in the desert, take the **Scarab of Khonshu** from its hidden chamber, and at night lay
 it on the altar under the open sky and kneel. Khonshu speaks... you die in a flash of white, and rise again as his fist.
 - **H** summons the suit: it materialises over you **one pixel at a time** in 1.5 s as bandages spiral up your body,
   with a flowing **hooded cape**. In it you **regenerate** fast, hit **+7** harder, run **30% faster**, jump over
-  **two blocks** and take **20% less** damage. Your own
+  **two blocks**, step straight up full blocks, take **20% less** damage and **half** fall damage. Your own
   armour is kept safe and handed back when you take it off -- and out of the suit, a hard hit calls it back on its own.
-- **Lunar power:** everything scales with the moon -- x1.5 under a full moon, weaker as it wanes, x0.7 by day, and less
-  underground. **Vengeance** builds by protecting villagers and travellers from monsters at night, and powers his
-  strongest moves.
-- **Three alters (V), three suits:** **Marc** the fighter in white and gold, **Steven** the scholar in the Mr. Knight suit
-  (Scholar's Sight finds chests and ores through walls, better trades), **Jake** the shadow in black (backstabs, Vanish).
+- **Lunar power:** three states -- **Day** x0.7, **Night** x1.0, **Full Moon** x1.5 (the Nether and the End count as
+  day). **Vengeance** builds by protecting villagers and travellers and killing monsters, regenerates when you're out of
+  combat, and powers his strongest moves.
+- **Three alters (V), three suits:** **Marc** the fighter in white and gold, **Steven** the scholar in the capeless Mr. Knight suit
+  (Scholar's Sight finds chests and ores through walls, better trades, **Fortune III** on everything he mines), **Jake** the shadow in black (backstabs, and a Vanish no mob can see through).
   Switch and the new suit rematerialises over the old one. Run out of Vengeance and your mind **Fractures**.
-- **R** Crescent Darts (homing at night, boomerang back; a charged fan; **Moon Mark**) · **G** Grapple Kick · **X** Dash,
-  that goes wherever you aim, and **Sneak+X** a 100-block Grappling Line that reels mobs in · **Z** Moonbeam, **Khonshu's Judgement** and the ultimate
-  **Eye of Khonshu** under a full moon · **C** Truncheon (three-hit combo slams, a staff spin, ground / dive slams) ·
-  **Sneak+G** Shadow Step.
+- **R** Crescent Darts (homing at night, boomerang back; a **Crescent Fan** of five darts that each lock on to an enemy;
+  **Moon Mark**) · **G** Grapple Kick (20 damage, with aim assist and a lock-on marker) · **X** Dash, that goes wherever
+  you aim, and **Sneak+X** a 100-block Grappling Line that reels in mobs and squadmates · **Z** an area-blast **Moonbeam**,
+  **Khonshu's Judgement** (a 15 s burn that heals you) and the ultimate one-minute **Eye of Khonshu** that calls moonbeams
+  down on everything around you · **C** summons the **Truncheon** into your hand (a three-hit combo, a 15-damage staff
+  spin, ground / dive slams) · **Sneak+G** Shadow Step.
 - **The cape:** jump and hold Sneak to **glide** fast and flat out on cape wings (glide into a mob to kick it); hold right click
   to **block** with it.
 - **Khonshu's Resurrection:** once per lunar cycle, a fatal blow brings you back in a flash of moonlight.
@@ -196,15 +207,17 @@ Manipulation · Size Manipulation**
 
 ### 🧟 The Zombie Raid
 Catch the **Gravebound Curse** from a Graveyard or a Cursed Zombie, then cure it with an Enchanted Golden Apple or survive
-**twelve waves** and three **Powered Zombie Bosses**, each wielding a real superpower.
+**twelve waves** and three **Powered Zombie Bosses**, each wielding a real superpower. Their heads are **wearable,
+placeable trophies** that remember who slew them. The curse can strike again and again.
 
 ### 🏹 The Supervillain Village Raid
 A **Pillager Spy** attacking you in a village sets off five raider waves and an **Empowered** supervillain with a random
-power and look.
+power and look. Raids are repeatable: spies keep coming, even for a village that has been raided before.
 
 ### 🗼 The Titan
 A zombie that isn't what it seems. At low health it becomes an **18-block giant** that hunts you with punches, sweeps,
-stomps, shockwaves, grabs, boulder throws and charges, all telegraphed and all dodgeable.
+stomps, shockwaves, grabs, boulder throws, charges, a **Leaping Slam** and a **Grave Roar** that raises the dead -- every
+move animated, telegraphed and dodgeable. It turns on whoever hurts it most, so the whole group has to stay sharp.
 
 ### 🔥 The Abyssal Behemoth
 A very rare **Nether boss**: a nine-block, horned, ancient Ghast with nine attacks and three phases, including fireball

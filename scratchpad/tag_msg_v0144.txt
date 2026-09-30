@@ -1,0 +1,54 @@
+Project Hero v0.14.4 -- One Power, Many Changes
+
+ONE POWER AT A TIME
+- You now hold ONE Primary power. Any new hero power, lifting Mjolnir included, replaces what you had. Old saves keep their newest hero.
+
+THOR
+- Your lightning, beam, chain, Thunderclap and hammer never hurt your squad (or their pets).
+- Thor's Armour forges onto you piece by piece, each piece with its own bolt from the sky.
+- Every move is animated, with thick forking lightning and shockwave rings.
+
+MOON KNIGHT
+- 3 lunar states: Day x0.7, Night x1.0, Full Moon x1.5 (Nether/End = day).
+- Vengeance: more per kill, regenerates 0.5%/s out of combat.
+- Half fall damage, 1-block step assist, longer Dash, smooth Cape Glide near the floor.
+- Moonbeam: 35 dmg area blast, 5 s cooldown, 10% Vengeance.
+- Eye of Khonshu: 1 minute, 30 blocks, buffs you, weakens foes, rains Moonbeams.
+- Khonshu's Judgement: 15 s burn (10/s) that heals you, 20 s cooldown.
+- Moon Mark 5 s cooldown. Crescent Fan: 5 homing darts. Crescent Slam 18. Grapple Kick 20 with aim assist + lock-on.
+- Grappling Line pulls in squad-mates.
+- Truncheon: C summons it, 7 damage, 3-hit animated combo, Staff Spin 15.
+- Steven Grant: no cape, Fortune III on everything he mines.
+- Jake's Vanish: no time limit (Sneak+V again to end) and no mob can target him while invisible.
+
+MAX STEEL
+- Jump straight from Normal form into any Turbo mode.
+- Turbo recharges in Normal form (bar shown), HUD just says "Normal".
+- Slower Turbo recharge (10/s, 5/s in combat).
+- Strength Mode has Resistance I again.
+
+GREEN LANTERN
+- Simpler HUD like before (no framed panel); wheel border removed.
+- Carry Platform riders sit ON the platform.
+
+SYMBIOTE
+- A free Symbiote can take over animals, wolves and cats.
+- A free Symbiote hunts for your tamed wolf or cat -- or share yours (Sneak + right-click it, suited). Your pet becomes the host: still yours, still sits and follows.
+- In a fight it transforms pixel by pixel: 30% bigger, white eyes, tougher, regenerating. ~9 s after, it changes back.
+- Pet powers: Tendril Lash, Pounce, Spike Burst, a pinning Latching Bite, and Guardian Shroud (wraps YOU in the Symbiote when you drop low).
+
+HULK
+- While a Hulk rampages, his squad can fight back.
+
+TITAN BOSS
+- Fully animated, with readable wind-ups.
+- New moves: Leaping Slam (jump the shockwave!) and Grave Roar (pulls you in, raises Husks).
+- Real aggro: it turns on whoever hurts it most.
+
+RAIDS & GRAVEBOUND
+- Raids are repeatable: Pillager Spies can mark a village again after a raid, even with its villagers dead.
+- Cursed Graves rekindle; a curse near another raid comes back instead of vanishing.
+- Grave Champion and Empowered Zombie heads are wearable, placeable trophies with new 3D models, glowing eyes and a kill record.
+- Old configs get the intended Grave Essence drop rates.
+
+Guidebook and ability menus updated with all of the above.
