@@ -367,16 +367,18 @@ public class RevampBatchCGameTests implements FabricGameTest {
 		float max = g.getMaxHealth();
 		float[] afterWave = new float[1];
 		press(p, 2);
-		helper.runAtTickTime(20, () -> {
-			helper.assertTrue(g.getHealth() < max, "the ground wave reaches the golem");
-			helper.assertTrue(ShockwaveHandlers.lastImpact(p) != null, "and records where it landed");
-			afterWave[0] = g.getHealth();
-			press(p, 7);
-		});
-		helper.runAtTickTime(60, () -> {
-			helper.assertTrue(g.getHealth() < afterWave[0], "Aftershock erupts where the wave landed");
-			helper.succeed();
-		});
+		// v0.14.4: wait for each hit rather than checking at fixed ticks (the fixed-tick form flaked on a busy server)
+		helper.startSequence()
+				// wait for the wave to LAND first: the golem can also lose health to other things (e.g. standing in the
+				// test's barrier wall), so "it was hurt" alone does not prove the wave got there
+				.thenWaitUntil(() -> helper.assertTrue(ShockwaveHandlers.lastImpact(p) != null, "the ground wave lands"))
+				.thenExecute(() -> {
+					helper.assertTrue(g.getHealth() < max, "the ground wave reaches the golem");
+					afterWave[0] = g.getHealth();
+					press(p, 7);
+				})
+				.thenWaitUntil(() -> helper.assertTrue(g.getHealth() < afterWave[0], "Aftershock erupts where the wave landed"))
+				.thenSucceed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

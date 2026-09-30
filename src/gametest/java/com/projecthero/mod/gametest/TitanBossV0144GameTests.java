@@ -38,13 +38,61 @@ public class TitanBossV0144GameTests implements FabricGameTest {
 	private static final int DECK_MIN_Z = -16;
 	private static final int DECK_MAX_Z = 30;
 
+	/**
+	 * Chunks this class force-loaded, with how many running tests need each. A test area only guarantees ticking around
+	 * its own small structure, and an 18-block Titan leaping across the deck could cross into a chunk that was not
+	 * entity-ticking and freeze there mid-flight -- a flake that depended on where the test landed in the grid. The
+	 * deck's chunks (plus a margin) are forced while a test uses them; chunks something else already forced are left alone.
+	 */
+	private static final java.util.Map<Long, Integer> FORCED = new java.util.HashMap<>();
+	private static final int DECK_CHUNK_MARGIN = 16;
+
+	private static synchronized void forceDeckChunks(GameTestHelper helper, boolean on) {
+		net.minecraft.server.level.ServerLevel level = helper.getLevel();
+		net.minecraft.core.BlockPos lo = helper.absolutePos(new net.minecraft.core.BlockPos(DECK_MIN_X - DECK_CHUNK_MARGIN, DECK_Y, DECK_MIN_Z - DECK_CHUNK_MARGIN));
+		net.minecraft.core.BlockPos hi = helper.absolutePos(new net.minecraft.core.BlockPos(DECK_MAX_X + DECK_CHUNK_MARGIN, DECK_Y, DECK_MAX_Z + DECK_CHUNK_MARGIN));
+		int x0 = Math.min(lo.getX(), hi.getX()) >> 4, x1 = Math.max(lo.getX(), hi.getX()) >> 4;
+		int z0 = Math.min(lo.getZ(), hi.getZ()) >> 4, z1 = Math.max(lo.getZ(), hi.getZ()) >> 4;
+		for (int cx = x0; cx <= x1; cx++) {
+			for (int cz = z0; cz <= z1; cz++) {
+				long key = net.minecraft.world.level.ChunkPos.asLong(cx, cz);
+				if (on) {
+					Integer n = FORCED.get(key);
+					if (n != null) {
+						FORCED.put(key, n + 1);
+					} else if (!level.getForcedChunks().contains(key)) {
+						level.setChunkForced(cx, cz, true);
+						FORCED.put(key, 1);
+					}
+				} else {
+					Integer n = FORCED.get(key);
+					if (n == null) {
+						continue;
+					}
+					if (n <= 1) {
+						FORCED.remove(key);
+						level.setChunkForced(cx, cz, false);
+					} else {
+						FORCED.put(key, n - 1);
+					}
+				}
+			}
+		}
+	}
+
 	private static void deck(GameTestHelper helper, boolean build) {
+		if (build) {
+			forceDeckChunks(helper, true);
+		}
 		var state = build ? net.minecraft.world.level.block.Blocks.STONE.defaultBlockState()
 				: net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
 		for (int x = DECK_MIN_X; x <= DECK_MAX_X; x++) {
 			for (int z = DECK_MIN_Z; z <= DECK_MAX_Z; z++) {
 				helper.getLevel().setBlock(helper.absolutePos(new net.minecraft.core.BlockPos(x, DECK_Y, z)), state, 2);
 			}
+		}
+		if (!build) {
+			forceDeckChunks(helper, false);
 		}
 	}
 
