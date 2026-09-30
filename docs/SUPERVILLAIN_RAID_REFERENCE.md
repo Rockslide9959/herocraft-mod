@@ -40,7 +40,8 @@ framework and reuses the Zombie Raid's `EmpoweredZombie` boss and `BossPowers` A
 5. After wave 5, ~20 s of quiet, then **SOMETHING POWERFUL IS APPROACHING** and one of three
    **Supervillains** arrives with a random superhero power and a small escort.
 6. Defeat the Supervillain → **THE VILLAGE IS SAFE**, rewards drop, remaining raiders flee, and the
-   village is immune to another Supervillain Raid for 3 Minecraft days.
+   raid is over. It is **repeatable**: the next Pillager Spy can mark the same village (or any other)
+   straight away -- see v0.12.23 / v0.14.4 below. (The old 3-day village immunity is gone.)
 
 ## Architecture
 
@@ -139,3 +140,41 @@ SavedData on the overworld.
 
 - The Pillager Spy marks a village when it *attacks* a player inside it (`performRangedAttack`), not only when the arrow
   deals damage, and the per-village post-raid cooldown no longer blocks marking (an active raid still does).
+
+## v0.14.4 -- repeatable raids
+
+Player report: after beating a Supervillain Raid, Pillager Spies never marked a village again.
+
+**Root cause** (confirmed against the user's real playthrough logs + saves and vanilla bytecode):
+`PillagerSpy.insideVillage` was vanilla `ServerLevel.isVillage`, which only counts village POIs that are
+*claimed by a living villager* (`PoiManager.isVillageCenter` filters on `Occupancy.IS_OCCUPIED`, and
+`Villager.die` calls `releaseAllPois`). The raid's Vindicators / Evokers / Ravagers kill villagers, so a
+village that had been raided was often no longer a "village": the spawner (which finds the bell with
+`Occupancy.ANY`) kept producing spies -- the logs show four natural spies at the user's raided village
+over three days, zero marks -- but no hit could ever mark it. Aggravating it, the spy (a) fired at the
+first player it saw, and it spawns 32-56 blocks from a player who is by construction *outside* the
+village, so natural spies spent themselves in the fields; (b) took vanilla's random despawn roll as
+soon as it was 32+ blocks from everyone, i.e. usually before reaching the village; (c) shot villagers,
+emptying the village itself. Nothing in raid / player state lingers after a victory (the user's
+`projecthero_world_events.dat` was empty, no stuck flags on any player; the `SupervillainVillages`
+cooldown has not been consulted since v0.12.23).
+
+**Fixes**
+- `PillagerSpy.insideVillage` = vanilla `isVillage` **or** within `VILLAGE_BELL_RADIUS` (64) blocks of a
+  bell (`PoiTypes.MEETING`, any occupancy). Used by the trigger, the spy's targeting and the spawner's
+  "player is not already in a village" check.
+- Spy targeting: vanilla Pillager's `NearestAttackableTargetGoal`s (player / villager / golem) are replaced
+  by one that only targets a **player standing in a village**, plus iron golems. `HurtByTargetGoal` is
+  kept, so it still shoots back when attacked. It no longer shoots villagers.
+- `removeWhenFarAway(d)` = `d > 96²` (`LINGER_RANGE`): the spy lingers while a player is within 96 blocks
+  and still despawns like any rare monster once everyone has gone.
+- `SeekVillageGoal` "arrived" = within 24 blocks of its bell (or in a vanilla village) -- it used to circle
+  a villager-less village forever.
+- `PillagerSpySpawner.villageToScout(level, pos)` split out: pure world-side eligibility, no memory of past
+  raids. Spawn chance left at 5% per 5 min (each spy is now far more likely to actually mark a village).
+
+**Tests** (`RaidRepeatGameTests`): the full lifecycle twice -- a spy hits a player in a bell-only
+(villager-less) village -> raid starts -> skip to the boss -> kill the Supervillain -> raid COMPLETED and
+removed (Champion effect granted, legacy cooldown record written) -> a second spy hit marks the same
+village again. Spawner eligibility is unchanged after a completion count, a village cooldown, Champion of
+the Village and a Gravebound record. `removeWhenFarAway` near / far (`SupervillainRaidGameTests`).

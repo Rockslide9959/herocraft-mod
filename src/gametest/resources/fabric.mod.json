@@ -44,7 +44,8 @@
       "com.projecthero.mod.gametest.RevampBatchBGameTests",
       "com.projecthero.mod.gametest.RevampBatchCGameTests",
       "com.projecthero.mod.gametest.RevampBatchDGameTests",
-      "com.projecthero.mod.gametest.RevampBatchEGameTests"
+      "com.projecthero.mod.gametest.RevampBatchEGameTests",
+      "com.projecthero.mod.gametest.RaidRepeatGameTests"
     ]
   },
   "depends": {

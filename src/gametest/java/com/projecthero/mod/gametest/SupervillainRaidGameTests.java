@@ -108,7 +108,9 @@ public class SupervillainRaidGameTests implements FabricGameTest {
 	public void pillagerSpyIsNotPersistentAndKnowsVillages(GameTestHelper helper) {
 		var spy = RaidEntityTypes.PILLAGER_SPY.create(helper.getLevel());
 		helper.assertTrue(spy != null, "spy entity must create");
-		helper.assertTrue(spy.removeWhenFarAway(0.0), "the spy is a non-persistent rare spawn");
+		helper.assertTrue(spy.removeWhenFarAway(200.0 * 200.0), "the spy is a non-persistent rare spawn");
+		// v0.14.4: but it lingers while a player is near, so it can actually reach the village.
+		helper.assertFalse(spy.removeWhenFarAway(40.0 * 40.0), "the spy must not despawn while a player is close");
 		helper.assertFalse(com.projecthero.mod.event.entity.PillagerSpy.insideVillage(helper.getLevel(),
 				helper.absolutePos(BlockPos.ZERO)), "empty test level is not a village");
 		spy.discard();

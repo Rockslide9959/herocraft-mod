@@ -11,12 +11,16 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.ai.village.poi.PoiManager;
 import net.minecraft.world.entity.ai.village.poi.PoiTypes;
+import net.minecraft.world.entity.animal.IronGolem;
 import net.minecraft.world.entity.monster.Pillager;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 
 /**
@@ -33,6 +37,12 @@ import net.minecraft.world.level.Level;
 public class PillagerSpy extends Pillager {
 	/** How far the spy will look for a village to travel toward. */
 	private static final int VILLAGE_SEARCH = 128;
+	/** v0.14.4: anywhere this close to a village bell counts as "in the village" (see {@link #insideVillage}). */
+	public static final int VILLAGE_BELL_RADIUS = 64;
+	/** v0.14.4: the spy does not despawn while a player is at least this close. */
+	public static final int LINGER_RANGE = 96;
+	/** v0.14.4: the spy stops walking once it is this close to the bell it is heading for. */
+	private static final int ARRIVE_DISTANCE = 24;
 
 	private BlockPos villageGoal;
 	private int villageRecheck;
@@ -56,11 +66,46 @@ public class PillagerSpy extends Pillager {
 		// Priority 4: below its own self-defence / crossbow goals, above idle wandering -- it defends
 		// itself first, but when nothing is threatening it, it makes for the village.
 		this.goalSelector.addGoal(4, new SeekVillageGoal());
+
+		// v0.14.4: the spy is a scout, not a raider. Vanilla's Pillager goals made it open fire on the
+		// first player it saw -- and PillagerSpySpawner puts it 32-56 blocks from a player who is, by
+		// construction, OUTSIDE the village, so almost every natural spy spent itself shooting at someone
+		// in the fields (a hit outside a village does nothing), got killed, and never marked anything.
+		// It also shot villagers, emptying the very village it was scouting. Now it only picks a fight
+		// with a player who is standing in a village (the one hit that means something), still shoots
+		// back at anyone who attacks it (HurtByTargetGoal is untouched), and still fights iron golems.
+		this.targetSelector.removeAllGoals(goal -> goal instanceof NearestAttackableTargetGoal<?>);
+		this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, 10, true, false,
+				this::isVillageTarget));
+		this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, IronGolem.class, true));
 	}
 
+	/**
+	 * v0.14.4: a spy lingers while a player is within {@link #LINGER_RANGE} blocks, instead of taking
+	 * vanilla's random despawn roll the moment it is 32 blocks from everyone. It spawns 32-56 blocks
+	 * from the player and walks on to the village, so the old rule usually deleted it before it ever
+	 * got there. Still never persistent: with nobody within range it despawns exactly as before.
+	 */
 	@Override
 	public boolean removeWhenFarAway(double distanceToClosestPlayer) {
-		return true; // never persist
+		return distanceToClosestPlayer > LINGER_RANGE * LINGER_RANGE;
+	}
+
+	/** Target filter: only a player standing in a village is worth shooting at unprovoked. */
+	private boolean isVillageTarget(LivingEntity candidate) {
+		if (!(level() instanceof ServerLevel server)) {
+			return false;
+		}
+		double follow = getAttributeValue(Attributes.FOLLOW_RANGE);
+		if (distanceToSqr(candidate) > follow * follow) {
+			return false; // cheap reject before any village lookup
+		}
+		BlockPos at = candidate.blockPosition();
+		// The bell this spy is already walking to is the cheap answer; fall back to the full test.
+		if (villageGoal != null && nearBell(at, villageGoal)) {
+			return true;
+		}
+		return insideVillage(server, at);
 	}
 
 	@Override
@@ -78,9 +123,30 @@ public class PillagerSpy extends Pillager {
 		}
 	}
 
-	/** Whether {@code pos} is inside a recognised village. Used by the raid trigger. */
+	/**
+	 * Whether {@code pos} is inside a village. Used by the raid trigger, the spy's targeting and the
+	 * natural spawner.
+	 *
+	 * <p>v0.14.4 -- the real reason Supervillain Raids stopped repeating. This used to be just vanilla's
+	 * {@link ServerLevel#isVillage}, which only counts village POIs (beds, job sites, the bell) that are
+	 * <em>claimed by a living villager</em> ({@code PoiManager.isVillageCenter} filters on
+	 * {@code Occupancy.IS_OCCUPIED}, and a villager releases all its POIs when it dies). A Supervillain
+	 * Raid's Vindicators, Evokers and Ravagers kill villagers, so after beating one the village was very
+	 * often no longer a "village" at all: spies kept spawning (the spawner finds the bell regardless of
+	 * occupancy) but their hits could never mark it again. A village is now also anywhere within
+	 * {@link #VILLAGE_BELL_RADIUS} blocks of a bell -- which a raided, even villager-less, village still
+	 * has -- on top of vanilla's occupied-POI test.
+	 */
 	public static boolean insideVillage(ServerLevel level, BlockPos pos) {
-		return level.isVillage(pos);
+		if (level.isVillage(pos)) {
+			return true;
+		}
+		return level.getPoiManager().findClosest(holder -> holder.is(PoiTypes.MEETING), pos,
+				VILLAGE_BELL_RADIUS, PoiManager.Occupancy.ANY).isPresent();
+	}
+
+	private static boolean nearBell(BlockPos at, BlockPos bell) {
+		return at.distSqr(bell) <= (double) VILLAGE_BELL_RADIUS * VILLAGE_BELL_RADIUS;
 	}
 
 	@Override
@@ -113,10 +179,15 @@ public class PillagerSpy extends Pillager {
 			if (!(level() instanceof ServerLevel server)) {
 				return false;
 			}
-			if (insideVillage(server, blockPosition())) {
+			BlockPos goal = locateVillage(server);
+			if (goal == null) {
 				return false;
 			}
-			return locateVillage(server) != null;
+			// v0.14.4: "arrived" = near the bell it is heading for (or in vanilla's occupied village). The
+			// old test was vanilla isVillage alone, which never becomes true in a village whose villagers
+			// are dead, so the spy used to circle a raided village forever.
+			return blockPosition().distSqr(goal) > ARRIVE_DISTANCE * ARRIVE_DISTANCE
+					&& !server.isVillage(blockPosition());
 		}
 
 		@Override

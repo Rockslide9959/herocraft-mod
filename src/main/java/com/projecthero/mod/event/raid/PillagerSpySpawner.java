@@ -62,26 +62,12 @@ public final class PillagerSpySpawner {
 			return;
 		}
 		BlockPos pos = player.blockPosition();
-		// A spy near a village the player is already standing in defeats the "it enters the village"
-		// beat -- and we do not want them spawning constantly inside villages either (section 3).
-		if (level.isVillage(pos)) {
-			return;
-		}
-		PoiManager poi = level.getPoiManager();
-		Optional<BlockPos> village = poi.findClosest(
-				h -> h.is(PoiTypes.MEETING), pos, VILLAGE_RANGE, PoiManager.Occupancy.ANY);
-		if (village.isEmpty()) {
-			return;
-		}
-		// No spy or Supervillain Raid already in play near this player.
-		if (EventManager.anyActiveNear(level, pos, SupervillainRaid.TYPE_ID, 256)) {
-			return;
-		}
-		if (!level.getEntitiesOfClass(PillagerSpy.class, player.getBoundingBox().inflate(160)).isEmpty()) {
+		BlockPos village = villageToScout(level, pos);
+		if (village == null) {
 			return;
 		}
 
-		BlockPos spawn = surfaceSpawnToward(level, pos, village.get());
+		BlockPos spawn = surfaceSpawnToward(level, pos, village);
 		if (spawn == null) {
 			return;
 		}
@@ -107,7 +93,37 @@ public final class PillagerSpySpawner {
 				level.addFreshEntity(guard);
 			}
 		}
-		ProjectHeroMod.LOGGER.info("[SupervillainRaid] Pillager Spy spawned at {} (village near {})", spawn, village.get());
+		ProjectHeroMod.LOGGER.info("[SupervillainRaid] Pillager Spy spawned at {} (village near {})", spawn, village);
+	}
+
+	/**
+	 * The world-side half of the spawn roll, split out in v0.14.4 so it can be tested: the bell of the
+	 * village a spy would scout for a player standing at {@code pos}, or {@code null} if no spy should
+	 * come. Deliberately has no memory of past raids -- no cooldown, no victory count, no per-player
+	 * flag -- so beating a Supervillain Raid never stops spies arriving; only a raid that is
+	 * <em>currently</em> active nearby, or a spy already out, holds the next one back.
+	 */
+	public static BlockPos villageToScout(ServerLevel level, BlockPos pos) {
+		// A spy near a village the player is already standing in defeats the "it enters the village"
+		// beat -- and we do not want them spawning constantly inside villages either (section 3).
+		// v0.14.4: the same village test the trigger uses (a raided village with dead villagers still counts).
+		if (PillagerSpy.insideVillage(level, pos)) {
+			return null;
+		}
+		PoiManager poi = level.getPoiManager();
+		Optional<BlockPos> village = poi.findClosest(
+				h -> h.is(PoiTypes.MEETING), pos, VILLAGE_RANGE, PoiManager.Occupancy.ANY);
+		if (village.isEmpty()) {
+			return null;
+		}
+		// No spy or Supervillain Raid already in play near this player.
+		if (EventManager.anyActiveNear(level, pos, SupervillainRaid.TYPE_ID, 256)) {
+			return null;
+		}
+		if (!level.getEntitiesOfClass(PillagerSpy.class, new net.minecraft.world.phys.AABB(pos).inflate(160)).isEmpty()) {
+			return null;
+		}
+		return village.get();
 	}
 
 	private static BlockPos surfaceSpawnToward(ServerLevel level, BlockPos player, BlockPos village) {

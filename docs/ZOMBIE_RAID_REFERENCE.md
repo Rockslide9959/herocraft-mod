@@ -411,3 +411,32 @@ also found as chest loot) are both `BossTrophyItem` (`StandingAndWallBlockItem` 
     `TrophyHeadClient` draws those faces full-bright through FRAPI.
   - Blocks render in the cutout layer. The old flat item textures were removed.
 - Tests: `V0144GraveHulkGameTests` covers the head slot, place/break keeping power + record, and the detection factors.
+
+## v0.14.4 -- repeatable raids
+
+Player report: the Gravebound Curse / Zombie Raid should be repeatable. Investigation found **no hard
+blocker** in the curse -> raid -> victory -> curse-again chain: `GraveboundCurse.apply` only refuses an
+already-cursed player, no source checks `raidsCompleted` / `heartOfTheGraveGranted`, a finished raid is
+removed from `EventSavedData` the tick it completes, and the user's saves hold no stuck event or curse
+state (every player's `gravebound_state` had `curse_ticks` 0; `raids_completed` up to 5). The user's logs
+show one natural curse -> raid -> clear cycle; every other Zombie Raid there was started by command. What
+*could* make it look one-time, now fixed:
+
+- **A used Cursed Grave looked spent forever.** It set `LIT` on use and never cleared it. It now random-ticks
+  while lit (like redstone ore) and rekindles after about a minute (`CursedGraveBlock.randomTick`).
+- **A served curse could be thrown away.** If the curse ran out 96-256 blocks from someone else's *running*
+  Zombie Raid, `startForCursedPlayer` was refused by the minimum event spacing and only printed "another
+  raid rages nearby" -- no raid, no curse, nothing left to wait for. It now re-arms a 60 s curse
+  (`GraveboundCurse.rearm`, `ZombieRaidStarter.DEFER_TICKS`, message `event.projecthero.zombie_raid.deferred`)
+  so the raid still comes once the other one ends or the player moves away.
+- Guide text (`projecthero.guide.zombie_raid.sources.body` / `.repeat.body`) now says outright that beating
+  a raid never makes you immune and that every source works again.
+
+**Tests** (`RaidRepeatGameTests`): the full lifecycle twice -- Cursed-Zombie curse -> expire -> raid starts
+-> jump to wave 12 and clear it -> raid COMPLETED (raidsCompleted recorded) and removed -> cursed again ->
+expire -> a second raid starts; every source (Graveyard, Cursed Zombie, Ritual) curses a 7-raid veteran; a
+curse expiring 150 blocks from a running raid is deferred, not lost; a lit Cursed Grave rekindles.
+
+Also noticed (not changed here): the user's `config/projecthero_events.json` still carries the pre-v0.13.6
+Grave Essence values (`graveEssenceFromBasicChance` 0.5 etc.) -- `EventConfig` re-writes loaded values, so
+default changes never reach existing configs (same stale-config pattern as the Behemoth fix).

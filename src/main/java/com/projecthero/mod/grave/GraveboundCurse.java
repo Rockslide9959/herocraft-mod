@@ -106,6 +106,19 @@ public final class GraveboundCurse {
 		return true;
 	}
 
+	/**
+	 * v0.14.4: put a short curse back on a player whose raid could not start yet (another Zombie Raid is
+	 * being fought close by). Silent -- no title, no advancement -- because this is the same curse
+	 * carrying on, not a new one. Only ever called from {@code ZombieRaidStarter} the tick a curse ran out.
+	 */
+	public static void rearm(ServerPlayer player, int ticks) {
+		GraveboundState next = state(player).copy();
+		next.curseTicksLeft = Math.max(20, ticks);
+		next.curseAnnounced = true;
+		next.nextAmbientTicks = 20 * 20;
+		save(player, next);
+	}
+
 	/** Debug helper: force the curse to expire on the next tick, starting the raid immediately. */
 	public static void expireNow(ServerPlayer player) {
 		GraveboundState existing = state(player);

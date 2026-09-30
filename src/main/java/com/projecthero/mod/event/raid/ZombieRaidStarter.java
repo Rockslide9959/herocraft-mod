@@ -9,6 +9,7 @@ import com.projecthero.mod.event.EventManager;
 import com.projecthero.mod.event.EventSavedData;
 import com.projecthero.mod.event.EventState;
 import com.projecthero.mod.event.EventTypes;
+import com.projecthero.mod.grave.GraveboundCurse;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -26,6 +27,9 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * where it is.
  */
 public final class ZombieRaidStarter {
+	/** v0.14.4: how long a served curse waits before trying again when another raid blocks it. */
+	public static final int DEFER_TICKS = 60 * 20;
+
 	private ZombieRaidStarter() {
 	}
 
@@ -54,8 +58,14 @@ public final class ZombieRaidStarter {
 			// who has served a full curse must always get their raid, however many they have beaten.
 			clearStaleNearby(level, center);
 			if (!start(level, center)) {
-				player.sendSystemMessage(Component.translatable("event.projecthero.zombie_raid.too_close")
-						.withStyle(ChatFormatting.GRAY));
+				// v0.14.4: a Zombie Raid really is being fought within the minimum spacing, but not close
+				// enough for this player to be standing in it. That used to just print "too close" and
+				// throw the served curse away -- no raid, nothing left to wait for. Now the curse holds on
+				// and comes back for them shortly, so their raid still starts once the other one is over
+				// (or once they move away from it).
+				GraveboundCurse.rearm(player, DEFER_TICKS);
+				player.sendSystemMessage(Component.translatable("event.projecthero.zombie_raid.deferred",
+						DEFER_TICKS / 20).withStyle(ChatFormatting.GRAY));
 			}
 		}
 	}

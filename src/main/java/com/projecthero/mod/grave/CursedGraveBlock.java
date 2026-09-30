@@ -45,6 +45,10 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  *
  * <p>The block sets its own {@link BlockStateProperties#LIT} once used so the grave visibly reads as
  * spent, which is feedback rather than a gate -- a player who breaks the curse can use it again.
+ *
+ * <p>v0.14.4: the "spent" look no longer lasts forever. A lit grave random-ticks (the same way vanilla
+ * redstone ore goes dark again) and its soul-fire rekindles after a minute or so, so a Graveyard never
+ * looks used-up to someone coming back for another Zombie Raid -- which it never was.
  */
 public class CursedGraveBlock extends HorizontalDirectionalBlock implements SimpleWaterloggedBlock {
 	public static final MapCodec<CursedGraveBlock> CODEC = simpleCodec(CursedGraveBlock::new);
@@ -115,6 +119,20 @@ public class CursedGraveBlock extends HorizontalDirectionalBlock implements Simp
 		serverLevel.sendParticles(ParticleTypes.SOUL, pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5,
 				40, 0.5, 0.5, 0.5, 0.05);
 		return InteractionResult.CONSUME;
+	}
+
+	/** v0.14.4: only a lit (recently used) grave ticks at all, so an idle Graveyard costs nothing. */
+	@Override
+	protected boolean isRandomlyTicking(BlockState state) {
+		return state.getValue(LIT);
+	}
+
+	/** v0.14.4: the grave rekindles -- ready to curse the next visitor (or the same one again). */
+	@Override
+	protected void randomTick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+		if (state.getValue(LIT)) {
+			level.setBlock(pos, state.setValue(LIT, false), Block.UPDATE_ALL);
+		}
 	}
 
 	/** A slow drift of soul particles so the grave reads as the important thing in the structure. */
