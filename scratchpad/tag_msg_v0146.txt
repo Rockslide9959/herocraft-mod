@@ -1,0 +1,8 @@
+Project Hero v0.14.6 -- Ring fix + Speed step assist
+
+GREEN LANTERN
+- Fixed the Power Ring breaking apart when you suit up: the band, bezel and gem now stay together and wrap the finger on the suit's gauntlet, in first and third person (slim / Alex arms included).
+
+SUPER SPEED
+- New passive: a 3-block step assist -- run straight up small cliffs and walls without jumping.
+- Overdrive raises it to a 10-block step assist.

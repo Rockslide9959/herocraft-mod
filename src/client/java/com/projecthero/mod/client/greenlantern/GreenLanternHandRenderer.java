@@ -68,7 +68,8 @@ public final class GreenLanternHandRenderer {
 		int suited = player.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof GreenLanternArmorItem ? 1 : 0;
 		pose.pushPose();
 		arm.translateAndRotate(pose);
-		ring(pose, buffers, player, slim == 1 ? -2f : -3f, suited == 1 ? 0.62f : 0.08f, ageInTicks);
+		// the suit's gauntlet is always the wide 4 px arm (0.55 px proud of it), even over a slim skin
+		ring(pose, buffers, player, slim == 1 && suited == 0 ? -2f : -3f, suited == 1 ? 0.62f : 0.08f, ageInTicks);
 		com.projecthero.mod.greenlantern.data.GreenLanternFx fx = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FX,
 				com.projecthero.mod.greenlantern.data.GreenLanternFx.EMPTY);
 		if (fx.has(com.projecthero.mod.greenlantern.data.GreenLanternFx.CH_GATLING)) {
@@ -128,12 +129,16 @@ public final class GreenLanternHandRenderer {
 		float front = -2f - gap;          // the fist's front face
 		float outer = xMin - gap;         // its outer face
 		float y = 9.0f;
-		// the band: across the front of the finger and round its outer side, with a bright top edge
-		box(vc, pose, fx0, y, front - 0.14f, 0.62f, 0.3f, 0.14f, 0x1F9A48, 1f);
-		box(vc, pose, outer - 0.14f, y, -1.5f, 0.14f, 0.3f, 0.62f, 0x1F9A48, 1f);
-		box(vc, pose, outer - 0.14f, y, front - 0.14f, 0.14f, 0.3f, 0.14f, 0x1F9A48, 1f);
-		box(vc, pose, fx0, y - 0.28f, front - 0.16f, 0.64f, 0.04f, 0.16f, 0x9CFFB8, 1f);
-		box(vc, pose, outer - 0.16f, y - 0.28f, -1.5f, 0.16f, 0.04f, 0.64f, 0x9CFFB8, 1f);
+		// the band: across the front of the finger and round its outer side, with a bright top edge. v0.14.5: built from
+		// its edges so the two runs always meet at the corner -- with the suit's bigger lift (gap) the old fixed-size
+		// pieces drifted apart and the corner block floated loose.
+		float t = 0.28f;                  // band thickness
+		float frontFar = fx0 + 0.62f;     // inner end of the front run
+		float sideBack = -0.88f;          // back end of the side run
+		band(vc, pose, outer - t, frontFar, y, 0.3f, front - t, front, 0x1F9A48);
+		band(vc, pose, outer - t, outer, y, 0.3f, front - t, sideBack, 0x1F9A48);
+		band(vc, pose, outer - t - 0.04f, frontFar + 0.02f, y - 0.28f, 0.04f, front - t - 0.04f, front - t + 0.28f, 0x9CFFB8);
+		band(vc, pose, outer - t - 0.04f, outer - t + 0.28f, y - 0.28f, 0.04f, front - t - 0.04f, sideBack + 0.02f, 0x9CFFB8);
 		// the bezel, then the gem set proud of it
 		box(vc, pose, fx0, y, front - 0.42f, 0.5f, 0.5f, 0.16f, 0x0B3D1C, 1f);
 		box(vc, pose, fx0, y, front - 0.62f, 0.32f, 0.32f, 0.08f, 0xEFFFF2, 1f);
@@ -145,6 +150,13 @@ public final class GreenLanternHandRenderer {
 		box(vc, pose, fx0, y, front - 0.55f, halo * 1.35f, halo * 1.35f, halo * 0.8f, 0x35F075, haloAlpha * 0.3f);
 		pose.popPose();
 	}
+
+	/** A band segment given by its x / z extents (centre y, half-height hy). */
+	private static void band(com.mojang.blaze3d.vertex.VertexConsumer vc, PoseStack pose, float x0, float x1, float y, float hy,
+			float z0, float z1, int rgb) {
+		box(vc, pose, (x0 + x1) / 2f, y, (z0 + z1) / 2f, (x1 - x0) / 2f, hy, (z1 - z0) / 2f, rgb, 1f);
+	}
+
 
 	private static void box(com.mojang.blaze3d.vertex.VertexConsumer vc, PoseStack pose, float x, float y, float z, float hx,
 			float hy, float hz, int rgb, float alpha) {

@@ -100,6 +100,20 @@ public class SuperSpeedV0145GameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void stepAssistThreeAndTenInOverdrive(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.STEP_HEIGHT) - 3.0) < 1e-6,
+				"3-block step assist, got " + p.getAttributeValue(Attributes.STEP_HEIGHT));
+		AbilityRouter.handleInput(p, 5, true); // V = Overdrive
+		AbilityRouter.handleInput(p, 5, false);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.STEP_HEIGHT) - 10.0) < 1e-6,
+				"10-block step assist in Overdrive, got " + p.getAttributeValue(Attributes.STEP_HEIGHT));
+		ExperimentalPowers.forget(p, power());
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.STEP_HEIGHT) - 0.6) < 1e-6, "back to vanilla without the power");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, batch = "speed_v0145_assault")
 	public void rapidAssaultPunchesForEight(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);

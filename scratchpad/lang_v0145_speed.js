@@ -20,8 +20,8 @@ const SET = {
 	[P + 'ability.overdrive']: 'Overdrive',
 	[P + 'ability.overdrive.desc']: 'V: for 30s — sprint at roughly 64 blocks/second (a faster tier that replaces Speed Mode), +150% attack speed, a 10-block step assist, fall immunity, and your melee and every Super Speed move hit twice as hard. Your after-image trail turns red, and speed explosions burst behind you while you run. 42.5s cooldown.',
 	[P + 'ability.speed_mode']: 'Speed Mode',
-	[P + 'ability.speed_mode.desc']: 'C: toggle: sprint at roughly 32 blocks/second, +50% attack speed, run on water, 2-block step, +100% swim speed, -80% fall damage. A trail of yellow after-images follows you while you run (a new one every tick, each fading over 1s). Shift+C: Phase — hold C to vibrate through walls on your own level (you can\'t sink through floors or rise through ceilings); while phasing you take no damage but can\'t deal damage or use any other ability. Release C to stop; if you end inside a wall you step out to the nearest open spot.',
-	[P + 'passive.speed']: '+30% movement speed: walking, sprinting and swimming',
+	[P + 'ability.speed_mode.desc']: 'C: toggle: sprint at roughly 32 blocks/second, +50% attack speed, run on water, +100% swim speed, -80% fall damage. A trail of yellow after-images follows you while you run (a new one every tick, each fading over 1s). Shift+C: Phase — hold C to vibrate through walls on your own level (you can\'t sink through floors or rise through ceilings); while phasing you take no damage but can\'t deal damage or use any other ability. Release C to stop; if you end inside a wall you step out to the nearest open spot.',
+	[P + 'passive.speed']: '+30% movement speed: walking, sprinting and swimming, and a 3-block step assist',
 	[P + 'passive.metabolism']: 'Eat and drink 50% faster (food, potions, milk, honey)',
 	'message.projecthero.speed.phase_hint': 'Phasing — release C to stop',
 };
