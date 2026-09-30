@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:blasting",
+  "category": "misc",
+  "cookingtime": 12000,
+  "experience": 5,
+  "ingredient": {
+    "item": "projecthero:unrefined_super_soldier_serum"
+  },
+  "result": {
+    "id": "projecthero:refined_super_soldier_serum",
+    "count": 1
+  }
+}

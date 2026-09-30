@@ -328,7 +328,7 @@ public final class HeroCommand {
 		String name = target.getGameProfile().getName();
 		if (!revokeHeroTier(target, hero)) {
 			c.getSource().sendFailure(Component.literal(
-					"Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel, punisher, green_lantern, wolverine, titan_shifter, all_might, hulk, moon_knight, symbiote)"));
+					"Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel, punisher, green_lantern, wolverine, titan_shifter, all_might, hulk, moon_knight, super_soldier, symbiote)"));
 			return 0;
 		}
 		c.getSource().sendSuccess(() -> Component.literal("Revoked " + hero + " from " + name), true);
@@ -349,6 +349,7 @@ public final class HeroCommand {
 			case "all_might" -> com.projecthero.mod.allmight.AllMight.revoke(target);
 			case "hulk" -> com.projecthero.mod.hulk.Hulk.revoke(target);
 			case "moon_knight" -> com.projecthero.mod.moonknight.MoonKnight.revoke(target);
+			case "super_soldier" -> com.projecthero.mod.supersoldier.SuperSoldier.revoke(target);
 			case "symbiote" -> com.projecthero.mod.symbiote.Symbiote.remove(target);
 			default -> {
 				return false;

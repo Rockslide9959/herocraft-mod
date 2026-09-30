@@ -54,7 +54,8 @@ public final class HeroTiers {
 				|| TitanShifter.isShifter(player)
 				|| com.projecthero.mod.allmight.AllMight.hasPower(player)
 				|| com.projecthero.mod.hulk.Hulk.hasPower(player)
-				|| com.projecthero.mod.moonknight.MoonKnight.hasPower(player);
+				|| com.projecthero.mod.moonknight.MoonKnight.hasPower(player)
+				|| com.projecthero.mod.supersoldier.SuperSoldier.hasPower(player);
 	}
 
 	/** How many Hero-Tier (non-experimental) Primary powers the player holds. */
@@ -81,7 +82,7 @@ public final class HeroTiers {
 
 	/** Every non-experimental Primary power key, as used by {@code HeroCommand}. */
 	public static final java.util.List<String> HERO_KEYS = java.util.List.of(
-			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter", "all_might", "hulk", "moon_knight");
+			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter", "all_might", "hulk", "moon_knight", "super_soldier");
 
 	/** Whether the player currently holds the Hero-Tier power named by {@code key}. */
 	public static boolean holdsHero(ServerPlayer player, String key) {
@@ -97,6 +98,7 @@ public final class HeroTiers {
 			case "all_might" -> com.projecthero.mod.allmight.AllMight.hasPower(player);
 			case "hulk" -> com.projecthero.mod.hulk.Hulk.hasPower(player);
 			case "moon_knight" -> com.projecthero.mod.moonknight.MoonKnight.hasPower(player);
+			case "super_soldier" -> com.projecthero.mod.supersoldier.SuperSoldier.hasPower(player);
 			default -> false;
 		};
 	}
@@ -152,6 +154,11 @@ public final class HeroTiers {
 			case "moon_knight" -> {
 				if (com.projecthero.mod.moonknight.MoonKnight.hasPower(player)) {
 					com.projecthero.mod.moonknight.MoonKnight.revoke(player);
+				}
+			}
+			case "super_soldier" -> {
+				if (com.projecthero.mod.supersoldier.SuperSoldier.hasPower(player)) {
+					com.projecthero.mod.supersoldier.SuperSoldier.revoke(player);
 				}
 			}
 			default -> {
@@ -378,6 +385,9 @@ public final class HeroTiers {
 			return true;
 		}
 		if (!excludeHeroKeys.contains("moon_knight") && com.projecthero.mod.moonknight.MoonKnight.hasPower(player)) {
+			return true;
+		}
+		if (!excludeHeroKeys.contains("super_soldier") && com.projecthero.mod.supersoldier.SuperSoldier.hasPower(player)) {
 			return true;
 		}
 		return false;

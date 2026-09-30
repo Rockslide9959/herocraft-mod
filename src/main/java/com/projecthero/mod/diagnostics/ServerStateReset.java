@@ -121,6 +121,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.moonknight.ability.MoonKnightKhonshu.clearSessionState();
 		com.projecthero.mod.moonknight.MoonKnight.clearSessionState(); // v0.14.4: combat tracking for the Vengeance regen
 		com.projecthero.mod.hulk.Hulk.clearSessionState();
+		com.projecthero.mod.supersoldier.SuperSoldierAbilityManager.clearSessionState(); // v0.14.8: move timers, ultimate, marks
 		com.projecthero.mod.moonknight.temple.KhonshuRitual.clearSessionState();
 		com.projecthero.mod.hero.power.p23.GravityHandlers.clearSessionState();
 		com.projecthero.mod.hero.power.p22.PlantManipulationHandlers.clearSessionState();

@@ -454,6 +454,18 @@ public final class ModAttachments {
 							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.moonknight.data.MoonKnightAction.CODEC),
 									AttachmentSyncPredicate.all()));
 
+	/**
+	 * v0.14.8: the Super Soldier -- the serum power, move cooldowns, the Onslaught ultimate timer and the move pose.
+	 * Persistent, kept through death, synced to every client (the owner HUD reads the cooldowns; others see the poses).
+	 */
+	public static final AttachmentType<com.projecthero.mod.supersoldier.data.SuperSoldierState> SUPER_SOLDIER_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("super_soldier_state"),
+					builder -> builder.persistent(com.projecthero.mod.supersoldier.data.SuperSoldierState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.supersoldier.data.SuperSoldierState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.supersoldier.data.SuperSoldierState.CODEC),
+									AttachmentSyncPredicate.all()));
+
 	public static final AttachmentType<com.projecthero.mod.allmight.data.AllMightState> ALL_MIGHT_STATE =
 			AttachmentRegistry.create(ProjectHeroMod.id("all_might_state"),
 					builder -> builder.persistent(com.projecthero.mod.allmight.data.AllMightState.CODEC)

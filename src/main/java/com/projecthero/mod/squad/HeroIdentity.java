@@ -54,6 +54,9 @@ public final class HeroIdentity {
 		if (com.projecthero.mod.hulk.Hulk.hasPower(player)) {
 			return com.projecthero.mod.hulk.Hulk.isHulk(player) ? "projecthero.squad.identity.hulk" : "projecthero.squad.identity.banner";
 		}
+		if (com.projecthero.mod.supersoldier.SuperSoldierAbilityManager.hasContext(player)) {
+			return "projecthero.squad.identity.super_soldier";
+		}
 		if (com.projecthero.mod.wolverine.WolverineAbilityManager.hasContext(player)) {
 			return "projecthero.squad.identity.wolverine";
 		}

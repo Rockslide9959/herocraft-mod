@@ -1,7 +1,7 @@
 # Project Hero
 
 **A huge superhero mod for Minecraft 1.21.1 (Fabric).** Become Thor, Iron Man, Spider-Man, Max Steel, the Punisher,
-Green Lantern, Wolverine, a Titan Shifter, All Might, the Hulk or Moon Knight, bond with a living alien Symbiote, or mutate one of 26
+Green Lantern, Wolverine, a Titan Shifter, All Might, the Hulk, Moon Knight or a Super Soldier, bond with a living alien Symbiote, or mutate one of 26
 experimental superpowers. Then put them to the test against world raids, the Oathbreaker and Darkseid himself.
 
 Every hero is a full survival progression, not a creative-only toy: you earn each power, fuel it, master it, and can
@@ -183,6 +183,19 @@ it on the altar under the open sky and kneel. Khonshu speaks... you die in a fla
 - **The cape:** jump and hold Sneak to **glide** fast and flat out on cape wings (glide into a mob to kick it); hold right click
   to **block** with it.
 - **Khonshu's Resurrection:** once per lunar cycle, a fatal blow brings you back in a flash of moonlight.
+
+### 🛡️ Super Soldier
+Brew a Potion of **Strength**, **Swiftness** and **Leaping**, and combine all three in a crafting table into the
+**Unrefined Super Soldier Serum**. Drink it and roll the dice: **1 in 10** it makes you a Super Soldier -- **9 in 10**
+your body rejects it and you die (creative won't save you). Or be patient: **10 minutes in a Blast Furnace** turns it
+into the **Refined Serum**, which always works.
+- Peak human, always on: **+50%** speed, **+5 hearts**, **+7** bare-handed damage, **30% less** damage taken, a
+  **2-block** jump, knockback resistance, faster swings, healing out of combat, immune to Poison and Nausea.
+- **R** Combo Strike (a three-punch combo) / **Shift+R** Uppercut Launcher · **G** a ricocheting **Shield Throw** that
+  bounces between three enemies and flies back to your hand / **Shift+G** Shield Bash Charge · **Z** Leaping Slam /
+  **Shift+Z** the ultimate **Super Soldier Onslaught** · **X** Tactical Roll (untouchable mid-roll) / **Shift+X** High
+  Leap · **V** Battle Cry (buffs your squad, weakens the enemy) / **Shift+V** Tactical Focus (marks every enemy within
+  30 blocks; your hits on them crit).
 
 ---
 

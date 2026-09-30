@@ -164,6 +164,12 @@ public final class AbilityRouter {
 			return;
 		}
 
+		// Super Soldier (v0.14.8) takes the slots on the same terms: has the serum power and has not selected a mutation.
+		if (com.projecthero.mod.supersoldier.SuperSoldierAbilityManager.hasContext(player)) {
+			com.projecthero.mod.supersoldier.SuperSoldierAbilityManager.handle(player, slot, pressed);
+			return;
+		}
+
 		// A Normal Symbiote host (bonded, suit active, NOT also Spider-Man -- that combination is Black
 		// Suit Spider-Man and stays on SpiderManAbilityManager above) gets its own six tendril/mobility/
 		// defence abilities. Moot in practice that this sits after every Hero-Tier check: bonding purges
@@ -261,6 +267,8 @@ public final class AbilityRouter {
 		// v0.13.19: Moon Knight -- Vengeance drain, the Fracture, Khonshu's Resurrection recharge, the suit
 		com.projecthero.mod.moonknight.MoonKnight.tick(player);
 		com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.serverTick(player);
+		// v0.14.8: Super Soldier -- passive stat reconcile, move timers, ultimate
+		com.projecthero.mod.supersoldier.SuperSoldierAbilityManager.serverTick(player);
 		// v0.6.20: the Spider-Man costume mask (H key) is tied to the costume, not the power, so its
 		// "mask can't stay off once the hood comes off" reconcile has to run for every player.
 		com.projecthero.mod.spider.SpiderMask.reconcile(player);

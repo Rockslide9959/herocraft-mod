@@ -1053,6 +1053,7 @@ public final class SquadScreen extends Screen {
 				case "hulk": return 0xFF7BE04A;
 				case "banner": return 0xFFA6D08A;
 				case "wolverine": return 0xFFF5C542;
+				case "super_soldier": return 0xFF4A7BD8;
 				case "symbiote": return 0xFFB4B4D8;
 				case "none": return 0xFF8A91AB;
 				default: break;

@@ -114,6 +114,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		// Moon Knight Phase 3-4: grappling line render, Cape Glide client movement, Truncheon staff model predicate
 		com.projecthero.mod.client.moonknight.MoonKnightCombatClient.initialize();
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.HulkHud::render);
+		// v0.14.8: Super Soldier -- mono HUD + the thrown shield renderer
+		com.projecthero.mod.client.supersoldier.SuperSoldierClient.initialize();
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SymbioteHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SquadLocatorBarHud::render);

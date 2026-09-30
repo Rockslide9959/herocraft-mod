@@ -105,6 +105,11 @@ public final class HeroPackGuide {
 		return chapters().get(CH_MOON_KNIGHT);
 	}
 
+	/** v0.14.8: the Super Soldier chapter (the P power-info screen). */
+	public static Chapter superSoldierChapter() {
+		return chapters().get(CH_SUPER_SOLDIER);
+	}
+
 	public static Chapter hulkChapter() {
 		return chapters().get(CH_HULK);
 	}
@@ -250,7 +255,8 @@ public final class HeroPackGuide {
 	private static final int CH_HULK = 21;
 	private static final int CH_DARKSEID_RAID = 22;
 	private static final int CH_MOON_KNIGHT = 23;
-	private static final int CHAPTER_POWER_BASE = 24;
+	private static final int CH_SUPER_SOLDIER = 24;
+	private static final int CHAPTER_POWER_BASE = 25;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -844,6 +850,27 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.moon_knight.commands.body");
 		}));
 
+		// Super Soldier (v0.14.8). Appended after Moon Knight so every earlier index stays put.
+		out.add(chapter("projecthero.guide.super_soldier", lines -> {
+			lines.add(Component.translatable("projecthero.guide.super_soldier.tier").withStyle(ChatFormatting.BLUE));
+			para(lines, "projecthero.guide.super_soldier.body");
+			blank(lines);
+			for (String section : new String[]{"serum", "refine", "passives"}) {
+				head(lines, "projecthero.guide.super_soldier." + section);
+				para(lines, "projecthero.guide.super_soldier." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.super_soldier.controls");
+			for (String[] row : com.projecthero.mod.supersoldier.SuperSoldierAbilities.GUIDE_ROWS) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.super_soldier.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.super_soldier.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.super_soldier.commands");
+			para(lines, "projecthero.guide.super_soldier.commands.body");
+		}));
+
 		// one chapter per power, in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.all()) {
 			out.add(powerChapter(power));
@@ -877,6 +904,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.all_might", CH_ALL_MIGHT);
 		link(idx, "projecthero.guide.hulk", CH_HULK);
 		link(idx, "projecthero.guide.moon_knight", CH_MOON_KNIGHT);
+		link(idx, "projecthero.guide.super_soldier", CH_SUPER_SOLDIER);
 
 		section(idx, "projecthero.guide.section.events", true);
 		link(idx, "projecthero.guide.zombie_raid", CH_ZOMBIE_RAID);

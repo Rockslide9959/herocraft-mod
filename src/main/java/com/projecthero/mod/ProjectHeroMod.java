@@ -94,6 +94,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.thorarmor.ThorArmorItems.initialize();
 		com.projecthero.mod.allmight.item.AllMightItems.initialize();
 		com.projecthero.mod.hulk.item.HulkItems.initialize();
+		// v0.14.8: Super Soldier -- serum items, the potion-trio recipe, the thrown shield, the damage rules
+		com.projecthero.mod.supersoldier.SuperSoldierSetup.initialize();
 		com.projecthero.mod.moonknight.item.MoonKnightItems.initialize();
 		com.projecthero.mod.moonknight.MoonKnightSuit.initialize();
 		com.projecthero.mod.moonknight.MoonKnightDamage.initialize();
@@ -282,6 +284,7 @@ public class ProjectHeroMod implements ModInitializer {
 				// Hulk: nothing transient survives death (rage + the change reset on respawn; the power is kept).
 				com.projecthero.mod.hulk.Hulk.clearTransient(sp);
 				com.projecthero.mod.moonknight.MoonKnight.onDeath(sp);
+				com.projecthero.mod.supersoldier.SuperSoldier.clearTransient(sp);
 				// Thor: the conjured armour dies with its wearer (never drops, never survives keepInventory).
 				com.projecthero.mod.thorarmor.ThorArmor.onDeath(sp);
 			}
@@ -360,6 +363,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.allmight.AllMight.onPlayerJoin(player);
 			com.projecthero.mod.hulk.Hulk.onPlayerJoin(player);
 			com.projecthero.mod.moonknight.MoonKnight.onPlayerJoin(player);
+			com.projecthero.mod.supersoldier.SuperSoldier.onPlayerJoin(player);
 		});
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
 			ThorPowers.onPlayerRespawn(newPlayer);
@@ -379,6 +383,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.titanshifter.TitanShifter.onPlayerRespawn(newPlayer);
 			com.projecthero.mod.allmight.AllMight.onPlayerRespawn(newPlayer);
 			com.projecthero.mod.hulk.Hulk.onPlayerRespawn(newPlayer);
+			com.projecthero.mod.supersoldier.SuperSoldier.onPlayerRespawn(newPlayer);
 		});
 
 		// Spider-Man traversal cleanup (spec sections 39-41). A swing anchor is a raw coordinate, so
@@ -397,6 +402,7 @@ public class ProjectHeroMod implements ModInitializer {
 					com.projecthero.mod.allmight.AllMight.clearTransient(player);
 					com.projecthero.mod.hulk.Hulk.clearTransient(player);
 					com.projecthero.mod.moonknight.MoonKnight.clearTransient(player);
+					com.projecthero.mod.supersoldier.SuperSoldier.clearTransient(player);
 				});
 		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			com.projecthero.mod.spider.SpiderMan.clearTransient(handler.getPlayer());
@@ -411,6 +417,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.allmight.AllMight.clearTransient(handler.getPlayer());
 			com.projecthero.mod.hulk.Hulk.clearTransient(handler.getPlayer());
 			com.projecthero.mod.moonknight.MoonKnight.clearTransient(handler.getPlayer());
+			com.projecthero.mod.supersoldier.SuperSoldier.clearTransient(handler.getPlayer());
 			com.projecthero.mod.oathbreaker.entity.OathbreakerEntity.releaseIfHeld(handler.getPlayer());
 		});
 		// A Titan never survives a server stop: put every shifter back on the ground before the world saves.
