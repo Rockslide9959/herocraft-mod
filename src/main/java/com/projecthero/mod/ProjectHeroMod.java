@@ -339,6 +339,8 @@ public class ProjectHeroMod implements ModInitializer {
 		ServerPlayerEvents.JOIN.register(ThorPowers::onPlayerJoin);
 		ServerPlayerEvents.JOIN.register(ThorPassives::onPlayerJoin);
 		ServerPlayerEvents.JOIN.register(player -> {
+			// v0.14.4: one Primary power at a time -- trim saves made under the old two-slot rule
+			com.projecthero.mod.hero.HeroTiers.enforceLimit(player);
 			PowerPassives.reconcileActive(player);
 			com.projecthero.mod.hero.ExperimentalPowers.reconcileToggles(player);
 			HeroFlight.clearStale(player);

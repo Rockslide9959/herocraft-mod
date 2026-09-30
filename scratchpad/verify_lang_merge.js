@@ -3,7 +3,7 @@ const { execSync } = require('child_process');
 const c = process.argv[2];
 const P = 'src/main/resources/assets/projecthero/lang/en_us.json';
 const theirs = JSON.parse(execSync(`git show ${c}:${P}`, { maxBuffer: 1e8 }).toString());
-const base = JSON.parse(execSync(`git show 993e4cf:${P}`, { maxBuffer: 1e8 }).toString());
+const base = JSON.parse(execSync(`git show ${process.argv[3] || '426fab3'}:${P}`, { maxBuffer: 1e8 }).toString());
 const ours = JSON.parse(require('fs').readFileSync(P, 'utf8'));
 let miss = 0, diff = 0, stale = 0;
 for (const k in theirs) { if (base[k] === theirs[k]) continue; if (!(k in ours)) { miss++; console.log('MISSING', k); } else if (ours[k] !== theirs[k]) { diff++; console.log('DIFF', k); } }

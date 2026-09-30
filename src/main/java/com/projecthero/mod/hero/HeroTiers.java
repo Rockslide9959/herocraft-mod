@@ -17,9 +17,10 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * Cross-tier power bookkeeping. Every power is either {@link PowerClass#PRIMARY} or
- * {@link PowerClass#SECONDARY} (the Symbiote is the only Secondary). Since v0.11.15 a player holds up to
- * {@link #PRIMARY_SLOTS} Primary powers: the experimental mutations count as one group, each Hero-Tier power
- * as one. Gaining a power that does not fit replaces the oldest ({@link #claimPrimary} / {@link #claimExperimental}).
+ * {@link PowerClass#SECONDARY} (the Symbiote is the only Secondary). A player holds {@link #PRIMARY_SLOTS}
+ * Primary power (v0.14.4: back to ONE, was two since v0.11.15): the experimental mutations count as one group,
+ * each Hero-Tier power as one. Gaining a new one replaces what was held ({@link #claimPrimary} /
+ * {@link #claimExperimental}); {@link #enforceLimit} trims saves made under the old two-slot rule on join.
  *
  * <p>Historically ProjectHero had two families of Primary power and a player held only <em>one</em> of them at a time:
  *
@@ -72,8 +73,11 @@ public final class HeroTiers {
 		return !ExperimentalPowers.state(player).ownedPowers.isEmpty();
 	}
 
-	/** How many non-experimental Primary powers a player can hold at once (the experimental group counts as one). */
-	public static final int PRIMARY_SLOTS = 2;
+	/**
+	 * How many Primary powers a player can hold at once (the experimental group counts as one). v0.14.4: 1 --
+	 * every hero power (Thor via Mjolnir included) replaces whatever the player had.
+	 */
+	public static final int PRIMARY_SLOTS = 1;
 
 	/** Every non-experimental Primary power key, as used by {@code HeroCommand}. */
 	public static final java.util.List<String> HERO_KEYS = java.util.List.of(
@@ -266,6 +270,27 @@ public final class HeroTiers {
 		if (Symbiote.hasSymbiote(player)) {
 			Symbiote.remove(player);
 			changed = true;
+		}
+		return changed;
+	}
+
+	/**
+	 * v0.14.4: brings a player saved under the old two-slot rule down to one Primary power. The newest hero
+	 * power is kept (Hero-Tier order is tracked, mutations are not, and a hero is the bigger investment), any
+	 * older heroes are revoked, and mutations go if a hero is kept. Run on join. True if anything was removed.
+	 */
+	public static boolean enforceLimit(ServerPlayer player) {
+		java.util.List<String> order = heroOrder(player);
+		boolean changed = trimHeroes(player, order, "", PRIMARY_SLOTS);
+		saveOrder(player, order);
+		if (!order.isEmpty() && hasExperimental(player)) {
+			wipeExperimental(player);
+			changed = true;
+		}
+		if (changed) {
+			PowerPassives.reconcileActive(player);
+			player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+					"message.projecthero.one_power_limit").withStyle(net.minecraft.ChatFormatting.GOLD));
 		}
 		return changed;
 	}

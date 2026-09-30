@@ -20,8 +20,8 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.GameType;
 
 /**
- * Every power is Primary or Secondary. A player holds two Primary powers (the mutations count as one group);
- * gaining a third replaces the oldest. The Symbiote (the only Secondary) survives only a Spider-Man, and
+ * Every power is Primary or Secondary. v0.14.4: a player holds ONE Primary power (the mutations count as one
+ * group); gaining another replaces it. The Symbiote (the only Secondary) survives only a Spider-Man, and
  * Mjolnir only lifts for a Hero of the Village, who is then bound and loses the effect -- unless the hammer
  * already belongs to someone else (v0.11.15).
  */
@@ -33,32 +33,47 @@ public class PrimaryPowerGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void aPlayerHoldsTwoPrimaryPowersAndTheOldestIsReplaced(GameTestHelper helper) {
+	public void aPlayerHoldsOnePrimaryPowerAndANewOneReplacesIt(GameTestHelper helper) {
 		ServerPlayer player = survivalPlayer(helper);
 		helper.assertTrue(TonyStark.grant(player), "Tony Stark should grant");
 		helper.assertTrue(Punisher.grant(player), "the Punisher should grant");
-		helper.assertTrue(TonyStark.hasPower(player), "Tony Stark is kept -- there are two Primary slots");
+		helper.assertFalse(TonyStark.hasPower(player), "one Primary slot -- Tony Stark is replaced");
 		helper.assertTrue(Punisher.hasPower(player), "the Punisher should be held");
-		helper.assertTrue(GreenLantern.bond(player), "Green Lantern should bond over the pair");
-		helper.assertFalse(TonyStark.hasPower(player), "the OLDEST power (Tony Stark) must be replaced");
-		helper.assertTrue(Punisher.hasPower(player), "the Punisher (newer) stays");
+		helper.assertTrue(GreenLantern.bond(player), "Green Lantern should bond");
+		helper.assertFalse(Punisher.hasPower(player), "the Punisher is replaced");
 		helper.assertTrue(GreenLantern.hasPower(player), "Green Lantern should be held");
+		helper.assertTrue(com.projecthero.mod.hero.HeroTiers.heroCount(player) == 1, "exactly one hero power");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void aMutationSharesOneSlotWithASingleHero(GameTestHelper helper) {
+	public void aMutationAndAHeroReplaceEachOther(GameTestHelper helper) {
 		ServerPlayer player = survivalPlayer(helper);
 		TonyStark.grant(player);
-		Punisher.grant(player);
-		helper.assertTrue(com.projecthero.mod.hero.HeroTiers.claimExperimental(player), "two heroes -> the oldest yields");
-		helper.assertFalse(TonyStark.hasPower(player), "Tony Stark (oldest) gives way to the mutation slot");
-		helper.assertTrue(Punisher.hasPower(player), "the newest hero stays alongside the mutation");
+		helper.assertTrue(com.projecthero.mod.hero.HeroTiers.claimExperimental(player), "a mutation replaces the hero");
+		helper.assertFalse(TonyStark.hasPower(player), "Tony Stark gives way to the mutation");
 		helper.assertTrue(ExperimentalPowers.grant(player, Powers.byKey(SpiderMan.SPIDER_ADHESION_KEY)), "the mutation is granted");
-		// A hero power then wipes the mutation group and keeps at most one other hero.
 		helper.assertTrue(GreenLantern.bond(player), "Green Lantern should bond");
 		helper.assertTrue(ExperimentalPowers.state(player).ownedPowers.isEmpty(), "mutations are replaced by a hero power");
-		helper.assertTrue(Punisher.hasPower(player) && GreenLantern.hasPower(player), "the two heroes are held");
+		helper.assertTrue(GreenLantern.hasPower(player) && com.projecthero.mod.hero.HeroTiers.heroCount(player) == 1,
+				"only the new hero is held");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aSaveFromTheTwoSlotRuleIsTrimmedToTheNewestHeroOnJoin(GameTestHelper helper) {
+		ServerPlayer player = survivalPlayer(helper);
+		TonyStark.grant(player);
+		// simulate an old two-slot save: hand the Punisher over without the slot rule
+		player.setAttached(com.projecthero.mod.attachment.ModAttachments.PRIMARY_ORDER, "iron_man,punisher");
+		com.projecthero.mod.punisher.data.PunisherState ps = Punisher.state(player).copy();
+		ps.hasPower = true;
+		Punisher.save(player, ps);
+		helper.assertTrue(TonyStark.hasPower(player) && Punisher.hasPower(player), "precondition: two heroes held");
+		helper.assertTrue(com.projecthero.mod.hero.HeroTiers.enforceLimit(player), "the limit trims the save");
+		helper.assertFalse(TonyStark.hasPower(player), "the oldest hero goes");
+		helper.assertTrue(Punisher.hasPower(player), "the newest hero stays");
+		helper.assertFalse(com.projecthero.mod.hero.HeroTiers.enforceLimit(player), "a legal save is untouched");
 		helper.succeed();
 	}
 
@@ -120,7 +135,9 @@ public class PrimaryPowerGameTests implements FabricGameTest {
 		Worthiness.ascend(player, new net.minecraft.world.item.ItemStack(com.projecthero.mod.item.ModItems.MJOLNIR));
 		helper.assertTrue(Worthiness.isWorthy(player), "the player becomes Thor");
 		helper.assertFalse(player.hasEffect(MobEffects.HERO_OF_THE_VILLAGE), "the effect is consumed");
-		helper.assertTrue(TonyStark.hasPower(player), "Thor takes the second Primary slot -- Tony Stark is kept");
+		helper.assertFalse(TonyStark.hasPower(player), "becoming Thor naturally replaces every other power");
+		helper.assertTrue(com.projecthero.mod.power.ThorPassives.hasPowerOfThor(player), "and Thor is held");
+		helper.assertTrue(com.projecthero.mod.hero.HeroTiers.heroCount(player) == 1, "Thor is the only hero power");
 		helper.assertFalse(Worthiness.wouldAscend(player), "an existing Thor does not ascend again");
 		helper.succeed();
 	}

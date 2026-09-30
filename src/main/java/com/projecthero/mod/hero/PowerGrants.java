@@ -94,7 +94,7 @@ public final class PowerGrants {
 	}
 
 	/**
-	 * Grant the Hero-Tier power {@code hero}. Claims a Primary slot (the oldest of two is replaced), exactly as the
+	 * Grant the Hero-Tier power {@code hero}. Claims the Primary slot (v0.14.4: replaces whatever was held), exactly as the
 	 * admin command always has.
 	 */
 	public static Result grantHero(ServerPlayer target, String hero) {
