@@ -85,3 +85,75 @@ would run alongside their brain. `SymbioteHost.takeOver(mob)` is the single disp
 `SymbiotePetGameTests`: a free Symbiote turns a cow into a hostile infested host that targets a player; a tamed wolf
 bonded becomes a buffed, bigger pet that refuses its owner as a target, regenerates, survives a reload of its goals,
 and is released by its owner.
+
+## v0.14.4 -- pet hosts
+
+Reworks the Symbiote Pet above (user request: the free Symbiote bonds with your pet, which becomes its host but stays
+friendly and obedient, with its own powers; transforms in combat, detransforms out of it, with the pixel
+transformation). Where this section and "symbiote pets" disagree, this one wins.
+
+### Bonding
+
+- A free `SymbioteEntity` now **prefers** a tamed wolf/cat (`SymbiotePet.canBond`) over every other host: its host
+  score gets a `PET_PREFERENCE` (400, ~20 blocks squared) bonus, beating the monster bonus (96). Within
+  `PET_LEAP_RANGE` (3.5) of a pet it springs at it once a second (`leapAt`, ~10 ticks aloft, momentum kept while
+  `leapTicks` runs) so a trotting pet can't outpace the goo. Contact -> `SymbioteHost.takeOver` -> `SymbiotePet.bond`.
+- `bond` (wild goo, owner share, taming an infested wolf/cat -- all the same path) marks the pet, installs cat goals,
+  sends the owner a chat line (`pet_bonded` / `pet_shared`), and announces itself with one transform that recedes after
+  the combat timeout if there is no fight.
+- Obedience: the Symbiote adds no goals to wolves; a cat's `MaulGoal` refuses while sitting and its owner-defence
+  goals are vanilla (they already check `isOrderedToSit`). Every power returns early while the pet sits (Guardian
+  Shroud excepted -- it fires from the seat and never moves a sitting pet). Loyalty rules are unchanged.
+
+### Form: transformed only in combat
+
+- State: `ModAttachments.SYMBIOTE_PET_FORM` = `SymbiotePet.Form(on, since)` -- **not persisted**, synced to all.
+  Absent = normal form. `formProgress(entity, now, partial)` (0 normal .. 1 transformed) is continuous: a change that
+  interrupts the previous one back-dates `since` so the reveal never jumps.
+- `inCombat`: a live target (not while sitting); hurt by a non-friendly mob within 60 ticks; bit something within
+  60 ticks (not while sitting); owner within 20 blocks is under 40% health and just hurt (`ownerInDanger`); owner within
+  20 blocks hit / was hit by a live non-friendly mob within 60 ticks (not while sitting). Any of these refreshes
+  `Brain.lastCombatAt` and transforms if needed; `COMBAT_TIMEOUT` (180 ticks, 9 s) after the last one it detransforms.
+- `TRANSFORM_TICKS` 30, `DETRANSFORM_TICKS` 40. Combat modifiers (health +20, attack +4, speed +25%, armour +8,
+  knockback +0.5, step +0.4) flip at the switch; the **scale** modifier eases 0 -> +0.3 with a smoothstep of the
+  progress (`easeScale`, quantised to 0.005 to limit attribute packets). All are `addOrUpdateTransientModifier` with the
+  same fixed ids as before -- idempotent, never saved. Transforming heals 6.
+- Regeneration: 1.5 HP/s transformed, 0.5 HP/s in normal form (the old 1 / 3 HP/s split is gone).
+- **Migration**: pets saved by the first v0.14.4 slice carry *permanent* modifiers under those ids. The first tick of
+  any pet instance (`Brain.reconciled`) strips all of them when it is not transformed and clamps health. Origin `1`/`2`
+  keep their meaning (it only decides whether a free Symbiote tears loose on death / sound).
+
+### Powers (transformed only)
+
+Order each tick: Guardian Shroud (owner in danger), then on the target (never while sitting): Spike Burst, Latching
+Bite, Tendril Lash, Pounce (Spike Burst, Tendril Lash and Pounce are unchanged).
+- **Latching Bite** (`BITE_COOLDOWN` 140): target within 2.8 blocks in line of sight -- lunge, 1.1x attack, Slowness IV
+  2.5 s + Weakness 3 s, heals the pet 30% of the damage; one tendril from its jaws onto the target plus four wrapping
+  ones, ichor / crit / damage-indicator particles, growl or hiss + fangs sound.
+- **Guardian Shroud** (`SHROUD_COOLDOWN` 900): owner within 16 blocks and `ownerInDanger` -- tendril pet -> owner, six
+  tendrils rising around the owner, Absorption II 10 s + Resistance I 5 s, every foe within 4 blocks of the owner hurt
+  (0.5x) and thrown back, the pet targets the owner's attacker (and leaps toward the owner) unless sitting; action-bar
+  line `pet_shroud`.
+
+### Rendering: the pixel transformation (`client/symbiote/SymbiotePetSkin`)
+
+- Same technique as the player suit-up (`SymbioteDissolve`): per base texture, `STEPS`+1 (33) pre-built dynamic
+  textures with progressively more opaque pixels turned glossy purple-black (shading kept from the fur's luma, 1-in-10
+  wet highlights), plus a violet "wet front" band just ahead of the covered pixels. Order: distance to 7 seed pixels +
+  jitter, so black blotches grow outward; seeds depend only on texture size, so a wolf switching tame / angry textures
+  keeps its pattern.
+- `LivingEntitySymbioteSkinMixin` swaps the `ResourceLocation` local of `LivingEntityRenderer#getRenderType`
+  (`@ModifyVariable` at the first STORE) for Symbiote Pets -- body only, so collar, wolf armour and eyes draw on top.
+  Pets are no longer colour-tinted (`SymbioteSkin.tinted` = hostile hosts only).
+- At rest a pet keeps `DORMANT` (5%) of the skin: a few black blotches, plus a black drip every 4.5 s. The white eyes
+  (`SymbioteSkin.EyesLayer`) open past `EYES_AT` (70%) coverage. The transform itself only spatters a little ichor
+  (no ink cloud -- the skin is the visual, as for the player suit-up).
+- Visually checked with a temporary client screenshot harness (dormant, 20-80% spread, full, recede, night); the
+  harness is not committed.
+
+### Tests
+
+`SymbiotePetHostGameTests`: a free Symbiote picks a sitting tamed wolf over a closer husk and bonds with it (still
+owned, still sitting, refuses its owner); bond -> transformed + buffs, forced calm -> detransform + buffs off + scale
+eases back, a target -> transform + buffs + full size, fight over -> timeout detransform; a sitting wolf and cat with a
+target stay put and don't attack; a pet with pre-rework permanent modifiers loads in its normal form without them.

@@ -553,6 +553,8 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.symbiote.creatures");
 			para(lines, "projecthero.guide.symbiote.creatures.wild");
 			para(lines, "projecthero.guide.symbiote.creatures.pet");
+			para(lines, "projecthero.guide.symbiote.creatures.form"); // v0.14.4 pet hosts
+			para(lines, "projecthero.guide.symbiote.creatures.powers");
 			para(lines, "projecthero.guide.symbiote.creatures.release");
 			blank(lines);
 			head(lines, "projecthero.guide.symbiote.controls");

@@ -128,7 +128,7 @@ public class SymbiotePetGameTests implements FabricGameTest {
 		helper.assertTrue(wolf.isTame() && wolf.isOwnedBy(owner), "and it stays yours");
 		helper.assertTrue(Math.abs(wolf.getMaxHealth() - (baseMax + 20.0f)) < 0.01f, "+20 max health, got " + wolf.getMaxHealth());
 		helper.assertTrue(Math.abs(wolf.getAttributeValue(Attributes.ATTACK_DAMAGE) - (baseDamage + 4.0)) < 0.01, "+4 attack");
-		helper.assertTrue(Math.abs(wolf.getAttributeValue(Attributes.SCALE) - 1.3) < 0.01, "30% bigger");
+		helper.assertTrue(SymbiotePet.isTransformed(wolf), "bonding announces itself with a transform");
 		helper.assertTrue(wolf.getAttributeValue(Attributes.ARMOR) >= 8.0, "armoured");
 
 		// loyalty: never its owner, never its owner's other pets -- but a hostile mob, yes
@@ -147,6 +147,7 @@ public class SymbiotePetGameTests implements FabricGameTest {
 		wolf.setHealth(20.0f);
 		helper.runAtTickTime(60, () -> {
 			helper.assertTrue(wolf.getHealth() > 20.5f, "it regenerates, health now " + wolf.getHealth());
+			helper.assertTrue(Math.abs(wolf.getAttributeValue(Attributes.SCALE) - 1.3) < 0.01, "30% bigger once the transform has eased in");
 			SymbiotePet.release(wolf, false);
 			helper.assertFalse(SymbiotePet.is(wolf), "released");
 			helper.assertTrue(Math.abs(wolf.getMaxHealth() - baseMax) < 0.01f, "its buffs go with the Symbiote");

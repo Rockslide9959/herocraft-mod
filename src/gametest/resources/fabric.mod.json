@@ -38,6 +38,7 @@
       "com.projecthero.mod.gametest.OathbreakerGameTests",
       "com.projecthero.mod.gametest.SymbioteCreatureGameTests",
       "com.projecthero.mod.gametest.SymbiotePetGameTests",
+      "com.projecthero.mod.gametest.SymbiotePetHostGameTests",
       "com.projecthero.mod.gametest.MoonKnightTempleGameTests",
       "com.projecthero.mod.gametest.MutationAcquisitionGameTests",
       "com.projecthero.mod.gametest.MutationFrameworkGameTests",

@@ -519,8 +519,9 @@ public final class ModAttachments {
 	 * ({@link com.projecthero.mod.symbiote.SymbiotePet}). The value is where its Symbiote came from:
 	 * {@code 1} shared by its Symbiote-bonded owner, {@code 2} a wild Symbiote that crawled onto it (only a
 	 * wild one tears free as a new free Symbiote when the pet dies or is shaken loose). Absent = not a pet.
-	 * Persistent (the bond survives chunk reloads and restarts; the stat boosts are permanent attribute
-	 * modifiers vanilla already saves) and synced to everyone for the transformed render.
+	 * Persistent (the bond survives chunk reloads and restarts) and synced to everyone for the render. Both values
+	 * mean the same thing since the v0.14.4 pet-host rework (the combat buffs are transient now, see
+	 * {@link #SYMBIOTE_PET_FORM}); the origin only decides what happens to the Symbiote when it leaves.
 	 */
 	public static final AttachmentType<Integer> SYMBIOTE_PET = AttachmentRegistry.create(
 			ProjectHeroMod.id("symbiote_pet"),
@@ -534,6 +535,16 @@ public final class ModAttachments {
 	public static final AttachmentType<com.projecthero.mod.symbiote.SymbiotePet.Brain> SYMBIOTE_PET_BRAIN =
 			AttachmentRegistry.create(ProjectHeroMod.id("symbiote_pet_brain"),
 					builder -> builder.initializer(com.projecthero.mod.symbiote.SymbiotePet.Brain::new));
+
+	/**
+	 * v0.14.4 (pet hosts): whether a Symbiote Pet is transformed for combat right now, and the game tick the current
+	 * transform / detransform started -- every client runs the same pixel-by-pixel skin reveal from it. Not persisted
+	 * (the form is re-evaluated from combat after a reload; absent = its normal self), synced to everyone.
+	 */
+	public static final AttachmentType<com.projecthero.mod.symbiote.SymbiotePet.Form> SYMBIOTE_PET_FORM =
+			AttachmentRegistry.create(ProjectHeroMod.id("symbiote_pet_form"),
+					builder -> builder.syncWith(com.projecthero.mod.symbiote.SymbiotePet.Form.STREAM_CODEC,
+							AttachmentSyncPredicate.all()));
 
 	/**
 	 * Whether the player is currently aiming a firearm down its sights / through its scope (holding

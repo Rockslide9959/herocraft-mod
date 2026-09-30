@@ -25,11 +25,13 @@ import net.minecraft.world.entity.LivingEntity;
  * <ul>
  *   <li>the whole body is tinted to the organism's glossy purple-black -- {@code LivingEntitySymbioteSkinMixin}
  *       multiplies the body's render colour by {@link #TINT}, for <em>every</em> host (a Symbiote Host zombie as
- *       much as an infested cow or a Symbiote Pet), and</li>
+ *       much as an infested cow; v0.14.4 pet hosts: <em>not</em> a Symbiote Pet, whose skin spreads pixel by pixel
+ *       when it transforms for combat -- {@link SymbiotePetSkin}), and</li>
  *   <li>on wolves, cats and cows -- the models whose texture layouts we have eye maps for -- the Symbiote's
  *       white, slanted eye patches ({@link EyesLayer}), drawn emissive so they read in the dark.</li>
  * </ul>
- * A Symbiote Pet is also bigger, but that is the server-side scale attribute, which vanilla already renders.
+ * A transformed Symbiote Pet is also bigger, but that is the server-side scale attribute (eased over the transform),
+ * which vanilla already renders.
  */
 public final class SymbioteSkin {
 	/** RGB the body texture is multiplied by: deep purple-black, dark enough to read as goo, light enough to keep
@@ -43,10 +45,27 @@ public final class SymbioteSkin {
 	private SymbioteSkin() {
 	}
 
-	/** Is this entity covered by a Symbiote (hostile host or pet)? Reads the synced attachments. */
+	/**
+	 * Should the Symbiote's white eyes show? Always on a hostile host; on a Symbiote Pet (v0.14.4 pet hosts) only once
+	 * its combat transform has spread far enough ({@link SymbiotePetSkin#EYES_AT}). Reads the synced attachments.
+	 */
 	public static boolean covered(LivingEntity entity) {
-		return entity.getAttachedOrElse(ModAttachments.SYMBIOTE_HOST, false)
-				|| entity.getAttachedOrElse(ModAttachments.SYMBIOTE_PET, 0) > 0;
+		if (tinted(entity)) {
+			return true;
+		}
+		return isPet(entity) && SymbiotePetSkin.coverage(entity) >= SymbiotePetSkin.EYES_AT;
+	}
+
+	/**
+	 * Is the whole body tinted black? Hostile hosts only: a Symbiote Pet is drawn with its pixel-by-pixel skin instead
+	 * ({@link SymbiotePetSkin}), which is its normal self out of combat.
+	 */
+	public static boolean tinted(LivingEntity entity) {
+		return entity.getAttachedOrElse(ModAttachments.SYMBIOTE_HOST, false);
+	}
+
+	public static boolean isPet(LivingEntity entity) {
+		return entity.getAttachedOrElse(ModAttachments.SYMBIOTE_PET, 0) > 0;
 	}
 
 	/** Multiply a packed ARGB render colour by {@link #TINT}, keeping its alpha. */

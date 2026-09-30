@@ -61,7 +61,8 @@ import net.minecraft.world.phys.Vec3;
  *       walls when something is in its way, and wanders with pauses when it has nothing to do.</li>
  *   <li><b>It hunts for a host</b>: every {@value #HOST_SCAN_INTERVAL} ticks it looks (one bounded AABB
  *       query) for a host within {@value #SEEK_RANGE} blocks -- anything with an attack damage attribute or
- *       (v0.14.4) a grown passive animal, monsters preferred; never bosses, the mod's event/raid mobs, owned
+ *       (v0.14.4) a grown passive animal -- a tamed wolf or cat first (it springs onto a pet the last few
+ *       blocks), then monsters; never bosses, the mod's event/raid mobs, owned
  *       mobs other than a tamed wolf or cat (which becomes a loyal Symbiote Pet), no-AI display mobs or an
  *       existing Symbiote Host -- crawls to it and, on contact,
  *       <b>takes control</b>: the mob becomes a Symbiote Host ({@link SymbioteHost#mark}) and this entity
@@ -108,6 +109,9 @@ public class SymbioteEntity extends Entity {
 	private static final double HORN_FEAR_RANGE = 16.0;
 	private static final double WANDER_SPEED = 0.045;
 	private static final double HUNT_SPEED = 0.12;
+	/** v0.14.4: how strongly a free Symbiote prefers a tamed pet as its host (squared-distance bonus, ~20 blocks). */
+	private static final double PET_PREFERENCE = 400.0;
+	private static final double PET_LEAP_RANGE = 3.5;
 	private static final double FLEE_SPEED = 0.16;
 	private static final double CLIMB_SPEED = 0.14;
 	private static final double GRAVITY = 0.06;
@@ -138,6 +142,7 @@ public class SymbioteEntity extends Entity {
 	private double targetBestDist = Double.MAX_VALUE;
 	private int targetStallTicks;
 	private UUID ignoredTarget;
+	private int leapTicks;
 	private long ignoreUntil;
 	private Vec3 wanderGoal;
 	private int wanderTimer;
@@ -334,6 +339,10 @@ public class SymbioteEntity extends Entity {
 				mood = MOOD_HUNT;
 				speed = HUNT_SPEED;
 				goal = target.position();
+				if (com.projecthero.mod.symbiote.SymbiotePet.canBond(target) && onGround() && recoilTicks <= 0
+						&& target.distanceToSqr(this) < PET_LEAP_RANGE * PET_LEAP_RANGE && (tickCount + getId()) % 20 == 0) {
+					leapAt(target); // v0.14.4: a pet trots faster than goo crawls -- spring the last couple of blocks
+				}
 				trackProgress(server, target);
 			} else {
 				goal = wanderGoal();
@@ -362,7 +371,13 @@ public class SymbioteEntity extends Entity {
 		double vy = v.y;
 		double vz = v.z;
 		boolean pushing = false;
-		if (goal != null && speed > 0.0) {
+		if (leapTicks > 0) {
+			leapTicks--;
+		}
+		boolean coasting = leapTicks > 0 && (leapTicks > 9 || !onGround()); // mid-spring: keep the momentum
+		if (coasting) {
+			// no steering, no damping
+		} else if (goal != null && speed > 0.0) {
 			double dx = goal.x - getX();
 			double dz = goal.z - getZ();
 			double d = Math.sqrt(dx * dx + dz * dz);
@@ -395,6 +410,19 @@ public class SymbioteEntity extends Entity {
 		if (onGround()) {
 			resetFallDistance();
 		}
+	}
+
+	/** v0.14.4: a short spring onto a (moving) pet it is about to bond with. */
+	private void leapAt(Mob target) {
+		Vec3 d = target.position().add(0.0, target.getBbHeight() * 0.4, 0.0).subtract(position());
+		double len = d.length();
+		if (len < 1.0e-3) {
+			return;
+		}
+		Vec3 h = new Vec3(d.x, 0.0, d.z).normalize().scale(Math.min(0.5, len / 10.0)); // lands on it: ~10 ticks aloft
+		setDeltaMovement(h.x, 0.32, h.z);
+		hasImpulse = true;
+		leapTicks = 12;
 	}
 
 	private Vec3 clampToHome(Vec3 goal) {
@@ -561,7 +589,9 @@ public class SymbioteEntity extends Entity {
 			if (confined && !withinHome(mob.position(), 0.8)) {
 				continue;
 			}
-			double score = mob.distanceToSqr(this) - (mob instanceof Enemy ? 96.0 : 0.0);
+			// v0.14.4 (pet hosts): a tamed wolf / cat is the host it wants most -- a willing, loyal body -- then monsters
+			double score = mob.distanceToSqr(this) - (mob instanceof Enemy ? 96.0 : 0.0)
+					- (com.projecthero.mod.symbiote.SymbiotePet.canBond(mob) ? PET_PREFERENCE : 0.0);
 			if (score < bestScore) {
 				bestScore = score;
 				best = mob;
