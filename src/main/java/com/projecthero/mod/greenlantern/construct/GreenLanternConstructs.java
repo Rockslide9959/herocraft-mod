@@ -1716,8 +1716,7 @@ public final class GreenLanternConstructs {
 	}
 
 	private static boolean isSquadmate(ServerPlayer owner, net.minecraft.world.entity.player.Player other) {
-		return owner.getServer() != null
-				&& com.projecthero.mod.squad.SquadManager.get(owner.getServer()).sameSquad(owner.getUUID(), other.getUUID());
+		return com.projecthero.mod.squad.Squads.areAllies(owner, other); // v0.14.4: a rampaging Hulk is nobody's squadmate
 	}
 
 	/**

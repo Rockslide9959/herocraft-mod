@@ -127,8 +127,7 @@ public final class BatchA {
 			return false;
 		}
 		if (e instanceof Player other) {
-			return player.getServer() != null && com.projecthero.mod.squad.SquadManager.get(player.getServer())
-					.sameSquad(player.getUUID(), other.getUUID());
+			return com.projecthero.mod.squad.Squads.areAllies(player, other); // v0.14.4: not a rampaging Hulk
 		}
 		if (e instanceof TamableAnimal pet) {
 			return pet.isTame() && player.getUUID().equals(pet.getOwnerUUID());

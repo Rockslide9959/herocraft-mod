@@ -593,7 +593,7 @@ public final class HeroPackGuide {
 		out.add(chapter("projecthero.guide.zombie_raid", lines -> {
 			para(lines, "projecthero.guide.zombie_raid.body");
 			blank(lines);
-			for (String section : new String[]{"curse", "sources", "waves", "bosses", "rewards", "crafting", "repeat"}) {
+			for (String section : new String[]{"curse", "sources", "waves", "bosses", "rewards", "trophies", "crafting", "repeat"}) { // v0.14.4: + trophies
 				head(lines, "projecthero.guide.zombie_raid." + section);
 				para(lines, "projecthero.guide.zombie_raid." + section + ".body");
 				blank(lines);

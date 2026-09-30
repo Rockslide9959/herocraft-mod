@@ -2,7 +2,10 @@ package com.projecthero.mod.grave.item;
 
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.grave.CursedGraveBlock;
-import com.projecthero.mod.grave.GraveChampionHeadBlock;
+import com.projecthero.mod.grave.TrophyHeadBlock;
+import com.projecthero.mod.grave.TrophyHeadBlockEntity;
+import com.projecthero.mod.grave.TrophyHeadWallBlock;
+import com.projecthero.mod.grave.TrophyHeads;
 
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -14,6 +17,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.Tiers;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.DispenserBlock;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
@@ -48,6 +53,12 @@ public final class GraveItems {
 
 	/** v0.9.22: the wave-12 trophy as a placeable, wearable head block. The item is {@link #FINAL_BOSS_TROPHY}. */
 	public static Block GRAVE_CHAMPION_HEAD;
+	/** v0.14.4: the trophy heads' wall-mounted twins, and the Empowered Zombie Head's blocks (item {@link #BOSS_TROPHY}). */
+	public static Block GRAVE_CHAMPION_WALL_HEAD;
+	public static Block EMPOWERED_ZOMBIE_HEAD;
+	public static Block EMPOWERED_ZOMBIE_WALL_HEAD;
+	/** v0.14.4: remembers a placed trophy's power and kill record. */
+	public static BlockEntityType<TrophyHeadBlockEntity> TROPHY_HEAD_BE;
 
 	private GraveItems() {
 	}
@@ -66,14 +77,18 @@ public final class GraveItems {
 						.pushReaction(PushReaction.BLOCK)));
 		CURSED_GRAVE_ITEM = registerBlockItem("cursed_grave", CURSED_GRAVE);
 
-		GRAVE_CHAMPION_HEAD = Registry.register(BuiltInRegistries.BLOCK,
-				ResourceKey.create(Registries.BLOCK, ProjectHeroMod.id("grave_champion_head")),
-				new GraveChampionHeadBlock(BlockBehaviour.Properties.of()
-						.mapColor(MapColor.DEEPSLATE)
-						.strength(1.0f)
-						.sound(net.minecraft.world.level.block.SoundType.BONE_BLOCK)
-						.noOcclusion()
-						.pushReaction(PushReaction.DESTROY)));
+		// v0.14.4: floor + wall blocks for both trophy heads (vanilla mob-head behaviour: fragile, pistons pop them).
+		GRAVE_CHAMPION_HEAD = registerBlock("grave_champion_head",
+				new TrophyHeadBlock(TrophyHeads.Kind.CHAMPION, headProperties(MapColor.DEEPSLATE)));
+		GRAVE_CHAMPION_WALL_HEAD = registerBlock("grave_champion_wall_head",
+				new TrophyHeadWallBlock(TrophyHeads.Kind.CHAMPION, headProperties(MapColor.DEEPSLATE)));
+		EMPOWERED_ZOMBIE_HEAD = registerBlock("empowered_zombie_head",
+				new TrophyHeadBlock(TrophyHeads.Kind.ZOMBIE, headProperties(MapColor.COLOR_GREEN)));
+		EMPOWERED_ZOMBIE_WALL_HEAD = registerBlock("empowered_zombie_wall_head",
+				new TrophyHeadWallBlock(TrophyHeads.Kind.ZOMBIE, headProperties(MapColor.COLOR_GREEN)));
+		TROPHY_HEAD_BE = Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, ProjectHeroMod.id("trophy_head"),
+				BlockEntityType.Builder.of(TrophyHeadBlockEntity::new, GRAVE_CHAMPION_HEAD, GRAVE_CHAMPION_WALL_HEAD,
+						EMPOWERED_ZOMBIE_HEAD, EMPOWERED_ZOMBIE_WALL_HEAD).build(null));
 
 		GRAVE_ESSENCE = register("grave_essence", new Item(new Item.Properties()));
 		GRAVEBOUND_INGOT = register("gravebound_ingot",
@@ -95,11 +110,16 @@ public final class GraveItems {
 		GRAVE_RITUAL_TOTEM = register("grave_ritual_totem",
 				new GraveRitualTotemItem(new Item.Properties().stacksTo(4).rarity(Rarity.RARE)));
 		BOSS_TROPHY = register("boss_trophy",
-				new BossTrophyItem(new Item.Properties().stacksTo(16).rarity(Rarity.RARE), false));
+				new BossTrophyItem(EMPOWERED_ZOMBIE_HEAD, EMPOWERED_ZOMBIE_WALL_HEAD,
+						new Item.Properties().stacksTo(16).rarity(Rarity.RARE), false));
+		((BlockItem) BOSS_TROPHY).registerBlocks(Item.BY_BLOCK, BOSS_TROPHY);
 		FINAL_BOSS_TROPHY = register("final_boss_trophy",
-				new GraveChampionHeadItem(GRAVE_CHAMPION_HEAD,
-						new Item.Properties().stacksTo(16).rarity(Rarity.EPIC)));
+				new BossTrophyItem(GRAVE_CHAMPION_HEAD, GRAVE_CHAMPION_WALL_HEAD,
+						new Item.Properties().stacksTo(16).rarity(Rarity.EPIC), true));
 		((BlockItem) FINAL_BOSS_TROPHY).registerBlocks(Item.BY_BLOCK, FINAL_BOSS_TROPHY);
+		// A dispenser puts a trophy head on whoever stands in front of it, like armour (else it drops the head).
+		DispenserBlock.registerBehavior(BOSS_TROPHY, net.minecraft.world.item.ArmorItem.DISPENSE_ITEM_BEHAVIOR);
+		DispenserBlock.registerBehavior(FINAL_BOSS_TROPHY, net.minecraft.world.item.ArmorItem.DISPENSE_ITEM_BEHAVIOR);
 		KNIGHTS_SOUL = register("knights_soul",
 				new KnightsSoulItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC)));
 		// v0.14.0: the Oathbreaker's guaranteed drop. A crafting material with no use yet (reserved for a
@@ -121,6 +141,19 @@ public final class GraveItems {
 		output.accept(FINAL_BOSS_TROPHY);
 		output.accept(KNIGHTS_SOUL);
 		output.accept(BROKEN_OATH);
+	}
+
+	private static BlockBehaviour.Properties headProperties(MapColor color) {
+		return BlockBehaviour.Properties.of()
+				.mapColor(color)
+				.strength(1.0f)
+				.sound(net.minecraft.world.level.block.SoundType.BONE_BLOCK)
+				.noOcclusion()
+				.pushReaction(PushReaction.DESTROY);
+	}
+
+	private static Block registerBlock(String path, Block block) {
+		return Registry.register(BuiltInRegistries.BLOCK, ResourceKey.create(Registries.BLOCK, ProjectHeroMod.id(path)), block);
 	}
 
 	private static Item register(String path, Item item) {

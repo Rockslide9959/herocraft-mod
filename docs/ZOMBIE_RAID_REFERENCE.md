@@ -179,9 +179,13 @@ zombie, which flooded players; it is now also the key ingredient in Knight's Sou
 
 Every Powered Zombie Boss drops a **Corrupted Power Core** stamped with its power ("Corrupted
 Geokinesis Core"). These are research and crafting reagents — **you cannot eat one to gain the power**.
-Bosses also sometimes drop a power trophy head; the final boss always drops a distinct one, the
-**Grave Champion Head** — which (v0.9.22) is a real head: shift-click or drag it onto the head slot
-to wear it, or place it as a block, exactly like a vanilla mob head.
+Bosses also sometimes drop a power trophy head, the **Empowered Zombie Head**. The final boss always drops a
+distinct one, the horned and crowned **Grave Champion Head**. Since v0.14.4 both are real heads. You can wear them
+(shift-click, drag onto the head slot, right-click the air, or use a dispenser) and they sit on your head like a
+vanilla mob head. You can also place them on the floor or mount them on a wall. They remember who took them and on
+which day, and their eyes glow in the colour of the boss's power. While worn, the Empowered Zombie Head makes zombies
+notice you from half as far away, and the Grave Champion Head does that for every undead. See "v0.14.4 -- trophy
+heads" at the end.
 
 Clearing wave 12 spawns a **Cursed Grave Chest** at the raid centre with:
 
@@ -372,3 +376,38 @@ fresh" default), and boss health silently flat-lined at vanilla's 1024 cap for g
 
 - The Cursed Zombie applies the Gravebound Curse on any attack against a (non-creative) player, not only when vanilla
   reports damage -- powers that dodge/soak/cancel-and-reapply hits used to swallow it. Never gated by earlier raids.
+
+## v0.14.4 -- trophy heads
+
+Both boss heads are now real heads. The **Grave Champion Head** (`final_boss_trophy`, dropped by the wave-12 boss every
+time) and the **Empowered Zombie Head** (`boss_trophy`, dropped by any Powered Zombie Boss at `bossTrophyChance`, and
+also found as chest loot) are both `BossTrophyItem` (`StandingAndWallBlockItem` + `Equipable`, HEAD). The v0.9.22
+`GraveChampionHeadItem` / `GraveChampionHeadBlock` are gone.
+
+- **Worn:** shift-click, drag, right-click the air, a dispenser (`ArmorItem.DISPENSE_ITEM_BEHAVIOR`), armour stands and
+  mobs. The head used to float above the wearer's head, because the old item model's `head` transform lifted it 14.25
+  units at 1.5x. The new transform is derived from `CustomHeadLayer`'s bytecode. A non-skull block item goes through
+  `translateToHead` (0.625 scale, so 1 model unit = 0.625 px). With `scale 1.9, translation [0, 8.8, 0]`, the 8-unit
+  skull sits on the neck at 9.5 px, the same size and seat as a vanilla mob head. The model's north face ends up as the
+  wearer's face, as with a carved pumpkin. Derivation: `scratchpad/gen_grave_heads_v0144.js`. The other display
+  transforms copy vanilla `template_skull`, turned 180 degrees because our face is on north.
+- **Perk while worn** (`TrophyHeads#detectionFactor`, applied by `TrophyHeadVisibilityMixin` on
+  `getVisibilityPercent`, for any wearer): the Empowered Zombie Head halves how far zombies notice you, and the Grave
+  Champion Head does it for every undead. This is vanilla's mob-head rule, scaled to the trophy.
+- **Placed:** each head has a floor block and a wall block. `TrophyHeadBlock` stands on the floor with 4-way facing.
+  `TrophyHeadWallBlock` mounts on a wall, using vanilla's wall-skull shapes and placement. Ids: `grave_champion_head` /
+  `grave_champion_wall_head`, `empowered_zombie_head` / `empowered_zombie_wall_head`. `TrophyHeadBlockEntity`
+  (`projecthero:trophy_head`) keeps `power_key` + `trophy_record` via `applyImplicitComponents` /
+  `collectImplicitComponents`, and the loot tables `copy_components` them back. So breaking a head gives back the same
+  named trophy. Right-clicking a placed head shows its plaque in the action bar.
+- **Record:** `GraveComponents.TROPHY_RECORD` (`TrophyRecord(slayer, day)`). `ZombieRaidRewards` stamps it from the
+  boss's kill credit and the world day. The tooltip shows it as "Slain by X on day N", with a blue perk line below.
+- **Look:** new 3D models and 64x64 textures, from `scratchpad/gen_grave_heads_v0144.js` and previewed offline with
+  `scratchpad/preview_heads_v0144.js`.
+  - The Champion: a cracked skull under a rusted iron-and-gold crown, with bone spikes, a crown gem and curling horns.
+  - The Zombie Head: rotting, with a sigil carved into the brow and a crack in the skull.
+  - Faces with `tintindex 0` are glow decals, tinted per power family (`TrophyHeads#glowColor`). Held items get the
+    colour from the item colour provider and placed heads from the block entity through the block colour provider.
+    `TrophyHeadClient` draws those faces full-bright through FRAPI.
+  - Blocks render in the cutout layer. The old flat item textures were removed.
+- Tests: `V0144GraveHulkGameTests` covers the head slot, place/break keeping power + record, and the detection factors.

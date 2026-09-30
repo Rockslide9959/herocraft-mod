@@ -15,7 +15,6 @@ import com.projecthero.mod.moonknight.MoonKnightLunar;
 import com.projecthero.mod.moonknight.data.MoonKnightAction;
 import com.projecthero.mod.moonknight.data.MoonKnightState;
 import com.projecthero.mod.network.MoonKnightKhonshuFxPayload;
-import com.projecthero.mod.squad.SquadManager;
 import com.projecthero.mod.titanshifter.TitanCombat;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
@@ -213,7 +212,7 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 		if (e instanceof Player other) {
 			MinecraftServer server = player.getServer();
 			return server != null && server.isPvpAllowed() && HeroConfig.get().abilityPvpDamage
-					&& !other.isSpectator() && !SquadManager.get(server).sameSquad(player.getUUID(), other.getUUID());
+					&& !other.isSpectator() && !com.projecthero.mod.squad.Squads.areAllies(player, other);
 		}
 		return e instanceof Enemy || (e instanceof Mob mob && mob.getTarget() == player);
 	}

@@ -1,0 +1,172 @@
+{
+  "textures": {
+    "skin": "projecthero:block/empowered_zombie_head",
+    "particle": "projecthero:block/empowered_zombie_head"
+  },
+  "elements": [
+    {
+      "name": "skull",
+      "from": [4, 0, 4],
+      "to": [12, 8, 12],
+      "faces": {
+        "north": {
+          "uv": [0, 0, 2, 2],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [2.25, 0, 4.25, 2],
+          "texture": "#skin"
+        },
+        "south": {
+          "uv": [4.5, 0, 6.5, 2],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [6.75, 0, 8.75, 2],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [9, 0, 11, 2],
+          "texture": "#skin"
+        },
+        "down": {
+          "uv": [11.25, 0, 13.25, 2],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "name": "ear_l",
+      "from": [3.5, 3, 6.5],
+      "to": [4, 5, 8],
+      "faces": {
+        "north": {
+          "uv": [13.5, 0, 13.75, 0.5],
+          "texture": "#skin"
+        },
+        "south": {
+          "uv": [14, 0, 14.25, 0.5],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [14.5, 0, 15, 0.5],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [15.25, 0, 15.5, 0.5],
+          "texture": "#skin"
+        },
+        "down": {
+          "uv": [15.75, 0, 16, 0.5],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "name": "ear_r",
+      "from": [12, 3, 6.5],
+      "to": [12.5, 4.5, 8],
+      "faces": {
+        "north": {
+          "uv": [0, 2.25, 0.25, 2.75],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [0.5, 2.25, 1, 2.75],
+          "texture": "#skin"
+        },
+        "south": {
+          "uv": [1.25, 2.25, 1.5, 2.75],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [1.75, 2.25, 2, 2.75],
+          "texture": "#skin"
+        },
+        "down": {
+          "uv": [2.25, 2.25, 2.5, 2.75],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "name": "brow",
+      "from": [4.5, 5, 3.6],
+      "to": [11.5, 5.6, 4],
+      "faces": {
+        "north": {
+          "uv": [2.75, 2.25, 4.5, 2.5],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [4.75, 2.25, 5, 2.5],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [5.25, 2.25, 5.5, 2.5],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [5.75, 2.25, 7.5, 2.5],
+          "texture": "#skin"
+        },
+        "down": {
+          "uv": [7.75, 2.25, 9.5, 2.5],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "name": "eye_left",
+      "from": [9, 3, 3.95],
+      "to": [11, 5, 3.95],
+      "shade": false,
+      "faces": {
+        "north": {
+          "uv": [9.75, 2.25, 10.75, 3.25],
+          "texture": "#skin",
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "name": "eye_right",
+      "from": [5, 3, 3.95],
+      "to": [7, 5, 3.95],
+      "shade": false,
+      "faces": {
+        "north": {
+          "uv": [11, 2.25, 12, 3.25],
+          "texture": "#skin",
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "name": "rune",
+      "from": [7, 5.8, 3.97],
+      "to": [9, 7.8, 3.97],
+      "shade": false,
+      "faces": {
+        "north": {
+          "uv": [12.25, 2.25, 13.75, 3.75],
+          "texture": "#skin",
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "name": "crack_glow",
+      "from": [5, 8.02, 5],
+      "to": [9, 8.02, 9],
+      "shade": false,
+      "faces": {
+        "up": {
+          "uv": [14, 2.25, 16, 4.25],
+          "texture": "#skin",
+          "tintindex": 0
+        }
+      }
+    }
+  ]
+}

@@ -711,7 +711,7 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 				: com.projecthero.mod.squad.SquadManager.get(owner.getServer());
 		List<LivingEntity> candidates = new ArrayList<>(level().getEntitiesOfClass(LivingEntity.class,
 				owner.getBoundingBox().inflate(VOLLEY_RANGE), e -> e != owner && e.isAlive()
-						&& !(squads != null && e instanceof Player p && squads.sameSquad(owner.getUUID(), p.getUUID()))));
+						&& !(squads != null && e instanceof Player p && com.projecthero.mod.squad.Squads.areAllies(owner, p))));
 		candidates.sort(Comparator.comparingDouble(e -> e.distanceToSqr(owner)));
 
 		if (candidates.isEmpty()) {

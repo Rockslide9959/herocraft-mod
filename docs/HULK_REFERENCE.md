@@ -155,3 +155,18 @@ the dealer is not `HulkControl.rampaging`); used by the friendly-fire veto, `Abi
 `HulkCombat#ally` (so the rampage AI also targets them). PvP / `abilityPvpDamage` still apply. The squadmate still
 can't hurt the Hulk back.
 
+## v0.14.4
+
+The squad can fight back. While a Hulk rampages, squad protection between him and his squad-mates is lifted in **both**
+directions: `Squads#shields(dealer, victim)` is false when *either* side is `HulkControl.rampaging`, so the
+friendly-fire veto (`ALLOW_DAMAGE`), `Squads#isFriendlyFire` and `AbilityHelpers#hurtLands` let a squad-mate's sword,
+arrows and abilities land on him. `Squads#areAllies(a, b)` is also false when either is rampaging, so every ability that
+skips squad-mates (AoE blasts, grabs, turrets, summoned servants, Symbiote / Telekinesis / Gravity handlers, ...)
+treats him as a target. The ability-specific checks that used `SquadManager#sameSquad` directly for *offensive*
+filtering now go through `Squads.areAllies` too: Mjolnir's volley, Wolverine's grab, the Omega Beam, Titan Shifter
+combat, Green Lantern constructs, Moon Knight / Khonshu, and `BatchA#isAlly` (so his squad's buffs also skip him while he
+rampages). Narrow on purpose: only the rampaging Hulk loses ally status. His squad-mates stay allies of each other, and
+it all reverts the tick the rampage ends. The server PvP setting and `abilityPvpDamage` still gate everything. Riding
+(`HulkRiding`) and Healing Water still use plain squad membership. Test:
+`V0144GraveHulkGameTests#aRampagingHulksSquadCanFightBack`. The v0.14.3 test now asserts the mate *can* hit back.
+

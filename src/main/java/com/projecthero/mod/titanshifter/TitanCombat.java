@@ -77,6 +77,9 @@ public final class TitanCombat {
 			return false;
 		}
 		var server = owner.getServer();
+		if (e instanceof Player p) {
+			return !com.projecthero.mod.squad.Squads.areAllies(owner, p); // v0.14.4: a rampaging Hulk is fair game
+		}
 		if (server != null) {
 			java.util.UUID other = e instanceof TitanFormEntity t ? t.ownerId() : e.getUUID();
 			if (other != null && SquadManager.get(server).sameSquad(owner.getUUID(), other)) {

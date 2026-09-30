@@ -6,7 +6,6 @@ import com.projecthero.mod.hero.HeroConfig;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.moonknight.MoonKnightConfig;
 import com.projecthero.mod.moonknight.item.MoonKnightTruncheonItem;
-import com.projecthero.mod.squad.SquadManager;
 import com.projecthero.mod.titanshifter.TitanCombat;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
@@ -71,7 +70,7 @@ public final class MoonKnightCombat {
 		if (player.getServer() == null || !player.getServer().isPvpAllowed() || !HeroConfig.get().abilityPvpDamage) {
 			return true;
 		}
-		return SquadManager.get(player.getServer()).sameSquad(player.getUUID(), other.getUUID());
+		return com.projecthero.mod.squad.Squads.areAllies(player, other); // v0.14.4: not a rampaging Hulk
 	}
 
 	/** Everything hostile to {@code player} within {@code radius} of {@code center} (the PvP gate included). */

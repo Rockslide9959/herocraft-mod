@@ -120,7 +120,7 @@ public final class WolverineAbilities {
 	}
 
 	private static boolean squadmates(ServerPlayer a, ServerPlayer b) {
-		return com.projecthero.mod.squad.SquadManager.get(a.server).sameSquad(a.getUUID(), b.getUUID());
+		return com.projecthero.mod.squad.Squads.areAllies(a, b); // v0.14.4: a rampaging Hulk is nobody's squadmate
 	}
 
 	private static boolean strike(ServerPlayer player, LivingEntity target, float damage, double knockback) {

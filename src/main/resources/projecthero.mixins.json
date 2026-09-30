@@ -21,6 +21,7 @@
 		"MobSymbioteMixin",
 		"MoonKnightVillagerPricesMixin",
 		"MoonKnightVisibilityMixin",
+		"TrophyHeadVisibilityMixin",
 		"MutationSerumEffectMixin",
 		"PlayerMixin",
 		"PowderSnowBlockMixin",

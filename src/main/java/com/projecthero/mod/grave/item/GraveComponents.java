@@ -33,6 +33,16 @@ public final class GraveComponents {
 					.build());
 
 	/**
+	 * v0.14.4: on a boss trophy head -- who took it and on which day. Copied onto the placed head block's block entity
+	 * and back onto the item when it is broken (see the head blocks' loot tables).
+	 */
+	public static final DataComponentType<TrophyRecord> TROPHY_RECORD = register("trophy_record",
+			DataComponentType.<TrophyRecord>builder()
+					.persistent(TrophyRecord.CODEC)
+					.networkSynchronized(TrophyRecord.STREAM_CODEC)
+					.build());
+
+	/**
 	 * Undying Totem charges remaining. Stored on the stack rather than anywhere external so it cannot
 	 * be reset by relogging, cannot be duplicated by moving the item, and travels with the item when
 	 * it is traded or stored.

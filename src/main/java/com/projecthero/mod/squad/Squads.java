@@ -60,15 +60,22 @@ public final class Squads {
 	}
 
 	/**
-	 * v0.14.3: does squad membership protect {@code victim} from {@code dealer}? Same squad -- unless the dealer is a
-	 * Hulk on an unwilling rampage, who no longer knows friend from foe and hits his squad too.
+	 * v0.14.3: does squad membership protect {@code victim} from {@code dealer}? Same squad -- unless one of them is a
+	 * Hulk on an unwilling rampage. He no longer knows friend from foe and hits his squad too (v0.14.3), and v0.14.4
+	 * lets them fight back: while he rampages the protection is gone in <em>both</em> directions between him and his
+	 * squad-mates. Everyone else in the squad still protects everyone else.
 	 */
 	public static boolean shields(Player dealer, Player victim) {
 		if (dealer == null || victim == null || dealer == victim || dealer.getServer() == null
 				|| !SquadManager.get(dealer.getServer()).sameSquad(dealer.getUUID(), victim.getUUID())) {
 			return false;
 		}
-		return !com.projecthero.mod.hulk.HulkControl.rampaging(dealer);
+		return !rampageBreaksSquad(dealer, victim);
+	}
+
+	/** v0.14.4: is either of the two a rampaging Hulk, which cancels squad protection between them? */
+	private static boolean rampageBreaksSquad(Player a, Player b) {
+		return com.projecthero.mod.hulk.HulkControl.rampaging(a) || com.projecthero.mod.hulk.HulkControl.rampaging(b);
 	}
 
 	/** v0.13.21: public face of {@link #blocks} -- would this hit be swallowed as squad friendly fire? */
@@ -81,13 +88,17 @@ public final class Squads {
 	 * uses to leave squadmates alone entirely -- no damage, no slow, no grab, no shove -- rather than relying on
 	 * the friendly-fire veto above, which only ever stops the damage itself. Null-safe, and false for anything
 	 * that is not a player (a squad has no pets) or when there is no server to ask.
+	 *
+	 * <p>v0.14.4: a rampaging Hulk is nobody's ally -- every ability that passes squad-mates by (AoE blasts, grabs,
+	 * turrets, summoned servants, ...) hits him like anyone else, so his squad can fight back. Only the rampaging Hulk
+	 * loses ally status; his squad-mates stay allies of each other.
 	 */
 	public static boolean areAllies(Entity a, Entity b) {
 		if (a == null || b == null || a == b || !(a instanceof Player pa) || !(b instanceof Player pb)
 				|| pa.getServer() == null) {
 			return false;
 		}
-		return SquadManager.get(pa.getServer()).sameSquad(pa.getUUID(), pb.getUUID());
+		return SquadManager.get(pa.getServer()).sameSquad(pa.getUUID(), pb.getUUID()) && !rampageBreaksSquad(pa, pb);
 	}
 
 	// ---------------- sync ----------------

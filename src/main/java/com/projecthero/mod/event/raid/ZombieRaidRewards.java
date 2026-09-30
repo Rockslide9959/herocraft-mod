@@ -124,8 +124,16 @@ public final class ZombieRaidRewards {
 				: randomBetween(random, cfg.graveEssenceFromBossMin, cfg.graveEssenceFromBossMax));
 
 		if (finalBoss || random.nextDouble() < cfg.bossTrophyChance) {
-			drop(level, boss, BossTrophyItem.of(
-					finalBoss ? GraveItems.FINAL_BOSS_TROPHY : GraveItems.BOSS_TROPHY, boss.powerKey()));
+			ItemStack trophy = BossTrophyItem.of(
+					finalBoss ? GraveItems.FINAL_BOSS_TROPHY : GraveItems.BOSS_TROPHY, boss.powerKey());
+			// v0.14.4: the head remembers who took it and when.
+			LivingEntity slayer = boss.getKillCredit();
+			if (slayer != null) {
+				trophy.set(com.projecthero.mod.grave.item.GraveComponents.TROPHY_RECORD,
+						new com.projecthero.mod.grave.item.TrophyRecord(slayer.getName().getString(),
+								com.projecthero.mod.grave.item.TrophyRecord.dayOf(level.getDayTime())));
+			}
+			drop(level, boss, trophy);
 		}
 		level.playSound(null, boss.blockPosition(), SoundEvents.TOTEM_USE, SoundSource.HOSTILE, 1.0f, 0.6f);
 	}

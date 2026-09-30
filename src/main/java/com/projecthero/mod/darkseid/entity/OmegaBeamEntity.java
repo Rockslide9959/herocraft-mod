@@ -5,7 +5,6 @@ import java.util.UUID;
 import com.projecthero.mod.darkseid.DarkseidConfig;
 import com.projecthero.mod.darkseid.DarkseidDamage;
 import com.projecthero.mod.darkseid.DarkseidSounds;
-import com.projecthero.mod.squad.SquadManager;
 
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
@@ -249,7 +248,7 @@ public class OmegaBeamEntity extends EnergyProjectile {
 		if (owner instanceof Player player) {
 			// the Omega Relic: never the wielder's squad
 			if (target instanceof Player other && level() instanceof ServerLevel server
-					&& SquadManager.get(server).sameSquad(player.getUUID(), other.getUUID())) {
+					&& com.projecthero.mod.squad.Squads.areAllies(player, other)) {
 				return false;
 			}
 			return target instanceof LivingEntity && !(target instanceof Player p && p.isCreative());

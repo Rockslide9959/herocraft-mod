@@ -208,7 +208,8 @@ public class V0143GameTests implements FabricGameTest {
 		s.combat.rampageUntil = helper.getLevel().getGameTime() + 200;
 		hulk.setAttached(ModAttachments.HULK_STATE, s);
 		helper.assertFalse(Squads.shields(hulk, mate), "a rampaging Hulk hits his squad-mates");
-		helper.assertTrue(Squads.shields(mate, hulk), "the squad-mate still cannot hurt the Hulk");
+		// v0.14.4: and his squad can fight back (V0144GraveHulkGameTests covers the rest of the rule)
+		helper.assertFalse(Squads.shields(mate, hulk), "the squad-mate can hurt a rampaging Hulk back");
 		squads.disband(squad);
 		helper.succeed();
 	}
