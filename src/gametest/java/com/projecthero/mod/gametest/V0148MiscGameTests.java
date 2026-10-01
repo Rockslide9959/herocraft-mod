@@ -164,6 +164,28 @@ public class V0148MiscGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.14.9: Z still held when the charge fires sends key-repeat presses; only a press after letting go ends it. */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "v0149_ts_repeat")
+	public void heldZKeyRepeatDoesNotEndTimeSlow(GameTestHelper helper) {
+		ServerPlayer p = hero(helper, SuperSpeedHandlers.KEY);
+		chargeTimeSlow(p);
+		try {
+			helper.assertTrue(SuperSpeedTimeSlow.isCasting(p), "the charge fired Time Slow");
+			for (int i = 0; i < 5; i++) {
+				AbilityRouter.handleInput(p, 4, true); // OS key-repeat while Z is still held
+				ExperimentalPowers.serverTick(p);
+			}
+			helper.assertTrue(SuperSpeedTimeSlow.isCasting(p), "repeat presses while Z is still held keep it running");
+			AbilityRouter.handleInput(p, 4, false); // let go
+			helper.assertTrue(SuperSpeedTimeSlow.isCasting(p), "letting go keeps it running");
+			AbilityRouter.handleInput(p, 4, true); // a fresh press
+			helper.assertFalse(SuperSpeedTimeSlow.isCasting(p), "a fresh Z press after letting go ends it early");
+		} finally {
+			SuperSpeedTimeSlow.end(p, false);
+		}
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, batch = "v0148_ts_full")
 	public void fullChargeFiresWithoutSpeedBoostsThenExhausts(GameTestHelper helper) {
 		ServerPlayer p = hero(helper, SuperSpeedHandlers.KEY);

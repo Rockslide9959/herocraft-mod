@@ -72,6 +72,8 @@ public final class SuperSpeedHandlers {
 	public static final String TS_CHARGE = "ts_charge";
 	/** 1 while Z is being held to charge Time Slow. */
 	public static final String TS_CHARGING = "ts_charging";
+	/** v0.14.9: 1 once Z has been let go since Time Slow fired -- only a press after that ends it early. */
+	public static final String TS_RELEASED = "ts_released";
 	/** v0.14.8: after a Time Slow the speedster is spent for this long (the HUD bar counts it down). */
 	public static final int EXHAUST_TICKS = 30 * 20;
 	public static final String EXHAUST = "exhaust_ticks";
@@ -194,7 +196,11 @@ public final class SuperSpeedHandlers {
 			public void onActivate(AbilityContext ctx) {
 				ServerPlayer p = ctx.player();
 				if (SuperSpeedTimeSlow.isCasting(p)) {
-					SuperSpeedTimeSlow.end(p, true);
+					// v0.14.9: only a fresh press ends it. Z is usually still held when the charge fires, and the OS
+					// key-repeat arrives here as more "pressed" packets -- those used to end Time Slow at once.
+					if (res(p, TS_RELEASED) > 0.5f) {
+						SuperSpeedTimeSlow.end(p, true);
+					}
 					return;
 				}
 				if (timeSlowCharging(p)) {
@@ -215,6 +221,8 @@ public final class SuperSpeedHandlers {
 			public void onRelease(AbilityContext ctx) {
 				if (timeSlowCharging(ctx.player())) {
 					cancelTimeSlowCharge(ctx.player());
+				} else if (SuperSpeedTimeSlow.isCasting(ctx.player())) {
+					set(ctx.player(), TS_RELEASED, 1);
 				}
 			}
 
@@ -684,6 +692,7 @@ public final class SuperSpeedHandlers {
 		if (held >= TS_CHARGE_TICKS) {
 			set(p, TS_CHARGING, 0);
 			set(p, TS_CHARGE, 0);
+			set(p, TS_RELEASED, 0);
 			MutationVisuals.stopIf(p, ANIM_TS_CHARGE);
 			SuperSpeedTimeSlow.start(p);
 			if (SuperSpeedTimeSlow.isCasting(p) && p.level() instanceof ServerLevel sl) {

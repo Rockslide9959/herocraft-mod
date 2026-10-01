@@ -131,7 +131,7 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		float before = golem.getHealth();
 		AbilityRouter.handleInput(p, 1, true); // R
 		float dealt = before - golem.getHealth();
-		helper.assertTrue(Math.abs(dealt - 32f) < 0.01f, "4 x 8 = 32 even inside the i-frame window, dealt " + dealt);
+		helper.assertTrue(Math.abs(dealt - 20f) < 0.01f, "4 x 5 = 20 even inside the i-frame window, dealt " + dealt);
 		helper.succeed();
 	}
 
@@ -149,7 +149,7 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		AbilityRouter.handleInput(p, 1, true);
 		float dealt = 100f - victim.getHealth();
 		if (pvp) {
-			helper.assertTrue(Math.abs(dealt - 32f) < 0.01f, "4 x 8 = 32 on a player too, dealt " + dealt);
+			helper.assertTrue(Math.abs(dealt - 20f) < 0.01f, "4 x 5 = 20 on a player too, dealt " + dealt);
 		} else {
 			helper.assertTrue(dealt == 0f, "PvP off: no damage to players");
 		}
@@ -157,7 +157,7 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = "speed_v0147_mach")
-	public void machPunchStandingHitsFor12OnItsOwnCooldown(GameTestHelper helper) {
+	public void machPunchStandingHitsFor20OnItsOwnCooldown(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
 		IronGolem golem = EntityType.IRON_GOLEM.create(helper.getLevel());
 		golem.moveTo(p.getX(), p.getY(), p.getZ() + 2.0, 180f, 0f);
@@ -169,7 +169,7 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		float before = golem.getHealth();
 		shiftPress(p, 1); // Shift+R
 		float dealt = before - golem.getHealth();
-		helper.assertTrue(Math.abs(dealt - 12f) < 0.01f, "a standing Mach Punch hits for 12, dealt " + dealt);
+		helper.assertTrue(Math.abs(dealt - 20f) < 0.01f, "a standing Mach Punch hits for 20, dealt " + dealt);
 		helper.assertTrue(res(p, SuperSpeedMoves.MACH_READY) > helper.getLevel().getGameTime() + 100,
 				"Mach Punch goes on its own 10 s cooldown");
 		helper.assertTrue(ExperimentalPowers.cooldownReady(p, power(), power().ability(AbilitySlot.SLOT_1)),
@@ -360,6 +360,7 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 					z.getBoundingBox().inflate(3.0)).isEmpty();
 			helper.assertTrue(xp, "and the XP drops straight away");
 		} finally {
+			AbilityRouter.handleInput(p, 4, false); // v0.14.9: let go first -- a held-key repeat no longer ends it
 			AbilityRouter.handleInput(p, 4, true); // Z again: end it
 			SuperSpeedTimeSlow.end(p, false); // belt and braces: never leave the test server at 1 tick a second
 		}
