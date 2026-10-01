@@ -164,8 +164,8 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		golem.setNoAi(true);
 		helper.getLevel().addFreshEntity(golem);
 		p.lookAt(EntityAnchorArgument.Anchor.EYES, golem.getEyePosition());
-		helper.assertTrue(SuperSpeedMoves.machDamage(0) == 12f && SuperSpeedMoves.machDamage(3.2) == 30f
-				&& SuperSpeedMoves.machDamage(10) == 30f, "12 standing, 30 at full Overdrive speed");
+		helper.assertTrue(SuperSpeedMoves.machDamage(0) == 20f && SuperSpeedMoves.machDamage(3.2) == 30f
+				&& SuperSpeedMoves.machDamage(10) == 30f, "20 standing, 30 at full Overdrive speed");
 		float before = golem.getHealth();
 		shiftPress(p, 1); // Shift+R
 		float dealt = before - golem.getHealth();
@@ -226,7 +226,7 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		helper.assertFalse(SuperSpeedMoves.sweeping(p), "the sweep finishes");
 		for (Zombie z : new Zombie[] { a, b, c }) {
 			float dealt = 100f - z.getHealth();
-			helper.assertTrue(Math.abs(dealt - SuperSpeedMoves.SWEEP_DAMAGE) < 0.01f, "each zombie takes 12, dealt " + dealt);
+			helper.assertTrue(Math.abs(dealt - SuperSpeedMoves.SWEEP_DAMAGE) < 0.01f, "each zombie takes 15, dealt " + dealt);
 		}
 		helper.assertTrue(p.position().distanceTo(home) < 0.01, "back exactly where it started (" + p.position() + " vs " + home + ")");
 		helper.assertTrue(Math.abs(p.getYRot() - 37f) < 0.01f && Math.abs(p.getXRot() - 12f) < 0.01f, "facing the same way");

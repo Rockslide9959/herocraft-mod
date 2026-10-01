@@ -39,7 +39,7 @@ import net.minecraft.world.phys.Vec3;
 /**
  * Power 04 — Super Speed (v0.14.5 rework).
  *
- * <p>v0.14.7: the six keys plus N (no H -- H stays the power wheel). R Rapid Assault (4 punches of 8, each landing in full) / Shift+R Mach Punch, G Blitz /
+ * <p>v0.14.7: the six keys plus N (no H -- H stays the power wheel). R Rapid Assault (4 punches of 5, each landing in full) / Shift+R Mach Punch, G Blitz /
  * Shift+G Speed Vortex, X Momentum Dash (along the full look vector) / Shift+X Speed Sweep, Z Time Slow (see
  * {@link SuperSpeedTimeSlow}), V Overdrive, C Speed Mode — and Shift+C Phase (hold C: walk through walls on your
  * own level; see {@link #startPhase}), N Speed Carry (carry anything overhead; no fall damage
@@ -81,7 +81,7 @@ public final class SuperSpeedHandlers {
 	public static final int CARRY_GRACE_TICKS = 3 * 20;
 
 	/** R: damage per punch, and punches per press. */
-	public static final float PUNCH_DAMAGE = 8.0f;
+	public static final float PUNCH_DAMAGE = 5.0f;
 	public static final int PUNCHES = 4;
 
 	/** Passive: +30% movement (walk + sprint) and roughly +30% swim speed. */
@@ -136,7 +136,7 @@ public final class SuperSpeedHandlers {
 	}
 
 	public static void register() {
-		// R -- Rapid Assault: four punches of 8 on everything in front of you.
+		// R -- Rapid Assault: four punches of 5 on everything in front of you.
 		// v0.14.7: R, G and X are HOLD slots so the router does not gate their Shift variants (Mach Punch, Speed
 		// Vortex, Speed Sweep -- each on its own cooldown) on the main move's cooldown; both check their own.
 		AbilityHandlers.register(KEY, "rapid_assault", Handlers.hold(ctx -> {
@@ -303,7 +303,7 @@ public final class SuperSpeedHandlers {
 
 	// ---- R: Rapid Assault ------------------------------------------------------------------------
 
-	/** Four punches of 8 on everything in front of you; every blow lands in full, even on a player or a mob just hit. */
+	/** Four punches of 5 on everything in front of you; every blow lands in full, even on a player or a mob just hit. */
 	public static void rapidAssault(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		float m = overdriveMult(p);
