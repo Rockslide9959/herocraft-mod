@@ -300,7 +300,7 @@ public class KryptonianGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void supermanSuitRecipesExistWithoutKryptonite(GameTestHelper helper) {
-		for (String piece : new String[] { "helmet", "chestplate", "leggings", "boots" }) {
+		for (String piece : new String[] { "chestplate", "leggings", "boots" }) {
 			var holder = helper.getLevel().getRecipeManager().byKey(com.projecthero.mod.ProjectHeroMod.id("superman_suit_" + piece));
 			helper.assertTrue(holder.isPresent(), "a recipe for the " + piece);
 			var recipe = holder.get().value();

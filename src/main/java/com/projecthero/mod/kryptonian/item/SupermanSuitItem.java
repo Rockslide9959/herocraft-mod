@@ -46,9 +46,7 @@ public class SupermanSuitItem extends SuperheroArmorItem {
 	@Override
 	public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
 		tooltip.add(Component.translatable("item.projecthero.superman_suit.tooltip").withStyle(ChatFormatting.GOLD));
-		if (getType() == Type.HELMET) {
-			tooltip.add(Component.translatable("item.projecthero.superman_suit_helmet.tooltip").withStyle(ChatFormatting.GRAY));
-		} else if (getType() == Type.CHESTPLATE) {
+		if (getType() == Type.CHESTPLATE) {
 			tooltip.add(Component.translatable("item.projecthero.superman_suit_chestplate.tooltip").withStyle(ChatFormatting.GRAY));
 		}
 	}

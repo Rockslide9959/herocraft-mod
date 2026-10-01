@@ -3232,15 +3232,13 @@
   "projecthero.guide.super_soldier.shield.body": "Craft the Adamantium Shield: an iron block in each corner, a netherite ingot in the centre, red dye above it, blue dye below it and white dye either side. It blocks like any shield and never breaks. Hold it in either hand and press C to throw it; it comes back to the hand it left (or your inventory). Any ordinary shield can be thrown too, just weaker. If you die while it is in the air, it drops where it is.",
   "projecthero.guide.super_soldier.suit": "The Suit",
   "projecthero.guide.super_soldier.suit.body": "A craftable four-piece Captain America suit (blue, red and white wool, iron and leather -- see the recipe book): 18 armour in all, between iron and diamond. Only a Super Soldier can wear it; anyone else finds it pops straight off.",
-  "item.projecthero.superman_suit_helmet": "Superman Suit Helmet",
   "item.projecthero.superman_suit_chestplate": "Superman Suit Chestplate",
   "item.projecthero.superman_suit_leggings": "Superman Suit Leggings",
   "item.projecthero.superman_suit_boots": "Superman Suit Boots",
   "item.projecthero.superman_suit.tooltip": "Only a Kryptonian can wear it",
-  "item.projecthero.superman_suit_helmet.tooltip": "Invisible: your own face shows",
   "item.projecthero.superman_suit_chestplate.tooltip": "Comes with the red cape",
   "message.projecthero.superman_suit.refused": "Only a Kryptonian can wear the Superman Suit",
   "message.projecthero.superman_suit.popped": "The Superman Suit slips off -- only a Kryptonian can wear it",
   "projecthero.guide.kryptonian.suit": "The Superman Suit",
-  "projecthero.guide.kryptonian.suit.body": "A four-piece armour set only a Kryptonian can wear -- anyone else cannot put it on, and if you lose the power while wearing it, it slips off into your inventory. Netherite-strong (3/6/8/3 armour, 3 toughness, a little knockback resistance) and fireproof, but it grants no powers. The chestplate brings a red cloth cape with the gold shield on the back: it sways as you walk and streams out behind you in flight, lying almost flat at super-speed. The helmet is invisible, so your own face shows. Crafting (no kryptonite!): Helmet -- blue wool, diamond, blue wool over two gold ingots. Chestplate -- two red wool, two diamonds and a block of gold, three blue wool. Leggings -- gold ingot, red wool, gold ingot over two blue wool and two diamonds. Boots -- two red wool over two diamonds."
+  "projecthero.guide.kryptonian.suit.body": "A three-piece armour set (chestplate, leggings, boots -- no helmet, so your own face and hat layer show) only a Kryptonian can wear -- anyone else cannot put it on, and if you lose the power while wearing it, it slips off into your inventory. Netherite-strong (8/6/3 armour, 3 toughness, a little knockback resistance) and fireproof, but it grants no powers. The chestplate brings a red cloth cape with the gold shield on the back: it sways as you walk and streams out behind you in flight, lying almost flat at super-speed. Crafting (no kryptonite!): Chestplate -- two red wool, two diamonds and a block of gold, three blue wool. Leggings -- gold ingot, red wool, gold ingot over two blue wool and two diamonds. Boots -- two red wool over two diamonds."
 }

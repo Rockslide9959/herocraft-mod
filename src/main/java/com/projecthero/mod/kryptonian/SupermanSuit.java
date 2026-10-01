@@ -35,8 +35,9 @@ import net.minecraft.world.level.block.DispenserBlock;
 import net.minecraft.world.phys.AABB;
 
 /**
- * v0.14.9: the Superman Suit -- a craftable four-piece armour set (the user's {@code superman.bbmodel}) that only a
- * Kryptonian can wear. Netherite-strength (3/6/8/3, toughness 3, 10% knockback resistance), fire-resistant like
+ * v0.14.9: the Superman Suit -- a craftable armour set (the user's {@code superman.bbmodel}) that only a
+ * Kryptonian can wear. v0.14.10: no helmet any more -- chestplate, leggings and boots only, so the wearer's own face and hat layer
+ * always show. Netherite-strength (8/6/3, toughness 3, 10% knockback resistance), fire-resistant like
  * netherite; the chestplate brings the red cloth cape ({@code SupermanCapeLayer}, client). No powers of its own.
  *
  * <h2>Only Kryptonians</h2>
@@ -55,7 +56,6 @@ public final class SupermanSuit {
 	public static final String SET_ID = "superman";
 
 	public static Holder<ArmorMaterial> MATERIAL;
-	public static SupermanSuitItem HELMET;
 	public static SupermanSuitItem CHESTPLATE;
 	public static SupermanSuitItem LEGGINGS;
 	public static SupermanSuitItem BOOTS;
@@ -79,7 +79,6 @@ public final class SupermanSuit {
 						List.of(new ArmorMaterial.Layer(ProjectHeroMod.id("thor"))),
 						3.0f,
 						0.1f));
-		HELMET = piece("superman_suit_helmet", ArmorItem.Type.HELMET);
 		CHESTPLATE = piece("superman_suit_chestplate", ArmorItem.Type.CHESTPLATE);
 		LEGGINGS = piece("superman_suit_leggings", ArmorItem.Type.LEGGINGS);
 		BOOTS = piece("superman_suit_boots", ArmorItem.Type.BOOTS);
