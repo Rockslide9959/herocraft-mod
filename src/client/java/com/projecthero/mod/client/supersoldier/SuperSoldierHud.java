@@ -18,13 +18,14 @@ import net.minecraft.network.chat.Component;
  * The Super Soldier HUD, in the black-and-gray "mono" style of the reworked powers' {@code AbilityHud}: the power name
  * and the key boxes in the order R G Z X V. Each box shows the longer of its two moves' cooldowns (plain and Shift); Z's
  * box is outlined white while Onslaught runs, V's while Tactical Focus runs. v0.14.9: no bars at all (the ultimate and
- * Tactical Focus hairlines are gone), and a sixth box, C (the shield throw), only while he holds a shield -- or while a
- * throw is still cooling down, so the timer does not vanish when the shield leaves his hand. No H / N boxes. Hold
- * Left-Alt for the move names.
+ * Tactical Focus hairlines are gone), and a sixth box, C (the shield throw), stacked on top of V, only while he holds a
+ * shield -- or while a throw is still cooling down, so the timer does not vanish when the shield leaves his hand. The
+ * five fixed boxes never move. No H / N boxes. Hold Left-Alt for the move names.
  *
  * <pre>
+ *                       ([C])
  *   Super Soldier
- *   [R] [G] [Z] [X] [V] ([C])
+ *   [R] [G] [Z] [X] [V]
  * </pre>
  */
 public final class SuperSoldierHud {
@@ -64,33 +65,32 @@ public final class SuperSoldierHud {
 		boolean showC = SuperSoldierAbilities.shieldHand(mc.player) != null
 				|| SuperSoldier.cooldownRemaining(mc.player, SuperSoldierAbilities.SHIELD_THROW) > 0;
 		int boxes = showC ? ORDER.length : ORDER.length - 1;
-		// anchored on the five fixed boxes, so the row does not jump when C appears (C grows out to the left)
+		// the five fixed boxes never move; C sits on top of V (clear of the hotbar on small screens)
 		int baseW = 5 * BOX + 4 * GAP;
-		int x0 = g.guiWidth() - MARGIN - baseW - (showC ? BOX + GAP : 0);
+		int x0 = g.guiWidth() - MARGIN - baseW;
 		int y0 = g.guiHeight() - MARGIN - BOX;
 
-		g.drawString(mc.font, Component.translatable("hud.projecthero.super_soldier.title"), g.guiWidth() - MARGIN - baseW, y0 - 11,
-				MONO_NAME);
+		g.drawString(mc.font, Component.translatable("hud.projecthero.super_soldier.title"), x0, y0 - 11, MONO_NAME);
 
 		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(),
 				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
 		for (int n = 0; n < boxes; n++) {
-			// C first (leftmost), then R G Z X V
-			int i = showC ? (n == 0 ? ORDER.length - 1 : n - 1) : n;
+			int i = n;
 			AbilitySlot slot = ORDER[i];
-			int x = x0 + n * (BOX + GAP);
+			int x = n < 5 ? x0 + n * (BOX + GAP) : x0 + 4 * (BOX + GAP);
+			int y = n < 5 ? y0 : y0 - BOX - GAP;
 			int cd = 0;
 			for (String id : SuperSoldierAbilityManager.idsOf(slot)) {
 				cd = Math.max(cd, SuperSoldier.cooldownRemaining(mc.player, id));
 			}
 			boolean active = (slot == AbilitySlot.SLOT_4 && s.onslaughtUntil > now) || (slot == AbilitySlot.SLOT_5 && s.focusUntil > now);
-			g.fill(x, y0, x + BOX, y0 + BOX, MONO_BOX_BG);
-			g.renderOutline(x, y0, BOX, BOX, active ? MONO_BORDER_ACTIVE : MONO_BORDER);
-			g.drawString(mc.font, keyLabel(slot), x + 2, y0 + 2, MONO_KEY, false);
+			g.fill(x, y, x + BOX, y + BOX, MONO_BOX_BG);
+			g.renderOutline(x, y, BOX, BOX, active ? MONO_BORDER_ACTIVE : MONO_BORDER);
+			g.drawString(mc.font, keyLabel(slot), x + 2, y + 2, MONO_KEY, false);
 			if (cd > 0) {
-				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, COLOR_COOLDOWN);
+				g.fill(x + 1, y + 1, x + BOX - 1, y + BOX - 1, COLOR_COOLDOWN);
 				String secs = String.valueOf((cd + 19) / 20);
-				g.drawCenteredString(mc.font, secs, x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
+				g.drawCenteredString(mc.font, secs, x + BOX / 2, y + BOX / 2 - 4, 0xFFFFFFFF);
 			}
 			if (expanded) {
 				Component name = Component.translatable("hud.projecthero.super_soldier.key." + NAME_KEYS[i]);

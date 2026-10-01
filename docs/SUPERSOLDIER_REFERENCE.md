@@ -78,9 +78,9 @@ back or launched. A 4-tick global lock stops moves stacking; the combo locks for
 
 `SuperSoldierHud`: bottom right, mono (black / gray) boxes in the order R G Z X V; each box shows the longer of its two
 moves' cooldowns. v0.14.9: **no bars** (the ultimate and Tactical Focus hairlines were removed; Z's box is outlined white
-while Onslaught runs, V's while Focus runs). A sixth box, **C**, appears to the left of R only while he holds a shield
-(or while a throw is cooling down, so the timer does not vanish while the shield is in the air); the five fixed boxes stay
-put. Left-Alt shows short move names.
+while Onslaught runs, V's while Focus runs). A sixth box, **C**, appears stacked on top of V only while he holds a
+shield (or while a throw is cooling down, so the timer does not vanish while the shield is in the air); the five fixed
+boxes never move (a C box left of R ran under the hotbar on small screens). Left-Alt shows short move names.
 
 ## The shield item and the throw's item safety (v0.14.9)
 
@@ -93,6 +93,9 @@ put. Left-Alt shows short move names.
   disc 1 px thick (front / back quads cut round by alpha, a 32-sided rim) and the vanilla grip box, texture
   `textures/entity/adamantium_shield.png` (64x64: front disc, back disc, rim strip, grip). `textures/item/adamantium_shield.png`
   is only the particle texture.
+- The thrown shield is drawn flat, front (star / banner) UP. v0.14.8 drew it upside down: both shield models face their
+  front along +Z after their `scale(1, -1, -1)` flip, and the renderer's `XP(+90)` turned +Z to -Y (front down, grip up);
+  it is `XP(-90)` now (verified from above and the side in the v0.14.9 harness, adamantium and a red vanilla shield).
 - The throw **moves** the stack out of the hand into the entity (`ITEM` synced data + NBT `Item`). Caught: the same
   stack back into the hand it left if empty, else `Inventory.add`, else an item at his feet. Thrower logged out / dead:
   drops as an item where the shield is. Another dimension / lost power / 12 s without being caught: delivered straight
@@ -130,7 +133,10 @@ are cleared by `ServerStateReset` via `SuperSoldierAbilityManager.clearSessionSt
 ## Not done / untested in a real client
 
 - No custom player poses (moves use arm swings, particles and sounds only).
-- The HUD, the thrown-shield renderer, the round Adamantium Shield in hand / blocking / GUI and the Captain America suit
-  are the parts a gametest cannot see; see the v0.14.9 notes in the release for what was screenshot-verified.
+- Screenshot-verified in v0.14.9 (client harness): the suit front / back / side, the round shield held and blocking in
+  third and first person, the hotbar icon, both thrown shields front-up mid-flight, the HUD with the C box. In-world the
+  adamantium throw hit all three zombies for 9, the vanilla one for 6, and both came back to the hand. Not seen: the
+  inventory armour icons close up, multiplayer, a real logout mid-throw.
+- In first person the raised Adamantium Shield (radius 9 px) covers more of the lower screen than the 12 px-wide vanilla plate.
 - The Adamantium Shield's flight renders the vanilla shield model (banner included) for a vanilla shield; another mod's
   `ShieldItem` falls back to its item model.

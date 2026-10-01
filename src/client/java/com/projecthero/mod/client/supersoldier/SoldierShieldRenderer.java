@@ -64,7 +64,10 @@ public class SoldierShieldRenderer extends EntityRenderer<SoldierShieldEntity> {
 		pose.pushPose();
 		pose.mulPose(Axis.YP.rotationDegrees(yaw));
 		pose.mulPose(Axis.XP.rotationDegrees(-pitch));
-		pose.mulPose(Axis.XP.rotationDegrees(90.0f)); // face up: flat like a discus
+		// Lay it flat like a discus with the decorated FRONT up. Both shield models (the vanilla one and the Adamantium disc,
+		// drawn in the same space) face their front along +Z after their scale(1, -1, -1) flip, with the grip toward -Z. A
+		// +90 X rotation turns +Z to -Y -- front down, grip up: the v0.14.8 "upside-down" shield. -90 turns +Z to +Y.
+		pose.mulPose(Axis.XP.rotationDegrees(-90.0f));
 		pose.mulPose(Axis.ZP.rotationDegrees((e.tickCount + partialTick) * 40.0f));
 		if (stack.is(SuperSoldierItems.ADAMANTIUM_SHIELD)) {
 			pose.scale(1.1f, 1.1f, 1.1f);
