@@ -861,7 +861,7 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.super_soldier.tier").withStyle(ChatFormatting.BLUE));
 			para(lines, "projecthero.guide.super_soldier.body");
 			blank(lines);
-			for (String section : new String[]{"serum", "refine", "passives"}) {
+			for (String section : new String[]{"serum", "refine", "passives", "shield", "suit"}) { // v0.14.9: + shield, suit
 				head(lines, "projecthero.guide.super_soldier." + section);
 				para(lines, "projecthero.guide.super_soldier." + section + ".body");
 				blank(lines);

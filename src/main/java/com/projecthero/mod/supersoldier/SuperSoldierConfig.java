@@ -55,25 +55,47 @@ public final class SuperSoldierConfig {
 	public static final double UPPERCUT_LIFT = 1.05;
 	public static final double UPPERCUT_RANGE = 4.0;
 
-	// ---------------------------------------------------------------- G: Shield Throw
-	public static final int SHIELD_THROW_COOLDOWN = 140;
-	public static final float SHIELD_DAMAGE = 8.0f;
-	/** Enemies one throw can hit (the first plus two ricochets). */
-	public static final int SHIELD_MAX_HITS = 3;
-	public static final double SHIELD_SPEED = 1.6;
-	public static final double SHIELD_RANGE = 24.0;
-	/** How far the shield looks for the next enemy to ricochet into. */
-	public static final double SHIELD_RICOCHET_RANGE = 10.0;
-	public static final double SHIELD_KNOCKBACK = 0.6;
-	public static final int SHIELD_MAX_LIFE = 200;
+	// ---------------------------------------------------------------- G: Flying Kick (v0.14.9)
+	public static final int KICK_COOLDOWN = 160;
+	public static final float KICK_DAMAGE = 12.0f;
+	/** How far away the enemy he lunges at may be. */
+	public static final double KICK_RANGE = 8.0;
+	/** Within this distance (feet to the target's box) the kick lands -- at once if he starts this close. */
+	public static final double KICK_REACH = 2.4;
+	/** Lunge speed (blocks / tick) and how long the lunge may last before it whiffs. */
+	public static final double KICK_SPEED = 1.15;
+	public static final int KICK_TICKS = 10;
+	public static final double KICK_KNOCKBACK = 1.5;
+	public static final double KICK_LIFT = 0.3;
 
-	// ---------------------------------------------------------------- Shift+G: Shield Bash Charge
-	public static final int BASH_COOLDOWN = 180;
-	public static final float BASH_DAMAGE = 7.0f;
-	public static final double BASH_SPEED = 1.1;
-	public static final int BASH_TICKS = 8;
-	public static final double BASH_KNOCKBACK = 1.6;
-	public static final double BASH_WIDTH = 1.6;
+	// ---------------------------------------------------------------- Shift+G: Judo Takedown (v0.14.9)
+	public static final int TAKEDOWN_COOLDOWN = 200;
+	public static final float TAKEDOWN_DAMAGE = 14.0f;
+	public static final double TAKEDOWN_RANGE = 3.5;
+	/** Ticks between the grab (the enemy hoisted over his shoulder) and the slam behind him. */
+	public static final int TAKEDOWN_SLAM_DELAY = 5;
+	/** The stun after the slam: Slowness IV + Weakness I for this long. */
+	public static final int TAKEDOWN_STUN_TICKS = 30;
+
+	// ---------------------------------------------------------------- C: Shield Throw (v0.14.9: the shield in his hand)
+	/** Adamantium Shield: damage per hit, enemies per throw (the first plus ricochets), range, cooldown. */
+	public static final float SHIELD_DAMAGE = 9.0f;
+	public static final int SHIELD_MAX_HITS = 4;
+	public static final double SHIELD_RANGE = 24.0;
+	public static final int SHIELD_THROW_COOLDOWN = 100;
+	/** An ordinary shield: weaker and shorter, but it still bounces between three enemies and still comes back. */
+	public static final float NORMAL_SHIELD_DAMAGE = 6.0f;
+	public static final int NORMAL_SHIELD_MAX_HITS = 3;
+	public static final double NORMAL_SHIELD_RANGE = 16.0;
+	public static final int NORMAL_SHIELD_THROW_COOLDOWN = 120;
+	public static final double SHIELD_SPEED = 1.6;
+	/** How far the shield looks for the next enemy to ricochet into. */
+	public static final double SHIELD_RICOCHET_RANGE = 12.0;
+	/** A ricochet target this close is taken even without a clean line of sight (the shield flies through blocks). */
+	public static final double SHIELD_RICOCHET_BLIND_RANGE = 6.0;
+	public static final double SHIELD_KNOCKBACK = 0.6;
+	/** A throw that has not been caught by then drops the shield where it is (never lost). */
+	public static final int SHIELD_MAX_LIFE = 240;
 
 	// ---------------------------------------------------------------- Z: Leaping Slam
 	public static final int SLAM_COOLDOWN = 240;

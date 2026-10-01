@@ -9,15 +9,16 @@ import net.minecraft.server.level.ServerPlayer;
 /**
  * Bridges the universal ability slots to the Super Soldier kit and runs the power's per-player server tick (v0.14.8).
  * {@link com.projecthero.mod.hero.AbilityRouter} hands him the slots when {@link #hasContext} is true (he has the power
- * and no experimental mutation is selected). Ability 3 = X, 4 = Z, 5 = V. Shift is read on the server. C, H and N are
- * not his: H stays the power selector.
+ * and no experimental mutation is selected). Ability 3 = X, 4 = Z, 5 = V, 6 = C. Shift is read on the server. H and N
+ * are not his: H stays the power selector.
  *
  * <pre>
  *   R  Combo Strike      / Shift+R  Uppercut Launcher
- *   G  Shield Throw      / Shift+G  Shield Bash Charge
+ *   G  Flying Kick       / Shift+G  Judo Takedown            (v0.14.9; were the shield moves)
  *   Z  Leaping Slam      / Shift+Z  Super Soldier Onslaught (ultimate)
  *   X  Tactical Roll     / Shift+X  High Leap
  *   V  Battle Cry        / Shift+V  Tactical Focus
+ *   C  Shield Throw (v0.14.9: the shield in his hand -- Shift does nothing different)
  * </pre>
  */
 public final class SuperSoldierAbilityManager {
@@ -52,9 +53,9 @@ public final class SuperSoldierAbilityManager {
 			}
 			case SLOT_2 -> {
 				if (shift) {
-					SuperSoldierAbilities.shieldBash(player);
+					SuperSoldierAbilities.takedown(player);
 				} else {
-					SuperSoldierAbilities.shieldThrow(player);
+					SuperSoldierAbilities.flyingKick(player);
 				}
 			}
 			case SLOT_3 -> {
@@ -78,14 +79,16 @@ public final class SuperSoldierAbilityManager {
 					SuperSoldierAbilities.battleCry(player);
 				}
 			}
+			case SLOT_6 -> SuperSoldierAbilities.shieldThrow(player);
 			default -> {
-				// C is unused; H / N are never routed to a Hero-Tier power
+				// H / N are never routed to a Hero-Tier power
 			}
 		}
 	}
 
 	/** Runs for every player every server tick, whichever power currently holds the slots. Cheap when he has no power. */
 	public static void serverTick(ServerPlayer player) {
+		SuperSoldierArmorGate.enforce(player); // v0.14.9: only a Super Soldier may wear the suit -- checked for everyone
 		if (!SuperSoldier.hasPower(player)) {
 			return;
 		}
@@ -93,14 +96,15 @@ public final class SuperSoldierAbilityManager {
 		SuperSoldierAbilities.tick(player);
 	}
 
-	/** The two ability ids that share a key (plain, Shift), for the HUD's combined cooldown. */
+	/** The ability ids that share a key (plain, Shift), for the HUD's combined cooldown. */
 	public static String[] idsOf(AbilitySlot slot) {
 		return switch (slot) {
 			case SLOT_1 -> new String[] { SuperSoldierAbilities.COMBO, SuperSoldierAbilities.UPPERCUT };
-			case SLOT_2 -> new String[] { SuperSoldierAbilities.SHIELD_THROW, SuperSoldierAbilities.SHIELD_BASH };
+			case SLOT_2 -> new String[] { SuperSoldierAbilities.FLYING_KICK, SuperSoldierAbilities.TAKEDOWN };
 			case SLOT_3 -> new String[] { SuperSoldierAbilities.ROLL, SuperSoldierAbilities.HIGH_LEAP };
 			case SLOT_4 -> new String[] { SuperSoldierAbilities.SLAM, SuperSoldierAbilities.ONSLAUGHT };
 			case SLOT_5 -> new String[] { SuperSoldierAbilities.BATTLE_CRY, SuperSoldierAbilities.FOCUS };
+			case SLOT_6 -> new String[] { SuperSoldierAbilities.SHIELD_THROW };
 			default -> new String[0];
 		};
 	}
@@ -109,8 +113,11 @@ public final class SuperSoldierAbilityManager {
 		return switch (id) {
 			case SuperSoldierAbilities.COMBO -> SuperSoldierConfig.COMBO_COOLDOWN;
 			case SuperSoldierAbilities.UPPERCUT -> SuperSoldierConfig.UPPERCUT_COOLDOWN;
-			case SuperSoldierAbilities.SHIELD_THROW -> SuperSoldierConfig.SHIELD_THROW_COOLDOWN;
-			case SuperSoldierAbilities.SHIELD_BASH -> SuperSoldierConfig.BASH_COOLDOWN;
+			case SuperSoldierAbilities.FLYING_KICK -> SuperSoldierConfig.KICK_COOLDOWN;
+			case SuperSoldierAbilities.TAKEDOWN -> SuperSoldierConfig.TAKEDOWN_COOLDOWN;
+			// the longer of the two shields' (an ordinary shield's)
+			case SuperSoldierAbilities.SHIELD_THROW -> Math.max(SuperSoldierConfig.SHIELD_THROW_COOLDOWN,
+					SuperSoldierConfig.NORMAL_SHIELD_THROW_COOLDOWN);
 			case SuperSoldierAbilities.SLAM -> SuperSoldierConfig.SLAM_COOLDOWN;
 			case SuperSoldierAbilities.ONSLAUGHT -> SuperSoldierConfig.ONSLAUGHT_COOLDOWN;
 			case SuperSoldierAbilities.ROLL -> SuperSoldierConfig.ROLL_COOLDOWN;

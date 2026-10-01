@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "BIB",
+    "B B",
+    "L L"
+  ],
+  "key": {
+    "B": {
+      "item": "minecraft:blue_wool"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "L": {
+      "item": "minecraft:leather"
+    }
+  },
+  "result": {
+    "id": "projecthero:captain_america_leggings",
+    "count": 1
+  }
+}

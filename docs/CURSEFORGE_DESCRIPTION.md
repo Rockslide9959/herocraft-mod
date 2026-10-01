@@ -191,11 +191,16 @@ your body rejects it and you die (creative won't save you). Or be patient: **10 
 into the **Refined Serum**, which always works.
 - Peak human, always on: **+50%** speed, **+5 hearts**, **+7** bare-handed damage, **30% less** damage taken, a
   **2-block** jump, knockback resistance, faster swings, healing out of combat, immune to Poison and Nausea.
-- **R** Combo Strike (a three-punch combo) / **Shift+R** Uppercut Launcher · **G** a ricocheting **Shield Throw** that
-  bounces between three enemies and flies back to your hand / **Shift+G** Shield Bash Charge · **Z** Leaping Slam /
+- **R** Combo Strike (a three-punch combo) / **Shift+R** Uppercut Launcher · **G** Flying Kick (a lunging kick from
+  up to 8 blocks away) / **Shift+G** Judo Takedown (over the shoulder and into the ground, stunned) · **Z** Leaping Slam /
   **Shift+Z** the ultimate **Super Soldier Onslaught** · **X** Tactical Roll (untouchable mid-roll) / **Shift+X** High
   Leap · **V** Battle Cry (buffs your squad, weakens the enemy) / **Shift+V** Tactical Focus (marks every enemy within
   30 blocks; your hits on them crit).
+- **The shield:** craft the round, unbreakable **Adamantium Shield** (iron blocks, a netherite ingot, red, white and
+  blue dye). It blocks like any shield -- and **C** throws it: it bounces between up to **four** enemies for 9 each and
+  flies back to your hand. Any ordinary shield can be thrown too (three enemies, 6 each), and it always comes back.
+- **The suit:** a craftable four-piece **Captain America** suit (wool, iron and leather; 18 armour) -- only a Super
+  Soldier can wear it.
 
 ### ☀️ The Kryptonian
 Some nights a **green meteor** streaks across the sky and slams into the ground nearby (you're told which way it fell).

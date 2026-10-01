@@ -12,6 +12,7 @@ import java.util.UUID;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.supersoldier.data.SuperSoldierState;
 import com.projecthero.mod.supersoldier.entity.SoldierShieldEntity;
+import com.projecthero.mod.supersoldier.item.SuperSoldierItems;
 import com.projecthero.mod.titanshifter.TitanCombat;
 
 import net.minecraft.ChatFormatting;
@@ -31,6 +32,8 @@ import net.minecraft.world.entity.OwnableEntity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ShieldItem;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -38,25 +41,28 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 
 /**
- * The ten Super Soldier moves (v0.14.8). Every one is server-validated by {@link #begin}: power, alive, not locked by a
- * running move, cooldown ready -- and only then is the cooldown started. Multi-tick moves (the Combo Strike's punches,
- * the Shield Bash charge, the Leaping Slam's landing) run from small per-player tables ticked by {@link #tick}, and are
- * dropped if the player dies, logs out or loses the power ({@link #clear}; every table is emptied by
- * {@code ServerStateReset}).
+ * The eleven Super Soldier moves (v0.14.8; v0.14.9 G / Shift+G became bare-handed attacks and the shield throw moved to
+ * C, thrown from his hand). Every one is server-validated by {@link #begin}: power, alive, not locked by a running move,
+ * cooldown ready -- and only then is the cooldown started. Multi-tick moves (the Combo Strike's punches, the Flying
+ * Kick's lunge, the Takedown's slam, the Leaping Slam's landing) run from small per-player tables ticked by
+ * {@link #tick}, and are dropped if the player dies, logs out or loses the power ({@link #clear}; every table is
+ * emptied by {@code ServerStateReset}).
  *
  * <pre>
  *   R        Combo Strike         Shift+R  Uppercut Launcher
- *   G        Shield Throw         Shift+G  Shield Bash Charge
+ *   G        Flying Kick          Shift+G  Judo Takedown
  *   Z        Leaping Slam         Shift+Z  Super Soldier Onslaught (ULTIMATE)
  *   X        Tactical Roll        Shift+X  High Leap
  *   V        Battle Cry           Shift+V  Tactical Focus
+ *   C        Shield Throw (needs a shield in either hand: the Adamantium Shield at full power, any other shield weaker)
  * </pre>
  */
 public final class SuperSoldierAbilities {
 	public static final String COMBO = "combo_strike";
 	public static final String UPPERCUT = "uppercut_launcher";
+	public static final String FLYING_KICK = "flying_kick";
+	public static final String TAKEDOWN = "judo_takedown";
 	public static final String SHIELD_THROW = "shield_throw";
-	public static final String SHIELD_BASH = "shield_bash";
 	public static final String SLAM = "leaping_slam";
 	public static final String ONSLAUGHT = "onslaught";
 	public static final String ROLL = "tactical_roll";
@@ -67,27 +73,21 @@ public final class SuperSoldierAbilities {
 	/** The Guidebook / power-info rows: key label, ability id. */
 	public static final String[][] GUIDE_ROWS = {
 			{ "R", COMBO }, { "Shift+R", UPPERCUT },
-			{ "G", SHIELD_THROW }, { "Shift+G", SHIELD_BASH },
+			{ "G", FLYING_KICK }, { "Shift+G", TAKEDOWN },
 			{ "Z", SLAM }, { "Shift+Z", ONSLAUGHT },
 			{ "X", ROLL }, { "Shift+X", HIGH_LEAP },
-			{ "V", BATTLE_CRY }, { "Shift+V", FOCUS } };
+			{ "V", BATTLE_CRY }, { "Shift+V", FOCUS },
+			{ "C", SHIELD_THROW } };
 
 	private record Task(long due, Runnable run) {
 	}
 
-	private static final class Bash {
-		final Vec3 dir;
-		final long start;
-		final Set<Integer> hit = new HashSet<>();
-
-		Bash(Vec3 dir, long start) {
-			this.dir = dir;
-			this.start = start;
-		}
+	/** A Flying Kick in the air: who it is aimed at and when it started. */
+	private record Kick(int targetId, long start) {
 	}
 
 	private static final Map<UUID, List<Task>> TASKS = new HashMap<>();
-	private static final Map<UUID, Bash> BASHES = new HashMap<>();
+	private static final Map<UUID, Kick> KICKS = new HashMap<>();
 	/** Leaping Slam in the air: game time of take-off. */
 	private static final Map<UUID, Long> SLAMS = new HashMap<>();
 	/** Tactical Focus: the entity ids each player has marked. */
@@ -100,14 +100,14 @@ public final class SuperSoldierAbilities {
 
 	public static void clearSessionState() {
 		TASKS.clear();
-		BASHES.clear();
+		KICKS.clear();
 		SLAMS.clear();
 		MARKS.clear();
 	}
 
 	public static void clear(UUID id) {
 		TASKS.remove(id);
-		BASHES.remove(id);
+		KICKS.remove(id);
 		SLAMS.remove(id);
 		MARKS.remove(id);
 	}
@@ -131,8 +131,9 @@ public final class SuperSoldierAbilities {
 		return SLAMS.containsKey(player.getUUID());
 	}
 
-	public static boolean bashing(ServerPlayer player) {
-		return BASHES.containsKey(player.getUUID());
+	/** True while a Flying Kick is still lunging (tests). */
+	public static boolean kicking(ServerPlayer player) {
+		return KICKS.containsKey(player.getUUID());
 	}
 
 	// ---------------------------------------------------------------- plumbing
@@ -373,55 +374,180 @@ public final class SuperSoldierAbilities {
 		return true;
 	}
 
-	// ---------------------------------------------------------------- G: Shield Throw
+	// ---------------------------------------------------------------- G: Flying Kick
 
-	public static boolean shieldThrow(ServerPlayer p) {
-		if (!begin(p, SHIELD_THROW, SuperSoldierConfig.SHIELD_THROW_COOLDOWN, 6)) {
+	/** A lunging flying kick into the enemy in front (up to 8 blocks away): 12 damage, a hard knockback. */
+	public static boolean flyingKick(ServerPlayer p) {
+		LivingEntity target = facing(p, SuperSoldierConfig.KICK_RANGE);
+		if (target == null) {
+			SuperSoldier.say(p, "message.projecthero.super_soldier.no_target", ChatFormatting.GRAY);
 			return false;
 		}
-		p.swing(InteractionHand.MAIN_HAND, true);
-		AbilityHelpers.sound(p, SoundEvents.TRIDENT_THROW, 1.0f, 1.3f);
-		Vec3 from = p.getEyePosition().add(0, -0.2, 0).add(p.getLookAngle().scale(0.6));
-		SoldierShieldEntity.launch(p, from, p.getLookAngle());
+		if (!begin(p, FLYING_KICK, SuperSoldierConfig.KICK_COOLDOWN, SuperSoldierConfig.KICK_TICKS + 2)) {
+			return false;
+		}
+		long now = p.level().getGameTime();
+		edit(p, n -> n.noFallUntil = Math.max(n.noFallUntil, now + 40L));
+		AbilityHelpers.sound(p, SoundEvents.BREEZE_JUMP, 0.8f, 1.4f);
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.8f, 0.8f);
+		((ServerLevel) p.level()).sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 8, 0.3, 0.05, 0.3, 0.04);
+		Kick kick = new Kick(target.getId(), now);
+		if (tickKick(p, kick)) {
+			KICKS.put(p.getUUID(), kick);
+		}
 		return true;
 	}
 
-	// ---------------------------------------------------------------- Shift+G: Shield Bash Charge
-
-	public static boolean shieldBash(ServerPlayer p) {
-		if (!begin(p, SHIELD_BASH, SuperSoldierConfig.BASH_COOLDOWN, SuperSoldierConfig.BASH_TICKS + 2)) {
+	/** One tick of the lunge. True while it is still flying; false once it has landed or whiffed. */
+	private static boolean tickKick(ServerPlayer p, Kick k) {
+		long age = p.level().getGameTime() - k.start;
+		Vec3 body = p.position().add(0, p.getBbHeight() * 0.5, 0);
+		if (!alive(p) || !(p.level().getEntity(k.targetId) instanceof LivingEntity t) || !t.isAlive() || !canTarget(p, t)
+				|| age > SuperSoldierConfig.KICK_TICKS) {
+			if (age > 0) {
+				Vec3 v = p.getDeltaMovement();
+				AbilityHelpers.launchSelf(p, new Vec3(v.x * 0.3, Math.min(v.y, 0.1), v.z * 0.3));
+			}
 			return false;
 		}
-		Vec3 dir = flatLook(p);
-		BASHES.put(p.getUUID(), new Bash(dir, p.level().getGameTime()));
-		AbilityHelpers.sound(p, SoundEvents.SHIELD_BLOCK, 1.0f, 0.7f);
-		AbilityHelpers.sound(p, SoundEvents.RAVAGER_ROAR, 0.35f, 1.8f);
-		tickBash(p, BASHES.get(p.getUUID()));
-		return true;
-	}
-
-	private static boolean tickBash(ServerPlayer p, Bash b) {
-		long age = p.level().getGameTime() - b.start;
-		if (age >= SuperSoldierConfig.BASH_TICKS || !alive(p) || (age > 1 && p.horizontalCollision)) {
+		Vec3 to = t.getBoundingBox().getCenter().subtract(body);
+		if (AbilityHelpers.distanceSqToBox(t, p.position()) <= SuperSoldierConfig.KICK_REACH * SuperSoldierConfig.KICK_REACH
+				|| AbilityHelpers.distanceSqToBox(t, body) <= SuperSoldierConfig.KICK_REACH * SuperSoldierConfig.KICK_REACH) {
+			landKick(p, t, to);
 			return false;
 		}
-		AbilityHelpers.launchSelf(p, new Vec3(b.dir.x * SuperSoldierConfig.BASH_SPEED, Math.min(p.getDeltaMovement().y, 0.0),
-				b.dir.z * SuperSoldierConfig.BASH_SPEED));
+		Vec3 dir = to.normalize();
+		AbilityHelpers.launchSelf(p, new Vec3(dir.x * SuperSoldierConfig.KICK_SPEED, Math.max(-0.4, dir.y * SuperSoldierConfig.KICK_SPEED) + 0.08,
+				dir.z * SuperSoldierConfig.KICK_SPEED));
 		ServerLevel level = (ServerLevel) p.level();
-		Vec3 front = p.position().add(b.dir.scale(0.8));
-		AABB box = new AABB(front, front).inflate(SuperSoldierConfig.BASH_WIDTH * 0.5 + 0.4, 1.0, SuperSoldierConfig.BASH_WIDTH * 0.5 + 0.4)
-				.move(0, 1.0, 0).expandTowards(b.dir.scale(SuperSoldierConfig.BASH_SPEED));
-		for (LivingEntity e : targets(p, box)) {
-			if (!b.hit.add(e.getId())) {
-				continue;
-			}
-			if (strike(p, e, SuperSoldierConfig.BASH_DAMAGE, p.position().subtract(b.dir), SuperSoldierConfig.BASH_KNOCKBACK, 0.3)) {
-				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 40, 0);
-				level.playSound(null, e.getX(), e.getY(), e.getZ(), SoundEvents.SHIELD_BLOCK, net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 0.9f);
-			}
+		level.sendParticles(blue(1.0f), p.getX(), p.getY() + 0.4, p.getZ(), 3, 0.2, 0.2, 0.2, 0.0);
+		level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.3, p.getZ(), 1, 0.1, 0.1, 0.1, 0.01);
+		return true;
+	}
+
+	private static void landKick(ServerPlayer p, LivingEntity t, Vec3 to) {
+		p.swing(InteractionHand.MAIN_HAND, true);
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.7f);
+		AbilityHelpers.sound(p, SoundEvents.IRON_GOLEM_ATTACK, 0.8f, 1.1f);
+		strike(p, t, SuperSoldierConfig.KICK_DAMAGE, p.position(), SuperSoldierConfig.KICK_KNOCKBACK, SuperSoldierConfig.KICK_LIFT);
+		ServerLevel level = (ServerLevel) p.level();
+		Vec3 c = t.position().add(0, t.getBbHeight() * 0.5, 0);
+		level.sendParticles(ParticleTypes.SWEEP_ATTACK, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+		level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+		level.sendParticles(blue(1.3f), c.x, c.y, c.z, 14, 0.4, 0.4, 0.4, 0.0);
+		level.sendParticles(red(1.1f), c.x, c.y, c.z, 8, 0.4, 0.4, 0.4, 0.0);
+		// he rebounds off the kick: a little hop back, not a slide into the enemy
+		Vec3 back = new Vec3(to.x, 0.0, to.z);
+		back = back.lengthSqr() < 1.0e-4 ? flatLook(p).scale(-0.3) : back.normalize().scale(-0.3);
+		AbilityHelpers.launchSelf(p, new Vec3(back.x, 0.3, back.z));
+	}
+
+	// ---------------------------------------------------------------- Shift+G: Judo Takedown
+
+	/**
+	 * Grab the enemy in front, hoist it over his shoulder and slam it into the ground behind him a quarter-second later:
+	 * 14 damage and a short stun (Slowness IV + Weakness). Bosses are too big to throw -- they just take the (capped) hit.
+	 */
+	public static boolean takedown(ServerPlayer p) {
+		LivingEntity target = facing(p, SuperSoldierConfig.TAKEDOWN_RANGE);
+		if (target == null) {
+			SuperSoldier.say(p, "message.projecthero.super_soldier.no_target", ChatFormatting.GRAY);
+			return false;
 		}
-		level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.3, p.getZ(), 3, 0.2, 0.1, 0.2, 0.02);
-		level.sendParticles(blue(1.0f), front.x, p.getY() + 1.0, front.z, 4, 0.3, 0.4, 0.3, 0.0);
+		if (!begin(p, TAKEDOWN, SuperSoldierConfig.TAKEDOWN_COOLDOWN, SuperSoldierConfig.TAKEDOWN_SLAM_DELAY + 4)) {
+			return false;
+		}
+		boolean boss = isBoss(target);
+		p.swing(InteractionHand.MAIN_HAND, true);
+		AbilityHelpers.sound(p, SoundEvents.ARMOR_EQUIP_LEATHER, 1.0f, 0.7f);
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_STRONG, 1.0f, 0.6f);
+		ServerLevel level = (ServerLevel) p.level();
+		if (!boss) {
+			// hoisted over his shoulder
+			Vec3 up = p.position().add(flatLook(p).scale(0.3)).add(0, p.getBbHeight() + 0.2, 0);
+			if (level.noCollision(target, target.getBoundingBox().move(up.subtract(target.position())))) {
+				target.teleportTo(up.x, up.y, up.z);
+			}
+			target.setDeltaMovement(0.0, 0.12, 0.0);
+			target.hurtMarked = true;
+			level.sendParticles(ParticleTypes.CLOUD, target.getX(), target.getY(), target.getZ(), 6, 0.3, 0.2, 0.3, 0.02);
+		}
+		schedule(p, SuperSoldierConfig.TAKEDOWN_SLAM_DELAY, () -> takedownSlam(p, target, boss));
+		return true;
+	}
+
+	private static void takedownSlam(ServerPlayer p, LivingEntity target, boolean boss) {
+		if (!alive(p) || !target.isAlive() || target.level() != p.level() || target.distanceToSqr(p) > 64.0) {
+			return;
+		}
+		ServerLevel level = (ServerLevel) p.level();
+		if (!boss) {
+			// over the shoulder, onto the ground behind him (in front if there is a wall behind)
+			Vec3 behind = p.position().subtract(flatLook(p).scale(1.6));
+			Vec3 front = p.position().add(flatLook(p).scale(1.4));
+			Vec3 land = level.noCollision(target, target.getBoundingBox().move(behind.subtract(target.position()))) ? behind
+					: level.noCollision(target, target.getBoundingBox().move(front.subtract(target.position()))) ? front : null;
+			if (land != null) {
+				target.teleportTo(land.x, land.y, land.z);
+			}
+			target.setDeltaMovement(0.0, -0.8, 0.0);
+			target.hurtMarked = true;
+		}
+		p.swing(InteractionHand.OFF_HAND, true);
+		if (strike(p, target, SuperSoldierConfig.TAKEDOWN_DAMAGE, p.position(), 0.0, 0.0)) {
+			AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, SuperSoldierConfig.TAKEDOWN_STUN_TICKS, 3);
+			AbilityHelpers.applyControl(target, MobEffects.WEAKNESS, SuperSoldierConfig.TAKEDOWN_STUN_TICKS, 0);
+		}
+		Vec3 c = target.position();
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.MACE_SMASH_GROUND, net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 1.0f);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.PLAYER_ATTACK_CRIT, net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 0.6f);
+		BlockState ground = level.getBlockState(BlockPos.containing(c.x, c.y - 0.5, c.z));
+		if (!ground.isAir()) {
+			level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, ground), c.x, c.y + 0.1, c.z, 24, 0.5, 0.1, 0.5, 0.15);
+		}
+		level.sendParticles(ParticleTypes.CLOUD, c.x, c.y + 0.2, c.z, 10, 0.5, 0.1, 0.5, 0.05);
+		level.sendParticles(ParticleTypes.CRIT, c.x, c.y + 0.5, c.z, 12, 0.4, 0.3, 0.4, 0.3);
+		level.sendParticles(blue(1.2f), c.x, c.y + 0.3, c.z, 12, 0.5, 0.2, 0.5, 0.0);
+	}
+
+	// ---------------------------------------------------------------- C: Shield Throw
+
+	/** The hand holding a throwable shield (main hand first), or null. Any {@link ShieldItem} counts. */
+	public static InteractionHand shieldHand(Player p) {
+		if (p.getMainHandItem().getItem() instanceof ShieldItem) {
+			return InteractionHand.MAIN_HAND;
+		}
+		if (p.getOffhandItem().getItem() instanceof ShieldItem) {
+			return InteractionHand.OFF_HAND;
+		}
+		return null;
+	}
+
+	/**
+	 * Throws the shield in his hand. The Adamantium Shield hits for 9 and bounces between up to 4 enemies over 24 blocks;
+	 * any other shield hits for 6 and bounces between up to 3 over 16. The stack leaves his hand while it flies and the
+	 * same stack comes back ({@link SoldierShieldEntity}). No shield: a hint, no cooldown.
+	 */
+	public static boolean shieldThrow(ServerPlayer p) {
+		InteractionHand hand = shieldHand(p);
+		if (hand == null) {
+			SuperSoldier.say(p, "message.projecthero.super_soldier.no_shield", ChatFormatting.GRAY);
+			return false;
+		}
+		ItemStack held = p.getItemInHand(hand);
+		boolean adamantium = held.is(SuperSoldierItems.ADAMANTIUM_SHIELD);
+		if (!begin(p, SHIELD_THROW, adamantium ? SuperSoldierConfig.SHIELD_THROW_COOLDOWN : SuperSoldierConfig.NORMAL_SHIELD_THROW_COOLDOWN, 6)) {
+			return false;
+		}
+		if (p.isUsingItem() && p.getUsedItemHand() == hand) {
+			p.stopUsingItem();
+		}
+		p.setItemInHand(hand, ItemStack.EMPTY);
+		p.swing(hand, true);
+		AbilityHelpers.sound(p, SoundEvents.TRIDENT_THROW, 1.0f, adamantium ? 1.3f : 1.5f);
+		Vec3 from = p.getEyePosition().add(0, -0.2, 0).add(p.getLookAngle().scale(0.6));
+		LivingEntity first = facing(p, adamantium ? SuperSoldierConfig.SHIELD_RANGE : SuperSoldierConfig.NORMAL_SHIELD_RANGE);
+		SoldierShieldEntity.launch(p, from, p.getLookAngle(), held, hand, adamantium, first);
 		return true;
 	}
 
@@ -646,11 +772,9 @@ public final class SuperSoldierAbilities {
 				t.run.run();
 			}
 		}
-		Bash bash = BASHES.get(id);
-		if (bash != null && now > bash.start && !tickBash(p, bash)) {
-			BASHES.remove(id);
-			Vec3 v = p.getDeltaMovement();
-			AbilityHelpers.launchSelf(p, new Vec3(v.x * 0.3, v.y, v.z * 0.3));
+		Kick kick = KICKS.get(id);
+		if (kick != null && now > kick.start && !tickKick(p, kick)) {
+			KICKS.remove(id);
 		}
 		Long slamStart = SLAMS.get(id);
 		if (slamStart != null) {

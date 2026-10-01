@@ -11,7 +11,8 @@ import net.minecraft.world.item.crafting.SimpleCraftingRecipeSerializer;
 
 /**
  * One call from {@code ProjectHeroMod#onInitialize} registers the whole Super Soldier power (v0.14.8): the two serums
- * and the shield model item, the potion-trio crafting recipe's serializer, the thrown shield entity and the damage rules.
+ * and the shield model item (v0.14.9: plus the Adamantium Shield and the Captain America suit), the potion-trio crafting
+ * recipe's serializer, the thrown shield entity and the damage rules.
  */
 public final class SuperSoldierSetup {
 	private SuperSoldierSetup() {

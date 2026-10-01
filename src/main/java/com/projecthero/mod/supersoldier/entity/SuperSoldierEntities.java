@@ -12,7 +12,7 @@ import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 
-/** v0.14.8 Super Soldier entity types: the thrown Soldier's Shield (G). */
+/** v0.14.8 Super Soldier entity types: the thrown shield (C since v0.14.9; saved with its chunk so the item is never lost). */
 public final class SuperSoldierEntities {
 	public static EntityType<SoldierShieldEntity> SOLDIER_SHIELD;
 
