@@ -23,6 +23,7 @@ import net.minecraft.world.level.material.MapColor;
 /**
  * v0.14.8: everything the Kryptonite Meteor brings -- kryptonite ore (drops shards), the kryptonite block (nine
  * shards), the Meteor Core (the heart of the crater, drops the Kryptonian Crystal) and the falling meteor itself.
+ * v0.14.9: plus the Superman Suit ({@link com.projecthero.mod.kryptonian.SupermanSuit}).
  */
 public final class KryptonianItems {
 	public static Block KRYPTONITE_ORE;
@@ -65,6 +66,8 @@ public final class KryptonianItems {
 						.noSummon()
 						.fireImmune()
 						.build("kryptonite_meteor"));
+		// v0.14.9: the craftable, Kryptonian-only Superman Suit
+		com.projecthero.mod.kryptonian.SupermanSuit.initialize();
 	}
 
 	private static Block block(String name, Block block) {
@@ -85,5 +88,9 @@ public final class KryptonianItems {
 		output.accept(KRYPTONITE_ORE_ITEM);
 		output.accept(KRYPTONITE_BLOCK_ITEM);
 		output.accept(METEOR_CORE_ITEM);
+		output.accept(com.projecthero.mod.kryptonian.SupermanSuit.HELMET);
+		output.accept(com.projecthero.mod.kryptonian.SupermanSuit.CHESTPLATE);
+		output.accept(com.projecthero.mod.kryptonian.SupermanSuit.LEGGINGS);
+		output.accept(com.projecthero.mod.kryptonian.SupermanSuit.BOOTS);
 	}
 }

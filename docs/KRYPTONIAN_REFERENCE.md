@@ -70,6 +70,47 @@ dirt), some fire, **one Meteor Core** at the centre (loot: exactly one Kryptonia
 kryptonite ore around it. Static state (pending impacts, roll day, pity counter) is dropped by `ServerStateReset`; a
 meteor in flight at shutdown never lands.
 
+## The Superman Suit (v0.14.9)
+
+A craftable four-piece armour set from the user's `superman.bbmodel` (`3d minecraft models/kryptonian/`) that **only a
+Kryptonian can wear**. No powers of its own.
+
+| What | Where |
+|---|---|
+| Material, items, the wear rule, the pop-off tick, the dispenser behaviour | `SupermanSuit` (items registered from `KryptonianItems.initialize`, creative tab after the meteor blocks) |
+| Item (right-click refusal, tooltips) | `item/SupermanSuitItem` (`SuperheroArmorItem`, set id `superman`) |
+| Armour-slot / shift-click / creative-screen refusal | `mixin/LivingEntitySupermanSuitMixin`: a non-Kryptonian player's `getEquipmentSlotForItem` for a suit piece is `MAINHAND`, so `ArmorSlot.mayPlace` says no; both sides (the power is synced) |
+| The cape | client `kryptonian/SupermanCapeLayer` (registered in `KryptonianClient`) on Moon Knight's cape mesh |
+| Assets / recipes | `scratchpad/gen_superman_suit.js` (re-runnable); lang `scratchpad/lang_v0149_kryptonian.js` |
+
+- **Stats:** netherite: 3 / 6 / 8 / 3 armour, toughness 3.0, knockback resistance 0.1 (per piece), enchantability 15,
+  durability x37 (netherite), fire-resistant item, repaired with diamonds. Leather equip sound (it is cloth).
+- **Recipes** (shaped; never kryptonite): Helmet `BDB / G G` (B blue wool, D diamond, G gold ingot); Chestplate
+  `R R / DSD / BBB` (R red wool, S gold block); Leggings `GRG / B B / D D`; Boots `R R / D D`. 7 diamonds for the set.
+- **Kryptonians only:** armour slots / shift-click / hotbar swap / creative screen refused (mixin above); right-click
+  refused with an action-bar line; dispensers fit it only onto a Kryptonian (or an armour stand) with that slot free,
+  otherwise shoot it out (vanilla's armour dispense would have put it in a non-Kryptonian's main hand). Anything that
+  still gets it onto a non-Kryptonian (commands, losing the power while wearing it) is caught by `SupermanSuit.tick`
+  (top of `Kryptonian.tick`, every player every tick): the piece goes into the inventory, or drops at his feet if it
+  is full, with "The Superman Suit slips off". Mobs are not policed (only players can be Kryptonians).
+- **Model:** `geo/superman.geo.json` = `moon_knight.geo.json`'s skin rig (base +0.3, layers +0.3 over the model's
+  0.5 / 0.25) plus boot cubes (bottom 4 px of each leg, 0.35 / 0.6). The skin has **no head art**, so the helmet is
+  invisible (tooltip says so): the wearer's face shows.
+- **The painted cape removed:** the skin painted a flat red cape with a yellow shield on the second layer -- the whole
+  Body Layer (uv 16,32: back face, side-face edges, top face's back edge + shoulder straps, bottom edge) and the back of
+  both leg layers (uv 0,32 / 0,48: back face, the column either side, the top face's back row). The generator clears
+  those pixels, so the blue base layer shows through. What is left on layer 2: the arm bands and the red boot cuffs.
+- **The real cape** (`textures/entity/superman_cape.png`, 64x48, the removed cape's red 168,17,53 and gold 251,171,52;
+  left half outside with the shield, stamped mirrored because the cape's u runs from the wearer's right; right half the
+  lining): Moon Knight's mesh (`MoonKnightCapeLayer.drawCape`, 1.25 blocks, centre + curled side panels) with
+  `arcLengthU = true` (texels by real width, so the shield is not stretched), no hood / block / glide, plus a collar
+  strip over the shoulders. Shows whenever the Superman chestplate is worn (not when invisible).
+  - Ground: vanilla's swing exactly (`MoonKnightCapeLayer.cloakSwing`).
+  - Kryptonian flight: from the wind of his own flight -- world angle `atan2(forward speed, 0.2 + vertical speed)`
+    from straight down, minus the body lean (`FlightPoseHelper.lean`), clamped 6..120 deg, plus a speed-scaled flap;
+    eased per player (rate 9/s), blended in/out over ~0.2 s. Hover: hangs; cruise (0.9 b/t, 25 deg lean): ~50 deg off
+    the back; super-speed (2 b/t, flat): along the legs, near-horizontal; climbing: trails below; diving: streams up.
+
 ## Wiring checklist used
 
 ModAttachments, HeroTiers (hasHeroTier, HERO_KEYS, holdsHero, revokeHero, hasIncompatibleWith), PowerGrants (key +

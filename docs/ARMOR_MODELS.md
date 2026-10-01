@@ -129,6 +129,9 @@ same clearance in; do **not** ship a bare vanilla-sized box.
   the standard player-armour rig (same cubes/UVs as `spider_man.geo.json`, `inflate` 0.3 / 0.55). The skin has no head art, so
   Thor's Armour is three pieces (chest, legs, boots) conjured by H — see `com.projecthero.mod.thorarmor`. `crimson_vanguard` is
   now only the fallback default.
+* `superman` (v0.14.9, the Kryptonian-only Superman Suit) is the supplied `superman.bbmodel` skin on Moon Knight's skin rig
+  plus boot cubes, with the cape the skin painted on its second layer cleared (`scratchpad/gen_superman_suit.js`); the cape
+  is a separate cloth layer instead. No head art, so its helmet renders nothing. See `docs/KRYPTONIAN_REFERENCE.md`.
 * Every Iron Man mark (`mark_1` … `mark_vii`) now has **real, hand-authored art**: the actual player
   skin supplied for that mark, on that mark's own UV layout. None of them are the crimson placeholder
   or a desaturated copy of it any more.

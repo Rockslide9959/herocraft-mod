@@ -6,8 +6,10 @@ import com.projecthero.mod.kryptonian.KryptonianAbilities;
 import com.projecthero.mod.kryptonian.KryptonianAbilityManager;
 import com.projecthero.mod.kryptonian.KryptonianConfig;
 import com.projecthero.mod.kryptonian.KryptonianFlight;
+import com.projecthero.mod.kryptonian.SupermanSuit;
 import com.projecthero.mod.kryptonian.item.KryptonianCrystalItem;
 import com.projecthero.mod.kryptonian.item.KryptonianItems;
+import com.projecthero.mod.kryptonian.item.SupermanSuitItem;
 import com.projecthero.mod.kryptonian.meteor.MeteorManager;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
@@ -16,7 +18,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -289,6 +293,79 @@ public class KryptonianGameTests implements FabricGameTest {
 					helper.assertTrue(ore >= 3, "kryptonite ore around the core, got " + ore);
 					helper.assertTrue(helper.getLevel().getEntity(pending.entity()) == null, "the fireball is gone");
 				})
+				.thenSucceed();
+	}
+
+	// ---------------------------------------------------------------- v0.14.9: the Superman Suit
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void supermanSuitRecipesExistWithoutKryptonite(GameTestHelper helper) {
+		for (String piece : new String[] { "helmet", "chestplate", "leggings", "boots" }) {
+			var holder = helper.getLevel().getRecipeManager().byKey(com.projecthero.mod.ProjectHeroMod.id("superman_suit_" + piece));
+			helper.assertTrue(holder.isPresent(), "a recipe for the " + piece);
+			var recipe = holder.get().value();
+			ItemStack out = recipe.getResultItem(helper.getLevel().registryAccess());
+			net.minecraft.world.item.Item expected = net.minecraft.core.registries.BuiltInRegistries.ITEM
+					.get(com.projecthero.mod.ProjectHeroMod.id("superman_suit_" + piece));
+			helper.assertTrue(expected instanceof SupermanSuitItem && out.is(expected), "the " + piece + " recipe makes the " + piece);
+			for (var ingredient : recipe.getIngredients()) {
+				for (ItemStack option : ingredient.getItems()) {
+					helper.assertFalse(option.is(KryptonianItems.KRYPTONITE_SHARD) || option.is(KryptonianItems.KRYPTONITE_BLOCK_ITEM)
+							|| option.is(KryptonianItems.KRYPTONITE_ORE_ITEM), "no kryptonite in the " + piece + " recipe");
+				}
+			}
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void onlyAKryptonianCanPutOnTheSupermanSuit(GameTestHelper helper) {
+		ServerPlayer p = helper.makeMockServerPlayerInLevel();
+		p.setGameMode(GameType.SURVIVAL);
+		ItemStack chest = new ItemStack(SupermanSuit.CHESTPLATE);
+		// InventoryMenu armour slots: 5 head, 6 chest, 7 legs, 8 feet
+		helper.assertFalse(p.inventoryMenu.getSlot(6).mayPlace(chest), "a non-Kryptonian's chest slot refuses it");
+		helper.assertFalse(p.inventoryMenu.getSlot(8).mayPlace(new ItemStack(SupermanSuit.BOOTS)), "and the boots slot");
+		p.setItemInHand(InteractionHand.MAIN_HAND, chest);
+		helper.assertFalse(chest.getItem().use(helper.getLevel(), p, InteractionHand.MAIN_HAND).getResult().consumesAction(),
+				"right-click does not put it on");
+		helper.assertTrue(p.getItemBySlot(EquipmentSlot.CHEST).isEmpty(), "nothing worn");
+		helper.assertTrue(p.getItemInHand(InteractionHand.MAIN_HAND).is(SupermanSuit.CHESTPLATE), "still in his hand");
+
+		Kryptonian.grant(p);
+		helper.assertTrue(p.inventoryMenu.getSlot(6).mayPlace(chest), "a Kryptonian's chest slot takes it");
+		chest.getItem().use(helper.getLevel(), p, InteractionHand.MAIN_HAND);
+		helper.assertTrue(p.getItemBySlot(EquipmentSlot.CHEST).is(SupermanSuit.CHESTPLATE), "a Kryptonian puts it on with right-click");
+		helper.assertTrue(SupermanSuit.wearsCape(p), "and wears the cape");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void losingThePowerPopsTheSupermanSuitOff(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(SupermanSuit.CHESTPLATE));
+		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(SupermanSuit.BOOTS));
+		Kryptonian.tick(p);
+		helper.assertTrue(p.getItemBySlot(EquipmentSlot.CHEST).is(SupermanSuit.CHESTPLATE), "a Kryptonian keeps it on");
+
+		Kryptonian.revoke(p);
+		Kryptonian.tick(p);
+		helper.assertTrue(p.getItemBySlot(EquipmentSlot.CHEST).isEmpty() && p.getItemBySlot(EquipmentSlot.FEET).isEmpty(),
+				"it pops off when the power goes");
+		helper.assertTrue(p.getInventory().contains(new ItemStack(SupermanSuit.CHESTPLATE))
+				&& p.getInventory().contains(new ItemStack(SupermanSuit.BOOTS)), "into his inventory");
+
+		// a full inventory: it drops at his feet instead
+		p.getInventory().clearContent();
+		for (int i = 0; i < p.getInventory().items.size(); i++) {
+			p.getInventory().items.set(i, new ItemStack(Blocks.STONE, 64));
+		}
+		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(SupermanSuit.LEGGINGS));
+		Kryptonian.tick(p);
+		helper.assertTrue(p.getItemBySlot(EquipmentSlot.LEGS).isEmpty(), "the leggings pop off too");
+		helper.startSequence()
+				.thenWaitUntil(() -> helper.assertFalse(helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+						p.getBoundingBox().inflate(4.0), e -> e.getItem().is(SupermanSuit.LEGGINGS)).isEmpty(), "dropped at his feet"))
 				.thenSucceed();
 	}
 

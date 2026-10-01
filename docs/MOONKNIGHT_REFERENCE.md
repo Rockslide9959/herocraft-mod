@@ -86,7 +86,9 @@ rig (as Thor's and the Hulk's skins were) and hangs the cape off `Body` (-> `arm
   keepInventory rules apply to the player's own gear).
 - **Cape:** `client/moonknight/MoonKnightCapeLayer` -- vanilla CapeLayer physics (cloak lag, body yaw, bob, crouch), 20 px long,
   a centre panel + two folding two-segment side panels, a hood flap, spread for FLAG_GLIDING, wrapped round the front for
-  FLAG_SHROUD. Screenshot-checked in the dev client (front / back / side / shroud / glide).
+  FLAG_SHROUD. Screenshot-checked in the dev client (front / back / side / shroud / glide). v0.14.9: `cloakSwing`,
+  `section`, `drawCape` and `quad` are public and shared with the Superman Suit's cape (`client/kryptonian/SupermanCapeLayer`);
+  `drawCape`'s new `arcLengthU` flag is `false` for Moon Knight, so his cape is drawn exactly as before.
 - **Key framework:** `ability/MoonKnightAbilityManager` (press/release edges -> TAP / HOLD (10 ticks) / SNEAK+KEY, timed on the
   server), `MoonKnightMove`, `MoonKnightAbilities` (lunar-scaled cooldowns, Vengeance costs). Synced live state in
   `data/MoonKnightAction` (flags, pose, charge, rope). Poses in `client/moonknight/MoonKnightPose`.

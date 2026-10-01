@@ -882,7 +882,7 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.kryptonian.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.kryptonian.body");
 			blank(lines);
-			for (String section : new String[]{"origin", "body_stats", "solar", "flight", "kryptonite"}) {
+			for (String section : new String[]{"origin", "body_stats", "solar", "flight", "kryptonite", "suit"}) {
 				head(lines, "projecthero.guide.kryptonian." + section);
 				para(lines, "projecthero.guide.kryptonian." + section + ".body");
 				blank(lines);

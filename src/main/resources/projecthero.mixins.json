@@ -18,6 +18,7 @@
 		"LivingEntityClimbMixin",
 		"LivingEntityEatMixin",
 		"LivingEntityEffectMixin",
+		"LivingEntitySupermanSuitMixin",
 		"MobGoalsAccessor",
 		"MobMindLockMixin",
 		"MoonKnightVanishTargetMixin",

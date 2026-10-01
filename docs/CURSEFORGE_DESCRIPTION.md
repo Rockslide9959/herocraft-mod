@@ -217,6 +217,9 @@ one **Kryptonian Crystal** it holds, then hold it up to the **daytime sun**. The
   **Shift+X** Sky Launch (40 blocks straight up) · **V** X-Ray Vision · **Shift+V** Super Grab & Throw.
 - **Kryptonite:** ore, blocks and shards (mine the ore with an iron pickaxe) within a few blocks strip every power, drop
   you out of the sky and hurt you. Your enemies can carry it too.
+- **The Superman Suit:** a craftable four-piece set (blue and red wool, gold and diamonds) that **only a Kryptonian can
+  wear** -- netherite-strong and fireproof, with a real red cloth **cape** (gold shield on the back) that sways as you
+  walk and streams out flat behind you at super-speed.
 
 ---
 

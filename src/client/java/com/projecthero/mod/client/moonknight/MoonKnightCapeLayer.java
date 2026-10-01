@@ -105,6 +105,25 @@ public class MoonKnightCapeLayer extends RenderLayer<AbstractClientPlayer, Playe
 		drawHood(vc, pose.last(), light);
 
 		// ---- vanilla's cape swing (CapeLayer), unchanged
+		float[] cloak = cloakSwing(player, pt);
+		float swing = cloak[0];
+		float side = cloak[1];
+		// a raised block hangs straight and close
+		swing = (float) Mth.lerp(shroud, swing, 2.0F);
+		pose.mulPose(Axis.XP.rotationDegrees(swing));
+		pose.mulPose(Axis.ZP.rotationDegrees(side / 2.0F * (float) (1.0 - shroud)));
+		pose.mulPose(Axis.YP.rotationDegrees(-side / 2.0F * (float) (1.0 - shroud)));
+
+		drawCape(vc, pose.last(), light, shroud, ageInTicks + pt, player.getDeltaMovement().horizontalDistance(), false);
+		pose.popPose();
+	}
+
+	/**
+	 * Vanilla's cape swing ({@code CapeLayer}), unchanged: {@code {swing, side}} in degrees -- the tilt back off the
+	 * body (lagging "cloak" position, walk bob, crouch) and the sideways sway. Shared with the Superman Suit's cape
+	 * (v0.14.9, {@code SupermanCapeLayer}) on the ground.
+	 */
+	public static float[] cloakSwing(AbstractClientPlayer player, float pt) {
 		double dx = Mth.lerp(pt, player.xCloakO, player.xCloak) - Mth.lerp(pt, player.xo, player.getX());
 		double dy = Mth.lerp(pt, player.yCloakO, player.yCloak) - Mth.lerp(pt, player.yo, player.getY());
 		double dz = Mth.lerp(pt, player.zCloakO, player.zCloak) - Mth.lerp(pt, player.zo, player.getZ());
@@ -119,15 +138,7 @@ public class MoonKnightCapeLayer extends RenderLayer<AbstractClientPlayer, Playe
 		if (player.isCrouching()) {
 			lift += 25.0F;
 		}
-		float swing = 6.0F + back / 2.0F + lift;
-		// a raised block hangs straight and close
-		swing = (float) Mth.lerp(shroud, swing, 2.0F);
-		pose.mulPose(Axis.XP.rotationDegrees(swing));
-		pose.mulPose(Axis.ZP.rotationDegrees(side / 2.0F * (float) (1.0 - shroud)));
-		pose.mulPose(Axis.YP.rotationDegrees(-side / 2.0F * (float) (1.0 - shroud)));
-
-		drawCape(vc, pose.last(), light, shroud, ageInTicks + pt, player.getDeltaMovement().horizontalDistance());
-		pose.popPose();
+		return new float[] { 6.0F + back / 2.0F + lift, side };
 	}
 
 	/** Whose cape is shown: this alter's; during an alter swap the old one until halfway through. */
@@ -213,7 +224,7 @@ public class MoonKnightCapeLayer extends RenderLayer<AbstractClientPlayer, Playe
 	 * The side panels are two-segment chains hinged at the centre panel's edges: flat and slightly curled normally,
 	 * folded forward round the body for the block.
 	 */
-	private static Vec3[] section(double y, double shroud, double flutter) {
+	public static Vec3[] section(double y, double shroud, double flutter) {
 		double down = y / LENGTH;
 		double width = 1.0 + 0.12 * down; // the hem flares a touch
 		double a1 = Mth.lerp(shroud, 0.25, 1.55);
@@ -241,7 +252,13 @@ public class MoonKnightCapeLayer extends RenderLayer<AbstractClientPlayer, Playe
 		return pts;
 	}
 
-	private static void drawCape(VertexConsumer vc, PoseStack.Pose pose, int light, double shroud, float time, double speed) {
+	/**
+	 * The hanging cape (no hood): top edge at the origin, hanging down +y just behind +z. {@code arcLengthU} (v0.14.9,
+	 * the Superman Suit's cape) spreads the texture by the real width of each panel, so its texels stay square and a
+	 * picture on the back is not stretched; Moon Knight's cape keeps the even per-panel spread it was painted for.
+	 */
+	public static void drawCape(VertexConsumer vc, PoseStack.Pose pose, int light, double shroud, float time, double speed,
+			boolean arcLengthU) {
 		Vec3[][] rows = new Vec3[ROWS + 1][];
 		for (int r = 0; r <= ROWS; r++) {
 			double y = LENGTH * r / ROWS;
@@ -250,12 +267,23 @@ public class MoonKnightCapeLayer extends RenderLayer<AbstractClientPlayer, Playe
 			rows[r] = section(y, shroud, flutter);
 		}
 		int cols = rows[0].length;
+		float[] us = new float[cols];
+		double total = 0;
+		for (int cIdx = 0; cIdx < cols; cIdx++) {
+			total += cIdx == 0 ? 0 : rows[0][cIdx].distanceTo(rows[0][cIdx - 1]);
+			us[cIdx] = arcLengthU ? (float) total : (float) cIdx / (cols - 1);
+		}
+		if (arcLengthU && total > 1e-6) {
+			for (int cIdx = 0; cIdx < cols; cIdx++) {
+				us[cIdx] /= (float) total;
+			}
+		}
 		for (int r = 0; r < ROWS; r++) {
 			float v0 = (float) r / ROWS;
 			float v1 = (float) (r + 1) / ROWS;
 			for (int cIdx = 0; cIdx < cols - 1; cIdx++) {
-				float u0 = (float) cIdx / (cols - 1);
-				float u1 = (float) (cIdx + 1) / (cols - 1);
+				float u0 = us[cIdx];
+				float u1 = us[cIdx + 1];
 				Vec3 a = rows[r][cIdx];
 				Vec3 b = rows[r][cIdx + 1];
 				Vec3 cc = rows[r + 1][cIdx + 1];
@@ -294,7 +322,7 @@ public class MoonKnightCapeLayer extends RenderLayer<AbstractClientPlayer, Playe
 		}
 	}
 
-	private static void quad(VertexConsumer vc, PoseStack.Pose pose, int light, Vec3 a, Vec3 b, Vec3 c, Vec3 d,
+	public static void quad(VertexConsumer vc, PoseStack.Pose pose, int light, Vec3 a, Vec3 b, Vec3 c, Vec3 d,
 			float u0, float v0, float u1, float v1) {
 		Vec3 n = b.subtract(a).cross(d.subtract(a));
 		double len = n.length();

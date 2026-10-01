@@ -327,6 +327,7 @@ public final class Kryptonian {
 
 	/** Runs for every player every server tick (cheap when he has no power). */
 	public static void tick(ServerPlayer player) {
+		SupermanSuit.tick(player); // v0.14.9: a non-Kryptonian's Superman Suit pops off
 		KryptonianState s = player.getAttachedOrElse(ModAttachments.KRYPTONIAN_STATE, null);
 		if (s == null || !s.hasPower) {
 			return;
