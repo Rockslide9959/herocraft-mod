@@ -39,8 +39,8 @@ public final class ThorArmorItems {
 	}
 
 	private static ThorArmorItem register(String path, ArmorItem.Type type) {
-		ThorArmorItem item = new ThorArmorItem(ModArmorMaterials.THOR, type,
-				new Item.Properties().rarity(Rarity.EPIC).durability(type.getDurability(37)));
+		ThorArmorItem item = new ThorArmorItem(ModArmorMaterials.THOR_ARMOUR, type, // v0.14.15: diamond level
+				new Item.Properties().rarity(Rarity.EPIC).durability(type.getDurability(33)));
 		return Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id(path), item);
 	}
 }

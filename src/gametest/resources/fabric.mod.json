@@ -11,6 +11,7 @@
       "com.projecthero.mod.gametest.HordeGameTests",
       "com.projecthero.mod.gametest.V01413GameTests",
       "com.projecthero.mod.gametest.V01414GameTests",
+      "com.projecthero.mod.gametest.V01415GameTests",
       "com.projecthero.mod.gametest.HeroPackGameTests",
       "com.projecthero.mod.gametest.ZombieRaidGameTests",
       "com.projecthero.mod.gametest.SpiderManGameTests",

@@ -51,7 +51,7 @@ Lightning Rod). The hammer only moves for a **Hero of the Village**. Lift it wit
   every enemy around you), Thunderclap, Storm Call and Mjolnir Parry.
 - **The Power of Thor:** +11 melee, +10 hearts, 80% less damage, permanent Regeneration, no fall or lightning damage.
 - **H** calls down lightning and forges **Thor's Armour** onto you piece by piece -- boots, greaves, then chestplate and
-  cape, each arriving with its own bolt from the sky.
+  cape, each arriving with its own bolt from the sky. Diamond-level: the three pieces equal a full diamond set.
 - Every move has its own animation, the Beam and Chain Lightning are thick forking bolts, Thunderclap sends a shockwave
   ring across the ground -- and none of it ever hurts your squad.
 
@@ -217,7 +217,7 @@ half it burns the effects away and you try again.
 Somewhere out in the world lies a rare **Kryptonite Meteor crater** -- as hard to find as Mjolnir's.
 At the bottom of its scorched bowl, ringed with glowing **kryptonite ore**, sits the **Meteor Core** -- mine it for the
 one **Kryptonian Crystal** it holds, then hold it up to the **daytime sun**. The stored sunlight pours into you.
-- **The body:** 60 health, **75% less damage**, and nothing at all from falls, fire, lava, drowning or freezing. 15-damage
+- **The body:** 40 health, **80% less damage** and permanent Regeneration (the same as Thor), and nothing at all from falls, lightning, fire, lava, drowning or freezing. 15-damage
   fists that send things flying, no knockback, 40% faster, a 4-block jump, and the sun heals and feeds you.
 - **True flight:** double-tap jump and fly wherever you look -- **S** brakes to a hover, **Sprint** is 40 blocks a second
   with a **sonic boom** as you break into it, and he flies one fist forward.

@@ -57,6 +57,9 @@ public final class KryptonianDamage {
 			player.resetFallDistance();
 			return false;
 		}
+		if (source.is(DamageTypes.LIGHTNING_BOLT)) {
+			return false; // v0.14.15: lightning cannot hurt him either -- the same as Thor
+		}
 		if (source.is(DamageTypeTags.IS_FIRE) || source.is(DamageTypes.LAVA) || source.is(DamageTypes.HOT_FLOOR)) {
 			player.clearFire();
 			return false;

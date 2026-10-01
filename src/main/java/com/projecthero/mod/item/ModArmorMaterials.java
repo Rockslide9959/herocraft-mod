@@ -34,6 +34,23 @@ public final class ModArmorMaterials {
 			() -> Ingredient.of(Items.NETHERITE_INGOT));
 
 	/**
+	 * v0.14.15: Thor's Armour's own material (it used to share {@link #THOR} with All Might / Moon Knight). The set has no
+	 * helmet, so its three pieces carry a whole diamond set between them: 4 / 7 / 9 (= 20 armour, ten armour icons, like
+	 * full diamond) and 8/3 toughness each (= 8 in all, like full diamond), no knockback resistance, diamond durability.
+	 */
+	public static final Holder<ArmorMaterial> THOR_ARMOUR = registerWithLayer("thor_armour", "thor",
+			Map.of(
+					ArmorItem.Type.BOOTS, 4,
+					ArmorItem.Type.LEGGINGS, 7,
+					ArmorItem.Type.CHESTPLATE, 9,
+					ArmorItem.Type.HELMET, 3),
+			10,
+			SoundEvents.ARMOR_EQUIP_DIAMOND,
+			8.0f / 3.0f,
+			0.0f,
+			() -> Ingredient.of(Items.DIAMOND));
+
+	/**
 	 * The Max Steel suit's raw {@code ArmorMaterial} defence -- what protects the player even at 0
 	 * T.U.R.B.O. Energy. v0.9.2: <b>diamond level</b> (user request) -- full diamond protection
 	 * (3/6/8/3 = 20), diamond toughness (2.0), no knockback resistance from the plate itself (Base Mode

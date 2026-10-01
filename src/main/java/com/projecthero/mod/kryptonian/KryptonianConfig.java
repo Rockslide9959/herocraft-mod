@@ -25,8 +25,11 @@ public final class KryptonianConfig {
 	public static final double REACH_BONUS = 1.0;
 	/** Super jump: roughly 4 blocks. */
 	public static final double JUMP_BLOCKS = 4.0;
-	/** Every hit that gets through is cut by 75% (fire, lava, falls and drowning never get through at all). */
-	public static final float DAMAGE_REDUCTION = 0.75f;
+	/**
+	 * Every hit that gets through is cut by 80% (fire, lava, falls, lightning and drowning never get through at all).
+	 * v0.14.15: was 75% -- now the same as Thor's.
+	 */
+	public static final float DAMAGE_REDUCTION = 0.80f;
 	/** Melee punches: extra knockback (sprinting: more, plus a little lift). */
 	public static final double PUNCH_KNOCKBACK = 1.2;
 	public static final double SPRINT_PUNCH_KNOCKBACK = 2.2;

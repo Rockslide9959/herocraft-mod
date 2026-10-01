@@ -253,6 +253,7 @@ public final class Kryptonian {
 			PowerToggles.clearModifier(player, Attributes.ENTITY_INTERACTION_RANGE, REACH_ID);
 			PowerToggles.clearModifier(player, Attributes.JUMP_STRENGTH, JUMP_ID);
 			PowerToggles.clearModifier(player, Attributes.SAFE_FALL_DISTANCE, SAFE_FALL_ID);
+			reconcileRegeneration(player, false);
 			if (player.getHealth() > player.getMaxHealth()) {
 				player.setHealth(player.getMaxHealth());
 			}
@@ -270,6 +271,22 @@ public final class Kryptonian {
 				AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		// the client predicts fall damage off this; the server cancels it outright either way
 		PowerToggles.modifier(player, Attributes.SAFE_FALL_DISTANCE, SAFE_FALL_ID, 1000.0, AttributeModifier.Operation.ADD_VALUE);
+		reconcileRegeneration(player, true);
+	}
+
+	/**
+	 * v0.14.15: Regeneration I at all times while empowered -- the same as Thor -- on top of the sun's healing. One
+	 * infinite, invisible instance, only touched when wanted and actual disagree (a stronger regen is left alone).
+	 */
+	private static void reconcileRegeneration(ServerPlayer player, boolean wanted) {
+		net.minecraft.world.effect.MobEffectInstance active = player.getEffect(net.minecraft.world.effect.MobEffects.REGENERATION);
+		boolean ours = active != null && active.isInfiniteDuration() && active.getAmplifier() == 0 && active.isAmbient();
+		if (wanted && active == null) {
+			player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.REGENERATION,
+					net.minecraft.world.effect.MobEffectInstance.INFINITE_DURATION, 0, true, false, false));
+		} else if (!wanted && ours) {
+			player.removeEffect(net.minecraft.world.effect.MobEffects.REGENERATION);
+		}
 	}
 
 	/** The multiplier on the vanilla jump velocity (0.42) that carries a player {@code blocks} high. */

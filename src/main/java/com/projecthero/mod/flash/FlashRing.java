@@ -323,7 +323,9 @@ public final class FlashRing {
 		}
 		if (changed) {
 			if (inChest) {
-				player.setItemSlot(EquipmentSlot.CHEST, ringWith(ring, pieces));
+				// v0.14.15: mend the worn ring IN PLACE -- setItemSlot counts as re-equipping it and played the equip sound
+				// every second
+				player.getItemBySlot(EquipmentSlot.CHEST).set(DataComponents.CONTAINER, ItemContainerContents.fromItems(pieces));
 			} else {
 				setWorn(player, ringWith(ring, pieces));
 			}

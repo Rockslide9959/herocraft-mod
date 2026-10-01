@@ -119,7 +119,7 @@ public class KryptonianGameTests implements FabricGameTest {
 		p.invulnerableTime = 0;
 		p.hurt(p.damageSources().generic(), 20.0f);
 		float lost = before - p.getHealth();
-		helper.assertTrue(Math.abs(lost - 5.0f) < 0.01f, "20 damage is cut by 75% to 5, lost " + lost);
+		helper.assertTrue(Math.abs(lost - 4.0f) < 0.01f, "20 damage is cut by 80% to 4 (v0.14.15), lost " + lost);
 		before = p.getHealth();
 		p.invulnerableTime = 0;
 		p.hurt(p.damageSources().fall(), 30.0f);
