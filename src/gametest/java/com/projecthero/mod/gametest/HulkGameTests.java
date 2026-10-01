@@ -427,9 +427,13 @@ public class HulkGameTests implements FabricGameTest {
 		ServerPlayer p = hulk(helper);
 		var front = zombie(helper, p.position().add(0, 0, 4));
 		var behind = zombie(helper, p.position().add(0, 0, -4));
-		p.setYRot(0.0f);
+		p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, front.getEyePosition());
 		com.projecthero.mod.hulk.HulkAbilities.powerPunch(p);
-		helper.onEachTick(() -> Hulk.tick(p));
+		// the impact reads his facing 5 ticks later: hold it on the mob in front (a mock player's rotation can drift on CI)
+		helper.onEachTick(() -> {
+			p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, front.getEyePosition());
+			Hulk.tick(p);
+		});
 		helper.runAfterDelay(com.projecthero.mod.hulk.HulkAbilities.PUNCH_IMPACT_TICKS + 4, () -> {
 			helper.assertTrue(front.getHealth() < front.getMaxHealth(), "the mob in front is punched");
 			helper.assertTrue(behind.getHealth() == behind.getMaxHealth(), "the one behind is not");

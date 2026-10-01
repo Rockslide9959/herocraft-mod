@@ -296,6 +296,26 @@ public class KryptonianGameTests implements FabricGameTest {
 				.thenSucceed();
 	}
 
+	// ---------------------------------------------------------------- v0.14.10: the crafted crystal
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void kryptonianCrystalCanBeCraftedTheHardWay(GameTestHelper helper) {
+		var holder = helper.getLevel().getRecipeManager().byKey(com.projecthero.mod.ProjectHeroMod.id("kryptonian_crystal"));
+		helper.assertTrue(holder.isPresent(), "a recipe for the Kryptonian Crystal");
+		var recipe = holder.get().value();
+		helper.assertTrue(recipe.getResultItem(helper.getLevel().registryAccess()).is(KryptonianItems.KRYPTONIAN_CRYSTAL), "it makes the crystal");
+		int apples = 0;
+		boolean star = false;
+		for (var ingredient : recipe.getIngredients()) {
+			if (ingredient.test(new ItemStack(net.minecraft.world.item.Items.ENCHANTED_GOLDEN_APPLE))) {
+				apples++;
+			}
+			star |= ingredient.test(new ItemStack(net.minecraft.world.item.Items.NETHER_STAR));
+		}
+		helper.assertTrue(apples == 4 && star, "four enchanted golden apples and a nether star");
+		helper.succeed();
+	}
+
 	// ---------------------------------------------------------------- v0.14.9: the Superman Suit
 
 	@GameTest(template = EMPTY_STRUCTURE)
