@@ -289,6 +289,44 @@ public final class HeroTiers {
 	}
 
 	/**
+	 * v0.14.12: Super Speed stands alone, like a Hero-Tier power -- it never stacks with anything. A mutation of this key
+	 * replaces every other power the player has; any other mutation replaces it.
+	 */
+	public static final String SOLO_MUTATION = com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.KEY;
+
+	public static boolean isSoloMutation(com.projecthero.mod.hero.Power power) {
+		return power != null && SOLO_MUTATION.equals(power.key());
+	}
+
+	/**
+	 * v0.14.12: {@link #claimExperimental} for one specific mutation about to be granted: the Hero-Tier / Symbiote rule,
+	 * then the Super Speed rule -- gaining Super Speed forgets every other mutation, gaining any other mutation forgets
+	 * Super Speed (with a message either way). True if anything was replaced.
+	 */
+	public static boolean claimMutation(ServerPlayer player, com.projecthero.mod.hero.Power power) {
+		boolean changed = claimExperimental(player);
+		boolean solo = isSoloMutation(power);
+		boolean dropped = false;
+		for (String key : java.util.List.copyOf(ExperimentalPowers.state(player).ownedPowers)) {
+			if (key.equals(power.key()) || !(solo || SOLO_MUTATION.equals(key))) {
+				continue;
+			}
+			com.projecthero.mod.hero.Power other = Powers.byKey(key);
+			if (other != null) {
+				ExperimentalPowers.forget(player, other);
+				dropped = true;
+			}
+		}
+		if (dropped) {
+			PowerPassives.reconcileActive(player);
+			player.displayClientMessage(net.minecraft.network.chat.Component.translatable(solo
+					? "message.projecthero.mutation.super_speed_alone" : "message.projecthero.mutation.super_speed_replaced")
+					.withStyle(net.minecraft.ChatFormatting.YELLOW), false);
+		}
+		return changed || dropped;
+	}
+
+	/**
 	 * v0.14.4: brings a player saved under the old two-slot rule down to one Primary power. The newest hero
 	 * power is kept (Hero-Tier order is tracked, mutations are not, and a hero is the bigger investment), any
 	 * older heroes are revoked, and mutations go if a hero is kept. Run on join. True if anything was removed.
@@ -299,6 +337,18 @@ public final class HeroTiers {
 		saveOrder(player, order);
 		if (!order.isEmpty() && hasExperimental(player)) {
 			wipeExperimental(player);
+			changed = true;
+		}
+		// v0.14.12: a save holding Super Speed alongside other mutations keeps whichever is selected
+		com.projecthero.mod.hero.data.ExperimentalState es = ExperimentalPowers.state(player);
+		if (es.ownedPowers.contains(SOLO_MUTATION) && es.ownedPowers.size() > 1) {
+			boolean keepSpeed = SOLO_MUTATION.equals(es.activePower);
+			for (String key : java.util.List.copyOf(es.ownedPowers)) {
+				com.projecthero.mod.hero.Power p = Powers.byKey(key);
+				if (p != null && (keepSpeed != SOLO_MUTATION.equals(key))) {
+					ExperimentalPowers.forget(player, p);
+				}
+			}
 			changed = true;
 		}
 		if (changed) {

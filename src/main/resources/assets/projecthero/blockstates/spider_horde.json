@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "active=false": {
+      "model": "projecthero:block/spider_horde"
+    },
+    "active=true": {
+      "model": "projecthero:block/spider_horde_active"
+    }
+  }
+}

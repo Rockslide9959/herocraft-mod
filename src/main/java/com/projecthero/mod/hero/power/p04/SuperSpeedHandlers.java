@@ -870,6 +870,11 @@ public final class SuperSpeedHandlers {
 			Vec3 dir = new Vec3(player.getX() - last.x, 0, player.getZ() - last.z).normalize();
 			overdriveBurst(sl, player, dir);
 		}
+		// v0.14.12: ordinary armour can't take Overdrive -- every second of running costs each worn piece 10 durability.
+		// Only the Flash Suit is built for it.
+		if (overdrive && speed > RUNNING_SPEED && player.tickCount % 20 == 0 && !player.getAbilities().instabuild) {
+			wearArmour(player);
+		}
 		// v0.14.7: the Overdrive trail crackles -- small spark bursts at your heels (the arcs between the red
 		// after-images are drawn client-side)
 		if (overdrive && speed > 0.15 && player.tickCount % 2 == 1 && last != null) {
@@ -955,6 +960,28 @@ public final class SuperSpeedHandlers {
 	/** Whether Speed Mode is on (server). */
 	public static boolean speedMode(ServerPlayer p) {
 		return ExperimentalPowers.state(p).activeToggles.contains(KEY + "/speed_mode");
+	}
+
+	/** v0.14.12: Overdrive's toll on armour that isn't the Flash Suit (per second of running). */
+	public static final int OVERDRIVE_ARMOUR_WEAR = 10;
+
+	/** One second of Overdrive running: every worn piece that can wear (and isn't Flash Suit) loses {@link #OVERDRIVE_ARMOUR_WEAR}. */
+	public static void wearArmour(ServerPlayer player) {
+		boolean worn = false;
+		for (net.minecraft.world.entity.EquipmentSlot slot : new net.minecraft.world.entity.EquipmentSlot[] {
+				net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST,
+				net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET }) {
+			net.minecraft.world.item.ItemStack stack = player.getItemBySlot(slot);
+			if (stack.isEmpty() || !stack.isDamageableItem() || com.projecthero.mod.flash.FlashSuit.isSuit(stack)) {
+				continue;
+			}
+			stack.hurtAndBreak(OVERDRIVE_ARMOUR_WEAR, player, slot);
+			worn = true;
+		}
+		if (worn && player.tickCount % 100 == 0) {
+			player.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.speed.armour_tearing")
+					.withStyle(net.minecraft.ChatFormatting.RED), true);
+		}
 	}
 
 	/**

@@ -313,7 +313,7 @@ public final class MutationManager {
 		// Hero-Tier powers the oldest is replaced (and the Symbiote is removed); with one or none nothing is
 		// lost. Mutations still stack with each other up to the mutation capacity.
 		int heroesBefore = com.projecthero.mod.hero.HeroTiers.heroCount(player);
-		if (com.projecthero.mod.hero.HeroTiers.claimExperimental(player)
+		if (com.projecthero.mod.hero.HeroTiers.claimMutation(player, power)
 				&& com.projecthero.mod.hero.HeroTiers.heroCount(player) < heroesBefore) {
 			player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
 					"message.projecthero.mutation.replaced_hero_tier").withStyle(net.minecraft.ChatFormatting.YELLOW), false);

@@ -300,6 +300,7 @@ public final class SuperSpeedClientV0145 {
 			PlayerModel<AbstractClientPlayer> model = pr.getModel();
 			ResourceLocation skin = acp.getSkin().texture();
 			boolean own = player == mc.player;
+			boolean wearsArmour = GhostArmour.wearsAny(acp);
 			Vec3 at = acp.getPosition(partial);
 			Vec3 heading = at.subtract(acp.xo, acp.yo, acp.zo);
 			Snapshot prevRed = null;
@@ -364,6 +365,16 @@ public final class SuperSpeedClientV0145 {
 				}
 				model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(skin)),
 						LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, color);
+				// v0.14.12: whatever armour they wear shows on the copy too, ghosted the same way
+				if (wearsArmour) {
+					SpeedRunPose.overrideWeight = s.run();
+					try {
+						GhostArmour.render(pr, acp, pose, buffers, color, s.limbPos(), s.limbSpeed(), acp.tickCount + partial,
+								s.headYaw() - s.bodyYaw(), s.pitch(), partial);
+					} finally {
+						SpeedRunPose.overrideWeight = Float.NaN;
+					}
+				}
 				pose.popPose();
 			}
 		}

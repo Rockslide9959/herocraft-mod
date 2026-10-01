@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "active=false": {
+      "model": "projecthero:block/skeleton_horde"
+    },
+    "active=true": {
+      "model": "projecthero:block/skeleton_horde_active"
+    }
+  }
+}

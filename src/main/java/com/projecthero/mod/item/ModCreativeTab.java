@@ -93,6 +93,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.kryptonian.item.KryptonianItems.addToCreativeTab(output);
 				// v0.14.11: the Flash Suit (the ring itself only exists holding a suit)
 				com.projecthero.mod.flash.FlashSuit.addToCreativeTab(output);
+				// v0.14.12: the Horde blocks and the new mobs' spawn eggs
+				com.projecthero.mod.horde.HordeBlocks.addToCreativeTab(output);
 				// Moon Knight: the Scarab of Khonshu (loot-only in survival) and the Altar of Khonshu.
 				com.projecthero.mod.moonknight.temple.KhonshuTemple.addToCreativeTab(output);
 				// Thor: the H-conjured armour (creative-only for testing; in survival it is summoned, not crafted).

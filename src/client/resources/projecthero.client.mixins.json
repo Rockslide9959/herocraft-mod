@@ -4,6 +4,10 @@
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
 		"AbstractClientPlayerHulkFovMixin",
+		"CompositeStateAccessor",
+		"LivingEntityRendererLayersAccessor",
+		"RenderTypeCompositeInvoker",
+		"TextureShardInvoker",
 		"ClientLevelMixin",
 		"EntityGlowMixin",
 		"FirearmAttackMixin",

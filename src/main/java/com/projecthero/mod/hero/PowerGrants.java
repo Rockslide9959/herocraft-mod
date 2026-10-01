@@ -81,10 +81,11 @@ public final class PowerGrants {
 	 * two heroes, the Symbiote AND mutations.
 	 */
 	public static boolean grantExperimental(ServerPlayer target, Power power) {
+		// v0.14.12: Super Speed replaces other mutations -- but a player whose slots are all full still keeps everything
 		if (!power.enabled() || ExperimentalPowers.owns(target, power) || ExperimentalPowers.atCapacity(target)) {
 			return false;
 		}
-		HeroTiers.claimExperimental(target);
+		HeroTiers.claimMutation(target, power);
 		boolean ok = ExperimentalPowers.grant(target, power);
 		if (ok) {
 			PowerPassives.reconcileActive(target);

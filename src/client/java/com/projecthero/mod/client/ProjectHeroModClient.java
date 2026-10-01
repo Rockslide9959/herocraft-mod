@@ -119,6 +119,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		// v0.14.8: the Kryptonian -- HUD, heat-vision beams, the meteor renderer
 		com.projecthero.mod.client.kryptonian.KryptonianClient.initialize();
 		com.projecthero.mod.client.flash.FlashClient.initialize(); // v0.14.11
+		com.projecthero.mod.client.horde.HordeClient.initialize(); // v0.14.12
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SymbioteHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SquadLocatorBarHud::render);
@@ -576,6 +577,25 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		return power != null && power.hasSlot(com.projecthero.mod.hero.AbilitySlot.byNumber(slot));
 	}
 
+	/**
+	 * v0.14.12: the power wheel only switches between experimental powers (mutations). It opens only for a player who
+	 * owns one that can be switched to -- never for a Hero-Tier power, and never for Super Speed, which stands alone.
+	 */
+	private static boolean powerWheelAvailable(Minecraft client) {
+		LocalPlayer p = client.player;
+		com.projecthero.mod.hero.data.ExperimentalState st = p == null ? null : p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		if (st == null) {
+			return false;
+		}
+		for (String key : st.ownedPowers) {
+			com.projecthero.mod.hero.Power power = com.projecthero.mod.hero.Powers.byKey(key);
+			if (power != null && power.enabled() && !com.projecthero.mod.hero.HeroTiers.SOLO_MUTATION.equals(key)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** v0.14.5: whether a mutation is selected at all (and Mjolnir is not in hand) -- Sneak+N combos need no N slot. */
 	private static boolean mutationSelected(Minecraft client) {
 		LocalPlayer p = client.player;
@@ -700,8 +720,12 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			} else if (!Screen.hasShiftDown() && mutationHasUtility(client, 7)) {
 				// v0.13.22: a mutation with H / N abilities -- plain H is its Utility 1; Shift+H opens the power wheel.
 				pressUtility(7);
-			} else {
+			} else if (powerWheelAvailable(client)) {
 				client.setScreen(new PowerWheelScreen());
+			} else if (client.player != null) {
+				// v0.14.12: the wheel is for the experimental powers only -- Hero-Tier powers and Super Speed have none
+				client.player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+						"message.projecthero.power_wheel.none").withStyle(net.minecraft.ChatFormatting.GRAY), true);
 			}
 		}
 		if (!down && powerSelectWasDown && client.player != null && com.projecthero.mod.titanshifter.TitanShifter.isShifter(client.player)

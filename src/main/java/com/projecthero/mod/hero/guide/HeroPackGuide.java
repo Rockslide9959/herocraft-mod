@@ -262,7 +262,8 @@ public final class HeroPackGuide {
 	private static final int CH_MOON_KNIGHT = 23;
 	private static final int CH_SUPER_SOLDIER = 24;
 	private static final int CH_KRYPTONIAN = 25;
-	private static final int CHAPTER_POWER_BASE = 26;
+	private static final int CH_HORDES = 26;
+	private static final int CHAPTER_POWER_BASE = 27;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -902,6 +903,15 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.kryptonian.commands");
 			para(lines, "projecthero.guide.kryptonian.commands.body");
 		}));
+		// v0.14.12: the Horde blocks
+		out.add(chapter("projecthero.guide.hordes", lines -> {
+			para(lines, "projecthero.guide.hordes.body");
+			for (String section : new String[]{"rules", "zombie", "skeleton", "spider", "rewards", "commands"}) {
+				blank(lines);
+				head(lines, "projecthero.guide.hordes." + section);
+				para(lines, "projecthero.guide.hordes." + section + ".body");
+			}
+		}));
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -947,6 +957,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.abyssal_behemoth", CH_ABYSSAL_BEHEMOTH);
 		link(idx, "projecthero.guide.oathbreaker", CH_OATHBREAKER);
 		link(idx, "projecthero.guide.darkseid_raid", CH_DARKSEID_RAID);
+		link(idx, "projecthero.guide.hordes", CH_HORDES);
 
 		section(idx, "projecthero.guide.section.squads", true);
 		link(idx, "projecthero.guide.squads", CH_SQUADS);

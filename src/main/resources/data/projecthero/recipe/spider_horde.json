@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "XXX",
+    "XXX",
+    "XXX"
+  ],
+  "key": {
+    "X": {
+      "item": "minecraft:spider_eye"
+    }
+  },
+  "result": {
+    "id": "projecthero:spider_horde",
+    "count": 1
+  }
+}

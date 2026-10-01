@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "active=false": {
+      "model": "projecthero:block/zombie_horde"
+    },
+    "active=true": {
+      "model": "projecthero:block/zombie_horde_active"
+    }
+  }
+}
