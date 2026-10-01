@@ -103,6 +103,7 @@ public final class SquadScreen extends Screen {
 			new HelpEntry("/squad kick <player>", "/squad kick ", "screen.projecthero.squad.help.kick"),
 			new HelpEntry("/squad rename <name>", "/squad rename ", "screen.projecthero.squad.help.rename"),
 			new HelpEntry("/squad disband", "/squad disband", "screen.projecthero.squad.help.disband"),
+			new HelpEntry("/squad friendlyfire on|off", "/squad friendlyfire ", "screen.projecthero.squad.help.friendlyfire"),
 	};
 
 	private record HitBox(int x0, int y0, int x1, int y1, String insert) {
@@ -136,6 +137,8 @@ public final class SquadScreen extends Screen {
 	private FlatButton locatorButton;
 	private FlatButton helpButton;
 	private FlatButton closeButton;
+	/** v0.14.16: the leader's friendly-fire switch (hidden for everyone else). */
+	private FlatButton friendlyFireButton;
 
 	public SquadScreen() {
 		super(Component.translatable("screen.projecthero.squad"));
@@ -153,7 +156,33 @@ public final class SquadScreen extends Screen {
 			b.setMessage(helpButtonLabel());
 		}));
 		closeButton = addRenderableWidget(new FlatButton(Component.translatable("gui.done"), b -> onClose()));
+		// v0.14.16: only a request -- the server checks the sender leads the squad, then the next roster flips the label
+		friendlyFireButton = addRenderableWidget(new FlatButton(friendlyFireButtonLabel(), b -> {
+			if (net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(
+					com.projecthero.mod.network.SquadFriendlyFirePayload.TYPE)) {
+				net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
+						new com.projecthero.mod.network.SquadFriendlyFirePayload(!SquadClient.get().friendlyFire()));
+			}
+		}));
 		layout();
+	}
+
+	private static Component friendlyFireButtonLabel() {
+		boolean on = SquadClient.get().friendlyFire();
+		return Component.translatable("screen.projecthero.squad.friendly_fire_button",
+				Component.translatable(on ? "options.on" : "options.off")
+						.withStyle(on ? ChatFormatting.RED : ChatFormatting.GRAY));
+	}
+
+	/** v0.14.16: whether the local player leads the squad on screen. */
+	private boolean leading(SquadInfoPayload squad) {
+		UUID self = selfId();
+		for (SquadInfoPayload.Member m : squad.members()) {
+			if (m.leader() && m.id().equals(self)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static Component locatorButtonLabel() {
@@ -221,18 +250,24 @@ public final class SquadScreen extends Screen {
 		}
 		helpButton.visible = inSquad(squad);
 		helpButton.setMessage(helpButtonLabel());
+		// v0.14.16: the friendly-fire switch, for the leader only
+		friendlyFireButton.visible = inSquad(squad) && leading(squad);
+		friendlyFireButton.setMessage(friendlyFireButtonLabel());
 
 		int y = panelY + panelH - FOOTER_H + 6;
 		int avail = panelW - 2 * PAD;
 		int gap = 4;
+		int gaps = 1 + (helpButton.visible ? 1 : 0) + (friendlyFireButton.visible ? 1 : 0);
 		int lw = this.font.width(locatorButton.getMessage()) + 16;
 		int hw = helpButton.visible ? this.font.width(helpButton.getMessage()) + 16 : 0;
+		int fw = friendlyFireButton.visible ? this.font.width(friendlyFireButton.getMessage()) + 16 : 0;
 		int cw = Math.max(50, this.font.width(closeButton.getMessage()) + 16);
-		int total = lw + hw + cw + gap * (helpButton.visible ? 2 : 1);
+		int total = lw + hw + fw + cw + gap * gaps;
 		if (total > avail) {
-			float k = (avail - gap * (helpButton.visible ? 2 : 1)) / (float) (lw + hw + cw);
+			float k = (avail - gap * gaps) / (float) (lw + hw + fw + cw);
 			lw = (int) (lw * k);
 			hw = (int) (hw * k);
+			fw = (int) (fw * k);
 			cw = (int) (cw * k);
 		}
 		int x = panelX + PAD;
@@ -240,6 +275,10 @@ public final class SquadScreen extends Screen {
 		x += lw + gap;
 		if (helpButton.visible) {
 			place(helpButton, x, y, hw);
+			x += hw + gap;
+		}
+		if (friendlyFireButton.visible) {
+			place(friendlyFireButton, x, y, fw);
 		}
 		place(closeButton, panelX + panelW - PAD - cw, y, cw);
 	}
@@ -367,8 +406,17 @@ public final class SquadScreen extends Screen {
 				: "screen.projecthero.squad.role.member"), sx, sy, leading ? GOLD : 0xFF8FB4FF) + 5;
 		g.fill(sx, sy + 4, sx + 3, sy + 7, online > 0 ? ONLINE_GREEN : OFFLINE);
 		sx += 6;
-		g.drawString(this.font, Component.translatable("screen.projecthero.squad.online", online),
-				sx, sy + 2, TEXT_DIM, false);
+		Component onlineText = Component.translatable("screen.projecthero.squad.online", online);
+		g.drawString(this.font, onlineText, sx, sy + 2, TEXT_DIM, false);
+		// v0.14.16: friendly fire, for everyone to see (red while it is on)
+		sx += this.font.width(onlineText) + 6;
+		boolean ff = squad.friendlyFire();
+		Component ffChip = Component.translatable(ff ? "screen.projecthero.squad.friendly_fire.on"
+				: "screen.projecthero.squad.friendly_fire.off");
+		int room = pipX - 6 - sx;
+		if (room > 24) {
+			drawChip(g, ffChip, sx, sy, ff ? HP_RED : TEXT_FAINT, room);
+		}
 	}
 
 	private void renderEmptyHeader(GuiGraphics g) {

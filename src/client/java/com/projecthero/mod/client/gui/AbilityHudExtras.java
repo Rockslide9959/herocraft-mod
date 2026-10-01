@@ -45,6 +45,7 @@ public final class AbilityHudExtras {
 	private static final Set<String> MONO = new HashSet<>();
 	private static final Map<String, List<AboveSource>> ABOVE = new HashMap<>();
 	private static final Map<String, Decor> DECOR = new HashMap<>();
+	private static final Map<String, Decor> HEADER = new HashMap<>();
 
 	private AbilityHudExtras() {
 	}
@@ -63,6 +64,18 @@ public final class AbilityHudExtras {
 
 	public static void registerDecor(String powerKey, Decor decor) {
 		DECOR.put(powerKey, decor);
+	}
+
+	/**
+	 * v0.14.16: a line drawn just ABOVE the power name ({@code x} = the HUD's left edge, {@code y} = one text line over
+	 * the name), e.g. Super Speed's "Suit 87%" while the Flash Suit is packed in the worn ring. Draws nothing to skip.
+	 */
+	public static void registerHeader(String powerKey, Decor header) {
+		HEADER.put(powerKey, header);
+	}
+
+	static Decor header(String powerKey) {
+		return HEADER.get(powerKey);
 	}
 
 	static List<AboveBar> above(String powerKey, Minecraft client, ExperimentalState state, long gameTime) {

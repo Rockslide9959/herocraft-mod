@@ -12,8 +12,8 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.UUIDUtil;
 
 /**
- * One squad: a named group of players who cannot hurt each other and can see each other on the squad
- * screen (P). Deliberately its own concept rather than a vanilla scoreboard team -- a scoreboard team
+ * One squad: a named group of players who cannot hurt each other (unless the leader turns friendly fire on,
+ * v0.14.16) and can see each other on the squad screen (P). Deliberately its own concept rather than a vanilla scoreboard team -- a scoreboard team
  * is server-admin furniture that players cannot create or manage themselves, and this has to be
  * something any player can spin up mid-session with {@code /squad create}.
  *
@@ -25,24 +25,38 @@ public final class Squad {
 			UUIDUtil.STRING_CODEC.fieldOf("id").forGetter(s -> s.id),
 			Codec.STRING.fieldOf("name").forGetter(s -> s.name),
 			UUIDUtil.STRING_CODEC.fieldOf("leader").forGetter(s -> s.leader),
-			UUIDUtil.STRING_CODEC.listOf().fieldOf("members").forGetter(s -> new ArrayList<>(s.members))
+			UUIDUtil.STRING_CODEC.listOf().fieldOf("members").forGetter(s -> new ArrayList<>(s.members)),
+			// v0.14.16: optional, so a squad saved before friendly fire existed loads with it off
+			Codec.BOOL.optionalFieldOf("friendly_fire", false).forGetter(s -> s.friendlyFire)
 	).apply(instance, Squad::new));
 
 	private final UUID id;
 	private String name;
 	private UUID leader;
 	private final Set<UUID> members = new LinkedHashSet<>();
+	/** v0.14.16: the leader's switch -- when on, squadmates' attacks land on each other like anyone else's. Off by default. */
+	private boolean friendlyFire;
 
-	private Squad(UUID id, String name, UUID leader, List<UUID> members) {
+	private Squad(UUID id, String name, UUID leader, List<UUID> members, boolean friendlyFire) {
 		this.id = id;
 		this.name = name;
 		this.leader = leader;
 		this.members.addAll(members);
 		this.members.add(leader);
+		this.friendlyFire = friendlyFire;
 	}
 
 	static Squad create(String name, UUID leader) {
-		return new Squad(UUID.randomUUID(), name, leader, List.of(leader));
+		return new Squad(UUID.randomUUID(), name, leader, List.of(leader), false);
+	}
+
+	/** v0.14.16: whether squadmates can hurt each other. */
+	public boolean friendlyFire() {
+		return friendlyFire;
+	}
+
+	void setFriendlyFire(boolean on) {
+		this.friendlyFire = on;
 	}
 
 	public UUID id() {

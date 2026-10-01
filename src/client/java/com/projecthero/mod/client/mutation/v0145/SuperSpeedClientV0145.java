@@ -91,6 +91,16 @@ public final class SuperSpeedClientV0145 {
 			}
 			g.drawString(client.font, "- " + text, x, y, color);
 		});
+		// v0.14.16: while the Flash Suit is packed in the worn Flash Ring, its overall durability sits just above the HUD
+		AbilityHudExtras.registerHeader(SuperSpeedHandlers.KEY, (g, client, state, x, y) -> {
+			int pct = client.player == null ? -1 : com.projecthero.mod.flash.FlashRing.storedDurabilityPercent(client.player);
+			if (pct < 0) {
+				return;
+			}
+			int color = pct <= 25 ? 0xFFFF4040 : pct <= 50 ? 0xFFFFD83A : 0xFFC8C8C8;
+			g.drawString(client.font, net.minecraft.network.chat.Component.translatable("hud.projecthero.flash_suit_durability", pct),
+					x, y, color, false);
+		});
 		ClientTickEvents.END_CLIENT_TICK.register(SuperSpeedClientV0145::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(SpeedRunPose::tick);
 		TimeSlowClient.init();

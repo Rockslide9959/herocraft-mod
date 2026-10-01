@@ -120,6 +120,35 @@ public final class FlashRing {
 		return !ring.isEmpty() && FlashRingItem.pieces(ring) > 0;
 	}
 
+	/**
+	 * v0.14.16: the overall durability left in the suit packed in {@code ring}, 0-100 (rounded down, so 100 means fully
+	 * mended): remaining durability summed over every stored piece that wears, over their summed maximum. -1 when the
+	 * ring holds no such piece. Works on either side -- the HUD reads it from the client's copy of the worn ring (the
+	 * chestplate-slot item, or the FLASH_RING attachment, both synced with their CONTAINER contents).
+	 */
+	public static int storedDurabilityPercent(ItemStack ring) {
+		if (ring.isEmpty()) {
+			return -1;
+		}
+		long max = 0;
+		long left = 0;
+		for (ItemStack piece : contents(ring)) {
+			if (piece.isDamageableItem()) {
+				max += piece.getMaxDamage();
+				left += piece.getMaxDamage() - piece.getDamageValue();
+			}
+		}
+		if (max <= 0) {
+			return -1;
+		}
+		return (int) Math.max(0, Math.min(100, Math.floor(left * 100.0 / max)));
+	}
+
+	/** v0.14.16: {@link #storedDurabilityPercent} of the ring this player wears holding the suit; -1 if none. */
+	public static int storedDurabilityPercent(Player player) {
+		return holdsSuit(player) ? storedDurabilityPercent(storedRing(player)) : -1;
+	}
+
 	/** v0.14.14: puts a ring holding the suit into the chestplate slot if it is free, else onto the finger. */
 	private static void store(ServerPlayer player, ItemStack ring) {
 		if (FlashRingItem.pieces(ring) > 0 && player.getItemBySlot(EquipmentSlot.CHEST).isEmpty()) {

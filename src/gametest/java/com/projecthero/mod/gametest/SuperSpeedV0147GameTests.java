@@ -220,7 +220,8 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		helper.assertTrue(SuperSpeedMoves.sweeping(p), "the sweep starts");
 		helper.assertFalse(ServerLivingEntityEvents.ALLOW_DAMAGE.invoker().allowDamage(p,
 				helper.getLevel().damageSources().mobAttack(a), 5f), "untouchable mid-sweep");
-		for (int i = 0; i < 40 && SuperSpeedMoves.sweeping(p); i++) {
+		// v0.14.16: 50-block radius, runs until every target is hit -- a stray it can't reach outside the cage takes 5 s
+		for (int i = 0; i < 600 && SuperSpeedMoves.sweeping(p); i++) {
 			SuperSpeedMoves.sweepTick(p);
 		}
 		helper.assertFalse(SuperSpeedMoves.sweeping(p), "the sweep finishes");

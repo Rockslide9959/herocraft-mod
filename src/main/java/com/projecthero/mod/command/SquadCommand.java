@@ -37,6 +37,7 @@ import net.minecraft.server.level.ServerPlayer;
  *   /squad kick &lt;player&gt;         leader only
  *   /squad rename &lt;name&gt;         leader only
  *   /squad disband               leader only
+ *   /squad friendlyfire on|off   leader only (v0.14.16; bare: how it is set)
  * </pre>
  *
  * <p>No permission level is required for any of it: a squad is a social arrangement, not an admin one.
@@ -71,7 +72,38 @@ public final class SquadCommand {
 				.then(Commands.literal("rename")
 						.then(Commands.argument("name", StringArgumentType.greedyString())
 								.executes(ctx -> rename(ctx.getSource(), StringArgumentType.getString(ctx, "name")))))
-				.then(Commands.literal("disband").executes(ctx -> disband(ctx.getSource())));
+				.then(Commands.literal("disband").executes(ctx -> disband(ctx.getSource())))
+				// v0.14.16: the leader's friendly-fire switch (bare: say how it is set)
+				.then(Commands.literal("friendlyfire")
+						.executes(ctx -> friendlyFireStatus(ctx.getSource()))
+						.then(Commands.literal("on").executes(ctx -> friendlyFire(ctx.getSource(), true)))
+						.then(Commands.literal("off").executes(ctx -> friendlyFire(ctx.getSource(), false))));
+	}
+
+	private static int friendlyFireStatus(CommandSourceStack source)
+			throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+		ServerPlayer player = source.getPlayerOrException();
+		Squad squad = SquadManager.get(player.server).squadOf(player.getUUID());
+		if (squad == null) {
+			source.sendFailure(Component.translatable("commands.projecthero.squad.none"));
+			return 0;
+		}
+		boolean on = squad.friendlyFire();
+		source.sendSuccess(() -> Component.translatable("commands.projecthero.squad.friendly_fire.status",
+				Component.translatable(on ? "options.on" : "options.off")
+						.withStyle(on ? ChatFormatting.RED : ChatFormatting.GREEN)).withStyle(ChatFormatting.AQUA), false);
+		return on ? 1 : 0;
+	}
+
+	private static int friendlyFire(CommandSourceStack source, boolean on)
+			throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+		ServerPlayer player = source.getPlayerOrException();
+		Component refused = Squads.setFriendlyFire(player, on);
+		if (refused != null) {
+			source.sendFailure(refused);
+			return 0;
+		}
+		return 1;
 	}
 
 	// ---------------- subcommands ----------------
@@ -92,6 +124,10 @@ public final class SquadCommand {
 		}
 		source.sendSuccess(() -> Component.translatable("commands.projecthero.squad.header", squad.name(), squad.size())
 				.withStyle(ChatFormatting.AQUA), false);
+		boolean ff = squad.friendlyFire(); // v0.14.16
+		source.sendSuccess(() -> Component.translatable("commands.projecthero.squad.friendly_fire.status",
+				Component.translatable(ff ? "options.on" : "options.off")
+						.withStyle(ff ? ChatFormatting.RED : ChatFormatting.GREEN)).withStyle(ChatFormatting.GRAY), false);
 		for (var id : squad.members()) {
 			ServerPlayer member = player.server.getPlayerList().getPlayer(id);
 			String name = member != null ? member.getGameProfile().getName() : id.toString().substring(0, 8);

@@ -60,6 +60,11 @@ public final class SuperSpeedHandlers {
 	private static final int OVERDRIVE_TICKS = 30 * 20;
 	/** Countdown mirror of {@link #OVERDRIVE_UNTIL} purely so the ability HUD can draw an Overdrive bar. */
 	public static final String OVERDRIVE_LEFT = "overdrive_ticks";
+	/**
+	 * v0.14.16: 1 once V has been let go since Overdrive started -- only a press after that ends it early (the OS key
+	 * repeat of the press that started it arrives as more "pressed" packets; same rule as {@link #TS_RELEASED}).
+	 */
+	public static final String OD_RELEASED = "od_released";
 
 	/** 1 while Shift+C Phase is held. Owner-synced, so the local player's collision mixin can read it. */
 	public static final String PHASING = "phasing";
@@ -105,7 +110,42 @@ public final class SuperSpeedHandlers {
 	 * stays manageable in a fight. (0.1 x (1 + 0.3 + 3.54) = 0.484, half the sprinting 0.1 x 7.45 x 1.3.)
 	 */
 	public static final double SPEED_MODE_WALK_BONUS = 3.54;
-	public static final double OVERDRIVE_BONUS = 17.3;
+
+	/**
+	 * v0.14.16: blocks per second per point of the MOVEMENT_SPEED attribute, running on flat ground. Each ground tick a
+	 * player gains {@code speed x 0.98} (the 0.98-long input vector; {@code 0.216 / friction^3} is exactly 1 on a
+	 * 0.6-friction block) and keeps {@code 0.6 x 0.91 = 0.546} of last tick's velocity, so the steady state is
+	 * {@code speed x 0.98 / (1 - 0.546)} = 2.159 x speed blocks/tick = 43.17 x speed blocks/s. Check: vanilla walking
+	 * (0.1) gives 4.317 b/s and sprinting (0.13) 5.612 -- the published figures -- and the old calibration (bonus 4.7 ran
+	 * ~32 b/s sprinting) fits too: 0.1 x (1 + 0.3 + 4.7) x 1.3 x 43.17 = 33.7.
+	 */
+	public static final double BLOCKS_PER_SECOND_PER_SPEED = 0.98 / (1.0 - 0.6 * 0.91) * 20.0;
+	/** Vanilla base MOVEMENT_SPEED of a player, and sprinting's own x1.3 (an ADD_MULTIPLIED_TOTAL of +0.3). */
+	public static final double BASE_MOVEMENT_SPEED = 0.1;
+	public static final double SPRINT_MULTIPLIER = 1.3;
+
+	/**
+	 * v0.14.16: flat-ground blocks/s for a mode bonus (an ADD_MULTIPLIED_BASE on movement speed, stacked with the
+	 * passive +30%): {@code 0.1 x (1 + 0.3 + bonus) [x 1.3 sprinting] x 43.17}. Not counting the Flash Suit's own x1.5.
+	 */
+	public static double blocksPerSecond(double bonus, boolean sprinting) {
+		return BASE_MOVEMENT_SPEED * (1.0 + PASSIVE_SPEED_BONUS + bonus) * (sprinting ? SPRINT_MULTIPLIER : 1.0)
+				* BLOCKS_PER_SECOND_PER_SPEED;
+	}
+
+	/** v0.14.16: the inverse of {@link #blocksPerSecond} -- the mode bonus that runs at {@code blocksPerSecond}. */
+	public static double bonusFor(double blocksPerSecond, boolean sprinting) {
+		return blocksPerSecond / BLOCKS_PER_SECOND_PER_SPEED / (sprinting ? SPRINT_MULTIPLIER : 1.0) / BASE_MOVEMENT_SPEED
+				- 1.0 - PASSIVE_SPEED_BONUS;
+	}
+
+	/** v0.14.16: Overdrive's target speeds, walking and sprinting (was ~104 b/s sprinting, the same bonus walking). */
+	public static final double OVERDRIVE_WALK_BPS = 32.0;
+	public static final double OVERDRIVE_SPRINT_BPS = 100.0;
+	/** v0.14.16: Overdrive walking -- 0.1 x (1.3 + 6.112) x 43.17 = 32 blocks/s. */
+	public static final double OVERDRIVE_WALK_BONUS = bonusFor(OVERDRIVE_WALK_BPS, false);
+	/** Overdrive sprinting -- v0.14.16: 0.1 x (1.3 + 16.519) x 1.3 x 43.17 = 100 blocks/s (was 17.3, ~104). */
+	public static final double OVERDRIVE_BONUS = bonusFor(OVERDRIVE_SPRINT_BPS, true);
 	public static final double OD_STEP_BONUS = 9.4;
 
 	private static final ResourceLocation SM_SPEED = com.projecthero.mod.ProjectHeroMod.id("speed_mode_speed");
@@ -183,7 +223,8 @@ public final class SuperSpeedHandlers {
 		// X -- Momentum Dash: a burst along exactly where you are looking (up, down or level). Shift+X -- Speed Sweep.
 		AbilityHandlers.register(KEY, "momentum_dash", Handlers.hold(ctx -> {
 			ServerPlayer p = ctx.player();
-			if (p.isShiftKeyDown()) {
+			// v0.14.16: X during a sweep (Shift or not) goes to the sweep too -- a fresh press calls it off
+			if (p.isShiftKeyDown() || SuperSpeedMoves.sweeping(p)) {
 				SuperSpeedMoves.startSweep(ctx);
 				return;
 			}
@@ -199,7 +240,7 @@ public final class SuperSpeedHandlers {
 			BatchA.play(p, KEY, "dash_forward", 10);
 			AbilityHelpers.sound(p, SoundEvents.BREEZE_SHOOT, 0.6f, 1.8f);
 			ctx.triggerCooldown();
-		}, ctx -> { }));
+		}, ctx -> SuperSpeedMoves.sweepKeyReleased(ctx.player())));
 
 		// Z -- Time Slow: 45 s (v0.14.7) of everything else at 5%. v0.14.8: HOLD Z for 5 s to charge it (it fires by
 		// itself when full; letting go early cancels at no cost). Press Z during it to end it early; the 300 s cooldown
@@ -246,10 +287,13 @@ public final class SuperSpeedHandlers {
 		});
 
 		// V -- Overdrive: 30 s of the fastest tier; your blows land twice as hard and a red trail follows you.
+		// v0.14.16: V again while it runs ends it early (see interceptDispatch -- the INSTANT slot's cooldown gate would
+		// swallow that second press before it got here).
 		AbilityHandlers.register(KEY, "overdrive", Handlers.instant(ctx -> {
 			ServerPlayer p = ctx.player();
 			set(p, OVERDRIVE_UNTIL, p.level().getGameTime() + OVERDRIVE_TICKS);
 			set(p, OVERDRIVE_LEFT, OVERDRIVE_TICKS);
+			set(p, OD_RELEASED, 0);
 			reconcileSpeed(p);
 			p.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, OVERDRIVE_TICKS, 2, false, true, true));
 			BatchA.ring(ctx.level(), p.position().add(0, 0.2, 0), 0.6, ParticleTypes.ELECTRIC_SPARK, 30, 0.8);
@@ -284,6 +328,10 @@ public final class SuperSpeedHandlers {
 				// ... nor a Time Slow charge (Z is not held any more either)
 				if (timeSlowCharging(player)) {
 					cancelTimeSlowCharge(player);
+				}
+				// v0.14.16: ... and V is not held either, so the next press may end an Overdrive saved mid-run
+				if (overdrive(player)) {
+					set(player, OD_RELEASED, 1);
 				}
 			} else {
 				PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, PASSIVE_SPEED);
@@ -646,11 +694,45 @@ public final class SuperSpeedHandlers {
 			}
 			return true;
 		}
+		// v0.14.16: V while Overdrive runs -- a fresh press (V let go since it started) ends it early; the key repeat of
+		// the starting press is swallowed
+		if (slot == AbilitySlot.SLOT_5 && overdrive(p)) {
+			if (!pressed) {
+				set(p, OD_RELEASED, 1);
+			} else if (res(p, OD_RELEASED) > 0.5f) {
+				endOverdrive(p);
+			}
+			return true;
+		}
 		if (slot != AbilitySlot.SLOT_6 || !pressed || !p.isShiftKeyDown()) {
 			return false;
 		}
 		startPhase(p);
 		return true;
+	}
+
+	/**
+	 * v0.14.16: Overdrive ended early by a second V. The speed tier, haste and attack bonuses go at once; the cooldown
+	 * that started when it was switched on keeps running unchanged (it is counted from activation, so ending early
+	 * neither refunds nor lengthens it).
+	 */
+	public static void endOverdrive(ServerPlayer p) {
+		if (!overdrive(p)) {
+			return;
+		}
+		set(p, OVERDRIVE_UNTIL, 0);
+		set(p, OVERDRIVE_LEFT, 0);
+		set(p, OD_RELEASED, 0);
+		MobEffectInstance haste = p.getEffect(MobEffects.DIG_SPEED);
+		if (haste != null && haste.getAmplifier() == 2) {
+			p.removeEffect(MobEffects.DIG_SPEED); // Overdrive's
+		}
+		reconcileSpeed(p);
+		if (p.level() instanceof ServerLevel sl) {
+			sl.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1.0, p.getZ(), 16, 0.35, 0.6, 0.35, 0.05);
+		}
+		AbilityHelpers.sound(p, SoundEvents.BEACON_DEACTIVATE, 0.7f, 1.6f);
+		p.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.speed.overdrive_ended"), true);
 	}
 
 	// ---- Z: Time Slow charge-up (v0.14.8) --------------------------------------------------------
@@ -1052,7 +1134,9 @@ public final class SuperSpeedHandlers {
 	}
 
 	private static void applyOverdrive(ServerPlayer p) {
-		movementBoost(p, Attributes.MOVEMENT_SPEED, OD_SPEED, OVERDRIVE_BONUS, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		// v0.14.16: walking and sprinting are separate tiers, like Speed Mode's -- ~32 blocks/s walking, ~100 sprinting
+		movementBoost(p, Attributes.MOVEMENT_SPEED, OD_SPEED, p.isSprinting() ? OVERDRIVE_BONUS : OVERDRIVE_WALK_BONUS,
+				AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.ATTACK_SPEED, OD_ATTACK, 1.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		// "your attacks x2": melee doubles while Overdrive runs (the Super Speed moves double through overdriveMult)
 		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, OD_DAMAGE, 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);

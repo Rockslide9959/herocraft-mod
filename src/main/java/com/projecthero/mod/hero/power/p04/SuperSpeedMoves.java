@@ -48,8 +48,9 @@ import net.minecraft.world.phys.Vec3;
  *       Overdrive speed), a huge knockback and a shockwave ring. 10 s.</li>
  *   <li>Shift+G Speed Vortex -- 3 s of running circles around yourself: a cyclone that drags everything within 8
  *       blocks round and up, 3 damage every half second, then a final blast (8) that flings them out. 14 s.</li>
- *   <li>Shift+X Speed Sweep -- blink from enemy to enemy through everything hostile within 30 blocks (one hop every 2
- *       ticks, 12 each), then back to exactly where you stood. Untouchable while it runs. 20 s.</li>
+ *   <li>Shift+X Speed Sweep -- blink from enemy to enemy through everything hostile within 50 blocks (v0.14.16; was 30)
+ *       (one hop every 2 ticks, 15 each) until every one of them has been hit, then back to exactly where you stood.
+ *       Untouchable while it runs. 10 s.</li>
  * </ul>
  * Rapid Assault's punches also go through {@link #punchThrough} so each of its four blows lands in full.
  * Shift variants keep their own cooldowns as absolute ready-at game times in the power's resources
@@ -86,21 +87,92 @@ public final class SuperSpeedMoves {
 
 	public static final String SWEEP_READY = "sweep_ready";
 	public static final int SWEEP_CD = 10 * 20; // v0.14.13: was 20 s
-	public static final double SWEEP_RANGE = 30.0;
-	public static final int SWEEP_MAX_TARGETS = 16;
+	/** v0.14.16: 50 blocks (was 30, and at most 16 targets -- now every one). */
+	public static final double SWEEP_RANGE = 50.0;
 	public static final int SWEEP_HOP_TICKS = 2;
 	public static final float SWEEP_DAMAGE = 15.0f;
+	/** v0.14.16: a target with no free spot to land beside it for this long (sweep ticks) is given up on. */
+	public static final int SWEEP_UNREACHABLE_TICKS = 5 * 20;
+	/** v0.14.16: failsafe -- however many are left, a sweep ends (and brings you home) after this many ticks. */
+	public static final int SWEEP_MAX_TICKS = 60 * 20;
+	/** v0.14.16: how many of the nearest targets one hop tries before waiting for the next hop. */
+	private static final int SWEEP_TRIES_PER_HOP = 8;
+
+	/**
+	 * v0.14.16: who a Speed Sweep still has to hit. Every enemy in range when it starts goes in (a snapshot -- late
+	 * arrivals are left alone, so a raid or the night's spawns can't keep it running); one leaves the list when it is
+	 * hit, dies, despawns, stops being a foe or runs out of the radius, or when there has been nowhere to land beside it
+	 * for {@link #SWEEP_UNREACHABLE_TICKS}. The sweep ends once the list is empty. Pure bookkeeping (no world access),
+	 * so it is tested directly.
+	 */
+	public static final class SweepTargets {
+		/** target id -> sweep tick it was first found unreachable (-1 = not unreachable). Insertion order kept. */
+		private final Map<Integer, Integer> pending = new java.util.LinkedHashMap<>();
+		private final java.util.Set<Integer> hit = new java.util.HashSet<>();
+
+		public SweepTargets(java.util.Collection<Integer> ids) {
+			for (Integer id : ids) {
+				pending.put(id, -1);
+			}
+		}
+
+		public List<Integer> pending() {
+			return new ArrayList<>(pending.keySet());
+		}
+
+		public boolean isPending(int id) {
+			return pending.containsKey(id);
+		}
+
+		public void hit(int id) {
+			if (pending.remove(id) != null) {
+				hit.add(id);
+			}
+		}
+
+		public boolean wasHit(int id) {
+			return hit.contains(id);
+		}
+
+		public int hitCount() {
+			return hit.size();
+		}
+
+		/** Gone (dead, despawned, out of the radius, no longer a foe): nothing left to hit. */
+		public void drop(int id) {
+			pending.remove(id);
+		}
+
+		/** No free spot beside it this hop; the clock starts the first time. */
+		public void unreachable(int id, int tick) {
+			pending.computeIfPresent(id, (k, since) -> since < 0 ? tick : since);
+		}
+
+		/** Gives up on every target that has been unreachable for {@link #SWEEP_UNREACHABLE_TICKS}; returns how many. */
+		public int dropStale(int tick) {
+			int before = pending.size();
+			pending.values().removeIf(since -> since >= 0 && tick - since >= SWEEP_UNREACHABLE_TICKS);
+			return before - pending.size();
+		}
+
+		public boolean done() {
+			return pending.isEmpty();
+		}
+	}
 
 	private static final class Sweep {
 		final ResourceKey<Level> dim;
 		final Vec3 origin;
 		final float yaw;
 		final float pitch;
-		final List<Integer> targets;
-		int index;
+		final SweepTargets targets;
 		int wait;
+		/** v0.14.16: ticks the sweep has run (its own clock, for the failsafes). */
+		int age;
+		/** v0.14.16: X let go since the sweep started -- a fresh press then calls it off. */
+		boolean released;
 
-		Sweep(ResourceKey<Level> dim, Vec3 origin, float yaw, float pitch, List<Integer> targets) {
+		Sweep(ResourceKey<Level> dim, Vec3 origin, float yaw, float pitch, SweepTargets targets) {
 			this.dim = dim;
 			this.origin = origin;
 			this.yaw = yaw;
@@ -529,44 +601,69 @@ public final class SuperSpeedMoves {
 
 	public static void startSweep(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
-		if (sweeping(p)) {
+		Sweep running = SWEEPS.get(p.getUUID());
+		if (running != null) {
+			// v0.14.16: a fresh X press (let go since it started -- not the key repeat) calls the sweep off and brings you home
+			if (running.released) {
+				finishSweep(p, running);
+			}
 			return;
 		}
 		if (!shiftReady(p, SWEEP_READY)) {
 			cooldownMessage(p, "speed_sweep", shiftRemaining(p, SWEEP_READY));
 			return;
 		}
-		List<LivingEntity> found = new ArrayList<>(AbilityHelpers.living(p.serverLevel(), p.position(), SWEEP_RANGE,
-				e -> sweepTarget(p, e)));
+		List<Integer> found = new ArrayList<>();
+		for (LivingEntity e : AbilityHelpers.living(p.serverLevel(), p.position(), SWEEP_RANGE, e -> sweepTarget(p, e))) {
+			found.add(e.getId());
+		}
 		if (found.isEmpty()) {
 			noTarget(p);
 			return;
 		}
-		// nearest-neighbour order, so the hops chain across the field instead of zig-zagging
-		List<Integer> order = new ArrayList<>();
-		Vec3 at = p.position();
-		while (!found.isEmpty() && order.size() < SWEEP_MAX_TARGETS) {
-			LivingEntity next = null;
-			double best = Double.MAX_VALUE;
-			for (LivingEntity e : found) {
-				double d = e.distanceToSqr(at);
-				if (d < best) {
-					best = d;
-					next = e;
-				}
-			}
-			found.remove(next);
-			order.add(next.getId());
-			at = next.position();
-		}
-		SWEEPS.put(p.getUUID(), new Sweep(p.level().dimension(), p.position(), p.getYRot(), p.getXRot(), order));
+		SWEEPS.put(p.getUUID(), new Sweep(p.level().dimension(), p.position(), p.getYRot(), p.getXRot(),
+				new SweepTargets(found)));
 		startShiftCooldown(p, SWEEP_READY, SWEEP_CD);
 		BatchA.play(p, key(), "p04.sweep");
 		AbilityHelpers.sound(p, SoundEvents.BREEZE_SHOOT, 1.0f, 1.4f);
 		sweepTick(p);
 	}
 
-	/** One tick of a running Speed Sweep: every {@link #SWEEP_HOP_TICKS} ticks, the next hop and hit; then home. */
+	/** v0.14.16: X was let go -- from now on a fresh press ends a running sweep. */
+	public static void sweepKeyReleased(ServerPlayer p) {
+		Sweep s = SWEEPS.get(p.getUUID());
+		if (s != null) {
+			s.released = true;
+		}
+	}
+
+	/** v0.14.16: how many targets the running sweep still has to hit (0 if none is running). */
+	public static int sweepPending(Player p) {
+		Sweep s = SWEEPS.get(p.getUUID());
+		return s == null ? 0 : s.targets.pending().size();
+	}
+
+	/** v0.14.16: whether the running sweep has hit {@code e} yet. */
+	public static boolean sweepHit(Player p, Entity e) {
+		Sweep s = SWEEPS.get(p.getUUID());
+		return s != null && s.targets.wasHit(e.getId());
+	}
+
+	/** v0.14.16: test hook -- ages the running sweep by {@code ticks} (as if that many ticks had passed between hops). */
+	public static void ageSweep(Player p, int ticks) {
+		Sweep s = SWEEPS.get(p.getUUID());
+		if (s != null) {
+			s.age += ticks;
+		}
+	}
+
+	/**
+	 * One tick of a running Speed Sweep: every {@link #SWEEP_HOP_TICKS} ticks, a hop to the nearest enemy still to be
+	 * hit, and the hit; once every one has been hit (or is gone) -- home. v0.14.16: it no longer ends after one pass
+	 * through a fixed list; it ends when the list is empty, or on the failsafes (an enemy with nowhere to land beside it
+	 * is given up on after 5 s, and the whole sweep after {@link #SWEEP_MAX_TICKS}), death, a dimension change, or the
+	 * power going.
+	 */
 	public static void sweepTick(ServerPlayer p) {
 		Sweep s = SWEEPS.get(p.getUUID());
 		if (s == null) {
@@ -582,26 +679,50 @@ public final class SuperSpeedMoves {
 			finishSweep(p, s);
 			return;
 		}
+		s.age++;
+		if (s.age > SWEEP_MAX_TICKS) {
+			finishSweep(p, s);
+			return;
+		}
 		if (--s.wait > 0) {
 			p.setDeltaMovement(Vec3.ZERO);
 			return;
 		}
 		s.wait = SWEEP_HOP_TICKS;
 		ServerLevel level = p.serverLevel();
-		while (s.index < s.targets.size()) {
-			Entity e = level.getEntity(s.targets.get(s.index++));
-			if (!(e instanceof LivingEntity le) || !le.isAlive() || !validFoe(p, le)
-					|| le.distanceToSqr(s.origin) > (SWEEP_RANGE + 10) * (SWEEP_RANGE + 10)) {
-				continue;
+		double leash = (SWEEP_RANGE + 10) * (SWEEP_RANGE + 10);
+		List<LivingEntity> left = new ArrayList<>();
+		for (int id : s.targets.pending()) {
+			Entity e = level.getEntity(id);
+			if (!(e instanceof LivingEntity le) || !le.isAlive() || !validFoe(p, le) || le.distanceToSqr(s.origin) > leash) {
+				s.targets.drop(id);
+			} else {
+				left.add(le);
 			}
-			Vec3 from = p.position();
+		}
+		s.targets.dropStale(s.age);
+		left.removeIf(le -> !s.targets.isPending(le.getId()));
+		if (left.isEmpty()) {
+			finishSweep(p, s);
+			return;
+		}
+		// nearest first, from wherever the last hop left you, so the hops chain across the field instead of zig-zagging
+		Vec3 from = p.position();
+		left.sort(java.util.Comparator.comparingDouble(le -> le.distanceToSqr(from)));
+		int tries = 0;
+		for (LivingEntity le : left) {
+			if (tries++ >= SWEEP_TRIES_PER_HOP) {
+				break;
+			}
 			Vec3 spot = strikeSpot(p, le, from);
 			if (spot == null) {
+				s.targets.unreachable(le.getId(), s.age);
 				continue;
 			}
 			zipTo(p, spot, center(le));
 			zipTrail(p, from, spot);
 			punchThrough(p, le, SWEEP_DAMAGE * mult(p));
+			s.targets.hit(le.getId());
 			AbilityHelpers.knockbackFrom(le, spot, 0.35);
 			Vec3 c = center(le);
 			level.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 10, 0.3, 0.4, 0.3, 0.35);
@@ -609,7 +730,8 @@ public final class SuperSpeedMoves {
 			AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_STRONG, 0.8f, 1.2f + level.random.nextFloat() * 0.3f);
 			return;
 		}
-		finishSweep(p, s);
+		// nowhere to land beside any of the nearest this hop: hold still and try again on the next one
+		p.setDeltaMovement(Vec3.ZERO);
 	}
 
 	/** Ends a sweep and puts the speedster back exactly where (and how) they started. */

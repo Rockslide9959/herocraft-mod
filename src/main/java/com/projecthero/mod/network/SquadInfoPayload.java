@@ -17,9 +17,15 @@ import net.minecraft.resources.ResourceLocation;
  * from here rather than from the client guessing, since a squadmate in another dimension or an unloaded
  * chunk is not a client-side entity at all.
  *
- * <p>An empty {@link #squadName()} means "you are not in a squad"; see {@link #none()}.
+ * <p>An empty {@link #squadName()} means "you are not in a squad"; see {@link #none()}. v0.14.16:
+ * {@link #friendlyFire()} is the squad's friendly-fire switch, shown to everyone and toggled by the leader.
  */
-public record SquadInfoPayload(String squadName, List<Member> members) implements CustomPacketPayload {
+public record SquadInfoPayload(String squadName, List<Member> members, boolean friendlyFire) implements CustomPacketPayload {
+	/** A roster with friendly fire off (the default). */
+	public SquadInfoPayload(String squadName, List<Member> members) {
+		this(squadName, members, false);
+	}
+
 	/**
 	 * @param identityKey translation key for the hero identity currently holding their ability slots
 	 *                    (see {@code HeroIdentity}), or {@code ""} for none
@@ -55,6 +61,7 @@ public record SquadInfoPayload(String squadName, List<Member> members) implement
 			buf.writeUtf(m.identityKey());
 			buf.writeBoolean(m.leader());
 		}
+		buf.writeBoolean(payload.friendlyFire); // v0.14.16
 	}
 
 	private static SquadInfoPayload read(RegistryFriendlyByteBuf buf) {
@@ -66,7 +73,7 @@ public record SquadInfoPayload(String squadName, List<Member> members) implement
 					buf.readFloat(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
 					buf.readUtf(), buf.readUtf(), buf.readBoolean()));
 		}
-		return new SquadInfoPayload(name, out);
+		return new SquadInfoPayload(name, out, buf.readBoolean());
 	}
 
 	@Override

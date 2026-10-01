@@ -140,6 +140,11 @@ public final class AbilityHud {
 		if (decor != null) {
 			decor.draw(graphics, client, state, x0 + client.font.width(powerName) + 6, nameY);
 		}
+		// v0.14.16: a per-power line just above the power name (Super Speed: the packed Flash Suit's durability)
+		AbilityHudExtras.Decor header = AbilityHudExtras.header(power.key());
+		if (header != null) {
+			header.draw(graphics, client, state, x0, nameY - 10);
+		}
 
 		for (int i = 0; i < slots; i++) {
 			AbilitySlot slot = AbilitySlot.byNumber(i + 1);

@@ -4,11 +4,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import com.projecthero.mod.network.SquadFriendlyFirePayload;
 import com.projecthero.mod.network.SquadInfoPayload;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
@@ -41,6 +44,46 @@ public final class Squads {
 
 	public static void initialize() {
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> !blocks(entity, source));
+		// v0.14.16: the squad screen's friendly-fire button (leader only, re-checked here)
+		PayloadTypeRegistry.playC2S().register(SquadFriendlyFirePayload.TYPE, SquadFriendlyFirePayload.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(SquadFriendlyFirePayload.TYPE, (payload, context) -> {
+			Component refused = setFriendlyFire(context.player(), payload.on());
+			if (refused != null) {
+				context.player().displayClientMessage(refused.copy().withStyle(ChatFormatting.RED), true);
+			}
+		});
+	}
+
+	/**
+	 * v0.14.16: {@code player} sets their squad's friendly fire. Only the leader may; everyone online in the squad is
+	 * told, and gets a fresh roster at once so an open squad screen flips straight away.
+	 *
+	 * @return null when it was set, else why not (not in a squad, not the leader, already that way)
+	 */
+	public static Component setFriendlyFire(ServerPlayer player, boolean on) {
+		SquadManager manager = SquadManager.get(player.server);
+		Squad squad = manager.squadOf(player.getUUID());
+		if (squad == null) {
+			return Component.translatable("commands.projecthero.squad.none");
+		}
+		if (!squad.leader().equals(player.getUUID())) {
+			return Component.translatable("commands.projecthero.squad.not_leader");
+		}
+		if (squad.friendlyFire() == on) {
+			return Component.translatable(on ? "commands.projecthero.squad.friendly_fire.already_on"
+					: "commands.projecthero.squad.friendly_fire.already_off");
+		}
+		manager.setFriendlyFire(squad, on);
+		broadcast(player, squad, Component.translatable(on ? "commands.projecthero.squad.friendly_fire.on"
+						: "commands.projecthero.squad.friendly_fire.off", player.getGameProfile().getName())
+				.withStyle(on ? ChatFormatting.RED : ChatFormatting.GREEN));
+		for (UUID id : squad.members()) {
+			ServerPlayer member = player.server.getPlayerList().getPlayer(id);
+			if (member != null && ServerPlayNetworking.canSend(member, SquadInfoPayload.TYPE)) {
+				ServerPlayNetworking.send(member, snapshot(member, squad));
+			}
+		}
+		return null;
 	}
 
 	/** True when this hit is one squadmate striking another and must not land. */
@@ -70,7 +113,25 @@ public final class Squads {
 				|| !SquadManager.get(dealer.getServer()).sameSquad(dealer.getUUID(), victim.getUUID())) {
 			return false;
 		}
+		// v0.14.16: the leader turned friendly fire on -- squadmates' hits land on each other
+		if (friendlyFireOn(dealer)) {
+			return false;
+		}
 		return !rampageBreaksSquad(dealer, victim);
+	}
+
+	/**
+	 * v0.14.16: is friendly fire switched on in {@code player}'s squad? It only ever lets <em>damage</em> through (this
+	 * class's veto, and every ability damage check that asks {@link #shields}); {@link #areAllies} is untouched, so
+	 * heals, buffs, carries, the GL dome's let-through, Thor's and the other AoE moves' "skip the squad" targeting and
+	 * the rest keep treating squadmates as friends.
+	 */
+	public static boolean friendlyFireOn(Player player) {
+		if (player == null || player.getServer() == null) {
+			return false;
+		}
+		Squad squad = SquadManager.get(player.getServer()).squadOf(player.getUUID());
+		return squad != null && squad.friendlyFire();
 	}
 
 	/** v0.14.4: is either of the two a rampaging Hulk, which cancels squad protection between them? */
@@ -142,7 +203,7 @@ public final class Squads {
 					HeroIdentity.describe(member),
 					id.equals(squad.leader())));
 		}
-		return new SquadInfoPayload(squad.name(), out);
+		return new SquadInfoPayload(squad.name(), out, squad.friendlyFire());
 	}
 
 	private static String offlineName(ServerPlayer viewer, UUID id) {

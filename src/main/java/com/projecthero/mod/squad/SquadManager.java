@@ -145,6 +145,12 @@ public final class SquadManager extends SavedData {
 		setDirty();
 	}
 
+	/** v0.14.16: the leader's friendly-fire switch. */
+	public void setFriendlyFire(Squad squad, boolean on) {
+		squad.setFriendlyFire(on);
+		setDirty();
+	}
+
 	// ---------------- invitations ----------------
 
 	public void invite(Squad squad, UUID invitee, long now) {
