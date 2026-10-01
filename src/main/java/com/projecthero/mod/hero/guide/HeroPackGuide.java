@@ -949,6 +949,12 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.moon_knight", CH_MOON_KNIGHT);
 		link(idx, "projecthero.guide.super_soldier", CH_SUPER_SOLDIER);
 		link(idx, "projecthero.guide.kryptonian", CH_KRYPTONIAN);
+		// v0.14.13: Super Speed is Hero-Tier -- its chapter is still the generated power chapter
+		for (int i = 0; i < Powers.enabled().size(); i++) {
+			if (Powers.isHeroTier(Powers.enabled().get(i))) {
+				idx.add(new IndexEntry(Component.translatable(Powers.enabled().get(i).nameKey()), 1, CHAPTER_POWER_BASE + i));
+			}
+		}
 
 		section(idx, "projecthero.guide.section.events", true);
 		link(idx, "projecthero.guide.zombie_raid", CH_ZOMBIE_RAID);
@@ -967,7 +973,7 @@ public final class HeroPackGuide {
 		for (PowerCategory category : PowerCategory.values()) {
 			boolean started = false;
 			for (int i = 0; i < powers.size(); i++) {
-				if (powers.get(i).category() != category) {
+				if (powers.get(i).category() != category || Powers.isHeroTier(powers.get(i))) {
 					continue;
 				}
 				if (!started) {
@@ -1032,7 +1038,13 @@ public final class HeroPackGuide {
 				lines.add(Component.literal(" • ").append(Component.translatable(pk)).withStyle(ChatFormatting.GRAY));
 			}
 			blank(lines);
-			if (power.serum() != null) {
+			boolean heroTier = Powers.isHeroTier(power);
+			if (heroTier) {
+				// v0.14.13: no serum -- the Speed Force
+				head(lines, "projecthero.guide.super_speed.origin");
+				para(lines, "projecthero.guide.super_speed.origin.body");
+			}
+			if (power.serum() != null && !heroTier) {
 				lines.add(Component.translatable("projecthero.guide.power.serum",
 						Component.translatable(power.serum().resultName())).withStyle(ChatFormatting.LIGHT_PURPLE));
 				lines.add(Component.translatable("projecthero.guide.power.base",
@@ -1050,7 +1062,7 @@ public final class HeroPackGuide {
 				head(lines, "projecthero.guide.flash_suit");
 				para(lines, "projecthero.guide.flash_suit.body");
 			}
-			if (power.trigger() != null) {
+			if (power.trigger() != null && !heroTier) {
 				lines.add(Component.translatable("projecthero.guide.power.trigger",
 						Component.translatable(power.trigger().descKey())).withStyle(ChatFormatting.YELLOW));
 				if (power.trigger().labDeviceKey() != null) {

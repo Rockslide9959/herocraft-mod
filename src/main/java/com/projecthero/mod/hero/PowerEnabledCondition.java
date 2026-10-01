@@ -37,6 +37,7 @@ public record PowerEnabledCondition(String power) implements ResourceCondition {
 
 	@Override
 	public boolean test(@Nullable HolderLookup.Provider registryLookup) {
-		return Powers.isEnabled(power);
+		// v0.14.13: a Hero-Tier power (Super Speed) has no mutation reagent either
+		return Powers.isEnabled(power) && !Powers.HERO_TIER.contains(power);
 	}
 }

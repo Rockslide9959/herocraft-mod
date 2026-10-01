@@ -24,7 +24,7 @@ public final class PowerItems {
 		String noteKey = stack.get(HeroPackComponents.RESEARCH_POWER);
 		PotionContents potion = stack.get(DataComponents.POTION_CONTENTS);
 		for (Power p : Powers.all()) {
-			if (p.enabled()) {
+			if (Powers.isMutation(p)) { // v0.14.13: Hero-Tier Super Speed has no serum / reagent / note any more
 				continue;
 			}
 			if (p.key().equals(noteKey) || stack.is(HeroPackItems.reagent(p))) {

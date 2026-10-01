@@ -230,7 +230,7 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		}
 		helper.assertTrue(p.position().distanceTo(home) < 0.01, "back exactly where it started (" + p.position() + " vs " + home + ")");
 		helper.assertTrue(Math.abs(p.getYRot() - 37f) < 0.01f && Math.abs(p.getXRot() - 12f) < 0.01f, "facing the same way");
-		helper.assertTrue(res(p, SuperSpeedMoves.SWEEP_READY) > helper.getLevel().getGameTime() + 300, "20 s cooldown");
+		helper.assertTrue(res(p, SuperSpeedMoves.SWEEP_READY) > helper.getLevel().getGameTime() + 100, "10 s cooldown (v0.14.13)");
 		helper.assertTrue(ExperimentalPowers.cooldownReady(p, power(), power().ability(AbilitySlot.SLOT_3)),
 				"Momentum Dash stays ready");
 		helper.succeed();
@@ -274,7 +274,7 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		ServerPlayer p = hero(helper);
 		MobEffectInstance regen = p.getEffect(MobEffects.REGENERATION);
 		helper.assertTrue(regen != null && regen.getAmplifier() == SuperSpeedHandlers.REGEN_AMPLIFIER
-				&& regen.isInfiniteDuration(), "permanent Regeneration II");
+				&& regen.isInfiniteDuration(), "permanent Regeneration III");
 		ExperimentalPowers.forget(p, power());
 		helper.assertTrue(p.getEffect(MobEffects.REGENERATION) == null, "gone with the power");
 		helper.succeed();

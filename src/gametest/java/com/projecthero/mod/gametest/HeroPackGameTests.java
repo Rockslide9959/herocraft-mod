@@ -166,7 +166,7 @@ public class HeroPackGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void serumMarksPendingPowerButDoesNotGrant(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
-		Power durability = power("power_04_super_speed"); // v0.14.8: an enabled power; trigger kind = ELECTRICAL_DISCHARGE
+		Power durability = power("power_01_super_strength"); // v0.14.13: an enabled MUTATION (Super Speed is Hero-Tier now); ELECTRICAL_DISCHARGE
 		int amp = com.projecthero.mod.hero.mutation.ModSerums.amplifierFor(durability);
 		player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
 				com.projecthero.mod.hero.mutation.ModMobEffects.UNSTABLE_MUTATION, 1200, amp, false, true, true));
@@ -185,7 +185,7 @@ public class HeroPackGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void exposureEventGrantsPermanentPower(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
-		Power durability = power("power_04_super_speed"); // v0.14.8: an enabled power; trigger kind = ELECTRICAL_DISCHARGE
+		Power durability = power("power_01_super_strength"); // v0.14.13: an enabled MUTATION (Super Speed is Hero-Tier now); ELECTRICAL_DISCHARGE
 		int amp = com.projecthero.mod.hero.mutation.ModSerums.amplifierFor(durability);
 		player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
 				com.projecthero.mod.hero.mutation.ModMobEffects.UNSTABLE_MUTATION, 1200, amp, false, true, true));
@@ -205,7 +205,7 @@ public class HeroPackGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void wrongExposureKindDoesNotGrant(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
-		Power durability = power("power_04_super_speed"); // v0.14.8: an enabled power; trigger kind = ELECTRICAL_DISCHARGE
+		Power durability = power("power_01_super_strength"); // v0.14.13: an enabled MUTATION (Super Speed is Hero-Tier now); ELECTRICAL_DISCHARGE
 		int amp = com.projecthero.mod.hero.mutation.ModSerums.amplifierFor(durability);
 		player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
 				com.projecthero.mod.hero.mutation.ModMobEffects.UNSTABLE_MUTATION, 1200, amp, false, true, true));

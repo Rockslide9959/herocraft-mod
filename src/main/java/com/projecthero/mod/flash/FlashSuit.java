@@ -86,6 +86,7 @@ public final class FlashSuit {
 				ProjectHeroMod.id("textures/armor/flash.png"),
 				SuperheroArmorVisuals.SHARED_ANIMATION));
 		FlashRing.initialize();
+		SpeedForce.initialize(); // v0.14.13: Super Speed's Hero-Tier origin
 	}
 
 	private static FlashSuitItem piece(String path, ArmorItem.Type type) {

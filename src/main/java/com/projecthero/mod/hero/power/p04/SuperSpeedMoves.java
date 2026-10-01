@@ -61,6 +61,12 @@ public final class SuperSpeedMoves {
 
 	public static final float BLITZ_DAMAGE = 20.0f;
 	public static final double BLITZ_RANGE = 24.0;
+	/** v0.14.13: Blitz lands with a shockwave -- every other foe within this many blocks of the target takes this much. */
+	public static final double BLITZ_AOE_RADIUS = 4.0;
+	public static final float BLITZ_AOE_DAMAGE = 10.0f;
+	/** v0.14.13: Blitz hits much harder in knockback (was 0.6; a plain hit is 0.4) and pops the target up a little. */
+	public static final double BLITZ_KNOCKBACK = 2.0;
+	public static final double BLITZ_AOE_KNOCKBACK = 1.4;
 
 	public static final String MACH_READY = "mach_ready";
 	public static final int MACH_CD = 8 * 20;
@@ -79,7 +85,7 @@ public final class SuperSpeedMoves {
 	public static final float VORTEX_FINAL_DAMAGE = 8.0f;
 
 	public static final String SWEEP_READY = "sweep_ready";
-	public static final int SWEEP_CD = 20 * 20;
+	public static final int SWEEP_CD = 10 * 20; // v0.14.13: was 20 s
 	public static final double SWEEP_RANGE = 30.0;
 	public static final int SWEEP_MAX_TARGETS = 16;
 	public static final int SWEEP_HOP_TICKS = 2;
@@ -340,8 +346,10 @@ public final class SuperSpeedMoves {
 		zipTo(p, spot, center(target));
 		zipTrail(p, from, spot);
 		punchThrough(p, target, BLITZ_DAMAGE * mult(p));
-		AbilityHelpers.knockbackFrom(target, spot, 0.6);
+		AbilityHelpers.knockbackFrom(target, spot, BLITZ_KNOCKBACK);
+		AbilityHelpers.push(target, new Vec3(0, 0.35, 0));
 		Vec3 c = center(target);
+		blitzShockwave(p, target, c);
 		level.sendParticles(ParticleTypes.SWEEP_ATTACK, c.x, c.y, c.z, 1, 0, 0, 0, 0);
 		level.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 14, 0.35, 0.4, 0.35, 0.4);
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 10, 0.3, 0.4, 0.3, 0.25);
@@ -349,6 +357,22 @@ public final class SuperSpeedMoves {
 		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 0.35f, 1.9f);
 		BatchA.play(p, key(), "p04.blitz");
 		ctx.triggerCooldown();
+	}
+
+	/** v0.14.13: the impact of a Blitz hits every other foe round the target (squad, pets and the speedster are spared). */
+	private static void blitzShockwave(ServerPlayer p, LivingEntity target, Vec3 c) {
+		ServerLevel level = p.serverLevel();
+		for (LivingEntity e : AbilityHelpers.living(level, c, BLITZ_AOE_RADIUS, e -> e != target && validFoe(p, e))) {
+			punchThrough(p, e, BLITZ_AOE_DAMAGE * mult(p));
+			AbilityHelpers.knockbackFrom(e, c, BLITZ_AOE_KNOCKBACK);
+			AbilityHelpers.push(e, new Vec3(0, 0.25, 0));
+		}
+		for (int i = 0; i < 16; i++) {
+			double a = i * Math.PI / 8.0;
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x + Math.cos(a) * 2.0, c.y - 0.4, c.z + Math.sin(a) * 2.0,
+					2, 0.15, 0.1, 0.15, 0.1);
+		}
+		level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y - 0.3, c.z, 1, 0, 0, 0, 0);
 	}
 
 	// ---- Shift+R: Mach Punch ------------------------------------------------------------------------

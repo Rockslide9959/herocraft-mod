@@ -370,15 +370,18 @@ public class V0148MiscGameTests implements FabricGameTest {
 		Power speedPower = speed();
 		helper.assertFalse(PowerGrants.grantExperimental(p, flight), "a random serum can't hand out a disabled power");
 		helper.assertFalse(PowerGrants.missingExperimental(p).contains(flight), "nor even roll it");
-		helper.assertTrue(PowerGrants.missingExperimental(p).contains(speedPower), "an enabled one it can");
+		helper.assertFalse(PowerGrants.missingExperimental(p).contains(speedPower), "v0.14.13: nor Hero-Tier Super Speed");
+		helper.assertTrue(PowerGrants.missingExperimental(p).contains(Powers.byKey("power_01_super_strength")), "an enabled mutation it can");
+		Power strengthPower = Powers.byKey("power_01_super_strength");
 
 		// items: reagents / serums / research notes of disabled powers are recognised, enabled ones are not
 		helper.assertTrue(PowerItems.isDisabledPowerItem(new ItemStack(HeroPackItems.reagent(flight))), "flight reagent");
-		helper.assertFalse(PowerItems.isDisabledPowerItem(new ItemStack(HeroPackItems.reagent(speedPower))), "speed reagent");
+		helper.assertFalse(PowerItems.isDisabledPowerItem(new ItemStack(HeroPackItems.reagent(strengthPower))), "strength reagent");
+		helper.assertTrue(PowerItems.isDisabledPowerItem(new ItemStack(HeroPackItems.reagent(speedPower))), "v0.14.13: no speed reagent");
 		helper.assertTrue(PowerItems.isDisabledPowerItem(PotionContents.createItemStack(Items.POTION, ModSerums.serum(flight))),
 				"flight serum");
-		helper.assertFalse(PowerItems.isDisabledPowerItem(PotionContents.createItemStack(Items.POTION, ModSerums.serum(speedPower))),
-				"speed serum");
+		helper.assertFalse(PowerItems.isDisabledPowerItem(PotionContents.createItemStack(Items.POTION, ModSerums.serum(strengthPower))),
+				"strength serum");
 		helper.assertTrue(PowerItems.isDisabledPowerItem(com.projecthero.mod.hero.item.ResearchNoteItem.forPower(flight, 1)),
 				"flight research note");
 
@@ -386,7 +389,7 @@ public class V0148MiscGameTests implements FabricGameTest {
 		var params = new net.minecraft.world.level.storage.loot.LootParams.Builder(helper.getLevel()).create(LootContextParamSets.EMPTY);
 		LootTable off = LootTable.lootTable().withPool(LootPool.lootPool().add(LootItem.lootTableItem(HeroPackItems.reagent(flight))))
 				.build();
-		LootTable on = LootTable.lootTable().withPool(LootPool.lootPool().add(LootItem.lootTableItem(HeroPackItems.reagent(speedPower))))
+		LootTable on = LootTable.lootTable().withPool(LootPool.lootPool().add(LootItem.lootTableItem(HeroPackItems.reagent(strengthPower))))
 				.build();
 		helper.assertTrue(off.getRandomItems(params).isEmpty(), "loot never drops a disabled power's reagent");
 		helper.assertTrue(on.getRandomItems(params).size() == 1, "an enabled power's reagent still drops");

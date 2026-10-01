@@ -37,7 +37,7 @@ public final class ResearchNoteItem extends Item {
 	private static Power power(ItemStack stack) {
 		String key = stack.get(HeroPackComponents.RESEARCH_POWER);
 		Power p = key == null ? null : Powers.byKey(key);
-		return p != null && p.enabled() ? p : null; // v0.14.8: a note for a disabled power reads as a blank one
+		return Powers.isMutation(p) ? p : null; // v0.14.8: a note for a disabled power reads as a blank one
 	}
 
 	@Override

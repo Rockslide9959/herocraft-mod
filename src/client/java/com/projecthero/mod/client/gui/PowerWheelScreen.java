@@ -139,7 +139,7 @@ public final class PowerWheelScreen extends Screen {
 		entries.add(new Entry("", noneLabel, active.isEmpty(), null));
 
 		if (state != null) {
-			for (Power p : Powers.enabled()) {
+			for (Power p : Powers.mutations()) { // v0.14.13: Hero-Tier Super Speed is never on the wheel
 				if (state.ownedPowers.contains(p.key())) {
 					entries.add(new Entry(p.key(), Component.translatable(p.nameKey()), p.key().equals(active), p));
 				}

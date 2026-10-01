@@ -15,7 +15,8 @@ Added in v0.14.8. Every number is a static final in `KryptonianConfig`.
 | `KryptonianAbilities` | The ten moves; one `begin()` gate (power, kryptonite, burn-out, cooldown, solar); per-player sessions for held / multi-tick moves; `clear()` / `clearSessionState()`. |
 | `KryptonianAbilityManager` | Slot dispatch; Shift read server-side (`isShiftKeyDown`). `idsOf(slot)` = [plain, shift] for the HUD. |
 | `KryptonianCombat` | Targets (never self, squad-mates, creative players; players only with PvP), boss cap (8% max HP, no knockback), cone, radial, crater (needs `abilityTerrainDamage`, hardness <= 5, no block entities), shake. |
-| `meteor/MeteorManager` | The nightly roll, `summonNear`, `launch`, scheduled impacts, `impact` (crater + core + ore). |
+| `worldgen/KryptoniteCrater{Structure,Piece}` | v0.14.13: the rare world-generated crater (Meteor Core + ore), placed like Mjolnir's crater (`structure_set/kryptonite_crater.json`, spacing 100 / separation 40 / frequency 0.5). |
+| `meteor/MeteorManager` | (v0.14.13: no nightly roll any more) `summonNear`, `launch`, scheduled impacts, `impact` (crater + core + ore). |
 | `meteor/KryptoniteMeteorEntity` | The fireball: moves along a straight line, particles, never saved. Purely visual. |
 | `item/*`, `block/*` | Kryptonite ore / block, Meteor Core, Kryptonite Shard, Kryptonian Crystal. |
 | `KryptonianMod` | One `initialize()` from `ProjectHeroMod`: items, damage, payload + receiver, JOIN / AFTER_RESPAWN / AFTER_DEATH / world change / DISCONNECT hooks, meteor tick. `clearSessionState()` from `ServerStateReset`. |
@@ -60,6 +61,9 @@ hover (0.08). Big outside pushes (> 0.6 b/t off the model) are adopted. Dash / S
 run (the server launches him) and Dash / Launch restore it.
 
 ## The Kryptonite Meteor
+
+**v0.14.13:** the nightly meteor described below is gone -- the meteor is now the rare world-generated
+`KryptoniteCraterStructure`. The falling-meteor code remains only for the operator command `/projecthero meteor`.
 
 Overworld dusk (day time 13000-14000, once per day): 20% chance (guaranteed on the 6th meteor-less night) to schedule
 one 400-8400 ticks later near a random online player, 80-200 blocks away (up to 8 tries for dry land). Chat line to

@@ -53,6 +53,9 @@ public final class FlashRing {
 	public static final int SUIT_DOWN_TICKS = 16;
 	/** When, into the suit-up, the suit has covered the whole body -- the crack of lightning that ends it. */
 	public static final int SUIT_UP_SNAP_TICK = 24;
+	/** v0.14.13: a suit packed in the worn ring mends itself -- this much durability per piece, every {@link #REPAIR_EVERY} ticks. */
+	public static final int REPAIR_AMOUNT = 1;
+	public static final int REPAIR_EVERY = 20;
 
 	private FlashRing() {
 	}
@@ -259,6 +262,23 @@ public final class FlashRing {
 			if (FlashRingItem.pieces(ring) > 0 && !player.getInventory().add(ring.copy())) {
 				player.drop(ring.copy(), false);
 			}
+		} else if (!ring.isEmpty() && player.tickCount % REPAIR_EVERY == 0) {
+			repairStored(player, ring);
+		}
+	}
+
+	/** v0.14.13: one mending step for every damaged suit piece stored in the worn ring (written back only on a change). */
+	public static void repairStored(ServerPlayer player, ItemStack ring) {
+		List<ItemStack> pieces = contents(ring);
+		boolean changed = false;
+		for (ItemStack piece : pieces) {
+			if (piece.isDamageableItem() && piece.isDamaged()) {
+				piece.setDamageValue(Math.max(0, piece.getDamageValue() - REPAIR_AMOUNT));
+				changed = true;
+			}
+		}
+		if (changed) {
+			setWorn(player, ringWith(ring, pieces));
 		}
 	}
 

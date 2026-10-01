@@ -58,6 +58,10 @@ public final class ModStructureTypes {
 	public static final StructureType<com.projecthero.mod.moonknight.temple.TempleOfKhonshuStructure> TEMPLE_OF_KHONSHU =
 			register("temple_of_khonshu", com.projecthero.mod.moonknight.temple.TempleOfKhonshuStructure.CODEC);
 
+	/** Kryptonian (v0.14.13): the rare Kryptonite Meteor crater, the Meteor Core at its heart (no more falling meteors). */
+	public static final StructureType<com.projecthero.mod.kryptonian.worldgen.KryptoniteCraterStructure> KRYPTONITE_CRATER =
+			register("kryptonite_crater", com.projecthero.mod.kryptonian.worldgen.KryptoniteCraterStructure.CODEC);
+
 	private ModStructureTypes() {
 	}
 

@@ -95,7 +95,6 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		HudRenderCallback.EVENT.register(AbilityHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.LaserReticleHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.IronManHud::render);
-		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.RaidHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SpiderHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.MaxSteelHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.FirearmHud::render);

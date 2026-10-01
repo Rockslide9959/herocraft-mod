@@ -77,6 +77,7 @@ public final class GraveboundCurse {
 		next.curseAnnounced = false;
 		next.nextAmbientTicks = 20 * 20;
 		save(player, next);
+		GraveboundEffect.sync(player, next.curseTicksLeft);
 		announce(player, source);
 		return true;
 	}
@@ -92,6 +93,7 @@ public final class GraveboundCurse {
 		next.curseAnnounced = false;
 		next.nextAmbientTicks = 0;
 		save(player, next);
+		GraveboundEffect.sync(player, 0);
 		if (announce) {
 			player.sendSystemMessage(Component.translatable("message.projecthero.curse.broken")
 					.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
@@ -117,6 +119,7 @@ public final class GraveboundCurse {
 		next.curseAnnounced = true;
 		next.nextAmbientTicks = 20 * 20;
 		save(player, next);
+		GraveboundEffect.sync(player, next.curseTicksLeft);
 	}
 
 	/** Debug helper: force the curse to expire on the next tick, starting the raid immediately. */
@@ -155,6 +158,9 @@ public final class GraveboundCurse {
 	public static void tick(ServerPlayer player) {
 		GraveboundState state = state(player);
 		if (!state.cursed()) {
+			if (player.hasEffect(GraveboundEffect.HOLDER)) {
+				GraveboundEffect.sync(player, 0); // v0.14.13: a curse cleared by any path takes its effect with it
+			}
 			return;
 		}
 		if (!(player.level() instanceof ServerLevel level)) {
@@ -167,6 +173,7 @@ public final class GraveboundCurse {
 		if (state.curseTicksLeft <= 0) {
 			state.curseTicksLeft = 0;
 			save(player, state);
+			GraveboundEffect.sync(player, 0);
 			com.projecthero.mod.event.raid.ZombieRaidStarter.startForCursedPlayer(player);
 			return;
 		}
@@ -178,6 +185,8 @@ public final class GraveboundCurse {
 		}
 		if (state.curseTicksLeft % SYNC_INTERVAL_TICKS == 0) {
 			save(player, state);
+			// v0.14.13: the curse shows as the Gravebound status effect (milk / death strip it -- it comes back here)
+			GraveboundEffect.sync(player, state.curseTicksLeft);
 		}
 	}
 

@@ -34,6 +34,15 @@ public final class Powers {
 			"power_04_super_speed",
 			"power_12_super_regeneration");
 
+	/**
+	 * v0.14.13: enabled powers that are HERO-TIER, not mutations. Super Speed still runs on the mutation engine (its keys,
+	 * HUD, cooldowns and passives live in {@link ExperimentalPowers}), but it is obtained like a hero
+	 * ({@code com.projecthero.mod.flash.SpeedForce}) and held as a Primary power of its own ({@link HeroTiers#HERO_KEYS}
+	 * "super_speed") -- so every MUTATION acquisition path (serums, exposure triggers, brewing, reagents, research notes,
+	 * random serums, the power wheel) skips it: they all go through {@link #mutations()} / {@link #isMutation}.
+	 */
+	public static final Set<String> HERO_TIER = Set.of("power_04_super_speed");
+
 	private Powers() {
 	}
 
@@ -66,7 +75,26 @@ public final class Powers {
 		return power != null && isEnabled(power.key());
 	}
 
-	/** The enabled powers, in registration order: what every acquisition path, the guide and the UI offer. */
+	/** v0.14.13: whether {@code key} is an enabled power run by the mutation engine but held as a Hero-Tier power. */
+	public static boolean isHeroTier(String key) {
+		return isEnabled(key) && HERO_TIER.contains(key);
+	}
+
+	public static boolean isHeroTier(Power power) {
+		return power != null && isHeroTier(power.key());
+	}
+
+	/** v0.14.13: an enabled power that is a real mutation (obtainable through serums / exposures), not a Hero-Tier one. */
+	public static boolean isMutation(Power power) {
+		return isEnabled(power) && !HERO_TIER.contains(power.key());
+	}
+
+	/** v0.14.13: the enabled MUTATIONS (no Hero-Tier powers), in registration order -- what mutation acquisition offers. */
+	public static List<Power> mutations() {
+		return BY_ID.values().stream().filter(Powers::isMutation).toList();
+	}
+
+	/** The enabled powers, in registration order (Hero-Tier Super Speed included -- see {@link #mutations()}). */
 	public static List<Power> enabled() {
 		return BY_ID.values().stream().filter(Powers::isEnabled).toList();
 	}

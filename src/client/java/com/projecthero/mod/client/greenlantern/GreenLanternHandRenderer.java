@@ -2,6 +2,7 @@ package com.projecthero.mod.client.greenlantern;
 
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.client.render.HandRing;
 import com.projecthero.mod.greenlantern.GreenLantern;
 import com.projecthero.mod.greenlantern.construct.GreenLanternConstructs;
 import com.projecthero.mod.greenlantern.item.GreenLanternArmorItem;
@@ -69,7 +70,7 @@ public final class GreenLanternHandRenderer {
 		pose.pushPose();
 		arm.translateAndRotate(pose);
 		// the suit's gauntlet is always the wide 4 px arm (0.55 px proud of it), even over a slim skin
-		ring(pose, buffers, player, slim == 1 && suited == 0 ? -2f : -3f, suited == 1 ? 0.62f : 0.08f, ageInTicks);
+		ring(pose, buffers, player, suited == 1 ? 0.62f : 0.08f, ageInTicks);
 		com.projecthero.mod.greenlantern.data.GreenLanternFx fx = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FX,
 				com.projecthero.mod.greenlantern.data.GreenLanternFx.EMPTY);
 		if (fx.has(com.projecthero.mod.greenlantern.data.GreenLanternFx.CH_GATLING)) {
@@ -112,57 +113,26 @@ public final class GreenLanternHandRenderer {
 	}
 
 	/**
-	 * v0.14.3: the ring, drawn in the arm's pixel space. The ring finger is the 1 x 1 px column at the front / outer
-	 * corner of the fist ({@code xMin..xMin+1}, {@code z -2..-1}); {@code gap} lifts everything off the suit's gauntlet.
+	 * The ring, drawn in the arm's pixel space. v0.14.13: the band / bezel / gem come from the shared {@link HandRing}
+	 * (the Flash Ring uses the very same finger); the halo of green light stays the Lantern's own. {@code gap} lifts
+	 * everything off the suit's gauntlet.
 	 */
-	private static void ring(PoseStack pose, MultiBufferSource buffers, AbstractClientPlayer player, float xMin, float gap,
-			float age) {
+	private static void ring(PoseStack pose, MultiBufferSource buffers, AbstractClientPlayer player, float gap, float age) {
 		com.mojang.blaze3d.vertex.VertexConsumer vc = HardLightDraw.buffer(buffers);
 		com.projecthero.mod.greenlantern.data.GreenLanternFx fx = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FX,
 				com.projecthero.mod.greenlantern.data.GreenLanternFx.EMPTY);
 		long now = player.level().getGameTime();
 		boolean busy = fx.channels() != 0 || (fx.anim() != 0 && now - fx.animStart() < 12);
 		float breathe = 0.5f + 0.5f * net.minecraft.util.Mth.sin(age * 0.12f);
-		pose.pushPose();
-		pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
-		float fx0 = xMin + 0.5f;          // finger centre, x
-		float front = -2f - gap;          // the fist's front face
-		float outer = xMin - gap;         // its outer face
-		float y = 9.0f;
-		// the band: across the front of the finger and round its outer side, with a bright top edge. v0.14.5: built from
-		// its edges so the two runs always meet at the corner -- with the suit's bigger lift (gap) the old fixed-size
-		// pieces drifted apart and the corner block floated loose.
-		float t = 0.28f;                  // band thickness
-		float frontFar = fx0 + 0.62f;     // inner end of the front run
-		float sideBack = -0.88f;          // back end of the side run
-		band(vc, pose, outer - t, frontFar, y, 0.3f, front - t, front, 0x1F9A48);
-		band(vc, pose, outer - t, outer, y, 0.3f, front - t, sideBack, 0x1F9A48);
-		band(vc, pose, outer - t - 0.04f, frontFar + 0.02f, y - 0.28f, 0.04f, front - t - 0.04f, front - t + 0.28f, 0x9CFFB8);
-		band(vc, pose, outer - t - 0.04f, outer - t + 0.28f, y - 0.28f, 0.04f, front - t - 0.04f, sideBack + 0.02f, 0x9CFFB8);
-		// the bezel, then the gem set proud of it
-		box(vc, pose, fx0, y, front - 0.42f, 0.5f, 0.5f, 0.16f, 0x0B3D1C, 1f);
-		box(vc, pose, fx0, y, front - 0.62f, 0.32f, 0.32f, 0.08f, 0xEFFFF2, 1f);
-		box(vc, pose, fx0, y, front - 0.6f, 0.4f, 0.4f, 0.06f, 0x5CFF8E, 0.9f);
+		HandRing.draw(pose, vc, gap, HandRing.GREEN_LANTERN);
 		// the halo: breathes softly, flares while the ring is working
+		float[] g = HandRing.gemCentre(gap);
 		float halo = busy ? 1.1f : 0.7f + 0.1f * breathe;
 		float haloAlpha = busy ? 0.4f : 0.1f + 0.1f * breathe;
-		box(vc, pose, fx0, y, front - 0.55f, halo, halo, halo * 0.6f, 0x35F075, haloAlpha);
-		box(vc, pose, fx0, y, front - 0.55f, halo * 1.35f, halo * 1.35f, halo * 0.8f, 0x35F075, haloAlpha * 0.3f);
-		pose.popPose();
-	}
-
-	/** A band segment given by its x / z extents (centre y, half-height hy). */
-	private static void band(com.mojang.blaze3d.vertex.VertexConsumer vc, PoseStack pose, float x0, float x1, float y, float hy,
-			float z0, float z1, int rgb) {
-		box(vc, pose, (x0 + x1) / 2f, y, (z0 + z1) / 2f, (x1 - x0) / 2f, hy, (z1 - z0) / 2f, rgb, 1f);
-	}
-
-
-	private static void box(com.mojang.blaze3d.vertex.VertexConsumer vc, PoseStack pose, float x, float y, float z, float hx,
-			float hy, float hz, int rgb, float alpha) {
 		pose.pushPose();
-		pose.translate(x, y, z);
-		com.projecthero.mod.client.maxsteel.TurboDraw.box(vc, pose.last(), hx, hy, hz, rgb, alpha);
+		pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
+		HandRing.box(vc, pose, g[0], g[1], g[2], halo, halo, halo * 0.6f, 0x35F075, haloAlpha);
+		HandRing.box(vc, pose, g[0], g[1], g[2], halo * 1.35f, halo * 1.35f, halo * 0.8f, 0x35F075, haloAlpha * 0.3f);
 		pose.popPose();
 	}
 

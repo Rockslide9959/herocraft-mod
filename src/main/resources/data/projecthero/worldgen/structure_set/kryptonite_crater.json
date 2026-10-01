@@ -1,0 +1,15 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:kryptonite_crater",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1488207,
+    "spacing": 100,
+    "separation": 40,
+    "frequency": 0.5
+  }
+}

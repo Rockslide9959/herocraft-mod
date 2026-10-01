@@ -61,7 +61,7 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 		for (Power p : Powers.all()) {
 			String path = BuiltInRegistries.ITEM.getKey(HeroPackItems.reagent(p)).getPath();
 			var holder = recipes.byKey(ResourceLocation.fromNamespaceAndPath("projecthero", path));
-			if (!p.enabled()) {
+			if (!Powers.isMutation(p)) { // v0.14.13: Hero-Tier Super Speed has none either
 				// v0.14.8: a disabled power's reagent recipe is held back by the projecthero:power_enabled condition
 				helper.assertFalse(holder.isPresent(), p.key() + " is disabled but its reagent recipe loaded");
 				continue;
@@ -86,7 +86,7 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 		for (Power p : Powers.all()) {
 			ItemStack base = PotionContents.createItemStack(Items.POTION, ModSerums.basePotion(p.serum().basePotion()));
 			ItemStack reagent = new ItemStack(HeroPackItems.reagent(p));
-			if (!p.enabled()) {
+			if (!Powers.isMutation(p)) { // v0.14.13: Hero-Tier Super Speed has none either
 				helper.assertFalse(brewing.hasMix(base, reagent), p.key() + " is disabled but still brews");
 				continue;
 			}
@@ -102,7 +102,7 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void strippedSerumEffectIsRestored(GameTestHelper helper) {
 		ServerPlayer p = player(helper);
-		Power flight = Powers.byKey("power_04_super_speed");
+		Power flight = Powers.byKey("power_01_super_strength");
 		drink(p, flight);
 		p.removeEffect(ModMobEffects.UNSTABLE_MUTATION); // milk / Purge / a totem / a suit transform
 		MutationManager.serverTick(p);
@@ -114,7 +114,7 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void pendingSerumSurvivesSaveAndLoad(GameTestHelper helper) {
 		ServerPlayer p = player(helper);
-		Power flight = Powers.byKey("power_04_super_speed");
+		Power flight = Powers.byKey("power_01_super_strength");
 		drink(p, flight);
 		var state = ExperimentalPowers.state(p);
 		var tag = com.projecthero.mod.hero.data.ExperimentalState.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, state)
@@ -128,7 +128,7 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void newestSerumReplacesTheOld(GameTestHelper helper) {
 		ServerPlayer p = player(helper);
-		Power speed = Powers.byKey("power_04_super_speed");
+		Power speed = Powers.byKey("power_02_laser_vision"); // v0.14.13: Super Speed has no serum -- any higher-amplifier one
 		Power strength = Powers.byKey("power_01_super_strength");
 		drink(p, speed);
 		drink(p, strength); // lower amplifier: vanilla merging used to keep the first
@@ -143,6 +143,9 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 		ServerPlayer p = player(helper);
 		int i = 0;
 		for (Power pw : Powers.all()) {
+			if (pw.key().equals("power_01_super_strength")) {
+				continue; // v0.14.13: the serum below is Super Strength's now (Super Speed is Hero-Tier)
+			}
 			if (i++ >= ExperimentalPowers.capacity()) {
 				break;
 			}
@@ -150,7 +153,7 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 		}
 		int before = ExperimentalPowers.ownedCount(p);
 		// v0.14.8: the first three registered powers are owned (Strength, Laser Vision, Flight); a Super Speed serum
-		Power speed = Powers.byKey("power_04_super_speed"); // ELECTRICAL_DISCHARGE
+		Power speed = Powers.byKey("power_01_super_strength"); // ELECTRICAL_DISCHARGE
 		drink(p, speed);
 		helper.assertTrue(speed.key().equals(ExperimentalPowers.state(p).pendingMutationPower), "the serum takes hold");
 		MutationManager.triggerExposure(p, MutationTrigger.Kind.ELECTRICAL_DISCHARGE);
@@ -197,7 +200,7 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 		// redstone devices used to ignore right-clicks entirely (research sites had no lever). v0.14.8: the Blast
 		// Chamber's powers are all disabled, so this uses the Charged Copper Plates and Super Speed.
 		ServerPlayer p = player(helper);
-		Power speed = Powers.byKey("power_04_super_speed"); // ELECTRICAL_DISCHARGE, Charged Copper Plates
+		Power speed = Powers.byKey("power_01_super_strength"); // ELECTRICAL_DISCHARGE, Charged Copper Plates
 		BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1));
 		helper.getLevel().setBlockAndUpdate(pos, ModDevices.CHARGED_COPPER_PLATES.defaultBlockState());
 		p.moveTo(pos.getX() + 1.5, pos.getY(), pos.getZ() + 0.5);
@@ -230,7 +233,7 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 			}
 			ExperimentalPowers.grant(p, pw);
 		}
-		helper.assertFalse(PowerGrants.grantExperimental(p, Powers.byKey("power_04_super_speed")),
+		helper.assertFalse(PowerGrants.grantExperimental(p, Powers.byKey("power_12_super_regeneration")),
 				"a full player must not get another mutation from a random serum");
 		helper.succeed();
 	}
@@ -238,7 +241,7 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void randomSerumRecordsResearch(GameTestHelper helper) {
 		ServerPlayer p = player(helper);
-		Power speed = Powers.byKey("power_04_super_speed");
+		Power speed = Powers.byKey("power_01_super_strength"); // v0.14.13: Super Speed is Hero-Tier, not a serum mutation
 		helper.assertTrue(PowerGrants.grantExperimental(p, speed), "grant should succeed");
 		helper.assertFalse(PowerGrants.grantExperimental(helper.makeMockServerPlayerInLevel(),
 				Powers.byKey("power_24_wind_manipulation")), "v0.14.8: a disabled power is never handed out");
@@ -250,7 +253,7 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void guideReagentMatchesRealRecipe(GameTestHelper helper) {
 		var recipes = helper.getLevel().getRecipeManager();
-		for (Power p : Powers.enabled()) { // v0.14.8: disabled powers have no guide chapter and no recipe
+		for (Power p : Powers.mutations()) { // v0.14.8: disabled powers have no guide chapter and no recipe (v0.14.13: nor Hero-Tier ones)
 			String path = BuiltInRegistries.ITEM.getKey(HeroPackItems.reagent(p)).getPath();
 			var holder = recipes.byKey(ResourceLocation.fromNamespaceAndPath("projecthero", path)).orElseThrow();
 			TreeSet<String> real = new TreeSet<>();

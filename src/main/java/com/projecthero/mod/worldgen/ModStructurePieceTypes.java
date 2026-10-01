@@ -29,6 +29,9 @@ public final class ModStructurePieceTypes {
 	public static final StructurePieceType TEMPLE_OF_KHONSHU =
 			register("temple_of_khonshu", com.projecthero.mod.moonknight.temple.TempleOfKhonshuPiece::new);
 
+	public static final StructurePieceType KRYPTONITE_CRATER =
+			register("kryptonite_crater", com.projecthero.mod.kryptonian.worldgen.KryptoniteCraterPiece::new);
+
 	private ModStructurePieceTypes() {
 	}
 

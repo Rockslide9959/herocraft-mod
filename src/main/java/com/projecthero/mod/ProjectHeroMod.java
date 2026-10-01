@@ -176,6 +176,7 @@ public class ProjectHeroMod implements ModInitializer {
 		// v0.14.12: the Horde blocks (zombie / skeleton / spider) and their mobs and bosses
 		com.projecthero.mod.horde.Hordes.initialize();
 		com.projecthero.mod.event.entity.CursedZombieSpawns.initialize();
+		com.projecthero.mod.grave.GraveboundEffect.initialize();
 		com.projecthero.mod.grave.GraveboundEvents.initialize();
 		com.projecthero.mod.worldgen.GraveyardTracker.initialize();
 		// ---- Supervillain Village Raid ----

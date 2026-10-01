@@ -100,6 +100,11 @@ public final class SuperSpeedHandlers {
 	 * Calibrated on the old values (4.7 ran ~32 blocks/s, 10.5 ~64): Speed Mode now ~40 blocks/s, Overdrive ~100.
 	 */
 	public static final double SPEED_MODE_BONUS = 6.15;
+	/**
+	 * v0.14.13: Speed Mode only runs flat out while you SPRINT (~40 blocks/s); plain walking in it is ~20 blocks/s, so it
+	 * stays manageable in a fight. (0.1 x (1 + 0.3 + 3.54) = 0.484, half the sprinting 0.1 x 7.45 x 1.3.)
+	 */
+	public static final double SPEED_MODE_WALK_BONUS = 3.54;
 	public static final double OVERDRIVE_BONUS = 17.3;
 	public static final double OD_STEP_BONUS = 9.4;
 
@@ -128,8 +133,8 @@ public final class SuperSpeedHandlers {
 	/** Recent horizontal speed per speedster (blocks/tick, a decaying peak -- movement packets arrive unevenly). */
 	private static final Map<UUID, Double> RECENT_SPEED = new HashMap<>();
 
-	/** v0.14.7 passive: Regeneration II (amplifier 1). */
-	public static final int REGEN_AMPLIFIER = 1;
+	/** v0.14.13 passive: Regeneration III (amplifier 2; was II since v0.14.7). */
+	public static final int REGEN_AMPLIFIER = 2;
 	/** Water running: the soft splash plays at most this often (ticks), this loud. */
 	public static final int WATER_SOUND_EVERY = 8;
 	public static final float WATER_SOUND_VOLUME = 0.15f;
@@ -350,9 +355,9 @@ public final class SuperSpeedHandlers {
 				String.format(java.util.Locale.ROOT, "%.1f", ctx.cooldownRemaining() / 20.0f));
 	}
 
-	// ---- passive: Regeneration II ----------------------------------------------------------------
+	// ---- passive: Regeneration III ----------------------------------------------------------------
 
-	/** v0.14.7: owning Super Speed keeps a permanent, hidden Regeneration II on you (never weakens a stronger regen). */
+	/** v0.14.7: owning Super Speed keeps a permanent, hidden Regeneration III (v0.14.13) on you (never weakens a stronger regen). */
 	public static void applyRegen(ServerPlayer p) {
 		MobEffectInstance cur = p.getEffect(MobEffects.REGENERATION);
 		if (cur == null || cur.getAmplifier() < REGEN_AMPLIFIER
@@ -1030,7 +1035,8 @@ public final class SuperSpeedHandlers {
 	}
 
 	private static void speedModeApply(ServerPlayer p) {
-		movementBoost(p, Attributes.MOVEMENT_SPEED, SM_SPEED, SPEED_MODE_BONUS, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		movementBoost(p, Attributes.MOVEMENT_SPEED, SM_SPEED, p.isSprinting() ? SPEED_MODE_BONUS : SPEED_MODE_WALK_BONUS,
+				AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.ATTACK_SPEED, SM_ATTACK, 0.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		movementBoost(p, Attributes.STEP_HEIGHT, SM_STEP, SM_STEP_BONUS, AttributeModifier.Operation.ADD_VALUE); // v0.14.9: 3 blocks, Speed Mode only
 		movementBoost(p, Attributes.WATER_MOVEMENT_EFFICIENCY, SM_WATER, 1.0, AttributeModifier.Operation.ADD_VALUE);

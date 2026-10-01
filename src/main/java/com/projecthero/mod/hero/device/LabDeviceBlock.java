@@ -77,6 +77,10 @@ public class LabDeviceBlock extends Block {
 			for (MutationTrigger.Kind kind : kinds) {
 				MutationManager.triggerExposure(player, kind);
 			}
+			// v0.14.13: the Charged Copper Plates are one of the two surges that can awaken the Speed Force
+			if (this == ModDevices.CHARGED_COPPER_PLATES) {
+				com.projecthero.mod.flash.SpeedForce.tryAwaken(player);
+			}
 		}
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, pos.getX() + 0.5, pos.getY() + 1.1, pos.getZ() + 0.5,
 				30, 0.4, 0.4, 0.4, 0.15);

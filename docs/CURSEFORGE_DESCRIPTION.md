@@ -202,9 +202,19 @@ into the **Refined Serum**, which always works.
 - **The suit:** a craftable four-piece **Captain America** suit (wool, iron and leather; 18 armour) -- only a Super
   Soldier can wear it.
 
+### ⚡ The Speedster (Super Speed)
+A **Hero-Tier** power awakened by the **Speed Force**: get **Strength, Speed and Jump Boost** on you at once, then
+activate **Charged Copper Plates** or get **struck by lightning** -- half the time the Speed Force takes you, the other
+half it burns the effects away and you try again.
+- **Speed Mode** walks at ~20 blocks a second (easy to fight in) and **sprints at ~40**; **Overdrive** hits ~100.
+- **Blitz** zips you to a target with a heavy, launching hit and a shockwave that knocks back everything round it.
+  Mach Punch, Speed Vortex, a 10-second **Speed Sweep**, Phase through walls, carry anyone on **N**, and a charged,
+  game-wide **Time Slow**. Regeneration III, always.
+- **The Flash Suit** packs into a gold **Flash Ring** on **H** -- and slowly mends itself while it is in there.
+
 ### ☀️ The Kryptonian
-Some nights a **green meteor** streaks across the sky and slams into the ground nearby (you're told which way it fell).
-At the bottom of its scorched crater, ringed with glowing **kryptonite ore**, sits the **Meteor Core** -- mine it for the
+Somewhere out in the world lies a rare **Kryptonite Meteor crater** -- as hard to find as Mjolnir's.
+At the bottom of its scorched bowl, ringed with glowing **kryptonite ore**, sits the **Meteor Core** -- mine it for the
 one **Kryptonian Crystal** it holds, then hold it up to the **daytime sun**. The stored sunlight pours into you.
 - **The body:** 60 health, **75% less damage**, and nothing at all from falls, fire, lava, drowning or freezing. 15-damage
   fists that send things flying, no knockback, 40% faster, a 4-block jump, and the sun heals and feeds you.
@@ -230,12 +240,10 @@ or **lab devices**, found in rare research sites. The **Mutagenic**, **Heroic** 
 power you don't have yet.
 
 Own up to three at once: all their passives run permanently, and the one you select drives your ability keys. The
-experimental powers are being remade one by one; **four are available right now**, the rest return as they're rebuilt:
+experimental powers are being remade one by one; **three are available right now**, the rest return as they're rebuilt:
 
 - **Super Strength** -- six heavy-hitting keys, three passives and a superhero landing.
 - **Laser Vision** -- beams straight from your eyes, driven by a 0-100 heat gauge that cools once you stop firing.
-- **Super Speed** -- Speed Mode and Overdrive (lightning trails), Mach Punch, Blitz, Speed Vortex, Phase (vibrate
-  through walls), carry anyone on **N**, and a charged, game-wide **Time Slow** that leaves you exhausted.
 - **Super Regeneration** -- no keys at all: heals 2 HP every tick, burns off harmful effects in 2 seconds and holds
   **three revive charges**.
 

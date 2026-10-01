@@ -29,7 +29,8 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 
 /**
- * v0.14.8: the Kryptonite Meteor world event. Once every dusk in the Overworld there is a
+ * v0.14.8: the Kryptonite Meteor world event (v0.14.13: the nightly roll is gone -- the meteor is the world-generated
+ * {@code KryptoniteCraterStructure} now; this class only drives an operator-summoned {@code /projecthero meteor}). Once every dusk in the Overworld there is a
  * {@link KryptonianConfig#METEOR_NIGHTLY_CHANCE} chance (guaranteed after {@link KryptonianConfig#METEOR_PITY_NIGHTS}
  * meteor-less nights) that tonight a meteor falls, at a random moment of the night, 80-200 blocks from a random online
  * player. Everyone in the Overworld sees the chat line; the chosen player is told roughly where it came down.
@@ -75,36 +76,9 @@ public final class MeteorManager {
 		if (overworld == null) {
 			return;
 		}
+		// v0.14.13: no more nightly meteors -- the Kryptonite Meteor is a rare world-generated crater now
+		// (KryptoniteCraterStructure, found like Mjolnir). Only an operator's /projecthero meteor still drops one.
 		tickImpacts(server);
-		if (server.getTickCount() % 20 != 0) {
-			return;
-		}
-		long dayTime = overworld.getDayTime();
-		long day = Math.floorDiv(dayTime, 24000L);
-		long time = Math.floorMod(dayTime, 24000L);
-		if (time >= 13000L && time < 14000L && day != lastRollDay) {
-			lastRollDay = day;
-			RandomSource random = overworld.random;
-			boolean hit = random.nextDouble() < KryptonianConfig.METEOR_NIGHTLY_CHANCE || nightsWithout + 1 >= KryptonianConfig.METEOR_PITY_NIGHTS;
-			if (hit) {
-				scheduledAt = overworld.getGameTime() + 400 + random.nextInt(8000);
-			} else {
-				nightsWithout++;
-			}
-		}
-		if (scheduledAt >= 0L && overworld.getGameTime() >= scheduledAt) {
-			scheduledAt = -1L;
-			List<ServerPlayer> players = new ArrayList<>(overworld.players());
-			players.removeIf(p -> p.isSpectator() || !p.isAlive());
-			if (players.isEmpty()) {
-				nightsWithout++;
-				return;
-			}
-			ServerPlayer chosen = players.get(overworld.random.nextInt(players.size()));
-			if (summonNear(chosen) != null) {
-				nightsWithout = 0;
-			}
-		}
 	}
 
 	// ---------------------------------------------------------------- summoning

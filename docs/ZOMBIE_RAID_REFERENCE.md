@@ -13,6 +13,10 @@ uprising, a world boss — do not have to reinvent waves, participants, boundari
 
 Twenty minutes of active play. When it runs out, the dead come for you wherever you are standing.
 
+Since v0.14.13 the countdown shows as the **Gravebound** status effect (icon + time left with your other effects)
+instead of a HUD block. The effect is only a display (`GraveboundEffect.sync`): the curse still lives in the
+persistent attachment, so milk or death strip the icon for at most a second before it is put back.
+
 There are exactly **two** ways to catch it, and they are the same curse:
 
 | Route | How |
