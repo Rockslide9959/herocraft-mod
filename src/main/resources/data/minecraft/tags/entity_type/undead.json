@@ -1,0 +1,12 @@
+{
+  "replace": false,
+  "values": [
+    "projecthero:bone_tyrant",
+    "projecthero:bone_runner",
+    "projecthero:bone_knight",
+    "projecthero:blight_archer",
+    "projecthero:bone_bomber",
+    "projecthero:bone_brute",
+    "projecthero:necromancer"
+  ]
+}

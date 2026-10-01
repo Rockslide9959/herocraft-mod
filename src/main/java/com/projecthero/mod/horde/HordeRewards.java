@@ -1,6 +1,7 @@
 package com.projecthero.mod.horde;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -10,7 +11,9 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.Container;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -31,6 +34,9 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
  *       second), netherite scrap, a 50% totem of undying, a 30% block of diamond, two books.</li>
  * </ul>
  * A second surviving fighter adds a third more of every stack (up to double for four or more).
+ *
+ * <p>v0.14.16: the haul is no longer packed into the chest's first slots -- {@link #fill} splits stacks and scatters them
+ * across random slots the way vanilla's loot chests do, so the chest looks (and is) full.
  */
 public final class HordeRewards {
 	private HordeRewards() {
@@ -40,10 +46,7 @@ public final class HordeRewards {
 		level.setBlock(pos, Blocks.CHEST.defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH),
 				Block.UPDATE_ALL);
 		if (level.getBlockEntity(pos) instanceof ChestBlockEntity chest) {
-			List<ItemStack> loot = roll(level, kind, winners);
-			for (int i = 0; i < loot.size() && i < chest.getContainerSize(); i++) {
-				chest.setItem(i, loot.get(i));
-			}
+			fill(chest, roll(level, kind, winners), level.random);
 			chest.setChanged();
 		}
 		level.playSound(null, pos, SoundEvents.CHEST_OPEN, SoundSource.BLOCKS, 1.0f, 0.8f);
@@ -103,6 +106,65 @@ public final class HordeRewards {
 			}
 		}
 		return out;
+	}
+
+	/**
+	 * v0.14.16: puts {@code loot} into {@code container}'s empty slots like a vanilla loot chest: stacks are split into
+	 * smaller ones until roughly 65-85% of the free slots are used, shuffled, and dropped into random slots. Nothing is
+	 * lost -- every item in {@code loot} ends up in the container (if the stacks ever outnumber the slots, the
+	 * leftovers merge into matching stacks or any slot still empty).
+	 */
+	public static void fill(Container container, List<ItemStack> loot, RandomSource r) {
+		List<Integer> free = new ArrayList<>();
+		for (int i = 0; i < container.getContainerSize(); i++) {
+			if (container.getItem(i).isEmpty()) {
+				free.add(i);
+			}
+		}
+		List<ItemStack> stacks = new ArrayList<>();
+		List<ItemStack> splittable = new ArrayList<>();
+		for (ItemStack s : loot) {
+			if (s.isEmpty()) {
+				continue;
+			}
+			ItemStack copy = s.copy();
+			stacks.add(copy);
+			if (copy.getCount() > 1) {
+				splittable.add(copy);
+			}
+		}
+		int target = Math.min(free.size(), (int) Math.round(free.size() * (0.65 + r.nextFloat() * 0.2)));
+		while (stacks.size() < target && !splittable.isEmpty()) {
+			ItemStack s = splittable.remove(r.nextInt(splittable.size()));
+			ItemStack part = s.split(Mth.randomBetweenInclusive(r, 1, s.getCount() / 2));
+			stacks.add(part);
+			if (s.getCount() > 1) {
+				splittable.add(s);
+			}
+			if (part.getCount() > 1 && r.nextBoolean()) {
+				splittable.add(part);
+			}
+		}
+		Collections.shuffle(stacks, new java.util.Random(r.nextLong()));
+		Collections.shuffle(free, new java.util.Random(r.nextLong()));
+		int next = 0;
+		for (ItemStack s : stacks) {
+			if (next < free.size()) {
+				container.setItem(free.get(next++), s);
+				continue;
+			}
+			// more stacks than slots (never with the rolls above): top up a matching stack, then anything empty
+			for (int i = 0; i < container.getContainerSize() && !s.isEmpty(); i++) {
+				ItemStack there = container.getItem(i);
+				if (there.isEmpty()) {
+					container.setItem(i, s.copyAndClear());
+				} else if (ItemStack.isSameItemSameComponents(there, s) && there.getCount() < there.getMaxStackSize()) {
+					int move = Math.min(s.getCount(), there.getMaxStackSize() - there.getCount());
+					there.grow(move);
+					s.shrink(move);
+				}
+			}
+		}
 	}
 
 	private static int between(RandomSource r, int lo, int hi) {

@@ -22,6 +22,7 @@ public final class Hordes {
 	}
 
 	public static void initialize() {
+		com.projecthero.mod.horde.entity.skeleton.SkeletonHordeEntityTypes.initialize(); // v0.14.16: the Skeleton Horde's own skeletons
 		HordeEntityTypes.initialize();
 		HordeBlocks.initialize();
 		for (HordeKind kind : HordeKind.values()) {

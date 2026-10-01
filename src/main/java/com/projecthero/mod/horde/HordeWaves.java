@@ -26,8 +26,9 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>Zombie</b>: the raid's own daylight-proof zombies (plain, babies, then armoured), husks, acid spitters from
  *       wave 3, a few Juggernauts from wave 5. Boss: a Titan.</li>
  *   <li><b>Skeleton</b>: skeletons and strays, bogged (poison arrows) and sword skeletons from wave 2, wither
- *       skeletons from wave 4 -- helmeted, so the sun can't burn them, the helmets better with every wave. Boss: the
- *       Bone Tyrant.</li>
+ *       skeletons from wave 4 -- helmeted, so the sun can't burn them, the helmets better with every wave. v0.14.16:
+ *       plus the six horde skeletons (Bone Runner, Blight Archer, Bone Knight, Bone Bomber, Necromancer, Bone Brute;
+ *       {@code SkeletonHordeRoster}). Boss: the Bone Tyrant, rebuilt as a GeckoLib lich-king.</li>
  *   <li><b>Spider</b>: fast, web-spitting Horde Spiders and cave spiders. Boss: the Brood Queen.</li>
  * </ul>
  */
@@ -58,21 +59,8 @@ public final class HordeWaves {
 				}
 				yield z;
 			}
-			case SKELETON -> {
-				if (w >= 4 && roll < 12) {
-					yield EntityType.WITHER_SKELETON.create(level);
-				}
-				if (w >= 2 && roll < 28) {
-					yield RaidEntityTypes.SWORD_SKELETON.create(level);
-				}
-				if (w >= 2 && roll < 40) {
-					yield EntityType.BOGGED.create(level);
-				}
-				if (roll < 62) {
-					yield EntityType.STRAY.create(level);
-				}
-				yield EntityType.SKELETON.create(level);
-			}
+			// v0.14.16: the six horde skeletons (one per zombie kind) join the mix -- see SkeletonHordeRoster
+			case SKELETON -> com.projecthero.mod.horde.entity.skeleton.SkeletonHordeRoster.create(level, w);
 			case SPIDER -> SpiderWaves.create(level, w); // v0.14.16: Horde Spiders, cave spiders and the seven brood variants
 		};
 	}
