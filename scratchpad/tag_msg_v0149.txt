@@ -1,0 +1,29 @@
+Project Hero v0.14.9 -- Suits, Shields & Speed Fixes
+
+SUPER SOLDIER
+- NEW Captain America suit: a craftable 4-piece armour set made from a custom model (18 armour total, between iron and diamond). Only Super Soldiers can wear it; anyone else can't put it on, and it pops off if you lose the power.
+  Recipes (B blue wool, W white wool, R red wool, I iron ingot, L leather): Helmet BWB / I I, Chestplate I I / BWB / RBR, Leggings BIB / B B / L L, Boots R R / L L.
+- NEW Adamantium Shield: a craftable, unbreakable round shield that blocks like a normal one. Recipe: iron blocks in the corners, a netherite ingot in the middle, red dye on top, blue dye on the bottom, white dye on each side.
+- Throw your shield with C (Super Soldiers only):
+  - Adamantium Shield: 9 damage per hit, ricochets through at least 3 enemies (up to 4), 24-block range, 5 s cooldown.
+  - Any normal shield: 6 damage per hit, ricochets through 3 enemies, 16-block range, 6 s cooldown.
+  - It always comes back to your hand with the same shield (banner, durability and name kept). It never gets lost or duplicated, even if you die or log out mid-throw.
+- Fixed: the thrown shield flew upside down. Its front now faces up.
+- NEW G Flying Kick: lunge up to 8 blocks into the enemy in front of you for 12 damage and knockback. 8 s cooldown.
+- NEW Shift+G Judo Takedown: grab the enemy in front of you and slam it over your shoulder for 14 damage, stunning it for 1.5 s. 10 s cooldown.
+- The HUD bars are gone; cooldowns still show in the key boxes. A C box appears above V while you hold a shield.
+
+KRYPTONIAN
+- NEW Superman suit: a craftable 4-piece armour set from a custom model, at netherite level. Only Kryptonians can wear it, and it pops off if you lose the power.
+  Recipes (R red wool, B blue wool, D diamond, G gold ingot, S gold block): Helmet BDB / G G, Chestplate R R / DSD / BBB, Leggings GRG / B B / D D, Boots R R / D D.
+- A real flowing red cape (like Moon Knight's) with the gold S shield on the back, replacing the flat cape painted on the model. It swings as you walk, streams out behind you in flight, and lies almost flat at top flight speed.
+
+SUPER SPEED
+- Fixed: Time Slow ended straight away if you kept holding Z after the charge finished (your keyboard's key-repeat counted as a new press). Now only a fresh Z press after letting go ends it early.
+- Fixed: if a carried player hopped off your head, they still looked like they were on it and couldn't be put down. Their spot now clears properly.
+- Step assist: none when you're just walking around; 3 blocks in Speed Mode, 10 in Overdrive.
+- Rapid Assault: 5 damage per punch (20 for all four; doubled in Overdrive).
+- Mach Punch: a flat 20 damage, 8 s cooldown.
+- Speed Sweep (Shift+X): 15 damage per enemy (30 in Overdrive).
+
+Guidebook, power screens and CurseForge page updated.
