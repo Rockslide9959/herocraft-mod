@@ -20,11 +20,11 @@ import net.minecraft.world.level.Level;
 
 /**
  * v0.14.11: the Flash Ring -- the Flash Suit compressed into a gold ring (the pieces ride in its
- * {@link DataComponents#CONTAINER}). It is normally worn on the finger (the {@code FLASH_RING} attachment, not an
- * inventory slot); this item form only exists when it comes off -- dropped on death, or handed back when the wearer
- * loses Super Speed. Right-click puts it back on (speedsters only); H then lets the suit out.
+ * {@link DataComponents#CONTAINER}). v0.14.14: holding the suit it is a wearable item in the CHESTPLATE slot (equip it
+ * like armour, or right-click), drawn as a ring on the right hand; empty it rides on the finger (the {@code FLASH_RING}
+ * attachment). H lets the suit out.
  */
-public class FlashRingItem extends Item {
+public class FlashRingItem extends Item implements net.minecraft.world.item.Equipable {
 	public FlashRingItem(Properties properties) {
 		super(properties);
 	}
@@ -44,6 +44,12 @@ public class FlashRingItem extends Item {
 		return FlashRing.putOn((ServerPlayer) player, stack)
 				? InteractionResultHolder.consume(ItemStack.EMPTY)
 				: InteractionResultHolder.fail(stack);
+	}
+
+	/** v0.14.14: holding the suit, the ring is worn in the chestplate slot (so it drops / is kept like armour). */
+	@Override
+	public net.minecraft.world.entity.EquipmentSlot getEquipmentSlot() {
+		return net.minecraft.world.entity.EquipmentSlot.CHEST;
 	}
 
 	/** How many suit pieces are inside. */

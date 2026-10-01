@@ -117,9 +117,23 @@ public final class SupermanSuit {
 				.withStyle(ChatFormatting.RED), true);
 	}
 
-	/** Every tick, for every player (cheap): a piece worn by someone who is not a Kryptonian comes off. */
+	/** v0.14.14: in direct sunlight the worn suit mends this much per piece, every {@link #SUN_REPAIR_EVERY} ticks. */
+	public static final int SUN_REPAIR_AMOUNT = 1;
+	public static final int SUN_REPAIR_EVERY = 20;
+
+	/**
+	 * Every tick, for every player (cheap): a piece worn by someone who is not a Kryptonian comes off. v0.14.14: a
+	 * Kryptonian standing in direct sunlight slowly mends every Superman Suit piece they wear -- the suit soaks up the sun
+	 * the way he does.
+	 */
 	public static void tick(ServerPlayer player) {
-		if (mayWear(player) || player.isSpectator()) {
+		if (player.isSpectator()) {
+			return;
+		}
+		if (mayWear(player)) {
+			if (player.tickCount % SUN_REPAIR_EVERY == 0 && Kryptonian.sun(player) == Kryptonian.Sun.DIRECT) {
+				sunRepair(player);
+			}
 			return;
 		}
 		boolean popped = false;
@@ -137,6 +151,16 @@ public final class SupermanSuit {
 		if (popped) {
 			player.displayClientMessage(Component.translatable("message.projecthero.superman_suit.popped")
 					.withStyle(ChatFormatting.RED), true);
+		}
+	}
+
+	/** One step of sunlight mending on every damaged Superman Suit piece worn. */
+	public static void sunRepair(ServerPlayer player) {
+		for (EquipmentSlot slot : ARMOR) {
+			ItemStack worn = player.getItemBySlot(slot);
+			if (isSuit(worn) && worn.isDamaged()) {
+				worn.setDamageValue(Math.max(0, worn.getDamageValue() - SUN_REPAIR_AMOUNT));
+			}
 		}
 	}
 

@@ -82,7 +82,8 @@ public class FlashSuitGameTests implements FabricGameTest {
 		helper.runAfterDelay(FlashRing.SUIT_DOWN_TICKS + 1, () -> {
 			FlashRing.tick(p);
 			helper.assertTrue(!FlashSuit.wearsAny(p), "the suit is off");
-			helper.assertTrue(FlashRingItem.pieces(FlashRing.worn(p)) == 4, "all four pieces are in the ring on the finger");
+			helper.assertTrue(FlashRingItem.pieces(FlashRing.storedRing(p)) == 4, "all four pieces are in the ring");
+			helper.assertTrue(p.getItemBySlot(EquipmentSlot.CHEST).is(FlashSuit.RING), "v0.14.14: worn in the chestplate slot");
 			p.setItemSlot(EquipmentSlot.HEAD, oldHelmet.copy());
 			FlashRing.toggle(p);
 			helper.assertTrue(FlashSuit.wearsFull(p), "H again: the whole suit is back on");
@@ -117,7 +118,7 @@ public class FlashSuitGameTests implements FabricGameTest {
 			FlashRing.tick(p);
 			helper.assertTrue(FlashRing.holdsSuit(p), "precondition: the suit is in the ring");
 			p.hurt(helper.getLevel().damageSources().genericKill(), Float.MAX_VALUE);
-			helper.assertTrue(FlashRing.worn(p).isEmpty(), "the ring comes off the dead player");
+			helper.assertFalse(FlashRing.holdsSuit(p), "the ring comes off the dead player");
 			boolean dropped = !helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
 					p.getBoundingBox().inflate(4.0), e -> e.getItem().is(FlashSuit.RING) && FlashRingItem.pieces(e.getItem()) == 4).isEmpty();
 			helper.assertTrue(dropped, "and drops with the suit in it");

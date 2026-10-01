@@ -210,7 +210,8 @@ half it burns the effects away and you try again.
 - **Blitz** zips you to a target with a heavy, launching hit and a shockwave that knocks back everything round it.
   Mach Punch, Speed Vortex, a 10-second **Speed Sweep**, Phase through walls, carry anyone on **N**, and a charged,
   game-wide **Time Slow**. Regeneration III, always.
-- **The Flash Suit** packs into a gold **Flash Ring** on **H** -- and slowly mends itself while it is in there.
+- **The Flash Suit** packs into a gold **Flash Ring** on **H** -- worn in your chestplate slot like armour, so you never
+  lose the suit on death -- and slowly mends itself while it is in there.
 
 ### ☀️ The Kryptonian
 Somewhere out in the world lies a rare **Kryptonite Meteor crater** -- as hard to find as Mjolnir's.
@@ -228,7 +229,7 @@ one **Kryptonian Crystal** it holds, then hold it up to the **daytime sun**. The
 - **Kryptonite:** ore, blocks and shards (mine the ore with an iron pickaxe) within a few blocks strip every power, drop
   you out of the sky and hurt you. Your enemies can carry it too.
 - **The Superman Suit:** a craftable four-piece set (blue and red wool, gold and diamonds) that **only a Kryptonian can
-  wear** -- netherite-strong and fireproof, with a real red cloth **cape** (gold shield on the back) that sways as you
+  wear** -- netherite-strong, fireproof, mends itself in direct sunlight, with a real red cloth **cape** (gold shield on the back) that sways as you
   walk and streams out flat behind you at super-speed.
 
 ---

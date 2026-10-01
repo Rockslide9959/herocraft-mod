@@ -47,6 +47,12 @@ import net.minecraft.world.level.GameRules;
  * </ul>
  * Death without keepInventory drops a ring that holds the suit (as a {@link FlashRingItem}); losing Super Speed hands it
  * back to the inventory. Right-clicking the item puts it back on.
+ *
+ * <p>v0.14.14: a ring that HOLDS the suit is worn in the CHESTPLATE slot (the Flash chestplate's own slot, free once the
+ * suit is packed) as a real equipped item -- so death, keepInventory, graves and every inventory mod treat it like
+ * armour and the suit is never lost with a dead player's attachment. A dropped ring holding the suit never despawns.
+ * The {@code FLASH_RING} attachment only carries the empty ring while the suit is out (and, as a fallback, a full ring
+ * when the chest slot was taken by other armour).
  */
 public final class FlashRing {
 	public static final int SUIT_UP_TICKS = 30;
@@ -75,6 +81,12 @@ public final class FlashRing {
 		PayloadTypeRegistry.playC2S().register(TogglePayload.TYPE, TogglePayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(TogglePayload.TYPE, (payload, context) -> toggle(context.player()));
 		ServerTickEvents.END_SERVER_TICK.register(FlashRing::serverTick);
+		// v0.14.14: a dropped ring holding the suit never despawns
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents.ENTITY_LOAD.register((entity, level) -> {
+			if (entity instanceof ItemEntity item && item.getItem().is(FlashSuit.RING) && FlashRingItem.pieces(item.getItem()) > 0) {
+				item.setUnlimitedLifetime();
+			}
+		});
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (entity instanceof ServerPlayer p) {
 				onDeath(p);
@@ -93,10 +105,29 @@ public final class FlashRing {
 		return player.getAttachedOrElse(ModAttachments.FLASH_FX, FlashFx.EMPTY);
 	}
 
-	/** Whether a ring is on the finger and holds at least one suit piece. */
+	/** v0.14.14: the ring holding the suit -- in the chestplate slot, else on the finger (attachment); may be empty. */
+	public static ItemStack storedRing(Player player) {
+		ItemStack chest = player.getItemBySlot(EquipmentSlot.CHEST);
+		if (chest.is(FlashSuit.RING) && FlashRingItem.pieces(chest) > 0) {
+			return chest;
+		}
+		return worn(player);
+	}
+
+	/** Whether a ring (chestplate slot or finger) holds at least one suit piece. */
 	public static boolean holdsSuit(Player player) {
-		ItemStack ring = worn(player);
+		ItemStack ring = storedRing(player);
 		return !ring.isEmpty() && FlashRingItem.pieces(ring) > 0;
+	}
+
+	/** v0.14.14: puts a ring holding the suit into the chestplate slot if it is free, else onto the finger. */
+	private static void store(ServerPlayer player, ItemStack ring) {
+		if (FlashRingItem.pieces(ring) > 0 && player.getItemBySlot(EquipmentSlot.CHEST).isEmpty()) {
+			player.setItemSlot(EquipmentSlot.CHEST, ring.copyWithCount(1));
+			player.removeAttached(ModAttachments.FLASH_RING);
+		} else {
+			setWorn(player, ring);
+		}
 	}
 
 	private static void setWorn(ServerPlayer player, ItemStack ring) {
@@ -168,7 +199,7 @@ public final class FlashRing {
 					.withStyle(ChatFormatting.GRAY), true);
 			return false;
 		}
-		setWorn(player, ring);
+		store(player, ring);
 		sound(player, SoundEvents.ARMOR_EQUIP_GOLD.value(), 1.0f, 1.6f);
 		player.displayClientMessage(Component.translatable("message.projecthero.flash_ring.on")
 				.withStyle(ChatFormatting.GOLD), true);
@@ -197,14 +228,17 @@ public final class FlashRing {
 		if (!any) {
 			return; // took it all off by hand mid-way
 		}
-		setWorn(player, ringWith(worn(player), pieces));
+		store(player, ringWith(worn(player), pieces)); // v0.14.14: into the chestplate slot the suit just left
 		sound(player, SoundEvents.ARMOR_EQUIP_GOLD.value(), 1.0f, 1.8f);
 		sound(player, SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 1.5f);
 	}
 
 	/** The suit comes out: pieces on at once (the client reveals them), the ring stays on the finger, empty. */
 	static void suitUp(ServerPlayer player, long now) {
-		ItemStack ring = worn(player);
+		ItemStack ring = storedRing(player).copy();
+		if (player.getItemBySlot(EquipmentSlot.CHEST).is(FlashSuit.RING)) {
+			player.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY); // v0.14.14: the ring leaves the chest slot for the finger
+		}
 		List<ItemStack> leftover = new ArrayList<>();
 		for (ItemStack piece : contents(ring)) {
 			if (!(piece.getItem() instanceof ArmorItem armor) || FlashSuit.isSuit(player.getItemBySlot(armor.getEquipmentSlot()))) {
@@ -262,13 +296,23 @@ public final class FlashRing {
 			if (FlashRingItem.pieces(ring) > 0 && !player.getInventory().add(ring.copy())) {
 				player.drop(ring.copy(), false);
 			}
-		} else if (!ring.isEmpty() && player.tickCount % REPAIR_EVERY == 0) {
-			repairStored(player, ring);
+		} else if (holdsSuit(player)) {
+			// v0.14.14: a full ring left on the finger by an older version moves into the free chestplate slot
+			if (!FlashRing.worn(player).isEmpty() && FlashRingItem.pieces(worn(player)) > 0
+					&& player.getItemBySlot(EquipmentSlot.CHEST).isEmpty() && fx.dir() == FlashFx.NONE) {
+				store(player, worn(player));
+			}
+			if (player.tickCount % REPAIR_EVERY == 0) {
+				repairStored(player);
+			}
 		}
 	}
 
 	/** v0.14.13: one mending step for every damaged suit piece stored in the worn ring (written back only on a change). */
-	public static void repairStored(ServerPlayer player, ItemStack ring) {
+	public static void repairStored(ServerPlayer player) {
+		boolean inChest = player.getItemBySlot(EquipmentSlot.CHEST).is(FlashSuit.RING)
+				&& FlashRingItem.pieces(player.getItemBySlot(EquipmentSlot.CHEST)) > 0;
+		ItemStack ring = storedRing(player);
 		List<ItemStack> pieces = contents(ring);
 		boolean changed = false;
 		for (ItemStack piece : pieces) {
@@ -278,7 +322,11 @@ public final class FlashRing {
 			}
 		}
 		if (changed) {
-			setWorn(player, ringWith(ring, pieces));
+			if (inChest) {
+				player.setItemSlot(EquipmentSlot.CHEST, ringWith(ring, pieces));
+			} else {
+				setWorn(player, ringWith(ring, pieces));
+			}
 		}
 	}
 

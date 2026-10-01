@@ -152,7 +152,7 @@ public class V01413GameTests implements FabricGameTest {
 		ring.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(List.of(chest)));
 		p.setAttached(ModAttachments.FLASH_RING, ring);
 		for (int i = 0; i < 5; i++) {
-			FlashRing.repairStored(p, FlashRing.worn(p));
+			FlashRing.repairStored(p);
 		}
 		ItemStack stored = FlashRing.worn(p).get(DataComponents.CONTAINER).nonEmptyItemsCopy().iterator().next();
 		helper.assertTrue(stored.getDamageValue() == 50 - 5 * FlashRing.REPAIR_AMOUNT, "mended 1 a step, got " + stored.getDamageValue());
