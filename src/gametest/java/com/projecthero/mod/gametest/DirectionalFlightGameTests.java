@@ -167,9 +167,9 @@ public class DirectionalFlightGameTests implements FabricGameTest {
 				"supersonic drives along the look whatever W / S say");
 
 		Tune boots = DirectionalFlightModel.repulsorBoots(true);
-		helper.assertTrue(Math.abs(DirectionalFlightModel.repulsorBoots(false).speed() - ironMan.speed() / 2.0) < EPS
-				&& boots.maxHorizontal() == DirectionalFlightModel.REPULSOR_BOOTS_CAP,
-				"Repulsor Boots: half the Mark 2's speed, 15 m/s ceiling");
+		helper.assertTrue(Math.abs(DirectionalFlightModel.repulsorBoots(false).speed() - ironMan.speed()) < EPS
+				&& boots.maxHorizontal() == 0.0,
+				"Repulsor Boots: never slower than the creative-flight speed they always had, no extra ceiling");
 
 		Tune cruise = DirectionalFlightModel.flightPower(0.06f, false, 0, false);
 		Tune tier3 = DirectionalFlightModel.flightPower(0.105f, true, 3, false);

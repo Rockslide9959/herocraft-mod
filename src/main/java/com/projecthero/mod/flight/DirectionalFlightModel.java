@@ -158,7 +158,9 @@ public final class DirectionalFlightModel {
 	public static Tune ironMan(float suitSpeed, float suitAcceleration, double maxFlightSpeedMps, boolean sprint,
 			boolean supersonic) {
 		double accel = Math.max(0.10, Math.min(0.35, suitAcceleration * 2.5));
-		Tune tune = new Tune(VANILLA_FLYING_SPEED * VANILLA_CRUISE_FACTOR * suitSpeed * (sprint ? 2.0 : 1.0),
+		// v0.14.16 (merge): never slower than the plain creative-flight speed every mark and the boots really flew at
+		// before directional flight -- the faster marks still go faster.
+		Tune tune = new Tune(VANILLA_FLYING_SPEED * VANILLA_CRUISE_FACTOR * Math.max(1.0, suitSpeed) * (sprint ? 2.0 : 1.0),
 				VANILLA_FLYING_SPEED * VANILLA_VERTICAL_FACTOR, 1.0, accel, Math.max(accel, DEFAULT_REVERSE), DEFAULT_IDLE,
 				maxFlightSpeedMps > 0.0 ? maxFlightSpeedMps / 20.0 : 0.0, 0.0, false, PUSH_CARRY_TICKS, true);
 		if (supersonic) {
@@ -168,13 +170,12 @@ public final class DirectionalFlightModel {
 	}
 
 	/**
-	 * Repulsor Boots: exactly what their tooltip promises -- the Mark 2's flight at {@code RepulsorBoots.FLIGHT_SPEED}
-	 * (50%) speed and {@code FLIGHT_ACCELERATION} (half its pick-up), under the 15 m/s ceiling.
+	 * Repulsor Boots: the Mark 2's cruise speed (never slower than the creative-flight speed they always really had) with
+	 * {@code FLIGHT_ACCELERATION} (half its pick-up) -- no extra ceiling, so sprint flight is as quick as it was.
 	 */
 	public static Tune repulsorBoots(boolean sprint) {
 		return ironMan(com.projecthero.mod.ironman.RepulsorBoots.FLIGHT_SPEED,
-				com.projecthero.mod.ironman.RepulsorBoots.FLIGHT_ACCELERATION, 0.0, sprint, false)
-				.withMaxHorizontal(REPULSOR_BOOTS_CAP);
+				com.projecthero.mod.ironman.RepulsorBoots.FLIGHT_ACCELERATION, 0.0, sprint, false);
 	}
 
 	// ---------------------------------------------------------------- the model
