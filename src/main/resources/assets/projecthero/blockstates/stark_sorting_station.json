@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "projecthero:block/stark_sorting_station"
+    },
+    "facing=east": {
+      "model": "projecthero:block/stark_sorting_station",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "projecthero:block/stark_sorting_station",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "projecthero:block/stark_sorting_station",
+      "y": 270
+    }
+  }
+}

@@ -73,6 +73,7 @@ public class ProjectHeroMod implements ModInitializer {
 		ModItems.initialize();
 		IronManItems.initialize();
 		IronManBlocks.initialize();
+		com.projecthero.mod.ironman.sorter.StarkSorter.initialize(); // v0.14.16: Stark Sorting Station + Sorter Bot
 		IronManSuits.initialize();
 		IronManEntityTypes.initialize();
 		ModEntityTypes.initialize();

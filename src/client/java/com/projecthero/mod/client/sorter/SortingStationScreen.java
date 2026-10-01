@@ -1,0 +1,147 @@
+package com.projecthero.mod.client.sorter;
+
+import com.projecthero.mod.ironman.sorter.SortingStationMenu;
+
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.world.entity.player.Inventory;
+
+/**
+ * v0.14.16: the Stark Sorting Station screen. A procedural flat panel in the Fabricator's style (no background
+ * texture) with Stark red/gold trim: the 6x9 store, a status band with the job's progress bar and the
+ * <b>Sort</b> button, then the player inventory. Slot geometry matches {@link SortingStationMenu}.
+ */
+public class SortingStationScreen extends AbstractContainerScreen<SortingStationMenu> {
+	private static final int BG = 0xFF181C24;
+	private static final int PANEL = 0xFF20242E;
+	private static final int GOLD = 0xFFD9A43A;
+	private static final int RED = 0xFF9E2026;
+	private static final int CELL_BG = 0xFF12151C;
+	private static final int CELL_BORDER = 0xFF3C4658;
+	private static final int ARC = 0xFF5FD8FF;
+	private static final int TEXT = 0xFFB8C0E0;
+
+	private static final int BAND_Y = 128;
+	private static final int BTN_X = 124;
+	private static final int BTN_Y = 131;
+	private static final int BTN_W = 44;
+	private static final int BTN_H = 20;
+	private static final int BAR_X = 8;
+	private static final int BAR_Y = 146;
+	private static final int BAR_W = 110;
+
+	public SortingStationScreen(SortingStationMenu menu, Inventory inv, Component title) {
+		super(menu, inv, title);
+		this.imageWidth = 176;
+		this.imageHeight = 250;
+		this.titleLabelX = 8;
+		this.titleLabelY = 6;
+		this.inventoryLabelX = 8;
+		this.inventoryLabelY = SortingStationMenu.INV_Y - 11;
+	}
+
+	private void cell(GuiGraphics g, int x, int y) {
+		g.fill(x - 1, y - 1, x + 17, y + 17, CELL_BORDER);
+		g.fill(x, y, x + 16, y + 16, CELL_BG);
+	}
+
+	private boolean overButton(double mx, double my) {
+		int x = leftPos + BTN_X;
+		int y = topPos + BTN_Y;
+		return mx >= x && mx < x + BTN_W && my >= y && my < y + BTN_H;
+	}
+
+	@Override
+	protected void renderBg(GuiGraphics g, float partialTick, int mouseX, int mouseY) {
+		int x = leftPos;
+		int y = topPos;
+		g.fill(x, y, x + imageWidth, y + imageHeight, BG);
+		// red/gold Stark trim
+		g.fill(x, y, x + imageWidth, y + 2, RED);
+		g.fill(x, y + 2, x + imageWidth, y + 3, GOLD);
+		g.fill(x, y + imageHeight - 2, x + imageWidth, y + imageHeight, RED);
+
+		for (int row = 0; row < SortingStationMenu.ROWS; row++) {
+			for (int col = 0; col < 9; col++) {
+				cell(g, x + 8 + col * 18, y + 18 + row * 18);
+			}
+		}
+
+		// status band
+		g.fill(x + 4, y + BAND_Y, x + imageWidth - 4, y + BAND_Y + 26, PANEL);
+		g.fill(x + 4, y + BAND_Y, x + imageWidth - 4, y + BAND_Y + 1, GOLD);
+		g.fill(x + 4, y + BAND_Y + 25, x + imageWidth - 4, y + BAND_Y + 26, CELL_BORDER);
+
+		int bx = x + BAR_X;
+		int by = y + BAR_Y;
+		g.fill(bx - 1, by - 1, bx + BAR_W + 1, by + 5, CELL_BORDER);
+		g.fill(bx, by, bx + BAR_W, by + 4, 0xFF10141C);
+		int total = menu.total();
+		if (total > 0) {
+			float f = Math.min(1f, menu.done() / (float) total);
+			g.fill(bx, by, bx + Math.round(BAR_W * f), by + 4, menu.running() ? ARC : 0xFF66E0A0);
+		}
+
+		// the Sort button
+		boolean busy = menu.running();
+		boolean hover = !busy && overButton(mouseX, mouseY);
+		int bxx = x + BTN_X;
+		int byy = y + BTN_Y;
+		g.fill(bxx - 1, byy - 1, bxx + BTN_W + 1, byy + BTN_H + 1, busy ? CELL_BORDER : GOLD);
+		g.fill(bxx, byy, bxx + BTN_W, byy + BTN_H, busy ? 0xFF2B3242 : (hover ? 0xFFB8282F : RED));
+		Component label = Component.translatable(busy ? "screen.projecthero.stark_sorting_station.busy"
+				: "screen.projecthero.stark_sorting_station.sort");
+		g.drawString(font, label, bxx + (BTN_W - font.width(label)) / 2, byy + 6, busy ? 0xFF8A93A8 : 0xFFFFE9B0, true);
+
+		for (int row = 0; row < 3; row++) {
+			for (int col = 0; col < 9; col++) {
+				cell(g, x + 8 + col * 18, y + SortingStationMenu.INV_Y + row * 18);
+			}
+		}
+		for (int col = 0; col < 9; col++) {
+			cell(g, x + 8 + col * 18, y + SortingStationMenu.INV_Y + 58);
+		}
+	}
+
+	@Override
+	protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
+		g.drawString(font, title, titleLabelX, titleLabelY, GOLD, false);
+		g.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, 0xFF7FA8D8, false);
+
+		Component status;
+		if (menu.running()) {
+			status = Component.translatable("screen.projecthero.stark_sorting_station.sorting", menu.done(), menu.total());
+		} else if (menu.total() > 0) {
+			status = Component.translatable("screen.projecthero.stark_sorting_station.finished", menu.done(), menu.total());
+		} else {
+			status = Component.translatable("screen.projecthero.stark_sorting_station.idle");
+		}
+		// stays inside the band: wrap to the space left of the button, at most one line
+		FormattedCharSequence line = font.split(status, BTN_X - BAR_X - 6).stream().findFirst().orElse(FormattedCharSequence.EMPTY);
+		g.drawString(font, line, BAR_X, BAND_Y + 5, menu.running() ? ARC : TEXT, false);
+	}
+
+	@Override
+	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+		super.render(g, mouseX, mouseY, partialTick);
+		if (overButton(mouseX, mouseY) && !menu.running()) {
+			g.renderTooltip(font, font.split(Component.translatable("screen.projecthero.stark_sorting_station.sort_hint"), 180),
+					mouseX, mouseY);
+		} else {
+			renderTooltip(g, mouseX, mouseY);
+		}
+	}
+
+	@Override
+	public boolean mouseClicked(double mx, double my, int button) {
+		if (button == 0 && overButton(mx, my) && !menu.running() && minecraft != null && minecraft.gameMode != null) {
+			minecraft.gameMode.handleInventoryButtonClick(menu.containerId, SortingStationMenu.BUTTON_SORT);
+			minecraft.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(
+					net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0f));
+			return true;
+		}
+		return super.mouseClicked(mx, my, button);
+	}
+}

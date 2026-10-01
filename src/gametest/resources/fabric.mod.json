@@ -63,7 +63,8 @@
       "com.projecthero.mod.gametest.V0148MiscGameTests",
       "com.projecthero.mod.gametest.KryptonianGameTests",
       "com.projecthero.mod.gametest.DirectionalFlightGameTests",
-      "com.projecthero.mod.gametest.SpeedSquadV01416GameTests"
+      "com.projecthero.mod.gametest.SpeedSquadV01416GameTests",
+      "com.projecthero.mod.gametest.StarkSorterGameTests"
     ]
   },
   "depends": {
