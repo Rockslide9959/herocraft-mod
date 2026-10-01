@@ -128,7 +128,9 @@ same clearance in; do **not** ship a bare vanilla-sized box.
 * `thor` (v0.12.32) ships its own skin, `thor.png` (byte-for-byte from the supplied `thor.bbmodel`), on `geo/thor.geo.json` —
   the standard player-armour rig (same cubes/UVs as `spider_man.geo.json`, `inflate` 0.3 / 0.55). The skin has no head art, so
   Thor's Armour is three pieces (chest, legs, boots) conjured by H — see `com.projecthero.mod.thorarmor`. `crimson_vanguard` is
-  now only the fallback default.
+  now only the fallback default. The geo has no cape bone; since v0.14.16 the crimson cape is a separate cloth render layer
+  (`client.thor.ThorCapeLayer` on the shared `client.render.FlowingCapeLayer`, texture `textures/entity/thor_cape.png` from
+  `scratchpad/build_thor_cape_texture.js`) drawn whenever the Thor's Armour chestplate is worn, unrolling with the chest reveal.
 * `superman` (v0.14.9, the Kryptonian-only Superman Suit) is the supplied `superman.bbmodel` skin on Moon Knight's skin rig
   plus boot cubes, with the cape the skin painted on its second layer cleared (`scratchpad/gen_superman_suit.js`); the cape
   is a separate cloth layer instead. No head art, so its helmet renders nothing. See `docs/KRYPTONIAN_REFERENCE.md`.

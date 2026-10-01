@@ -63,6 +63,14 @@ public abstract class ItemEntityMixin {
 			// the "item flies into you" animation. Not a hammer that's actually in the world.
 			return;
 		}
+		if (self.level() instanceof net.minecraft.server.level.ServerLevel serverLevel
+				&& com.projecthero.mod.hammer.MjolnirRegistry.get(serverLevel).isStale(stack)) {
+			// v0.14.16: a ghost of a hammer that has already been recalled (dropped out of a broken chest,
+			// a hopper, a dispenser...) -- it is never promoted into a real MjolnirEntity, it just goes.
+			self.discard();
+			ci.cancel();
+			return;
+		}
 
 		MjolnirEntity hammer = MjolnirEntity.createResting(self.level(), self.getOwner(), stack,
 				self.position(), self.getDeltaMovement());

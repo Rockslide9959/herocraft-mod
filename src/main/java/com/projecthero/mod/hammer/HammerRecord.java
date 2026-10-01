@@ -41,7 +41,13 @@ public record HammerRecord(
 		/** A {@code MjolnirEntity} in the world: flying, impacted, returning, or lying on the ground. */
 		ENTITY,
 		/** Last seen somewhere we can't cheaply re-find (a chest, a hopper, another mod's storage). */
-		UNKNOWN
+		UNKNOWN,
+		/**
+		 * v0.14.16: last seen in a container somebody had open (a chest, barrel, shulker, minecart...).
+		 * {@code lastPos} is the container's position (or the viewer's, for a double chest / entity), and
+		 * recall searches the loaded chunks around it before it ever considers reconstructing.
+		 */
+		CONTAINER
 	}
 
 	public static final Codec<HammerRecord> CODEC = RecordCodecBuilder.create(instance -> instance.group(

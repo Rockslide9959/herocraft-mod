@@ -194,6 +194,8 @@ public class ProjectHeroMod implements ModInitializer {
 		ModStructurePieceTypes.initialize();
 		CraterAmbience.initialize();
 		com.projecthero.mod.hammer.MjolnirSeer.initialize();
+		// v0.14.16: retires superseded (recalled) hammer copies wherever they are next observed
+		com.projecthero.mod.hammer.MjolnirGuard.initialize();
 		com.projecthero.mod.maxsteel.worldgen.SteelCrashAmbience.initialize();
 		com.projecthero.mod.symbiote.worldgen.SymbioteWorldgen.initialize();
 

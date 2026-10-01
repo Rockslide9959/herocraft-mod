@@ -52,7 +52,13 @@ public final class MjolnirRegistry extends SavedData {
 	private static final String FILE_ID = ProjectHeroMod.MOD_ID + "_mjolnir";
 	private static final String TAG_HAMMERS = "Hammers";
 
+	private static final String TAG_SNAPSHOTS = "Snapshots";
+	private static final String TAG_SNAPSHOT_ID = "id";
+	private static final String TAG_SNAPSHOT_STACK = "stack";
+
 	private final Map<UUID, HammerRecord> records = new HashMap<>();
+	/** v0.14.16: see {@link #snapshot}. Per-world SavedData, not static state. */
+	private final Map<UUID, ItemStack> snapshots = new HashMap<>();
 
 	/**
 	 * Hoisted to a constant because {@link #get} is called on the hot path -- every ticking hammer,
@@ -87,6 +93,16 @@ public final class MjolnirRegistry extends SavedData {
 					.resultOrPartial(error -> ProjectHeroMod.LOGGER.warn("Dropping unreadable Mjolnir record: {}", error))
 					.ifPresent(record -> registry.records.put(record.hammerId(), record));
 		}
+		ListTag snapshotList = tag.getList(TAG_SNAPSHOTS, Tag.TAG_COMPOUND);
+		for (int i = 0; i < snapshotList.size(); i++) {
+			CompoundTag entry = snapshotList.getCompound(i);
+			if (!entry.hasUUID(TAG_SNAPSHOT_ID)) {
+				continue;
+			}
+			UUID id = entry.getUUID(TAG_SNAPSHOT_ID);
+			ItemStack.parse(registries, entry.getCompound(TAG_SNAPSHOT_STACK))
+					.ifPresent(stack -> registry.snapshots.put(id, stack));
+		}
 		return registry;
 	}
 
@@ -99,6 +115,21 @@ public final class MjolnirRegistry extends SavedData {
 					.ifPresent(list::add);
 		}
 		tag.put(TAG_HAMMERS, list);
+		ListTag snapshotList = new ListTag();
+		for (Map.Entry<UUID, ItemStack> entry : snapshots.entrySet()) {
+			if (entry.getValue().isEmpty()) {
+				continue;
+			}
+			try {
+				CompoundTag snapshotTag = new CompoundTag();
+				snapshotTag.putUUID(TAG_SNAPSHOT_ID, entry.getKey());
+				snapshotTag.put(TAG_SNAPSHOT_STACK, entry.getValue().save(registries));
+				snapshotList.add(snapshotTag);
+			} catch (RuntimeException e) {
+				ProjectHeroMod.LOGGER.warn("Failed to save Mjolnir snapshot for {}", entry.getKey(), e);
+			}
+		}
+		tag.put(TAG_SNAPSHOTS, snapshotList);
 		return tag;
 	}
 
@@ -145,7 +176,38 @@ public final class MjolnirRegistry extends SavedData {
 			return false;
 		}
 		Integer generation = stack.get(ModDataComponents.HAMMER_GENERATION);
-		return (generation == null ? 0 : generation) < record.generation();
+		if (generation == null) {
+			// v0.14.16: a legacy hammer (an id but no generation stamp -- predates the stamp, or came from
+			// a /give with only the id) is ADOPTED, never treated as a ghost: it may well be the only
+			// physical copy its owner has. update() stamps the current generation onto it the first
+			// time it is recorded. Every copy this system itself makes always carries a generation, so a
+			// genuine ghost can never look like this.
+			return false;
+		}
+		return generation < record.generation();
+	}
+
+	/**
+	 * v0.14.16: the last-seen full stack (custom name, enchantments, damage, every other component) of
+	 * this hammer, so a reconstruction is the same hammer rather than a blank one. Empty if the hammer
+	 * has never been recorded since the snapshot system was added.
+	 */
+	public Optional<ItemStack> snapshot(UUID hammerId) {
+		ItemStack stored = hammerId == null ? null : snapshots.get(hammerId);
+		return stored == null || stored.isEmpty() ? Optional.empty() : Optional.of(stored.copy());
+	}
+
+	/** Remembers {@code stack}'s components for {@link #snapshot}; only marks dirty on a real change. */
+	private void rememberComponents(UUID id, ItemStack stack) {
+		if (stack.isEmpty()) {
+			return;
+		}
+		ItemStack previous = snapshots.get(id);
+		if (previous != null && ItemStack.isSameItemSameComponents(previous, stack)) {
+			return;
+		}
+		snapshots.put(id, stack.copyWithCount(1));
+		setDirty();
 	}
 
 	// ---------------- record lookup ----------------
@@ -191,6 +253,22 @@ public final class MjolnirRegistry extends SavedData {
 				status));
 	}
 
+	/**
+	 * v0.14.16: records that the hammer is sitting in a container (seen while somebody had it open), so a
+	 * recall knows which loaded chunks to search -- and can MOVE the real hammer out -- before it ever
+	 * falls back to reconstructing one.
+	 */
+	public void noteContainer(ItemStack stack, ServerLevel level, BlockPos pos) {
+		UUID id = identify(stack);
+		update(id, stack, existing -> existing.withPlacement(
+				HammerRecord.Placement.CONTAINER,
+				Optional.empty(),
+				Optional.empty(),
+				level.dimension(),
+				pos.immutable(),
+				MjolnirStatus.STORED));
+	}
+
 	/** Binds (or rebinds) a hammer to a player. Passing an empty owner unbinds it. */
 	public void setOwner(ItemStack stack, Optional<UUID> owner, String ownerName) {
 		UUID id = identify(stack);
@@ -234,6 +312,8 @@ public final class MjolnirRegistry extends SavedData {
 		if (stack.get(ModDataComponents.HAMMER_GENERATION) == null) {
 			stack.set(ModDataComponents.HAMMER_GENERATION, records.get(id).generation());
 		}
+		// v0.14.16: keep the full stack on file so a reconstruction keeps its name/enchantments/etc.
+		rememberComponents(id, stack);
 	}
 
 	private HammerRecord blank(UUID id, ItemStack stack) {

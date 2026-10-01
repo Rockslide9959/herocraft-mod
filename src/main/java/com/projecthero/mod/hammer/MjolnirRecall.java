@@ -11,6 +11,7 @@ import com.projecthero.mod.item.ModItems;
 import com.projecthero.mod.power.ThorFeedback;
 import com.projecthero.mod.worthiness.Worthiness;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -21,6 +22,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
@@ -52,6 +54,16 @@ import net.minecraft.world.phys.Vec3;
  *   it the moment its owner reconnects and it next ticks, so the reconnect can never produce a
  *   duplicate. A fresh entity flies in from a distance.</li>
  * </ol>
+ *
+ * <p><b>v0.14.16 ("calling it from a chest / an unloaded chunk / someone's inventory duplicates it").</b>
+ * Between steps 3 and 4 the hammer is now also looked for -- and <em>moved</em> out of -- every other
+ * loaded place it can sit: another player's cursor, open menu or ender chest, the caller's own ender
+ * chest, its recorded entity in another dimension or a non-ticking border chunk, and every loaded
+ * container block entity / item frame / container entity / mob hand around where the registry last saw
+ * it and around the caller (one level into shulker boxes and bundles). Every move re-stamps the stack at
+ * a freshly bumped generation. Reconstruction (step 4) now starts from the registry's full snapshot of
+ * the stack, and the ghost it leaves behind is deleted by {@link MjolnirGuard} the instant it is next
+ * observed anywhere -- not only when it happens to tick in a player's inventory.
  *
  * <p>Nothing here force-loads a chunk, and nothing here scans entities in dimensions the player is
  * not in; step 3 only ever looks at <em>online</em> players, which is what makes the offline case
@@ -99,6 +111,11 @@ public final class MjolnirRecall {
 			equipFromInventory(player, ownSlot);
 			return true;
 		}
+		// v0.14.16: ...including on our own cursor (mid-drag in a menu) -- it is in our hand already.
+		if (matches(registry, player.containerMenu.getCarried(), player.getUUID(), hammerId)) {
+			ThorFeedback.recallAlreadyHeld(player);
+			return true;
+		}
 
 		// 2. A loaded entity.
 		MjolnirEntity loaded = findLoadedEntity(player, registry, hammerId);
@@ -127,21 +144,65 @@ public final class MjolnirRecall {
 		}
 		HammerRecord record = maybeRecord.get();
 
-		// 3. In somebody else's hand or inventory.
-		StolenHammer stolen = takeFromOtherPlayers(player, hammerId);
-		if (stolen != null) {
-			flyInFromHolder(player, stolen.holder(), stolen.stack());
-			ThorFeedback.hammerTakenByOwner(stolen.holder());
+		// v0.14.16: every branch below MOVES the one real hammer (removes it from wherever it is, then sends
+		// that exact stack -- every component intact -- home at a freshly bumped generation, so even a copy
+		// whose removal somehow never got saved is retired as a ghost). Only step 6 ever has to rebuild one.
+
+		// 2b. Its recorded entity is loaded, just not in the caller's dimension.
+		ItemStack fromOtherDimension = takeLoadedEntityElsewhere(player, registry, hammerId, record);
+		if (fromOtherDimension != null) {
+			flyIn(player, restamp(fromOtherDimension, registry, hammerId));
 			ThorFeedback.recallStartedFar(player);
 			return true;
 		}
 
-		// 4. Unreachable -- reconstruct, retiring every older copy. reconstruct() has already blanked
-		// the record's whereabouts, and the new entity records its own on its first tick.
-		ItemStack rebuilt = rebuildStack(record, registry.reconstruct(hammerId));
+		// 3. In somebody else's hand, inventory, cursor, open menu or ender chest (or our own ender chest).
+		StolenHammer stolen = takeFromOtherPlayers(player, registry, hammerId);
+		if (stolen != null) {
+			ItemStack moving = restamp(stolen.stack(), registry, hammerId);
+			if (stolen.holder() == player) {
+				flyIn(player, moving);
+			} else {
+				flyInFromHolder(player, stolen.holder(), moving);
+				ThorFeedback.hammerTakenByOwner(stolen.holder());
+			}
+			ThorFeedback.recallStartedFar(player);
+			return true;
+		}
+
+		// 4-5. v0.14.16: in a LOADED container (chest, barrel, hopper, a shulker box inside one, a minecart),
+		// an item frame, an armour stand's hand, or an entity in a lazy border chunk -- searched around where
+		// the registry last saw it and around the caller. Previously this fell straight through to
+		// reconstruction and left the original sitting in the chest: the duplicate.
+		FoundInWorld found = takeFromLoadedWorld(player, registry, hammerId, record);
+		if (found != null) {
+			ItemStack moving = restamp(found.stack(), registry, hammerId);
+			if (found.level() == player.serverLevel()) {
+				flyInFrom(player, found.level(), found.origin(), moving);
+			} else {
+				flyIn(player, moving);
+			}
+			ThorFeedback.recallStartedFar(player);
+			return true;
+		}
+
+		// 6. Unreachable (an unloaded chunk, an offline player) -- reconstruct, retiring every older copy.
+		// reconstruct() has already blanked the record's whereabouts, and the new entity records its own on
+		// its first tick. v0.14.16: rebuilt from the registry's last full snapshot of the stack, so the
+		// recalled copy keeps its custom name, enchantments and the rest; the ghost left behind is deleted by
+		// MjolnirGuard the moment its chunk / container / owner is next seen.
+		ItemStack rebuilt = rebuildStack(record, registry.snapshot(hammerId).orElse(null),
+				registry.reconstruct(hammerId));
 		flyIn(player, rebuilt);
 		ThorFeedback.recallStartedFar(player);
 		return true;
+	}
+
+	/** v0.14.16: the moved stack goes home at a new generation, so any lingering copy of it is a ghost. */
+	private static ItemStack restamp(ItemStack stack, MjolnirRegistry registry, UUID hammerId) {
+		ItemStack moving = stack.copyWithCount(1);
+		moving.set(ModDataComponents.HAMMER_GENERATION, registry.reconstruct(hammerId));
+		return moving;
 	}
 
 	/**
@@ -223,10 +284,11 @@ public final class MjolnirRecall {
 
 	/** @return the inventory slot the caller's own hammer is in, or -1. */
 	private static int findInInventory(ServerPlayer player, UUID hammerId) {
+		MjolnirRegistry registry = MjolnirRegistry.get(player.serverLevel());
 		Inventory inventory = player.getInventory();
 		for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
 			ItemStack stack = inventory.getItem(slot);
-			if (matches(stack, player.getUUID(), hammerId)) {
+			if (matches(registry, stack, player.getUUID(), hammerId)) {
 				return slot;
 			}
 		}
@@ -246,7 +308,11 @@ public final class MjolnirRecall {
 				if (recordLevel != null
 						&& recordLevel.getEntity(record.get().entityId().get()) instanceof MjolnirEntity hammer
 						&& !hammer.isRemoved()
-						&& hammer.level() == player.level()) {
+						&& hammer.level() == player.level()
+						&& !registry.isStale(hammer.getItem())
+						// v0.14.16: one sitting in a lazy border chunk never ticks, so it could never fly
+						// home -- takeLoadedEntityElsewhere moves it instead.
+						&& player.serverLevel().isPositionEntityTicking(hammer.blockPosition())) {
 					return hammer;
 				}
 			}
@@ -254,7 +320,9 @@ public final class MjolnirRecall {
 
 		return player.serverLevel().getEntitiesOfClass(MjolnirEntity.class,
 						player.getBoundingBox().inflate(LOADED_SEARCH_RADIUS),
-						entity -> !entity.isRemoved() && answersTo(entity, player, hammerId)).stream()
+						entity -> !entity.isRemoved() && !registry.isStale(entity.getItem())
+								&& player.serverLevel().isPositionEntityTicking(entity.blockPosition())
+								&& answersTo(entity, player, hammerId)).stream()
 				.min(Comparator.comparingDouble(entity -> entity.distanceToSqr(player)))
 				.orElse(null);
 	}
@@ -294,7 +362,7 @@ public final class MjolnirRecall {
 	 * looks at online players -- see the class javadoc for why that is exactly what makes the
 	 * offline-holder case safe.
 	 */
-	private static StolenHammer takeFromOtherPlayers(ServerPlayer caller, UUID hammerId) {
+	private static StolenHammer takeFromOtherPlayers(ServerPlayer caller, MjolnirRegistry registry, UUID hammerId) {
 		for (ServerPlayer other : caller.getServer().getPlayerList().getPlayers()) {
 			if (other == caller) {
 				continue;
@@ -302,28 +370,67 @@ public final class MjolnirRecall {
 
 			for (InteractionHand hand : InteractionHand.values()) {
 				ItemStack held = other.getItemInHand(hand);
-				if (matches(held, caller.getUUID(), hammerId)) {
+				if (matches(registry, held, caller.getUUID(), hammerId)) {
 					ItemStack taken = held.copy();
 					other.setItemInHand(hand, ItemStack.EMPTY);
 					return new StolenHammer(other, taken);
 				}
 			}
 
-			Inventory inventory = other.getInventory();
-			for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
-				ItemStack stack = inventory.getItem(slot);
-				if (matches(stack, caller.getUUID(), hammerId)) {
-					ItemStack taken = stack.copy();
-					inventory.setItem(slot, ItemStack.EMPTY);
-					return new StolenHammer(other, taken);
-				}
+			ItemStack taken = takeFromContainer(other.getInventory(), registry, hammerId);
+			if (taken == null) {
+				// v0.14.16: the cursor (mid-drag) and whatever world container they have open right now.
+				taken = takeFromMenu(other, registry, hammerId);
+			}
+			if (taken == null) {
+				// v0.14.16: their ender chest -- a container that never ticks, the classic ghost hideout.
+				taken = takeFromContainer(other.getEnderChestInventory(), registry, hammerId);
+			}
+			if (taken != null) {
+				other.containerMenu.broadcastChanges();
+				return new StolenHammer(other, taken);
+			}
+		}
+
+		// v0.14.16: the caller's own ender chest (the open menu / cursor were checked as step 1).
+		ItemStack own = takeFromContainer(caller.getEnderChestInventory(), registry, hammerId);
+		if (own == null) {
+			own = takeFromMenu(caller, registry, hammerId);
+		}
+		if (own != null) {
+			caller.containerMenu.broadcastChanges();
+			return new StolenHammer(caller, own);
+		}
+		return null;
+	}
+
+	/** The cursor, then any non-inventory slot of the player's open menu (a chest they are looking into). */
+	private static ItemStack takeFromMenu(ServerPlayer player, MjolnirRegistry registry, UUID hammerId) {
+		ItemStack carried = player.containerMenu.getCarried();
+		if (MjolnirGuard.isLiveCopy(registry, carried, hammerId)) {
+			player.containerMenu.setCarried(ItemStack.EMPTY);
+			return carried.copy();
+		}
+		for (net.minecraft.world.inventory.Slot slot : player.containerMenu.slots) {
+			if (slot.container instanceof Inventory) {
+				continue;
+			}
+			ItemStack stack = slot.getItem();
+			if (MjolnirGuard.isLiveCopy(registry, stack, hammerId)) {
+				ItemStack taken = stack.copy();
+				slot.set(ItemStack.EMPTY);
+				return taken;
 			}
 		}
 		return null;
 	}
 
-	private static boolean matches(ItemStack stack, UUID owner, UUID hammerId) {
+	private static boolean matches(MjolnirRegistry registry, ItemStack stack, UUID owner, UUID hammerId) {
 		if (!stack.is(ModItems.MJOLNIR)) {
+			return false;
+		}
+		// v0.14.16: a superseded ghost is never "the" hammer -- moving one would resurrect it.
+		if (registry.isStale(stack)) {
 			return false;
 		}
 		if (hammerId != null) {
@@ -332,11 +439,240 @@ public final class MjolnirRecall {
 		return owner.equals(stack.get(ModDataComponents.BOUND_OWNER));
 	}
 
+	// ---------------- v0.14.16: moving the real hammer out of the loaded world ----------------
+
+	/** Where a hammer found loose in the loaded world was, and the exact stack taken out of it. */
+	record FoundInWorld(ServerLevel level, Vec3 origin, ItemStack stack) {
+	}
+
+	/** How many chunks around the registry's last-known position are searched. */
+	private static final int RECORD_SEARCH_CHUNKS = 2;
+	/** How many chunks around the caller are searched (covers a chest they just walked away from). */
+	private static final int CALLER_SEARCH_CHUNKS = 4;
+
+	/**
+	 * The hammer's recorded entity is loaded but cannot simply be told to fly home: it is in another
+	 * dimension, or in a lazy border chunk where it never ticks. Taken and discarded; the caller spawns
+	 * the moved stack.
+	 */
+	private static ItemStack takeLoadedEntityElsewhere(ServerPlayer player, MjolnirRegistry registry, UUID hammerId,
+			HammerRecord record) {
+		if (record.entityId().isEmpty()) {
+			return null;
+		}
+		ServerLevel recordLevel = player.getServer().getLevel(record.dimension());
+		if (recordLevel == null
+				|| !(recordLevel.getEntity(record.entityId().get()) instanceof MjolnirEntity hammer)
+				|| hammer.isRemoved()
+				|| !MjolnirGuard.isLiveCopy(registry, hammer.getItem(), hammerId)) {
+			return null;
+		}
+		ItemStack taken = hammer.getItem().copy();
+		hammer.discard();
+		return taken;
+	}
+
+	/**
+	 * Searches the LOADED chunks around where the registry last saw the hammer, then around the caller:
+	 * every container block entity (one level into shulker boxes / bundles inside it), and every loaded
+	 * non-player entity that can hold an item. Never loads a chunk: {@code getChunkNow} simply misses for
+	 * one that is not loaded, and {@code getEntities} only ever sees loaded entity sections.
+	 */
+	private static FoundInWorld takeFromLoadedWorld(ServerPlayer caller, MjolnirRegistry registry, UUID hammerId,
+			HammerRecord record) {
+		ServerLevel recordLevel = caller.getServer().getLevel(record.dimension());
+		if (recordLevel != null && !BlockPos.ZERO.equals(record.lastPos())) {
+			FoundInWorld found = searchArea(recordLevel, record.lastPos(), RECORD_SEARCH_CHUNKS, registry, hammerId);
+			if (found != null) {
+				return found;
+			}
+		}
+		return searchArea(caller.serverLevel(), caller.blockPosition(), CALLER_SEARCH_CHUNKS, registry, hammerId);
+	}
+
+	private static FoundInWorld searchArea(ServerLevel level, BlockPos center, int chunkRadius,
+			MjolnirRegistry registry, UUID hammerId) {
+		int centerX = center.getX() >> 4;
+		int centerZ = center.getZ() >> 4;
+		for (int dx = -chunkRadius; dx <= chunkRadius; dx++) {
+			for (int dz = -chunkRadius; dz <= chunkRadius; dz++) {
+				net.minecraft.world.level.chunk.LevelChunk chunk =
+						level.getChunkSource().getChunkNow(centerX + dx, centerZ + dz);
+				if (chunk == null) {
+					continue;
+				}
+				for (net.minecraft.world.level.block.entity.BlockEntity blockEntity : chunk.getBlockEntities().values()) {
+					if (blockEntity.isRemoved() || !(blockEntity instanceof net.minecraft.world.Container container)) {
+						continue;
+					}
+					ItemStack taken = takeFromContainer(container, registry, hammerId);
+					if (taken != null) {
+						return new FoundInWorld(level, Vec3.atCenterOf(blockEntity.getBlockPos()).add(0.0, 0.7, 0.0), taken);
+					}
+				}
+			}
+		}
+
+		double reach = chunkRadius * 16.0 + 8.0;
+		AABB box = new AABB(center).inflate(reach, Math.max(reach, 64.0), reach);
+		for (Entity entity : level.getEntities((Entity) null, box,
+				entity -> !(entity instanceof net.minecraft.world.entity.player.Player) && !entity.isRemoved())) {
+			ItemStack taken = takeFromEntity(entity, registry, hammerId);
+			if (taken != null) {
+				return new FoundInWorld(level, entity.position().add(0.0, entity.getBbHeight() * 0.6, 0.0), taken);
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Removes the live copy of {@code hammerId} from {@code container} (directly, or out of a shulker box /
+	 * bundle sitting in it) and returns it; ghosts met on the way are deleted on the spot.
+	 */
+	static ItemStack takeFromContainer(net.minecraft.world.Container container, MjolnirRegistry registry, UUID hammerId) {
+		if (MjolnirGuard.hasPendingLoot(container)) {
+			return null;
+		}
+		for (int i = 0; i < container.getContainerSize(); i++) {
+			ItemStack stack = container.getItem(i);
+			if (stack.isEmpty()) {
+				continue;
+			}
+			Extraction extraction = extract(stack, registry, hammerId);
+			if (extraction != null) {
+				container.setItem(i, extraction.remaining());
+				container.setChanged();
+				return extraction.hammer();
+			}
+			ItemStack cleaned = MjolnirGuard.clean(registry, stack);
+			if (cleaned != stack) {
+				container.setItem(i, cleaned);
+				container.setChanged();
+			}
+		}
+		return null;
+	}
+
+	private static ItemStack takeFromEntity(Entity entity, MjolnirRegistry registry, UUID hammerId) {
+		if (entity instanceof MjolnirEntity hammer) {
+			if (MjolnirGuard.isLiveCopy(registry, hammer.getItem(), hammerId)) {
+				ItemStack taken = hammer.getItem().copy();
+				hammer.discard();
+				return taken;
+			}
+			return null;
+		}
+		if (entity instanceof net.minecraft.world.entity.item.ItemEntity item) {
+			Extraction extraction = extract(item.getItem(), registry, hammerId);
+			if (extraction == null) {
+				return null;
+			}
+			if (extraction.remaining().isEmpty()) {
+				item.discard();
+			} else {
+				item.setItem(extraction.remaining());
+			}
+			return extraction.hammer();
+		}
+		if (entity instanceof net.minecraft.world.entity.decoration.ItemFrame frame) {
+			Extraction extraction = extract(frame.getItem(), registry, hammerId);
+			if (extraction == null) {
+				return null;
+			}
+			frame.setItem(extraction.remaining(), false);
+			return extraction.hammer();
+		}
+		if (entity instanceof net.minecraft.world.entity.vehicle.ContainerEntity container) {
+			ItemStack taken = takeFromContainer(container, registry, hammerId);
+			if (taken != null) {
+				return taken;
+			}
+		}
+		if (entity instanceof net.minecraft.world.entity.npc.InventoryCarrier carrier) {
+			ItemStack taken = takeFromContainer(carrier.getInventory(), registry, hammerId);
+			if (taken != null) {
+				return taken;
+			}
+		}
+		if (entity instanceof net.minecraft.world.entity.LivingEntity living) {
+			for (net.minecraft.world.entity.EquipmentSlot slot : net.minecraft.world.entity.EquipmentSlot.values()) {
+				Extraction extraction = extract(living.getItemBySlot(slot), registry, hammerId);
+				if (extraction != null) {
+					living.setItemSlot(slot, extraction.remaining());
+					return extraction.hammer();
+				}
+			}
+		}
+		return null;
+	}
+
+	/** The hammer pulled out of a stack, and what is left of that stack (EMPTY if it was the hammer). */
+	private record Extraction(ItemStack hammer, ItemStack remaining) {
+	}
+
+	private static Extraction extract(ItemStack stack, MjolnirRegistry registry, UUID hammerId) {
+		if (stack.isEmpty()) {
+			return null;
+		}
+		if (MjolnirGuard.isLiveCopy(registry, stack, hammerId)) {
+			return new Extraction(stack.copy(), ItemStack.EMPTY);
+		}
+		net.minecraft.world.item.component.ItemContainerContents contents =
+				stack.get(net.minecraft.core.component.DataComponents.CONTAINER);
+		if (contents != null) {
+			java.util.List<ItemStack> items = new java.util.ArrayList<>();
+			ItemStack found = null;
+			for (ItemStack inner : contents.stream().toList()) {
+				if (found == null && MjolnirGuard.isLiveCopy(registry, inner, hammerId)) {
+					found = inner.copy();
+					items.add(ItemStack.EMPTY);
+				} else {
+					items.add(inner.copy());
+				}
+			}
+			if (found != null) {
+				ItemStack remaining = stack.copy();
+				remaining.set(net.minecraft.core.component.DataComponents.CONTAINER,
+						net.minecraft.world.item.component.ItemContainerContents.fromItems(items));
+				return new Extraction(found, remaining);
+			}
+		}
+		net.minecraft.world.item.component.BundleContents bundle =
+				stack.get(net.minecraft.core.component.DataComponents.BUNDLE_CONTENTS);
+		if (bundle != null) {
+			java.util.List<ItemStack> items = new java.util.ArrayList<>();
+			ItemStack found = null;
+			for (ItemStack inner : bundle.items()) {
+				if (found == null && MjolnirGuard.isLiveCopy(registry, inner, hammerId)) {
+					found = inner.copy();
+				} else {
+					items.add(inner.copy());
+				}
+			}
+			if (found != null) {
+				ItemStack remaining = stack.copy();
+				remaining.set(net.minecraft.core.component.DataComponents.BUNDLE_CONTENTS,
+						new net.minecraft.world.item.component.BundleContents(items));
+				return new Extraction(found, remaining);
+			}
+		}
+		return null;
+	}
+
 	// ---------------- reconstruction ----------------
 
-	/** Rebuilds the item the record describes, at the generation that retires all older copies. */
-	private static ItemStack rebuildStack(HammerRecord record, int generation) {
-		ItemStack stack = new ItemStack(ModItems.MJOLNIR);
+	/**
+	 * Rebuilds the item the record describes, at the generation that retires all older copies. v0.14.16:
+	 * starts from the registry's last full snapshot of the stack when there is one, so the custom name,
+	 * enchantments, damage and every other component survive; identity and ownership are then
+	 * re-stamped from the authoritative record.
+	 */
+	private static ItemStack rebuildStack(HammerRecord record, ItemStack snapshot, int generation) {
+		ItemStack stack = snapshot != null && snapshot.is(ModItems.MJOLNIR)
+				? snapshot.copyWithCount(1)
+				: new ItemStack(ModItems.MJOLNIR);
+		stack.remove(ModDataComponents.BOUND_OWNER);
+		stack.remove(ModDataComponents.BOUND_OWNER_NAME);
 		stack.set(ModDataComponents.HAMMER_ID, record.hammerId());
 		stack.set(ModDataComponents.HAMMER_GENERATION, generation);
 		record.owner().ifPresent(owner -> {
@@ -384,6 +720,17 @@ public final class MjolnirRecall {
 
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, origin.x, origin.y, origin.z, 14, 0.3, 0.3, 0.3, 0.06);
 		level.playSound(null, holder.blockPosition(), SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, 0.6f, 1.3f);
+	}
+
+	/**
+	 * v0.14.16: the hammer bursts out of the chest / item frame / minecart it was sitting in and flies home
+	 * from there -- the visible proof that the one real hammer moved rather than a second one appearing.
+	 */
+	private static void flyInFrom(ServerPlayer owner, ServerLevel level, Vec3 origin, ItemStack stack) {
+		MjolnirEntity hammer = MjolnirEntity.createReturning(level, owner, stack, origin);
+		level.addFreshEntity(hammer);
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, origin.x, origin.y, origin.z, 14, 0.3, 0.3, 0.3, 0.06);
+		level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.CHEST_OPEN, SoundSource.BLOCKS, 0.6f, 0.8f);
 	}
 
 	/**
