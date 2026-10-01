@@ -70,7 +70,9 @@ public final class MaxSteelFlight {
 	 *
 	 * <p>Movement itself is left to vanilla's {@code flying} handling (WASD / jump / sneak, client-side
 	 * and accepted by the server's movement tolerance -- the same division of labour the rest of the
-	 * mod's player-movement powers use). This method only keeps the grant alive, tunes the fly speed
+	 * mod's player-movement powers use; v0.14.16: that client movement is the shared directional flight,
+	 * {@code client.flight.DirectionalFlight} -- W / S along the look, at the speed vanilla gave this fly speed). This
+	 * method only keeps the grant alive, tunes the fly speed
 	 * for a less twitchy feel, drains by how fast the player is actually going, and emits thrusters.
 	 */
 	public static float drainPerTick(ServerPlayer player) {

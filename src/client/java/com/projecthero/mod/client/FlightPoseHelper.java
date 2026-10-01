@@ -21,6 +21,8 @@ import net.minecraft.world.entity.player.Player;
  *   <li>{@link Tier#SLOW} -- moving but not sprinting: a slight forward lean, arms normal.</li>
  *   <li>{@link Tier#FAST} -- sprinting: flat horizontal "superman" pose, hammer arm extended
  *   straight ahead along the direction of travel.</li>
+ *   <li>{@link Tier#BACK} -- v0.14.16, flying backward (S -- every flight is directional now): a slight lean
+ *   <em>back</em>, arms normal -- never the dive-forward lean, which read as flying face-first the wrong way.</li>
  * </ul>
  *
  * <p>Rather than reading the tier straight off the entity at render time (which snapped the model
@@ -34,7 +36,7 @@ import net.minecraft.world.entity.player.Player;
  * vector is unreliable for remote entities, while their interpolated position is not.
  */
 public final class FlightPoseHelper {
-	public enum Tier { HOVER, SLOW, FAST }
+	public enum Tier { HOVER, SLOW, FAST, BACK }
 
 	/** Blocks per tick below which the player counts as hovering rather than flying somewhere. */
 	private static final double HOVER_SPEED_THRESHOLD = 0.03;
@@ -43,6 +45,8 @@ public final class FlightPoseHelper {
 	public static final float LEAN_SLOW_DEGREES = 25.0f;
 	/** Fully horizontal -- the superman pose, body laid out flat along the direction of travel. */
 	public static final float LEAN_FAST_DEGREES = 90.0f;
+	/** v0.14.16: flying backward leans back a touch (negative = away from the facing direction). */
+	public static final float LEAN_BACK_DEGREES = -12.0f;
 
 	/** Fraction of the remaining distance to the target pose covered per tick (~0.5s to settle). */
 	private static final float APPROACH_PER_TICK = 0.22f;
@@ -82,9 +86,12 @@ public final class FlightPoseHelper {
 	}
 
 	private static void tickPlayer(Player player, PoseAnim anim) {
-		double speed = anim.hasLast
-				? Math.hypot(player.getX() - anim.lastX, player.getZ() - anim.lastZ)
-				: 0.0;
+		double dx = anim.hasLast ? player.getX() - anim.lastX : 0.0;
+		double dz = anim.hasLast ? player.getZ() - anim.lastZ : 0.0;
+		double speed = Math.hypot(dx, dz);
+		// v0.14.16: the signed component of that movement along the body's facing -- negative = flying backward
+		float bodyYaw = player.yBodyRot * Mth.DEG_TO_RAD;
+		double forwardSpeed = -dx * Mth.sin(bodyYaw) + dz * Mth.cos(bodyYaw);
 		anim.lastX = player.getX();
 		anim.lastZ = player.getZ();
 		anim.hasLast = true;
@@ -107,7 +114,7 @@ public final class FlightPoseHelper {
 		boolean flying = thorFlying || heroFlying;
 		anim.heroOnly = heroFlying && !thorFlying;
 		if (flying) {
-			anim.tier = tierFor(player, speed);
+			anim.tier = tierFor(player, speed, forwardSpeed);
 		}
 
 		// Mark 1 never does the sprint "superman" lean, per its own suit definition (spec "changes
@@ -148,9 +155,12 @@ public final class FlightPoseHelper {
 		return suit != null && suit.noFlightLean();
 	}
 
-	private static Tier tierFor(Player player, double horizontalSpeed) {
+	private static Tier tierFor(Player player, double horizontalSpeed, double forwardSpeed) {
 		if (horizontalSpeed < HOVER_SPEED_THRESHOLD) {
 			return Tier.HOVER;
+		}
+		if (com.projecthero.mod.flight.DirectionalFlightModel.backward(horizontalSpeed, forwardSpeed)) {
+			return Tier.BACK;
 		}
 		// Reuses the entity's own sprint flag (the same walking-vs-sprinting distinction ground
 		// movement uses, and one that's synced for remote players) rather than a second speed cutoff.
@@ -162,6 +172,7 @@ public final class FlightPoseHelper {
 			case HOVER -> LEAN_HOVER_DEGREES;
 			case SLOW -> LEAN_SLOW_DEGREES;
 			case FAST -> LEAN_FAST_DEGREES;
+			case BACK -> LEAN_BACK_DEGREES;
 		};
 	}
 

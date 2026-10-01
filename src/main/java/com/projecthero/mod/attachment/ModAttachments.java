@@ -224,7 +224,7 @@ public final class ModAttachments {
 			builder -> builder.persistent(TonyStarkState.CODEC)
 					.copyOnDeath()
 					.initializer(TonyStarkState::new)
-					.syncWith(ByteBufCodecs.fromCodec(TonyStarkState.CODEC), AttachmentSyncPredicate.all()));
+					.syncWith(TonyStarkState.SYNC_CODEC, AttachmentSyncPredicate.all())); // v0.14.16: + supersonicUntil
 
 	/**
 	 * The whole Zombie Raid progression for one player: the Gravebound Curse timer and its source,

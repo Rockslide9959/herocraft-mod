@@ -5,7 +5,6 @@ import com.projecthero.mod.ironman.suit.IronManSuit;
 import com.projecthero.mod.ironman.suit.IronManSuits;
 
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -142,34 +141,13 @@ public final class IronManFlight {
 			}
 		}
 		player.getAbilities().flying = true;
+		// v0.14.16: the movement itself -- the mark's speed / pick-up, the "changes 16" speed ceiling and the supersonic
+		// drive along the look -- is the client's directional flight now (client.flight.DirectionalFlight, numbers in
+		// flight.DirectionalFlightModel#ironMan), W / S forward / back along the look like every other flight. The old
+		// server-side forward assist and clamp pushed motion packets every tick, which would only fight it.
 		if (supersonic) {
-			Vec3 look = player.getLookAngle();
-			player.setDeltaMovement(player.getDeltaMovement().scale(0.7).add(look.scale(0.9)));
-			player.hurtMarked = true;
-			player.connection.send(new ClientboundSetEntityMotionPacket(player));
 			((ServerLevel) player.level()).sendParticles(ParticleTypes.CLOUD,
 					player.getX(), player.getY() + 0.3, player.getZ(), 6, 0.25, 0.25, 0.25, 0.02);
-		} else if (player.zza > 0) {
-			// forward assist when the player is actively holding forward
-			Vec3 look = player.getLookAngle();
-			player.setDeltaMovement(player.getDeltaMovement().scale(0.86)
-					.add(look.scale(suit.flightAcceleration() * suit.flightSpeed())));
-			player.hurtMarked = true;
-			player.connection.send(new ClientboundSetEntityMotionPacket(player));
-		}
-
-		// "changes 16": clamp horizontal flight speed to the suit's ceiling (m/s), or the supersonic cap.
-		double capMps = supersonic ? supersonicCap : suit.maxFlightSpeedMps();
-		if (capMps > 0.0) {
-			Vec3 dm = player.getDeltaMovement();
-			double horiz = Math.sqrt(dm.x * dm.x + dm.z * dm.z);
-			double capBt = capMps / 20.0;
-			if (horiz > capBt) {
-				double f = capBt / horiz;
-				player.setDeltaMovement(dm.x * f, dm.y, dm.z * f);
-				player.hurtMarked = true;
-				player.connection.send(new ClientboundSetEntityMotionPacket(player));
-			}
 		}
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 feet = player.position();

@@ -122,7 +122,10 @@ public final class TonyStarkState {
 	public transient String phoenixSuitId = "";
 	/** "changes 17": where that suit is coming from (IronManSuitListPayload.SOURCE_*). */
 	public transient int phoenixSuitSource = 0;
-	/** "changes 16": absolute game-time a Mark 7 supersonic-flight burst ends, or 0. */
+	/**
+	 * "changes 16": absolute game-time a Mark 7 supersonic-flight burst ends, or 0. Not saved; v0.14.16: synced through
+	 * {@link #SYNC_CODEC} -- the client's directional flight drives the burst.
+	 */
 	public transient long supersonicUntil = 0L;
 	/** suit id currently mid suit-up / suit-down, or "". */
 	public transient String transitionSuit = "";
@@ -253,4 +256,18 @@ public final class TonyStarkState {
 			Codec.LONG.optionalFieldOf("phoenix_ready_at", 0L).forGetter(s -> s.phoenixReadyAt),
 			Codec.FLOAT.optionalFieldOf("suit_air", 1.0f).forGetter(s -> s.suitAir)
 	).apply(instance, TonyStarkState::new));
+
+	/**
+	 * v0.14.16: what the attachment syncs -- the saved {@link #CODEC} (already at the 16-field record-codec limit) plus
+	 * {@link #supersonicUntil}, which the client's directional flight needs to drive the supersonic burst but which is
+	 * never saved (a relog drops the burst, as before).
+	 */
+	public static final net.minecraft.network.codec.StreamCodec<io.netty.buffer.ByteBuf, TonyStarkState> SYNC_CODEC =
+			net.minecraft.network.codec.StreamCodec.composite(
+					net.minecraft.network.codec.ByteBufCodecs.fromCodec(CODEC), s -> s,
+					net.minecraft.network.codec.ByteBufCodecs.VAR_LONG, s -> s.supersonicUntil,
+					(s, supersonicUntil) -> {
+						s.supersonicUntil = supersonicUntil;
+						return s;
+					});
 }

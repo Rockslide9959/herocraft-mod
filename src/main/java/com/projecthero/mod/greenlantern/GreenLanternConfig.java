@@ -123,7 +123,8 @@ public final class GreenLanternConfig {
 	public static final double BOOST_VERTICAL_SPEED_BPS = 15.0;
 	public static final float BOOST_COST_PER_SEC = 40f;
 	/**
-	 * v0.13.21 directional flight ({@code GreenLanternFlightClient}): fraction of the gap to the wanted velocity closed
+	 * v0.13.21 directional flight (v0.14.16: {@code client.flight.DirectionalFlight}, which every flight now uses --
+	 * these are also its defaults): fraction of the gap to the wanted velocity closed
 	 * per tick while steering, and while coasting to a hover with no input -- a smooth ~0.25s ease either way.
 	 */
 	public static final double FLIGHT_ACCELERATION = 0.22;

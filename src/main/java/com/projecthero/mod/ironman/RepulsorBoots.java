@@ -5,7 +5,6 @@ import com.projecthero.mod.ironman.item.IronManItems;
 import com.projecthero.mod.ironman.item.RepulsorItem;
 
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -31,8 +30,9 @@ import net.minecraft.world.phys.Vec3;
  * <h2>Speed</h2>
  * Exactly <b>half the Mark 2's</b>: the Mark 2 flies at {@code flight(1.0f, 0.08f)}, so the boots use
  * {@value #FLIGHT_SPEED} / {@value #FLIGHT_ACCELERATION} and cap horizontal speed at
- * {@value #MAX_SPEED_MPS} m/s. The forward-assist maths below is the same shape as
- * {@link IronManFlight#tick}'s, so the two feel like the same thruster at different power levels.
+ * {@value #MAX_SPEED_MPS} m/s. v0.14.16: both now fly through the client's directional flight
+ * ({@code flight.DirectionalFlightModel#ironMan} / {@code #repulsorBoots}), so the two feel like the same thruster at
+ * different power levels.
  *
  * <h2>Wearing a real suit wins</h2>
  * If a genuine Iron Man boot is on, this system stands down entirely -- the suit's own flight is
@@ -103,24 +103,8 @@ public final class RepulsorBoots {
 			return;
 		}
 		player.getAbilities().flying = true;
-
-		if (player.zza > 0) {
-			Vec3 look = player.getLookAngle();
-			player.setDeltaMovement(player.getDeltaMovement().scale(0.86)
-					.add(look.scale(FLIGHT_ACCELERATION * FLIGHT_SPEED)));
-			player.hurtMarked = true;
-			player.connection.send(new ClientboundSetEntityMotionPacket(player));
-		}
-
-		Vec3 dm = player.getDeltaMovement();
-		double horiz = Math.sqrt(dm.x * dm.x + dm.z * dm.z);
-		double capBt = MAX_SPEED_MPS / 20.0;
-		if (horiz > capBt) {
-			double f = capBt / horiz;
-			player.setDeltaMovement(dm.x * f, dm.y, dm.z * f);
-			player.hurtMarked = true;
-			player.connection.send(new ClientboundSetEntityMotionPacket(player));
-		}
+		// v0.14.16: the movement (and the MAX_SPEED_MPS ceiling) is the client's directional flight now --
+		// flight.DirectionalFlightModel#repulsorBoots -- with W / S forward / back along the look like every other flight.
 
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 feet = player.position();

@@ -327,9 +327,12 @@ public final class TonyStark {
 		save(player, c);
 	}
 
-	/** "changes 16": absolute game-time a Mark 7 supersonic-flight burst ends (transient, server-only). */
+	/** "changes 16": absolute game-time a Mark 7 supersonic-flight burst ends (synced since v0.14.16). */
 	public static void setSupersonicUntil(ServerPlayer player, long gameTime) {
-		state(player).supersonicUntil = gameTime; // transient -- direct mutation is fine, no sync needed
+		// v0.14.16: synced now (the client's directional flight drives the burst), so a copy + save like the other timers
+		TonyStarkState c = state(player).copy();
+		c.supersonicUntil = gameTime;
+		save(player, c);
 	}
 
 	// ---------------- Protocol Phoenix ("changes 17") ----------------

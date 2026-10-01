@@ -25,8 +25,8 @@ import net.minecraft.world.phys.Vec3;
  * Power 03 — Flight (v0.13.22 revamp: <b>speed tiers + the sonic boom</b>). Uses {@link HeroFlight}
  * (independent of Thor flight). Flight itself never runs out.
  *
- * <p>Sprinting while flying climbs three speed tiers (2 s each: ~25 / 32 / 39 / 46 blocks/s -- the client clamp
- * in {@code LocalPlayerMixin} reads the synced {@code speed_tier}); hitting the top tier cracks the sound barrier
+ * <p>Sprinting while flying climbs three speed tiers (2 s each: ~25 / 32 / 39 / 46 blocks/s -- the client's
+ * directional flight caps read the synced {@code speed_tier}, see {@code DirectionalFlightModel#flightPower}); hitting the top tier cracks the sound barrier
  * with a sonic boom ring. Flight toggles on X or by double-tapping jump (client, {@code RevampClientA}).
  *
  * <p>R Air Dash strike, G Dive Bomb, X Flight, Z Orbital Drop, V Carry, C Sonic Flight, H Slipstream (allies are
@@ -258,7 +258,11 @@ public final class FlightHandlers {
 			}
 			ctx.setResource("sonic_ticks", t - 1, 25 * 20);
 			ServerPlayer p = ctx.player();
-			AbilityHelpers.addImpulse(p, p.getLookAngle().scale(0.9));
+			// v0.14.16: the client's directional flight drives Sonic Flight along the look at 50 b/s
+			// (flight.DirectionalFlightModel#flightPower). This used to add a 0.9 impulse a tick and push it to the client,
+			// which piled up into a huge stale server velocity; now the server just keeps its own copy in step (no packet)
+			// for the shockwave check and the trail below.
+			p.setDeltaMovement(p.getLookAngle().scale(com.projecthero.mod.flight.DirectionalFlightModel.FLIGHT_POWER_SONIC_SPEED));
 			Vec3 behind = p.position().subtract(p.getDeltaMovement().normalize().scale(0.8));
 			ctx.level().sendParticles(ParticleTypes.CLOUD, behind.x, behind.y + 0.3, behind.z, 4, 0.15, 0.15, 0.15, 0.01);
 			ctx.level().sendParticles(ParticleTypes.SONIC_BOOM, behind.x, behind.y + 0.3, behind.z, 1, 0.0, 0.0, 0.0, 0.0);

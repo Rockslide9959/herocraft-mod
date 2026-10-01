@@ -461,7 +461,9 @@ Four explicit user requests in one pass.
 
 ### 3. Directional flight
 
-- `client/greenlantern/GreenLanternFlightClient` via the new client mixin `GreenLanternFlightTravelMixin` (HEAD of
+- (v0.14.16: generalised into `client/flight/DirectionalFlight` + `mixin/DirectionalFlightTravelMixin`, which every
+  flight in the mod now uses; GL's numbers are `flight/DirectionalFlightModel#greenLantern`.)
+  `client/greenlantern/GreenLanternFlightClient` via the new client mixin `GreenLanternFlightTravelMixin` (HEAD of
   `Player#travel`, local player only -- Player's own creative-flight branch overwrites vertical velocity after the move,
   so it is replaced whole). Forward/back fly along the full 3D look vector; strafe is horizontal; Space/Sneak add
   straight up/down; no input eases to a dead hover. Velocity eases toward the wanted one (22% of the gap per tick

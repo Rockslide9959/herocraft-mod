@@ -22,8 +22,8 @@ Added in v0.14.8. Every number is a static final in `KryptonianConfig`.
 | `KryptonianMod` | One `initialize()` from `ProjectHeroMod`: items, damage, payload + receiver, JOIN / AFTER_RESPAWN / AFTER_DEATH / world change / DISCONNECT hooks, meteor tick. `clearSessionState()` from `ServerStateReset`. |
 | `KryptonianCommand` | `/projecthero meteor [here]`, `/projecthero kryptonian solar <n>` (op). |
 
-Client: `KryptonianHud` (mono style, Hairline bars only), `KryptonianFlightClient` + `mixin/KryptonianFlightTravelMixin`
-(directional flight, local player), `KryptonianBeamRenderer` (heat vision, `BeamDraw` ribbons like `LaserBeamRenderer`),
+Client: `KryptonianHud` (mono style, Hairline bars only), `flight/DirectionalFlight` + `mixin/DirectionalFlightTravelMixin`
+(v0.14.16 shared directional flight, local player), `KryptonianBeamRenderer` (heat vision, `BeamDraw` ribbons like `LaserBeamRenderer`),
 `KryptonianPose` (from `HumanoidModelMixin`), `mixin/KryptonianXRayGlowMixin` (per-viewer outlines),
 `KryptoniteMeteorRenderer` (a tumbling 2x kryptonite-ore block + vanilla fire overlay). `FlightPoseHelper` counts
 Kryptonian flight as hero flight (body lean); the double-tap is in `ProjectHeroModClient.handleDoubleJump`.
@@ -55,9 +55,11 @@ Bosses (max HP >= 300 or `TitanCombat.isBoss`) take at most 8% of max HP per hit
 
 ## Flight
 
-Double-tap jump in the air -> `KryptonianActionPayload.TOGGLE_FLIGHT`. Client model: W flies along the look
-(0.9 b/t, Sprint 2.0 b/t), S brakes (0.35 of the gap/tick), A/D strafe (70%), Space/Sneak 0.6 b/t vertical, coast to a
-hover (0.08). Big outside pushes (> 0.6 b/t off the model) are adopted. Dash / Slam / Launch stop flight while they
+Double-tap jump in the air -> `KryptonianActionPayload.TOGGLE_FLIGHT`. Client model (v0.14.16: the shared
+`client/flight/DirectionalFlight`, numbers in `flight/DirectionalFlightModel#kryptonian`): W / S fly forward / backward
+along the look (0.9 b/t, Sprint 1.75 b/t, Flight Boost 2.75), turning around at the old brake rate (0.35 of the gap/tick),
+A/D strafe (70%), Space/Sneak 0.6 b/t vertical, coast to a hover (0.08). Big outside pushes (> 0.6 b/t off the model, or
+any server velocity packet) are adopted. Dash / Slam / Launch stop flight while they
 run (the server launches him) and Dash / Launch restore it.
 
 ## The Kryptonite Meteor

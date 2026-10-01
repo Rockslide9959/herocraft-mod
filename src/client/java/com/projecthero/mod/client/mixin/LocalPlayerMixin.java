@@ -128,6 +128,9 @@ public abstract class LocalPlayerMixin {
 		double horiz = Math.sqrt(v.x * v.x + v.z * v.z);
 		boolean sonic = st.resources.getOrDefault("power_03_flight/sonic_ticks", 0.0f) > 0.5f;
 
+		if (self.getAbilities().flying && com.projecthero.mod.client.flight.DirectionalFlight.engaged()) {
+			return; // v0.14.16: directional flight applies these same caps itself (flight.DirectionalFlightModel#flightPower)
+		}
 		if (self.getAbilities().flying && horiz > 1.0e-4) {
 			double capPerTick;
 			if (sonic) {
