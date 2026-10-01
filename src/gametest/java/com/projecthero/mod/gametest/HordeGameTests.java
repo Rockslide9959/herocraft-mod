@@ -91,7 +91,7 @@ public class HordeGameTests implements FabricGameTest {
 		tyrant.configure(3);
 		helper.assertTrue(tyrant.getMaxHealth() > solo, "more fighters, more health");
 		queen.configure(20);
-		helper.assertTrue(queen.getMaxHealth() <= 1024f, "never past vanilla's health cap");
+		helper.assertTrue(queen.getMaxHealth() <= com.projecthero.mod.titan.TitanHealthCap.NEW_MAX_HEALTH_CEILING, "never past the raised health cap"); // v0.14.16
 		helper.assertTrue(HordeEntityTypes.HORDE_SPIDER.create(helper.getLevel()).getAttributeValue(Attributes.MOVEMENT_SPEED) > 0.3,
 				"horde spiders are faster than vanilla's");
 		helper.succeed();

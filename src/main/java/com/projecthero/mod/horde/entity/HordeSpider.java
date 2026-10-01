@@ -55,18 +55,29 @@ public class HordeSpider extends Spider {
 
 	/** Spits one web from {@code shooter} at {@code target}, leading it a little and arcing for distance. */
 	static void spit(Mob shooter, LivingEntity target, boolean queen) {
+		spit(shooter, target, queen ? WebShotEntity.Mode.QUEEN : WebShotEntity.Mode.WEB, queen ? 2.0f : 4.0f);
+	}
+
+	/**
+	 * v0.14.16: spits one shot of any {@link WebShotEntity.Mode} with {@code inaccuracy} spread (the Queen's volleys fan
+	 * out by passing a wide spread; a Venom Spitter's globs fly flatter). Returns the shot, or null client-side.
+	 */
+	public static WebShotEntity spit(Mob shooter, LivingEntity target, WebShotEntity.Mode mode, float inaccuracy) {
 		if (!(shooter.level() instanceof ServerLevel level)) {
-			return;
+			return null;
 		}
-		WebShotEntity shot = new WebShotEntity(level, shooter, queen);
+		boolean big = mode == WebShotEntity.Mode.QUEEN || mode == WebShotEntity.Mode.COCOON;
+		WebShotEntity shot = new WebShotEntity(level, shooter, mode);
 		Vec3 from = shooter.getEyePosition();
 		shot.setPos(from.x, from.y - 0.1, from.z);
 		Vec3 aim = target.getEyePosition().add(target.getDeltaMovement().scale(6)).subtract(from);
 		double horizontal = Math.sqrt(aim.x * aim.x + aim.z * aim.z);
-		shot.shoot(aim.x, aim.y + horizontal * 0.12, aim.z, queen ? 1.8f : 1.5f, queen ? 2.0f : 4.0f);
+		float speed = mode == WebShotEntity.Mode.VENOM ? 1.7f : big ? 1.8f : 1.5f;
+		shot.shoot(aim.x, aim.y + horizontal * (mode == WebShotEntity.Mode.VENOM ? 0.09 : 0.12), aim.z, speed, inaccuracy);
 		level.addFreshEntity(shot);
 		level.playSound(null, shooter.getX(), shooter.getY(), shooter.getZ(), SoundEvents.LLAMA_SPIT, SoundSource.HOSTILE,
-				0.9f, queen ? 0.6f : 1.4f);
+				0.9f, big ? 0.6f : mode == WebShotEntity.Mode.VENOM ? 1.0f : 1.4f);
+		return shot;
 	}
 
 	/** Vanilla spiders lose interest in daylight; a horde's never does. */

@@ -31,12 +31,9 @@ public final class HordeClient {
 				return TYRANT;
 			}
 		});
-		EntityRendererRegistry.register(HordeEntityTypes.BROOD_QUEEN, context -> new SpiderRenderer<BroodQueen>(context) {
-			@Override
-			public ResourceLocation getTextureLocation(BroodQueen entity) {
-				return QUEEN;
-			}
-		});
+		// v0.14.16: the Brood Queen is a GeckoLib boss now; her brood variants share the vanilla spider mesh
+		EntityRendererRegistry.register(HordeEntityTypes.BROOD_QUEEN, BroodQueenRenderer::new);
+		EntityRendererRegistry.register(HordeEntityTypes.BROOD_SPIDER, BroodSpiderRenderer::new);
 		EntityRendererRegistry.register(HordeEntityTypes.WEB_SHOT, ThrownItemRenderer::new);
 	}
 }

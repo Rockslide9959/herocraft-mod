@@ -73,7 +73,7 @@ public final class HordeWaves {
 				}
 				yield EntityType.SKELETON.create(level);
 			}
-			case SPIDER -> roll < 30 ? EntityType.CAVE_SPIDER.create(level) : HordeEntityTypes.HORDE_SPIDER.create(level);
+			case SPIDER -> SpiderWaves.create(level, w); // v0.14.16: Horde Spiders, cave spiders and the seven brood variants
 		};
 	}
 

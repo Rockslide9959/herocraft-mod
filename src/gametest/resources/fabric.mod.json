@@ -9,6 +9,7 @@
       "com.projecthero.mod.gametest.ProjectHeroGameTests",
       "com.projecthero.mod.gametest.FlashSuitGameTests",
       "com.projecthero.mod.gametest.HordeGameTests",
+      "com.projecthero.mod.gametest.SpiderHordeV01416GameTests",
       "com.projecthero.mod.gametest.V01413GameTests",
       "com.projecthero.mod.gametest.V01414GameTests",
       "com.projecthero.mod.gametest.V01415GameTests",

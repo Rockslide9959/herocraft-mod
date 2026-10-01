@@ -30,12 +30,22 @@ public final class HordeEntityTypes {
 					.clientTrackingRange(16)
 					.build("bone_tyrant"));
 
+	/** v0.14.16: a GeckoLib boss now, full size in her own right (no {@code SCALE}); fire can't hurt her. */
 	public static final EntityType<BroodQueen> BROOD_QUEEN = register("brood_queen",
 			EntityType.Builder.<BroodQueen>of(BroodQueen::new, MobCategory.MONSTER)
-					.sized(1.4f, 0.9f)
-					.eyeHeight(0.65f)
+					.sized(BroodQueen.WIDTH, BroodQueen.HEIGHT)
+					.eyeHeight(2.6f)
+					.fireImmune()
 					.clientTrackingRange(16)
 					.build("brood_queen"));
+
+	/** v0.14.16: the Spider Horde's eight spider variants (see {@link BroodSpider.Variant}); size comes from {@code SCALE}. */
+	public static final EntityType<BroodSpider> BROOD_SPIDER = register("brood_spider",
+			EntityType.Builder.<BroodSpider>of(BroodSpider::new, MobCategory.MONSTER)
+					.sized(1.4f, 0.9f)
+					.eyeHeight(0.65f)
+					.clientTrackingRange(8)
+					.build("brood_spider"));
 
 	public static final EntityType<WebShotEntity> WEB_SHOT = register("web_shot",
 			EntityType.Builder.<WebShotEntity>of(WebShotEntity::new, MobCategory.MISC)
@@ -52,6 +62,7 @@ public final class HordeEntityTypes {
 		FabricDefaultAttributeRegistry.register(HORDE_SPIDER, HordeSpider.createAttributes());
 		FabricDefaultAttributeRegistry.register(BONE_TYRANT, BoneTyrant.createAttributes());
 		FabricDefaultAttributeRegistry.register(BROOD_QUEEN, BroodQueen.createAttributes());
+		FabricDefaultAttributeRegistry.register(BROOD_SPIDER, BroodSpider.createAttributes());
 	}
 
 	private static <T extends net.minecraft.world.entity.Entity> EntityType<T> register(String path, EntityType<T> type) {

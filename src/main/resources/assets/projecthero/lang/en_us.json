@@ -3336,7 +3336,7 @@
   "projecthero.guide.hordes.skeleton": "Skeleton Horde",
   "projecthero.guide.hordes.skeleton.body": "Crafting: fill the crafting grid with bone blocks. Skeletons and strays, then bogged (poison arrows) and sword skeletons from wave 2 and wither skeletons from wave 4, wearing better helmets every wave. Boss: the Bone Tyrant, a skeleton king three times your height: fans of seven arrows, a storm of falling arrows round you (watch for the ring of sparks), a bone-shattering stamp if you get close, and at two-thirds and one-third health it raises six more skeletons.",
   "projecthero.guide.hordes.spider": "Spider Horde",
-  "projecthero.guide.hordes.spider.body": "Crafting: fill the crafting grid with spider eyes. The hardest horde. Horde Spiders are much faster than normal spiders and spit webs that slow you and pin you in cobweb for a few seconds; cave spiders poison you. Boss: the Brood Queen, a giant blood-red spider: barrages of five big webs that each leave a 3x3 patch of cobweb, a long pounce that slams down where she lands, broods of cave spiders, and a bite that poisons and weakens.",
+  "projecthero.guide.hordes.spider.body": "Crafting: fill the crafting grid with spider eyes. The hardest horde. Web-spitting Horde Spiders and cave spiders come first, then the brood: fast orange Hunters, green Venom Spitters that poison from range, purple Trapdoor Leapers (they crouch before they jump), yellow Acid Bursters (they hiss and swell when close -- back off or kill them from range), iron-plated Ironback Brutes, invisible Shadow Stalkers (only their eyes show, and their first bite hits double) and huge Broodmothers that burst into spiderlings when they die. Boss: the Brood Queen, a five-block spider queen with 4,000 health and three phases, each opened by a shriek that throws you back and darkens your sight. Watch her tells: she rears up before a Fang Lunge, a red ring marks a Leg Sweep or where a Leap Slam lands, her abdomen rises before a Web Volley (the centre web cocoons you) and pumps before Acid Rain (step off the bubbling marks), and it swells before an Egg Burst of spiderlings. From phase two she climbs a web line into the sky and drops onto the ring beneath her; in phase three she lunges three times in a row.",
   "projecthero.guide.hordes.rewards": "The rewards",
   "projecthero.guide.hordes.rewards.body": "Every chest holds diamonds, gold, iron, golden apples, emeralds and bottles of enchanting, and the harder the horde the more you get. Zombie: 3-6 diamonds, a 15% enchanted golden apple and an enchanted book. Skeleton: 5-9 diamonds, an enchanted bow, a stack of arrows, a 35% enchanted golden apple and a book. Spider: 8-14 diamonds, netherite scrap, a guaranteed enchanted golden apple (40% for two), a 50% totem of undying, a 30% block of diamond and two books. More surviving fighters fill the chest further.",
   "projecthero.guide.hordes.commands": "Commands (operators)",
@@ -3366,5 +3366,17 @@
   "screen.projecthero.squad.friendly_fire_button": "Friendly Fire: %s",
   "screen.projecthero.squad.friendly_fire.on": "FRIENDLY FIRE ON",
   "screen.projecthero.squad.friendly_fire.off": "FRIENDLY FIRE OFF",
-  "screen.projecthero.squad.help.friendlyfire": "Leader: let squadmates hurt each other, or not"
+  "screen.projecthero.squad.help.friendlyfire": "Leader: let squadmates hurt each other, or not",
+  "entity.projecthero.brood_spider": "Brood Spider",
+  "entity.projecthero.brood_spider.hunter": "Hunter Spider",
+  "entity.projecthero.brood_spider.brute": "Ironback Brute",
+  "entity.projecthero.brood_spider.venom": "Venom Spitter",
+  "entity.projecthero.brood_spider.burster": "Acid Burster",
+  "entity.projecthero.brood_spider.leaper": "Trapdoor Leaper",
+  "entity.projecthero.brood_spider.broodmother": "Broodmother",
+  "entity.projecthero.brood_spider.stalker": "Shadow Stalker",
+  "entity.projecthero.brood_spider.spiderling": "Spiderling",
+  "boss.projecthero.brood_queen.phase1": "The Brood Queen",
+  "boss.projecthero.brood_queen.phase2": "The Brood Queen - Mother of the Swarm",
+  "boss.projecthero.brood_queen.phase3": "The Brood Queen - Frenzied"
 }
