@@ -18,11 +18,12 @@ import net.minecraft.world.phys.Vec3;
 /**
  * Kryptonian flight (v0.14.8): double-tap jump in the air to take off or drop out of it. Built like Green Lantern's Ring
  * Flight -- vanilla {@code mayfly}/{@code flying} so the server never kicks a hovering player -- but the movement itself is
- * the client's ({@code KryptonianFlightClient}): true directional flight along the look vector, W to fly, S to brake,
+ * the client's (the shared {@code client.flight.DirectionalFlight}, v0.14.16): true directional flight along the look
+ * vector, W to fly, S to fly backwards,
  * Sprint for super-speed flight, Space / Sneak straight up / down, a dead hover with no input. The server keeps the
  * abilities flags in line, lands him when he touches the ground, and draws the speed trail and the sonic boom.
  *
- * <p>No stamina: a Kryptonian flies as long as he likes. Kryptonite and a spent Solar Flare drop him out of the sky.
+ * <p>No stamina bar, but v0.14.16 charges 0.1 Solar Energy a second in the air (which also holds off the solar refill) and an empty bar drops him. Kryptonite and a spent Solar Flare drop him out of the sky.
  */
 public final class KryptonianFlight {
 	/** Game time flight was last engaged (the lift-off grace clock). */
