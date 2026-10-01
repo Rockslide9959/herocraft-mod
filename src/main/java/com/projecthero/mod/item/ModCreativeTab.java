@@ -91,6 +91,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.supersoldier.item.SuperSoldierItems.addToCreativeTab(output);
 				// Kryptonian (v0.14.8): the Kryptonian Crystal, kryptonite and the Meteor Core.
 				com.projecthero.mod.kryptonian.item.KryptonianItems.addToCreativeTab(output);
+				// v0.14.11: the Flash Suit (the ring itself only exists holding a suit)
+				com.projecthero.mod.flash.FlashSuit.addToCreativeTab(output);
 				// Moon Knight: the Scarab of Khonshu (loot-only in survival) and the Altar of Khonshu.
 				com.projecthero.mod.moonknight.temple.KhonshuTemple.addToCreativeTab(output);
 				// Thor: the H-conjured armour (creative-only for testing; in survival it is summoned, not crafted).

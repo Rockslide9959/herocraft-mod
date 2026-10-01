@@ -62,8 +62,20 @@ public final class ArmorSweepReveal {
 	 * row ({@code edgeArgb}) and the row just behind it ({@code trailArgb}, 0 = none). {@code key} names the cache
 	 * entry. Used by Thor's Armour to sweep each piece up the body on its own, with a crackling blue-white edge.
 	 */
-	public record Sweep(String key, java.util.Set<String> bones, boolean bottomUp, int edgeArgb, int trailArgb) {
+	public record Sweep(String key, java.util.Set<String> bones, boolean bottomUp, int edgeArgb, int trailArgb, Vector3f origin) {
 		public static final Sweep WHOLE_SUIT_DOWN = new Sweep("all", null, false, EDGE_ARGB, 0);
+
+		public Sweep(String key, java.util.Set<String> bones, boolean bottomUp, int edgeArgb, int trailArgb) {
+			this(key, bones, bottomUp, edgeArgb, trailArgb, null);
+		}
+
+		/**
+		 * v0.14.11: a sweep that spreads outward from {@code origin} (model units, the geometry's own space) by straight-line
+		 * distance instead of running up or down the body -- the Flash Suit pouring out of the ring on the right hand.
+		 */
+		public static Sweep radial(String key, Vector3f origin, int edgeArgb, int trailArgb) {
+			return new Sweep(key, null, false, edgeArgb, trailArgb, origin);
+		}
 	}
 
 	/** {@link #texture(ResourceLocation, ResourceLocation, float)} with an explicit {@link Sweep}. */
@@ -100,7 +112,7 @@ public final class ArmorSweepReveal {
 		float[] height = new float[w * h];
 		java.util.Arrays.fill(height, Float.NaN);
 		try {
-			mapHeights(geo, w, h, height, sweep.bones());
+			mapHeights(geo, w, h, height, sweep.bones(), sweep.origin());
 		} catch (RuntimeException e) {
 			ProjectHeroMod.LOGGER.warn("[ProjectHero] could not read the geometry {} for the suit sweep: {}", geometry, e.toString());
 			src.close();
@@ -165,7 +177,8 @@ public final class ArmorSweepReveal {
 
 	// ---------------- geometry -> texel heights ----------------
 
-	private static void mapHeights(JsonObject root, int texW, int texH, float[] height, java.util.Set<String> only) {
+	private static void mapHeights(JsonObject root, int texW, int texH, float[] height, java.util.Set<String> only,
+			Vector3f origin) {
 		JsonObject model = root.getAsJsonArray("minecraft:geometry").get(0).getAsJsonObject();
 		JsonObject desc = model.getAsJsonObject("description");
 		float geoW = desc.has("texture_width") ? desc.get("texture_width").getAsFloat() : 64f;
@@ -197,7 +210,7 @@ public final class ArmorSweepReveal {
 				Vector3f lo = new Vector3f(o).sub(inflate, inflate, inflate);
 				Vector3f hi = new Vector3f(o).add(s).add(inflate, inflate, inflate);
 				for (Face f : faces(cube, s)) {
-					paintFace(f, lo, hi, m, su, sv, texW, texH, height);
+					paintFace(f, lo, hi, m, su, sv, texW, texH, height, origin);
 				}
 			}
 		}
@@ -302,8 +315,12 @@ public final class ArmorSweepReveal {
 				corner, au, av));
 	}
 
+	/**
+	 * Writes each texel's sweep value: its height, or (v0.14.11, {@code origin} given) minus its distance from
+	 * {@code origin}, so "highest" is always "first" and the top-down bucketing works unchanged.
+	 */
 	private static void paintFace(Face f, Vector3f lo, Vector3f hi, Matrix4f m, float su, float sv, int texW, int texH,
-			float[] height) {
+			float[] height, Vector3f origin) {
 		float u0 = Math.min(f.u0, f.u0 + f.du) * su;
 		float u1 = Math.max(f.u0, f.u0 + f.du) * su;
 		float v0 = Math.min(f.v0, f.v0 + f.dv) * sv;
@@ -325,9 +342,10 @@ public final class ArmorSweepReveal {
 				Vector3f p = new Vector3f(lo.x + ext.x * cx, lo.y + ext.y * cy, lo.z + ext.z * cz);
 				m.transformPosition(p);
 				int i = ty * texW + tx;
+				float value = origin == null ? p.y : -p.distance(origin);
 				// a texel shared by several faces appears with the highest of them
-				if (Float.isNaN(height[i]) || p.y > height[i]) {
-					height[i] = p.y;
+				if (Float.isNaN(height[i]) || value > height[i]) {
+					height[i] = value;
 				}
 			}
 		}

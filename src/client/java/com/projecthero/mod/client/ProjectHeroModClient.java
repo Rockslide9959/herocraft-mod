@@ -118,6 +118,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.supersoldier.SuperSoldierClient.initialize();
 		// v0.14.8: the Kryptonian -- HUD, heat-vision beams, the meteor renderer
 		com.projecthero.mod.client.kryptonian.KryptonianClient.initialize();
+		com.projecthero.mod.client.flash.FlashClient.initialize(); // v0.14.11
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SymbioteHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SquadLocatorBarHud::render);
@@ -644,6 +645,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				// v0.13.19: H as Moon Knight -- the suit on / off (Shift+H still opens the power wheel).
 				ClientPlayNetworking.send(new com.projecthero.mod.network.MoonKnightActionPayload(
 						com.projecthero.mod.network.MoonKnightActionPayload.Action.TOGGLE_SUIT, 0));
+			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.flash.FlashClient.ownsH(client.player)) {
+				// v0.14.11: H as a speedster with the Flash Suit -- the suit into the ring / out of it (Shift+H still opens the wheel).
+				com.projecthero.mod.client.flash.FlashClient.pressH();
 			} else if (client.player != null && wearingAnyIronMan(client.player)) {
 				ClientPlayNetworking.send(new com.projecthero.mod.network.IronManActionPayload(
 						com.projecthero.mod.network.IronManActionPayload.Action.TOGGLE_FACEPLATE));

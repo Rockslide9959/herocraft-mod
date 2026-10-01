@@ -90,6 +90,7 @@ public final class KryptonianFlight {
 		if (was) {
 			KryptonianState n = s.copy();
 			n.flying = false;
+			n.flightBoost = false;
 			Kryptonian.save(player, n);
 		}
 		STARTED.remove(player.getUUID());
@@ -149,12 +150,33 @@ public final class KryptonianFlight {
 			level.sendParticles(ParticleTypes.END_ROD, tail.x, tail.y, tail.z, 1, 0.1, 0.1, 0.1, 0.0);
 		}
 		boolean boomed = BOOMED.getOrDefault(player.getUUID(), false);
-		if (!boomed && speed >= KryptonianConfig.SONIC_BOOM_SPEED) {
+		// v0.14.11: the boom only with Flight Boost on, sprint-flying (it used to fire on every break into sprint flight)
+		KryptonianState st = Kryptonian.state(player);
+		if (!boomed && st.flightBoost && player.isSprinting() && speed >= KryptonianConfig.SONIC_BOOM_SPEED) {
 			BOOMED.put(player.getUUID(), true);
 			sonicBoom(level, player, mid, dir);
 		} else if (boomed && speed < KryptonianConfig.SONIC_BOOM_REARM_SPEED) {
 			BOOMED.remove(player.getUUID());
 		}
+	}
+
+	/**
+	 * v0.14.11: X while flying -- Flight Boost on / off. Sprint flight goes from 35 to 55 blocks a second, and breaking
+	 * into it is the only thing that fires the sonic boom. Free; ends when the flight does.
+	 */
+	public static void toggleBoost(ServerPlayer player) {
+		if (!Kryptonian.isFlying(player) || !Kryptonian.canAct(player)) {
+			return;
+		}
+		KryptonianState n = Kryptonian.state(player).copy();
+		n.flightBoost = !n.flightBoost;
+		Kryptonian.save(player, n);
+		BOOMED.remove(player.getUUID());
+		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), n.flightBoost ? SoundEvents.FIRECHARGE_USE
+				: SoundEvents.ELYTRA_FLYING, SoundSource.PLAYERS, 0.6f, n.flightBoost ? 1.4f : 1.9f);
+		player.displayClientMessage(net.minecraft.network.chat.Component.translatable(n.flightBoost
+				? "message.projecthero.kryptonian.boost_on" : "message.projecthero.kryptonian.boost_off")
+				.withStyle(net.minecraft.ChatFormatting.GOLD), true);
 	}
 
 	/** Breaking into super-speed flight: a ring of cloud around the flight path and a thunderclap. */

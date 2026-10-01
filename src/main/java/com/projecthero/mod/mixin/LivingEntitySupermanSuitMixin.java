@@ -24,7 +24,9 @@ public abstract class LivingEntitySupermanSuitMixin {
 	@Inject(method = "getEquipmentSlotForItem(Lnet/minecraft/world/item/ItemStack;)Lnet/minecraft/world/entity/EquipmentSlot;",
 			at = @At("HEAD"), cancellable = true)
 	private void projecthero$supermanSuitKryptoniansOnly(ItemStack stack, CallbackInfoReturnable<EquipmentSlot> cir) {
-		if ((Object) this instanceof Player player && SupermanSuit.isSuit(stack) && !SupermanSuit.mayWear(player)) {
+		if ((Object) this instanceof Player player && (SupermanSuit.isSuit(stack) && !SupermanSuit.mayWear(player)
+				// v0.14.11: and the Flash Suit, speedsters only
+				|| com.projecthero.mod.flash.FlashSuit.isSuit(stack) && !com.projecthero.mod.flash.FlashSuit.mayWear(player))) {
 			cir.setReturnValue(EquipmentSlot.MAINHAND);
 		}
 	}

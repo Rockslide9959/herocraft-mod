@@ -1033,6 +1033,12 @@ public final class HeroPackGuide {
 							Component.literal(power.serum().fuel())).withStyle(ChatFormatting.GRAY));
 				}
 			}
+			if (com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.KEY.equals(power.key())) {
+				// v0.14.11: the Flash Suit and its ring
+				blank(lines);
+				head(lines, "projecthero.guide.flash_suit");
+				para(lines, "projecthero.guide.flash_suit.body");
+			}
 			if (power.trigger() != null) {
 				lines.add(Component.translatable("projecthero.guide.power.trigger",
 						Component.translatable(power.trigger().descKey())).withStyle(ChatFormatting.YELLOW));

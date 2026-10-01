@@ -242,6 +242,8 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
 		if (entity instanceof Player player) {
 			com.projecthero.mod.client.thor.ThorPose.apply(player, (HumanoidModel<?>) (Object) this);
+			// v0.14.11: the Flash Ring suit-up / suit-down
+			com.projecthero.mod.client.flash.FlashPose.apply(player, (HumanoidModel<?>) (Object) this);
 		}
 	}
 

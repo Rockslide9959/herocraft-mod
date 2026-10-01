@@ -294,27 +294,12 @@ public final class SuperStrengthHandlers {
 
 	// ---- passives ---------------------------------------------------------------------------------
 
-	/** Whether {@code stack} deals attack damage of its own (a sword, axe, trident, mace ...). */
-	private static boolean isWeapon(ItemStack stack) {
-		if (stack.isEmpty()) {
-			return false;
-		}
-		ItemAttributeModifiers mods = stack.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY);
-		for (ItemAttributeModifiers.Entry e : mods.modifiers()) {
-			if (e.attribute().value() == Attributes.ATTACK_DAMAGE.value()) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/** +10 while the main hand is empty (or holds something that is not a weapon), nothing otherwise. */
+	/**
+	 * +10 melee, whatever is in the hand. v0.14.11: no longer dropped while holding a weapon -- the strength is the
+	 * wearer's, so it carries over to anything held and stacks with a sword's own damage.
+	 */
 	public static void updateUnarmed(ServerPlayer player) {
-		if (isWeapon(player.getMainHandItem())) {
-			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, PASSIVE_ATK);
-		} else {
-			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, PASSIVE_ATK, UNARMED_BONUS, AttributeModifier.Operation.ADD_VALUE);
-		}
+		PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, PASSIVE_ATK, UNARMED_BONUS, AttributeModifier.Operation.ADD_VALUE);
 	}
 
 	/** The passive modifiers this power no longer grants -- cleared whenever the passives are reconciled. */

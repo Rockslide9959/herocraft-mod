@@ -69,8 +69,7 @@ public final class SpiderPassives {
 			return true;
 		}
 		float multiplier = SpiderWebs.isWebImpaired(victim) ? 1.4f : 1.0f;
-		float addend = (source.is(DamageTypes.PLAYER_ATTACK) && attacker.isSprinting()
-				&& attacker.getMainHandItem().isEmpty()) ? 3.0f : 0.0f;
+		float addend = (source.is(DamageTypes.PLAYER_ATTACK) && attacker.isSprinting()) /* v0.14.11: with or without an item in hand */ ? 3.0f : 0.0f;
 		float boosted = amount * multiplier + addend;
 		if (boosted <= amount + 0.001f) {
 			return true;

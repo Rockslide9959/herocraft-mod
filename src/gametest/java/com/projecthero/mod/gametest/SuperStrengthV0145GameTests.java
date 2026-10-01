@@ -144,13 +144,13 @@ public class SuperStrengthV0145GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void unarmedBonusOnlyWithoutAWeapon(GameTestHelper helper) {
+	public void meleeBonusCarriesOverToAnythingHeld(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
 		tick(p, 1);
 		helper.assertTrue(mod(p, Attributes.ATTACK_DAMAGE, SuperStrengthHandlers.PASSIVE_ATK) != null, "bare-handed: +10");
 		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_SWORD));
 		tick(p, 1);
-		helper.assertTrue(mod(p, Attributes.ATTACK_DAMAGE, SuperStrengthHandlers.PASSIVE_ATK) == null, "a sword brings its own damage");
+		helper.assertTrue(mod(p, Attributes.ATTACK_DAMAGE, SuperStrengthHandlers.PASSIVE_ATK) != null, "v0.14.11: +10 stacks with a sword");
 		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.COBBLESTONE));
 		tick(p, 1);
 		helper.assertTrue(mod(p, Attributes.ATTACK_DAMAGE, SuperStrengthHandlers.PASSIVE_ATK) != null, "a block in hand still punches");

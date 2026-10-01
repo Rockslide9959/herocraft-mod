@@ -95,6 +95,12 @@ public final class SuperSpeedHandlers {
 	private static final ResourceLocation PASSIVE_STEP = com.projecthero.mod.ProjectHeroMod.id("speed_passive_step");
 	/** v0.14.9: step assist only in the modes -- Speed Mode 3 blocks (base 0.6 + 2.4), Overdrive 10 (0.6 + 9.4). */
 	public static final double SM_STEP_BONUS = 2.4;
+	/**
+	 * v0.14.11: the modes' sprint speed, as a bonus on base movement speed (with the passive +30% and sprinting's x1.3).
+	 * Calibrated on the old values (4.7 ran ~32 blocks/s, 10.5 ~64): Speed Mode now ~40 blocks/s, Overdrive ~100.
+	 */
+	public static final double SPEED_MODE_BONUS = 6.15;
+	public static final double OVERDRIVE_BONUS = 17.3;
 	public static final double OD_STEP_BONUS = 9.4;
 
 	private static final ResourceLocation SM_SPEED = com.projecthero.mod.ProjectHeroMod.id("speed_mode_speed");
@@ -997,7 +1003,7 @@ public final class SuperSpeedHandlers {
 	}
 
 	private static void speedModeApply(ServerPlayer p) {
-		movementBoost(p, Attributes.MOVEMENT_SPEED, SM_SPEED, 4.7, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		movementBoost(p, Attributes.MOVEMENT_SPEED, SM_SPEED, SPEED_MODE_BONUS, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.ATTACK_SPEED, SM_ATTACK, 0.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		movementBoost(p, Attributes.STEP_HEIGHT, SM_STEP, SM_STEP_BONUS, AttributeModifier.Operation.ADD_VALUE); // v0.14.9: 3 blocks, Speed Mode only
 		movementBoost(p, Attributes.WATER_MOVEMENT_EFFICIENCY, SM_WATER, 1.0, AttributeModifier.Operation.ADD_VALUE);
@@ -1013,7 +1019,7 @@ public final class SuperSpeedHandlers {
 	}
 
 	private static void applyOverdrive(ServerPlayer p) {
-		movementBoost(p, Attributes.MOVEMENT_SPEED, OD_SPEED, 10.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		movementBoost(p, Attributes.MOVEMENT_SPEED, OD_SPEED, OVERDRIVE_BONUS, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.ATTACK_SPEED, OD_ATTACK, 1.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		// "your attacks x2": melee doubles while Overdrive runs (the Super Speed moves double through overdriveMult)
 		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, OD_DAMAGE, 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);

@@ -7,6 +7,7 @@
   "entrypoints": {
     "fabric-gametest": [
       "com.projecthero.mod.gametest.ProjectHeroGameTests",
+      "com.projecthero.mod.gametest.FlashSuitGameTests",
       "com.projecthero.mod.gametest.HeroPackGameTests",
       "com.projecthero.mod.gametest.ZombieRaidGameTests",
       "com.projecthero.mod.gametest.SpiderManGameTests",

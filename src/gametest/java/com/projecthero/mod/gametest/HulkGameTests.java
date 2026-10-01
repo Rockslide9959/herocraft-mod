@@ -378,7 +378,8 @@ public class HulkGameTests implements FabricGameTest {
 		helper.onEachTick(() -> Hulk.tick(p));
 		helper.runAfterDelay(com.projecthero.mod.hulk.HulkAbilities.CLAP_IMPACT_TICKS + 4, () -> {
 			helper.assertTrue(front.getHealth() < front.getMaxHealth(), "the zombie in front is hit");
-			helper.assertTrue(behind.getHealth() == behind.getMaxHealth(), "the one behind is not");
+			// by whom, not just whether: batches reuse the same ground, so a leftover from an earlier Hulk test can land on it
+			helper.assertTrue(behind.getLastHurtByMob() != p, "the one behind is not");
 			helper.succeed();
 		});
 	}

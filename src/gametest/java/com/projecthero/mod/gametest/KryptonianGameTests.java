@@ -83,14 +83,14 @@ public class KryptonianGameTests implements FabricGameTest {
 		helper.assertTrue(crystal.isEmpty(), "the crystal is used up");
 		helper.assertTrue(Kryptonian.hasPower(p) && HeroTiers.holdsHero(p, Kryptonian.KEY), "a registered Hero-Tier Primary power");
 		helper.assertFalse(KryptonianCrystalItem.infuse(p, new ItemStack(KryptonianItems.KRYPTONIAN_CRYSTAL), false), "a second crystal does nothing");
-		helper.assertTrue(Math.abs(p.getMaxHealth() - 60.0) < 1e-6, "60 max health, got " + p.getMaxHealth());
+		helper.assertTrue(Math.abs(p.getMaxHealth() - 40.0) < 1e-6, "40 max health, got " + p.getMaxHealth());
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - 15.0) < 1e-6,
 				"fists hit for 15, got " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
 		helper.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 1.0, "cannot be knocked back");
 		helper.assertTrue(Kryptonian.solar(p) == KryptonianConfig.SOLAR_MAX, "starts with a full Solar Energy bar");
 		Kryptonian.reconcile(p);
 		Kryptonian.reconcile(p);
-		helper.assertTrue(Math.abs(p.getMaxHealth() - 60.0) < 1e-6, "reconciling never stacks");
+		helper.assertTrue(Math.abs(p.getMaxHealth() - 40.0) < 1e-6, "reconciling never stacks");
 		helper.succeed();
 	}
 
@@ -156,7 +156,7 @@ public class KryptonianGameTests implements FabricGameTest {
 			Kryptonian.tick(p);
 			helper.assertFalse(Kryptonian.weakened(p), "the weakness passes once the kryptonite is gone");
 			Kryptonian.reconcile(p);
-			helper.assertTrue(Math.abs(p.getMaxHealth() - 60.0) < 1e-6, "strength back");
+			helper.assertTrue(Math.abs(p.getMaxHealth() - 40.0) < 1e-6, "strength back");
 			helper.succeed();
 		});
 	}

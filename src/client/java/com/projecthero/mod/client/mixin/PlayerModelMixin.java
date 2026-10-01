@@ -61,6 +61,10 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 		if (com.projecthero.mod.client.moonknight.MoonKnightReveal.progress(player, 0.0f) < 1.0f) {
 			return;
 		}
+		// v0.14.11: and through the Flash Suit pouring out of / back into the ring
+		if (com.projecthero.mod.client.flash.FlashSuitReveal.progress(player, 0.0f) < 1.0f) {
+			return;
+		}
 		if (player.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof SuperheroArmorItem
 				&& !helmetRetracted(player)) {
 			model.hat.visible = false;

@@ -39,15 +39,18 @@ public final class KryptonianState {
 	public long animStart;
 	/** Game time the Solar Flare started charging, 0 when not charging. */
 	public long flareChargeStart;
+	/** v0.14.11: Flight Boost (X while flying) -- faster sprint flight, the only time the sonic boom fires. */
+	public boolean flightBoost;
 	/** {@code abilityId} -> absolute game time it is ready again. */
 	public final Map<String, Long> abilityReadyAt;
 
 	public KryptonianState() {
-		this(false, 0f, false, false, 0L, 0L, false, 0, 0L, 0L, new HashMap<>());
+		this(false, 0f, false, false, 0L, 0L, false, 0, 0L, 0L, new HashMap<>(), false);
 	}
 
 	public KryptonianState(boolean hasPower, float solar, boolean flying, boolean weakened, long depoweredUntil, long xrayUntil,
-			boolean heatVision, int animId, long animStart, long flareChargeStart, Map<String, Long> abilityReadyAt) {
+			boolean heatVision, int animId, long animStart, long flareChargeStart, Map<String, Long> abilityReadyAt,
+			boolean flightBoost) {
 		this.hasPower = hasPower;
 		this.solar = solar;
 		this.flying = flying;
@@ -59,11 +62,12 @@ public final class KryptonianState {
 		this.animStart = animStart;
 		this.flareChargeStart = flareChargeStart;
 		this.abilityReadyAt = new HashMap<>(abilityReadyAt);
+		this.flightBoost = flightBoost;
 	}
 
 	public KryptonianState copy() {
 		return new KryptonianState(hasPower, solar, flying, weakened, depoweredUntil, xrayUntil, heatVision, animId, animStart,
-				flareChargeStart, abilityReadyAt);
+				flareChargeStart, abilityReadyAt, flightBoost);
 	}
 
 	public static final Codec<KryptonianState> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -78,6 +82,7 @@ public final class KryptonianState {
 			Codec.LONG.optionalFieldOf("anim_start", 0L).forGetter(s -> s.animStart),
 			Codec.LONG.optionalFieldOf("flare_charge_start", 0L).forGetter(s -> s.flareChargeStart),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", Map.of())
-					.forGetter(s -> new HashMap<>(s.abilityReadyAt))
+					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
+			Codec.BOOL.optionalFieldOf("flight_boost", false).forGetter(s -> s.flightBoost)
 	).apply(i, KryptonianState::new));
 }

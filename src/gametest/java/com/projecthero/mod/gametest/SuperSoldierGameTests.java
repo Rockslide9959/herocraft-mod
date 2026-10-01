@@ -124,7 +124,7 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		helper.assertTrue(hasModifier(p, Attributes.ATTACK_DAMAGE, "super_soldier_unarmed"), "empty hand: +7 unarmed");
 		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.STICK));
 		SuperSoldier.reconcile(p);
-		helper.assertFalse(hasModifier(p, Attributes.ATTACK_DAMAGE, "super_soldier_unarmed"), "holding something: no unarmed bonus");
+		helper.assertTrue(hasModifier(p, Attributes.ATTACK_DAMAGE, "super_soldier_unarmed"), "v0.14.11: holding something keeps the +7");
 		// the jump modifier really carries a player about 2.25 blocks
 		double v = p.getAttributeValue(Attributes.JUMP_STRENGTH);
 		double y = 0.0;
@@ -286,7 +286,8 @@ public class SuperSoldierGameTests implements FabricGameTest {
 			}
 			AbilityRouter.handleInput(p, (Integer) m[0], true);
 			String id = (String) m[2];
-			helper.assertTrue(SuperSoldier.cooldownRemaining(p, id) > 0, id + " started its cooldown");
+			// v0.14.11: the shield throw has no cooldown any more
+			helper.assertTrue(SuperSoldierAbilities.SHIELD_THROW.equals(id) || SuperSoldier.cooldownRemaining(p, id) > 0, id + " started its cooldown");
 			helper.assertTrue(SuperSoldier.cooldownRemaining(p, id) <= SuperSoldierAbilityManager.maxCooldown(id), id + " cooldown in range");
 		}
 		p.setShiftKeyDown(false);
@@ -424,7 +425,7 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		helper.assertTrue(p.getMainHandItem().isEmpty(), "the shield left his hand");
 		helper.assertTrue(shieldsAround(helper, p) == 1, "one shield in flight");
 		int cd = SuperSoldier.cooldownRemaining(p, SuperSoldierAbilities.SHIELD_THROW);
-		helper.assertTrue(cd > 0 && cd <= SuperSoldierConfig.SHIELD_THROW_COOLDOWN, "the adamantium cooldown, got " + cd);
+		helper.assertTrue(cd == 0, "v0.14.11: no cooldown on the throw, got " + cd);
 		helper.startSequence()
 				.thenWaitUntil(() -> {
 					for (Zombie z : zs) {
@@ -453,8 +454,7 @@ public class SuperSoldierGameTests implements FabricGameTest {
 		helper.assertTrue(SuperSoldierAbilities.shieldThrow(p), "thrown from the off hand");
 		helper.assertTrue(p.getOffhandItem().isEmpty(), "the shield left his hand");
 		int cd = SuperSoldier.cooldownRemaining(p, SuperSoldierAbilities.SHIELD_THROW);
-		helper.assertTrue(cd > SuperSoldierConfig.SHIELD_THROW_COOLDOWN && cd <= SuperSoldierConfig.NORMAL_SHIELD_THROW_COOLDOWN,
-				"the longer ordinary-shield cooldown, got " + cd);
+		helper.assertTrue(cd == 0, "v0.14.11: no cooldown on the throw, got " + cd);
 		helper.startSequence()
 				.thenWaitUntil(() -> {
 					for (Zombie z : zs) {

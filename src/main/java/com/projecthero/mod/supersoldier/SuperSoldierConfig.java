@@ -81,13 +81,13 @@ public final class SuperSoldierConfig {
 	/** Adamantium Shield: damage per hit, enemies per throw (the first plus ricochets), range, cooldown. */
 	public static final float SHIELD_DAMAGE = 9.0f;
 	public static final int SHIELD_MAX_HITS = 4;
-	public static final double SHIELD_RANGE = 24.0;
-	public static final int SHIELD_THROW_COOLDOWN = 100;
+	public static final double SHIELD_RANGE = 25.0; // v0.14.11: was 24
+	public static final int SHIELD_THROW_COOLDOWN = 0; // v0.14.11: no cooldown (was 5 s) -- throw again as soon as it is back in your hand
 	/** An ordinary shield: weaker and shorter, but it still bounces between three enemies and still comes back. */
 	public static final float NORMAL_SHIELD_DAMAGE = 6.0f;
 	public static final int NORMAL_SHIELD_MAX_HITS = 3;
-	public static final double NORMAL_SHIELD_RANGE = 16.0;
-	public static final int NORMAL_SHIELD_THROW_COOLDOWN = 120;
+	public static final double NORMAL_SHIELD_RANGE = 25.0; // v0.14.11: was 16, every shield flies 25 blocks
+	public static final int NORMAL_SHIELD_THROW_COOLDOWN = 0; // v0.14.11: no cooldown (was 6 s)
 	public static final double SHIELD_SPEED = 1.6;
 	/** How far the shield looks for the next enemy to ricochet into. */
 	public static final double SHIELD_RICOCHET_RANGE = 12.0;

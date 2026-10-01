@@ -157,6 +157,10 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 		if (getCurrentEntity() instanceof Player th && animatable instanceof com.projecthero.mod.thorarmor.ThorArmorItem) {
 			texture = com.projecthero.mod.client.thor.ThorSuitReveal.texture(th, getCurrentSlot(), texture, partialTick);
 		}
+		// v0.14.11: the Flash Suit pours out of the ring on the right fist, texel by texel behind a lightning edge
+		if (getCurrentEntity() instanceof Player fl && animatable instanceof com.projecthero.mod.flash.item.FlashSuitItem) {
+			texture = com.projecthero.mod.client.flash.FlashSuitReveal.texture(fl, texture, partialTick);
+		}
 		return super.getRenderType(animatable, texture, bufferSource, partialTick);
 	}
 

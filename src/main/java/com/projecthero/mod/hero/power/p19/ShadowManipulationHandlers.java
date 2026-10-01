@@ -477,7 +477,7 @@ public final class ShadowManipulationHandlers {
 					if (shadowWalking(sp)) {
 						return InteractionResult.FAIL;
 					}
-					if (sp.getMainHandItem().isEmpty() && isDeepDark(sp.level(), sp.blockPosition())) {
+					if (isDeepDark(sp.level(), sp.blockPosition())) { // v0.14.11: whatever is held, not just bare-handed
 						AbilityHelpers.hurt(sp, le, 4.0f);
 					}
 				}

@@ -58,6 +58,8 @@ public final class KryptonianAbilityManager {
 				if (pressed) {
 					if (shift) {
 						KryptonianAbilities.skyLaunch(player);
+					} else if (Kryptonian.isFlying(player)) {
+						KryptonianFlight.toggleBoost(player); // v0.14.11: X in flight is Flight Boost
 					} else {
 						KryptonianAbilities.superDash(player);
 					}

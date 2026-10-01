@@ -111,8 +111,8 @@ public class GreenLanternGameTests implements FabricGameTest {
 		GreenLanternFlight.onEnter(player);
 		GreenLanternFlight.tick(player, false);
 		helper.assertTrue(player.getAbilities().getFlyingSpeed()
-				== com.projecthero.mod.hero.power.HeroFlight.HERO_FLYING_SPEED,
-				"Ring Flight's cruise speed should exactly match the Flight power's HERO_FLYING_SPEED, was "
+				== GreenLanternConfig.FLIGHT_FLYING_SPEED,
+				"Ring Flight's cruise speed should be its own FLIGHT_FLYING_SPEED (30 blocks/s sprinting), was "
 						+ player.getAbilities().getFlyingSpeed());
 		helper.succeed();
 	}
@@ -126,7 +126,7 @@ public class GreenLanternGameTests implements FabricGameTest {
 		GreenLanternFlight.onEnter(player);
 		GreenLanternFlight.tick(player, true);
 		helper.assertTrue(player.getAbilities().getFlyingSpeed()
-				> com.projecthero.mod.hero.power.HeroFlight.HERO_FLYING_SPEED,
+				> GreenLanternConfig.FLIGHT_FLYING_SPEED,
 				"Boost should still fly faster than plain cruise after the speed rework");
 		helper.succeed();
 	}

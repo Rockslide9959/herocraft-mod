@@ -44,7 +44,10 @@ public final class KryptonianFlightClient {
 		boolean braking = forward < 0f;
 		boolean sprint = player.isSprinting();
 
-		double speed = sprint ? KryptonianConfig.FLIGHT_SPRINT_SPEED : KryptonianConfig.FLIGHT_SPEED;
+		var ks = player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.KRYPTONIAN_STATE, null);
+		boolean boost = ks != null && ks.flightBoost; // v0.14.11: X in flight
+		double speed = sprint ? (boost ? KryptonianConfig.FLIGHT_BOOST_SPEED : KryptonianConfig.FLIGHT_SPRINT_SPEED)
+				: KryptonianConfig.FLIGHT_SPEED;
 		Vec3 look = player.getLookAngle();
 		float yaw = player.getYRot() * ((float) Math.PI / 180f);
 		Vec3 left = new Vec3(Math.cos(yaw), 0.0, Math.sin(yaw));

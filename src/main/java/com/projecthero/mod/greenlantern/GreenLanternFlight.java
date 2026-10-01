@@ -116,10 +116,11 @@ public final class GreenLanternFlight {
 		// (HeroFlight.HERO_FLYING_SPEED) instead of GL's own hand-derived figure, so the two feel
 		// identical at rest; Boost scales that by the existing cruise->boost ratio
 		// (BOOST_SPEED_BPS / FLIGHT_CRUISE_SPEED_BPS) so the boost-over-cruise feel is unchanged.
+		// v0.14.11: its own speed now (GreenLanternConfig.FLIGHT_FLYING_SPEED, 30 blocks/s sprinting)
 		float fly = boosting
-				? com.projecthero.mod.hero.power.HeroFlight.HERO_FLYING_SPEED
+				? GreenLanternConfig.FLIGHT_FLYING_SPEED
 						* (float) (GreenLanternConfig.BOOST_SPEED_BPS / GreenLanternConfig.FLIGHT_CRUISE_SPEED_BPS)
-				: com.projecthero.mod.hero.power.HeroFlight.HERO_FLYING_SPEED;
+				: GreenLanternConfig.FLIGHT_FLYING_SPEED;
 		if (player.getAbilities().getFlyingSpeed() != fly) {
 			player.getAbilities().setFlyingSpeed(fly);
 			player.onUpdateAbilities();

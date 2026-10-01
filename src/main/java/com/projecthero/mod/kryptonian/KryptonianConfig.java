@@ -16,8 +16,8 @@ public final class KryptonianConfig {
 	// ---------------------------------------------------------------- body (passives)
 	/** Added to the player's base 1 attack damage: bare fists hit for 15. */
 	public static final double ATTACK_BONUS = 14.0;
-	/** 20 + 40 = 60 max health. */
-	public static final double HEALTH_BONUS = 40.0;
+	/** 20 + 20 = 40 max health (v0.14.11: two rows of hearts, was 60). */
+	public static final double HEALTH_BONUS = 20.0;
 	public static final double KNOCKBACK_RESISTANCE = 1.0;
 	/** Walking speed +40% (base multiplier). */
 	public static final double SPEED_BONUS = 0.4;
@@ -61,7 +61,9 @@ public final class KryptonianConfig {
 	// ---------------------------------------------------------------- flight
 	/** Blocks per tick: cruising (18 b/s) and Sprint super-speed flight (40 b/s). */
 	public static final double FLIGHT_SPEED = 0.9;
-	public static final double FLIGHT_SPRINT_SPEED = 2.0;
+	public static final double FLIGHT_SPRINT_SPEED = 1.75; // v0.14.11: 35 blocks a second (was 2.0 = 40)
+	/** v0.14.11: sprint flight with Flight Boost on (X while flying): 55 blocks a second. */
+	public static final double FLIGHT_BOOST_SPEED = 2.75;
 	/** Blocks per tick straight up / down (Space / Sneak). */
 	public static final double FLIGHT_VERTICAL_SPEED = 0.6;
 	/** Fraction of the gap to the wanted velocity closed per tick: steering, coasting and braking (S). */

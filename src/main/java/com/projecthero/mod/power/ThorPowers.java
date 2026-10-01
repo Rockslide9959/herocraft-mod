@@ -54,6 +54,11 @@ import net.minecraft.world.phys.Vec3;
  * Lightning.
  */
 public final class ThorPowers {
+	/**
+	 * v0.14.11: Thor's own vanilla flying speed (was the shared hero 0.06, ~26 blocks/s sprinting): sprint flight now
+	 * ~30 blocks a second (vanilla flight settles at speed x 2 sprinting / 0.09 drag a tick).
+	 */
+	public static final float THOR_FLYING_SPEED = 0.069f;
 	public static final int LIGHTNING_RANGE = 30;
 	public static final int LIGHTNING_COOLDOWN_TICKS = 50; // 2.5s
 	/** v0.6.22: raised 10 -> 13. v0.13.4: raised again, 13 -> 22. */
@@ -452,7 +457,7 @@ public final class ThorPowers {
 		// v0.9.2: fly at the shared hero-flight speed so Thor keeps pace with Turbo Flight / the
 		// experimental Flight power instead of drifting along at the plain creative-mode rate.
 		player.getAbilities().setFlyingSpeed(flying
-				? com.projecthero.mod.hero.power.HeroFlight.HERO_FLYING_SPEED
+				? THOR_FLYING_SPEED
 				: com.projecthero.mod.hero.power.HeroFlight.VANILLA_FLYING_SPEED);
 		player.onUpdateAbilities();
 		player.resetFallDistance();

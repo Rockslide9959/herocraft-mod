@@ -111,6 +111,11 @@ public final class GreenLanternConfig {
 	// ---------------- Flight (double-tap Space) / Boost (Shift+Sprint while flying) ----------------
 
 	public static final double FLIGHT_CRUISE_SPEED_BPS = 12.0;
+	/**
+	 * v0.14.11: Ring Flight's own vanilla flying speed (was the shared hero 0.06). Cruise is x10 blocks a tick, doubled
+	 * sprinting: 15 blocks/s cruising, 30 sprinting; Boost keeps its old ratio over that (22/12), ~55 sprinting.
+	 */
+	public static final float FLIGHT_FLYING_SPEED = 0.075f;
 	public static final double FLIGHT_VERTICAL_SPEED_BPS = 8.0;
 	/** v0.11.5: flat cost regardless of hovering or cruising -- replaces the old cruise/hover split. */
 	public static final float FLIGHT_COST_PER_SEC = 1f;

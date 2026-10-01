@@ -706,6 +706,24 @@ public final class ModAttachments {
 							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.kryptonian.data.KryptonianState.CODEC),
 									AttachmentSyncPredicate.all()));
 
+	/**
+	 * v0.14.11: the Flash Ring on a speedster's finger -- the ring as an item stack, the packed suit in its container
+	 * component; empty = none. Persistent, kept through death (a full ring drops on death without keepInventory, see
+	 * {@code FlashRing}) and synced to everyone (they draw the ring). Always replaced, never mutated in place.
+	 */
+	public static final AttachmentType<net.minecraft.world.item.ItemStack> FLASH_RING = AttachmentRegistry.create(
+			ProjectHeroMod.id("flash_ring"),
+			builder -> builder.persistent(net.minecraft.world.item.ItemStack.OPTIONAL_CODEC)
+					.copyOnDeath()
+					.initializer(() -> net.minecraft.world.item.ItemStack.EMPTY)
+					.syncWith(net.minecraft.world.item.ItemStack.OPTIONAL_STREAM_CODEC, AttachmentSyncPredicate.all()));
+
+	/** v0.14.11: the Flash Suit's suit-up / suit-down clock. Never persisted; synced to everyone (they play it). */
+	public static final AttachmentType<com.projecthero.mod.flash.FlashFx> FLASH_FX = AttachmentRegistry.create(
+			ProjectHeroMod.id("flash_fx"),
+			builder -> builder.initializer(() -> com.projecthero.mod.flash.FlashFx.EMPTY)
+					.syncWith(com.projecthero.mod.flash.FlashFx.STREAM_CODEC, AttachmentSyncPredicate.all()));
+
 	private ModAttachments() {
 	}
 
