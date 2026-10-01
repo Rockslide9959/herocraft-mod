@@ -70,6 +70,7 @@ public final class Kryptonite {
 			if (s.solar > 0f) {
 				KryptonianState n = Kryptonian.state(player).copy();
 				n.solar = Math.max(0f, n.solar - KryptonianConfig.KRYPTONITE_SOLAR_DRAIN_PER_SECOND);
+				n.lastDrain = now; // v0.14.16: a drain like any other -- the 5 s refill delay starts over
 				Kryptonian.save(player, n);
 			}
 		}

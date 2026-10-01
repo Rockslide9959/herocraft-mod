@@ -889,9 +889,11 @@ public final class HeroPackGuide {
 				blank(lines);
 			}
 			head(lines, "projecthero.guide.kryptonian.controls");
-			for (String[] row : new String[][] { { "R", "punch" }, { "Shift+R", "heat_vision" }, { "G", "freeze_breath" },
-					{ "Shift+G", "thunderclap" }, { "Z", "ground_slam" }, { "Shift+Z", "solar_flare" }, { "X", "super_dash" },
-					{ "Shift+X", "sky_launch" }, { "V", "xray_vision" }, { "Shift+V", "super_grab" } }) {
+			// v0.14.16: the new layout, plus C / Shift+C
+			for (String[] row : new String[][] { { "R", "punch" }, { "Shift+R", "thunderclap" }, { "G", "heat_vision" },
+					{ "Shift+G", "ground_slam" }, { "Z", "freeze_breath" }, { "Shift+Z", "solar_flare" }, { "X", "super_dash" },
+					{ "Shift+X", "sky_launch" }, { "C", "barrage" }, { "Shift+C", "meteor_strike" }, { "V", "xray_vision" },
+					{ "Shift+V", "super_grab" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.kryptonian.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.kryptonian.ability." + row[1] + ".desc");

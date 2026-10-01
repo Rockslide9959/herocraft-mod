@@ -11,8 +11,10 @@ import com.projecthero.mod.kryptonian.data.KryptonianState;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -22,6 +24,7 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.BaseFireBlock;
@@ -33,19 +36,21 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
- * The Kryptonian's ten moves (v0.14.8). Every move goes through {@link #begin} (power, kryptonite, burn-out, cooldown and
- * Solar Energy gates). Moves that last longer than a tick keep a small per-player session here and are advanced by
- * {@link #tick}; every session is dropped by {@link #clear} (death, logout, world change, kryptonite) and all of them by
- * {@link #clearSessionState} when the server stops.
+ * The Kryptonian's moves (v0.14.8; v0.14.16 new layout, far cheaper, plus C). Every move goes through {@link #begin}
+ * (power, kryptonite, burn-out, cooldown and Solar Energy gates). Moves that last longer than a tick keep a small
+ * per-player session here and are advanced by {@link #tick}; every session is dropped by {@link #clear} (death, logout,
+ * world change, kryptonite) and all of them by {@link #clearSessionState} when the server stops.
  *
  * <pre>
- *   R        Kryptonian Punch          Shift+R  Heat Vision (hold)
- *   G        Freeze Breath             Shift+G  Thunderclap
- *   Z        Ground Slam               Shift+Z  SOLAR FLARE (ultimate)
- *   X        Super Dash                Shift+X  Sky Launch
- *   V        X-Ray Vision              Shift+V  Super Grab / Throw
+ *   R        Kryptonian Punch (5)          Shift+R  Thunderclap (5)
+ *   G        Heat Vision (hold, 1/s)       Shift+G  Ground Pound (10)
+ *   Z        Freeze Breath (hold, 1/s)     Shift+Z  SOLAR FLARE (a full 100, then powerless 30 s)
+ *   X        Super Dash (3) / Flight Boost Shift+X  Sky Launch (3)
+ *   C        Super-Speed Barrage (5)       Shift+C  Meteor Strike (10)
+ *   V        X-Ray Vision (toggle, free)   Shift+V  Pick Up / Set Down (free; V or attack throws)
  * </pre>
  */
 public final class KryptonianAbilities {
@@ -59,11 +64,15 @@ public final class KryptonianAbilities {
 	public static final String SKY_LAUNCH = "sky_launch";
 	public static final String XRAY = "xray_vision";
 	public static final String SUPER_GRAB = "super_grab";
+	/** v0.14.16: C. */
+	public static final String BARRAGE = "barrage";
+	/** v0.14.16: Shift+C. */
+	public static final String METEOR_STRIKE = "meteor_strike";
 
-	private static final class Heat {
+	private static final class Held {
 		final long start;
 
-		Heat(long start) {
+		Held(long start) {
 			this.start = start;
 		}
 	}
@@ -87,14 +96,36 @@ public final class KryptonianAbilities {
 	private record Launch(long start, double startY) {
 	}
 
-	private record Grab(int entityId, long until) {
+	private record Grab(int entityId) {
 	}
 
 	private record Thrown(UUID owner, long start) {
 	}
 
-	private static final Map<UUID, Heat> HEAT = new ConcurrentHashMap<>();
-	private static final Map<UUID, Long> BREATH = new ConcurrentHashMap<>();
+	private static final class Barrage {
+		final long start;
+		int hits;
+
+		Barrage(long start) {
+			this.start = start;
+		}
+	}
+
+	private static final class Strike {
+		final long start;
+		final double startY;
+		boolean diving;
+		long diveStart;
+		Vec3 target = Vec3.ZERO;
+
+		Strike(long start, double startY) {
+			this.start = start;
+			this.startY = startY;
+		}
+	}
+
+	private static final Map<UUID, Held> HEAT = new ConcurrentHashMap<>();
+	private static final Map<UUID, Held> BREATH = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> SLAM = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> FLARE = new ConcurrentHashMap<>();
 	private static final Map<UUID, Dash> DASH = new ConcurrentHashMap<>();
@@ -102,6 +133,12 @@ public final class KryptonianAbilities {
 	private static final Map<UUID, Grab> GRAB = new ConcurrentHashMap<>();
 	/** Entity id -> who threw it (the impact is checked every tick from the thrower's tick). */
 	private static final Map<Integer, Thrown> THROWN = new ConcurrentHashMap<>();
+	/** v0.14.16: C's flurry in progress. */
+	private static final Map<UUID, Barrage> BARRAGES = new ConcurrentHashMap<>();
+	/** v0.14.16: Shift+C's rise / dive in progress. */
+	private static final Map<UUID, Strike> STRIKES = new ConcurrentHashMap<>();
+	/** v0.14.16: entity id -> game time until which a set-down (or dropped) creature takes no fall damage. */
+	private static final Map<Integer, Long> SAFE_LANDING = new ConcurrentHashMap<>();
 
 	private KryptonianAbilities() {
 	}
@@ -115,26 +152,37 @@ public final class KryptonianAbilities {
 		LAUNCH.clear();
 		GRAB.clear();
 		THROWN.clear();
+		BARRAGES.clear();
+		STRIKES.clear();
+		SAFE_LANDING.clear();
 	}
 
-	/** Ends every running move of this player (a held mob is set down, heat vision stops). */
+	/** Ends every running move of this player (a held creature is let go safely, the beams / breath stop). */
 	public static void clear(ServerPlayer player) {
 		UUID id = player.getUUID();
-		BREATH.remove(id);
 		SLAM.remove(id);
 		FLARE.remove(id);
 		DASH.remove(id);
 		LAUNCH.remove(id);
+		BARRAGES.remove(id);
+		if (STRIKES.remove(id) != null && Kryptonian.state(player).animId == KryptonianState.ANIM_METEOR) {
+			Kryptonian.setAnim(player, KryptonianState.ANIM_NONE);
+		}
 		Grab g = GRAB.remove(id);
 		if (g != null) {
 			Entity e = player.level().getEntity(g.entityId());
 			if (e != null) {
 				e.setNoGravity(false);
+				e.resetFallDistance();
+				SAFE_LANDING.put(e.getId(), player.level().getGameTime() + KryptonianConfig.SET_DOWN_SAFE_TICKS);
 			}
 		}
 		THROWN.values().removeIf(t -> t.owner().equals(id));
 		if (HEAT.remove(id) != null || Kryptonian.heatVisionActive(player)) {
 			setHeatFlag(player, false);
+		}
+		if (BREATH.remove(id) != null || Kryptonian.state(player).breathing) {
+			setBreathFlag(player, false);
 		}
 	}
 
@@ -149,12 +197,58 @@ public final class KryptonianAbilities {
 			case SUPER_DASH -> DASH.containsKey(u);
 			case SKY_LAUNCH -> LAUNCH.containsKey(u);
 			case SUPER_GRAB -> GRAB.containsKey(u);
+			case BARRAGE -> BARRAGES.containsKey(u);
+			case METEOR_STRIKE -> STRIKES.containsKey(u);
 			default -> false;
 		};
 	}
 
 	public static boolean holding(ServerPlayer player) {
 		return GRAB.containsKey(player.getUUID());
+	}
+
+	/** v0.14.16: the creature this player is carrying, or null. */
+	public static LivingEntity held(ServerPlayer player) {
+		Grab g = GRAB.get(player.getUUID());
+		return g != null && player.level().getEntity(g.entityId()) instanceof LivingEntity le ? le : null;
+	}
+
+	/** v0.14.16: is this entity being carried by any Kryptonian? (Carried things cannot hurt anyone.) */
+	public static boolean isCarried(Entity e) {
+		if (GRAB.isEmpty() || e == null) {
+			return false;
+		}
+		int id = e.getId();
+		for (Grab g : GRAB.values()) {
+			if (g.entityId() == id) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** v0.14.16: is this entity carried by exactly this player? */
+	public static boolean isCarriedBy(ServerPlayer player, Entity e) {
+		Grab g = GRAB.get(player.getUUID());
+		return g != null && e != null && g.entityId() == e.getId();
+	}
+
+	/**
+	 * v0.14.16: was this creature just set down (or dropped) by a Kryptonian? Its next fall is harmless; the entry is used
+	 * up by the first fall it vetoes, and lapses after {@link KryptonianConfig#SET_DOWN_SAFE_TICKS}.
+	 */
+	public static boolean consumeSafeLanding(Entity e) {
+		Long until = SAFE_LANDING.get(e.getId());
+		if (until == null) {
+			return false;
+		}
+		SAFE_LANDING.remove(e.getId());
+		return until >= e.level().getGameTime();
+	}
+
+	public static boolean hasSafeLanding(Entity e) {
+		Long until = SAFE_LANDING.get(e.getId());
+		return until != null && until >= e.level().getGameTime();
 	}
 
 	// ---------------------------------------------------------------- the gate
@@ -167,7 +261,7 @@ public final class KryptonianAbilities {
 		int cd = Kryptonian.cooldownRemaining(player, id);
 		if (cd > 0) {
 			Kryptonian.say(player, "message.projecthero.kryptonian.cooldown", ChatFormatting.GRAY,
-					net.minecraft.network.chat.Component.translatable("projecthero.kryptonian.ability." + id),
+					Component.translatable("projecthero.kryptonian.ability." + id),
 					String.format(java.util.Locale.ROOT, "%.1f", cd / 20.0f));
 			return false;
 		}
@@ -189,6 +283,19 @@ public final class KryptonianAbilities {
 		return (ServerLevel) p.level();
 	}
 
+	/** Held moves open only with at least a second's worth of energy; after that they are paid as they run. */
+	private static boolean canOpenHeld(ServerPlayer p, float perSecond) {
+		if (!Kryptonian.canAct(p)) {
+			return false;
+		}
+		if (Kryptonian.solar(p) + 1.0e-3f < perSecond) {
+			Kryptonian.say(p, "message.projecthero.kryptonian.low_solar", ChatFormatting.YELLOW, (int) Math.ceil(perSecond),
+					(int) Math.floor(Kryptonian.solar(p)));
+			return false;
+		}
+		return true;
+	}
+
 	// ---------------------------------------------------------------- R: Kryptonian Punch
 
 	public static void punch(ServerPlayer p) {
@@ -200,7 +307,7 @@ public final class KryptonianAbilities {
 		ServerLevel level = level(p);
 		LivingEntity target = AbilityHelpers.raycastEntity(p, KryptonianConfig.PUNCH_RANGE);
 		Vec3 look = p.getLookAngle();
-		if (target != null && KryptonianCombat.isTarget(p, target)) {
+		if (target != null && KryptonianCombat.isTarget(p, target) && !isCarriedBy(p, target)) {
 			Vec3 at = target.position().add(0, target.getBbHeight() * 0.5, 0);
 			Set<Integer> hit = new HashSet<>();
 			hit.add(target.getId());
@@ -220,7 +327,9 @@ public final class KryptonianAbilities {
 			// a punch into the air: the pressure wave still flattens whatever is just in front
 			Vec3 eye = p.getEyePosition();
 			for (LivingEntity e : KryptonianCombat.cone(p, eye, look, 7.0, 40.0)) {
-				KryptonianCombat.strike(p, e, p.position(), 14.0f, 2.0, 0.3, true);
+				if (!isCarriedBy(p, e)) {
+					KryptonianCombat.strike(p, e, p.position(), 14.0f, 2.0, 0.3, true);
+				}
 			}
 			for (int i = 1; i <= 6; i++) {
 				Vec3 c = eye.add(look.scale(i));
@@ -230,25 +339,16 @@ public final class KryptonianAbilities {
 		}
 	}
 
-	// ---------------------------------------------------------------- Shift+R: Heat Vision (held)
+	// ---------------------------------------------------------------- G: Heat Vision (held)
 
 	public static void startHeatVision(ServerPlayer p) {
-		if (HEAT.containsKey(p.getUUID())) {
-			return;
-		}
-		// needs at least a second's worth of energy to open up; after that it is paid as it burns
-		if (!Kryptonian.canAct(p)) {
-			return;
-		}
-		if (Kryptonian.solar(p) < KryptonianConfig.HEAT_COST_PER_SECOND) {
-			Kryptonian.say(p, "message.projecthero.kryptonian.low_solar", ChatFormatting.YELLOW,
-					(int) Math.ceil(KryptonianConfig.HEAT_COST_PER_SECOND), (int) Math.floor(Kryptonian.solar(p)));
+		if (HEAT.containsKey(p.getUUID()) || !canOpenHeld(p, KryptonianConfig.HEAT_COST_PER_SECOND)) {
 			return;
 		}
 		if (!begin(p, HEAT_VISION, 0f)) {
 			return;
 		}
-		HEAT.put(p.getUUID(), new Heat(p.level().getGameTime()));
+		HEAT.put(p.getUUID(), new Held(p.level().getGameTime()));
 		setHeatFlag(p, true);
 		level(p).playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 0.8f, 1.6f);
 	}
@@ -271,13 +371,14 @@ public final class KryptonianAbilities {
 		}
 	}
 
-	private static void tickHeat(ServerPlayer p, Heat h, long now) {
+	private static void tickHeat(ServerPlayer p, Held h, long now) {
 		long age = now - h.start;
 		if (age >= KryptonianConfig.HEAT_MAX_TICKS || !Kryptonian.empowered(p) || !p.isAlive()) {
 			stopHeatVision(p);
 			return;
 		}
-		if (age > 0 && age % 10 == 0 && !Kryptonian.spendSolar(p, KryptonianConfig.HEAT_COST_PER_SECOND * 0.5f)) {
+		// v0.14.16: 1 a second, paid half a point every 10 ticks from the moment it opens
+		if (age % 10 == 0 && !Kryptonian.spendSolar(p, KryptonianConfig.HEAT_COST_PER_SECOND * 0.5f)) {
 			stopHeatVision(p);
 			return;
 		}
@@ -316,22 +417,46 @@ public final class KryptonianAbilities {
 		}
 	}
 
-	// ---------------------------------------------------------------- G: Freeze Breath
+	// ---------------------------------------------------------------- Z: Freeze Breath (held, v0.14.16)
 
-	public static void freezeBreath(ServerPlayer p) {
-		if (BREATH.containsKey(p.getUUID()) || !begin(p, FREEZE_BREATH, KryptonianConfig.BREATH_COST)) {
+	public static void startFreezeBreath(ServerPlayer p) {
+		if (BREATH.containsKey(p.getUUID()) || !canOpenHeld(p, KryptonianConfig.BREATH_COST_PER_SECOND)) {
 			return;
 		}
-		cooldown(p, FREEZE_BREATH, KryptonianConfig.BREATH_COOLDOWN);
-		Kryptonian.setAnim(p, KryptonianState.ANIM_BREATH);
-		BREATH.put(p.getUUID(), p.level().getGameTime());
+		if (!begin(p, FREEZE_BREATH, 0f)) {
+			return;
+		}
+		BREATH.put(p.getUUID(), new Held(p.level().getGameTime()));
+		setBreathFlag(p, true);
 		level(p).playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.PLAYER_HURT_FREEZE, SoundSource.PLAYERS, 1.2f, 0.6f);
 	}
 
-	private static void tickBreath(ServerPlayer p, long start, long now) {
-		long age = now - start;
-		if (age >= KryptonianConfig.BREATH_TICKS || !Kryptonian.empowered(p)) {
-			BREATH.remove(p.getUUID());
+	/** The key came up (or anything else stopped it): the breath ends and the cooldown starts. */
+	public static void stopFreezeBreath(ServerPlayer p) {
+		if (BREATH.remove(p.getUUID()) == null) {
+			return;
+		}
+		setBreathFlag(p, false);
+		cooldown(p, FREEZE_BREATH, KryptonianConfig.BREATH_COOLDOWN);
+	}
+
+	private static void setBreathFlag(ServerPlayer p, boolean on) {
+		KryptonianState s = Kryptonian.state(p);
+		if (s.breathing != on) {
+			KryptonianState n = s.copy();
+			n.breathing = on;
+			Kryptonian.save(p, n);
+		}
+	}
+
+	private static void tickBreath(ServerPlayer p, Held h, long now) {
+		long age = now - h.start;
+		if (age >= KryptonianConfig.BREATH_MAX_TICKS || !Kryptonian.empowered(p) || !p.isAlive()) {
+			stopFreezeBreath(p);
+			return;
+		}
+		if (age % 10 == 0 && !Kryptonian.spendSolar(p, KryptonianConfig.BREATH_COST_PER_SECOND * 0.5f)) {
+			stopFreezeBreath(p);
 			return;
 		}
 		ServerLevel level = level(p);
@@ -349,6 +474,9 @@ public final class KryptonianAbilities {
 		}
 		if (age % KryptonianConfig.BREATH_HIT_INTERVAL == 0) {
 			for (LivingEntity e : KryptonianCombat.cone(p, eye, dir, KryptonianConfig.BREATH_RANGE, KryptonianConfig.BREATH_CONE_DEGREES)) {
+				if (isCarriedBy(p, e)) {
+					continue;
+				}
 				if (KryptonianCombat.strike(p, e, eye, KryptonianConfig.BREATH_DAMAGE, 0.25, 0.0, true, AbilityHelpers.freeze(p))) {
 					e.clearFire();
 					e.setTicksFrozen(Math.max(e.getTicksFrozen(), e.getTicksRequiredToFreeze() + 100));
@@ -358,6 +486,9 @@ public final class KryptonianAbilities {
 		}
 		if (age % 5 == 2) {
 			freezeTerrain(p, level, eye, dir);
+		}
+		if (age % 20 == 0) {
+			level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.POWDER_SNOW_STEP, SoundSource.PLAYERS, 1.0f, 0.6f);
 		}
 	}
 
@@ -386,7 +517,7 @@ public final class KryptonianAbilities {
 		}
 	}
 
-	// ---------------------------------------------------------------- Shift+G: Thunderclap
+	// ---------------------------------------------------------------- Shift+R: Thunderclap
 
 	public static void thunderclap(ServerPlayer p) {
 		if (!begin(p, THUNDERCLAP, KryptonianConfig.CLAP_COST)) {
@@ -399,6 +530,9 @@ public final class KryptonianAbilities {
 		Vec3 look = p.getLookAngle();
 		Vec3 hands = eye.add(look.scale(0.8)).add(0, -0.4, 0);
 		for (LivingEntity e : KryptonianCombat.cone(p, eye, look, KryptonianConfig.CLAP_RANGE, KryptonianConfig.CLAP_CONE_DEGREES)) {
+			if (isCarriedBy(p, e)) {
+				continue;
+			}
 			double dist = e.position().distanceTo(p.position());
 			double falloff = 1.0 - 0.5 * Math.min(1.0, dist / KryptonianConfig.CLAP_RANGE);
 			if (KryptonianCombat.strike(p, e, p.position(), (float) (KryptonianConfig.CLAP_DAMAGE * falloff),
@@ -426,7 +560,7 @@ public final class KryptonianAbilities {
 		KryptonianCombat.shake(level, p.position(), 0.5f, 12, 24.0);
 	}
 
-	// ---------------------------------------------------------------- Z: Ground Slam
+	// ---------------------------------------------------------------- Shift+G: Ground Pound
 
 	public static void groundSlam(ServerPlayer p) {
 		if (SLAM.containsKey(p.getUUID()) || !begin(p, GROUND_SLAM, KryptonianConfig.SLAM_COST)) {
@@ -466,8 +600,13 @@ public final class KryptonianAbilities {
 		ServerLevel level = level(p);
 		Vec3 at = p.position();
 		p.resetFallDistance();
+		Set<Integer> skip = new HashSet<>();
+		LivingEntity carried = held(p);
+		if (carried != null) {
+			skip.add(carried.getId());
+		}
 		KryptonianCombat.radial(p, at, KryptonianConfig.SLAM_RADIUS, KryptonianConfig.SLAM_DAMAGE * power, KryptonianConfig.SLAM_KNOCKBACK,
-				KryptonianConfig.SLAM_LIFT, new HashSet<>());
+				KryptonianConfig.SLAM_LIFT, skip);
 		KryptonianCombat.crater(p, at.add(0, -0.5, 0), KryptonianConfig.SLAM_CRATER_RADIUS, KryptonianConfig.SLAM_CRATER_MAX_BLOCKS);
 		BlockState ground = level.getBlockState(p.blockPosition().below());
 		if (!ground.isAir()) {
@@ -483,28 +622,33 @@ public final class KryptonianAbilities {
 
 	// ---------------------------------------------------------------- Shift+Z: SOLAR FLARE
 
+	/**
+	 * v0.14.16: needs a FULL bar (100) and spends all of it up front. Two seconds of charge, a 120-damage blast, then 30 s
+	 * powerless ({@link Kryptonian#depower}) with Slowness IV, Blindness and Weakness IV for the first 6.
+	 */
 	public static void solarFlare(ServerPlayer p) {
 		if (FLARE.containsKey(p.getUUID()) || !Kryptonian.canAct(p)) {
 			return;
 		}
 		if (Kryptonian.solar(p) + 1.0e-3f < KryptonianConfig.FLARE_MIN_SOLAR) {
-			Kryptonian.say(p, "message.projecthero.kryptonian.low_solar", ChatFormatting.YELLOW, (int) KryptonianConfig.FLARE_MIN_SOLAR,
+			Kryptonian.say(p, "message.projecthero.kryptonian.flare_needs_full", ChatFormatting.YELLOW, (int) KryptonianConfig.FLARE_MIN_SOLAR,
 					(int) Math.floor(Kryptonian.solar(p)));
 			return;
 		}
-		if (!begin(p, SOLAR_FLARE, 0f)) {
+		if (!begin(p, SOLAR_FLARE, Math.min(KryptonianConfig.SOLAR_MAX, Kryptonian.solar(p)))) {
 			return;
 		}
 		long now = p.level().getGameTime();
 		FLARE.put(p.getUUID(), now);
 		KryptonianState n = Kryptonian.state(p).copy();
+		n.solar = 0f; // all of it
 		n.flareChargeStart = now;
 		n.animId = KryptonianState.ANIM_FLARE;
 		n.animStart = now;
 		Kryptonian.save(p, n);
 		ServerLevel level = level(p);
 		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 2.0f, 0.5f);
-		p.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.kryptonian.flare_charging")
+		p.displayClientMessage(Component.translatable("message.projecthero.kryptonian.flare_charging")
 				.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), true);
 	}
 
@@ -535,17 +679,20 @@ public final class KryptonianAbilities {
 
 	private static void detonateFlare(ServerPlayer p) {
 		ServerLevel level = level(p);
-		float solar = Kryptonian.solar(p);
-		float damage = KryptonianConfig.FLARE_BASE_DAMAGE + solar * KryptonianConfig.FLARE_DAMAGE_PER_SOLAR;
+		float damage = KryptonianConfig.FLARE_DAMAGE;
 		Vec3 at = p.position().add(0, 1.0, 0);
 		KryptonianState n = Kryptonian.state(p).copy();
 		n.flareChargeStart = 0L;
 		n.abilityReadyAt.put(SOLAR_FLARE, level.getGameTime() + KryptonianConfig.FLARE_COOLDOWN);
 		Kryptonian.save(p, n);
 		Set<Integer> hit = new HashSet<>();
+		LivingEntity carried = held(p);
+		if (carried != null) {
+			hit.add(carried.getId());
+		}
 		KryptonianCombat.radial(p, at, KryptonianConfig.FLARE_RADIUS, damage, KryptonianConfig.FLARE_KNOCKBACK, KryptonianConfig.FLARE_LIFT, hit);
 		for (LivingEntity e : KryptonianCombat.targets(p, new AABB(at, at).inflate(KryptonianConfig.FLARE_RADIUS))) {
-			if (hit.contains(e.getId())) {
+			if (hit.contains(e.getId()) && e != carried) {
 				e.igniteForSeconds(8);
 			}
 		}
@@ -563,8 +710,7 @@ public final class KryptonianAbilities {
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 2.0f, 0.5f);
 		KryptonianCombat.shake(level, at, 1.0f, 30, 48.0);
 		Kryptonian.depower(p, KryptonianConfig.FLARE_DEPOWER_TICKS);
-		p.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.kryptonian.flare_spent")
-				.withStyle(ChatFormatting.GRAY), true);
+		p.displayClientMessage(Component.translatable("message.projecthero.kryptonian.flare_spent").withStyle(ChatFormatting.GRAY), true);
 	}
 
 	// ---------------------------------------------------------------- X: Super Dash
@@ -602,14 +748,14 @@ public final class KryptonianAbilities {
 		// ram whatever is in the way
 		Vec3 mid = pos.add(0, p.getBbHeight() * 0.5, 0);
 		for (LivingEntity e : KryptonianCombat.targets(p, p.getBoundingBox().inflate(KryptonianConfig.DASH_HIT_RADIUS))) {
-			if (d.hit.add(e.getId())) {
+			if (!isCarriedBy(p, e) && d.hit.add(e.getId())) {
 				KryptonianCombat.strike(p, e, pos.subtract(d.dir), KryptonianConfig.DASH_DAMAGE, KryptonianConfig.DASH_KNOCKBACK, 0.4, true);
 			}
 		}
 		level.sendParticles(ParticleTypes.CLOUD, mid.x, mid.y, mid.z, 2, 0.2, 0.3, 0.2, 0.01);
 		level.sendParticles(ParticleTypes.END_ROD, mid.x, mid.y, mid.z, 1, 0.1, 0.2, 0.1, 0.0);
 		boolean blocked = age >= 2 && step < 0.3;
-		if (d.travelled >= KryptonianConfig.DASH_DISTANCE || blocked || age > 20) {
+		if (d.travelled >= KryptonianConfig.DASH_DISTANCE || blocked || age > KryptonianConfig.DASH_MAX_TICKS) {
 			DASH.remove(p.getUUID());
 			AbilityHelpers.launchSelf(p, d.dir.scale(0.3));
 			if (d.wasFlying && Kryptonian.empowered(p) && !p.onGround()) {
@@ -632,7 +778,12 @@ public final class KryptonianAbilities {
 		KryptonianFlight.stop(p, false);
 		ServerLevel level = level(p);
 		Vec3 at = p.position();
-		KryptonianCombat.radial(p, at, KryptonianConfig.LAUNCH_WAVE_RADIUS, KryptonianConfig.LAUNCH_WAVE_DAMAGE, 1.0, 0.8, new HashSet<>());
+		Set<Integer> skip = new HashSet<>();
+		LivingEntity carried = held(p);
+		if (carried != null) {
+			skip.add(carried.getId());
+		}
+		KryptonianCombat.radial(p, at, KryptonianConfig.LAUNCH_WAVE_RADIUS, KryptonianConfig.LAUNCH_WAVE_DAMAGE, 1.0, 0.8, skip);
 		KryptonianCombat.ring(level, ParticleTypes.CLOUD, at.add(0, 0.2, 0), 2.0, 24);
 		level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y + 0.2, at.z, 1, 0.0, 0.0, 0.0, 0.0);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.FIREWORK_ROCKET_LAUNCH, SoundSource.PLAYERS, 2.0f, 0.5f);
@@ -648,75 +799,342 @@ public final class KryptonianAbilities {
 		boolean apex = age > 6 && (p.getY() >= l.startY() + KryptonianConfig.LAUNCH_HEIGHT - 1.0 || p.getDeltaMovement().y <= 0.05);
 		if (apex || age > 80) {
 			LAUNCH.remove(p.getUUID());
-			if (Kryptonian.empowered(p)) {
+			if (Kryptonian.empowered(p) && Kryptonian.solar(p) > 0f) {
 				KryptonianFlight.start(p); // hovers at the top, ready to fly
 				AbilityHelpers.launchSelf(p, Vec3.ZERO);
 			}
 		}
 	}
 
-	// ---------------------------------------------------------------- V: X-Ray Vision
+	// ---------------------------------------------------------------- C: Super-Speed Barrage (v0.14.16)
 
-	public static void xray(ServerPlayer p) {
-		if (!begin(p, XRAY, KryptonianConfig.XRAY_COST)) {
+	/**
+	 * A blur of fists: {@link KryptonianConfig#BARRAGE_HITS} blows over about a second into everything in a short cone in
+	 * front (pinned in place while it lasts), the last one a haymaker that throws them back.
+	 */
+	public static void barrage(ServerPlayer p) {
+		if (BARRAGES.containsKey(p.getUUID()) || !begin(p, BARRAGE, KryptonianConfig.BARRAGE_COST)) {
 			return;
 		}
-		cooldown(p, XRAY, KryptonianConfig.XRAY_COOLDOWN);
-		KryptonianState n = Kryptonian.state(p).copy();
-		n.xrayUntil = p.level().getGameTime() + KryptonianConfig.XRAY_TICKS;
-		Kryptonian.save(p, n);
-		p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, KryptonianConfig.XRAY_TICKS + 20, 0, false, false, true));
-		level(p).playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.2f, 0.6f);
+		cooldown(p, BARRAGE, KryptonianConfig.BARRAGE_COOLDOWN);
+		Kryptonian.setAnim(p, KryptonianState.ANIM_BARRAGE);
+		BARRAGES.put(p.getUUID(), new Barrage(p.level().getGameTime()));
+		level(p).playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.ENDER_DRAGON_FLAP, SoundSource.PLAYERS, 0.8f, 2.0f);
 	}
 
-	// ---------------------------------------------------------------- Shift+V: Super Grab / Throw
+	private static void tickBarrage(ServerPlayer p, Barrage b, long now) {
+		long age = now - b.start;
+		if (!Kryptonian.empowered(p) || !p.isAlive() || age > (long) KryptonianConfig.BARRAGE_HITS * KryptonianConfig.BARRAGE_HIT_INTERVAL + 10) {
+			BARRAGES.remove(p.getUUID());
+			return;
+		}
+		if (age % KryptonianConfig.BARRAGE_HIT_INTERVAL != 0) {
+			return;
+		}
+		b.hits++;
+		boolean last = b.hits >= KryptonianConfig.BARRAGE_HITS;
+		ServerLevel level = level(p);
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		for (LivingEntity e : KryptonianCombat.cone(p, eye, look, KryptonianConfig.BARRAGE_RANGE, KryptonianConfig.BARRAGE_CONE_DEGREES)) {
+			if (isCarriedBy(p, e)) {
+				continue;
+			}
+			if (last) {
+				KryptonianCombat.strike(p, e, p.position(), KryptonianConfig.BARRAGE_FINISHER_DAMAGE, KryptonianConfig.BARRAGE_FINISHER_KNOCKBACK,
+						KryptonianConfig.BARRAGE_FINISHER_LIFT, true);
+			} else if (KryptonianCombat.strike(p, e, p.position(), KryptonianConfig.BARRAGE_HIT_DAMAGE, 0.0, 0.0, true)
+					&& !KryptonianCombat.isBoss(e)) {
+				// pinned in the flurry: no drifting out of reach
+				e.setDeltaMovement(e.getDeltaMovement().multiply(0.1, 0.3, 0.1));
+				e.hurtMarked = true;
+			}
+			Vec3 c = e.position().add(0, e.getBbHeight() * 0.6, 0);
+			level.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, last ? 14 : 4, 0.3, 0.3, 0.3, 0.3);
+		}
+		// fists everywhere: a scatter of impact puffs just in front of him
+		Vec3 front = eye.add(look.scale(1.6)).add(0, -0.3, 0);
+		Vec3 side = look.cross(new Vec3(0, 1, 0));
+		side = side.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : side.normalize();
+		double sway = ((b.hits % 2 == 0) ? 1 : -1) * 0.35;
+		Vec3 fist = front.add(side.scale(sway));
+		level.sendParticles(ParticleTypes.CLOUD, fist.x, fist.y, fist.z, 3, 0.15, 0.15, 0.15, 0.06);
+		level.sendParticles(ParticleTypes.END_ROD, fist.x, fist.y, fist.z, 1, 0.1, 0.1, 0.1, 0.02);
+		float pitch = 1.1f + level.random.nextFloat() * 0.7f;
+		level.playSound(null, fist.x, fist.y, fist.z, SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.PLAYERS, 0.9f, pitch);
+		if (last) {
+			BARRAGES.remove(p.getUUID());
+			Vec3 at = eye.add(look.scale(2.2));
+			level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y, at.z, 1, 0.0, 0.0, 0.0, 0.0);
+			level.sendParticles(ParticleTypes.SWEEP_ATTACK, at.x, at.y, at.z, 3, 0.4, 0.3, 0.4, 0.0);
+			KryptonianCombat.ring(level, ParticleTypes.CLOUD, at, 1.4, 16);
+			level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.1f, 1.4f);
+			level.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.PLAYERS, 1.4f, 0.6f);
+			KryptonianCombat.shake(level, at, 0.35f, 8, 16.0);
+		}
+	}
 
+	// ---------------------------------------------------------------- Shift+C: Meteor Strike (v0.14.16)
+
+	/**
+	 * From the ground he rockets {@link KryptonianConfig#STRIKE_RISE_HEIGHT} blocks straight up; at the top (or straight
+	 * away when already in the air) he dives fists-first, wreathed in fire, at whatever he is looking at up to 48 blocks
+	 * off, and hits like a meteor: damage, knockback and fire all round, and a small crater.
+	 */
+	public static void meteorStrike(ServerPlayer p) {
+		if (STRIKES.containsKey(p.getUUID()) || !begin(p, METEOR_STRIKE, KryptonianConfig.STRIKE_COST)) {
+			return;
+		}
+		cooldown(p, METEOR_STRIKE, KryptonianConfig.STRIKE_COOLDOWN);
+		Kryptonian.setAnim(p, KryptonianState.ANIM_METEOR);
+		long now = p.level().getGameTime();
+		boolean airborne = !p.onGround() || Kryptonian.isFlying(p);
+		KryptonianFlight.stop(p, false);
+		Strike st = new Strike(now, p.getY());
+		STRIKES.put(p.getUUID(), st);
+		ServerLevel level = level(p);
+		if (airborne) {
+			beginDive(p, st, now);
+			return;
+		}
+		Vec3 at = p.position();
+		KryptonianCombat.ring(level, ParticleTypes.CLOUD, at.add(0, 0.2, 0), 1.8, 20);
+		level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y + 0.2, at.z, 1, 0.0, 0.0, 0.0, 0.0);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.FIREWORK_ROCKET_LAUNCH, SoundSource.PLAYERS, 1.8f, 0.6f);
+		AbilityHelpers.launchSelf(p, new Vec3(0.0, Kryptonian.verticalSpeedForHeight(KryptonianConfig.STRIKE_RISE_HEIGHT), 0.0));
+	}
+
+	private static void beginDive(ServerPlayer p, Strike st, long now) {
+		st.diving = true;
+		st.diveStart = now;
+		st.target = strikeTarget(p);
+		Kryptonian.setAnim(p, KryptonianState.ANIM_METEOR);
+		ServerLevel level = level(p);
+		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.4f, 0.6f);
+		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.ELYTRA_FLYING, SoundSource.PLAYERS, 0.7f, 1.6f);
+	}
+
+	/** Where the dive lands: the block he looks at, or -- looking at the sky -- the ground 16 blocks ahead. */
+	private static Vec3 strikeTarget(ServerPlayer p) {
+		ServerLevel level = level(p);
+		BlockHitResult hr = AbilityHelpers.raycastBlock(p, KryptonianConfig.STRIKE_AIM_RANGE);
+		if (hr.getType() == HitResult.Type.BLOCK && hr.getLocation().y < p.getY() - 0.5) {
+			return hr.getLocation();
+		}
+		Vec3 flat = Vec3.directionFromRotation(0, p.getYRot());
+		Vec3 ahead = p.position().add(flat.scale(16.0));
+		BlockHitResult down = level.clip(new ClipContext(ahead, ahead.add(0, -64, 0), ClipContext.Block.COLLIDER, ClipContext.Fluid.ANY, p));
+		return down.getType() == HitResult.Type.BLOCK ? down.getLocation() : ahead.add(0, -16, 0);
+	}
+
+	private static void tickStrike(ServerPlayer p, Strike st, long now) {
+		if (!Kryptonian.empowered(p) || !p.isAlive()) {
+			STRIKES.remove(p.getUUID());
+			Kryptonian.setAnim(p, KryptonianState.ANIM_NONE);
+			return;
+		}
+		ServerLevel level = level(p);
+		long age = now - st.start;
+		if (!st.diving) {
+			level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() - 0.2, p.getZ(), 2, 0.2, 0.2, 0.2, 0.01);
+			boolean apex = age > 4 && (p.getDeltaMovement().y <= 0.05 || p.getY() >= st.startY + KryptonianConfig.STRIKE_RISE_HEIGHT - 0.8);
+			if (apex || age > 30) {
+				beginDive(p, st, now);
+			}
+			return;
+		}
+		long diveAge = now - st.diveStart;
+		Vec3 to = st.target.subtract(p.position());
+		double dist = to.length();
+		if ((diveAge > 1 && (p.onGround() || p.horizontalCollision || p.isInWater() || dist < 1.2))
+				|| diveAge >= KryptonianConfig.STRIKE_MAX_TICKS) {
+			STRIKES.remove(p.getUUID());
+			meteorImpact(p);
+			return;
+		}
+		Vec3 v = dist < 1.0e-3 ? new Vec3(0, -KryptonianConfig.STRIKE_DIVE_SPEED, 0)
+				: to.scale(Math.min(KryptonianConfig.STRIKE_DIVE_SPEED, Math.max(0.6, dist)) / dist);
+		AbilityHelpers.launchSelf(p, v);
+		Vec3 mid = p.position().add(0, p.getBbHeight() * 0.5, 0);
+		level.sendParticles(ParticleTypes.FLAME, mid.x, mid.y, mid.z, 6, 0.3, 0.5, 0.3, 0.02);
+		level.sendParticles(Kryptonian.SUN_GOLD, mid.x, mid.y, mid.z, 3, 0.3, 0.5, 0.3, 0.0);
+		level.sendParticles(ParticleTypes.LARGE_SMOKE, mid.x, mid.y + 0.6, mid.z, 2, 0.2, 0.3, 0.2, 0.01);
+	}
+
+	private static void meteorImpact(ServerPlayer p) {
+		ServerLevel level = level(p);
+		Vec3 at = p.position();
+		p.resetFallDistance();
+		Kryptonian.setAnim(p, KryptonianState.ANIM_SLAM);
+		Set<Integer> hit = new HashSet<>();
+		LivingEntity carried = held(p);
+		if (carried != null) {
+			hit.add(carried.getId());
+		}
+		KryptonianCombat.radial(p, at, KryptonianConfig.STRIKE_RADIUS, KryptonianConfig.STRIKE_DAMAGE, KryptonianConfig.STRIKE_KNOCKBACK,
+				KryptonianConfig.STRIKE_LIFT, hit);
+		for (int id : hit) {
+			if (carried == null || id != carried.getId()) {
+				Entity e = level.getEntity(id);
+				if (e != null) {
+					e.igniteForSeconds(KryptonianConfig.STRIKE_FIRE_SECONDS);
+				}
+			}
+		}
+		KryptonianCombat.crater(p, at.add(0, -0.5, 0), KryptonianConfig.STRIKE_CRATER_RADIUS, KryptonianConfig.STRIKE_CRATER_MAX_BLOCKS);
+		BlockState ground = level.getBlockState(p.blockPosition().below());
+		if (!ground.isAir()) {
+			level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, ground), at.x, at.y + 0.2, at.z, 50, 2.5, 0.3, 2.5, 0.2);
+		}
+		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, at.x, at.y + 0.4, at.z, 2, 0.8, 0.2, 0.8, 0.0);
+		level.sendParticles(ParticleTypes.FLAME, at.x, at.y + 0.3, at.z, 70, 3.0, 0.4, 3.0, 0.12);
+		level.sendParticles(ParticleTypes.LAVA, at.x, at.y + 0.3, at.z, 16, 2.0, 0.3, 2.0, 0.0);
+		level.sendParticles(Kryptonian.SUN_GOLD, at.x, at.y + 0.5, at.z, 60, 3.0, 0.8, 3.0, 0.0);
+		KryptonianCombat.ring(level, ParticleTypes.CLOUD, at.add(0, 0.2, 0), 2.5, 24);
+		KryptonianCombat.ring(level, ParticleTypes.FLAME, at.add(0, 0.2, 0), KryptonianConfig.STRIKE_RADIUS * 0.8, 32);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 2.2f, 0.6f);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 1.6f, 0.8f);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.7f, 0.5f);
+		KryptonianCombat.shake(level, at, 0.8f, 18, 32.0);
+	}
+
+	// ---------------------------------------------------------------- V: X-Ray Vision (toggle, free, v0.14.16)
+
+	/** Press on, press off. Costs nothing; only his own client draws the outlines. */
+	public static void xray(ServerPlayer p) {
+		boolean on = !Kryptonian.xrayActive(p);
+		if (on && !Kryptonian.canAct(p)) {
+			return;
+		}
+		setXray(p, on);
+		level(p).playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.2f, on ? 0.6f : 0.4f);
+		p.displayClientMessage(Component.translatable(on ? "message.projecthero.kryptonian.xray_on" : "message.projecthero.kryptonian.xray_off")
+				.withStyle(ChatFormatting.AQUA), true);
+	}
+
+	/** Switches X-Ray Vision (and the Night Vision that comes with it) on or off. */
+	public static void setXray(ServerPlayer p, boolean on) {
+		KryptonianState s = Kryptonian.state(p);
+		if (s.xray != on) {
+			KryptonianState n = s.copy();
+			n.xray = on;
+			Kryptonian.save(p, n);
+		}
+		if (on) {
+			topUpNightVision(p);
+		} else {
+			MobEffectInstance nv = p.getEffect(MobEffects.NIGHT_VISION);
+			if (nv != null && nv.isAmbient() && nv.getAmplifier() == 0 && !nv.isInfiniteDuration()
+					&& nv.getDuration() <= KryptonianConfig.XRAY_NIGHT_VISION_TICKS) {
+				p.removeEffect(MobEffects.NIGHT_VISION); // ours (a potion's is not ambient)
+			}
+		}
+	}
+
+	private static void topUpNightVision(ServerPlayer p) {
+		MobEffectInstance nv = p.getEffect(MobEffects.NIGHT_VISION);
+		if (nv == null || (nv.isAmbient() && nv.getDuration() <= KryptonianConfig.XRAY_NIGHT_VISION_TICKS / 2)) {
+			p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, KryptonianConfig.XRAY_NIGHT_VISION_TICKS, 0, true, false, true));
+		}
+	}
+
+	// ---------------------------------------------------------------- Shift+V: Pick Up / Set Down (free, v0.14.16)
+
+	/** Shift+V: pick up what you look at, or -- already carrying something -- set it down gently. */
 	public static void superGrab(ServerPlayer p) {
 		if (GRAB.containsKey(p.getUUID())) {
-			throwHeld(p);
+			setDown(p);
+			return;
+		}
+		pickUp(p);
+	}
+
+	public static void pickUp(ServerPlayer p) {
+		if (GRAB.containsKey(p.getUUID())) {
 			return;
 		}
 		LivingEntity target = AbilityHelpers.raycastEntity(p, KryptonianConfig.GRAB_RANGE);
 		if (target == null || !KryptonianCombat.isTarget(p, target) || KryptonianCombat.isBoss(target)
-				|| target.getBbWidth() > KryptonianConfig.GRAB_MAX_WIDTH || target.isPassenger() || target.isVehicle()) {
+				|| target.getBbWidth() > KryptonianConfig.GRAB_MAX_WIDTH || target.isPassenger() || target.isVehicle() || isCarried(target)) {
 			if (Kryptonian.canAct(p)) {
 				Kryptonian.say(p, "message.projecthero.kryptonian.grab_none", ChatFormatting.GRAY);
 			}
 			return;
 		}
-		if (!begin(p, SUPER_GRAB, KryptonianConfig.GRAB_COST)) {
+		if (!begin(p, SUPER_GRAB, 0f)) {
 			return;
 		}
-		GRAB.put(p.getUUID(), new Grab(target.getId(), p.level().getGameTime() + KryptonianConfig.GRAB_HOLD_TICKS));
+		GRAB.put(p.getUUID(), new Grab(target.getId()));
+		THROWN.remove(target.getId());
 		target.setNoGravity(true);
-		level(p).playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 1.0f, 0.6f);
+		target.resetFallDistance();
+		if (target instanceof Mob mob) {
+			mob.getNavigation().stop();
+			mob.setTarget(null);
+		}
+		ServerLevel level = level(p);
+		Vec3 c = target.position().add(0, target.getBbHeight() * 0.5, 0);
+		level.sendParticles(ParticleTypes.CLOUD, c.x, c.y, c.z, 8, 0.3, 0.3, 0.3, 0.03);
+		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 1.0f, 0.6f);
+		p.displayClientMessage(Component.translatable("message.projecthero.kryptonian.grab_hint").withStyle(ChatFormatting.GRAY), true);
+	}
+
+	/** Where the carried thing sits: in front of his eyes along the look, never down inside his own feet. */
+	private static Vec3 holdSpot(ServerPlayer p, LivingEntity held) {
+		double dist = KryptonianConfig.GRAB_HOLD_DISTANCE + held.getBbWidth() * 0.5;
+		Vec3 flat = Vec3.directionFromRotation(0, p.getYRot());
+		double pitch = Math.toRadians(p.getXRot()); // + looking down
+		double h = dist * Math.max(0.55, Math.cos(pitch));
+		double v = -dist * Math.sin(pitch);
+		Vec3 spot = p.getEyePosition().add(flat.scale(h)).add(0, v - held.getBbHeight() * 0.5, 0);
+		if (!Kryptonian.isFlying(p) && p.onGround()) {
+			spot = new Vec3(spot.x, Math.max(spot.y, p.getY()), spot.z);
+		}
+		return spot;
 	}
 
 	private static void tickGrab(ServerPlayer p, Grab g, long now) {
 		Entity e = p.level().getEntity(g.entityId());
-		if (!(e instanceof LivingEntity held) || !held.isAlive() || !Kryptonian.empowered(p)) {
+		if (!(e instanceof LivingEntity held) || !held.isAlive() || !Kryptonian.empowered(p) || held.level() != p.level()) {
 			GRAB.remove(p.getUUID());
 			if (e != null) {
 				e.setNoGravity(false);
+				e.resetFallDistance();
+				SAFE_LANDING.put(e.getId(), now + KryptonianConfig.SET_DOWN_SAFE_TICKS); // dropped, never hurt by it
 			}
 			return;
 		}
-		if (now >= g.until()) {
-			throwHeld(p); // held too long: he hurls it anyway
-			return;
-		}
-		Vec3 spot = p.getEyePosition().add(p.getLookAngle().scale(2.2 + held.getBbWidth() * 0.5)).add(0, -held.getBbHeight() * 0.5, 0);
+		Vec3 spot = holdSpot(p, held);
+		Vec3 cur = held.position();
+		Vec3 gap = spot.subtract(cur);
+		// smooth follow: close half the gap a tick (a far jump -- a teleporting enderman -- snaps straight back)
+		Vec3 next = gap.length() > KryptonianConfig.GRAB_SNAP_DISTANCE ? spot : cur.add(gap.scale(KryptonianConfig.GRAB_FOLLOW));
+		float faceYaw = p.getYRot() + 180.0f;
 		if (held instanceof ServerPlayer hp) {
-			hp.teleportTo(spot.x, spot.y, spot.z);
+			hp.teleportTo(next.x, next.y, next.z);
 		} else {
-			held.moveTo(spot.x, spot.y, spot.z, held.getYRot(), held.getXRot());
+			held.moveTo(next.x, next.y, next.z, faceYaw, 0.0f);
+			held.setYHeadRot(faceYaw);
+			held.setYBodyRot(faceYaw);
 		}
 		held.setDeltaMovement(Vec3.ZERO);
 		held.resetFallDistance();
+		held.setNoGravity(true);
 		held.hurtMarked = true;
+		// it cannot fight back or slip away (its attacks are vetoed in KryptonianDamage too)
+		if (held instanceof Mob mob) {
+			mob.getNavigation().stop();
+			if (mob.getTarget() != null) {
+				mob.setTarget(null);
+			}
+			if (mob instanceof Creeper creeper) {
+				creeper.setSwellDir(-1);
+			}
+		}
 	}
 
-	private static void throwHeld(ServerPlayer p) {
+	/** V (or attacking it) while carrying: hurl it -- it smashes into whatever it hits. */
+	public static void throwHeld(ServerPlayer p) {
 		Grab g = GRAB.remove(p.getUUID());
 		if (g == null) {
 			return;
@@ -737,6 +1155,77 @@ public final class KryptonianAbilities {
 		}
 		THROWN.put(held.getId(), new Thrown(p.getUUID(), p.level().getGameTime()));
 		level(p).playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.PLAYERS, 1.4f, 0.5f);
+	}
+
+	/**
+	 * v0.14.16: Shift+V while carrying -- set it down gently on the nearest safe ground in front of him: no throw, no
+	 * damage, no momentum, no fall damage (if there is no ground within reach it is simply let go and its fall is made
+	 * harmless).
+	 */
+	public static void setDown(ServerPlayer p) {
+		Grab g = GRAB.remove(p.getUUID());
+		if (g == null) {
+			return;
+		}
+		cooldown(p, SUPER_GRAB, KryptonianConfig.SET_DOWN_COOLDOWN);
+		Entity e = p.level().getEntity(g.entityId());
+		if (!(e instanceof LivingEntity held)) {
+			return;
+		}
+		long now = p.level().getGameTime();
+		held.setNoGravity(false);
+		Vec3 spot = setDownSpot(p, held);
+		if (spot != null) {
+			if (held instanceof ServerPlayer hp) {
+				hp.teleportTo(spot.x, spot.y, spot.z);
+			} else {
+				held.moveTo(spot.x, spot.y, spot.z, held.getYRot(), held.getXRot());
+			}
+		}
+		held.setDeltaMovement(Vec3.ZERO);
+		held.resetFallDistance();
+		held.hurtMarked = true;
+		if (held instanceof ServerPlayer hp) {
+			hp.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(hp));
+		}
+		SAFE_LANDING.put(held.getId(), now + KryptonianConfig.SET_DOWN_SAFE_TICKS);
+		ServerLevel level = level(p);
+		Vec3 c = held.position();
+		level.sendParticles(ParticleTypes.CLOUD, c.x, c.y + 0.1, c.z, 6, held.getBbWidth() * 0.4, 0.05, held.getBbWidth() * 0.4, 0.01);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.ARMOR_EQUIP_GENERIC.value(), SoundSource.PLAYERS, 0.8f, 1.2f);
+	}
+
+	/** The nearest spot in front of him (then under him) where it can stand on solid ground or float on water. */
+	private static Vec3 setDownSpot(ServerPlayer p, LivingEntity held) {
+		ServerLevel level = level(p);
+		Vec3 flat = Vec3.directionFromRotation(0, p.getYRot());
+		double ahead = 0.6 + (p.getBbWidth() + held.getBbWidth()) * 0.5;
+		double[] distances = { ahead, ahead + 1.0, ahead + 2.0, ahead - 0.5, 0.0 };
+		BlockPos.MutableBlockPos below = new BlockPos.MutableBlockPos();
+		for (double d : distances) {
+			double x = p.getX() + flat.x * d;
+			double z = p.getZ() + flat.z * d;
+			int top = (int) Math.floor(Math.max(held.getY(), p.getY()) + 1.0);
+			for (int dy = 0; dy <= KryptonianConfig.SET_DOWN_SEARCH_DEPTH; dy++) {
+				int y = top - dy;
+				if (y <= level.getMinBuildHeight()) {
+					break;
+				}
+				below.set(x, y - 1, z);
+				BlockState st = level.getBlockState(below);
+				VoxelShape shape = st.getCollisionShape(level, below);
+				boolean fluid = !level.getFluidState(below).isEmpty();
+				if (shape.isEmpty() && !fluid) {
+					continue;
+				}
+				double floor = shape.isEmpty() ? below.getY() + 0.9 : below.getY() + shape.max(Direction.Axis.Y);
+				AABB box = held.getBoundingBox().move(x - held.getX(), floor - held.getY(), z - held.getZ());
+				if (level.noCollision(held, box)) {
+					return new Vec3(x, floor, z);
+				}
+			}
+		}
+		return null;
 	}
 
 	private static void tickThrown(ServerPlayer p, long now) {
@@ -778,15 +1267,17 @@ public final class KryptonianAbilities {
 	static void tick(ServerPlayer p) {
 		UUID id = p.getUUID();
 		long now = p.level().getGameTime();
-		Heat h = HEAT.get(id);
+		Held h = HEAT.get(id);
 		if (h != null) {
 			tickHeat(p, h, now);
 		} else if (Kryptonian.heatVisionActive(p)) {
 			setHeatFlag(p, false); // a stale flag (reload) never leaves the beam drawn
 		}
-		Long b = BREATH.get(id);
+		Held b = BREATH.get(id);
 		if (b != null) {
 			tickBreath(p, b, now);
+		} else if (Kryptonian.state(p).breathing) {
+			setBreathFlag(p, false);
 		}
 		Long s = SLAM.get(id);
 		if (s != null) {
@@ -808,10 +1299,28 @@ public final class KryptonianAbilities {
 		if (l != null) {
 			tickLaunch(p, l, now);
 		}
+		Barrage br = BARRAGES.get(id);
+		if (br != null) {
+			tickBarrage(p, br, now);
+		}
+		Strike st = STRIKES.get(id);
+		if (st != null) {
+			tickStrike(p, st, now);
+		}
 		Grab g = GRAB.get(id);
 		if (g != null) {
 			tickGrab(p, g, now);
 		}
 		tickThrown(p, now);
+		if (Kryptonian.xrayActive(p)) {
+			if (!Kryptonian.empowered(p)) {
+				setXray(p, false);
+			} else if (p.tickCount % 20 == 0) {
+				topUpNightVision(p);
+			}
+		}
+		if (p.tickCount % 200 == 0 && !SAFE_LANDING.isEmpty()) {
+			SAFE_LANDING.values().removeIf(until -> until < now);
+		}
 	}
 }

@@ -23,9 +23,11 @@ import org.lwjgl.glfw.GLFW;
  * ({@code AbilityHud} with {@code AbilityHudExtras.mono}):
  * <pre>
  *   Kryptonian
- *   ___________________   Hairline bars (3 px, no border, no text), bottom-up: Solar Energy, then -- only while they
- *   ___________________   run -- the Solar Flare charge, the burn-out timer and X-Ray Vision
- *   [R] [G] [Z] [X] [V]   the five keys; each box shows the longer cooldown of its plain and Shift move
+ *   _______________________   Hairline bars (3 px, no border, no text), bottom-up: Solar Energy (out of 100; duller
+ *   _______________________   gold while it waits 5 s to refill), then -- only while they run -- the Solar Flare
+ *                             charge and the burn-out timer
+ *   [R] [G] [Z] [X] [C] [V]   the six keys (v0.14.16: + C); each box shows the longer cooldown of its plain and Shift
+ *                             move, and lights up while Heat Vision / Freeze Breath / X-Ray is on
  * </pre>
  * No H / N boxes: H is the power wheel and N does nothing for him. Hold Left-Alt for the move names.
  */
@@ -46,14 +48,15 @@ public final class KryptonianHud {
 	private static final int COOLDOWN = 0xB0000000;
 
 	private static final int SOLAR = 0xFFFFC83C;
+	/** v0.14.16: the bar is not refilling yet (drained within the last 5 s): a duller gold. */
+	private static final int SOLAR_PAUSED = 0xFFB88A2A;
 	private static final int SOLAR_KRYPTONITE = 0xFF5CFF4A;
 	private static final int FLARE = 0xFFFFF2C0;
 	private static final int BURNT_OUT = 0xFF7A7A7A;
-	private static final int XRAY = 0xFF9FD8FF;
 
-	/** Boxes left to right: R G Z X V (slots 1, 2, 4, 3, 5). */
+	/** Boxes left to right: R G Z X C V (slots 1, 2, 4, 3, 6, 5) -- v0.14.16 added C. */
 	private static final AbilitySlot[] SLOTS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3,
-			AbilitySlot.SLOT_5 };
+			AbilitySlot.SLOT_6, AbilitySlot.SLOT_5 };
 
 	private record Bar(float ratio, int color) {
 	}
@@ -84,15 +87,14 @@ public final class KryptonianHud {
 
 		// ---- Hairline bars above the keys, bottom-up
 		List<Bar> bars = new ArrayList<>();
-		bars.add(new Bar(s.solar / KryptonianConfig.SOLAR_MAX, weak ? SOLAR_KRYPTONITE : SOLAR));
+		// v0.14.16: out of 100; a duller gold while it is not refilling (drained in the last 5 s)
+		boolean paused = s.solar < KryptonianConfig.SOLAR_MAX && Kryptonian.solarRegenPaused(mc.player);
+		bars.add(new Bar(s.solar / KryptonianConfig.SOLAR_MAX, weak ? SOLAR_KRYPTONITE : paused ? SOLAR_PAUSED : SOLAR));
 		if (s.flareChargeStart > 0L) {
 			bars.add(new Bar((now - s.flareChargeStart) / (float) KryptonianConfig.FLARE_CHARGE_TICKS, FLARE));
 		}
 		if (burnt) {
 			bars.add(new Bar((s.depoweredUntil - now) / (float) KryptonianConfig.FLARE_DEPOWER_TICKS, BURNT_OUT));
-		}
-		if (s.xrayUntil > now) {
-			bars.add(new Bar((s.xrayUntil - now) / (float) KryptonianConfig.XRAY_TICKS, XRAY));
 		}
 		int by = y0 - 2 - BAR_H;
 		for (Bar b : bars) {
@@ -121,8 +123,9 @@ public final class KryptonianHud {
 					max = Math.max(1, KryptonianAbilityManager.maxCooldown(id));
 				}
 			}
-			boolean active = (slot == AbilitySlot.SLOT_1 && s.heatVision) || (slot == AbilitySlot.SLOT_4 && s.flareChargeStart > 0L)
-					|| (slot == AbilitySlot.SLOT_5 && s.xrayUntil > now);
+			boolean active = (slot == AbilitySlot.SLOT_2 && s.heatVision)
+					|| (slot == AbilitySlot.SLOT_4 && (s.breathing || s.flareChargeStart > 0L))
+					|| (slot == AbilitySlot.SLOT_5 && s.xray);
 			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
 			g.renderOutline(x, y0, BOX, BOX, active ? BORDER_ACTIVE : BORDER);
 			g.drawString(mc.font, keyLabel(slot), x + 2, y0 + 2, weak || burnt ? KEY_DIM : KEY, false);
@@ -135,7 +138,7 @@ public final class KryptonianHud {
 			if (expanded && ids.length == 2) {
 				Component line = Component.translatable("projecthero.kryptonian.ability." + ids[0]).append(" / ")
 						.append(Component.translatable("projecthero.kryptonian.ability." + ids[1]));
-				g.drawString(mc.font, line, x0 - 8 - mc.font.width(line), y0 - 44 + i * 10, 0xFFCFCFCF, true);
+				g.drawString(mc.font, line, x0 - 8 - mc.font.width(line), y0 - 54 + i * 10, 0xFFCFCFCF, true);
 			}
 		}
 	}

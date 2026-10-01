@@ -217,15 +217,19 @@ half it burns the effects away and you try again.
 Somewhere out in the world lies a rare **Kryptonite Meteor crater** -- as hard to find as Mjolnir's.
 At the bottom of its scorched bowl, ringed with glowing **kryptonite ore**, sits the **Meteor Core** -- mine it for the
 one **Kryptonian Crystal** it holds, then hold it up to the **daytime sun**. The stored sunlight pours into you.
-- **The body:** 40 health, **80% less damage** and permanent Regeneration (the same as Thor), and nothing at all from falls, lightning, fire, lava, drowning or freezing. 15-damage
+- **The body:** 40 health, **80% less damage** (the same as Thor), **Regeneration III whenever you're hurt** (paid for
+  with Solar Energy), and nothing at all from falls, lightning, fire, lava, drowning or freezing. 15-damage
   fists that send things flying, no knockback, 40% faster, a 4-block jump, and the sun heals and feeds you.
 - **True flight:** double-tap jump and fly wherever you look -- **S** brakes to a hover, **Sprint** is 40 blocks a second
   with a **sonic boom** as you break into it, and he flies one fist forward.
-- **Solar Energy** charges in sunlight (fast in direct sun, slowly at night, barely underground) and fuels ten moves:
-  **R** Kryptonian Punch (32, launches) · **Shift+R** held **Heat Vision** from your eyes · **G** Freeze Breath (ices
-  water) · **Shift+G** Thunderclap · **Z** Ground Slam (dive from the sky) · **Shift+Z** **SOLAR FLARE** -- dump every
-  drop of sunlight in a 12-block blast of up to 120 damage, then you're burnt out for 30 s · **X** Super Dash ·
-  **Shift+X** Sky Launch (40 blocks straight up) · **V** X-Ray Vision · **Shift+V** Super Grab & Throw.
+- **Solar Energy** (a 100-point bar) charges in sunlight (fast in direct sun, slowly at night, barely underground) once
+  it hasn't been drained for 5 seconds, and fuels twelve cheap moves:
+  **R** Kryptonian Punch (32, launches) · **Shift+R** Thunderclap · **G** held **Heat Vision** from your eyes ·
+  **Shift+G** Ground Pound (dive from the sky) · **Z** held Freeze Breath (ices water) · **Shift+Z** **SOLAR FLARE** --
+  dump a full bar of sunlight in a 12-block, 120-damage blast, then you're powerless for 30 s · **X** Super Dash ·
+  **Shift+X** Sky Launch (40 blocks straight up) · **C** Super-Speed Barrage · **Shift+C** Meteor Strike (dive
+  fists-first, on fire, at where you look) · **V** X-Ray Vision (a free toggle only you can see) · **Shift+V** Pick Up
+  -- carry anything for as long as you like, set it down gently or throw it.
 - **Kryptonite:** ore, blocks and shards (mine the ore with an iron pickaxe) within a few blocks strip every power, drop
   you out of the sky and hurt you. Your enemies can carry it too.
 - **The Superman Suit:** a craftable four-piece set (blue and red wool, gold and diamonds) that **only a Kryptonian can

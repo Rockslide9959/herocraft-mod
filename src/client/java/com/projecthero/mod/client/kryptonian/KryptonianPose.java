@@ -50,6 +50,13 @@ public final class KryptonianPose {
 			model.head.xRot -= 0.05f; // a slight squint forward
 			model.hat.copyFrom(model.head);
 		}
+		if (s.breathing) {
+			// v0.14.16: held Freeze Breath -- hands braced low and out, chin forward, for as long as it blows
+			pose(model.rightArm, 1f, 0.35f, 0f, 0.25f);
+			pose(model.leftArm, 1f, 0.35f, 0f, -0.25f);
+			model.head.xRot -= 0.15f;
+			model.hat.copyFrom(model.head);
+		}
 
 		if (s.animId == KryptonianState.ANIM_NONE || player.level() == null) {
 			return;
@@ -97,6 +104,17 @@ public final class KryptonianPose {
 				float fwd = Math.min(1f, age / 4f);
 				pose(fist, w, Mth.lerp(fwd, -2.9f, -1.2f), 0f, 0f);
 			}
+			case KryptonianState.ANIM_BARRAGE -> {
+				// v0.14.16: fists pumping in turn, one jab every 3 ticks
+				float phase = Mth.sin(age * (float) Math.PI / 3f);
+				pose(model.rightArm, w, -1.5f + 0.5f * phase, -0.1f, 0f);
+				pose(model.leftArm, w, -1.5f - 0.5f * phase, 0.1f, 0f);
+			}
+			case KryptonianState.ANIM_METEOR -> {
+				// v0.14.16: both fists driven up over the head -- through the rise and down the dive
+				pose(model.rightArm, w, -2.95f, 0f, -0.12f);
+				pose(model.leftArm, w, -2.95f, 0f, 0.12f);
+			}
 			default -> {
 			}
 		}
@@ -111,6 +129,8 @@ public final class KryptonianPose {
 			case KryptonianState.ANIM_FLARE -> 44;
 			case KryptonianState.ANIM_DASH -> 12;
 			case KryptonianState.ANIM_THROW -> 9;
+			case KryptonianState.ANIM_BARRAGE -> 26;
+			case KryptonianState.ANIM_METEOR -> 120; // ends early: the impact switches to the slam pose
 			default -> 0;
 		};
 	}

@@ -24,8 +24,12 @@ public class V01415GameTests implements FabricGameTest {
 		helper.assertTrue(KryptonianConfig.DAMAGE_REDUCTION == 0.80f
 				&& Math.abs(Kryptonian.damageTakenFactor(p) - com.projecthero.mod.power.ThorPassives.DAMAGE_TAKEN_FACTOR) < 1.0e-6,
 				"80% damage reduction, the same as Thor");
+		// v0.14.16: no longer a permanent Regeneration I -- Regeneration III only while hurt (KryptonianV01416GameTests)
+		p.setHealth(p.getMaxHealth() - 6.0f);
+		Kryptonian.reconcile(p);
 		var regen = p.getEffect(MobEffects.REGENERATION);
-		helper.assertTrue(regen != null && regen.isInfiniteDuration() && regen.getAmplifier() == 0, "permanent Regeneration I");
+		helper.assertTrue(regen != null && regen.isInfiniteDuration() && regen.getAmplifier() == KryptonianConfig.REGEN_AMPLIFIER,
+				"Regeneration III while hurt");
 		float before = p.getHealth();
 		p.hurt(helper.getLevel().damageSources().lightningBolt(), 5.0f);
 		helper.assertTrue(p.getHealth() >= before, "lightning cannot hurt a Kryptonian");

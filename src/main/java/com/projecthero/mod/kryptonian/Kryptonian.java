@@ -44,7 +44,11 @@ import org.joml.Vector3f;
  *
  * <h2>Solar Energy</h2>
  * 0..100, fed by the sun (4/s in direct sunlight, 1/s in daytime shade, 0.5/s at night, 0.25/s underground). It pays
- * for the moves; the passives never need it. Sunlight also heals him faster (2 HP/s against 0.5 HP/s) and feeds him.
+ * for the moves; the body's passives never need it. Direct sunlight also heals him (2 HP/s) and feeds him.
+ *
+ * <p>v0.14.16: it only refills {@link KryptonianConfig#SOLAR_REGEN_DELAY} (5 s) after the last drain of any kind
+ * ({@link KryptonianState#lastDrain}); flight drains 0.1 a second, and the Regeneration III he gets while hurt
+ * ({@link #tickRegeneration}) 1 a second -- so neither lets the bar refill while it runs.
  */
 public final class Kryptonian {
 	public static final String KEY = "kryptonian";
@@ -63,6 +67,9 @@ public final class Kryptonian {
 
 	/** Per-player throttle for action-bar feedback. */
 	private static final Map<UUID, Long> LAST_MESSAGE = new ConcurrentHashMap<>();
+	/** v0.14.16: game time of the last {@link #tick} (one run per game tick) and of the last once-a-second pass. */
+	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
+	private static final Map<UUID, Long> LAST_SECOND = new ConcurrentHashMap<>();
 
 	/** How much sun he is getting right now. */
 	public enum Sun {
@@ -74,9 +81,12 @@ public final class Kryptonian {
 
 	public static void clearSessionState() {
 		LAST_MESSAGE.clear();
+		LAST_TICK.clear();
+		LAST_SECOND.clear();
 		Kryptonite.clearSessionState();
 		KryptonianFlight.clearSessionState();
 		KryptonianAbilities.clearSessionState();
+		KryptonianAbilityManager.clearSessionState();
 	}
 
 	// ---------------------------------------------------------------- state
@@ -123,7 +133,17 @@ public final class Kryptonian {
 
 	public static boolean xrayActive(Player player) {
 		KryptonianState s = player.getAttachedOrElse(ModAttachments.KRYPTONIAN_STATE, null);
-		return s != null && s.hasPower && s.xrayUntil > player.level().getGameTime();
+		return s != null && s.hasPower && s.xray; // v0.14.16: a toggle
+	}
+
+	/** v0.14.16: Solar Energy is not refilling yet -- drained within the last 5 s. Client-safe (HUD). */
+	public static boolean solarRegenPaused(Player player) {
+		KryptonianState s = player.getAttachedOrElse(ModAttachments.KRYPTONIAN_STATE, null);
+		if (s == null || !s.hasPower) {
+			return false;
+		}
+		long since = player.level().getGameTime() - s.lastDrain;
+		return since >= 0L && since < KryptonianConfig.SOLAR_REGEN_DELAY;
 	}
 
 	public static float solar(Player player) {
@@ -152,19 +172,26 @@ public final class Kryptonian {
 
 	// ---------------------------------------------------------------- solar energy
 
-	/** Spends {@code cost} Solar Energy if he has it. */
+	/**
+	 * Spends {@code cost} Solar Energy if he has it. v0.14.16: any real spend counts as a drain -- the bar will not refill
+	 * for {@link KryptonianConfig#SOLAR_REGEN_DELAY} after it.
+	 */
 	public static boolean spendSolar(ServerPlayer player, float cost) {
 		KryptonianState s = state(player);
 		if (s.solar + 1.0e-3f < cost) {
 			return false;
 		}
+		if (cost <= 0f) {
+			return true; // a free move is not a drain
+		}
 		KryptonianState n = s.copy();
-		n.solar = Math.max(0f, s.solar - cost);
+		n.solar = Math.max(0f, Math.min(KryptonianConfig.SOLAR_MAX, s.solar) - cost);
+		n.lastDrain = player.level().getGameTime();
 		save(player, n);
 		return true;
 	}
 
-	/** Sets Solar Energy outright (tests / the admin command). */
+	/** Sets Solar Energy outright (tests / the admin command). Not a drain. */
 	public static void setSolar(ServerPlayer player, float value) {
 		KryptonianState n = state(player).copy();
 		n.solar = Math.max(0f, Math.min(KryptonianConfig.SOLAR_MAX, value));
@@ -212,6 +239,7 @@ public final class Kryptonian {
 		save(player, s);
 		reconcile(player);
 		player.setHealth(player.getMaxHealth());
+		tickRegeneration(player); // whole now: no Regeneration
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.0, 0);
 		level.sendParticles(SUN_GOLD, c.x, c.y, c.z, 60, 0.6, 1.0, 0.6, 0.02);
@@ -234,10 +262,13 @@ public final class Kryptonian {
 	public static void revoke(ServerPlayer player) {
 		KryptonianFlight.stop(player, false);
 		KryptonianAbilities.clear(player);
+		KryptonianAbilities.setXray(player, false);
 		Kryptonite.clear(player.getUUID());
 		save(player, new KryptonianState());
 		reconcile(player);
 		LAST_MESSAGE.remove(player.getUUID());
+		LAST_TICK.remove(player.getUUID());
+		LAST_SECOND.remove(player.getUUID());
 	}
 
 	// ---------------------------------------------------------------- stats
@@ -271,21 +302,48 @@ public final class Kryptonian {
 				AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		// the client predicts fall damage off this; the server cancels it outright either way
 		PowerToggles.modifier(player, Attributes.SAFE_FALL_DISTANCE, SAFE_FALL_ID, 1000.0, AttributeModifier.Operation.ADD_VALUE);
-		reconcileRegeneration(player, true);
+		reconcileRegeneration(player, wantsRegeneration(player));
 	}
 
 	/**
-	 * v0.14.15: Regeneration I at all times while empowered -- the same as Thor -- on top of the sun's healing. One
-	 * infinite, invisible instance, only touched when wanted and actual disagree (a stronger regen is left alone).
+	 * v0.14.16: Regeneration III only while he is hurt (below max health), empowered and has Solar Energy to pay its 1 a
+	 * second ({@link #tickSolar}). Replaces v0.14.15's permanent Regeneration I.
+	 */
+	private static boolean wantsRegeneration(ServerPlayer player) {
+		return empowered(player) && player.isAlive() && player.getHealth() < player.getMaxHealth() && state(player).solar > 0f;
+	}
+
+	/** Is the active Regeneration the Kryptonian's own (an infinite ambient instance at our amplifier)? */
+	static boolean ownRegeneration(ServerPlayer player) {
+		MobEffectInstance active = player.getEffect(MobEffects.REGENERATION);
+		return active != null && active.isInfiniteDuration() && active.isAmbient() && active.getAmplifier() == KryptonianConfig.REGEN_AMPLIFIER;
+	}
+
+	/**
+	 * One infinite, ambient instance (no particles), only touched when wanted and actual disagree: a potion's
+	 * Regeneration is left alone. v0.14.15's permanent Regeneration I (infinite, ambient, amplifier 0) is cleared out.
 	 */
 	private static void reconcileRegeneration(ServerPlayer player, boolean wanted) {
-		net.minecraft.world.effect.MobEffectInstance active = player.getEffect(net.minecraft.world.effect.MobEffects.REGENERATION);
-		boolean ours = active != null && active.isInfiniteDuration() && active.getAmplifier() == 0 && active.isAmbient();
+		MobEffectInstance active = player.getEffect(MobEffects.REGENERATION);
+		if (active != null && active.isInfiniteDuration() && active.isAmbient() && active.getAmplifier() == 0) {
+			player.removeEffect(MobEffects.REGENERATION); // the v0.14.15 one, from an older save
+			active = null;
+		}
+		boolean ours = active != null && active.isInfiniteDuration() && active.isAmbient()
+				&& active.getAmplifier() == KryptonianConfig.REGEN_AMPLIFIER;
 		if (wanted && active == null) {
-			player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.REGENERATION,
-					net.minecraft.world.effect.MobEffectInstance.INFINITE_DURATION, 0, true, false, false));
+			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, MobEffectInstance.INFINITE_DURATION,
+					KryptonianConfig.REGEN_AMPLIFIER, true, false, true));
 		} else if (!wanted && ours) {
-			player.removeEffect(net.minecraft.world.effect.MobEffects.REGENERATION);
+			player.removeEffect(MobEffects.REGENERATION);
+		}
+	}
+
+	/** v0.14.16: every tick -- on the moment he is hurt, off the moment he is whole (or out of Solar Energy). */
+	private static void tickRegeneration(ServerPlayer player) {
+		boolean wanted = wantsRegeneration(player);
+		if (wanted != ownRegeneration(player)) {
+			reconcileRegeneration(player, wanted);
 		}
 	}
 
@@ -351,11 +409,20 @@ public final class Kryptonian {
 		}
 		ServerLevel level = (ServerLevel) player.level();
 		long now = level.getGameTime();
+		// v0.14.16: at most once per game tick (a second caller in the same tick -- e.g. a test driving a mock player
+		// alongside the server -- would double every per-tick drain)
+		Long prevTick = LAST_TICK.put(player.getUUID(), now);
+		if (prevTick != null && prevTick == now) {
+			return;
+		}
 
 		Kryptonite.tick(player);
 		s = state(player);
 
-		if (player.tickCount % 20 == 0) {
+		// v0.14.16: the once-a-second work runs off game time, not tickCount, so it never skips or doubles a second
+		Long lastSecond = LAST_SECOND.get(player.getUUID());
+		if (lastSecond == null || now - lastSecond >= 20L || now < lastSecond) {
+			LAST_SECOND.put(player.getUUID(), now);
 			reconcile(player);
 			tickSolar(player, s, now);
 			s = state(player);
@@ -372,30 +439,73 @@ public final class Kryptonian {
 		if (strong) {
 			tickBody(player, level);
 		}
+		tickRegeneration(player);
 		KryptonianFlight.tick(player);
 		KryptonianAbilities.tick(player);
 	}
 
+	/**
+	 * Once a second. v0.14.16: first the running drains -- flight (0.1/s) and the Regeneration III (1/s); any drain at
+	 * all and the bar does not refill this second. Otherwise it refills from the sun, but only once 5 s have passed since
+	 * the last drain of any kind (a move's cost, a held beam, kryptonite). Saved values above the 100 cap are clamped.
+	 */
 	private static void tickSolar(ServerPlayer player, KryptonianState s, long now) {
 		if (s.weakened || s.depoweredUntil > now) {
 			return; // kryptonite drains it instead (Kryptonite.tick); a spent Solar Flare leaves him empty
 		}
-		if (s.solar >= KryptonianConfig.SOLAR_MAX) {
+		KryptonianState n = s.copy();
+		boolean changed = false;
+		if (n.solar > KryptonianConfig.SOLAR_MAX || Float.isNaN(n.solar)) {
+			n.solar = Float.isNaN(n.solar) ? 0f : KryptonianConfig.SOLAR_MAX; // migration: the bar tops out at 100
+			changed = true;
+		}
+		if (n.lastDrain > now) {
+			n.lastDrain = now; // game time from another world: just restart the delay
+			changed = true;
+		}
+		float drain = 0f;
+		if (n.flying) {
+			drain += KryptonianConfig.FLIGHT_SOLAR_PER_SECOND;
+		}
+		if (ownRegeneration(player)) {
+			drain += KryptonianConfig.REGEN_SOLAR_PER_SECOND;
+		}
+		if (drain > 0f && n.solar > 0f) {
+			n.solar = Math.max(0f, n.solar - drain);
+			n.lastDrain = now;
+			save(player, n);
+			if (n.solar <= 0f) {
+				tickRegeneration(player); // out of energy: the Regeneration stops
+				if (n.flying) {
+					KryptonianFlight.stop(player, false);
+					player.displayClientMessage(Component.translatable("message.projecthero.kryptonian.flight_no_solar")
+							.withStyle(ChatFormatting.RED), true);
+				}
+			}
 			return;
 		}
-		float gain = solarPerSecond(sun(player));
-		KryptonianState n = s.copy();
-		n.solar = Math.min(KryptonianConfig.SOLAR_MAX, s.solar + gain);
-		save(player, n);
+		if (n.solar <= 0f && n.flying) {
+			KryptonianFlight.stop(player, false); // flying on an empty bar (e.g. set to 0 by the command)
+			player.displayClientMessage(Component.translatable("message.projecthero.kryptonian.flight_no_solar")
+					.withStyle(ChatFormatting.RED), true);
+		}
+		if (n.solar < KryptonianConfig.SOLAR_MAX && now - n.lastDrain >= KryptonianConfig.SOLAR_REGEN_DELAY) {
+			n.solar = Math.min(KryptonianConfig.SOLAR_MAX, n.solar + solarPerSecond(sun(player)));
+			changed = true;
+		}
+		if (changed) {
+			save(player, n);
+		}
 	}
 
-	/** The always-on body: healing (fast in the sun), fed by the sun, fireproof, needs no air. */
+	/** The always-on body: healing in direct sunlight, fed by the sun, fireproof, needs no air. */
 	private static void tickBody(ServerPlayer player, ServerLevel level) {
 		Sun sun = player.tickCount % 10 == 0 ? sun(player) : null;
 		if (sun != null) {
-			int interval = sun == Sun.DIRECT ? KryptonianConfig.SUN_REGEN_INTERVAL : KryptonianConfig.SHADE_REGEN_INTERVAL;
-			// the check itself runs every 10 ticks; heal on the ones that line up with the interval
-			if (player.tickCount % interval == 0 && player.getHealth() < player.getMaxHealth()) {
+			// v0.14.16: only direct sunlight heals on its own now; anywhere else the Solar-paid Regeneration III does it.
+			// The check itself runs every 10 ticks; heal on the ones that line up with the interval.
+			if (sun == Sun.DIRECT && player.tickCount % KryptonianConfig.SUN_REGEN_INTERVAL == 0
+					&& player.getHealth() < player.getMaxHealth()) {
 				player.heal(KryptonianConfig.REGEN_AMOUNT);
 			}
 			if (sun == Sun.DIRECT && player.tickCount % KryptonianConfig.SUN_FEED_INTERVAL == 0
@@ -437,12 +547,14 @@ public final class Kryptonian {
 		n.weakened = weakened;
 		if (weakened) {
 			n.heatVision = false;
+			n.breathing = false;
 			n.flareChargeStart = 0L;
 		}
 		save(player, n);
 		if (weakened) {
 			KryptonianFlight.stop(player, true);
 			KryptonianAbilities.clear(player);
+			KryptonianAbilities.setXray(player, false); // v0.14.16: no powers means no X-Ray either
 			player.displayClientMessage(Component.translatable("message.projecthero.kryptonian.kryptonite").withStyle(ChatFormatting.GREEN), true);
 			player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.8f, 0.6f);
 		} else {
@@ -453,14 +565,28 @@ public final class Kryptonian {
 		reconcile(player);
 	}
 
-	/** After the Solar Flare: burnt out for 30 s. */
+	/**
+	 * After the Solar Flare: POWERLESS for {@code ticks} (30 s) -- {@link #empowered} is false, so no moves, no flight, no
+	 * Regeneration, no damage reduction, no passives and no Solar Energy. v0.14.16: the first 6 s also bring Slowness IV,
+	 * Blindness and Weakness IV, and any running move (X-Ray included) is switched off.
+	 */
 	static void depower(ServerPlayer player, int ticks) {
 		KryptonianState n = state(player).copy();
-		n.depoweredUntil = player.level().getGameTime() + ticks;
+		long now = player.level().getGameTime();
+		n.depoweredUntil = now + ticks;
 		n.solar = 0f;
+		n.lastDrain = now;
 		n.heatVision = false;
+		n.breathing = false;
 		save(player, n);
 		KryptonianFlight.stop(player, true);
+		KryptonianAbilities.clear(player);
+		KryptonianAbilities.setXray(player, false);
+		int t = KryptonianConfig.FLARE_DEBUFF_TICKS;
+		int amp = KryptonianConfig.FLARE_DEBUFF_AMPLIFIER;
+		player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, t, amp, false, true, true));
+		player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, t, amp, false, true, true));
+		player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, t, 0, false, true, true));
 		reconcile(player);
 	}
 
@@ -480,9 +606,12 @@ public final class Kryptonian {
 		if (n.depoweredUntil > now + KryptonianConfig.FLARE_DEPOWER_TICKS) {
 			n.depoweredUntil = 0L;
 		}
-		if (n.xrayUntil > now + KryptonianConfig.XRAY_TICKS) {
-			n.xrayUntil = 0L;
+		n.breathing = false;
+		if (n.lastDrain > now) {
+			n.lastDrain = 0L;
 		}
+		// v0.14.16 migration: Solar Energy tops out at 100 -- anything saved above that is clamped down
+		n.solar = Float.isNaN(n.solar) ? 0f : Math.max(0f, Math.min(KryptonianConfig.SOLAR_MAX, n.solar));
 		n.abilityReadyAt.entrySet().removeIf(e -> e.getValue() > now + 20L * 120L);
 		boolean wasFlying = n.flying;
 		save(player, n);
@@ -503,13 +632,16 @@ public final class Kryptonian {
 		n.heatVision = false;
 		n.flareChargeStart = 0L;
 		n.depoweredUntil = 0L;
-		n.xrayUntil = 0L;
+		n.xray = false;
+		n.breathing = false;
+		n.lastDrain = 0L;
 		n.animId = KryptonianState.ANIM_NONE;
-		n.solar = Math.max(n.solar, KryptonianConfig.SOLAR_MAX * 0.5f);
+		n.solar = Math.min(KryptonianConfig.SOLAR_MAX, Math.max(n.solar, KryptonianConfig.SOLAR_MAX * 0.5f));
 		n.abilityReadyAt.clear();
 		save(player, n);
 		reconcile(player);
 		player.setHealth(player.getMaxHealth());
+		tickRegeneration(player);
 	}
 
 	/** Death / logout / dimension change: drop everything transient (the power and Solar Energy stay). */
@@ -517,10 +649,14 @@ public final class Kryptonian {
 		KryptonianAbilities.clear(player);
 		Kryptonite.clear(player.getUUID());
 		LAST_MESSAGE.remove(player.getUUID());
+		LAST_TICK.remove(player.getUUID());
+		LAST_SECOND.remove(player.getUUID());
+		KryptonianAbilityManager.forget(player.getUUID());
 		KryptonianState s = player.getAttachedOrElse(ModAttachments.KRYPTONIAN_STATE, null);
-		if (s != null && s.hasPower && (s.heatVision || s.flareChargeStart != 0L || s.animId != KryptonianState.ANIM_NONE)) {
+		if (s != null && s.hasPower && (s.heatVision || s.breathing || s.flareChargeStart != 0L || s.animId != KryptonianState.ANIM_NONE)) {
 			KryptonianState n = s.copy();
 			n.heatVision = false;
+			n.breathing = false;
 			n.flareChargeStart = 0L;
 			n.animId = KryptonianState.ANIM_NONE;
 			save(player, n);

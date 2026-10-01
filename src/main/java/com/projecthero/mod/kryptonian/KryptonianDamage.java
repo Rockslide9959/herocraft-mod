@@ -20,7 +20,9 @@ import net.minecraft.world.phys.Vec3;
  *
  * <ul>
  *   <li>At full strength: falls, fire, lava, drowning, suffocation-free flying into walls and freezing never get through
- *       at all; everything else is cut by {@link KryptonianConfig#DAMAGE_REDUCTION} (75%).</li>
+ *       at all; everything else is cut by {@link KryptonianConfig#DAMAGE_REDUCTION} (80%).</li>
+ *   <li>v0.14.16: a creature he is carrying (Shift+V) deals no damage and takes none from the carry; one he set down
+ *       gently takes no fall damage.</li>
  *   <li>Near kryptonite (or burnt out by a Solar Flare) none of that applies -- he takes everything in full.</li>
  *   <li>{@code /kill} and the void always go through.</li>
  * </ul>
@@ -43,7 +45,24 @@ public final class KryptonianDamage {
 	}
 
 	public static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
-		if (REENTRANT.get() || !(entity instanceof ServerPlayer player) || amount <= 0.0f || !Kryptonian.hasPower(player)) {
+		if (REENTRANT.get()) {
+			return true;
+		}
+		// v0.14.16: something a Kryptonian is carrying cannot hurt anyone (its bites, arrows and blasts all fail) ...
+		if (source.getEntity() != null && source.getEntity() != entity && KryptonianAbilities.isCarried(source.getEntity())) {
+			return false;
+		}
+		// ... and the carry itself never hurts it: no suffocating in a wall it is held through, no crush, no fall after a
+		// gentle set-down (Shift+V) or after being let go
+		if (KryptonianAbilities.isCarried(entity) && (source.is(DamageTypes.IN_WALL) || source.is(DamageTypes.CRAMMING)
+				|| source.is(DamageTypes.FLY_INTO_WALL) || source.is(DamageTypeTags.IS_FALL))) {
+			return false;
+		}
+		if (source.is(DamageTypeTags.IS_FALL) && KryptonianAbilities.consumeSafeLanding(entity)) {
+			entity.resetFallDistance();
+			return false;
+		}
+		if (!(entity instanceof ServerPlayer player) || amount <= 0.0f || !Kryptonian.hasPower(player)) {
 			return true;
 		}
 		if (source.is(DamageTypes.GENERIC_KILL) || source.is(DamageTypes.FELL_OUT_OF_WORLD)

@@ -188,25 +188,31 @@ public class KryptonianGameTests implements FabricGameTest {
 		ServerPlayer p = hero(helper);
 		pump(helper, p);
 		LivingEntity golem = ahead(helper, p, EntityType.IRON_GOLEM, 2.5);
-		String[] instant = { KryptonianAbilities.PUNCH, KryptonianAbilities.FREEZE_BREATH, KryptonianAbilities.THUNDERCLAP,
-				KryptonianAbilities.GROUND_SLAM, KryptonianAbilities.SUPER_DASH, KryptonianAbilities.SKY_LAUNCH, KryptonianAbilities.XRAY };
+		// v0.14.16 layout: Freeze Breath is held (Z), C / Shift+C are new, X-Ray is a free toggle without a cooldown
+		String[] instant = { KryptonianAbilities.PUNCH, KryptonianAbilities.THUNDERCLAP, KryptonianAbilities.GROUND_SLAM,
+				KryptonianAbilities.SUPER_DASH, KryptonianAbilities.SKY_LAUNCH, KryptonianAbilities.BARRAGE, KryptonianAbilities.METEOR_STRIKE };
 		float golemBefore = golem.getHealth();
 		KryptonianAbilities.punch(p);
 		helper.assertTrue(golem.getHealth() < golemBefore, "the punch lands, " + golemBefore + " -> " + golem.getHealth());
 		golem.invulnerableTime = 0;
-		KryptonianAbilities.freezeBreath(p);
+		KryptonianAbilities.startFreezeBreath(p);
+		helper.assertTrue(KryptonianAbilities.running(p, KryptonianAbilities.FREEZE_BREATH), "the breath blows while held");
 		KryptonianAbilities.thunderclap(p);
 		KryptonianAbilities.groundSlam(p);
 		KryptonianAbilities.superDash(p);
 		KryptonianAbilities.xray(p);
 		helper.assertTrue(Kryptonian.xrayActive(p), "x-ray on");
 		KryptonianAbilities.skyLaunch(p);
+		KryptonianAbilities.barrage(p);
+		KryptonianAbilities.meteorStrike(p);
 		for (String id : instant) {
 			helper.assertTrue(Kryptonian.cooldownRemaining(p, id) > 0, id + " starts its cooldown");
 		}
-		helper.assertTrue(Kryptonian.solar(p) < KryptonianConfig.SOLAR_MAX - 50f, "the moves spent Solar Energy, " + Kryptonian.solar(p));
-		helper.runAfterDelay(40, () -> {
-			helper.assertFalse(KryptonianAbilities.running(p, KryptonianAbilities.FREEZE_BREATH), "the breath ends");
+		helper.assertTrue(Kryptonian.solar(p) < KryptonianConfig.SOLAR_MAX - 30f, "the moves spent Solar Energy, " + Kryptonian.solar(p));
+		helper.runAfterDelay(20, () -> {
+			KryptonianAbilityManager.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_4, false); // Z up
+			helper.assertFalse(KryptonianAbilities.running(p, KryptonianAbilities.FREEZE_BREATH), "letting go ends the breath");
+			helper.assertTrue(Kryptonian.cooldownRemaining(p, KryptonianAbilities.FREEZE_BREATH) > 0, "then its cooldown");
 			helper.succeed();
 		});
 	}
@@ -224,7 +230,7 @@ public class KryptonianGameTests implements FabricGameTest {
 					"still burning while held");
 			helper.assertTrue(golem.getHealth() < before, "it burns the target");
 			helper.assertTrue(golem.isOnFire(), "and sets it alight");
-			KryptonianAbilityManager.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1, false); // key up
+			KryptonianAbilityManager.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_2, false); // G up (v0.14.16: G)
 			helper.assertFalse(Kryptonian.heatVisionActive(p), "letting go stops it");
 			helper.assertTrue(Kryptonian.cooldownRemaining(p, KryptonianAbilities.HEAT_VISION) > 0, "then the cooldown");
 			helper.succeed();
@@ -241,7 +247,7 @@ public class KryptonianGameTests implements FabricGameTest {
 		helper.assertTrue(KryptonianAbilities.holding(p), "grabbed the sheep");
 		helper.runAfterDelay(5, () -> {
 			helper.assertTrue(sheep.distanceTo(p) < 4.0, "held in front of him");
-			KryptonianAbilities.superGrab(p);
+			KryptonianAbilities.throwHeld(p); // v0.14.16: V (or attacking it) throws; Shift+V sets it down
 			helper.assertFalse(KryptonianAbilities.holding(p), "thrown");
 			helper.assertTrue(Kryptonian.cooldownRemaining(p, KryptonianAbilities.SUPER_GRAB) > 0, "cooldown from the throw");
 			helper.succeed();
@@ -254,9 +260,9 @@ public class KryptonianGameTests implements FabricGameTest {
 		pump(helper, p);
 		LivingEntity golem = ahead(helper, p, EntityType.IRON_GOLEM, 3.0);
 		float before = golem.getHealth();
-		Kryptonian.setSolar(p, 40f);
+		Kryptonian.setSolar(p, 90f);
 		KryptonianAbilities.solarFlare(p);
-		helper.assertFalse(KryptonianAbilities.running(p, KryptonianAbilities.SOLAR_FLARE), "needs 50 Solar Energy");
+		helper.assertFalse(KryptonianAbilities.running(p, KryptonianAbilities.SOLAR_FLARE), "needs a full 100 Solar Energy (v0.14.16)");
 		Kryptonian.setSolar(p, KryptonianConfig.SOLAR_MAX);
 		KryptonianAbilities.solarFlare(p);
 		helper.assertTrue(KryptonianAbilities.running(p, KryptonianAbilities.SOLAR_FLARE), "charging");

@@ -7,12 +7,12 @@ Added in v0.14.8. Every number is a static final in `KryptonianConfig`.
 
 | Class | Role |
 |---|---|
-| `data/KryptonianState` | The one attachment (`projecthero:kryptonian_state`): persistent, `copyOnDeath`, synced to all. `hasPower`, `solar`, `flying`, `weakened`, `depoweredUntil`, `xrayUntil`, `heatVision`, `animId/animStart`, `flareChargeStart`, `abilityReadyAt`. |
+| `data/KryptonianState` | The one attachment (`projecthero:kryptonian_state`): persistent, `copyOnDeath`, synced to all. `hasPower`, `solar`, `flying`, `weakened`, `depoweredUntil`, `xray` (v0.14.16 toggle), `heatVision`, `breathing`, `lastDrain`, `animId/animStart`, `flareChargeStart`, `abilityReadyAt`. |
 | `Kryptonian` | The API: state access, `grant` (claims the ONE Primary slot), `revoke`, `reconcile` (fixed-id transient modifiers from `empowered()`), the per-tick body (Solar Energy once a second, sun healing / feeding, fire + air), lifecycle. |
-| `KryptonianDamage` | ALLOW_DAMAGE: /kill + void pass; weakened/burnt out = full damage; falls, fly-into-wall, fire, lava, hot floor, drowning, freezing, suffocation, cactus/berry, starving = none; everything else x0.25 (cancel-and-reissue). AFTER_DAMAGE: melee knockback. |
+| `KryptonianDamage` | ALLOW_DAMAGE: /kill + void pass; weakened/burnt out = full damage; falls, fly-into-wall, fire, lava, hot floor, drowning, freezing, suffocation, cactus/berry, starving = none; everything else x0.2 (cancel-and-reissue); v0.14.16: a carried creature deals no damage and takes none from the carry, a set-down one no fall damage. AFTER_DAMAGE: melee knockback. |
 | `Kryptonite` | Every 10 ticks: ore/block within a 5-block cube (chunk-section palette pre-check), shard item entities or anyone holding one within 6, a shard in his own inventory. Sets `weakened`; lingers 2 s. Weakness II + Slowness II, 1 magic dmg/s, -5 solar/s. |
 | `KryptonianFlight` | Server half of flight: `mayfly/flying`, lands on ground contact (10-tick lift-off grace) or when the client drops vanilla flight, trail particles, sonic boom (position-delta speed >= 1.5 b/t, re-arms under 0.9). |
-| `KryptonianAbilities` | The ten moves; one `begin()` gate (power, kryptonite, burn-out, cooldown, solar); per-player sessions for held / multi-tick moves; `clear()` / `clearSessionState()`. |
+| `KryptonianAbilities` | The twelve moves (v0.14.16); one `begin()` gate (power, kryptonite, burn-out, cooldown, solar); per-player sessions for held / multi-tick moves; `clear()` / `clearSessionState()`. |
 | `KryptonianAbilityManager` | Slot dispatch; Shift read server-side (`isShiftKeyDown`). `idsOf(slot)` = [plain, shift] for the HUD. |
 | `KryptonianCombat` | Targets (never self, squad-mates, creative players; players only with PvP), boss cap (8% max HP, no knockback), cone, radial, crater (needs `abilityTerrainDamage`, hardness <= 5, no block entities), shake. |
 | `worldgen/KryptoniteCrater{Structure,Piece}` | v0.14.13: the rare world-generated crater (Meteor Core + ore), placed like Mjolnir's crater (`structure_set/kryptonite_crater.json`, spacing 100 / separation 40 / frequency 0.5). |
@@ -30,28 +30,42 @@ Kryptonian flight as hero flight (body lean); the double-tap is in `ProjectHeroM
 
 ## Passives (always on while `empowered`)
 
-60 max HP (+40), 15 fist damage (+14), knockback resistance 1.0, +40% speed, +0.5 step, +1 reach, ~4-block jump,
-safe-fall 1000, 75% damage reduction, the immunities above, no air loss, fire cleared. Sun: `DIRECT` (day, sky at the
-eyes, no rain) heals 1 HP / 10 ticks, feeds 1 food / 10 s; otherwise 1 HP / 40 ticks.
+40 max HP (+20), 15 fist damage (+14), knockback resistance 1.0, +40% speed, +0.5 step, +1 reach, ~4-block jump,
+safe-fall 1000, 80% damage reduction, the immunities above, no air loss, fire cleared. Sun: `DIRECT` (day, sky at the
+eyes, no rain) heals 1 HP / 10 ticks, feeds 1 food / 10 s. (v0.14.16: the 1 HP / 40 ticks shade trickle is gone.)
+
+**Regeneration III (v0.14.16)** replaces v0.14.15's permanent Regeneration I: `Kryptonian.tickRegeneration` (every
+tick) adds one infinite, ambient, particle-less Regeneration (amplifier 2) while empowered AND health < max AND solar > 0,
+and removes it the tick any of those stops being true. `tickSolar` charges 1 solar a second while our instance is on.
+An old save's infinite ambient amplifier-0 instance is cleared by `reconcile`. A potion's Regeneration is left alone.
 
 Solar Energy per second: DIRECT 4, SHADE (day, no direct sun) 1, NIGHT 0.5, DARK (underground, Nether, End) 0.25.
+**v0.14.16:** max 100 (saved values above are clamped on join and in `tickSolar`); `KryptonianState.lastDrain` is set
+by every drain (`spendSolar` with a cost > 0, flight 0.1/s, Regeneration III 1/s, kryptonite 5/s, the Solar Flare); the
+bar only refills once `now - lastDrain >= 100` ticks (`SOLAR_REGEN_DELAY`). Flying with an empty bar drops him
+(`flight_no_solar`), and the take-off payload is refused on an empty bar (`KryptonianMod`). HUD: the Solar Hairline is
+a duller gold while the refill waits (`Kryptonian.solarRegenPaused`).
 
-## Moves
+## Moves (v0.14.16 layout)
 
 | Key | Move | Numbers | Cost | Cooldown |
 |---|---|---|---|---|
-| R | Kryptonian Punch | 32 to the aimed target (6 blocks), pushed 3.0 along the look + 0.6 up; 12 in 3 blocks round it. Air punch: 14 in a 7-block 40-deg cone | 8 | 4 s |
-| Shift+R | Heat Vision (hold) | 32 blocks from the eyes; 4 dmg every 5 ticks (burst), 5 s fire; sets blocks alight every second (terrain damage on); max 6 s | 3/s (1.5 per 10 ticks) | 5 s after release |
-| G | Freeze Breath | 30 ticks, 12-block 60-deg cone, 5 dmg every 5 ticks, frozen + Slowness IV 6 s; source water -> frosted ice, fire out | 12 | 8 s |
-| Shift+G | Thunderclap | 20-block 80-deg cone, up to 20 dmg (50% at the far end), knockback 3.0 + 0.4 up, Slowness VII + Weakness II 2 s | 15 | 10 s |
-| Z | Ground Slam | grounded: slam now (75%); airborne: dive at 2.6 b/t, slam on landing (75% -> 100% after 20 ticks of dive). 30 dmg in 7 blocks, lift 1.0; 2.5-block crater (30 blocks max) | 15 | 8 s |
-| Shift+Z | SOLAR FLARE | needs 50 solar; 40-tick charge; 60 + 0.6 x solar (60..120) in 12 blocks (falloff to 60%), knockback 3.5, lift 1.0, 8 s fire; 4-block crater (80 max); then burnt out 30 s (no flight / moves / passives / solar) | all | 90 s |
-| X | Super Dash | 16 blocks at 2 b/t along the look (flat-ish on foot), 20 dmg + 2.5 knockback to everything within 1.8; resumes flight if flying | 6 | 3 s |
-| Shift+X | Sky Launch | 8 dmg / lift 0.8 in 4 blocks at the base, launched ~40 blocks, auto-flight at the apex | 5 | 8 s |
-| V | X-Ray Vision | 10 s, living things within 48 outlined (client only) + Night Vision | 5 | 20 s |
-| Shift+V | Super Grab / Throw | grab (6 blocks, not bosses / width > 3 / riders), held 10 s max; throw 3.0 b/t -> 24 to it, 18 in 3 blocks | 5 | 10 s from throw |
+| R | Kryptonian Punch | 32 to the aimed target (6 blocks), pushed 3.0 along the look + 0.6 up; 12 in 3 blocks round it. Air punch: 14 in a 7-block 40-deg cone | 5 | 3 s |
+| Shift+R | Thunderclap | 20-block 80-deg cone, up to 20 dmg (50% at the far end), knockback 3.0 + 0.4 up, Slowness VII + Weakness II 2 s | 5 | 8 s |
+| G | Heat Vision (hold) | 32 blocks from the eyes; 4 dmg every 5 ticks (burst), 5 s fire; sets blocks alight every second (terrain damage on); max 10 s; needs 1 to open | 1/s (0.5 per 10 ticks from age 0) | 3 s after release |
+| Shift+G | Ground Pound (id `ground_slam`) | grounded: slam now (75%); airborne: dive at 2.6 b/t, slam on landing (75% -> 100% after 20 ticks of dive). 30 dmg in 7 blocks, lift 1.0; 2.5-block crater (30 blocks max) | 10 | 8 s |
+| Z | Freeze Breath (hold) | 12-block 60-deg cone, 5 dmg every 5 ticks, frozen + Slowness IV 6 s; source water -> frosted ice, fire out; max 6 s; `breathing` flag drives the pose | 1/s | 4 s after release |
+| Shift+Z | SOLAR FLARE | needs a FULL 100, spends all of it at the start; 40-tick charge; 120 in 12 blocks (falloff to 60%), knockback 3.5, lift 1.0, 8 s fire; 4-block crater (80 max); then **powerless 30 s** (`depoweredUntil`: `empowered()` false = no moves / flight / Regeneration / damage reduction / passives / solar) with Slowness IV, Weakness IV and Blindness for the first 6 s; X-Ray switched off | 100 | 90 s |
+| X | Super Dash | 28 blocks at 2 b/t along the look (flat-ish on foot), 20 dmg + 2.5 knockback to everything within 1.8; resumes flight if flying; 24-tick cap. In flight: Flight Boost toggle (free) | 3 | 3 s |
+| Shift+X | Sky Launch | 8 dmg / lift 0.8 in 4 blocks at the base, launched ~40 blocks, auto-flight at the apex (if he has solar) | 3 | 6 s |
+| C | Super-Speed Barrage | 8 hits, one every 3 ticks, into a 4.5-block 70-deg cone: 3 each (targets' motion damped, "pinned"), the 8th a 12-dmg haymaker, knockback 2.8 + 0.5 up | 5 | 6 s |
+| Shift+C | Meteor Strike | grounded: launched 12 blocks up, dive at the apex (or after 30 ticks); airborne/flying: dive at once. Dive target = looked-at block below him (48 range), else the ground 16 blocks ahead; 3 b/t; impact on ground / wall / water / within 1.2 / after 60 ticks: 28 in 6 blocks (falloff), knockback 2.2, lift 1.1, 4 s fire, 2.5-block crater (24 max) | 10 | 12 s |
+| V | X-Ray Vision (toggle) | `KryptonianState.xray`; living things within 48 outlined via `mixin/KryptonianXRayGlowMixin` on `Minecraft#shouldEntityAppearGlowing` (owner's client only) + topped-up ambient Night Vision; off on kryptonite / Solar Flare / revoke / respawn | free | none |
+| Shift+V | Pick Up / Set Down | pick up (6 blocks, width <= 4.5, not bosses / riders / squad-mates / already carried), no time limit; held at eye + 2.2 + width/2 along the look (pitch-limited so it never sinks into his feet), half the gap closed per tick (snap beyond 8), faces him, navigation / target cleared, creepers defused. Carried: its damage to anyone and its in-wall / cramming / fall damage are vetoed (`KryptonianDamage`). Shift+V again: set down on the first free floor in front (ahead, +1, +2, -0.5, own column; 64 blocks down), zero velocity, 30 s fall-damage immunity (`SAFE_LANDING`). V or attacking it (`AttackEntityCallback`): throw 3.0 b/t -> 24 to it, 18 in 3 blocks | free | 4 s from a throw, 1 s from a set-down |
 
-Bosses (max HP >= 300 or `TitanCombat.isBoss`) take at most 8% of max HP per hit and are never knocked back.
+Key-repeat: `KryptonianAbilityManager` ignores a "pressed" for a slot still held (no release since, within 25 ticks), so
+a held V cannot flicker X-Ray. Bosses (max HP >= 300 or `TitanCombat.isBoss`) take at most 8% of max HP per hit and are
+never knocked back.
 
 ## Flight
 
