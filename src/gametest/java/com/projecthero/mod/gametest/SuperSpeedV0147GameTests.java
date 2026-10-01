@@ -164,8 +164,8 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		golem.setNoAi(true);
 		helper.getLevel().addFreshEntity(golem);
 		p.lookAt(EntityAnchorArgument.Anchor.EYES, golem.getEyePosition());
-		helper.assertTrue(SuperSpeedMoves.machDamage(0) == 20f && SuperSpeedMoves.machDamage(3.2) == 30f
-				&& SuperSpeedMoves.machDamage(10) == 30f, "20 standing, 30 at full Overdrive speed");
+		helper.assertTrue(SuperSpeedMoves.machDamage(0) == 20f && SuperSpeedMoves.machDamage(3.2) == 20f
+				&& SuperSpeedMoves.machDamage(10) == 20f, "a flat 20 at any speed");
 		float before = golem.getHealth();
 		shiftPress(p, 1); // Shift+R
 		float dealt = before - golem.getHealth();

@@ -45,7 +45,7 @@ import net.minecraft.world.phys.Vec3;
  * own level; see {@link #startPhase}), N Speed Carry (carry anything overhead; no fall damage
  * while carried or for 3 s after). The new moves live in {@link SuperSpeedMoves}.
  *
- * <p>Passives: +30% walking / sprinting / swimming speed, a 3-block step assist, eating / drinking 50% faster
+ * <p>Passives: +30% walking / sprinting / swimming speed, eating / drinking 50% faster
  * ({@code SuperSpeedEatMixin}) and a permanent Regeneration II. In Speed Mode / Overdrive you also run on water and
  * run straight up walls (look up while running into one).
  *
@@ -91,9 +91,11 @@ public final class SuperSpeedHandlers {
 	public static final ResourceLocation PASSIVE_SPEED = com.projecthero.mod.ProjectHeroMod.id("speed_passive_speed");
 	private static final ResourceLocation PASSIVE_SWIM = com.projecthero.mod.ProjectHeroMod.id("speed_passive_swim");
 	private static final double PASSIVE_SWIM_EFFICIENCY = 0.10;
-	/** v0.14.6: a permanent 3-block step assist (base 0.6 + 2.4); Overdrive tops it up to 10. */
+	/** v0.14.6 passive step id -- v0.14.9: never applied any more, only cleared from older saves. */
 	private static final ResourceLocation PASSIVE_STEP = com.projecthero.mod.ProjectHeroMod.id("speed_passive_step");
-	private static final double PASSIVE_STEP_BONUS = 2.4;
+	/** v0.14.9: step assist only in the modes -- Speed Mode 3 blocks (base 0.6 + 2.4), Overdrive 10 (0.6 + 9.4). */
+	public static final double SM_STEP_BONUS = 2.4;
+	public static final double OD_STEP_BONUS = 9.4;
 
 	private static final ResourceLocation SM_SPEED = com.projecthero.mod.ProjectHeroMod.id("speed_mode_speed");
 	private static final ResourceLocation SM_ATTACK = com.projecthero.mod.ProjectHeroMod.id("speed_mode_attack_speed");
@@ -262,8 +264,7 @@ public final class SuperSpeedHandlers {
 						AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 				PowerToggles.modifier(player, Attributes.WATER_MOVEMENT_EFFICIENCY, PASSIVE_SWIM, PASSIVE_SWIM_EFFICIENCY,
 						AttributeModifier.Operation.ADD_VALUE);
-				PowerToggles.modifier(player, Attributes.STEP_HEIGHT, PASSIVE_STEP, PASSIVE_STEP_BONUS,
-						AttributeModifier.Operation.ADD_VALUE);
+				PowerToggles.clearModifier(player, Attributes.STEP_HEIGHT, PASSIVE_STEP); // v0.14.9: no step assist outside the modes
 				applyRegen(player);
 				// join / respawn: a phase saved mid-hold (C is not held any more) must not linger
 				if (phasing(player) && !player.noPhysics) {
@@ -477,12 +478,14 @@ public final class SuperSpeedHandlers {
 	public static void releaseCarry(ServerPlayer p, LivingEntity le) {
 		set(p, CARRY_ID, 0);
 		MutationVisuals.stopIf(p, "p04.carry");
+		if (le != null && le.getVehicle() == p) {
+			le.stopRiding();
+		}
+		// v0.14.9: ALWAYS tell the carrier's own client. A carried player who hops off (Sneak) has already left by the
+		// time we get here, and vanilla never sends the carrier that change -- their client kept the ghost on their head.
+		syncPassengersToSelf(p);
 		if (le == null) {
 			return;
-		}
-		if (le.getVehicle() == p) {
-			le.stopRiding();
-			syncPassengersToSelf(p);
 		}
 		Vec3 f = BatchA.flatLook(p);
 		Vec3 front = p.position().add(f.scale(1.2));
@@ -781,14 +784,13 @@ public final class SuperSpeedHandlers {
 		}
 	}
 
-	/** Movement passives (+30% speed, swim, 3-block step): off while Time Slow runs and while exhausted. */
+	/** Movement passives (+30% speed, swim): off while Time Slow runs and while exhausted. */
 	private static void applySpeedPassives(ServerPlayer p, boolean on) {
 		if (on) {
 			PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, PASSIVE_SPEED, PASSIVE_SPEED_BONUS,
 					AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 			PowerToggles.modifier(p, Attributes.WATER_MOVEMENT_EFFICIENCY, PASSIVE_SWIM, PASSIVE_SWIM_EFFICIENCY,
 					AttributeModifier.Operation.ADD_VALUE);
-			PowerToggles.modifier(p, Attributes.STEP_HEIGHT, PASSIVE_STEP, PASSIVE_STEP_BONUS, AttributeModifier.Operation.ADD_VALUE);
 		} else {
 			PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, PASSIVE_SPEED);
 			PowerToggles.clearModifier(p, Attributes.WATER_MOVEMENT_EFFICIENCY, PASSIVE_SWIM);
@@ -997,7 +999,7 @@ public final class SuperSpeedHandlers {
 	private static void speedModeApply(ServerPlayer p) {
 		movementBoost(p, Attributes.MOVEMENT_SPEED, SM_SPEED, 4.7, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.ATTACK_SPEED, SM_ATTACK, 0.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, SM_STEP); // v0.14.6: the 3-block passive step covers Speed Mode
+		movementBoost(p, Attributes.STEP_HEIGHT, SM_STEP, SM_STEP_BONUS, AttributeModifier.Operation.ADD_VALUE); // v0.14.9: 3 blocks, Speed Mode only
 		movementBoost(p, Attributes.WATER_MOVEMENT_EFFICIENCY, SM_WATER, 1.0, AttributeModifier.Operation.ADD_VALUE);
 		PowerToggles.modifier(p, Attributes.FALL_DAMAGE_MULTIPLIER, SM_FALL, -0.8, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 	}
@@ -1015,7 +1017,7 @@ public final class SuperSpeedHandlers {
 		PowerToggles.modifier(p, Attributes.ATTACK_SPEED, OD_ATTACK, 1.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		// "your attacks x2": melee doubles while Overdrive runs (the Super Speed moves double through overdriveMult)
 		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, OD_DAMAGE, 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-		movementBoost(p, Attributes.STEP_HEIGHT, OD_STEP, 7.0, AttributeModifier.Operation.ADD_VALUE); // 3-block passive + 7 = 10
+		movementBoost(p, Attributes.STEP_HEIGHT, OD_STEP, OD_STEP_BONUS, AttributeModifier.Operation.ADD_VALUE); // v0.14.9: 10 blocks
 		PowerToggles.modifier(p, Attributes.FALL_DAMAGE_MULTIPLIER, OD_FALL, -1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 	}
 

@@ -44,7 +44,7 @@ import net.minecraft.world.phys.Vec3;
  * v0.14.7 Super Speed attacks and tricks:
  * <ul>
  *   <li>G Blitz -- zip to the enemy under the crosshair (up to 24 blocks) and hit it for 20. 4 s.</li>
- *   <li>Shift+R Mach Punch -- one punch whose damage scales with how fast you are running (20 standing, 30 at full
+ *   <li>Shift+R Mach Punch -- one punch whose damage scales with how fast you are running (v0.14.9: a flat 20; was 12 standing, 30 at full
  *       Overdrive speed), a huge knockback and a shockwave ring. 10 s.</li>
  *   <li>Shift+G Speed Vortex -- 3 s of running circles around yourself: a cyclone that drags everything within 8
  *       blocks round and up, 3 damage every half second, then a final blast (8) that flings them out. 14 s.</li>
@@ -65,7 +65,7 @@ public final class SuperSpeedMoves {
 	public static final String MACH_READY = "mach_ready";
 	public static final int MACH_CD = 8 * 20;
 	public static final float MACH_MIN = 20.0f;
-	public static final float MACH_MAX = 30.0f;
+	public static final float MACH_MAX = 20.0f; // v0.14.9: a flat 20 at any speed
 	/** Blocks per tick at which the Mach Punch is at full power (~64 blocks/s, Overdrive's top speed). */
 	public static final double MACH_FULL_SPEED = 3.2;
 	public static final float MACH_SHOCKWAVE = 6.0f;

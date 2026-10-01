@@ -258,6 +258,25 @@ public class V0148MiscGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.14.9: a carried creature that hops off on its own ends the carry cleanly -- N grabs again at once. */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "v0149_carry_hop")
+	public void carriedHopsOffEndsTheCarryCleanly(GameTestHelper helper) {
+		ServerPlayer p = hero(helper, SuperSpeedHandlers.KEY);
+		Zombie z = zombie(helper, 2.5, 3.5);
+		p.lookAt(EntityAnchorArgument.Anchor.EYES, z.getEyePosition());
+		AbilityRouter.handleInput(p, 8, true); // N
+		helper.assertTrue(z.getVehicle() == p, "carried");
+		z.stopRiding(); // hops off by itself (a player pressing Sneak)
+		ExperimentalPowers.serverTick(p);
+		helper.assertTrue(p.getPassengers().isEmpty(), "nobody left on the carrier");
+		helper.assertTrue(z.getVehicle() == null, "the creature is free");
+		p.lookAt(EntityAnchorArgument.Anchor.EYES, z.getEyePosition());
+		AbilityRouter.handleInput(p, 8, false);
+		AbilityRouter.handleInput(p, 8, true); // N again: a fresh grab, not a 'release'
+		helper.assertTrue(z.getVehicle() == p, "N picks it straight back up");
+		helper.succeed();
+	}
+
 	// ---------------- Laser Vision ----------------
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = "v0148_lv_vent")

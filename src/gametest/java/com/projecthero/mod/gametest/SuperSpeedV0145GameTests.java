@@ -103,13 +103,21 @@ public class SuperSpeedV0145GameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.14.9: no step assist on foot; 3 blocks in Speed Mode, 10 in Overdrive. */
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void stepAssistThreeAndTenInOverdrive(GameTestHelper helper) {
+	public void stepAssistOnlyInSpeedModeAndOverdrive(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
+		ExperimentalPowers.serverTick(p);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.STEP_HEIGHT) - 0.6) < 1e-6,
+				"no step assist outside the modes, got " + p.getAttributeValue(Attributes.STEP_HEIGHT));
+		AbilityRouter.handleInput(p, 6, true); // C = Speed Mode on
+		AbilityRouter.handleInput(p, 6, false);
+		ExperimentalPowers.serverTick(p);
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.STEP_HEIGHT) - 3.0) < 1e-6,
-				"3-block step assist, got " + p.getAttributeValue(Attributes.STEP_HEIGHT));
+				"3-block step assist in Speed Mode, got " + p.getAttributeValue(Attributes.STEP_HEIGHT));
 		AbilityRouter.handleInput(p, 5, true); // V = Overdrive
 		AbilityRouter.handleInput(p, 5, false);
+		ExperimentalPowers.serverTick(p);
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.STEP_HEIGHT) - 10.0) < 1e-6,
 				"10-block step assist in Overdrive, got " + p.getAttributeValue(Attributes.STEP_HEIGHT));
 		ExperimentalPowers.forget(p, power());
