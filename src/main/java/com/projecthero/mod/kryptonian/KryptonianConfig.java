@@ -39,13 +39,13 @@ public final class KryptonianConfig {
 	// ---------------------------------------------------------------- solar energy
 	public static final float SOLAR_MAX = 100.0f;
 	/** Per second: in direct sunlight (daytime, open sky, not raining). */
-	public static final float SOLAR_SUN_PER_SECOND = 4.0f;
+	public static final float SOLAR_SUN_PER_SECOND = 6.0f; // v0.14.18: every rate +50% (was 4)
 	/** Per second: daytime without direct sun (rain, shade, indoors near the surface). */
-	public static final float SOLAR_SHADE_PER_SECOND = 1.0f;
+	public static final float SOLAR_SHADE_PER_SECOND = 1.5f; // was 1
 	/** Per second: at night under the open sky. */
-	public static final float SOLAR_NIGHT_PER_SECOND = 0.5f;
+	public static final float SOLAR_NIGHT_PER_SECOND = 0.75f; // was 0.5
 	/** Per second: underground / the Nether / the End. */
-	public static final float SOLAR_DARK_PER_SECOND = 0.25f;
+	public static final float SOLAR_DARK_PER_SECOND = 0.375f; // was 0.25
 	/** v0.14.16: flying costs this much Solar Energy a second (v0.14.17: netted against the sun's refill). */
 	public static final float FLIGHT_SOLAR_PER_SECOND = 0.1f;
 	/**

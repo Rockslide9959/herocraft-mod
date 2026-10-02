@@ -127,6 +127,14 @@ public class KryptonianV01416GameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- refill (v0.14.17: no delay)
 
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void v01418SolarRefillsHalfAgainFaster(GameTestHelper helper) {
+		helper.assertTrue(KryptonianConfig.SOLAR_SUN_PER_SECOND == 6.0f && KryptonianConfig.SOLAR_SHADE_PER_SECOND == 1.5f
+				&& KryptonianConfig.SOLAR_NIGHT_PER_SECOND == 0.75f && KryptonianConfig.SOLAR_DARK_PER_SECOND == 0.375f,
+				"every refill rate is +50% (6 / 1.5 / 0.75 / 0.375 a second)");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void solarRefillsRightAfterADrain(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);

@@ -1,0 +1,15 @@
+Project Hero v0.14.18 -- Brighter Sun
+
+☀️ KRYPTONIAN
+- Solar Energy refills 50% faster everywhere:
+  Direct sunlight: 6 a second (was 4)
+  Daytime shade or rain: 1.5 a second (was 1)
+  Night under the open sky: 0.75 a second (was 0.5)
+  Underground, the Nether and the End: 0.375 a second (was 0.25)
+- Still refilling all the time, with no wait after a move (since v0.14.17).
+
+📖 GUIDEBOOK
+- The Kryptonian Solar Energy page shows the new rates.
+
+🔨 COMING NEXT (v0.14.19)
+- Stormbreaker for Thor: a hard Nether-forged craft with its own 3D model, a returning throw, and the Bifrost on Shift + Right-click.

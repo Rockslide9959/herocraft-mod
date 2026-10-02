@@ -39,7 +39,7 @@ tick) adds one infinite, ambient, particle-less Regeneration (amplifier 2) while
 and removes it the tick any of those stops being true. `tickSolar` charges 1 solar a second while our instance is on.
 An old save's infinite ambient amplifier-0 instance is cleared by `reconcile`. A potion's Regeneration is left alone.
 
-Solar Energy per second: DIRECT 4, SHADE (day, no direct sun) 1, NIGHT 0.5, DARK (underground, Nether, End) 0.25.
+Solar Energy per second (v0.14.18, +50%): DIRECT 6, SHADE (day, no direct sun) 1.5, NIGHT 0.75, DARK (underground, Nether, End) 0.375.
 **v0.14.16:** max 100 (saved values above are clamped on join and in `tickSolar`); `KryptonianState.lastDrain` is set
 by every drain (`spendSolar` with a cost > 0, flight 0.1/s, Regeneration III 1/s, kryptonite 5/s, the Solar Flare).
 **v0.14.17:** the refill delay is gone (`SOLAR_REGEN_DELAY` / `solarRegenPaused` removed): every second `tickSolar` adds
