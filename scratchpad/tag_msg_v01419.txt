@@ -1,0 +1,16 @@
+Project Hero v0.14.19 -- Stormbreaker
+
+🪓 NEW: STORMBREAKER (Thor)
+- Thor's second weapon, with its own 3D model: a dark Uru axe-hammer on a long wrapped handle.
+- A hard craft. First make the Unforged Stormbreaker:
+  Netherite Ingot / Nether Star / Netherite Ingot
+  Netherite Ingot / Blaze Rod / Netherite Ingot
+  _ / Blaze Rod / _
+- FORGED IN THE NETHER: throw the Unforged Stormbreaker into lava in the Nether and leave it there for 10 seconds. It glows and sparks as it heats, then bursts out of the lava as Stormbreaker and flies toward you. Neither item can burn, and the forged one never despawns. Lava anywhere else won't do it.
+- 14 melee damage (Mjolnir is 11). Anyone can swing it, but only the worthy can use its powers.
+- Right-click: THROW it. It flies about 40 blocks, cleaves through up to 4 enemies for 20 damage each, calls lightning down on the first, and always flies back to your hand like a Loyalty trident. If you're gone, it drops and waits for you.
+- Shift + Right-click: open the BIFROST. A rainbow beam carries you to the block you're looking at, up to 256 blocks away, and anyone standing within 3 blocks of you comes along (they can sneak to stay behind). 30 s cooldown, and no new keybind.
+- It counts as Thor's weapon: Lightning Strike, Chain Lightning, the Lightning Beam, Thunderclap, Storm Call, God of Thunder's Wrath and Thor's flight all work with Stormbreaker in hand. Mjolnir keeps its own throw, recall and Hammer Volley.
+
+📖 GUIDEBOOK & DESCRIPTION
+- New Stormbreaker section in the Thor chapter (recipe, Nether forging, throw, Bifrost).
