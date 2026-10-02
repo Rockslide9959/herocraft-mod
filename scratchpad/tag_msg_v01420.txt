@@ -1,0 +1,52 @@
+Project Hero v0.14.20 -- A New Titan, Thor Combos, Bifrost Waypoints & Sorter Tidy
+
+⚡ THOR: MJOLNIR & STORMBREAKER 3-HIT COMBOS
+- Both weapons now have real attack animations in first AND third person, plus a 3-hit melee combo.
+- Land full-strength hits within about a second of each other to chain: 1) a flat sweep, 2) a backhand, 3) an overhead FINISHER.
+- The finisher deals +50% damage. Mjolnir's slams down a thunder shockwave that knocks back enemies around the target; Stormbreaker's swings a wide cleave through everything in front of you.
+- Weak spam-clicks don't advance the combo. Waiting too long or switching weapon starts it over. Other players see your swings too.
+- The finisher's area hit never touches your squad or your pets.
+
+🪓 STORMBREAKER FIXES
+- Held properly now: it sits in your hand like Mjolnir and every other tool (no more upside-down or pointing straight up).
+- Bigger in first person, with the whole head on screen.
+- New inventory icon angle, and the thrown axe now cartwheels end over end instead of spinning like a propeller.
+
+🌈 BIFROST WAYPOINTS (Stormbreaker)
+- Shift + Right-click with Stormbreaker now opens the Bifrost menu.
+- Type any X / Y / Z and press Open Bifrost, or use one of 3 SAVED WAYPOINTS: name them, "Save here", "Go", or clear them. Waypoints belong to you, so they survive relogs, death and losing the axe.
+- Brings your squad: every squadmate within 8 blocks rides the beam with you, keeping their spot around you (sneak to stay behind). Players outside your squad never come along.
+- Safe landings: never inside blocks, over the void or into lava. If there's nowhere safe to land, nobody moves and no cooldown is used.
+- 1-minute cooldown, shown in the menu. No more 256-block limit (only the world border). It no longer blocks throwing the axe.
+- Same dimension only: waypoints saved in another dimension show greyed out.
+
+🤖 STARK SORTER: NEW "TIDY" BUTTON
+- Did your chests get jumbled up? Press Tidy and the Sorter Bot flies around your chests, picks up every misplaced stack and carries it chest-to-chest to the chest it belongs in (up to 4 stacks a trip). It also merges split stacks.
+- Different from Sort: Sort files the station's own store; Tidy fixes what's already in your chests.
+- Never loses or duplicates items: if the right chest is full, the stack stays where it is. If a chest is broken mid-trip, the load goes back to the station.
+- Clear feedback: "Tidying 5 containers: 37 stacks to move", "The chests are already tidy", a live progress line and a final report.
+
+🎯 POWERS NOW HIT EVERYTHING (THE RIGHT WAY)
+- Aimed powers now hit anything you point them at: mobs, animals, villagers, golems, neutral mobs, and other players when PvP is on. That covers melee abilities, beams, projectiles, grabs and close-range slams like Thunderclap, Hulk smashes, All Might's Smashes and Kryptonian moves.
+- Automatic and huge-area powers only go after real threats, so they won't wipe out your farm: turrets, homing missiles, chain lightning jumps, lock-ons, summons and pets, auras, and big area moves like Speed Sweep, Earthquake and Black Hole. They hit hostile mobs, anything hunting you or your squad, and anything that just fought you.
+- Never hit: you, your squadmates (unless your squad turned friendly fire on), your pets and summons, your squad's pets, and creative players.
+- Titan Shifter attacks now respect the server's PvP setting.
+
+🧟 HORDE BOSSES: LESS HEALTH, NOW CONFIGURABLE
+- Horde bosses now get their health from a new config file, config/projecthero_horde.json. Before, their health was fixed in the code and there was no setting to change.
+- Zombie horde Titan: 1,000 health (was 1,800). The wilderness Titan is unchanged.
+- Bone Tyrant: 1,200 health (was 2,000).
+- Brood Queen: 1,400 health (was 2,400).
+- +300 health for each extra fighter (was +600 / +1,200), capped at 4,000.
+
+📖 GUIDEBOOK & DESCRIPTION
+- Thor chapter: new Melee Combo section and a rewritten Bifrost entry.
+- Stark Sorter chapter: new Tidy section.
+- Hordes chapter: updated boss health.
+- CurseForge description updated.
+
+🧟 THE TITAN: BRAND-NEW MODEL & ANIMATIONS
+- The Titan (the wilderness boss and the Zombie Horde boss) is no longer a scaled-up zombie. It's an 18-block, hunched, rotting giant: spine spikes, a torn-open ribcage glowing with embers, huge forearms with black-clawed hands, iron shackles with broken chains, tusks, a jaw that opens, and eyes that glow in the dark.
+- Fully animated: heavy breathing, a lumbering earth-shaking walk, a knuckle-gallop charge, and a wind-up for every attack (punch, sweep, stomp, slam, shockwave, grab-and-throw, boulder rip, leap, swat). Each strike lands on exactly the frame it hits you.
+- It rises roaring from all fours when it transforms, roars in your face when it grabs you, and its head tracks you.
+- A dramatic death: it staggers back, drops to its knees, sways, and crashes face-first in a cloud of dust before crumbling away.

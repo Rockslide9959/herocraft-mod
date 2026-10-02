@@ -282,7 +282,8 @@ A **Pillager Spy** attacking you in a village sets off five raider waves and an 
 power and look. Raids are repeatable: spies keep coming, even for a village that has been raided before.
 
 ### 🗼 The Titan
-A zombie that isn't what it seems. At low health it becomes an **18-block giant** that hunts you with punches, sweeps,
+A zombie that isn't what it seems. At low health it becomes an **18-block giant** -- a hunched, rotting monster with clawed, shackled hands, a torn-open
+ribcage and burning eyes -- that hunts you with punches, sweeps,
 stomps, shockwaves, grabs, boulder throws, charges, a **Leaping Slam** and a **Grave Roar** that raises the dead -- every
 move animated, telegraphed and dodgeable. It turns on whoever hurts it most, so the whole group has to stay sharp.
 
