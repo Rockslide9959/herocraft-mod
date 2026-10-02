@@ -354,7 +354,7 @@ public final class WindHandlers {
 					PowerToggles.modifier(p, Attributes.STEP_HEIGHT, TAILWIND_STEP, 2.0, AttributeModifier.Operation.ADD_VALUE);
 					PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, TAILWIND_ATK, StanceMode.MELEE_BONUS,
 							AttributeModifier.Operation.ADD_VALUE);
-					for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 2.0)) {
+					for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), 2.0)) {
 						Vec3 away = e.position().subtract(p.position());
 						double d = away.horizontalDistance();
 						if (d > 0.05) {
@@ -917,7 +917,7 @@ public final class WindHandlers {
 		MutationVisuals.ensure(p, "spin_arms");
 		ServerLevel level = ctx.level();
 		if (t % 20 == 0) {
-			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 15.0)) {
+			for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), 15.0)) {
 				Vec3 tangent = new Vec3(-(e.getZ() - p.getZ()), 0.35, e.getX() - p.getX()).normalize().scale(0.8);
 				AbilityHelpers.push(e, tangent);
 				AbilityHelpers.hurt(p, e, HURRICANE_DPS + windBonus(p));

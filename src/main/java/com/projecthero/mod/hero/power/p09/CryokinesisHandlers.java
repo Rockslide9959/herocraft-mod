@@ -261,7 +261,7 @@ public final class CryokinesisHandlers {
 					frostWalk(p);
 					// the frost aura: a stack on everything within 4 blocks every 2 s
 					if (p.tickCount % 40 == 0) {
-						for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 4.0)) {
+						for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), 4.0)) {
 							FrostStacks.add(p, e, 1);
 							AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 40, 1);
 						}
@@ -512,7 +512,7 @@ public final class CryokinesisHandlers {
 		BatchBUtil.chargeClear(ctx, "az_start");
 		MutationVisuals.play(p, "cast_raise_both");
 		float dmg = AZ_DAMAGE + bonus(p);
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), AZ_RANGE)) {
+		for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), AZ_RANGE)) {
 			AbilityHelpers.hurtBurst(p, e, AbilityHelpers.freeze(p), dmg);
 			e.clearFire();
 			FrostStacks.freezeNow(p, e);

@@ -421,7 +421,7 @@ public final class PyrokinesisHandlers {
 		}
 		// Blue Flame Body: anything the pyrokinetic has set alight burns far hotter.
 		if (flameBodyActive(player) && blue(player) && player.tickCount % 8 == 0) {
-			for (LivingEntity e : AbilityHelpers.enemiesAround(player, player.position(), 24.0)) {
+			for (LivingEntity e : AbilityHelpers.hostilesAround(player, player.position(), 24.0)) {
 				if (e.getRemainingFireTicks() > 0) {
 					AbilityHelpers.hurt(player, e, AbilityHelpers.fire(player), 3.0f);
 				}
@@ -727,7 +727,7 @@ public final class PyrokinesisHandlers {
 		}
 		if (p.tickCount % 10 == 0) {
 			double r = blue(p) ? 4.0 : 3.0;
-			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
+			for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), r)) {
 				e.setRemainingFireTicks(Math.max(e.getRemainingFireTicks(), 80));
 			}
 		}

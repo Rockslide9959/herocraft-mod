@@ -768,7 +768,7 @@ public final class GeokinesisHandlers {
 		MutationVisuals.play(p, "slam_two_hand");
 		double r = 25.0;
 		float base = dmg(p, g, QUAKE_DAMAGE);
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
+		for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), r)) {
 			double d = e.position().distanceTo(p.position());
 			float amount = (float) (base * (1.0 - Math.min(0.55, d / r)));
 			if (AbilityHelpers.hurtBurst(p, e, amount)) {

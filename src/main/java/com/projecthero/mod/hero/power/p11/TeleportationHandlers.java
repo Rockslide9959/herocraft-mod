@@ -380,10 +380,9 @@ public final class TeleportationHandlers {
 	private static final Map<UUID, java.util.List<Integer>> BAMF_HIT = new HashMap<>();
 
 	private static boolean bamfTarget(ServerPlayer p, LivingEntity t) {
-		return t != null && t.isAlive() && t != p && !(t instanceof net.minecraft.world.entity.decoration.ArmorStand)
-				&& !Squads.areAllies(p, t) && !(t instanceof com.projecthero.mod.hero.revamp.d.MirrorImageEntity)
-				&& (!(t instanceof net.minecraft.world.entity.player.Player) || (p.getServer() != null
-						&& p.getServer().isPvpAllowed() && com.projecthero.mod.hero.HeroConfig.get().abilityPvpDamage));
+		// v0.14.20: the shared rule 1 (the aimed first hop); the chain's later hops only pick hostiles (rule 2)
+		return t != null && com.projecthero.mod.combat.HeroTargets.canHarm(p, t) && !Squads.areAllies(p, t)
+				&& !(t instanceof com.projecthero.mod.hero.revamp.d.MirrorImageEntity);
 	}
 
 	private static void bamfStart(AbilityContext ctx) {
@@ -442,7 +441,7 @@ public final class TeleportationHandlers {
 		}
 		LivingEntity next = null;
 		double best = BAMF_CHAIN_RANGE * BAMF_CHAIN_RANGE;
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), BAMF_CHAIN_RANGE)) {
+		for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), BAMF_CHAIN_RANGE)) {
 			double d = e.distanceToSqr(p);
 			if (d < best && !hit.contains(e.getId()) && bamfTarget(p, e)) {
 				best = d;

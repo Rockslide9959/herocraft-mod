@@ -58,19 +58,8 @@ public final class MoonKnightCombat {
 
 	/** Never touch yourself, a squadmate, a pet you own, or any player while PvP is off. */
 	public static boolean friendly(ServerPlayer player, LivingEntity target) {
-		if (target == player) {
-			return true;
-		}
-		if (target instanceof OwnableEntity own && player.getUUID().equals(own.getOwnerUUID())) {
-			return true;
-		}
-		if (!(target instanceof ServerPlayer other)) {
-			return false;
-		}
-		if (player.getServer() == null || !player.getServer().isPvpAllowed() || !HeroConfig.get().abilityPvpDamage) {
-			return true;
-		}
-		return com.projecthero.mod.squad.Squads.areAllies(player, other); // v0.14.4: not a rampaging Hulk
+		// v0.14.20: the inverse of the shared rule 1 (com.projecthero.mod.combat.HeroTargets#canHarm)
+		return target == player || !com.projecthero.mod.combat.HeroTargets.canHarm(player, target);
 	}
 
 	/** Everything hostile to {@code player} within {@code radius} of {@code center} (the PvP gate included). */

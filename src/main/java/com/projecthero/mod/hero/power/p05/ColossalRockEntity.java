@@ -133,7 +133,7 @@ public class ColossalRockEntity extends ThrowableItemProjectile {
 		Vec3 c = position();
 
 		for (LivingEntity e : server.getEntitiesOfClass(LivingEntity.class, getBoundingBox().inflate(HIT_RADIUS),
-				e -> e.isAlive() && e != owner && !(e instanceof ArmorStand))) {
+				e -> com.projecthero.mod.combat.HeroTargets.canHarm(owner, e))) { // v0.14.20: rule 1
 			double d = Math.sqrt(e.distanceToSqr(c.x, c.y, c.z));
 			if (d > HIT_RADIUS) {
 				continue;

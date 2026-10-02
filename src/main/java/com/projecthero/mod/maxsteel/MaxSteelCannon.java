@@ -168,7 +168,7 @@ public final class MaxSteelCannon {
 		}
 		LivingEntity best = null;
 		double bestScore = Double.MAX_VALUE;
-		for (LivingEntity e : AbilityHelpers.enemiesAround(player, eye, MaxSteelConfig.CANNON_RANGE)) {
+		for (LivingEntity e : AbilityHelpers.hostilesAround(player, eye, MaxSteelConfig.CANNON_RANGE)) { // v0.14.20: lock-on, rule 2
 			if (!e.isAlive() || e.isInvisible() || e.isSpectator()) {
 				continue;
 			}

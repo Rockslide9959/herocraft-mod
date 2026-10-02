@@ -103,30 +103,16 @@ public class ShadowServantEntity extends PathfinderMob {
 
 	/** The one rule: may this servant ever fight {@code t}? */
 	public boolean mayTarget(LivingEntity t) {
-		if (t == null || !t.isAlive() || t == this || t instanceof ArmorStand) {
+		if (t == null || t == this) {
 			return false;
 		}
 		ServerPlayer owner = owner();
-		if (owner == null || t == owner || Squads.areAllies(owner, t)) {
+		if (owner == null) {
 			return false;
 		}
-		if (t instanceof ShadowServantEntity s && s.ownerId().equals(ownerId())) {
-			return false;
-		}
-		if (t instanceof MirrorImageEntity m && m.ownerId().equals(ownerId())) {
-			return false;
-		}
-		if (t instanceof Player pl) {
-			if (pl.isCreative() || pl.isSpectator() || getServer() == null || !getServer().isPvpAllowed()
-					|| !HeroConfig.get().abilityPvpDamage) {
-				return false;
-			}
-		}
-		// a tamed pet of the owner (wolf, cat ...) is family too
-		if (t instanceof net.minecraft.world.entity.OwnableEntity own && owner.getUUID().equals(own.getOwnerUUID())) {
-			return false;
-		}
-		return true;
+		// v0.14.20: the shared rule 1 on the owner's behalf -- never the owner, his pets/summons (other servants,
+		// mirror images), a squadmate, a creative player or (PvP off) any player. Whom it CHOOSES is rule 2 (retarget).
+		return com.projecthero.mod.combat.HeroTargets.canHarm(owner, t) && !Squads.areAllies(owner, t);
 	}
 
 	@Override
@@ -206,7 +192,7 @@ public class ShadowServantEntity extends PathfinderMob {
 		if (pick == null) {
 			double best = 16.0 * 16.0;
 			for (Mob m : level().getEntitiesOfClass(Mob.class, getBoundingBox().inflate(16.0),
-					m -> m instanceof Enemy && m.isAlive())) {
+					m -> com.projecthero.mod.combat.HeroTargets.isHostile(owner, m))) { // v0.14.20: rule 2
 				double d = m.distanceToSqr(this);
 				if (d < best && mayTarget(m)) {
 					best = d;

@@ -35,32 +35,28 @@ public final class ThorTargets {
 
 	/** Can {@code caster}'s power hurt, shove, slow or ignite {@code target}? */
 	public static boolean canAffect(Player caster, Entity target) {
-		if (target == null || target == caster || !target.isAlive() || target instanceof ArmorStand) {
-			return false;
-		}
-		if (caster == null) {
-			return true;
-		}
-		if (Squads.areAllies(caster, target)) {
-			return false;
-		}
-		if (target instanceof Player) {
-			MinecraftServer server = caster.getServer();
-			return server == null || server.isPvpAllowed();
-		}
-		if (target instanceof OwnableEntity pet) {
-			UUID owner = pet.getOwnerUUID();
-			if (owner != null) {
-				if (owner.equals(caster.getUUID())) {
-					return false;
-				}
-				Player ownerPlayer = caster.level().getPlayerByUUID(owner);
-				if (ownerPlayer != null && Squads.areAllies(caster, ownerPlayer)) {
-					return false;
-				}
+		// v0.14.20: the shared rule 1 -- see com.projecthero.mod.combat.HeroTargets
+		return com.projecthero.mod.combat.HeroTargets.canHarm(caster, target);
+	}
+
+	/**
+	 * v0.14.20: rule 2 ({@link com.projecthero.mod.combat.HeroTargets#isHostile}) for Thor's automatic picks --
+	 * chain-lightning jumps, Storm Call, Hammer Volley: only threats, so a storm never fries a farm or a village.
+	 */
+	public static boolean isHostile(Player caster, Entity target) {
+		return com.projecthero.mod.combat.HeroTargets.isHostile(caster, target);
+	}
+
+	/** v0.14.20: {@link #inRadius}, but only what {@link #isHostile} allows. */
+	public static List<LivingEntity> hostilesInRadius(ServerLevel level, Player caster, Vec3 center, double radius) {
+		List<LivingEntity> out = new ArrayList<>();
+		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(center, center).inflate(radius),
+				e -> isHostile(caster, e))) {
+			if (com.projecthero.mod.hero.power.AbilityHelpers.distanceSqToBox(e, center) <= radius * radius + 1.0E-6) {
+				out.add(e);
 			}
 		}
-		return true;
+		return out;
 	}
 
 	/** Every living thing within {@code radius} of {@code center} (box-distance) that {@code caster} may affect. */

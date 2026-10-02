@@ -664,7 +664,7 @@ public final class ElectrokinesisHandlers {
 			LivingEntity next = null;
 			double best = Double.MAX_VALUE;
 			boolean bestStacked = false;
-			for (LivingEntity c : AbilityHelpers.enemiesAround(p, cur.position(), HOP_RANGE_STACKED)) {
+			for (LivingEntity c : AbilityHelpers.hostilesAround(p, cur.position(), HOP_RANGE_STACKED)) {
 				if (struck.contains(c.getUUID())) {
 					continue;
 				}
@@ -806,7 +806,7 @@ public final class ElectrokinesisHandlers {
 
 	/** One of the storm's follow-up bolts: a random enemy within 9 blocks of the storm centre (stacked ones first). */
 	private static void stormFollowUp(ServerPlayer p, Storm st) {
-		List<LivingEntity> near = AbilityHelpers.enemiesAround(p, st.centre, 9.0);
+		List<LivingEntity> near = AbilityHelpers.hostilesAround(p, st.centre, 9.0);
 		if (near.isEmpty()) {
 			Vec3 r = st.centre.add((st.level.random.nextDouble() - 0.5) * 8, 0, (st.level.random.nextDouble() - 0.5) * 8);
 			strikeVisual(st.level, r, p);

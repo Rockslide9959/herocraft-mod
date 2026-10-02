@@ -378,7 +378,7 @@ public final class ShockwaveHandlers {
 					}
 					ctx.setResource("charge", 0, MAX_CHARGE);
 					double r = 20.0;
-					for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
+					for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), r)) {
 						AbilityHelpers.hurtBurst(p, e, DETONATION_DAMAGE);
 						AbilityHelpers.knockbackFrom(e, p.position(), 3.0);
 						AbilityHelpers.push(e, new Vec3(0, 0.8, 0));

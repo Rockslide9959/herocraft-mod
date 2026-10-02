@@ -173,7 +173,7 @@ public class CrystalNodeEntity extends Entity {
 		LivingEntity best = null;
 		double bestD = Double.MAX_VALUE;
 		for (LivingEntity e : server.getEntitiesOfClass(LivingEntity.class, new AABB(eye, eye).inflate(SPIRE_RANGE),
-				e -> e.isAlive() && e != p && (e instanceof Enemy || e instanceof Mob m && m.getTarget() == p))) {
+				e -> com.projecthero.mod.combat.HeroTargets.isHostile(p, e))) { // v0.14.20: turret, rule 2
 			double d = e.distanceToSqr(eye);
 			if (d > SPIRE_RANGE * SPIRE_RANGE || d >= bestD) {
 				continue;

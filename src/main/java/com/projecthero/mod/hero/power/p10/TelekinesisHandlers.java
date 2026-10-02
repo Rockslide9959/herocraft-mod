@@ -533,7 +533,7 @@ public final class TelekinesisHandlers {
 		ctx.setResource("ult_charge", (float) (frac * 100.0), 100);
 		MutationVisuals.ensure(p, "p10.detonate_charge");
 
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), ULT_RANGE)) {
+		for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), ULT_RANGE)) {
 			if (Squads.areAllies(p, e)) {
 				continue;
 			}
@@ -584,7 +584,7 @@ public final class TelekinesisHandlers {
 		}
 		ctx.setResource("regen_slow_until", p.level().getGameTime() + ULT_REGEN_PENALTY_TICKS, 1.0e12f);
 
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), ULT_RANGE)) {
+		for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), ULT_RANGE)) {
 			if (Squads.areAllies(p, e)) {
 				continue;
 			}
@@ -954,7 +954,7 @@ public final class TelekinesisHandlers {
 				return false;
 			}
 			for (LivingEntity le : level.getEntitiesOfClass(LivingEntity.class, entity.getBoundingBox().inflate(0.6),
-					x -> x.isAlive() && x != entity && x != p && !(x instanceof ArmorStand) && !Squads.areAllies(p, x))) {
+					x -> x != entity && com.projecthero.mod.combat.HeroTargets.canHarm(p, x) && !Squads.areAllies(p, x))) {
 				AbilityHelpers.hurtBurst(p, le, damage);
 				AbilityHelpers.knockbackFrom(le, entity.position(), 1.2);
 				if (entity instanceof LivingEntity thrown) {

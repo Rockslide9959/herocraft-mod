@@ -314,7 +314,7 @@ public final class TitanAbilities {
 			java.util.List<LivingEntity> seen = TitanCombat.targetsInCylinder(level, form, a.roarHighlightRadius, player);
 			net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player, new com.projecthero.mod.network.TitanRoarSensePayload(
 					seen.stream().mapToInt(LivingEntity::getId).toArray(), a.roarHighlightTicks));
-			for (LivingEntity t : TitanCombat.targetsInCylinder(level, form, a.roarRadius, player)) {
+			for (LivingEntity t : TitanCombat.hostilesInCylinder(level, form, a.roarRadius, player)) { // v0.14.20: rule 2
 				boolean boss = TitanCombat.isBoss(t);
 				double f = boss ? a.roarBossResistance : 1.0;
 				AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, (int) (a.roarSlownessTicks * f), 2);

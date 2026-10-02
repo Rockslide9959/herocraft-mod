@@ -108,7 +108,7 @@ public class WindTornadoEntity extends Entity {
 
 		// the pull: spiral inward, lift near the core, grind inside it
 		Vec3 axis = position();
-		for (LivingEntity e : AbilityHelpers.enemiesAround(ownerPlayer, axis.add(0, 2.5, 0), PULL_RADIUS)) {
+		for (LivingEntity e : AbilityHelpers.hostilesAround(ownerPlayer, axis.add(0, 2.5, 0), PULL_RADIUS)) { // v0.14.20: roaming field, rule 2
 			if (e == rider || e == ownerPlayer || e.isPassengerOfSameVehicle(this)) {
 				continue;
 			}

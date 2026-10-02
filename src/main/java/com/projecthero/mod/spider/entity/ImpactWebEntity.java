@@ -81,14 +81,8 @@ public class ImpactWebEntity extends AbstractHurtingProjectile {
 	}
 
 	private boolean canTargetLiving(LivingEntity e) {
-		if (!e.isAlive() || e == getOwner() || e instanceof ArmorStand) {
-			return false;
-		}
-		if (e instanceof Player) {
-			return HeroConfig.get().abilityPvpDamage
-					&& level().getServer() != null && level().getServer().isPvpAllowed();
-		}
-		return true;
+		// v0.14.20: the shared rule 1 (HeroTargets#canHarm) -- an aimed shot
+		return com.projecthero.mod.combat.HeroTargets.canHarm(getOwner(), e);
 	}
 
 	@Override

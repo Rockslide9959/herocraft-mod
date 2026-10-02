@@ -221,27 +221,8 @@ public final class SuperSpeedMoves {
 
 	/** Can a speedster's move go for {@code e}? Never yourself, a squadmate, your own or a squadmate's pet, or (PvP off) a player. */
 	public static boolean validFoe(ServerPlayer p, LivingEntity e) {
-		if (e == p || !e.isAlive() || e instanceof ArmorStand || e.isSpectator() || e.getVehicle() == p) {
-			return false;
-		}
-		if (e instanceof Player other) {
-			if (other.isCreative()) {
-				return false;
-			}
-			boolean pvp = p.getServer() != null && p.getServer().isPvpAllowed() && HeroConfig.get().abilityPvpDamage;
-			return pvp && !com.projecthero.mod.squad.Squads.areAllies(p, other);
-		}
-		if (e instanceof OwnableEntity pet && pet.getOwnerUUID() != null) {
-			UUID owner = pet.getOwnerUUID();
-			if (owner.equals(p.getUUID())) {
-				return false;
-			}
-			Player ownerPlayer = p.getServer() == null ? null : p.getServer().getPlayerList().getPlayer(owner);
-			if (ownerPlayer != null && com.projecthero.mod.squad.Squads.areAllies(p, ownerPlayer)) {
-				return false;
-			}
-		}
-		return true;
+		// v0.14.20: the shared rule 1 (com.projecthero.mod.combat.HeroTargets#canHarm); a carried target rides you
+		return com.projecthero.mod.combat.HeroTargets.canHarm(p, e);
 	}
 
 	private static float mult(ServerPlayer p) {
@@ -384,7 +365,7 @@ public final class SuperSpeedMoves {
 			return best;
 		}
 		double reach2 = eye.distanceToSqr(end) + 1.0;
-		for (LivingEntity e : AbilityHelpers.living(p.serverLevel(), eye, range, e -> validFoe(p, e) && e instanceof Enemy)) {
+		for (LivingEntity e : AbilityHelpers.living(p.serverLevel(), eye, range, e -> com.projecthero.mod.combat.HeroTargets.isHostile(p, e))) { // v0.14.20: auto-aim, rule 2
 			double d = eye.distanceToSqr(center(e));
 			if (d < bestD && d <= reach2 && BatchA.inCone(p, e, 0.96) && p.hasLineOfSight(e)) {
 				bestD = d;
@@ -593,10 +574,8 @@ public final class SuperSpeedMoves {
 
 	/** What Speed Sweep goes for: hostiles, anything hunting you, and (PvP on, not squad) players. */
 	private static boolean sweepTarget(ServerPlayer p, LivingEntity e) {
-		if (!validFoe(p, e)) {
-			return false;
-		}
-		return e instanceof Enemy || e instanceof Player || (e instanceof Mob mob && mob.getTarget() == p);
+		// v0.14.20: a 50-block auto-sweep is rule 2 -- threats only, never the farm (HeroTargets#isHostile)
+		return com.projecthero.mod.combat.HeroTargets.isHostile(p, e);
 	}
 
 	public static void startSweep(AbilityContext ctx) {

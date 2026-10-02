@@ -190,19 +190,13 @@ public final class SuperSoldierAbilities {
 
 	/** Whether a move of {@code p}'s may touch {@code e}: never himself, squad-mates, his own pets or armour stands. */
 	public static boolean canTarget(ServerPlayer p, LivingEntity e) {
-		if (e == p || !e.isAlive() || e instanceof ArmorStand || e.isSpectator()) {
-			return false;
-		}
-		if (e instanceof OwnableEntity own && p.getUUID().equals(own.getOwnerUUID())) {
-			return false;
-		}
-		if (e instanceof Player other) {
-			if (other.isCreative() || com.projecthero.mod.squad.Squads.areAllies(p, other)) {
-				return false;
-			}
-			return p.getServer() != null && p.getServer().isPvpAllowed();
-		}
-		return true;
+		// v0.14.20: the shared rule 1 (com.projecthero.mod.combat.HeroTargets#canHarm)
+		return com.projecthero.mod.combat.HeroTargets.canHarm(p, e);
+	}
+
+	/** v0.14.20: rule 2 (com.projecthero.mod.combat.HeroTargets#isHostile) -- ricochet picks, Battle Cry, Focus marks. */
+	public static boolean isHostile(ServerPlayer p, LivingEntity e) {
+		return com.projecthero.mod.combat.HeroTargets.isHostile(p, e);
 	}
 
 	static List<LivingEntity> targets(ServerPlayer p, AABB box) {
@@ -698,7 +692,7 @@ public final class SuperSoldierAbilities {
 		}
 		// hostile mobs (and enemy players) nearby lose heart
 		for (LivingEntity e : targets(p, p.getBoundingBox().inflate(SuperSoldierConfig.BATTLE_CRY_ENEMY_RADIUS))) {
-			if (!(e instanceof Enemy) && !(e instanceof Player)) {
+			if (!isHostile(p, e)) { // v0.14.20: rule 2
 				continue;
 			}
 			AbilityHelpers.applyControl(e, MobEffects.WEAKNESS, SuperSoldierConfig.BATTLE_CRY_DEBUFF_TICKS, 0);
@@ -728,7 +722,7 @@ public final class SuperSoldierAbilities {
 		Set<Integer> marked = new HashSet<>();
 		ServerLevel level = (ServerLevel) p.level();
 		for (LivingEntity e : targets(p, p.getBoundingBox().inflate(SuperSoldierConfig.FOCUS_RADIUS))) {
-			if (!(e instanceof Enemy) && !(e instanceof Player)) {
+			if (!isHostile(p, e)) { // v0.14.20: rule 2
 				continue;
 			}
 			if (e.distanceToSqr(p) > SuperSoldierConfig.FOCUS_RADIUS * SuperSoldierConfig.FOCUS_RADIUS) {

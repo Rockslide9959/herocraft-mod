@@ -90,11 +90,21 @@ public final class AbilityHelpers {
 		return dx * dx + dy * dy + dz * dz;
 	}
 
+	/**
+	 * Rule 1 ({@link com.projecthero.mod.combat.HeroTargets#canHarm}): everything {@code player}'s deliberate attack
+	 * centred on {@code center} may hit -- mobs, animals, villagers, golems and (PvP on) players, but never the
+	 * player, their pets/summons or a shielded squadmate.
+	 */
 	public static List<LivingEntity> enemiesAround(ServerPlayer player, Vec3 center, double radius) {
-		boolean pvp = player.getServer() != null && player.getServer().isPvpAllowed() && HeroConfig.get().abilityPvpDamage;
-		return living(level(player), center, radius, e -> e != player
-				&& !(e instanceof ArmorStand)
-				&& (!(e instanceof Player) || pvp));
+		return living(level(player), center, radius, e -> com.projecthero.mod.combat.HeroTargets.canHarm(player, e));
+	}
+
+	/**
+	 * Rule 2 ({@link com.projecthero.mod.combat.HeroTargets#isHostile}): only the threats around {@code center} -- for
+	 * auras, automatic picks and huge sweeps that must not wreck farms or villages.
+	 */
+	public static List<LivingEntity> hostilesAround(ServerPlayer player, Vec3 center, double radius) {
+		return living(level(player), center, radius, e -> com.projecthero.mod.combat.HeroTargets.isHostile(player, e));
 	}
 
 	// ---------------- damage / control ----------------
@@ -128,6 +138,10 @@ public final class AbilityHelpers {
 		if (target == source || !target.isAlive()) {
 			return false;
 		}
+		// v0.14.20: the shared floor -- never your own pet/summon, a squadmate's pet, an armour stand or a creative player
+		if (!(target instanceof Player) && !com.projecthero.mod.combat.HeroTargets.canHarm(source, target)) {
+			return false;
+		}
 		if (target instanceof Player) {
 			if (!HeroConfig.get().abilityPvpDamage
 					|| source.getServer() == null || !source.getServer().isPvpAllowed()) {
@@ -151,6 +165,9 @@ public final class AbilityHelpers {
 	public static boolean hurtBurst(ServerPlayer source, LivingEntity target, DamageSource damageSource, float amount) {
 		if (target == source || !target.isAlive() || target instanceof Player) {
 			return hurt(source, target, damageSource, amount);
+		}
+		if (!com.projecthero.mod.combat.HeroTargets.canHarm(source, target)) {
+			return false;
 		}
 		int savedInv = target.invulnerableTime;
 		target.invulnerableTime = 0;

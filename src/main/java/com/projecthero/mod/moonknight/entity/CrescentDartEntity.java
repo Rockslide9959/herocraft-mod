@@ -191,7 +191,7 @@ public class CrescentDartEntity extends ThrowableProjectile {
 		LivingEntity best = null;
 		double bestD = Double.MAX_VALUE;
 		for (LivingEntity e : level().getEntitiesOfClass(LivingEntity.class, new AABB(position(), position()).inflate(r),
-				e -> e instanceof Enemy && e.isAlive() && e != owner)) {
+				e -> com.projecthero.mod.combat.HeroTargets.isHostile(owner, e))) { // v0.14.20: homing, rule 2
 			Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(position());
 			double d = to.length();
 			if (d > r || d < 1.0e-3 || to.normalize().dot(dir) < 0.35) {

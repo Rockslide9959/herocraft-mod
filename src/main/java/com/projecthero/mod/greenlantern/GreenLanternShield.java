@@ -232,7 +232,8 @@ public final class GreenLanternShield {
 		}
 		Vec3 center = owner.position().add(0, 1.0, 0);
 		var squad = owner.getServer() == null ? null : SquadManager.get(owner.getServer()).squadOf(owner.getUUID());
-		for (LivingEntity e : AbilityHelpers.living(owner.serverLevel(), center, radius, le -> le != owner)) {
+		for (LivingEntity e : AbilityHelpers.living(owner.serverLevel(), center, radius,
+				le -> com.projecthero.mod.combat.HeroTargets.canHarm(owner, le))) { // v0.14.20: not your own pets
 			if (e instanceof Player p && squad != null && squad.has(p.getUUID())) {
 				continue;
 			}

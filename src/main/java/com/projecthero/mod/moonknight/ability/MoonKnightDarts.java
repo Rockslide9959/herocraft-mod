@@ -130,8 +130,8 @@ public final class MoonKnightDarts implements MoonKnightMove {
 	public static List<LivingEntity> fanTargets(ServerPlayer player) {
 		Vec3 eye = player.getEyePosition();
 		return AbilityHelpers.living(player.serverLevel(), eye, MoonKnightConfig.DART_FAN_TARGET_RANGE,
-				e -> e != player && (e instanceof Enemy || (e instanceof Mob m && m.getTarget() == player))
-						&& !MoonKnightCombat.friendly(player, e) && player.hasLineOfSight(e)).stream()
+				e -> com.projecthero.mod.combat.HeroTargets.isHostile(player, e) // v0.14.20: auto-picks, rule 2
+						&& player.hasLineOfSight(e)).stream()
 				.sorted(Comparator.comparingDouble(e -> e.distanceToSqr(player)))
 				.limit(MoonKnightConfig.DART_FAN_COUNT)
 				.toList();

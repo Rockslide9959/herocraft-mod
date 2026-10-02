@@ -762,7 +762,7 @@ public final class IronManAbilities {
 		}
 		long now = player.level().getGameTime();
 		TonyStark.state(player).targetingUntil = now + TARGETING_DURATION_TICKS;
-		for (LivingEntity e : AbilityHelpers.enemiesAround(player, player.position(), 24.0)) {
+		for (LivingEntity e : AbilityHelpers.hostilesAround(player, player.position(), 24.0)) { // v0.14.20: scan, rule 2
 			e.addEffect(new MobEffectInstance(MobEffects.GLOWING, TARGETING_DURATION_TICKS, 0, false, false, true));
 		}
 		AbilityHelpers.sound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, 0.7f, 2.0f);
@@ -935,7 +935,7 @@ public final class IronManAbilities {
 		level.sendParticles(ParticleTypes.FLASH, origin.x, origin.y, origin.z, 1, 0, 0, 0, 0);
 		level.sendParticles(ParticleTypes.FIREWORK, origin.x, origin.y, origin.z, 30, 0.3, 0.3, 0.3, 0.15);
 		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_BLAST, 1.2f, 1.4f);
-		for (LivingEntity e : AbilityHelpers.enemiesAround(player, player.position(), FLARE_RADIUS)) {
+		for (LivingEntity e : AbilityHelpers.hostilesAround(player, player.position(), FLARE_RADIUS)) { // v0.14.20: area CC, rule 2
 			e.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, FLARE_BLIND_TICKS, 0, false, true, true));
 		}
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.flare_deployed"), true);

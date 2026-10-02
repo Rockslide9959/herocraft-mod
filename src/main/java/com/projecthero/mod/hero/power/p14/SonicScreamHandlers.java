@@ -530,7 +530,7 @@ public final class SonicScreamHandlers {
 			proj.discard();
 		}
 		if (now % 10 == 0) {
-			for (LivingEntity e : AbilityHelpers.enemiesAround(owner, b.centre, 3.2)) {
+			for (LivingEntity e : AbilityHelpers.hostilesAround(owner, b.centre, 3.2)) {
 				if (!b.contains(e.position().add(0, e.getBbHeight() * 0.5, 0))) {
 					continue;
 				}
@@ -631,7 +631,7 @@ public final class SonicScreamHandlers {
 		MutationVisuals.play(p, "p14.shout");
 		if (shift) {
 			double r = 20.0;
-			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
+			for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), r)) {
 				AbilityHelpers.hurtBurst(p, e, SUPERSONIC_RADIAL);
 				AbilityHelpers.knockbackFrom(e, p.position(), 2.4);
 				AbilityHelpers.applyControl(e, MobEffects.CONFUSION, 120, 0);

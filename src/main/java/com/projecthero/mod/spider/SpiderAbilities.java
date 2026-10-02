@@ -434,7 +434,7 @@ public final class SpiderAbilities {
 		LivingEntity best = null;
 		double bestScore = 0.972; // ~13 degrees
 		for (LivingEntity e : player.level().getEntitiesOfClass(LivingEntity.class, box,
-				e -> e != player && e.isAlive() && !(e instanceof net.minecraft.world.entity.decoration.ArmorStand))) {
+				e -> com.projecthero.mod.combat.HeroTargets.canHarm(player, e))) { // v0.14.20: aimed, rule 1
 			Vec3 delta = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);
 			double d = delta.length();
 			if (d < 0.5 || d > range) {
@@ -633,7 +633,7 @@ public final class SpiderAbilities {
 		int caught = 0;
 		AABB box = player.getBoundingBox().inflate(BLOSSOM_RADIUS);
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box,
-				t -> t != player && t.isAlive() && !(t instanceof Player))) {
+				t -> com.projecthero.mod.combat.HeroTargets.canHarm(player, t) && !(t instanceof Player))) { // v0.14.20: rule 1
 			if (e.distanceToSqr(centre) > BLOSSOM_RADIUS * BLOSSOM_RADIUS) {
 				continue;
 			}

@@ -66,27 +66,20 @@ public final class TitanCombat {
 		});
 	}
 
+	/** v0.14.20: {@link #targetsInCylinder}, threats only (rule 2, HeroTargets#isHostile) -- the 32-block Roar. */
+	public static List<LivingEntity> hostilesInCylinder(ServerLevel level, TitanFormEntity form, double radius,
+			ServerPlayer owner) {
+		return targetsInCylinder(level, form, radius, owner).stream()
+				.filter(e -> com.projecthero.mod.combat.HeroTargets.isHostile(owner, e)).toList();
+	}
+
 	private static boolean validTarget(LivingEntity e, TitanFormEntity form, ServerPlayer owner) {
-		if (e == form || e == owner || !e.isAlive() || e instanceof ArmorStand || e.isPassengerOfSameVehicle(form)) {
+		if (e == form || e.isPassengerOfSameVehicle(form)) {
 			return false;
 		}
-		if (e instanceof Player p && (p.isCreative() || p.isSpectator())) {
-			return false;
-		}
-		if (e instanceof OwnableEntity pet && owner.getUUID().equals(pet.getOwnerUUID())) {
-			return false;
-		}
-		var server = owner.getServer();
-		if (e instanceof Player p) {
-			return !com.projecthero.mod.squad.Squads.areAllies(owner, p); // v0.14.4: a rampaging Hulk is fair game
-		}
-		if (server != null) {
-			java.util.UUID other = e instanceof TitanFormEntity t ? t.ownerId() : e.getUUID();
-			if (other != null && SquadManager.get(server).sameSquad(owner.getUUID(), other)) {
-				return false;
-			}
-		}
-		return true;
+		// v0.14.20: the shared rule 1 (HeroTargets#canHarm): a Titan's blows are aimed / centred on its own attack.
+		// Covers the owner, his pets, a squadmate (and a squadmate's Titan), creative players and PvP-off players.
+		return com.projecthero.mod.combat.HeroTargets.canHarm(owner, e);
 	}
 
 	// ---------------- damage ----------------

@@ -683,7 +683,7 @@ public final class SizeHandlers {
 	private static void stepOn(ServerPlayer p) {
 		double foot = p.getBbWidth() * 0.6 + 1.0;
 		float dmg = 9.6f;
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), foot)) {
+		for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), foot)) {
 			if (e.getBbHeight() < p.getBbHeight() * 0.5 && e.invulnerableTime <= 0) {
 				AbilityHelpers.hurt(p, e, dmg);
 				AbilityHelpers.knockbackFrom(e, p.position(), 0.8);

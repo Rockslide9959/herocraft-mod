@@ -1059,7 +1059,7 @@ public final class SymbioteAbilityManager {
 
 		AABB box = player.getBoundingBox().inflate(RESURRECT_RADIUS);
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box,
-				x -> x != player && x.isAlive() && !x.isSpectator() && !Squads.areAllies(player, x))) {
+				x -> com.projecthero.mod.combat.HeroTargets.canHarm(player, x) && !Squads.areAllies(player, x))) {
 			Vec3 away = e.position().subtract(player.position());
 			Vec3 flat = new Vec3(away.x, 0, away.z);
 			if (flat.lengthSqr() < 0.01) {

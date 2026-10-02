@@ -127,7 +127,7 @@ public class ThrownChunkEntity extends Entity {
 		double r = 0.35 + scale() * 0.25;
 		LivingEntity struck = null;
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, getBoundingBox().inflate(r),
-				e -> e.isAlive() && !e.isSpectator() && (thrower == null || (e != thrower && !thrower.hasPassenger(e))))) {
+				e -> com.projecthero.mod.combat.HeroTargets.canHarm(thrower, e))) { // v0.14.20: rule 1
 			struck = e;
 			break;
 		}

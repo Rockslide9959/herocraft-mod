@@ -211,7 +211,9 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 		DamageSource source = new DamageSource(level.registryAccess().registryOrThrow(Registries.DAMAGE_TYPE)
 				.getHolderOrThrow(DamageTypes.INDIRECT_MAGIC), null, player);
 		int hits = 0;
-		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, column, e -> isFoe(player, e))) {
+		// v0.14.20: the aimed Z beam burns anything it may harm (rule 1); the Eye's automatic strikes only foes (rule 2)
+		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, column,
+				e -> cast ? com.projecthero.mod.combat.HeroTargets.canHarm(player, e) : isFoe(player, e))) {
 			double dx = Math.max(Math.max(e.getBoundingBox().minX - at.x, at.x - e.getBoundingBox().maxX), 0.0);
 			double dz = Math.max(Math.max(e.getBoundingBox().minZ - at.z, at.z - e.getBoundingBox().maxZ), 0.0);
 			double d = Math.sqrt(dx * dx + dz * dz);
@@ -233,19 +235,12 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 	}
 
 	/**
-	 * Whom Khonshu's light burns: hostile mobs, anything hunting the player, and players only where PvP allows --
-	 * never a squad-mate ({@code Squads.areAllies}). Public for the gametests.
+	 * Whom the Eye of Khonshu's automatic light burns: v0.14.20 the shared rule 2
+	 * ({@link com.projecthero.mod.combat.HeroTargets#isHostile}) -- hostile mobs, anything hunting the player or his
+	 * squad, angry neutrals, and (PvP on) players who just attacked them. Never a squad-mate. Public for the gametests.
 	 */
 	public static boolean isFoe(ServerPlayer player, LivingEntity e) {
-		if (e == player || !e.isAlive() || e instanceof ArmorStand) {
-			return false;
-		}
-		if (e instanceof Player other) {
-			MinecraftServer server = player.getServer();
-			return server != null && server.isPvpAllowed() && HeroConfig.get().abilityPvpDamage
-					&& !other.isSpectator() && !Squads.areAllies(player, other);
-		}
-		return e instanceof Enemy || (e instanceof Mob mob && mob.getTarget() == player);
+		return com.projecthero.mod.combat.HeroTargets.isHostile(player, e);
 	}
 
 	private static void moonbeamFx(ServerPlayer player, ServerLevel level, Vec3 at, boolean cast) {
@@ -454,7 +449,7 @@ public final class MoonKnightKhonshu implements MoonKnightMove {
 		refreshEffect(player, MobEffects.DAMAGE_BOOST, left, MoonKnightConfig.EYE_PLAYER_AMPLIFIER);
 		refreshEffect(player, MobEffects.MOVEMENT_SPEED, left, MoonKnightConfig.EYE_PLAYER_AMPLIFIER);
 		List<LivingEntity> foes = AbilityHelpers.living(player.serverLevel(), player.position(), MoonKnightConfig.EYE_RADIUS,
-				e -> e instanceof Enemy && e != player && !(e instanceof Player));
+				e -> isFoe(player, e) && !(e instanceof Player)); // v0.14.20: aura, rule 2 (players are never debuffed)
 		for (LivingEntity e : foes) {
 			refreshEffect(e, MobEffects.GLOWING, left, 0);
 			refreshEffect(e, MobEffects.WEAKNESS, left, TitanCombat.isBoss(e) ? 0 : MoonKnightConfig.EYE_WEAKNESS_AMPLIFIER);

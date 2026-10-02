@@ -709,7 +709,7 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 	private void advanceVolleyTarget(Player owner, int justHitId) {
 		// v0.14.4: the shared Thor target rule -- also spares squad pets and, with PvP off, every other player
 		List<LivingEntity> candidates = new ArrayList<>(level().getEntitiesOfClass(LivingEntity.class,
-				owner.getBoundingBox().inflate(VOLLEY_RANGE), e -> com.projecthero.mod.power.ThorTargets.canAffect(owner, e)));
+				owner.getBoundingBox().inflate(VOLLEY_RANGE), e -> com.projecthero.mod.power.ThorTargets.isHostile(owner, e))); // v0.14.20: auto-picks, rule 2
 		candidates.sort(Comparator.comparingDouble(e -> e.distanceToSqr(owner)));
 
 		if (candidates.isEmpty()) {

@@ -115,7 +115,8 @@ public final class GravityHandlers {
 	}
 
 	private static boolean friendly(ServerPlayer p, LivingEntity e) {
-		return Squads.areAllies(p, e);
+		// v0.14.20: squadmates, plus everything the shared rule 1 spares (own pets, PvP-off players ...)
+		return Squads.areAllies(p, e) || !com.projecthero.mod.combat.HeroTargets.canHarm(p, e);
 	}
 
 	public static void register() {
@@ -200,7 +201,7 @@ public final class GravityHandlers {
 					wt--;
 					ctx.setResource("well_ticks2", wt, 120);
 					Vec3 center = new Vec3(ctx.resource("well_cx"), ctx.resource("well_cy"), ctx.resource("well_cz"));
-					for (LivingEntity e : AbilityHelpers.enemiesAround(p, center, 10.0)) {
+					for (LivingEntity e : AbilityHelpers.hostilesAround(p, center, 10.0)) {
 						if (friendly(p, e)) {
 							continue;
 						}
@@ -396,7 +397,7 @@ public final class GravityHandlers {
 				}
 				p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 20, 1, false, false, false));
 				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 20, 0, false, false, false));
-				for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 3.0)) {
+				for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), 3.0)) {
 					if (friendly(p, e)) {
 						continue;
 					}
@@ -616,7 +617,7 @@ public final class GravityHandlers {
 			for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class,
 					new net.minecraft.world.phys.AABB(center.x - HEAVY_RADIUS, center.y - 2, center.z - HEAVY_RADIUS,
 							center.x + HEAVY_RADIUS, center.y + HEAVY_HEIGHT, center.z + HEAVY_RADIUS),
-					x -> x.isAlive() && x != owner && !(x instanceof net.minecraft.world.entity.decoration.ArmorStand))) {
+					x -> com.projecthero.mod.combat.HeroTargets.isHostile(owner, x))) { // v0.14.20: lingering field, rule 2
 				double dx = e.getX() - center.x;
 				double dz = e.getZ() - center.z;
 				if (dx * dx + dz * dz > HEAVY_RADIUS * HEAVY_RADIUS || Squads.areAllies(owner, e)) {
@@ -690,7 +691,9 @@ public final class GravityHandlers {
 				return false;
 			}
 			age++;
-			for (LivingEntity e : AbilityHelpers.living(level, center, 30.0, le -> le != owner && !Squads.areAllies(owner, le))) {
+			// v0.14.20: a 30-block black hole is rule 2 -- it never swallows the farm or the village
+			for (LivingEntity e : AbilityHelpers.living(level, center, 30.0,
+					le -> com.projecthero.mod.combat.HeroTargets.isHostile(owner, le) && !Squads.areAllies(owner, le))) {
 				Vec3 pull = center.subtract(e.position());
 				double dist = pull.length();
 				if (dist > 0.3) {

@@ -188,7 +188,8 @@ public final class ShadowManipulationHandlers {
 	}
 
 	private static boolean friendly(ServerPlayer p, LivingEntity e) {
-		return Squads.areAllies(p, e) || (e instanceof ShadowServantEntity s && s.ownerId().map(p.getUUID()::equals).orElse(false));
+		// v0.14.20: squadmates, plus everything the shared rule 1 spares (own servants/pets, PvP-off players ...)
+		return Squads.areAllies(p, e) || !com.projecthero.mod.combat.HeroTargets.canHarm(p, e);
 	}
 
 	public static void register() {
@@ -385,7 +386,7 @@ public final class ShadowManipulationHandlers {
 				int mode = cloakMode(ctx);
 				if (mode == 1) {
 					AbilityHelpers.modeAura(p, ParticleTypes.SQUID_INK, 3);
-					for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 4.0)) {
+					for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), 4.0)) {
 						if (friendly(p, e)) {
 							continue;
 						}
@@ -827,7 +828,9 @@ public final class ShadowManipulationHandlers {
 				return false;
 			}
 			age++;
-			for (LivingEntity e : AbilityHelpers.living(level, center, 20.0, le -> le != owner && !friendly(owner, le))) {
+			// v0.14.20: a 20-block lingering field is rule 2 -- threats only
+			for (LivingEntity e : AbilityHelpers.living(level, center, 20.0,
+					le -> com.projecthero.mod.combat.HeroTargets.isHostile(owner, le) && !friendly(owner, le))) {
 				e.setDeltaMovement(e.getDeltaMovement().x, Math.min(e.getDeltaMovement().y, -0.05), e.getDeltaMovement().z);
 				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 20, 2);
 				AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 20, 0);

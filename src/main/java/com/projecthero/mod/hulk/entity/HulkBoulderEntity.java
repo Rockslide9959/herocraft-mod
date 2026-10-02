@@ -108,7 +108,7 @@ public class HulkBoulderEntity extends Entity implements GeoEntity {
 		}
 		boolean hitMob = false;
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, getBoundingBox().inflate(0.3),
-				e -> e.isAlive() && (thrower == null || (e != thrower && !thrower.hasPassenger(e))))) {
+				e -> com.projecthero.mod.combat.HeroTargets.canHarm(thrower, e))) { // v0.14.20: rule 1
 			hitMob = true;
 			break;
 		}

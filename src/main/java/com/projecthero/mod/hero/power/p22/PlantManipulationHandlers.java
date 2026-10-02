@@ -193,7 +193,7 @@ public final class PlantManipulationHandlers {
 				MutationVisuals.play(p, "summon_ground");
 				ServerLevel level = ctx.level();
 				double r = 20.0;
-				for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
+				for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), r)) {
 					AbilityHelpers.hurt(p, e, 54.0f + natureBonus(p));
 					AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 200, 8);
 					AbilityHelpers.applyControl(e, MobEffects.POISON, 200, 9); // Poison X, 10s
@@ -315,7 +315,7 @@ public final class PlantManipulationHandlers {
 				ctx -> {
 					ServerPlayer p = ctx.player();
 					AbilityHelpers.modeAura(p, ParticleTypes.HAPPY_VILLAGER, 3);
-					for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 3.0)) {
+					for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), 3.0)) {
 						AbilityHelpers.applyControl(e, MobEffects.POISON, 60, 2); // Poison III
 					}
 					if (p.tickCount % 20 != 0) {
@@ -479,9 +479,8 @@ public final class PlantManipulationHandlers {
 				level.sendParticles(ParticleTypes.HAPPY_VILLAGER, e.getX(), e.getY() + 1.0, e.getZ(), 3, 0.3, 0.4, 0.3, 0.0);
 				continue;
 			}
-			if (e instanceof net.minecraft.world.entity.decoration.ArmorStand
-					|| (e instanceof net.minecraft.world.entity.player.Player && !pvp)) {
-				continue; // other players only when PvP is on
+			if (!com.projecthero.mod.combat.HeroTargets.isHostile(p, e)) {
+				continue; // v0.14.20: a lingering cloud is rule 2 -- threats only, never the farm
 			}
 			AbilityHelpers.applyControl(e, MobEffects.POISON, 60, 1);
 			AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, 60, 0);

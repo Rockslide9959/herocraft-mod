@@ -464,7 +464,7 @@ public final class CrystalkinesisHandlers {
 		}
 		MutationVisuals.play(p, "cast_raise_both");
 		double r = 20.0;
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
+		for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), r)) {
 			double d = e.position().distanceTo(p.position());
 			float dmg = (float) ((ERUPT_DAMAGE + armorBonus(p)) * (1.0 - Math.min(0.55, d / r)));
 			AbilityHelpers.hurtBurst(p, e, dmg);
@@ -616,7 +616,7 @@ public final class CrystalkinesisHandlers {
 
 		// three refracted beams: nearest visible enemies first, then a fan ahead
 		List<LivingEntity> targets = new ArrayList<>();
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, c, 16.0)) {
+		for (LivingEntity e : AbilityHelpers.hostilesAround(p, c, 16.0)) {
 			Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0);
 			if (level.clip(new ClipContext(c, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, prism))
 					.getType() == HitResult.Type.MISS) {

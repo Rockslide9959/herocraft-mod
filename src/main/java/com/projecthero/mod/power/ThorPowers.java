@@ -689,7 +689,7 @@ public final class ThorPowers {
 		float jumpDamage = incomingDamage * CHAIN_DAMAGE_FALLOFF;
 		List<LivingEntity> candidates = new ArrayList<>(level.getEntitiesOfClass(LivingEntity.class,
 				from.getBoundingBox().inflate(CHAIN_RANGE),
-				e -> e instanceof Monster && !struck.contains(e) && ThorTargets.canAffect(player, e)));
+				e -> !struck.contains(e) && ThorTargets.isHostile(player, e))); // v0.14.20: jumps only to threats (rule 2)
 		candidates.sort(Comparator.comparingDouble(e -> e.distanceToSqr(from)));
 
 		int jumps = Math.min(CHAIN_MAX_JUMPS, candidates.size());
@@ -1185,15 +1185,15 @@ public final class ThorPowers {
 		}
 
 		if (tick >= state.nextStrikeTick) {
-			List<Monster> hostiles = serverLevel.getEntitiesOfClass(Monster.class,
-					player.getBoundingBox().inflate(STORM_CALL_RADIUS), e -> ThorTargets.canAffect(player, e));
+			List<LivingEntity> hostiles = serverLevel.getEntitiesOfClass(LivingEntity.class,
+					player.getBoundingBox().inflate(STORM_CALL_RADIUS), e -> ThorTargets.isHostile(player, e)); // v0.14.20: rule 2
 			if (!hostiles.isEmpty()) {
-				Monster target = hostiles.get(serverLevel.random.nextInt(hostiles.size()));
+				LivingEntity target = hostiles.get(serverLevel.random.nextInt(hostiles.size()));
 				// v0.14.4: a visual-only bolt plus Thor's own damage, instead of a real vanilla bolt -- a real one hits
 				// everything within 3 blocks (squadmates included), sets the ground alight and turns villagers into
 				// witches. Same 3-block splash, but only on things this Thor may affect.
 				spawnVisualBolt(serverLevel, player, target.position());
-				for (LivingEntity hit : ThorTargets.inRadius(serverLevel, player, target.position(), STORM_CALL_SPLASH_RADIUS)) {
+				for (LivingEntity hit : ThorTargets.hostilesInRadius(serverLevel, player, target.position(), STORM_CALL_SPLASH_RADIUS)) {
 					strikeEntity(serverLevel, player, hit, STORM_CALL_STRIKE_DAMAGE, 0.4f);
 				}
 			}

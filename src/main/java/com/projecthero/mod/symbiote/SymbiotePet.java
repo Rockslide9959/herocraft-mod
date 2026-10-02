@@ -266,7 +266,15 @@ public final class SymbiotePet {
 		if (e == pet || !e.isAlive() || refuses(pet, e) || e instanceof Creeper && e != target) {
 			return false;
 		}
-		return e == target || e instanceof Enemy && !(e instanceof Player);
+		if (e == target) {
+			return true;
+		}
+		// v0.14.20: a summon's AI uses the shared rule 2 (HeroTargets#isHostile) on its owner's behalf
+		LivingEntity owner = pet instanceof OwnableEntity ownable ? ownable.getOwner() : null;
+		if (owner != null) {
+			return com.projecthero.mod.combat.HeroTargets.isHostile(owner, e) && !(e instanceof Player);
+		}
+		return e instanceof Enemy && !(e instanceof Player);
 	}
 
 	static boolean sitting(TamableAnimal pet) {

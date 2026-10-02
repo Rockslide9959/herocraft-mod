@@ -81,7 +81,8 @@ public class C4ChargeEntity extends Entity {
 		double r = PunisherConfig.C4_RADIUS;
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class,
 				new AABB(getX() - r, getY() - r, getZ() - r, getX() + r, getY() + r, getZ() + r),
-				e -> e.isAlive() && !(e instanceof net.minecraft.world.entity.decoration.ArmorStand))) {
+				// v0.14.20: rule 1 (HeroTargets#canHarm) -- plus the thrower: your own explosive can still hurt you
+				e -> e.isAlive() && (e == owner || com.projecthero.mod.combat.HeroTargets.canHarm(owner, e)))) {
 			double dist = Math.sqrt(e.distanceToSqr(getX(), getY() + 0.1, getZ()));
 			if (dist > r) {
 				continue;

@@ -408,7 +408,7 @@ public final class DensityManipulationHandlers {
 		ctx.setResource("hi_start", 0, 1.0e12f);
 		MutationVisuals.play(p, "ground_pound");
 		double r = 20.0;
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), r)) {
+		for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), r)) {
 			double d = Math.sqrt(e.distanceToSqr(p));
 			float dmg = (float) (HEAVY_IMPACT_DAMAGE * (1.0 - Math.min(0.8, d / r)));
 			AbilityHelpers.hurt(p, e, dmg);

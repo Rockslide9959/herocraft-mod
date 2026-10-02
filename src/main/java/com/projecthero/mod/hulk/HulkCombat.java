@@ -48,9 +48,9 @@ public final class HulkCombat {
 	/** Everything the Hulk may hurt inside {@code box}. */
 	public static List<LivingEntity> targets(ServerPlayer hulk, AABB box) {
 		ServerLevel level = (ServerLevel) hulk.level();
-		boolean pvp = hulk.getServer() != null && hulk.getServer().isPvpAllowed();
-		return level.getEntitiesOfClass(LivingEntity.class, box, e -> e != hulk && e.isAlive() && !(e instanceof ArmorStand)
-				&& !e.hasPassenger(hulk) && !hulk.hasPassenger(e) && !ally(hulk, e) && (!(e instanceof Player) || pvp));
+		// v0.14.20: the shared rule 1 (HeroTargets#canHarm) -- squad protection via Squads.shields, so a rampage
+		// still breaks it; never what he carries or rides, his pets, or (PvP off) a player
+		return level.getEntitiesOfClass(LivingEntity.class, box, e -> com.projecthero.mod.combat.HeroTargets.canHarm(hulk, e));
 	}
 
 	static boolean ally(ServerPlayer hulk, LivingEntity e) {

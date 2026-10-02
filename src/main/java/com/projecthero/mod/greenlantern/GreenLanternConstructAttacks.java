@@ -155,14 +155,8 @@ public final class GreenLanternConstructAttacks {
 
 	/** Whether this Green Lantern's hard light may hurt {@code e} at all. */
 	static boolean canHit(ServerPlayer owner, LivingEntity e) {
-		if (e == owner || !e.isAlive() || e instanceof ArmorStand) {
-			return false;
-		}
-		if (e instanceof Player p) {
-			return !p.isSpectator() && !p.isCreative() && owner.getServer() != null && owner.getServer().isPvpAllowed()
-					&& !Squads.areAllies(owner, p);
-		}
-		return !(e instanceof TamableAnimal tame && tame.isTame() && owner.getUUID().equals(tame.getOwnerUUID()));
+		// v0.14.20: the shared rule 1 (com.projecthero.mod.combat.HeroTargets#canHarm)
+		return com.projecthero.mod.combat.HeroTargets.canHarm(owner, e);
 	}
 
 	private static float power(ServerPlayer owner) {

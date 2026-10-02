@@ -54,7 +54,7 @@ public final class MaxSteelStealth {
 		refreshInvisibility(player);
 		if (player.tickCount % 5 == 0) {
 			AABB box = player.getBoundingBox().inflate(UNTARGET_RADIUS);
-			for (Mob mob : player.level().getEntitiesOfClass(Mob.class, box, m -> m instanceof Enemy)) {
+			for (Mob mob : player.level().getEntitiesOfClass(Mob.class, box, m -> m.isAlive())) { // v0.14.20: any mob hunting him, not only Enemy
 				if (mob.getTarget() == player) {
 					mob.setTarget(null);
 				}

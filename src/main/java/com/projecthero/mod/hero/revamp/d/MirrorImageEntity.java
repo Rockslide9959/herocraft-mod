@@ -145,7 +145,7 @@ public class MirrorImageEntity extends PathfinderMob {
 	/** Hostile mobs that are after the caster (or idle and close) turn on this image instead, most of the time. */
 	private void lure(ServerPlayer owner) {
 		for (Mob mob : level().getEntitiesOfClass(Mob.class, getBoundingBox().inflate(LURE_RANGE),
-				m -> m.isAlive() && m instanceof Enemy && !(m instanceof MirrorImageEntity))) {
+				m -> com.projecthero.mod.combat.HeroTargets.isHostile(owner, m) && !(m instanceof MirrorImageEntity))) {
 			LivingEntity target = mob.getTarget();
 			boolean afterOwner = target == owner;
 			boolean idleNear = target == null && mob.distanceToSqr(this) < 10.0 * 10.0;

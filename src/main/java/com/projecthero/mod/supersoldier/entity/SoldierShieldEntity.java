@@ -253,7 +253,7 @@ public class SoldierShieldEntity extends Entity {
 		LivingEntity near = null;
 		double nearD = Double.MAX_VALUE;
 		for (LivingEntity e : level().getEntitiesOfClass(LivingEntity.class, new AABB(pos, pos).inflate(r),
-				e -> !hit.contains(e.getId()) && (e instanceof Enemy || e instanceof Player) && SuperSoldierAbilities.canTarget(owner, e))) {
+				e -> !hit.contains(e.getId()) && SuperSoldierAbilities.isHostile(owner, e))) { // v0.14.20: auto ricochet, rule 2
 			Vec3 c = e.getBoundingBox().getCenter();
 			double d = c.distanceToSqr(pos);
 			if (d > r * r) {

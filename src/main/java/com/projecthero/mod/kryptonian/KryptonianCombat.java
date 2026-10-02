@@ -48,20 +48,21 @@ public final class KryptonianCombat {
 
 	/** Something this Kryptonian's moves may affect. */
 	public static boolean isTarget(ServerPlayer owner, LivingEntity e) {
-		if (e == owner || !e.isAlive() || e instanceof ArmorStand || e.isSpectator()) {
-			return false;
-		}
-		if (e instanceof Player p) {
-			if (p.isCreative() || com.projecthero.mod.squad.Squads.areAllies(owner, p)) {
-				return false;
-			}
-			return owner.getServer() != null && owner.getServer().isPvpAllowed();
-		}
-		return true;
+		// v0.14.20: the shared rule 1 (com.projecthero.mod.combat.HeroTargets#canHarm)
+		return com.projecthero.mod.combat.HeroTargets.canHarm(owner, e);
 	}
 
 	public static List<LivingEntity> targets(ServerPlayer owner, AABB box) {
 		return ((ServerLevel) owner.level()).getEntitiesOfClass(LivingEntity.class, box, e -> isTarget(owner, e));
+	}
+
+	/** v0.14.20: rule 2 (com.projecthero.mod.combat.HeroTargets#isHostile) -- automatic picks and huge sweeps. */
+	public static boolean isHostileTarget(ServerPlayer owner, LivingEntity e) {
+		return com.projecthero.mod.combat.HeroTargets.isHostile(owner, e);
+	}
+
+	public static List<LivingEntity> hostileTargets(ServerPlayer owner, AABB box) {
+		return ((ServerLevel) owner.level()).getEntitiesOfClass(LivingEntity.class, box, e -> isHostileTarget(owner, e));
 	}
 
 	/**

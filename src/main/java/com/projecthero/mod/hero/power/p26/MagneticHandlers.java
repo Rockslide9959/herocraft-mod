@@ -766,7 +766,7 @@ public final class MagneticHandlers {
 				return false;
 			}
 			for (LivingEntity le : level.getEntitiesOfClass(LivingEntity.class, entity.getBoundingBox().inflate(0.55),
-					e -> e.isAlive() && e != owner && !(e instanceof net.minecraft.world.entity.decoration.ArmorStand))) {
+					e -> com.projecthero.mod.combat.HeroTargets.canHarm(owner, e))) { // v0.14.20: rule 1
 				AbilityHelpers.hurt(owner, le, damage);
 				AbilityHelpers.knockbackFrom(le, entity.position(), knockback);
 				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, le.getX(), le.getY() + le.getBbHeight() * 0.5, le.getZ(),
@@ -867,8 +867,7 @@ public final class MagneticHandlers {
 				MagneticMass mass = MagneticMass.of(e);
 				LivingEntity hit = null;
 				for (LivingEntity le : level.getEntitiesOfClass(LivingEntity.class, e.getBoundingBox().inflate(0.7),
-						x -> x.isAlive() && x != owner
-								&& !(x instanceof net.minecraft.world.entity.decoration.ArmorStand))) {
+						x -> com.projecthero.mod.combat.HeroTargets.canHarm(owner, x))) { // v0.14.20: rule 1
 					if (dealt.getOrDefault(le.getId(), 0.0f) < STORM_PER_TARGET_CAP) {
 						hit = le;
 						break;

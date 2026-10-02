@@ -15,6 +15,7 @@
       "com.projecthero.mod.gametest.V01415GameTests",
       "com.projecthero.mod.gametest.MjolnirRecallV01416GameTests",
       "com.projecthero.mod.gametest.StormbreakerGameTests",
+      "com.projecthero.mod.gametest.TargetingV01420GameTests",
       "com.projecthero.mod.gametest.HeroPackGameTests",
       "com.projecthero.mod.gametest.ZombieRaidGameTests",
       "com.projecthero.mod.gametest.SpiderManGameTests",

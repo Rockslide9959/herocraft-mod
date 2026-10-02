@@ -160,10 +160,8 @@ public class ThornSentryEntity extends Entity {
 		if (e instanceof Player || e instanceof ArmorStand || !e.isAlive()) {
 			return false; // players are never shot -- not the owner, not squad-mates, not anyone
 		}
-		if (owner != null && (e == owner || Squads.areAllies(owner, e))) {
-			return false;
-		}
-		return e instanceof Enemy || (owner != null && e instanceof Mob m && m.getTarget() == owner);
+		// v0.14.20: otherwise the shared rule 2 (HeroTargets#isHostile) -- threats only, never the owner's pets
+		return com.projecthero.mod.combat.HeroTargets.isHostile(owner, e);
 	}
 
 	private void wither(ServerLevel level) {

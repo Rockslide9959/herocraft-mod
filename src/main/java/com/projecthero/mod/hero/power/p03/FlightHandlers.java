@@ -267,7 +267,7 @@ public final class FlightHandlers {
 			ctx.level().sendParticles(ParticleTypes.CLOUD, behind.x, behind.y + 0.3, behind.z, 4, 0.15, 0.15, 0.15, 0.01);
 			ctx.level().sendParticles(ParticleTypes.SONIC_BOOM, behind.x, behind.y + 0.3, behind.z, 1, 0.0, 0.0, 0.0, 0.0);
 			if (t % 10 == 0 && p.getDeltaMovement().lengthSqr() > 0.2) {
-				for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 4.5)) {
+				for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), 4.5)) {
 					AbilityHelpers.hurt(p, e, 11.0f);
 					AbilityHelpers.knockbackFrom(e, p.position(), 1.6);
 				}

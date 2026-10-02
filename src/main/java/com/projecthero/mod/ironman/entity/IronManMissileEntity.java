@@ -110,7 +110,7 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 		LivingEntity best = null;
 		double bestSq = 144.0;
 		for (LivingEntity e : level().getEntitiesOfClass(LivingEntity.class, getBoundingBox().inflate(12.0),
-				this::canTargetLiving)) {
+				this::canHomeOn)) {
 			double d = e.distanceToSqr(this);
 			if (d < bestSq) {
 				bestSq = d;
@@ -130,15 +130,13 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 	 * target list already respected this rule; only the in-flight homing and the blast did not.
 	 */
 	private boolean canTargetLiving(LivingEntity e) {
-		if (!e.isAlive() || e == getOwner()
-				|| e instanceof net.minecraft.world.entity.decoration.ArmorStand) {
-			return false;
-		}
-		if (e instanceof net.minecraft.world.entity.player.Player) {
-			return com.projecthero.mod.hero.HeroConfig.get().abilityPvpDamage
-					&& level().getServer() != null && level().getServer().isPvpAllowed();
-		}
-		return true;
+		// v0.14.20: the shared rule 1 (HeroTargets#canHarm) for what it hits and what its blast catches
+		return com.projecthero.mod.combat.HeroTargets.canHarm(getOwner(), e);
+	}
+
+	/** v0.14.20: the in-flight homing picks only threats (rule 2, HeroTargets#isHostile). */
+	private boolean canHomeOn(LivingEntity e) {
+		return com.projecthero.mod.combat.HeroTargets.isHostile(getOwner(), e);
 	}
 
 	@Override

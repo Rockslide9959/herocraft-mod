@@ -52,7 +52,7 @@ public final class GreenLanternScan {
 		IntList passiveIds = new IntArrayList();
 		for (LivingEntity e : AbilityHelpers.living(level, player.position(), GreenLanternConfig.SCAN_RADIUS,
 				le -> le != player && !(le instanceof Player))) {
-			if (e instanceof Enemy) {
+			if (com.projecthero.mod.combat.HeroTargets.isHostile(player, e)) { // v0.14.20: rule 2 threat list
 				hostileIds.add(e.getId());
 			} else {
 				passiveIds.add(e.getId());

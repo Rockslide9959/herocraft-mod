@@ -1203,11 +1203,8 @@ public final class GreenLanternConstructs {
 
 	/** The ram passes through players it could never hurt (PvP off, squadmates, creative/spectator) instead of stopping on them. */
 	private static boolean rammable(ServerPlayer owner, LivingEntity e) {
-		if (!(e instanceof net.minecraft.world.entity.player.Player p)) {
-			return true;
-		}
-		return !p.isSpectator() && !p.isCreative() && owner.getServer() != null && owner.getServer().isPvpAllowed()
-				&& !isSquadmate(owner, p);
+		// v0.14.20: the shared rule 1 (aimed) -- also passes through the owner's pets
+		return com.projecthero.mod.combat.HeroTargets.canHarm(owner, e);
 	}
 
 	private static void tickRams(MinecraftServer server) {
@@ -1713,19 +1710,8 @@ public final class GreenLanternConstructs {
 	}
 
 	public static boolean isHostileTarget(ServerPlayer owner, LivingEntity e) {
-		if (e == owner || !e.isAlive()) {
-			return false;
-		}
-		if (e instanceof net.minecraft.world.entity.player.Player p) {
-			if (isSquadmate(owner, p)) {
-				return false;
-			}
-			return owner.getServer() != null && owner.getServer().isPvpAllowed();
-		}
-		if (e instanceof TamableAnimal tame && tame.isTame()) {
-			return false; // never target friendly tamed mobs
-		}
-		return e instanceof net.minecraft.world.entity.monster.Enemy;
+		// v0.14.20: the shared rule 2 (com.projecthero.mod.combat.HeroTargets#isHostile) -- turrets, homing, chains
+		return com.projecthero.mod.combat.HeroTargets.isHostile(owner, e);
 	}
 
 	private static boolean isSquadmate(ServerPlayer owner, net.minecraft.world.entity.player.Player other) {

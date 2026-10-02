@@ -118,10 +118,8 @@ public final class AllMightShockwave {
 	}
 
 	private static List<LivingEntity> candidates(ServerPlayer owner, ServerLevel level, AABB box) {
-		boolean pvp = owner.getServer() != null && owner.getServer().isPvpAllowed();
-		return level.getEntitiesOfClass(LivingEntity.class, box, e -> e != owner && e.isAlive()
-				&& !(e instanceof net.minecraft.world.entity.decoration.ArmorStand)
-				&& (!(e instanceof net.minecraft.world.entity.player.Player) || pvp));
+		// v0.14.20: the shared rule 1 (HeroTargets#canHarm) -- Smashes are aimed / centred on his own blow
+		return level.getEntitiesOfClass(LivingEntity.class, box, e -> com.projecthero.mod.combat.HeroTargets.canHarm(owner, e));
 	}
 
 	public static boolean strike(ServerPlayer owner, LivingEntity target, Vec3 origin, Wave wave) {
