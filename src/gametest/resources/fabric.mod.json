@@ -26,6 +26,7 @@
       "com.projecthero.mod.gametest.PunisherGameTests",
       "com.projecthero.mod.gametest.TitanGameTests",
       "com.projecthero.mod.gametest.TitanBossV0144GameTests",
+      "com.projecthero.mod.gametest.TitanModelV01420GameTests",
       "com.projecthero.mod.gametest.GreenLanternGameTests",
       "com.projecthero.mod.gametest.V0143GameTests",
       "com.projecthero.mod.gametest.V0144GraveHulkGameTests",

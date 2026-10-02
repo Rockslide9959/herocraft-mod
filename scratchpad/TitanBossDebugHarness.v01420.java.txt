@@ -1,0 +1,316 @@
+package com.projecthero.mod.client;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.titan.entity.TitanEntity;
+import com.projecthero.mod.titan.entity.TitanEntityTypes;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.14.20 Titan model + animation tour. */
+public final class TitanV01420DebugHarness {
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static TitanEntity titan;
+	private static Vec3 base;
+	private static Vec3 titanAt;
+	private static final float TITAN_YAW = 0.0f; // facing +Z
+	private static Vec3 lastPos;
+	private static final String ONLY = System.getenv("PROJECTHERO_TITAN_ONLY");
+
+	private TitanV01420DebugHarness() {
+	}
+
+	public static void init() {
+		ClientTickEvents.END_CLIENT_TICK.register(TitanV01420DebugHarness::tick);
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					fn.accept(p);
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "v01420_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		Runnable prev = AT.get(t);
+		AT.put(t, prev == null ? r : () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void view(Minecraft mc, Vec3 from, Vec3 to) {
+		server(mc, p -> {
+			Vec3 d = to.subtract(from);
+			float yaw = (float) (Math.atan2(d.z, d.x) * 180.0 / Math.PI) - 90.0f;
+			float pitch = (float) -(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)) * 180.0 / Math.PI);
+			p.teleportTo(p.serverLevel(), from.x, from.y, from.z, yaw, pitch);
+		});
+	}
+
+	/** Camera relative to the Titan: right/forward/up offsets in the Titan's own frame (it faces +Z). */
+	private static void cam(Minecraft mc, double right, double up, double fwd, double lookUp) {
+		Vec3 c = titan == null ? titanAt : titan.position();
+		view(mc, c.add(-right, up, fwd), c.add(0, lookUp, 0));
+	}
+
+	private static void resetTitan(Minecraft mc) {
+		server(mc, p -> {
+			titan.setDeltaMovement(Vec3.ZERO);
+			titan.moveTo(titanAt.x, titanAt.y, titanAt.z, TITAN_YAW, 0.0f);
+			titan.setYHeadRot(TITAN_YAW);
+			titan.yBodyRot = TITAN_YAW;
+			titan.getMoveControl().setWantedPosition(titanAt.x, titanAt.y, titanAt.z, 0.0);
+			titan.debugPlayAnim(TitanEntity.Anim.NONE, 0);
+		});
+	}
+
+	private static void holdYaw() {
+		titan.setYRot(TITAN_YAW);
+		titan.yBodyRot = TITAN_YAW;
+		titan.yBodyRotO = TITAN_YAW;
+		titan.setYHeadRot(TITAN_YAW);
+		titan.yRotO = TITAN_YAW;
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				LevelSettings settings = new LevelSettings("TitanV01420Debug" + System.currentTimeMillis() % 100000,
+						GameType.CREATIVE, false, Difficulty.NORMAL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				base = Vec3.atBottomCenterOf(p.blockPosition());
+				int gy = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(base.x), (int) Math.floor(base.z + 30));
+				titanAt = new Vec3(base.x, gy, base.z + 30);
+				System.out.println("[HARNESS] base=" + base + " titanAt=" + titanAt);
+				titan = TitanEntityTypes.TITAN.create(level);
+				titan.moveTo(titanAt.x, titanAt.y, titanAt.z, TITAN_YAW, 0.0f);
+				titan.setYHeadRot(TITAN_YAW);
+				titan.yBodyRot = TITAN_YAW;
+				level.addFreshEntity(titan);
+			});
+			t0 = inWorldTicks;
+			buildScript(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static boolean want(String part) {
+		return ONLY == null || ONLY.isEmpty() || ONLY.contains(part);
+	}
+
+	private static int t;
+
+	private static void buildScript(Minecraft mc) {
+		t = 5;
+		if (want("idle")) {
+			at(t, () -> cam(mc, 16, 9, 30, 8));
+			at(t + 30, () -> shot(mc, "a00_idle_34"));
+			at(t + 32, () -> cam(mc, 0, 9, 32, 8));
+			at(t + 50, () -> shot(mc, "a01_idle_front"));
+			at(t + 52, () -> cam(mc, 34, 9, 0, 8));
+			at(t + 70, () -> shot(mc, "a02_idle_side"));
+			at(t + 72, () -> cam(mc, -14, 12, -26, 8));
+			at(t + 90, () -> shot(mc, "a03_idle_back"));
+			at(t + 92, () -> view(mc, titanAt.add(-4, 11.8, 22), titanAt.add(0, 11.8, 8.7)));
+			at(t + 110, () -> shot(mc, "a04_face"));
+			at(t + 112, () -> server(mc, p -> p.serverLevel().setDayTime(18000L)));
+			at(t + 135, () -> shot(mc, "a05_face_night"));
+			at(t + 137, () -> cam(mc, 16, 9, 30, 8));
+			at(t + 160, () -> shot(mc, "a06_idle_night"));
+			at(t + 162, () -> server(mc, p -> p.serverLevel().setDayTime(6000L)));
+			t += 180;
+		}
+		if (want("walk")) {
+			// walk: the side-on camera rides along with it
+			final int s = t;
+			at(s, () -> server(mc, p -> {
+				titan.getMoveControl().setWantedPosition(titanAt.x, titanAt.y, titanAt.z + 200, 1.0);
+				lastPos = titan.position();
+			}));
+			for (int i = 1; i <= 70; i++) {
+				final int k = i;
+				at(s + i, () -> server(mc, p -> {
+					titan.getMoveControl().setWantedPosition(titanAt.x, titanAt.y, titanAt.z + 200, 1.0);
+					if (k % 10 == 0) {
+						System.out.printf("[HARNESS] walk speed %.3f b/t anim=%s%n", titan.position().distanceTo(lastPos) / 10.0, titan.currentAnim());
+						lastPos = titan.position();
+					}
+				}));
+				if (k > 20) {
+					at(s + i, () -> cam(mc, 30, 9, 4, 8));
+				}
+			}
+			at(s + 40, () -> shot(mc, "b00_walk_a"));
+			at(s + 47, () -> shot(mc, "b01_walk_b"));
+			at(s + 54, () -> shot(mc, "b02_walk_c"));
+			at(s + 61, () -> shot(mc, "b03_walk_d"));
+			at(s + 72, () -> resetTitan(mc));
+			// run (chase speed)
+			final int r = s + 80;
+			at(r, () -> server(mc, p -> lastPos = titan.position()));
+			for (int i = 0; i <= 60; i++) {
+				final int k = i;
+				at(r + i, () -> server(mc, p -> {
+					titan.getMoveControl().setWantedPosition(titanAt.x, titanAt.y, titanAt.z + 300, 0.475 / 0.30);
+					if (k % 10 == 0 && k > 0) {
+						System.out.printf("[HARNESS] run speed %.3f b/t%n", titan.position().distanceTo(lastPos) / 10.0);
+						lastPos = titan.position();
+					}
+				}));
+				if (k > 15) {
+					at(r + i, () -> cam(mc, 22, 8, 22, 8));
+				}
+			}
+			at(r + 35, () -> shot(mc, "b04_run_a"));
+			at(r + 41, () -> shot(mc, "b05_run_b"));
+			at(r + 47, () -> shot(mc, "b06_run_c"));
+			at(r + 62, () -> resetTitan(mc));
+			t = r + 80;
+		}
+		String[] attacks = {"PUNCH", "SWEEP", "STOMP", "SLAM", "SHOCKWAVE", "GRAB", "BOULDER", "CHARGE", "LEAP", "ROAR"};
+		for (String a : attacks) {
+			if (!want(a.toLowerCase())) {
+				continue;
+			}
+			final int s = t;
+			at(s - 3, () -> cam(mc, a.equals("BOULDER") || a.equals("SLAM") ? 26 : 22, a.equals("BOULDER") ? 14 : 8, a.equals("BOULDER") ? 34 : 26, a.equals("BOULDER") ? 12 : 8));
+			if (!a.equals("CHARGE") && !a.equals("LEAP")) {
+				for (int k = 1; k < 100; k++) {
+					at(s + k, () -> server(mc, p -> holdYaw()));
+				}
+			}
+			at(s, () -> server(mc, p -> {
+				boolean ok = titan.debugBeginAttack(a, false);
+				System.out.println("[HARNESS] begin " + a + " ok=" + ok + " anim=" + titan.currentAnim());
+			}));
+			at(s + 20, () -> shot(mc, "c_" + a + "_1windup"));
+			at(s + 37, () -> shot(mc, "c_" + a + "_2cocked"));
+			at(s + 41, () -> shot(mc, "c_" + a + "_3strike"));
+			at(s + 50, () -> shot(mc, "c_" + a + "_4after"));
+			if (a.equals("LEAP") || a.equals("CHARGE") || a.equals("ROAR")) {
+				at(s + 46, () -> shot(mc, "c_" + a + "_5later"));
+				at(s + 58, () -> shot(mc, "c_" + a + "_6later"));
+				at(s + 70, () -> shot(mc, "c_" + a + "_7later"));
+			}
+			if (a.equals("BOULDER")) {
+				at(s + 28, () -> shot(mc, "c_" + a + "_1b_lift"));
+				at(s + 34, () -> shot(mc, "c_" + a + "_1c_over"));
+			}
+			at(s + 110, () -> resetTitan(mc));
+			t = s + 120;
+		}
+		if (want("grabthrow")) {
+			final int s = t;
+			at(s - 3, () -> cam(mc, 22, 8, 26, 8));
+			at(s, () -> server(mc, p -> titan.debugPlayAnim(TitanEntity.Anim.GRAB_THROW, 52)));
+			at(s + 10, () -> shot(mc, "d_GRAB_THROW_1hold"));
+			at(s + 24, () -> shot(mc, "d_GRAB_THROW_2windback"));
+			at(s + 31, () -> shot(mc, "d_GRAB_THROW_3hurl"));
+			at(s + 60, () -> resetTitan(mc));
+			t = s + 70;
+		}
+		if (want("swat")) {
+			final int s = t;
+			at(s - 3, () -> cam(mc, 22, 8, 26, 8));
+			at(s, () -> server(mc, p -> titan.debugPlayAnim(TitanEntity.Anim.SWAT, 24)));
+			at(s + 8, () -> shot(mc, "d_SWAT_1raise"));
+			at(s + 11, () -> shot(mc, "d_SWAT_2chop"));
+			at(s + 40, () -> resetTitan(mc));
+			t = s + 50;
+		}
+		if (want("intro")) {
+			final int s = t;
+			at(s - 3, () -> cam(mc, 22, 8, 26, 8));
+			at(s, () -> server(mc, p -> titan.debugPlayAnim(TitanEntity.Anim.INTRO, 56)));
+			at(s + 4, () -> shot(mc, "d_INTRO_1low"));
+			at(s + 18, () -> shot(mc, "d_INTRO_2rise"));
+			at(s + 34, () -> shot(mc, "d_INTRO_3roar"));
+			at(s + 70, () -> resetTitan(mc));
+			t = s + 80;
+		}
+		if (want("hurt")) {
+			final int s = t;
+			at(s - 3, () -> cam(mc, 22, 8, 26, 8));
+			at(s, () -> server(mc, p -> titan.hurt(p.damageSources().playerAttack(p), 5.0f)));
+			at(s + 4, () -> shot(mc, "d_HURT"));
+			t = s + 20;
+		}
+		if (want("death")) {
+			final int s = t;
+			at(s - 3, () -> cam(mc, 30, 10, 26, 6));
+			at(s, () -> server(mc, p -> { titan.setHealth(0.0f); titan.die(p.damageSources().genericKill()); }));
+			at(s + 9, () -> shot(mc, "e_DEATH_1recoil"));
+			at(s + 22, () -> shot(mc, "e_DEATH_2stumble"));
+			at(s + 34, () -> shot(mc, "e_DEATH_3knees"));
+			at(s + 48, () -> shot(mc, "e_DEATH_4sway"));
+			at(s + 60, () -> shot(mc, "e_DEATH_5topple"));
+			at(s + 68, () -> shot(mc, "e_DEATH_6impact"));
+			at(s + 80, () -> shot(mc, "e_DEATH_7lying"));
+			t = s + 100;
+		}
+		at(t + 10, () -> mc.stop());
+	}
+}

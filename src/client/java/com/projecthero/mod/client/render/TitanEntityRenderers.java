@@ -1,7 +1,5 @@
 package com.projecthero.mod.client.render;
 
-import com.projecthero.mod.ProjectHeroMod;
-import com.projecthero.mod.titan.entity.TitanEntity;
 import com.projecthero.mod.titan.entity.TitanEntityTypes;
 
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
@@ -10,20 +8,18 @@ import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * Client renderers for the Titan boss. Both zombie-shaped forms reuse the shared
- * {@link RaidZombieRenderer} (vanilla zombie model + armour layers, just a different texture/scale)
- * exactly like the Zombie Raid's own bosses -- no bespoke model, per the spec's explicit "temporary
- * placeholder, don't spend time on a custom model yet" instruction.
+ * Client renderers for the Titan boss.
  *
- * <h2>Where to drop a real Titan texture later</h2>
- * Replace {@code assets/projecthero/textures/entity/titan.png} (a plain 64x64 zombie-skin-layout PNG)
- * with a real piece of art of the same dimensions -- nothing else in this class, or in
- * {@link TitanEntity}, needs to change.
+ * <ul>
+ * <li>The Disguised Titan ("Wanderer") uses the shared {@link RaidZombieRenderer} with vanilla's own zombie
+ * texture -- it should look like an ordinary zombie until it transforms.</li>
+ * <li>v0.14.20: the real Titan has its own GeckoLib model, texture, glowmask and animations ({@link TitanRenderer};
+ * assets from {@code scratchpad/gen_v01420_titan_model.js}).</li>
+ * </ul>
  */
 public final class TitanEntityRenderers {
 	private static final ResourceLocation DISGUISED_TITAN =
 			ResourceLocation.withDefaultNamespace("textures/entity/zombie/zombie.png");
-	private static final ResourceLocation TITAN = ProjectHeroMod.id("textures/entity/titan.png");
 
 	private TitanEntityRenderers() {
 	}
@@ -34,8 +30,7 @@ public final class TitanEntityRenderers {
 		EntityRendererRegistry.register(TitanEntityTypes.DISGUISED_TITAN,
 				context -> new RaidZombieRenderer<>(context, RaidZombieRenderer.fixed(DISGUISED_TITAN), 1.0f));
 
-		// v0.14.4: its own renderer -- same rig/texture/scale, but animated (TitanModel) and holding its boulder.
-		EntityRendererRegistry.register(TitanEntityTypes.TITAN, context -> new TitanRenderer(context, TITAN));
+		EntityRendererRegistry.register(TitanEntityTypes.TITAN, TitanRenderer::new);
 
 		EntityRendererRegistry.register(TitanEntityTypes.TITAN_BOULDER, ThrownItemRenderer::new);
 	}
