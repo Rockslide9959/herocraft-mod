@@ -5,7 +5,8 @@ Green Lantern, Wolverine, a Titan Shifter, All Might, the Hulk, Moon Knight, a S
 experimental superpowers. Then put them to the test against world raids, the Oathbreaker and Darkseid himself.
 
 Every hero is a full survival progression, not a creative-only toy: you earn each power, fuel it, master it, and can
-lose it again.
+lose it again. Aimed powers hit anything you point them at (mobs, animals, players with PvP on), while automatic and
+huge-area powers only go after real threats -- never your squad or your pets.
 
 💬 **[Join the Discord](https://discord.gg/3jzdAmmfnC)** for updates, changelogs, sneak peeks and support.
 
@@ -56,6 +57,8 @@ Lightning Rod). The hammer only moves for a **Hero of the Village**. Lift it wit
   **lava in the Nether** to forge it. 14 melee; right-click hurls it through up to 4 enemies with a lightning strike and
   it flies back to you; **Shift + Right-click opens the Bifrost menu**: beam yourself and nearby squadmates to any coordinates or one of 3 saved waypoints (1-minute cooldown).
   It works as Thor's weapon for his lightning and flight.
+- **3-hit melee combos** with Mjolnir and Stormbreaker: full-strength swings chain into a sweep, a backhand and an
+  overhead finisher (+50% damage -- a thunder shockwave with Mjolnir, a wide cleave with Stormbreaker).
 - **H** calls down lightning and forges **Thor's Armour** onto you piece by piece -- boots, greaves, then chestplate and
   a flowing **crimson cape**, each arriving with its own bolt from the sky. Diamond-level: the three pieces equal a full
   diamond set.
@@ -73,7 +76,8 @@ Build an **Arc Reactor**, the **Stark Fabricator** and a **Suit Platform**, then
   flight with no suit at all.
 - **Stark Sorting Station:** fill its 54-slot store, press **Sort**, and a little **Sorter Bot** flies out and files
   everything (carried in its hands, flying where it faces) into the chests and barrels within 10 blocks -- the more chests, the finer it sorts, and it keeps each
-  chest's existing theme. Watch it work in real time.
+  chest's existing theme. Watch it work in real time. Chests got jumbled? Press **Tidy** and the bot flies the misplaced
+  stacks chest-to-chest back where they belong and merges split stacks.
 
 ### 🕷️ Spider-Man
 Grown from the **Spider Climbing / Adhesion** mutation with an **Arachnid Mutagen**.
