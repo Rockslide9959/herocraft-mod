@@ -305,9 +305,9 @@ Craft a **Zombie, Skeleton or Spider Horde** block (a 3x3 of rotten flesh / bone
 for **8 waves** and a boss -- harder each tier, with a reward chest that gets richer to match.
 - **Zombie Horde** ends with **the Titan**.
 - **Skeleton Horde:** Bone Runners, Blight Archers, shield-walled Bone Knights, TNT-headed Bone Bombers, Necromancers and
-  Bone Brutes -- then **the Bone Tyrant**, a 2,000-health, 7-block lich-king with ten telegraphed attacks over three phases.
+  Bone Brutes -- then **the Bone Tyrant**, a 1,200-health, 7-block lich-king with ten telegraphed attacks over three phases.
 - **Spider Horde:** Hunters, Venom Spitters, Trapdoor Leapers, Acid Bursters, Ironback Brutes, invisible Shadow Stalkers and
-  Broodmothers -- then **the Brood Queen**, a 2,400-health spider queen with nine attacks, web cocoons and acid rain.
+  Broodmothers -- then **the Brood Queen**, a 1,400-health spider queen with nine attacks, web cocoons and acid rain.
 
 ---
 

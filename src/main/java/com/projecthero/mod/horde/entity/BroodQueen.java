@@ -70,7 +70,7 @@ import software.bernie.geckolib.util.GeckoLibUtil;
  * The Spider Horde's boss. v0.14.12 she was a vanilla spider at 3.5x; <b>v0.14.16</b> she is rebuilt as a GeckoLib boss
  * -- her own model (about 5.5 blocks tall and 7.5 across: eight jointed legs, a bloated abdomen crowned with glowing egg
  * sacs, a chitin crown, fangs and ten burning eyes), her own animations and a telegraphed attack state machine. She is
- * the hardest horde boss: {@value #BASE_HEALTH} health (the Titan has 1,800) plus {@value #HEALTH_PER_FIGHTER} per extra
+ * the hardest horde boss: {@value #BASE_HEALTH} health by default (config/projecthero_horde.json) plus {@value #HEALTH_PER_FIGHTER} per extra
  * fighter, 18 armour / 10 toughness, immune to knockback, fall damage and fire.
  *
  * <p><b>Three phases</b> (by health: above 2/3, above 1/3, below), each opened by a <b>Shriek</b> (she rears up and
@@ -98,8 +98,8 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 public class BroodQueen extends Spider implements GeoEntity {
 	/** Kept for older callers: the v0.14.12 queen was a vanilla spider at this scale; the GeckoLib queen is full size. */
 	public static final float SCALE = 1.0f;
-	public static final double BASE_HEALTH = 2400.0; // v0.14.17: was 4000
-	public static final double HEALTH_PER_FIGHTER = 1200.0;
+	public static final double BASE_HEALTH = 1400.0; // v0.14.20: was 2400 -- the live number is HordeConfig.broodQueenHealth
+	public static final double HEALTH_PER_FIGHTER = 300.0; // default of HordeConfig.healthPerExtraFighter
 	public static final float WIDTH = 4.4f;
 	public static final float HEIGHT = 3.4f;
 	public static final int INTRO_TICKS = 40;
@@ -215,7 +215,7 @@ public class BroodQueen extends Spider implements GeoEntity {
 
 	/** Sets her health for {@code players} fighting her (within the mod's raised health ceiling). */
 	public void configure(int players) {
-		double hp = Math.min(TitanHealthCap.NEW_MAX_HEALTH_CEILING, BASE_HEALTH + HEALTH_PER_FIGHTER * Math.max(0, players - 1));
+		double hp = Math.min(TitanHealthCap.NEW_MAX_HEALTH_CEILING, com.projecthero.mod.horde.HordeConfig.healthFor(com.projecthero.mod.horde.HordeConfig.bosses().broodQueenHealth, players));
 		getAttribute(Attributes.MAX_HEALTH).setBaseValue(hp);
 		setHealth((float) hp);
 	}

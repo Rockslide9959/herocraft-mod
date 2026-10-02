@@ -278,8 +278,12 @@ public class SkeletonHordeV01416GameTests implements FabricGameTest {
 	public void v01417BossHealthIsLowered(GameTestHelper helper) {
 		BoneTyrant tyrant = HordeEntityTypes.BONE_TYRANT.create(helper.getLevel());
 		tyrant.configure(1);
-		helper.assertTrue(tyrant.getMaxHealth() == 2000f, "the Bone Tyrant has 2,000 health alone, got " + tyrant.getMaxHealth());
-		helper.assertTrue(com.projecthero.mod.horde.entity.BroodQueen.BASE_HEALTH == 2400.0, "the Brood Queen has 2,400");
+		// v0.14.20: read from config/projecthero_horde.json (defaults 1,200 / 1,400 / Titan 1,000)
+		helper.assertTrue(tyrant.getMaxHealth() == (float) com.projecthero.mod.horde.HordeConfig.bosses().boneTyrantHealth,
+				"the Bone Tyrant takes his health from the horde config, got " + tyrant.getMaxHealth());
+		helper.assertTrue(com.projecthero.mod.horde.entity.BroodQueen.BASE_HEALTH == 1400.0, "the Brood Queen has 1,400");
+		helper.assertTrue(com.projecthero.mod.horde.HordeConfig.bosses().zombieTitanHealth < com.projecthero.mod.titan.TitanConfig.stats().health,
+				"the horde Titan is weaker than the wilderness one");
 		tyrant.discard();
 		helper.succeed();
 	}
@@ -308,7 +312,7 @@ public class SkeletonHordeV01416GameTests implements FabricGameTest {
 		TitanEntity titan = TitanEntityTypes.TITAN.create(helper.getLevel());
 		tyrant.configure(1);
 		tyrant.refreshDimensions();
-		helper.assertTrue(tyrant.getMaxHealth() > titan.getMaxHealth(), "more health than the Titan: " + tyrant.getMaxHealth() + " vs " + titan.getMaxHealth());
+		helper.assertTrue(tyrant.getMaxHealth() > com.projecthero.mod.horde.HordeConfig.bosses().zombieTitanHealth, "more health than the horde Titan: " + tyrant.getMaxHealth()); // v0.14.20
 		helper.assertTrue(tyrant.getAttributeValue(Attributes.ARMOR) > titan.getAttributeValue(Attributes.ARMOR)
 				&& tyrant.getAttributeValue(Attributes.ARMOR_TOUGHNESS) > titan.getAttributeValue(Attributes.ARMOR_TOUGHNESS), "and heavier armour");
 		helper.assertTrue(tyrant.getAttributeValue(Attributes.ATTACK_DAMAGE) > titan.getAttributeValue(Attributes.ATTACK_DAMAGE), "and hits harder");

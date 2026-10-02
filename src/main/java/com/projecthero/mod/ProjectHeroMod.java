@@ -67,6 +67,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.titanshifter.TitanShifterConfig.load();
 		com.projecthero.mod.hulk.HulkConfig.load();
 		com.projecthero.mod.behemoth.BehemothConfig.load();
+		com.projecthero.mod.horde.HordeConfig.load(); // v0.14.20: horde boss health
 		// v0.13.18: the Darkseid Raid (read before its entity types -- they take attributes and hit-box scale from it).
 		com.projecthero.mod.darkseid.DarkseidConfig.load();
 		ModAttachments.initialize();

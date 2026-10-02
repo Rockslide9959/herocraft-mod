@@ -74,8 +74,8 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 public class BoneTyrant extends Monster implements GeoEntity {
 	/** The geo model is authored two blocks tall; the SCALE attribute makes him ~7 (the hit-box follows). */
 	public static final float SCALE = 3.5f;
-	public static final double BASE_HEALTH = 2000.0; // v0.14.17: was 2400
-	public static final double HEALTH_PER_FIGHTER = 600.0;
+	public static final double BASE_HEALTH = 1200.0; // v0.14.20: was 2000 -- the live number is HordeConfig.boneTyrantHealth
+	public static final double HEALTH_PER_FIGHTER = 300.0; // default of HordeConfig.healthPerExtraFighter
 	public static final double MAX_HEALTH_CAP = 6000.0;
 	public static final double ARMOR = 16.0;
 	public static final double ARMOR_TOUGHNESS = 12.0;
@@ -114,9 +114,9 @@ public class BoneTyrant extends Monster implements GeoEntity {
 				.add(Attributes.SCALE, SCALE);
 	}
 
-	/** Sets his health for {@code players} fighting him: 2,000 alone, 600 more per extra fighter, at most 6,000. */
+	/** Sets his health for {@code players} fighting him, from {@link com.projecthero.mod.horde.HordeConfig}. */
 	public void configure(int players) {
-		double hp = Math.min(MAX_HEALTH_CAP, BASE_HEALTH + HEALTH_PER_FIGHTER * Math.max(0, players - 1));
+		double hp = Math.min(MAX_HEALTH_CAP, com.projecthero.mod.horde.HordeConfig.healthFor(com.projecthero.mod.horde.HordeConfig.bosses().boneTyrantHealth, players));
 		getAttribute(Attributes.MAX_HEALTH).setBaseValue(hp);
 		setHealth((float) hp);
 	}

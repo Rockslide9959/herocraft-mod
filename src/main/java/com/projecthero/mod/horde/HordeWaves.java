@@ -90,6 +90,9 @@ public final class HordeWaves {
 					return null;
 				}
 				titan.moveTo(at.x, at.y, at.z, level.random.nextFloat() * 360f, 0f);
+				// v0.14.20: the horde Titan has its own (lower) health, not the wilderness Titan's
+				titan.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH)
+						.setBaseValue(HordeConfig.healthFor(HordeConfig.bosses().zombieTitanHealth, players));
 				level.addFreshEntity(titan);
 				titan.onTransformed();
 				return titan;
