@@ -1,0 +1,85 @@
+Project Hero v0.14.16 -- Sort, Soar and Survive the Horde
+
+🤖 NEW: STARK SORTING STATION
+- A new Stark-tech block with a 54-slot store (double-chest size). Fill it, press Sort, and a little red-and-gold Stark Sorter Bot unfolds from the launch pad and tidies your storage for you.
+- The bot scans every chest, trapped chest and barrel within 10 blocks of the station (a double chest counts as one) and decides by itself what goes where.
+- The number of chests decides how finely it sorts. With 1-3 chests it uses four broad groups (Blocks / Tools & Combat / Food & Farming / Misc). With more it splits into up to 13 categories: Stone & Building, Wood, Decoration, Combat, Tools, Food, Farming & Plants, Ores & Minerals, Redstone, Mob Drops, Potions & Brewing, Project Hero Gear and Misc -- and your biggest categories get extra chests.
+- It respects your storage: a chest that already holds mostly food stays the food chest, and items go first to the chest already holding the same item.
+- Watch it work in real time: it flies to each chest, opens the lid, files up to 3 stacks per trip and comes back. A packed station takes about a minute, and the screen shows live progress.
+- Overflow goes to the next chest of the same category, then to any chest with room. Anything that fits nowhere stays in the station and the bot tells you.
+- Nothing is ever lost or duplicated: breaking the station drops everything, including what the bot was carrying.
+- Recipe: Gold Ingot / Basic Circuit / Gold Ingot -- Mechanical Part / Chest / Mechanical Part -- Iron Ingot / Block of Redstone / Iron Ingot. Anyone can use it.
+
+🕊️ DIRECTIONAL FLIGHT, EVERYWHERE
+- Every flight in the mod now flies like Green Lantern's Ring Flight: W / S fly FORWARD / BACKWARD along where you look (look up to climb, down to dive), A / D strafe, Space / Sneak go straight up / down, and letting go eases you into a dead hover.
+- Applies to: Green Lantern, Kryptonian (S now flies backward instead of braking), Thor, Iron Man (every mark, Mark 1 timed flight, supersonic burst), Repulsor Boots, Max Steel Turbo Flight, the Flight mutation (speed tiers + Sonic Flight), Wind / Psychic / Telekinetic / Magnetic flight, rock and flame flight and Magnetic hover.
+- Every flight keeps its own speed, boost, energy / stamina cost and take-off gesture. The late Iron Man marks (6 and 7) now genuinely out-fly the early ones, up to their 30 m/s ceiling.
+- Dashes, dives, launches and knockback still carry you while flying, and flying backward leans you back instead of diving face-first.
+
+☀️ KRYPTONIAN REWORK
+- Solar Energy is a 100-point bar and every move costs far less, so a full bar lasts a long time. It only starts refilling 5 seconds after the last drain of any kind (the bar dims while it waits).
+- Flight costs 0.1 Solar Energy a second (so the bar doesn't refill in the air). With an empty bar you drop out of the sky -- falls never hurt you -- and can't take off until it refills.
+- Regeneration III whenever you're hurt, paid with 1 Solar Energy a second. It switches off the moment you're back to full health or out of energy (replaces the permanent Regeneration I). Direct sunlight still heals you.
+- New layout:
+  R -- Kryptonian Punch (5) / Shift+R -- Thunderclap (5)
+  G -- Heat Vision, held (1 a second) / Shift+G -- Ground Pound (10)
+  Z -- Freeze Breath, held (1 a second) / Shift+Z -- Solar Flare
+  X -- Super Dash, now 28 blocks (3) -- Flight Boost in the air / Shift+X -- Sky Launch (3)
+  C -- NEW Super-Speed Barrage (5) / Shift+C -- NEW Meteor Strike (10)
+  V -- X-Ray Vision toggle (free) / Shift+V -- Pick Up (free)
+- Solar Flare needs a FULL 100 and spends all of it for a 120-damage blast -- then you're powerless for 30 seconds (no powers, flight, regeneration or damage reduction), with Slowness IV, Blindness and Weakness IV for the first 6 seconds.
+- NEW C -- Super-Speed Barrage: eight blows in about a second into everything in front of you, then a haymaker that throws them back.
+- NEW Shift+C -- Meteor Strike: rocket 12 blocks up and dive fists-first, on fire, at whatever you're looking at. The impact hits everything within 6 blocks and sets it alight.
+- X-Ray Vision is now an on/off toggle. FIXED: other players could see the glowing outlines too -- now only you can.
+- Pick Up has no time limit any more: carry anything up to 4.5 blocks wide (not bosses), even while flying. It follows your look smoothly and can't hurt anyone or escape. Press Shift+V again to set it down gently (no damage, no fall damage); V or attacking it throws it.
+- The V abilities never cost Solar Energy.
+
+⚡ SUPER SPEED
+- Overdrive: press V again to end it early (holding V doesn't -- let go and press again). The cooldown still counts from when you switched it on.
+- Overdrive speeds: ~32 blocks/s walking and ~100 blocks/s sprinting (walking used to run at full sprint speed). The full Flash Suit still adds its +50% on top.
+- Flash Suit durability on the HUD: while the suit is packed in the Flash Ring you're wearing, "Suit 87%" shows just above the Super Speed HUD -- yellow at 50% or below, red at 25% or below.
+- Speed Sweep: the radius is now 50 blocks and the 16-target limit is gone. It keeps going until EVERY enemy that was in range has been hit (or has died or run out of range), then takes you home. Failsafes: an enemy with no room to land beside it is skipped after 5 seconds, a sweep never lasts more than 60 seconds, and pressing X again calls it off.
+
+🔨 THOR
+- Thor's Armour now has a real flowing crimson cape. It streams in the wind when you fly, sways as you walk, follows you when you crouch, and unrolls down your back as the chestplate forms in its lightning (rolling back up when the suit crackles away). Darker red lining, and it never blocks your first-person view.
+- FIXED: calling Mjolnir could duplicate it (hammer in a chest, ender chest, someone else's inventory or an unloaded chunk).
+  - Anywhere loaded, the call now pulls the REAL hammer out and it flies to you: chests, barrels, hoppers, shulker boxes (even one inside a chest), minecarts, item frames, armour stands, another player's hands / inventory / cursor / ender chest, and your own ender chest.
+  - Truly out of reach (unloaded chunk, offline player): a new one answers the call and keeps the old one's name, enchantments and binding -- and the stale copy deletes itself the moment it is seen again (chest opened, chunk loaded, dropped, holder logs in).
+
+🦴 SKELETON HORDE OVERHAUL
+- Six new horde skeletons -- one for each zombie kind the Zombie Horde sends -- mixed into the waves, more common (and tougher) every wave:
+  Bone Runner -- small and fast with a stone dagger, pounces at you from up to 8 blocks.
+  Blight Archer -- rotted archer whose arrows inflict Wither and Hunger (Wither II from wave 6).
+  Bone Knight -- full iron, an axe and a tower shield. Arrows from the front glance off: flank it or close in.
+  Bone Bomber -- TNT head and burning Blast Arrows that explode where they land; it goes off itself when it dies. Its blasts never break blocks.
+  Necromancer -- robed caster that keeps its distance, raises Bone Runners and heals nearby skeletons. Kill it first: its dead crumble when it dies.
+  Bone Brute -- 1.6x size with a mace and a clearly wound-up Ground Slam.
+- THE BONE TYRANT IS REBUILT: a 7-block crowned lich-king with his own model and animations -- a see-through ribcage with a glowing soul core and a bone greatsword.
+  - Stronger than the Titan: 2,400 health (+600 per extra fighter, up to 6,000), 16 armour, 12 toughness, harder hits. Immune to fire, wither and poison; can't be knocked back. His own boss bar shows his phase.
+  - TEN attacks over three phases. Phase 1: Greatsword Sweep, Bone Cleave (a line of spikes), Bone Quake (rings of spikes you can jump), Bone Volley, Raise the Dead, Grave Step (sinks into the ground and rises beside you). Phase 2 adds Arrow Storm, Bone Cage and Tyrant's Charge, with wider cleaves and double quakes. Phase 3 (enraged) adds a sweeping Soul Beam, a wither aura, faster attacks and 15% more damage.
+  - He roars at each phase change (and raises the dead). Every attack is telegraphed with a wind-up, a sound and markers on the ground, and no single hit takes more than 85% of your health.
+
+🕷️ SPIDER HORDE -- THE BROOD AND A NEW BROOD QUEEN
+- Seven new horde spiders join the web-spitters and cave spiders, getting nastier wave by wave:
+  Hunter -- fast, orange, pounces.
+  Venom Spitter -- poison globs from range.
+  Trapdoor Leaper -- crouches, then leaps on you.
+  Acid Burster -- hisses and swells when close, then bursts into acid. Kill it from range.
+  Ironback Brute -- huge, 14 armour, halves arrow damage, hurls you back.
+  Shadow Stalker -- invisible but for its glowing eyes; its first bite hits double and blinds.
+  Broodmother -- gives birth to spiderlings and bursts into a swarm when she dies.
+- THE BROOD QUEEN IS REBUILT as a real boss with her own model and animations: eight jointed legs, a bloated abdomen with glowing egg sacs, a chitin crown, fangs and ten burning eyes (about 5.5 blocks tall and 7.5 wide).
+  - The toughest boss of the three hordes: 4,000 health (+1,200 per extra fighter), 18 armour, no knockback, immune to fire and falls.
+  - Three phases, each opened by a shriek that throws you back, plunges you into Darkness and spills spiderlings. She hits harder and moves faster every phase.
+  - Nine telegraphed attacks: Fang Lunge, Leg Sweep (a red ring marks its reach), Venom Spray, Web Volley (the centre web cocoons you), Leap Slam (a ring marks where she lands), Egg Burst, Web Ascent (she climbs a web line into the sky and drops onto the marked ring), Acid Rain (bubbling marks turn into acid pools) and the phase-3 Frenzy (three lunges in a row).
+
+🎁 HORDE REWARDS
+- Horde reward chests now scatter their loot across the whole chest in split stacks, like a dungeon chest, instead of packing it into the first few slots. All three hordes.
+
+🤝 SQUADS
+- Friendly fire can now be turned on: the squad leader uses /squad friendlyfire on|off or the new Friendly Fire button on the squad screen (P). Every member is told, and the screen shows FRIENDLY FIRE ON / OFF to everyone. It's saved with the squad and OFF by default.
+- Only damage changes: heals, shields, carries, buffs and area-power targeting still treat squadmates as friends.
+
+🛠️ OTHER FIXES
+- Titan Shifter: the Titan Energy bar could refill several steps at once in a single second; it now refills exactly once a second.
+- Guidebook: new Stark Sorting Station chapter, a Flying section in the Overview (the new controls), and updated Kryptonian, Super Speed, Flash Suit, Squads and Horde chapters. The in-game power info screen (I) shows the same updated pages.

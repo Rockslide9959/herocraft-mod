@@ -51,6 +51,8 @@ public final class TitanShifter {
 	private static final java.util.Set<UUID> SPRINT_HELD = new java.util.HashSet<>();
 	/** v0.12.39: shifters holding H for an emergency shift -> game time the hold began. */
 	private static final Map<UUID, Long> EMERGENCY_HOLD = new HashMap<>();
+	/** v0.14.16: the game tick each shifter's bar last refilled on -- a player ticked twice in one tick refills once. */
+	private static final Map<UUID, Long> LAST_REFILL = new HashMap<>();
 
 	private TitanShifter() {
 	}
@@ -59,6 +61,7 @@ public final class TitanShifter {
 		LAST_MESSAGE.clear();
 		SPRINT_HELD.clear();
 		EMERGENCY_HOLD.clear();
+		LAST_REFILL.clear();
 	}
 
 	public static void setSprintHeld(ServerPlayer player, boolean held) {
@@ -765,8 +768,13 @@ public final class TitanShifter {
 			save(player, cleared);
 			return;
 		}
-		if (player.level().getGameTime() % 20L != 0L || s.energy >= e.max) {
+		long now = player.level().getGameTime();
+		if (now % 20L != 0L || s.energy >= e.max) {
 			return;
+		}
+		Long last = LAST_REFILL.put(player.getUUID(), now);
+		if (last != null && last == now) {
+			return; // already refilled this tick (the player was ticked twice)
 		}
 		if (baseRegenActive(player, s)) {
 			return; // healing through the base-form regeneration: the bar drains instead of refilling

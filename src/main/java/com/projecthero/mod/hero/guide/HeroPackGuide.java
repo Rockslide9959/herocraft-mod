@@ -263,7 +263,8 @@ public final class HeroPackGuide {
 	private static final int CH_SUPER_SOLDIER = 24;
 	private static final int CH_KRYPTONIAN = 25;
 	private static final int CH_HORDES = 26;
-	private static final int CHAPTER_POWER_BASE = 27;
+	private static final int CH_STARK_SORTER = 27;
+	private static final int CHAPTER_POWER_BASE = 28;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -286,6 +287,10 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.controls.utility2").withStyle(ChatFormatting.GRAY));
 			lines.add(Component.translatable("projecthero.guide.controls.info").withStyle(ChatFormatting.GRAY));
 			lines.add(Component.translatable("projecthero.guide.controls.squad").withStyle(ChatFormatting.GRAY));
+			// v0.14.16: every flight in the mod steers the same way now
+			blank(lines);
+			head(lines, "projecthero.guide.flight");
+			para(lines, "projecthero.guide.flight.body");
 		}));
 
 		out.add(chapter("projecthero.guide.mutation", lines -> {
@@ -914,6 +919,15 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.guide.hordes." + section + ".body");
 			}
 		}));
+		// v0.14.16: the Stark Sorting Station
+		out.add(chapter("projecthero.guide.stark_sorter", lines -> {
+			para(lines, "projecthero.guide.stark_sorter.body");
+			for (String section : new String[]{"recipe", "use", "plan", "safety"}) {
+				blank(lines);
+				head(lines, "projecthero.guide.stark_sorter." + section);
+				para(lines, "projecthero.guide.stark_sorter." + section + ".body");
+			}
+		}));
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -935,6 +949,7 @@ public final class HeroPackGuide {
 		section(idx, "projecthero.guide.section.world", true);
 		link(idx, "projecthero.guide.structures", CH_STRUCTURES);
 		link(idx, "projecthero.guide.devices", CH_DEVICES);
+		link(idx, "projecthero.guide.stark_sorter", CH_STARK_SORTER);
 
 		section(idx, "projecthero.guide.section.heroes", true);
 		link(idx, "projecthero.guide.thor", CH_THOR);

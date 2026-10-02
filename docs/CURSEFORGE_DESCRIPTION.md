@@ -35,6 +35,8 @@ different heroes side by side. Almost everything is tunable in generated config 
 - **Controls:** six ability keys, **Ability 1–6** in Options › Controls (default **R, G, Z, X, C, V**), plus **H**
   (Utility 1: suit up / transform), **N** (Utility 2), **I** (your power screen) and **P** (squad menu). Many moves have a
   **Sneak +** version, and holding **Left Alt** shows every ability's name on the HUD.
+- **Flight** steers the same way for every hero: **W / S** fly forward / backward along where you look (look up to
+  climb, down to dive), **A / D** strafe, **Space / Sneak** straight up / down, and letting go is a dead hover.
 - Craft the **Guidebook** (Book + Feather + Spider Eye + Emerald) for a full in-game manual of every power, structure and
   event.
 
@@ -45,13 +47,14 @@ different heroes side by side. Almost everything is tunable in generated config 
 ### ⚡ Thor
 Find a rare **Mjolnir crater** (villagers will point the way for 25 emeralds if you sneak-right-click them holding a
 Lightning Rod). The hammer only moves for a **Hero of the Village**. Lift it with the effect and Mjolnir binds to you.
-- Throw Mjolnir and **recall it from anywhere**, even out of another player's hand or an unloaded chunk. Fly by
-  double-tapping jump.
+- Throw Mjolnir and **recall it from anywhere** -- out of a chest, an ender chest, another player's hand or an unloaded
+  chunk -- and it is always the ONE hammer (never a duplicate). Fly by double-tapping jump.
 - Lightning Strike, God of Thunder's Wrath, a crackling Lightning Beam, Chain Lightning, **Hammer Volley** (the hammer hunts
   every enemy around you), Thunderclap, Storm Call and Mjolnir Parry.
 - **The Power of Thor:** +11 melee, +10 hearts, 80% less damage, permanent Regeneration, no fall or lightning damage.
 - **H** calls down lightning and forges **Thor's Armour** onto you piece by piece -- boots, greaves, then chestplate and
-  cape, each arriving with its own bolt from the sky. Diamond-level: the three pieces equal a full diamond set.
+  a flowing **crimson cape**, each arriving with its own bolt from the sky. Diamond-level: the three pieces equal a full
+  diamond set.
 - Every move has its own animation, the Beam and Chain Lightning are thick forking bolts, Thunderclap sends a shockwave
   ring across the ground -- and none of it ever hurts your squad.
 
@@ -64,6 +67,9 @@ Build an **Arc Reactor**, the **Stark Fabricator** and a **Suit Platform**, then
   a targeting view and a retractable faceplate (**H**).
 - **Protocol Phoenix** recalls your best suit when you would otherwise die. A single Repulsor in your boots slot gives
   flight with no suit at all.
+- **Stark Sorting Station:** fill its 54-slot store, press **Sort**, and a little **Sorter Bot** flies out and files
+  everything into the chests and barrels within 10 blocks -- the more chests, the finer it sorts, and it keeps each
+  chest's existing theme. Watch it work in real time.
 
 ### 🕷️ Spider-Man
 Grown from the **Spider Climbing / Adhesion** mutation with an **Arachnid Mutagen**.
@@ -206,12 +212,13 @@ into the **Refined Serum**, which always works.
 A **Hero-Tier** power awakened by the **Speed Force**: get **Strength, Speed and Jump Boost** on you at once, then
 activate **Charged Copper Plates** or get **struck by lightning** -- half the time the Speed Force takes you, the other
 half it burns the effects away and you try again.
-- **Speed Mode** walks at ~20 blocks a second (easy to fight in) and **sprints at ~40**; **Overdrive** hits ~100.
+- **Speed Mode** walks at ~20 blocks a second (easy to fight in) and **sprints at ~40**; **Overdrive** walks at ~32 and
+  sprints at ~100 (press V again to end it early).
 - **Blitz** zips you to a target with a heavy, launching hit and a shockwave that knocks back everything round it.
-  Mach Punch, Speed Vortex, a 10-second **Speed Sweep**, Phase through walls, carry anyone on **N**, and a charged,
+  Mach Punch, Speed Vortex, a 50-block **Speed Sweep** that doesn't stop until every enemy is hit, Phase through walls, carry anyone on **N**, and a charged,
   game-wide **Time Slow**. Regeneration III, always.
 - **The Flash Suit** packs into a gold **Flash Ring** on **H** -- worn in your chestplate slot like armour, so you never
-  lose the suit on death -- and slowly mends itself while it is in there.
+  lose the suit on death -- and slowly mends itself while it is in there (its durability % shows above your HUD).
 
 ### ☀️ The Kryptonian
 Somewhere out in the world lies a rare **Kryptonite Meteor crater** -- as hard to find as Mjolnir's.
@@ -220,7 +227,7 @@ one **Kryptonian Crystal** it holds, then hold it up to the **daytime sun**. The
 - **The body:** 40 health, **80% less damage** (the same as Thor), **Regeneration III whenever you're hurt** (paid for
   with Solar Energy), and nothing at all from falls, lightning, fire, lava, drowning or freezing. 15-damage
   fists that send things flying, no knockback, 40% faster, a 4-block jump, and the sun heals and feeds you.
-- **True flight:** double-tap jump and fly wherever you look -- **S** brakes to a hover, **Sprint** is 40 blocks a second
+- **True flight:** double-tap jump and fly wherever you look -- **S** flies backward, **Sprint** is 40 blocks a second
   with a **sonic boom** as you break into it, and he flies one fist forward.
 - **Solar Energy** (a 100-point bar) charges in sunlight (fast in direct sun, slowly at night, barely underground) once
   it hasn't been drained for 5 seconds, and fuels twelve cheap moves:
@@ -288,12 +295,21 @@ An **endgame co-op raid for up to 8 heroes**, started with a **Boom Tube Beacon*
   reinforcements, all the way to **Omega Annihilation**.
 - Rewards: the **Omega Core**, Omega Shards, a personal **Mother Box** and the very rare **Omega Relic**.
 
+### 🧱 Horde Blocks
+Craft a **Zombie, Skeleton or Spider Horde** block (a 3x3 of rotten flesh / bone blocks / spider eyes) and break it open
+for **8 waves** and a boss -- harder each tier, with a reward chest that gets richer to match.
+- **Zombie Horde** ends with **the Titan**.
+- **Skeleton Horde:** Bone Runners, Blight Archers, shield-walled Bone Knights, TNT-headed Bone Bombers, Necromancers and
+  Bone Brutes -- then **the Bone Tyrant**, a 7-block lich-king with ten telegraphed attacks over three phases.
+- **Spider Horde:** Hunters, Venom Spitters, Trapdoor Leapers, Acid Bursters, Ironback Brutes, invisible Shadow Stalkers and
+  Broodmothers -- then **the Brood Queen**, a 4,000-health spider queen with nine attacks, web cocoons and acid rain.
+
 ---
 
 ## 🤝 Squads
 `/squad create` and `/squad invite` make a team that can't hurt each other, whatever powers are flying around. Press **P**
 for the roster: health, heroes, coordinates and direction for every squadmate. The Locator Bar shows their faces across
-the top of your screen.
+the top of your screen. The leader can switch **friendly fire** on with `/squad friendlyfire on` or the button on the P screen.
 
 ## Removing powers
 Every power can be given up in survival: craft a **Power Suppressor** and sneak-use it.

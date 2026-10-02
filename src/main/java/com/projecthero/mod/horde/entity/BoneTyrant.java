@@ -79,7 +79,7 @@ public class BoneTyrant extends Monster implements GeoEntity {
 	public static final double MAX_HEALTH_CAP = 6000.0;
 	public static final double ARMOR = 16.0;
 	public static final double ARMOR_TOUGHNESS = 12.0;
-	public static final double MELEE_DAMAGE = 24.0;
+	public static final double MELEE_DAMAGE = 28.0; // v0.14.16 (merge): above the Titan even with an old 26-punch config
 	public static final int MAX_MINIONS = 8;
 	public static final int DEATH_TICKS = 80;
 
