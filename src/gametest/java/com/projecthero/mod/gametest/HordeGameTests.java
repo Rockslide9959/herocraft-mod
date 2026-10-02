@@ -164,4 +164,47 @@ public class HordeGameTests implements FabricGameTest {
 		helper.assertTrue(p.getItemBySlot(EquipmentSlot.LEGS).getDamageValue() == 0, "the Flash Suit takes nothing");
 		helper.succeed();
 	}
+
+	// ---------------------------------------------------------------- v0.14.20: horde boss health from the config
+
+	/** Spawns each boss exactly the way a horde raid does and reads the health it really has. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void v01420HordeBossesSpawnWithConfigHealth(GameTestHelper helper) {
+		net.minecraft.server.level.ServerLevel level = helper.getLevel();
+		net.minecraft.world.phys.Vec3 at = helper.absoluteVec(new net.minecraft.world.phys.Vec3(2.5, 2, 2.5));
+		com.projecthero.mod.horde.HordeConfig.Bosses cfg = com.projecthero.mod.horde.HordeConfig.bosses();
+		double[] solo = {cfg.zombieTitanHealth, cfg.boneTyrantHealth, cfg.broodQueenHealth};
+		HordeKind[] kinds = {HordeKind.ZOMBIE, HordeKind.SKELETON, HordeKind.SPIDER};
+		for (int k = 0; k < kinds.length; k++) {
+			for (int players : new int[] {1, 3}) {
+				net.minecraft.world.entity.LivingEntity boss = com.projecthero.mod.horde.HordeWaves.createBoss(level, kinds[k], at, players);
+				helper.assertTrue(boss != null, kinds[k] + " boss spawns");
+				double want = solo[k] + cfg.healthPerExtraFighter * (players - 1);
+				helper.assertTrue(Math.abs(boss.getMaxHealth() - want) < 0.5,
+						kinds[k] + " with " + players + " fighters: max health " + boss.getMaxHealth() + ", expected " + want);
+				helper.assertTrue(Math.abs(boss.getHealth() - want) < 0.5, kinds[k] + " starts at full health, got " + boss.getHealth());
+				boss.discard();
+			}
+		}
+		helper.assertTrue(cfg.zombieTitanHealth == 1000.0 && cfg.boneTyrantHealth == 1200.0 && cfg.broodQueenHealth == 1400.0,
+				"v0.14.20 defaults: 1,000 / 1,200 / 1,400");
+		helper.succeed();
+	}
+
+	/** A horde config written before configVersion existed (the stale-file trap) is reset to the new numbers. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void v01420StaleHordeConfigIsMigrated(GameTestHelper helper) {
+		java.nio.file.Path path = net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().resolve("projecthero_horde.json");
+		try {
+			java.nio.file.Files.writeString(path, "{\"bosses\":{\"boneTyrantHealth\":2000.0,\"broodQueenHealth\":2400.0}}");
+			com.projecthero.mod.horde.HordeConfig.load();
+			helper.assertTrue(com.projecthero.mod.horde.HordeConfig.bosses().boneTyrantHealth == 1200.0
+					&& com.projecthero.mod.horde.HordeConfig.bosses().broodQueenHealth == 1400.0, "old health numbers replaced");
+			com.projecthero.mod.horde.HordeConfig.load(); // a current-version file keeps what it says
+			helper.assertTrue(java.nio.file.Files.readString(path).contains("\"configVersion\": 1"), "the file is stamped");
+		} catch (java.io.IOException e) {
+			throw new net.minecraft.gametest.framework.GameTestAssertException("config io: " + e);
+		}
+		helper.succeed();
+	}
 }
