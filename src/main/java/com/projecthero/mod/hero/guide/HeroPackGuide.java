@@ -375,6 +375,11 @@ public final class HeroPackGuide {
 			for (String part : new String[]{"intro", "recipe", "forge", "throw", "bifrost", "weapon"}) {
 				para(lines, "projecthero.guide.thor.stormbreaker." + part);
 			}
+			// v0.14.20: the Mjolnir / Stormbreaker 3-hit melee combo
+			blank(lines);
+			head(lines, "projecthero.guide.thor.combo");
+			para(lines, "projecthero.guide.thor.combo.body");
+			para(lines, "projecthero.guide.thor.combo.finisher");
 		}));
 
 		out.add(chapter("projecthero.guide.iron_man", lines -> {

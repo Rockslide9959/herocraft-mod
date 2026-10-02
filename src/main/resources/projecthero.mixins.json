@@ -14,6 +14,7 @@
 		"ItemStackMixin",
 		"LargeFireballMixin",
 		"LivingEntityAccessor",
+		"PlayerAttackComboMixin",
 		"LootTableDisabledPowerMixin",
 		"LivingEntityClimbMixin",
 		"LivingEntityEatMixin",

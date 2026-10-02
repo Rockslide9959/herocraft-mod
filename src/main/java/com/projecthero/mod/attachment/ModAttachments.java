@@ -685,6 +685,12 @@ public final class ModAttachments {
 					builder -> builder.initializer(() -> com.projecthero.mod.power.ThorFx.EMPTY)
 							.syncWith(com.projecthero.mod.power.ThorFx.STREAM_CODEC, AttachmentSyncPredicate.all()));
 
+	/** v0.14.20: the Mjolnir / Stormbreaker melee combo's last counted step, for every viewer's swing pose. Never persisted. */
+	public static final AttachmentType<com.projecthero.mod.power.WeaponComboState> WEAPON_COMBO =
+			AttachmentRegistry.create(ProjectHeroMod.id("weapon_combo"),
+					builder -> builder.initializer(() -> com.projecthero.mod.power.WeaponComboState.EMPTY)
+							.syncWith(com.projecthero.mod.power.WeaponComboState.STREAM_CODEC, AttachmentSyncPredicate.all()));
+
 	/**
 	 * v0.13.22: experimental-mutation visuals every viewer needs (move animation + overlay flags). Never persisted --
 	 * {@code MutationVisuals.tick} rebuilds it from the real power state -- and synced to everyone tracking the player.

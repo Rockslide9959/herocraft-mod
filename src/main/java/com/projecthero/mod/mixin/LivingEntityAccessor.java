@@ -13,4 +13,8 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 public interface LivingEntityAccessor {
 	@Accessor("jumping")
 	boolean projecthero$isJumping();
+
+	/** v0.14.20 (tests): sets how charged the attack swing is ({@code getAttackStrengthScale} reads it). */
+	@Accessor("attackStrengthTicker")
+	void projecthero$setAttackStrengthTicker(int ticks);
 }

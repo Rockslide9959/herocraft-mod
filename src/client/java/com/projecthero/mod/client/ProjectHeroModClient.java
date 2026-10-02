@@ -74,6 +74,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		ModKeyBindings.initialize();
 		ModEntityRenderers.initialize();
+		com.projecthero.mod.client.thor.WeaponComboPose.init(); // v0.14.20: Mjolnir / Stormbreaker combo swings
 		// v0.13.22: mutation move animations + per-batch client registration (poses, overlays, renderers)
 		com.projecthero.mod.client.mutation.MutationPoseLibrary.init();
 		com.projecthero.mod.client.mutation.RevampClientA.init();

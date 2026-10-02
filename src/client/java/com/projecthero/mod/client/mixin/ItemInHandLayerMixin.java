@@ -58,9 +58,11 @@ public abstract class ItemInHandLayerMixin {
 			ItemDisplayContext displayContext, HumanoidArm arm, PoseStack poseStack, MultiBufferSource buffer,
 			int packedLight, CallbackInfo ci) {
 		if (stack.is(ModItems.STORMBREAKER) && entity instanceof Player wielder) {
-			// v0.14.19: Stormbreaker's model shares Mjolnir's handle-up convention, so a Thor move pose re-grips it the
-			// same way. Only the move-pose grip -- the flight arm-raise below is Mjolnir's alone.
-			float grip = com.projecthero.mod.client.thor.ThorPose.hammerGrip(wielder);
+			// v0.14.19: Stormbreaker is held like Mjolnir (handle forward out of the fist), so a Thor move pose -- and
+			// v0.14.20's combo swings -- re-grip it the same way. Only the move-pose grip: the flight arm-raise below is
+			// Mjolnir's alone.
+			float grip = Math.max(com.projecthero.mod.client.thor.ThorPose.hammerGrip(wielder),
+					com.projecthero.mod.client.thor.WeaponComboPose.weaponGrip(wielder));
 			if (grip > 0.001f) {
 				poseStack.mulPose(Axis.XP.rotationDegrees(-90.0f * grip));
 			}
@@ -73,8 +75,11 @@ public abstract class ItemInHandLayerMixin {
 		// v0.14.4: a Thor move pose (ThorPose) owns the arm -- re-grip the hammer along it so it points straight out of
 		// the fist (to the sky when raised, at the target when thrust out). Turning the item a quarter turn about the
 		// hand's X axis is exactly "the hammer's long axis follows the arm", whatever angle the arm itself is at.
-		float thorWeight = com.projecthero.mod.client.thor.ThorPose.armWeight(player);
-		float grip = com.projecthero.mod.client.thor.ThorPose.hammerGrip(player);
+		// v0.14.20: a melee combo swing (WeaponComboPose) re-grips it the same way
+		float thorWeight = Math.max(com.projecthero.mod.client.thor.ThorPose.armWeight(player),
+				com.projecthero.mod.client.thor.WeaponComboPose.armWeight(player));
+		float grip = Math.max(com.projecthero.mod.client.thor.ThorPose.hammerGrip(player),
+				com.projecthero.mod.client.thor.WeaponComboPose.weaponGrip(player));
 		if (grip > 0.001f) {
 			poseStack.mulPose(Axis.XP.rotationDegrees(-90.0f * grip));
 		}

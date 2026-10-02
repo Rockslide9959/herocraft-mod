@@ -43,9 +43,13 @@ public final class StormbreakerEntityRenderer extends EntityRenderer<Stormbreake
 		// face the way it flies (same frame as MjolnirEntityRenderer: after this, local +Z is the heading)...
 		poseStack.mulPose(Axis.YP.rotationDegrees(yaw));
 		poseStack.mulPose(Axis.XP.rotationDegrees(-pitch));
-		// ...then lay the handle along the heading and tumble it about the side-to-side axis, head first over the top.
+		// ...then tumble end over end about the side-to-side axis (local X), head first over the top. v0.14.20: the model
+		// is first turned a quarter about Y so its blade plane (handle +Y, blade +X) stands upright along the heading and
+		// its flat (+Z) faces sideways -- a thrown axe spins in its own plane. Before, the spin axis ran through the blade,
+		// so the blade stuck out sideways like a propeller while only the handle cartwheeled.
 		float spin = (entity.tickCount + partialTicks) * SPIN_DEGREES_PER_TICK;
 		poseStack.mulPose(Axis.XP.rotationDegrees(90.0f + spin));
+		poseStack.mulPose(Axis.YP.rotationDegrees(90.0f));
 		itemRenderer.renderStatic(this.modelStack, ItemDisplayContext.FIXED, packedLight, OverlayTexture.NO_OVERLAY,
 				poseStack, buffer, entity.level(), entity.getId());
 		poseStack.popPose();

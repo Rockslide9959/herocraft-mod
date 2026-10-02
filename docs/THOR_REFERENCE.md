@@ -10,6 +10,44 @@ Keys: R Call Mjolnir (right-click throws), G Lightning Strike, X Lightning Beam 
 V Hammer Volley, Shift+V Thunderclap, C Chain Lightning, H Thor's Armour, double-tap Jump flight.
 Storm Call (`ThorPowers.stormCall`) is still in the code but not on any key since v0.6.22. There is no Thor Parry.
 
+## v0.14.20: Mjolnir / Stormbreaker 3-hit melee combo, Stormbreaker hold fix
+
+### Combo -- `power/WeaponCombo` (+ `WeaponComboState`, `mixin/PlayerAttackComboMixin`)
+- Any wielder (no power gate), main hand only. A melee hit counts when it LANDS (confirmed through `AFTER_DAMAGE`,
+  not blocked) at attack strength >= 0.9 (`MIN_STRENGTH`, read at `Player.attack` HEAD before vanilla resets it).
+  Steps 1 -> 2 -> 3 -> 1. Weak hits neither advance nor reset; misses are ignored; switching weapon starts over.
+- Window: the next step must land within `windowTicks` = the weapon's swing recharge (ceil of
+  `getCurrentItemAttackStrengthDelay`, 19 ticks Mjolnir / 23 Stormbreaker) + 25 ticks (1.25 s), else it starts at 1.
+- Step 3 (finisher): +50% (`FINISHER_BONUS`) of the hit's own damage on the target -- dealt by re-hurting it at 1.5x
+  inside its hurt cooldown, so vanilla applies exactly the difference (works on players too). Mjolnir: shockwave of
+  4 damage + knockback 0.8 / lift 0.25 within 3 blocks of the target, sparks + thunder crack. Stormbreaker: cleave of
+  6 damage + knockback 0.6 within 4.5 blocks in a 150-degree arc in front of the wielder. The area hit skips the
+  target, the wielder, their pets (`OwnableEntity`) and squad allies (`Squads.areAllies`); bosses are never knocked
+  back. Base weapon damage is unchanged.
+- State = the synced, non-persistent `ModAttachments.WEAPON_COMBO` (`step, weapon, start`): both the combo's own state
+  (no static map) and what every viewer animates from. `WeaponCombo.setForTests` for tests.
+
+### Swing animations -- client `thor/WeaponComboPose`, `mixin/ItemInHandRendererComboMixin`
+- Third person: keyframe tables (ThorPose technique) per weapon per step -- Mjolnir one-handed (flat swing, high-left
+  to low-right backhand, overhead slam with the free arm thrown wide), Stormbreaker two-handed (flat cleave, rising
+  backhand, two-handed overhead chop). Applied in `HumanoidModelMixin` just before `ThorPose` (a Thor move wins).
+  `weaponGrip` re-grips the held weapon along the arm in `ItemInHandLayerMixin` (the same -90 degree turn as ThorPose).
+- First person: the weapon is moved about the hand before it is drawn; vanilla's swing and post-hit lowering of the
+  main-hand item are scaled out by the swing's weight (`@ModifyArg` on the main-hand `renderArmWithItem` call).
+- The local player's step is predicted on click (client `AttackEntityCallback`), so it starts with the click; the
+  server's stamp of the same step takes over without a jump. Other players see the synced state.
+
+### Stormbreaker hold
+- v0.14.19 copied Mjolnir's handheld display but had the axe blade on +X, which the -45 degree icon-diagonal bake puts
+  on the side a vanilla axe sprite does NOT have its blade: held blade-up ("upside down"). The generator
+  (`scratchpad/gen_v01419_stormbreaker_assets.js`) now mirrors the geometry in X (blade -X, hammer +X) and uses the
+  vanilla `item/handheld` rotations ([0,-90,55] third person, [0,-90,25] first person) with its own translation /
+  scale (first person bigger and moved so the whole head shows), gui = the plain tool diagonal. Verified side by side
+  with Mjolnir and an iron axe in the client screenshot harness.
+- Thrown (`StormbreakerEntityRenderer`): the model is turned a quarter about Y before the tumble so it spins in its own
+  blade plane (it used to spin about an axis through the blade, the blade sticking out sideways).
+- Tests: `WeaponComboGameTests`.
+
 ## v0.14.4: squad safety, piece-by-piece armour, move animations, new effects
 
 ### Squad safety -- `power/ThorTargets`
