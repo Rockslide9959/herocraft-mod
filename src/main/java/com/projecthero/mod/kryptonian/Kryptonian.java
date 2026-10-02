@@ -46,9 +46,8 @@ import org.joml.Vector3f;
  * 0..100, fed by the sun (4/s in direct sunlight, 1/s in daytime shade, 0.5/s at night, 0.25/s underground). It pays
  * for the moves; the body's passives never need it. Direct sunlight also heals him (2 HP/s) and feeds him.
  *
- * <p>v0.14.16: it only refills {@link KryptonianConfig#SOLAR_REGEN_DELAY} (5 s) after the last drain of any kind
- * ({@link KryptonianState#lastDrain}); flight drains 0.1 a second, and the Regeneration III he gets while hurt
- * ({@link #tickRegeneration}) 1 a second -- so neither lets the bar refill while it runs.
+ * <p>v0.14.17: it refills all the time (v0.14.16's 5 s delay after a drain is gone); flight (0.1 a second) and the
+ * Regeneration III he gets while hurt ({@link #tickRegeneration}, 1 a second) just net against the sun's refill.
  */
 public final class Kryptonian {
 	public static final String KEY = "kryptonian";
@@ -70,6 +69,8 @@ public final class Kryptonian {
 	/** v0.14.16: game time of the last {@link #tick} (one run per game tick) and of the last once-a-second pass. */
 	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> LAST_SECOND = new ConcurrentHashMap<>();
+	/** v0.14.17: gametests pin the sun's refill rate per player (the test world's sun is not predictable). */
+	private static final Map<UUID, Float> GAIN_FOR_TESTS = new ConcurrentHashMap<>();
 
 	/** How much sun he is getting right now. */
 	public enum Sun {
@@ -83,6 +84,7 @@ public final class Kryptonian {
 		LAST_MESSAGE.clear();
 		LAST_TICK.clear();
 		LAST_SECOND.clear();
+		GAIN_FOR_TESTS.clear();
 		Kryptonite.clearSessionState();
 		KryptonianFlight.clearSessionState();
 		KryptonianAbilities.clearSessionState();
@@ -136,14 +138,19 @@ public final class Kryptonian {
 		return s != null && s.hasPower && s.xray; // v0.14.16: a toggle
 	}
 
-	/** v0.14.16: Solar Energy is not refilling yet -- drained within the last 5 s. Client-safe (HUD). */
-	public static boolean solarRegenPaused(Player player) {
-		KryptonianState s = player.getAttachedOrElse(ModAttachments.KRYPTONIAN_STATE, null);
-		if (s == null || !s.hasPower) {
-			return false;
+	/** v0.14.17: Solar Energy the sun gives him a second where he stands (before any running drain). */
+	public static float solarGainPerSecond(ServerPlayer player) {
+		Float pinned = GAIN_FOR_TESTS.get(player.getUUID());
+		return pinned != null ? pinned : solarPerSecond(sun(player));
+	}
+
+	/** Gametests only: pins {@link #solarGainPerSecond} for this player ({@code null} = the real sun again). */
+	public static void setSolarGainForTests(ServerPlayer player, Float perSecond) {
+		if (perSecond == null) {
+			GAIN_FOR_TESTS.remove(player.getUUID());
+		} else {
+			GAIN_FOR_TESTS.put(player.getUUID(), perSecond);
 		}
-		long since = player.level().getGameTime() - s.lastDrain;
-		return since >= 0L && since < KryptonianConfig.SOLAR_REGEN_DELAY;
 	}
 
 	public static float solar(Player player) {
@@ -173,8 +180,7 @@ public final class Kryptonian {
 	// ---------------------------------------------------------------- solar energy
 
 	/**
-	 * Spends {@code cost} Solar Energy if he has it. v0.14.16: any real spend counts as a drain -- the bar will not refill
-	 * for {@link KryptonianConfig#SOLAR_REGEN_DELAY} after it.
+	 * Spends {@code cost} Solar Energy if he has it.
 	 */
 	public static boolean spendSolar(ServerPlayer player, float cost) {
 		KryptonianState s = state(player);
@@ -445,9 +451,8 @@ public final class Kryptonian {
 	}
 
 	/**
-	 * Once a second. v0.14.16: first the running drains -- flight (0.1/s) and the Regeneration III (1/s); any drain at
-	 * all and the bar does not refill this second. Otherwise it refills from the sun, but only once 5 s have passed since
-	 * the last drain of any kind (a move's cost, a held beam, kryptonite). Saved values above the 100 cap are clamped.
+	 * Once a second: the sun's refill minus the running drains -- flight (0.1/s) and the Regeneration III (1/s). v0.14.17:
+	 * it refills all the time (no delay after a drain any more). Saved values above the 100 cap are clamped.
 	 */
 	private static void tickSolar(ServerPlayer player, KryptonianState s, long now) {
 		if (s.weakened || s.depoweredUntil > now) {
@@ -459,10 +464,6 @@ public final class Kryptonian {
 			n.solar = Float.isNaN(n.solar) ? 0f : KryptonianConfig.SOLAR_MAX; // migration: the bar tops out at 100
 			changed = true;
 		}
-		if (n.lastDrain > now) {
-			n.lastDrain = now; // game time from another world: just restart the delay
-			changed = true;
-		}
 		float drain = 0f;
 		if (n.flying) {
 			drain += KryptonianConfig.FLIGHT_SOLAR_PER_SECOND;
@@ -470,31 +471,26 @@ public final class Kryptonian {
 		if (ownRegeneration(player)) {
 			drain += KryptonianConfig.REGEN_SOLAR_PER_SECOND;
 		}
-		if (drain > 0f && n.solar > 0f) {
-			n.solar = Math.max(0f, n.solar - drain);
+		float next = Math.max(0f, Math.min(KryptonianConfig.SOLAR_MAX, n.solar + solarGainPerSecond(player) - drain));
+		if (drain > 0f) {
 			n.lastDrain = now;
-			save(player, n);
-			if (n.solar <= 0f) {
-				tickRegeneration(player); // out of energy: the Regeneration stops
-				if (n.flying) {
-					KryptonianFlight.stop(player, false);
-					player.displayClientMessage(Component.translatable("message.projecthero.kryptonian.flight_no_solar")
-							.withStyle(ChatFormatting.RED), true);
-				}
-			}
-			return;
 		}
-		if (n.solar <= 0f && n.flying) {
-			KryptonianFlight.stop(player, false); // flying on an empty bar (e.g. set to 0 by the command)
-			player.displayClientMessage(Component.translatable("message.projecthero.kryptonian.flight_no_solar")
-					.withStyle(ChatFormatting.RED), true);
-		}
-		if (n.solar < KryptonianConfig.SOLAR_MAX && now - n.lastDrain >= KryptonianConfig.SOLAR_REGEN_DELAY) {
-			n.solar = Math.min(KryptonianConfig.SOLAR_MAX, n.solar + solarPerSecond(sun(player)));
+		if (next != n.solar || drain > 0f) {
+			n.solar = next;
 			changed = true;
 		}
 		if (changed) {
 			save(player, n);
+		}
+		if (n.solar <= 0f) {
+			if (drain > 0f) {
+				tickRegeneration(player); // out of energy: the Regeneration stops
+			}
+			if (n.flying) {
+				KryptonianFlight.stop(player, false);
+				player.displayClientMessage(Component.translatable("message.projecthero.kryptonian.flight_no_solar")
+						.withStyle(ChatFormatting.RED), true);
+			}
 		}
 	}
 

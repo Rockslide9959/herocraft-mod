@@ -23,8 +23,8 @@ import org.lwjgl.glfw.GLFW;
  * ({@code AbilityHud} with {@code AbilityHudExtras.mono}):
  * <pre>
  *   Kryptonian
- *   _______________________   Hairline bars (3 px, no border, no text), bottom-up: Solar Energy (out of 100; duller
- *   _______________________   gold while it waits 5 s to refill), then -- only while they run -- the Solar Flare
+ *   _______________________   Hairline bars (3 px, no border, no text), bottom-up: Solar Energy (out of 100), then
+ *   _______________________   -- only while they run -- the Solar Flare
  *                             charge and the burn-out timer
  *   [R] [G] [Z] [X] [C] [V]   the six keys (v0.14.16: + C); each box shows the longer cooldown of its plain and Shift
  *                             move, and lights up while Heat Vision / Freeze Breath / X-Ray is on
@@ -48,8 +48,6 @@ public final class KryptonianHud {
 	private static final int COOLDOWN = 0xB0000000;
 
 	private static final int SOLAR = 0xFFFFC83C;
-	/** v0.14.16: the bar is not refilling yet (drained within the last 5 s): a duller gold. */
-	private static final int SOLAR_PAUSED = 0xFFB88A2A;
 	private static final int SOLAR_KRYPTONITE = 0xFF5CFF4A;
 	private static final int FLARE = 0xFFFFF2C0;
 	private static final int BURNT_OUT = 0xFF7A7A7A;
@@ -87,9 +85,8 @@ public final class KryptonianHud {
 
 		// ---- Hairline bars above the keys, bottom-up
 		List<Bar> bars = new ArrayList<>();
-		// v0.14.16: out of 100; a duller gold while it is not refilling (drained in the last 5 s)
-		boolean paused = s.solar < KryptonianConfig.SOLAR_MAX && Kryptonian.solarRegenPaused(mc.player);
-		bars.add(new Bar(s.solar / KryptonianConfig.SOLAR_MAX, weak ? SOLAR_KRYPTONITE : paused ? SOLAR_PAUSED : SOLAR));
+		// out of 100 (v0.14.17: always refilling, so no "paused" shade any more)
+		bars.add(new Bar(s.solar / KryptonianConfig.SOLAR_MAX, weak ? SOLAR_KRYPTONITE : SOLAR));
 		if (s.flareChargeStart > 0L) {
 			bars.add(new Bar((now - s.flareChargeStart) / (float) KryptonianConfig.FLARE_CHARGE_TICKS, FLARE));
 		}

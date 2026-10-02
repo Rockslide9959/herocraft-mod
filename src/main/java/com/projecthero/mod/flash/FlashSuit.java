@@ -156,7 +156,7 @@ public final class FlashSuit {
 		}
 	}
 
-	/** v0.14.11: +50% to all movement speed for a speedster in the full suit (the modes included). */
+	/** v0.14.11: +50% movement speed for a speedster in the full suit -- v0.14.17: only while sprinting in a mode. */
 	public static final double SPEED_BONUS = 0.5;
 	private static final net.minecraft.resources.ResourceLocation SPEED_ID = ProjectHeroMod.id("flash_suit_speed");
 
@@ -171,11 +171,14 @@ public final class FlashSuit {
 	}
 
 	/**
-	 * The full suit on a speedster: +50% movement speed on top of everything (Speed Mode and Overdrive too). Off, like
-	 * Super Speed's own boosts, while Time Slow runs or the speedster is exhausted.
+	 * The full suit on a speedster: +50% movement speed on top of Speed Mode / Overdrive. v0.14.17: only while SPRINTING
+	 * in one of them -- the suit never makes plain walking (or a mode's walk) faster, so moving around stays easy to
+	 * control. Off, like Super Speed's own boosts, while Time Slow runs or the speedster is exhausted.
 	 */
 	private static void speedBonus(ServerPlayer player) {
-		boolean on = wearsFull(player) && mayWear(player)
+		boolean on = wearsFull(player) && mayWear(player) && player.isSprinting()
+				&& (com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.speedMode(player)
+						|| com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.overdrive(player))
 				&& !com.projecthero.mod.hero.power.p04.SuperSpeedTimeSlow.isCasting(player)
 				&& !com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.exhausted(player);
 		if (on) {

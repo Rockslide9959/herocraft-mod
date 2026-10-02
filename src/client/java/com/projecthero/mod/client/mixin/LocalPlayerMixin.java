@@ -207,7 +207,32 @@ public abstract class LocalPlayerMixin {
 		Vec3 v = self.getDeltaMovement();
 		double horiz = Math.sqrt(v.x * v.x + v.z * v.z);
 
-		if (self.onGround()) {
+		// v0.14.17: find the water surface FIRST. The run is held up by this method (move() itself never lands on
+		// water), so before, every water tick also counted as "in the air" and the jump-momentum easing below kept
+		// dragging the speed back up toward the last on-land speed in whatever direction you were already going:
+		// release the keys or steer and you just slid on and on. On water you now steer, accelerate and stop exactly
+		// as on the ground (the snapped-on onGround gives the next tick ground friction and grip). You stay up while
+		// moving fast or while holding a movement key (so turning round does not drop you in); let go and you sink.
+		boolean steering = self.zza != 0.0f || self.xxa != 0.0f;
+		double surfaceY = Double.NaN;
+		if (!self.isShiftKeyDown() && !self.getAbilities().flying && (horiz > 0.08 || steering)) {
+			BlockPos feet = self.blockPosition();
+			FluidState fluid = self.level().getFluidState(feet);
+			// If the player has already sunk a touch, the water is one block below the feet position.
+			if (!fluid.is(FluidTags.WATER) && self.level().getFluidState(feet.below()).is(FluidTags.WATER)) {
+				feet = feet.below();
+				fluid = self.level().getFluidState(feet);
+			}
+			if (fluid.is(FluidTags.WATER) && self.level().getFluidState(feet.above()).isEmpty()) {
+				double y = feet.getY() + fluid.getHeight(self.level(), feet);
+				if (self.getY() >= y - 1.2 && self.getY() <= y + 0.5) {
+					surfaceY = y;
+				}
+			}
+		}
+		boolean onWater = !Double.isNaN(surfaceY);
+
+		if (self.onGround() || onWater) {
 			projecthero$groundSpeed = Math.min(3.0, horiz);
 		} else if (projecthero$groundSpeed > 0.05 && horiz > 1.0e-4 && horiz < projecthero$groundSpeed) {
 			// ease the horizontal speed back up toward what it was the instant we left the ground
@@ -217,25 +242,13 @@ public abstract class LocalPlayerMixin {
 			v = self.getDeltaMovement();
 		}
 
-		if (!self.isShiftKeyDown() && !self.getAbilities().flying && horiz > 0.08) {
-			BlockPos feet = self.blockPosition();
-			FluidState fluid = self.level().getFluidState(feet);
-			// If the player has already sunk a touch, the water is one block below the feet position.
-			if (!fluid.is(FluidTags.WATER) && self.level().getFluidState(feet.below()).is(FluidTags.WATER)) {
-				feet = feet.below();
-				fluid = self.level().getFluidState(feet);
+		if (onWater) {
+			if (self.getY() < surfaceY) {
+				self.setPos(self.getX(), surfaceY, self.getZ());
 			}
-			if (fluid.is(FluidTags.WATER) && self.level().getFluidState(feet.above()).isEmpty()) {
-				double surfaceY = feet.getY() + fluid.getHeight(self.level(), feet);
-				if (self.getY() >= surfaceY - 1.2 && self.getY() <= surfaceY + 0.5) {
-					if (self.getY() < surfaceY) {
-						self.setPos(self.getX(), surfaceY, self.getZ());
-					}
-					self.setDeltaMovement(v.x, Math.max(0.0, v.y), v.z);
-					self.setOnGround(true);
-					self.resetFallDistance();
-				}
-			}
+			self.setDeltaMovement(v.x, Math.max(0.0, v.y), v.z);
+			self.setOnGround(true);
+			self.resetFallDistance();
 		}
 	}
 

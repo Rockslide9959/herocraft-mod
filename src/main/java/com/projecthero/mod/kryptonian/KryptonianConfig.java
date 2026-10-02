@@ -46,12 +46,7 @@ public final class KryptonianConfig {
 	public static final float SOLAR_NIGHT_PER_SECOND = 0.5f;
 	/** Per second: underground / the Nether / the End. */
 	public static final float SOLAR_DARK_PER_SECOND = 0.25f;
-	/**
-	 * v0.14.16: Solar Energy only starts refilling this long after the last drain of any kind (a move, a held beam,
-	 * flight, the Regeneration III, kryptonite).
-	 */
-	public static final int SOLAR_REGEN_DELAY = 5 * S;
-	/** v0.14.16: flying costs this much Solar Energy a second (and so keeps the bar from refilling while airborne). */
+	/** v0.14.16: flying costs this much Solar Energy a second (v0.14.17: netted against the sun's refill). */
 	public static final float FLIGHT_SOLAR_PER_SECOND = 0.1f;
 	/**
 	 * v0.14.16: Regeneration III (amplifier 2) while he is below max health and has Solar Energy; it costs this much a

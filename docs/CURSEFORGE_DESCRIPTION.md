@@ -68,7 +68,7 @@ Build an **Arc Reactor**, the **Stark Fabricator** and a **Suit Platform**, then
 - **Protocol Phoenix** recalls your best suit when you would otherwise die. A single Repulsor in your boots slot gives
   flight with no suit at all.
 - **Stark Sorting Station:** fill its 54-slot store, press **Sort**, and a little **Sorter Bot** flies out and files
-  everything into the chests and barrels within 10 blocks -- the more chests, the finer it sorts, and it keeps each
+  everything (carried in its hands, flying where it faces) into the chests and barrels within 10 blocks -- the more chests, the finer it sorts, and it keeps each
   chest's existing theme. Watch it work in real time.
 
 ### 🕷️ Spider-Man
@@ -213,12 +213,13 @@ A **Hero-Tier** power awakened by the **Speed Force**: get **Strength, Speed and
 activate **Charged Copper Plates** or get **struck by lightning** -- half the time the Speed Force takes you, the other
 half it burns the effects away and you try again.
 - **Speed Mode** walks at ~20 blocks a second (easy to fight in) and **sprints at ~40**; **Overdrive** walks at ~32 and
-  sprints at ~100 (press V again to end it early).
+  sprints at ~100 (press V again to end it early). Run across water and steer on it just like on land.
 - **Blitz** zips you to a target with a heavy, launching hit and a shockwave that knocks back everything round it.
-  Mach Punch, Speed Vortex, a 50-block **Speed Sweep** that doesn't stop until every enemy is hit, Phase through walls, carry anyone on **N**, and a charged,
+  Mach Punch, Speed Vortex, a 50-block **Speed Sweep** that doesn't stop until every enemy is hit, Phase through walls, carry anyone on **N** (no cooldown), and a charged,
   game-wide **Time Slow**. Regeneration III, always.
 - **The Flash Suit** packs into a gold **Flash Ring** on **H** -- worn in your chestplate slot like armour, so you never
-  lose the suit on death -- and slowly mends itself while it is in there (its durability % shows above your HUD).
+  lose the suit on death -- and slowly mends itself while it is in there (its durability % shows above your HUD). Worn,
+  it makes your Speed Mode and Overdrive sprint 50% faster (your walk stays easy to control).
 
 ### ☀️ The Kryptonian
 Somewhere out in the world lies a rare **Kryptonite Meteor crater** -- as hard to find as Mjolnir's.
@@ -229,8 +230,8 @@ one **Kryptonian Crystal** it holds, then hold it up to the **daytime sun**. The
   fists that send things flying, no knockback, 40% faster, a 4-block jump, and the sun heals and feeds you.
 - **True flight:** double-tap jump and fly wherever you look -- **S** flies backward, **Sprint** is 40 blocks a second
   with a **sonic boom** as you break into it, and he flies one fist forward.
-- **Solar Energy** (a 100-point bar) charges in sunlight (fast in direct sun, slowly at night, barely underground) once
-  it hasn't been drained for 5 seconds, and fuels twelve cheap moves:
+- **Solar Energy** (a 100-point bar) charges in sunlight (fast in direct sun, slowly at night, barely underground) all
+  the time, even right after a move, and fuels twelve cheap moves:
   **R** Kryptonian Punch (32, launches) · **Shift+R** Thunderclap · **G** held **Heat Vision** from your eyes ·
   **Shift+G** Ground Pound (dive from the sky) · **Z** held Freeze Breath (ices water) · **Shift+Z** **SOLAR FLARE** --
   dump a full bar of sunlight in a 12-block, 120-damage blast, then you're powerless for 30 s · **X** Super Dash ·
@@ -300,9 +301,9 @@ Craft a **Zombie, Skeleton or Spider Horde** block (a 3x3 of rotten flesh / bone
 for **8 waves** and a boss -- harder each tier, with a reward chest that gets richer to match.
 - **Zombie Horde** ends with **the Titan**.
 - **Skeleton Horde:** Bone Runners, Blight Archers, shield-walled Bone Knights, TNT-headed Bone Bombers, Necromancers and
-  Bone Brutes -- then **the Bone Tyrant**, a 7-block lich-king with ten telegraphed attacks over three phases.
+  Bone Brutes -- then **the Bone Tyrant**, a 2,000-health, 7-block lich-king with ten telegraphed attacks over three phases.
 - **Spider Horde:** Hunters, Venom Spitters, Trapdoor Leapers, Acid Bursters, Ironback Brutes, invisible Shadow Stalkers and
-  Broodmothers -- then **the Brood Queen**, a 4,000-health spider queen with nine attacks, web cocoons and acid rain.
+  Broodmothers -- then **the Brood Queen**, a 2,400-health spider queen with nine attacks, web cocoons and acid rain.
 
 ---
 

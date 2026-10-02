@@ -98,7 +98,7 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 public class BroodQueen extends Spider implements GeoEntity {
 	/** Kept for older callers: the v0.14.12 queen was a vanilla spider at this scale; the GeckoLib queen is full size. */
 	public static final float SCALE = 1.0f;
-	public static final double BASE_HEALTH = 4000.0;
+	public static final double BASE_HEALTH = 2400.0; // v0.14.17: was 4000
 	public static final double HEALTH_PER_FIGHTER = 1200.0;
 	public static final float WIDTH = 4.4f;
 	public static final float HEIGHT = 3.4f;

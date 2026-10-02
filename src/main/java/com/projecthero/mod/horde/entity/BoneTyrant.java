@@ -63,7 +63,7 @@ import software.bernie.geckolib.util.GeckoLibUtil;
  * ({@code geo/bone_tyrant.geo.json}: a crowned skull with burning soul eyes, a see-through ribcage round a glowing soul
  * core, spiked pauldrons, a tattered cape and a bone greatsword), a full set of animations and ten attacks over three
  * phases ({@link BoneTyrantCombat}). He is meant to be the hardest of the three horde bosses, and outclasses the Titan:
- * 2,400 health (plus 600 for each extra fighter, up to 6,000) against the Titan's 1,800, 16 armour and 12 toughness
+ * 2,000 health (v0.14.17; plus 600 for each extra fighter, up to 6,000) against the Titan's 1,800, 16 armour and 12 toughness
  * against its 10 and 8, and heavier hits (a 24 sweep, a 36 charge). Fire can't touch him, nor wither or poison; he
  * can't be knocked back and never despawns. He has his own boss bar, which names his phase.
  *
@@ -74,7 +74,7 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 public class BoneTyrant extends Monster implements GeoEntity {
 	/** The geo model is authored two blocks tall; the SCALE attribute makes him ~7 (the hit-box follows). */
 	public static final float SCALE = 3.5f;
-	public static final double BASE_HEALTH = 2400.0;
+	public static final double BASE_HEALTH = 2000.0; // v0.14.17: was 2400
 	public static final double HEALTH_PER_FIGHTER = 600.0;
 	public static final double MAX_HEALTH_CAP = 6000.0;
 	public static final double ARMOR = 16.0;
@@ -114,7 +114,7 @@ public class BoneTyrant extends Monster implements GeoEntity {
 				.add(Attributes.SCALE, SCALE);
 	}
 
-	/** Sets his health for {@code players} fighting him: 2,400 alone, 600 more per extra fighter, at most 6,000. */
+	/** Sets his health for {@code players} fighting him: 2,000 alone, 600 more per extra fighter, at most 6,000. */
 	public void configure(int players) {
 		double hp = Math.min(MAX_HEALTH_CAP, BASE_HEALTH + HEALTH_PER_FIGHTER * Math.max(0, players - 1));
 		getAttribute(Attributes.MAX_HEALTH).setBaseValue(hp);

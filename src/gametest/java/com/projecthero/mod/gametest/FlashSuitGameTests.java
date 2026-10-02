@@ -8,6 +8,7 @@ import com.projecthero.mod.flash.item.FlashRingItem;
 import com.projecthero.mod.hero.ExperimentalPowers;
 import com.projecthero.mod.hero.Power;
 import com.projecthero.mod.hero.Powers;
+import com.projecthero.mod.hero.AbilityRouter;
 import com.projecthero.mod.hero.power.p04.SuperSpeedHandlers;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
@@ -96,17 +97,35 @@ public class FlashSuitGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void theFullSuitMakesASpeedsterHalfAgainFaster(GameTestHelper helper) {
+	public void theFullSuitOnlySpeedsUpAModeSprint(GameTestHelper helper) {
 		ServerPlayer p = player(helper, true);
 		double before = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
 		suitUp(p);
 		FlashRing.tick(p);
-		double after = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
-		helper.assertTrue(Math.abs(after - before * 1.5) < 1.0e-6, "x1.5 movement speed (" + before + " -> " + after + ")");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - before) < 1.0e-6,
+				"v0.14.17: walking in the suit is no faster");
+		p.setSprinting(true);
+		FlashRing.tick(p);
+		helper.assertFalse(suitBonus(p), "nor is a plain sprint");
+		ExperimentalPowers.serverTick(p);
+		AbilityRouter.handleInput(p, 6, true); // C: Speed Mode on
+		ExperimentalPowers.serverTick(p);
+		helper.assertTrue(SuperSpeedHandlers.speedMode(p), "Speed Mode is on");
+		FlashRing.tick(p);
+		helper.assertTrue(suitBonus(p), "sprinting in Speed Mode: +50%");
+		p.setSprinting(false);
+		FlashRing.tick(p);
+		helper.assertFalse(suitBonus(p), "walking in Speed Mode: no suit bonus");
+		p.setSprinting(true);
 		p.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
 		FlashRing.tick(p);
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - before) < 1.0e-6, "only with the full suit");
+		helper.assertFalse(suitBonus(p), "only with the full suit");
 		helper.succeed();
+	}
+
+	private static boolean suitBonus(ServerPlayer p) {
+		var m = p.getAttribute(Attributes.MOVEMENT_SPEED).getModifier(ProjectHeroMod.id("flash_suit_speed"));
+		return m != null && Math.abs(m.amount() - FlashSuit.SPEED_BONUS) < 1.0e-6;
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

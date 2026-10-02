@@ -976,8 +976,30 @@ public final class BoneTyrantCombat {
 		return amount;
 	}
 
+	/** v0.14.17: every arrow he fires is gone this long after it was fired -- Arrow Storm used to litter the arena. */
+	public static final int ARROW_LIFETIME_TICKS = 5 * 20;
+
 	private Arrow arrow(ServerLevel level, Vec3 at) {
-		Arrow arrow = new Arrow(level, boss, new ItemStack(Items.ARROW), null);
+		return bossArrow(level, boss, at);
+	}
+
+	/** One of his arrows: 3 damage, never picked up, gone {@link #ARROW_LIFETIME_TICKS} after it is fired. */
+	public static Arrow bossArrow(ServerLevel level, LivingEntity owner, Vec3 at) {
+		Arrow arrow = new Arrow(level, owner, new ItemStack(Items.ARROW), null) {
+			@Override
+			public void tick() {
+				if (tickCount >= ARROW_LIFETIME_TICKS) {
+					discard(); // flying, stuck in the ground or stuck in a wall alike
+					return;
+				}
+				super.tick();
+			}
+
+			@Override
+			public boolean shouldBeSaved() {
+				return false; // never written to the world, so an unloaded chunk cannot keep a stray one
+			}
+		};
 		arrow.setPos(at.x, at.y, at.z);
 		arrow.setBaseDamage(3.0);
 		arrow.pickup = AbstractArrow.Pickup.DISALLOWED;

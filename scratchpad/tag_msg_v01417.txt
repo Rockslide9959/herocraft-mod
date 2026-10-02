@@ -1,0 +1,26 @@
+Project Hero v0.14.17 -- Control, Sunlight and Lighter Hordes
+
+☀️ KRYPTONIAN
+- Solar Energy now refills ALL THE TIME. The 5-second wait after using Solar Energy is gone -- the bar keeps charging from the sun straight after a move, while you hold Heat Vision or Freeze Breath, and while you fly.
+- Flying and your Regeneration III now only slow the refill down while they run instead of stopping it. Only kryptonite and the 30-second burn-out after a Solar Flare stop it.
+- The Solar bar no longer dims to a duller gold (there is nothing to wait for any more).
+
+⚡ SUPER SPEED
+- The Flash Suit no longer makes you walk faster. Its +50% now applies only while you SPRINT in Speed Mode or Overdrive, so normal walking and moving around in the suit stays easy to control.
+- Speed Carry (N) has no cooldown any more -- set someone down and grab the next one straight away.
+- Water running reworked: on water you now steer, speed up and stop exactly like you do on land. No more endless sliding in the direction you were going before you changed input. Keep moving (or hold a direction, even while turning round) to stay on the surface; let go and you sink.
+
+🤖 STARK SORTING STATION
+- The Sorter Bot now faces the way it flies (it used to always face south).
+- It carries each load properly in its hands -- the item sits between its fists and follows its arms as it flies, reaches into a chest and drops off the stack.
+
+💀 HORDES
+- Bone Tyrant: 2,000 health (was 2,400; still +600 per extra fighter, up to 6,000).
+- Brood Queen: 2,400 health (was 4,000; still +1,200 per extra fighter).
+- Bone Tyrant arrows now disappear 5 seconds after they're fired -- flying, stuck in the ground or in a wall -- and are never saved with the world. Arrow Storm used to leave hundreds of arrows lying around and could cause lag.
+
+📖 GUIDEBOOK & DESCRIPTIONS
+- Updated for everything above: Kryptonian Solar Energy, the Flash Suit, Speed Mode water running, Speed Carry, the Sorter Bot and the horde bosses' health.
+
+🔨 COMING NEXT (v0.14.18)
+- Stormbreaker for Thor: a hard Nether-forged craft with its own 3D model, a returning throw, and the Bifrost on Shift + Right-click.

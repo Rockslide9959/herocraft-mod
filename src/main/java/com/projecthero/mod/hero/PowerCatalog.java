@@ -148,7 +148,7 @@ final class PowerCatalog {
 				.ability(ab(k, "time_slow", SLOT_4, HOLD, 6000)) // v0.14.8: hold 5 s to charge; 300 s cooldown
 				.ability(ab(k, "overdrive", SLOT_5, INSTANT, 850))
 				.ability(ab(k, "speed_mode", SLOT_6, TOGGLE, 0))
-				.ability(ab(k, "speed_carry", AbilitySlot.SLOT_8, INSTANT, 51))
+				.ability(ab(k, "speed_carry", AbilitySlot.SLOT_8, INSTANT, 0)) // v0.14.17: no cooldown
 				.passives(pk(k, "passive.speed"), pk(k, "passive.metabolism"), pk(k, "passive.regen"))
 				.serum(SerumRecipe.of("minecraft:swiftness", pk(k, "serum"),
 						"minecraft:sugar", "minecraft:rabbit_foot", "minecraft:redstone"))

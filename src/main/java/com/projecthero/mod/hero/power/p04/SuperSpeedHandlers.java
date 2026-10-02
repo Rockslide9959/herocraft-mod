@@ -480,8 +480,7 @@ public final class SuperSpeedHandlers {
 		if (id != 0) {
 			releaseCarry(p, stillOurs(p, ctx.level().getEntity(id)));
 			AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.7f, 1.2f);
-			ctx.triggerCooldown();
-			return;
+			return; // v0.14.17: no cooldown -- grab the next one straight away
 		}
 		LivingEntity target = AbilityHelpers.raycastEntity(p, 6.0);
 		if (target == null || !AbilityHelpers.isValidGrabTarget(target, p) || target.getVehicle() == p) {

@@ -41,10 +41,12 @@ An old save's infinite ambient amplifier-0 instance is cleared by `reconcile`. A
 
 Solar Energy per second: DIRECT 4, SHADE (day, no direct sun) 1, NIGHT 0.5, DARK (underground, Nether, End) 0.25.
 **v0.14.16:** max 100 (saved values above are clamped on join and in `tickSolar`); `KryptonianState.lastDrain` is set
-by every drain (`spendSolar` with a cost > 0, flight 0.1/s, Regeneration III 1/s, kryptonite 5/s, the Solar Flare); the
-bar only refills once `now - lastDrain >= 100` ticks (`SOLAR_REGEN_DELAY`). Flying with an empty bar drops him
+by every drain (`spendSolar` with a cost > 0, flight 0.1/s, Regeneration III 1/s, kryptonite 5/s, the Solar Flare).
+**v0.14.17:** the refill delay is gone (`SOLAR_REGEN_DELAY` / `solarRegenPaused` removed): every second `tickSolar` adds
+the sun's rate minus the running drains (flight, Regeneration III); `lastDrain` is now informational only. Gametests pin
+the rate per player with `Kryptonian.setSolarGainForTests`. Flying with an empty bar drops him
 (`flight_no_solar`), and the take-off payload is refused on an empty bar (`KryptonianMod`). HUD: the Solar Hairline is
-a duller gold while the refill waits (`Kryptonian.solarRegenPaused`).
+always the plain gold (green near kryptonite).
 
 ## Moves (v0.14.16 layout)
 

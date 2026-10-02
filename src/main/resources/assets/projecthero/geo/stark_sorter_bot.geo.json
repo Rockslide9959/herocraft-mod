@@ -328,6 +328,15 @@
               ]
             }
           ]
+        },
+        {
+          "name": "cargo",
+          "parent": "right_arm",
+          "pivot": [
+            0,
+            8,
+            -0.5
+          ]
         }
       ]
     }

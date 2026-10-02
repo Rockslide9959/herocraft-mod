@@ -275,6 +275,34 @@ public class SkeletonHordeV01416GameTests implements FabricGameTest {
 	// ---------------------------------------------------------------- the Bone Tyrant
 
 	@GameTest(template = EMPTY_STRUCTURE)
+	public void v01417BossHealthIsLowered(GameTestHelper helper) {
+		BoneTyrant tyrant = HordeEntityTypes.BONE_TYRANT.create(helper.getLevel());
+		tyrant.configure(1);
+		helper.assertTrue(tyrant.getMaxHealth() == 2000f, "the Bone Tyrant has 2,000 health alone, got " + tyrant.getMaxHealth());
+		helper.assertTrue(com.projecthero.mod.horde.entity.BroodQueen.BASE_HEALTH == 2400.0, "the Brood Queen has 2,400");
+		tyrant.discard();
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void theTyrantsArrowsVanishAfterFiveSeconds(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		BoneTyrant tyrant = HordeEntityTypes.BONE_TYRANT.create(level);
+		net.minecraft.world.phys.Vec3 at = helper.absoluteVec(new net.minecraft.world.phys.Vec3(2.5, 2.5, 2.5));
+		tyrant.moveTo(at.x, at.y, at.z);
+		net.minecraft.world.entity.projectile.Arrow arrow = BoneTyrantCombat.bossArrow(level, tyrant, at);
+		arrow.setDeltaMovement(0, -0.5, 0); // lands and sticks in the floor, where a vanilla arrow would sit for 60 s
+		level.addFreshEntity(arrow);
+		helper.assertFalse(arrow.shouldBeSaved(), "never saved with the chunk");
+		helper.runAfterDelay(BoneTyrantCombat.ARROW_LIFETIME_TICKS - 20, () -> helper.assertFalse(arrow.isRemoved(), "still there after 4 s"));
+		helper.runAfterDelay(BoneTyrantCombat.ARROW_LIFETIME_TICKS + 5, () -> {
+			helper.assertTrue(arrow.isRemoved(), "gone after 5 s");
+			tyrant.discard();
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
 	public void theBoneTyrantOutclassesTheTitan(GameTestHelper helper) {
 		BoneTyrant tyrant = HordeEntityTypes.BONE_TYRANT.create(helper.getLevel());
 		TitanEntity titan = TitanEntityTypes.TITAN.create(helper.getLevel());

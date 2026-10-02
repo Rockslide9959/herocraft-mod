@@ -13,7 +13,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
  * mutates it.
  *
  * <p>v0.14.16: X-Ray Vision is a toggle ({@link #xray}; the old {@code xray_until} timer is simply ignored on load),
- * Solar Energy remembers when it was last drained ({@link #lastDrain} -- it only refills 5 s after that), and the held
+ * Solar Energy remembers when it was last drained ({@link #lastDrain}; v0.14.17: informational only -- the bar refills all the time), and the held
  * Freeze Breath has its own flag ({@link #breathing}) so every viewer sees the pose for as long as it blows.
  */
 public final class KryptonianState {

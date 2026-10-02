@@ -178,8 +178,8 @@ public class SpiderHordeV01416GameTests implements FabricGameTest {
 		BroodQueen queen = HordeEntityTypes.BROOD_QUEEN.create(helper.getLevel());
 		TitanEntity titan = TitanEntityTypes.TITAN.create(helper.getLevel());
 		queen.configure(1);
-		helper.assertTrue(queen.getMaxHealth() >= titan.getMaxHealth() * 1.5f,
-				"the Queen has at least half again the Titan's health: " + queen.getMaxHealth() + " vs " + titan.getMaxHealth());
+		helper.assertTrue(queen.getMaxHealth() > titan.getMaxHealth(),
+				"v0.14.17: the Queen (2,400) still has more health than the Titan: " + queen.getMaxHealth() + " vs " + titan.getMaxHealth());
 		helper.assertTrue(queen.getAttributeValue(Attributes.ARMOR) > titan.getAttributeValue(Attributes.ARMOR)
 				&& queen.getAttributeValue(Attributes.ARMOR_TOUGHNESS) > titan.getAttributeValue(Attributes.ARMOR_TOUGHNESS),
 				"and more armour");
@@ -299,7 +299,7 @@ public class SpiderHordeV01416GameTests implements FabricGameTest {
 		var queens = level.getEntitiesOfClass(BroodQueen.class, arena, BroodQueen::isAlive);
 		helper.assertTrue(queens.size() == 1, "the Brood Queen climbs out, found " + queens.size());
 		BroodQueen queen = queens.get(0);
-		helper.assertTrue(queen.getMaxHealth() > 2700f, "with more than half again a Titan's health");
+		helper.assertTrue(queen.getMaxHealth() >= 2400f, "v0.14.17: 2,400 health -- still more than a Titan");
 		queen.kill();
 		raid.tick(level);
 		helper.assertTrue(raid.state() == EventState.COMPLETED, "killing her wins the horde, state " + raid.state());

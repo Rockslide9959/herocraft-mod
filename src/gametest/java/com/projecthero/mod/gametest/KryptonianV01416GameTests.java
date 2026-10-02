@@ -24,7 +24,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.14.16 Kryptonian rework: the new (much lower) move costs, the 5 s refill delay after any drain, flight's 0.1 a
+ * v0.14.16 Kryptonian rework: the new (much lower) move costs, the always-on refill (v0.14.17; was a 5 s delay after any drain), flight's 0.1 a
  * second, the conditional Solar-paid Regeneration III, the full-bar Solar Flare and its 30 s powerless spell with 6 s of
  * debuffs, the free X-Ray toggle (key-repeat safe), the free Pick Up with no time limit and its gentle Shift+V set-down,
  * and the new C / Shift+C attacks. Mock players are not reliably ticked by the server, so each test drives
@@ -103,8 +103,8 @@ public class KryptonianV01416GameTests implements FabricGameTest {
 	public void heldBeamsDrainOneASecond(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
 		pump(helper, p);
-		Kryptonian.setSolar(p, 50.5f);
-		Kryptonian.spendSolar(p, 0.5f); // a drain now, so the sun does not refill the bar under the test
+		Kryptonian.setSolarGainForTests(p, 0f); // no sun, so only the beam moves the bar
+		Kryptonian.setSolar(p, 50f);
 		KryptonianAbilityManager.handle(p, AbilitySlot.SLOT_2, true); // G: heat vision
 		helper.assertTrue(Kryptonian.heatVisionActive(p), "G opens Heat Vision");
 		helper.runAfterDelay(41, () -> {
@@ -125,22 +125,19 @@ public class KryptonianV01416GameTests implements FabricGameTest {
 		});
 	}
 
-	// ---------------------------------------------------------------- refill delay
+	// ---------------------------------------------------------------- refill (v0.14.17: no delay)
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 240)
-	public void solarRefillsOnlyFiveSecondsAfterTheLastDrain(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void solarRefillsRightAfterADrain(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
 		pump(helper, p);
+		Kryptonian.setSolarGainForTests(p, 4f);
 		Kryptonian.setSolar(p, 50f);
 		helper.assertTrue(Kryptonian.spendSolar(p, 5f), "spends 5");
-		helper.assertTrue(Kryptonian.solarRegenPaused(p), "the refill is paused right after a drain");
-		helper.runAfterDelay(80, () -> {
-			helper.assertTrue(Math.abs(Kryptonian.solar(p) - 45f) < EPS, "4 s later nothing has come back, " + Kryptonian.solar(p));
-			helper.runAfterDelay(80, () -> {
-				helper.assertFalse(Kryptonian.solarRegenPaused(p), "the delay is over");
-				helper.assertTrue(Kryptonian.solar(p) > 45f + EPS, "8 s after the drain it refills again, " + Kryptonian.solar(p));
-				helper.succeed();
-			});
+		helper.runAfterDelay(50, () -> {
+			float s = Kryptonian.solar(p);
+			helper.assertTrue(s >= 45f + 8f - EPS, "2.5 s after the drain it has already refilled at 4 a second, " + s);
+			helper.succeed();
 		});
 	}
 
@@ -148,13 +145,13 @@ public class KryptonianV01416GameTests implements FabricGameTest {
 	public void flightDrainsATenthASecondAndStopsTheRefill(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
 		pump(helper, p);
+		Kryptonian.setSolarGainForTests(p, 0f); // no sun, so only the flight moves the bar
 		Kryptonian.setSolar(p, 50f);
 		KryptonianFlight.start(p);
 		helper.runAfterDelay(100, () -> {
 			helper.assertTrue(Kryptonian.isFlying(p), "still flying");
 			float s = Kryptonian.solar(p);
-			helper.assertTrue(s < 50f - 0.25f && s > 50f - 0.75f, "about 0.5 over 5 s of flight and no refill, " + s);
-			helper.assertTrue(Kryptonian.solarRegenPaused(p), "flying counts as a drain");
+			helper.assertTrue(s < 50f - 0.25f && s > 50f - 0.75f, "about 0.5 over 5 s of flight, " + s);
 			// an empty bar drops him out of the sky
 			Kryptonian.setSolar(p, 0.05f);
 			helper.runAfterDelay(25, () -> {
@@ -181,8 +178,8 @@ public class KryptonianV01416GameTests implements FabricGameTest {
 	public void regenerationThreeOnlyWhileHurtAndItDrains(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
 		pump(helper, p);
-		Kryptonian.setSolar(p, 50.5f);
-		Kryptonian.spendSolar(p, 0.5f); // a drain now, so the sun does not refill the bar under the test
+		Kryptonian.setSolarGainForTests(p, 0f); // no sun, so only the Regeneration moves the bar
+		Kryptonian.setSolar(p, 50f);
 		helper.assertTrue(p.getEffect(MobEffects.REGENERATION) == null, "no Regeneration at full health");
 		p.setHealth(10.0f);
 		helper.runAfterDelay(2, () -> {
