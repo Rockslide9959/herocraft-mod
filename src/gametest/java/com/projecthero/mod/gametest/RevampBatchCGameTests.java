@@ -144,7 +144,10 @@ public class RevampBatchCGameTests implements FabricGameTest {
 	public void electroChainJumpsFurtherToAStackedTarget(GameTestHelper helper) {
 		ServerPlayer p = hero(helper, RevampBatchC.ELECTRO);
 		Zombie first = zombieAhead(helper, p, 3);
-		Zombie far = helper.spawn(EntityType.ZOMBIE, new BlockPos(2, 2, 2 + 3 + 12)); // 12 blocks past the first
+		// 12 blocks straight above the first (v0.14.19: was 12 blocks further along +Z, i.e. outside this 8-block test
+		// structure -- whether that spot's chunk had its entities loaded depended on the suite's layout, and once the
+		// Stormbreaker tests shifted the layout the zombie was invisible to every entity query and this failed every run)
+		Zombie far = helper.spawn(EntityType.ZOMBIE, new BlockPos(2, 2 + 12, 2 + 3));
 		far.setNoAi(true);
 		var chainUnstacked = ElectrokinesisHandlers.chainLightning(p, first, 6);
 		helper.assertFalse(chainUnstacked.contains(far), "an unstacked target 12 blocks on is out of hop range");

@@ -33,6 +33,22 @@ public final class ModItems {
 	public static final Item MJOLNIR_THROWN = register("mjolnir_thrown", Item::new,
 			new Item.Properties().stacksTo(1).rarity(Rarity.EPIC));
 
+	/** v0.14.19: Thor's second weapon. No durability; fire-resistant so a forged axe never burns in the lava it
+	 *  was forged in. See {@link com.projecthero.mod.stormbreaker.StormbreakerItem}. */
+	public static final Item STORMBREAKER = register("stormbreaker", com.projecthero.mod.stormbreaker.StormbreakerItem::new,
+			new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant()
+					.attributes(com.projecthero.mod.stormbreaker.StormbreakerItem.createAttributes()));
+
+	/** v0.14.19: the crafted, cold Stormbreaker -- forged into {@link #STORMBREAKER} in Nether lava. */
+	public static final Item UNFORGED_STORMBREAKER = register("unforged_stormbreaker",
+			com.projecthero.mod.stormbreaker.UnforgedStormbreakerItem::new,
+			new Item.Properties().stacksTo(1).rarity(Rarity.RARE).fireResistant());
+
+	/** v0.14.19: render-only stand-in owning the un-rotated 3D model the flying axe is drawn with -- the same trick
+	 *  as {@link #MJOLNIR_THROWN}. Never in a creative tab, never given to a player. */
+	public static final Item STORMBREAKER_THROWN = register("stormbreaker_thrown", Item::new,
+			new Item.Properties().stacksTo(1).rarity(Rarity.EPIC));
+
 	// The Asgardian armour set (Helmet/Chestplate/Leggings/Boots of Asgard) was removed in v0.6.22 --
 	// it was creative-only, purely cosmetic on top of the Power of Thor, and the user asked for it gone.
 	// ModArmorMaterials.THOR stays registered: Max Steel and the Spider-Man suit reuse its flat fallback

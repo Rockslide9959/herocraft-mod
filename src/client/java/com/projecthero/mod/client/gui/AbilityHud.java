@@ -10,7 +10,6 @@ import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.Power;
 import com.projecthero.mod.hero.Powers;
 import com.projecthero.mod.hero.data.ExperimentalState;
-import com.projecthero.mod.item.ModItems;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -61,7 +60,7 @@ public final class AbilityHud {
 			return;
 		}
 		// Thor takes the slots while Mjolnir is in hand -- don't show the experimental HUD then.
-		if (player.getMainHandItem().is(ModItems.MJOLNIR) || player.getOffhandItem().is(ModItems.MJOLNIR)) {
+		if (com.projecthero.mod.power.ThorPowers.wieldsThorWeapon(player)) { // v0.14.19: Stormbreaker too
 			return;
 		}
 		Power power = Powers.byKey(state.activePower);

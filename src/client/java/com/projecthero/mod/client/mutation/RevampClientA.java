@@ -187,7 +187,7 @@ public final class RevampClientA {
 		if (st == null || !FLIGHT.equals(st.activePower) || !st.ownedPowers.contains(FLIGHT)) {
 			return false;
 		}
-		return !com.projecthero.mod.power.ThorPowers.isHoldingMjolnir(p)
+		return !com.projecthero.mod.power.ThorPowers.wieldsThorWeapon(p)
 				&& !com.projecthero.mod.ironman.IronManArmor.wearingAnyIronMan(p);
 	}
 

@@ -10,6 +10,8 @@ public final class ModEntityRenderers {
 
 	public static void initialize() {
 		EntityRendererRegistry.register(ModEntityTypes.MJOLNIR, MjolnirEntityRenderer::new);
+		// v0.14.19: the thrown, tumbling Stormbreaker
+		EntityRendererRegistry.register(ModEntityTypes.STORMBREAKER, StormbreakerEntityRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.maxsteel.entity.MaxSteelEntityTypes.STEEL,
 				com.projecthero.mod.client.maxsteel.SteelRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.titanshifter.entity.TitanShifterEntities.TITAN_FORM,

@@ -3,7 +3,6 @@ package com.projecthero.mod.client.gui;
 import com.projecthero.mod.attachment.CooldownState;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.AbilitySlot;
-import com.projecthero.mod.item.ModItems;
 import com.projecthero.mod.power.StormEnergy;
 import com.projecthero.mod.power.ThorAbility;
 
@@ -65,8 +64,8 @@ public final class ThorHud {
 			return;
 		}
 
-		boolean holdingMjolnir = player.getMainHandItem().is(ModItems.MJOLNIR)
-				|| player.getOffhandItem().is(ModItems.MJOLNIR);
+		// v0.14.19: a worthy Stormbreaker carries Thor's kit as well
+		boolean holdingMjolnir = com.projecthero.mod.power.ThorPowers.wieldsThorWeapon(player);
 
 		// v0.12.32: a player who is BOUND to a hammer keeps the kit on screen even with Mjolnir out of their hands
 		// (the abilities themselves already work bound-or-holding); it steps aside only while they are inside a Titan.

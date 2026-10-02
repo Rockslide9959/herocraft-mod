@@ -57,6 +57,15 @@ public abstract class ItemInHandLayerMixin {
 	private void projecthero$keepHammerUprightWhileRaised(LivingEntity entity, ItemStack stack,
 			ItemDisplayContext displayContext, HumanoidArm arm, PoseStack poseStack, MultiBufferSource buffer,
 			int packedLight, CallbackInfo ci) {
+		if (stack.is(ModItems.STORMBREAKER) && entity instanceof Player wielder) {
+			// v0.14.19: Stormbreaker's model shares Mjolnir's handle-up convention, so a Thor move pose re-grips it the
+			// same way. Only the move-pose grip -- the flight arm-raise below is Mjolnir's alone.
+			float grip = com.projecthero.mod.client.thor.ThorPose.hammerGrip(wielder);
+			if (grip > 0.001f) {
+				poseStack.mulPose(Axis.XP.rotationDegrees(-90.0f * grip));
+			}
+			return;
+		}
 		if (!stack.is(ModItems.MJOLNIR) || !(entity instanceof Player player)) {
 			return;
 		}

@@ -151,8 +151,7 @@ public final class SpiderHud {
 		}
 		// Thor and Iron Man both outrank Spider-Man in the router, so neither of their contexts should
 		// be showing a web-ability row underneath their own HUD.
-		if (player.getMainHandItem().is(com.projecthero.mod.item.ModItems.MJOLNIR)
-				|| player.getOffhandItem().is(com.projecthero.mod.item.ModItems.MJOLNIR)
+		if (com.projecthero.mod.power.ThorPowers.wieldsThorWeapon(player) // v0.14.19: Mjolnir or a worthy Stormbreaker
 				|| wearingIronMan(player)) {
 			return;
 		}

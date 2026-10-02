@@ -34,6 +34,16 @@ public final class ModEntityTypes {
 					.fireImmune()
 					.build());
 
+	/** v0.14.19: the thrown Stormbreaker -- spins out, pierces, always flies home. Fire-immune like Mjolnir. */
+	public static final EntityType<com.projecthero.mod.stormbreaker.StormbreakerEntity> STORMBREAKER = register("stormbreaker",
+			FabricEntityTypeBuilder.<com.projecthero.mod.stormbreaker.StormbreakerEntity>create(MobCategory.MISC,
+							com.projecthero.mod.stormbreaker.StormbreakerEntity::new)
+					.dimensions(EntityDimensions.scalable(0.6f, 0.6f))
+					.trackRangeBlocks(96)
+					.trackedUpdateRate(20)
+					.fireImmune()
+					.build());
+
 	private ModEntityTypes() {
 	}
 

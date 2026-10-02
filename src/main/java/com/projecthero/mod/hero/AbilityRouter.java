@@ -28,7 +28,7 @@ public final class AbilityRouter {
 
 	public static boolean hasThorContext(ServerPlayer player) {
 		return Worthiness.isWorthy(player)
-				&& (ThorPowers.isHoldingMjolnir(player) || ThorPassives.hasPowerOfThor(player));
+				&& (ThorPowers.isHoldingThorWeapon(player) || ThorPassives.hasPowerOfThor(player));
 	}
 
 	public static void handleInput(ServerPlayer player, int slotNumber, boolean pressed) {
@@ -90,7 +90,7 @@ public final class AbilityRouter {
 		if (pressed && slot == AbilitySlot.SLOT_6
 				&& com.projecthero.mod.ironman.TonyStark.hasPower(player)
 				&& !com.projecthero.mod.ironman.IronManArmor.wearingAnyIronMan(player)
-				&& !ThorPowers.isHoldingMjolnir(player)) {
+				&& !ThorPowers.wieldsThorWeapon(player)) {
 			// "changes 19": plain C auto-equips a full suit sitting in your inventory; sneak + C (or no
 			// complete suit in the pack) opens the call-armour picker.
 			if (!player.isShiftKeyDown()

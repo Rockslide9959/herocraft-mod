@@ -163,6 +163,40 @@ public final class ThorPowers {
 		return player.getMainHandItem().is(ModItems.MJOLNIR) || player.getOffhandItem().is(ModItems.MJOLNIR);
 	}
 
+	/** v0.14.19: Stormbreaker in either hand. */
+	public static boolean isHoldingStormbreaker(Player player) {
+		return player.getMainHandItem().is(ModItems.STORMBREAKER) || player.getOffhandItem().is(ModItems.STORMBREAKER);
+	}
+
+	/**
+	 * v0.14.19: Mjolnir OR Stormbreaker in either hand -- what every lightning power, the Lightning Beam, Wrath,
+	 * Thunderclap, Storm Call and flight gate on. Anything that physically sends, recalls, binds or identifies
+	 * MJOLNIR (the throw, Hammer Volley, Call Mjolnir, the registry, the arm poses) still checks Mjolnir only.
+	 * Callers pair this with {@link Worthiness#isWorthy} -- an unworthy player can hold Stormbreaker, unlike Mjolnir.
+	 */
+	public static boolean isHoldingThorWeapon(Player player) {
+		return isHoldingMjolnir(player) || isHoldingStormbreaker(player);
+	}
+
+	/**
+	 * v0.14.19: whether the player's held weapon gives them Thor's kit right now -- Mjolnir (only the worthy can hold
+	 * it at all), or Stormbreaker in a worthy hand. For client-side key/HUD routing, where an unworthy player merely
+	 * carrying Stormbreaker must keep their own mutation keys and HUD. Worthiness is synced to the owning client.
+	 */
+	public static boolean wieldsThorWeapon(Player player) {
+		return isHoldingMjolnir(player) || (isHoldingStormbreaker(player) && Worthiness.isWorthy(player));
+	}
+
+	/**
+	 * v0.14.19: the hammerless-flight grace a mid-flight Mjolnir throw grants, shared with Stormbreaker's throw so a
+	 * flying Thor does not drop out of the sky the moment the axe leaves his hand. Only while really Thor-flying.
+	 */
+	public static void grantThrowFlightGrace(ServerPlayer player) {
+		if (isFlying(player) && !player.getAbilities().instabuild) {
+			player.setAttached(ModAttachments.HAMMERLESS_FLIGHT_TICKS, HAMMERLESS_FLIGHT_GRACE_TICKS);
+		}
+	}
+
 	public static boolean isFlying(Player player) {
 		return player.getAttachedOrElse(ModAttachments.FLYING, false);
 	}
@@ -423,7 +457,7 @@ public final class ThorPowers {
 			return;
 		}
 
-		if (!Worthiness.isWorthy(player) || !isHoldingMjolnir(player)) {
+		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)) {
 			return;
 		}
 		if (!StormEnergy.has(player, 1.0f)) {
@@ -484,7 +518,7 @@ public final class ThorPowers {
 				// its own instabuild guard for why it never touches their creative mayfly/flying.
 				setFlying(player, false);
 			} else {
-				boolean holding = isHoldingMjolnir(player);
+				boolean holding = isHoldingThorWeapon(player);
 				if (holding && player.getAttachedOrElse(ModAttachments.HAMMERLESS_FLIGHT_TICKS, 0) != 0) {
 					// Caught it back mid-grace: resume ordinary flight seamlessly, no sudden fall --
 					// requirement 25. The grace ticks reset to 0 (via the branch below not firing
@@ -561,7 +595,7 @@ public final class ThorPowers {
 	// ---------------- lightning strike (+ chain lightning) ----------------
 
 	public static void lightningStrike(ServerPlayer player) {
-		if (!Worthiness.isWorthy(player) || !isHoldingMjolnir(player)) {
+		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)) {
 			return;
 		}
 		// Check readiness without consuming yet -- an insufficient-energy cast shouldn't start the
@@ -713,7 +747,7 @@ public final class ThorPowers {
 	 * {@code getEntitiesOfClass} call, then a fixed cone filter, so it is never an unbounded scan.
 	 */
 	public static void chainLightningCast(ServerPlayer player) {
-		if (!Worthiness.isWorthy(player) || !isHoldingMjolnir(player)) {
+		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)) {
 			return;
 		}
 		if (!consumeCooldown(player, ThorAbility.CHAIN_LIGHTNING, CHAIN_LIGHTNING_COOLDOWN_TICKS)) {
@@ -794,7 +828,7 @@ public final class ThorPowers {
 	 * charge fires when it completes.
 	 */
 	public static void godOfThundersWrath(ServerPlayer player) {
-		if (!Worthiness.isWorthy(player) || !isHoldingMjolnir(player)) {
+		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)) {
 			return;
 		}
 		if (!cooldowns(player).isReady(ThorAbility.GOD_OF_THUNDER, player.level().getGameTime())) {
@@ -902,7 +936,7 @@ public final class ThorPowers {
 		if (current > 0) {
 			return; // already charging
 		}
-		if (!Worthiness.isWorthy(player) || !isHoldingMjolnir(player)) {
+		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)) {
 			return;
 		}
 		if (!cooldowns(player).isReady(ThorAbility.GOD_OF_THUNDER, player.level().getGameTime())) {
@@ -934,7 +968,7 @@ public final class ThorPowers {
 		if (c <= 0) {
 			return;
 		}
-		if (!Worthiness.isWorthy(player) || !isHoldingMjolnir(player)
+		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)
 				|| !StormEnergy.has(player, StormEnergy.GOD_OF_THUNDER_MIN)) {
 			player.setAttached(ModAttachments.THOR_WRATH_CHARGE, 0);
 			return;
@@ -1002,7 +1036,7 @@ public final class ThorPowers {
 			return;
 		}
 
-		if (!Worthiness.isWorthy(player) || !isHoldingMjolnir(player)) {
+		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)) {
 			return;
 		}
 		if (!StormEnergy.has(player, StormEnergy.LASER_DRAIN_PER_SECOND / 20.0f)) {
@@ -1018,7 +1052,7 @@ public final class ThorPowers {
 			ThorVisuals.channel(player, ThorFx.CH_BEAM, false);
 			return;
 		}
-		if (!Worthiness.isWorthy(player) || !isHoldingMjolnir(player)
+		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)
 				|| !StormEnergy.has(player, StormEnergy.LASER_DRAIN_PER_SECOND / 20.0f)) {
 			player.setAttached(ModAttachments.LASER_ACTIVE, false);
 			ThorVisuals.channel(player, ThorFx.CH_BEAM, false);
@@ -1064,7 +1098,7 @@ public final class ThorPowers {
 	// ---------------- thunderclap shockwave ----------------
 
 	public static void thunderclap(ServerPlayer player) {
-		if (!Worthiness.isWorthy(player) || !isHoldingMjolnir(player)) {
+		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)) {
 			return;
 		}
 		if (!StormEnergy.has(player, StormEnergy.THUNDERCLAP_COST)) {
@@ -1104,7 +1138,7 @@ public final class ThorPowers {
 	// ---------------- storm call ----------------
 
 	public static void stormCall(ServerPlayer player) {
-		if (!Worthiness.isWorthy(player) || !isHoldingMjolnir(player)) {
+		if (!Worthiness.isWorthy(player) || !isHoldingThorWeapon(player)) {
 			return;
 		}
 		if (!consumeCooldown(player, ThorAbility.STORM_CALL, STORM_CALL_COOLDOWN_TICKS)) {

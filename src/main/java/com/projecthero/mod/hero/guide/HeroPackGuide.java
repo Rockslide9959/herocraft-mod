@@ -369,6 +369,12 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.thor.armour");
 			para(lines, "projecthero.guide.thor.armour.body");
+			// v0.14.19: Stormbreaker -- recipe, the Nether forging, its two right-click powers, and that it is Thor's weapon
+			blank(lines);
+			head(lines, "projecthero.guide.thor.stormbreaker");
+			for (String part : new String[]{"intro", "recipe", "forge", "throw", "bifrost", "weapon"}) {
+				para(lines, "projecthero.guide.thor.stormbreaker." + part);
+			}
 		}));
 
 		out.add(chapter("projecthero.guide.iron_man", lines -> {

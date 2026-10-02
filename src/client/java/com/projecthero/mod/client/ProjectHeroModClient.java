@@ -567,7 +567,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	 */
 	private static boolean mutationHasUtility(Minecraft client, int slot) {
 		LocalPlayer p = client.player;
-		if (p == null || client.screen != null || ThorPowers.isHoldingMjolnir(p)) {
+		if (p == null || client.screen != null || ThorPowers.wieldsThorWeapon(p)) {
 			return false;
 		}
 		com.projecthero.mod.hero.data.ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
@@ -600,7 +600,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	/** v0.14.5: whether a mutation is selected at all (and Mjolnir is not in hand) -- Sneak+N combos need no N slot. */
 	private static boolean mutationSelected(Minecraft client) {
 		LocalPlayer p = client.player;
-		if (p == null || client.screen != null || ThorPowers.isHoldingMjolnir(p)) {
+		if (p == null || client.screen != null || ThorPowers.wieldsThorWeapon(p)) {
 			return false;
 		}
 		com.projecthero.mod.hero.data.ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
@@ -961,7 +961,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		}
 
 		// Thor: double-tap jump while airborne + holding Mjolnir.
-		if (!player.onGround() && ThorPowers.isHoldingMjolnir(player)) {
+		if (!player.onGround() && ThorPowers.wieldsThorWeapon(player)) {
 			ticksSinceJumpPress = Integer.MAX_VALUE;
 			ClientPlayNetworking.send(new ThorActionPayload(ThorActionPayload.Action.TOGGLE_FLIGHT));
 			return;

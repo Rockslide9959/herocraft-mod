@@ -2,12 +2,14 @@ package com.projecthero.mod.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.projecthero.mod.entity.MjolnirEntity;
 import com.projecthero.mod.item.ModItems;
+import com.projecthero.mod.stormbreaker.StormbreakerForge;
 import com.projecthero.mod.worthiness.Worthiness;
 import com.projecthero.mod.worthiness.WorthinessEnforcer;
 
@@ -40,12 +42,48 @@ import net.minecraft.world.item.ItemStack;
  * entity is the server's job.
  */
 @Mixin(ItemEntity.class)
-public abstract class ItemEntityMixin {
+public abstract class ItemEntityMixin implements StormbreakerForge.Forgeable {
 	/** {@code ItemEntity.INFINITE_PICKUP_DELAY} -- what {@code setNeverPickUp()}/fake items use. */
 	private static final int NEVER_PICK_UP = 32767;
 
 	@Shadow
 	private int pickupDelay;
+
+	/** v0.14.19: ticks an Unforged Stormbreaker has spent in lava (see {@link StormbreakerForge}). Not saved. */
+	@Unique
+	private int projecthero$forgeTicks;
+	@Unique
+	private int projecthero$outOfLavaTicks;
+
+	@Override
+	public int projecthero$forgeTicks() {
+		return projecthero$forgeTicks;
+	}
+
+	@Override
+	public void projecthero$setForgeTicks(int ticks) {
+		projecthero$forgeTicks = ticks;
+	}
+
+	@Override
+	public int projecthero$outOfLavaTicks() {
+		return projecthero$outOfLavaTicks;
+	}
+
+	@Override
+	public void projecthero$setOutOfLavaTicks(int ticks) {
+		projecthero$outOfLavaTicks = ticks;
+	}
+
+	/** v0.14.19: an Unforged Stormbreaker in Nether lava is forged into Stormbreaker (server side only). */
+	@Inject(method = "tick", at = @At("HEAD"))
+	private void projecthero$forgeStormbreaker(CallbackInfo ci) {
+		ItemEntity self = (ItemEntity) (Object) this;
+		if (self.level().isClientSide() || self.isRemoved()) {
+			return;
+		}
+		StormbreakerForge.serverTick(self);
+	}
 
 	@Inject(method = "tick", at = @At("HEAD"), cancellable = true)
 	private void projecthero$promoteToMjolnirEntity(CallbackInfo ci) {

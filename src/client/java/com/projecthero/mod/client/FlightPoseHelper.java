@@ -96,7 +96,7 @@ public final class FlightPoseHelper {
 		anim.lastZ = player.getZ();
 		anim.hasLast = true;
 
-		boolean thorFlying = player.getAttachedOrElse(ModAttachments.FLYING, false) && ThorPowers.isHoldingMjolnir(player);
+		boolean thorFlying = player.getAttachedOrElse(ModAttachments.FLYING, false) && ThorPowers.isHoldingThorWeapon(player);
 		// Experimental hero flight (Wind Flight etc.) and Iron Man repulsor flight both get the same
 		// forward-lean "superman" body pose with the arms left at the player's sides -- so no arm raise
 		// for either. (Iron Man's own IRON_MAN_FLYING flag is synced to everyone, like HERO_FLYING.)
