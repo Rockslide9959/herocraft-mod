@@ -54,7 +54,7 @@ Lightning Rod). The hammer only moves for a **Hero of the Village**. Lift it wit
 - **The Power of Thor:** +11 melee, +10 hearts, 80% less damage, permanent Regeneration, no fall or lightning damage.
 - **Stormbreaker:** craft the Unforged Stormbreaker (4 netherite ingots, a Nether Star, 2 blaze rods) and throw it into
   **lava in the Nether** to forge it. 14 melee; right-click hurls it through up to 4 enemies with a lightning strike and
-  it flies back to you; **Shift + Right-click opens the Bifrost** and beams you (and anyone beside you) up to 256 blocks.
+  it flies back to you; **Shift + Right-click opens the Bifrost menu**: beam yourself and nearby squadmates to any coordinates or one of 3 saved waypoints (1-minute cooldown).
   It works as Thor's weapon for his lightning and flight.
 - **H** calls down lightning and forges **Thor's Armour** onto you piece by piece -- boots, greaves, then chestplate and
   a flowing **crimson cape**, each arriving with its own bolt from the sky. Diamond-level: the three pieces equal a full

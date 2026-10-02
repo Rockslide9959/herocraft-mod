@@ -724,6 +724,26 @@ public final class ModAttachments {
 			builder -> builder.initializer(() -> com.projecthero.mod.flash.FlashFx.EMPTY)
 					.syncWith(com.projecthero.mod.flash.FlashFx.STREAM_CODEC, AttachmentSyncPredicate.all()));
 
+	/**
+	 * v0.14.20: the three Bifrost waypoints saved from Stormbreaker's Bifrost screen. Persistent and kept through death,
+	 * so they survive relogs, dying and losing (or never having held) the axe. Not synced as an attachment -- the server
+	 * sends them with {@link com.projecthero.mod.network.BifrostScreenPayload} whenever the screen opens or changes.
+	 */
+	public static final AttachmentType<com.projecthero.mod.stormbreaker.BifrostWaypoints> BIFROST_WAYPOINTS = AttachmentRegistry.create(
+			ProjectHeroMod.id("bifrost_waypoints"),
+			builder -> builder.persistent(com.projecthero.mod.stormbreaker.BifrostWaypoints.CODEC)
+					.copyOnDeath()
+					.initializer(() -> com.projecthero.mod.stormbreaker.BifrostWaypoints.EMPTY));
+
+	/**
+	 * v0.14.20: the overworld game time at which the Bifrost is ready again (0 = ready). Its own server-side cooldown,
+	 * separate from the vanilla item cooldown, so a recharging Bifrost never holds Stormbreaker's throw. Persistent and
+	 * kept through death so relogging or dying never skips the minute.
+	 */
+	public static final AttachmentType<Long> BIFROST_READY_AT = AttachmentRegistry.create(
+			ProjectHeroMod.id("bifrost_ready_at"),
+			builder -> builder.persistent(Codec.LONG).copyOnDeath().initializer(() -> 0L));
+
 	private ModAttachments() {
 	}
 

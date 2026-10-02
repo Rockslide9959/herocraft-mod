@@ -30,8 +30,9 @@ import net.minecraft.world.level.Level;
  *   Mjolnir's dull clang and nothing else.</li>
  *   <li>Right-click throws it ({@link StormbreakerEntity}): it pierces, calls lightning on the first thing it hits
  *   and always comes back on its own.</li>
- *   <li>Sneak + right-click opens the Bifrost ({@link Bifrost}) -- a long-range teleport with a 30 s item cooldown.
- *   It never binds or unbinds anything; that is Mjolnir's alone.</li>
+ *   <li>Sneak + right-click opens the Bifrost screen ({@link Bifrost}, v0.14.20) -- travel to typed coordinates or one
+ *   of three saved waypoints, carrying nearby squadmates, on its own 60 s cooldown (the throw is never held). It never
+ *   binds or unbinds anything; that is Mjolnir's alone.</li>
  *   <li>For Thor's keybind powers and flight it counts as his weapon -- see
  *   {@link com.projecthero.mod.power.ThorPowers#isHoldingThorWeapon}.</li>
  * </ul>
@@ -67,6 +68,7 @@ public class StormbreakerItem extends Item {
 		tooltip.add(Component.translatable("item.projecthero.stormbreaker.ability.throw").withStyle(ChatFormatting.GRAY));
 		tooltip.add(Component.translatable("item.projecthero.stormbreaker.ability.bifrost").withStyle(ChatFormatting.GRAY));
 		tooltip.add(Component.translatable("item.projecthero.stormbreaker.ability.bifrost2").withStyle(ChatFormatting.DARK_GRAY));
+		tooltip.add(Component.translatable("item.projecthero.stormbreaker.ability.bifrost3").withStyle(ChatFormatting.DARK_GRAY));
 		tooltip.add(Component.translatable("item.projecthero.stormbreaker.thor_weapon").withStyle(ChatFormatting.AQUA));
 		tooltip.add(Component.translatable("item.projecthero.stormbreaker.worthy_only").withStyle(ChatFormatting.DARK_GRAY));
 	}
@@ -86,18 +88,16 @@ public class StormbreakerItem extends Item {
 		}
 
 		if (player.isShiftKeyDown()) {
-			// Sneak + right-click on a block within arm's reach stays vanilla (nothing happens, the block is not
-			// opened -- exactly as with any held sword). The Bifrost only opens toward somewhere further away.
-			if (Bifrost.targetsBlockInReach(player)) {
+			// v0.14.20: Sneak + right-click opens the Bifrost screen. The one exception: sneak-clicking a block within
+			// arm's reach with something in the off hand is left to vanilla, so a block can still be sneak-placed
+			// from the off hand while holding the axe.
+			if (!player.getOffhandItem().isEmpty() && Bifrost.targetsBlockInReach(player)) {
 				return InteractionResultHolder.pass(stack);
 			}
-			if (level.isClientSide()) {
-				return InteractionResultHolder.success(stack);
+			if (player instanceof ServerPlayer serverPlayer) {
+				Bifrost.sendScreen(serverPlayer, true);
 			}
-			if (player instanceof ServerPlayer serverPlayer && Bifrost.open(serverPlayer)) {
-				return InteractionResultHolder.success(stack);
-			}
-			return InteractionResultHolder.fail(stack);
+			return InteractionResultHolder.success(stack);
 		}
 
 		if (level.isClientSide()) {

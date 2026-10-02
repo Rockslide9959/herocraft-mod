@@ -180,6 +180,10 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				(payload, context) -> context.client().execute(() -> context.client().setScreen(
 						new com.projecthero.mod.client.gui.PortalPickerScreen(payload.x(), payload.y(), payload.z()))));
 
+		// Stormbreaker's Bifrost screen (v0.14.20): open on Sneak + right-click, refresh after a save / clear / failure.
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.BifrostScreenPayload.TYPE,
+				(payload, context) -> context.client().execute(() -> com.projecthero.mod.client.gui.BifrostScreen.receive(payload)));
+
 		// Mark 7 weapon wheel ("changes 16"): server tells us to open it (empty ability string).
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.IronManWeaponWheelPayload.TYPE,
 				(payload, context) -> context.client().execute(() -> context.client().setScreen(

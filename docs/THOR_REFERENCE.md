@@ -76,3 +76,45 @@ whatever the arm angle. The old HOVER flight correction is scaled by `1 - ThorPo
 `ThorSquadGameTests` (target rule incl. pets, Thunderclap no shove/slow on the mate, Chain Lightning and Wrath target
 lists, Lightning Strike through a mate, piece timeline); `ThorArmorGameTests#hTogglesTheArmourOnAndOff` now waits for
 the dissolve. Lang: `scratchpad/lang_v0144_thor.js`.
+
+## v0.14.19-0.14.20: Stormbreaker and the Bifrost -- `stormbreaker/*`
+
+Stormbreaker (v0.14.19): `StormbreakerItem` (14 melee, worthy-only powers), `StormbreakerEntity` (piercing returning
+throw), `StormbreakerForge` (10 s in Nether lava), `ThorPowers.isHoldingThorWeapon` (counts as Thor's weapon).
+
+### Bifrost (reworked v0.14.20) -- `stormbreaker/Bifrost`, `BifrostWaypoints`, client `gui/BifrostScreen`
+- **Sneak + right-click** (worthy, main hand) sends `BifrostScreenPayload(open=true)`: the three waypoints, the
+  cooldown ticks left and the player's dimension. The only exception: sneak-clicking a block within reach with
+  something in the off hand returns PASS, so off-hand block placement still works.
+- **Screen:** X / Y / Z fields (prefilled with the player's block position) + *Open Bifrost*; three waypoint rows
+  (name field, coordinates + dimension, *Save here*, *Go*, clear); a rainbow cooldown bar. *Go* is greyed out with a
+  tooltip for a waypoint saved in another dimension. Buttons send `BifrostActionPayload` (TRAVEL_COORDS /
+  TRAVEL_WAYPOINT / SAVE / CLEAR); save/clear/failures answer with a refresh (`open=false`).
+- **Waypoints:** `ModAttachments.BIFROST_WAYPOINTS` -- persistent + `copyOnDeath`, exactly 3 slots, names cleaned and
+  capped at 20 chars (blank = "Waypoint N"). Saved server-side from the player's own position; travel to a waypoint
+  uses the server's copy, never client coordinates.
+- **Validation (`Bifrost.travelTo`)**, in order: worthy + Stormbreaker in either hand + alive + not spectator
+  (`NOT_HOLDING`); cooldown (`COOLDOWN`); same dimension for waypoints (`WRONG_DIMENSION`); Y within build height and
+  X/Z inside the world border (`OUT_OF_BOUNDS`); a safe landing (`NO_LANDING`). Any failure spends no cooldown and
+  shows `message.projecthero.bifrost.fail.<result>`.
+- **No distance limit** beyond the world border. **Same dimension only** (cross-dimension was left out on purpose:
+  portals, the End fight and Nether-roof landings make it more than a teleport call).
+- **Safe landing (`findSafeLanding`)**, same column only: from Y, if open air, drop to the first floor; otherwise (or
+  if the drop hits something unsafe) climb to the first gap. A spot needs two free blocks (no collision, fluid, fire,
+  powder snow, berry bush or cobweb) over a solid floor that is not lava, magma, a campfire, cactus or powder snow --
+  or a water surface. A column with nothing safe (the void) is refused.
+- **Riders:** the user + every `Squads.areAllies` squadmate within **8 blocks** (3D), same level, alive, not a
+  spectator and not sneaking (sneak = stay behind). Each keeps their X/Z offset and gets their own safe landing in
+  their column if it is within 6 blocks up/down of the user's; otherwise they share the user's spot. Non-squad
+  players are never carried. Everyone is dismounted (`stopRiding` / `ejectPassengers`), teleported with
+  `teleportTo(level, ...)`, zeroed momentum and fall distance, with the rainbow column at both ends.
+- **Chunks:** the destination chunk (and each ally's column chunk) gets a `POST_TELEPORT` ticket and is loaded
+  (generated if need be) before the landing search.
+- **Cooldown:** 60 s in `ModAttachments.BIFROST_READY_AT` (overworld game time, persistent + `copyOnDeath`). No
+  vanilla item cooldown any more, so the throw is never held. Shown in the screen; the action bar names the seconds
+  left on a refused attempt and after each trip.
+
+Tests: `StormbreakerGameTests` (Bifrost batch) -- waypoints save / persist through an NBT save-load / clean names;
+travel carries a nearby squadmate but not a distant one or a non-squad player; second trip blocked for 60 s; out of
+bounds / other-dimension waypoint / empty slot / unworthy refused; landing climbs out of stone and drops through air.
+Lang: `scratchpad/lang_v01420_bifrost.js`.

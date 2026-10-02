@@ -43,6 +43,8 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(ElasticFormWheelPayload.TYPE, ElasticFormWheelPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(PortalCreatePayload.TYPE, PortalCreatePayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(PortalPickerPayload.TYPE, PortalPickerPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(BifrostScreenPayload.TYPE, BifrostScreenPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(BifrostActionPayload.TYPE, BifrostActionPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IronManBeamPayload.TYPE, IronManBeamPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IronManSuitListPayload.TYPE, IronManSuitListPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IronManWeaponWheelPayload.TYPE, IronManWeaponWheelPayload.CODEC);
@@ -280,6 +282,10 @@ public final class ModNetworking {
 		ServerPlayNetworking.registerGlobalReceiver(PortalCreatePayload.TYPE, (payload, context) ->
 				com.projecthero.mod.hero.power.p11.TeleportationHandlers.createDestinationPortal(
 						context.player(), payload.x(), payload.y(), payload.z(), payload.dimension()));
+
+		// Stormbreaker's Bifrost screen (v0.14.20): travel / save / clear -- all re-validated in Bifrost.handleAction.
+		ServerPlayNetworking.registerGlobalReceiver(BifrostActionPayload.TYPE, (payload, context) ->
+				context.server().execute(() -> com.projecthero.mod.stormbreaker.Bifrost.handleAction(context.player(), payload)));
 
 		// Iron Man call-armour picker: the player chose a suit from the C-key screen.
 		ServerPlayNetworking.registerGlobalReceiver(IronManCallSuitPayload.TYPE, (payload, context) ->
