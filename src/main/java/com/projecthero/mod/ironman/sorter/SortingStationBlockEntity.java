@@ -2,7 +2,9 @@ package com.projecthero.mod.ironman.sorter;
 
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
 
@@ -51,6 +53,15 @@ import net.minecraft.world.phys.Vec3;
  * </ul>
  * A sort job itself is not persisted: after a reload the station simply returns anything in transit and waits for
  * the next press of Sort.
+ *
+ * <h2>Tidy (v0.14.20)</h2>
+ * The second button. Instead of emptying the station it re-sorts the containers themselves: the plan is built from
+ * what the chests already hold ({@link SortPlan#build} with nothing incoming, so every chest keeps the theme it
+ * mostly has), then every stack sitting in a chest that is not one of its category's chests is carried, chest to
+ * chest, to one that is ({@link SortPlan#tidyDestinationFor}). The bot picks up from the wrong chest
+ * ({@link #collectTidyLoad}) into the same {@link #carried} list and deposits with {@link #depositCarried}, so the
+ * custody rules above hold unchanged. Stacks whose category's chests are full, or whose category has no chest,
+ * stay put; partial stacks are merged in every chest the bot opens. The station's own slots are not touched.
  */
 public class SortingStationBlockEntity extends BlockEntity implements Container, ExtendedScreenHandlerFactory<BlockPos> {
 	public static final int SIZE = 54;
@@ -58,6 +69,8 @@ public class SortingStationBlockEntity extends BlockEntity implements Container,
 	public static final int RADIUS = 10;
 	/** Most stacks in one trip (all bound for the same container). */
 	public static final int MAX_LOAD_STACKS = 3;
+	/** Most stacks in one Tidy trip (all from one chest, all bound for one chest). */
+	public static final int MAX_TIDY_STACKS = 4;
 	private static final int LOST_BOT_TICKS = 40;
 
 	private final NonNullList<ItemStack> items = NonNullList.withSize(SIZE, ItemStack.EMPTY);
@@ -74,6 +87,13 @@ public class SortingStationBlockEntity extends BlockEntity implements Container,
 	private int pendingSlots;
 	private int missingBotTicks;
 	private final BitSet unsortable = new BitSet(SIZE);
+	/** The current (or last) job is a Tidy rather than a Sort. */
+	private boolean tidying;
+	/** Tidy: containers already compacted this job (so a compact-only visit happens at most once each). */
+	private final Set<BlockPos> tidyCompacted = new HashSet<>();
+	/** Tidy: trips so far -- a hard cap, so a player shuffling chests mid-job can never keep the bot out forever. */
+	private int tidyTrips;
+	private int tidyTripCap;
 	/** Test hook: restricts the scan (game tests stay inside their own structure). */
 	private Predicate<BlockPos> scanFilter;
 
@@ -85,6 +105,7 @@ public class SortingStationBlockEntity extends BlockEntity implements Container,
 				case 1 -> done;
 				case 2 -> total;
 				case 3 -> plan == null ? 0 : plan.targets().size();
+				case 4 -> tidying ? 1 : 0;
 				default -> 0;
 			};
 		}
@@ -95,12 +116,18 @@ public class SortingStationBlockEntity extends BlockEntity implements Container,
 
 		@Override
 		public int getCount() {
-			return 4;
+			return DATA_COUNT;
 		}
 	};
+	/** Synced job slots: running, done, total, containers, mode (1 = Tidy). */
+	public static final int DATA_COUNT = 5;
 
 	/** One trip: where it goes and how many station slots it emptied. */
 	public record Load(SortPlan.Target target, int slotsEmptied) {
+	}
+
+	/** One Tidy trip: pick up from {@code source}, carry to {@code dest}. A null {@code dest} is a compact-only visit. */
+	public record TidyLoad(SortPlan.Target source, SortPlan.Target dest) {
 	}
 
 	public SortingStationBlockEntity(BlockPos pos, BlockState state) {
@@ -111,6 +138,11 @@ public class SortingStationBlockEntity extends BlockEntity implements Container,
 
 	public boolean isRunning() {
 		return running;
+	}
+
+	/** A Tidy job is running. */
+	public boolean isTidying() {
+		return running && tidying;
 	}
 
 	public int done() {
@@ -181,6 +213,7 @@ public class SortingStationBlockEntity extends BlockEntity implements Container,
 					.withStyle(ChatFormatting.RED);
 		}
 		plan = SortPlan.build(server, targets, items);
+		tidying = false;
 		unsortable.clear();
 		done = 0;
 		total = nonEmptySlots();
@@ -188,10 +221,19 @@ public class SortingStationBlockEntity extends BlockEntity implements Container,
 		missingBotTicks = 0;
 		this.requester = requester == null ? null : requester.getUUID();
 
+		if (!launch(server)) {
+			return Component.empty();
+		}
+		return Component.translatable("message.projecthero.stark_sorting_station.plan", targets.size(), plan.summary())
+				.withStyle(ChatFormatting.AQUA);
+	}
+
+	/** Spawn the bot for the job just planned in {@link #plan}. False (and the plan dropped) if it could not spawn. */
+	private boolean launch(ServerLevel server) {
 		SorterBotEntity bot = SorterBotEntity.spawn(server, this);
 		if (bot == null) {
 			plan = null;
-			return Component.empty();
+			return false;
 		}
 		botId = bot.getUUID();
 		running = true;
@@ -201,8 +243,190 @@ public class SortingStationBlockEntity extends BlockEntity implements Container,
 		server.sendParticles(ParticleTypes.ELECTRIC_SPARK, dock.x, dock.y + 0.3, dock.z, 24, 0.3, 0.3, 0.3, 0.15);
 		server.sendParticles(ParticleTypes.END_ROD, dock.x, dock.y, dock.z, 10, 0.25, 0.1, 0.25, 0.04);
 		server.playSound(null, worldPosition, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 0.6f, 1.8f);
-		return Component.translatable("message.projecthero.stark_sorting_station.plan", targets.size(), plan.summary())
+		return true;
+	}
+
+	// ------------------------------------------------------------------ the Tidy button (v0.14.20)
+
+	/**
+	 * Re-sort the containers in range: plan from their current contents, then launch the bot to carry every
+	 * misplaced stack to its category's chest. Refused while any job (Sort or Tidy) is running. Returns the status
+	 * line shown to the player; when there is nothing to do the bot is not launched at all.
+	 */
+	public Component startTidy(ServerPlayer requester) {
+		if (!(level instanceof ServerLevel server)) {
+			return Component.empty();
+		}
+		if (running) {
+			return Component.translatable("message.projecthero.stark_sorting_station.already_running", done, total)
+					.withStyle(ChatFormatting.GOLD);
+		}
+		returnCarried();
+		List<SortPlan.Target> targets = SortPlan.scan(server, worldPosition, RADIUS, scanFilter);
+		if (targets.isEmpty()) {
+			return Component.translatable("message.projecthero.stark_sorting_station.no_chests", RADIUS)
+					.withStyle(ChatFormatting.RED);
+		}
+		SortPlan tidyPlan = SortPlan.build(server, targets, List.of());
+		int misplaced = 0;
+		int movable = 0;
+		boolean fragmented = false;
+		for (SortPlan.Target t : targets) {
+			Container c = t.resolve(server);
+			if (c == null) {
+				continue;
+			}
+			fragmented |= Stash.fragmented(c);
+			for (int i = 0; i < c.getContainerSize(); i++) {
+				ItemStack s = c.getItem(i);
+				if (!s.isEmpty() && tidyPlan.misplaced(t, s)) {
+					misplaced++;
+					if (tidyPlan.tidyDestinationFor(server, s, t) != null) {
+						movable++;
+					}
+				}
+			}
+		}
+		if (movable == 0 && !fragmented) {
+			if (misplaced > 0) {
+				return Component.translatable("message.projecthero.stark_sorting_station.tidy_no_room", misplaced)
+						.withStyle(ChatFormatting.GOLD);
+			}
+			return Component.translatable("message.projecthero.stark_sorting_station.already_tidy")
+					.withStyle(ChatFormatting.GREEN);
+		}
+		plan = tidyPlan;
+		tidying = true;
+		unsortable.clear();
+		tidyCompacted.clear();
+		tidyTrips = 0;
+		tidyTripCap = movable * 2 + targets.size() * 2 + 16;
+		done = 0;
+		total = movable;
+		pendingSlots = 0;
+		missingBotTicks = 0;
+		this.requester = requester == null ? null : requester.getUUID();
+		if (!launch(server)) {
+			tidying = false;
+			return Component.empty();
+		}
+		return Component.translatable("message.projecthero.stark_sorting_station.tidy_plan", targets.size(), movable)
 				.withStyle(ChatFormatting.AQUA);
+	}
+
+	/**
+	 * Tidy: the bot's next trip -- the first misplaced stack (containers in plan order, nearest first) that one of
+	 * its own category's containers has room for; once there are none, one compact-only visit to each container
+	 * that still has split stacks. Null when the job is done. Nothing moves yet: see {@link #collectTidyLoad}.
+	 */
+	public TidyLoad nextTidyLoad() {
+		if (plan == null || level == null || !tidying) {
+			return null;
+		}
+		returnCarried();
+		if (++tidyTrips > tidyTripCap) {
+			return null;
+		}
+		for (SortPlan.Target t : plan.targets()) {
+			Container c = t.resolve(level);
+			if (c == null) {
+				continue;
+			}
+			for (int i = 0; i < c.getContainerSize(); i++) {
+				ItemStack s = c.getItem(i);
+				if (s.isEmpty()) {
+					continue;
+				}
+				SortPlan.Target dest = plan.tidyDestinationFor(level, s, t);
+				if (dest != null) {
+					return new TidyLoad(t, dest);
+				}
+			}
+		}
+		for (SortPlan.Target t : plan.targets()) {
+			if (tidyCompacted.contains(t.key())) {
+				continue;
+			}
+			Container c = t.resolve(level);
+			if (c != null && Stash.fragmented(c)) {
+				return new TidyLoad(t, null);
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Tidy: the bot is at {@code load.source()} with the lid open. Merge its split stacks, then move up to
+	 * {@value #MAX_TIDY_STACKS} misplaced stacks that belong in {@code load.dest()} from the chest into
+	 * {@link #carried} -- never more than the destination can take (checked on a simulation), so a full
+	 * destination leaves them where they are. Re-checked live: a chest broken or rearranged since the trip was
+	 * planned just yields a smaller (or empty) load. Returns the number of stacks picked up.
+	 */
+	public int collectTidyLoad(TidyLoad load) {
+		if (plan == null || level == null || load == null) {
+			return 0;
+		}
+		returnCarried();
+		Container source = load.source().resolve(level);
+		if (source == null) {
+			return 0;
+		}
+		Stash.compact(source);
+		tidyCompacted.add(load.source().key());
+		if (load.dest() == null) {
+			return 0;
+		}
+		Container dest = load.dest().resolve(level);
+		if (dest == null) {
+			return 0;
+		}
+		Stash.Sim sim = Stash.Sim.of(dest);
+		int emptied = 0;
+		int picked = 0;
+		for (int i = 0; i < source.getContainerSize() && carried.size() < MAX_TIDY_STACKS; i++) {
+			ItemStack s = source.getItem(i);
+			if (s.isEmpty() || !plan.misplaced(load.source(), s) || !plan.homeOf(s).targets().contains(load.dest())) {
+				continue;
+			}
+			int fits = sim.insert(s.copy());
+			if (fits <= 0) {
+				continue;
+			}
+			carried.add(s.split(fits));
+			picked++;
+			if (s.isEmpty()) {
+				source.setItem(i, ItemStack.EMPTY);
+				emptied++;
+			}
+		}
+		if (picked > 0) {
+			source.setChanged();
+		}
+		pendingSlots = emptied;
+		total = Math.max(total, done + emptied);
+		setChanged();
+		return picked;
+	}
+
+	/** Tidy: how many stacks are still in the wrong container (for the end-of-job report). */
+	private int countMisplaced() {
+		if (plan == null || level == null) {
+			return 0;
+		}
+		int n = 0;
+		for (SortPlan.Target t : plan.targets()) {
+			Container c = t.resolve(level);
+			if (c == null) {
+				continue;
+			}
+			for (int i = 0; i < c.getContainerSize(); i++) {
+				ItemStack s = c.getItem(i);
+				if (!s.isEmpty() && plan.misplaced(t, s)) {
+					n++;
+				}
+			}
+		}
+		return n;
 	}
 
 	// ------------------------------------------------------------------ the bot's side of the job
@@ -274,6 +498,10 @@ public class SortingStationBlockEntity extends BlockEntity implements Container,
 				Stash.insert(container, s);
 			}
 			carried.removeIf(ItemStack::isEmpty);
+			if (tidying) {
+				Stash.compact(container); // Tidy also merges split stacks in every chest it opens
+				tidyCompacted.add(target.key());
+			}
 		}
 		boolean all = carried.isEmpty();
 		if (all) {
@@ -318,16 +546,25 @@ public class SortingStationBlockEntity extends BlockEntity implements Container,
 	public void finish() {
 		returnCarried();
 		boolean wasRunning = running;
+		int stuck = tidying ? countMisplaced() : 0;
 		running = false;
 		botId = null;
 		plan = null;
+		tidyCompacted.clear();
 		setChanged();
 		if (!wasRunning || !(level instanceof ServerLevel server)) {
 			return;
 		}
 		server.playSound(null, worldPosition, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 0.5f, 1.8f);
 		ServerPlayer player = requester == null ? null : server.getServer().getPlayerList().getPlayer(requester);
-		if (player != null) {
+		if (player != null && tidying) {
+			player.sendSystemMessage(Component.translatable("message.projecthero.stark_sorting_station.tidy_done", done)
+					.withStyle(ChatFormatting.GREEN));
+			if (stuck > 0) {
+				player.sendSystemMessage(Component.translatable("message.projecthero.stark_sorting_station.tidy_stuck", stuck)
+						.withStyle(ChatFormatting.GOLD));
+			}
+		} else if (player != null) {
 			player.sendSystemMessage(Component.translatable("message.projecthero.stark_sorting_station.done", done)
 					.withStyle(ChatFormatting.GREEN));
 			int left = nonEmptySlots();

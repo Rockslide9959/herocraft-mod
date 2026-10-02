@@ -37,6 +37,7 @@ import software.bernie.geckolib.util.GeckoLibUtil;
  * its own "in transit" list) -> {@code OUTBOUND} (flies a low arc to the container's opening) -> {@code DEPOSIT}
  * (opens the lid, files the load, closes it) -> {@code HOMEBOUND} -> {@code FETCH} ... until the station has
  * nothing left that fits anywhere -> {@code DESPAWN} (folds away, the station reports to the player).
+ * v0.14.20 Tidy runs chest to chest instead (see {@link Phase}).
  *
  * <h2>Why it flies through things</h2>
  * Like Steel it extends {@link Entity}, not {@code Mob}: no pathfinding, no AI, no physics. Every leg is a timed
@@ -75,7 +76,12 @@ public class SorterBotEntity extends Entity implements GeoEntity {
 	private static final RawAnimation DEPOSIT = RawAnimation.begin().thenLoop("animation.stark_sorter_bot.deposit");
 	private static final RawAnimation DESPAWN = RawAnimation.begin().thenPlayAndHold("animation.stark_sorter_bot.despawn");
 
-	private enum Phase { SPAWN, FETCH, OUTBOUND, DEPOSIT, HOMEBOUND, DESPAWN }
+	/**
+	 * v0.14.20 Tidy adds three: {@code COLLECT_LEG} (flying to the chest holding misplaced stacks), {@code COLLECT}
+	 * (opens it, merges its split stacks, picks the load up) and {@code RETURN} (flying home to despawn). A Tidy loop
+	 * is FETCH -> COLLECT_LEG -> COLLECT -> OUTBOUND -> DEPOSIT -> FETCH ..., chest to chest without going home.
+	 */
+	private enum Phase { SPAWN, FETCH, COLLECT_LEG, COLLECT, OUTBOUND, DEPOSIT, HOMEBOUND, RETURN, DESPAWN }
 
 	private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
@@ -83,6 +89,7 @@ public class SorterBotEntity extends Entity implements GeoEntity {
 	private Phase phase = Phase.SPAWN;
 	private int phaseTick;
 	private SortPlan.Target target;
+	private SortingStationBlockEntity.TidyLoad tidyLoad;
 	private boolean barrelOpenedByUs;
 
 	private Vec3 legFrom = Vec3.ZERO;
@@ -181,7 +188,24 @@ public class SorterBotEntity extends Entity implements GeoEntity {
 					enter(Phase.FETCH);
 				}
 			}
-			case FETCH -> tickFetch(server, be);
+			case FETCH -> {
+				if (be.isTidying()) {
+					tickTidyFetch(be);
+				} else {
+					tickFetch(server, be);
+				}
+			}
+			case COLLECT_LEG -> {
+				if (advanceLeg()) {
+					enter(Phase.COLLECT);
+				}
+			}
+			case COLLECT -> tickCollect(server, be);
+			case RETURN -> {
+				if (advanceLeg()) {
+					enter(Phase.DESPAWN);
+				}
+			}
 			case OUTBOUND -> {
 				if (advanceLeg()) {
 					enter(Phase.DEPOSIT);
@@ -247,8 +271,57 @@ public class SorterBotEntity extends Entity implements GeoEntity {
 		} else if (phaseTick == DEPOSIT_TICKS - 1) {
 			closeLid(server);
 		} else if (phaseTick >= DEPOSIT_TICKS) {
-			startLeg(be.dockPoint());
+			if (be.isTidying() && be.carried().isEmpty()) {
+				enter(Phase.FETCH); // Tidy: straight on to the next chest
+				return;
+			}
+			startLeg(be.dockPoint()); // a Sort trip, or a Tidy load the chest refused: take it home to the station
 			enter(Phase.HOMEBOUND);
+		}
+	}
+
+	// ------------------------------------------------------------------ Tidy (v0.14.20)
+
+	private void tickTidyFetch(SortingStationBlockEntity be) {
+		if (phaseTick != 1) {
+			return;
+		}
+		tidyLoad = be.nextTidyLoad();
+		if (tidyLoad == null) {
+			Vec3 dock = be.dockPoint();
+			if (position().distanceToSqr(dock) < 0.01) {
+				enter(Phase.DESPAWN);
+			} else {
+				startLeg(dock);
+				enter(Phase.RETURN);
+			}
+			return;
+		}
+		target = tidyLoad.source();
+		startLeg(target.approach());
+		enter(Phase.COLLECT_LEG);
+	}
+
+	private void tickCollect(ServerLevel server, SortingStationBlockEntity be) {
+		if (phaseTick == 1) {
+			setAnim(ANIM_PICKUP);
+			faceTowards(target.center());
+			openLid(server);
+		} else if (phaseTick == 4) {
+			if (be.collectTidyLoad(tidyLoad) > 0) {
+				showCargo(be.firstCarried());
+				server.playSound(null, getX(), getY(), getZ(), SoundEvents.ITEM_PICKUP, SoundSource.BLOCKS, 0.35f, 1.6f);
+			}
+		} else if (phaseTick == DEPOSIT_TICKS - 1) {
+			closeLid(server);
+		} else if (phaseTick >= DEPOSIT_TICKS) {
+			if (be.carried().isEmpty() || tidyLoad == null || tidyLoad.dest() == null) {
+				enter(Phase.FETCH); // a compact-only visit, or the stacks were gone / no longer fit
+				return;
+			}
+			target = tidyLoad.dest();
+			startLeg(target.approach());
+			enter(Phase.OUTBOUND);
 		}
 	}
 
@@ -326,7 +399,7 @@ public class SorterBotEntity extends Entity implements GeoEntity {
 			return;
 		}
 		if (level() instanceof ServerLevel server) {
-			if (phase == Phase.DEPOSIT && target != null) {
+			if ((phase == Phase.DEPOSIT || phase == Phase.COLLECT) && target != null) {
 				closeLid(server);
 			}
 			poof(server);

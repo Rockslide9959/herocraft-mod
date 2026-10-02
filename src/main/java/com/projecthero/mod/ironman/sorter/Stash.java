@@ -62,6 +62,51 @@ public final class Stash {
 		return moved;
 	}
 
+	/**
+	 * v0.14.20 (Tidy): merge partial stacks of the identical item inside {@code c} into the earliest of them. Items
+	 * only move between stacks of the same container, so the total never changes. Returns true if anything moved.
+	 */
+	public static boolean compact(Container c) {
+		return compact(c, true);
+	}
+
+	/** v0.14.20 (Tidy): true when {@link #compact} would merge something in {@code c}. */
+	public static boolean fragmented(Container c) {
+		return compact(c, false);
+	}
+
+	private static boolean compact(Container c, boolean apply) {
+		boolean changed = false;
+		int n = c.getContainerSize();
+		for (int i = 0; i < n; i++) {
+			ItemStack a = c.getItem(i);
+			if (a.isEmpty()) {
+				continue;
+			}
+			int max = Math.min(c.getMaxStackSize(a), a.getMaxStackSize());
+			for (int j = i + 1; j < n && a.getCount() < max; j++) {
+				ItemStack b = c.getItem(j);
+				if (b.isEmpty() || !ItemStack.isSameItemSameComponents(a, b)) {
+					continue;
+				}
+				if (!apply) {
+					return true;
+				}
+				int add = Math.min(b.getCount(), max - a.getCount());
+				a.grow(add);
+				b.shrink(add);
+				if (b.isEmpty()) {
+					c.setItem(j, ItemStack.EMPTY);
+				}
+				changed = true;
+			}
+		}
+		if (changed) {
+			c.setChanged();
+		}
+		return changed;
+	}
+
 	/** A private copy of a container's slots that inserts can be tried against. */
 	public static final class Sim {
 		private final Container source;

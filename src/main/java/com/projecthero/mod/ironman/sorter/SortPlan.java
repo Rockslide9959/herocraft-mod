@@ -440,19 +440,9 @@ public final class SortPlan {
 			return null;
 		}
 		Bucket home = byCategory.get(SortCategory.of(stack));
-		if (home != null) {
-			for (Target t : home.targets) {
-				Container c = t.resolve(level);
-				if (c != null && Stash.holds(c, stack) && Stash.room(c, stack) > 0) {
-					return t;
-				}
-			}
-			for (Target t : home.targets) {
-				Container c = t.resolve(level);
-				if (c != null && Stash.room(c, stack) > 0) {
-					return t;
-				}
-			}
+		Target own = homeTargetWithRoom(level, home, stack, null);
+		if (own != null) {
+			return own;
 		}
 		for (Target t : targets) {
 			Container c = t.resolve(level);
@@ -480,6 +470,63 @@ public final class SortPlan {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * A container of {@code home} with room for some of {@code stack} -- one already holding the identical item
+	 * first, then any in assignment order -- skipping {@code exclude} (may be null). Null if none.
+	 */
+	private static Target homeTargetWithRoom(Level level, Bucket home, ItemStack stack, Target exclude) {
+		if (home == null) {
+			return null;
+		}
+		for (Target t : home.targets) {
+			if (t.equals(exclude)) {
+				continue;
+			}
+			Container c = t.resolve(level);
+			if (c != null && Stash.holds(c, stack) && Stash.room(c, stack) > 0) {
+				return t;
+			}
+		}
+		for (Target t : home.targets) {
+			if (t.equals(exclude)) {
+				continue;
+			}
+			Container c = t.resolve(level);
+			if (c != null && Stash.room(c, stack) > 0) {
+				return t;
+			}
+		}
+		return null;
+	}
+
+	// ------------------------------------------------------------------ tidying (v0.14.20)
+
+	/** The bucket {@code stack} belongs in, or null when no container in range was given its category. */
+	public Bucket homeOf(ItemStack stack) {
+		return stack.isEmpty() ? null : byCategory.get(SortCategory.of(stack));
+	}
+
+	/**
+	 * Tidy: true when {@code stack} sits in {@code where} but {@code where} is not one of its category's containers.
+	 * A stack whose category has no container at all is never "misplaced" -- it has nowhere better to be.
+	 */
+	public boolean misplaced(Target where, ItemStack stack) {
+		Bucket home = homeOf(stack);
+		return home != null && !home.targets.contains(where);
+	}
+
+	/**
+	 * Tidy: where a misplaced stack in {@code from} should be carried -- only ever one of its OWN category's
+	 * containers with room (the identical item's chest first). Unlike {@link #destinationFor} there is no
+	 * "anywhere with room" fallback: if its chests are full it is better left where it is. Null = leave it.
+	 */
+	public Target tidyDestinationFor(Level level, ItemStack stack, Target from) {
+		if (!misplaced(from, stack)) {
+			return null;
+		}
+		return homeTargetWithRoom(level, homeOf(stack), stack, from);
 	}
 
 	/** "Wood, Stone & Building x2, Food & Farming" -- for the deployment chat line. */

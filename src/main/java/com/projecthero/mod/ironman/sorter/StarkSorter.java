@@ -44,6 +44,7 @@ public final class StarkSorter {
 				public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
 					tooltip.add(Component.translatable("item.projecthero.stark_sorting_station.desc1").withStyle(ChatFormatting.GRAY));
 					tooltip.add(Component.translatable("item.projecthero.stark_sorting_station.desc2").withStyle(ChatFormatting.DARK_AQUA));
+					tooltip.add(Component.translatable("item.projecthero.stark_sorting_station.desc3").withStyle(ChatFormatting.DARK_AQUA));
 				}
 			});
 

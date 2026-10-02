@@ -218,6 +218,29 @@ piece to store it; right-click empty-handed (Tony Stark) to deploy the stored su
 sneak-right-click to retrieve your worn suit back onto the platform. Architecture is in place for a
 full Hall of Armor (recharge/repair/display).
 
+## 15b. Stark Sorting Station (v0.14.16, Tidy v0.14.20)
+
+`com.projecthero.mod.ironman.sorter`: a 54-slot station block + the Sorter Bot (non-Mob flying GeckoLib entity,
+never saved). Containers = every chest / trapped chest / barrel within 10 blocks (a double chest is one target).
+`SortPlan` decides what each container holds (1-3 containers: 4 coarse groups; 4+: up to 13 fine categories; a
+chest keeps the theme it mostly already has). Items in transit always belong to the station BE (`carried`), so a
+lost/unloaded bot or a broken station never loses or duplicates anything. The screen has two buttons (vanilla
+`clickMenuButton` ids):
+
+| Button | Id | What it does |
+|---|---|---|
+| **Sort** | 0 | Empties the station: files its stacks into the containers (up to 3 stacks a trip, station -> chest -> station). Overflows into the next chest of the category, then anywhere with room; what fits nowhere stays in the station. |
+| **Tidy** | 1 | Re-sorts the containers themselves (for jumbled chests). The plan is built from the containers' current contents only; every stack in a container that is not one of its category's containers is carried chest -> chest (up to 4 stacks a trip, no trip home in between) to one that is, the identical item's chest first. Split stacks are merged in every chest the bot opens, plus one compact-only visit to any other chest with split stacks. The station's own store is untouched. |
+
+Tidy rules: only ever moves a stack to one of its **own** category's containers (no "anywhere with room" fallback);
+if those are full, or its category has no container, it stays put and the end report counts it ("N stacks stayed
+put"). The pickup is simulated against the destination first, so a full destination leaves the items in the source
+chest. A destination broken mid-trip -> the load goes home into the station (dropped on top if the station is full).
+Only one job at a time: Tidy during a Sort (or Sort during a Tidy) just reports the running job. Nothing to do ->
+"The chests are already tidy." (bot not launched); only full destinations -> "N stacks are in the wrong chest, but
+their category's chests are full". A trip cap (2 x stacks + 2 x containers + 16) ends the job if players keep
+reshuffling chests while it runs. GameTests: `StarkSorterGameTests` (`sorterTidy*`).
+
 ## 16. Commands (op 2)
 
 ```

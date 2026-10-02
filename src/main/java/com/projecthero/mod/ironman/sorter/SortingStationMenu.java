@@ -16,14 +16,17 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 
 /**
  * v0.14.16: the Stark Sorting Station menu -- the 6x9 store, the player inventory, and the Sort button (menu
- * button id {@value #BUTTON_SORT}, sent with vanilla's container-button packet). Four data slots sync the job:
- * running, stacks filed, stacks in the job, containers in range.
+ * button id {@value #BUTTON_SORT}, sent with vanilla's container-button packet) and, since v0.14.20, the Tidy
+ * button ({@value #BUTTON_TIDY}). Five data slots sync the job: running, stacks filed, stacks in the job,
+ * containers in range, and whether it is a Tidy.
  */
 public class SortingStationMenu extends AbstractContainerMenu {
 	public static final int BUTTON_SORT = 0;
+	/** v0.14.20: re-sort the chests themselves (see {@link SortingStationBlockEntity#startTidy}). */
+	public static final int BUTTON_TIDY = 1;
 	public static final int ROWS = 6;
 	/** Y of the first player-inventory row (the screen leaves a status band between the store and it). */
-	public static final int INV_Y = 168;
+	public static final int INV_Y = 180;
 
 	private final Container container;
 	private final ContainerData data;
@@ -36,7 +39,7 @@ public class SortingStationMenu extends AbstractContainerMenu {
 
 	/** Client side (extended screen handler, given the block pos). */
 	public SortingStationMenu(int syncId, Inventory playerInv, BlockPos pos) {
-		this(syncId, playerInv, resolve(playerInv, pos), new SimpleContainerData(4),
+		this(syncId, playerInv, resolve(playerInv, pos), new SimpleContainerData(SortingStationBlockEntity.DATA_COUNT),
 				ContainerLevelAccess.create(playerInv.player.level(), pos));
 	}
 
@@ -86,10 +89,16 @@ public class SortingStationMenu extends AbstractContainerMenu {
 		return data.get(3);
 	}
 
+	/** The current (or last) job was a Tidy. */
+	public boolean tidyMode() {
+		return data.get(4) != 0;
+	}
+
 	@Override
 	public boolean clickMenuButton(Player player, int id) {
-		if (id == BUTTON_SORT && container instanceof SortingStationBlockEntity be && player instanceof ServerPlayer sp) {
-			var status = be.startSort(sp);
+		if ((id == BUTTON_SORT || id == BUTTON_TIDY) && container instanceof SortingStationBlockEntity be
+				&& player instanceof ServerPlayer sp) {
+			var status = id == BUTTON_TIDY ? be.startTidy(sp) : be.startSort(sp);
 			if (!status.getString().isEmpty()) {
 				sp.sendSystemMessage(status);
 			}

@@ -17,6 +17,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
@@ -399,5 +401,158 @@ public class StarkSorterGameTests implements FabricGameTest {
 			h.assertTrue(dropped.getOrDefault(StarkSorter.STATION_ITEM, 0) == 1, "and the station itself");
 			h.assertTrue(h.getLevel().getEntitiesOfClass(SorterBotEntity.class, h.getBounds().inflate(4)).isEmpty(), "the bot is recalled");
 		});
+	}
+
+	// ------------------------------------------------------------------ Tidy (v0.14.20)
+
+	private static String key(Component c) {
+		return c.getContents() instanceof TranslatableContents t ? t.getKey() : c.getString();
+	}
+
+	private static Map<Item, Integer> tallyAll(Container... cs) {
+		Map<Item, Integer> out = new HashMap<>();
+		for (Container c : cs) {
+			tally(out, contents(c));
+		}
+		return out;
+	}
+
+	private static void recallBot(GameTestHelper h, SortingStationBlockEntity be) {
+		if (be.botId() != null && h.getLevel().getEntity(be.botId()) instanceof SorterBotEntity bot) {
+			bot.abort();
+		}
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 1600)
+	public void sorterTidyMovesJumbledStacksHome(GameTestHelper h) {
+		BlockPos st = new BlockPos(1, 1, 1);
+		SortingStationBlockEntity be = station(h, st);
+		be.setItem(0, s(Items.DIRT, 17)); // the station's own store is left alone
+		Container blocks = chest(h, new BlockPos(5, 1, 1), s(Items.COBBLESTONE, 64), s(Items.COBBLESTONE, 64),
+				s(Items.COBBLESTONE, 64), s(Items.STONE, 30), s(Items.BREAD, 5), s(Items.DIAMOND_SWORD, 1), s(Items.COBBLESTONE, 10));
+		Container food = chest(h, new BlockPos(5, 1, 4), s(Items.BREAD, 10), s(Items.COOKED_BEEF, 10), s(Items.APPLE, 5),
+				s(Items.COBBLESTONE, 12), s(Items.IRON_PICKAXE, 1));
+		Container gear = chest(h, new BlockPos(1, 1, 6), s(Items.IRON_SWORD, 1), s(Items.BOW, 1), s(Items.DIAMOND_PICKAXE, 1),
+				s(Items.OAK_LOG, 20), s(Items.CARROT, 8));
+		Map<Item, Integer> before = tallyAll(blocks, food, gear);
+
+		Component status = be.startTidy(null);
+		h.assertTrue("message.projecthero.stark_sorting_station.tidy_plan".equals(key(status)), "tidy starts, got " + key(status));
+		h.assertTrue(be.isTidying(), "the bot is deployed in Tidy mode");
+		h.assertTrue(be.total() == 6, "six stacks are out of place, got " + be.total());
+		h.succeedWhen(() -> {
+			h.assertTrue(!be.isRunning(), "still tidying (" + be.done() + "/" + be.total() + ")");
+			h.assertTrue(h.getLevel().getEntitiesOfClass(SorterBotEntity.class, h.getBounds().inflate(4)).isEmpty(), "bot gone");
+			h.assertTrue(be.carried().isEmpty(), "nothing left in transit");
+			Map<SortCategory.Group, Container> byGroup = Map.of(SortCategory.Group.BLOCKS, blocks,
+					SortCategory.Group.FOOD_FARMING, food, SortCategory.Group.GEAR, gear);
+			byGroup.forEach((group, c) -> {
+				for (ItemStack it : contents(c)) {
+					h.assertTrue(it.isEmpty() || SortCategory.of(it).group() == group, it + " is in the " + group + " chest");
+				}
+				h.assertTrue(!com.projecthero.mod.ironman.sorter.Stash.fragmented(c), "split stacks merged in the " + group + " chest");
+			});
+			Map<Item, Integer> after = tallyAll(blocks, food, gear);
+			h.assertTrue(after.equals(before), "no item lost or duplicated: " + before + " -> " + after);
+			h.assertTrue(be.getItem(0).is(Items.DIRT) && be.getItem(0).getCount() == 17, "the station store is untouched");
+			h.assertTrue(be.done() == 6, "every misplaced stack counted, got " + be.done());
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 1200)
+	public void sorterTidyLeavesWhatItsChestCannotTake(GameTestHelper h) {
+		BlockPos st = new BlockPos(1, 1, 1);
+		SortingStationBlockEntity be = station(h, st);
+		ItemStack[] a = new ItemStack[22];
+		for (int i = 0; i < 20; i++) {
+			a[i] = s(Items.COBBLESTONE, 64);
+		}
+		a[20] = s(Items.BREAD, 64);
+		a[21] = s(Items.BREAD, 64);
+		ItemStack[] b = new ItemStack[26];
+		for (int i = 0; i < 26; i++) {
+			b[i] = s(Items.BREAD, 64);
+		}
+		Container blocks = chest(h, new BlockPos(5, 1, 1), a);
+		Container food = chest(h, new BlockPos(5, 1, 5), b); // one free slot: room for one of the two bread stacks
+		Map<Item, Integer> before = tallyAll(blocks, food);
+
+		be.startTidy(null);
+		h.assertTrue(be.isTidying(), "the bot is deployed");
+		h.succeedWhen(() -> {
+			h.assertTrue(!be.isRunning(), "still tidying");
+			Map<Item, Integer> inBlocks = tallyAll(blocks);
+			Map<Item, Integer> inFood = tallyAll(food);
+			h.assertTrue(inFood.getOrDefault(Items.BREAD, 0) == 27 * 64, "the food chest filled up, got " + inFood);
+			h.assertTrue(inBlocks.getOrDefault(Items.BREAD, 0) == 64, "the bread that did not fit stayed put, got " + inBlocks);
+			h.assertTrue(inBlocks.getOrDefault(Items.COBBLESTONE, 0) == 20 * 64, "cobblestone untouched");
+			h.assertTrue(tallyAll(blocks, food).equals(before), "no item lost or duplicated");
+			h.assertTrue(be.isEmpty() && be.carried().isEmpty(), "nothing ended up in the station");
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void sorterTidyWithFullChestsDoesNotStart(GameTestHelper h) {
+		BlockPos st = new BlockPos(1, 1, 1);
+		SortingStationBlockEntity be = station(h, st);
+		ItemStack[] a = new ItemStack[27];
+		ItemStack[] b = new ItemStack[27];
+		for (int i = 0; i < 27; i++) {
+			a[i] = s(Items.COBBLESTONE, 64);
+			b[i] = s(Items.BREAD, 64);
+		}
+		a[26] = s(Items.BREAD, 64);
+		b[26] = s(Items.COBBLESTONE, 64);
+		Container blocks = chest(h, new BlockPos(5, 1, 1), a);
+		Container food = chest(h, new BlockPos(5, 1, 5), b);
+		Component status = be.startTidy(null);
+		h.assertTrue("message.projecthero.stark_sorting_station.tidy_no_room".equals(key(status)), "reports no room, got " + key(status));
+		h.assertTrue(!be.isRunning(), "no bot is launched");
+		h.assertTrue(blocks.getItem(26).is(Items.BREAD) && food.getItem(26).is(Items.COBBLESTONE), "both stay where they are");
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void sorterTidyAlreadyTidyAndRefusedWhileSorting(GameTestHelper h) {
+		BlockPos st = new BlockPos(1, 1, 1);
+		SortingStationBlockEntity be = station(h, st);
+		chest(h, new BlockPos(5, 1, 1), s(Items.COBBLESTONE, 64), s(Items.STONE, 20));
+		chest(h, new BlockPos(5, 1, 5), s(Items.BREAD, 10));
+		Component status = be.startTidy(null);
+		h.assertTrue("message.projecthero.stark_sorting_station.already_tidy".equals(key(status)), "already tidy, got " + key(status));
+		h.assertTrue(!be.isRunning(), "no bot for a tidy room");
+
+		be.setItem(0, s(Items.DIRT, 10));
+		be.startSort(null);
+		h.assertTrue(be.isRunning() && !be.isTidying(), "a normal sort is running");
+		Component refused = be.startTidy(null);
+		h.assertTrue("message.projecthero.stark_sorting_station.already_running".equals(key(refused)), "tidy is refused, got " + key(refused));
+		h.assertTrue(!be.isTidying(), "the sort keeps running as a sort");
+		recallBot(h, be);
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void sorterTidyBrokenDestinationReturnsTheLoad(GameTestHelper h) {
+		BlockPos st = new BlockPos(1, 1, 1);
+		SortingStationBlockEntity be = station(h, st);
+		Container blocks = chest(h, new BlockPos(5, 1, 1), s(Items.COBBLESTONE, 64), s(Items.COBBLESTONE, 64), s(Items.BREAD, 20));
+		chest(h, new BlockPos(5, 1, 5), s(Items.BREAD, 30), s(Items.APPLE, 4));
+		be.startTidy(null);
+		h.assertTrue(be.isTidying(), "tidy starts");
+		SortingStationBlockEntity.TidyLoad load = be.nextTidyLoad();
+		h.assertTrue(load != null && load.dest() != null && load.source().blocks().contains(h.absolutePos(new BlockPos(5, 1, 1))),
+				"first trip: from the blocks chest to the food chest");
+		h.assertTrue(be.collectTidyLoad(load) == 1, "the bread is picked up");
+		h.assertTrue(blocks.getItem(2).isEmpty(), "and has left the blocks chest");
+		h.getLevel().removeBlock(h.absolutePos(new BlockPos(5, 1, 5)), false);
+		h.assertTrue(!be.depositCarried(load.dest()), "the destination is gone");
+		be.returnCarried();
+		h.assertTrue(be.carried().isEmpty(), "nothing left in transit");
+		Map<Item, Integer> station = new HashMap<>();
+		tally(station, contents(be));
+		h.assertTrue(station.getOrDefault(Items.BREAD, 0) == 20, "the bread went home to the station: " + station);
+		recallBot(h, be);
+		h.succeed();
 	}
 }
