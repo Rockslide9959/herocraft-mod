@@ -30,6 +30,13 @@ public class IronManSuitPlatformRenderer implements BlockEntityRenderer<IronManS
 	/** One reusable client-only armour stand per platform BE, so we do not allocate every frame. */
 	private static final Map<IronManSuitPlatformBlockEntity, ArmorStand> STANDS = new WeakHashMap<>();
 
+	/**
+	 * v0.14.21: height (blocks) the suit's feet stand at above the block's floor -- just clear of the new model's
+	 * octagonal floor plate (top at 2.5 px) with room for the bob. Keep in sync with {@code SUIT_Y_OFFSET} in
+	 * {@code scratchpad/gen_v01421_ironman_blocks.js}, which frames the gantry around a suit standing here.
+	 */
+	public static final double DISPLAY_Y_OFFSET = 0.2;
+
 	private static final EquipmentSlot[] SLOTS = {
 			EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
 
@@ -61,7 +68,7 @@ public class IronManSuitPlatformRenderer implements BlockEntityRenderer<IronManS
 		float bob = (float) Math.sin((be.getLevel().getGameTime() + partialTick) * 0.06f) * 0.03f;
 
 		pose.pushPose();
-		pose.translate(0.5, 0.05 + bob, 0.5);
+		pose.translate(0.5, DISPLAY_Y_OFFSET + bob, 0.5);
 		pose.mulPose(Axis.YP.rotationDegrees(spin));
 		pose.scale(0.62f, 0.62f, 0.62f);
 		// EntityRenderDispatcher renders relative to the current pose; suppress shadow/hitbox.

@@ -365,6 +365,33 @@ reshuffling chests while it runs. GameTests: `StarkSorterGameTests` (`sorterTidy
   `sorterTidyConsolidatesALoneStack`, `sorterOverflowChestIsAllowed`, `sorterNeverFilesIntoAnotherCategorysChest`,
   `sorterTidyIsIdempotent`, `sorterSortThenTidyIsStable`, `sorterLabelsChestsWithSigns`,
   `sorterReportsMissingSigns`, `sorterPlacesAChestFromTheSupply`, `sorterPlacesAFirstChestBesideTheStation`.
+## 15c. Block models: Fabricator + Suit Platform (v0.14.21)
+
+All assets come from `scratchpad/gen_v01421_ironman_blocks.js` (re-run it after any change; with a directory argument
+it also renders orthographic previews). Models are authored in block pixels with the **front on the north side**;
+both blocks now have a `facing` blockstate (front faces the player who placed it) and model-matched, facing-rotated
+hit boxes (`IronManBlockShapes`). Old placed blocks load as `facing=north`.
+
+* **Stark Fabricator** — hybrid. The static workbench is a JSON model (`models/block/stark_fabricator.json`, one 64x64
+  atlas `textures/block/stark_fabricator.png`, also the particle texture): gunmetal cabinet with panel seams, a red
+  Stark plate with an arc-reactor eye on the front, red/gold side bands, a cyan light strip under the gold-edged
+  worktop, a dark-glass work plate, a parts tray, an arm turret, and a rear gantry with a tilted display. On top, a
+  **GeckoLib rig** (`StarkFabricatorBlockEntity` is a `GeoBlockEntity`, client `StarkFabricatorRenderer`;
+  `geo/stark_fabricator.geo.json`, `animations/stark_fabricator.animation.json`,
+  `textures/machine/stark_fabricator_rig.png` + `_glowmask`) draws the red/gold robotic welding arm, a holographic
+  Iron Man helmet with scan rings over the plate, and emissive overlays for the light strips and display.
+  * `working` blockstate: set by the server while a fabrication is in progress (10-tick linger so queued pieces do
+    not flicker). Idle = arm parked over the tray, slow hologram; working = arm swings over the plate and welds in
+    strokes (IK-solved in the generator), hologram spins, scan ring sweeps, a pulse runs along the front strip,
+    electric sparks at the emitter (`animateTick`), light level 7 -> 10.
+  * The item model is a separate JSON (`models/item/stark_fabricator.json`) = the body plus the arm in its parked
+    pose, so the inventory icon shows the arm too.
+* **Iron Man Suit Platform** — JSON only (`textures/block/iron_man_suit_platform.png`): an octagonal floor plate (pixel
+  octagon) with a cyan light ring and core on a gold-trimmed base, and a 1.75-block rear gantry (posts with cyan
+  inner strips, a light-striped back spine with a Stark crest, shoulder clamps, a red/gold header with an overhead
+  lift emitter). The racked suit stands at `IronManSuitPlatformRenderer.DISPLAY_Y_OFFSET` (0.2 blocks, clear of the
+  plate); the generator's `SUIT_Y_OFFSET` must match. The hit box is the plate + the gantry's lower block; the gantry
+  above one block high is visual only.
 
 ## 16. Commands (op 2)
 
@@ -1466,8 +1493,8 @@ marks — still renders with the same `crimson_vanguard` placeholder texture, be
   of Armor — full mannequin is still a follow-up).
 * **Partial / modular summons** — `/ironman part <suit> <helmet|chestplate|leggings|boots>` flies a
   single piece in as its own courier entity (Mark 42 modular calling).
-* **Custom block models** — the Stark Fabricator and Suit Platform are multi-element models with a
-  glowing Arc-Reactor core, not `cube_all`. Item/armour textures are proper red/gold procedural art.
+* **Custom block models** — the Stark Fabricator and Suit Platform are custom models (v0.14.21 remodel: see
+  section 15c), not `cube_all`. Item/armour textures are proper red/gold procedural art.
 
 ## 18. Placeholder assets to replace
 

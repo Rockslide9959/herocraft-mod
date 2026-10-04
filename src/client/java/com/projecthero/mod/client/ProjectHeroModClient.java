@@ -136,6 +136,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry.register(
 				com.projecthero.mod.ironman.IronManBlocks.SUIT_PLATFORM_BE,
 				com.projecthero.mod.client.render.IronManSuitPlatformRenderer::new);
+		net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry.register( // v0.14.21: Fabricator rig
+				com.projecthero.mod.ironman.IronManBlocks.STARK_FABRICATOR_BE,
+				ctx -> new com.projecthero.mod.client.render.StarkFabricatorRenderer());
 		// Moon Knight Phase 7: the Altar of Khonshu's scarab renderer + the ritual's white fade (receiver + overlay).
 		com.projecthero.mod.client.moonknight.KhonshuTempleClient.register();
 		com.projecthero.mod.client.render.IronManEntityRenderers.initialize();

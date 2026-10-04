@@ -7,7 +7,10 @@ import com.projecthero.mod.ironman.item.IronManItems;
 import com.mojang.serialization.MapCodec;
 
 import net.minecraft.ChatFormatting;
+import java.util.Map;
+
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -18,14 +21,24 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * The Iron Man Suit Platform block (spec section 33).
@@ -36,12 +49,51 @@ import net.minecraft.world.phys.BlockHitResult;
  *   <li>right-click empty-handed (Tony Stark): open the platform GUI (slots + energy + DEPLOY / RETRIEVE);</li>
  *   <li>sneak + right-click empty-handed (Tony Stark): retrieve your worn suit straight onto the platform.</li>
  * </ul>
+ *
+ * <p>v0.14.21 model: a Hall-of-Armor display -- an octagonal floor plate with a cyan light ring, and behind it a
+ * gantry (posts, light-striped back spine, shoulder clamps, an overhead header with a lift emitter) that rises
+ * 1.75 blocks so it frames the racked suit. The gantry sits at the back and the block faces the player who placed it
+ * ({@link #FACING}). The hit box is the floor plate plus the gantry's lower block (the part above one block high is
+ * visual only).
  */
 public class IronManSuitPlatformBlock extends BaseEntityBlock {
 	public static final MapCodec<IronManSuitPlatformBlock> CODEC = simpleCodec(IronManSuitPlatformBlock::new);
+	public static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
+
+	/** Hit box: the floor plate + the rear gantry (model pixels, front = north). */
+	private static final Map<Direction, VoxelShape> SHAPES = IronManBlockShapes.byFacing(
+			new double[] {0, 0, 0, 16, 2.5, 16},
+			new double[] {0.5, 2.5, 13, 15.5, 16, 15.5});
 
 	public IronManSuitPlatformBlock(Properties properties) {
 		super(properties);
+		registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
+	}
+
+	@Override
+	protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+		builder.add(FACING);
+	}
+
+	/** The open side (gantry at the back) faces the player who placed it. */
+	@Override
+	public BlockState getStateForPlacement(BlockPlaceContext context) {
+		return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+	}
+
+	@Override
+	protected BlockState rotate(BlockState state, Rotation rotation) {
+		return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+	}
+
+	@Override
+	protected BlockState mirror(BlockState state, Mirror mirror) {
+		return state.rotate(mirror.getRotation(state.getValue(FACING)));
+	}
+
+	@Override
+	protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+		return SHAPES.get(state.getValue(FACING));
 	}
 
 	@Override

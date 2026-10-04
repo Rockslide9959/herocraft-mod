@@ -33,7 +33,8 @@ public final class IronManBlocks {
 	public static final Block STARK_FABRICATOR = register("stark_fabricator",
 			new StarkFabricatorBlock(BlockBehaviour.Properties.of()
 					.mapColor(MapColor.COLOR_BLUE).strength(4.0f, 8.0f).sound(SoundType.NETHERITE_BLOCK)
-					.requiresCorrectToolForDrops().lightLevel(s -> 7)
+					.requiresCorrectToolForDrops()
+					.lightLevel(s -> s.hasProperty(StarkFabricatorBlock.WORKING) && s.getValue(StarkFabricatorBlock.WORKING) ? 10 : 7)
 					.noOcclusion()));
 
 	public static final Block IRON_MAN_SUIT_PLATFORM = register("iron_man_suit_platform",

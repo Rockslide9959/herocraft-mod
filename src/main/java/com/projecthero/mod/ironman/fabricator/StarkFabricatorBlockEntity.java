@@ -19,9 +19,17 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+
+import software.bernie.geckolib.animatable.GeoBlockEntity;
+import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
+import software.bernie.geckolib.animation.AnimatableManager;
+import software.bernie.geckolib.animation.AnimationController;
+import software.bernie.geckolib.animation.RawAnimation;
+import software.bernie.geckolib.util.GeckoLibUtil;
 
 /**
  * The Stark Fabricator's state: 9 component-input slots, 1 output slot, 1 blueprint slot, an internal
@@ -30,8 +38,12 @@ import net.minecraft.world.phys.AABB;
  * <p>Operating restriction (spec section 6): the Fabricator only makes progress while a player with
  * the Tony Stark power is within {@value #OPERATOR_RADIUS} blocks. That is what stops a player without
  * the power from driving it with hoppers or other automation.
+ *
+ * <p>v0.14.21: also the GeckoLib animatable for the Fabricator's rig (arm, hologram, light strips). The server mirrors
+ * "a fabrication is in progress" into the block's {@link StarkFabricatorBlock#WORKING} state, which the client's
+ * animation controller reads -- so the rig works even for players who never open the menu.
  */
-public class StarkFabricatorBlockEntity extends BlockEntity implements Container, ExtendedScreenHandlerFactory<BlockPos> {
+public class StarkFabricatorBlockEntity extends BlockEntity implements Container, ExtendedScreenHandlerFactory<BlockPos>, GeoBlockEntity {
 	public static final int SIZE = 11;
 	public static final int OUTPUT_SLOT = 9;
 	public static final int BLUEPRINT_SLOT = 10;
@@ -85,6 +97,40 @@ public class StarkFabricatorBlockEntity extends BlockEntity implements Container
 
 	public StarkFabricatorBlockEntity(BlockPos pos, BlockState state) {
 		super(IronManBlocks.STARK_FABRICATOR_BE, pos, state);
+	}
+
+	// ---------------- model / animation (v0.14.21) ----------------
+
+	public static final RawAnimation IDLE_ANIM = RawAnimation.begin().thenLoop("animation.stark_fabricator.idle");
+	public static final RawAnimation WORKING_ANIM = RawAnimation.begin().thenLoop("animation.stark_fabricator.working");
+	/**
+	 * How long the WORKING state outlasts the last progress tick. Between two queued pieces the recipe resets for a
+	 * tick; without this grace the block state (and the chunk mesh) would flicker off and on at every hand-off.
+	 */
+	public static final int WORKING_LINGER_TICKS = 10;
+	private final AnimatableInstanceCache geoCache = GeckoLibUtil.createInstanceCache(this);
+	/** Ticks since progress was last made; starts "long ago" so a freshly loaded idle machine stays idle. */
+	private int idleTicks = WORKING_LINGER_TICKS;
+
+	@Override
+	public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+		controllers.add(new AnimationController<>(this, "main", 8, state -> state.setAndContinue(
+				getBlockState().hasProperty(StarkFabricatorBlock.WORKING) && getBlockState().getValue(StarkFabricatorBlock.WORKING)
+						? WORKING_ANIM : IDLE_ANIM)));
+	}
+
+	@Override
+	public AnimatableInstanceCache getAnimatableInstanceCache() {
+		return geoCache;
+	}
+
+	/** Mirror "fabricating right now" into the block state (with a short linger, see {@link #WORKING_LINGER_TICKS}). */
+	private void syncWorkingState(Level level, BlockPos pos, BlockState state) {
+		idleTicks = progress > 0 ? 0 : Math.min(WORKING_LINGER_TICKS, idleTicks + 1);
+		boolean working = idleTicks < WORKING_LINGER_TICKS;
+		if (state.hasProperty(StarkFabricatorBlock.WORKING) && state.getValue(StarkFabricatorBlock.WORKING) != working) {
+			level.setBlock(pos, state.setValue(StarkFabricatorBlock.WORKING, working), Block.UPDATE_ALL);
+		}
 	}
 
 	// ---------------- energy ----------------
@@ -170,6 +216,12 @@ public class StarkFabricatorBlockEntity extends BlockEntity implements Container
 	}
 
 	public static void serverTick(Level level, BlockPos pos, BlockState state, StarkFabricatorBlockEntity be) {
+		be.tickFabrication(level, pos);
+		be.syncWorkingState(level, pos, state);
+	}
+
+	private void tickFabrication(Level level, BlockPos pos) {
+		StarkFabricatorBlockEntity be = this;
 		be.selfRecharge();
 		be.consumeFuelSlots();
 		ServerPlayer operator = be.nearbyTonyStark(level, pos);

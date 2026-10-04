@@ -1,0 +1,218 @@
+package com.projecthero.mod.client;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.ironman.IronManBlocks;
+import com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlock;
+import com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlockEntity;
+import com.projecthero.mod.ironman.fabricator.StarkFabricatorBlock;
+import com.projecthero.mod.ironman.item.IronManItems;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.14.21 Iron Man block models. */
+public final class IronBlocksDebugHarness {
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static BlockPos base;
+
+	private IronBlocksDebugHarness() {
+	}
+
+	public static void init() {
+		ClientTickEvents.END_CLIENT_TICK.register(IronBlocksDebugHarness::tick);
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					fn.accept(p);
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "v01421_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		Runnable prev = AT.get(t);
+		AT.put(t, prev == null ? r : () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	/** camera at block-centre-relative from, looking at to (both relative to base). */
+	private static void view(Minecraft mc, Vec3 fromRel, Vec3 toRel) {
+		server(mc, p -> {
+			Vec3 b = Vec3.atLowerCornerOf(base);
+			Vec3 from = b.add(fromRel), to = b.add(toRel);
+			Vec3 d = to.subtract(from);
+			float yaw = (float) (Math.atan2(d.z, d.x) * 180.0 / Math.PI) - 90.0f;
+			float pitch = (float) -(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)) * 180.0 / Math.PI);
+			p.teleportTo(p.serverLevel(), from.x, from.y - p.getEyeHeight(), from.z, yaw, pitch);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				LevelSettings settings = new LevelSettings("IronBlocksDebug" + System.currentTimeMillis() % 100000,
+						GameType.CREATIVE, false, Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.hideGui = true;
+			mc.options.fov().set(50);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				base = p.blockPosition().offset(0, 0, 6);
+				// row along x: fabricator (north, working), fabricator (east, idle), platform (north, suit), platform (east, empty)
+				level.setBlockAndUpdate(base, IronManBlocks.STARK_FABRICATOR.defaultBlockState()
+						.setValue(StarkFabricatorBlock.FACING, Direction.NORTH).setValue(StarkFabricatorBlock.WORKING, true));
+				level.setBlockAndUpdate(base.offset(3, 0, 0), IronManBlocks.STARK_FABRICATOR.defaultBlockState()
+						.setValue(StarkFabricatorBlock.FACING, Direction.EAST));
+				level.setBlockAndUpdate(base.offset(6, 0, 0), IronManBlocks.IRON_MAN_SUIT_PLATFORM.defaultBlockState()
+						.setValue(IronManSuitPlatformBlock.FACING, Direction.NORTH));
+				level.setBlockAndUpdate(base.offset(9, 0, 0), IronManBlocks.IRON_MAN_SUIT_PLATFORM.defaultBlockState()
+						.setValue(IronManSuitPlatformBlock.FACING, Direction.EAST));
+				if (level.getBlockEntity(base.offset(6, 0, 0)) instanceof IronManSuitPlatformBlockEntity be) {
+					for (ArmorItem.Type t : ArmorItem.Type.values()) {
+						if (IronManItems.armor("mark_iii", t) != null) {
+							be.store(new ItemStack(IronManItems.armor("mark_iii", t)));
+						}
+					}
+				}
+				com.projecthero.mod.ironman.TonyStark.grant(p);
+				if (level.getBlockEntity(base) instanceof com.projecthero.mod.ironman.fabricator.StarkFabricatorBlockEntity fb) {
+					fb.addEnergy(com.projecthero.mod.ironman.fabricator.FabricatorRecipes.MAX_ENERGY);
+					fb.setItem(0, new ItemStack(net.minecraft.world.item.Items.GOLD_INGOT, 64));
+					fb.setItem(1, new ItemStack(net.minecraft.world.item.Items.IRON_INGOT, 64));
+					fb.setItem(2, new ItemStack(IronManItems.METAL_PLATING, 64));
+				}
+				p.getInventory().setItem(0, new ItemStack(IronManBlocks.STARK_FABRICATOR_ITEM));
+				p.getInventory().setItem(1, new ItemStack(IronManBlocks.IRON_MAN_SUIT_PLATFORM_ITEM));
+				p.getInventory().selected = 0;
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		if (System.getenv("HARNESS_HUD_ONLY") == null) {
+		// working fabricator (north-facing: front at -z), camera in front-left/right, above
+		Vec3 fab = new Vec3(0.5, 0.6, 0.5);
+		Object[][] fabViews = {
+				{"fab_34_left", new Vec3(2.2, 1.9, -1.6)},
+				{"fab_34_right", new Vec3(-1.2, 1.9, -1.6)},
+				{"fab_front", new Vec3(0.5, 1.4, -2.2)},
+				{"fab_side", new Vec3(-2.0, 1.3, 0.5)},
+				{"fab_back", new Vec3(-1.0, 2.0, 2.6)},
+		};
+		for (Object[] v : fabViews) {
+			at(t, () -> view(mc, (Vec3) v[1], fab));
+			at(t + 12, () -> shot(mc, (String) v[0]));
+			at(t + 19, () -> shot(mc, v[0] + "_b"));
+			t += 22;
+		}
+		// idle east-facing fabricator (front at +x)
+		Vec3 fab2 = new Vec3(3.5, 0.6, 0.5);
+		at(t, () -> view(mc, new Vec3(5.6, 1.9, -1.0), fab2));
+		at(t + 14, () -> shot(mc, "fab_east_idle"));
+		t += 20;
+		// platforms
+		Vec3 plat = new Vec3(6.5, 0.8, 0.5);
+		Object[][] platViews = {
+				{"plat_34", new Vec3(8.2, 2.0, -1.8)},
+				{"plat_front", new Vec3(6.5, 1.2, -2.4)},
+				{"plat_side", new Vec3(4.0, 1.3, 0.5)},
+		};
+		for (Object[] v : platViews) {
+			at(t, () -> view(mc, (Vec3) v[1], plat));
+			at(t + 14, () -> shot(mc, (String) v[0]));
+			t += 20;
+		}
+		Vec3 plat2 = new Vec3(9.5, 0.8, 0.5);
+		at(t, () -> view(mc, new Vec3(11.8, 2.0, -1.6), plat2));
+		at(t + 14, () -> shot(mc, "plat_east_empty"));
+		t += 20;
+		// night: glow
+		at(t, () -> server(mc, p -> p.serverLevel().setDayTime(18000L)));
+		at(t + 2, () -> view(mc, new Vec3(2.2, 1.9, -1.6), fab));
+		at(t + 20, () -> shot(mc, "fab_night"));
+		at(t + 22, () -> view(mc, new Vec3(8.2, 2.0, -1.8), plat));
+		at(t + 40, () -> shot(mc, "plat_night"));
+		at(t + 42, () -> server(mc, p -> p.serverLevel().setDayTime(6000L)));
+		t += 50;
+		}
+		// HUD: hotbar icons + held item
+		at(t, () -> {
+			mc.options.hideGui = false;
+			mc.options.guiScale().set(4);
+			mc.resizeDisplay();
+			view(mc, new Vec3(4.5, 2.5, -6), new Vec3(4.5, 0.5, 0.5));
+		});
+		at(t + 15, () -> shot(mc, "hud_fab"));
+		at(t + 16, () -> mc.player.getInventory().selected = 1);
+		at(t + 30, () -> shot(mc, "hud_plat"));
+		at(t + 40, () -> mc.stop());
+	}
+}

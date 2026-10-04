@@ -1,7 +1,19 @@
 {
-  "variants": {
-    "": {
-      "model": "projecthero:block/iron_man_suit_platform"
-    }
-  }
+	"variants": {
+		"facing=north": {
+			"model": "projecthero:block/iron_man_suit_platform"
+		},
+		"facing=east": {
+			"model": "projecthero:block/iron_man_suit_platform",
+			"y": 90
+		},
+		"facing=south": {
+			"model": "projecthero:block/iron_man_suit_platform",
+			"y": 180
+		},
+		"facing=west": {
+			"model": "projecthero:block/iron_man_suit_platform",
+			"y": 270
+		}
+	}
 }
