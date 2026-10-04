@@ -1,0 +1,63 @@
+// v0.14.21 Iron Man UI redesign: helmet HUD, Call Armour cards, Suit Platform, Stark Fabricator, Blank Blueprint
+// track, Mark VII weapon wheel, guidebook "Suit screens" paragraph. Idempotent (langset rewrites keys in place).
+//   node scratchpad/lang_v01421_ironman_ui.js
+require('./langset.js')([
+	{ anchor: 'hud.projecthero.ironman.phoenix_cooldown', entries: {
+		'hud.projecthero.ironman.alt_spd': 'ALT %s  SPD %s',
+		'hud.projecthero.ironman.energy_short': 'EN',
+		'hud.projecthero.ironman.integrity_short': 'INT',
+		'hud.projecthero.ironman.clock_pos': '%s  DAY %s  X %s  Z %s',
+		'hud.projecthero.ironman.air': 'AIR',
+		'hud.projecthero.ironman.heat': 'HEAT',
+		'hud.projecthero.ironman.flight': 'FLIGHT',
+		'hud.projecthero.ironman.missiles_short': 'MISSILES',
+		'hud.projecthero.ironman.reload': 'reload %s',
+		'hud.projecthero.ironman.critical_short': '⚠ SUIT CRITICAL - REPAIR',
+		'hud.projecthero.ironman.chip.highlight_on': 'HIGHLIGHT ON',
+		'hud.projecthero.ironman.chip.highlight_off': 'HIGHLIGHT OFF',
+		'hud.projecthero.ironman.chip.scan': 'SCAN %sm',
+		'hud.projecthero.ironman.chip.wheel': 'X: %s',
+		'hud.projecthero.ironman.chip.blades': 'BLADES +4',
+		'hud.projecthero.ironman.chip.visor_open': 'VISOR OPEN',
+	} },
+	{ anchor: 'screen.projecthero.suit_call.none', entries: {
+		'screen.projecthero.suit_call.on_platform': 'on platform, %sm',
+		'screen.projecthero.suit_call.charge': 'CHARGE',
+		'screen.projecthero.suit_call.integrity': 'INTEGRITY',
+		'screen.projecthero.suit_call.pending': 'on its way',
+		'screen.projecthero.suit_call.unreachable': 'out of reach here',
+		'screen.projecthero.suit_call.hint': 'Click a suit or press Enter  ·  Esc cancels',
+		'screen.projecthero.suit_platform.reserve_short': 'RES',
+		'screen.projecthero.suit_platform.reserve_tip': 'Platform reserve: %s',
+		'screen.projecthero.suit_platform.empty_hint': 'Place Iron Man armour in the slots to store, recharge and repair it.',
+	} },
+	{ anchor: 'screen.projecthero.stark_fabricator.stat.flight_drain', entries: {
+		'screen.projecthero.stark_fabricator.pick_piece': 'Pick a suit piece on the tabs above.',
+		'screen.projecthero.stark_fabricator.status.ready': 'Ready to fabricate',
+		'screen.projecthero.stark_fabricator.status.low_energy': 'Not enough energy',
+		'screen.projecthero.stark_fabricator.status.missing': 'Components missing',
+		'screen.projecthero.stark_fabricator.status.idle': 'Idle',
+		'screen.projecthero.stark_fabricator.have_need': 'Have / need: %s',
+		'screen.projecthero.stark_fabricator.tab_tip': 'Fabricate the %s',
+		'screen.projecthero.stark_fabricator.needs_short': '%s needs:',
+	} },
+	{ anchor: 'screen.projecthero.weapon_wheel.hint', entries: {
+		'screen.projecthero.weapon_wheel.on': 'ON',
+		'screen.projecthero.weapon_wheel.off': 'OFF',
+		'screen.projecthero.weapon_wheel.bound': 'BOUND',
+		'screen.projecthero.weapon_wheel.desc.micro_missiles': 'Homing volley at nearby hostiles',
+		'screen.projecthero.weapon_wheel.desc.flamethrower': 'Short fire stream; mind the heat',
+		'screen.projecthero.weapon_wheel.desc.wrist_laser': 'Cutting beam, then systems overload',
+		'screen.projecthero.weapon_wheel.desc.rocket': 'One heavy explosive rocket',
+		'screen.projecthero.weapon_wheel.desc.supersonic_flight': 'Extreme flight speed burst',
+		'screen.projecthero.weapon_wheel.desc.entity_glow_toggle': 'Coloured outlines on nearby mobs',
+	} },
+	{ anchor: 'screen.projecthero.blank_blueprint.locked', entries: {
+		'screen.projecthero.blank_blueprint.subtitle': 'Choose the mark this blank becomes',
+		'screen.projecthero.blank_blueprint.locked_short': 'Locked: build the whole %s first',
+	} },
+	{ anchor: 'projecthero.guide.iron_man.controls', entries: {
+		'projecthero.guide.iron_man.screens': 'Suit screens',
+		'projecthero.guide.iron_man.screens.body': 'With the faceplate closed the helmet HUD frames your view: suit name, ENERGY and INTEGRITY with exact values top-left, extra meters only when they matter (air, heat, flight burst, overload, missile reload) and an ability strip above the hotbar with each key, its icon and a cooldown sweep -- hold Left Alt to read the slot names. Call Armour shows every suit as a card with a turning 3D preview, charge, integrity and where it is (arrow keys + Enter work too). The Suit Platform previews the stored suit with full charge / integrity bars and the platform reserve. The Stark Fabricator has a tab per suit piece and a checklist of what you have against what the piece needs. A Blank Blueprint opens the Mark I -> Mark VII track: lit marks can be stamped, locked ones say which suit to finish first. The Mark VII weapon wheel is a ring of wedges -- point at one to read what it does.',
+	} },
+]);

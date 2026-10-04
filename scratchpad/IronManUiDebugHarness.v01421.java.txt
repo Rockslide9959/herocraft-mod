@@ -1,0 +1,269 @@
+package com.projecthero.mod.client;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.ironman.TonyStark;
+import com.projecthero.mod.ironman.ability.IronManAbilities;
+import com.projecthero.mod.ironman.data.TonyStarkState;
+import com.projecthero.mod.ironman.suit.IronManSuit;
+import com.projecthero.mod.ironman.suit.IronManSuits;
+import com.projecthero.mod.network.IronManBlueprintPickerPayload;
+import com.projecthero.mod.network.IronManSuitListPayload;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.14.21 Iron Man UI screenshots. Install as
+ * src/client/java/com/projecthero/mod/client/IronManUiDebugHarness.java and call init() from
+ * ProjectHeroModClient.onInitializeClient when PROJECTHERO_IMUI_DEBUG is set; run ./gradlew runClient.
+ * Shots land in run/screenshots/imui_*.png (1280x960 at GUI scale 4 = 320x240, and GUI scale 2); the client quits.
+ */
+public final class IronManUiDebugHarness {
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+
+	private IronManUiDebugHarness() {
+	}
+
+	public static void init() {
+		ClientTickEvents.END_CLIENT_TICK.register(IronManUiDebugHarness::tick);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					fn.accept(srv.getPlayerList().getPlayers().get(0));
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "imui_" + name + ".png", mc.getMainRenderTarget(), x -> {
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void scale(Minecraft mc, int s) {
+		mc.options.guiScale().set(s);
+		mc.resizeDisplay();
+	}
+
+	private static void cursor(Minecraft mc, double guiX, double guiY) {
+		var w = mc.getWindow();
+		double f = w.getGuiScale();
+		org.lwjgl.glfw.GLFW.glfwSetCursorPos(w.getWindow(), guiX * f, guiY * f);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				LevelSettings settings = new LevelSettings("ImUi" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+						Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = false;
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), 1280, 960);
+			scale(mc, 4);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				p.getAbilities().invulnerable = true;
+				p.onUpdateAbilities();
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void wear(ServerPlayer p, String suitId) {
+		IronManSuit suit = IronManSuits.byId(suitId);
+		p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(suit.armor(ArmorItem.Type.HELMET)));
+		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(suit.armor(ArmorItem.Type.CHESTPLATE)));
+		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(suit.armor(ArmorItem.Type.LEGGINGS)));
+		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(suit.armor(ArmorItem.Type.BOOTS)));
+		TonyStark.setActiveSuit(p, suitId);
+	}
+
+	private static void unwear(ServerPlayer p) {
+		for (EquipmentSlot s : new EquipmentSlot[] { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET }) {
+			p.setItemSlot(s, ItemStack.EMPTY);
+		}
+	}
+
+	private static void tweak(ServerPlayer p, java.util.function.Consumer<TonyStarkState> fn) {
+		TonyStarkState c = TonyStark.state(p).copy();
+		fn.accept(c);
+		p.setAttached(ModAttachments.TONY_STARK_STATE, c);
+	}
+
+	private static void script(Minecraft mc) {
+		at(2, () -> server(mc, p -> {
+			TonyStark.grant(p);
+			for (IronManSuit s : IronManSuits.all()) {
+				TonyStark.markBuilt(p, s);
+			}
+			wear(p, "mark_vii");
+		}));
+		at(10, () -> server(mc, p -> tweak(p, s -> {
+			long now = p.level().getGameTime();
+			s.suitEnergy.put("mark_vii", IronManSuits.MARK_VII.energyCapacity() * 0.6237f);
+			s.suitIntegrity.put("mark_vii", com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_vii") * 0.82f);
+			s.flamethrowerHeat = 40f;
+			s.weaponWheelChoice = IronManAbilities.FLAMETHROWER;
+			s.mobHighlightOn = true;
+			s.abilityReadyAt.put("mark_vii/" + IronManAbilities.UNIBEAM, now + 520);
+			s.abilityReadyAt.put("mark_vii/" + IronManAbilities.FLAMETHROWER, now + 90);
+			s.phoenixReadyAt = now + 20 * 130;
+			s.suitAir = 0.6f;
+		})));
+		at(40, () -> shot(mc, "h01_mk7_hud_gs4"));
+		at(42, () -> scale(mc, 2));
+		at(50, () -> shot(mc, "h02_mk7_hud_gs2"));
+		at(52, () -> {
+			scale(mc, 4);
+			server(mc, p -> {
+				wear(p, "mark_1");
+				tweak(p, s -> {
+					s.suitEnergy.put("mark_1", IronManSuits.MARK_1.energyCapacity() * 0.3f);
+					s.suitIntegrity.put("mark_1", com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_1") * 0.25f);
+					s.abilityReadyAt.put("mark_1/" + IronManAbilities.FLAMETHROWER, p.level().getGameTime() + 200);
+				});
+			});
+		});
+		at(70, () -> shot(mc, "h03_mk1_hud_gs4"));
+		at(72, () -> server(mc, p -> {
+			wear(p, "mark_vii");
+			tweak(p, s -> s.suitIntegrity.put("mark_vii", com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_vii") * 0.2f));
+		}));
+		at(84, () -> shot(mc, "h04_mk7_critical_gs4"));
+		at(86, () -> server(mc, IronManUiDebugHarness::unwear));
+		at(96, () -> shot(mc, "h05_unarmoured_gs4"));
+		// call armour picker
+		at(98, () -> mc.setScreen(new com.projecthero.mod.client.gui.IronManSuitCallScreen(List.of(
+				new IronManSuitListPayload.Option("mark_iii", IronManSuitListPayload.SOURCE_INVENTORY, 0.92f, 1.0f, 0),
+				new IronManSuitListPayload.Option("mark_vii", IronManSuitListPayload.SOURCE_PLATFORM, 0.4321f, 0.2f, 134),
+				new IronManSuitListPayload.Option("mark_v", 2, 0.1f, 0.77f, 0)))));
+		at(100, () -> cursor(mc, 90, 60));
+		at(110, () -> shot(mc, "s01_call_gs4"));
+		at(112, () -> scale(mc, 2));
+		at(120, () -> shot(mc, "s02_call_gs2"));
+		at(122, () -> {
+			scale(mc, 4);
+			mc.setScreen(new com.projecthero.mod.client.gui.BlankBlueprintScreen(List.of(
+					new IronManBlueprintPickerPayload.Entry("mark_1", true, null),
+					new IronManBlueprintPickerPayload.Entry("mark_2", true, "mark_1"),
+					new IronManBlueprintPickerPayload.Entry("mark_iii", true, "mark_2"),
+					new IronManBlueprintPickerPayload.Entry("mark_4", false, "mark_iii"),
+					new IronManBlueprintPickerPayload.Entry("mark_v", false, "mark_4"),
+					new IronManBlueprintPickerPayload.Entry("mark_6", false, "mark_v"),
+					new IronManBlueprintPickerPayload.Entry("mark_vii", false, "mark_6"))));
+		});
+		at(126, () -> cursor(mc, 160 + 50, 120 - 17));
+		at(134, () -> shot(mc, "s03_blueprint_gs4"));
+		at(136, () -> mc.setScreen(new com.projecthero.mod.client.gui.IronManWeaponWheelScreen()));
+		at(138, () -> cursor(mc, 160 + 60, 120 - 35));
+		at(148, () -> shot(mc, "s04_wheel_gs4"));
+		at(150, () -> scale(mc, 2));
+		at(152, () -> cursor(mc, 320 - 70, 180 + 30));
+		at(160, () -> shot(mc, "s05_wheel_gs2"));
+		// Stark Fabricator: blueprint + some components, helmet picked
+		at(162, () -> {
+			scale(mc, 4);
+			mc.setScreen(null);
+			server(mc, p -> {
+				BlockPos pos = p.blockPosition().offset(2, 0, 0);
+				p.serverLevel().setBlockAndUpdate(pos, com.projecthero.mod.ironman.IronManBlocks.STARK_FABRICATOR.defaultBlockState());
+				if (p.serverLevel().getBlockEntity(pos) instanceof com.projecthero.mod.ironman.fabricator.StarkFabricatorBlockEntity be) {
+					be.setItem(10, new ItemStack(com.projecthero.mod.ironman.item.IronManItems.MARK_VII_BLUEPRINT));
+					be.setItem(0, new ItemStack(com.projecthero.mod.ironman.item.IronManItems.TITANIUM_GOLD_PLATE, 6));
+					be.setItem(1, new ItemStack(com.projecthero.mod.ironman.item.IronManItems.SERVO_MOTOR, 1));
+					be.setItem(3, new ItemStack(com.projecthero.mod.ironman.item.IronManItems.STARK_CIRCUIT, 2));
+					be.setSelectedPiece(1);
+					p.openMenu(be);
+				}
+			});
+		});
+		at(176, () -> cursor(mc, 160 - 100 + 30, 120 - 118 + 101));
+		at(186, () -> shot(mc, "s06_fabricator_gs4"));
+		at(188, () -> scale(mc, 2));
+		at(196, () -> shot(mc, "s07_fabricator_gs2"));
+		at(198, () -> {
+			scale(mc, 4);
+			if (mc.screen != null) {
+				// click "View more" (panel-relative 136..186, 114..125)
+				int left = (mc.getWindow().getGuiScaledWidth() - 200) / 2;
+				int top = (mc.getWindow().getGuiScaledHeight() - 236) / 2;
+				mc.screen.mouseClicked(left + 150, top + 118, 0);
+			}
+		});
+		at(208, () -> shot(mc, "s08_fabricator_more_gs4"));
+		at(210, () -> {
+			mc.setScreen(null);
+			server(mc, p -> {
+				BlockPos pos = p.blockPosition().offset(-2, 0, 0);
+				p.serverLevel().setBlockAndUpdate(pos, com.projecthero.mod.ironman.IronManBlocks.IRON_MAN_SUIT_PLATFORM.defaultBlockState());
+				if (p.serverLevel().getBlockEntity(pos) instanceof com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlockEntity be) {
+					IronManSuit suit = IronManSuits.MARK_VII;
+					be.setItem(0, new ItemStack(suit.armor(ArmorItem.Type.HELMET)));
+					be.setItem(1, new ItemStack(suit.armor(ArmorItem.Type.CHESTPLATE)));
+					be.setItem(2, new ItemStack(suit.armor(ArmorItem.Type.LEGGINGS)));
+					p.openMenu(be);
+				}
+			});
+		});
+		at(230, () -> shot(mc, "s09_platform_gs4"));
+		at(232, () -> scale(mc, 2));
+		at(240, () -> shot(mc, "s10_platform_gs2"));
+		at(250, () -> mc.stop());
+	}
+}

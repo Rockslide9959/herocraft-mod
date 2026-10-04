@@ -24,15 +24,26 @@ public final class FabricatorRecipes {
 	public static final int MAX_ENERGY = 50_000;
 
 	private static final List<FabricationRecipe> ALL = new ArrayList<>();
+	private static volatile List<FabricationRecipe> view0;
 
 	private FabricatorRecipes() {
 	}
 
 	public static List<FabricationRecipe> all() {
-		if (ALL.isEmpty()) {
-			build();
+		// v0.14.21: built once under a lock and published read-only. The integrated server thread and the
+		// client render thread (the Fabricator screen) both call this lazily; building the shared list from
+		// both at once threw a ConcurrentModificationException in the screen.
+		List<FabricationRecipe> view = view0;
+		if (view == null) {
+			synchronized (FabricatorRecipes.class) {
+				if (view0 == null) {
+					build();
+					view0 = List.copyOf(ALL);
+				}
+				view = view0;
+			}
 		}
-		return ALL;
+		return view;
 	}
 
 	/**

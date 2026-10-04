@@ -265,8 +265,65 @@ drains `damage × 18`.
 ## 12. Iron Man HUD
 
 `IronManHud` (client) — shown only with the Tony Stark power **and** a valid Iron Man helmet worn.
-Energy %, integrity %, altitude, speed, targeting indicator, "SUIT OFFLINE" at zero energy. Removing
-the helmet drops the readout.
+Removing the helmet drops the readout (unarmoured you get the CALL ARMOUR chip + the Phoenix timer).
+
+**v0.14.21 helmet-HUD redesign** (was ~20-28 stacked text lines from (6,24) that could reach the chat):
+
+* **Visor** — while the faceplate is *closed* (`IRON_MAN_FACEPLATE_OPEN` false): a faint edge vignette,
+  thin cyan corner brackets (blink red while offline) and two tiny reticle ticks. Faceplate open = no
+  frame + a VISOR OPEN chip.
+* **Top-left block** (`IronManUiLayout.HUD_X/HUD_Y` = 6,6, 150 px wide): suit name (bold) + small
+  `ALT / SPD` right-aligned; **EN** and **INT** Gauge bars (label + exact values on the line above a 3 px
+  bar) — values keep the house format `76,67% (7667 / 10000)` (`IronManUiLayout.pct/amount`, comma
+  decimals); one dim clock / day / X Z line; then *contextual* Gauges only while relevant: AIR (tank not
+  full), HEAT (> 0.5), FLIGHT burst, OVERLOADED SYSTEMS / Wrist Laser timer, MISSILES reload; the Mark II
+  ceiling warning / SYSTEMS FROZEN, a blinking **SUIT CRITICAL** banner (< 35%) and the wrapped SUIT
+  OFFLINE line.
+* **Status chips** (flow-wrapped inside the block, `IronManUiLayout.flowChips`): mob highlight ON/OFF,
+  entity SCAN range (Mark VII), weapon-wheel binding (`X: …`), BLADES, MISSILES xN (ready), VISOR OPEN,
+  PHOENIX mm:ss.
+* **Ability strip** (`IronManUiLayout.abilityStrip`): six 26×22 slots R G X Z V C centred above the hotbar
+  (bottom edge 52 px above the screen bottom, clear of hotbar / XP / hearts / armour). Each reads the worn
+  suit's `abilityInSlot()`: an item icon per ability (`IronManHud.icon`), the bound key, a cooldown sweep
+  (dark cover shrinking from the top; total = the remaining time the first time a new ready-at was seen)
+  + whole seconds. Gold rim = active toggle (highlight, blades, flight burst); gold corner notch = the
+  Mark VII weapon-wheel slot (shows the bound ability's icon); red tint = systems offline. **Hold Left Alt**
+  to list the slot names above the strip.
+* Target name + distance sits just under the crosshair (full HUD, visor closed). The dead
+  `drawReticle` (needed TARGETING_MODE, which no suit binds any more) is gone.
+* **Mark I** keeps its stripped-down retro HUD (`minimalHud`): amber palette, ten-cell segmented bars, a
+  heavier eye-slit visor band, no telemetry / chips except its mob-highlight timer, plus the flamethrower HEAT.
+
+Shared drawing kit: `client/gui/IronManGui` (palette, Slab / Gauge / Hairline bars, panels with corner
+brackets, chips, ring sectors, `StarkButton`, rotating 3D suit preview on a client-only invisible armour
+stand). All layout numbers are in the common `ironman/ui/IronManUiLayout` so `IronManUiV01421GameTests`
+can prove every string and card fits a 320×240 scaled screen (GUI scale 4).
+
+## 12b. Iron Man screens (v0.14.21 redesign)
+
+| Screen | Layout |
+|---|---|
+| **Call Armour** `IronManSuitCallScreen` | Scrollable grid of 150×72 cards (2 columns at 320 wide). Card = rotating 3D preview of the mark, name, CHARGE / INTEGRITY Slab bars with the exact values inside and % on the label line, location (in your pack / platform N m away / on its way). Built suits the server did not list are shown greyed ("out of reach here") and cannot be picked. Mouse wheel scrolls, arrows move focus, Enter / Space calls, Esc cancels. Same `IronManCallSuitPayload`. |
+| **Suit Platform** `IronManSuitPlatformScreen` | Textured 176×202 panel (`textures/gui/iron_man_suit_platform.png`). Left: holo well with the stored suit turning in 3D. Stored mark name over the four armour slots (empty ones show the vanilla armour silhouettes); RES plate (exact reserve, hover for x / 50000). Full-width CHARGE and INTEGRITY Slabs with exact values; styled Deploy (gold) / Retrieve buttons. Slot coordinates unchanged. |
+| **Stark Fabricator** `StarkFabricatorScreen` | Textured 200×236 panel (`textures/gui/stark_fabricator.png`, replaces the unused 176×186 placeholder; the old 248 px panel overflowed a 240 px GUI-scale-4 screen, so the player inventory moved up: `StarkFabricatorMenu` rows y 156, hotbar y 214). Vertical energy gauge (gradient, lit top edge), progress arrow + full-width bar with a travelling glow, one status line (Fabricating n% / Ready / Not enough energy / Components missing / Idle) + exact energy. Real piece tabs (44×18 hit areas showing the suit's own piece icon; the name is in the tooltip and the checklist header). Checklist box: each input of the selected piece as a small icon + green ✓ count or red have/need (hover for the item name). View more modal restyled (bracket panel, ✓/✗ per component, still scrollable, Esc closes). Empty blueprint / output slots have tooltips. |
+| **Blank Blueprint** `BlankBlueprintScreen` | Progression track Mark I → Mark VII: helmet-icon nodes on one line, lit up to the last unlocked mark, labels alternating above / below. Unlocked = click to stamp; locked = greyed + padlock, tooltip "… build the whole Mark X first". Arrows + Enter work. Same payloads. |
+| **Mark VII weapon wheel** `IronManWeaponWheelScreen` | Six real ring wedges (triangle-fan sectors), hover lifts + brightens, bound option gold rim, an item icon per wedge (+ BOUND / glow ON-OFF), centre disc reads the hovered (else bound) option's name + a one-line description. Hit-test `IronManUiLayout.wheelSector` keeps the "changes 17" half-sector offset. |
+
+Lang: `scratchpad/lang_v01421_ironman_ui.js`. Textures: `scratchpad/gen_v01421_ironman_gui.js`
+(hand-rolled PNG via `scratchpad/pnglib.js`).
+
+Notes from the in-client check (`scratchpad/IronManUiDebugHarness.v01421.java.txt`, GUI scale 4 at
+1280×960 and GUI scale 2; harness removed from the source tree afterwards):
+
+* The HUD text block is drawn in two passes (measure, then a soft dark backdrop + the text) — without
+  the backdrop the dim labels vanished against a bright sky.
+* The ability strip sits where vanilla shows the held-item name for ~2 s after a hotbar switch and, while
+  chat is fresh, under the chat box — both are vanilla overlays and only transient.
+* Found and fixed while testing: `FabricatorRecipes.all()` built its shared list lazily from whichever
+  thread asked first; the integrated server and the Fabricator screen racing on it crashed the client
+  with a `ConcurrentModificationException`. It is now built once under a lock and published read-only.
+* Mark IV / VI / II nodes and cards use each suit's own item icons; empty Suit Platform slots show the
+  vanilla armour silhouettes (block-atlas sprites).
 
 ## 13. Abilities
 
@@ -306,6 +363,11 @@ new `IronManSuits` entry + a recipe set.
 `IronManSuitPlatformBlock` + BE: right-click with an Iron Man piece to store it; right-click empty-handed (Tony
 Stark) to open the GUI and DEPLOY the stored suit onto you; sneak-right-click to retrieve your worn suit back onto the
 platform. v0.14.21: deploy and retrieve are animated, server-timed ~1.5 s sequences (§17u).
+`IronManSuitPlatformBlock` + BE + `IronManSuitPlatformMenu` / `IronManSuitPlatformScreen`: right-click
+opens the platform screen (four armour slots, charge / integrity / reserve readouts, Deploy and Retrieve
+buttons — see §12b for the v0.14.21 layout); the block renderer shows the stored suit turning on the pad.
+Deploy puts the stored suit on you; Retrieve pulls your worn suit back onto the platform. The platform
+recharges / repairs the stored suit from its own reserve (Reactor Cores + trickle, max 50,000).
 
 ## 15b. Stark Sorting Station (v0.14.16, Tidy v0.14.20, repack / supplies v0.14.21)
 
@@ -1612,7 +1674,9 @@ Generated by `scratchpad/gen_ironman.js` (flat solid-colour PNGs):
   the unused `stark_component.png`, `blueprint.png` and `iron_man_mark_{iii,v,vii}.png` were deleted)
 * `assets/projecthero/textures/block/` — `stark_fabricator.png`, `iron_man_suit_platform.png`
 * `assets/projecthero/textures/models/armor/mark_{iii,v,vii,42,50}_layer_{1,2}.png`
-* `assets/projecthero/textures/gui/stark_fabricator.png` (176×186)
+* ~~`assets/projecthero/textures/gui/stark_fabricator.png` (176×186)~~ — replaced in v0.14.21 by real
+  256×256 GUI sheets `stark_fabricator.png` (200×236 panel) and `iron_man_suit_platform.png` (176×202),
+  generated by `scratchpad/gen_v01421_ironman_gui.js`
 * Models are all `item/generated` / `block/cube_all`. Replace freely; no code change needed.
 * Custom sounds: none added — suit-up/abilities layer real vanilla sounds.
 * Custom entity/block models and staged nanotech formation rendering: not yet — see the roadmap in

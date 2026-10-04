@@ -74,11 +74,12 @@ public class StarkFabricatorMenu extends AbstractContainerMenu {
 		// per-piece button band have their own space -- see StarkFabricatorScreen; imageHeight matches)
 		for (int row = 0; row < 3; row++) {
 			for (int col = 0; col < 9; col++) {
-				addSlot(new Slot(playerInv, col + row * 9 + 9, 8 + col * 18, 164 + row * 18));
+				addSlot(new Slot(playerInv, col + row * 9 + 9, 8 + col * 18,
+						com.projecthero.mod.ironman.ui.IronManUiLayout.FAB_INV_Y + row * 18)); // v0.14.21: 164 -> 156
 			}
 		}
 		for (int col = 0; col < 9; col++) {
-			addSlot(new Slot(playerInv, col, 8 + col * 18, 224));
+			addSlot(new Slot(playerInv, col, 8 + col * 18, com.projecthero.mod.ironman.ui.IronManUiLayout.FAB_HOTBAR_Y)); // 224 -> 214
 		}
 
 		addDataSlots(data);

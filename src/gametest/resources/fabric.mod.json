@@ -79,7 +79,8 @@
       "com.projecthero.mod.gametest.SpeedSquadV01416GameTests",
       "com.projecthero.mod.gametest.StarkSorterGameTests",
       "com.projecthero.mod.gametest.KryptonianV01416GameTests",
-      "com.projecthero.mod.gametest.IronManBlocksV01421GameTests"
+      "com.projecthero.mod.gametest.IronManBlocksV01421GameTests",
+      "com.projecthero.mod.gametest.IronManUiV01421GameTests"
     ]
   },
   "depends": {
