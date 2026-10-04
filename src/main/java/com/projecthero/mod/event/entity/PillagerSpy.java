@@ -2,6 +2,7 @@ package com.projecthero.mod.event.entity;
 
 import java.util.Optional;
 
+import com.projecthero.mod.event.raid.SupervillainMark;
 import com.projecthero.mod.event.raid.SupervillainRaidStarter;
 
 import net.minecraft.core.BlockPos;
@@ -10,6 +11,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -27,9 +29,9 @@ import net.minecraft.world.level.Level;
  * The Pillager Spy: a rare Pillager variant scouting villages for a Supervillain. It looks almost
  * exactly like a Pillager -- an observant player might notice the darker robe, the faint purple
  * ambient particle, and the name on the crosshair -- and behaves like one in a fight. Its purpose is
- * different: it heads for the nearest village and tries to land a hit on a player standing inside it.
- * When it does, {@link SupervillainRaidStarter#onSpyHitPlayer} marks that village for a Supervillain
- * Raid.
+ * different: it heads for the nearest village, and any player it lands a hit on -- or who kills it -- carries the
+ * Supervillain's Mark (v0.14.21, {@link SupervillainRaidStarter#onSpyHitPlayer} / {@link #die}). Walking into a
+ * village with the mark brings a Supervillain Raid down on it, the way vanilla Bad Omen brings a raid.
  *
  * <p>Deliberately <b>not</b> persistent: a rare hostile natural spawn that saved forever would pile
  * up in a long-lived world (same reasoning as {@code CursedZombie}).
@@ -67,16 +69,14 @@ public class PillagerSpy extends Pillager {
 		// itself first, but when nothing is threatening it, it makes for the village.
 		this.goalSelector.addGoal(4, new SeekVillageGoal());
 
-		// v0.14.4: the spy is a scout, not a raider. Vanilla's Pillager goals made it open fire on the
-		// first player it saw -- and PillagerSpySpawner puts it 32-56 blocks from a player who is, by
-		// construction, OUTSIDE the village, so almost every natural spy spent itself shooting at someone
-		// in the fields (a hit outside a village does nothing), got killed, and never marked anything.
-		// It also shot villagers, emptying the very village it was scouting. Now it only picks a fight
-		// with a player who is standing in a village (the one hit that means something), still shoots
-		// back at anyone who attacks it (HurtByTargetGoal is untouched), and still fights iron golems.
+		// v0.14.4: the spy is a scout, not a raider: it never shoots villagers (that emptied the very village
+		// it was scouting), still shoots back at anyone who attacks it (HurtByTargetGoal is untouched), and
+		// still fights iron golems. v0.14.21: it marks the PLAYER now, so a hit anywhere counts -- it goes
+		// for any player not already carrying the Supervillain's Mark (or its omen), and leaves marked
+		// players alone: its job is done.
 		this.targetSelector.removeAllGoals(goal -> goal instanceof NearestAttackableTargetGoal<?>);
 		this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, 10, true, false,
-				this::isVillageTarget));
+				this::isMarkTarget));
 		this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, IronGolem.class, true));
 	}
 
@@ -91,21 +91,22 @@ public class PillagerSpy extends Pillager {
 		return distanceToClosestPlayer > LINGER_RANGE * LINGER_RANGE;
 	}
 
-	/** Target filter: only a player standing in a village is worth shooting at unprovoked. */
-	private boolean isVillageTarget(LivingEntity candidate) {
-		if (!(level() instanceof ServerLevel server)) {
-			return false;
+	/** v0.14.21 target filter: any player not already carrying the Supervillain's Mark or its omen. */
+	private boolean isMarkTarget(LivingEntity candidate) {
+		return candidate instanceof ServerPlayer player && !SupervillainMark.isMarkedOrOmened(player);
+	}
+
+	/**
+	 * v0.14.21: whoever kills a Pillager Spy is marked -- the Supervillain's version of killing a raid
+	 * captain for Bad Omen. Arrows and other projectiles credit their owner ({@code DamageSource#getEntity}).
+	 */
+	@Override
+	public void die(DamageSource source) {
+		boolean first = !this.dead && !this.isRemoved();
+		super.die(source);
+		if (first && !level().isClientSide() && source.getEntity() instanceof ServerPlayer killer) {
+			SupervillainRaidStarter.onSpyKilled(this, killer);
 		}
-		double follow = getAttributeValue(Attributes.FOLLOW_RANGE);
-		if (distanceToSqr(candidate) > follow * follow) {
-			return false; // cheap reject before any village lookup
-		}
-		BlockPos at = candidate.blockPosition();
-		// The bell this spy is already walking to is the cheap answer; fall back to the full test.
-		if (villageGoal != null && nearBell(at, villageGoal)) {
-			return true;
-		}
-		return insideVillage(server, at);
 	}
 
 	@Override
@@ -124,8 +125,8 @@ public class PillagerSpy extends Pillager {
 	}
 
 	/**
-	 * Whether {@code pos} is inside a village. Used by the raid trigger, the spy's targeting and the
-	 * natural spawner.
+	 * Whether {@code pos} is inside a village. Used by the Supervillain's Mark (a marked player here
+	 * triggers the omen, v0.14.21), the spy's village seeking and the natural spawner.
 	 *
 	 * <p>v0.14.4 -- the real reason Supervillain Raids stopped repeating. This used to be just vanilla's
 	 * {@link ServerLevel#isVillage}, which only counts village POIs (beds, job sites, the bell) that are
@@ -143,10 +144,6 @@ public class PillagerSpy extends Pillager {
 		}
 		return level.getPoiManager().findClosest(holder -> holder.is(PoiTypes.MEETING), pos,
 				VILLAGE_BELL_RADIUS, PoiManager.Occupancy.ANY).isPresent();
-	}
-
-	private static boolean nearBell(BlockPos at, BlockPos bell) {
-		return at.distSqr(bell) <= (double) VILLAGE_BELL_RADIUS * VILLAGE_BELL_RADIUS;
 	}
 
 	@Override
@@ -228,20 +225,11 @@ public class PillagerSpy extends Pillager {
 		}
 	}
 
-	/**
-	 * v0.12.23: the spy marks a village when it ATTACKS a player in one, not only when its arrow deals damage --
-	 * a hero power that dodges or soaks the bolt used to mean the village was never marked.
-	 */
-	@Override
-	public void performRangedAttack(net.minecraft.world.entity.LivingEntity target, float velocity) {
-		super.performRangedAttack(target, velocity);
-		if (target instanceof ServerPlayer player && level() instanceof ServerLevel level
-				&& !player.isCreative() && !player.isSpectator()) {
-			notifyDamagedPlayer(level, player);
-		}
-	}
+	// v0.14.21: the v0.12.23 performRangedAttack override (firing at a player in a village marked it, hit or miss)
+	// is gone -- the mark now needs a real hit, which no longer has to land inside a village, and killing the spy
+	// marks the killer too, so a power that dodges the bolt cannot leave the spy with no way to mark anyone.
 
-	// Hook used by the damage listener: give the escort/leader a way to identify a raid trigger.
+	/** Hook for the damage listener (and tests): this spy has hit {@code player}. */
 	public void notifyDamagedPlayer(ServerLevel level, ServerPlayer player) {
 		SupervillainRaidStarter.onSpyHitPlayer(level, this, player);
 	}

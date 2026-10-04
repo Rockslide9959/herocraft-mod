@@ -15,20 +15,20 @@ import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.level.levelgen.Heightmap;
 
 /**
- * Turning "a Pillager Spy landed a hit on a player standing in a village" into a marked village and a
- * running {@link SupervillainRaid}.
+ * Turning a Pillager Spy's work into a running {@link SupervillainRaid}.
  *
- * <p>The trigger is strict (spec section 5): the spy must have <em>dealt damage</em> to a player who
- * is <em>inside a village</em>. A missed crossbow bolt does nothing; a normal Pillager does nothing;
- * a hit on a player standing outside the village does nothing.
+ * <p>v0.14.21: the Spy marks the <em>player</em>, not the village. Its hit (anywhere) or its death at a player's
+ * hands gives that player the Supervillain's Mark ({@link SupervillainMark}), the way a raid captain gave Bad Omen.
+ * Carrying the mark into a village turns it into a 30-second omen, after which the raid starts there through
+ * {@link #startFromOmen}. A missed bolt does nothing; an ordinary Pillager does nothing.
  */
 public final class SupervillainRaidStarter {
 	private SupervillainRaidStarter() {
 	}
 
 	/**
-	 * Called from the shared damage listener when {@code player} takes damage. Checks whether the
-	 * source is a Pillager Spy and, if the conditions are met, marks the village.
+	 * Called from the shared damage listener when {@code player} is hurt. If the source is a Pillager Spy (or its
+	 * bolt), the player is marked.
 	 */
 	public static void onPlayerDamaged(ServerPlayer player, Entity directSource, Entity attacker) {
 		PillagerSpy spy = asSpy(directSource);
@@ -54,28 +54,40 @@ public final class SupervillainRaidStarter {
 		return null;
 	}
 
-	/** The spy has successfully damaged {@code player}. Mark the village if it is eligible. */
+	/** v0.14.21: the spy has hit {@code player} -- mark the player, wherever they are standing. */
 	public static void onSpyHitPlayer(ServerLevel level, PillagerSpy spy, ServerPlayer player) {
-		BlockPos playerPos = player.blockPosition();
-		if (!PillagerSpy.insideVillage(level, playerPos)) {
-			return;
+		if (SupervillainMark.mark(player)) {
+			ProjectHeroMod.LOGGER.info("[SupervillainRaid] Pillager Spy {} marked {}", spy.getUUID(),
+					player.getGameProfile().getName());
+			// The spy has done its job: it stops chasing this player (its target filter skips marked players).
+			if (spy.getTarget() == player) {
+				spy.setTarget(null);
+				spy.getNavigation().stop();
+			}
 		}
-		BlockPos center = raidCenter(level, playerPos);
+	}
 
-		// Already marked / counting down / being raided here? A spy cannot stack a second timer.
-		if (EventManager.anyActiveNear(level, center, SupervillainRaid.TYPE_ID,
-				com.projecthero.mod.event.EventConfig.framework().minDistanceBetweenEvents)) {
-			return;
+	/** v0.14.21: a player killed a Pillager Spy -- like a raid captain's Bad Omen, the killer is marked. */
+	public static void onSpyKilled(PillagerSpy spy, ServerPlayer killer) {
+		if (SupervillainMark.mark(killer)) {
+			ProjectHeroMod.LOGGER.info("[SupervillainRaid] {} killed Pillager Spy {} and was marked",
+					killer.getGameProfile().getName(), spy.getUUID());
 		}
-		// v0.12.23: no post-raid cooldown any more -- a village that has been raided before can be marked again.
+	}
 
-		if (markVillage(level, center)) {
-			ProjectHeroMod.LOGGER.info("[SupervillainRaid] Pillager Spy {} marked the village at {} (hit {})",
-					spy.getUUID(), center, player.getGameProfile().getName());
-			// The spy has done its job -- it flees.
-			spy.getNavigation().stop();
-			spy.setTarget(null);
+	/**
+	 * v0.14.21: a marked player's omen ran out at {@code pos} -- start the Supervillain Raid there (the village is
+	 * Marked for Attack and the raid's own preparation timer runs). Same start path the old village mark used, so the
+	 * one-raid-per-area rule ({@code minDistanceBetweenEvents}) still applies.
+	 *
+	 * @return true if a raid started
+	 */
+	public static boolean startFromOmen(ServerLevel level, BlockPos pos) {
+		BlockPos center = raidCenter(level, pos);
+		if (SupervillainMark.raidBlocked(level, center)) {
+			return false;
 		}
+		return markVillage(level, center);
 	}
 
 	/** @return true if a new raid record was created. */

@@ -180,7 +180,18 @@ public final class EventConfig {
 		/** Chance the spy is escorted by 1-2 ordinary Pillagers. */
 		public double pillagerSpyEscortChance = 0.35;
 
-		/** Seconds between the spy hitting a player in a village and the raid's first wave. */
+		/**
+		 * v0.14.21: minutes the Supervillain's Mark lasts on a player (the Spy's hit, or killing the Spy). Like vanilla
+		 * Bad Omen: 100 minutes, cleared by milk.
+		 */
+		public int markDurationMinutes = 100;
+		/**
+		 * v0.14.21: seconds of Supervillain Omen -- the Raid Omen counterpart -- between a marked player entering a
+		 * village and the Supervillain Raid starting there.
+		 */
+		public int markOmenSeconds = 30;
+
+		/** Seconds of preparation between the raid starting (the village is Marked for Attack) and its first wave. */
 		public int raidCountdownSeconds = 10 * 60;
 		/** Minecraft days a village is immune to another Supervillain Raid after one finishes. */
 		public int villageRaidCooldownDays = 3;

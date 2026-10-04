@@ -6,6 +6,7 @@ import com.projecthero.mod.event.EventSavedData;
 import com.projecthero.mod.event.boss.BossPowers;
 import com.projecthero.mod.event.entity.PillagerSpy;
 import com.projecthero.mod.event.entity.RaidEntityTypes;
+import com.projecthero.mod.event.raid.SupervillainMark;
 import com.projecthero.mod.event.raid.SupervillainRaid;
 import com.projecthero.mod.event.raid.SupervillainRaidStarter;
 import com.projecthero.mod.event.raid.SupervillainVillages;
@@ -17,15 +18,16 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.MobSpawnType;
 
 /**
- * {@code /supervillainraid start|boss|spy|clear|mark|status} -- Supervillain Village Raid development
- * and testing commands (spec section 47). Op-only ({@code hasPermission(2)}); the survival trigger is
- * always a Pillager Spy hitting a player in a village.
+ * {@code /supervillainraid start|mark [targets]|omen|markvillage|boss|spy|clear|status} -- Supervillain Village Raid
+ * development and testing commands (spec section 47). Op-only ({@code hasPermission(2)}); the survival trigger is a
+ * Pillager Spy marking a player (its hit, or its death) and that player then entering a village (v0.14.21).
  */
 public final class SupervillainRaidCommand {
 	private SupervillainRaidCommand() {
@@ -36,7 +38,11 @@ public final class SupervillainRaidCommand {
 		return Commands.literal("supervillainraid")
 				.requires(source -> source.hasPermission(2))
 				.then(Commands.literal("start").executes(SupervillainRaidCommand::start))
-				.then(Commands.literal("mark").executes(SupervillainRaidCommand::mark))
+				.then(Commands.literal("mark").executes(c -> giveMark(c, java.util.List.of(c.getSource().getPlayerOrException())))
+						.then(Commands.argument("targets", EntityArgument.players())
+								.executes(c -> giveMark(c, EntityArgument.getPlayers(c, "targets")))))
+				.then(Commands.literal("omen").executes(SupervillainRaidCommand::omen))
+				.then(Commands.literal("markvillage").executes(SupervillainRaidCommand::mark))
 				.then(Commands.literal("boss").executes(SupervillainRaidCommand::boss))
 				.then(Commands.literal("spy").executes(SupervillainRaidCommand::spy))
 				.then(Commands.literal("clear").executes(SupervillainRaidCommand::clear))
@@ -60,7 +66,45 @@ public final class SupervillainRaidCommand {
 		return 1;
 	}
 
-	/** Mark the nearest village and run the full 10-minute preparation timer. */
+	/** v0.14.21: give the Supervillain's Mark (the Pillager Spy's Bad Omen) to players. */
+	private static int giveMark(CommandContext<CommandSourceStack> c, java.util.Collection<ServerPlayer> targets) {
+		int n = 0;
+		for (ServerPlayer p : targets) {
+			if (SupervillainMark.mark(p)) {
+				n++;
+			}
+		}
+		final int marked = n;
+		if (marked == 0) {
+			c.getSource().sendFailure(Component.literal("Nobody was marked (spectator, or an omen already running)."));
+			return 0;
+		}
+		c.getSource().sendSuccess(() -> Component.literal("Gave the Supervillain's Mark to " + marked + " player(s)."), true);
+		return marked;
+	}
+
+	/** v0.14.21: turn your mark into the omen here if you can, or make a running omen fire now. */
+	private static int omen(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		ServerPlayer player = c.getSource().getPlayerOrException();
+		if (SupervillainMark.hasOmen(player)) {
+			SupervillainMark.expireOmenNow(player);
+			c.getSource().sendSuccess(() -> Component.literal("Supervillain Omen fires next tick."), true);
+			return 1;
+		}
+		if (!SupervillainMark.isMarked(player)) {
+			c.getSource().sendFailure(Component.literal("You are not marked -- use /supervillainraid mark first."));
+			return 0;
+		}
+		if (!SupervillainMark.tryConvert(player)) {
+			c.getSource().sendFailure(Component.literal(
+					"The mark cannot turn here (not in a village, Peaceful, or a Supervillain Raid is already running nearby)."));
+			return 0;
+		}
+		c.getSource().sendSuccess(() -> Component.literal("Mark turned into the Supervillain Omen."), true);
+		return 1;
+	}
+
+	/** Mark the nearest village directly (the pre-v0.14.21 trigger) and run the full preparation timer. */
 	private static int mark(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
 		ServerPlayer player = c.getSource().getPlayerOrException();
 		if (!SupervillainRaidStarter.startAt(player.serverLevel(), player.blockPosition())) {
@@ -117,8 +161,10 @@ public final class SupervillainRaidCommand {
 			}
 		}
 		SupervillainVillages.get(level).clearCooldown(player.blockPosition());
+		SupervillainMark.clear(player);
 		final int n = cleared;
-		c.getSource().sendSuccess(() -> Component.literal("Cleared " + n + " Supervillain Raid(s) and this village's cooldown."), true);
+		c.getSource().sendSuccess(() -> Component.literal("Cleared " + n
+				+ " Supervillain Raid(s), this village's cooldown and your Supervillain's Mark."), true);
 		return 1;
 	}
 
@@ -127,9 +173,11 @@ public final class SupervillainRaidCommand {
 		ServerLevel level = player.serverLevel();
 		SupervillainRaid raid = raidHere(player);
 		long cd = SupervillainVillages.get(level).cooldownSecondsRemaining(level, player.blockPosition());
+		String mark = SupervillainMark.hasOmen(player) ? "omen running"
+				: SupervillainMark.isMarked(player) ? "marked" : "none";
 		if (raid == null) {
 			c.getSource().sendSuccess(() -> Component.literal("No Supervillain Raid here. Village cooldown: "
-					+ (cd > 0 ? (cd / 60) + "m" : "ready")), false);
+					+ (cd > 0 ? (cd / 60) + "m" : "ready") + " | your mark: " + mark), false);
 			return 0;
 		}
 		String villain = raid.variant() == null ? "pending" : raid.variant().id();

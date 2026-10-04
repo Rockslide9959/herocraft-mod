@@ -3,6 +3,7 @@ package com.projecthero.mod.command;
 import com.projecthero.mod.event.EventInstance;
 import com.projecthero.mod.event.EventManager;
 import com.projecthero.mod.event.EventSavedData;
+import com.projecthero.mod.event.raid.SupervillainMark;
 import com.projecthero.mod.event.raid.SupervillainRaid;
 import com.projecthero.mod.event.raid.SupervillainRaidStarter;
 import com.projecthero.mod.event.raid.ZombieRaidStarter;
@@ -87,15 +88,21 @@ public final class HeroRaidCommand {
 			events++;
 		}
 		int curses = 0;
+		int marks = 0;
 		for (ServerPlayer player : server.getPlayerList().getPlayers()) {
 			if (GraveboundCurse.clear(player, false)) {
 				curses++;
 			}
+			if (SupervillainMark.isMarkedOrOmened(player)) { // v0.14.21: the Supervillain's Mark / omen too
+				SupervillainMark.clear(player);
+				marks++;
+			}
 		}
 		final int ev = events;
 		final int cu = curses;
+		final int mk = marks;
 		c.getSource().sendSuccess(() -> Component.literal(
-				"Stopped " + ev + " world event(s) and cleared " + cu + " curse(s)."), true);
+				"Stopped " + ev + " world event(s) and cleared " + cu + " curse(s) and " + mk + " Supervillain's Mark(s)."), true);
 		return 1;
 	}
 
@@ -104,6 +111,10 @@ public final class HeroRaidCommand {
 		int curses = 0;
 		for (ServerPlayer player : server.getPlayerList().getPlayers()) {
 			if (GraveboundCurse.clear(player, false)) {
+				curses++;
+			}
+			if (SupervillainMark.hasOmen(player)) { // v0.14.21: a running omen is a pending raid timer
+				SupervillainMark.clear(player);
 				curses++;
 			}
 		}

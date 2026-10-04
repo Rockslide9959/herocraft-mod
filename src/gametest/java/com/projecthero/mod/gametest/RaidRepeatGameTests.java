@@ -10,6 +10,7 @@ import com.projecthero.mod.event.entity.EmpoweredZombie;
 import com.projecthero.mod.event.entity.PillagerSpy;
 import com.projecthero.mod.event.entity.RaidEntityTypes;
 import com.projecthero.mod.event.raid.PillagerSpySpawner;
+import com.projecthero.mod.event.raid.SupervillainMark;
 import com.projecthero.mod.event.raid.SupervillainRaid;
 import com.projecthero.mod.event.raid.SupervillainRaidStarter;
 import com.projecthero.mod.event.raid.SupervillainVillages;
@@ -154,7 +155,10 @@ public class RaidRepeatGameTests implements FabricGameTest {
 		});
 	}
 
-	/** A Pillager Spy lands a hit on {@code player}; returns the Supervillain Raid that marked the village. */
+	/**
+	 * A Pillager Spy lands a hit on {@code player} (v0.14.21: that marks the player), the marked player is in the
+	 * village so the mark turns into the omen, and the omen runs out; returns the Supervillain Raid it started.
+	 */
 	private static SupervillainRaid spyHits(GameTestHelper helper, ServerLevel level, ServerPlayer player) {
 		PillagerSpy spy = RaidEntityTypes.PILLAGER_SPY.create(level);
 		helper.assertTrue(spy != null, "the spy must create");
@@ -162,6 +166,11 @@ public class RaidRepeatGameTests implements FabricGameTest {
 		spy.moveTo(at.x, at.y, at.z, 0.0f, 0.0f);
 		SupervillainRaidStarter.onSpyHitPlayer(level, spy, player);
 		spy.discard();
+		helper.assertTrue(SupervillainMark.isMarked(player) || SupervillainMark.hasOmen(player), "the spy's hit marks the player");
+		SupervillainMark.tryConvert(player);
+		helper.assertTrue(SupervillainMark.hasOmen(player), "the marked player in the village gets the omen");
+		SupervillainMark.expireOmenNow(player);
+		SupervillainMark.tickPlayer(player, false);
 		EventInstance raid = EventManager.at(level, player.blockPosition());
 		helper.assertTrue(raid instanceof SupervillainRaid,
 				"the spy's hit should have marked the village (got " + raid + ")");

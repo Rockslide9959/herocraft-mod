@@ -21,6 +21,7 @@
 		"GreenLanternRingHandMixin",
 		"GuiTitanMountMessageMixin",
 		"GuiArmorBarMixin",
+		"EffectDescriptionTooltipMixin",
 		"HumanoidArmorLayerMixin",
 		"HumanoidModelMixin",
 		"ItemInHandLayerMixin",

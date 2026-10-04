@@ -24,9 +24,15 @@ framework and reuses the Zombie Raid's `EmpoweredZombie` boss and `BossPowers` A
 
 1. **A Pillager Spy** appears rarely in the wild (darker robe, faint purple particle, name on the
    crosshair), sometimes with a 1–2 Pillager escort, and heads for the nearest village.
-2. If the Spy **damages a player who is standing inside a village**, the village is **Marked for
-   Attack**. A miss does nothing; an ordinary Pillager does nothing; a hit outside the village does
-   nothing.
+2. **v0.14.21 — the Spy marks the player, like Bad Omen.** If the Spy's bolt (or melee) **hits a
+   player — anywhere —** or a player **kills the Spy**, that player gets the **Supervillain's Mark**
+   status effect (100 minutes, harmful, milk clears it). A miss does nothing; an ordinary Pillager
+   does nothing. When a marked player is **inside a village** (within ~64 blocks of a bell, or a
+   vanilla occupied village) on a non-Peaceful world, the mark turns into a **30-second Supervillain
+   Omen** (title + horn, last-5-seconds countdown) — the Raid Omen step — and when that runs out the
+   raid starts at that spot and the village is **Marked for Attack**. The mark is only consumed when
+   a raid really starts: if one is already running there, the mark is kept (and an omen that cannot
+   fire hands it back); on Peaceful nothing ever converts. See *v0.14.21* below.
 3. A **10-minute preparation timer** runs (warnings at 10 / 5 / 1 min and a final 10-second
    countdown). Leaving the village does not cancel it — the mark belongs to the village. While you
    are within ~96 blocks of the marked village a **vanilla-style raid bar** appears at the top of
@@ -49,7 +55,8 @@ framework and reuses the Zombie Raid's `EmpoweredZombie` boss and `BossPowers` A
 |---|---|
 | Event lifecycle / persistence / abandon | `SupervillainRaid extends EventInstance` |
 | Wave table (data) | `SupervillainRaidWaves` |
-| Village marking + starting | `SupervillainRaidStarter` |
+| Spy hit / kill -> player mark; raid start | `SupervillainRaidStarter` |
+| Supervillain's Mark + Omen effects, mark -> omen -> raid tick | `SupervillainMark` (v0.14.21) |
 | Top-of-screen raid bar | `EventBossBar` (shared with the Zombie Raid) |
 | Post-raid 3-day cooldowns (SavedData) | `SupervillainVillages` |
 | Rare natural spawn | `PillagerSpySpawner` (ticked from `Project HeroMod` server tick) |
@@ -102,10 +109,12 @@ exclusion list is gone. `supervillainAllowedPowers` /
 | Command | Effect |
 |---|---|
 | `/supervillainraid start` | Mark the nearest village and skip the countdown straight to Wave 1 |
-| `/supervillainraid mark` | Mark the nearest village and run the full 10-minute timer |
+| `/supervillainraid mark [targets]` | Give the Supervillain's Mark to you (or the targets) |
+| `/supervillainraid omen` | Turn your mark into the omen here, or make a running omen fire now |
+| `/supervillainraid markvillage` | Mark the nearest village directly and run the full 10-minute timer (the pre-v0.14.21 trigger) |
 | `/supervillainraid boss` | Skip to Wave 6 (the Supervillain), starting a raid first if needed |
 | `/supervillainraid spy` | Spawn a Pillager Spy in front of you |
-| `/supervillainraid clear` | Abort every active Supervillain Raid and clear this village's cooldown |
+| `/supervillainraid clear` | Abort every active Supervillain Raid, clear this village's cooldown and your mark / omen |
 | `/supervillainraid status` | Village / phase / wave / countdown / villain / power / participant count |
 | `/heroraid start supervillain` | Start it here, countdown skipped (shared start/stop command — also `gravebound`) |
 | `/heroraid stop` | Force-end **every** active Project Hero world event and clear all curses |
@@ -175,3 +184,35 @@ cooldown has not been consulted since v0.12.23).
 removed (Champion effect granted, legacy cooldown record written) -> a second spy hit marks the same
 village again. Spawner eligibility is unchanged after a completion count, a village cooldown, Champion of
 the Village and a Gravebound record. `removeWhenFarAway` near / far (`SupervillainRaidGameTests`).
+
+## v0.14.21 -- the Spy marks the player (Bad Omen model)
+
+User request: make the Pillager Spy mark the player and work like vanilla Bad Omen.
+
+- **Mark** (`SupervillainMark.MARK`, `projecthero:supervillain_mark`): harmful, dark purple, 100 minutes
+  (`markDurationMinutes`), its own 18x18 icon (`scratchpad/gen_v01421_spy_mark_icons.js`). Given by a Spy's hit
+  on a player anywhere (`AFTER_DAMAGE`; a shield block does not count, a hit soaked to 0 damage does) **and** by
+  killing a Spy (`PillagerSpy#die`, projectile kills credit the owner) -- both, so a power that dodges every
+  bolt still has a way to be marked, which is why the v0.12.23 "firing counts" `performRangedAttack` hook is gone.
+  Milk, death and anything else that clears effects clear it. Re-marking refreshes the duration.
+- **Omen** (`SupervillainMark.OMEN`, `projecthero:supervillain_omen`): crimson, `markOmenSeconds` (30). A marked
+  player standing in a village (`PillagerSpy.insideVillage`, checked every 10 ticks), non-Peaceful, with no
+  Supervillain Raid within `minDistanceBetweenEvents`, swaps the mark for the omen; the spot and the fire time
+  are kept in the `supervillain_omen_state` player attachment (vanilla keeps `raidOmenPosition`). When it runs
+  out the raid starts there through `SupervillainRaidStarter.startFromOmen` -> `markVillage` (the same
+  `EventManager.start` path, so the one-raid-per-area rule and every raid config value still apply, including
+  the 10-minute preparation). If it cannot start (Peaceful by then, or a raid got there first) the mark is
+  handed back. Milk/death during the omen drop it with no raid.
+- Both effects are pure markers (`shouldApplyEffectTickThisTick` false); the logic runs from
+  `END_SERVER_TICK` (`SupervillainMark.tick`) because mutating effects from `applyEffectTick` happens while
+  vanilla iterates the effect map.
+- **Spy AI**: targets any player not already marked / omened (still never villagers, still retaliates, still
+  fights golems); after marking someone it drops them as a target. The spawner skips marked players.
+- **Inventory tooltip**: `EffectDescriptionTooltipMixin` shows name + `effect.projecthero.<id>.desc` when you
+  hover a Project Hero effect in the wide inventory effect list (vanilla already tooltips the narrow layout).
+- **Migration**: a village already Marked for Attack is just a `SupervillainRaid` in its `COUNTDOWN` phase in
+  `EventSavedData`; nothing about it changed, so it still runs its countdown and gets its raid.
+- `/heroraid stop` clears every mark/omen; `/heroraid cleartimers` clears running omens.
+- Tests: `V01421SpyMarkGameTests` (hit marks anywhere, kill marks, ordinary Pillager does nothing, milk clears
+  mark and omen, village -> omen -> raid with the mark consumed and kept while a raid runs, Peaceful) and the
+  `RaidRepeatGameTests` lifecycle now goes hit -> mark -> omen -> raid.

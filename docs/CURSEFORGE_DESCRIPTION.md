@@ -282,7 +282,8 @@ Catch the **Gravebound Curse** from a Graveyard or a Cursed Zombie, then cure it
 placeable trophies** that remember who slew them. The curse can strike again and again.
 
 ### 🏹 The Supervillain Village Raid
-A **Pillager Spy** attacking you in a village sets off five raider waves and an **Empowered** supervillain with a random
+A **Pillager Spy** gives you the **Supervillain's Mark** when it hits you or you kill it (like Bad Omen); carry it into a
+village and that sets off five raider waves and an **Empowered** supervillain with a random
 power and look. Raids are repeatable: spies keep coming, even for a village that has been raided before.
 
 ### 🗼 The Titan

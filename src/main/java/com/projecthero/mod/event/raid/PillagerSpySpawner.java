@@ -61,6 +61,10 @@ public final class PillagerSpySpawner {
 		if (player.isSpectator() || player.isCreative()) {
 			return;
 		}
+		// v0.14.21: a player who already carries the Supervillain's Mark (or its omen) has nothing left for a spy to do.
+		if (SupervillainMark.isMarkedOrOmened(player)) {
+			return;
+		}
 		BlockPos pos = player.blockPosition();
 		BlockPos village = villageToScout(level, pos);
 		if (village == null) {
