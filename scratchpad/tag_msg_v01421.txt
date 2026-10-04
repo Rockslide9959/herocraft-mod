@@ -1,0 +1,102 @@
+Project Hero v0.14.21 -- The Iron Man Revamp, Gravebound Power Bosses, Smarter Stark Sorter & More
+
+🦾 IRON MAN: FULL REVAMP
+Suit-up & equipping
+- Iron Man's own suit-up: the armour now ASSEMBLES ITSELF on your body. Each piece starts in an exploded view around you, then its plates fly in one after another in a mechanical order (arc reactor, chest plate, shoulders, arms... helmet shell, brow, faceplate last) and lock into place with sparks and clicks, filling in tile by tile with glowing seams. The reactor flares when the chest completes and the eyes flash when the faceplate seals. Suit-down runs in reverse. Smooth on every frame, and every player sees the same thing.
+- New faceplate lift (H): only the faceplate swings up and folds back onto the crown, revealing your face while the rest of the helmet stays on. Closing seals it with an eye flash.
+- Called suits fly in on smooth curves, slow down, line up with their body slot and clamp on.
+- Suit Platform: pieces now lift off the rack and fly onto you one by one (about 1.5 s); retrieving sends them back. Walking away mid-way never loses or duplicates anything.
+- Mark VII: a real delivery pod drops in behind you, opens and fires the suit onto you, then flies off.
+- Mark V: the suitcase is now a 3D briefcase that springs open in your hand and unfolds into the suit (and folds back up).
+- Your suits keep their enchantments, names and repairs through every path: platform, calling, death recovery, Protocol Phoenix and the Mark V case.
+- New layered suit-up sounds: servos, clamps, faceplate seal, power-up.
+
+Flight
+- Iron Man's own flight poses: hover with palms down, arms swept back flying forward, a full lean when sprinting, arms out to brake backwards, a crouch-and-launch take-off, and a three-point superhero landing when you come down hard. Mark 1 keeps a clunky upright stance.
+- Glowing repulsor jets fire from each palm and boot in every flight state, longer the faster you go.
+- Take-off dust ring, hard-landing shockwave, a sonic boom and vapour cone when you go supersonic, and a looping thruster sound that rises with speed. Other players see and hear it all.
+- Speeds and energy use are unchanged.
+
+New screens
+- Helmet HUD: visor frame, compact energy and integrity bars with exact values, an ability bar above your hotbar with icons and cooldowns, and extra meters (air, heat, overload, missiles) only when they matter. Mark 1 keeps a retro amber HUD.
+- Call Armour: a card grid with turning 3D previews of each suit, charge, integrity and where it is.
+- Suit Platform & Stark Fabricator: textured screens with 3D previews and a have/need ingredient checklist.
+- Blank Blueprint: a Mark I -> Mark VII progression track. Mark VII weapon wheel: a real pie wheel.
+- Everything fits even at GUI scale 4.
+
+Cheaper suits
+- Every suit from Mark 2 up costs about HALF the raw materials it did. Mark 1 is half price too.
+- Each mark now costs a little more than the one before, with its own signature component.
+- The Stark Fabricator recharges twice as fast (about 10 minutes per suit instead of 20).
+
+New look
+- Mark III, 4, V, 6 and VII armour repainted in the clean style of Mark 1 and 2, with glowing cyan eyes and reactors.
+- Brand-new icons for every crafting material, every armour piece (each mark looks different now) and the Mark V suitcase.
+- Every blueprint has its own texture with that mark's bust and number.
+- Missiles have a real 3D model.
+- Remodelled blocks: the Stark Fabricator is now a workshop station with a robotic welding arm and a hologram helmet that animate while it works; the Suit Platform is a Hall-of-Armor stand with a light ring and gantry. Both face you when placed.
+
+Fixes
+- Iron Man beams (repulsors, unibeam, wrist laser) are visible to the player being shot, even far away.
+- Double-tap jumping in the air no longer also triggers Green Lantern checks.
+- Fixed a Fabricator crash and armour recipes that consumed one item too few.
+
+More Iron Man
+- Glowing suits: every mark's eyes, arc reactor and palm repulsors now glow in the dark (they light up as each piece locks on).
+- Mark V's blades are real now: silver blades slide out of both gauntlets, in first and third person.
+- Every mark has its own first-person gauntlet (Mark 1 bulky and riveted, Mark 2 sleek silver, later marks plated), with a glowing palm repulsor on Mark 2 and up.
+- Repulsor Boots finally show on your feet: silver and red thruster units with soles that light up when you fly.
+- New Mark VII weapon: Homing Missiles. Lock onto what you aim at (or the nearest threat in front of you) and fire 4 missiles that chase it.
+- Iron Man save data reorganised so future features fit; old saves load as before.
+
+🧟 GRAVEBOUND POWER BOSSES
+- Empowered Zombie bosses now fight with the CURRENT versions of the experimental powers -- every one of the 26, including powers players can't get yet.
+- Each boss uses 3-5 of its power's real abilities and saves its strongest move for below 40% health, with a warning before it lands.
+- The boss's power is shown on its nameplate and boss bar.
+- Bosses hit players and their pets and allies only -- never their own horde.
+
+🕵 PILLAGER SPY: SUPERVILLAIN'S MARK (LIKE BAD OMEN)
+- The Pillager Spy now marks YOU instead of a village. Get hit by its bolt, or kill it, and you get the Supervillain's Mark: a 100-minute effect. Milk clears it.
+- Walk into a village while marked and it turns into a 30-second Supervillain Omen ("YOU WERE FOLLOWED"), then the Supervillain Raid begins there -- just like vanilla's Bad Omen and Raid Omen.
+- No raids on Peaceful. If a raid is already running there, you keep your mark for later.
+- The Spy hunts any unmarked player, and leaves you alone once you're marked.
+- New commands: /supervillainraid mark, omen and markvillage.
+
+🤖 STARK SORTER
+- Tidy now REPACKS every chest: split stacks merged, everything moved to the front with no gaps, identical items grouped and ordered. Sort finishes with the same tidy pass.
+- New supply slots: give the station signs and chests. The Sorter Bot labels each chest with a [Stark] sign showing its category, and places new chests when a category runs out of room.
+- The station tells you what it needs ("Add 3 signs", "Add 2 chests") on screen and in chat.
+- Lone items get moved into their category's chest. A category only keeps a second chest when it really overflows; spare chests are emptied and reused.
+- Items are never filed into another category's chest -- if there's no room, they wait in the station.
+
+⚡ SUPER SPEED
+- Super Speed is an EXPERIMENTAL power again: get it from serums, brewing and the power wheel (the Speed Force still works too).
+- Speed Sweep no longer hesitates before sending you back home.
+- Run straight through leaves while in Speed Mode -- no more getting stuck in forests. You can still run across the top of tree canopies.
+
+🔥 LASER VISION & HEAT VISION
+- Fixed: the player being shot couldn't always see the laser. Beams are now visible to everyone nearby from any distance, including Kryptonian Heat Vision and the Laser Vision boss.
+
+💎 BETTER RAID & HORDE REWARDS
+- Lapis, diamonds, emeralds, gold, iron, redstone and amethyst added to every horde chest and raid reward, scaled to party size and waves cleared.
+- The bigger events also give lapis blocks, enchanted books, golden apples and a chance of netherite scrap or ancient debris.
+- The Apokolips Invasion pays the most. All special rewards are unchanged.
+
+🦸 SUPERMAN CAPE
+- Superman's cape now uses the same flowing cape as Thor: sways as you walk, streams in flight and stays on your back while crouching.
+
+🕷 SYMBIOTE
+- Use flint and steel on a free Symbiote to set it alight -- it writhes in the flames and burns away for good.
+
+🗡 NECROTIC BLADE: NEW LOOK
+- A proper 3D sword: a blackened serrated blade with glowing green runes, a ribcage crossguard with a soul gem, a spine-wrapped grip and a skull pommel with glowing eyes.
+- Green parts glow in the dark, green soul wisps drift from it while held, and it has a new inventory icon. Stats unchanged.
+
+🌀 BOOM TUBE BEACON
+- Easier to craft: the 4 Supervillain Tokens are replaced by 4 Obsidian.
+
+⚙ CONFIGS
+- Every config file now updates its balance values automatically when a release changes them, keeps your other settings, and repairs itself if corrupted. Fixes old Titan configs still using pre-0.10.11 damage.
+
+📖 GUIDEBOOK
+- Iron Man, Stark Sorter, Super Speed, Gravebound, raid reward and Symbiote entries updated.
