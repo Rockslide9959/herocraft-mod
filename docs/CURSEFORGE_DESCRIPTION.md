@@ -219,11 +219,13 @@ into the **Refined Serum**, which always works.
   Soldier can wear it.
 
 ### ⚡ The Speedster (Super Speed)
-A **Hero-Tier** power awakened by the **Speed Force**: get **Strength, Speed and Jump Boost** on you at once, then
-activate **Charged Copper Plates** or get **struck by lightning** -- half the time the Speed Force takes you, the other
-half it burns the effects away and you try again.
+An **experimental mutation** again: brew the **Hypermetabolic Serum** like any other -- or let the **Speed Force**
+take you: get **Strength, Speed and Jump Boost** on you at once, then activate **Charged Copper Plates** or get
+**struck by lightning** -- half the time the Speed Force takes you, the other half it burns the effects away and you
+try again. Super Speed stands alone: it never stacks with another power.
 - **Speed Mode** walks at ~20 blocks a second (easy to fight in) and **sprints at ~40**; **Overdrive** walks at ~32 and
-  sprints at ~100 (press V again to end it early). Run across water and steer on it just like on land.
+  sprints at ~100 (press V again to end it early). Run across water and steer on it just like on land, and run
+  straight **through leaves** -- no more getting stuck in forests (tree tops still hold you when you land on them).
 - **Blitz** zips you to a target with a heavy, launching hit and a shockwave that knocks back everything round it.
   Mach Punch, Speed Vortex, a 50-block **Speed Sweep** that doesn't stop until every enemy is hit, Phase through walls, carry anyone on **N** (no cooldown), and a charged,
   game-wide **Time Slow**. Regeneration III, always.

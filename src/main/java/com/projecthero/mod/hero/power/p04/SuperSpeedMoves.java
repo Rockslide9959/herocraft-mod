@@ -158,6 +158,20 @@ public final class SuperSpeedMoves {
 		public boolean done() {
 			return pending.isEmpty();
 		}
+
+		/** v0.14.21: whether {@code id} has been found with nowhere to land beside it (and not hit since). */
+		public boolean isUnreachable(int id) {
+			Integer since = pending.get(id);
+			return since != null && since >= 0;
+		}
+
+		/**
+		 * v0.14.21: every target still pending has been tried and found unreachable -- nothing left the sweep can hit, so
+		 * it goes home now instead of standing frozen at the last target for {@link #SWEEP_UNREACHABLE_TICKS}.
+		 */
+		public boolean allUnreachable() {
+			return !pending.isEmpty() && pending.values().stream().allMatch(since -> since >= 0);
+		}
 	}
 
 	private static final class Sweep {
@@ -663,11 +677,9 @@ public final class SuperSpeedMoves {
 			finishSweep(p, s);
 			return;
 		}
-		if (--s.wait > 0) {
-			p.setDeltaMovement(Vec3.ZERO);
-			return;
-		}
-		s.wait = SWEEP_HOP_TICKS;
+		// v0.14.21: who is left is checked EVERY tick, not only on hop ticks -- the moment the last target is hit, dies or
+		// despawns the speedster goes home (it used to wait out the hop timer, and then stand frozen at the last target
+		// for 5 s whenever a stray it could not land beside was still on the list)
 		ServerLevel level = p.serverLevel();
 		double leash = (SWEEP_RANGE + 10) * (SWEEP_RANGE + 10);
 		List<LivingEntity> left = new ArrayList<>();
@@ -685,9 +697,16 @@ public final class SuperSpeedMoves {
 			finishSweep(p, s);
 			return;
 		}
-		// nearest first, from wherever the last hop left you, so the hops chain across the field instead of zig-zagging
+		if (--s.wait > 0) {
+			p.setDeltaMovement(Vec3.ZERO);
+			return;
+		}
+		s.wait = SWEEP_HOP_TICKS;
+		// nearest first, from wherever the last hop left you, so the hops chain across the field instead of zig-zagging;
+		// v0.14.21: targets already found unreachable go to the back, so the farther ones get tried before any retry
 		Vec3 from = p.position();
-		left.sort(java.util.Comparator.comparingDouble(le -> le.distanceToSqr(from)));
+		left.sort(java.util.Comparator.<LivingEntity>comparingInt(le -> s.targets.isUnreachable(le.getId()) ? 1 : 0)
+				.thenComparingDouble(le -> le.distanceToSqr(from)));
 		int tries = 0;
 		for (LivingEntity le : left) {
 			if (tries++ >= SWEEP_TRIES_PER_HOP) {
@@ -709,7 +728,13 @@ public final class SuperSpeedMoves {
 			AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_STRONG, 0.8f, 1.2f + level.random.nextFloat() * 0.3f);
 			return;
 		}
-		// nowhere to land beside any of the nearest this hop: hold still and try again on the next one
+		// v0.14.21: nothing left that can be reached (every target still pending has been tried and had nowhere to land
+		// beside it): give up on them and go home now, rather than hold still for the 5 s unreachable timeout
+		if (s.targets.allUnreachable()) {
+			finishSweep(p, s);
+			return;
+		}
+		// nowhere to land beside any of the nearest this hop: hold still and try the rest on the next one
 		p.setDeltaMovement(Vec3.ZERO);
 	}
 

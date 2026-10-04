@@ -56,8 +56,7 @@ public final class HeroTiers {
 				|| com.projecthero.mod.hulk.Hulk.hasPower(player)
 				|| com.projecthero.mod.moonknight.MoonKnight.hasPower(player)
 				|| com.projecthero.mod.supersoldier.SuperSoldier.hasPower(player)
-				|| com.projecthero.mod.kryptonian.Kryptonian.hasPower(player)
-				|| com.projecthero.mod.flash.SpeedForce.hasPower(player);
+				|| com.projecthero.mod.kryptonian.Kryptonian.hasPower(player);
 	}
 
 	/** How many Hero-Tier (non-experimental) Primary powers the player holds. */
@@ -92,7 +91,7 @@ public final class HeroTiers {
 
 	/** Every non-experimental Primary power key, as used by {@code HeroCommand}. */
 	public static final java.util.List<String> HERO_KEYS = java.util.List.of(
-			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter", "all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "super_speed");
+			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter", "all_might", "hulk", "moon_knight", "super_soldier", "kryptonian");
 
 	/** Whether the player currently holds the Hero-Tier power named by {@code key}. */
 	public static boolean holdsHero(ServerPlayer player, String key) {
@@ -110,7 +109,6 @@ public final class HeroTiers {
 			case "moon_knight" -> com.projecthero.mod.moonknight.MoonKnight.hasPower(player);
 			case "super_soldier" -> com.projecthero.mod.supersoldier.SuperSoldier.hasPower(player);
 			case "kryptonian" -> com.projecthero.mod.kryptonian.Kryptonian.hasPower(player);
-			case "super_speed" -> com.projecthero.mod.flash.SpeedForce.hasPower(player);
 			default -> false;
 		};
 	}
@@ -176,11 +174,6 @@ public final class HeroTiers {
 			case "kryptonian" -> {
 				if (com.projecthero.mod.kryptonian.Kryptonian.hasPower(player)) {
 					com.projecthero.mod.kryptonian.Kryptonian.revoke(player);
-				}
-			}
-			case "super_speed" -> {
-				if (com.projecthero.mod.flash.SpeedForce.hasPower(player)) {
-					com.projecthero.mod.flash.SpeedForce.revoke(player);
 				}
 			}
 			default -> {
@@ -349,7 +342,9 @@ public final class HeroTiers {
 	public static boolean enforceLimit(ServerPlayer player) {
 		boolean changed = false;
 		// v0.14.12: a save holding Super Speed alongside other mutations keeps whichever is selected (v0.14.13: run first,
-		// so Super Speed -- a Hero-Tier power now -- is settled before the hero trim below)
+		// so Super Speed is settled before the hero trim below). v0.14.21: Super Speed is a mutation again; a save from
+		// its Hero-Tier days still owns it through the mutation state, and its stale "super_speed" Primary-order entry is
+		// simply dropped by heroOrder (no longer a HERO_KEY) and re-saved below -- the player keeps the power.
 		com.projecthero.mod.hero.data.ExperimentalState es = ExperimentalPowers.state(player);
 		if (es.ownedPowers.contains(SOLO_MUTATION) && es.ownedPowers.size() > 1) {
 			boolean keepSpeed = SOLO_MUTATION.equals(es.activePower);
@@ -465,9 +460,6 @@ public final class HeroTiers {
 			return true;
 		}
 		if (!excludeHeroKeys.contains("kryptonian") && com.projecthero.mod.kryptonian.Kryptonian.hasPower(player)) {
-			return true;
-		}
-		if (!excludeHeroKeys.contains("super_speed") && com.projecthero.mod.flash.SpeedForce.hasPower(player)) {
 			return true;
 		}
 		return false;

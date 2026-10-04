@@ -21,7 +21,7 @@ public final class PowerGrants {
 	/** Every Hero-Tier key a grant accepts: the {@link HeroTiers#HERO_KEYS} Primary heroes plus the Symbiote. */
 	public static final List<String> HERO_TIER_KEYS = List.of(
 			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter",
-			"all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "super_speed", "symbiote");
+			"all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "symbiote");
 
 	/**
 	 * v0.13.19: Hero-Tier powers still being built in phases. Grantable by an operator for testing, but the random
@@ -82,7 +82,7 @@ public final class PowerGrants {
 	 */
 	public static boolean grantExperimental(ServerPlayer target, Power power) {
 		// v0.14.12: Super Speed replaces other mutations -- but a player whose slots are all full still keeps everything
-		// v0.14.13: Super Speed is Hero-Tier now -- grantHero(target, "super_speed"), never a mutation grant
+		// (v0.14.13-0.14.20 Super Speed was Hero-Tier; v0.14.21 it is a mutation again and goes through here)
 		if (!Powers.isMutation(power) || ExperimentalPowers.owns(target, power) || ExperimentalPowers.atCapacity(target)) {
 			return false;
 		}
@@ -189,10 +189,6 @@ public final class PowerGrants {
 			case "kryptonian" -> {
 				boolean ok = com.projecthero.mod.kryptonian.Kryptonian.grant(target);
 				return new Result(ok, Component.literal(ok ? "Made " + name + " a Kryptonian" : name + " is already a Kryptonian"));
-			}
-			case "super_speed" -> {
-				boolean ok = com.projecthero.mod.flash.SpeedForce.grant(target);
-				return new Result(ok, Component.literal(ok ? "Gave " + name + " Super Speed" : name + " already has Super Speed"));
 			}
 			default -> {
 				boolean ok = com.projecthero.mod.symbiote.Symbiote.grant(target);

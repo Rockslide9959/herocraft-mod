@@ -370,14 +370,16 @@ public class V0148MiscGameTests implements FabricGameTest {
 		Power speedPower = speed();
 		helper.assertFalse(PowerGrants.grantExperimental(p, flight), "a random serum can't hand out a disabled power");
 		helper.assertFalse(PowerGrants.missingExperimental(p).contains(flight), "nor even roll it");
-		helper.assertFalse(PowerGrants.missingExperimental(p).contains(speedPower), "v0.14.13: nor Hero-Tier Super Speed");
+		helper.assertTrue(PowerGrants.missingExperimental(p).contains(speedPower), "v0.14.21: Super Speed is a mutation again");
 		helper.assertTrue(PowerGrants.missingExperimental(p).contains(Powers.byKey("power_01_super_strength")), "an enabled mutation it can");
 		Power strengthPower = Powers.byKey("power_01_super_strength");
 
 		// items: reagents / serums / research notes of disabled powers are recognised, enabled ones are not
 		helper.assertTrue(PowerItems.isDisabledPowerItem(new ItemStack(HeroPackItems.reagent(flight))), "flight reagent");
 		helper.assertFalse(PowerItems.isDisabledPowerItem(new ItemStack(HeroPackItems.reagent(strengthPower))), "strength reagent");
-		helper.assertTrue(PowerItems.isDisabledPowerItem(new ItemStack(HeroPackItems.reagent(speedPower))), "v0.14.13: no speed reagent");
+		helper.assertFalse(PowerItems.isDisabledPowerItem(new ItemStack(HeroPackItems.reagent(speedPower))), "v0.14.21: the speed reagent is back");
+		helper.assertFalse(PowerItems.isDisabledPowerItem(PotionContents.createItemStack(Items.POTION, ModSerums.serum(speedPower))),
+				"v0.14.21: and its serum");
 		helper.assertTrue(PowerItems.isDisabledPowerItem(PotionContents.createItemStack(Items.POTION, ModSerums.serum(flight))),
 				"flight serum");
 		helper.assertFalse(PowerItems.isDisabledPowerItem(PotionContents.createItemStack(Items.POTION, ModSerums.serum(strengthPower))),

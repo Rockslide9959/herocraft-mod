@@ -1098,6 +1098,12 @@ public final class HeroPackGuide {
 							Component.translatable(power.trigger().labDeviceKey())).withStyle(ChatFormatting.GRAY));
 				}
 			}
+			if (!heroTier && com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.KEY.equals(power.key())) {
+				// v0.14.21: Super Speed is a mutation again; the Speed Force stays as a second, serum-free way in
+				blank(lines);
+				head(lines, "projecthero.guide.super_speed.origin");
+				para(lines, "projecthero.guide.super_speed.origin.body");
+			}
 		});
 	}
 

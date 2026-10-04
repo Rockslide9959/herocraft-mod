@@ -3,6 +3,7 @@ package com.projecthero.mod.flash;
 import com.projecthero.mod.hero.ExperimentalPowers;
 import com.projecthero.mod.hero.HeroTiers;
 import com.projecthero.mod.hero.Power;
+import com.projecthero.mod.hero.PowerGrants;
 import com.projecthero.mod.hero.PowerPassives;
 import com.projecthero.mod.hero.Powers;
 import com.projecthero.mod.hero.power.p04.SuperSpeedHandlers;
@@ -23,10 +24,11 @@ import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffects;
 
 /**
- * v0.14.13: <b>Super Speed is a Hero-Tier power</b>, awakened by the Speed Force rather than brewed. Its moves still run
- * on the mutation engine ({@link SuperSpeedHandlers}, owned through {@link ExperimentalPowers}), but it is held as the
- * Primary power {@code "super_speed"} ({@link HeroTiers#HERO_KEYS}): gaining it replaces whatever the player had, and
- * gaining anything else replaces it.
+ * The Speed Force: a thematic, serum-free way to gain the <b>Super Speed mutation</b>. v0.14.13-0.14.20 Super Speed was
+ * Hero-Tier and this was its only origin; v0.14.21 it is an experimental (mutation) power again -- brewed, dropped and
+ * granted like any other -- and the Speed Force grants it through the normal mutation path
+ * ({@link PowerGrants#grantExperimental}): the mutation-slot capacity, the Primary-slot rule and the Super Speed solo rule
+ * ({@link HeroTiers#claimMutation}) all apply.
  *
  * <h2>Origin</h2>
  * With <b>Strength, Speed and Jump Boost</b> all active at once, either activate a block of <b>Charged Copper Plates</b>
@@ -34,7 +36,6 @@ import net.minecraft.world.effect.MobEffects;
  * only half the time ({@link #SUCCESS_CHANCE}) -- otherwise the Speed Force rejects you and you gather them again.
  */
 public final class SpeedForce {
-	public static final String HERO_KEY = "super_speed";
 	public static final float SUCCESS_CHANCE = 0.5f;
 
 	public enum Outcome { NOT_READY, ALREADY, REJECTED, AWAKENED }
@@ -89,6 +90,11 @@ public final class SpeedForce {
 			}
 			return Outcome.NOT_READY;
 		}
+		if (ExperimentalPowers.atCapacity(player)) {
+			// v0.14.21: a mutation like any other -- a player with every mutation slot full keeps everything (and the effects)
+			com.projecthero.mod.hero.mutation.MutationFeedback.capacityFull(player);
+			return Outcome.NOT_READY;
+		}
 		player.removeEffect(MobEffects.DAMAGE_BOOST);
 		player.removeEffect(MobEffects.MOVEMENT_SPEED);
 		player.removeEffect(MobEffects.JUMP);
@@ -101,14 +107,16 @@ public final class SpeedForce {
 		return Outcome.AWAKENED;
 	}
 
-	/** Gives Super Speed as the player's one Primary power (replacing what they had). False if already held. */
+	/**
+	 * Gives the Super Speed mutation through the normal mutation grant ({@link PowerGrants#grantExperimental}: capacity
+	 * first, then the Primary-slot + solo rules, research recorded) and selects it. False if already held or no room.
+	 */
 	public static boolean grant(ServerPlayer player) {
 		Power speed = power();
 		if (speed == null || hasPower(player)) {
 			return false;
 		}
-		HeroTiers.claimPrimary(player, HERO_KEY);
-		boolean ok = ExperimentalPowers.grant(player, speed);
+		boolean ok = PowerGrants.grantExperimental(player, speed);
 		if (ok) {
 			ExperimentalPowers.setActive(player, speed);
 			PowerPassives.reconcileActive(player);

@@ -40,8 +40,12 @@ public final class Powers {
 	 * ({@code com.projecthero.mod.flash.SpeedForce}) and held as a Primary power of its own ({@link HeroTiers#HERO_KEYS}
 	 * "super_speed") -- so every MUTATION acquisition path (serums, exposure triggers, brewing, reagents, research notes,
 	 * random serums, the power wheel) skips it: they all go through {@link #mutations()} / {@link #isMutation}.
+	 *
+	 * <p>v0.14.21: EMPTY again -- Super Speed is an experimental (mutation) power once more, obtainable through every
+	 * mutation path; the Speed Force surge stays as a bonus way to gain the mutation. The set (and {@link #isHeroTier})
+	 * stays as the switch should a mutation-engine power ever be made Hero-Tier again.
 	 */
-	public static final Set<String> HERO_TIER = Set.of("power_04_super_speed");
+	public static final Set<String> HERO_TIER = Set.of();
 
 	private Powers() {
 	}
@@ -94,7 +98,7 @@ public final class Powers {
 		return BY_ID.values().stream().filter(Powers::isMutation).toList();
 	}
 
-	/** The enabled powers, in registration order (Hero-Tier Super Speed included -- see {@link #mutations()}). */
+	/** The enabled powers, in registration order (any {@link #HERO_TIER} ones included -- see {@link #mutations()}). */
 	public static List<Power> enabled() {
 		return BY_ID.values().stream().filter(Powers::isEnabled).toList();
 	}

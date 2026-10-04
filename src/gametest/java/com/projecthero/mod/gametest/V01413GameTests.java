@@ -68,14 +68,14 @@ public class V01413GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void speedForceAwakensAHeroTierSpeedster(GameTestHelper helper) {
+	public void speedForceAwakensTheSuperSpeedMutation(GameTestHelper helper) {
 		ServerPlayer p = player(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(p);
 		catalysts(p);
 		helper.assertTrue(SpeedForce.tryAwaken(p, true) == SpeedForce.Outcome.AWAKENED, "the successful half of the roll");
-		helper.assertTrue(SpeedForce.hasPower(p) && HeroTiers.holdsHero(p, "super_speed"), "Super Speed, held as a hero");
-		helper.assertFalse(com.projecthero.mod.ironman.TonyStark.hasPower(p), "it replaced the hero they had");
-		helper.assertFalse(HeroTiers.hasExperimental(p), "and it is not counted as a mutation");
+		helper.assertTrue(SpeedForce.hasPower(p) && !HeroTiers.holdsHero(p, "super_speed"), "v0.14.21: Super Speed, held as a mutation");
+		helper.assertFalse(com.projecthero.mod.ironman.TonyStark.hasPower(p), "a mutation replaces the hero they had");
+		helper.assertTrue(HeroTiers.hasExperimental(p) && HeroTiers.heroCount(p) == 0, "and it counts as a mutation");
 		helper.assertTrue(ExperimentalPowers.getActive(p) == SpeedForce.power(), "its keys are live at once");
 		helper.assertFalse(p.hasEffect(MobEffects.JUMP), "the surge used the effects up");
 		var regen = p.getEffect(MobEffects.REGENERATION);
@@ -85,16 +85,76 @@ public class V01413GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void superSpeedIsNoLongerAMutation(GameTestHelper helper) {
+	public void superSpeedIsAMutationAgain(GameTestHelper helper) {
+		// v0.14.21: back to an experimental power (it was Hero-Tier v0.14.13-0.14.20)
 		var speed = Powers.byKey(SuperSpeedHandlers.KEY);
-		helper.assertTrue(Powers.isHeroTier(speed) && !Powers.isMutation(speed), "Hero-Tier, not a mutation");
-		helper.assertFalse(Powers.mutations().contains(speed), "no mutation path offers it");
-		helper.assertTrue(com.projecthero.mod.hero.PowerGrants.HERO_TIER_KEYS.contains("super_speed"), "grantable as a hero");
+		helper.assertTrue(Powers.isMutation(speed) && !Powers.isHeroTier(speed), "a mutation, not Hero-Tier");
+		helper.assertTrue(Powers.mutations().contains(speed), "every mutation path offers it");
+		helper.assertFalse(com.projecthero.mod.hero.PowerGrants.HERO_TIER_KEYS.contains("super_speed")
+				|| HeroTiers.HERO_KEYS.contains("super_speed"), "no longer a hero key");
 		ServerPlayer p = player(helper);
-		SpeedForce.grant(p);
+		helper.assertTrue(com.projecthero.mod.hero.PowerGrants.grantExperimental(p, speed), "a random serum / mutation grant gives it");
+		helper.assertTrue(SpeedForce.hasPower(p) && HeroTiers.hasExperimental(p), "held as a mutation");
 		helper.assertTrue(com.projecthero.mod.hero.PowerGrants.grantExperimental(p, Powers.byKey("power_02_laser_vision")),
-				"a mutation can still be gained");
-		helper.assertFalse(SpeedForce.hasPower(p), "and it replaces Super Speed, like any hero power");
+				"another mutation can still be gained");
+		helper.assertFalse(SpeedForce.hasPower(p), "and it replaces Super Speed (the solo rule)");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void superSpeedSerumTakesHoldLikeAnyMutation(GameTestHelper helper) {
+		ServerPlayer p = player(helper);
+		var speed = Powers.byKey(SuperSpeedHandlers.KEY);
+		int amp = com.projecthero.mod.hero.mutation.ModSerums.amplifierFor(speed);
+		p.addEffect(new MobEffectInstance(com.projecthero.mod.hero.mutation.ModMobEffects.UNSTABLE_MUTATION, 1200, amp, false, true, true));
+		com.projecthero.mod.hero.mutation.MutationManager.serverTick(p);
+		helper.assertTrue(speed.key().equals(ExperimentalPowers.state(p).pendingMutationPower), "the Hypermetabolic Serum takes hold");
+		com.projecthero.mod.hero.mutation.MutationManager.triggerExposure(p,
+				com.projecthero.mod.hero.MutationTrigger.Kind.ELECTRICAL_DISCHARGE);
+		helper.assertTrue(ExperimentalPowers.owns(p, speed), "and the electrical exposure grants Super Speed");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void speedForceRespectsFullMutationSlots(GameTestHelper helper) {
+		ServerPlayer p = player(helper);
+		int n = 0;
+		for (var pw : Powers.all()) { // (grant itself is ungated, so this fills any configured capacity)
+			if (n >= ExperimentalPowers.capacity()) {
+				break;
+			}
+			if (!pw.key().equals(SuperSpeedHandlers.KEY)) {
+				ExperimentalPowers.grant(p, pw);
+				n++;
+			}
+		}
+		helper.assertTrue(ExperimentalPowers.atCapacity(p), "precondition: every mutation slot is full (" + n + ")");
+		catalysts(p);
+		helper.assertTrue(SpeedForce.tryAwaken(p, true) == SpeedForce.Outcome.NOT_READY, "no room: the surge does nothing");
+		helper.assertFalse(SpeedForce.hasPower(p), "no Super Speed");
+		helper.assertTrue(p.hasEffect(MobEffects.JUMP) && p.hasEffect(MobEffects.DAMAGE_BOOST), "and the effects are kept");
+		helper.assertTrue(ExperimentalPowers.ownedCount(p) == n, "nothing was lost");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void anOldHeroTierSpeedsterKeepsSuperSpeedAsAMutation(GameTestHelper helper) {
+		// a v0.14.13-0.14.20 save: Super Speed owned through the mutation state, plus "super_speed" in the Primary order
+		ServerPlayer p = player(helper);
+		var speed = Powers.byKey(SuperSpeedHandlers.KEY);
+		ExperimentalPowers.grant(p, speed);
+		ExperimentalPowers.setActive(p, speed);
+		p.setAttached(ModAttachments.PRIMARY_ORDER, "super_speed");
+		helper.assertFalse(ExperimentalPowers.pruneRemovedPowers(p), "join: nothing is pruned");
+		HeroTiers.enforceLimit(p); // join
+		helper.assertTrue(ExperimentalPowers.owns(p, speed) && ExperimentalPowers.getActive(p) == speed, "still a speedster, keys live");
+		helper.assertTrue(HeroTiers.hasExperimental(p) && HeroTiers.heroCount(p) == 0 && !HeroTiers.hasHeroTier(p),
+				"now counted as a mutation, not a hero");
+		helper.assertFalse(p.getAttachedOrCreate(ModAttachments.PRIMARY_ORDER).contains("super_speed"),
+				"the stale Primary-order entry is dropped");
+		// and the mutation rules apply from now on: a hero power replaces it
+		com.projecthero.mod.ironman.TonyStark.grant(p);
+		helper.assertFalse(SpeedForce.hasPower(p), "gaining a hero replaces the mutation");
 		helper.succeed();
 	}
 

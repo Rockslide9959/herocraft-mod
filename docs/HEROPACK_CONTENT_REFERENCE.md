@@ -716,6 +716,14 @@ True superhero aerial movement: dashes, hovering and high-speed bursts.
 
 A speedster mutation: traversal, combat bursts, evasion and momentum.
 
+> v0.14.21: an experimental (mutation) power again after being Hero-Tier in v0.14.13-0.14.20 (`Powers.HERO_TIER` is now
+> empty). Obtainable through every mutation path (serum + Charged Copper Plates / lightning, brewing, reagents, loot,
+> random serums); the Speed Force surge (`flash/SpeedForce`, Strength + Speed + Jump Boost, 50%) stays as a bonus way in
+> and grants through `PowerGrants.grantExperimental`. Old Hero-Tier owners keep it (ownership always lived in the
+> mutation state; the stale `super_speed` Primary-order entry is dropped on join). Speed Mode / Overdrive pass through
+> leaves horizontally and from below, but leaves still hold you up from above (`SpeedLeaves`). The tables below are
+> the original design spec -- the in-game guidebook has the current kit.
+
 | Slot | Key | Ability | Effect |
 |---|---|---|---|
 | 1 | R | Speed Blitz | Dash to the targeted enemy and strike at high speed. |

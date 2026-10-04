@@ -143,11 +143,10 @@ public class HordeGameTests implements FabricGameTest {
 		var speed = Powers.byKey(SuperSpeedHandlers.KEY);
 		var laser = Powers.byKey("power_02_laser_vision");
 		helper.assertTrue(PowerGrants.grantExperimental(p, strength), "a normal mutation");
-		helper.assertFalse(PowerGrants.grantExperimental(p, speed), "v0.14.13: Super Speed is never a mutation grant");
-		helper.assertTrue(com.projecthero.mod.flash.SpeedForce.grant(p), "then Super Speed, the Hero-Tier way");
+		helper.assertTrue(PowerGrants.grantExperimental(p, speed), "v0.14.21: then Super Speed, a mutation grant again");
 		helper.assertTrue(ExperimentalPowers.owns(p, speed) && !ExperimentalPowers.owns(p, strength), "Super Speed burned the other away");
-		helper.assertTrue(com.projecthero.mod.hero.HeroTiers.holdsHero(p, "super_speed") && !com.projecthero.mod.hero.HeroTiers.hasExperimental(p),
-				"held as a Hero-Tier power, not a mutation");
+		helper.assertTrue(com.projecthero.mod.hero.HeroTiers.hasExperimental(p) && com.projecthero.mod.hero.HeroTiers.heroCount(p) == 0,
+				"held as a mutation, not a Hero-Tier power");
 		helper.assertTrue(PowerGrants.grantExperimental(p, laser), "then another mutation");
 		helper.assertTrue(ExperimentalPowers.owns(p, laser) && !ExperimentalPowers.owns(p, speed), "which burns Super Speed away");
 		helper.succeed();
