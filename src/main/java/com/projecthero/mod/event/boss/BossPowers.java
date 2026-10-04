@@ -8,18 +8,31 @@ import java.util.function.Function;
 
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.event.boss.power.CryokinesisBoss;
+import com.projecthero.mod.event.boss.power.CrystalkinesisBoss;
+import com.projecthero.mod.event.boss.power.DensityManipulationBoss;
+import com.projecthero.mod.event.boss.power.ElasticityBoss;
 import com.projecthero.mod.event.boss.power.ElectrokinesisBoss;
+import com.projecthero.mod.event.boss.power.EnergyAbsorptionBoss;
 import com.projecthero.mod.event.boss.power.FlightBoss;
 import com.projecthero.mod.event.boss.power.GeokinesisBoss;
 import com.projecthero.mod.event.boss.power.GravityBoss;
+import com.projecthero.mod.event.boss.power.InvisibilityLightBoss;
 import com.projecthero.mod.event.boss.power.LaserVisionBoss;
 import com.projecthero.mod.event.boss.power.MagnetismBoss;
+import com.projecthero.mod.event.boss.power.PlantManipulationBoss;
 import com.projecthero.mod.event.boss.power.PyrokinesisBoss;
+import com.projecthero.mod.event.boss.power.ShadowManipulationBoss;
 import com.projecthero.mod.event.boss.power.ShockwaveBoss;
+import com.projecthero.mod.event.boss.power.SizeManipulationBoss;
 import com.projecthero.mod.event.boss.power.SonicScreamBoss;
+import com.projecthero.mod.event.boss.power.SpiderClimbingBoss;
+import com.projecthero.mod.event.boss.power.SuperRegenerationBoss;
 import com.projecthero.mod.event.boss.power.SuperSpeedBoss;
 import com.projecthero.mod.event.boss.power.SuperStrengthBoss;
+import com.projecthero.mod.event.boss.power.TelekinesisBoss;
 import com.projecthero.mod.event.boss.power.TeleportationBoss;
+import com.projecthero.mod.event.boss.power.WaterBoss;
+import com.projecthero.mod.event.boss.power.WindBoss;
 import com.projecthero.mod.event.entity.EmpoweredZombie;
 import com.projecthero.mod.hero.Power;
 import com.projecthero.mod.hero.Powers;
@@ -30,15 +43,11 @@ import net.minecraft.util.RandomSource;
 /**
  * Which Experimental Powers an Empowered Zombie may be given, and how to build the AI for each.
  *
- * <h2>Eligibility</h2>
- * Only powers whose fantasy actually translates to an AI-controlled mob are registered here. A power
- * that is fundamentally about a player's own inputs -- Invisibility/Light Manipulation, Spider
- * Climbing, Size Manipulation, Density, Elasticity, Telekinesis' item handling, Healing Factor's
- * revive, Plant/Water/Wind terrain shaping, Energy Absorption's damage-conversion, Crystalkinesis'
- * building, Shadow's stealth -- would either do nothing visible on a mob or need a whole second
- * implementation of a player-facing system to mean anything. Leaving those out is the "only select
- * powers that can realistically function for AI-controlled mobs" rule from the design, applied
- * honestly rather than by registering stubs.
+ * <h2>Eligibility (v0.14.21)</h2>
+ * Every experimental power (mutation) in {@link Powers} has a boss controller, and the roster is NOT filtered by
+ * {@link Powers#ENABLED}: a Gravebound power boss can roll a mutation players cannot currently obtain. Each controller
+ * runs several of its power's current (revamped) abilities -- see {@link BossPowerController}. The pre-v0.14.21 roster
+ * of 13 old-kit bosses is gone.
  *
  * <h2>Extensibility</h2>
  * A future power becomes boss-capable with one {@link #register} call and one
@@ -53,19 +62,34 @@ public final class BossPowers {
 	}
 
 	public static void initialize() {
+		// v0.14.21: EVERY mutation, in catalog order -- including the ones not currently obtainable by players
+		// (Powers.ENABLED is a player-acquisition switch; it never filters the boss roster).
 		register(SuperStrengthBoss.POWER_KEY, SuperStrengthBoss::new);
 		register(LaserVisionBoss.POWER_KEY, LaserVisionBoss::new);
 		register(FlightBoss.POWER_KEY, FlightBoss::new);
 		register(SuperSpeedBoss.POWER_KEY, SuperSpeedBoss::new);
 		register(GeokinesisBoss.POWER_KEY, GeokinesisBoss::new);
+		register(CrystalkinesisBoss.POWER_KEY, CrystalkinesisBoss::new);
 		register(ElectrokinesisBoss.POWER_KEY, ElectrokinesisBoss::new);
 		register(PyrokinesisBoss.POWER_KEY, PyrokinesisBoss::new);
 		register(CryokinesisBoss.POWER_KEY, CryokinesisBoss::new);
+		register(TelekinesisBoss.POWER_KEY, TelekinesisBoss::new);
 		register(TeleportationBoss.POWER_KEY, TeleportationBoss::new);
+		register(SuperRegenerationBoss.POWER_KEY, SuperRegenerationBoss::new);
 		register(SonicScreamBoss.POWER_KEY, SonicScreamBoss::new);
+		register(InvisibilityLightBoss.POWER_KEY, InvisibilityLightBoss::new);
+		register(SpiderClimbingBoss.POWER_KEY, SpiderClimbingBoss::new);
+		register(ElasticityBoss.POWER_KEY, ElasticityBoss::new);
+		register(DensityManipulationBoss.POWER_KEY, DensityManipulationBoss::new);
+		register(ShadowManipulationBoss.POWER_KEY, ShadowManipulationBoss::new);
+		register(EnergyAbsorptionBoss.POWER_KEY, EnergyAbsorptionBoss::new);
 		register(ShockwaveBoss.POWER_KEY, ShockwaveBoss::new);
+		register(PlantManipulationBoss.POWER_KEY, PlantManipulationBoss::new);
 		register(GravityBoss.POWER_KEY, GravityBoss::new);
+		register(WindBoss.POWER_KEY, WindBoss::new);
+		register(WaterBoss.POWER_KEY, WaterBoss::new);
 		register(MagnetismBoss.POWER_KEY, MagnetismBoss::new);
+		register(SizeManipulationBoss.POWER_KEY, SizeManipulationBoss::new);
 
 		// A boss power must correspond to a real Experimental Power -- the boss bar, trophy and
 		// Corrupted Power Core all name it from the power registry. Fail loudly at load rather than
@@ -75,7 +99,22 @@ public final class BossPowers {
 				throw new IllegalStateException("boss power '" + key + "' does not match any Experimental Power");
 			}
 		}
+		List<String> missing = missingPowers();
+		if (!missing.isEmpty()) {
+			ProjectHeroMod.LOGGER.warn("[ProjectHero] experimental powers with no boss controller: {}", missing);
+		}
 		ProjectHeroMod.LOGGER.info("[ProjectHero] {} experimental powers are boss-capable", FACTORIES.size());
+	}
+
+	/** Experimental powers in {@link Powers} that have no boss controller (should be empty -- gametested). */
+	public static List<String> missingPowers() {
+		List<String> out = new ArrayList<>();
+		for (Power p : Powers.all()) {
+			if (!FACTORIES.containsKey(p.key())) {
+				out.add(p.key());
+			}
+		}
+		return out;
 	}
 
 	public static void register(String powerKey, Function<EmpoweredZombie, BossPowerController> factory) {

@@ -5,45 +5,36 @@ import java.util.List;
 
 import com.projecthero.mod.event.boss.BossPowerController;
 import com.projecthero.mod.event.entity.EmpoweredZombie;
+import com.projecthero.mod.hero.power.p07.ElectrokinesisHandlers;
+import com.projecthero.mod.hero.revamp.BatchCFx;
 
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.BossEvent;
-import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Electrokinesis: chain lightning that punishes standing together, and a close-range static burst.
- *
- * <p>The chain is the whole point -- it starts on one target and hops to the nearest player who has
- * not been hit yet, losing damage each hop. Spreading out breaks it after one or two links; bunching
- * up feeds it. That makes it the cleanest "AoE against clustered players" in the roster, and its
- * counterplay is entirely positional rather than reactive.
+ * Electrokinesis (v0.14.1 kit): Electric Bolt, Chain Lightning that prefers charged victims, Overcharge (detonates every
+ * victim's static stacks) and Electrical Storm (a marked strike, then four follow-up bolts). It uses the player power's
+ * real static-stack system ({@link ElectrokinesisHandlers#addStack}): three stacks stun, and the stacked victims show the
+ * same spark rings the player's targets do.
  */
 public class ElectrokinesisBoss extends BossPowerController {
 	public static final String POWER_KEY = "power_07_electrokinesis";
 
-	private static final int SLOT_CHAIN = 0;
-	private static final int SLOT_BURST = 1;
-	private static final int MAX_CHAIN_LINKS = 4;
-	private static final double CHAIN_HOP_RANGE = 7.0;
-	/** How far the target may have moved from the locked strike point and still be caught by the bolt. */
-	private static final double CHAIN_DODGE_RADIUS = 3.0;
+	private static final int BOLT = 0;
+	private static final int CHAIN = 1;
+	private static final int OVERCHARGE = 2;
+	private static final int STORM = 3;
+	private static final List<String> IDS = List.of("electric_bolt", "chain_lightning", "overcharge", "electrical_storm");
 
-	/**
-	 * v0.6.22: the chain no longer hitscans the instant it is off cooldown -- that was the one boss
-	 * attack a running player genuinely could not avoid. It now locks onto the target's position,
-	 * telegraphs a growing spark line to that <em>fixed</em> point for one ability cycle (~0.5 s), and
-	 * only then discharges. Anyone still standing near the locked point is the seed of the chain; a
-	 * player who used the wind-up to move clear takes nothing. Damage and hop behaviour are unchanged.
-	 */
-	private boolean chainCharging;
-	private Vec3 chainLockPoint;
+	private static final ParticleOptions BLUE = BatchCFx.dust(0x4FB8FF, 0.8f);
 
 	public ElectrokinesisBoss(EmpoweredZombie boss) {
 		super(boss);
@@ -55,8 +46,13 @@ public class ElectrokinesisBoss extends BossPowerController {
 	}
 
 	@Override
+	public List<String> abilityIds() {
+		return IDS;
+	}
+
+	@Override
 	public double preferredRange() {
-		return 8.0;
+		return 9.0;
 	}
 
 	@Override
@@ -69,109 +65,149 @@ public class ElectrokinesisBoss extends BossPowerController {
 		return BossEvent.BossBarColor.BLUE;
 	}
 
+	private void bolt(ServerLevel level, Vec3 a, Vec3 b) {
+		BatchCFx.arc(level, a, b, ParticleTypes.ELECTRIC_SPARK, 0.6);
+		BatchCFx.arc(level, a, b, BLUE, 0.35);
+	}
+
+	/** The player's {@code zap}: base damage x (1 + 0.1 per stack), then one more stack. */
+	private void zap(LivingEntity e, float base) {
+		if (!isVictim(e)) {
+			return;
+		}
+		int stacks = ElectrokinesisHandlers.stacks(e);
+		hurt(e, base * (1.0f + 0.1f * stacks));
+		ElectrokinesisHandlers.addStack(null, e, 1);
+	}
+
 	@Override
 	public void tick(ServerLevel level, LivingEntity target) {
-		if (chainCharging) {
-			// Rooted while the charge builds -- a visible "about to unload" beat.
-			boss.getNavigation().stop();
-			boss.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 14, 5, false, false));
-			dischargeChain(level);
+		double d = boss.distanceTo(target);
+		int charged = 0;
+		for (LivingEntity e : victimsNear(level, 16.0)) {
+			charged += ElectrokinesisHandlers.stacks(e);
+		}
+		if (charged >= 3 && ready(OVERCHARGE)) {
+			overcharge(level);
+			startCooldown(OVERCHARGE, 200);
 			return;
 		}
-		double distance = boss.distanceTo(target);
-		if (distance < 4.5 && ready(SLOT_BURST) && freshChoice(SLOT_BURST)) {
-			burst(level);
-			startCooldown(SLOT_BURST, 160);
+		if (d < 30.0 && sees(target) && ready(STORM) && (lowHealth() || freshChoice(STORM))) {
+			Vec3 mark = target.position();
+			BatchCFx.flatRing(level, mark.add(0, 0.2, 0), 5.0, 32, BLUE, 0.0);
+			sound(level, SoundEvents.BEACON_ACTIVATE, 0.8f, 1.8f);
+			beginCast(level, target, STORM, 1100, 3, SoundEvents.LIGHTNING_BOLT_IMPACT, ParticleTypes.ELECTRIC_SPARK,
+					t -> storm(level, t.position()));
 			return;
 		}
-		if (distance < 20.0 && ready(SLOT_CHAIN) && boss.hasLineOfSight(target)) {
-			// Lock the strike point and telegraph -- resolved on the next ability cycle.
-			chainCharging = true;
-			// Lock slightly ahead of a moving target so simply running in a straight line does not beat it;
-			// a change of direction still does (the point is fixed once locked).
-			chainLockPoint = target.position().add(0, target.getBbHeight() * 0.5, 0)
-					.add(target.getDeltaMovement().scale(3.0));
-			sound(level, SoundEvents.CONDUIT_ATTACK_TARGET, 0.8f, 1.4f);
-			sound(level, SoundEvents.BEACON_ACTIVATE, 0.6f, 1.8f);
-			particleLine(level, ParticleTypes.ELECTRIC_SPARK, boss.getEyePosition(), chainLockPoint, 2.0);
-			particles(level, ParticleTypes.ELECTRIC_SPARK, chainLockPoint, 8, 0.3);
-			startCooldown(SLOT_CHAIN, 140);
-		}
-	}
-
-	/** Fire the charged bolt at the locked point. Fizzles harmlessly if nobody is standing there. */
-	private void dischargeChain(ServerLevel level) {
-		chainCharging = false;
-		Vec3 point = chainLockPoint;
-		chainLockPoint = null;
-		if (point == null) {
+		if (d < 20.0 && sees(target) && ready(CHAIN) && freshChoice(CHAIN)) {
+			beginRangedCast(level, target, CHAIN, 140, SoundEvents.CONDUIT_ATTACK_TARGET, ParticleTypes.ELECTRIC_SPARK,
+					t -> chain(level, t));
 			return;
 		}
-		sound(level, SoundEvents.LIGHTNING_BOLT_THUNDER, 0.7f, 1.8f);
-		particleLine(level, ParticleTypes.ELECTRIC_SPARK, boss.getEyePosition(), point, 3.0);
-
-		LivingEntity seed = null;
-		for (Player player : level.getEntitiesOfClass(Player.class, box(point, CHAIN_DODGE_RADIUS),
-				p -> p.isAlive() && !p.isSpectator() && !p.isCreative())) {
-			if (player.position().add(0, player.getBbHeight() * 0.5, 0).distanceTo(point) <= CHAIN_DODGE_RADIUS) {
-				seed = player;
-				break;
+		if (d < 26.0 && sees(target) && ready(BOLT)) {
+			face(target);
+			Vec3 from = boss.getEyePosition();
+			Vec3 to = clipEnd(level, from, from.add(aimFromEyes(lead(target, 2.0)).scale(26.0)));
+			bolt(level, from, to);
+			for (LivingEntity e : victimsOnSegment(level, from, to, 0.7)) {
+				zap(e, bossDamage(12.0f));
 			}
+			sound(level, SoundEvents.LIGHTNING_BOLT_IMPACT, 0.6f, 1.8f);
+			startCooldown(BOLT, 40);
 		}
-		if (seed == null) {
-			// A clean dodge -- the bolt cracks into empty ground.
-			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, point.x, point.y, point.z, 24, 0.5, 0.5, 0.5, 0.4);
-			return;
-		}
-		chain(level, seed);
 	}
 
-	private void chain(ServerLevel level, LivingEntity firstTarget) {
-		List<Player> hit = new ArrayList<>();
-		LivingEntity current = firstTarget;
-		float damage = 9.0f;
-
-		for (int link = 0; link < MAX_CHAIN_LINKS && current != null; link++) {
-			particleLine(level, ParticleTypes.ELECTRIC_SPARK,
-					link == 0 ? boss.getEyePosition() : boss.getEyePosition(), current.getEyePosition(), 2.5);
-			hurt(current, damage);
-			if (current instanceof Player p) {
-				hit.add(p);
-				p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, 1));
+	/** Up to 6 links, 11 each (halved), hopping to a stacked victim within 14, else the nearest within 8. */
+	private void chain(ServerLevel level, LivingEntity first) {
+		List<LivingEntity> hit = new ArrayList<>();
+		LivingEntity cur = first;
+		Vec3 from = boss.getEyePosition();
+		for (int i = 0; i < 6 && cur != null; i++) {
+			bolt(level, from, mid(cur));
+			zap(cur, bossDamage(11.0f));
+			hit.add(cur);
+			from = mid(cur);
+			LivingEntity next = null;
+			double best = Double.MAX_VALUE;
+			for (LivingEntity e : victimsAround(level, from, 14.0)) {
+				if (hit.contains(e)) {
+					continue;
+				}
+				boolean stacked = ElectrokinesisHandlers.stacks(e) > 0;
+				double dist = e.distanceToSqr(from);
+				if (!stacked && dist > 64.0) {
+					continue;
+				}
+				double score = dist - (stacked ? 1000.0 : 0.0);
+				if (score < best) {
+					best = score;
+					next = e;
+				}
 			}
-			particles(level, ParticleTypes.ELECTRIC_SPARK,
-					current.position().add(0, current.getBbHeight() * 0.5, 0), 12, 0.3);
-			damage *= 0.7f;
-			current = nextLink(level, current, hit);
+			cur = next;
 		}
+		sound(level, SoundEvents.LIGHTNING_BOLT_IMPACT, 0.8f, 1.5f);
 	}
 
-	/** Nearest not-yet-hit player within hop range of the last one. */
-	private Player nextLink(ServerLevel level, LivingEntity from, List<Player> alreadyHit) {
-		Player best = null;
-		double bestSq = CHAIN_HOP_RANGE * CHAIN_HOP_RANGE;
-		for (Player player : level.getEntitiesOfClass(Player.class, from.getBoundingBox().inflate(CHAIN_HOP_RANGE),
-				p -> p.isAlive() && !p.isSpectator() && !p.isCreative())) {
-			if (alreadyHit.contains(player)) {
+	private void overcharge(ServerLevel level) {
+		for (LivingEntity e : victimsNear(level, 16.0)) {
+			int n = ElectrokinesisHandlers.consumeStacks(e);
+			if (n <= 0) {
 				continue;
 			}
-			double d = player.distanceToSqr(from);
-			if (d < bestSq) {
-				bestSq = d;
-				best = player;
+			bolt(level, boss.getEyePosition(), mid(e));
+			hurt(e, bossDamage(8.0f * n));
+			knockAway(e, boss.position(), 0.4 + 0.4 * n, 0.2);
+			if (n >= 3) {
+				control(e, MobEffects.MOVEMENT_SLOWDOWN, 30, 9);
+				control(e, MobEffects.WEAKNESS, 30, 2);
 			}
+			particles(level, ParticleTypes.ELECTRIC_SPARK, mid(e), 20 + 10 * n, 0.4);
 		}
-		return best;
+		particles(level, ParticleTypes.FLASH, boss.position().add(0, 1.2, 0), 1, 0.0);
+		BatchCFx.flatRing(level, boss.position().add(0, 0.5, 0), 1.2, 24, BLUE, 0.5);
+		sound(level, SoundEvents.LIGHTNING_BOLT_THUNDER, 0.9f, 1.7f);
 	}
 
-	private void burst(ServerLevel level) {
-		sound(level, SoundEvents.TRIDENT_THUNDER.value(), 1.0f, 1.5f);
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, boss.getX(), boss.getY() + 1.0, boss.getZ(),
-				40, 1.6, 1.0, 1.6, 0.2);
-		for (Player player : playersNear(level, 5.0)) {
-			hurt(player, 6.0f);
-			player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 2));
-			knockAway(player, boss.position(), 0.6, 0.3);
+	private void storm(ServerLevel level, Vec3 at) {
+		strike(level, at, 5.0, bossDamage(36.0f), 2);
+		particles(level, ParticleTypes.EXPLOSION_EMITTER, at, 1, 0.0);
+		BatchCFx.flatRing(level, at.add(0, 0.2, 0), 1.0, 32, BatchCFx.dust(0x4FB8FF, 1.5f), 0.6);
+		sound(level, SoundEvents.LIGHTNING_BOLT_THUNDER, 3.0f, 0.8f);
+		// four follow-up strikes, one every 12 ticks, on the most-charged victim within 9 of the centre
+		task(level, age -> {
+			if (age == 0 || age % 12 != 0) {
+				return age < 50;
+			}
+			LivingEntity pick = null;
+			int best = -1;
+			for (LivingEntity e : victimsAround(level, at, 9.0)) {
+				int s = ElectrokinesisHandlers.stacks(e);
+				if (s > best) {
+					best = s;
+					pick = e;
+				}
+			}
+			if (pick != null) {
+				strike(level, pick.position(), 1.5, bossDamage(10.0f), 1);
+			}
+			return age < 48;
+		});
+	}
+
+	/** A visual-only lightning bolt and the damage under it. */
+	private void strike(ServerLevel level, Vec3 at, double radius, float damage, int stacks) {
+		LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(level);
+		if (bolt != null) {
+			bolt.moveTo(at.x, at.y, at.z);
+			bolt.setVisualOnly(true);
+			level.addFreshEntity(bolt);
 		}
+		for (LivingEntity e : victimsAround(level, at, radius)) {
+			hurt(e, damage);
+			ElectrokinesisHandlers.addStack(null, e, stacks);
+		}
+		particles(level, ParticleTypes.ELECTRIC_SPARK, at.add(0, 0.5, 0), 40, 1.0);
 	}
 }

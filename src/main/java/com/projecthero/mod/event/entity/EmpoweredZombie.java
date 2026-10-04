@@ -8,6 +8,7 @@ import java.util.UUID;
 import com.projecthero.mod.event.EventConfig;
 import com.projecthero.mod.event.boss.BossPowerController;
 import com.projecthero.mod.event.boss.BossPowers;
+import com.projecthero.mod.event.boss.BossTargets;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
@@ -248,6 +249,14 @@ public class EmpoweredZombie extends RaidUndead {
 		return this.entityData.get(DATA_POWER);
 	}
 
+	/** The primary power's controller (null until configured). Gametests drive abilities through it. */
+	public BossPowerController primaryController() {
+		if (primary == null && !powerKey().isEmpty()) {
+			rebuildControllers();
+		}
+		return primary;
+	}
+
 	public String secondPowerKey() {
 		return this.entityData.get(DATA_SECOND_POWER);
 	}
@@ -339,6 +348,13 @@ public class EmpoweredZombie extends RaidUndead {
 		if (tickCount % ABILITY_INTERVAL == 0) {
 			runAbilities(server);
 		}
+		LivingEntity live = getTarget() != null && getTarget().isAlive() ? getTarget() : null;
+		if (primary != null) {
+			primary.serverTick(server, live);
+		}
+		if (secondary != null) {
+			secondary.serverTick(server, live);
+		}
 	}
 
 	private void emitAura(ServerLevel server) {
@@ -359,9 +375,11 @@ public class EmpoweredZombie extends RaidUndead {
 		LivingEntity target = getTarget();
 		if (primary != null) {
 			primary.tickCooldowns(ABILITY_INTERVAL);
+			primary.tickScheduled();
 		}
 		if (secondary != null) {
 			secondary.tickCooldowns(ABILITY_INTERVAL);
+			secondary.tickScheduled();
 		}
 		if (shoveCooldown > 0) {
 			shoveCooldown -= ABILITY_INTERVAL;
@@ -400,15 +418,14 @@ public class EmpoweredZombie extends RaidUndead {
 	 * and it is deliberately on the boss rather than in any one power so it is always available.
 	 */
 	private boolean closeRangeRepel(ServerLevel server) {
-		List<Player> near = server.getEntitiesOfClass(Player.class, getBoundingBox().inflate(3.2),
-				p -> p.isAlive() && !p.isSpectator() && !p.isCreative());
+		List<LivingEntity> near = BossTargets.victims(server, this, getBoundingBox().inflate(3.2));
 		if (near.isEmpty()) {
 			return false;
 		}
 		server.playSound(null, getX(), getY(), getZ(), SoundEvents.WARDEN_SONIC_BOOM, SoundSource.HOSTILE, 0.7f, 1.7f);
 		server.sendParticles(net.minecraft.core.particles.ParticleTypes.SWEEP_ATTACK,
 				getX(), getY() + 1.0, getZ(), 14, 1.4, 0.6, 1.4, 0.05);
-		for (Player p : near) {
+		for (LivingEntity p : near) {
 			p.hurt(damageSources().mobAttack(this), 4.0f);
 			net.minecraft.world.phys.Vec3 away = p.position().subtract(position());
 			if (away.lengthSqr() < 1.0e-4) {
@@ -452,19 +469,22 @@ public class EmpoweredZombie extends RaidUndead {
 	 * for the whole fight (spec section 24).
 	 */
 	private void retarget(ServerLevel server) {
-		List<Player> candidates = server.getEntitiesOfClass(Player.class,
-				getBoundingBox().inflate(getAttributeValue(Attributes.FOLLOW_RANGE)),
-				p -> p.isAlive() && !p.isSpectator() && !p.isCreative());
+		// v0.14.21: players first, then their allies (pets, summons, golems) -- never another raid mob (BossTargets)
+		List<LivingEntity> candidates = BossTargets.victims(server, this,
+				getBoundingBox().inflate(getAttributeValue(Attributes.FOLLOW_RANGE)));
 		if (candidates.isEmpty()) {
 			threat.clear();
 			return;
 		}
 		LivingEntity current = getTarget();
-		Player best = null;
+		LivingEntity best = null;
 		double bestScore = Double.NEGATIVE_INFINITY;
-		for (Player player : candidates) {
+		for (LivingEntity player : candidates) {
 			double distance = distanceTo(player);
 			double score = 60.0 - distance;
+			if (!(player instanceof Player)) {
+				score -= 30.0; // a pet or golem only wins when no player is in reach
+			}
 			// Whoever has been hurting it most since the last switch is the most dangerous.
 			score += threat.getOrDefault(player.getUUID(), 0.0f) * 0.5;
 			// An airborne player (Iron Man, Thor, experimental flight) is otherwise safe from a
@@ -492,9 +512,16 @@ public class EmpoweredZombie extends RaidUndead {
 
 	@Override
 	public boolean hurt(DamageSource source, float amount) {
+		// v0.14.21: defensive abilities (Earth Armor, Density Anchor, Absorption Shield ...) scale the hit first
+		if (primary != null) {
+			amount = primary.modifyIncomingDamage(source, amount);
+		}
+		if (secondary != null) {
+			amount = secondary.modifyIncomingDamage(source, amount);
+		}
 		boolean hurt = super.hurt(source, amount);
 		if (hurt && level() instanceof ServerLevel server) {
-			if (source.getEntity() instanceof Player attacker) {
+			if (source.getEntity() instanceof LivingEntity attacker && BossTargets.isVictim(this, attacker)) {
 				threat.merge(attacker.getUUID(), amount, Float::sum);
 			}
 			if (primary != null) {
@@ -519,6 +546,10 @@ public class EmpoweredZombie extends RaidUndead {
 			if (primary != null) {
 				bossBar.setColor(primary.barColor());
 			}
+			Component plate = villain.copy().withStyle(ChatFormatting.DARK_RED);
+			if (!plate.equals(getCustomName())) {
+				setCustomName(plate);
+			}
 			return;
 		}
 		Component name = Component.translatable("entity.projecthero.empowered_zombie")
@@ -534,6 +565,11 @@ public class EmpoweredZombie extends RaidUndead {
 		bossBar.setName(label);
 		if (primary != null) {
 			bossBar.setColor(primary.barColor());
+		}
+		// v0.14.21: the same "Empowered Zombie — <Power>" label as a nameplate (shown when looked at), so the power is
+		// readable on the boss itself and in death messages, not only on the bar
+		if (!label.equals(getCustomName())) {
+			setCustomName(label);
 		}
 	}
 

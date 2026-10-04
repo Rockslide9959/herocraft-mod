@@ -127,7 +127,12 @@ public final class FrostStacks {
 		if (t instanceof Mob mob) {
 			mob.getNavigation().stop();
 		}
-		AbilityHelpers.hurtBurst(source, t, AbilityHelpers.freeze(source), SHATTER_DAMAGE);
+		if (source != null) {
+			AbilityHelpers.hurtBurst(source, t, AbilityHelpers.freeze(source), SHATTER_DAMAGE);
+		} else {
+			// v0.14.21: a Gravebound Cryokinesis boss adds stacks with no player source (it used to NPE here)
+			t.hurt(level.damageSources().freeze(), SHATTER_DAMAGE);
+		}
 		if (!isPlayer && AbilityHelpers.canGrief()) {
 			encase(level, t, ticks);
 		}

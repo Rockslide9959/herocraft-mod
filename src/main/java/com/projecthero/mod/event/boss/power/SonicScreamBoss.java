@@ -1,34 +1,35 @@
 package com.projecthero.mod.event.boss.power;
 
+import java.util.List;
+
 import com.projecthero.mod.event.boss.BossPowerController;
 import com.projecthero.mod.event.entity.EmpoweredZombie;
+import com.projecthero.mod.hero.revamp.BatchCFx;
 
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.BossEvent;
-import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Sonic Scream: a directional shout that damages, pushes and disorients everyone in front of it, plus
- * a short disarming shriek at point blank.
- *
- * <p>Both are cone-shaped, so the counterplay is to not be in front of it. The disorientation is
- * Nausea and a brief Blindness rather than anything that removes control -- being unable to see for a
- * moment is unpleasant but recoverable, whereas a stun on a boss in a twelve-wave raid is not.
+ * Sonic Scream (v0.14.1 kit): Sonic Blast (a short cone), Focused Scream (a telegraphed long line), Resonance (a stun
+ * zone where its voice lands) and -- once badly hurt -- the charged Supersonic Scream cone. The "visible sound" rings
+ * are the player power's ({@link BatchCFx#ringTrail}); hits apply its static stun (Slowness IV + Nausea).
  */
 public class SonicScreamBoss extends BossPowerController {
 	public static final String POWER_KEY = "power_14_sonic_scream";
 
-	private static final int SLOT_SCREAM = 0;
-	private static final int SLOT_SHRIEK = 1;
-	private static final double SCREAM_RANGE = 14.0;
-	private static final double CONE_COS = 0.6;
+	private static final int BLAST = 0;
+	private static final int FOCUSED = 1;
+	private static final int RESONANCE = 2;
+	private static final int SUPERSONIC = 3;
+	private static final List<String> IDS = List.of("sonic_blast", "focused_scream", "resonance", "supersonic_scream");
+
+	private static final ParticleOptions SOUND = BatchCFx.dust(0x9FF6FF, 0.9f);
 
 	public SonicScreamBoss(EmpoweredZombie boss) {
 		super(boss);
@@ -40,13 +41,18 @@ public class SonicScreamBoss extends BossPowerController {
 	}
 
 	@Override
+	public List<String> abilityIds() {
+		return IDS;
+	}
+
+	@Override
 	public double preferredRange() {
 		return 8.0;
 	}
 
 	@Override
 	public ParticleOptions auraParticle() {
-		return ParticleTypes.SONIC_BOOM;
+		return ParticleTypes.NOTE;
 	}
 
 	@Override
@@ -54,49 +60,88 @@ public class SonicScreamBoss extends BossPowerController {
 		return BossEvent.BossBarColor.PINK;
 	}
 
+	private void staticStun(LivingEntity e) {
+		control(e, MobEffects.MOVEMENT_SLOWDOWN, 30, 3);
+		control(e, MobEffects.CONFUSION, 30, 0);
+	}
+
+	private Vec3 mouth() {
+		return boss.getEyePosition().add(boss.getLookAngle().scale(0.6)).subtract(0, 0.15, 0);
+	}
+
 	@Override
 	public void tick(ServerLevel level, LivingEntity target) {
-		double distance = boss.distanceTo(target);
-		if (distance < 5.0 && ready(SLOT_SHRIEK) && freshChoice(SLOT_SHRIEK)) {
-			shriek(level);
-			startCooldown(SLOT_SHRIEK, 180);
+		double d = boss.distanceTo(target);
+		if (lowHealth() && d < 20.0 && ready(SUPERSONIC)) {
+			BatchCFx.flatRing(level, boss.position().add(0, 0.2, 0), 3.0, 32, SOUND, -0.2);
+			beginCast(level, target, SUPERSONIC, 1200, 4, SoundEvents.WARDEN_SONIC_CHARGE, SOUND, t -> supersonic(level, t));
 			return;
 		}
-		if (distance < SCREAM_RANGE && ready(SLOT_SCREAM)) {
-			scream(level, target);
-			startCooldown(SLOT_SCREAM, 150);
-		}
-	}
-
-	private void scream(ServerLevel level, LivingEntity target) {
-		// Face the target first so the cone matches what the player can see it looking at.
-		boss.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, target.getEyePosition());
-		Vec3 look = boss.getLookAngle();
-		sound(level, SoundEvents.WARDEN_SONIC_BOOM, 1.0f, 1.2f);
-		for (int step = 1; step <= 10; step++) {
-			Vec3 p = boss.getEyePosition().add(look.scale(step * 1.3));
-			level.sendParticles(ParticleTypes.SONIC_BOOM, p.x, p.y, p.z, 1, 0.0, 0.0, 0.0, 0.0);
-		}
-		for (Player player : playersNear(level, SCREAM_RANGE)) {
-			Vec3 to = player.position().subtract(boss.position());
-			if (to.lengthSqr() < 1.0e-4 || to.normalize().dot(look) < CONE_COS) {
-				continue;
+		if (d < 6.0 && ready(BLAST) && freshChoice(BLAST)) {
+			face(target);
+			Vec3 m = mouth();
+			Vec3 look = aimFromEyes(mid(target));
+			for (LivingEntity e : victimsInCone(level, m, look, 6.0, 60.0)) {
+				hurt(e, bossDamage(12.0f));
+				knockAway(e, m, 1.5, 0.3);
+				staticStun(e);
 			}
-			hurt(player, 7.0f);
-			knockAway(player, boss.position(), 1.4, 0.4);
-			player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 100, 0));
+			BatchCFx.ringTrail(level, m, look, 5.0, 1.25, 0.3, 0.35, SOUND);
+			particles(level, ParticleTypes.SONIC_BOOM, m.add(look.scale(2.5)), 1, 0.0);
+			sound(level, SoundEvents.WARDEN_SONIC_BOOM, 0.7f, 1.6f);
+			startCooldown(BLAST, 85);
+			return;
+		}
+		if (d < 18.0 && ready(RESONANCE) && freshChoice(RESONANCE)) {
+			Vec3 at = target.position();
+			BatchCFx.flatRing(level, at.add(0, 0.2, 0), 3.5, 24, SOUND, 0.0);
+			sound(level, SoundEvents.AMETHYST_BLOCK_RESONATE, 1.0f, 0.8f);
+			schedule(1, () -> {
+				for (LivingEntity e : victimsAround(level, at.add(0, 0.5, 0), 3.5)) {
+					hurt(e, bossDamage(6.0f) + 1.0f);
+					control(e, MobEffects.MOVEMENT_SLOWDOWN, 40, 5);
+					control(e, MobEffects.CONFUSION, 60, 0);
+				}
+				for (int i = 1; i <= 3; i++) {
+					BatchCFx.flatRing(level, at.add(0, 0.3 * i, 0), i * 1.1, 20, SOUND, 0.1);
+				}
+				particles(level, ParticleTypes.NOTE, at.add(0, 1, 0), 10, 1.0);
+				soundAt(level, at, SoundEvents.AMETHYST_BLOCK_RESONATE, 1.4f, 1.6f);
+			});
+			startCooldown(RESONANCE, 85);
+			return;
+		}
+		if (d < 30.0 && sees(target) && ready(FOCUSED)) {
+			beginRangedCast(level, target, FOCUSED, 170, SoundEvents.WARDEN_SONIC_CHARGE, SOUND, t -> {
+				Vec3 m = mouth();
+				Vec3 dir = aimFromEyes(mid(t));
+				Vec3 to = clipEnd(level, m, m.add(dir.scale(30.0)));
+				for (LivingEntity e : strikeLine(level, m, to, 0.8, bossDamage(19.0f))) {
+					knockAway(e, m, 1.0, 0.2);
+					control(e, MobEffects.CONFUSION, 80, 0);
+					staticStun(e);
+				}
+				BatchCFx.ringTrail(level, m, dir, m.distanceTo(to), 1.25, 0.35, 0.02, SOUND);
+				particles(level, ParticleTypes.SONIC_BOOM, to, 1, 0.0);
+				sound(level, SoundEvents.WARDEN_SONIC_BOOM, 1.0f, 1.0f);
+			});
 		}
 	}
 
-	private void shriek(ServerLevel level) {
-		sound(level, SoundEvents.WARDEN_ROAR, 1.0f, 1.4f);
-		level.sendParticles(ParticleTypes.NOTE, boss.getX(), boss.getY() + 1.5, boss.getZ(),
-				30, 1.5, 0.8, 1.5, 0.4);
-		for (Player player : playersNear(level, 5.0)) {
-			hurt(player, 4.0f);
-			player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 40, 0));
-			player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 120, 0));
-			knockAway(player, boss.position(), 1.0, 0.3);
+	private void supersonic(ServerLevel level, LivingEntity target) {
+		Vec3 m = mouth();
+		Vec3 look = aimFromEyes(mid(target));
+		for (LivingEntity e : victimsInCone(level, m, look, 20.0, 53.0)) {
+			hurt(e, bossDamage(60.0f) * (float) (1.0 - Math.min(0.55, e.distanceTo(boss) / 20.0)));
+			knockAway(e, m, 3.0, 0.5);
+			control(e, MobEffects.CONFUSION, 120, 0);
+			staticStun(e);
 		}
+		BatchCFx.ringTrail(level, m, look, 20.0, 1.25, 0.5, 0.3, SOUND);
+		for (int i = 2; i < 20; i += 2) {
+			Vec3 p = m.add(look.scale(i));
+			particles(level, ParticleTypes.SONIC_BOOM, p, 1, 0.0);
+		}
+		sound(level, SoundEvents.WARDEN_SONIC_BOOM, 1.6f, 0.6f);
 	}
 }

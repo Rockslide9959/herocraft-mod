@@ -69,7 +69,7 @@ framework and reuses the Zombie Raid's `EmpoweredZombie` boss and `BossPowers` A
 
 The Supervillain is an `EmpoweredZombie` with a cosmetic `variant` set. It runs with the same AI as
 the Zombie Raid's final boss (target scoring, rotation, airborne/ranged response, preferred-range
-movement, cluster-aware AoE) and one of the **14 boss-capable Experimental Powers**
+movement, cluster-aware AoE) and one of the **26 boss-capable Experimental Powers** (v0.14.21: every mutation)
 (`BossPowerController` subclasses). Appearance and power are rolled independently.
 
 * **Health**: `bossBaseHealth` (350) + `bossHealthPerAdditionalPlayer` (125) × (players − 1), capped
@@ -92,12 +92,9 @@ change**.
 
 ## Compatible powers
 
-`BossPowers` registers the 14 Experimental Powers whose fantasy works on an AI mob: Super Strength,
-Laser Vision, Flight, Super Speed, Geokinesis, Electrokinesis, Pyrokinesis, Cryokinesis,
-Teleportation, Super Durability, Sonic Scream, Shockwave, Gravity, Magnetism. Excluded (and why):
-Invisibility/Light, Spider Climbing, Size, Density, Elasticity, Telekinesis, Super Regeneration,
-Plant/Water/Wind, Energy Absorption, Shadow, Crystalkinesis — each is built around player inputs, a
-GUI, building, or a mechanic that does nothing visible on a mob. `supervillainAllowedPowers` /
+v0.14.21: `BossPowers` registers **all 26 mutations**, each running several of its revamped abilities (the full
+table is in `docs/ZOMBIE_RAID_REFERENCE.md`), including mutations players cannot currently obtain. The pre-v0.14.21
+exclusion list is gone. `supervillainAllowedPowers` /
 `supervillainBlockedPowers` in the config further narrow the pool.
 
 ## Commands (op 2)

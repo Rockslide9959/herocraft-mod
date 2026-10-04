@@ -1,37 +1,36 @@
 package com.projecthero.mod.event.boss.power;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.projecthero.mod.event.boss.BossPowerController;
 import com.projecthero.mod.event.entity.EmpoweredZombie;
+import com.projecthero.mod.hero.revamp.d.BatchDFx;
 
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Teleportation: the anti-kite and anti-corner power. It blinks to a target that has got too far away,
- * and blinks <em>out</em> when something hits it hard from range.
- *
- * <h2>Never a free hit, never a softlock</h2>
- * A blink always lands on legal ground next to the target, never inside them and never inside geometry
- * -- {@link #safeSpotNear} walks a ring of candidate positions and takes the first that has a solid
- * floor and two blocks of clear space, giving up entirely if none does. It also does no damage on
- * arrival, so appearing beside a player is an opportunity for them to react, not an unavoidable hit.
- * As a side benefit this is the roster's answer to terrain softlocks: a Teleportation boss that gets
- * stuck simply blinks out of the problem.
+ * Teleportation (v0.14.1 kit): Blink in on a far target, Bamf Strike (a hop behind the target that chains on to up to
+ * two more victims), Swap (trades places with a target that is hanging back) and Escape Blink (out of a heavy hit,
+ * with Resistance III). Teleports leave the player power's purple silhouette and puff ({@link BatchDFx}).
  */
 public class TeleportationBoss extends BossPowerController {
 	public static final String POWER_KEY = "power_11_teleportation";
 
-	private static final int SLOT_BLINK_IN = 0;
-	private static final int SLOT_BLINK_OUT = 1;
-	private static final int SLOT_PHASE_STRIKE = 2;
-	private static final int SLOT_SCATTER = 3;
+	private static final int BLINK = 0;
+	private static final int BAMF = 1;
+	private static final int SWAP = 2;
+	private static final int ESCAPE = 3;
+	private static final List<String> IDS = List.of("blink", "bamf_strike", "swap", "escape_blink");
 
 	public TeleportationBoss(EmpoweredZombie boss) {
 		super(boss);
@@ -40,6 +39,11 @@ public class TeleportationBoss extends BossPowerController {
 	@Override
 	public String powerKey() {
 		return POWER_KEY;
+	}
+
+	@Override
+	public List<String> abilityIds() {
+		return IDS;
 	}
 
 	@Override
@@ -58,117 +62,124 @@ public class TeleportationBoss extends BossPowerController {
 	}
 
 	@Override
-	public void tick(ServerLevel level, LivingEntity target) {
-		double distance = boss.distanceTo(target);
-		if (distance > 9.0 && distance < 48.0 && ready(SLOT_BLINK_IN)) {
-			BlockPos spot = safeSpotNear(level, target.blockPosition(), 3);
-			if (spot != null) {
-				blinkTo(level, spot);
-				startCooldown(SLOT_BLINK_IN, 120);
-			}
-			return;
-		}
-		// Mid-range: blink onto the target and land a single telegraphed hit, then it is free to blink
-		// away again. Turns a Teleportation boss from "closes distance, then melees" into a proper
-		// hit-and-run threat that actually uses the blink offensively.
-		if (distance > 3.5 && distance <= 9.0 && ready(SLOT_PHASE_STRIKE) && freshChoice(SLOT_PHASE_STRIKE)) {
-			BlockPos spot = safeSpotNear(level, target.blockPosition(), 2);
-			if (spot != null) {
-				blinkTo(level, spot);
-				sound(level, SoundEvents.PLAYER_ATTACK_CRIT, 1.0f, 0.9f);
-				if (boss.distanceTo(target) < 4.0) {
-					hurt(target, 6.0f);
-					knockAway(target, boss.position(), 0.6, 0.2);
-				}
-				startCooldown(SLOT_PHASE_STRIKE, 150);
-			}
-			return;
-		}
-		// Badly hurt: scatter -- blink clear of everyone and leave a puff of decoy particles, buying a
-		// moment before it re-engages.
-		if (lowHealth() && ready(SLOT_SCATTER) && !playersNear(level, 6.0).isEmpty()) {
-			BlockPos spot = farSpot(level, target);
-			if (spot != null) {
-				blinkTo(level, spot);
-				particles(level, ParticleTypes.PORTAL, boss.position().add(0, 1.0, 0), 60, 1.2);
-				startCooldown(SLOT_SCATTER, 300);
-			}
-		}
+	public boolean compatibleWith(String otherPowerKey) {
+		return super.compatibleWith(otherPowerKey) && !otherPowerKey.equals(FlightBoss.POWER_KEY);
 	}
 
-	/** A legal standing spot well away from the target, for the low-health scatter. */
-	private BlockPos farSpot(ServerLevel level, LivingEntity target) {
-		for (int radius = 10; radius >= 6; radius -= 2) {
-			BlockPos spot = safeSpotNear(level, target.blockPosition(), radius);
-			if (spot != null) {
-				return spot;
-			}
-		}
-		return null;
+	private void depart(ServerLevel level) {
+		Vec3 at = boss.position();
+		BatchDFx.silhouette(level, at, boss.getYRot(), BatchDFx.TELE_GLOW);
+		BatchDFx.puff(level, at);
+		particles(level, ParticleTypes.PORTAL, at.add(0, 1, 0), 30, 0.4);
 	}
 
-	/** Emergency: a heavy ranged hit makes it reposition rather than stand there being shot. */
+	/** Teleport the boss just behind {@code target} (or beside it). Returns false if nowhere is safe. */
+	private boolean behind(ServerLevel level, LivingEntity target) {
+		Vec3 look = target.getLookAngle();
+		Vec3 back = new Vec3(look.x, 0, look.z);
+		back = back.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : back.normalize();
+		Vec3 side = new Vec3(-back.z, 0, back.x);
+		double dd = 1.2 + target.getBbWidth() / 2.0 + boss.getBbWidth() / 2.0;
+		for (Vec3 off : new Vec3[] { back.scale(-dd), side.scale(dd), side.scale(-dd), back.scale(dd) }) {
+			Vec3 spot = safeSpotNear(level, target.position().add(off));
+			if (spot != null) {
+				depart(level);
+				blinkTo(level, spot, ParticleTypes.REVERSE_PORTAL, SoundEvents.ENDERMAN_TELEPORT);
+				face(target);
+				return true;
+			}
+		}
+		return false;
+	}
+
 	@Override
-	public void onDamaged(ServerLevel level, DamageSource source, float amount) {
-		if (!readyReactive(SLOT_BLINK_OUT) || amount < 12.0f || source.getEntity() == null) {
-			return;
-		}
-		BlockPos spot = safeSpotNear(level, source.getEntity().blockPosition(), 4);
-		if (spot != null) {
-			blinkTo(level, spot);
-			startCooldown(SLOT_BLINK_OUT, 200);
-		}
-	}
-
-	private void blinkTo(ServerLevel level, BlockPos pos) {
-		Vec3 from = boss.position();
-		boss.teleportTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
-		boss.getNavigation().stop();
-		particles(level, ParticleTypes.PORTAL, from.add(0, 1.0, 0), 30, 0.6);
-		particles(level, ParticleTypes.PORTAL, boss.position().add(0, 1.0, 0), 30, 0.6);
-		sound(level, SoundEvents.ENDERMAN_TELEPORT, 1.0f, 0.7f);
-	}
-
-	/**
-	 * First legal standing position on a ring around {@code around}. Bounded: eight compass directions
-	 * times a small vertical window, so it can never turn into a search.
-	 */
-	private BlockPos safeSpotNear(ServerLevel level, BlockPos around, int radius) {
-		for (int i = 0; i < 8; i++) {
-			double angle = i * Math.PI / 4.0;
-			int x = around.getX() + (int) Math.round(Math.cos(angle) * radius);
-			int z = around.getZ() + (int) Math.round(Math.sin(angle) * radius);
-			for (int dy = 0; dy <= 3; dy++) {
-				for (int sign = 1; sign >= -1; sign -= 2) {
-					BlockPos candidate = new BlockPos(x, around.getY() + dy * sign, z);
-					if (!level.isLoaded(candidate)) {
-						continue;
-					}
-					if (standable(level, candidate)) {
-						return candidate;
-					}
-					if (dy == 0) {
-						break;
-					}
+	public void tick(ServerLevel level, LivingEntity target) {
+		double d = boss.distanceTo(target);
+		if (d > 14.0 && d < 40.0 && ready(SWAP) && freshChoice(SWAP)) {
+			Vec3 mine = boss.position();
+			Vec3 theirs = target.position();
+			if (safeSpotNear(level, theirs) != null) {
+				BatchDFx.tether(level, mine.add(0, 1, 0), theirs.add(0, 1, 0), BatchDFx.TELE_GLOW, 24);
+				BatchDFx.silhouette(level, mine, boss.getYRot(), BatchDFx.TELE_GLOW);
+				BatchDFx.silhouette(level, theirs, target.getYRot(), BatchDFx.TELE_GLOW);
+				boss.teleportTo(theirs.x, theirs.y, theirs.z);
+				if (isVictim(target)) {
+					target.teleportTo(mine.x, mine.y, mine.z);
+					target.fallDistance = 0.0f;
+					control(target, MobEffects.MOVEMENT_SLOWDOWN, 30, 1);
 				}
+				sound(level, SoundEvents.ENDERMAN_TELEPORT, 1.0f, 0.8f);
+				sound(level, SoundEvents.CHORUS_FRUIT_TELEPORT, 1.0f, 1.2f);
+				startCooldown(SWAP, 160);
+				return;
 			}
 		}
-		return null;
+		if (d < 30.0 && sees(target) && ready(BAMF) && freshChoice(BAMF)) {
+			bamf(level, target);
+			startCooldown(BAMF, 200);
+			return;
+		}
+		if (d > 9.0 && d < 48.0 && ready(BLINK)) {
+			Vec3 toward = flatDirTo(target.position());
+			Vec3 spot = safeSpotNear(level, target.position().subtract(toward.scale(3.0)));
+			if (spot != null) {
+				depart(level);
+				blinkTo(level, spot, ParticleTypes.PORTAL, SoundEvents.ENDERMAN_TELEPORT);
+				startCooldown(BLINK, 90);
+			}
+		}
 	}
 
-	private boolean standable(ServerLevel level, BlockPos pos) {
-		if (level.isOutsideBuildHeight(pos) || level.isOutsideBuildHeight(pos.above(2))) {
-			return false;
-		}
-		if (!level.getBlockState(pos.below()).isFaceSturdy(level, pos.below(), net.minecraft.core.Direction.UP)) {
-			return false;
-		}
-		// The boss is oversized -- it needs three blocks of headroom, not two.
-		for (int dy = 0; dy < 3; dy++) {
-			if (!level.getBlockState(pos.above(dy)).getCollisionShape(level, pos.above(dy)).isEmpty()) {
+	/** Bamf Strike: behind the target, a hit, then a hop to the next victim within 10 every 6 ticks (3 total). */
+	private void bamf(ServerLevel level, LivingEntity first) {
+		List<LivingEntity> done = new ArrayList<>();
+		LivingEntity[] cur = { first };
+		task(level, age -> {
+			if (age % 6 != 0) {
+				return true;
+			}
+			LivingEntity t = cur[0];
+			if (t == null || !t.isAlive() || done.size() >= 3) {
 				return false;
 			}
+			done.add(t);
+			if (behind(level, t)) {
+				hurtFresh(t, bossDamage(11.0f));
+				knockAway(t, boss.position(), 0.5, 0.1);
+				particles(level, ParticleTypes.SWEEP_ATTACK, mid(t), 1, 0.0);
+				particles(level, BatchDFx.TELE_SMOKE, mid(t), 8, 0.3);
+				sound(level, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 1.3f + 0.1f * done.size());
+			}
+			LivingEntity next = null;
+			double best = 100.0;
+			for (LivingEntity e : victimsAround(level, t.position(), 10.0)) {
+				double dd = e.distanceToSqr(t);
+				if (!done.contains(e) && dd < best) {
+					best = dd;
+					next = e;
+				}
+			}
+			cur[0] = next;
+			return next != null;
+		});
+	}
+
+	@Override
+	public void onDamaged(ServerLevel level, DamageSource source, float amount) {
+		if ((amount >= 12.0f || (lowHealth() && amount >= 5.0f)) && readyReactive(ESCAPE) && source.getEntity() != null) {
+			Vec3 away = boss.position().subtract(source.getEntity().position());
+			away = new Vec3(away.x, 0, away.z);
+			away = away.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : away.normalize();
+			for (double dist = 9.5; dist >= 4.0; dist -= 1.5) {
+				Vec3 spot = safeSpotNear(level, boss.position().add(away.scale(dist)));
+				if (spot != null) {
+					depart(level);
+					blinkTo(level, spot, ParticleTypes.PORTAL, SoundEvents.ENDERMAN_TELEPORT);
+					boss.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 24, 2, false, true));
+					startCooldown(ESCAPE, 200);
+					return;
+				}
+			}
 		}
-		return true;
 	}
 }

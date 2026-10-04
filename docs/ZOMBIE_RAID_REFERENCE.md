@@ -167,12 +167,62 @@ telegraphed, directional, or both.
   whenever it is hit in the air**, so shooting it down is the counterplay. It is faster in the air
   than on the ground.
 
-Boss-capable powers: Super Strength, Laser Vision, Flight, Super Speed, Geokinesis, Electrokinesis,
-Pyrokinesis, Cryokinesis, Teleportation, Super Durability, Sonic Scream, Shockwave Manipulation,
-Gravity Manipulation, Magnetic Manipulation.
+**v0.14.21 — the bosses fight with the revamped kits.** Every one of the **26 mutations** has a boss
+controller, and the roll is **not** filtered by `Powers.ENABLED`: a power boss can carry a mutation players
+cannot currently obtain. Each controller runs 3–5 of that power's *current* (v0.14.1 / v0.14.5) abilities, named
+by the player ability ids (`BossPowerController#abilityIds`). The player handlers cannot run on a mob (they are
+all `ServerPlayer` / `AbilityContext` / attachment based), so each is a faithful mob adaptation: same mechanics,
+same server-side visuals (the power's particles, dust colours, `BatchCFx` / `BatchDFx` rings and tethers, the
+Laser Vision beam payload via `LaserBeams`), and the real shared systems where they accept a mob: Electrokinesis
+static stacks (`ElectrokinesisHandlers.addStack`), Cryokinesis frost stacks (`FrostStacks.add`), the Crushing
+Density and Shrunken effects, `GroundType` for Geokinesis, `TempBlocks` for spikes/pillars/cages (never inside a
+living thing), and the revamp scheduler for travelling waves, lashes and particle projectiles.
 
-> A Magnetism boss will haul you around and clamp your own armour down on you if you are wearing metal
-> — but it never takes, damages or destroys a single item.
+| Mutation | Boss abilities (player ability id) |
+|---|---|
+| Super Strength | Haymaker 3-hit combo, Ground Slam, Power Leap + hero landing, Bull Rush (1.5 s wind-up), Maximum Effort (<40%) |
+| Laser Vision | Heat Vision (held, ramping), Sweeping Arc (150°), Recoil Blast, Maximum Output (<40%; overheats after) |
+| Flight | Flight (hovers over you), Air Dash, Dive Bomb, Orbital Drop (landing ring telegraph), Barrel Roll (dodge) |
+| Super Speed | Rapid Assault, Blitz, Speed Vortex (Shift+Blitz), Momentum Dash, Overdrive (<40%) |
+| Geokinesis | Rock Shot, Earth Spike line, Tectonic Pillar, Earthquake (charged), Earth Armor (<60%) |
+| Crystalkinesis | Crystal Shard volley, Refract (splits to 2 more), Crystal Prison, Crystal Eruption (charged) |
+| Electrokinesis | Electric Bolt, Chain Lightning, Overcharge (consumes stacks), Electrical Storm |
+| Pyrokinesis | Fireball, Fire Whip (pulls), Flamethrower, Heat Wave, Inferno (<40%); heat gauge, blue flames ≥75 |
+| Cryokinesis | Ice Bolt, Freeze Beam, Ice Spikes (`ice_wall`), Flash Freeze, Absolute Zero (<40%) |
+| Telekinesis | Force Push, Force Pull (`telekinetic_grab`), Mind Lock, Psychic Detonation |
+| Teleportation | Blink, Bamf Strike (chains to 3), Swap, Escape Blink (reaction) |
+| Super Regeneration | Regen (0.5% max HP/s), Cleanse (2 s), Revive (1 charge, 2 on the final boss, to 35%) |
+| Sonic Scream | Sonic Blast, Focused Scream, Resonance, Supersonic Scream (<40%) |
+| Invisibility / Light | Light Blast, Flash, Cloaking (revealed when it attacks), Hard Light Blade, Holy Light (<40%) |
+| Spider Climbing | Pounce, Adhesive Strike, Venom Bite, Spider-Sense (dodges a hit), Predator Rush (<40%) |
+| Elasticity | Stretch Punch, Double Fist Slam, Slingshot, Giant Hammer Fist, Rubber Shield (<60%) |
+| Density | Heavy Impact, Crushing Touch, Zero Density, Intangible Dodge, Density Anchor (<40%) |
+| Shadow | Shadow Bolt volley, Shadow Tendrils, Shadow Bind, Shadow Step, Total Darkness (<40%); light tier |
+| Energy Absorption | absorbs hits as energy + element; Energy Blast, Energy Beam burst, Redirect, Overload |
+| Shockwave | Shockwave Punch, Ground Wave, Aftershock, Kinetic Parry, Kinetic Detonation (<40%) |
+| Plant | Thorn Shot, Thorn Snare (`vine_grab`), Vine Swing, Spore Cloud (heals it), Overgrowth (<40%) |
+| Gravity | Gravity Push, Gravity Crush, Levitate → slam, Heavy Ground (anti-flier), Gravity Well (<40%) |
+| Wind | Wind Blade, Wind Burst (`tornado`), Wind Push, Vacuum, Hurricane (ranged players or <40%) |
+| Water | Water Shot, Water Whip, Geyser, Water Prison, Healing Water (<50%) |
+| Magnetic | Ferrous Shot, Metal Storm, Magnetic Crush (scales with worn metal), Polarity Leap — never Disarm |
+| Size | Giant Punch, Stomp, Shrink Punch (Shrunken), Large Form (<60%), Giant Form (<30%) |
+
+**Balance.** Player ability damage is tuned for a player hitting mobs (often 20–60), so a boss deals
+`BossPowerController.bossDamage` = **half the player value, capped at 20 per hit**; the big area moves also fall off
+to 45% at their edge, and every ultimate is a telegraphed 1.5–2 s cast. Crowd control is applied the way the player
+powers apply it (half duration on players). Boss health and melee are unchanged (400 / 600 / 800 / 1000 HP, 15 / 18
+melee).
+
+**Who it hits.** `BossTargets.isVictim` — the mob-side mirror of `HeroTargets`: players (not creative/invulnerable),
+their pets and summons (`HeroTargets.ownerOf`), golems, and anything currently fighting the boss. **Never** another raid
+mob or any `Enemy`, and never neutral bystanders (villagers, livestock). The boss also re-targets onto a pet or golem
+when no player is in reach.
+
+**Its name.** The boss bar reads `Empowered Zombie — <Power>` (plus the second power on a dual-power final boss), and
+the same label is now its nameplate (shown when you look at it, and in death messages).
+
+> A Magnetism boss's Magnetic Crush is worse the more metal armour you wear — but it never takes, damages or destroys a
+> single item.
 
 ### Rewards
 
@@ -302,7 +352,11 @@ Villagers*, *Stop Ritual*, *Destroy Anchors* and friends can be added without to
 
 One class extending `BossPowerController` plus one line in `BossPowers.initialize()`. The boss bar
 label, aura, Corrupted Power Core and trophy all read the power's own registry entry, so nothing else
-needs to know it exists. Override `compatibleWith` to refuse a dual-power pairing.
+needs to know it exists. Override `compatibleWith` to refuse a dual-power pairing. List the player ability ids it
+uses in `abilityIds()` (gametested against the power's catalog entry), route every hit through the base helpers
+(`hurt`, `strikeArea`, `strikeLine`, `control`, `projectile`, `placeTemp` -- all victim-filtered) and use
+`serverTick` for anything that needs per-tick motion. `GraveboundBossPowerGameTests` fails if a mutation has no
+controller.
 
 Boss controllers are a **separate, boss-compatible implementation** of each power — they never touch the
 player-facing ability handlers, because those are built around `ServerPlayer`, `AbilityContext` and
