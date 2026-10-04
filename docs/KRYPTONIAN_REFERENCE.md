@@ -102,7 +102,7 @@ Kryptonian can wear**. No powers of its own.
 | Material, items, the wear rule, the pop-off tick, the dispenser behaviour | `SupermanSuit` (items registered from `KryptonianItems.initialize`, creative tab after the meteor blocks) |
 | Item (right-click refusal, tooltips) | `item/SupermanSuitItem` (`SuperheroArmorItem`, set id `superman`) |
 | Armour-slot / shift-click / creative-screen refusal | `mixin/LivingEntitySupermanSuitMixin`: a non-Kryptonian player's `getEquipmentSlotForItem` for a suit piece is `MAINHAND`, so `ArmorSlot.mayPlace` says no; both sides (the power is synced) |
-| The cape | client `kryptonian/SupermanCapeLayer` (registered in `KryptonianClient`) on Moon Knight's cape mesh |
+| The cape | client `kryptonian/SupermanCapeLayer` -- since v0.14.21 a thin subclass of the shared `render/FlowingCapeLayer` (Thor's cape uses the same), registered in `KryptonianClient` via `FlowingCapeLayer.register`; when it shows / streams: `SupermanSuit.wearsCape` / `SupermanSuit.capeInWind` |
 | Assets / recipes | `scratchpad/gen_superman_suit.js` (re-runnable); lang `scratchpad/lang_v0149_kryptonian.js` |
 
 - **Stats:** netherite: 3 / 6 / 8 / 3 armour, toughness 3.0, knockback resistance 0.1 (per piece), enchantability 15,
@@ -127,8 +127,9 @@ Kryptonian can wear**. No powers of its own.
   lining): Moon Knight's mesh (`MoonKnightCapeLayer.drawCape`, 1.25 blocks, centre + curled side panels) with
   `arcLengthU = true` (texels by real width, so the shield is not stretched), no hood / block / glide, plus a collar
   strip over the shoulders. Shows whenever the Superman chestplate is worn (not when invisible).
-  - Ground: vanilla's swing exactly (`MoonKnightCapeLayer.cloakSwing`).
-  - Kryptonian flight: from the wind of his own flight -- world angle `atan2(forward speed, 0.2 + vertical speed)`
+  - Ground: vanilla's swing exactly (`MoonKnightCapeLayer.cloakSwing`); crouching shifts the anchor like vanilla's
+    cloak (v0.14.21, from the shared layer) so the cape stays on the back.
+  - Kryptonian flight (v0.14.21: also vanilla flight / elytra, as Thor's cape): from the wind of his own flight -- world angle `atan2(forward speed, 0.2 + vertical speed)`
     from straight down, minus the body lean (`FlightPoseHelper.lean`), clamped 6..120 deg, plus a speed-scaled flap;
     eased per player (rate 9/s), blended in/out over ~0.2 s. Hover: hangs; cruise (0.9 b/t, 25 deg lean): ~50 deg off
     the back; super-speed (2 b/t, flat): along the legs, near-horizontal; climbing: trails below; diving: streams up.

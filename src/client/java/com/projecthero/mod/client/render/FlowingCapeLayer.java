@@ -1,8 +1,12 @@
 package com.projecthero.mod.client.render;
 
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 import com.projecthero.mod.client.FlightPoseHelper;
 import com.projecthero.mod.client.moonknight.MoonKnightCapeLayer;
@@ -11,19 +15,24 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback;
+
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
+import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.14.16: the Superman Suit's flowing cloth cape ({@code SupermanCapeLayer}, v0.14.9) generalised so any suit can
- * wear one -- first used for Thor's crimson cape ({@code ThorCapeLayer}). A subclass only says <em>who</em> wears it,
+ * wear one -- first used for Thor's crimson cape ({@code ThorCapeLayer}); v0.14.21 the Superman cape itself moved onto
+ * it, so both capes share one implementation. A subclass only says <em>who</em> wears it,
  * with which texture, and when they count as flying; the cloth itself is Moon Knight's cape mesh
  * ({@link MoonKnightCapeLayer#drawCape}, texture spread by real width) plus a collar laid over the shoulders.
  *
@@ -154,5 +163,31 @@ public abstract class FlowingCapeLayer extends RenderLayer<AbstractClientPlayer,
 	/** Forget every player's easing (world change / disconnect). */
 	public void clear() {
 		ease.clear();
+	}
+
+	/** Every live cape layer (weak: a resource reload rebuilds the renderers), so their easing can be dropped on disconnect. */
+	private static final Set<FlowingCapeLayer> LIVE = Collections.synchronizedSet(Collections.newSetFromMap(new WeakHashMap<>()));
+	private static boolean disconnectHooked;
+
+	/**
+	 * v0.14.21: adds a cape layer made by {@code factory} to both player renderers (wide + slim) and forgets its easing
+	 * on disconnect. Call once per cape from client init.
+	 */
+	public static void register(Function<PlayerRenderer, ? extends FlowingCapeLayer> factory) {
+		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
+			if (entityRenderer instanceof PlayerRenderer playerRenderer) {
+				FlowingCapeLayer layer = factory.apply(playerRenderer);
+				LIVE.add(layer);
+				helper.register(layer);
+			}
+		});
+		if (!disconnectHooked) {
+			disconnectHooked = true;
+			ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+				synchronized (LIVE) {
+					LIVE.forEach(FlowingCapeLayer::clear);
+				}
+			});
+		}
 	}
 }

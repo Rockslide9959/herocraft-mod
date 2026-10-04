@@ -366,6 +366,34 @@ public class KryptonianGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/**
+	 * v0.14.21: the Superman cape moved onto the shared flowing cape. When it shows (only with the Superman chestplate on)
+	 * and when it streams in the wind instead of swinging like a cloak (Kryptonian flight, vanilla flight, gliding).
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void supermanCapeShowsWithTheChestplateAndStreamsInFlight(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		helper.assertFalse(SupermanSuit.wearsCape(p), "no suit: no cape");
+		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE));
+		helper.assertFalse(SupermanSuit.wearsCape(p), "another chestplate: no cape");
+		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(SupermanSuit.BOOTS));
+		p.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
+		helper.assertFalse(SupermanSuit.wearsCape(p), "the boots alone: no cape");
+		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(SupermanSuit.CHESTPLATE));
+		helper.assertTrue(SupermanSuit.wearsCape(p), "the Superman chestplate: the cape");
+
+		helper.assertFalse(SupermanSuit.capeInWind(p), "standing: a walking cloak");
+		KryptonianFlight.toggle(p);
+		helper.assertTrue(SupermanSuit.capeInWind(p), "Kryptonian flight: it streams");
+		KryptonianFlight.toggle(p);
+		helper.assertFalse(SupermanSuit.capeInWind(p), "landed: a cloak again");
+		p.getAbilities().flying = true;
+		helper.assertTrue(SupermanSuit.capeInWind(p), "vanilla (creative) flight streams it too, like Thor's cape");
+		p.getAbilities().flying = false;
+		helper.assertFalse(SupermanSuit.capeInWind(p), "and settles after");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void losingThePowerPopsTheSupermanSuitOff(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);

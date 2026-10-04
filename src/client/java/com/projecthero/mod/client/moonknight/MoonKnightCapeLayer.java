@@ -121,7 +121,7 @@ public class MoonKnightCapeLayer extends RenderLayer<AbstractClientPlayer, Playe
 	/**
 	 * Vanilla's cape swing ({@code CapeLayer}), unchanged: {@code {swing, side}} in degrees -- the tilt back off the
 	 * body (lagging "cloak" position, walk bob, crouch) and the sideways sway. Shared with the Superman Suit's cape
-	 * (v0.14.9, {@code SupermanCapeLayer}) on the ground.
+	 * (v0.14.9; since v0.14.16 the shared {@code FlowingCapeLayer}) on the ground.
 	 */
 	public static float[] cloakSwing(AbstractClientPlayer player, float pt) {
 		double dx = Mth.lerp(pt, player.xCloakO, player.xCloak) - Mth.lerp(pt, player.xo, player.getX());

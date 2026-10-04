@@ -112,6 +112,15 @@ public final class SupermanSuit {
 		return player.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof SupermanSuitItem;
 	}
 
+	/**
+	 * v0.14.21: whether the cape streams in the wind of a flight (the shared flowing cape's flight mode) rather than
+	 * swinging like a walking cloak -- Kryptonian flight (synced, so other players see it too), plus vanilla flight and
+	 * elytra gliding, the same rule as Thor's cape. Client-safe.
+	 */
+	public static boolean capeInWind(Player player) {
+		return Kryptonian.isFlying(player) || player.getAbilities().flying || player.isFallFlying();
+	}
+
 	public static void refuse(Player player) {
 		player.displayClientMessage(Component.translatable("message.projecthero.superman_suit.refused")
 				.withStyle(ChatFormatting.RED), true);
