@@ -135,6 +135,8 @@ public class SymbioteEntity extends Entity {
 	private long bondingExpiresAt;
 	private final java.util.Map<UUID, Long> interactCooldown = new java.util.HashMap<>();
 	private int recoilTicks;
+	/** v0.14.21: ticks left before a Symbiote lit with flint and steel burns away (0 = not burning). */
+	private int burnTicks;
 	private int holdTicks;
 	private int fleeTicks;
 	private Vec3 fleeFrom;
@@ -188,6 +190,7 @@ public class SymbioteEntity extends Entity {
 			homeRadius = tag.getDouble("HomeRadius");
 		}
 		huntDelay = tag.getInt("HuntDelay");
+		burnTicks = tag.getInt("BurnTicks");
 		// Pre-0.13.19 save: only the hover height was stored. Work out what it was on the first tick.
 		legacy = tag.contains("HoverY") && !tag.contains("HomeX");
 	}
@@ -203,6 +206,9 @@ public class SymbioteEntity extends Entity {
 		tag.putDouble("HomeRadius", homeRadius);
 		if (huntDelay > 0) {
 			tag.putInt("HuntDelay", huntDelay);
+		}
+		if (burnTicks > 0) {
+			tag.putInt("BurnTicks", burnTicks);
 		}
 	}
 
@@ -277,6 +283,10 @@ public class SymbioteEntity extends Entity {
 	}
 
 	private void serverTick(ServerLevel server) {
+		if (burnTicks > 0) {
+			tickBurning(server);
+			return;
+		}
 		if (bondingPlayer != null) {
 			ServerPlayer claimer = server.getServer().getPlayerList().getPlayer(bondingPlayer);
 			if (claimer == null || claimer.isRemoved() || server.getGameTime() > bondingExpiresAt
@@ -787,6 +797,12 @@ public class SymbioteEntity extends Entity {
 			return InteractionResult.CONSUME;
 		}
 		interactCooldown.put(sp.getUUID(), now + 20L);
+
+		// v0.14.21: flint and steel sets it alight -- it writhes in the flames and burns away.
+		if (player.getMainHandItem().is(Items.FLINT_AND_STEEL)) {
+			ignite(sp);
+			return InteractionResult.CONSUME;
+		}
 		holdTicks = Math.max(holdTicks, 60); // it goes still, tasting the air, when someone reaches for it
 
 		if (bondingPlayer != null && !bondingPlayer.equals(sp.getUUID())) {
@@ -802,6 +818,60 @@ public class SymbioteEntity extends Entity {
 
 		SymbioteBonding.attempt(sp, this);
 		return InteractionResult.CONSUME;
+	}
+
+	// ---------------- burning ----------------
+
+	/** How long a lit Symbiote writhes before it burns away. */
+	public static final int BURN_TICKS = 40;
+
+	public boolean isBurning() {
+		return burnTicks > 0;
+	}
+
+	/** Set it alight with the flint and steel in {@code player}'s main hand (costs 1 durability). */
+	public void ignite(ServerPlayer player) {
+		if (burnTicks > 0 || isRemoved()) {
+			return;
+		}
+		burnTicks = BURN_TICKS;
+		bondingPlayer = null;
+		holdTicks = 0;
+		recoil();
+		ItemStack lighter = player.getMainHandItem();
+		if (lighter.is(Items.FLINT_AND_STEEL)) {
+			lighter.hurtAndBreak(1, player, net.minecraft.world.entity.EquipmentSlot.MAINHAND);
+		}
+		ServerLevel server = (ServerLevel) level();
+		server.playSound(null, getX(), getY(), getZ(), SoundEvents.FLINTANDSTEEL_USE, SoundSource.PLAYERS, 1.0f, 1.0f);
+		server.playSound(null, getX(), getY(), getZ(), SoundEvents.FIRECHARGE_USE, SoundSource.HOSTILE, 0.7f, 1.2f);
+		SymbioteSounds.organic(server, getX(), getY(), getZ(), 1.2f, 1.8f);
+	}
+
+	private void tickBurning(ServerLevel server) {
+		burnTicks--;
+		recoilTicks = 30;
+		entityData.set(DATA_RECOIL, true);
+		entityData.set(DATA_MOOD, MOOD_IDLE);
+		setDeltaMovement(Vec3.ZERO);
+		double x = getX();
+		double y = getY() + 0.25;
+		double z = getZ();
+		server.sendParticles(ParticleTypes.FLAME, x, y, z, 4, 0.3, 0.2, 0.3, 0.02);
+		server.sendParticles(ParticleTypes.SMOKE, x, y + 0.2, z, 2, 0.25, 0.15, 0.25, 0.01);
+		if (burnTicks % 8 == 0) {
+			SymbioteSounds.organic(server, x, y, z, 1.0f, 1.6f + random.nextFloat() * 0.4f);
+			server.playSound(null, x, y, z, SoundEvents.FIRE_AMBIENT, SoundSource.HOSTILE, 1.0f, 0.8f);
+		}
+		if (burnTicks > 0) {
+			return;
+		}
+		server.sendParticles(ParticleTypes.LARGE_SMOKE, x, y, z, 24, 0.4, 0.3, 0.4, 0.03);
+		server.sendParticles(ParticleTypes.FLAME, x, y, z, 20, 0.35, 0.25, 0.35, 0.06);
+		server.sendParticles(ParticleTypes.SQUID_INK, x, y, z, 16, 0.3, 0.2, 0.3, 0.05);
+		server.playSound(null, x, y, z, SoundEvents.FIRE_EXTINGUISH, SoundSource.HOSTILE, 1.0f, 0.6f);
+		SymbioteSounds.organic(server, x, y, z, 1.4f, 0.5f);
+		discard();
 	}
 
 	// ---------------- bond lock ----------------

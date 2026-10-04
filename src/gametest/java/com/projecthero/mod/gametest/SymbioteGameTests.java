@@ -329,6 +329,29 @@ public class SymbioteGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.14.21: flint and steel on a Symbiote sets it alight; it burns away after BURN_TICKS. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void flintAndSteelBurnsASymbioteAway(GameTestHelper helper) {
+		com.projecthero.mod.symbiote.entity.SymbioteEntity blob =
+				com.projecthero.mod.symbiote.entity.SymbioteEntityTypes.SYMBIOTE.create(helper.getLevel());
+		blob.moveTo(helper.absoluteVec(new net.minecraft.world.phys.Vec3(1.5, 1.0, 1.5)));
+		helper.getLevel().addFreshEntity(blob);
+
+		ServerPlayer player = helper.makeMockServerPlayerInLevel();
+		player.setGameMode(GameType.SURVIVAL);
+		net.minecraft.world.item.ItemStack lighter = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.FLINT_AND_STEEL);
+		player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, lighter);
+		blob.interact(player, net.minecraft.world.InteractionHand.MAIN_HAND);
+
+		helper.assertTrue(blob.isBurning(), "flint and steel sets the Symbiote alight");
+		helper.assertFalse(blob.isRemoved(), "it writhes for a moment before burning away");
+		helper.assertFalse(com.projecthero.mod.symbiote.Symbiote.hasSymbiote(player), "lighting it never bonds it");
+		helper.runAfterDelay(com.projecthero.mod.symbiote.entity.SymbioteEntity.BURN_TICKS + 5, () -> {
+			helper.assertTrue(blob.isRemoved(), "the Symbiote burned away");
+			helper.succeed();
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void bondingKeepsSpiderManAndUsesTheBlackSuit(GameTestHelper helper) {
 		com.projecthero.mod.symbiote.entity.SymbioteEntity blob =
