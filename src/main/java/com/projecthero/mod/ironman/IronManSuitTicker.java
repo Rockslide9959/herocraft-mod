@@ -143,11 +143,6 @@ public final class IronManSuitTicker {
 		}
 		tickIntegrityFailure(player, suitId, false);
 
-		// Targeting mode also needs the helmet, and expires on its own timer.
-		if (!IronManArmor.hasHelmet(player, suitId) || s.targetingUntil <= player.level().getGameTime()) {
-			s.targetingUntil = 0L;
-		}
-
 		if (s.unibeamUntil != 0L) {
 			IronManAbilities.tickUnibeam(player, suit);
 		}
@@ -239,7 +234,6 @@ public final class IronManSuitTicker {
 	 * lost, or the suit runs out of energy / integrity.
 	 */
 	public static void shutDownAllSystems(ServerPlayer player, TonyStarkState s, IronManSuit suit) {
-		s.targetingUntil = 0L;
 		s.unibeamUntil = 0L;
 		s.chargeStartTick = 0L;
 		s.chargeReadyPinged = false;
@@ -247,6 +241,8 @@ public final class IronManSuitTicker {
 		s.flamethrowerHeld = false;
 		s.pendingMissiles = 0;
 		s.pendingMissileSuit = "";
+		s.pendingMissileHoming = false;
+		s.pendingMissileTargetId = -1;
 		// "changes 13": the mob-highlight toggle must not stay latched on with the suit off / unpowered.
 		IronManAbilities.clearMobHighlight(player);
 		// "changes 19": retract the Mark 5 blades when the suit powers down / comes off.

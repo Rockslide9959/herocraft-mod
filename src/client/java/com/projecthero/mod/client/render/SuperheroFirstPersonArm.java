@@ -96,6 +96,14 @@ public final class SuperheroFirstPersonArm {
 	 */
 	public static void render(PoseStack pose, MultiBufferSource buffers, int light, ModelPart vanillaArm,
 			boolean rightSide, String armorSetId) {
+		// v0.14.21 round two: every Iron Man mark has its own first-person gauntlet (+ palm repulsor, Mark V blade)
+		if (com.projecthero.mod.client.ironman.IronManFirstPersonGauntlets.handles(armorSetId)
+				&& net.minecraft.client.Minecraft.getInstance().player != null) {
+			com.projecthero.mod.client.ironman.IronManFirstPersonGauntlets.render(pose, buffers, light, vanillaArm, rightSide,
+					armorSetId, net.minecraft.client.Minecraft.getInstance().player,
+					net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
+			return;
+		}
 		if (!ensureBaked()) {
 			return;
 		}

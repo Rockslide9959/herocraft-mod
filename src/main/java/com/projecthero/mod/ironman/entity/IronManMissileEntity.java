@@ -31,6 +31,8 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 	private float blastRadius = 1.4f;
 	/** v0.11.13: the Mark 1/2 Rocket opts into this -- Micro-Missiles never does. */
 	private boolean breaksBlocks = false;
+	/** v0.14.21 round two: the entity a Homing Missiles volley locked on to (not saved -- a reload falls back to nearest-hostile homing). */
+	private int lockedTargetId = -1;
 
 	public IronManMissileEntity(EntityType<? extends IronManMissileEntity> type, Level level) {
 		super(type, level);
@@ -51,6 +53,25 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 	public IronManMissileEntity withHoming() {
 		this.homing = true;
 		return this;
+	}
+
+	/**
+	 * v0.14.21 round two (Homing Missiles): steer hard onto this specific entity while it lives. Implies
+	 * {@link #withHoming()}; once it is gone the missile falls back to the nearest hostile.
+	 */
+	public IronManMissileEntity withTarget(LivingEntity target) {
+		this.homing = true;
+		this.lockedTargetId = target == null ? -1 : target.getId();
+		return this;
+	}
+
+	/** The locked target, if it still exists and lives. */
+	public LivingEntity lockedTarget() {
+		return lockedTargetId >= 0 && level().getEntity(lockedTargetId) instanceof LivingEntity le && le.isAlive() ? le : null;
+	}
+
+	public boolean isHoming() {
+		return homing;
 	}
 
 	/** Set the blast size of the on-impact AoE explosion (default 1.4). */
@@ -95,11 +116,15 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 		// mild homing toward the nearest hostile within 12 blocks -- only when explicitly enabled
 		// ("changes 14": rockets and micro-missiles are dumb-fire, they hit where they were aimed).
 		if (homing) {
-			LivingEntity target = nearestTarget();
+			LivingEntity locked = lockedTarget();
+			LivingEntity target = locked != null ? locked : nearestTarget();
 			if (target != null) {
 				Vec3 want = target.position().add(0, target.getBbHeight() * 0.5, 0).subtract(position()).normalize();
-				Vec3 v = getDeltaMovement().normalize().scale(0.85).add(want.scale(0.15)).normalize()
-						.scale(getDeltaMovement().length());
+				// a locked missile turns hard (and keeps its pace up) after a short 4-tick fan-out
+				double turn = locked != null ? (life < 4 ? 0.1 : 0.35) : 0.15;
+				double speed = locked != null ? Math.max(1.1, getDeltaMovement().length()) : getDeltaMovement().length();
+				Vec3 v = getDeltaMovement().normalize().scale(1.0 - turn).add(want.scale(turn)).normalize()
+						.scale(speed);
 				setDeltaMovement(v);
 			}
 		}

@@ -174,7 +174,8 @@ public final class IronManFlightFxClient {
 				.rotateX(-lean * Mth.DEG_TO_RAD)
 				.scale(-0.9375f, -0.9375f, 0.9375f)
 				.translate(0.0f, -1.501f, 0.0f);
-		float sole = kind == Kind.BOOTS ? 12.3f : 13.0f;
+		// v0.14.21 round two: bare Repulsor Boots jet from just under the worn boot model's lit sole (RepulsorBootsLayer)
+		float sole = kind == Kind.BOOTS ? com.projecthero.mod.client.ironman.RepulsorBootsLayer.SOLE_Y + 0.1f : 13.0f;
 		limb(base, -IronManFlightPose.LEG_PIVOT_X, IronManFlightPose.LEG_PIVOT_Y, LIMBS[6], LIMBS[7], LIMBS[8], 0f, sole, 0);
 		limb(base, IronManFlightPose.LEG_PIVOT_X, IronManFlightPose.LEG_PIVOT_Y, LIMBS[9], LIMBS[10], LIMBS[11], 0f, sole, 1);
 		if (kind == Kind.BOOTS || kind == Kind.MARK_ONE) {

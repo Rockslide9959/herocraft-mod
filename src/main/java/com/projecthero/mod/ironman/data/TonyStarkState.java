@@ -47,7 +47,7 @@ public final class TonyStarkState {
 	 *       suit id is added too, which unlocks the next mark's blueprint in the Blank Blueprint picker
 	 *       (the linear Mark 1 -> 2 -> III -> 4 -> V -> 6 -> VII gate).</li>
 	 * </ul>
-	 * Kept as one set so the persistence codec stays at its 16-field ceiling.
+	 * Kept as one set (the save is nested since v0.14.21 round two, see {@link #CODEC}).
 	 */
 	public final Set<String> builtSuits;
 	/** Which suit is currently equipped/deployed, or "" for none. */
@@ -143,12 +143,6 @@ public final class TonyStarkState {
 	public transient boolean transitionFromCase = false;
 	/** v0.14.21: suit-down pieces whose plates are breaking away right now, removed once their release finishes (bit 0 HEAD .. 3 FEET). */
 	public transient int transitionReleaseMask = 0;
-	/**
-	 * game time until which the old Targeting Mode reticle is active. v0.14.21: no suit binds Targeting Mode any more,
-	 * so nothing sets this; it is kept only because {@code IronManHud} still reads {@link #targetingActive} (remove both
-	 * together once the HUD drops its reticle).
-	 */
-	public transient long targetingUntil = 0L;
 	/** game time the R-slot (slot 1) hold started, or 0 if not held -- drives the charged-repulsor spin-up. */
 	public transient long chargeStartTick = 0L;
 	/** true once the current R-hold has crossed the charged threshold, so the "ready" cue only fires once. */
@@ -168,10 +162,10 @@ public final class TonyStarkState {
 	public transient long pendingMissileNextTick = 0L;
 	/** "changes 18": suit id the in-progress micro-missile volley belongs to, or "". */
 	public transient String pendingMissileSuit = "";
-
-	public boolean targetingActive(long now) {
-		return now < targetingUntil;
-	}
+	/** v0.14.21 round two: the in-progress volley is Homing Missiles (locked on to {@link #pendingMissileTargetId}). */
+	public transient boolean pendingMissileHoming = false;
+	/** v0.14.21 round two: entity id the Homing Missiles volley is locked on to, or -1. */
+	public transient int pendingMissileTargetId = -1;
 
 	public TonyStarkState() {
 		this(false, 0, new HashSet<>(), "", new HashMap<>(), new HashMap<>(), new HashMap<>(), false, 0.0f,
@@ -223,7 +217,6 @@ public final class TonyStarkState {
 		c.transitionToCase = transitionToCase;
 		c.transitionFromCase = transitionFromCase;
 		c.transitionReleaseMask = transitionReleaseMask;
-		c.targetingUntil = targetingUntil;
 		c.chargeStartTick = chargeStartTick;
 		c.chargeReadyPinged = chargeReadyPinged;
 		c.unibeamUntil = unibeamUntil;
@@ -233,39 +226,109 @@ public final class TonyStarkState {
 		c.pendingMissiles = pendingMissiles;
 		c.pendingMissileNextTick = pendingMissileNextTick;
 		c.pendingMissileSuit = pendingMissileSuit;
+		c.pendingMissileHoming = pendingMissileHoming;
+		c.pendingMissileTargetId = pendingMissileTargetId;
 		return c;
 	}
 
-	public static final Codec<TonyStarkState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+	private static final String DEFAULT_WHEEL = com.projecthero.mod.ironman.ability.IronManAbilities.MICRO_MISSILES;
+	private static final Codec<Set<String>> STRING_SET = Codec.STRING.listOf().xmap(HashSet::new, java.util.ArrayList::new);
+	private static final Codec<Map<String, Float>> FLOAT_MAP = Codec.unboundedMap(Codec.STRING, Codec.FLOAT).xmap(HashMap::new, HashMap::new);
+	private static final Codec<Map<String, Long>> LONG_MAP = Codec.unboundedMap(Codec.STRING, Codec.LONG).xmap(HashMap::new, HashMap::new);
+
+	/**
+	 * v0.14.21 round two: the pre-0.14.21 <b>flat</b> save shape (16 top-level fields -- the {@code RecordCodecBuilder}
+	 * maximum). Still read by {@link #CODEC} so every old world loads; never written any more.
+	 */
+	public static final Codec<TonyStarkState> LEGACY_FLAT_CODEC = RecordCodecBuilder.create(instance -> instance.group(
 			Codec.BOOL.optionalFieldOf("has_power", false).forGetter(s -> s.hasPower),
 			Codec.INT.optionalFieldOf("tech_level", 0).forGetter(s -> s.techLevel),
-			Codec.STRING.listOf().xmap(HashSet::new, java.util.ArrayList::new)
-					.optionalFieldOf("built_suits", new HashSet<>())
-					.forGetter(s -> new HashSet<>(s.builtSuits)),
+			STRING_SET.optionalFieldOf("built_suits", new HashSet<>()).forGetter(s -> new HashSet<>(s.builtSuits)),
 			Codec.STRING.optionalFieldOf("active_suit", "").forGetter(s -> s.activeSuit),
-			Codec.unboundedMap(Codec.STRING, Codec.FLOAT).optionalFieldOf("suit_energy", new HashMap<>())
-					.forGetter(s -> new HashMap<>(s.suitEnergy)),
-			Codec.unboundedMap(Codec.STRING, Codec.FLOAT).optionalFieldOf("suit_integrity", new HashMap<>())
-					.forGetter(s -> new HashMap<>(s.suitIntegrity)),
-			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", new HashMap<>())
-					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
+			FLOAT_MAP.optionalFieldOf("suit_energy", new HashMap<>()).forGetter(s -> new HashMap<>(s.suitEnergy)),
+			FLOAT_MAP.optionalFieldOf("suit_integrity", new HashMap<>()).forGetter(s -> new HashMap<>(s.suitIntegrity)),
+			LONG_MAP.optionalFieldOf("ability_ready_at", new HashMap<>()).forGetter(s -> new HashMap<>(s.abilityReadyAt)),
 			Codec.BOOL.optionalFieldOf("mob_highlight_on", false).forGetter(s -> s.mobHighlightOn),
 			Codec.FLOAT.optionalFieldOf("flamethrower_heat", 0.0f).forGetter(s -> s.flamethrowerHeat),
 			Codec.LONG.optionalFieldOf("timed_flight_until", 0L).forGetter(s -> s.timedFlightUntil),
 			Codec.LONG.optionalFieldOf("wrist_laser_until", 0L).forGetter(s -> s.wristLaserUntil),
 			Codec.LONG.optionalFieldOf("overload_until", 0L).forGetter(s -> s.overloadUntil),
-			Codec.STRING.listOf().xmap(HashSet::new, java.util.ArrayList::new)
-					.optionalFieldOf("wrist_laser_spent", new HashSet<>())
-					.forGetter(s -> new HashSet<>(s.wristLaserSpent)),
-			Codec.STRING.optionalFieldOf("weapon_wheel_choice",
-					com.projecthero.mod.ironman.ability.IronManAbilities.MICRO_MISSILES)
-					.forGetter(s -> s.weaponWheelChoice),
+			STRING_SET.optionalFieldOf("wrist_laser_spent", new HashSet<>()).forGetter(s -> new HashSet<>(s.wristLaserSpent)),
+			Codec.STRING.optionalFieldOf("weapon_wheel_choice", DEFAULT_WHEEL).forGetter(s -> s.weaponWheelChoice),
 			Codec.LONG.optionalFieldOf("phoenix_ready_at", 0L).forGetter(s -> s.phoenixReadyAt),
 			Codec.FLOAT.optionalFieldOf("suit_air", 1.0f).forGetter(s -> s.suitAir)
 	).apply(instance, TonyStarkState::new));
 
+	/** Progression: the power, the tech tier, what has been built, which suit is active. */
+	private record Core(boolean hasPower, int techLevel, Set<String> builtSuits, String activeSuit) {
+		static final Codec<Core> CODEC = RecordCodecBuilder.create(i -> i.group(
+				Codec.BOOL.optionalFieldOf("has_power", false).forGetter(Core::hasPower),
+				Codec.INT.optionalFieldOf("tech_level", 0).forGetter(Core::techLevel),
+				STRING_SET.optionalFieldOf("built_suits", new HashSet<>()).forGetter(Core::builtSuits),
+				Codec.STRING.optionalFieldOf("active_suit", "").forGetter(Core::activeSuit)
+		).apply(i, Core::new));
+	}
+
+	/** Per-suit state and suit settings. */
+	private record Suit(Map<String, Float> energy, Map<String, Float> integrity, float air, boolean mobHighlightOn,
+			String weaponWheelChoice) {
+		static final Codec<Suit> CODEC = RecordCodecBuilder.create(i -> i.group(
+				FLOAT_MAP.optionalFieldOf("energy", new HashMap<>()).forGetter(Suit::energy),
+				FLOAT_MAP.optionalFieldOf("integrity", new HashMap<>()).forGetter(Suit::integrity),
+				Codec.FLOAT.optionalFieldOf("air", 1.0f).forGetter(Suit::air),
+				Codec.BOOL.optionalFieldOf("mob_highlight_on", false).forGetter(Suit::mobHighlightOn),
+				Codec.STRING.optionalFieldOf("weapon_wheel_choice", DEFAULT_WHEEL).forGetter(Suit::weaponWheelChoice)
+		).apply(i, Suit::new));
+	}
+
+	/** Every absolute "ready-at" / "until" game time. */
+	private record Cooldowns(Map<String, Long> abilityReadyAt, long timedFlightUntil, long wristLaserUntil,
+			long overloadUntil, long phoenixReadyAt) {
+		static final Codec<Cooldowns> CODEC = RecordCodecBuilder.create(i -> i.group(
+				LONG_MAP.optionalFieldOf("ability_ready_at", new HashMap<>()).forGetter(Cooldowns::abilityReadyAt),
+				Codec.LONG.optionalFieldOf("timed_flight_until", 0L).forGetter(Cooldowns::timedFlightUntil),
+				Codec.LONG.optionalFieldOf("wrist_laser_until", 0L).forGetter(Cooldowns::wristLaserUntil),
+				Codec.LONG.optionalFieldOf("overload_until", 0L).forGetter(Cooldowns::overloadUntil),
+				Codec.LONG.optionalFieldOf("phoenix_ready_at", 0L).forGetter(Cooldowns::phoenixReadyAt)
+		).apply(i, Cooldowns::new));
+	}
+
+	/** Weapon state that fits nowhere else. Add new persisted fields to a group with room (or a new group). */
+	private record Misc(float flamethrowerHeat, Set<String> wristLaserSpent) {
+		static final Codec<Misc> CODEC = RecordCodecBuilder.create(i -> i.group(
+				Codec.FLOAT.optionalFieldOf("flamethrower_heat", 0.0f).forGetter(Misc::flamethrowerHeat),
+				STRING_SET.optionalFieldOf("wrist_laser_spent", new HashSet<>()).forGetter(Misc::wristLaserSpent)
+		).apply(i, Misc::new));
+	}
+
 	/**
-	 * v0.14.16: what the attachment syncs -- the saved {@link #CODEC} (already at the 16-field record-codec limit) plus
+	 * v0.14.21 round two: the nested save shape {@code {core:{..}, suit:{..}, cooldowns:{..}, misc:{..}}}. {@code core}
+	 * is <em>required</em> -- that is what makes an old flat blob (which has no {@code core}) fail this codec and fall
+	 * back to {@link #LEGACY_FLAT_CODEC} inside {@link #CODEC}. Every group has room for more fields.
+	 */
+	public static final Codec<TonyStarkState> NESTED_CODEC = RecordCodecBuilder.create(instance -> instance.group(
+			Core.CODEC.fieldOf("core").forGetter(s -> new Core(s.hasPower, s.techLevel, new HashSet<>(s.builtSuits), s.activeSuit)),
+			Suit.CODEC.optionalFieldOf("suit", new Suit(new HashMap<>(), new HashMap<>(), 1.0f, false, DEFAULT_WHEEL))
+					.forGetter(s -> new Suit(new HashMap<>(s.suitEnergy), new HashMap<>(s.suitIntegrity), s.suitAir,
+							s.mobHighlightOn, s.weaponWheelChoice)),
+			Cooldowns.CODEC.optionalFieldOf("cooldowns", new Cooldowns(new HashMap<>(), 0L, 0L, 0L, 0L))
+					.forGetter(s -> new Cooldowns(new HashMap<>(s.abilityReadyAt), s.timedFlightUntil, s.wristLaserUntil,
+							s.overloadUntil, s.phoenixReadyAt)),
+			Misc.CODEC.optionalFieldOf("misc", new Misc(0.0f, new HashSet<>()))
+					.forGetter(s -> new Misc(s.flamethrowerHeat, new HashSet<>(s.wristLaserSpent)))
+	).apply(instance, (core, suit, cd, misc) -> new TonyStarkState(core.hasPower(), core.techLevel(), core.builtSuits(),
+			core.activeSuit(), suit.energy(), suit.integrity(), cd.abilityReadyAt(), suit.mobHighlightOn(),
+			misc.flamethrowerHeat(), cd.timedFlightUntil(), cd.wristLaserUntil(), cd.overloadUntil(),
+			misc.wristLaserSpent(), suit.weaponWheelChoice(), cd.phoenixReadyAt(), suit.air())));
+
+	/**
+	 * The persisted codec: always <b>writes</b> {@link #NESTED_CODEC}; <b>reads</b> the nested shape and, failing that
+	 * (a save from before v0.14.21 round two), the old flat shape.
+	 */
+	public static final Codec<TonyStarkState> CODEC = Codec.withAlternative(NESTED_CODEC, LEGACY_FLAT_CODEC);
+
+	/**
+	 * v0.14.16: what the attachment syncs -- the saved {@link #CODEC} plus
 	 * {@link #supersonicUntil}, which the client's directional flight needs to drive the supersonic burst but which is
 	 * never saved (a relog drops the burst, as before).
 	 */

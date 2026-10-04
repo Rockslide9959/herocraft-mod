@@ -4,7 +4,6 @@ import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.attachment.ModAttachments;
 // IronManArmor, IronManEnergy, TonyStark are in this same package.
 
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -15,7 +14,6 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * "changes 19": the Mark 5's gauntlet blades (its slot-3 / X toggle, replacing Flare). Pressing X
@@ -25,7 +23,8 @@ import net.minecraft.world.phys.Vec3;
  *   <li>+4 melee (`ATTACK_DAMAGE`) via a fixed-id transient modifier while extended;</li>
  *   <li>you cannot place blocks while the blades are out ({@code ProjectHeroMod}'s
  *       {@code UseBlockCallback} vetoes a {@code BlockItem} use);</li>
- *   <li>bright blade FX from both gauntlets each render tick.</li>
+ *   <li>v0.14.21 round two: real silver / red blades slide out of both gauntlets (client geometry, eased over
+ *       {@link IronManBladeLook#EXTEND_TICKS} ticks) instead of the old particle FX.</li>
  * </ul>
  *
  * {@code IRON_MAN_BLADES} is a synced-to-everyone, non-persistent boolean attachment.
@@ -62,7 +61,7 @@ public final class IronManBlade {
 
 	/**
 	 * Per-tick from {@link IronManSuitTicker}: reconcile the +melee modifier, retract the blades if the
-	 * Mark 5 is no longer the worn/powered suit, and draw the blade FX.
+	 * Mark 5 is no longer the worn/powered suit, and keep the blades out.
 	 */
 	public static void tick(ServerPlayer player) {
 		boolean want = active(player) && "mark_v".equals(IronManArmor.wornSuitId(player))
@@ -83,25 +82,7 @@ public final class IronManBlade {
 			retract(player);
 			return;
 		}
-		if (player.tickCount % 2 != 0 || !(player.level() instanceof ServerLevel level)) {
-			return;
-		}
-		Vec3 look = player.getLookAngle();
-		Vec3 right = look.cross(new Vec3(0, 1, 0));
-		if (right.lengthSqr() < 1.0E-6) {
-			double yaw = Math.toRadians(player.getYRot());
-			right = new Vec3(Math.cos(yaw), 0, Math.sin(yaw));
-		}
-		right = right.normalize();
-		Vec3 eye = player.getEyePosition();
-		for (int side = -1; side <= 1; side += 2) {
-			Vec3 base = eye.add(right.scale(0.42 * side)).add(0, -0.45, 0).add(look.scale(0.2));
-			for (double d = 0.0; d <= 1.3; d += 0.32) {
-				Vec3 p = base.add(look.scale(d));
-				level.sendParticles(ParticleTypes.ENCHANTED_HIT, p.x, p.y, p.z, 1, 0.01, 0.01, 0.01, 0.0);
-			}
-			Vec3 tip = base.add(look.scale(1.35));
-			level.sendParticles(ParticleTypes.END_ROD, tip.x, tip.y, tip.z, 1, 0.01, 0.01, 0.01, 0.0);
-		}
+		// v0.14.21 round two: the blades are real geometry now (mark_v right_blade / left_blade bones + the first-person
+		// gauntlet, client IronManBladeClient); the old floating particle line along the look vector is gone.
 	}
 }

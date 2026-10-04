@@ -568,8 +568,8 @@ SoundManager resolves them by id.
 ### The synced clock: `IronManSuitFx`
 
 `com.projecthero.mod.ironman.suit.IronManSuitFx` — attachment `projecthero:iron_man_suit_fx`, synced to **every**
-viewer, never persisted (`ModAttachments.IRON_MAN_SUIT_FX`). The persisted `TonyStarkState.CODEC` is untouched (it is
-at the 16-field record limit). Fields: one start tick per armour slot + an "assembling" bit mask (lock-on vs release),
+viewer, never persisted (`ModAttachments.IRON_MAN_SUIT_FX`). The persisted `TonyStarkState.CODEC` is untouched (it was
+at the 16-field record limit; nested since round two, see 17v). Fields: one start tick per armour slot + an "assembling" bit mask (lock-on vs release),
 a reveal `style` (plates / from-case), the body-pose clock (`poseStart`, `poseTicks`, `poseKind`) and `faceplateAt`.
 Written only server-side (`markPiece`, `startPose`, `endPose`, `faceplateMoved`). A stale clock is ignored outside its
 window, so it can never hide a piece equipped some other way later.
@@ -660,13 +660,77 @@ mace smash, heavy core). Swap in real audio by pointing an event at `projecthero
 * Beams: `IronManAbilities.broadcastBeam` sends to `IronManBeamRecipients.recipients` — the shooter, their trackers,
   and every player whose eyes are within 128 blocks of the beam segment (a far target used to never see the beam).
 * Removed: `IronManSuitSummonManager`; `SuitUpType.SUITCASE/MODULAR/NANOTECH` and the nanotech branches;
-  `SummonType.NANOTECH_ONBOARD/FLYING_MODULAR`; the unbound `TARGETING_MODE` ability (the `targetingUntil` field stays
+  `SummonType.NANOTECH_ONBOARD/FLYING_MODULAR`; the unbound `TARGETING_MODE` ability (the `targetingUntil` field stayed
   only because `IronManHud` still reads it); the vestigial `IronManSuit` fields `energyRecharge`, `repulsorEnergyCost`,
   `unibeamEnergyCost`, `damageReduction` (builder: `energy(capacity, flightCost)`, `repulsor(damage)`,
   `unibeam(damage)`); stale Mark 42 / 50 comments; `/ironman tech` is now 0-3.
 * `modular_armor_controller` / `nanotech_matrix` stay registered (old worlds) but are off the creative tab and tagged
   `c:hidden_from_recipe_viewers`.
 * GameTests: `IronManSuitUpV01421GameTests`.
+
+## 17v. v0.14.21 round two — glow, blades, gauntlets, boots, Homing Missiles, save format
+
+Assets: `scratchpad/gen_v01421_ironman_round2.js` (idempotent; re-run after repainting a mark). Lang:
+`scratchpad/lang_v01421_ironman_round2.js`. GameTests: `IronManRound2GameTests`.
+
+**Glowing suit details** (`client/ironman/IronManSuitGlowLayer`, added to `SuperheroArmorRenderer`). Every mark has
+`textures/armor/<mark>_glowmask.png` (64x64), generated from the mark's own cyan texels (eye slits, arc reactor, soles,
+Mark V palms) plus white texels inside a cyan cluster (Mark 2's eye cores), plus the palm repulsor (centre 2x2 of the
+base-arm "down" rect: right (49-50, 17-18), left (41-42, 49-50)) for marks 2..VII. Mark 1 has no cyan: only its white
+reactor dot glows, at 55%. The layer re-renders the piece in `RenderType.eyes(glowmask)` (additive, fullbright, so the
+mask's transparent texels are written as rgb 0). It is deliberately **not** GeckoLib's `AutoGlowingGeoLayer`, which cuts
+the glow texels out of the base texture in GPU memory -- the same `mark_*.png` is sampled by the first-person arm, the
+`ArmorSweepReveal` copies and item previews. Reveal: a piece whose lock-on / release clock is running does not glow;
+its lights come on once it is locked in. Open faceplate / slot visibility apply to the glow pass too (same bone pass).
+
+**Mark V blades.** `geo/mark_v.geo.json` has `right_blade` / `left_blade` bones (children of the arm bones: red housing
+on the outer side of the gauntlet, a silver blade, a tapered tip; pivot at the top) textured from a blade swatch painted
+into the unused top-left 8x8 of `mark_v.png`. `SuperheroArmorRenderer#renderRecursively` hides / Y-scales them each
+frame from `client/ironman/IronManBladeClient` -- one value per player, stepped per client tick from the synced
+`IRON_MAN_BLADES` flag by `ironman/IronManBladeLook` (6 ticks each way, smoothstep, interpolated over the partial
+tick). The first-person gauntlet draws the same blade. Gameplay (`IronManBlade`: +4 melee, no block placing, retract on
+shutdown) is unchanged; the old server particle line along the look vector is gone.
+
+**Per-mark first-person gauntlets** (`client/ironman/IronManFirstPersonGauntlets`, called from
+`SuperheroFirstPersonArm` for the seven marks; other sets keep the shared arm). Drawn in the vanilla arm's animated
+space with `client/ironman/IronManBoxes` (vanilla box-UV layout, UV size independent of geometry) from the mark's own
+texture panels (base arm, arm shell, shoulder, gauntlet, a trim strip). Mark 1: oversized boxy gauntlet, thick cuff,
+slab shoulder, rivets, knuckle bar. Mark 2: slim smooth gauntlet with an end cap, domed shoulder. Mark III: outer
+forearm plate, knuckle plate, two-tier shoulder; Mark 4 adds a wrist ring and splits the forearm plate. Mark V: slim
+with the blade-housing ridge (+ blade). Mark 6: forearm fins, stepped shoulder. Mark VII: three bands, wrist missile
+pod, swept shoulder flap. Marks 2..VII: fullbright palm repulsor (`textures/misc/repulsor_palm_glow.png`) on the palm
+and the fist end, lit once the chestplate's reveal is done. The FP arm follows the chest build-on reveal texture.
+
+**Repulsor Boots worn model** (`client/ironman/RepulsorBootsLayer`, a player feature layer). A Repulsor in the boots
+slot shows a silver shell, red ankle ring and side pods, toe cap with a gold stripe, heel thruster and dark nozzle sole
+on each foot (`textures/armor/repulsor_boots.png`, 8x8 material swatches). While `REPULSOR_BOOTS_FLYING` the soles
+light up (flickering fullbright glow). The sole bottom is leg-local y `RepulsorBootsLayer.SOLE_Y` = 12.6 px and
+`IronManFlightFxClient` now puts the bare-boots jet nozzles at `SOLE_Y + 0.1` (was 12.3), so the jets leave the soles.
+
+**Homing Missiles** (Mark VII weapon wheel, **added** as a 7th wedge after Micro-Missiles -- nothing replaced; the wheel
+screen and hit-test are generic over the sector count). `IronManAbilities.HOMING_MISSILES`: 4 missiles
+(`HOMING_MISSILE_COUNT`), launched one per 4 ticks through the same volley ticker as Micro-Missiles, same energy
+(`missileEnergyCost` x the suit multiplier), own 8 s cooldown (`mark_vii/homing_missiles`, which the HUD strip reads;
+icon = target block). Lock-on (`homingTarget`): the living thing directly under the crosshair within 30 blocks with a
+clear line, if `HeroTargets.canHarm` allows it (an aimed shot); otherwise the `HeroTargets.isHostile` mob closest to the
+crosshair inside a 30-degree cone within 30 blocks (`HOMING_RANGE`, `HOMING_CONE_DEG`). Each missile fans out a little,
+then steers hard onto the lock (`IronManMissileEntity.withTarget`, turn 0.35/tick after 4 ticks, speed >= 1.1); if the
+lock dies it falls back to the old mild nearest-hostile homing. With no lock it still fires (action bar says so).
+Micro-Missiles stay dumb-fire (their wheel description, which wrongly said "homing", now says so). Wedge labels fit a
+1/7 wedge at every tested GUI size (`IronManRound2GameTests.homingMissilesIsAWheelOption`).
+
+**`TonyStarkState` save format.** The persisted `CODEC` is now
+`Codec.withAlternative(NESTED_CODEC, LEGACY_FLAT_CODEC)`: it always writes
+`{core:{has_power, tech_level, built_suits, active_suit}, suit:{energy, integrity, air, mob_highlight_on,
+weapon_wheel_choice}, cooldowns:{ability_ready_at, timed_flight_until, wrist_laser_until, overload_until,
+phoenix_ready_at}, misc:{flamethrower_heat, wrist_laser_spent}}` and reads that or, failing it, the old flat 16-field
+shape. `core` is the one required group -- that is what makes an old flat save fail the nested decoder and fall back.
+Add new persisted fields to a group with room (each is far below the 16-field limit) or a new optional group.
+`SYNC_CODEC` wraps `CODEC` unchanged; `IronManSuitFx` is untouched. The dead `targetingUntil` / `targetingActive`
+(and the two resets in `IronManSuitTicker`) are removed.
+
+Not verifiable by gametest (rendering): the glow at night, the blade geometry in third / first person, the per-mark
+gauntlet shapes and palm glow, and the boots model + jet alignment.
 
 ## 17t. v0.11.13 (Mark 1 / Mark 2 rebalance)
 

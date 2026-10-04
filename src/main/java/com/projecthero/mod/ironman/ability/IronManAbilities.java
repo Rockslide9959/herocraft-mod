@@ -72,12 +72,21 @@ public final class IronManAbilities {
 	public static final String SUPERSONIC_FLIGHT = "supersonic_flight";
 	/** "changes 17": a non-X-binding weapon-wheel entry -- toggles the coloured entity-glow overlay. */
 	public static final String ENTITY_GLOW_TOGGLE = "entity_glow_toggle";
+	/**
+	 * v0.14.21 round two: a Mark VII weapon-wheel X option -- four missiles that lock on to whatever is nearest the
+	 * crosshair within {@link #HOMING_RANGE} blocks and steer onto it. Same energy as a Micro-Missiles volley.
+	 */
+	public static final String HOMING_MISSILES = "homing_missiles";
+	public static final int HOMING_MISSILE_COUNT = 4;
+	public static final double HOMING_RANGE = 30.0;
+	/** Half-angle of the lock-on cone around the crosshair (degrees). */
+	public static final double HOMING_CONE_DEG = 30.0;
 	/** The abilities the Mark 7 weapon wheel can bind to slot 3, in wheel order. */
 	public static final String[] WEAPON_WHEEL_OPTIONS = {
-			MICRO_MISSILES, FLAMETHROWER, WRIST_LASER, ROCKET, SUPERSONIC_FLIGHT };
-	/** Every weapon-wheel sector, in wheel order: the five X bindings plus the entity-glow toggle. */
+			MICRO_MISSILES, HOMING_MISSILES, FLAMETHROWER, WRIST_LASER, ROCKET, SUPERSONIC_FLIGHT };
+	/** Every weapon-wheel sector, in wheel order: the six X bindings plus the entity-glow toggle (v0.14.21: 7 wedges). */
 	public static final String[] WEAPON_WHEEL_SECTORS = {
-			MICRO_MISSILES, FLAMETHROWER, WRIST_LASER, ROCKET, SUPERSONIC_FLIGHT, ENTITY_GLOW_TOGGLE };
+			MICRO_MISSILES, HOMING_MISSILES, FLAMETHROWER, WRIST_LASER, ROCKET, SUPERSONIC_FLIGHT, ENTITY_GLOW_TOGGLE };
 
 	/** How long slot 1 must be held before a release fires the Charged Repulsor instead of a tap shot. */
 	public static final int CHARGE_HOLD_TICKS = 40; // 2 seconds
@@ -289,6 +298,7 @@ public final class IronManAbilities {
 		String chosen = TonyStark.weaponWheelChoice(player);
 		switch (chosen) {
 			case MICRO_MISSILES -> { if (pressed) microMissiles(player, suit); }
+			case HOMING_MISSILES -> { if (pressed) homingMissiles(player, suit); }
 			case ROCKET -> { if (pressed) rocket(player, suit); }
 			case WRIST_LASER -> { if (pressed) wristLaser(player, suit); }
 			case SUPERSONIC_FLIGHT -> { if (pressed) supersonicFlight(player, suit); }
@@ -635,6 +645,8 @@ public final class IronManAbilities {
 		s.pendingMissiles = suit.missileCount();
 		s.pendingMissileNextTick = player.level().getGameTime();
 		s.pendingMissileSuit = suit.id();
+		s.pendingMissileHoming = false;
+		s.pendingMissileTargetId = -1;
 		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.0f, 1.2f);
 		triggerCooldown(player, suit.id(), MICRO_MISSILES, 8 * 20);
 	}
@@ -649,6 +661,8 @@ public final class IronManAbilities {
 		if (!suit.id().equals(s.pendingMissileSuit) || !IronManArmor.hasHelmet(player, suit.id())) {
 			s.pendingMissiles = 0;
 			s.pendingMissileSuit = "";
+			s.pendingMissileHoming = false;
+			s.pendingMissileTargetId = -1;
 			return;
 		}
 		long now = player.level().getGameTime();
@@ -663,6 +677,20 @@ public final class IronManAbilities {
 		IronManMissileEntity missile = new IronManMissileEntity(level, player, dir.scale(1.2))
 				.withDamage(suit.missileDamage(), suit.missileDamage() * 0.6f)
 				.withBlastRadius(2.0f);
+		if (s.pendingMissileHoming) {
+			// v0.14.21 round two: Homing Missiles -- fan out a little, then steer onto the locked target (or, if it
+			// is gone, the nearest hostile in flight)
+			net.minecraft.world.entity.Entity locked = s.pendingMissileTargetId >= 0 ? level.getEntity(s.pendingMissileTargetId) : null;
+			missile.withHoming();
+			if (locked instanceof LivingEntity le && le.isAlive()) {
+				missile.withTarget(le);
+			}
+			Vec3 up = new Vec3(0, 1, 0);
+			Vec3 side = look.cross(up).lengthSqr() < 1.0E-6 ? new Vec3(1, 0, 0) : look.cross(up).normalize();
+			double spread = (s.pendingMissiles % 2 == 0 ? 1 : -1) * 0.35;
+			dir = look.add(side.scale(spread)).add(0, 0.12, 0).normalize();
+			missile.setDeltaMovement(dir.scale(1.0));
+		}
 		missile.setPos(shoulder.x + dir.x, shoulder.y + dir.y, shoulder.z + dir.z);
 		level.addFreshEntity(missile);
 		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_LAUNCH, 0.6f, 1.5f);
@@ -670,7 +698,87 @@ public final class IronManAbilities {
 		s.pendingMissileNextTick = now + MICRO_MISSILE_STAGGER_TICKS;
 		if (s.pendingMissiles <= 0) {
 			s.pendingMissileSuit = "";
+			s.pendingMissileHoming = false;
+			s.pendingMissileTargetId = -1;
 		}
+	}
+
+	/**
+	 * v0.14.21 round two: Homing Missiles (Mark VII weapon wheel). Four missiles, launched one every
+	 * {@link #MICRO_MISSILE_STAGGER_TICKS} like a Micro-Missiles volley and costing the same energy, locked on to
+	 * {@link #homingTarget}. With nothing to lock on to they still fire, homing on the nearest hostile in flight.
+	 */
+	private static void homingMissiles(ServerPlayer player, IronManSuit suit) {
+		if (!requireHelmet(player, suit)) {
+			return;
+		}
+		if (!cooldownReady(player, suit.id(), HOMING_MISSILES)) {
+			return;
+		}
+		if (TonyStark.state(player).pendingMissiles > 0) {
+			return; // a volley is still launching
+		}
+		if (!pay(player, suit, suit.missileEnergyCost())) {
+			return;
+		}
+		LivingEntity target = homingTarget(player);
+		TonyStarkState s = TonyStark.state(player);
+		s.pendingMissiles = HOMING_MISSILE_COUNT;
+		s.pendingMissileNextTick = player.level().getGameTime();
+		s.pendingMissileSuit = suit.id();
+		s.pendingMissileHoming = true;
+		s.pendingMissileTargetId = target == null ? -1 : target.getId();
+		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.0f, 1.0f);
+		if (target != null) {
+			AbilityHelpers.sound(player, SoundEvents.NOTE_BLOCK_BIT.value(), 0.8f, 1.8f);
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.homing_locked",
+					target.getDisplayName()), true);
+		} else {
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.homing_no_lock"), true);
+		}
+		triggerCooldown(player, suit.id(), HOMING_MISSILES, 8 * 20);
+	}
+
+	/**
+	 * What a Homing Missiles volley locks on to: the living thing the crosshair is directly on (if
+	 * {@link com.projecthero.mod.combat.HeroTargets#canHarm} allows hitting it -- an aimed shot), otherwise the
+	 * {@link com.projecthero.mod.combat.HeroTargets#isHostile hostile} closest to the crosshair inside a
+	 * {@link #HOMING_CONE_DEG} cone within {@link #HOMING_RANGE} blocks. Null if there is none.
+	 */
+	public static LivingEntity homingTarget(net.minecraft.world.entity.player.Player player) {
+		Vec3 eye = player.getEyePosition();
+		Vec3 look = player.getLookAngle();
+		Vec3 end = eye.add(look.scale(HOMING_RANGE));
+		net.minecraft.world.phys.AABB box = player.getBoundingBox().expandTowards(look.scale(HOMING_RANGE)).inflate(1.0);
+		net.minecraft.world.phys.EntityHitResult aimed = net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(
+				player.level(), player, eye, end, box,
+				e -> e instanceof LivingEntity le && le.isAlive() && !e.isSpectator()
+						&& com.projecthero.mod.combat.HeroTargets.canHarm(player, le), 0.3f);
+		if (aimed != null && aimed.getEntity() instanceof LivingEntity hit) {
+			net.minecraft.world.phys.BlockHitResult wall = player.level().clip(new net.minecraft.world.level.ClipContext(eye,
+					hit.getEyePosition(), net.minecraft.world.level.ClipContext.Block.COLLIDER,
+					net.minecraft.world.level.ClipContext.Fluid.NONE, player));
+			if (wall.getType() == HitResult.Type.MISS || wall.getLocation().distanceToSqr(eye) >= hit.distanceToSqr(eye) - 1.0) {
+				return hit;
+			}
+		}
+		double cosCone = Math.cos(Math.toRadians(HOMING_CONE_DEG));
+		LivingEntity best = null;
+		double bestCos = cosCone;
+		for (LivingEntity e : com.projecthero.mod.combat.HeroTargets.hostiles(player.level(), player,
+				com.projecthero.mod.combat.HeroTargets.around(eye, HOMING_RANGE))) {
+			Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);
+			double dist = to.length();
+			if (dist > HOMING_RANGE || dist < 1.0E-3 || !e.isAlive()) {
+				continue;
+			}
+			double cos = to.scale(1.0 / dist).dot(look);
+			if (cos >= bestCos) {
+				bestCos = cos;
+				best = e;
+			}
+		}
+		return best;
 	}
 
 	// ---------------- Unibeam (continuous) ----------------

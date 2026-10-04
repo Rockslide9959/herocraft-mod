@@ -43,6 +43,34 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 
 	public SuperheroArmorRenderer() {
 		super(new SuperheroArmorModel());
+		// v0.14.21 round two: Iron Man eyes / arc reactor / palm repulsors glow (no-op for every other set)
+		addRenderLayer(new com.projecthero.mod.client.ironman.IronManSuitGlowLayer(this));
+	}
+
+	/**
+	 * v0.14.21 round two: the Mark V's real gauntlet blades. {@code geo/mark_v.geo.json} carries {@code right_blade} /
+	 * {@code left_blade} bones (pivot at the top of the blade); each frame they are shown and stretched along Y by the
+	 * wearer's eased extension ({@link com.projecthero.mod.client.ironman.IronManBladeClient}), so they slide out of and
+	 * back into the gauntlets over {@link com.projecthero.mod.ironman.IronManBladeLook#EXTEND_TICKS} ticks. Set here, after
+	 * GeckoLib has applied the animation pose, so no clip can reset it.
+	 */
+	@Override
+	public void renderRecursively(PoseStack poseStack, SuperheroArmorItem animatable, software.bernie.geckolib.cache.object.GeoBone bone,
+			net.minecraft.client.renderer.RenderType renderType, net.minecraft.client.renderer.MultiBufferSource bufferSource,
+			VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight, int packedOverlay, int colour) {
+		String name = bone.getName();
+		if ("right_blade".equals(name) || "left_blade".equals(name)) {
+			float ext = getCurrentEntity() instanceof Player p
+					? com.projecthero.mod.client.ironman.IronManBladeClient.extension(p, partialTick) : 0f;
+			boolean show = com.projecthero.mod.ironman.IronManBladeLook.visible(ext);
+			bone.setHidden(!show);
+			if (!show) {
+				return;
+			}
+			bone.setScaleY(com.projecthero.mod.ironman.IronManBladeLook.boneScale(ext));
+		}
+		super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick,
+				packedLight, packedOverlay, colour);
 	}
 
 	/**
