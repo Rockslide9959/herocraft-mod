@@ -98,6 +98,42 @@ public class SpeedV01421GameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(p.getYRot() - 37f) < 0.01f && Math.abs(p.getXRot() - 12f) < 0.01f, "facing the same way");
 	}
 
+	// ---- Super Speed is an obtainable mutation; nothing else was re-enabled ----------------------------------------
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void onlySuperSpeedChangedTierAndItIsObtainable(GameTestHelper helper) {
+		Power speed = power();
+		java.util.Set<String> mutations = new java.util.HashSet<>();
+		for (Power p : Powers.mutations()) {
+			mutations.add(p.key());
+		}
+		helper.assertTrue(mutations.equals(java.util.Set.of("power_01_super_strength", "power_02_laser_vision",
+				"power_04_super_speed", "power_12_super_regeneration")), "exactly the four remade mutations: " + mutations);
+		helper.assertTrue(Powers.isEnabled(speed) && Powers.isMutation(speed) && !Powers.isHeroTier(speed), "Super Speed: enabled mutation");
+		for (Power p : Powers.all()) {
+			if (!mutations.contains(p.key())) {
+				helper.assertFalse(p.enabled() || Powers.isMutation(p), p.key() + " must stay disabled");
+			}
+		}
+		ServerPlayer q = helper.makeMockServerPlayerInLevel();
+		helper.assertFalse(com.projecthero.mod.hero.PowerGrants.grantExperimental(q, Powers.byKey("power_03_flight")),
+				"a disabled mutation is still never granted");
+		// obtainable: random-serum roll pool, a mutation grant, brewing and the reagent recipe
+		ServerPlayer p = helper.makeMockServerPlayerInLevel();
+		helper.assertTrue(com.projecthero.mod.hero.PowerGrants.missingExperimental(p).contains(speed), "random serums can roll it");
+		helper.assertTrue(com.projecthero.mod.hero.PowerGrants.grantExperimental(p, speed), "a mutation grant gives it");
+		helper.assertTrue(ExperimentalPowers.owns(p, speed), "owned");
+		var brewing = helper.getLevel().potionBrewing();
+		var base = net.minecraft.world.item.alchemy.PotionContents.createItemStack(net.minecraft.world.item.Items.POTION,
+				com.projecthero.mod.hero.mutation.ModSerums.basePotion(speed.serum().basePotion()));
+		var reagent = new net.minecraft.world.item.ItemStack(com.projecthero.mod.hero.item.HeroPackItems.reagent(speed));
+		helper.assertTrue(brewing.hasMix(base, reagent), "its serum brews");
+		String path = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(com.projecthero.mod.hero.item.HeroPackItems.reagent(speed)).getPath();
+		helper.assertTrue(helper.getLevel().getRecipeManager()
+				.byKey(com.projecthero.mod.ProjectHeroMod.id(path)).isPresent(), "its reagent recipe loads");
+		helper.succeed();
+	}
+
 	// ---- Speed Sweep: home at once ---------------------------------------------------------------------------------
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = "v01421_sweep_last_hit")
