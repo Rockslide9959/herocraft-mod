@@ -484,7 +484,6 @@ public final class IronManHud {
 			case IronManAbilities.REPULSOR_BARRIER -> new ItemStack(Items.SHIELD);
 			case IronManAbilities.MICRO_MISSILES -> new ItemStack(Items.FIREWORK_STAR);
 			case IronManAbilities.UNIBEAM -> new ItemStack(IronManItems.ARC_REACTOR);
-			case IronManAbilities.TARGETING_MODE -> new ItemStack(Items.SPYGLASS);
 			case IronManAbilities.SUIT_TOGGLE -> suit.armor(net.minecraft.world.item.ArmorItem.Type.HELMET) != null
 					? new ItemStack(suit.armor(net.minecraft.world.item.ArmorItem.Type.HELMET)) : new ItemStack(Items.ARMOR_STAND);
 			case IronManAbilities.STRONG_PUNCH -> new ItemStack(Items.PISTON);
