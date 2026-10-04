@@ -1,6 +1,7 @@
 package com.projecthero.mod.ironman.item;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 import com.projecthero.mod.ironman.TonyStark;
 import com.projecthero.mod.ironman.suit.IronManSuitUpManager;
@@ -16,16 +17,29 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
+import software.bernie.geckolib.animatable.GeoItem;
+import software.bernie.geckolib.animatable.client.GeoRenderProvider;
+import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
+import software.bernie.geckolib.animation.AnimatableManager;
+import software.bernie.geckolib.util.GeckoLibUtil;
+
 /**
- * The Mark V Suitcase -- an actual item (spec section 23). Right-click while holding it, and if you
- * have the Tony Stark power the Mark V unfolds around you from the case (quick mechanical suit-up).
- * The case item stays in your inventory and represents the stowed armour; suit-down folds the Mark V
- * back into it.
+ * The Mark V Suitcase -- an actual item (spec section 23). Right-click while holding it, and if you have the Tony Stark
+ * power the Mark V unfolds around you from the case; right-click (or sneak + C) while wearing it folds it back in.
  *
- * <p>A player without the Tony Stark power gets "Stark armor rejects unauthorized user." and nothing
- * deploys -- the whole point is that only Tony Stark understands the technology.
+ * <p>v0.14.21: the case holds the four <em>real</em> armour stacks ({@link SuitcaseContents}), and it is a GeckoLib
+ * item: a red-and-silver 3D briefcase when held or dropped (the flat sprite stays in the inventory), which unfolds in
+ * the right hand as the suit climbs out of it and snaps shut as the suit folds back in (client:
+ * {@code MarkVSuitcaseRenderer} / {@code MarkVSuitcaseLayer}, posed from the synced suit-up clock). Logic unchanged.
+ *
+ * <p>A player without the Tony Stark power gets "Stark armor rejects unauthorized user." and nothing deploys.
  */
-public class MarkVSuitcaseItem extends Item {
+public class MarkVSuitcaseItem extends Item implements GeoItem {
+	/** Installed by the client (like {@code SuperheroArmorItem.rendererFactory}); null on a dedicated server. */
+	public static Consumer<Consumer<GeoRenderProvider>> rendererFactory;
+
+	private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
+
 	public MarkVSuitcaseItem(Properties properties) {
 		super(properties);
 	}
@@ -62,6 +76,27 @@ public class MarkVSuitcaseItem extends Item {
 	@Override
 	public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
 		tooltip.add(Component.translatable("item.projecthero.mark_v_suitcase.hint").withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
+		if (!SuitcaseContents.isLegacyEmpty(stack)) {
+			tooltip.add(Component.translatable("item.projecthero.mark_v_suitcase.contents",
+					SuitcaseContents.nonEmpty(stack).size()).withStyle(ChatFormatting.GRAY));
+		}
 		tooltip.add(Component.translatable("item.projecthero.ironman.requires_tony_stark").withStyle(ChatFormatting.DARK_AQUA));
+	}
+
+	@Override
+	public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+		// none: the unfold / fold is posed straight from the synced suit-up clock by the client renderer
+	}
+
+	@Override
+	public AnimatableInstanceCache getAnimatableInstanceCache() {
+		return cache;
+	}
+
+	@Override
+	public void createGeoRenderer(Consumer<GeoRenderProvider> consumer) {
+		if (rendererFactory != null) {
+			rendererFactory.accept(consumer);
+		}
 	}
 }

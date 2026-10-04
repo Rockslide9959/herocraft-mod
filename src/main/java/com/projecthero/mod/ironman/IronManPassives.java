@@ -20,7 +20,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
  * player's strength by a lot, make it make sense for the armours</i>).
  *
  * <p>Powered servos: a full suit adds its {@code strengthBonus} to {@link Attributes#ATTACK_DAMAGE}
- * (Mark III +9 … Mark 50 +20), and partial armour adds it pro-rata (one piece = a quarter). Higher
+ * (Mark 1 +4 … Mark VII +7), and partial armour adds it pro-rata (one piece = a quarter). Higher
  * marks also add attack knockback, knockback resistance and a bit of reach / mining speed. All are
  * <b>transient</b> fixed-id modifiers reconciled every tick (a no-op unless something changed), like
  * {@code ThorPassives} -- so they never serialise, never stack across relogs, and vanish the instant

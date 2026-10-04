@@ -116,6 +116,9 @@ public class IronManSuitPlatformBlock extends BaseEntityBlock {
 	@Override
 	protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
 		if (!state.is(newState.getBlock())) {
+			if (level.getBlockEntity(pos) instanceof IronManSuitPlatformBlockEntity platform) {
+				platform.abortSequence(null); // v0.14.21: a broken rack stops its deploy / retrieve; what it holds drops below
+			}
 			if (level.getBlockEntity(pos) instanceof net.minecraft.world.Container c) {
 				net.minecraft.world.Containers.dropContents(level, pos, c);
 			}

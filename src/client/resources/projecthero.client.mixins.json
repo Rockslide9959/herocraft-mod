@@ -25,6 +25,7 @@
 		"HumanoidModelMixin",
 		"ItemInHandLayerMixin",
 		"ItemInHandLayerCloakMixin",
+		"ItemInHandLayerSuitcaseMixin",
 		"ItemInHandRendererTitanMixin",
 		"ItemInHandRendererClawsMixin",
 		"ItemInHandRendererTruncheonMixin",

@@ -395,6 +395,9 @@ public final class HeroPackGuide {
 			blank(lines);
 			para(lines, "projecthero.guide.iron_man.recipes");
 			para(lines, "projecthero.guide.iron_man.controls");
+			// v0.14.21: the animated suit-up / platform / pod / suitcase
+			head(lines, "projecthero.guide.iron_man.suit_up");
+			para(lines, "projecthero.guide.iron_man.suit_up.body");
 		}));
 
 		// Spider-Man. Sits with the other Hero Classes rather than with the 27 mutations, because that

@@ -77,7 +77,9 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 				boolean ironManFaceplate = getCurrentEntity() instanceof Player p
 						&& p.getItemBySlot(EquipmentSlot.HEAD).getItem()
 								instanceof com.projecthero.mod.ironman.item.IronManArmorItem
-						&& com.projecthero.mod.ironman.IronManFaceplate.isOpen(p);
+						&& com.projecthero.mod.ironman.IronManFaceplate.isOpen(p)
+						// v0.14.21: keep the helmet up while the visor swings open (helmet_open clip), then retract it
+						&& com.projecthero.mod.ironman.suit.IronManSuitFx.of(p).faceplateAge(p.level().getGameTime(), 0f) < 0f;
 				boolean maxSteelHelmet = getCurrentEntity() instanceof Player mp
 						&& mp.getItemBySlot(EquipmentSlot.HEAD).getItem()
 								instanceof com.projecthero.mod.maxsteel.item.MaxSteelArmorItem
@@ -156,6 +158,10 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 		// v0.14.4: Thor's Armour forms piece by piece (boots -> greaves -> chest), each sweeping up from a lightning edge
 		if (getCurrentEntity() instanceof Player th && animatable instanceof com.projecthero.mod.thorarmor.ThorArmorItem) {
 			texture = com.projecthero.mod.client.thor.ThorSuitReveal.texture(th, getCurrentSlot(), texture, partialTick);
+		}
+		// v0.14.21: an Iron Man piece builds on plate by plate as it locks on (and breaks away coming off)
+		if (getCurrentEntity() instanceof Player im && animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem ima) {
+			texture = com.projecthero.mod.client.ironman.IronManSuitReveal.texture(im, ima.armorSetId(), getCurrentSlot(), texture, partialTick);
 		}
 		// v0.14.11: the Flash Suit pours out of the ring on the right fist, texel by texel behind a lightning edge
 		if (getCurrentEntity() instanceof Player fl && animatable instanceof com.projecthero.mod.flash.item.FlashSuitItem) {

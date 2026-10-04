@@ -1,28 +1,24 @@
 package com.projecthero.mod.ironman.suit;
 
 /**
- * How a suit assembles onto the player (spec sections 22-26). The staged animation and the FX differ
- * per type; the {@link IronManSuitUpManager} branches on this. All types currently share a
- * staged-FX-plus-progressive-equip implementation -- the visual-entity / nanotech-formation upgrades
- * are documented per constant.
+ * How a suit assembles onto the player (spec sections 22-26): the stage order and the length of the staged timeline in
+ * {@link IronManSuitUpManager}. v0.14.21: the never-used {@code SUITCASE} / {@code MODULAR} (Mark 42) / {@code NANOTECH}
+ * (Mark 50) types are gone with the marks they were stubbed for.
  */
 public enum SuitUpType {
-	/** Mark III: mechanical remote armour -- pieces fly in from storage and lock on boots-up. */
+	/** Marks 1-6 (except V): mechanical armour -- pieces lock on boots-up. */
 	MECHANICAL_REMOTE(50),
-	/** Mark V: unfolds from the Mark V Suitcase around the player -- fast, no incoming pieces. */
-	SUITCASE(30),
 	/**
-	 * Mark 5 ("changes 15"): the movie Mark V suitcase build -- ~4 s, assembling <b>chest first</b>,
-	 * then arms/hands, then legs/feet, then the helmet last, growing outward from the case on the
-	 * chest. No incoming pieces (the pieces are materialised from the case).
+	 * Mark V ("changes 15"): the movie suitcase build -- ~4 s, assembling <b>chest first</b>, then legs, then feet, then
+	 * the helmet last, unfolding out of the Mark V Suitcase in the right hand.
 	 */
 	SUITCASE_MOVIE(80),
-	/** Mark VII: remote automated pod tracks and intercepts the player, builds around them (mid-air ok). */
-	REMOTE_AUTOMATED(45),
-	/** Mark 42: modular -- every component flies in independently; supports partial summons. */
-	MODULAR(55),
-	/** Mark 50: nanotech -- deploys from the chest Arc Reactor housing, spreads over the body. No flying pieces. */
-	NANOTECH(25);
+	/**
+	 * Mark VII: an inventory suit-up is staged like {@link #MECHANICAL_REMOTE}; a call off a platform comes in the
+	 * delivery pod ({@link SummonType#TRACKING_POD}, {@code IronManDeliveryPodEntity}), which lands behind the player and
+	 * fires the pieces onto them (mid-air ok).
+	 */
+	REMOTE_AUTOMATED(45);
 
 	private final int durationTicks;
 
@@ -30,7 +26,7 @@ public enum SuitUpType {
 		this.durationTicks = durationTicks;
 	}
 
-	/** Total length of the suit-up sequence. Suit-down uses the same length in reverse. */
+	/** Length of the stage timeline (each piece then locks on / breaks away over its own short window). */
 	public int durationTicks() {
 		return durationTicks;
 	}

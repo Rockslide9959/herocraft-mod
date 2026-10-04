@@ -11,5 +11,9 @@ public final class IronManEntityRenderers {
 	public static void initialize() {
 		EntityRendererRegistry.register(IronManEntityTypes.SUIT_PART, IronManSuitPartRenderer::new);
 		EntityRendererRegistry.register(IronManEntityTypes.MISSILE, IronManMissileRenderer::new);
+		// v0.14.21: the Mark VII delivery pod + the Mark V suitcase model / layer
+		EntityRendererRegistry.register(IronManEntityTypes.DELIVERY_POD,
+				com.projecthero.mod.client.ironman.IronManDeliveryPodRenderer::new);
+		com.projecthero.mod.client.ironman.MarkVSuitcaseClient.initialize();
 	}
 }

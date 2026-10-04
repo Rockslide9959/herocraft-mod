@@ -685,5 +685,190 @@
         "pitch": 1.2
       }
     ]
+  },
+  "ironman_servo": {
+    "subtitle": "message.projecthero.subtitle.ironman_servo",
+    "sounds": [
+      {
+        "name": "minecraft:tile/piston/out",
+        "volume": 0.5,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:tile/piston/in",
+        "volume": 0.5,
+        "pitch": 1.8
+      },
+      {
+        "name": "minecraft:block/crafter/craft",
+        "volume": 0.6,
+        "pitch": 1.4
+      }
+    ]
+  },
+  "ironman_clamp": {
+    "subtitle": "message.projecthero.subtitle.ironman_clamp",
+    "sounds": [
+      {
+        "name": "minecraft:item/armor/equip_netherite1",
+        "volume": 1,
+        "pitch": 0.9
+      },
+      {
+        "name": "minecraft:item/armor/equip_netherite2",
+        "volume": 1,
+        "pitch": 0.9
+      },
+      {
+        "name": "minecraft:item/armor/equip_netherite3",
+        "volume": 1,
+        "pitch": 0.85
+      },
+      {
+        "name": "minecraft:block/lodestone/lock1",
+        "volume": 0.8,
+        "pitch": 1.2
+      },
+      {
+        "name": "minecraft:block/lodestone/lock2",
+        "volume": 0.8,
+        "pitch": 1.2
+      }
+    ]
+  },
+  "ironman_release": {
+    "subtitle": "message.projecthero.subtitle.ironman_release",
+    "sounds": [
+      {
+        "name": "minecraft:tile/piston/in",
+        "volume": 0.6,
+        "pitch": 1.3
+      },
+      {
+        "name": "minecraft:block/vault/eject1",
+        "volume": 0.7,
+        "pitch": 1.3
+      },
+      {
+        "name": "minecraft:block/vault/eject2",
+        "volume": 0.7,
+        "pitch": 1.3
+      }
+    ]
+  },
+  "ironman_faceplate_seal": {
+    "subtitle": "message.projecthero.subtitle.ironman_faceplate_seal",
+    "sounds": [
+      {
+        "name": "minecraft:block/iron_trapdoor/close1",
+        "volume": 0.8,
+        "pitch": 1.4
+      },
+      {
+        "name": "minecraft:block/iron_trapdoor/close2",
+        "volume": 0.8,
+        "pitch": 1.4
+      },
+      {
+        "name": "minecraft:block/vault/insert",
+        "volume": 0.8,
+        "pitch": 1.3
+      }
+    ]
+  },
+  "ironman_faceplate_open": {
+    "subtitle": "message.projecthero.subtitle.ironman_faceplate_open",
+    "sounds": [
+      {
+        "name": "minecraft:block/iron_trapdoor/open1",
+        "volume": 0.8,
+        "pitch": 1.4
+      },
+      {
+        "name": "minecraft:block/iron_trapdoor/open2",
+        "volume": 0.8,
+        "pitch": 1.4
+      }
+    ]
+  },
+  "ironman_power_up": {
+    "subtitle": "message.projecthero.subtitle.ironman_power_up",
+    "sounds": [
+      {
+        "name": "minecraft:block/beacon/power1",
+        "volume": 0.7,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:block/beacon/power2",
+        "volume": 0.7,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:block/beacon/power3",
+        "volume": 0.7,
+        "pitch": 1.6
+      }
+    ]
+  },
+  "ironman_thruster": {
+    "subtitle": "message.projecthero.subtitle.ironman_thruster",
+    "sounds": [
+      {
+        "name": "minecraft:fireworks/launch1",
+        "volume": 1,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:mob/breeze/charge1",
+        "volume": 0.8,
+        "pitch": 0.7
+      },
+      {
+        "name": "minecraft:mob/breeze/charge2",
+        "volume": 0.8,
+        "pitch": 0.7
+      }
+    ]
+  },
+  "ironman_pod_land": {
+    "subtitle": "message.projecthero.subtitle.ironman_pod_land",
+    "sounds": [
+      {
+        "name": "minecraft:item/mace/smash_ground1",
+        "volume": 1,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:item/mace/smash_ground2",
+        "volume": 1,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:block/heavy_core/break1",
+        "volume": 1,
+        "pitch": 0.9
+      }
+    ]
+  },
+  "ironman_case_unfold": {
+    "subtitle": "message.projecthero.subtitle.ironman_case_unfold",
+    "sounds": [
+      {
+        "name": "minecraft:block/vault/eject1",
+        "volume": 0.8,
+        "pitch": 1.2
+      },
+      {
+        "name": "minecraft:block/vault/eject3",
+        "volume": 0.8,
+        "pitch": 1.2
+      },
+      {
+        "name": "minecraft:tile/piston/out",
+        "volume": 0.6,
+        "pitch": 1.4
+      }
+    ]
   }
 }

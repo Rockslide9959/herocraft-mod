@@ -1,0 +1,255 @@
+{
+  "format_version": "1.12.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.mark_v_suitcase",
+        "texture_width": 64,
+        "texture_height": 64,
+        "visible_bounds_width": 4,
+        "visible_bounds_height": 4,
+        "visible_bounds_offset": [
+          0,
+          1.5,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "case",
+          "pivot": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "back_shell",
+          "parent": "case",
+          "pivot": [
+            0,
+            -4,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                -4,
+                0
+              ],
+              "size": [
+                12,
+                9,
+                2
+              ],
+              "uv": [
+                0,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "front_shell",
+          "parent": "case",
+          "pivot": [
+            0,
+            -4,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                -4,
+                -2
+              ],
+              "size": [
+                12,
+                9,
+                2
+              ],
+              "uv": [
+                28,
+                0
+              ]
+            },
+            {
+              "origin": [
+                -4,
+                3,
+                -3
+              ],
+              "size": [
+                1,
+                1,
+                1
+              ],
+              "uv": [
+                56,
+                0
+              ]
+            },
+            {
+              "origin": [
+                3,
+                3,
+                -3
+              ],
+              "size": [
+                1,
+                1,
+                1
+              ],
+              "uv": [
+                60,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "handle",
+          "parent": "case",
+          "pivot": [
+            0,
+            5,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -3,
+                5,
+                -1
+              ],
+              "size": [
+                1,
+                2,
+                2
+              ],
+              "uv": [
+                0,
+                11
+              ]
+            },
+            {
+              "origin": [
+                2,
+                5,
+                -1
+              ],
+              "size": [
+                1,
+                2,
+                2
+              ],
+              "uv": [
+                6,
+                11
+              ]
+            },
+            {
+              "origin": [
+                -3,
+                7,
+                -1
+              ],
+              "size": [
+                6,
+                1,
+                2
+              ],
+              "uv": [
+                12,
+                11
+              ]
+            }
+          ]
+        },
+        {
+          "name": "panel_left",
+          "parent": "case",
+          "pivot": [
+            -6,
+            0,
+            -1
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -7,
+                -4,
+                -1
+              ],
+              "size": [
+                1,
+                9,
+                3
+              ],
+              "uv": [
+                28,
+                11
+              ]
+            }
+          ]
+        },
+        {
+          "name": "panel_right",
+          "parent": "case",
+          "pivot": [
+            6,
+            0,
+            -1
+          ],
+          "cubes": [
+            {
+              "origin": [
+                6,
+                -4,
+                -1
+              ],
+              "size": [
+                1,
+                9,
+                3
+              ],
+              "uv": [
+                36,
+                11
+              ]
+            }
+          ]
+        },
+        {
+          "name": "core",
+          "parent": "case",
+          "pivot": [
+            0,
+            0.5,
+            -0.5
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -1,
+                -1,
+                -1
+              ],
+              "size": [
+                3,
+                3,
+                1
+              ],
+              "uv": [
+                44,
+                11
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

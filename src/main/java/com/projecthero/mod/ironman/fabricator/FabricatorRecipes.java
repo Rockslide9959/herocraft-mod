@@ -16,9 +16,9 @@ import static com.projecthero.mod.ironman.fabricator.FabricationRecipe.of;
 
 /**
  * Every Stark Fabricator recipe, in code (spec sections 10-12, 18, 19). Ordered advanced components
- * first, then blueprints, then the 20 armour pieces. Armour pieces are tech-gated and blueprint-gated
- * so a player cannot skip straight to Mark 50; completing a mark's <em>chestplate</em> advances the
- * technology tree to that mark.
+ * first, then blueprints, then the armour pieces. Armour pieces are blueprint-gated (the Blank Blueprint
+ * progression, Mark 1 -> 2 -> III -> 4 -> V -> 6 -> VII) so a player cannot skip straight to the Mark VII;
+ * completing a mark's <em>chestplate</em> advances the technology tree to that mark.
  */
 public final class FabricatorRecipes {
 	public static final int MAX_ENERGY = 50_000;

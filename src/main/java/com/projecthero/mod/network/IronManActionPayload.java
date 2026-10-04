@@ -13,7 +13,7 @@ import net.minecraft.resources.ResourceLocation;
  * toggling repulsor flight and summoning a suit, both driven by a double-tap of the vanilla jump key
  * (mirroring Thor's flight input, so no new keybind is introduced). Everything is re-validated
  * server-side ({@link com.projecthero.mod.ironman.IronManFlight} /
- * {@link com.projecthero.mod.ironman.suit.IronManSuitSummonManager}).
+ * {@link com.projecthero.mod.ironman.suit.IronManSuitCall}).
  */
 public record IronManActionPayload(Action action) implements CustomPacketPayload {
 	public enum Action {

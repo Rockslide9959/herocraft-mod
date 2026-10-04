@@ -197,8 +197,10 @@ public final class IronManItems {
 
 		for (Item item : List.of(COPPER_WIRING, METAL_PLATING, BASIC_CIRCUIT, MECHANICAL_PARTS,
 				TITANIUM_GOLD_ALLOY, TITANIUM_GOLD_PLATE, SERVO_MOTOR, MICRO_THRUSTER, REPULSOR, FLIGHT_STABILIZER,
-				TARGETING_MODULE, STARK_CIRCUIT, SUIT_COMPUTER, ADVANCED_ARC_REACTOR, MISSILE_MODULE,
-				MODULAR_ARMOR_CONTROLLER, NANOTECH_MATRIX)) {
+				TARGETING_MODULE, STARK_CIRCUIT, SUIT_COMPUTER, ADVANCED_ARC_REACTOR, MISSILE_MODULE)) {
+			// v0.14.21: MODULAR_ARMOR_CONTROLLER / NANOTECH_MATRIX stay registered (old worlds may hold them) but are no
+			// longer listed -- they were for the never-built Mark 42 / Mark 50 and have no use. Also tagged
+			// c:hidden_from_recipe_viewers.
 			output.accept(item);
 		}
 		for (IronManArmorItem piece : armorPiecesByMark()) {

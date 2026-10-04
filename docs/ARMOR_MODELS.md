@@ -95,6 +95,13 @@ the `base` controller in `SuperheroArmorItem`), plus `assemble`, `disassemble`, 
 suit-down / helmet systems (`IronManSuitUpManager`, etc.) are the natural callers — they are
 untouched by this change and already know when each event happens.
 
+**v0.14.21 (Iron Man):** `IronManArmorItem` adds a second, state-driven controller (`suit`) rather than using
+`triggerArmorAnim`: it plays the new `suit_lock_on` / `suit_release` clips while the piece's synced
+`IronManSuitFx` clock runs, and `helmet_open` / `helmet_close` when the faceplate moves. Without a GeckoLib stack id,
+`GeoArmorRenderer.getInstanceId` keys the animation instance per (wearer entity id, slot), so no stack ids or trigger
+packets are needed and every viewer sees the same thing. The pieces' texture build-on reveal is
+`client.ironman.IronManSuitReveal` (an `ArmorSweepReveal` per piece). See `docs/IRONMAN_REFERENCE.md` §17u.
+
 Every mark geo reuses `crimson_vanguard`'s bone names, which is what lets `SHARED_ANIMATION` drive
 all of them despite each having its own `geo/mark_<n>.geo.json`: GeckoLib builds each animation's
 bone queue from whichever bones the *model* actually has, silently skipping any the clip names that

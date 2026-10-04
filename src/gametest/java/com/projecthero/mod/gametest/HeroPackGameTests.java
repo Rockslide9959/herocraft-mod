@@ -900,14 +900,16 @@ public class HeroPackGameTests implements FabricGameTest {
 		be.addEnergy(5000);
 		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_iii", 10f);
 
+		// v0.14.21: deploy is an animated ~1.5 s sequence -- stand next to the rack and let it run
+		net.minecraft.world.phys.Vec3 at = net.minecraft.world.phys.Vec3.atBottomCenterOf(helper.absolutePos(pos.east(2)));
+		player.setPos(at.x, at.y, at.z);
 		helper.assertTrue(be.deployTo(player), "platform must deploy the stored suit");
-		helper.assertTrue(com.projecthero.mod.ironman.IronManArmor.wearingFullSuit(player, "mark_iii"),
-				"player must be wearing the full Mark III after deploy");
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_iii") >= 5000f,
 				"deploy must transfer the platform's stored charge");
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.integrity(player, "mark_iii") >= 99f,
 				"deploy must repair suit integrity");
-		helper.succeed();
+		helper.succeedWhen(() -> helper.assertTrue(com.projecthero.mod.ironman.IronManArmor.wearingFullSuit(player, "mark_iii"),
+				"player must be wearing the full Mark III after the deploy sequence"));
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -1025,8 +1027,13 @@ public class HeroPackGameTests implements FabricGameTest {
 				player.getInventory().add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t)));
 			}
 		}
-		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuitSummonManager.summonBest(player),
-				"summonBest should succeed with the pieces in the inventory");
+		// v0.14.21: the legacy IronManSuitSummonManager is gone -- /ironman part's real path flies each piece in
+		for (net.minecraft.world.item.ArmorItem.Type t : new net.minecraft.world.item.ArmorItem.Type[] {
+				net.minecraft.world.item.ArmorItem.Type.CHESTPLATE, net.minecraft.world.item.ArmorItem.Type.BOOTS,
+				net.minecraft.world.item.ArmorItem.Type.LEGGINGS, net.minecraft.world.item.ArmorItem.Type.HELMET }) {
+			helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuitCall.callPiece(player, "mark_iii", t),
+					"callPiece should launch the " + t + " out of the inventory");
+		}
 		long couriers = helper.getLevel().getEntitiesOfClass(
 				com.projecthero.mod.ironman.entity.IronManSuitPartEntity.class,
 				player.getBoundingBox().inflate(9),
@@ -1054,8 +1061,9 @@ public class HeroPackGameTests implements FabricGameTest {
 				be.store(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t)));
 			}
 		}
-		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuitSummonManager.summonBest(player),
-				"summonBest should pull the suit from the nearby platform");
+		// v0.14.21: through the real call path (the legacy IronManSuitSummonManager is gone)
+		com.projecthero.mod.ironman.suit.IronManSuitCall.execute(player, "mark_iii",
+				com.projecthero.mod.network.IronManSuitListPayload.SOURCE_PLATFORM);
 		// couriers spawn at (platform centre + up 1), same tick as the call
 		long couriers = helper.getLevel().getEntitiesOfClass(
 				com.projecthero.mod.ironman.entity.IronManSuitPartEntity.class,
@@ -1910,7 +1918,7 @@ public class HeroPackGameTests implements FabricGameTest {
 			helper.assertTrue(com.projecthero.mod.ironman.ability.IronManAbilities.MOB_HIGHLIGHT_TOGGLE.equals(suit.abilityInSlot(5)),
 					id + " slot 5 must be the mob-highlight toggle");
 			for (int slot = 1; slot <= 6; slot++) {
-				helper.assertFalse(com.projecthero.mod.ironman.ability.IronManAbilities.TARGETING_MODE.equals(suit.abilityInSlot(slot)),
+				helper.assertFalse("targeting_mode".equals(suit.abilityInSlot(slot)),
 						id + " must not carry Targeting Mode any more");
 			}
 		}

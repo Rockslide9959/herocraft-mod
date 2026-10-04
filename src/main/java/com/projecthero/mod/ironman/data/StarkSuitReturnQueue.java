@@ -54,8 +54,12 @@ public final class StarkSuitReturnQueue extends SavedData {
 	private static final int PER_SWEEP = 2;
 	private static final int SWEEP_INTERVAL_TICKS = 100;
 
+	/**
+	 * v0.14.21: {@code stacks} carries the real armour stacks (enchantments, names, every component) home; it is empty
+	 * only for a record written by an older version, which still rebuilds fresh pieces from {@code pieceMask}.
+	 */
 	public record Pending(UUID owner, GlobalPos platform, String suitId, int pieceMask,
-			float energy, float integrity) {
+			float energy, float integrity, List<ItemStack> stacks) {
 
 		public static final Codec<Pending> CODEC = RecordCodecBuilder.create(i -> i.group(
 				UUIDUtil.CODEC.fieldOf("owner").forGetter(Pending::owner),
@@ -63,8 +67,36 @@ public final class StarkSuitReturnQueue extends SavedData {
 				Codec.STRING.fieldOf("suit").forGetter(Pending::suitId),
 				Codec.INT.fieldOf("pieces").forGetter(Pending::pieceMask),
 				Codec.FLOAT.optionalFieldOf("energy", 0f).forGetter(Pending::energy),
-				Codec.FLOAT.optionalFieldOf("integrity", IronManEnergy.MAX_INTEGRITY).forGetter(Pending::integrity)
+				Codec.FLOAT.optionalFieldOf("integrity", IronManEnergy.MAX_INTEGRITY).forGetter(Pending::integrity),
+				ItemStack.OPTIONAL_CODEC.listOf().optionalFieldOf("stacks", List.of()).forGetter(Pending::stacks)
 		).apply(i, Pending::new));
+
+		/**
+		 * The stacks to put on the platform: the real ones (v0.14.21), or -- for an older record -- fresh pieces rebuilt
+		 * from the mask (an unknown suit id rebuilds nothing rather than crashing on {@code new ItemStack(null)}).
+		 */
+		public List<ItemStack> stacksToReturn() {
+			List<ItemStack> out = new ArrayList<>();
+			if (!stacks.isEmpty()) {
+				for (ItemStack s : stacks) {
+					if (!s.isEmpty()) {
+						out.add(s.copy());
+					}
+				}
+				return out;
+			}
+			for (ArmorItem.Type type : piecesPresent()) {
+				IronManArmorItem item = IronManItems.armor(suitId, type);
+				if (item == null) {
+					ProjectHeroMod.LOGGER.warn("[ProjectHero] dropping unreturnable Stark suit piece: unknown suit '{}'", suitId);
+					continue;
+				}
+				ItemStack stack = new ItemStack(item);
+				IronManEnergy.stampStack(stack, energy, integrity);
+				out.add(stack);
+			}
+			return out;
+		}
 
 		/** The armour types this record still owes the platform (bit 0 HELMET .. bit 3 BOOTS). */
 		public List<ArmorItem.Type> piecesPresent() {
@@ -95,7 +127,7 @@ public final class StarkSuitReturnQueue extends SavedData {
 		StarkSuitReturnQueue q = new StarkSuitReturnQueue();
 		ListTag list = tag.getList("Pending", Tag.TAG_COMPOUND);
 		for (int i = 0; i < list.size(); i++) {
-			Pending.CODEC.parse(NbtOps.INSTANCE, list.getCompound(i))
+			Pending.CODEC.parse(registries.createSerializationContext(NbtOps.INSTANCE), list.getCompound(i))
 					.resultOrPartial(err -> ProjectHeroMod.LOGGER.warn("Dropping unreadable suit-return record: {}", err))
 					.ifPresent(q.pending::add);
 		}
@@ -106,7 +138,7 @@ public final class StarkSuitReturnQueue extends SavedData {
 	public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
 		ListTag list = new ListTag();
 		for (Pending p : pending) {
-			Pending.CODEC.encodeStart(NbtOps.INSTANCE, p)
+			Pending.CODEC.encodeStart(registries.createSerializationContext(NbtOps.INSTANCE), p)
 					.resultOrPartial(err -> ProjectHeroMod.LOGGER.warn("Failed to save suit-return record: {}", err))
 					.ifPresent(list::add);
 		}
@@ -117,10 +149,22 @@ public final class StarkSuitReturnQueue extends SavedData {
 	// ---------------- enqueue ----------------
 
 	public void enqueue(UUID owner, GlobalPos platform, String suitId, int pieceMask, float energy, float integrity) {
-		if (pieceMask == 0) {
+		enqueue(owner, platform, suitId, pieceMask, energy, integrity, List.of());
+	}
+
+	/** v0.14.21: queue the real stacks (copied) to fly home. */
+	public void enqueue(UUID owner, GlobalPos platform, String suitId, int pieceMask, float energy, float integrity,
+			List<ItemStack> stacks) {
+		if (pieceMask == 0 && stacks.isEmpty()) {
 			return;
 		}
-		pending.add(new Pending(owner, platform, suitId, pieceMask, energy, integrity));
+		List<ItemStack> copies = new ArrayList<>();
+		for (ItemStack s : stacks) {
+			if (!s.isEmpty()) {
+				copies.add(s.copy());
+			}
+		}
+		pending.add(new Pending(owner, platform, suitId, pieceMask, energy, integrity, List.copyOf(copies)));
 		setDirty();
 	}
 
@@ -189,19 +233,8 @@ public final class StarkSuitReturnQueue extends SavedData {
 				it.remove();
 				q.setDirty();
 			} else {
-				// platform is gone -- drop the reconstructed pieces where it stood so nothing is lost
-				for (ArmorItem.Type type : p.piecesPresent()) {
-					IronManArmorItem item = IronManItems.armor(p.suitId(), type);
-					if (item == null) {
-						// A stale/renamed suit id from an older save -- IronManItems.armor returns null for it,
-						// and new ItemStack(null) would NPE (ItemStack derefs the ItemLike immediately) and take
-						// the whole server tick down with it. Nothing sane to reconstruct, so drop just this piece.
-						ProjectHeroMod.LOGGER.warn(
-								"[ProjectHero] dropping unreturnable Stark suit piece: unknown suit '{}'", p.suitId());
-						continue;
-					}
-					ItemStack stack = new ItemStack(item);
-					IronManEnergy.stampStack(stack, p.energy(), p.integrity());
+				// platform is gone -- drop the pieces where it stood so nothing is lost
+				for (ItemStack stack : p.stacksToReturn()) {
 					net.minecraft.world.entity.item.ItemEntity drop = new net.minecraft.world.entity.item.ItemEntity(
 							level, pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5, stack);
 					level.addFreshEntity(drop);
@@ -216,21 +249,13 @@ public final class StarkSuitReturnQueue extends SavedData {
 		if (be.owner().isEmpty()) {
 			be.bindTo(p.owner());
 		}
-		for (ArmorItem.Type type : p.piecesPresent()) {
-			if (be.holds(p.suitId(), type)) {
-				continue;
+		for (ItemStack stack : p.stacksToReturn()) {
+			if (!be.store(stack) && be.getLevel() != null) {
+				// that slot is already taken on this rack (or a different mark is racked): drop it on top, never lose it
+				BlockPos pos = be.getBlockPos();
+				be.getLevel().addFreshEntity(new net.minecraft.world.entity.item.ItemEntity(be.getLevel(),
+						pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5, stack));
 			}
-			IronManArmorItem item = IronManItems.armor(p.suitId(), type);
-			if (item == null) {
-				// Same stale-suit-id guard as the sweep's drop branch above -- a bad id here used to NPE
-				// via new ItemStack(null) the instant a docked platform absorbed this record.
-				ProjectHeroMod.LOGGER.warn(
-						"[ProjectHero] dropping unreturnable Stark suit piece: unknown suit '{}'", p.suitId());
-				continue;
-			}
-			ItemStack stack = new ItemStack(item);
-			IronManEnergy.stampStack(stack, p.energy(), p.integrity());
-			be.store(stack);
 		}
 	}
 }

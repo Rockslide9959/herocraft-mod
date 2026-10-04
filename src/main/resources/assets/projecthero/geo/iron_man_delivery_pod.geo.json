@@ -1,0 +1,287 @@
+{
+  "format_version": "1.12.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.iron_man_delivery_pod",
+        "texture_width": 128,
+        "texture_height": 128,
+        "visible_bounds_width": 4,
+        "visible_bounds_height": 4,
+        "visible_bounds_offset": [
+          0,
+          1.5,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "root",
+          "pivot": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "thrusters",
+          "parent": "root",
+          "pivot": [
+            0,
+            2,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                0,
+                -6
+              ],
+              "size": [
+                3,
+                2,
+                3
+              ],
+              "uv": [
+                0,
+                0
+              ]
+            },
+            {
+              "origin": [
+                3,
+                0,
+                -6
+              ],
+              "size": [
+                3,
+                2,
+                3
+              ],
+              "uv": [
+                12,
+                0
+              ]
+            },
+            {
+              "origin": [
+                -6,
+                0,
+                3
+              ],
+              "size": [
+                3,
+                2,
+                3
+              ],
+              "uv": [
+                24,
+                0
+              ]
+            },
+            {
+              "origin": [
+                3,
+                0,
+                3
+              ],
+              "size": [
+                3,
+                2,
+                3
+              ],
+              "uv": [
+                36,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "base",
+          "parent": "root",
+          "pivot": [
+            0,
+            2,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -7,
+                2,
+                -7
+              ],
+              "size": [
+                14,
+                3,
+                14
+              ],
+              "uv": [
+                48,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "name": "shell_back",
+          "parent": "root",
+          "pivot": [
+            0,
+            5,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -7,
+                5,
+                -5
+              ],
+              "size": [
+                14,
+                25,
+                12
+              ],
+              "uv": [
+                0,
+                17
+              ]
+            },
+            {
+              "origin": [
+                -1,
+                6,
+                7
+              ],
+              "size": [
+                2,
+                23,
+                1
+              ],
+              "uv": [
+                52,
+                17
+              ]
+            }
+          ]
+        },
+        {
+          "name": "door_left",
+          "parent": "root",
+          "pivot": [
+            -7,
+            5,
+            -7
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -7,
+                5,
+                -7
+              ],
+              "size": [
+                7,
+                25,
+                2
+              ],
+              "uv": [
+                58,
+                17
+              ]
+            }
+          ]
+        },
+        {
+          "name": "door_right",
+          "parent": "root",
+          "pivot": [
+            7,
+            5,
+            -7
+          ],
+          "cubes": [
+            {
+              "origin": [
+                0,
+                5,
+                -7
+              ],
+              "size": [
+                7,
+                25,
+                2
+              ],
+              "uv": [
+                76,
+                17
+              ]
+            }
+          ]
+        },
+        {
+          "name": "cap",
+          "parent": "root",
+          "pivot": [
+            0,
+            30,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -6,
+                30,
+                -6
+              ],
+              "size": [
+                12,
+                3,
+                12
+              ],
+              "uv": [
+                0,
+                54
+              ]
+            },
+            {
+              "origin": [
+                -4,
+                33,
+                -4
+              ],
+              "size": [
+                8,
+                2,
+                8
+              ],
+              "uv": [
+                48,
+                54
+              ]
+            },
+            {
+              "origin": [
+                -1,
+                35,
+                -1
+              ],
+              "size": [
+                2,
+                1,
+                2
+              ],
+              "uv": [
+                80,
+                54
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

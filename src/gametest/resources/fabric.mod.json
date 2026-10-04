@@ -21,6 +21,7 @@
       "com.projecthero.mod.gametest.WeaponComboGameTests",
       "com.projecthero.mod.gametest.IronManRecipeCostV01421GameTests",
       "com.projecthero.mod.gametest.HeroPackGameTests",
+      "com.projecthero.mod.gametest.IronManSuitUpV01421GameTests",
       "com.projecthero.mod.gametest.ZombieRaidGameTests",
       "com.projecthero.mod.gametest.ConfigMigrationGameTests",
       "com.projecthero.mod.gametest.SpiderManGameTests",

@@ -1008,6 +1008,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				ticksSinceJumpPress = Integer.MAX_VALUE;
 				ClientPlayNetworking.send(new com.projecthero.mod.network.IronManActionPayload(
 						com.projecthero.mod.network.IronManActionPayload.Action.TOGGLE_FLIGHT));
+				return; // v0.14.21: handled -- don't fall through to the Green Lantern ring-flight check below
 			} else if (player.onGround() && player.isShiftKeyDown() && !wearingIronMan
 					&& stark.builtSuits.stream().anyMatch(id -> id.indexOf('/') < 0)) {
 				// "changes 22": the ground summon gesture now needs SNEAK + double-tap jump.

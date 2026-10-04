@@ -4,7 +4,7 @@ import com.projecthero.mod.ironman.IronManArmor;
 import com.projecthero.mod.ironman.IronManEnergy;
 import com.projecthero.mod.ironman.TonyStark;
 import com.projecthero.mod.ironman.suit.IronManSuit;
-import com.projecthero.mod.ironman.suit.IronManSuitSummonManager;
+import com.projecthero.mod.ironman.suit.IronManSuitCall;
 import com.projecthero.mod.ironman.suit.IronManSuits;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -46,7 +46,8 @@ public final class IronManCommand {
 								.then(Commands.argument("player", EntityArgument.player())
 										.executes(c -> power(c, EntityArgument.getPlayer(c, "player"), false)))))
 				.then(Commands.literal("tech")
-						.then(Commands.argument("level", IntegerArgumentType.integer(0, 5))
+						// v0.14.21: 0..3 -- Mark VII (tech 3) is the highest any suit needs; 4/5 were Mark 42 / 50 leftovers
+						.then(Commands.argument("level", IntegerArgumentType.integer(0, 3))
 								.executes(c -> tech(c, self(c)))
 								.then(Commands.argument("player", EntityArgument.player())
 										.executes(c -> tech(c, EntityArgument.getPlayer(c, "player"))))))
@@ -117,7 +118,7 @@ public final class IronManCommand {
 			c.getSource().sendFailure(Component.literal("Unknown suit " + suitId));
 			return 0;
 		}
-		boolean ok = IronManSuitSummonManager.summon(target, suitId);
+		boolean ok = IronManSuitCall.commandCall(target, suitId); // v0.14.21: the real call / suit-up path
 		c.getSource().sendSuccess(() -> Component.literal((ok ? "Summoning " : "Could not summon ") + suitId), true);
 		return ok ? 1 : 0;
 	}
@@ -136,7 +137,7 @@ public final class IronManCommand {
 			c.getSource().sendFailure(Component.literal("usage: /ironman part <suit> <helmet|chestplate|leggings|boots>"));
 			return 0;
 		}
-		boolean ok = com.projecthero.mod.ironman.suit.IronManSuitSummonManager.summonPart(target, suitId, type);
+		boolean ok = IronManSuitCall.callPiece(target, suitId, type);
 		c.getSource().sendSuccess(() -> Component.literal((ok ? "Summoning " : "Could not summon ") + suitId + " " + partName), true);
 		return ok ? 1 : 0;
 	}

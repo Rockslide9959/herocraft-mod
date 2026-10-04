@@ -16,8 +16,16 @@ public final class IronManEntityTypes {
 					// wide enough that a piece flown in from across a Hall of Armor is visible the whole way
 					.clientTrackingRange(6)
 					.updateInterval(1)
-					.noSave()
+					// v0.14.21: saved -- the courier carries the real armour stack, which must survive a chunk unload / restart
 					.build("iron_man_suit_part"));
+
+	/** v0.14.21: the Mark VII delivery pod (carries the real stacks; saved for the same reason). */
+	public static final EntityType<IronManDeliveryPodEntity> DELIVERY_POD = register("iron_man_delivery_pod",
+			EntityType.Builder.<IronManDeliveryPodEntity>of(IronManDeliveryPodEntity::new, MobCategory.MISC)
+					.sized(1.1f, 2.2f)
+					.clientTrackingRange(8)
+					.updateInterval(1)
+					.build("iron_man_delivery_pod"));
 
 	public static final EntityType<IronManMissileEntity> MISSILE = register("iron_man_missile",
 			EntityType.Builder.<IronManMissileEntity>of(IronManMissileEntity::new, MobCategory.MISC)
@@ -31,6 +39,7 @@ public final class IronManEntityTypes {
 	}
 
 	public static void initialize() {
+		com.projecthero.mod.ironman.IronManSounds.initialize(); // v0.14.21
 	}
 
 	private static <T extends net.minecraft.world.entity.Entity> EntityType<T> register(String path, EntityType<T> type) {

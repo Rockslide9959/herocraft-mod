@@ -51,7 +51,6 @@ public final class IronManAbilities {
 	public static final String REPULSOR_BARRIER = "repulsor_barrier";
 	public static final String UNIBEAM = "unibeam";
 	public static final String MICRO_MISSILES = "micro_missiles";
-	public static final String TARGETING_MODE = "targeting_mode";
 	public static final String SUIT_TOGGLE = "suit_toggle";
 	// -- Mark 1 / Mark 2 ("changes 12") --
 	public static final String STRONG_PUNCH = "strong_punch";
@@ -80,7 +79,6 @@ public final class IronManAbilities {
 	public static final String[] WEAPON_WHEEL_SECTORS = {
 			MICRO_MISSILES, FLAMETHROWER, WRIST_LASER, ROCKET, SUPERSONIC_FLIGHT, ENTITY_GLOW_TOGGLE };
 
-	public static final int TARGETING_DURATION_TICKS = 200;
 	/** How long slot 1 must be held before a release fires the Charged Repulsor instead of a tap shot. */
 	public static final int CHARGE_HOLD_TICKS = 40; // 2 seconds
 
@@ -230,7 +228,6 @@ public final class IronManAbilities {
 			}
 			case MICRO_MISSILES -> { if (pressed) microMissiles(player, suit); }
 			case UNIBEAM -> { if (pressed) startUnibeam(player, suit); }
-			case TARGETING_MODE -> { if (pressed) targetingMode(player, suit); }
 			case SUIT_TOGGLE -> {
 				if (pressed) {
 					// "changes 15": sneak + C on the Mark 5 folds it into its suitcase item instead of
@@ -754,22 +751,6 @@ public final class IronManAbilities {
 		}
 	}
 
-	// ---------------- targeting mode ----------------
-
-	private static void targetingMode(ServerPlayer player, IronManSuit suit) {
-		if (!requireHelmet(player, suit) || !cooldownReady(player, suit.id(), TARGETING_MODE)) {
-			return;
-		}
-		long now = player.level().getGameTime();
-		TonyStark.state(player).targetingUntil = now + TARGETING_DURATION_TICKS;
-		for (LivingEntity e : AbilityHelpers.hostilesAround(player, player.position(), 24.0)) { // v0.14.20: scan, rule 2
-			e.addEffect(new MobEffectInstance(MobEffects.GLOWING, TARGETING_DURATION_TICKS, 0, false, false, true));
-		}
-		AbilityHelpers.sound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, 0.7f, 2.0f);
-		player.displayClientMessage(Component.translatable("message.projecthero.ironman.targeting_online"), true);
-		triggerCooldown(player, suit.id(), TARGETING_MODE, 2 * 20);
-	}
-
 	// ---------------- Mark 1: Strong Punch (R) ----------------
 
 	private static void strongPunch(ServerPlayer player, IronManSuit suit) {
@@ -1275,8 +1256,8 @@ public final class IronManAbilities {
 
 	private static void broadcastBeam(ServerPlayer player, Vec3 start, Vec3 end, int kind) {
 		IronManBeamPayload payload = new IronManBeamPayload(start, end, kind);
-		ServerPlayNetworking.send(player, payload);
-		for (ServerPlayer viewer : PlayerLookup.tracking(player)) {
+		// v0.14.21: not just the shooter's trackers -- anyone near the beam (the target may be far outside tracking range)
+		for (ServerPlayer viewer : IronManBeamRecipients.recipients(player, start, end)) {
 			ServerPlayNetworking.send(viewer, payload);
 		}
 	}

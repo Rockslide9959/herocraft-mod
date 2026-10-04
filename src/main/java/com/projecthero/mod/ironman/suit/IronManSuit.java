@@ -12,7 +12,7 @@ import net.minecraft.world.item.Item;
  * new {@link IronManSuits} entry and a recipe set, not a new code path.
  *
  * <p>Runtime behaviour (repulsors, Unibeam, flight, missiles, HUD, suit-up, summon) is shared code in
- * {@code com.projecthero.mod.ironman.ability} / {@link IronManSuitSummonManager} /
+ * {@code com.projecthero.mod.ironman.ability} / {@link IronManSuitCall} /
  * {@link IronManSuitUpManager} that reads the numbers off this definition.
  */
 public final class IronManSuit {
@@ -22,20 +22,15 @@ public final class IronManSuit {
 	private final int markNumber;
 
 	private final float energyCapacity;
-	private final float energyRecharge;      // vestigial -- IronManEnergy now derives a flat 10-minute
-	                                          // full-recharge time from energyCapacity for every suit
 	private final float flightEnergyCost;    // per tick while flying
 	private final float flightSpeed;
 	private final float flightAcceleration;
 
 	private final float repulsorDamage;
-	private final float repulsorEnergyCost;   // vestigial -- IronManAbilities.REPULSOR_ENERGY is a flat 50 for every mark now
 	private final float unibeamDamage;
-	private final float unibeamEnergyCost;    // vestigial -- IronManAbilities.UNIBEAM_ENERGY is a flat 500 for every mark now
 	private final float missileDamage;
 	private final float missileEnergyCost;
 	private final int missileCount;
-	private final float damageReduction;   // vestigial -- see IronManDamage's flat 90/10 integrity split
 	private final float strengthBonus;     // ATTACK_DAMAGE added by a full suit (partial = pro-rata)
 	private final float maxIntegrity;      // full-condition integrity pool for this mark (default 500)
 	private final boolean manualFlight;    // false = no double-tap-jump repulsor flight (Mark 1 flies only via its ability)
@@ -85,18 +80,14 @@ public final class IronManSuit {
 		this.techLevel = b.techLevel;
 		this.markNumber = b.markNumber;
 		this.energyCapacity = b.energyCapacity;
-		this.energyRecharge = b.energyRecharge;
 		this.flightEnergyCost = b.flightEnergyCost;
 		this.flightSpeed = b.flightSpeed;
 		this.flightAcceleration = b.flightAcceleration;
 		this.repulsorDamage = b.repulsorDamage;
-		this.repulsorEnergyCost = b.repulsorEnergyCost;
 		this.unibeamDamage = b.unibeamDamage;
-		this.unibeamEnergyCost = b.unibeamEnergyCost;
 		this.missileDamage = b.missileDamage;
 		this.missileEnergyCost = b.missileEnergyCost;
 		this.missileCount = b.missileCount;
-		this.damageReduction = b.damageReduction;
 		this.strengthBonus = b.strengthBonus;
 		this.maxIntegrity = b.maxIntegrity;
 		this.manualFlight = b.manualFlight;
@@ -137,18 +128,14 @@ public final class IronManSuit {
 	public int techLevel() { return techLevel; }
 	public int markNumber() { return markNumber; }
 	public float energyCapacity() { return energyCapacity; }
-	public float energyRecharge() { return energyRecharge; }
 	public float flightEnergyCost() { return flightEnergyCost; }
 	public float flightSpeed() { return flightSpeed; }
 	public float flightAcceleration() { return flightAcceleration; }
 	public float repulsorDamage() { return repulsorDamage; }
-	public float repulsorEnergyCost() { return repulsorEnergyCost; }
 	public float unibeamDamage() { return unibeamDamage; }
-	public float unibeamEnergyCost() { return unibeamEnergyCost; }
 	public float missileDamage() { return missileDamage; }
 	public float missileEnergyCost() { return missileEnergyCost; }
 	public int missileCount() { return missileCount; }
-	public float damageReduction() { return damageReduction; }
 	public float strengthBonus() { return strengthBonus; }
 	public float maxIntegrity() { return maxIntegrity; }
 	public boolean manualFlight() { return manualFlight; }
@@ -196,18 +183,14 @@ public final class IronManSuit {
 		private int techLevel = 1;
 		private int markNumber = 3;
 		private float energyCapacity = 10_000f;
-		private float energyRecharge = 2.0f;
 		private float flightEnergyCost = 3.0f;
 		private float flightSpeed = 1.0f;
 		private float flightAcceleration = 0.08f;
 		private float repulsorDamage = 6.0f;
-		private float repulsorEnergyCost = 120f;
 		private float unibeamDamage = 18.0f;
-		private float unibeamEnergyCost = 1500f;
 		private float missileDamage = 8.0f;
 		private float missileEnergyCost = 250f;
 		private int missileCount = 4;
-		private float damageReduction = 0.7f;
 		private float strengthBonus = 7.0f;
 		private float maxIntegrity = com.projecthero.mod.ironman.IronManEnergy.MAX_INTEGRITY;
 		private boolean manualFlight = true;
@@ -251,16 +234,15 @@ public final class IronManSuit {
 		}
 
 		public Builder tech(int techLevel, int markNumber) { this.techLevel = techLevel; this.markNumber = markNumber; return this; }
-		public Builder energy(float capacity, float recharge, float flightCost) {
-			this.energyCapacity = capacity; this.energyRecharge = recharge; this.flightEnergyCost = flightCost; return this;
+		public Builder energy(float capacity, float flightCost) {
+			this.energyCapacity = capacity; this.flightEnergyCost = flightCost; return this;
 		}
 		public Builder flight(float speed, float acceleration) { this.flightSpeed = speed; this.flightAcceleration = acceleration; return this; }
-		public Builder repulsor(float damage, float energyCost) { this.repulsorDamage = damage; this.repulsorEnergyCost = energyCost; return this; }
-		public Builder unibeam(float damage, float energyCost) { this.unibeamDamage = damage; this.unibeamEnergyCost = energyCost; return this; }
+		public Builder repulsor(float damage) { this.repulsorDamage = damage; return this; }
+		public Builder unibeam(float damage) { this.unibeamDamage = damage; return this; }
 		public Builder missiles(int count, float damage, float energyCost) {
 			this.missileCount = count; this.missileDamage = damage; this.missileEnergyCost = energyCost; return this;
 		}
-		public Builder damageReduction(float multiplier) { this.damageReduction = multiplier; return this; }
 		public Builder strength(float attackDamageBonus) { this.strengthBonus = attackDamageBonus; return this; }
 		public Builder maxIntegrity(float integrity) { this.maxIntegrity = integrity; return this; }
 		/** This suit cannot start repulsor flight from the double-tap-jump gesture (Mark 1: flight ability only). */

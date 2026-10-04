@@ -258,6 +258,15 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		}
 	}
 
+	/** v0.14.21: the Iron Man suit-up / suit-down / faceplate body language (self-contained, see IronManSuitUpPose). */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$ironManSuitUpPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player player) {
+			com.projecthero.mod.client.ironman.IronManSuitUpPose.apply(player, (HumanoidModel<?>) (Object) this);
+		}
+	}
+
 	/**
 	 * Cancels the body tilt out of the head, so a sprint-flying player looks where they are actually
 	 * looking -- straight ahead down the flight path -- instead of having their face rotated a full

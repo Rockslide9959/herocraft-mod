@@ -37,6 +37,55 @@ public class IronManArmorItem extends SuperheroArmorItem {
 		return suitId;
 	}
 
+	// v0.14.21: per-piece suit clips (crimson_vanguard.animation.json, shared by every mark's geometry)
+	private static final software.bernie.geckolib.animation.RawAnimation LOCK_ON =
+			software.bernie.geckolib.animation.RawAnimation.begin().thenPlayAndHold("animation.crimson_vanguard.suit_lock_on");
+	private static final software.bernie.geckolib.animation.RawAnimation RELEASE =
+			software.bernie.geckolib.animation.RawAnimation.begin().thenPlayAndHold("animation.crimson_vanguard.suit_release");
+	private static final software.bernie.geckolib.animation.RawAnimation HELMET_OPEN =
+			software.bernie.geckolib.animation.RawAnimation.begin().thenPlayAndHold("animation.crimson_vanguard.helmet_open");
+	private static final software.bernie.geckolib.animation.RawAnimation HELMET_CLOSE =
+			software.bernie.geckolib.animation.RawAnimation.begin().thenPlayAndHold("animation.crimson_vanguard.helmet_close");
+
+	/**
+	 * v0.14.21: on top of the shared idle, a {@code suit} controller plays the piece's lock-on / release clip while its
+	 * synced clock ({@link com.projecthero.mod.ironman.suit.IronManSuitFx}) runs, and -- on the helmet -- the visor swing
+	 * whenever the faceplate opens or closes. Purely client-side and driven only by synced state, so no GeckoLib
+	 * trigger packets or stack ids are needed: for armour without a stack id GeckoLib keys the animation instance by
+	 * (wearer entity id, slot), so each wearer's pieces animate independently and every viewer sees the same thing.
+	 */
+	@Override
+	public void registerControllers(software.bernie.geckolib.animation.AnimatableManager.ControllerRegistrar controllers) {
+		super.registerControllers(controllers);
+		controllers.add(new software.bernie.geckolib.animation.AnimationController<>(this, "suit", 0, state -> {
+			net.minecraft.world.entity.Entity e = state.getData(software.bernie.geckolib.constant.DataTickets.ENTITY);
+			net.minecraft.world.entity.EquipmentSlot slot = state.getData(software.bernie.geckolib.constant.DataTickets.EQUIPMENT_SLOT);
+			if (!(e instanceof Player p) || slot == null || p.level() == null) {
+				return software.bernie.geckolib.animation.PlayState.STOP;
+			}
+			var fx = com.projecthero.mod.ironman.suit.IronManSuitFx.of(p);
+			long now = p.level().getGameTime();
+			int phase = fx.piecePhase(slot, now);
+			software.bernie.geckolib.animation.RawAnimation clip = null;
+			if (phase == com.projecthero.mod.ironman.suit.IronManSuitFx.PHASE_LOCK_ON) {
+				clip = LOCK_ON;
+			} else if (phase == com.projecthero.mod.ironman.suit.IronManSuitFx.PHASE_RELEASE) {
+				clip = RELEASE;
+			} else if (slot == net.minecraft.world.entity.EquipmentSlot.HEAD && fx.faceplateAge(now, 0f) >= 0f) {
+				clip = com.projecthero.mod.ironman.IronManFaceplate.isOpen(p) ? HELMET_OPEN : HELMET_CLOSE;
+			}
+			if (clip == null) {
+				return software.bernie.geckolib.animation.PlayState.STOP;
+			}
+			var controller = state.getController();
+			if (controller.getAnimationState() == software.bernie.geckolib.animation.AnimationController.State.STOPPED
+					|| controller.getCurrentRawAnimation() != clip) {
+				controller.forceAnimationReset(); // a new phase always plays from frame 0, even the same clip again
+			}
+			return state.setAndContinue(clip);
+		}));
+	}
+
 	/** The armour set id IS the suit id ({@code mark_iii}, ...) -- see {@link com.projecthero.mod.armor.SuperheroArmorVisuals}. */
 	@Override
 	public String armorSetId() {

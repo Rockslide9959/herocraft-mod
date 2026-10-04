@@ -104,6 +104,9 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		if (be.owner == null) {
 			be.tryAdoptOwner(serverLevel);
 		}
+		if (be.seqMode != SEQ_NONE) {
+			be.tickSequence(serverLevel);
+		}
 
 		String suitId = be.storedSuitId();
 		if (suitId != null) {
@@ -279,9 +282,78 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		return true;
 	}
 
-	/** Deploy the stored suit onto the player, then recharge + repair it. */
+	// ---------------- v0.14.21: animated deploy / retrieve ----------------
+	//
+	// Both used to be instant. They are now a ~1.5 s server-timed sequence: on deploy each piece lifts off the rack,
+	// flies onto the player and locks on (boots -> legs -> chest -> helmet); on retrieve each piece breaks away from the
+	// player and settles back on the rack (helmet first). A piece moves between rack and body in exactly one tick, so at
+	// every instant it is in exactly one place: walking away, logging out, dying or breaking the platform mid-sequence
+	// just stops it -- never a loss, never a duplicate. The client BER reads the synced sequence (mode, start tick,
+	// player) and the same timing functions below to draw the pieces in flight.
+
+	public static final int SEQ_NONE = 0;
+	public static final int SEQ_DEPLOY = 1;
+	public static final int SEQ_RETRIEVE = 2;
+	/** Ticks before the first piece lifts off. */
+	public static final int SEQ_LEAD = 2;
+	/** Ticks between one piece and the next. */
+	public static final int SEQ_STEP = 6;
+	/** Ticks a piece spends flying between rack and body. */
+	public static final int SEQ_FLIGHT = 8;
+	/** The player must stay this close for the sequence to continue. */
+	public static final double SEQ_RANGE = 5.0;
+	private static final int[] DEPLOY_ORDER = { 3, 2, 1, 0 };   // boots, legs, chest, helmet (bits = rack slots)
+	private static final int[] RETRIEVE_ORDER = { 0, 1, 2, 3 }; // helmet first
+
+	private int seqMode = SEQ_NONE;
+	private long seqStart;
+	private UUID seqPlayer;
+	private int seqPlayerEntity = -1;
+	private String seqSuit = "";
+	/** rack slots taking part, in order */
+	private int[] seqSlots = new int[0];
+	/** rack slots already handed over (deploy) / released (retrieve) / moved onto the rack (retrieve) */
+	private int seqDoneMask;
+	private int seqReleasedMask;
+
+	public int seqMode() { return seqMode; }
+	public long seqStart() { return seqStart; }
+	public int seqPlayerEntity() { return seqPlayerEntity; }
+	public int[] seqSlots() { return seqSlots; }
+
+	/** Tick (after the start) at which the i-th piece of a deploy lifts off the rack. */
+	public static int deployLiftTick(int i) {
+		return SEQ_LEAD + i * SEQ_STEP;
+	}
+
+	/** Tick at which the i-th piece of a deploy reaches the body and is equipped. */
+	public static int deployEquipTick(int i) {
+		return deployLiftTick(i) + SEQ_FLIGHT;
+	}
+
+	/** Tick at which the i-th piece of a retrieve starts breaking away from the body. */
+	public static int retrieveReleaseTick(int i) {
+		return i * SEQ_STEP;
+	}
+
+	/** Tick at which the i-th piece of a retrieve leaves the body (onto the rack, drawn flying home for SEQ_FLIGHT). */
+	public static int retrieveMoveTick(int i) {
+		return retrieveReleaseTick(i) + com.projecthero.mod.ironman.suit.IronManSuitFx.RELEASE_TICKS;
+	}
+
+	public static int sequenceLength(int mode, int pieces) {
+		int last = Math.max(0, pieces - 1);
+		return mode == SEQ_DEPLOY ? deployEquipTick(last) : retrieveMoveTick(last) + SEQ_FLIGHT;
+	}
+
+	public boolean sequenceRunning() {
+		return seqMode != SEQ_NONE;
+	}
+
+	/** Start deploying the stored suit onto the player (recharged from the buffer). False if it cannot start. */
 	public boolean deployTo(ServerPlayer player) {
-		if (isEmptyPlatform() || !TonyStark.hasPower(player)) {
+		if (isEmptyPlatform() || !TonyStark.hasPower(player) || sequenceRunning()
+				|| IronManSuitUpManager.inTransition(player) || !(level instanceof ServerLevel)) {
 			return false;
 		}
 		if (owner == null) {
@@ -294,62 +366,197 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		if (ref != null) {
 			IronManEnergy.loadFromStack(player, suitId, ref);
 		}
-		for (int i = 0; i < SIZE; i++) {
-			ItemStack stack = pieces.get(i);
-			if (stack.getItem() instanceof IronManArmorItem piece && piece.suitId().equals(suitId)) {
-				IronManSuitUpManager.receivePart(player, suitId, piece.getType());
-				// Empty only what was actually handed over. A blanket pieces.clear() here deleted any
-				// piece belonging to a DIFFERENT mark that had been racked alongside this one (older
-				// saves can still hold such a mix; canPlaceItem/store now refuse to create a new one).
-				pieces.set(i, ItemStack.EMPTY);
-			}
-		}
 		IronManSuit suit = IronManSuits.byId(suitId);
 		if (suit != null) {
 			float cap = suit.energyCapacity();
 			IronManEnergy.setEnergy(player, suitId, Math.min(cap, IronManEnergy.energy(player, suitId) + storedEnergy));
 		}
-		// "changes 22": hand over the integrity the rack has ACTUALLY repaired back into the suit. This
-		// used to force it to maximum, which made the repair rate -- whatever it was set to -- entirely
-		// cosmetic: any damaged suit came off the rack in perfect condition the instant you clicked
-		// Deploy. With the rate now tied to the suit's own reactor, that shortcut has to go.
+		// "changes 22": hand over the integrity the rack has ACTUALLY repaired back into the suit (never a free repair).
 		IronManEnergy.setIntegrity(player, suitId, storedIntegrity);
 		storedEnergy = 0;
-		afterContentsChanged();
+
+		java.util.List<Integer> slots = new java.util.ArrayList<>();
+		for (int idx : DEPLOY_ORDER) {
+			if (pieces.get(idx).getItem() instanceof IronManArmorItem p && p.suitId().equals(suitId)) {
+				slots.add(idx);
+			}
+		}
+		beginSequence(player, SEQ_DEPLOY, suitId, slots);
 		return true;
 	}
 
-	/** Pull the player's currently worn suit back into the platform. */
+	/** Start pulling the player's worn suit back onto the platform. False if it cannot start. */
 	public boolean retrieveFrom(ServerPlayer player) {
 		String suitId = IronManArmor.wornSuitId(player);
-		if (suitId == null) {
+		if (suitId == null || sequenceRunning() || IronManSuitUpManager.inTransition(player)
+				|| !(level instanceof ServerLevel) || !matchesStoredSuit(suitId)) {
 			return false;
 		}
 		if (owner == null) {
 			owner = player.getUUID();
 		}
-		boolean any = false;
-		float energy = IronManEnergy.energy(player, suitId);
-		float integrity = IronManEnergy.integrity(player, suitId);
-		for (EquipmentSlot slot : new EquipmentSlot[] {
-				EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET }) {
-			ItemStack stack = player.getItemBySlot(slot);
-			if (stack.getItem() instanceof IronManArmorItem piece && piece.suitId().equals(suitId)) {
-				int idx = slotOf(piece.getType());
-				if (idx >= 0 && pieces.get(idx).isEmpty()) {
-					ItemStack copy = stack.copy();
-					IronManEnergy.stampStack(copy, energy, integrity);
-					pieces.set(idx, copy);
-					player.setItemSlot(slot, ItemStack.EMPTY);
-					any = true;
+		java.util.List<Integer> slots = new java.util.ArrayList<>();
+		for (int idx : RETRIEVE_ORDER) {
+			EquipmentSlot slot = equipSlotOf(idx);
+			if (player.getItemBySlot(slot).getItem() instanceof IronManArmorItem p && p.suitId().equals(suitId)
+					&& pieces.get(idx).isEmpty()) {
+				slots.add(idx);
+			}
+		}
+		if (slots.isEmpty()) {
+			return false;
+		}
+		if (com.projecthero.mod.ironman.IronManFlight.isFlying(player)) {
+			com.projecthero.mod.ironman.IronManFlight.setFlying(player, false);
+		}
+		beginSequence(player, SEQ_RETRIEVE, suitId, slots);
+		return true;
+	}
+
+	private void beginSequence(ServerPlayer player, int mode, String suitId, java.util.List<Integer> slots) {
+		seqMode = mode;
+		seqStart = level.getGameTime();
+		seqPlayer = player.getUUID();
+		seqPlayerEntity = player.getId();
+		seqSuit = suitId;
+		seqSlots = slots.stream().mapToInt(Integer::intValue).toArray();
+		seqDoneMask = 0;
+		seqReleasedMask = 0;
+		int len = sequenceLength(mode, seqSlots.length);
+		// Hold the player's suit-up state for the whole sequence so no other suit-up / suit-down can start over it.
+		var s = TonyStark.state(player);
+		s.transitionSuit = suitId;
+		s.transitionUp = mode == SEQ_DEPLOY;
+		s.transitionTotal = len + 2;
+		s.transitionTicks = s.transitionTotal;
+		s.transitionMask = 0;
+		s.transitionReleaseMask = 0;
+		com.projecthero.mod.ironman.suit.IronManSuitFx.startPose(player,
+				mode == SEQ_DEPLOY ? com.projecthero.mod.ironman.suit.IronManSuitFx.POSE_SUIT_UP
+						: com.projecthero.mod.ironman.suit.IronManSuitFx.POSE_SUIT_DOWN,
+				len + com.projecthero.mod.ironman.suit.IronManSuitFx.LOCK_TICKS + 2,
+				com.projecthero.mod.ironman.suit.IronManSuitFx.STYLE_PLATES);
+		com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.SERVO, 1.0f, 0.9f);
+		afterContentsChanged();
+	}
+
+	/** Server tick of a running deploy / retrieve. */
+	private void tickSequence(ServerLevel sl) {
+		ServerPlayer player = seqPlayer == null ? null : sl.getServer().getPlayerList().getPlayer(seqPlayer);
+		if (player == null || player.level() != sl || !player.isAlive() || !TonyStark.hasPower(player)
+				|| player.position().distanceTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(worldPosition)) > SEQ_RANGE + 1.5) {
+			abortSequence(player);
+			return;
+		}
+		int t = (int) (sl.getGameTime() - seqStart);
+		boolean finished = true;
+		for (int i = 0; i < seqSlots.length; i++) {
+			int idx = seqSlots[i];
+			int bit = 1 << idx;
+			EquipmentSlot slot = equipSlotOf(idx);
+			if (seqMode == SEQ_DEPLOY) {
+				if ((seqDoneMask & bit) != 0) {
+					continue;
+				}
+				finished = false;
+				if (t == deployLiftTick(i)) {
+					com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.SERVO,
+							0.6f, 1.2f + 0.1f * i);
+				}
+				if (t >= deployEquipTick(i)) {
+					seqDoneMask |= bit;
+					ItemStack stack = pieces.get(idx);
+					if (stack.getItem() instanceof IronManArmorItem p && p.suitId().equals(seqSuit)) {
+						// one tick: off the rack and onto the body -- the real stack
+						pieces.set(idx, ItemStack.EMPTY);
+						if (!IronManSuitUpManager.receivePart(player, stack)) {
+							pieces.set(idx, stack); // the slot already holds this suit's piece: it stays racked
+						}
+						afterContentsChanged();
+					}
+				}
+			} else {
+				if ((seqDoneMask & bit) != 0) {
+					if (t < retrieveMoveTick(i) + SEQ_FLIGHT) {
+						finished = false; // still flying home on the client
+					}
+					continue;
+				}
+				finished = false;
+				if ((seqReleasedMask & bit) == 0 && t >= retrieveReleaseTick(i)) {
+					seqReleasedMask |= bit;
+					if (player.getItemBySlot(slot).getItem() instanceof IronManArmorItem) {
+						com.projecthero.mod.ironman.suit.IronManSuitFx.markPiece(player, slot, false);
+						com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.RELEASE,
+								0.7f, 1.0f);
+					}
+				}
+				if (t >= retrieveMoveTick(i)) {
+					seqDoneMask |= bit;
+					ItemStack worn = player.getItemBySlot(slot);
+					if (worn.getItem() instanceof IronManArmorItem p && p.suitId().equals(seqSuit) && pieces.get(idx).isEmpty()) {
+						// one tick: off the body and onto the rack -- the real stack, charge stamped on
+						ItemStack copy = worn.copy();
+						IronManEnergy.stampStack(copy, IronManEnergy.energy(player, seqSuit), IronManEnergy.integrity(player, seqSuit));
+						player.setItemSlot(slot, ItemStack.EMPTY);
+						pieces.set(idx, copy);
+						afterContentsChanged();
+					}
 				}
 			}
 		}
-		if (any) {
-			TonyStark.setActiveSuit(player, "");
-			afterContentsChanged();
+		if (finished) {
+			endSequence(player);
 		}
-		return any;
+	}
+
+	private void endSequence(ServerPlayer player) {
+		if (seqMode == SEQ_RETRIEVE && player != null) {
+			com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.CLAMP, 0.6f, 0.8f);
+			if (!IronManArmor.wearingAnyIronMan(player)) {
+				TonyStark.setActiveSuit(player, "");
+			}
+		}
+		releasePlayerHold(player);
+		seqMode = SEQ_NONE;
+		seqSlots = new int[0];
+		seqPlayer = null;
+		seqPlayerEntity = -1;
+		afterContentsChanged();
+	}
+
+	/** Interrupted (walked away / logged out / died / power lost / block broken): stop where it is -- nothing moves. */
+	public void abortSequence(ServerPlayer player) {
+		if (seqMode == SEQ_NONE) {
+			return;
+		}
+		if (player == null && seqPlayer != null && level instanceof ServerLevel sl) {
+			player = sl.getServer().getPlayerList().getPlayer(seqPlayer);
+		}
+		if (player != null) {
+			com.projecthero.mod.ironman.suit.IronManSuitFx.endPose(player);
+		}
+		endSequence(player);
+	}
+
+	/** Hand the player's suit-up state back (only if it is still the hold this sequence placed). */
+	private void releasePlayerHold(ServerPlayer player) {
+		if (player == null) {
+			return;
+		}
+		var s = TonyStark.state(player);
+		if (seqSuit.equals(s.transitionSuit) && s.transitionMask == 0 && s.transitionTicks > 1) {
+			s.transitionTicks = 1; // IronManSuitUpManager.tick finishes it next tick (faceplate beat / active suit)
+		}
+	}
+
+	private static EquipmentSlot equipSlotOf(int rackSlot) {
+		return switch (rackSlot) {
+			case 0 -> EquipmentSlot.HEAD;
+			case 1 -> EquipmentSlot.CHEST;
+			case 2 -> EquipmentSlot.LEGS;
+			default -> EquipmentSlot.FEET;
+		};
 	}
 
 	private static int slotOf(ArmorItem.Type type) {
@@ -374,12 +581,21 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 
 	/** Remove that piece so a courier entity can carry it to its owner. Returns true if it was there. */
 	public boolean takePiece(String suitId, ArmorItem.Type type) {
-		if (!holds(suitId, type)) {
-			return false;
+		return !takePieceStack(suitId, type).isEmpty();
+	}
+
+	/**
+	 * v0.14.21: remove and RETURN the real stack in that slot (EMPTY if it is not there, or while a deploy / retrieve is
+	 * running -- a call never steals a piece out of the middle of a sequence).
+	 */
+	public ItemStack takePieceStack(String suitId, ArmorItem.Type type) {
+		if (!holds(suitId, type) || sequenceRunning()) {
+			return ItemStack.EMPTY;
 		}
+		ItemStack out = pieces.get(slotOf(type));
 		pieces.set(slotOf(type), ItemStack.EMPTY);
 		afterContentsChanged();
-		return true;
+		return out;
 	}
 
 	/** The carried charge on a still-stored piece (so a courier can hand the real values across). */
@@ -499,6 +715,7 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		ContainerHelper.loadAllItems(tag, pieces, registries);
 		storedEnergy = tag.getInt("StoredEnergy");
 		owner = tag.hasUUID("Owner") ? tag.getUUID("Owner") : null;
+		loadSequence(tag);
 	}
 
 	@Override
@@ -518,7 +735,22 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 	public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
 		CompoundTag tag = new CompoundTag();
 		saveAdditional(tag, registries);
+		// v0.14.21: the running deploy / retrieve, for the BER only (never written to disk -- see the sequence notes)
+		tag.putInt("SeqMode", seqMode);
+		tag.putLong("SeqStart", seqStart);
+		tag.putInt("SeqPlayer", seqPlayerEntity);
+		tag.putIntArray("SeqSlots", seqSlots);
 		return tag;
+	}
+
+	/** Client: read the synced sequence alongside the contents (the server never reads these keys from disk). */
+	private void loadSequence(CompoundTag tag) {
+		if (level != null && level.isClientSide()) {
+			seqMode = tag.getInt("SeqMode");
+			seqStart = tag.getLong("SeqStart");
+			seqPlayerEntity = tag.contains("SeqPlayer") ? tag.getInt("SeqPlayer") : -1;
+			seqSlots = tag.getIntArray("SeqSlots");
+		}
 	}
 
 	@Override

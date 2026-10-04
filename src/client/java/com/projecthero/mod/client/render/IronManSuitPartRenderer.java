@@ -54,10 +54,15 @@ public class IronManSuitPartRenderer extends EntityRenderer<IronManSuitPartEntit
 		if (entity.level() == null) {
 			return;
 		}
-		var item = IronManItems.armor(entity.suitId(), entity.part());
-		if (item == null) {
-			super.render(entity, entityYaw, partialTicks, pose, buffers, packedLight);
-			return;
+		// v0.14.21: draw the REAL stack in transit (enchantment glint, custom model data, ...), not a fresh piece
+		ItemStack carried = entity.piece();
+		if (carried.isEmpty()) {
+			var item = IronManItems.armor(entity.suitId(), entity.part());
+			if (item == null) {
+				super.render(entity, entityYaw, partialTicks, pose, buffers, packedLight);
+				return;
+			}
+			carried = new ItemStack(item);
 		}
 		ArmorStand stand = STANDS.computeIfAbsent(entity, IronManSuitPartRenderer::makeStand);
 		if (stand == null) {
@@ -66,15 +71,30 @@ public class IronManSuitPartRenderer extends EntityRenderer<IronManSuitPartEntit
 		EquipmentSlot worn = slotFor(entity.part());
 		for (EquipmentSlot s : new EquipmentSlot[] {
 				EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET }) {
-			stand.setItemSlot(s, s == worn ? new ItemStack(item) : ItemStack.EMPTY);
+			ItemStack want = s == worn ? carried : ItemStack.EMPTY;
+			if (!ItemStack.matches(stand.getItemBySlot(s), want)) {
+				stand.setItemSlot(s, want);
+			}
 		}
 
+		// The entity sits at the piece's own place on the body. In flight the piece tumbles at 85% size around that
+		// point; over the last 40% of the curve it stops tumbling, turns to the owner's body yaw and grows to full size,
+		// so it arrives exactly lined up on its slot (the armour stand's origin = the owner's feet) and clamps on.
 		float age = entity.tickCount + partialTicks;
+		float align = smooth((entity.progress() - 0.6f) / 0.4f);
+		float ownerYaw = 0f;
+		if (entity.level().getEntity(entity.ownerEntityId()) instanceof net.minecraft.world.entity.LivingEntity owner) {
+			ownerYaw = net.minecraft.util.Mth.rotLerp(partialTicks, owner.yBodyRotO, owner.yBodyRot);
+		}
+		float spinYaw = age * 14f;
+		float yaw = net.minecraft.util.Mth.rotLerp(align, spinYaw, -ownerYaw);
+		float scale = net.minecraft.util.Mth.lerp(align, 0.85f, 1.0f);
+		double slotHeight = com.projecthero.mod.ironman.suit.IronManSuitUpManager.slotHeight(worn);
 		pose.pushPose();
-		pose.translate(0.0, 0.1, 0.0);
-		pose.mulPose(Axis.YP.rotationDegrees(age * 14f));
-		pose.mulPose(Axis.XP.rotationDegrees((float) Math.sin(age * 0.2f) * 12f));
-		pose.scale(0.85f, 0.85f, 0.85f);
+		pose.mulPose(Axis.YP.rotationDegrees(yaw));
+		pose.mulPose(Axis.XP.rotationDegrees((1f - align) * (float) Math.sin(age * 0.2f) * 12f));
+		pose.scale(scale, scale, scale);
+		pose.translate(0.0, -slotHeight, 0.0);
 
 		var dispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
 		dispatcher.setRenderShadow(false);
@@ -83,6 +103,11 @@ public class IronManSuitPartRenderer extends EntityRenderer<IronManSuitPartEntit
 		pose.popPose();
 
 		super.render(entity, entityYaw, partialTicks, pose, buffers, packedLight);
+	}
+
+	private static float smooth(float x) {
+		x = Math.max(0f, Math.min(1f, x));
+		return x * x * (3f - 2f * x);
 	}
 
 	private static ArmorStand makeStand(IronManSuitPartEntity entity) {

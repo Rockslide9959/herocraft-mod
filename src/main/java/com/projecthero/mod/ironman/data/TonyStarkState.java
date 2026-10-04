@@ -21,8 +21,8 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
  * mutations -- so it needs its own fields (technology level, per-suit energy/integrity, which suit is
  * active) that would not fit the mutation store.
  *
- * <p>Keys used inside the maps/sets are suit ids: {@code mark_iii}, {@code mark_v}, {@code mark_vii},
- * {@code mark_42}, {@code mark_50}. Iron Man ability cooldowns are keyed {@code suitId + "/" + abilityId}
+ * <p>Keys used inside the maps/sets are suit ids: {@code mark_1}, {@code mark_2}, {@code mark_iii}, {@code mark_4},
+ * {@code mark_v}, {@code mark_6}, {@code mark_vii}. Iron Man ability cooldowns are keyed {@code suitId + "/" + abilityId}
  * and stored as an absolute "ready-at game time" so they survive relog/death/dimension change, exactly
  * like the experimental system's cooldowns.
  */
@@ -30,8 +30,8 @@ public final class TonyStarkState {
 	/** Whether the player has the permanent Tony Stark Hero-Tier power. */
 	public boolean hasPower;
 	/**
-	 * Iron Man technology tier reached: 0 = Tony Stark acquired, 1 = Mark III, 2 = Mark V, 3 = Mark VII,
-	 * 4 = Mark 42, 5 = Mark 50. Gates which blueprints the Stark Fabricator will produce.
+	 * Iron Man technology tier reached: 0 = Tony Stark acquired, 1 = Mark III, 2 = Mark V, 3 = Mark VII
+	 * (the highest any suit needs). Gates the suit-up / summon checks; the Blank Blueprint progression gates the Fabricator.
 	 */
 	public int techLevel;
 	/**
@@ -141,7 +141,13 @@ public final class TonyStarkState {
 	public transient boolean transitionToCase = false;
 	/** "changes 15": this suit-up materialises the pieces from the Mark V Suitcase, not the inventory. */
 	public transient boolean transitionFromCase = false;
-	/** game time until which targeting mode's lock-assist + HUD reticle is active. */
+	/** v0.14.21: suit-down pieces whose plates are breaking away right now, removed once their release finishes (bit 0 HEAD .. 3 FEET). */
+	public transient int transitionReleaseMask = 0;
+	/**
+	 * game time until which the old Targeting Mode reticle is active. v0.14.21: no suit binds Targeting Mode any more,
+	 * so nothing sets this; it is kept only because {@code IronManHud} still reads {@link #targetingActive} (remove both
+	 * together once the HUD drops its reticle).
+	 */
 	public transient long targetingUntil = 0L;
 	/** game time the R-slot (slot 1) hold started, or 0 if not held -- drives the charged-repulsor spin-up. */
 	public transient long chargeStartTick = 0L;
@@ -216,6 +222,7 @@ public final class TonyStarkState {
 		c.transitionMask = transitionMask;
 		c.transitionToCase = transitionToCase;
 		c.transitionFromCase = transitionFromCase;
+		c.transitionReleaseMask = transitionReleaseMask;
 		c.targetingUntil = targetingUntil;
 		c.chargeStartTick = chargeStartTick;
 		c.chargeReadyPinged = chargeReadyPinged;

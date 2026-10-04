@@ -35,10 +35,10 @@ public final class IronManFaceplate {
 		}
 		boolean open = !isOpen(player);
 		player.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, open);
-		if (player.level() instanceof ServerLevel level) {
-			level.playSound(null, player.getX(), player.getY(), player.getZ(),
-					open ? SoundEvents.IRON_TRAPDOOR_OPEN : SoundEvents.IRON_TRAPDOOR_CLOSE,
-					SoundSource.PLAYERS, 0.5f, 1.5f);
+		// v0.14.21: the visor now swings (helmet_open / helmet_close clips) instead of popping -- every viewer gets the clock
+		com.projecthero.mod.ironman.suit.IronManSuitFx.faceplateMoved(player);
+		if (player.level() instanceof ServerLevel) {
+			IronManSounds.play(player, open ? IronManSounds.FACEPLATE_OPEN : IronManSounds.FACEPLATE_SEAL, 0.6f, 1.0f);
 		}
 		player.displayClientMessage(Component.translatable(open
 				? "message.projecthero.ironman.faceplate_open" : "message.projecthero.ironman.faceplate_closed"), true);

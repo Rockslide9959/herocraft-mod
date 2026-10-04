@@ -26,7 +26,7 @@ public final class IronManSuits {
 	// trivially satisfied the instant a player has the Tony Stark power.
 	public static final IronManSuit MARK_1 = register(IronManSuit.Builder.of("mark_1")
 			.tech(0, 1)
-			.energy(3_000f, 2.0f, 3.0f)
+			.energy(3_000f, 3.0f)
 			.maxIntegrity(1000f) // v0.11.12: up from 300, explicit user request
 			.energyRegen(6f) // v0.11.12: flat passive 6 energy/sec (was 0.7 -- explicit user request)
 			.platformRegen(10f, 6f) // v0.11.12: flat 10 energy/sec + 6 integrity/sec on a Suit Platform,
@@ -37,8 +37,8 @@ public final class IronManSuits {
 			.flightDrain(0.55f) // "changes 18"
 			.targetScanRange(30.0) // "changes 14"
 			.flight(0.75f, 0.055f) // "changes 18": flies 25% slower than the other marks
-			.repulsor(0f, 0f) // no repulsor on this loadout -- see abilities() below
-			.unibeam(0f, 0f)  // no unibeam on this loadout
+			.repulsor(0f) // no repulsor on this loadout -- see abilities() below
+			.unibeam(0f)  // no unibeam on this loadout
 			.missiles(0, 0f, 0f) // slot 3/Z is the single-shot Rocket instead, not the missile volley
 			.strength(4.0f) // "changes 18": melee bonus +4
 			.noFlightLean()
@@ -59,7 +59,7 @@ public final class IronManSuits {
 
 	public static final IronManSuit MARK_2 = register(IronManSuit.Builder.of("mark_2")
 			.tech(0, 2)
-			.energy(4_500f, 2.0f, 0.5f)
+			.energy(4_500f, 0.5f)
 			.maxIntegrity(1500f) // v0.11.13: up from 420, explicit user request
 			.energyRegen(12f) // v0.11.13: flat passive 12 energy/sec (was 1.0), explicit user request
 			.armorRegen(5f) // v0.11.13: flat passive 5 integrity/sec worn self-repair, explicit user request
@@ -69,9 +69,9 @@ public final class IronManSuits {
 			.flightDrain(0.9f) // "changes 18"
 			.targetScanRange(30.0) // "changes 14"
 			.flight(1.0f, 0.08f) // "normal flight like other armours"
-			.repulsor(9.0f, 120f)
+			.repulsor(9.0f)
 			.repulsorWindup(20) // 1 s spin-up before an ordinary tap actually fires
-			.unibeam(14.0f, 1_500f)
+			.unibeam(14.0f)
 			.unibeamDamageMultiplier(0.7f) // "slightly weaker" than Mark III's
 			.missiles(0, 0f, 0f) // slot 2/G is the single-shot Rocket instead
 			.strength(5.0f) // "changes 18": melee bonus +5
@@ -88,7 +88,7 @@ public final class IronManSuits {
 
 	public static final IronManSuit MARK_III = register(IronManSuit.Builder.of("mark_iii")
 			.tech(1, 3)
-			.energy(7_500f, 2.0f, 3.0f) // "changes 18": capacity 7500
+			.energy(7_500f, 3.0f) // "changes 18": capacity 7500
 			.maxIntegrity(600f) // "changes 18": Mark III condition pool
 			.energyRegen(1.5f) // "changes 18"
 			.armorRegen(0.03f) // "changes 18": slow worn self-repair
@@ -96,10 +96,9 @@ public final class IronManSuits {
 			.targetScanRange(70.0) // "changes 14": Mark III target scan reaches 70 blocks
 			.airTank(180) // "changes 17": 3 minutes of underwater breathing
 			.flight(1.0f, 0.08f)
-			.repulsor(10.0f, 120f)
-			.unibeam(18.0f, 1_500f)
+			.repulsor(10.0f)
+			.unibeam(18.0f)
 			.missiles(4, 8.0f, 250f)
-			.damageReduction(0.72f)
 			.strength(6.0f) // "changes 18": melee bonus +6
 			.abilities(IronManAbilities.REPULSOR_BLAST, IronManAbilities.REPULSOR_BARRIER, IronManAbilities.MICRO_MISSILES,
 					IronManAbilities.UNIBEAM, IronManAbilities.MOB_HIGHLIGHT_TOGGLE, IronManAbilities.SUIT_TOGGLE)
@@ -112,16 +111,16 @@ public final class IronManSuits {
 	// same ability loadout as the Mark 2, a smaller condition pool, and the folding-suitcase suit-up.
 	public static final IronManSuit MARK_V = register(IronManSuit.Builder.of("mark_v")
 			.tech(2, 5)
-			.energy(8_000f, 1.6f, 0.5f) // "changes 18": capacity 8000
+			.energy(8_000f, 0.5f) // "changes 18": capacity 8000
 			.maxIntegrity(550f) // "changes 18"
 			.energyRegen(1.6f) // "changes 18"
 			.armorRegen(0.03f) // "changes 18"
 			.flightDrain(0.90f) // "changes 18"
 			.targetScanRange(30.0)
 			.flight(1.0f, 0.08f)
-			.repulsor(9.0f, 120f)
+			.repulsor(9.0f)
 			.repulsorWindup(20) // 1 s spin-up before an ordinary tap fires -- same as the Mark 2
-			.unibeam(14.0f, 1_500f)
+			.unibeam(14.0f)
 			.unibeamDamageMultiplier(0.7f)
 			.missiles(0, 0f, 0f) // slot 2/G is the single-shot Rocket, slot 3/X is the Flare
 			.strength(5.0f) // "changes 18": melee bonus +5
@@ -138,7 +137,7 @@ public final class IronManSuits {
 	// loadout, plus a one-shot wrist laser reached by sneaking + the V slot.
 	public static final IronManSuit MARK_4 = register(IronManSuit.Builder.of("mark_4")
 			.tech(0, 4)
-			.energy(8_500f, 2.0f, 3.0f) // "changes 18": capacity 8500
+			.energy(8_500f, 3.0f) // "changes 18": capacity 8500
 			.maxIntegrity(700f) // "changes 18"
 			.energyRegen(1.8f) // "changes 18"
 			.armorRegen(0.04f) // "changes 18"
@@ -146,8 +145,8 @@ public final class IronManSuits {
 			.targetScanRange(70.0)
 			.airTank(180) // "changes 17": 3 minutes of underwater breathing
 			.flight(1.05f, 0.09f)
-			.repulsor(10.0f, 120f)
-			.unibeam(18.0f, 1_500f)
+			.repulsor(10.0f)
+			.unibeam(18.0f)
 			.missiles(4, 8.0f, 250f)
 			.strength(6.0f) // "changes 18": melee bonus +6
 			.wristLaser()
@@ -162,7 +161,7 @@ public final class IronManSuits {
 	// 30 m/s flight, and cheap to run.
 	public static final IronManSuit MARK_6 = register(IronManSuit.Builder.of("mark_6")
 			.tech(0, 6)
-			.energy(10_500f, 2.0f, 3.0f) // "changes 18": capacity 10500
+			.energy(10_500f, 3.0f) // "changes 18": capacity 10500
 			.maxIntegrity(800f) // "changes 18"
 			.energyRegen(2.6f) // "changes 18"
 			.armorRegen(0.05f) // "changes 18"
@@ -171,8 +170,8 @@ public final class IronManSuits {
 			.airTank(300) // "changes 17": 5 minutes of underwater breathing
 			.flight(1.7f, 0.14f)
 			.maxFlightSpeed(30.0)
-			.repulsor(10.0f, 120f)
-			.unibeam(18.0f, 1_500f)
+			.repulsor(10.0f)
+			.unibeam(18.0f)
 			.missiles(4, 8.0f, 250f)
 			.strength(7.0f) // "changes 18": melee bonus +7
 			.fullBodyShield()
@@ -190,15 +189,15 @@ public final class IronManSuits {
 	// wheel on V that re-binds slot 3 (X), a full-body Repulsor Shield, 30 m/s flight, cheap to run.
 	public static final IronManSuit MARK_VII = register(IronManSuit.Builder.of("mark_vii")
 			.tech(3, 7)
-			.energy(12_000f, 2.6f, 3.4f) // "changes 18": capacity 12000
+			.energy(12_000f, 3.4f) // "changes 18": capacity 12000
 			.maxIntegrity(950f) // "changes 18"
 			.energyRegen(3.0f) // "changes 18"
 			.armorRegen(0.06f) // "changes 18"
 			.flightDrain(1.15f) // "changes 18"
 			.flight(1.7f, 0.14f)
 			.maxFlightSpeed(30.0)
-			.repulsor(12.0f, 110f)
-			.unibeam(24.0f, 1_400f)
+			.repulsor(12.0f)
+			.unibeam(24.0f)
 			.missiles(6, 10.0f, 240f)
 			.strength(7.0f) // "changes 18": melee bonus +7
 			.fullBodyShield()

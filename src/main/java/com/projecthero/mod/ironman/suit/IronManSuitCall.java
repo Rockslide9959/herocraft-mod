@@ -38,7 +38,7 @@ import net.minecraft.world.phys.Vec3;
  *
  * <h2>Why this can't fail the way the old path did</h2>
  * <ul>
- *   <li>Only genuinely-assemblable suits are ever listed, so "Mark L is not developed" can't appear.</li>
+ *   <li>Only genuinely-assemblable suits are ever listed, so "that mark is not developed" can't appear.</li>
  *   <li>A platform in an unloaded chunk is force-loaded once (in this packet-handler context, never
  *       from a chunk-load callback -- see {@link com.projecthero.mod.hammer.MjolnirRegistry}) so the
  *       block entity itself removes the pieces; if the block turns out to be gone, the stale registry
@@ -304,22 +304,32 @@ public final class IronManSuitCall {
 			integrity = be.suitIntegrity();
 		}
 
-		int launched = 0;
+		// v0.14.21: the REAL stacks leave the platform / pack and travel in the couriers (or the pod).
+		List<ItemStack> taken = new ArrayList<>();
 		for (ArmorItem.Type type : TYPES) {
 			if (IronManArmor.isPieceWorn(player, IronManSuitUpManager.slotFor(type), suitId)) {
 				continue;
 			}
-			boolean took = false;
-			if (be != null && be.takePiece(suitId, type)) {
-				took = true;
-			} else {
+			ItemStack stack = be != null ? be.takePieceStack(suitId, type) : ItemStack.EMPTY;
+			if (stack.isEmpty()) {
 				int idx = findInInventoryIndex(player, suitId, type);
 				if (idx >= 0) {
-					player.getInventory().removeItem(idx, 1);
-					took = true;
+					stack = player.getInventory().removeItem(idx, 1);
 				}
 			}
-			if (took) {
+			if (!stack.isEmpty()) {
+				taken.add(stack);
+			}
+		}
+		int launched = taken.size();
+		int arrival;
+		if (launched > 0 && suit.summonType() == SummonType.TRACKING_POD) {
+			// Mark VII: one delivery pod carries the whole set and fires the pieces out at its owner
+			com.projecthero.mod.ironman.entity.IronManDeliveryPodEntity.spawn(level, player, taken,
+					straightFromPlatform ? origin : null);
+			arrival = com.projecthero.mod.ironman.entity.IronManDeliveryPodEntity.ticksToLastPiece(launched) + 30;
+		} else {
+			for (int i = 0; i < taken.size(); i++) {
 				Vec3 from;
 				if (straightFromPlatform && origin != null) {
 					from = origin;
@@ -329,9 +339,9 @@ public final class IronManSuitCall {
 							12 + level.random.nextDouble() * 5, Math.sin(ang) * ARRIVAL_DISTANCE);
 				}
 				// Stagger each courier so the pieces fly in and equip one at a time, in TYPES order.
-				IronManSuitPartEntity.spawn(level, from, player, suitId, type, launched * LAUNCH_STAGGER);
-				launched++;
+				IronManSuitPartEntity.spawn(level, from, player, taken.get(i), i * LAUNCH_STAGGER);
 			}
+			arrival = suit.suitUpType().durationTicks() + Math.max(0, launched - 1) * LAUNCH_STAGGER + 40;
 		}
 
 		if (launched == 0) {
@@ -350,10 +360,71 @@ public final class IronManSuitCall {
 		var s = TonyStark.state(player);
 		s.transitionSuit = suitId;
 		s.transitionUp = true;
-		s.transitionTotal = Math.max(20, suit.suitUpType().durationTicks()
-				+ Math.max(0, launched - 1) * LAUNCH_STAGGER + 40);
+		s.transitionTotal = Math.max(20, arrival);
 		s.transitionTicks = s.transitionTotal;
 		s.transitionMask = 0;
+		s.transitionReleaseMask = 0;
+		// arms out to receive the pieces while they are inbound (every viewer sees it)
+		IronManSuitFx.startPose(player, IronManSuitFx.POSE_RECEIVE, s.transitionTotal + IronManSuitFx.LOCK_TICKS,
+				IronManSuitFx.STYLE_PLATES);
+	}
+
+	// ---------------- single pieces + the command path (v0.14.21: replaces IronManSuitSummonManager) ----------------
+
+	/**
+	 * {@code /ironman suit <id>}: put the whole suit on through the real call path -- a staged suit-up if it is all in
+	 * the pack, otherwise a call off the nearest platform (loaded or not) or whatever pieces are carried.
+	 */
+	public static boolean commandCall(ServerPlayer player, String suitId) {
+		IronManSuit suit = IronManSuits.byId(suitId);
+		if (suit == null || !TonyStark.hasPower(player) || IronManSuitUpManager.inTransition(player)
+				|| IronManArmor.wearingAnyIronMan(player)) {
+			return false;
+		}
+		if (fullyInInventory(player, suitId)) {
+			return IronManSuitUpManager.beginSuitUp(player, suitId);
+		}
+		ServerLevel level = player.serverLevel();
+		boolean reachable = anyPieceInInventory(player, suitId)
+				|| nearestLoadedPlatform(level, player.blockPosition(), player.getUUID(), suitId) != null
+				|| StarkPlatformRegistry.get(level).nearestHolding(player.getUUID(), level.dimension(), suitId,
+						player.blockPosition()).isPresent();
+		if (!reachable) {
+			return false;
+		}
+		callFromPlatform(player, suit);
+		return true;
+	}
+
+	/**
+	 * {@code /ironman part <id> <piece>}: fly ONE piece in -- out of the pack, else off the nearest loaded platform of
+	 * the player's holding it. The real stack travels in the courier.
+	 */
+	public static boolean callPiece(ServerPlayer player, String suitId, ArmorItem.Type type) {
+		if (!TonyStark.hasPower(player) || IronManSuits.byId(suitId) == null) {
+			return false;
+		}
+		if (IronManArmor.isPieceWorn(player, IronManSuitUpManager.slotFor(type), suitId)) {
+			return false;
+		}
+		ServerLevel level = player.serverLevel();
+		int idx = findInInventoryIndex(player, suitId, type);
+		if (idx >= 0) {
+			ItemStack stack = player.getInventory().removeItem(idx, 1);
+			double ang = level.random.nextDouble() * Math.PI * 2;
+			Vec3 from = player.position().add(Math.cos(ang) * 6, 3 + level.random.nextDouble() * 2, Math.sin(ang) * 6);
+			IronManSuitPartEntity.spawn(level, from, player, stack, 0);
+			return true;
+		}
+		IronManSuitPlatformBlockEntity be = nearestLoadedPlatform(level, player.blockPosition(), player.getUUID(), suitId);
+		if (be != null) {
+			ItemStack stack = be.takePieceStack(suitId, type);
+			if (!stack.isEmpty()) {
+				IronManSuitPartEntity.spawn(level, Vec3.atCenterOf(be.getBlockPos()).add(0, 1.0, 0), player, stack, 0);
+				return true;
+			}
+		}
+		return false;
 	}
 
 	// ---------------- pending calls from unloaded platforms ----------------
@@ -525,14 +596,19 @@ public final class IronManSuitCall {
 				items.set(e.getValue(), ItemStack.EMPTY);
 			}
 
+			// v0.14.21: the very stacks the player had (enchantments, names, ...) go home, stamped with the crash damage
+			for (ItemStack st : pieces.values()) {
+				IronManEnergy.stampStack(st, energy, halved);
+			}
 			if (dock != null) {
 				if (dock.owner().isEmpty()) {
 					dock.bindTo(player.getUUID());
 				}
-				for (ArmorItem.Type type : pieces.keySet()) {
-					ItemStack s = new ItemStack(IronManItems.armor(suitId, type));
-					IronManEnergy.stampStack(s, energy, halved);
-					dock.store(s);
+				for (ItemStack st : pieces.values()) {
+					ItemStack copy = st.copy();
+					if (!dock.store(copy)) {
+						player.drop(st.copy(), true, false); // a slot clash on the dock: never lose the piece
+					}
 				}
 				BlockPos dp = dock.getBlockPos();
 				player.sendSystemMessage(Component.translatable("message.projecthero.ironman.suit_recovered",
@@ -541,7 +617,8 @@ public final class IronManSuitCall {
 			} else {
 				BlockPos pos = regEntry.get().blockPos();
 				StarkSuitReturnQueue.get(level).enqueue(player.getUUID(),
-						net.minecraft.core.GlobalPos.of(level.dimension(), pos), suitId, mask, energy, halved);
+						net.minecraft.core.GlobalPos.of(level.dimension(), pos), suitId, mask, energy, halved,
+						new ArrayList<>(pieces.values()));
 				player.sendSystemMessage(Component.translatable("message.projecthero.ironman.suit_returning",
 						Component.translatable(suit.nameKey()), pos.getX(), pos.getY(), pos.getZ())
 						.withStyle(ChatFormatting.AQUA));

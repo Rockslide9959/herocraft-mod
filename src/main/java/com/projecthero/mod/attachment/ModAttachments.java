@@ -197,6 +197,12 @@ public final class ModAttachments {
 			builder -> builder.initializer(() -> false)
 					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
 
+	/** v0.14.21: the Iron Man suit-up / suit-down animation clocks, synced to every viewer, never persisted. */
+	public static final AttachmentType<com.projecthero.mod.ironman.suit.IronManSuitFx> IRON_MAN_SUIT_FX =
+			AttachmentRegistry.create(ProjectHeroMod.id("iron_man_suit_fx"),
+					builder -> builder.initializer(() -> com.projecthero.mod.ironman.suit.IronManSuitFx.EMPTY)
+							.syncWith(com.projecthero.mod.ironman.suit.IronManSuitFx.STREAM_CODEC, AttachmentSyncPredicate.all()));
+
 	/**
 	 * "changes 19": whether the Mark 5's gauntlet blades are currently extended (its slot-3 toggle).
 	 * While set the wearer gets +4 melee and cannot place blocks. Not persisted (a relog retracts

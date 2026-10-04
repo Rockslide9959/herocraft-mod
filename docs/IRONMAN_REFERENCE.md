@@ -219,23 +219,26 @@ a Blank Blueprint (`TonyStark.stampBlueprint`).
 
 ## 9. Suit summoning
 
-`IronManSuitSummonManager.summon(player, suitId)` — one entry point, behaviour by `SummonType`:
+v0.14.21: `IronManSuitCall` is the one call path (the legacy `IronManSuitSummonManager` is gone; `/ironman suit` →
+`IronManSuitCall.commandCall`, `/ironman part` → `IronManSuitCall.callPiece`). Behaviour by `SummonType`:
 
-* `FLYING_SET` / `FLYING_MODULAR` / `TRACKING_POD` — each missing piece is pulled from the player's
-  inventory (or Suit Platform) and launched as an `IronManSuitPartEntity` that flies to the player
-  and equips on arrival (`IronManSuitUpManager.receivePart`). Modular supports partial summons;
-* `NANOTECH_ONBOARD` / `SUITCASE_ITEM` — no entities, direct `beginSuitUp` with mark-appropriate FX.
+* `FLYING_SET` — each missing piece (the **real stack**) leaves the platform / pack in an `IronManSuitPartEntity`
+  courier that curves in and clamps on (`IronManSuitUpManager.receivePart(player, stack)`);
+* `TRACKING_POD` (Mark VII) — an `IronManDeliveryPodEntity` carries the set, lands behind the player and fires the
+  pieces out as couriers;
+* `SUITCASE_ITEM` (Mark V) — no entities, the suit unfolds from the Mark V Suitcase.
 
-`IronManSuitPartEntity` fields: `suitId`, `partOrdinal` (`ArmorItem.Type`), `ownerId`, target slot.
-On owner logout / timeout it drops the piece safely, never destroys it.
+`IronManSuitPartEntity` carries the real `ItemStack` (synced + saved in NBT; the type is no longer `noSave`). On owner
+logout / dimension change / timeout it drops that stack, never destroys it. See §17u.
 
 ## 10. Suit-up / suit-down
 
-`IronManSuitUpManager` — one implementation, `SuitUpType` selects the staged sequence + FX:
-`MECHANICAL_REMOTE` (III), `SUITCASE` (V), `REMOTE_AUTOMATED` (VII), `MODULAR` (42), `NANOTECH` (50).
-Equipping moves armour between inventory and armour slots server-side; `TonyStarkState.transitionTicks`
-(synced) drives the staged look. Suit-down folds the suit back into the inventory (or the Mark V
-Suitcase). `MarkVSuitcaseItem` right-click and the Suit Platform both go through this system.
+`IronManSuitUpManager` — one implementation, `SuitUpType` selects the stage order + timing:
+`MECHANICAL_REMOTE` (Marks 1-6 except V), `SUITCASE_MOVIE` (V), `REMOTE_AUTOMATED` (VII). (v0.14.21: the unused
+`SUITCASE` / `MODULAR` / `NANOTECH` types are gone.) Equipping moves the real stacks between inventory / case and armour
+slots server-side, one piece per stage tick; every viewer animates it from the synced `IronManSuitFx` attachment
+(piece lock-on / release clocks, body pose, faceplate swing). Suit-down folds the suit back into the inventory (or the
+Mark V Suitcase). See §17u.
 
 ## 11. Suit energy
 
@@ -300,10 +303,9 @@ new `IronManSuits` entry + a recipe set.
 
 ## 15. Suit Platform
 
-`IronManSuitPlatformBlock` + BE (basic functional version, no GUI): right-click with an Iron Man
-piece to store it; right-click empty-handed (Tony Stark) to deploy the stored suit onto you;
-sneak-right-click to retrieve your worn suit back onto the platform. Architecture is in place for a
-full Hall of Armor (recharge/repair/display).
+`IronManSuitPlatformBlock` + BE: right-click with an Iron Man piece to store it; right-click empty-handed (Tony
+Stark) to open the GUI and DEPLOY the stored suit onto you; sneak-right-click to retrieve your worn suit back onto the
+platform. v0.14.21: deploy and retrieve are animated, server-timed ~1.5 s sequences (§17u).
 
 ## 15b. Stark Sorting Station (v0.14.16, Tidy v0.14.20, repack / supplies v0.14.21)
 
@@ -397,10 +399,10 @@ hit boxes (`IronManBlockShapes`). Old placed blocks load as `facing=north`.
 
 ```
 /ironman power grant|revoke [player]
-/ironman tech <0-5> [player]
+/ironman tech <0-3> [player]                                 # v0.14.21: 3 = Mark VII, the highest any suit needs
 /ironman energy <suitId> <amount> [player]
-/ironman suit <suitId> [player]                              # summon a whole suit
-/ironman part <suitId> <helmet|chestplate|leggings|boots>    # summon one piece (modular)
+/ironman suit <suitId> [player]                              # put a suit on through the real call / suit-up path
+/ironman part <suitId> <helmet|chestplate|leggings|boots>    # fly one piece in (pack, else nearest loaded platform)
 /ironman status [player]
 ```
 
@@ -499,6 +501,110 @@ loop, silent hovering, swelling in with speed). Bare Repulsor Boots play at 60 %
 so every event re-pitches vanilla sound files in `sounds.json` (added by `scratchpad/lang_v01421_ironman_flight.js`,
 which also adds the five `subtitles.projecthero.ironman_*` keys). The events are client-only (never registered) -- the
 SoundManager resolves them by id.
+## 17u. v0.14.21 revamp — suit-up & fixes
+
+### The synced clock: `IronManSuitFx`
+
+`com.projecthero.mod.ironman.suit.IronManSuitFx` — attachment `projecthero:iron_man_suit_fx`, synced to **every**
+viewer, never persisted (`ModAttachments.IRON_MAN_SUIT_FX`). The persisted `TonyStarkState.CODEC` is untouched (it is
+at the 16-field record limit). Fields: one start tick per armour slot + an "assembling" bit mask (lock-on vs release),
+a reveal `style` (plates / from-case), the body-pose clock (`poseStart`, `poseTicks`, `poseKind`) and `faceplateAt`.
+Written only server-side (`markPiece`, `startPose`, `endPose`, `faceplateMoved`). A stale clock is ignored outside its
+window, so it can never hide a piece equipped some other way later.
+
+### Timeline (ticks)
+
+| Sequence | Stages (piece reaches / leaves the body) | Per-piece animation | Total |
+|---|---|---|---|
+| Inventory suit-up, Marks 1-6 / VII (`MECHANICAL_REMOTE` 50, `REMOTE_AUTOMATED` 45) | boots 15%, legs 35%, chest 60%, helmet 85% of the stage timeline | lock-on 12 | timeline + 12, then the 10-tick faceplate beat |
+| Mark V from the case (`SUITCASE_MOVIE` 80) | chest 10%, legs 45%, boots 60%, helmet 85% | lock-on 12, radial from the case in the right hand | 92 + beat |
+| Suit-down (any) | helmet 10%, chest 35%, legs 60%, boots 80% (Mark V: helmet, boots, legs, chest) | release 10, **then** the piece leaves the slot | timeline + 10 |
+| Suit Platform deploy | lift-off 2 + 6·i, on the body 8 later (boots, legs, chest, helmet) | flight 8 (BER) + lock-on 12 | 28 (~1.4 s) |
+| Suit Platform retrieve | release 6·i, onto the rack 10 later (helmet first) | release 10 + flight home 8 (BER) | 36 (~1.8 s) |
+| Courier | launch stagger 16 per piece; curved flight, decelerating over the last 3.5 blocks | lock-on 12 on arrival | distance-dependent |
+| Mark VII pod | descend 40 → open 10 → one piece every 8 (as couriers) → close 10 → ascend 30 | lock-on 12 per piece | ~125 for 4 pieces |
+
+### What each animation does
+
+* **Build-on reveal** (`client.ironman.IronManSuitReveal`, hooked in `SuperheroArmorRenderer.getRenderType`): while a
+  piece's lock-on clock runs it is drawn with an `ArmorSweepReveal` frame restricted to that piece's bones — the plates
+  sweep up the limb behind a white-hot edge (`0xFFFFF4D6`) and an orange spark trail (`0xFFFF9A2E`); the release plays it
+  backwards. The Mark V case style spreads each piece outward from the right hand instead (radial sweep). Built lazily
+  per (mark geometry, texture, piece).
+* **GeckoLib clips** (`IronManArmorItem.registerControllers`, controller `suit`): `suit_lock_on` (0.6 s — helmet drops
+  in and the faceplate swings shut, chest/back plates slide in from front/back, shoulders and gauntlets swing in, thigh
+  plates/knees/boots snap home, the arc reactor pops on) and `suit_release` (0.5 s — the reverse, plates popping outward)
+  are new clips in `crimson_vanguard.animation.json` (generated by `scratchpad/gen_v01421_ironman_suitup.js`). The old
+  `assemble` / `disassemble` clips were authored as one 1.8 s / 1.4 s whole-suit shot with 14-28 px travel (and
+  `disassemble`'s helmet keyframes are out of order), which reads wrong per piece, so they stay unused. `helmet_open` /
+  `helmet_close` are wired as-is for the H faceplate (verified: every mark's `faceplate` bone has the same pivot and
+  cube as crimson_vanguard's). The controller is driven purely by the synced clock (no trigger packets, no stack ids):
+  armour without a GeckoLib stack id is keyed per (wearer entity id, slot), so each wearer animates independently.
+* **Faceplate** (H): the helmet stays visible while the visor swings (`helmet_open`, 10 ticks), then retracts as
+  before; closing shows the helmet and swings the visor down (`helmet_close`). The suit-up's last beat closes it too.
+* **Body pose** (`client.ironman.IronManSuitUpPose`, one self-contained `HumanoidModelMixin` TAIL injection): suit-up —
+  arms out and slightly raised, chest lifted; receive (couriers / pod inbound) — arms wider, chin up; Mark V — right arm
+  holds the case forward, left arm out; suit-down — arms ease out then drop; faceplate close — head dips and returns
+  (open — tips back). Eased in 6 / out 10 ticks.
+* **Couriers** (`IronManSuitPartEntity` + `IronManSuitPartRenderer`): quadratic Bezier bowed up and to one side
+  (alternating per entity id), accelerating out of launch and decelerating to a crawl; over the last 40% of the curve
+  the tumble stops, the piece turns to the owner's body yaw and grows from 85% to full size, arriving exactly on its
+  slot; then the clamp (sparks + `ironman_clamp`) and the lock-on reveal.
+* **Suit Platform** (`IronManSuitPlatformBlockEntity` sequence + `IronManSuitPlatformRenderer`): the rack stops
+  spinning and turns to face the player; each piece gets its own armour stand that travels on an arc between rack (62%
+  size) and body (full size, body yaw), then locks on — or breaks away and flies home.
+* **Mark VII pod** (`IronManDeliveryPodEntity`, GeckoLib `geo/iron_man_delivery_pod.geo.json`, clips `fly` / `open` /
+  `close`): red-and-gold capsule with a clamshell front, glowing interior ribs and thrusters (glowmask). Comes in from
+  26 blocks up (or straight off a loaded platform), tracks and lands 2.4 blocks behind the player (mid-air ok), opens,
+  fires the pieces onto the player as couriers, closes and flies away.
+* **Mark V suitcase** (`MarkVSuitcaseItem` is now a `GeoItem`; `client.ironman.MarkVSuitcaseRenderer` /
+  `MarkVSuitcaseLayer`; `ItemInHandLayerSuitcaseMixin`): a red / silver / gold 3D briefcase when held or dropped (the
+  inventory keeps the flat sprite via the `item/mark_v_suitcase_icon` model). During a case suit-up it springs open in
+  the right hand (front shell drops, side panels swing out, handle folds, core glows), the suit spreads out of it, and
+  it shrinks into the gauntlet at the end; folding, it grows open out of the gauntlet and snaps shut. Posed
+  procedurally from the synced clock; the ordinary right-hand held-item draw is skipped for that window.
+
+### Item identity (bug fix)
+
+The real `ItemStack` (enchantments, names, every component, charge stamps) now travels end to end: inventory suit-up /
+suit-down; couriers (`receivePart(player, stack)`; the stack is synced, saved in the entity's NBT, and the stack dropped
+on failure); platform deploy / retrieve / calls (`takePieceStack`); death recovery (dock or `StarkSuitReturnQueue`,
+whose `Pending` record now carries `stacks`, encoded with registry ops; older records still rebuild fresh pieces);
+Protocol Phoenix (it uses the same paths); and the Mark V case, which now stores the four real stacks in the vanilla
+`minecraft:container` component (`SuitcaseContents`). A case with no component (crafted / creative / pre-0.14.21) still
+unfolds a fresh Mark V; an *emptied* modern case never does. The fold hands the (empty) case over first and puts each
+piece into it in the tick it leaves the body; the unfold takes each piece out of the case in its stage tick and uses
+the case up when it is empty — so case + body always hold the whole suit (no loss on logout, no dupe).
+
+### Suit Platform safety
+
+Server-timed; a piece moves between rack and body in exactly one tick. The sequence stops where it is if the player
+goes more than 6.5 blocks from the rack, logs out, dies, loses the power, or the block is broken (`onRemove` aborts
+it, then the contents drop as before). While it runs the player's suit-up state is held (no other suit-up / -down /
+call can start over it) and calls cannot take pieces off the rack. The sequence itself is never written to disk.
+
+### Sounds
+
+No OGG encoder exists in the build environment (`ffmpeg` / `oggenc` / `sox` not found), so like `DarkseidSounds` the
+new events (`IronManSounds`: `ironman_servo`, `_clamp`, `_release`, `_faceplate_seal`, `_faceplate_open`, `_power_up`,
+`_thruster`, `_pod_land`, `_case_unfold`) are layered, re-pitched vanilla files in `sounds.json` (piston, crafter,
+netherite armour-equip, lodestone lock, vault eject/insert, iron trapdoor, beacon power, firework launch, breeze charge,
+mace smash, heavy core). Swap in real audio by pointing an event at `projecthero:ironman/<name>`.
+
+### Other fixes / cleanup
+
+* Client: the airborne double-tap that toggles Iron Man flight now `return`s instead of also falling through to the
+  Green Lantern ring-flight check.
+* Beams: `IronManAbilities.broadcastBeam` sends to `IronManBeamRecipients.recipients` — the shooter, their trackers,
+  and every player whose eyes are within 128 blocks of the beam segment (a far target used to never see the beam).
+* Removed: `IronManSuitSummonManager`; `SuitUpType.SUITCASE/MODULAR/NANOTECH` and the nanotech branches;
+  `SummonType.NANOTECH_ONBOARD/FLYING_MODULAR`; the unbound `TARGETING_MODE` ability (the `targetingUntil` field stays
+  only because `IronManHud` still reads it); the vestigial `IronManSuit` fields `energyRecharge`, `repulsorEnergyCost`,
+  `unibeamEnergyCost`, `damageReduction` (builder: `energy(capacity, flightCost)`, `repulsor(damage)`,
+  `unibeam(damage)`); stale Mark 42 / 50 comments; `/ironman tech` is now 0-3.
+* `modular_armor_controller` / `nanotech_matrix` stay registered (old worlds) but are off the creative tab and tagged
+  `c:hidden_from_recipe_viewers`.
+* GameTests: `IronManSuitUpV01421GameTests`.
 
 ## 17t. v0.11.13 (Mark 1 / Mark 2 rebalance)
 
