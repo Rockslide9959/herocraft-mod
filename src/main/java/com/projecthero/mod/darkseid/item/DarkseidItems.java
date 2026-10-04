@@ -21,7 +21,7 @@ import net.minecraft.world.item.TooltipFlag;
 /**
  * The Darkseid Raid's items -- its own registration class, like {@code SupervillainRaidItems}.
  * <ul>
- *   <li>{@link #BOOM_TUBE_BEACON} -- starts the raid. Crafted from Supervillain Tokens and a Nether Star (or, for a
+ *   <li>{@link #BOOM_TUBE_BEACON} -- starts the raid. Crafted from Obsidian, Echo Shards, Crying Obsidian and a Nether Star (or, for a
  *       rematch, Omega Shards); never found, never spawns on its own.</li>
  *   <li>{@link #OMEGA_CORE} -- the guaranteed raid reward; crafting material (the Mother Box recipe).</li>
  *   <li>{@link #OMEGA_SHARD} -- the common-ish reward; crafting material (Mother Box, a new beacon).</li>

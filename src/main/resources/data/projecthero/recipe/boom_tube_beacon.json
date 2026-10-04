@@ -2,16 +2,16 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    "ETE",
-    "TNT",
+    "EOE",
+    "ONO",
     "CCC"
   ],
   "key": {
     "E": {
       "item": "minecraft:echo_shard"
     },
-    "T": {
-      "item": "projecthero:supervillain_token"
+    "O": {
+      "item": "minecraft:obsidian"
     },
     "N": {
       "item": "minecraft:nether_star"
