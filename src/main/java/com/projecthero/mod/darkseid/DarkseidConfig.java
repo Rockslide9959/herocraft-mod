@@ -1,16 +1,6 @@
 package com.projecthero.mod.darkseid;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonSyntaxException;
-
-import com.projecthero.mod.ProjectHeroMod;
-
-import net.fabricmc.loader.api.FabricLoader;
+import com.projecthero.mod.config.VersionedConfig;
 
 /**
  * Server-side balance config for the Darkseid Raid ("Apokolips Invasion"), at
@@ -33,8 +23,36 @@ import net.fabricmc.loader.api.FabricLoader;
  * five waves and the gunners' strafing stay). A v2 file's Parademon stats move to the restored defaults.
  */
 public final class DarkseidConfig {
-	/** Bump when a default changes in a way existing files must pick up (and migrate in {@link #load}). */
-	private static final int CONFIG_VERSION = 3;
+	/**
+	 * v0.14.21: loaded through the shared {@link VersionedConfig} (see {@code docs/CONFIGS.md}); the steps are the
+	 * migrations this file already had, unchanged. A file with no version is reset to today's defaults (as before). v2
+	 * (v0.13.19): every value that balance pass changed moves to its new default; keys it did not touch keep whatever
+	 * the file says. v3 (v0.13.21): the Parademons go back to their v0.13.18 stats; nothing else changes.
+	 */
+	private static final String[] PARADEMON_STATS = { "parademons.standardHealth", "parademons.standardDamage",
+			"parademons.rangedHealth", "parademons.rangedBoltDamage", "parademons.eliteHealth", "parademons.eliteDamage",
+			"parademons.bruteHealth", "parademons.bruteDamage" };
+
+	public static final VersionedConfig<DarkseidConfig> SPEC = VersionedConfig
+			.builder(DarkseidConfig.class, "projecthero_darkseid.json", DarkseidConfig::new)
+			.balance("boss", "abilities", "motherBoxes", "parademons", "rewards", "raid.enemyCap", "raid.invasionWaves",
+					"raid.waveScalingPerExtraPlayer", "raid.wave1Standard", "raid.wave2Standard", "raid.wave2Ranged",
+					"raid.wave3Elite", "raid.wave3Brute", "raid.wave3Ranged", "raid.wave3Standard", "raid.wave4Elite",
+					"raid.wave4Brute", "raid.wave4Ranged", "raid.wave4Standard", "raid.wave5Elite", "raid.wave5Brute",
+					"raid.wave5Ranged", "raid.wave5Standard", "raid.raidSoftEnrageTime", "raid.softEnrageStepSeconds")
+			.reset(1, "v0.13.18 first versioned file: a file from before it is reset to today's defaults", "*")
+			.reset(2, "v0.13.19 balance (5 waves, more Parademons, faster Darkseid, more Omega Beams)", concat(
+					new String[] { "raid.enemyCap", "raid.wave1Standard", "raid.wave2Standard", "raid.wave2Ranged", "raid.wave3Elite",
+							"raid.wave3Brute", "raid.wave3Ranged", "raid.wave3Standard", "boss.globalCooldownTicks",
+							"abilities.omegaBeamCooldown", "abilities.reinforcementCooldown" }, PARADEMON_STATS))
+			.reset(3, "v0.13.21 Parademons back to their original strength", PARADEMON_STATS)
+			.build();
+
+	private static String[] concat(String[] a, String[] b) {
+		String[] out = java.util.Arrays.copyOf(a, a.length + b.length);
+		System.arraycopy(b, 0, out, a.length, b.length);
+		return out;
+	}
 
 	private static DarkseidConfig instance = new DarkseidConfig();
 
@@ -322,120 +340,14 @@ public final class DarkseidConfig {
 	}
 
 	/**
-	 * v1 -> v2 (v0.13.19): every value this balance pass changed moves to its new default -- a v1 file on disk would
-	 * otherwise silently keep the old numbers (the Behemoth "unbeatable" lesson). Keys new in v2 arrive at their
-	 * defaults on their own (Gson builds each section with its constructor); keys this pass did not touch keep
-	 * whatever the file says. Package-visible for the gametest.
-	 */
-	static void migrateToV2(DarkseidConfig c) {
-		ProjectHeroMod.LOGGER.info("[ProjectHero] Darkseid Raid config v{} -> v{}: v0.13.19 balance (5 waves, more and tougher"
-				+ " Parademons, faster Darkseid, more Omega Beams)", c.configVersion, CONFIG_VERSION);
-		if (c.raid != null) {
-			Raid d = new Raid();
-			c.raid.enemyCap = d.enemyCap;
-			c.raid.wave1Standard = d.wave1Standard;
-			c.raid.wave2Standard = d.wave2Standard;
-			c.raid.wave2Ranged = d.wave2Ranged;
-			c.raid.wave3Elite = d.wave3Elite;
-			c.raid.wave3Brute = d.wave3Brute;
-			c.raid.wave3Ranged = d.wave3Ranged;
-			c.raid.wave3Standard = d.wave3Standard;
-		}
-		if (c.boss != null) {
-			c.boss.globalCooldownTicks = new Boss().globalCooldownTicks;
-		}
-		if (c.abilities != null) {
-			Abilities d = new Abilities();
-			c.abilities.omegaBeamCooldown = d.omegaBeamCooldown;
-			c.abilities.reinforcementCooldown = d.reinforcementCooldown;
-		}
-		migrateParademonStats(c);
-	}
-
-	/**
-	 * v2 -> v3 (v0.13.21): the Parademons go back to their v0.13.18 stats; nothing else in the file changes.
-	 * Package-visible for the gametest.
-	 */
-	static void migrateToV3(DarkseidConfig c) {
-		ProjectHeroMod.LOGGER.info("[ProjectHero] Darkseid Raid config v{} -> v{}: v0.13.21 Parademons back to their"
-				+ " original strength", c.configVersion, CONFIG_VERSION);
-		migrateParademonStats(c);
-	}
-
-	private static void migrateParademonStats(DarkseidConfig c) {
-		if (c.parademons != null) {
-			Parademons d = new Parademons();
-			c.parademons.standardHealth = d.standardHealth;
-			c.parademons.standardDamage = d.standardDamage;
-			c.parademons.rangedHealth = d.rangedHealth;
-			c.parademons.rangedBoltDamage = d.rangedBoltDamage;
-			c.parademons.eliteHealth = d.eliteHealth;
-			c.parademons.eliteDamage = d.eliteDamage;
-			c.parademons.bruteHealth = d.bruteHealth;
-			c.parademons.bruteDamage = d.bruteDamage;
-		}
-	}
-
-	/**
-	 * Test hook: run the v1 file migration on a JSON string and return the result (nothing is written or installed).
+	 * Test hook: run the file migration on a JSON string and return the result (nothing is written or installed).
 	 */
 	public static DarkseidConfig migrateForTest(String json) {
-		DarkseidConfig c = new Gson().fromJson(json, DarkseidConfig.class);
-		if (c.configVersion != null && c.configVersion < 2) {
-			migrateToV2(c);
-			c.configVersion = CONFIG_VERSION;
-		} else if (c.configVersion != null && c.configVersion < 3) {
-			migrateToV3(c);
-			c.configVersion = CONFIG_VERSION;
-		}
-		return c;
+		return SPEC.fromJson(json);
 	}
 
 	public static void load() {
-		Path path = FabricLoader.getInstance().getConfigDir().resolve("projecthero_darkseid.json");
-		Gson gson = new GsonBuilder().setPrettyPrinting().create();
-		try {
-			if (Files.exists(path)) {
-				DarkseidConfig loaded = gson.fromJson(Files.readString(path), DarkseidConfig.class);
-				if (loaded != null) {
-					instance = loaded;
-				}
-			}
-			if (instance.configVersion == null) {
-				instance = new DarkseidConfig();
-				instance.configVersion = CONFIG_VERSION;
-			} else if (instance.configVersion < 2) {
-				migrateToV2(instance);
-				instance.configVersion = CONFIG_VERSION;
-			} else if (instance.configVersion < 3) {
-				migrateToV3(instance);
-				instance.configVersion = CONFIG_VERSION;
-			}
-			// Sections added by a later version land at their defaults rather than null.
-			if (instance.raid == null) {
-				instance.raid = new Raid();
-			}
-			if (instance.boss == null) {
-				instance.boss = new Boss();
-			}
-			if (instance.abilities == null) {
-				instance.abilities = new Abilities();
-			}
-			if (instance.motherBoxes == null) {
-				instance.motherBoxes = new MotherBoxes();
-			}
-			if (instance.parademons == null) {
-				instance.parademons = new Parademons();
-			}
-			if (instance.rewards == null) {
-				instance.rewards = new Rewards();
-			}
-			Files.createDirectories(path.getParent());
-			Files.writeString(path, gson.toJson(instance));
-		} catch (IOException | JsonSyntaxException e) {
-			ProjectHeroMod.LOGGER.warn("[ProjectHero] could not load Darkseid Raid config, using defaults", e);
-			instance = new DarkseidConfig();
-			instance.configVersion = CONFIG_VERSION;
-		}
+		// migrates, fills in new keys / sections, repairs a corrupt file and always rewrites it
+		instance = SPEC.load();
 	}
 }

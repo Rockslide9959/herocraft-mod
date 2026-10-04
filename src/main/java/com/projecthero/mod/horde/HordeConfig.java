@@ -1,16 +1,6 @@
 package com.projecthero.mod.horde;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonSyntaxException;
-
-import com.projecthero.mod.ProjectHeroMod;
-
-import net.fabricmc.loader.api.FabricLoader;
+import com.projecthero.mod.config.VersionedConfig;
 
 /**
  * v0.14.20: horde boss health, at {@code config/projecthero_horde.json}. Before this the Bone Tyrant and Brood Queen
@@ -20,9 +10,15 @@ import net.fabricmc.loader.api.FabricLoader;
  * <p>{@code configVersion} is a boxed, uninitialised {@code Integer} so Gson leaves it null for a file that predates it
  * (the same trick as {@code BehemothConfig}): a future balance pass bumps {@link #CONFIG_VERSION} and {@link #load}
  * resets the health numbers of an older file instead of keeping stale ones forever.
+ *
+ * <p>v0.14.21: loaded through the shared {@link VersionedConfig} (see {@code docs/CONFIGS.md}); the v1 step is the one
+ * above, unchanged.
  */
 public final class HordeConfig {
-	private static final int CONFIG_VERSION = 1;
+	public static final VersionedConfig<HordeConfig> SPEC = VersionedConfig.builder(HordeConfig.class, "projecthero_horde.json", HordeConfig::new)
+			.balance("bosses")
+			.reset(1, "v0.14.20 horde boss health", "bosses")
+			.build();
 
 	private static HordeConfig instance = new HordeConfig();
 
@@ -50,23 +46,7 @@ public final class HordeConfig {
 	}
 
 	public static void load() {
-		Path path = FabricLoader.getInstance().getConfigDir().resolve("projecthero_horde.json");
-		Gson gson = new GsonBuilder().setPrettyPrinting().create();
-		try {
-			if (Files.exists(path)) {
-				HordeConfig loaded = gson.fromJson(Files.readString(path), HordeConfig.class);
-				if (loaded != null) {
-					instance = loaded;
-					if (instance.bosses == null || instance.configVersion == null || instance.configVersion < CONFIG_VERSION) {
-						instance.bosses = new Bosses();
-					}
-				}
-			}
-			instance.configVersion = CONFIG_VERSION;
-			Files.writeString(path, gson.toJson(instance));
-		} catch (IOException | JsonSyntaxException e) {
-			ProjectHeroMod.LOGGER.warn("[ProjectHero] could not load horde config, using defaults", e);
-			instance = new HordeConfig();
-		}
+		// migrates, fills in new keys / sections, repairs a corrupt file and always rewrites it
+		instance = SPEC.load();
 	}
 }

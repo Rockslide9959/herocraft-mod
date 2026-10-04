@@ -150,35 +150,28 @@ public final class HulkConfig {
 		return instance.calm;
 	}
 
-	public static void load() {
-		java.nio.file.Path path = net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().resolve("projecthero_hulk.json");
-		com.google.gson.Gson gson = new com.google.gson.GsonBuilder().setPrettyPrinting().create();
-		try {
-			if (java.nio.file.Files.exists(path)) {
-				HulkConfig loaded = gson.fromJson(java.nio.file.Files.readString(path), HulkConfig.class);
-				if (loaded != null) {
-					instance = loaded;
-					if (instance.abilities == null) instance.abilities = new Abilities();
-					if (instance.world == null) instance.world = new World();
-					if (instance.control == null) instance.control = new Control();
-					if (instance.calm == null) instance.calm = new Calm();
-					if (loaded.configVersion == null || loaded.configVersion < 2) {
-						// v0.13.14 rebuilt the kit (new keys, new damage and cooldowns): a 0.13.13 file must not keep the old numbers
-						instance.abilities = new Abilities();
-					}
-					if (loaded.configVersion != null && loaded.configVersion < 3 && instance.abilities.thunderclapRange == 12.0) {
-						// v0.13.17: Thunderclap reaches 25 blocks -- move the old default up, but keep a range a server chose itself
-						instance.abilities.thunderclapRange = 25.0;
-					}
+	/**
+	 * v0.14.21: loaded through the shared {@link com.projecthero.mod.config.VersionedConfig} (see {@code docs/CONFIGS.md}).
+	 * The steps are the migrations this file already had, unchanged.
+	 */
+	public static final com.projecthero.mod.config.VersionedConfig<HulkConfig> SPEC = com.projecthero.mod.config.VersionedConfig
+			.builder(HulkConfig.class, "projecthero_hulk.json", HulkConfig::new)
+			.balance("abilities", "control", "calm")
+			.introduce(1, "v0.13.12 first file")
+			// v0.13.14 rebuilt the kit (new keys, new damage and cooldowns): a 0.13.13 file must not keep the old numbers
+			.reset(2, "v0.13.14 Hulk kit rebuilt", "abilities")
+			// v0.13.17: Thunderclap reaches 25 blocks -- move the old default up, but keep a range a server chose itself
+			.custom(3, "v0.13.17 Thunderclap 12 -> 25 blocks", (file, defaults) -> {
+				com.google.gson.JsonElement range = com.projecthero.mod.config.VersionedConfig.at(file, "abilities.thunderclapRange");
+				if (range != null && range.isJsonPrimitive() && range.getAsJsonPrimitive().isNumber() && range.getAsDouble() == 12.0) {
+					com.projecthero.mod.config.VersionedConfig.resetKey(file, defaults, "abilities.thunderclapRange");
 				}
-			}
-			instance.configVersion = 3;
-			java.nio.file.Files.createDirectories(path.getParent());
-			java.nio.file.Files.writeString(path, gson.toJson(instance));
-		} catch (java.io.IOException | RuntimeException e) {
-			com.projecthero.mod.ProjectHeroMod.LOGGER.warn("[ProjectHero] could not load Hulk config, using defaults", e);
-			instance = new HulkConfig();
-		}
+			})
+			.build();
+
+	public static void load() {
+		// migrates, fills in new keys / sections, repairs a corrupt file and always rewrites it
+		instance = SPEC.load();
 	}
 
 	// ---------------- rage ----------------

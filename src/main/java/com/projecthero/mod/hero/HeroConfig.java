@@ -1,16 +1,6 @@
 package com.projecthero.mod.hero;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonSyntaxException;
-
-import com.projecthero.mod.ProjectHeroMod;
-
-import net.fabricmc.loader.api.FabricLoader;
+import com.projecthero.mod.config.VersionedConfig;
 
 /**
  * Server-side, hand-rolled JSON config at {@code config/projecthero.json}. Deliberately dependency-free
@@ -21,7 +11,19 @@ import net.fabricmc.loader.api.FabricLoader;
  * enabling/disabling experimental knobs can never change Thor behaviour.
  */
 public final class HeroConfig {
+	/**
+	 * v0.14.21: loaded through the shared {@link VersionedConfig} (see {@code docs/CONFIGS.md}). No default here has
+	 * changed since the file was created, so version 1 only stamps it. Bump it (with a step) when a balance default
+	 * changes.
+	 */
+	public static final VersionedConfig<HeroConfig> SPEC = VersionedConfig.builder(HeroConfig.class, "projecthero.json", HeroConfig::new)
+			.balance("mutationCapacity", "unstableMutationDurationTicks", "symbioteHostChance")
+			.introduce(1, "versioned (v0.14.21)")
+			.build();
+
 	private static HeroConfig instance = new HeroConfig();
+
+	public Integer configVersion;
 
 	// ---- mutation ----
 	/** Maximum minor mutations a single player may permanently own. Spec default: 3. */
@@ -63,23 +65,8 @@ public final class HeroConfig {
 	}
 
 	public static void load() {
-		Path path = FabricLoader.getInstance().getConfigDir().resolve("projecthero.json");
-		Gson gson = new GsonBuilder().setPrettyPrinting().create();
-		try {
-			if (Files.exists(path)) {
-				String json = Files.readString(path);
-				HeroConfig loaded = gson.fromJson(json, HeroConfig.class);
-				if (loaded != null) {
-					instance = loaded;
-				}
-			}
-			// Always (re)write so new keys appear for the user after a mod update.
-			Files.createDirectories(path.getParent());
-			Files.writeString(path, gson.toJson(instance));
-		} catch (IOException | JsonSyntaxException e) {
-			ProjectHeroMod.LOGGER.warn("[ProjectHero] could not load config, using defaults", e);
-			instance = new HeroConfig();
-		}
+		// migrates, fills in new keys, repairs a corrupt file and always rewrites it
+		instance = SPEC.load();
 	}
 
 	public int scaledCooldown(int baseTicks) {

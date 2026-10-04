@@ -1,18 +1,9 @@
 package com.projecthero.mod.titan;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonSyntaxException;
-
-import com.projecthero.mod.ProjectHeroMod;
-
-import net.fabricmc.loader.api.FabricLoader;
+import com.projecthero.mod.config.VersionedConfig;
 
 /**
  * Server-side balance config for the Titan boss, at {@code config/projecthero_titan.json}. Same
@@ -20,7 +11,24 @@ import net.fabricmc.loader.api.FabricLoader;
  * deliberately its own file since the Titan isn't part of the wave/event framework.
  */
 public final class TitanConfig {
+	/**
+	 * v0.14.21: this file had no {@code configVersion} at all, so the v0.10.11 damage cut (punch 26 -> 20, melee 22 -> 16,
+	 * stomp 40 -> 30, slam 34 -> 26, grab/hold/throw 8/5/14 -> 6/4/10, boulder 36 -> 28, charge 44 -> 34) never reached a
+	 * file written by v0.9.22-v0.10.10 -- the Titan kept hitting a third harder. Version 1 resets exactly those keys;
+	 * every other value (and the server's world rules) is kept. (Changes before v0.9.22 do not matter: that release
+	 * renamed the file from {@code herocraft_titan.json}, so every file on disk was written at v0.9.22 or later.)
+	 * See {@code docs/CONFIGS.md}.
+	 */
+	public static final VersionedConfig<TitanConfig> SPEC = VersionedConfig.builder(TitanConfig.class, "projecthero_titan.json", TitanConfig::new)
+			.balance("stats", "attacks", "cooldowns", "aggro")
+			.reset(1, "v0.10.11 Titan damage cut that never reached older files",
+					"attacks.punchDamage", "attacks.meleeDamage", "attacks.stompDamage", "attacks.slamDamage", "attacks.grabDamage",
+					"attacks.holdDamage", "attacks.throwDamage", "attacks.boulderDamage", "attacks.chargeDamage")
+			.build();
+
 	private static TitanConfig instance = new TitanConfig();
+
+	public Integer configVersion;
 
 	public Stats stats = new Stats();
 	public Attacks attacks = new Attacks();
@@ -201,39 +209,7 @@ public final class TitanConfig {
 	}
 
 	public static void load() {
-		Path path = FabricLoader.getInstance().getConfigDir().resolve("projecthero_titan.json");
-		Gson gson = new GsonBuilder().setPrettyPrinting().create();
-		try {
-			if (Files.exists(path)) {
-				TitanConfig loaded = gson.fromJson(Files.readString(path), TitanConfig.class);
-				if (loaded != null) {
-					instance = loaded;
-					if (instance.stats == null) {
-						instance.stats = new Stats();
-					}
-					if (instance.attacks == null) {
-						instance.attacks = new Attacks();
-					}
-					if (instance.cooldowns == null) {
-						instance.cooldowns = new Cooldowns();
-					}
-					if (instance.aggro == null) {
-						instance.aggro = new Aggro();
-					}
-					if (instance.world == null) {
-						instance.world = new World();
-					}
-					if (instance.world.blockBlacklist == null) {
-						instance.world.blockBlacklist = new ArrayList<>();
-					}
-				}
-			}
-			// Always (re)write so new keys appear after a mod update, exactly like HeroConfig/EventConfig.
-			Files.createDirectories(path.getParent());
-			Files.writeString(path, gson.toJson(instance));
-		} catch (IOException | JsonSyntaxException e) {
-			ProjectHeroMod.LOGGER.warn("[ProjectHero] could not load Titan config, using defaults", e);
-			instance = new TitanConfig();
-		}
+		// migrates, fills in new keys / sections, repairs a corrupt file and always rewrites it
+		instance = SPEC.load();
 	}
 }

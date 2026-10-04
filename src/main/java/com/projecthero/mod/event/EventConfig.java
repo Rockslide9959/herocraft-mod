@@ -1,16 +1,6 @@
 package com.projecthero.mod.event;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonSyntaxException;
-
-import com.projecthero.mod.ProjectHeroMod;
-
-import net.fabricmc.loader.api.FabricLoader;
+import com.projecthero.mod.config.VersionedConfig;
 
 /**
  * Server-side balance config for the world-event framework and the Zombie Raid, at
@@ -28,9 +18,36 @@ public final class EventConfig {
 	 * written before the change -- the v0.13.6 Grave Essence rebalance (0.5 -> 0.06 per basic zombie, ...) never
 	 * arrived in existing installs, the same stale-config trap as the Behemoth's. {@code configVersion} is a boxed,
 	 * uninitialised {@code Integer} so Gson leaves it {@code null} for any file that predates it (the
-	 * {@code BehemothConfig} / {@code TitanShifterConfig} trick). See {@link #migrate}.
+	 * {@code BehemothConfig} / {@code TitanShifterConfig} trick).
+	 *
+	 * <p>v0.14.21: loaded through the shared {@link VersionedConfig} (see {@code docs/CONFIGS.md}); the v1 step is the
+	 * v0.14.4 migration, unchanged -- a file from before versioning gets the v0.13.6 Grave Essence / Cursed Zombie drop
+	 * values reset to today's defaults and keeps everything else it holds.
 	 */
-	public static final int CONFIG_VERSION = 1;
+	public static final VersionedConfig<EventConfig> SPEC = VersionedConfig.builder(EventConfig.class, "projecthero_events.json", EventConfig::new)
+			.balance(
+					"zombieRaid.cursedZombieChance", "zombieRaid.cursedZombieChanceNearGraveyard", "zombieRaid.mobCountPerExtraPlayer",
+					"zombieRaid.bossBaseHealth", "zombieRaid.bossMeleeDamage", "zombieRaid.finalBossMeleeDamage",
+					"zombieRaid.bossHealthPerPlayerTo4", "zombieRaid.bossHealthPerPlayerBeyond4", "zombieRaid.bossCooldownMultiplier",
+					"zombieRaid.bossCooldownReductionPerPlayer", "zombieRaid.bossCooldownReductionCap",
+					"zombieRaid.finalBossHealthMultiplier", "zombieRaid.finalBossCooldownMultiplier", "zombieRaid.finalBossDualPowerChance",
+					"zombieRaid.graveEssenceFromBasicChance", "zombieRaid.graveEssenceFromSpecialMin", "zombieRaid.graveEssenceFromSpecialMax",
+					"zombieRaid.graveEssenceFromJuggernautMin", "zombieRaid.graveEssenceFromJuggernautMax",
+					"zombieRaid.graveEssenceFromBossMin", "zombieRaid.graveEssenceFromBossMax",
+					"zombieRaid.graveEssenceFromFinalBossMin", "zombieRaid.graveEssenceFromFinalBossMax",
+					"zombieRaid.cursedZombieEssenceChance", "zombieRaid.cursedZombieBonusEssenceChance", "zombieRaid.bossTrophyChance",
+					"supervillainRaid.pillagerSpySpawnChance", "supervillainRaid.waveMobMultiplier",
+					"supervillainRaid.bossBaseHealth", "supervillainRaid.bossHealthPerAdditionalPlayer",
+					"supervillainRaid.bossKnockbackResistance", "supervillainRaid.bossAbilityDamageScale", "supervillainRaid.bossMeleeDamage",
+					"supervillainRaid.supervillainTokenDropChance", "supervillainRaid.powerFragmentDropChance",
+					"supervillainRaid.bossTrophyChance")
+			.reset(1, "v0.13.6 Grave Essence / Cursed Zombie drop rates (0.5 -> 0.06 a basic zombie, ...)",
+					"zombieRaid.graveEssenceFromBasicChance", "zombieRaid.graveEssenceFromSpecialMin", "zombieRaid.graveEssenceFromSpecialMax",
+					"zombieRaid.graveEssenceFromJuggernautMin", "zombieRaid.graveEssenceFromJuggernautMax",
+					"zombieRaid.graveEssenceFromBossMin", "zombieRaid.graveEssenceFromBossMax",
+					"zombieRaid.graveEssenceFromFinalBossMin", "zombieRaid.graveEssenceFromFinalBossMax",
+					"zombieRaid.cursedZombieEssenceChance", "zombieRaid.cursedZombieBonusEssenceChance")
+			.build();
 
 	private static EventConfig instance = new EventConfig();
 
@@ -230,37 +247,7 @@ public final class EventConfig {
 
 	/** A config as a brand-new install writes it (today's defaults, current version). */
 	public static EventConfig fresh() {
-		EventConfig c = new EventConfig();
-		c.configVersion = CONFIG_VERSION;
-		return c;
-	}
-
-	/**
-	 * Brings a loaded config up to {@link #CONFIG_VERSION}. v1 (v0.14.4): a file from before versioning gets the
-	 * v0.13.6 Grave Essence / Cursed Zombie drop values reset to today's defaults. Nothing else it holds is touched,
-	 * so a server's own tuning survives. Returns true if anything changed.
-	 */
-	public static boolean migrate(EventConfig c) {
-		if (c.configVersion != null && c.configVersion >= CONFIG_VERSION) {
-			return false;
-		}
-		ZombieRaid d = new ZombieRaid();
-		ZombieRaid r = c.zombieRaid;
-		ProjectHeroMod.LOGGER.info("[ProjectHero] event config predates v{} -- Grave Essence drops reset to the v0.13.6 values"
-				+ " (basic zombie chance {} -> {})", CONFIG_VERSION, r.graveEssenceFromBasicChance, d.graveEssenceFromBasicChance);
-		r.graveEssenceFromBasicChance = d.graveEssenceFromBasicChance;
-		r.graveEssenceFromSpecialMin = d.graveEssenceFromSpecialMin;
-		r.graveEssenceFromSpecialMax = d.graveEssenceFromSpecialMax;
-		r.graveEssenceFromJuggernautMin = d.graveEssenceFromJuggernautMin;
-		r.graveEssenceFromJuggernautMax = d.graveEssenceFromJuggernautMax;
-		r.graveEssenceFromBossMin = d.graveEssenceFromBossMin;
-		r.graveEssenceFromBossMax = d.graveEssenceFromBossMax;
-		r.graveEssenceFromFinalBossMin = d.graveEssenceFromFinalBossMin;
-		r.graveEssenceFromFinalBossMax = d.graveEssenceFromFinalBossMax;
-		r.cursedZombieEssenceChance = d.cursedZombieEssenceChance;
-		r.cursedZombieBonusEssenceChance = d.cursedZombieBonusEssenceChance;
-		c.configVersion = CONFIG_VERSION;
-		return true;
+		return SPEC.fresh();
 	}
 
 	public static EventConfig get() {
@@ -276,33 +263,7 @@ public final class EventConfig {
 	}
 
 	public static void load() {
-		Path path = FabricLoader.getInstance().getConfigDir().resolve("projecthero_events.json");
-		Gson gson = new GsonBuilder().setPrettyPrinting().create();
-		try {
-			if (Files.exists(path)) {
-				EventConfig loaded = gson.fromJson(Files.readString(path), EventConfig.class);
-				if (loaded != null) {
-					instance = loaded;
-					if (instance.framework == null) {
-						instance.framework = new Framework();
-					}
-					if (instance.zombieRaid == null) {
-						instance.zombieRaid = new ZombieRaid();
-					}
-					if (instance.supervillainRaid == null) {
-						instance.supervillainRaid = new SupervillainRaid();
-					}
-					migrate(instance);
-				}
-			} else {
-				instance = fresh();
-			}
-			// Always (re)write so new keys appear after a mod update, exactly like HeroConfig.
-			Files.createDirectories(path.getParent());
-			Files.writeString(path, gson.toJson(instance));
-		} catch (IOException | JsonSyntaxException e) {
-			ProjectHeroMod.LOGGER.warn("[ProjectHero] could not load event config, using defaults", e);
-			instance = fresh();
-		}
+		// migrates, fills in new keys / sections, repairs a corrupt file and always rewrites it
+		instance = SPEC.load();
 	}
 }

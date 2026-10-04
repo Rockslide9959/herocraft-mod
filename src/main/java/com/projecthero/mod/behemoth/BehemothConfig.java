@@ -1,16 +1,6 @@
 package com.projecthero.mod.behemoth;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonSyntaxException;
-
-import com.projecthero.mod.ProjectHeroMod;
-
-import net.fabricmc.loader.api.FabricLoader;
+import com.projecthero.mod.config.VersionedConfig;
 
 /**
  * Server-side balance config for The Abyssal Behemoth, at {@code config/projecthero_behemoth.json}.
@@ -29,8 +19,17 @@ public final class BehemothConfig {
 	 * trick {@code TitanShifterConfig} already uses.
 	 *
 	 * <p>v0.13.10: version 2 -- health back up 1000 -> 3000 now that the fight is actually beatable. A
-	 * version-1 file only has its health bumped (see {@link #load}); anything else it holds is kept. */
-	private static final int CONFIG_VERSION = 2;
+	 * version-1 file only has its health bumped; anything else it holds is kept.
+	 *
+	 * <p>v0.14.21: both steps now go through the shared {@link VersionedConfig} (see {@code docs/CONFIGS.md}), unchanged:
+	 * a file with no version is reset to today's defaults wholesale (pre-migration file -- wipe forward rather than trust
+	 * whatever an old balance pass left on disk), a version-1 file only gets the new health. */
+	public static final VersionedConfig<BehemothConfig> SPEC = VersionedConfig
+			.builder(BehemothConfig.class, "projecthero_behemoth.json", BehemothConfig::new)
+			.balance("stats", "abilities", "phases")
+			.reset(1, "v0.13.7 balance migration: a file from before it is reset to today's defaults", "*")
+			.reset(2, "v0.13.10 health 1000 -> 3000", "stats.health")
+			.build();
 
 	private static BehemothConfig instance = new BehemothConfig();
 
@@ -172,33 +171,7 @@ public final class BehemothConfig {
 	}
 
 	public static void load() {
-		Path path = FabricLoader.getInstance().getConfigDir().resolve("projecthero_behemoth.json");
-		Gson gson = new GsonBuilder().setPrettyPrinting().create();
-		try {
-			if (Files.exists(path)) {
-				BehemothConfig loaded = gson.fromJson(Files.readString(path), BehemothConfig.class);
-				if (loaded != null) {
-					instance = loaded;
-				}
-			}
-			if (instance.configVersion == null) {
-				// Pre-migration file (or none existed) -- wipe forward to today's intended tuning rather
-				// than trust whatever an old balance pass left on disk. See the class javadoc above.
-				ProjectHeroMod.LOGGER.info(
-						"[ProjectHero] Abyssal Behemoth config predates v{} balance migration (was health={}) -- resetting to current defaults",
-						CONFIG_VERSION, instance.stats.health);
-				instance = new BehemothConfig();
-				instance.configVersion = CONFIG_VERSION;
-			} else if (instance.configVersion < 2) {
-				// v0.13.10: 1000 -> 3000. Only the health moves; any other tuning in the file stays as it is.
-				ProjectHeroMod.LOGGER.info("[ProjectHero] Abyssal Behemoth config v{} -> v{}: health {} -> {}",
-						instance.configVersion, CONFIG_VERSION, instance.stats.health, new Stats().health);
-				instance.stats.health = new Stats().health;
-				instance.configVersion = CONFIG_VERSION;
-			}
-			Files.writeString(path, gson.toJson(instance));
-		} catch (IOException | JsonSyntaxException e) {
-			ProjectHeroMod.LOGGER.warn("[ProjectHero] could not load Abyssal Behemoth config, using defaults", e);
-		}
+		// migrates, fills in new keys / sections, repairs a corrupt file and always rewrites it
+		instance = SPEC.load();
 	}
 }

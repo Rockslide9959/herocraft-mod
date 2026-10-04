@@ -1,15 +1,6 @@
 package com.projecthero.mod.titanshifter;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-
-import com.projecthero.mod.ProjectHeroMod;
-
-import net.fabricmc.loader.api.FabricLoader;
+import com.projecthero.mod.config.VersionedConfig;
 
 /**
  * Balance config for the Titan Shifter Hero-Tier power (v0.12.31), at
@@ -246,47 +237,26 @@ public final class TitanShifterConfig {
 	private TitanShifterConfig() {
 	}
 
+	/**
+	 * v0.14.21: loaded through the shared {@link VersionedConfig} (see {@code docs/CONFIGS.md}). The steps are the
+	 * migrations this file already had, unchanged (a file with no version runs all of them, as before).
+	 */
+	public static final VersionedConfig<TitanShifterConfig> SPEC = VersionedConfig
+			.builder(TitanShifterConfig.class, "projecthero_titan_shifter.json", TitanShifterConfig::new)
+			.balance("stats", "damage", "abilities", "resistances", "energy", "emergency",
+					"transformation.transformTicks", "transformation.revertTicks", "transformation.defeatTicks",
+					"transformation.recoveryTicks", "transformation.cooldownTicks")
+			.introduce(1, "v0.12.31 first file")
+			// v0.12.32 changed the body (regular player, 3.67 wide) and dropped the 60 s cooldown for the energy bar
+			.reset(2, "v0.12.32 player-shaped body and the Titan Energy bar", "stats.widthBlocks", "transformation.cooldownTicks")
+			// v0.12.34: the transformation now needs the full bar (the HUD only says Ready at 100%)
+			.reset(3, "v0.12.34 a transformation needs the full bar", "energy.transformMinFraction")
+			// v0.12.35: Regeneration II with an energy drain, a much wider roar
+			.reset(4, "v0.12.35 Regeneration II and the 32-block roar", "energy.baseFormRegenAmplifier", "abilities.roarRadius")
+			.build();
+
 	public static void load() {
-		Path path = FabricLoader.getInstance().getConfigDir().resolve("projecthero_titan_shifter.json");
-		Gson gson = new GsonBuilder().setPrettyPrinting().create();
-		try {
-			if (Files.exists(path)) {
-				TitanShifterConfig loaded = gson.fromJson(Files.readString(path), TitanShifterConfig.class);
-				if (loaded != null) {
-					instance = loaded;
-					if (instance.stats == null) instance.stats = new Stats();
-					if (instance.damage == null) instance.damage = new Damage();
-					if (instance.abilities == null) instance.abilities = new Abilities();
-					if (instance.transformation == null) instance.transformation = new Transformation();
-					if (instance.resistances == null) instance.resistances = new Resistances();
-					if (instance.effects == null) instance.effects = new Effects();
-					if (instance.world == null) instance.world = new World();
-					if (instance.energy == null) instance.energy = new Energy();
-						if (instance.emergency == null) instance.emergency = new Emergency();
-					if (loaded.configVersion == null || loaded.configVersion < 2) {
-						// v0.12.32 changed the body (regular player, 3.67 wide) and dropped the 60 s cooldown for the energy bar:
-						// a config file written by v0.12.31 must not keep the old values.
-						instance.stats.widthBlocks = new Stats().widthBlocks;
-						instance.transformation.cooldownTicks = new Transformation().cooldownTicks;
-					}
-					if (loaded.configVersion == null || loaded.configVersion < 3) {
-						// v0.12.34: the transformation now needs the full bar (the HUD only says Ready at 100%)
-						instance.energy.transformMinFraction = new Energy().transformMinFraction;
-					}
-					if (loaded.configVersion == null || loaded.configVersion < 4) {
-						// v0.12.35: Regeneration II with an energy drain, a much wider roar
-						instance.energy.baseFormRegenAmplifier = new Energy().baseFormRegenAmplifier;
-						instance.abilities.roarRadius = new Abilities().roarRadius;
-					}
-				}
-			}
-			instance.configVersion = 4;
-			// always rewrite so newly added keys appear in existing files
-			Files.createDirectories(path.getParent());
-			Files.writeString(path, gson.toJson(instance));
-		} catch (IOException | RuntimeException e) {
-			ProjectHeroMod.LOGGER.warn("[ProjectHero] could not load Titan Shifter config, using defaults", e);
-			instance = new TitanShifterConfig();
-		}
+		// migrates, fills in new keys / sections, repairs a corrupt file and always rewrites it
+		instance = SPEC.load();
 	}
 }

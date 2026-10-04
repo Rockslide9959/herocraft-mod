@@ -359,17 +359,18 @@ public class RaidRepeatGameTests implements FabricGameTest {
 	public void aPreVersionEventConfigGetsTheCurrentGraveEssenceDrops(GameTestHelper helper) {
 		String old = "{\"zombieRaid\":{\"graveEssenceFromBasicChance\":0.5,\"graveEssenceFromBossMax\":20,"
 				+ "\"cursedZombieEssenceChance\":0.33,\"waveCount\":9},\"supervillainRaid\":{\"pillagerSpySpawnChance\":0.2}}";
-		com.projecthero.mod.event.EventConfig c = new com.google.gson.Gson().fromJson(old, com.projecthero.mod.event.EventConfig.class);
-		helper.assertTrue(c.configVersion == null, "an old file has no version");
-		helper.assertTrue(com.projecthero.mod.event.EventConfig.migrate(c), "it migrates");
+		// v0.14.21: through the shared VersionedConfig (the v0.14.4 step is unchanged)
+		com.projecthero.mod.event.EventConfig c = com.projecthero.mod.event.EventConfig.SPEC.fromJson(old);
 		com.projecthero.mod.event.EventConfig d = com.projecthero.mod.event.EventConfig.fresh();
 		helper.assertTrue(c.zombieRaid.graveEssenceFromBasicChance == d.zombieRaid.graveEssenceFromBasicChance
 				&& c.zombieRaid.graveEssenceFromBossMax == d.zombieRaid.graveEssenceFromBossMax
 				&& c.zombieRaid.cursedZombieEssenceChance == d.zombieRaid.cursedZombieEssenceChance, "drops reset to today's values");
 		helper.assertTrue(c.zombieRaid.waveCount == 9 && c.supervillainRaid.pillagerSpySpawnChance == 0.2,
 				"the server's other tuning is kept");
-		helper.assertTrue(c.configVersion == com.projecthero.mod.event.EventConfig.CONFIG_VERSION, "and it is stamped");
-		helper.assertFalse(com.projecthero.mod.event.EventConfig.migrate(c), "a current file is left alone");
+		helper.assertTrue(c.configVersion == com.projecthero.mod.event.EventConfig.SPEC.currentVersion(), "and it is stamped");
+		com.projecthero.mod.event.EventConfig again = com.projecthero.mod.event.EventConfig.SPEC.fromJson(
+				"{\"configVersion\":1,\"zombieRaid\":{\"graveEssenceFromBasicChance\":0.5}}");
+		helper.assertTrue(again.zombieRaid.graveEssenceFromBasicChance == 0.5, "a current file is left alone");
 		helper.succeed();
 	}
 }
