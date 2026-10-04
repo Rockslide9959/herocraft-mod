@@ -149,6 +149,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.render.SuperheroFirstPersonArm.initialize();
 		// v0.14.21 round two: Mark V blade extension clock + the worn Repulsor Boots model
 		com.projecthero.mod.client.ironman.IronManBladeClient.initialize();
+		com.projecthero.mod.client.ironman.IronManAssemblyClient.initialize(); // v0.14.21: self-assembly snap FX + faceplate lift
 		net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
 			if (entityRenderer instanceof net.minecraft.client.renderer.entity.player.PlayerRenderer playerRenderer) {
 				helper.register(new com.projecthero.mod.client.ironman.RepulsorBootsLayer(playerRenderer));

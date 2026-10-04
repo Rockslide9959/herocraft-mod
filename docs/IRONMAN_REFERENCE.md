@@ -732,6 +732,61 @@ Add new persisted fields to a group with room (each is far below the 16-field li
 Not verifiable by gametest (rendering): the glow at night, the blade geometry in third / first person, the per-mark
 gauntlet shapes and palm glow, and the boots model + jet alignment.
 
+## 17w. v0.14.21 self-assembly + faceplate lift
+
+Iron Man no longer reuses the Thor-style sweep (Thor / Green Lantern / Flash still use `ArmorSweepReveal`).
+
+* **Timing**: `IronManSuitFx.LOCK_TICKS` 12 -> **18**, `RELEASE_TICKS` 10 -> **14**. Every server sequence (inventory,
+  case, platform, couriers, pod) reads the constants, so an item still enters its slot when its lock-on starts and leaves
+  it when its release ends. All of them go through `IronManSuitFx.markPiece`, so they all get the assembly.
+* **Timetable** (`ironman/suit/IronManAssemblyPlan`, pure, gametested): each piece's bones fly in group by group.
+  Chest: arc reactor, chest plate (+ base chest), waist + back panel, shoulders, upper arms, gauntlets. Legs: thighs,
+  thigh plates, knees. Boots: right then left (tiles bottom-up from the reactor). Helmet: shell, brow, faceplate last.
+  A group starts at `g*(END-MOTION)/(G-1)` (MOTION 0.36, END 0.9) and eases in on an easeOutBack curve: about 5% past
+  home, then it settles exactly at 82% of its motion (`SNAP`). Every bone is home by 90% of the window. The release is
+  the same timetable backwards (last in, first out): each bone eases out of its lock, then accelerates away and shrinks.
+  The Mark V case (`STYLE_CASE`) has bones emerge from the right hand (`CASE_HAND`): right arm first, then the torso,
+  then the left arm.
+* **Motion** (`client/ironman/IronManAssemblyClient.apply`, called from `SuperheroArmorRenderer#renderRecursively`
+  inside a pose push, before GeckoLib applies the bone): each bone flies in from 3-8 px out along its own direction,
+  with a 10-35 deg tilt and 0.6-0.8 scale, all hashed from the bone name so every viewer sees the same thing.
+  Snap FX: 3 electric sparks at the bone's world position (pose matrix + camera position) and a quiet, high
+  `ironman_clamp` click (at most one per 2 ticks per player). The faceplate snap adds a white sparkle; when the chest
+  completes, the arc reactor gets a cyan burst and a glow flare.
+* **Smoothness** (user report: "stuttering in and out of existence"):
+  * Everything reads `gameTime + partialTick`, and both curves are continuous (gametested at 1/1000 steps).
+  * `IronManSuitReveal.progress` clamps the drawn progress to be monotonic per clock.
+  * `IronManSuitFx.pieceAge` treats a client clock up to 20 ticks behind the start as "just started". It used to read
+    as "no clock", which drew the whole piece for a frame.
+  * A finished release keeps the piece gone for 20 ticks while the empty slot syncs (`RELEASE_HOLD_TICKS`).
+  * An Iron Man item that reaches a slot before its clock stays hidden for up to 3 client ticks (`AWAIT_CLOCK_TICKS`).
+  * The tiles only ever turn on once per lock-on, and a bone is never hidden again once it has appeared.
+* **Tiles** (`client/ironman/IronManAssemblyReveal`): 40 frames per (geometry, texture, piece, style). 2x2-texel tiles
+  flip on in a scattered order, outward from the reactor (or from the case hand), during the bone's motion. Each tile
+  shows a white-hot seam for one frame and a cyan tint for two. A texel shared by two bones (the faceplate's north face
+  uses the helmet shell's north UV) flips on with the later one.
+* **Glow** (`IronManSuitGlowLayer`) works per bone: a bone stays dark until it has snapped (`IronManAssemblyClient.glowPass`).
+  In the glow pass the helmet's front stays dark until the faceplate is on, so no eyes glow over a bare face. The chest
+  and the eyes flash with extra additive passes. Mark V blades stay hidden until the chest is complete, in both third
+  and first person. First-person gauntlets fly in on the `right/left_gauntlet` timetable.
+* The GeckoLib `suit` controller (the `suit_lock_on`, `suit_release`, `helmet_open` and `helmet_close` triggers) is gone,
+  leaving one procedural system. The clips stay in the animation file, unused.
+* **Faceplate (H)**: the helmet no longer retracts.
+  * The `faceplate` bone rotates about its own top-front edge (`IronManFaceplateLook.HINGE` = (0, 32.1, -4.92), the
+    same in all seven marks). That edge never moves, so the plate stays attached at every angle. It is a sibling of
+    `helmet` under `armorHead`, so it follows the head.
+  * It swings out, up and over the top (never through the head) and lands flat on the crown at 270 deg, just above the
+    brow. It then bounces back 9 deg and settles. The swing takes 10 ticks, eased per player on the client from
+    `IRON_MAN_FACEPLATE_OPEN`, and the plate stays up while the faceplate is open.
+  * The helmet shell and brow stay on. While the plate is up, the helmet bone's NORTH quads are skipped
+    (`SuperheroArmorRenderer#createVerticesOfQuad`), so the face and hat layer show. The front can't be masked in the
+    texture because the faceplate and brow reuse the shell's front UV.
+  * The eyes are dark while it is up, and sealing it flashes them white. Night-vision rules are unchanged (server side).
+* GameTests: `IronManSuitUpV01421GameTests.assemblyTimetableIsOrderedAndFinishesInsideTheWindow` and
+  `faceplateLiftEasesUpSettlesAndStaysRaised`. The screenshot harness is `scratchpad/AssemblyHarness.v01421.java.txt`
+  (+ `AssemblyHarnessCameraMixin.v01421.java.txt`). It freezes the server tick and writes the clock directly; an
+  unfrozen harness world strips the test suit.
+
 ## 17t. v0.11.13 (Mark 1 / Mark 2 rebalance)
 
 *(Note: this reference doc's changelog sections skip a large gap between v0.6.2 below and here --

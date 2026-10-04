@@ -1,12 +1,7 @@
 package com.projecthero.mod.client.ironman;
 
-import java.util.Set;
-
-import org.joml.Vector3f;
-
 import com.projecthero.mod.armor.ArmorVisualDefinition;
 import com.projecthero.mod.armor.SuperheroArmorVisuals;
-import com.projecthero.mod.client.render.ArmorSweepReveal;
 import com.projecthero.mod.ironman.suit.IronManSuitFx;
 
 import net.minecraft.resources.ResourceLocation;
@@ -14,47 +9,111 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.14.21: an Iron Man piece <b>builds on</b> instead of popping in. While a piece's synced lock-on clock
- * ({@link IronManSuitFx}) runs, it is drawn with a frame of {@link ArmorSweepReveal} restricted to that piece's own
- * bones: the plates sweep into place up the limb (boots from the sole, the chest from the waist, the helmet from the
- * jaw) behind a white-hot edge and an orange spark trail, over {@link IronManSuitFx#LOCK_TICKS}. Coming off it plays
- * backwards over {@link IronManSuitFx#RELEASE_TICKS} before the piece leaves the slot. The Mark V's case build
- * ({@link IronManSuitFx#STYLE_CASE}) instead spreads each piece outward from the suitcase in the right hand.
+ * v0.14.21: an Iron Man piece <b>assembles itself</b> on the body instead of popping in. While a piece's synced lock-on
+ * clock ({@link IronManSuitFx}) runs, its bones fly in one after another from an exploded view and servo-snap home
+ * ({@link IronManAssemblyClient}, per bone in {@code SuperheroArmorRenderer#renderRecursively}) while their surfaces fill
+ * in as plate tiles with a hot seam ({@link IronManAssemblyReveal}, the texture swapped in here). Coming off plays the
+ * timetable backwards over {@link IronManSuitFx#RELEASE_TICKS} before the piece leaves the slot. The Mark V's case
+ * build ({@link IronManSuitFx#STYLE_CASE}) has its bones emerge from the suitcase in the right hand instead.
  *
- * <p>Works for every mark: the sweep is built per (mark geometry, mark texture, piece), lazily, once per session.
- * Read off synced state only, so every viewer sees the same frame.
+ * <p>(Until the self-assembly this used the shared {@code ArmorSweepReveal} sweep line, which Thor / Green Lantern /
+ * Flash still use.) Read off synced state only, so every viewer sees the same frame.
  */
 public final class IronManSuitReveal {
-	private static final int EDGE = 0xFFFFF4D6;   // white-hot weld line
-	private static final int TRAIL = 0xFFFF9A2E;  // orange spark trail just behind it
-	/** The right hand (bottom-front of the fist) in armour model units, where the Mark V case is held. */
-	private static final Vector3f CASE_HAND = new Vector3f(-6.0f, 12.0f, -1.0f);
-
-	private static final Set<String> HEAD = Set.of("armorHead");
-	private static final Set<String> CHEST = Set.of("armorBody", "armorRightArm", "armorLeftArm");
-	private static final Set<String> LEGS = Set.of("armorRightLeg", "armorLeftLeg");
-	private static final Set<String> FEET = Set.of("armorRightBoot", "armorLeftBoot");
-
-	private static final ArmorSweepReveal.Sweep[] PLATES = {
-			new ArmorSweepReveal.Sweep("im_head", HEAD, true, EDGE, TRAIL),
-			new ArmorSweepReveal.Sweep("im_chest", CHEST, true, EDGE, TRAIL),
-			new ArmorSweepReveal.Sweep("im_legs", LEGS, true, EDGE, TRAIL),
-			new ArmorSweepReveal.Sweep("im_feet", FEET, true, EDGE, TRAIL) };
-	private static final ArmorSweepReveal.Sweep[] FROM_CASE = {
-			new ArmorSweepReveal.Sweep("im_case_head", HEAD, false, EDGE, TRAIL, CASE_HAND),
-			new ArmorSweepReveal.Sweep("im_case_chest", CHEST, false, EDGE, TRAIL, CASE_HAND),
-			new ArmorSweepReveal.Sweep("im_case_legs", LEGS, false, EDGE, TRAIL, CASE_HAND),
-			new ArmorSweepReveal.Sweep("im_case_feet", FEET, false, EDGE, TRAIL, CASE_HAND) };
-
 	private IronManSuitReveal() {
 	}
 
-	/** How much of the piece in {@code slot} is built on (0..1), for every viewer alike. */
+	/** Per (player, piece): the clock last seen and the progress drawn, so the drawn value never runs backwards. */
+	private record Mono(long start, boolean up, float value) {
+	}
+
+	/** Per (player, slot): the item last seen there and the game time it appeared. */
+	private record Seen(net.minecraft.world.item.Item item, long since) {
+	}
+
+	private static final java.util.Map<Long, Mono> MONO = new java.util.HashMap<>();
+	private static final java.util.Map<Long, Seen> SEEN = new java.util.HashMap<>();
+	/** A piece that shows up in a slot with no clock yet stays hidden this long, waiting for its lock-on clock to sync. */
+	private static final int AWAIT_CLOCK_TICKS = 3;
+
+	/** Client ticks (advanced by {@link IronManAssemblyClient}); keeps running when the server's tick rate is frozen. */
+	static long clientTicks;
+
+	/** Once per client tick: note what each armour slot holds, so a piece arriving later is recognised as fresh. */
+	public static void observe(Player player) {
+		long now = clientTicks;
+		for (EquipmentSlot slot : new EquipmentSlot[] { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET }) {
+			long key = ((long) player.getId() << 3) | IronManSuitFx.bit(slot);
+			net.minecraft.world.item.Item item = player.getItemBySlot(slot).getItem();
+			Seen seen = SEEN.get(key);
+			if (seen == null) {
+				SEEN.put(key, new Seen(item, Long.MIN_VALUE / 2));
+			} else if (seen.item() != item) {
+				SEEN.put(key, new Seen(item, now));
+			}
+		}
+	}
+
+	/** Drops all per-player smoothing state (leaving a world). */
+	public static void clear() {
+		MONO.clear();
+		SEEN.clear();
+	}
+
+	/**
+	 * How much of the piece in {@code slot} is built on (0..1), for every viewer alike. Smooth by construction: read
+	 * from {@code gameTime + partialTick}, clamped to be monotonic per clock (a lock-on never runs backwards, a release
+	 * never forwards, whatever the client's synced clock does), and a piece whose item reached the slot a tick before
+	 * its clock did stays at 0 instead of flashing in whole for a frame.
+	 */
 	public static float progress(Player player, EquipmentSlot slot, float partialTick) {
 		if (slot == null || player.level() == null) {
 			return 1f;
 		}
-		return IronManSuitFx.of(player).pieceProgress(slot, player.level().getGameTime(), partialTick);
+		int bit = IronManSuitFx.bit(slot);
+		if (bit < 0) {
+			return 1f;
+		}
+		IronManSuitFx fx = IronManSuitFx.of(player);
+		long now = player.level().getGameTime();
+		long key = ((long) player.getId() << 3) | bit;
+		net.minecraft.world.item.Item item = player.getItemBySlot(slot).getItem();
+		Seen seen = SEEN.get(key);
+		if (seen == null || seen.item() != item) {
+			// first sight of a player (joining, coming into view) counts as long since; a swap mid-view is fresh
+			seen = new Seen(item, seen == null ? Long.MIN_VALUE / 2 : clientTicks);
+			SEEN.put(key, seen);
+		}
+		if (fx.pieceAge(slot, now, partialTick) < 0f) {
+			MONO.remove(key);
+			boolean fresh = item instanceof com.projecthero.mod.ironman.item.IronManArmorItem
+					&& clientTicks - seen.since() <= AWAIT_CLOCK_TICKS;
+			return fresh ? 0f : 1f;
+		}
+		boolean up = fx.assembling(bit);
+		float raw = fx.pieceProgress(slot, now, partialTick);
+		Mono m = MONO.get(key);
+		float v = raw;
+		if (m != null && m.start() == fx.start(bit) && m.up() == up) {
+			v = up ? Math.max(m.value(), raw) : Math.min(m.value(), raw);
+		}
+		MONO.put(key, new Mono(fx.start(bit), up, v));
+		return v;
+	}
+
+	/** Is the piece in {@code slot} being put on (true) or taken off (false) right now? (Fresh pieces count as on.) */
+	public static boolean assembling(Player player, EquipmentSlot slot) {
+		int bit = IronManSuitFx.bit(slot);
+		IronManSuitFx fx = IronManSuitFx.of(player);
+		if (bit < 0 || player.level() == null || fx.pieceAge(slot, player.level().getGameTime(), 0f) < 0f) {
+			return true;
+		}
+		return fx.assembling(bit);
+	}
+
+	/** Is this player's piece being built by the Mark V case (bones emerge from the right hand)? */
+	public static boolean fromCase(Player player) {
+		return IronManSuitFx.of(player).style() == IronManSuitFx.STYLE_CASE;
 	}
 
 	/** The texture to draw an Iron Man piece in {@code slot} with right now (the plain one outside a lock-on / release). */
@@ -69,7 +128,6 @@ public final class IronManSuitReveal {
 		if (bit < 0 || def == null) {
 			return base;
 		}
-		boolean fromCase = IronManSuitFx.of(player).style() == IronManSuitFx.STYLE_CASE;
-		return ArmorSweepReveal.texture(def.geometry(), base, p, (fromCase ? FROM_CASE : PLATES)[bit]);
+		return IronManAssemblyReveal.texture(def.geometry(), base, p, bit, fromCase(player));
 	}
 }

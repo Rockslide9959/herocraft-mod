@@ -69,8 +69,39 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			}
 			bone.setScaleY(com.projecthero.mod.ironman.IronManBladeLook.boneScale(ext));
 		}
+		// v0.14.21 self-assembly + faceplate lift: per-bone offset from the synced suit clock, in the parent's space
+		if (animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem && getCurrentEntity() instanceof Player ip
+				&& getCurrentSlot() != null) {
+			poseStack.pushPose();
+			try {
+				if (!com.projecthero.mod.client.ironman.IronManAssemblyClient.apply(poseStack, bone, ip, getCurrentSlot(), partialTick)) {
+					return;
+				}
+				// the H faceplate is up: drop the helmet's front faces so the wearer's face shows (shell + brow stay on)
+				skipNorthFaces = "helmet".equals(name) && getCurrentSlot() == EquipmentSlot.HEAD
+						&& com.projecthero.mod.client.ironman.IronManAssemblyClient.helmetFrontHidden(ip, partialTick);
+				super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick,
+						packedLight, packedOverlay, colour);
+			} finally {
+				skipNorthFaces = false;
+				poseStack.popPose();
+			}
+			return;
+		}
 		super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick,
 				packedLight, packedOverlay, colour);
+	}
+
+	/** v0.14.21: set while drawing the {@code helmet} bone with the faceplate raised (see {@link #renderRecursively}). */
+	private boolean skipNorthFaces;
+
+	@Override
+	public void createVerticesOfQuad(software.bernie.geckolib.cache.object.GeoQuad quad, org.joml.Matrix4f poseState,
+			org.joml.Vector3f normal, VertexConsumer buffer, int packedLight, int packedOverlay, int colour) {
+		if (skipNorthFaces && quad.direction() == net.minecraft.core.Direction.NORTH) {
+			return;
+		}
+		super.createVerticesOfQuad(quad, poseState, normal, buffer, packedLight, packedOverlay, colour);
 	}
 
 	/**
@@ -100,14 +131,9 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			// (Max Steel pixel-reveal is applied AFTER this switch -- see below.)
 			case HEAD -> {
 				setBoneVisible(this.head, true);
-				// "changes 19"/"changes 20": retract the helmet while the pilot has their Iron Man
-				// faceplate open (H key), so their own skin shows through. v0.6.16: same for Max Steel.
-				boolean ironManFaceplate = getCurrentEntity() instanceof Player p
-						&& p.getItemBySlot(EquipmentSlot.HEAD).getItem()
-								instanceof com.projecthero.mod.ironman.item.IronManArmorItem
-						&& com.projecthero.mod.ironman.IronManFaceplate.isOpen(p)
-						// v0.14.21: keep the helmet up while the visor swings open (helmet_open clip), then retract it
-						&& com.projecthero.mod.ironman.suit.IronManSuitFx.of(p).faceplateAge(p.level().getGameTime(), 0f) < 0f;
+				// v0.6.16: retract the Max Steel helmet while its faceplate is open. (The Iron Man helmet no longer
+				// retracts: since v0.14.21 only the faceplate lifts on its hinge and the helmet's front faces are
+				// skipped -- see renderRecursively / IronManAssemblyClient.)
 				boolean maxSteelHelmet = getCurrentEntity() instanceof Player mp
 						&& mp.getItemBySlot(EquipmentSlot.HEAD).getItem()
 								instanceof com.projecthero.mod.maxsteel.item.MaxSteelArmorItem
@@ -118,7 +144,7 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 						&& sp.getItemBySlot(EquipmentSlot.HEAD).getItem()
 								instanceof com.projecthero.mod.spider.item.SpiderManArmorItem
 						&& com.projecthero.mod.spider.SpiderMask.isOpen(sp);
-				setHelmetHidden(ironManFaceplate || maxSteelHelmet);
+				setHelmetHidden(maxSteelHelmet);
 				if (maxSteelHelmet || spiderMask) {
 					// The undersuit / hood head layer covers the face too, so drop the whole head bone
 					// for a clean reveal -- not just the crown / faceplate / chin guard.

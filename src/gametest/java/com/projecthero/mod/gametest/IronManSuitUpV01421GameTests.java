@@ -156,7 +156,7 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 	public void pieceProgressRunsTheLockOnAndReleaseWindows(GameTestHelper h) {
 		IronManSuitFx fx = IronManSuitFx.EMPTY.withPiece(1, 100L, true).withPiece(0, 100L, false);
 		h.assertTrue(fx.pieceProgress(EquipmentSlot.CHEST, 100L, 0f) == 0f, "a piece starts locking on invisible");
-		h.assertTrue(Math.abs(fx.pieceProgress(EquipmentSlot.CHEST, 106L, 0f) - 0.5f) < 1e-4f, "halfway through the lock-on");
+		h.assertTrue(Math.abs(fx.pieceProgress(EquipmentSlot.CHEST, 100L + IronManSuitFx.LOCK_TICKS / 2, 0f) - 0.5f) < 1e-4f, "halfway through the lock-on");
 		h.assertTrue(fx.pieceProgress(EquipmentSlot.CHEST, 100L + IronManSuitFx.LOCK_TICKS, 0f) == 1f, "fully on at the end");
 		h.assertTrue(fx.pieceProgress(EquipmentSlot.HEAD, 100L, 0f) == 1f, "a release starts fully on");
 		h.assertTrue(fx.pieceProgress(EquipmentSlot.HEAD, 100L + IronManSuitFx.RELEASE_TICKS, 0f) == 0f, "and ends fully off");
@@ -539,6 +539,118 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 				"the dead items stay registered so old worlds keep them");
 		h.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.MARK_VII.summonType() == SummonType.TRACKING_POD,
 				"the Mark VII is delivered by pod");
+		h.succeed();
+	}
+
+	// ------------------------------------------------------------------ v0.14.21 self-assembly + faceplate lift
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void assemblyTimetableIsOrderedAndFinishesInsideTheWindow(GameTestHelper h) {
+		for (boolean fromCase : new boolean[] { false, true }) {
+			for (int bit = 0; bit < 4; bit++) {
+				List<List<String>> groups = com.projecthero.mod.ironman.suit.IronManAssemblyPlan.groups(bit, fromCase);
+				h.assertTrue(!groups.isEmpty(), "piece " + bit + " has a timetable");
+				float prev = -1f;
+				for (List<String> g : groups) {
+					for (String bone : g) {
+						float s = com.projecthero.mod.ironman.suit.IronManAssemblyPlan.start(bit, bone, fromCase);
+						float snap = com.projecthero.mod.ironman.suit.IronManAssemblyPlan.snapAt(bit, bone, fromCase);
+						h.assertTrue(s > prev, bone + " starts after the group before it");
+						h.assertTrue(snap * IronManSuitFx.LOCK_TICKS <= IronManSuitFx.LOCK_TICKS
+								&& snap <= com.projecthero.mod.ironman.suit.IronManAssemblyPlan.END, bone + " snaps home inside the lock-on window");
+						h.assertTrue(com.projecthero.mod.ironman.suit.IronManAssemblyPlan.local(bit, bone, fromCase, 0f) == 0f,
+								bone + " has not started at progress 0");
+						float done = com.projecthero.mod.ironman.suit.IronManAssemblyPlan.local(bit, bone, fromCase, 1f);
+						h.assertTrue(done == 1f && com.projecthero.mod.ironman.suit.IronManAssemblyPlan.displacement(done, true) == 0f
+								&& com.projecthero.mod.ironman.suit.IronManAssemblyPlan.displacement(done, false) == 0f,
+								bone + " is exactly home when the window ends (lock-on) / starts (release)");
+						h.assertTrue(com.projecthero.mod.ironman.suit.IronManAssemblyPlan.start(bit, bone, fromCase)
+								== com.projecthero.mod.ironman.suit.IronManAssemblyPlan.start(bit, bone, fromCase), "deterministic");
+					}
+					prev = com.projecthero.mod.ironman.suit.IronManAssemblyPlan.start(bit, g.get(0), fromCase);
+				}
+			}
+		}
+		// the mechanical order the user asked for
+		String[] chest = { "arc_reactor", "chest_armor", "waist", "right_shoulder", "right_upper_arm", "right_gauntlet" };
+		for (int i = 1; i < chest.length; i++) {
+			h.assertTrue(com.projecthero.mod.ironman.suit.IronManAssemblyPlan.start(1, chest[i - 1], false)
+					< com.projecthero.mod.ironman.suit.IronManAssemblyPlan.start(1, chest[i], false), chest[i - 1] + " before " + chest[i]);
+		}
+		h.assertTrue(com.projecthero.mod.ironman.suit.IronManAssemblyPlan.start(0, "helmet", false)
+				< com.projecthero.mod.ironman.suit.IronManAssemblyPlan.start(0, "helmet_brow", false)
+				&& com.projecthero.mod.ironman.suit.IronManAssemblyPlan.start(0, "helmet_brow", false)
+						< com.projecthero.mod.ironman.suit.IronManAssemblyPlan.start(0, "faceplate", false), "helmet: shell, brow, faceplate last");
+		h.assertTrue(com.projecthero.mod.ironman.suit.IronManAssemblyPlan.start(2, "right_thigh", false)
+				< com.projecthero.mod.ironman.suit.IronManAssemblyPlan.start(2, "right_thigh_plate", false)
+				&& com.projecthero.mod.ironman.suit.IronManAssemblyPlan.start(2, "right_thigh_plate", false)
+						< com.projecthero.mod.ironman.suit.IronManAssemblyPlan.start(2, "right_knee", false), "legs: thighs, plates, knees");
+		h.assertTrue(com.projecthero.mod.ironman.suit.IronManAssemblyPlan.start(1, "right_gauntlet", true) == 0f,
+				"Mark V case: the right gauntlet comes out of the case first");
+		// a bone overshoots a little and settles, with no frame-to-frame jump anywhere on either path
+		float minD = 1f;
+		float prevUp = com.projecthero.mod.ironman.suit.IronManAssemblyPlan.displacement(0f, true);
+		float prevDown = com.projecthero.mod.ironman.suit.IronManAssemblyPlan.displacement(0f, false);
+		for (int i = 1; i <= 1000; i++) {
+			float t = i / 1000f;
+			float up = com.projecthero.mod.ironman.suit.IronManAssemblyPlan.displacement(t, true);
+			float down = com.projecthero.mod.ironman.suit.IronManAssemblyPlan.displacement(t, false);
+			h.assertTrue(Math.abs(up - prevUp) < 0.01f && Math.abs(down - prevDown) < 0.01f,
+					"displacement is continuous at t=" + t + " (" + prevUp + " -> " + up + ", " + prevDown + " -> " + down + ")");
+			minD = Math.min(minD, up);
+			prevUp = up;
+			prevDown = down;
+		}
+		h.assertTrue(minD < -0.02f && minD > -0.15f, "a small servo overshoot past home: " + minD);
+		// the synced clock never makes a piece flash in whole: a client a tick behind the start reads "just started",
+		// and a finished release keeps it gone until the empty slot syncs
+		IronManSuitFx fx = IronManSuitFx.EMPTY.withPiece(1, 100L, true).withPiece(0, 100L, false);
+		h.assertTrue(fx.pieceProgress(EquipmentSlot.CHEST, 99L, 0f) == 0f, "clock skew reads as the start of the lock-on");
+		h.assertTrue(fx.pieceProgress(EquipmentSlot.HEAD, 100L + IronManSuitFx.RELEASE_TICKS + 8, 0f) == 0f,
+				"a released piece stays gone after its release");
+		for (int bit = 0; bit < 4; bit++) {
+			for (List<String> g : com.projecthero.mod.ironman.suit.IronManAssemblyPlan.groups(bit, false)) {
+				for (String bone : g) {
+					float d = com.projecthero.mod.ironman.suit.IronManAssemblyPlan.distance(bone);
+					float tilt = Math.abs(com.projecthero.mod.ironman.suit.IronManAssemblyPlan.tilt(bone));
+					float s0 = com.projecthero.mod.ironman.suit.IronManAssemblyPlan.startScale(bone);
+					h.assertTrue(d >= 3f && d <= 8f && tilt >= 10f && tilt <= 35f && s0 >= 0.6f && s0 <= 0.8f,
+							bone + " exploded view in range: " + d + " / " + tilt + " / " + s0);
+				}
+			}
+		}
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void faceplateLiftEasesUpSettlesAndStaysRaised(GameTestHelper h) {
+		float x = 0f;
+		float max = 0f;
+		float prev = 0f;
+		for (int k = 1; k <= 1000; k++) {
+			float a = com.projecthero.mod.ironman.IronManFaceplateLook.angle(k / 1000f);
+			h.assertTrue(Math.abs(a - prev) < 2f, "the swing is continuous at " + k);
+			max = Math.max(max, a);
+			prev = a;
+		}
+		for (int i = 0; i < com.projecthero.mod.ironman.IronManFaceplateLook.LIFT_TICKS; i++) {
+			x = com.projecthero.mod.ironman.IronManFaceplateLook.step(x, true);
+		}
+		h.assertTrue(x == 1f, "fully raised after LIFT_TICKS");
+		h.assertTrue(com.projecthero.mod.ironman.IronManFaceplateLook.angle(1f) == com.projecthero.mod.ironman.IronManFaceplateLook.RAISED_DEG
+				&& com.projecthero.mod.ironman.IronManFaceplateLook.RAISED_DEG == 270f, "rests flat on the crown, flush with the helmet");
+		h.assertTrue(max <= com.projecthero.mod.ironman.IronManFaceplateLook.RAISED_DEG + 1e-3f, "never swings past the crown into the helmet");
+		h.assertTrue(com.projecthero.mod.ironman.IronManFaceplateLook.angle(0.9f) < com.projecthero.mod.ironman.IronManFaceplateLook.RAISED_DEG - 1f,
+				"a small mechanical settle after landing");
+		h.assertTrue(com.projecthero.mod.ironman.IronManFaceplateLook.step(1f, true) == 1f, "stays raised while open");
+		h.assertTrue(com.projecthero.mod.ironman.IronManFaceplateLook.faceOpen(1f)
+				&& !com.projecthero.mod.ironman.IronManFaceplateLook.faceOpen(0f), "the face shows only while it is up");
+		h.assertTrue(com.projecthero.mod.ironman.IronManFaceplateLook.HINGE[1] == 32.1f && com.projecthero.mod.ironman.IronManFaceplateLook.HINGE[2] == -4.92f,
+				"the hinge is the faceplate cube's own top-front edge (stays attached)");
+		for (int i = 0; i < com.projecthero.mod.ironman.IronManFaceplateLook.LIFT_TICKS; i++) {
+			x = com.projecthero.mod.ironman.IronManFaceplateLook.step(x, false);
+		}
+		h.assertTrue(x == 0f && com.projecthero.mod.ironman.IronManFaceplateLook.angle(x) == 0f, "closing seals it again");
 		h.succeed();
 	}
 }

@@ -37,8 +37,8 @@ import software.bernie.geckolib.renderer.layer.GeoRenderLayer;
  * texture in GPU memory, and the same {@code mark_*.png} is also sampled by the first-person arm, the suit-up
  * {@code ArmorSweepReveal} copies and the item previews -- they would all get holes. This layer leaves the base alone.
  *
- * <p>Follows the build-on reveal: a piece whose lock-on / release clock ({@link IronManSuitReveal#progress}) is still
- * running does not glow -- its lights come on the moment it locks into place. Hidden bones (open faceplate, slot
+ * <p>Follows the self-assembly: a bone that has not snapped home yet does not glow -- its lights come on the moment it
+ * locks into place ({@link IronManAssemblyClient#glowPass}); the eyes go dark while the faceplate is raised. Hidden bones (open faceplate, slot
  * visibility) stay hidden because the re-render goes through the same bone-visibility pass.
  */
 public class IronManSuitGlowLayer extends GeoRenderLayer<SuperheroArmorItem> {
@@ -72,12 +72,23 @@ public class IronManSuitGlowLayer extends GeoRenderLayer<SuperheroArmorItem> {
 		if (wearer.isInvisible() && (Minecraft.getInstance().player == null || wearer.isInvisibleTo(Minecraft.getInstance().player))) {
 			return;
 		}
-		if (wearer instanceof Player p && armor.getCurrentSlot() != null
-				&& IronManSuitReveal.progress(p, armor.getCurrentSlot(), partialTick) < 1f) {
-			return; // still building on / breaking away: lights come on once it is locked in
-		}
+		// v0.14.21 self-assembly: per bone, not per piece -- IronManAssemblyClient keeps a bone dark (skips it in this
+		// pass) until it has snapped home, and the eyes off while the faceplate is raised. The arc reactor (chest done)
+		// and the eyes (faceplate snapped / sealed) flash: extra additive passes.
 		RenderType glow = RenderType.eyes(mask);
-		getRenderer().reRender(bakedModel, poseStack, bufferSource, animatable, glow, bufferSource.getBuffer(glow),
-				partialTick, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+		int passes = 1;
+		if (wearer instanceof Player p && armor.getCurrentSlot() != null) {
+			float flash = IronManAssemblyClient.flash(p, armor.getCurrentSlot(), partialTick);
+			passes += flash > 0.66f ? 3 : flash > 0.33f ? 2 : flash > 0f ? 1 : 0;
+		}
+		IronManAssemblyClient.glowPass = true;
+		try {
+			for (int i = 0; i < passes; i++) {
+				getRenderer().reRender(bakedModel, poseStack, bufferSource, animatable, glow, bufferSource.getBuffer(glow),
+						partialTick, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+			}
+		} finally {
+			IronManAssemblyClient.glowPass = false;
+		}
 	}
 }

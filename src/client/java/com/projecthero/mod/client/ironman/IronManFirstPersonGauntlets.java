@@ -161,11 +161,16 @@ public final class IronManFirstPersonGauntlets {
 		texture = IronManSuitReveal.texture(player, setId, EquipmentSlot.CHEST, texture, partialTick);
 		pose.pushPose();
 		vanillaArm.translateAndRotate(pose);
+		// v0.14.21 self-assembly: the gauntlet flies in to the hand on the same timetable as the third-person bone
+		if (!IronManAssemblyClient.applyFirstPerson(pose, player, right, partialTick)) {
+			pose.popPose();
+			return;
+		}
 		VertexConsumer vc = buffers.getBuffer(RenderType.armorCutoutNoCull(texture));
 		for (Box b : boxes(setId, right)) {
 			IronManBoxes.draw(pose, vc, b, TEX, TEX, light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
 		}
-		if ("mark_v".equals(setId)) {
+		if ("mark_v".equals(setId) && reveal >= 1f) { // no blades mid-assembly
 			float ext = IronManBladeClient.extension(player, partialTick);
 			if (IronManBladeLook.visible(ext)) {
 				for (Box b : bladeBoxes(right, ext)) {

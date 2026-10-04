@@ -32,10 +32,14 @@ import net.minecraft.world.entity.player.Player;
  */
 public record IronManSuitFx(long headStart, long chestStart, long legsStart, long feetStart, int assembleMask, int style,
 		long poseStart, int poseTicks, int poseKind, long faceplateAt) {
-	/** A piece's plates lock on over this many ticks after it reaches the body. */
-	public static final int LOCK_TICKS = 12;
-	/** A piece's plates break away over this many ticks before it leaves the body. */
-	public static final int RELEASE_TICKS = 10;
+	/** A piece's bones fly in and lock on over this many ticks after it reaches the body (v0.14.21 self-assembly: 12 -> 18). */
+	public static final int LOCK_TICKS = 18;
+	/** A piece's bones unlock and fly off over this many ticks before it leaves the body (v0.14.21 self-assembly: 10 -> 14). */
+	public static final int RELEASE_TICKS = 14;
+	/** A client clock up to this far behind a piece's start tick still counts as "the lock-on has just begun". */
+	public static final int CLOCK_SKEW_TICKS = 20;
+	/** After a release finishes, the piece stays fully gone this long (the item leaving the slot syncs meanwhile). */
+	public static final int RELEASE_HOLD_TICKS = 20;
 	/** The visor swing (helmet_open / helmet_close clips are 0.5 s / 0.4 s). */
 	public static final int FACEPLATE_TICKS = 10;
 
@@ -120,8 +124,15 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 			return -1f;
 		}
 		float age = gameTime - s + partial;
-		int window = assembling(b) ? LOCK_TICKS : RELEASE_TICKS;
-		return age < 0f || age > window + 2 ? -1f : age;
+		boolean up = assembling(b);
+		int window = up ? LOCK_TICKS : RELEASE_TICKS;
+		// v0.14.21 smoothness: a client clock a little behind the server's start tick reads as "just started" (not as
+		// "no clock", which drew the whole piece for a frame before it vanished and assembled), and a finished release
+		// keeps the piece gone for a second, until the slot-empty sync lands, instead of popping it back for a frame
+		if (age < 0f) {
+			return age > -CLOCK_SKEW_TICKS ? 0f : -1f;
+		}
+		return age > window + (up ? 2 : RELEASE_HOLD_TICKS) ? -1f : age;
 	}
 
 	/** How much of the piece in {@code slot} is built on, 0..1 -- 1 whenever no lock-on / release is running. */
