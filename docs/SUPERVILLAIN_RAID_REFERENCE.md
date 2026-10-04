@@ -57,7 +57,7 @@ framework and reuses the Zombie Raid's `EmpoweredZombie` boss and `BossPowers` A
 | Boss | `EmpoweredZombie` + `DATA_VARIANT` (`configureAsSupervillain`) — full AI reused |
 | Boss appearance enum | `SupervillainVariant` (Chimera / Arsenal / Omega Mage) |
 | Random power (AI) | `BossPowers.randomSupervillainKey` over the existing `BossPowerController` registry |
-| Rewards | `SupervillainRaidRewards` |
+| Rewards | `SupervillainRaidRewards` (v0.14.21: + `victoryValuables` -- 16-28 lapis, redstone, iron, gold, 2-5 diamonds, amethyst, golden apples, a book, 30% lapis block, 5% enchanted golden apple; a third more per extra participant, up to double) |
 | Items | `SupervillainRaidItems` |
 | Damage trigger hook | `SupervillainRaidEvents` (`AFTER_DAMAGE`) |
 | Death / boss-defeat hook | shared with the Zombie Raid in `GraveboundEvents.onAfterDeath` |

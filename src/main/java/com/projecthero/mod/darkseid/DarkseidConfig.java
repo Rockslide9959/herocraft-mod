@@ -21,6 +21,9 @@ import com.projecthero.mod.config.VersionedConfig;
  *
  * <p>v0.13.21: version 3 -- Parademons back to their v0.13.18 strength (the +20% health / +15% damage is gone; the
  * five waves and the gunners' strafing stay). A v2 file's Parademon stats move to the restored defaults.
+ *
+ * <p>v0.14.21: version 4 -- {@link Rewards#valuablesMultiplier}, the new ores-and-gems part of the victory loot. The key is
+ * new, so it reaches a v3 file at its default on its own; the bump only stamps the file and logs it.
  */
 public final class DarkseidConfig {
 	/**
@@ -46,6 +49,7 @@ public final class DarkseidConfig {
 							"raid.wave3Brute", "raid.wave3Ranged", "raid.wave3Standard", "boss.globalCooldownTicks",
 							"abilities.omegaBeamCooldown", "abilities.reinforcementCooldown" }, PARADEMON_STATS))
 			.reset(3, "v0.13.21 Parademons back to their original strength", PARADEMON_STATS)
+			.introduce(4, "v0.14.21 ores and gems in the victory loot (rewards.valuablesMultiplier)")
 			.build();
 
 	private static String[] concat(String[] a, String[] b) {
@@ -305,6 +309,12 @@ public final class DarkseidConfig {
 		public double motherBoxChance = 0.10;
 		public double omegaRelicChance = 0.03;
 		public int experiencePoints = 1500;
+		/**
+		 * v0.14.21: scales the ores and gems in every participant's loot (lapis, diamonds, gold, iron, redstone, amethyst,
+		 * emeralds, golden apples and books; the rare netherite scrap / ancient debris / enchanted golden apple rolls are
+		 * not scaled). 0 turns them off.
+		 */
+		public double valuablesMultiplier = 1.0;
 	}
 
 	private DarkseidConfig() {

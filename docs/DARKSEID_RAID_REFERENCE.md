@@ -57,7 +57,11 @@ Mother Box reactivates every 75 s (each active box = 25% damage reduction outsid
 every 30 s.
 
 ## Rewards (per rewarded participant)
-Omega Core (guaranteed), 1-3 Omega Shards (60%), Mother Box (10%), Omega Relic (3%), 1500 XP. Advancements
+Omega Core (guaranteed), 1-3 Omega Shards (60%), Mother Box (10%), Omega Relic (3%), 1500 XP.
+v0.14.21 Apokolips plunder (`DarkseidRaidRewards.valuables`, one chat line): 32-48 lapis, 2-4 lapis blocks, 6-10 diamonds,
+12-24 gold, 24-40 iron, 24-40 redstone, 12-20 amethyst, 10-20 emeralds, 3-5 golden apples, two enchanted books; 25% netherite
+scrap (1-2), 10% ancient debris, 10% enchanted golden apple. The common part is scaled by `rewards.valuablesMultiplier`
+(config v4, 0 = off) and by the configured invasion waves (60% for one wave .. 100% for five). Advancements
 `projecthero:darkseid/anti_life` and `darkseid/apokolips_falls` (no overloads).
 - **Mother Box**: sneak-use to attune, use to Boom Tube there (any dimension), 2 min cooldown.
 - **Omega Relic**: 24 charges of paired homing Omega Beams (12 damage), 8 s cooldown; unenchantable, unrepairable.

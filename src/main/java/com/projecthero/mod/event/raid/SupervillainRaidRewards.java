@@ -6,6 +6,7 @@ import com.projecthero.mod.event.EventInstance;
 import com.projecthero.mod.event.EventManager;
 import com.projecthero.mod.event.entity.EmpoweredZombie;
 import com.projecthero.mod.event.entity.SupervillainVariant;
+import com.projecthero.mod.event.reward.Valuables;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -69,6 +70,10 @@ public final class SupervillainRaidRewards {
 		drop(level, at, new ItemStack(SupervillainRaidItems.VILLAIN_CACHE, 1 + random.nextInt(2)));
 		drop(level, at, new ItemStack(Items.EMERALD, 12 + random.nextInt(13)));
 		spawnXp(level, at, VICTORY_XP);
+		// v0.14.21: ores and gems, more for a bigger party
+		for (ItemStack stack : victoryValuables(random, level.registryAccess(), raid.participants().eligibleCount())) {
+			drop(level, at, stack);
+		}
 
 		// Chance drops.
 		if (random.nextDouble() < cfg.supervillainTokenDropChance) {
@@ -95,6 +100,28 @@ public final class SupervillainRaidRewards {
 					.withStyle(ChatFormatting.GOLD));
 		}
 		ProjectHeroMod.LOGGER.info("[SupervillainRaid] Victory rewards granted at {}", at);
+	}
+
+	/**
+	 * v0.14.21: the ores and gems in the victory bundle -- a mid-sized event, so less than a Cursed Grave Chest but a
+	 * proper haul, a third more per extra fighter (up to double, the Horde chests' rule). A 30% lapis block and a 5%
+	 * enchanted golden apple are the rare extras.
+	 */
+	public static java.util.List<ItemStack> victoryValuables(RandomSource r, net.minecraft.core.RegistryAccess registries,
+			int participants) {
+		double more = Valuables.partyScale(participants);
+		java.util.List<ItemStack> out = new java.util.ArrayList<>();
+		Valuables.add(out, r, Items.LAPIS_LAZULI, 16, 28, more);
+		Valuables.add(out, r, Items.REDSTONE, 12, 20, more);
+		Valuables.add(out, r, Items.IRON_INGOT, 10, 18, more);
+		Valuables.add(out, r, Items.GOLD_INGOT, 6, 12, more);
+		Valuables.add(out, r, Items.DIAMOND, 2, 5, more);
+		Valuables.add(out, r, Items.AMETHYST_SHARD, 6, 12, more);
+		Valuables.add(out, r, Items.GOLDEN_APPLE, 1, 3, more);
+		out.add(Valuables.book(r, registries, 25));
+		Valuables.chance(out, r, 0.30, Items.LAPIS_BLOCK, 1, 1);
+		Valuables.chance(out, r, 0.05, Items.ENCHANTED_GOLDEN_APPLE, 1, 1);
+		return out;
 	}
 
 	private static void spawnXp(ServerLevel level, BlockPos at, int total) {

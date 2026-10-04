@@ -191,6 +191,10 @@ which day, and their eyes glow in the colour of the boss's power. While worn, th
 notice you from half as far away, and the Grave Champion Head does that for every undead. See "v0.14.4 -- trophy
 heads" at the end.
 
+v0.14.21: every boss also drops **valuables**, scaled by how late its wave is (`ZombieRaidRewards.bossValuables`):
+lapis 4-8 on wave 1 up to 16-28 on wave 12, redstone, iron, gold, emeralds, amethyst shards and (from the middle waves)
+diamonds; the final boss adds 1-2 lapis blocks, 1-2 golden apples and an enchanted book.
+
 Clearing wave 12 spawns a **Cursed Grave Chest** at the raid centre with:
 
 - **Guaranteed:** 10–20 Grave Essence, and the final boss's Corrupted Power Core
@@ -199,6 +203,10 @@ Clearing wave 12 spawns a **Cursed Grave Chest** at the raid centre with:
 - **Rare:** Enchanted Golden Apple (~20%), Gravewalker Charm (~15%), Gravekeeper Shield (~10%),
   a trophy (~10%), Necrotic Blade (~8%)
 - **Extremely rare:** Undying Totem (~3%)
+- **v0.14.21 valuables** (`ZombieRaidRewards.completionValuables`, scattered in after the table): 24-40 lapis,
+  1-3 lapis blocks, 16-32 redstone, 16-32 iron, 8-16 gold, 3-6 diamonds, 6-12 emeralds, 8-16 amethyst, 2-4 golden
+  apples and an enchanted book, plus 20% netherite scrap (1-2) and 15% ancient debris. A third more per extra
+  eligible participant, up to double for four or more (the Horde chests' rule).
 
 ### Raid items
 

@@ -282,7 +282,7 @@ public class DarkseidRaidGameTests implements FabricGameTest {
 				+ "\"boss\":{\"globalCooldownTicks\":30,\"baseDarkseidHealth\":4000.0},"
 				+ "\"abilities\":{\"omegaBeamCooldown\":220,\"reinforcementCooldown\":520,\"omegaBeamDamage\":20.0},"
 				+ "\"parademons\":{\"standardHealth\":30.0,\"bruteDamage\":15.0}}");
-		helper.assertTrue(c.configVersion == 3, "migrated to v3, got " + c.configVersion);
+		helper.assertTrue(c.configVersion == 4, "migrated to v4, got " + c.configVersion);
 		helper.assertTrue(c.raid.enemyCap == 34 && c.raid.wave1Standard == 11 && c.raid.wave3Elite == 5, "wave numbers moved");
 		helper.assertTrue(c.raid.invasionWaves == 5 && c.raid.wave5Brute > 0, "new keys arrive at their defaults");
 		helper.assertTrue(c.boss.globalCooldownTicks == 19, "shared cooldown moved, got " + c.boss.globalCooldownTicks);
@@ -301,7 +301,7 @@ public class DarkseidRaidGameTests implements FabricGameTest {
 		DarkseidConfig c = DarkseidConfig.migrateForTest("{\"configVersion\":2,"
 				+ "\"raid\":{\"enemyCap\":34,\"wave1Standard\":11},"
 				+ "\"parademons\":{\"standardHealth\":36.0,\"standardDamage\":6.9,\"bruteHealth\":120.0,\"rangedBoltDamage\":5.75}}");
-		helper.assertTrue(c.configVersion == 3, "migrated to v3, got " + c.configVersion);
+		helper.assertTrue(c.configVersion == 4, "migrated to v4, got " + c.configVersion);
 		helper.assertTrue(Math.abs(c.parademons.standardHealth - 30.0) < 1e-6 && Math.abs(c.parademons.standardDamage - 6.0) < 1e-6
 				&& Math.abs(c.parademons.bruteHealth - 100.0) < 1e-6 && Math.abs(c.parademons.rangedBoltDamage - 5.0f) < 1e-6,
 				"Parademon stats back to v0.13.18");

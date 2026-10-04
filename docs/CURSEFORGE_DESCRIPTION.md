@@ -311,7 +311,8 @@ An **endgame co-op raid for up to 8 heroes**, started with a **Boom Tube Beacon*
 
 ### 🧱 Horde Blocks
 Craft a **Zombie, Skeleton or Spider Horde** block (a 3x3 of rotten flesh / bone blocks / spider eyes) and break it open
-for **8 waves** and a boss -- harder each tier, with a reward chest that gets richer to match.
+for **8 waves** and a boss -- harder each tier, with a reward chest that gets richer to match (diamonds, lapis, gold,
+iron, redstone, emeralds, golden apples, books and more).
 - **Zombie Horde** ends with **the Titan**.
 - **Skeleton Horde:** Bone Runners, Blight Archers, shield-walled Bone Knights, TNT-headed Bone Bombers, Necromancers and
   Bone Brutes -- then **the Bone Tyrant**, a 1,200-health, 7-block lich-king with ten telegraphed attacks over three phases.

@@ -5,8 +5,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import com.projecthero.mod.event.reward.Valuables;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
@@ -35,6 +38,10 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
  * </ul>
  * A second surviving fighter adds a third more of every stack (up to double for four or more).
  *
+ * <p>v0.14.21: every chest also pays lapis lazuli, redstone and amethyst shards (scaled by fighters like the rest), the
+ * Skeleton chest a 40% chance of 1-2 lapis blocks, and the Spider chest 2-4 lapis blocks and a 25% ancient debris -- see
+ * {@link com.projecthero.mod.event.reward.Valuables}.
+ *
  * <p>v0.14.16: the haul is no longer packed into the chest's first slots -- {@link #fill} splits stacks and scatters them
  * across random slots the way vanilla's loot chests do, so the chest looks (and is) full.
  */
@@ -55,7 +62,11 @@ public final class HordeRewards {
 
 	/** The chest's contents (at most 27 stacks). */
 	public static List<ItemStack> roll(ServerLevel level, HordeKind kind, int winners) {
-		RandomSource r = level.random;
+		return roll(level.random, level.registryAccess(), kind, winners);
+	}
+
+	/** {@link #roll(ServerLevel, HordeKind, int)} with an explicit random (seeded in the gametests). */
+	public static List<ItemStack> roll(RandomSource r, RegistryAccess registries, HordeKind kind, int winners) {
 		double more = Math.min(2.0, 1.0 + (Math.max(1, winners) - 1) / 3.0);
 		List<ItemStack> out = new ArrayList<>();
 		switch (kind) {
@@ -70,7 +81,11 @@ public final class HordeRewards {
 				if (r.nextFloat() < 0.15f) {
 					out.add(new ItemStack(Items.ENCHANTED_GOLDEN_APPLE));
 				}
-				out.add(book(level, r, 20));
+				// v0.14.21 valuables
+				Valuables.add(out, r, Items.LAPIS_LAZULI, 16, 28, more);
+				Valuables.add(out, r, Items.REDSTONE, 12, 24, more);
+				Valuables.add(out, r, Items.AMETHYST_SHARD, 6, 12, more);
+				out.add(Valuables.book(r, registries, 20));
 			}
 			case SKELETON -> {
 				add(out, Items.DIAMOND, between(r, 5, 9), more);
@@ -80,11 +95,16 @@ public final class HordeRewards {
 				add(out, Items.EMERALD, between(r, 12, 20), more);
 				add(out, Items.EXPERIENCE_BOTTLE, between(r, 12, 20), more);
 				add(out, Items.ARROW, 64, 1.0);
-				out.add(EnchantmentHelper.enchantItem(r, new ItemStack(Items.BOW), 30, level.registryAccess(), Optional.empty()));
+				out.add(EnchantmentHelper.enchantItem(r, new ItemStack(Items.BOW), 30, registries, Optional.empty()));
 				if (r.nextFloat() < 0.35f) {
 					out.add(new ItemStack(Items.ENCHANTED_GOLDEN_APPLE));
 				}
-				out.add(book(level, r, 30));
+				// v0.14.21 valuables
+				Valuables.add(out, r, Items.LAPIS_LAZULI, 20, 32, more);
+				Valuables.add(out, r, Items.REDSTONE, 16, 28, more);
+				Valuables.add(out, r, Items.AMETHYST_SHARD, 8, 14, more);
+				Valuables.chance(out, r, 0.4, Items.LAPIS_BLOCK, 1, 2);
+				out.add(Valuables.book(r, registries, 30));
 			}
 			case SPIDER -> {
 				add(out, Items.DIAMOND, between(r, 8, 14), more);
@@ -101,8 +121,14 @@ public final class HordeRewards {
 				if (r.nextFloat() < 0.3f) {
 					out.add(new ItemStack(Items.DIAMOND_BLOCK));
 				}
-				out.add(book(level, r, 30));
-				out.add(book(level, r, 30));
+				// v0.14.21 valuables
+				Valuables.add(out, r, Items.LAPIS_LAZULI, 24, 40, more);
+				Valuables.add(out, r, Items.LAPIS_BLOCK, 2, 4, more);
+				Valuables.add(out, r, Items.REDSTONE, 20, 32, more);
+				Valuables.add(out, r, Items.AMETHYST_SHARD, 10, 16, more);
+				Valuables.chance(out, r, 0.25, Items.ANCIENT_DEBRIS, 1, 1);
+				out.add(Valuables.book(r, registries, 30));
+				out.add(Valuables.book(r, registries, 30));
 			}
 		}
 		return out;
@@ -180,9 +206,5 @@ public final class HordeRewards {
 			out.add(new ItemStack(item, n));
 			total -= n;
 		}
-	}
-
-	private static ItemStack book(ServerLevel level, RandomSource r, int power) {
-		return EnchantmentHelper.enchantItem(r, new ItemStack(Items.BOOK), power, level.registryAccess(), Optional.empty());
 	}
 }

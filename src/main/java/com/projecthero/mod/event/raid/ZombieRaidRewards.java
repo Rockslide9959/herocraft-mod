@@ -1,8 +1,11 @@
 package com.projecthero.mod.event.raid;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.projecthero.mod.ProjectHeroMod;
+import com.projecthero.mod.event.reward.Valuables;
+import com.projecthero.mod.horde.HordeRewards;
 import com.projecthero.mod.event.EventConfig;
 import com.projecthero.mod.event.EventInstance;
 import com.projecthero.mod.event.EventManager;
@@ -21,6 +24,7 @@ import com.projecthero.mod.grave.item.GraveItems;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -34,6 +38,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -135,6 +140,10 @@ public final class ZombieRaidRewards {
 			}
 			drop(level, boss, trophy);
 		}
+		// v0.14.21: ores and gems, more for each later wave
+		for (ItemStack stack : bossValuables(random, level.registryAccess(), raid.wave(), raid.totalWaves(), finalBoss)) {
+			drop(level, boss, stack);
+		}
 		level.playSound(null, boss.blockPosition(), SoundEvents.TOTEM_USE, SoundSource.HOSTILE, 1.0f, 0.6f);
 	}
 
@@ -208,12 +217,60 @@ public final class ZombieRaidRewards {
 			if (essence > 64) {
 				addToChest(chest, new ItemStack(GraveItems.GRAVE_ESSENCE, essence - 64));
 			}
+			// v0.14.21: a full clear's worth of ores and gems on top, more for a bigger party
+			HordeRewards.fill(chest, completionValuables(level.random, level.registryAccess(),
+					raid.participants().eligibleCount()), level.random);
 			chest.setChanged();
 		}
 		level.playSound(null, pos, SoundEvents.RESPAWN_ANCHOR_SET_SPAWN, SoundSource.BLOCKS, 1.0f, 0.8f);
 		level.sendParticles(net.minecraft.core.particles.ParticleTypes.SOUL_FIRE_FLAME,
 				pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5, 40, 0.5, 0.6, 0.5, 0.03);
 		return pos;
+	}
+
+	/**
+	 * v0.14.21: the valuables a Powered Zombie Boss drops, scaled by how far into the raid it came -- an early boss
+	 * drops a handful, the wave-12 final boss about three times as much plus golden apples, a lapis block and a book.
+	 */
+	public static List<ItemStack> bossValuables(RandomSource r, RegistryAccess registries, int wave, int totalWaves,
+			boolean finalBoss) {
+		double f = totalWaves <= 1 ? 1.0 : Math.max(0, wave - 1) / (double) (totalWaves - 1);
+		List<ItemStack> out = new ArrayList<>();
+		Valuables.add(out, r, Items.LAPIS_LAZULI, Valuables.lerp(4, 16, f), Valuables.lerp(8, 28, f), 1.0);
+		Valuables.add(out, r, Items.REDSTONE, Valuables.lerp(4, 12, f), Valuables.lerp(8, 20, f), 1.0);
+		Valuables.add(out, r, Items.IRON_INGOT, Valuables.lerp(3, 10, f), Valuables.lerp(6, 16, f), 1.0);
+		Valuables.add(out, r, Items.GOLD_INGOT, Valuables.lerp(2, 6, f), Valuables.lerp(4, 10, f), 1.0);
+		Valuables.add(out, r, Items.EMERALD, Valuables.lerp(1, 4, f), Valuables.lerp(3, 8, f), 1.0);
+		Valuables.add(out, r, Items.AMETHYST_SHARD, Valuables.lerp(2, 6, f), Valuables.lerp(4, 10, f), 1.0);
+		Valuables.add(out, r, Items.DIAMOND, Valuables.lerp(0, 2, f), Valuables.lerp(1, 4, f), 1.0);
+		if (finalBoss) {
+			Valuables.add(out, r, Items.LAPIS_BLOCK, 1, 2, 1.0);
+			Valuables.add(out, r, Items.GOLDEN_APPLE, 1, 2, 1.0);
+			out.add(Valuables.book(r, registries, 30));
+		}
+		return out;
+	}
+
+	/**
+	 * v0.14.21: the ores and gems added to the Cursed Grave Chest on top of its loot table -- roughly a good mining
+	 * session, scaled up for a bigger party the way the Horde chests are (a third more per extra player, up to double).
+	 */
+	public static List<ItemStack> completionValuables(RandomSource r, RegistryAccess registries, int participants) {
+		double more = Valuables.partyScale(participants);
+		List<ItemStack> out = new ArrayList<>();
+		Valuables.add(out, r, Items.LAPIS_LAZULI, 24, 40, more);
+		Valuables.add(out, r, Items.LAPIS_BLOCK, 1, 3, more);
+		Valuables.add(out, r, Items.REDSTONE, 16, 32, more);
+		Valuables.add(out, r, Items.IRON_INGOT, 16, 32, more);
+		Valuables.add(out, r, Items.GOLD_INGOT, 8, 16, more);
+		Valuables.add(out, r, Items.DIAMOND, 3, 6, more);
+		Valuables.add(out, r, Items.EMERALD, 6, 12, more);
+		Valuables.add(out, r, Items.AMETHYST_SHARD, 8, 16, more);
+		Valuables.add(out, r, Items.GOLDEN_APPLE, 2, 4, more);
+		out.add(Valuables.book(r, registries, 30));
+		Valuables.chance(out, r, 0.20, Items.NETHERITE_SCRAP, 1, 2);
+		Valuables.chance(out, r, 0.15, Items.ANCIENT_DEBRIS, 1, 1);
+		return out;
 	}
 
 	private static void addToChest(ChestBlockEntity chest, ItemStack stack) {
