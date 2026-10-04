@@ -1,8 +1,10 @@
 package com.projecthero.mod.ironman.sorter;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 
@@ -11,10 +13,24 @@ import net.minecraft.world.item.ItemStack;
  * in", plus a {@link Sim copy-on-write simulation} so a multi-stack load can be checked against a chest's space
  * before anything leaves the station. Merging into existing stacks always comes before taking an empty slot, the
  * same order a player's shift-click uses.
+ *
+ * <h2>Repacking (v0.14.21)</h2>
+ * {@link #repack} rewrites a container's layout: partial stacks of the identical item (same components) are
+ * merged, everything is moved to the front with no gaps, and the stacks are ordered -- stacks that belong in the
+ * container first, then by {@link SortCategory}, then by item id, then fullest first. The order is a stable sort
+ * of the merged stacks, so repacking an already-packed container changes nothing (that is what makes Tidy
+ * idempotent). The bot repacks every container it opens, and {@link Sim} simulates against the repacked layout,
+ * so a container whose only free space is "between" split stacks still counts that space.
  */
 public final class Stash {
 	private Stash() {
 	}
+
+	/** The default order: category, then item id, then fullest first. */
+	public static final Comparator<ItemStack> ORDER = Comparator
+			.<ItemStack>comparingInt(s -> SortCategory.of(s).ordinal())
+			.thenComparing(s -> BuiltInRegistries.ITEM.getKey(s.getItem()).toString())
+			.thenComparing(Comparator.comparingInt(ItemStack::getCount).reversed());
 
 	/** True when {@code c} already holds at least one of the identical item (same components). */
 	public static boolean holds(Container c, ItemStack stack) {
@@ -26,7 +42,7 @@ public final class Stash {
 		return false;
 	}
 
-	/** How many of {@code stack} would fit into {@code c} right now (capped at the stack's count). */
+	/** How many of {@code stack} would fit into {@code c} once repacked (capped at the stack's count). */
 	public static int room(Container c, ItemStack stack) {
 		return Sim.of(c).insert(stack.copy());
 	}
@@ -62,61 +78,115 @@ public final class Stash {
 		return moved;
 	}
 
+	// ------------------------------------------------------------------ repacking (v0.14.21)
+
 	/**
-	 * v0.14.20 (Tidy): merge partial stacks of the identical item inside {@code c} into the earliest of them. Items
-	 * only move between stacks of the same container, so the total never changes. Returns true if anything moved.
+	 * The merged stacks of {@code slots} in their packed order (copies). Merging fills the earliest stack of each
+	 * identical item first, so only the last stack of an item is partial.
 	 */
-	public static boolean compact(Container c) {
-		return compact(c, true);
-	}
-
-	/** v0.14.20 (Tidy): true when {@link #compact} would merge something in {@code c}. */
-	public static boolean fragmented(Container c) {
-		return compact(c, false);
-	}
-
-	private static boolean compact(Container c, boolean apply) {
-		boolean changed = false;
-		int n = c.getContainerSize();
-		for (int i = 0; i < n; i++) {
-			ItemStack a = c.getItem(i);
-			if (a.isEmpty()) {
+	public static List<ItemStack> packed(List<ItemStack> slots, int containerMax, Comparator<ItemStack> order) {
+		List<ItemStack> merged = new ArrayList<>();
+		for (ItemStack s : slots) {
+			if (s.isEmpty()) {
 				continue;
 			}
-			int max = Math.min(c.getMaxStackSize(a), a.getMaxStackSize());
-			for (int j = i + 1; j < n && a.getCount() < max; j++) {
-				ItemStack b = c.getItem(j);
-				if (b.isEmpty() || !ItemStack.isSameItemSameComponents(a, b)) {
-					continue;
+			ItemStack rest = s.copy();
+			int max = Math.min(containerMax, rest.getMaxStackSize());
+			for (ItemStack m : merged) {
+				if (rest.isEmpty()) {
+					break;
 				}
-				if (!apply) {
-					return true;
+				if (m.getCount() < max && ItemStack.isSameItemSameComponents(m, rest)) {
+					int add = Math.min(rest.getCount(), max - m.getCount());
+					m.grow(add);
+					rest.shrink(add);
 				}
-				int add = Math.min(b.getCount(), max - a.getCount());
-				a.grow(add);
-				b.shrink(add);
-				if (b.isEmpty()) {
-					c.setItem(j, ItemStack.EMPTY);
-				}
-				changed = true;
+			}
+			while (!rest.isEmpty()) {
+				merged.add(rest.split(max));
 			}
 		}
-		if (changed) {
-			c.setChanged();
-		}
-		return changed;
+		merged.sort(order); // stable: equal keys keep their merged order
+		return merged;
 	}
 
-	/** A private copy of a container's slots that inserts can be tried against. */
+	private static List<ItemStack> slotsOf(Container c) {
+		List<ItemStack> out = new ArrayList<>(c.getContainerSize());
+		for (int i = 0; i < c.getContainerSize(); i++) {
+			out.add(c.getItem(i));
+		}
+		return out;
+	}
+
+	/** True when {@link #repack} would change {@code c}. */
+	public static boolean needsRepack(Container c, Comparator<ItemStack> order) {
+		List<ItemStack> packed = packed(slotsOf(c), c.getMaxStackSize(), order);
+		for (int i = 0; i < c.getContainerSize(); i++) {
+			ItemStack want = i < packed.size() ? packed.get(i) : ItemStack.EMPTY;
+			if (!ItemStack.matches(c.getItem(i), want)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Merge split stacks, close every gap and put the stacks in {@code order}. Items only move inside {@code c},
+	 * so the total never changes. Returns true if anything moved.
+	 */
+	public static boolean repack(Container c, Comparator<ItemStack> order) {
+		if (!needsRepack(c, order)) {
+			return false;
+		}
+		List<ItemStack> packed = packed(slotsOf(c), c.getMaxStackSize(), order);
+		if (packed.size() > c.getContainerSize()) {
+			return false; // cannot happen (merging never adds stacks); refuse rather than lose anything
+		}
+		for (int i = 0; i < c.getContainerSize(); i++) {
+			c.setItem(i, i < packed.size() ? packed.get(i) : ItemStack.EMPTY);
+		}
+		c.setChanged();
+		return true;
+	}
+
+	/** {@link #repack} in the default order. */
+	public static boolean repack(Container c) {
+		return repack(c, ORDER);
+	}
+
+	/** v0.14.20 (Tidy): merge split stacks. Since v0.14.21 this is a full {@link #repack}. */
+	public static boolean compact(Container c) {
+		return repack(c, ORDER);
+	}
+
+	/** v0.14.20: true when {@code c} has split stacks of the identical item that could be merged. */
+	public static boolean fragmented(Container c) {
+		List<ItemStack> slots = slotsOf(c);
+		int n = 0;
+		for (ItemStack s : slots) {
+			if (!s.isEmpty()) {
+				n++;
+			}
+		}
+		return packed(slots, c.getMaxStackSize(), ORDER).size() < n;
+	}
+
+	/** Used slots once repacked. */
+	public static int packedSlots(Container c) {
+		return packed(slotsOf(c), c.getMaxStackSize(), ORDER).size();
+	}
+
+	/** A private copy of a container's slots -- already repacked -- that inserts can be tried against. */
 	public static final class Sim {
 		private final Container source;
 		private final List<ItemStack> slots;
 
 		private Sim(Container source) {
 			this.source = source;
+			List<ItemStack> packed = packed(slotsOf(source), source.getMaxStackSize(), ORDER);
 			this.slots = new ArrayList<>(source.getContainerSize());
 			for (int i = 0; i < source.getContainerSize(); i++) {
-				slots.add(source.getItem(i).copy());
+				slots.add(i < packed.size() ? packed.get(i) : ItemStack.EMPTY);
 			}
 		}
 

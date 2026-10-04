@@ -930,10 +930,10 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.guide.hordes." + section + ".body");
 			}
 		}));
-		// v0.14.16: the Stark Sorting Station
+		// v0.14.16: the Stark Sorting Station (v0.14.21: + supplies)
 		out.add(chapter("projecthero.guide.stark_sorter", lines -> {
 			para(lines, "projecthero.guide.stark_sorter.body");
-			for (String section : new String[]{"recipe", "use", "plan", "tidy", "safety"}) {
+			for (String section : new String[]{"recipe", "use", "plan", "tidy", "supply", "safety"}) {
 				blank(lines);
 				head(lines, "projecthero.guide.stark_sorter." + section);
 				para(lines, "projecthero.guide.stark_sorter." + section + ".body");

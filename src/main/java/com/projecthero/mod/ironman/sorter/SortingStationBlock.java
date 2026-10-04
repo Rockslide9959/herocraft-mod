@@ -101,12 +101,13 @@ public class SortingStationBlock extends BaseEntityBlock {
 		return InteractionResult.sidedSuccess(level.isClientSide());
 	}
 
-	/** Drop the store and anything in transit; recall the bot. */
+	/** Drop the store, the supply and anything in transit; recall the bot. */
 	@Override
 	protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
 		if (!state.is(newState.getBlock()) && level.getBlockEntity(pos) instanceof SortingStationBlockEntity be) {
 			be.onBroken();
 			Containers.dropContents(level, pos, be);
+			Containers.dropContents(level, pos, be.supply()); // v0.14.21: the sign / chest supply
 			for (ItemStack s : be.carried()) {
 				Containers.dropItemStack(level, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, s);
 			}

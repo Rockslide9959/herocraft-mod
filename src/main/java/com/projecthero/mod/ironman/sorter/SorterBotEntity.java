@@ -37,7 +37,8 @@ import software.bernie.geckolib.util.GeckoLibUtil;
  * its own "in transit" list) -> {@code OUTBOUND} (flies a low arc to the container's opening) -> {@code DEPOSIT}
  * (opens the lid, files the load, closes it) -> {@code HOMEBOUND} -> {@code FETCH} ... until the station has
  * nothing left that fits anywhere -> {@code DESPAWN} (folds away, the station reports to the player).
- * v0.14.20 Tidy runs chest to chest instead (see {@link Phase}).
+ * v0.14.20 Tidy runs chest to chest instead (see {@link Phase}); since v0.14.21 a Sort ends with the same
+ * chest-to-chest pass before it goes home.
  *
  * <h2>Why it flies through things</h2>
  * Like Steel it extends {@link Entity}, not {@code Mob}: no pathfinding, no AI, no physics. Every leg is a timed
@@ -239,7 +240,9 @@ public class SorterBotEntity extends Entity implements GeoEntity {
 		if (phaseTick == 1) {
 			SortingStationBlockEntity.Load load = be.takeLoad();
 			if (load == null) {
-				enter(Phase.DESPAWN);
+				// v0.14.21: the station is done -- finish with the chest-to-chest pass (misplaced stacks, repacks,
+				// labels) before going home
+				enter(be.beginFinishingPass() ? Phase.FETCH : Phase.DESPAWN);
 				return;
 			}
 			target = load.target();
@@ -272,7 +275,7 @@ public class SorterBotEntity extends Entity implements GeoEntity {
 			closeLid(server);
 		} else if (phaseTick >= DEPOSIT_TICKS) {
 			if (be.isTidying() && be.carried().isEmpty()) {
-				enter(Phase.FETCH); // Tidy: straight on to the next chest
+				enter(Phase.FETCH); // chest-to-chest phase: straight on to the next chest
 				return;
 			}
 			startLeg(be.dockPoint()); // a Sort trip, or a Tidy load the chest refused: take it home to the station
@@ -316,7 +319,7 @@ public class SorterBotEntity extends Entity implements GeoEntity {
 			closeLid(server);
 		} else if (phaseTick >= DEPOSIT_TICKS) {
 			if (be.carried().isEmpty() || tidyLoad == null || tidyLoad.dest() == null) {
-				enter(Phase.FETCH); // a compact-only visit, or the stacks were gone / no longer fit
+				enter(Phase.FETCH); // a service visit (repack / label), or the stacks were gone / no longer fit
 				return;
 			}
 			target = tidyLoad.dest();

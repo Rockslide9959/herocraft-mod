@@ -77,7 +77,9 @@ Build an **Arc Reactor**, the **Stark Fabricator** and a **Suit Platform**, then
 - **Stark Sorting Station:** fill its 54-slot store, press **Sort**, and a little **Sorter Bot** flies out and files
   everything (carried in its hands, flying where it faces) into the chests and barrels within 10 blocks -- the more chests, the finer it sorts, and it keeps each
   chest's existing theme. Watch it work in real time. Chests got jumbled? Press **Tidy** and the bot flies the misplaced
-  stacks chest-to-chest back where they belong and merges split stacks.
+  stacks chest-to-chest back where they belong and repacks every chest (merged stacks, no gaps, grouped by item). Stock
+  its supply slots with **signs** and **chests**: the bot labels each chest with a sign and places a new chest when a
+  category runs out of room -- the screen tells you what it still needs.
 
 ### 🕷️ Spider-Man
 Grown from the **Spider Climbing / Adhesion** mutation with an **Arachnid Mutagen**.

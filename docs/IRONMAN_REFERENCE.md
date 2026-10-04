@@ -218,7 +218,7 @@ piece to store it; right-click empty-handed (Tony Stark) to deploy the stored su
 sneak-right-click to retrieve your worn suit back onto the platform. Architecture is in place for a
 full Hall of Armor (recharge/repair/display).
 
-## 15b. Stark Sorting Station (v0.14.16, Tidy v0.14.20)
+## 15b. Stark Sorting Station (v0.14.16, Tidy v0.14.20, repack / supplies v0.14.21)
 
 `com.projecthero.mod.ironman.sorter`: a 54-slot station block + the Sorter Bot (non-Mob flying GeckoLib entity,
 never saved). Containers = every chest / trapped chest / barrel within 10 blocks (a double chest is one target).
@@ -229,7 +229,7 @@ lost/unloaded bot or a broken station never loses or duplicates anything. The sc
 
 | Button | Id | What it does |
 |---|---|---|
-| **Sort** | 0 | Empties the station: files its stacks into the containers (up to 3 stacks a trip, station -> chest -> station). Overflows into the next chest of the category, then anywhere with room; what fits nowhere stays in the station. |
+| **Sort** | 0 | Empties the station: files its stacks into the containers (up to 3 stacks a trip, station -> chest -> station), only ever into the stack's own category's containers (v0.14.21: no "anywhere with room" fallback). A full category adopts a spare container, else gets a chest placed from the supply; otherwise the stack stays in the station and the chest shortfall is reported. When the station is done the bot runs the same chest-to-chest pass as Tidy (`beginFinishingPass`) with the Sort's plan, so a Sort leaves the room tidy. |
 | **Tidy** | 1 | Re-sorts the containers themselves (for jumbled chests). The plan is built from the containers' current contents only; every stack in a container that is not one of its category's containers is carried chest -> chest (up to 4 stacks a trip, no trip home in between) to one that is, the identical item's chest first. Split stacks are merged in every chest the bot opens, plus one compact-only visit to any other chest with split stacks. The station's own store is untouched. |
 
 Tidy rules: only ever moves a stack to one of its **own** category's containers (no "anywhere with room" fallback);
@@ -240,6 +240,44 @@ Only one job at a time: Tidy during a Sort (or Sort during a Tidy) just reports 
 "The chests are already tidy." (bot not launched); only full destinations -> "N stacks are in the wrong chest, but
 their category's chests are full". A trip cap (2 x stacks + 2 x containers + 16) ends the job if players keep
 reshuffling chests while it runs. GameTests: `StarkSorterGameTests` (`sorterTidy*`).
+
+### v0.14.21: repack, strict homes, spares, signs and chests
+
+- **Repack** (`Stash.repack`): every container the bot opens (pickup, deposit, or a "service" visit) is rewritten:
+  partial stacks of the identical item (`isSameItemSameComponents`) merged, everything moved to the front with no
+  gaps, then a stable sort -- stacks that belong in that container first, then `SortCategory` ordinal, then
+  registry id, then fullest first (`SortPlan.orderFor` / `Stash.ORDER`). A packed container repacks to itself,
+  so Tidy is idempotent. `Stash.Sim` simulates against the repacked layout and deposits repack before inserting.
+- **Weights** are packed slots per category (merged per distinct item), invariant under moving/merging stacks, so
+  re-planning the same items always merges buckets the same way.
+- **Assignment**: each bucket first gets the container holding the most of it (`hits`, then share). A leftover
+  container only joins a bucket whose items need more slots than its containers have (majority bucket, then last
+  designation, then biggest shortfall); otherwise it is a **spare** (`SortPlan.spares`): its contents are carried
+  home and it is adopted (`adoptSpare`) by the first category that fills up. So a chest holding one lone stack of
+  iron is consolidated into the Ores chest, while a genuine overflow chest keeps its share.
+- **Designations** (container key -> categories) are saved in the station NBT when a job ends and passed to the next
+  `SortPlan.build` as hints: they decide which *empty* container a bucket gets, so emptied chests keep their job.
+- **Supply**: 6 slots (`SUPPLY_SLOTS`) beside the store -- 3 for signs (`#minecraft:signs` with a wall-sign block;
+  no hanging signs), 3 for chests (`minecraft:chest`). Saved under `Supply`, dropped when the station breaks,
+  shift-click routes signs/chests there first.
+- **Labels** (`SorterSupply`): a waxed wall sign, front text `[Stark]` + the bucket's short sign names
+  (`sort_category.*.sign` / `sort_group.*.sign`, max 3 lines, "+N more"). Placed in an air block on the
+  container's front, then outer sides, then back (`canSurvive` checked); one per double chest. A chest with any
+  wall sign attached (or a standing sign on top) counts as labelled; only signs whose first line is `[Stark]` are
+  re-written (category changed, or "Spare"). Player signs are never touched.
+- **New chests** (`SorterSupply.chestSpot`): air, within 10 blocks and the scan filter, solid ground (or on top of
+  a container), nothing solid above (lid), not in front of a container or the station, not the dock. Preference:
+  continuing the row of the category's own chests, any managed row, on top of a container, beside the station
+  (also used when Sort finds no containers at all). Always a single chest facing like its neighbour.
+- **Needs** (`computeNeeds` / `refreshNeeds`): chests = overflow slots (station stacks + misplaced stacks
+  simulated into their homes) minus spare free slots, /27; signs = unlabelled non-spare containers with a free face
+  + needed chests; plus containers with no free face. Recomputed on menu open, when the store/supply changes and
+  every 40 ticks while viewed; synced in data slots 5-9; shown in the supply column ("Add 3 signs") and sent in
+  chat on every button press and at the end of a job.
+- GameTests: `sorterTidyRepacksAGappyChest` (the user's screenshot), `sorterRepackIsStableAndConserves`,
+  `sorterTidyConsolidatesALoneStack`, `sorterOverflowChestIsAllowed`, `sorterNeverFilesIntoAnotherCategorysChest`,
+  `sorterTidyIsIdempotent`, `sorterSortThenTidyIsStable`, `sorterLabelsChestsWithSigns`,
+  `sorterReportsMissingSigns`, `sorterPlacesAChestFromTheSupply`, `sorterPlacesAFirstChestBesideTheStation`.
 
 ## 16. Commands (op 2)
 
