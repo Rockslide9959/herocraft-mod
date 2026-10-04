@@ -2,22 +2,21 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    "CGC",
-    "GSG",
-    "MGM"
+    "GCG",
+    "MSM"
   ],
   "key": {
-    "C": {
-      "item": "projecthero:stark_circuit"
-    },
     "G": {
       "item": "minecraft:gunpowder"
     },
-    "S": {
-      "item": "projecthero:servo_motor"
+    "C": {
+      "item": "projecthero:stark_circuit"
     },
     "M": {
       "item": "projecthero:metal_plating"
+    },
+    "S": {
+      "item": "projecthero:servo_motor"
     }
   },
   "result": {

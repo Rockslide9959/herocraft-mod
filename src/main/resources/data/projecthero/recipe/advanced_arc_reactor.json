@@ -3,8 +3,8 @@
   "category": "misc",
   "pattern": [
     "PGP",
-    "SDS",
-    "GPG"
+    "DSD",
+    "DSD"
   ],
   "key": {
     "P": {
@@ -13,11 +13,11 @@
     "G": {
       "item": "minecraft:glowstone"
     },
+    "D": {
+      "item": "minecraft:diamond"
+    },
     "S": {
       "item": "projecthero:stark_circuit"
-    },
-    "D": {
-      "item": "minecraft:diamond_block"
     }
   },
   "result": {

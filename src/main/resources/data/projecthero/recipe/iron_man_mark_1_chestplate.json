@@ -2,13 +2,17 @@
   "type": "minecraft:crafting_shaped",
   "category": "equipment",
   "pattern": [
-    "I I",
-    "IMI",
-    "III"
+    "P P",
+    "PMP",
+    "PPP"
   ],
   "key": {
-    "I": { "item": "minecraft:iron_ingot" },
-    "M": { "item": "projecthero:mechanical_parts" }
+    "P": {
+      "item": "projecthero:metal_plating"
+    },
+    "M": {
+      "item": "projecthero:mechanical_parts"
+    }
   },
   "result": {
     "id": "projecthero:iron_man_mark_1_chestplate",

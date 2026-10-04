@@ -2225,7 +2225,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		helper.assertTrue(circuit != null
 				&& circuit.energyCost() < com.projecthero.mod.ironman.fabricator.FabricatorRecipes.MAX_ENERGY,
 				"components are still cheap to fabricate");
-		helper.assertTrue(circuit.result().getCount() == 2,
+		helper.assertTrue(circuit.result().getCount() >= 2, // v0.14.21 cost pass: now 3
 				"components yield more per run after the 'changes 22' cost pass");
 		helper.succeed();
 	}
@@ -2388,9 +2388,10 @@ public class HeroPackGameTests implements FabricGameTest {
 		net.minecraft.world.inventory.CraftingMenu menu = new net.minecraft.world.inventory.CraftingMenu(
 				1, player.getInventory(),
 				net.minecraft.world.inventory.ContainerLevelAccess.create(player.level(), player.blockPosition()));
-		ItemStack iron = new ItemStack(net.minecraft.world.item.Items.IRON_INGOT);
+		// v0.14.21: the Mark 1 is built from Metal Plating rather than raw iron ingots.
+		ItemStack iron = new ItemStack(com.projecthero.mod.ironman.item.IronManItems.METAL_PLATING);
 		ItemStack circuit = new ItemStack(com.projecthero.mod.ironman.item.IronManItems.BASIC_CIRCUIT);
-		// "IBI" / "I I" -- slot 0 is the result, 1..9 are the 3x3 grid row-major.
+		// "PBP" / "P P" -- slot 0 is the result, 1..9 are the 3x3 grid row-major.
 		menu.getSlot(1).set(iron.copy());
 		menu.getSlot(2).set(circuit.copy());
 		menu.getSlot(3).set(iron.copy());

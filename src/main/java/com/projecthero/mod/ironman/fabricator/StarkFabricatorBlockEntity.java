@@ -138,7 +138,7 @@ public class StarkFabricatorBlockEntity extends BlockEntity implements Container
 	 * <p>Reactor Cores and Arc Reactors dropped into an input slot still work; they are now a way to
 	 * <em>skip</em> part of that wait rather than the only power source.
 	 */
-	public static final int SELF_RECHARGE_SECONDS = 300;
+	public static final int SELF_RECHARGE_SECONDS = 150; // v0.14.21 cost pass: was 300 (20 min per suit -> 10)
 	private static final int SELF_RECHARGE_PER_TICK =
 			Math.max(1, FabricatorRecipes.MAX_ENERGY / (SELF_RECHARGE_SECONDS * 20));
 

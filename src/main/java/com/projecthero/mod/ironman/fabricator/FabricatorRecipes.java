@@ -131,29 +131,36 @@ public final class FabricatorRecipes {
 		// shape (and the tree's shape) exactly as it was. The two capstone parts -- the Suit Computer
 		// and the Advanced Arc Reactor -- stay one-per-run because only one of each goes into a piece;
 		// they get slightly cheaper inputs instead.
-		add(of("titanium_gold_alloy", new ItemStack(IronManItems.TITANIUM_GOLD_ALLOY, 2), 300, 40, 0,
+		//
+		// v0.14.21 cost pass ("make it less expensive"): every suit from Mark 2 up now costs roughly half
+		// the raw materials it did (see docs/IRONMAN_REFERENCE.md "v0.14.21 recipe cost pass" for the
+		// per-mark before/after table). Each recipe here is mirrored 1:1 by its crafting-table JSON in
+		// data/projecthero/recipe/ -- change both together. Biggest cuts: the Advanced Arc Reactor's
+		// diamond block -> 4 diamonds, the Repulsor's two redstone blocks -> one, simpler servo / thruster /
+		// stabiliser / suit-computer / missile inputs, and +1 yield on the alloy and the Stark circuit.
+		add(of("titanium_gold_alloy", new ItemStack(IronManItems.TITANIUM_GOLD_ALLOY, 3), 300, 40, 0,
 				in(Items.GOLD_INGOT, 3), in(Items.IRON_INGOT, 3), in(IronManItems.METAL_PLATING, 1)));
 		add(of("titanium_gold_plate", new ItemStack(IronManItems.TITANIUM_GOLD_PLATE, 3), 250, 30, 0,
 				in(IronManItems.TITANIUM_GOLD_ALLOY, 2), in(IronManItems.METAL_PLATING, 1)));
 		add(of("servo_motor", new ItemStack(IronManItems.SERVO_MOTOR, 2), 200, 40, 0,
-				in(IronManItems.MECHANICAL_PARTS, 2), in(IronManItems.COPPER_WIRING, 1), in(Items.REDSTONE, 1)));
+				in(IronManItems.MECHANICAL_PARTS, 1), in(IronManItems.COPPER_WIRING, 1), in(Items.REDSTONE, 1)));
 		add(of("micro_thruster", new ItemStack(IronManItems.MICRO_THRUSTER, 2), 400, 60, 0,
-				in(IronManItems.SERVO_MOTOR, 1), in(IronManItems.METAL_PLATING, 2), in(Items.BLAZE_POWDER, 1)));
-		add(of("stark_circuit", new ItemStack(IronManItems.STARK_CIRCUIT, 2), 300, 40, 0,
+				in(IronManItems.SERVO_MOTOR, 1), in(IronManItems.METAL_PLATING, 1), in(Items.BLAZE_POWDER, 1)));
+		add(of("stark_circuit", new ItemStack(IronManItems.STARK_CIRCUIT, 3), 300, 40, 0,
 				in(IronManItems.BASIC_CIRCUIT, 2), in(Items.GOLD_INGOT, 1), in(Items.REDSTONE, 1)));
-		add(of("repulsor", new ItemStack(IronManItems.REPULSOR, 2), 800, 80, 0,
-				in(IronManItems.STARK_CIRCUIT, 1), in(Items.REDSTONE_BLOCK, 2), in(Items.DIAMOND, 1)));
-		add(of("flight_stabilizer", new ItemStack(IronManItems.FLIGHT_STABILIZER, 2), 600, 70, 0,
-				in(IronManItems.SERVO_MOTOR, 2), in(IronManItems.MICRO_THRUSTER, 1), in(Items.AMETHYST_SHARD, 1)));
+		add(of("repulsor", new ItemStack(IronManItems.REPULSOR, 2), 600, 80, 0,
+				in(IronManItems.STARK_CIRCUIT, 1), in(Items.REDSTONE_BLOCK, 1), in(Items.DIAMOND, 1)));
+		add(of("flight_stabilizer", new ItemStack(IronManItems.FLIGHT_STABILIZER, 2), 500, 70, 0,
+				in(IronManItems.SERVO_MOTOR, 1), in(IronManItems.MICRO_THRUSTER, 1), in(Items.AMETHYST_SHARD, 1)));
 		add(of("targeting_module", new ItemStack(IronManItems.TARGETING_MODULE, 2), 500, 60, 0,
 				in(IronManItems.BASIC_CIRCUIT, 1), in(Items.ENDER_EYE, 1), in(IronManItems.STARK_CIRCUIT, 1)));
-		add(of("suit_computer", stack(IronManItems.SUIT_COMPUTER), 1_200, 100, 0,
-				in(IronManItems.STARK_CIRCUIT, 2), in(IronManItems.TARGETING_MODULE, 1), in(Items.AMETHYST_SHARD, 1)));
-		add(of("advanced_arc_reactor", stack(IronManItems.ADVANCED_ARC_REACTOR), 4_000, 160, 0,
-				in(IronManItems.TITANIUM_GOLD_PLATE, 3), in(IronManItems.STARK_CIRCUIT, 2),
-				in(Items.DIAMOND_BLOCK, 1), in(Items.GLOWSTONE, 2)));
-		add(of("missile_module", new ItemStack(IronManItems.MISSILE_MODULE, 2), 700, 80, 0,
-				in(IronManItems.STARK_CIRCUIT, 2), in(Items.GUNPOWDER, 4), in(IronManItems.SERVO_MOTOR, 1),
+		add(of("suit_computer", stack(IronManItems.SUIT_COMPUTER), 800, 80, 0,
+				in(IronManItems.STARK_CIRCUIT, 1), in(IronManItems.TARGETING_MODULE, 1), in(Items.AMETHYST_SHARD, 1)));
+		add(of("advanced_arc_reactor", stack(IronManItems.ADVANCED_ARC_REACTOR), 2_500, 120, 0,
+				in(IronManItems.TITANIUM_GOLD_PLATE, 2), in(IronManItems.STARK_CIRCUIT, 2),
+				in(Items.DIAMOND, 4), in(Items.GLOWSTONE, 1)));
+		add(of("missile_module", new ItemStack(IronManItems.MISSILE_MODULE, 2), 600, 80, 0,
+				in(IronManItems.STARK_CIRCUIT, 1), in(Items.GUNPOWDER, 2), in(IronManItems.SERVO_MOTOR, 1),
 				in(IronManItems.METAL_PLATING, 2)));
 
 		// ---------------- blueprints ----------------
@@ -166,13 +173,19 @@ public final class FabricatorRecipes {
 		// "changes 21": armour is gated purely by "the matching mark's blueprint is in the slot" -- which
 		// the Blank Blueprint progression controls -- so the recipes carry no tech-level requirement. The
 		// per-mark number below only scales fabrication time (higher mark = longer build).
+		//
+		// v0.14.21: each mark in the build order (III -> 4 -> V -> 6 -> VII) has a cost tier and a
+		// signature component, so every suit costs a little more than the one before it.
 		mark2ArmorSet();
-		armorSet("mark_4", 1, 0.9f);
-		armorSet("mark_6", 2, 1.0f);
-		armorSet("mark_iii", 1, 1.0f);
-		armorSet("mark_v", 2, 0.7f);
-		armorSet("mark_vii", 3, 1.2f);
+		armorSet("mark_iii", 1, 0, IronManItems.STARK_CIRCUIT);
+		armorSet("mark_4", 1, 1, IronManItems.SERVO_MOTOR);
+		armorSet("mark_v", 2, 2, IronManItems.MICRO_THRUSTER);
+		armorSet("mark_6", 2, 3, IronManItems.FLIGHT_STABILIZER);
+		armorSet("mark_vii", 3, 4, IronManItems.MISSILE_MODULE);
 	}
+
+	/** v0.14.21: the build order of the Fabricator-built marks, cheapest first. */
+	public static final List<String> ARMOR_BUILD_ORDER = List.of("mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii");
 
 	/** "changes 18/19": true if this suit has Fabricator armour recipes (i.e. everything except the Mark 1). */
 	public static boolean hasArmorRecipes(String suitId) {
@@ -180,75 +193,99 @@ public final class FabricatorRecipes {
 	}
 
 	/**
-	 * Generates the four armour recipes for a mark. Base cost/time from the Mark III spec examples,
-	 * scaled by {@code scale}; every mark adds its signature component. The recipes are gated only by
-	 * the mark's own blueprint sitting in the blueprint slot (the Blank Blueprint progression), not by
-	 * a tech level; {@code timeTier} just stretches the fabrication time for the later marks.
+	 * Generates the four armour recipes for a Titanium-Gold mark (III and later). The recipes are gated
+	 * only by the mark's own blueprint sitting in the blueprint slot (the Blank Blueprint progression),
+	 * not by a tech level; {@code timeTier} just stretches the fabrication time for the later marks.
+	 *
+	 * <p>v0.14.21 cost pass: roughly half the old component counts (19 plates / 6 servos for a Mark III
+	 * instead of 30 / 12). {@code costTier} (0 = Mark III .. 4 = Mark VII) adds plates so each mark in
+	 * the build order costs more than the last, and every piece carries one of the mark's
+	 * {@code signature} components (two in the chestplate).
 	 */
-	private static void armorSet(String suitId, int timeTier, float scale) {
+	private static void armorSet(String suitId, int timeTier, int costTier, Item signature) {
 		Item plate = IronManItems.TITANIUM_GOLD_PLATE;
-		Item signature = switch (suitId) {
-			case "mark_v" -> IronManItems.MICRO_THRUSTER;
-			case "mark_vii" -> IronManItems.MISSILE_MODULE;
-			default -> IronManItems.STARK_CIRCUIT;
-		};
+		int extra = (costTier + 1) / 2;
 
-		add(armor(suitId, ArmorItem.Type.HELMET, timeTier, scale, 160,
-				in(plate, 6), in(IronManItems.SERVO_MOTOR, 2), in(IronManItems.TARGETING_MODULE, 1),
-				in(IronManItems.STARK_CIRCUIT, 2), in(IronManItems.SUIT_COMPUTER, 1), in(signature, 1)));
+		add(armor(suitId, ArmorItem.Type.HELMET, timeTier, 160,
+				in(plate, 4 + extra), in(IronManItems.SERVO_MOTOR, 1), in(IronManItems.TARGETING_MODULE, 1),
+				in(IronManItems.STARK_CIRCUIT, 1), in(IronManItems.SUIT_COMPUTER, 1), in(signature, 1)));
 
-		add(armor(suitId, ArmorItem.Type.CHESTPLATE, timeTier, scale, 240,
-				in(plate, 10), in(IronManItems.SERVO_MOTOR, 4), in(IronManItems.REPULSOR, 1),
+		add(armor(suitId, ArmorItem.Type.CHESTPLATE, timeTier, 240,
+				in(plate, 6 + costTier), in(IronManItems.SERVO_MOTOR, 2), in(IronManItems.REPULSOR, 1),
 				in(IronManItems.FLIGHT_STABILIZER, 1), in(IronManItems.ADVANCED_ARC_REACTOR, 1),
-				in(IronManItems.STARK_CIRCUIT, 4), in(signature, 2)));
+				in(IronManItems.STARK_CIRCUIT, 2), in(signature, 2)));
 
-		add(armor(suitId, ArmorItem.Type.LEGGINGS, timeTier, scale, 200,
-				in(plate, 8), in(IronManItems.SERVO_MOTOR, 4), in(IronManItems.STARK_CIRCUIT, 2),
+		add(armor(suitId, ArmorItem.Type.LEGGINGS, timeTier, 200,
+				in(plate, 5 + extra), in(IronManItems.SERVO_MOTOR, 2), in(IronManItems.STARK_CIRCUIT, 1),
 				in(IronManItems.FLIGHT_STABILIZER, 1), in(signature, 1)));
 
-		add(armor(suitId, ArmorItem.Type.BOOTS, timeTier, scale, 200,
-				in(plate, 6), in(IronManItems.MICRO_THRUSTER, 2), in(IronManItems.REPULSOR, 2),
-				in(IronManItems.FLIGHT_STABILIZER, 1), in(IronManItems.SERVO_MOTOR, 2), in(signature, 1)));
+		add(armor(suitId, ArmorItem.Type.BOOTS, timeTier, 200,
+				in(plate, 4 + extra), in(IronManItems.MICRO_THRUSTER, 1), in(IronManItems.REPULSOR, 1),
+				in(IronManItems.FLIGHT_STABILIZER, 1), in(IronManItems.SERVO_MOTOR, 1), in(signature, 1)));
 	}
 
 	/**
 	 * Mark 2's own fixed component list (v0.11.13, explicit user request) -- replaces the shared
 	 * {@link #armorSet} generation entirely. Built from the basic {@code METAL_PLATING} rather than the
 	 * advanced {@code TITANIUM_GOLD_PLATE} every other mark's armour uses, in keeping with Mark 2 being
-	 * the cheaper primitive-tier suit.
+	 * the cheaper primitive-tier suit. v0.14.21: no Suit Computer and about half the servos / circuits.
 	 */
 	private static void mark2ArmorSet() {
 		int timeTier = 1;
-		float scale = 0.4f;
 		Item plate = IronManItems.METAL_PLATING;
 
-		add(armor("mark_2", ArmorItem.Type.HELMET, timeTier, scale, 160,
-				in(plate, 6), in(IronManItems.SERVO_MOTOR, 2), in(IronManItems.TARGETING_MODULE, 1),
-				in(IronManItems.STARK_CIRCUIT, 3), in(IronManItems.SUIT_COMPUTER, 1)));
+		add(armor("mark_2", ArmorItem.Type.HELMET, timeTier, 160,
+				in(plate, 5), in(IronManItems.SERVO_MOTOR, 1), in(IronManItems.TARGETING_MODULE, 1),
+				in(IronManItems.STARK_CIRCUIT, 2)));
 
-		add(armor("mark_2", ArmorItem.Type.CHESTPLATE, timeTier, scale, 240,
-				in(plate, 6), in(IronManItems.SERVO_MOTOR, 4), in(IronManItems.REPULSOR, 1),
-				in(IronManItems.FLIGHT_STABILIZER, 1), in(IronManItems.STARK_CIRCUIT, 4)));
+		add(armor("mark_2", ArmorItem.Type.CHESTPLATE, timeTier, 240,
+				in(plate, 6), in(IronManItems.SERVO_MOTOR, 2), in(IronManItems.REPULSOR, 1),
+				in(IronManItems.FLIGHT_STABILIZER, 1), in(IronManItems.STARK_CIRCUIT, 2)));
 
-		add(armor("mark_2", ArmorItem.Type.LEGGINGS, timeTier, scale, 200,
-				in(plate, 6), in(IronManItems.SERVO_MOTOR, 4), in(IronManItems.STARK_CIRCUIT, 2),
+		add(armor("mark_2", ArmorItem.Type.LEGGINGS, timeTier, 200,
+				in(plate, 6), in(IronManItems.SERVO_MOTOR, 2), in(IronManItems.STARK_CIRCUIT, 1),
 				in(IronManItems.FLIGHT_STABILIZER, 1)));
 
-		add(armor("mark_2", ArmorItem.Type.BOOTS, timeTier, scale, 200,
-				in(plate, 6), in(IronManItems.MICRO_THRUSTER, 2), in(IronManItems.REPULSOR, 2),
-				in(IronManItems.FLIGHT_STABILIZER, 1), in(IronManItems.SERVO_MOTOR, 2), in(IronManItems.STARK_CIRCUIT, 1)));
+		add(armor("mark_2", ArmorItem.Type.BOOTS, timeTier, 200,
+				in(plate, 5), in(IronManItems.MICRO_THRUSTER, 1), in(IronManItems.REPULSOR, 1),
+				in(IronManItems.FLIGHT_STABILIZER, 1), in(IronManItems.SERVO_MOTOR, 1)));
 	}
 
-	private static FabricationRecipe armor(String suitId, ArmorItem.Type type, int timeTier, float scale, int baseTime,
+	/**
+	 * v0.14.21: folds repeated items into one input (a mark whose signature is also a base component,
+	 * e.g. the Mark III's Stark circuit). Two separate inputs of the same item were each checked against
+	 * the whole tray by {@link FabricationRecipe#matches}, so the recipe accepted fewer items than it
+	 * then tried to consume -- and the checklist UI would show the item twice.
+	 */
+	private static List<FabricationRecipe.Input> merged(FabricationRecipe.Input... inputs) {
+		List<FabricationRecipe.Input> out = new ArrayList<>();
+		for (FabricationRecipe.Input input : inputs) {
+			int index = -1;
+			for (int i = 0; i < out.size(); i++) {
+				if (out.get(i).item() == input.item()) {
+					index = i;
+					break;
+				}
+			}
+			if (index < 0) {
+				out.add(input);
+			} else {
+				out.set(index, in(input.item(), out.get(index).count() + input.count()));
+			}
+		}
+		return List.copyOf(out);
+	}
+
+	private static FabricationRecipe armor(String suitId, ArmorItem.Type type, int timeTier, int baseTime,
 			FabricationRecipe.Input... inputs) {
 		ItemStack result = new ItemStack(IronManItems.armor(suitId, type));
 		// "changes 22": every armour piece costs the Fabricator's ENTIRE buffer. Building one drains the
 		// machine flat, and the next piece cannot start until its own reactor has charged all the way
 		// back up (StarkFabricatorBlockEntity.SELF_RECHARGE_SECONDS) -- so a four-piece suit is paced by
-		// the machine, not just by how many components you can pile in. `scale` now only affects time.
+		// the machine, not just by how many components you can pile in.
 		int energy = MAX_ENERGY;
 		int time = Math.round(baseTime * (0.8f + 0.15f * timeTier));
 		return new FabricationRecipe("iron_man_" + suitId + "_" + type.getName(),
-				List.of(inputs), energy, time, result, 0, null);
+				merged(inputs), energy, time, result, 0, null);
 	}
 }

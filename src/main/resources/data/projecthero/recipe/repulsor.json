@@ -2,15 +2,16 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    "RDR",
-    " C "
+    "D",
+    "R",
+    "C"
   ],
   "key": {
-    "R": {
-      "item": "minecraft:redstone_block"
-    },
     "D": {
       "item": "minecraft:diamond"
+    },
+    "R": {
+      "item": "minecraft:redstone_block"
     },
     "C": {
       "item": "projecthero:stark_circuit"

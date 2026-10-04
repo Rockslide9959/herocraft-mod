@@ -2,13 +2,17 @@
   "type": "minecraft:crafting_shaped",
   "category": "equipment",
   "pattern": [
-    "ICI",
-    "I I",
-    "I I"
+    "PCP",
+    "P P",
+    "P P"
   ],
   "key": {
-    "I": { "item": "minecraft:iron_ingot" },
-    "C": { "item": "projecthero:copper_wiring" }
+    "P": {
+      "item": "projecthero:metal_plating"
+    },
+    "C": {
+      "item": "projecthero:copper_wiring"
+    }
   },
   "result": {
     "id": "projecthero:iron_man_mark_1_leggings",

@@ -2,12 +2,16 @@
   "type": "minecraft:crafting_shaped",
   "category": "equipment",
   "pattern": [
-    "IBI",
-    "I I"
+    "PBP",
+    "P P"
   ],
   "key": {
-    "I": { "item": "minecraft:iron_ingot" },
-    "B": { "item": "projecthero:basic_circuit" }
+    "P": {
+      "item": "projecthero:metal_plating"
+    },
+    "B": {
+      "item": "projecthero:basic_circuit"
+    }
   },
   "result": {
     "id": "projecthero:iron_man_mark_1_helmet",

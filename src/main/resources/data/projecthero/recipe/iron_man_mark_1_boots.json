@@ -2,12 +2,13 @@
   "type": "minecraft:crafting_shaped",
   "category": "equipment",
   "pattern": [
-    "P I",
-    "I I"
+    "P P",
+    "P P"
   ],
   "key": {
-    "I": { "item": "minecraft:iron_ingot" },
-    "P": { "item": "projecthero:metal_plating" }
+    "P": {
+      "item": "projecthero:metal_plating"
+    }
   },
   "result": {
     "id": "projecthero:iron_man_mark_1_boots",

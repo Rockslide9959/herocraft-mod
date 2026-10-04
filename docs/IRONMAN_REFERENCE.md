@@ -70,6 +70,92 @@ I R I     R = Reactor Core              -> 1x Stark Fabricator
 "changes 21". Right-click it to stamp it into a specific mark's blueprint, gated on the linear
 build-the-previous-suit progression. (Pre-"changes 21": each mark had its own blueprint recipe.)
 
+### 3a. v0.14.21 recipe cost pass (current recipes)
+
+User request: "redo the Iron Man crafting recipes ... so that it's not that expensive." Every suit from
+the Mark 2 up now costs roughly **half** the raw materials (46-55% less), and the order of the build
+ladder is now also the order of cost. Every component's crafting-table JSON and its Fabricator recipe
+are identical (same inputs, same yield) — gametest `componentTableRecipesMirrorTheFabricator` enforces it.
+
+**Components** (table *and* Fabricator; bold = changed):
+
+| component | inputs | yield |
+|---|---|---|
+| `copper_wiring` (table) | 1 copper + 1 redstone | 6 |
+| `metal_plating` (table) | 2 iron | **4** (was 3) |
+| `basic_circuit` (table) | 1 copper_wiring + 1 redstone + 1 quartz | **4** (was 3) |
+| `mechanical_parts` (table) | 1 iron + 1 redstone + 1 copper_wiring | **4** (was 3) |
+| `titanium_gold_alloy` | 3 gold + 3 iron + 1 metal_plating | **3** (was 2) |
+| `titanium_gold_plate` | 2 titanium_gold_alloy + 1 metal_plating | 3 |
+| `servo_motor` | **1** mechanical_parts (was 2) + 1 copper_wiring + 1 redstone | 2 |
+| `micro_thruster` | 1 servo_motor + **1** metal_plating (was 2) + 1 blaze_powder | 2 |
+| `stark_circuit` | 2 basic_circuit + 1 gold + 1 redstone | **3** (was 2) |
+| `repulsor` | 1 stark_circuit + **1** redstone_block (was 2) + 1 diamond | 2 |
+| `flight_stabilizer` | **1** servo_motor (was 2) + 1 micro_thruster + 1 amethyst_shard | 2 |
+| `targeting_module` | 1 basic_circuit + 1 stark_circuit + 1 ender_eye | 2 |
+| `suit_computer` | **1** stark_circuit (was 2) + 1 targeting_module + 1 amethyst_shard | 1 |
+| `advanced_arc_reactor` | **2** titanium_gold_plate (was 3) + 2 stark_circuit + **4 diamonds (was a diamond block)** + **1** glowstone (Fabricator had 2, table 3) | 1 |
+| `missile_module` | **1** stark_circuit (was 2) + **2** gunpowder (was 4) + 1 servo_motor + 2 metal_plating | 2 |
+
+Several table recipes changed shape (`repulsor` is now a D/R/C column, `flight_stabilizer` and
+`suit_computer` shapeless, `advanced_arc_reactor` `PGP / DSD / DSD`, `missile_module` `GCG / MSM`).
+Fabricator energy/time eased on the dearest parts (`advanced_arc_reactor` 4 000 → 2 500 energy,
+160 → 120 t; `suit_computer` 1 200 → 800, 100 → 80 t; `repulsor` 800 → 600; `flight_stabilizer`
+600 → 500; `missile_module` 700 → 600).
+
+**Mark 1** (table): built from Metal Plating instead of iron ingots — same shapes. Helmet `PBP / P P`
+(+ basic_circuit), chestplate `P P / PMP / PPP` (+ mechanical_parts), leggings `PCP / P P / P P`
+(+ copper_wiring), boots `P P / P P`. ~11 iron for the suit (was ~22).
+
+**Mark 2** (Fabricator, metal plating): helmet 5 plating, 1 servo, 1 targeting module, 2 Stark
+circuits (Suit Computer dropped); chestplate 6 plating, 2 servos, 1 repulsor, 1 flight stabiliser, 2
+circuits; leggings 6 plating, 2 servos, 1 circuit, 1 stabiliser; boots 5 plating, 1 micro thruster, 1
+repulsor, 1 stabiliser, 1 servo.
+
+**Mark III → VII** (Fabricator, `FabricatorRecipes.armorSet(suit, timeTier, costTier, signature)`),
+with `e = (costTier + 1) / 2` and `S` = the mark's signature component:
+
+| piece | inputs |
+|---|---|
+| helmet | (4+e) Ti-Au plate, 1 servo, 1 targeting module, 1 Stark circuit, 1 suit computer, 1 S |
+| chestplate | (6+costTier) plate, 2 servo, 1 repulsor, 1 flight stabiliser, 1 advanced arc reactor, 2 Stark circuit, 2 S |
+| leggings | (5+e) plate, 2 servo, 1 Stark circuit, 1 flight stabiliser, 1 S |
+| boots | (4+e) plate, 1 micro thruster, 1 repulsor, 1 flight stabiliser, 1 servo, 1 S |
+
+| mark | costTier | signature S |
+|---|---|---|
+| III | 0 | Stark circuit |
+| 4 | 1 | servo motor |
+| V | 2 | micro thruster |
+| 6 | 3 | flight stabiliser |
+| VII | 4 | missile module |
+
+Duplicate inputs (S = an item the piece already lists) are folded into one input by
+`FabricatorRecipes.merged` — previously the Mark III/4/6 pieces listed Stark circuits twice, which
+`FabricationRecipe.matches` checked independently against the whole tray (so a tray one short still
+matched).
+
+**Raw cost per suit** (components fully expanded; "weight" = iron 1, copper 0.5, redstone 0.25, gold 2,
+quartz 0.5, diamond 8, blaze powder 2, amethyst 1, ender eye 4, glowstone 1.5, gunpowder 0.5):
+
+| mark | before | after | cut |
+|---|---|---|---|
+| Mark 1 | 22 iron, ~1 redstone — **22.5** | 11 iron, ~1 redstone — **11.2** | 50% |
+| Mark 2 | 24 iron, 7 gold, 57 redstone, 1.5 diamond, 1 ender eye … — **78.7** | 13 iron, 2 gold, 19 redstone, 1 diamond, 0.5 ender eye … — **37.0** | 53% |
+| Mark III | 56 iron, 43 gold, 61 redstone, 10.5 diamond, 2 glowstone … — **258.5** | 22 iron, 19 gold, 23 redstone, 5 diamond, 1 glowstone … — **117.1** | 55% |
+| Mark 4 | same as III — **258.5** | 26 iron, 20 gold, 24 redstone, 5 diamond — **123.5** | 52% |
+| Mark V | 60 iron, 40 gold, 59 redstone, 10.5 diamond — **261.3** | 28 iron, 20 gold, 22 redstone, 5 diamond — **131.2** | 50% |
+| Mark 6 | same as III — **258.5** | 31 iron, 23 gold, 23 redstone, 5 diamond, 5 amethyst — **140.1** | 46% |
+| Mark VII | 60 iron, 43 gold, 63 redstone, 10.5 diamond, 10 gunpowder — **268.4** | 34 iron, 25 gold, 24 redstone, 5 diamond, 5 gunpowder — **143.5** | 47% |
+
+The biggest single cut is the chestplate (~143 → ~65-75): its Advanced Arc Reactor used to cost a
+whole diamond block. Gametest `suitRawCostRisesWithTheMarkAndStaysCheap` recomputes this from the live
+recipes and asserts Mark 1 ≤ 2 ≤ III ≤ 4 ≤ V ≤ 6 ≤ VII and every Fabricator suit < 160.
+
+**Fabricator pacing:** an armour piece still costs the whole 50 000 buffer, but
+`StarkFabricatorBlockEntity.SELF_RECHARGE_SECONDS` is now **150** (was 300) — 10 minutes of waiting per
+suit instead of 20.
+
 ## 4. Stark Fabricator
 
 `StarkFabricatorBlock` (BaseEntityBlock) + `StarkFabricatorBlockEntity` + `StarkFabricatorMenu` +
@@ -82,7 +168,8 @@ build-the-previous-suit progression. (Pre-"changes 21": each mark had its own bl
   Stark power is within 6 blocks** — this blocks hopper/other automation by a non-Stark player.
 * **Energy:** internal buffer, `50,000` max. Charge by right-clicking the block with a **Reactor
   Core** (+8,000) or an **Arc Reactor** (+25,000) — explicit, the item is consumed and a message
-  confirms the new total. Nothing consumes an Arc Reactor by surprise.
+  confirms the new total. Nothing consumes an Arc Reactor by surprise. (Since "changes 22" it also
+  refills itself — 150 s from empty since v0.14.21, see §3a.)
 * **Fabrication time:** every recipe has a `timeTicks`; higher-tier = longer (servo motor 40t,
   repulsor 80t, helmet ~160t, chestplate ~240t). The FABRICATE bar and ENERGY gauge sync via 4
   `ContainerData` ints.
