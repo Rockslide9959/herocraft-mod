@@ -155,6 +155,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.firearm.BulletHoleRenderer.initialize();
 		com.projecthero.mod.client.greenlantern.GreenLanternClient.initialize();
 		com.projecthero.mod.client.grave.TrophyHeadClient.initialize(); // v0.14.4 trophy heads: cutout, power tint, glow
+		com.projecthero.mod.client.grave.NecroticBladeClient.initialize(); // v0.14.21: 3D blade glow, flat GUI icon, soul wisps
 		com.projecthero.mod.client.firearm.GunMeshModels.initialize(); // v0.14.5 Punisher sniper drawn from the user's polygon mesh
 		com.projecthero.mod.client.gui.TooltipWrap.initialize(); // v0.14.7: word-wrap every over-wide item tooltip line
 
