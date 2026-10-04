@@ -4,14 +4,9 @@ import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.ironman.item.IronManItems;
 import com.projecthero.mod.ironman.item.RepulsorItem;
 
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * "changes 22": flight from a bare {@link RepulsorItem} strapped to the boots slot -- no suit, no
@@ -87,13 +82,10 @@ public final class RepulsorBoots {
 		player.getAbilities().flying = flying;
 		player.onUpdateAbilities();
 		player.resetFallDistance();
-
-		ServerLevel level = (ServerLevel) player.level();
-		level.playSound(null, player.getX(), player.getY(), player.getZ(),
-				flying ? SoundEvents.BREEZE_JUMP : SoundEvents.BREEZE_LAND, SoundSource.PLAYERS, 0.5f, 1.4f);
+		// v0.14.21: the take-off / power-down sounds are client-side now (client.IronManFlightFxClient)
 	}
 
-	/** Per-tick while flying: end conditions, the forward assist, the speed cap and thruster particles. */
+	/** Per-tick while flying: end conditions (movement is the client's directional flight, the jets client FX). */
 	public static void tick(ServerPlayer player) {
 		if (!isFlying(player)) {
 			return;
@@ -105,11 +97,7 @@ public final class RepulsorBoots {
 		player.getAbilities().flying = true;
 		// v0.14.16: the movement (and the MAX_SPEED_MPS ceiling) is the client's directional flight now --
 		// flight.DirectionalFlightModel#repulsorBoots -- with W / S forward / back along the look like every other flight.
-
-		ServerLevel level = (ServerLevel) player.level();
-		Vec3 feet = player.position();
-		level.sendParticles(ParticleTypes.FLAME, feet.x, feet.y + 0.1, feet.z, 2, 0.15, 0.05, 0.15, 0.01);
-		level.sendParticles(ParticleTypes.END_ROD, feet.x, feet.y + 0.1, feet.z, 1, 0.1, 0.02, 0.1, 0.02);
+		// v0.14.21: the boot jets are drawn client-side at the real boot soles (client.IronManFlightFxClient)
 	}
 
 	/**

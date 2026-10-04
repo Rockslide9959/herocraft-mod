@@ -364,6 +364,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(MagneticSenseClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(SonicMotionClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(IronManFlightFxClient::clientTick);
+		IronManFlightFxClient.init(); // v0.14.21: thruster glows / jets / shock rings
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.hulk.HulkClient::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(MaxSteelFlightFxClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.spider.SpiderInputClient::clientTick);

@@ -109,10 +109,14 @@ public final class FlightPoseHelper {
 		boolean greenLanternFlying = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FLYING, false);
 		// v0.14.8: the Kryptonian leans into his flight too (his own arm pose is KryptonianPose)
 		boolean kryptonianFlying = com.projecthero.mod.kryptonian.Kryptonian.isFlying(player);
-		boolean heroFlying = player.getAttachedOrElse(ModAttachments.HERO_FLYING, false)
-				|| ironManFlying || maxSteelFlying || greenLanternFlying || kryptonianFlying;
+		boolean otherHeroFlying = player.getAttachedOrElse(ModAttachments.HERO_FLYING, false)
+				|| maxSteelFlying || greenLanternFlying || kryptonianFlying;
+		boolean heroFlying = otherHeroFlying || ironManFlying;
 		boolean flying = thorFlying || heroFlying;
-		anim.heroOnly = heroFlying && !thorFlying;
+		// v0.14.21: Iron Man keeps the body lean from here but has his own limb poses (client.ironman.IronManFlightPose),
+		// so he no longer gets the generic arms-pinned-at-the-sides hero pose -- nor Thor's raised hammer arm.
+		anim.heroOnly = otherHeroFlying && !thorFlying;
+		boolean ironManOnly = ironManFlying && !otherHeroFlying && !thorFlying;
 		if (flying) {
 			anim.tier = tierFor(player, speed, forwardSpeed);
 		}
@@ -128,12 +132,20 @@ public final class FlightPoseHelper {
 		// an unnatural "backwards" grip while just standing still in the air, so hovering now keeps
 		// the ordinary grip untouched, same as standing on the ground.
 		float targetLean = flying && !noLean ? leanDegrees(anim.tier) : 0.0f;
-		float targetRaise = flying && !anim.heroOnly && anim.tier == Tier.FAST ? 1.0f : 0.0f;
+		float targetRaise = flying && !anim.heroOnly && !ironManOnly && anim.tier == Tier.FAST ? 1.0f : 0.0f;
 
 		anim.leanPrev = anim.lean;
 		anim.raisePrev = anim.raise;
 		anim.lean = approach(anim.lean, targetLean, 0.05f);
 		anim.raise = approach(anim.raise, targetRaise, 0.001f);
+		// v0.14.21: an Iron Man superhero landing snaps the body upright fast -- the kneeling pose must not be tipped over
+		// by the lean still easing out of the flight.
+		if (com.projecthero.mod.client.ironman.IronManFlightPose.settleLean(player)) {
+			anim.lean *= 0.35f;
+			if (Math.abs(anim.lean) < 0.5f) {
+				anim.lean = 0.0f;
+			}
+		}
 	}
 
 	private static float approach(float current, float target, float snapEpsilon) {

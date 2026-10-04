@@ -223,6 +223,15 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		this.leftLeg.zRot = Mth.lerp(raise, this.leftLeg.zRot, 0.0f);
 	}
 
+	/** v0.14.21: Iron Man's own flight limb poses, take-off crouch and superhero landing. After the generic flight pose. */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$ironManFlightPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player player) {
+			com.projecthero.mod.client.ironman.IronManFlightPose.apply(player, (HumanoidModel<?>) (Object) this, ageInTicks);
+		}
+	}
+
 	/** v0.14.8: the Kryptonian -- the one-fist-forward flight pose and the move poses. After the flight pose so it wins. */
 	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
 	private void projecthero$kryptonianPose(LivingEntity entity, float limbSwing, float limbSwingAmount,

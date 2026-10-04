@@ -5,6 +5,8 @@ import java.util.List;
 import com.projecthero.mod.flight.DirectionalFlightModel;
 import com.projecthero.mod.flight.DirectionalFlightModel.Tune;
 import com.projecthero.mod.greenlantern.GreenLanternConfig;
+import com.projecthero.mod.ironman.IronManFlight;
+import com.projecthero.mod.ironman.IronManFlightLook;
 import com.projecthero.mod.ironman.suit.IronManSuit;
 import com.projecthero.mod.ironman.suit.IronManSuits;
 import com.projecthero.mod.kryptonian.KryptonianConfig;
@@ -14,6 +16,9 @@ import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -196,6 +201,101 @@ public class DirectionalFlightGameTests implements FabricGameTest {
 				"an adopted push bleeds off at vanilla's air drag");
 		helper.assertTrue(DirectionalFlightModel.backward(0.3, -0.3) && !DirectionalFlightModel.backward(0.3, 0.3)
 				&& !DirectionalFlightModel.backward(0.3, -0.05), "the pose reads mostly-backward motion as flying backward");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- v0.14.21 Iron Man flight revamp
+
+	/**
+	 * v0.14.21: the look-and-feel numbers the client flight FX run on (IronManFlightLook) -- jets grow hover < forward <
+	 * sprint < supersonic, a plain Sneak descent is a soft landing while diving in / coming in fast is a superhero
+	 * landing, switching off in mid-air is never a landing, and the pose / sound timings hold their shape.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void ironManFlightLookJetsAndLandings(GameTestHelper helper) {
+		IronManFlightLook.JetState hover = IronManFlightLook.jetState(false, false, false, false);
+		IronManFlightLook.JetState fwd = IronManFlightLook.jetState(true, false, false, false);
+		IronManFlightLook.JetState back = IronManFlightLook.jetState(true, true, false, false);
+		IronManFlightLook.JetState sprint = IronManFlightLook.jetState(true, false, true, false);
+		IronManFlightLook.JetState sonic = IronManFlightLook.jetState(false, false, false, true);
+		helper.assertTrue(hover == IronManFlightLook.JetState.HOVER && fwd == IronManFlightLook.JetState.FORWARD
+				&& back == IronManFlightLook.JetState.BACK && sprint == IronManFlightLook.JetState.SPRINT
+				&& sonic == IronManFlightLook.JetState.SUPERSONIC, "jet states read the flight state");
+		helper.assertTrue(IronManFlightLook.jetLength(hover) < IronManFlightLook.jetLength(fwd)
+				&& IronManFlightLook.jetLength(fwd) < IronManFlightLook.jetLength(sprint)
+				&& IronManFlightLook.jetLength(sprint) < IronManFlightLook.jetLength(sonic)
+				&& IronManFlightLook.jetParticles(hover) < IronManFlightLook.jetParticles(sprint)
+				&& IronManFlightLook.jetSpeed(hover) < IronManFlightLook.jetSpeed(sprint),
+				"short stabilising jets hovering, long strong ones sprinting");
+
+		helper.assertTrue(!IronManFlightLook.isHardLanding(0.375, 0.375, true), "a plain Sneak descent settles softly");
+		helper.assertTrue(!IronManFlightLook.isHardLanding(0.05, 0.0, true), "touching down from a hover settles softly");
+		helper.assertTrue(IronManFlightLook.isHardLanding(0.6, 0.55, true), "diving in along the look is a superhero landing");
+		helper.assertTrue(IronManFlightLook.isHardLanding(1.2, 0.2, true), "coming in fast and low is a superhero landing");
+		helper.assertTrue(!IronManFlightLook.isHardLanding(1.5, 0.05, true), "skimming the floor flat is not");
+		helper.assertTrue(!IronManFlightLook.isHardLanding(2.0, 1.0, false), "switching flight off in mid-air is never a landing");
+
+		float in = IronManFlightLook.LANDING_IN;
+		float hold = IronManFlightLook.LANDING_HOLD_END;
+		helper.assertTrue(IronManFlightLook.landingWeight(-1f) == 0f && IronManFlightLook.landingWeight(in) == 1f
+				&& IronManFlightLook.landingWeight(hold - 0.01f) == 1f
+				&& IronManFlightLook.landingWeight(IronManFlightLook.LANDING_END) == 0f,
+				"the landing slams down, holds, then rises");
+		float held = (hold - in) / 20f;
+		helper.assertTrue(held >= 0.5f && held <= 0.7f, "the superhero landing is held ~0.6 s, got " + held);
+		helper.assertTrue(IronManFlightLook.takeoffCrouch(0f) == 0f
+				&& IronManFlightLook.takeoffCrouch(IronManFlightLook.TAKEOFF_CROUCH_PEAK) == 1f
+				&& IronManFlightLook.takeoffCrouch(IronManFlightLook.TAKEOFF_END) == 0f,
+				"take-off is a brief crouch released into flight");
+
+		helper.assertTrue(IronManFlightLook.thrusterVolume(0.0, false) > 0f
+				&& IronManFlightLook.thrusterVolume(0.0, false) < IronManFlightLook.thrusterVolume(1.5, false)
+				&& IronManFlightLook.thrusterVolume(3.0, true) <= 1f
+				&& IronManFlightLook.thrusterPitch(0.0, false) < IronManFlightLook.thrusterPitch(2.0, false),
+				"the thruster loop is audible hovering and louder / higher with speed");
+		helper.assertTrue(IronManFlightLook.windVolume(0.0) == 0f && IronManFlightLook.windVolume(2.0) > 0.5f,
+				"no wind rush hovering");
+		helper.succeed();
+	}
+
+	/**
+	 * v0.14.21: the server flight tick lost its feet-centre particle spam and its take-off / landing sounds (all client
+	 * FX now) -- but the flight itself is untouched: a hovering Mark 2 still drains exactly 10/s x its multiplier, stays
+	 * up, and a sprinting one 30/s.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void ironManFlightTickKeepsItsDrain(GameTestHelper helper) {
+		ServerPlayer player = helper.makeMockServerPlayerInLevel();
+		player.setGameMode(GameType.SURVIVAL);
+		com.projecthero.mod.ironman.TonyStark.grant(player);
+		for (net.minecraft.world.item.ArmorItem.Type t : net.minecraft.world.item.ArmorItem.Type.values()) {
+			var item = com.projecthero.mod.ironman.item.IronManItems.armor("mark_2", t);
+			if (item != null) {
+				player.setItemSlot(com.projecthero.mod.ironman.suit.IronManSuitUpManager.slotFor(t), new ItemStack(item));
+			}
+		}
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_2", 5000f);
+		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_2", 250f);
+		IronManFlight.setFlying(player, true);
+		helper.assertTrue(IronManFlight.isFlying(player) && player.getAbilities().flying, "flight engages");
+		player.setOnGround(false);
+		float mult = IronManSuits.MARK_2.flightDrainMultiplier();
+
+		float before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
+		IronManFlight.tick(player);
+		float hoverSpent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
+		helper.assertTrue(Math.abs(hoverSpent - 10f / 20f * mult) < 1.0e-3f, "hover drain unchanged, spent " + hoverSpent);
+		helper.assertTrue(IronManFlight.isFlying(player), "still flying after a tick in the air");
+
+		player.setSprinting(true);
+		before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
+		IronManFlight.tick(player);
+		float sprintSpent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
+		helper.assertTrue(Math.abs(sprintSpent - 30f / 20f * mult) < 1.0e-3f, "sprint drain unchanged, spent " + sprintSpent);
+
+		player.setOnGround(true);
+		IronManFlight.tick(player);
+		helper.assertTrue(!IronManFlight.isFlying(player) && !player.getAbilities().flying, "touching the ground still lands");
 		helper.succeed();
 	}
 }

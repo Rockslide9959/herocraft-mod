@@ -4,12 +4,7 @@ import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.ironman.suit.IronManSuit;
 import com.projecthero.mod.ironman.suit.IronManSuits;
 
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * Iron Man repulsor flight. Same input as Thor's flight -- a double-tap of the vanilla jump key --
@@ -68,13 +63,11 @@ public final class IronManFlight {
 		player.getAbilities().flying = flying;
 		player.onUpdateAbilities();
 		player.resetFallDistance();
-
-		ServerLevel level = (ServerLevel) player.level();
-		level.playSound(null, player.getX(), player.getY(), player.getZ(),
-				flying ? SoundEvents.BREEZE_JUMP : SoundEvents.BREEZE_LAND, SoundSource.PLAYERS, 0.6f, 1.2f);
+		// v0.14.21: no server sound here any more -- every client plays the take-off burst / landing / power-down itself
+		// (client.IronManFlightFxClient) off the synced IRON_MAN_FLYING flag, so it would only double up.
 	}
 
-	/** Per-tick while flying: drain energy, thruster particles, end conditions. */
+	/** Per-tick while flying: drain energy and end conditions (the thruster FX are client-side since v0.14.21). */
 	public static void tick(ServerPlayer player) {
 		if (!isFlying(player)) {
 			return;
@@ -145,16 +138,10 @@ public final class IronManFlight {
 		// drive along the look -- is the client's directional flight now (client.flight.DirectionalFlight, numbers in
 		// flight.DirectionalFlightModel#ironMan), W / S forward / back along the look like every other flight. The old
 		// server-side forward assist and clamp pushed motion packets every tick, which would only fight it.
-		if (supersonic) {
-			((ServerLevel) player.level()).sendParticles(ParticleTypes.CLOUD,
-					player.getX(), player.getY() + 0.3, player.getZ(), 6, 0.25, 0.25, 0.25, 0.02);
-		}
-		ServerLevel level = (ServerLevel) player.level();
-		Vec3 feet = player.position();
-		level.sendParticles(ParticleTypes.FLAME, feet.x, feet.y + 0.1, feet.z, 4, 0.15, 0.05, 0.15, 0.01);
-		level.sendParticles(ParticleTypes.END_ROD, feet.x, feet.y + 0.1, feet.z, 2, 0.1, 0.02, 0.1, 0.02);
-		// The hand-repulsor trail while sprint-flying is drawn client-side (IronManFlightFxClient) so it
-		// tracks the actual rendered arm pose -- server-spawned particles couldn't match it.
+		// v0.14.21 flight revamp: no server particles. The old feet-centre FLAME / END_ROD spam (and the supersonic CLOUD
+		// puff) is replaced by client-side thruster jets at the real palm / boot positions, the vapour cone and the
+		// shockwave, drawn by every client for every flier it can see (client.IronManFlightFxClient, numbers in
+		// IronManFlightLook) -- they track the rendered limbs, which server particles never could.
 	}
 
 	// "changes 18": tiered per-second flight energy costs (converted to per-tick), before the per-mark

@@ -409,6 +409,70 @@ right-click the platform (pulls the worn suit straight onto it).
 If **C does nothing:** you either don't have the Tony Stark power, haven't fabricated/obtained the
 suit, or the pieces aren't within ~60 blocks. Check with `/superhero status`.
 
+## 17u. v0.14.21 flight revamp (look and feel only)
+
+Speeds and energy drain are **unchanged** (`flight.DirectionalFlightModel#ironMan`, `IronManFlight.flightCostPerTick`;
+`DirectionalFlightGameTests.everyFlightKeepsItsSpeeds` + the new `ironManFlightTickKeepsItsDrain`). Everything below is
+client-side, driven only by state every client already has for every player it can see (synced `IRON_MAN_FLYING` /
+`REPULSOR_BOOTS_FLYING`, the synced sprint flag, worn boots, the synced `TonyStarkState.supersonicUntil`, and the
+interpolated position), so other players in multiplayer see the same thing. The pure numbers live in common code,
+`ironman/IronManFlightLook` (jet profile per state, hard/soft landing rule, timings, sound curves), and are gametested
+(`DirectionalFlightGameTests.ironManFlightLookJetsAndLandings`).
+
+**Server.** `IronManFlight.tick` no longer sends the feet-centre FLAME / END_ROD particles every tick nor the supersonic
+CLOUD puff; `setFlying` no longer plays BREEZE_JUMP / BREEZE_LAND. `RepulsorBoots` likewise. All of it is client FX now.
+
+**Poses** (`client/ironman/IronManFlightPose`, hooked into `HumanoidModelMixin#projecthero$ironManFlightPose` right after
+the generic flight pose, before the move poses). The body lean still comes from `FlightPoseHelper` (hover 0 / slow 25 /
+sprint 90 / back -12 deg); Iron Man is no longer in its `heroOnly` arms-pinned branch nor Thor's arm raise. Limbs are
+eased per tick by tier weights (0.22/tick) and an in/out blend (0.25/tick), interpolated across the partial tick:
+
+| State | Arms | Legs |
+|---|---|---|
+| hover | a little out from the body, hands (repulsors) down; small stabilising micro-motion | slightly apart, gentle sway |
+| slow forward | angled back, palms back | trailing |
+| sprint (with the 90 deg lean) | tight back along the sides, palms back -- the classic pose | together, fine flutter |
+| backward | thrown forward, palms out, braking | forward |
+| take-off (first 8 ticks) | brief crouch: knees tucked, arms pulled back, released into the flight pose | |
+| hard landing | three-point superhero landing: right knee + right fist down, left foot planted, left arm swept back, head bowed then lifting; ~0.55 s hold (`LANDING_IN 2 / HOLD_END 13 / END 19` ticks) | |
+
+Hard vs soft landing (`IronManFlightLook.isHardLanding`, evaluated when the flight flag drops, over the last 8 ticks of
+position deltas because the flag arrives after touch-down): grounded **and** (descent >= 0.45 b/t **or** speed >= 0.7
+b/t with descent >= 0.12 b/t). A plain Sneak descent (0.375 b/t) is soft; switching off mid-air is never a landing.
+During the landing `FlightPoseHelper` snaps the lean upright (x0.35 per tick) so the kneeling pose isn't tipped over.
+**Mark 1** keeps no lean and gets its own clunky upright stance (arms stiffly out for balance, heavy sway + servo
+jitter). **Repulsor Boots** wearers only get straight legs (so the boot jets line up) -- no arm pose, no landing pose.
+
+**Thruster FX** (`client/IronManFlightFxClient`). Nozzle positions are rederived from the model each tick / frame: yaw
+`180 - bodyYaw`, entity scale (Mark 1 1.25), the lean, `scale(-1,-1,1)`, 0.9375, `translate(0,-1.501,0)`, then the limb
+pivot + the exact rotations `IronManFlightPose.targets` poses it with, then the hand end (px (-/+1, 11), the suit's
+dilated arm) / boot sole (px (0, 13); 12.3 for bare boots). The jet points along the limb's +Y. Per nozzle:
+* particles every tick (boots FLAME, palms ELECTRIC_SPARK; sprint / supersonic add END_ROD sparkle / SMOKE; Mark 1 boots
+  are smoky orange rockets and it has no palm jets), spread back along the tick's path at speed so trails stay
+  continuous;
+* at render (`WorldRenderEvents.AFTER_ENTITIES`, `RenderType.lightning()` additive, fullbright): a camera-facing glow
+  billboard + a wider halo, and a tapering jet ribbon (`BeamDraw.segment`) whose length follows
+  `IronManFlightLook.jetLength` (hover 0.32 / forward 0.55 / back 0.45 / sprint 1.05 / supersonic 1.6 blocks x scale).
+Your own palm particles are skipped in first person (they sit under the camera), and nothing is billboarded for yourself
+in first person.
+
+**Take-off burst**: a downward blast from every nozzle, a POOF + block-dust ring on the ground below (if within 4
+blocks), `ironman_takeoff` (breeze wind burst, pitched down) + `ironman_takeoff_kick` (firework launch). **Hard
+landing**: POOF + block-debris ring, an EXPLOSION puff, a ground shock ring (expanding additive annulus, 3.4 blocks),
+`ironman_land_impact` (mace heavy smash) + `ironman_land_boom` -- no block damage. **Soft landing / switched off
+mid-air**: `ironman_power_down`. **Supersonic engage**: a shockwave ring across the flight direction (5 blocks), a CLOUD
+ring, `ironman_sonic_boom` (warden sonic boom, pitched down) + boom; then while supersonic a CLOUD vapour collar every
+tick and a faint additive vapour-cone mesh around the body.
+
+**Thruster loop** (`client/sound/IronManThrusterSoundInstance`): three looping instances per flier (own and others),
+started by `IronManFlightFxClient` once it sees the flier airborne, each following the player, fading in over 8 ticks and
+out over 6 (then stopping itself): `ironman_thruster_roar` (fire loop, volume 0.35-0.9 / pitch 0.7-1.35 with speed),
+`ironman_thruster_whine` (breeze whirl, strongest hovering; silent on the Mark 1) and `ironman_thruster_wind` (elytra
+loop, silent hovering, swelling in with speed). Bare Repulsor Boots play at 60 %. No ffmpeg / oggenc on the dev machine,
+so every event re-pitches vanilla sound files in `sounds.json` (added by `scratchpad/lang_v01421_ironman_flight.js`,
+which also adds the five `subtitles.projecthero.ironman_*` keys). The events are client-only (never registered) -- the
+SoundManager resolves them by id.
+
 ## 17t. v0.11.13 (Mark 1 / Mark 2 rebalance)
 
 *(Note: this reference doc's changelog sections skip a large gap between v0.6.2 below and here --
