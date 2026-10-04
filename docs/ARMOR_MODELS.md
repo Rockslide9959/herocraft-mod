@@ -134,9 +134,9 @@ same clearance in; do **not** ship a bare vanilla-sized box.
 * `superman` (v0.14.9, the Kryptonian-only Superman Suit) is the supplied `superman.bbmodel` skin on Moon Knight's skin rig
   plus boot cubes, with the cape the skin painted on its second layer cleared (`scratchpad/gen_superman_suit.js`); the cape
   is a separate cloth layer instead. No head art, so its helmet renders nothing. See `docs/KRYPTONIAN_REFERENCE.md`.
-* Every Iron Man mark (`mark_1` … `mark_vii`) now has **real, hand-authored art**: the actual player
-  skin supplied for that mark, on that mark's own UV layout. None of them are the crimson placeholder
-  or a desaturated copy of it any more.
+* Every Iron Man mark (`mark_1` … `mark_vii`) has real art on that mark's own UV layout. `mark_1` and
+  `mark_2` are the user's own clean hand-painted skins; since v0.14.21 Mark III / 4 / V / 6 / VII are a
+  **user-approved clean repaint** in that same style (see the hash table below).
 * The old `assets/projecthero/textures/models/armor/<set>_layer_1.png` / `_layer_2.png` are unused
   (kept on disk only as art reference) — GeckoLib doesn't read vanilla armor-layer textures at all.
 
@@ -218,18 +218,25 @@ Every mark adds one extra bone, `helmet_brow`, which is why it is in `SuperheroA
 `HEAD_ARMOR_BONES` — that list is the union across all geometries, and `getBone` returns an empty
 `Optional` for sets that lack it (only `crimson_vanguard`/`thor` lacks it now).
 
-**The textures are authoritative art, not placeholders.** `textures/armor/mark_<n>.png` for every mark
-is the supplied skin for that mark (byte-for-byte for `mark_1`/`mark_2`/`mark_4`/`mark_6`; RGB→RGBA
-restored per point 4 above for `mark_iii`/`mark_v`/`mark_vii`). Do not repaint, recolour, upscale or
-regenerate any of them. They use the standard 64×64 player-skin layout, so the base body cubes use
-vanilla box UVs and the plates sample the overlay regions.
+**The textures are authoritative art, not placeholders.** `mark_1` / `mark_2` are the user's hand-painted
+skins (unchanged). In **v0.14.21 the user explicitly approved a clean repaint** of `mark_iii`, `mark_4`,
+`mark_v`, `mark_6` and `mark_vii` to match them: small palette, flat 2-3 tone shading per material, clear
+panel lines, no stray speckle, cyan eye slits / reactors. The repaint is section 5 of
+`scratchpad/gen_v01421_ironman_textures.js`, which reads the frozen pre-repaint skins in
+`scratchpad/v01421_armor_src/` (so re-running it is idempotent). It keeps each skin's opaque-pixel mask
+exactly — only isolated single overlay pixels were dropped as noise — so geometry/UV coverage is
+unchanged, and keeps each mark's identity: Mark V silver trim where the others have gold; Mark 6 triangle
+reactor, silver forearms and a knee line; Mark VII silver forearms and heavier seams; Mark 4 crimson with
+its own pinstripe trim. **Rule going forward: do not repaint, recolour, upscale or regenerate any mark
+texture without the user's explicit approval.** They use the standard 64×64 player-skin layout, so the
+base body cubes use vanilla box UVs and the plates sample the overlay regions.
 
-| Mark | Set id | Source pack | Texture SHA-256 (as shipped in the mod) |
+| Mark | Set id | Source pack | Texture SHA-256 (as shipped in the mod, v0.14.21) |
 |---|---|---|---|
 | 1 | `mark_1` | (pre-existing, v0.6.4) | `75fffe3be6c2b94728f18a76954d382d224e1d030d31eb2a94c72686befe25ae` |
 | 2 | `mark_2` | `mark2_3d_model_pack_v2` | `7e66c327a0f0cd0ceefeccf46cb4f6854e214216855edf32c2c6c362770a4dc4` |
-| 3 | `mark_iii` | `mark3_3d_model_pack` | `ffb38908fd309d3b2b97bd6a00c95c3016ac7130fcaae1ae7e53d40622b1d814` (RGBA restore of pack's RGB SHA `b44a03ec…`) |
-| 4 | `mark_4` | `mark4_3d_model_pack` | `e701fc09504e67a9e021f3f946c2ddb0aa7e7285aef3ca84a7bed47399dad9d3` |
-| 5 | `mark_v` | `mark5_3d_model_pack` | `2521fdc4174d430439922d219c06069315251649da3a5994499ab44e1ceca2c3` (RGBA restore of pack's RGB SHA `b035519e…`) |
-| 6 | `mark_6` | `mark6_3d_model_pack` | `555a4f61594e74b48e946fc664680090efae7cdb21a10e4f0c0721b3bcb35648` |
-| 7 | `mark_vii` | `mark7_3d_model_pack` | `0b715573e4fa9eddae69cece9bf6c0078d8c00b4530ca1b075741120e4cc4f78` (RGBA restore of pack's RGB SHA `4c63300b…`) |
+| 3 | `mark_iii` | `mark3_3d_model_pack` | `7232c329887ec35a03c7a87b7f08349e700cdce5f4327620986b2140812f23ac` (v0.14.21 approved repaint; pre-repaint `ffb38908…`) |
+| 4 | `mark_4` | `mark4_3d_model_pack` | `3d6dd697aaa9a3efbce9fc752173f318b0a2b8dcb840f24b59e863daf93759be` (v0.14.21 approved repaint; pre-repaint `e701fc09…`) |
+| 5 | `mark_v` | `mark5_3d_model_pack` | `c995f8e04fe1cef287e84e4ee45a6674085666736632386fe36a55cc2b52f9ce` (v0.14.21 approved repaint; pre-repaint `2521fdc4…`) |
+| 6 | `mark_6` | `mark6_3d_model_pack` | `056dbb261b25bcbd95a605225680502ed72e9bc3a875b91fa7c18994bff17060` (v0.14.21 approved repaint; pre-repaint `555a4f61…`) |
+| 7 | `mark_vii` | `mark7_3d_model_pack` | `7c454b1d77f30b49e299aa88e6852500c4818834f00914b89b930f6cabb91396` (v0.14.21 approved repaint; pre-repaint `0b715573…`) |
