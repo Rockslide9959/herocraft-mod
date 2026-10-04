@@ -46,6 +46,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(BifrostScreenPayload.TYPE, BifrostScreenPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(BifrostActionPayload.TYPE, BifrostActionPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IronManBeamPayload.TYPE, IronManBeamPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(LaserBeamPayload.TYPE, LaserBeamPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IronManSuitListPayload.TYPE, IronManSuitListPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IronManWeaponWheelPayload.TYPE, IronManWeaponWheelPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IronManBlueprintPickerPayload.TYPE, IronManBlueprintPickerPayload.CODEC);

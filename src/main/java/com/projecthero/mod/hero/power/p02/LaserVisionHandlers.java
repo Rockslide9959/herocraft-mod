@@ -13,6 +13,7 @@ import com.projecthero.mod.hero.power.Handlers;
 import com.projecthero.mod.hero.revamp.batcha.BatchA;
 import com.projecthero.mod.hero.visual.MutationVisualState;
 import com.projecthero.mod.hero.visual.MutationVisuals;
+import com.projecthero.mod.network.LaserBeamPayload;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
@@ -52,7 +53,8 @@ import net.minecraft.world.phys.Vec3;
  * Every move reaches 100 blocks.
  *
  * <p>The beams are drawn client-side as geometry ({@code client/mutation/v0145/LaserBeamRenderer}) from the
- * {@code p02.*} animation each move plays -- the animation is synced to every viewer, so everyone sees the beam.
+ * {@code p02.*} animation each move plays -- the animation is synced to every viewer tracking the shooter; viewers out of
+ * tracking range but within sight of the beam get it as a {@link LaserBeamPayload} ({@link LaserBeams}).
  * No eye glow, no particle streams.
  */
 public final class LaserVisionHandlers {
@@ -290,6 +292,7 @@ public final class LaserVisionHandlers {
 			AbilityHelpers.sound(p, SoundEvents.FIRECHARGE_USE, 1.0f, 0.7f);
 			AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 0.5f, 1.5f);
 			BatchA.play(p, KEY, ANIM_RECOIL, 14);
+			LaserBeams.send(level, p, p.getEyePosition(), blast, LaserBeamPayload.KIND_RECOIL, oneShotTicks(ANIM_RECOIL));
 			addHeat(p, HEAT_RECOIL_BLAST);
 			ctx.triggerCooldown();
 		}));
@@ -396,6 +399,7 @@ public final class LaserVisionHandlers {
 		float held = res(p, "beam_held") + 1;
 		set(p, "beam_held", Math.min(held, 2000));
 		ensureLoop(p, ANIM_BEAM);
+		beamToFarViewers(p, ctx.level(), LaserBeamPayload.KIND_BEAM);
 		if (p.tickCount % 10 == 0) {
 			float ramp = 1.0f + Math.min(1.5f, held / 40.0f);
 			Vec3 end = beamDamage(ctx, 4.8f * ramp, 0.0);
@@ -465,6 +469,7 @@ public final class LaserVisionHandlers {
 		level.sendParticles(ParticleTypes.FLASH, end.x, end.y, end.z, 1, 0, 0, 0, 0);
 		impact(level, end, 6);
 		BatchA.play(p, KEY, ANIM_PIERCE, 10);
+		LaserBeams.send(level, p, start, end, LaserBeamPayload.KIND_PIERCE, oneShotTicks(ANIM_PIERCE));
 		AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.0f, 0.6f);
 		AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_RESONATE, 1.0f, 1.8f);
 		addHeat(p, HEAT_PIERCING_BLAST);
@@ -500,6 +505,7 @@ public final class LaserVisionHandlers {
 		ensureLoop(p, ANIM_MAX);
 		ServerLevel level = ctx.level();
 		Vec3 end = beamDamage(ctx, 14.0f, 0.9);
+		LaserBeams.send(level, p, p.getEyePosition(), end, LaserBeamPayload.KIND_MAX, LaserBeamPayload.REFRESH_TICKS);
 		if (left % 2 == 0) {
 			burnThrough(p, level);
 		}
@@ -555,6 +561,8 @@ public final class LaserVisionHandlers {
 		ServerPlayer p = ctx.player();
 		ServerLevel level = ctx.level();
 		BatchA.play(p, KEY, ANIM_IGNITE, 8);
+		LaserBeams.send(level, p, p.getEyePosition(), AbilityHelpers.aimPoint(p, RANGE), LaserBeamPayload.KIND_IGNITE,
+				oneShotTicks(ANIM_IGNITE));
 		LivingEntity target = AbilityHelpers.raycastEntity(p, RANGE);
 		if (target != null) {
 			AbilityHelpers.hurt(p, target, AbilityHelpers.fire(p), 2.0f);
@@ -622,6 +630,7 @@ public final class LaserVisionHandlers {
 		BlockHitResult bhr = level.clip(new ClipContext(start, start.add(dir.scale(RANGE)), ClipContext.Block.COLLIDER,
 				ClipContext.Fluid.NONE, p));
 		Vec3 end = bhr.getType() == HitResult.Type.BLOCK ? bhr.getLocation() : start.add(dir.scale(RANGE));
+		LaserBeams.send(level, p, start, end, LaserBeamPayload.KIND_SWEEP, 2);
 		float dmg = 14.4f;
 		double len = start.distanceTo(end);
 		for (double d = 0.5; d <= len; d += 1.0) {
@@ -640,6 +649,17 @@ public final class LaserVisionHandlers {
 	private static void impact(ServerLevel level, Vec3 at, int count) {
 		level.sendParticles(ParticleTypes.SMALL_FLAME, at.x, at.y, at.z, count, 0.12, 0.12, 0.12, 0.02);
 		level.sendParticles(ParticleTypes.SMOKE, at.x, at.y, at.z, Math.max(1, count / 2), 0.1, 0.1, 0.1, 0.01);
+	}
+
+	/**
+	 * A held beam, refreshed every tick for the viewers that do not track {@code p} ({@link LaserBeams}). The end point
+	 * is only ray-cast when somebody actually needs it.
+	 */
+	private static void beamToFarViewers(ServerPlayer p, ServerLevel level, int kind) {
+		Vec3 eye = p.getEyePosition();
+		if (LaserBeams.anyRecipient(level, p, eye, p.getLookAngle(), RANGE)) {
+			LaserBeams.send(level, p, eye, AbilityHelpers.aimPoint(p, RANGE), kind, LaserBeamPayload.REFRESH_TICKS);
+		}
 	}
 
 	/** Damages whatever the beam is pointed at (plus a splash if {@code splash > 0}); returns where it lands. */

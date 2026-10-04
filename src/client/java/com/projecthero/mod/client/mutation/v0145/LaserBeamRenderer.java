@@ -11,6 +11,10 @@ import com.projecthero.mod.hero.visual.MutationVisuals;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
+import com.projecthero.mod.network.LaserBeamPayload;
+
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 
@@ -39,7 +43,9 @@ import net.minecraft.world.phys.Vec3;
  *
  * <p>Driven only by the synced {@link MutationVisualState} ({@code p02.*} animation + the {@code p02.max} flag), so
  * every player sees everyone's beams; each client ray-casts the far end itself along the shooter's interpolated
- * look, which keeps the beam glued to their aim frame by frame.
+ * look, which keeps the beam glued to their aim frame by frame. That only covers shooters this client tracks: a shooter
+ * beyond the viewer's tracking range (it shrinks with render distance) and the Laser Vision boss arrive instead as
+ * {@link LaserBeamPayload}s with the server's beam segment, drawn with the same geometry ({@code SENT}).
  *
  * <p>In first person the beams start a little below and ahead of the camera and fade / narrow toward it, so they
  * frame the crosshair instead of covering it: the target stays visible through the thin, translucent far end.
@@ -60,10 +66,37 @@ public final class LaserBeamRenderer {
 	private LaserBeamRenderer() {
 	}
 
-	public static void init() {
-		WorldRenderEvents.AFTER_ENTITIES.register(LaserBeamRenderer::render);
+	/** A beam the server sent explicitly ({@link LaserBeamPayload}): from a shooter this client does not track, or a boss. */
+	private record SentBeam(Vec3 start, Vec3 end, Kind kind, long startTick, int ticks) {
 	}
 
+	private static final List<SentBeam> SENT = new ArrayList<>();
+	private static final int MAX_SENT = 256;
+
+	public static void init() {
+		WorldRenderEvents.AFTER_ENTITIES.register(LaserBeamRenderer::render);
+		ClientPlayNetworking.registerGlobalReceiver(LaserBeamPayload.TYPE, (payload, context) -> {
+			ClientLevel level = context.client().level;
+			if (level == null || payload.ticks() <= 0) {
+				return;
+			}
+			Kind[] kinds = Kind.values();
+			Kind kind = payload.kind() >= 0 && payload.kind() < kinds.length ? kinds[payload.kind()] : Kind.BEAM;
+			if (payload.ticks() <= LaserBeamPayload.REFRESH_TICKS) {
+				// a held beam's per-tick refresh replaces that beam's previous refresh (same eyes, same kind) instead of
+				// stacking up to three translucent copies
+				SENT.removeIf(b -> b.ticks() <= LaserBeamPayload.REFRESH_TICKS && b.kind() == kind
+						&& b.start().distanceToSqr(payload.start()) < 2.25);
+			}
+			if (SENT.size() >= MAX_SENT) {
+				SENT.remove(0);
+			}
+			SENT.add(new SentBeam(payload.start(), payload.end(), kind, level.getGameTime(), Math.min(payload.ticks(), 200)));
+		});
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(SENT::clear));
+	}
+
+	/** Kind order matches the {@code LaserBeamPayload.KIND_*} constants. */
 	private enum Kind {
 		BEAM(0.030f, 0.080f), PIERCE(0.045f, 0.12f), SWEEP(0.034f, 0.090f), RECOIL(0.060f, 0.16f),
 		IGNITE(0.018f, 0.045f), MAX(0.075f, 0.20f);
@@ -98,7 +131,10 @@ public final class LaserBeamRenderer {
 			float age = (gameTime - s.animStart()) + partial;
 			int shot = LaserVisionHandlers.oneShotTicks(anim);
 			boolean shotLive = shot > 0 && age >= 0 && age < shot;
-			if (anim.equals(LaserVisionHandlers.ANIM_MAX) || (s.has("p02.max") && shotLive)) {
+			// the p02.max flag keeps Maximum Output's beam up through a Laser one-shot, and through any other power's
+			// animation that briefly took the shared slot (it used to blink out until the beam loop was re-asserted)
+			boolean foreignAnim = !anim.isEmpty() && !anim.startsWith("p02.");
+			if (anim.equals(LaserVisionHandlers.ANIM_MAX) || (s.has("p02.max") && (shotLive || foreignAnim))) {
 				beam(client, level, player, partial, Kind.MAX, look(player, partial), 1f, age, ribbons);
 			} else if (anim.equals(LaserVisionHandlers.ANIM_BEAM)) {
 				beam(client, level, player, partial, Kind.BEAM, look(player, partial), 1f, age, ribbons);
@@ -124,6 +160,20 @@ public final class LaserBeamRenderer {
 				default -> {
 				}
 			}
+		}
+		// beams the server sent explicitly: shooters this client does not track, and Laser Vision bosses
+		SENT.removeIf(b -> gameTime - b.startTick() >= b.ticks() || gameTime < b.startTick() - 40);
+		for (SentBeam b : SENT) {
+			float bAge = (gameTime - b.startTick()) + partial;
+			if (bAge < 0 || bAge >= b.ticks()) {
+				continue;
+			}
+			float fade = b.ticks() > LaserBeamPayload.REFRESH_TICKS ? 1f - bAge / b.ticks() : 1f;
+			Vec3 dir = b.end().subtract(b.start());
+			if (fade <= 0.01f || dir.lengthSqr() < 1.0e-6) {
+				continue;
+			}
+			draw(b.kind(), b.start(), b.end(), dir.normalize(), fade, bAge, false, false, false, false, ribbons);
 		}
 		if (ribbons.isEmpty() && OVERLAY.isEmpty()) {
 			return;
@@ -168,9 +218,6 @@ public final class LaserBeamRenderer {
 		}
 		Vec3 eye = player.getEyePosition(partial);
 		Vec3 end = hitPoint(level, player, eye, dir, kind != Kind.PIERCE);
-		Vec3 right = dir.cross(new Vec3(0, 1, 0));
-		right = right.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : right.normalize();
-		Vec3 up = right.cross(dir).normalize();
 		boolean firstPerson = player == client.getCameraEntity() && client.options.getCameraType().isFirstPerson();
 		// v0.14.8 fix ("can't hold Heat Vision in third person"): the beam WAS firing, but vanilla's third-person camera
 		// sits exactly on your own line of sight -- behind the head (back view) or in front of the face (front view) --
@@ -188,6 +235,18 @@ public final class LaserBeamRenderer {
 				capped = true;
 			}
 		}
+		draw(kind, eye, end, dir, fade, age, firstPerson, ownDetached, ownFront, capped, out);
+	}
+
+	/**
+	 * The ribbons of one twin beam from the eyes at {@code eye} to {@code end} along {@code dir}. The camera flags only
+	 * apply to your own beams; everybody else's (and every server-sent beam) is drawn the third-person way.
+	 */
+	private static void draw(Kind kind, Vec3 eye, Vec3 end, Vec3 dir, float fade, float age, boolean firstPerson,
+			boolean ownDetached, boolean ownFront, boolean capped, List<Ribbon> out) {
+		Vec3 right = dir.cross(new Vec3(0, 1, 0));
+		right = right.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : right.normalize();
+		Vec3 up = right.cross(dir).normalize();
 		boolean max = kind == Kind.MAX;
 		float pulse = max ? 0.8f + 0.2f * Mth.sin(age * 0.9f) : 1f;
 

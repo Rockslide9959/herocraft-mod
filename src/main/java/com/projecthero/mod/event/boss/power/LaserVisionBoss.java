@@ -4,6 +4,8 @@ import java.util.List;
 
 import com.projecthero.mod.event.boss.BossPowerController;
 import com.projecthero.mod.event.entity.EmpoweredZombie;
+import com.projecthero.mod.hero.power.p02.LaserBeams;
+import com.projecthero.mod.network.LaserBeamPayload;
 
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
@@ -79,7 +81,7 @@ public class LaserVisionBoss extends BossPowerController {
 				if (burstTarget != null && burstTarget.isAlive()) {
 					resolved = aimPoint.lerp(burstTarget.getEyePosition(), 0.6);
 				}
-				fireBeam(level, resolved, 11.0f, 1.7);
+				fireBeam(level, resolved, 11.0f, 1.7, LaserBeamPayload.KIND_PIERCE, 10);
 				aimPoint = null;
 				burstTarget = null;
 			}
@@ -122,7 +124,7 @@ public class LaserVisionBoss extends BossPowerController {
 		for (int step = -2; step <= 2; step++) {
 			double angle = baseAngle + step * 0.22;
 			Vec3 point = boss.position().add(Math.cos(angle) * reach, 1.0, Math.sin(angle) * reach);
-			fireBeam(level, point, 5.0f, 1.1);
+			fireBeam(level, point, 5.0f, 1.1, LaserBeamPayload.KIND_SWEEP, 8);
 		}
 	}
 
@@ -130,9 +132,14 @@ public class LaserVisionBoss extends BossPowerController {
 	 * Resolve one beam: draw it, then damage anything within {@code width} of the segment. The width
 	 * check is a simple point-to-segment distance -- no ray tracing per entity, and the candidate set
 	 * is a single bounded query around the midpoint.
+	 *
+	 * <p>The beam is drawn as the Laser Vision beam geometry ({@link LaserBeams}) for every player near it, on top of
+	 * the old flame line: that line alone was dropped client-side by "Particles: Minimal / Decreased" and beyond 32
+	 * blocks of the camera, so the player being shot often saw no laser at all.
 	 */
-	private void fireBeam(ServerLevel level, Vec3 to, float damage, double width) {
+	private void fireBeam(ServerLevel level, Vec3 to, float damage, double width, int kind, int ticks) {
 		Vec3 from = eye();
+		LaserBeams.send(level, boss, from, to, kind, ticks);
 		particleLine(level, ParticleTypes.FLAME, from, to, 2.0);
 		Vec3 mid = from.add(to).scale(0.5);
 		double half = from.distanceTo(to) * 0.5 + 1.0;

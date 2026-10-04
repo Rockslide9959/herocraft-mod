@@ -68,9 +68,19 @@ public final class BatchA {
 
 	// ---------------- animation ----------------
 
-	/** The shared library's looping poses: somebody's channel is running -- a stance never cuts in on one. */
+	/**
+	 * The shared library's looping poses: somebody's channel is running -- a stance never cuts in on one. Laser Vision's
+	 * held beams (v0.14.5 renamed them from {@code beam_eyes} to {@code p02.*}) are channels too: the beam renderer draws
+	 * from that animation, so a stance (Super Strength's carry / rush, Super Speed's carry ...) replacing it after 30 ticks
+	 * made the beam vanish for every viewer while the server kept burning them.
+	 */
 	private static final java.util.Set<String> CHANNELS = java.util.Set.of("channel_right", "channel_two_hand", "beam_eyes",
-			"scream", "guard", "shield_brace", "crouch_charge", "spin_arms");
+			"scream", "guard", "shield_brace", "crouch_charge", "spin_arms", "p02.beam", "p02.max", "p02.max_charge");
+
+	/** Whether {@code anim} is a channel a stance never replaces. */
+	public static boolean isChannel(String anim) {
+		return CHANNELS.contains(anim);
+	}
 	/** The stance loops this batch re-asserts every tick; any of them may replace another. */
 	private static final java.util.Set<String> STANCES = java.util.Set.of("float_arms", "carry_overhead", "p01.rush",
 			"p03.superman", "p03.carry", "p04.carry");
