@@ -216,7 +216,9 @@ public final class IronManHud {
 			}
 			if (!minimalHud && (energyFrac < 0.35f || integrityFrac < 0.35f) && !offline) {
 				if (draw && (now % 20) < 13) {
-					String crit = IronManGui.fit(font, Component.translatable("hud.projecthero.ironman.critical_short"), w - 6);
+					// only the integrity half of the warning says REPAIR; a suit that is merely low on power says RECHARGE
+					String crit = IronManGui.fit(font, Component.translatable(integrityFrac < 0.35f
+							? "hud.projecthero.ironman.critical_short" : "hud.projecthero.ironman.power_critical_short"), w - 6);
 					g.fill(x, y, x + font.width(crit) + 6, y + 11, 0xC0400808);
 					g.renderOutline(x, y, font.width(crit) + 6, 11, IronManGui.RED);
 					g.drawString(font, crit, x + 3, y + 2, 0xFFFF7070, false);

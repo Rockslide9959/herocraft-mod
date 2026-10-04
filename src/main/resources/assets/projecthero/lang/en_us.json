@@ -1563,6 +1563,7 @@
   "hud.projecthero.ironman.missiles_short": "MISSILES",
   "hud.projecthero.ironman.reload": "reload %s",
   "hud.projecthero.ironman.critical_short": "⚠ SUIT CRITICAL - REPAIR",
+  "hud.projecthero.ironman.power_critical_short": "⚠ POWER LOW - RECHARGE",
   "hud.projecthero.ironman.chip.highlight_on": "HIGHLIGHT ON",
   "hud.projecthero.ironman.chip.highlight_off": "HIGHLIGHT OFF",
   "hud.projecthero.ironman.chip.scan": "SCAN %sm",
