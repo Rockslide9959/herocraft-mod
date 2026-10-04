@@ -48,7 +48,30 @@ public final class KryptonianBeamRenderer {
 	private record Ribbon(Vec3 a, Vec3 b, float widthA, float widthB, int rgb, float alphaA, float alphaB, boolean glow) {
 	}
 
+	/**
+	 * Beams the server sent explicitly ({@code LaserBeamPayload.KIND_HEAT_VISION}, received by {@code LaserBeamRenderer}):
+	 * Kryptonians this client does not track -- their heatVision flag never arrives here.
+	 */
+	private record SentBeam(Vec3 start, Vec3 end, long startTick, int ticks) {
+	}
+
+	private static final List<SentBeam> SENT = new ArrayList<>();
+	private static final int MAX_SENT = 64;
+
 	private KryptonianBeamRenderer() {
+	}
+
+	/** A held beam's per-tick refresh: replaces that beam's previous refresh (same eyes) instead of stacking. */
+	public static void addSent(Vec3 start, Vec3 end, long now, int ticks) {
+		SENT.removeIf(b -> b.start().distanceToSqr(start) < 2.25);
+		if (SENT.size() >= MAX_SENT) {
+			SENT.remove(0);
+		}
+		SENT.add(new SentBeam(start, end, now, ticks));
+	}
+
+	public static void clearSent() {
+		SENT.clear();
 	}
 
 	public static void init() {
@@ -68,6 +91,14 @@ public final class KryptonianBeamRenderer {
 		for (Player player : level.players()) {
 			if (Kryptonian.heatVisionActive(player)) {
 				beam(client, level, player, partial, level.getGameTime() + partial, ribbons);
+			}
+		}
+		long gameTime = level.getGameTime();
+		SENT.removeIf(b -> gameTime - b.startTick() >= b.ticks() || gameTime < b.startTick() - 40);
+		for (SentBeam b : SENT) {
+			Vec3 dir = b.end().subtract(b.start());
+			if (dir.lengthSqr() > 1.0e-6) {
+				draw(b.start(), b.end(), dir.normalize(), gameTime + partial, false, ribbons);
 			}
 		}
 		if (ribbons.isEmpty()) {
@@ -98,10 +129,15 @@ public final class KryptonianBeamRenderer {
 		Vec3 eye = player.getEyePosition(partial);
 		Vec3 dir = player.getViewVector(partial);
 		Vec3 end = hitPoint(level, player, eye, dir);
+		boolean firstPerson = player == client.getCameraEntity() && client.options.getCameraType().isFirstPerson();
+		draw(eye, end, dir, time, firstPerson, out);
+	}
+
+	/** The twin ribbons from the eyes at {@code eye} to {@code end} (third-person placement unless {@code firstPerson}). */
+	private static void draw(Vec3 eye, Vec3 end, Vec3 dir, float time, boolean firstPerson, List<Ribbon> out) {
 		Vec3 right = dir.cross(new Vec3(0, 1, 0));
 		right = right.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : right.normalize();
 		Vec3 up = right.cross(dir).normalize();
-		boolean firstPerson = player == client.getCameraEntity() && client.options.getCameraType().isFirstPerson();
 		float pulse = 0.85f + 0.15f * Mth.sin(time * 1.3f);
 		// first person: straight out of your eyes, from the lower edges of the screen to the crosshair; see-through
 		Vec3 base = firstPerson ? eye.add(dir.scale(0.12)).add(up.scale(-0.045)) : eye.add(dir.scale(0.28)).add(up.scale(0.02));

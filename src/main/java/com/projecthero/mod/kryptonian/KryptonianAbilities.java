@@ -395,6 +395,10 @@ public final class KryptonianAbilities {
 		if (target != null) {
 			end = ehr.getLocation();
 		}
+		// the beam is drawn from the synced heatVision flag, which only reaches players tracking p (a range that
+		// follows each viewer's render distance): everyone else near the beam -- the target too -- gets it explicitly
+		com.projecthero.mod.hero.power.p02.LaserBeams.send(level, p, eye, end,
+				com.projecthero.mod.network.LaserBeamPayload.KIND_HEAT_VISION, com.projecthero.mod.network.LaserBeamPayload.REFRESH_TICKS);
 		if (age % KryptonianConfig.HEAT_HIT_INTERVAL == 0) {
 			if (target != null) {
 				KryptonianCombat.strike(p, target, eye, KryptonianConfig.HEAT_DAMAGE, 0.0, 0.0, true, AbilityHelpers.fire(p));

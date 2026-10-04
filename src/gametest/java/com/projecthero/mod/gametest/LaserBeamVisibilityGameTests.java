@@ -152,6 +152,49 @@ public class LaserBeamVisibilityGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE, batch = "lv_visibility_kryptonian")
+	public void kryptonianHeatVisionReachesAViewerOutsideTrackingRange(GameTestHelper helper) {
+		ServerPlayer shooter = helper.makeMockServerPlayerInLevel();
+		shooter.setGameMode(GameType.SURVIVAL);
+		Vec3 at = helper.absoluteVec(new Vec3(2.5, 2.0, 2.5));
+		shooter.moveTo(at.x, at.y, at.z, 0.0f, 0.0f);
+		com.projecthero.mod.kryptonian.Kryptonian.grant(shooter);
+		Vec3 eye = shooter.getEyePosition();
+		ServerPlayer target = helper.makeMockServerPlayerInLevel();
+		target.moveTo(eye.x + 1.5, eye.y - 1.62, eye.z + 50, 180f, 0f);
+		boolean tracks = PlayerLookup.tracking(shooter).contains(target);
+
+		// the beam's clock is the level's game time, so it runs over real server ticks (mock players are not ticked:
+		// drive Kryptonian.tick ourselves, as KryptonianGameTests does)
+		List<Sent> sent = new ArrayList<>();
+		BiConsumer<ServerPlayer, LaserBeamPayload> prev = LaserBeams.swapSender((to, payload) -> sent.add(new Sent(to, payload)));
+		com.projecthero.mod.kryptonian.KryptonianAbilities.startHeatVision(shooter);
+		helper.assertTrue(com.projecthero.mod.kryptonian.Kryptonian.heatVisionActive(shooter), "the beam is on");
+		helper.onEachTick(() -> {
+			shooter.tickCount++;
+			com.projecthero.mod.kryptonian.Kryptonian.tick(shooter);
+		});
+		helper.runAfterDelay(5, () -> {
+			com.projecthero.mod.kryptonian.KryptonianAbilities.stopHeatVision(shooter);
+			LaserBeams.swapSender(prev);
+			checkHeatVisionSends(helper, shooter, target, tracks, sent);
+		});
+	}
+
+	private static void checkHeatVisionSends(GameTestHelper helper, ServerPlayer shooter, ServerPlayer target, boolean tracks,
+			List<Sent> sent) {
+		helper.assertTrue(sent.stream().noneMatch(s -> s.to() == shooter), "the shooter is not sent their own beam");
+		long toTarget = sent.stream()
+				.filter(s -> s.to() == target && s.payload().kind() == LaserBeamPayload.KIND_HEAT_VISION).count();
+		boolean tracksNow = PlayerLookup.tracking(shooter).contains(target);
+		if (tracks && tracksNow) {
+			helper.assertTrue(toTarget == 0, "a tracking viewer draws the synced Heat Vision -- no duplicate payloads");
+		} else if (!tracks && !tracksNow) {
+			helper.assertTrue(toTarget >= 3, "Heat Vision is refreshed every tick for the untracked viewer, got " + toTarget);
+		} // (tracking flipped mid-test when the chunk map caught up: either half is fine)
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void bossBeamsGoToEveryoneNearby(GameTestHelper helper) {
 		Zombie boss = helper.spawn(EntityType.ZOMBIE, new BlockPos(1, 2, 1));

@@ -27,6 +27,8 @@ public record LaserBeamPayload(Vec3 start, Vec3 end, int kind, int ticks) implem
 	public static final int KIND_RECOIL = 3;
 	public static final int KIND_IGNITE = 4;
 	public static final int KIND_MAX = 5;
+	/** Kryptonian Heat Vision: drawn by {@code KryptonianBeamRenderer} in its own style. */
+	public static final int KIND_HEAT_VISION = 6;
 
 	/** Lifetime of a held beam's per-tick refresh: long enough to bridge one late packet, short enough to stop crisply. */
 	public static final int REFRESH_TICKS = 3;

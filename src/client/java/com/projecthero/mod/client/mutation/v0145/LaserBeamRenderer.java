@@ -80,6 +80,11 @@ public final class LaserBeamRenderer {
 			if (level == null || payload.ticks() <= 0) {
 				return;
 			}
+			if (payload.kind() == LaserBeamPayload.KIND_HEAT_VISION) {
+				com.projecthero.mod.client.kryptonian.KryptonianBeamRenderer.addSent(payload.start(), payload.end(), level.getGameTime(),
+						Math.min(payload.ticks(), 200));
+				return;
+			}
 			Kind[] kinds = Kind.values();
 			Kind kind = payload.kind() >= 0 && payload.kind() < kinds.length ? kinds[payload.kind()] : Kind.BEAM;
 			if (payload.ticks() <= LaserBeamPayload.REFRESH_TICKS) {
@@ -93,7 +98,10 @@ public final class LaserBeamRenderer {
 			}
 			SENT.add(new SentBeam(payload.start(), payload.end(), kind, level.getGameTime(), Math.min(payload.ticks(), 200)));
 		});
-		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(SENT::clear));
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(() -> {
+			SENT.clear();
+			com.projecthero.mod.client.kryptonian.KryptonianBeamRenderer.clearSent();
+		}));
 	}
 
 	/** Kind order matches the {@code LaserBeamPayload.KIND_*} constants. */
