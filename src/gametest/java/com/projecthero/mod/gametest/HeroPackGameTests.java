@@ -897,15 +897,15 @@ public class HeroPackGameTests implements FabricGameTest {
 				net.minecraft.world.item.ArmorItem.Type.LEGGINGS, net.minecraft.world.item.ArmorItem.Type.BOOTS }) {
 			be.store(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t)));
 		}
-		be.addEnergy(5000);
+		float racked = be.suitEnergy();
 		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_iii", 10f);
 
 		// v0.14.21: deploy is an animated ~1.5 s sequence -- stand next to the rack and let it run
 		net.minecraft.world.phys.Vec3 at = net.minecraft.world.phys.Vec3.atBottomCenterOf(helper.absolutePos(pos.east(2)));
 		player.setPos(at.x, at.y, at.z);
 		helper.assertTrue(be.deployTo(player), "platform must deploy the stored suit");
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_iii") >= 1499f,
-				"deploy must transfer the platform's stored charge (up to the v0.14.26 Mark III capacity of 1500)");
+		helper.assertTrue(Math.abs(com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_iii") - racked) < 1f,
+				"deploy must hand over the racked suit's own charge (v0.14.27: no platform reserve top-up)");
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.integrity(player, "mark_iii") >= 99f,
 				"deploy must repair suit integrity");
 		helper.succeedWhen(() -> helper.assertTrue(com.projecthero.mod.ironman.IronManArmor.wearingFullSuit(player, "mark_iii"),
@@ -2189,28 +2189,12 @@ public class HeroPackGameTests implements FabricGameTest {
 		var m2 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_2");
 		var m7 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_vii");
 
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.PLATFORM_FRACTION_PER_SECOND == 0.001f,
-				"a platform charges a flat 0.1% per second");
-		// v0.11.12/13: Mark 1 and Mark 2 each now have their own flat platformRegen() override instead of
-		// the generic 0.1%-of-pool formula -- checked separately below.
-		for (var suit : new com.projecthero.mod.ironman.suit.IronManSuit[] { m7 }) {
-			helper.assertTrue(Math.abs(com.projecthero.mod.ironman.IronManEnergy.platformEnergyPerSecond(suit)
-					- suit.energyCapacity() * 0.001f) < 1e-4f,
-					"platform energy regen is 0.1% of capacity for " + suit.id());
-			helper.assertTrue(Math.abs(com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(suit)
-					- suit.maxIntegrity() * 0.001f * com.projecthero.mod.ironman.IronManEnergy.PLATFORM_INTEGRITY_SCALE) < 1e-4f,
-					"platform integrity regen is 0.1% of max integrity (x0.5 since v0.14.26) for " + suit.id());
+		// v0.14.27: every mark charges a flat 10 energy/s + 10 integrity/s on a platform (per-mark overrides ignored)
+		for (var suit : new com.projecthero.mod.ironman.suit.IronManSuit[] { m1, m2, m7 }) {
+			helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.platformEnergyPerSecond(suit) == 10f
+					&& com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(suit) == 10f,
+					"flat 10/s platform regen for " + suit.id());
 		}
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.platformEnergyPerSecond(m1) == 10f
-				&& com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(m1) == 6f * com.projecthero.mod.ironman.IronManEnergy.PLATFORM_INTEGRITY_SCALE,
-				"Mark 1's own flat platform regen override (10 energy/s, 6 integrity/s, integrity x0.5 since v0.14.26)");
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.platformEnergyPerSecond(m2) == 24f
-				&& com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(m2) == 15f * com.projecthero.mod.ironman.IronManEnergy.PLATFORM_INTEGRITY_SCALE,
-				"Mark 2's own flat platform regen override (24 energy/s, 15 integrity/s)"); // v0.11.13
-		// every mark -- including the prototypes -- now gets a positive repair rate on a rack.
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(m1) > 0f
-				&& com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(m2) > 0f,
-				"Mark 1 / Mark 2 get a platform repair rate");
 		helper.succeed();
 	}
 

@@ -138,25 +138,17 @@ public final class IronManEnergy {
 	 */
 	public static final float PLATFORM_FRACTION_PER_SECOND = 0.001f;
 
-	/** Energy per second a docked suit gains on a Suit Platform -- a flat 0.1% of the mark's capacity,
-	 *  unless the mark sets its own flat {@link IronManSuit#platformEnergyPerSecondOverride()} (Mark 1). */
+	/** Energy per second a docked suit gains on a Suit Platform -- v0.14.27: a flat 10/s for every mark (the per-mark
+	 *  {@link IronManSuit#platformEnergyPerSecondOverride()} and the 0.1%-of-pool formula no longer apply). */
 	public static float platformEnergyPerSecond(IronManSuit suit) {
-		if (suit == null) {
-			return 0f;
-		}
-		return suit.platformEnergyPerSecondOverride() >= 0f
-				? suit.platformEnergyPerSecondOverride() : suit.energyCapacity() * PLATFORM_FRACTION_PER_SECOND;
+		return suit == null ? 0f
+				: com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlockEntity.REGEN_ENERGY_PER_SECOND;
 	}
 
-	/** Integrity per second a docked suit repairs on a Suit Platform -- a flat 0.1% of the mark's max
-	 *  integrity, unless the mark sets its own flat {@link IronManSuit#platformIntegrityPerSecondOverride()}
-	 *  (Mark 1). */
+	/** Integrity per second a docked suit repairs on a Suit Platform -- v0.14.27: a flat 10/s for every mark. */
 	public static float platformIntegrityPerSecond(IronManSuit suit) {
-		if (suit == null) {
-			return 0f;
-		}
-		return PLATFORM_INTEGRITY_SCALE * (suit.platformIntegrityPerSecondOverride() >= 0f
-				? suit.platformIntegrityPerSecondOverride() : suit.maxIntegrity() * PLATFORM_FRACTION_PER_SECOND);
+		return suit == null ? 0f
+				: com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlockEntity.REGEN_INTEGRITY_PER_SECOND;
 	}
 
 	/**

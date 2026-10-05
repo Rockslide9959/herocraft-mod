@@ -26,7 +26,7 @@ import net.minecraft.world.item.ItemStack;
  *   x 7..48    y 18..113   rotating 3D preview of the stored suit (holo well)
  *   y 19       stored mark name (or "No suit stored")
  *   y 32       the four armour slots (empty ones show the vanilla armour silhouettes)
- *   x 136..170 y 29..51    RESERVE plate (exact value; hover for x / 50000)
+ *   x 136..170 y 29..51    REGEN plate (v0.14.27: the flat platform charge rate; the reserve is gone)
  *   y 57 / 65  CHARGE  label + %, Slab bar with the exact energy inside
  *   y 78 / 86  INTEGRITY label + %, Slab bar with the exact integrity inside
  *   y 98..112  Deploy / Retrieve
@@ -114,13 +114,11 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 				: Component.translatable("screen.projecthero.suit_platform.empty");
 		g.drawString(font, IronManGui.fit(font, head, 80), MX + 1, 19, suit != null ? IronManGui.TEXT : IronManGui.TEXT_MUTED, false);
 
-		// reserve plate
-		float reserve = menu.reserveEnergyExact();
-		g.drawString(font, IronManGui.fit(font, Component.translatable("screen.projecthero.suit_platform.reserve_short"), 30),
+		// v0.14.27: the reserve is gone -- the plate shows the flat regen rate instead
+		g.drawString(font, IronManGui.fit(font, Component.translatable("screen.projecthero.suit_platform.regen_short"), 30),
 				139, 31, IronManGui.TEXT_DIM, false);
-		String rv = IronManGui.fit(font, String.valueOf(Math.round(reserve)), 30);
+		String rv = IronManGui.fit(font, "+" + Math.round(IronManSuitPlatformBlockEntity.REGEN_ENERGY_PER_SECOND) + "/s", 30);
 		g.drawString(font, rv, 139, 41, IronManGui.CYAN, false);
-		IronManGui.hairline(g, 138, 49, 30, 1, reserve / IronManSuitPlatformBlockEntity.MAX_ENERGY, IronManGui.CYAN_DIM, 0x60000000);
 
 		if (menu.hasStoredSuit()) {
 			float cap = Math.max(1f, menu.suitCapacityExact());
@@ -156,8 +154,9 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 		super.render(g, mouseX, mouseY, partialTick);
 		this.renderTooltip(g, mouseX, mouseY);
 		if (mouseX >= leftPos + 136 && mouseX < leftPos + 170 && mouseY >= topPos + 29 && mouseY < topPos + 51) {
-			g.renderTooltip(font, Component.translatable("screen.projecthero.suit_platform.reserve_tip",
-					IronManUiLayout.exact(menu.reserveEnergyExact(), IronManSuitPlatformBlockEntity.MAX_ENERGY)), mouseX, mouseY);
+			g.renderTooltip(font, Component.translatable("screen.projecthero.suit_platform.regen_tip",
+					Math.round(IronManSuitPlatformBlockEntity.REGEN_ENERGY_PER_SECOND),
+					Math.round(IronManSuitPlatformBlockEntity.REGEN_INTEGRITY_PER_SECOND)), mouseX, mouseY);
 		}
 	}
 }

@@ -33,7 +33,7 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 	}
 
 	public IronManSuitPlatformMenu(int syncId, Inventory playerInv, BlockPos pos) {
-		this(syncId, playerInv, resolve(playerInv, pos), new SimpleContainerData(4),
+		this(syncId, playerInv, resolve(playerInv, pos), new SimpleContainerData(3),
 				ContainerLevelAccess.create(playerInv.player.level(), pos));
 	}
 
@@ -84,11 +84,6 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 		return data.get(2);
 	}
 
-	/** The platform's own Reactor-Core reserve it feeds into the suit. */
-	public int reserveEnergy() {
-		return data.get(3) * 8;
-	}
-
 	// ---- exact (un-quantised) readouts (v0.6.6) ----
 	//
 	// The four values above travel through a vanilla ContainerData, whose sync packet is 16-bit, so
@@ -134,11 +129,6 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 		return suitIntegrity();
 	}
 
-	/** The platform's own Reactor-Core reserve, exact energy units. */
-	public float reserveEnergyExact() {
-		IronManSuitPlatformBlockEntity be = liveBE();
-		return be != null ? be.storedEnergy() : reserveEnergy();
-	}
 
 	@Override
 	public boolean clickMenuButton(Player player, int id) {

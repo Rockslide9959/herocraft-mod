@@ -56,6 +56,9 @@ public final class IronManFlight {
 
 	public static void setFlying(ServerPlayer player, boolean flying) {
 		player.setAttached(ModAttachments.IRON_MAN_FLYING, flying);
+		if (flying) {
+			IronManLandingSlam.reset(player); // v0.14.27: fresh motion history for the landing slam
+		}
 		if (player.getAbilities().instabuild) {
 			return;
 		}
@@ -118,6 +121,7 @@ public final class IronManFlight {
 			}
 		} else {
 			if (player.onGround()) {
+				IronManLandingSlam.onLanded(player); // v0.14.27: flew into the ground hard -> slam the area
 				setFlying(player, false);
 				return;
 			}
@@ -134,6 +138,7 @@ public final class IronManFlight {
 			}
 		}
 		player.getAbilities().flying = true;
+		IronManLandingSlam.recordFlightTick(player);
 		// v0.14.16: the movement itself -- the mark's speed / pick-up, the "changes 16" speed ceiling and the supersonic
 		// drive along the look -- is the client's directional flight now (client.flight.DirectionalFlight, numbers in
 		// flight.DirectionalFlightModel#ironMan), W / S forward / back along the look like every other flight. The old

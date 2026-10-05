@@ -44,8 +44,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * The Iron Man Suit Platform block (spec section 33).
  * <ul>
  *   <li>right-click with an Iron Man armour piece: store it;</li>
- *   <li>right-click with a Reactor Core: add {@value IronManSuitPlatformBlockEntity#REACTOR_CORE_ENERGY}
- *       to the platform's recharge buffer;</li>
+ *   <li>(v0.14.27: the platform has no reserve -- every docked suit charges + repairs at a flat 10/s)</li>
  *   <li>right-click empty-handed (Tony Stark): open the platform GUI (slots + energy + DEPLOY / RETRIEVE);</li>
  *   <li>sneak + right-click empty-handed (Tony Stark): retrieve your worn suit straight onto the platform.</li>
  * </ul>
@@ -167,21 +166,7 @@ public class IronManSuitPlatformBlock extends BaseEntityBlock {
 			}
 			return ItemInteractionResult.sidedSuccess(level.isClientSide());
 		}
-		if (stack.is(IronManItems.REACTOR_CORE) || stack.is(IronManItems.ARC_REACTOR)) {
-			if (!TonyStark.hasPower(player)) {
-				return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
-			}
-			if (!level.isClientSide()) {
-				be.addEnergy(stack.is(IronManItems.ARC_REACTOR) ? 25_000 : IronManSuitPlatformBlockEntity.REACTOR_CORE_ENERGY);
-				if (!player.getAbilities().instabuild) {
-					stack.shrink(1);
-				}
-				((ServerLevel) level).playSound(null, pos, SoundEvents.CONDUIT_ACTIVATE, SoundSource.BLOCKS, 0.8f, 1.3f);
-				player.displayClientMessage(Component.translatable("screen.projecthero.suit_platform.energy",
-						be.storedEnergy(), IronManSuitPlatformBlockEntity.MAX_ENERGY).withStyle(ChatFormatting.AQUA), true);
-			}
-			return ItemInteractionResult.sidedSuccess(level.isClientSide());
-		}
+		// v0.14.27: the platform has no reserve any more -- Reactor Cores are no longer fed to it
 		return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
 	}
 

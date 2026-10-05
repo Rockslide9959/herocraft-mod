@@ -56,18 +56,16 @@ import net.minecraft.world.level.block.state.BlockState;
 public class IronManSuitPlatformBlockEntity extends BlockEntity
 		implements Container, ExtendedScreenHandlerFactory<BlockPos> {
 	public static final int SIZE = 4;
-	/** v0.14.26: integrity repair runs this many times faster while the reserve can pay for it... */
-	public static final float RESERVE_REPAIR_MULTIPLIER = 4.0f;
-	/** ...at this much reserve energy per point of extra repair. */
-	public static final float RESERVE_PER_INTEGRITY = 2.0f;
-
-	/** Reactor-Core / trickle energy buffer -- the platform's own reserve it pours into the suit. */
+	/**
+	 * v0.14.27: every docked suit -- any mark -- charges 10 energy and repairs 10 integrity per second. The platform's
+	 * own Reactor-Core reserve is gone (an old save's {@code StoredEnergy} key is simply ignored).
+	 */
+	public static final float REGEN_ENERGY_PER_SECOND = 10f;
+	public static final float REGEN_INTEGRITY_PER_SECOND = 10f;
+	/** Fallback capacity shown for an empty rack. */
 	public static final int MAX_ENERGY = 50_000;
-	public static final int REACTOR_CORE_ENERGY = 8_000;
-	private static final int TRICKLE_PER_TICK = 6;
 
 	private final NonNullList<ItemStack> pieces = NonNullList.withSize(SIZE, ItemStack.EMPTY);
-	private int storedEnergy;
 	private UUID owner;
 	private long lastRegistrySync = Long.MIN_VALUE;
 
@@ -80,21 +78,17 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 				// integrity as a 0..100 percentage -- the max differs per mark now ("changes 13"), so the
 				// screen can't divide a raw value by a fixed constant any more.
 				case 2 -> Math.round(100f * suitIntegrity() / Math.max(1f, IronManEnergy.maxIntegrity(storedSuitId())));
-				case 3 -> storedEnergy / 8;
 				default -> 0;
 			};
 		}
 
 		@Override
 		public void set(int i, int v) {
-			if (i == 3) {
-				storedEnergy = v * 8;
-			}
 		}
 
 		@Override
 		public int getCount() {
-			return 4;
+			return 3;
 		}
 	};
 
@@ -125,36 +119,9 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 				}
 			}
 			if (suit != null) {
-				// v0.6.2: the rack charges + repairs at a flat 0.1% of the mark's pool per second.
-				float cap = suit.energyCapacity();
-				float cur = be.suitEnergy();
-				if (cur < cap) {
-					float add = Math.min(cap - cur, IronManEnergy.platformEnergyPerSecond(suit) / 20f);
-					// The buffer (a Reactor Core's charge) is drawn on first as fuel, up to what this
-					// tick actually needs; whatever it can't cover comes free, so running the buffer dry
-					// never stalls the charge -- it only means less of it came "from the reactor core"
-					// this tick.
-					be.storedEnergy -= Math.round(Math.min(be.storedEnergy, add));
-					be.stampAllPieces(cur + add, be.suitIntegrity());
-				}
-				float integ = be.suitIntegrity();
-				float maxInteg = IronManEnergy.maxIntegrity(suitId);
-				if (integ < maxInteg) {
-					float repair = IronManEnergy.platformIntegrityPerSecond(suit) / 20f;
-					// v0.14.26: with energy in reserve the platform repairs four times as fast, burning
-					// RESERVE_PER_INTEGRITY reserve for every point of the extra repair (no reserve: the normal rate)
-					if (be.storedEnergy > 0) {
-						float extra = Math.min(repair * (RESERVE_REPAIR_MULTIPLIER - 1f), (float) be.storedEnergy / RESERVE_PER_INTEGRITY);
-						be.storedEnergy -= Math.round(extra * RESERVE_PER_INTEGRITY);
-						repair += extra;
-					}
-					be.stampAllPieces(be.suitEnergy(), Math.min(maxInteg, integ + repair));
-				}
+				// v0.14.27: a flat 10 energy/s + 10 integrity/s for every mark (overrides any per-mark platformRegen)
+				be.regenTick(suit);
 			}
-		}
-		// keep the buffer topped up slowly for free while a suit rests here
-		if (suitId != null && be.storedEnergy < MAX_ENERGY) {
-			be.storedEnergy = Math.min(MAX_ENERGY, be.storedEnergy + TRICKLE_PER_TICK);
 		}
 
 		if (level.getGameTime() - be.lastRegistrySync >= 40) {
@@ -170,6 +137,23 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 			returns.absorb(serverLevel, pos, be);
 			be.afterContentsChanged();
 		}
+	}
+
+	/** One server tick of the v0.14.27 flat platform charge + repair (public for the gametests). */
+	public void regenTick(IronManSuit suit) {
+		String suitId = storedSuitId();
+		if (suit == null || suitId == null) {
+			return;
+		}
+		float cap = suit.energyCapacity();
+		float cur = suitEnergy();
+		float integ = suitIntegrity();
+		float maxInteg = IronManEnergy.maxIntegrity(suitId);
+		if (cur >= cap && integ >= maxInteg) {
+			return;
+		}
+		stampAllPieces(Math.min(cap, Math.max(cur, cur + REGEN_ENERGY_PER_SECOND / 20f)),
+				Math.min(maxInteg, Math.max(integ, integ + REGEN_INTEGRITY_PER_SECOND / 20f)));
 	}
 
 	private void tryAdoptOwner(ServerLevel level) {
@@ -252,15 +236,6 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 				IronManEnergy.stampStack(s, energy, integrity);
 			}
 		}
-	}
-
-	public int storedEnergy() {
-		return storedEnergy;
-	}
-
-	public void addEnergy(int amount) {
-		storedEnergy = Math.min(MAX_ENERGY, storedEnergy + amount);
-		setChanged();
 	}
 
 	public String storedSuitId() {
@@ -372,20 +347,14 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 			owner = player.getUUID();
 		}
 		String suitId = storedSuitId();
-		// adopt the armour's carried charge first, then top it up from the platform buffer
+		// adopt the armour's carried charge -- what the rack has actually charged / repaired (v0.14.27: no reserve top-up)
 		ItemStack ref = referencePiece();
 		float storedIntegrity = suitIntegrity();
 		if (ref != null) {
 			IronManEnergy.loadFromStack(player, suitId, ref);
 		}
-		IronManSuit suit = IronManSuits.byId(suitId);
-		if (suit != null) {
-			float cap = suit.energyCapacity();
-			IronManEnergy.setEnergy(player, suitId, Math.min(cap, IronManEnergy.energy(player, suitId) + storedEnergy));
-		}
 		// "changes 22": hand over the integrity the rack has ACTUALLY repaired back into the suit (never a free repair).
 		IronManEnergy.setIntegrity(player, suitId, storedIntegrity);
-		storedEnergy = 0;
 
 		java.util.List<Integer> slots = new java.util.ArrayList<>();
 		for (int idx : DEPLOY_ORDER) {
@@ -725,7 +694,6 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		super.loadAdditional(tag, registries);
 		pieces.clear();
 		ContainerHelper.loadAllItems(tag, pieces, registries);
-		storedEnergy = tag.getInt("StoredEnergy");
 		owner = tag.hasUUID("Owner") ? tag.getUUID("Owner") : null;
 		loadSequence(tag);
 	}
@@ -734,7 +702,6 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 	protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
 		super.saveAdditional(tag, registries);
 		ContainerHelper.saveAllItems(tag, pieces, registries);
-		tag.putInt("StoredEnergy", storedEnergy);
 		if (owner != null) {
 			tag.putUUID("Owner", owner);
 		}

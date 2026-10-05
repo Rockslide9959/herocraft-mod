@@ -216,6 +216,7 @@ public class IronManUiV01421GameTests implements FabricGameTest {
 		helper.assertTrue(w(t("screen.projecthero.suit_call.charge")) + 6 + w("100,00%") <= iw, "CHARGE + % fit");
 		helper.assertTrue(w(t("screen.projecthero.suit_call.integrity")) + 6 + w("100,00%") <= iw, "INTEGRITY + % fit");
 		helper.assertTrue(w(f("screen.projecthero.suit_call.on_platform", 999)) <= iw - 6, "platform distance line fits");
+		helper.assertTrue(w(f("screen.projecthero.suit_call.send_back", 999)) <= iw - 6, "send-back line fits (v0.14.27)");
 		for (String k : new String[] { "screen.projecthero.suit_call.in_inventory", "screen.projecthero.suit_call.pending",
 				"screen.projecthero.suit_call.unreachable" }) {
 			helper.assertTrue(w(t(k)) <= iw - 6, "location line fits: " + k);
@@ -402,7 +403,7 @@ public class IronManUiV01421GameTests implements FabricGameTest {
 			helper.assertTrue(w(t(suit.nameKey())) <= 80, "stored mark name fits over the slots");
 		}
 		helper.assertTrue(w(t("screen.projecthero.suit_platform.empty")) <= 80, "'no suit' fits over the slots");
-		helper.assertTrue(w("50000") <= 30 && w(t("screen.projecthero.suit_platform.reserve_short")) <= 30, "reserve plate text fits");
+		helper.assertTrue(w("+10/s") <= 30 && w(t("screen.projecthero.suit_platform.regen_short")) <= 30, "regen plate text fits");
 		for (String k : new String[] { "screen.projecthero.suit_platform.deploy", "screen.projecthero.suit_platform.retrieve" }) {
 			helper.assertTrue(w(t(k)) <= 57 - 6, "button label fits: " + k);
 		}

@@ -76,8 +76,147 @@ public final class IronManSuitCall {
 		if (IronManArmor.wearingAnyIronMan(player)) {
 			return; // wearing a suit -> C is suit-down, handled elsewhere
 		}
-		List<IronManSuitListPayload.Option> options = gather(player);
+		List<IronManSuitListPayload.Option> options = new ArrayList<>(gather(player));
+		// v0.14.27: pieces carried in the pack can also be sent home to a platform from the same picker
+		options.addAll(sendBackOptions(player));
 		ServerPlayNetworking.send(player, new IronManSuitListPayload(options));
+	}
+
+	// ---------------- v0.14.27: send carried pieces back to a platform ----------------
+
+	/** The inventory (not worn) pieces of {@code suitId}, by type, with their inventory slot index. */
+	private static java.util.EnumMap<ArmorItem.Type, Integer> carriedPieces(ServerPlayer player, String suitId) {
+		java.util.EnumMap<ArmorItem.Type, Integer> out = new java.util.EnumMap<>(ArmorItem.Type.class);
+		var items = player.getInventory().items;
+		for (int i = 0; i < items.size(); i++) {
+			if (items.get(i).getItem() instanceof IronManArmorItem p && p.suitId().equals(suitId)) {
+				out.putIfAbsent(p.getType(), i);
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * One {@link IronManSuitListPayload#SOURCE_SEND_BACK} option per mark that has pieces in the pack AND a platform of
+	 * the player's (loaded, or in the registry) that could take them. Never part of {@link #gather} -- auto-equip, the
+	 * quick call and Protocol Phoenix only ever see suits to put ON.
+	 */
+	public static List<IronManSuitListPayload.Option> sendBackOptions(ServerPlayer player) {
+		List<IronManSuitListPayload.Option> out = new ArrayList<>();
+		ServerLevel level = player.serverLevel();
+		BlockPos here = player.blockPosition();
+		List<IronManSuit> suits = new ArrayList<>(IronManSuits.all());
+		suits.sort(java.util.Comparator.comparingInt(IronManSuit::markNumber));
+		for (IronManSuit suit : suits) {
+			var carried = carriedPieces(player, suit.id());
+			if (carried.isEmpty()) {
+				continue;
+			}
+			BlockPos dock = sendBackTarget(player, suit.id());
+			if (dock == null) {
+				continue;
+			}
+			ItemStack ref = player.getInventory().items.get(carried.containsKey(ArmorItem.Type.CHESTPLATE)
+					? carried.get(ArmorItem.Type.CHESTPLATE) : carried.values().iterator().next());
+			float e = IronManEnergy.stackEnergy(ref, suit.id()) / Math.max(1f, suit.energyCapacity());
+			float integ = IronManEnergy.stackIntegrity(ref, suit.id()) / IronManEnergy.maxIntegrity(suit.id());
+			out.add(new IronManSuitListPayload.Option(suit.id(), IronManSuitListPayload.SOURCE_SEND_BACK, e, integ,
+					(int) Math.sqrt(dock.distSqr(here))));
+		}
+		return out;
+	}
+
+	/** Where carried pieces of {@code suitId} would go: the nearest loaded dock, else the registry's. Null = none. */
+	private static BlockPos sendBackTarget(ServerPlayer player, String suitId) {
+		ServerLevel level = player.serverLevel();
+		IronManSuitPlatformBlockEntity dock = nearestLoadedDock(level, player.blockPosition(), player.getUUID(), suitId);
+		if (dock != null) {
+			return dock.getBlockPos();
+		}
+		return StarkPlatformRegistry.get(level)
+				.nearestDockFor(player.getUUID(), level.dimension(), suitId, player.blockPosition())
+				.map(StarkPlatformRegistry.Entry::blockPos).orElse(null);
+	}
+
+	/**
+	 * v0.14.27, explicit user request: send every carried (inventory, not worn) piece of {@code suitId} back to the
+	 * player's platform -- docked at once if that platform is loaded, otherwise queued on {@link StarkSuitReturnQueue}
+	 * (the same fly-home path a suit takes when its wearer dies, minus the crash damage). Returns pieces sent.
+	 */
+	public static int sendBack(ServerPlayer player, String suitId) {
+		IronManSuit suit = IronManSuits.byId(suitId);
+		if (suit == null || !TonyStark.hasPower(player)) {
+			return 0;
+		}
+		var carried = carriedPieces(player, suitId);
+		if (carried.isEmpty()) {
+			return 0;
+		}
+		ServerLevel level = player.serverLevel();
+		var items = player.getInventory().items;
+		IronManSuitPlatformBlockEntity dock = nearestLoadedDock(level, player.blockPosition(), player.getUUID(), suitId);
+		Optional<StarkPlatformRegistry.Entry> regEntry = dock != null ? Optional.empty()
+				: StarkPlatformRegistry.get(level).nearestDockFor(player.getUUID(), level.dimension(), suitId, player.blockPosition());
+		if (dock == null && regEntry.isEmpty()) {
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.send_back_no_platform",
+					Component.translatable(suit.nameKey())).withStyle(ChatFormatting.RED), true);
+			return 0;
+		}
+		int sent = 0;
+		Vec3 from = player.position().add(0, 1.0, 0);
+		if (dock != null) {
+			if (dock.owner().isEmpty()) {
+				dock.bindTo(player.getUUID());
+			}
+			for (var e : carried.entrySet()) {
+				ItemStack st = items.get(e.getValue());
+				ItemStack one = st.copy();
+				if (dock.store(one)) { // store() splits one off the copy
+					st.shrink(1);
+					sent++;
+				}
+			}
+			BlockPos dp = dock.getBlockPos();
+			if (sent > 0) {
+				player.displayClientMessage(Component.translatable("message.projecthero.ironman.send_back_docked",
+						Component.translatable(suit.nameKey()), dp.getX(), dp.getY(), dp.getZ()).withStyle(ChatFormatting.AQUA), true);
+				Vec3 to = Vec3.atCenterOf(dp).add(0, 1.0, 0);
+				level.sendParticles(net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK, to.x, to.y, to.z, 16, 0.4, 0.6, 0.4, 0.05);
+			}
+		} else {
+			BlockPos pos = regEntry.get().blockPos();
+			List<ItemStack> stacks = new ArrayList<>();
+			int mask = 0;
+			ItemStack ref = null;
+			for (var e : carried.entrySet()) {
+				ItemStack st = items.get(e.getValue());
+				ItemStack one = st.split(1);
+				stacks.add(one);
+				if (ref == null || e.getKey() == ArmorItem.Type.CHESTPLATE) {
+					ref = one;
+				}
+				mask |= switch (e.getKey()) {
+					case HELMET -> 1;
+					case CHESTPLATE -> 2;
+					case LEGGINGS -> 4;
+					case BOOTS -> 8;
+					default -> 0;
+				};
+				sent++;
+			}
+			StarkSuitReturnQueue.get(level).enqueue(player.getUUID(),
+					net.minecraft.core.GlobalPos.of(level.dimension(), pos), suitId, mask,
+					IronManEnergy.stackEnergy(ref, suitId), IronManEnergy.stackIntegrity(ref, suitId), stacks);
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.send_back_queued",
+					Component.translatable(suit.nameKey()), pos.getX(), pos.getY(), pos.getZ()).withStyle(ChatFormatting.AQUA), true);
+		}
+		if (sent > 0) {
+			level.sendParticles(net.minecraft.core.particles.ParticleTypes.CLOUD, from.x, from.y, from.z, 12, 0.3, 0.4, 0.3, 0.06);
+			level.playSound(null, player.getX(), player.getY(), player.getZ(),
+					SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.8f, 1.4f);
+			player.inventoryMenu.broadcastChanges();
+		}
+		return sent;
 	}
 
 	/**
@@ -245,6 +384,10 @@ public final class IronManSuitCall {
 			return;
 		}
 		IronManSuit suit = IronManSuits.byId(suitId);
+		if (source == IronManSuitListPayload.SOURCE_SEND_BACK) {
+			sendBack(player, suitId); // v0.14.27: carried pieces home to a platform
+			return;
+		}
 		if (suit == null || IronManArmor.wearingAnyIronMan(player) || IronManSuitUpManager.inTransition(player)) {
 			return;
 		}

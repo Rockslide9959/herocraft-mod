@@ -22,6 +22,8 @@ public record IronManSuitListPayload(List<Option> options) implements CustomPack
 
 	public static final int SOURCE_PLATFORM = 0;
 	public static final int SOURCE_INVENTORY = 1;
+	/** v0.14.27 (Sneak+C picker only): Iron Man pieces carried in the pack -- picking it sends them home to a platform. */
+	public static final int SOURCE_SEND_BACK = 2;
 
 	public static final CustomPacketPayload.Type<IronManSuitListPayload> TYPE =
 			new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(ProjectHeroMod.MOD_ID, "iron_man_suit_list"));

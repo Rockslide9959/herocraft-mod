@@ -165,7 +165,7 @@ public final class IronManItems {
 							// No max_damage means vanilla never wears the piece down (and an old save's leftover
 							// damage value is simply ignored); durability() also set the stack size, so keep it at 1.
 							.stacksTo(1)
-							.component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true),
+							.component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, false), // v0.14.27: no enchanted shimmer on Iron Man armour
 					suitId));
 			pieces.put(type, item);
 		}

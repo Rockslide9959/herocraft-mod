@@ -198,7 +198,8 @@ public final class IronManSuitCallScreen extends Screen {
 				? Component.translatable(IronManUiLayout.locationKey(c.source), c.distance).getString()
 				: Component.translatable("screen.projecthero.suit_call.unreachable").getString();
 		int whereCol = !c.available ? IronManGui.TEXT_MUTED
-				: c.source == IronManSuitListPayload.SOURCE_INVENTORY ? IronManGui.GREEN : IronManGui.CYAN;
+				: c.source == IronManSuitListPayload.SOURCE_INVENTORY ? IronManGui.GREEN
+				: c.source == IronManSuitListPayload.SOURCE_SEND_BACK ? IronManGui.GOLD : IronManGui.CYAN;
 		g.fill(ix, y + 61, ix + 3, y + 64, whereCol);
 		g.drawString(font, IronManGui.fit(font, where, iw - 6), ix + 6, y + 59, whereCol, false);
 	}

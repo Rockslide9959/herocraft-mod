@@ -79,6 +79,8 @@ public final class ServerStateReset {
 	public static void clearAll() {
 		// Moon Knight Phase 3-4 (R / X / G / Z static maps)
 		com.projecthero.mod.moonknight.ability.MoonKnightCombat.clearSessionState();
+		// v0.14.27 Iron Man landing slam (motion history + cooldowns)
+		com.projecthero.mod.ironman.IronManLandingSlam.clearSessionState();
 		CraterAmbience.clearSessionState();
 		TempBlocks.clearSessionState();
 		ConjuredStructures.clearSessionState();

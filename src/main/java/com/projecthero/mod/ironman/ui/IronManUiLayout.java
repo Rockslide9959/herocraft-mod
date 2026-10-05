@@ -264,6 +264,7 @@ public final class IronManUiLayout {
 		return switch (source) {
 			case 0 -> "screen.projecthero.suit_call.on_platform";
 			case 1 -> "screen.projecthero.suit_call.in_inventory";
+			case 2 -> "screen.projecthero.suit_call.send_back";
 			default -> "screen.projecthero.suit_call.pending";
 		};
 	}

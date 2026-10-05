@@ -89,6 +89,11 @@ public final class IronManDamage {
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(IronManDamage::onAllowDamage);
 	}
 
+	/** v0.14.27: wearing any Iron Man piece = no fall damage (and no suit cost for the fall). */
+	public static boolean fallImmune(net.minecraft.world.entity.player.Player player) {
+		return IronManArmor.wearingAnyIronMan(player);
+	}
+
 	private static boolean onAllowDamage(LivingEntity entity, DamageSource source, float amount) {
 		if (REENTRANT.get() || !(entity instanceof ServerPlayer player) || !TonyStark.hasPower(player)) {
 			return true;
@@ -102,20 +107,11 @@ public final class IronManDamage {
 			return false;
 		}
 
-		// Boots-only fall protection (partial armour -- spec section 32).
-		if (source.is(DamageTypeTags.IS_FALL)) {
-			String bootsSuit = suitOfPiece(player, EquipmentSlot.FEET);
-			if (bootsSuit != null && IronManEnergy.energy(player, bootsSuit) > 1.0f) {
-				IronManEnergy.addEnergy(player, bootsSuit, -Math.min(200f, amount * 15f));
-				player.resetFallDistance();
-				// "changes 17": some marks (Mark 1) only *reduce* fall damage rather than negating it.
-				IronManSuit bootsSuitDef = IronManSuits.byId(bootsSuit);
-				float takeFraction = bootsSuitDef == null ? 0f : bootsSuitDef.fallDamageFraction();
-				if (takeFraction > 0f) {
-					return reduce(player, source, amount, takeFraction);
-				}
-				return false;
-			}
+		// v0.14.27, explicit user request: any Iron Man armour makes the wearer immune to fall damage -- every mark
+		// (Mark 1's old 20% fallDamageFraction no longer applies), and a fall never costs the suit energy or integrity.
+		if (source.is(DamageTypeTags.IS_FALL) && fallImmune(player)) {
+			player.resetFallDistance();
+			return false;
 		}
 
 		String suitId = IronManArmor.wornSuitId(player);
