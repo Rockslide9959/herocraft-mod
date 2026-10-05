@@ -5,6 +5,7 @@ import com.projecthero.mod.ironman.TonyStark;
 import com.projecthero.mod.ironman.item.IronManItems;
 import com.projecthero.mod.ironman.suit.IronManAssemblyPlan;
 import com.projecthero.mod.ironman.suit.IronManSuitFx;
+import com.projecthero.mod.ironman.suit.IronManSuitPoses;
 import com.projecthero.mod.ironman.suit.IronManSuitUpManager;
 
 import io.netty.buffer.ByteBuf;
@@ -121,24 +122,134 @@ public class IronManV01427SuitUpGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void poseVariantIsOneOfFourAndSynced(GameTestHelper h) {
-		java.util.Set<Integer> seen = new java.util.HashSet<>();
-		for (int run = 0; run < 12; run++) {
+	public void suitUpPoseIsAPureFunctionOfThePieceNoRandomVariant(GameTestHelper h) {
+		for (int run = 0; run < 6; run++) {
 			ServerPlayer p = suitedUpReady(h);
 			h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_iii"), "suit-up starts");
 			IronManSuitFx fx = IronManSuitFx.of(p);
 			h.assertTrue(fx.poseKind() == IronManSuitFx.POSE_SUIT_UP, "the suit-up pose runs");
-			h.assertTrue(fx.poseVariant() >= 0 && fx.poseVariant() < IronManSuitFx.POSE_VARIANTS && IronManSuitFx.POSE_VARIANTS == 4,
-					"the pose variant is 0..3, got " + fx.poseVariant());
-			h.assertTrue(fx.poseTicks() >= IronManSuitUpManager.buildSequenceTicks(4), "the pose covers the whole build");
-			seen.add(fx.poseVariant());
+			h.assertTrue(fx.poseVariant() == 0, "v0.14.28: no random pose variant any more");
 			ByteBuf buf = Unpooled.buffer();
 			IronManSuitFx.STREAM_CODEC.encode(buf, fx);
-			h.assertTrue(IronManSuitFx.STREAM_CODEC.decode(buf).poseVariant() == fx.poseVariant(), "the variant syncs to every viewer");
+			h.assertTrue(IronManSuitFx.STREAM_CODEC.decode(buf).equals(fx), "the clocks sync to every viewer unchanged");
 		}
-		h.assertTrue(seen.size() >= 2, "the variant is picked at random per suit-up, saw " + seen);
-		h.assertTrue(IronManSuitFx.EMPTY.withPose(IronManSuitFx.POSE_SUIT_UP, 1L, 10, IronManSuitFx.STYLE_PLATES, 7).poseVariant() == 3,
-				"out-of-range variants wrap into 0..3");
+		// a full 4-piece suit-up clock, boots at 1001, leggings 1061, chest 1121, helmet 1181
+		IronManSuitFx fx = IronManSuitFx.EMPTY.withPose(IronManSuitFx.POSE_SUIT_UP, 1000L, 251, IronManSuitFx.STYLE_PLATES)
+				.withPiece(3, 1001L, true).withPiece(2, 1061L, true).withPiece(1, 1121L, true).withPiece(0, 1181L, true);
+		// pure: same input, same output -- and the key at a given moment is exactly the building piece's own key
+		for (long t = 1001L; t < 1241L; t += 7) {
+			IronManSuitPoses.Sample a = IronManSuitPoses.sample(fx, t, 0.3f);
+			IronManSuitPoses.Sample b = IronManSuitPoses.sample(fx, t, 0.3f);
+			h.assertTrue(a != null && b != null && a.weight() == b.weight() && java.util.Arrays.equals(a.key(), b.key()),
+					"the pose is a pure function of the clocks at t=" + t);
+		}
+		float[] boots = IronManSuitPoses.sample(fx, 1031L, 0f).key();
+		float[] legs = IronManSuitPoses.sample(fx, 1091L, 0f).key();
+		float[] chest = IronManSuitPoses.sample(fx, 1151L, 0f).key();
+		float[] helmet = IronManSuitPoses.sample(fx, 1211L, 0f).key();
+		h.assertTrue(java.util.Arrays.equals(boots, IronManSuitPoses.key(3, 0.5f)), "mid-boots = the boots key");
+		h.assertTrue(java.util.Arrays.equals(chest, IronManSuitPoses.key(1, 0.5f)), "mid-chest = the chest key");
+		h.assertTrue(boots[IronManSuitPoses.HX] > 0.4f, "boots: looking down at the feet");
+		h.assertTrue(legs[IronManSuitPoses.RAZ] > 0.6f && legs[IronManSuitPoses.RLZ] > 0.15f, "leggings: arms out, wide stance");
+		h.assertTrue(chest[IronManSuitPoses.RAZ] > 1.1f && chest[IronManSuitPoses.HX] < 0f, "chestplate: arms spread wide, head up");
+		h.assertTrue(helmet[IronManSuitPoses.HX] > 0.3f && IronManSuitPoses.key(0, 1f)[IronManSuitPoses.HX] < 0f,
+				"helmet: head bowed, then up at the end");
+		// no shake: within every piece each angle moves one way only (no tremor / oscillation)
+		for (int bit = 0; bit < 4; bit++) {
+			float[] prev = IronManSuitPoses.key(bit, 0f);
+			int[] dir = new int[IronManSuitPoses.SIZE];
+			for (int i = 1; i <= 240; i++) {
+				float[] k = IronManSuitPoses.key(bit, i / 240f);
+				for (int a = 0; a < IronManSuitPoses.SIZE; a++) {
+					float d = k[a] - prev[a];
+					int sgn = d > 1e-6f ? 1 : d < -1e-6f ? -1 : 0;
+					h.assertTrue(sgn == 0 || dir[a] == 0 || sgn == dir[a], "piece " + bit + " angle " + a + " never reverses (no jitter)");
+					if (sgn != 0) {
+						dir[a] = sgn;
+					}
+				}
+				prev = k;
+			}
+		}
+		// crossing from one piece to the next is continuous (a cross-fade, no snap)
+		float[] before = IronManSuitPoses.sample(fx, 1060L, 0.95f).key();
+		float[] after = IronManSuitPoses.sample(fx, 1061L, 0.05f).key();
+		for (int a = 0; a < IronManSuitPoses.SIZE; a++) {
+			h.assertTrue(Math.abs(before[a] - after[a]) < 0.05f, "piece hand-over is smooth for angle " + a);
+		}
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void suitUpPoseIsGoneMomentsAfterTheLastPiece(GameTestHelper h) {
+		IronManSuitFx fx = IronManSuitFx.EMPTY.withPose(IronManSuitFx.POSE_SUIT_UP, 1000L, 251, IronManSuitFx.STYLE_PLATES)
+				.withPiece(3, 1001L, true).withPiece(2, 1061L, true).withPiece(1, 1121L, true).withPiece(0, 1181L, true);
+		long done = 1181L + IronManSuitFx.BUILD_TICKS; // the helmet finishes
+		h.assertTrue(IronManSuitPoses.weight(fx, done - 1, 0f) == 1f, "full pose while the helmet builds");
+		h.assertTrue(IronManSuitPoses.weight(fx, done + 6, 0f) == 0f && IronManSuitPoses.sample(fx, done + 6, 0f) == null,
+				"the pose is gone 0.3 s after the last piece finishes (no lingering)");
+		h.assertTrue(IronManSuitPoses.weight(fx, done + 2, 0f) < 1f, "and it is already easing out right after");
+		// and on the server the pose clock is dropped the moment the suit-up completes
+		ServerPlayer p = suitedUpReady(h);
+		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_iii"), "suit-up starts");
+		for (int i = 0; i < 400 && IronManSuitUpManager.inTransition(p); i++) {
+			IronManSuitUpManager.tick(p);
+		}
+		h.assertTrue(IronManSuitFx.of(p).poseKind() == IronManSuitFx.POSE_NONE, "suit-up complete: the pose clock is cleared");
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void suitDownTakesSixtyTicksPerPieceInReverse(GameTestHelper h) {
+		ServerPlayer p = suitedUpReady(h);
+		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_iii"), "suit-up starts");
+		for (int i = 0; i < 400 && IronManSuitUpManager.inTransition(p); i++) {
+			IronManSuitUpManager.tick(p);
+		}
+		h.assertTrue(IronManArmor.wearingFullSuit(p, "mark_iii"), "suited up");
+		h.assertTrue(IronManSuitUpManager.unbuildStageTick(0, 0b1111) == 1 && IronManSuitUpManager.unbuildStageTick(1, 0b1111) == 61
+				&& IronManSuitUpManager.unbuildStageTick(2, 0b1111) == 121 && IronManSuitUpManager.unbuildStageTick(3, 0b1111) == 181,
+				"helmet, chestplate, leggings, boots -- 60 ticks apart");
+		h.assertTrue(IronManSuitUpManager.beginSuitDown(p, "mark_iii"), "suit-down starts");
+		var st = TonyStark.state(p);
+		h.assertTrue(st.transitionTotal == 241 && st.transitionTicks == 241 && st.transitionPlan == 0b1111,
+				"suit-down timeline: total " + st.transitionTotal + " ticks " + st.transitionTicks + " plan " + st.transitionPlan
+						+ " up " + st.transitionUp);
+		IronManSuitFx fx = IronManSuitFx.of(p);
+		h.assertTrue(fx.style() == IronManSuitFx.STYLE_UNBUILD && fx.releaseTicks() == IronManSuitFx.BUILD_TICKS,
+				"each piece un-builds over the same 60 ticks it took to build");
+		int ticks = 0;
+		int helmetOffAt = -1;
+		int chestOffAt = -1;
+		int bootsOffAt = -1;
+		boolean posedMidway = false;
+		while (IronManSuitUpManager.inTransition(p) && ticks < 1000) {
+			IronManSuitUpManager.tick(p);
+			ticks++;
+			if (helmetOffAt < 0 && p.getItemBySlot(EquipmentSlot.HEAD).isEmpty()) {
+				helmetOffAt = ticks;
+			}
+			if (chestOffAt < 0 && p.getItemBySlot(EquipmentSlot.CHEST).isEmpty()) {
+				chestOffAt = ticks;
+			}
+			if (bootsOffAt < 0 && p.getItemBySlot(EquipmentSlot.FEET).isEmpty()) {
+				bootsOffAt = ticks;
+			}
+			if (ticks == 90) {
+				IronManSuitFx now = IronManSuitFx.of(p);
+				h.assertTrue(!now.assembling(1) && now.start(1) > 0L, "the chestplate is un-building at 90 ticks");
+				posedMidway = IronManSuitPoses.weight(now, now.start(1) + 29, 0f) == 1f;
+			}
+		}
+		h.assertTrue(ticks == IronManSuitUpManager.unbuildSequenceTicks(4), "the suit-down ran 4 x 60 (+1) ticks, got " + ticks
+				+ " (off at " + helmetOffAt + ", " + chestOffAt + ", " + bootsOffAt + ")");
+		h.assertTrue(helmetOffAt == 61 && chestOffAt == 121 && bootsOffAt == 241,
+				"each piece leaves the body after its full 60-tick un-build (" + helmetOffAt + ", " + chestOffAt + ", " + bootsOffAt + ")");
+		h.assertTrue(posedMidway, "the per-piece pose plays during the suit-down too");
+		h.assertFalse(IronManArmor.wearingAnyIronMan(p), "the suit is off");
+		for (ArmorItem.Type t : TYPES) {
+			h.assertTrue(p.getInventory().countItem(IronManItems.armor("mark_iii", t)) == 1, t.getName() + " stored exactly once");
+		}
 		h.succeed();
 	}
 }

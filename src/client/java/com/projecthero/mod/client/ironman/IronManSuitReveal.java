@@ -119,7 +119,12 @@ public final class IronManSuitReveal {
 	/** The texture to draw an Iron Man piece in {@code slot} with right now (the plain one outside a lock-on / release). */
 	public static ResourceLocation texture(Player player, String setId, EquipmentSlot slot, ResourceLocation base,
 			float partialTick) {
-		float p = progress(player, slot, partialTick);
+		return textureAt(progress(player, slot, partialTick), building(player, slot), fromCase(player), setId, slot, base);
+	}
+
+	/** v0.14.28: the build texture of an Iron Man piece at progress {@code p} (whole at 1). */
+	public static ResourceLocation textureAt(float p, boolean building, boolean fromCase, String setId, EquipmentSlot slot,
+			ResourceLocation base) {
 		if (p >= 1f) {
 			return base;
 		}
@@ -128,11 +133,11 @@ public final class IronManSuitReveal {
 		if (bit < 0 || def == null) {
 			return base;
 		}
-		if (building(player, slot)) {
+		if (building) {
 			// v0.14.27: base halves, then the shell one texel at a time
 			return IronManAssemblyReveal.buildTexture(def.geometry(), base, p, bit);
 		}
-		return IronManAssemblyReveal.texture(def.geometry(), base, p, bit, fromCase(player));
+		return IronManAssemblyReveal.texture(def.geometry(), base, p, bit, fromCase);
 	}
 
 	/**
@@ -140,6 +145,13 @@ public final class IronManSuitReveal {
 	 * Mark V case's fly-out lock-on or a release? (A fresh piece still waiting for its clock counts as building.)
 	 */
 	public static boolean building(Player player, EquipmentSlot slot) {
-		return assembling(player, slot) && !fromCase(player);
+		// v0.14.28: the C suit-down un-builds with the same visual run backwards (progress 1 -> 0)
+		return !fromCase(player) && (assembling(player, slot) || IronManSuitFx.of(player).unbuilding());
 	}
+
+	/**
+	 * v0.14.28: a piece drawn on something that is not a player (the send-home suit standing in front of its owner):
+	 * the build progress to draw it at, or -1 for whole. Set by the renderer around one draw call, render thread only.
+	 */
+	public static float standBuild = -1f;
 }

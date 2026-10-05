@@ -1496,7 +1496,7 @@ public class HeroPackGameTests implements FabricGameTest {
 
 		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuitUpManager.beginSuitDown(player, "mark_iii"),
 				"suit-down should start with room available");
-		for (int i = 0; i < 200 && com.projecthero.mod.ironman.suit.IronManSuitUpManager.inTransition(player); i++) {
+		for (int i = 0; i < 400 && com.projecthero.mod.ironman.suit.IronManSuitUpManager.inTransition(player); i++) {
 			com.projecthero.mod.ironman.suit.IronManSuitUpManager.tick(player);
 		}
 		helper.assertTrue(!com.projecthero.mod.ironman.IronManArmor.wearingAnyIronMan(player), "the suit should be off");

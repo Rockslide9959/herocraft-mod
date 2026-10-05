@@ -88,6 +88,21 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			}
 			return;
 		}
+		// v0.14.28: the send-home suit standing in front of its owner builds itself with the same base-halves visual
+		float standP = com.projecthero.mod.client.ironman.IronManSuitReveal.standBuild;
+		if (standP >= 0f && standP < 1f && animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem
+				&& !(getCurrentEntity() instanceof Player)) {
+			poseStack.pushPose();
+			try {
+				if (com.projecthero.mod.client.ironman.IronManAssemblyClient.applyBuild(poseStack, bone, standP)) {
+					super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender,
+							partialTick, packedLight, packedOverlay, colour);
+				}
+			} finally {
+				poseStack.popPose();
+			}
+			return;
+		}
 		super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick,
 				packedLight, packedOverlay, colour);
 	}
@@ -216,6 +231,11 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 		// v0.14.21: an Iron Man piece builds on plate by plate as it locks on (and breaks away coming off)
 		if (getCurrentEntity() instanceof Player im && animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem ima) {
 			texture = com.projecthero.mod.client.ironman.IronManSuitReveal.texture(im, ima.armorSetId(), getCurrentSlot(), texture, partialTick);
+		} else if (animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem ima2
+				&& com.projecthero.mod.client.ironman.IronManSuitReveal.standBuild >= 0f) {
+			texture = com.projecthero.mod.client.ironman.IronManSuitReveal.textureAt(
+					com.projecthero.mod.client.ironman.IronManSuitReveal.standBuild, true, false, ima2.armorSetId(),
+					getCurrentSlot(), texture);
 		}
 		// v0.14.11: the Flash Suit pours out of the ring on the right fist, texel by texel behind a lightning edge
 		if (getCurrentEntity() instanceof Player fl && animatable instanceof com.projecthero.mod.flash.item.FlashSuitItem) {

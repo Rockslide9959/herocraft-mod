@@ -225,7 +225,7 @@ public final class IronManAssemblyClient {
 	 * the limb (wider across, deeper front to back) and clamp down tight as the halves seal; the shell then builds in
 	 * place, texel by texel ({@link IronManAssemblyReveal#buildTexture}). The lights stay dark until the shell is done.
 	 */
-	private static boolean applyBuild(PoseStack pose, GeoBone bone, float p) {
+	public static boolean applyBuild(PoseStack pose, GeoBone bone, float p) {
 		if (glowPass && p < IronManAssemblyPlan.BUILD_SHELL_END) {
 			return false;
 		}

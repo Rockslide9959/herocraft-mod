@@ -117,7 +117,7 @@ public class IronManV01427PlatformGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
 	public void sneakCSendsCarriedArmourHome(GameTestHelper helper) {
 		BlockPos rel = new BlockPos(1, 2, 1);
 		IronManSuitPlatformBlockEntity be = platform(helper, rel);
@@ -131,8 +131,6 @@ public class IronManV01427PlatformGameTests implements FabricGameTest {
 		helper.assertTrue(listed, "the Sneak+C picker lists carried Mark III pieces as send-back");
 
 		IronManSuitCall.execute(p, "mark_iii", IronManSuitListPayload.SOURCE_SEND_BACK);
-		helper.assertTrue(be.holds("mark_iii", ArmorItem.Type.HELMET) && be.holds("mark_iii", ArmorItem.Type.BOOTS),
-				"the carried pieces are docked on the platform");
 		boolean stillCarried = false;
 		for (ItemStack s : p.getInventory().items) {
 			if (s.getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem) {
@@ -141,6 +139,44 @@ public class IronManV01427PlatformGameTests implements FabricGameTest {
 		}
 		helper.assertFalse(stillCarried, "the sent pieces leave the inventory");
 		helper.assertTrue(IronManSuitCall.sendBackOptions(p).isEmpty(), "nothing left to send back");
-		helper.succeed();
+		// v0.14.28: they build themselves into a standing suit 1 block in front of the player first...
+		var home = helper.getLevel().getEntitiesOfClass(com.projecthero.mod.ironman.entity.IronManSuitPartEntity.class,
+				p.getBoundingBox().inflate(4), com.projecthero.mod.ironman.entity.IronManSuitPartEntity::homeMode);
+		helper.assertTrue(home.size() == 2, "two send-home pieces stand in front of the player, got " + home.size());
+		for (var e : home) {
+			double flat = Math.hypot(e.getX() - p.getX(), e.getZ() - p.getZ());
+			helper.assertTrue(Math.abs(flat - IronManSuitCall.SEND_HOME_DISTANCE) < 0.05,
+					"the suit stands 1 block in front of the player (" + flat + ")");
+		}
+		helper.assertFalse(be.holds("mark_iii", ArmorItem.Type.HELMET), "not docked yet -- it builds and flies first");
+		// ...then fly home and dock on the platform
+		helper.succeedWhen(() -> {
+			helper.assertTrue(be.holds("mark_iii", ArmorItem.Type.HELMET) && be.holds("mark_iii", ArmorItem.Type.BOOTS),
+					"the carried pieces end up docked on the platform");
+			helper.assertTrue(helper.getLevel().getEntitiesOfClass(com.projecthero.mod.ironman.entity.IronManSuitPartEntity.class,
+					p.getBoundingBox().inflate(30)).isEmpty(), "and the flying suit is gone");
+			int armour = 0;
+			for (ItemStack s : p.getInventory().items) {
+				if (s.getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem) {
+					armour++;
+				}
+			}
+			helper.assertTrue(armour == 0, "nothing came back to the pack (no duplicate)");
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void sendHomeToAnUnloadedPlatformGoesOnTheQueue(GameTestHelper helper) {
+		ServerPlayer p = tony(helper, new BlockPos(4, 2, 4));
+		ItemStack boots = new ItemStack(IronManItems.armor("mark_iii", ArmorItem.Type.BOOTS));
+		// a dock far away in a chunk nobody has loaded
+		BlockPos far = helper.absolutePos(new BlockPos(4, 2, 4)).offset(3000, 0, 3000);
+		var e = com.projecthero.mod.ironman.entity.IronManSuitPartEntity.spawnHome(helper.getLevel(),
+				p.position().add(1, 0, 0), 0f, p, boots, 0, 1, far);
+		var queue = com.projecthero.mod.ironman.data.StarkSuitReturnQueue.get(helper.getLevel());
+		helper.succeedWhen(() -> {
+			helper.assertTrue(e.isRemoved(), "the suit climbs out of sight and hands over");
+			helper.assertTrue(queue.hasPendingFor(helper.getLevel(), far), "the piece waits on the return queue for its platform");
+		});
 	}
 }

@@ -6,6 +6,7 @@ import com.projecthero.mod.ironman.IronManSounds;
 import com.projecthero.mod.ironman.item.IronManArmorItem;
 import com.projecthero.mod.ironman.suit.IronManSuitUpManager;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -54,6 +55,30 @@ public class IronManSuitPartEntity extends Entity {
 			SynchedEntityData.defineId(IronManSuitPartEntity.class, EntityDataSerializers.FLOAT);
 	private static final EntityDataAccessor<Integer> OWNER_ENTITY =
 			SynchedEntityData.defineId(IronManSuitPartEntity.class, EntityDataSerializers.INT);
+	/** v0.14.28: 0 = courier to the owner, 1 = send-home (builds in front of the owner, then flies to a Suit Platform). */
+	private static final EntityDataAccessor<Integer> MODE =
+			SynchedEntityData.defineId(IronManSuitPartEntity.class, EntityDataSerializers.INT);
+	/** v0.14.28: send-home build progress of this piece, 0..1 (synced for the renderer). */
+	private static final EntityDataAccessor<Float> BUILD =
+			SynchedEntityData.defineId(IronManSuitPartEntity.class, EntityDataSerializers.FLOAT);
+
+	public static final int MODE_COURIER = 0;
+	public static final int MODE_HOME = 1;
+	/** v0.14.28 send-home: each piece builds itself on the standing suit over this many ticks (boots first). */
+	public static final int HOME_BUILD_TICKS = 20;
+	/** v0.14.28 send-home: the finished suit stands this long before it takes off. */
+	public static final int HOME_HOLD_TICKS = 10;
+	/** v0.14.28 send-home: a platform out of reach -- the suit climbs this high, then goes on the return queue. */
+	public static final double HOME_SKY_CLIMB = 40.0;
+
+	// send-home state (server)
+	private BlockPos homeDock;
+	private Vec3 homeFeet;
+	private int homeIndex;
+	private int homeCount;
+	private float homeYaw;
+	private boolean homeSkyward;
+	private double homeSpeed;
 
 	/** Hard cap on a courier's life (ticks) before it gives up and drops its piece. */
 	public static final int MAX_LIFE = 800;
@@ -86,6 +111,53 @@ public class IronManSuitPartEntity extends Entity {
 		e.getEntityData().set(OWNER_ENTITY, owner.getId());
 		level.addFreshEntity(e);
 		return e;
+	}
+
+	/**
+	 * v0.14.28 send-home: launch {@code piece} (the real stack; taken over) as piece {@code index} of {@code count} of a
+	 * suit that builds itself standing at {@code feet} (facing {@code yaw}), boots first, {@link #HOME_BUILD_TICKS} each,
+	 * then flies to the Suit Platform at {@code dock} and docks there. All pieces of one suit share the same timeline,
+	 * so they stay one standing suit the whole way.
+	 */
+	public static IronManSuitPartEntity spawnHome(ServerLevel level, Vec3 feet, float yaw, ServerPlayer owner, ItemStack piece,
+			int index, int count, BlockPos dock) {
+		IronManSuitPartEntity e = new IronManSuitPartEntity(IronManEntityTypes.SUIT_PART, level);
+		e.ownerId = owner.getUUID();
+		e.setPiece(piece);
+		e.getEntityData().set(OWNER_ENTITY, owner.getId());
+		e.getEntityData().set(MODE, MODE_HOME);
+		e.homeDock = dock.immutable();
+		e.homeFeet = feet;
+		e.homeIndex = index;
+		e.homeCount = Math.max(1, count);
+		e.homeYaw = yaw;
+		Vec3 at = e.homeAt(feet);
+		e.moveTo(at.x, at.y, at.z, yaw, 0f);
+		level.addFreshEntity(e);
+		return e;
+	}
+
+	public boolean homeMode() {
+		return getEntityData().get(MODE) == MODE_HOME;
+	}
+
+	/** v0.14.28 send-home build progress of this piece, 0..1. */
+	public float build() {
+		return getEntityData().get(BUILD);
+	}
+
+	/** v0.14.28: the tick (of this entity's life) at which a send-home suit of {@code count} pieces takes off. */
+	public static int homeTakeOffTick(int count) {
+		return count * HOME_BUILD_TICKS + HOME_HOLD_TICKS;
+	}
+
+	/** v0.14.28: build progress of send-home piece {@code index} at life tick {@code life}. */
+	public static float homeBuild(int index, int life) {
+		return Mth.clamp((life - index * HOME_BUILD_TICKS) / (float) HOME_BUILD_TICKS, 0f, 1f);
+	}
+
+	private Vec3 homeAt(Vec3 feet) {
+		return feet.add(0, IronManSuitUpManager.slotHeight(IronManSuitUpManager.slotFor(part())), 0);
 	}
 
 	private void setPiece(ItemStack piece) {
@@ -126,6 +198,8 @@ public class IronManSuitPartEntity extends Entity {
 		builder.define(PIECE, ItemStack.EMPTY);
 		builder.define(PROGRESS, 0f);
 		builder.define(OWNER_ENTITY, -1);
+		builder.define(MODE, MODE_COURIER);
+		builder.define(BUILD, 1f);
 	}
 
 	/** Where on the owner this piece clamps on: its slot's height on the body. */
@@ -144,7 +218,13 @@ public class IronManSuitPartEntity extends Entity {
 	public void tick() {
 		super.tick();
 		if (level().isClientSide()) {
-			level().addParticle(ParticleTypes.END_ROD, getX(), getY(), getZ(), 0, 0, 0);
+			if (!homeMode() || tickCount > homeTakeOffTick(4)) {
+				level().addParticle(ParticleTypes.END_ROD, getX(), getY(), getZ(), 0, 0, 0);
+			}
+			return;
+		}
+		if (homeMode()) {
+			tickHome((ServerLevel) level());
 			return;
 		}
 		life++;
@@ -201,6 +281,158 @@ public class IronManSuitPartEntity extends Entity {
 		}
 	}
 
+	// ---------------- v0.14.28: send-home ----------------
+
+	private void tickHome(ServerLevel level) {
+		life++;
+		if (getEntityData().get(PIECE).isEmpty()) {
+			discard();
+			return;
+		}
+		double slotH = IronManSuitUpManager.slotHeight(IronManSuitUpManager.slotFor(part()));
+		if (homeFeet == null) {
+			homeFeet = position().subtract(0, slotH, 0);
+		}
+		if (homeDock == null) {
+			homeFallback(level, getEntityData().get(PIECE).copy());
+			return;
+		}
+		float b = homeBuild(homeIndex, life);
+		if (getEntityData().get(BUILD) != b) {
+			getEntityData().set(BUILD, b);
+		}
+		int takeOff = homeTakeOffTick(homeCount);
+		if (life < takeOff) {
+			// standing in front of the owner, building itself on piece by piece
+			Vec3 at = homeAt(homeFeet);
+			setPos(at.x, at.y, at.z);
+			setYRot(homeYaw);
+			if (b > 0f && b < 1f && life % 3 == 0) {
+				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, getX(), getY(), getZ(), 2, 0.25, 0.15, 0.25, 0.04);
+			}
+			if (life == homeIndex * HOME_BUILD_TICKS + 1) {
+				IronManSounds.play(this, IronManSounds.SERVO, 0.6f, 0.9f + homeIndex * 0.08f);
+			}
+			if (life == (homeIndex + 1) * HOME_BUILD_TICKS) {
+				IronManSounds.play(this, IronManSounds.CLAMP, 0.7f, 1.0f);
+			}
+			return;
+		}
+		int flight = life - takeOff;
+		if (flight == 0 && homeIndex == 0) {
+			IronManSounds.play(this, IronManSounds.THRUSTER, 0.8f, 1.2f);
+		}
+		if (flight > MAX_LIFE) {
+			queueHome(level);
+			return;
+		}
+		boolean reachable = !homeSkyward && level.isLoaded(homeDock)
+				&& level.getBlockEntity(homeDock) instanceof com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlockEntity;
+		if (!reachable) {
+			homeSkyward = true;
+		}
+		homeSpeed = Math.min(1.6, homeSpeed + 0.07);
+		Vec3 dir;
+		if (homeSkyward) {
+			// the platform is out of reach: climb out of sight, then go on the return queue (it docks when it loads)
+			dir = new Vec3(0, 1, 0);
+			if (flight * 1.2 > HOME_SKY_CLIMB) {
+				queueHome(level);
+				return;
+			}
+		} else {
+			Vec3 to = Vec3.atBottomCenterOf(homeDock.above());
+			Vec3 d = to.subtract(homeFeet);
+			double dist = d.length();
+			if (dist <= Math.max(0.35, homeSpeed)) {
+				arriveHome(level);
+				return;
+			}
+			dir = d.normalize();
+			if (flight < 12 && dist > 4.0) {
+				dir = dir.add(0, 1.0 - flight / 12.0, 0).normalize(); // lift off first, then streak home
+			}
+			homeSpeed = Math.min(homeSpeed, Math.max(0.25, dist * 0.35)); // ease into the dock
+		}
+		Vec3 next = homeFeet.add(dir.scale(homeSpeed));
+		if (!level.hasChunkAt(BlockPos.containing(next))) {
+			queueHome(level); // flying into unloaded terrain: hand over to the queue instead of freezing there
+			return;
+		}
+		homeFeet = next;
+		Vec3 at = homeAt(next);
+		if (dir.horizontalDistanceSqr() > 1.0e-4) {
+			homeYaw = (float) (Mth.atan2(dir.z, dir.x) * (180.0 / Math.PI)) - 90f;
+		}
+		setYRot(homeYaw);
+		setDeltaMovement(at.subtract(position()));
+		setPos(at.x, at.y, at.z);
+		if (homeIndex == 0 && flight % 2 == 0) {
+			level.sendParticles(ParticleTypes.FLAME, homeFeet.x, homeFeet.y, homeFeet.z, 2, 0.12, 0.02, 0.12, 0.01);
+		}
+	}
+
+	/** Reached the platform: dock the real stack on it, or hand it on so it is never lost. */
+	private void arriveHome(ServerLevel level) {
+		ItemStack stack = getEntityData().get(PIECE).copy();
+		getEntityData().set(PIECE, ItemStack.EMPTY);
+		if (level.getBlockEntity(homeDock) instanceof com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlockEntity be
+				&& (be.owner().isEmpty() || ownerId == null || be.owner().get().equals(ownerId))) {
+			if (be.owner().isEmpty() && ownerId != null) {
+				be.bindTo(ownerId);
+			}
+			if (be.store(stack) || stack.isEmpty()) {
+				Vec3 c = Vec3.atBottomCenterOf(homeDock.above());
+				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y + 0.8, c.z, 10, 0.3, 0.5, 0.3, 0.05);
+				if (homeIndex == 0) {
+					IronManSounds.play(this, IronManSounds.CLAMP, 0.9f, 0.8f);
+				}
+				discard();
+				return;
+			}
+		}
+		homeFallback(level, stack);
+	}
+
+	/** Out of reach: put the piece on {@link com.projecthero.mod.ironman.data.StarkSuitReturnQueue} for its platform. */
+	private void queueHome(ServerLevel level) {
+		ItemStack stack = getEntityData().get(PIECE).copy();
+		getEntityData().set(PIECE, ItemStack.EMPTY);
+		if (homeDock != null && ownerId != null && stack.getItem() instanceof IronManArmorItem a) {
+			com.projecthero.mod.ironman.data.StarkSuitReturnQueue.get(level).enqueue(ownerId,
+					net.minecraft.core.GlobalPos.of(level.dimension(), homeDock), a.suitId(), maskOf(a.getType()),
+					com.projecthero.mod.ironman.IronManEnergy.stackEnergy(stack, a.suitId()),
+					com.projecthero.mod.ironman.IronManEnergy.stackIntegrity(stack, a.suitId()), java.util.List.of(stack));
+			discard();
+			return;
+		}
+		homeFallback(level, stack);
+	}
+
+	/** Last resort: back to the owner (or dropped where it is) -- never destroyed. */
+	private void homeFallback(ServerLevel level, ItemStack stack) {
+		getEntityData().set(PIECE, ItemStack.EMPTY);
+		if (!stack.isEmpty()) {
+			ServerPlayer owner = ownerId == null ? null : (ServerPlayer) level.getPlayerByUUID(ownerId);
+			if (owner != null) {
+				IronManSuitUpManager.giveBack(owner, stack);
+			} else {
+				spawnAtLocation(stack);
+			}
+		}
+		discard();
+	}
+
+	private static int maskOf(ArmorItem.Type type) {
+		return switch (type) {
+			case HELMET -> 1;
+			case CHESTPLATE -> 2;
+			case LEGGINGS -> 4;
+			case BOOTS -> 8;
+			default -> 0;
+		};
+	}
+
 	/** Clamp-on: hand the real stack to the suit-up manager; if that slot is already taken it goes back to the owner. */
 	private void arrive(ServerPlayer owner) {
 		ItemStack stack = getEntityData().get(PIECE).copy();
@@ -229,6 +461,16 @@ public class IronManSuitPartEntity extends Entity {
 		}
 		life = tag.getInt("Life");
 		launchDelay = tag.getInt("LaunchDelay");
+		if (tag.getInt("Mode") == MODE_HOME) {
+			getEntityData().set(MODE, MODE_HOME);
+			homeDock = tag.contains("HomeDock") ? BlockPos.of(tag.getLong("HomeDock")) : null;
+			homeFeet = tag.contains("HomeX") ? new Vec3(tag.getDouble("HomeX"), tag.getDouble("HomeY"), tag.getDouble("HomeZ")) : null;
+			homeIndex = tag.getInt("HomeIndex");
+			homeCount = Math.max(1, tag.getInt("HomeCount"));
+			homeYaw = tag.getFloat("HomeYaw");
+			homeSkyward = tag.getBoolean("HomeSky");
+			homeSpeed = tag.getDouble("HomeSpeed");
+		}
 		if (tag.contains("Piece")) {
 			setPiece(ItemStack.parseOptional(registryAccess(), tag.getCompound("Piece")));
 		} else if (tag.contains("SuitId")) {
@@ -254,6 +496,22 @@ public class IronManSuitPartEntity extends Entity {
 		ItemStack stack = getEntityData().get(PIECE);
 		if (!stack.isEmpty()) {
 			tag.put("Piece", stack.save(registryAccess()));
+		}
+		if (homeMode()) {
+			tag.putInt("Mode", MODE_HOME);
+			if (homeDock != null) {
+				tag.putLong("HomeDock", homeDock.asLong());
+			}
+			if (homeFeet != null) {
+				tag.putDouble("HomeX", homeFeet.x);
+				tag.putDouble("HomeY", homeFeet.y);
+				tag.putDouble("HomeZ", homeFeet.z);
+			}
+			tag.putInt("HomeIndex", homeIndex);
+			tag.putInt("HomeCount", homeCount);
+			tag.putFloat("HomeYaw", homeYaw);
+			tag.putBoolean("HomeSky", homeSkyward);
+			tag.putDouble("HomeSpeed", homeSpeed);
 		}
 	}
 

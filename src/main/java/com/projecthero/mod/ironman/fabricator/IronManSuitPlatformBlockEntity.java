@@ -418,7 +418,7 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 						: com.projecthero.mod.ironman.suit.IronManSuitFx.POSE_SUIT_DOWN,
 				len + com.projecthero.mod.ironman.suit.IronManSuitFx.BUILD_TICKS + 2,
 				com.projecthero.mod.ironman.suit.IronManSuitFx.STYLE_PLATES,
-				player.getRandom().nextInt(com.projecthero.mod.ironman.suit.IronManSuitFx.POSE_VARIANTS));
+				0);
 		com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.SERVO, 1.0f, 0.9f);
 		afterContentsChanged();
 	}

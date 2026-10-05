@@ -263,11 +263,31 @@ public final class IronManSuitUpManager {
 	 * piece is not in {@code plan}.
 	 */
 	public static int buildStageTick(int bit, int plan) {
+		return stageTickIn(BUILD_ORDER, bit, plan);
+	}
+
+	/**
+	 * v0.14.28: the order a C suit-down un-builds its pieces in -- helmet, chestplate, leggings, boots (bits 0..3) --
+	 * each over {@link IronManSuitFx#BUILD_TICKS}, exactly as long as putting it on took.
+	 */
+	public static final int[] UNBUILD_ORDER = { 0, 1, 2, 3 };
+
+	/** v0.14.28: the sequence tick at which piece {@code bit} of a suit-down starts un-building (-1 if not in {@code plan}). */
+	public static int unbuildStageTick(int bit, int plan) {
+		return stageTickIn(UNBUILD_ORDER, bit, plan);
+	}
+
+	/** v0.14.28: length of a suit-down of {@code pieces} pieces: the same 3 s each as the suit-up. */
+	public static int unbuildSequenceTicks(int pieces) {
+		return buildSequenceTicks(pieces);
+	}
+
+	private static int stageTickIn(int[] order, int bit, int plan) {
 		if ((plan & (1 << bit)) == 0) {
 			return -1;
 		}
 		int before = 0;
-		for (int b : BUILD_ORDER) {
+		for (int b : order) {
 			if (b == bit) {
 				break;
 			}
@@ -287,7 +307,9 @@ public final class IronManSuitUpManager {
 		s.transitionFromCase = fromCase;
 		// v0.14.27: an ordinary suit-up builds the pieces one after another, 3 s each, and completes only once the last
 		// one is fully built; the Mark V case build and every suit-down keep the staged timeline
-		boolean sequential = up && !fromCase;
+		// v0.14.28: ...and an ordinary C suit-down un-builds them one after another, 3 s each, helmet first -- exactly as
+		// long as the suit-up (the Mark V fold into the case keeps its quick staged timeline)
+		boolean sequential = up ? !fromCase : !toCase;
 		s.transitionPlan = sequential ? mask : 0;
 		s.transitionTotal = sequential ? buildSequenceTicks(Integer.bitCount(mask)) : sequenceTicks(suit.suitUpType(), up);
 		s.transitionTicks = s.transitionTotal;
@@ -296,9 +318,9 @@ public final class IronManSuitUpManager {
 		boolean casePose = toCase || fromCase;
 		int kind = up ? (casePose ? IronManSuitFx.POSE_CASE_UP : IronManSuitFx.POSE_SUIT_UP)
 				: (casePose ? IronManSuitFx.POSE_CASE_DOWN : IronManSuitFx.POSE_SUIT_DOWN);
-		int variant = player.getRandom().nextInt(IronManSuitFx.POSE_VARIANTS);
-		IronManSuitFx.startPose(player, kind, s.transitionTotal + (up ? IronManSuitFx.FACEPLATE_TICKS : 0),
-				casePose ? IronManSuitFx.STYLE_CASE : IronManSuitFx.STYLE_PLATES, variant);
+		int style = casePose ? IronManSuitFx.STYLE_CASE : up ? IronManSuitFx.STYLE_PLATES : IronManSuitFx.STYLE_UNBUILD;
+		// v0.14.28: no random pose variant any more -- the pose is a pure function of the piece building right now
+		IronManSuitFx.startPose(player, kind, s.transitionTotal + (up ? IronManSuitFx.FACEPLATE_TICKS : 0), style, 0);
 		launchFx(player, up);
 	}
 
@@ -404,11 +426,13 @@ public final class IronManSuitUpManager {
 		s.transitionTicks--;
 		int elapsed = s.transitionTotal - s.transitionTicks;
 
-		boolean sequential = s.transitionUp && s.transitionPlan != 0;
+		boolean sequential = s.transitionPlan != 0;
+		int releaseTicks = sequential ? IronManSuitFx.BUILD_TICKS : IronManSuitFx.RELEASE_TICKS;
 		for (int bit = 0; bit < 4; bit++) {
 			EquipmentSlot slot = SLOT_BY_BIT[bit];
-			int stage = sequential ? buildStageTick(bit, s.transitionPlan) : stageTick(bit, s.transitionUp, type);
-			if (sequential && stage >= 0 && elapsed == stage + IronManSuitFx.BUILD_TICKS - 1
+			int stage = !sequential ? stageTick(bit, s.transitionUp, type)
+					: s.transitionUp ? buildStageTick(bit, s.transitionPlan) : unbuildStageTick(bit, s.transitionPlan);
+			if (sequential && s.transitionUp && stage >= 0 && elapsed == stage + IronManSuitFx.BUILD_TICKS - 1
 					&& player.getItemBySlot(slot).getItem() instanceof IronManArmorItem) {
 				// v0.14.27: the piece has finished building itself on -- it clamps home (sparks + the clamp sound)
 				stageFx(player, slot, true);
@@ -442,7 +466,7 @@ public final class IronManSuitUpManager {
 			}
 			// 2. a released piece whose break-away has finished (or the sequence is ending)
 			if ((s.transitionReleaseMask & (1 << bit)) != 0
-					&& (elapsed >= stage + IronManSuitFx.RELEASE_TICKS || s.transitionTicks <= 0)) {
+					&& (elapsed >= stage + releaseTicks || s.transitionTicks <= 0)) {
 				s.transitionReleaseMask &= ~(1 << bit);
 				removeForSuitDown(player, s, slot);
 				stageFx(player, slot, false);
@@ -483,12 +507,14 @@ public final class IronManSuitUpManager {
 			if (IronManArmor.wearingFullSuit(player, s.transitionSuit)) {
 				faceplateClose(player, s.transitionSuit);
 			}
+			if (!s.transitionFromCase) {
+				// v0.14.28: the suit is on -- drop the pose clock now (the body pose itself already eases out within
+				// 0.25 s of the last piece finishing, see IronManSuitPoses), so nothing holds the suit-up pose afterwards
+				IronManSuitFx.endPose(player);
+			}
 		} else {
 			if (s.transitionToCase) {
 				stampCase(player, s.transitionSuit);
-			}
-			if (!IronManArmor.wearingAnyIronMan(player)) {
-				TonyStark.setActiveSuit(player, "");
 			}
 			level.playSound(null, player.getX(), player.getY(), player.getZ(),
 					SoundEvents.NETHERITE_BLOCK_BREAK, SoundSource.PLAYERS, 0.6f, 0.9f);
@@ -499,6 +525,11 @@ public final class IronManSuitUpManager {
 		s.transitionReleaseMask = 0;
 		s.transitionPlan = 0;
 		s.transitionSuit = "";
+		// v0.14.28: AFTER the transition is cleared -- setActiveSuit saves a copy of the state, so calling it earlier
+		// carried the still-running transition into the new state object and the suit-down ended one tick late
+		if (!s.transitionUp && !IronManArmor.wearingAnyIronMan(player)) {
+			TonyStark.setActiveSuit(player, "");
+		}
 	}
 
 	/** Suit-up: the real stack for this slot -- out of the suitcase (Mark V) or the inventory. EMPTY if it is gone. */

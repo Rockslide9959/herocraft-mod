@@ -1343,6 +1343,7 @@
   "message.projecthero.ironman.send_back_no_platform": "No Suit Platform of yours can take the %s",
   "message.projecthero.ironman.send_back_docked": "%s sent home to the platform at %s, %s, %s",
   "message.projecthero.ironman.send_back_queued": "%s is flying home to the platform at %s, %s, %s",
+  "message.projecthero.ironman.send_back_flying": "%s is assembling, then flying home to %s, %s, %s",
   "message.projecthero.ironman.no_energy": "Suit energy depleted.",
   "message.projecthero.ironman.on_cooldown": "Recharging: %ss",
   "message.projecthero.ironman.need_chest": "Repulsors require the chestplate.",

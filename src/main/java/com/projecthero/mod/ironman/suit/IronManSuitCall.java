@@ -143,6 +143,9 @@ public final class IronManSuitCall {
 	 * player's platform -- docked at once if that platform is loaded, otherwise queued on {@link StarkSuitReturnQueue}
 	 * (the same fly-home path a suit takes when its wearer dies, minus the crash damage). Returns pieces sent.
 	 */
+	/** v0.14.28: how far in front of the player a sent-home suit stands while it builds itself (blocks). */
+	public static final double SEND_HOME_DISTANCE = 1.0;
+
 	public static int sendBack(ServerPlayer player, String suitId) {
 		IronManSuit suit = IronManSuits.byId(suitId);
 		if (suit == null || !TonyStark.hasPower(player)) {
@@ -162,53 +165,44 @@ public final class IronManSuitCall {
 					Component.translatable(suit.nameKey())).withStyle(ChatFormatting.RED), true);
 			return 0;
 		}
+		// v0.14.28: the pieces leave the pack and build themselves into a standing suit 1 block in front of the player
+		// (boots first, ~1 s each), which then flies home to the platform and docks; a platform out of reach (unloaded
+		// chunk) gets it through StarkSuitReturnQueue once the suit has climbed out of sight. Never lost: every stack is
+		// in exactly one place (pack -> courier -> platform / queue / back to the player).
 		int sent = 0;
 		Vec3 from = player.position().add(0, 1.0, 0);
-		if (dock != null) {
-			if (dock.owner().isEmpty()) {
-				dock.bindTo(player.getUUID());
+		BlockPos target = dock != null ? dock.getBlockPos() : regEntry.get().blockPos();
+		if (dock != null && dock.owner().isEmpty()) {
+			dock.bindTo(player.getUUID());
+		}
+		Vec3 look = player.getLookAngle();
+		Vec3 flat = new Vec3(look.x, 0, look.z);
+		flat = flat.lengthSqr() < 1.0e-4 ? Vec3.directionFromRotation(0f, player.getYRot()) : flat.normalize();
+		Vec3 feet = player.position().add(flat.scale(SEND_HOME_DISTANCE));
+		float faceYaw = player.getYRot() + 180f; // the suit faces its owner while it builds
+		ArmorItem.Type[] order = { ArmorItem.Type.BOOTS, ArmorItem.Type.LEGGINGS, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.HELMET };
+		int count = 0;
+		for (ArmorItem.Type t : order) {
+			if (carried.containsKey(t)) {
+				count++;
 			}
-			for (var e : carried.entrySet()) {
-				ItemStack st = items.get(e.getValue());
-				ItemStack one = st.copy();
-				if (dock.store(one)) { // store() splits one off the copy
-					st.shrink(1);
-					sent++;
-				}
+		}
+		for (ArmorItem.Type t : order) {
+			Integer idx = carried.get(t);
+			if (idx == null) {
+				continue;
 			}
-			BlockPos dp = dock.getBlockPos();
-			if (sent > 0) {
-				player.displayClientMessage(Component.translatable("message.projecthero.ironman.send_back_docked",
-						Component.translatable(suit.nameKey()), dp.getX(), dp.getY(), dp.getZ()).withStyle(ChatFormatting.AQUA), true);
-				Vec3 to = Vec3.atCenterOf(dp).add(0, 1.0, 0);
-				level.sendParticles(net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK, to.x, to.y, to.z, 16, 0.4, 0.6, 0.4, 0.05);
+			ItemStack one = items.get(idx).split(1);
+			if (one.isEmpty()) {
+				continue;
 			}
-		} else {
-			BlockPos pos = regEntry.get().blockPos();
-			List<ItemStack> stacks = new ArrayList<>();
-			int mask = 0;
-			ItemStack ref = null;
-			for (var e : carried.entrySet()) {
-				ItemStack st = items.get(e.getValue());
-				ItemStack one = st.split(1);
-				stacks.add(one);
-				if (ref == null || e.getKey() == ArmorItem.Type.CHESTPLATE) {
-					ref = one;
-				}
-				mask |= switch (e.getKey()) {
-					case HELMET -> 1;
-					case CHESTPLATE -> 2;
-					case LEGGINGS -> 4;
-					case BOOTS -> 8;
-					default -> 0;
-				};
-				sent++;
-			}
-			StarkSuitReturnQueue.get(level).enqueue(player.getUUID(),
-					net.minecraft.core.GlobalPos.of(level.dimension(), pos), suitId, mask,
-					IronManEnergy.stackEnergy(ref, suitId), IronManEnergy.stackIntegrity(ref, suitId), stacks);
-			player.displayClientMessage(Component.translatable("message.projecthero.ironman.send_back_queued",
-					Component.translatable(suit.nameKey()), pos.getX(), pos.getY(), pos.getZ()).withStyle(ChatFormatting.AQUA), true);
+			IronManSuitPartEntity.spawnHome(level, feet, faceYaw, player, one, sent, count, target);
+			sent++;
+		}
+		if (sent > 0) {
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.send_back_flying",
+					Component.translatable(suit.nameKey()), target.getX(), target.getY(), target.getZ())
+					.withStyle(ChatFormatting.AQUA), true);
 		}
 		if (sent > 0) {
 			level.sendParticles(net.minecraft.core.particles.ParticleTypes.CLOUD, from.x, from.y, from.z, 12, 0.3, 0.4, 0.3, 0.06);
@@ -534,7 +528,7 @@ public final class IronManSuitCall {
 		// arms out to receive the pieces while they are inbound (every viewer sees it); v0.14.27: the last piece then
 		// builds on over BUILD_TICKS, and the suit-up only completes once it has (IronManSuitUpManager.tick holds it)
 		IronManSuitFx.startPose(player, IronManSuitFx.POSE_RECEIVE, s.transitionTotal + IronManSuitFx.BUILD_TICKS,
-				IronManSuitFx.STYLE_PLATES, player.getRandom().nextInt(IronManSuitFx.POSE_VARIANTS));
+				IronManSuitFx.STYLE_PLATES, 0);
 	}
 
 	// ---------------- single pieces + the command path (v0.14.21: replaces IronManSuitSummonManager) ----------------

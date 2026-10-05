@@ -55,6 +55,12 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 
 	public static final int STYLE_PLATES = 0;
 	public static final int STYLE_CASE = 1;
+	/**
+	 * v0.14.28: an ordinary C suit-down -- each piece <b>un-builds</b> over {@link #BUILD_TICKS} (the outer shell
+	 * vanishes texel by texel, then the base layer opens in halves), helmet -> chestplate -> leggings -> boots: the exact
+	 * reverse of the suit-up. (The Suit Platform's retrieve keeps the quick {@link #RELEASE_TICKS} break-away.)
+	 */
+	public static final int STYLE_UNBUILD = 2;
 
 	public static final int POSE_NONE = 0;
 	/** Standing suit-up: arms out and slightly raised while the pieces lock on, then the faceplate beat. */
@@ -136,7 +142,7 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 		}
 		float age = gameTime - s + partial;
 		boolean up = assembling(b);
-		int window = up ? lockTicks() : RELEASE_TICKS;
+		int window = up ? lockTicks() : releaseTicks();
 		// v0.14.21 smoothness: a client clock a little behind the server's start tick reads as "just started" (not as
 		// "no clock", which drew the whole piece for a frame before it vanished and assembled), and a finished release
 		// keeps the piece gone for a second, until the slot-empty sync lands, instead of popping it back for a frame
@@ -153,12 +159,22 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 			return 1f;
 		}
 		int b = bit(slot);
-		return assembling(b) ? clamp(age / lockTicks()) : 1f - clamp(age / RELEASE_TICKS);
+		return assembling(b) ? clamp(age / lockTicks()) : 1f - clamp(age / releaseTicks());
 	}
 
 	/** How long a piece takes to go on in this style: {@link #BUILD_TICKS} (3 s build) or the Mark V case's {@link #LOCK_TICKS}. */
 	public int lockTicks() {
 		return style == STYLE_CASE ? LOCK_TICKS : BUILD_TICKS;
+	}
+
+	/** v0.14.28: how long a piece takes to come off in this style: the reverse build ({@link #STYLE_UNBUILD}) or the quick break-away. */
+	public int releaseTicks() {
+		return style == STYLE_UNBUILD ? BUILD_TICKS : RELEASE_TICKS;
+	}
+
+	/** v0.14.28: is a piece coming off as the reverse build (shell texels out, then the base halves open)? */
+	public boolean unbuilding() {
+		return style == STYLE_UNBUILD;
 	}
 
 	/** Is piece {@code bit} still building itself on at {@code gameTime}? (Server: holds the suit-up open until it is done.) */

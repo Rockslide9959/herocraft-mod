@@ -80,6 +80,29 @@ public class IronManSuitPartRenderer extends EntityRenderer<IronManSuitPartEntit
 		// The entity sits at the piece's own place on the body. In flight the piece tumbles at 85% size around that
 		// point; over the last 40% of the curve it stops tumbling, turns to the owner's body yaw and grows to full size,
 		// so it arrives exactly lined up on its slot (the armour stand's origin = the owner's feet) and clamps on.
+		if (entity.homeMode()) {
+			// v0.14.28 send-home: one piece of a standing suit -- upright, full size, building itself on, then flying home
+			float build = entity.build();
+			if (build <= 0f) {
+				return; // its turn has not come yet
+			}
+			double slotH = com.projecthero.mod.ironman.suit.IronManSuitUpManager.slotHeight(worn);
+			float yaw = net.minecraft.util.Mth.rotLerp(partialTicks, entity.yRotO, entity.getYRot());
+			pose.pushPose();
+			pose.mulPose(Axis.YP.rotationDegrees(-yaw));
+			pose.translate(0.0, -slotH, 0.0);
+			var dispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
+			dispatcher.setRenderShadow(false);
+			com.projecthero.mod.client.ironman.IronManSuitReveal.standBuild = build < 1f ? build : -1f;
+			try {
+				dispatcher.render(stand, 0.0, 0.0, 0.0, 0.0f, partialTicks, pose, buffers, packedLight);
+			} finally {
+				com.projecthero.mod.client.ironman.IronManSuitReveal.standBuild = -1f;
+				dispatcher.setRenderShadow(true);
+				pose.popPose();
+			}
+			return;
+		}
 		float age = entity.tickCount + partialTicks;
 		float align = smooth((entity.progress() - 0.6f) / 0.4f);
 		float ownerYaw = 0f;
