@@ -26,7 +26,7 @@ public final class IronManSuits {
 	// trivially satisfied the instant a player has the Tony Stark power.
 	public static final IronManSuit MARK_1 = register(IronManSuit.Builder.of("mark_1")
 			.tech(0, 1)
-			.energy(3_000f, 3.0f)
+			.energy(1_000f, 3.0f) // v0.14.22: down from 3000, explicit user request
 			.maxIntegrity(1000f) // v0.11.12: up from 300, explicit user request
 			.energyRegen(6f) // v0.11.12: flat passive 6 energy/sec (was 0.7 -- explicit user request)
 			.platformRegen(10f, 6f) // v0.11.12: flat 10 energy/sec + 6 integrity/sec on a Suit Platform,

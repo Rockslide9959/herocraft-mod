@@ -594,3 +594,13 @@ Riders used to float about two blocks above the Carry Platform: each cell's invi
 stand, and a stand seats its rider at its own 2-block height. The seats are now zero-size MARKER stands on the cell's
 top surface (`GreenLanternConstructs#newCarrySeat`), so a rider sits on the platform itself. Test:
 `GreenLanternGameTests#carryPlatformRidersSitOnThePlatform`.
+
+## v0.14.22: Rescue Tether bubble, no time limit
+
+- Whatever the tether carries sits inside a bubble of hard light: a `HardLightConstructEntity` with the new
+  `Shape.BUBBLE` (radius = half the target's bounding-box diagonal + 0.3, in its scale), kept on the target by
+  `GreenLanternConstructs.tickRescueHeld` and drawn by `HardLightConstructRenderer#bubble` on the target's own
+  interpolated position (two `TurboDraw.sphere` shells). Throwing, setting down or losing the target pops it with
+  the usual 5-tick fade.
+- No time limit: `TETHER_UPKEEP_PER_SEC` 1 -> 0, so an empty ring no longer drops the target. Only C (throw) and
+  N / Shift+C (set down) end the carry, plus the existing 20-block leash.

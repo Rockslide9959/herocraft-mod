@@ -155,7 +155,11 @@ public final class IronManSuitCall {
 	/**
 	 * "changes 19": plain C when unarmoured -- if a whole suit is sitting in your inventory, just put it
 	 * on (no picker). Prefers your last active suit, then the highest tech tier. Returns false (so the
-	 * caller falls back to {@link #openMenu}) if no complete suit is in the inventory.
+	 * caller falls back to {@link #openMenu}) if no armour at all is in the inventory.
+	 *
+	 * <p>v0.14.22, explicit user request ("when player has an armour in their inventory pressing c should
+	 * automatically equip that armour"): a packed Mark V suitcase and an incomplete set now count too --
+	 * complete sets first, then the suitcase, then whichever partial set has the most pieces.
 	 */
 	public static boolean autoEquipInventorySuit(ServerPlayer player) {
 		if (!TonyStark.hasPower(player) || IronManArmor.wearingAnyIronMan(player)
@@ -178,11 +182,30 @@ public final class IronManSuitCall {
 				pick = o;
 			}
 		}
-		if (pick == null) {
-			return false;
+		if (pick != null) {
+			return IronManSuitUpManager.beginSuitUp(player, pick.suitId());
 		}
-		IronManSuitUpManager.beginSuitUp(player, pick.suitId());
-		return true;
+		for (IronManSuit suit : IronManSuits.all()) {
+			if (suit.summonType() == SummonType.SUITCASE_ITEM
+					&& IronManSuitUpManager.findDeployableCase(player, suit.id()) >= 0) {
+				return IronManSuitUpManager.beginSuitUpFromCase(player, suit.id());
+			}
+		}
+		String partial = null;
+		int best = 0;
+		for (IronManSuit suit : IronManSuits.all()) {
+			int n = 0;
+			for (ArmorItem.Type type : TYPES) {
+				if (findInInventory(player, suit.id(), type) != null) {
+					n++;
+				}
+			}
+			if (n > best || (n > 0 && n == best && suit.id().equals(active))) {
+				best = n;
+				partial = suit.id();
+			}
+		}
+		return partial != null && IronManSuitUpManager.beginSuitUp(player, partial);
 	}
 
 	/**

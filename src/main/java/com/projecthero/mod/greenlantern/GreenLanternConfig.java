@@ -310,7 +310,8 @@ public final class GreenLanternConfig {
 	// both free follow-ups to an existing hold.
 	// v0.11.7: cost 20 to cast + 1/sec to maintain the hold, 30-block grab range -- explicit user request.
 	public static final float TETHER_COST = 20f;
-	public static final float TETHER_UPKEEP_PER_SEC = 1f;
+	// v0.14.22, explicit user request: no time limit on the carry, so no upkeep (the hold used to drain 1/sec).
+	public static final float TETHER_UPKEEP_PER_SEC = 0f;
 	public static final double TETHER_RANGE = 30.0;
 	public static final int TETHER_COOLDOWN_TICKS = 80; // 4s
 	/** Blocks in front of the caster's eyes the held target is glued to each tick. */

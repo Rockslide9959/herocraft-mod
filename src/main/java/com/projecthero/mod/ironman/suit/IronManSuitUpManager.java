@@ -265,7 +265,7 @@ public final class IronManSuitUpManager {
 		launchFx(player, up);
 	}
 
-	private static int findDeployableCase(ServerPlayer player, String suitId) {
+	static int findDeployableCase(ServerPlayer player, String suitId) {
 		net.minecraft.world.item.Item caseItem = suitcaseItemFor(suitId);
 		if (caseItem == null) {
 			return -1;

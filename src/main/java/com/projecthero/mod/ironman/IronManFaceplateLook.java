@@ -3,8 +3,8 @@ package com.projecthero.mod.ironman;
 /**
  * v0.14.21: how the H faceplate looks while it lifts (pure math, shared by the client and the gametests). The faceplate
  * bone swings on a hinge at its own top-front edge, against the top-front edge of the helmet, over {@link #LIFT_TICKS}
- * ticks: out, up and over the top (never through the head), and it comes to rest lying flush on the crown, just above
- * the brow, with a small mechanical settle. It stays there while the faceplate is open; the rest of the helmet stays on
+ * ticks: out and up, and (v0.14.22) it stops at 90 degrees, level with the brow and still in view, with a small
+ * mechanical settle. It stays there while the faceplate is open; the rest of the helmet stays on
  * and the face shows through (the helmet's front faces are skipped while raised). Closing runs it backwards and seals.
  * Being a sibling of {@code helmet} under {@code armorHead}, it follows the head at every angle.
  *
@@ -14,13 +14,13 @@ package com.projecthero.mod.ironman;
 public final class IronManFaceplateLook {
 	public static final int LIFT_TICKS = 10;
 	/**
-	 * Raised angle about the hinge (degrees, forward = out and up first). 270 lays the plate flat on the crown, touching
-	 * the helmet along the whole hinge edge -- flush, no gap. (The first 105-degree version jutted out in front like a cap
-	 * peak and read as "disconnected"; 200 stood it up off the head.)
+	 * Raised angle about the hinge (degrees, forward = out and up first). v0.14.22, explicit user request: 90 -- the plate
+	 * swings up level with the brow and stops there, so it stays in view instead of disappearing over the top of the head
+	 * (v0.14.21 used 270, flat on the crown).
 	 */
-	public static final float RAISED_DEG = 270f;
-	/** On landing the plate bounces back up off the crown by this much and settles again. */
-	public static final float SETTLE_DEG = 9f;
+	public static final float RAISED_DEG = 90f;
+	/** On reaching the stop the plate dips back by this much and settles again. */
+	public static final float SETTLE_DEG = 6f;
 	/**
 	 * The hinge, bedrock geometry coordinates: exactly the faceplate cube's own top-front edge (origin y 24.15 + size
 	 * 7.75 + inflate 0.2 = 32.1; z -4.72 - inflate 0.2 = -4.92; identical in all seven marks), which sits against the

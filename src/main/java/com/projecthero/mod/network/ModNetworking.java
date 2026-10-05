@@ -16,6 +16,7 @@ public final class ModNetworking {
 	}
 
 	public static void initialize() {
+		VersionCheck.initialize(); // v0.14.22: kick mismatched clients instead of desyncing block-state ids
 		PayloadTypeRegistry.playC2S().register(ThorActionPayload.TYPE, ThorActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(AbilityInputPayload.TYPE, AbilityInputPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(PowerSelectPayload.TYPE, PowerSelectPayload.CODEC);

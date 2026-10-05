@@ -161,7 +161,10 @@ public final class IronManItems {
 			String path = "iron_man_" + suitId + "_" + type.getName();
 			IronManArmorItem item = register(path, new IronManArmorItem(material, type,
 					new Item.Properties().rarity(Rarity.EPIC)
-							.durability(type.getDurability(45))
+							// v0.14.22, explicit user request: no durability -- suit integrity is the damage model.
+							// No max_damage means vanilla never wears the piece down (and an old save's leftover
+							// damage value is simply ignored); durability() also set the stack size, so keep it at 1.
+							.stacksTo(1)
 							.component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true),
 					suitId));
 			pieces.put(type, item);

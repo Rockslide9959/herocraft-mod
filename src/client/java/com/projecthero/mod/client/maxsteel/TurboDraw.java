@@ -83,6 +83,38 @@ public final class TurboDraw {
 		pose.popPose();
 	}
 
+	/**
+	 * v0.14.22: a smooth latitude / longitude sphere of radius {@code radius} at the current origin, normals pointing out
+	 * (the Rescue Tether bubble).
+	 */
+	public static void sphere(VertexConsumer vc, PoseStack pose, float radius, int rgb, float alpha) {
+		final int lat = 12;
+		final int lon = 20;
+		int r = (rgb >> 16) & 0xFF;
+		int g = (rgb >> 8) & 0xFF;
+		int b = rgb & 0xFF;
+		int a = Math.max(0, Math.min(255, (int) (alpha * 255f)));
+		PoseStack.Pose p = pose.last();
+		for (int i = 0; i < lat; i++) {
+			double t0 = Math.PI * i / lat - Math.PI / 2;
+			double t1 = Math.PI * (i + 1) / lat - Math.PI / 2;
+			for (int j = 0; j < lon; j++) {
+				double p0 = 2 * Math.PI * j / lon;
+				double p1 = 2 * Math.PI * (j + 1) / lon;
+				float[] v00 = unit(t0, p0), v01 = unit(t0, p1), v11 = unit(t1, p1), v10 = unit(t1, p0);
+				float nx = (v00[0] + v11[0]) * 0.5f, ny = (v00[1] + v11[1]) * 0.5f, nz = (v00[2] + v11[2]) * 0.5f;
+				quad(vc, p, r, g, b, a, nx, ny, nz,
+						v00[0] * radius, v00[1] * radius, v00[2] * radius, v10[0] * radius, v10[1] * radius, v10[2] * radius,
+						v11[0] * radius, v11[1] * radius, v11[2] * radius, v01[0] * radius, v01[1] * radius, v01[2] * radius);
+			}
+		}
+	}
+
+	private static float[] unit(double theta, double phi) {
+		double c = Math.cos(theta);
+		return new float[] { (float) (c * Math.cos(phi)), (float) Math.sin(theta), (float) (c * Math.sin(phi)) };
+	}
+
 	/** Mixes {@code rgb} toward white by {@code t} (0..1). */
 	public static int toWhite(int rgb, float t) {
 		int r = (rgb >> 16) & 0xFF;

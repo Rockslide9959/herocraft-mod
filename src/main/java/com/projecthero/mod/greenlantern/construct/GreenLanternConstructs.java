@@ -13,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.greenlantern.GreenLantern;
 import com.projecthero.mod.greenlantern.GreenLanternConfig;
+import com.projecthero.mod.greenlantern.entity.HardLightConstructEntity;
 import com.projecthero.mod.greenlantern.GreenLanternEnergy;
 import com.projecthero.mod.greenlantern.GreenLanternOath;
 import com.projecthero.mod.greenlantern.block.GreenLanternBlocks;
@@ -197,6 +198,7 @@ public final class GreenLanternConstructs {
 	public static void clearSessionState() {
 		BY_OWNER.clear();
 		RESCUE_HELD.clear();
+		RESCUE_BUBBLE.clear();
 		CELL_INDEX.clear();
 		LIVE_DISPLAYS.clear();
 		PENDING_DISCARD.clear();
@@ -823,6 +825,8 @@ public final class GreenLanternConstructs {
 
 	/** Player UUID -> the entity id they're currently carrying via Rescue Tether (absent = not holding). */
 	private static final Map<UUID, Integer> RESCUE_HELD = new ConcurrentHashMap<>();
+	/** v0.14.22: player UUID -> the hard-light bubble construct drawn round what they are carrying. */
+	private static final Map<UUID, Integer> RESCUE_BUBBLE = new ConcurrentHashMap<>();
 
 	/**
 	 * Rescue Tether reworked (v0.11.6, explicit user request: "make it a grab move, players press c and
@@ -864,6 +868,7 @@ public final class GreenLanternConstructs {
 				target.getBbWidth() * 0.5, 0.02);
 
 		RESCUE_HELD.put(player.getUUID(), target.getId());
+		spawnRescueBubble(player, target);
 		target.setDeltaMovement(Vec3.ZERO);
 		target.fallDistance = 0f;
 		AbilityHelpers.sound(player, SoundEvents.TRIDENT_RETURN, 0.8f, 1.1f);
@@ -889,13 +894,11 @@ public final class GreenLanternConstructs {
 		if (!(e instanceof LivingEntity target) || !target.isAlive()
 				|| player.distanceToSqr(target) > GreenLanternConfig.TETHER_MAX_HOLD_RANGE_SQR) {
 			RESCUE_HELD.remove(player.getUUID());
+			popRescueBubble(player);
 			return;
 		}
-		if (player.tickCount % 20 == 0
-				&& !GreenLanternEnergy.drainTick(player, GreenLanternConfig.TETHER_UPKEEP_PER_SEC)) {
-			releaseRescueHeldSafely(player);
-			return;
-		}
+		// v0.14.22, explicit user request: no time limit on the carry -- the per-second upkeep that used to wear the
+		// charge down and drop the target is gone. Only C (throw) / Shift+C (set down) end it.
 		Vec3 eye = player.getEyePosition();
 		Vec3 look = player.getLookAngle();
 		Vec3 hold = eye.add(look.scale(GreenLanternConfig.TETHER_HOLD_DISTANCE));
@@ -909,6 +912,13 @@ public final class GreenLanternConstructs {
 		target.setDeltaMovement(Vec3.ZERO);
 		target.fallDistance = 0f;
 		target.hurtMarked = true;
+		Integer bubbleId = RESCUE_BUBBLE.get(player.getUUID());
+		net.minecraft.world.entity.Entity bubble = bubbleId == null ? null : player.level().getEntity(bubbleId);
+		if (bubble == null || bubble.isRemoved()) {
+			spawnRescueBubble(player, target);
+		} else {
+			bubble.setPos(hold.x, hold.y, hold.z);
+		}
 		if (player.tickCount % 2 == 0) {
 			ServerLevel level = player.serverLevel();
 			AbilityHelpers.line(level, AbilityHelpers.handPosition(player), hold, FINE_DUST, 2.5);
@@ -917,8 +927,49 @@ public final class GreenLanternConstructs {
 		}
 	}
 
+	/**
+	 * v0.14.22, explicit user request: a bubble of hard light round whatever the tether is carrying. It is a
+	 * {@link HardLightConstructEntity} (shape BUBBLE, radius in its scale) that {@link #tickRescueHeld} keeps on the
+	 * target; the renderer draws it on the target's own interpolated position so it never lags behind.
+	 */
+	private static void spawnRescueBubble(ServerPlayer player, LivingEntity target) {
+		popRescueBubble(player);
+		double hw = target.getBbWidth() * 0.5;
+		double hh = target.getBbHeight() * 0.5;
+		float radius = (float) (Math.sqrt(hw * hw + hh * hh) + 0.3);
+		Vec3 mid = target.position().add(0, hh, 0);
+		HardLightConstructEntity bubble = HardLightConstructEntity.create(player.serverLevel(),
+				HardLightConstructEntity.Shape.BUBBLE, player.getUUID(), mid, radius, 0);
+		bubble.setTargetId(target.getId());
+		player.serverLevel().addFreshEntity(bubble);
+		RESCUE_BUBBLE.put(player.getUUID(), bubble.getId());
+	}
+
+	/** v0.14.22 (gametests): the entity id the player is carrying with Rescue Tether, or -1. */
+	public static int rescueHeldId(ServerPlayer player) {
+		return RESCUE_HELD.getOrDefault(player.getUUID(), -1);
+	}
+
+	/** v0.14.22 (gametests): the entity id of the bubble round the carried target, or -1. */
+	public static int rescueBubbleId(ServerPlayer player) {
+		return RESCUE_BUBBLE.getOrDefault(player.getUUID(), -1);
+	}
+
+	/** Ends the bubble with the renderer's 5-tick fade (its life runs out a few ticks from now). */
+	private static void popRescueBubble(ServerPlayer player) {
+		Integer id = RESCUE_BUBBLE.remove(player.getUUID());
+		if (id == null) {
+			return;
+		}
+		if (player.level().getEntity(id) instanceof HardLightConstructEntity bubble && !bubble.isRemoved()) {
+			bubble.setTargetId(-1);
+			bubble.setLife(bubble.tickCount + 5);
+		}
+	}
+
 	/** Second C press while holding: launches the held target in the caster's look direction. */
 	private static void throwRescueHeld(ServerPlayer player) {
+		popRescueBubble(player);
 		Integer id = RESCUE_HELD.remove(player.getUUID());
 		if (id == null) {
 			return;
@@ -943,6 +994,7 @@ public final class GreenLanternConstructs {
 	 * @return true if something was actually being held and released.
 	 */
 	public static boolean releaseRescueHeldSafely(ServerPlayer player) {
+		popRescueBubble(player);
 		Integer id = RESCUE_HELD.remove(player.getUUID());
 		if (id == null) {
 			return false;

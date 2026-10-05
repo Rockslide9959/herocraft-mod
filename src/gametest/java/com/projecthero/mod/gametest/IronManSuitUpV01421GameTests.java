@@ -638,8 +638,8 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 		}
 		h.assertTrue(x == 1f, "fully raised after LIFT_TICKS");
 		h.assertTrue(com.projecthero.mod.ironman.IronManFaceplateLook.angle(1f) == com.projecthero.mod.ironman.IronManFaceplateLook.RAISED_DEG
-				&& com.projecthero.mod.ironman.IronManFaceplateLook.RAISED_DEG == 270f, "rests flat on the crown, flush with the helmet");
-		h.assertTrue(max <= com.projecthero.mod.ironman.IronManFaceplateLook.RAISED_DEG + 1e-3f, "never swings past the crown into the helmet");
+				&& com.projecthero.mod.ironman.IronManFaceplateLook.RAISED_DEG == 90f, "v0.14.22: lifts 90 degrees and stays in view");
+		h.assertTrue(max <= com.projecthero.mod.ironman.IronManFaceplateLook.RAISED_DEG + 1e-3f, "never swings past its stop");
 		h.assertTrue(com.projecthero.mod.ironman.IronManFaceplateLook.angle(0.9f) < com.projecthero.mod.ironman.IronManFaceplateLook.RAISED_DEG - 1f,
 				"a small mechanical settle after landing");
 		h.assertTrue(com.projecthero.mod.ironman.IronManFaceplateLook.step(1f, true) == 1f, "stays raised while open");

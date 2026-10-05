@@ -60,6 +60,7 @@ public class HardLightConstructRenderer extends EntityRenderer<HardLightConstruc
 			case CHAINS -> chains(e, vc, pose, age, alpha, partial);
 			case LAUNCH_PAD -> pad(e, vc, pose, age, alpha);
 			case WARRIOR -> warrior(e, vc, pose, age, alpha, partial);
+			case BUBBLE -> bubble(e, vc, pose, age, alpha, partial);
 		}
 		pose.popPose();
 	}
@@ -236,6 +237,25 @@ public class HardLightConstructRenderer extends EntityRenderer<HardLightConstruc
 			pose.popPose();
 		}
 		HardLightDraw.glow(vc, pose, 0f, 0f, 0f, 0.13f, 0.07f, 0.13f, alpha);
+	}
+
+	// ---------------------------------------------------------------- rescue bubble (v0.14.22)
+
+	/**
+	 * A shimmering sphere of hard light round the Rescue Tether's cargo. Drawn on the carried entity's own interpolated
+	 * position (it moves every tick, so following the bubble entity alone would trail a tick behind), with a brief pop-in.
+	 */
+	private static void bubble(HardLightConstructEntity e, VertexConsumer vc, PoseStack pose, float age, float alpha, float partial) {
+		net.minecraft.world.entity.Entity cargo = e.targetId() >= 0 ? e.level().getEntity(e.targetId()) : null;
+		if (cargo != null) {
+			Vec3 at = cargo.getPosition(partial).add(0, cargo.getBbHeight() * 0.5, 0).subtract(e.getPosition(partial));
+			pose.translate(at.x, at.y, at.z);
+		}
+		float grow = Math.min(1f, age / 5f);
+		float r = e.scale() * (0.6f + 0.4f * grow) * (1f + 0.025f * Mth.sin(age * 0.25f));
+		pose.mulPose(Axis.YP.rotationDegrees(age * 1.5f));
+		TurboDraw.sphere(vc, pose, r, HardLightDraw.GREEN, 0.22f * alpha);
+		TurboDraw.sphere(vc, pose, r * 1.04f, HardLightDraw.PALE, 0.12f * alpha);
 	}
 
 	// ---------------------------------------------------------------- anvil

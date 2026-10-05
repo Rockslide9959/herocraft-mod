@@ -1,0 +1,27 @@
+Project Hero v0.14.22 -- Iron Man Quality of Life, Mark I Rebalance, Rescue Tether Bubble & Version Check
+
+🦾 IRON MAN
+Equipping
+- Press C with armour in your inventory and it goes straight on -- no menu. A full set is used first (your last suit, then the highest tier), then a packed Mark V suitcase, and now even an incomplete set (whatever pieces you are carrying).
+- Sneak + C always opens the Call Armour menu instead, so you can still pick a suit from a platform while carrying one. With no armour on you, plain C opens the menu like before.
+- Iron Man armour no longer loses durability. Suit Integrity is the only damage model now, so your pieces never wear out or break like normal armour (and the durability bar is gone).
+- The faceplate (H) now lifts 90 degrees and stops level with the brow, so you can still see it, instead of folding all the way onto the top of the helmet.
+
+Mark I rebalance
+- Max energy: 3000 -> 1000
+- R Strong Punch: now costs 25 energy (was 20)
+- G Flamethrower: 5 damage per tick plus burning (was 2.5), and the flame now comes out of your wrist instead of your hand
+- Z Rocket: 30 damage (was 25), cooldown 10 seconds (was 25)
+- X Flight: costs a little more -- 30 to start (was 20) and 1.5 energy per second (was 1)
+
+💚 GREEN LANTERN
+- Rescue Tether now wraps whatever you are carrying in a glowing bubble of hard light.
+- No more time limit on the carry: holding something no longer drains your ring, so you can carry it for as long as you like. Press C to throw it, N to set it down gently.
+
+🛠️ FIXES & STABILITY
+- Client/server version check: joining a server that runs a different Project Hero version now stops you with a clear message showing both versions, instead of letting you in with a broken world. (Mismatched versions were why some players saw Hard-Light constructs and other blocks turn into Stark Fabricators and Suit Platforms. If that happened to you, make sure your mods folder has only ONE Project Hero jar and that it matches the server.)
+- Joining a server older than 0.14.22 shows a warning in chat, since an older server cannot run the check.
+
+📖 GUIDEBOOK
+- Iron Man controls and suit-up pages updated for the new C / Sneak + C behaviour, the 90-degree faceplate and durability-free armour.
+- Green Lantern constructs page and the Rescue Tether description updated for the bubble and the unlimited carry.

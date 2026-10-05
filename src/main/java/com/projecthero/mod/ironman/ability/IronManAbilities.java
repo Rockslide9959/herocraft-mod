@@ -121,10 +121,13 @@ public final class IronManAbilities {
 	private static final float PUNCH_DAMAGE = 12.0f;
 	private static final double PUNCH_RANGE = 4.0;
 	private static final int PUNCH_COOLDOWN_TICKS = 10; // half a second -- a punch should feel snappy
-	private static final float PUNCH_ENERGY_COST = 20f; // v0.11.12: down from 30, explicit user request
+	public static final float PUNCH_ENERGY_COST = 25f; // v0.14.22: up from 20 (was 30 before v0.11.12), explicit user request
 
 	private static final float FLAMETHROWER_ENERGY_PER_TICK = 0.25f; // v0.11.12: 5/sec (was 6/tick = 120/sec), explicit user request
 	private static final double FLAMETHROWER_REACH = 6.0;
+	private static final float FLAMETHROWER_DAMAGE = 2.5f;
+	/** v0.14.22, explicit user request: Mark 1 burns harder than the Mark VII wheel flamethrower (was 2.5). */
+	public static final float MARK_1_FLAMETHROWER_DAMAGE = 5.0f;
 	/**
 	 * Mark 1 Flamethrower heat gauge ("changes 14") -- the same overheat model as Pyrokinesis's
 	 * flamethrower ability. Starts at 0, climbs {@value #FLAMETHROWER_HEAT_PER_TICK}/tick while the
@@ -147,9 +150,9 @@ public final class IronManAbilities {
 	private static final int ROCKET_COOLDOWN_TICKS = 20 * 20;
 	// v0.11.13, explicit user request: Mark 1 and Mark 2 now each have their own Rocket tuning (was one
 	// shared set of constants for both) and both now break blocks on impact (see IronManMissileEntity).
-	private static final float MARK_1_ROCKET_DAMAGE = 25.0f;
+	public static final float MARK_1_ROCKET_DAMAGE = 30.0f; // v0.14.22: up from 25, explicit user request
 	private static final float MARK_1_ROCKET_ENERGY_COST = 100f;
-	private static final int MARK_1_ROCKET_COOLDOWN_TICKS = 25 * 20;
+	public static final int MARK_1_ROCKET_COOLDOWN_TICKS = 10 * 20; // v0.14.22: down from 25 s, explicit user request
 	private static final float MARK_2_ROCKET_ENERGY_COST = 50f;
 
 	private static final double FLARE_RADIUS = 10.0;
@@ -158,10 +161,10 @@ public final class IronManAbilities {
 	private static final float FLARE_ENERGY_COST = 60f;
 
 	public static final int TIMED_FLIGHT_TICKS = 20 * 20;
-	private static final float TIMED_FLIGHT_ACTIVATION_COST = 20f; // v0.11.12: down from 500, explicit user request
+	public static final float TIMED_FLIGHT_ACTIVATION_COST = 30f; // v0.14.22: up from 20 ("slightly"), explicit user request
 	/** v0.11.12, explicit user request: on top of the flat activation cost, the burst also drains this
 	 *  much energy per second for as long as it stays airborne. */
-	public static final float TIMED_FLIGHT_DRAIN_PER_SECOND = 1.0f;
+	public static final float TIMED_FLIGHT_DRAIN_PER_SECOND = 1.5f; // v0.14.22: up from 1.0, explicit user request
 	/** Cooldown applied to the Mark 1 flight burst once it ends ("changes 15"). */
 	public static final int TIMED_FLIGHT_COOLDOWN_TICKS = 13 * 20;
 
@@ -920,7 +923,8 @@ public final class IronManAbilities {
 		for (LivingEntity e : AbilityHelpers.enemiesAround(player, origin.add(look.scale(2.5)), 3.0)) {
 			Vec3 to = e.position().subtract(origin).normalize();
 			if (to.dot(look) > 0.6) {
-				AbilityHelpers.hurt(player, e, AbilityHelpers.fire(player), 2.5f);
+				AbilityHelpers.hurt(player, e, AbilityHelpers.fire(player),
+						"mark_1".equals(suit.id()) ? MARK_1_FLAMETHROWER_DAMAGE : FLAMETHROWER_DAMAGE);
 				e.setRemainingFireTicks(80);
 			}
 		}
@@ -929,9 +933,17 @@ public final class IronManAbilities {
 		var bhr = AbilityHelpers.raycastBlock(player, FLAMETHROWER_REACH);
 		double streamLen = bhr.getType() == HitResult.Type.BLOCK
 				? origin.distanceTo(bhr.getLocation()) : FLAMETHROWER_REACH;
+		// v0.14.22, explicit user request: the flame leaves the suit wrist, not the hand / eyes, and
+		// converges on the same aim point the damage cone uses.
+		Vec3 nozzle = flamethrowerNozzle(player, suit);
+		Vec3 aimEnd = origin.add(look.scale(streamLen));
+		Vec3 stream = aimEnd.subtract(nozzle);
+		double nozzleLen = Math.max(0.5, stream.length());
+		Vec3 streamDir = stream.scale(1.0 / nozzleLen);
 		for (double d = 0.5; d <= streamLen + 0.01; d += 0.5) {
 			Vec3 pt = origin.add(look.scale(d));
-			level.sendParticles(ParticleTypes.FLAME, pt.x, pt.y, pt.z, 3, 0.12 * d, 0.12 * d, 0.12 * d, 0.02);
+			Vec3 fx = nozzle.add(streamDir.scale(nozzleLen * d / streamLen));
+			level.sendParticles(ParticleTypes.FLAME, fx.x, fx.y, fx.z, 3, 0.12 * d, 0.12 * d, 0.12 * d, 0.02);
 			if (player.tickCount % 2 == 0 && flamethrowerFireOk()) {
 				BlockPos bp = BlockPos.containing(pt);
 				boolean nearSurface = !level.getBlockState(bp.below()).isAir() || !level.getBlockState(bp.above()).isAir()
@@ -979,6 +991,21 @@ public final class IronManAbilities {
 	}
 
 	// ---------------- Mark 1 / Mark 2: Rocket ----------------
+
+	/**
+	 * v0.14.22: where the flamethrower stream starts -- the main-arm wrist, a little behind and below
+	 * where {@link AbilityHelpers#handPosition} puts the held item, scaled with the suit (Mark 1 is 1.25x).
+	 */
+	static Vec3 flamethrowerNozzle(ServerPlayer player, IronManSuit suit) {
+		float scale = suit == null ? 1f : suit.scale();
+		Vec3 look = player.getLookAngle();
+		Vec3 right = look.cross(new Vec3(0, 1, 0));
+		right = right.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : right.normalize();
+		if (player.getMainArm() == net.minecraft.world.entity.HumanoidArm.LEFT) {
+			right = right.scale(-1);
+		}
+		return player.getEyePosition().add(look.scale(0.15 * scale)).add(right.scale(0.42 * scale)).add(0, -0.6 * scale, 0);
+	}
 
 	private static void rocket(ServerPlayer player, IronManSuit suit) {
 		boolean mark1 = "mark_1".equals(suit.id());

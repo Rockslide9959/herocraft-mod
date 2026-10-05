@@ -29,7 +29,9 @@ import net.minecraft.world.phys.Vec3;
  */
 public class HardLightConstructEntity extends Entity {
 	public enum Shape {
-		BOLT, BEAM, FIST, HAMMER, MISSILE, BUZZSAW, ANVIL, HAND, CHAINS, LAUNCH_PAD, WARRIOR;
+		BOLT, BEAM, FIST, HAMMER, MISSILE, BUZZSAW, ANVIL, HAND, CHAINS, LAUNCH_PAD, WARRIOR,
+		/** v0.14.22: the Rescue Tether's hard-light bubble round whatever is being carried (scale = radius). */
+		BUBBLE;
 
 		public static Shape byId(int id) {
 			Shape[] all = values();
