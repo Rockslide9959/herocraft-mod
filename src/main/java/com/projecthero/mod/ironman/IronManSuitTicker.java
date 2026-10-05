@@ -176,6 +176,9 @@ public final class IronManSuitTicker {
 		IronManAbilities.tickPendingFlightBurst(player, suit);
 		// v0.14.27 (agent D): Mark III minigun / held Unibeam / micro-missile volley / energy shield
 		com.projecthero.mod.ironman.ability.IronManMark3.tick(player, suit);
+		// v0.14.29 (agent C): Mark 6 surge / held Unibeam / barrage, Mark 7 held Unibeam / wheel laser
+		com.projecthero.mod.ironman.ability.IronManMark6.tick(player, suit);
+		com.projecthero.mod.ironman.ability.IronManMark7.tick(player, suit);
 		IronManEnergy.tickRecharge(player, suit);
 		IronManEnergy.tickArmorRegen(player, suit); // "changes 18": Mark III+ slowly self-repair while worn
 	}
@@ -279,5 +282,7 @@ public final class IronManSuitTicker {
 		IronManAbilities.clearPendingFlightBurst(player); // v0.14.27: a queued Shift+X burst dies with the suit
 		// v0.14.27 (agent D): Mark III held weapons + energy shield
 		com.projecthero.mod.ironman.ability.IronManMark3.shutDown(player);
+		com.projecthero.mod.ironman.ability.IronManMark6.shutDown(player); // v0.14.29 (agent C)
+		com.projecthero.mod.ironman.ability.IronManMark7.shutDown(player);
 	}
 }

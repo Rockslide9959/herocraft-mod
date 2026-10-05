@@ -91,6 +91,9 @@ public final class ServerStateReset {
 		IronManSuitCall.clearPending();
 		com.projecthero.mod.ironman.drone.IronManDrones.clearSessionState(); // v0.14.29 agent E: Remote Pilot links
 		com.projecthero.mod.ironman.ability.IronManMark3.clearSessionState(); // v0.14.27 (agent D)
+		com.projecthero.mod.ironman.ability.IronManMark6.clearSessionState(); // v0.14.29 (agent C)
+		com.projecthero.mod.ironman.ability.IronManMark7.clearSessionState();
+		com.projecthero.mod.ironman.ability.IronManHeldBeam.clearSessionState();
 		com.projecthero.mod.event.entity.CursedZombieSpawns.clearSessionState();
 		com.projecthero.mod.event.raid.ZombieRaidNetworking.clearSessionState();
 		com.projecthero.mod.worldgen.GraveyardTracker.clearSessionState();

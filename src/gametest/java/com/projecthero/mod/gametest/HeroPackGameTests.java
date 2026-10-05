@@ -1907,7 +1907,7 @@ public class HeroPackGameTests implements FabricGameTest {
 	 *  except the "changes 16" Mark VII, whose slot 5 is the weapon wheel. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void advancedMarksCarryMobHighlightInsteadOfTargeting(GameTestHelper helper) {
-		for (String id : new String[]{"mark_6"} /* v0.14.27: Mark III V = its weapon wheel; v0.14.29: Mark 4 too, Mark 5 V = Blades */) {
+		for (String id : new String[]{} /* v0.14.29: Mark III/4 V = weapon wheel, Mark 5 V = Blades, Mark 6 V = barrage, Mark 7 V = wheel */) {
 			var suit = com.projecthero.mod.ironman.suit.IronManSuits.byId(id);
 			helper.assertTrue(com.projecthero.mod.ironman.ability.IronManAbilities.MOB_HIGHLIGHT_TOGGLE.equals(suit.abilityInSlot(5)),
 					id + " slot 5 must be the mob-highlight toggle");
@@ -2047,7 +2047,8 @@ public class HeroPackGameTests implements FabricGameTest {
 		// "changes 17": entity highlight is now a coloured weapon-wheel toggle, not an always-on passive.
 		helper.assertTrue(m7.coloredEntityGlow() && m7.toggleableHighlight(),
 				"mark_vii entity glow must be a coloured toggle");
-		helper.assertTrue(m7.airTankSeconds() == 420, "mark_vii air tank must be 7 minutes");
+		helper.assertTrue(m7.waterBreathing(), "v0.14.29: mark_vii breathes underwater indefinitely");
+		helper.assertTrue(com.projecthero.mod.ironman.ability.IronManMark6.SURGE.equals(m6.abilityInSlot(3)), "v0.14.29: mark_6 X is the Arc Reactor Surge");
 		helper.assertTrue(m7.maxIntegrity() == 950f && m7.energyCapacity() == 12_000f, "mark_vii pools ('changes 18')");
 		helper.assertTrue(com.projecthero.mod.ironman.ability.IronManAbilities.WEAPON_WHEEL_SLOT.equals(m7.abilityInSlot(3)),
 				"mark_vii slot 3 must be the weapon-wheel slot");
@@ -2065,8 +2066,8 @@ public class HeroPackGameTests implements FabricGameTest {
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_1, true);
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_1, false);
 		float spent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6");
-		float expected = com.projecthero.mod.ironman.ability.IronManAbilities.REPULSOR_ENERGY
-				* com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_6").energyCostMultiplier();
+		var m6 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_6"); // v0.14.29: tap repulsor = its own 10 energy
+		float expected = m6.repulsorTapEnergy() * m6.energyCostMultiplier();
 		helper.assertTrue(Math.abs(spent - expected) < 0.01f, "mark_6 repulsor should cost " + expected + ", spent " + spent);
 		helper.succeed();
 	}
@@ -2110,8 +2111,8 @@ public class HeroPackGameTests implements FabricGameTest {
 		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_2").airTankSeconds() == 0, "mark_2 air");
 		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_iii").waterBreathing(), "mark_iii air");
 		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_4").waterBreathing(), "mark_4 air"); // v0.14.29
-		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_6").airTankSeconds() == 300, "mark_6 air");
-		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_vii").airTankSeconds() == 420, "mark_vii air");
+		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_6").waterBreathing(), "mark_6 air");
+		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_vii").waterBreathing(), "mark_vii air");
 		helper.succeed();
 	}
 

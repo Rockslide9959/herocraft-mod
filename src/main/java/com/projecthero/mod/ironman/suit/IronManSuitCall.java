@@ -319,7 +319,7 @@ public final class IronManSuitCall {
 			}
 		}
 		if (pick != null) {
-			return IronManSuitUpManager.beginSuitUp(player, pick.suitId());
+			return orbitalDrop(player, IronManSuits.byId(pick.suitId())) || IronManSuitUpManager.beginSuitUp(player, pick.suitId());
 		}
 		// v0.14.29: the Mark V suitcase is no longer deployed by C -- only by right-clicking the case
 		String partial = null;
@@ -395,10 +395,36 @@ public final class IronManSuitCall {
 
 		if (source == IronManSuitListPayload.SOURCE_INVENTORY && fullyInInventory(player, suitId)) {
 			// equip immediately -- staged suit-up straight from the inventory (spec "changes 9")
-			IronManSuitUpManager.beginSuitUp(player, suitId);
+			if (!orbitalDrop(player, suit)) {
+				IronManSuitUpManager.beginSuitUp(player, suitId);
+			}
 			return;
 		}
 		callFromPlatform(player, suit);
+	}
+
+	/**
+	 * v0.14.29 (agent C): the Mark 7 orbital drop for a suit carried in the pack -- airborne (falling, gliding, jumping),
+	 * a pod suit comes in by delivery pod out of the sky instead of the 12 s staged build, keeping the suit's charge.
+	 * Returns false (nothing done) for any other suit or a grounded player.
+	 */
+	public static boolean orbitalDrop(ServerPlayer player, IronManSuit suit) {
+		if (suit == null || suit.summonType() != SummonType.TRACKING_POD
+				|| !com.projecthero.mod.ironman.entity.IronManDeliveryPodEntity.airborne(player)
+				|| !TonyStark.hasPower(player) || IronManSuitUpManager.inTransition(player)) {
+			return false;
+		}
+		ItemStack chest = findInInventory(player, suit.id(), ArmorItem.Type.CHESTPLATE);
+		if (chest == null) {
+			return false;
+		}
+		IronManEnergy.loadFromStack(player, suit.id(), chest);
+		float energy = IronManEnergy.energy(player, suit.id());
+		float integrity = IronManEnergy.integrity(player, suit.id());
+		deliver(player, suit, null, null, false);
+		IronManEnergy.setEnergy(player, suit.id(), energy);
+		IronManEnergy.setIntegrity(player, suit.id(), integrity);
+		return true;
 	}
 
 	/** Fixed distance the couriers cover on the final approach -- tuned so the equip always takes the

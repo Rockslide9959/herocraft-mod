@@ -1972,3 +1972,45 @@ Mark 42-style remote piloting. A Tony Stark player who is **not** wearing a suit
 **JARVIS** (`ironman/JarvisDialogue.java` server, `client/ironman/JarvisClient.java`, payload `IronManJarvisPayload`). Edge-triggered every 5 ticks from `IronManSuitTicker.tick`: suit online (full suit, no transition), energy < 25% / < 10%, integrity < 35%, first target lock, faceplate up/down (1 in 3), Protocol Phoenix firing, going under water, Mark 2 within 20 blocks of its icing ceiling, suit stored. Per-line cooldowns (20-90 s) plus a 3 s per-player gap that urgent lines (energy 10%, integrity, Phoenix, ceiling) skip. The first look at a player is a baseline (logging in suited is silent). Mark 1 gets only crude amber `SYSTEM` lines (power on / low power / power critical / hull damage). The client types the line into a wrapped speech box (max 220 px) above the hotbar for 4.5 s with a soft chime. `/jarvis on|off` (client command) mutes it, saved in `config/projecthero_client.json`; default on. Lang keys `message.projecthero.ironman.jarvis.*`.
 
 Tests: `IronManV01429ComboJarvisGameTests`.
+## v0.14.29 -- Mark 6 / Mark 7 kits + the orbital drop (agent C)
+
+Both suits got their own kit classes (`ironman/ability/IronManMark6`, `IronManMark7`, wired from `IronManAbilities.trigger`) plus a shared held-beam helper (`IronManHeldBeam`). Every energy figure below is a base cost -- both suits keep their 0.6 cost multiplier. Pools, regen, flight drain and the 30 m/s flight cap are unchanged; both now also get Resistance I, the targeting system (lock-on / auto-aim) and indefinite water breathing (the 5 / 7 minute air tanks are gone).
+
+**Mark 6** -- built round the film's new-element arc reactor:
+
+| Key | Ability | Numbers |
+|---|---|---|
+| R | Repulsor (builder data) | tap 17 dmg / 10 energy / 1 s cd; hold 1 s = 26 dmg / 50 energy / 3 s cd |
+| Sneak+R | Repulsor dash | 22 dmg, 50 energy, 8 s cd |
+| G | HOLD: the 360-degree Repulsor Shield (`mk6_shield` -> the shared barrier; its HUD box reads the `repulsor_barrier` cooldown via `IronManMark6.hudCooldownId`) | as before (90% of every hit blocked, 40 energy/s, 6 s cd) |
+| Sneak+G | Sonic Clap | 22 dmg, 50 energy, 8 s cd |
+| X | **Arc Reactor Surge** (`mk6_surge`) | 10 s: x1.5 damage dealt (every hit the wearer is the attacker of -- repulsors, beam, missiles, melee), x1.5 flight speed + ceiling (client `DirectionalFlight`), +50% walk speed (transient `MOVEMENT_SPEED` modifier `projecthero:mk6_surge_speed`). 250 energy to start, then 150 energy/s; ends on X again, timer, empty suit, chestplate off or suit shutdown; 40 s cd from the end. Cyan reactor glow + sparks on the chest, eye glints for other viewers (never in the wearer's camera), SURGE meter + seconds on the X box |
+| Sneak+X | Flares (advanced) | 10 s cd |
+| Z | Unibeam, held (`mk6_unibeam`) | 24 per damage tick (i-frame paced), 90 energy/s, 30 blocks, 18 s cd from release |
+| V | Shoulder Barrage (`mk6_barrage`) | 6 homing micro-missiles from alternating shoulders, 3 ticks apart, 20 dmg (8 splash) each, spread over lock -> crosshair -> nearest hostiles; 180 energy, 14 s cd |
+| Sneak+V | Coloured entity highlight (`IronManAbilities.toggleEntityGlowFromWheel`) | |
+
+The surge's damage boost is an `ALLOW_DAMAGE` cancel-and-reissue (`IronManMark6.initialize`, registered from `IronManDamage.initialize`). The timer is `TonyStarkState.abilityReadyAt["mark_6/mk6_surge_until"]` (synced -- the client flight and HUD read it; no codec change).
+
+**Mark 7** -- R tap 20 / hold 1 s 30 (10 / 50 energy), Sneak+R dash 25; G HOLD 360 shield (`mk7_shield`), Sneak+G Flares (10 s cd); Z held Unibeam (`mk7_unibeam`) 28 per damage tick, 100 energy/s, 32 blocks, 15 s cd; melee +8; scan range 80. The 7-wedge wheel on V still re-binds X; every wheel weapon was retuned to hit at least as hard as the Mark III's equivalent (gametest `markSevenWheelHitsAsHardAsTheMarkThree`):
+
+| Wheel pick (X) | Numbers |
+|---|---|
+| Micro-Missiles | 6 x 26 dmg (builder `missiles(6, 26, 160)`), 160 energy, 8 s cd (shared code) |
+| Homing Missiles | 4 x 26 dmg, locked, 160 energy, 8 s cd (shared code) |
+| Flamethrower | 12 dmg/s + burning, 5 energy/s, heat +38/s to 750, vents 20/s (builder `flamethrowerTuning`) |
+| Wrist Laser | Mark 7 version (`IronManMark7`): 3 s beam, 15 per damage tick, carves soft blocks (griefing only), 150 energy, 20 s cd -- no systems overload and no one-shot-until-docked rule (those stay the Mark 4's) |
+| Rocket | Mark 7 version: 40 dmg (28 splash, radius 3.5), 120 energy, 10 s cd |
+| Supersonic / Entity glow | unchanged |
+
+`IronManAbilities.dispatchWheelChoice` hands the Rocket / Wrist Laser picks to `IronManMark7.fireWheel` for this suit only.
+
+**Orbital drop** (`IronManDeliveryPodEntity`): a sky call (`TRACKING_POD`, no loaded platform nearby) starts the pod 70 blocks above and 6 behind the owner (26 when they have no sky overhead); a loaded platform still launches it straight off the rack. It homes every tick -- its step is the owner's measured velocity (position delta, not the unreliable server delta movement) plus 1.2 -> 5 blocks/tick toward them (+0.25/tick) -- with a server flame / smoke trail and a denser client trail interpolated between ticks (visible to 256 blocks).
+* Owner on the ground: it lands 2.4 blocks behind them with a flash / dust ring / boom (no block damage), then opens and fires the couriers as before.
+* Owner airborne (`!onGround && !inWater && !passenger`): it matches them 1.3 blocks behind, brakes the fall (max 0.35 down, pushed to the client via `hurtMarked`), and clamps the pieces straight on (`IronManSuitUpManager.receivePart`) one every 3 ticks, boots first (cargo is sorted boots -> helmet); any worn piece already makes them fall-immune.
+* Can't reach (still descending after 120 ticks, owner in another dimension, pod older than 600 ticks): `giveUp` puts the remaining pieces in the owner's pack, clears the pod's waiting transition and starts the ordinary staged suit-up (keeping the suit's charge). Offline / dead owner: cargo dropped at the pod, as before. While it carries cargo the pod keeps the owner's suit-up transition from timing out.
+* Pack call while airborne: `IronManSuitCall.orbitalDrop` -- C (`autoEquipInventorySuit`) or the picker with the whole Mark 7 in the pack, while airborne, sends it by pod instead of the 12 s staged build (charge kept from the chestplate stamp). On the ground it builds normally.
+
+**Models:** unchanged. `geo/mark_6` / `mark_vii` and their textures already come from `mark6_3d_model_pack` / `mark7_3d_model_pack` (converted v0.4.x; textures = the user-approved v0.14.21 repaint whose recorded pre-repaint hash for `mark_6` is exactly the pack's `mark6_skin.png`, and for `mark_vii` the pack skin with its black-as-transparent alpha restored -- see `docs/ARMOR_MODELS.md`).
+
+Tests: `IronManV01429Mk67GameTests` (surge damage / drain / expiry / cooldown, shield / beam / barrage, Mark 7 rocket / laser / beam, orbital catch, airborne pack call, fallback); updated asserts in `HeroPackGameTests` (Mark 6 layout, air tanks -> water breathing, tap repulsor energy) and `IronManSuitUpV01421GameTests` (pod search box reaches the sky).

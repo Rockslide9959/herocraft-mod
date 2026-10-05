@@ -317,6 +317,10 @@ public final class IronManAbilities {
 			// v0.14.27 (agent D): the Mark III's own kit -- see IronManMark3
 			case IronManMark3.ARSENAL, IronManMark3.FLARES, IronManMark3.UNIBEAM, IronManMark3.WHEEL ->
 					IronManMark3.trigger(player, suit, ability, pressed);
+			// v0.14.29 (agent C): the Mark 6 / Mark 7 kits -- see IronManMark6 / IronManMark7
+			case IronManMark6.SHIELD, IronManMark6.SURGE, IronManMark6.UNIBEAM, IronManMark6.BARRAGE ->
+					IronManMark6.trigger(player, suit, ability, pressed);
+			case IronManMark7.SHIELD, IronManMark7.UNIBEAM -> IronManMark7.trigger(player, suit, ability, pressed);
 			default -> { }
 		}
 	}
@@ -334,6 +338,10 @@ public final class IronManAbilities {
 	/** Slot 3 (X) on a weapon-wheel suit: run whatever the wheel currently has bound. */
 	private static void dispatchWheelChoice(ServerPlayer player, IronManSuit suit, boolean pressed) {
 		String chosen = TonyStark.weaponWheelChoice(player);
+		if (IronManMark7.handlesWheelChoice(suit, chosen)) { // v0.14.29 (agent C): the Mark 7's own Rocket / Wrist Laser
+			IronManMark7.fireWheel(player, suit, chosen, pressed);
+			return;
+		}
 		switch (chosen) {
 			case MICRO_MISSILES -> { if (pressed) microMissiles(player, suit); }
 			case HOMING_MISSILES -> { if (pressed) homingMissiles(player, suit); }
@@ -562,7 +570,7 @@ public final class IronManAbilities {
 	// ---------------- Repulsor Barrier (slot 2 / G) ----------------
 
 	/** Key-down on slot 2: raise the barrier and keep it up for as long as the key is held. */
-	private static void startBarrier(ServerPlayer player, IronManSuit suit) {
+	static void startBarrier(ServerPlayer player, IronManSuit suit) { // v0.14.29: package-visible for the Mark 6 / 7 G slot
 		if (!requireChest(player, suit)) {
 			return;
 		}

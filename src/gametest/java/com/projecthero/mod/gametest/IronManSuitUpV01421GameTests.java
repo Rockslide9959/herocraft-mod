@@ -457,7 +457,8 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 			be.store(marked(h, "mark_vii", t));
 		}
 		IronManSuitCall.execute(p, "mark_vii", IronManSuitListPayload.SOURCE_PLATFORM);
-		AABB area = new AABB(h.absolutePos(BlockPos.ZERO)).inflate(60);
+		// v0.14.29: the orbital drop starts 70 blocks up -- the box reaches the sky
+		AABB area = new AABB(h.absolutePos(BlockPos.ZERO)).inflate(60).expandTowards(0, 100, 0);
 		// (tests run side by side in one level: only look at this player's pod / couriers)
 		java.util.function.Predicate<IronManDeliveryPodEntity> mine = e -> p.getUUID().equals(e.ownerId());
 		java.util.function.Predicate<IronManSuitPartEntity> myCouriers = e -> e.ownerEntityId() == p.getId();

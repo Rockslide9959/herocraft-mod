@@ -197,6 +197,12 @@ public final class IronManHud {
 				y = meter(draw, g, font, x, y, w, false, Component.translatable("hud.projecthero.ironman.ability.wrist_laser").getString(),
 						IronManUiLayout.secs(left), left / (float) IronManAbilities.WRIST_LASER_TICKS, 0xFFFF3344);
 			}
+			long surgeLeft = com.projecthero.mod.ironman.ability.IronManMark6.surgeUntil(state) - now;
+			if (!minimalHud && surgeLeft > 0 && com.projecthero.mod.ironman.ability.IronManMark6.SUIT_ID.equals(suitId)) {
+				// v0.14.29: the Mark 6 Arc Reactor Surge timer
+				y = meter(draw, g, font, x, y, w, false, Component.translatable("hud.projecthero.ironman.mk6_surge").getString(),
+						IronManUiLayout.secs(surgeLeft), surgeLeft / (float) com.projecthero.mod.ironman.ability.IronManMark6.SURGE_TICKS, IronManGui.CYAN);
+			}
 			missilesReady = true;
 			if (!minimalHud && suit.missileCount() > 0 && !com.projecthero.mod.ironman.ability.IronManMark3.isKitSuit(suitId)) {
 				String key = suitId + "/" + IronManAbilities.MICRO_MISSILES;
@@ -412,7 +418,7 @@ public final class IronManHud {
 			boolean mk3Arsenal = com.projecthero.mod.ironman.ability.IronManMark3.ARSENAL.equals(abilityId);
 			String effectiveId = wheel ? state.weaponWheelChoice
 					: mk3Arsenal ? com.projecthero.mod.ironman.ability.IronManMark3.selectedWeapon(state, suitId) : abilityId;
-			String cdKey = suitId + "/" + effectiveId;
+			String cdKey = suitId + "/" + com.projecthero.mod.ironman.ability.IronManMark6.hudCooldownId(effectiveId); // v0.14.29: G shields = the barrier cooldown
 			Long readyAt = state.abilityReadyAt.get(cdKey);
 			long left = readyAt == null ? 0 : Math.max(0, readyAt - now);
 			boolean active = isActive(player, state, abilityId, now)
@@ -442,6 +448,10 @@ public final class IronManHud {
 				g.drawString(font, s, r.x() + (r.w() - font.width(s)) / 2, r.y() + 7, 0xFFFFFFFF, true);
 			} else if (offline) {
 				g.fill(r.x() + 1, r.y() + 1, r.right() - 1, r.bottom() - 1, 0x90200000);
+			} else if (com.projecthero.mod.ironman.ability.IronManMark6.SURGE.equals(abilityId) && com.projecthero.mod.ironman.ability.IronManMark6.surging(state, now)) {
+				// v0.14.29: the Arc Reactor Surge's remaining time, in cyan, on its X box
+				String s = String.valueOf(IronManUiLayout.ceilSecs(com.projecthero.mod.ironman.ability.IronManMark6.surgeUntil(state) - now));
+				g.drawString(font, s, r.x() + (r.w() - font.width(s)) / 2, r.y() + 7, IronManGui.CYAN, true);
 			} else if (IronManAbilities.TIMED_FLIGHT.equals(abilityId) && state.timedFlightUntil > now) {
 				// v0.14.27: the flight burst's remaining time, in gold, on its own key box
 				String s = String.valueOf(IronManUiLayout.ceilSecs(state.timedFlightUntil - now));
@@ -480,6 +490,13 @@ public final class IronManHud {
 		}
 		if (IronManAbilities.TIMED_FLIGHT.equals(abilityId)) {
 			return state.timedFlightUntil > now;
+		}
+		// v0.14.29: Mark 6 surge running / Sneak+V highlight on
+		if (com.projecthero.mod.ironman.ability.IronManMark6.SURGE.equals(abilityId)) {
+			return com.projecthero.mod.ironman.ability.IronManMark6.surging(state, now);
+		}
+		if (com.projecthero.mod.ironman.ability.IronManMark6.BARRAGE.equals(abilityId)) {
+			return state.mobHighlightOn;
 		}
 		if (com.projecthero.mod.ironman.ability.IronManMark3.WHEEL.equals(abilityId)) {
 			return com.projecthero.mod.ironman.ability.IronManMark3.shieldOn(state); // v0.14.27: Sneak+V shield is up
@@ -531,6 +548,11 @@ public final class IronManHud {
 			case com.projecthero.mod.ironman.ability.IronManMark3.FLARES -> new ItemStack(Items.GLOWSTONE_DUST);
 			case com.projecthero.mod.ironman.ability.IronManMark3.UNIBEAM -> new ItemStack(IronManItems.ARC_REACTOR);
 			case com.projecthero.mod.ironman.ability.IronManMark3.WHEEL -> new ItemStack(Items.COMPASS);
+			// v0.14.29: Mark 6 / Mark 7 kits
+			case com.projecthero.mod.ironman.ability.IronManMark6.SHIELD, com.projecthero.mod.ironman.ability.IronManMark7.SHIELD -> new ItemStack(Items.SHIELD);
+			case com.projecthero.mod.ironman.ability.IronManMark6.SURGE -> new ItemStack(Items.NETHER_STAR);
+			case com.projecthero.mod.ironman.ability.IronManMark6.UNIBEAM, com.projecthero.mod.ironman.ability.IronManMark7.UNIBEAM -> new ItemStack(IronManItems.ARC_REACTOR);
+			case com.projecthero.mod.ironman.ability.IronManMark6.BARRAGE -> new ItemStack(Items.TARGET);
 			default -> ItemStack.EMPTY;
 		};
 	}

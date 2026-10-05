@@ -155,7 +155,9 @@ public final class DirectionalFlight {
 			boolean boost = com.projecthero.mod.ironman.ability.IronManFlares.boosting(ts, suit.id(), player.level().getGameTime());
 			return DirectionalFlightModel.ironManSuit(suit.flightSpeed(), suit.flightAcceleration(), suit.maxFlightSpeedMps(),
 					suit.flightCruiseMps(), sprint && suit.sprintFlight(), supersonic,
-					boost ? com.projecthero.mod.ironman.ability.IronManFlares.BOOST_SPEED_MULTIPLIER : 1.0);
+					(boost ? com.projecthero.mod.ironman.ability.IronManFlares.BOOST_SPEED_MULTIPLIER : 1.0)
+							// v0.14.29 (agent C): the Mark 6 Arc Reactor Surge flies 50% faster
+							* com.projecthero.mod.ironman.ability.IronManMark6.flightSpeedMultiplier(ts, suit.id(), player.level().getGameTime()));
 		}
 		if (player.getAttachedOrElse(ModAttachments.REPULSOR_BOOTS_FLYING, false)) {
 			return DirectionalFlightModel.repulsorBoots(false); // v0.14.26: boots only -- no sprint flight
