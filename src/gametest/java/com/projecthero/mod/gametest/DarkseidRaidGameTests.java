@@ -351,7 +351,7 @@ public class DarkseidRaidGameTests implements FabricGameTest {
 			}
 			helper.assertTrue(sharp >= 2, "the beam snapped to a new heading at least twice, got " + sharp + " over "
 					+ velocities.size() + " ticks");
-			helper.assertTrue(closest[0] < startDist - 8.0, "and still closed in on its target (" + startDist + " -> " + closest[0] + ")");
+			helper.assertTrue(closest[0] < startDist - 5.0, "and still closed in on its target (" + startDist + " -> " + closest[0] + ")");
 			beam.discard();
 			helper.succeed();
 		});

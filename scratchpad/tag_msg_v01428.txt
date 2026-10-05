@@ -1,0 +1,22 @@
+Project Hero v0.14.28 -- Iron Man Polish
+
+A fast follow-up to the Iron Man Overhaul: a fixed helmet, a smarter lock-on, smoother suit-ups and a safer Rescue Tether.
+
+🦾 IRON MAN
+- Helmet fixed: the face now shows the helmet's second layer properly (it looked flat and wrong in v0.14.27), and the helmet's left and right sides are no longer swapped.
+- Suits are now named Mark 1, 2, 3, 4, 5, 6 and 7. No more Roman numerals anywhere.
+- Lock-on is far less pushy. It always locks onto whatever is right under your crosshair and switches the moment you aim at a different creature, so you can pick one target out of a group. The fallback cone is much tighter.
+- The Arc Reactor in Tony Stark's chest is much smaller, about 2.5 pixels across.
+- Mark 1 Flamethrower now reaches 10 blocks, and the flame stream is drawn that long too.
+
+✨ SUIT-UP & STORING
+- No more shaking or vibrating while you suit up. Your pose now follows the piece being built: looking down at your boots, bracing as the legs lock, arms spread as the chest forms, head up as the helmet seals.
+- You no longer stay stuck in the suit-up pose after the suit is finished.
+- Storing the suit (C) now takes as long as putting it on: each piece breaks down over 3 seconds, helmet first.
+- Sending armour home (Sneak + C): the suit now builds itself one block in front of you, then flies off home to its Suit Platform.
+
+💚 GREEN LANTERN
+- Rescue Tether: nothing you carry can fight back. Creepers can't blow up and skeletons can't shoot while they're in the bubble.
+
+📖 GUIDEBOOK
+- Updated the Iron Man targeting and Mark 1 pages and the Rescue Tether description.
