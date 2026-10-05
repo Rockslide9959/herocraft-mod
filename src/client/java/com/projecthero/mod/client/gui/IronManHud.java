@@ -115,6 +115,11 @@ public final class IronManHud {
 
 		if (visorClosed) {
 			visor(g, minimalHud, offline, now);
+		} else {
+			// v0.14.26: the HUD lives in the faceplate -- lift it and the display goes dark (just a reminder chip)
+			IronManGui.chip(g, font, x, IronManUiLayout.HUD_Y, w,
+					Component.translatable("hud.projecthero.ironman.hud_off_visor").getString(), IronManGui.TEXT_DIM);
+			return;
 		}
 
 		// Two passes: measure the text block, then draw a soft backdrop behind it (readable over a bright sky) and the block.
@@ -291,13 +296,10 @@ public final class IronManHud {
 		}
 
 		// ---- target readout just under the crosshair (helmet feel; replaces the old "TARGET" line)
-		if (!minimalHud && visorClosed && client.hitResult instanceof EntityHitResult ehr
-				&& ehr.getEntity() instanceof LivingEntity target && target.isAlive()) {
-			String t = IronManGui.fit(font, target.getName().getString() + "  "
-					+ String.format(java.util.Locale.ROOT, "%.1fm", player.distanceTo(target)).replace('.', ','), 140);
-			int cx = g.guiWidth() / 2;
-			int cy = g.guiHeight() / 2;
-			g.drawString(font, t, cx - font.width(t) / 2, cy + 10, IronManGui.alpha(IronManGui.GOLD, 0.85f), true);
+		// v0.14.26: the target scanner (Mark II+, visor closed): name / health / armour / distance / threat of the target
+		// under the crosshair out to 100 blocks (Mark II: 25), or the Mark III targeting lock
+		if (!minimalHud && visorClosed) {
+			com.projecthero.mod.client.ironman.IronManTargetScanner.renderPanel(g, font, player, suit, delta.getGameTimeDeltaPartialTick(false));
 		}
 
 		abilityStrip(g, font, player, state, suit, suitId, now, minimalHud, offline);

@@ -43,13 +43,11 @@ public final class IronManBeamClient {
 		ParticleOptions spark = redLaser ? ParticleTypes.FLAME
 				: beam.kind() == 0 ? ParticleTypes.ELECTRIC_SPARK : ParticleTypes.GLOW;
 
-		for (int i = 0; i <= steps; i++) {
-			double t = (double) i / steps;
-			Vec3 p = a.lerp(b, t);
-			level.addParticle(core, p.x, p.y, p.z, 0, 0, 0);
-			if (i % (redLaser ? 4 : 2) == 0) {
-				level.addParticle(spark, p.x, p.y, p.z, 0, 0, 0);
-			}
+		// v0.14.26: a real rendered beam (IronManAbilityVisuals) instead of a dense particle line -- a few sparks remain
+		com.projecthero.mod.client.ironman.IronManAbilityVisuals.addBeam(a, b, beam.kind());
+		for (int i = 0; i <= steps; i += Math.max(4, steps / 6)) {
+			Vec3 p = a.lerp(b, (double) i / steps);
+			level.addParticle(spark, p.x, p.y, p.z, 0, 0, 0);
 		}
 		// impact flash
 		level.addParticle(beam.kind() == 2 || redLaser ? ParticleTypes.EXPLOSION : ParticleTypes.FLASH, b.x, b.y, b.z, 0, 0, 0);

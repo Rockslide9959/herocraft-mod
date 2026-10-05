@@ -143,12 +143,16 @@ public final class DirectionalFlight {
 					? IronManSuits.byId(piece.suitId()) : null;
 			TonyStarkState ts = player.getAttachedOrElse(ModAttachments.TONY_STARK_STATE, null);
 			boolean supersonic = ts != null && ts.supersonicUntil > player.level().getGameTime();
+			// v0.14.26: boots alone can lift you but not sprint-fly -- sprint flight needs the chestplate too
+			if (!(player.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof IronManArmorItem)) {
+				sprint = false;
+			}
 			return suit == null ? DirectionalFlightModel.ironMan(1.0f, 0.08f, 0.0, sprint, supersonic)
 					: DirectionalFlightModel.ironMan(suit.flightSpeed(), suit.flightAcceleration(), suit.maxFlightSpeedMps(),
 							sprint, supersonic);
 		}
 		if (player.getAttachedOrElse(ModAttachments.REPULSOR_BOOTS_FLYING, false)) {
-			return DirectionalFlightModel.repulsorBoots(sprint);
+			return DirectionalFlightModel.repulsorBoots(false); // v0.14.26: boots only -- no sprint flight
 		}
 		// Thor's flight
 		if (player.getAttachedOrElse(ModAttachments.FLYING, false)) {

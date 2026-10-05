@@ -65,6 +65,13 @@ public final class IronManSuitTicker {
 		String suitId = IronManArmor.wornSuitId(player);
 		IronManSuit suit = suitId == null ? null : IronManSuits.byId(suitId);
 
+		// v0.14.26: the suit feeds you cooked food from your inventory
+		if (suit != null) {
+			IronManAutoFeed.tick(player);
+		}
+		// v0.14.26: the Mark III targeting system (lock-on + auto-aim)
+		IronManTargeting.tick(player, suit);
+
 		// "changes 21": the mob-highlight toggle is a helmet HUD overlay -- the instant an Iron Man
 		// helmet is no longer worn (docked into a Suit Platform, pulled off by hand, or the suit
 		// swapped for one without the toggle) the toggle is dropped, so it can never silently linger

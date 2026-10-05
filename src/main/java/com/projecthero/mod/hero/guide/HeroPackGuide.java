@@ -264,7 +264,9 @@ public final class HeroPackGuide {
 	private static final int CH_KRYPTONIAN = 25;
 	private static final int CH_HORDES = 26;
 	private static final int CH_STARK_SORTER = 27;
-	private static final int CHAPTER_POWER_BASE = 28;
+	private static final int CH_SYNDICATE = 28; // v0.14.25
+	private static final int CH_CARNAGE = 29; // v0.14.25
+	private static final int CHAPTER_POWER_BASE = 30;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -400,6 +402,11 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.iron_man.suit_up.body");
 			head(lines, "projecthero.guide.iron_man.screens"); // v0.14.21 UI redesign
 			para(lines, "projecthero.guide.iron_man.screens.body");
+			// v0.14.26: scanner, Mark III targeting, I-key spec sheet, auto-feed, the Stark cookers
+			for (String section : new String[]{"scanner", "targeting", "spec_sheet", "auto_feed", "furnaces"}) {
+				head(lines, "projecthero.guide.iron_man." + section);
+				para(lines, "projecthero.guide.iron_man." + section + ".body");
+			}
 		}));
 
 		// Spider-Man. Sits with the other Hero Classes rather than with the 27 mutations, because that
@@ -944,6 +951,24 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.guide.stark_sorter." + section + ".body");
 			}
 		}));
+		// v0.14.25: the Syndicate Bust
+		out.add(chapter("projecthero.guide.syndicate", lines -> {
+			para(lines, "projecthero.guide.syndicate.body");
+			for (String section : new String[]{"start", "waves", "crew", "kingpin", "rewards", "commands"}) {
+				blank(lines);
+				head(lines, "projecthero.guide.syndicate." + section);
+				para(lines, "projecthero.guide.syndicate." + section + ".body");
+			}
+		}));
+		// v0.14.25: Carnage
+		out.add(chapter("projecthero.guide.carnage", lines -> {
+			para(lines, "projecthero.guide.carnage.body");
+			for (String section : new String[]{"arrival", "moves", "split", "weakness", "rewards", "commands"}) {
+				blank(lines);
+				head(lines, "projecthero.guide.carnage." + section);
+				para(lines, "projecthero.guide.carnage." + section + ".body");
+			}
+		}));
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -997,6 +1022,8 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.oathbreaker", CH_OATHBREAKER);
 		link(idx, "projecthero.guide.darkseid_raid", CH_DARKSEID_RAID);
 		link(idx, "projecthero.guide.hordes", CH_HORDES);
+		link(idx, "projecthero.guide.syndicate", CH_SYNDICATE);
+		link(idx, "projecthero.guide.carnage", CH_CARNAGE);
 
 		section(idx, "projecthero.guide.section.squads", true);
 		link(idx, "projecthero.guide.squads", CH_SQUADS);

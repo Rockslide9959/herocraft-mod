@@ -306,6 +306,14 @@ public final class SymbioteVitalsManager {
 		save(player, c);
 	}
 
+	/** v0.14.25: Crimson Biomass -- the health bar back to full and the Symbiote unbroken. */
+	public static void restoreBiomass(ServerPlayer player) {
+		SymbioteVitals c = vitals(player).copy();
+		c.hp = MAX_HP;
+		c.broken = false;
+		save(player, c);
+	}
+
 	public static void markCombat(ServerPlayer player) {
 		LAST_COMBAT.put(player.getId(), player.level().getGameTime());
 	}

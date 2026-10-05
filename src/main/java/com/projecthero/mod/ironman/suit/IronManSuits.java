@@ -59,8 +59,8 @@ public final class IronManSuits {
 
 	public static final IronManSuit MARK_2 = register(IronManSuit.Builder.of("mark_2")
 			.tech(0, 2)
-			.energy(4_500f, 0.5f)
-			.maxIntegrity(1500f) // v0.11.13: up from 420, explicit user request
+			.energy(1_250f, 0.5f) // v0.14.26: down from 4500, explicit user request
+			.maxIntegrity(600f) // v0.14.26: down from 1500, explicit user request
 			.energyRegen(12f) // v0.11.13: flat passive 12 energy/sec (was 1.0), explicit user request
 			.armorRegen(5f) // v0.11.13: flat passive 5 integrity/sec worn self-repair, explicit user request
 			.platformRegen(24f, 15f) // v0.11.13: 24 energy/sec + 15 integrity/sec on a Suit Platform,
@@ -88,8 +88,8 @@ public final class IronManSuits {
 
 	public static final IronManSuit MARK_III = register(IronManSuit.Builder.of("mark_iii")
 			.tech(1, 3)
-			.energy(7_500f, 3.0f) // "changes 18": capacity 7500
-			.maxIntegrity(600f) // "changes 18": Mark III condition pool
+			.energy(1_500f, 3.0f) // v0.14.26: down from 7500, explicit user request
+			.maxIntegrity(2000f) // v0.14.26: up from 600, explicit user request
 			.energyRegen(1.5f) // "changes 18"
 			.armorRegen(0.03f) // "changes 18": slow worn self-repair
 			.flightDrain(1.0f) // "changes 18"

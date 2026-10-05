@@ -50,6 +50,9 @@ public final class DarkseidConfig {
 							"abilities.omegaBeamCooldown", "abilities.reinforcementCooldown" }, PARADEMON_STATS))
 			.reset(3, "v0.13.21 Parademons back to their original strength", PARADEMON_STATS)
 			.introduce(4, "v0.14.21 ores and gems in the victory loot (rewards.valuablesMultiplier)")
+			.reset(5, "v0.14.26 Darkseid attacks faster, uses Omega Beams more, damage in three tiers (23 / 29 / 31)",
+					"boss.globalCooldownTicks", "abilities.omegaBeamCooldown", "abilities.omegaBeamWeight", "abilities.omegaBeamAirWeight",
+					"abilities.omegaBeamChargeTicks", "abilities.damageTier1", "abilities.damageTier2", "abilities.damageTier3")
 			.build();
 
 	private static String[] concat(String[] a, String[] b) {
@@ -145,7 +148,7 @@ public final class DarkseidConfig {
 		/** Knockback multiplier in phase 3. */
 		public double knockbackMultiplierPhase3 = 1.35;
 		/** Ticks of breathing room between two attacks, phase 1 (scaled by the cooldown multiplier). */
-		public int globalCooldownTicks = 19;
+		public int globalCooldownTicks = 10; // v0.14.26: was 19
 		/** Model/hit-box scale (1.0 = 4.2 blocks tall). Read at startup. */
 		public double modelScale = 1.0;
 		/** Extra damage taken while staggered. */
@@ -158,11 +161,20 @@ public final class DarkseidConfig {
 	/** Darkseid's attacks. Damage values are before the phase multiplier and the target's armour. */
 	public static final class Abilities {
 		// Omega Beams
+		/**
+		 * v0.14.26: every attack deals one of three flat damage tiers (before the target's armour; phase and enrage no longer
+		 * scale damage -- they speed him up instead). Tier 1: jabs, combo hits, Omega Barrage, Grip, Omega Sweep. Tier 2: the
+		 * heavy hook, Omega Beams, Ground Slam. Tier 3: the combo finisher, Apokoliptian Charge, Omega Annihilation.
+		 */
+		public float damageTier1 = 23.0f;
+		public float damageTier2 = 29.0f;
+		public float damageTier3 = 31.0f;
+		/** Unused since v0.14.26 (damage tiers above); kept so older files still read. */
 		public float omegaBeamDamage = 16.0f;
-		public int omegaBeamCooldown = 7 * 20;
+		public int omegaBeamCooldown = 4 * 20; // v0.14.26: was 7 s
 		/** Weight of the Omega Beams in his attack pick against a grounded / an airborne target (v0.13.18: 4.5 / 6). */
-		public double omegaBeamWeight = 7.0;
-		public double omegaBeamAirWeight = 8.5;
+		public double omegaBeamWeight = 12.0; // v0.14.26: was 7
+		public double omegaBeamAirWeight = 14.0; // v0.14.26: was 8.5
 		/**
 		 * v0.13.19: sharp angular legs each beam snakes through before it homes in (0 = the old smooth curve). Each leg
 		 * breaks away from the straight line to the target by a random angle, alternating sides; closer than
@@ -179,7 +191,7 @@ public final class DarkseidConfig {
 		/** Ticks the two beams keep steering (homing) once their zig-zag is done. */
 		public int omegaBeamTrackingTime = 60;
 		/** Ticks of warning between the Omega Mark and the beams firing. */
-		public int omegaBeamChargeTicks = 32;
+		public int omegaBeamChargeTicks = 24; // v0.14.26: was 32
 		public double omegaBeamSpeed = 0.95;
 		/** Maximum steering per tick, degrees, phase 1 (phases 2/3 add to it). */
 		public double omegaBeamTurnDegrees = 6.5;
@@ -330,6 +342,12 @@ public final class DarkseidConfig {
 
 	public static Abilities abilities() {
 		return instance.abilities;
+	}
+
+	/** v0.14.26: the damage of tier 1, 2 or 3. */
+	public static float tier(int tier) {
+		Abilities a = abilities();
+		return tier >= 3 ? a.damageTier3 : tier == 2 ? a.damageTier2 : a.damageTier1;
 	}
 
 	public static MotherBoxes motherBoxes() {

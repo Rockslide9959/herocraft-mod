@@ -32,6 +32,12 @@ public class SymbioteSpikeEntity extends ThrowableProjectile {
 	public static final int WITHER_TICKS = 100;
 	public static final float SPEED = 3.2f;
 	private static final int MAX_LIFE_TICKS = 40;
+	/** v0.14.25: Carnage's spikes are red (and weaker -- he fires them in fans). */
+	private static final net.minecraft.network.syncher.EntityDataAccessor<Boolean> DATA_CRIMSON =
+			SynchedEntityData.defineId(SymbioteSpikeEntity.class, net.minecraft.network.syncher.EntityDataSerializers.BOOLEAN);
+	private float damage = DAMAGE;
+	private int witherAmplifier = WITHER_AMPLIFIER;
+	private int witherTicks = WITHER_TICKS;
 
 	public SymbioteSpikeEntity(EntityType<? extends SymbioteSpikeEntity> type, Level level) {
 		super(type, level);
@@ -47,8 +53,27 @@ public class SymbioteSpikeEntity extends ThrowableProjectile {
 		return spike;
 	}
 
+	/** v0.14.25: a crimson spike from any living owner (Carnage): {@code damage} on a hit and a short Wither II. */
+	public static SymbioteSpikeEntity shootCrimson(LivingEntity owner, Vec3 from, Vec3 dir, float damage, float speed) {
+		SymbioteSpikeEntity spike = new SymbioteSpikeEntity(SymbioteEntityTypes.SPIKE, owner.level());
+		spike.setOwner(owner);
+		spike.entityData.set(DATA_CRIMSON, true);
+		spike.damage = damage;
+		spike.witherAmplifier = 1;
+		spike.witherTicks = 60;
+		spike.setPos(from.x, from.y, from.z);
+		spike.shoot(dir.x, dir.y, dir.z, speed, 0.0f);
+		owner.level().addFreshEntity(spike);
+		return spike;
+	}
+
+	public boolean crimson() {
+		return entityData.get(DATA_CRIMSON);
+	}
+
 	@Override
 	protected void defineSynchedData(SynchedEntityData.Builder builder) {
+		builder.define(DATA_CRIMSON, false);
 	}
 
 	@Override
@@ -64,13 +89,18 @@ public class SymbioteSpikeEntity extends ThrowableProjectile {
 			return;
 		}
 		if (level().isClientSide && tickCount % 2 == 0) {
-			level().addParticle(ParticleTypes.SQUID_INK, getX(), getY(), getZ(), 0.0, 0.0, 0.0);
+			level().addParticle(crimson() ? new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.8f, 0.05f, 0.08f), 0.9f)
+					: ParticleTypes.SQUID_INK, getX(), getY(), getZ(), 0.0, 0.0, 0.0);
 		}
 	}
 
 	@Override
 	protected boolean canHitEntity(Entity target) {
 		// v0.13.21: a spike flies straight past its owner's squadmates
+		if (crimson() && getOwner() instanceof com.projecthero.mod.carnage.entity.CarnageEntity
+				&& (target instanceof com.projecthero.mod.carnage.entity.CarnageEntity || target instanceof com.projecthero.mod.carnage.entity.CrimsonSpawnEntity)) {
+			return false; // Carnage never spikes his own spawn
+		}
 		return super.canHitEntity(target) && target != getOwner()
 				&& !com.projecthero.mod.squad.Squads.areAllies(getOwner(), target);
 	}
@@ -84,12 +114,12 @@ public class SymbioteSpikeEntity extends ThrowableProjectile {
 		Entity owner = getOwner();
 		boolean hit;
 		if (owner instanceof ServerPlayer player) {
-			hit = AbilityHelpers.hurtLands(player, target, DAMAGE);
+			hit = AbilityHelpers.hurtLands(player, target, damage);
 		} else {
-			hit = target.hurt(damageSources().thrown(this, owner), DAMAGE);
+			hit = target.hurt(damageSources().thrown(this, owner), damage);
 		}
 		if (hit) {
-			target.addEffect(new MobEffectInstance(MobEffects.WITHER, WITHER_TICKS, WITHER_AMPLIFIER, false, true, true), owner);
+			target.addEffect(new MobEffectInstance(MobEffects.WITHER, witherTicks, witherAmplifier, false, true, true), owner);
 			Vec3 v = getDeltaMovement();
 			double len = Math.max(1.0e-4, v.horizontalDistance());
 			target.knockback(0.35, -v.x / len, -v.z / len);

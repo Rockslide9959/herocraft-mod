@@ -34,6 +34,7 @@ public final class ModCreativeTab {
 				// the components (basic → advanced), then all the armour ordered by mark. See
 				// IronManItems.addToCreativeTab for the exact order.
 				com.projecthero.mod.ironman.item.IronManItems.addToCreativeTab(output);
+				com.projecthero.mod.ironman.furnace.StarkFurnaces.addToCreativeTab(output); // v0.14.26
 			})
 			.build();
 
@@ -77,6 +78,10 @@ public final class ModCreativeTab {
 				com.projecthero.mod.grave.item.GraveItems.addToCreativeTab(output);
 				// Supervillain Village Raid: Villain Cache, Supervillain Token, Power Fragment, trophies.
 				com.projecthero.mod.event.raid.SupervillainRaidItems.addToCreativeTab(output);
+				// v0.14.25: Syndicate Bust: Police Scanner, Villain Dossier, Kingpin's Cane, the stash, spawn eggs.
+				com.projecthero.mod.syndicate.SyndicateItems.addToCreativeTab(output);
+				// v0.14.25: Carnage: Crimson Biomass and the spawn eggs.
+				com.projecthero.mod.carnage.CarnageItems.addToCreativeTab(output);
 				// Spider-Man: the Arachnid Mutagen that evolves Spider Adhesion into the Hero Class.
 				com.projecthero.mod.spider.item.SpiderItems.addToCreativeTab(output);
 				// Max Steel: the T.U.R.B.O. Stabilizer for bonding with Steel below Level 30.

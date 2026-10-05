@@ -56,6 +56,11 @@ import net.minecraft.world.level.block.state.BlockState;
 public class IronManSuitPlatformBlockEntity extends BlockEntity
 		implements Container, ExtendedScreenHandlerFactory<BlockPos> {
 	public static final int SIZE = 4;
+	/** v0.14.26: integrity repair runs this many times faster while the reserve can pay for it... */
+	public static final float RESERVE_REPAIR_MULTIPLIER = 4.0f;
+	/** ...at this much reserve energy per point of extra repair. */
+	public static final float RESERVE_PER_INTEGRITY = 2.0f;
+
 	/** Reactor-Core / trickle energy buffer -- the platform's own reserve it pours into the suit. */
 	public static final int MAX_ENERGY = 50_000;
 	public static final int REACTOR_CORE_ENERGY = 8_000;
@@ -135,8 +140,15 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 				float integ = be.suitIntegrity();
 				float maxInteg = IronManEnergy.maxIntegrity(suitId);
 				if (integ < maxInteg) {
-					be.stampAllPieces(be.suitEnergy(),
-							Math.min(maxInteg, integ + IronManEnergy.platformIntegrityPerSecond(suit) / 20f));
+					float repair = IronManEnergy.platformIntegrityPerSecond(suit) / 20f;
+					// v0.14.26: with energy in reserve the platform repairs four times as fast, burning
+					// RESERVE_PER_INTEGRITY reserve for every point of the extra repair (no reserve: the normal rate)
+					if (be.storedEnergy > 0) {
+						float extra = Math.min(repair * (RESERVE_REPAIR_MULTIPLIER - 1f), (float) be.storedEnergy / RESERVE_PER_INTEGRITY);
+						be.storedEnergy -= Math.round(extra * RESERVE_PER_INTEGRITY);
+						repair += extra;
+					}
+					be.stampAllPieces(be.suitEnergy(), Math.min(maxInteg, integ + repair));
 				}
 			}
 		}

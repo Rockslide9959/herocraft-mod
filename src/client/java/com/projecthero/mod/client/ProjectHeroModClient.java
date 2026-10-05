@@ -120,6 +120,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.kryptonian.KryptonianClient.initialize();
 		com.projecthero.mod.client.flash.FlashClient.initialize(); // v0.14.11
 		com.projecthero.mod.client.horde.HordeClient.initialize(); // v0.14.12
+		com.projecthero.mod.client.syndicate.SyndicateRenderer.initialize(); // v0.14.25: Syndicate Bust crooks + the Kingpin
+		com.projecthero.mod.client.carnage.CarnageRenderer.initialize(); // v0.14.25: Carnage, his brood, his meteor
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SymbioteHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SquadLocatorBarHud::render);
@@ -156,6 +158,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			}
 		});
 		IronManBeamClient.register();
+		com.projecthero.mod.client.ironman.IronManTargetScanner.initialize(); // v0.14.26: Iron Man target scanner + Mark III lock
+		com.projecthero.mod.client.ironman.IronManAbilityPose.initialize(); // v0.14.26: Iron Man attack animations
+		com.projecthero.mod.client.ironman.IronManAbilityVisuals.initialize(); // v0.14.26: Iron Man ability models
 		VersionCheckClient.initialize(); // v0.14.22: client/server Project Hero version handshake
 		com.projecthero.mod.client.spider.SpiderWebLineRenderer.initialize();
 		com.projecthero.mod.client.thor.ThorLightningArcRenderer.initialize();
@@ -950,7 +955,12 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	private static void handlePowerInfo(Minecraft client) {
 		boolean down = ModKeyBindings.POWER_INFO.isDown();
 		if (down && !powerInfoWasDown) {
-			client.setScreen(new com.projecthero.mod.client.gui.PowerInfoScreen());
+			// v0.14.26: wearing Iron Man armour, I shows the suit's spec sheet instead
+			if (client.player != null && com.projecthero.mod.client.gui.IronManSuitInfoScreen.wornSuit(client.player) != null) {
+				client.setScreen(new com.projecthero.mod.client.gui.IronManSuitInfoScreen());
+			} else {
+				client.setScreen(new com.projecthero.mod.client.gui.PowerInfoScreen());
+			}
 		}
 		powerInfoWasDown = down;
 	}

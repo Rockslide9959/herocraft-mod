@@ -155,8 +155,8 @@ public final class IronManEnergy {
 		if (suit == null) {
 			return 0f;
 		}
-		return suit.platformIntegrityPerSecondOverride() >= 0f
-				? suit.platformIntegrityPerSecondOverride() : suit.maxIntegrity() * PLATFORM_FRACTION_PER_SECOND;
+		return PLATFORM_INTEGRITY_SCALE * (suit.platformIntegrityPerSecondOverride() >= 0f
+				? suit.platformIntegrityPerSecondOverride() : suit.maxIntegrity() * PLATFORM_FRACTION_PER_SECOND);
 	}
 
 	/**
@@ -176,8 +176,13 @@ public final class IronManEnergy {
 	 * {@link IronManSuit#armorRegenPerSecond()} rate (Mark 1/2 = 0 -- platform only; Mark III+ = a
 	 * trickle). A Suit Platform is still the fast way to repair.
 	 */
+	/** v0.14.26: every suit's worn self-repair runs at 40% of its listed rate (explicit user request: nerf integrity regen). */
+	public static final float WORN_REGEN_SCALE = 0.4f;
+	/** v0.14.26: and a Suit Platform repairs integrity at half speed. */
+	public static final float PLATFORM_INTEGRITY_SCALE = 0.5f;
+
 	public static void tickArmorRegen(ServerPlayer player, IronManSuit suit) {
-		float rate = suit.armorRegenPerSecond();
+		float rate = suit.armorRegenPerSecond() * WORN_REGEN_SCALE;
 		if (rate <= 0f) {
 			return;
 		}

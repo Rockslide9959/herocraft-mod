@@ -259,9 +259,9 @@ public class HeroPackGameTests implements FabricGameTest {
 		// 26 framing chapters (overview, mutation, structures, devices, combos, Thor, Iron Man,
 		// Spider-Man, Max Steel, Punisher, Green Lantern, Symbiote, Zombie Raid, Supervillain Raid,
 		// Titan, Squads, Wolverine, Titan Shifter, All Might, The Abyssal Behemoth, The Oathbreaker, Hulk,
-		// Apokolips Invasion, Moon Knight, Super Soldier, Kryptonian, Horde Blocks, Stark Sorting Station)
+		// Apokolips Invasion, Moon Knight, Super Soldier, Kryptonian, Horde Blocks, Stark Sorting Station, v0.14.25 Syndicate Bust, Carnage)
 		// + one per ENABLED power (v0.14.8: disabled powers have no chapter)
-		helper.assertTrue(chapters.size() == 28 + Powers.enabled().size(),
+		helper.assertTrue(chapters.size() == 30 + Powers.enabled().size(),
 				"guide should have a chapter per power plus framing chapters, got " + chapters.size());
 		for (var ch : chapters) {
 			helper.assertFalse(ch.lines().isEmpty(), "chapter '" + ch.title().getString() + "' has no content");
@@ -904,8 +904,8 @@ public class HeroPackGameTests implements FabricGameTest {
 		net.minecraft.world.phys.Vec3 at = net.minecraft.world.phys.Vec3.atBottomCenterOf(helper.absolutePos(pos.east(2)));
 		player.setPos(at.x, at.y, at.z);
 		helper.assertTrue(be.deployTo(player), "platform must deploy the stored suit");
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_iii") >= 5000f,
-				"deploy must transfer the platform's stored charge");
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_iii") >= 1499f,
+				"deploy must transfer the platform's stored charge (up to the v0.14.26 Mark III capacity of 1500)");
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.integrity(player, "mark_iii") >= 99f,
 				"deploy must repair suit integrity");
 		helper.succeedWhen(() -> helper.assertTrue(com.projecthero.mod.ironman.IronManArmor.wearingFullSuit(player, "mark_iii"),
@@ -1125,7 +1125,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		// a Mark III chestplate that has been drained to 30%
 		ItemStack chest = new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii",
 				net.minecraft.world.item.ArmorItem.Type.CHESTPLATE));
-		com.projecthero.mod.ironman.IronManEnergy.stampStack(chest, 3_000f, 55f);
+		com.projecthero.mod.ironman.IronManEnergy.stampStack(chest, 1_000f, 55f); // v0.14.26: under the Mark III's new 1500 capacity
 		player.getInventory().add(chest);
 		for (net.minecraft.world.item.ArmorItem.Type t : new net.minecraft.world.item.ArmorItem.Type[] {
 				net.minecraft.world.item.ArmorItem.Type.HELMET, net.minecraft.world.item.ArmorItem.Type.LEGGINGS,
@@ -1135,8 +1135,8 @@ public class HeroPackGameTests implements FabricGameTest {
 
 		com.projecthero.mod.ironman.suit.IronManSuitUpManager.beginSuitUp(player, "mark_iii");
 		float pool = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_iii");
-		helper.assertTrue(Math.abs(pool - 3_000f) < 1f,
-				"suit-up must adopt the chestplate's carried charge (3000), got " + pool);
+		helper.assertTrue(Math.abs(pool - 1_000f) < 1f,
+				"suit-up must adopt the chestplate's carried charge (1000), got " + pool);
 		helper.assertTrue(Math.abs(com.projecthero.mod.ironman.IronManEnergy.integrity(player, "mark_iii") - 55f) < 1f,
 				"suit-up must adopt the chestplate's carried integrity (55)");
 		helper.succeed();
@@ -1227,7 +1227,8 @@ public class HeroPackGameTests implements FabricGameTest {
 		float half = com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_iii") * 0.5f;
 		helper.assertTrue(be.suitIntegrity() > half - 15f && be.suitIntegrity() < half + 15f,
 				"the recovered suit lost 50% of max integrity (~" + half + "), got " + be.suitIntegrity());
-		helper.assertTrue(be.suitEnergy() > 4000f,
+		helper.assertTrue(be.suitEnergy() > 1000f, // v0.14.26: Mark III capacity is 1500
+
 				"the recovered suit keeps its charge, got " + be.suitEnergy());
 		helper.succeed();
 	}
@@ -1885,10 +1886,10 @@ public class HeroPackGameTests implements FabricGameTest {
 		// user request.
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_1") == 1000f,
 				"Mark 1 max integrity must be 1000");
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_2") == 1500f,
-				"Mark 2 max integrity must be 1500"); // v0.11.13, explicit user request (was 420)
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_iii") == 600f,
-				"Mark III max integrity must be 600");
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_2") == 600f,
+				"Mark 2 max integrity must be 600"); // v0.14.26, explicit user request (was 1500)
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_iii") == 2000f,
+				"Mark III max integrity must be 2000"); // v0.14.26, explicit user request
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_4") == 700f,
 				"Mark 4 max integrity must be 700");
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_v") == 550f,
@@ -1902,8 +1903,8 @@ public class HeroPackGameTests implements FabricGameTest {
 
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
-		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_iii", 9000f); // over-set -> must clamp to 600
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.integrity(player, "mark_iii") == 600f,
+		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_iii", 9000f); // over-set -> must clamp to 2000 (v0.14.26)
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.integrity(player, "mark_iii") == 2000f,
 				"integrity must clamp to the per-suit max, got "
 						+ com.projecthero.mod.ironman.IronManEnergy.integrity(player, "mark_iii"));
 		helper.succeed();
@@ -2197,14 +2198,14 @@ public class HeroPackGameTests implements FabricGameTest {
 					- suit.energyCapacity() * 0.001f) < 1e-4f,
 					"platform energy regen is 0.1% of capacity for " + suit.id());
 			helper.assertTrue(Math.abs(com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(suit)
-					- suit.maxIntegrity() * 0.001f) < 1e-4f,
-					"platform integrity regen is 0.1% of max integrity for " + suit.id());
+					- suit.maxIntegrity() * 0.001f * com.projecthero.mod.ironman.IronManEnergy.PLATFORM_INTEGRITY_SCALE) < 1e-4f,
+					"platform integrity regen is 0.1% of max integrity (x0.5 since v0.14.26) for " + suit.id());
 		}
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.platformEnergyPerSecond(m1) == 10f
-				&& com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(m1) == 6f,
-				"Mark 1's own flat platform regen override (10 energy/s, 6 integrity/s)");
+				&& com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(m1) == 6f * com.projecthero.mod.ironman.IronManEnergy.PLATFORM_INTEGRITY_SCALE,
+				"Mark 1's own flat platform regen override (10 energy/s, 6 integrity/s, integrity x0.5 since v0.14.26)");
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.platformEnergyPerSecond(m2) == 24f
-				&& com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(m2) == 15f,
+				&& com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(m2) == 15f * com.projecthero.mod.ironman.IronManEnergy.PLATFORM_INTEGRITY_SCALE,
 				"Mark 2's own flat platform regen override (24 energy/s, 15 integrity/s)"); // v0.11.13
 		// every mark -- including the prototypes -- now gets a positive repair rate on a rack.
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(m1) > 0f

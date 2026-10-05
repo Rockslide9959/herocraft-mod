@@ -31,8 +31,9 @@ public final class FlashSuitReveal {
 	public static final int DOWN_END = FlashRing.SUIT_DOWN_TICKS - 2;
 
 	/** The ring: bottom-front of the right fist, in the armour geometry's own model units. */
-	private static final ArmorSweepReveal.Sweep FROM_RING = ArmorSweepReveal.Sweep.radial("flash_ring",
-			new Vector3f(-6.0f, 12.5f, -1.0f), 0xFFFFFBE0, 0xFFFFA21F);
+	// v0.14.26: up the ring arm first (armorRightArm), then out over the body from the right shoulder
+	private static final ArmorSweepReveal.Sweep FROM_RING = ArmorSweepReveal.Sweep.radialVia("flash_ring_arm",
+			new Vector3f(-6.0f, 12.5f, -1.0f), "armorRightArm", new Vector3f(-6.0f, 23.0f, 0.0f), 0xFFFFFBE0, 0xFFFFA21F);
 
 	private FlashSuitReveal() {
 	}

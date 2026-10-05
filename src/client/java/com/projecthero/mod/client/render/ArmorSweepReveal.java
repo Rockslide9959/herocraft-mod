@@ -62,11 +62,25 @@ public final class ArmorSweepReveal {
 	 * row ({@code edgeArgb}) and the row just behind it ({@code trailArgb}, 0 = none). {@code key} names the cache
 	 * entry. Used by Thor's Armour to sweep each piece up the body on its own, with a crackling blue-white edge.
 	 */
-	public record Sweep(String key, java.util.Set<String> bones, boolean bottomUp, int edgeArgb, int trailArgb, Vector3f origin) {
+	public record Sweep(String key, java.util.Set<String> bones, boolean bottomUp, int edgeArgb, int trailArgb, Vector3f origin,
+			String pathBone, Vector3f joint) {
 		public static final Sweep WHOLE_SUIT_DOWN = new Sweep("all", null, false, EDGE_ARGB, 0);
 
 		public Sweep(String key, java.util.Set<String> bones, boolean bottomUp, int edgeArgb, int trailArgb) {
-			this(key, bones, bottomUp, edgeArgb, trailArgb, null);
+			this(key, bones, bottomUp, edgeArgb, trailArgb, null, null, null);
+		}
+
+		public Sweep(String key, java.util.Set<String> bones, boolean bottomUp, int edgeArgb, int trailArgb, Vector3f origin) {
+			this(key, bones, bottomUp, edgeArgb, trailArgb, origin, null, null);
+		}
+
+		/**
+		 * v0.14.26: a radial sweep that travels <em>along a limb first</em>: texels of {@code pathBone} (and its children) fill
+		 * by distance from {@code origin}; everything else waits until the sweep has climbed the limb to {@code joint} and
+		 * then spreads out from there -- the Flash Suit running up the ring arm, then over the body.
+		 */
+		public static Sweep radialVia(String key, Vector3f origin, String pathBone, Vector3f joint, int edgeArgb, int trailArgb) {
+			return new Sweep(key, null, false, edgeArgb, trailArgb, origin, pathBone, joint);
 		}
 
 		/**
@@ -112,7 +126,7 @@ public final class ArmorSweepReveal {
 		float[] height = new float[w * h];
 		java.util.Arrays.fill(height, Float.NaN);
 		try {
-			mapHeights(geo, w, h, height, sweep.bones(), sweep.origin());
+			mapHeights(geo, w, h, height, sweep.bones(), sweep.origin(), sweep.pathBone(), sweep.joint());
 		} catch (RuntimeException e) {
 			ProjectHeroMod.LOGGER.warn("[ProjectHero] could not read the geometry {} for the suit sweep: {}", geometry, e.toString());
 			src.close();
@@ -178,7 +192,7 @@ public final class ArmorSweepReveal {
 	// ---------------- geometry -> texel heights ----------------
 
 	private static void mapHeights(JsonObject root, int texW, int texH, float[] height, java.util.Set<String> only,
-			Vector3f origin) {
+			Vector3f origin, String pathBone, Vector3f joint) {
 		JsonObject model = root.getAsJsonArray("minecraft:geometry").get(0).getAsJsonObject();
 		JsonObject desc = model.getAsJsonObject("description");
 		float geoW = desc.has("texture_width") ? desc.get("texture_width").getAsFloat() : 64f;
@@ -197,6 +211,7 @@ public final class ArmorSweepReveal {
 				continue;
 			}
 			Matrix4f boneMatrix = boneRest(bone, bones);
+			boolean onPath = pathBone == null || joint == null || inSet(bone, bones, java.util.Set.of(pathBone));
 			for (JsonElement ce : bone.getAsJsonArray("cubes")) {
 				JsonObject cube = ce.getAsJsonObject();
 				Vector3f o = vec(cube.getAsJsonArray("origin"));
@@ -210,7 +225,7 @@ public final class ArmorSweepReveal {
 				Vector3f lo = new Vector3f(o).sub(inflate, inflate, inflate);
 				Vector3f hi = new Vector3f(o).add(s).add(inflate, inflate, inflate);
 				for (Face f : faces(cube, s)) {
-					paintFace(f, lo, hi, m, su, sv, texW, texH, height, origin);
+					paintFace(f, lo, hi, m, su, sv, texW, texH, height, origin, onPath ? null : joint);
 				}
 			}
 		}
@@ -320,7 +335,7 @@ public final class ArmorSweepReveal {
 	 * {@code origin}, so "highest" is always "first" and the top-down bucketing works unchanged.
 	 */
 	private static void paintFace(Face f, Vector3f lo, Vector3f hi, Matrix4f m, float su, float sv, int texW, int texH,
-			float[] height, Vector3f origin) {
+			float[] height, Vector3f origin, Vector3f joint) {
 		float u0 = Math.min(f.u0, f.u0 + f.du) * su;
 		float u1 = Math.max(f.u0, f.u0 + f.du) * su;
 		float v0 = Math.min(f.v0, f.v0 + f.dv) * sv;
@@ -342,7 +357,8 @@ public final class ArmorSweepReveal {
 				Vector3f p = new Vector3f(lo.x + ext.x * cx, lo.y + ext.y * cy, lo.z + ext.z * cz);
 				m.transformPosition(p);
 				int i = ty * texW + tx;
-				float value = origin == null ? p.y : -p.distance(origin);
+				// v0.14.26: off the path limb, the distance runs origin -> joint -> texel
+				float value = origin == null ? p.y : joint == null ? -p.distance(origin) : -(origin.distance(joint) + p.distance(joint));
 				// a texel shared by several faces appears with the highest of them
 				if (Float.isNaN(height[i]) || value > height[i]) {
 					height[i] = value;

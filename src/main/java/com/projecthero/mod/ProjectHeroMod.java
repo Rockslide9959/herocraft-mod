@@ -68,12 +68,14 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.hulk.HulkConfig.load();
 		com.projecthero.mod.behemoth.BehemothConfig.load();
 		com.projecthero.mod.horde.HordeConfig.load(); // v0.14.20: horde boss health
+		com.projecthero.mod.carnage.CarnageConfig.load(); // v0.14.25: Carnage spawn + health
 		// v0.13.18: the Darkseid Raid (read before its entity types -- they take attributes and hit-box scale from it).
 		com.projecthero.mod.darkseid.DarkseidConfig.load();
 		ModAttachments.initialize();
 		ModItems.initialize();
 		IronManItems.initialize();
 		IronManBlocks.initialize();
+		com.projecthero.mod.ironman.furnace.StarkFurnaces.initialize(); // v0.14.26: Stark Furnace / Smelter / Smoker
 		com.projecthero.mod.ironman.sorter.StarkSorter.initialize(); // v0.14.16: Stark Sorting Station + Sorter Bot
 		IronManSuits.initialize();
 		IronManEntityTypes.initialize();
@@ -178,6 +180,10 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.event.EventTypes.initialize();
 		// v0.14.12: the Horde blocks (zombie / skeleton / spider) and their mobs and bosses
 		com.projecthero.mod.horde.Hordes.initialize();
+		// v0.14.25: the Syndicate Bust (Police Scanner -> warehouse hideout -> five waves -> the Kingpin)
+		com.projecthero.mod.syndicate.Syndicate.initialize();
+		// v0.14.25: Carnage (crimson meteor boss, his brood, Crimson Biomass)
+		com.projecthero.mod.carnage.Carnage.initialize();
 		com.projecthero.mod.event.entity.CursedZombieSpawns.initialize();
 		com.projecthero.mod.grave.GraveboundEffect.initialize();
 		com.projecthero.mod.grave.GraveboundEvents.initialize();
@@ -226,6 +232,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.event.raid.PillagerSpySpawner.tick(server);
 			com.projecthero.mod.titan.TitanSpawner.tick(server);
 			com.projecthero.mod.behemoth.BehemothSpawner.tick(server);
+			com.projecthero.mod.carnage.CarnageSpawner.tick(server);
 			com.projecthero.mod.oathbreaker.OathbreakerSummon.tick(server);
 			com.projecthero.mod.spider.SpiderWebs.tick(server);
 			com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.tick(server);

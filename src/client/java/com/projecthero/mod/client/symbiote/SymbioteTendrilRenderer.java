@@ -25,6 +25,8 @@ import net.minecraft.world.phys.Vec3;
  */
 public class SymbioteTendrilRenderer extends EntityRenderer<SymbioteTendrilEntity> {
 	private static final ResourceLocation TEXTURE = ProjectHeroMod.id("textures/entity/symbiote_tendril.png");
+	/** v0.14.25: Carnage's. */
+	private static final ResourceLocation CRIMSON = ProjectHeroMod.id("textures/entity/symbiote_tendril_crimson.png");
 	private static final int RETRACT_TICKS = 3;
 	private static final int SIDES = 6;
 
@@ -62,6 +64,8 @@ public class SymbioteTendrilRenderer extends EntityRenderer<SymbioteTendrilEntit
 		Vec3 start = origin;
 		if (e.anchor() != SymbioteTendrilEntity.ANCHOR_FIXED && e.level().getEntity(e.ownerId()) instanceof Player owner) {
 			start = handOf(owner, e.anchor() == SymbioteTendrilEntity.ANCHOR_RIGHT_HAND, partialTick);
+		} else if (e.anchor() == SymbioteTendrilEntity.ANCHOR_BODY && e.level().getEntity(e.ownerId()) instanceof net.minecraft.world.entity.LivingEntity body) {
+			start = body.getPosition(partialTick).add(0, body.getBbHeight() * 0.62, 0);
 		}
 		Vec3 end = e.end();
 		Entity target = e.targetId() >= 0 ? e.level().getEntity(e.targetId()) : null;
@@ -97,7 +101,7 @@ public class SymbioteTendrilRenderer extends EntityRenderer<SymbioteTendrilEntit
 			radii[i] = (float) (width * (1.0 - 0.72 * along) * (i == count - 1 ? 0.15 : 1.0));
 		}
 
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE));
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(e.crimson() ? CRIMSON : TEXTURE));
 		PoseStack.Pose last = pose.last();
 		GooMesh.tube(vc, last, light, pts, radii, SIDES, 0.35f);
 		// a barbed tip: three short hooks flaring back from the point

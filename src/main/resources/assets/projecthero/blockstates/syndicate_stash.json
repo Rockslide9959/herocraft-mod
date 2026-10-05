@@ -1,0 +1,36 @@
+{
+  "variants": {
+    "active=false,facing=north": {
+      "model": "projecthero:block/syndicate_stash",
+      "y": 180
+    },
+    "active=true,facing=north": {
+      "model": "projecthero:block/syndicate_stash",
+      "y": 180
+    },
+    "active=false,facing=east": {
+      "model": "projecthero:block/syndicate_stash",
+      "y": 270
+    },
+    "active=true,facing=east": {
+      "model": "projecthero:block/syndicate_stash",
+      "y": 270
+    },
+    "active=false,facing=south": {
+      "model": "projecthero:block/syndicate_stash",
+      "y": 0
+    },
+    "active=true,facing=south": {
+      "model": "projecthero:block/syndicate_stash",
+      "y": 0
+    },
+    "active=false,facing=west": {
+      "model": "projecthero:block/syndicate_stash",
+      "y": 90
+    },
+    "active=true,facing=west": {
+      "model": "projecthero:block/syndicate_stash",
+      "y": 90
+    }
+  }
+}

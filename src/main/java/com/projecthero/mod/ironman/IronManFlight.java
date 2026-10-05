@@ -156,7 +156,8 @@ public final class IronManFlight {
 		float base;
 		if (supersonic) {
 			base = SUPERSONIC_COST_PER_TICK;
-		} else if (player.isSprinting()) {
+		} else if (player.isSprinting() && player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).getItem()
+				instanceof com.projecthero.mod.ironman.item.IronManArmorItem) { // v0.14.26: boots alone never sprint-fly
 			base = SPRINT_FLIGHT_COST_PER_TICK;
 		} else if (player.zza != 0f || player.xxa != 0f) {
 			base = WALK_FLIGHT_COST_PER_TICK;

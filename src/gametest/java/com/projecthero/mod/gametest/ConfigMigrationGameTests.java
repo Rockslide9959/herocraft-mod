@@ -177,7 +177,7 @@ public class ConfigMigrationGameTests implements FabricGameTest {
 		Path p = write("darkseid", "{\"configVersion\":2,\"raid\":{\"maxParticipants\":6},"
 				+ "\"parademons\":{\"standardHealth\":36.0,\"bruteDamage\":17.25,\"flightSpeed\":0.5}}");
 		DarkseidConfig c = DarkseidConfig.SPEC.load(p);
-		helper.assertTrue(DarkseidConfig.SPEC.currentVersion() == 4 && c.configVersion == 4, "stamped v4");
+		helper.assertTrue(DarkseidConfig.SPEC.currentVersion() == 5 && c.configVersion == 5, "stamped v5 (v0.14.26)");
 		helper.assertTrue(c.parademons.standardHealth == 30.0 && c.parademons.bruteDamage == 15.0, "Parademon stats restored");
 		helper.assertTrue(c.parademons.flightSpeed == 0.5 && c.raid.maxParticipants == 6, "other values kept");
 		helper.assertTrue(c.motherBoxes != null && c.rewards != null && c.boss.baseDarkseidHealth == 3000.0, "missing sections filled in");

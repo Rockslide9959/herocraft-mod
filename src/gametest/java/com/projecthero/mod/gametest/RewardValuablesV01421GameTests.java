@@ -207,7 +207,7 @@ public class RewardValuablesV01421GameTests implements FabricGameTest {
 		helper.assertTrue(d.omegaCoreCount == 1 && d.omegaShardChance == 0.60 && d.motherBoxChance == 0.10 && d.omegaRelicChance == 0.03
 				&& d.experiencePoints == 1500 && d.valuablesMultiplier == 1.0, "the Omega loot defaults are unchanged");
 		DarkseidConfig c = DarkseidConfig.migrateForTest("{\"configVersion\":3,\"rewards\":{\"omegaShardChance\":0.9}}");
-		helper.assertTrue(c.configVersion == 4 && c.rewards.omegaShardChance == 0.9 && c.rewards.valuablesMultiplier == 1.0,
+		helper.assertTrue(c.configVersion == 5 && c.rewards.omegaShardChance == 0.9 && c.rewards.valuablesMultiplier == 1.0,
 				"a v3 file moves to v4, keeps its tuning and gains the multiplier");
 		helper.succeed();
 	}

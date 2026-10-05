@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "projecthero:block/stark_smelter_front_on",
+    "side": "projecthero:block/stark_smelter_side",
+    "top": "projecthero:block/stark_smelter_top"
+  }
+}

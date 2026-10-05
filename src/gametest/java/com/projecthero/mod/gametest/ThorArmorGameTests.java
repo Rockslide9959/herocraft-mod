@@ -101,7 +101,7 @@ public class ThorArmorGameTests implements FabricGameTest {
 		ServerPlayer p = boundThor(helper);
 		ThorPassives.reconcile(p);
 		MobEffectInstance regen = p.getEffect(MobEffects.REGENERATION);
-		helper.assertTrue(regen != null && regen.getAmplifier() == 0 && regen.isInfiniteDuration(), "permanent Regeneration I");
+		helper.assertTrue(regen == null && ThorPassives.REGEN_INTERVAL == 50, "v0.14.26: a flat 1 HP / 2.5 s heal, no Regeneration effect");
 		helper.assertFalse(p.hasEffect(MobEffects.DAMAGE_RESISTANCE), "the base Resistance is gone");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - 12.0) < 1e-6,
 				"bare-handed melee is 1 + 11, got " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));

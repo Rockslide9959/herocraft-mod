@@ -60,6 +60,8 @@ public final class KryptonianConfig {
 	 */
 	public static final int SUN_REGEN_INTERVAL = 10;
 	public static final float REGEN_AMOUNT = 1.0f;
+	/** v0.14.26: healing is a flat {@link #REGEN_AMOUNT} every this many ticks (1 HP / 2.5 s) while hurt and holding Solar Energy. */
+	public static final int REGEN_INTERVAL = 50;
 	/** The sun also feeds him: one hunger point every this many ticks in direct sunlight. */
 	public static final int SUN_FEED_INTERVAL = 10 * S;
 

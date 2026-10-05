@@ -387,6 +387,7 @@ public final class IronManAbilities {
 		Vec3 right = rightOf(player, look);
 		Vec3 muzzle = player.getEyePosition().add(look.scale(0.6)).add(right.scale(0.35)).add(0, -0.35, 0);
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, muzzle.x, muzzle.y, muzzle.z, 2, 0.05, 0.05, 0.05, 0.02);
+		com.projecthero.mod.ironman.IronManAbilityFx.hold(player, com.projecthero.mod.ironman.IronManAbilityFx.CHARGING); // v0.14.26 pose
 		// v0.11.13, explicit user request: an audible spin-up, not just a single blip when the windup
 		// starts -- a rising-pitch hum every 4 ticks as it nears firing.
 		long remaining = Math.max(0L, windupAt - now);
@@ -421,6 +422,7 @@ public final class IronManAbilities {
 		Vec3 right = rightOf(player, look);
 		Vec3 muzzle = player.getEyePosition().add(look.scale(0.7)).add(right.scale(0.35)).add(0, -0.35, 0);
 		int count = (int) Math.min(8, 1 + held / 6);
+		com.projecthero.mod.ironman.IronManAbilityFx.hold(player, com.projecthero.mod.ironman.IronManAbilityFx.CHARGING); // v0.14.26 pose
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, muzzle.x, muzzle.y, muzzle.z, count, 0.06, 0.06, 0.06, 0.02);
 		if (held % 6 == 0) {
 			AbilityHelpers.sound(player, SoundEvents.BEACON_AMBIENT, 0.25f, 0.8f + Math.min(1.2f, held / 40f));
@@ -478,11 +480,16 @@ public final class IronManAbilities {
 		Vec3 right = rightOf(player, look);
 		Vec3 origin = player.getEyePosition().add(look.scale(0.6)).add(right.scale(0.35)).add(0, -0.35, 0);
 
-		LivingEntity target = AbilityHelpers.raycastEntity(player, range);
+		// v0.14.26: a Mark III lock auto-aims the blast
+		LivingEntity locked = com.projecthero.mod.ironman.IronManTargeting.lockedWithin(player, range);
+		LivingEntity target = locked != null ? locked : AbilityHelpers.raycastEntity(player, range);
 		var blockHit = AbilityHelpers.raycastBlock(player, range);
 		Vec3 end;
 		if (target != null) {
 			end = target.position().add(0, target.getBbHeight() * 0.5, 0);
+			if (locked != null) {
+				look = end.subtract(origin).normalize();
+			}
 		} else if (blockHit.getType() != HitResult.Type.MISS) {
 			end = blockHit.getLocation();
 		} else {
@@ -490,6 +497,7 @@ public final class IronManAbilities {
 		}
 
 		broadcastBeam(player, origin, end, charged ? 1 : 0);
+		com.projecthero.mod.ironman.IronManAbilityFx.play(player, charged ? com.projecthero.mod.ironman.IronManAbilityFx.CHARGED : com.projecthero.mod.ironman.IronManAbilityFx.REPULSOR, charged ? 14 : 10); // v0.14.26 pose
 		AbilityHelpers.burst(level, end, ParticleTypes.ELECTRIC_SPARK, charged ? 24 : 12, 0.3);
 		AbilityHelpers.sound(player, SoundEvents.BEACON_POWER_SELECT, 1.0f, charged ? 0.7f : 1.4f);
 		AbilityHelpers.sound(player, SoundEvents.GENERIC_EXPLODE, charged ? 0.8f : 0.35f, 1.6f);
@@ -567,6 +575,7 @@ public final class IronManAbilities {
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 look = player.getLookAngle();
 		boolean fullBody = suit.fullBodyShield();
+		com.projecthero.mod.ironman.IronManAbilityFx.hold(player, com.projecthero.mod.ironman.IronManAbilityFx.BARRIER); // v0.14.26 pose + shield model
 		Vec3 centre = fullBody
 				? player.position().add(0, player.getBbHeight() * 0.5, 0)
 				: player.position().add(0, player.getBbHeight() * 0.55, 0).add(look.scale(1.1));
@@ -646,6 +655,7 @@ public final class IronManAbilities {
 		// single 8-damage tick.
 		TonyStarkState s = TonyStark.state(player);
 		s.pendingMissiles = suit.missileCount();
+		com.projecthero.mod.ironman.IronManAbilityFx.play(player, com.projecthero.mod.ironman.IronManAbilityFx.MISSILES, 30); // v0.14.26 pose
 		s.pendingMissileNextTick = player.level().getGameTime();
 		s.pendingMissileSuit = suit.id();
 		s.pendingMissileHoming = false;
@@ -680,6 +690,12 @@ public final class IronManAbilities {
 		IronManMissileEntity missile = new IronManMissileEntity(level, player, dir.scale(1.2))
 				.withDamage(suit.missileDamage(), suit.missileDamage() * 0.6f)
 				.withBlastRadius(2.0f);
+		// v0.14.26: with a Mark III lock, every micro missile homes onto the locked target
+		LivingEntity tsLock = com.projecthero.mod.ironman.IronManTargeting.locked(player);
+		if (!s.pendingMissileHoming && tsLock != null) {
+			missile.withHoming();
+			missile.withTarget(tsLock);
+		}
 		if (s.pendingMissileHoming) {
 			// v0.14.21 round two: Homing Missiles -- fan out a little, then steer onto the locked target (or, if it
 			// is gone, the nearest hostile in flight)
@@ -727,6 +743,7 @@ public final class IronManAbilities {
 		LivingEntity target = homingTarget(player);
 		TonyStarkState s = TonyStark.state(player);
 		s.pendingMissiles = HOMING_MISSILE_COUNT;
+		com.projecthero.mod.ironman.IronManAbilityFx.play(player, com.projecthero.mod.ironman.IronManAbilityFx.MISSILES, 30); // v0.14.26 pose
 		s.pendingMissileNextTick = player.level().getGameTime();
 		s.pendingMissileSuit = suit.id();
 		s.pendingMissileHoming = true;
@@ -829,9 +846,11 @@ public final class IronManAbilities {
 			return;
 		}
 		ServerLevel level = (ServerLevel) player.level();
-		Vec3 dir = player.getLookAngle();
-		Vec3 chest = player.position().add(0, player.getBbHeight() * 0.62, 0).add(dir.scale(0.4));
+		Vec3 chest0 = player.position().add(0, player.getBbHeight() * 0.62, 0);
+		Vec3 dir = com.projecthero.mod.ironman.IronManTargeting.aim(player, chest0, player.getLookAngle(), 28); // v0.14.26 auto-aim
+		Vec3 chest = chest0.add(dir.scale(0.4));
 		Vec3 end = chest.add(dir.scale(28));
+		com.projecthero.mod.ironman.IronManAbilityFx.hold(player, com.projecthero.mod.ironman.IronManAbilityFx.UNIBEAM); // v0.14.26 pose
 
 		// beam VFX only every other tick -- the client line was the main FPS cost
 		if (now % 2 == 0) {
@@ -874,6 +893,7 @@ public final class IronManAbilities {
 		LivingEntity target = AbilityHelpers.raycastEntity(player, PUNCH_RANGE);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 fist = player.getEyePosition().add(player.getLookAngle().scale(1.2)).add(0, -0.4, 0);
+		com.projecthero.mod.ironman.IronManAbilityFx.play(player, com.projecthero.mod.ironman.IronManAbilityFx.PUNCH, 10); // v0.14.26 pose + shockwave
 		AbilityHelpers.burst(level, fist, ParticleTypes.CRIT, 10, 0.2);
 		AbilityHelpers.sound(player, SoundEvents.PLAYER_ATTACK_STRONG, 1.0f, 0.7f);
 		if (target != null) {
@@ -916,6 +936,7 @@ public final class IronManAbilities {
 					Component.translatable("message.projecthero.ironman.flamethrower_overheated"), true);
 			return;
 		}
+					com.projecthero.mod.ironman.IronManAbilityFx.hold(player, com.projecthero.mod.ironman.IronManAbilityFx.FLAME); // v0.14.26 pose + flame cone
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 look = player.getLookAngle();
 		Vec3 origin = player.getEyePosition();
@@ -1022,8 +1043,8 @@ public final class IronManAbilities {
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 shoulder = player.getEyePosition().add(0, 0.15, 0);
 		// "changes 14": the rocket is dumb-fire -- it flies exactly where the player aimed, no tracking,
-		// and makes a sizeable AoE blast where it lands.
-		Vec3 dir = player.getLookAngle();
+		// and makes a sizeable AoE blast where it lands. v0.14.26: a Mark III lock aims it.
+		Vec3 dir = com.projecthero.mod.ironman.IronManTargeting.aim(player, shoulder, player.getLookAngle(), 100);
 		com.projecthero.mod.ironman.entity.IronManMissileEntity missile =
 				new com.projecthero.mod.ironman.entity.IronManMissileEntity(level, player, dir.scale(1.4))
 						.withDamage(damage, damage * 0.7f)
@@ -1031,6 +1052,7 @@ public final class IronManAbilities {
 						// v0.11.13, explicit user request: the Mark 1/2 rocket now actually breaks blocks
 						// (TNT-style), unlike every other missile this entity type is shared with.
 						.withBreaksBlocks();
+						com.projecthero.mod.ironman.IronManAbilityFx.play(player, com.projecthero.mod.ironman.IronManAbilityFx.ROCKET, 14); // v0.14.26 pose
 		missile.setPos(shoulder.x + dir.x, shoulder.y + dir.y, shoulder.z + dir.z);
 		level.addFreshEntity(missile);
 		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.2f, 0.9f);
@@ -1050,6 +1072,7 @@ public final class IronManAbilities {
 		Vec3 origin = player.getEyePosition().add(player.getLookAngle().scale(1.0));
 		level.sendParticles(ParticleTypes.FLASH, origin.x, origin.y, origin.z, 1, 0, 0, 0, 0);
 		level.sendParticles(ParticleTypes.FIREWORK, origin.x, origin.y, origin.z, 30, 0.3, 0.3, 0.3, 0.15);
+		com.projecthero.mod.ironman.IronManAbilityFx.play(player, com.projecthero.mod.ironman.IronManAbilityFx.FLARE, 12); // v0.14.26 pose
 		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_BLAST, 1.2f, 1.4f);
 		for (LivingEntity e : AbilityHelpers.hostilesAround(player, player.position(), FLARE_RADIUS)) { // v0.14.20: area CC, rule 2
 			e.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, FLARE_BLIND_TICKS, 0, false, true, true));
@@ -1322,6 +1345,7 @@ public final class IronManAbilities {
 		Vec3 origin = player.getEyePosition().add(look.scale(0.5)).add(right.scale(0.35)).add(0, -0.35, 0);
 
 		LivingEntity target = AbilityHelpers.raycastEntity(player, WRIST_LASER_RANGE);
+		com.projecthero.mod.ironman.IronManAbilityFx.hold(player, com.projecthero.mod.ironman.IronManAbilityFx.LASER); // v0.14.26 pose
 		var blockHit = AbilityHelpers.raycastBlock(player, WRIST_LASER_RANGE);
 		Vec3 end;
 		if (target != null) {

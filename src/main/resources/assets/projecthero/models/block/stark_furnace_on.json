@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "projecthero:block/stark_furnace_front_on",
+    "side": "projecthero:block/stark_furnace_side",
+    "top": "projecthero:block/stark_furnace_top"
+  }
+}

@@ -386,8 +386,9 @@ public final class DarkseidCombat {
 		if (d <= cfg.groundSlamRadius * 0.7 && dy < cfg.groundSlamVerticalRange) {
 			w.put(Attack.GROUND_SLAM, d <= reach ? 2.0 : 3.0);
 		}
-		if (!shielded && (d >= 6.0 || air)) {
-			// v0.13.19: his signature move comes up far more often (was 6.0 / 4.5)
+		if (d >= 3.0 || air) {
+			// v0.13.19: his signature move comes up far more often (was 6.0 / 4.5); v0.14.26: more again, from 3 blocks
+			// out, and even behind the Mother Box shield
 			w.put(Attack.OMEGA_BEAMS, air ? cfg.omegaBeamAirWeight : cfg.omegaBeamWeight);
 		}
 		if (d >= 5.0 || air) {
@@ -481,15 +482,15 @@ public final class DarkseidCombat {
 		switch (attack) {
 			case MELEE_1 -> {
 				boss.triggerAnim("action", DarkseidAnims.MELEE_1);
-				cooldown(attack, now, 30);
+				cooldown(attack, now, 20); // v0.14.26: faster (was 30)
 			}
 			case MELEE_2 -> {
 				boss.triggerAnim("action", DarkseidAnims.MELEE_2);
-				cooldown(attack, now, 36);
+				cooldown(attack, now, 24); // v0.14.26: faster (was 36)
 			}
 			case MELEE_COMBO -> {
 				boss.triggerAnim("action", DarkseidAnims.MELEE_COMBO);
-				cooldown(attack, now, 90);
+				cooldown(attack, now, 60); // v0.14.26: faster (was 90)
 			}
 			case GROUND_SLAM -> {
 				boss.triggerAnim("action", DarkseidAnims.GROUND_SLAM);
@@ -691,7 +692,8 @@ public final class DarkseidCombat {
 		Vec3 f = boss.forward();
 		double reach = 2.4 + boss.getBbWidth() * 0.5 + 0.6;
 		double cos = Math.cos(Math.toRadians(arcDegrees / 2.0));
-		float damage = (float) (DarkseidConfig.boss().meleeDamage * damageScale * damageMultiplier());
+		// v0.14.26: flat damage tiers -- jabs tier 1, the heavy hook tier 2, the combo finisher tier 3
+		float damage = damageScale >= 1.3f ? DarkseidConfig.tier(3) : damageScale >= 1.05f ? DarkseidConfig.tier(2) : DarkseidConfig.tier(1);
 		boolean any = false;
 		for (LivingEntity e : server.getEntitiesOfClass(LivingEntity.class,
 				boss.getBoundingBox().inflate(reach, 2.0, reach), DarkseidDamage::isValidVictim)) {
@@ -762,7 +764,7 @@ public final class DarkseidCombat {
 		if (slamWaveTick % 3 == 0) {
 			DarkseidFx.ring(server, RED, c.add(0, 0.6, 0), r, Math.max(8, (int) (r * 2)));
 		}
-		float base = cfg.groundSlamDamage * damageMultiplier();
+		float base = DarkseidConfig.tier(2); // v0.14.26
 		double vertical = cfg.groundSlamVerticalRange;
 		for (LivingEntity e : server.getEntitiesOfClass(LivingEntity.class, new AABB(c.x - max, c.y - 3, c.z - max,
 				c.x + max, c.y + vertical + 1, c.z + max), DarkseidDamage::isValidVictim)) {
@@ -819,7 +821,7 @@ public final class DarkseidCombat {
 			Vec3 side = new Vec3(-f.z, 0, f.x);
 			Vec3 toTarget = tgt.position().add(0, tgt.getBbHeight() * 0.5, 0).subtract(eyes).normalize();
 			double turn = cfg.omegaBeamTurnDegrees + (phase() - 1) * 1.5;
-			float dmg = cfg.omegaBeamDamage * damageMultiplier();
+			float dmg = DarkseidConfig.tier(2); // v0.14.26
 			for (int s = -1; s <= 1; s += 2) {
 				Vec3 from = eyes.add(side.scale(0.22 * s));
 				// they leave splayed outward, then snake toward the target in sharp zig-zags (v0.13.19) before homing in
@@ -898,7 +900,7 @@ public final class DarkseidCombat {
 			server.sendParticles(ParticleTypes.EXPLOSION, p.x, p.y + 0.5, p.z, 3, radius * 0.4, 0.3, radius * 0.4, 0.0);
 			server.sendParticles(RED, p.x, p.y + 0.5, p.z, 20, radius * 0.5, 0.5, radius * 0.5, 0.0);
 			server.playSound(null, p.x, p.y, p.z, DarkseidSounds.OMEGA_IMPACT, SoundSource.HOSTILE, 2.0f, 0.9f);
-			float dmg = cfg.omegaBarrageDamage * damageMultiplier();
+			float dmg = DarkseidConfig.tier(1); // v0.14.26
 			for (LivingEntity e : server.getEntitiesOfClass(LivingEntity.class,
 					new AABB(p, p).inflate(radius, 2.5, radius), DarkseidDamage::isValidVictim)) {
 				double dx = e.getX() - p.x;
@@ -967,7 +969,7 @@ public final class DarkseidCombat {
 				int steps = Math.max(1, cfg.gripDuration / 10);
 				if (gripHold > 0 && gripHold % 10 == 0) {
 					v.invulnerableTime = 0;
-					v.hurt(server.damageSources().mobAttack(boss), cfg.gripDamage * damageMultiplier() / steps);
+					v.hurt(server.damageSources().mobAttack(boss), DarkseidConfig.tier(1) / steps);
 					v.setDeltaMovement(vel);
 					v.hurtMarked = true;
 				}
@@ -1136,7 +1138,7 @@ public final class DarkseidCombat {
 			server.playSound(null, boss.blockPosition(), DarkseidSounds.STEP, SoundSource.HOSTILE, 2.0f, 0.8f);
 			groundBurst(server, boss.position(), 1.5);
 		}
-		float dmg = cfg.chargeDamage * damageMultiplier();
+		float dmg = DarkseidConfig.tier(3); // v0.14.26
 		for (LivingEntity e : server.getEntitiesOfClass(LivingEntity.class, boss.getBoundingBox().inflate(0.9, 0.2, 0.9),
 				DarkseidDamage::isValidVictim)) {
 			if (!hitOnce.add(e.getId())) {
@@ -1220,7 +1222,7 @@ public final class DarkseidCombat {
 			server.playSound(null, boss.blockPosition(), DarkseidSounds.OMEGA_CHARGE, SoundSource.HOSTILE, 1.5f, 1.4f);
 		}
 		double beamY = boss.getY() + 0.6;
-		float dmg = cfg.omegaSweepDamage * damageMultiplier();
+		float dmg = DarkseidConfig.tier(1); // v0.14.26
 		for (int b = 0; b < sweepBeams; b++) {
 			Vec3 dir = yawDir(sweepYaw + b * 180.0f);
 			Vec3 origin = new Vec3(boss.getX(), beamY, boss.getZ()).add(dir.scale(boss.getBbWidth() * 0.6));
@@ -1347,7 +1349,7 @@ public final class DarkseidCombat {
 		Vec3 eyes = boss.eyePosition();
 		Vec3 c = boss.position();
 		double radius = cfg.omegaAnnihilationRadius;
-		float base = cfg.omegaAnnihilationDamage * damageMultiplier();
+		float base = DarkseidConfig.tier(3); // v0.14.26
 		if (annihilationTarget != null && annihilationTarget.isAlive()) {
 			DarkseidFx.line(server, RED_BIG, eyes, annihilationTarget.position().add(0, 1, 0), 0.6, 80);
 		}

@@ -321,8 +321,8 @@ public final class Kryptonian {
 
 	/** Is the active Regeneration the Kryptonian's own (an infinite ambient instance at our amplifier)? */
 	static boolean ownRegeneration(ServerPlayer player) {
-		MobEffectInstance active = player.getEffect(MobEffects.REGENERATION);
-		return active != null && active.isInfiniteDuration() && active.isAmbient() && active.getAmplifier() == KryptonianConfig.REGEN_AMPLIFIER;
+		// v0.14.26: no effect any more -- "regenerating" means wanting to (hurt, empowered, Solar Energy left), which is what drains Solar
+		return wantsRegeneration(player);
 	}
 
 	/**
@@ -335,8 +335,7 @@ public final class Kryptonian {
 			player.removeEffect(MobEffects.REGENERATION); // the v0.14.15 one, from an older save
 			active = null;
 		}
-		boolean ours = active != null && active.isInfiniteDuration() && active.isAmbient()
-				&& active.getAmplifier() == KryptonianConfig.REGEN_AMPLIFIER;
+		boolean ours = active != null && active.isInfiniteDuration() && active.isAmbient();
 		if (wanted && active == null) {
 			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, MobEffectInstance.INFINITE_DURATION,
 					KryptonianConfig.REGEN_AMPLIFIER, true, false, true));
@@ -347,9 +346,11 @@ public final class Kryptonian {
 
 	/** v0.14.16: every tick -- on the moment he is hurt, off the moment he is whole (or out of Solar Energy). */
 	private static void tickRegeneration(ServerPlayer player) {
-		boolean wanted = wantsRegeneration(player);
-		if (wanted != ownRegeneration(player)) {
-			reconcileRegeneration(player, wanted);
+		// v0.14.26: a flat 1 HP every 2.5 s (KryptonianConfig.REGEN_INTERVAL) instead of Regeneration III + sun healing.
+		// Any infinite ambient Regeneration from an older version is cleared; a potion's is left alone.
+		reconcileRegeneration(player, false);
+		if (wantsRegeneration(player) && player.tickCount % KryptonianConfig.REGEN_INTERVAL == 0) {
+			player.heal(KryptonianConfig.REGEN_AMOUNT);
 		}
 	}
 
@@ -500,10 +501,7 @@ public final class Kryptonian {
 		if (sun != null) {
 			// v0.14.16: only direct sunlight heals on its own now; anywhere else the Solar-paid Regeneration III does it.
 			// The check itself runs every 10 ticks; heal on the ones that line up with the interval.
-			if (sun == Sun.DIRECT && player.tickCount % KryptonianConfig.SUN_REGEN_INTERVAL == 0
-					&& player.getHealth() < player.getMaxHealth()) {
-				player.heal(KryptonianConfig.REGEN_AMOUNT);
-			}
+			// v0.14.26: direct sunlight no longer heals on top -- all healing is the flat 1 HP / 2.5 s (tickRegeneration)
 			if (sun == Sun.DIRECT && player.tickCount % KryptonianConfig.SUN_FEED_INTERVAL == 0
 					&& player.getFoodData().getFoodLevel() < 20) {
 				player.getFoodData().eat(1, 0.5f);

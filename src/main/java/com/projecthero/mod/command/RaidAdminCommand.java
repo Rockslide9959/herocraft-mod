@@ -41,7 +41,8 @@ import java.util.List;
  */
 public final class RaidAdminCommand {
 	private static final List<String> RAIDS = List.of("supervillain", "gravebound", "darkseid",
-			"zombie_horde", "skeleton_horde", "spider_horde"); // v0.14.12: the Horde blocks
+			"zombie_horde", "skeleton_horde", "spider_horde", // v0.14.12: the Horde blocks
+			"syndicate", "carnage"); // v0.14.25: the Syndicate Bust, Carnage
 	private static final SuggestionProvider<CommandSourceStack> RAID_KEYS =
 			(ctx, builder) -> SharedSuggestionProvider.suggest(RAIDS, builder);
 
@@ -68,11 +69,17 @@ public final class RaidAdminCommand {
 						.executes(c -> {
 							String raid = StringArgumentType.getString(c, "raid");
 							if (!RAIDS.contains(raid)) {
-								c.getSource().sendFailure(Component.literal("Unknown raid (supervillain, gravebound, darkseid, zombie_horde, skeleton_horde, spider_horde)"));
+								c.getSource().sendFailure(Component.literal("Unknown raid (supervillain, gravebound, darkseid, zombie_horde, skeleton_horde, spider_horde, syndicate, carnage)"));
 								return 0;
 							}
 							if (raid.equals("darkseid")) {
 								return DarkseidRaidCommand.verb(c, name);
+							}
+							if (raid.equals("carnage")) {
+								return com.projecthero.mod.carnage.Carnage.command(c, name);
+							}
+							if (raid.equals("syndicate")) {
+								return com.projecthero.mod.syndicate.SyndicateCommand.verb(c, name);
 							}
 							if (com.projecthero.mod.horde.HordeKind.byTypeId(raid) != null) {
 								return com.projecthero.mod.horde.HordeCommand.verb(c, name, com.projecthero.mod.horde.HordeKind.byTypeId(raid));

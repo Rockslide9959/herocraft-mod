@@ -232,6 +232,15 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		}
 	}
 
+	/** v0.14.26: Iron Man attack animations -- after the flight pose so a move made mid-air overrides the flight arms. */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$ironManAbilityPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player player) {
+			com.projecthero.mod.client.ironman.IronManAbilityPose.apply(player, (HumanoidModel<?>) (Object) this, ageInTicks);
+		}
+	}
+
 	/** v0.14.8: the Kryptonian -- the one-fist-forward flight pose and the move poses. After the flight pose so it wins. */
 	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
 	private void projecthero$kryptonianPose(LivingEntity entity, float limbSwing, float limbSwingAmount,

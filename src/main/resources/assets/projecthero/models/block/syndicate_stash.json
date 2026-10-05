@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "projecthero:block/syndicate_stash_front",
+    "side": "projecthero:block/syndicate_stash_side",
+    "top": "projecthero:block/syndicate_stash_top"
+  }
+}

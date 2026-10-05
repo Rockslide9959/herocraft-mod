@@ -192,7 +192,7 @@ public class KryptonianV01416GameTests implements FabricGameTest {
 		p.setHealth(10.0f);
 		helper.runAfterDelay(2, () -> {
 			MobEffectInstance regen = p.getEffect(MobEffects.REGENERATION);
-			helper.assertTrue(regen != null && regen.getAmplifier() == 2, "Regeneration III while hurt");
+			helper.assertTrue(regen == null, "v0.14.26: no Regeneration effect -- a flat 1 HP / 2.5 s heal instead");
 			helper.runAfterDelay(45, () -> {
 				float s = Kryptonian.solar(p);
 				helper.assertTrue(s <= 49f + EPS && s >= 46f, "it costs 1 Solar Energy a second, " + s);

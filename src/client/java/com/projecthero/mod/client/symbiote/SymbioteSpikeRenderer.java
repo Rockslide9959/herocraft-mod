@@ -26,6 +26,7 @@ import net.minecraft.world.phys.Vec3;
  */
 public class SymbioteSpikeRenderer extends EntityRenderer<SymbioteSpikeEntity> {
 	private static final ResourceLocation TEXTURE = ProjectHeroMod.id("textures/entity/symbiote_spike.png");
+	private static final ResourceLocation CRIMSON = ProjectHeroMod.id("textures/entity/symbiote_spike_crimson.png");
 	private static final int SIDES = 5;
 
 	public SymbioteSpikeRenderer(EntityRendererProvider.Context context) {
@@ -52,7 +53,7 @@ public class SymbioteSpikeRenderer extends EntityRenderer<SymbioteSpikeEntity> {
 		// a slow twist along its length, like a thrown blade of living tissue
 		pose.mulPose(Axis.XP.rotationDegrees((e.tickCount + partialTick) * 25.0f));
 
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE));
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(e.crimson() ? CRIMSON : TEXTURE));
 		PoseStack.Pose last = pose.last();
 		// the thorn: tail -> shoulder -> point, slightly hooked upward at the end
 		Vec3[] body = {

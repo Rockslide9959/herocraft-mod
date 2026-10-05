@@ -29,6 +29,8 @@ public class SymbioteTendrilEntity extends Entity {
 	public static final int ANCHOR_RIGHT_HAND = 0;
 	public static final int ANCHOR_LEFT_HAND = 1;
 	public static final int ANCHOR_FIXED = 2;
+	/** v0.14.25: rooted in a non-player owner's chest (Carnage), re-read every frame like a hand anchor. */
+	public static final int ANCHOR_BODY = 3;
 
 	private static final EntityDataAccessor<Integer> DATA_OWNER = SynchedEntityData.defineId(SymbioteTendrilEntity.class, EntityDataSerializers.INT);
 	private static final EntityDataAccessor<Integer> DATA_ANCHOR = SynchedEntityData.defineId(SymbioteTendrilEntity.class, EntityDataSerializers.INT);
@@ -37,6 +39,8 @@ public class SymbioteTendrilEntity extends Entity {
 	private static final EntityDataAccessor<Integer> DATA_LIFE = SynchedEntityData.defineId(SymbioteTendrilEntity.class, EntityDataSerializers.INT);
 	private static final EntityDataAccessor<Integer> DATA_EXTEND = SynchedEntityData.defineId(SymbioteTendrilEntity.class, EntityDataSerializers.INT);
 	private static final EntityDataAccessor<Float> DATA_WIDTH = SynchedEntityData.defineId(SymbioteTendrilEntity.class, EntityDataSerializers.FLOAT);
+	/** v0.14.25: Carnage's tendrils are red. */
+	private static final EntityDataAccessor<Boolean> DATA_CRIMSON = SynchedEntityData.defineId(SymbioteTendrilEntity.class, EntityDataSerializers.BOOLEAN);
 
 	public SymbioteTendrilEntity(EntityType<? extends SymbioteTendrilEntity> type, Level level) {
 		super(type, level);
@@ -57,6 +61,20 @@ public class SymbioteTendrilEntity extends Entity {
 		if (t != null) {
 			t.entityData.set(DATA_OWNER, owner.getId());
 			t.entityData.set(DATA_ANCHOR, rightHand ? ANCHOR_RIGHT_HAND : ANCHOR_LEFT_HAND);
+			owner.level().addFreshEntity(t);
+		}
+		return t;
+	}
+
+	/** v0.14.25: a crimson tendril out of {@code owner}'s chest (Carnage). The start follows the owner every frame. */
+	public static SymbioteTendrilEntity fromBody(net.minecraft.world.entity.LivingEntity owner, Vec3 end, Entity target, int life, int extend,
+			float width) {
+		Vec3 start = owner.position().add(0, owner.getBbHeight() * 0.62, 0);
+		SymbioteTendrilEntity t = create(owner.level(), start, end, target, life, extend, width);
+		if (t != null) {
+			t.entityData.set(DATA_OWNER, owner.getId());
+			t.entityData.set(DATA_ANCHOR, ANCHOR_BODY);
+			t.entityData.set(DATA_CRIMSON, true);
 			owner.level().addFreshEntity(t);
 		}
 		return t;
@@ -100,6 +118,7 @@ public class SymbioteTendrilEntity extends Entity {
 		builder.define(DATA_LIFE, 10);
 		builder.define(DATA_EXTEND, 3);
 		builder.define(DATA_WIDTH, 0.12f);
+		builder.define(DATA_CRIMSON, false);
 	}
 
 	@Override
@@ -140,6 +159,14 @@ public class SymbioteTendrilEntity extends Entity {
 
 	public int extendTicks() {
 		return entityData.get(DATA_EXTEND);
+	}
+
+	public boolean crimson() {
+		return entityData.get(DATA_CRIMSON);
+	}
+
+	public void setCrimson(boolean crimson) {
+		entityData.set(DATA_CRIMSON, crimson);
 	}
 
 	public float width() {

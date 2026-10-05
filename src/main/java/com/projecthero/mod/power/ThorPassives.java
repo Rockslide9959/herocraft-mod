@@ -144,13 +144,9 @@ public final class ThorPassives {
 	 */
 	private static void reconcileRegeneration(ServerPlayer player, boolean wanted) {
 		MobEffectInstance active = player.getEffect(MobEffects.REGENERATION);
-		boolean ours = active != null && active.isInfiniteDuration() && active.getAmplifier() == 0
-				&& active.isAmbient();
-
-		if (wanted && !ours) {
-			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION,
-					MobEffectInstance.INFINITE_DURATION, 0, true, false, false));
-		} else if (!wanted && ours) {
+		boolean ours = active != null && active.isInfiniteDuration() && active.isAmbient();
+		// v0.14.26: the permanent effect is gone (healing is a flat 1 HP / 2.5 s in serverTick); clear an older save's one
+		if (ours) {
 			player.removeEffect(MobEffects.REGENERATION);
 		}
 	}
@@ -168,7 +164,13 @@ public final class ThorPassives {
 
 	// ---------------- per-tick work (deliberately almost none) ----------------
 
+	/** v0.14.26: Thor heals a flat 1 HP every this many ticks (2.5 s) while hurt. */
+	public static final int REGEN_INTERVAL = 50;
+
 	public static void serverTick(ServerPlayer player) {
+		if (player.tickCount % REGEN_INTERVAL == 0 && player.isAlive() && player.getHealth() < player.getMaxHealth() && hasPowerOfThor(player)) {
+			player.heal(1.0f);
+		}
 		if (player.tickCount % AUDIT_INTERVAL_TICKS == 0) {
 			// Catches anything that changed the player's state without going through bind/unbind --
 			// most obviously a worthiness change from a command or from gameplay scoring.

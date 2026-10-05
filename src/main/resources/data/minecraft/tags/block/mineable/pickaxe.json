@@ -24,6 +24,9 @@
     "projecthero:gravity_distortion_rig",
     "projecthero:kryptonite_ore",
     "projecthero:kryptonite_block",
-    "projecthero:meteor_core"
+    "projecthero:meteor_core",
+    "projecthero:stark_furnace",
+    "projecthero:stark_smelter",
+    "projecthero:stark_smoker"
   ]
 }
