@@ -121,6 +121,12 @@ public final class IronManAbilities {
 
 	private static final float FLAMETHROWER_ENERGY_PER_TICK = 0.25f; // v0.11.12: 5/sec (was 6/tick = 120/sec), explicit user request
 	private static final double FLAMETHROWER_REACH = 6.0;
+	/** v0.14.28: Mark 1's flamethrower reaches 10 blocks. */
+	public static final double MARK_1_FLAMETHROWER_REACH = 10.0;
+
+	public static double flamethrowerReach(IronManSuit suit) {
+		return suit != null && "mark_1".equals(suit.id()) ? MARK_1_FLAMETHROWER_REACH : FLAMETHROWER_REACH;
+	}
 	private static final float FLAMETHROWER_DAMAGE = 2.5f;
 	/** v0.14.22, explicit user request: Mark 1 burns harder than the Mark VII wheel flamethrower (was 2.5). */
 	public static final float MARK_1_FLAMETHROWER_DAMAGE = 5.0f;
@@ -976,9 +982,14 @@ public final class IronManAbilities {
 		Vec3 look = player.getLookAngle();
 		Vec3 origin = player.getEyePosition();
 
-		for (LivingEntity e : AbilityHelpers.enemiesAround(player, origin.add(look.scale(2.5)), 3.0)) {
-			Vec3 to = e.position().subtract(origin).normalize();
-			if (to.dot(look) > 0.6) {
+		// v0.14.28, explicit user request: the Mark 1 stream reaches 10 blocks (every other flamethrower keeps 6)
+		double reach = flamethrowerReach(suit);
+		var wall = AbilityHelpers.raycastBlock(player, reach);
+		double hitLen = wall.getType() == HitResult.Type.BLOCK ? origin.distanceTo(wall.getLocation()) : reach;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(player, origin.add(look.scale(reach * 0.5)), reach * 0.5 + 1.0)) {
+			Vec3 rel = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(origin);
+			Vec3 to = rel.normalize();
+			if (rel.length() <= hitLen + 0.5 && to.dot(look) > (reach > 7.0 ? 0.8 : 0.6)) {
 				// v0.14.27: a suit with a damage-per-second figure (Mark 1: 8/s) lands half of it per i-frame window
 				AbilityHelpers.hurt(player, e, AbilityHelpers.fire(player), suit.flamethrowerDamagePerSecond() > 0f
 						? suit.flamethrowerDamagePerSecond() * 0.5f
@@ -988,9 +999,7 @@ public final class IronManAbilities {
 		}
 
 		// The stream only reaches as far as the first wall/floor it meets.
-		var bhr = AbilityHelpers.raycastBlock(player, FLAMETHROWER_REACH);
-		double streamLen = bhr.getType() == HitResult.Type.BLOCK
-				? origin.distanceTo(bhr.getLocation()) : FLAMETHROWER_REACH;
+		double streamLen = hitLen;
 		// v0.14.22, explicit user request: the flame leaves the suit wrist, not the hand / eyes, and
 		// converges on the same aim point the damage cone uses.
 		Vec3 nozzle = flamethrowerNozzle(player, suit);
@@ -1012,8 +1021,8 @@ public final class IronManAbilities {
 				}
 			}
 		}
-		if (bhr.getType() == HitResult.Type.BLOCK && flamethrowerFireOk()) {
-			placeStreamFire(level, bhr.getBlockPos().relative(bhr.getDirection()), 120);
+		if (wall.getType() == HitResult.Type.BLOCK && flamethrowerFireOk()) {
+			placeStreamFire(level, wall.getBlockPos().relative(wall.getDirection()), 120);
 		}
 		if (player.tickCount % 4 == 0) {
 			AbilityHelpers.sound(player, SoundEvents.BLAZE_BURN, 0.5f, 1.1f);

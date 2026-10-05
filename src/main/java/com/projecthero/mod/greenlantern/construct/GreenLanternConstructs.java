@@ -909,6 +909,7 @@ public final class GreenLanternConstructs {
 			hold = wall.getLocation().subtract(look.scale(back));
 		}
 		target.setPos(hold.x, hold.y - target.getBbHeight() / 2, hold.z);
+		pacifyCarried(target);
 		target.setDeltaMovement(Vec3.ZERO);
 		target.fallDistance = 0f;
 		target.hurtMarked = true;
@@ -943,6 +944,26 @@ public final class GreenLanternConstructs {
 		bubble.setTargetId(target.getId());
 		player.serverLevel().addFreshEntity(bubble);
 		RESCUE_BUBBLE.put(player.getUUID(), bubble.getId());
+	}
+
+	/**
+	 * v0.14.28, explicit user request: nothing fights back from inside the bubble -- a carried creeper's fuse winds back
+	 * down instead of exploding and a carried skeleton (any mob) drops its target and lowers its bow. Re-applied every
+	 * tick (the mob's own goals would re-acquire a target), and nothing is saved on the mob, so releasing it -- or the
+	 * server stopping mid-carry -- leaves it exactly as it was.
+	 */
+	public static void pacifyCarried(LivingEntity target) {
+		if (target instanceof net.minecraft.world.entity.monster.Creeper creeper) {
+			creeper.setSwellDir(-1);
+		}
+		if (target instanceof net.minecraft.world.entity.Mob mob) {
+			mob.setTarget(null);
+			mob.setAggressive(false);
+			mob.getNavigation().stop();
+			if (mob.isUsingItem()) {
+				mob.stopUsingItem();
+			}
+		}
 	}
 
 	/** v0.14.22 (gametests): the entity id the player is carrying with Rescue Tether, or -1. */

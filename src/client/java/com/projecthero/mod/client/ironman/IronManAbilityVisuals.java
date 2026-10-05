@@ -238,9 +238,12 @@ public final class IronManAbilityVisuals {
 		right = right.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : right.normalize();
 		Vec3 nozzle = p.getEyePosition(pt).add(look.scale(0.7)).add(right.scale(0.35)).add(0, -0.35, 0);
 		int tongues = 5;
+		// v0.14.28: as long as the suit's stream (Mark 1: 10 blocks, others 6)
+		double reach = com.projecthero.mod.ironman.ability.IronManAbilities.flamethrowerReach(
+				com.projecthero.mod.ironman.suit.IronManSuits.byId(com.projecthero.mod.ironman.IronManArmor.wornSuitId(p)));
 		for (int i = 0; i < tongues; i++) {
 			double jitter = Math.sin(now * 1.7 + i * 2.3) * 0.12;
-			double len = 5.0 + Math.sin(now * 2.1 + i) * 0.8;
+			double len = (reach - 1.0) * (1.0 + Math.sin(now * 2.1 + i) * 0.16);
 			Vec3 dir = look.add(right.scale(jitter)).add(0, Math.cos(now * 1.3 + i) * 0.06, 0).normalize();
 			Vec3 end = nozzle.add(dir.scale(len));
 			if (glow) {

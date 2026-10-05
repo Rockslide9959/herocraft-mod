@@ -46,9 +46,9 @@ function opaqueShare(img, u, v, w, h) {
 function boxFaces(u, v, w, h, d, rowFrom = 0, rows = h) {
 	const sv = v + d + rowFrom;
 	return {
-		east: { uv: [u, sv], uv_size: [d, rows] },
+		west: { uv: [u, sv], uv_size: [d, rows] }, // v0.14.28: Bedrock box layout is west | north | east | south
 		north: { uv: [u + d, sv], uv_size: [w, rows] },
-		west: { uv: [u + d + w, sv], uv_size: [d, rows] },
+		east: { uv: [u + d + w, sv], uv_size: [d, rows] },
 		south: { uv: [u + 2 * d + w, sv], uv_size: [w, rows] },
 		up: { uv: [u + d, v], uv_size: [w, d] },
 		down: { uv: [u + d + w, v], uv_size: [w, d] },
@@ -76,6 +76,10 @@ function build(id, img) {
 				{ origin: r[0], size: r[1], inflate: BASE, uv: r[2] },
 				{ origin: r[0], size: r[1], inflate: r[4], uv: r[3] },
 			];
+			if (bone.name === "helmet") {
+				// v0.14.28: the helmet's front faces live on the faceplate bone (no z-fighting with it)
+				for (const c of bone.cubes) { c.uv = boxFaces(c.uv[0], c.uv[1], 8, 8, 8); delete c.uv.north; }
+			}
 			continue;
 		}
 		if (bone.name === 'right_boot' || bone.name === 'left_boot') {
@@ -91,6 +95,18 @@ function build(id, img) {
 			delete bone.cubes[1].uv.up;
 			continue;
 		}
+		// v0.14.28: the faceplate is exactly the front of both helmet layers (base face + hat-layer face) -- the old
+		// thin plate covered the hat layer and squashed the brow, so the helmet's second layer never showed on the face.
+		// The helmet renderer skips the helmet cubes' north faces, so these two faces are the whole visible front.
+		if (bone.name === "faceplate") {
+			const face = (u, v) => ({ north: { uv: [u, v], uv_size: [8, 8] }, south: { uv: [u, v], uv_size: [8, 8] } });
+			bone.cubes = [
+				{ origin: [-4, 24, -4], size: [8, 8, 0], inflate: BASE, uv: face(8, 8) },
+				{ origin: [-4, 24, -4], size: [8, 8, 0], inflate: LAYER.head, uv: face(40, 8) },
+			];
+			continue;
+		}
+		if (bone.name === "helmet_brow") { bone.cubes = []; continue; } // v0.14.28: part of the faceplate now
 		// detail plates: keep the template geometry, re-pick each face's region for this skin
 		for (const c of bone.cubes || []) {
 			if (Array.isArray(c.uv)) continue;

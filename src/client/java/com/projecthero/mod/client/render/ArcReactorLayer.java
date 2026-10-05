@@ -53,6 +53,9 @@ public class ArcReactorLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 		// body pivot is at the neck (model y points down); the sternum, on the chest's front face (z = -2 px), and the
 		// shirt's outer layer sits a quarter-pixel proud of that
 		pose.translate(0.0, 4.6 * PX, -2.25 * PX);
+		// v0.14.28, explicit user request: about 2.5 px across on the chest (the housing is 5.3 px wide unscaled)
+		float s = 2.5f / 5.3f;
+		pose.scale(s, s, s);
 		float pulse = 0.82f + 0.18f * Mth.sin(ageInTicks * 0.12f);
 		drawReactor(pose, buffers, packedLight, ageInTicks, pulse);
 		pose.popPose();

@@ -29,8 +29,11 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class IronManTargeting {
 	public static final double RANGE = 100.0;
-	public static final double LOCK_CONE = 10.0;
-	public static final double KEEP_CONE = 18.0;
+	/** v0.14.28: tighter (was 10 / 18) -- the lock follows the crosshair so one creature in a group can be picked out. */
+	public static final double LOCK_CONE = 5.0;
+	public static final double KEEP_CONE = 7.0;
+	/** v0.14.28: switch to another candidate once it sits this many degrees nearer the crosshair than the current lock. */
+	public static final double SWITCH_MARGIN = 1.0;
 	private static final Map<UUID, Integer> LOCK = new HashMap<>();
 
 	private IronManTargeting() {
@@ -59,10 +62,23 @@ public final class IronManTargeting {
 		Vec3 eye = player.getEyePosition();
 		Vec3 look = player.getLookAngle().normalize();
 		LivingEntity current = locked(player);
-		if (current != null && angleTo(eye, look, current) <= KEEP_CONE && current.distanceTo(player) <= RANGE && sees(player, current)) {
+		// v0.14.28: whatever is directly under the crosshair always wins -- no more being stuck on a neighbour in a group
+		LivingEntity direct = underCrosshair(player, eye, look);
+		if (direct != null) {
+			if (direct != current) {
+				AbilityHelpers.sound(player, SoundEvents.NOTE_BLOCK_BIT.value(), 0.45f, 1.8f);
+			}
+			setLock(player, direct);
 			return;
 		}
+		double currentAngle = current != null && current.distanceTo(player) <= RANGE && sees(player, current)
+				? angleTo(eye, look, current) : Double.MAX_VALUE;
+		if (currentAngle > KEEP_CONE) {
+			current = null;
+			currentAngle = Double.MAX_VALUE;
+		}
 		LivingEntity best = null;
+		double bestAngle = Double.MAX_VALUE;
 		double bestScore = Double.MAX_VALUE;
 		for (LivingEntity e : AbilityHelpers.hostilesAround(player, eye, RANGE)) {
 			if (!e.isAlive() || e.isInvisible() || e.isSpectator()) {
@@ -72,11 +88,16 @@ public final class IronManTargeting {
 			if (angle > LOCK_CONE || !sees(player, e)) {
 				continue;
 			}
-			double score = angle + e.distanceTo(player) * 0.03;
+			double score = angle + e.distanceTo(player) * 0.01;
 			if (score < bestScore) {
 				bestScore = score;
+				bestAngle = angle;
 				best = e;
 			}
+		}
+		// keep the current lock unless another candidate is clearly nearer the crosshair
+		if (current != null && (best == null || best == current || bestAngle > currentAngle - SWITCH_MARGIN)) {
+			return;
 		}
 		if (best != null && best != current) {
 			AbilityHelpers.sound(player, SoundEvents.NOTE_BLOCK_BIT.value(), 0.45f, 1.8f);
@@ -121,6 +142,22 @@ public final class IronManTargeting {
 		if ((before == null ? -1 : before) != now) {
 			ServerPlayNetworking.send(player, new IronManLockPayload(now));
 		}
+	}
+
+	/** v0.14.28: the living, harmable-looking entity the crosshair ray actually hits first (blocks stop the ray). */
+	private static LivingEntity underCrosshair(ServerPlayer player, Vec3 eye, Vec3 look) {
+		Vec3 end = eye.add(look.scale(RANGE));
+		net.minecraft.world.phys.BlockHitResult block = player.level().clip(new ClipContext(eye, end, ClipContext.Block.COLLIDER,
+				ClipContext.Fluid.NONE, player));
+		if (block.getType() != HitResult.Type.MISS) {
+			end = block.getLocation();
+		}
+		net.minecraft.world.phys.EntityHitResult hit = net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(player, eye, end,
+				new net.minecraft.world.phys.AABB(eye, end).inflate(1.0),
+				e -> e instanceof LivingEntity le && le.isAlive() && !e.isSpectator() && !e.isInvisible() && e != player
+						&& !(e instanceof net.minecraft.world.entity.decoration.ArmorStand),
+				eye.distanceToSqr(end));
+		return hit != null && hit.getEntity() instanceof LivingEntity le ? le : null;
 	}
 
 	private static double angleTo(Vec3 eye, Vec3 look, Entity e) {

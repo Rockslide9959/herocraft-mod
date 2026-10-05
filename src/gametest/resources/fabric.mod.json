@@ -86,6 +86,7 @@
       "com.projecthero.mod.gametest.KryptonianV01416GameTests",
       "com.projecthero.mod.gametest.IronManBlocksV01421GameTests",
       "com.projecthero.mod.gametest.IronManV01427PlatformGameTests",
+      "com.projecthero.mod.gametest.V01428GameTests",
       "com.projecthero.mod.gametest.IronManUiV01421GameTests",
       "com.projecthero.mod.gametest.V01421SpyMarkGameTests",
       "com.projecthero.mod.gametest.IronManRound2GameTests",
