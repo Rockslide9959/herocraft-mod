@@ -113,16 +113,14 @@ jobs:
           import json, os
           version = os.environ["VERSION"]
           chunks, cur = [], ""
-          for line in os.environ["CHANGELOG"].split("
-"):
+          for line in os.environ["CHANGELOG"].split("\n"):
               while len(line) > 3900:
                   chunks.append(line[:3900])
                   line = line[3900:]
               if cur and len(cur) + len(line) + 1 > 3900:
                   chunks.append(cur)
                   cur = ""
-              cur += ("
-" if cur else "") + line
+              cur += ("\n" if cur else "") + line
           if cur:
               chunks.append(cur)
           title = "Project Hero " + version

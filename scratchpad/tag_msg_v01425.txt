@@ -1,4 +1,4 @@
-Project Hero v0.14.24 -- Rings Are Back & Guidebook Update
+Project Hero v0.14.25 -- Rings Are Back & Guidebook Update
 
 💍 POWER RINGS FIXED
 - The Green Lantern Power Ring and the Flash Ring show up again, in both first and third person.
@@ -19,4 +19,6 @@ Project Hero v0.14.24 -- Rings Are Back & Guidebook Update
 📣 DISCORD
 - Long update notes are now posted as several messages here instead of being cut off.
 
-Servers: update the server and every player to v0.14.24 together.
+Servers: update the server and every player to v0.14.25 together.
+
+(v0.14.24 was tagged but never published because of a release-script error, so these changes ship as v0.14.25.)
