@@ -26,21 +26,29 @@ public final class IronManSuits {
 	// trivially satisfied the instant a player has the Tony Stark power.
 	public static final IronManSuit MARK_1 = register(IronManSuit.Builder.of("mark_1")
 			.tech(0, 1)
-			.energy(1_000f, 3.0f) // v0.14.22: down from 3000, explicit user request
-			.maxIntegrity(1000f) // v0.11.12: up from 300, explicit user request
-			.energyRegen(6f) // v0.11.12: flat passive 6 energy/sec (was 0.7 -- explicit user request)
+			.energy(500f, 3.0f) // v0.14.27: 500, explicit user request
+			.maxIntegrity(750f) // v0.14.27: 750, explicit user request
+			.energyRegen(2f) // v0.14.27: 2 energy/sec (halved while the X flight burst is up)
+			.integritySplit(0.5f) // v0.14.27: integrity absorbs 50% of every hit, the wearer takes 50%
+			.arrowFireImmune() // v0.14.27: arrows + fire do nothing, not even to integrity
+			.noAutoFeed()
+			// v0.14.27: G flamethrower -- 8 dmg/s + burning, 6 energy/s, heat +5/s to a 100 ceiling, seeps 5/s after 3 s idle
+			.flamethrowerTuning(100f, 5f, 5f, 60, 6f, 8f)
+			.flightCruise(8.0) // v0.14.27: the X flight burst flies at 8 blocks/s
+			.noSprintFlight()
+			.hoverFloor(0.5) // v0.14.27: can't sink lower than 0.5 blocks above the ground during the burst
+			.mobHighlight(10f, 20 * 20) // v0.14.27: V costs 10 energy
 			.platformRegen(10f, 6f) // v0.11.12: flat 10 energy/sec + 6 integrity/sec on a Suit Platform,
 			// overriding the generic 0.1%-of-pool formula every other mark still uses -- explicit user
 			// request. armorRegen is deliberately left unset (0 = no passive integrity regen at all,
 			// platform only -- also explicit user request).
-			.flamethrowerHeat(0.6f) // "changes 22": Mark 1 heat ceiling 300 (500 x 0.6) -- ~7.9 s of stream before it overheats
 			.flightDrain(0.55f) // "changes 18"
 			.targetScanRange(30.0) // "changes 14"
 			.flight(0.75f, 0.055f) // "changes 18": flies 25% slower than the other marks
 			.repulsor(0f) // no repulsor on this loadout -- see abilities() below
 			.unibeam(0f)  // no unibeam on this loadout
 			.missiles(0, 0f, 0f) // slot 3/Z is the single-shot Rocket instead, not the missile volley
-			.strength(4.0f) // "changes 18": melee bonus +4
+			.strength(6.0f) // v0.14.27: melee bonus +6
 			.noFlightLean()
 			.noManualFlight() // "changes 13": Mark 1 can't double-tap-jump to fly -- only its X flight ability
 			.scale(1.25f) // "25% bigger than the normal player model"
@@ -60,27 +68,37 @@ public final class IronManSuits {
 	public static final IronManSuit MARK_2 = register(IronManSuit.Builder.of("mark_2")
 			.tech(0, 2)
 			.energy(1_250f, 0.5f) // v0.14.26: down from 4500, explicit user request
-			.maxIntegrity(600f) // v0.14.26: down from 1500, explicit user request
-			.energyRegen(12f) // v0.11.13: flat passive 12 energy/sec (was 1.0), explicit user request
+			.maxIntegrity(1000f) // v0.14.27: 1000, explicit user request
+			.energyRegen(3f) // v0.14.27: 3 energy/sec, explicit user request
 			.armorRegen(5f) // v0.11.13: flat passive 5 integrity/sec worn self-repair, explicit user request
 			.platformRegen(24f, 15f) // v0.11.13: 24 energy/sec + 15 integrity/sec on a Suit Platform,
 			// overriding the generic 0.1%-of-pool formula -- explicit user request.
-			.resistance(1) // v0.11.13: permanent Resistance I while the full suit is worn+powered
+			.resistance(1) // v0.14.27: Resistance I while the chestplate is worn + powered
+			.integritySplit(0.5f) // v0.14.27: integrity absorbs 50% of every hit, the wearer takes 50%
+			.arrowFireImmune()
+			.noAutoFeed()
+			.targeting() // v0.14.27: lock-on / auto-aim like the Mark III
 			.flightDrain(0.9f) // "changes 18"
 			.targetScanRange(30.0) // "changes 14"
 			.flight(1.0f, 0.08f) // "normal flight like other armours"
-			.repulsor(9.0f)
-			.repulsorWindup(20) // 1 s spin-up before an ordinary tap actually fires
-			.unibeam(14.0f)
-			.unibeamDamageMultiplier(0.7f) // "slightly weaker" than Mark III's
-			.missiles(0, 0f, 0f) // slot 2/G is the single-shot Rocket instead
-			.strength(5.0f) // "changes 18": melee bonus +5
+			// v0.14.27 R: tap = 1 s spin-up then 10 dmg (10 energy, 1 s cd); hold 1 s = 18 dmg (50 energy, 3 s cd);
+			// Shift+R = the repulsor dash (15 dmg, 50 energy, 8 s cd)
+			.repulsorTap(10.0f, 10f, 20)
+			.repulsorWindup(20)
+			.repulsorCharged(18.0f, 50f, 60, 20)
+			.dash(15.0f, 50f, 160)
+			.sonicClap(15.0f, 50f, 160) // v0.14.27 G
+			.unibeam(20.0f)
+			.unibeamChannel(120, 20.0f, 300f, 400) // v0.14.27 Z: 6 s, 20 per damage tick, 300 energy, 20 s cd
+			.missiles(0, 0f, 0f)
+			.strength(6.0f) // v0.14.27: melee bonus +6
 			.altitudeCeiling(150.0)
 			.ceilingFreeze() // "changes 17": hitting the ceiling gives Freeze for 4 s + a hard systems lockout
-			.airTank(120) // "changes 17": 2 minutes of underwater breathing
+			// v0.14.27: no air tank any more -- the Mark 2 can't breathe underwater
 			.toggleableHighlight()
+			.mobHighlight(10f, 20 * 20) // v0.14.27: same as the Mark 1
 			// Slot order is R(1) G(2) X(3) Z(4) V(5) C(6) -- see IronManAbilities' class javadoc table.
-			.abilities(IronManAbilities.REPULSOR_BLAST, IronManAbilities.ROCKET, IronManAbilities.FLARE,
+			.abilities(IronManAbilities.REPULSOR_BLAST, IronManAbilities.SONIC_CLAP, IronManAbilities.FLARE,
 					IronManAbilities.UNIBEAM, IronManAbilities.MOB_HIGHLIGHT_TOGGLE, IronManAbilities.SUIT_TOGGLE)
 			.suitUp(SuitUpType.MECHANICAL_REMOTE)
 			.summon(SummonType.FLYING_SET)
@@ -88,18 +106,26 @@ public final class IronManSuits {
 
 	public static final IronManSuit MARK_III = register(IronManSuit.Builder.of("mark_iii")
 			.tech(1, 3)
-			.energy(1_500f, 3.0f) // v0.14.26: down from 7500, explicit user request
-			.maxIntegrity(2000f) // v0.14.26: up from 600, explicit user request
-			.energyRegen(1.5f) // "changes 18"
+			.energy(2_000f, 3.0f) // v0.14.27: 2000, explicit user request
+			.maxIntegrity(1000f) // v0.14.27: 1000, explicit user request
+			.energyRegen(5f) // v0.14.27: 5 energy/sec
 			.armorRegen(0.03f) // "changes 18": slow worn self-repair
+			.resistance(1) // v0.14.27: Resistance I while the chestplate is worn + powered
+			.integritySplit(0.5f) // v0.14.27: integrity absorbs 50% of every hit, the wearer takes 50%
+			.arrowFireImmune()
+			.waterBreathing() // v0.14.27: breathes underwater (no timed air tank)
+			.targeting()
 			.flightDrain(1.0f) // "changes 18"
 			.targetScanRange(70.0) // "changes 14": Mark III target scan reaches 70 blocks
-			.airTank(180) // "changes 17": 3 minutes of underwater breathing
 			.flight(1.0f, 0.08f)
-			.repulsor(10.0f)
+			// v0.14.27 R: tap 15 dmg / 10 energy / 1 s cd (no windup); hold 1 s = 20 dmg / 50 energy / 3 s cd;
+			// Shift+R = the repulsor dash (20 dmg, 50 energy, 8 s cd)
+			.repulsorTap(15.0f, 10f, 20)
+			.repulsorCharged(20.0f, 50f, 60, 20)
+			.dash(20.0f, 50f, 160)
 			.unibeam(18.0f)
 			.missiles(4, 8.0f, 250f)
-			.strength(6.0f) // "changes 18": melee bonus +6
+			.strength(7.0f) // v0.14.27: melee bonus +7
 			.abilities(IronManAbilities.REPULSOR_BLAST, IronManAbilities.REPULSOR_BARRIER, IronManAbilities.MICRO_MISSILES,
 					IronManAbilities.UNIBEAM, IronManAbilities.MOB_HIGHLIGHT_TOGGLE, IronManAbilities.SUIT_TOGGLE)
 			.suitUp(SuitUpType.MECHANICAL_REMOTE)

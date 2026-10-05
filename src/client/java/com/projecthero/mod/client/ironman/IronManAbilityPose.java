@@ -132,6 +132,23 @@ public final class IronManAbilityPose {
 				set(m.leftArm, w, 0.25f, 0f, -0.55f);
 				m.body.xRot = Mth.lerp(w, m.body.xRot, -0.05f);
 			}
+			case IronManAbilityFx.DASH -> {
+				// v0.14.27: palms thrown back like thrusters, body leaning hard into the dash
+				set(m.rightArm, w, 0.45f, 0f, 0.35f);
+				set(m.leftArm, w, 0.45f, 0f, -0.35f);
+				m.body.xRot = Mth.lerp(w, m.body.xRot, 0.35f);
+			}
+			case IronManAbilityFx.SONIC_CLAP -> {
+				// v0.14.27: arms flung wide, then slammed together in front
+				if (t < 4f) {
+					set(m.rightArm, w, aimX, 0f, 1.25f);
+					set(m.leftArm, w, aimX, 0f, -1.25f);
+				} else {
+					float k = Mth.clamp((t - 4f) / 2f, 0f, 1f);
+					set(m.rightArm, w, aimX, aimY + Mth.lerp(k, -0.9f, 0.12f), Mth.lerp(k, 1.25f, 0f));
+					set(m.leftArm, w, aimX, aimY + Mth.lerp(k, 0.9f, -0.12f), Mth.lerp(k, -1.25f, 0f));
+				}
+			}
 			default -> {
 			}
 		}

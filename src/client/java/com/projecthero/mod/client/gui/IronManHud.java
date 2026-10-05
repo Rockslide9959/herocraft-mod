@@ -432,6 +432,10 @@ public final class IronManHud {
 				g.drawString(font, s, r.x() + (r.w() - font.width(s)) / 2, r.y() + 7, 0xFFFFFFFF, true);
 			} else if (offline) {
 				g.fill(r.x() + 1, r.y() + 1, r.right() - 1, r.bottom() - 1, 0x90200000);
+			} else if (IronManAbilities.TIMED_FLIGHT.equals(abilityId) && state.timedFlightUntil > now) {
+				// v0.14.27: the flight burst's remaining time, in gold, on its own key box
+				String s = String.valueOf(IronManUiLayout.ceilSecs(state.timedFlightUntil - now));
+				g.drawString(font, s, r.x() + (r.w() - font.width(s)) / 2, r.y() + 7, IronManGui.GOLD, true);
 			}
 			String key = keyLabel(i);
 			g.drawString(font, key, r.x() + 2, r.y() + 1, retro ? IronManGui.AMBER : IronManGui.GOLD, true);
@@ -472,6 +476,9 @@ public final class IronManHud {
 
 	/** The HUD name key for a slot -- the same per-suit variants the old text list used. */
 	static String nameKey(IronManSuit suit, String abilityId, String effectiveId) {
+		if (IronManAbilities.REPULSOR_BLAST.equals(abilityId) && suit.hasDash()) {
+			return "hud.projecthero.ironman.ability.repulsor_blast.dash"; // v0.14.27: hold = charged, Shift = dash
+		}
 		if (IronManAbilities.REPULSOR_BLAST.equals(abilityId) && suit.repulsorWindupTicks() > 0) {
 			return "hud.projecthero.ironman.ability.repulsor_blast_windup"; // Mark 2: no charged variant
 		}
@@ -495,6 +502,7 @@ public final class IronManHud {
 			case IronManAbilities.FLAMETHROWER -> new ItemStack(Items.FIRE_CHARGE);
 			case IronManAbilities.ROCKET -> new ItemStack(Items.FIREWORK_ROCKET);
 			case IronManAbilities.FLARE -> new ItemStack(Items.GLOWSTONE_DUST);
+			case IronManAbilities.SONIC_CLAP -> new ItemStack(Items.BELL); // v0.14.27
 			case IronManAbilities.BLADE -> new ItemStack(Items.IRON_SWORD);
 			case IronManAbilities.MOB_HIGHLIGHT_TOGGLE -> new ItemStack(Items.ENDER_EYE);
 			case IronManAbilities.TIMED_FLIGHT -> new ItemStack(Items.FEATHER);

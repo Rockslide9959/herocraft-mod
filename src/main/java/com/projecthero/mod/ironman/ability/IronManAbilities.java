@@ -57,6 +57,8 @@ public final class IronManAbilities {
 	public static final String FLAMETHROWER = "flamethrower";
 	public static final String ROCKET = "rocket";
 	public static final String FLARE = "flare";
+	/** v0.14.27: Mark 2 G -- clap the repulsors together for a sonic cone ({@link IronManSonicClap}). */
+	public static final String SONIC_CLAP = "sonic_clap";
 	/** "changes 19": Mark 5 -- extend / retract the gauntlet blades (+4 melee, no block placing). */
 	public static final String BLADE = "blade";
 	public static final String MOB_HIGHLIGHT_TOGGLE = "mob_highlight_toggle";
@@ -96,18 +98,12 @@ public final class IronManAbilities {
 	public static final float REPULSOR_ENERGY = 80.0f;
 	/** Energy a Charged Repulsor costs ("changes 18": 250, and it hits 3x as hard as a plain blast). */
 	public static final float CHARGED_REPULSOR_ENERGY = 250.0f;
-	/** v0.11.13, explicit user request: Mark 2's own (cheaper, prototype-tier) repulsor costs. */
-	private static final float MARK_2_REPULSOR_ENERGY = 20.0f;
-	private static final float MARK_2_CHARGED_REPULSOR_ENERGY = 50.0f;
+	// v0.14.27: each suit's tap / charged repulsor numbers are IronManSuit builder data (repulsorTap / repulsorCharged).
 	/** How much harder a Charged Repulsor hits than a plain Repulsor Blast ("changes 18"). */
 	public static final float CHARGED_REPULSOR_DAMAGE_MULTIPLIER = 3.0f;
 	/** Total energy one full Unibeam channel costs ("changes 18": 700, spread evenly across its 5 s). */
 	public static final float UNIBEAM_ENERGY = 700.0f;
-	/** v0.11.13, explicit user request: Mark 2's own (cheaper) total Unibeam channel cost. */
-	private static final float MARK_2_UNIBEAM_ENERGY = 300.0f;
-
-	private static final int UNIBEAM_CHANNEL_TICKS = 100; // 5 s
-	private static final float UNIBEAM_DAMAGE_PER_TICK = 10.0f; // "changes 13"
+	// v0.14.27: the Unibeam channel length / damage / energy / cooldown are IronManSuit#unibeamChannel builder data.
 
 	private static final int BARRIER_COOLDOWN_TICKS = 6 * 20; // after you drop it
 	private static final float BARRIER_ENERGY_PER_TICK = 2.0f; // "changes 18": Repulsor Shield costs 40 energy/second
@@ -118,10 +114,10 @@ public final class IronManAbilities {
 	public static final float BARRIER_DAMAGE_MULT = 0.1f;
 
 	// -- Mark 1 / Mark 2 ("changes 12") --
-	private static final float PUNCH_DAMAGE = 12.0f;
+	public static final float PUNCH_DAMAGE = 15.0f; // v0.14.27: explicit user request
 	private static final double PUNCH_RANGE = 4.0;
-	private static final int PUNCH_COOLDOWN_TICKS = 10; // half a second -- a punch should feel snappy
-	public static final float PUNCH_ENERGY_COST = 25f; // v0.14.22: up from 20 (was 30 before v0.11.12), explicit user request
+	public static final int PUNCH_COOLDOWN_TICKS = 20; // v0.14.27: 1 s
+	public static final float PUNCH_ENERGY_COST = 10f; // v0.14.27: explicit user request
 
 	private static final float FLAMETHROWER_ENERGY_PER_TICK = 0.25f; // v0.11.12: 5/sec (was 6/tick = 120/sec), explicit user request
 	private static final double FLAMETHROWER_REACH = 6.0;
@@ -138,6 +134,9 @@ public final class IronManAbilities {
 
 	/** The heat-gauge ceiling for a given suit ("changes 17": Mark 7's is 50% bigger). */
 	public static float flamethrowerMaxHeat(IronManSuit suit) {
+		if (suit != null && suit.flamethrowerMaxHeatOverride() > 0f) {
+			return suit.flamethrowerMaxHeatOverride(); // v0.14.27: Mark 1 = 100
+		}
 		return FLAMETHROWER_MAX_HEAT * (suit == null ? 1f : suit.flamethrowerHeatMultiplier());
 	}
 
@@ -155,24 +154,29 @@ public final class IronManAbilities {
 	public static final int MARK_1_ROCKET_COOLDOWN_TICKS = 10 * 20; // v0.14.22: down from 25 s, explicit user request
 	private static final float MARK_2_ROCKET_ENERGY_COST = 50f;
 
-	private static final double FLARE_RADIUS = 10.0;
-	private static final int FLARE_BLIND_TICKS = 60; // 3 s
-	private static final int FLARE_COOLDOWN_TICKS = 10 * 20;
-	private static final float FLARE_ENERGY_COST = 60f;
+	/** v0.14.27: the Mark 2 X flares' cooldown (the flares themselves live in {@link IronManFlares}). */
+	public static final int FLARE_COOLDOWN_TICKS = 10 * 20;
+	/** v0.14.27: Mark 2 Shift+X while flying -- a 30 s supersonic boost for 50 energy. */
+	public static final int MARK_2_BOOST_TICKS = 30 * 20;
+	public static final float MARK_2_BOOST_ENERGY = 50f;
+	/** v0.14.27: Mark 2 Shift+X on the ground -- light the block you look at, like flint and steel. */
+	public static final float IGNITE_ENERGY = 1f;
 
 	public static final int TIMED_FLIGHT_TICKS = 20 * 20;
-	public static final float TIMED_FLIGHT_ACTIVATION_COST = 30f; // v0.14.22: up from 20 ("slightly"), explicit user request
+	public static final float TIMED_FLIGHT_ACTIVATION_COST = 50f; // v0.14.27: 50 on activation, explicit user request
 	/** v0.11.12, explicit user request: on top of the flat activation cost, the burst also drains this
 	 *  much energy per second for as long as it stays airborne. */
-	public static final float TIMED_FLIGHT_DRAIN_PER_SECOND = 1.5f; // v0.14.22: up from 1.0, explicit user request
+	public static final float TIMED_FLIGHT_DRAIN_PER_SECOND = 0f; // v0.14.27: no drain -- the burst halves energy regen instead
+	/** v0.14.27: Shift+X -- launch along the look, then the burst switches on this long afterwards. */
+	public static final int LAUNCH_BURST_DELAY_TICKS = 3 * 20;
+	/** v0.14.27: how hard Shift+X throws the wearer along the look (blocks per tick). */
+	public static final double LAUNCH_SPEED = 3.2;
+	private static final String FLIGHT_BURST_PENDING_KEY = "flight_burst_pending_at";
+	private static final String FLAMETHROWER_VENT_KEY = "flamethrower_vent_at";
 	/** Cooldown applied to the Mark 1 flight burst once it ends ("changes 15"). */
 	public static final int TIMED_FLIGHT_COOLDOWN_TICKS = 13 * 20;
 
-	// -- Mark 1: mob-highlight toggle timer/cost (v0.11.12, explicit user request) --
-	private static final float MARK_1_MOB_HIGHLIGHT_ENERGY_COST = 2f;
-	private static final int MARK_1_MOB_HIGHLIGHT_DURATION_TICKS = 20 * 20;
-	// -- Mark 2: mob-highlight toggle continuous drain (v0.11.13, explicit user request) --
-	private static final float MARK_2_MOB_HIGHLIGHT_ENERGY_PER_TICK = 1f / 20f; // 1 energy/sec
+	// v0.14.27: the V highlight's switch-on cost and auto-off timer are IronManSuit#mobHighlight builder data.
 	/** Key suffix stored in the shared, already-synced {@code abilityReadyAt} map for the highlight's
 	 *  own expiry timestamp -- avoids adding a 17th field to {@link TonyStarkState}'s codec, which is
 	 *  already at its 16-field ceiling per that class's own javadoc. */
@@ -230,7 +234,22 @@ public final class IronManAbilities {
 			return;
 		}
 		switch (ability) {
-			case REPULSOR_BLAST -> repulsorSlot(player, suit, pressed);
+			case REPULSOR_BLAST -> {
+				// v0.14.27: Shift+R on a dash suit is the repulsor dash, not a shot
+				if (pressed && player.isShiftKeyDown() && suit.hasDash()) {
+					TonyStarkState rs = TonyStark.state(player);
+					rs.chargeStartTick = 0L;
+					rs.chargeReadyPinged = false;
+					IronManDash.start(player, suit.dashDamage(), suit.dashEnergy(), suit.dashCooldownTicks());
+				} else {
+					repulsorSlot(player, suit, pressed);
+				}
+			}
+			case SONIC_CLAP -> {
+				if (pressed) {
+					IronManSonicClap.fire(player, suit.sonicClapDamage(), suit.sonicClapEnergy(), suit.sonicClapCooldownTicks());
+				}
+			}
 			case REPULSOR_BARRIER -> {
 				if (pressed) {
 					startBarrier(player, suit);
@@ -264,7 +283,7 @@ public final class IronManAbilities {
 				}
 			}
 			case ROCKET -> { if (pressed) rocket(player, suit); }
-			case FLARE -> { if (pressed) flare(player, suit); }
+			case FLARE -> { if (pressed) flareSlot(player, suit); }
 			case BLADE -> { if (pressed) com.projecthero.mod.ironman.IronManBlade.toggle(player); }
 			case MOB_HIGHLIGHT_TOGGLE -> {
 				if (pressed) {
@@ -278,7 +297,15 @@ public final class IronManAbilities {
 				}
 			}
 			case WRIST_LASER -> { if (pressed) wristLaser(player, suit); }
-			case TIMED_FLIGHT -> { if (pressed) timedFlight(player, suit); }
+			case TIMED_FLIGHT -> {
+				if (pressed) {
+					if (player.isShiftKeyDown()) {
+						launchFlightBurst(player, suit);
+					} else {
+						timedFlight(player, suit);
+					}
+				}
+			}
 			case SUPERSONIC_FLIGHT -> { if (pressed) supersonicFlight(player, suit); }
 			case WEAPON_WHEEL -> { if (pressed) openWeaponWheel(player, suit); }
 			case WEAPON_WHEEL_SLOT -> dispatchWheelChoice(player, suit, pressed);
@@ -337,10 +364,13 @@ public final class IronManAbilities {
 				}
 				return;
 			}
-			long held = s.chargeStartTick == 0L ? 0L : now - s.chargeStartTick;
+			if (s.chargeStartTick == 0L) {
+				return; // v0.14.27: a release with no press behind it (the press was a Shift+R dash)
+			}
+			long held = now - s.chargeStartTick;
 			s.chargeStartTick = 0L;
 			s.chargeReadyPinged = false;
-			if (held >= CHARGE_HOLD_TICKS) {
+			if (held >= suit.chargeHoldTicks()) {
 				chargedRepulsor(player, suit);
 				return;
 			}
@@ -360,10 +390,13 @@ public final class IronManAbilities {
 			}
 			return;
 		}
-		long held = s.chargeStartTick == 0L ? 0L : now - s.chargeStartTick;
+		if (s.chargeStartTick == 0L) {
+			return; // v0.14.27: a release with no press behind it (the press was a Shift+R dash)
+		}
+		long held = now - s.chargeStartTick;
 		s.chargeStartTick = 0L;
 		s.chargeReadyPinged = false;
-		if (held >= CHARGE_HOLD_TICKS) {
+		if (held >= suit.chargeHoldTicks()) {
 			chargedRepulsor(player, suit);
 		} else {
 			repulsorBlast(player, suit);
@@ -427,7 +460,7 @@ public final class IronManAbilities {
 		if (held % 6 == 0) {
 			AbilityHelpers.sound(player, SoundEvents.BEACON_AMBIENT, 0.25f, 0.8f + Math.min(1.2f, held / 40f));
 		}
-		if (held >= CHARGE_HOLD_TICKS && !s.chargeReadyPinged) {
+		if (held >= suit.chargeHoldTicks() && !s.chargeReadyPinged) {
 			s.chargeReadyPinged = true;
 			level.sendParticles(ParticleTypes.END_ROD, muzzle.x, muzzle.y, muzzle.z, 12, 0.1, 0.1, 0.1, 0.05);
 			AbilityHelpers.sound(player, SoundEvents.BEACON_POWER_SELECT, 0.5f, 1.7f);
@@ -438,12 +471,11 @@ public final class IronManAbilities {
 		if (!requireChest(player, suit) || !cooldownReady(player, suit.id(), REPULSOR_BLAST)) {
 			return;
 		}
-		float cost = "mark_2".equals(suit.id()) ? MARK_2_REPULSOR_ENERGY : REPULSOR_ENERGY;
-		if (!pay(player, suit, cost)) {
+		if (!pay(player, suit, suit.repulsorTapEnergy())) {
 			return;
 		}
 		fireRepulsor(player, suit.repulsorDamage(), false, 24.0);
-		triggerCooldown(player, suit.id(), REPULSOR_BLAST, 8);
+		triggerCooldown(player, suit.id(), REPULSOR_BLAST, suit.repulsorTapCooldownTicks());
 	}
 
 	private static void chargedRepulsor(ServerPlayer player, IronManSuit suit) {
@@ -455,12 +487,11 @@ public final class IronManAbilities {
 			repulsorBlast(player, suit);
 			return;
 		}
-		float cost = "mark_2".equals(suit.id()) ? MARK_2_CHARGED_REPULSOR_ENERGY : CHARGED_REPULSOR_ENERGY;
-		if (!pay(player, suit, cost)) {
+		if (!pay(player, suit, suit.chargedRepulsorEnergy())) {
 			return;
 		}
-		fireRepulsor(player, suit.repulsorDamage() * CHARGED_REPULSOR_DAMAGE_MULTIPLIER, true, 32.0);
-		triggerCooldown(player, suit.id(), CHARGED_REPULSOR, 40);
+		fireRepulsor(player, suit.chargedRepulsorDamage(), true, 32.0);
+		triggerCooldown(player, suit.id(), CHARGED_REPULSOR, suit.chargedRepulsorCooldownTicks());
 	}
 
 	/**
@@ -803,9 +834,9 @@ public final class IronManAbilities {
 
 	// ---------------- Unibeam (continuous) ----------------
 
-	/** v0.11.13: Mark 2's total Unibeam channel cost is its own, cheaper flat figure. */
+	/** v0.14.27: each suit's total Unibeam channel cost ({@link IronManSuit#unibeamTotalEnergy()}). */
 	private static float unibeamTotalEnergy(IronManSuit suit) {
-		return "mark_2".equals(suit.id()) ? MARK_2_UNIBEAM_ENERGY : UNIBEAM_ENERGY;
+		return suit.unibeamTotalEnergy();
 	}
 
 	private static void startUnibeam(ServerPlayer player, IronManSuit suit) {
@@ -820,11 +851,11 @@ public final class IronManAbilities {
 			return;
 		}
 		float totalEnergy = unibeamTotalEnergy(suit);
-		if (!canPay(player, suit, totalEnergy / (float) UNIBEAM_CHANNEL_TICKS)) {
+		if (!canPay(player, suit, totalEnergy / (float) suit.unibeamChannelTicks())) {
 			noEnergy(player, totalEnergy * suit.energyCostMultiplier());
 			return;
 		}
-		s.unibeamUntil = player.level().getGameTime() + UNIBEAM_CHANNEL_TICKS;
+		s.unibeamUntil = player.level().getGameTime() + suit.unibeamChannelTicks();
 		AbilityHelpers.sound(player, SoundEvents.BEACON_ACTIVATE, 1.4f, 0.4f);
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.unibeam_firing"), true);
 	}
@@ -837,12 +868,12 @@ public final class IronManAbilities {
 			return;
 		}
 		String suitId = suit.id();
-		float perTick = unibeamTotalEnergy(suit) / (float) UNIBEAM_CHANNEL_TICKS;
+		float perTick = unibeamTotalEnergy(suit) / (float) suit.unibeamChannelTicks();
 		if (now >= unibeamUntil || !IronManArmor.hasChestplate(player, suitId)
 				|| !IronManEnergy.spend(player, suitId, perTick * suit.energyCostMultiplier())) {
 			// re-fetch after the spend (which swaps the attachment) before clearing the flag
 			TonyStark.state(player).unibeamUntil = 0L;
-			triggerCooldown(player, suitId, UNIBEAM, 30 * 20);
+			triggerCooldown(player, suitId, UNIBEAM, suit.unibeamCooldownTicks());
 			return;
 		}
 		ServerLevel level = (ServerLevel) player.level();
@@ -872,7 +903,7 @@ public final class IronManAbilities {
 
 		for (LivingEntity e : AbilityHelpers.enemiesAround(player, chest.add(dir.scale(12)), 12.0)) {
 			if (e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(chest).normalize().dot(dir) > 0.9) {
-				AbilityHelpers.hurt(player, e, UNIBEAM_DAMAGE_PER_TICK * suit.unibeamDamageMultiplier());
+				AbilityHelpers.hurt(player, e, suit.unibeamDamagePerTick());
 				e.igniteForSeconds(2);
 			}
 		}
@@ -920,7 +951,7 @@ public final class IronManAbilities {
 			return;
 		}
 		if (!IronManArmor.hasChestplate(player, suit.id())
-				|| !IronManEnergy.spend(player, suit.id(), FLAMETHROWER_ENERGY_PER_TICK * suit.energyCostMultiplier())) {
+				|| !IronManEnergy.spend(player, suit.id(), suit.flamethrowerEnergyPerSecond() / 20f * suit.energyCostMultiplier())) {
 			TonyStark.state(player).flamethrowerHeld = false;
 			if (!IronManArmor.hasChestplate(player, suit.id())) {
 				return;
@@ -929,7 +960,8 @@ public final class IronManAbilities {
 			return;
 		}
 		// Heat gauge ("changes 14"): overheat cuts the stream, same as Pyrokinesis's flamethrower.
-		setFlamethrowerHeat(player, TonyStark.state(player).flamethrowerHeat + FLAMETHROWER_HEAT_PER_TICK);
+		setFlamethrowerHeat(player, TonyStark.state(player).flamethrowerHeat + suit.flamethrowerHeatPerSecond() / 20f);
+		markFlamethrowerUsed(player, suit);
 		if (TonyStark.state(player).flamethrowerHeat >= flamethrowerMaxHeat(suit)) {
 			TonyStark.state(player).flamethrowerHeld = false;
 			player.displayClientMessage(
@@ -944,8 +976,10 @@ public final class IronManAbilities {
 		for (LivingEntity e : AbilityHelpers.enemiesAround(player, origin.add(look.scale(2.5)), 3.0)) {
 			Vec3 to = e.position().subtract(origin).normalize();
 			if (to.dot(look) > 0.6) {
-				AbilityHelpers.hurt(player, e, AbilityHelpers.fire(player),
-						"mark_1".equals(suit.id()) ? MARK_1_FLAMETHROWER_DAMAGE : FLAMETHROWER_DAMAGE);
+				// v0.14.27: a suit with a damage-per-second figure (Mark 1: 8/s) lands half of it per i-frame window
+				AbilityHelpers.hurt(player, e, AbilityHelpers.fire(player), suit.flamethrowerDamagePerSecond() > 0f
+						? suit.flamethrowerDamagePerSecond() * 0.5f
+						: "mark_1".equals(suit.id()) ? MARK_1_FLAMETHROWER_DAMAGE : FLAMETHROWER_DAMAGE);
 				e.setRemainingFireTicks(80);
 			}
 		}
@@ -1059,26 +1093,57 @@ public final class IronManAbilities {
 		triggerCooldown(player, suit.id(), ROCKET, cooldownTicks);
 	}
 
-	// ---------------- Mark 2: Flare (X) ----------------
+	// ---------------- Mark 2: Flares (X) / Shift+X ----------------
 
-	private static void flare(ServerPlayer player, IronManSuit suit) {
-		if (!requireChest(player, suit) || !cooldownReady(player, suit.id(), FLARE)) {
+	/**
+	 * v0.14.27: Mark 2 X -- flares ({@link IronManFlares#fire}). Shift+X lights the block you are looking at like
+	 * flint and steel (1 energy); while flying, Shift+X instead gives a 30 s supersonic boost (50 energy).
+	 */
+	private static void flareSlot(ServerPlayer player, IronManSuit suit) {
+		if (!player.isShiftKeyDown()) {
+			IronManFlares.fire(player, false, FLARE_COOLDOWN_TICKS);
 			return;
 		}
-		if (!pay(player, suit, FLARE_ENERGY_COST)) {
+		if (IronManFlight.isFlying(player)) {
+			IronManFlares.supersonicBoost(player, MARK_2_BOOST_TICKS, MARK_2_BOOST_ENERGY);
 			return;
+		}
+		ignite(player, suit);
+	}
+
+	/** v0.14.27: flint and steel from the gauntlet -- fire on the face of the block the wearer looks at. */
+	public static boolean ignite(ServerPlayer player, IronManSuit suit) {
+		var hit = AbilityHelpers.raycastBlock(player, 5.0);
+		if (hit.getType() != HitResult.Type.BLOCK) {
+			return false;
 		}
 		ServerLevel level = (ServerLevel) player.level();
-		Vec3 origin = player.getEyePosition().add(player.getLookAngle().scale(1.0));
-		level.sendParticles(ParticleTypes.FLASH, origin.x, origin.y, origin.z, 1, 0, 0, 0, 0);
-		level.sendParticles(ParticleTypes.FIREWORK, origin.x, origin.y, origin.z, 30, 0.3, 0.3, 0.3, 0.15);
-		com.projecthero.mod.ironman.IronManAbilityFx.play(player, com.projecthero.mod.ironman.IronManAbilityFx.FLARE, 12); // v0.14.26 pose
-		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_BLAST, 1.2f, 1.4f);
-		for (LivingEntity e : AbilityHelpers.hostilesAround(player, player.position(), FLARE_RADIUS)) { // v0.14.20: area CC, rule 2
-			e.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, FLARE_BLIND_TICKS, 0, false, true, true));
+		BlockPos firePos = hit.getBlockPos().relative(hit.getDirection());
+		net.minecraft.world.level.block.state.BlockState target = level.getBlockState(hit.getBlockPos());
+		boolean lit;
+		if (net.minecraft.world.level.block.CampfireBlock.canLight(target)
+				|| net.minecraft.world.level.block.CandleBlock.canLight(target)
+				|| net.minecraft.world.level.block.CandleCakeBlock.canLight(target)) {
+			if (!pay(player, suit, IGNITE_ENERGY)) {
+				return false;
+			}
+			level.setBlock(hit.getBlockPos(), target.setValue(
+					net.minecraft.world.level.block.state.properties.BlockStateProperties.LIT, true), 11);
+			lit = true;
+		} else if (net.minecraft.world.level.block.BaseFireBlock.canBePlacedAt(level, firePos, hit.getDirection())) {
+			if (!pay(player, suit, IGNITE_ENERGY)) {
+				return false;
+			}
+			level.setBlock(firePos, net.minecraft.world.level.block.BaseFireBlock.getState(level, firePos), 11);
+			lit = true;
+		} else {
+			lit = false;
 		}
-		player.displayClientMessage(Component.translatable("message.projecthero.ironman.flare_deployed"), true);
-		triggerCooldown(player, suit.id(), FLARE, FLARE_COOLDOWN_TICKS);
+		if (lit) {
+			level.playSound(null, firePos, SoundEvents.FLINTANDSTEEL_USE, net.minecraft.sounds.SoundSource.PLAYERS, 1.0f,
+					level.random.nextFloat() * 0.4f + 0.8f);
+		}
+		return lit;
 	}
 
 	// ---------------- Mark 1 / Mark 2: mob-highlight toggle (V) ----------------
@@ -1088,19 +1153,18 @@ public final class IronManAbilities {
 			return;
 		}
 		boolean turningOn = !TonyStark.state(player).mobHighlightOn;
-		// v0.11.12, explicit user request: Mark 1's toggle costs energy to switch ON (never to switch
-		// off) and expires on its own after MARK_1_MOB_HIGHLIGHT_DURATION_TICKS -- every other suit
-		// sharing this ability is untouched, still free and indefinite.
-		boolean mark1 = "mark_1".equals(suit.id());
-		if (turningOn && mark1 && !pay(player, suit, MARK_1_MOB_HIGHLIGHT_ENERGY_COST)) {
+		// v0.14.27: a suit's switch-on cost and auto-off timer are builder data (Mark 1 / Mark 2: 10 energy, 20 s);
+		// switching it off is always free.
+		if (turningOn && suit.mobHighlightEnergy() > 0f && !pay(player, suit, suit.mobHighlightEnergy())) {
 			return;
 		}
+		boolean timed = suit.mobHighlightDurationTicks() > 0;
 		TonyStarkState s = TonyStark.state(player).copy();
 		s.mobHighlightOn = turningOn;
-		if (mark1) {
+		if (timed) {
 			String key = suit.id() + "/" + MOB_HIGHLIGHT_UNTIL_KEY;
 			if (turningOn) {
-				s.abilityReadyAt.put(key, player.level().getGameTime() + MARK_1_MOB_HIGHLIGHT_DURATION_TICKS);
+				s.abilityReadyAt.put(key, player.level().getGameTime() + suit.mobHighlightDurationTicks());
 			} else {
 				s.abilityReadyAt.remove(key);
 			}
@@ -1109,21 +1173,6 @@ public final class IronManAbilities {
 		AbilityHelpers.sound(player, SoundEvents.EXPERIENCE_ORB_PICKUP, 0.5f, s.mobHighlightOn ? 1.8f : 1.2f);
 		player.displayClientMessage(Component.translatable(s.mobHighlightOn
 				? "message.projecthero.ironman.mob_highlight_on" : "message.projecthero.ironman.mob_highlight_off"), true);
-	}
-
-	/**
-	 * "Per-tick from {@link com.projecthero.mod.ironman.IronManSuitTicker} while Mark 2's mob-highlight
-	 * toggle is on: 1 energy/sec, auto-clearing the toggle if the helmet comes off or energy runs out
-	 * (v0.11.13, explicit user request).
-	 */
-	public static void tickMark2MobHighlightDrain(ServerPlayer player, IronManSuit suit) {
-		if (!TonyStark.state(player).mobHighlightOn) {
-			return;
-		}
-		if (!IronManArmor.hasHelmet(player, suit.id())
-				|| !IronManEnergy.spend(player, suit.id(), MARK_2_MOB_HIGHLIGHT_ENERGY_PER_TICK * suit.energyCostMultiplier())) {
-			clearMobHighlight(player);
-		}
 	}
 
 	/** Absolute game-time Mark 1's mob-highlight toggle expires, or 0 if not active/not Mark 1. Works
@@ -1179,10 +1228,34 @@ public final class IronManAbilities {
 	 * Called every tick from {@link com.projecthero.mod.ironman.IronManSuitTicker}.
 	 */
 	public static void ventFlamethrowerHeat(ServerPlayer player) {
-		float heat = TonyStark.state(player).flamethrowerHeat;
-		if (heat > 0f) {
-			setFlamethrowerHeat(player, heat - FLAMETHROWER_HEAT_VENT_PER_TICK);
+		TonyStarkState st = TonyStark.state(player);
+		float heat = st.flamethrowerHeat;
+		if (heat <= 0f) {
+			return;
 		}
+		String suitId = IronManArmor.wornSuitId(player);
+		IronManSuit suit = suitId == null ? null : com.projecthero.mod.ironman.suit.IronManSuits.byId(suitId);
+		float vent = FLAMETHROWER_HEAT_VENT_PER_TICK;
+		if (suit != null) {
+			// v0.14.27: the heat only starts seeping away once the stream has been idle for the suit's delay (Mark 1: 3 s)
+			Long ventAt = st.abilityReadyAt.get(suit.id() + "/" + FLAMETHROWER_VENT_KEY);
+			if (ventAt != null && player.level().getGameTime() < ventAt) {
+				return;
+			}
+			vent = suit.flamethrowerVentPerSecond() / 20f;
+		}
+		setFlamethrowerHeat(player, heat - vent);
+	}
+
+	/** v0.14.27: remember when the stream last burned, so the heat only vents after the suit's idle delay. */
+	private static void markFlamethrowerUsed(ServerPlayer player, IronManSuit suit) {
+		if (suit.flamethrowerVentDelayTicks() <= 0) {
+			return;
+		}
+		TonyStarkState s = TonyStark.state(player).copy();
+		s.abilityReadyAt.put(suit.id() + "/" + FLAMETHROWER_VENT_KEY,
+				player.level().getGameTime() + suit.flamethrowerVentDelayTicks());
+		player.setAttached(com.projecthero.mod.attachment.ModAttachments.TONY_STARK_STATE, s);
 	}
 
 	// ---------------- Mark 1: timed flight (X) ----------------
@@ -1195,7 +1268,14 @@ public final class IronManAbilities {
 		}
 		TonyStarkState s = TonyStark.state(player);
 		if (s.timedFlightUntil > player.level().getGameTime()) {
-			return; // already burning
+			// v0.14.27: pressing X again switches the burst off
+			endTimedFlight(player, suit.id());
+			IronManFlight.setFlying(player, false);
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.timed_flight_offline"), true);
+			return;
+		}
+		if (s.abilityReadyAt.containsKey(suit.id() + "/" + FLIGHT_BURST_PENDING_KEY)) {
+			return; // a Shift+X launch is already about to switch it on
 		}
 		if (!cooldownReady(player, suit.id(), TIMED_FLIGHT)) {
 			return; // 13 s cooldown after the last burst ended
@@ -1203,18 +1283,104 @@ public final class IronManAbilities {
 		if (!pay(player, suit, TIMED_FLIGHT_ACTIVATION_COST)) {
 			return;
 		}
+		startTimedFlight(player, suit, true);
+	}
+
+	/** Switch the burst on (the cost is already paid). {@code hop} = the little take-off pop from the ground. */
+	private static void startTimedFlight(ServerPlayer player, IronManSuit suit, boolean hop) {
 		TonyStark.setTimedFlightUntil(player, player.level().getGameTime() + TIMED_FLIGHT_TICKS);
 		IronManFlight.setFlying(player, true);
 		// A real "burst": pop the player up off the ground so the flight visibly launches (matches the
 		// feel of Pyrokinesis / Geokinesis timed flight rather than just quietly enabling creative fly).
-		player.setDeltaMovement(player.getDeltaMovement().x, 0.6, player.getDeltaMovement().z);
-		player.hurtMarked = true;
-		player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(player));
+		if (hop) {
+			player.setDeltaMovement(player.getDeltaMovement().x, 0.6, player.getDeltaMovement().z);
+			player.hurtMarked = true;
+			player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(player));
+		}
 		player.fallDistance = 0.0f;
 		ServerLevel level = (ServerLevel) player.level();
 		level.sendParticles(ParticleTypes.FLAME, player.getX(), player.getY() + 0.1, player.getZ(), 24, 0.3, 0.1, 0.3, 0.05);
 		AbilityHelpers.sound(player, SoundEvents.FIRECHARGE_USE, 1.0f, 0.8f);
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.timed_flight_online"), true);
+	}
+
+	/**
+	 * v0.14.27, Mark 1 Shift+X: throw the wearer far along the look (50 energy), and 3 s later the flight burst
+	 * switches on by itself ({@link #tickPendingFlightBurst}).
+	 */
+	private static void launchFlightBurst(ServerPlayer player, IronManSuit suit) {
+		if (!IronManArmor.isPieceWorn(player, net.minecraft.world.entity.EquipmentSlot.FEET, suit.id())) {
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.need_boots"), true);
+			return;
+		}
+		TonyStarkState s = TonyStark.state(player);
+		long now = player.level().getGameTime();
+		if (s.timedFlightUntil > now || s.abilityReadyAt.containsKey(suit.id() + "/" + FLIGHT_BURST_PENDING_KEY)) {
+			return;
+		}
+		if (!cooldownReady(player, suit.id(), TIMED_FLIGHT)) {
+			return;
+		}
+		if (!pay(player, suit, TIMED_FLIGHT_ACTIVATION_COST)) {
+			return;
+		}
+		TonyStarkState c = TonyStark.state(player).copy();
+		c.abilityReadyAt.put(suit.id() + "/" + FLIGHT_BURST_PENDING_KEY, now + LAUNCH_BURST_DELAY_TICKS);
+		player.setAttached(com.projecthero.mod.attachment.ModAttachments.TONY_STARK_STATE, c);
+		Vec3 look = player.getLookAngle();
+		Vec3 v = look.scale(LAUNCH_SPEED).add(0, 0.6, 0);
+		player.setDeltaMovement(v);
+		player.hurtMarked = true;
+		player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(player));
+		player.fallDistance = 0f;
+		ServerLevel level = (ServerLevel) player.level();
+		level.sendParticles(ParticleTypes.FLAME, player.getX(), player.getY() + 0.1, player.getZ(), 30, 0.3, 0.1, 0.3, 0.08);
+		level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 0.1, player.getZ(), 16, 0.4, 0.1, 0.4, 0.05);
+		AbilityHelpers.sound(player, SoundEvents.FIRECHARGE_USE, 1.2f, 0.6f);
+		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.2f, 0.7f);
+		player.displayClientMessage(Component.translatable("message.projecthero.ironman.flight_launch"), true);
+	}
+
+	/** v0.14.27: per tick -- switch the burst on once a Shift+X launch's 3 s are up. */
+	public static void tickPendingFlightBurst(ServerPlayer player, IronManSuit suit) {
+		String key = suit.id() + "/" + FLIGHT_BURST_PENDING_KEY;
+		Long at = TonyStark.state(player).abilityReadyAt.get(key);
+		if (at == null) {
+			return;
+		}
+		player.fallDistance = 0f;
+		if (player.level().getGameTime() < at) {
+			return;
+		}
+		TonyStarkState c = TonyStark.state(player).copy();
+		c.abilityReadyAt.remove(key);
+		player.setAttached(com.projecthero.mod.attachment.ModAttachments.TONY_STARK_STATE, c);
+		if (IronManArmor.isPieceWorn(player, net.minecraft.world.entity.EquipmentSlot.FEET, suit.id())) {
+			startTimedFlight(player, suit, false);
+		}
+	}
+
+	/** v0.14.27: drop any queued Shift+X burst (the suit came off / lost power before the 3 s were up). */
+	public static void clearPendingFlightBurst(ServerPlayer player) {
+		TonyStarkState s = TonyStark.state(player);
+		boolean any = false;
+		for (String k : s.abilityReadyAt.keySet()) {
+			if (k.endsWith("/" + FLIGHT_BURST_PENDING_KEY)) {
+				any = true;
+				break;
+			}
+		}
+		if (!any) {
+			return;
+		}
+		TonyStarkState c = s.copy();
+		c.abilityReadyAt.keySet().removeIf(k -> k.endsWith("/" + FLIGHT_BURST_PENDING_KEY));
+		player.setAttached(com.projecthero.mod.attachment.ModAttachments.TONY_STARK_STATE, c);
+	}
+
+	/** v0.14.27: true while a Shift+X launch is waiting to switch the burst on. */
+	public static boolean flightBurstPending(TonyStarkState state, String suitId) {
+		return state.abilityReadyAt.containsKey(suitId + "/" + FLIGHT_BURST_PENDING_KEY);
 	}
 
 	/**
@@ -1388,7 +1554,7 @@ public final class IronManAbilities {
 	 * single point at exactly the angles a flying Iron Man looks at most. Falling back to the body's
 	 * yaw keeps a well-defined right-hand direction at every pitch.
 	 */
-	private static Vec3 rightOf(ServerPlayer player, Vec3 look) {
+	static Vec3 rightOf(ServerPlayer player, Vec3 look) {
 		Vec3 right = look.cross(new Vec3(0, 1, 0));
 		if (right.lengthSqr() < 1.0E-6) {
 			double yaw = Math.toRadians(player.getYRot());
@@ -1413,7 +1579,7 @@ public final class IronManAbilities {
 		return false;
 	}
 
-	private static void broadcastBeam(ServerPlayer player, Vec3 start, Vec3 end, int kind) {
+	static void broadcastBeam(ServerPlayer player, Vec3 start, Vec3 end, int kind) {
 		IronManBeamPayload payload = new IronManBeamPayload(start, end, kind);
 		// v0.14.21: not just the shooter's trackers -- anyone near the beam (the target may be far outside tracking range)
 		for (ServerPlayer viewer : IronManBeamRecipients.recipients(player, start, end)) {
@@ -1421,7 +1587,7 @@ public final class IronManAbilities {
 		}
 	}
 
-	private static boolean cooldownReady(ServerPlayer player, String suitId, String abilityId) {
+	static boolean cooldownReady(ServerPlayer player, String suitId, String abilityId) {
 		if (TonyStark.abilityReady(player, suitId, abilityId)) {
 			return true;
 		}
@@ -1444,7 +1610,7 @@ public final class IronManAbilities {
 	 * ("changes 15") -- called instead of {@link #noEnergy(ServerPlayer)} whenever a spend is refused
 	 * for a known cost.
 	 */
-	private static void noEnergy(ServerPlayer player, float required) {
+	static void noEnergy(ServerPlayer player, float required) {
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.not_enough_energy",
 				Math.round(required)).withStyle(net.minecraft.ChatFormatting.RED), true);
 	}

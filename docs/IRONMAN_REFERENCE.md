@@ -350,6 +350,65 @@ sneak is "changes 22": without it, two ordinary jumps inside 7 ticks called your
 Double-tap jump in the air wearing a bare **Repulsor** in the boots slot flies at half the Mark 2's
 speed — no suit and no Tony Stark power needed ("changes 22").
 
+## 13b. v0.14.27 — Mark 1 / Mark 2 kits, Mark III stats, shared moves
+
+All numbers are `IronManSuit` builder data (`IronManSuits`), so the spec sheet (`IronManSuitInfoScreen`) reads them.
+
+**Defence (Marks 1 / 2 / III).** `integritySplit(0.5f)`: while integrity holds it absorbs 50% of every hit and the
+wearer takes the other 50% (`IronManDamage.mitigateSplit`); with integrity at 0 the wearer takes the whole hit.
+`arrowFireImmune()`: arrows (`AbstractArrow` direct entity) and anything tagged `is_fire` (fire, lava, magma…) do
+nothing — no health, no integrity. All three are diamond-level armour (`IronManArmorMaterials`).
+Resistance I now comes from the **chestplate** alone (powered), not the full suit (`IronManPassives`).
+
+| | Mark 1 | Mark 2 | Mark III |
+|---|---|---|---|
+| Energy / regen | 500 / 2 per s (halved during the flight burst) | 1250 / 3 per s | 2000 / 5 per s |
+| Integrity | 750 | 1000 | 1000 |
+| Resistance I (chestplate) | – | yes | yes |
+| Melee bonus | +6 | +6 | +7 |
+| Underwater | can't breathe | can't breathe (air tank removed) | breathes (`waterBreathing()`) |
+| Auto-feed | no (`noAutoFeed()`) | no | yes |
+| Targeting (lock-on / auto-aim) | – | yes (`targeting()`) | yes |
+
+**Mark 1 kit.**
+* **R Strong Punch** — 15 dmg, 10 energy, 1 s cd.
+* **G Flamethrower** — 8 dmg/s + burning, 6 energy/s; heat +5/s to a 100 ceiling; after 3 s idle the heat seeps away at
+  5/s (`flamethrowerTuning(100, 5, 5, 60, 6, 8)`).
+* **X Flight Burst** — 20 s, 50 energy on activation, no per-second drain; flies at 8 blocks/s, no sprint flight
+  (`flightCruise(8)`, `noSprintFlight()`); can't sink below 0.5 blocks over the ground (`hoverFloor(0.5)`, enforced in
+  the client's `DirectionalFlight` via `DirectionalFlightModel.hoverFloorY`); remaining seconds drawn on the X key box;
+  **X again switches it off**; energy regen is halved while it runs. **Shift+X** throws the wearer far along the look
+  (50 energy) and switches the burst on 3 s later (`flight_burst_pending_at` timer in `abilityReadyAt`).
+* **Z Rocket** — 30 dmg, 100 energy, 10 s cd. **V** Mob Highlight (10 energy, 20 s). **C** store suit.
+
+**Mark 2 kit.**
+* **R Repulsor** — tap: 1 s spin-up then 10 dmg, 10 energy, 1 s cd. Hold 1 s + release: Charged, 18 dmg, 50 energy, 3 s
+  cd. **Shift+R**: repulsor dash (15 dmg, 50 energy, 8 s cd).
+* **G Sonic Clap** — 15 dmg, 50 energy, 8 s cd. **Z Unibeam** — 6 s, 20 per damage tick, 300 energy, 20 s cd.
+* **X Flares** — 10 s cd. **Shift+X** on the ground lights the looked-at block like flint and steel (1 energy); while
+  flying it gives a 30 s supersonic boost (50 energy). **V** Mob Highlight (same as Mark 1). **C** store suit.
+
+**Mark III R** — tap 15 dmg / 10 energy / 1 s cd (no spin-up); hold 1 s: 20 dmg / 50 energy / 3 s cd; Shift+R dash
+(20 dmg, 50 energy, 8 s cd). Its other slots are Mark III's own kit.
+
+**Shared moves** (`com.projecthero.mod.ironman.ability`, each checks the chestplate, its own cooldown and energy):
+* `IronManDash.start(player, damage, energyCost, cooldownTicks)` — 10 blocks over 10 ticks along the look; every
+  enemy within 4 blocks of the path is hit once, with a repulsor beam to it. Pose `IronManAbilityFx.DASH`.
+* `IronManSonicClap.fire(player, damage, energyCost, cooldownTicks)` — 12-block, 60° cone, damage + knockback, sonic
+  boom particles + expanding rings. Pose `IronManAbilityFx.SONIC_CLAP`.
+* `IronManFlares.fire(player, advanced, cooldownTicks)` — 25 energy; hostiles within 8 blocks in front get Blindness +
+  Slowness IV for 8 s. `advanced`: a homing flare flies to each (max 8), knocks it back, sets it alight for 3 s and burns
+  it for 5 every 0.5 s for those 3 s.
+* `IronManFlares.supersonicBoost(player, durationTicks, energyCost)` — double flight speed (cruise, climb and ceiling)
+  for the duration; the timer is `<suit>/supersonic_boost` in the synced `abilityReadyAt` map, read by the client's
+  `DirectionalFlight`.
+Dash and homing-flare/burn state is static server state cleared in `ServerStateReset`.
+
+**Mob highlight** stays strictly per-viewer: `EntityGlowMixin` decides each outline from the *viewing* client's own
+`TonyStarkState`; no server `GLOWING` effect is ever applied, so nobody else sees it.
+
+Tests: `IronManV01427Mark12GameTests`.
+
 ## 14. Suit definitions
 
 `com.projecthero.mod.ironman.suit.IronManSuits`: `MARK_III`, `MARK_V`, `MARK_VII`, `MARK_42`,

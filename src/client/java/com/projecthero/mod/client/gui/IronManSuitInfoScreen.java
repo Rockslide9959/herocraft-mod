@@ -74,6 +74,19 @@ public class IronManSuitInfoScreen extends Screen {
 		row(wrap, "screen.projecthero.ironman_info.pieces", pieces + " / 4");
 		row(wrap, "screen.projecthero.ironman_info.energy", fmt(energy) + " / " + fmt(suit.energyCapacity()));
 		row(wrap, "screen.projecthero.ironman_info.integrity", fmt(integ) + " / " + fmt(maxInt));
+		row(wrap, "screen.projecthero.ironman_info.energy_regen", // v0.14.27
+				String.format(java.util.Locale.ROOT, "%s / s", fmt(suit.energyRegenPerSecond())));
+		if (suit.integrityPlayerShare() >= 0f) {
+			row(wrap, "screen.projecthero.ironman_info.damage_split", Component.translatable(
+					"screen.projecthero.ironman_info.damage_split_value", Math.round((1f - suit.integrityPlayerShare()) * 100f),
+					Math.round(suit.integrityPlayerShare() * 100f)).getString());
+		}
+		if (suit.arrowFireImmune()) {
+			row(wrap, "screen.projecthero.ironman_info.arrow_fire", Component.translatable("screen.projecthero.ironman_info.yes").getString());
+		}
+		if (suit.resistanceAmplifier() >= 0) {
+			row(wrap, "screen.projecthero.ironman_info.resistance", String.valueOf(suit.resistanceAmplifier() + 1));
+		}
 		row(wrap, "screen.projecthero.ironman_info.self_repair",
 				String.format(java.util.Locale.ROOT, "%.2f / s", suit.armorRegenPerSecond() * IronManEnergy.WORN_REGEN_SCALE));
 		row(wrap, "screen.projecthero.ironman_info.platform_repair",
@@ -93,6 +106,10 @@ public class IronManSuitInfoScreen extends Screen {
 		head("screen.projecthero.ironman_info.weapons");
 		if (suit.repulsorDamage() > 0) {
 			row(wrap, "screen.projecthero.ironman_info.repulsor", fmt(suit.repulsorDamage()));
+			row(wrap, "screen.projecthero.ironman_info.charged_repulsor", fmt(suit.chargedRepulsorDamage())); // v0.14.27
+		}
+		if (suit.hasDash()) {
+			row(wrap, "screen.projecthero.ironman_info.dash", fmt(suit.dashDamage()));
 		}
 		if (suit.unibeamDamage() > 0) {
 			row(wrap, "screen.projecthero.ironman_info.unibeam", fmt(suit.unibeamDamage()));
@@ -121,10 +138,15 @@ public class IronManSuitInfoScreen extends Screen {
 				? "screen.projecthero.ironman_info.yes" : "screen.projecthero.ironman_info.no").getString());
 		row(wrap, "screen.projecthero.ironman_info.night_vision", Component.translatable(suit.helmetNightVision()
 				? "screen.projecthero.ironman_info.yes" : "screen.projecthero.ironman_info.no").getString());
-		if (suit.airTankSeconds() > 0) {
+		if (suit.waterBreathing()) {
+			row(wrap, "screen.projecthero.ironman_info.air", Component.translatable("screen.projecthero.ironman_info.air_unlimited").getString());
+		} else if (suit.airTankSeconds() > 0) {
 			row(wrap, "screen.projecthero.ironman_info.air", suit.airTankSeconds() + " s");
+		} else {
+			row(wrap, "screen.projecthero.ironman_info.air", Component.translatable("screen.projecthero.ironman_info.no").getString());
 		}
-		row(wrap, "screen.projecthero.ironman_info.auto_feed", Component.translatable("screen.projecthero.ironman_info.yes").getString());
+		row(wrap, "screen.projecthero.ironman_info.auto_feed", Component.translatable(suit.autoFeed() // v0.14.27
+				? "screen.projecthero.ironman_info.yes" : "screen.projecthero.ironman_info.no").getString());
 		lines.add(FormattedCharSequence.EMPTY);
 		for (FormattedCharSequence l : font.split(Component.translatable("screen.projecthero.ironman_info.hint").withStyle(ChatFormatting.DARK_GRAY), wrap)) {
 			lines.add(l);

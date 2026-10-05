@@ -69,6 +69,40 @@ public final class IronManSuit {
 	// v0.11.13
 	private final int resistanceAmplifier;   // -1 = none; else MobEffects.DAMAGE_RESISTANCE amplifier while a full suit is worn+powered
 
+	// v0.14.27 (agent C): per-suit repulsor / dash / clap / unibeam / flamethrower / flight / defence tuning
+	private final float repulsorTapEnergy;       // energy a tap Repulsor costs
+	private final int repulsorTapCooldownTicks;  // cooldown after a tap Repulsor
+	private final float chargedRepulsorDamage;   // < 0 = repulsorDamage x 3
+	private final float chargedRepulsorEnergy;
+	private final int chargedRepulsorCooldownTicks;
+	private final int chargeHoldTicks;           // how long R must be held for a charged shot
+	private final float dashDamage;              // > 0 = Shift+R is the repulsor dash (IronManDash)
+	private final float dashEnergy;
+	private final int dashCooldownTicks;
+	private final float sonicClapDamage;         // the SONIC_CLAP slot's numbers (IronManSonicClap)
+	private final float sonicClapEnergy;
+	private final int sonicClapCooldownTicks;
+	private final int unibeamChannelTicks;
+	private final float unibeamDamagePerTick;    // < 0 = the shared 10/tick x unibeamDamageMultiplier
+	private final float unibeamTotalEnergy;      // < 0 = the shared 700
+	private final int unibeamCooldownTicks;
+	private final float flamethrowerMaxHeat;     // > 0 overrides the shared 500 x flamethrowerHeatMultiplier ceiling
+	private final float flamethrowerHeatPerSecond;
+	private final float flamethrowerVentPerSecond;
+	private final int flamethrowerVentDelayTicks; // idle time before the heat starts seeping away
+	private final float flamethrowerEnergyPerSecond;
+	private final float flamethrowerDamagePerSecond;
+	private final double flightCruiseMps;        // > 0 = fixed cruise speed in blocks/second
+	private final boolean sprintFlight;          // false = sprinting never speeds flight up
+	private final double hoverFloor;             // > 0 = during a timed flight burst you can't sink lower than this above the ground
+	private final float integrityPlayerShare;    // >= 0 = flat split: the wearer takes this share, integrity absorbs the rest
+	private final boolean arrowFireImmune;       // arrows + fire do nothing (no health, no integrity)
+	private final boolean autoFeed;
+	private final boolean waterBreathing;        // the helmet keeps the air meter full underwater, indefinitely
+	private final boolean targeting;             // the lock-on / auto-aim targeting system (IronManTargeting)
+	private final float mobHighlightEnergy;      // energy to switch the V highlight on
+	private final int mobHighlightDurationTicks; // > 0 = the highlight switches itself off after this long
+
 	private final String[] abilities;        // 6, ordered slot 1..6 (ability ids from IronManAbilities)
 	private final SuitUpType suitUpType;
 	private final SummonType summonType;
@@ -117,6 +151,38 @@ public final class IronManSuit {
 		this.platformEnergyPerSecondOverride = b.platformEnergyPerSecondOverride;
 		this.platformIntegrityPerSecondOverride = b.platformIntegrityPerSecondOverride;
 		this.resistanceAmplifier = b.resistanceAmplifier;
+		this.repulsorTapEnergy = b.repulsorTapEnergy;
+		this.repulsorTapCooldownTicks = b.repulsorTapCooldownTicks;
+		this.chargedRepulsorDamage = b.chargedRepulsorDamage;
+		this.chargedRepulsorEnergy = b.chargedRepulsorEnergy;
+		this.chargedRepulsorCooldownTicks = b.chargedRepulsorCooldownTicks;
+		this.chargeHoldTicks = b.chargeHoldTicks;
+		this.dashDamage = b.dashDamage;
+		this.dashEnergy = b.dashEnergy;
+		this.dashCooldownTicks = b.dashCooldownTicks;
+		this.sonicClapDamage = b.sonicClapDamage;
+		this.sonicClapEnergy = b.sonicClapEnergy;
+		this.sonicClapCooldownTicks = b.sonicClapCooldownTicks;
+		this.unibeamChannelTicks = b.unibeamChannelTicks;
+		this.unibeamDamagePerTick = b.unibeamDamagePerTick;
+		this.unibeamTotalEnergy = b.unibeamTotalEnergy;
+		this.unibeamCooldownTicks = b.unibeamCooldownTicks;
+		this.flamethrowerMaxHeat = b.flamethrowerMaxHeat;
+		this.flamethrowerHeatPerSecond = b.flamethrowerHeatPerSecond;
+		this.flamethrowerVentPerSecond = b.flamethrowerVentPerSecond;
+		this.flamethrowerVentDelayTicks = b.flamethrowerVentDelayTicks;
+		this.flamethrowerEnergyPerSecond = b.flamethrowerEnergyPerSecond;
+		this.flamethrowerDamagePerSecond = b.flamethrowerDamagePerSecond;
+		this.flightCruiseMps = b.flightCruiseMps;
+		this.sprintFlight = b.sprintFlight;
+		this.hoverFloor = b.hoverFloor;
+		this.integrityPlayerShare = b.integrityPlayerShare;
+		this.arrowFireImmune = b.arrowFireImmune;
+		this.autoFeed = b.autoFeed;
+		this.waterBreathing = b.waterBreathing;
+		this.targeting = b.targeting;
+		this.mobHighlightEnergy = b.mobHighlightEnergy;
+		this.mobHighlightDurationTicks = b.mobHighlightDurationTicks;
 		this.abilities = b.abilities;
 		this.suitUpType = b.suitUpType;
 		this.summonType = b.summonType;
@@ -165,6 +231,40 @@ public final class IronManSuit {
 	public float platformEnergyPerSecondOverride() { return platformEnergyPerSecondOverride; }
 	public float platformIntegrityPerSecondOverride() { return platformIntegrityPerSecondOverride; }
 	public int resistanceAmplifier() { return resistanceAmplifier; }
+	public float repulsorTapEnergy() { return repulsorTapEnergy; }
+	public int repulsorTapCooldownTicks() { return repulsorTapCooldownTicks; }
+	public float chargedRepulsorDamage() { return chargedRepulsorDamage >= 0f ? chargedRepulsorDamage : repulsorDamage * 3.0f; }
+	public float chargedRepulsorEnergy() { return chargedRepulsorEnergy; }
+	public int chargedRepulsorCooldownTicks() { return chargedRepulsorCooldownTicks; }
+	public int chargeHoldTicks() { return chargeHoldTicks; }
+	public boolean hasDash() { return dashDamage > 0f; }
+	public float dashDamage() { return dashDamage; }
+	public float dashEnergy() { return dashEnergy; }
+	public int dashCooldownTicks() { return dashCooldownTicks; }
+	public float sonicClapDamage() { return sonicClapDamage; }
+	public float sonicClapEnergy() { return sonicClapEnergy; }
+	public int sonicClapCooldownTicks() { return sonicClapCooldownTicks; }
+	public int unibeamChannelTicks() { return unibeamChannelTicks; }
+	public float unibeamDamagePerTick() { return unibeamDamagePerTick >= 0f ? unibeamDamagePerTick : 10.0f * unibeamDamageMultiplier; }
+	public float unibeamTotalEnergy() { return unibeamTotalEnergy >= 0f ? unibeamTotalEnergy : 700.0f; }
+	public int unibeamCooldownTicks() { return unibeamCooldownTicks; }
+	public float flamethrowerMaxHeatOverride() { return flamethrowerMaxHeat; }
+	public float flamethrowerHeatPerSecond() { return flamethrowerHeatPerSecond; }
+	public float flamethrowerVentPerSecond() { return flamethrowerVentPerSecond; }
+	public int flamethrowerVentDelayTicks() { return flamethrowerVentDelayTicks; }
+	public float flamethrowerEnergyPerSecond() { return flamethrowerEnergyPerSecond; }
+	public float flamethrowerDamagePerSecond() { return flamethrowerDamagePerSecond; }
+	public double flightCruiseMps() { return flightCruiseMps; }
+	public boolean sprintFlight() { return sprintFlight; }
+	public double hoverFloor() { return hoverFloor; }
+	/** {@code >= 0}: the flat v0.14.27 split -- the wearer takes this share of a hit, integrity absorbs the rest. */
+	public float integrityPlayerShare() { return integrityPlayerShare; }
+	public boolean arrowFireImmune() { return arrowFireImmune; }
+	public boolean autoFeed() { return autoFeed; }
+	public boolean waterBreathing() { return waterBreathing; }
+	public boolean targeting() { return targeting; }
+	public float mobHighlightEnergy() { return mobHighlightEnergy; }
+	public int mobHighlightDurationTicks() { return mobHighlightDurationTicks; }
 	public SuitUpType suitUpType() { return suitUpType; }
 	public SummonType summonType() { return summonType; }
 	public Item requiredBlueprint() { return requiredBlueprint; }
@@ -220,6 +320,38 @@ public final class IronManSuit {
 		private float platformEnergyPerSecondOverride = -1f;
 		private float platformIntegrityPerSecondOverride = -1f;
 		private int resistanceAmplifier = -1;
+		private float repulsorTapEnergy = 80.0f;
+		private int repulsorTapCooldownTicks = 8;
+		private float chargedRepulsorDamage = -1f;
+		private float chargedRepulsorEnergy = 250.0f;
+		private int chargedRepulsorCooldownTicks = 40;
+		private int chargeHoldTicks = 40;
+		private float dashDamage = 0f;
+		private float dashEnergy = 0f;
+		private int dashCooldownTicks = 0;
+		private float sonicClapDamage = 15f;
+		private float sonicClapEnergy = 50f;
+		private int sonicClapCooldownTicks = 160;
+		private int unibeamChannelTicks = 100;
+		private float unibeamDamagePerTick = -1f;
+		private float unibeamTotalEnergy = -1f;
+		private int unibeamCooldownTicks = 600;
+		private float flamethrowerMaxHeat = -1f;
+		private float flamethrowerHeatPerSecond = 38.0f;
+		private float flamethrowerVentPerSecond = 20.0f;
+		private int flamethrowerVentDelayTicks = 0;
+		private float flamethrowerEnergyPerSecond = 5.0f;
+		private float flamethrowerDamagePerSecond = 0f; // 0 = the legacy 2.5-per-hit stream
+		private double flightCruiseMps = 0.0;
+		private boolean sprintFlight = true;
+		private double hoverFloor = 0.0;
+		private float integrityPlayerShare = -1f;
+		private boolean arrowFireImmune = false;
+		private boolean autoFeed = true;
+		private boolean waterBreathing = false;
+		private boolean targeting = false;
+		private float mobHighlightEnergy = 0f;
+		private int mobHighlightDurationTicks = 0;
 		private String[] abilities = new String[6];
 		private SuitUpType suitUpType = SuitUpType.MECHANICAL_REMOTE;
 		private SummonType summonType = SummonType.FLYING_SET;
@@ -298,6 +430,55 @@ public final class IronManSuit {
 		/** v0.11.13: while a full suit of this mark is worn and powered, apply a permanent
 		 *  {@code MobEffects.DAMAGE_RESISTANCE} at this level (1 = Resistance I). */
 		public Builder resistance(int level) { this.resistanceAmplifier = level - 1; return this; }
+		/** v0.14.27: a tap Repulsor -- damage, energy and cooldown. */
+		public Builder repulsorTap(float damage, float energy, int cooldownTicks) {
+			this.repulsorDamage = damage; this.repulsorTapEnergy = energy; this.repulsorTapCooldownTicks = cooldownTicks; return this;
+		}
+		/** v0.14.27: hold R for {@code holdTicks} then release -- the Charged Repulsor's damage, energy and cooldown. */
+		public Builder repulsorCharged(float damage, float energy, int cooldownTicks, int holdTicks) {
+			this.chargedRepulsorDamage = damage; this.chargedRepulsorEnergy = energy;
+			this.chargedRepulsorCooldownTicks = cooldownTicks; this.chargeHoldTicks = holdTicks; return this;
+		}
+		/** v0.14.27: Shift+R is the repulsor dash ({@code IronManDash}). */
+		public Builder dash(float damage, float energy, int cooldownTicks) {
+			this.dashDamage = damage; this.dashEnergy = energy; this.dashCooldownTicks = cooldownTicks; return this;
+		}
+		/** v0.14.27: the SONIC_CLAP slot's numbers ({@code IronManSonicClap}). */
+		public Builder sonicClap(float damage, float energy, int cooldownTicks) {
+			this.sonicClapDamage = damage; this.sonicClapEnergy = energy; this.sonicClapCooldownTicks = cooldownTicks; return this;
+		}
+		/** v0.14.27: the Unibeam channel -- length, damage per damage tick, total energy, cooldown. */
+		public Builder unibeamChannel(int ticks, float damagePerTick, float totalEnergy, int cooldownTicks) {
+			this.unibeamChannelTicks = ticks; this.unibeamDamagePerTick = damagePerTick;
+			this.unibeamTotalEnergy = totalEnergy; this.unibeamCooldownTicks = cooldownTicks; return this;
+		}
+		/** v0.14.27: the flamethrower's heat bar and burn, all per second. */
+		public Builder flamethrowerTuning(float maxHeat, float heatPerSecond, float ventPerSecond, int ventDelayTicks,
+				float energyPerSecond, float damagePerSecond) {
+			this.flamethrowerMaxHeat = maxHeat; this.flamethrowerHeatPerSecond = heatPerSecond;
+			this.flamethrowerVentPerSecond = ventPerSecond; this.flamethrowerVentDelayTicks = ventDelayTicks;
+			this.flamethrowerEnergyPerSecond = energyPerSecond; this.flamethrowerDamagePerSecond = damagePerSecond; return this;
+		}
+		/** v0.14.27: a fixed flight cruise speed (blocks per second). */
+		public Builder flightCruise(double blocksPerSecond) { this.flightCruiseMps = blocksPerSecond; return this; }
+		/** v0.14.27: sprinting never speeds this suit's flight up. */
+		public Builder noSprintFlight() { this.sprintFlight = false; return this; }
+		/** v0.14.27: during a timed flight burst the wearer can't sink lower than this many blocks above the ground. */
+		public Builder hoverFloor(double blocks) { this.hoverFloor = blocks; return this; }
+		/** v0.14.27: flat damage split -- the wearer takes {@code playerShare} of every hit, integrity absorbs the rest. */
+		public Builder integritySplit(float playerShare) { this.integrityPlayerShare = playerShare; return this; }
+		/** v0.14.27: arrows and fire do nothing to the wearer or the suit. */
+		public Builder arrowFireImmune() { this.arrowFireImmune = true; return this; }
+		/** v0.14.27: this suit does not feed its wearer. */
+		public Builder noAutoFeed() { this.autoFeed = false; return this; }
+		/** v0.14.27: the helmet lets the wearer breathe underwater indefinitely. */
+		public Builder waterBreathing() { this.waterBreathing = true; return this; }
+		/** v0.14.27: this suit has the lock-on / auto-aim targeting system. */
+		public Builder targeting() { this.targeting = true; return this; }
+		/** v0.14.27: the V highlight costs {@code energy} to switch on and (if {@code durationTicks > 0}) switches itself off. */
+		public Builder mobHighlight(float energy, int durationTicks) {
+			this.mobHighlightEnergy = energy; this.mobHighlightDurationTicks = durationTicks; return this;
+		}
 		public Builder abilities(String s1, String s2, String s3, String s4, String s5, String s6) {
 			this.abilities = new String[] { s1, s2, s3, s4, s5, s6 };
 			return this;

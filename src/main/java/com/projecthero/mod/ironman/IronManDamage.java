@@ -65,20 +65,8 @@ public final class IronManDamage {
 	private static final float FIRE_INTEGRITY_MULTIPLIER = 0.05f;
 	private static final float FIRE_ENERGY_MULTIPLIER = 0.10f;
 
-	/**
-	 * v0.11.13, explicit user request: Mark 1's mitigation is its own flat rule, not the shared 90/10
-	 * split above -- the wearer takes the <b>full</b> hit (no reduction at all), and the plating
-	 * separately bleeds {@value #MARK_1_INTEGRITY_DAMAGE_SHARE} of that same raw amount <em>in
-	 * parallel</em> -- e.g. a 10-damage hit is 10 damage to the player AND 8 off integrity, not a
-	 * 10-vs-8 split of one pool of damage. (v0.11.12 had this as an even 50/50 reduction; the wearer's
-	 * own share is no longer reduced at all.) Full immunity to fire and projectiles specifically is
-	 * unchanged -- the wearer takes nothing from either, at the cost of only a token flat integrity chip.
-	 */
-	private static final float MARK_1_INTEGRITY_DAMAGE_SHARE = 0.8f;
-	private static final float MARK_1_ELEMENTAL_INTEGRITY_CHIP = 0.1f;
-	/** v0.11.13, explicit user request: Mark 2 gets the identical parallel-damage rule as Mark 1 above
-	 *  (no fire/projectile immunity carve-out, since that wasn't asked for Mark 2). */
-	private static final float MARK_2_INTEGRITY_DAMAGE_SHARE = 0.8f;
+	// v0.14.27: the per-mark Mark 1 / Mark 2 rules are now builder data -- IronManSuit#integrityPlayerShare
+	// (the flat split) and IronManSuit#arrowFireImmune -- see mitigateSplit below.
 
 	private static final ThreadLocal<Boolean> REENTRANT = ThreadLocal.withInitial(() -> false);
 
@@ -139,11 +127,13 @@ public final class IronManDamage {
 			return true; // suit fully unpowered -- physical protection only
 		}
 
-		if ("mark_1".equals(suitId)) {
-			return mitigateMark1(player, suitId, source, amount);
+		// v0.14.27 (Marks 1 / 2 / III): arrows and fire do nothing at all, and every other hit is split flat --
+		// integrity absorbs its share, the wearer takes the rest.
+		if (suit.arrowFireImmune() && isArrowOrFire(source)) {
+			return false;
 		}
-		if ("mark_2".equals(suitId)) {
-			return mitigateMark2(player, suitId, amount);
+		if (suit.integrityPlayerShare() >= 0f) {
+			return mitigateSplit(player, suitId, source, amount, suit.integrityPlayerShare());
 		}
 
 		// "changes 22": fire is cheap for the suit to shrug off -- see FIRE_INTEGRITY_MULTIPLIER.
@@ -172,26 +162,32 @@ public final class IronManDamage {
 		return reduce(player, source, amount, integrityOk ? PLAYER_SHARE_INTEGRITY_OK : PLAYER_SHARE_INTEGRITY_FAILED);
 	}
 
-	/**
-	 * Mark 1's own flat mitigation rule (v0.11.12) -- see {@link #MARK_1_PLAYER_SHARE} and friends.
-	 * Unlike the shared model this never falls back to a worse "integrity failed" share; it is the same
-	 * flat split regardless of how much of the (now 1000-point) pool is left, exactly as specified.
-	 */
-	private static boolean mitigateMark1(ServerPlayer player, String suitId, DamageSource source, float amount) {
-		if (source.is(DamageTypeTags.IS_FIRE) || source.is(DamageTypeTags.IS_PROJECTILE)) {
-			IronManEnergy.damageIntegrity(player, suitId, MARK_1_ELEMENTAL_INTEGRITY_CHIP);
-			return false;
-		}
-		IronManEnergy.damageIntegrity(player, suitId, amount * MARK_1_INTEGRITY_DAMAGE_SHARE);
-		// v0.11.13: allow the hit through unmodified -- the player takes the full raw amount, the
-		// integrity chip above is a separate, parallel cost, not a reduction of what the player takes.
-		return true;
+	/** v0.14.27: an arrow (anything shot as an {@code AbstractArrow}) or any fire / lava / hot-floor source. */
+	public static boolean isArrowOrFire(DamageSource source) {
+		return source.is(DamageTypeTags.IS_FIRE)
+				|| source.getDirectEntity() instanceof net.minecraft.world.entity.projectile.AbstractArrow;
 	}
 
-	/** v0.11.13, explicit user request: Mark 2's own flat mitigation rule -- see {@link #MARK_2_INTEGRITY_DAMAGE_SHARE}. */
-	private static boolean mitigateMark2(ServerPlayer player, String suitId, float amount) {
-		IronManEnergy.damageIntegrity(player, suitId, amount * MARK_2_INTEGRITY_DAMAGE_SHARE);
-		return true;
+	/**
+	 * v0.14.27, explicit user request (Marks 1 / 2 / III): a flat split. While integrity holds, it absorbs
+	 * {@code 1 - playerShare} of the hit and the wearer takes {@code playerShare} (0.5 = half each). Once integrity
+	 * has failed there is nothing left to absorb -- the wearer takes the whole hit.
+	 */
+	private static boolean mitigateSplit(ServerPlayer player, String suitId, DamageSource source, float amount, float playerShare) {
+		float before = IronManEnergy.integrity(player, suitId);
+		if (before <= 0f) {
+			return true;
+		}
+		IronManEnergy.damageIntegrity(player, suitId, amount * (1f - playerShare));
+		if (IronManEnergy.integrity(player, suitId) <= 0f) {
+			ServerLevel level = (ServerLevel) player.level();
+			level.playSound(null, player.getX(), player.getY(), player.getZ(),
+					SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 1.0f, 0.6f);
+			player.displayClientMessage(net.minecraft.network.chat.Component
+					.translatable("message.projecthero.ironman.integrity_failed")
+					.withStyle(net.minecraft.ChatFormatting.RED), true);
+		}
+		return reduce(player, source, amount, playerShare);
 	}
 
 	/**

@@ -159,8 +159,17 @@ public final class IronManEnergy {
 	public static void tickRecharge(ServerPlayer player, IronManSuit suit) {
 		float current = energy(player, suit.id());
 		if (current < suit.energyCapacity()) {
-			addEnergy(player, suit.id(), suit.energyRegenPerSecond() / 20f);
+			addEnergy(player, suit.id(), regenPerSecond(player, suit) / 20f);
 		}
+	}
+
+	/** v0.14.27: the worn regen right now -- halved while a timed flight burst (Mark 1 X) is running. */
+	public static float regenPerSecond(ServerPlayer player, IronManSuit suit) {
+		float rate = suit.energyRegenPerSecond();
+		if (TonyStark.state(player).timedFlightUntil > player.level().getGameTime()) {
+			rate *= 0.5f;
+		}
+		return rate;
 	}
 
 	/**

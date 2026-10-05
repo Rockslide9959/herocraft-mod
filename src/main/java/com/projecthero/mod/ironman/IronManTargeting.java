@@ -42,7 +42,7 @@ public final class IronManTargeting {
 
 	/** Suits with the targeting system. */
 	public static boolean hasTargeting(IronManSuit suit) {
-		return suit != null && "mark_iii".equals(suit.id());
+		return suit != null && (suit.targeting() || "mark_iii".equals(suit.id())); // v0.14.27: + Mark 2
 	}
 
 	/** Every tick for an Iron Man wearer. */

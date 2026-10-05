@@ -78,7 +78,8 @@ public final class IronManPassives {
 		// effect -- refreshed every tick like the helmet's Night Vision, so it disappears on its own the
 		// instant the suit comes off/depowers instead of lingering.
 		int resistance = suit == null ? -1 : suit.resistanceAmplifier();
-		if (powered && frac >= 1.0 && resistance >= 0) {
+		// v0.14.27: the chestplate alone carries it (was: the full suit)
+		if (powered && resistance >= 0 && IronManArmor.hasChestplate(player, suitId)) {
 			player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, RESISTANCE_REFRESH_TICKS,
 					resistance, true, false, false));
 		} else {

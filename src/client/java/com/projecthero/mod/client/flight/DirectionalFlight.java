@@ -112,6 +112,7 @@ public final class DirectionalFlight {
 
 		player.setDeltaMovement(next);
 		player.move(MoverType.SELF, next);
+		applyHoverFloor(player);
 		// Entity.move zeroes whichever components collided, so this is the velocity that actually happened.
 		velocity = player.getDeltaMovement();
 		player.resetFallDistance();
@@ -147,9 +148,14 @@ public final class DirectionalFlight {
 			if (!(player.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof IronManArmorItem)) {
 				sprint = false;
 			}
-			return suit == null ? DirectionalFlightModel.ironMan(1.0f, 0.08f, 0.0, sprint, supersonic)
-					: DirectionalFlightModel.ironMan(suit.flightSpeed(), suit.flightAcceleration(), suit.maxFlightSpeedMps(),
-							sprint, supersonic);
+			if (suit == null) {
+				return DirectionalFlightModel.ironMan(1.0f, 0.08f, 0.0, sprint, supersonic);
+			}
+			// v0.14.27: per-suit fixed cruise (Mark 1: 8 b/s), no sprint flight, and the Mark 2 supersonic boost (x2)
+			boolean boost = com.projecthero.mod.ironman.ability.IronManFlares.boosting(ts, suit.id(), player.level().getGameTime());
+			return DirectionalFlightModel.ironManSuit(suit.flightSpeed(), suit.flightAcceleration(), suit.maxFlightSpeedMps(),
+					suit.flightCruiseMps(), sprint && suit.sprintFlight(), supersonic,
+					boost ? com.projecthero.mod.ironman.ability.IronManFlares.BOOST_SPEED_MULTIPLIER : 1.0);
 		}
 		if (player.getAttachedOrElse(ModAttachments.REPULSOR_BOOTS_FLYING, false)) {
 			return DirectionalFlightModel.repulsorBoots(false); // v0.14.26: boots only -- no sprint flight
@@ -177,6 +183,33 @@ public final class DirectionalFlight {
 			return DirectionalFlightModel.vanilla(flyingSpeed, sprint);
 		}
 		return null;
+	}
+
+	/**
+	 * v0.14.27: during a Mark 1 flight burst the wearer can't sink lower than the suit's hover floor (0.5 blocks) above
+	 * the ground -- lift them back up and stop any further sinking.
+	 */
+	private static void applyHoverFloor(LocalPlayer player) {
+		if (!player.getAttachedOrElse(ModAttachments.IRON_MAN_FLYING, false)) {
+			return;
+		}
+		TonyStarkState ts = player.getAttachedOrElse(ModAttachments.TONY_STARK_STATE, null);
+		if (ts == null || ts.timedFlightUntil <= player.level().getGameTime()) {
+			return;
+		}
+		IronManSuit suit = player.getItemBySlot(EquipmentSlot.FEET).getItem() instanceof IronManArmorItem piece
+				? IronManSuits.byId(piece.suitId()) : null;
+		if (suit == null || suit.hoverFloor() <= 0.0) {
+			return;
+		}
+		double floorY = DirectionalFlightModel.hoverFloorY(player.level(), player.position(), suit.hoverFloor());
+		if (player.getY() < floorY) {
+			player.setPos(player.getX(), floorY, player.getZ());
+			Vec3 v = player.getDeltaMovement();
+			if (v.y < 0) {
+				player.setDeltaMovement(v.x, 0, v.z);
+			}
+		}
 	}
 
 	private static float resource(LocalPlayer player, String key) {

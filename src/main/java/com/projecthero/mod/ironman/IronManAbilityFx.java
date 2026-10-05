@@ -25,6 +25,10 @@ public final class IronManAbilityFx {
 	public static final int FLARE = 9;
 	public static final int MISSILES = 10;
 	public static final int ROCKET = 11;
+	/** v0.14.27 (agent C): the Shift+R repulsor dash ({@code IronManDash}). */
+	public static final int DASH = 20;
+	/** v0.14.27 (agent C): the sonic clap ({@code IronManSonicClap}). */
+	public static final int SONIC_CLAP = 21;
 
 	private IronManAbilityFx() {
 	}

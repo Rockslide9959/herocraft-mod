@@ -1258,7 +1258,7 @@ public class HeroPackGameTests implements FabricGameTest {
 						net.minecraft.world.item.ArmorItem.Type.BOOTS)));
 		com.projecthero.mod.ironman.IronManPassives.tick(player);
 		double full = atk.getModifier(com.projecthero.mod.ProjectHeroMod.id("iron_man_strength")).amount();
-		helper.assertTrue(full > 5.0 && full < 7.0, "a full Mark III should add +6 strength ('changes 18'), got " + full);
+		helper.assertTrue(full > 6.0 && full < 8.0, "a full Mark III should add +7 strength (v0.14.27), got " + full);
 
 		player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY);
 		player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, ItemStack.EMPTY);
@@ -1618,7 +1618,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		giveFullSuit(player, "mark_1");
 		com.projecthero.mod.ironman.IronManPassives.tick(player);
 		double total = 1.0 /* vanilla base fist */ + atk.getModifier(com.projecthero.mod.ProjectHeroMod.id("iron_man_strength")).amount();
-		helper.assertTrue(total > 4.5 && total < 5.5, "Mark 1 fist damage should total ~5, got " + total);
+		helper.assertTrue(total > 6.5 && total < 7.5, "Mark 1 fist damage should total ~7 (+6, v0.14.27), got " + total);
 		helper.succeed();
 	}
 
@@ -1711,15 +1711,10 @@ public class HeroPackGameTests implements FabricGameTest {
 		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_2", 5000f);
 		float before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
 
+		// v0.14.27: Mark 2's G is now the Sonic Clap (no Rocket any more) -- also 50 energy
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_2, true);
-
-		// See the matching comment in mark1RocketCostsOneHundredEnergy above -- filtered to owner to avoid
-		// picking up a neighbouring gametest structure's rocket.
-		long rockets = helper.getLevel().getEntitiesOfClass(com.projecthero.mod.ironman.entity.IronManMissileEntity.class,
-				player.getBoundingBox().inflate(8), e -> e.getOwner() == player).size();
-		helper.assertTrue(rockets == 1, "the Rocket ability should launch exactly one projectile, got " + rockets);
 		float spent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
-		helper.assertTrue(Math.abs(spent - 50f) < 0.01f, "Mark 2's Rocket must cost exactly 50 energy, spent " + spent);
+		helper.assertTrue(Math.abs(spent - 50f) < 0.01f, "Mark 2's Sonic Clap must cost exactly 50 energy, spent " + spent);
 		helper.succeed();
 	}
 
@@ -1762,10 +1757,15 @@ public class HeroPackGameTests implements FabricGameTest {
 		var eff = player.getEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE);
 		helper.assertTrue(eff.getAmplifier() == 0, "Resistance I is amplifier 0, got " + eff.getAmplifier());
 
+		// v0.14.27: the chestplate alone carries it -- losing the helmet keeps it, losing the chestplate drops it
 		player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, ItemStack.EMPTY);
 		com.projecthero.mod.ironman.IronManPassives.tick(player);
+		helper.assertTrue(player.hasEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE),
+				"the chestplate alone keeps Resistance");
+		player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY);
+		com.projecthero.mod.ironman.IronManPassives.tick(player);
 		helper.assertFalse(player.hasEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE),
-				"losing a piece should drop the Resistance bonus (only a full suit gets it)");
+				"losing the chestplate drops the Resistance bonus");
 		helper.succeed();
 	}
 
@@ -1780,7 +1780,7 @@ public class HeroPackGameTests implements FabricGameTest {
 
 		var suit = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_2");
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_4, true);
-		for (int i = 0; i < 100; i++) {
+		for (int i = 0; i < suit.unibeamChannelTicks(); i++) { // v0.14.27: 6 s
 			com.projecthero.mod.ironman.ability.IronManAbilities.tickUnibeam(player, suit);
 		}
 		float spent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
@@ -1807,28 +1807,19 @@ public class HeroPackGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	/** v0.11.13, explicit user request: Mark 2's mob-highlight toggle now drains 1 energy/sec while on. */
+	/** v0.14.27 (was v0.11.13's 1 energy/sec drain): Mark 2's highlight costs 10 energy to switch on, like the Mark 1. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void mark2MobHighlightDrainsOneEnergyPerSecond(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
 		giveFullSuit(player, "mark_2");
 		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_2", 100f);
-		var suit = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_2");
+		float before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
 
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_5, true);
 		helper.assertTrue(com.projecthero.mod.ironman.TonyStark.state(player).mobHighlightOn, "V toggles the highlight on");
-		float before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
-		for (int i = 0; i < 20; i++) {
-			com.projecthero.mod.ironman.ability.IronManAbilities.tickMark2MobHighlightDrain(player, suit);
-		}
 		float spent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
-		helper.assertTrue(Math.abs(spent - 1f) < 0.01f, "20 ticks of the highlight should cost ~1 energy, spent " + spent);
-
-		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_2", 0f);
-		com.projecthero.mod.ironman.ability.IronManAbilities.tickMark2MobHighlightDrain(player, suit);
-		helper.assertFalse(com.projecthero.mod.ironman.TonyStark.state(player).mobHighlightOn,
-				"running out of energy should clear the highlight toggle");
+		helper.assertTrue(Math.abs(spent - 10f) < 0.01f, "switching the highlight on costs 10 energy, spent " + spent);
 		helper.succeed();
 	}
 
@@ -1868,15 +1859,16 @@ public class HeroPackGameTests implements FabricGameTest {
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_1, true);
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_1, false);
 		float b = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_iii");
-		helper.assertTrue(Math.abs((a - b) - com.projecthero.mod.ironman.ability.IronManAbilities.REPULSOR_ENERGY) < 0.01f,
-				"a tap Repulsor must cost exactly REPULSOR_ENERGY (80, 'changes 18'), spent " + (a - b));
+		// v0.14.27: per-suit -- Mark III's tap is 10, its charged shot 50
+		helper.assertTrue(Math.abs((a - b) - com.projecthero.mod.ironman.suit.IronManSuits.MARK_III.repulsorTapEnergy()) < 0.01f,
+				"a tap Repulsor must cost the suit's tap energy, spent " + (a - b));
 
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_1, true);
 		com.projecthero.mod.ironman.TonyStark.state(player).chargeStartTick = player.level().getGameTime() - 60L;
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_1, false);
 		float c = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_iii");
-		helper.assertTrue(Math.abs((b - c) - com.projecthero.mod.ironman.ability.IronManAbilities.CHARGED_REPULSOR_ENERGY) < 0.01f,
-				"a Charged Repulsor must cost exactly CHARGED_REPULSOR_ENERGY (250, 'changes 18'), spent " + (b - c));
+		helper.assertTrue(Math.abs((b - c) - com.projecthero.mod.ironman.suit.IronManSuits.MARK_III.chargedRepulsorEnergy()) < 0.01f,
+				"a Charged Repulsor must cost the suit's charged energy, spent " + (b - c));
 		helper.succeed();
 	}
 
@@ -1885,12 +1877,12 @@ public class HeroPackGameTests implements FabricGameTest {
 	public void markThreeIntegrityPoolIsFifteenHundred(GameTestHelper helper) {
 		// "changes 18": per-mark condition pools rebalanced. v0.11.12: Mark 1 bumped to 1000, explicit
 		// user request.
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_1") == 1000f,
-				"Mark 1 max integrity must be 1000");
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_2") == 600f,
-				"Mark 2 max integrity must be 600"); // v0.14.26, explicit user request (was 1500)
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_iii") == 2000f,
-				"Mark III max integrity must be 2000"); // v0.14.26, explicit user request
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_1") == 750f,
+				"Mark 1 max integrity must be 750"); // v0.14.27
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_2") == 1000f,
+				"Mark 2 max integrity must be 1000"); // v0.14.27
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_iii") == 1000f,
+				"Mark III max integrity must be 1000"); // v0.14.27
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_4") == 700f,
 				"Mark 4 max integrity must be 700");
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_v") == 550f,
@@ -1904,8 +1896,8 @@ public class HeroPackGameTests implements FabricGameTest {
 
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
-		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_iii", 9000f); // over-set -> must clamp to 2000 (v0.14.26)
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.integrity(player, "mark_iii") == 2000f,
+		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_iii", 9000f); // over-set -> must clamp to 1000 (v0.14.27)
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.integrity(player, "mark_iii") == 1000f,
 				"integrity must clamp to the per-suit max, got "
 						+ com.projecthero.mod.ironman.IronManEnergy.integrity(player, "mark_iii"));
 		helper.succeed();
@@ -1973,6 +1965,12 @@ public class HeroPackGameTests implements FabricGameTest {
 		helper.assertTrue(mv.energyCapacity() == 8_000f, "mark_v energy must be 8000 ('changes 18')");
 		helper.assertTrue(mv.maxIntegrity() == 550f, "mark_v integrity must be 550 ('changes 18')");
 		for (int s = 1; s <= 6; s++) {
+			if (s == 2) {
+				// v0.14.27: the Mark 2's G became the Sonic Clap; the Mark 5 keeps the Rocket.
+				helper.assertTrue(com.projecthero.mod.ironman.ability.IronManAbilities.ROCKET.equals(mv.abilityInSlot(2)),
+						"mark_v slot 2 must be the Rocket");
+				continue;
+			}
 			if (s == 3) {
 				// "changes 19": slot 3 is the gauntlet Blade toggle on the Mark 5 (Flare on the Mark 2).
 				helper.assertTrue(com.projecthero.mod.ironman.ability.IronManAbilities.BLADE.equals(mv.abilityInSlot(3)),
@@ -2009,10 +2007,10 @@ public class HeroPackGameTests implements FabricGameTest {
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
 		giveFullSuit(player, "mark_iii");
-		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_iii", 10f); // less than a repulsor's 50
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_iii", 5f); // less than a repulsor's 10 (v0.14.27)
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_1, true);
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_1, false);
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_iii") == 10f,
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_iii") == 5f,
 				"a refused ability must not spend anything");
 		helper.succeed();
 	}
@@ -2027,10 +2025,10 @@ public class HeroPackGameTests implements FabricGameTest {
 		var suit = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_iii");
 		com.projecthero.mod.ironman.IronManEnergy.tickRecharge(player, suit);
 		float gained = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_iii") - 100f;
-		float expected = suit.energyRegenPerSecond() / 20f; // Mark III = 1.5/s -> 0.075/tick
+		float expected = suit.energyRegenPerSecond() / 20f; // Mark III = 5/s -> 0.25/tick (v0.14.27)
 		helper.assertTrue(Math.abs(gained - expected) < 0.001f,
 				"worn trickle must be energyRegenPerSecond/20 (" + expected + "/tick), got " + gained);
-		helper.assertTrue(suit.energyRegenPerSecond() == 1.5f, "Mark III worn regen must be 1.5/s");
+		helper.assertTrue(suit.energyRegenPerSecond() == 5f, "Mark III worn regen must be 5/s");
 		// "changes 18": Mark III+ also self-repair integrity slowly while worn.
 		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_iii", 100f);
 		com.projecthero.mod.ironman.IronManEnergy.tickArmorRegen(player, suit);
@@ -2114,8 +2112,9 @@ public class HeroPackGameTests implements FabricGameTest {
 	/** "changes 17": built-in air tanks -- Mark 2 = 2 min, Marks 3/4 = 3 min, Mark 6 = 5 min, Mark 7 = 7 min. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void airTanksAreConfigured(GameTestHelper helper) {
-		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_2").airTankSeconds() == 120, "mark_2 air");
-		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_iii").airTankSeconds() == 180, "mark_iii air");
+		// v0.14.27: the Mark 2 lost its tank (can't breathe underwater); the Mark III breathes indefinitely
+		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_2").airTankSeconds() == 0, "mark_2 air");
+		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_iii").waterBreathing(), "mark_iii air");
 		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_4").airTankSeconds() == 180, "mark_4 air");
 		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_6").airTankSeconds() == 300, "mark_6 air");
 		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_vii").airTankSeconds() == 420, "mark_vii air");
@@ -2167,7 +2166,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		var m1 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_1");
 		var m7 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_vii");
 		// v0.11.12: Mark 1's passive worn regen bumped to a flat 6/s, explicit user request.
-		helper.assertTrue(m1.energyRegenPerSecond() == 6.0f && m7.energyRegenPerSecond() == 3.0f,
+		helper.assertTrue(m1.energyRegenPerSecond() == 2.0f && m7.energyRegenPerSecond() == 3.0f, // v0.14.27: Mark 1 = 2/s
 				"Mark 1 / Mark 7 worn energy regen");
 		helper.assertTrue(m1.armorRegenPerSecond() == 0f && m7.armorRegenPerSecond() == 0.06f,
 				"Mark 1 has no worn armour regen; Mark 7 is 0.06/s");
@@ -2207,8 +2206,8 @@ public class HeroPackGameTests implements FabricGameTest {
 	public void changes22FlamethrowerAndFabricator(GameTestHelper helper) {
 		var m1 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_1");
 		helper.assertTrue(Math.abs(
-				com.projecthero.mod.ironman.ability.IronManAbilities.flamethrowerMaxHeat(m1) - 300f) < 1e-3f,
-				"Mark 1 flamethrower heat capacity is 300");
+				com.projecthero.mod.ironman.ability.IronManAbilities.flamethrowerMaxHeat(m1) - 100f) < 1e-3f,
+				"Mark 1 flamethrower heat capacity is 100"); // v0.14.27
 
 		var chest = com.projecthero.mod.ironman.fabricator.FabricatorRecipes.byId("iron_man_mark_iii_chestplate");
 		helper.assertTrue(chest != null && chest.energyCost()

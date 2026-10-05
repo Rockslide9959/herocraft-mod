@@ -23,6 +23,16 @@ public final class IronManAirTank {
 
 	public static void tick(ServerPlayer player, IronManSuit suit) {
 		TonyStarkState s = TonyStark.state(player);
+		// v0.14.27: a water-breathing helmet (Mark III) keeps the air meter full indefinitely
+		if (suit != null && suit.waterBreathing() && IronManArmor.hasHelmet(player, suit.id())) {
+			if (player.isUnderWater()) {
+				player.setAirSupply(player.getMaxAirSupply());
+			}
+			if (s.suitAir < 1.0f) {
+				TonyStark.setSuitAir(player, 1.0f);
+			}
+			return;
+		}
 		int rated = suit == null ? 0 : suit.airTankSeconds();
 		if (rated <= 0) {
 			if (s.suitAir < 1.0f) {

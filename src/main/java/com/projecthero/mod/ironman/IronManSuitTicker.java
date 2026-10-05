@@ -40,6 +40,9 @@ public final class IronManSuitTicker {
 		IronManSuitUpManager.tick(player);
 		IronManPassives.tick(player);
 		IronManSuitCall.tickPending(player);
+		// v0.14.27: the shared repulsor dash and the homing flares / flare burns run whatever the suit's state
+		com.projecthero.mod.ironman.ability.IronManDash.tick(player);
+		com.projecthero.mod.ironman.ability.IronManFlares.tick(player);
 
 		TonyStarkState s = TonyStark.state(player);
 
@@ -66,7 +69,7 @@ public final class IronManSuitTicker {
 		IronManSuit suit = suitId == null ? null : IronManSuits.byId(suitId);
 
 		// v0.14.26: the suit feeds you cooked food from your inventory
-		if (suit != null) {
+		if (suit != null && suit.autoFeed()) { // v0.14.27: the Mark 1 / Mark 2 don't
 			IronManAutoFeed.tick(player);
 		}
 		// v0.14.26: the Mark III targeting system (lock-on + auto-aim)
@@ -168,10 +171,8 @@ public final class IronManSuitTicker {
 		if (s.pendingMissiles > 0) {
 			IronManAbilities.tickMicroMissiles(player, suit);
 		}
-		// v0.11.13, explicit user request: Mark 2's mob-highlight toggle now costs 1 energy/sec while on.
-		if (s.mobHighlightOn && "mark_2".equals(suitId)) {
-			IronManAbilities.tickMark2MobHighlightDrain(player, suit);
-		}
+		// v0.14.27: the Mark 1 Shift+X launch turns into the flight burst 3 s later
+		IronManAbilities.tickPendingFlightBurst(player, suit);
 		IronManEnergy.tickRecharge(player, suit);
 		IronManEnergy.tickArmorRegen(player, suit); // "changes 18": Mark III+ slowly self-repair while worn
 	}
@@ -272,5 +273,6 @@ public final class IronManSuitTicker {
 		if (TonyStark.state(player).wristLaserUntil != 0L) {
 			TonyStark.setWristLaserUntil(player, 0L);
 		}
+		IronManAbilities.clearPendingFlightBurst(player); // v0.14.27: a queued Shift+X burst dies with the suit
 	}
 }

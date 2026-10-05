@@ -170,6 +170,39 @@ public final class DirectionalFlightModel {
 	}
 
 	/**
+	 * v0.14.27: an Iron Man suit's flight with the per-suit extras -- {@code cruiseMps > 0} fixes the cruise speed (the
+	 * Mark 1 burst flies at 8 b/s), and {@code speedMultiplier} scales cruise, climb and ceiling (the Mark 2 supersonic
+	 * boost doubles them).
+	 */
+	public static Tune ironManSuit(float suitSpeed, float suitAcceleration, double maxFlightSpeedMps, double cruiseMps,
+			boolean sprint, boolean supersonic, double speedMultiplier) {
+		Tune base = ironMan(suitSpeed, suitAcceleration, maxFlightSpeedMps, sprint, supersonic);
+		if (supersonic || (cruiseMps <= 0.0 && speedMultiplier == 1.0)) {
+			return base;
+		}
+		double speed = (cruiseMps > 0.0 ? cruiseMps / 20.0 : base.speed()) * speedMultiplier;
+		double max = base.maxHorizontal() > 0.0 ? Math.max(base.maxHorizontal() * speedMultiplier, speed) : 0.0;
+		return new Tune(speed, base.verticalSpeed() * speedMultiplier, base.strafeScale(), base.acceleration(), base.reverse(),
+				base.idle(), max, 0.0, false, base.pushCarryTicks(), base.adoptPushes());
+	}
+
+	/**
+	 * v0.14.27: the lowest Y a hover-floored flight may sink to at {@code pos} -- {@code floor} blocks above the first
+	 * solid surface within {@code floor + 2} blocks below, or {@code Double.NEGATIVE_INFINITY} with no ground that close.
+	 */
+	public static double hoverFloorY(net.minecraft.world.level.BlockGetter level, Vec3 pos, double floor) {
+		Vec3 from = pos.add(0, 0.01, 0);
+		Vec3 to = pos.subtract(0, floor + 2.0, 0);
+		net.minecraft.world.phys.BlockHitResult hit = level.clip(new net.minecraft.world.level.ClipContext(from, to,
+				net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE,
+				net.minecraft.world.phys.shapes.CollisionContext.empty()));
+		if (hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS) {
+			return Double.NEGATIVE_INFINITY;
+		}
+		return hit.getLocation().y + floor;
+	}
+
+	/**
 	 * Repulsor Boots: the Mark 2's cruise speed (never slower than the creative-flight speed they always really had) with
 	 * {@code FLIGHT_ACCELERATION} (half its pick-up) -- no extra ceiling, so sprint flight is as quick as it was.
 	 */

@@ -113,6 +113,8 @@ public final class IronManAbilityVisuals {
 					case IronManAbilityFx.BARRIER -> shield(vc, glow, last, p, pt, now, cam);
 					case IronManAbilityFx.FLAME -> flame(vc, glow, last, p, pt, now, cam);
 					case IronManAbilityFx.PUNCH -> punch(vc, glow, last, p, pt, age, cam);
+					case IronManAbilityFx.SONIC_CLAP -> sonicClap(vc, glow, last, p, pt, age, cam);
+					case IronManAbilityFx.DASH -> dash(vc, glow, last, p, pt, now, cam);
 					default -> {
 					}
 				}
@@ -255,6 +257,40 @@ public final class IronManAbilityVisuals {
 		float fade = 1f - k;
 		ring(vc, glow, pose, fist.add(look.scale(k * 0.8)), look, 0.2f + k * 1.5f, glow ? 0x9FE8FF : 0xFFFFFF, fade, cam, 24);
 		ring(vc, glow, pose, fist.add(look.scale(k * 0.4)), look, 0.1f + k * 0.9f, glow ? 0xFFC24A : 0xFFFFFF, fade * 0.7f, cam, 20);
+	}
+
+	// ---------------------------------------------------------------- v0.14.27 sonic clap / dash
+
+	/** Sonic clap: shock rings rolling out down the 60-degree cone once the hands meet. */
+	private static void sonicClap(VertexConsumer vc, boolean glow, PoseStack.Pose pose, Player p, float pt, float age, Vec3 cam) {
+		if (age < 4f) {
+			return; // arms still flung wide
+		}
+		Vec3 look = p.getViewVector(pt);
+		Vec3 hands = p.getEyePosition(pt).add(look.scale(0.9)).add(0, -0.35, 0);
+		for (int i = 0; i < 3; i++) {
+			float k = Mth.clamp((age - 4f - i * 1.5f) / 8f, 0f, 1f);
+			if (k <= 0f) {
+				continue;
+			}
+			double d = k * 12.0;
+			float radius = (float) (0.2 + Math.tan(Math.toRadians(30)) * d);
+			float fade = 1f - k;
+			ring(vc, glow, pose, hands.add(look.scale(d)), look, radius, glow ? 0x9FE8FF : 0xFFFFFF, fade, cam, 28);
+		}
+	}
+
+	/** Repulsor dash: a ring of repulsor glow round the wearer and a short wake behind. */
+	private static void dash(VertexConsumer vc, boolean glow, PoseStack.Pose pose, Player p, float pt, float now, Vec3 cam) {
+		Vec3 centre = p.getPosition(pt).add(0, p.getBbHeight() * 0.5, 0);
+		Vec3 motion = p.getDeltaMovement();
+		Vec3 dir = motion.lengthSqr() < 1.0e-4 ? p.getViewVector(pt) : motion.normalize();
+		float pulse = 0.6f + 0.4f * Mth.sin(now * 1.3f);
+		ring(vc, glow, pose, centre, dir, 1.2f + 0.2f * pulse, glow ? 0x7FD8FF : 0xFFFFFF, 0.7f, cam, 24);
+		for (int i = 1; i <= 3; i++) {
+			ring(vc, glow, pose, centre.subtract(dir.scale(i * 0.9)), dir, 0.9f - i * 0.2f, glow ? 0x7FD8FF : 0xFFFFFF,
+					0.5f - i * 0.12f, cam, 18);
+		}
 	}
 
 	// ---------------------------------------------------------------- shared
