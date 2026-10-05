@@ -66,6 +66,7 @@ public final class IronManFlares {
 		Vec3 pos;
 		final int targetId;
 		int life = 40;
+		float burnDamage = BURN_DAMAGE; // v0.14.29: per flare (the Mark 4's burn +2)
 
 		Homing(Vec3 pos, int targetId) {
 			this.pos = pos;
@@ -77,6 +78,7 @@ public final class IronManFlares {
 		final int targetId;
 		final long until;
 		long nextHit;
+		float damage = BURN_DAMAGE; // v0.14.29
 
 		Burn(int targetId, long until, long nextHit) {
 			this.targetId = targetId;
@@ -98,6 +100,11 @@ public final class IronManFlares {
 	 * {@link #ENERGY_COST} itself, then starts {@code cooldownTicks}. Returns true if the flares went off.
 	 */
 	public static boolean fire(ServerPlayer player, boolean advanced, int cooldownTicks) {
+		return fire(player, advanced, cooldownTicks, BURN_DAMAGE);
+	}
+
+	/** v0.14.29: {@link #fire(ServerPlayer, boolean, int)} with the advanced flares' burn damage per hit (Mark 4 = 7). */
+	public static boolean fire(ServerPlayer player, boolean advanced, int cooldownTicks, float burnDamage) {
 		String suitId = IronManArmor.wornSuitId(player);
 		if (suitId == null || !IronManArmor.canOperate(player)) {
 			return false;
@@ -150,7 +157,9 @@ public final class IronManFlares {
 				if (n++ >= MAX_HOMING) {
 					break;
 				}
-				list.add(new Homing(origin, e.getId()));
+				Homing h = new Homing(origin, e.getId());
+				h.burnDamage = burnDamage;
+				list.add(h);
 			}
 		}
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.flare_deployed"), true);
@@ -195,7 +204,7 @@ public final class IronManFlares {
 				double dist = to.length();
 				if (dist <= HOMING_SPEED + target.getBbWidth() * 0.5) {
 					it.remove();
-					strike(player, target, now);
+					strike(player, target, now, h.burnDamage);
 					continue;
 				}
 				Vec3 next = h.pos.add(to.scale(HOMING_SPEED / dist));
@@ -221,7 +230,7 @@ public final class IronManFlares {
 				}
 				if (now >= b.nextHit) {
 					b.nextHit = now + BURN_INTERVAL;
-					AbilityHelpers.hurtBurst(player, target, AbilityHelpers.fire(player), BURN_DAMAGE);
+					AbilityHelpers.hurtBurst(player, target, AbilityHelpers.fire(player), b.damage);
 					level.sendParticles(ParticleTypes.FLAME, target.getX(), target.getY() + target.getBbHeight() * 0.5,
 							target.getZ(), 6, 0.25, 0.3, 0.25, 0.02);
 				}
@@ -234,10 +243,16 @@ public final class IronManFlares {
 
 	/** A homing flare reaching its target: knockback, 3 s alight, and 5 every half second for those 3 s. */
 	static void strike(ServerPlayer player, LivingEntity target, long now) {
+		strike(player, target, now, BURN_DAMAGE);
+	}
+
+	static void strike(ServerPlayer player, LivingEntity target, long now, float burnDamage) {
 		ServerLevel level = (ServerLevel) player.level();
 		AbilityHelpers.knockbackFrom(target, player.position(), 1.0);
 		target.igniteForTicks(BURN_TICKS);
-		BURNS.computeIfAbsent(player.getUUID(), k -> new ArrayList<>()).add(new Burn(target.getId(), now + BURN_TICKS, now));
+		Burn burn = new Burn(target.getId(), now + BURN_TICKS, now);
+		burn.damage = burnDamage;
+		BURNS.computeIfAbsent(player.getUUID(), k -> new ArrayList<>()).add(burn);
 		level.sendParticles(ParticleTypes.FLASH, target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(),
 				1, 0, 0, 0, 0);
 		level.playSound(null, target.blockPosition(), SoundEvents.FIREWORK_ROCKET_BLAST,

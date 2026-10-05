@@ -51,9 +51,58 @@ import net.minecraft.world.phys.Vec3;
  * The weapon choice and the shield flag live in {@link TonyStarkState#abilityReadyAt} under {@code mark_iii/...} keys
  * (the same trick the Mark 1 highlight timer uses) so they persist and sync without growing the state codec. The
  * short-lived hold state (minigun, Unibeam, micro-missile volley) is a per-player server map, cleared on server stop.
+ *
+ * <p>v0.14.29 (agent A): the Mark 4 carries the same kit. Each kit suit has a {@link Tuning} (damage bonus + cooldown
+ * cut, Mark III = +0 / -0, Mark 4 = +2 damage / -2 s) and keeps its weapon choice, shield flag and cooldowns under its
+ * own {@code <suitId>/...} keys. Energy costs are identical on both.
  */
 public final class IronManMark3 {
 	public static final String SUIT_ID = "mark_iii";
+	/** v0.14.29: the Mark 4 runs the same kit, +2 damage and -2 s on every cooldown. */
+	public static final String MARK_4_ID = "mark_4";
+	/** Every suit that runs this kit. */
+	public static final String[] KIT_SUITS = { SUIT_ID, MARK_4_ID };
+
+	/** v0.14.29: per-suit tuning of the kit -- a flat damage bonus on every hit and a cooldown cut on every timer. */
+	public record Tuning(String suitId, float damageBonus, int cooldownReduction) {
+		public float damage(float base) {
+			return base + damageBonus;
+		}
+
+		public int cooldown(int base) {
+			return Math.max(0, base - cooldownReduction);
+		}
+	}
+
+	public static final Tuning MARK_III_TUNING = new Tuning(SUIT_ID, 0f, 0);
+	public static final Tuning MARK_4_TUNING = new Tuning(MARK_4_ID, 2f, 40);
+
+	/** The kit tuning for a suit, or null if that suit does not run this kit. */
+	public static Tuning tuning(String suitId) {
+		if (SUIT_ID.equals(suitId)) {
+			return MARK_III_TUNING;
+		}
+		if (MARK_4_ID.equals(suitId)) {
+			return MARK_4_TUNING;
+		}
+		return null;
+	}
+
+	/** True for the suits that run this kit (Mark III, Mark 4). */
+	public static boolean isKitSuit(String suitId) {
+		return tuning(suitId) != null;
+	}
+
+	private static Tuning tuningOrDefault(String suitId) {
+		Tuning t = tuning(suitId);
+		return t != null ? t : MARK_III_TUNING;
+	}
+
+	/** The kit suit a player is wearing, else the Mark III (the legacy default for player-only calls). */
+	private static String kitSuit(ServerPlayer player) {
+		String worn = IronManArmor.wornSuitId(player);
+		return isKitSuit(worn) ? worn : SUIT_ID;
+	}
 
 	// slot ability ids
 	public static final String ARSENAL = "mk3_arsenal";
@@ -74,6 +123,23 @@ public final class IronManMark3 {
 
 	/** The S2C {@code IronManWeaponWheelPayload} ability string that opens the Mark III wheel instead of the Mark VII one. */
 	public static final String OPEN_WHEEL = "mk3";
+
+	/** v0.14.29: the wheel-open payload string for a kit suit -- "mk3" for the Mark III (unchanged), "mk3:mark_4" otherwise. */
+	public static String openWheelPayload(String suitId) {
+		return SUIT_ID.equals(suitId) ? OPEN_WHEEL : OPEN_WHEEL + ":" + suitId;
+	}
+
+	/** v0.14.29: the kit suit a wheel-open payload string is for, or null if it is not a kit-wheel payload (Mark VII). */
+	public static String wheelSuit(String payloadAbility) {
+		if (OPEN_WHEEL.equals(payloadAbility)) {
+			return SUIT_ID;
+		}
+		if (payloadAbility != null && payloadAbility.startsWith(OPEN_WHEEL + ":")) {
+			String id = payloadAbility.substring(OPEN_WHEEL.length() + 1);
+			return isKitSuit(id) ? id : null;
+		}
+		return null;
+	}
 
 	// ---- tuning ----
 	public static final float ROCKET_DAMAGE = 35f;
@@ -109,8 +175,13 @@ public final class IronManMark3 {
 	public static final float SHIELD_ENERGY_PER_TICK = 10f / 20f; // 10 energy/s
 	public static final float SHIELD_HIT_ENERGY_SHARE = 0.10f;
 
-	private static final String WEAPON_KEY = SUIT_ID + "/mk3_weapon_choice";
-	private static final String SHIELD_KEY = SUIT_ID + "/mk3_shield_on";
+	private static String weaponKey(String suitId) {
+		return suitId + "/mk3_weapon_choice";
+	}
+
+	private static String shieldKey(String suitId) {
+		return suitId + "/mk3_shield_on";
+	}
 
 	/** Beam kind for a minigun tracer ({@link IronManBeamPayload}; drawn by the client's IronManAbilityVisuals). */
 	public static final int TRACER_BEAM = 4;
@@ -124,6 +195,10 @@ public final class IronManMark3 {
 		int pendingMicro = 0;
 		long microNext = 0L;
 		int microTotal = 0;
+		// v0.14.29: the kit suit each held ability was started on (cooldowns + damage use it)
+		String minigunSuit = SUIT_ID;
+		String unibeamSuit = SUIT_ID;
+		String microSuit = SUIT_ID;
 	}
 
 	private IronManMark3() {
@@ -141,15 +216,20 @@ public final class IronManMark3 {
 
 	/** The weapon G fires, read from a (server or client-synced) state. */
 	public static String selectedWeapon(TonyStarkState state) {
+		return selectedWeapon(state, SUIT_ID);
+	}
+
+	/** v0.14.29: the weapon G fires on a given kit suit (each suit remembers its own pick). */
+	public static String selectedWeapon(TonyStarkState state, String suitId) {
 		if (state == null) {
 			return ROCKETS;
 		}
-		long idx = state.abilityReadyAt.getOrDefault(WEAPON_KEY, 0L);
+		long idx = state.abilityReadyAt.getOrDefault(weaponKey(suitId), 0L);
 		return idx >= 0 && idx < WEAPONS.length ? WEAPONS[(int) idx] : ROCKETS;
 	}
 
 	public static String selectedWeapon(ServerPlayer player) {
-		return selectedWeapon(TonyStark.state(player));
+		return selectedWeapon(TonyStark.state(player), kitSuit(player));
 	}
 
 	public static boolean isWeapon(String id) {
@@ -162,6 +242,7 @@ public final class IronManMark3 {
 	}
 
 	public static void selectWeapon(ServerPlayer player, String weapon) {
+		String suitId = kitSuit(player);
 		for (int i = 0; i < WEAPONS.length; i++) {
 			if (WEAPONS[i].equals(weapon)) {
 				if (WEAPONS[i].equals(selectedWeapon(player))) {
@@ -169,7 +250,7 @@ public final class IronManMark3 {
 				}
 				stopMinigun(player, true);
 				TonyStarkState s = TonyStark.state(player).copy();
-				s.abilityReadyAt.put(WEAPON_KEY, (long) i);
+				s.abilityReadyAt.put(weaponKey(suitId), (long) i);
 				player.setAttached(ModAttachments.TONY_STARK_STATE, s);
 				AbilityHelpers.sound(player, SoundEvents.UI_BUTTON_CLICK.value(), 0.4f, 1.6f);
 				player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk3.weapon_selected",
@@ -182,22 +263,27 @@ public final class IronManMark3 {
 	// ------------------------------------------------------------------ shield state
 
 	public static boolean shieldOn(TonyStarkState state) {
-		return state != null && state.abilityReadyAt.containsKey(SHIELD_KEY);
+		return shieldOn(state, SUIT_ID);
+	}
+
+	/** v0.14.29: is this kit suit's Energy Shield up? Either side. */
+	public static boolean shieldOn(TonyStarkState state, String suitId) {
+		return state != null && suitId != null && state.abilityReadyAt.containsKey(shieldKey(suitId));
 	}
 
 	public static boolean shieldOn(ServerPlayer player) {
-		return shieldOn(TonyStark.state(player));
+		return shieldOn(TonyStark.state(player), kitSuit(player));
 	}
 
-	private static void setShield(ServerPlayer player, boolean on) {
-		if (shieldOn(player) == on) {
+	private static void setShield(ServerPlayer player, String suitId, boolean on) {
+		if (shieldOn(TonyStark.state(player), suitId) == on) {
 			return;
 		}
 		TonyStarkState s = TonyStark.state(player).copy();
 		if (on) {
-			s.abilityReadyAt.put(SHIELD_KEY, 1L);
+			s.abilityReadyAt.put(shieldKey(suitId), 1L);
 		} else {
-			s.abilityReadyAt.remove(SHIELD_KEY);
+			s.abilityReadyAt.remove(shieldKey(suitId));
 		}
 		player.setAttached(ModAttachments.TONY_STARK_STATE, s);
 	}
@@ -217,11 +303,12 @@ public final class IronManMark3 {
 	/** Called from {@link IronManAbilities#trigger} for the four Mark III slot ids. */
 	public static void trigger(ServerPlayer player, IronManSuit suit, String ability, boolean pressed) {
 		boolean sneak = player.isShiftKeyDown();
+		Tuning t = tuningOrDefault(suit.id());
 		switch (ability) {
 			case ARSENAL -> {
 				if (pressed) {
 					if (sneak) {
-						IronManSonicClap.fire(player, SONIC_CLAP_DAMAGE, SONIC_CLAP_ENERGY, SONIC_CLAP_COOLDOWN);
+						IronManSonicClap.fire(player, t.damage(SONIC_CLAP_DAMAGE), SONIC_CLAP_ENERGY, t.cooldown(SONIC_CLAP_COOLDOWN));
 					} else {
 						fireSelected(player, suit);
 					}
@@ -237,7 +324,7 @@ public final class IronManMark3 {
 					IronManJarvisScan.run(player, suit);
 				} else {
 					boolean flying = IronManFlight.isFlying(player);
-					IronManFlares.fire(player, true, FLARE_COOLDOWN);
+					IronManFlares.fire(player, true, t.cooldown(FLARE_COOLDOWN), t.damage(IronManFlares.BURN_DAMAGE));
 					if (flying) {
 						IronManFlares.supersonicBoost(player, SUPERSONIC_BOOST_TICKS, 0f);
 					}
@@ -256,8 +343,8 @@ public final class IronManMark3 {
 				}
 				if (sneak) {
 					toggleShield(player, suit);
-				} else if (requireHelmet(player)) {
-					ServerPlayNetworking.send(player, new com.projecthero.mod.network.IronManWeaponWheelPayload(OPEN_WHEEL));
+				} else if (requireHelmet(player, suit.id())) {
+					ServerPlayNetworking.send(player, new com.projecthero.mod.network.IronManWeaponWheelPayload(openWheelPayload(suit.id())));
 				}
 			}
 			default -> {
@@ -266,7 +353,7 @@ public final class IronManMark3 {
 	}
 
 	private static void fireSelected(ServerPlayer player, IronManSuit suit) {
-		switch (selectedWeapon(player)) {
+		switch (selectedWeapon(TonyStark.state(player), suit.id())) {
 			case MINIGUN -> startMinigun(player, suit);
 			case MICRO_MISSILES -> microMissiles(player, suit);
 			default -> rocket(player, suit);
@@ -276,22 +363,25 @@ public final class IronManMark3 {
 	// ------------------------------------------------------------------ Rockets
 
 	private static void rocket(ServerPlayer player, IronManSuit suit) {
-		if (!requireHelmet(player) || !cooldownReady(player, ROCKETS) || !pay(player, suit, ROCKET_ENERGY)) {
+		String suitId = suit.id();
+		Tuning t = tuningOrDefault(suitId);
+		if (!requireHelmet(player, suitId) || !cooldownReady(player, suitId, ROCKETS) || !pay(player, suit, ROCKET_ENERGY)) {
 			return;
 		}
+		float damage = t.damage(ROCKET_DAMAGE);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 shoulder = player.getEyePosition().add(0, 0.15, 0);
 		Vec3 dir = IronManTargeting.aim(player, shoulder, player.getLookAngle(), 100);
 		// same AoE rocket the other marks fire (and, like theirs, it breaks blocks only where griefing is on)
 		IronManMissileEntity missile = new IronManMissileEntity(level, player, dir.scale(1.4))
-				.withDamage(ROCKET_DAMAGE, ROCKET_DAMAGE * 0.7f)
+				.withDamage(damage, damage * 0.7f)
 				.withBlastRadius(ROCKET_BLAST_RADIUS)
 				.withBreaksBlocks();
 		missile.setPos(shoulder.x + dir.x, shoulder.y + dir.y, shoulder.z + dir.z);
 		level.addFreshEntity(missile);
 		IronManAbilityFx.play(player, IronManAbilityFx.ROCKET, 14);
 		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.2f, 0.9f);
-		TonyStark.triggerCooldown(player, SUIT_ID, ROCKETS, ROCKET_COOLDOWN);
+		TonyStark.triggerCooldown(player, suitId, ROCKETS, t.cooldown(ROCKET_COOLDOWN));
 	}
 
 	// ------------------------------------------------------------------ Micro-Missiles
@@ -301,15 +391,17 @@ public final class IronManMark3 {
 		if (r.pendingMicro > 0) {
 			return; // still launching
 		}
-		if (!requireHelmet(player) || !cooldownReady(player, MICRO_MISSILES) || !pay(player, suit, MICRO_ENERGY)) {
+		String suitId = suit.id();
+		if (!requireHelmet(player, suitId) || !cooldownReady(player, suitId, MICRO_MISSILES) || !pay(player, suit, MICRO_ENERGY)) {
 			return;
 		}
 		r.pendingMicro = MICRO_COUNT;
 		r.microTotal = MICRO_COUNT;
+		r.microSuit = suitId;
 		r.microNext = player.level().getGameTime();
 		IronManAbilityFx.play(player, IronManAbilityFx.MISSILES, 24);
 		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.0f, 1.2f);
-		TonyStark.triggerCooldown(player, SUIT_ID, MICRO_MISSILES, MICRO_COOLDOWN);
+		TonyStark.triggerCooldown(player, suitId, MICRO_MISSILES, tuningOrDefault(suitId).cooldown(MICRO_COOLDOWN));
 		tickMicroMissiles(player, r); // the first one leaves right away
 	}
 
@@ -328,7 +420,7 @@ public final class IronManMark3 {
 		Vec3 shoulder = player.position().add(0, player.getBbHeight() * 0.85, 0).add(side.scale(0.45 * s));
 		Vec3 dir = look.add(side.scale(0.45 * s)).add(0, 0.35, 0).normalize();
 		IronManMissileEntity missile = new IronManMissileEntity(level, player, dir.scale(0.9))
-				.withDamage(MICRO_DAMAGE, MICRO_DAMAGE * 0.4f)
+				.withDamage(tuningOrDefault(r.microSuit).damage(MICRO_DAMAGE), tuningOrDefault(r.microSuit).damage(MICRO_DAMAGE) * 0.4f)
 				.withBlastRadius(1.5f)
 				.withHoming();
 		LivingEntity target = pickMicroTarget(player, index);
@@ -368,14 +460,16 @@ public final class IronManMark3 {
 		if (r.minigunStart != 0L) {
 			return; // already spinning (key repeat)
 		}
-		if (!requireChest(player) || !cooldownReady(player, MINIGUN)) {
+		String suitId = suit.id();
+		if (!requireChest(player, suitId) || !cooldownReady(player, suitId, MINIGUN)) {
 			return;
 		}
-		if (!IronManEnergy.has(player, SUIT_ID, MINIGUN_ENERGY_PER_TICK * 20f * suit.energyCostMultiplier())) {
+		if (!IronManEnergy.has(player, suitId, MINIGUN_ENERGY_PER_TICK * 20f * suit.energyCostMultiplier())) {
 			noEnergy(player, MINIGUN_ENERGY_PER_TICK * 20f);
 			return;
 		}
 		long now = player.level().getGameTime();
+		r.minigunSuit = suitId;
 		r.minigunStart = now;
 		r.minigunNextShot = now;
 		AbilityHelpers.sound(player, SoundEvents.PISTON_EXTEND, 0.8f, 1.6f);
@@ -390,15 +484,15 @@ public final class IronManMark3 {
 		}
 		r.minigunStart = 0L;
 		if (cooldown) {
-			TonyStark.triggerCooldown(player, SUIT_ID, MINIGUN, MINIGUN_COOLDOWN);
+			TonyStark.triggerCooldown(player, r.minigunSuit, MINIGUN, tuningOrDefault(r.minigunSuit).cooldown(MINIGUN_COOLDOWN));
 		}
 		AbilityHelpers.sound(player, SoundEvents.PISTON_CONTRACT, 0.8f, 1.4f);
 	}
 
 	private static void tickMinigun(ServerPlayer player, IronManSuit suit, Runtime r) {
 		long now = player.level().getGameTime();
-		if (now - r.minigunStart >= MINIGUN_MAX_TICKS || !IronManArmor.hasChestplate(player, SUIT_ID)
-				|| !IronManEnergy.spend(player, SUIT_ID, MINIGUN_ENERGY_PER_TICK * suit.energyCostMultiplier())) {
+		if (now - r.minigunStart >= MINIGUN_MAX_TICKS || !IronManArmor.hasChestplate(player, r.minigunSuit)
+				|| !IronManEnergy.spend(player, r.minigunSuit, MINIGUN_ENERGY_PER_TICK * suit.energyCostMultiplier())) {
 			stopMinigun(player, true);
 			return;
 		}
@@ -430,7 +524,7 @@ public final class IronManMark3 {
 			r.minigunNextShot = now + MINIGUN_SHOT_INTERVAL;
 			if (target != null) {
 				// its own 0.5 s counter paces the damage, so the hit must land through any leftover i-frames
-				AbilityHelpers.hurtBurst(player, target, MINIGUN_DAMAGE);
+				AbilityHelpers.hurtBurst(player, target, tuningOrDefault(r.minigunSuit).damage(MINIGUN_DAMAGE));
 			}
 		}
 	}
@@ -442,13 +536,15 @@ public final class IronManMark3 {
 		if (r.unibeam) {
 			return;
 		}
-		if (!requireChest(player) || !cooldownReady(player, UNIBEAM)) {
+		String suitId = suit.id();
+		if (!requireChest(player, suitId) || !cooldownReady(player, suitId, UNIBEAM)) {
 			return;
 		}
-		if (!IronManEnergy.has(player, SUIT_ID, UNIBEAM_ENERGY_PER_TICK * suit.energyCostMultiplier())) {
+		if (!IronManEnergy.has(player, suitId, UNIBEAM_ENERGY_PER_TICK * suit.energyCostMultiplier())) {
 			noEnergy(player, UNIBEAM_ENERGY_PER_TICK * 20f);
 			return;
 		}
+		r.unibeamSuit = suitId;
 		r.unibeam = true;
 		AbilityHelpers.sound(player, SoundEvents.BEACON_ACTIVATE, 1.4f, 0.4f);
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.unibeam_firing"), true);
@@ -461,17 +557,19 @@ public final class IronManMark3 {
 		}
 		r.unibeam = false;
 		if (cooldown) {
-			TonyStark.triggerCooldown(player, SUIT_ID, UNIBEAM, UNIBEAM_COOLDOWN);
+			TonyStark.triggerCooldown(player, r.unibeamSuit, UNIBEAM, tuningOrDefault(r.unibeamSuit).cooldown(UNIBEAM_COOLDOWN));
 		}
 		AbilityHelpers.sound(player, SoundEvents.BEACON_DEACTIVATE, 0.8f, 0.6f);
 	}
 
 	private static void tickUnibeam(ServerPlayer player, IronManSuit suit) {
-		if (!IronManArmor.hasChestplate(player, SUIT_ID)
-				|| !IronManEnergy.spend(player, SUIT_ID, UNIBEAM_ENERGY_PER_TICK * suit.energyCostMultiplier())) {
+		String suitId = suit.id();
+		if (!IronManArmor.hasChestplate(player, suitId)
+				|| !IronManEnergy.spend(player, suitId, UNIBEAM_ENERGY_PER_TICK * suit.energyCostMultiplier())) {
 			stopUnibeam(player, true);
 			return;
 		}
+		float damage = tuningOrDefault(suitId).damage(UNIBEAM_DAMAGE);
 		long now = player.level().getGameTime();
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 chest0 = player.position().add(0, player.getBbHeight() * 0.62, 0);
@@ -496,7 +594,7 @@ public final class IronManMark3 {
 		// the same per-tick, i-frame-paced damage model as the shared Unibeam (a hit lands every ~0.5 s)
 		for (LivingEntity e : AbilityHelpers.enemiesAround(player, chest.add(dir.scale(12)), 12.0)) {
 			if (e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(chest).normalize().dot(dir) > 0.9) {
-				AbilityHelpers.hurt(player, e, UNIBEAM_DAMAGE);
+				AbilityHelpers.hurt(player, e, damage);
 				e.igniteForSeconds(2);
 			}
 		}
@@ -505,38 +603,39 @@ public final class IronManMark3 {
 	// ------------------------------------------------------------------ Energy Shield
 
 	private static void toggleShield(ServerPlayer player, IronManSuit suit) {
-		if (shieldOn(player)) {
-			setShield(player, false);
+		String suitId = suit.id();
+		if (shieldOn(TonyStark.state(player), suitId)) {
+			setShield(player, suitId, false);
 			AbilityHelpers.sound(player, SoundEvents.BEACON_DEACTIVATE, 0.6f, 1.3f);
 			player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk3.shield_down"), true);
 			return;
 		}
-		if (!requireChest(player)) {
+		if (!requireChest(player, suitId)) {
 			return;
 		}
-		if (!IronManEnergy.has(player, SUIT_ID, SHIELD_ENERGY_PER_TICK * 20f * suit.energyCostMultiplier())) {
+		if (!IronManEnergy.has(player, suitId, SHIELD_ENERGY_PER_TICK * 20f * suit.energyCostMultiplier())) {
 			noEnergy(player, SHIELD_ENERGY_PER_TICK * 20f);
 			return;
 		}
-		setShield(player, true);
+		setShield(player, suitId, true);
 		AbilityHelpers.sound(player, SoundEvents.CONDUIT_ACTIVATE, 1.0f, 1.4f);
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk3.shield_up"), true);
 	}
 
 	private static void tickShield(ServerPlayer player, IronManSuit suit) {
-		if (!IronManArmor.hasChestplate(player, SUIT_ID)
-				|| !IronManEnergy.spend(player, SUIT_ID, SHIELD_ENERGY_PER_TICK * suit.energyCostMultiplier())) {
-			dropShield(player);
+		if (!IronManArmor.hasChestplate(player, suit.id())
+				|| !IronManEnergy.spend(player, suit.id(), SHIELD_ENERGY_PER_TICK * suit.energyCostMultiplier())) {
+			dropShield(player, suit.id());
 			return;
 		}
 		IronManAbilityFx.hold(player, IronManAbilityFx.BARRIER);
 	}
 
-	private static void dropShield(ServerPlayer player) {
-		if (!shieldOn(player)) {
+	private static void dropShield(ServerPlayer player, String suitId) {
+		if (!shieldOn(TonyStark.state(player), suitId)) {
 			return;
 		}
-		setShield(player, false);
+		setShield(player, suitId, false);
 		AbilityHelpers.sound(player, SoundEvents.BEACON_DEACTIVATE, 0.6f, 1.2f);
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk3.shield_failed")
 				.withStyle(ChatFormatting.RED), true);
@@ -545,17 +644,17 @@ public final class IronManMark3 {
 	/**
 	 * Called from {@link com.projecthero.mod.ironman.IronManDamage} before any other suit mitigation: with the shield up
 	 * the hit is cancelled outright and 10% of it is paid out of suit energy instead (dropping the shield if that empties
-	 * the suit). Returns true when the hit was absorbed.
+	 * the suit). Returns true when the hit was absorbed. v0.14.29: any kit suit (Mark III, Mark 4).
 	 */
 	public static boolean absorb(ServerPlayer player, String suitId, DamageSource source, float amount) {
-		if (!SUIT_ID.equals(suitId) || !shieldOn(player) || !IronManArmor.hasChestplate(player, SUIT_ID)
+		if (!isKitSuit(suitId) || !shieldOn(TonyStark.state(player), suitId) || !IronManArmor.hasChestplate(player, suitId)
 				|| source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
 			return false;
 		}
 		float tax = amount * SHIELD_HIT_ENERGY_SHARE;
-		if (!IronManEnergy.spend(player, SUIT_ID, tax)) {
-			IronManEnergy.setEnergy(player, SUIT_ID, 0f);
-			dropShield(player);
+		if (!IronManEnergy.spend(player, suitId, tax)) {
+			IronManEnergy.setEnergy(player, suitId, 0f);
+			dropShield(player, suitId);
 		}
 		ServerLevel level = (ServerLevel) player.level();
 		level.playSound(null, player.blockPosition(), SoundEvents.SHIELD_BLOCK, net.minecraft.sounds.SoundSource.PLAYERS, 0.8f, 1.5f);
@@ -568,12 +667,23 @@ public final class IronManMark3 {
 
 	/** Per-tick from {@link com.projecthero.mod.ironman.IronManSuitTicker} while a powered suit is worn. */
 	public static void tick(ServerPlayer player, IronManSuit suit) {
-		if (!SUIT_ID.equals(suit.id())) {
+		String suitId = suit.id();
+		if (!isKitSuit(suitId)) {
 			shutDown(player);
 			return;
 		}
 		Runtime r = RUNTIME.get(player.getUUID());
 		if (r != null) {
+			// v0.14.29: anything still running from the other kit suit (a swap mid-hold) stops, cooling down on that suit
+			if (r.minigunStart != 0L && !suitId.equals(r.minigunSuit)) {
+				stopMinigun(player, true);
+			}
+			if (r.unibeam && !suitId.equals(r.unibeamSuit)) {
+				stopUnibeam(player, true);
+			}
+			if (r.pendingMicro > 0 && !suitId.equals(r.microSuit)) {
+				r.pendingMicro = 0;
+			}
 			if (r.minigunStart != 0L) {
 				tickMinigun(player, suit, r);
 			}
@@ -581,14 +691,19 @@ public final class IronManMark3 {
 				tickUnibeam(player, suit);
 			}
 			if (r.pendingMicro > 0) {
-				if (IronManArmor.hasHelmet(player, SUIT_ID)) {
+				if (IronManArmor.hasHelmet(player, suitId)) {
 					tickMicroMissiles(player, r);
 				} else {
 					r.pendingMicro = 0;
 				}
 			}
 		}
-		if (shieldOn(player)) {
+		for (String other : KIT_SUITS) {
+			if (!other.equals(suitId) && shieldOn(TonyStark.state(player), other)) {
+				setShield(player, other, false);
+			}
+		}
+		if (shieldOn(TonyStark.state(player), suitId)) {
 			tickShield(player, suit);
 		}
 	}
@@ -601,8 +716,10 @@ public final class IronManMark3 {
 			stopUnibeam(player, true);
 			r.pendingMicro = 0;
 		}
-		if (shieldOn(player)) {
-			setShield(player, false);
+		for (String id : KIT_SUITS) {
+			if (shieldOn(TonyStark.state(player), id)) {
+				setShield(player, id, false);
+			}
 		}
 	}
 
@@ -629,8 +746,8 @@ public final class IronManMark3 {
 		}
 	}
 
-	private static boolean requireChest(ServerPlayer player) {
-		if (IronManArmor.hasChestplate(player, SUIT_ID)) {
+	private static boolean requireChest(ServerPlayer player, String suitId) {
+		if (IronManArmor.hasChestplate(player, suitId)) {
 			return true;
 		}
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.need_chest"), true);
@@ -638,7 +755,11 @@ public final class IronManMark3 {
 	}
 
 	static boolean requireHelmet(ServerPlayer player) {
-		if (IronManArmor.hasHelmet(player, SUIT_ID)) {
+		return requireHelmet(player, SUIT_ID);
+	}
+
+	static boolean requireHelmet(ServerPlayer player, String suitId) {
+		if (IronManArmor.hasHelmet(player, suitId)) {
 			return true;
 		}
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.need_helmet"), true);
@@ -646,18 +767,32 @@ public final class IronManMark3 {
 	}
 
 	static boolean cooldownReady(ServerPlayer player, String abilityId) {
-		if (TonyStark.abilityReady(player, SUIT_ID, abilityId)) {
+		return cooldownReady(player, SUIT_ID, abilityId);
+	}
+
+	static boolean cooldownReady(ServerPlayer player, String suitId, String abilityId) {
+		if (TonyStark.abilityReady(player, suitId, abilityId)) {
 			return true;
 		}
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.on_cooldown",
 				String.format(java.util.Locale.ROOT, "%.1f",
-						TonyStark.abilityCooldownRemaining(player, SUIT_ID, abilityId) / 20.0f)), true);
+						TonyStark.abilityCooldownRemaining(player, suitId, abilityId) / 20.0f)), true);
 		return false;
+	}
+
+	/** v0.14.29: a kit cooldown for this suit (the Mark 4 cuts every one by 2 s, never below 0). */
+	public static int cooldownFor(String suitId, int baseTicks) {
+		return tuningOrDefault(suitId).cooldown(baseTicks);
+	}
+
+	/** v0.14.29: a kit hit's damage for this suit (the Mark 4 adds 2 to every one). */
+	public static float damageFor(String suitId, float base) {
+		return tuningOrDefault(suitId).damage(base);
 	}
 
 	static boolean pay(ServerPlayer player, IronManSuit suit, float base) {
 		float cost = base * suit.energyCostMultiplier();
-		if (IronManEnergy.spend(player, SUIT_ID, cost)) {
+		if (IronManEnergy.spend(player, suit.id(), cost)) {
 			return true;
 		}
 		noEnergy(player, cost);

@@ -162,25 +162,36 @@ public final class IronManSuits {
 			.blueprint(IronManItems.MARK_V_BLUEPRINT)
 			.build());
 
-	// "changes 15": Mark 4 -- the strongest craftable "movie early-marks" suit. Mark III's ability
-	// loadout, plus a one-shot wrist laser reached by sneaking + the V slot.
+	// "changes 15": Mark 4 -- the strongest craftable "movie early-marks" suit.
+	// v0.14.29 (agent A), explicit user spec: the Mark III's whole kit (IronManMark3) with +2 damage on every
+	// move and every cooldown 2 s shorter (IronManMark3.MARK_4_TUNING), same energy costs; the wrist laser is gone.
 	public static final IronManSuit MARK_4 = register(IronManSuit.Builder.of("mark_4")
 			.tech(0, 4)
-			.energy(8_500f, 3.0f) // "changes 18": capacity 8500
-			.maxIntegrity(700f) // "changes 18"
-			.energyRegen(1.8f) // "changes 18"
-			.armorRegen(0.04f) // "changes 18"
+			.energy(3_000f, 3.0f) // v0.14.29: 3000
+			.maxIntegrity(1750f) // v0.14.29: 1750
+			.energyRegen(5f) // v0.14.29: 5 energy/sec
+			.armorRegen(7.5f) // v0.14.29: 3 integrity/sec worn (7.5 x IronManEnergy.WORN_REGEN_SCALE 0.4)
+			.integritySplit(0.5f) // v0.14.29: integrity absorbs 50% of every hit, the wearer takes 50%
+			.arrowFireImmune() // v0.14.29: arrows + fire do nothing, not even to integrity
+			.waterBreathing() // v0.14.29: breathes underwater (no timed air tank)
+			.targeting() // v0.14.29: lock-on / auto-aim + HUD lock like the Mark III
+			// auto-feed stays on (no .noAutoFeed())
 			.flightDrain(1.05f) // "changes 18"
 			.targetScanRange(70.0)
-			.airTank(180) // "changes 17": 3 minutes of underwater breathing
 			.flight(1.05f, 0.09f)
-			.repulsor(10.0f)
-			.unibeam(18.0f)
+			// v0.14.29 R: the Mark III's numbers +2 dmg / -2 s -- tap 17 dmg / 10 energy / no cd; hold 1 s = 22 dmg /
+			// 50 energy / 1 s cd; Shift+R dash 22 dmg / 50 energy / 6 s cd
+			.repulsorTap(17.0f, 10f, 0)
+			.repulsorCharged(22.0f, 50f, 20, 20)
+			.dash(22.0f, 50f, 120)
+			.unibeam(20.0f)
 			.missiles(4, 8.0f, 250f)
-			.strength(6.0f) // "changes 18": melee bonus +6
-			.wristLaser()
-			.abilities(IronManAbilities.REPULSOR_BLAST, IronManAbilities.REPULSOR_BARRIER, IronManAbilities.MICRO_MISSILES,
-					IronManAbilities.UNIBEAM, IronManAbilities.MOB_HIGHLIGHT_TOGGLE, IronManAbilities.SUIT_TOGGLE)
+			.strength(7.0f) // v0.14.29: melee bonus +7
+			// G = weapon-wheel weapon (Sneak: Sonic Clap), X = Flares (Sneak: JARVIS scan), Z = held Unibeam,
+			// V = weapon wheel (Sneak: Energy Shield) -- the IronManMark3 kit, tuned per suit.
+			.abilities(IronManAbilities.REPULSOR_BLAST, com.projecthero.mod.ironman.ability.IronManMark3.ARSENAL,
+					com.projecthero.mod.ironman.ability.IronManMark3.FLARES, com.projecthero.mod.ironman.ability.IronManMark3.UNIBEAM,
+					com.projecthero.mod.ironman.ability.IronManMark3.WHEEL, IronManAbilities.SUIT_TOGGLE)
 			.suitUp(SuitUpType.MECHANICAL_REMOTE)
 			.summon(SummonType.FLYING_SET)
 			.blueprint(IronManItems.MARK_4_BLUEPRINT)

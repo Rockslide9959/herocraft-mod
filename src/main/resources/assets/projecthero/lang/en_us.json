@@ -1582,6 +1582,8 @@
   "screen.projecthero.weapon_wheel.desc.mk3_rockets": "One 35-damage blast rocket",
   "screen.projecthero.weapon_wheel.desc.mk3_minigun": "Hold G: 5 s of shoulder fire",
   "screen.projecthero.weapon_wheel.desc.mk3_micro_missiles": "4 homing shoulder missiles",
+  "screen.projecthero.weapon_wheel.mk4_title": "Mark 4 Arsenal",
+  "screen.projecthero.weapon_wheel.desc.mk4_rockets": "One %s-damage blast rocket",
   "screen.projecthero.weapon_wheel.desc.supersonic_flight": "Extreme flight speed burst",
   "screen.projecthero.weapon_wheel.desc.entity_glow_toggle": "Coloured outlines on nearby mobs",
   "hud.projecthero.ironman.ability.entity_glow_toggle": "Entity Glow",

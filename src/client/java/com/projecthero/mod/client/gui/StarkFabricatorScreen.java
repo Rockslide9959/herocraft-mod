@@ -457,7 +457,9 @@ public class StarkFabricatorScreen extends AbstractContainerScreen<StarkFabricat
 			out.add(statLine("energy_capacity", String.valueOf(Math.round(suit.energyCapacity()))));
 			out.add(statLine("energy_regen", fmt(suit.energyRegenPerSecond())));
 			if (suit.armorRegenPerSecond() > 0f) {
-				out.add(statLine("armour_regen", fmt(suit.armorRegenPerSecond())));
+				// v0.14.29: the real worn rate (listed rate x WORN_REGEN_SCALE), matching the suit info screen
+				out.add(statLine("armour_regen", fmt(suit.armorRegenPerSecond()
+						* com.projecthero.mod.ironman.IronManEnergy.WORN_REGEN_SCALE)));
 			}
 			out.add(statLine("melee_bonus", "+" + (int) suit.strengthBonus()));
 			out.add(statLine("flight_drain", fmt(suit.flightDrainMultiplier())));

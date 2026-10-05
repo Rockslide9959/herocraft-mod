@@ -207,7 +207,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.IronManWeaponWheelPayload.TYPE,
 				(payload, context) -> context.client().execute(() -> context.client().setScreen(
 						new com.projecthero.mod.client.gui.IronManWeaponWheelScreen( // v0.14.27: "mk3" opens the Mark III wheel
-								com.projecthero.mod.ironman.ability.IronManMark3.OPEN_WHEEL.equals(payload.ability())))));
+								com.projecthero.mod.ironman.ability.IronManMark3.wheelSuit(payload.ability()))))); // v0.14.29: "mk3:mark_4" the Mark 4's
 
 		// Blank Blueprint picker ("changes 21"): server sends the mark list, we open the screen.
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.IronManBlueprintPickerPayload.TYPE,

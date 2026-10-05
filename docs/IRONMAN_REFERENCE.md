@@ -1910,3 +1910,29 @@ The Mark III now has its own six keys (`ironman/ability/IronManMark3`, wired fro
 **JARVIS scan** (chat lines prefixed `[JARVIS]`, chat-wrapped, plus an action-bar summary): 48-block radius -- hostile count + the main threat (highest health + 4x attack: name, HP, distance, compass direction), passive / neutral counts, bosses (vanilla bosses or 150+ max health), other players (hero identity via `HeroIdentity`, HP, distance), the structure you stand in, diamond / emerald / ancient-debris counts within 8 blocks, biome, time, weather and suit energy / integrity %. `IronManJarvisScan.scan` returns a `Report` for tests.
 
 Spec sheet (`IronManSuitInfoScreen`) shows Mark III Rockets / Miniguns / Micro-Missiles rows and the 20 Unibeam figure instead of the old missile line. Tests: `IronManV01427Mark3GameTests`.
+
+## v0.14.29 -- Mark 4 rework (agent A)
+
+The Mark 4 (`mark_4`) now runs the whole Mark III kit (`IronManMark3`). The old Repulsor Barrier / Micro-Missiles / Mob Highlight layout and the one-shot wrist laser are gone.
+
+**Stats:** 3000 energy, 5 energy/s regen; 1750 integrity, 3 integrity/s worn regen (`armorRegen(7.5)` x `WORN_REGEN_SCALE` 0.4); integrity takes 50% of every hit (`integritySplit(0.5)`); arrows and fire do nothing, not even to integrity (`arrowFireImmune`); diamond armour (3/6/8/3, toughness 2, `IronManArmorMaterials.MARK_4`); +7 melee; breathes underwater (`waterBreathing`, no air tank); auto-feeds; `.targeting()` lock-on / auto-aim (HUD lock bracket via `IronManTargeting.hasTargeting`). Flight unchanged (1.05 / 0.09, drain x1.05). No Resistance effect (not in the spec).
+
+**Kit tuning:** `IronManMark3.Tuning` per kit suit -- Mark III +0 dmg / -0 ticks, Mark 4 +2 dmg / -40 ticks (never below 0); energy costs identical. Helpers: `IronManMark3.isKitSuit`, `damageFor`, `cooldownFor`.
+
+| Move | Mark III | Mark 4 |
+|---|---|---|
+| R tap | 15 dmg, 1 s cd | 17 dmg, no cd |
+| R hold 1 s (charged) | 20 dmg, 3 s cd | 22 dmg, 1 s cd |
+| Shift+R dash | 20 dmg, 8 s cd | 22 dmg, 6 s cd |
+| G Rockets | 35 dmg, 10 s cd | 37 dmg, 8 s cd |
+| G Miniguns | 10 dmg / 0.5 s, 15 s cd | 12 dmg / 0.5 s, 13 s cd |
+| G Micro-Missiles | 4 x 25 dmg, 12 s cd | 4 x 27 dmg, 10 s cd |
+| Sneak+G Sonic Clap | 20 dmg, 8 s cd | 22 dmg, 6 s cd |
+| X Flares | 5 burn dmg / 0.5 s, 10 s cd | 7 burn dmg / 0.5 s, 8 s cd |
+| Sneak+X JARVIS | 3 s cd | 1 s cd |
+| Z Unibeam (held) | 20 per damage tick, 20 s cd | 22 per damage tick, 18 s cd |
+| V wheel / Sneak+V shield | -- | same |
+
+**State keys:** each kit suit keeps its own weapon pick (`<suit>/mk3_weapon_choice`), shield flag (`<suit>/mk3_shield_on`) and cooldowns (`<suit>/mk3_*`). The server-only hold map remembers which suit started the minigun / Unibeam / volley, so a mid-hold suit swap stops it with the cooldown on the original suit. The wheel-open payload is still `"mk3"` for the Mark III and `"mk3:mark_4"` for the Mark 4 (`IronManMark3.openWheelPayload` / `wheelSuit`); the client screen is `IronManWeaponWheelScreen(String kitSuit)` ("Mark 4 Arsenal", rocket line quotes 37). `IronManFlares.fire(.., burnDamage)` is a new overload; the old one keeps 5.
+
+Displays: the spec sheet shows the Mark 4's +2 figures; the Fabricator "View more" armour-regen line now shows the real worn rate (listed x 0.4) for every suit. Tests: the `markFour*` methods in `IronManV01427Mark3GameTests`.

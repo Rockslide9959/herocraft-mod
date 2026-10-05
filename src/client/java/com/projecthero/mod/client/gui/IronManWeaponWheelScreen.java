@@ -33,6 +33,8 @@ import net.minecraft.world.item.ItemStack;
 public final class IronManWeaponWheelScreen extends Screen {
 	/** v0.14.27: the Mark III wheel (Rockets / Miniguns / Micro-Missiles for G) reuses this screen with its own wedges. */
 	private final boolean mark3;
+	/** v0.14.29: which kit suit this Mark III-style wheel belongs to (Mark III or Mark 4); null for the Mark VII wheel. */
+	private final String kitSuit;
 	private final String[] SECTORS;
 	private int hovered = -1;
 	private final float[] lift;
@@ -43,8 +45,16 @@ public final class IronManWeaponWheelScreen extends Screen {
 	}
 
 	public IronManWeaponWheelScreen(boolean mark3) {
-		super(Component.translatable(mark3 ? "screen.projecthero.weapon_wheel.mk3_title" : "screen.projecthero.weapon_wheel.title"));
-		this.mark3 = mark3;
+		this(mark3 ? IronManMark3.SUIT_ID : null);
+	}
+
+	/** v0.14.29: {@code kitSuit} = the Mark III / Mark 4 whose arsenal wheel to show, null = the Mark VII wheel. */
+	public IronManWeaponWheelScreen(String kitSuit) {
+		super(Component.translatable(kitSuit == null ? "screen.projecthero.weapon_wheel.title"
+				: IronManMark3.MARK_4_ID.equals(kitSuit) ? "screen.projecthero.weapon_wheel.mk4_title"
+				: "screen.projecthero.weapon_wheel.mk3_title"));
+		this.mark3 = kitSuit != null;
+		this.kitSuit = kitSuit;
 		this.SECTORS = mark3 ? IronManMark3.WEAPONS : IronManAbilities.WEAPON_WHEEL_SECTORS;
 		this.lift = new float[SECTORS.length];
 	}
@@ -57,7 +67,7 @@ public final class IronManWeaponWheelScreen extends Screen {
 	private String currentBinding() {
 		TonyStarkState s = state();
 		if (mark3) {
-			return IronManMark3.selectedWeapon(s);
+			return IronManMark3.selectedWeapon(s, kitSuit);
 		}
 		return s == null ? SECTORS[0] : s.weaponWheelChoice;
 	}
@@ -126,7 +136,7 @@ public final class IronManWeaponWheelScreen extends Screen {
 			int ix = Math.round(cx + (float) Math.cos(c) * (mid + l));
 			int iy = Math.round(cy + (float) Math.sin(c) * (mid + l));
 			String sector = SECTORS[i];
-			ItemStack icon = IronManHud.icon(sector, mark3 ? IronManSuits.MARK_III : IronManSuits.MARK_VII);
+			ItemStack icon = IronManHud.icon(sector, mark3 ? IronManSuits.byId(kitSuit) : IronManSuits.MARK_VII);
 			g.renderItem(icon, ix - 8, iy - 12);
 			if (IronManAbilities.ENTITY_GLOW_TOGGLE.equals(sector)) {
 				boolean on = glowOn();
@@ -147,7 +157,7 @@ public final class IronManWeaponWheelScreen extends Screen {
 			g.drawCenteredString(font, name, cx, cy - 14, hovered >= 0 ? 0xFFFFFFFF : IronManGui.GOLD);
 			int y = cy - 2;
 			int lines = 0;
-			for (FormattedCharSequence line : font.split(Component.translatable("screen.projecthero.weapon_wheel.desc." + sector), textW)) {
+			for (FormattedCharSequence line : font.split(description(sector), textW)) {
 				if (lines++ >= 2) {
 					break;
 				}
@@ -158,6 +168,15 @@ public final class IronManWeaponWheelScreen extends Screen {
 
 		String hint = IronManGui.fit(font, Component.translatable(mark3 ? "screen.projecthero.weapon_wheel.mk3_hint" : "screen.projecthero.weapon_wheel.hint"), width - 12);
 		g.drawCenteredString(this.font, hint, cx, Math.min(height - 12, cy + (int) outer + 10), IronManGui.TEXT_DIM);
+	}
+
+	/** v0.14.29: the Mark 4's rocket line quotes its own (+2) damage; everything else uses the shared text. */
+	private Component description(String sector) {
+		if (IronManMark3.MARK_4_ID.equals(kitSuit) && IronManMark3.ROCKETS.equals(sector)) {
+			return Component.translatable("screen.projecthero.weapon_wheel.desc.mk4_rockets",
+					Math.round(IronManMark3.damageFor(kitSuit, IronManMark3.ROCKET_DAMAGE)));
+		}
+		return Component.translatable("screen.projecthero.weapon_wheel.desc." + sector);
 	}
 
 	private int indexOf(String id) {

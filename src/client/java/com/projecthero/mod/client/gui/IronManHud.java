@@ -197,7 +197,7 @@ public final class IronManHud {
 						IronManUiLayout.secs(left), left / (float) IronManAbilities.WRIST_LASER_TICKS, 0xFFFF3344);
 			}
 			missilesReady = true;
-			if (!minimalHud && suit.missileCount() > 0 && !com.projecthero.mod.ironman.ability.IronManMark3.SUIT_ID.equals(suitId)) {
+			if (!minimalHud && suit.missileCount() > 0 && !com.projecthero.mod.ironman.ability.IronManMark3.isKitSuit(suitId)) {
 				String key = suitId + "/" + IronManAbilities.MICRO_MISSILES;
 				Long readyAt = state.abilityReadyAt.get(key);
 				long left = readyAt == null ? 0 : readyAt - now;
@@ -264,7 +264,7 @@ public final class IronManHud {
 						Component.translatable("hud.projecthero.ironman.ability." + state.weaponWheelChoice)).getString());
 				chipColor.add(IronManGui.GOLD);
 			}
-			if (com.projecthero.mod.ironman.ability.IronManMark3.shieldOn(state) && com.projecthero.mod.ironman.ability.IronManMark3.SUIT_ID.equals(suitId)) {
+			if (com.projecthero.mod.ironman.ability.IronManMark3.shieldOn(state, suitId)) {
 				chipText.add(Component.translatable("hud.projecthero.ironman.chip.mk3_shield").getString()); // v0.14.27
 				chipColor.add(IronManGui.CYAN);
 			}
@@ -272,7 +272,7 @@ public final class IronManHud {
 				chipText.add(Component.translatable("hud.projecthero.ironman.chip.blades").getString());
 				chipColor.add(IronManGui.CYAN);
 			}
-			if (suit.missileCount() > 0 && !com.projecthero.mod.ironman.ability.IronManMark3.SUIT_ID.equals(suitId) && missilesReady) {
+			if (suit.missileCount() > 0 && !com.projecthero.mod.ironman.ability.IronManMark3.isKitSuit(suitId) && missilesReady) {
 				chipText.add(Component.translatable("hud.projecthero.ironman.missiles", suit.missileCount()).getString());
 				chipColor.add(IronManGui.GOLD);
 			}
@@ -410,11 +410,13 @@ public final class IronManHud {
 			// v0.14.27: the Mark III G box shows the weapon picked on its wheel (and that weapon's cooldown)
 			boolean mk3Arsenal = com.projecthero.mod.ironman.ability.IronManMark3.ARSENAL.equals(abilityId);
 			String effectiveId = wheel ? state.weaponWheelChoice
-					: mk3Arsenal ? com.projecthero.mod.ironman.ability.IronManMark3.selectedWeapon(state) : abilityId;
+					: mk3Arsenal ? com.projecthero.mod.ironman.ability.IronManMark3.selectedWeapon(state, suitId) : abilityId;
 			String cdKey = suitId + "/" + effectiveId;
 			Long readyAt = state.abilityReadyAt.get(cdKey);
 			long left = readyAt == null ? 0 : Math.max(0, readyAt - now);
-			boolean active = isActive(player, state, abilityId, now);
+			boolean active = isActive(player, state, abilityId, now)
+					|| (com.projecthero.mod.ironman.ability.IronManMark3.WHEEL.equals(abilityId)
+							&& com.projecthero.mod.ironman.ability.IronManMark3.shieldOn(state, suitId)); // v0.14.29: Mark 4 shield
 
 			int bg = retro ? 0xC0140C04 : 0xC0081018;
 			g.fill(r.x(), r.y(), r.right(), r.bottom(), bg);

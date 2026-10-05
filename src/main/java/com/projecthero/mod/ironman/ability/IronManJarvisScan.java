@@ -55,11 +55,12 @@ public final class IronManJarvisScan {
 
 	/** Sneak+X: pay, cool down, scan, read it out. Returns the report, or null if it did not run. */
 	public static Report run(ServerPlayer player, IronManSuit suit) {
-		if (!IronManMark3.requireHelmet(player) || !IronManMark3.cooldownReady(player, IronManMark3.JARVIS_SCAN)
+		// v0.14.29: per kit suit (Mark III / Mark 4 -- the Mark 4's cooldown is 2 s shorter)
+		if (!IronManMark3.requireHelmet(player, suit.id()) || !IronManMark3.cooldownReady(player, suit.id(), IronManMark3.JARVIS_SCAN)
 				|| !IronManMark3.pay(player, suit, ENERGY)) {
 			return null;
 		}
-		TonyStark.triggerCooldown(player, IronManMark3.SUIT_ID, IronManMark3.JARVIS_SCAN, COOLDOWN);
+		TonyStark.triggerCooldown(player, suit.id(), IronManMark3.JARVIS_SCAN, IronManMark3.cooldownFor(suit.id(), COOLDOWN));
 		Report r = scan(player);
 		readOut(player, suit, r);
 		AbilityHelpers.sound(player, SoundEvents.BEACON_POWER_SELECT, 0.6f, 1.9f);

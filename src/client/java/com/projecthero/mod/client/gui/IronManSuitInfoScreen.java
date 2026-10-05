@@ -112,17 +112,20 @@ public class IronManSuitInfoScreen extends Screen {
 			row(wrap, "screen.projecthero.ironman_info.dash", fmt(suit.dashDamage()));
 		}
 		// v0.14.27: the Mark III carries its own weapon-wheel arsenal and a held Unibeam
-		boolean mk3 = com.projecthero.mod.ironman.ability.IronManMark3.SUIT_ID.equals(suit.id());
+		// v0.14.29: the Mark 4 runs the same kit, +2 damage per hit (IronManMark3.damageFor)
+		boolean mk3 = com.projecthero.mod.ironman.ability.IronManMark3.isKitSuit(suit.id());
 		if (suit.unibeamDamage() > 0) {
-			row(wrap, "screen.projecthero.ironman_info.unibeam",
-					fmt(mk3 ? com.projecthero.mod.ironman.ability.IronManMark3.UNIBEAM_DAMAGE : suit.unibeamDamage()));
+			row(wrap, "screen.projecthero.ironman_info.unibeam", fmt(mk3 ? com.projecthero.mod.ironman.ability.IronManMark3.damageFor(
+					suit.id(), com.projecthero.mod.ironman.ability.IronManMark3.UNIBEAM_DAMAGE) : suit.unibeamDamage()));
 		}
 		if (mk3) {
-			row(wrap, "screen.projecthero.ironman_info.mk3_rockets", fmt(com.projecthero.mod.ironman.ability.IronManMark3.ROCKET_DAMAGE));
-			row(wrap, "screen.projecthero.ironman_info.mk3_minigun",
-					fmt(com.projecthero.mod.ironman.ability.IronManMark3.MINIGUN_DAMAGE) + " / 0.5s");
+			row(wrap, "screen.projecthero.ironman_info.mk3_rockets", fmt(com.projecthero.mod.ironman.ability.IronManMark3.damageFor(
+					suit.id(), com.projecthero.mod.ironman.ability.IronManMark3.ROCKET_DAMAGE)));
+			row(wrap, "screen.projecthero.ironman_info.mk3_minigun", fmt(com.projecthero.mod.ironman.ability.IronManMark3.damageFor(
+					suit.id(), com.projecthero.mod.ironman.ability.IronManMark3.MINIGUN_DAMAGE)) + " / 0.5s");
 			row(wrap, "screen.projecthero.ironman_info.mk3_micro", com.projecthero.mod.ironman.ability.IronManMark3.MICRO_COUNT + " x "
-					+ fmt(com.projecthero.mod.ironman.ability.IronManMark3.MICRO_DAMAGE));
+					+ fmt(com.projecthero.mod.ironman.ability.IronManMark3.damageFor(
+							suit.id(), com.projecthero.mod.ironman.ability.IronManMark3.MICRO_DAMAGE)));
 		}
 		if (suit.missileCount() > 0 && !mk3) {
 			row(wrap, "screen.projecthero.ironman_info.missiles", suit.missileCount() + " x " + fmt(suit.missileDamage()));

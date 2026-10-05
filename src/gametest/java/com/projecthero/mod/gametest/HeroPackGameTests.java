@@ -1080,22 +1080,22 @@ public class HeroPackGameTests implements FabricGameTest {
 		com.projecthero.mod.ironman.TonyStark.grant(player);
 		com.projecthero.mod.ironman.TonyStark.unlockTech(player, 5);
 		for (net.minecraft.world.item.ArmorItem.Type t : net.minecraft.world.item.ArmorItem.Type.values()) {
-			if (com.projecthero.mod.ironman.item.IronManItems.armor("mark_4", t) != null) {
+			if (com.projecthero.mod.ironman.item.IronManItems.armor("mark_6", t) != null) {
 				player.setItemSlot(com.projecthero.mod.ironman.suit.IronManSuitUpManager.slotFor(t),
-						new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_4", t)));
+						new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_6", t)));
 			}
 		}
-		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_4", 10_000f);
-		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_4", 100f);
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_6", 10_000f);
+		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_6", 100f);
 
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, AbilitySlot.SLOT_2, true); // hold barrier down
 		helper.assertTrue(com.projecthero.mod.ironman.ability.IronManAbilities.barrierActive(player),
 				"holding slot 2 must raise the Repulsor Barrier");
 
 		// it drains energy every tick it is held
-		float e0 = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_4");
-		com.projecthero.mod.ironman.ability.IronManAbilities.tickBarrier(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_4);
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_4") < e0,
+		float e0 = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6");
+		com.projecthero.mod.ironman.ability.IronManAbilities.tickBarrier(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_6);
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6") < e0,
 				"the barrier must drain suit energy while held");
 
 		// taking the suit off must cut the barrier (and everything else) even while it is still held
@@ -1110,8 +1110,8 @@ public class HeroPackGameTests implements FabricGameTest {
 
 		// releasing the key when it is up starts the 6 s cooldown
 		com.projecthero.mod.ironman.TonyStark.state(player).barrierHeld = true;
-		com.projecthero.mod.ironman.ability.IronManAbilities.stopBarrier(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_4, true);
-		helper.assertFalse(com.projecthero.mod.ironman.TonyStark.abilityReady(player, "mark_4",
+		com.projecthero.mod.ironman.ability.IronManAbilities.stopBarrier(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_6, true);
+		helper.assertFalse(com.projecthero.mod.ironman.TonyStark.abilityReady(player, "mark_6",
 				com.projecthero.mod.ironman.ability.IronManAbilities.REPULSOR_BARRIER),
 				"dropping the barrier must start its 6 s cooldown");
 		helper.succeed();
@@ -1883,8 +1883,8 @@ public class HeroPackGameTests implements FabricGameTest {
 				"Mark 2 max integrity must be 1000"); // v0.14.27
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_iii") == 1000f,
 				"Mark III max integrity must be 1000"); // v0.14.27
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_4") == 700f,
-				"Mark 4 max integrity must be 700");
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_4") == 1750f,
+				"Mark 4 max integrity must be 1750"); // v0.14.29
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_v") == 550f,
 				"Mark V max integrity must be 550");
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_6") == 800f,
@@ -1907,7 +1907,7 @@ public class HeroPackGameTests implements FabricGameTest {
 	 *  except the "changes 16" Mark VII, whose slot 5 is the weapon wheel. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void advancedMarksCarryMobHighlightInsteadOfTargeting(GameTestHelper helper) {
-		for (String id : new String[]{"mark_v", "mark_4", "mark_6"} /* v0.14.27: Mark III V = its weapon wheel */) {
+		for (String id : new String[]{"mark_v", "mark_6"} /* v0.14.27: Mark III V = its weapon wheel; v0.14.29: Mark 4 too */) {
 			var suit = com.projecthero.mod.ironman.suit.IronManSuits.byId(id);
 			helper.assertTrue(com.projecthero.mod.ironman.ability.IronManAbilities.MOB_HIGHLIGHT_TOGGLE.equals(suit.abilityInSlot(5)),
 					id + " slot 5 must be the mob-highlight toggle");
@@ -1924,12 +1924,12 @@ public class HeroPackGameTests implements FabricGameTest {
 	public void mobHighlightClearsWhenSuitLosesPower(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
-		giveFullSuit(player, "mark_4");
-		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_4", 5000f);
+		giveFullSuit(player, "mark_6");
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_6", 5000f);
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_5, true);
 		helper.assertTrue(com.projecthero.mod.ironman.TonyStark.state(player).mobHighlightOn, "toggled on");
 
-		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_4", 0f); // depleted
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_6", 0f); // depleted
 		com.projecthero.mod.ironman.IronManSuitTicker.tick(player);
 		helper.assertFalse(com.projecthero.mod.ironman.TonyStark.state(player).mobHighlightOn,
 				"a depleted suit must clear the mob-highlight toggle");
@@ -1938,18 +1938,18 @@ public class HeroPackGameTests implements FabricGameTest {
 
 	// ---------------- "changes 15" ----------------
 
-	/** Mark 4 exists with Mark III's ability layout, its own stats, and the wrist-laser flag. */
+	/** Mark 4 exists with Mark III's ability layout (v0.14.29: the full Mark III kit, no wrist laser). */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void markFourIsRegisteredWithWristLaser(GameTestHelper helper) {
 		var m4 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_4");
 		helper.assertTrue(m4 != null, "mark_4 must be registered");
-		helper.assertTrue(m4.hasWristLaser(), "mark_4 must carry the wrist laser");
-		helper.assertTrue(m4.energyCapacity() == 8_500f, "mark_4 energy capacity must be 8500 ('changes 18')");
-		helper.assertTrue(m4.maxIntegrity() == 700f, "mark_4 integrity must be 700 ('changes 18')");
-		var m3 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_6"); // v0.14.27: Mark III has its own kit now; Mark 6 keeps the classic layout
+		helper.assertFalse(m4.hasWristLaser(), "v0.14.29: the Mark 4 wrist laser is gone");
+		helper.assertTrue(m4.energyCapacity() == 3_000f, "mark_4 energy capacity must be 3000 (v0.14.29)");
+		helper.assertTrue(m4.maxIntegrity() == 1750f, "mark_4 integrity must be 1750 (v0.14.29)");
+		var m3 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_iii"); // v0.14.29: the Mark III kit
 		for (int s = 1; s <= 6; s++) {
 			helper.assertTrue(java.util.Objects.equals(m4.abilityInSlot(s), m3.abilityInSlot(s)),
-					"mark_4 slot " + s + " must match the classic (Mark 6) layout");
+					"mark_4 slot " + s + " must match the Mark III layout");
 		}
 		helper.assertTrue(com.projecthero.mod.ironman.item.IronManItems.armor("mark_4",
 				net.minecraft.world.item.ArmorItem.Type.CHESTPLATE) != null, "mark_4 chestplate item missing");
@@ -2115,7 +2115,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		// v0.14.27: the Mark 2 lost its tank (can't breathe underwater); the Mark III breathes indefinitely
 		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_2").airTankSeconds() == 0, "mark_2 air");
 		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_iii").waterBreathing(), "mark_iii air");
-		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_4").airTankSeconds() == 180, "mark_4 air");
+		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_4").waterBreathing(), "mark_4 air"); // v0.14.29
 		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_6").airTankSeconds() == 300, "mark_6 air");
 		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_vii").airTankSeconds() == 420, "mark_vii air");
 		helper.succeed();
@@ -2138,16 +2138,16 @@ public class HeroPackGameTests implements FabricGameTest {
 	public void microMissilesFireOneAtATime(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
-		giveFullSuit(player, "mark_4");
-		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_4", 5000f);
-		var suit = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_4");
-		float before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_4");
+		giveFullSuit(player, "mark_6");
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_6", 5000f);
+		var suit = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_6");
+		float before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6");
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_3, true);
 		int queued = com.projecthero.mod.ironman.TonyStark.state(player).pendingMissiles;
 		helper.assertTrue(queued == suit.missileCount(),
 				"pressing Micro-Missiles must queue missileCount() missiles at once, got " + queued);
-		helper.assertTrue(before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_4")
-				== suit.missileEnergyCost(), "the whole volley is paid for up front");
+		helper.assertTrue(Math.abs(before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6")
+				- suit.missileEnergyCost() * suit.energyCostMultiplier()) < 0.01f, "the whole volley is paid for up front");
 		// pressing again while the volley is still launching does nothing
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_3, true);
 		helper.assertTrue(com.projecthero.mod.ironman.TonyStark.state(player).pendingMissiles == queued,
