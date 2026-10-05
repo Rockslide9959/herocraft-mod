@@ -1,30 +1,18 @@
 package com.projecthero.mod.client.render;
 
-import java.io.IOException;
-import java.io.Reader;
-import java.io.Writer;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
-import com.projecthero.mod.ProjectHeroMod;
-
-import net.fabricmc.loader.api.FabricLoader;
 
 /**
- * v0.14.23: hand-tuned placement for the {@link HandRing} rings, one per ring and per view (third / first person), edited
- * live in {@code RingEditorScreen} ({@code /ringeditor}) and saved to {@code config/projecthero_ring_placement.json}.
+ * v0.14.23: hand-tuned placement for the {@link HandRing} rings, one per ring and per view (third / first person).
+ * v0.14.24: fixed shipped values only -- the in-game ring editor and its config file are gone.
  *
  * <p>Each placement is applied in the arm's pixel space on top of the built-in ring position: the ring is rotated and
  * scaled about its own centre (the gem on the knuckles), then moved by the offset. All zeros / scale 1 = the built-in
- * look. {@link #DEFAULTS} holds the shipped values (bake tuned values in there to make them everyone's default).
+ * look. The values were tuned on a slim arm; on a wide arm they are moved out by {@link #WIDE_ARM_SHIFT}.
  */
 public final class RingPlacement {
 	public enum View {
@@ -73,6 +61,8 @@ public final class RingPlacement {
 	public static final String[] RINGS = { HandRing.GREEN_LANTERN.id(), HandRing.FLASH.id() };
 
 	/** Shipped defaults per ring id and view; anything missing is the built-in look. */
+	private static final Placement IDENTITY = new Placement();
+
 	private static final Map<String, Placement[]> DEFAULTS = new LinkedHashMap<>();
 
 	static {
@@ -85,26 +75,16 @@ public final class RingPlacement {
 				new Placement(-2.5f, 0.5f, 1.2f, 0f, 90f, 0f, 1f) });
 	}
 
-	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-	private static final Map<String, Placement[]> VALUES = new LinkedHashMap<>();
-	private static boolean loaded;
+	/** v0.14.24: x shift on a wide arm, whose outer face is one pixel further out than a slim arm's. */
+	public static final float WIDE_ARM_SHIFT = -1f;
 
 	private RingPlacement() {
 	}
 
-	public static Path file() {
-		return FabricLoader.getInstance().getConfigDir().resolve("projecthero_ring_placement.json");
-	}
-
-	public static Placement defaults(String ring, View view) {
-		Placement[] d = DEFAULTS.get(ring);
-		return d == null ? new Placement() : d[view.ordinal()].copy();
-	}
-
-	/** The live (editable) placement for {@code ring} in {@code view}. */
+	/** The placement for {@code ring} in {@code view}. */
 	public static Placement get(String ring, View view) {
-		ensureLoaded();
-		return VALUES.computeIfAbsent(ring, r -> new Placement[] { defaults(r, View.THIRD_PERSON), defaults(r, View.FIRST_PERSON) })[view.ordinal()];
+		Placement[] d = DEFAULTS.get(ring);
+		return d == null ? IDENTITY : d[view.ordinal()];
 	}
 
 	public static View currentView() {
@@ -120,69 +100,14 @@ public final class RingPlacement {
 		if (p.isIdentity()) {
 			return;
 		}
-		pose.translate(p.x + px, p.y + py, p.z + pz);
+		// v0.14.24: the shipped placements were tuned on a slim arm -- on a wide arm the outer face is a pixel further out,
+		// and without this the ring sat buried inside the hand (invisible) for everyone with a Steve-style skin
+		float wide = HandRing.slimArm ? 0f : WIDE_ARM_SHIFT;
+		pose.translate(p.x + wide + px, p.y + py, p.z + pz);
 		pose.mulPose(Axis.YP.rotationDegrees(p.yaw));
 		pose.mulPose(Axis.XP.rotationDegrees(p.pitch));
 		pose.mulPose(Axis.ZP.rotationDegrees(p.roll));
 		pose.scale(p.scale, p.scale, p.scale);
 		pose.translate(-px, -py, -pz);
-	}
-
-	// ---------------------------------------------------------------- persistence
-
-	private static void ensureLoaded() {
-		if (!loaded) {
-			loaded = true;
-			load();
-		}
-	}
-
-	public static void load() {
-		VALUES.clear();
-		Path f = file();
-		if (!Files.exists(f)) {
-			return;
-		}
-		try (Reader r = Files.newBufferedReader(f)) {
-			JsonObject root = JsonParser.parseReader(r).getAsJsonObject();
-			for (String ring : root.keySet()) {
-				JsonObject o = root.getAsJsonObject(ring);
-				Placement[] pair = { defaults(ring, View.THIRD_PERSON), defaults(ring, View.FIRST_PERSON) };
-				if (o.has("third_person")) {
-					pair[0] = GSON.fromJson(o.get("third_person"), Placement.class);
-				}
-				if (o.has("first_person")) {
-					pair[1] = GSON.fromJson(o.get("first_person"), Placement.class);
-				}
-				VALUES.put(ring, pair);
-			}
-		} catch (Exception e) {
-			ProjectHeroMod.LOGGER.warn("Could not read {}; using the default ring placement", f, e);
-			VALUES.clear();
-		}
-	}
-
-	public static String toJson() {
-		ensureLoaded();
-		JsonObject root = new JsonObject();
-		for (String ring : RINGS) {
-			JsonObject o = new JsonObject();
-			o.add("third_person", GSON.toJsonTree(get(ring, View.THIRD_PERSON)));
-			o.add("first_person", GSON.toJsonTree(get(ring, View.FIRST_PERSON)));
-			root.add(ring, o);
-		}
-		return GSON.toJson(root);
-	}
-
-	public static void save() {
-		Path f = file();
-		try {
-			Files.createDirectories(f.getParent());
-			try (Writer w = Files.newBufferedWriter(f)) {
-				w.write(toJson());
-			}
-		} catch (IOException e) {
-			ProjectHeroMod.LOGGER.warn("Could not save {}", f, e);
-		}
 	}
 }

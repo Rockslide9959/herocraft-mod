@@ -23,30 +23,13 @@ public final class HandRing {
 
 	/**
 	 * A ring's colours: band, band highlight, bezel, gem (core) and the gem's rim. v0.14.23: plus its id, which keys its
-	 * hand-tuned {@link RingPlacement}.
+	 * {@link RingPlacement}.
 	 */
 	public record Palette(String id, int band, int highlight, int bezel, int gemCore, int gem) {
 	}
 
 	public static final Palette GREEN_LANTERN = new Palette("green_lantern", 0x1F9A48, 0x9CFFB8, 0x0B3D1C, 0xEFFFF2, 0x5CFF8E);
 	public static final Palette FLASH = new Palette("flash", 0xD9A521, 0xFFE58A, 0xC41A1A, 0xFFF4B0, 0xFFD21E);
-
-	/**
-	 * v0.14.23: while the ring editor is open, the id of the ring it is editing -- the local player then shows that ring
-	 * (and only that ring) whether they own it or not, so it can be placed. Null otherwise.
-	 */
-	public static String preview;
-
-	/**
-	 * For a ring layer: null = draw as normal; otherwise whether to draw ring {@code id} on {@code player} (the editor's
-	 * preview overrides the local player's real rings).
-	 */
-	public static Boolean previewOverride(net.minecraft.world.entity.player.Player player, String id) {
-		if (preview == null || player != net.minecraft.client.Minecraft.getInstance().player) {
-			return null;
-		}
-		return preview.equals(id);
-	}
 
 	/** The ring's lift off bare skin. */
 	public static final float SKIN_GAP = 0.08f;
@@ -56,6 +39,18 @@ public final class HandRing {
 	 * ring always sits at {@link #SKIN_GAP}.
 	 */
 	public static boolean firstPerson;
+
+	/**
+	 * v0.14.24: whether the arm being drawn is a slim (Alex) arm. Its outer face is x = -2, a wide (Steve) arm's is x = -3,
+	 * so a {@link RingPlacement} tuned on one is moved by that pixel on the other (callers set this from the player's skin
+	 * via {@link #arm}).
+	 */
+	public static boolean slimArm;
+
+	/** v0.14.24: sets {@link #slimArm} for {@code player}'s skin before their ring is drawn. */
+	public static void arm(net.minecraft.client.player.AbstractClientPlayer player) {
+		slimArm = player.getSkin().model() == net.minecraft.client.resources.PlayerSkin.Model.SLIM;
+	}
 
 	private HandRing() {
 	}

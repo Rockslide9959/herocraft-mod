@@ -1,0 +1,22 @@
+Project Hero v0.14.24 -- Rings Are Back & Guidebook Update
+
+💍 POWER RINGS FIXED
+- The Green Lantern Power Ring and the Flash Ring show up again, in both first and third person.
+- What was wrong: the new ring positions from v0.14.23 were tuned on a slim (Alex-style) arm. On a regular-width (Steve-style) arm, which is one pixel wider, the same position put the ring INSIDE your hand, so nobody with a wide skin could see it.
+- The ring now checks your skin's arm width and moves out by that pixel on wide arms, so it sits in the same spot on the hand for slim and wide skins alike.
+- Applies to the Lantern ring's green glow too, and to other players' rings as you see them.
+
+🛠️ RING EDITOR REMOVED
+- The /ringeditor command and the "Ring Editor" key were a testing tool and are gone.
+- Ring positions are now fixed for everyone. An old config/projecthero_ring_placement.json from v0.14.23 is no longer read, so a leftover file can't hide or move your ring (you can delete it).
+
+📖 GUIDEBOOK
+- Zombie Raid > Crafting: how to make the Oathbound Necrotic Blade (Broken Oath + Necrotic Blade + Gravebound Ingot at a Smithing Table).
+- Hordes > Rewards: what the Bone Tyrant and the Brood Queen drop.
+- Titan > Rewards: now mentions its experience drop.
+- Abyssal Behemoth > Rewards: Ancient Debris is listed as a 50% chance.
+
+📣 DISCORD
+- Long update notes are now posted as several messages here instead of being cut off.
+
+Servers: update the server and every player to v0.14.24 together.

@@ -29,10 +29,6 @@ public class FlashRingLayer extends RenderLayer<AbstractClientPlayer, PlayerMode
 	 * Flash Suit piece is on (the suit is out), the ring is not shown.
 	 */
 	public static boolean wearing(AbstractClientPlayer player) {
-		Boolean preview = HandRing.previewOverride(player, HandRing.FLASH.id()); // v0.14.23: ring editor
-		if (preview != null) {
-			return preview;
-		}
 		return !player.isInvisible() && FlashRing.holdsSuit(player) && !FlashSuit.wearsAny(player);
 	}
 
@@ -43,6 +39,7 @@ public class FlashRingLayer extends RenderLayer<AbstractClientPlayer, PlayerMode
 		}
 		pose.pushPose();
 		arm.translateAndRotate(pose);
+		HandRing.arm(player);
 		HandRing.draw(pose, HandRing.buffer(buffers), HandRing.SKIN_GAP, HandRing.FLASH); // never over the suit (see wearing)
 		pose.popPose();
 	}

@@ -52,10 +52,6 @@ public final class GreenLanternHandRenderer {
 
 	/** Anything to draw on this player's right hand at all? */
 	public static boolean hasAnything(AbstractClientPlayer player) {
-		Boolean preview = HandRing.previewOverride(player, HandRing.GREEN_LANTERN.id()); // v0.14.23: ring editor
-		if (preview != null) {
-			return preview;
-		}
 		return GreenLantern.hasPower(player) && !player.isInvisible();
 	}
 
@@ -128,6 +124,7 @@ public final class GreenLanternHandRenderer {
 		long now = player.level().getGameTime();
 		boolean busy = fx.channels() != 0 || (fx.anim() != 0 && now - fx.animStart() < 12);
 		float breathe = 0.5f + 0.5f * net.minecraft.util.Mth.sin(age * 0.12f);
+		HandRing.arm(player);
 		HandRing.draw(pose, vc, gap, HandRing.GREEN_LANTERN);
 		// the halo: breathes softly, flares while the ring is working
 		float[] g = HandRing.gemCentre(gap);

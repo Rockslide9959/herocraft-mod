@@ -73,7 +73,6 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		ModKeyBindings.initialize();
-		com.projecthero.mod.client.render.RingEditor.init(); // v0.14.23: /ringeditor
 		ModEntityRenderers.initialize();
 		com.projecthero.mod.client.thor.WeaponComboPose.init(); // v0.14.20: Mjolnir / Stormbreaker combo swings
 		// v0.13.22: mutation move animations + per-batch client registration (poses, overlays, renderers)
