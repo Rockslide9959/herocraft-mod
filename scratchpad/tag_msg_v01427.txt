@@ -1,0 +1,68 @@
+Project Hero v0.14.27 -- The Iron Man Overhaul
+
+The biggest Iron Man update yet: brand-new armour models, a fully rebuilt suit-up, and complete new kits for the Mark 1, Mark 2 and Mark III.
+
+🦾 NEW ARMOUR MODELS
+- Mark 1, Mark 2, Mark III and Mark 4 have brand-new models and textures.
+- The enchanted purple shimmer is gone from all Iron Man armour.
+- New item icons for those four suits.
+
+✨ NEW SUIT-UP
+- Every armour piece now takes 3 seconds to build onto you: boots, then legs, chest and helmet.
+- The inner layer closes around you in two halves (like Thor and Green Lantern), then the outer plating builds on one pixel at a time, white-hot and cooling to the suit's colours.
+- 4 different suit-up poses, picked at random each time: Iron Stance, Reach for the Sky, Inspect the Gauntlet and Power Brace. The pose changes with the piece that is building and reacts as each piece locks on (a boot stomp, a knee brace, a chest flex, a head snap as the helmet seals).
+- The suit only comes online once every piece is fully built. Abilities and flight stay locked until then ("Suit still assembling...").
+- No more particle sweep running down your body during or after the suit-up.
+
+🛬 IRON MAN, EVERY SUIT
+- Immune to fall damage, and falls never drain energy or integrity.
+- Flying hard into the ground is now a landing slam: 20 damage to everything around you, knocking it back (3 second cooldown).
+- Suit Platform: every docked suit recharges 10 energy and repairs 10 integrity per second, whatever the mark. The platform reserve has been removed.
+- Sneak + C now also lists Iron Man armour in your inventory. Pick it to send those pieces home to your Suit Platform.
+- Mob Highlight only shows for the player who switched it on.
+
+🔧 MARK 1
+- Energy 500 (+2/s), integrity 750. Integrity soaks 50% of every hit you take.
+- Immune to arrows and fire, and they don't drain integrity.
+- Diamond-grade armour, +6 melee. Can't breathe underwater and doesn't feed you.
+- R Strong Punch: 15 damage, 10 energy, 1s cooldown.
+- G Flamethrower: 8 damage/s plus burning, 6 energy/s. Heat builds 5/s to a max of 100 and vents 3 seconds after you stop.
+- Z Rocket: 30 damage, 100 energy, 10s cooldown.
+- X Flight Burst: 20 seconds of flight at 8 blocks/s, with the time left shown on the key. You can't drop below half a block off the ground, and you can't sprint-fly. Press X again to end it. Energy regen is halved while it runs.
+- Sneak + X: launches you far in the direction you're looking, then the Flight Burst kicks in 3 seconds later (50 energy).
+- V Mob Highlight (25 blocks, 10 energy). C stores the suit.
+
+🔧 MARK 2
+- Energy 1250 (+3/s), integrity 1000 (soaks 50% of every hit). Immune to arrows and fire.
+- Diamond-grade, Resistance I while wearing the chestplate, +6 melee. Can't breathe underwater and doesn't feed you.
+- Now has auto-aim targeting and its targeting HUD.
+- R Repulsor: 10 damage after a 1 second spin-up, 1s cooldown, 10 energy.
+- Hold R for 1 second: Charged Repulsor, 18 damage, 3s cooldown, 50 energy.
+- Sneak + R: Repulsor Dash. You dash forward firing repulsors all around you: 15 damage, 8s cooldown, 50 energy.
+- G Sonic Clap: clap your repulsors together for 15 damage in a 12-block cone in front of you (8s cooldown, 50 energy).
+- Z Unibeam: 6 seconds long, 20 damage per hit, 300 energy, 20s cooldown.
+- X Flares: blind enemies and give them Slowness IV for 8 seconds (10s cooldown).
+- Sneak + X: works as a flint and steel (1 energy). Used while flying, it gives you 30 seconds of supersonic flight at double speed (50 energy).
+- V Mob Highlight. C stores the suit.
+
+🔧 MARK III
+- Energy 2000 (+5/s), integrity 1000 (soaks 50% of every hit). Immune to arrows and fire.
+- Diamond-grade, Resistance I with the chestplate, +7 melee. Breathes underwater and feeds you. Auto-aim targeting and HUD.
+- R Repulsor: 15 damage, 1s cooldown, 10 energy. Hold R for 1 second: 20 damage, 3s cooldown, 50 energy. Sneak + R: Repulsor Dash for 20 damage.
+- V Weapon Wheel: choose what G fires.
+- Rockets: one rocket, 35 area damage, 10s cooldown, 100 energy.
+- Miniguns: hold G to fire for up to 5 seconds straight, 10 damage every half second, 15s cooldown.
+- Micro-Missiles: 4 missiles from your shoulders that home in on enemies, 25 damage each, 12s cooldown, 150 energy.
+- Sneak + G: Sonic Clap, 20 damage.
+- Z Unibeam: fire it for as long as you hold Z. 20 damage per hit, 80 energy per second, 20s cooldown after you let go.
+- X Flares: blind, slow, knock back and home in on enemies, setting them on fire for 3 seconds (5 damage every half second). Used while flying, they also give you 25 seconds of supersonic flight.
+- Sneak + X: JARVIS Scan (20 energy, 3s cooldown). JARVIS reports hostiles and the most dangerous one (health, distance, direction), passive and neutral mobs, bosses, other players and their powers, the structure you're in, nearby diamonds, emeralds and ancient debris, the biome, time and weather, and your suit status.
+- Sneak + V: Energy Shield. Blocks all damage while it's up, drains 10 energy per second, and 10% of every blocked hit comes out of your energy.
+- C stores the suit.
+
+📖 GUIDEBOOK & MENUS
+- The Iron Man guide chapter has new Mark 1, Mark 2, Mark III and Suit Platform pages, plus the new controls and suit-up.
+- The I-key spec sheet, the HUD ability strip and the Suit Platform screen all show the new numbers.
+
+🛠️ FIXES
+- Fixed a boss test that sometimes failed at random during releases.

@@ -1,0 +1,164 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.ironman.TonyStark;
+import com.projecthero.mod.ironman.item.IronManItems;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.14.27 Iron Man model check. Enabled by run/v01427.flag. */
+public final class V01427ModelHarness {
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 base;
+
+	private V01427ModelHarness() {
+	}
+
+	public static void init() {
+		if (Files.exists(Path.of("v01427.flag"))) {
+			ClientTickEvents.END_CLIENT_TICK.register(V01427ModelHarness::tick);
+		}
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					try {
+						fn.accept(p);
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "v01427_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void at(int t, Runnable r) {
+		Runnable prev = AT.get(t);
+		AT.put(t, prev == null ? r : () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void pose(Minecraft mc, Vec3 at, float yaw, float pitch) {
+		server(mc, p -> p.teleportTo(p.serverLevel(), at.x, at.y, at.z, yaw, pitch));
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				LevelSettings settings = new LevelSettings("V01427Debug" + System.currentTimeMillis() % 100000,
+						GameType.CREATIVE, false, Difficulty.NORMAL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+			mc.options.hideGui = true;
+			mc.options.fov().set(50);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				base = Vec3.atBottomCenterOf(p.blockPosition());
+				TonyStark.grant(p);
+			});
+			t0 = inWorldTicks;
+			buildScript(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void buildScript(Minecraft mc) {
+		int t = 10;
+		for (String id : new String[] { "mark_1", "mark_2", "mark_iii", "mark_4" }) {
+			at(t, () -> server(mc, p -> {
+				p.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false);
+				p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(IronManItems.armor(id, ArmorItem.Type.HELMET)));
+				p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(IronManItems.armor(id, ArmorItem.Type.CHESTPLATE)));
+				p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(IronManItems.armor(id, ArmorItem.Type.LEGGINGS)));
+				p.setItemSlot(EquipmentSlot.FEET, new ItemStack(IronManItems.armor(id, ArmorItem.Type.BOOTS)));
+			}));
+			at(t + 2, () -> {
+				pose(mc, base, 0f, 0f);
+				mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+			});
+			at(t + 60, () -> shot(mc, id + "_front"));
+			at(t + 62, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+			at(t + 80, () -> shot(mc, id + "_back"));
+			at(t + 82, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+			at(t + 84, () -> server(mc, p -> p.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, true)));
+			at(t + 110, () -> shot(mc, id + "_faceplate_open"));
+			// boots only
+			at(t + 112, () -> server(mc, p -> {
+				p.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false);
+				p.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
+				p.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
+				p.setItemSlot(EquipmentSlot.LEGS, ItemStack.EMPTY);
+			}));
+			at(t + 140, () -> shot(mc, id + "_boots_only"));
+			t += 150;
+		}
+		at(t + 10, () -> {
+			System.out.println("[HARNESS] done");
+			mc.stop();
+		});
+	}
+}

@@ -43,7 +43,7 @@ public final class IronManSuits {
 			// request. armorRegen is deliberately left unset (0 = no passive integrity regen at all,
 			// platform only -- also explicit user request).
 			.flightDrain(0.55f) // "changes 18"
-			.targetScanRange(30.0) // "changes 14"
+			.targetScanRange(25.0) // v0.14.27: Mob Highlight reaches 25 blocks
 			.flight(0.75f, 0.055f) // "changes 18": flies 25% slower than the other marks
 			.repulsor(0f) // no repulsor on this loadout -- see abilities() below
 			.unibeam(0f)  // no unibeam on this loadout
@@ -79,7 +79,7 @@ public final class IronManSuits {
 			.noAutoFeed()
 			.targeting() // v0.14.27: lock-on / auto-aim like the Mark III
 			.flightDrain(0.9f) // "changes 18"
-			.targetScanRange(30.0) // "changes 14"
+			.targetScanRange(25.0) // v0.14.27: Mob Highlight reaches 25 blocks
 			.flight(1.0f, 0.08f) // "normal flight like other armours"
 			// v0.14.27 R: tap = 1 s spin-up then 10 dmg (10 energy, 1 s cd); hold 1 s = 18 dmg (50 energy, 3 s cd);
 			// Shift+R = the repulsor dash (15 dmg, 50 energy, 8 s cd)

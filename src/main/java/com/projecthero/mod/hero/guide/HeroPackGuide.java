@@ -403,7 +403,8 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.iron_man.screens"); // v0.14.21 UI redesign
 			para(lines, "projecthero.guide.iron_man.screens.body");
 			// v0.14.26: scanner, Mark III targeting, I-key spec sheet, auto-feed, the Stark cookers
-			for (String section : new String[]{"scanner", "targeting", "spec_sheet", "auto_feed", "furnaces"}) {
+			for (String section : new String[]{"scanner", "targeting", "spec_sheet", "auto_feed", "furnaces",
+					"mark_1", "mark_2", "mark_iii", "platform"}) {
 				head(lines, "projecthero.guide.iron_man." + section);
 				para(lines, "projecthero.guide.iron_man." + section + ".body");
 			}
