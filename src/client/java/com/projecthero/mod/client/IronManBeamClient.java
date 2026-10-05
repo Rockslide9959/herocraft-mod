@@ -34,6 +34,12 @@ public final class IronManBeamClient {
 		Vec3 a = beam.start();
 		Vec3 b = beam.end();
 		double length = a.distanceTo(b);
+		// v0.14.27: kind 4 = a Mark III minigun tracer -- just the streak and a spark where it lands (no flash spam)
+		if (beam.kind() == 4) {
+			com.projecthero.mod.client.ironman.IronManAbilityVisuals.addBeam(a, b, 4);
+			level.addParticle(ParticleTypes.CRIT, b.x, b.y, b.z, 0, 0, 0);
+			return;
+		}
 		// kind 3 = the Mark 4 wrist laser: a thin, dense red line.
 		boolean redLaser = beam.kind() == 3;
 		int steps = Math.max(2, (int) (length * (beam.kind() == 2 ? 8 : redLaser ? 12 : 5)));

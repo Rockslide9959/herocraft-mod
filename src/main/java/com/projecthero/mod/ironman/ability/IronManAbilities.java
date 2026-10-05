@@ -309,6 +309,9 @@ public final class IronManAbilities {
 			case SUPERSONIC_FLIGHT -> { if (pressed) supersonicFlight(player, suit); }
 			case WEAPON_WHEEL -> { if (pressed) openWeaponWheel(player, suit); }
 			case WEAPON_WHEEL_SLOT -> dispatchWheelChoice(player, suit, pressed);
+			// v0.14.27 (agent D): the Mark III's own kit -- see IronManMark3
+			case IronManMark3.ARSENAL, IronManMark3.FLARES, IronManMark3.UNIBEAM, IronManMark3.WHEEL ->
+					IronManMark3.trigger(player, suit, ability, pressed);
 			default -> { }
 		}
 	}

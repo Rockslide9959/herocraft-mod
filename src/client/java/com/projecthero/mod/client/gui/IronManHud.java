@@ -197,7 +197,7 @@ public final class IronManHud {
 						IronManUiLayout.secs(left), left / (float) IronManAbilities.WRIST_LASER_TICKS, 0xFFFF3344);
 			}
 			missilesReady = true;
-			if (!minimalHud && suit.missileCount() > 0) {
+			if (!minimalHud && suit.missileCount() > 0 && !com.projecthero.mod.ironman.ability.IronManMark3.SUIT_ID.equals(suitId)) {
 				String key = suitId + "/" + IronManAbilities.MICRO_MISSILES;
 				Long readyAt = state.abilityReadyAt.get(key);
 				long left = readyAt == null ? 0 : readyAt - now;
@@ -264,11 +264,15 @@ public final class IronManHud {
 						Component.translatable("hud.projecthero.ironman.ability." + state.weaponWheelChoice)).getString());
 				chipColor.add(IronManGui.GOLD);
 			}
+			if (com.projecthero.mod.ironman.ability.IronManMark3.shieldOn(state) && com.projecthero.mod.ironman.ability.IronManMark3.SUIT_ID.equals(suitId)) {
+				chipText.add(Component.translatable("hud.projecthero.ironman.chip.mk3_shield").getString()); // v0.14.27
+				chipColor.add(IronManGui.CYAN);
+			}
 			if (player.getAttachedOrElse(ModAttachments.IRON_MAN_BLADES, false)) {
 				chipText.add(Component.translatable("hud.projecthero.ironman.chip.blades").getString());
 				chipColor.add(IronManGui.CYAN);
 			}
-			if (suit.missileCount() > 0 && missilesReady) {
+			if (suit.missileCount() > 0 && !com.projecthero.mod.ironman.ability.IronManMark3.SUIT_ID.equals(suitId) && missilesReady) {
 				chipText.add(Component.translatable("hud.projecthero.ironman.missiles", suit.missileCount()).getString());
 				chipColor.add(IronManGui.GOLD);
 			}
@@ -403,7 +407,10 @@ public final class IronManHud {
 				continue;
 			}
 			boolean wheel = IronManAbilities.WEAPON_WHEEL_SLOT.equals(abilityId);
-			String effectiveId = wheel ? state.weaponWheelChoice : abilityId;
+			// v0.14.27: the Mark III G box shows the weapon picked on its wheel (and that weapon's cooldown)
+			boolean mk3Arsenal = com.projecthero.mod.ironman.ability.IronManMark3.ARSENAL.equals(abilityId);
+			String effectiveId = wheel ? state.weaponWheelChoice
+					: mk3Arsenal ? com.projecthero.mod.ironman.ability.IronManMark3.selectedWeapon(state) : abilityId;
 			String cdKey = suitId + "/" + effectiveId;
 			Long readyAt = state.abilityReadyAt.get(cdKey);
 			long left = readyAt == null ? 0 : Math.max(0, readyAt - now);
@@ -439,7 +446,7 @@ public final class IronManHud {
 			}
 			String key = keyLabel(i);
 			g.drawString(font, key, r.x() + 2, r.y() + 1, retro ? IronManGui.AMBER : IronManGui.GOLD, true);
-			if (wheel) {
+			if (wheel || mk3Arsenal) {
 				// a small gold corner notch marks the weapon-wheel slot
 				g.fill(r.right() - 5, r.y() + 1, r.right() - 1, r.y() + 2, IronManGui.GOLD);
 				g.fill(r.right() - 2, r.y() + 1, r.right() - 1, r.y() + 5, IronManGui.GOLD);
@@ -470,6 +477,9 @@ public final class IronManHud {
 		}
 		if (IronManAbilities.TIMED_FLIGHT.equals(abilityId)) {
 			return state.timedFlightUntil > now;
+		}
+		if (com.projecthero.mod.ironman.ability.IronManMark3.WHEEL.equals(abilityId)) {
+			return com.projecthero.mod.ironman.ability.IronManMark3.shieldOn(state); // v0.14.27: Sneak+V shield is up
 		}
 		return false;
 	}
@@ -510,6 +520,14 @@ public final class IronManHud {
 			case IronManAbilities.WEAPON_WHEEL -> new ItemStack(Items.COMPASS);
 			case IronManAbilities.SUPERSONIC_FLIGHT -> new ItemStack(Items.ELYTRA);
 			case IronManAbilities.ENTITY_GLOW_TOGGLE -> new ItemStack(Items.GLOW_INK_SAC);
+			// v0.14.27: Mark III kit
+			case com.projecthero.mod.ironman.ability.IronManMark3.ROCKETS -> new ItemStack(Items.FIREWORK_ROCKET);
+			case com.projecthero.mod.ironman.ability.IronManMark3.MINIGUN -> new ItemStack(Items.CROSSBOW);
+			case com.projecthero.mod.ironman.ability.IronManMark3.MICRO_MISSILES -> new ItemStack(Items.TARGET);
+			case com.projecthero.mod.ironman.ability.IronManMark3.ARSENAL -> new ItemStack(Items.FIREWORK_ROCKET);
+			case com.projecthero.mod.ironman.ability.IronManMark3.FLARES -> new ItemStack(Items.GLOWSTONE_DUST);
+			case com.projecthero.mod.ironman.ability.IronManMark3.UNIBEAM -> new ItemStack(IronManItems.ARC_REACTOR);
+			case com.projecthero.mod.ironman.ability.IronManMark3.WHEEL -> new ItemStack(Items.COMPASS);
 			default -> ItemStack.EMPTY;
 		};
 	}

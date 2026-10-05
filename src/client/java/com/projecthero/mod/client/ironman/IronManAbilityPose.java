@@ -127,6 +127,13 @@ public final class IronManAbilityPose {
 				set(m.rightArm, w, -0.5f, 0f, 1.5f);
 				set(m.leftArm, w, -0.5f, 0f, -1.5f);
 			}
+			case IronManAbilityFx.MINIGUN -> {
+				// v0.14.27: Mark III shoulder miniguns -- both forearms braced forward on the aim line, rattling with recoil
+				float recoil = Mth.sin(ageInTicks * 3.3f) * 0.04f;
+				set(m.rightArm, w, aimX + recoil, aimY - 0.12f, 0f);
+				set(m.leftArm, w, aimX - recoil, aimY + 0.12f, 0f);
+				m.body.xRot = Mth.lerp(w, m.body.xRot, 0.04f);
+			}
 			case IronManAbilityFx.MISSILES -> {
 				set(m.rightArm, w, 0.25f, 0f, 0.55f);
 				set(m.leftArm, w, 0.25f, 0f, -0.55f);

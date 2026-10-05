@@ -66,6 +66,11 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 	}
 
 	/** The locked target, if it still exists and lives. */
+	/** v0.14.27: the direct-hit damage (for tests / tooling). */
+	public float directDamage() {
+		return directDamage;
+	}
+
 	public LivingEntity lockedTarget() {
 		return lockedTargetId >= 0 && level().getEntity(lockedTargetId) instanceof LivingEntity le && le.isAlive() ? le : null;
 	}

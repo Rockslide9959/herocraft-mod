@@ -126,8 +126,11 @@ public final class IronManSuits {
 			.unibeam(18.0f)
 			.missiles(4, 8.0f, 250f)
 			.strength(7.0f) // v0.14.27: melee bonus +7
-			.abilities(IronManAbilities.REPULSOR_BLAST, IronManAbilities.REPULSOR_BARRIER, IronManAbilities.MICRO_MISSILES,
-					IronManAbilities.UNIBEAM, IronManAbilities.MOB_HIGHLIGHT_TOGGLE, IronManAbilities.SUIT_TOGGLE)
+			// v0.14.27 (agent D): G = weapon-wheel weapon (Sneak: Sonic Clap), X = Flares (Sneak: JARVIS scan),
+			// Z = held Unibeam, V = weapon wheel (Sneak: Energy Shield) -- see IronManMark3.
+			.abilities(IronManAbilities.REPULSOR_BLAST, com.projecthero.mod.ironman.ability.IronManMark3.ARSENAL,
+					com.projecthero.mod.ironman.ability.IronManMark3.FLARES, com.projecthero.mod.ironman.ability.IronManMark3.UNIBEAM,
+					com.projecthero.mod.ironman.ability.IronManMark3.WHEEL, IronManAbilities.SUIT_TOGGLE)
 			.suitUp(SuitUpType.MECHANICAL_REMOTE)
 			.summon(SummonType.FLYING_SET)
 			.blueprint(IronManItems.MARK_III_BLUEPRINT)

@@ -173,6 +173,8 @@ public final class IronManSuitTicker {
 		}
 		// v0.14.27: the Mark 1 Shift+X launch turns into the flight burst 3 s later
 		IronManAbilities.tickPendingFlightBurst(player, suit);
+		// v0.14.27 (agent D): Mark III minigun / held Unibeam / micro-missile volley / energy shield
+		com.projecthero.mod.ironman.ability.IronManMark3.tick(player, suit);
 		IronManEnergy.tickRecharge(player, suit);
 		IronManEnergy.tickArmorRegen(player, suit); // "changes 18": Mark III+ slowly self-repair while worn
 	}
@@ -274,5 +276,7 @@ public final class IronManSuitTicker {
 			TonyStark.setWristLaserUntil(player, 0L);
 		}
 		IronManAbilities.clearPendingFlightBurst(player); // v0.14.27: a queued Shift+X burst dies with the suit
+		// v0.14.27 (agent D): Mark III held weapons + energy shield
+		com.projecthero.mod.ironman.ability.IronManMark3.shutDown(player);
 	}
 }

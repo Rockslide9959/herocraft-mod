@@ -16,7 +16,7 @@ import net.minecraft.world.phys.Vec3;
  * ({@code IronManBeamClient}) spawns a dense particle line, which is visible from the player's own
  * eyes (a server-spawned particle line starting at the eye is not).
  *
- * @param kind 0 = repulsor, 1 = charged repulsor, 2 = Unibeam, 3 = Mark 4 wrist laser (thin red)
+ * @param kind 0 = repulsor, 1 = charged repulsor, 2 = Unibeam, 3 = Mark 4 wrist laser (thin red), 4 = Mark III minigun tracer
  */
 public record IronManBeamPayload(Vec3 start, Vec3 end, int kind) implements CustomPacketPayload {
 	public static final CustomPacketPayload.Type<IronManBeamPayload> TYPE =

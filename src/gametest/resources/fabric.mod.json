@@ -88,7 +88,8 @@
       "com.projecthero.mod.gametest.IronManV01427PlatformGameTests",
       "com.projecthero.mod.gametest.IronManUiV01421GameTests",
       "com.projecthero.mod.gametest.V01421SpyMarkGameTests",
-      "com.projecthero.mod.gametest.IronManRound2GameTests"
+      "com.projecthero.mod.gametest.IronManRound2GameTests",
+      "com.projecthero.mod.gametest.IronManV01427Mark3GameTests"
     ]
   },
   "depends": {

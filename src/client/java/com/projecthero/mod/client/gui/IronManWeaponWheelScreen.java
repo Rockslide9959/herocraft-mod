@@ -5,6 +5,7 @@ import org.joml.Matrix4f;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.ironman.ability.IronManAbilities;
+import com.projecthero.mod.ironman.ability.IronManMark3;
 import com.projecthero.mod.ironman.data.TonyStarkState;
 import com.projecthero.mod.ironman.suit.IronManSuits;
 import com.projecthero.mod.ironman.ui.IronManUiLayout;
@@ -30,13 +31,22 @@ import net.minecraft.world.item.ItemStack;
  * ("changes 17" fix) so the wedge under the cursor is the wedge that lights up.
  */
 public final class IronManWeaponWheelScreen extends Screen {
-	private static final String[] SECTORS = IronManAbilities.WEAPON_WHEEL_SECTORS;
+	/** v0.14.27: the Mark III wheel (Rockets / Miniguns / Micro-Missiles for G) reuses this screen with its own wedges. */
+	private final boolean mark3;
+	private final String[] SECTORS;
 	private int hovered = -1;
-	private final float[] lift = new float[SECTORS.length];
+	private final float[] lift;
 	private long lastNanos;
 
 	public IronManWeaponWheelScreen() {
-		super(Component.translatable("screen.projecthero.weapon_wheel.title"));
+		this(false);
+	}
+
+	public IronManWeaponWheelScreen(boolean mark3) {
+		super(Component.translatable(mark3 ? "screen.projecthero.weapon_wheel.mk3_title" : "screen.projecthero.weapon_wheel.title"));
+		this.mark3 = mark3;
+		this.SECTORS = mark3 ? IronManMark3.WEAPONS : IronManAbilities.WEAPON_WHEEL_SECTORS;
+		this.lift = new float[SECTORS.length];
 	}
 
 	private TonyStarkState state() {
@@ -46,6 +56,9 @@ public final class IronManWeaponWheelScreen extends Screen {
 
 	private String currentBinding() {
 		TonyStarkState s = state();
+		if (mark3) {
+			return IronManMark3.selectedWeapon(s);
+		}
 		return s == null ? SECTORS[0] : s.weaponWheelChoice;
 	}
 
@@ -113,7 +126,7 @@ public final class IronManWeaponWheelScreen extends Screen {
 			int ix = Math.round(cx + (float) Math.cos(c) * (mid + l));
 			int iy = Math.round(cy + (float) Math.sin(c) * (mid + l));
 			String sector = SECTORS[i];
-			ItemStack icon = IronManHud.icon(sector, IronManSuits.MARK_VII);
+			ItemStack icon = IronManHud.icon(sector, mark3 ? IronManSuits.MARK_III : IronManSuits.MARK_VII);
 			g.renderItem(icon, ix - 8, iy - 12);
 			if (IronManAbilities.ENTITY_GLOW_TOGGLE.equals(sector)) {
 				boolean on = glowOn();
@@ -143,11 +156,11 @@ public final class IronManWeaponWheelScreen extends Screen {
 			}
 		}
 
-		String hint = IronManGui.fit(font, Component.translatable("screen.projecthero.weapon_wheel.hint"), width - 12);
+		String hint = IronManGui.fit(font, Component.translatable(mark3 ? "screen.projecthero.weapon_wheel.mk3_hint" : "screen.projecthero.weapon_wheel.hint"), width - 12);
 		g.drawCenteredString(this.font, hint, cx, Math.min(height - 12, cy + (int) outer + 10), IronManGui.TEXT_DIM);
 	}
 
-	private static int indexOf(String id) {
+	private int indexOf(String id) {
 		for (int i = 0; i < SECTORS.length; i++) {
 			if (SECTORS[i].equals(id)) {
 				return i;

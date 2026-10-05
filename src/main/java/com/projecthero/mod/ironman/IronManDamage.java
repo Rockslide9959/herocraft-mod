@@ -105,6 +105,11 @@ public final class IronManDamage {
 		String suitId = IronManArmor.wornSuitId(player);
 		IronManSuit suit = suitId == null ? null : IronManSuits.byId(suitId);
 
+		// v0.14.27 (agent D): the Mark III Energy Shield (Sneak+V) blocks every hit outright, 10% paid in energy.
+		if (suit != null && com.projecthero.mod.ironman.ability.IronManMark3.absorb(player, suitId, source, amount)) {
+			return false;
+		}
+
 		// Repulsor Shield (slot 2 / G): a deployed frontal shield blocks 90% of any hit that lands in the
 		// 180-degree arc in front of the player ("changes 13") while it holds, even without the full suit
 		// -- it only needs the chestplate the ability itself requires. Hits from outside that arc pass

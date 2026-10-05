@@ -29,6 +29,8 @@ public final class IronManAbilityFx {
 	public static final int DASH = 20;
 	/** v0.14.27 (agent C): the sonic clap ({@code IronManSonicClap}). */
 	public static final int SONIC_CLAP = 21;
+	/** v0.14.27 (agent D): Mark III shoulder miniguns -- numbered high to stay clear of other new poses. */
+	public static final int MINIGUN = 22;
 
 	private IronManAbilityFx() {
 	}

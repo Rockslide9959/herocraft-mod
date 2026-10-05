@@ -65,6 +65,7 @@ public final class IronManAbilityVisuals {
 			case 1 -> 9;
 			case 2 -> 3;
 			case 3 -> 2;
+			case 4 -> 3; // v0.14.27 minigun tracer
 			default -> 6;
 		};
 	}
@@ -148,6 +149,11 @@ public final class IronManAbilityVisuals {
 				colour = 0xFF2A2A;
 				fade = 1f;
 			}
+			case 4 -> {
+				// v0.14.27: Mark III minigun tracer -- a thin hot-yellow streak
+				width = 0.045f;
+				colour = 0xFFD24A;
+			}
 			default -> {
 				width = 0.2f;
 				colour = 0x9FE8FF;
@@ -157,7 +163,7 @@ public final class IronManAbilityVisuals {
 		float w = width * (0.5f + 0.5f * fade);
 		BeamDraw.beam(vc, glow, pose, b.a(), b.b(), cam, w, glow ? colour : 0xFFFFFF, fade);
 		// a flare ring at the palm / chest
-		if (b.kind() != 3) {
+		if (b.kind() != 3 && b.kind() != 4) {
 			ring(vc, glow, pose, b.a(), b.b().subtract(b.a()).normalize(), width * (1.2f + (1f - fade) * 1.5f), glow ? colour : 0xFFFFFF,
 					fade * 0.9f, cam, 16);
 		}

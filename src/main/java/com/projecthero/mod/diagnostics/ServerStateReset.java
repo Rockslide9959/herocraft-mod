@@ -89,6 +89,7 @@ public final class ServerStateReset {
 		ElectrokinesisHandlers.clearSessionState();
 		ShadowManipulationHandlers.clearSessionState();
 		IronManSuitCall.clearPending();
+		com.projecthero.mod.ironman.ability.IronManMark3.clearSessionState(); // v0.14.27 (agent D)
 		com.projecthero.mod.event.entity.CursedZombieSpawns.clearSessionState();
 		com.projecthero.mod.event.raid.ZombieRaidNetworking.clearSessionState();
 		com.projecthero.mod.worldgen.GraveyardTracker.clearSessionState();
