@@ -173,6 +173,17 @@ public class GraveboundBossPowerGameTests implements FabricGameTest {
 		}
 	}
 
+	/**
+	 * v0.14.27: {@link #drive} until {@code done} holds (or {@code maxCycles} run out). Boss casts pick abilities and
+	 * line-of-sight rolls at random, so a fixed cycle count made bossAbilitiesHurtAndMarkAPlayersPet flaky in CI.
+	 */
+	private static void driveUntil(ServerLevel level, EmpoweredZombie boss, LivingEntity target, Vec3 bossAt, Vec3 targetAt,
+			int maxCycles, Runnable eachCycle, java.util.function.BooleanSupplier done) {
+		for (int i = 0; i < maxCycles && !done.getAsBoolean(); i++) {
+			drive(level, boss, target, bossAt, targetAt, 1, eachCycle);
+		}
+	}
+
 	private static boolean mentionsKey(Component c, String key) {
 		if (c == null) {
 			return false;
@@ -323,7 +334,8 @@ public class GraveboundBossPowerGameTests implements FabricGameTest {
 			EmpoweredZombie electro = boss(level, at, ElectrokinesisBoss.POWER_KEY);
 			Wolf a = pet(level, at.offset(9, 0, 0));
 			boolean[] stacked = { false };
-			drive(level, electro, a, bossAt, bossAt.add(9, 0, 0), 12, () -> stacked[0] |= ElectrokinesisHandlers.stacks(a) > 0);
+			driveUntil(level, electro, a, bossAt, bossAt.add(9, 0, 0), 48, () -> stacked[0] |= ElectrokinesisHandlers.stacks(a) > 0,
+					() -> stacked[0] && a.getHealth() < a.getMaxHealth());
 			boolean electroHurt = a.getHealth() < a.getMaxHealth();
 			electro.discard();
 			a.discard();
@@ -333,8 +345,9 @@ public class GraveboundBossPowerGameTests implements FabricGameTest {
 			EmpoweredZombie cryo = boss(level, at, CryokinesisBoss.POWER_KEY);
 			Wolf b = pet(level, at.offset(9, 0, 0));
 			boolean[] frosted = { false };
-			drive(level, cryo, b, bossAt, bossAt.add(9, 0, 0), 16,
-					() -> frosted[0] |= FrostStacks.stacks(b) > 0 || FrostStacks.frozen(b));
+			driveUntil(level, cryo, b, bossAt, bossAt.add(9, 0, 0), 64,
+					() -> frosted[0] |= FrostStacks.stacks(b) > 0 || FrostStacks.frozen(b),
+					() -> frosted[0] && b.getHealth() < b.getMaxHealth());
 			boolean cryoHurt = b.getHealth() < b.getMaxHealth();
 			String cryoInfo = " (used " + cryo.primaryController().usedAbilities() + ", pet " + b.getHealth() + "/" + b.getMaxHealth()
 					+ ", sees " + cryo.hasLineOfSight(b) + ")";
@@ -345,7 +358,8 @@ public class GraveboundBossPowerGameTests implements FabricGameTest {
 			clearCorridor(level, at);
 			EmpoweredZombie brute = boss(level, at, SuperStrengthBoss.POWER_KEY);
 			Wolf w = pet(level, at.offset(3, 0, 0));
-			drive(level, brute, w, bossAt, bossAt.add(3, 0, 0), 6, null);
+			driveUntil(level, brute, w, bossAt, bossAt.add(3, 0, 0), 24, null, () -> w.getHealth() < w.getMaxHealth()
+					&& (brute.primaryController().usedAbilities().contains("haymaker") || brute.primaryController().usedAbilities().contains("ground_slam")));
 			boolean bruteHurt = w.getHealth() < w.getMaxHealth();
 			Set<String> bruteUsed = new HashSet<>(brute.primaryController().usedAbilities());
 			brute.discard();
