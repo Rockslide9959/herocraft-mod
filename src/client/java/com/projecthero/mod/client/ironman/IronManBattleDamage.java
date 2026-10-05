@@ -141,6 +141,7 @@ public final class IronManBattleDamage {
 				}
 			}
 			glow.close();
+			lit = protectLights(lit, w, h);
 		}
 		Random rng = new Random(base.toString().hashCode() * 7919L + 29L);
 		double scale = w / 64.0;
@@ -222,6 +223,70 @@ public final class IronManBattleDamage {
 		}
 		src.close();
 		return out;
+	}
+
+	/**
+	 * The texels the damage must leave alone: every glowmask texel, its partner on the other skin layer (a scorched
+	 * outer-layer texel in front of a lit eye would hide it), and a one-texel margin round both.
+	 */
+	private static boolean[][] protectLights(boolean[][] lit, int w, int h) {
+		boolean[][] layered = new boolean[w][h];
+		double s = w / 64.0;
+		for (int x = 0; x < w; x++) {
+			for (int y = 0; y < h; y++) {
+				if (!lit[x][y]) {
+					continue;
+				}
+				layered[x][y] = true;
+				int[] p = partner((int) (x / s), (int) (y / s));
+				if (p != null) {
+					int px = (int) (p[0] * s + (x - (int) (x / s) * s));
+					int py = (int) (p[1] * s + (y - (int) (y / s) * s));
+					if (px >= 0 && py >= 0 && px < w && py < h) {
+						layered[px][py] = true;
+					}
+				}
+			}
+		}
+		boolean[][] out = new boolean[w][h];
+		for (int x = 0; x < w; x++) {
+			for (int y = 0; y < h; y++) {
+				if (!layered[x][y]) {
+					continue;
+				}
+				for (int dx = -1; dx <= 1; dx++) {
+					for (int dy = -1; dy <= 1; dy++) {
+						int nx = x + dx;
+						int ny = y + dy;
+						if (nx >= 0 && ny >= 0 && nx < w && ny < h) {
+							out[nx][ny] = true;
+						}
+					}
+				}
+			}
+		}
+		return out;
+	}
+
+	/** The same body texel on the other skin layer, in 64x64 player-skin UV space (null if none). */
+	private static int[] partner(int u, int v) {
+		if (v < 16) { // head <-> hat
+			return u < 32 ? new int[]{u + 32, v} : new int[]{u - 32, v};
+		}
+		if (v < 32) { // right leg, body, right arm -> their jacket / pants / sleeve below
+			return u < 56 ? new int[]{u, v + 16} : null;
+		}
+		if (v < 48) {
+			return u < 56 ? new int[]{u, v - 16} : null;
+		}
+		// bottom row: left leg pants (0-15) <-> left leg (16-31), left arm (32-47) <-> left sleeve (48-63)
+		if (u < 16) {
+			return new int[]{u + 16, v};
+		}
+		if (u < 32) {
+			return new int[]{u - 16, v};
+		}
+		return u < 48 ? new int[]{u + 16, v} : new int[]{u - 16, v};
 	}
 
 	private static double[][] lattice(Random rng, int w, int h, double cell) {

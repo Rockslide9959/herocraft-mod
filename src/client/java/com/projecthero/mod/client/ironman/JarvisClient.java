@@ -11,6 +11,7 @@ import com.google.gson.GsonBuilder;
 
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.gui.IronManGui;
+import com.projecthero.mod.ironman.ui.IronManUiLayout;
 import com.projecthero.mod.network.IronManJarvisPayload;
 
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -128,29 +129,33 @@ public final class JarvisClient {
 		}
 		float alpha = age > SHOW_MS - FADE_MS ? Math.max(0.06f, (SHOW_MS - age) / (float) FADE_MS) : 1f;
 		Font font = mc.font;
+		int accent = currentCrude ? IronManGui.AMBER : IronManGui.CYAN;
+		int text = currentCrude ? IronManGui.AMBER : IronManGui.TEXT;
+		// the speaker tag leads the first line, so a two-line message is only 26 px tall
+		Component label = Component.translatable(currentCrude ? "message.projecthero.ironman.jarvis.prefix_system"
+				: "message.projecthero.ironman.jarvis.prefix")
+				.withStyle(s -> s.withColor(IronManGui.alpha(accent, alpha) & 0xFFFFFF).withBold(true));
 		String full = current.getString();
 		int shown = Math.min(full.length(), Math.max(1, (int) (age * CHARS_PER_MS)));
-		Component typed = Component.literal(full.substring(0, shown));
+		Component typed = Component.empty().append(label).append(" ").append(Component.literal(full.substring(0, shown)));
+		Component whole = Component.empty().append(label).append(" ").append(Component.literal(full));
 		int w = Math.min(MAX_W, g.guiWidth() - 16);
 		List<FormattedCharSequence> lines = font.split(typed, w - 8);
-		List<FormattedCharSequence> fullLines = font.split(current, w - 8); // box sized for the whole line (no jitter)
+		List<FormattedCharSequence> fullLines = font.split(whole, w - 8); // box sized for the whole line (no jitter)
 		int boxW = 0;
 		for (FormattedCharSequence l : fullLines) {
 			boxW = Math.max(boxW, font.width(l));
 		}
-		String label = Component.translatable(currentCrude ? "message.projecthero.ironman.jarvis.prefix_system"
-				: "message.projecthero.ironman.jarvis.prefix").getString();
-		boxW = Math.max(boxW, font.width(label)) + 8;
-		int boxH = 12 + fullLines.size() * 10 + 3;
+		boxW += 9;
+		int boxH = 4 + fullLines.size() * 10;
 		int x = (g.guiWidth() - boxW) / 2;
-		int y = g.guiHeight() - 92 - boxH;
-		int accent = currentCrude ? IronManGui.AMBER : IronManGui.CYAN;
-		int text = currentCrude ? IronManGui.AMBER : IronManGui.TEXT;
+		// between the crosshair and the Iron Man ability strip, clear of the HUD panel top-left
+		int stripTop = IronManUiLayout.abilityStrip(g.guiWidth(), g.guiHeight())[0].y();
+		int y = Math.max(g.guiHeight() / 2 + 10, stripTop - 5 - boxH);
 		g.fill(x, y, x + boxW, y + boxH, IronManGui.alpha(currentCrude ? 0xFF140C04 : 0xFF041826, 0.72f * alpha));
 		g.renderOutline(x, y, boxW, boxH, IronManGui.alpha(accent, 0.8f * alpha));
 		g.fill(x, y, x + 2, y + boxH, IronManGui.alpha(accent, alpha));
-		g.drawString(font, label, x + 5, y + 3, IronManGui.alpha(accent, alpha), false);
-		int ly = y + 14;
+		int ly = y + 3;
 		for (FormattedCharSequence l : lines) {
 			g.drawString(font, l, x + 5, ly, IronManGui.alpha(text, alpha), false);
 			ly += 10;

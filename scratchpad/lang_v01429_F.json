@@ -1,6 +1,6 @@
 {
   "message.projecthero.ironman.jarvis.prefix": "J.A.R.V.I.S.",
-  "message.projecthero.ironman.jarvis.prefix_system": "SYSTEM",
+  "message.projecthero.ironman.jarvis.prefix_system": "SYSTEM:",
   "message.projecthero.ironman.jarvis.online": "All systems online. Welcome back, sir.",
   "message.projecthero.ironman.jarvis.energy_25": "Power at twenty-five percent, sir.",
   "message.projecthero.ironman.jarvis.energy_10": "Power critical. Ten percent and falling.",
