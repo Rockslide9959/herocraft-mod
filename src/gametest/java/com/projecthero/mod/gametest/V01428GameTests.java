@@ -102,7 +102,10 @@ public class V01428GameTests implements FabricGameTest {
 		p.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
 		TonyStark.grant(p);
 		for (ArmorItem.Type t : ArmorItem.Type.values()) {
-			p.setItemSlot(IronManSuitUpManager.slotFor(t), new ItemStack(IronManItems.armor("mark_iii", t)));
+			var item = IronManItems.armor("mark_iii", t);
+			if (item != null) {
+				p.setItemSlot(IronManSuitUpManager.slotFor(t), new ItemStack(item));
+			}
 		}
 		IronManEnergy.setEnergy(p, "mark_iii", IronManEnergy.capacity("mark_iii"));
 		Zombie left = zombie(h, p.getX() - 0.7, p.getY(), p.getZ() + 6);
