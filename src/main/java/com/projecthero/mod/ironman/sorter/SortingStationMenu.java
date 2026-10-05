@@ -25,13 +25,13 @@ public class SortingStationMenu extends AbstractContainerMenu {
 	public static final int BUTTON_SORT = 0;
 	/** v0.14.20: re-sort the chests themselves (see {@link SortingStationBlockEntity#startTidy}). */
 	public static final int BUTTON_TIDY = 1;
-	public static final int ROWS = 6;
-	/** Y of the first player-inventory row (the screen leaves a status band between the store and it). */
-	public static final int INV_Y = 180;
+	public static final int ROWS = SortingStationLayout.ROWS;
+	/** Y of the first player-inventory row (v0.14.29: 180 -> 140, the status band moved to the right column). */
+	public static final int INV_Y = SortingStationLayout.INV_Y;
 	/** v0.14.21: the supply column -- x of its first slot, and the y of the sign row and the chest row. */
-	public static final int SUPPLY_X = 184;
-	public static final int SIGN_Y = 30;
-	public static final int CHEST_Y = 66;
+	public static final int SUPPLY_X = SortingStationLayout.SUPPLY_X;
+	public static final int SIGN_Y = SortingStationLayout.SIGN_Y;
+	public static final int CHEST_Y = SortingStationLayout.CHEST_Y;
 	/** Menu slot index of the first supply slot (after the store). */
 	public static final int SUPPLY_START = SortingStationBlockEntity.SIZE;
 	private static final int PLAYER_START = SUPPLY_START + SortingStationBlockEntity.SUPPLY_SLOTS;
@@ -61,23 +61,20 @@ public class SortingStationMenu extends AbstractContainerMenu {
 		checkContainerSize(container, SortingStationBlockEntity.SIZE);
 		container.startOpen(playerInv.player);
 
-		for (int row = 0; row < ROWS; row++) {
-			for (int col = 0; col < 9; col++) {
-				addSlot(new Slot(container, col + row * 9, 8 + col * 18, 18 + row * 18));
-			}
+		// v0.14.29: every position comes from SortingStationLayout, the same numbers the screen draws with
+		for (int i = 0; i < SortingStationBlockEntity.SIZE; i++) {
+			int[] xy = SortingStationLayout.storeSlot(i);
+			addSlot(new Slot(container, i, xy[0], xy[1]));
 		}
 		for (int i = 0; i < SortingStationBlockEntity.SUPPLY_SLOTS; i++) {
 			boolean sign = i < SortingStationBlockEntity.SIGN_SLOTS;
-			int col = i % SortingStationBlockEntity.SIGN_SLOTS;
-			addSlot(new SupplySlot(supply, i, SUPPLY_X + col * 18, sign ? SIGN_Y : CHEST_Y, sign));
+			int[] xy = SortingStationLayout.supplySlot(i);
+			addSlot(new SupplySlot(supply, i, xy[0], xy[1], sign));
 		}
-		for (int row = 0; row < 3; row++) {
-			for (int col = 0; col < 9; col++) {
-				addSlot(new Slot(playerInv, col + row * 9 + 9, 8 + col * 18, INV_Y + row * 18));
-			}
-		}
-		for (int col = 0; col < 9; col++) {
-			addSlot(new Slot(playerInv, col, 8 + col * 18, INV_Y + 58));
+		for (int i = 0; i < 36; i++) {
+			int[] xy = SortingStationLayout.playerSlot(i);
+			// the three rows are inventory 9..35, the hotbar inventory 0..8
+			addSlot(new Slot(playerInv, i < 27 ? i + 9 : i - 27, xy[0], xy[1]));
 		}
 		addDataSlots(data);
 	}

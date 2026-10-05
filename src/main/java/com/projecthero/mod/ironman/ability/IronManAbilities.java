@@ -1012,7 +1012,10 @@ public final class IronManAbilities {
 		for (double d = 0.5; d <= streamLen + 0.01; d += 0.5) {
 			Vec3 pt = origin.add(look.scale(d));
 			Vec3 fx = nozzle.add(streamDir.scale(nozzleLen * d / streamLen));
-			level.sendParticles(ParticleTypes.FLAME, fx.x, fx.y, fx.z, 3, 0.12 * d, 0.12 * d, 0.12 * d, 0.02);
+			// v0.14.29: a tighter spread (was 0.12 x d, 3 a step) -- at the Mark 1's 10 blocks the old one sprayed flames
+			// 2-3 blocks to either side and well past the end, so the stream read as a field of fire, not a jet
+			double spread = 0.04 + 0.06 * d;
+			level.sendParticles(ParticleTypes.FLAME, fx.x, fx.y, fx.z, 2, spread, spread, spread, 0.01);
 			if (player.tickCount % 2 == 0 && flamethrowerFireOk()) {
 				BlockPos bp = BlockPos.containing(pt);
 				boolean nearSurface = !level.getBlockState(bp.below()).isAir() || !level.getBlockState(bp.above()).isAir()
@@ -1070,10 +1073,11 @@ public final class IronManAbilities {
 		Vec3 look = player.getLookAngle();
 		Vec3 right = look.cross(new Vec3(0, 1, 0));
 		right = right.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : right.normalize();
-		if (player.getMainArm() == net.minecraft.world.entity.HumanoidArm.LEFT) {
-			right = right.scale(-1);
-		}
-		return player.getEyePosition().add(look.scale(0.15 * scale)).add(right.scale(0.42 * scale)).add(0, -0.6 * scale, 0);
+		// (always the right wrist: the FLAME pose raises the right arm whatever the main hand)
+		// v0.14.29: the wrist of the raised FLAME pose (the arm is held out on the aim line since v0.14.26) -- the same point
+		// the client's flame cone starts from (IronManAbilityVisuals#flame). The old hanging-arm point (0.15 forward, 0.6
+		// down) left the particles trailing under and behind the drawn stream.
+		return player.getEyePosition().add(look.scale(0.7 * scale)).add(right.scale(0.35 * scale)).add(0, -0.35 * scale, 0);
 	}
 
 	private static void rocket(ServerPlayer player, IronManSuit suit) {

@@ -1,6 +1,9 @@
 package com.projecthero.mod.client.sorter;
 
+import com.projecthero.mod.ironman.sorter.SortingStationBlockEntity;
+import com.projecthero.mod.ironman.sorter.SortingStationLayout;
 import com.projecthero.mod.ironman.sorter.SortingStationMenu;
+import com.projecthero.mod.ironman.ui.IronManUiLayout.Rect;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
@@ -17,6 +20,11 @@ import net.minecraft.world.item.Items;
  * <b>Sort</b> and (v0.14.20) <b>Tidy</b> buttons, then the player inventory. v0.14.21 adds a supply column on the
  * right: three sign slots, three chest slots (ghost icons while empty) and what the room still needs ("Add 3
  * signs"), wrapped to the column. Slot geometry matches {@link SortingStationMenu}.
+ *
+ * <p>v0.14.29: the panel was 262 px tall and clipped at GUI scale 3 on a 720p window. The status band (status, progress
+ * bar, Sort and Tidy side by side) moved to the foot of the right column, so the panel is now 272 x 222 and fits a
+ * 320 x 240 scaled screen. Every coordinate comes from {@link SortingStationLayout} (checked by
+ * {@code SortingStationLayoutGameTests}).
  */
 public class SortingStationScreen extends AbstractContainerScreen<SortingStationMenu> {
 	private static final int BG = 0xFF181C24;
@@ -28,35 +36,22 @@ public class SortingStationScreen extends AbstractContainerScreen<SortingStation
 	private static final int ARC = 0xFF5FD8FF;
 	private static final int TEXT = 0xFFB8C0E0;
 
-	// v0.14.20: the band grew to fit two stacked buttons (Sort above Tidy) and a two-line status
-	private static final int BAND_Y = 128;
-	private static final int BAND_H = 38;
-	private static final int BTN_X = 122;
-	private static final int SORT_Y = 131;
-	private static final int TIDY_Y = 148;
-	private static final int BTN_W = 46;
-	private static final int BTN_H = 15;
-	private static final int BAR_X = 8;
-	private static final int BAR_Y = BAND_Y + 29;
-	private static final int BAR_W = 108;
 	private static final int HINT_WIDTH = 180;
-	// v0.14.21: the supply column to the right of the store
-	private static final int MAIN_W = 176;
-	private static final int SIDE_W = 72;
-	private static final int SIDE_H = BAND_Y + BAND_H + 2;
-	private static final int NEEDS_X = MAIN_W + 6;
-	private static final int NEEDS_Y = SortingStationMenu.CHEST_Y + 24;
-	private static final int NEEDS_W = SIDE_W - 10;
-	private static final int NEEDS_BOTTOM = SIDE_H - 4;
+	// v0.14.29: everything below is SortingStationLayout -- the band now lives in the right column
+	private static final int MAIN_W = SortingStationLayout.MAIN_W;
+	private static final int NEEDS_X = SortingStationLayout.SIDE_X;
+	private static final int NEEDS_Y = SortingStationLayout.NEEDS_Y;
+	private static final int NEEDS_W = SortingStationLayout.SIDE_TEXT_W;
+	private static final int NEEDS_BOTTOM = SortingStationLayout.NEEDS_BOTTOM;
 
 	public SortingStationScreen(SortingStationMenu menu, Inventory inv, Component title) {
 		super(menu, inv, title);
-		this.imageWidth = MAIN_W + SIDE_W;
-		this.imageHeight = SortingStationMenu.INV_Y + 82;
-		this.titleLabelX = 8;
-		this.titleLabelY = 6;
-		this.inventoryLabelX = 8;
-		this.inventoryLabelY = SortingStationMenu.INV_Y - 11;
+		this.imageWidth = SortingStationLayout.W;
+		this.imageHeight = SortingStationLayout.H;
+		this.titleLabelX = SortingStationLayout.TITLE_X;
+		this.titleLabelY = SortingStationLayout.TITLE_Y;
+		this.inventoryLabelX = SortingStationLayout.STORE_X;
+		this.inventoryLabelY = SortingStationLayout.INV_LABEL_Y;
 	}
 
 	private static final ItemStack GHOST_SIGN = new ItemStack(Items.OAK_SIGN);
@@ -96,7 +91,7 @@ public class SortingStationScreen extends AbstractContainerScreen<SortingStation
 	}
 
 	private boolean overNeeds(double mx, double my) {
-		return mx >= leftPos + MAIN_W && mx < leftPos + imageWidth && my >= topPos + NEEDS_Y - 2 && my < topPos + NEEDS_BOTTOM;
+		return SortingStationLayout.needs().contains(mx - leftPos, my - topPos);
 	}
 
 	private void cell(GuiGraphics g, int x, int y) {
@@ -104,22 +99,20 @@ public class SortingStationScreen extends AbstractContainerScreen<SortingStation
 		g.fill(x, y, x + 16, y + 16, CELL_BG);
 	}
 
-	private boolean overButton(double mx, double my, int btnY) {
-		int x = leftPos + BTN_X;
-		int y = topPos + btnY;
-		return mx >= x && mx < x + BTN_W && my >= y && my < y + BTN_H;
+	private boolean overButton(double mx, double my, Rect btn) {
+		return btn.contains(mx - leftPos, my - topPos);
 	}
 
 	/** One of the two band buttons; {@code active} = this button's job is the one running. */
-	private void button(GuiGraphics g, int btnY, String labelKey, boolean active, int mouseX, int mouseY) {
+	private void button(GuiGraphics g, Rect btn, String labelKey, boolean active, int mouseX, int mouseY) {
 		boolean busy = menu.running();
-		boolean hover = !busy && overButton(mouseX, mouseY, btnY);
-		int bxx = leftPos + BTN_X;
-		int byy = topPos + btnY;
-		g.fill(bxx - 1, byy - 1, bxx + BTN_W + 1, byy + BTN_H + 1, busy ? CELL_BORDER : GOLD);
-		g.fill(bxx, byy, bxx + BTN_W, byy + BTN_H, busy ? 0xFF2B3242 : (hover ? 0xFFB8282F : RED));
+		boolean hover = !busy && overButton(mouseX, mouseY, btn);
+		int bxx = leftPos + btn.x();
+		int byy = topPos + btn.y();
+		g.fill(bxx - 1, byy - 1, bxx + btn.w() + 1, byy + btn.h() + 1, busy ? CELL_BORDER : GOLD);
+		g.fill(bxx, byy, bxx + btn.w(), byy + btn.h(), busy ? 0xFF2B3242 : (hover ? 0xFFB8282F : RED));
 		Component label = Component.translatable(busy && active ? "screen.projecthero.stark_sorting_station.busy" : labelKey);
-		g.drawString(font, label, bxx + (BTN_W - font.width(label)) / 2, byy + (BTN_H - 8) / 2 + 1,
+		g.drawString(font, label, bxx + (btn.w() - font.width(label)) / 2, byy + (btn.h() - 8) / 2 + 1,
 				busy ? 0xFF8A93A8 : 0xFFFFE9B0, true);
 	}
 
@@ -127,57 +120,50 @@ public class SortingStationScreen extends AbstractContainerScreen<SortingStation
 	protected void renderBg(GuiGraphics g, float partialTick, int mouseX, int mouseY) {
 		int x = leftPos;
 		int y = topPos;
-		g.fill(x, y, x + MAIN_W, y + imageHeight, BG);
-		g.fill(x + MAIN_W, y, x + imageWidth, y + SIDE_H, BG);
-		// red/gold Stark trim
+		g.fill(x, y, x + imageWidth, y + imageHeight, BG);
+		// red/gold Stark trim, and the divider between the two columns
 		g.fill(x, y, x + imageWidth, y + 2, RED);
 		g.fill(x, y + 2, x + imageWidth, y + 3, GOLD);
-		g.fill(x, y + imageHeight - 2, x + MAIN_W, y + imageHeight, RED);
-		g.fill(x + MAIN_W, y + SIDE_H - 2, x + imageWidth, y + SIDE_H, RED);
-		g.fill(x + MAIN_W, y + 3, x + MAIN_W + 1, y + SIDE_H - 2, CELL_BORDER);
+		g.fill(x, y + imageHeight - 2, x + imageWidth, y + imageHeight, RED);
+		g.fill(x + MAIN_W, y + 3, x + MAIN_W + 1, y + imageHeight - 2, CELL_BORDER);
 
 		// v0.14.21: supply slots, with a faded sign / chest while empty
-		for (int i = 0; i < 3; i++) {
-			int sx = x + SortingStationMenu.SUPPLY_X + i * 18;
-			cell(g, sx, y + SortingStationMenu.SIGN_Y);
-			cell(g, sx, y + SortingStationMenu.CHEST_Y);
-			ghost(g, SortingStationMenu.SUPPLY_START + i, sx, y + SortingStationMenu.SIGN_Y, GHOST_SIGN);
-			ghost(g, SortingStationMenu.SUPPLY_START + 3 + i, sx, y + SortingStationMenu.CHEST_Y, GHOST_CHEST);
+		for (int i = 0; i < SortingStationBlockEntity.SUPPLY_SLOTS; i++) {
+			int[] xy = SortingStationLayout.supplySlot(i);
+			cell(g, x + xy[0], y + xy[1]);
+			ghost(g, SortingStationMenu.SUPPLY_START + i, x + xy[0], y + xy[1], i < 3 ? GHOST_SIGN : GHOST_CHEST);
+		}
+		for (int i = 0; i < SortingStationBlockEntity.SIZE; i++) {
+			int[] xy = SortingStationLayout.storeSlot(i);
+			cell(g, x + xy[0], y + xy[1]);
+		}
+		for (int i = 0; i < 36; i++) {
+			int[] xy = SortingStationLayout.playerSlot(i);
+			cell(g, x + xy[0], y + xy[1]);
 		}
 
-		for (int row = 0; row < SortingStationMenu.ROWS; row++) {
-			for (int col = 0; col < 9; col++) {
-				cell(g, x + 8 + col * 18, y + 18 + row * 18);
-			}
-		}
+		// status band (v0.14.29: the foot of the right column)
+		Rect band = SortingStationLayout.band();
+		int bx0 = x + band.x();
+		int by0 = y + band.y();
+		g.fill(bx0, by0, bx0 + band.w(), by0 + band.h(), PANEL);
+		g.fill(bx0, by0, bx0 + band.w(), by0 + 1, GOLD);
+		g.fill(bx0, by0 + band.h() - 1, bx0 + band.w(), by0 + band.h(), CELL_BORDER);
 
-		// status band
-		g.fill(x + 4, y + BAND_Y, x + MAIN_W - 4, y + BAND_Y + BAND_H, PANEL);
-		g.fill(x + 4, y + BAND_Y, x + MAIN_W - 4, y + BAND_Y + 1, GOLD);
-		g.fill(x + 4, y + BAND_Y + BAND_H - 1, x + MAIN_W - 4, y + BAND_Y + BAND_H, CELL_BORDER);
-
-		int bx = x + BAR_X;
-		int by = y + BAR_Y;
-		g.fill(bx - 1, by - 1, bx + BAR_W + 1, by + 5, CELL_BORDER);
-		g.fill(bx, by, bx + BAR_W, by + 4, 0xFF10141C);
+		Rect bar = SortingStationLayout.bar();
+		int bx = x + bar.x();
+		int by = y + bar.y();
+		g.fill(bx - 1, by - 1, bx + bar.w() + 1, by + 5, CELL_BORDER);
+		g.fill(bx, by, bx + bar.w(), by + 4, 0xFF10141C);
 		int total = menu.total();
 		if (total > 0) {
 			float f = Math.min(1f, menu.done() / (float) total);
-			g.fill(bx, by, bx + Math.round(BAR_W * f), by + 4, menu.running() ? ARC : 0xFF66E0A0);
+			g.fill(bx, by, bx + Math.round(bar.w() * f), by + 4, menu.running() ? ARC : 0xFF66E0A0);
 		}
 
-		// the Sort and Tidy buttons
-		button(g, SORT_Y, "screen.projecthero.stark_sorting_station.sort", !menu.tidyMode(), mouseX, mouseY);
-		button(g, TIDY_Y, "screen.projecthero.stark_sorting_station.tidy", menu.tidyMode(), mouseX, mouseY);
-
-		for (int row = 0; row < 3; row++) {
-			for (int col = 0; col < 9; col++) {
-				cell(g, x + 8 + col * 18, y + SortingStationMenu.INV_Y + row * 18);
-			}
-		}
-		for (int col = 0; col < 9; col++) {
-			cell(g, x + 8 + col * 18, y + SortingStationMenu.INV_Y + 58);
-		}
+		// the Sort and Tidy buttons, side by side
+		button(g, SortingStationLayout.sortButton(), "screen.projecthero.stark_sorting_station.sort", !menu.tidyMode(), mouseX, mouseY);
+		button(g, SortingStationLayout.tidyButton(), "screen.projecthero.stark_sorting_station.tidy", menu.tidyMode(), mouseX, mouseY);
 	}
 
 	@Override
@@ -197,7 +183,8 @@ public class SortingStationScreen extends AbstractContainerScreen<SortingStation
 			status = Component.translatable("screen.projecthero.stark_sorting_station.idle");
 		}
 		// v0.14.21: the supply column -- headings, then what the room still needs, wrapped to the column
-		g.drawString(font, Component.translatable("screen.projecthero.stark_sorting_station.supplies"), NEEDS_X, 6, GOLD, false);
+		g.drawString(font, Component.translatable("screen.projecthero.stark_sorting_station.supplies"), NEEDS_X,
+				SortingStationLayout.TITLE_Y, GOLD, false);
 		g.drawString(font, Component.translatable("screen.projecthero.stark_sorting_station.signs"), SortingStationMenu.SUPPLY_X,
 				SortingStationMenu.SIGN_Y - 10, 0xFF7FA8D8, false);
 		g.drawString(font, Component.translatable("screen.projecthero.stark_sorting_station.chests"), SortingStationMenu.SUPPLY_X,
@@ -214,11 +201,12 @@ public class SortingStationScreen extends AbstractContainerScreen<SortingStation
 			ny += 2;
 		}
 
-		// stays inside the band: wrap to the space left of the buttons, at most two lines
-		var lines = font.split(status, BTN_X - BAR_X - 6);
-		for (int i = 0; i < Math.min(2, lines.size()); i++) {
+		// stays inside the band: wrap to the column, at most STATUS_LINES lines above the bar
+		var lines = font.split(status, SortingStationLayout.SIDE_TEXT_W);
+		for (int i = 0; i < Math.min(SortingStationLayout.STATUS_LINES, lines.size()); i++) {
 			FormattedCharSequence line = lines.get(i);
-			g.drawString(font, line, BAR_X, BAND_Y + 5 + i * 10, menu.running() ? ARC : TEXT, false);
+			g.drawString(font, line, SortingStationLayout.SIDE_X, SortingStationLayout.STATUS_Y + i * 10,
+					menu.running() ? ARC : TEXT, false);
 		}
 	}
 
@@ -226,9 +214,9 @@ public class SortingStationScreen extends AbstractContainerScreen<SortingStation
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
 		super.render(g, mouseX, mouseY, partialTick);
 		String hint = null;
-		if (!menu.running() && overButton(mouseX, mouseY, SORT_Y)) {
+		if (!menu.running() && overButton(mouseX, mouseY, SortingStationLayout.sortButton())) {
 			hint = "screen.projecthero.stark_sorting_station.sort_hint";
-		} else if (!menu.running() && overButton(mouseX, mouseY, TIDY_Y)) {
+		} else if (!menu.running() && overButton(mouseX, mouseY, SortingStationLayout.tidyButton())) {
 			hint = "screen.projecthero.stark_sorting_station.tidy_hint";
 		}
 		if (hint == null && overNeeds(mouseX, mouseY)) {
@@ -252,8 +240,8 @@ public class SortingStationScreen extends AbstractContainerScreen<SortingStation
 
 	@Override
 	public boolean mouseClicked(double mx, double my, int button) {
-		int id = overButton(mx, my, SORT_Y) ? SortingStationMenu.BUTTON_SORT
-				: overButton(mx, my, TIDY_Y) ? SortingStationMenu.BUTTON_TIDY : -1;
+		int id = overButton(mx, my, SortingStationLayout.sortButton()) ? SortingStationMenu.BUTTON_SORT
+				: overButton(mx, my, SortingStationLayout.tidyButton()) ? SortingStationMenu.BUTTON_TIDY : -1;
 		if (button == 0 && id >= 0 && !menu.running() && minecraft != null && minecraft.gameMode != null) {
 			minecraft.gameMode.handleInventoryButtonClick(menu.containerId, id);
 			minecraft.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(
