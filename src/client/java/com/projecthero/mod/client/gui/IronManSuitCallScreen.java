@@ -141,6 +141,8 @@ public final class IronManSuitCallScreen extends Screen {
 				hovered = i;
 			}
 			renderCard(g, cards.get(i), r, hot || i == focused, secs + i * 0.7f);
+			// v0.14.29 agent E: Remote Pilot button (IronManDroneCardButton)
+			IronManDroneCardButton.render(this, g, font, r, cards.get(i).available, cards.get(i).source, cards.get(i).energyFrac, mouseX, mouseY);
 		}
 		g.disableScissor();
 
@@ -220,6 +222,11 @@ public final class IronManSuitCallScreen extends Screen {
 	@Override
 	public boolean mouseClicked(double mx, double my, int button) {
 		if (button == 0 && hovered >= 0 && hovered < cards.size()) {
+			Card hc = cards.get(hovered); // v0.14.29 agent E: Remote Pilot button (IronManDroneCardButton)
+			if (IronManDroneCardButton.click(IronManUiLayout.card(hovered, width, scroll), hc.suitId, hc.available, hc.source, hc.energyFrac, mx, my)) {
+				onClose();
+				return true;
+			}
 			pick(cards.get(hovered));
 			return true;
 		}

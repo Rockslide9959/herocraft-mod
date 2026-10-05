@@ -79,6 +79,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.ironman.sorter.StarkSorter.initialize(); // v0.14.16: Stark Sorting Station + Sorter Bot
 		IronManSuits.initialize();
 		IronManEntityTypes.initialize();
+		com.projecthero.mod.ironman.drone.IronManDrones.initialize(); // v0.14.29 agent E: Remote Pilot
 		ModEntityTypes.initialize();
 		ProjectHeroSounds.initialize();
 		com.projecthero.mod.spider.item.SpiderItems.initialize();

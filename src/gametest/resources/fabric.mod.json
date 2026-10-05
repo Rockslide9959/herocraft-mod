@@ -89,6 +89,7 @@
       "com.projecthero.mod.gametest.IronManV01427PlatformGameTests",
       "com.projecthero.mod.gametest.V01428GameTests",
       "com.projecthero.mod.gametest.IronManMk5V01429GameTests",
+      "com.projecthero.mod.gametest.IronManDroneV01429GameTests",
       "com.projecthero.mod.gametest.IronManUiV01421GameTests",
       "com.projecthero.mod.gametest.V01421SpyMarkGameTests",
       "com.projecthero.mod.gametest.IronManRound2GameTests",
