@@ -52,8 +52,8 @@ import net.minecraft.util.RandomSource;
  * <h2>Extensibility</h2>
  * A future power becomes boss-capable with one {@link #register} call and one
  * {@link BossPowerController} subclass. Nothing else in the raid, the boss entity or the reward system
- * needs to know it exists -- the boss bar label, the aura, the trophy and the Corrupted Power Core all
- * read the power's own registry entry.
+ * needs to know it exists -- the boss bar label, the aura and the trophy all read the power's own
+ * registry entry.
  */
 public final class BossPowers {
 	private static final Map<String, Function<EmpoweredZombie, BossPowerController>> FACTORIES = new LinkedHashMap<>();
@@ -91,8 +91,8 @@ public final class BossPowers {
 		register(MagnetismBoss.POWER_KEY, MagnetismBoss::new);
 		register(SizeManipulationBoss.POWER_KEY, SizeManipulationBoss::new);
 
-		// A boss power must correspond to a real Experimental Power -- the boss bar, trophy and
-		// Corrupted Power Core all name it from the power registry. Fail loudly at load rather than
+		// A boss power must correspond to a real Experimental Power -- the boss bar and trophy
+		// both name it from the power registry. Fail loudly at load rather than
 		// producing an unnamed boss in front of a player.
 		for (String key : FACTORIES.keySet()) {
 			if (Powers.byKey(key) == null) {

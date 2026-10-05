@@ -194,9 +194,8 @@ public final class ZombieRaidRewards {
 	}
 
 	/**
-	 * The Cursed Grave Chest. Uses a data-driven loot table for the bulk of its contents, then stamps
-	 * in the two guaranteed items that cannot be expressed in a loot table -- the Grave Essence bundle
-	 * and a Corrupted Power Core carrying the final boss's actual power.
+	 * The Cursed Grave Chest. Uses a data-driven loot table for the bulk of its contents, then adds the
+	 * guaranteed Grave Essence bundle and the party-scaled valuables on top.
 	 */
 	private static BlockPos placeChest(ServerLevel level, ZombieRaid raid) {
 		BlockPos pos = chestSite(level, raid.center());

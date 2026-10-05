@@ -1854,6 +1854,18 @@ public class TitanEntity extends RaidUndead implements GeoEntity {
 			server.playSound(null, blockPosition(), SoundEvents.RAVAGER_DEATH, SoundSource.HOSTILE, 4.0f, 0.4f);
 			server.playSound(null, blockPosition(), SoundEvents.ZOMBIE_DEATH, SoundSource.HOSTILE, 4.0f, 0.3f);
 			dropLoot(server, source);
+			dropXp(server, source);
+		}
+	}
+
+	/**
+	 * v0.14.23: this boss's {@link #die} never calls {@code super.die} (it plays its own long death), so vanilla's
+	 * XP drop never ran and the {@code xpReward} was dead. Drop it here, under vanilla's own rule: only if a player
+	 * hurt it recently, and only with {@code doMobLoot} on.
+	 */
+	private void dropXp(ServerLevel server, DamageSource source) {
+		if (lastHurtByPlayerTime > 0 && server.getGameRules().getBoolean(net.minecraft.world.level.GameRules.RULE_DOMOBLOOT)) {
+			net.minecraft.world.entity.ExperienceOrb.award(server, position(), getExperienceReward(server, source.getEntity()));
 		}
 	}
 

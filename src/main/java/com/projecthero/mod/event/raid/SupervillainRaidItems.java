@@ -36,7 +36,7 @@ import net.minecraft.world.level.Level;
  *   <li>{@link #VILLAIN_CACHE} -- right-click to open for a bundle of high-level rewards.</li>
  *   <li>{@link #SUPERVILLAIN_TOKEN} -- a rare progression / crafting material (no recipe yet).</li>
  *   <li>{@link #POWER_FRAGMENT} -- a fragment of the boss's power (named from the power it carries,
- *       one item + a component, the same trick a Corrupted Power Core uses). Not a way to gain the
+ *       one item + a component, the same trick the boss trophy heads use). Not a way to gain the
  *       power -- a future crafting / progression ingredient only.</li>
  *   <li>{@link #CHIMERA_CORE} / {@link #ARSENAL_REACTOR} / {@link #OMEGA_CRYSTAL} -- prestige trophy
  *       drops, one per villain appearance.</li>

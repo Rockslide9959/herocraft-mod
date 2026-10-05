@@ -52,6 +52,10 @@ public final class GreenLanternHandRenderer {
 
 	/** Anything to draw on this player's right hand at all? */
 	public static boolean hasAnything(AbstractClientPlayer player) {
+		Boolean preview = HandRing.previewOverride(player, HandRing.GREEN_LANTERN.id()); // v0.14.23: ring editor
+		if (preview != null) {
+			return preview;
+		}
 		return GreenLantern.hasPower(player) && !player.isInvisible();
 	}
 
@@ -131,6 +135,7 @@ public final class GreenLanternHandRenderer {
 		float haloAlpha = busy ? 0.4f : 0.1f + 0.1f * breathe;
 		pose.pushPose();
 		pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
+		HandRing.place(pose, HandRing.GREEN_LANTERN, gap);
 		HandRing.box(vc, pose, g[0], g[1], g[2], halo, halo, halo * 0.6f, 0x35F075, haloAlpha);
 		HandRing.box(vc, pose, g[0], g[1], g[2], halo * 1.35f, halo * 1.35f, halo * 0.8f, 0x35F075, haloAlpha * 0.3f);
 		pose.popPose();

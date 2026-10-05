@@ -24,6 +24,7 @@
       "com.projecthero.mod.gametest.HeroPackGameTests",
       "com.projecthero.mod.gametest.IronManSuitUpV01421GameTests",
       "com.projecthero.mod.gametest.ZombieRaidGameTests",
+      "com.projecthero.mod.gametest.BossRewardsV01423GameTests",
       "com.projecthero.mod.gametest.ConfigMigrationGameTests",
       "com.projecthero.mod.gametest.GraveboundBossPowerGameTests",
       "com.projecthero.mod.gametest.SpiderManGameTests",

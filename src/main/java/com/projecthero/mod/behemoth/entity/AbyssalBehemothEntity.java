@@ -694,6 +694,18 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 			bossBar().clear(server);
 			com.projecthero.mod.behemoth.BehemothSpawner.onKilled(server);
 			dropLoot(server, source);
+			dropXp(server, source);
+		}
+	}
+
+	/**
+	 * v0.14.23: this boss's {@link #die} never calls {@code super.die} (it plays its own long death), so vanilla's
+	 * XP drop never ran and the {@code xpReward} was dead. Drop it here, under vanilla's own rule: only if a player
+	 * hurt it recently, and only with {@code doMobLoot} on.
+	 */
+	private void dropXp(ServerLevel server, DamageSource source) {
+		if (lastHurtByPlayerTime > 0 && server.getGameRules().getBoolean(net.minecraft.world.level.GameRules.RULE_DOMOBLOOT)) {
+			net.minecraft.world.entity.ExperienceOrb.award(server, position(), getExperienceReward(server, source.getEntity()));
 		}
 	}
 

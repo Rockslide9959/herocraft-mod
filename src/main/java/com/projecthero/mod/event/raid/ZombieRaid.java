@@ -93,7 +93,7 @@ public class ZombieRaid extends EventInstance {
 	private UUID bossId;
 	private int bossesDefeated;
 	private boolean chestGenerated;
-	/** The wave-12 boss's power, so the completion chest can stamp its Corrupted Power Core. */
+	/** The wave-12 boss's power (saved with the raid; shown in its messages). */
 	private String finalBossPower = "";
 	/** Stall detection: last observed live count and how long it has been unchanged. */
 	private int lastAliveCount = -1;

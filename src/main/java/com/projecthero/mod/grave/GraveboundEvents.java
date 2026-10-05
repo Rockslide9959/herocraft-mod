@@ -265,7 +265,7 @@ public final class GraveboundEvents {
 	 */
 	private static boolean necroticBladeHit(ServerPlayer attacker, LivingEntity target, DamageSource source,
 			float amount) {
-		NecroticBladeItem.maybeWither(target, attacker.getRandom());
+		NecroticBladeItem.maybeWither(attacker.getMainHandItem(), target, attacker.getRandom());
 		float bonus = NecroticBladeItem.bonusDamage(attacker.getMainHandItem(), attacker.level().getGameTime());
 		if (bonus <= 0.0f) {
 			return true;

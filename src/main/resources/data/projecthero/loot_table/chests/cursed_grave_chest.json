@@ -55,8 +55,14 @@
         },
         {
           "type": "minecraft:item",
-          "name": "minecraft:enchanted_book",
-          "weight": 6
+          "name": "minecraft:book",
+          "weight": 6,
+          "functions": [
+            {
+              "function": "minecraft:enchant_with_levels",
+              "levels": 30
+            }
+          ]
         },
         {
           "type": "minecraft:item",

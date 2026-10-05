@@ -23,8 +23,8 @@ import net.minecraft.resources.ResourceKey;
  */
 public final class GraveComponents {
 	/**
-	 * On a Corrupted Power Core or a boss trophy: the Experimental Power key of the boss it came from
-	 * (e.g. {@code power_05_geokinesis}). This is what makes a core remember its power.
+	 * On a boss trophy head or a Power Fragment: the Experimental Power key of the boss it came from
+	 * (e.g. {@code power_05_geokinesis}). This is what makes the item remember its power.
 	 */
 	public static final DataComponentType<String> POWER_KEY = register("power_key",
 			DataComponentType.<String>builder()
@@ -64,6 +64,16 @@ public final class GraveComponents {
 			DataComponentType.<Long>builder()
 					.persistent(Codec.LONG)
 					.networkSynchronized(ByteBufCodecs.VAR_LONG)
+					.build());
+
+	/**
+	 * v0.14.23: an Oathbound Necrotic Blade -- one upgraded at a smithing table with a Broken Oath (see
+	 * {@link OathboundBladeRecipe}). Present = upgraded; it can only be applied once.
+	 */
+	public static final DataComponentType<net.minecraft.util.Unit> OATHBOUND = register("oathbound",
+			DataComponentType.<net.minecraft.util.Unit>builder()
+					.persistent(net.minecraft.util.Unit.CODEC)
+					.networkSynchronized(net.minecraft.network.codec.StreamCodec.unit(net.minecraft.util.Unit.INSTANCE))
 					.build());
 
 	private GraveComponents() {

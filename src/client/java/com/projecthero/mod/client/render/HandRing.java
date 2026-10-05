@@ -21,12 +21,32 @@ public final class HandRing {
 	/** How far in from the inner edge of the fist the finger's centre is (on the knuckle face). */
 	public static final float FINGER_IN = 0.75f;
 
-	/** A ring's colours: band, band highlight, bezel, gem (core) and the gem's rim. */
-	public record Palette(int band, int highlight, int bezel, int gemCore, int gem) {
+	/**
+	 * A ring's colours: band, band highlight, bezel, gem (core) and the gem's rim. v0.14.23: plus its id, which keys its
+	 * hand-tuned {@link RingPlacement}.
+	 */
+	public record Palette(String id, int band, int highlight, int bezel, int gemCore, int gem) {
 	}
 
-	public static final Palette GREEN_LANTERN = new Palette(0x1F9A48, 0x9CFFB8, 0x0B3D1C, 0xEFFFF2, 0x5CFF8E);
-	public static final Palette FLASH = new Palette(0xD9A521, 0xFFE58A, 0xC41A1A, 0xFFF4B0, 0xFFD21E);
+	public static final Palette GREEN_LANTERN = new Palette("green_lantern", 0x1F9A48, 0x9CFFB8, 0x0B3D1C, 0xEFFFF2, 0x5CFF8E);
+	public static final Palette FLASH = new Palette("flash", 0xD9A521, 0xFFE58A, 0xC41A1A, 0xFFF4B0, 0xFFD21E);
+
+	/**
+	 * v0.14.23: while the ring editor is open, the id of the ring it is editing -- the local player then shows that ring
+	 * (and only that ring) whether they own it or not, so it can be placed. Null otherwise.
+	 */
+	public static String preview;
+
+	/**
+	 * For a ring layer: null = draw as normal; otherwise whether to draw ring {@code id} on {@code player} (the editor's
+	 * preview overrides the local player's real rings).
+	 */
+	public static Boolean previewOverride(net.minecraft.world.entity.player.Player player, String id) {
+		if (preview == null || player != net.minecraft.client.Minecraft.getInstance().player) {
+			return null;
+		}
+		return preview.equals(id);
+	}
 
 	/** The ring's lift off bare skin. */
 	public static final float SKIN_GAP = 0.08f;
@@ -56,6 +76,7 @@ public final class HandRing {
 		float front = -2f - gap;          // its front (knuckle) face
 		float fx = inner - FINGER_IN;     // finger centre, x: on the knuckles, right by the inner edge
 		float y = RING_Y;
+		RingPlacement.apply(pose, c.id(), fx, y, front);
 		float t = 0.22f;                  // band thickness
 		float frontOut = fx - 0.6f;       // outer end of the knuckle run
 		float innerBack = front + 1.3f;   // back end of the run round the inner side
@@ -70,6 +91,15 @@ public final class HandRing {
 		box(vc, pose, fx, y, front - 0.54f, 0.28f, 0.28f, 0.06f, c.gemCore(), 1f);
 		box(vc, pose, fx, y, front - 0.52f, 0.38f, 0.38f, 0.05f, c.gem(), 0.9f);
 		pose.popPose();
+	}
+
+	/**
+	 * v0.14.23: for extras drawn round the gem ({@link #gemCentre}) -- applies {@code c}'s hand-tuned placement so they
+	 * move with the ring. {@code pose} must already be scaled to arm pixels.
+	 */
+	public static void place(PoseStack pose, Palette c, float gap) {
+		gap = lift(gap);
+		RingPlacement.apply(pose, c.id(), 1f + gap - FINGER_IN, RING_Y, -2f - gap);
 	}
 
 	/** The centre of the gem, in arm pixels (x, y, z), for extras drawn round it. */
