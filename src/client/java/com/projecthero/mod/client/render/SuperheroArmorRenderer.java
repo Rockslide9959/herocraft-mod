@@ -237,6 +237,10 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 					com.projecthero.mod.client.ironman.IronManSuitReveal.standBuild, true, false, ima2.armorSetId(),
 					getCurrentSlot(), texture);
 		}
+		// v0.14.29 agent F: a damaged Iron Man suit (integrity < 35%) wears a scorched / cracked copy of its texture
+		if (getCurrentEntity() instanceof Player bd && animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem bdi) {
+			texture = com.projecthero.mod.client.ironman.IronManBattleDamage.texture(bd, bdi, texture);
+		}
 		// v0.14.11: the Flash Suit pours out of the ring on the right fist, texel by texel behind a lightning edge
 		if (getCurrentEntity() instanceof Player fl && animatable instanceof com.projecthero.mod.flash.item.FlashSuitItem) {
 			texture = com.projecthero.mod.client.flash.FlashSuitReveal.texture(fl, texture, partialTick);

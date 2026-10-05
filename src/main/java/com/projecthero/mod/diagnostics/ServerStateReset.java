@@ -108,6 +108,8 @@ public final class ServerStateReset {
 		com.projecthero.mod.ironman.IronManTargeting.clearSessionState(); // v0.14.26
 		com.projecthero.mod.ironman.ability.IronManDash.clearSessionState(); // v0.14.27
 		com.projecthero.mod.ironman.ability.IronManFlares.clearSessionState(); // v0.14.27
+		com.projecthero.mod.ironman.IronManCombo.clearSessionState(); // v0.14.29 agent F
+		com.projecthero.mod.ironman.JarvisDialogue.clearSessionState(); // v0.14.29 agent F
 		com.projecthero.mod.oathbreaker.OathbreakerSummon.clearSessionState();
 		com.projecthero.mod.punisher.PunisherArmorGate.clearSessionState();
 		com.projecthero.mod.combat.SonicVulnerability.clearSessionState();

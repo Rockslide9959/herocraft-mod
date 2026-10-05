@@ -21,6 +21,7 @@ public abstract class PlayerAttackComboMixin {
 	private void projecthero$comboBefore(Entity target, CallbackInfo ci) {
 		if ((Object) this instanceof ServerPlayer player) {
 			WeaponCombo.beforeAttack(player, target);
+			com.projecthero.mod.ironman.IronManCombo.beforeMelee(player, target); // v0.14.29 agent F
 		}
 	}
 
@@ -28,6 +29,7 @@ public abstract class PlayerAttackComboMixin {
 	private void projecthero$comboAfter(Entity target, CallbackInfo ci) {
 		if ((Object) this instanceof ServerPlayer player) {
 			WeaponCombo.afterAttack(player);
+			com.projecthero.mod.ironman.IronManCombo.afterMelee(player); // v0.14.29 agent F
 		}
 	}
 }

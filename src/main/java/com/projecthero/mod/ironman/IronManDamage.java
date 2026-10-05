@@ -75,6 +75,7 @@ public final class IronManDamage {
 
 	public static void initialize() {
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(IronManDamage::onAllowDamage);
+		IronManCombo.initialize(); // v0.14.29 agent F: repulsor -> melee combo
 	}
 
 	/** v0.14.27: wearing any Iron Man piece = no fall damage (and no suit cost for the fall). */

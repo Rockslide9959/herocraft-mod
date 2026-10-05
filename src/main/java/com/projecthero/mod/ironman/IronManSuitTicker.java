@@ -33,6 +33,7 @@ public final class IronManSuitTicker {
 
 	public static void tick(ServerPlayer player) {
 		IronManArmor.enforce(player);
+		JarvisDialogue.tick(player); // v0.14.29 agent F: JARVIS voice lines
 		// "changes 19": a lifted faceplate / extended blades must not survive the armour coming off.
 		IronManFaceplate.reconcile(player);
 		IronManBlade.tick(player);

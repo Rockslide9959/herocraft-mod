@@ -115,6 +115,7 @@ public final class IronManHud {
 
 		if (visorClosed) {
 			visor(g, minimalHud, offline, now);
+			com.projecthero.mod.client.ironman.IronManBattleDamage.renderVisorCracks(g, integrityFrac, minimalHud); // v0.14.29 agent F
 		} else {
 			// v0.14.26: the HUD lives in the faceplate -- lift it and the display goes dark (just a reminder chip)
 			IronManGui.chip(g, font, x, IronManUiLayout.HUD_Y, w,

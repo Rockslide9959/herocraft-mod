@@ -134,7 +134,7 @@ public final class IronManDash {
 			}
 			Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0);
 			IronManAbilities.broadcastBeam(player, centre, to, 0);
-			AbilityHelpers.hurtBurst(player, e, d.damage);
+			if (AbilityHelpers.hurtBurst(player, e, d.damage)) com.projecthero.mod.ironman.IronManCombo.onRepulsorHit(player, e); // v0.14.29 agent F
 			AbilityHelpers.knockbackFrom(e, player.position(), 1.2);
 			AbilityHelpers.burst(level, to, ParticleTypes.ELECTRIC_SPARK, 10, 0.3);
 			AbilityHelpers.sound(player, SoundEvents.GENERIC_EXPLODE, 0.3f, 1.7f);

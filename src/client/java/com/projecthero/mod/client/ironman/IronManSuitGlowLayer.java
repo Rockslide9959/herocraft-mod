@@ -72,6 +72,10 @@ public class IronManSuitGlowLayer extends GeoRenderLayer<SuperheroArmorItem> {
 		if (wearer.isInvisible() && (Minecraft.getInstance().player == null || wearer.isInvisibleTo(Minecraft.getInstance().player))) {
 			return;
 		}
+		// v0.14.29 agent F: a badly damaged suit's lights flicker
+		if (wearer instanceof Player fp && IronManBattleDamage.glowFlickerOff(fp)) {
+			return;
+		}
 		// v0.14.21 self-assembly: per bone, not per piece -- IronManAssemblyClient keeps a bone dark (skips it in this
 		// pass) until it has snapped home, and the eyes off while the faceplate is raised. The arc reactor (chest done)
 		// and the eyes (faceplate snapped / sealed) flash: extra additive passes.

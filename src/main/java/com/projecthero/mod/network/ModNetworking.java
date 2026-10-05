@@ -49,6 +49,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(IronManBeamPayload.TYPE, IronManBeamPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IronManLockPayload.TYPE, IronManLockPayload.CODEC); // v0.14.26
 		PayloadTypeRegistry.playS2C().register(IronManPosePayload.TYPE, IronManPosePayload.CODEC); // v0.14.26
+		PayloadTypeRegistry.playS2C().register(IronManJarvisPayload.TYPE, IronManJarvisPayload.CODEC); // v0.14.29 agent F
 		PayloadTypeRegistry.playS2C().register(LaserBeamPayload.TYPE, LaserBeamPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IronManSuitListPayload.TYPE, IronManSuitListPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IronManWeaponWheelPayload.TYPE, IronManWeaponWheelPayload.CODEC);

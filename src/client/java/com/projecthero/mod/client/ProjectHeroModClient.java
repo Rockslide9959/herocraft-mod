@@ -162,6 +162,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.ironman.IronManTargetScanner.initialize(); // v0.14.26: Iron Man target scanner + Mark III lock
 		com.projecthero.mod.client.ironman.IronManAbilityPose.initialize(); // v0.14.26: Iron Man attack animations
 		com.projecthero.mod.client.ironman.IronManAbilityVisuals.initialize(); // v0.14.26: Iron Man ability models
+		com.projecthero.mod.client.ironman.JarvisClient.initialize(); // v0.14.29 agent F: JARVIS voice box + /jarvis
+		com.projecthero.mod.client.ironman.IronManBattleDamage.initialize(); // v0.14.29 agent F: suit sparks / smoke
 		VersionCheckClient.initialize(); // v0.14.22: client/server Project Hero version handshake
 		com.projecthero.mod.client.spider.SpiderWebLineRenderer.initialize();
 		com.projecthero.mod.client.thor.ThorLightningArcRenderer.initialize();

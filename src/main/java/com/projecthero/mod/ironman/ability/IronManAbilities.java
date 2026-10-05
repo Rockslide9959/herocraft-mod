@@ -553,8 +553,9 @@ public final class IronManAbilities {
 		}
 
 		if (target != null) {
-			AbilityHelpers.hurt(player, target, damage);
+			boolean landed = AbilityHelpers.hurt(player, target, damage);
 			AbilityHelpers.knockbackFrom(target, player.position(), charged ? 2.4 : 1.1);
+			if (landed) com.projecthero.mod.ironman.IronManCombo.onRepulsorHit(player, target); // v0.14.29 agent F: stagger
 		}
 	}
 
@@ -936,8 +937,9 @@ public final class IronManAbilities {
 		AbilityHelpers.burst(level, fist, ParticleTypes.CRIT, 10, 0.2);
 		AbilityHelpers.sound(player, SoundEvents.PLAYER_ATTACK_STRONG, 1.0f, 0.7f);
 		if (target != null) {
-			AbilityHelpers.hurt(player, target, PUNCH_DAMAGE);
+			boolean landed = AbilityHelpers.hurt(player, target, PUNCH_DAMAGE);
 			AbilityHelpers.knockbackFrom(target, player.position(), 1.8);
+			if (landed) com.projecthero.mod.ironman.IronManCombo.onRepulsorHit(player, target); // v0.14.29 agent F: Mark 1 stagger
 			level.sendParticles(ParticleTypes.SWEEP_ATTACK, target.getX(), target.getY() + target.getBbHeight() * 0.5,
 					target.getZ(), 1, 0, 0, 0, 0);
 		}
@@ -994,6 +996,7 @@ public final class IronManAbilities {
 						? suit.flamethrowerDamagePerSecond() * 0.5f
 						: "mark_1".equals(suit.id()) ? MARK_1_FLAMETHROWER_DAMAGE : FLAMETHROWER_DAMAGE);
 				e.setRemainingFireTicks(80);
+				if ("mark_1".equals(suit.id())) com.projecthero.mod.ironman.IronManCombo.onRepulsorHit(player, e); // v0.14.29 agent F
 			}
 		}
 
