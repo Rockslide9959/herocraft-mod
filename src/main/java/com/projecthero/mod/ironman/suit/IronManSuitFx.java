@@ -28,11 +28,21 @@ import net.minecraft.world.entity.player.Player;
  *       lock on, the faceplate-close beat at the end).</li>
  *   <li>{@code faceplateAt}: when the faceplate last opened or closed (H, or the suit-up's closing beat), so the
  *       visor swing animates; the open/closed state itself stays in {@code IRON_MAN_FACEPLATE_OPEN}.</li>
+ *   <li>{@code poseVariant} (v0.14.27): which of the {@link #POSE_VARIANTS} suit-up body poses this sequence plays,
+ *       picked at random by the server so every viewer sees the same one.</li>
  * </ul>
+ *
+ * <p>v0.14.27: a piece put on with {@link #STYLE_PLATES} now <b>builds</b> itself on over {@link #BUILD_TICKS} (3 s):
+ * the base layer closes in two halves, then the outer shell fills in one texel at a time. The Mark V case build
+ * ({@link #STYLE_CASE}) keeps its quick {@link #LOCK_TICKS} fly-out-of-the-case lock-on.
  */
 public record IronManSuitFx(long headStart, long chestStart, long legsStart, long feetStart, int assembleMask, int style,
-		long poseStart, int poseTicks, int poseKind, long faceplateAt) {
-	/** A piece's bones fly in and lock on over this many ticks after it reaches the body (v0.14.21 self-assembly: 12 -> 18). */
+		long poseStart, int poseTicks, int poseKind, long faceplateAt, int poseVariant) {
+	/** v0.14.27: a piece builds itself on the body over exactly this many ticks (3 s) -- base halves, then the pixel shell. */
+	public static final int BUILD_TICKS = 60;
+	/** v0.14.27: how many different suit-up body poses there are (picked at random per suit-up). */
+	public static final int POSE_VARIANTS = 4;
+	/** The Mark V case build: a piece's bones fly out of the case and lock on over this many ticks. */
 	public static final int LOCK_TICKS = 18;
 	/** A piece's bones unlock and fly off over this many ticks before it leaves the body (v0.14.21 self-assembly: 10 -> 14). */
 	public static final int RELEASE_TICKS = 14;
@@ -58,7 +68,7 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 	/** Waiting for couriers / the pod: arms held out to receive the pieces. */
 	public static final int POSE_RECEIVE = 5;
 
-	public static final IronManSuitFx EMPTY = new IronManSuitFx(0L, 0L, 0L, 0L, 0, STYLE_PLATES, 0L, 0, POSE_NONE, 0L);
+	public static final IronManSuitFx EMPTY = new IronManSuitFx(0L, 0L, 0L, 0L, 0, STYLE_PLATES, 0L, 0, POSE_NONE, 0L, 0);
 
 	public static final StreamCodec<ByteBuf, IronManSuitFx> STREAM_CODEC = new StreamCodec<>() {
 		@Override
@@ -67,7 +77,7 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 					ByteBufCodecs.VAR_LONG.decode(buf), ByteBufCodecs.VAR_LONG.decode(buf),
 					ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_INT.decode(buf),
 					ByteBufCodecs.VAR_LONG.decode(buf), ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_INT.decode(buf),
-					ByteBufCodecs.VAR_LONG.decode(buf));
+					ByteBufCodecs.VAR_LONG.decode(buf), ByteBufCodecs.VAR_INT.decode(buf));
 		}
 
 		@Override
@@ -82,6 +92,7 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 			ByteBufCodecs.VAR_INT.encode(buf, fx.poseTicks());
 			ByteBufCodecs.VAR_INT.encode(buf, fx.poseKind());
 			ByteBufCodecs.VAR_LONG.encode(buf, fx.faceplateAt());
+			ByteBufCodecs.VAR_INT.encode(buf, fx.poseVariant());
 		}
 	};
 
@@ -125,7 +136,7 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 		}
 		float age = gameTime - s + partial;
 		boolean up = assembling(b);
-		int window = up ? LOCK_TICKS : RELEASE_TICKS;
+		int window = up ? lockTicks() : RELEASE_TICKS;
 		// v0.14.21 smoothness: a client clock a little behind the server's start tick reads as "just started" (not as
 		// "no clock", which drew the whole piece for a frame before it vanished and assembled), and a finished release
 		// keeps the piece gone for a second, until the slot-empty sync lands, instead of popping it back for a frame
@@ -142,7 +153,32 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 			return 1f;
 		}
 		int b = bit(slot);
-		return assembling(b) ? clamp(age / LOCK_TICKS) : 1f - clamp(age / RELEASE_TICKS);
+		return assembling(b) ? clamp(age / lockTicks()) : 1f - clamp(age / RELEASE_TICKS);
+	}
+
+	/** How long a piece takes to go on in this style: {@link #BUILD_TICKS} (3 s build) or the Mark V case's {@link #LOCK_TICKS}. */
+	public int lockTicks() {
+		return style == STYLE_CASE ? LOCK_TICKS : BUILD_TICKS;
+	}
+
+	/** Is piece {@code bit} still building itself on at {@code gameTime}? (Server: holds the suit-up open until it is done.) */
+	public boolean building(int bit, long gameTime) {
+		long s = start(bit);
+		if (!assembling(bit) || s <= 0L) {
+			return false;
+		}
+		long age = gameTime - s;
+		return age >= 0L && age < lockTicks();
+	}
+
+	/** Any piece still building at {@code gameTime}? */
+	public boolean anyBuilding(long gameTime) {
+		for (int bit = 0; bit < 4; bit++) {
+			if (building(bit, gameTime)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public static final int PHASE_NONE = 0;
@@ -188,17 +224,21 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 		long l = bit == 2 ? start : legsStart;
 		long f = bit == 3 ? start : feetStart;
 		int mask = assembling ? assembleMask | (1 << bit) : assembleMask & ~(1 << bit);
-		return new IronManSuitFx(h, c, l, f, mask, style, poseStart, poseTicks, poseKind, faceplateAt);
+		return new IronManSuitFx(h, c, l, f, mask, style, poseStart, poseTicks, poseKind, faceplateAt, poseVariant);
 	}
 
 	public IronManSuitFx withPose(int kind, long start, int ticks, int newStyle) {
+		return withPose(kind, start, ticks, newStyle, poseVariant);
+	}
+
+	public IronManSuitFx withPose(int kind, long start, int ticks, int newStyle, int variant) {
 		return new IronManSuitFx(headStart, chestStart, legsStart, feetStart, assembleMask, newStyle, start, ticks, kind,
-				faceplateAt);
+				faceplateAt, Math.floorMod(variant, POSE_VARIANTS));
 	}
 
 	public IronManSuitFx withFaceplate(long at) {
 		return new IronManSuitFx(headStart, chestStart, legsStart, feetStart, assembleMask, style, poseStart, poseTicks,
-				poseKind, at);
+				poseKind, at, poseVariant);
 	}
 
 	/** A piece reached the body ({@code assembling}) or began breaking away from it. Synced to every viewer. */
@@ -214,6 +254,12 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 	public static void startPose(ServerPlayer player, int kind, int ticks, int style) {
 		player.setAttached(ModAttachments.IRON_MAN_SUIT_FX,
 				of(player).withPose(kind, player.level().getGameTime(), Math.max(1, ticks), style));
+	}
+
+	/** v0.14.27: as {@link #startPose(ServerPlayer, int, int, int)}, with the suit-up pose variant (0..3) every viewer plays. */
+	public static void startPose(ServerPlayer player, int kind, int ticks, int style, int variant) {
+		player.setAttached(ModAttachments.IRON_MAN_SUIT_FX,
+				of(player).withPose(kind, player.level().getGameTime(), Math.max(1, ticks), style, variant));
 	}
 
 	public static void endPose(ServerPlayer player) {

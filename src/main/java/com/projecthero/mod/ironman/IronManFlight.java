@@ -31,6 +31,10 @@ public final class IronManFlight {
 		if (!IronManArmor.canOperate(player)) {
 			return;
 		}
+		// v0.14.27: no take-off until the suit-up has built every piece on
+		if (com.projecthero.mod.ironman.suit.IronManSuitUpManager.blockedWhileAssembling(player, true)) {
+			return;
+		}
 		String suitId = IronManArmor.wornSuitId(player);
 		if (suitId == null || !IronManArmor.isPieceWorn(player, net.minecraft.world.entity.EquipmentSlot.FEET, suitId)) {
 			return;

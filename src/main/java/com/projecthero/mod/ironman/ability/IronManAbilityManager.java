@@ -51,6 +51,10 @@ public final class IronManAbilityManager {
 		IronManSuit suit = suitId == null ? null : IronManSuits.byId(suitId);
 
 		if (suit != null && IronManArmor.wearingAnyIronMan(player)) {
+			// v0.14.27: nothing fires until the suit-up has finished building every piece on
+			if (com.projecthero.mod.ironman.suit.IronManSuitUpManager.blockedWhileAssembling(player, pressed)) {
+				return;
+			}
 			IronManAbilities.trigger(player, suit, slot.number(), pressed);
 			return;
 		}

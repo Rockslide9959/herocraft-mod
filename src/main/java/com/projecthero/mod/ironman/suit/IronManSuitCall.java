@@ -530,9 +530,11 @@ public final class IronManSuitCall {
 		s.transitionTicks = s.transitionTotal;
 		s.transitionMask = 0;
 		s.transitionReleaseMask = 0;
-		// arms out to receive the pieces while they are inbound (every viewer sees it)
-		IronManSuitFx.startPose(player, IronManSuitFx.POSE_RECEIVE, s.transitionTotal + IronManSuitFx.LOCK_TICKS,
-				IronManSuitFx.STYLE_PLATES);
+		s.transitionPlan = 0;
+		// arms out to receive the pieces while they are inbound (every viewer sees it); v0.14.27: the last piece then
+		// builds on over BUILD_TICKS, and the suit-up only completes once it has (IronManSuitUpManager.tick holds it)
+		IronManSuitFx.startPose(player, IronManSuitFx.POSE_RECEIVE, s.transitionTotal + IronManSuitFx.BUILD_TICKS,
+				IronManSuitFx.STYLE_PLATES, player.getRandom().nextInt(IronManSuitFx.POSE_VARIANTS));
 	}
 
 	// ---------------- single pieces + the command path (v0.14.21: replaces IronManSuitSummonManager) ----------------

@@ -167,6 +167,9 @@ public final class IronManAssemblyClient {
 		if (p >= 1f) {
 			return true;
 		}
+		if (IronManSuitReveal.building(player, slot)) {
+			return applyBuild(pose, bone, p);
+		}
 		boolean fromCase = fx.style() == IronManSuitFx.STYLE_CASE;
 		float start = IronManAssemblyPlan.start(bit, name, fromCase);
 		if (start < 0f) {
@@ -213,6 +216,28 @@ public final class IronManAssemblyClient {
 		}
 		if (assembling && !glowPass) {
 			snapFx(pose, player, fx, bit, name, fromCase, now, partialTick, gx, gy, gz);
+		}
+		return true;
+	}
+
+	/**
+	 * v0.14.27 build-on: nothing flies -- while the base halves close the piece's bones sit a little oversized around
+	 * the limb (wider across, deeper front to back) and clamp down tight as the halves seal; the shell then builds in
+	 * place, texel by texel ({@link IronManAssemblyReveal#buildTexture}). The lights stay dark until the shell is done.
+	 */
+	private static boolean applyBuild(PoseStack pose, GeoBone bone, float p) {
+		if (glowPass && p < IronManAssemblyPlan.BUILD_SHELL_END) {
+			return false;
+		}
+		float open = 1f - IronManAssemblyPlan.halvesClosed(p);
+		if (open > 0f) {
+			float gx = bone.getPivotX() / 16f;
+			float gy = bone.getPivotY() / 16f;
+			float gz = bone.getPivotZ() / 16f;
+			float s = 1f + 0.22f * open;
+			pose.translate(gx, gy, gz);
+			pose.scale(s, 1f + 0.04f * open, s);
+			pose.translate(-gx, -gy, -gz);
 		}
 		return true;
 	}
@@ -287,7 +312,9 @@ public final class IronManAssemblyClient {
 		if (fx.assembling(bit) && fx.start(bit) > 0L) {
 			boolean fromCase = fx.style() == IronManSuitFx.STYLE_CASE;
 			String last = bit == 1 ? lastOf(1, fromCase) : "faceplate";
-			float snapTick = IronManAssemblyPlan.snapAt(bit, last, fromCase) * IronManSuitFx.LOCK_TICKS;
+			// v0.14.27: a built-on piece lights up the moment its shell is finished
+			float snapTick = fromCase ? IronManAssemblyPlan.snapAt(bit, last, true) * IronManSuitFx.LOCK_TICKS
+					: IronManAssemblyPlan.BUILD_SHELL_END * IronManSuitFx.BUILD_TICKS;
 			float since = now - fx.start(bit) + partialTick - snapTick;
 			if (since >= 0f && since < FLASH_TICKS) {
 				best = 1f - since / FLASH_TICKS;
@@ -319,6 +346,9 @@ public final class IronManAssemblyClient {
 		float p = IronManSuitReveal.progress(player, EquipmentSlot.CHEST, partialTick);
 		if (p >= 1f) {
 			return true;
+		}
+		if (IronManSuitReveal.building(player, EquipmentSlot.CHEST)) {
+			return true; // v0.14.27: the gauntlet builds on in place (the build texture does the work)
 		}
 		boolean fromCase = IronManSuitReveal.fromCase(player);
 		String name = right ? "right_gauntlet" : "left_gauntlet";

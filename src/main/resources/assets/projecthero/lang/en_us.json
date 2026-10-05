@@ -1352,6 +1352,7 @@
   "message.projecthero.ironman.not_developed": "%s is not yet developed.",
   "message.projecthero.ironman.no_suit_available": "No %s armor available.",
   "message.projecthero.ironman.suit_online": "%s online.",
+  "message.projecthero.ironman.suit_assembling": "Suit still assembling...",
   "message.projecthero.ironman.suit_incoming": "%s inbound.",
   "message.projecthero.ironman.suit_developed": "%s developed.",
   "message.projecthero.stark_fabricator.no_understanding": "You don't understand Stark technology.",

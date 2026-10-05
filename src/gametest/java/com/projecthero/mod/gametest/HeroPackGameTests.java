@@ -1350,7 +1350,8 @@ public class HeroPackGameTests implements FabricGameTest {
 
 		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuitUpManager.beginSuitUp(player, "mark_iii"),
 				"suit-up should start");
-		for (int i = 0; i < 200 && com.projecthero.mod.ironman.suit.IronManSuitUpManager.inTransition(player); i++) {
+		// v0.14.27: 3 s per piece -> a four-piece suit-up runs 241 ticks
+		for (int i = 0; i < 400 && com.projecthero.mod.ironman.suit.IronManSuitUpManager.inTransition(player); i++) {
 			com.projecthero.mod.ironman.suit.IronManSuitUpManager.tick(player);
 		}
 

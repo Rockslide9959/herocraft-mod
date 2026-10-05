@@ -63,6 +63,175 @@ public final class IronManAssemblyReveal {
 		return frames[step];
 	}
 
+	// ---------------- v0.14.27: the 3 s build-on ----------------
+
+	/** v0.14.27: one frame per tick of the {@code BUILD_TICKS} window, so the shell visibly grows a few texels at a time. */
+	public static final int BUILD_FRAMES = 60;
+	private static final int HALF_EDGE = 0xFFBFF4FF;   // the bright leading edge of a closing base half
+	private static final Map<String, ResourceLocation[]> BUILD_CACHE = new HashMap<>();
+
+	/**
+	 * v0.14.27: the texture for piece {@code bit} at build progress {@code p} of an ordinary suit-up -- the base layer
+	 * closing in two halves (a bright leading edge on each), then the outer shell flipping on one texel at a time with a
+	 * hot seam on the newest ones. {@code base} once complete / unreadable.
+	 */
+	public static ResourceLocation buildTexture(ResourceLocation geometry, ResourceLocation base, float p, int bit) {
+		if (p >= 0.999f || bit < 0) {
+			return base;
+		}
+		String key = geometry + "|" + base + "|" + bit + "|build";
+		ResourceLocation[] frames = BUILD_CACHE.computeIfAbsent(key, k -> buildFrames(geometry, base, bit));
+		if (frames.length == 0) {
+			return base;
+		}
+		int step = Math.max(0, Math.min(frames.length - 1, (int) Math.floor(p * BUILD_FRAMES)));
+		return frames[step];
+	}
+
+	private static ResourceLocation[] buildFrames(ResourceLocation geometry, ResourceLocation base, int bit) {
+		Minecraft mc = Minecraft.getInstance();
+		Optional<Resource> texRes = mc.getResourceManager().getResource(base);
+		Optional<Resource> geoRes = mc.getResourceManager().getResource(geometry);
+		if (texRes.isEmpty() || geoRes.isEmpty()) {
+			return new ResourceLocation[0];
+		}
+		NativeImage src;
+		JsonObject geo;
+		try (InputStream in = texRes.get().open(); Reader reader = new InputStreamReader(geoRes.get().open(), StandardCharsets.UTF_8)) {
+			src = NativeImage.read(in);
+			geo = JsonParser.parseReader(reader).getAsJsonObject();
+		} catch (Exception e) {
+			ProjectHeroMod.LOGGER.warn("[ProjectHero] could not build the Iron Man build-on for {}: {}", base, e.toString());
+			return new ResourceLocation[0];
+		}
+		int w = src.getWidth();
+		int h = src.getHeight();
+		List<Sample> samples = new ArrayList<>();
+		try {
+			collect(geo, w, h, bit, samples);
+		} catch (RuntimeException e) {
+			ProjectHeroMod.LOGGER.warn("[ProjectHero] could not read {} for the Iron Man build-on: {}", geometry, e.toString());
+			src.close();
+			return new ResourceLocation[0];
+		}
+		BuildTimes bt = buildTimes(samples, w * h, bit);
+
+		ResourceLocation[] frames = new ResourceLocation[BUILD_FRAMES];
+		String tag = base.getPath().replaceAll("[^a-z0-9_]", "_") + "_" + bit + "_build";
+		float frame = 1f / BUILD_FRAMES;
+		for (int k = 0; k < BUILD_FRAMES; k++) {
+			float p = k / (float) BUILD_FRAMES;
+			NativeImage img = new NativeImage(w, h, true);
+			img.copyFrom(src);
+			for (int y = 0; y < h; y++) {
+				for (int x = 0; x < w; x++) {
+					int i = y * w + x;
+					float tb = bt.base[i];
+					float ts = bt.shell[i];
+					if (Float.isNaN(tb) && Float.isNaN(ts)) {
+						continue; // not this piece's texel
+					}
+					int orig = src.getPixelRGBA(x, y);
+					boolean opaque = ((orig >>> 24) & 0xFF) != 0;
+					if (!Float.isNaN(tb) && (Float.isNaN(ts) || !bt.dark)) {
+						// base layer: the two halves grow toward the seam; the leading edge glows
+						if (p < tb) {
+							img.setPixelRGBA(x, y, 0);
+						} else if (opaque && p - tb < 1.5f * frame) {
+							img.setPixelRGBA(x, y, blendAbgr(orig, argbToAbgr(HALF_EDGE), 0.75f));
+						}
+						continue;
+					}
+					if (!Float.isNaN(tb) && p >= tb && p < ts) {
+						// a piece with no base layer (the boots): its halves close as a dark under-plate first
+						if (opaque) {
+							img.setPixelRGBA(x, y, p - tb < 1.5f * frame ? blendAbgr(orig, argbToAbgr(HALF_EDGE), 0.75f)
+									: darken(orig, 0.32f));
+						}
+						continue;
+					}
+					// the shell: one texel at a time, the newest white-hot, then cooling cyan
+					if (p < ts) {
+						img.setPixelRGBA(x, y, 0);
+					} else if (opaque) {
+						float age = p - ts;
+						if (age < frame) {
+							img.setPixelRGBA(x, y, argbToAbgr(SEAM_HOT));
+						} else if (age < 3f * frame) {
+							img.setPixelRGBA(x, y, blendAbgr(orig, argbToAbgr(SEAM_CYAN), age < 2f * frame ? 0.6f : 0.3f));
+						}
+					}
+				}
+			}
+			ResourceLocation id = ProjectHeroMod.id("dynamic/ironman_build/" + tag + "_" + k);
+			mc.getTextureManager().register(id, new DynamicTexture(img));
+			frames[k] = id;
+		}
+		src.close();
+		return frames;
+	}
+
+	/** Per texel: base-layer time, shell time (NaN = none), and whether the base is a dark under-plate (no base cubes). */
+	record BuildTimes(float[] base, float[] shell, boolean dark) {
+	}
+
+	/**
+	 * v0.14.27: base texels (of a {@code base_*} cube) get their half-closing time from their distance to the cube's seam;
+	 * every other texel of the piece is ranked one after another, outward from {@link IronManAssemblyPlan#shellOrigin}
+	 * with a per-texel scatter, so the shell builds pixel by pixel. A texel shared by a base cube and a shell cube goes
+	 * with the base (it is the inside of a plate). A piece with no base cube (the boots) closes its own cubes in halves
+	 * as a dark under-plate, and the shell pass then colours them in.
+	 */
+	static BuildTimes buildTimes(List<Sample> samples, int size, int bit) {
+		float[] base = new float[size];
+		float[] shell = new float[size];
+		Arrays.fill(base, Float.NaN);
+		Arrays.fill(shell, Float.NaN);
+		boolean pieceHasBase = false;
+		for (Sample s : samples) {
+			pieceHasBase |= s.baseCube();
+		}
+		Map<Integer, Vector3f> shellPos = new HashMap<>();
+		for (Sample s : samples) {
+			int i = s.index();
+			if (s.baseCube() || !pieceHasBase) {
+				float t = IronManAssemblyPlan.baseTexelTime(s.fromSeam());
+				base[i] = Float.isNaN(base[i]) ? t : Math.min(base[i], t);
+			}
+			if (!s.baseCube()) {
+				shellPos.putIfAbsent(i, s.pos());
+			}
+		}
+		float[] o = IronManAssemblyPlan.shellOrigin(bit);
+		Vector3f origin = new Vector3f(o[0], o[1], o[2]);
+		float maxD = 1e-3f;
+		for (Vector3f v : shellPos.values()) {
+			maxD = Math.max(maxD, v.distance(origin));
+		}
+		List<float[]> order = new ArrayList<>();
+		for (Map.Entry<Integer, Vector3f> e : shellPos.entrySet()) {
+			if (pieceHasBase && !Float.isNaN(base[e.getKey()])) {
+				continue; // shared with a base cube: it closes with the base
+			}
+			float key = 0.72f * e.getValue().distance(origin) / maxD + 0.28f * IronManAssemblyPlan.hash("texel", e.getKey());
+			order.add(new float[] { key, e.getKey() });
+		}
+		order.sort((a, b) -> Float.compare(a[0], b[0]));
+		for (int r = 0; r < order.size(); r++) {
+			shell[(int) order.get(r)[1]] = IronManAssemblyPlan.shellTexelTime(r, order.size());
+		}
+		return new BuildTimes(base, shell, !pieceHasBase);
+	}
+
+	private static int darken(int abgr, float f) {
+		int a = (abgr >>> 24) & 0xFF;
+		int r = 0;
+		for (int sh = 0; sh <= 16; sh += 8) {
+			r |= Math.round(((abgr >> sh) & 0xFF) * f) << sh;
+		}
+		return (a << 24) | r;
+	}
+
 	/** The bone a planned texel belongs to: the blades flip on with their gauntlets. */
 	private static String planBone(String bone) {
 		if ("right_blade".equals(bone)) {
@@ -75,7 +244,7 @@ public final class IronManAssemblyReveal {
 	}
 
 	/** One texel sample: bone, texel index, rest position (bedrock coordinates). */
-	private record Sample(String bone, int index, int tile, Vector3f pos) {
+	private record Sample(String bone, int index, int tile, Vector3f pos, boolean baseCube, float fromSeam) {
 	}
 
 	private static ResourceLocation[] build(ResourceLocation geometry, ResourceLocation base, int bit, boolean fromCase) {
@@ -211,8 +380,9 @@ public final class IronManAssemblyReveal {
 				float inflate = cube.has("inflate") ? cube.get("inflate").getAsFloat() : 0f;
 				Vector3f lo = new Vector3f(o).sub(inflate, inflate, inflate);
 				Vector3f hi = new Vector3f(o).add(s).add(inflate, inflate, inflate);
+				boolean baseCube = IronManAssemblyPlan.isBaseCube(cube.has("name") ? cube.get("name").getAsString() : null);
 				for (Face f : faces(cube, s)) {
-					paint(f, lo, hi, su, sv, texW, texH, name, out);
+					paint(f, lo, hi, su, sv, texW, texH, name, baseCube, out);
 				}
 			}
 		}
@@ -274,12 +444,14 @@ public final class IronManAssemblyReveal {
 	}
 
 	private static void paint(Face f, Vector3f lo, Vector3f hi, float su, float sv, int texW, int texH, String bone,
-			List<Sample> out) {
+			boolean baseCube, List<Sample> out) {
 		float u0 = Math.min(f.u0, f.u0 + f.du) * su;
 		float u1 = Math.max(f.u0, f.u0 + f.du) * su;
 		float v0 = Math.min(f.v0, f.v0 + f.dv) * sv;
 		float v1 = Math.max(f.v0, f.v0 + f.dv) * sv;
 		Vector3f ext = new Vector3f(hi).sub(lo);
+		// v0.14.27 halves: a wide cube (head, torso) splits left | right down its centre line, a limb top | bottom
+		boolean splitX = ext.x >= 7.5f;
 		for (int ty = (int) Math.floor(v0); ty < (int) Math.ceil(v1); ty++) {
 			for (int tx = (int) Math.floor(u0); tx < (int) Math.ceil(u1); tx++) {
 				if (tx < 0 || ty < 0 || tx >= texW || ty >= texH) {
@@ -294,7 +466,8 @@ public final class IronManAssemblyReveal {
 				float cz = f.corner[2] + f.alongU[2] * fu + f.alongV[2] * fv;
 				Vector3f p = new Vector3f(lo.x + ext.x * cx, lo.y + ext.y * cy, lo.z + ext.z * cz);
 				int tile = (ty / TILE) * 1024 + (tx / TILE);
-				out.add(new Sample(bone, ty * texW + tx, tile, p));
+				float fromSeam = splitX ? Math.abs(cx - 0.5f) * 2f : Math.abs(cy - 0.5f) * 2f;
+				out.add(new Sample(bone, ty * texW + tx, tile, p, baseCube, fromSeam));
 			}
 		}
 	}

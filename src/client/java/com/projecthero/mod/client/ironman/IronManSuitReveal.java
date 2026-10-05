@@ -128,6 +128,18 @@ public final class IronManSuitReveal {
 		if (bit < 0 || def == null) {
 			return base;
 		}
+		if (building(player, slot)) {
+			// v0.14.27: base halves, then the shell one texel at a time
+			return IronManAssemblyReveal.buildTexture(def.geometry(), base, p, bit);
+		}
 		return IronManAssemblyReveal.texture(def.geometry(), base, p, bit, fromCase(player));
+	}
+
+	/**
+	 * v0.14.27: is the piece in {@code slot} going on with the 3 s build (base halves + pixel shell) rather than the
+	 * Mark V case's fly-out lock-on or a release? (A fresh piece still waiting for its clock counts as building.)
+	 */
+	public static boolean building(Player player, EquipmentSlot slot) {
+		return assembling(player, slot) && !fromCase(player);
 	}
 }

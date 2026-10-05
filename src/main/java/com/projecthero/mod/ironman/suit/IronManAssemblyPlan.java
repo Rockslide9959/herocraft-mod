@@ -51,6 +51,54 @@ public final class IronManAssemblyPlan {
 			List.of("right_thigh"), List.of("right_thigh_plate", "right_knee"), List.of("left_thigh"),
 			List.of("left_thigh_plate", "left_knee"));
 
+	// ---------------- v0.14.27: the 3 s build-on (STYLE_PLATES lock-on) ----------------
+
+	/**
+	 * v0.14.27: an ordinary suit-up builds each piece over {@link IronManSuitFx#BUILD_TICKS}: the <b>base layer</b> (the
+	 * {@code base_*} skin-rig cubes) closes in two halves over [0, {@link #BUILD_BASE_END}), then the <b>outer shell</b>
+	 * (the inflated shell cubes and every detail bone) fills in one texel at a time over [{@link #BUILD_BASE_END},
+	 * {@link #BUILD_SHELL_END}). Nothing flies in -- the piece grows on the body where it sits.
+	 */
+	public static final float BUILD_BASE_END = 0.3f;
+	/** v0.14.27: the last shell texel is on by here (the rest of the window is the finished piece settling / glowing on). */
+	public static final float BUILD_SHELL_END = 0.96f;
+
+	/** v0.14.27: is this a base-layer (skin rig) cube? The geo names them {@code base_head}, {@code base_body}, ... */
+	public static boolean isBaseCube(String cubeName) {
+		return cubeName != null && cubeName.startsWith("base_");
+	}
+
+	/** v0.14.27: how far the base halves have closed at piece progress {@code p}: 0 apart .. 1 sealed (smoothstep). */
+	public static float halvesClosed(float p) {
+		float x = clamp(p / BUILD_BASE_END);
+		return x * x * (3f - 2f * x);
+	}
+
+	/**
+	 * v0.14.27: when a base texel at normalised distance {@code fromSeam} (0 on the seam .. 1 at the far edge of its half)
+	 * appears: the far edges first, the two halves growing toward each other and meeting on the seam at
+	 * {@link #BUILD_BASE_END}.
+	 */
+	public static float baseTexelTime(float fromSeam) {
+		return BUILD_BASE_END * (1f - clamp(fromSeam)) * 0.95f;
+	}
+
+	/** v0.14.27: when the shell texel ranked {@code rank} of {@code count} (0 first) flips on -- one after another. */
+	public static float shellTexelTime(int rank, int count) {
+		float k = count <= 1 ? 0f : rank / (float) (count - 1);
+		return BUILD_BASE_END + (BUILD_SHELL_END - BUILD_BASE_END) * k;
+	}
+
+	/** v0.14.27: where piece {@code bit}'s shell starts building from (bedrock coordinates): it spreads out from here. */
+	public static float[] shellOrigin(int bit) {
+		return switch (bit) {
+			case 0 -> new float[] { 0f, 24f, -4f };  // the jaw line, up over the face to the crown
+			case 1 -> REACTOR;                      // outward from the arc reactor
+			case 2 -> new float[] { 0f, 0f, -2f };   // up from the ankles
+			default -> new float[] { 0f, -1f, -3f }; // the toes, back to the heels
+		};
+	}
+
 	private IronManAssemblyPlan() {
 	}
 

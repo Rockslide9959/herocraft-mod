@@ -246,6 +246,38 @@ public final class IronManSuitUpManager {
 		return true;
 	}
 
+	/**
+	 * v0.14.27: the order a sequential suit-up builds its pieces in -- boots, leggings, chestplate, helmet (bits 3, 2, 1,
+	 * 0) -- one after another, each over {@link IronManSuitFx#BUILD_TICKS}.
+	 */
+	public static final int[] BUILD_ORDER = { 3, 2, 1, 0 };
+
+	/** v0.14.27: length of a sequential suit-up of {@code pieces} pieces: 3 s each, plus the first tick. */
+	public static int buildSequenceTicks(int pieces) {
+		return Math.max(1, pieces * IronManSuitFx.BUILD_TICKS + 1);
+	}
+
+	/**
+	 * v0.14.27: the sequence tick at which piece {@code bit} of a sequential suit-up reaches the body and starts building:
+	 * the first planned piece at tick 1, each later one {@link IronManSuitFx#BUILD_TICKS} after the one before. -1 if the
+	 * piece is not in {@code plan}.
+	 */
+	public static int buildStageTick(int bit, int plan) {
+		if ((plan & (1 << bit)) == 0) {
+			return -1;
+		}
+		int before = 0;
+		for (int b : BUILD_ORDER) {
+			if (b == bit) {
+				break;
+			}
+			if ((plan & (1 << b)) != 0) {
+				before++;
+			}
+		}
+		return 1 + before * IronManSuitFx.BUILD_TICKS;
+	}
+
 	/** Shared start of every staged sequence: transition state + the synced pose clock + the launch FX. */
 	private static void start(ServerPlayer player, IronManSuit suit, boolean up, int mask, boolean toCase, boolean fromCase) {
 		TonyStarkState s = TonyStark.state(player);
@@ -253,15 +285,20 @@ public final class IronManSuitUpManager {
 		s.transitionUp = up;
 		s.transitionToCase = toCase;
 		s.transitionFromCase = fromCase;
-		s.transitionTotal = sequenceTicks(suit.suitUpType(), up);
+		// v0.14.27: an ordinary suit-up builds the pieces one after another, 3 s each, and completes only once the last
+		// one is fully built; the Mark V case build and every suit-down keep the staged timeline
+		boolean sequential = up && !fromCase;
+		s.transitionPlan = sequential ? mask : 0;
+		s.transitionTotal = sequential ? buildSequenceTicks(Integer.bitCount(mask)) : sequenceTicks(suit.suitUpType(), up);
 		s.transitionTicks = s.transitionTotal;
 		s.transitionMask = mask;
 		s.transitionReleaseMask = 0;
 		boolean casePose = toCase || fromCase;
 		int kind = up ? (casePose ? IronManSuitFx.POSE_CASE_UP : IronManSuitFx.POSE_SUIT_UP)
 				: (casePose ? IronManSuitFx.POSE_CASE_DOWN : IronManSuitFx.POSE_SUIT_DOWN);
+		int variant = player.getRandom().nextInt(IronManSuitFx.POSE_VARIANTS);
 		IronManSuitFx.startPose(player, kind, s.transitionTotal + (up ? IronManSuitFx.FACEPLATE_TICKS : 0),
-				casePose ? IronManSuitFx.STYLE_CASE : IronManSuitFx.STYLE_PLATES);
+				casePose ? IronManSuitFx.STYLE_CASE : IronManSuitFx.STYLE_PLATES, variant);
 		launchFx(player, up);
 	}
 
@@ -367,9 +404,18 @@ public final class IronManSuitUpManager {
 		s.transitionTicks--;
 		int elapsed = s.transitionTotal - s.transitionTicks;
 
+		boolean sequential = s.transitionUp && s.transitionPlan != 0;
 		for (int bit = 0; bit < 4; bit++) {
 			EquipmentSlot slot = SLOT_BY_BIT[bit];
-			int stage = stageTick(bit, s.transitionUp, type);
+			int stage = sequential ? buildStageTick(bit, s.transitionPlan) : stageTick(bit, s.transitionUp, type);
+			if (sequential && stage >= 0 && elapsed == stage + IronManSuitFx.BUILD_TICKS - 1
+					&& player.getItemBySlot(slot).getItem() instanceof IronManArmorItem) {
+				// v0.14.27: the piece has finished building itself on -- it clamps home (sparks + the clamp sound)
+				stageFx(player, slot, true);
+			}
+			if (stage < 0) {
+				continue;
+			}
 			// 1. a piece whose stage has come round
 			if ((s.transitionMask & (1 << bit)) != 0 && elapsed >= stage) {
 				s.transitionMask &= ~(1 << bit);
@@ -381,7 +427,12 @@ public final class IronManSuitUpManager {
 					evictSlot(player, slot);
 					player.setItemSlot(slot, piece);
 					IronManSuitFx.markPiece(player, slot, true);
-					stageFx(player, slot, true);
+					if (sequential) {
+						// v0.14.27: the piece starts building on -- a servo whirr now, the clamp when it is done
+						IronManSounds.play(player, IronManSounds.SERVO, 0.7f, 0.85f + bit * 0.08f);
+					} else {
+						stageFx(player, slot, true);
+					}
 				} else if (player.getItemBySlot(slot).getItem() instanceof IronManArmorItem) {
 					// suit-down: the plates break away first; the piece leaves the slot when that finishes
 					s.transitionReleaseMask |= 1 << bit;
@@ -398,18 +449,28 @@ public final class IronManSuitUpManager {
 			}
 		}
 
-		// continuous swirl
-		double h = player.getBbHeight();
-		float frac = s.transitionTotal <= 0 ? 1f : (float) elapsed / s.transitionTotal;
-		level.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + h * (s.transitionUp ? frac : 1f - frac),
-				player.getZ(), 2, 0.35, 0.15, 0.35, 0.02);
-		if (elapsed % 8 == 0 && s.transitionTicks > 0) {
-			IronManSounds.play(player, IronManSounds.SERVO, 0.35f, 1.1f + level.random.nextFloat() * 0.3f);
+		// v0.14.27: no more continuous particle sweep up / down the body (its end rods drifted on long after the suit
+		// was on) -- just the quiet servo ticking while the sequence runs
+		if (elapsed % 10 == 0 && s.transitionTicks > 0) {
+			IronManSounds.play(player, IronManSounds.SERVO, 0.3f, 1.1f + level.random.nextFloat() * 0.3f);
 		}
 
+		if (s.transitionTicks <= 0 && s.transitionUp && s.transitionPlan == 0 && !s.transitionFromCase
+				&& stillBuilding(player)) {
+			// v0.14.27: a suit-up whose pieces arrived some other way (couriers, the pod, the platform) completes only
+			// once the last piece has finished building itself on
+			s.transitionTicks = 1;
+			return;
+		}
 		if (s.transitionTicks <= 0) {
 			finish(player, s);
 		}
+	}
+
+	/** A suit-up pose is still running and some piece is still building itself on (synced clock, real game time). */
+	private static boolean stillBuilding(ServerPlayer player) {
+		IronManSuitFx fx = IronManSuitFx.of(player);
+		return fx.poseKind() != IronManSuitFx.POSE_NONE && fx.anyBuilding(player.level().getGameTime());
 	}
 
 	private static void finish(ServerPlayer player, TonyStarkState s) {
@@ -436,6 +497,7 @@ public final class IronManSuitUpManager {
 		s.transitionToCase = false;
 		s.transitionFromCase = false;
 		s.transitionReleaseMask = 0;
+		s.transitionPlan = 0;
 		s.transitionSuit = "";
 	}
 
@@ -563,15 +625,14 @@ public final class IronManSuitUpManager {
 	static void stageFx(ServerPlayer player, EquipmentSlot slot, boolean up) {
 		ServerLevel level = (ServerLevel) player.level();
 		double y = player.getY() + slotHeight(slot);
+		// v0.14.27: short-lived sparks only -- the old end rods drifted down the finished suit for seconds
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), y, player.getZ(), up ? 18 : 10, 0.35, 0.15, 0.35, 0.12);
-		level.sendParticles(ParticleTypes.END_ROD, player.getX(), y, player.getZ(), 4, 0.25, 0.1, 0.25, 0.02);
 		IronManSounds.play(player, up ? IronManSounds.CLAMP : IronManSounds.RELEASE, 0.8f, up ? 1.0f : 0.9f);
 	}
 
 	private static void launchFx(ServerPlayer player, boolean up) {
-		ServerLevel level = (ServerLevel) player.level();
+		// v0.14.27: sound only -- the crit burst that rained down the body is gone
 		IronManSounds.play(player, IronManSounds.SERVO, 0.9f, up ? 0.9f : 0.8f);
-		level.sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 1.0, player.getZ(), 20, 0.4, 0.9, 0.4, 0.1);
 	}
 
 	/** The faceplate-close beat that ends a suit-up: the visor swings shut (animated for every viewer), seal + power-up. */
@@ -583,8 +644,8 @@ public final class IronManSuitUpManager {
 		IronManSuitFx.faceplateMoved(player);
 		IronManSounds.play(player, IronManSounds.FACEPLATE_SEAL, 0.9f, 1.0f);
 		IronManSounds.play(player, IronManSounds.POWER_UP, 0.7f, 1.0f);
-		level.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + 1.6, player.getZ(),
-				12, 0.2, 0.1, 0.2, 0.05);
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1.6, player.getZ(),
+				8, 0.2, 0.1, 0.2, 0.05);
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.suit_online",
 				Component.translatable("projecthero.ironman.suit." + suitId + ".name")).withStyle(ChatFormatting.AQUA), true);
 	}
@@ -593,6 +654,27 @@ public final class IronManSuitUpManager {
 
 	public static boolean inTransition(ServerPlayer player) {
 		return !TonyStark.state(player).transitionSuit.isEmpty();
+	}
+
+	/**
+	 * v0.14.27: a suit-up is still running -- the suit is not online until every piece has built itself on, so its
+	 * abilities and flight stay locked until then.
+	 */
+	public static boolean assembling(ServerPlayer player) {
+		TonyStarkState s = TonyStark.state(player);
+		return !s.transitionSuit.isEmpty() && s.transitionUp;
+	}
+
+	/** {@link #assembling}, telling the player so (action bar) when {@code notify}. */
+	public static boolean blockedWhileAssembling(ServerPlayer player, boolean notify) {
+		if (!assembling(player)) {
+			return false;
+		}
+		if (notify) {
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.suit_assembling")
+					.withStyle(ChatFormatting.GRAY), true);
+		}
+		return true;
 	}
 
 	private static int wornMask(ServerPlayer player, String suitId) {

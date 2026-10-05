@@ -1,0 +1,168 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.ironman.TonyStark;
+import com.projecthero.mod.ironman.item.IronManItems;
+import com.projecthero.mod.ironman.suit.IronManSuitFx;
+import com.projecthero.mod.ironman.suit.IronManSuitUpManager;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.14.27 Iron Man suit-up visual check. Enabled by run/v01427su.flag. */
+public final class V01427SuitUpHarness {
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 base;
+
+	private V01427SuitUpHarness() {
+	}
+
+	public static void init() {
+		if (Files.exists(Path.of("v01427su.flag"))) {
+			ClientTickEvents.END_CLIENT_TICK.register(V01427SuitUpHarness::tick);
+		}
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					try {
+						fn.accept(p);
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "v01427su_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void at(int t, Runnable r) {
+		Runnable prev = AT.get(t);
+		AT.put(t, prev == null ? r : () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				LevelSettings settings = new LevelSettings("V01427SU" + System.currentTimeMillis() % 100000,
+						GameType.SURVIVAL, false, Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				base = Vec3.atBottomCenterOf(p.blockPosition());
+				TonyStark.grant(p);
+			});
+			t0 = inWorldTicks;
+			buildScript(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void suitUp(Minecraft mc, int variant) {
+		server(mc, p -> {
+			p.teleportTo(p.serverLevel(), base.x, base.y, base.z, 30f, 0f);
+			for (EquipmentSlot s : new EquipmentSlot[] { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET }) {
+				p.setItemSlot(s, ItemStack.EMPTY);
+			}
+			p.getInventory().clearContent();
+			for (ArmorItem.Type t : new ArmorItem.Type[] { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE,
+					ArmorItem.Type.LEGGINGS, ArmorItem.Type.BOOTS }) {
+				p.getInventory().add(new ItemStack(IronManItems.armor("mark_iii", t)));
+			}
+			boolean ok = IronManSuitUpManager.beginSuitUp(p, "mark_iii");
+			IronManSuitFx fx = IronManSuitFx.of(p);
+			p.setAttached(ModAttachments.IRON_MAN_SUIT_FX,
+					fx.withPose(fx.poseKind(), fx.poseStart(), fx.poseTicks(), fx.style(), variant));
+			System.out.println("[HARNESS] suit-up v" + variant + " started=" + ok);
+		});
+	}
+
+	private static void buildScript(Minecraft mc) {
+		int t = 20;
+		for (int v = 0; v < 4; v++) {
+			final int variant = v;
+			at(t, () -> suitUp(mc, variant));
+			// boots (sequence ticks 1..60), leggings (61..120), chestplate (121..180), helmet (181..240)
+			int[] marks = v == 0 ? new int[] { 8, 35, 75, 100, 135, 160, 195, 225, 252 } : new int[] { 40, 100, 160, 220, 252 };
+			for (int m : marks) {
+				final int mm = m;
+				at(t + 1 + m, () -> shot(mc, "v" + variant + "_t" + String.format("%03d", mm)));
+			}
+			// a few more frames of the in-flight state for one variant, checking the timer state on the server
+			at(t + 1 + 239, () -> server(mc, p -> System.out.println("[HARNESS] v" + variant + " t239 inTransition="
+					+ IronManSuitUpManager.inTransition(p))));
+			at(t + 1 + 246, () -> server(mc, p -> System.out.println("[HARNESS] v" + variant + " t246 inTransition="
+					+ IronManSuitUpManager.inTransition(p))));
+			t += 275;
+		}
+		at(t + 10, () -> {
+			System.out.println("[HARNESS] done");
+			mc.stop();
+		});
+	}
+}

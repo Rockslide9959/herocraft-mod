@@ -143,6 +143,8 @@ public final class TonyStarkState {
 	public transient boolean transitionFromCase = false;
 	/** v0.14.21: suit-down pieces whose plates are breaking away right now, removed once their release finishes (bit 0 HEAD .. 3 FEET). */
 	public transient int transitionReleaseMask = 0;
+	/** v0.14.27: the pieces a sequential (3 s per piece) suit-up planned at its start (bit 0 HEAD .. 3 FEET); 0 = none. */
+	public transient int transitionPlan = 0;
 	/** game time the R-slot (slot 1) hold started, or 0 if not held -- drives the charged-repulsor spin-up. */
 	public transient long chargeStartTick = 0L;
 	/** true once the current R-hold has crossed the charged threshold, so the "ready" cue only fires once. */
@@ -217,6 +219,7 @@ public final class TonyStarkState {
 		c.transitionToCase = transitionToCase;
 		c.transitionFromCase = transitionFromCase;
 		c.transitionReleaseMask = transitionReleaseMask;
+		c.transitionPlan = transitionPlan;
 		c.chargeStartTick = chargeStartTick;
 		c.chargeReadyPinged = chargeReadyPinged;
 		c.unibeamUntil = unibeamUntil;

@@ -412,11 +412,13 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		s.transitionTicks = s.transitionTotal;
 		s.transitionMask = 0;
 		s.transitionReleaseMask = 0;
+		s.transitionPlan = 0;
 		com.projecthero.mod.ironman.suit.IronManSuitFx.startPose(player,
 				mode == SEQ_DEPLOY ? com.projecthero.mod.ironman.suit.IronManSuitFx.POSE_SUIT_UP
 						: com.projecthero.mod.ironman.suit.IronManSuitFx.POSE_SUIT_DOWN,
-				len + com.projecthero.mod.ironman.suit.IronManSuitFx.LOCK_TICKS + 2,
-				com.projecthero.mod.ironman.suit.IronManSuitFx.STYLE_PLATES);
+				len + com.projecthero.mod.ironman.suit.IronManSuitFx.BUILD_TICKS + 2,
+				com.projecthero.mod.ironman.suit.IronManSuitFx.STYLE_PLATES,
+				player.getRandom().nextInt(com.projecthero.mod.ironman.suit.IronManSuitFx.POSE_VARIANTS));
 		com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.SERVO, 1.0f, 0.9f);
 		afterContentsChanged();
 	}

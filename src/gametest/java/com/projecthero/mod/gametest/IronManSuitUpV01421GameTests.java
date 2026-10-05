@@ -143,7 +143,7 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void suitFxStreamCodecRoundTrips(GameTestHelper h) {
 		IronManSuitFx fx = new IronManSuitFx(11L, 22L, 33L, 44L, 0b1010, IronManSuitFx.STYLE_CASE, 555L, 66,
-				IronManSuitFx.POSE_CASE_UP, 777L);
+				IronManSuitFx.POSE_CASE_UP, 777L, 3);
 		ByteBuf buf = Unpooled.buffer();
 		IronManSuitFx.STREAM_CODEC.encode(buf, fx);
 		IronManSuitFx back = IronManSuitFx.STREAM_CODEC.decode(buf);
@@ -156,8 +156,9 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 	public void pieceProgressRunsTheLockOnAndReleaseWindows(GameTestHelper h) {
 		IronManSuitFx fx = IronManSuitFx.EMPTY.withPiece(1, 100L, true).withPiece(0, 100L, false);
 		h.assertTrue(fx.pieceProgress(EquipmentSlot.CHEST, 100L, 0f) == 0f, "a piece starts locking on invisible");
-		h.assertTrue(Math.abs(fx.pieceProgress(EquipmentSlot.CHEST, 100L + IronManSuitFx.LOCK_TICKS / 2, 0f) - 0.5f) < 1e-4f, "halfway through the lock-on");
-		h.assertTrue(fx.pieceProgress(EquipmentSlot.CHEST, 100L + IronManSuitFx.LOCK_TICKS, 0f) == 1f, "fully on at the end");
+		// v0.14.27: an ordinary (STYLE_PLATES) piece builds on over BUILD_TICKS (3 s)
+		h.assertTrue(Math.abs(fx.pieceProgress(EquipmentSlot.CHEST, 100L + IronManSuitFx.BUILD_TICKS / 2, 0f) - 0.5f) < 1e-4f, "halfway through the build");
+		h.assertTrue(fx.pieceProgress(EquipmentSlot.CHEST, 100L + IronManSuitFx.BUILD_TICKS, 0f) == 1f, "fully on at the end");
 		h.assertTrue(fx.pieceProgress(EquipmentSlot.HEAD, 100L, 0f) == 1f, "a release starts fully on");
 		h.assertTrue(fx.pieceProgress(EquipmentSlot.HEAD, 100L + IronManSuitFx.RELEASE_TICKS, 0f) == 0f, "and ends fully off");
 		h.assertTrue(fx.pieceProgress(EquipmentSlot.HEAD, 200L, 0f) == 1f,
