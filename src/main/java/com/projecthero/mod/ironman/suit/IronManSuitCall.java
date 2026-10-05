@@ -239,6 +239,9 @@ public final class IronManSuitCall {
 		suits.sort(java.util.Comparator.comparingInt(IronManSuit::markNumber));
 		for (IronManSuit suit : suits) {
 			String suitId = suit.id();
+			if (suit.summonType() == SummonType.SUITCASE_ITEM) {
+				continue; // v0.14.29: the Mark V suits up only from its suitcase (right-click), never from C / the picker
+			}
 
 			// fully in the inventory?
 			int inInv = 0;
@@ -318,15 +321,13 @@ public final class IronManSuitCall {
 		if (pick != null) {
 			return IronManSuitUpManager.beginSuitUp(player, pick.suitId());
 		}
-		for (IronManSuit suit : IronManSuits.all()) {
-			if (suit.summonType() == SummonType.SUITCASE_ITEM
-					&& IronManSuitUpManager.findDeployableCase(player, suit.id()) >= 0) {
-				return IronManSuitUpManager.beginSuitUpFromCase(player, suit.id());
-			}
-		}
+		// v0.14.29: the Mark V suitcase is no longer deployed by C -- only by right-clicking the case
 		String partial = null;
 		int best = 0;
 		for (IronManSuit suit : IronManSuits.all()) {
+			if (suit.summonType() == SummonType.SUITCASE_ITEM) {
+				continue; // v0.14.29: never by C
+			}
 			int n = 0;
 			for (ArmorItem.Type type : TYPES) {
 				if (findInInventory(player, suit.id(), type) != null) {

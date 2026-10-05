@@ -227,13 +227,13 @@ public class IronManRound2GameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void bladeStateIsSyncedTheClientDrivesItFrom(GameTestHelper helper) {
 		ServerPlayer p = suited(helper, "mark_v");
-		IronManAbilityManager.handle(p, AbilitySlot.SLOT_3, true);
+		IronManAbilityManager.handle(p, AbilitySlot.SLOT_5, true); // v0.14.29: Blades moved to V
 		helper.assertTrue(p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.IRON_MAN_BLADES, false),
-				"X sets the synced IRON_MAN_BLADES flag the blade geometry reads");
+				"V sets the synced IRON_MAN_BLADES flag the blade geometry reads");
 		IronManBlade.tick(p);
 		helper.assertTrue(IronManBlade.active(p), "blades stay out while the Mark V runs");
-		IronManAbilityManager.handle(p, AbilitySlot.SLOT_3, true);
-		helper.assertFalse(IronManBlade.active(p), "X again retracts them");
+		IronManAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
+		helper.assertFalse(IronManBlade.active(p), "V again retracts them");
 		helper.succeed();
 	}
 

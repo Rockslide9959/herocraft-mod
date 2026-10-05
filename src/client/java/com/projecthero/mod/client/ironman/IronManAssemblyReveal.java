@@ -20,6 +20,7 @@ import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.ironman.suit.IronManAssemblyPlan;
+import com.projecthero.mod.ironman.suit.IronManMk5Suitcase;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -76,11 +77,20 @@ public final class IronManAssemblyReveal {
 	 * hot seam on the newest ones. {@code base} once complete / unreadable.
 	 */
 	public static ResourceLocation buildTexture(ResourceLocation geometry, ResourceLocation base, float p, int bit) {
+		return buildTexture(geometry, base, p, bit, false);
+	}
+
+	/**
+	 * v0.14.29: as {@link #buildTexture(ResourceLocation, ResourceLocation, float, int)}; {@code mk5} re-times each
+	 * texel into its build-order step's sub-window ({@link IronManMk5Suitcase}) -- the chestplate's torso before its arms,
+	 * the helmet before its faceplate -- and nothing at all shows at progress 0.
+	 */
+	public static ResourceLocation buildTexture(ResourceLocation geometry, ResourceLocation base, float p, int bit, boolean mk5) {
 		if (p >= 0.999f || bit < 0) {
 			return base;
 		}
-		String key = geometry + "|" + base + "|" + bit + "|build";
-		ResourceLocation[] frames = BUILD_CACHE.computeIfAbsent(key, k -> buildFrames(geometry, base, bit));
+		String key = geometry + "|" + base + "|" + bit + "|build" + (mk5 ? "|mk5" : "");
+		ResourceLocation[] frames = BUILD_CACHE.computeIfAbsent(key, k -> buildFrames(geometry, base, bit, mk5));
 		if (frames.length == 0) {
 			return base;
 		}
@@ -88,7 +98,7 @@ public final class IronManAssemblyReveal {
 		return frames[step];
 	}
 
-	private static ResourceLocation[] buildFrames(ResourceLocation geometry, ResourceLocation base, int bit) {
+	private static ResourceLocation[] buildFrames(ResourceLocation geometry, ResourceLocation base, int bit, boolean mk5) {
 		Minecraft mc = Minecraft.getInstance();
 		Optional<Resource> texRes = mc.getResourceManager().getResource(base);
 		Optional<Resource> geoRes = mc.getResourceManager().getResource(geometry);
@@ -114,10 +124,10 @@ public final class IronManAssemblyReveal {
 			src.close();
 			return new ResourceLocation[0];
 		}
-		BuildTimes bt = buildTimes(samples, w * h, bit);
+		BuildTimes bt = buildTimes(samples, w * h, bit, mk5);
 
 		ResourceLocation[] frames = new ResourceLocation[BUILD_FRAMES];
-		String tag = base.getPath().replaceAll("[^a-z0-9_]", "_") + "_" + bit + "_build";
+		String tag = base.getPath().replaceAll("[^a-z0-9_]", "_") + "_" + bit + "_build" + (mk5 ? "_mk5" : "");
 		float frame = 1f / BUILD_FRAMES;
 		for (int k = 0; k < BUILD_FRAMES; k++) {
 			float p = k / (float) BUILD_FRAMES;
@@ -183,6 +193,50 @@ public final class IronManAssemblyReveal {
 	 * as a dark under-plate, and the shell pass then colours them in.
 	 */
 	static BuildTimes buildTimes(List<Sample> samples, int size, int bit) {
+		return buildTimes(samples, size, bit, false);
+	}
+
+	/**
+	 * v0.14.29: {@code mk5} -- every texel belongs to a build-order step (a texel shared by several bones goes with the
+	 * latest step, so the faceplate's eye slits never show early); the shell is ranked within each step on its own and
+	 * every time is re-timed into that step's sub-window ({@link IronManMk5Suitcase#remapStep}).
+	 */
+	static BuildTimes buildTimes(List<Sample> samples, int size, int bit, boolean mk5) {
+		if (mk5) {
+			int[] stepOf = new int[size];
+			Arrays.fill(stepOf, -1);
+			for (Sample s : samples) {
+				stepOf[s.index()] = Math.max(stepOf[s.index()], IronManMk5Suitcase.step(bit, s.bone()));
+			}
+			float[] base = new float[size];
+			float[] shell = new float[size];
+			Arrays.fill(base, Float.NaN);
+			Arrays.fill(shell, Float.NaN);
+			boolean dark = true;
+			for (int step = IronManMk5Suitcase.STEP_CHEST; step <= IronManMk5Suitcase.STEP_FACEPLATE; step++) {
+				List<Sample> group = new ArrayList<>();
+				for (Sample s : samples) {
+					if (stepOf[s.index()] == step) {
+						group.add(s);
+					}
+				}
+				if (group.isEmpty()) {
+					continue;
+				}
+				BuildTimes g = buildTimes(group, size, bit, false);
+				dark &= g.dark();
+				for (Sample s : group) {
+					int i = s.index();
+					if (!Float.isNaN(g.base()[i])) {
+						base[i] = IronManMk5Suitcase.remapStep(step, g.base()[i]);
+					}
+					if (!Float.isNaN(g.shell()[i])) {
+						shell[i] = IronManMk5Suitcase.remapStep(step, g.shell()[i]);
+					}
+				}
+			}
+			return new BuildTimes(base, shell, dark);
+		}
 		float[] base = new float[size];
 		float[] shell = new float[size];
 		Arrays.fill(base, Float.NaN);

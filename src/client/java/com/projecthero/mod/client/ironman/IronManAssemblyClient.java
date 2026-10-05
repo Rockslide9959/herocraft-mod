@@ -167,6 +167,12 @@ public final class IronManAssemblyClient {
 		if (p >= 1f) {
 			return true;
 		}
+		if (fx.mk5()) {
+			// v0.14.29: the Mark 5 suitcase build -- each bone builds in its own step's sub-window (chest, arms, legs,
+			// head, faceplate); a bone not yet started (or already taken apart) is not drawn at all
+			float local = com.projecthero.mod.ironman.suit.IronManMk5Suitcase.localProgress(bit, name, p);
+			return local > 0f && applyBuild(pose, bone, local);
+		}
 		if (IronManSuitReveal.building(player, slot)) {
 			return applyBuild(pose, bone, p);
 		}
@@ -314,7 +320,7 @@ public final class IronManAssemblyClient {
 			String last = bit == 1 ? lastOf(1, fromCase) : "faceplate";
 			// v0.14.27: a built-on piece lights up the moment its shell is finished
 			float snapTick = fromCase ? IronManAssemblyPlan.snapAt(bit, last, true) * IronManSuitFx.LOCK_TICKS
-					: IronManAssemblyPlan.BUILD_SHELL_END * IronManSuitFx.BUILD_TICKS;
+					: IronManAssemblyPlan.BUILD_SHELL_END * fx.lockTicks(bit); // v0.14.29: per-piece for the Mark 5
 			float since = now - fx.start(bit) + partialTick - snapTick;
 			if (since >= 0f && since < FLASH_TICKS) {
 				best = 1f - since / FLASH_TICKS;

@@ -87,6 +87,12 @@ public final class IronManSuitUpManager {
 		if (inTransition(player)) {
 			return false;
 		}
+		if (suit.summonType() == SummonType.SUITCASE_ITEM) {
+			// v0.14.29: the Mark 5 only ever suits up by right-clicking its suitcase (beginSuitUpFromCase)
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk5_use_case")
+					.withStyle(ChatFormatting.GRAY), true);
+			return false;
+		}
 		// You can wear a suit you have developed OR simply have all four pieces of (creative, a gift, a Hall of Armor
 		// you inherited) -- physically having the armour is authorisation enough.
 		if (!TonyStark.hasBuilt(player, suitId) && TonyStark.techLevel(player) < suit.techLevel()
@@ -170,9 +176,10 @@ public final class IronManSuitUpManager {
 	}
 
 	/**
-	 * Sneak + C (or right-click the case) while wearing the Mark 5: fold the suit away into the Mark V Suitcase rather
-	 * than storing four pieces in the inventory. v0.14.21: the case is handed over <em>first</em> (empty) and each
-	 * piece is put into it in the tick it leaves the body, so a logout mid-fold can never lose a piece.
+	 * C (or right-click the case) while wearing the Mark 5: fold the suit away into the Mark V Suitcase rather than
+	 * storing four pieces in the inventory. v0.14.29: a 4 s fold ({@link IronManMk5Suitcase#DOWN_TICKS}); the pieces
+	 * stay in their armour slots (hidden once they have come apart) until the very last tick, when all of them move into
+	 * a fresh case in one go ({@link #packIntoCase}) -- so a logout / death mid-fold can never lose or duplicate one.
 	 */
 	public static boolean beginSuitDownToCase(ServerPlayer player, String suitId) {
 		if (inTransition(player)) {
@@ -186,18 +193,6 @@ public final class IronManSuitUpManager {
 		if (mask == 0) {
 			return false;
 		}
-		if (findFoldTargetCase(player, suitId) < 0) {
-			if (freeMainInventorySlots(player) < 1 && player.getInventory().getFreeSlot() < 0) {
-				player.displayClientMessage(Component.translatable("message.projecthero.ironman.no_space_to_store")
-						.withStyle(ChatFormatting.RED), true);
-				return false;
-			}
-			ItemStack fresh = new ItemStack(suitcaseItemFor(suitId));
-			SuitcaseContents.write(fresh, net.minecraft.core.NonNullList.withSize(SuitcaseContents.SLOTS, ItemStack.EMPTY));
-			if (!addToMainInventoryOnly(player, fresh) && !player.getInventory().add(fresh)) {
-				return false;
-			}
-		}
 		if (IronManFlight.isFlying(player)) {
 			IronManFlight.setFlying(player, false);
 		}
@@ -206,7 +201,8 @@ public final class IronManSuitUpManager {
 	}
 
 	/**
-	 * Right-click the Mark V Suitcase: build the suit around the player out of the case, chest first, ~4 s. The case
+	 * Right-click the Mark V Suitcase: build the suit around the player out of the case -- v0.14.29: 6 s, the case held
+	 * out first, then chest, arms, legs, head, faceplate ({@link IronManMk5Suitcase}). The case
 	 * stays in the inventory until its last piece has come out; each stage takes that piece out of the case and onto
 	 * the body in one tick. A legacy case (never had a suit folded into it) is first filled with a fresh Mark V.
 	 */
@@ -316,6 +312,15 @@ public final class IronManSuitUpManager {
 		s.transitionMask = mask;
 		s.transitionReleaseMask = 0;
 		boolean casePose = toCase || fromCase;
+		if (casePose) {
+			// v0.14.29: the Mark 5 suitcase build (6 s) / fold (4 s) -- its own per-piece timetable, pose and style
+			s.transitionTotal = up ? IronManMk5Suitcase.UP_TICKS : IronManMk5Suitcase.DOWN_TICKS;
+			s.transitionTicks = s.transitionTotal;
+			IronManSuitFx.startPose(player, up ? IronManSuitFx.POSE_MK5_UP : IronManSuitFx.POSE_MK5_DOWN,
+					s.transitionTotal, IronManSuitFx.STYLE_MK5, 0);
+			launchFx(player, up);
+			return;
+		}
 		int kind = up ? (casePose ? IronManSuitFx.POSE_CASE_UP : IronManSuitFx.POSE_SUIT_UP)
 				: (casePose ? IronManSuitFx.POSE_CASE_DOWN : IronManSuitFx.POSE_SUIT_DOWN);
 		int style = casePose ? IronManSuitFx.STYLE_CASE : up ? IronManSuitFx.STYLE_PLATES : IronManSuitFx.STYLE_UNBUILD;
@@ -401,6 +406,12 @@ public final class IronManSuitUpManager {
 		evictSlot(player, slot);
 		player.setItemSlot(slot, piece.copyAndClear());
 		TonyStark.setActiveSuit(player, suitId);
+		IronManSuitFx fxNow = IronManSuitFx.of(player);
+		if (fxNow.mk5()) {
+			// v0.14.29: a leftover Mark 5 style must not time this piece's ordinary build-on
+			player.setAttached(ModAttachments.IRON_MAN_SUIT_FX, fxNow.withPose(fxNow.poseKind(), fxNow.poseStart(),
+					fxNow.poseTicks(), IronManSuitFx.STYLE_PLATES));
+		}
 		IronManSuitFx.markPiece(player, slot, true);
 		stageFx(player, slot, true);
 		if (IronManArmor.wearingFullSuit(player, suitId) && !inTransition(player)) {
@@ -427,12 +438,16 @@ public final class IronManSuitUpManager {
 		int elapsed = s.transitionTotal - s.transitionTicks;
 
 		boolean sequential = s.transitionPlan != 0;
+		// v0.14.29: the Mark 5 suitcase build / fold runs on its own per-piece timetable
+		boolean mk5 = s.transitionFromCase || s.transitionToCase;
 		int releaseTicks = sequential ? IronManSuitFx.BUILD_TICKS : IronManSuitFx.RELEASE_TICKS;
 		for (int bit = 0; bit < 4; bit++) {
 			EquipmentSlot slot = SLOT_BY_BIT[bit];
-			int stage = !sequential ? stageTick(bit, s.transitionUp, type)
+			int stage = mk5 ? (s.transitionUp ? IronManMk5Suitcase.upStart(bit) : IronManMk5Suitcase.downStart(bit))
+					: !sequential ? stageTick(bit, s.transitionUp, type)
 					: s.transitionUp ? buildStageTick(bit, s.transitionPlan) : unbuildStageTick(bit, s.transitionPlan);
-			if (sequential && s.transitionUp && stage >= 0 && elapsed == stage + IronManSuitFx.BUILD_TICKS - 1
+			int buildTicks = mk5 ? IronManMk5Suitcase.upWindow(bit) : IronManSuitFx.BUILD_TICKS;
+			if ((sequential || mk5) && s.transitionUp && stage >= 0 && elapsed == stage + buildTicks - 1
 					&& player.getItemBySlot(slot).getItem() instanceof IronManArmorItem) {
 				// v0.14.27: the piece has finished building itself on -- it clamps home (sparks + the clamp sound)
 				stageFx(player, slot, true);
@@ -451,7 +466,7 @@ public final class IronManSuitUpManager {
 					evictSlot(player, slot);
 					player.setItemSlot(slot, piece);
 					IronManSuitFx.markPiece(player, slot, true);
-					if (sequential) {
+					if (sequential || mk5) {
 						// v0.14.27: the piece starts building on -- a servo whirr now, the clamp when it is done
 						IronManSounds.play(player, IronManSounds.SERVO, 0.7f, 0.85f + bit * 0.08f);
 					} else {
@@ -464,8 +479,9 @@ public final class IronManSuitUpManager {
 					IronManSounds.play(player, IronManSounds.RELEASE, 0.7f, 1.0f + bit * 0.05f);
 				}
 			}
-			// 2. a released piece whose break-away has finished (or the sequence is ending)
-			if ((s.transitionReleaseMask & (1 << bit)) != 0
+			// 2. a released piece whose break-away has finished (or the sequence is ending). v0.14.29: not the Mark 5 fold
+			// -- its pieces all move into the case together when it finishes (packIntoCase)
+			if (!s.transitionToCase && (s.transitionReleaseMask & (1 << bit)) != 0
 					&& (elapsed >= stage + releaseTicks || s.transitionTicks <= 0)) {
 				s.transitionReleaseMask &= ~(1 << bit);
 				removeForSuitDown(player, s, slot);
@@ -514,7 +530,7 @@ public final class IronManSuitUpManager {
 			}
 		} else {
 			if (s.transitionToCase) {
-				stampCase(player, s.transitionSuit);
+				packIntoCase(player, s.transitionSuit); // v0.14.29: the whole suit becomes the case in one tick
 			}
 			level.playSound(null, player.getX(), player.getY(), player.getZ(),
 					SoundEvents.NETHERITE_BLOCK_BREAK, SoundSource.PLAYERS, 0.6f, 0.9f);
@@ -570,21 +586,63 @@ public final class IronManSuitUpManager {
 		}
 	}
 
-	private static void stampCase(ServerPlayer player, String suitId) {
+	/**
+	 * v0.14.29: the end of the Mark 5 fold -- every worn piece of {@code suitId} (charge + integrity stamped on, every
+	 * other component kept) goes into a fresh suitcase, which then lands in the main hand, else the first free hotbar
+	 * slot, else the first free inventory slot, else at the player's feet ({@link #placeSuitcase}) -- never lost.
+	 */
+	public static ItemStack packIntoCase(ServerPlayer player, String suitId) {
 		net.minecraft.world.item.Item caseItem = suitcaseItemFor(suitId);
 		if (caseItem == null) {
-			return;
+			return ItemStack.EMPTY;
 		}
-		var inv = player.getInventory();
-		for (int i = 0; i < inv.getContainerSize(); i++) {
-			ItemStack st = inv.getItem(i);
-			if (st.is(caseItem) && !SuitcaseContents.isLegacyEmpty(st) && !SuitcaseContents.isEmpty(st)) {
-				IronManEnergy.stampStack(st, IronManEnergy.energy(player, suitId), IronManEnergy.integrity(player, suitId));
+		float energy = IronManEnergy.energy(player, suitId);
+		float integrity = IronManEnergy.integrity(player, suitId);
+		net.minecraft.core.NonNullList<ItemStack> slots =
+				net.minecraft.core.NonNullList.withSize(SuitcaseContents.SLOTS, ItemStack.EMPTY);
+		for (int bit = 0; bit < 4; bit++) {
+			EquipmentSlot slot = SLOT_BY_BIT[bit];
+			if (!IronManArmor.isPieceWorn(player, slot, suitId)) {
+				continue;
 			}
+			ItemStack out = player.getItemBySlot(slot).copy();
+			IronManEnergy.stampStack(out, energy, integrity);
+			player.setItemSlot(slot, ItemStack.EMPTY);
+			slots.set(SuitcaseContents.slotOf(typeOf(slot)), out);
 		}
+		ItemStack caseStack = new ItemStack(caseItem);
+		SuitcaseContents.write(caseStack, slots);
+		IronManEnergy.stampStack(caseStack, energy, integrity);
+		placeSuitcase(player, caseStack);
 		IronManSounds.play(player, IronManSounds.CASE_UNFOLD, 0.9f, 0.8f);
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.folded_to_case",
 				Component.translatable(IronManSuits.byId(suitId).nameKey())).withStyle(ChatFormatting.AQUA), true);
+		return caseStack;
+	}
+
+	/**
+	 * v0.14.29: where a freshly packed suitcase goes -- the main hand if it is empty, else the first free hotbar slot,
+	 * else the first free main-inventory slot, else dropped at the player's feet. Returns the inventory index, or -1 if
+	 * it was dropped.
+	 */
+	public static int placeSuitcase(ServerPlayer player, ItemStack caseStack) {
+		var inv = player.getInventory();
+		int idx = -1;
+		if (inv.selected >= 0 && inv.selected < 9 && inv.items.get(inv.selected).isEmpty()) {
+			idx = inv.selected;
+		}
+		for (int i = 0; idx < 0 && i < MAIN_INV_END; i++) {
+			if (inv.items.get(i).isEmpty()) {
+				idx = i; // hotbar 0..8 first, then the main inventory 9..35
+			}
+		}
+		if (idx < 0) {
+			player.drop(caseStack, false);
+			return -1;
+		}
+		inv.items.set(idx, caseStack);
+		inv.setChanged();
+		return idx;
 	}
 
 	/** After a from-case suit-up: the now-empty case is used up (it IS the folded suit). */

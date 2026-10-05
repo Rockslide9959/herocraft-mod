@@ -119,7 +119,19 @@ public final class IronManSuitReveal {
 	/** The texture to draw an Iron Man piece in {@code slot} with right now (the plain one outside a lock-on / release). */
 	public static ResourceLocation texture(Player player, String setId, EquipmentSlot slot, ResourceLocation base,
 			float partialTick) {
-		return textureAt(progress(player, slot, partialTick), building(player, slot), fromCase(player), setId, slot, base);
+		float p = progress(player, slot, partialTick);
+		if (p < 1f && mk5(player)) {
+			// v0.14.29: the Mark 5 suitcase build -- chest before arms, helmet before faceplate (per-bone sub-windows)
+			ArmorVisualDefinition def = SuperheroArmorVisuals.get(setId);
+			int bit = IronManSuitFx.bit(slot);
+			return def == null || bit < 0 ? base : IronManAssemblyReveal.buildTexture(def.geometry(), base, p, bit, true);
+		}
+		return textureAt(p, building(player, slot), fromCase(player), setId, slot, base);
+	}
+
+	/** v0.14.29: is this player's suit going on / coming off as the Mark 5 suitcase build? */
+	public static boolean mk5(Player player) {
+		return IronManSuitFx.of(player).mk5();
 	}
 
 	/** v0.14.28: the build texture of an Iron Man piece at progress {@code p} (whole at 1). */

@@ -1885,8 +1885,8 @@ public class HeroPackGameTests implements FabricGameTest {
 				"Mark III max integrity must be 1000"); // v0.14.27
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_4") == 1750f,
 				"Mark 4 max integrity must be 1750"); // v0.14.29
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_v") == 550f,
-				"Mark V max integrity must be 550");
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_v") == 800f,
+				"Mark V max integrity must be 800"); // v0.14.29
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_6") == 800f,
 				"Mark 6 max integrity must be 800");
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_vii") == 950f,
@@ -1907,7 +1907,7 @@ public class HeroPackGameTests implements FabricGameTest {
 	 *  except the "changes 16" Mark VII, whose slot 5 is the weapon wheel. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void advancedMarksCarryMobHighlightInsteadOfTargeting(GameTestHelper helper) {
-		for (String id : new String[]{"mark_v", "mark_6"} /* v0.14.27: Mark III V = its weapon wheel; v0.14.29: Mark 4 too */) {
+		for (String id : new String[]{"mark_6"} /* v0.14.27: Mark III V = its weapon wheel; v0.14.29: Mark 4 too, Mark 5 V = Blades */) {
 			var suit = com.projecthero.mod.ironman.suit.IronManSuits.byId(id);
 			helper.assertTrue(com.projecthero.mod.ironman.ability.IronManAbilities.MOB_HIGHLIGHT_TOGGLE.equals(suit.abilityInSlot(5)),
 					id + " slot 5 must be the mob-highlight toggle");
@@ -1962,19 +1962,13 @@ public class HeroPackGameTests implements FabricGameTest {
 	public void markVRedefinedAsMovieMarkFive(GameTestHelper helper) {
 		var mv = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_v");
 		var m2 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_2");
-		helper.assertTrue(mv.energyCapacity() == 8_000f, "mark_v energy must be 8000 ('changes 18')");
-		helper.assertTrue(mv.maxIntegrity() == 550f, "mark_v integrity must be 550 ('changes 18')");
+		helper.assertTrue(mv.energyCapacity() == 2_500f, "mark_v energy must be 2500 (v0.14.29)");
+		helper.assertTrue(mv.maxIntegrity() == 800f, "mark_v integrity must be 800 (v0.14.29)");
 		for (int s = 1; s <= 6; s++) {
-			if (s == 2) {
-				// v0.14.27: the Mark 2's G became the Sonic Clap; the Mark 5 keeps the Rocket.
-				helper.assertTrue(com.projecthero.mod.ironman.ability.IronManAbilities.ROCKET.equals(mv.abilityInSlot(2)),
-						"mark_v slot 2 must be the Rocket");
-				continue;
-			}
-			if (s == 3) {
-				// "changes 19": slot 3 is the gauntlet Blade toggle on the Mark 5 (Flare on the Mark 2).
-				helper.assertTrue(com.projecthero.mod.ironman.ability.IronManAbilities.BLADE.equals(mv.abilityInSlot(3)),
-						"mark_v slot 3 must be the Blade ability");
+			if (s == 5) {
+				// v0.14.29: V is the gauntlet Blade toggle on the Mark 5 (Mob Highlight on the Mark 2).
+				helper.assertTrue(com.projecthero.mod.ironman.ability.IronManAbilities.BLADE.equals(mv.abilityInSlot(5)),
+						"mark_v slot 5 must be the Blade ability");
 				continue;
 			}
 			helper.assertTrue(java.util.Objects.equals(mv.abilityInSlot(s), m2.abilityInSlot(s)),
@@ -2287,10 +2281,10 @@ public class HeroPackGameTests implements FabricGameTest {
 
 		// blades
 		giveFullSuit(player, "mark_v");
-		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_v", 5000f);
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_v", 2000f);
 		var atk = player.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
-		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_3, true);
-		helper.assertTrue(com.projecthero.mod.ironman.IronManBlade.active(player), "X extends the blades");
+		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_5, true);
+		helper.assertTrue(com.projecthero.mod.ironman.IronManBlade.active(player), "V extends the blades (v0.14.29)");
 		com.projecthero.mod.ironman.IronManBlade.tick(player);
 		var mod = atk.getModifier(com.projecthero.mod.ProjectHeroMod.id("iron_man_blade_strength"));
 		helper.assertTrue(mod != null && Math.abs(mod.amount() - 4.0) < 1e-4, "blades add +4 melee");

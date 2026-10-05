@@ -60,6 +60,15 @@ public final class IronManSuitUpPose {
 							touched = true;
 						}
 					}
+					case IronManSuitFx.POSE_MK5_UP, IronManSuitFx.POSE_MK5_DOWN -> {
+						// v0.14.29: case out in both hands -> onto the chest -> arms out (and the reverse)
+						float[] mk = com.projecthero.mod.ironman.suit.IronManMk5Suitcase.pose(
+								fx.poseKind() == IronManSuitFx.POSE_MK5_UP, age);
+						if (mk != null && mk[0] > 0.001f) {
+							apply(model, mk[0], java.util.Arrays.copyOfRange(mk, 1, mk.length));
+							touched = true;
+						}
+					}
 					case IronManSuitFx.POSE_CASE_UP, IronManSuitFx.POSE_CASE_DOWN -> {
 						if (w > 0.001f) {
 							arms(model, w, -1.05f, 0.05f, -0.2f, 0.75f);

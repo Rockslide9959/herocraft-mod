@@ -61,6 +61,12 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 	 * reverse of the suit-up. (The Suit Platform's retrieve keeps the quick {@link #RELEASE_TICKS} break-away.)
 	 */
 	public static final int STYLE_UNBUILD = 2;
+	/**
+	 * v0.14.29: the Mark 5 suitcase build / fold -- each piece builds on (or comes apart) like {@link #STYLE_PLATES} /
+	 * {@link #STYLE_UNBUILD}, but over its own {@link IronManMk5Suitcase} window, chest -> arms -> legs -> head ->
+	 * faceplate (and the reverse). A piece that has come apart stays hidden until the fold finishes.
+	 */
+	public static final int STYLE_MK5 = 35;
 
 	public static final int POSE_NONE = 0;
 	/** Standing suit-up: arms out and slightly raised while the pieces lock on, then the faceplate beat. */
@@ -73,6 +79,10 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 	public static final int POSE_CASE_DOWN = 4;
 	/** Waiting for couriers / the pod: arms held out to receive the pieces. */
 	public static final int POSE_RECEIVE = 5;
+	/** v0.14.29: Mark 5 suit-up -- the case held out in both hands, onto the chest, arms out while it builds. */
+	public static final int POSE_MK5_UP = 35;
+	/** v0.14.29: Mark 5 suit-down -- arms out while it comes apart, then the case ends up held out in both hands. */
+	public static final int POSE_MK5_DOWN = 36;
 
 	public static final IronManSuitFx EMPTY = new IronManSuitFx(0L, 0L, 0L, 0L, 0, STYLE_PLATES, 0L, 0, POSE_NONE, 0L, 0);
 
@@ -142,14 +152,16 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 		}
 		float age = gameTime - s + partial;
 		boolean up = assembling(b);
-		int window = up ? lockTicks() : releaseTicks();
+		int window = up ? lockTicks(b) : releaseTicks(b);
 		// v0.14.21 smoothness: a client clock a little behind the server's start tick reads as "just started" (not as
 		// "no clock", which drew the whole piece for a frame before it vanished and assembled), and a finished release
 		// keeps the piece gone for a second, until the slot-empty sync lands, instead of popping it back for a frame
 		if (age < 0f) {
 			return age > -CLOCK_SKEW_TICKS ? 0f : -1f;
 		}
-		return age > window + (up ? 2 : RELEASE_HOLD_TICKS) ? -1f : age;
+		// v0.14.29: a Mark 5 piece that has come apart stays gone until the fold ends and it leaves the slot
+		int hold = up ? 2 : style == STYLE_MK5 ? IronManMk5Suitcase.DOWN_TICKS + RELEASE_HOLD_TICKS : RELEASE_HOLD_TICKS;
+		return age > window + hold ? -1f : age;
 	}
 
 	/** How much of the piece in {@code slot} is built on, 0..1 -- 1 whenever no lock-on / release is running. */
@@ -159,7 +171,22 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 			return 1f;
 		}
 		int b = bit(slot);
-		return assembling(b) ? clamp(age / lockTicks()) : 1f - clamp(age / releaseTicks());
+		return assembling(b) ? clamp(age / lockTicks(b)) : 1f - clamp(age / releaseTicks(b));
+	}
+
+	/** v0.14.29: how long piece {@code bit} takes to go on -- the Mark 5 has a window per piece, everything else {@link #lockTicks()}. */
+	public int lockTicks(int bit) {
+		return style == STYLE_MK5 ? IronManMk5Suitcase.upWindow(bit) : lockTicks();
+	}
+
+	/** v0.14.29: how long piece {@code bit} takes to come off (per piece for the Mark 5). */
+	public int releaseTicks(int bit) {
+		return style == STYLE_MK5 ? IronManMk5Suitcase.downWindow(bit) : releaseTicks();
+	}
+
+	/** v0.14.29: is this the Mark 5 suitcase build / fold? */
+	public boolean mk5() {
+		return style == STYLE_MK5;
 	}
 
 	/** How long a piece takes to go on in this style: {@link #BUILD_TICKS} (3 s build) or the Mark V case's {@link #LOCK_TICKS}. */
@@ -174,7 +201,7 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 
 	/** v0.14.28: is a piece coming off as the reverse build (shell texels out, then the base halves open)? */
 	public boolean unbuilding() {
-		return style == STYLE_UNBUILD;
+		return style == STYLE_UNBUILD || style == STYLE_MK5;
 	}
 
 	/** Is piece {@code bit} still building itself on at {@code gameTime}? (Server: holds the suit-up open until it is done.) */
@@ -184,7 +211,7 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 			return false;
 		}
 		long age = gameTime - s;
-		return age >= 0L && age < lockTicks();
+		return age >= 0L && age < lockTicks(bit);
 	}
 
 	/** Any piece still building at {@code gameTime}? */

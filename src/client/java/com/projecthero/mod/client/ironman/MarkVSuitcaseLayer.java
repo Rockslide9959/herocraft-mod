@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 
 import com.projecthero.mod.ironman.item.IronManItems;
+import com.projecthero.mod.ironman.suit.IronManMk5Suitcase;
 import com.projecthero.mod.ironman.suit.IronManSuitFx;
 
 import net.minecraft.client.Minecraft;
@@ -45,8 +46,17 @@ public class MarkVSuitcaseLayer extends RenderLayer<AbstractClientPlayer, Player
 			return false;
 		}
 		IronManSuitFx fx = IronManSuitFx.of(player);
-		return (fx.poseKind() == IronManSuitFx.POSE_CASE_UP || fx.poseKind() == IronManSuitFx.POSE_CASE_DOWN)
-				&& fx.poseAge(player.level().getGameTime(), 0f) >= 0f;
+		return (fx.poseKind() == IronManSuitFx.POSE_CASE_UP || fx.poseKind() == IronManSuitFx.POSE_CASE_DOWN
+				|| mk5(fx)) && fx.poseAge(player.level().getGameTime(), 0f) >= 0f;
+	}
+
+	/** v0.14.29: the Mark 5 build / fold holds the case in both hands -- the left held item is hidden too. */
+	public static boolean bothHands(net.minecraft.world.entity.player.Player player) {
+		return mk5(IronManSuitFx.of(player));
+	}
+
+	private static boolean mk5(IronManSuitFx fx) {
+		return fx.poseKind() == IronManSuitFx.POSE_MK5_UP || fx.poseKind() == IronManSuitFx.POSE_MK5_DOWN;
 	}
 
 	@Override
@@ -57,6 +67,10 @@ public class MarkVSuitcaseLayer extends RenderLayer<AbstractClientPlayer, Player
 		}
 		IronManSuitFx fx = IronManSuitFx.of(player);
 		float age = fx.poseAge(player.level().getGameTime(), partialTick);
+		if (age >= 0f && mk5(fx)) {
+			renderMk5(pose, buffers, light, player, fx.poseKind() == IronManSuitFx.POSE_MK5_UP, age);
+			return;
+		}
 		boolean up = fx.poseKind() == IronManSuitFx.POSE_CASE_UP;
 		if (age < 0f || (!up && fx.poseKind() != IronManSuitFx.POSE_CASE_DOWN)) {
 			return;
@@ -90,6 +104,51 @@ public class MarkVSuitcaseLayer extends RenderLayer<AbstractClientPlayer, Player
 		try {
 			Minecraft.getInstance().getEntityRenderDispatcher().getItemInHandRenderer().renderItem(player, caseStack,
 					ItemDisplayContext.THIRD_PERSON_RIGHT_HAND, false, pose, buffers, light);
+		} finally {
+			MarkVSuitcaseRenderer.openness = 0f;
+		}
+		pose.popPose();
+	}
+
+	/**
+	 * v0.14.29: the Mark 5 case between both hands, in front of the body. Suit-up: held out, then pulled onto the chest
+	 * where it opens and shrinks into the chestplate. Suit-down: it grows out of the chestplate, closes, and is pushed
+	 * back out in front of the body.
+	 */
+	private void renderMk5(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, boolean up,
+			float age) {
+		float scale = IronManMk5Suitcase.caseScale(up, age);
+		if (scale <= 0.01f) {
+			return;
+		}
+		// 0 = held out in front .. 1 = against the chest
+		float toChest;
+		float open;
+		if (up) {
+			toChest = smooth((age - IronManMk5Suitcase.HOLD_TICKS) / 10f);
+			open = smooth((age - IronManMk5Suitcase.HOLD_TICKS) / IronManMk5Suitcase.MORPH_TICKS);
+		} else {
+			float formAt = IronManMk5Suitcase.DOWN_TICKS - IronManMk5Suitcase.CASE_FORM_TICKS;
+			toChest = 1f - smooth((age - formAt) / 8f);
+			open = 1f - smooth((age - formAt) / 6f);
+		}
+		if (caseStack == null) {
+			caseStack = new ItemStack(IronManItems.MARK_V_SUITCASE);
+		}
+		pose.pushPose();
+		getParentModel().body.translateAndRotate(pose);
+		// body space: +y down, -z in front. Held out: between the hands ~8 px in front, ~9 px below the neck;
+		// against the chest: 3.5 px in front at sternum height.
+		float y = Mth.lerp(toChest, 9.5f, 6.5f) / 16f;
+		float z = Mth.lerp(toChest, -7.5f, -3.5f) / 16f;
+		pose.translate(0f, y, z);
+		pose.mulPose(Axis.ZP.rotationDegrees(180f)); // model y-up -> world up
+		float s = 0.8f * scale;
+		pose.scale(s, s, s);
+		MarkVSuitcaseRenderer.openness = open;
+		try {
+			Minecraft.getInstance().getEntityRenderDispatcher().getItemInHandRenderer().renderItem(player, caseStack,
+					ItemDisplayContext.NONE, false, pose, buffers, light);
 		} finally {
 			MarkVSuitcaseRenderer.openness = 0f;
 		}

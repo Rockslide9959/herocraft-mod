@@ -76,7 +76,8 @@ public final class IronManSuitPoses {
 
 	/** Does {@code fx} drive a per-piece pose at all? (The Mark V case keeps its own case-in-hand pose.) */
 	public static boolean drives(IronManSuitFx fx) {
-		return fx.style() != IronManSuitFx.STYLE_CASE;
+		// v0.14.29: the Mark 5 suitcase build has its own pose too (IronManMk5Suitcase#pose)
+		return fx.style() != IronManSuitFx.STYLE_CASE && fx.style() != IronManSuitFx.STYLE_MK5;
 	}
 
 	/** Does piece {@code bit}'s clock count for the pose (a build-on, or a reverse build coming off)? */

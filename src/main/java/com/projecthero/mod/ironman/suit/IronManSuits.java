@@ -136,27 +136,37 @@ public final class IronManSuits {
 			.blueprint(IronManItems.MARK_III_BLUEPRINT)
 			.build());
 
-	// "changes 15": Mark V redefined as the movie Mark 5 -- silver-and-red suitcase armour with the
-	// same ability loadout as the Mark 2, a smaller condition pool, and the folding-suitcase suit-up.
+	// "changes 15": Mark V redefined as the movie Mark 5 -- silver-and-red suitcase armour.
+	// v0.14.29 (explicit user spec): Mark 2 kit with an instant repulsor tap and the gauntlet Blades on V (in place of
+	// the Mob Highlight); 2500 energy (+5/s), 800 integrity (+2/s worn), diamond-level plates, +6 melee, water
+	// breathing, auto-feed, lock-on targeting. C folds it into the Mark V suitcase (4 s); only right-clicking the case
+	// suits back up (6 s) -- C auto-equip / the Sneak+C picker never offer it. See IronManMk5Suitcase.
 	public static final IronManSuit MARK_V = register(IronManSuit.Builder.of("mark_v")
 			.tech(2, 5)
-			.energy(8_000f, 0.5f) // "changes 18": capacity 8000
-			.maxIntegrity(550f) // "changes 18"
-			.energyRegen(1.6f) // "changes 18"
-			.armorRegen(0.03f) // "changes 18"
+			.energy(2_500f, 0.5f) // v0.14.29: 2500
+			.maxIntegrity(800f) // v0.14.29: 800
+			.energyRegen(5f) // v0.14.29: 5 energy/sec
+			.armorRegen(5f) // v0.14.29: x IronManEnergy.WORN_REGEN_SCALE (0.4) = 2 integrity/sec worn
+			.integritySplit(0.5f) // v0.14.29: integrity absorbs 50% of every hit, the wearer takes 50%
+			.arrowFireImmune() // v0.14.29: arrows + fire do nothing, not even to integrity
+			.waterBreathing() // v0.14.29: breathes underwater
+			.targeting() // v0.14.29: lock-on / auto-aim like the Mark 2 / III
 			.flightDrain(0.90f) // "changes 18"
 			.targetScanRange(30.0)
 			.flight(1.0f, 0.08f)
-			.repulsor(9.0f)
-			.repulsorWindup(20) // 1 s spin-up before an ordinary tap fires -- same as the Mark 2
-			.unibeam(14.0f)
-			.unibeamDamageMultiplier(0.7f)
-			.missiles(0, 0f, 0f) // slot 2/G is the single-shot Rocket, slot 3/X is the Flare
-			.strength(5.0f) // "changes 18": melee bonus +5
-			.toggleableHighlight()
-			// "changes 19": slot 3 (X) is the gauntlet Blade toggle, not the Flare.
-			.abilities(IronManAbilities.REPULSOR_BLAST, IronManAbilities.ROCKET, IronManAbilities.BLADE,
-					IronManAbilities.UNIBEAM, IronManAbilities.MOB_HIGHLIGHT_TOGGLE, IronManAbilities.SUIT_TOGGLE)
+			// v0.14.29 R: the Mark 2's numbers but NO 1 s spin-up -- a tap fires the moment it is released;
+			// hold 1 s = charged; Shift+R = the repulsor dash
+			.repulsorTap(10.0f, 10f, 20)
+			.repulsorCharged(18.0f, 50f, 60, 20)
+			.dash(15.0f, 50f, 160)
+			.sonicClap(15.0f, 50f, 160) // G, as the Mark 2
+			.unibeam(20.0f)
+			.unibeamChannel(120, 20.0f, 300f, 400) // Z, as the Mark 2
+			.missiles(0, 0f, 0f)
+			.strength(6.0f) // v0.14.29: melee bonus +6
+			// Slot order is R(1) G(2) X(3) Z(4) V(5) C(6). v0.14.29: the Mark 2 kit with V = the gauntlet Blades.
+			.abilities(IronManAbilities.REPULSOR_BLAST, IronManAbilities.SONIC_CLAP, IronManAbilities.FLARE,
+					IronManAbilities.UNIBEAM, IronManAbilities.BLADE, IronManAbilities.SUIT_TOGGLE)
 			.suitUp(SuitUpType.SUITCASE_MOVIE)
 			.summon(SummonType.SUITCASE_ITEM)
 			.blueprint(IronManItems.MARK_V_BLUEPRINT)

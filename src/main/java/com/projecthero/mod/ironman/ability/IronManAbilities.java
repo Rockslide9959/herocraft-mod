@@ -267,10 +267,9 @@ public final class IronManAbilities {
 			case UNIBEAM -> { if (pressed) startUnibeam(player, suit); }
 			case SUIT_TOGGLE -> {
 				if (pressed) {
-					// "changes 15": sneak + C on the Mark 5 folds it into its suitcase item instead of
-					// storing four pieces in the inventory.
-					if (player.isShiftKeyDown()
-							&& suit.summonType() == com.projecthero.mod.ironman.suit.SummonType.SUITCASE_ITEM) {
+					// "changes 15": the Mark 5 folds into its suitcase item instead of storing four pieces in the
+					// inventory. v0.14.29: on plain C too (was sneak + C only) -- it never stores as loose pieces.
+					if (suit.summonType() == com.projecthero.mod.ironman.suit.SummonType.SUITCASE_ITEM) {
 						IronManSuitUpManager.beginSuitDownToCase(player, suit.id());
 					} else {
 						IronManSuitUpManager.beginSuitDown(player, suit.id());

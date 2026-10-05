@@ -56,8 +56,8 @@ public final class IronManArmorMaterials {
 			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 8, ArmorItem.Type.HELMET, 3),
 			12, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.0f);
 	public static final Holder<ArmorMaterial> MARK_V = register("mark_v",
-			Map.of(ArmorItem.Type.BOOTS, 2, ArmorItem.Type.LEGGINGS, 5, ArmorItem.Type.CHESTPLATE, 6, ArmorItem.Type.HELMET, 2),
-			12, SoundEvents.ARMOR_EQUIP_IRON, 1.0f, 0.0f);
+			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 8, ArmorItem.Type.HELMET, 3),
+			12, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.0f); // v0.14.29: diamond level (3/6/8/3, toughness 2)
 	public static final Holder<ArmorMaterial> MARK_VII = register("mark_vii",
 			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 9, ArmorItem.Type.HELMET, 3),
 			15, SoundEvents.ARMOR_EQUIP_NETHERITE, 3.0f, 0.1f);

@@ -25,8 +25,9 @@ public abstract class ItemInHandLayerSuitcaseMixin {
 	@Inject(method = "renderArmWithItem", at = @At("HEAD"), cancellable = true)
 	private void projecthero$suitcaseOwnsRightHand(LivingEntity entity, ItemStack stack, ItemDisplayContext context,
 			HumanoidArm arm, PoseStack poseStack, MultiBufferSource buffer, int packedLight, CallbackInfo ci) {
-		if (arm == HumanoidArm.RIGHT && entity instanceof Player player
-				&& com.projecthero.mod.client.ironman.MarkVSuitcaseLayer.active(player)) {
+		// v0.14.29: the Mark 5 suitcase build / fold holds the case in BOTH hands, so neither held item is drawn
+		if (entity instanceof Player player && com.projecthero.mod.client.ironman.MarkVSuitcaseLayer.active(player)
+				&& (arm == HumanoidArm.RIGHT || com.projecthero.mod.client.ironman.MarkVSuitcaseLayer.bothHands(player))) {
 			ci.cancel();
 		}
 	}
