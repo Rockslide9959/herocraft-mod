@@ -3822,5 +3822,6 @@
   "projecthero.guide.iron_man.mark_iii": "Mark 3",
   "projecthero.guide.iron_man.mark_iii.body": "2000 energy (+5/s), 1000 integrity soaking half of every hit, immune to arrows and fire, Resistance I, +7 melee, breathes underwater, auto-feeds, targeting HUD. R Repulsor (15; hold 1 s for 20), Sneak + R Repulsor Dash (20). G fires the weapon picked on the V weapon wheel: Rockets (35, area), Miniguns (hold for 5 s) or Micro-Missiles (4 homing, 25 each). Sneak + G Sonic Clap (20). Z hold the Unibeam as long as you like (80 energy/s). X homing Flares that burn and knock back (supersonic flight if used while flying); Sneak + X JARVIS Scan of the area. Sneak + V Energy Shield blocks everything. C store suit.",
   "projecthero.guide.iron_man.platform": "Suit Platform",
-  "projecthero.guide.iron_man.platform.body": "Any suit docked on a Suit Platform recharges 10 energy and repairs 10 integrity every second. The platform no longer holds a reserve."
+  "projecthero.guide.iron_man.platform.body": "Any suit docked on a Suit Platform recharges 10 energy and repairs 10 integrity every second. The platform no longer holds a reserve.",
+  "message.projecthero.ironman.mk5_packed": "The Mark 5 pieces fold into a suitcase. Right-click the case to suit up."
 }
