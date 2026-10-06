@@ -16,6 +16,7 @@ import net.minecraft.client.gui.screens.inventory.EffectRenderingInventoryScreen
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.player.Inventory;
@@ -71,9 +72,13 @@ public abstract class EffectDescriptionTooltipMixin<T extends AbstractContainerM
 		if (!I18n.exists(key)) {
 			return;
 		}
-		List<Component> lines = new ArrayList<>();
-		lines.add(type.getDisplayName());
-		lines.addAll(TooltipWrap.wrap(this.font, Component.translatable(key).withStyle(ChatFormatting.GRAY)));
-		graphics.renderComponentTooltip(this.font, lines, mouseX, mouseY);
+		List<FormattedCharSequence> lines = new ArrayList<>();
+		lines.add(type.getDisplayName().getVisualOrderText());
+		for (Component line : TooltipWrap.wrap(this.font, Component.translatable(key).withStyle(ChatFormatting.GRAY))) {
+			lines.add(line.getVisualOrderText());
+		}
+		// v0.15.3: deferred to the end of the frame -- drawn inline, the effect labels' batched text (name / time)
+		// flushed on top of it and the timer showed through the description.
+		this.setTooltipForNextRenderPass(lines);
 	}
 }
