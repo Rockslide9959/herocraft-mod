@@ -421,7 +421,8 @@ new `IronManSuits` entry + a recipe set.
 
 `IronManSuitPlatformBlock` + BE: right-click with an Iron Man piece to store it; right-click empty-handed (Tony
 Stark) to open the GUI and DEPLOY the stored suit onto you; sneak-right-click to retrieve your worn suit back onto the
-platform. v0.14.21: deploy and retrieve are animated, server-timed ~1.5 s sequences (§17u).
+platform. v0.14.21: deploy and retrieve are animated, server-timed sequences (§17u). **v0.15.1: Deploy is the 8 s
+robotic-arm suit-up** (see "Suit Platform robotic arms" below); Retrieve keeps its quick break-away.
 `IronManSuitPlatformBlock` + BE + `IronManSuitPlatformMenu` / `IronManSuitPlatformScreen`: right-click
 opens the platform screen (four armour slots, charge / integrity / reserve readouts, Deploy and Retrieve
 buttons — see §12b for the v0.14.21 layout); the block renderer shows the stored suit turning on the pad.
@@ -640,7 +641,7 @@ window, so it can never hide a piece equipped some other way later.
 | Inventory suit-up, Marks 1-6 / VII (`MECHANICAL_REMOTE` 50, `REMOTE_AUTOMATED` 45) | boots 15%, legs 35%, chest 60%, helmet 85% of the stage timeline | lock-on 12 | timeline + 12, then the 10-tick faceplate beat |
 | Mark V from the case (`SUITCASE_MOVIE` 80) | chest 10%, legs 45%, boots 60%, helmet 85% | lock-on 12, radial from the case in the right hand | 92 + beat |
 | Suit-down (any) | helmet 10%, chest 35%, legs 60%, boots 80% (Mark V: helmet, boots, legs, chest) | release 10, **then** the piece leaves the slot | timeline + 10 |
-| Suit Platform deploy | lift-off 2 + 6·i, on the body 8 later (boots, legs, chest, helmet) | flight 8 (BER) + lock-on 12 | 28 (~1.4 s) |
+| Suit Platform deploy (v0.15.1 robotic arms) | arms unfold 0-20; per piece a 120/n window (n = 4: 30): grip at 30%, **on the body at 75%** (43 / 73 / 103 / 133), let go at 88%; arms fold 140-160 (boots, legs, chest, helmet) | carried in a clamp (BER), fitted whole (no build-on) | **160 (8 s)**, then the faceplate closes / suit online |
 | Suit Platform retrieve | release 6·i, onto the rack 10 later (helmet first) | release 10 + flight home 8 (BER) | 36 (~1.8 s) |
 | Courier | launch stagger 16 per piece; curved flight, decelerating over the last 3.5 blocks | lock-on 12 on arrival | distance-dependent |
 | Mark VII pod | descend 40 → open 10 → one piece every 8 (as couriers) → close 10 → ascend 30 | lock-on 12 per piece | ~125 for 4 pieces |
@@ -672,8 +673,32 @@ window, so it can never hide a piece equipped some other way later.
   the tumble stops, the piece turns to the owner's body yaw and grows from 85% to full size, arriving exactly on its
   slot; then the clamp (sparks + `ironman_clamp`) and the lock-on reveal.
 * **Suit Platform** (`IronManSuitPlatformBlockEntity` sequence + `IronManSuitPlatformRenderer`): the rack stops
-  spinning and turns to face the player; each piece gets its own armour stand that travels on an arc between rack (62%
-  size) and body (full size, body yaw), then locks on — or breaks away and flies home.
+  spinning and turns to face the player; on retrieve each piece breaks away and flies home on an arc. Deploy: see below.
+
+### Suit Platform robotic arms (v0.15.1)
+
+* **Timetable**: `fabricator.PlatformDeployTimeline` (pure; shared by server, BER and gametests). `TOTAL` = 160 ticks
+  however many pieces are racked: `LEAD` 20 (arms unfold), one 120/n-tick window per piece, `OUTRO` 20 (arms fold).
+  Within a window: reach the rack (0-22%), jaws close (22-30%), carry to the body (30-75%; the real stack moves rack ->
+  armour slot in the one tick at 75%, via `IronManSuitUpManager.receivePart(player, stack, false)` -- no plate build-on,
+  the piece arrives whole), both arms hold while the clamps lock (75-88%, sparks), let go and pull back (88-100%).
+  Order boots, leggings, chestplate, helmet; the right arm carries pieces 0 / 2, the left 1 / 3, the other one braces.
+* **Stance**: on deploy the player is teleported to the block in front of the open side (`deployStance()`), facing
+  out, if it has room and a floor (else they stay put; the arms reach what they can and the piece covers the rest). A
+  transient `projecthero:platform_suit_up_freeze` modifier zeroes MOVEMENT_SPEED + JUMP_STRENGTH for the whole sequence
+  (never saved; `releaseStrayFreeze` in `IronManSuitUpManager.tick` lifts any lock left with no suit-up running).
+  **Sneak** (after 10 ticks) cancels; walking/being moved > 6.5 blocks away still cancels. The Deploy button closes the
+  screen. Pose: `IronManSuitFx.POSE_PLATFORM` (arms out, head following the work up the body; `poseVariant` = n - 1).
+* **Faceplate / online**: the helmet goes on with the faceplate raised; at 160 the hold is released, the suit-up
+  finishes next tick and the usual `faceplateClose` beat (seal + power-up + "online") plays. Abilities and flight stay
+  locked (`IronManSuitUpManager.assembling`) until then.
+* **Arms** (client only, `IronManSuitPlatformRenderer`): two code-built ModelPart chains on the gantry posts -- post
+  bracket, shoulder hub, upper arm with hydraulic ram + full-bright cyan status lamp, elbow, forearm, wrist, palm and two
+  sideways jaws. Two-bone IK with a pole vector per frame (folded rest = elbow hanging down the post; working = elbow
+  up). Texture `textures/block/suit_platform_arm.png` from `scratchpad/gen_v0151_platform_arms.js` (texOffs must match
+  the renderer). The carried piece is an armour stand drawn between the jaws, growing 62% -> 100% and turning from the
+  rack heading to the wearer's body yaw, posed arms-out to match the wearer; it lingers 5 ticks on the body after the
+  hand-over to cover the worn piece's sync.
 * **Mark VII pod** (`IronManDeliveryPodEntity`, GeckoLib `geo/iron_man_delivery_pod.geo.json`, clips `fly` / `open` /
   `close`): red-and-gold capsule with a clamshell front, glowing interior ribs and thrusters (glowmask). Comes in from
   26 blocks up (or straight off a loaded platform), tracks and lands 2.4 blocks behind the player (mid-air ok), opens,
@@ -700,7 +725,7 @@ the case up when it is empty — so case + body always hold the whole suit (no l
 ### Suit Platform safety
 
 Server-timed; a piece moves between rack and body in exactly one tick. The sequence stops where it is if the player
-goes more than 6.5 blocks from the rack, logs out, dies, loses the power, or the block is broken (`onRemove` aborts
+goes more than 6.5 blocks from the rack, sneaks during a deploy (v0.15.1), logs out, dies, loses the power, or the block is broken (`onRemove` aborts
 it, then the contents drop as before). While it runs the player's suit-up state is held (no other suit-up / -down /
 call can start over it) and calls cannot take pieces off the rack. The sequence itself is never written to disk.
 

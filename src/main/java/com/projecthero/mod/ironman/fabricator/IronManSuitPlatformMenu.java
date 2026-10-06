@@ -142,6 +142,10 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 			boolean ok = id == 0 ? be.deployTo(sp) : id == 1 ? be.retrieveFrom(sp) : false;
 			if (ok) {
 				broadcastChanges();
+				if (id == 0) {
+					// v0.15.1: the screen gets out of the way so the robotic-arm suit-up can be watched
+					sp.closeContainer();
+				}
 			}
 			return ok;
 		}, false);

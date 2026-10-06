@@ -79,6 +79,11 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 	public static final int POSE_CASE_DOWN = 4;
 	/** Waiting for couriers / the pod: arms held out to receive the pieces. */
 	public static final int POSE_RECEIVE = 5;
+	/**
+	 * v0.15.1: standing at the Suit Platform while its robotic arms fit the suit -- arms held out, head following the work
+	 * ({@code fabricator.PlatformDeployTimeline#pose}); {@code poseVariant} carries the racked piece count - 1.
+	 */
+	public static final int POSE_PLATFORM = 6;
 	/** v0.14.29: Mark 5 suit-up -- the case held out in both hands, onto the chest, arms out while it builds. */
 	public static final int POSE_MK5_UP = 35;
 	/** v0.14.29: Mark 5 suit-down -- arms out while it comes apart, then the case ends up held out in both hands. */

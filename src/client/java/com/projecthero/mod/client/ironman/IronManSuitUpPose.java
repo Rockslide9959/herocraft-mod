@@ -69,6 +69,14 @@ public final class IronManSuitUpPose {
 							touched = true;
 						}
 					}
+					case IronManSuitFx.POSE_PLATFORM -> {
+						// v0.15.1: arms out for the Suit Platform's robotic arms, head following the work up the body
+						float[] pk = com.projecthero.mod.ironman.fabricator.PlatformDeployTimeline.pose(age, fx.poseVariant() + 1);
+						if (pk[0] > 0.001f) {
+							apply(model, pk[0], java.util.Arrays.copyOfRange(pk, 1, pk.length));
+							touched = true;
+						}
+					}
 					case IronManSuitFx.POSE_CASE_UP, IronManSuitFx.POSE_CASE_DOWN -> {
 						if (w > 0.001f) {
 							arms(model, w, -1.05f, 0.05f, -0.2f, 0.75f);

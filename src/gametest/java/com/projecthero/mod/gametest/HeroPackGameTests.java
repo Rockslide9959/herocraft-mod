@@ -882,7 +882,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300) // v0.15.1: the robotic-arm deploy takes 160 ticks
 	public void suitPlatformDeployRechargesAndRepairs(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
@@ -900,7 +900,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		float racked = be.suitEnergy();
 		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_iii", 10f);
 
-		// v0.14.21: deploy is an animated ~1.5 s sequence -- stand next to the rack and let it run
+		// v0.14.21: deploy is an animated sequence (v0.15.1: the 8 s robotic-arm suit-up) -- stand next to the rack and let it run
 		net.minecraft.world.phys.Vec3 at = net.minecraft.world.phys.Vec3.atBottomCenterOf(helper.absolutePos(pos.east(2)));
 		player.setPos(at.x, at.y, at.z);
 		helper.assertTrue(be.deployTo(player), "platform must deploy the stored suit");

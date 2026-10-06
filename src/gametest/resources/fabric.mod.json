@@ -12,6 +12,7 @@
       "com.projecthero.mod.gametest.IronManAutoFeedV01429GameTests",
       "com.projecthero.mod.gametest.IronManV01430GameTests",
       "com.projecthero.mod.gametest.IronManSoundsV01431GameTests",
+      "com.projecthero.mod.gametest.IronManPlatformArmsV0151GameTests",
       "com.projecthero.mod.gametest.IronManV01429ComboJarvisGameTests",
       "com.projecthero.mod.gametest.FlashSuitGameTests",
       "com.projecthero.mod.gametest.HordeGameTests",

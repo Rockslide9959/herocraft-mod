@@ -394,6 +394,14 @@ public final class IronManSuitUpManager {
 	 * this suit's piece -- the caller then keeps the stack or stores it, it is never lost.
 	 */
 	public static boolean receivePart(ServerPlayer player, ItemStack piece) {
+		return receivePart(player, piece, true);
+	}
+
+	/**
+	 * v0.15.1: as {@link #receivePart(ServerPlayer, ItemStack)}; {@code buildOn} false = the piece was fitted whole (the Suit
+	 * Platform's robotic arms carry it onto the body), so it shows complete at once instead of building itself on.
+	 */
+	public static boolean receivePart(ServerPlayer player, ItemStack piece, boolean buildOn) {
 		if (!(piece.getItem() instanceof IronManArmorItem armor)) {
 			return false;
 		}
@@ -407,6 +415,15 @@ public final class IronManSuitUpManager {
 		player.setItemSlot(slot, piece.copyAndClear());
 		TonyStark.setActiveSuit(player, suitId);
 		IronManSuitFx fxNow = IronManSuitFx.of(player);
+		if (!buildOn) {
+			// no lock-on clock: drawn whole straight away (and any stale clock on that slot is cleared)
+			player.setAttached(ModAttachments.IRON_MAN_SUIT_FX, fxNow.withPiece(IronManSuitFx.bit(slot), 0L, true));
+			stageFx(player, slot, true);
+			if (IronManArmor.wearingFullSuit(player, suitId) && !inTransition(player)) {
+				faceplateClose(player, suitId);
+			}
+			return true;
+		}
 		if (fxNow.mk5()) {
 			// v0.14.29: a leftover Mark 5 style must not time this piece's ordinary build-on
 			player.setAttached(ModAttachments.IRON_MAN_SUIT_FX, fxNow.withPose(fxNow.poseKind(), fxNow.poseStart(),
@@ -424,6 +441,10 @@ public final class IronManSuitUpManager {
 
 	public static void tick(ServerPlayer player) {
 		TonyStarkState s = TonyStark.state(player);
+		if (s.transitionSuit.isEmpty()) {
+			// v0.15.1: a Suit Platform deploy's movement lock never outlives the suit-up it belongs to
+			com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlockEntity.releaseStrayFreeze(player);
+		}
 		if (s.transitionSuit.isEmpty() || s.transitionTicks <= 0) {
 			if (!s.transitionSuit.isEmpty() && s.transitionTicks <= 0) {
 				s.transitionSuit = "";

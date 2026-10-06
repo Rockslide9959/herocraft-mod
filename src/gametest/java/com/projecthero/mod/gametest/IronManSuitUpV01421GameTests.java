@@ -370,7 +370,7 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 
 	// ------------------------------------------------------------------ Suit Platform sequence
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300) // v0.15.1: the robotic-arm deploy takes 160 ticks
 	public void platformDeployIsASequenceThatNeverDupesOrLoses(GameTestHelper h) {
 		ServerPlayer p = player(h);
 		IronManSuitPlatformBlockEntity be = platform(h, new BlockPos(2, 2, 2));
@@ -418,7 +418,7 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
 	public void walkingAwayMidDeployStopsSafely(GameTestHelper h) {
 		ServerPlayer p = player(h);
 		IronManSuitPlatformBlockEntity be = platform(h, new BlockPos(2, 2, 2));
@@ -427,13 +427,15 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 			be.store(marked(h, "mark_iii", t));
 		}
 		h.assertTrue(be.deployTo(p), "deploy starts");
-		// boots land at tick 10, leggings at 16 -- walk off in between
-		h.runAfterDelay(IronManSuitPlatformBlockEntity.deployEquipTick(0) + 3, () -> {
+		// v0.15.1: boots land at tick 43, leggings at 73 -- get carried off in between (the deploy holds you still)
+		int walkOff = IronManSuitPlatformBlockEntity.deployEquipTick(0, 4) + 3;
+		h.runAfterDelay(walkOff, () -> {
 			Vec3 far = Vec3.atBottomCenterOf(h.absolutePos(new BlockPos(2, 2, 2))).add(30, 0, 0);
 			p.setPos(far.x, far.y, far.z);
 		});
-		h.runAfterDelay(60, () -> {
+		h.runAfterDelay(walkOff + 12, () -> {
 			h.assertFalse(be.sequenceRunning(), "the sequence stopped when the player walked away");
+			h.assertFalse(IronManSuitPlatformBlockEntity.isFrozen(p), "and let go of the player");
 			h.assertFalse(IronManSuitUpManager.inTransition(p), "and handed the player's suit-up state back");
 			int worn = 0;
 			for (ArmorItem.Type t : TYPES) {

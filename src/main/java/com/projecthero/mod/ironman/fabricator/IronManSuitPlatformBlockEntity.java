@@ -16,6 +16,7 @@ import com.projecthero.mod.ironman.suit.IronManSuits;
 import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
@@ -34,6 +35,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * The Iron Man Suit Platform's state (spec section 33, extended in "changes 9"):
@@ -317,15 +319,23 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 	// just stops it -- never a loss, never a duplicate. The client BER reads the synced sequence (mode, start tick,
 	// player) and the same timing functions below to draw the pieces in flight.
 
+	//
+	// v0.15.1: the DEPLOY is now the 8-second robotic-arm suit-up (PlatformDeployTimeline): the player is snapped to stand
+	// in front of the platform facing out and held still, two arms on the gantry posts take each piece off the rack and
+	// fit it onto them (boots, legs, chest, helmet), the faceplate closes last and only then does the suit come online.
+	// The one-tick rack -> body hand-over (and with it every no-loss / no-dupe guarantee) is unchanged. RETRIEVE keeps
+	// its quick v0.14.21 break-away.
+
 	public static final int SEQ_NONE = 0;
 	public static final int SEQ_DEPLOY = 1;
 	public static final int SEQ_RETRIEVE = 2;
-	/** Ticks before the first piece lifts off. */
-	public static final int SEQ_LEAD = 2;
-	/** Ticks between one piece and the next. */
+	/** Retrieve: ticks between one piece and the next. */
 	public static final int SEQ_STEP = 6;
-	/** Ticks a piece spends flying between rack and body. */
+	/** Retrieve: ticks a piece spends flying from the body home to the rack. */
 	public static final int SEQ_FLIGHT = 8;
+	/** v0.15.1: the movement lock placed on the wearer for the deploy (transient: never saved, gone on relog). */
+	public static final net.minecraft.resources.ResourceLocation FREEZE_ID =
+			net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("projecthero", "platform_suit_up_freeze");
 	/** The player must stay this close for the sequence to continue. */
 	public static final double SEQ_RANGE = 5.0;
 	private static final int[] DEPLOY_ORDER = { 3, 2, 1, 0 };   // boots, legs, chest, helmet (bits = rack slots)
@@ -341,20 +351,22 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 	/** rack slots already handed over (deploy) / released (retrieve) / moved onto the rack (retrieve) */
 	private int seqDoneMask;
 	private int seqReleasedMask;
+	/** v0.15.1: this deploy lifted the faceplate when the helmet went on (so it must make sure it gets closed). */
+	private boolean seqOpenedFaceplate;
 
 	public int seqMode() { return seqMode; }
 	public long seqStart() { return seqStart; }
 	public int seqPlayerEntity() { return seqPlayerEntity; }
 	public int[] seqSlots() { return seqSlots; }
 
-	/** Tick (after the start) at which the i-th piece of a deploy lifts off the rack. */
-	public static int deployLiftTick(int i) {
-		return SEQ_LEAD + i * SEQ_STEP;
+	/** Tick (after the start) at which the i-th of {@code pieces} deploy pieces leaves the rack in an arm's clamp. */
+	public static int deployLiftTick(int i, int pieces) {
+		return PlatformDeployTimeline.liftTick(i, pieces);
 	}
 
-	/** Tick at which the i-th piece of a deploy reaches the body and is equipped. */
-	public static int deployEquipTick(int i) {
-		return deployLiftTick(i) + SEQ_FLIGHT;
+	/** Tick at which the i-th of {@code pieces} deploy pieces reaches the body and is equipped (one server tick). */
+	public static int deployEquipTick(int i, int pieces) {
+		return PlatformDeployTimeline.equipTick(i, pieces);
 	}
 
 	/** Tick at which the i-th piece of a retrieve starts breaking away from the body. */
@@ -367,9 +379,10 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		return retrieveReleaseTick(i) + com.projecthero.mod.ironman.suit.IronManSuitFx.RELEASE_TICKS;
 	}
 
+	/** v0.15.1: a deploy is always {@link PlatformDeployTimeline#TOTAL} ticks (8 s), whatever is racked. */
 	public static int sequenceLength(int mode, int pieces) {
 		int last = Math.max(0, pieces - 1);
-		return mode == SEQ_DEPLOY ? deployEquipTick(last) : retrieveMoveTick(last) + SEQ_FLIGHT;
+		return mode == SEQ_DEPLOY ? PlatformDeployTimeline.TOTAL : retrieveMoveTick(last) + SEQ_FLIGHT;
 	}
 
 	public boolean sequenceRunning() {
@@ -442,8 +455,10 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		seqSlots = slots.stream().mapToInt(Integer::intValue).toArray();
 		seqDoneMask = 0;
 		seqReleasedMask = 0;
+		seqOpenedFaceplate = false;
 		int len = sequenceLength(mode, seqSlots.length);
 		// Hold the player's suit-up state for the whole sequence so no other suit-up / suit-down can start over it.
+		// (While transitionUp is set the suit is "assembling": abilities and flight stay locked until it is done.)
 		var s = TonyStark.state(player);
 		s.transitionSuit = suitId;
 		s.transitionUp = mode == SEQ_DEPLOY;
@@ -452,14 +467,93 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		s.transitionMask = 0;
 		s.transitionReleaseMask = 0;
 		s.transitionPlan = 0;
-		com.projecthero.mod.ironman.suit.IronManSuitFx.startPose(player,
-				mode == SEQ_DEPLOY ? com.projecthero.mod.ironman.suit.IronManSuitFx.POSE_SUIT_UP
-						: com.projecthero.mod.ironman.suit.IronManSuitFx.POSE_SUIT_DOWN,
-				len + com.projecthero.mod.ironman.suit.IronManSuitFx.BUILD_TICKS + 2,
-				com.projecthero.mod.ironman.suit.IronManSuitFx.STYLE_PLATES,
-				0);
-		com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.SERVO, 1.0f, 0.9f);
+		if (mode == SEQ_DEPLOY) {
+			// v0.15.1: step up to the platform, face out, hold still -- the arms take it from here
+			snapToDeployStance(player);
+			setFrozen(player, true);
+			com.projecthero.mod.ironman.suit.IronManSuitFx.startPose(player,
+					com.projecthero.mod.ironman.suit.IronManSuitFx.POSE_PLATFORM, PlatformDeployTimeline.TOTAL,
+					com.projecthero.mod.ironman.suit.IronManSuitFx.STYLE_PLATES, Math.max(0, seqSlots.length - 1));
+			com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.SERVO, 1.0f, 0.7f);
+			com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.HUD_ON, 0.6f, 0.9f);
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.platform_deploying")
+					.withStyle(net.minecraft.ChatFormatting.AQUA), true);
+		} else {
+			com.projecthero.mod.ironman.suit.IronManSuitFx.startPose(player,
+					com.projecthero.mod.ironman.suit.IronManSuitFx.POSE_SUIT_DOWN,
+					len + com.projecthero.mod.ironman.suit.IronManSuitFx.BUILD_TICKS + 2,
+					com.projecthero.mod.ironman.suit.IronManSuitFx.STYLE_PLATES,
+					0);
+			com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.SERVO, 1.0f, 0.9f);
+		}
 		afterContentsChanged();
+	}
+
+	/** The spot a deploy stands its wearer on: one block out from the open side of the platform, at floor level. */
+	public Vec3 deployStance() {
+		Direction f = deployFacing();
+		return Vec3.atBottomCenterOf(worldPosition.relative(f));
+	}
+
+	/** The way the platform's open side faces (the wearer faces this way too, back to the gantry). */
+	public Direction deployFacing() {
+		BlockState st = getBlockState();
+		return st.hasProperty(IronManSuitPlatformBlock.FACING) ? st.getValue(IronManSuitPlatformBlock.FACING) : Direction.NORTH;
+	}
+
+	/**
+	 * v0.15.1: put the player on {@link #deployStance()} facing out, if that spot has room and a floor -- otherwise they
+	 * stay where they are (the arms still reach as far as they can and the pieces cover the rest of the way).
+	 */
+	private void snapToDeployStance(ServerPlayer player) {
+		if (!(level instanceof ServerLevel sl)) {
+			return;
+		}
+		Vec3 at = deployStance();
+		net.minecraft.world.phys.AABB box = player.getDimensions(player.getPose()).makeBoundingBox(at);
+		if (!sl.noCollision(player, box) || sl.noCollision(player, box.move(0, -0.25, 0))) {
+			return;
+		}
+		float yaw = deployFacing().toYRot();
+		player.teleportTo(sl, at.x, at.y, at.z, yaw, Math.min(20f, Math.max(-10f, player.getXRot())));
+		player.setYHeadRot(yaw);
+		player.setYBodyRot(yaw);
+		player.setDeltaMovement(Vec3.ZERO);
+	}
+
+	/** v0.15.1: lock (or release) the wearer's walking and jumping for the deploy. Transient modifiers: never saved. */
+	public static void setFrozen(ServerPlayer player, boolean frozen) {
+		for (net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute> a : java.util.List.of(
+				net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED,
+				net.minecraft.world.entity.ai.attributes.Attributes.JUMP_STRENGTH)) {
+			net.minecraft.world.entity.ai.attributes.AttributeInstance inst = player.getAttribute(a);
+			if (inst == null) {
+				continue;
+			}
+			if (!frozen) {
+				inst.removeModifier(FREEZE_ID);
+			} else if (!inst.hasModifier(FREEZE_ID)) {
+				inst.addTransientModifier(new net.minecraft.world.entity.ai.attributes.AttributeModifier(FREEZE_ID, -1.0,
+						net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+			}
+		}
+	}
+
+	public static boolean isFrozen(ServerPlayer player) {
+		net.minecraft.world.entity.ai.attributes.AttributeInstance inst =
+				player.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
+		return inst != null && inst.hasModifier(FREEZE_ID);
+	}
+
+	/**
+	 * v0.15.1 safety net, called every player tick from {@code IronManSuitUpManager.tick}: a movement lock left behind
+	 * with no suit-up running (the platform's chunk unloaded mid-deploy, a crash between ticks...) is lifted. A deploy
+	 * always holds the player's suit-up state, and that hold expires on its own, so this can never strand anyone.
+	 */
+	public static void releaseStrayFreeze(ServerPlayer player) {
+		if (isFrozen(player)) {
+			setFrozen(player, false);
+		}
 	}
 
 	/** Server tick of a running deploy / retrieve. */
@@ -471,33 +565,16 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 			return;
 		}
 		int t = (int) (sl.getGameTime() - seqStart);
+		if (seqMode == SEQ_DEPLOY) {
+			tickDeploy(sl, player, t);
+			return;
+		}
 		boolean finished = true;
 		for (int i = 0; i < seqSlots.length; i++) {
 			int idx = seqSlots[i];
 			int bit = 1 << idx;
 			EquipmentSlot slot = equipSlotOf(idx);
-			if (seqMode == SEQ_DEPLOY) {
-				if ((seqDoneMask & bit) != 0) {
-					continue;
-				}
-				finished = false;
-				if (t == deployLiftTick(i)) {
-					com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.SERVO,
-							0.6f, 1.2f + 0.1f * i);
-				}
-				if (t >= deployEquipTick(i)) {
-					seqDoneMask |= bit;
-					ItemStack stack = pieces.get(idx);
-					if (stack.getItem() instanceof IronManArmorItem p && p.suitId().equals(seqSuit)) {
-						// one tick: off the rack and onto the body -- the real stack
-						pieces.set(idx, ItemStack.EMPTY);
-						if (!IronManSuitUpManager.receivePart(player, stack)) {
-							pieces.set(idx, stack); // the slot already holds this suit's piece: it stays racked
-						}
-						afterContentsChanged();
-					}
-				}
-			} else {
+			{
 				if ((seqDoneMask & bit) != 0) {
 					if (t < retrieveMoveTick(i) + SEQ_FLIGHT) {
 						finished = false; // still flying home on the client
@@ -532,7 +609,85 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		}
 	}
 
+	/**
+	 * v0.15.1: one server tick of the robotic-arm deploy ({@link PlatformDeployTimeline}). The arms themselves are drawn
+	 * by the client from the synced start tick; the server's jobs are the sounds, holding the player still, and moving
+	 * each real stack off the rack and into its armour slot in exactly one tick when its arm reaches the body.
+	 */
+	private void tickDeploy(ServerLevel sl, ServerPlayer player, int t) {
+		int n = seqSlots.length;
+		if (t >= PlatformDeployTimeline.CANCEL_GRACE && player.isShiftKeyDown()) {
+			// sneak = "let me out": stop right here, exactly like walking away used to (nothing moves)
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.platform_deploy_cancelled")
+					.withStyle(net.minecraft.ChatFormatting.GRAY), true);
+			abortSequence(player);
+			return;
+		}
+		setFrozen(player, true); // re-asserted every tick (cheap; survives anything that rebuilt the attribute map)
+		if (t == PlatformDeployTimeline.LEAD / 2) {
+			com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.SERVO, 0.8f, 1.15f);
+		}
+		for (int i = 0; i < n; i++) {
+			int idx = seqSlots[i];
+			int bit = 1 << idx;
+			if (t == PlatformDeployTimeline.pieceStart(i, n)) {
+				// the carrying arm swings to the rack
+				com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.SERVO,
+						0.75f, 1.0f + 0.08f * i);
+			}
+			if (t == deployLiftTick(i, n)) {
+				// jaws close on the piece and it comes off the rack
+				com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.CLAMP, 0.55f, 1.45f);
+				com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.SERVO, 0.6f, 1.3f);
+				sl.sendParticles(net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK, worldPosition.getX() + 0.5,
+						worldPosition.getY() + 0.3 + 0.62 * IronManSuitUpManager.slotHeight(equipSlotOf(idx)), worldPosition.getZ() + 0.5,
+						5, 0.15, 0.1, 0.15, 0.04);
+			}
+			if ((seqDoneMask & bit) == 0 && t >= deployEquipTick(i, n)) {
+				seqDoneMask |= bit;
+				ItemStack stack = pieces.get(idx);
+				if (stack.getItem() instanceof IronManArmorItem p && p.suitId().equals(seqSuit)) {
+					// one tick: off the rack and onto the body -- the real stack (the arm fitted it: no plate build-on)
+					pieces.set(idx, ItemStack.EMPTY);
+					if (!IronManSuitUpManager.receivePart(player, stack, false)) {
+						pieces.set(idx, stack); // the slot already holds this suit's piece: it stays racked
+					} else if (idx == 0) {
+						// the helmet goes on with the faceplate up -- it closes last, when the suit comes online
+						if (!com.projecthero.mod.ironman.IronManFaceplate.isOpen(player)) {
+							player.setAttached(com.projecthero.mod.attachment.ModAttachments.IRON_MAN_FACEPLATE_OPEN, true);
+							seqOpenedFaceplate = true;
+						}
+						com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.FACEPLATE_OPEN,
+								0.6f, 1.0f);
+					}
+					afterContentsChanged();
+				}
+			}
+			if (t == PlatformDeployTimeline.letGoTick(i, n)) {
+				// clamp locks home, the jaws open
+				com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.RELEASE, 0.5f, 1.35f);
+			}
+		}
+		if (t == PlatformDeployTimeline.foldTick()) {
+			com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.SERVO, 0.8f, 0.8f);
+		}
+		if (t >= PlatformDeployTimeline.TOTAL) {
+			endSequence(player);
+		}
+	}
+
 	private void endSequence(ServerPlayer player) {
+		if (seqMode == SEQ_DEPLOY && player != null) {
+			setFrozen(player, false);
+			if (seqOpenedFaceplate && !IronManArmor.wearingFullSuit(player, seqSuit)
+					&& com.projecthero.mod.ironman.IronManFaceplate.isOpen(player)) {
+				// a partial suit (or a cancelled deploy) never gets the full-suit "online" beat -- shut the visor here
+				player.setAttached(com.projecthero.mod.attachment.ModAttachments.IRON_MAN_FACEPLATE_OPEN, false);
+				com.projecthero.mod.ironman.suit.IronManSuitFx.faceplateMoved(player);
+				com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.FACEPLATE_SEAL, 0.6f, 1.0f);
+			}
+			seqOpenedFaceplate = false;
+		}
 		if (seqMode == SEQ_RETRIEVE && player != null) {
 			com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.CLAMP, 0.6f, 0.8f);
 			if (!IronManArmor.wearingAnyIronMan(player)) {
