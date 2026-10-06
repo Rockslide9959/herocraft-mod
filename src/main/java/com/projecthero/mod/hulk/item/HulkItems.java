@@ -41,5 +41,6 @@ public final class HulkItems {
 	public static void addToCreativeTab(CreativeModeTab.Output output) {
 		output.accept(GAMMA_SERUM);
 		output.accept(GAMMA_REACTOR_ITEM);
+		com.projecthero.mod.hulk.gladiator.GladiatorItems.addToCreativeTab(output); // v0.15.3
 	}
 }

@@ -138,6 +138,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				com.projecthero.mod.ironman.IronManBlocks.SUIT_PLATFORM_MENU,
 				com.projecthero.mod.client.gui.IronManSuitPlatformScreen::new);
 		com.projecthero.mod.client.ironman.StarkGearClient.initialize(); // v0.15.1: Stark Gear screen + glasses layer
+		com.projecthero.mod.client.hulk.GladiatorGearClient.initialize(); // v0.15.3: Gladiator Gear screen + N tap
 		net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry.register(
 				com.projecthero.mod.ironman.IronManBlocks.SUIT_PLATFORM_BE,
 				com.projecthero.mod.client.render.IronManSuitPlatformRenderer::new);
@@ -921,6 +922,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternActionPayload(
 						com.projecthero.mod.network.GreenLanternActionPayload.Action.CLEAR_CONSTRUCTS));
 			}
+		} else if (down && !maxSteelTransformWasDown && com.projecthero.mod.client.hulk.GladiatorGearClient.ownsN(client)) {
+			// v0.15.3: a TAP of N as Banner opens the Gladiator Gear screen (sent on release; a 2 s hold stays the calm-down).
+			com.projecthero.mod.client.hulk.GladiatorGearClient.pressed();
 		} else if (down && !maxSteelTransformWasDown && Screen.hasShiftDown() && client.player != null
 				&& com.projecthero.mod.ironman.TonyStark.hasPower(client.player) && client.screen == null) {
 			// v0.15.1: Shift+N as Tony Stark opens the Stark Gear screen (the Stark Glasses slot).

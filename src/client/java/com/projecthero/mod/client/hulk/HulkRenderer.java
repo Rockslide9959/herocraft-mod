@@ -30,6 +30,23 @@ public class HulkRenderer extends GeoReplacedEntityRenderer<AbstractClientPlayer
 	public HulkRenderer(EntityRendererProvider.Context context) {
 		super(context, new HulkModel(), HulkAnimatable.INSTANCE);
 		this.shadowRadius = 0.5f;
+		addRenderLayer(new HulkGladiatorLayer(this)); // v0.15.3: Gladiator Hulk's gear (own texture, second pass)
+	}
+
+	/** v0.15.3: the alpha of the draw in progress (the gladiator layer fades with him). */
+	public float fade() {
+		return this.fade;
+	}
+
+	/** v0.15.3: the main pass never draws the gladiator bones -- {@link HulkGladiatorLayer} does, with its own texture. */
+	@Override
+	public void preRender(PoseStack poseStack, HulkAnimatable animatable, software.bernie.geckolib.cache.object.BakedGeoModel model,
+			MultiBufferSource bufferSource, com.mojang.blaze3d.vertex.VertexConsumer buffer, boolean isReRender, float partialTick,
+			int packedLight, int packedOverlay, int colour) {
+		if (!isReRender) {
+			HulkGladiatorLayer.baseVisibility(model);
+		}
+		super.preRender(poseStack, animatable, model, bufferSource, buffer, isReRender, partialTick, packedLight, packedOverlay, colour);
 	}
 
 	public static void rebuild(EntityRendererProvider.Context context) {

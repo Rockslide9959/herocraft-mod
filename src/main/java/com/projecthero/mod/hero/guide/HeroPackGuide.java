@@ -849,6 +849,10 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.guide.hulk." + section + ".body");
 				blank(lines);
 			}
+			// v0.15.3: Gladiator Hulk -- the gear, the N screen, the full-kit rule
+			head(lines, "projecthero.guide.hulk.gladiator");
+			para(lines, "projecthero.guide.hulk.gladiator.body");
+			blank(lines);
 		}));
 
 		// The Apokolips Invasion (v0.13.18) -- the Darkseid Raid. Appended after Hulk so every earlier index stays put.

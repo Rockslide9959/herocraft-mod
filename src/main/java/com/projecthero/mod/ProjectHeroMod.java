@@ -101,6 +101,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.thorarmor.ThorArmorItems.initialize();
 		com.projecthero.mod.allmight.item.AllMightItems.initialize();
 		com.projecthero.mod.hulk.item.HulkItems.initialize();
+		com.projecthero.mod.hulk.gladiator.GladiatorItems.initialize(); // v0.15.3: Gladiator Hulk gear
+		com.projecthero.mod.hulk.gladiator.GladiatorGear.initialize(); // v0.15.3: Gladiator Gear slots / menu
 		// v0.14.8: Super Soldier -- serum items, the potion-trio recipe, the thrown shield, the damage rules
 		com.projecthero.mod.supersoldier.SuperSoldierSetup.initialize();
 		com.projecthero.mod.moonknight.item.MoonKnightItems.initialize();

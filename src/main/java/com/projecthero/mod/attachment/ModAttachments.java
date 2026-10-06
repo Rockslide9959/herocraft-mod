@@ -794,6 +794,28 @@ public final class ModAttachments {
 					.initializer(() -> net.minecraft.world.item.ItemStack.EMPTY)
 					.syncWith(net.minecraft.world.item.ItemStack.OPTIONAL_STREAM_CODEC, AttachmentSyncPredicate.all()));
 
+	/**
+	 * v0.15.3: the Hulk's Gladiator Gear -- seven slots (helmet, pauldron, harness, bracers, kilt, hammer, axe; see
+	 * {@code hulk.gladiator.GladiatorGear}). Persistent, KEPT through death (keepInventory or not) and synced to everyone
+	 * (they need the full-kit flag to draw Gladiator Hulk). Always replaced as a whole, never mutated in place.
+	 */
+	public static final AttachmentType<java.util.List<net.minecraft.world.item.ItemStack>> GLADIATOR_GEAR = AttachmentRegistry.create(
+			ProjectHeroMod.id("gladiator_gear"),
+			builder -> builder.persistent(net.minecraft.world.item.ItemStack.OPTIONAL_CODEC.listOf())
+					.copyOnDeath()
+					.initializer(java.util.List::of)
+					.syncWith(net.minecraft.world.item.ItemStack.OPTIONAL_LIST_STREAM_CODEC, AttachmentSyncPredicate.all()));
+
+	/**
+	 * v0.15.3: which Gladiator Hulk weapon is out of his hands right now (bit 0 hammer, bit 1 axe) -- thrown by the
+	 * gladiator moves. Not persistent and not copied on death (a relog or respawn puts both back in his hands); synced to
+	 * everyone so the hand bone hides.
+	 */
+	public static final AttachmentType<Integer> GLADIATOR_WEAPONS_AWAY = AttachmentRegistry.create(
+			ProjectHeroMod.id("gladiator_weapons_away"),
+			builder -> builder.initializer(() -> 0)
+					.syncWith(ByteBufCodecs.VAR_INT, AttachmentSyncPredicate.all()));
+
 	private ModAttachments() {
 	}
 

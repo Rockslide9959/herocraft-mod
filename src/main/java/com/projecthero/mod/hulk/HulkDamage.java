@@ -121,10 +121,13 @@ public final class HulkDamage {
 			return false; // arrows bounce off
 		} else if (source.is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)) {
 			factor = HulkConfig.EXPLOSION_FACTOR;
+		} else if (com.projecthero.mod.hulk.gladiator.GladiatorGear.isGladiator(player)) {
+			factor = 1.0f; // v0.15.3: re-applied below with Gladiator Hulk's 10% cut
 		} else {
 			return true;
 		}
-		float reduced = amount * factor;
+		// v0.15.3: Gladiator Hulk (full kit) takes 10% less on top of the Hulk's own rules
+		float reduced = com.projecthero.mod.hulk.gladiator.GladiatorGear.reduce(player, amount * factor);
 		if (reduced < 0.1f) {
 			return false;
 		}

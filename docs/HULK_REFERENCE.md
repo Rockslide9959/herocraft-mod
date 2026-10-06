@@ -15,6 +15,45 @@ Package `com.projecthero.mod.hulk`. Hero-Tier key `hulk` (the spec's "Gamma powe
 
 The spec asked for Fabric 1.21.11 + GeckoLib 5; the project is (and stays) on **Fabric 1.21.1 + GeckoLib 4.9**.
 
+## v0.15.3: Gladiator Hulk (gear, menu, damage, looks)
+
+Package `com.projecthero.mod.hulk.gladiator`. Thor: Ragnarok's arena Hulk (with Planet Hulk touches).
+
+- **Items** (`GladiatorItems`, plain `GladiatorGearItem`s, stack 1, fire resistant, in the creative tab after the Hulk's
+  items): `gladiator_helmet`, `gladiator_pauldron`, `gladiator_harness`, `gladiator_bracers`, `gladiator_kilt` (iron,
+  gold, leather, red wool) and the end-game `gladiator_hammer` / `gladiator_axe` (netherite ingot + iron blocks + sticks).
+  Shaped crafting-table recipes in `data/projecthero/recipe/gladiator_*.json`. Icons + the 3D hammer / axe item models
+  (`models/item/gladiator_hammer|axe.json`, texture `item/gladiator_weapons.png`) and the recipes come from
+  `scratchpad/gen_gladiator_items_v0153.js`.
+- **Slots**: `ModAttachments.GLADIATOR_GEAR` -- a 7-entry `List<ItemStack>` (helmet, pauldron, harness, bracers, kilt,
+  hammer, axe = `GladiatorGear.HELMET..AXE`), persistent, synced to everyone, **copyOnDeath (kept on death, with or
+  without keepInventory)**. Each slot accepts only its own piece (`GladiatorGear.accepts`).
+- **Screen**: tap **N as Banner** -> `GladiatorGear.OpenPayload` -> `GladiatorGear.openMenu` (refused with a message for
+  non-Gamma players and for the Hulk -- the gear is locked on while he is out). `GladiatorGearMenu` (slots read / write the
+  attachment directly; `locked()` while Hulk: no place / pickup / shift-click, `stillValid` false so vanilla closes it
+  when he changes). Client: `client/hulk/GladiatorGearScreen` (5 armour slots left, hammer + axe right, "N/7 equipped"
+  chip, hint wrapped to 4 lines), layout numbers in the common `GladiatorGearLayout` (gametested). The N chain branch is
+  in `ProjectHeroModClient.handleMaxSteelTransform`; it only claims the press -- `client/hulk/GladiatorGearClient` sends
+  the request when N comes back up within 8 ticks, so holding N (2 s) is still the calm-down for Banner, and in Hulk form
+  N is only the calm-down.
+- **API** (`GladiatorGear`): `hasFullKit(p)`, `isGladiator(p)` (full kit AND Hulk form), `equippedCount(p)`,
+  `weaponAway(p, axe)` / `setWeaponAway(sp, axe, away)` (attachment `GLADIATOR_WEAPONS_AWAY`, bit 0 hammer / bit 1 axe,
+  synced, not persistent; cleared on death, on login and every tick he is not the Hulk), `reduce(p, amount)`.
+- **Damage**: Gladiator Hulk takes `DAMAGE_FACTOR` (0.9) of every hit that gets past the Hulk's own rules -- in
+  `HulkDamage.allowDamage` (ordinary hits are now vetoed and re-applied at 90% for him; lava / explosions get both cuts).
+  Nothing else comes from the gear.
+- **Looks**: new bones in `geo/hulk.geo.json`, all named `gladiator*` and added by
+  `scratchpad/gen_hulk_gladiator_v0153.js` (idempotent -- re-run it after `gen_hulk.js`): `gladiator_helmet` +
+  `gladiator_paint` (head), `gladiator_pauldron` (left_arm), `gladiator_harness` + `gladiator_kilt` (body),
+  `gladiator_kilt_right` / `_left` (legs), `gladiator_bracer_right` / `_left`, and the hand weapons **`gladiator_hammer`
+  (child of right_arm)** and **`gladiator_axe` (child of left_arm)**. Their per-face UVs point into their own texture
+  `textures/entity/hulk_gladiator.png` (256x256 over the 64-unit UV space, 2 texels per model pixel), so `hulk.png` (also
+  the first-person arm skin) is untouched. `HulkRenderer.preRender` hides every gladiator bone in the main pass;
+  `client/hulk/HulkGladiatorLayer` re-renders the same animated model with only the gladiator bones (minus a thrown
+  weapon) and the gladiator texture, only while `isGladiator`, fading with the Hulk. A Hulk without the full kit looks
+  exactly as before. Animations that key `gladiator_hammer` / `gladiator_axe` work (they are real bones of the model).
+- Tests: `gametest/GladiatorGearV0153GameTests`.
+
 ## v0.13.17: rage rules, death save, carrying, webs
 
 - **Rage**: 1 per point of damage TAKEN in both forms (`RAGE_PER_DAMAGE_TAKEN` / `HULK_RAGE_PER_DAMAGE_TAKEN`). Banner gains

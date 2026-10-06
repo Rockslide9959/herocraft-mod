@@ -106,7 +106,8 @@
       "com.projecthero.mod.gametest.IronManRound2GameTests",
       "com.projecthero.mod.gametest.IronManV01427Mark3GameTests",
       "com.projecthero.mod.gametest.IronManV01429Mk67GameTests",
-      "com.projecthero.mod.gametest.SentinelPurgeGameTests"
+      "com.projecthero.mod.gametest.SentinelPurgeGameTests",
+      "com.projecthero.mod.gametest.GladiatorGearV0153GameTests"
     ]
   },
   "depends": {
