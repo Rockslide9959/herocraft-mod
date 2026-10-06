@@ -777,9 +777,9 @@ public class HeroPackGameTests implements FabricGameTest {
 		// "changes 12" added Mark 1 / Mark 2 (primitive, non-Fabricator prototypes) alongside the
 		// original five Fabricator-gated marks.
 		// "changes 17": Mark XLII / Mark L removed -> 7 suits.
-		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.all().size() == 7,
-				"expected 7 Iron Man suits");
-		for (String id : new String[]{"mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii"}) {
+		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.all().size() == 8, // v0.15.9: + the Mark 8
+				"expected 8 Iron Man suits");
+		for (String id : new String[]{"mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8"}) {
 			helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId(id) != null, id + " missing");
 		}
 		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_42") == null

@@ -62,7 +62,7 @@ import net.minecraft.world.phys.Vec3;
 public final class IronManMark6 {
 	public static final String SUIT_ID = "mark_6";
 	/** The suits that run this kit. */
-	public static final String[] KIT_SUITS = { SUIT_ID, IronManMark7.SUIT_ID };
+	public static final String[] KIT_SUITS = { SUIT_ID, IronManMark7.SUIT_ID, IronManMark7.MARK_8_ID };
 
 	// slot ability ids (shared by both suits; the Mark 7 swaps its own Z in -- IronManMark7.LASER)
 	public static final String WEAPON = "mk6_weapon";
@@ -117,6 +117,8 @@ public final class IronManMark6 {
 
 	public static final Tuning MARK_6_TUNING = new Tuning(SUIT_ID, 22f, 20f, 36f, 25f, 3.0f, 13f);
 	public static final Tuning MARK_7_TUNING = new Tuning(IronManMark7.SUIT_ID, 24f, 22f, 40f, 28f, 3.5f, 15f);
+	/** v0.15.9: the Mark 8 hits like the Mark 7 ("same abilities as mark 7"). */
+	public static final Tuning MARK_8_TUNING = new Tuning(IronManMark7.MARK_8_ID, 24f, 22f, 40f, 28f, 3.5f, 15f);
 
 	/** The kit tuning for a suit, or null if it does not run this kit. */
 	public static Tuning tuning(String suitId) {
@@ -125,6 +127,9 @@ public final class IronManMark6 {
 		}
 		if (IronManMark7.SUIT_ID.equals(suitId)) {
 			return MARK_7_TUNING;
+		}
+		if (IronManMark7.MARK_8_ID.equals(suitId)) {
+			return MARK_8_TUNING;
 		}
 		return null;
 	}

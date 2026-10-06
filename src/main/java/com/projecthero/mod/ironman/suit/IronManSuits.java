@@ -272,6 +272,45 @@ public final class IronManSuits {
 			.blueprint(IronManItems.MARK_VII_BLUEPRINT)
 			.build());
 
+	// v0.15.9 (explicit user spec): the Mark 8 -- the user's red/gold skin model. "energy 5000, same energy rules as mark 7;
+	// integrity 3000, same integrity rules as mark 7; can feed player; can breathe underwater; melee bonus +8; same
+	// abilities as mark 7". Blank Blueprint step after the Mark 7; built at the Fabricator. Called with the Stark Glasses
+	// (Mark 8+ only) it flies in piece by piece from its platform like an ordinary call -- no delivery pod, and the
+	// Colantotte Bracelets stay Mark 7 only. Protocol Phoenix (Mark 7+) can bring it in.
+	public static final IronManSuit MARK_8 = register(IronManSuit.Builder.of("mark_8")
+			.tech(3, 8)
+			.energy(5_000f, 3.4f) // v0.15.9: 5000
+			.maxIntegrity(3_000f) // v0.15.9: 3000
+			.energyRegen(5.0f) // as the Mark 7: 5/s
+			// v0.15.9: no worn integrity regen (user: "remove integrity regen from all armours") -- docking on a Suit Platform repairs it
+			.hurtRegeneration(3.0f) // as the Mark 7: Regeneration I below full health, 3 energy/s while it runs
+			.flightDrain(1.15f)
+			.flight(1.7f, 0.14f)
+			.maxFlightSpeed(30.0)
+			.resistance(2)
+			.targeting()
+			.waterBreathing() // v0.15.9: breathes underwater
+			// auto-feed stays on (no .noAutoFeed()) -- v0.15.9: "can feed player"
+			.repulsorTap(20.0f, 10f, 10)
+			.repulsorCharged(30.0f, 50f, 60, 20)
+			.dash(25.0f, 50f, 160)
+			.unibeam(com.projecthero.mod.ironman.ability.IronManMark7.UNIBEAM_DAMAGE)
+			.missiles(6, 26.0f, 160f)
+			.strength(8.0f) // v0.15.9: melee bonus +8
+			.fullBodyShield()
+			.energyCost(0.6f)
+			.coloredGlow()
+			.targetScanRange(80.0)
+			.flamethrowerTuning(750f, 38f, 20f, 0, 5f, 12f)
+			// the Mark 7's kit (IronManMark6 G / X / V + the IronManMark7 Z laser); C is the Mark 8's own slot
+			.abilities(IronManAbilities.REPULSOR_BLAST, com.projecthero.mod.ironman.ability.IronManMark6.WEAPON, com.projecthero.mod.ironman.ability.IronManMark6.FLARES,
+					com.projecthero.mod.ironman.ability.IronManMark7.LASER, com.projecthero.mod.ironman.ability.IronManMark6.WHEEL,
+					IronManAbilities.SUIT_TOGGLE) // TODO v0.15.9 merge: IronManMark8.SENTRY
+			.suitUp(SuitUpType.MECHANICAL_REMOTE)
+			.summon(SummonType.FLYING_SET)
+			.blueprint(IronManItems.MARK_8_BLUEPRINT)
+			.build());
+
 	// "changes 17": Mark XLII (mark_42) and Mark L (mark_50) are removed from the game for now -- their
 	// suit definitions, armour items, blueprints, recipes and creative-tab entries are all gone. The
 	// technology tree tops out at Mark VII (tech 3).

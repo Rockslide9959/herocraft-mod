@@ -42,7 +42,7 @@ import software.bernie.geckolib.renderer.layer.GeoRenderLayer;
  * visibility) stay hidden because the re-render goes through the same bone-visibility pass.
  */
 public class IronManSuitGlowLayer extends GeoRenderLayer<SuperheroArmorItem> {
-	public static final Set<String> MARKS = Set.of("mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii");
+	public static final Set<String> MARKS = Set.of("mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8");
 	private static final Map<String, ResourceLocation> GLOWMASKS = new HashMap<>();
 
 	public IronManSuitGlowLayer(GeoRenderer<SuperheroArmorItem> renderer) {

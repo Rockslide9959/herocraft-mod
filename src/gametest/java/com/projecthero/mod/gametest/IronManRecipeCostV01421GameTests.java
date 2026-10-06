@@ -112,7 +112,9 @@ public class IronManRecipeCostV01421GameTests implements FabricGameTest {
 			}
 			helper.assertTrue(cost >= previous, suit + " (" + cost + ") must not be cheaper than " + previousSuit + " (" + previous + ")");
 			// The pre-v0.14.21 Mark III-VII cost ~258-268 in these units; the pass targets roughly half.
-			helper.assertTrue(cost < 160, suit + " raw cost " + cost + " should be about half the old ~260");
+			// v0.15.9: the Mark 8 is deliberately the priciest suit (user decision) -- capped a little higher
+			double cap = "mark_8".equals(suit) ? 185 : 160;
+			helper.assertTrue(cost < cap, suit + " raw cost " + cost + " should be about half the old ~260");
 			previous = cost;
 			previousSuit = suit;
 		}

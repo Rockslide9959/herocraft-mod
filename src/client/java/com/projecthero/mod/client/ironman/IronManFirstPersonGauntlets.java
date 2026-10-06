@@ -74,7 +74,7 @@ public final class IronManFirstPersonGauntlets {
 
 	private static final Map<String, List<Part>> DESIGNS = Map.of(
 			"mark_1", MODEL_ARM, "mark_2", MODEL_ARM, "mark_iii", MODEL_ARM, "mark_4", MODEL_ARM,
-			"mark_v", MODEL_ARM, "mark_6", MODEL_ARM, "mark_vii", MODEL_ARM);
+			"mark_v", MODEL_ARM, "mark_6", MODEL_ARM, "mark_vii", MODEL_ARM, "mark_8", MODEL_ARM);
 
 	/** Mark V blade in right-arm space: housing, blade, tip (blade swatch painted at 0..8 x 0..8 of mark_v.png). */
 	private static final float BLADE_TOP = 4.6f;

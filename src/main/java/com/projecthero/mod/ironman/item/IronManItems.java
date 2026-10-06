@@ -35,7 +35,7 @@ public final class IronManItems {
 
 	/** suit ids of the first content pack, tech tier order (Stark Fabricator + blueprint gated).
 	 *  "changes 17": Mark XLII / Mark L removed. */
-	public static final List<String> SUIT_IDS = List.of("mark_iii", "mark_v", "mark_vii");
+	public static final List<String> SUIT_IDS = List.of("mark_iii", "mark_v", "mark_vii", "mark_8");
 	/**
 	 * Mark 1 / Mark 2 ("changes 12"): primitive first-generation prototypes. Deliberately NOT in
 	 * {@link #SUIT_IDS} -- they skip the Stark Fabricator / blueprint / tech-level gate entirely and
@@ -101,19 +101,20 @@ public final class IronManItems {
 	public static final Item MARK_6_BLUEPRINT = blueprint("mark_6_blueprint", 0, "mark_6");
 	public static final Item MARK_V_BLUEPRINT = blueprint("mark_v_blueprint", 2, "mark_v");
 	public static final Item MARK_VII_BLUEPRINT = blueprint("mark_vii_blueprint", 3, "mark_vii");
+	public static final Item MARK_8_BLUEPRINT = blueprint("mark_8_blueprint", 3, "mark_8"); // v0.15.9
 	// "changes 17": Mark XLII / Mark L blueprints removed with those suits.
 
 	/**
 	 * "changes 21": the one craftable blueprint. Shift-right-click it (see {@link BlankBlueprintItem})
 	 * to open a picker and stamp it into a specific mark's blueprint; a mark is offered only once the
-	 * whole previous mark's suit is built (the linear Mark 1 -> 2 -> III -> 4 -> V -> 6 -> VII gate).
+	 * whole previous mark's suit is built (the linear Mark 1 -> 2 -> III -> 4 -> V -> 6 -> VII -> 8 gate).
 	 */
 	public static final Item BLANK_BLUEPRINT = register("blank_blueprint",
 			new BlankBlueprintItem(new Item.Properties()));
 
 	/** Every mark in linear progression order (by mark number). Index 0 has no blueprint prerequisite. */
 	public static final List<String> MARK_ORDER =
-			List.of("mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii");
+			List.of("mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8");
 
 	/** The blueprint item a Blank Blueprint becomes when stamped for {@code suitId}, or null. */
 	public static Item blueprintFor(String suitId) {
@@ -125,6 +126,7 @@ public final class IronManItems {
 			case "mark_v" -> MARK_V_BLUEPRINT;
 			case "mark_6" -> MARK_6_BLUEPRINT;
 			case "mark_vii" -> MARK_VII_BLUEPRINT;
+			case "mark_8" -> MARK_8_BLUEPRINT;
 			default -> null;
 		};
 	}
@@ -146,6 +148,7 @@ public final class IronManItems {
 			var material = switch (suitId) {
 				case "mark_iii" -> IronManArmorMaterials.MARK_III;
 				case "mark_v" -> IronManArmorMaterials.MARK_V;
+				case "mark_8" -> IronManArmorMaterials.MARK_8;
 				default -> IronManArmorMaterials.MARK_VII;
 			};
 			registerSuitArmor(suitId, material);
@@ -248,6 +251,7 @@ public final class IronManItems {
 		output.accept(MARK_V_BLUEPRINT);
 		output.accept(MARK_6_BLUEPRINT);
 		output.accept(MARK_VII_BLUEPRINT);
+		output.accept(MARK_8_BLUEPRINT); // v0.15.9
 
 		for (Item item : List.of(COPPER_WIRING, METAL_PLATING, BASIC_CIRCUIT, MECHANICAL_PARTS,
 				TITANIUM_GOLD_ALLOY, TITANIUM_GOLD_PLATE, SERVO_MOTOR, MICRO_THRUSTER, REPULSOR, FLIGHT_STABILIZER,

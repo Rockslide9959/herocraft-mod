@@ -19,6 +19,8 @@ import net.minecraft.server.level.ServerPlayer;
  */
 public final class IronManMark7 {
 	public static final String SUIT_ID = "mark_vii";
+	/** v0.15.9: the Mark 8 runs this same kit (same laser / Unibeam numbers, its own cooldowns). */
+	public static final String MARK_8_ID = "mark_8";
 
 	/** Z: red laser (hold); Shift+Z: Unibeam (hold). Also the red laser's cooldown key. */
 	public static final String LASER = "mk7_laser";
@@ -40,6 +42,17 @@ public final class IronManMark7 {
 	public static final IronManHeldBeam.Spec RED_LASER = new IronManHeldBeam.Spec(SUIT_ID, LASER, RED_LASER_DAMAGE,
 			RED_LASER_ENERGY_PER_TICK, RED_LASER_COOLDOWN, RED_LASER_RANGE, IronManHeldBeam.RED_LASER_BEAM, true);
 
+	// v0.15.9: the Mark 8's copies (its suit id keys the cooldowns + the energy pool)
+	public static final IronManHeldBeam.Spec MARK_8_BEAM = new IronManHeldBeam.Spec(MARK_8_ID, UNIBEAM, UNIBEAM_DAMAGE,
+			UNIBEAM_ENERGY_PER_TICK, UNIBEAM_COOLDOWN, UNIBEAM_RANGE);
+	public static final IronManHeldBeam.Spec MARK_8_RED_LASER = new IronManHeldBeam.Spec(MARK_8_ID, LASER, RED_LASER_DAMAGE,
+			RED_LASER_ENERGY_PER_TICK, RED_LASER_COOLDOWN, RED_LASER_RANGE, IronManHeldBeam.RED_LASER_BEAM, true);
+
+	/** Whether this suit runs the Mark 7 Z kit (the Mark 7 and, v0.15.9, the Mark 8). */
+	public static boolean isLaserSuit(String suitId) {
+		return SUIT_ID.equals(suitId) || MARK_8_ID.equals(suitId);
+	}
+
 	private IronManMark7() {
 	}
 
@@ -49,11 +62,12 @@ public final class IronManMark7 {
 
 	/** Called from {@link IronManAbilities#trigger} for the Mark 7's Z slot. */
 	public static void trigger(ServerPlayer player, IronManSuit suit, String ability, boolean pressed) {
-		if (!LASER.equals(ability) || !SUIT_ID.equals(suit.id())) {
+		if (!LASER.equals(ability) || !isLaserSuit(suit.id())) {
 			return;
 		}
 		if (pressed) {
-			IronManHeldBeam.start(player, suit, player.isShiftKeyDown() ? BEAM : RED_LASER);
+			boolean mk8 = MARK_8_ID.equals(suit.id());
+			IronManHeldBeam.start(player, suit, player.isShiftKeyDown() ? (mk8 ? MARK_8_BEAM : BEAM) : (mk8 ? MARK_8_RED_LASER : RED_LASER));
 		} else {
 			IronManHeldBeam.stop(player, true);
 		}

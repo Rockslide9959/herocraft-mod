@@ -48,7 +48,7 @@ public final class SuperheroArmorVisuals {
 		// _thigh / _knee / _boot) so idle -- and the triggerable assemble / helmet / flight clips --
 		// drive them too. See docs/ARMOR_MODELS.md.
 		for (String setId : new String[] {
-				"mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii" }) {
+				"mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8" }) {
 			register(setId, new ArmorVisualDefinition(ProjectHeroMod.id("geo/" + setId + ".geo.json"),
 					ProjectHeroMod.id("textures/armor/" + setId + ".png"), SHARED_ANIMATION));
 		}

@@ -64,7 +64,9 @@ public final class IronManWeaponWheelScreen extends Screen {
 	private IronManWeaponWheelScreen(String kitSuit, boolean modern) {
 		super(Component.translatable(modern
 				? (com.projecthero.mod.ironman.ability.IronManMark7.SUIT_ID.equals(kitSuit)
-						? "screen.projecthero.weapon_wheel.mk7_title" : "screen.projecthero.weapon_wheel.mk6_title")
+						? "screen.projecthero.weapon_wheel.mk7_title"
+						: com.projecthero.mod.ironman.ability.IronManMark7.MARK_8_ID.equals(kitSuit) // v0.15.9
+						? "screen.projecthero.weapon_wheel.mk8_title" : "screen.projecthero.weapon_wheel.mk6_title")
 				: kitSuit == null ? "screen.projecthero.weapon_wheel.title"
 				: IronManMark3.MARK_4_ID.equals(kitSuit) ? "screen.projecthero.weapon_wheel.mk4_title"
 				: "screen.projecthero.weapon_wheel.mk3_title"));

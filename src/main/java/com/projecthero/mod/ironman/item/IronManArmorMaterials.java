@@ -62,6 +62,10 @@ public final class IronManArmorMaterials {
 	public static final Holder<ArmorMaterial> MARK_VII = register("mark_vii",
 			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 9, ArmorItem.Type.HELMET, 3),
 			15, SoundEvents.ARMOR_EQUIP_NETHERITE, 3.0f, 0.175f);
+	// v0.15.9: the Mark 8 -- the Mark 7's plates
+	public static final Holder<ArmorMaterial> MARK_8 = register("mark_8",
+			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 9, ArmorItem.Type.HELMET, 3),
+			15, SoundEvents.ARMOR_EQUIP_NETHERITE, 3.0f, 0.175f);
 	// "changes 17": Mark XLII / Mark L materials removed with those suits.
 
 	/**

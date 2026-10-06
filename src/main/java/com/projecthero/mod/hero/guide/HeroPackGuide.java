@@ -393,7 +393,7 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.iron_man.progression");
 			for (String step : new String[]{"arc_reactor", "tony_stark", "fabricator", "mark_iii", "mark_v",
-					"mark_vii"}) {
+					"mark_vii", "mark_8"}) {
 				lines.add(Component.literal("  ↓  ").withStyle(ChatFormatting.DARK_GRAY)
 						.append(Component.translatable("projecthero.guide.iron_man.step." + step).withStyle(ChatFormatting.WHITE)));
 			}
@@ -407,7 +407,7 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.iron_man.screens.body");
 			// v0.14.26: scanner, Mark III targeting, I-key spec sheet, auto-feed, the Stark cookers
 			for (String section : new String[]{"scanner", "targeting", "spec_sheet", "auto_feed", "furnaces",
-					"mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "platform", "gantry", "combat", "jarvis",
+					"mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8", "platform", "gantry", "combat", "jarvis",
 					"remote_pilot", "armour_rules", "glasses", "bracelets", "phoenix"}) { // v0.14.29: + Mark 4 / 5 / 6 / 7, combat, JARVIS, remote pilot; v0.15.1: + armour rules; v0.15.2: + Stark Glasses, Protocol Phoenix; v0.15.4: + Stark Gantry, Colantotte Bracelets
 				head(lines, "projecthero.guide.iron_man." + section);
 				para(lines, "projecthero.guide.iron_man." + section + ".body");

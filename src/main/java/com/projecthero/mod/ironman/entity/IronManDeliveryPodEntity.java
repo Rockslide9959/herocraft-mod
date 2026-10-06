@@ -190,6 +190,11 @@ public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 		return pod;
 	}
 
+	/** v0.15.9: where the pod set off from (tests: a bracelet call leaves from the rack itself). */
+	public Vec3 startPos() {
+		return start;
+	}
+
 	private static int order(ItemStack s) {
 		return s.getItem() instanceof IronManArmorItem a ? a.getType().ordinal() : -1; // HELMET 0 .. BOOTS 3
 	}

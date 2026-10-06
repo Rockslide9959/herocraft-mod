@@ -35,6 +35,7 @@ import com.projecthero.mod.ironman.ui.IronManUiLayout;
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
@@ -415,22 +416,19 @@ public class ColantotteBraceletsV0154GameTests implements FabricGameTest {
 		int dz = 11; // inside the test area: a rack in a frozen neighbour chunk would make the pod jump straight to its owner
 		IronManSuitPlatformBlockEntity fastRack = rack(h, fastP, 1, dz);
 		IronManSuitPlatformBlockEntity slowRack = rack(h, slowP, 6, dz);
-		for (ServerPlayer p : List.of(fastP, slowP)) {
-			p.setOnGround(true);
+		// v0.15.9: the racks sit outside the 8x8 test area; depending on where the test lands in the batch grid their chunk
+		// may not be entity-ticking, and then the pod (correctly) comes in from the sky instead of off the rack. Force-load
+		// both racks' chunks and call only once they tick (CALL_AT ticks in).
+		// Only chunks that were not already forced (the GameTest framework force-loads test areas; un-forcing one of those
+		// at the end would freeze a neighbouring test).
+		java.util.Set<ChunkPos> forced = new java.util.HashSet<>();
+		for (ChunkPos cp : List.of(new ChunkPos(fastRack.getBlockPos()), new ChunkPos(slowRack.getBlockPos()))) {
+			if (!h.getLevel().getForcedChunks().contains(cp.toLong()) && h.getLevel().setChunkForced(cp.x, cp.z, true)) {
+				forced.add(cp);
+			}
 		}
-		IronManSuitCall.execute(fastP, M7, com.projecthero.mod.network.IronManSuitListPayload.SOURCE_PLATFORM);
-		IronManSuitCall.execute(slowP, M7, com.projecthero.mod.network.IronManSuitListPayload.SOURCE_PLATFORM);
-		h.assertTrue(fastRack.storedSuitId() == null && slowRack.storedSuitId() == null, "both suits leave their platforms");
-		h.assertFalse(IronManArmor.wearingAnyIronMan(fastP), "nothing appears on the bracelet Tony at once");
-		AABB area = new AABB(h.absolutePos(BlockPos.ZERO)).inflate(48).expandTowards(0, 100, 0);
-		IronManDeliveryPodEntity fastPod = h.getLevel().getEntitiesOfClass(IronManDeliveryPodEntity.class, area,
-				e -> fastP.getUUID().equals(e.ownerId())).get(0);
-		IronManDeliveryPodEntity slowPod = h.getLevel().getEntitiesOfClass(IronManDeliveryPodEntity.class, area,
-				e -> slowP.getUUID().equals(e.ownerId())).get(0);
-		double fromRack = fastPod.position().distanceTo(net.minecraft.world.phys.Vec3.atCenterOf(fastRack.getBlockPos()));
-		h.assertTrue(fromRack < 2.5, "the bracelet pod sets off from the platform itself (" + fromRack + " blocks from it)");
-		h.assertTrue(fastPod.position().distanceTo(fastP.position()) > dz - 3, "...about " + dz + " blocks from the player");
-		h.assertTrue(fastPod.fast() && !slowPod.fast(), "the bracelet pod is the fast one");
+		final int callAt = 5;
+		IronManDeliveryPodEntity[] pods = new IronManDeliveryPodEntity[2];
 		int[] arrived = { -1, -1 };
 		int[] clock = { 0 };
 		boolean[] earlyWorn = { false };
@@ -438,19 +436,44 @@ public class ColantotteBraceletsV0154GameTests implements FabricGameTest {
 		net.minecraft.world.phys.Vec3 rackAt = net.minecraft.world.phys.Vec3.atCenterOf(fastRack.getBlockPos());
 		h.onEachTick(() -> {
 			clock[0]++;
+			if (clock[0] < callAt) {
+				return;
+			}
+			if (clock[0] == callAt) {
+				for (ServerPlayer p : List.of(fastP, slowP)) {
+					p.setOnGround(true);
+				}
+				IronManSuitCall.execute(fastP, M7, com.projecthero.mod.network.IronManSuitListPayload.SOURCE_PLATFORM);
+				IronManSuitCall.execute(slowP, M7, com.projecthero.mod.network.IronManSuitListPayload.SOURCE_PLATFORM);
+				h.assertTrue(fastRack.storedSuitId() == null && slowRack.storedSuitId() == null, "both suits leave their platforms");
+				h.assertFalse(IronManArmor.wearingAnyIronMan(fastP), "nothing appears on the bracelet Tony at once");
+				AABB area = new AABB(h.absolutePos(BlockPos.ZERO)).inflate(48).expandTowards(0, 100, 0);
+				pods[0] = h.getLevel().getEntitiesOfClass(IronManDeliveryPodEntity.class, area,
+						e -> fastP.getUUID().equals(e.ownerId())).get(0);
+				pods[1] = h.getLevel().getEntitiesOfClass(IronManDeliveryPodEntity.class, area,
+						e -> slowP.getUUID().equals(e.ownerId())).get(0);
+				double fromRack = pods[0].startPos().distanceTo(rackAt);
+				h.assertTrue(fromRack < 2.5, "the bracelet pod sets off from the platform itself (" + fromRack + " blocks from it)");
+				h.assertTrue(pods[0].startPos().distanceTo(fastP.position()) > dz - 3, "...about " + dz + " blocks from the player");
+				h.assertTrue(pods[0].fast() && !pods[1].fast(), "the bracelet pod is the fast one");
+				return;
+			}
+			int t = clock[0] - callAt;
+			IronManDeliveryPodEntity fastPod = pods[0];
+			IronManDeliveryPodEntity slowPod = pods[1];
 			boolean fastHere = fastPod.isRemoved() || fastPod.phase() != IronManDeliveryPodEntity.DESCEND;
 			if (!fastHere && fastPod.position().distanceTo(rackAt) > 1.5
 					&& fastPod.position().distanceTo(fastP.position()) > 2.5) {
 				enRoute[0] = true; // seen in flight between the platform and the player
 			}
 			if (arrived[0] < 0 && fastHere) {
-				arrived[0] = clock[0];
+				arrived[0] = t;
 			}
 			if (!fastHere && IronManArmor.wearingAnyIronMan(fastP)) {
 				earlyWorn[0] = true; // a piece on the body before the pod got there
 			}
 			if (arrived[1] < 0 && (slowPod.isRemoved() || slowPod.phase() != IronManDeliveryPodEntity.DESCEND)) {
-				arrived[1] = clock[0];
+				arrived[1] = t;
 			}
 		});
 		h.succeedWhen(() -> {
@@ -463,6 +486,9 @@ public class ColantotteBraceletsV0154GameTests implements FabricGameTest {
 			h.assertTrue(enRoute[0], "the pod was seen in flight between the platform and the player");
 			h.assertTrue(wearing(fastP, M7) && !IronManSuitUpManager.inTransition(fastP), "then the wrap-on puts it on");
 			h.assertTrue(wearing(slowP, M7), "the glasses Tony gets the ordinary delivery");
+			for (ChunkPos cp : forced) {
+				h.getLevel().setChunkForced(cp.x, cp.z, false);
+			}
 		});
 	}
 

@@ -17,7 +17,7 @@ import static com.projecthero.mod.ironman.fabricator.FabricationRecipe.of;
 /**
  * Every Stark Fabricator recipe, in code (spec sections 10-12, 18, 19). Ordered advanced components
  * first, then blueprints, then the armour pieces. Armour pieces are blueprint-gated (the Blank Blueprint
- * progression, Mark 1 -> 2 -> III -> 4 -> V -> 6 -> VII) so a player cannot skip straight to the Mark VII;
+ * progression, Mark 1 -> 2 -> III -> 4 -> V -> 6 -> VII -> 8) so a player cannot skip straight to the Mark VII;
  * completing a mark's <em>chestplate</em> advances the technology tree to that mark.
  */
 public final class FabricatorRecipes {
@@ -177,7 +177,7 @@ public final class FabricatorRecipes {
 		// ---------------- blueprints ----------------
 		// "changes 21": blueprints are no longer fabricated. Every mark's blueprint is made only by
 		// stamping a Blank Blueprint (BlankBlueprintItem), and a mark unlocks only once the whole
-		// previous mark's suit is built -- the linear Mark 1 -> 2 -> III -> 4 -> V -> 6 -> VII gate.
+		// previous mark's suit is built -- the linear Mark 1 -> 2 -> III -> 4 -> V -> 6 -> VII -> 8 gate.
 		// (Mark XLII / Mark L blueprints were already removed with those suits in "changes 17".)
 
 		// ---------------- armour pieces ----------------
@@ -193,10 +193,13 @@ public final class FabricatorRecipes {
 		armorSet("mark_v", 2, 2, IronManItems.MICRO_THRUSTER);
 		armorSet("mark_6", 2, 3, IronManItems.FLIGHT_STABILIZER);
 		armorSet("mark_vii", 3, 4, IronManItems.MISSILE_MODULE);
+		// v0.15.9: the Mark 8 -- the top cost tier (3 more plates than the Mark 7 on the chest, +1 elsewhere) and a Suit
+		// Computer as its signature part
+		armorSet("mark_8", 3, 5, IronManItems.SUIT_COMPUTER);
 	}
 
 	/** v0.14.21: the build order of the Fabricator-built marks, cheapest first. */
-	public static final List<String> ARMOR_BUILD_ORDER = List.of("mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii");
+	public static final List<String> ARMOR_BUILD_ORDER = List.of("mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8");
 
 	/** "changes 18/19": true if this suit has Fabricator armour recipes (i.e. everything except the Mark 1). */
 	public static boolean hasArmorRecipes(String suitId) {
@@ -209,7 +212,7 @@ public final class FabricatorRecipes {
 	 * not by a tech level; {@code timeTier} just stretches the fabrication time for the later marks.
 	 *
 	 * <p>v0.14.21 cost pass: roughly half the old component counts (19 plates / 6 servos for a Mark III
-	 * instead of 30 / 12). {@code costTier} (0 = Mark III .. 4 = Mark VII) adds plates so each mark in
+	 * instead of 30 / 12). {@code costTier} (0 = Mark III .. 4 = Mark VII, 5 = Mark 8) adds plates so each mark in
 	 * the build order costs more than the last, and every piece carries one of the mark's
 	 * {@code signature} components (two in the chestplate).
 	 */

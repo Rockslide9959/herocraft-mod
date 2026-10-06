@@ -1081,7 +1081,7 @@ listing every mark with a blueprint in progression order. Pick → `IronManBluep
 `TonyStark.stampBlueprint` re-validates, consumes one blank, hands over that mark's blueprint.
 
 *Linear gate:* `IronManItems.MARK_ORDER` = `mark_1, mark_2, mark_iii, mark_4, mark_v, mark_6,
-mark_vii`. A mark's blueprint unlocks only once **every piece of the previous mark** is built
+mark_vii, mark_8` (v0.15.9: + the Mark 8). A mark's blueprint unlocks only once **every piece of the previous mark** is built
 (`IronManItems.prerequisiteSuit`). Piece tracking piggybacks on `TonyStarkState.builtSuits`: it now
 holds both the bare suit id (a fully-built mark, what `hasBuilt` / suit-up / summon read — filter with
 `TonyStark.builtSuitIds`) **and** per-piece markers `suitId + "/" + pieceName`. `TonyStark.recordSuitPiece`
@@ -2175,4 +2175,27 @@ Regeneration is ever removed). `IronManHeldBeam.Spec` gained `beamKind` + `laser
 hit); beam kind 5 = the solid red laser in `IronManAbilityVisuals`. S2C wheel payload `mk6:<suit>` opens
 `IronManWeaponWheelScreen.modern`. Tests: `IronManMk67V0154GameTests`; the v0.14.29 Mark 6 / 7 kit tests were removed
 from `IronManV01429Mk67GameTests` (orbital-drop tests kept); HeroPack / Round2 / V0153 updated for the new pools.
+
+## v0.15.9 -- Mark 8
+
+The user's red/gold skin model (`scratchpad/mark8_skin.png` -> `scratchpad/gen_v0159_mark8_model.js`):
+`textures/armor/mark_8.png` is the skin pixel for pixel, `mark_8_glowmask.png` = its #b9d4e3 light texels (eye slits,
+chest reactor, palms, boot soles), `geo/mark_8.geo.json` = the shared skin rig (`mark_vii.geo.json`, identifier renamed).
+Suit id and item ids are both `mark_8` (`iron_man_mark_8_*`, `mark_8_blueprint`).
+
+* `IronManSuits.MARK_8` (tech 3, mark 8): 5000 energy at 5/s, 3000 integrity (no worn repair -- v0.15.9 user rule; platform docking repairs), Regeneration I while
+  hurt (3 e/s), Resistance II, +8 melee, water breathing, auto-feed, x0.6 ability cost -- the Mark 7's rules. Kit = the
+  Mark 7's (`IronManMark6.MARK_8_TUNING` = the Mark 7 numbers; `IronManMark7.isLaserSuit` / `MARK_8_RED_LASER` /
+  `MARK_8_BEAM` with their own `mark_8/...` cooldowns). C = Sentry Mode (separate v0.15.9 work).
+* `SummonType.FLYING_SET` + `SuitUpType.MECHANICAL_REMOTE`: a Stark Glasses call (`StarkGear.GLASSES_MIN_MARK` = 8) flies
+  the pieces in from the platform -- no pod; the Colantotte Bracelets stay Mark 7 only. Protocol Phoenix (Mark 7+) ranks
+  by mark, so it picks a Mark 8 over a Mark 7.
+* Progression: `MARK_ORDER` ends `mark_vii, mark_8` (the Mark 8 Blueprint unlocks once the whole Mark 7 is built);
+  `FabricatorRecipes.armorSet("mark_8", 3, 5, SUIT_COMPUTER)` -- one cost tier above the Mark 7 (+1 plate per piece) with
+  a Suit Computer as the signature part. Material `IronManArmorMaterials.MARK_8` = the Mark 7's.
+* Lists naming every mark: `SuperheroArmorVisuals`, `IronManSuitGlowLayer.MARKS`, `IronManFirstPersonGauntlets.DESIGNS`,
+  `HeroPackGuide` (progression step + Mark 8 section), wheel title `mk8_title`. Everything else (call picker, gantry,
+  platform, Sorter, HUD, JARVIS, suit-up FX, Phoenix) keys off the suit definition generically.
+
+Tests: `IronManMark8V0159GameTests`.
 
