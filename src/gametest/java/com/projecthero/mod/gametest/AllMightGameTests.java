@@ -246,7 +246,9 @@ public class AllMightGameTests implements FabricGameTest {
 		helper.assertTrue(AllMight.state(p).chargeStart > 0L, "the synced charge start drives the HUD bar");
 		helper.assertTrue(z.isAlive() && z.getHealth() == z.getMaxHealth(), "the charge is not an instant hit");
 		helper.runAfterDelay(AllMightConfig.UNITED_STATES_CHARGE_TICKS - 10, () -> {
-			helper.assertTrue(z.isAlive() && z.getHealth() == z.getMaxHealth(), "still charging before 5 s");
+			// v0.15.8: read the charge itself, not the zombie -- on CI a neighbouring test could nick it
+			helper.assertTrue(AllMight.state(p).chargeStart > 0L
+					&& AllMight.cooldownRemaining(p, AllMightAbilities.UNITED_STATES) == 0, "still charging before 5 s");
 		});
 		helper.runAfterDelay(AllMightConfig.UNITED_STATES_CHARGE_TICKS + 6, () -> {
 			helper.assertTrue(z.getHealth() < z.getMaxHealth() || !z.isAlive(), "75 damage lands when the charge completes");
