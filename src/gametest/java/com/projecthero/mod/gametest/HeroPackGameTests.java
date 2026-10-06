@@ -1924,12 +1924,12 @@ public class HeroPackGameTests implements FabricGameTest {
 	public void mobHighlightClearsWhenSuitLosesPower(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
-		giveFullSuit(player, "mark_6");
-		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_6", 5000f);
+		giveFullSuit(player, "mark_2");
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_2", 1000f);
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_5, true);
 		helper.assertTrue(com.projecthero.mod.ironman.TonyStark.state(player).mobHighlightOn, "toggled on");
 
-		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_6", 0f); // depleted
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_2", 0f); // depleted
 		com.projecthero.mod.ironman.IronManSuitTicker.tick(player);
 		helper.assertFalse(com.projecthero.mod.ironman.TonyStark.state(player).mobHighlightOn,
 				"a depleted suit must clear the mob-highlight toggle");
@@ -2133,15 +2133,16 @@ public class HeroPackGameTests implements FabricGameTest {
 	public void microMissilesFireOneAtATime(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
-		giveFullSuit(player, "mark_6");
-		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_6", 5000f);
-		var suit = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_6");
-		float before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6");
+		giveFullSuit(player, "mark_vii");
+		com.projecthero.mod.ironman.TonyStark.setWeaponWheelChoice(player, com.projecthero.mod.ironman.ability.IronManAbilities.MICRO_MISSILES); // v0.14.29: the Mark 7 wheel is the classic-volley carrier now
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_vii", 5000f);
+		var suit = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_vii");
+		float before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_vii");
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_3, true);
 		int queued = com.projecthero.mod.ironman.TonyStark.state(player).pendingMissiles;
 		helper.assertTrue(queued == suit.missileCount(),
 				"pressing Micro-Missiles must queue missileCount() missiles at once, got " + queued);
-		helper.assertTrue(Math.abs(before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6")
+		helper.assertTrue(Math.abs(before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_vii")
 				- suit.missileEnergyCost() * suit.energyCostMultiplier()) < 0.01f, "the whole volley is paid for up front");
 		// pressing again while the volley is still launching does nothing
 		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_3, true);
