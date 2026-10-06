@@ -81,19 +81,21 @@ public final class IronManHud {
 			int y = IronManUiLayout.HUD_Y;
 			// v0.15.1: suit calling and Protocol Phoenix need the Stark Glasses (Stark Gear slot, Shift+N)
 			boolean glasses = com.projecthero.mod.ironman.gear.StarkGear.canCall(player); // v0.15.4: or the Colantotte Bracelets
-			if (!wearingAnyIronMan(player)) {
-				String call = glasses
-						? Component.translatable("hud.projecthero.ironman.call_armor",
-								ModKeyBindings.ABILITY_SLOTS[5].getTranslatedKeyMessage()).getString()
-						: Component.translatable("hud.projecthero.ironman.calling_offline").getString();
-				IronManGui.chip(g, font, x, y, w, call, glasses ? IronManGui.CYAN : IronManGui.TEXT_DIM);
+			// v0.15.7: no gear on -> no chip at all (it used to say "needs glasses"); the bracelets call the Mark 7
+			if (glasses && !wearingAnyIronMan(player)) {
+				String call = Component.translatable(com.projecthero.mod.ironman.gear.StarkGear.hasBracelets(player)
+						? "hud.projecthero.ironman.call_mark_7" : "hud.projecthero.ironman.call_armor",
+						ModKeyBindings.ABILITY_SLOTS[5].getTranslatedKeyMessage()).getString();
+				IronManGui.chip(g, font, x, y, w, call, IronManGui.CYAN);
 				y += 13;
 			}
+			// v0.15.7: Protocol Phoenix belongs to the glasses -- the bracelets never show it
+			boolean phoenix = com.projecthero.mod.ironman.gear.StarkGear.phoenixArmed(player);
 			long phoenixIn = state.phoenixReadyAt - now;
-			if (phoenixIn > 0) {
+			if (phoenix && phoenixIn > 0) {
 				IronManGui.chip(g, font, x, y, w, Component.translatable("hud.projecthero.ironman.phoenix_cooldown",
 						IronManUiLayout.mmss(phoenixIn)).getString(), IronManGui.GOLD);
-			} else if (glasses) {
+			} else if (phoenix) {
 				IronManGui.chip(g, font, x, y, w, Component.translatable("hud.projecthero.ironman.phoenix_armed").getString(),
 						IronManGui.GREEN);
 			}
@@ -297,7 +299,7 @@ public final class IronManHud {
 				chipColor.add(IronManGui.TEXT_DIM);
 			}
 			long phoenixIn = state.phoenixReadyAt - now;
-			if (phoenixIn > 0) {
+			if (phoenixIn > 0 && com.projecthero.mod.ironman.gear.StarkGear.phoenixArmed(player)) { // v0.15.7: glasses only
 				chipText.add(Component.translatable("hud.projecthero.ironman.phoenix_cooldown",
 						IronManUiLayout.mmss(phoenixIn)).getString());
 				chipColor.add(IronManGui.GOLD);

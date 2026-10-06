@@ -164,6 +164,30 @@ public class ColantotteBraceletsV0156GameTests implements FabricGameTest {
 		});
 	}
 
+	// ------------------------------------------------------------------ v0.15.7: plain C calls the Mark 7
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void plainCWithTheBraceletsCallsTheMarkSeven(GameTestHelper h) {
+		ServerPlayer p = tony(h, 1, 1);
+		p.setOnGround(true);
+		h.assertFalse(IronManSuitCall.braceletCall(p), "no bracelets: C does not call the Mark 7");
+		wearBracelets(p);
+		IronManSuitPlatformBlockEntity be = rack(h, p, M7, 1, 6);
+		h.assertTrue(IronManSuitCall.braceletCall(p), "with the bracelets, C calls the Mark 7 straight away");
+		h.assertTrue(be.isEmptyPlatform(), "the Mark 7 leaves its platform");
+		h.assertTrue(IronManSuitUpManager.inTransition(p), "and is inbound");
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void braceletsWithNoMarkSevenFallBackToTheUsualC(GameTestHelper h) {
+		ServerPlayer p = tony(h, 1, 1);
+		wearBracelets(p);
+		h.assertFalse(IronManSuitCall.braceletCall(p), "no Mark 7 within reach: nothing happens, the usual C carries on");
+		h.assertTrue(StarkGear.hasBracelets(p), "and the bracelets are not used up");
+		h.succeed();
+	}
+
 	// ------------------------------------------------------------------ Mark 7 only
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -171,7 +195,8 @@ public class ColantotteBraceletsV0156GameTests implements FabricGameTest {
 		ServerPlayer p = tony(h, 1, 1);
 		p.setOnGround(true);
 		wearBracelets(p);
-		h.assertTrue(StarkGear.canCall(p), "the bracelets still arm calling (HUD, Phoenix)");
+		h.assertTrue(StarkGear.canCall(p), "the bracelets still arm calling (HUD)");
+		h.assertFalse(StarkGear.phoenixArmed(p), "v0.15.7: but never Protocol Phoenix");
 		h.assertTrue(StarkGear.canCall(p, M7), "they call the Mark 7");
 		h.assertFalse(StarkGear.canCall(p, M3), "but not the Mark 3");
 		h.assertFalse(StarkGear.canCall(p, "mark_v"), "nor any other mark");

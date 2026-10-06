@@ -206,7 +206,10 @@ public class StarkGlassesV0151GameTests implements FabricGameTest {
 
 		StarkGear.equip(p, glasses());
 		IronManSuitCall.execute(p, "mark_iii", IronManSuitListPayload.SOURCE_PLATFORM);
-		h.assertTrue(be.isEmptyPlatform(), "with the glasses on the suit is called off the platform");
+		h.assertTrue(be.isFull(), "v0.15.7: the glasses alone only call a Mark 8+, so the Mark 3 stays");
+		wearGlasses(p);
+		IronManSuitCall.execute(p, "mark_iii", IronManSuitListPayload.SOURCE_PLATFORM);
+		h.assertTrue(be.isEmptyPlatform(), "with (test) glasses on the suit is called off the platform");
 		h.assertTrue(IronManSuitUpManager.inTransition(p), "and is inbound");
 		h.succeed();
 	}
@@ -351,9 +354,14 @@ public class StarkGlassesV0151GameTests implements FabricGameTest {
 		h.assertTrue(StarkGearLayout.rows(false, 0L, 10L)[0].tone() == StarkGearLayout.Tone.BAD, "no glasses = calling OFFLINE");
 
 		// HUD chips and the picker hint
-		for (String k : new String[] { "hud.projecthero.ironman.calling_offline", "hud.projecthero.ironman.phoenix_armed" }) {
+		for (String k : new String[] { "hud.projecthero.ironman.calling_offline", "hud.projecthero.ironman.phoenix_armed",
+				"hud.projecthero.ironman.call_mark_7" }) {
 			h.assertTrue(IronManUiLayout.approxWidth(t(k)) + 7 <= IronManUiLayout.HUD_W, "HUD chip fits: " + k);
 		}
+		h.assertTrue(IronManUiLayout.approxWidth(t("screen.projecthero.suit_call.glasses_mk8_only_hint")) <= 320 - 12,
+				"v0.15.7 picker hint fits 320 wide");
+		h.assertTrue(IronManUiLayout.approxWidth(t("screen.projecthero.suit_call.glasses_mk8_only")) <= IronManUiLayout.CARD_INFO_W - 6,
+				"v0.15.7 card line fits");
 		h.assertTrue(IronManUiLayout.approxWidth(t("screen.projecthero.suit_call.needs_glasses_hint")) <= 320 - 12,
 				"picker hint fits 320 wide");
 		h.assertTrue(IronManUiLayout.approxWidth(t("screen.projecthero.suit_call.needs_glasses")) <= IronManUiLayout.CARD_INFO_W - 6,
@@ -365,8 +373,61 @@ public class StarkGlassesV0151GameTests implements FabricGameTest {
 		h.succeed();
 	}
 
-	/** Shared by the older call / Phoenix tests: give a test Tony the glasses so a call is allowed. */
+	/**
+	 * Shared by the older call / Phoenix tests: give a test Tony the glasses so a call is allowed. v0.15.7: real glasses
+	 * only call a Mark 8+, so these are tagged to call every mark ({@link StarkGear#TEST_ANY_MARK}).
+	 */
 	public static void wearGlasses(ServerPlayer p) {
-		StarkGear.setGlasses(p, glasses());
+		ItemStack g = glasses();
+		CompoundTag tag = new CompoundTag();
+		tag.putBoolean(StarkGear.TEST_ANY_MARK, true);
+		g.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(tag));
+		StarkGear.setGlasses(p, g);
+	}
+
+	// ------------------------------------------------------------------ v0.15.7
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void glassesCallOnlyAMarkEightOrLater(GameTestHelper h) {
+		ServerPlayer p = tony(h, new BlockPos(6, 1, 6));
+		StarkGear.equip(p, glasses());
+		for (String id : new String[] { "mark_i", "mark_iii", "mark_v", "mark_vii" }) {
+			h.assertFalse(StarkGear.canCall(p, id), "the glasses do not call " + id);
+		}
+		IronManSuitPlatformBlockEntity be = platformWith(h, p, new BlockPos(2, 2, 2), "mark_vii");
+		IronManSuitCall.execute(p, "mark_vii", IronManSuitListPayload.SOURCE_PLATFORM);
+		h.assertTrue(be.isFull(), "a Mark 7 stays on its platform with only the glasses on");
+		h.assertFalse(IronManSuitCall.callBest(p), "the quick call finds nothing");
+		h.assertFalse(IronManSuitUpManager.inTransition(p), "and nothing is inbound");
+		h.assertTrue(StarkGear.phoenixArmed(p), "the glasses still arm Protocol Phoenix");
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void phoenixWithRealGlassesStillRecallsAPlatformMarkSeven(GameTestHelper h) {
+		ServerPlayer p = tony(h, new BlockPos(6, 1, 6));
+		IronManSuitPlatformBlockEntity be = platformWith(h, p, new BlockPos(2, 2, 2), "mark_vii");
+		StarkGear.equip(p, glasses());
+		try {
+			h.assertTrue(ProtocolPhoenix.tryActivate(p, p.damageSources().generic()), "glasses + a racked Mark 7: Phoenix takes over");
+			h.assertTrue(be.isEmptyPlatform(), "and the Mark 7 leaves its platform (Phoenix is not held to Mark 8+)");
+		} finally {
+			ProtocolPhoenix.clearEmergency(p);
+			TonyStark.setPhoenixReadyAt(p, 0L);
+		}
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void braceletsNeverArmPhoenix(GameTestHelper h) {
+		ServerPlayer p = tony(h, new BlockPos(2, 1, 2));
+		packSuit(p, "mark_vii");
+		StarkGear.setGlasses(p, new ItemStack(IronManItems.COLANTOTTE_BRACELETS));
+		h.assertFalse(StarkGear.phoenixArmed(p), "the bracelets do not arm Phoenix");
+		h.assertFalse(ProtocolPhoenix.tryActivate(p, p.damageSources().generic()), "so a Mark 7 in the pack is not called in");
+		h.assertTrue(TonyStark.phoenixReady(p), "and the cooldown is untouched");
+		StarkGearLayout.Row phoenix = StarkGearLayout.rows(true, false, 0L, 10L)[2];
+		h.assertTrue(phoenix.tone() == StarkGearLayout.Tone.BAD, "the Stark Gear screen shows Phoenix offline with the bracelets");
+		h.succeed();
 	}
 }

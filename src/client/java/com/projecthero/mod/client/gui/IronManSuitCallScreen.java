@@ -111,6 +111,12 @@ public final class IronManSuitCallScreen extends Screen {
 				&& com.projecthero.mod.ironman.gear.StarkGear.canCall(minecraft.player, suitId); // v0.15.6: bracelets = Mark 7 only
 	}
 
+	/** v0.15.7: wearing the Stark Glasses (they call only a Mark 8 or later). */
+	private boolean glassesWorn() {
+		return minecraft != null && minecraft.player != null
+				&& com.projecthero.mod.ironman.gear.StarkGear.hasGlasses(minecraft.player);
+	}
+
 	/** v0.15.6: wearing the Colantotte Bracelets (they call only the Mark 7). */
 	private boolean braceletsOn() {
 		return minecraft != null && minecraft.player != null
@@ -209,8 +215,10 @@ public final class IronManSuitCallScreen extends Screen {
 		boolean locked = anyLockedPlatformCard();
 		String hint = IronManGui.fit(font, Component.translatable(!locked ? "screen.projecthero.suit_call.hint"
 				: braceletsOn() ? "screen.projecthero.suit_call.bracelets_mk7_only_hint" // v0.15.6
-				: "screen.projecthero.suit_call.needs_glasses_hint"), width - 12);
-		g.drawCenteredString(this.font, hint, width / 2, height - 35, locked ? IronManGui.GOLD : IronManGui.TEXT_MUTED);
+				: glassesWorn() ? "screen.projecthero.suit_call.glasses_mk8_only_hint" // v0.15.7
+				: "screen.projecthero.suit_call.hint"), width - 12); // v0.15.7: no gear -- no nagging
+		g.drawCenteredString(this.font, hint, width / 2, height - 35, locked && (braceletsOn() || glassesWorn())
+				? IronManGui.GOLD : IronManGui.TEXT_MUTED);
 	}
 
 	// ------------------------------------------------------------------ v0.14.29 compare panel
@@ -379,6 +387,7 @@ public final class IronManSuitCallScreen extends Screen {
 				? Component.translatable(IronManUiLayout.locationKey(c.source), c.distance).getString()
 				: c.source == IronManSuitListPayload.SOURCE_PLATFORM // v0.15.1: reachable, but no glasses
 						? Component.translatable(braceletsOn() ? "screen.projecthero.suit_call.bracelets_mk7_only"
+								: glassesWorn() ? "screen.projecthero.suit_call.glasses_mk8_only" // v0.15.7
 								: "screen.projecthero.suit_call.needs_glasses").getString()
 						: Component.translatable("screen.projecthero.suit_call.unreachable").getString();
 		int whereCol = !c.available ? IronManGui.TEXT_MUTED

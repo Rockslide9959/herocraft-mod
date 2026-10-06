@@ -77,8 +77,8 @@ public final class ProtocolPhoenix {
 		if (!TonyStark.hasPower(player)) {
 			return false;
 		}
-		// v0.15.1: Protocol Phoenix is only armed while the Stark Glasses are on (Stark Gear slot)
-		if (!com.projecthero.mod.ironman.gear.StarkGear.canCall(player)) { // v0.15.4: or the Colantotte Bracelets
+		// v0.15.1: Protocol Phoenix is only armed while the Stark Glasses are on (Stark Gear slot); v0.15.7: never the bracelets
+		if (!com.projecthero.mod.ironman.gear.StarkGear.phoenixArmed(player)) {
 			return false;
 		}
 		// Can't trigger recursively, and truly un-survivable damage always kills.
@@ -275,9 +275,7 @@ public final class ProtocolPhoenix {
 		return options.stream()
 				.filter(o -> IronManSuits.byId(o.suitId()) != null)
 				.filter(o -> com.projecthero.mod.ironman.gear.StarkGear.phoenixEligible(o.suitId())) // v0.15.1: Mark 7+ only
-				// v0.15.6: with only the Colantotte Bracelets on, a platform suit must be the Mark 7 (the one they can call)
-				.filter(o -> o.source() == IronManSuitListPayload.SOURCE_INVENTORY
-						|| com.projecthero.mod.ironman.gear.StarkGear.canCall(player, o.suitId()))
+				// v0.15.7: only the glasses arm Phoenix, and it still recalls any Mark 7+ (ordinary glasses calls are Mark 8+)
 				.filter(o -> o.integrityFrac() >= MIN_INTEGRITY_FRACTION)
 				.filter(o -> o.energyFrac() >= MIN_ENERGY_FRACTION)
 				.max(Comparator

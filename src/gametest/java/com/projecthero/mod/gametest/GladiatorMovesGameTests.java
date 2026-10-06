@@ -279,6 +279,23 @@ public class GladiatorMovesGameTests implements FabricGameTest {
 		});
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100, batch = "gladiator_roar_fear")
+	public void championsRoarScaresOffOnlyLowLevelMobs(GameTestHelper helper) {
+		ServerPlayer p = gladiator(helper);
+		Husk weak = husk(helper, p.position().add(0, 0, 4.0));
+		Husk strong = tough(helper, p.position().add(0, 0, -4.0));
+		GladiatorAbilities.championsRoar(p);
+		helper.onEachTick(() -> Hulk.tick(p));
+		helper.succeedWhen(() -> {
+			helper.assertTrue(weak.hasEffect(MobEffects.WEAKNESS) && strong.hasEffect(MobEffects.WEAKNESS), "both are staggered");
+			helper.assertTrue(GladiatorAbilities.fleeing(weak), "a 20-health husk runs from him");
+			helper.assertTrue(weak.getTarget() == null, "and has no target");
+			helper.assertFalse(GladiatorAbilities.fleeing(strong), "a 200-health one stands its ground");
+			GladiatorAbilities.clear(p);
+			helper.assertFalse(GladiatorAbilities.fleeing(weak), "clear() ends the fear");
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100, batch = "gladiator_clash")
 	public void weaponClashHitsAndStunsAllRound(GameTestHelper helper) {
 		ServerPlayer p = gladiator(helper);

@@ -538,7 +538,9 @@ public final class IronManSuitCall {
 			return;
 		}
 		// v0.15.1: calling a suit in needs the Stark Glasses (v0.15.6: the bracelets call only the Mark 7)
-		if (!com.projecthero.mod.ironman.gear.StarkGear.canCall(player, suitId)) {
+		// v0.15.7: Protocol Phoenix's own recall is exempt (glasses + a Mark 7, though ordinary glasses calls are Mark 8+)
+		boolean phoenixRecall = TonyStark.phoenixEmergency(player) && suitId.equals(s.phoenixSuitId);
+		if (!phoenixRecall && !com.projecthero.mod.ironman.gear.StarkGear.canCall(player, suitId)) {
 			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player, suitId);
 			return;
 		}
@@ -761,6 +763,17 @@ public final class IronManSuitCall {
 	 * {@code /ironman suit <id>}: put the whole suit on through the real call path -- a staged suit-up if it is all in
 	 * the pack, otherwise a call off the nearest platform (loaded or not) or whatever pieces are carried.
 	 */
+	/**
+	 * v0.15.7: plain C with the Colantotte Bracelets on calls the Mark 7 straight away (no picker). False -- nothing
+	 * done -- without the bracelets or with no Mark 7 within reach, so the caller carries on with the usual C.
+	 */
+	public static boolean braceletCall(ServerPlayer player) {
+		if (!com.projecthero.mod.ironman.gear.StarkGear.hasBracelets(player)) {
+			return false;
+		}
+		return commandCall(player, IronManSuitUpManager.BRACELET_SUIT);
+	}
+
 	public static boolean commandCall(ServerPlayer player, String suitId) {
 		IronManSuit suit = IronManSuits.byId(suitId);
 		if (suit == null || !TonyStark.hasPower(player) || IronManSuitUpManager.inTransition(player)

@@ -197,7 +197,9 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 			if (GantryTimeline.carried(stage)) {
 				elevatorTop = Mth.lerp(GantryTimeline.elevator(u), ELEVATOR_DOWN, ELEVATOR_UP);
 				boolean rightCarries = GantryTimeline.rightArmCarries(stage);
-				boolean limb = stage == GantryTimeline.R_GAUNTLET || stage == GantryTimeline.L_GAUNTLET;
+				// one arm alone works a gauntlet -- v0.15.7, user request: and a boot (the other stays at its ready hover)
+				boolean limb = stage == GantryTimeline.R_GAUNTLET || stage == GantryTimeline.L_GAUNTLET
+						|| stage == GantryTimeline.R_BOOT || stage == GantryTimeline.L_BOOT;
 				Vec3 sC = rightCarries ? sR : sL;
 				Vec3 sA = rightCarries ? sL : sR;
 				ArmPose readyC = rightCarries ? readyR : readyL;

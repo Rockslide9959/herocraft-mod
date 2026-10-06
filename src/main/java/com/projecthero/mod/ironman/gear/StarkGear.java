@@ -57,6 +57,8 @@ import net.minecraft.world.level.GameRules;
 public final class StarkGear {
 	/** Protocol Phoenix only recalls a suit of this mark or later. */
 	public static final int PHOENIX_MIN_MARK = 7;
+	/** v0.15.7: the Stark Glasses only call a suit of this mark or later (the Mark 7 is the bracelets' job). */
+	public static final int GLASSES_MIN_MARK = 8;
 	/** The glasses' Night Vision: same signature as the Iron Man helmet optic (ambient, hidden, no icon, <= 400 ticks). */
 	public static final int NIGHT_VISION_TICKS = 400;
 	/** Re-applied once it drops below this, so it never reaches the flickering last 10 s. */
@@ -151,28 +153,44 @@ public final class StarkGear {
 	}
 
 	/**
-	 * v0.15.6: may this player call {@code suitId} right now? The Stark Glasses call any suit; the Colantotte Bracelets
-	 * call only the Mark 7 ({@code IronManSuitUpManager.BRACELET_SUIT}). Works on both sides (the slot is synced).
+	 * v0.15.6: may this player call {@code suitId} right now? The Colantotte Bracelets call only the Mark 7
+	 * ({@code IronManSuitUpManager.BRACELET_SUIT}); v0.15.7: the Stark Glasses call only a Mark
+	 * {@value #GLASSES_MIN_MARK} or later. Works on both sides (the slot is synced).
 	 */
 	public static boolean canCall(Player player, String suitId) {
-		return hasGlasses(player) || (hasBracelets(player)
-				&& com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRACELET_SUIT.equals(suitId));
+		if (hasGlasses(player)) {
+			IronManSuit suit = suitId == null ? null : IronManSuits.byId(suitId);
+			return suit != null && (suit.markNumber() >= GLASSES_MIN_MARK || anyMarkForTests(glasses(player)));
+		}
+		return hasBracelets(player) && com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRACELET_SUIT.equals(suitId);
 	}
 
-	/** Tell the player the call was refused because the glasses aren't on. */
+	/** GameTests only: glasses tagged {@value #TEST_ANY_MARK} still call every mark (the pre-0.15.7 call tests). */
+	public static final String TEST_ANY_MARK = "projecthero_test_any_mark";
+
+	private static boolean anyMarkForTests(ItemStack glasses) {
+		net.minecraft.world.item.component.CustomData data = glasses.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+		return data != null && data.copyTag().getBoolean(TEST_ANY_MARK);
+	}
+
+	/** v0.15.7: Protocol Phoenix is armed only by the Stark Glasses (never by the bracelets). Works on both sides. */
+	public static boolean phoenixArmed(Player player) {
+		return hasGlasses(player);
+	}
+
+	/** v0.15.7: a refused call with no gear on says nothing (it used to nag about the glasses). */
 	public static void refuseCall(ServerPlayer player) {
-		player.displayClientMessage(Component.translatable("message.projecthero.ironman.glasses_needed")
-				.withStyle(ChatFormatting.RED), true);
 	}
 
-	/** v0.15.6: tell the player why calling {@code suitId} was refused -- no gear on, or the bracelets (Mark 7 only). */
+	/**
+	 * v0.15.6: tell the player why calling {@code suitId} was refused -- only the bracelets (Mark 7 only) say anything;
+	 * v0.15.7: no gear, or the glasses with no Mark {@value #GLASSES_MIN_MARK}+, stays silent.
+	 */
 	public static void refuseCall(ServerPlayer player, String suitId) {
 		if (hasBracelets(player) && !hasGlasses(player)) {
 			player.displayClientMessage(Component.translatable("message.projecthero.ironman.bracelets_mk7_only")
 					.withStyle(ChatFormatting.RED), true);
-			return;
 		}
-		refuseCall(player);
 	}
 
 	/** Whether Protocol Phoenix may bring in this suit (Mark {@value #PHOENIX_MIN_MARK} or later). */

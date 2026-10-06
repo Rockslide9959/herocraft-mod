@@ -129,6 +129,11 @@ public final class GladiatorAbilities {
 	private static final Map<UUID, Away> AXE = new ConcurrentHashMap<>();
 	private static final Map<UUID, Away> HAMMER = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> ROAR_UNTIL = new ConcurrentHashMap<>();
+	/** v0.15.7: the low-level mobs each roarer has scared off, and until when they keep running. */
+	private static final Map<UUID, Fear> FEAR = new ConcurrentHashMap<>();
+
+	private record Fear(java.util.List<PathfinderMob> mobs, long until) {
+	}
 	private static final Map<UUID, Whirl> WHIRL = new ConcurrentHashMap<>();
 	private static final Map<UUID, Leap> LEAP = new ConcurrentHashMap<>();
 	private static final Map<UUID, Grapple> GRAPPLE = new ConcurrentHashMap<>();
@@ -143,6 +148,7 @@ public final class GladiatorAbilities {
 		AXE.clear();
 		HAMMER.clear();
 		ROAR_UNTIL.clear();
+		FEAR.clear();
 		WHIRL.clear();
 		LEAP.clear();
 		GRAPPLE.clear();
@@ -634,6 +640,7 @@ public final class GladiatorAbilities {
 		PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, ROAR_KNOCKBACK_ID, c.roarKnockbackResistance,
 				AttributeModifier.Operation.ADD_VALUE);
 		Hulk.setRage(player, Hulk.rage(player) + c.roarRage);
+		java.util.List<PathfinderMob> scared = new java.util.ArrayList<>();
 		for (LivingEntity e : HulkCombat.targets(player, player.getBoundingBox().inflate(c.roarRadius, 4.0, c.roarRadius))) {
 			if (e.distanceToSqr(player) > c.roarRadius * c.roarRadius) {
 				continue;
@@ -645,16 +652,19 @@ public final class GladiatorAbilities {
 				continue;
 			}
 			AbilityHelpers.knockbackFrom(e, at, 0.6);
-			// ...then they run
+			// ...then the weak ones run (v0.15.7: and keep running for a while); anything tougher just staggers
+			if (e.getMaxHealth() > c.roarFleeMaxHealth) {
+				continue;
+			}
 			if (e instanceof PathfinderMob mob) {
-				Vec3 away = DefaultRandomPos.getPosAway(mob, 16, 7, at);
-				if (away != null) {
-					mob.setTarget(null);
-					mob.getNavigation().moveTo(away.x, away.y, away.z, 1.5);
-				}
+				scared.add(mob);
+				flee(mob, at);
 			} else if (e instanceof Mob mob) {
 				mob.setTarget(null);
 			}
+		}
+		if (!scared.isEmpty()) {
+			FEAR.put(player.getUUID(), new Fear(scared, level.getGameTime() + c.roarFleeTicks));
 		}
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 3.0f, 0.6f);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.WARDEN_ROAR, SoundSource.PLAYERS, 1.6f, 0.9f);
@@ -666,6 +676,40 @@ public final class GladiatorAbilities {
 			HulkCombat.ring(level, ParticleTypes.CLOUD, at.add(0, 0.2, 0), r, (int) (r * 2));
 		}
 		HulkCombat.shake(level, at, 0.6f, 16, 24.0);
+	}
+
+	/** v0.15.7: drop the mob's target and send it running from {@code from}. */
+	private static void flee(PathfinderMob mob, Vec3 from) {
+		mob.setTarget(null);
+		Vec3 away = DefaultRandomPos.getPosAway(mob, 16, 7, from);
+		if (away != null) {
+			mob.getNavigation().moveTo(away.x, away.y, away.z, 1.5);
+		}
+	}
+
+	/** v0.15.7: is {@code mob} still running from a Champion's Roar? (GameTests) */
+	public static boolean fleeing(Mob mob) {
+		for (Fear fear : FEAR.values()) {
+			if (fear.mobs().contains(mob)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** v0.15.7: keep the scared mobs running -- any target they pick up is dropped and they set off again. */
+	private static void tickFear(ServerPlayer player, Fear fear, long now) {
+		if (now >= fear.until()) {
+			FEAR.remove(player.getUUID());
+			return;
+		}
+		Vec3 from = player.position();
+		fear.mobs().removeIf(m -> !m.isAlive() || m.level() != player.level());
+		for (PathfinderMob mob : fear.mobs()) {
+			if (mob.getTarget() != null || mob.getNavigation().isDone() || now % 20 == 0) {
+				flee(mob, from);
+			}
+		}
 	}
 
 	private static void endRoar(ServerPlayer player) {
@@ -1156,7 +1200,7 @@ public final class GladiatorAbilities {
 	/** Every Gamma player, every tick, from {@link Hulk#tick}. */
 	public static void tick(ServerPlayer player) {
 		UUID id = player.getUUID();
-		boolean anything = AXE.containsKey(id) || HAMMER.containsKey(id) || ROAR_UNTIL.containsKey(id) || WHIRL.containsKey(id)
+		boolean anything = AXE.containsKey(id) || HAMMER.containsKey(id) || ROAR_UNTIL.containsKey(id) || FEAR.containsKey(id) || WHIRL.containsKey(id)
 				|| LEAP.containsKey(id) || GRAPPLE.containsKey(id);
 		if (!anything) {
 			return;
@@ -1175,6 +1219,10 @@ public final class GladiatorAbilities {
 			} else if (now % 5 == 0) {
 				level(player).sendParticles(BRONZE, player.getX(), player.getY() + player.getBbHeight() * 0.6, player.getZ(), 2, 0.5, 0.6, 0.5, 0.0);
 			}
+		}
+		Fear fear = FEAR.get(id);
+		if (fear != null) {
+			tickFear(player, fear, now);
 		}
 		Whirl whirl = WHIRL.get(id);
 		if (whirl != null) {
@@ -1196,6 +1244,7 @@ public final class GladiatorAbilities {
 		recallNow(player, true);
 		recallNow(player, false);
 		endRoar(player);
+		FEAR.remove(id);
 		WHIRL.remove(id);
 		LEAP.remove(id);
 		GRAPPLE.remove(id);

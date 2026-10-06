@@ -93,8 +93,9 @@ public final class AbilityRouter {
 				&& !ThorPowers.wieldsThorWeapon(player)) {
 			// "changes 19": plain C auto-equips a full suit sitting in your inventory; sneak + C (or no
 			// complete suit in the pack) opens the call-armour picker.
-			if (!player.isShiftKeyDown()
-					&& com.projecthero.mod.ironman.suit.IronManSuitCall.autoEquipInventorySuit(player)) {
+			// v0.15.7: with the Colantotte Bracelets on, plain C calls the Mark 7
+			if (!player.isShiftKeyDown() && (com.projecthero.mod.ironman.suit.IronManSuitCall.braceletCall(player)
+					|| com.projecthero.mod.ironman.suit.IronManSuitCall.autoEquipInventorySuit(player))) {
 				return;
 			}
 			com.projecthero.mod.ironman.suit.IronManSuitCall.openMenu(player);

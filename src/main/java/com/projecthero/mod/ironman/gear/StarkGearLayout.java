@@ -74,7 +74,7 @@ public final class StarkGearLayout {
 				? new Row(p + "night_vision", p + "on", new Object[0], Tone.GOOD, p + "night_vision.hint_on")
 				: new Row(p + "night_vision", p + "off", new Object[0], Tone.OFF, p + "night_vision.hint_off");
 		Row phoenix;
-		if (!glasses) {
+		if (!nightVision) { // v0.15.7: only the glasses (the night-vision gear) arm Protocol Phoenix, never the bracelets
 			phoenix = new Row(p + "phoenix", p + "disarmed", new Object[0], Tone.BAD, p + "phoenix.hint_off");
 		} else if (phoenixReadyAt > now) {
 			phoenix = new Row(p + "phoenix", p + "cooldown", new Object[] { IronManUiLayout.mmss(phoenixReadyAt - now) },

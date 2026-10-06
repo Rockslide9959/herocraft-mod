@@ -66,6 +66,10 @@ public final class HulkConfig {
 		public double roarRadius = 12.0;
 		public float roarRage = 15.0f;
 		public int roarCooldownTicks = 400;
+		/** v0.15.7: mobs with at most this much max health are scared off by the roar (bosses never are). */
+		public double roarFleeMaxHealth = 40.0;
+		/** v0.15.7: how long a scared mob keeps running from him. */
+		public int roarFleeTicks = 120;
 
 		// ---- Shift+Z Weapon Clash: a ringing shockwave that stuns ----
 		public float clashDamage = 18.0f;

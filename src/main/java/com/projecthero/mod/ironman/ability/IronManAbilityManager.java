@@ -79,8 +79,9 @@ public final class IronManAbilityManager {
 		}
 		if (slot == AbilitySlot.SLOT_6) {
 			// "changes 19": plain C auto-equips a full inventory suit; sneak + C opens the picker.
-			if (!player.isShiftKeyDown()
-					&& com.projecthero.mod.ironman.suit.IronManSuitCall.autoEquipInventorySuit(player)) {
+			// v0.15.7: with the Colantotte Bracelets on, plain C calls the Mark 7
+			if (!player.isShiftKeyDown() && (com.projecthero.mod.ironman.suit.IronManSuitCall.braceletCall(player)
+					|| com.projecthero.mod.ironman.suit.IronManSuitCall.autoEquipInventorySuit(player))) {
 				return;
 			}
 			com.projecthero.mod.ironman.suit.IronManSuitCall.openMenu(player);
