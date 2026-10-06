@@ -68,4 +68,45 @@ public class IronManV01430GameTests implements FabricGameTest {
 		h.assertTrue(p.getMainHandItem().getItem() == IronManItems.armor("mark_iii", ArmorItem.Type.HELMET), "the helmet stays in hand");
 		h.succeed();
 	}
+
+	/** v0.14.31: Iron Man armour can't be taken off by hand in survival either. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void ironManArmourCannotBeRemovedByHand(GameTestHelper h) {
+		ServerPlayer p = h.makeMockServerPlayerInLevel();
+		p.setGameMode(GameType.SURVIVAL);
+		TonyStark.grant(p);
+		p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(IronManItems.armor("mark_iii", ArmorItem.Type.HELMET)));
+		h.assertFalse(p.inventoryMenu.getSlot(5).mayPickup(p), "a worn Iron Man helmet can't be picked out of its slot");
+		p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(net.minecraft.world.item.Items.IRON_HELMET));
+		h.assertTrue(p.inventoryMenu.getSlot(5).mayPickup(p), "ordinary armour still comes off");
+		h.succeed();
+	}
+
+	/** v0.14.31: gunfire does nothing to an Iron Man wearer; every mark totals 70% knockback resistance. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void ironManArmourIsBulletproofAndResistsKnockback(GameTestHelper h) {
+		ServerPlayer p = h.makeMockServerPlayerInLevel();
+		p.setGameMode(GameType.SURVIVAL);
+		TonyStark.grant(p);
+		for (ArmorItem.Type t : new ArmorItem.Type[] { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS, ArmorItem.Type.BOOTS }) {
+			p.setItemSlot(com.projecthero.mod.ironman.suit.IronManSuitUpManager.slotFor(t), new ItemStack(IronManItems.armor("mark_iii", t)));
+		}
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(p, "mark_iii", 2000f);
+		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(p, "mark_iii", 1000f);
+		p.invulnerableTime = 0;
+		float hp = p.getHealth();
+		ServerPlayer shooter = h.makeMockServerPlayerInLevel();
+		com.projecthero.mod.firearm.Gunfire.hit(() -> p.hurt(p.damageSources().playerAttack(shooter), 12f));
+		h.assertTrue(p.getHealth() == hp, "a bullet must not hurt an Iron Man wearer");
+		h.assertTrue(com.projecthero.mod.ironman.IronManEnergy.integrity(p, "mark_iii") == 1000f, "nor drain integrity");
+		for (var suit : IronManSuits.all()) {
+			float kb = 0f;
+			for (ArmorItem.Type t : new ArmorItem.Type[] { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS, ArmorItem.Type.BOOTS }) {
+				kb += ((ArmorItem) IronManItems.armor(suit.id(), t)).getMaterial().value().knockbackResistance();
+			}
+			h.assertTrue(Math.abs(kb - 0.7f) < 1.0e-4f, suit.id() + " full-suit knockback resistance must be 70%, got " + kb);
+		}
+		h.assertTrue(com.projecthero.mod.ironman.ability.IronManAbilities.REPULSOR_RANGE == 50.0, "repulsors reach 50 blocks");
+		h.succeed();
+	}
 }

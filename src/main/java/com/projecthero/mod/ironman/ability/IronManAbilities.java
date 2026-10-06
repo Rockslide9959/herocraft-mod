@@ -46,6 +46,8 @@ import net.minecraft.world.phys.Vec3;
  * server-side. Beams broadcast as an {@link IronManBeamPayload} so they show first and third person.
  */
 public final class IronManAbilities {
+	/** v0.14.31, explicit user request: every repulsor blast (tap, charged, gadget) reaches 50 blocks. */
+	public static final double REPULSOR_RANGE = 50.0;
 	public static final String REPULSOR_BLAST = "repulsor_blast";
 	public static final String CHARGED_REPULSOR = "charged_repulsor";
 	public static final String REPULSOR_BARRIER = "repulsor_barrier";
@@ -490,7 +492,7 @@ public final class IronManAbilities {
 		if (!pay(player, suit, suit.repulsorTapEnergy())) {
 			return;
 		}
-		fireRepulsor(player, suit.repulsorDamage(), false, 24.0);
+		fireRepulsor(player, suit.repulsorDamage(), false, REPULSOR_RANGE);
 		triggerCooldown(player, suit.id(), REPULSOR_BLAST, suit.repulsorTapCooldownTicks());
 	}
 
@@ -506,7 +508,7 @@ public final class IronManAbilities {
 		if (!pay(player, suit, suit.chargedRepulsorEnergy())) {
 			return;
 		}
-		fireRepulsor(player, suit.chargedRepulsorDamage(), true, 32.0);
+		fireRepulsor(player, suit.chargedRepulsorDamage(), true, REPULSOR_RANGE);
 		triggerCooldown(player, suit.id(), CHARGED_REPULSOR, suit.chargedRepulsorCooldownTicks());
 	}
 
@@ -518,7 +520,7 @@ public final class IronManAbilities {
 	 * identically. Pacing is the item's own use-cooldown, set by the caller.
 	 */
 	public static void fireHandRepulsor(ServerPlayer player) {
-		fireRepulsor(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_2.repulsorDamage(), false, 24.0);
+		fireRepulsor(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_2.repulsorDamage(), false, REPULSOR_RANGE);
 	}
 
 	private static void fireRepulsor(ServerPlayer player, float damage, boolean charged, double range) {

@@ -92,7 +92,8 @@ public final class SyndicateGunfire {
 		if (entity != null && entity.getEntity() instanceof LivingEntity target) {
 			DamageSource source = shooter instanceof net.minecraft.world.entity.player.Player p ? level.damageSources().playerAttack(p) : level.damageSources().mobAttack(shooter);
 			target.invulnerableTime = 0; // a shotgun's pellets are separate hits
-			boolean hurt = target.hurt(source, damage);
+			final float bullet = damage;
+			boolean hurt = com.projecthero.mod.firearm.Gunfire.hit(() -> target.hurt(source, bullet)); // v0.14.31: gunfire marker
 			level.sendParticles(ParticleTypes.DAMAGE_INDICATOR, entity.getLocation().x, entity.getLocation().y, entity.getLocation().z, 2,
 					0.1, 0.1, 0.1, 0.0);
 			return hurt;

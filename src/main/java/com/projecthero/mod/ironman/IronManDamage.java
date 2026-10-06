@@ -107,6 +107,12 @@ public final class IronManDamage {
 		String suitId = IronManArmor.wornSuitId(player);
 		IronManSuit suit = suitId == null ? null : IronManSuits.byId(suitId);
 
+		// v0.14.31, explicit user request: Iron Man armour is bulletproof -- gunfire does nothing to a wearer whose
+		// chestplate is on (powered or not), and never touches the suit's integrity or energy
+		if (suit != null && IronManArmor.hasChestplate(player, suitId) && com.projecthero.mod.firearm.Gunfire.active()) {
+			return false;
+		}
+
 		// v0.14.27 (agent D): the Mark III Energy Shield (Sneak+V) blocks every hit outright, 10% paid in energy.
 		if (suit != null && com.projecthero.mod.ironman.ability.IronManMark3.absorb(player, suitId, source, amount)) {
 			return false;

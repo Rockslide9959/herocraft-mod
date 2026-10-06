@@ -28,6 +28,7 @@ import net.minecraft.world.item.crafting.Ingredient;
  * Placeholder textures ship now; drop real ones in at those paths with no code change.
  */
 public final class IronManArmorMaterials {
+	// v0.14.31, explicit user request: every mark's pieces carry 0.175 knockback resistance each -- 70% with the full suit.
 	// Mark 1 ("changes 12", v0.11.12): explicit user request -- "diamond level armour", i.e. the exact
 	// same per-piece defense/toughness vanilla Diamond armor has (boots 3, leggings 6, chestplate 8,
 	// helmet 3, toughness 2.0), still repaired with iron in keeping with the primitive-prototype theme.
@@ -35,32 +36,32 @@ public final class IronManArmorMaterials {
 	// governs how much of a hit the wearer takes while the suit is powered.
 	public static final Holder<ArmorMaterial> MARK_1 = register("mark_1",
 			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 8, ArmorItem.Type.HELMET, 3),
-			8, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.0f, Items.IRON_INGOT);
+			8, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.175f, Items.IRON_INGOT);
 	// Mark 2 (v0.11.13, explicit user request): also "diamond level armour" now -- same defense/toughness
 	// as Mark 1/vanilla Diamond, still repaired with iron. IronManDamage's Mark 2 branch governs the
 	// actual powered-hit split.
 	public static final Holder<ArmorMaterial> MARK_2 = register("mark_2",
 			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 8, ArmorItem.Type.HELMET, 3),
-			10, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.0f, Items.IRON_INGOT);
+			10, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.175f, Items.IRON_INGOT);
 	// Mark 4 ("changes 15"): the strongest of the craftable "movie early-marks" line -- defence on par
 	// with the Mark III, still repaired with iron like the rest of the primitive line.
 	public static final Holder<ArmorMaterial> MARK_4 = register("mark_4",
 			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 8, ArmorItem.Type.HELMET, 3),
-			14, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.0f, Items.IRON_INGOT);
+			14, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.175f, Items.IRON_INGOT);
 	// Mark 6 ("changes 16"): a hair tougher than the Mark 4, still iron-repaired.
 	public static final Holder<ArmorMaterial> MARK_6 = register("mark_6",
 			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 9, ArmorItem.Type.HELMET, 3),
-			15, SoundEvents.ARMOR_EQUIP_IRON, 2.5f, 0.0f, Items.IRON_INGOT);
+			15, SoundEvents.ARMOR_EQUIP_IRON, 2.5f, 0.175f, Items.IRON_INGOT);
 
 	public static final Holder<ArmorMaterial> MARK_III = register("mark_iii",
 			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 8, ArmorItem.Type.HELMET, 3),
-			12, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.0f);
+			12, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.175f);
 	public static final Holder<ArmorMaterial> MARK_V = register("mark_v",
 			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 8, ArmorItem.Type.HELMET, 3),
-			12, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.0f); // v0.14.29: diamond level (3/6/8/3, toughness 2)
+			12, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.175f); // v0.14.29: diamond level (3/6/8/3, toughness 2)
 	public static final Holder<ArmorMaterial> MARK_VII = register("mark_vii",
 			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 9, ArmorItem.Type.HELMET, 3),
-			15, SoundEvents.ARMOR_EQUIP_NETHERITE, 3.0f, 0.1f);
+			15, SoundEvents.ARMOR_EQUIP_NETHERITE, 3.0f, 0.175f);
 	// "changes 17": Mark XLII / Mark L materials removed with those suits.
 
 	/**

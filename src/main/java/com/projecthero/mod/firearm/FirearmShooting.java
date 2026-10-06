@@ -113,7 +113,8 @@ public final class FirearmShooting {
 				// fast weapon or a shotgun only registers its first hit and the rest do ~0.
 				int savedInvuln = target.invulnerableTime;
 				target.invulnerableTime = 0;
-				target.hurt(source, dmg);
+				final float bullet = dmg;
+				Gunfire.hit(() -> target.hurt(source, bullet)); // v0.14.31: gunfire marker (Iron Man armour is bulletproof)
 				// keep whatever the hit just set (20t) so the red flash still plays; only clear a
 				// leftover window if the hit was fully absorbed
 				if (target.invulnerableTime == 0) {

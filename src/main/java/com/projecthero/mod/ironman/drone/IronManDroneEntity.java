@@ -80,7 +80,7 @@ public class IronManDroneEntity extends Entity {
 	public static final float INTEGRITY_PER_DAMAGE = 2.0f;
 	/** Cruise speed in blocks / tick at flightSpeed 1.0 (boost = x1.8). */
 	public static final double CRUISE = 0.55;
-	public static final double REPULSOR_RANGE = 32.0;
+	public static final double REPULSOR_RANGE = 50.0; // v0.14.31: repulsors reach 50 blocks
 	/** Ticks without making progress on the way home before the drone gives up and lands as pieces. */
 	public static final int STUCK_TICKS = 60;
 	/** Hard cap on the flight home; past it the suit docks straight away. */
