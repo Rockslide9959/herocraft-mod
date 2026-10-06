@@ -85,7 +85,7 @@ public final class IronManDash {
 			IronManAbilities.noEnergy(player, cost);
 			return false;
 		}
-		Vec3 look = player.getLookAngle();
+		Vec3 look = com.projecthero.mod.ironman.IronManTargeting.aimLook(player, 24.0); // v0.14.30: dash at the locked target
 		// on the ground, keep the dash level-ish so it doesn't plough into the floor
 		Vec3 dir = player.onGround() && look.y < 0 ? new Vec3(look.x, 0, look.z) : look;
 		if (dir.lengthSqr() < 1.0e-4) {

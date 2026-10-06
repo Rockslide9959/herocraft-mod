@@ -58,6 +58,25 @@ public class IronManAutoFeedV01429GameTests implements FabricGameTest {
 		h.succeed();
 	}
 
+	/** v0.14.30: no waste rule -- at 19/20 the suit still feeds the best food it can find. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void autoFeedEatsTheBestFoodWheneverNotFull(GameTestHelper h) {
+		ServerPlayer p = suited(h, "mark_iii");
+		p.getInventory().add(new ItemStack(Items.APPLE, 2));
+		p.getInventory().add(new ItemStack(Items.BREAD, 2));
+		p.getInventory().add(new ItemStack(Items.COOKED_PORKCHOP, 2));
+		p.getInventory().add(new ItemStack(Items.COOKED_BEEF, 2));
+		p.getFoodData().setFoodLevel(19);
+		h.assertTrue(IronManAutoFeed.feedNow(p), "19/20 is hungry enough to eat");
+		h.assertTrue(p.getFoodData().getFoodLevel() == 20, "hunger topped up, got " + p.getFoodData().getFoodLevel());
+		// cooked porkchop and steak tie on nutrition (8) and saturation, so exactly one of them went
+		int meat = p.getInventory().countItem(Items.COOKED_PORKCHOP) + p.getInventory().countItem(Items.COOKED_BEEF);
+		h.assertTrue(meat == 3, "the best food (an 8-hunger meat) was eaten, not the apple or bread");
+		h.assertTrue(p.getInventory().countItem(Items.APPLE) == 2 && p.getInventory().countItem(Items.BREAD) == 2, "lesser food untouched");
+		h.assertFalse(IronManAutoFeed.feedNow(p), "a full bar eats nothing");
+		h.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void autoFeedReturnsBowls(GameTestHelper h) {
 		ServerPlayer p = suited(h, "mark_iii");

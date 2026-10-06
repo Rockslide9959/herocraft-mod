@@ -732,7 +732,7 @@ public final class IronManAbilities {
 		}
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 shoulder = player.getEyePosition().add(0, 0.15, 0);
-		Vec3 look = player.getLookAngle();
+		Vec3 look = com.projecthero.mod.ironman.IronManTargeting.aimLook(player, 100); // v0.14.30: launched at the lock
 		Vec3 dir = look.add((level.random.nextDouble() - 0.5) * 0.12, (level.random.nextDouble() - 0.5) * 0.12,
 				(level.random.nextDouble() - 0.5) * 0.12).normalize();
 		IronManMissileEntity missile = new IronManMissileEntity(level, player, dir.scale(1.2))
@@ -814,6 +814,12 @@ public final class IronManAbilities {
 	 * {@link #HOMING_CONE_DEG} cone within {@link #HOMING_RANGE} blocks. Null if there is none.
 	 */
 	public static LivingEntity homingTarget(net.minecraft.world.entity.player.Player player) {
+		if (player instanceof ServerPlayer sp) { // v0.14.30: the targeting lock wins
+			LivingEntity lock = com.projecthero.mod.ironman.IronManTargeting.lockedWithin(sp, HOMING_RANGE);
+			if (lock != null) {
+				return lock;
+			}
+		}
 		Vec3 eye = player.getEyePosition();
 		Vec3 look = player.getLookAngle();
 		Vec3 end = eye.add(look.scale(HOMING_RANGE));
@@ -988,8 +994,9 @@ public final class IronManAbilities {
 		}
 					com.projecthero.mod.ironman.IronManAbilityFx.hold(player, com.projecthero.mod.ironman.IronManAbilityFx.FLAME); // v0.14.26 pose + flame cone
 		ServerLevel level = (ServerLevel) player.level();
-		Vec3 look = player.getLookAngle();
 		Vec3 origin = player.getEyePosition();
+		// v0.14.28 / v0.14.30: the stream's reach, and its damage cone points at the lock when there is one in reach
+		Vec3 look = com.projecthero.mod.ironman.IronManTargeting.aimLook(player, flamethrowerReach(suit));
 
 		// v0.14.28, explicit user request: the Mark 1 stream reaches 10 blocks (every other flamethrower keeps 6)
 		double reach = flamethrowerReach(suit);
@@ -1536,7 +1543,10 @@ public final class IronManAbilities {
 		Vec3 right = rightOf(player, look);
 		Vec3 origin = player.getEyePosition().add(look.scale(0.5)).add(right.scale(0.35)).add(0, -0.35, 0);
 
-		LivingEntity target = AbilityHelpers.raycastEntity(player, WRIST_LASER_RANGE);
+		LivingEntity target = com.projecthero.mod.ironman.IronManTargeting.lockedWithin(player, WRIST_LASER_RANGE); // v0.14.30: the lock first
+		if (target == null) {
+			target = AbilityHelpers.raycastEntity(player, WRIST_LASER_RANGE);
+		}
 		com.projecthero.mod.ironman.IronManAbilityFx.hold(player, com.projecthero.mod.ironman.IronManAbilityFx.LASER); // v0.14.26 pose
 		var blockHit = AbilityHelpers.raycastBlock(player, WRIST_LASER_RANGE);
 		Vec3 end;

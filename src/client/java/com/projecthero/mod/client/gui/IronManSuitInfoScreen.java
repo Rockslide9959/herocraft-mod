@@ -98,7 +98,9 @@ public class IronManSuitInfoScreen extends Screen {
 		if (suit.maxFlightSpeedMps() > 0) {
 			row(wrap, "screen.projecthero.ironman_info.top_speed", String.format(java.util.Locale.ROOT, "%.0f m/s", suit.maxFlightSpeedMps()));
 		}
-		row(wrap, "screen.projecthero.ironman_info.flight_drain", String.format(java.util.Locale.ROOT, "x%.2f", suit.flightDrainMultiplier()));
+		row(wrap, "screen.projecthero.ironman_info.flight_drain", suit.flatFlightDrainPerSecond() > 0f // v0.14.30: flat drain
+				? String.format(java.util.Locale.ROOT, "%.0f/s", suit.flatFlightDrainPerSecond())
+				: String.format(java.util.Locale.ROOT, "x%.2f", suit.flightDrainMultiplier()));
 		if (suit.altitudeCeiling() > 0 && suit.altitudeCeiling() < 10000) {
 			row(wrap, "screen.projecthero.ironman_info.ceiling", String.format(java.util.Locale.ROOT, "%.0f", suit.altitudeCeiling()));
 		}

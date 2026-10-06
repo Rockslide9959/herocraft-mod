@@ -131,6 +131,15 @@ public final class IronManTargeting {
 		return to.lengthSqr() < 1.0e-6 ? fallback : to.normalize();
 	}
 
+	/**
+	 * v0.14.30: the direction every aimed ability fires in -- straight from the eyes at the locked target when there is
+	 * one within {@code range}, otherwise along the crosshair. Explicit user request: "the player's abilities are
+	 * automatically aimed at whatever the player is currently targeting".
+	 */
+	public static Vec3 aimLook(ServerPlayer player, double range) {
+		return aim(player, player.getEyePosition(), player.getLookAngle().normalize(), range);
+	}
+
 	private static void setLock(ServerPlayer player, LivingEntity target) {
 		Integer before = LOCK.get(player.getUUID());
 		int now = target == null ? -1 : target.getId();

@@ -462,7 +462,7 @@ public class StarkFabricatorScreen extends AbstractContainerScreen<StarkFabricat
 						* com.projecthero.mod.ironman.IronManEnergy.WORN_REGEN_SCALE)));
 			}
 			out.add(statLine("melee_bonus", "+" + (int) suit.strengthBonus()));
-			out.add(statLine("flight_drain", fmt(suit.flightDrainMultiplier())));
+			out.add(statLine("flight_drain", suit.flatFlightDrainPerSecond() > 0f ? fmt(suit.flatFlightDrainPerSecond()) + "/s" : fmt(suit.flightDrainMultiplier()))); // v0.14.30
 		}
 		return out;
 	}

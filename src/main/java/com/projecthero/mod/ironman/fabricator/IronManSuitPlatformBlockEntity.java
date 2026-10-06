@@ -269,6 +269,45 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		return true;
 	}
 
+	/**
+	 * v0.14.30, explicit user request: a Mark 5 Suitcase handed to the platform (right-click it with the case, Sneak +
+	 * right-click "retrieve" while carrying one, or shift-click it in the platform screen) unfolds into the four armour
+	 * pieces on the rack. All-or-nothing: nothing moves unless every piece has a free slot on a rack that can hold the
+	 * Mark 5. A never-used (legacy) case unfolds a fresh suit. Uses up the case.
+	 */
+	public boolean storeSuitcase(Player player, ItemStack caseStack) {
+		if (!caseStack.is(com.projecthero.mod.ironman.item.IronManItems.MARK_V_SUITCASE) || sequenceRunning()
+				|| !matchesStoredSuit("mark_v")) {
+			return false;
+		}
+		java.util.List<ItemStack> contents = new java.util.ArrayList<>();
+		if (com.projecthero.mod.ironman.item.SuitcaseContents.isLegacyEmpty(caseStack)) {
+			for (ArmorItem.Type t : new ArmorItem.Type[] { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS,
+					ArmorItem.Type.BOOTS }) {
+				contents.add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_v", t)));
+			}
+		} else {
+			contents.addAll(com.projecthero.mod.ironman.item.SuitcaseContents.nonEmpty(caseStack));
+		}
+		if (contents.isEmpty()) {
+			return false;
+		}
+		for (ItemStack piece : contents) {
+			if (!(piece.getItem() instanceof IronManArmorItem a) || slotOf(a.getType()) < 0 || !pieces.get(slotOf(a.getType())).isEmpty()) {
+				return false;
+			}
+		}
+		for (ItemStack piece : contents) {
+			pieces.set(slotOf(((IronManArmorItem) piece.getItem()).getType()), piece.copyWithCount(1));
+		}
+		if (owner == null) {
+			owner = player.getUUID();
+		}
+		caseStack.shrink(1);
+		afterContentsChanged();
+		return true;
+	}
+
 	// ---------------- v0.14.21: animated deploy / retrieve ----------------
 	//
 	// Both used to be instant. They are now a ~1.5 s server-timed sequence: on deploy each piece lifts off the rack,

@@ -162,6 +162,9 @@ public final class IronManFlight {
 	private static final float SUPERSONIC_COST_PER_TICK = 45.0f / 20f;
 
 	private static float flightCostPerTick(ServerPlayer player, IronManSuit suit, boolean supersonic) {
+		if (suit.flatFlightDrainPerSecond() > 0f) {
+			return suit.flatFlightDrainPerSecond() / 20f; // v0.14.30: Mark 2 / 3 = 2/s, Mark 4 / 5 = 1/s, explicit user request
+		}
 		float base;
 		if (supersonic) {
 			base = SUPERSONIC_COST_PER_TICK;

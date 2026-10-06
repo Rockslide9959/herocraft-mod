@@ -152,6 +152,11 @@ public final class IronManItems {
 				default -> IronManArmorMaterials.MARK_4;
 			});
 		}
+		// v0.14.30: a dispenser just drops Iron Man armour -- it no longer straps it onto whoever stands in front (armour
+		// only goes on through C or a suit deploy)
+		for (IronManArmorItem piece : armorPiecesByMark()) {
+			net.minecraft.world.level.block.DispenserBlock.registerBehavior(piece, new net.minecraft.core.dispenser.DefaultDispenseItemBehavior());
+		}
 	}
 
 	private static void registerSuitArmor(String suitId, Holder<ArmorMaterial> material) {

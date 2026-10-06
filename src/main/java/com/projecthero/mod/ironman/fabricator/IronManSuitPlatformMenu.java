@@ -165,6 +165,12 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 			if (!moveItemStackTo(stack, platformSlots, platformSlots + 36, true)) {
 				return ItemStack.EMPTY;
 			}
+		} else if (stack.is(com.projecthero.mod.ironman.item.IronManItems.MARK_V_SUITCASE)) {
+			// v0.14.30: shift-clicking the Mark 5 Suitcase unfolds it onto the rack
+			if (container instanceof IronManSuitPlatformBlockEntity be && be.storeSuitcase(player, stack)) {
+				slot.setChanged();
+			}
+			return ItemStack.EMPTY;
 		} else if (stack.getItem() instanceof IronManArmorItem) {
 			if (!moveItemStackTo(stack, 0, platformSlots, false)) {
 				return ItemStack.EMPTY;

@@ -1,0 +1,31 @@
+Project Hero v0.14.30 -- Iron Man: Auto-Aim, Flight Drain, Suitcase Docking
+
+🎯 AUTO-AIM ON EVERY MOVE
+- Whatever your suit's targeting system has locked onto, your abilities now aim at it automatically.
+- Newly aimed: Flares, Sonic Clap, the Flamethrower, the Wrist Laser, the Mark 7 wheel's Micro-Missiles, Homing Missiles (they pick your locked target first) and the Repulsor Dash (you dash at the target).
+- Repulsors, the Unibeam, Rockets, Miniguns, Micro-Missiles and the Shoulder Barrage already aimed at the lock.
+- Works on every suit with targeting (Mark 2 up, helmet on and faceplate closed). With nothing locked, moves fire where you're looking.
+
+✈️ FLIGHT ENERGY
+- Mark 2: flight drains a flat 2 energy per second.
+- Mark 3: flight drains a flat 2 energy per second.
+- Mark 4: flight drains a flat 1 energy per second.
+- Mark 5: flight drains a flat 1 energy per second.
+- The flat drain covers hovering, flying, sprint-flying and supersonic. The spec sheet and Fabricator show it.
+
+💼 MARK 5 SUITCASE + SUIT PLATFORM
+- Sneak + right-click a Suit Platform ("retrieve") while carrying a Mark 5 Suitcase: the case unfolds into the Mark 5 armour on the platform.
+- Right-clicking the platform with the case in your hand, or shift-clicking the case in the platform screen, does the same.
+- The platform needs four free Mark 5 slots.
+
+🦾 IRON MAN ARMOUR GOES ON THE IRON MAN WAY
+- Iron Man armour can no longer be equipped like normal armour: no dragging it into armour slots, no shift-clicking, no hot-key swapping, no right-click equipping, and dispensers just drop it.
+- Suit up with C, or deploy it (Suit Platform, Call Armour, the Mark 7 pod, the Mark 5 suitcase). Taking pieces off by hand still works.
+- Loose Mark 5 pieces: with all four in your inventory, right-click one to pack them into the suitcase.
+
+🍗 AUTO-FEED
+- The suit now feeds you whenever your hunger bar isn't full, even at 19 of 20, using the best food you're carrying (most filling first).
+- Still never eats raw meat or fish, food with side effects, chorus fruit, suspicious stew or golden apples. Mark 3 and up.
+
+📖 GUIDEBOOK
+- The auto-feed page is updated.

@@ -269,28 +269,28 @@ public class DirectionalFlightGameTests implements FabricGameTest {
 		player.setGameMode(GameType.SURVIVAL);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
 		for (net.minecraft.world.item.ArmorItem.Type t : net.minecraft.world.item.ArmorItem.Type.values()) {
-			var item = com.projecthero.mod.ironman.item.IronManItems.armor("mark_2", t);
+			var item = com.projecthero.mod.ironman.item.IronManItems.armor("mark_6", t);
 			if (item != null) {
 				player.setItemSlot(com.projecthero.mod.ironman.suit.IronManSuitUpManager.slotFor(t), new ItemStack(item));
 			}
 		}
-		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_2", 5000f);
-		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_2", 250f);
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_6", 5000f);
+		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_6", 250f);
 		IronManFlight.setFlying(player, true);
 		helper.assertTrue(IronManFlight.isFlying(player) && player.getAbilities().flying, "flight engages");
-		player.setOnGround(false);
-		float mult = IronManSuits.MARK_2.flightDrainMultiplier();
+		player.setOnGround(false); // v0.14.30: Mark 2-5 use a flat drain now; the Mark 6 keeps the tiered one
+		float mult = IronManSuits.MARK_6.flightDrainMultiplier();
 
-		float before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
+		float before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6");
 		IronManFlight.tick(player);
-		float hoverSpent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
+		float hoverSpent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6");
 		helper.assertTrue(Math.abs(hoverSpent - 10f / 20f * mult) < 1.0e-3f, "hover drain unchanged, spent " + hoverSpent);
 		helper.assertTrue(IronManFlight.isFlying(player), "still flying after a tick in the air");
 
 		player.setSprinting(true);
-		before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
+		before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6");
 		IronManFlight.tick(player);
-		float sprintSpent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_2");
+		float sprintSpent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6");
 		helper.assertTrue(Math.abs(sprintSpent - 30f / 20f * mult) < 1.0e-3f, "sprint drain unchanged, spent " + sprintSpent);
 
 		player.setOnGround(true);

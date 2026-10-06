@@ -160,6 +160,12 @@ public class IronManSuitPlatformBlock extends BaseEntityBlock {
 		if (!(level.getBlockEntity(pos) instanceof IronManSuitPlatformBlockEntity be)) {
 			return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
 		}
+		if (stack.is(IronManItems.MARK_V_SUITCASE)) { // v0.14.30: the case unfolds onto the rack
+			if (!level.isClientSide()) {
+				unfoldCase(level, pos, be, player, stack);
+			}
+			return ItemInteractionResult.sidedSuccess(level.isClientSide());
+		}
 		if (stack.getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem) {
 			if (!level.isClientSide() && be.store(stack)) {
 				((ServerLevel) level).playSound(null, pos, SoundEvents.NETHERITE_BLOCK_PLACE, SoundSource.BLOCKS, 0.8f, 1.0f);
@@ -168,6 +174,16 @@ public class IronManSuitPlatformBlock extends BaseEntityBlock {
 		}
 		// v0.14.27: the platform has no reserve any more -- Reactor Cores are no longer fed to it
 		return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+	}
+
+	/** v0.14.30: unfold a Mark 5 Suitcase into its armour on this platform, with feedback either way. */
+	private static void unfoldCase(Level level, BlockPos pos, IronManSuitPlatformBlockEntity be, Player player, ItemStack caseStack) {
+		if (be.storeSuitcase(player, caseStack)) {
+			((ServerLevel) level).playSound(null, pos, SoundEvents.NETHERITE_BLOCK_PLACE, SoundSource.BLOCKS, 0.9f, 0.8f);
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.case_to_platform").withStyle(ChatFormatting.AQUA), true);
+		} else {
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.case_platform_full").withStyle(ChatFormatting.RED), true);
+		}
 	}
 
 	@Override
@@ -188,6 +204,14 @@ public class IronManSuitPlatformBlock extends BaseEntityBlock {
 		if (player.isShiftKeyDown()) {
 			if (be.retrieveFrom(serverPlayer)) {
 				((ServerLevel) level).playSound(null, pos, SoundEvents.BEACON_POWER_SELECT, SoundSource.BLOCKS, 0.9f, 1.1f);
+			} else {
+				// v0.14.30: nothing worn to retrieve -- a carried Mark 5 Suitcase unfolds onto the rack instead
+				for (ItemStack carried : serverPlayer.getInventory().items) {
+					if (carried.is(IronManItems.MARK_V_SUITCASE)) {
+						unfoldCase(level, pos, be, serverPlayer, carried);
+						break;
+					}
+				}
 			}
 			return InteractionResult.SUCCESS;
 		}

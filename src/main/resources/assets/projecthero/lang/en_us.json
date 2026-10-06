@@ -3824,7 +3824,7 @@
   "projecthero.guide.iron_man.spec_sheet": "Suit Specifications",
   "projecthero.guide.iron_man.spec_sheet.body": "Press I while wearing any Iron Man piece for the suit's spec sheet: energy, integrity and repair rates, flight, weapon damage, every ability and the helmet systems.",
   "projecthero.guide.iron_man.auto_feed": "Nutrient Feed",
-  "projecthero.guide.iron_man.auto_feed.body": "A worn suit feeds you cooked food from your inventory when you are hungry enough not to waste it. It never touches raw, rotten or risky food, or golden apples.",
+  "projecthero.guide.iron_man.auto_feed.body": "Every suit from the Mark 3 up feeds you from your inventory whenever your hunger bar isn't full -- even at 19 of 20 -- picking the best food you carry (most filling first). Any safe food counts, modded food included, and bowls and bottles come back. It never touches raw meat or fish, food with side effects (rotten flesh, spider eyes, pufferfish), chorus fruit, suspicious stew or golden apples. The Mark 1 and Mark 2 don't feed you.",
   "projecthero.guide.iron_man.furnaces": "Stark Furnace, Smelter and Smoker",
   "projecthero.guide.iron_man.furnaces.body": "Upgrade a furnace, blast furnace or smoker with iron, gold and redstone around it. The Stark Furnace cooks one item every 2.5 seconds; the Stark Smelter (ores and metal gear) and the Stark Smoker (food) one every second.",
   "projecthero.guide.iron_man.mark_1": "Mark 1",
@@ -3904,5 +3904,9 @@
   "projecthero.guide.iron_man.jarvis": "J.A.R.V.I.S.",
   "projecthero.guide.iron_man.jarvis.body": "JARVIS talks you through the fight: suit online, low energy, hull damage, first target lock, sealing up underwater, Protocol Phoenix and more. The Mark 1 only has crude SYSTEM readouts. Type /jarvis off (or on) to mute him.",
   "projecthero.guide.iron_man.remote_pilot": "Remote Pilot",
-  "projecthero.guide.iron_man.remote_pilot.body": "Unsuited, open the Call Armour picker and press PILOT on a charged full suit. It deploys as a drone and your view jumps into it: WASD flies, Jump / Sneak go up and down, Sprint boosts, click or R fires its repulsor. Your real body stays behind and can be hurt. The link ends if you press C, take damage, go past 96 m or run out of energy; the drone then flies back and docks in your inventory."
+  "projecthero.guide.iron_man.remote_pilot.body": "Unsuited, open the Call Armour picker and press PILOT on a charged full suit. It deploys as a drone and your view jumps into it: WASD flies, Jump / Sneak go up and down, Sprint boosts, click or R fires its repulsor. Your real body stays behind and can be hurt. The link ends if you press C, take damage, go past 96 m or run out of energy; the drone then flies back and docks in your inventory.",
+  "message.projecthero.ironman.case_to_platform": "The Mark 5 Suitcase unfolds onto the Suit Platform.",
+  "message.projecthero.ironman.case_platform_full": "The platform needs four free Mark 5 slots (empty it or clear another suit off it first).",
+  "message.projecthero.ironman.no_manual_equip": "Iron Man armour can't be strapped on by hand. Press C to suit up.",
+  "message.projecthero.ironman.no_manual_equip_mk5": "The Mark 5 deploys from its suitcase. Gather all four pieces, then right-click one to pack them."
 }

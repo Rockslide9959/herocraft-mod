@@ -126,7 +126,7 @@ public final class IronManFlares {
 
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 eye = player.getEyePosition();
-		Vec3 look = player.getLookAngle().normalize();
+		Vec3 look = com.projecthero.mod.ironman.IronManTargeting.aimLook(player, RANGE); // v0.14.30: thrown at the lock
 		Vec3 origin = eye.add(look.scale(1.0));
 		level.sendParticles(ParticleTypes.FLASH, origin.x, origin.y, origin.z, 1, 0, 0, 0, 0);
 		// a fan of flare streaks thrown out in front
@@ -169,7 +169,7 @@ public final class IronManFlares {
 	/** Every hostile the flares reach: within {@link #RANGE} blocks and in front of the wearer. */
 	public static List<LivingEntity> targets(ServerPlayer player) {
 		Vec3 eye = player.getEyePosition();
-		Vec3 look = player.getLookAngle().normalize();
+		Vec3 look = com.projecthero.mod.ironman.IronManTargeting.aimLook(player, RANGE); // v0.14.30: thrown at the lock
 		List<LivingEntity> out = new ArrayList<>();
 		for (LivingEntity e : AbilityHelpers.hostilesAround(player, eye, RANGE)) { // area CC: rule 2, threats only
 			Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);

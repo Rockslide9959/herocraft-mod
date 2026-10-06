@@ -65,7 +65,7 @@ public class IronManArmorItem extends SuperheroArmorItem {
 	/**
 	 * v0.14.29: the Mark 5 only ever deploys from its suitcase, so right-clicking any loose Mark 5 piece while all four
 	 * are in your inventory packs them into a fresh Mark 5 Suitcase (hand, hotbar, inventory, else at your feet)
-	 * instead of strapping on one piece. With fewer than four you equip the piece the normal way.
+	 * instead of strapping on one piece. v0.14.30: otherwise right-click does nothing (no hand-equipping).
 	 */
 	@Override
 	public net.minecraft.world.InteractionResultHolder<ItemStack> use(Level level, Player player, net.minecraft.world.InteractionHand hand) {
@@ -75,7 +75,13 @@ public class IronManArmorItem extends SuperheroArmorItem {
 		if ("mark_v".equals(suitId) && level.isClientSide() && hasAllLooseMarkV(player)) {
 			return net.minecraft.world.InteractionResultHolder.success(player.getItemInHand(hand));
 		}
-		return super.use(level, player, hand);
+		// v0.14.30, explicit user request: no right-click equipping -- Iron Man armour goes on with C or a suit deploy
+		if (player instanceof ServerPlayer sp) {
+			sp.displayClientMessage(Component.translatable("mark_v".equals(suitId)
+					? "message.projecthero.ironman.no_manual_equip_mk5" : "message.projecthero.ironman.no_manual_equip")
+					.withStyle(ChatFormatting.GOLD), true);
+		}
+		return net.minecraft.world.InteractionResultHolder.fail(player.getItemInHand(hand));
 	}
 
 	private static boolean hasAllLooseMarkV(Player player) {

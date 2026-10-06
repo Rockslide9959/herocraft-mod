@@ -12,6 +12,7 @@
 		"EntityWebMixin",
 		"ItemEntityMixin",
 		"ItemEntityPickupAccessor",
+		"IronManArmorSlotMixin",
 		"ItemStackMixin",
 		"LargeFireballMixin",
 		"LivingEntityAccessor",

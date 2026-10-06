@@ -14,9 +14,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 /**
- * v0.14.26: an Iron Man suit feeds its wearer. Every two seconds, if you're hungry enough that a meal won't be wasted
- * (or you're down to three drumsticks), the suit takes the most filling safe food in your inventory and feeds it to
- * you -- bowls and bottles come back.
+ * v0.14.26: an Iron Man suit feeds its wearer. v0.14.30: every two seconds, whenever your hunger bar is below full
+ * (even at 19/20), the suit feeds you the best safe food in your inventory -- most nutrition first, then most
+ * saturation -- and bowls and bottles come back.
  *
  * <p>v0.14.29: "safe" is no longer a fixed list of vanilla cooked foods. Any food (modded included) qualifies unless it
  * carries a status effect (rotten flesh, raw chicken, spider eyes, pufferfish, golden apples...), is a raw meat / fish
@@ -62,17 +62,20 @@ public final class IronManAutoFeed {
 		}
 		ItemStack best = ItemStack.EMPTY;
 		int bestNutrition = 0;
+		float bestSaturation = -1f;
 		var inv = player.getInventory();
 		for (int i = 0; i < inv.getContainerSize(); i++) {
 			ItemStack s = inv.getItem(i);
 			if (!isCooked(s)) {
 				continue;
 			}
-			int n = s.get(DataComponents.FOOD).nutrition();
-			// a meal is eaten once it fits without waste, or straight away when the bar is nearly empty
-			if ((food + n <= 20 || food <= 6) && n > bestNutrition) {
+			FoodProperties fp = s.get(DataComponents.FOOD);
+			int n = fp.nutrition();
+			// v0.14.30: no waste rule any more -- any missing hunger point means the best food goes in
+			if (n > bestNutrition || (n == bestNutrition && fp.saturation() > bestSaturation)) {
 				best = s;
 				bestNutrition = n;
+				bestSaturation = fp.saturation();
 			}
 		}
 		if (best.isEmpty()) {

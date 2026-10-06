@@ -79,6 +79,7 @@ public final class IronManSuits {
 			.noAutoFeed()
 			.targeting() // v0.14.27: lock-on / auto-aim like the Mark III
 			.flightDrain(0.9f) // "changes 18"
+			.flatFlightDrain(2f) // v0.14.30: all flight drains 2 energy/sec, explicit user request
 			.targetScanRange(25.0) // v0.14.27: Mob Highlight reaches 25 blocks
 			.flight(1.0f, 0.08f) // "normal flight like other armours"
 			// v0.14.27 R: tap = 1 s spin-up then 10 dmg (10 energy, 1 s cd); hold 1 s = 18 dmg (50 energy, 3 s cd);
@@ -116,6 +117,7 @@ public final class IronManSuits {
 			.waterBreathing() // v0.14.27: breathes underwater (no timed air tank)
 			.targeting()
 			.flightDrain(1.0f) // "changes 18"
+			.flatFlightDrain(2f) // v0.14.30: all flight drains 2 energy/sec, explicit user request
 			.targetScanRange(70.0) // "changes 14": Mark III target scan reaches 70 blocks
 			.flight(1.0f, 0.08f)
 			// v0.14.27 R: tap 15 dmg / 10 energy / 1 s cd (no windup); hold 1 s = 20 dmg / 50 energy / 3 s cd;
@@ -152,6 +154,7 @@ public final class IronManSuits {
 			.waterBreathing() // v0.14.29: breathes underwater
 			.targeting() // v0.14.29: lock-on / auto-aim like the Mark 2 / III
 			.flightDrain(0.90f) // "changes 18"
+			.flatFlightDrain(1f) // v0.14.30: all flight drains 1 energy/sec, explicit user request
 			.targetScanRange(30.0)
 			.flight(1.0f, 0.08f)
 			// v0.14.29 R: the Mark 2's numbers but NO 1 s spin-up -- a tap fires the moment it is released;
@@ -187,6 +190,7 @@ public final class IronManSuits {
 			.targeting() // v0.14.29: lock-on / auto-aim + HUD lock like the Mark III
 			// auto-feed stays on (no .noAutoFeed())
 			.flightDrain(1.05f) // "changes 18"
+			.flatFlightDrain(1f) // v0.14.30: all flight drains 1 energy/sec, explicit user request
 			.targetScanRange(70.0)
 			.flight(1.05f, 0.09f)
 			// v0.14.29 R: the Mark III's numbers +2 dmg / -2 s -- tap 17 dmg / 10 energy / no cd; hold 1 s = 22 dmg /

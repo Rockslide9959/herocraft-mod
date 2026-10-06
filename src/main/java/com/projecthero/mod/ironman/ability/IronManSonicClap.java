@@ -56,7 +56,7 @@ public final class IronManSonicClap {
 
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 eye = player.getEyePosition();
-		Vec3 look = player.getLookAngle().normalize();
+		Vec3 look = com.projecthero.mod.ironman.IronManTargeting.aimLook(player, RANGE + 4.0); // v0.14.30: the cone points at the lock
 		IronManAbilityFx.play(player, IronManAbilityFx.SONIC_CLAP, 16);
 		AbilityHelpers.sound(player, SoundEvents.WARDEN_SONIC_BOOM, 1.2f, 1.3f);
 		AbilityHelpers.sound(player, SoundEvents.ANVIL_LAND, 0.6f, 1.8f);
@@ -81,7 +81,7 @@ public final class IronManSonicClap {
 	/** Everything the clap can hit: within {@link #RANGE} of the eyes and inside the cone. */
 	public static java.util.List<LivingEntity> inCone(ServerPlayer player) {
 		Vec3 eye = player.getEyePosition();
-		Vec3 look = player.getLookAngle().normalize();
+		Vec3 look = com.projecthero.mod.ironman.IronManTargeting.aimLook(player, RANGE + 4.0); // v0.14.30: the cone points at the lock
 		double cos = Math.cos(Math.toRadians(CONE_DEGREES / 2.0));
 		java.util.List<LivingEntity> out = new java.util.ArrayList<>();
 		for (LivingEntity e : AbilityHelpers.enemiesAround(player, eye, RANGE + 1.0)) {
