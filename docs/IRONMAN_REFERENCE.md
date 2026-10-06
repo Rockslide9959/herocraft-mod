@@ -677,7 +677,25 @@ window, so it can never hide a piece equipped some other way later.
 * **Suit Platform** (`IronManSuitPlatformBlockEntity` sequence + `IronManSuitPlatformRenderer`): the rack stops
   spinning and turns to face the player. Deploy and (v0.15.3) retrieve both use the robotic arms: see below.
 
-### Suit Platform robotic arms (v0.15.1)
+### Stark Gantry (v0.15.4) -- replaces the Suit Platform robotic arms
+
+* **Block**: `stark_gantry_floor` (`ironman.gantry.StarkGantryFloorBlock` + BE, crafted 8 at a time: Metal Plating / Piston /
+  Metal Plating, Mechanical Parts / Basic Circuit / Mechanical Parts, Metal Plating / Piston / Metal Plating). A gantry is any
+  complete 5x5 of them (`StarkGantry.findCentre`: the complete 5x5 containing the tile underfoot whose centre is nearest).
+  `OPEN` blockstate = the tile shows an empty pit; panels / lift pad / masts / elevator are drawn by the centre BE's renderer.
+* **H** as Tony Stark on the floor (no Shift; `GantryClient.wantsH`, first branch of the H chain) -> `StarkGantryActionPayload.OPEN`
+  -> `StarkGantryMenuPayload`: unsuited, every suit racked on a Suit Platform within 20 blocks of the floor's edge (yours or
+  unowned, nearest first); suited, "Remove armour" racked on the platform it came from, else the nearest in range with room.
+* **Timetable** `gantry.GantryTimeline`: 200 ticks; lead-in 0-40 (lift +0.5 by 14, hatches 3-15, masts 14-32, unfold 30-40), 30
+  ticks per piece (elevator up 0-28%, grip 26-36%, carry 36-75%, **on the body at 75%**: 63 / 93 / 123 / 153), outro = lead-in
+  mirrored. Taking off is the same timetable backwards (`frame = 200 - t`; off the body at 47 / 77 / 107 / 137, helmet first).
+* **No loss / no dupe**: equip moves the whole suit platform -> floor buffer in one tick, then each piece buffer -> slot in one
+  tick; unequip slot -> buffer, then buffer -> platform at the end. Any stop (sneak, death, logout, stray, tile broken, chunk
+  unload) flushes the buffer to that player's platform, else inventory, else drops it; the buffer + owner are saved with the
+  centre tile and flushed when it reloads. Wearer held by the old `platform_suit_up_freeze` modifier, facing lock
+  (`GantryClient` + `EntityTurnLockMixin`), the client rides the lift (local no-gravity), immune while equipping.
+
+### Suit Platform robotic arms (v0.15.1) -- REMOVED in v0.15.4 (kept for history)
 
 * **Timetable**: `fabricator.PlatformDeployTimeline` (pure; shared by server, BER and gametests). `TOTAL` = 160 ticks
   however many pieces are racked: `LEAD` 20 (arms unfold), one 120/n-tick window per piece, `OUTRO` 20 (arms fold).

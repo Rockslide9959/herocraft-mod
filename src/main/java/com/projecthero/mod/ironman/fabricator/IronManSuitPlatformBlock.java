@@ -45,8 +45,10 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * <ul>
  *   <li>right-click with an Iron Man armour piece: store it;</li>
  *   <li>(v0.14.27: the platform has no reserve -- every docked suit charges + repairs at a flat 10/s)</li>
- *   <li>right-click empty-handed (Tony Stark): open the platform GUI (slots + energy + DEPLOY / RETRIEVE);</li>
- *   <li>sneak + right-click empty-handed (Tony Stark): retrieve your worn suit straight onto the platform.</li>
+ *   <li>right-click empty-handed (Tony Stark): open the platform GUI (slots + energy);</li>
+ *   <li>sneak + right-click: unfold a carried Mark 5 Suitcase onto the rack.</li>
+ *   <li>v0.15.4: suiting up / down is done on a Stark Gantry Floor within 20 blocks
+ *       ({@link com.projecthero.mod.ironman.gantry.StarkGantry}), no longer at the platform itself.</li>
  * </ul>
  *
  * <p>v0.14.21 model: a Hall-of-Armor display -- an octagonal floor plate with a cyan light ring, and behind it a
@@ -115,9 +117,6 @@ public class IronManSuitPlatformBlock extends BaseEntityBlock {
 	@Override
 	protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
 		if (!state.is(newState.getBlock())) {
-			if (level.getBlockEntity(pos) instanceof IronManSuitPlatformBlockEntity platform) {
-				platform.abortSequence(null); // v0.14.21: a broken rack stops its deploy / retrieve; what it holds drops below
-			}
 			if (level.getBlockEntity(pos) instanceof net.minecraft.world.Container c) {
 				net.minecraft.world.Containers.dropContents(level, pos, c);
 			}
@@ -202,17 +201,16 @@ public class IronManSuitPlatformBlock extends BaseEntityBlock {
 			return InteractionResult.SUCCESS;
 		}
 		if (player.isShiftKeyDown()) {
-			if (be.retrieveFrom(serverPlayer)) {
-				((ServerLevel) level).playSound(null, pos, SoundEvents.BEACON_POWER_SELECT, SoundSource.BLOCKS, 0.9f, 1.1f);
-			} else {
-				// v0.14.30: nothing worn to retrieve -- a carried Mark 5 Suitcase unfolds onto the rack instead
-				for (ItemStack carried : serverPlayer.getInventory().items) {
-					if (carried.is(IronManItems.MARK_V_SUITCASE)) {
-						unfoldCase(level, pos, be, serverPlayer, carried);
-						break;
-					}
+			// v0.14.30: a carried Mark 5 Suitcase unfolds onto the rack. (v0.15.4: the old Sneak + right-click retrieve is
+			// gone -- a worn suit comes off on a Stark Gantry Floor, which says so here.)
+			for (ItemStack carried : serverPlayer.getInventory().items) {
+				if (carried.is(IronManItems.MARK_V_SUITCASE)) {
+					unfoldCase(level, pos, be, serverPlayer, carried);
+					return InteractionResult.SUCCESS;
 				}
 			}
+			serverPlayer.displayClientMessage(Component.translatable("message.projecthero.ironman.platform_use_gantry")
+					.withStyle(ChatFormatting.AQUA), true);
 			return InteractionResult.SUCCESS;
 		}
 		serverPlayer.openMenu(be);

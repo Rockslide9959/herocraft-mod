@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "SPS",
+    "MCM",
+    "SPS"
+  ],
+  "key": {
+    "S": {
+      "item": "projecthero:metal_plating"
+    },
+    "P": {
+      "item": "minecraft:piston"
+    },
+    "M": {
+      "item": "projecthero:mechanical_parts"
+    },
+    "C": {
+      "item": "projecthero:basic_circuit"
+    }
+  },
+  "result": {
+    "id": "projecthero:stark_gantry_floor",
+    "count": 8
+  }
+}

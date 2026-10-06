@@ -22,6 +22,8 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(PowerSelectPayload.TYPE, PowerSelectPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(IronManActionPayload.TYPE, IronManActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(IronManCallSuitPayload.TYPE, IronManCallSuitPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(StarkGantryActionPayload.TYPE, StarkGantryActionPayload.CODEC); // v0.15.4
+		PayloadTypeRegistry.playS2C().register(StarkGantryMenuPayload.TYPE, StarkGantryMenuPayload.CODEC); // v0.15.4
 		PayloadTypeRegistry.playC2S().register(IronManWeaponWheelPayload.TYPE, IronManWeaponWheelPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(IronManBlueprintChoicePayload.TYPE, IronManBlueprintChoicePayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(SpiderActionPayload.TYPE, SpiderActionPayload.CODEC);
@@ -297,6 +299,10 @@ public final class ModNetworking {
 		ServerPlayNetworking.registerGlobalReceiver(ThorWeaponTogglePayload.TYPE, (payload, context) ->
 				context.server().execute(() -> com.projecthero.mod.hammer.ThorWeaponSelection.handleToggle(
 						context.player(), payload.weapon(), payload.active())));
+
+		// v0.15.4: the Stark Gantry -- H on the floor (menu request), a suit picked, or "Remove armour".
+		ServerPlayNetworking.registerGlobalReceiver(StarkGantryActionPayload.TYPE, (payload, context) ->
+				context.server().execute(() -> StarkGantryActionPayload.handleServer(context.player(), payload)));
 
 		// Iron Man call-armour picker: the player chose a suit from the C-key screen.
 		ServerPlayNetworking.registerGlobalReceiver(IronManCallSuitPayload.TYPE, (payload, context) ->

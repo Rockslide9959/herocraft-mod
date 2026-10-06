@@ -1,0 +1,6 @@
+{
+  "variants": {
+    "open=false": { "model": "projecthero:block/stark_gantry_floor" },
+    "open=true": { "model": "projecthero:block/stark_gantry_floor_open" }
+  }
+}

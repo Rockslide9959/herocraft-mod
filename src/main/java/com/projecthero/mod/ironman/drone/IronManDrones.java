@@ -257,7 +257,7 @@ public final class IronManDrones {
 					continue;
 				}
 				for (var e : chunk.getBlockEntities().entrySet()) {
-					if (!(e.getValue() instanceof IronManSuitPlatformBlockEntity p) || p.sequenceRunning()
+					if (!(e.getValue() instanceof IronManSuitPlatformBlockEntity p)
 							|| (p.owner().isPresent() && !p.owner().get().equals(player.getUUID()))) {
 						continue;
 					}

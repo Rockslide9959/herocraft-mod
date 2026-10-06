@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "projecthero:block/stark_gantry_floor_top",
+    "side": "projecthero:block/stark_gantry_floor_side",
+    "bottom": "projecthero:block/stark_gantry_floor_bottom"
+  }
+}

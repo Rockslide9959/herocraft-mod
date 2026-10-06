@@ -29,7 +29,7 @@ import net.minecraft.world.item.ItemStack;
  *   x 136..170 y 29..51    REGEN plate (v0.14.27: the flat platform charge rate; the reserve is gone)
  *   y 57 / 65  CHARGE  label + %, Slab bar with the exact energy inside
  *   y 78 / 86  INTEGRITY label + %, Slab bar with the exact integrity inside
- *   y 98..112  Deploy / Retrieve
+ *   y 97..115  v0.15.4: the Stark Gantry hint (the Deploy / Retrieve buttons are gone)
  *   y 124 / 182 player inventory / hotbar
  * </pre>
  */
@@ -53,22 +53,7 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 		this.titleLabelY = 5;
 	}
 
-	@Override
-	protected void init() {
-		super.init();
-		IronManGui.StarkButton deploy = new IronManGui.StarkButton(leftPos + MX, topPos + 98, 57, 15,
-				Component.translatable("screen.projecthero.suit_platform.deploy"), () -> click(0));
-		deploy.accent = IronManGui.GOLD;
-		addRenderableWidget(deploy);
-		addRenderableWidget(new IronManGui.StarkButton(leftPos + MX + 61, topPos + 98, 57, 15,
-				Component.translatable("screen.projecthero.suit_platform.retrieve"), () -> click(1)));
-	}
-
-	private void click(int id) {
-		if (minecraft != null && minecraft.gameMode != null) {
-			minecraft.gameMode.handleInventoryButtonClick(menu.containerId, id);
-		}
-	}
+	// v0.15.4: no DEPLOY / RETRIEVE buttons any more -- the strip they used says where suiting up happens now (renderLabels)
 
 	private ItemStack[] pieces() {
 		ItemStack[] out = new ItemStack[4];
@@ -129,7 +114,17 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 					IronManUiLayout.exact(energy, cap), energy / cap < 0.15f ? IronManGui.ORANGE : IronManGui.BLUE);
 			meter(g, 78, Component.translatable("screen.projecthero.suit_call.integrity").getString(), integPct / 100f,
 					IronManUiLayout.exact(integPct / 100f * maxI, maxI), integPct < 30f ? IronManGui.RED : IronManGui.GREEN);
-		} else {
+		}
+		// v0.15.4: the Stark Gantry hint, word-wrapped into the old button strip (y 97..115)
+		int gy = 97;
+		for (var line : font.split(Component.translatable("screen.projecthero.suit_platform.gantry_hint"), MW)) {
+			g.drawString(font, line, MX + 1, gy, IronManGui.CYAN_DIM, false);
+			gy += 9;
+			if (gy > 106) {
+				break;
+			}
+		}
+		if (!menu.hasStoredSuit()) {
 			String hint = Component.translatable("screen.projecthero.suit_platform.empty_hint").getString();
 			int ty = 60;
 			for (var line : font.split(Component.literal(hint), MW)) {

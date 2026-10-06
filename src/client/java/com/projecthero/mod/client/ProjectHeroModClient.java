@@ -142,6 +142,12 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry.register(
 				com.projecthero.mod.ironman.IronManBlocks.SUIT_PLATFORM_BE,
 				com.projecthero.mod.client.render.IronManSuitPlatformRenderer::new);
+		net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry.register( // v0.15.4: the Stark Gantry
+				com.projecthero.mod.ironman.IronManBlocks.GANTRY_FLOOR_BE,
+				com.projecthero.mod.client.render.StarkGantryRenderer::new);
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.StarkGantryMenuPayload.TYPE,
+				(payload, context) -> context.client().execute(() -> context.client().setScreen(
+						new com.projecthero.mod.client.gui.StarkGantryScreen(payload))));
 		net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry.register( // v0.14.21: Fabricator rig
 				com.projecthero.mod.ironman.IronManBlocks.STARK_FABRICATOR_BE,
 				ctx -> new com.projecthero.mod.client.render.StarkFabricatorRenderer());
@@ -388,7 +394,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				com.projecthero.mod.client.firearm.FirearmClient.clientTick(client));
 		ClientTickEvents.END_CLIENT_TICK.register(ProjectHeroModClient::handleKeyBinds);
 		ClientTickEvents.END_CLIENT_TICK.register(MagneticSenseClient::clientTick);
-		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.ironman.PlatformFacingLock::tick); // v0.15.3
+		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.ironman.GantryClient::tick); // v0.15.4 (was v0.15.3 PlatformFacingLock)
 		ClientTickEvents.END_CLIENT_TICK.register(SonicMotionClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(IronManFlightFxClient::clientTick);
 		IronManFlightFxClient.init(); // v0.14.21: thruster glows / jets / shock rings
@@ -681,7 +687,12 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			// "changes 19": H while wearing any Iron Man armour opens / closes the helmet faceplate.
 			// v0.6.16: H while transformed as Max Steel does the same for its helmet. Otherwise H opens
 			// the experimental power wheel as before.
-			if (client.player != null && com.projecthero.mod.titanshifter.TitanShifter.isShifter(client.player)
+			if (client.player != null && !Screen.hasShiftDown()
+					&& com.projecthero.mod.client.ironman.GantryClient.wantsH(client.player)) {
+				// v0.15.4: H as Tony Stark standing on a Stark Gantry Floor -- the gantry's suit menu (or "Remove armour").
+				// Shift+H still falls through (an Iron Man wearer's faceplate toggle).
+				com.projecthero.mod.client.ironman.GantryClient.pressH();
+			} else if (client.player != null && com.projecthero.mod.titanshifter.TitanShifter.isShifter(client.player)
 					&& (com.projecthero.mod.titanshifter.TitanShifter.phase(client.player).insideForm() || !Screen.hasShiftDown())) {
 				// v0.12.32: H is Titan Shift -- transform / detransform (the J key is gone). Inside the Titan it always
 				// reverts; outside, Shift+H still falls through to the power wheel / Thor armour below.

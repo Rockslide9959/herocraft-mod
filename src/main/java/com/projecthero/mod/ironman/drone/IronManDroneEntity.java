@@ -610,7 +610,7 @@ public class IronManDroneEntity extends Entity {
 		level.getChunk(p.getX() >> 4, p.getZ() >> 4); // one-off synchronous load, like an unloaded-platform call
 		if (level.getBlockEntity(p) instanceof IronManSuitPlatformBlockEntity be
 				&& (be.owner().isEmpty() || be.owner().get().equals(ownerId))
-				&& (be.storedSuitId() == null || be.storedSuitId().equals(suitId())) && !be.sequenceRunning()) {
+				&& (be.storedSuitId() == null || be.storedSuitId().equals(suitId()))) {
 			return be;
 		}
 		return null;

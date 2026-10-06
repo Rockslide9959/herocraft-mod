@@ -882,16 +882,17 @@ public class HeroPackGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300) // v0.15.1: the robotic-arm deploy takes 160 ticks
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300) // v0.15.4: the Stark Gantry suit-up takes 200 ticks
 	public void suitPlatformDeployRechargesAndRepairs(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
 		com.projecthero.mod.ironman.TonyStark.unlockTech(player, 5);
 
-		net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(2, 2, 2);
+		net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(6, 2, 6);
 		helper.setBlock(pos, com.projecthero.mod.ironman.IronManBlocks.IRON_MAN_SUIT_PLATFORM);
 		var be = (com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlockEntity)
 				helper.getBlockEntity(pos);
+		be.bindTo(player.getUUID()); // an unowned rack is visible to every other test's suit calls
 		for (net.minecraft.world.item.ArmorItem.Type t : new net.minecraft.world.item.ArmorItem.Type[] {
 				net.minecraft.world.item.ArmorItem.Type.HELMET, net.minecraft.world.item.ArmorItem.Type.CHESTPLATE,
 				net.minecraft.world.item.ArmorItem.Type.LEGGINGS, net.minecraft.world.item.ArmorItem.Type.BOOTS }) {
@@ -900,10 +901,11 @@ public class HeroPackGameTests implements FabricGameTest {
 		float racked = be.suitEnergy();
 		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_iii", 10f);
 
-		// v0.14.21: deploy is an animated sequence (v0.15.1: the 8 s robotic-arm suit-up) -- stand next to the rack and let it run
-		net.minecraft.world.phys.Vec3 at = net.minecraft.world.phys.Vec3.atBottomCenterOf(helper.absolutePos(pos.east(2)));
-		player.setPos(at.x, at.y, at.z);
-		helper.assertTrue(be.deployTo(player), "platform must deploy the stored suit");
+		// v0.15.4: suiting up from a platform is the Stark Gantry's 10 s sequence -- stand on a 5x5 floor and let it run
+		IronManGantryV0154GameTests.floor(helper, new net.minecraft.core.BlockPos(2, 1, 2));
+		IronManGantryV0154GameTests.standOn(helper, player, new net.minecraft.core.BlockPos(2, 1, 2));
+		helper.assertTrue(com.projecthero.mod.ironman.gantry.StarkGantry.beginEquip(player, helper.absolutePos(pos)),
+				"the gantry must suit the player up with the racked suit");
 		helper.assertTrue(Math.abs(com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_iii") - racked) < 1f,
 				"deploy must hand over the racked suit's own charge (v0.14.27: no platform reserve top-up)");
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.integrity(player, "mark_iii") >= 99f,

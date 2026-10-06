@@ -404,9 +404,8 @@ public class IronManUiV01421GameTests implements FabricGameTest {
 		}
 		helper.assertTrue(w(t("screen.projecthero.suit_platform.empty")) <= 80, "'no suit' fits over the slots");
 		helper.assertTrue(w("+10/s") <= 30 && w(t("screen.projecthero.suit_platform.regen_short")) <= 30, "regen plate text fits");
-		for (String k : new String[] { "screen.projecthero.suit_platform.deploy", "screen.projecthero.suit_platform.retrieve" }) {
-			helper.assertTrue(w(t(k)) <= 57 - 6, "button label fits: " + k);
-		}
+		// v0.15.4: the Deploy / Retrieve buttons are gone; the Stark Gantry hint wraps into their two-line strip
+		helper.assertTrue(w(t("screen.projecthero.suit_platform.gantry_hint")) <= 2 * (mw - 12), "gantry hint fits in two lines");
 		helper.succeed();
 	}
 

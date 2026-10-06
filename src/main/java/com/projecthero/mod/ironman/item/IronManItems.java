@@ -193,6 +193,7 @@ public final class IronManItems {
 		output.accept(ARC_REACTOR);
 		output.accept(com.projecthero.mod.ironman.IronManBlocks.STARK_FABRICATOR_ITEM);
 		output.accept(com.projecthero.mod.ironman.IronManBlocks.IRON_MAN_SUIT_PLATFORM_ITEM);
+		output.accept(com.projecthero.mod.ironman.IronManBlocks.STARK_GANTRY_FLOOR_ITEM); // v0.15.4
 		output.accept(com.projecthero.mod.ironman.sorter.StarkSorter.STATION_ITEM); // v0.14.16
 		output.accept(REACTOR_CORE);
 		output.accept(MARK_V_SUITCASE);

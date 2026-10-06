@@ -43,15 +43,26 @@ public final class IronManBlocks {
 					.requiresCorrectToolForDrops().lightLevel(s -> 5)
 					.noOcclusion()));
 
+	/** v0.15.4: the Stark Gantry Floor -- a complete 5x5 of these is a gantry (see ironman.gantry.StarkGantry). */
+	public static final Block STARK_GANTRY_FLOOR = register("stark_gantry_floor",
+			new com.projecthero.mod.ironman.gantry.StarkGantryFloorBlock(BlockBehaviour.Properties.of()
+					.mapColor(MapColor.METAL).strength(3.5f, 8.0f).sound(SoundType.NETHERITE_BLOCK)
+					.requiresCorrectToolForDrops().noOcclusion()
+					.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK)));
+
 	public static final Item STARK_FABRICATOR_ITEM = registerItem("stark_fabricator",
 			new BlockItem(STARK_FABRICATOR, new Item.Properties().rarity(Rarity.RARE)));
 	public static final Item IRON_MAN_SUIT_PLATFORM_ITEM = registerItem("iron_man_suit_platform",
 			new BlockItem(IRON_MAN_SUIT_PLATFORM, new Item.Properties().rarity(Rarity.RARE)));
+	public static final Item STARK_GANTRY_FLOOR_ITEM = registerItem("stark_gantry_floor",
+			new com.projecthero.mod.ironman.gantry.StarkGantryFloorItem(STARK_GANTRY_FLOOR, new Item.Properties().rarity(Rarity.UNCOMMON)));
 
 	public static final BlockEntityType<StarkFabricatorBlockEntity> STARK_FABRICATOR_BE =
 			BlockEntityType.Builder.of(StarkFabricatorBlockEntity::new, STARK_FABRICATOR).build(null);
 	public static final BlockEntityType<IronManSuitPlatformBlockEntity> SUIT_PLATFORM_BE =
 			BlockEntityType.Builder.of(IronManSuitPlatformBlockEntity::new, IRON_MAN_SUIT_PLATFORM).build(null);
+	public static final BlockEntityType<com.projecthero.mod.ironman.gantry.StarkGantryFloorBlockEntity> GANTRY_FLOOR_BE =
+			BlockEntityType.Builder.of(com.projecthero.mod.ironman.gantry.StarkGantryFloorBlockEntity::new, STARK_GANTRY_FLOOR).build(null);
 
 	public static final MenuType<StarkFabricatorMenu> STARK_FABRICATOR_MENU =
 			new ExtendedScreenHandlerType<>(StarkFabricatorMenu::new, BlockPos.STREAM_CODEC);
@@ -64,6 +75,7 @@ public final class IronManBlocks {
 	public static void initialize() {
 		Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, ProjectHeroMod.id("stark_fabricator"), STARK_FABRICATOR_BE);
 		Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, ProjectHeroMod.id("iron_man_suit_platform"), SUIT_PLATFORM_BE);
+		Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, ProjectHeroMod.id("stark_gantry_floor"), GANTRY_FLOOR_BE); // v0.15.4
 		Registry.register(BuiltInRegistries.MENU, ProjectHeroMod.id("stark_fabricator"), STARK_FABRICATOR_MENU);
 		Registry.register(BuiltInRegistries.MENU, ProjectHeroMod.id("iron_man_suit_platform"), SUIT_PLATFORM_MENU);
 	}

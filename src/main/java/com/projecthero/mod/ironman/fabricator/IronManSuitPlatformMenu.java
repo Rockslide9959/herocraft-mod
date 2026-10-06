@@ -130,26 +130,7 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 	}
 
 
-	@Override
-	public boolean clickMenuButton(Player player, int id) {
-		if (!(player instanceof ServerPlayer sp)) {
-			return false;
-		}
-		return access.evaluate((level, pos) -> {
-			if (!(level.getBlockEntity(pos) instanceof IronManSuitPlatformBlockEntity be)) {
-				return false;
-			}
-			boolean ok = id == 0 ? be.deployTo(sp) : id == 1 ? be.retrieveFrom(sp) : false;
-			if (ok) {
-				broadcastChanges();
-				if (id == 0) {
-					// v0.15.1: the screen gets out of the way so the robotic-arm suit-up can be watched
-					sp.closeContainer();
-				}
-			}
-			return ok;
-		}, false);
-	}
+	// v0.15.4: no more DEPLOY / RETRIEVE buttons -- suiting up and down is done on a Stark Gantry Floor (StarkGantry).
 
 	@Override
 	public boolean stillValid(Player player) {

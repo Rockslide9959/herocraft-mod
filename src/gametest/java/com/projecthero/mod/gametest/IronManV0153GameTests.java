@@ -12,7 +12,6 @@ import com.projecthero.mod.ironman.IronManSuitTicker;
 import com.projecthero.mod.ironman.TonyStark;
 import com.projecthero.mod.ironman.ability.IronManAbilityManager;
 import com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlockEntity;
-import com.projecthero.mod.ironman.fabricator.PlatformDeployTimeline;
 import com.projecthero.mod.ironman.item.IronManArmorItem;
 import com.projecthero.mod.ironman.item.IronManItems;
 import com.projecthero.mod.ironman.suit.IronManSuit;
@@ -122,30 +121,6 @@ public class IronManV0153GameTests implements FabricGameTest {
 			h.assertTrue(IronManArmor.wearingFullSuit(p, "mark_iii"), "with the suit on");
 			h.assertFalse(IronManDamage.suitUpImmune(p), "the immunity ends with it");
 			h.assertTrue(IronManDamage.onAllowDamage(p, p.damageSources().generic(), 5f), "hits land again");
-		});
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
-	public void immuneDuringAPlatformDeployButNotARetrieve(GameTestHelper h) {
-		ServerPlayer p = player(h);
-		IronManSuitPlatformBlockEntity be = platform(h);
-		for (ArmorItem.Type t : TYPES) {
-			h.assertTrue(be.store(new ItemStack(IronManItems.armor("mark_iii", t))), "racked " + t.getName());
-		}
-		h.assertTrue(be.deployTo(p), "deploy starts");
-		h.runAfterDelay(PlatformDeployTimeline.TOTAL / 2, () -> {
-			h.assertTrue(IronManDamage.suitUpImmune(p), "immune mid-deploy");
-			h.assertFalse(IronManDamage.onAllowDamage(p, p.damageSources().generic(), 5f), "hits are cancelled mid-deploy");
-		});
-		h.runAfterDelay(PlatformDeployTimeline.TOTAL + 5, () -> {
-			h.assertFalse(IronManSuitUpManager.inTransition(p), "the suit is online");
-			h.assertFalse(IronManDamage.suitUpImmune(p), "no longer immune");
-			h.assertTrue(IronManDamage.onAllowDamage(p, p.damageSources().generic(), 5f), "hits land");
-			h.assertTrue(be.retrieveFrom(p), "retrieve starts");
-			h.assertFalse(IronManDamage.suitUpImmune(p), "taking the suit off gives no immunity");
-			be.abortSequence(p);
-			leave(h, p);
-			h.succeed();
 		});
 	}
 
@@ -263,105 +238,6 @@ public class IronManV0153GameTests implements FabricGameTest {
 		h.succeed();
 	}
 
-	// ------------------------------------------------------------------ the robotic-arm retrieve
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void retrieveTimetableIsTheDeployBackwards(GameTestHelper h) {
-		h.assertTrue(IronManSuitPlatformBlockEntity.sequenceLength(IronManSuitPlatformBlockEntity.SEQ_RETRIEVE, 4)
-				== PlatformDeployTimeline.TOTAL, "a retrieve takes the same 8 s as a deploy");
-		for (int n = 1; n <= 4; n++) {
-			int prevRemove = -1;
-			for (int i = n - 1; i >= 0; i--) { // deploy order backwards: the last piece fitted comes off first
-				int clamp = PlatformDeployTimeline.clampTick(i, n);
-				int remove = PlatformDeployTimeline.removeTick(i, n);
-				int rack = PlatformDeployTimeline.rackTick(i, n);
-				h.assertTrue(clamp >= PlatformDeployTimeline.OUTRO && clamp < remove && remove < rack
-						&& rack <= PlatformDeployTimeline.TOTAL - PlatformDeployTimeline.LEAD,
-						"piece " + i + "/" + n + ": clamp < pull off < set on the rack, inside the arms' working time");
-				h.assertTrue(remove > prevRemove, "pieces come off one after another");
-				h.assertTrue(remove == PlatformDeployTimeline.TOTAL - PlatformDeployTimeline.equipTick(i, n),
-						"the pull-off mirrors the fit");
-				prevRemove = remove;
-			}
-		}
-		h.assertTrue(PlatformDeployTimeline.removeTick(3, 4) == 27 && PlatformDeployTimeline.removeTick(0, 4) == 117,
-				"four pieces: the helmet comes off at 27, the boots at 117");
-		h.assertTrue(PlatformDeployTimeline.retrieveFrame(0f) == PlatformDeployTimeline.TOTAL
-				&& PlatformDeployTimeline.retrieveFrame(PlatformDeployTimeline.TOTAL) == 0f, "drawn as the deploy run backwards");
-		h.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
-	public void retrieveTakesEachPieceOffWithTheArmsBackToThePlatform(GameTestHelper h) {
-		ServerPlayer p = suited(h, "mark_iii");
-		IronManSuitPlatformBlockEntity be = platform(h);
-		h.assertTrue(be.retrieveFrom(p), "retrieve starts");
-		int[] order = be.seqSlots();
-		h.assertTrue(order.length == 4 && order[0] == 3 && order[3] == 0, "listed in deploy order (played backwards)");
-		h.assertTrue(p.position().distanceTo(be.deployStance()) < 0.05, "stood in front of the platform");
-		h.assertTrue(yawIs(p, 180f) && be.seqYaw() == 180f, "facing away from the platform (north), got " + p.getYRot());
-		h.assertTrue(IronManSuitPlatformBlockEntity.isFrozen(p), "held still");
-		h.assertTrue(IronManSuitFx.of(p).poseKind() == IronManSuitFx.POSE_PLATFORM_OFF, "in the platform-off pose");
-		EquipmentSlot[] slots = { EquipmentSlot.FEET, EquipmentSlot.LEGS, EquipmentSlot.CHEST, EquipmentSlot.HEAD };
-		h.runAfterDelay(PlatformDeployTimeline.clampTick(3, 4) + 2, () -> h.assertTrue(IronManFaceplate.isOpen(p),
-				"the faceplate lifts once the jaws hold the helmet"));
-		for (int i = 3; i >= 0; i--) {
-			final int k = i;
-			int remove = PlatformDeployTimeline.removeTick(i, 4);
-			h.runAfterDelay(remove - 2, () -> {
-				h.assertTrue(p.getItemBySlot(slots[k]).getItem() instanceof IronManArmorItem, slots[k].getName()
-						+ " is still worn at tick " + (remove - 2));
-				h.assertTrue(wornCount(p) == k + 1, "only the later pieces are off, got " + wornCount(p));
-				// try to turn: the platform holds the heading
-				p.setYRot(37f);
-				p.setYHeadRot(37f);
-			});
-			h.runAfterDelay(remove - 1, () -> h.assertTrue(yawIs(p, 180f), "the heading is held, got " + p.getYRot()));
-			h.runAfterDelay(remove + 2, () -> {
-				h.assertTrue(p.getItemBySlot(slots[k]).isEmpty(), slots[k].getName() + " is off by tick " + (remove + 2));
-				h.assertTrue(be.getItem(3 - k).getItem() instanceof IronManArmorItem, "and on the rack");
-			});
-		}
-		h.runAfterDelay(PlatformDeployTimeline.TOTAL + 5, () -> {
-			h.assertFalse(be.sequenceRunning(), "the sequence is over");
-			h.assertFalse(IronManArmor.wearingAnyIronMan(p), "the suit is off");
-			h.assertTrue(be.isFull() && "mark_iii".equals(be.storedSuitId()), "and stored on the platform");
-			h.assertFalse(IronManSuitPlatformBlockEntity.isFrozen(p), "the wearer can move again");
-			h.assertFalse(IronManFaceplate.isOpen(p), "no faceplate left open");
-			h.assertFalse(IronManSuitUpManager.inTransition(p), "the suit-down state is handed back");
-			leave(h, p);
-			h.succeed();
-		});
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
-	public void deployHoldsTheWearersBackToThePlatform(GameTestHelper h) {
-		ServerPlayer p = player(h);
-		p.setYRot(90f);
-		p.setYHeadRot(90f);
-		IronManSuitPlatformBlockEntity be = platform(h);
-		for (ArmorItem.Type t : TYPES) {
-			be.store(new ItemStack(IronManItems.armor("mark_iii", t)));
-		}
-		h.assertTrue(be.deployTo(p), "deploy starts");
-		h.assertTrue(yawIs(p, 180f), "snapped to face away from the platform, got " + p.getYRot());
-		for (int d : new int[] { 20, 60, 100, 140 }) {
-			h.runAfterDelay(d, () -> {
-				p.setYRot(-45f);
-				p.setYHeadRot(-45f);
-				p.setYBodyRot(-45f);
-			});
-			h.runAfterDelay(d + 1, () -> h.assertTrue(yawIs(p, 180f), "re-held at tick " + d + ", got " + p.getYRot()));
-		}
-		h.runAfterDelay(PlatformDeployTimeline.TOTAL + 5, () -> {
-			h.assertFalse(be.sequenceRunning(), "done");
-			p.setYRot(-45f);
-			h.assertTrue(Math.abs(Mth.wrapDegrees(p.getYRot() + 45f)) < 0.5f, "free to turn afterwards");
-			leave(h, p);
-			h.succeed();
-		});
-	}
-
 	// ------------------------------------------------------------------ rockets explode on creatures
 
 	private static net.minecraft.world.entity.monster.Husk husk(GameTestHelper h, BlockPos rel) {
@@ -464,28 +340,5 @@ public class IronManV0153GameTests implements FabricGameTest {
 						+ com.projecthero.mod.ironman.ability.IronManMark3.selectedWeapon(TonyStark.state(p), "mark_iii"));
 		leave(h, p);
 		h.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
-	public void sneakingCancelsARetrieveWithNothingLost(GameTestHelper h) {
-		ServerPlayer p = suited(h, "mark_iii");
-		IronManSuitPlatformBlockEntity be = platform(h);
-		h.assertTrue(be.retrieveFrom(p), "retrieve starts");
-		int at = PlatformDeployTimeline.removeTick(2, 4) + 3; // helmet + chestplate off
-		h.runAfterDelay(at, () -> p.setShiftKeyDown(true));
-		h.runAfterDelay(at + 6, () -> {
-			p.setShiftKeyDown(false);
-			h.assertFalse(be.sequenceRunning(), "sneaking stopped it");
-			h.assertFalse(IronManSuitPlatformBlockEntity.isFrozen(p), "free to move");
-			h.assertFalse(IronManSuitUpManager.inTransition(p), "the suit-down state is handed back");
-			h.assertTrue(wornCount(p) == 2, "leggings + boots stay on, got " + wornCount(p));
-			int racked = 0;
-			for (int i = 0; i < 4; i++) {
-				racked += be.getItem(i).getItem() instanceof IronManArmorItem ? 1 : 0;
-			}
-			h.assertTrue(racked == 2, "helmet + chestplate are racked, got " + racked);
-			leave(h, p);
-			h.succeed();
-		});
 	}
 }
