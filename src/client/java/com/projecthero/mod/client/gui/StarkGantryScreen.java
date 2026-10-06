@@ -23,29 +23,41 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * v0.15.4: the Stark Gantry menu (H on a complete gantry floor). Unsuited: one card per suit racked on a Suit Platform
- * within 20 blocks -- a turning 3D preview, the mark's name, CHARGE and INTEGRITY Slab bars with the exact values, how
- * many pieces are racked and how far away -- click (or arrows + Enter) to have the gantry suit you up. Suited: the worn
- * suit and a REMOVE ARMOUR button (greyed, with the reason, when no platform in range has room). Every text line is
- * clipped or word-wrapped to the panel. The server re-validates whatever is picked.
+ * within 20 blocks (v0.15.9: and per suit carried in the pack) -- a turning 3D preview, the mark's name, CHARGE and
+ * INTEGRITY Slab bars with the exact values, how many pieces and where -- click (or arrows + Enter) to have the gantry
+ * suit you up.
+ *
+ * <p>v0.15.9, explicit user request: suited, it first asks what to do -- two buttons, <b>Remove Suit</b> (as before: the
+ * suit comes off and is racked) and <b>Swap Suit</b>, which opens the same suit list (minus the worn suit); picking one
+ * has the gantry take the worn suit off, send it home and put the picked one on, in one sequence. Keyboard: Left / Right
+ * / Tab move between the buttons, Enter picks, R / S are shortcuts; Esc cancels (in the list, Esc / Backspace go back).
+ * Every text line is clipped or word-wrapped to the panel. The server re-validates whatever is picked.
  */
 public final class StarkGantryScreen extends Screen {
 	private static final int ROW_H = 46;
 	private static final int ROW_GAP = 4;
 	private static final int LIST_TOP = 44;
 
+	/** What the screen is showing: the unsuited pick list, the suited Remove / Swap choice, or the swap pick list. */
+	private enum View { PICK, CHOICE, SWAP }
+
 	private final StarkGantryMenuPayload menu;
 	private final long openedAt = Util.getMillis();
+	private View view;
 	private int scroll;
 	private int focused;
 	private int hovered = -1;
+	private IronManGui.StarkButton removeButton;
+	private IronManGui.StarkButton swapButton;
 
 	public StarkGantryScreen(StarkGantryMenuPayload menu) {
 		super(Component.translatable("screen.projecthero.gantry.title"));
 		this.menu = menu;
+		this.view = menu.wornSuit().isEmpty() ? View.PICK : View.CHOICE;
 	}
 
-	private boolean removeMode() {
-		return !menu.wornSuit().isEmpty();
+	private boolean listing() {
+		return view != View.CHOICE;
 	}
 
 	private int panelW() {
@@ -68,16 +80,28 @@ public final class StarkGantryScreen extends Screen {
 	@Override
 	protected void init() {
 		int bw = Math.min(120, width - 20);
-		if (removeMode()) {
-			IronManGui.StarkButton remove = new IronManGui.StarkButton(width / 2 - bw / 2, LIST_TOP + ROW_H + 12, bw, 18,
-					Component.translatable("screen.projecthero.gantry.remove"), this::remove);
-			remove.accent = IronManGui.GOLD;
-			remove.highlighted = menu.canRemove();
-			remove.active = menu.canRemove();
-			addRenderableWidget(remove);
+		removeButton = null;
+		swapButton = null;
+		if (view == View.CHOICE) {
+			// two buttons side by side under the worn-suit card; each greyed (with the reason on the card) when it can't run
+			int cw = Math.max(40, Math.min(110, (panelW() - 10) / 2));
+			int y = LIST_TOP + ROW_H + 10;
+			removeButton = new IronManGui.StarkButton(width / 2 - cw - 5, y, cw, 20,
+					Component.translatable("screen.projecthero.gantry.choice_remove"), this::remove);
+			removeButton.accent = IronManGui.GOLD;
+			removeButton.active = menu.canRemove();
+			swapButton = new IronManGui.StarkButton(width / 2 + 5, y, cw, 20,
+					Component.translatable("screen.projecthero.gantry.choice_swap"), this::openSwap);
+			swapButton.active = !menu.entries().isEmpty();
+			addRenderableWidget(removeButton);
+			addRenderableWidget(swapButton);
+			if (removeButton.active || swapButton.active) {
+				setInitialFocus(removeButton.active ? removeButton : swapButton);
+			}
 		}
 		addRenderableWidget(new IronManGui.StarkButton(width / 2 - bw / 2, height - 22, bw, 16,
-				Component.translatable("gui.cancel"), this::onClose));
+				Component.translatable(view == View.SWAP ? "screen.projecthero.gantry.back" : "gui.cancel"),
+				view == View.SWAP ? this::backToChoice : this::onClose));
 		scroll = Math.max(0, Math.min(scroll, maxScroll()));
 		focused = Math.max(0, Math.min(focused, menu.entries().size() - 1));
 	}
@@ -89,8 +113,24 @@ public final class StarkGantryScreen extends Screen {
 		}
 	}
 
+	private void openSwap() {
+		if (!menu.entries().isEmpty()) {
+			view = View.SWAP;
+			scroll = 0;
+			focused = 0;
+			rebuildWidgets();
+		}
+	}
+
+	private void backToChoice() {
+		view = View.CHOICE;
+		rebuildWidgets();
+	}
+
 	private void pick(StarkGantryMenuPayload.Entry e) {
-		ClientPlayNetworking.send(new StarkGantryActionPayload(StarkGantryActionPayload.EQUIP, e.platform()));
+		int action = view == View.SWAP ? StarkGantryActionPayload.SWAP : StarkGantryActionPayload.EQUIP;
+		ClientPlayNetworking.send(new StarkGantryActionPayload(action, e.pack() ? BlockPos.ZERO : e.platform(),
+				e.pack() ? e.suitId() : ""));
 		onClose();
 	}
 
@@ -99,12 +139,17 @@ public final class StarkGantryScreen extends Screen {
 		super.render(g, mouseX, mouseY, partialTick);
 		int px = panelX();
 		int pw = panelW();
-		g.drawCenteredString(font, Component.literal(IronManGui.fit(font, title.copy().withStyle(s -> s.withBold(true)).getString(), pw)),
+		Component heading = view == View.SWAP ? Component.translatable("screen.projecthero.gantry.title_swap") : title;
+		g.drawCenteredString(font, Component.literal(IronManGui.fit(font, heading.copy().withStyle(s -> s.withBold(true)).getString(), pw)),
 				width / 2, 8, IronManGui.CYAN);
 		g.fill(px, 19, px + pw, 20, IronManGui.alpha(IronManGui.CYAN_DIM, 0.6f));
-		Component sub = Component.translatable(removeMode() ? "screen.projecthero.gantry.sub_remove" : "screen.projecthero.gantry.sub_pick");
+		String subKey = switch (view) {
+			case PICK -> "screen.projecthero.gantry.sub_pick";
+			case CHOICE -> "screen.projecthero.gantry.sub_choice";
+			case SWAP -> menu.canRemove() ? "screen.projecthero.gantry.sub_swap" : "screen.projecthero.gantry.sub_swap_pack";
+		};
 		int sy = 24;
-		for (FormattedCharSequence line : font.split(sub, pw)) {
+		for (FormattedCharSequence line : font.split(Component.translatable(subKey), pw)) {
 			if (sy > LIST_TOP - 10) {
 				break;
 			}
@@ -113,8 +158,17 @@ public final class StarkGantryScreen extends Screen {
 		}
 		float secs = (Util.getMillis() - openedAt) / 1000f;
 
-		if (removeMode()) {
+		if (view == View.CHOICE) {
 			renderWorn(g, px, LIST_TOP, pw, secs);
+			int hy = LIST_TOP + ROW_H + 36;
+			if (menu.entries().isEmpty()) {
+				for (FormattedCharSequence line : font.split(Component.translatable("screen.projecthero.gantry.no_swap"), pw - 20)) {
+					g.drawCenteredString(font, line, width / 2, hy, IronManGui.ORANGE);
+					hy += 10;
+				}
+			}
+			g.drawCenteredString(font, IronManGui.fit(font, Component.translatable("screen.projecthero.gantry.choice_hint").getString(), pw),
+					width / 2, hy + 2, IronManGui.TEXT_MUTED);
 			return;
 		}
 		List<StarkGantryMenuPayload.Entry> entries = menu.entries();
@@ -171,9 +225,10 @@ public final class StarkGantryScreen extends Screen {
 		g.drawString(font, IronManGui.fit(font, name.copy().withStyle(s -> s.withBold(true)).getString(), iw / 2),
 				ix, y + 4, hot ? 0xFFFFFFFF : IronManGui.TEXT, false);
 		int count = Integer.bitCount(e.mask() & 15);
-		String where = Component.translatable("screen.projecthero.gantry.where", count, e.distance()).getString();
+		String where = e.pack() ? Component.translatable("screen.projecthero.gantry.where_pack", count).getString()
+				: Component.translatable("screen.projecthero.gantry.where", count, e.distance()).getString();
 		where = IronManGui.fit(font, where, iw / 2 - 4);
-		g.drawString(font, where, ix + iw - font.width(where), y + 4, IronManGui.CYAN, false);
+		g.drawString(font, where, ix + iw - font.width(where), y + 4, e.pack() ? IronManGui.GOLD : IronManGui.CYAN, false);
 
 		int half = (iw - 6) / 2;
 		float cap = suit == null ? 0f : suit.energyCapacity();
@@ -222,7 +277,7 @@ public final class StarkGantryScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(double mx, double my, int button) {
-		if (button == 0 && !removeMode() && hovered >= 0 && hovered < menu.entries().size()) {
+		if (button == 0 && listing() && hovered >= 0 && hovered < menu.entries().size()) {
 			pick(menu.entries().get(hovered));
 			return true;
 		}
@@ -237,7 +292,28 @@ public final class StarkGantryScreen extends Screen {
 
 	@Override
 	public boolean keyPressed(int key, int scan, int mods) {
-		if (!removeMode() && !menu.entries().isEmpty()) {
+		if (view == View.SWAP && (key == GLFW.GLFW_KEY_ESCAPE || key == GLFW.GLFW_KEY_BACKSPACE)) {
+			backToChoice();
+			return true;
+		}
+		if (view == View.CHOICE) {
+			if (key == GLFW.GLFW_KEY_R && removeButton != null && removeButton.active) {
+				remove();
+				return true;
+			}
+			if (key == GLFW.GLFW_KEY_S && swapButton != null && swapButton.active) {
+				openSwap();
+				return true;
+			}
+			if ((key == GLFW.GLFW_KEY_LEFT || key == GLFW.GLFW_KEY_RIGHT) && removeButton != null && removeButton.active
+					&& swapButton.active) {
+				setFocused(key == GLFW.GLFW_KEY_LEFT ? removeButton : swapButton);
+				return true;
+			}
+			// Tab / Enter / Space on the focused button are handled by the vanilla widget focus
+			return super.keyPressed(key, scan, mods);
+		}
+		if (!menu.entries().isEmpty()) {
 			int n = menu.entries().size();
 			if (key == GLFW.GLFW_KEY_DOWN || key == GLFW.GLFW_KEY_UP) {
 				focused = Math.max(0, Math.min(n - 1, focused + (key == GLFW.GLFW_KEY_DOWN ? 1 : -1)));
@@ -254,9 +330,6 @@ public final class StarkGantryScreen extends Screen {
 				pick(menu.entries().get(focused));
 				return true;
 			}
-		} else if (removeMode() && (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER)) {
-			remove();
-			return true;
 		}
 		return super.keyPressed(key, scan, mods);
 	}

@@ -55,8 +55,8 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 
 				@Override
 				public boolean mayPickup(Player player) {
-					// v0.15.8: the rack is locked while the Mark 5 folds into its case
-					return !(container instanceof IronManSuitPlatformBlockEntity be && be.packing());
+					// v0.15.8: the rack is locked while the Mark 5 folds into its case (v0.15.9: or unfolds out of it)
+					return !(container instanceof IronManSuitPlatformBlockEntity be && be.locked());
 				}
 			});
 		}

@@ -530,11 +530,11 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 	public void timetableIsSymmetricAndOrdered(GameTestHelper h) {
 		GantryTimeline.Plan full = GantryTimeline.FULL;
 		h.assertTrue(full.count() == GantryTimeline.STAGES, "a full suit has every part");
-		h.assertTrue(full.total() >= 190 && full.total() <= 250, "v0.15.8: about 11 s, got " + full.total());
-		// v0.15.8, user request: chest, +1 s a gauntlet, +0.2 s the other, +1 s a boot, +0.2 s the other, +1 s the leggings,
+		h.assertTrue(full.total() >= 220 && full.total() <= 290, "v0.15.9: about 12.5 s, got " + full.total());
+		// v0.15.8, user request: chest, +1 s a gauntlet, +1 s the other (v0.15.9: was 0.2 s), +1 s a boot, +1 s the other, +1 s the leggings,
 		// +1 s the helmet, +1 s the faceplate -- the builds run alongside at their own speed
-		int[][] beat = { { GantryTimeline.TORSO_TOP, GantryTimeline.R_GAUNTLET, 20 }, { GantryTimeline.R_GAUNTLET, GantryTimeline.L_GAUNTLET, 4 },
-				{ GantryTimeline.L_GAUNTLET, GantryTimeline.R_BOOT, 20 }, { GantryTimeline.R_BOOT, GantryTimeline.L_BOOT, 4 },
+		int[][] beat = { { GantryTimeline.TORSO_TOP, GantryTimeline.R_GAUNTLET, 20 }, { GantryTimeline.R_GAUNTLET, GantryTimeline.L_GAUNTLET, 20 },
+				{ GantryTimeline.L_GAUNTLET, GantryTimeline.R_BOOT, 20 }, { GantryTimeline.R_BOOT, GantryTimeline.L_BOOT, 20 },
 				{ GantryTimeline.L_BOOT, GantryTimeline.THIGH_TOP, 20 }, { GantryTimeline.THIGH_TOP, GantryTimeline.HELMET, 20 },
 				{ GantryTimeline.HELMET, GantryTimeline.FACEPLATE, 20 } };
 		for (int[] b : beat) {
@@ -563,8 +563,10 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 				}
 			}
 		}
-		h.assertTrue(full.padX(full.indexOf(GantryTimeline.R_GAUNTLET)) > 0 && full.padX(full.indexOf(GantryTimeline.L_GAUNTLET)) < 0
-				&& full.padX(full.indexOf(GantryTimeline.HELMET)) == 0, "pairs sit side by side on the pad");
+		// v0.15.9, user request: a pair's second part goes on 1 s after the first too, so each rides up the elevator alone, centred
+		h.assertTrue(full.padX(full.indexOf(GantryTimeline.R_GAUNTLET)) == 0 && full.padX(full.indexOf(GantryTimeline.L_GAUNTLET)) == 0
+				&& !full.ridesWithPartner(full.indexOf(GantryTimeline.R_BOOT)) && full.padX(full.indexOf(GantryTimeline.HELMET)) == 0,
+				"every part rides the pad alone");
 		h.assertTrue(full.indexOf(GantryTimeline.L_BOOT) == full.indexOf(GantryTimeline.R_BOOT) + 1
 				&& full.removeTick(GantryTimeline.FEET) > full.total() - full.fitTick(full.indexOf(GantryTimeline.L_BOOT)),
 				"one boot at a time: right then left on, left then right off");

@@ -50,6 +50,9 @@ import net.minecraft.world.phys.Vec3;
  * the source platform broken, the chunk unloading), whatever is still in the buffer goes back to a Suit Platform
  * ({@link #flushBuffer}), else to the wearer's inventory, else drops here. The buffer is saved with the chunk; the
  * sequence itself is not, so a reloaded centre just flushes its buffer and closes its hatches.
+ *
+ * <p>v0.15.9: a suit can also come out of (and go back into) the wearer's pack ({@link #toPack}), and "Swap Suit" runs
+ * a taking-off and a putting-on back to back ({@link #continueSwap}) -- the same no-loss / no-dupe rules throughout.
  */
 public class StarkGantryFloorBlockEntity extends BlockEntity {
 	public static final int MODE_NONE = 0;
@@ -87,6 +90,18 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 	private BlockPos platformPos;
 	/** Whose suit the buffer holds -- pieces only ever go back to that player's (or an unowned) Suit Platform. Saved. */
 	private UUID owner;
+	/**
+	 * v0.15.9: what the buffer holds belongs in the owner's pack first (a suit put on out of the pack, or a swapped-off
+	 * suit with no platform in range to go to) rather than on a Suit Platform. Saved with the buffer.
+	 */
+	private boolean toPack;
+	/**
+	 * v0.15.9, "Swap Suit": while taking the worn suit off, the suit to put on next -- racked at {@link #swapPlatform}, or
+	 * carried in the pack when that is null. Part of the running sequence, so (like it) never saved: a reload mid-swap
+	 * just flushes the floor.
+	 */
+	private String swapSuit;
+	private BlockPos swapPlatform;
 
 	private int mode = MODE_NONE;
 	private long start;
@@ -123,6 +138,8 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 	public ItemStack buffered(int rackSlot) { return buffer.get(rackSlot); }
 	public boolean bufferEmpty() { return buffer.stream().allMatch(ItemStack::isEmpty); }
 	public UUID playerId() { return playerId; }
+	/** v0.15.9: the suit a running swap puts on once the worn one is off (server side), else null. */
+	public String swapSuit() { return swapSuit; }
 
 	/** The way the wearer faces (snapped to the four directions) -- the arms stand on their left and right. */
 	public Direction facing() {
@@ -157,8 +174,9 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 			return;
 		}
 		if (!be.bufferEmpty()) {
-			// a centre reloaded mid-sequence (or anything else that left pieces in the floor): send them home
-			be.flushBuffer(null);
+			// a centre reloaded mid-sequence (or anything else that left pieces in the floor): send them home (v0.15.9: their
+			// owner, if they are standing right here, so a suit bound for the pack can reach it)
+			be.flushBuffer(be.owner == null ? null : sl.getServer().getPlayerList().getPlayer(be.owner));
 		}
 		if (state.getValue(StarkGantryFloorBlock.OPEN) && (level.getGameTime() + pos.asLong()) % 10 == 0
 				&& !be.openedByRunningNeighbour(sl)) {
@@ -181,10 +199,23 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 	/** Start putting the suit racked on {@code platform} onto {@code player}. Checks are done by {@link StarkGantry}. */
 	void beginEquip(ServerPlayer player, IronManSuitPlatformBlockEntity platform) {
 		String suitId = platform.storedSuitId();
-		// adopt the armour's carried charge + the integrity the rack has actually repaired (as the platform deploy did)
-		float integ = platform.suitIntegrity();
-		ItemStack ref = platform.getItem(1).getItem() instanceof IronManArmorItem ? platform.getItem(1) : null; // chestplate first
-		for (ItemStack s : platform.pieces()) {
+		// the whole suit goes off the rack and into the floor in one tick
+		startEquip(player, suitId, platform.takeAllPieces(), platform.getBlockPos(), false);
+	}
+
+	/** v0.15.9: start putting on the suit {@code suitId} carried in the player's pack. Checks are done by {@link StarkGantry}. */
+	void beginEquipFromPack(ServerPlayer player, String suitId) {
+		startEquip(player, suitId, StarkGantry.takeFromPack(player, suitId), null, true);
+	}
+
+	/**
+	 * The suit's pieces ({@code taken}, by rack slot) go into the floor and the putting-on sequence starts. The wearer
+	 * adopts the armour's carried charge and integrity (the chestplate's, else any piece's -- the rack has kept it
+	 * repaired, as the platform deploy did).
+	 */
+	private void startEquip(ServerPlayer player, String suitId, ItemStack[] taken, BlockPos from, boolean fromPack) {
+		ItemStack ref = taken[1].getItem() instanceof IronManArmorItem ? taken[1] : null; // chestplate first
+		for (ItemStack s : taken) {
 			if (ref == null && s.getItem() instanceof IronManArmorItem) {
 				ref = s;
 			}
@@ -192,9 +223,8 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		if (ref != null) {
 			IronManEnergy.loadFromStack(player, suitId, ref);
 		}
-		IronManEnergy.setIntegrity(player, suitId, integ);
-		// the whole suit goes off the rack and into the floor in one tick
-		ItemStack[] taken = platform.takeAllPieces();
+		IronManEnergy.setIntegrity(player, suitId,
+				ref == null ? IronManEnergy.maxIntegrity(suitId) : IronManEnergy.stackIntegrity(ref, suitId));
 		java.util.List<Integer> order = new java.util.ArrayList<>();
 		for (int idx : ORDER) {
 			buffer.set(idx, taken[idx]);
@@ -202,11 +232,23 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 				order.add(idx);
 			}
 		}
-		platformPos = platform.getBlockPos();
+		platformPos = from;
+		toPack = fromPack;
 		begin(player, MODE_EQUIP, suitId, order);
 	}
 
-	/** Start taking {@code player}'s worn suit off, to be racked on {@code target}. */
+	/**
+	 * v0.15.9, "Swap Suit": take {@code suitId} off (to be racked on {@code home}, or into the pack when null), then put
+	 * {@code next} on -- racked on {@code nextPlatform}, or carried in the pack when that is null.
+	 */
+	void beginSwap(ServerPlayer player, String suitId, IronManSuitPlatformBlockEntity home, String next, BlockPos nextPlatform) {
+		beginUnequip(player, suitId, home);
+		swapSuit = next;
+		swapPlatform = nextPlatform;
+		player.displayClientMessage(Component.translatable("message.projecthero.gantry.swapping").withStyle(ChatFormatting.AQUA), true);
+	}
+
+	/** Start taking {@code player}'s worn suit off, to be racked on {@code target} (v0.15.9: null = into the pack). */
 	void beginUnequip(ServerPlayer player, String suitId, IronManSuitPlatformBlockEntity target) {
 		java.util.List<Integer> order = new java.util.ArrayList<>();
 		for (int idx : ORDER) { // put-on order, played backwards: the helmet comes off first
@@ -214,7 +256,8 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 				order.add(idx);
 			}
 		}
-		platformPos = target.getBlockPos();
+		platformPos = target == null ? null : target.getBlockPos();
+		toPack = target == null;
 		if (com.projecthero.mod.ironman.IronManFlight.isFlying(player)) {
 			com.projecthero.mod.ironman.IronManFlight.setFlying(player, false);
 		}
@@ -236,6 +279,8 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		suit = suitId;
 		slots = order.stream().mapToInt(Integer::intValue).toArray();
 		doneMask = 0;
+		swapSuit = null;
+		swapPlatform = null;
 		yaw = Direction.fromYRot(player.getYRot()).toYRot();
 		GantryTimeline.Plan plan = plan();
 
@@ -302,7 +347,53 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 			tickUnequip(sl, player, t);
 		}
 		if (t >= plan().total()) {
+			if (mode == MODE_UNEQUIP && swapSuit != null) {
+				continueSwap(sl, player);
+			} else {
+				end(player);
+			}
+		}
+	}
+
+	/**
+	 * v0.15.9, "Swap Suit": the old suit is off and in the floor. It goes home (its platform, else the pack) and -- if
+	 * the picked suit is still where it was -- the putting-on sequence starts straight away with the player still on
+	 * the lift, so it plays as one continuous sequence. If the pick is gone (another player took it, it is folding into
+	 * its suitcase, it left the pack...) the sequence simply ends with the player unsuited and a message.
+	 */
+	private void continueSwap(ServerLevel sl, ServerPlayer player) {
+		String next = swapSuit;
+		BlockPos nextAt = swapPlatform;
+		swapSuit = null;
+		swapPlatform = null;
+		IronManSuitPlatformBlockEntity platform = null;
+		ItemStack[] packed = null;
+		boolean ok = !IronManArmor.wearingAnyIronMan(player) && StarkGantry.complete(sl, worldPosition);
+		if (ok && nextAt != null) {
+			platform = StarkGantry.usablePlatform(sl, worldPosition, player, nextAt, next);
+			ok = platform != null;
+		} else if (ok) {
+			ok = StarkGantry.packMask(player, next) != 0;
+			if (ok) {
+				// out of the pack BEFORE the old suit goes in, so a full pack still has room for it
+				packed = StarkGantry.takeFromPack(player, next);
+			}
+		}
+		// the old suit goes home now, exactly as at the end of Remove Suit
+		flushBuffer(player);
+		if (!IronManArmor.wearingAnyIronMan(player)) {
+			TonyStark.setActiveSuit(player, "");
+		}
+		if (!ok) {
+			player.displayClientMessage(Component.translatable("message.projecthero.gantry.swap_gone").withStyle(ChatFormatting.GOLD), true);
 			end(player);
+			return;
+		}
+		IronManSounds.play(player, IronManSounds.CLAMP, 0.6f, 0.8f);
+		if (platform != null) {
+			beginEquip(player, platform);
+		} else {
+			startEquip(player, next, packed, null, true);
 		}
 	}
 
@@ -509,6 +600,8 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		mode = MODE_NONE;
 		slots = new int[0];
 		playerEntity = -1;
+		swapSuit = null; // an interrupted swap stops where it is: whatever is still in the floor goes home
+		swapPlatform = null;
 		flushBuffer(player);
 		playerId = null;
 		if (level instanceof ServerLevel sl) {
@@ -553,11 +646,17 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 				continue;
 			}
 			buffer.set(idx, ItemStack.EMPTY);
+			boolean here = player != null && player.isAlive() && !player.hasDisconnected() && player.level() == sl
+					&& player.position().distanceTo(standAt()) < 8.0;
+			if (toPack && here) {
+				// v0.15.9: a suit from the pack (or swapped off with no platform to go to) goes back into the pack
+				IronManSuitUpManager.giveBack(player, stack);
+				continue;
+			}
 			if (StarkGantry.rackPiece(sl, worldPosition, platformPos, owner, stack)) {
 				continue;
 			}
-			if (player != null && player.isAlive() && !player.hasDisconnected() && player.level() == sl
-					&& player.position().distanceTo(standAt()) < 8.0) {
+			if (here) {
 				IronManSuitUpManager.giveBack(player, stack);
 			} else {
 				Vec3 at = standAt();
@@ -658,6 +757,7 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		ContainerHelper.loadAllItems(tag, buffer, registries);
 		platformPos = tag.contains("Platform") ? NbtUtils.readBlockPos(tag, "Platform").orElse(null) : null;
 		owner = tag.hasUUID("Owner") ? tag.getUUID("Owner") : null;
+		toPack = tag.getBoolean("ToPack");
 		if (level != null && level.isClientSide()) {
 			// the running sequence, for the renderer only (never read from disk -- see the class notes)
 			mode = tag.getInt("SeqMode");
@@ -682,6 +782,9 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		}
 		if (owner != null) {
 			tag.putUUID("Owner", owner);
+		}
+		if (toPack) {
+			tag.putBoolean("ToPack", true);
 		}
 	}
 

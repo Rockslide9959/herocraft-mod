@@ -43,9 +43,12 @@ public final class GantryTimeline {
 	 */
 	public static final int CARRY = 30;
 	public static final int BUILD = 16;
-	/** v0.15.8, user request: ticks between one carried part going on and the next (1 s), and within a pair (0.2 s). */
+	/**
+	 * v0.15.8, user request: ticks between one carried part going on and the next (1 s). v0.15.9, user request: the second
+	 * gauntlet / boot of a pair too (was 0.2 s) -- every carried part is 1 s after the one before.
+	 */
 	public static final int PIECE_GAP = 20;
-	public static final int PAIR_GAP = 4;
+	public static final int PAIR_GAP = PIECE_GAP;
 	/** v0.15.8: a gauntlet / boot pair rides up the elevator side by side -- each this far off its centre (blocks). */
 	public static final double PAIR_OFFSET = 0.2;
 	/** How high the centre lift raises the wearer (blocks). */
@@ -346,9 +349,19 @@ public final class GantryTimeline {
 			};
 		}
 
+		/**
+		 * v0.15.9: does entry {@code i}'s gauntlet / boot ride up the elevator together with its pair's other part? Only
+		 * when they go on less than {@link #PIECE_GAP} apart -- since v0.15.9 (every part 1 s apart) they never do and each
+		 * rides up alone, centred.
+		 */
+		public boolean ridesWithPartner(int i) {
+			int p = partner(i);
+			return p >= 0 && Math.abs(begin[p] - begin[i]) < PIECE_GAP;
+		}
+
 		/** v0.15.8: where entry {@code i}'s part sits across the elevator pad (blocks, + = the wearer's right). */
 		public double padX(int i) {
-			if (partner(i) < 0) {
+			if (!ridesWithPartner(i)) {
 				return 0.0;
 			}
 			return right[i] ? PAIR_OFFSET : -PAIR_OFFSET;

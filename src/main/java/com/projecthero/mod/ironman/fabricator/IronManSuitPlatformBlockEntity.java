@@ -71,6 +71,11 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 	 */
 	private long packStart;
 	private UUID packFor;
+	/**
+	 * v0.15.9: a Mark 5 Suitcase just docked here unfolding into the armour on the rack (the packing fold played in
+	 * reverse) -- the game time it started, 0 = not unpacking. Saved and synced; the rack is locked until it is done.
+	 */
+	private long unpackStart;
 	private long lastRegistrySync = Long.MIN_VALUE;
 
 	public final ContainerData data = new ContainerData() {
@@ -110,6 +115,9 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 
 		if (be.packStart > 0L && level.getGameTime() - be.packStart >= PACK_TICKS) {
 			be.finishPack(serverLevel);
+		}
+		if (be.unpackStart > 0L && level.getGameTime() - be.unpackStart >= UNPACK_TICKS) {
+			be.finishUnpack();
 		}
 		String suitId = be.storedSuitId();
 		if (suitId != null) {
@@ -243,8 +251,9 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 	}
 
 	public String storedSuitId() {
-		if (packStart > 0L) {
-			return null; // v0.15.8: folding into its case -- nothing here can be called, deployed or claimed
+		if (locked()) {
+			// v0.15.8: folding into its case (v0.15.9: or unfolding out of it) -- nothing here can be called, deployed or claimed
+			return null;
 		}
 		for (ItemStack stack : pieces) {
 			if (stack.getItem() instanceof IronManArmorItem piece) {
@@ -311,8 +320,42 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 			owner = player.getUUID();
 		}
 		caseStack.shrink(1);
+		if (level != null) {
+			// v0.15.9, user request: the case lands on the rack and unfolds into the armour -- the Suitcase tab's fold played
+			// backwards; the rack is locked (and the suit can't be called or put on) until it stands complete
+			unpackStart = Math.max(1L, level.getGameTime());
+		}
 		afterContentsChanged();
 		return true;
+	}
+
+	/** v0.15.9: the unfold onto the rack lasts exactly as long as the Suitcase tab's fold, of which it is the reverse. */
+	public static final int UNPACK_TICKS = IronManSuitPlatformBlockEntity.PACK_TICKS;
+
+	/** v0.15.9: is a docked Mark 5 Suitcase unfolding into the armour on the rack right now? */
+	public boolean unpacking() {
+		return unpackStart > 0L;
+	}
+
+	/** v0.15.9: ticks into the unfold (client: with the partial tick), or -1 when not unpacking. */
+	public float unpackAge(float partialTick) {
+		if (unpackStart <= 0L || level == null) {
+			return -1f;
+		}
+		return Math.max(0f, level.getGameTime() - unpackStart + partialTick);
+	}
+
+	/** v0.15.9: packing or unpacking -- the rack is locked and its suit hidden from calls, the gantry and the menu. */
+	public boolean locked() {
+		return packStart > 0L || unpackStart > 0L;
+	}
+
+	/** v0.15.9: the unfold is over -- the Mark 5 stands on the rack like any racked suit. */
+	public void finishUnpack() {
+		if (unpackStart > 0L) {
+			unpackStart = 0L;
+			afterContentsChanged();
+		}
 	}
 
 	/** v0.15.8: the fold -- the Mark 5 suit-down played backwards on the rack at double speed (frames 134 -> 26)... */
@@ -505,6 +548,9 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 	}
 
 	private void afterContentsChanged() {
+		if (unpackStart > 0L && isEmptyPlatform()) {
+			unpackStart = 0L; // v0.15.9: nothing left to unfold (cleared out by a command / a test)
+		}
 		setChanged();
 		if (level instanceof ServerLevel sl) {
 			syncRegistry(sl);
@@ -525,8 +571,8 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 
 	@Override
 	public ItemStack removeItem(int slot, int amount) {
-		if (packStart > 0L) {
-			return ItemStack.EMPTY; // v0.15.8: locked while it folds into its case
+		if (locked()) {
+			return ItemStack.EMPTY; // v0.15.8: locked while it folds into its case (v0.15.9: or unfolds)
 		}
 		ItemStack r = ContainerHelper.removeItem(pieces, slot, amount);
 		afterContentsChanged();
@@ -535,7 +581,7 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 
 	@Override
 	public ItemStack removeItemNoUpdate(int slot) {
-		if (packStart > 0L) {
+		if (locked()) {
 			return ItemStack.EMPTY;
 		}
 		return ContainerHelper.takeItem(pieces, slot);
@@ -549,7 +595,7 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 
 	@Override
 	public boolean canPlaceItem(int slot, ItemStack stack) {
-		return packStart <= 0L && stack.getItem() instanceof IronManArmorItem piece && slotOf(piece.getType()) == slot
+		return !locked() && stack.getItem() instanceof IronManArmorItem piece && slotOf(piece.getType()) == slot
 				&& matchesStoredSuit(piece.suitId());
 	}
 
@@ -619,6 +665,7 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		owner = tag.hasUUID("Owner") ? tag.getUUID("Owner") : null;
 		packStart = tag.getLong("PackStart");
 		packFor = tag.hasUUID("PackFor") ? tag.getUUID("PackFor") : null;
+		unpackStart = tag.getLong("UnpackStart");
 	}
 
 	@Override
@@ -633,6 +680,9 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 			if (packFor != null) {
 				tag.putUUID("PackFor", packFor);
 			}
+		}
+		if (unpackStart > 0L) {
+			tag.putLong("UnpackStart", unpackStart);
 		}
 	}
 

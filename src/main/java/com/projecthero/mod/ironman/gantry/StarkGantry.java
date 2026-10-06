@@ -41,7 +41,9 @@ import net.minecraft.world.level.chunk.LevelChunk;
  *       on is the complete 5x5 containing the tile under their feet whose centre is nearest them ({@link #findCentre}).</li>
  *   <li><b>H on the floor</b> (Tony Stark, not mid suit-up): unsuited, a menu lists every suit racked on a Suit Platform
  *       within {@value #RANGE} blocks of the floor ({@link #suitsInRange}); suited, it offers "Remove armour", which
- *       racks the suit on the platform it came from, else the nearest one in range with room ({@link #removeTarget}).</li>
+ *       racks the suit on the platform it came from, else the nearest one in range with room ({@link #removeTarget}).
+ *       v0.15.9: suited, the menu first asks "Remove Suit" or "Swap Suit" ({@link #beginSwap}); suits carried in the pack
+ *       are listed beside the racked ones ({@link #packSuits}).</li>
  *   <li><b>The sequence</b> is run by the centre tile ({@link StarkGantryFloorBlockEntity}) off {@link GantryTimeline}.</li>
  * </ul>
  * Everything here re-validates on the server; the client only ever asks.
@@ -65,6 +67,8 @@ public final class StarkGantry {
 	static void rememberOrigin(ServerPlayer player, BlockPos platform) {
 		if (platform != null) {
 			ORIGIN.put(player.getUUID(), GlobalPos.of(player.level().dimension(), platform));
+		} else {
+			ORIGIN.remove(player.getUUID()); // v0.15.9: a suit put on out of the pack has no platform of its own
 		}
 	}
 
@@ -201,6 +205,116 @@ public final class StarkGantry {
 		return out;
 	}
 
+	// ---------------- v0.15.9: suits carried in the pack ----------------
+
+	/**
+	 * The Iron Man armour pieces in the player's pack (main inventory + hotbar), by suit: for each suit id, the inventory
+	 * index of one piece per rack slot (-1 = none). A Mark 5 Suitcase is not a pack suit -- it unfolds on a Suit Platform
+	 * (or suits you up from your hand) as before.
+	 */
+	public static Map<String, int[]> packSuits(ServerPlayer player) {
+		Map<String, int[]> out = new java.util.LinkedHashMap<>();
+		var items = player.getInventory().items;
+		for (int i = 0; i < items.size(); i++) {
+			if (items.get(i).getItem() instanceof IronManArmorItem a && IronManSuits.byId(a.suitId()) != null) {
+				int slot = IronManSuitPlatformBlockEntity.slotOf(a.getType());
+				if (slot < 0) {
+					continue;
+				}
+				int[] at = out.computeIfAbsent(a.suitId(), k -> new int[] { -1, -1, -1, -1 });
+				if (at[slot] < 0) {
+					at[slot] = i;
+				}
+			}
+		}
+		return out;
+	}
+
+	/** Rack-slot mask of {@code suitId}'s pieces in the player's pack (0 = none). */
+	public static int packMask(ServerPlayer player, String suitId) {
+		int[] at = packSuits(player).get(suitId);
+		int mask = 0;
+		for (int i = 0; at != null && i < 4; i++) {
+			mask |= at[i] >= 0 ? 1 << i : 0;
+		}
+		return mask;
+	}
+
+	/** Take one of each of {@code suitId}'s pieces out of the pack (the real stacks, by rack slot; EMPTY where none). */
+	static ItemStack[] takeFromPack(ServerPlayer player, String suitId) {
+		ItemStack[] out = { ItemStack.EMPTY, ItemStack.EMPTY, ItemStack.EMPTY, ItemStack.EMPTY };
+		int[] at = packSuits(player).get(suitId);
+		if (at == null) {
+			return out;
+		}
+		var items = player.getInventory().items;
+		for (int slot = 0; slot < 4; slot++) {
+			if (at[slot] >= 0) {
+				out[slot] = items.get(at[slot]).split(1);
+			}
+		}
+		player.getInventory().setChanged();
+		return out;
+	}
+
+	private static List<StarkGantryMenuPayload.Entry> packEntries(ServerPlayer player) {
+		List<StarkGantryMenuPayload.Entry> out = new ArrayList<>();
+		var items = player.getInventory().items;
+		for (Map.Entry<String, int[]> e : packSuits(player).entrySet()) {
+			String suitId = e.getKey();
+			IronManSuit suit = IronManSuits.byId(suitId);
+			int[] at = e.getValue();
+			int mask = 0;
+			ItemStack ref = null;
+			for (int slot : new int[] { 1, 0, 2, 3 }) { // the chestplate's charge first, as on a rack
+				if (at[slot] >= 0) {
+					mask |= 1 << slot;
+					if (ref == null) {
+						ref = items.get(at[slot]);
+					}
+				}
+			}
+			float en = ref == null ? 0f : IronManEnergy.stackEnergy(ref, suitId) / Math.max(1f, suit.energyCapacity());
+			float in = ref == null ? 1f : IronManEnergy.stackIntegrity(ref, suitId) / Math.max(1f, IronManEnergy.maxIntegrity(suitId));
+			out.add(new StarkGantryMenuPayload.Entry(BlockPos.ZERO, suitId, mask, Mth.clamp(en, 0f, 1f), Mth.clamp(in, 0f, 1f), 0, true));
+		}
+		return out;
+	}
+
+	/**
+	 * v0.15.9: every suit the gantry can put on this player -- racked in range and carried in the pack -- except
+	 * {@code exclude} (the suit being worn, for a swap). Highest Mark first, then nearest (the pack counts as 0 m).
+	 */
+	public static List<StarkGantryMenuPayload.Entry> suitsFor(ServerLevel level, BlockPos centre, ServerPlayer player, String exclude) {
+		List<StarkGantryMenuPayload.Entry> out = new ArrayList<>(suitsInRange(level, centre, player.getUUID()));
+		out.addAll(packEntries(player));
+		if (exclude != null) {
+			out.removeIf(e -> e.suitId().equals(exclude));
+		}
+		out.sort(Comparator.comparingInt((StarkGantryMenuPayload.Entry e) -> -markOf(e.suitId()))
+				.thenComparingInt(StarkGantryMenuPayload.Entry::distance));
+		return out;
+	}
+
+	/**
+	 * The platform in range at {@code pos} this player may use, holding a suit (exactly {@code suitId} when that is not
+	 * null) that is free to take right now -- or null.
+	 */
+	static IronManSuitPlatformBlockEntity usablePlatform(ServerLevel level, BlockPos centre, ServerPlayer player, BlockPos pos,
+			String suitId) {
+		if (pos == null) {
+			return null;
+		}
+		for (IronManSuitPlatformBlockEntity p : platformsInRange(level, centre, player.getUUID())) {
+			String stored = p.storedSuitId();
+			if (p.getBlockPos().equals(pos) && stored != null && IronManSuits.byId(stored) != null
+					&& (suitId == null || suitId.equals(stored))) {
+				return p;
+			}
+		}
+		return null;
+	}
+
 	private static int markOf(String suitId) {
 		IronManSuit s = IronManSuits.byId(suitId);
 		return s == null ? 0 : s.markNumber();
@@ -306,39 +420,102 @@ public final class StarkGantry {
 		String worn = IronManArmor.wornSuitId(player);
 		if (worn != null) {
 			IronManSuitPlatformBlockEntity target = removeTarget(level, centre, player, worn);
+			// v0.15.9: suited, the menu also carries every other suit the worn one could be swapped for
 			return new StarkGantryMenuPayload(centre, worn, target != null,
-					target == null ? -1 : (int) Math.round(distanceToFloor(centre, target.getBlockPos())), List.of());
+					target == null ? -1 : (int) Math.round(distanceToFloor(centre, target.getBlockPos())),
+					suitsFor(level, centre, player, worn));
 		}
-		return new StarkGantryMenuPayload(centre, "", false, -1, suitsInRange(level, centre, player.getUUID()));
+		return new StarkGantryMenuPayload(centre, "", false, -1, suitsFor(level, centre, player, null));
 	}
 
 	/** The player picked a suit racked at {@code platformPos}. Re-validated; true if the sequence started. */
 	public static boolean beginEquip(ServerPlayer player, BlockPos platformPos) {
+		return beginEquip(player, platformPos, "");
+	}
+
+	/**
+	 * The player picked a suit: racked at {@code platformPos}, or (v0.15.9) carried in the pack when {@code packSuit} is a
+	 * suit id. Re-validated; true if the sequence started.
+	 */
+	public static boolean beginEquip(ServerPlayer player, BlockPos platformPos, String packSuit) {
 		BlockPos centre = centreUnder(player);
 		String why = blocker(player, centre);
 		if (why == null && IronManArmor.wearingAnyIronMan(player)) {
 			why = "message.projecthero.gantry.already_suited";
 		}
 		ServerLevel level = player.serverLevel();
+		boolean fromPack = packSuit != null && !packSuit.isEmpty();
 		IronManSuitPlatformBlockEntity platform = null;
 		if (why == null) {
-			for (IronManSuitPlatformBlockEntity p : platformsInRange(level, centre, player.getUUID())) {
-				if (p.getBlockPos().equals(platformPos) && p.storedSuitId() != null && IronManSuits.byId(p.storedSuitId()) != null) {
-					platform = p;
+			if (fromPack) {
+				if (IronManSuits.byId(packSuit) == null || packMask(player, packSuit) == 0) {
+					why = "message.projecthero.gantry.pack_gone";
 				}
-			}
-			if (platform == null) {
-				why = "message.projecthero.gantry.suit_gone";
+			} else {
+				platform = usablePlatform(level, centre, player, platformPos, null);
+				if (platform == null) {
+					why = "message.projecthero.gantry.suit_gone";
+				}
 			}
 		}
 		if (why != null || !(level.getBlockEntity(centre) instanceof StarkGantryFloorBlockEntity be)) {
 			tell(player, why == null ? "message.projecthero.gantry.incomplete" : why, ChatFormatting.GOLD);
 			return false;
 		}
+		if (fromPack) {
+			be.beginEquipFromPack(player, packSuit);
+			return true;
+		}
 		if (platform.getLevel() instanceof ServerLevel && platform.owner().isEmpty()) {
 			platform.bindTo(player.getUUID());
 		}
 		be.beginEquip(player, platform);
+		return true;
+	}
+
+	/**
+	 * v0.15.9, explicit user request: "Swap Suit". The worn suit comes off exactly as Remove Suit takes it off and goes
+	 * home -- the platform it came from (else the nearest one in range with room), else into the pack (dropped at the
+	 * player's feet if the pack is full) -- then, in the same sequence, the picked suit ({@code platformPos}, or
+	 * {@code packSuit} carried) is put on as an ordinary gantry suit-up. The pick is re-checked when the old suit is off:
+	 * gone by then (taken, being folded into its case, out of the pack) = the sequence just ends, unsuited, and says so.
+	 * Re-validated here; true if the sequence started.
+	 */
+	public static boolean beginSwap(ServerPlayer player, BlockPos platformPos, String packSuit) {
+		BlockPos centre = centreUnder(player);
+		String why = blocker(player, centre);
+		String worn = IronManArmor.wornSuitId(player);
+		if (why == null && worn == null) {
+			why = "message.projecthero.gantry.not_suited";
+		}
+		ServerLevel level = player.serverLevel();
+		boolean fromPack = packSuit != null && !packSuit.isEmpty();
+		String next = null;
+		IronManSuitPlatformBlockEntity platform = null;
+		if (why == null) {
+			if (fromPack) {
+				if (IronManSuits.byId(packSuit) != null && packMask(player, packSuit) != 0) {
+					next = packSuit;
+				}
+			} else {
+				platform = usablePlatform(level, centre, player, platformPos, null);
+				next = platform == null ? null : platform.storedSuitId();
+			}
+			if (next == null) {
+				why = fromPack ? "message.projecthero.gantry.pack_gone" : "message.projecthero.gantry.suit_gone";
+			} else if (next.equals(worn)) {
+				why = "message.projecthero.gantry.swap_same";
+			}
+		}
+		if (why != null || !(level.getBlockEntity(centre) instanceof StarkGantryFloorBlockEntity be)) {
+			tell(player, why == null ? "message.projecthero.gantry.incomplete" : why, ChatFormatting.GOLD);
+			return false;
+		}
+		if (platform != null && platform.owner().isEmpty()) {
+			platform.bindTo(player.getUUID());
+		}
+		IronManSuitPlatformBlockEntity home = removeTarget(level, centre, player, worn);
+		be.beginSwap(player, worn, home, next, fromPack ? null : platform.getBlockPos());
 		return true;
 	}
 

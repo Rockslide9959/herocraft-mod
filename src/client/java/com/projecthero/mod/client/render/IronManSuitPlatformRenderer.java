@@ -64,6 +64,14 @@ public class IronManSuitPlatformRenderer implements BlockEntityRenderer<IronManS
 			renderPack(be, rack, packAge, partialTick, pose, buffers, packedLight);
 			return;
 		}
+		// v0.15.9, user request: a docked Mark 5 Suitcase does exactly that backwards -- the case hops in, lands on the pad,
+		// rises to chest height and opens, and the suit builds itself up out of it on the rack
+		float unpackAge = be.unpackAge(partialTick);
+		if (unpackAge >= 0f) {
+			float back = IronManSuitPlatformBlockEntity.PACK_TICKS - Math.min(unpackAge, IronManSuitPlatformBlockEntity.UNPACK_TICKS);
+			renderPack(be, rack, Math.max(0f, back), partialTick, pose, buffers, packedLight);
+			return;
+		}
 		float time = level.getGameTime() + partialTick;
 		float spin = time * 1.4f;
 		float bob = (float) Math.sin(time * 0.06f) * 0.03f;
@@ -78,7 +86,10 @@ public class IronManSuitPlatformRenderer implements BlockEntityRenderer<IronManS
 		dispatcher.setRenderShadow(true);
 	}
 
-	/** v0.15.8: the fold -- the stand at its Mark 5 frame, then the suitcase forming, dropping and hopping away. */
+	/**
+	 * v0.15.8: the fold -- the stand at its Mark 5 frame, then the suitcase forming, dropping and hopping away. (v0.15.9:
+	 * also the unfold, played with {@code age} running backwards.)
+	 */
 	private void renderPack(IronManSuitPlatformBlockEntity be, ArmorStand rack, float age, float partialTick, PoseStack pose,
 			MultiBufferSource buffers, int light) {
 		var dispatcher = Minecraft.getInstance().getEntityRenderDispatcher();

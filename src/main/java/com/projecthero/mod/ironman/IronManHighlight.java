@@ -62,7 +62,8 @@ public final class IronManHighlight {
 	 * leave it to vanilla / the other powers. Only ever reads the VIEWER's own state.
 	 */
 	public static Boolean decision(Player viewer, Entity target) {
-		if (viewer == null || target == viewer || !(target instanceof LivingEntity)) {
+		if (viewer == null || target == viewer || !(target instanceof LivingEntity)
+				|| target instanceof net.minecraft.world.entity.decoration.ArmorStand) { // v0.15.9: never a rack's display stand
 			return null;
 		}
 		if (!(viewer.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof IronManArmorItem)) {
@@ -87,7 +88,8 @@ public final class IronManHighlight {
 
 	/** Does the viewer's OWN powered helmet outline {@code target} right now? */
 	public static boolean outlines(Player viewer, Entity target) {
-		if (viewer == null || target == viewer || !(target instanceof LivingEntity living) || !living.isAlive()) {
+		if (viewer == null || target == viewer || !(target instanceof LivingEntity living) || !living.isAlive()
+				|| target instanceof net.minecraft.world.entity.decoration.ArmorStand) {
 			return false;
 		}
 		if (!(viewer.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof IronManArmorItem helmet)) {

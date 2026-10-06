@@ -203,7 +203,7 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 				// the second of a pair rides up beside the first and waits on the pad until its own arm reaches for it
 				int other = rightArm ? iL : iR;
 				int p = other < 0 ? -1 : plan.partner(other);
-				if (p >= 0 && f < plan.begin(p)) {
+				if (p >= 0 && f < plan.begin(p) && plan.ridesWithPartner(p)) { // v0.15.9: 1 s apart, they ride alone
 					carries.add(waiting(plan, p, elevatorTop));
 				}
 				continue;
