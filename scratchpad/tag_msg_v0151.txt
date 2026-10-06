@@ -1,7 +1,16 @@
 Project Hero v0.15.1 -- Bulletproof Iron Man, Iron Man Sounds, Kingpin's Cane, Thor Weapon Recall
 
 ⚡ THOR: CALL MJOLNIR OR STORMBREAKER
-THOR_RECALL_SECTION
+- One recall button (R) now calls Mjolnir OR Stormbreaker:
+- If one of them is already with you, R calls the other one.
+- If neither is with you, R calls whichever is closer to you (a weapon in another dimension only answers if it's the only one you can call).
+- If you're bound to only one of them, R calls that one.
+- If both are already with you, nothing moves and you get a short message.
+- The called weapon lands in your main hand; if you were holding the other Thor weapon it moves into your pack.
+- Stormbreaker now binds to you like Mjolnir: it binds to the first worthy player who carries it (one each). Its tooltip shows who it's bound to.
+- You can call Stormbreaker back from anywhere Mjolnir could be called from: thrown (it turns around mid-air), on the ground, in a chest, or out of another player's hands. It flies home with its returning-axe flight.
+- Same anti-duplication protection as Mjolnir: a called weapon is always moved, never copied.
+- New action-bar messages tell you which weapon answers your call.
 
 🦾 IRON MAN ARMOUR RULES
 - Iron Man armour can't be taken off like normal armour any more: no picking it out of your armour slots, shift-clicking it out or hot-key swapping it away. It comes off with C (suit down), a Suit Platform retrieve or a send-home. (It already couldn't be put on by hand.)
@@ -37,6 +46,6 @@ THOR_RECALL_SECTION
 
 📖 GUIDEBOOK
 - New Iron Man "Armour Rules" page and a Green Lantern "Protective Dome" page.
-THOR_GUIDE_LINE
+- The Thor chapter explains the new Mjolnir / Stormbreaker recall and Stormbreaker binding.
 
 Coming in v0.15.2: the Sentinel Purge event, Stark Glasses and the Stark Gear slot (Shift + N), robotic-arm suit-up on the Suit Platform, new Mark 5, 6 and 7 models, and new Stark Furnace, Smelter and Smoker models.
