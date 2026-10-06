@@ -275,7 +275,7 @@ public final class IronManHud {
 				chipColor.add(IronManGui.GOLD);
 			}
 			if (com.projecthero.mod.ironman.ability.IronManMark6.isKitSuit(suitId)) { // v0.15.4: what G fires
-				chipText.add(Component.translatable("hud.projecthero.ironman.chip.wheel",
+				chipText.add(Component.translatable("hud.projecthero.ironman.chip.mk6_wheel",
 						Component.translatable("hud.projecthero.ironman.ability." + com.projecthero.mod.ironman.ability.IronManMark6.selectedWeapon(state, suitId))).getString());
 				chipColor.add(IronManGui.GOLD);
 			}

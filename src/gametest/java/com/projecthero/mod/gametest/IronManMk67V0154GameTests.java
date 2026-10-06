@@ -164,6 +164,7 @@ public class IronManMk67V0154GameTests implements FabricGameTest {
 			t("hud.projecthero.ironman.ability." + k);
 		}
 		t("message.projecthero.ironman.mk7.red_laser_firing");
+		h.assertTrue(t("hud.projecthero.ironman.chip.mk6_wheel").startsWith("G"), "the HUD chip names the G key");
 		t("screen.projecthero.weapon_wheel.mk6_title");
 		t("screen.projecthero.weapon_wheel.mk7_title");
 		t("screen.projecthero.ironman_info.integrity_regen");

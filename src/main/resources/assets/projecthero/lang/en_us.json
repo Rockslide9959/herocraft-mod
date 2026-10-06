@@ -1652,6 +1652,7 @@
   "hud.projecthero.ironman.chip.highlight_off": "HIGHLIGHT OFF",
   "hud.projecthero.ironman.chip.scan": "SCAN %sm",
   "hud.projecthero.ironman.chip.wheel": "X: %s",
+  "hud.projecthero.ironman.chip.mk6_wheel": "G: %s",
   "hud.projecthero.ironman.chip.blades": "BLADES +4",
   "hud.projecthero.ironman.chip.mk3_shield": "SHIELD",
   "hud.projecthero.ironman.chip.visor_open": "VISOR OPEN",
