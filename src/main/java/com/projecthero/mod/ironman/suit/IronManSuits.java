@@ -110,7 +110,7 @@ public final class IronManSuits {
 			.energy(2_000f, 3.0f) // v0.14.27: 2000, explicit user request
 			.maxIntegrity(1000f) // v0.14.27: 1000, explicit user request
 			.energyRegen(5f) // v0.14.27: 5 energy/sec
-			.armorRegen(0.03f) // "changes 18": slow worn self-repair
+			.armorRegen(2.5f) // v0.15.1: 1 integrity/sec worn (2.5 x IronManEnergy.WORN_REGEN_SCALE 0.4), explicit user request
 			.resistance(1) // v0.14.27: Resistance I while the chestplate is worn + powered
 			.integritySplit(0.5f) // v0.14.27: integrity absorbs 50% of every hit, the wearer takes 50%
 			.arrowFireImmune()
@@ -219,7 +219,7 @@ public final class IronManSuits {
 			.energy(10_500f, 3.0f) // "changes 18": capacity 10500
 			.maxIntegrity(800f) // "changes 18"
 			.energyRegen(2.6f) // "changes 18"
-			.armorRegen(0.05f) // "changes 18"
+			.armorRegen(2.5f) // v0.15.1: 1 integrity/sec worn (2.5 x IronManEnergy.WORN_REGEN_SCALE 0.4), explicit user request
 			.flightDrain(1.1f) // "changes 18"
 			.targetScanRange(70.0)
 			.waterBreathing() // v0.14.29: breathes underwater indefinitely (was a 5-minute air tank)
@@ -256,7 +256,7 @@ public final class IronManSuits {
 			.energy(12_000f, 3.4f) // "changes 18": capacity 12000
 			.maxIntegrity(950f) // "changes 18"
 			.energyRegen(3.0f) // "changes 18"
-			.armorRegen(0.06f) // "changes 18"
+			.armorRegen(2.5f) // v0.15.1: 1 integrity/sec worn (2.5 x IronManEnergy.WORN_REGEN_SCALE 0.4), explicit user request
 			.flightDrain(1.15f) // "changes 18"
 			.flight(1.7f, 0.14f)
 			.maxFlightSpeed(30.0)
