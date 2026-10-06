@@ -1,0 +1,44 @@
+Project Hero v0.15.2 -- The Sentinel Purge, Stark Glasses, Robotic Suit-Up, New Iron Man Models
+
+🤖 NEW EVENT: THE SENTINEL PURGE
+The Sentinels have come to hunt the superpowered. Mutants are targeted first, then superhumans (Hero-Tier powers and Symbiotes), then ordinary players.
+- "MUTANT DETECTED": a 10 second countdown, a purple-tinted sky, scan rings around every fighter, then four waves of robots dropping out of the sky, ending in a boss fight.
+- Sentinel Drone: a small flying scout that circles above you and fires a red laser (16 HP).
+- Sentinel: a 3.5-block purple-and-magenta robot that flies in on boot thrusters. Chest beam, aimed palm blasts, and a grab that lifts you overhead and slams you down. Some carry drones and release them mid-fight (90 HP, heavy armour).
+- Master Mold (boss): an 11-block Sentinel factory. It lands with a shockwave, stomps, sweeps, fires a long tracking Purge Beam from its face and builds new Sentinels from its chest hatch. Two rage phases at 66% and 33%, with voice lines. 1400 HP, plus 400 for each extra fighter (up to 4000).
+- Everyone within 48 blocks joins the fight; anyone who walks in later joins too. If every fighter is down at once, the purge wins.
+- How it starts:
+- Naturally: at night, from day 3 onwards, a small chance each minute if you have powers (mutants twice as likely). 60 minute cooldown. Never on Peaceful.
+- Trask Signal: craftable item that calls a purge (eye of ender / 2 redstone blocks + sculk sensor / 3 iron blocks). 8 Sentinel Circuitry around a redstone block also makes one.
+- Command: /projecthero raid start sentinel_purge.
+- Rewards: a Master Mold Core, Sentinel Circuitry, diamonds, emeralds, gold, golden apples, an enchanted book, a chance of netherite scrap and a rare Mutagenic Serum, plus 600 XP.
+- Settings in config/projecthero_sentinel.json. Spawn eggs for all three robots. New guidebook chapter.
+
+🕶️ STARK GLASSES & STARK GEAR
+- New item: Stark Glasses (G _ G / red glass pane, basic circuit, red glass pane). Gold frames with red lenses, drawn on your face (hidden under an Iron Man helmet).
+- They go in a new Stark Gear slot, not your helmet slot. Press Shift + N to open the Stark Gear screen and put them on or take them off. Right-clicking the glasses also puts them on.
+- The Stark Gear screen shows your status: suit calling online/offline, night vision, and Protocol Phoenix armed / on cooldown.
+- While you wear them you get night vision.
+- Calling armour now needs the glasses: calling from a Suit Platform, the quick call, the Mark 7 orbital pod and Remote Pilot from a platform only work with them on. Without them you get "You need your Stark Glasses to call your armour." Putting on a suit you're carrying (C), the Mark 5 suitcase and send-home still work without them.
+- Protocol Phoenix only works while you wear the glasses, and only recalls the Mark 7 (and later suits).
+- The glasses survive relog and drop when you die (unless keepInventory is on).
+
+🦾 SUIT PLATFORM: ROBOTIC SUIT-UP
+- Pressing Deploy on a Suit Platform now runs an 8 second suit-up by two robotic arms.
+- You step in front of the platform and hold your arms out; the arms unfold, pick each piece off the rack and fit it onto you: boots, legs, chestplate, then the helmet, with clamp sounds and sparks. Then the arms fold away and the faceplate closes.
+- You're held still during the suit-up; sneak to cancel it. Nothing is ever lost or duplicated if you cancel, log out, die or the platform breaks.
+
+🎨 IRON MAN MODELS
+- The Mark 5, Mark 6 and Mark 7 now use brand-new models.
+- Every mark (1 to 7) now looks exactly like its model: the extra pieces that were added on top (the yellow panel and bands on the back of the Mark 3 and 4, shoulder blocks, thigh plates, forearm bands and bulging boots) are gone.
+- First-person arms are now just the suit's own arms, with the palm glow and the Mark 5 blades as before.
+
+🔥 STARK FURNACE, SMELTER & SMOKER
+- All three have brand-new detailed 3D models in Stark style (gunmetal, brushed steel, red and gold trim, cyan arc-reactor lights):
+- Stark Furnace: a squat forge with a big round arc-heated hatch that glows orange-yellow when lit.
+- Stark Smelter: a tall heavy-framed crucible with a corner chimney, white-hot to cyan when lit.
+- Stark Smoker: a rounded chamber with a gold-slat grill and smoke stacks, amber when lit.
+
+📖 GUIDEBOOK
+- New Sentinel Purge chapter.
+- New Iron Man pages: Stark Glasses & Stark Gear, and Protocol Phoenix. The controls page mentions the glasses.
