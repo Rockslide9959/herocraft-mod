@@ -305,7 +305,7 @@ public final class IronManSuits {
 			// the Mark 7's kit (IronManMark6 G / X / V + the IronManMark7 Z laser); C is the Mark 8's own slot
 			.abilities(IronManAbilities.REPULSOR_BLAST, com.projecthero.mod.ironman.ability.IronManMark6.WEAPON, com.projecthero.mod.ironman.ability.IronManMark6.FLARES,
 					com.projecthero.mod.ironman.ability.IronManMark7.LASER, com.projecthero.mod.ironman.ability.IronManMark6.WHEEL,
-					IronManAbilities.SUIT_TOGGLE) // TODO v0.15.9 merge: IronManMark8.SENTRY
+					com.projecthero.mod.ironman.ability.IronManMark8.SENTRY) // v0.15.9: C = Sentry Mode
 			.suitUp(SuitUpType.MECHANICAL_REMOTE)
 			.summon(SummonType.FLYING_SET)
 			.blueprint(IronManItems.MARK_8_BLUEPRINT)

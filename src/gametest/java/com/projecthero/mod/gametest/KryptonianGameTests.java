@@ -297,8 +297,9 @@ public class KryptonianGameTests implements FabricGameTest {
 				.thenExecute(() -> {
 					int ore = count(helper, target, KryptonianItems.KRYPTONITE_ORE);
 					helper.assertTrue(ore >= 3, "kryptonite ore around the core, got " + ore);
-					helper.assertTrue(helper.getLevel().getEntity(pending.entity()) == null, "the fireball is gone");
 				})
+				// v0.15.9: the fireball may be discarded a tick after the core lands -- wait for it rather than racing it
+				.thenWaitUntil(() -> helper.assertTrue(helper.getLevel().getEntity(pending.entity()) == null, "the fireball is gone"))
 				.thenSucceed();
 	}
 

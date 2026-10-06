@@ -25,6 +25,7 @@ import com.projecthero.mod.ironman.gear.StarkGearMenu;
 import com.projecthero.mod.ironman.item.IronManArmorItem;
 import com.projecthero.mod.ironman.item.IronManItems;
 import com.projecthero.mod.ironman.suit.IronManBraceletSuitUp;
+import com.projecthero.mod.ironman.suit.IronManChunkTickets;
 import com.projecthero.mod.ironman.suit.IronManSuitCall;
 import com.projecthero.mod.ironman.suit.IronManSuitFx;
 import com.projecthero.mod.ironman.suit.IronManSuitUpManager;
@@ -427,7 +428,9 @@ public class ColantotteBraceletsV0154GameTests implements FabricGameTest {
 				forced.add(cp);
 			}
 		}
-		final int callAt = 5;
+		// v0.15.9: call only once both racks really tick entities (a forced chunk takes a variable number of ticks to
+		// get there) -- a fixed tick made this test depend on where it landed in the batch grid.
+		int[] callAtBox = { -1 };
 		IronManDeliveryPodEntity[] pods = new IronManDeliveryPodEntity[2];
 		int[] arrived = { -1, -1 };
 		int[] clock = { 0 };
@@ -436,9 +439,16 @@ public class ColantotteBraceletsV0154GameTests implements FabricGameTest {
 		net.minecraft.world.phys.Vec3 rackAt = net.minecraft.world.phys.Vec3.atCenterOf(fastRack.getBlockPos());
 		h.onEachTick(() -> {
 			clock[0]++;
-			if (clock[0] < callAt) {
-				return;
+			if (callAtBox[0] < 0) {
+				if (clock[0] >= 5 && IronManChunkTickets.entityTicking(h.getLevel(), fastRack.getBlockPos())
+						&& IronManChunkTickets.entityTicking(h.getLevel(), slowRack.getBlockPos())) {
+					callAtBox[0] = clock[0];
+				} else {
+					h.assertTrue(clock[0] < 150, "the racks chunks never started ticking entities");
+					return;
+				}
 			}
+			final int callAt = callAtBox[0];
 			if (clock[0] == callAt) {
 				for (ServerPlayer p : List.of(fastP, slowP)) {
 					p.setOnGround(true);

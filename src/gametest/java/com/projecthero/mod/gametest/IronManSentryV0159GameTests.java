@@ -40,7 +40,7 @@ import net.minecraft.world.phys.Vec3;
  * energy and it stops at zero; and it saves / loads everything it carries.
  */
 public class IronManSentryV0159GameTests implements FabricGameTest {
-	private static final String SUIT = "mark_vii";
+	private static final String SUIT = "mark_8"; // v0.15.9 merge: the real Mark 8 (developed on the Mark 7)
 	private static final ArmorItem.Type[] ALL = {
 			ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS, ArmorItem.Type.BOOTS };
 
@@ -67,7 +67,8 @@ public class IronManSentryV0159GameTests implements FabricGameTest {
 	}
 
 	private static IronManSentryEntity deploy(GameTestHelper helper, ServerPlayer p) {
-		IronManMark8.trigger(p, IronManSuits.byId(SUIT), IronManMark8.SENTRY, true);
+		helper.assertTrue(IronManMark8.SENTRY.equals(IronManSuits.byId(SUIT).abilityInSlot(6)), "the Mark 8 has Sentry Mode on C");
+		IronManMark8.trigger(p, IronManSuits.byId(SUIT), IronManSuits.byId(SUIT).abilityInSlot(6), true);
 		List<IronManSentryEntity> found = helper.getLevel().getEntities(IronManEntityTypes.SENTRY,
 				new AABB(p.position(), p.position()).inflate(3), s -> p.getUUID().equals(s.ownerId()));
 		helper.assertTrue(found.size() == 1, "C in the full suit deploys exactly one sentry (" + found.size() + ")");
