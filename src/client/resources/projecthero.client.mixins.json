@@ -27,6 +27,8 @@
 		"ItemInHandLayerMixin",
 		"ItemInHandLayerCloakMixin",
 		"ItemInHandLayerSuitcaseMixin",
+		"ItemInHandLayerCaneMixin",
+		"LivingEntityCaneSwingMixin",
 		"ItemInHandRendererTitanMixin",
 		"ItemInHandRendererClawsMixin",
 		"ItemInHandRendererTruncheonMixin",

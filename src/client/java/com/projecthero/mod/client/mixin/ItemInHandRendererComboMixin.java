@@ -40,6 +40,11 @@ public abstract class ItemInHandRendererComboMixin {
 		this.projecthero$comboWeight = WeaponCombo.weaponOf(player.getMainHandItem()) != WeaponComboState.WEAPON_NONE
 				? WeaponComboPose.firstPersonWeight(player, partialTick)
 				: 0f;
+		// v0.14.31: a Kingpin's Cane strike holds vanilla's swing off the same way
+		if (com.projecthero.mod.syndicate.KingpinCaneSwing.wielding(player)) {
+			this.projecthero$comboWeight = Math.max(this.projecthero$comboWeight,
+					com.projecthero.mod.client.syndicate.KingpinCanePose.firstPersonWeight(player, partialTick));
+		}
 	}
 
 	/** The main hand is the first {@code renderArmWithItem} call; argument 4 is its swing progress. */
@@ -59,6 +64,11 @@ public abstract class ItemInHandRendererComboMixin {
 	private void projecthero$comboSwing(AbstractClientPlayer player, float partialTick, float pitch, InteractionHand hand,
 			float swingProgress, ItemStack stack, float equipProgress, PoseStack pose, MultiBufferSource buffers, int light,
 			CallbackInfo ci) {
+		if (hand == InteractionHand.MAIN_HAND && com.projecthero.mod.syndicate.KingpinCaneSwing.isCane(stack)) {
+			// v0.14.31: the cane's chop / swipe / thrust
+			com.projecthero.mod.client.syndicate.KingpinCanePose.firstPerson(player, player.getMainArm(), partialTick, pose);
+			return;
+		}
 		if (hand != InteractionHand.MAIN_HAND || WeaponCombo.weaponOf(stack) == WeaponComboState.WEAPON_NONE) {
 			return;
 		}

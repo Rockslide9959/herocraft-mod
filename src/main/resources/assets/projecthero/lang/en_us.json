@@ -3681,6 +3681,7 @@
   "item.projecthero.villain_dossier.read": "You've read the dossier. A supervillain now knows your name - the next village you enter will be raided.",
   "item.projecthero.kingpin_cane": "Kingpin's Cane",
   "item.projecthero.kingpin_cane.tooltip": "Heavy and slow. Use to fire the barrel hidden in the shaft (7 damage, every 2.5 s).",
+  "item.projecthero.kingpin_cane.tooltip.strikes": "Its swings chain: an overhead strike, a side swipe, then a thrust.",
   "item.projecthero.syndicate_thug_spawn_egg": "Syndicate Thug Spawn Egg",
   "item.projecthero.syndicate_gunman_spawn_egg": "Syndicate Gunman Spawn Egg",
   "item.projecthero.syndicate_enforcer_spawn_egg": "Syndicate Enforcer Spawn Egg",

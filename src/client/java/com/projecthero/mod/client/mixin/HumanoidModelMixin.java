@@ -58,6 +58,20 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 	public ModelPart leftLeg;
 
 	/**
+	 * v0.14.31: the Kingpin's Cane strikes (overhead strike / side swipe / thrust) over vanilla's arm swing, for players
+	 * and any non-Syndicate mob holding the cane ({@code SyndicateModel} plays them for the Kingpin itself, under his own
+	 * move poses). Declared first so every power pose injected after it wins over a strike.
+	 */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$kingpinCaneStrike(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (!(entity instanceof com.projecthero.mod.syndicate.entity.SyndicateCriminal)
+				&& com.projecthero.mod.syndicate.KingpinCaneSwing.wielding(entity)) {
+			com.projecthero.mod.client.syndicate.KingpinCanePose.apply(entity, (HumanoidModel<?>) (Object) this);
+		}
+	}
+
+	/**
 	 * Web-swing pose (v0.6.17): the arm that fired this swing's web is thrown up toward the line, so a
 	 * swinging Spider-Man looks like he just shot a web into the sky and is hanging from it. The hand
 	 * alternates each swing ({@code SpiderManState.swingHandRight}), matching the web line's origin in

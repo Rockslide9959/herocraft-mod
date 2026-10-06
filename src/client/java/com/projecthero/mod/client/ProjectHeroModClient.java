@@ -121,6 +121,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.flash.FlashClient.initialize(); // v0.14.11
 		com.projecthero.mod.client.horde.HordeClient.initialize(); // v0.14.12
 		com.projecthero.mod.client.syndicate.SyndicateRenderer.initialize(); // v0.14.25: Syndicate Bust crooks + the Kingpin
+		com.projecthero.mod.client.syndicate.KingpinCaneClient.initialize(); // v0.14.31: 3D Kingpin's Cane, flat GUI icon, cane strikes
 		com.projecthero.mod.client.carnage.CarnageRenderer.initialize(); // v0.14.25: Carnage, his brood, his meteor
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SymbioteHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternHud::render);

@@ -68,5 +68,7 @@ public class KingpinCaneItem extends Item {
 	@Override
 	public void appendHoverText(ItemStack stack, TooltipContext ctx, List<Component> tooltip, TooltipFlag flag) {
 		tooltip.add(Component.translatable("item.projecthero.kingpin_cane.tooltip").withStyle(ChatFormatting.GRAY));
+		// v0.14.31: the swing animations (KingpinCaneSwing) -- cosmetic, the damage is unchanged
+		tooltip.add(Component.translatable("item.projecthero.kingpin_cane.tooltip.strikes").withStyle(ChatFormatting.DARK_GRAY));
 	}
 }

@@ -1,5 +1,6 @@
 package com.projecthero.mod.client.syndicate;
 
+import com.projecthero.mod.syndicate.KingpinCaneSwing;
 import com.projecthero.mod.syndicate.entity.KingpinEntity;
 import com.projecthero.mod.syndicate.entity.SyndicateCriminal;
 import com.projecthero.mod.syndicate.entity.SyndicateEnforcer;
@@ -96,6 +97,11 @@ public class SyndicateModel extends PlayerModel<SyndicateCriminal> {
 				default -> {
 				}
 			}
+		}
+		// v0.14.31: the Kingpin's cane blows play the cane strikes (overhead strike / side swipe / thrust); his move
+		// poses above own the body while a move runs, and he never swings the cane during one
+		if (action == SyndicateCriminal.ACTION_NONE && KingpinCaneSwing.wielding(e)) {
+			KingpinCanePose.apply(e, this);
 		}
 		leftSleeve.copyFrom(leftArm);
 		rightSleeve.copyFrom(rightArm);
