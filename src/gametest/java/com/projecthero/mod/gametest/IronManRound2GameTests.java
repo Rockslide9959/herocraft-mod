@@ -168,7 +168,8 @@ public class IronManRound2GameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
+	// v0.15.3: own batch -- a 30-block cone also sees neighbouring tests' hostiles (flaked once on a husk next door)
+	@GameTest(template = EMPTY_STRUCTURE, batch = "ironman_homing_cone")
 	public void homingTargetFollowsHeroTargets(GameTestHelper helper) {
 		ServerPlayer p = suited(helper, "mark_vii");
 		// a passive cow inside the cone but off the crosshair is not a threat (isHostile) -> never auto-picked
