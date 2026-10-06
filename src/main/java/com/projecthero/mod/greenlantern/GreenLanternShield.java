@@ -32,8 +32,6 @@ import org.joml.Vector3f;
 public final class GreenLanternShield {
 	/** Lantern-Corps green, matching {@code GreenLanternHud}/{@code GreenLanternCombat}'s green (0x35F075). */
 	private static final ParticleOptions GREEN_DUST = new DustParticleOptions(new Vector3f(0.208f, 0.941f, 0.459f), 1.6f);
-	/** How often (in ticks) the dome's boundary outline is re-emitted while it is up. */
-	private static final int DOME_OUTLINE_INTERVAL_TICKS = 15;
 
 	private static final String SHIELD_COOLDOWN = "directional_shield";
 	private static final String DOME_COOLDOWN = "protective_dome";
@@ -139,34 +137,9 @@ public final class GreenLanternShield {
 		player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, true);
 		DOME_DEPLOY_TICK.put(player.getUUID(), player.level().getGameTime());
 		ServerLevel level = player.serverLevel();
-		emitDomeOutline(player, level, 0.0);
+		// v0.15.1: no particle outline -- the client draws the dome as a hard-light globe (GreenLanternDomeRenderer)
 		level.playSound(null, player.getX(), player.getY(), player.getZ(),
 				SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 0.6f, 1.6f);
-	}
-
-	/**
-	 * A wireframe sphere of green particles at the dome's boundary -- three perpendicular great circles
-	 * (one per axis plane), which reads as a hollow globe outline rather than a solid burst. Called once
-	 * on deploy and then re-emitted every {@link #DOME_OUTLINE_INTERVAL_TICKS} while the dome is up (see
-	 * {@link #tickDomeUpkeep}) so the boundary stays visibly marked instead of a one-shot puff that
-	 * immediately disperses (v0.11.2). v0.11.7: draws at {@code radius} (the live, possibly still-growing
-	 * value from {@link #currentDomeRadius}) rather than the fixed max, and uses more points per ring
-	 * ("add more particles to the dome to show the outline of it", explicit user request).
-	 */
-	private static void emitDomeOutline(ServerPlayer player, ServerLevel level, double radius) {
-		double r = Math.max(0.3, radius);
-		double cx = player.getX();
-		double cy = player.getY() + 1.0;
-		double cz = player.getZ();
-		int points = 24;
-		for (int i = 0; i < points; i++) {
-			double a = (Math.PI * 2 * i) / points;
-			double cos = Math.cos(a) * r;
-			double sin = Math.sin(a) * r;
-			level.sendParticles(GREEN_DUST, cx + cos, cy + sin, cz, 1, 0, 0, 0, 0.0);
-			level.sendParticles(GREEN_DUST, cx + cos, cy, cz + sin, 1, 0, 0, 0, 0.0);
-			level.sendParticles(GREEN_DUST, cx, cy + cos, cz + sin, 1, 0, 0, 0, 0.0);
-		}
 	}
 
 	/**
@@ -182,9 +155,6 @@ public final class GreenLanternShield {
 			return;
 		}
 		double radius = currentDomeRadius(player);
-		if (player.tickCount % DOME_OUTLINE_INTERVAL_TICKS == 0) {
-			emitDomeOutline(player, player.serverLevel(), radius);
-		}
 		pushOutNonSquad(player, radius);
 		if (!GreenLanternEnergy.drainTick(player, GreenLanternConfig.DOME_UPKEEP_PER_SEC / 20f)) {
 			endBarrier(player, true);
