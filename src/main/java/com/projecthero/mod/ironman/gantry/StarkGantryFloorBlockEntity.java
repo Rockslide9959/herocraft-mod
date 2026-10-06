@@ -58,6 +58,30 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 	/** Boots, legs, chest, helmet (rack slots: 0 HEAD, 1 CHEST, 2 LEGS, 3 FEET -- the Suit Platform's layout). */
 	static final int[] ORDER = { 3, 2, 1, 0 };
 
+	/**
+	 * v0.15.5, CLIENT side only: the running sequence each player entity id is standing in (filled from the synced
+	 * update tag), so the armour renderer can draw a suit part-built and the pose can read the plan. Cleared on leaving
+	 * a world ({@link #clearClient}).
+	 */
+	private static final java.util.Map<Integer, StarkGantryFloorBlockEntity> CLIENT_RUNNING = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/** CLIENT: the running gantry sequence the entity {@code entityId} stands in, or null. */
+	public static StarkGantryFloorBlockEntity clientSequenceOf(Level level, int entityId) {
+		StarkGantryFloorBlockEntity be = CLIENT_RUNNING.get(entityId);
+		if (be == null) {
+			return null;
+		}
+		if (be.isRemoved() || be.getLevel() != level || !be.running() || be.playerEntity != entityId) {
+			CLIENT_RUNNING.remove(entityId, be);
+			return null;
+		}
+		return be;
+	}
+
+	public static void clearClient() {
+		CLIENT_RUNNING.clear();
+	}
+
 	private final NonNullList<ItemStack> buffer = NonNullList.withSize(4, ItemStack.EMPTY);
 	/** The Suit Platform the suit came from (putting on) / goes to (taking off). Saved with the buffer. */
 	private BlockPos platformPos;
@@ -72,7 +96,6 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 	private String suit = "";
 	private int[] slots = new int[0];
 	private int doneMask;
-	private boolean openedFaceplate;
 
 	public StarkGantryFloorBlockEntity(BlockPos pos, BlockState state) {
 		super(IronManBlocks.GANTRY_FLOOR_BE, pos, state);
@@ -87,6 +110,15 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 	public float yaw() { return yaw; }
 	public int[] slots() { return slots; }
 	public String suit() { return suit; }
+	/** v0.15.5: the stage plan of the running sequence (which parts go on / come off, and when). */
+	public GantryTimeline.Plan plan() { return GantryTimeline.plan(slots); }
+
+	/** v0.15.5: the timetable frame this sequence shows right now (putting on: ticks in; taking off: run backwards). */
+	public float frameAt(float partialTick) {
+		GantryTimeline.Plan plan = plan();
+		float t = level == null ? 0f : Mth.clamp(level.getGameTime() + partialTick - start, 0f, plan.total());
+		return GantryTimeline.frame(mode == MODE_EQUIP, t, plan);
+	}
 	public BlockPos platformPos() { return platformPos; }
 	public ItemStack buffered(int rackSlot) { return buffer.get(rackSlot); }
 	public boolean bufferEmpty() { return buffer.stream().allMatch(ItemStack::isEmpty); }
@@ -186,6 +218,11 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		if (com.projecthero.mod.ironman.IronManFlight.isFlying(player)) {
 			com.projecthero.mod.ironman.IronManFlight.setFlying(player, false);
 		}
+		if (IronManFaceplate.isOpen(player) && order.contains(0)) {
+			// v0.15.5: the faceplate is the first part the arms take off -- it shuts first so they can lift it away
+			player.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false);
+			IronManSuitFx.faceplateMoved(player);
+		}
 		begin(player, MODE_UNEQUIP, suitId, order);
 	}
 
@@ -199,13 +236,15 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		suit = suitId;
 		slots = order.stream().mapToInt(Integer::intValue).toArray();
 		doneMask = 0;
-		openedFaceplate = false;
 		yaw = Direction.fromYRot(player.getYRot()).toYRot();
+		GantryTimeline.Plan plan = plan();
 
 		// onto the middle of the lift, facing along the floor's grid
 		player.stopRiding();
 		Vec3 at = standAt();
-		player.teleportTo(sl, at.x, at.y, at.z, yaw, Mth.clamp(player.getXRot(), -10f, 25f));
+		// v0.15.5: the camera swings round to watch from the front (GantryClient) -- a slight upward look puts it just above
+		// the wearer's eyes, looking down over the whole body
+		player.teleportTo(sl, at.x, at.y, at.z, yaw, -12f);
 		player.setDeltaMovement(Vec3.ZERO);
 		player.fallDistance = 0f;
 		lockFacing(player, true);
@@ -216,13 +255,13 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		var s = TonyStark.state(player);
 		s.transitionSuit = suitId;
 		s.transitionUp = newMode == MODE_EQUIP;
-		s.transitionTotal = GantryTimeline.TOTAL + 2;
+		s.transitionTotal = plan.total() + 2;
 		s.transitionTicks = s.transitionTotal;
 		s.transitionMask = 0;
 		s.transitionReleaseMask = 0;
 		s.transitionPlan = 0;
 		IronManSuitFx.startPose(player, newMode == MODE_EQUIP ? IronManSuitFx.POSE_PLATFORM : IronManSuitFx.POSE_PLATFORM_OFF,
-				GantryTimeline.TOTAL, IronManSuitFx.STYLE_PLATES, Math.max(0, slots.length - 1));
+				plan.total(), IronManSuitFx.STYLE_PLATES, 0);
 		IronManSounds.play(player, IronManSounds.SERVO, 1.0f, 0.7f);
 		if (newMode == MODE_EQUIP) {
 			IronManSounds.play(player, IronManSounds.HUD_ON, 0.6f, 0.9f);
@@ -262,7 +301,7 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		} else {
 			tickUnequip(sl, player, t);
 		}
-		if (t >= GantryTimeline.TOTAL) {
+		if (t >= plan().total()) {
 			end(player);
 		}
 	}
@@ -286,106 +325,157 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		double dz = player.getZ() - at.z;
 		if (dx * dx + dz * dz > 0.36) {
 			// drifted (lag, a push): put them back on the lift at its current height
-			float f = GantryTimeline.frame(mode == MODE_EQUIP, t);
-			player.teleportTo(sl, at.x, at.y + GantryTimeline.lift(f), at.z, yaw, player.getXRot());
+			GantryTimeline.Plan plan = plan();
+			float f = GantryTimeline.frame(mode == MODE_EQUIP, t, plan);
+			player.teleportTo(sl, at.x, at.y + GantryTimeline.lift(f, plan), at.z, yaw, player.getXRot());
 			player.setDeltaMovement(Vec3.ZERO);
 		}
 	}
 
 	/** Pistons, hatches and servos -- the same beats on and off (the timetable is symmetric). */
 	private void tickSounds(ServerLevel sl, int t) {
-		if (t == GantryTimeline.HATCH_FROM || t == GantryTimeline.TOTAL - GantryTimeline.HATCH_TO) {
+		int total = plan().total();
+		if (t == GantryTimeline.HATCH_FROM || t == total - GantryTimeline.HATCH_TO) {
 			sl.playSound(null, worldPosition, SoundEvents.PISTON_EXTEND, SoundSource.BLOCKS, 0.6f, 1.25f);
 		}
-		if (t == GantryTimeline.HATCH_TO || t == GantryTimeline.TOTAL - GantryTimeline.HATCH_FROM) {
+		if (t == GantryTimeline.HATCH_TO || t == total - GantryTimeline.HATCH_FROM) {
 			sl.playSound(null, worldPosition, SoundEvents.PISTON_CONTRACT, SoundSource.BLOCKS, 0.6f, 1.1f);
 		}
-		if (t == GantryTimeline.RISE_FROM || t == GantryTimeline.TOTAL - GantryTimeline.RISE_TO) {
+		if (t == GantryTimeline.RISE_FROM || t == total - GantryTimeline.RISE_TO) {
 			sl.playSound(null, worldPosition, IronManSounds.SERVO, SoundSource.BLOCKS, 0.9f, 0.75f);
 		}
-		if (t == GantryTimeline.TOTAL - 1) {
+		if (t == total - 1) {
 			sl.playSound(null, worldPosition, SoundEvents.PISTON_CONTRACT, SoundSource.BLOCKS, 0.7f, 0.7f);
 		}
 	}
 
-	/** One server tick of putting the suit on: each piece floor -> armour slot in exactly one tick. */
+	/**
+	 * One server tick of putting the suit on (v0.15.5: part by part). Each piece's real stack goes floor -> armour slot in
+	 * exactly one tick, at the fit of its first carried part; every later part of it is only revealed on the client.
+	 */
 	private void tickEquip(ServerLevel sl, ServerPlayer player, int t) {
-		int n = slots.length;
-		for (int i = 0; i < n; i++) {
-			int idx = slots[i];
-			int bit = 1 << idx;
-			if (t == GantryTimeline.pieceStart(i, n)) {
-				IronManSounds.play(player, IronManSounds.SERVO, 0.7f, 1.0f + 0.08f * i);
+		GantryTimeline.Plan plan = plan();
+		for (int i = 0; i < plan.count(); i++) {
+			int stage = plan.stage(i);
+			if (t == plan.begin(i)) {
+				IronManSounds.play(player, IronManSounds.SERVO, 0.6f, 0.95f + 0.04f * i);
 			}
-			if (t == GantryTimeline.liftTick(i, n)) {
+			if (!GantryTimeline.carried(stage)) {
+				tickWeld(sl, plan, i, t, true);
+				continue;
+			}
+			if (t == plan.liftTick(i)) {
 				IronManSounds.play(player, IronManSounds.CLAMP, 0.55f, 1.45f);
 				Vec3 e = elevatorTop();
 				sl.sendParticles(ParticleTypes.ELECTRIC_SPARK, e.x, e.y + 0.3, e.z, 5, 0.15, 0.1, 0.15, 0.04);
 			}
-			if ((doneMask & bit) == 0 && t >= GantryTimeline.equipTick(i, n)) {
-				doneMask |= bit;
-				ItemStack stack = buffer.get(idx);
-				if (stack.getItem() instanceof IronManArmorItem p && p.suitId().equals(suit)) {
-					// one tick: out of the floor and onto the body -- the real stack (the arm fitted it: no plate build-on)
-					buffer.set(idx, ItemStack.EMPTY);
-					if (!IronManSuitUpManager.receivePart(player, stack, false)) {
-						buffer.set(idx, stack); // that slot already holds this suit's piece: it stays in the floor
-					} else if (idx == 0) {
-						// the helmet goes on with the faceplate up -- it closes last, when the suit comes online
-						if (!IronManFaceplate.isOpen(player)) {
-							player.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, true);
-							openedFaceplate = true;
-						}
-						IronManSounds.play(player, IronManSounds.FACEPLATE_OPEN, 0.6f, 1.0f);
-					}
-					changed();
+			if (t == plan.fitTick(i)) {
+				int idx = GantryTimeline.pieceOf(stage);
+				if (stage == GantryTimeline.firstStage(idx)) {
+					fit(player, idx);
+				}
+				IronManSounds.play(player, IronManSounds.CLAMP, 0.6f, stage == GantryTimeline.FACEPLATE ? 0.9f : 1.2f);
+				if (stage == GantryTimeline.FACEPLATE) {
+					IronManSounds.play(player, IronManSounds.FACEPLATE_SEAL, 0.7f, 1.0f);
 				}
 			}
-			if (t == GantryTimeline.letGoTick(i, n)) {
+			if (t == plan.letGoTick(i)) {
 				IronManSounds.play(player, IronManSounds.RELEASE, 0.5f, 1.35f);
 			}
 		}
 	}
 
-	/** One server tick of taking the suit off: each piece armour slot -> floor in exactly one tick. */
+	/** The real stack of rack slot {@code idx}: out of the floor and onto the body, in one tick. */
+	private void fit(ServerPlayer player, int idx) {
+		int bit = 1 << idx;
+		if ((doneMask & bit) != 0) {
+			return;
+		}
+		doneMask |= bit;
+		ItemStack stack = buffer.get(idx);
+		if (!(stack.getItem() instanceof IronManArmorItem p) || !p.suitId().equals(suit)) {
+			return;
+		}
+		buffer.set(idx, ItemStack.EMPTY);
+		if (!IronManSuitUpManager.receivePart(player, stack, false)) {
+			buffer.set(idx, stack); // that slot already holds this suit's piece: it stays in the floor
+		} else if (idx == 0 && IronManFaceplate.isOpen(player)) {
+			// the helmet goes on shut -- its faceplate is a separate part the arms bring last (hidden until then)
+			player.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false);
+		}
+		changed();
+	}
+
+	/** A self-building part: a welding hiss as it starts, crackles as the seam runs along it (either direction). */
+	private void tickWeld(ServerLevel sl, GantryTimeline.Plan plan, int i, int t, boolean on) {
+		int from = on ? plan.begin(i) : plan.total() - plan.begin(i) - plan.length(i);
+		int k = t - from;
+		if (k < 0 || k >= plan.length(i)) {
+			return;
+		}
+		if (k == 0) {
+			sl.playSound(null, worldPosition, SoundEvents.BLAZE_SHOOT, SoundSource.BLOCKS, 0.18f, 1.9f);
+		}
+		if (k % 4 == 1) {
+			sl.playSound(null, worldPosition, SoundEvents.REDSTONE_TORCH_BURNOUT, SoundSource.BLOCKS, 0.12f, 1.6f + 0.1f * (k % 3));
+		}
+	}
+
+	/**
+	 * One server tick of taking the suit off: the putting-on timetable backwards, part by part. Each piece's real stack
+	 * goes armour slot -> floor in exactly one tick, when its first part comes off (every later part of it has already
+	 * been taken apart on the client by then).
+	 */
 	private void tickUnequip(ServerLevel sl, ServerPlayer player, int t) {
-		int n = slots.length;
-		for (int i = n - 1; i >= 0; i--) {
-			int idx = slots[i];
-			int bit = 1 << idx;
-			EquipmentSlot slot = equipSlotOf(idx);
-			if (t == GantryTimeline.clampTick(i, n)) {
+		GantryTimeline.Plan plan = plan();
+		int total = plan.total();
+		for (int i = plan.count() - 1; i >= 0; i--) {
+			int stage = plan.stage(i);
+			if (!GantryTimeline.carried(stage)) {
+				tickWeld(sl, plan, i, t, false);
+				continue;
+			}
+			if (t == total - plan.letGoTick(i)) {
 				IronManSounds.play(player, IronManSounds.CLAMP, 0.55f, 1.25f);
-				if (idx == 0 && !IronManFaceplate.isOpen(player) && player.getItemBySlot(slot).getItem() instanceof IronManArmorItem) {
-					// the faceplate lifts before the helmet comes off
-					player.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, true);
-					IronManSuitFx.faceplateMoved(player);
+			}
+			if (t == total - plan.fitTick(i)) {
+				int idx = GantryTimeline.pieceOf(stage);
+				if (stage == GantryTimeline.firstStage(idx)) {
+					remove(player, idx);
+				} else {
+					IronManSounds.play(player, IronManSounds.RELEASE, 0.55f, 1.2f);
+				}
+				if (stage == GantryTimeline.FACEPLATE) {
 					IronManSounds.play(player, IronManSounds.FACEPLATE_OPEN, 0.6f, 1.0f);
-					openedFaceplate = true;
 				}
 			}
-			if ((doneMask & bit) == 0 && t >= GantryTimeline.removeTick(i, n)) {
-				doneMask |= bit;
-				ItemStack worn = player.getItemBySlot(slot);
-				if (worn.getItem() instanceof IronManArmorItem p && p.suitId().equals(suit) && buffer.get(idx).isEmpty()) {
-					// one tick: off the body and into the clamp -- the real stack, its charge stamped on
-					ItemStack copy = worn.copy();
-					IronManEnergy.stampStack(copy, IronManEnergy.energy(player, suit), IronManEnergy.integrity(player, suit));
-					player.setItemSlot(slot, ItemStack.EMPTY);
-					buffer.set(idx, copy);
-					IronManSounds.play(player, IronManSounds.RELEASE, 0.6f, 1.1f);
-					if (idx == 0) {
-						player.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false);
-						openedFaceplate = false;
-					}
-					changed();
-				}
-			}
-			if (t == GantryTimeline.stowTick(i, n)) {
+			if (t == total - plan.liftTick(i)) {
 				IronManSounds.play(player, IronManSounds.CLAMP, 0.5f, 0.85f);
 				Vec3 e = elevatorTop();
 				sl.sendParticles(ParticleTypes.ELECTRIC_SPARK, e.x, e.y + 0.3, e.z, 5, 0.15, 0.1, 0.15, 0.04);
 			}
+		}
+	}
+
+	/** The real stack of rack slot {@code idx}: off the body and into the clamp, its charge stamped on, in one tick. */
+	private void remove(ServerPlayer player, int idx) {
+		int bit = 1 << idx;
+		if ((doneMask & bit) != 0) {
+			return;
+		}
+		doneMask |= bit;
+		EquipmentSlot slot = equipSlotOf(idx);
+		ItemStack worn = player.getItemBySlot(slot);
+		if (worn.getItem() instanceof IronManArmorItem p && p.suitId().equals(suit) && buffer.get(idx).isEmpty()) {
+			ItemStack copy = worn.copy();
+			IronManEnergy.stampStack(copy, IronManEnergy.energy(player, suit), IronManEnergy.integrity(player, suit));
+			player.setItemSlot(slot, ItemStack.EMPTY);
+			buffer.set(idx, copy);
+			IronManSounds.play(player, IronManSounds.RELEASE, 0.6f, 1.1f);
+			if (idx == 0) {
+				player.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false);
+			}
+			changed();
 		}
 	}
 
@@ -399,15 +489,6 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 	private void end(ServerPlayer player) {
 		if (player != null) {
 			IronManSuitPlatformBlockEntity.setFrozen(player, false);
-			if (openedFaceplate && IronManFaceplate.isOpen(player)) {
-				boolean shut = mode == MODE_EQUIP ? !IronManArmor.wearingFullSuit(player, suit) : IronManArmor.hasHelmet(player, suit);
-				if (shut) {
-					// a partial suit / a cancelled sequence never gets the "online" beat -- shut the visor the gantry lifted
-					player.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false);
-					IronManSuitFx.faceplateMoved(player);
-					IronManSounds.play(player, IronManSounds.FACEPLATE_SEAL, 0.6f, 1.0f);
-				}
-			}
 			if (mode == MODE_EQUIP && doneMask != 0) {
 				StarkGantry.rememberOrigin(player, platformPos);
 			}
@@ -532,6 +613,9 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 	 */
 	@Override
 	public void setRemoved() {
+		if (level != null && level.isClientSide()) {
+			CLIENT_RUNNING.values().removeIf(be -> be == this);
+		}
 		if (mode != MODE_NONE && level instanceof ServerLevel sl && playerId != null) {
 			ServerPlayer player = sl.getServer().getPlayerList().getPlayer(playerId);
 			if (player != null) {
@@ -576,6 +660,10 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 			yaw = tag.getFloat("SeqYaw");
 			slots = tag.getIntArray("SeqSlots");
 			suit = tag.getString("SeqSuit");
+			CLIENT_RUNNING.values().removeIf(be -> be == this);
+			if (mode != MODE_NONE && playerEntity >= 0) {
+				CLIENT_RUNNING.put(playerEntity, this);
+			}
 		}
 	}
 

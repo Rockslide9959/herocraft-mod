@@ -3,37 +3,38 @@ package com.projecthero.mod.ironman.gantry;
 import com.projecthero.mod.ironman.suit.IronManSuitPoses;
 
 /**
- * v0.15.4: the timetable of a Stark Gantry suit-up -- a pure function of the frame (ticks since the sequence started),
- * so the server (which moves the real stacks), the client renderer (lift, hatches, arms, the piece in a clamp), the
- * wearer's pose and the gametests all read the same numbers.
+ * v0.15.4 (v0.15.5: staged build): the timetable of a Stark Gantry suit-up -- a pure function of the frame (ticks since
+ * the sequence started) and the {@link Plan} (which pieces the suit has), so the server (which moves the real stacks),
+ * the client renderer (lift, hatches, arms, the part in a clamp, the texel-by-texel build on the body), the wearer's pose
+ * and the gametests all read the same numbers.
  *
- * <p>A suit-up always takes {@link #TOTAL} ticks (10 s), however many pieces there are:
+ * <p>v0.15.5, explicit user request: the suit goes on in <b>parts</b>, not whole pieces ({@link #STAGES}):
  * <ol>
- *   <li>{@code 0 .. LEAD}: the centre lift raises the wearer {@link #LIFT} blocks, the hatches on the wearer's left,
- *       right and in front of them slide open, two arm masts telescope up out of the side hatches and the arms unfold;</li>
- *   <li>one equal window per piece (boots, leggings, chestplate, helmet), each:
- *     <ul>
- *       <li>{@code 0 .. ELEVATOR_UP}: the piece rides an elevator up out of the front hatch while the carrying arm
- *           reaches over it;</li>
- *       <li>{@code .. GRIP}: the jaws close on it;</li>
- *       <li>{@code GRIP .. FIT}: the arm lifts it off the elevator and carries it onto the body -- at {@code FIT} the
- *           real stack moves from the floor to the armour slot in one server tick (the elevator sinks back meanwhile);</li>
- *       <li>{@code FIT .. LET_GO}: both arms hold it while the clamps lock (sparks);</li>
- *       <li>{@code LET_GO .. 1}: the jaws open and the arm pulls back to its ready hover;</li>
- *     </ul></li>
- *   <li>{@code TOTAL - OUTRO .. TOTAL}: the lead-in in reverse -- the arms fold, sink into the floor, the hatches
- *       close and the lift lowers; then the faceplate closes and the suit comes online.</li>
+ *   <li>the top half of the chest (no jacket layer) is carried on, the bottom half builds itself down from it, then the
+ *       jacket layer builds on;</li>
+ *   <li>the right gauntlet is carried on (no sleeve layer), the rest of the arm builds itself up from it, then the sleeve
+ *       layer; the same for the left arm;</li>
+ *   <li>the boots are carried on (no pant-leg layer);</li>
+ *   <li>the top half of the leggings is carried on, the bottom half builds itself down, then the pant-leg layer builds on
+ *       (down the legs and over the boots);</li>
+ *   <li>the helmet is carried on without its faceplate, and the faceplate is carried on last.</li>
  * </ol>
- * The lead-in and the outro are mirror images ({@link #edge}), so taking a suit OFF is exactly this timetable played
- * backwards ({@link #frame}): the arms come up, take the helmet off first, lower each piece into the floor on the
- * elevator, and fold away.
+ * A <b>carry</b> stage is the robotic arm work of v0.15.4 (elevator up, jaws close, carried round onto the body, clamps
+ * lock, let go); a <b>build</b> stage has the part build itself on, texel by texel behind a hot seam (the arms stay back
+ * at their ready hover -- they only ever fit parts). Stages of pieces the suit lacks are left out. The lead-in (lift, hatches, arm masts) and the outro are
+ * mirror images ({@link #edge}), so taking a suit OFF is exactly this timetable played backwards ({@link #frame}).
+ *
+ * <p>The real armour stack of a piece moves floor -> slot at the fit of that piece's <b>first</b> carry stage (chest:
+ * the chest top; feet: the boots; legs: the leggings top; head: the helmet) -- the later stages of a piece only reveal
+ * more of what is already worn (the client hides the not-yet-built texels).
  */
 public final class GantryTimeline {
-	/** The whole sequence: 10 seconds. */
-	public static final int TOTAL = 200;
-	/** Lift + hatches + arms coming up, before the first piece (and the same, reversed, after the last). */
+	/** Lift + hatches + arms coming up, before the first stage (and the same, reversed, after the last). */
 	public static final int LEAD = 40;
 	public static final int OUTRO = 40;
+	/** Ticks of an arm-carried part / a self-building part. */
+	public static final int CARRY = 30;
+	public static final int BUILD = 16;
 	/** How high the centre lift raises the wearer (blocks). */
 	public static final float LIFT = 0.5f;
 
@@ -45,7 +46,7 @@ public final class GantryTimeline {
 	public static final int UNFOLD_FROM = 30;
 	public static final int UNFOLD_TO = 40;
 
-	/** Fractions of a piece's window. */
+	/** Fractions of a carry stage. */
 	public static final float REACH = 0.22f;
 	public static final float ELEVATOR_UP = 0.28f;
 	public static final float GRIP_CLOSE = 0.26f;
@@ -54,102 +55,257 @@ public final class GantryTimeline {
 	public static final float SINK_TO = 0.70f;
 	public static final float FIT = 0.75f;
 	public static final float LET_GO = 0.88f;
+	/** A build stage's texels appear between these fractions of it (k = 0 .. 1 along the part). */
+	public static final float BUILD_FROM = 0.06f;
+	public static final float BUILD_TO = 0.90f;
 	/** Sneaking only cancels after this many ticks (a shift still held from the screen must not cancel it at once). */
 	public static final int CANCEL_GRACE = 10;
+
+	// ---------------- the stages ----------------
+
+	/** Rack slots (the Suit Platform's layout): 0 HEAD, 1 CHEST, 2 LEGS, 3 FEET. */
+	public static final int HEAD = 0;
+	public static final int CHEST = 1;
+	public static final int LEGS = 2;
+	public static final int FEET = 3;
+
+	public static final int TORSO_TOP = 0;
+	public static final int TORSO_BOTTOM = 1;
+	public static final int JACKET = 2;
+	public static final int R_GAUNTLET = 3;
+	public static final int R_ARM = 4;
+	public static final int R_SLEEVE = 5;
+	public static final int L_GAUNTLET = 6;
+	public static final int L_ARM = 7;
+	public static final int L_SLEEVE = 8;
+	public static final int BOOTS = 9;
+	public static final int THIGH_TOP = 10;
+	public static final int THIGH_BOTTOM = 11;
+	public static final int PANTS = 12;
+	public static final int HELMET = 13;
+	public static final int FACEPLATE = 14;
+	public static final int STAGES = 15;
+
+	/** Is stage s an arm carry (true) or a self-build (false)? */
+	private static final boolean[] CARRIED = { true, false, false, true, false, false, true, false, false, true, true, false,
+			false, true, true };
+	/** The piece (rack slot) each stage belongs to (the pant layer: the leggings; it also covers the boots). */
+	private static final int[] PIECE = { CHEST, CHEST, CHEST, CHEST, CHEST, CHEST, CHEST, CHEST, CHEST, FEET, LEGS, LEGS, LEGS,
+			HEAD, HEAD };
+	/** Which robotic arm carries a carried stage (true = the one on the wearer's right). */
+	private static final boolean[] RIGHT_ARM = { true, true, true, true, true, true, false, false, false, true, false, false,
+			false, true, false };
+
+	public static boolean carried(int stage) {
+		return CARRIED[stage];
+	}
+
+	public static int pieceOf(int stage) {
+		return PIECE[stage];
+	}
+
+	public static boolean rightArmCarries(int stage) {
+		return RIGHT_ARM[stage];
+	}
+
+	/** The stage that brings piece {@code rackSlot} onto the body -- the real stack moves at its fit. */
+	public static int firstStage(int rackSlot) {
+		return switch (rackSlot) {
+			case HEAD -> HELMET;
+			case CHEST -> TORSO_TOP;
+			case LEGS -> THIGH_TOP;
+			default -> BOOTS;
+		};
+	}
+
+	/** Bit mask of the rack slots in {@code slots}. */
+	public static int maskOf(int[] slots) {
+		int m = 0;
+		for (int s : slots) {
+			if (s >= 0 && s < 4) {
+				m |= 1 << s;
+			}
+		}
+		return m;
+	}
+
+	/** The stages of one sequence, each one's first frame, and the whole length. */
+	public static final class Plan {
+		private final int[] stages;
+		private final int[] begin;
+		private final int total;
+		private final int mask;
+
+		private Plan(int mask) {
+			this.mask = mask;
+			int n = 0;
+			int[] st = new int[STAGES];
+			int[] be = new int[STAGES];
+			int t = LEAD;
+			for (int s = 0; s < STAGES; s++) {
+				boolean has = (mask & (1 << PIECE[s])) != 0 || s == PANTS && (mask & (1 << FEET)) != 0;
+				if (!has) {
+					continue;
+				}
+				st[n] = s;
+				be[n] = t;
+				t += CARRIED[s] ? CARRY : BUILD;
+				n++;
+			}
+			stages = java.util.Arrays.copyOf(st, n);
+			begin = java.util.Arrays.copyOf(be, n);
+			total = t + OUTRO;
+		}
+
+		public int mask() {
+			return mask;
+		}
+
+		public int total() {
+			return total;
+		}
+
+		public int count() {
+			return stages.length;
+		}
+
+		public int stage(int i) {
+			return stages[i];
+		}
+
+		public int begin(int i) {
+			return begin[i];
+		}
+
+		public int length(int i) {
+			return CARRIED[stages[i]] ? CARRY : BUILD;
+		}
+
+		/** Index of stage {@code s} in this plan, or -1. */
+		public int indexOf(int s) {
+			for (int i = 0; i < stages.length; i++) {
+				if (stages[i] == s) {
+					return i;
+				}
+			}
+			return -1;
+		}
+
+		/** The plan entry frame {@code f} falls in, or -1 during the lead-in / outro. */
+		public int at(float f) {
+			if (stages.length == 0 || f < LEAD || f >= total - OUTRO) {
+				return -1;
+			}
+			for (int i = stages.length - 1; i >= 0; i--) {
+				if (f >= begin[i]) {
+					return i;
+				}
+			}
+			return -1;
+		}
+
+		/** How far through plan entry {@code i} frame {@code f} is (0..1, clamped). */
+		public float frac(float f, int i) {
+			return clamp((f - begin[i]) / (float) length(i));
+		}
+
+		/** Frame at which carried entry {@code i}'s jaws have closed and it leaves the elevator. */
+		public int liftTick(int i) {
+			return begin[i] + Math.round(length(i) * GRIP);
+		}
+
+		/** Frame at which carried entry {@code i} reaches the body. */
+		public int fitTick(int i) {
+			return begin[i] + Math.round(length(i) * FIT);
+		}
+
+		public int letGoTick(int i) {
+			return begin[i] + Math.round(length(i) * LET_GO);
+		}
+
+		/** Frame at which the real stack of {@code rackSlot} goes onto the body (-1 if the suit has no such piece). */
+		public int equipTick(int rackSlot) {
+			int i = indexOf(firstStage(rackSlot));
+			return i < 0 ? -1 : fitTick(i);
+		}
+
+		/** Taking the suit off: the tick at which piece {@code rackSlot} comes off the body. */
+		public int removeTick(int rackSlot) {
+			int e = equipTick(rackSlot);
+			return e < 0 ? -1 : total - e;
+		}
+
+		/**
+		 * The frame at which a texel of stage {@code s} at build position {@code k} (0..1 along the part) is on the body:
+		 * a carried part all at its fit, a built part spread over its window. {@code Float.NaN} if the plan lacks it.
+		 */
+		public float appear(int s, float k) {
+			int i = indexOf(s);
+			if (i < 0) {
+				return Float.NaN;
+			}
+			if (CARRIED[s]) {
+				return fitTick(i);
+			}
+			return begin[i] + length(i) * (BUILD_FROM + (BUILD_TO - BUILD_FROM) * clamp(k));
+		}
+	}
+
+	private static final Plan[] PLANS = new Plan[16];
+
+	public static Plan plan(int mask) {
+		mask &= 15;
+		Plan p = PLANS[mask];
+		if (p == null) {
+			p = new Plan(mask);
+			PLANS[mask] = p;
+		}
+		return p;
+	}
+
+	public static Plan plan(int[] slots) {
+		return plan(maskOf(slots));
+	}
+
+	/** A whole suit (all four pieces): 21 s. */
+	public static final Plan FULL = plan(15);
 
 	private GantryTimeline() {
 	}
 
 	/** The frame a sequence shows {@code t} ticks in: the timetable itself on, backwards off. */
-	public static float frame(boolean equip, float t) {
-		return equip ? t : TOTAL - t;
-	}
-
-	/** Ticks each piece gets: the 120 between the lead-in and the outro, shared evenly. */
-	public static int window(int pieces) {
-		return (TOTAL - LEAD - OUTRO) / Math.max(1, pieces);
-	}
-
-	public static int pieceStart(int i, int pieces) {
-		return LEAD + i * window(pieces);
-	}
-
-	/** Frame at which the i-th piece's jaws have closed and it leaves the elevator. */
-	public static int liftTick(int i, int pieces) {
-		return pieceStart(i, pieces) + Math.round(window(pieces) * GRIP);
-	}
-
-	/** Frame at which the i-th piece reaches the body: the real stack moves floor -> armour slot in this one tick. */
-	public static int equipTick(int i, int pieces) {
-		return pieceStart(i, pieces) + Math.round(window(pieces) * FIT);
-	}
-
-	/** Frame at which the i-th piece's clamp lets go. */
-	public static int letGoTick(int i, int pieces) {
-		return pieceStart(i, pieces) + Math.round(window(pieces) * LET_GO);
-	}
-
-	/** Taking the suit off: the tick at which the jaws close on (put-on-order) piece {@code i} on the body. */
-	public static int clampTick(int i, int pieces) {
-		return TOTAL - letGoTick(i, pieces);
-	}
-
-	/** Taking the suit off: the tick at which piece {@code i} comes off the body -- armour slot -> floor in one tick. */
-	public static int removeTick(int i, int pieces) {
-		return TOTAL - equipTick(i, pieces);
-	}
-
-	/** Taking the suit off: the tick at which piece {@code i} is set down on the elevator. */
-	public static int stowTick(int i, int pieces) {
-		return TOTAL - liftTick(i, pieces);
-	}
-
-	/** The piece window frame {@code f} falls in, or -1 during the lead-in / outro. */
-	public static int pieceAt(float f, int pieces) {
-		if (pieces <= 0 || f < LEAD || f >= TOTAL - OUTRO) {
-			return -1;
-		}
-		return Math.min(pieces - 1, (int) ((f - LEAD) / window(pieces)));
-	}
-
-	/** How far through its window piece {@code i} is at frame {@code f} (0..1, clamped). */
-	public static float pieceFrac(float f, int i, int pieces) {
-		return clamp((f - pieceStart(i, pieces)) / (float) window(pieces));
-	}
-
-	/** Is the right arm (true) or the left arm the one that carries piece {@code i}? */
-	public static boolean rightArmCarries(int i) {
-		return (i & 1) == 0;
+	public static float frame(boolean equip, float t, Plan plan) {
+		return equip ? t : plan.total() - t;
 	}
 
 	// ---------------- the lead-in / outro (mirror images) ----------------
 
 	/** Frames into the lead-in, or out of the end of the outro -- whichever edge {@code f} is nearer. */
-	public static float edge(float f) {
-		return Math.min(f, TOTAL - f);
+	public static float edge(float f, Plan plan) {
+		return Math.min(f, plan.total() - f);
 	}
 
 	/** Lift height above the floor top (blocks). */
-	public static float lift(float f) {
-		return LIFT * smooth(edge(f) / LIFT_TO);
+	public static float lift(float f, Plan plan) {
+		return LIFT * smooth(edge(f, plan) / LIFT_TO);
 	}
 
 	/** Hatch panels: 0 shut .. 1 fully slid open. */
-	public static float hatch(float f) {
-		return smooth((edge(f) - HATCH_FROM) / (float) (HATCH_TO - HATCH_FROM));
+	public static float hatch(float f, Plan plan) {
+		return smooth((edge(f, plan) - HATCH_FROM) / (float) (HATCH_TO - HATCH_FROM));
 	}
 
 	/** Arm masts: 0 sunk in the floor .. 1 fully up. */
-	public static float rise(float f) {
-		return smooth((edge(f) - RISE_FROM) / (float) (RISE_TO - RISE_FROM));
+	public static float rise(float f, Plan plan) {
+		return smooth((edge(f, plan) - RISE_FROM) / (float) (RISE_TO - RISE_FROM));
 	}
 
 	/** Arms: 0 folded upright .. 1 at the ready hover. */
-	public static float unfold(float f) {
-		return smooth((edge(f) - UNFOLD_FROM) / (float) (UNFOLD_TO - UNFOLD_FROM));
+	public static float unfold(float f, Plan plan) {
+		return smooth((edge(f, plan) - UNFOLD_FROM) / (float) (UNFOLD_TO - UNFOLD_FROM));
 	}
 
-	/** The front elevator during a piece window: 0 sunk .. 1 up at the floor (u = the window fraction). */
+	/** The front elevator during a carry stage: 0 sunk .. 1 up at the floor (u = the stage fraction). */
 	public static float elevator(float u) {
 		if (u < SINK_FROM) {
 			return smooth(u / ELEVATOR_UP);
@@ -157,37 +313,114 @@ public final class GantryTimeline {
 		return 1f - smooth((u - SINK_FROM) / (SINK_TO - SINK_FROM));
 	}
 
+	// ---------------- where each part is on the wearer ----------------
+
+	/** The wearer's arm pose during a sequence: tilted forward / out (radians). */
+	public static final float ARM_X = -0.18f;
+	public static final float ARM_Z = 0.62f;
+
+	/**
+	 * A point on the wearer's body for stage {@code s} at build position {@code k}, in the wearer's frame in blocks
+	 * (x: their right, y: up from the feet, z: forward is negative), on the part's front surface -- where a carried part
+	 * is gripped ({@code k} = 0.5) and where a build's leading edge is ({@code side} -1 / +1 picks the left / right
+	 * limb of a two-limb part).
+	 */
+	public static double[] partPoint(int s, float k, int side) {
+		k = clamp(k);
+		return switch (s) {
+			case TORSO_TOP -> px(0, 21, -2.6);
+			case TORSO_BOTTOM -> px(2.2 * side, 18 - 6 * k, -2.6);
+			case JACKET -> px(2.2 * side, 24 - 12 * k, -2.8);
+			case R_GAUNTLET -> arm(true, 7.5, -2.4);
+			case R_ARM -> arm(true, 5 - 7 * k, -2.4);
+			case R_SLEEVE -> arm(true, 10 - 12 * k, -2.6);
+			case L_GAUNTLET -> arm(false, 7.5, -2.4);
+			case L_ARM -> arm(false, 5 - 7 * k, -2.4);
+			case L_SLEEVE -> arm(false, 10 - 12 * k, -2.6);
+			case BOOTS -> px(0, 2.2, -2.6);
+			case THIGH_TOP -> px(0, 10, -2.6);
+			case THIGH_BOTTOM -> px(2 * side, 8 - 4 * k, -2.6);
+			case PANTS -> px(2 * side, 12 - 12 * k, -2.8);
+			case HELMET -> px(0, 28, -1);
+			default -> px(0, 28, -4.4); // the faceplate
+		};
+	}
+
+	/** Model pixels (x toward the wearer's right) -> blocks. */
+	private static double[] px(double x, double y, double z) {
+		return new double[] { x / 16.0, y / 16.0, z / 16.0 };
+	}
+
+	/** A point {@code d} model pixels down the arm from the shoulder pivot, in the gantry pose. */
+	private static double[] arm(boolean right, double d, double z) {
+		double out = 5 + d * Math.sin(ARM_Z);
+		double y = 22 - d * Math.cos(ARM_Z) * Math.cos(ARM_X);
+		double fwd = z - d * Math.sin(-ARM_X);
+		return px(right ? out : -out, y, fwd);
+	}
+
+	/** The lowest point of carried stage {@code s}'s part above the feet (blocks) -- so it stands on the elevator pad. */
+	public static double partBottom(int s) {
+		return switch (s) {
+			case TORSO_TOP -> 18.0 / 16.0;
+			case R_GAUNTLET, L_GAUNTLET -> 0.80;
+			case BOOTS -> 0.0;
+			case THIGH_TOP -> 8.0 / 16.0;
+			default -> 24.0 / 16.0;
+		};
+	}
+
 	// ---------------- the wearer's body pose ----------------
 
 	/**
-	 * The wearer's pose at frame {@code f} of a {@code pieces}-piece sequence, as {weight, key...} in
-	 * {@link IronManSuitPoses}' key layout: arms held down and out (clear of the arm masts at their sides), a slightly
-	 * wide stance, and the head following the work up the body. Eases in over 10 frames and out over the last 10.
+	 * The wearer's pose at frame {@code f}, as {weight, key...} in {@link IronManSuitPoses}' key layout: arms held down
+	 * and out (clear of the arm masts at their sides), a slightly wide stance, and the head following the work. Eases in
+	 * over 10 frames and out over the last 10.
 	 */
-	public static float[] pose(float f, int pieces) {
-		float w = smooth(f / 10f) * smooth((TOTAL - f) / 10f);
-		int n = Math.max(1, pieces);
-		int i = pieceAt(f, n);
-		float progress;
-		if (f < LEAD) {
-			progress = 0f;
-		} else if (i < 0) {
-			progress = 1f;
-		} else {
-			progress = clamp((i + smooth(pieceFrac(f, i, n) / GRIP)) / n);
-		}
-		float head = 0.55f - 0.65f * progress;
-		float arm = 0.62f;
+	public static float[] pose(float f, Plan plan) {
+		int total = plan.total();
+		float w = smooth(f / 10f) * smooth((total - f) / 10f);
 		float[] out = new float[1 + IronManSuitPoses.SIZE];
 		out[0] = w;
-		out[1 + IronManSuitPoses.RAX] = -0.18f;
-		out[1 + IronManSuitPoses.RAZ] = arm;
-		out[1 + IronManSuitPoses.LAX] = -0.18f;
-		out[1 + IronManSuitPoses.LAZ] = -arm;
+		out[1 + IronManSuitPoses.RAX] = ARM_X;
+		out[1 + IronManSuitPoses.RAZ] = ARM_Z;
+		out[1 + IronManSuitPoses.LAX] = ARM_X;
+		out[1 + IronManSuitPoses.LAZ] = -ARM_Z;
 		out[1 + IronManSuitPoses.RLZ] = 0.10f;
 		out[1 + IronManSuitPoses.LLZ] = -0.10f;
+		// the head looks down at the part being worked on (chest a little, the boots most), straight ahead for the helmet
+		float head = 0.25f;
+		int i = plan.at(f);
+		if (i >= 0) {
+			head = headFor(plan.stage(i));
+			if (i + 1 < plan.count()) {
+				float u = plan.frac(f, i);
+				head += (headFor(plan.stage(i + 1)) - head) * smooth((u - 0.8f) / 0.2f);
+			}
+		} else if (f >= total - OUTRO) {
+			head = -0.05f;
+		}
 		out[1 + IronManSuitPoses.HX] = head;
+		// a glance at the arm being built
+		if (i >= 0) {
+			int s = plan.stage(i);
+			if (s >= R_GAUNTLET && s <= R_SLEEVE) {
+				out[1 + IronManSuitPoses.HY] = 0.35f;
+			} else if (s >= L_GAUNTLET && s <= L_SLEEVE) {
+				out[1 + IronManSuitPoses.HY] = -0.35f;
+			}
+		}
 		return out;
+	}
+
+	private static float headFor(int s) {
+		return switch (s) {
+			case TORSO_TOP, TORSO_BOTTOM, JACKET -> 0.35f;
+			case R_GAUNTLET, R_ARM, R_SLEEVE, L_GAUNTLET, L_ARM, L_SLEEVE -> 0.30f;
+			case BOOTS, PANTS -> 0.55f;
+			case THIGH_TOP, THIGH_BOTTOM -> 0.45f;
+			default -> -0.05f;
+		};
 	}
 
 	public static float smooth(float x) {

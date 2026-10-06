@@ -284,6 +284,10 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 		// v0.14.21: an Iron Man piece builds on plate by plate as it locks on (and breaks away coming off)
 		if (getCurrentEntity() instanceof Player im && animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem ima) {
 			texture = com.projecthero.mod.client.ironman.IronManSuitReveal.texture(im, ima.armorSetId(), getCurrentSlot(), texture, partialTick);
+		} else if (animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem ima3
+				&& com.projecthero.mod.client.ironman.IronManGantryBuild.solo >= 0) {
+			// v0.15.5: the part a Stark Gantry arm is carrying -- only that part of the piece
+			texture = com.projecthero.mod.client.ironman.IronManGantryBuild.soloTexture(ima3.armorSetId(), getCurrentSlot(), texture);
 		} else if (animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem ima2
 				&& com.projecthero.mod.client.ironman.IronManSuitReveal.standBuild >= 0f) {
 			texture = com.projecthero.mod.client.ironman.IronManSuitReveal.textureAt(

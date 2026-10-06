@@ -48,6 +48,8 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 	private static final ArmorItem.Type[] TYPES = {
 			ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS, ArmorItem.Type.BOOTS };
 	private static final BlockPos CENTRE = new BlockPos(2, 1, 2);
+	/** Rack slot -> armour slot. */
+	private static final EquipmentSlot[] SLOT_OF = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
 	private static final BlockPos PLATFORM = new BlockPos(6, 2, 6);
 
 	// ------------------------------------------------------------------ helpers (also used by HeroPackGameTests)
@@ -274,8 +276,9 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 			h.assertTrue(listed.contains(near.getBlockPos()), "the platform beside the floor is listed");
 			h.assertTrue(listed.contains(in), "the one 19 blocks away is listed");
 			h.assertFalse(listed.contains(out), "the one 23 blocks away is not");
-			h.assertTrue(listed.get(0).equals(near.getBlockPos()), "nearest first");
-			StarkGantryMenuPayload.Entry e = menu.entries().get(0);
+			// v0.15.5: newest Mark first -- the Mark 7 19 blocks up outranks the Mark III beside the floor
+			h.assertTrue(listed.get(0).equals(in) && listed.get(1).equals(near.getBlockPos()), "highest Mark first");
+			StarkGantryMenuPayload.Entry e = menu.entries().get(1);
 			h.assertTrue(e.suitId().equals(SUIT) && e.mask() == 15 && e.distance() <= 4, "with the suit, its pieces and distance");
 			h.assertTrue(menu.wornSuit().isEmpty(), "unsuited: the pick list, not Remove armour");
 			h.assertFalse(StarkGantry.beginEquip(p, out), "the out-of-range suit can't be picked even if asked for");
@@ -292,7 +295,7 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 
 	// ------------------------------------------------------------------ putting a suit on
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 560)
 	public void equipFitsTheSuitPieceByPieceAndEmptiesThePlatform(GameTestHelper h) {
 		ServerPlayer p = stark(h);
 		floor(h, CENTRE);
@@ -310,29 +313,31 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 		h.assertTrue(anyTileOpen(h), "the floor opens");
 		h.assertTrue(IronManSuitFx.of(p).poseKind() == IronManSuitFx.POSE_PLATFORM, "in the gantry pose");
 		h.assertFalse(StarkGantry.beginEquip(p, h.absolutePos(PLATFORM)), "a second request is refused");
-		int[] order = g.slots();
-		h.assertTrue(order.length == 4 && order[0] == 3 && order[1] == 2 && order[2] == 1 && order[3] == 0,
-				"boots, legs, chest, helmet");
+		GantryTimeline.Plan plan = g.plan();
+		h.assertTrue(plan.mask() == 15 && plan.total() == GantryTimeline.FULL.total(), "a full suit plays the full plan");
 		h.onEachTick(() -> assertEachOnce(h, p, "every tick", rack));
-		EquipmentSlot[] slots = { EquipmentSlot.FEET, EquipmentSlot.LEGS, EquipmentSlot.CHEST, EquipmentSlot.HEAD };
+		// v0.15.5: the chest first (its top half is the first part on), then the boots, the leggings, the helmet
+		int[] order = { 1, 3, 2, 0 };
 		for (int i = 0; i < 4; i++) {
 			final int k = i;
-			int at = GantryTimeline.equipTick(i, 4);
+			final int idx = order[i];
+			int at = plan.equipTick(idx);
 			h.runAfterDelay(at - 2, () -> {
-				h.assertTrue(p.getItemBySlot(slots[k]).isEmpty(), slots[k].getName() + " not on before tick " + at);
+				h.assertTrue(p.getItemBySlot(SLOT_OF[idx]).isEmpty(), SLOT_OF[idx].getName() + " not on before tick " + at);
 				h.assertTrue(worn(p) == k, "pieces go on one at a time, got " + worn(p));
 				p.setYRot(-30f); // try to turn
 			});
 			h.runAfterDelay(at + 2, () -> {
-				h.assertTrue(isMarked(p.getItemBySlot(slots[k]), TYPES[3 - k]), slots[k].getName() + " on by tick " + (at + 2));
+				h.assertTrue(isMarked(p.getItemBySlot(SLOT_OF[idx]), TYPES[idx]), SLOT_OF[idx].getName() + " on by tick " + (at + 2));
 				h.assertTrue(Math.abs(Mth.wrapDegrees(p.getYRot() - 90f)) < 0.5f, "the heading is held");
+				h.assertFalse(IronManFaceplate.isOpen(p), "the helmet goes on shut (the faceplate is its own part)");
 			});
 		}
-		h.runAfterDelay(GantryTimeline.TOTAL / 2, () -> {
+		h.runAfterDelay(plan.total() / 2, () -> {
 			h.assertTrue(IronManDamage.suitUpImmune(p), "immune while the suit goes on");
 			h.assertFalse(IronManDamage.onAllowDamage(p, p.damageSources().generic(), 5f), "hits are cancelled");
 		});
-		h.runAfterDelay(GantryTimeline.TOTAL + 6, () -> {
+		h.runAfterDelay(plan.total() + 6, () -> {
 			assertReleased(h, p);
 			h.assertTrue(IronManArmor.wearingFullSuit(p, SUIT), "the full suit is on");
 			h.assertTrue(rack.isEmptyPlatform(), "the platform is empty");
@@ -346,7 +351,7 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 
 	// ------------------------------------------------------------------ taking it off
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 560)
 	public void unequipTakesTheSuitOffHelmetFirstAndRacksIt(GameTestHelper h) {
 		ServerPlayer p = suited(h);
 		floor(h, CENTRE);
@@ -359,18 +364,21 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 		h.assertTrue(worn(p) == 4, "still all on");
 		h.assertFalse(IronManDamage.suitUpImmune(p), "taking a suit off gives no immunity");
 		h.onEachTick(() -> assertEachOnce(h, p, "every tick", rack));
-		EquipmentSlot[] slots = { EquipmentSlot.FEET, EquipmentSlot.LEGS, EquipmentSlot.CHEST, EquipmentSlot.HEAD };
-		for (int i = 3; i >= 0; i--) {
-			final int k = i;
-			int at = GantryTimeline.removeTick(i, 4);
-			h.runAfterDelay(at - 2, () -> h.assertTrue(p.getItemBySlot(slots[k]).getItem() instanceof IronManArmorItem,
-					slots[k].getName() + " still on before tick " + at));
+		GantryTimeline.Plan plan = centre(h).plan();
+		// v0.15.5: the putting-on order backwards -- helmet, leggings, boots, and the chest last
+		int[] order = { 0, 2, 3, 1 };
+		for (int i = 0; i < 4; i++) {
+			final int left = 3 - i;
+			final int idx = order[i];
+			int at = plan.removeTick(idx);
+			h.runAfterDelay(at - 2, () -> h.assertTrue(p.getItemBySlot(SLOT_OF[idx]).getItem() instanceof IronManArmorItem,
+					SLOT_OF[idx].getName() + " still on before tick " + at));
 			h.runAfterDelay(at + 2, () -> {
-				h.assertTrue(p.getItemBySlot(slots[k]).isEmpty(), slots[k].getName() + " off by tick " + (at + 2));
-				h.assertTrue(worn(p) == k, "the helmet comes off first, then down the body, got " + worn(p));
+				h.assertTrue(p.getItemBySlot(SLOT_OF[idx]).isEmpty(), SLOT_OF[idx].getName() + " off by tick " + (at + 2));
+				h.assertTrue(worn(p) == left, "the pieces come off one at a time in reverse, got " + worn(p));
 			});
 		}
-		h.runAfterDelay(GantryTimeline.TOTAL + 6, () -> {
+		h.runAfterDelay(plan.total() + 6, () -> {
 			assertReleased(h, p);
 			h.assertFalse(IronManArmor.wearingAnyIronMan(p), "the suit is off");
 			h.assertTrue(rack.isFull() && SUIT.equals(rack.storedSuitId()), "and racked on the platform");
@@ -399,27 +407,27 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 
 	// ------------------------------------------------------------------ interruptions: nothing lost, nothing duplicated
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 480)
 	public void loggingOutMidEquipSendsTheRestBackToThePlatform(GameTestHelper h) {
 		ServerPlayer p = stark(h);
 		floor(h, CENTRE);
 		standOn(h, p, CENTRE);
 		IronManSuitPlatformBlockEntity rack = platform(h, p, PLATFORM, true);
 		h.assertTrue(StarkGantry.beginEquip(p, h.absolutePos(PLATFORM)), "the gantry starts");
-		int at = GantryTimeline.equipTick(1, 4) + 3; // boots + leggings on
+		int at = GantryTimeline.FULL.equipTick(GantryTimeline.FEET) + 3; // chestplate + boots on
 		h.runAfterDelay(at, () -> leave(h, p));
 		h.runAfterDelay(at + 4, () -> {
 			h.assertFalse(centre(h).running(), "the gantry stops when its wearer leaves");
 			h.assertTrue(centre(h).bufferEmpty(), "nothing is left in the floor");
-			h.assertTrue(worn(p) == 2, "boots + leggings stay on the player, got " + worn(p));
-			h.assertTrue(racked(rack) == 2, "chestplate + helmet are back on the platform, got " + racked(rack));
+			h.assertTrue(worn(p) == 2, "chestplate + boots stay on the player, got " + worn(p));
+			h.assertTrue(racked(rack) == 2, "leggings + helmet are back on the platform, got " + racked(rack));
 			assertEachOnce(h, p, "after the logout", rack);
 			h.assertFalse(anyTileOpen(h), "the floor shut");
 			h.succeed();
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 480)
 	public void breakingAFloorTileMidEquipLosesNothing(GameTestHelper h) {
 		ServerPlayer p = stark(h);
 		floor(h, CENTRE);
@@ -427,17 +435,17 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 		IronManSuitPlatformBlockEntity rack = platform(h, p, PLATFORM, true);
 		h.assertTrue(StarkGantry.beginEquip(p, h.absolutePos(PLATFORM)), "the gantry starts");
 		h.onEachTick(() -> assertEachOnce(h, p, "every tick", rack));
-		int at = GantryTimeline.equipTick(0, 4) + 3; // boots on
+		int at = GantryTimeline.FULL.equipTick(GantryTimeline.CHEST) + 3; // chestplate on
 		h.runAfterDelay(at, () -> h.setBlock(CENTRE.offset(-2, 0, 2), Blocks.AIR));
 		h.runAfterDelay(at + 3, () -> {
 			assertReleased(h, p);
-			h.assertTrue(worn(p) == 1 && racked(rack) == 3, "boots on, the rest racked again");
+			h.assertTrue(worn(p) == 1 && racked(rack) == 3, "chestplate on, the rest racked again");
 			leave(h, p);
 			h.succeed();
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 480)
 	public void sneakingCancelsMidUnequipWithNothingLost(GameTestHelper h) {
 		ServerPlayer p = suited(h);
 		floor(h, CENTRE);
@@ -445,20 +453,20 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 		IronManSuitPlatformBlockEntity rack = platform(h, p, PLATFORM, false);
 		h.assertTrue(StarkGantry.beginUnequip(p), "the gantry starts");
 		h.onEachTick(() -> assertEachOnce(h, p, "every tick", rack));
-		int at = GantryTimeline.removeTick(2, 4) + 3; // helmet + chestplate off
+		int at = GantryTimeline.FULL.removeTick(GantryTimeline.LEGS) + 3; // helmet + leggings off
 		h.runAfterDelay(at, () -> p.setShiftKeyDown(true));
 		h.runAfterDelay(at + 4, () -> {
 			p.setShiftKeyDown(false);
 			assertReleased(h, p);
-			h.assertTrue(worn(p) == 2, "leggings + boots stay on, got " + worn(p));
-			h.assertTrue(racked(rack) == 2, "helmet + chestplate are racked, got " + racked(rack));
+			h.assertTrue(worn(p) == 2, "chestplate + boots stay on, got " + worn(p));
+			h.assertTrue(racked(rack) == 2, "helmet + leggings are racked, got " + racked(rack));
 			h.assertFalse(IronManFaceplate.isOpen(p), "no faceplate left open");
 			leave(h, p);
 			h.succeed();
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 560)
 	public void breakingTheSourcePlatformMidEquipStillFinishes(GameTestHelper h) {
 		ServerPlayer p = stark(h);
 		floor(h, CENTRE);
@@ -466,7 +474,7 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 		IronManSuitPlatformBlockEntity rack = platform(h, p, PLATFORM, true);
 		h.assertTrue(StarkGantry.beginEquip(p, h.absolutePos(PLATFORM)), "the gantry starts");
 		h.runAfterDelay(30, () -> h.setBlock(PLATFORM, Blocks.AIR)); // the suit is in the floor already
-		h.runAfterDelay(GantryTimeline.TOTAL + 6, () -> {
+		h.runAfterDelay(GantryTimeline.FULL.total() + 6, () -> {
 			assertReleased(h, p);
 			h.assertTrue(IronManArmor.wearingFullSuit(p, SUIT), "the suit still went on");
 			assertEachOnce(h, p, "afterwards");
@@ -475,7 +483,7 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 560)
 	public void breakingTheTargetPlatformMidUnequipHandsThePiecesBack(GameTestHelper h) {
 		ServerPlayer p = suited(h);
 		floor(h, CENTRE);
@@ -483,7 +491,7 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 		platform(h, p, PLATFORM, false);
 		h.assertTrue(StarkGantry.beginUnequip(p), "the gantry starts");
 		h.runAfterDelay(30, () -> h.setBlock(PLATFORM, Blocks.AIR));
-		h.runAfterDelay(GantryTimeline.TOTAL + 6, () -> {
+		h.runAfterDelay(GantryTimeline.FULL.total() + 6, () -> {
 			assertReleased(h, p);
 			h.assertFalse(IronManArmor.wearingAnyIronMan(p), "the suit came off");
 			int carried = 0;
@@ -497,7 +505,7 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 480)
 	public void aSecondPlayerCantUseABusyGantry(GameTestHelper h) {
 		ServerPlayer p = stark(h);
 		ServerPlayer q = stark(h);
@@ -520,29 +528,68 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void timetableIsSymmetricAndOrdered(GameTestHelper h) {
-		h.assertTrue(GantryTimeline.TOTAL == 200, "10 s");
-		for (int n = 1; n <= 4; n++) {
-			int prev = -1;
-			for (int i = 0; i < n; i++) {
-				int lift = GantryTimeline.liftTick(i, n);
-				int equip = GantryTimeline.equipTick(i, n);
-				int letGo = GantryTimeline.letGoTick(i, n);
-				h.assertTrue(GantryTimeline.pieceStart(i, n) >= GantryTimeline.LEAD && lift < equip && equip < letGo
-						&& letGo <= GantryTimeline.TOTAL - GantryTimeline.OUTRO, "piece " + i + "/" + n + " ordered inside the work");
-				h.assertTrue(equip > prev, "one after another");
-				h.assertTrue(GantryTimeline.removeTick(i, n) == GantryTimeline.TOTAL - equip, "taking off mirrors putting on");
-				prev = equip;
+		GantryTimeline.Plan full = GantryTimeline.FULL;
+		h.assertTrue(full.count() == GantryTimeline.STAGES, "a full suit has every part");
+		h.assertTrue(full.total() >= 380 && full.total() <= 440, "about 20 s, got " + full.total());
+		int prev = -1;
+		for (int i = 0; i < full.count(); i++) {
+			h.assertTrue(full.stage(i) > prev, "the parts go on in the order asked for");
+			prev = full.stage(i);
+			h.assertTrue(full.begin(i) >= GantryTimeline.LEAD && full.begin(i) + full.length(i) <= full.total() - GantryTimeline.OUTRO,
+					"part " + i + " inside the work");
+			if (GantryTimeline.carried(full.stage(i))) {
+				h.assertTrue(full.liftTick(i) < full.fitTick(i) && full.fitTick(i) < full.letGoTick(i), "carry " + i + " ordered");
 			}
 		}
-		for (float f = 0; f <= GantryTimeline.TOTAL; f += 5) {
-			h.assertTrue(Math.abs(GantryTimeline.lift(f) - GantryTimeline.lift(GantryTimeline.TOTAL - f)) < 1e-5f
-					&& Math.abs(GantryTimeline.hatch(f) - GantryTimeline.hatch(GantryTimeline.TOTAL - f)) < 1e-5f,
+		// the user's order: chest top -> bottom -> jacket, gauntlet -> arm -> sleeve (each side), boots, thigh top -> bottom
+		// -> pant legs, helmet, faceplate
+		int[] want = { GantryTimeline.TORSO_TOP, GantryTimeline.TORSO_BOTTOM, GantryTimeline.JACKET, GantryTimeline.R_GAUNTLET,
+				GantryTimeline.R_ARM, GantryTimeline.R_SLEEVE, GantryTimeline.L_GAUNTLET, GantryTimeline.L_ARM, GantryTimeline.L_SLEEVE,
+				GantryTimeline.BOOTS, GantryTimeline.THIGH_TOP, GantryTimeline.THIGH_BOTTOM, GantryTimeline.PANTS,
+				GantryTimeline.HELMET, GantryTimeline.FACEPLATE };
+		for (int i = 0; i < want.length; i++) {
+			h.assertTrue(full.stage(i) == want[i], "stage " + i + " is " + want[i]);
+		}
+		h.assertTrue(full.appear(GantryTimeline.FACEPLATE, 0f) > full.appear(GantryTimeline.HELMET, 0f)
+				&& full.appear(GantryTimeline.PANTS, 0f) > full.appear(GantryTimeline.THIGH_BOTTOM, 1f), "a layer after what it covers");
+		h.assertTrue(full.appear(GantryTimeline.TORSO_BOTTOM, 1f) > full.appear(GantryTimeline.TORSO_BOTTOM, 0f),
+				"a build grows along its part");
+		for (int r = 0; r < 4; r++) {
+			h.assertTrue(full.removeTick(r) == full.total() - full.equipTick(r), "taking off mirrors putting on");
+		}
+		// a suit missing its boots and helmet still builds the pant legs, and skips the rest
+		GantryTimeline.Plan part = GantryTimeline.plan((1 << GantryTimeline.CHEST) | (1 << GantryTimeline.LEGS));
+		h.assertTrue(part.indexOf(GantryTimeline.BOOTS) < 0 && part.indexOf(GantryTimeline.HELMET) < 0
+				&& part.indexOf(GantryTimeline.PANTS) >= 0 && part.total() < full.total(), "missing pieces are left out");
+		h.assertTrue(part.equipTick(GantryTimeline.HEAD) < 0, "no helmet tick for a suit with no helmet");
+		int t = full.total();
+		for (float f = 0; f <= t; f += 5) {
+			h.assertTrue(Math.abs(GantryTimeline.lift(f, full) - GantryTimeline.lift(t - f, full)) < 1e-5f
+					&& Math.abs(GantryTimeline.hatch(f, full) - GantryTimeline.hatch(t - f, full)) < 1e-5f,
 					"the lead-in and the outro are mirror images at " + f);
 		}
-		h.assertTrue(GantryTimeline.lift(0) == 0f && GantryTimeline.lift(100) == GantryTimeline.LIFT, "the lift raises 0.5");
-		h.assertTrue(GantryTimeline.hatch(0) == 0f && GantryTimeline.hatch(100) == 1f, "the hatches open and shut");
-		h.assertTrue(GantryTimeline.pose(0f, 4)[0] < 0.01f && GantryTimeline.pose(200f, 4)[0] < 0.01f
-				&& GantryTimeline.pose(100f, 4)[0] > 0.99f, "the pose eases in and is gone by the end");
+		h.assertTrue(GantryTimeline.lift(0, full) == 0f && GantryTimeline.lift(t / 2f, full) == GantryTimeline.LIFT, "the lift raises 0.5");
+		h.assertTrue(GantryTimeline.hatch(0, full) == 0f && GantryTimeline.hatch(t / 2f, full) == 1f, "the hatches open and shut");
+		h.assertTrue(GantryTimeline.pose(0f, full)[0] < 0.01f && GantryTimeline.pose(t, full)[0] < 0.01f
+				&& GantryTimeline.pose(t / 2f, full)[0] > 0.99f, "the pose eases in and is gone by the end");
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void menuListsTheNewestMarkFirst(GameTestHelper h) {
+		ServerPlayer p = stark(h);
+		floor(h, CENTRE);
+		standOn(h, p, CENTRE);
+		platform(h, p, PLATFORM, true); // Mark III, nearer
+		IronManSuitPlatformBlockEntity newer = platform(h, p, PLATFORM.west(6), false);
+		newer.store(new ItemStack(IronManItems.armor("mark_vii", ArmorItem.Type.HELMET)));
+		IronManSuitPlatformBlockEntity older = platform(h, p, PLATFORM.north(5), false);
+		older.store(new ItemStack(IronManItems.armor("mark_1", ArmorItem.Type.HELMET)));
+		java.util.List<StarkGantryMenuPayload.Entry> e = StarkGantry.menuFor(h.getLevel(), StarkGantry.centreUnder(p), p).entries();
+		h.assertTrue(e.size() == 3, "three racked suits, got " + e.size());
+		h.assertTrue(e.get(0).suitId().equals("mark_vii") && e.get(1).suitId().equals(SUIT) && e.get(2).suitId().equals("mark_1"),
+				"newest armour on top: " + e.stream().map(StarkGantryMenuPayload.Entry::suitId).toList());
+		leave(h, p);
 		h.succeed();
 	}
 }

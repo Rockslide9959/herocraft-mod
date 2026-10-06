@@ -72,6 +72,11 @@ public class IronManSuitGlowLayer extends GeoRenderLayer<SuperheroArmorItem> {
 		if (wearer.isInvisible() && (Minecraft.getInstance().player == null || wearer.isInvisibleTo(Minecraft.getInstance().player))) {
 			return;
 		}
+		// v0.15.5: a part in a Stark Gantry clamp, or a piece the gantry is still building on / taking off, stays dark
+		if (IronManGantryBuild.solo >= 0 || wearer instanceof Player gp && armor.getCurrentSlot() != null
+				&& IronManGantryBuild.incomplete(gp, armor.getCurrentSlot(), item.armorSetId(), partialTick)) {
+			return;
+		}
 		// v0.14.29 agent F: a badly damaged suit's lights flicker
 		if (wearer instanceof Player fp && IronManBattleDamage.glowFlickerOff(fp)) {
 			return;

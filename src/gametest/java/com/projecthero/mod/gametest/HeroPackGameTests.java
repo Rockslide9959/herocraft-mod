@@ -882,7 +882,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300) // v0.15.4: the Stark Gantry suit-up takes 200 ticks
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 520) // v0.15.5: the staged Stark Gantry suit-up takes ~420 ticks
 	public void suitPlatformDeployRechargesAndRepairs(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);

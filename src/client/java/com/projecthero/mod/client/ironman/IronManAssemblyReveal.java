@@ -297,8 +297,11 @@ public final class IronManAssemblyReveal {
 		return bone;
 	}
 
-	/** One texel sample: bone, texel index, rest position (bedrock coordinates). */
-	private record Sample(String bone, int index, int tile, Vector3f pos, boolean baseCube, float fromSeam) {
+	/**
+	 * One texel sample: bone, texel index, rest position (bedrock coordinates); v0.15.5: {@code cube} is the cube's index in
+	 * its bone (0 = the skin-rig base layer, 1 = the outer jacket / sleeve / pant-leg layer).
+	 */
+	record Sample(String bone, int index, int tile, Vector3f pos, boolean baseCube, float fromSeam, int cube) {
 	}
 
 	private static ResourceLocation[] build(ResourceLocation geometry, ResourceLocation base, int bit, boolean fromCase) {
@@ -413,7 +416,7 @@ public final class IronManAssemblyReveal {
 
 	// ---------------- geometry -> per-texel bone + rest position ----------------
 
-	private static void collect(JsonObject root, int texW, int texH, int bit, List<Sample> out) {
+	static void collect(JsonObject root, int texW, int texH, int bit, List<Sample> out) {
 		JsonObject model = root.getAsJsonArray("minecraft:geometry").get(0).getAsJsonObject();
 		JsonObject desc = model.getAsJsonObject("description");
 		float geoW = desc.has("texture_width") ? desc.get("texture_width").getAsFloat() : 64f;
@@ -427,8 +430,10 @@ public final class IronManAssemblyReveal {
 			if (!bone.has("cubes") || piece != bit) {
 				continue;
 			}
+			int cubeIndex = 0;
 			for (JsonElement ce : bone.getAsJsonArray("cubes")) {
 				JsonObject cube = ce.getAsJsonObject();
+				int ci = cubeIndex++;
 				Vector3f o = vec(cube.getAsJsonArray("origin"));
 				Vector3f s = vec(cube.getAsJsonArray("size"));
 				float inflate = cube.has("inflate") ? cube.get("inflate").getAsFloat() : 0f;
@@ -436,7 +441,7 @@ public final class IronManAssemblyReveal {
 				Vector3f hi = new Vector3f(o).add(s).add(inflate, inflate, inflate);
 				boolean baseCube = IronManAssemblyPlan.isBaseCube(cube.has("name") ? cube.get("name").getAsString() : null);
 				for (Face f : faces(cube, s)) {
-					paint(f, lo, hi, su, sv, texW, texH, name, baseCube, out);
+					paint(f, lo, hi, su, sv, texW, texH, name, baseCube, ci, out);
 				}
 			}
 		}
@@ -498,7 +503,7 @@ public final class IronManAssemblyReveal {
 	}
 
 	private static void paint(Face f, Vector3f lo, Vector3f hi, float su, float sv, int texW, int texH, String bone,
-			boolean baseCube, List<Sample> out) {
+			boolean baseCube, int cube, List<Sample> out) {
 		float u0 = Math.min(f.u0, f.u0 + f.du) * su;
 		float u1 = Math.max(f.u0, f.u0 + f.du) * su;
 		float v0 = Math.min(f.v0, f.v0 + f.dv) * sv;
@@ -521,7 +526,7 @@ public final class IronManAssemblyReveal {
 				Vector3f p = new Vector3f(lo.x + ext.x * cx, lo.y + ext.y * cy, lo.z + ext.z * cz);
 				int tile = (ty / TILE) * 1024 + (tx / TILE);
 				float fromSeam = splitX ? Math.abs(cx - 0.5f) * 2f : Math.abs(cy - 0.5f) * 2f;
-				out.add(new Sample(bone, ty * texW + tx, tile, p, baseCube, fromSeam));
+				out.add(new Sample(bone, ty * texW + tx, tile, p, baseCube, fromSeam, cube));
 			}
 		}
 	}
@@ -530,7 +535,7 @@ public final class IronManAssemblyReveal {
 		return new Vector3f(a.get(0).getAsFloat(), a.get(1).getAsFloat(), a.get(2).getAsFloat());
 	}
 
-	private static int argbToAbgr(int argb) {
+	static int argbToAbgr(int argb) {
 		int a = argb >>> 24;
 		int r = (argb >> 16) & 0xFF;
 		int g = (argb >> 8) & 0xFF;
@@ -538,7 +543,7 @@ public final class IronManAssemblyReveal {
 		return (a << 24) | (b << 16) | (g << 8) | r;
 	}
 
-	private static int blendAbgr(int x, int y, float f) {
+	static int blendAbgr(int x, int y, float f) {
 		int a = (x >>> 24) & 0xFF;
 		int r = 0;
 		for (int sh = 0; sh <= 16; sh += 8) {

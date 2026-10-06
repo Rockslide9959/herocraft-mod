@@ -80,9 +80,12 @@ public final class IronManSuitUpPose {
 					case IronManSuitFx.POSE_PLATFORM, IronManSuitFx.POSE_PLATFORM_OFF -> {
 						// v0.15.4: arms down and out for the Stark Gantry's robotic arms, head following the work up the
 						// body (and back down it, the timetable run backwards, while they take the suit off)
-						float pa = com.projecthero.mod.ironman.gantry.GantryTimeline.frame(
-								fx.poseKind() == IronManSuitFx.POSE_PLATFORM, age);
-						float[] pk = com.projecthero.mod.ironman.gantry.GantryTimeline.pose(pa, fx.poseVariant() + 1);
+						// v0.15.5: the plan (which parts, how long) comes from the sequence the player stands in
+						var seq = IronManGantryBuild.sequence(player);
+						var plan = seq != null ? seq.plan() : com.projecthero.mod.ironman.gantry.GantryTimeline.FULL;
+						float pa = seq != null ? seq.frameAt(partial) : com.projecthero.mod.ironman.gantry.GantryTimeline.frame(
+								fx.poseKind() == IronManSuitFx.POSE_PLATFORM, age, plan);
+						float[] pk = com.projecthero.mod.ironman.gantry.GantryTimeline.pose(pa, plan);
 						if (pk[0] > 0.001f) {
 							apply(model, pk[0], java.util.Arrays.copyOfRange(pk, 1, pk.length));
 							touched = true;

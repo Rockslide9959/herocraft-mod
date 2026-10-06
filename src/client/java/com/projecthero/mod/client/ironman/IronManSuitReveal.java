@@ -119,6 +119,11 @@ public final class IronManSuitReveal {
 	/** The texture to draw an Iron Man piece in {@code slot} with right now (the plain one outside a lock-on / release). */
 	public static ResourceLocation texture(Player player, String setId, EquipmentSlot slot, ResourceLocation base,
 			float partialTick) {
+		// v0.15.5: on a Stark Gantry the suit goes on / comes off part by part (IronManGantryBuild)
+		ResourceLocation gantry = IronManGantryBuild.texture(player, setId, slot, base, partialTick);
+		if (gantry != null) {
+			return gantry;
+		}
 		float p = progress(player, slot, partialTick);
 		if (IronManSuitFx.of(player).bracelet()) {
 			return base; // v0.15.4: the bracelet wrap-on moves whole plates -- the texture stays as it is

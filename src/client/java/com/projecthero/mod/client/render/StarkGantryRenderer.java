@@ -7,7 +7,7 @@ import com.projecthero.mod.ironman.gantry.GantryTimeline;
 import com.projecthero.mod.ironman.gantry.StarkGantryFloorBlockEntity;
 import com.projecthero.mod.ironman.item.IronManArmorItem;
 import com.projecthero.mod.ironman.suit.IronManSuitPoses;
-import com.projecthero.mod.ironman.suit.IronManSuitUpManager;
+import com.projecthero.mod.client.ironman.IronManGantryBuild;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -140,9 +140,9 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 			}
 		}
 		boolean equip = be.mode() == StarkGantryFloorBlockEntity.MODE_EQUIP;
+		GantryTimeline.Plan plan = be.plan();
 		float time = level.getGameTime() + partialTick;
-		float t = Mth.clamp(time - be.start(), 0f, GantryTimeline.TOTAL);
-		float f = GantryTimeline.frame(equip, t);
+		float f = be.frameAt(partialTick);
 		BlockPos pos = be.getBlockPos();
 		int light = LevelRenderer.getLightColor(level, pos.above());
 		Direction facing = be.facing();
@@ -153,7 +153,7 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 		TextureAtlasSprite top = atlas.apply(TOP);
 		TextureAtlasSprite side = atlas.apply(SIDE);
 		TextureAtlasSprite pit = atlas.apply(PIT);
-		float hatch = GantryTimeline.hatch(f);
+		float hatch = GantryTimeline.hatch(f, plan);
 		for (BlockPos h : be.hatches()) {
 			int dx = h.getX() - pos.getX();
 			int dz = h.getZ() - pos.getZ();
@@ -162,9 +162,9 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 			drawPanels(pose, blocks, top, side, hatch, dx != 0, LevelRenderer.getLightColor(level, h.above()));
 			pose.popPose();
 		}
-		drawLift(pose, blocks, top, side, pit, GantryTimeline.lift(f), light);
+		drawLift(pose, blocks, top, side, pit, GantryTimeline.lift(f, plan), light);
 
-		// ---- the arms, the elevator and the piece in flight (the wearer's frame) ----
+		// ---- the arms, the elevator and the part in flight (the wearer's frame) ----
 		LivingEntity player = level.getEntity(be.playerEntity()) instanceof LivingEntity le ? le : null;
 		float theta = 180f - facing.toYRot();
 		Vec3 origin = new Vec3(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5);
@@ -172,45 +172,49 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 		pose.translate(0.5, 1.0, 0.5);
 		pose.mulPose(Axis.YP.rotationDegrees(theta));
 
-		double sh = Mth.lerp(GantryTimeline.rise(f), SHOULDER_DOWN, SHOULDER_UP);
+		double sh = Mth.lerp(GantryTimeline.rise(f, plan), SHOULDER_DOWN, SHOULDER_UP);
 		Vec3 sR = new Vec3(1, sh, 0);
 		Vec3 sL = new Vec3(-1, sh, 0);
-		float unfold = GantryTimeline.unfold(f);
+		float unfold = GantryTimeline.unfold(f, plan);
 		ArmPose readyR = folded(true, sR).lerp(ready(true, sR), unfold);
 		ArmPose readyL = folded(false, sL).lerp(ready(false, sL), unfold);
 		ArmPose right = readyR;
 		ArmPose left = readyL;
 
-		float lift = GantryTimeline.lift(f);
+		float lift = GantryTimeline.lift(f, plan);
 		Vec3 body = player != null ? toLocal(player.getPosition(partialTick).subtract(origin), theta) : new Vec3(0, lift, 0);
-		int n = be.slots().length;
-		int i = GantryTimeline.pieceAt(f, n);
+		int i = plan.at(f);
 		double elevatorTop = ELEVATOR_DOWN;
-		int carryIdx = -1;
+		int carryStage = -1;
 		Vec3 carryAt = null;
+		Vec3 part = Vec3.ZERO;
 		float carryPoseF = 0f;
 		Vec3 sparkAt = null;
+		Vec3 weldR = null; // the growing seam (sparks only)
+		Vec3 weldL = null;
 		boolean onElevator = false;
 		if (i >= 0) {
-			int idx = be.slots()[i];
-			float u = GantryTimeline.pieceFrac(f, i, n);
-			elevatorTop = Mth.lerp(GantryTimeline.elevator(u), ELEVATOR_DOWN, ELEVATOR_UP);
-			if (idx >= 0 && idx <= 3) {
-				boolean rightCarries = GantryTimeline.rightArmCarries(i);
+			int stage = plan.stage(i);
+			float u = plan.frac(f, i);
+			if (GantryTimeline.carried(stage)) {
+				elevatorTop = Mth.lerp(GantryTimeline.elevator(u), ELEVATOR_DOWN, ELEVATOR_UP);
+				boolean rightCarries = GantryTimeline.rightArmCarries(stage);
+				boolean limb = stage == GantryTimeline.R_GAUNTLET || stage == GantryTimeline.L_GAUNTLET;
 				Vec3 sC = rightCarries ? sR : sL;
 				Vec3 sA = rightCarries ? sL : sR;
 				ArmPose readyC = rightCarries ? readyR : readyL;
 				ArmPose readyA = rightCarries ? readyL : readyR;
-				double h = IronManSuitUpManager.slotHeight(SLOTS[idx]);
-				double rise = 0.05 - bottomOf(SLOTS[idx]) + h; // elevator top -> the piece's anchor
+				double[] pp = GantryTimeline.partPoint(stage, 0.5f, 0);
+				part = new Vec3(pp[0], pp[1], pp[2]);
+				double rise = 0.05 + part.y - GantryTimeline.partBottom(stage); // elevator top -> the part's grip point
 				Vec3 eA = new Vec3(0, elevatorTop + rise, -1);
 				Vec3 eUp = new Vec3(0, ELEVATOR_UP + rise, -1);
-				Vec3 bodyA = body.add(0, h, 0);
+				Vec3 bodyA = body.add(part);
 				ArmPose carry;
 				ArmPose assist = readyA;
-				carryIdx = idx;
+				carryStage = stage;
 				if (u < GantryTimeline.REACH) {
-					// the elevator brings the piece up; the arm reaches over it, jaws wide
+					// the elevator brings the part up; the arm reaches over it, jaws wide
 					carry = readyC.lerp(grip(sC, eUp.add(0, 0.25, 0), 1f), GantryTimeline.smooth(u / GantryTimeline.REACH));
 					carryAt = eA;
 					onElevator = true;
@@ -232,18 +236,24 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 					carry = grip(sC, a, 0f);
 					carryAt = a;
 					carryPoseF = g;
-					assist = readyA.lerp(brace(sA, bodyA), GantryTimeline.smooth((g - 0.35f) / 0.65f));
+					if (!limb) {
+						assist = readyA.lerp(brace(sA, bodyA), GantryTimeline.smooth((g - 0.35f) / 0.65f));
+					}
 				} else {
-					// on: the clamps lock (both arms, sparks), then the jaws open and the arms pull back
+					// on: the clamps lock (sparks), then the jaws open and the arms pull back
 					ArmPose atBody = grip(sC, bodyA, 0f);
-					ArmPose braced = brace(sA, bodyA);
+					ArmPose braced = limb ? readyA : brace(sA, bodyA);
 					if (u < GantryTimeline.LET_GO) {
 						float k = (u - GantryTimeline.FIT) / (GantryTimeline.LET_GO - GantryTimeline.FIT);
 						double push = 0.03 * Math.sin(Math.PI * k);
 						carry = new ArmPose(atBody.wrist().add(atBody.dir().scale(push)), atBody.dir(), 0f, atBody.pole());
-						double jit = 0.012 * Math.sin(time * 2.7);
-						assist = new ArmPose(braced.wrist().add(jit, -jit, jit), braced.dir(), 0.25f, braced.pole());
-						sparkAt = braced.wrist().add(braced.dir().scale(JAW + 0.05));
+						if (!limb) {
+							double jit = 0.012 * Math.sin(time * 2.7);
+							assist = new ArmPose(braced.wrist().add(jit, -jit, jit), braced.dir(), 0.25f, braced.pole());
+							sparkAt = braced.wrist().add(braced.dir().scale(JAW + 0.05));
+						} else {
+							sparkAt = bodyA;
+						}
 					} else {
 						float g = GantryTimeline.smooth((u - GantryTimeline.LET_GO) / (1f - GantryTimeline.LET_GO));
 						carry = new ArmPose(atBody.wrist(), atBody.dir(), Math.min(1f, g * 2.5f), atBody.pole()).lerp(readyC, g);
@@ -259,6 +269,22 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 					left = carry;
 					right = assist;
 				}
+			} else {
+				// v0.15.5, user request: a self-building part builds itself -- the arms stay back at their ready hover; only
+				// a few sparks fly off the growing seam
+				float k = (u - GantryTimeline.BUILD_FROM) / (GantryTimeline.BUILD_TO - GantryTimeline.BUILD_FROM);
+				if (k > 0f && k < 1f) {
+					boolean rightSide = stage != GantryTimeline.L_ARM && stage != GantryTimeline.L_SLEEVE;
+					boolean leftSide = stage != GantryTimeline.R_ARM && stage != GantryTimeline.R_SLEEVE;
+					if (rightSide) {
+						double[] wp = GantryTimeline.partPoint(stage, k, 1);
+						weldR = body.add(wp[0], wp[1], wp[2] - 0.02);
+					}
+					if (leftSide) {
+						double[] wp = GantryTimeline.partPoint(stage, k, -1);
+						weldL = body.add(wp[0], wp[1], wp[2] - 0.02);
+					}
+				}
 			}
 		}
 
@@ -271,44 +297,48 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 		// re-fetched: asking the buffer source for the arms' render type ended the block-atlas batch ("Not building!")
 		drawElevator(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(InventoryMenu.BLOCK_ATLAS)), top, side, elevatorTop, LevelRenderer.getLightColor(level, pos.relative(facing).above()));
 
-		// ---- the piece: on the elevator, in the clamp, or just fitted ----
+		// ---- the part: on the elevator, in the clamp, or just fitted ----
 		ItemStack piece = ItemStack.EMPTY;
-		if (carryIdx >= 0 && carryAt != null) {
-			int k = indexOf(be.slots(), carryIdx);
-			float equipAt = GantryTimeline.equipTick(Math.max(0, k), n);
-			boolean beforeFit = f < equipAt;
-			if (equip) {
-				// going on: in the floor / the clamp until it is fitted, then a few ticks' linger while the worn sync lands
-				if (beforeFit) {
-					piece = !be.buffered(carryIdx).isEmpty() ? be.buffered(carryIdx) : seen[carryIdx];
-				} else if (f < equipAt + LINGER) {
-					piece = seen[carryIdx];
-				}
-			} else if (beforeFit) {
-				// coming off: drawn once it is off the body (until then the wearer still has it on)
-				piece = be.buffered(carryIdx);
-				if (piece.isEmpty() && player != null && player.getItemBySlot(SLOTS[carryIdx]).getItem() instanceof IronManArmorItem
-						&& f < equipAt - 1) {
-					piece = player.getItemBySlot(SLOTS[carryIdx]); // removed server-side; the sync is a tick behind
+		if (carryStage >= 0 && carryAt != null) {
+			int idx = GantryTimeline.pieceOf(carryStage);
+			int k = plan.indexOf(carryStage);
+			float fitAt = plan.fitTick(Math.max(0, k));
+			boolean first = carryStage == GantryTimeline.firstStage(idx);
+			// putting on: until it is fitted (a first part lingers a few ticks while the worn sync lands); taking off: once
+			// it is off the body
+			boolean show = equip ? f < fitAt + (first ? LINGER : 0f) : f < fitAt;
+			if (show) {
+				ItemStack worn = player != null ? player.getItemBySlot(SLOTS[idx]) : ItemStack.EMPTY;
+				if (!be.buffered(idx).isEmpty()) {
+					piece = be.buffered(idx);
+				} else if (worn.getItem() instanceof IronManArmorItem) {
+					piece = worn; // a later part of a piece already on the body (or one the sync has not moved yet)
+				} else {
+					piece = seen[idx];
 				}
 			}
 		}
 		if (!piece.isEmpty()) {
-			Vec3 jaws = GantryTimeline.rightArmCarries(Math.max(0, indexOf(be.slots(), carryIdx))) ? gripR : gripL;
+			int idx = GantryTimeline.pieceOf(carryStage);
+			Vec3 jaws = GantryTimeline.rightArmCarries(carryStage) ? gripR : gripL;
 			Vec3 a = onElevator || carryPoseF >= 1f ? carryAt : lerpV(jaws, carryAt, GantryTimeline.smooth((carryPoseF - 0.5f) / 0.5f));
-			double h = IronManSuitUpManager.slotHeight(SLOTS[carryIdx]);
 			ArmorStand s = stand(level);
 			for (int j = 0; j < 4; j++) {
-				setIfChanged(s, SLOTS[j], j == carryIdx ? piece : ItemStack.EMPTY);
+				setIfChanged(s, SLOTS[j], j == idx ? piece : ItemStack.EMPTY);
 			}
-			standPose(s, GantryTimeline.pose(GantryTimeline.equipTick(Math.max(0, indexOf(be.slots(), carryIdx)), n), n), carryPoseF);
+			standPose(s, GantryTimeline.pose(plan.fitTick(Math.max(0, plan.indexOf(carryStage))), plan), carryPoseF);
 			var dispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
 			dispatcher.setRenderShadow(false);
 			pose.pushPose();
-			pose.translate(a.x, a.y - h, a.z);
+			pose.translate(a.x - part.x, a.y - part.y, a.z - part.z);
 			pose.mulPose(Axis.YP.rotationDegrees(180f)); // a stand faces +Z; the wearer faces local -Z
-			dispatcher.render(s, 0.0, 0.0, 0.0, 0.0f, partialTick, pose, buffers, onElevator ? LevelRenderer.getLightColor(level,
-					pos.relative(facing).above()) : light);
+			IronManGantryBuild.solo = carryStage;
+			try {
+				dispatcher.render(s, 0.0, 0.0, 0.0, 0.0f, partialTick, pose, buffers, onElevator ? LevelRenderer.getLightColor(level,
+						pos.relative(facing).above()) : light);
+			} finally {
+				IronManGantryBuild.solo = -1;
+			}
 			pose.popPose();
 			dispatcher.setRenderShadow(true);
 			if (!onElevator && carryPoseF < 1f && level.random.nextFloat() < 0.15f) {
@@ -321,17 +351,14 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 			level.addParticle(ParticleTypes.ELECTRIC_SPARK, w.x, w.y, w.z, (level.random.nextFloat() - 0.5f) * 0.12f,
 					level.random.nextFloat() * 0.08f, (level.random.nextFloat() - 0.5f) * 0.12f);
 		}
+		for (Vec3 tip : new Vec3[] { weldR, weldL }) {
+			if (tip != null && level.random.nextFloat() < 0.25f) {
+				Vec3 w = origin.add(toWorldRel(tip, theta));
+				level.addParticle(ParticleTypes.ELECTRIC_SPARK, w.x, w.y, w.z, (level.random.nextFloat() - 0.5f) * 0.06f,
+						level.random.nextFloat() * 0.04f, (level.random.nextFloat() - 0.5f) * 0.06f);
+			}
+		}
 		pose.popPose();
-	}
-
-	/** Where a piece's lowest point sits above its armour stand's feet (so it stands on the elevator pad). */
-	private static double bottomOf(EquipmentSlot slot) {
-		return switch (slot) {
-			case FEET -> 0.0;
-			case LEGS -> 0.1;
-			case CHEST -> 0.68;
-			default -> 1.45;
-		};
 	}
 
 	// ---------------- the floor parts (block-atlas quads) ----------------
@@ -635,12 +662,4 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 		return v.lengthSqr() < 1e-6 ? b : v.normalize();
 	}
 
-	private static int indexOf(int[] seq, int idx) {
-		for (int i = 0; i < seq.length; i++) {
-			if (seq[i] == idx) {
-				return i;
-			}
-		}
-		return -1;
-	}
 }

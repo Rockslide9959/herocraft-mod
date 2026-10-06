@@ -195,7 +195,15 @@ public final class StarkGantry {
 			out.add(new StarkGantryMenuPayload.Entry(p.getBlockPos(), suitId, p.pieceMask(), Mth.clamp(e, 0f, 1f),
 					Mth.clamp(i, 0f, 1f), (int) Math.round(distanceToFloor(centre, p.getBlockPos()))));
 		}
+		// v0.15.5, user request: newest armour on top -- highest Mark first (nearest first between racks of one Mark)
+		out.sort(Comparator.comparingInt((StarkGantryMenuPayload.Entry e) -> -markOf(e.suitId()))
+				.thenComparingInt(StarkGantryMenuPayload.Entry::distance));
 		return out;
+	}
+
+	private static int markOf(String suitId) {
+		IronManSuit s = IronManSuits.byId(suitId);
+		return s == null ? 0 : s.markNumber();
 	}
 
 	/** Rack-slot mask (bit i = rack slot i) of the pieces of {@code suitId} the player is wearing. */

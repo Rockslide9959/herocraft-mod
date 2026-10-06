@@ -63,6 +63,7 @@ public final class IronManAssemblyClient {
 			LAST_CLICK.clear();
 			SNAPPED.clear();
 			IronManSuitReveal.clear();
+			IronManGantryBuild.clear();
 			return;
 		}
 		if (mc.isPaused()) {
