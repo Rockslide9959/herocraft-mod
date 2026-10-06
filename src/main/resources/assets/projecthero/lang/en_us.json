@@ -4130,7 +4130,7 @@
   "sentinel.projecthero.master_mold.say.death": "THE PROGRAM... WILL... CONTINUE...",
   "boss.projecthero.master_mold.bar": "Master Mold - phase %s",
   "projecthero.guide.sentinel_purge": "Sentinel Purge",
-  "projecthero.guide.sentinel_purge.body": "Bolivar Trask's Sentinel Program hunts the world's superhumans. Giant purple robots come down out of the sky in waves, then the Sentinel factory itself, Master Mold.",
+  "projecthero.guide.sentinel_purge.body": "Bolivar Trask's Sentinel Program hunts the world's superhumans. Giant magenta-and-blue robots come down out of the sky in waves, then the Sentinel factory itself, Master Mold.",
   "projecthero.guide.sentinel_purge.trigger": "Detection",
   "projecthero.guide.sentinel_purge.trigger.body": "On Overworld nights, from day 3, the Sentinels may detect a player with powers. Mutants (the mutation powers) are found twice as often as other superhumans; ordinary players never are. Using a Trask Signal starts a purge on purpose. Everyone within 48 blocks is drawn in, and anyone who walks in later joins.",
   "projecthero.guide.sentinel_purge.waves": "The Waves",

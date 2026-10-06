@@ -43,7 +43,7 @@ public final class SentinelItems {
 		TRASK_SIGNAL = register("trask_signal", new TraskSignalItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC)));
 		SENTINEL_CIRCUITRY = register("sentinel_circuitry", material(Rarity.UNCOMMON, 64, "item.projecthero.sentinel_circuitry.hint", false));
 		MASTER_MOLD_CORE = register("master_mold_core", material(Rarity.EPIC, 16, "item.projecthero.master_mold_core.hint", true));
-		SENTINEL_SPAWN_EGG = register("sentinel_spawn_egg", new SpawnEggItem(SentinelEntityTypes.SENTINEL, 0x642C8C, 0xCC349C, new Item.Properties()));
+		SENTINEL_SPAWN_EGG = register("sentinel_spawn_egg", new SpawnEggItem(SentinelEntityTypes.SENTINEL, 0x245188, 0xB32972, new Item.Properties()));
 		SENTINEL_DRONE_SPAWN_EGG = register("sentinel_drone_spawn_egg", new SpawnEggItem(SentinelEntityTypes.SENTINEL_DRONE, 0x642C8C, 0xFF4030, new Item.Properties()));
 		MASTER_MOLD_SPAWN_EGG = register("master_mold_spawn_egg", new SpawnEggItem(SentinelEntityTypes.MASTER_MOLD, 0x3A1854, 0xFF60DC, new Item.Properties()));
 	}

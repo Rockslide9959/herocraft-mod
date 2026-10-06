@@ -1,8 +1,17 @@
 package com.projecthero.mod.gametest;
 
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.event.EventSavedData;
@@ -292,5 +301,64 @@ public class SentinelPurgeGameTests implements FabricGameTest {
 			helper.assertTrue(d.isRemoved(), "the orphaned drone removed itself");
 			helper.succeed();
 		});
+	}
+
+	// ------------------------------------------------------------------ v0.15.3: the user's Sentinel model
+
+	private static JsonObject json(String path) throws Exception {
+		try (InputStream in = SentinelPurgeGameTests.class.getResourceAsStream(path)) {
+			if (in == null) {
+				throw new IllegalStateException("missing resource " + path);
+			}
+			return JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
+		}
+	}
+
+	/**
+	 * The Sentinel is the user's skin rig (base + layer cube per part, 64x64, nothing added), keeps every bone the
+	 * renderer looks up, and its animation file still has every clip SentinelEntity plays -- keying every bone at
+	 * both ends of the clip.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void sentinelModelIsTheUsersSkinRigWithEveryClip(GameTestHelper helper) throws Exception {
+		JsonObject geo = json("/assets/projecthero/geo/sentinel.geo.json").getAsJsonArray("minecraft:geometry").get(0).getAsJsonObject();
+		JsonObject desc = geo.getAsJsonObject("description");
+		helper.assertTrue(desc.get("texture_width").getAsInt() == 64 && desc.get("texture_height").getAsInt() == 64, "a 64x64 skin");
+		Map<String, Integer> cubes = new HashMap<>();
+		for (JsonElement e : geo.getAsJsonArray("bones")) {
+			JsonObject b = e.getAsJsonObject();
+			cubes.put(b.get("name").getAsString(), b.has("cubes") ? b.getAsJsonArray("cubes").size() : 0);
+		}
+		// the renderer turns "head" with the gaze and toggles the two flame bones
+		for (String name : new String[] { "head", "right_flame", "left_flame", "root", "torso" }) {
+			helper.assertTrue(cubes.containsKey(name), "the geo keeps the " + name + " bone");
+		}
+		int total = 0;
+		for (String part : new String[] { "head", "torso", "right_arm", "left_arm", "right_leg", "left_leg" }) {
+			helper.assertTrue(cubes.getOrDefault(part, 0) == 2, part + ": the skin's base + layer cube");
+			total += cubes.get(part);
+		}
+		int all = 0;
+		for (int n : cubes.values()) {
+			all += n;
+		}
+		helper.assertTrue(all == total && total == 12, "nothing beyond the 12 skin cubes, got " + all);
+
+		JsonObject anims = json("/assets/projecthero/animations/sentinel.animation.json").getAsJsonObject("animations");
+		List<String> clips = new ArrayList<>(List.of("idle", "walk", "fly"));
+		clips.addAll(List.of(SentinelEntity.ACTION_CLIPS));
+		for (String clip : clips) {
+			JsonObject a = anims.getAsJsonObject("animation.sentinel." + clip);
+			helper.assertTrue(a != null, "the " + clip + " clip exists");
+			String end = String.format(java.util.Locale.ROOT, "%.2f", a.get("animation_length").getAsDouble());
+			for (Map.Entry<String, JsonElement> bone : a.getAsJsonObject("bones").entrySet()) {
+				helper.assertTrue(cubes.containsKey(bone.getKey()), clip + " animates a bone the geo has: " + bone.getKey());
+				for (Map.Entry<String, JsonElement> ch : bone.getValue().getAsJsonObject().entrySet()) {
+					JsonObject keys = ch.getValue().getAsJsonObject();
+					helper.assertTrue(keys.has("0.00") && keys.has(end), clip + "/" + bone.getKey() + " keyed at 0 and " + end);
+				}
+			}
+		}
+		helper.succeed();
 	}
 }

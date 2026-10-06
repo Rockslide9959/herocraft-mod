@@ -45,7 +45,9 @@ import software.bernie.geckolib.animation.RawAnimation;
 
 /**
  * v0.15.1: a <b>Sentinel</b> -- the Sentinel Program's main unit. About three and a half blocks tall (a 2-block GeckoLib
- * model at {@link #SCALE}), purple-and-magenta armour, a silver face with burning eyes. 90 health, 10 armour.
+ * model at {@link #SCALE}). Since v0.15.3 the model is the user's Blockbench Sentinel -- a player-skin rig in the classic
+ * magenta-and-blue armour with burning red eyes and a glowing chest gem ({@code scratchpad/gen_v0153_sentinel.js}).
+ * 90 health, 10 armour.
  * <ul>
  *   <li><b>Arrival</b>: purge Sentinels come down out of the sky on their boot thrusters ({@link #startArrival}) and land
  *       with a jolt.</li>
@@ -58,7 +60,7 @@ import software.bernie.geckolib.animation.RawAnimation;
  *   <li><b>Carriers</b> (40%) also release a pair of Sentinel Drones from the pack on their back every 20 seconds.</li>
  * </ul>
  * The attack clips play on the "action" controller under a synced busy flag that stands the looping body controller
- * down (the Oathbreaker / Bone Tyrant lesson); the timings below mirror {@code scratchpad/gen_sentinel_v0151.js}.
+ * down (the Oathbreaker / Bone Tyrant lesson); the timings below mirror {@code scratchpad/gen_v0153_sentinel.js}.
  */
 public class SentinelEntity extends SentinelRobot {
 	/** The geo model is authored two blocks tall; the SCALE attribute makes it ~3.5 (and the hit-box follows). */
@@ -377,8 +379,9 @@ public class SentinelEntity extends SentinelRobot {
 			case PALM_BLAST -> {
 				if (target != null && attackTicks == HAND_FIRE) {
 					Vec3 look = Vec3.directionFromRotation(0, yBodyRot);
-					Vec3 side = new Vec3(-look.z, 0, look.x);
-					Vec3 from = position().add(0, getBbHeight() * 0.7, 0).add(look.scale(getBbWidth() * 0.9)).add(side.scale(-getBbWidth() * 0.45));
+					Vec3 side = new Vec3(-look.z, 0, look.x); // points to its right
+					// v0.15.3: out of the user's model's real right palm (the old model's "right" arm was on its left)
+					Vec3 from = position().add(0, getBbHeight() * 0.7, 0).add(look.scale(getBbWidth() * 0.9)).add(side.scale(getBbWidth() * 0.45));
 					double speed = 1.9;
 					SentinelBeamEntity.fire(server, this, SentinelBeamEntity.Kind.BEAM, from,
 							SentinelBeamEntity.leadAim(target, from, speed).subtract(from), cfg.palmBlastDamage, speed);
