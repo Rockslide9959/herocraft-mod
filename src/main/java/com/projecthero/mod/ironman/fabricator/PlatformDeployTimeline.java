@@ -71,6 +71,35 @@ public final class PlatformDeployTimeline {
 		return TOTAL - OUTRO;
 	}
 
+	// ---------------- v0.15.3: the retrieve is the same timetable played backwards ----------------
+	//
+	// Explicit user request: taking a suit off onto a Suit Platform uses the robotic arms too. A retrieve is exactly the
+	// deploy run in reverse over the same TOTAL ticks, with the pieces listed in the same deploy order (boots, legs,
+	// chest, helmet): at real tick t every renderer draws the deploy frame retrieveFrame(t) = TOTAL - t, so the arms
+	// unfold, reach the helmet on the body first, clamp it, pull it off and carry it back onto the rack, then the
+	// chestplate, leggings and boots, and fold away. The server moves each real stack body -> rack in one tick at
+	// removeTick -- the reverse of the deploy's equipTick.
+
+	/** The deploy frame a retrieve shows {@code t} ticks after it started. */
+	public static float retrieveFrame(float t) {
+		return TOTAL - t;
+	}
+
+	/** Retrieve: the tick at which the jaws close on (deploy-order) piece {@code i} on the body. */
+	public static int clampTick(int i, int pieces) {
+		return TOTAL - letGoTick(i, pieces);
+	}
+
+	/** Retrieve: the tick at which piece {@code i} comes off the body -- the real stack moves armour slot -> rack. */
+	public static int removeTick(int i, int pieces) {
+		return TOTAL - equipTick(i, pieces);
+	}
+
+	/** Retrieve: the tick at which piece {@code i} is set down on the rack and the clamp lets it go. */
+	public static int rackTick(int i, int pieces) {
+		return TOTAL - liftTick(i, pieces);
+	}
+
 	/** The piece window {@code t} falls in, or -1 during the lead-in / fold-away. */
 	public static int pieceAt(float t, int pieces) {
 		if (pieces <= 0 || t < LEAD || t >= TOTAL - OUTRO) {

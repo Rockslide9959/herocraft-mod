@@ -163,33 +163,31 @@ public final class IronManEnergy {
 		}
 	}
 
-	/** v0.14.27: the worn regen right now -- halved while a timed flight burst (Mark 1 X) is running. */
+	/**
+	 * The worn regen right now. v0.15.3, explicit user request: <b>halved while flying</b> (repulsor flight or the Mark 1's
+	 * X burst), on top of the flat {@link IronManSuit#flatFlightDrainPerSecond()} drain, so flight always costs energy net.
+	 */
 	public static float regenPerSecond(ServerPlayer player, IronManSuit suit) {
 		float rate = suit.energyRegenPerSecond();
-		if (TonyStark.state(player).timedFlightUntil > player.level().getGameTime()) {
-			rate *= 0.5f;
+		if (IronManFlight.isFlying(player) || TonyStark.state(player).timedFlightUntil > player.level().getGameTime()) {
+			rate *= FLIGHT_REGEN_SCALE;
 		}
 		return rate;
 	}
 
-	/**
-	 * "changes 18": a worn suit slowly self-repairs its integrity at a flat per-mark
-	 * {@link IronManSuit#armorRegenPerSecond()} rate (Mark 1/2 = 0 -- platform only; Mark III+ = a
-	 * trickle). A Suit Platform is still the fast way to repair.
-	 */
-	/** v0.14.26: every suit's worn self-repair runs at 40% of its listed rate (explicit user request: nerf integrity regen). */
-	public static final float WORN_REGEN_SCALE = 0.4f;
-	/** v0.14.26: and a Suit Platform repairs integrity at half speed. */
+	/** v0.15.3: worn energy regen is multiplied by this while the suit is flying. */
+	public static final float FLIGHT_REGEN_SCALE = 0.5f;
+
+	/** v0.14.26: a Suit Platform repairs integrity at half speed. */
 	public static final float PLATFORM_INTEGRITY_SCALE = 0.5f;
 
-	public static void tickArmorRegen(ServerPlayer player, IronManSuit suit) {
-		float rate = suit.armorRegenPerSecond() * WORN_REGEN_SCALE;
-		if (rate <= 0f) {
-			return;
-		}
-		float current = integrity(player, suit.id());
-		if (current < maxIntegrity(suit.id())) {
-			setIntegrity(player, suit.id(), current + rate / 20f);
-		}
-	}
+	// v0.15.3, explicit user request: a worn suit no longer repairs its own integrity at all (the per-mark armorRegen x
+	// WORN_REGEN_SCALE trickle is gone) -- docking it on a Suit Platform (or creative) is the only repair.
+
+	/**
+	 * v0.15.3, explicit user request: a hit that lands on a wearer with the suit's chestplate on bleeds integrity by this
+	 * share of the damage the player actually took, and the suit no longer absorbs any of it -- 10 damage taken = 7.5
+	 * integrity lost, and the player still takes the full 10. See {@link IronManDamage#onDamageTaken}.
+	 */
+	public static final float INTEGRITY_PER_DAMAGE = 0.75f;
 }

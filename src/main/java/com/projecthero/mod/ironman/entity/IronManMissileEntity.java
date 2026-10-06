@@ -108,7 +108,11 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 
 	@Override
 	public void tick() {
+		Vec3 before = position();
 		super.tick();
+		if (!level().isClientSide() && isAlive() && contactFuse(before)) {
+			return;
+		}
 		if (level().isClientSide()) {
 			level().addParticle(ParticleTypes.SMOKE, getX(), getY(), getZ(), 0, 0, 0);
 			level().addParticle(ParticleTypes.FLAME, getX(), getY(), getZ(), 0, 0, 0);
@@ -135,6 +139,38 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 		}
 		((ServerLevel) level()).sendParticles(ParticleTypes.SMOKE, getX(), getY(), getZ(), 2, 0.02, 0.02, 0.02, 0.0);
 	}
+
+	/**
+	 * v0.15.3, explicit user request: a rocket / missile explodes on <b>contact with a creature</b>, not only on blocks.
+	 * Vanilla's swept hit test misses a target the missile starts inside (a point-blank shot spawns it a block in front
+	 * of the shoulder -- inside anything standing there) and can slip past a thin box at speed, so after every move the
+	 * missile also checks the whole stretch it just flew (and where it is now), with a little margin, for anything it may
+	 * hit ({@link #canHitEntity}: {@code HeroTargets} rules -- never the shooter, a squadmate, a pet, the shooter's suit
+	 * parts / pod / drone). The nearest one along the path takes the direct hit and the usual blast goes off there.
+	 */
+	private boolean contactFuse(Vec3 from) {
+		Vec3 to = position();
+		AABB sweep = getBoundingBox().minmax(getBoundingBox().move(from.subtract(to))).inflate(FUSE_MARGIN);
+		LivingEntity best = null;
+		double bestSq = Double.MAX_VALUE;
+		for (LivingEntity e : level().getEntitiesOfClass(LivingEntity.class, sweep, this::canHitEntity)) {
+			AABB box = e.getBoundingBox().inflate(FUSE_MARGIN);
+			boolean touched = box.intersects(getBoundingBox()) || box.contains(from) || box.clip(from, to).isPresent();
+			double d = e.distanceToSqr(from);
+			if (touched && d < bestSq) {
+				bestSq = d;
+				best = e;
+			}
+		}
+		if (best == null) {
+			return false;
+		}
+		onHitEntity(new EntityHitResult(best, to));
+		return true;
+	}
+
+	/** v0.15.3: how close (blocks) a missile must pass a creature's box to set off on it. */
+	public static final double FUSE_MARGIN = 0.3;
 
 	private LivingEntity nearestTarget() {
 		LivingEntity best = null;
@@ -215,6 +251,11 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 
 	@Override
 	protected boolean canHitEntity(net.minecraft.world.entity.Entity entity) {
+		// v0.15.3: never on the shooter's own Iron Man hardware (suit pieces flying in, the delivery pod, the drone)
+		if (entity instanceof IronManSuitPartEntity || entity instanceof IronManDeliveryPodEntity
+				|| entity instanceof com.projecthero.mod.ironman.drone.IronManDroneEntity || entity instanceof IronManMissileEntity) {
+			return false;
+		}
 		return super.canHitEntity(entity)
 				&& (!(entity instanceof LivingEntity le) || canTargetLiving(le));
 	}

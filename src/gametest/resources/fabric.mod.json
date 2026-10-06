@@ -13,6 +13,7 @@
       "com.projecthero.mod.gametest.IronManV01430GameTests",
       "com.projecthero.mod.gametest.IronManSoundsV01431GameTests",
       "com.projecthero.mod.gametest.IronManPlatformArmsV0151GameTests",
+      "com.projecthero.mod.gametest.IronManV0153GameTests",
       "com.projecthero.mod.gametest.StarkGlassesV0151GameTests",
       "com.projecthero.mod.gametest.IronManV01429ComboJarvisGameTests",
       "com.projecthero.mod.gametest.FlashSuitGameTests",

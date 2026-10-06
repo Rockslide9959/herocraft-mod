@@ -303,23 +303,8 @@ public final class ModNetworking {
 				com.projecthero.mod.ironman.suit.IronManSuitCall.execute(context.player(), payload.suitId(), payload.source()));
 
 		// Mark 7 weapon wheel: the player picked which ability slot 3 (X) fires, or toggled entity glow.
-		ServerPlayNetworking.registerGlobalReceiver(IronManWeaponWheelPayload.TYPE, (payload, context) -> {
-			if (com.projecthero.mod.ironman.ability.IronManAbilities.ENTITY_GLOW_TOGGLE.equals(payload.ability())) {
-				com.projecthero.mod.ironman.ability.IronManAbilities.toggleEntityGlowFromWheel(context.player());
-				return;
-			}
-			// v0.14.27 (agent D): the Mark III wheel picks what G fires
-			if (com.projecthero.mod.ironman.ability.IronManMark3.isWeapon(payload.ability())) {
-				com.projecthero.mod.ironman.ability.IronManMark3.selectWeapon(context.player(), payload.ability());
-				return;
-			}
-			for (String option : com.projecthero.mod.ironman.ability.IronManAbilities.WEAPON_WHEEL_OPTIONS) {
-				if (option.equals(payload.ability())) {
-					com.projecthero.mod.ironman.TonyStark.setWeaponWheelChoice(context.player(), option);
-					return;
-				}
-			}
-		});
+		ServerPlayNetworking.registerGlobalReceiver(IronManWeaponWheelPayload.TYPE, (payload, context) ->
+				IronManWeaponWheelPayload.handleServer(context.player(), payload.ability()));
 
 		// Blank Blueprint picker ("changes 21"): the player chose a mark to stamp the blank into.
 		ServerPlayNetworking.registerGlobalReceiver(IronManBlueprintChoicePayload.TYPE, (payload, context) ->

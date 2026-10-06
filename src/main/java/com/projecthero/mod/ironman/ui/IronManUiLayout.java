@@ -313,6 +313,27 @@ public final class IronManUiLayout {
 	 * fix) makes each sector's hit wedge the wedge drawn around its centre angle.
 	 */
 	public static int wheelSector(double dx, double dy, int n, double deadZone) {
+		return wheelSectorImpl(dx, dy, n, deadZone);
+	}
+
+	/**
+	 * v0.15.3, explicit user request: the weapon wheel is open only while V is held, and letting go of V equips the wedge
+	 * under the cursor. This is what a release sends: the hovered wedge if it is not already the current pick (the
+	 * {@code toggleId} wedge -- the coloured highlight -- always toggles), else null = keep the current weapon (nothing
+	 * hovered / the centre, or the wedge that is already bound -- so a quick tap of V never changes anything).
+	 */
+	public static String wheelReleaseChoice(String[] sectors, int hovered, String current, String toggleId) {
+		if (hovered < 0 || hovered >= sectors.length) {
+			return null;
+		}
+		String pick = sectors[hovered];
+		if (pick.equals(toggleId)) {
+			return pick;
+		}
+		return pick.equals(current) ? null : pick;
+	}
+
+	private static int wheelSectorImpl(double dx, double dy, int n, double deadZone) {
 		if (n <= 0 || Math.hypot(dx, dy) <= deadZone) {
 			return -1;
 		}

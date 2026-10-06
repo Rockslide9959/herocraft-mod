@@ -152,7 +152,6 @@ public final class IronManSuitTicker {
 			// Suit is powered down: no active abilities run, targeting drops. Physical armour only.
 			shutDownAllSystems(player, s, suit);
 			IronManEnergy.tickRecharge(player, suit); // the Arc Reactor still trickles it back up
-			IronManEnergy.tickArmorRegen(player, suit); // "changes 18": worn self-repair keeps working
 			tickIntegrityFailure(player, suitId, integrityFailed);
 			return;
 		}
@@ -184,7 +183,6 @@ public final class IronManSuitTicker {
 		com.projecthero.mod.ironman.ability.IronManMark6.tick(player, suit);
 		com.projecthero.mod.ironman.ability.IronManMark7.tick(player, suit);
 		IronManEnergy.tickRecharge(player, suit);
-		IronManEnergy.tickArmorRegen(player, suit); // "changes 18": Mark III+ slowly self-repair while worn
 	}
 
 	/** Ticks up to 3.6s, refreshed every tick while integrity is still zero -- see IronManDamage's

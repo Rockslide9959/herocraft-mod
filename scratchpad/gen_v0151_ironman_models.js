@@ -34,9 +34,9 @@ const THIGH_ROWS = 8;
 function boxFaces(u, v, w, h, d, rowFrom = 0, rows = h) {
 	const sv = v + d + rowFrom;
 	return {
-		west: { uv: [u, sv], uv_size: [d, rows] }, // Bedrock box layout is west | north | east | south
+		east: { uv: [u, sv], uv_size: [d, rows] }, // v0.15.3: Blockbench box UV is east | north | west | south (the 0.14.28 west/east swap put the face-side gold wraps of the Mark 3 / 4 helmets on the back edges)
 		north: { uv: [u + d, sv], uv_size: [w, rows] },
-		east: { uv: [u + d + w, sv], uv_size: [d, rows] },
+		west: { uv: [u + d + w, sv], uv_size: [d, rows] },
 		south: { uv: [u + 2 * d + w, sv], uv_size: [w, rows] },
 		up: { uv: [u + d, v], uv_size: [w, d] },
 		down: { uv: [u + d + w, v], uv_size: [w, d] },

@@ -278,20 +278,20 @@ public class DirectionalFlightGameTests implements FabricGameTest {
 		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_6", 250f);
 		IronManFlight.setFlying(player, true);
 		helper.assertTrue(IronManFlight.isFlying(player) && player.getAbilities().flying, "flight engages");
-		player.setOnGround(false); // v0.14.30: Mark 2-5 use a flat drain now; the Mark 6 keeps the tiered one
-		float mult = IronManSuits.MARK_6.flightDrainMultiplier();
+		player.setOnGround(false); // v0.15.3: every mark (Mark 6 too) flies at a flat 3 energy/s
+		float flat = 3f / 20f;
 
 		float before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6");
 		IronManFlight.tick(player);
 		float hoverSpent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6");
-		helper.assertTrue(Math.abs(hoverSpent - 10f / 20f * mult) < 1.0e-3f, "hover drain unchanged, spent " + hoverSpent);
+		helper.assertTrue(Math.abs(hoverSpent - flat) < 1.0e-3f, "hover drains the flat 3/s, spent " + hoverSpent);
 		helper.assertTrue(IronManFlight.isFlying(player), "still flying after a tick in the air");
 
 		player.setSprinting(true);
 		before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6");
 		IronManFlight.tick(player);
 		float sprintSpent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6");
-		helper.assertTrue(Math.abs(sprintSpent - 30f / 20f * mult) < 1.0e-3f, "sprint drain unchanged, spent " + sprintSpent);
+		helper.assertTrue(Math.abs(sprintSpent - flat) < 1.0e-3f, "sprint drains the same flat 3/s, spent " + sprintSpent);
 
 		player.setOnGround(true);
 		IronManFlight.tick(player);

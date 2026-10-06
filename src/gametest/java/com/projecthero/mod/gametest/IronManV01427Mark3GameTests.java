@@ -387,8 +387,6 @@ public class IronManV01427Mark3GameTests implements FabricGameTest {
 		helper.assertTrue(m4.energyCapacity() == 3000f, "3000 energy");
 		helper.assertTrue(m4.energyRegenPerSecond() == 5f, "5 energy/s regen");
 		helper.assertTrue(m4.maxIntegrity() == 1750f && IronManEnergy.maxIntegrity(M4) == 1750f, "1750 integrity");
-		helper.assertTrue(Math.abs(m4.armorRegenPerSecond() * IronManEnergy.WORN_REGEN_SCALE - 3f) < 1e-4f, "3 integrity/s worn regen");
-		helper.assertTrue(m4.integrityPlayerShare() == 0.5f, "integrity takes 50% of every hit");
 		helper.assertTrue(m4.arrowFireImmune(), "arrow + fire immune");
 		helper.assertTrue(m4.waterBreathing() && m4.airTankSeconds() == 0, "breathes underwater, no air tank");
 		helper.assertTrue(m4.autoFeed(), "auto-feeds");
@@ -558,9 +556,11 @@ public class IronManV01427Mark3GameTests implements FabricGameTest {
 		boolean allowed = ServerLivingEntityEvents.ALLOW_DAMAGE.invoker().allowDamage(p, sources.inFire(), 6f);
 		helper.assertFalse(allowed, "fire is ignored");
 		helper.assertTrue(IronManEnergy.integrity(p, M4) == 1000f, "fire never drains integrity");
-		// an ordinary hit: integrity soaks half
-		ServerLivingEntityEvents.ALLOW_DAMAGE.invoker().allowDamage(p, sources.generic(), 20f);
-		helper.assertTrue(Math.abs(IronManEnergy.integrity(p, M4) - 990f) < 0.01f, "integrity takes 50%, at " + IronManEnergy.integrity(p, M4));
+		// an ordinary hit (v0.15.3): it lands in full, and what lands costs 75% of it in integrity
+		helper.assertTrue(ServerLivingEntityEvents.ALLOW_DAMAGE.invoker().allowDamage(p, sources.generic(), 20f), "the hit lands");
+		helper.assertTrue(IronManEnergy.integrity(p, M4) == 1000f, "nothing is soaked up front");
+		ServerLivingEntityEvents.AFTER_DAMAGE.invoker().afterDamage(p, sources.generic(), 20f, 20f, false);
+		helper.assertTrue(Math.abs(IronManEnergy.integrity(p, M4) - 985f) < 0.01f, "integrity takes 75%, at " + IronManEnergy.integrity(p, M4));
 		// Sneak+V Energy Shield works on the Mark 4 too
 		p.setShiftKeyDown(true);
 		IronManAbilityManager.handle(p, AbilitySlot.SLOT_5, true);

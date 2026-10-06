@@ -29,7 +29,6 @@ public final class IronManSuits {
 			.energy(500f, 3.0f) // v0.14.27: 500, explicit user request
 			.maxIntegrity(750f) // v0.14.27: 750, explicit user request
 			.energyRegen(2f) // v0.14.27: 2 energy/sec (halved while the X flight burst is up)
-			.integritySplit(0.5f) // v0.14.27: integrity absorbs 50% of every hit, the wearer takes 50%
 			.arrowFireImmune() // v0.14.27: arrows + fire do nothing, not even to integrity
 			.noAutoFeed()
 			// v0.14.27: G flamethrower -- 8 dmg/s + burning, 6 energy/s, heat +5/s to a 100 ceiling, seeps 5/s after 3 s idle
@@ -40,8 +39,7 @@ public final class IronManSuits {
 			.mobHighlight(10f, 20 * 20) // v0.14.27: V costs 10 energy
 			.platformRegen(10f, 6f) // v0.11.12: flat 10 energy/sec + 6 integrity/sec on a Suit Platform,
 			// overriding the generic 0.1%-of-pool formula every other mark still uses -- explicit user
-			// request. armorRegen is deliberately left unset (0 = no passive integrity regen at all,
-			// platform only -- also explicit user request).
+			// request.
 			.flightDrain(0.55f) // "changes 18"
 			.targetScanRange(25.0) // v0.14.27: Mob Highlight reaches 25 blocks
 			.flight(0.75f, 0.055f) // "changes 18": flies 25% slower than the other marks
@@ -70,16 +68,13 @@ public final class IronManSuits {
 			.energy(1_250f, 0.5f) // v0.14.26: down from 4500, explicit user request
 			.maxIntegrity(1000f) // v0.14.27: 1000, explicit user request
 			.energyRegen(3f) // v0.14.27: 3 energy/sec, explicit user request
-			.armorRegen(5f) // v0.11.13: flat passive 5 integrity/sec worn self-repair, explicit user request
 			.platformRegen(24f, 15f) // v0.11.13: 24 energy/sec + 15 integrity/sec on a Suit Platform,
 			// overriding the generic 0.1%-of-pool formula -- explicit user request.
 			.resistance(1) // v0.14.27: Resistance I while the chestplate is worn + powered
-			.integritySplit(0.5f) // v0.14.27: integrity absorbs 50% of every hit, the wearer takes 50%
 			.arrowFireImmune()
 			.noAutoFeed()
 			.targeting() // v0.14.27: lock-on / auto-aim like the Mark III
 			.flightDrain(0.9f) // "changes 18"
-			.flatFlightDrain(2f) // v0.14.30: all flight drains 2 energy/sec, explicit user request
 			.targetScanRange(25.0) // v0.14.27: Mob Highlight reaches 25 blocks
 			.flight(1.0f, 0.08f) // "normal flight like other armours"
 			// v0.14.27 R: tap = 1 s spin-up then 10 dmg (10 energy, 1 s cd); hold 1 s = 18 dmg (50 energy, 3 s cd);
@@ -110,14 +105,11 @@ public final class IronManSuits {
 			.energy(2_000f, 3.0f) // v0.14.27: 2000, explicit user request
 			.maxIntegrity(1000f) // v0.14.27: 1000, explicit user request
 			.energyRegen(5f) // v0.14.27: 5 energy/sec
-			.armorRegen(2.5f) // v0.15.1: 1 integrity/sec worn (2.5 x IronManEnergy.WORN_REGEN_SCALE 0.4), explicit user request
 			.resistance(1) // v0.14.27: Resistance I while the chestplate is worn + powered
-			.integritySplit(0.5f) // v0.14.27: integrity absorbs 50% of every hit, the wearer takes 50%
 			.arrowFireImmune()
 			.waterBreathing() // v0.14.27: breathes underwater (no timed air tank)
 			.targeting()
 			.flightDrain(1.0f) // "changes 18"
-			.flatFlightDrain(2f) // v0.14.30: all flight drains 2 energy/sec, explicit user request
 			.targetScanRange(70.0) // "changes 14": Mark III target scan reaches 70 blocks
 			.flight(1.0f, 0.08f)
 			// v0.14.27 R: tap 15 dmg / 10 energy / 1 s cd (no windup); hold 1 s = 20 dmg / 50 energy / 3 s cd;
@@ -148,13 +140,10 @@ public final class IronManSuits {
 			.energy(2_500f, 0.5f) // v0.14.29: 2500
 			.maxIntegrity(800f) // v0.14.29: 800
 			.energyRegen(5f) // v0.14.29: 5 energy/sec
-			.armorRegen(5f) // v0.14.29: x IronManEnergy.WORN_REGEN_SCALE (0.4) = 2 integrity/sec worn
-			.integritySplit(0.5f) // v0.14.29: integrity absorbs 50% of every hit, the wearer takes 50%
 			.arrowFireImmune() // v0.14.29: arrows + fire do nothing, not even to integrity
 			.waterBreathing() // v0.14.29: breathes underwater
 			.targeting() // v0.14.29: lock-on / auto-aim like the Mark 2 / III
 			.flightDrain(0.90f) // "changes 18"
-			.flatFlightDrain(1f) // v0.14.30: all flight drains 1 energy/sec, explicit user request
 			.targetScanRange(30.0)
 			.flight(1.0f, 0.08f)
 			// v0.14.29 R: the Mark 2's numbers but NO 1 s spin-up -- a tap fires the moment it is released;
@@ -183,14 +172,11 @@ public final class IronManSuits {
 			.energy(3_000f, 3.0f) // v0.14.29: 3000
 			.maxIntegrity(1750f) // v0.14.29: 1750
 			.energyRegen(5f) // v0.14.29: 5 energy/sec
-			.armorRegen(7.5f) // v0.14.29: 3 integrity/sec worn (7.5 x IronManEnergy.WORN_REGEN_SCALE 0.4)
-			.integritySplit(0.5f) // v0.14.29: integrity absorbs 50% of every hit, the wearer takes 50%
 			.arrowFireImmune() // v0.14.29: arrows + fire do nothing, not even to integrity
 			.waterBreathing() // v0.14.29: breathes underwater (no timed air tank)
 			.targeting() // v0.14.29: lock-on / auto-aim + HUD lock like the Mark III
 			// auto-feed stays on (no .noAutoFeed())
 			.flightDrain(1.05f) // "changes 18"
-			.flatFlightDrain(1f) // v0.14.30: all flight drains 1 energy/sec, explicit user request
 			.targetScanRange(70.0)
 			.flight(1.05f, 0.09f)
 			// v0.14.29 R: the Mark III's numbers +2 dmg / -2 s -- tap 17 dmg / 10 energy / no cd; hold 1 s = 22 dmg /
@@ -219,7 +205,6 @@ public final class IronManSuits {
 			.energy(10_500f, 3.0f) // "changes 18": capacity 10500
 			.maxIntegrity(800f) // "changes 18"
 			.energyRegen(2.6f) // "changes 18"
-			.armorRegen(2.5f) // v0.15.1: 1 integrity/sec worn (2.5 x IronManEnergy.WORN_REGEN_SCALE 0.4), explicit user request
 			.flightDrain(1.1f) // "changes 18"
 			.targetScanRange(70.0)
 			.waterBreathing() // v0.14.29: breathes underwater indefinitely (was a 5-minute air tank)
@@ -256,7 +241,6 @@ public final class IronManSuits {
 			.energy(12_000f, 3.4f) // "changes 18": capacity 12000
 			.maxIntegrity(950f) // "changes 18"
 			.energyRegen(3.0f) // "changes 18"
-			.armorRegen(2.5f) // v0.15.1: 1 integrity/sec worn (2.5 x IronManEnergy.WORN_REGEN_SCALE 0.4), explicit user request
 			.flightDrain(1.15f) // "changes 18"
 			.flight(1.7f, 0.14f)
 			.maxFlightSpeed(30.0)

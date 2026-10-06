@@ -7,66 +7,38 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 
 /**
- * Iron Man suit damage mitigation + suit integrity ("changes 12" rework of spec section 28).
+ * Iron Man suit damage rules + suit integrity.
  *
- * <p>While a Tony Stark player wears a valid, powered (energy &gt; 0) full suit, every hit is split by
- * a flat rule instead of the old per-suit {@code damageReduction} multiplier:
- * <ul>
- *   <li><b>Integrity intact</b> ({@code integrity > 0}): the suit's plating and stabilisers absorb
- *       {@code 90%} of the hit -- the wearer only takes the remaining {@code 10%}. The absorbed 90%
- *       bleeds suit integrity, and running the mitigation drains a little energy too.</li>
- *   <li><b>Integrity failed</b> ({@code integrity <= 0}): the active systems that did that absorbing are
- *       gone, but the suit's raw plating hasn't -- the wearer now takes {@code 80%} of the hit (still a
- *       little better than bare skin), and {@link IronManSuitTicker} keeps them Slowed + Weakened for as
- *       long as it stays at zero (life-support and stabilisers failing).</li>
- *   <li><b>Energy fully depleted</b>: nothing is running at all -- raw {@code ArmorMaterial} defense
- *       only, exactly as before.</li>
- * </ul>
- * <p>"changes 22": <b>fire is special-cased</b>. Anything tagged {@code IS_FIRE} bleeds integrity at
- * {@value #FIRE_INTEGRITY_MULTIPLIER} and energy at {@value #FIRE_ENERGY_MULTIPLIER} of the normal
- * rate. The wearer's own damage share is unchanged -- only the wear-and-tear on the armour is.
+ * <p><b>v0.15.3 rework (explicit user request):</b> the suit no longer soaks any part of a hit through its integrity.
+ * The wearer takes every hit in full (vanilla armour points / Resistance still apply as for any armour), and the suit's
+ * integrity separately loses {@link IronManEnergy#INTEGRITY_PER_DAMAGE 75%} of the damage the wearer actually took --
+ * 10 damage taken = 7.5 integrity lost, the player still loses the full 10. That bleed happens in
+ * {@link #onDamageTaken} off Fabric's {@code AFTER_DAMAGE}, so it is always the real, landed amount. The old 50/50
+ * and 90/10 splits and the per-hit energy cost of "running the mitigation" are gone with it. At zero integrity the
+ * wearer is still Slowed + Weakened ({@link IronManSuitTicker}).
  *
- * <p>Iron Man boots alone (even without the rest of the suit) still give strong fall-damage protection,
- * and the Repulsor Barrier still eats most of a hit while it holds -- both unchanged by this rework.
+ * <p>Special rules kept as they were: no fall damage in any Iron Man piece, bulletproof (gunfire does nothing with
+ * the chestplate on), the Mark III-line Energy Shield, the Repulsor Shield's 90% frontal block, arrows + fire do
+ * nothing to a powered Mark 1-5, and fire / lava only wear integrity at {@value #FIRE_INTEGRITY_MULTIPLIER} of the
+ * normal rate (heat, not impact). New in v0.15.3: the wearer is immune to all damage while a suit is assembling onto
+ * them ({@link #suitUpImmune}).
  *
- * <p>Uses the same cancel-and-re-apply-smaller pattern as {@code HeroDamageRules} because Fabric's
- * {@code ALLOW_DAMAGE} is a boolean veto with no "reduce amount".
+ * <p>The Repulsor Shield still uses the cancel-and-re-apply-smaller pattern of {@code HeroDamageRules}, because
+ * Fabric's {@code ALLOW_DAMAGE} is a boolean veto with no "reduce amount".
  */
 public final class IronManDamage {
-	/** Fraction of a raw hit the wearer takes while integrity is intact -- the other 90% is absorbed. */
-	private static final float PLAYER_SHARE_INTEGRITY_OK = 0.10f;
-	/** Fraction of a raw hit the wearer takes once integrity has failed (systems down, plating remains). */
-	private static final float PLAYER_SHARE_INTEGRITY_FAILED = 0.80f;
-	/** Share of the raw hit that bleeds integrity while it's still absorbing its 90% share. */
-	private static final float INTEGRITY_DAMAGE_SHARE = 0.90f;
-	/** Suit energy spent per point of raw incoming damage, running the mitigation either way. */
-	private static final float ENERGY_COST_SHARE_INTEGRITY_OK = 0.20f;
-	private static final float ENERGY_COST_SHARE_INTEGRITY_FAILED = 0.10f;
 	/**
-	 * "changes 22": burning is <b>heat</b>, not impact, and the suit is a sealed heat-shielded shell --
-	 * so ordinary fire barely touches its condition.
-	 *
-	 * <p>Fire is a 1-damage tick every half second that never stops until you leave the flames, so the
-	 * flat 90%-of-the-hit integrity rule charged a full-suit wearer ~1.8 integrity per second just for
-	 * standing in a campfire. Thirty seconds alight cost a Mark 1 nearly a fifth of its entire pool for
-	 * an amount of damage a player in leather would shrug off. Every fire / lava / hot-floor source now
-	 * bleeds integrity and energy at these multiples of the normal rate instead; the wearer's own
-	 * damage share is untouched, so the suit protects them exactly as well as before.
+	 * "changes 22": burning is <b>heat</b>, not impact, and the suit is a sealed heat-shielded shell -- so fire / lava /
+	 * hot floors only bleed integrity at this multiple of the normal 75%-of-damage rate.
 	 */
-	private static final float FIRE_INTEGRITY_MULTIPLIER = 0.05f;
-	private static final float FIRE_ENERGY_MULTIPLIER = 0.10f;
-
-	// v0.14.27: the per-mark Mark 1 / Mark 2 rules are now builder data -- IronManSuit#integrityPlayerShare
-	// (the flat split) and IronManSuit#arrowFireImmune -- see mitigateSplit below.
+	public static final float FIRE_INTEGRITY_MULTIPLIER = 0.05f;
 
 	private static final ThreadLocal<Boolean> REENTRANT = ThreadLocal.withInitial(() -> false);
 
@@ -75,6 +47,11 @@ public final class IronManDamage {
 
 	public static void initialize() {
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(IronManDamage::onAllowDamage);
+		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> {
+			if (entity instanceof ServerPlayer player) {
+				onDamageTaken(player, source, taken);
+			}
+		});
 		IronManCombo.initialize(); // v0.14.29 agent F: repulsor -> melee combo
 		com.projecthero.mod.ironman.ability.IronManMark6.initialize(); // v0.14.29 (agent C): Arc Reactor Surge damage boost
 	}
@@ -84,7 +61,18 @@ public final class IronManDamage {
 		return IronManArmor.wearingAnyIronMan(player);
 	}
 
-	private static boolean onAllowDamage(LivingEntity entity, DamageSource source, float amount) {
+	/**
+	 * v0.15.3, explicit user request: while any suit is assembling onto the player -- the piece-by-piece C suit-up, the
+	 * Mark 5 suitcase, a called suit's flying pieces, the Mark 7 delivery pod, the Suit Platform's robotic-arm deploy --
+	 * nothing hurts them. Every one of those paths holds {@code IronManSuitUpManager#assembling} for exactly as long as
+	 * it runs, so the immunity ends the tick the suit comes online (or the suit-up is cancelled). Suit-downs don't count.
+	 */
+	public static boolean suitUpImmune(ServerPlayer player) {
+		return TonyStark.hasPower(player) && com.projecthero.mod.ironman.suit.IronManSuitUpManager.assembling(player);
+	}
+
+	/** Fabric {@code ALLOW_DAMAGE}: false cancels the hit. Public for the gametests (mock players never fire it). */
+	public static boolean onAllowDamage(LivingEntity entity, DamageSource source, float amount) {
 		if (REENTRANT.get() || !(entity instanceof ServerPlayer player) || !TonyStark.hasPower(player)) {
 			return true;
 		}
@@ -94,6 +82,10 @@ public final class IronManDamage {
 		// "changes 17": Protocol Phoenix makes the player invulnerable while the emergency suit is
 		// inbound (except the two truly un-survivable sources handled above).
 		if (ProtocolPhoenix.incapacitated(player)) {
+			return false;
+		}
+		// v0.15.3: nothing lands while a suit is building itself onto you
+		if (suitUpImmune(player)) {
 			return false;
 		}
 
@@ -120,8 +112,8 @@ public final class IronManDamage {
 
 		// Repulsor Shield (slot 2 / G): a deployed frontal shield blocks 90% of any hit that lands in the
 		// 180-degree arc in front of the player ("changes 13") while it holds, even without the full suit
-		// -- it only needs the chestplate the ability itself requires. Hits from outside that arc pass
-		// straight through to the ordinary suit mitigation below.
+		// -- it only needs the chestplate the ability itself requires. The 10% that gets through then wears
+		// integrity like any other landed hit (onDamageTaken).
 		if (suit != null && IronManArmor.hasChestplate(player, suitId)
 				&& com.projecthero.mod.ironman.ability.IronManAbilities.barrierActive(player)
 				&& !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)
@@ -131,67 +123,40 @@ public final class IronManDamage {
 					amount * com.projecthero.mod.ironman.ability.IronManAbilities.BARRIER_DAMAGE_MULT, 1.0f);
 		}
 
-		// "changes 14": the integrity split protects you whenever the suit's core (the chestplate that
-		// houses the arc reactor and plating) is on and powered -- not only with all four pieces worn.
-		if (suit == null || !IronManArmor.hasChestplate(player, suitId)) {
-			return true;
-		}
-		if (IronManEnergy.energy(player, suitId) <= 0f) {
-			return true; // suit fully unpowered -- physical protection only
-		}
-
-		// v0.14.27 (Marks 1 / 2 / III): arrows and fire do nothing at all, and every other hit is split flat --
-		// integrity absorbs its share, the wearer takes the rest.
-		if (suit.arrowFireImmune() && isArrowOrFire(source)) {
+		// v0.14.27 (Marks 1 - 5): arrows and fire do nothing at all while the powered chestplate is on.
+		if (suit != null && IronManArmor.hasChestplate(player, suitId) && IronManEnergy.energy(player, suitId) > 0f
+				&& suit.arrowFireImmune() && isArrowOrFire(source)) {
 			return false;
 		}
-		if (suit.integrityPlayerShare() >= 0f) {
-			return mitigateSplit(player, suitId, source, amount, suit.integrityPlayerShare());
-		}
-
-		// "changes 22": fire is cheap for the suit to shrug off -- see FIRE_INTEGRITY_MULTIPLIER.
-		boolean fire = source.is(DamageTypeTags.IS_FIRE);
-		float integrityMult = fire ? FIRE_INTEGRITY_MULTIPLIER : 1.0f;
-		float energyMult = fire ? FIRE_ENERGY_MULTIPLIER : 1.0f;
-
-		boolean integrityOk = IronManEnergy.integrity(player, suitId) > 0f;
-		if (integrityOk) {
-			// The suit's condition pool eats 90% of every hit; the wearer takes the remaining 10%
-			// "through the armour". A 10-damage hit -> 9 off integrity, 1 to the player.
-			float beforeIntegrity = IronManEnergy.integrity(player, suitId);
-			IronManEnergy.damageIntegrity(player, suitId, amount * INTEGRITY_DAMAGE_SHARE * integrityMult);
-			IronManEnergy.addEnergy(player, suitId, -amount * ENERGY_COST_SHARE_INTEGRITY_OK * energyMult);
-			if (beforeIntegrity > 0f && IronManEnergy.integrity(player, suitId) <= 0f) {
-				ServerLevel level = (ServerLevel) player.level();
-				level.playSound(null, player.getX(), player.getY(), player.getZ(),
-						IronManSounds.POWER_FAIL, SoundSource.PLAYERS, 1.0f, 1.0f);
-				player.displayClientMessage(net.minecraft.network.chat.Component
-						.translatable("message.projecthero.ironman.integrity_failed")
-						.withStyle(net.minecraft.ChatFormatting.RED), true);
-			}
-		} else {
-			IronManEnergy.addEnergy(player, suitId, -amount * ENERGY_COST_SHARE_INTEGRITY_FAILED * energyMult);
-		}
-		return reduce(player, source, amount, integrityOk ? PLAYER_SHARE_INTEGRITY_OK : PLAYER_SHARE_INTEGRITY_FAILED);
-	}
-
-	/** v0.14.27: an arrow (anything shot as an {@code AbstractArrow}) or any fire / lava / hot-floor source. */
-	public static boolean isArrowOrFire(DamageSource source) {
-		return source.is(DamageTypeTags.IS_FIRE)
-				|| source.getDirectEntity() instanceof net.minecraft.world.entity.projectile.AbstractArrow;
+		// v0.15.3: everything else lands in full -- the suit no longer absorbs any share of it
+		return true;
 	}
 
 	/**
-	 * v0.14.27, explicit user request (Marks 1 / 2 / III): a flat split. While integrity holds, it absorbs
-	 * {@code 1 - playerShare} of the hit and the wearer takes {@code playerShare} (0.5 = half each). Once integrity
-	 * has failed there is nothing left to absorb -- the wearer takes the whole hit.
+	 * v0.15.3, explicit user request: a hit has landed on the player ({@code AFTER_DAMAGE}, {@code taken} = the damage
+	 * that actually got through). With an Iron Man chestplate on, the suit loses {@link IronManEnergy#INTEGRITY_PER_DAMAGE}
+	 * of it as integrity (fire at {@link #FIRE_INTEGRITY_MULTIPLIER} of that), stored as an exact float so fractions
+	 * accumulate; any landed hit also seals an open faceplate. Public so the gametests can drive it (mock players never
+	 * fire the damage events).
 	 */
-	private static boolean mitigateSplit(ServerPlayer player, String suitId, DamageSource source, float amount, float playerShare) {
+	public static void onDamageTaken(ServerPlayer player, DamageSource source, float taken) {
+		if (taken <= 0f || !TonyStark.hasPower(player)) {
+			return;
+		}
+		if (IronManArmor.wearingAnyIronMan(player)) {
+			IronManFaceplate.autoClose(player);
+		}
+		String suitId = IronManArmor.wornSuitId(player);
+		if (suitId == null || IronManSuits.byId(suitId) == null || !IronManArmor.hasChestplate(player, suitId)) {
+			return;
+		}
 		float before = IronManEnergy.integrity(player, suitId);
 		if (before <= 0f) {
-			return true;
+			return;
 		}
-		IronManEnergy.damageIntegrity(player, suitId, amount * (1f - playerShare));
+		float bleed = taken * IronManEnergy.INTEGRITY_PER_DAMAGE
+				* (source.is(DamageTypeTags.IS_FIRE) ? FIRE_INTEGRITY_MULTIPLIER : 1.0f);
+		IronManEnergy.damageIntegrity(player, suitId, bleed);
 		if (IronManEnergy.integrity(player, suitId) <= 0f) {
 			ServerLevel level = (ServerLevel) player.level();
 			level.playSound(null, player.getX(), player.getY(), player.getZ(),
@@ -200,7 +165,12 @@ public final class IronManDamage {
 					.translatable("message.projecthero.ironman.integrity_failed")
 					.withStyle(net.minecraft.ChatFormatting.RED), true);
 		}
-		return reduce(player, source, amount, playerShare);
+	}
+
+	/** v0.14.27: an arrow (anything shot as an {@code AbstractArrow}) or any fire / lava / hot-floor source. */
+	public static boolean isArrowOrFire(DamageSource source) {
+		return source.is(DamageTypeTags.IS_FIRE)
+				|| source.getDirectEntity() instanceof net.minecraft.world.entity.projectile.AbstractArrow;
 	}
 
 	/**
@@ -218,11 +188,6 @@ public final class IronManDamage {
 			return true;
 		}
 		return player.getLookAngle().dot(toSource.normalize()) > 0.0;
-	}
-
-	private static String suitOfPiece(ServerPlayer player, EquipmentSlot slot) {
-		return player.getItemBySlot(slot).getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem p
-				? p.suitId() : null;
 	}
 
 	private static boolean reduce(ServerPlayer player, DamageSource source, float amount, float factor) {

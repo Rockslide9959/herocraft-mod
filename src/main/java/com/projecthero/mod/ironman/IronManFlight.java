@@ -62,6 +62,7 @@ public final class IronManFlight {
 		player.setAttached(ModAttachments.IRON_MAN_FLYING, flying);
 		if (flying) {
 			IronManLandingSlam.reset(player); // v0.14.27: fresh motion history for the landing slam
+			IronManFaceplate.autoClose(player); // v0.15.3: taking off seals the visor
 		}
 		if (player.getAbilities().instabuild) {
 			return;
@@ -116,7 +117,7 @@ public final class IronManFlight {
 				return;
 			}
 			if (!IronManEnergy.spend(player, suitId,
-					com.projecthero.mod.ironman.ability.IronManAbilities.TIMED_FLIGHT_DRAIN_PER_SECOND / 20f)) {
+					suit.flatFlightDrainPerSecond() / 20f)) { // v0.15.3: the flat 3/s every flight pays
 				com.projecthero.mod.ironman.ability.IronManAbilities.endTimedFlight(player, suitId);
 				setFlying(player, false);
 				player.displayClientMessage(net.minecraft.network.chat.Component
@@ -163,7 +164,7 @@ public final class IronManFlight {
 
 	private static float flightCostPerTick(ServerPlayer player, IronManSuit suit, boolean supersonic) {
 		if (suit.flatFlightDrainPerSecond() > 0f) {
-			return suit.flatFlightDrainPerSecond() / 20f; // v0.14.30: Mark 2 / 3 = 2/s, Mark 4 / 5 = 1/s, explicit user request
+			return suit.flatFlightDrainPerSecond() / 20f; // v0.15.3: every mark 3/s (IronManSuit.DEFAULT_FLIGHT_DRAIN_PER_SECOND)
 		}
 		float base;
 		if (supersonic) {

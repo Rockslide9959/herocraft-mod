@@ -18,7 +18,7 @@ import com.projecthero.mod.ironman.ui.IronManUiLayout.Rect;
  * <p>The picker's card grid now uses the screen minus the panel ({@link #gridAreaWidth}); the panel sits to the right
  * of it over the same viewport rows. It compares the hovered / focused card (column A) against the worn suit, else a
  * right-click-pinned card, else the last active suit (column B): energy, integrity, current charge / condition, melee
- * bonus, energy regen, self-repair and flight speed, then the hovered suit's key abilities, word-wrapped.
+ * bonus, energy regen and flight speed (v0.15.3: no self-repair row, worn integrity regen is gone), then the hovered suit's key abilities, word-wrapped.
  */
 public final class IronManSuitCompare {
 	public static final int PANEL_W = 150;
@@ -39,7 +39,6 @@ public final class IronManSuitCompare {
 		CONDITION("condition"),
 		MELEE("melee"),
 		REGEN("regen"),
-		REPAIR("repair"),
 		FLIGHT("flight");
 
 		public final String key;
@@ -106,7 +105,6 @@ public final class IronManSuitCompare {
 			case CONDITION -> integrityFrac < 0 ? -1f : IronManUiLayout.clamp01(integrityFrac) * 100f;
 			case MELEE -> suit.strengthBonus();
 			case REGEN -> suit.energyRegenPerSecond();
-			case REPAIR -> suit.armorRegenPerSecond() * IronManEnergy.WORN_REGEN_SCALE;
 			case FLIGHT -> (float) flightSpeed(suit);
 		};
 	}
@@ -120,7 +118,6 @@ public final class IronManSuitCompare {
 			case CHARGE, CONDITION -> Math.round(v) + "%";
 			case MELEE -> "+" + trim(v);
 			case REGEN -> trim(v) + "/s";
-			case REPAIR -> String.format(Locale.ROOT, "%.1f", v) + "/s";
 			case FLIGHT -> Math.round(v) + " b/s";
 		};
 	}

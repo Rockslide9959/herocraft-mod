@@ -36,6 +36,7 @@
 		"LivingEntityPhaseMixin",
 		"LivingEntitySymbioteSkinMixin",
 		"MouseHandlerMixin",
+		"EntityTurnLockMixin",
 		"LocalPlayerMixin",
 		"MinecraftHotbarKeysMixin",
 		"MoonKnightGlidePoseMixin",

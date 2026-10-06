@@ -76,19 +76,16 @@ public class IronManSuitInfoScreen extends Screen {
 		row(wrap, "screen.projecthero.ironman_info.integrity", fmt(integ) + " / " + fmt(maxInt));
 		row(wrap, "screen.projecthero.ironman_info.energy_regen", // v0.14.27
 				String.format(java.util.Locale.ROOT, "%s / s", fmt(suit.energyRegenPerSecond())));
-		if (suit.integrityPlayerShare() >= 0f) {
-			row(wrap, "screen.projecthero.ironman_info.damage_split", Component.translatable(
-					"screen.projecthero.ironman_info.damage_split_value", Math.round((1f - suit.integrityPlayerShare()) * 100f),
-					Math.round(suit.integrityPlayerShare() * 100f)).getString());
-		}
+		// v0.15.3: hits land in full; the suit loses 75% of what you took as integrity
+		row(wrap, "screen.projecthero.ironman_info.integrity_wear", Component.translatable(
+				"screen.projecthero.ironman_info.integrity_wear_value",
+				Math.round(IronManEnergy.INTEGRITY_PER_DAMAGE * 100f)).getString());
 		if (suit.arrowFireImmune()) {
 			row(wrap, "screen.projecthero.ironman_info.arrow_fire", Component.translatable("screen.projecthero.ironman_info.yes").getString());
 		}
 		if (suit.resistanceAmplifier() >= 0) {
 			row(wrap, "screen.projecthero.ironman_info.resistance", String.valueOf(suit.resistanceAmplifier() + 1));
 		}
-		row(wrap, "screen.projecthero.ironman_info.self_repair",
-				String.format(java.util.Locale.ROOT, "%.2f / s", suit.armorRegenPerSecond() * IronManEnergy.WORN_REGEN_SCALE));
 		row(wrap, "screen.projecthero.ironman_info.platform_repair",
 				String.format(java.util.Locale.ROOT, "%.1f / s", IronManEnergy.platformIntegrityPerSecond(suit)));
 
@@ -98,8 +95,9 @@ public class IronManSuitInfoScreen extends Screen {
 		if (suit.maxFlightSpeedMps() > 0) {
 			row(wrap, "screen.projecthero.ironman_info.top_speed", String.format(java.util.Locale.ROOT, "%.0f m/s", suit.maxFlightSpeedMps()));
 		}
-		row(wrap, "screen.projecthero.ironman_info.flight_drain", suit.flatFlightDrainPerSecond() > 0f // v0.14.30: flat drain
-				? String.format(java.util.Locale.ROOT, "%.0f/s", suit.flatFlightDrainPerSecond())
+		row(wrap, "screen.projecthero.ironman_info.flight_drain", suit.flatFlightDrainPerSecond() > 0f // v0.15.3: 3/s, regen halved
+				? Component.translatable("screen.projecthero.ironman_info.flight_drain_value",
+						String.format(java.util.Locale.ROOT, "%.0f", suit.flatFlightDrainPerSecond())).getString()
 				: String.format(java.util.Locale.ROOT, "x%.2f", suit.flightDrainMultiplier()));
 		if (suit.altitudeCeiling() > 0 && suit.altitudeCeiling() < 10000) {
 			row(wrap, "screen.projecthero.ironman_info.ceiling", String.format(java.util.Locale.ROOT, "%.0f", suit.altitudeCeiling()));

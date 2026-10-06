@@ -27,6 +27,29 @@ public record IronManWeaponWheelPayload(String ability) implements CustomPacketP
 			ByteBufCodecs.STRING_UTF8, IronManWeaponWheelPayload::ability,
 			IronManWeaponWheelPayload::new);
 
+	/**
+	 * Server side of a pick (v0.15.3: sent when V is let go over a wedge -- see {@code IronManUiLayout#wheelReleaseChoice}).
+	 * The entity-glow wedge toggles the highlight, a Mark III / 4 weapon becomes what G fires, a Mark 7 option is bound
+	 * to X; anything else is ignored. Public so the gametests can drive it.
+	 */
+	public static void handleServer(net.minecraft.server.level.ServerPlayer player, String ability) {
+		if (com.projecthero.mod.ironman.ability.IronManAbilities.ENTITY_GLOW_TOGGLE.equals(ability)) {
+			com.projecthero.mod.ironman.ability.IronManAbilities.toggleEntityGlowFromWheel(player);
+			return;
+		}
+		// v0.14.27 (agent D): the Mark III wheel picks what G fires
+		if (com.projecthero.mod.ironman.ability.IronManMark3.isWeapon(ability)) {
+			com.projecthero.mod.ironman.ability.IronManMark3.selectWeapon(player, ability);
+			return;
+		}
+		for (String option : com.projecthero.mod.ironman.ability.IronManAbilities.WEAPON_WHEEL_OPTIONS) {
+			if (option.equals(ability)) {
+				com.projecthero.mod.ironman.TonyStark.setWeaponWheelChoice(player, option);
+				return;
+			}
+		}
+	}
+
 	@Override
 	public Type<? extends CustomPacketPayload> type() {
 		return TYPE;

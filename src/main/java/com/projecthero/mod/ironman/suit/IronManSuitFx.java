@@ -84,6 +84,8 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 	 * ({@code fabricator.PlatformDeployTimeline#pose}); {@code poseVariant} carries the racked piece count - 1.
 	 */
 	public static final int POSE_PLATFORM = 6;
+	/** v0.15.3: the same, played backwards, while the platform's arms take the suit off (a retrieve). */
+	public static final int POSE_PLATFORM_OFF = 7;
 	/** v0.14.29: Mark 5 suit-up -- the case held out in both hands, onto the chest, arms out while it builds. */
 	public static final int POSE_MK5_UP = 35;
 	/** v0.14.29: Mark 5 suit-down -- arms out while it comes apart, then the case ends up held out in both hands. */

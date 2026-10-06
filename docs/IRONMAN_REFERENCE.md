@@ -354,8 +354,9 @@ speed — no suit and no Tony Stark power needed ("changes 22").
 
 All numbers are `IronManSuit` builder data (`IronManSuits`), so the spec sheet (`IronManSuitInfoScreen`) reads them.
 
-**Defence (Marks 1 / 2 / III).** `integritySplit(0.5f)`: while integrity holds it absorbs 50% of every hit and the
-wearer takes the other 50% (`IronManDamage.mitigateSplit`); with integrity at 0 the wearer takes the whole hit.
+**Defence.** *(v0.15.3: `integritySplit` is gone -- every hit lands in full and the suit loses 75% of the damage taken as
+integrity; see "v0.15.3" at the end.)* ~~`integritySplit(0.5f)`: while integrity holds it absorbs 50% of every hit and the
+wearer takes the other 50% (`IronManDamage.mitigateSplit`); with integrity at 0 the wearer takes the whole hit.~~
 `arrowFireImmune()`: arrows (`AbstractArrow` direct entity) and anything tagged `is_fire` (fire, lava, magma…) do
 nothing — no health, no integrity. All three are diamond-level armour (`IronManArmorMaterials`).
 Resistance I now comes from the **chestplate** alone (powered), not the full suit (`IronManPassives`).
@@ -422,7 +423,8 @@ new `IronManSuits` entry + a recipe set.
 `IronManSuitPlatformBlock` + BE: right-click with an Iron Man piece to store it; right-click empty-handed (Tony
 Stark) to open the GUI and DEPLOY the stored suit onto you; sneak-right-click to retrieve your worn suit back onto the
 platform. v0.14.21: deploy and retrieve are animated, server-timed sequences (§17u). **v0.15.1: Deploy is the 8 s
-robotic-arm suit-up** (see "Suit Platform robotic arms" below); Retrieve keeps its quick break-away.
+robotic-arm suit-up** (see "Suit Platform robotic arms" below); **v0.15.3: Retrieve is the same arms sequence played
+backwards** (8 s, helmet first; see "v0.15.3").
 `IronManSuitPlatformBlock` + BE + `IronManSuitPlatformMenu` / `IronManSuitPlatformScreen`: right-click
 opens the platform screen (four armour slots, charge / integrity / reserve readouts, Deploy and Retrieve
 buttons — see §12b for the v0.14.21 layout); the block renderer shows the stored suit turning on the pad.
@@ -642,7 +644,7 @@ window, so it can never hide a piece equipped some other way later.
 | Mark V from the case (`SUITCASE_MOVIE` 80) | chest 10%, legs 45%, boots 60%, helmet 85% | lock-on 12, radial from the case in the right hand | 92 + beat |
 | Suit-down (any) | helmet 10%, chest 35%, legs 60%, boots 80% (Mark V: helmet, boots, legs, chest) | release 10, **then** the piece leaves the slot | timeline + 10 |
 | Suit Platform deploy (v0.15.1 robotic arms) | arms unfold 0-20; per piece a 120/n window (n = 4: 30): grip at 30%, **on the body at 75%** (43 / 73 / 103 / 133), let go at 88%; arms fold 140-160 (boots, legs, chest, helmet) | carried in a clamp (BER), fitted whole (no build-on) | **160 (8 s)**, then the faceplate closes / suit online |
-| Suit Platform retrieve | release 6·i, onto the rack 10 later (helmet first) | release 10 + flight home 8 (BER) | 36 (~1.8 s) |
+| Suit Platform retrieve (v0.15.3 robotic arms) | the deploy backwards: jaws close at `clampTick` = 160 - letGo, **off the body at `removeTick` = 160 - equip** (27 / 57 / 87 / 117 for helmet, chest, legs, boots), set on the rack at 160 - lift | carried in a clamp (BER draws deploy frame 160 - t) | **160 (8 s)** |
 | Courier | launch stagger 16 per piece; curved flight, decelerating over the last 3.5 blocks | lock-on 12 on arrival | distance-dependent |
 | Mark VII pod | descend 40 → open 10 → one piece every 8 (as couriers) → close 10 → ascend 30 | lock-on 12 per piece | ~125 for 4 pieces |
 
@@ -673,7 +675,7 @@ window, so it can never hide a piece equipped some other way later.
   the tumble stops, the piece turns to the owner's body yaw and grows from 85% to full size, arriving exactly on its
   slot; then the clamp (sparks + `ironman_clamp`) and the lock-on reveal.
 * **Suit Platform** (`IronManSuitPlatformBlockEntity` sequence + `IronManSuitPlatformRenderer`): the rack stops
-  spinning and turns to face the player; on retrieve each piece breaks away and flies home on an arc. Deploy: see below.
+  spinning and turns to face the player. Deploy and (v0.15.3) retrieve both use the robotic arms: see below.
 
 ### Suit Platform robotic arms (v0.15.1)
 
@@ -2054,3 +2056,58 @@ Tests: `IronManV01429Mk67GameTests` (surge damage / drain / expiry / cooldown, s
 **Compare panel.** The picker's grid now shares the screen with a 150 px panel on the right (`ironman/ui/IronManSuitCompare`): hovered / focused card vs the worn suit, else a right-click-pinned card (gold border), else the last active suit. Rows: Energy (capacity), Integrity (max), Charge %, Condition %, Melee bonus, Regen (energy/s), Repair (worn self-repair/s), Flight (top speed in b/s from `DirectionalFlightModel.ironManSuit`), green / orange where better / worse, then the hovered suit's key abilities word-wrapped. Fits 320x240 and 426x240.
 
 Tests: `IronManV01429CallGameTests` -- call from a platform in a verified-unloaded chunk ~700 blocks away (player isolated in its own force-loaded chunk so no other test's unowned platform answers) (listed with its charge, nothing leaves until arrival, suit on, platform + registry empty, exactly 4 pieces, home stamp, own platform preferred over a nearer one), worn suit sent home into an unloaded platform (racked at once, nothing on the queue, integrity kept), Protocol Phoenix from an unloaded platform, compare-panel layout / text widths.
+
+## v0.15.3 -- damage / regen / faceplate / flight rules, platform arms retrieve + facing lock
+
+All explicit user requests, every mark (1-7).
+
+* **Immune while suiting up.** `IronManDamage.suitUpImmune` = Tony Stark power + `IronManSuitUpManager.assembling`
+  (transition held with `transitionUp`). Every path that puts a suit on over time holds that state for exactly as long as
+  it runs: the C piece-by-piece build, the Mark 5 suitcase, a called suit's courier pieces, the Mark 7 pod, the Suit
+  Platform's arms deploy. `onAllowDamage` cancels every hit while it holds except `GENERIC_KILL` / `FELL_OUT_OF_WORLD`.
+  Ends the tick the suit comes online or the suit-up is cancelled. Suit-downs / retrieves give no immunity.
+* **No worn integrity regen.** `IronManSuit.armorRegenPerSecond` / `.armorRegen(..)`, `IronManEnergy.tickArmorRegen` and
+  `WORN_REGEN_SCALE` are removed; the spec sheet "Self-repair (worn)" row, the Fabricator "Armour regen / s" stat and the
+  Call Armour compare panel's "Repair" row are gone (lang keys deleted). Repair = a Suit Platform (flat 10 integrity/s,
+  `REGEN_INTEGRITY_PER_SECOND`) or creative, unchanged.
+* **Integrity = 75% of the damage taken; hits land in full.** `integritySplit` / `mitigateSplit`, the 90/10 and 80/20
+  splits and the per-hit energy cost are removed. `ALLOW_DAMAGE` now only *cancels* (Phoenix, suit-up, falls,
+  bulletproof, the Mark III-line Energy Shield, arrows + fire on a powered Mark 1-5) or *reduces* (the Repulsor Shield's
+  90% frontal block, kept). Everything else lands untouched. `AFTER_DAMAGE` -> `IronManDamage.onDamageTaken(player,
+  source, taken)`: with that suit's chestplate on (powered or not) integrity loses `taken x IronManEnergy.INTEGRITY_PER_DAMAGE
+  (0.75)` (fire / lava x `FIRE_INTEGRITY_MULTIPLIER` 0.05, kept), as an exact float (10 -> 7.5, fractions accumulate).
+  `taken` is the damage that actually landed (after armour points / Resistance), so a barrier-reduced hit wears only
+  what got through. At 0 integrity nothing more comes off, and the Slowness II + Weakness II failure effects still apply.
+* **Faceplate auto-close.** `IronManFaceplate.autoClose`: an open faceplate shuts (same `helmet_close` swing via
+  `IronManSuitFx.faceplateMoved` + `FACEPLATE_SEAL` sound, no chat line) on `IronManFlight.setFlying(true)` (double-tap or
+  the Mark 1 burst), on any Iron Man ability key press through `IronManAbilityManager.handle` (not C = store suit), and on
+  any landed hit (`onDamageTaken`, taken > 0). Never during a suit-up (the platform deploy holds it open on purpose).
+* **Flight energy.** Every mark flies at a flat **3 energy/s** (`IronManSuit.DEFAULT_FLIGHT_DRAIN_PER_SECOND`, the builder
+  default for `flatFlightDrainPerSecond`; the per-mark 2/s and 1/s overrides and the Mark 6 / 7 tiered drain are gone --
+  the tiered code only runs for a suit that sets the flat drain to 0, none does). The Mark 1 X burst drains the same
+  3/s (`IronManAbilities.TIMED_FLIGHT_DRAIN_PER_SECOND`, was 0). `IronManEnergy.regenPerSecond` halves the worn regen
+  (`FLIGHT_REGEN_SCALE` 0.5) while `IronManFlight.isFlying` or the Mark 1 burst runs. Net: Mark 1 -2/s, Mark 2 -1.5/s,
+  Mark 3 / 4 / 5 -0.5/s, Mark 6 -1.7/s, Mark 7 -1.5/s. Not configurable: there is no Iron Man config file; these were
+  never configurable (builder data / constants), so no VersionedConfig migration was needed.
+* **Suit Platform retrieve with the arms.** `PlatformDeployTimeline.retrieveFrame(t) = TOTAL - t`, `clampTick`,
+  `removeTick`, `rackTick`. `retrieveFrom` lists the slots in deploy order; `tickRetrieve` holds the wearer (stance snap +
+  `setFrozen`), lifts the faceplate when the jaws close on the helmet, moves each real stack armour slot -> rack in one
+  tick at `removeTick` (charge stamped on; helmet first), sneak cancels after `CANCEL_GRACE`; `endSequence` unfreezes and
+  shuts a faceplate the retrieve lifted if the helmet is still on. Pose `IronManSuitFx.POSE_PLATFORM_OFF` (7) = the deploy
+  pose run backwards. The renderer draws the deploy frame `TOTAL - t` (the old v0.14.21 fly-home arc is gone); the piece in
+  the clamp before it comes off is the wearer's own stack. `SEQ_STEP` / `SEQ_FLIGHT` / `retrieveReleaseTick` /
+  `retrieveMoveTick` removed.
+* **Back to the platform.** Deploy and retrieve both compute `seqYaw` = `awayYaw` (the open side's heading on the stance,
+  else straight away from the platform centre), push it to the client once (`connection.teleport`) and re-assert body +
+  head + yaw on the server every tick (`lockFacing`). `seqYaw` is synced in the BE update tag; the wearer's client
+  (`client.ironman.PlatformFacingLock`, END_CLIENT_TICK, active while the synced pose is POSE_PLATFORM / _OFF and a platform
+  within reach names them) holds the same heading and `mixin.EntityTurnLockMixin` zeroes mouse yaw (pitch still works),
+  so nothing jitters. Released with the sequence (end or cancel). The arms already assumed this facing (v0.15.1 snapped to
+  it once), so no target changes were needed.
+
+Tests: `IronManV0153GameTests` (immunity through a real C suit-up and a platform deploy, none on retrieve; no regen on all 7
+marks; faceplate closes on take-off / ability / damage; 10 -> 7.5 + full hit on all 7 marks, fraction accumulation, fire
+rate, zero floor; 3/s drain + halved regen per tick on all 7 marks; retrieve timetable; live retrieve order / stance /
+yaw held / faceplate / racked; deploy yaw held; sneak-cancel mid retrieve). Updated: `IronManV01430GameTests` (3/s),
+`V01422GameTests` (burst drain 3), `HeroPackGameTests` / `IronManMk5V01429` / `IronManV01427Mark12` / `IronManV01427Mark3`
+(regen + split asserts removed; Mark 1 real-hurt test now asserts the full 10 lands + 7.5 integrity), `IronManV01427Mark3` Mark 4 hit test (lands + 15 integrity via AFTER_DAMAGE), `DirectionalFlightGameTests` (Mark 6 flat 3/s), `IronManSuitUpV01421` retrieve timeout 200 -> 300.

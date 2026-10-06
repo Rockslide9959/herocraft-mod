@@ -44,6 +44,24 @@ public final class IronManFaceplate {
 				? "message.projecthero.ironman.faceplate_open" : "message.projecthero.ironman.faceplate_closed"), true);
 	}
 
+	/**
+	 * v0.15.3, explicit user request: an open faceplate snaps shut on its own the moment the wearer takes off, uses an
+	 * Iron Man ability or takes damage -- the same swing clip and seal sound as pressing H. No-op when it is already
+	 * closed, and never during a suit-up (a Suit Platform deploy holds the visor up on purpose until the suit is online).
+	 * Returns true if it closed.
+	 */
+	public static boolean autoClose(ServerPlayer player) {
+		if (!isOpen(player) || com.projecthero.mod.ironman.suit.IronManSuitUpManager.assembling(player)) {
+			return false;
+		}
+		player.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false);
+		com.projecthero.mod.ironman.suit.IronManSuitFx.faceplateMoved(player);
+		if (player.level() instanceof ServerLevel) {
+			IronManSounds.play(player, IronManSounds.FACEPLATE_SEAL, 0.6f, 1.0f);
+		}
+		return true;
+	}
+
 	/** Called each tick from {@link IronManSuitTicker}: a faceplate can't stay "open" once the armour is off. */
 	public static void reconcile(ServerPlayer player) {
 		if (isOpen(player) && !IronManArmor.wearingAnyIronMan(player)) {

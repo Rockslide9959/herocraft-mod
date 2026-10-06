@@ -55,6 +55,10 @@ public final class IronManAbilityManager {
 			if (com.projecthero.mod.ironman.suit.IronManSuitUpManager.blockedWhileAssembling(player, pressed)) {
 				return;
 			}
+			// v0.15.3, explicit user request: using any suit ability seals an open faceplate (C -- store the suit -- doesn't)
+			if (pressed && !IronManAbilities.SUIT_TOGGLE.equals(suit.abilityInSlot(slot.number()))) {
+				com.projecthero.mod.ironman.IronManFaceplate.autoClose(player);
+			}
 			// v0.14.29 (agent D): Sneak+C while suited opens the Call Armour picker with "send home" for the worn suit
 			// (it flies itself back to its platform for repair). Plain C is still suit-down; a suitcase mark (Mark 5)
 			// keeps its own Sneak+C fold.

@@ -388,6 +388,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				com.projecthero.mod.client.firearm.FirearmClient.clientTick(client));
 		ClientTickEvents.END_CLIENT_TICK.register(ProjectHeroModClient::handleKeyBinds);
 		ClientTickEvents.END_CLIENT_TICK.register(MagneticSenseClient::clientTick);
+		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.ironman.PlatformFacingLock::tick); // v0.15.3
 		ClientTickEvents.END_CLIENT_TICK.register(SonicMotionClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(IronManFlightFxClient::clientTick);
 		IronManFlightFxClient.init(); // v0.14.21: thruster glows / jets / shock rings

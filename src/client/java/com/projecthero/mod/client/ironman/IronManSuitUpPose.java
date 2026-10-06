@@ -69,9 +69,12 @@ public final class IronManSuitUpPose {
 							touched = true;
 						}
 					}
-					case IronManSuitFx.POSE_PLATFORM -> {
+					case IronManSuitFx.POSE_PLATFORM, IronManSuitFx.POSE_PLATFORM_OFF -> {
 						// v0.15.1: arms out for the Suit Platform's robotic arms, head following the work up the body
-						float[] pk = com.projecthero.mod.ironman.fabricator.PlatformDeployTimeline.pose(age, fx.poseVariant() + 1);
+						// (v0.15.3: and back down it, the deploy pose run backwards, while they take the suit off)
+						float pa = fx.poseKind() == IronManSuitFx.POSE_PLATFORM ? age
+								: com.projecthero.mod.ironman.fabricator.PlatformDeployTimeline.retrieveFrame(age);
+						float[] pk = com.projecthero.mod.ironman.fabricator.PlatformDeployTimeline.pose(pa, fx.poseVariant() + 1);
 						if (pk[0] > 0.001f) {
 							apply(model, pk[0], java.util.Arrays.copyOfRange(pk, 1, pk.length));
 							touched = true;

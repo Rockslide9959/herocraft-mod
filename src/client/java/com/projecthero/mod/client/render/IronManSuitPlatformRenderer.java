@@ -50,8 +50,9 @@ import net.minecraft.world.phys.Vec3;
  * piece, then fold away. Each arm is a two-bone IK chain (shoulder hub, upper arm with hydraulic ram and status lamp,
  * elbow, forearm, wrist, two-jaw clamp) solved per frame with a pole vector, so the motion is smooth at any frame rate.
  *
- * <p>v0.14.21 (kept for retrieve): while a retrieve runs the rack turns to face the player and each piece flies home
- * on a little arc from the body to the rack.
+ * <p>v0.15.3: a retrieve uses the same arms -- it draws the deploy backwards ({@link PlatformDeployTimeline#retrieveFrame}),
+ * so the arms reach the body, clamp each worn piece (helmet first), pull it off and set it back on the rack. While any
+ * sequence runs the rack turns to face the player.
  */
 public class IronManSuitPlatformRenderer implements BlockEntityRenderer<IronManSuitPlatformBlockEntity> {
 	/** Per platform BE: the client-only armour stands (0..3 pieces in flight, 4 the rack) and the last stack seen per slot. */
@@ -158,7 +159,10 @@ public class IronManSuitPlatformRenderer implements BlockEntityRenderer<IronManS
 		LivingEntity player = mode != IronManSuitPlatformBlockEntity.SEQ_NONE
 				&& level.getEntity(be.seqPlayerEntity()) instanceof LivingEntity le ? le : null;
 		boolean deploy = player != null && mode == IronManSuitPlatformBlockEntity.SEQ_DEPLOY;
-		float t = time - be.seqStart();
+		// v0.15.3: a retrieve is the deploy played backwards -- the arms draw deploy frame TOTAL - t
+		boolean retrieve = player != null && mode == IronManSuitPlatformBlockEntity.SEQ_RETRIEVE;
+		boolean arms = deploy || retrieve;
+		float t = deploy ? time - be.seqStart() : PlatformDeployTimeline.retrieveFrame(time - be.seqStart());
 		int n = seq.length;
 		boolean[] inFlight = new boolean[4];
 		float[] flight = new float[4];
@@ -173,11 +177,11 @@ public class IronManSuitPlatformRenderer implements BlockEntityRenderer<IronManS
 				if (idx < 0 || idx > 3) {
 					continue;
 				}
-				if (deploy) {
+				if (arms) {
 					float lift = IronManSuitPlatformBlockEntity.deployLiftTick(i, n);
 					float equip = IronManSuitPlatformBlockEntity.deployEquipTick(i, n);
 					if (t >= equip) {
-						gone[idx] = true; // on the player now (the block update may lag a tick behind)
+						gone[idx] = true; // on the player (the block update may lag a tick behind)
 						if (t < equip + LINGER) {
 							inFlight[idx] = true;
 							flight[idx] = 1f;
@@ -185,13 +189,6 @@ public class IronManSuitPlatformRenderer implements BlockEntityRenderer<IronManS
 					} else if (t >= lift) {
 						inFlight[idx] = true;
 						flight[idx] = (t - lift) / (equip - lift);
-					}
-				} else {
-					float move = IronManSuitPlatformBlockEntity.retrieveMoveTick(i);
-					float land = move + IronManSuitPlatformBlockEntity.SEQ_FLIGHT;
-					if (t >= move && t < land) {
-						inFlight[idx] = true;
-						flight[idx] = 1f - (t - move) / (land - move); // 1 = at the player, 0 = on the rack
 					}
 				}
 			}
@@ -217,35 +214,7 @@ public class IronManSuitPlatformRenderer implements BlockEntityRenderer<IronManS
 			pose.popPose();
 		}
 
-		// ---- retrieve: pieces flying home (v0.14.21) ----
-		if (player != null && !deploy) {
-			Vec3 toPlayer = player.getPosition(partialTick).subtract(Vec3.atLowerCornerOf(be.getBlockPos()));
-			float bodyYaw = Mth.rotLerp(partialTick, player.yBodyRotO, player.yBodyRot);
-			for (int i = 0; i < 4; i++) {
-				if (!inFlight[i] || be.getItem(i).isEmpty()) {
-					continue;
-				}
-				ArmorStand s = stands[i];
-				loadPiece(s, i, be.getItem(i));
-				standPose(s, null, 0f);
-				float f = smooth(flight[i]);
-				double x = Mth.lerp(f, 0.5, toPlayer.x);
-				double y = Mth.lerp(f, DISPLAY_Y_OFFSET + bob, toPlayer.y) + Math.sin(Math.PI * f) * 0.6;
-				double z = Mth.lerp(f, 0.5, toPlayer.z);
-				float yaw = Mth.rotLerp(f, spin, -bodyYaw);
-				float scale = Mth.lerp(f, RACK_SCALE, 1.0f);
-				pose.pushPose();
-				pose.translate(x, y, z);
-				pose.mulPose(Axis.YP.rotationDegrees(yaw));
-				pose.scale(scale, scale, scale);
-				dispatcher.render(s, 0.0, 0.0, 0.0, 0.0f, partialTick, pose, buffers, packedLight);
-				pose.popPose();
-				if (level.random.nextFloat() < 0.35f) {
-					Vec3 w = Vec3.atLowerCornerOf(be.getBlockPos()).add(x, y + 0.9 * scale, z);
-					level.addParticle(ParticleTypes.ELECTRIC_SPARK, w.x, w.y, w.z, 0, 0, 0);
-				}
-			}
-		}
+		// (v0.14.21's retrieve -- pieces flying home on an arc -- is gone: v0.15.3 retrieves with the arms below)
 
 		// ---- v0.15.1: the robotic arms (and, on deploy, the piece riding in a clamp) in the block's own frame ----
 		float theta = 180f - be.deployFacing().toYRot(); // the blockstate's y-rotation, as a PoseStack yaw
@@ -263,7 +232,7 @@ public class IronManSuitPlatformRenderer implements BlockEntityRenderer<IronManS
 		float carryYaw = 0f;
 		float carryPoseF = 0f;
 		Vec3 sparkAt = null;
-		if (deploy && n > 0) {
+		if (arms && n > 0) {
 			Vec3 body = toLocal(player.getPosition(partialTick).subtract(corner), theta);
 			float bodyYaw = -Mth.rotLerp(partialTick, player.yBodyRotO, player.yBodyRot) - theta;
 			float rackYaw = spin - theta;
@@ -359,14 +328,18 @@ public class IronManSuitPlatformRenderer implements BlockEntityRenderer<IronManS
 
 		// the piece riding in the clamp: it is drawn where the jaws actually are (if the wearer stands out of reach the
 		// jaws stop short and the piece covers the last stretch on its own), at its growing size and turning heading
-		if (deploy && carryIdx >= 0 && carryAnchor != null && !st.seen[carryIdx].isEmpty()) {
+		// v0.15.3: on a retrieve the piece is still being worn until it comes off -- draw what the wearer has on
+		ItemStack carried = carryIdx < 0 ? ItemStack.EMPTY
+				: retrieve && player.getItemBySlot(SLOTS[carryIdx]).getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem
+						? player.getItemBySlot(SLOTS[carryIdx]) : st.seen[carryIdx];
+		if (arms && carryIdx >= 0 && carryAnchor != null && !carried.isEmpty()) {
 			int i = indexOf(seq, carryIdx);
 			boolean rightCarries = PlatformDeployTimeline.rightArmCarries(Math.max(0, i));
 			Vec3 jaws = rightCarries ? gripR : gripL;
 			Vec3 a = carryPoseF >= 1f ? carryAnchor : lerpV(jaws, carryAnchor, smooth((carryPoseF - 0.55f) / 0.45f));
 			double h = IronManSuitUpManager.slotHeight(SLOTS[carryIdx]);
 			ArmorStand s = stands[carryIdx];
-			loadPiece(s, carryIdx, st.seen[carryIdx]);
+			loadPiece(s, carryIdx, carried);
 			float[] key = PlatformDeployTimeline.pose(IronManSuitPlatformBlockEntity.deployEquipTick(Math.max(0, i), n), n);
 			standPose(s, key, carryPoseF);
 			pose.pushPose();

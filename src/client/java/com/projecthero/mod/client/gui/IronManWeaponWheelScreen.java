@@ -25,7 +25,8 @@ import net.minecraft.world.item.ItemStack;
  * (ring sectors) -- five that re-bind slot 3 (X) to an ability (micro missiles, flamethrower, wrist laser, rocket,
  * supersonic flight) and one that toggles the coloured entity-glow overlay. Each wedge carries the ability's
  * icon; the hovered wedge lifts and brightens, the bound one wears a gold rim. The centre disc names the hovered
- * (else the bound) option with a one-line description. Opened by the V slot; click a wedge to choose.
+ * (else the bound) option with a one-line description. v0.15.3: open only while V (the slot-5 key) is held -- letting
+ * go of V equips the hovered wedge ({@link IronManUiLayout#wheelReleaseChoice}); a click still picks one too.
  *
  * <p>The hit-test is {@link IronManUiLayout#wheelSector}: sector 0 centred straight up, half-sector offset
  * ("changes 17" fix) so the wedge under the cursor is the wedge that lights up.
@@ -186,6 +187,47 @@ public final class IronManWeaponWheelScreen extends Screen {
 			}
 		}
 		return -1;
+	}
+
+	// ---------------- v0.15.3: hold V to open, release V to equip ----------------
+
+	/** Is the V (ability 5) key physically held right now? */
+	private static boolean wheelKeyHeld() {
+		Minecraft mc = Minecraft.getInstance();
+		com.mojang.blaze3d.platform.InputConstants.Key key =
+				net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(com.projecthero.mod.client.ModKeyBindings.ABILITY_5);
+		if (key.getType() == com.mojang.blaze3d.platform.InputConstants.Type.MOUSE) {
+			return org.lwjgl.glfw.GLFW.glfwGetMouseButton(mc.getWindow().getWindow(), key.getValue()) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+		}
+		return com.mojang.blaze3d.platform.InputConstants.isKeyDown(mc.getWindow().getWindow(), key.getValue());
+	}
+
+	/** V let go: equip the hovered wedge (if it is a change) and close. Nothing hovered = keep the current weapon. */
+	private void releaseSelect() {
+		String pick = IronManUiLayout.wheelReleaseChoice(SECTORS, hovered, currentBinding(), IronManAbilities.ENTITY_GLOW_TOGGLE);
+		if (pick != null) {
+			ClientPlayNetworking.send(new IronManWeaponWheelPayload(pick));
+		}
+		onClose();
+	}
+
+	@Override
+	public boolean keyReleased(int keyCode, int scanCode, int modifiers) {
+		if (com.projecthero.mod.client.ModKeyBindings.ABILITY_5.matches(keyCode, scanCode)) {
+			releaseSelect();
+			return true;
+		}
+		return super.keyReleased(keyCode, scanCode, modifiers);
+	}
+
+	@Override
+	public void tick() {
+		super.tick();
+		// the release can land before the wheel even opened (a quick tap) or be swallowed by a focus change -- if V is
+		// no longer down, treat it as released
+		if (!wheelKeyHeld()) {
+			releaseSelect();
+		}
 	}
 
 	@Override

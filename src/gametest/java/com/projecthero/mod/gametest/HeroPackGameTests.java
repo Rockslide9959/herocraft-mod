@@ -2026,11 +2026,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(gained - expected) < 0.001f,
 				"worn trickle must be energyRegenPerSecond/20 (" + expected + "/tick), got " + gained);
 		helper.assertTrue(suit.energyRegenPerSecond() == 5f, "Mark III worn regen must be 5/s");
-		// "changes 18": Mark III+ also self-repair integrity slowly while worn.
-		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_iii", 100f);
-		com.projecthero.mod.ironman.IronManEnergy.tickArmorRegen(player, suit);
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.integrity(player, "mark_iii") > 100f,
-				"a worn Mark III should slowly self-repair integrity");
+		// v0.15.3: worn suits no longer self-repair integrity (see IronManV0153GameTests)
 		helper.succeed();
 	}
 
@@ -2167,8 +2163,6 @@ public class HeroPackGameTests implements FabricGameTest {
 		// v0.11.12: Mark 1's passive worn regen bumped to a flat 6/s, explicit user request.
 		helper.assertTrue(m1.energyRegenPerSecond() == 2.0f && m7.energyRegenPerSecond() == 3.0f, // v0.14.27: Mark 1 = 2/s
 				"Mark 1 / Mark 7 worn energy regen");
-		helper.assertTrue(m1.armorRegenPerSecond() == 0f && m7.armorRegenPerSecond() == 2.5f,
-				"Mark 1 has no worn armour regen; Mark 7 is 2.5 (1/s worn, v0.15.1)");
 		helper.assertTrue(Math.abs(m1.flightDrainMultiplier() - 0.55f) < 1e-4f
 				&& Math.abs(m7.flightDrainMultiplier() - 1.15f) < 1e-4f, "flight-drain multipliers");
 		helper.assertTrue(com.projecthero.mod.ironman.ability.IronManAbilities.CHARGED_REPULSOR_DAMAGE_MULTIPLIER == 3.0f,

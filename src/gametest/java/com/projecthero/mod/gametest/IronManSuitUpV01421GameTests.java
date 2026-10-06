@@ -395,7 +395,7 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
 	public void platformRetrieveIsASequenceThatNeverDupesOrLoses(GameTestHelper h) {
 		ServerPlayer p = player(h);
 		IronManSuitPlatformBlockEntity be = platform(h, new BlockPos(2, 2, 2));

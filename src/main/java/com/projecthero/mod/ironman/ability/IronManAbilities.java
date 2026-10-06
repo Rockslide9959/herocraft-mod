@@ -175,7 +175,7 @@ public final class IronManAbilities {
 	public static final float TIMED_FLIGHT_ACTIVATION_COST = 50f; // v0.14.27: 50 on activation, explicit user request
 	/** v0.11.12, explicit user request: on top of the flat activation cost, the burst also drains this
 	 *  much energy per second for as long as it stays airborne. */
-	public static final float TIMED_FLIGHT_DRAIN_PER_SECOND = 0f; // v0.14.27: no drain -- the burst halves energy regen instead
+	public static final float TIMED_FLIGHT_DRAIN_PER_SECOND = com.projecthero.mod.ironman.suit.IronManSuit.DEFAULT_FLIGHT_DRAIN_PER_SECOND; // v0.15.3: 3/s like every flight (regen still halved)
 	/** v0.14.27: Shift+X -- launch along the look, then the burst switches on this long afterwards. */
 	public static final int LAUNCH_BURST_DELAY_TICKS = 3 * 20;
 	/** v0.14.27: how hard Shift+X throws the wearer along the look (blocks per tick). */

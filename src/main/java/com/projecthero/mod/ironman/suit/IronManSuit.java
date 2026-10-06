@@ -16,6 +16,9 @@ import net.minecraft.world.item.Item;
  * {@link IronManSuitUpManager} that reads the numbers off this definition.
  */
 public final class IronManSuit {
+	/** v0.15.3, explicit user request: every flying suit (the Mark 1's X burst included) drains a flat 3 energy/sec in the
+	 *  air while its worn regen runs at half rate ({@code IronManEnergy#regenPerSecond}). Builder default. */
+	public static final float DEFAULT_FLIGHT_DRAIN_PER_SECOND = 3f;
 	private final String id;
 	private final String nameKey;
 	private final int techLevel;
@@ -59,7 +62,6 @@ public final class IronManSuit {
 	private final boolean coloredEntityGlow;     // the highlight toggle outlines ALL entities, coloured by type (hostile red / passive blue / player yellow)
 	// "changes 18"
 	private final float energyRegenPerSecond;    // worn Arc Reactor trickle (flat energy/second, per mark)
-	private final float armorRegenPerSecond;     // worn self-repair of integrity (flat integrity/second, per mark; 0 = none, platform only)
 	private final float flightDrainMultiplier;   // scales the tiered base flight energy cost (hover/walk/sprint/supersonic) for this mark
 	private final float flatFlightDrainPerSecond; // v0.14.30: > 0 replaces the tiered cost with one flat energy/sec for every kind of flight
 	// v0.11.12: per-mark Suit Platform regen override (-1 = use the generic 0.1%-of-pool/sec formula).
@@ -96,7 +98,6 @@ public final class IronManSuit {
 	private final double flightCruiseMps;        // > 0 = fixed cruise speed in blocks/second
 	private final boolean sprintFlight;          // false = sprinting never speeds flight up
 	private final double hoverFloor;             // > 0 = during a timed flight burst you can't sink lower than this above the ground
-	private final float integrityPlayerShare;    // >= 0 = flat split: the wearer takes this share, integrity absorbs the rest
 	private final boolean arrowFireImmune;       // arrows + fire do nothing (no health, no integrity)
 	private final boolean autoFeed;
 	private final boolean waterBreathing;        // the helmet keeps the air meter full underwater, indefinitely
@@ -147,7 +148,6 @@ public final class IronManSuit {
 		this.flamethrowerHeatMultiplier = b.flamethrowerHeatMultiplier;
 		this.coloredEntityGlow = b.coloredEntityGlow;
 		this.energyRegenPerSecond = b.energyRegenPerSecond;
-		this.armorRegenPerSecond = b.armorRegenPerSecond;
 		this.flightDrainMultiplier = b.flightDrainMultiplier;
 		this.flatFlightDrainPerSecond = b.flatFlightDrainPerSecond;
 		this.platformEnergyPerSecondOverride = b.platformEnergyPerSecondOverride;
@@ -178,7 +178,6 @@ public final class IronManSuit {
 		this.flightCruiseMps = b.flightCruiseMps;
 		this.sprintFlight = b.sprintFlight;
 		this.hoverFloor = b.hoverFloor;
-		this.integrityPlayerShare = b.integrityPlayerShare;
 		this.arrowFireImmune = b.arrowFireImmune;
 		this.autoFeed = b.autoFeed;
 		this.waterBreathing = b.waterBreathing;
@@ -228,7 +227,6 @@ public final class IronManSuit {
 	public float flamethrowerHeatMultiplier() { return flamethrowerHeatMultiplier; }
 	public boolean coloredEntityGlow() { return coloredEntityGlow; }
 	public float energyRegenPerSecond() { return energyRegenPerSecond; }
-	public float armorRegenPerSecond() { return armorRegenPerSecond; }
 	public float flightDrainMultiplier() { return flightDrainMultiplier; }
 	public float flatFlightDrainPerSecond() { return flatFlightDrainPerSecond; }
 	public float platformEnergyPerSecondOverride() { return platformEnergyPerSecondOverride; }
@@ -261,7 +259,6 @@ public final class IronManSuit {
 	public boolean sprintFlight() { return sprintFlight; }
 	public double hoverFloor() { return hoverFloor; }
 	/** {@code >= 0}: the flat v0.14.27 split -- the wearer takes this share of a hit, integrity absorbs the rest. */
-	public float integrityPlayerShare() { return integrityPlayerShare; }
 	public boolean arrowFireImmune() { return arrowFireImmune; }
 	public boolean autoFeed() { return autoFeed; }
 	public boolean waterBreathing() { return waterBreathing; }
@@ -318,9 +315,8 @@ public final class IronManSuit {
 		private float flamethrowerHeatMultiplier = 1.0f;
 		private boolean coloredEntityGlow = false;
 		private float energyRegenPerSecond = 1.5f;
-		private float armorRegenPerSecond = 0.0f;
 		private float flightDrainMultiplier = 1.0f;
-		private float flatFlightDrainPerSecond = 0f;
+		private float flatFlightDrainPerSecond = DEFAULT_FLIGHT_DRAIN_PER_SECOND; // v0.15.3: every mark
 		private float platformEnergyPerSecondOverride = -1f;
 		private float platformIntegrityPerSecondOverride = -1f;
 		private int resistanceAmplifier = -1;
@@ -349,7 +345,6 @@ public final class IronManSuit {
 		private double flightCruiseMps = 0.0;
 		private boolean sprintFlight = true;
 		private double hoverFloor = 0.0;
-		private float integrityPlayerShare = -1f;
 		private boolean arrowFireImmune = false;
 		private boolean autoFeed = true;
 		private boolean waterBreathing = false;
@@ -421,7 +416,6 @@ public final class IronManSuit {
 		/** "changes 18": worn Arc Reactor recharge for this mark, in energy per second. */
 		public Builder energyRegen(float perSecond) { this.energyRegenPerSecond = perSecond; return this; }
 		/** "changes 18": worn self-repair of integrity for this mark, in points per second (0 = platform only). */
-		public Builder armorRegen(float perSecond) { this.armorRegenPerSecond = perSecond; return this; }
 		/** "changes 18": scales the tiered base flight energy cost (hover 10/s, walk 20/s, sprint 30/s, supersonic 45/s). */
 		public Builder flightDrain(float multiplier) { this.flightDrainMultiplier = multiplier; return this; }
 		/** v0.14.30: one flat energy/sec drain for all flight (hover, moving, sprinting, supersonic). */
@@ -472,7 +466,6 @@ public final class IronManSuit {
 		/** v0.14.27: during a timed flight burst the wearer can't sink lower than this many blocks above the ground. */
 		public Builder hoverFloor(double blocks) { this.hoverFloor = blocks; return this; }
 		/** v0.14.27: flat damage split -- the wearer takes {@code playerShare} of every hit, integrity absorbs the rest. */
-		public Builder integritySplit(float playerShare) { this.integrityPlayerShare = playerShare; return this; }
 		/** v0.14.27: arrows and fire do nothing to the wearer or the suit. */
 		public Builder arrowFireImmune() { this.arrowFireImmune = true; return this; }
 		/** v0.14.27: this suit does not feed its wearer. */

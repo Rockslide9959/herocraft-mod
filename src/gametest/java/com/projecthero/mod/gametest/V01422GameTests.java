@@ -49,7 +49,7 @@ public class V01422GameTests implements FabricGameTest {
 		helper.assertTrue(IronManAbilities.MARK_1_ROCKET_DAMAGE == 30f, "Mark 1 rocket does 30");
 		helper.assertTrue(IronManAbilities.MARK_1_ROCKET_COOLDOWN_TICKS == 200, "Mark 1 rocket cools down in 10 s");
 		helper.assertTrue(IronManAbilities.TIMED_FLIGHT_ACTIVATION_COST == 50f
-				&& IronManAbilities.TIMED_FLIGHT_DRAIN_PER_SECOND == 0f, "Mark 1 flight burst costs 50 up front, no drain");
+				&& IronManAbilities.TIMED_FLIGHT_DRAIN_PER_SECOND == 3f, "Mark 1 flight burst costs 50 up front, then 3/s (v0.15.3)");
 		helper.succeed();
 	}
 

@@ -23,11 +23,10 @@ public class IronManV01430GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void flatFlightDrainsMatchTheSpec(GameTestHelper h) {
-		h.assertTrue(IronManSuits.byId("mark_2").flatFlightDrainPerSecond() == 2f, "Mark 2 flight 2/s");
-		h.assertTrue(IronManSuits.byId("mark_iii").flatFlightDrainPerSecond() == 2f, "Mark 3 flight 2/s");
-		h.assertTrue(IronManSuits.byId("mark_4").flatFlightDrainPerSecond() == 1f, "Mark 4 flight 1/s");
-		h.assertTrue(IronManSuits.byId("mark_v").flatFlightDrainPerSecond() == 1f, "Mark 5 flight 1/s");
-		h.assertTrue(IronManSuits.byId("mark_6").flatFlightDrainPerSecond() == 0f, "Mark 6 keeps the tiered drain");
+		// v0.15.3: every mark flies at a flat 3 energy/sec
+		for (String id : new String[] { "mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii" }) {
+			h.assertTrue(IronManSuits.byId(id).flatFlightDrainPerSecond() == 3f, id + " flight 3/s");
+		}
 		h.succeed();
 	}
 

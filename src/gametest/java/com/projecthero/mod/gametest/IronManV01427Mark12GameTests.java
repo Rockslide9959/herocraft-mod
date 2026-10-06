@@ -87,7 +87,6 @@ public class IronManV01427Mark12GameTests implements FabricGameTest {
 		h.assertTrue(m.energyCapacity() == 500f, "Mark 1 energy 500");
 		h.assertTrue(m.energyRegenPerSecond() == 2f, "Mark 1 regen 2/s");
 		h.assertTrue(m.maxIntegrity() == 750f, "Mark 1 integrity 750");
-		h.assertTrue(m.integrityPlayerShare() == 0.5f, "Mark 1 splits hits 50/50");
 		h.assertTrue(m.arrowFireImmune(), "Mark 1 is immune to arrows and fire");
 		h.assertTrue(m.strengthBonus() == 6f, "Mark 1 melee +6");
 		h.assertFalse(m.autoFeed(), "Mark 1 doesn't auto-feed");
@@ -112,7 +111,7 @@ public class IronManV01427Mark12GameTests implements FabricGameTest {
 		IronManSuit m2 = IronManSuits.MARK_2;
 		h.assertTrue(m2.energyCapacity() == 1250f && m2.energyRegenPerSecond() == 3f && m2.maxIntegrity() == 1000f,
 				"Mark 2 1250 energy, 3/s, 1000 integrity");
-		h.assertTrue(m2.integrityPlayerShare() == 0.5f && m2.arrowFireImmune() && m2.resistanceAmplifier() == 0
+		h.assertTrue(m2.arrowFireImmune() && m2.resistanceAmplifier() == 0
 				&& m2.strengthBonus() == 6f && !m2.autoFeed() && m2.airTankSeconds() == 0 && !m2.waterBreathing(),
 				"Mark 2 split / immune / Resistance I / +6 / no feed / no air");
 		h.assertTrue(IronManTargeting.hasTargeting(m2), "Mark 2 has the targeting system");
@@ -132,7 +131,7 @@ public class IronManV01427Mark12GameTests implements FabricGameTest {
 		IronManSuit m3 = IronManSuits.MARK_III;
 		h.assertTrue(m3.energyCapacity() == 2000f && m3.energyRegenPerSecond() == 5f && m3.maxIntegrity() == 1000f,
 				"Mark III 2000 energy, 5/s, 1000 integrity");
-		h.assertTrue(m3.integrityPlayerShare() == 0.5f && m3.arrowFireImmune() && m3.resistanceAmplifier() == 0
+		h.assertTrue(m3.arrowFireImmune() && m3.resistanceAmplifier() == 0
 				&& m3.strengthBonus() == 7f && m3.autoFeed() && m3.waterBreathing(), "Mark III defence / +7 / feeds / breathes");
 		h.assertTrue(m3.repulsorDamage() == 15f && m3.repulsorTapEnergy() == 10f && m3.repulsorTapCooldownTicks() == 20
 				&& m3.repulsorWindupTicks() == 0, "Mark III tap 15 / 10 / 1 s, no windup");
@@ -145,16 +144,17 @@ public class IronManV01427Mark12GameTests implements FabricGameTest {
 	// ---------------------------------------------------------------- damage model
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void integrityAbsorbsHalfOfEveryHit(GameTestHelper h) {
+	public void integrityWearsSeventyFivePercentAndTheHitLandsInFull(GameTestHelper h) {
+		// v0.15.3: no more 50/50 split -- the wearer takes the whole hit and the suit loses 75% of it as integrity
 		ServerPlayer p = suited(h, "mark_1");
 		clearSpawnInvulnerability(p);
 		float hp = p.getHealth();
 		float integ = IronManEnergy.integrity(p, "mark_1");
 		p.invulnerableTime = 0;
-		p.hurt(p.damageSources().magic(), 10f); // magic bypasses armour points, so the split is exact
-		h.assertTrue(Math.abs((hp - p.getHealth()) - 5f) < 0.01f, "the wearer takes half: " + (hp - p.getHealth()));
-		h.assertTrue(Math.abs((integ - IronManEnergy.integrity(p, "mark_1")) - 5f) < 0.01f,
-				"integrity absorbs the other half: " + (integ - IronManEnergy.integrity(p, "mark_1")));
+		p.hurt(p.damageSources().magic(), 10f); // magic bypasses armour points, so the numbers are exact
+		h.assertTrue(Math.abs((hp - p.getHealth()) - 10f) < 0.01f, "the wearer takes the full 10: " + (hp - p.getHealth()));
+		h.assertTrue(Math.abs((integ - IronManEnergy.integrity(p, "mark_1")) - 7.5f) < 0.01f,
+				"integrity loses 7.5: " + (integ - IronManEnergy.integrity(p, "mark_1")));
 		h.succeed();
 	}
 

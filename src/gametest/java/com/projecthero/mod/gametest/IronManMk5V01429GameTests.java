@@ -77,9 +77,6 @@ public class IronManMk5V01429GameTests implements FabricGameTest {
 		h.assertTrue(mv.energyCapacity() == 2500f, "energy 2500");
 		h.assertTrue(mv.energyRegenPerSecond() == 5f, "regens 5 energy/s");
 		h.assertTrue(mv.maxIntegrity() == 800f && IronManEnergy.maxIntegrity("mark_v") == 800f, "integrity 800");
-		h.assertTrue(Math.abs(mv.armorRegenPerSecond() * IronManEnergy.WORN_REGEN_SCALE - 2f) < 1e-4f,
-				"regens 2 integrity/s worn");
-		h.assertTrue(mv.integrityPlayerShare() == 0.5f, "integrity takes 50% of every hit");
 		h.assertTrue(mv.arrowFireImmune(), "immune to arrows + fire");
 		h.assertTrue(mv.waterBreathing(), "breathes underwater");
 		h.assertTrue(mv.autoFeed(), "auto-feeds");
