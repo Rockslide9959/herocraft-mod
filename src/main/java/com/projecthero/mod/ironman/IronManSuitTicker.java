@@ -75,6 +75,9 @@ public final class IronManSuitTicker {
 		}
 		// v0.14.26: the Mark III targeting system (lock-on + auto-aim)
 		IronManTargeting.tick(player, suit);
+		// v0.15.1: Mark 3+ helmets switch the mob highlight on by themselves
+		IronManAbilities.tickAutoHighlight(player, suit, suitId != null && IronManArmor.hasHelmet(player, suitId)
+				&& IronManEnergy.energy(player, suitId) > 0f);
 
 		// "changes 21": the mob-highlight toggle is a helmet HUD overlay -- the instant an Iron Man
 		// helmet is no longer worn (docked into a Suit Platform, pulled off by hand, or the suit

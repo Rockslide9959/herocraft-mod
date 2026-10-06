@@ -109,6 +109,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.behemoth.BehemothSpawner.clearSessionState();
 		com.projecthero.mod.carnage.CarnageSpawner.clearSessionState(); // v0.14.25
 		com.projecthero.mod.ironman.IronManTargeting.clearSessionState(); // v0.14.26
+		com.projecthero.mod.ironman.ability.IronManAbilities.clearAutoHighlightState(); // v0.15.1
 		com.projecthero.mod.ironman.ability.IronManDash.clearSessionState(); // v0.14.27
 		com.projecthero.mod.ironman.ability.IronManFlares.clearSessionState(); // v0.14.27
 		com.projecthero.mod.ironman.IronManCombo.clearSessionState(); // v0.14.29 agent F

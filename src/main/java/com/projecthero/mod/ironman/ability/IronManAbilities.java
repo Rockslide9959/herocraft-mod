@@ -1260,6 +1260,29 @@ public final class IronManAbilities {
 	 * when the suit comes off or loses power) so it can never stay latched on with no way to see it,
 	 * and the wearer has to deliberately re-enable it. No-ops if it is already off.
 	 */
+	/**
+	 * v0.15.1, explicit user request: the Mark 3 and every later mark switch the mob highlight on automatically -- once
+	 * each time the helmet goes on (or the suit regains power). The Mark 6 / 7 toggles can still switch it off; it
+	 * comes back the next time the helmet is put on. Free (no switch-on cost) and untimed.
+	 */
+	private static final java.util.Set<java.util.UUID> AUTO_HIGHLIGHT_ARMED = new java.util.HashSet<>();
+
+	public static void tickAutoHighlight(ServerPlayer player, IronManSuit suit, boolean helmetPowered) {
+		if (suit == null || suit.markNumber() < 3 || !helmetPowered) {
+			AUTO_HIGHLIGHT_ARMED.remove(player.getUUID());
+			return;
+		}
+		if (AUTO_HIGHLIGHT_ARMED.add(player.getUUID()) && !TonyStark.state(player).mobHighlightOn) {
+			TonyStarkState s = TonyStark.state(player).copy();
+			s.mobHighlightOn = true;
+			player.setAttached(com.projecthero.mod.attachment.ModAttachments.TONY_STARK_STATE, s);
+		}
+	}
+
+	public static void clearAutoHighlightState() {
+		AUTO_HIGHLIGHT_ARMED.clear();
+	}
+
 	public static void clearMobHighlight(ServerPlayer player) {
 		if (!TonyStark.state(player).mobHighlightOn) {
 			return;

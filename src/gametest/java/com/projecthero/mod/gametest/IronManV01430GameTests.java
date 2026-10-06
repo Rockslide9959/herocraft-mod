@@ -109,4 +109,23 @@ public class IronManV01430GameTests implements FabricGameTest {
 		h.assertTrue(com.projecthero.mod.ironman.ability.IronManAbilities.REPULSOR_RANGE == 50.0, "repulsors reach 50 blocks");
 		h.succeed();
 	}
+
+	/** v0.15.1: Mark 3+ helmets switch the mob highlight on by themselves; the Mark 2 doesn't. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void markThreeAndUpAutoHighlight(GameTestHelper h) {
+		for (String id : new String[] { "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii" }) {
+			ServerPlayer p = h.makeMockServerPlayerInLevel();
+			p.setGameMode(GameType.SURVIVAL);
+			TonyStark.grant(p);
+			for (ArmorItem.Type t : new ArmorItem.Type[] { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS, ArmorItem.Type.BOOTS }) {
+				p.setItemSlot(com.projecthero.mod.ironman.suit.IronManSuitUpManager.slotFor(t), new ItemStack(IronManItems.armor(id, t)));
+			}
+			com.projecthero.mod.ironman.IronManEnergy.setEnergy(p, id, com.projecthero.mod.ironman.IronManEnergy.capacity(id));
+			com.projecthero.mod.ironman.IronManSuitTicker.tick(p);
+			boolean on = TonyStark.state(p).mobHighlightOn;
+			h.assertTrue(on == !"mark_2".equals(id), id + ": auto highlight expected " + !"mark_2".equals(id) + " but was " + on);
+			p.discard();
+		}
+		h.succeed();
+	}
 }

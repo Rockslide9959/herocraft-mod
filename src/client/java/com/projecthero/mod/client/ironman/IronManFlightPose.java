@@ -315,7 +315,8 @@ public final class IronManFlightPose {
 		float tFlight = a.flightStart == Long.MIN_VALUE / 4 ? 1.0e6f
 				: (Minecraft.getInstance().level == null ? 1.0e6f
 						: (Minecraft.getInstance().level.getGameTime() - a.flightStart) + partial);
-		float crouch = kind == Kind.BOOTS || !a.flying ? 0f : IronManFlightLook.takeoffCrouch(tFlight);
+		// v0.15.1, explicit user request: no take-off crouch (it read as a two-leg kick) -- straight into the flight pose
+		float crouch = 0f * tFlight;
 
 		out[0] = Mth.lerp(crouch, rArmX, 0.45f);
 		out[1] = Mth.lerp(crouch, armRY, 0f);
