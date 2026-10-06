@@ -120,6 +120,9 @@ public final class IronManSuitReveal {
 	public static ResourceLocation texture(Player player, String setId, EquipmentSlot slot, ResourceLocation base,
 			float partialTick) {
 		float p = progress(player, slot, partialTick);
+		if (IronManSuitFx.of(player).bracelet()) {
+			return base; // v0.15.4: the bracelet wrap-on moves whole plates -- the texture stays as it is
+		}
 		if (p < 1f && mk5(player)) {
 			// v0.14.29: the Mark 5 suitcase build -- chest before arms, helmet before faceplate (per-bone sub-windows)
 			ArmorVisualDefinition def = SuperheroArmorVisuals.get(setId);

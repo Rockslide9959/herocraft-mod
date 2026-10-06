@@ -20,6 +20,7 @@ public final class StarkGearClient {
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
 			if (entityRenderer instanceof PlayerRenderer playerRenderer) {
 				helper.register(new StarkGlassesLayer(playerRenderer));
+				helper.register(new ColantotteBraceletsLayer(playerRenderer)); // v0.15.4
 			}
 		});
 	}
@@ -27,7 +28,7 @@ public final class StarkGearClient {
 	/** Sneak + N belongs to the Stark Gear screen for a Tony Stark player (or anyone still wearing the glasses). */
 	public static boolean ownsSneakN(Minecraft client) {
 		return client.player != null && client.screen == null
-				&& (TonyStark.hasPower(client.player) || StarkGear.hasGlasses(client.player));
+				&& (TonyStark.hasPower(client.player) || !StarkGear.glasses(client.player).isEmpty());
 	}
 
 	public static void requestOpen() {

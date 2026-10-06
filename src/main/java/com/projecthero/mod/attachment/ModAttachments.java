@@ -795,6 +795,15 @@ public final class ModAttachments {
 					.syncWith(net.minecraft.world.item.ItemStack.OPTIONAL_STREAM_CODEC, AttachmentSyncPredicate.all()));
 
 	/**
+	 * v0.15.4: how many pairs of Colantotte Bracelets this player has been issued off a Suit Platform. Each pair is bound to
+	 * its owner with the number it was issued as; only the newest pair works, an older one crumbles (see
+	 * {@code ironman.gear.ColantotteBracelets}) -- so the platform's Bracelets button can never mint spare copies.
+	 */
+	public static final AttachmentType<Integer> COLANTOTTE_SERIAL = AttachmentRegistry.create(
+			ProjectHeroMod.id("colantotte_serial"),
+			builder -> builder.persistent(Codec.INT).copyOnDeath().initializer(() -> 0));
+
+	/**
 	 * v0.15.3: the Hulk's Gladiator Gear -- seven slots (helmet, pauldron, harness, bracers, kilt, hammer, axe; see
 	 * {@code hulk.gladiator.GladiatorGear}). Persistent, KEPT through death (keepInventory or not) and synced to everyone
 	 * (they need the full-kit flag to draw Gladiator Hulk). Always replaced as a whole, never mutated in place.

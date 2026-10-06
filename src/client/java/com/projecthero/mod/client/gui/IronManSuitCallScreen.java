@@ -108,7 +108,7 @@ public final class IronManSuitCallScreen extends Screen {
 	/** v0.15.1: suit calling needs the Stark Glasses in the Stark Gear slot. */
 	private boolean glassesOn() {
 		return minecraft != null && minecraft.player != null
-				&& com.projecthero.mod.ironman.gear.StarkGear.hasGlasses(minecraft.player);
+				&& com.projecthero.mod.ironman.gear.StarkGear.canCall(minecraft.player); // v0.15.4: or the bracelets
 	}
 
 	private boolean anyLockedPlatformCard() {

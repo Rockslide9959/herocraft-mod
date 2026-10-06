@@ -132,6 +132,34 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 
 	// v0.15.4: no more DEPLOY / RETRIEVE buttons -- suiting up and down is done on a Stark Gantry Floor (StarkGantry).
 
+	/** v0.15.4: menu button id of the side "Bracelets" button (only while a Mark 7 is stored). */
+	public static final int BRACELETS_BUTTON = 2;
+
+	/** v0.15.4: is a Mark 7 stored here, so the Bracelets button is offered? */
+	public boolean offersBracelets() {
+		IronManSuitPlatformBlockEntity be = liveBE();
+		String id = be != null ? be.storedSuitId() : null;
+		if (id == null) {
+			for (int i = 0; i < 4 && id == null; i++) {
+				if (getSlot(i).getItem().getItem() instanceof IronManArmorItem a) {
+					id = a.suitId();
+				}
+			}
+		}
+		return com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRACELET_SUIT.equals(id);
+	}
+
+	@Override
+	public boolean clickMenuButton(Player player, int id) {
+		if (!(player instanceof ServerPlayer sp) || id != BRACELETS_BUTTON) {
+			return false;
+		}
+		// v0.15.4: one pair of Colantotte Bracelets, only with a Mark 7 stored and only if you have none
+		return access.evaluate((level, pos) -> level.getBlockEntity(pos) instanceof IronManSuitPlatformBlockEntity be
+				&& com.projecthero.mod.ironman.gear.ColantotteBracelets.claim(sp, be)
+						== com.projecthero.mod.ironman.gear.ColantotteBracelets.Claim.GIVEN, false);
+	}
+
 	@Override
 	public boolean stillValid(Player player) {
 		return stillValid(access, player, IronManBlocks.IRON_MAN_SUIT_PLATFORM) && TonyStark.hasPower(player);

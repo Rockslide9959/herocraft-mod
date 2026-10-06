@@ -556,6 +556,14 @@ public final class IronManSuitCall {
 		return true;
 	}
 
+	/**
+	 * v0.15.4: is this a Colantotte Bracelets call -- the Mark 7 (the pod suit) called while the bracelets are worn? Then
+	 * the pod flies twice as fast, a far platform's travel wait is halved, and the suit goes on with the quick wrap-on.
+	 */
+	public static boolean fastCall(ServerPlayer player, IronManSuit suit) {
+		return IronManSuitUpManager.braceletSuitUp(player, suit) && suit.summonType() == SummonType.TRACKING_POD;
+	}
+
 	/** Fixed distance the couriers cover on the final approach -- tuned so the equip always takes the
 	 *  same satisfying couple of seconds regardless of how far the armour actually started. */
 	private static final double ARRIVAL_DISTANCE = 26.0;
@@ -593,6 +601,9 @@ public final class IronManSuitCall {
 			int delay = (int) Math.max(60, Math.min(600, dist * 0.6)); // 3 s .. 30 s of travel
 			if (TonyStark.phoenixEmergency(player)) {
 				delay = PHOENIX_DELAY; // v0.14.29: an emergency recall does not make a dying player wait 30 s
+			}
+			if (fastCall(player, suit)) {
+				delay /= 2; // v0.15.4: the Colantotte Bracelets bring the Mark 7 in twice as fast
 			}
 			PENDING.put(player.getUUID(), new PendingCall(suitId,
 					net.minecraft.core.GlobalPos.of(level.dimension(), entry.get().blockPos()), delay));
@@ -657,9 +668,10 @@ public final class IronManSuitCall {
 		int arrival;
 		if (launched > 0 && suit.summonType() == SummonType.TRACKING_POD) {
 			// Mark VII: one delivery pod carries the whole set and fires the pieces out at its owner
+			boolean fast = fastCall(player, suit); // v0.15.4: the Colantotte Bracelets
 			com.projecthero.mod.ironman.entity.IronManDeliveryPodEntity.spawn(level, player, taken,
-					straightFromPlatform ? origin : null);
-			arrival = com.projecthero.mod.ironman.entity.IronManDeliveryPodEntity.ticksToLastPiece(launched) + 30;
+					straightFromPlatform ? origin : null, fast);
+			arrival = com.projecthero.mod.ironman.entity.IronManDeliveryPodEntity.ticksToLastPiece(launched, fast) + 30;
 		} else {
 			for (int i = 0; i < taken.size(); i++) {
 				Vec3 from;
@@ -697,6 +709,7 @@ public final class IronManSuitCall {
 		s.transitionMask = 0;
 		s.transitionReleaseMask = 0;
 		s.transitionPlan = 0;
+		s.transitionBracelet = false;
 		// arms out to receive the pieces while they are inbound (every viewer sees it); v0.14.27: the last piece then
 		// builds on over BUILD_TICKS, and the suit-up only completes once it has (IronManSuitUpManager.tick holds it)
 		IronManSuitFx.startPose(player, IronManSuitFx.POSE_RECEIVE, s.transitionTotal + IronManSuitFx.BUILD_TICKS,

@@ -69,6 +69,14 @@ public final class IronManSuitUpPose {
 							touched = true;
 						}
 					}
+					case IronManSuitFx.POSE_BRACELET_UP -> {
+						// v0.15.4: arms a little out while the Mark 7 wraps on, looking down at the legs, head up to seal
+						float[] bk = com.projecthero.mod.ironman.suit.IronManBraceletSuitUp.pose(age);
+						if (bk != null && bk[0] > 0.001f) {
+							apply(model, bk[0], java.util.Arrays.copyOfRange(bk, 1, bk.length));
+							touched = true;
+						}
+					}
 					case IronManSuitFx.POSE_PLATFORM, IronManSuitFx.POSE_PLATFORM_OFF -> {
 						// v0.15.4: arms down and out for the Stark Gantry's robotic arms, head following the work up the
 						// body (and back down it, the timetable run backwards, while they take the suit off)

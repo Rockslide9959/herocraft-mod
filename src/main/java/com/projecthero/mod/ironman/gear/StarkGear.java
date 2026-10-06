@@ -46,6 +46,10 @@ import net.minecraft.world.level.GameRules;
  *   <li>Protocol Phoenix is armed -- and it only ever brings in a Mark {@value #PHOENIX_MIN_MARK} or later suit.</li>
  * </ul>
  *
+ * <p>v0.15.4: the slot can hold the <b>Colantotte Bracelets</b> instead ({@link ColantotteBracelets}) -- they allow suit
+ * calling (and arm Protocol Phoenix) just like the glasses, but give no Night Vision; and they make a called Mark 7 come
+ * twice as fast and go on with the quick bracelet wrap-on.
+ *
  * <p>The slot is the {@link ModAttachments#STARK_GEAR} attachment (persistent, synced to everyone so they see the
  * glasses). Death without keepInventory drops the glasses where you died, like the rest of the inventory.
  */
@@ -96,6 +100,16 @@ public final class StarkGear {
 		return glasses(player).getItem() instanceof StarkGlassesItem;
 	}
 
+	/** v0.15.4: true while the Colantotte Bracelets are in the Stark Gear slot. Works on both sides. */
+	public static boolean hasBracelets(Player player) {
+		return glasses(player).getItem() instanceof ColantotteBraceletsItem;
+	}
+
+	/** v0.15.4: can {@code stack} go in the Stark Gear slot (the Stark Glasses or the Colantotte Bracelets)? */
+	public static boolean isGear(ItemStack stack) {
+		return stack.getItem() instanceof StarkGlassesItem || stack.getItem() instanceof ColantotteBraceletsItem;
+	}
+
 	/** Replace the slot's contents (a copy is stored; empty clears it). Server-side -- syncs to every client. */
 	public static void setGlasses(Player player, ItemStack stack) {
 		if (stack == null || stack.isEmpty()) {
@@ -107,10 +121,11 @@ public final class StarkGear {
 
 	/**
 	 * Put {@code stack} (one item of it) on. Returns what came out of the slot (empty if it was empty), or
-	 * {@code stack} itself untouched if it isn't Stark Glasses. The caller shrinks {@code stack} by one on success.
+	 * {@code stack} itself untouched if it isn't Stark Gear (v0.15.4: the glasses or the bracelets). The caller shrinks
+	 * {@code stack} by one on success.
 	 */
 	public static ItemStack equip(ServerPlayer player, ItemStack stack) {
-		if (!(stack.getItem() instanceof StarkGlassesItem)) {
+		if (!isGear(stack)) {
 			return stack;
 		}
 		ItemStack old = glasses(player).copy();
@@ -129,9 +144,9 @@ public final class StarkGear {
 
 	// ---------------------------------------------------------------- suit calling
 
-	/** Whether this player may call a suit right now (only with the Stark Glasses on). */
+	/** Whether this player may call a suit right now (only with the Stark Glasses -- v0.15.4: or the bracelets -- on). */
 	public static boolean canCall(Player player) {
-		return hasGlasses(player);
+		return hasGlasses(player) || hasBracelets(player);
 	}
 
 	/** Tell the player the call was refused because the glasses aren't on. */
@@ -164,6 +179,12 @@ public final class StarkGear {
 	 * which runs for every player without an optic and now spares a wearer of the glasses.
 	 */
 	public static void tick(ServerPlayer player) {
+		if (hasBracelets(player) && player.level().getGameTime() % 20 == 0
+				&& ColantotteBracelets.retired(glasses(player), player.getServer())) {
+			// v0.15.4: a pair replaced by a newer one crumbles, worn or not
+			setGlasses(player, ItemStack.EMPTY);
+			ColantotteBracelets.crumbled(player);
+		}
 		if (!hasGlasses(player)) {
 			return;
 		}
@@ -177,7 +198,7 @@ public final class StarkGear {
 
 	/** Open the Stark Gear screen (Tony Stark, or anyone still wearing glasses so they can always take them off). */
 	public static void openMenu(ServerPlayer player) {
-		if (!TonyStark.hasPower(player) && !hasGlasses(player)) {
+		if (!TonyStark.hasPower(player) && glasses(player).isEmpty()) {
 			return;
 		}
 		player.openMenu(new SimpleMenuProvider((id, inv, p) -> new StarkGearMenu(id, inv),

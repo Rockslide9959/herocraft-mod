@@ -458,7 +458,8 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void deadMark42And50CodeIsGone(GameTestHelper h) {
-		h.assertTrue(SuitUpType.values().length == 3, "only MECHANICAL_REMOTE, SUITCASE_MOVIE, REMOTE_AUTOMATED remain");
+		// v0.15.4: + BRACELET_QUICK (the Mark 7 with the Colantotte Bracelets)
+		h.assertTrue(SuitUpType.values().length == 4, "only MECHANICAL_REMOTE, SUITCASE_MOVIE, REMOTE_AUTOMATED, BRACELET_QUICK");
 		h.assertTrue(SummonType.values().length == 3, "only FLYING_SET, TRACKING_POD, SUITCASE_ITEM remain");
 		h.assertTrue(BuiltInRegistries.ITEM.containsKey(com.projecthero.mod.ProjectHeroMod.id("modular_armor_controller"))
 				&& BuiltInRegistries.ITEM.containsKey(com.projecthero.mod.ProjectHeroMod.id("nanotech_matrix")),

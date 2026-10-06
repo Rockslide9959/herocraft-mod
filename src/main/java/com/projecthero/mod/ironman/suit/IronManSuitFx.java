@@ -67,6 +67,11 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 	 * faceplate (and the reverse). A piece that has come apart stays hidden until the fold finishes.
 	 */
 	public static final int STYLE_MK5 = 35;
+	/**
+	 * v0.15.4: the Mark 7 bracelet suit-up ({@link IronManBraceletSuitUp}) -- each piece wraps on over its own window:
+	 * split open down the front, onto the body, shut; the helmet swings up out of the back, the faceplate closes last.
+	 */
+	public static final int STYLE_BRACELET = 37;
 
 	public static final int POSE_NONE = 0;
 	/** Standing suit-up: arms out and slightly raised while the pieces lock on, then the faceplate beat. */
@@ -90,6 +95,8 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 	public static final int POSE_MK5_UP = 35;
 	/** v0.14.29: Mark 5 suit-down -- arms out while it comes apart, then the case ends up held out in both hands. */
 	public static final int POSE_MK5_DOWN = 36;
+	/** v0.15.4: the Mark 7 bracelet suit-up -- arms a little out while it wraps on ({@link IronManBraceletSuitUp#pose}). */
+	public static final int POSE_BRACELET_UP = 37;
 
 	public static final IronManSuitFx EMPTY = new IronManSuitFx(0L, 0L, 0L, 0L, 0, STYLE_PLATES, 0L, 0, POSE_NONE, 0L, 0);
 
@@ -183,12 +190,20 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 
 	/** v0.14.29: how long piece {@code bit} takes to go on -- the Mark 5 has a window per piece, everything else {@link #lockTicks()}. */
 	public int lockTicks(int bit) {
+		if (style == STYLE_BRACELET) {
+			return IronManBraceletSuitUp.upWindow(bit); // v0.15.4
+		}
 		return style == STYLE_MK5 ? IronManMk5Suitcase.upWindow(bit) : lockTicks();
 	}
 
 	/** v0.14.29: how long piece {@code bit} takes to come off (per piece for the Mark 5). */
 	public int releaseTicks(int bit) {
 		return style == STYLE_MK5 ? IronManMk5Suitcase.downWindow(bit) : releaseTicks();
+	}
+
+	/** v0.15.4: is this the Mark 7 bracelet suit-up? */
+	public boolean bracelet() {
+		return style == STYLE_BRACELET;
 	}
 
 	/** v0.14.29: is this the Mark 5 suitcase build / fold? */

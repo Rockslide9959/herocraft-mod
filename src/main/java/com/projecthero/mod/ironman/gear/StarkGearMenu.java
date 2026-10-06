@@ -33,7 +33,7 @@ public class StarkGearMenu extends AbstractContainerMenu {
 		addSlot(new Slot(gear, 0, StarkGearLayout.SLOT_X, StarkGearLayout.SLOT_Y) {
 			@Override
 			public boolean mayPlace(ItemStack stack) {
-				return stack.getItem() instanceof StarkGlassesItem;
+				return StarkGear.isGear(stack); // v0.15.4: the glasses or the Colantotte Bracelets
 			}
 
 			@Override
@@ -66,7 +66,7 @@ public class StarkGearMenu extends AbstractContainerMenu {
 			}
 			slot.setByPlayer(moving.isEmpty() ? ItemStack.EMPTY : moving);
 		} else {
-			if (!(stack.getItem() instanceof StarkGlassesItem) || slots.get(GEAR_SLOT).hasItem()
+			if (!StarkGear.isGear(stack) || slots.get(GEAR_SLOT).hasItem()
 					|| !moveItemStackTo(stack, GEAR_SLOT, GEAR_SLOT + 1, false)) {
 				return ItemStack.EMPTY;
 			}
@@ -145,7 +145,7 @@ public class StarkGearMenu extends AbstractContainerMenu {
 
 		@Override
 		public boolean canPlaceItem(int slot, ItemStack stack) {
-			return stack.getItem() instanceof StarkGlassesItem;
+			return StarkGear.isGear(stack);
 		}
 
 		@Override

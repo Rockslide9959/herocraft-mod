@@ -73,11 +73,12 @@ public class StarkGearScreen extends AbstractContainerScreen<StarkGearMenu> {
 		g.drawString(font, IronManGui.fit(font, Component.translatable("screen.projecthero.stark_gear.slot"),
 				StarkGearLayout.SLOT_LABEL_W), StarkGearLayout.SLOT_LABEL_X, StarkGearLayout.SLOT_Y + 4, IronManGui.GOLD, false);
 
-		boolean glasses = minecraft != null && minecraft.player != null && StarkGear.hasGlasses(minecraft.player);
+		boolean glasses = minecraft != null && minecraft.player != null && StarkGear.canCall(minecraft.player); // v0.15.4: or the bracelets
+		boolean nightVision = minecraft != null && minecraft.player != null && StarkGear.hasGlasses(minecraft.player);
 		TonyStarkState st = minecraft == null || minecraft.player == null ? null
 				: minecraft.player.getAttachedOrElse(ModAttachments.TONY_STARK_STATE, null);
 		long now = minecraft != null && minecraft.level != null ? minecraft.level.getGameTime() : 0L;
-		StarkGearLayout.Row[] rows = StarkGearLayout.rows(glasses, st == null ? 0L : st.phoenixReadyAt, now);
+		StarkGearLayout.Row[] rows = StarkGearLayout.rows(glasses, nightVision, st == null ? 0L : st.phoenixReadyAt, now);
 
 		int tx = StarkGearLayout.TEXT_X;
 		int tw = StarkGearLayout.TEXT_W;

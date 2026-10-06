@@ -408,7 +408,7 @@ public final class HeroPackGuide {
 			// v0.14.26: scanner, Mark III targeting, I-key spec sheet, auto-feed, the Stark cookers
 			for (String section : new String[]{"scanner", "targeting", "spec_sheet", "auto_feed", "furnaces",
 					"mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "platform", "gantry", "combat", "jarvis",
-					"remote_pilot", "armour_rules", "glasses", "phoenix"}) { // v0.14.29: + Mark 4 / 5 / 6 / 7, combat, JARVIS, remote pilot; v0.15.1: + armour rules; v0.15.2: + Stark Glasses, Protocol Phoenix; v0.15.4: + Stark Gantry
+					"remote_pilot", "armour_rules", "glasses", "bracelets", "phoenix"}) { // v0.14.29: + Mark 4 / 5 / 6 / 7, combat, JARVIS, remote pilot; v0.15.1: + armour rules; v0.15.2: + Stark Glasses, Protocol Phoenix; v0.15.4: + Stark Gantry, Colantotte Bracelets
 				head(lines, "projecthero.guide.iron_man." + section);
 				para(lines, "projecthero.guide.iron_man." + section + ".body");
 			}

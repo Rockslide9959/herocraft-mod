@@ -44,6 +44,8 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 	private static final int MX = IronManUiLayout.PLAT_METER_X;
 	private static final int MW = IronManUiLayout.PLAT_METER_W;
 	private final long openedAt = Util.getMillis();
+	/** v0.15.4: the side tab that hands out the Colantotte Bracelets -- only shown while a Mark 7 is stored. */
+	private IronManGui.StarkButton bracelets;
 
 	public IronManSuitPlatformScreen(IronManSuitPlatformMenu menu, Inventory inv, Component title) {
 		super(menu, inv, title);
@@ -54,6 +56,26 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 	}
 
 	// v0.15.4: no DEPLOY / RETRIEVE buttons any more -- the strip they used says where suiting up happens now (renderLabels)
+	@Override
+	protected void init() {
+		super.init();
+		// v0.15.4: a small tab off the right edge of the panel (the panel itself has no free row)
+		bracelets = new IronManGui.StarkButton(leftPos + imageWidth + 2, topPos + 98, BRACELETS_W, 15,
+				Component.translatable("screen.projecthero.suit_platform.bracelets"),
+				() -> click(IronManSuitPlatformMenu.BRACELETS_BUTTON));
+		bracelets.accent = IronManGui.RED;
+		bracelets.visible = menu.offersBracelets();
+		addRenderableWidget(bracelets);
+	}
+
+	/** v0.15.4: width of the Bracelets tab. */
+	public static final int BRACELETS_W = 60;
+
+	private void click(int id) {
+		if (minecraft != null && minecraft.gameMode != null) {
+			minecraft.gameMode.handleInventoryButtonClick(menu.containerId, id);
+		}
+	}
 
 	private ItemStack[] pieces() {
 		ItemStack[] out = new ItemStack[4];
@@ -146,8 +168,15 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+		if (bracelets != null) {
+			bracelets.visible = menu.offersBracelets(); // v0.15.4: only while a Mark 7 is stored
+		}
 		super.render(g, mouseX, mouseY, partialTick);
 		this.renderTooltip(g, mouseX, mouseY);
+		if (bracelets != null && bracelets.visible && bracelets.isHovered()) {
+			g.renderTooltip(font, font.split(Component.translatable("screen.projecthero.suit_platform.bracelets_tip"), 160),
+					mouseX, mouseY);
+		}
 		if (mouseX >= leftPos + 136 && mouseX < leftPos + 170 && mouseY >= topPos + 29 && mouseY < topPos + 51) {
 			g.renderTooltip(font, Component.translatable("screen.projecthero.suit_platform.regen_tip",
 					Math.round(IronManSuitPlatformBlockEntity.REGEN_ENERGY_PER_SECOND),

@@ -80,7 +80,7 @@ public final class IronManHud {
 			// decides whether anything is actually reachable).
 			int y = IronManUiLayout.HUD_Y;
 			// v0.15.1: suit calling and Protocol Phoenix need the Stark Glasses (Stark Gear slot, Shift+N)
-			boolean glasses = com.projecthero.mod.ironman.gear.StarkGear.hasGlasses(player);
+			boolean glasses = com.projecthero.mod.ironman.gear.StarkGear.canCall(player); // v0.15.4: or the Colantotte Bracelets
 			if (!wearingAnyIronMan(player)) {
 				String call = glasses
 						? Component.translatable("hud.projecthero.ironman.call_armor",

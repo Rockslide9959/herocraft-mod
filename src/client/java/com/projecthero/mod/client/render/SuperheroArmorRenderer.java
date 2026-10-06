@@ -77,6 +77,9 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 				if (!com.projecthero.mod.client.ironman.IronManAssemblyClient.apply(poseStack, bone, ip, getCurrentSlot(), partialTick)) {
 					return;
 				}
+				// v0.15.4: the Mark 7 bracelet wrap-on draws this bone as two half-shells swung open (0 = whole)
+				braceletSplit = com.projecthero.mod.client.ironman.IronManBraceletClient.splitDeg;
+				com.projecthero.mod.client.ironman.IronManBraceletClient.splitDeg = 0f;
 				// the H faceplate is up: drop the helmet's front faces so the wearer's face shows (shell + brow stay on)
 				skipNorthFaces = "helmet".equals(name) && getCurrentSlot() == EquipmentSlot.HEAD
 						&& com.projecthero.mod.client.ironman.IronManAssemblyClient.helmetFrontHidden(ip, partialTick);
@@ -84,6 +87,7 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 						packedLight, packedOverlay, colour);
 			} finally {
 				skipNorthFaces = false;
+				braceletSplit = 0f;
 				poseStack.popPose();
 			}
 			return;
@@ -109,6 +113,55 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 
 	/** v0.14.21: set while drawing the {@code helmet} bone with the faceplate raised (see {@link #renderRecursively}). */
 	private boolean skipNorthFaces;
+
+	/** v0.15.4: this bone's half-shell opening (degrees) during the Mark 7 bracelet wrap-on; 0 = drawn whole. */
+	private float braceletSplit;
+
+	/**
+	 * v0.15.4: during the Mark 7 bracelet wrap-on a body bone is drawn as two half-shells -- its own boxes clipped at the
+	 * centre line, each half swung open on a hinge at its back corner ({@link com.projecthero.mod.client.ironman.IronManBraceletClient}).
+	 * Same transforms as GeckoLib's own {@code renderCube}; nothing is added to the model.
+	 */
+	@Override
+	public void renderCubesOfBone(PoseStack poseStack, software.bernie.geckolib.cache.object.GeoBone bone, VertexConsumer buffer,
+			int packedLight, int packedOverlay, int colour) {
+		float deg = braceletSplit;
+		if (deg <= 0.01f || bone.isHidden() || bone.getCubes().isEmpty()) {
+			super.renderCubesOfBone(poseStack, bone, buffer, packedLight, packedOverlay, colour);
+			return;
+		}
+		float[] bounds = com.projecthero.mod.client.ironman.IronManBraceletClient.bounds(bone);
+		for (int side = -1; side <= 1; side += 2) {
+			var half = com.projecthero.mod.client.ironman.IronManBraceletClient.Half.of(bounds, side, deg);
+			for (software.bernie.geckolib.cache.object.GeoCube cube : bone.getCubes()) {
+				poseStack.pushPose();
+				software.bernie.geckolib.util.RenderUtil.translateToPivotPoint(poseStack, cube);
+				software.bernie.geckolib.util.RenderUtil.rotateMatrixAroundCube(poseStack, cube);
+				software.bernie.geckolib.util.RenderUtil.translateAwayFromPivotPoint(poseStack, cube);
+				org.joml.Matrix3f normalMat = poseStack.last().normal();
+				org.joml.Matrix4f poseMat = new org.joml.Matrix4f(poseStack.last().pose());
+				for (software.bernie.geckolib.cache.object.GeoQuad quad : cube.quads()) {
+					if (quad == null) {
+						continue;
+					}
+					var verts = com.projecthero.mod.client.ironman.IronManBraceletClient.clip(quad, half);
+					if (verts == null) {
+						continue;
+					}
+					float[] n = com.projecthero.mod.client.ironman.IronManBraceletClient.swingNormal(half,
+							quad.normal().x(), quad.normal().y(), quad.normal().z());
+					org.joml.Vector3f normal = normalMat.transform(new org.joml.Vector3f(n[0], n[1], n[2]));
+					software.bernie.geckolib.util.RenderUtil.fixInvertedFlatCube(cube, normal);
+					for (var v : verts) {
+						org.joml.Vector4f p = poseMat.transform(new org.joml.Vector4f(v.x(), v.y(), v.z(), 1f));
+						buffer.addVertex(p.x(), p.y(), p.z(), colour, v.u(), v.v(), packedOverlay, packedLight,
+								normal.x(), normal.y(), normal.z());
+					}
+				}
+				poseStack.popPose();
+			}
+		}
+	}
 
 	@Override
 	public void createVerticesOfQuad(software.bernie.geckolib.cache.object.GeoQuad quad, org.joml.Matrix4f poseState,

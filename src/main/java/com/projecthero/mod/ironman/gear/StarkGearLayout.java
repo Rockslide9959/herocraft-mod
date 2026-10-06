@@ -57,11 +57,20 @@ public final class StarkGearLayout {
 
 	/** The three status rows for a player with/without the glasses, Phoenix ready at {@code phoenixReadyAt}, now = {@code now}. */
 	public static Row[] rows(boolean glasses, long phoenixReadyAt, long now) {
+		return rows(glasses, glasses, phoenixReadyAt, now);
+	}
+
+	/**
+	 * v0.15.4: the rows for a player who {@code canCall} (glasses or Colantotte Bracelets worn) and has {@code nightVision}
+	 * (glasses only).
+	 */
+	public static Row[] rows(boolean canCall, boolean nightVision, long phoenixReadyAt, long now) {
+		boolean glasses = canCall;
 		String p = "screen.projecthero.stark_gear.";
 		Row calling = glasses
 				? new Row(p + "calling", p + "online", new Object[0], Tone.GOOD, p + "calling.hint_on")
 				: new Row(p + "calling", p + "offline", new Object[0], Tone.BAD, p + "calling.hint_off");
-		Row vision = glasses
+		Row vision = nightVision
 				? new Row(p + "night_vision", p + "on", new Object[0], Tone.GOOD, p + "night_vision.hint_on")
 				: new Row(p + "night_vision", p + "off", new Object[0], Tone.OFF, p + "night_vision.hint_off");
 		Row phoenix;

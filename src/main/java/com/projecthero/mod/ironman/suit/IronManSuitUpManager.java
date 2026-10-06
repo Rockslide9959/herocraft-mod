@@ -135,8 +135,25 @@ public final class IronManSuitUpManager {
 		}
 
 		TonyStark.setActiveSuit(player, suitId);
-		start(player, suit, true, mask, false, false);
+		start(player, suit, true, mask, false, false, braceletSuitUp(player, suit));
 		return true;
+	}
+
+	/** v0.15.4: the one mark the Colantotte Bracelets speed up. */
+	public static final String BRACELET_SUIT = "mark_vii";
+
+	/**
+	 * v0.15.4: does {@code suit} go on with the quick bracelet wrap-on ({@link SuitUpType#BRACELET_QUICK}) for this player
+	 * -- the Mark 7 with the Colantotte Bracelets in the Stark Gear slot?
+	 */
+	public static boolean braceletSuitUp(net.minecraft.world.entity.player.Player player, IronManSuit suit) {
+		return suit != null && BRACELET_SUIT.equals(suit.id())
+				&& com.projecthero.mod.ironman.gear.StarkGear.hasBracelets(player);
+	}
+
+	/** v0.15.4: the suit-up type {@code suit} actually uses for this player right now (bracelets or its own). */
+	public static SuitUpType effectiveSuitUpType(net.minecraft.world.entity.player.Player player, IronManSuit suit) {
+		return braceletSuitUp(player, suit) ? SuitUpType.BRACELET_QUICK : suit.suitUpType();
 	}
 
 	/**
@@ -164,7 +181,7 @@ public final class IronManSuitUpManager {
 		if (IronManFlight.isFlying(player)) {
 			IronManFlight.setFlying(player, false);
 		}
-		start(player, suit, false, mask, false, false);
+		start(player, suit, false, mask, false, false, false);
 		return true;
 	}
 
@@ -196,7 +213,7 @@ public final class IronManSuitUpManager {
 		if (IronManFlight.isFlying(player)) {
 			IronManFlight.setFlying(player, false);
 		}
-		start(player, suit, false, mask, true, false);
+		start(player, suit, false, mask, true, false, false);
 		return true;
 	}
 
@@ -237,7 +254,7 @@ public final class IronManSuitUpManager {
 			}
 		}
 		TonyStark.setActiveSuit(player, suitId);
-		start(player, suit, true, mask, false, true);
+		start(player, suit, true, mask, false, true, false);
 		IronManSounds.play(player, IronManSounds.CASE_UNFOLD, 1.0f, 1.0f);
 		return true;
 	}
@@ -295,12 +312,26 @@ public final class IronManSuitUpManager {
 	}
 
 	/** Shared start of every staged sequence: transition state + the synced pose clock + the launch FX. */
-	private static void start(ServerPlayer player, IronManSuit suit, boolean up, int mask, boolean toCase, boolean fromCase) {
+	private static void start(ServerPlayer player, IronManSuit suit, boolean up, int mask, boolean toCase, boolean fromCase,
+			boolean bracelet) {
 		TonyStarkState s = TonyStark.state(player);
 		s.transitionSuit = suit.id();
 		s.transitionUp = up;
 		s.transitionToCase = toCase;
 		s.transitionFromCase = fromCase;
+		s.transitionBracelet = bracelet && up;
+		if (s.transitionBracelet) {
+			// v0.15.4: the Mark 7 bracelet wrap-on -- its own 4 s per-piece timetable, pose and style
+			s.transitionPlan = 0;
+			s.transitionTotal = SuitUpType.BRACELET_QUICK.durationTicks();
+			s.transitionTicks = s.transitionTotal;
+			s.transitionMask = mask;
+			s.transitionReleaseMask = 0;
+			IronManSuitFx.startPose(player, IronManSuitFx.POSE_BRACELET_UP, s.transitionTotal, IronManSuitFx.STYLE_BRACELET, 0);
+			launchFx(player, true);
+			IronManSounds.play(player, IronManSounds.HUD_ON, 0.6f, 1.2f);
+			return;
+		}
 		// v0.14.27: an ordinary suit-up builds the pieces one after another, 3 s each, and completes only once the last
 		// one is fully built; the Mark V case build and every suit-down keep the staged timeline
 		// v0.14.28: ...and an ordinary C suit-down un-builds them one after another, 3 s each, helmet first -- exactly as
@@ -424,8 +455,8 @@ public final class IronManSuitUpManager {
 			}
 			return true;
 		}
-		if (fxNow.mk5()) {
-			// v0.14.29: a leftover Mark 5 style must not time this piece's ordinary build-on
+		if (fxNow.mk5() || fxNow.bracelet()) {
+			// v0.14.29: a leftover Mark 5 style must not time this piece's ordinary build-on (v0.15.4: nor a bracelet one)
 			player.setAttached(ModAttachments.IRON_MAN_SUIT_FX, fxNow.withPose(fxNow.poseKind(), fxNow.poseStart(),
 					fxNow.poseTicks(), IronManSuitFx.STYLE_PLATES));
 		}
@@ -461,14 +492,22 @@ public final class IronManSuitUpManager {
 		boolean sequential = s.transitionPlan != 0;
 		// v0.14.29: the Mark 5 suitcase build / fold runs on its own per-piece timetable
 		boolean mk5 = s.transitionFromCase || s.transitionToCase;
+		// v0.15.4: the Mark 7 bracelet wrap-on runs on its own per-piece timetable too
+		boolean bracelet = s.transitionBracelet && s.transitionUp;
 		int releaseTicks = sequential ? IronManSuitFx.BUILD_TICKS : IronManSuitFx.RELEASE_TICKS;
 		for (int bit = 0; bit < 4; bit++) {
 			EquipmentSlot slot = SLOT_BY_BIT[bit];
-			int stage = mk5 ? (s.transitionUp ? IronManMk5Suitcase.upStart(bit) : IronManMk5Suitcase.downStart(bit))
+			int stage = bracelet ? IronManBraceletSuitUp.upStart(bit)
+					: mk5 ? (s.transitionUp ? IronManMk5Suitcase.upStart(bit) : IronManMk5Suitcase.downStart(bit))
 					: !sequential ? stageTick(bit, s.transitionUp, type)
 					: s.transitionUp ? buildStageTick(bit, s.transitionPlan) : unbuildStageTick(bit, s.transitionPlan);
 			int buildTicks = mk5 ? IronManMk5Suitcase.upWindow(bit) : IronManSuitFx.BUILD_TICKS;
-			if ((sequential || mk5) && s.transitionUp && stage >= 0 && elapsed == stage + buildTicks - 1
+			if (bracelet) {
+				// the clasp: the halves have just shut (body) / the helmet has just landed
+				buildTicks = Math.round(IronManBraceletSuitUp.upWindow(bit)
+						* (bit == 0 ? IronManBraceletSuitUp.HELMET_LAND : IronManBraceletSuitUp.CLOSE_END)) + 1;
+			}
+			if ((sequential || mk5 || bracelet) && s.transitionUp && stage >= 0 && elapsed == stage + buildTicks - 1
 					&& player.getItemBySlot(slot).getItem() instanceof IronManArmorItem) {
 				// v0.14.27: the piece has finished building itself on -- it clamps home (sparks + the clamp sound)
 				stageFx(player, slot, true);
@@ -487,7 +526,11 @@ public final class IronManSuitUpManager {
 					evictSlot(player, slot);
 					player.setItemSlot(slot, piece);
 					IronManSuitFx.markPiece(player, slot, true);
-					if (sequential || mk5) {
+					if (bracelet && bit == 0) {
+						// v0.15.4: the helmet comes without its faceplate -- it is up, and closes last (FACEPLATE_CLOSE_AT)
+						player.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, true);
+					}
+					if (sequential || mk5 || bracelet) {
 						// v0.14.27: the piece starts building on -- a servo whirr now, the clamp when it is done
 						IronManSounds.play(player, IronManSounds.SERVO, 0.7f, 0.85f + bit * 0.08f);
 					} else {
@@ -516,7 +559,18 @@ public final class IronManSuitUpManager {
 			IronManSounds.play(player, IronManSounds.SERVO, 0.3f, 1.1f + level.random.nextFloat() * 0.3f);
 		}
 
-		if (s.transitionTicks <= 0 && s.transitionUp && s.transitionPlan == 0 && !s.transitionFromCase
+		if (bracelet && elapsed == IronManBraceletSuitUp.FACEPLATE_CLOSE_AT
+				&& player.getAttachedOrElse(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false)) {
+			// v0.15.4: last of all the faceplate closes down -- the ordinary H swing, seal and power-up
+			if (IronManArmor.wearingFullSuit(player, s.transitionSuit)) {
+				faceplateClose(player, s.transitionSuit);
+			} else {
+				player.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false);
+				IronManSuitFx.faceplateMoved(player);
+			}
+		}
+
+		if (s.transitionTicks <= 0 && s.transitionUp && s.transitionPlan == 0 && !s.transitionFromCase && !bracelet
 				&& stillBuilding(player)) {
 			// v0.14.27: a suit-up whose pieces arrived some other way (couriers, the pod, the platform) completes only
 			// once the last piece has finished building itself on
@@ -541,7 +595,9 @@ public final class IronManSuitUpManager {
 			if (s.transitionFromCase) {
 				discardEmptyCase(player, s.transitionSuit);
 			}
-			if (IronManArmor.wearingFullSuit(player, s.transitionSuit)) {
+			// v0.15.4: a bracelet wrap-on has already closed its faceplate (FACEPLATE_CLOSE_AT) -- no second seal
+			if (IronManArmor.wearingFullSuit(player, s.transitionSuit)
+					&& (!s.transitionBracelet || player.getAttachedOrElse(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false))) {
 				faceplateClose(player, s.transitionSuit);
 			}
 			if (!s.transitionFromCase) {
@@ -562,6 +618,7 @@ public final class IronManSuitUpManager {
 		s.transitionFromCase = false;
 		s.transitionReleaseMask = 0;
 		s.transitionPlan = 0;
+		s.transitionBracelet = false;
 		s.transitionSuit = "";
 		// v0.14.28: AFTER the transition is cleared -- setActiveSuit saves a copy of the state, so calling it earlier
 		// carried the still-running transition into the new state object and the suit-down ended one tick late

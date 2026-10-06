@@ -126,6 +126,9 @@ public final class IronManAssemblyClient {
 			return false;
 		}
 		float p = IronManSuitReveal.progress(player, EquipmentSlot.HEAD, partialTick);
+		if (IronManSuitFx.of(player).bracelet()) {
+			return p < 1f; // v0.15.4: no eyes until the bracelet wrap-on's helmet is home
+		}
 		return p < 1f && !IronManAssemblyPlan.snapped(0, "faceplate", IronManSuitReveal.fromCase(player), p);
 	}
 
@@ -140,6 +143,14 @@ public final class IronManAssemblyClient {
 			return true;
 		}
 		String name = bone.getName();
+		IronManSuitFx braceletFx = IronManSuitFx.of(player);
+		if (braceletFx.bracelet()) {
+			// v0.15.4: the Mark 7 bracelet wrap-on -- split open, onto the body, shut; helmet out of the back, faceplate last
+			float bp = IronManSuitReveal.progress(player, slot, partialTick);
+			if (bp < 1f) {
+				return IronManBraceletClient.apply(pose, bone, bit, bp, glowPass);
+			}
+		}
 		if (bit == 1 && (name.equals("right_blade") || name.equals("left_blade"))
 				&& IronManSuitReveal.progress(player, slot, partialTick) < 1f) {
 			return false; // Mark V blades never show mid-assembly
@@ -352,6 +363,10 @@ public final class IronManAssemblyClient {
 		float p = IronManSuitReveal.progress(player, EquipmentSlot.CHEST, partialTick);
 		if (p >= 1f) {
 			return true;
+		}
+		if (IronManSuitFx.of(player).bracelet()) {
+			// v0.15.4: the bracelet wrap-on -- the gauntlet shows once the chestplate's halves have shut round the arm
+			return com.projecthero.mod.ironman.suit.IronManBraceletSuitUp.closed(p);
 		}
 		if (IronManSuitReveal.building(player, EquipmentSlot.CHEST)) {
 			return true; // v0.14.27: the gauntlet builds on in place (the build texture does the work)

@@ -86,6 +86,9 @@ public final class IronManItems {
 	// v0.15.1: Tony Stark's tinted glasses -- worn in the Stark Gear slot (Sneak + N), see ironman.gear.StarkGear
 	public static final Item STARK_GLASSES = register("stark_glasses", new com.projecthero.mod.ironman.gear.StarkGlassesItem(
 			new Item.Properties().stacksTo(1).rarity(Rarity.RARE)));
+	// v0.15.4: the Mark 7's Colantotte Bracelets -- from a Suit Platform holding a Mark 7, see ironman.gear.ColantotteBracelets
+	public static final Item COLANTOTTE_BRACELETS = register("colantotte_bracelets",
+			new com.projecthero.mod.ironman.gear.ColantotteBraceletsItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC)));
 
 	// ---- blueprints ----
 	// "changes 15": every craftable mark now has a blueprint item too (craftable at a table, and it
@@ -198,6 +201,7 @@ public final class IronManItems {
 		output.accept(REACTOR_CORE);
 		output.accept(MARK_V_SUITCASE);
 		output.accept(STARK_GLASSES); // v0.15.1
+		output.accept(COLANTOTTE_BRACELETS); // v0.15.4
 
 		output.accept(BLANK_BLUEPRINT);
 		output.accept(MARK_1_BLUEPRINT);

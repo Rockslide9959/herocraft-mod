@@ -18,7 +18,14 @@ public enum SuitUpType {
 	 * delivery pod ({@link SummonType#TRACKING_POD}, {@code IronManDeliveryPodEntity}), which lands behind the player and
 	 * fires the pieces onto them (mid-air ok).
 	 */
-	REMOTE_AUTOMATED(45);
+	REMOTE_AUTOMATED(45),
+	/**
+	 * v0.15.4: the Mark 7 with the <b>Colantotte Bracelets</b> on (Stark Gear slot) -- the quick ~4 s wrap-on
+	 * ({@link IronManBraceletSuitUp}): each body piece arrives split open down the front, closes around the player
+	 * (chestplate, leggings, boots), the helmet swings up out of the back without its faceplate, and the faceplate closes
+	 * last. Never a suit's own type: {@link IronManSuitUpManager} picks it for a Mark 7 while the bracelets are worn.
+	 */
+	BRACELET_QUICK(IronManBraceletSuitUp.UP_TICKS);
 
 	private final int durationTicks;
 

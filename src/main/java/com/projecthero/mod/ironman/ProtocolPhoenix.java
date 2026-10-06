@@ -78,7 +78,7 @@ public final class ProtocolPhoenix {
 			return false;
 		}
 		// v0.15.1: Protocol Phoenix is only armed while the Stark Glasses are on (Stark Gear slot)
-		if (!com.projecthero.mod.ironman.gear.StarkGear.hasGlasses(player)) {
+		if (!com.projecthero.mod.ironman.gear.StarkGear.canCall(player)) { // v0.15.4: or the Colantotte Bracelets
 			return false;
 		}
 		// Can't trigger recursively, and truly un-survivable damage always kills.
