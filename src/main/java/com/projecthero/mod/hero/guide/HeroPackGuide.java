@@ -360,7 +360,7 @@ public final class HeroPackGuide {
 			for (String[] slot : new String[][]{
 					{"R", "call_mjolnir"}, {"G", "lightning_strike"}, {"X", "lightning_beam"},
 					{"Z", "god_of_thunders_wrath"}, {"V", "hammer_volley"}, {"Shift+V", "thunderclap"},
-					{"C", "chain_lightning"},
+					{"C", "chain_lightning"}, {"N", "weapon_select"}, // v0.15.3: N = the weapon selector
 			}) {
 				lines.add(Component.literal(" " + slot[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.thor.ability." + slot[1]).withStyle(ChatFormatting.WHITE)));
@@ -376,7 +376,8 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.thor.stormbreaker");
 			// v0.15.1: "recall" -- Stormbreaker binds on first worthy carry and R calls it interchangeably with Mjolnir
-			for (String part : new String[]{"intro", "recipe", "forge", "throw", "bifrost", "recall", "weapon"}) {
+			// v0.15.3: "dropped" -- Stormbreaker on the ground is a resting entity like Mjolnir
+			for (String part : new String[]{"intro", "recipe", "forge", "throw", "bifrost", "recall", "dropped", "weapon"}) {
 				para(lines, "projecthero.guide.thor.stormbreaker." + part);
 			}
 			// v0.14.20: the Mjolnir / Stormbreaker 3-hit melee combo

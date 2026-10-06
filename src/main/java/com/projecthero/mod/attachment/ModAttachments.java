@@ -135,6 +135,19 @@ public final class ModAttachments {
 					.syncWith(UUIDUtil.STREAM_CODEC, AttachmentSyncPredicate.targetOnly()));
 
 	/**
+	 * v0.15.3: Thor's N weapon selector -- a bit per {@link com.projecthero.mod.hammer.ThorWeapon} (bit = ordinal) that
+	 * is set while that weapon is INACTIVE, i.e. never called by R. 0 (the default) = both active, the pre-v0.15.3
+	 * behaviour. Persistent, kept through death, synced to the owner (the N screen reads it). Only
+	 * {@link com.projecthero.mod.hammer.ThorWeaponSelection} writes it.
+	 */
+	public static final AttachmentType<Integer> THOR_WEAPONS_INACTIVE = AttachmentRegistry.create(
+			ProjectHeroMod.id("thor_weapons_inactive"),
+			builder -> builder.persistent(Codec.INT)
+					.copyOnDeath()
+					.initializer(() -> 0)
+					.syncWith(ByteBufCodecs.VAR_INT, AttachmentSyncPredicate.targetOnly()));
+
+	/**
 	 * v0.12.16: true once a Thor has deliberately released their hold on the hammer (unbound it) and has
 	 * not bound one since. If they then gain another power they lose their worthiness
 	 * ({@code HeroTiers.unworthyIfHammerReleased}) so they cannot lift Mjolnir back up and stack it on top.

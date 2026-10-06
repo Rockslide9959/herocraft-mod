@@ -257,16 +257,20 @@ public class ThorRecallV0151GameTests implements FabricGameTest {
 		UUID axe = axeId(p);
 		MjolnirEntity resting = restHammer(helper, p.getMainHandItem().copy(), new Vec3(6.5, 2, 6.5));
 		p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-		ItemEntity axeItem = dropAxe(helper, takeAxe(p), new Vec3(3.5, 2, 2.5));
+		dropAxe(helper, takeAxe(p), new Vec3(3.5, 2, 2.5));
 		helper.runAfterDelay(3, () -> {
 			helper.assertTrue(MjolnirRecall.chooseWeapon(p) == ThorWeapon.STORMBREAKER, "the nearer axe is chosen");
+			// v0.15.3: the dropped item is a resting StormbreakerEntity by now
+			List<Entity> axes = worldCopies(helper, axe);
+			helper.assertTrue(axes.size() == 1 && axes.get(0) instanceof StormbreakerEntity, "the dropped axe lies as one entity");
+			Entity axeItem = axes.get(0);
 			Vec3 far = helper.absoluteVec(new Vec3(7.5, 2, 7.5));
 			axeItem.setPos(far.x, far.y, far.z);
 			helper.assertTrue(MjolnirRecall.chooseWeapon(p) == ThorWeapon.MJOLNIR, "now the nearer hammer is chosen");
 
 			// an unloaded / other-dimension weapon ranks behind any in this dimension...
 			MjolnirRegistry registry = registry(helper);
-			ItemStack axeStack = axeItem.getItem().copy();
+			ItemStack axeStack = ((StormbreakerEntity) axeItem).getItem().copy();
 			axeItem.discard();
 			Level nether = helper.getLevel().getServer().getLevel(Level.NETHER);
 			if (nether != null) {

@@ -7,8 +7,58 @@ HUD `client/gui/ThorHud`. Player-facing text: the Guidebook's Thor chapter (`her
 `projecthero.guide.thor.*`, which the power info screen shows too).
 
 Keys: R Call Mjolnir (right-click throws), G Lightning Strike, X Lightning Beam (hold), Z God of Thunder's Wrath (hold 5 s),
-V Hammer Volley, Shift+V Thunderclap, C Chain Lightning, H Thor's Armour, double-tap Jump flight.
+V Hammer Volley, Shift+V Thunderclap, C Chain Lightning, H Thor's Armour, N weapon selector (v0.15.3), double-tap Jump
+flight.
 Storm Call (`ThorPowers.stormCall`) is still in the code but not on any key since v0.6.22. There is no Thor Parry.
+
+## v0.15.3: N weapon selector, Stormbreaker on the ground
+
+### N weapon selector -- `hammer/ThorWeaponSelection`, client `gui/ThorWeaponScreen`
+- N opens a small screen (gold on night blue, like the Bifrost menu): one row per weapon -- icon, name, "Bound to you" /
+  "None bound to you", and an Active / Inactive toggle (tooltip says what a click does). Intro and the both-off warning
+  are word-wrapped to the panel (`font.split`). N again (or Done / Esc) closes it.
+- Client routing: an `else if` in `ProjectHeroModClient.handleMaxSteelTransform`, just before the mutation Utility 2
+  fallback, gated on `ThorWeaponSelection.ownsSelector` = worthy and (holding Mjolnir/Stormbreaker, or bound to
+  Mjolnir, or bound to a Stormbreaker) -- the same rule on both sides. Nothing else owned N for Thor: the server's
+  `AbilityRouter` gives Thor's context slots 1-6 only and dropped slot 8, and `mutationHasUtility` is already off while
+  a Thor weapon is held.
+- State: `ModAttachments.THOR_WEAPONS_INACTIVE` -- an int, bit `1 << ThorWeapon.ordinal()` set = that weapon INACTIVE;
+  0 (default) = both active = the v0.15.1 rule. Persistent, `copyOnDeath`, synced to the owner (the screen reads it,
+  so it always shows the server's state). No static state.
+- Writes: the toggle sends `ThorWeaponTogglePayload(weapon ordinal, active)`; `ThorWeaponSelection.handleToggle`
+  re-validates (index in range, `ownsSelector`) and answers on the action bar.
+- Recall (`MjolnirRecall.call` / `chooseWeapon`): both inactive -> nothing is called, action bar
+  `message.projecthero.recall.none_active`, `call` returns false. One inactive -> it is never called (not even when it
+  is the closer or the only bound one); the other is treated as the only weapon (v0.15.1 rule 3: already in hand /
+  swap from the pack / called home). R is the only weapon-calling path -- Thor's Armour (H) calls no weapon.
+
+### Stormbreaker on the ground -- `StormbreakerEntity` resting state
+- Like Mjolnir: a loose Stormbreaker `ItemEntity` is promoted on its first tick (`ItemEntityMixin
+  #promoteToStormbreakerEntity`, replacing v0.15.1's "stay an item but track it") into a RESTING
+  `StormbreakerEntity` carrying the real stack and the item's toss velocity -- Q, dragging it out of the inventory, death
+  drops, dispensers, and a freshly forged axe (the forge runs earlier in the same tick). The /give decoration
+  (`NEVER_PICK_UP`) is left alone; a stale ghost is just discarded.
+- Also resting, as the SAME entity: a throw whose thrower is gone (offline / dead / another dimension; it used to become
+  an item) and a non-recall catch with a full pack (waits at the owner's feet).
+- Resting (`DATA_RESTING`, synced, saved as `Resting` + `PickupDelay`): gravity 0.055 (Mjolnir's), stops dead on the
+  floor (`landOn` sets it exactly on the hit surface; walls only kill sideways speed), floats up out of lava (negative
+  gravity, rise capped at 0.04/tick) so a forged axe can be fished out; heading held steady; no flight effects; hits
+  nothing. Never despawns (a projectile) or burns (fire-immune type).
+- Pickup: right-click only (`interact`, `isPickable` while resting), after a 40-tick grace, and only for
+  `StormbreakerEntity.canLift` = creative, or worthy and not the Hulk (Mjolnir's rule minus Hero of the Village
+  ascension); anyone else gets Mjolnir's throttled clang. Main hand if free, else the pack, else it stays. An unworthy
+  player still can't grab the item form during the one tick before promotion (`ItemEntityMixin#blockUnworthyPickup`).
+  Holding/swinging it is unchanged: anyone may still carry Stormbreaker that reaches them some other way (a chest).
+- Tracking/anti-dupe: registry status `RESTING`, entity id recorded on its first tick; stale copies discard themselves
+  before registering (as before); R (`MjolnirRecall.answerLoaded`) calls `recall` on the resting entity itself, which
+  clears resting and flies the same entity home.
+- Render (`StormbreakerEntityRenderer`): resting = lying flat on its side along the landing yaw (model +Y along the yaw,
+  blade face up, lifted by half the model's 2.8 px thickness at the 1.15 FIXED scale).
+- Tests: `ThorWeaponSelectV0153GameTests` (toggle default/persist/validation; inactive never called even when closer;
+  inactive only-bound weapon stays put; both inactive -> nothing; Q-drop becomes the entity, registry RESTING, unworthy
+  can't lift, save/load, worthy can; dropped axe recalled home as the same entity; ghost resting axe deletes itself).
+  `StormbreakerGameTests#anOrphanedAxeLiesDownAsItselfAndStaysPut` and `ThorRecallV0151GameTests` updated for the
+  entity. Lang: `scratchpad/lang_v0153_thor.js`.
 
 ## v0.14.20: Mjolnir / Stormbreaker 3-hit melee combo, Stormbreaker hold fix
 

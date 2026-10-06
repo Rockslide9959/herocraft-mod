@@ -34,7 +34,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.ThrowableItemProjectile;
 import net.minecraft.world.item.Item;
@@ -57,8 +56,17 @@ import net.minecraft.world.phys.Vec3;
  *   needed, and lands in the empty main hand, else the inventory, else at their feet.</li>
  * </ol>
  * The thrown stack rides on the entity ({@link #getItem}, saved by {@link ThrowableItemProjectile}) and the hand is
- * emptied on throw, so there is only ever one axe. A thrower who is gone (offline, dead, another dimension) gets it
- * dropped as an item that never despawns. Squad-safe through {@link ThorTargets#canAffect}, like Mjolnir.
+ * emptied on throw, so there is only ever one axe. Squad-safe through {@link ThorTargets#canAffect}, like Mjolnir.
+ *
+ * <h2>v0.15.3: resting -- Stormbreaker on the ground, like Mjolnir</h2>
+ * A third, synced state ({@link #isResting}): the axe lying in the world. Every way it reaches the ground ends here --
+ * a Q-drop, dropping it out of the inventory screen, a death drop, a dispenser (all promoted from the vanilla item on
+ * its first tick by {@code ItemEntityMixin}, exactly as Mjolnir is), a throw whose thrower is gone (offline, dead,
+ * another dimension), and a catch with nowhere to put it. Like a resting Mjolnir it never despawns or burns, falls a
+ * little heavier than an item and stops dead where it lands (it floats up out of lava, so a freshly forged axe can be
+ * fished out), is picked up only by right-clicking it ({@link #interact}) and only by the worthy, is tracked by
+ * {@link MjolnirRegistry} as {@link MjolnirStatus#RESTING} (so R finds it and {@link #recall} lifts this very entity off
+ * the ground), and a ghost a recall has already superseded deletes itself on its next tick.
  */
 public class StormbreakerEntity extends ThrowableItemProjectile {
 	public static final float DAMAGE = 20.0f;
@@ -84,6 +92,20 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 	private static final String TAG_LIGHTNING = "LightningCalled";
 
 	private static final String TAG_RECALLED = "Recalled";
+	private static final String TAG_RESTING = "Resting";
+	private static final String TAG_PICKUP_DELAY = "PickupDelay";
+
+	private static final EntityDataAccessor<Boolean> DATA_RESTING =
+			SynchedEntityData.defineId(StormbreakerEntity.class, EntityDataSerializers.BOOLEAN);
+	/** v0.15.3: a resting axe falls like Mjolnir does -- a touch heavier than a dropped item (0.04). */
+	private static final double RESTING_GRAVITY = 0.055;
+	/** v0.15.3: in lava it rises (Stormbreaker is fire-proof and floats, like the item did) no faster than this. */
+	private static final double LAVA_RISE = 0.04;
+	/** v0.15.3: a dropped axe cannot be picked straight back up for this long (vanilla's item grace period). */
+	public static final int PICKUP_DELAY_TICKS = 40;
+
+	/** v0.15.3: ticks before a resting axe can be picked up again. Saved. */
+	private int pickupDelay;
 
 	private double flown;
 	private int pierced;
@@ -111,6 +133,7 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		super.defineSynchedData(builder);
 		builder.define(DATA_RETURNING, false);
 		builder.define(DATA_OWNER_ID, -1);
+		builder.define(DATA_RESTING, false);
 	}
 
 	@Override
@@ -205,6 +228,7 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		if (isReturning()) {
 			return;
 		}
+		setResting(false);
 		setReturning(true);
 		this.returnSpeed = RETURN_SPEED_MIN;
 		this.hasImpulse = true;
@@ -245,6 +269,61 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		return entity;
 	}
 
+	// ---------------- v0.15.3: resting ----------------
+
+	/**
+	 * v0.15.3: a Stormbreaker lying in the world -- a drop of any kind (see the class javadoc). Carries the real stack
+	 * (identity, owner, generation, every component) and keeps the toss velocity it was handed, so a Q-drop arcs
+	 * forward like any dropped item before it lands. Starts with the pickup grace period.
+	 */
+	public static StormbreakerEntity createResting(Level level, Entity owner, ItemStack stack, Vec3 pos, Vec3 velocity) {
+		StormbreakerEntity entity = new StormbreakerEntity(ModEntityTypes.STORMBREAKER, level);
+		entity.setItem(stack.copy());
+		entity.setPos(pos.x, pos.y, pos.z);
+		if (owner != null) {
+			entity.setOwner(owner);
+		}
+		// lie along the way it was tossed (or the dropper's facing) -- the renderer keeps this yaw
+		double horizontal = velocity.horizontalDistance();
+		float yaw = horizontal > 1.0E-3
+				? (float) (Math.atan2(velocity.x, velocity.z) * (180.0 / Math.PI))
+				: owner != null ? -owner.getYRot() : level.getRandom().nextFloat() * 360.0f;
+		entity.setYRot(yaw);
+		entity.yRotO = yaw;
+		entity.settleAsResting(velocity);
+		return entity;
+	}
+
+	public boolean isResting() {
+		SynchedEntityData data = this.getEntityData();
+		// reachable from the superclass constructor (getDefaultGravity) before the synched data exists
+		return data != null && data.get(DATA_RESTING);
+	}
+
+	private void setResting(boolean resting) {
+		if (!level().isClientSide()) {
+			this.entityData.set(DATA_RESTING, resting);
+		}
+	}
+
+	public int pickupDelay() {
+		return pickupDelay;
+	}
+
+	/** Lies down where it is (keeping {@code velocity} for the fall), the same entity -- never swapped for an item. */
+	private void settleAsResting(Vec3 velocity) {
+		setReturning(false);
+		setResting(true);
+		this.recalled = false;
+		this.flown = 0.0;
+		this.pierced = 0;
+		this.struck.clear();
+		this.pickupDelay = PICKUP_DELAY_TICKS;
+		this.noPhysics = false;
+		this.setDeltaMovement(velocity);
+		noteToRegistry();
+	}
+
 	// ---------------- v0.15.1: ownership tracking ----------------
 
 	/** Same as Mjolnir: a copy a recall has already superseded deletes itself rather than becoming a second axe. */
@@ -267,12 +346,16 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		}
 		MjolnirRegistry registry = MjolnirRegistry.get(serverLevel);
 		registry.identify(working);
-		registry.noteEntity(working, this, isReturning() ? MjolnirStatus.RETURNING : MjolnirStatus.THROWN);
+		registry.noteEntity(working, this, isResting() ? MjolnirStatus.RESTING
+				: isReturning() ? MjolnirStatus.RETURNING : MjolnirStatus.THROWN);
 		this.setItem(working);
 	}
 
 	@Override
 	protected double getDefaultGravity() {
+		if (isResting()) {
+			return isInLava() ? -RESTING_GRAVITY : RESTING_GRAVITY;
+		}
 		return isReturning() ? 0.0 : OUTBOUND_GRAVITY;
 	}
 
@@ -289,6 +372,10 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 				registered = true;
 				noteToRegistry();
 			}
+		}
+		if (isResting()) {
+			tickResting();
+			return;
 		}
 		boolean returning = isReturning();
 		if (returning) {
@@ -316,7 +403,8 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		boolean server = !level().isClientSide();
 		if (owner == null || !owner.isAlive() || owner.isSpectator() || owner.level() != this.level()) {
 			if (server) {
-				dropAsItem(this.position());
+				// v0.15.3: it lies down right here as this same entity, still tracked and callable (it used to become an item)
+				settleAsResting(Vec3.ZERO);
 			}
 			return !server;
 		}
@@ -340,6 +428,11 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 	/** Lets the client keep simulating the same flight instead of snapping to every (slightly stale) update. */
 	@Override
 	public void lerpTo(double x, double y, double z, float yRot, float xRot, int steps) {
+		if (isResting()) {
+			// nothing to simulate -- take the server's word for it, rotation included
+			super.lerpTo(x, y, z, yRot, xRot, steps);
+			return;
+		}
 		if (this.distanceToSqr(x, y, z) < CORRECTION_TOLERANCE_SQR) {
 			return;
 		}
@@ -377,7 +470,8 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 
 	@Override
 	protected boolean canHitEntity(Entity target) {
-		if (level().isClientSide() || isReturning() || !(target instanceof LivingEntity) || !super.canHitEntity(target)) {
+		if (level().isClientSide() || isReturning() || isResting() || !(target instanceof LivingEntity)
+				|| !super.canHitEntity(target)) {
 			return false;
 		}
 		if (struck.contains(target.getUUID())) {
@@ -394,7 +488,7 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 	@Override
 	protected void onHitEntity(EntityHitResult result) {
 		// Deliberately no super call and no stop: the axe pierces. Damage is all in strike().
-		if (!level().isClientSide()) {
+		if (!level().isClientSide() && !isResting()) {
 			strike(result.getEntity());
 		}
 	}
@@ -439,6 +533,10 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 
 	@Override
 	protected void onHitBlock(BlockHitResult result) {
+		if (isResting()) {
+			landOn(result);
+			return;
+		}
 		if (isReturning()) {
 			// phasing home through terrain; never pokes buttons, targets or dripstone on the way
 			return;
@@ -462,7 +560,6 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 			// v0.15.1: called while holding Mjolnir, the axe takes the hand and the hammer steps back into the pack
 			MjolnirRecall.stowOtherWeapon(player, ThorWeapon.STORMBREAKER);
 		}
-		boolean carried = true;
 		if (player.getMainHandItem().isEmpty()) {
 			player.setItemInHand(InteractionHand.MAIN_HAND, stack);
 		} else if (!player.getInventory().add(stack)) {
@@ -472,14 +569,14 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 				player.setItemInHand(InteractionHand.MAIN_HAND, stack);
 				player.drop(displaced, false);
 			} else {
-				carried = false;
-				ItemEntity dropped = player.drop(stack, false);
-				if (dropped != null) {
-					dropped.setUnlimitedLifetime();
-				}
+				// v0.15.3: it waits at their feet as a resting axe (still tracked and callable), not as an item
+				ThorFeedback.recallInventoryFull(player, ThorWeapon.STORMBREAKER);
+				this.setPos(player.getX(), player.getY(), player.getZ());
+				settleAsResting(Vec3.ZERO);
+				return;
 			}
 		}
-		if (carried && level() instanceof ServerLevel serverLevel && stack.get(ModDataComponents.HAMMER_ID) != null) {
+		if (level() instanceof ServerLevel serverLevel && stack.get(ModDataComponents.HAMMER_ID) != null) {
 			MjolnirRegistry.get(serverLevel).noteCarried(stack, player, player.getMainHandItem() == stack);
 		}
 		if (recalled) {
@@ -494,19 +591,102 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		this.discard();
 	}
 
-	/** The thrower is gone: leave the axe where it is, as an item that never despawns (and, being fire-resistant, never burns). */
-	private void dropAsItem(Vec3 at) {
-		ItemEntity item = new ItemEntity(level(), at.x, at.y, at.z, this.getItem().copy());
-		item.setUnlimitedLifetime();
-		item.setDefaultPickUpDelay();
-		level().addFreshEntity(item);
+	// ---------------- v0.15.3: lying in the world ----------------
+
+	/**
+	 * Falls and settles like a resting Mjolnir: the projectile tick moves it, {@link #landOn} stops it dead on the floor,
+	 * and its heading is held steady (a stopped projectile's {@code updateRotation} would otherwise swing it round to a
+	 * fixed compass direction). In lava it rises gently to the surface instead.
+	 */
+	private void tickResting() {
+		if (pickupDelay > 0) {
+			pickupDelay--;
+		}
+		this.noPhysics = false;
+		if (isInLava()) {
+			Vec3 v = this.getDeltaMovement();
+			this.setDeltaMovement(v.x * 0.9, Math.min(v.y, LAVA_RISE), v.z * 0.9);
+		}
+		float yaw = this.getYRot();
+		float pitch = this.getXRot();
+		super.tick();
+		this.setYRot(yaw);
+		this.setXRot(pitch);
+		this.yRotO = yaw;
+		this.xRotO = pitch;
+	}
+
+	/**
+	 * A resting axe meeting a block: on a floor it is set down exactly on the surface and stops; against a wall it loses
+	 * its sideways speed and keeps falling; under a ceiling it stops rising. Never a sound -- it is a drop, not a throw.
+	 */
+	private void landOn(BlockHitResult result) {
+		Vec3 v = this.getDeltaMovement();
+		switch (result.getDirection()) {
+			case UP -> {
+				Vec3 at = result.getLocation();
+				this.setPos(at.x, at.y, at.z);
+				this.setDeltaMovement(Vec3.ZERO);
+			}
+			case DOWN -> this.setDeltaMovement(v.x, Math.min(0.0, v.y), v.z);
+			default -> this.setDeltaMovement(0.0, v.y, 0.0);
+		}
+	}
+
+	/** A resting axe can be crosshair-targeted, so it can be right-clicked up. */
+	@Override
+	public boolean isPickable() {
+		return !isRemoved() && isResting();
+	}
+
+	/** Whether {@code player} may lift a resting axe: creative, or worthy and not the Hulk -- Mjolnir's rule. */
+	public static boolean canLift(Player player) {
+		return com.projecthero.mod.worthiness.WorthinessEnforcer.bypassesWorthiness(player)
+				|| (com.projecthero.mod.worthiness.Worthiness.isWorthy(player)
+						&& !com.projecthero.mod.hulk.Hulk.isHulk(player));
+	}
+
+	/**
+	 * Right-click picks a resting axe up -- like Mjolnir, it never jumps into your pack as you walk past. Only the worthy
+	 * can lift it off the ground; anyone else gets Mjolnir's "it will not budge" clang. Main hand if free, else the pack;
+	 * with no room at all it stays where it is.
+	 */
+	@Override
+	public net.minecraft.world.InteractionResult interact(Player player, InteractionHand hand) {
+		if (level().isClientSide()) {
+			return net.minecraft.world.InteractionResult.SUCCESS;
+		}
+		if (!isResting() || pickupDelay > 0 || this.isRemoved()) {
+			return net.minecraft.world.InteractionResult.PASS;
+		}
+		if (!canLift(player)) {
+			com.projecthero.mod.worthiness.WorthinessEnforcer.playRejectionFeedback(player, this.position());
+			return net.minecraft.world.InteractionResult.SUCCESS;
+		}
+		pickUp(player);
+		return net.minecraft.world.InteractionResult.SUCCESS;
+	}
+
+	/** Puts the axe in {@code player}'s empty main hand, else the pack. @return false (and nothing moves) if there is no room. */
+	public boolean pickUp(Player player) {
+		ItemStack stack = this.getItem().copy();
+		if (player.getMainHandItem().isEmpty()) {
+			player.setItemInHand(InteractionHand.MAIN_HAND, stack);
+		} else if (!player.getInventory().add(stack)) {
+			return false;
+		}
+		if (level() instanceof ServerLevel serverLevel && stack.get(ModDataComponents.HAMMER_ID) != null) {
+			MjolnirRegistry.get(serverLevel).noteCarried(stack, player, player.getMainHandItem() == stack);
+		}
+		level().playSound(null, player.blockPosition(), SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 1.0f, 1.1f);
 		this.discard();
+		return true;
 	}
 
 	// ---------------- presentation ----------------
 
 	private void spawnFlightEffects() {
-		if (!(level() instanceof ServerLevel serverLevel) || this.isRemoved()) {
+		if (!(level() instanceof ServerLevel serverLevel) || this.isRemoved() || isResting()) {
 			return;
 		}
 		if (this.tickCount % 2 == 0) {
@@ -530,6 +710,8 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		tag.putInt(TAG_PIERCED, pierced);
 		tag.putBoolean(TAG_LIGHTNING, lightningCalled);
 		tag.putBoolean(TAG_RECALLED, recalled);
+		tag.putBoolean(TAG_RESTING, isResting());
+		tag.putInt(TAG_PICKUP_DELAY, pickupDelay);
 	}
 
 	@Override
@@ -540,5 +722,7 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		pierced = tag.getInt(TAG_PIERCED);
 		lightningCalled = tag.getBoolean(TAG_LIGHTNING);
 		recalled = tag.getBoolean(TAG_RECALLED);
+		this.entityData.set(DATA_RESTING, tag.getBoolean(TAG_RESTING));
+		pickupDelay = tag.getInt(TAG_PICKUP_DELAY);
 	}
 }

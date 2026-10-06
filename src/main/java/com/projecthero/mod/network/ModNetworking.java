@@ -46,6 +46,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(PortalPickerPayload.TYPE, PortalPickerPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(BifrostScreenPayload.TYPE, BifrostScreenPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(BifrostActionPayload.TYPE, BifrostActionPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(ThorWeaponTogglePayload.TYPE, ThorWeaponTogglePayload.CODEC); // v0.15.3
 		PayloadTypeRegistry.playS2C().register(IronManBeamPayload.TYPE, IronManBeamPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IronManLockPayload.TYPE, IronManLockPayload.CODEC); // v0.14.26
 		PayloadTypeRegistry.playS2C().register(IronManPosePayload.TYPE, IronManPosePayload.CODEC); // v0.14.26
@@ -291,6 +292,11 @@ public final class ModNetworking {
 		// Stormbreaker's Bifrost screen (v0.14.20): travel / save / clear -- all re-validated in Bifrost.handleAction.
 		ServerPlayNetworking.registerGlobalReceiver(BifrostActionPayload.TYPE, (payload, context) ->
 				context.server().execute(() -> com.projecthero.mod.stormbreaker.Bifrost.handleAction(context.player(), payload)));
+
+		// v0.15.3: Thor's N weapon screen -- one weapon ACTIVE / INACTIVE for R, re-validated in ThorWeaponSelection.
+		ServerPlayNetworking.registerGlobalReceiver(ThorWeaponTogglePayload.TYPE, (payload, context) ->
+				context.server().execute(() -> com.projecthero.mod.hammer.ThorWeaponSelection.handleToggle(
+						context.player(), payload.weapon(), payload.active())));
 
 		// Iron Man call-armour picker: the player chose a suit from the C-key screen.
 		ServerPlayNetworking.registerGlobalReceiver(IronManCallSuitPayload.TYPE, (payload, context) ->

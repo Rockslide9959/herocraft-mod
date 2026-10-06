@@ -66,6 +66,11 @@ public final class ThorFeedback {
 		actionBar(player, "message.projecthero.recall.both_with", ChatFormatting.GRAY);
 	}
 
+	/** v0.15.3: both weapons are switched off on the N screen -- R calls nothing. */
+	public static void recallNoneActive(Player player) {
+		actionBar(player, "message.projecthero.recall.none_active", ChatFormatting.YELLOW);
+	}
+
 	/** v0.14.0: was elsewhere in the backpack -- swapped straight into the main hand mid-fight. */
 	public static void recallEquipped(Player player) {
 		recallEquipped(player, ThorWeapon.MJOLNIR);

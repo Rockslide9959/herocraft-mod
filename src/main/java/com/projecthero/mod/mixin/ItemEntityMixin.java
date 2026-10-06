@@ -85,17 +85,16 @@ public abstract class ItemEntityMixin implements StormbreakerForge.Forgeable {
 		StormbreakerForge.serverTick(self);
 	}
 
-	/** v0.15.1: whether this item has told the registry it is a Stormbreaker lying here. Not saved. */
-	@Unique
-	private boolean projecthero$stormbreakerNoted;
-
 	/**
-	 * v0.15.1: a Stormbreaker on the ground stays an ordinary (never-despawning) item, but it is tracked like Mjolnir so
-	 * the call key can find it: a ghost of one a recall already brought home just goes, and a live one is recorded
-	 * (entity UUID, position) on its first tick and every 5 seconds after.
+	 * v0.15.3: a loose Stormbreaker item becomes a resting {@link com.projecthero.mod.stormbreaker.StormbreakerEntity}
+	 * on its first tick, exactly like Mjolnir below (v0.15.1 kept it an item and only tracked it): Q, dropping it out of
+	 * the inventory screen, a death drop, a dispenser, a freshly forged axe thrown up out of Nether lava (the forge runs
+	 * earlier in this same tick) -- all of them. The entity carries the real stack and the item's toss velocity, never
+	 * despawns, is lifted only by the worthy and is tracked by the registry, so R finds it. A ghost a recall already
+	 * superseded just goes, and the decorative /give item ({@link #NEVER_PICK_UP}) is left alone.
 	 */
 	@Inject(method = "tick", at = @At("HEAD"), cancellable = true)
-	private void projecthero$trackStormbreaker(CallbackInfo ci) {
+	private void projecthero$promoteToStormbreakerEntity(CallbackInfo ci) {
 		ItemEntity self = (ItemEntity) (Object) this;
 		if (self.isRemoved() || !(self.level() instanceof net.minecraft.server.level.ServerLevel serverLevel)) {
 			return;
@@ -104,20 +103,13 @@ public abstract class ItemEntityMixin implements StormbreakerForge.Forgeable {
 		if (!stack.is(ModItems.STORMBREAKER) || this.pickupDelay == NEVER_PICK_UP) {
 			return;
 		}
-		com.projecthero.mod.hammer.MjolnirRegistry registry = com.projecthero.mod.hammer.MjolnirRegistry.get(serverLevel);
-		if (registry.isStale(stack)) {
-			self.discard();
-			ci.cancel();
-			return;
+		if (!com.projecthero.mod.hammer.MjolnirRegistry.get(serverLevel).isStale(stack)) {
+			com.projecthero.mod.stormbreaker.StormbreakerEntity axe = com.projecthero.mod.stormbreaker.StormbreakerEntity
+					.createResting(serverLevel, self.getOwner(), stack, self.position(), self.getDeltaMovement());
+			serverLevel.addFreshEntity(axe);
 		}
-		if (!projecthero$stormbreakerNoted || self.tickCount % 100 == 0) {
-			projecthero$stormbreakerNoted = true;
-			ItemStack working = stack.copy();
-			registry.noteEntity(working, self, com.projecthero.mod.hammer.MjolnirStatus.RESTING);
-			if (!ItemStack.isSameItemSameComponents(working, stack)) {
-				self.setItem(working);
-			}
-		}
+		self.discard();
+		ci.cancel();
 	}
 
 	@Inject(method = "tick", at = @At("HEAD"), cancellable = true)
@@ -185,6 +177,14 @@ public abstract class ItemEntityMixin implements StormbreakerForge.Forgeable {
 		}
 
 		ItemStack stack = self.getItem();
+		if (stack.is(ModItems.STORMBREAKER)) {
+			// v0.15.3: like Mjolnir, a Stormbreaker on the ground is lifted only by the worthy (it is normally a resting
+			// entity by now -- this covers the one tick before promotion)
+			if (!com.projecthero.mod.stormbreaker.StormbreakerEntity.canLift(player)) {
+				ci.cancel();
+			}
+			return;
+		}
 		if (!stack.is(ModItems.MJOLNIR)) {
 			return;
 		}

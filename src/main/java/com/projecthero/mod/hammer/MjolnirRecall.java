@@ -44,6 +44,9 @@ import net.minecraft.world.phys.Vec3;
  *   elsewhere in the pack, "already in your hands" if it is held);</li>
  *   <li>both already with the player -- nothing moves, one short line says so.</li>
  * </ol>
+ * v0.15.3: before any of that, the N weapon selector ({@link ThorWeaponSelection}): a weapon switched INACTIVE is never
+ * called, even when it is the closer or the only bound one -- the other is then treated as the only weapon (rule 3);
+ * with both inactive R calls nothing and says so.
  * Whichever weapon is chosen then goes through the same resolution below; a Stormbreaker flies home on its own
  * return flight ({@link StormbreakerEntity#createReturning}) and takes the hand when it lands.
  *
@@ -125,6 +128,11 @@ public final class MjolnirRecall {
 			ThorFeedback.recallBlocked(player);
 			return false;
 		}
+		// v0.15.3: the N weapon selector -- with both weapons switched off, R calls nothing
+		if (!ThorWeaponSelection.anyActive(player)) {
+			ThorFeedback.recallNoneActive(player);
+			return false;
+		}
 		MjolnirRegistry registry = MjolnirRegistry.get(player.serverLevel());
 		ThorWeapon weapon = chooseWeapon(player);
 		if (weapon == null) {
@@ -140,6 +148,19 @@ public final class MjolnirRecall {
 	 * pre-v0.15.1 behaviour, unchanged).
 	 */
 	public static ThorWeapon chooseWeapon(ServerPlayer player) {
+		// v0.15.3: an INACTIVE weapon (N screen) is never called -- with one switched off, the other is treated exactly as
+		// the only weapon (rule 3); with both off there is nothing to call (call() says so before getting here).
+		boolean hammerOn = ThorWeaponSelection.isActive(player, ThorWeapon.MJOLNIR);
+		boolean axeOn = ThorWeaponSelection.isActive(player, ThorWeapon.STORMBREAKER);
+		if (!hammerOn && !axeOn) {
+			return null;
+		}
+		if (!axeOn) {
+			return ThorWeapon.MJOLNIR;
+		}
+		if (!hammerOn) {
+			return ThorWeapon.STORMBREAKER;
+		}
 		UUID axeId = boundId(player, ThorWeapon.STORMBREAKER);
 		if (axeId == null) {
 			return ThorWeapon.MJOLNIR;

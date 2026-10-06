@@ -280,7 +280,7 @@ public class StormbreakerGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = THROW_BATCH, timeoutTicks = 40)
-	public void anOrphanedAxeDropsAsAnItemThatNeverDespawns(GameTestHelper helper) {
+	public void anOrphanedAxeLiesDownAsItselfAndStaysPut(GameTestHelper helper) {
 		ServerPlayer p = player(helper, new Vec3(1.5, 2 + ALT, 1.5), true);
 		helper.assertTrue(StormbreakerEntity.throwFrom(p), "thrown");
 		StormbreakerEntity axe = axes(helper, p).get(0);
@@ -288,15 +288,14 @@ public class StormbreakerGameTests implements FabricGameTest {
 		leave(helper, p);
 		axe.beginReturn();
 		helper.succeedWhen(() -> {
-			helper.assertTrue(axe.isRemoved(), "with nobody to return to, the flying axe is gone");
-			// it falls from eye height to the floor, so look well below where the axe was
+			// v0.15.3: with nobody to return to it settles where it is as the SAME entity (it used to become an item)
+			helper.assertTrue(!axe.isRemoved() && axe.isResting() && !axe.isReturning(), "the axe lies down as itself");
 			List<ItemEntity> dropped = helper.getLevel().getEntitiesOfClass(ItemEntity.class,
 					axe.getBoundingBox().inflate(3.0, 8.0, 3.0), e -> !e.isRemoved() && e.getItem().is(ModItems.STORMBREAKER));
-			helper.assertTrue(dropped.size() == 1, "and exactly one Stormbreaker item is left behind, got " + dropped.size());
-			ItemEntity item = dropped.get(0);
-			// unlimited lifetime = vanilla's "never despawn" age; it stays put for good
-			helper.assertTrue(item.getAge() < 0, "it never despawns (age " + item.getAge() + ")");
-			item.discard();
+			helper.assertTrue(dropped.isEmpty(), "and no Stormbreaker item appears, got " + dropped.size());
+			helper.assertTrue(helper.getLevel().getEntitiesOfClass(StormbreakerEntity.class, axe.getBoundingBox().inflate(3.0, 8.0, 3.0),
+					e -> !e.isRemoved()).size() == 1, "exactly one axe");
+			axe.discard();
 		});
 	}
 

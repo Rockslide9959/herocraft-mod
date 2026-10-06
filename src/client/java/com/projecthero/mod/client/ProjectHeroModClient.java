@@ -929,6 +929,10 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			// v0.12.43: plain N as a base-form Titan Shifter (no other power claiming N) toggles the passive regeneration.
 			ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(
 					com.projecthero.mod.network.TitanShiftPayload.Action.TOGGLE_REGEN));
+		} else if (down && !maxSteelTransformWasDown && client.player != null && client.screen == null
+				&& com.projecthero.mod.hammer.ThorWeaponSelection.ownsSelector(client.player)) {
+			// v0.15.3: Thor -- N opens the weapon screen (Mjolnir / Stormbreaker Active or Inactive for R).
+			client.setScreen(new com.projecthero.mod.client.gui.ThorWeaponScreen());
 		} else if (down && !maxSteelTransformWasDown && (mutationHasUtility(client, 8)
 				|| (Screen.hasShiftDown() && mutationSelected(client)))) {
 			// v0.13.22: nothing else owns N -- it is the selected mutation's Utility 2.
