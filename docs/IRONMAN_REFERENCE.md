@@ -2129,3 +2129,50 @@ rate, zero floor; 3/s drain + halved regen per tick on all 7 marks; retrieve tim
 yaw held / faceplate / racked; deploy yaw held; sneak-cancel mid retrieve). Updated: `IronManV01430GameTests` (3/s),
 `V01422GameTests` (burst drain 3), `HeroPackGameTests` / `IronManMk5V01429` / `IronManV01427Mark12` / `IronManV01427Mark3`
 (regen + split asserts removed; Mark 1 real-hurt test now asserts the full 10 lands + 7.5 integrity), `IronManV01427Mark3` Mark 4 hit test (lands + 15 integrity via AFTER_DAMAGE), `DirectionalFlightGameTests` (Mark 6 flat 3/s), `IronManSuitUpV01421` retrieve timeout 200 -> 300.
+
+## v0.15.4 -- private highlight + Mark 6 / Mark 7 rework
+
+**The mob highlight is private to the wearer (explicit user request, asked for repeatedly).** `ironman.IronManHighlight`
+holds the whole decision and its class javadoc states the rule. Leak paths found and closed:
+* `EntityGlowMixin` hooks `Entity#isCurrentlyGlowing`, which vanilla also calls on the **server** thread
+  (`LivingEntity#updateGlowingStatus` sets shared flag 6, synced to every tracking player). In single-player / LAN the
+  integrated server shares the host's JVM, so the hook answered for server entities with the host's view and every
+  guest / squad mate saw the outlines. Now `IronManHighlight.mayDecide(entity)` (client-side entities only) gates the whole
+  mixin -- Iron Man and every other sense (Spider-Sense, Predator Vision, Ring Scan, Wolverine, Titan Roar, Thermal /
+  Echolocation / Magnetic / Shadow) -- plus the Iron Man colour hook.
+* `TonyStarkState` is synced to all players (others render battle damage / flight poses from it). `SYNC_CODEC` now sends
+  `TonyStarkState.forSync(s)` (highlight masked off); the wearer alone gets the real value through the `targetOnly`
+  attachment `ModAttachments.IRON_MAN_HIGHLIGHT_ON`, mirrored every tick by `IronManSuitTicker.mirrorPrivateHighlight`.
+  The HUD chip / V box, the wheel and `IronManHighlight.outlines` (client side) read that attachment.
+* `TonyStark.activationFx` no longer gives the new owner 3 s of vanilla `GLOWING`.
+* Checked and already private: the targeting lock (`IronManLockPayload`, wearer only), JARVIS scan (chat to the wearer),
+  flares (Blindness / Slowness only). No Iron Man code applies `GLOWING` / `setGlowingTag` any more.
+Tests: `IronManHighlightPrivacyGameTests` (a suited owner + a squad-mate mock player: after the auto highlight,
+targeting lock, JARVIS scan and flares the zombie / cow have no Glowing effect, no glowing tag, no shared flag 6; the
+mate's captured packets hold no lock payload and no glowing entity data while the owner's do hold the lock; the
+all-players sync masks the highlight), `IronManRound2.syncCodecStillRoundTrips`.
+
+**Mark 6 / Mark 7 modern kit** (`IronManMark6`, shared; `IronManMark7` only adds its Z):
+
+| | Mark 6 | Mark 7 |
+|---|---|---|
+| Energy | 4000, +5/s | 4500, +5/s |
+| Integrity | 2500, repairs 1/s worn | 2750, repairs 1/s worn |
+| Passives | Resistance II (chestplate), Regeneration I below full HP (3 energy/s while applied), +7 melee, auto-feed, water breathing, targeting | same |
+| R / Shift+R | Repulsor 17 (26 charged) / Dash 22 | 20 (30) / 25 |
+| G / Shift+G | wheel weapon / Sonic Clap 22 | wheel weapon / Sonic Clap 24 |
+| X / Shift+X | Flares (in the air: 20 s supersonic boost instead) / JARVIS scan | same |
+| Z / Shift+Z | Unibeam hold (24) / -- | **red laser** hold (22, 70 e/s, 10 s cd) / Unibeam hold (28) |
+| V / Shift+V | hold-V wheel (pick on release) / hold the 360-degree energy shield | same |
+| C | store suit | store suit (orbital drop unchanged) |
+
+Wheel (`IronManMark6.WEAPONS`, per-suit pick in `<suit>/mk6_weapon_choice`): Shoulder Barrage (6 homing, 20 / 22),
+Micro-Missiles (shared volley, 6 x 22 / 6 x 26), Wrist Laser (3 s, 13 / 15 per hit, no overload), Flamethrower (shared,
+builder heat), Rocket (36 / 40). The Arc Reactor Surge, the old G hold-shield and the Mark 7's Sneak+V / wheel highlight
+toggle are gone (the highlight is automatic from the Mark 3 up). New builder data: `wornIntegrityRegen`,
+`hurtRegeneration` (`IronManEnergy.tickRecharge` / `IronManMark6.tickRegeneration`; only the kit's own ambient
+Regeneration is ever removed). `IronManHeldBeam.Spec` gained `beamKind` + `laser` (wrist origin, lock-first precise
+hit); beam kind 5 = the solid red laser in `IronManAbilityVisuals`. S2C wheel payload `mk6:<suit>` opens
+`IronManWeaponWheelScreen.modern`. Tests: `IronManMk67V0154GameTests`; the v0.14.29 Mark 6 / 7 kit tests were removed
+from `IronManV01429Mk67GameTests` (orbital-drop tests kept); HeroPack / Round2 / V0153 updated for the new pools.
+

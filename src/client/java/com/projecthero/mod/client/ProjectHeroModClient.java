@@ -218,9 +218,14 @@ public class ProjectHeroModClient implements ClientModInitializer {
 
 		// Mark 7 weapon wheel ("changes 16"): server tells us to open it (empty ability string).
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.IronManWeaponWheelPayload.TYPE,
-				(payload, context) -> context.client().execute(() -> context.client().setScreen(
-						new com.projecthero.mod.client.gui.IronManWeaponWheelScreen( // v0.14.27: "mk3" opens the Mark III wheel
-								com.projecthero.mod.ironman.ability.IronManMark3.wheelSuit(payload.ability()))))); // v0.14.29: "mk3:mark_4" the Mark 4's
+				(payload, context) -> context.client().execute(() -> {
+					// v0.15.4: "mk6:mark_6" / "mk6:mark_vii" open the Mark 6 / Mark 7 arsenal wheel
+					String modern = com.projecthero.mod.ironman.ability.IronManMark6.wheelSuit(payload.ability());
+					context.client().setScreen(modern != null
+							? com.projecthero.mod.client.gui.IronManWeaponWheelScreen.modern(modern)
+							: new com.projecthero.mod.client.gui.IronManWeaponWheelScreen( // v0.14.27: "mk3" opens the Mark III wheel
+									com.projecthero.mod.ironman.ability.IronManMark3.wheelSuit(payload.ability()))); // v0.14.29: "mk3:mark_4" the Mark 4's
+				}));
 
 		// Blank Blueprint picker ("changes 21"): server sends the mark list, we open the screen.
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.IronManBlueprintPickerPayload.TYPE,

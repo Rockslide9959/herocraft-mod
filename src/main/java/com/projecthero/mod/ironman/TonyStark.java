@@ -11,8 +11,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
@@ -110,8 +108,9 @@ public final class TonyStark {
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1.0, player.getZ(),
 				40, 0.4, 0.8, 0.4, 0.15);
 		level.sendParticles(ParticleTypes.FLASH, player.getX(), player.getY() + 1.0, player.getZ(), 1, 0, 0, 0, 0);
-		// brief illumination
-		player.addEffect(new MobEffectInstance(MobEffects.GLOWING, 60, 0, true, false, false));
+		// v0.15.4: no vanilla GLOWING here any more (it was a 3 s "brief illumination" of the player) -- the Glowing effect
+		// is synced to every tracking player, and Iron Man never outlines anything for anyone but the wearer's own client
+		// (see IronManHighlight).
 		player.displayClientMessage(Component.translatable("message.projecthero.tony_stark.acquired")
 				.withStyle(net.minecraft.ChatFormatting.AQUA), false);
 	}

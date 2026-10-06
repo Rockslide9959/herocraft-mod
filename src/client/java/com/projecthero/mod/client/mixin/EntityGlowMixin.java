@@ -35,16 +35,24 @@ public abstract class EntityGlowMixin {
 			cir.setReturnValue(false);
 			return;
 		}
+		// v0.15.4 -- PRIVACY RULE, DO NOT REMOVE: every highlight below is the LOCAL viewer's own private view and must
+		// only ever be answered for a CLIENT-side entity. In single-player / LAN the integrated server shares this JVM,
+		// and vanilla's LivingEntity#updateGlowingStatus asks isCurrentlyGlowing() on the SERVER thread to set shared
+		// flag 6 -- which is synced to every player tracking the mob. Answering there leaked the host's Iron Man (and
+		// every other sense) highlight to all other players and squad mates. See IronManHighlight's class javadoc.
+		if (!com.projecthero.mod.ironman.IronManHighlight.mayDecide(self)) {
+			return;
+		}
 		LocalPlayer viewer = Minecraft.getInstance().player;
 		if (viewer == null || viewer == self) {
 			return;
 		}
-		// Iron Man: while the viewer wears a powered Iron Man helmet AND has toggled mob-highlight on (V),
-		// nearby hostiles are outlined. Client-only, no server GLOWING effect -- purely the wearer's view
-		// ("only happen for me"). "changes 18": when the viewer wears an Iron Man helmet we take an
-		// authoritative yes/no decision for every entity the highlight could touch, so toggling it off
-		// can't leave a mob stuck glowing.
-		Boolean ironMan = projecthero$ironManHighlightDecision(viewer, self);
+		// Iron Man: while the viewer wears a powered Iron Man helmet with the highlight on, nearby mobs are outlined.
+		// Client-only, decided from the viewer's OWN state -- never a server GLOWING effect / glowing tag / shared flag,
+		// so no other player (squad mates included) ever sees it. "changes 18": when the viewer wears an Iron Man helmet
+		// we take an authoritative yes/no decision for every entity the highlight could touch, so toggling it off can't
+		// leave a mob stuck glowing.
+		Boolean ironMan = com.projecthero.mod.ironman.IronManHighlight.decision(viewer, self);
 		if (ironMan != null) {
 			cir.setReturnValue(ironMan);
 			return;
@@ -185,85 +193,6 @@ public abstract class EntityGlowMixin {
 		}
 	}
 
-	/**
-	 * "changes 18": {@code true}/{@code false} when the Iron Man threat highlight owns the decision for
-	 * this entity (viewer wears an Iron Man helmet and {@code self} is an entity the highlight could
-	 * outline), or {@code null} to fall through to vanilla / the other powers. Returning {@code false}
-	 * for a candidate entity that should NOT glow is what stops a mob staying lit after the toggle is
-	 * turned off.
-	 */
-	@org.spongepowered.asm.mixin.Unique
-	private static Boolean projecthero$ironManHighlightDecision(net.minecraft.client.player.LocalPlayer viewer, Entity self) {
-		if (!(self instanceof LivingEntity)) {
-			return null;
-		}
-		if (!(viewer.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).getItem()
-				instanceof com.projecthero.mod.ironman.item.IronManArmorItem helmet)) {
-			return null;
-		}
-		com.projecthero.mod.ironman.suit.IronManSuit wornSuit =
-				com.projecthero.mod.ironman.suit.IronManSuits.byId(helmet.suitId());
-		boolean coloured = wornSuit != null && wornSuit.coloredEntityGlow();
-		// candidate = an entity this suit's highlight could plausibly light up. A coloured-glow suit
-		// (Mark 6/7) can light ANY living entity; every other mark only ever lights hostiles.
-		boolean candidate = coloured || self instanceof net.minecraft.world.entity.monster.Enemy;
-		if (!candidate) {
-			return null;
-		}
-		if (projecthero$ironManThreatHighlight(viewer, self)) {
-			return Boolean.TRUE;
-		}
-		// Not highlighted right now. Only take the authoritative "off" decision inside the scan radius
-		// this suit's highlight actually works in -- that is exactly where a stale outline could linger,
-		// and it leaves anything further out to vanilla / the other powers.
-		double range = wornSuit == null ? 34.0 : wornSuit.targetScanRange();
-		return self.distanceToSqr(viewer) <= range * range ? Boolean.FALSE : null;
-	}
-
-	@org.spongepowered.asm.mixin.Unique
-	private static boolean projecthero$ironManThreatHighlight(net.minecraft.client.player.LocalPlayer viewer, Entity self) {
-		if (!(self instanceof LivingEntity target) || !target.isAlive()) {
-			return false;
-		}
-		if (!(viewer.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).getItem()
-				instanceof com.projecthero.mod.ironman.item.IronManArmorItem helmet)) {
-			return false;
-		}
-		com.projecthero.mod.ironman.suit.IronManSuit wornSuit =
-				com.projecthero.mod.ironman.suit.IronManSuits.byId(helmet.suitId());
-		com.projecthero.mod.ironman.data.TonyStarkState st =
-				viewer.getAttachedOrElse(ModAttachments.TONY_STARK_STATE, null);
-		// "powered on": the worn suit still has some energy in the pool.
-		if (st == null || !st.hasPower || st.suitEnergy.getOrDefault(helmet.suitId(), 0.0f) <= 0.0f) {
-			return false;
-		}
-		// "changes 16": a suit with a passive-highlight range always outlines EVERY living entity within
-		// that radius -- no toggle, no filter. (No shipped suit uses this now; kept for compatibility.)
-		double passive = wornSuit == null ? 0.0 : wornSuit.passiveHighlightRange();
-		if (passive > 0.0) {
-			return self.distanceToSqr(viewer) <= passive * passive;
-		}
-		if (!st.mobHighlightOn) {
-			return false;
-		}
-		double range = wornSuit == null ? 34.0 : wornSuit.targetScanRange();
-		if (self.distanceToSqr(viewer) > range * range) {
-			return false;
-		}
-		// "changes 17": a coloured-glow suit (Mark 6 / Mark 7) outlines EVERY nearby entity; every other
-		// mark's toggle stays hostiles-only ("changes 13").
-		if (wornSuit != null && wornSuit.coloredEntityGlow()) {
-			return true;
-		}
-		return self instanceof net.minecraft.world.entity.monster.Enemy;
-	}
-
-	/**
-	 * "changes 17": colour the outline of an Iron Man coloured-glow highlight (Mark 6 / Mark 7) by
-	 * entity type -- hostile mobs red, other players yellow, everything else blue. Purely the viewer's
-	 * own render (the same per-client path {@link #projecthero$thermalVision} drives); no team is set on
-	 * the server.
-	 */
 	/**
 	 * Spider-Sense danger glow colour. For a Spider-Man viewer, any entity currently in their own
 	 * Spider-Sense threat set (v0.9.3: {@code SpiderSenseGlowClient}, per-viewer, never synced to
@@ -419,36 +348,26 @@ public abstract class EntityGlowMixin {
 		cir.setReturnValue(0x0A0A0C);
 	}
 
+	/**
+	 * "changes 17": colour the Iron Man coloured-glow highlight (Mark 6 / Mark 7) by entity type -- hostiles red, other
+	 * players yellow, everything else blue. Purely the LOCAL viewer's own render (v0.15.4: never for a server-side entity
+	 * and never from anyone else's state -- see IronManHighlight); no team is ever set on the server.
+	 */
 	@Inject(method = "getTeamColor", at = @At("HEAD"), cancellable = true)
 	private void projecthero$ironManGlowColor(CallbackInfoReturnable<Integer> cir) {
 		Entity self = (Entity) (Object) this;
-		if (self instanceof LocalPlayer) {
+		if (self instanceof LocalPlayer || !com.projecthero.mod.ironman.IronManHighlight.mayDecide(self)) {
 			return;
 		}
 		LocalPlayer viewer = Minecraft.getInstance().player;
 		if (viewer == null || viewer == self) {
 			return;
 		}
-		if (!(viewer.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).getItem()
-				instanceof com.projecthero.mod.ironman.item.IronManArmorItem helmet)) {
+		com.projecthero.mod.ironman.suit.IronManSuit wornSuit = com.projecthero.mod.ironman.IronManHighlight.helmetSuit(viewer);
+		if (wornSuit == null || !wornSuit.coloredEntityGlow()
+				|| !com.projecthero.mod.ironman.IronManHighlight.outlines(viewer, self)) {
 			return;
 		}
-		com.projecthero.mod.ironman.suit.IronManSuit wornSuit =
-				com.projecthero.mod.ironman.suit.IronManSuits.byId(helmet.suitId());
-		if (wornSuit == null || !wornSuit.coloredEntityGlow()) {
-			return;
-		}
-		if (!projecthero$ironManThreatHighlight(viewer, self)) {
-			return;
-		}
-		int color;
-		if (self instanceof net.minecraft.world.entity.player.Player) {
-			color = 0xFFE64A; // yellow
-		} else if (self instanceof net.minecraft.world.entity.monster.Enemy) {
-			color = 0xFF4A4A; // red
-		} else {
-			color = 0x5AA0FF; // blue
-		}
-		cir.setReturnValue(color);
+		cir.setReturnValue(com.projecthero.mod.ironman.IronManHighlight.colour(self));
 	}
 }

@@ -76,6 +76,14 @@ public class IronManSuitInfoScreen extends Screen {
 		row(wrap, "screen.projecthero.ironman_info.integrity", fmt(integ) + " / " + fmt(maxInt));
 		row(wrap, "screen.projecthero.ironman_info.energy_regen", // v0.14.27
 				String.format(java.util.Locale.ROOT, "%s / s", fmt(suit.energyRegenPerSecond())));
+		if (suit.wornIntegrityRegenPerSecond() > 0f) { // v0.15.4: Mark 6 / Mark 7 repair themselves while worn
+			row(wrap, "screen.projecthero.ironman_info.integrity_regen",
+					String.format(java.util.Locale.ROOT, "%s / s", fmt(suit.wornIntegrityRegenPerSecond())));
+		}
+		if (suit.hurtRegeneration()) { // v0.15.4: Regeneration I while hurt, paid in energy
+			row(wrap, "screen.projecthero.ironman_info.hurt_regen", Component.translatable(
+					"screen.projecthero.ironman_info.hurt_regen_value", fmt(suit.hurtRegenEnergyPerSecond())).getString());
+		}
 		// v0.15.3: hits land in full; the suit loses 75% of what you took as integrity
 		row(wrap, "screen.projecthero.ironman_info.integrity_wear", Component.translatable(
 				"screen.projecthero.ironman_info.integrity_wear_value",

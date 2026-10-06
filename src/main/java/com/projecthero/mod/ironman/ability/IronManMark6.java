@@ -2,80 +2,107 @@ package com.projecthero.mod.ironman.ability;
 
 import com.projecthero.mod.ironman.IronManSounds;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
-import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.ironman.IronManAbilityFx;
 import com.projecthero.mod.ironman.IronManArmor;
 import com.projecthero.mod.ironman.IronManEnergy;
+import com.projecthero.mod.ironman.IronManFlight;
 import com.projecthero.mod.ironman.IronManTargeting;
 import com.projecthero.mod.ironman.TonyStark;
 import com.projecthero.mod.ironman.data.TonyStarkState;
 import com.projecthero.mod.ironman.entity.IronManMissileEntity;
 import com.projecthero.mod.ironman.suit.IronManSuit;
 
-import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.ai.attributes.AttributeInstance;
-import net.minecraft.world.entity.ai.attributes.AttributeModifier;
-import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.14.29 (agent C): the Mark 6's own kit, built round the film's new-element arc reactor. Slot layout -- R(1) G(2)
- * X(3) Z(4) V(5) C(6):
+ * v0.15.4 (explicit user spec): the <b>modern kit</b> the Mark 6 and the Mark 7 share. Slot layout -- R(1) G(2) X(3)
+ * Z(4) V(5) C(6):
  * <pre>
- *   R        Repulsor (builder data): tap 17 / hold 1 s for 26; Sneak+R repulsor dash (22)
- *   G        HOLD: 360-degree Repulsor Shield (the shared full-body barrier)
- *   Sneak+G  Sonic Clap: 22 dmg, 50 energy, 8 s cooldown
- *   X        Arc Reactor Surge: 10 s of +50% damage dealt and +50% flight / walk speed; 250 energy to start, then
- *            150 energy/s; 40 s cooldown after it ends (X again ends it early)
- *   Sneak+X  Flares (advanced): 10 s cooldown
- *   Z        Unibeam -- fires for as long as Z is held: 24 per damage tick, 90 energy/s, 18 s cooldown after
- *   V        Shoulder Barrage: 6 homing micro-missiles, 20 dmg each, 180 energy, 14 s cooldown
- *   Sneak+V  coloured entity highlight toggle
+ *   R        Repulsor (builder data); Shift+R Repulsor Dash
+ *   G        fire the weapon selected on the V wheel:
+ *              Shoulder Barrage  6 homing shoulder missiles
+ *              Micro-Missiles    the suit's shared micro-missile volley (builder data)
+ *              Wrist Laser       a 3 s cutting beam
+ *              Flamethrower      held stream (builder heat / burn data)
+ *              Rocket            one heavy AoE rocket
+ *   Shift+G  Sonic Clap
+ *   X        Flares -- or, pressed while flying, a supersonic boost instead
+ *   Shift+X  JARVIS scan
+ *   Z        Mark 6: Unibeam (hold).  Mark 7: red laser (hold) -- see {@link IronManMark7}; Shift+Z = Unibeam (hold)
+ *   V        hold: the weapon wheel (pick on release);  Shift+V hold: the 360-degree Repulsor Shield (energy shield)
  *   C        store suit
  * </pre>
- * Every energy figure is a base cost; the Mark 6's 0.6 cost multiplier applies on top. The surge timer lives in
- * {@link TonyStarkState#abilityReadyAt} under {@link #SURGE_KEY} (synced, so the client's flight and HUD read it); the
- * barrage volley is a per-player server map, cleared on server stop.
+ * Passives (builder data + {@link #tickRegeneration}): Resistance II with the chestplate on, auto-feed, water breathing,
+ * targeting + auto-aim, +7 melee, worn integrity repair 1/s, and Regeneration I while the wearer is below full health
+ * (chestplate on), which drains 3 energy a second for as long as it is applied. The Arc Reactor Surge is gone (v0.15.4).
+ *
+ * <p>Each suit keeps its own wheel pick under {@code <suitId>/mk6_weapon_choice} in {@link TonyStarkState#abilityReadyAt}
+ * (synced, persistent, no codec change); cooldowns are per suit. Every energy figure here is a base cost -- the suit's
+ * {@link IronManSuit#energyCostMultiplier()} (0.6) applies on top, except the flat 3/s Regeneration drain.
  */
 public final class IronManMark6 {
 	public static final String SUIT_ID = "mark_6";
+	/** The suits that run this kit. */
+	public static final String[] KIT_SUITS = { SUIT_ID, IronManMark7.SUIT_ID };
 
-	// slot ability ids (each also its own cooldown key, so the HUD strip shows it)
-	public static final String SHIELD = "mk6_shield";
-	public static final String SURGE = "mk6_surge";
+	// slot ability ids (shared by both suits; the Mark 7 swaps its own Z in -- IronManMark7.LASER)
+	public static final String WEAPON = "mk6_weapon";
+	public static final String FLARES = "mk6_flares";
 	public static final String UNIBEAM = "mk6_unibeam";
+	public static final String WHEEL = "mk6_wheel";
+
+	// weapon-wheel options (also their per-suit cooldown keys)
 	public static final String BARRAGE = "mk6_barrage";
+	public static final String[] WEAPONS = { BARRAGE, IronManAbilities.MICRO_MISSILES, IronManAbilities.WRIST_LASER,
+			IronManAbilities.FLAMETHROWER, IronManAbilities.ROCKET };
 
-	// ---- tuning ----
-	public static final int SURGE_TICKS = 10 * 20;
-	public static final float SURGE_DAMAGE_MULTIPLIER = 1.5f;
-	public static final double SURGE_SPEED_MULTIPLIER = 1.5;
-	public static final float SURGE_START_ENERGY = 250f;
-	public static final float SURGE_ENERGY_PER_TICK = 150f / 20f; // 150 energy/s
-	public static final int SURGE_COOLDOWN = 40 * 20;
+	/** The S2C {@code IronManWeaponWheelPayload} prefix that opens this kit's wheel: {@code "mk6:<suitId>"}. */
+	public static final String OPEN_WHEEL = "mk6";
 
-	public static final float SONIC_CLAP_DAMAGE = 22f;
+	// ---- shared tuning ----
 	public static final float SONIC_CLAP_ENERGY = 50f;
 	public static final int SONIC_CLAP_COOLDOWN = 8 * 20;
-
 	public static final int FLARE_COOLDOWN = 10 * 20;
+	/** X while flying: a supersonic boost of this long instead of the flares. */
+	public static final int BOOST_TICKS = 20 * 20;
+	public static final float BOOST_ENERGY = 50f;
 
+	public static final int BARRAGE_COUNT = 6;
+	public static final float BARRAGE_ENERGY = 180f;
+	public static final int BARRAGE_COOLDOWN = 14 * 20;
+	private static final int BARRAGE_STAGGER = 3;
+
+	public static final float ROCKET_ENERGY = 120f;
+	public static final int ROCKET_COOLDOWN = 10 * 20;
+
+	public static final int LASER_TICKS = 3 * 20;
+	public static final float LASER_ENERGY = 150f;
+	public static final int LASER_COOLDOWN = 20 * 20;
+	public static final double LASER_RANGE = 40.0;
+
+	/** Regeneration I while hurt: re-applied for this long whenever it runs out (so vanilla's every-50-ticks heal fires). */
+	public static final int REGEN_EFFECT_TICKS = 200;
+
+	// ---- the Mark 6's own numbers ----
 	public static final float UNIBEAM_DAMAGE = 24f;
 	public static final float UNIBEAM_ENERGY_PER_TICK = 90f / 20f; // 90 energy/s
 	public static final int UNIBEAM_COOLDOWN = 18 * 20;
@@ -83,99 +110,150 @@ public final class IronManMark6 {
 	public static final IronManHeldBeam.Spec BEAM = new IronManHeldBeam.Spec(SUIT_ID, UNIBEAM, UNIBEAM_DAMAGE,
 			UNIBEAM_ENERGY_PER_TICK, UNIBEAM_COOLDOWN, UNIBEAM_RANGE);
 
-	public static final int BARRAGE_COUNT = 6;
-	public static final float BARRAGE_DAMAGE = 20f;
-	public static final float BARRAGE_ENERGY = 180f;
-	public static final int BARRAGE_COOLDOWN = 14 * 20;
-	private static final int BARRAGE_STAGGER = 3;
-
-	/** Synced surge end time (game time) for this suit. */
-	public static final String SURGE_KEY = SUIT_ID + "/mk6_surge_until";
-	private static final ResourceLocation SPEED_ID = ProjectHeroMod.id("mk6_surge_speed");
-	private static final DustParticleOptions REACTOR_DUST = new DustParticleOptions(new org.joml.Vector3f(0.55f, 0.95f, 1.0f), 1.0f);
-
-	private static final ThreadLocal<Boolean> REISSUING = ThreadLocal.withInitial(() -> false);
-	private static final Map<UUID, int[]> BARRAGE_RT = new HashMap<>(); // {pending, total}
-	private static final Map<UUID, Long> BARRAGE_NEXT = new HashMap<>();
-
-	private IronManMark6() {
+	/** Per-suit hit numbers of the kit's own weapons. */
+	public record Tuning(String suitId, float sonicClapDamage, float barrageDamage, float rocketDamage, float rocketSplash,
+			float rocketRadius, float laserDamage) {
 	}
 
-	/** Registers the surge's outgoing-damage boost (called from {@code IronManDamage.initialize}). */
-	public static void initialize() {
-		ServerLivingEntityEvents.ALLOW_DAMAGE.register(IronManMark6::allowDamage);
+	public static final Tuning MARK_6_TUNING = new Tuning(SUIT_ID, 22f, 20f, 36f, 25f, 3.0f, 13f);
+	public static final Tuning MARK_7_TUNING = new Tuning(IronManMark7.SUIT_ID, 24f, 22f, 40f, 28f, 3.5f, 15f);
+
+	/** The kit tuning for a suit, or null if it does not run this kit. */
+	public static Tuning tuning(String suitId) {
+		if (SUIT_ID.equals(suitId)) {
+			return MARK_6_TUNING;
+		}
+		if (IronManMark7.SUIT_ID.equals(suitId)) {
+			return MARK_7_TUNING;
+		}
+		return null;
+	}
+
+	public static boolean isKitSuit(String suitId) {
+		return tuning(suitId) != null;
+	}
+
+	private static final Map<UUID, int[]> BARRAGE_RT = new HashMap<>(); // {pending, total}
+	private static final Map<UUID, Long> BARRAGE_NEXT = new HashMap<>();
+	private static final Map<UUID, String> BARRAGE_SUIT = new HashMap<>();
+	private static final Map<UUID, Long> LASER_UNTIL = new HashMap<>();
+	private static final Map<UUID, String> LASER_SUIT = new HashMap<>();
+	/** Players whose Regeneration this kit put on (so only OUR effect is ever removed). */
+	private static final Set<UUID> REGEN_APPLIED = new HashSet<>();
+
+	private IronManMark6() {
 	}
 
 	public static void clearSessionState() {
 		BARRAGE_RT.clear();
 		BARRAGE_NEXT.clear();
+		BARRAGE_SUIT.clear();
+		LASER_UNTIL.clear();
+		LASER_SUIT.clear();
+		REGEN_APPLIED.clear();
 	}
 
-	// ------------------------------------------------------------------ surge state (either side)
+	// ------------------------------------------------------------------ weapon selection
 
-	public static long surgeUntil(TonyStarkState state) {
-		return state == null ? 0L : state.abilityReadyAt.getOrDefault(SURGE_KEY, 0L);
+	private static String weaponKey(String suitId) {
+		return suitId + "/mk6_weapon_choice";
 	}
 
-	public static boolean surging(TonyStarkState state, long gameTime) {
-		return surgeUntil(state) > gameTime;
-	}
-
-	public static boolean surging(ServerPlayer player) {
-		return surging(TonyStark.state(player), player.level().getGameTime());
-	}
-
-	/** Flight speed multiplier for the client's directional flight: x1.5 while this suit is surging. */
-	public static double flightSpeedMultiplier(TonyStarkState state, String suitId, long gameTime) {
-		return SUIT_ID.equals(suitId) && surging(state, gameTime) ? SURGE_SPEED_MULTIPLIER : 1.0;
-	}
-
-	/** The cooldown key the HUD strip should read for a slot (the shields run on the shared barrier cooldown). */
-	public static String hudCooldownId(String abilityId) {
-		return SHIELD.equals(abilityId) || IronManMark7.SHIELD.equals(abilityId) ? IronManAbilities.REPULSOR_BARRIER : abilityId;
-	}
-
-	/** The outgoing damage multiplier for a hit dealt by {@code attacker} (1 unless a worn Mark 6 is surging). */
-	public static float damageMultiplier(ServerPlayer attacker) {
-		return surging(attacker) && IronManArmor.hasChestplate(attacker, SUIT_ID) ? SURGE_DAMAGE_MULTIPLIER : 1f;
-	}
-
-	private static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
-		if (REISSUING.get() || amount <= 0f || !(source.getEntity() instanceof ServerPlayer attacker) || attacker == entity) {
-			return true;
+	/** The weapon G fires on this kit suit, read from a (server or client-synced) state. Default: the Shoulder Barrage. */
+	public static String selectedWeapon(TonyStarkState state, String suitId) {
+		if (state == null) {
+			return BARRAGE;
 		}
-		float mult = damageMultiplier(attacker);
-		if (mult == 1f) {
-			return true;
-		}
-		// Fabric's ALLOW_DAMAGE can only veto: cancel the hit and re-issue it at the boosted amount
-		REISSUING.set(true);
-		try {
-			entity.hurt(source, amount * mult);
-		} finally {
-			REISSUING.set(false);
+		long idx = state.abilityReadyAt.getOrDefault(weaponKey(suitId), 0L);
+		return idx >= 0 && idx < WEAPONS.length ? WEAPONS[(int) idx] : BARRAGE;
+	}
+
+	public static boolean isWeapon(String id) {
+		for (String w : WEAPONS) {
+			if (w.equals(id)) {
+				return true;
+			}
 		}
 		return false;
 	}
 
+	/** A wheel pick for the kit suit the player is wearing. Returns false when they aren't wearing one (or it's junk). */
+	public static boolean selectWeapon(ServerPlayer player, String weapon) {
+		String suitId = IronManArmor.wornSuitId(player);
+		if (!isKitSuit(suitId)) {
+			return false;
+		}
+		for (int i = 0; i < WEAPONS.length; i++) {
+			if (!WEAPONS[i].equals(weapon)) {
+				continue;
+			}
+			if (weapon.equals(selectedWeapon(TonyStark.state(player), suitId))) {
+				return true;
+			}
+			TonyStark.state(player).flamethrowerHeld = false; // swapping away mid-stream stops it
+			TonyStarkState s = TonyStark.state(player).copy();
+			s.abilityReadyAt.put(weaponKey(suitId), (long) i);
+			player.setAttached(ModAttachments.TONY_STARK_STATE, s);
+			IronManSounds.play(player, IronManSounds.WEAPON_SELECT, 0.7f, 1.0f);
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk3.weapon_selected",
+					Component.translatable("hud.projecthero.ironman.ability." + weapon)).withStyle(ChatFormatting.GOLD), true);
+			return true;
+		}
+		return false;
+	}
+
+	/** The wheel-open payload string for a kit suit. */
+	public static String openWheelPayload(String suitId) {
+		return OPEN_WHEEL + ":" + suitId;
+	}
+
+	/** The kit suit a wheel-open payload string is for, or null if it isn't one of this kit's. */
+	public static String wheelSuit(String payloadAbility) {
+		if (payloadAbility != null && payloadAbility.startsWith(OPEN_WHEEL + ":")) {
+			String id = payloadAbility.substring(OPEN_WHEEL.length() + 1);
+			return isKitSuit(id) ? id : null;
+		}
+		return null;
+	}
+
+	/** The cooldown key the HUD strip should read for a slot (V shows the shield's, X the flares'). */
+	public static String hudCooldownId(String abilityId) {
+		if (WHEEL.equals(abilityId)) {
+			return IronManAbilities.REPULSOR_BARRIER;
+		}
+		if (FLARES.equals(abilityId)) {
+			return IronManAbilities.FLARE;
+		}
+		return abilityId;
+	}
+
 	// ------------------------------------------------------------------ dispatch
 
-	/** Called from {@link IronManAbilities#trigger} for the Mark 6 slot ids. */
+	/** Called from {@link IronManAbilities#trigger} for the kit's slot ids. */
 	public static void trigger(ServerPlayer player, IronManSuit suit, String ability, boolean pressed) {
+		Tuning t = tuning(suit.id());
+		if (t == null) {
+			return;
+		}
 		boolean sneak = player.isShiftKeyDown();
 		switch (ability) {
-			case SHIELD -> shieldSlot(player, suit, pressed, () -> IronManSonicClap.fire(player, SONIC_CLAP_DAMAGE,
-					SONIC_CLAP_ENERGY, SONIC_CLAP_COOLDOWN));
-			case SURGE -> {
+			case WEAPON -> {
+				if (pressed && sneak) {
+					IronManSonicClap.fire(player, t.sonicClapDamage(), SONIC_CLAP_ENERGY, SONIC_CLAP_COOLDOWN);
+					return;
+				}
+				fireWeapon(player, suit, t, selectedWeapon(TonyStark.state(player), suit.id()), pressed);
+			}
+			case FLARES -> {
 				if (!pressed) {
 					return;
 				}
 				if (sneak) {
-					IronManFlares.fire(player, true, FLARE_COOLDOWN);
-				} else if (surging(player)) {
-					endSurge(player, true);
+					IronManJarvisScan.run(player, suit);
+				} else if (IronManFlight.isFlying(player)) {
+					IronManFlares.supersonicBoost(player, BOOST_TICKS, BOOST_ENERGY);
 				} else {
-					startSurge(player, suit);
+					IronManFlares.fire(player, true, FLARE_COOLDOWN);
 				}
 			}
 			case UNIBEAM -> {
@@ -185,14 +263,15 @@ public final class IronManMark6 {
 					IronManHeldBeam.stop(player, true);
 				}
 			}
-			case BARRAGE -> {
+			case WHEEL -> {
 				if (!pressed) {
+					IronManAbilities.stopBarrier(player, suit, true);
 					return;
 				}
 				if (sneak) {
-					IronManAbilities.toggleEntityGlowFromWheel(player);
-				} else {
-					barrage(player, suit);
+					IronManAbilities.startBarrier(player, suit);
+				} else if (requireHelmet(player, suit.id())) {
+					ServerPlayNetworking.send(player, new com.projecthero.mod.network.IronManWeaponWheelPayload(openWheelPayload(suit.id())));
 				}
 			}
 			default -> {
@@ -200,153 +279,49 @@ public final class IronManMark6 {
 		}
 	}
 
-	/**
-	 * The G shield slot both the Mark 6 and Mark 7 use: hold G for the shared 360-degree Repulsor Shield, Sneak+G runs
-	 * {@code sneakAction} instead (on the press only -- the release then finds no shield up and does nothing).
-	 */
-	static void shieldSlot(ServerPlayer player, IronManSuit suit, boolean pressed, Runnable sneakAction) {
-		if (pressed) {
-			if (player.isShiftKeyDown()) {
-				if (!TonyStark.state(player).barrierHeld) {
-					sneakAction.run();
+	/** G (no Shift): the weapon picked on the wheel. Public so the gametests can drive one directly. */
+	public static void fireWeapon(ServerPlayer player, IronManSuit suit, Tuning t, String weapon, boolean pressed) {
+		switch (weapon) {
+			case IronManAbilities.MICRO_MISSILES -> {
+				if (pressed) {
+					IronManAbilities.microMissiles(player, suit);
 				}
-			} else {
-				IronManAbilities.startBarrier(player, suit);
 			}
-		} else {
-			IronManAbilities.stopBarrier(player, suit, true);
-		}
-	}
-
-	// ------------------------------------------------------------------ Arc Reactor Surge
-
-	private static void startSurge(ServerPlayer player, IronManSuit suit) {
-		if (!IronManArmor.hasChestplate(player, SUIT_ID)) {
-			player.displayClientMessage(Component.translatable("message.projecthero.ironman.need_chest"), true);
-			return;
-		}
-		if (!IronManAbilities.cooldownReady(player, SUIT_ID, SURGE)) {
-			return;
-		}
-		float cost = SURGE_START_ENERGY * suit.energyCostMultiplier();
-		if (!IronManEnergy.spend(player, SUIT_ID, cost)) {
-			IronManAbilities.noEnergy(player, cost);
-			return;
-		}
-		TonyStarkState s = TonyStark.state(player).copy();
-		s.abilityReadyAt.put(SURGE_KEY, player.level().getGameTime() + SURGE_TICKS);
-		player.setAttached(ModAttachments.TONY_STARK_STATE, s);
-		applySpeed(player, true);
-		ServerLevel level = (ServerLevel) player.level();
-		Vec3 chest = reactorPos(player);
-		level.sendParticles(ParticleTypes.FLASH, chest.x, chest.y, chest.z, 1, 0, 0, 0, 0);
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, chest.x, chest.y, chest.z, 30, 0.4, 0.5, 0.4, 0.25);
-		level.sendParticles(ParticleTypes.END_ROD, chest.x, chest.y, chest.z, 16, 0.2, 0.2, 0.2, 0.15);
-		IronManSounds.move(player, IronManSounds.SURGE, 1.1f, 1.0f);
-		IronManSounds.play(player, IronManSounds.SURGE_CRACKLE, 0.9f, 1.0f);
-		IronManSounds.play(player, IronManSounds.POWER_UP, 0.8f, 1.3f);
-		player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk6.surge_on")
-				.withStyle(ChatFormatting.AQUA), true);
-	}
-
-	/** End the surge (timer, X again, power out, suit off); starts the cooldown when {@code cooldown}. */
-	public static void endSurge(ServerPlayer player, boolean cooldown) {
-		applySpeed(player, false);
-		if (!TonyStark.state(player).abilityReadyAt.containsKey(SURGE_KEY)) {
-			return;
-		}
-		TonyStarkState s = TonyStark.state(player).copy();
-		s.abilityReadyAt.remove(SURGE_KEY);
-		player.setAttached(ModAttachments.TONY_STARK_STATE, s);
-		if (cooldown) {
-			TonyStark.triggerCooldown(player, SUIT_ID, SURGE, SURGE_COOLDOWN);
-		}
-		IronManSounds.play(player, IronManSounds.SURGE_END, 1.0f, 1.0f);
-		player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk6.surge_off")
-				.withStyle(ChatFormatting.GRAY), true);
-	}
-
-	private static void applySpeed(ServerPlayer player, boolean on) {
-		AttributeInstance speed = player.getAttribute(Attributes.MOVEMENT_SPEED);
-		if (speed == null) {
-			return;
-		}
-		boolean has = speed.getModifier(SPEED_ID) != null;
-		if (on && !has) {
-			speed.addTransientModifier(new AttributeModifier(SPEED_ID, SURGE_SPEED_MULTIPLIER - 1.0,
-					AttributeModifier.Operation.ADD_MULTIPLIED_BASE));
-		} else if (!on && has) {
-			speed.removeModifier(SPEED_ID);
-		}
-	}
-
-	private static Vec3 reactorPos(ServerPlayer player) {
-		Vec3 look = Vec3.directionFromRotation(0, player.getYRot());
-		return player.position().add(0, player.getBbHeight() * 0.7, 0).add(look.scale(0.32));
-	}
-
-	private static void tickSurge(ServerPlayer player, IronManSuit suit) {
-		long now = player.level().getGameTime();
-		if (surgeUntil(TonyStark.state(player)) <= now) {
-			endSurge(player, true);
-			return;
-		}
-		if (!IronManArmor.hasChestplate(player, SUIT_ID)
-				|| !IronManEnergy.spend(player, SUIT_ID, SURGE_ENERGY_PER_TICK * suit.energyCostMultiplier())) {
-			endSurge(player, true);
-			return;
-		}
-		applySpeed(player, true);
-		if (now % 2 != 0) {
-			return;
-		}
-		ServerLevel level = (ServerLevel) player.level();
-		Vec3 chest = reactorPos(player);
-		// the over-driven reactor: a hot cyan glow pulsing off the chest, sparks crawling over the plating
-		level.sendParticles(REACTOR_DUST, chest.x, chest.y, chest.z, 3, 0.08, 0.08, 0.08, 0.0);
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + player.getBbHeight() * 0.5,
-				player.getZ(), 2, 0.35, 0.6, 0.35, 0.05);
-		if (now % 6 == 0) {
-			level.sendParticles(ParticleTypes.END_ROD, chest.x, chest.y, chest.z, 1, 0.05, 0.05, 0.05, 0.02);
-		}
-		// eye glints for everyone else (never in front of the wearer's own camera)
-		Vec3 look = player.getLookAngle();
-		Vec3 right = IronManAbilities.rightOf(player, look);
-		Vec3 eyes = player.getEyePosition().add(look.scale(0.28));
-		for (ServerPlayer viewer : level.players()) {
-			if (viewer == player || viewer.distanceToSqr(player) > 48 * 48) {
-				continue;
+			case IronManAbilities.WRIST_LASER -> {
+				if (pressed) {
+					startLaser(player, suit, t);
+				}
 			}
-			for (int side = -1; side <= 1; side += 2) {
-				Vec3 e = eyes.add(right.scale(0.11 * side));
-				level.sendParticles(viewer, REACTOR_DUST, false, e.x, e.y, e.z, 1, 0, 0, 0, 0);
+			case IronManAbilities.FLAMETHROWER -> IronManAbilities.flamethrowerKey(player, suit, pressed);
+			case IronManAbilities.ROCKET -> {
+				if (pressed) {
+					rocket(player, suit, t);
+				}
 			}
-		}
-		if (now % 20 == 0) {
-			IronManSounds.play(player, IronManSounds.SURGE_PULSE, 0.6f, 1.0f);
+			default -> {
+				if (pressed) {
+					barrage(player, suit, t);
+				}
+			}
 		}
 	}
 
 	// ------------------------------------------------------------------ Shoulder Barrage
 
-	private static void barrage(ServerPlayer player, IronManSuit suit) {
+	private static void barrage(ServerPlayer player, IronManSuit suit, Tuning t) {
 		int[] r = BARRAGE_RT.get(player.getUUID());
 		if (r != null && r[0] > 0) {
 			return; // still launching
 		}
-		if (!requireHelmet(player, SUIT_ID) || !IronManAbilities.cooldownReady(player, SUIT_ID, BARRAGE)) {
-			return;
-		}
-		float cost = BARRAGE_ENERGY * suit.energyCostMultiplier();
-		if (!IronManEnergy.spend(player, SUIT_ID, cost)) {
-			IronManAbilities.noEnergy(player, cost);
+		if (!requireHelmet(player, suit.id()) || !IronManAbilities.cooldownReady(player, suit.id(), BARRAGE) || !pay(player, suit, BARRAGE_ENERGY)) {
 			return;
 		}
 		BARRAGE_RT.put(player.getUUID(), new int[] { BARRAGE_COUNT, BARRAGE_COUNT });
 		BARRAGE_NEXT.put(player.getUUID(), player.level().getGameTime());
+		BARRAGE_SUIT.put(player.getUUID(), suit.id());
 		IronManAbilityFx.play(player, IronManAbilityFx.MISSILES, 24);
 		IronManSounds.move(player, IronManSounds.MISSILE_POD, 1.0f, 0.95f);
-		TonyStark.triggerCooldown(player, SUIT_ID, BARRAGE, BARRAGE_COOLDOWN);
+		TonyStark.triggerCooldown(player, suit.id(), BARRAGE, BARRAGE_COOLDOWN);
 		tickBarrage(player); // the first one leaves right away
 	}
 
@@ -365,6 +340,8 @@ public final class IronManMark6 {
 		if (now < BARRAGE_NEXT.getOrDefault(player.getUUID(), 0L)) {
 			return;
 		}
+		Tuning t = tuning(BARRAGE_SUIT.getOrDefault(player.getUUID(), SUIT_ID));
+		float damage = t == null ? MARK_6_TUNING.barrageDamage() : t.barrageDamage();
 		ServerLevel level = (ServerLevel) player.level();
 		int index = r[1] - r[0];
 		Vec3 look = player.getLookAngle();
@@ -373,7 +350,7 @@ public final class IronManMark6 {
 		Vec3 shoulder = player.position().add(0, player.getBbHeight() * 0.85, 0).add(side.scale(0.45 * s));
 		Vec3 dir = look.add(side.scale(0.5 * s)).add(0, 0.4, 0).normalize();
 		IronManMissileEntity missile = new IronManMissileEntity(level, player, dir.scale(0.9))
-				.withDamage(BARRAGE_DAMAGE, BARRAGE_DAMAGE * 0.4f)
+				.withDamage(damage, damage * 0.4f)
 				.withBlastRadius(1.5f)
 				.withHoming();
 		LivingEntity target = pickSpreadTarget(player, index);
@@ -387,20 +364,170 @@ public final class IronManMark6 {
 		BARRAGE_NEXT.put(player.getUUID(), now + BARRAGE_STAGGER);
 	}
 
+	// ------------------------------------------------------------------ Rocket
+
+	private static void rocket(ServerPlayer player, IronManSuit suit, Tuning t) {
+		if (!requireHelmet(player, suit.id()) || !IronManAbilities.cooldownReady(player, suit.id(), IronManAbilities.ROCKET)
+				|| !pay(player, suit, ROCKET_ENERGY)) {
+			return;
+		}
+		ServerLevel level = (ServerLevel) player.level();
+		Vec3 shoulder = player.getEyePosition().add(0, 0.15, 0);
+		Vec3 dir = IronManTargeting.aim(player, shoulder, player.getLookAngle(), 100);
+		IronManMissileEntity missile = new IronManMissileEntity(level, player, dir.scale(1.5))
+				.withDamage(t.rocketDamage(), t.rocketSplash())
+				.withBlastRadius(t.rocketRadius())
+				.withBreaksBlocks();
+		missile.setPos(shoulder.x + dir.x, shoulder.y + dir.y, shoulder.z + dir.z);
+		level.addFreshEntity(missile);
+		IronManAbilityFx.play(player, IronManAbilityFx.ROCKET, 14);
+		IronManSounds.move(player, IronManSounds.ROCKET_LAUNCH, 1.1f, 1.0f);
+		IronManSounds.loop(player, IronManSounds.THRUSTER, 0.6f, 1.2f);
+		TonyStark.triggerCooldown(player, suit.id(), IronManAbilities.ROCKET, ROCKET_COOLDOWN);
+	}
+
+	// ------------------------------------------------------------------ Wrist Laser (wheel)
+
+	public static boolean laserFiring(ServerPlayer player) {
+		return LASER_UNTIL.containsKey(player.getUUID());
+	}
+
+	private static void startLaser(ServerPlayer player, IronManSuit suit, Tuning t) {
+		if (LASER_UNTIL.containsKey(player.getUUID())) {
+			return;
+		}
+		if (!IronManArmor.hasChestplate(player, suit.id())) {
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.need_chest"), true);
+			return;
+		}
+		if (!IronManAbilities.cooldownReady(player, suit.id(), IronManAbilities.WRIST_LASER) || !pay(player, suit, LASER_ENERGY)) {
+			return;
+		}
+		LASER_UNTIL.put(player.getUUID(), player.level().getGameTime() + LASER_TICKS);
+		LASER_SUIT.put(player.getUUID(), suit.id());
+		IronManSounds.move(player, IronManSounds.LASER_START, 1.0f, 1.0f);
+		IronManSounds.play(player, IronManSounds.REPULSOR_ZAP, 0.8f, 1.2f);
+		player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk7.laser_firing")
+				.withStyle(ChatFormatting.RED), true);
+	}
+
+	private static void stopLaser(ServerPlayer player, boolean cooldown) {
+		if (LASER_UNTIL.remove(player.getUUID()) == null) {
+			return;
+		}
+		String suitId = LASER_SUIT.remove(player.getUUID());
+		if (cooldown && suitId != null) {
+			TonyStark.triggerCooldown(player, suitId, IronManAbilities.WRIST_LASER, LASER_COOLDOWN);
+		}
+		IronManSounds.play(player, IronManSounds.LASER_END, 0.9f, 1.0f);
+	}
+
+	private static void tickLaser(ServerPlayer player, IronManSuit suit) {
+		long until = LASER_UNTIL.getOrDefault(player.getUUID(), 0L);
+		long now = player.level().getGameTime();
+		if (now >= until || !suit.id().equals(LASER_SUIT.get(player.getUUID())) || !IronManArmor.hasChestplate(player, suit.id())) {
+			stopLaser(player, true);
+			return;
+		}
+		Tuning t = tuning(suit.id());
+		ServerLevel level = (ServerLevel) player.level();
+		Vec3 look = player.getLookAngle();
+		Vec3 origin = IronManHeldBeam.laserOrigin(player);
+		LivingEntity locked = IronManTargeting.lockedWithin(player, LASER_RANGE);
+		LivingEntity target = locked != null ? locked : AbilityHelpers.raycastEntity(player, LASER_RANGE);
+		var blockHit = AbilityHelpers.raycastBlock(player, LASER_RANGE);
+		Vec3 end;
+		if (target != null) {
+			end = target.position().add(0, target.getBbHeight() * 0.5, 0);
+		} else if (blockHit.getType() != HitResult.Type.MISS) {
+			end = blockHit.getLocation();
+		} else {
+			end = origin.add(look.scale(LASER_RANGE));
+		}
+		IronManAbilityFx.hold(player, IronManAbilityFx.LASER);
+		IronManAbilities.broadcastBeam(player, origin, end, 3); // kind 3 = thin red cutting laser
+		if (target != null) {
+			AbilityHelpers.hurt(player, target, t == null ? MARK_6_TUNING.laserDamage() : t.laserDamage());
+			target.igniteForSeconds(1);
+		} else if (now % 4 == 0 && blockHit.getType() == HitResult.Type.BLOCK && AbilityHelpers.canGrief()) {
+			BlockPos bp = blockHit.getBlockPos();
+			float speed = level.getBlockState(bp).getDestroySpeed(level, bp);
+			if (speed >= 0f && speed < 3.0f) {
+				level.destroyBlock(bp, false, player);
+			}
+		}
+		if (now % 2 == 0) {
+			level.sendParticles(ParticleTypes.SMALL_FLAME, end.x, end.y, end.z, 2, 0.08, 0.08, 0.08, 0.01);
+		}
+		if (now % 4 == 0) {
+			IronManSounds.play(player, IronManSounds.LASER, 0.7f, 0.95f + (player.tickCount % 3) * 0.05f);
+		}
+	}
+
+	// ------------------------------------------------------------------ Regeneration while hurt
+
+	/**
+	 * Regeneration I while the wearer (chestplate on) is below full health, paid {@code hurtRegenEnergyPerSecond} a
+	 * second (flat -- the suit's cost multiplier doesn't apply) for exactly as long as it is being applied. At full
+	 * health, out of energy or without the chestplate it comes off (only the one this kit put on).
+	 */
+	public static void tickRegeneration(ServerPlayer player, IronManSuit suit) {
+		boolean hurt = player.isAlive() && player.getHealth() < player.getMaxHealth();
+		if (!suit.hurtRegeneration() || !hurt || !IronManArmor.hasChestplate(player, suit.id())) {
+			clearRegeneration(player);
+			return;
+		}
+		MobEffectInstance cur = player.getEffect(MobEffects.REGENERATION);
+		boolean ours = REGEN_APPLIED.contains(player.getUUID()) && cur != null && isOurs(cur);
+		if (cur != null && !ours) {
+			REGEN_APPLIED.remove(player.getUUID());
+			return; // someone else's Regeneration (a potion, a beacon) is running -- no charge, nothing to add
+		}
+		if (!IronManEnergy.spend(player, suit.id(), suit.hurtRegenEnergyPerSecond() / 20f)) {
+			clearRegeneration(player);
+			return;
+		}
+		if (cur == null) {
+			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, REGEN_EFFECT_TICKS, 0, true, false, false));
+			REGEN_APPLIED.add(player.getUUID());
+		}
+	}
+
+	/** True while this kit's Regeneration is on the player. */
+	public static boolean regenerating(ServerPlayer player) {
+		MobEffectInstance cur = player.getEffect(MobEffects.REGENERATION);
+		return REGEN_APPLIED.contains(player.getUUID()) && cur != null && isOurs(cur);
+	}
+
+	private static boolean isOurs(MobEffectInstance e) {
+		return e.getAmplifier() == 0 && e.isAmbient() && !e.isVisible() && e.getDuration() <= REGEN_EFFECT_TICKS;
+	}
+
+	private static void clearRegeneration(ServerPlayer player) {
+		if (!REGEN_APPLIED.remove(player.getUUID())) {
+			return;
+		}
+		MobEffectInstance cur = player.getEffect(MobEffects.REGENERATION);
+		if (cur != null && isOurs(cur)) {
+			player.removeEffect(MobEffects.REGENERATION);
+		}
+	}
+
 	// ------------------------------------------------------------------ ticking / shutdown
 
 	/** Per-tick from {@link com.projecthero.mod.ironman.IronManSuitTicker} while a powered suit is worn. */
 	public static void tick(ServerPlayer player, IronManSuit suit) {
-		if (!SUIT_ID.equals(suit.id())) {
+		if (!isKitSuit(suit.id())) {
 			shutDown(player);
 			return;
 		}
-		if (TonyStark.state(player).abilityReadyAt.containsKey(SURGE_KEY)) {
-			tickSurge(player, suit);
-		}
+		tickRegeneration(player, suit);
 		IronManHeldBeam.tick(player, suit);
+		if (LASER_UNTIL.containsKey(player.getUUID())) {
+			tickLaser(player, suit);
+		}
 		if (pendingBarrage(player) > 0) {
-			if (IronManArmor.hasHelmet(player, SUIT_ID)) {
+			if (IronManArmor.hasHelmet(player, suit.id()) && suit.id().equals(BARRAGE_SUIT.get(player.getUUID()))) {
 				tickBarrage(player);
 			} else {
 				BARRAGE_RT.remove(player.getUUID());
@@ -410,22 +537,35 @@ public final class IronManMark6 {
 
 	/** Everything off (suit removed, depleted, power lost). Cheap when nothing is running. */
 	public static void shutDown(ServerPlayer player) {
-		if (TonyStark.state(player).abilityReadyAt.containsKey(SURGE_KEY)) {
-			endSurge(player, true);
-		} else {
-			applySpeed(player, false);
+		for (String id : KIT_SUITS) {
+			IronManHeldBeam.stopFor(player, id, true);
 		}
-		IronManHeldBeam.stopFor(player, SUIT_ID, true);
+		stopLaser(player, true);
 		BARRAGE_RT.remove(player.getUUID());
+		clearRegeneration(player);
 	}
 
-	// ------------------------------------------------------------------ helpers (shared with the Mark 7 kit)
+	/** Test hook: one tick of the kit without the rest of the suit ticker (no recharge). */
+	public static void tickForTest(ServerPlayer player, IronManSuit suit) {
+		tick(player, suit);
+	}
+
+	// ------------------------------------------------------------------ helpers (shared with the Mark 7)
 
 	static boolean requireHelmet(ServerPlayer player, String suitId) {
 		if (IronManArmor.hasHelmet(player, suitId)) {
 			return true;
 		}
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.need_helmet"), true);
+		return false;
+	}
+
+	private static boolean pay(ServerPlayer player, IronManSuit suit, float base) {
+		float cost = base * suit.energyCostMultiplier();
+		if (IronManEnergy.spend(player, suit.id(), cost)) {
+			return true;
+		}
+		IronManAbilities.noEnergy(player, cost);
 		return false;
 	}
 
@@ -446,10 +586,5 @@ public final class IronManMark6 {
 		}
 		near.sort(java.util.Comparator.comparingDouble(e -> e.distanceToSqr(player)));
 		return near.get(index % near.size());
-	}
-
-	/** Test hook: one tick of the Mark 6 kit without the rest of the suit ticker (no recharge). */
-	public static void tickForTest(ServerPlayer player, IronManSuit suit) {
-		tick(player, suit);
 	}
 }

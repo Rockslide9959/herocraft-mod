@@ -161,6 +161,16 @@ public final class IronManEnergy {
 		if (current < suit.energyCapacity()) {
 			addEnergy(player, suit.id(), regenPerSecond(player, suit) / 20f);
 		}
+		// v0.15.4, explicit user request: the Mark 6 / Mark 7 repair their own integrity while worn (1/s) -- the one
+		// exception to v0.15.3's "only a Suit Platform repairs a suit"; every other mark keeps wornIntegrityRegen = 0
+		float repair = suit.wornIntegrityRegenPerSecond();
+		if (repair > 0f) {
+			float integ = integrity(player, suit.id());
+			float max = maxIntegrity(suit.id());
+			if (integ < max) {
+				setIntegrity(player, suit.id(), Math.min(max, integ + repair / 20f));
+			}
+		}
 	}
 
 	/**
@@ -183,6 +193,7 @@ public final class IronManEnergy {
 
 	// v0.15.3, explicit user request: a worn suit no longer repairs its own integrity at all (the per-mark armorRegen x
 	// WORN_REGEN_SCALE trickle is gone) -- docking it on a Suit Platform (or creative) is the only repair.
+	// v0.15.4: except the Mark 6 / Mark 7, which repair 1 integrity/s while worn (IronManSuit#wornIntegrityRegenPerSecond).
 
 	/**
 	 * v0.15.3, explicit user request: a hit that lands on a wearer with the suit's chestplate on bleeds integrity by this

@@ -66,6 +66,7 @@ public final class IronManAbilityVisuals {
 			case 2 -> 3;
 			case 3 -> 2;
 			case 4 -> 3; // v0.14.27 minigun tracer
+			case 5 -> 3; // v0.15.4 Mark 7 held red laser (re-sent every 2 ticks)
 			default -> 6;
 		};
 	}
@@ -154,6 +155,12 @@ public final class IronManAbilityVisuals {
 				width = 0.045f;
 				colour = 0xFFD24A;
 			}
+			case 5 -> {
+				// v0.15.4: the Mark 7's held RED LASER -- a solid, saturated red beam from the wrist
+				width = 0.2f;
+				colour = 0xFF1A1A;
+				fade = 1f;
+			}
 			default -> {
 				width = 0.2f;
 				colour = 0x9FE8FF;
@@ -161,7 +168,8 @@ public final class IronManAbilityVisuals {
 		}
 		// the beam thins as it fades
 		float w = width * (0.5f + 0.5f * fade);
-		BeamDraw.beam(vc, glow, pose, b.a(), b.b(), cam, w, glow ? colour : 0xFFFFFF, fade);
+		// v0.15.4: the red laser keeps a hot-red core (not white) so it reads unmistakably red
+		BeamDraw.beam(vc, glow, pose, b.a(), b.b(), cam, w, glow ? colour : b.kind() == 5 ? 0xFF8A8A : 0xFFFFFF, fade);
 		// a flare ring at the palm / chest
 		if (b.kind() != 3 && b.kind() != 4) {
 			ring(vc, glow, pose, b.a(), b.b().subtract(b.a()).normalize(), width * (1.2f + (1f - fade) * 1.5f), glow ? colour : 0xFFFFFF,

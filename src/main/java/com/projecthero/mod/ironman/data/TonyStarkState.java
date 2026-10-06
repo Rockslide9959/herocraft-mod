@@ -202,6 +202,19 @@ public final class TonyStarkState {
 		this.suitAir = suitAir;
 	}
 
+	/**
+	 * v0.15.4: what {@link #SYNC_CODEC} sends to EVERY tracking player -- this state with the mob highlight masked off
+	 * (the highlight is private to the wearer; {@code ModAttachments.IRON_MAN_HIGHLIGHT_ON} syncs it to them alone).
+	 */
+	public static TonyStarkState forSync(TonyStarkState s) {
+		if (!s.mobHighlightOn) {
+			return s;
+		}
+		TonyStarkState c = s.copy();
+		c.mobHighlightOn = false;
+		return c;
+	}
+
 	public TonyStarkState copy() {
 		TonyStarkState c = new TonyStarkState(hasPower, techLevel, builtSuits, activeSuit,
 				suitEnergy, suitIntegrity, abilityReadyAt, mobHighlightOn, flamethrowerHeat,
@@ -340,7 +353,9 @@ public final class TonyStarkState {
 	 */
 	public static final net.minecraft.network.codec.StreamCodec<io.netty.buffer.ByteBuf, TonyStarkState> SYNC_CODEC =
 			net.minecraft.network.codec.StreamCodec.composite(
-					net.minecraft.network.codec.ByteBufCodecs.fromCodec(CODEC), s -> s,
+					// v0.15.4: the mob highlight never leaves the server inside this all-players sync -- it is private to the
+					// wearer (ModAttachments.IRON_MAN_HIGHLIGHT_ON carries it to them alone; see IronManHighlight)
+					net.minecraft.network.codec.ByteBufCodecs.fromCodec(CODEC), TonyStarkState::forSync,
 					net.minecraft.network.codec.ByteBufCodecs.VAR_LONG, s -> s.supersonicUntil,
 					(s, supersonicUntil) -> {
 						s.supersonicUntil = supersonicUntil;

@@ -32,6 +32,7 @@ public final class IronManSuitTicker {
 	}
 
 	public static void tick(ServerPlayer player) {
+		mirrorPrivateHighlight(player);
 		IronManArmor.enforce(player);
 		JarvisDialogue.tick(player); // v0.14.29 agent F: JARVIS voice lines
 		// "changes 19": a lifted faceplate / extended blades must not survive the armour coming off.
@@ -179,10 +180,23 @@ public final class IronManSuitTicker {
 		IronManAbilities.tickPendingFlightBurst(player, suit);
 		// v0.14.27 (agent D): Mark III minigun / held Unibeam / micro-missile volley / energy shield
 		com.projecthero.mod.ironman.ability.IronManMark3.tick(player, suit);
-		// v0.14.29 (agent C): Mark 6 surge / held Unibeam / barrage, Mark 7 held Unibeam / wheel laser
+		// v0.15.4: the Mark 6 / Mark 7 modern kit -- held beams (Unibeam, Mark 7 red laser), wheel laser, barrage, and the
+		// Regeneration-while-hurt passive
 		com.projecthero.mod.ironman.ability.IronManMark6.tick(player, suit);
-		com.projecthero.mod.ironman.ability.IronManMark7.tick(player, suit);
 		IronManEnergy.tickRecharge(player, suit);
+	}
+
+	/**
+	 * v0.15.4: copy the server's {@code mobHighlightOn} into the wearer-only {@link
+	 * com.projecthero.mod.attachment.ModAttachments#IRON_MAN_HIGHLIGHT_ON} (synced to this player alone). The highlight is
+	 * PRIVATE: the all-players TonyStarkState sync masks it off, so no other client -- squad mates included -- is ever told
+	 * whether (let alone what) this player's suit is outlining. See {@link IronManHighlight}.
+	 */
+	public static void mirrorPrivateHighlight(ServerPlayer player) {
+		boolean on = TonyStark.state(player).mobHighlightOn;
+		if (player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.IRON_MAN_HIGHLIGHT_ON, false) != on) {
+			player.setAttached(com.projecthero.mod.attachment.ModAttachments.IRON_MAN_HIGHLIGHT_ON, on);
+		}
 	}
 
 	/** Ticks up to 3.6s, refreshed every tick while integrity is still zero -- see IronManDamage's
@@ -287,7 +301,6 @@ public final class IronManSuitTicker {
 		IronManAbilities.clearPendingFlightBurst(player); // v0.14.27: a queued Shift+X burst dies with the suit
 		// v0.14.27 (agent D): Mark III held weapons + energy shield
 		com.projecthero.mod.ironman.ability.IronManMark3.shutDown(player);
-		com.projecthero.mod.ironman.ability.IronManMark6.shutDown(player); // v0.14.29 (agent C)
-		com.projecthero.mod.ironman.ability.IronManMark7.shutDown(player);
+		com.projecthero.mod.ironman.ability.IronManMark6.shutDown(player); // v0.15.4: the Mark 6 / Mark 7 kit
 	}
 }

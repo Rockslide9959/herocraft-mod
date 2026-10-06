@@ -129,6 +129,9 @@ public class IronManV0153GameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void wornSuitsNeverRepairThemselves(GameTestHelper h) {
 		for (String id : FLYING_MARKS) {
+			if (com.projecthero.mod.ironman.ability.IronManMark6.isKitSuit(id)) {
+				continue; // v0.15.4: the Mark 6 / Mark 7 repair 1/s while worn (IronManMk67V0154GameTests)
+			}
 			ServerPlayer p = suited(h, id);
 			IronManEnergy.setIntegrity(p, id, 100f);
 			for (int i = 0; i < 60; i++) {
@@ -193,7 +196,8 @@ public class IronManV0153GameTests implements FabricGameTest {
 		// fire is heat, not impact: it barely wears a suit it can reach (Mark 6 / 7 aren't fire-immune)
 		ServerPlayer p6 = suited(h, "mark_6");
 		IronManDamage.onDamageTaken(p6, p6.damageSources().inFire(), 10f);
-		h.assertTrue(Math.abs(IronManEnergy.integrity(p6, "mark_6") - (800f - 0.375f)) < 1e-3f, "fire wears 5% of the normal rate");
+		h.assertTrue(Math.abs(IronManEnergy.integrity(p6, "mark_6") - (IronManEnergy.maxIntegrity("mark_6") - 0.375f)) < 1e-3f,
+				"fire wears 5% of the normal rate"); // v0.15.4: the Mark 6 pool is 2500
 		// with integrity gone nothing more comes off, and the hit still lands
 		IronManEnergy.setIntegrity(p6, "mark_6", 0f);
 		IronManDamage.onDamageTaken(p6, p6.damageSources().generic(), 10f);

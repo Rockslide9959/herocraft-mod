@@ -37,6 +37,11 @@ public record IronManWeaponWheelPayload(String ability) implements CustomPacketP
 			com.projecthero.mod.ironman.ability.IronManAbilities.toggleEntityGlowFromWheel(player);
 			return;
 		}
+		// v0.15.4: the Mark 6 / Mark 7 wheel picks what G fires (checked first -- its options share ids with the legacy wheel)
+		if (com.projecthero.mod.ironman.ability.IronManMark6.isWeapon(ability)
+				&& com.projecthero.mod.ironman.ability.IronManMark6.selectWeapon(player, ability)) {
+			return;
+		}
 		// v0.14.27 (agent D): the Mark III wheel picks what G fires
 		if (com.projecthero.mod.ironman.ability.IronManMark3.isWeapon(ability)) {
 			com.projecthero.mod.ironman.ability.IronManMark3.selectWeapon(player, ability);

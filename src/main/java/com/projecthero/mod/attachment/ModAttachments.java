@@ -240,6 +240,18 @@ public final class ModAttachments {
 					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
 
 	/**
+	 * v0.15.4: the Iron Man mob highlight's on/off state, synced to the WEARER ONLY ({@code targetOnly}). The server's
+	 * truth stays {@code TonyStarkState#mobHighlightOn}, but that state is synced to every player (other clients render
+	 * battle damage / flight poses from it), so {@code TonyStarkState#SYNC_CODEC} always sends the highlight as off and
+	 * {@code IronManSuitTicker} mirrors the real value here, every tick. The client HUD / wheel / glow mixin read this.
+	 * The highlight is private to the wearer -- see {@code IronManHighlight}.
+	 */
+	public static final AttachmentType<Boolean> IRON_MAN_HIGHLIGHT_ON = AttachmentRegistry.create(
+			ProjectHeroMod.id("iron_man_highlight_on"),
+			builder -> builder.initializer(() -> false)
+					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.targetOnly()));
+
+	/**
 	 * The entire Iron Man / Tony Stark progression (permanent power flag, technology level, per-suit
 	 * energy/integrity, active suit, Iron Man ability cooldowns) in one isolated namespaced key.
 	 * Persistent and {@code copyOnDeath()} -- the Tony Stark Hero-Tier power and everything gated

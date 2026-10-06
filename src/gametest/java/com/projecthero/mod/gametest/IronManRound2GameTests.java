@@ -145,7 +145,7 @@ public class IronManRound2GameTests implements FabricGameTest {
 		helper.assertTrue(IronManAbilities.homingTarget(p) == zombie, "the zombie under the crosshair is the lock");
 		TonyStark.setWeaponWheelChoice(p, IronManAbilities.HOMING_MISSILES);
 		float before = IronManEnergy.energy(p, "mark_vii");
-		IronManAbilityManager.handle(p, AbilitySlot.SLOT_3, true);
+		IronManAbilities.dispatchWheelChoice(p, IronManSuits.byId("mark_vii"), true); // v0.15.4: no suit binds the legacy wheel slot
 		TonyStarkState s = TonyStark.state(p);
 		helper.assertTrue(s.pendingMissiles == IronManAbilities.HOMING_MISSILE_COUNT && s.pendingMissileHoming,
 				"X queues a 4-missile homing volley (got " + s.pendingMissiles + ")");
@@ -325,6 +325,11 @@ public class IronManRound2GameTests implements FabricGameTest {
 		io.netty.buffer.ByteBuf buf = io.netty.buffer.Unpooled.buffer();
 		TonyStarkState.SYNC_CODEC.encode(buf, s);
 		TonyStarkState back = TonyStarkState.SYNC_CODEC.decode(buf);
+		// v0.15.4: the mob highlight is private -- the all-players sync always sends it as off (and never touches the
+		// server's own copy)
+		helper.assertFalse(back.mobHighlightOn, "the highlight never rides the all-players sync");
+		helper.assertTrue(s.mobHighlightOn, "masking it must not switch the server's highlight off");
+		back.mobHighlightOn = true;
 		assertOldSave(helper, back, "sync codec");
 		helper.assertTrue(back.supersonicUntil == 9999L, "supersonicUntil still synced");
 		helper.succeed();

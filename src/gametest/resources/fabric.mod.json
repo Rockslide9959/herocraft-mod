@@ -10,6 +10,8 @@
       "com.projecthero.mod.gametest.V01422GameTests",
       "com.projecthero.mod.gametest.IronManV01427Mark12GameTests",
       "com.projecthero.mod.gametest.IronManAutoFeedV01429GameTests",
+      "com.projecthero.mod.gametest.IronManHighlightPrivacyGameTests",
+      "com.projecthero.mod.gametest.IronManMk67V0154GameTests",
       "com.projecthero.mod.gametest.IronManV01430GameTests",
       "com.projecthero.mod.gametest.IronManSoundsV01431GameTests",
       "com.projecthero.mod.gametest.IronManGantryV0154GameTests",

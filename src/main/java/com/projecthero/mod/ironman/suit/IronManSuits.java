@@ -197,18 +197,22 @@ public final class IronManSuits {
 			.blueprint(IronManItems.MARK_4_BLUEPRINT)
 			.build());
 
-	// v0.14.29 (agent C): Mark 6 -- its own kit, built round the film's new-element arc reactor (IronManMark6): the X
-	// Arc Reactor Surge (10 s of +50% damage and speed), a held Unibeam, a homing shoulder barrage, and the 360-degree
-	// Repulsor Shield it has always had. Numbers sit between the Mark III / 4 and the Mark 7.
+	// v0.15.4 (explicit user spec): Mark 6 -- the modern kit (IronManMark6): G fires the V-wheel weapon (Shoulder Barrage /
+	// Micro-Missiles / Wrist Laser / Flamethrower / Rocket; Shift: Sonic Clap), X Flares or a supersonic boost in the air
+	// (Shift: JARVIS scan), Z held Unibeam, V hold the wheel (Shift: the 360-degree energy shield), C store. 4000 energy at
+	// 5/s, 2500 integrity repairing 1/s while worn, Resistance II, Regeneration I while hurt (3 energy/s), +7 melee.
+	// The Arc Reactor Surge is gone.
 	public static final IronManSuit MARK_6 = register(IronManSuit.Builder.of("mark_6")
 			.tech(0, 6)
-			.energy(10_500f, 3.0f) // "changes 18": capacity 10500
-			.maxIntegrity(800f) // "changes 18"
-			.energyRegen(2.6f) // "changes 18"
+			.energy(4_000f, 3.0f) // v0.15.4: 4000
+			.maxIntegrity(2_500f) // v0.15.4: 2500
+			.energyRegen(5.0f) // v0.15.4: 5/s
+			.wornIntegrityRegen(1.0f) // v0.15.4: repairs 1 integrity/s while worn
+			.hurtRegeneration(3.0f) // v0.15.4: Regeneration I below full health, 3 energy/s while it runs
 			.flightDrain(1.1f) // "changes 18"
 			.targetScanRange(70.0)
-			.waterBreathing() // v0.14.29: breathes underwater indefinitely (was a 5-minute air tank)
-			.resistance(1) // v0.14.29: Resistance I while the chestplate is worn + powered
+			.waterBreathing() // v0.14.29: breathes underwater indefinitely
+			.resistance(2) // v0.15.4: Resistance II while the chestplate is worn + powered
 			.targeting() // v0.14.29: lock-on / auto-aim
 			.flight(1.7f, 0.14f)
 			.maxFlightSpeed(30.0)
@@ -217,55 +221,52 @@ public final class IronManSuits {
 			.repulsorCharged(26.0f, 50f, 60, 20)
 			.dash(22.0f, 50f, 160)
 			.unibeam(com.projecthero.mod.ironman.ability.IronManMark6.UNIBEAM_DAMAGE)
-			.missiles(0, 0f, 0f) // the V barrage is the Mark 6's own volley (IronManMark6), not the shared one
-			.strength(7.0f) // "changes 18": melee bonus +7
+			.missiles(6, 22.0f, 160f) // v0.15.4: the wheel's Micro-Missiles -- 6 x 22, 160 energy
+			.strength(7.0f) // melee bonus +7
 			.fullBodyShield()
 			.energyCost(0.6f)
-			.coloredGlow() // "changes 17": the highlight colours entities by type (Sneak+V since v0.14.29)
-			// G = 360 shield (Sneak: Sonic Clap), X = Arc Reactor Surge (Sneak: Flares), Z = held Unibeam,
-			// V = Shoulder Barrage (Sneak: highlight) -- see IronManMark6.
-			.abilities(IronManAbilities.REPULSOR_BLAST, com.projecthero.mod.ironman.ability.IronManMark6.SHIELD,
-					com.projecthero.mod.ironman.ability.IronManMark6.SURGE, com.projecthero.mod.ironman.ability.IronManMark6.UNIBEAM,
-					com.projecthero.mod.ironman.ability.IronManMark6.BARRAGE, IronManAbilities.SUIT_TOGGLE)
+			// v0.15.4: wheel flamethrower -- 10 dmg/s + burning, 5 energy/s, heat +38/s to a 650 ceiling, vents 20/s
+			.flamethrowerTuning(650f, 38f, 20f, 0, 5f, 10f)
+			.coloredGlow() // the automatic (Mk3+) highlight colours entities by type -- the wearer's own view only
+			.abilities(IronManAbilities.REPULSOR_BLAST, com.projecthero.mod.ironman.ability.IronManMark6.WEAPON, com.projecthero.mod.ironman.ability.IronManMark6.FLARES, com.projecthero.mod.ironman.ability.IronManMark6.UNIBEAM, com.projecthero.mod.ironman.ability.IronManMark6.WHEEL,
+					IronManAbilities.SUIT_TOGGLE)
 			.suitUp(SuitUpType.MECHANICAL_REMOTE)
 			.summon(SummonType.FLYING_SET)
 			.blueprint(IronManItems.MARK_6_BLUEPRINT)
 			.build());
 
 	// "changes 16": Mark VII redefined as the movie Mark 7 -- keeps its id / blueprint / Fabricator tech-3 slot.
-	// v0.14.29 (agent C): modern kit (IronManMark7) -- the 7-wedge weapon wheel on V still re-binds X, every wheel weapon
-	// retuned to hit at least as hard as the Mark III's, a held Unibeam on Z, the 360 shield on G (Sneak: Flares), and
-	// the orbital drop: called off a platform, or from the pack while airborne, it streaks in by delivery pod.
+	// v0.15.4 (explicit user spec): the Mark 6's modern kit and passives with bigger pools (4500 energy at 5/s, 2750
+	// integrity at 1/s), except Z = a held RED LASER and Shift+Z = the held Unibeam (IronManMark7). The orbital drop is
+	// unchanged: called off a platform, or from the pack while airborne, it streaks in by delivery pod.
 	public static final IronManSuit MARK_VII = register(IronManSuit.Builder.of("mark_vii")
 			.tech(3, 7)
-			.energy(12_000f, 3.4f) // "changes 18": capacity 12000
-			.maxIntegrity(950f) // "changes 18"
-			.energyRegen(3.0f) // "changes 18"
+			.energy(4_500f, 3.4f) // v0.15.4: 4500
+			.maxIntegrity(2_750f) // v0.15.4: 2750
+			.energyRegen(5.0f) // v0.15.4: 5/s
+			.wornIntegrityRegen(1.0f) // v0.15.4: repairs 1 integrity/s while worn
+			.hurtRegeneration(3.0f) // v0.15.4: Regeneration I below full health, 3 energy/s while it runs
 			.flightDrain(1.15f) // "changes 18"
 			.flight(1.7f, 0.14f)
 			.maxFlightSpeed(30.0)
-			.resistance(1) // v0.14.29: Resistance I while the chestplate is worn + powered
+			.resistance(2) // v0.15.4: Resistance II while the chestplate is worn + powered
 			.targeting() // v0.14.29: lock-on / auto-aim
-			.waterBreathing() // v0.14.29: breathes underwater indefinitely (was a 7-minute air tank)
+			.waterBreathing() // v0.14.29: breathes underwater indefinitely
 			// v0.14.29 R: tap 20 dmg / 10 energy / 1 s cd; hold 1 s = 30 dmg / 50 energy / 3 s cd; Shift+R dash 25 / 50 / 8 s
 			.repulsorTap(20.0f, 10f, 20)
 			.repulsorCharged(30.0f, 50f, 60, 20)
 			.dash(25.0f, 50f, 160)
 			.unibeam(com.projecthero.mod.ironman.ability.IronManMark7.UNIBEAM_DAMAGE)
-			.missiles(6, 26.0f, 160f) // v0.14.29: wheel Micro-Missiles 6 x 26, Homing Missiles 4 x 26, 160 energy each
-			.strength(8.0f) // v0.14.29: melee bonus +8
+			.missiles(6, 26.0f, 160f) // the wheel's Micro-Missiles -- 6 x 26, 160 energy
+			.strength(7.0f) // v0.15.4: melee bonus +7 (was +8)
 			.fullBodyShield()
 			.energyCost(0.6f)
-			// "changes 17": entity highlight is a weapon-wheel toggle (coloured by entity type).
-			.toggleableHighlight()
-			.coloredGlow()
+			.coloredGlow() // the automatic (Mk3+) highlight colours entities by type -- the wearer's own view only
 			.targetScanRange(80.0) // v0.14.29: 80 blocks (was 50)
 			// v0.14.29: wheel flamethrower -- 12 dmg/s + burning, 5 energy/s, heat +38/s to a 750 ceiling, vents 20/s
 			.flamethrowerTuning(750f, 38f, 20f, 0, 5f, 12f)
-			.weaponWheel()
-			.abilities(IronManAbilities.REPULSOR_BLAST, com.projecthero.mod.ironman.ability.IronManMark7.SHIELD,
-					IronManAbilities.WEAPON_WHEEL_SLOT, com.projecthero.mod.ironman.ability.IronManMark7.UNIBEAM,
-					IronManAbilities.WEAPON_WHEEL, IronManAbilities.SUIT_TOGGLE)
+			.abilities(IronManAbilities.REPULSOR_BLAST, com.projecthero.mod.ironman.ability.IronManMark6.WEAPON, com.projecthero.mod.ironman.ability.IronManMark6.FLARES,
+					com.projecthero.mod.ironman.ability.IronManMark7.LASER, com.projecthero.mod.ironman.ability.IronManMark6.WHEEL, IronManAbilities.SUIT_TOGGLE)
 			.suitUp(SuitUpType.REMOTE_AUTOMATED)
 			.summon(SummonType.TRACKING_POD)
 			.blueprint(IronManItems.MARK_VII_BLUEPRINT)

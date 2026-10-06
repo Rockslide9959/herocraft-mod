@@ -1092,9 +1092,11 @@ public class HeroPackGameTests implements FabricGameTest {
 		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_6", 10_000f);
 		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_6", 100f);
 
-		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, AbilitySlot.SLOT_2, true); // hold barrier down
+		player.setShiftKeyDown(true); // v0.15.4: the Mark 6's 360 shield is Sneak + hold V
+		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, AbilitySlot.SLOT_5, true); // hold barrier down
+		player.setShiftKeyDown(false);
 		helper.assertTrue(com.projecthero.mod.ironman.ability.IronManAbilities.barrierActive(player),
-				"holding slot 2 must raise the Repulsor Barrier");
+				"Sneak + holding V must raise the Repulsor Barrier");
 
 		// it drains energy every tick it is held
 		float e0 = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6");
@@ -1892,10 +1894,10 @@ public class HeroPackGameTests implements FabricGameTest {
 				"Mark 4 max integrity must be 1750"); // v0.14.29
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_v") == 800f,
 				"Mark V max integrity must be 800"); // v0.14.29
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_6") == 800f,
-				"Mark 6 max integrity must be 800");
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_vii") == 950f,
-				"Mark VII max integrity must be 950");
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_6") == 2500f,
+				"Mark 6 max integrity must be 2500"); // v0.15.4
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_vii") == 2750f,
+				"Mark VII max integrity must be 2750"); // v0.15.4
 		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("unknown_suit") == 500f,
 				"an unknown suit id falls back to the 500 default");
 
@@ -2039,20 +2041,18 @@ public class HeroPackGameTests implements FabricGameTest {
 		helper.assertTrue(m6 != null && m6.fullBodyShield(), "mark_6 must have a full-body shield");
 		helper.assertTrue(m6.maxFlightSpeedMps() == 30.0, "mark_6 flight cap must be 30 m/s");
 		helper.assertTrue(m6.energyCostMultiplier() < 1.0f, "mark_6 must cost less energy");
-		helper.assertTrue(m6.maxIntegrity() == 800f && m6.energyCapacity() == 10_500f, "mark_6 pools ('changes 18')");
+		helper.assertTrue(m6.maxIntegrity() == 2500f && m6.energyCapacity() == 4_000f, "mark_6 pools (v0.15.4)");
 		helper.assertTrue(com.projecthero.mod.ironman.item.IronManItems.armor("mark_6",
 				net.minecraft.world.item.ArmorItem.Type.CHESTPLATE) != null, "mark_6 chest item");
 
 		var m7 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_vii");
-		helper.assertTrue(m7.hasWeaponWheel(), "mark_vii must have the weapon wheel");
-		// "changes 17": entity highlight is now a coloured weapon-wheel toggle, not an always-on passive.
-		helper.assertTrue(m7.coloredEntityGlow() && m7.toggleableHighlight(),
-				"mark_vii entity glow must be a coloured toggle");
+		helper.assertTrue(com.projecthero.mod.ironman.ability.IronManMark6.WHEEL.equals(m7.abilityInSlot(5)), "v0.15.4: mark_vii V is the modern weapon wheel");
+		// v0.15.4: the highlight is automatic (Mark 3+) and coloured on the Mark 6 / 7 -- no wheel toggle any more
+		helper.assertTrue(m7.coloredEntityGlow(), "mark_vii entity glow must be coloured");
 		helper.assertTrue(m7.waterBreathing(), "v0.14.29: mark_vii breathes underwater indefinitely");
-		helper.assertTrue(com.projecthero.mod.ironman.ability.IronManMark6.SURGE.equals(m6.abilityInSlot(3)), "v0.14.29: mark_6 X is the Arc Reactor Surge");
-		helper.assertTrue(m7.maxIntegrity() == 950f && m7.energyCapacity() == 12_000f, "mark_vii pools ('changes 18')");
-		helper.assertTrue(com.projecthero.mod.ironman.ability.IronManAbilities.WEAPON_WHEEL_SLOT.equals(m7.abilityInSlot(3)),
-				"mark_vii slot 3 must be the weapon-wheel slot");
+		helper.assertTrue(com.projecthero.mod.ironman.ability.IronManMark6.WEAPON.equals(m6.abilityInSlot(2)), "v0.15.4: mark_6 G fires the wheel weapon");
+		helper.assertTrue(m7.maxIntegrity() == 2750f && m7.energyCapacity() == 4_500f, "mark_vii pools (v0.15.4)");
+		helper.assertTrue(com.projecthero.mod.ironman.ability.IronManMark6.FLARES.equals(m7.abilityInSlot(3)), "v0.15.4: mark_vii X is flares / supersonic");
 		helper.succeed();
 	}
 
@@ -2135,18 +2135,19 @@ public class HeroPackGameTests implements FabricGameTest {
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
 		giveFullSuit(player, "mark_vii");
-		com.projecthero.mod.ironman.TonyStark.setWeaponWheelChoice(player, com.projecthero.mod.ironman.ability.IronManAbilities.MICRO_MISSILES); // v0.14.29: the Mark 7 wheel is the classic-volley carrier now
-		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_vii", 5000f);
+		helper.assertTrue(com.projecthero.mod.ironman.ability.IronManMark6.selectWeapon(player, com.projecthero.mod.ironman.ability.IronManAbilities.MICRO_MISSILES),
+				"v0.15.4: Micro-Missiles picked on the Mark 7 wheel (fired with G)");
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_vii", 4000f);
 		var suit = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_vii");
 		float before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_vii");
-		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_3, true);
+		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_2, true);
 		int queued = com.projecthero.mod.ironman.TonyStark.state(player).pendingMissiles;
 		helper.assertTrue(queued == suit.missileCount(),
 				"pressing Micro-Missiles must queue missileCount() missiles at once, got " + queued);
 		helper.assertTrue(Math.abs(before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_vii")
 				- suit.missileEnergyCost() * suit.energyCostMultiplier()) < 0.01f, "the whole volley is paid for up front");
 		// pressing again while the volley is still launching does nothing
-		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_3, true);
+		com.projecthero.mod.ironman.ability.IronManAbilityManager.handle(player, com.projecthero.mod.hero.AbilitySlot.SLOT_2, true);
 		helper.assertTrue(com.projecthero.mod.ironman.TonyStark.state(player).pendingMissiles == queued,
 				"a second press must not re-arm the volley");
 		// the ticker's shutdown must clear a pending volley
@@ -2163,7 +2164,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		var m1 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_1");
 		var m7 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_vii");
 		// v0.11.12: Mark 1's passive worn regen bumped to a flat 6/s, explicit user request.
-		helper.assertTrue(m1.energyRegenPerSecond() == 2.0f && m7.energyRegenPerSecond() == 3.0f, // v0.14.27: Mark 1 = 2/s
+		helper.assertTrue(m1.energyRegenPerSecond() == 2.0f && m7.energyRegenPerSecond() == 5.0f, // v0.14.27: Mark 1 = 2/s; v0.15.4: Mark 7 = 5/s
 				"Mark 1 / Mark 7 worn energy regen");
 		helper.assertTrue(Math.abs(m1.flightDrainMultiplier() - 0.55f) < 1e-4f
 				&& Math.abs(m7.flightDrainMultiplier() - 1.15f) < 1e-4f, "flight-drain multipliers");

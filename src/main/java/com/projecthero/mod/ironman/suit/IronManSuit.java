@@ -104,6 +104,9 @@ public final class IronManSuit {
 	private final boolean targeting;             // the lock-on / auto-aim targeting system (IronManTargeting)
 	private final float mobHighlightEnergy;      // energy to switch the V highlight on
 	private final int mobHighlightDurationTicks; // > 0 = the highlight switches itself off after this long
+	// v0.15.4 (Mark 6 / Mark 7 rework)
+	private final float wornIntegrityRegenPerSecond; // > 0 = the worn suit repairs this much integrity a second by itself
+	private final float hurtRegenEnergyPerSecond;    // > 0 = Regeneration I while hurt (chestplate on), draining this energy/s
 
 	private final String[] abilities;        // 6, ordered slot 1..6 (ability ids from IronManAbilities)
 	private final SuitUpType suitUpType;
@@ -184,6 +187,8 @@ public final class IronManSuit {
 		this.targeting = b.targeting;
 		this.mobHighlightEnergy = b.mobHighlightEnergy;
 		this.mobHighlightDurationTicks = b.mobHighlightDurationTicks;
+		this.wornIntegrityRegenPerSecond = b.wornIntegrityRegenPerSecond;
+		this.hurtRegenEnergyPerSecond = b.hurtRegenEnergyPerSecond;
 		this.abilities = b.abilities;
 		this.suitUpType = b.suitUpType;
 		this.summonType = b.summonType;
@@ -265,6 +270,12 @@ public final class IronManSuit {
 	public boolean targeting() { return targeting; }
 	public float mobHighlightEnergy() { return mobHighlightEnergy; }
 	public int mobHighlightDurationTicks() { return mobHighlightDurationTicks; }
+	/** v0.15.4: integrity the WORN suit repairs by itself each second (0 = only a Suit Platform repairs it). */
+	public float wornIntegrityRegenPerSecond() { return wornIntegrityRegenPerSecond; }
+	/** v0.15.4: true when the suit gives Regeneration I while the wearer is hurt. */
+	public boolean hurtRegeneration() { return hurtRegenEnergyPerSecond > 0f; }
+	/** v0.15.4: the energy a second that Regeneration costs while it is being applied. */
+	public float hurtRegenEnergyPerSecond() { return hurtRegenEnergyPerSecond; }
 	public SuitUpType suitUpType() { return suitUpType; }
 	public SummonType summonType() { return summonType; }
 	public Item requiredBlueprint() { return requiredBlueprint; }
@@ -351,6 +362,8 @@ public final class IronManSuit {
 		private boolean targeting = false;
 		private float mobHighlightEnergy = 0f;
 		private int mobHighlightDurationTicks = 0;
+		private float wornIntegrityRegenPerSecond = 0f;
+		private float hurtRegenEnergyPerSecond = 0f;
 		private String[] abilities = new String[6];
 		private SuitUpType suitUpType = SuitUpType.MECHANICAL_REMOTE;
 		private SummonType summonType = SummonType.FLYING_SET;
@@ -478,6 +491,10 @@ public final class IronManSuit {
 		public Builder mobHighlight(float energy, int durationTicks) {
 			this.mobHighlightEnergy = energy; this.mobHighlightDurationTicks = durationTicks; return this;
 		}
+		/** v0.15.4: the worn suit repairs {@code perSecond} integrity a second by itself (Mark 6 / Mark 7: 1/s). */
+		public Builder wornIntegrityRegen(float perSecond) { this.wornIntegrityRegenPerSecond = perSecond; return this; }
+		/** v0.15.4: Regeneration I while the wearer is below full health (chestplate on), costing {@code energyPerSecond}. */
+		public Builder hurtRegeneration(float energyPerSecond) { this.hurtRegenEnergyPerSecond = energyPerSecond; return this; }
 		public Builder abilities(String s1, String s2, String s3, String s4, String s5, String s6) {
 			this.abilities = new String[] { s1, s2, s3, s4, s5, s6 };
 			return this;

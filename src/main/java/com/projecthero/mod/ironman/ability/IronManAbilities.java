@@ -324,9 +324,10 @@ public final class IronManAbilities {
 			case IronManMark3.ARSENAL, IronManMark3.FLARES, IronManMark3.UNIBEAM, IronManMark3.WHEEL ->
 					IronManMark3.trigger(player, suit, ability, pressed);
 			// v0.14.29 (agent C): the Mark 6 / Mark 7 kits -- see IronManMark6 / IronManMark7
-			case IronManMark6.SHIELD, IronManMark6.SURGE, IronManMark6.UNIBEAM, IronManMark6.BARRAGE ->
+			// v0.15.4: both run the modern kit (G weapon / X flares / Z beam / V wheel), the Mark 7 with its own Z
+			case IronManMark6.WEAPON, IronManMark6.FLARES, IronManMark6.UNIBEAM, IronManMark6.WHEEL ->
 					IronManMark6.trigger(player, suit, ability, pressed);
-			case IronManMark7.SHIELD, IronManMark7.UNIBEAM -> IronManMark7.trigger(player, suit, ability, pressed);
+			case IronManMark7.LASER -> IronManMark7.trigger(player, suit, ability, pressed);
 			default -> { }
 		}
 	}
@@ -341,13 +342,30 @@ public final class IronManAbilities {
 		ServerPlayNetworking.send(player, new com.projecthero.mod.network.IronManWeaponWheelPayload(""));
 	}
 
-	/** Slot 3 (X) on a weapon-wheel suit: run whatever the wheel currently has bound. */
-	private static void dispatchWheelChoice(ServerPlayer player, IronManSuit suit, boolean pressed) {
-		String chosen = TonyStark.weaponWheelChoice(player);
-		if (IronManMark7.handlesWheelChoice(suit, chosen)) { // v0.14.29 (agent C): the Mark 7's own Rocket / Wrist Laser
-			IronManMark7.fireWheel(player, suit, chosen, pressed);
-			return;
+	/**
+	 * v0.15.4: the flamethrower key edge (press = light / keep the stream, release = stop) -- shared by the modern kit's
+	 * G weapon. Overheated: refuses with the message.
+	 */
+	static void flamethrowerKey(ServerPlayer player, IronManSuit suit, boolean pressed) {
+		if (!pressed) {
+			TonyStark.state(player).flamethrowerHeld = false;
+		} else if (TonyStark.state(player).flamethrowerHeat >= flamethrowerMaxHeat(suit) - FLAMETHROWER_HEAT_MIN) {
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.flamethrower_overheated"), true);
+		} else {
+			if (!TonyStark.state(player).flamethrowerHeld) {
+				IronManSounds.move(player, IronManSounds.FLAMETHROWER_IGNITE, 1.0f, 1.0f);
+			}
+			TonyStark.state(player).flamethrowerHeld = true;
 		}
+	}
+
+	/**
+	 * Slot 3 (X) on a legacy weapon-wheel suit: run whatever the wheel currently has bound. v0.15.4: no shipped suit
+	 * uses the legacy WEAPON_WHEEL_SLOT any more (the Mark 7 moved to the modern kit); kept for the Homing Missiles path
+	 * and public so the gametests can still drive it.
+	 */
+	public static void dispatchWheelChoice(ServerPlayer player, IronManSuit suit, boolean pressed) {
+		String chosen = TonyStark.weaponWheelChoice(player);
 		switch (chosen) {
 			case MICRO_MISSILES -> { if (pressed) microMissiles(player, suit); }
 			case HOMING_MISSILES -> { if (pressed) homingMissiles(player, suit); }
@@ -696,7 +714,7 @@ public final class IronManAbilities {
 	/** Ticks between successive missiles in a Micro-Missiles volley ("changes 18"). */
 	private static final int MICRO_MISSILE_STAGGER_TICKS = 4;
 
-	private static void microMissiles(ServerPlayer player, IronManSuit suit) {
+	static void microMissiles(ServerPlayer player, IronManSuit suit) { // v0.15.4: package-visible for the modern kit's G
 		if (!requireHelmet(player, suit)) {
 			return;
 		}

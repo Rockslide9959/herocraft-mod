@@ -184,7 +184,8 @@ public final class IronManHud {
 						airFrac < 0.25f ? IronManGui.RED : 0xFF5BC8FF);
 			}
 			float maxHeat = IronManAbilities.flamethrowerMaxHeat(suit);
-			if ((hasAbility(suit, IronManAbilities.FLAMETHROWER) || suit.hasWeaponWheel()) && state.flamethrowerHeat > 0.5f) {
+			if ((hasAbility(suit, IronManAbilities.FLAMETHROWER) || suit.hasWeaponWheel() || com.projecthero.mod.ironman.ability.IronManMark6.isKitSuit(suitId)) // v0.15.4
+					&& state.flamethrowerHeat > 0.5f) {
 				float heatFrac = IronManUiLayout.clamp01(state.flamethrowerHeat / maxHeat);
 				y = meter(draw, g, font, x, y, w, minimalHud, Component.translatable("hud.projecthero.ironman.heat").getString(),
 						IronManUiLayout.pct(heatFrac) + " " + IronManUiLayout.amount(state.flamethrowerHeat, maxHeat),
@@ -204,14 +205,9 @@ public final class IronManHud {
 				y = meter(draw, g, font, x, y, w, false, Component.translatable("hud.projecthero.ironman.ability.wrist_laser").getString(),
 						IronManUiLayout.secs(left), left / (float) IronManAbilities.WRIST_LASER_TICKS, 0xFFFF3344);
 			}
-			long surgeLeft = com.projecthero.mod.ironman.ability.IronManMark6.surgeUntil(state) - now;
-			if (!minimalHud && surgeLeft > 0 && com.projecthero.mod.ironman.ability.IronManMark6.SUIT_ID.equals(suitId)) {
-				// v0.14.29: the Mark 6 Arc Reactor Surge timer
-				y = meter(draw, g, font, x, y, w, false, Component.translatable("hud.projecthero.ironman.mk6_surge").getString(),
-						IronManUiLayout.secs(surgeLeft), surgeLeft / (float) com.projecthero.mod.ironman.ability.IronManMark6.SURGE_TICKS, IronManGui.CYAN);
-			}
 			missilesReady = true;
-			if (!minimalHud && suit.missileCount() > 0 && !com.projecthero.mod.ironman.ability.IronManMark3.isKitSuit(suitId)) {
+			if (!minimalHud && suit.missileCount() > 0 && !com.projecthero.mod.ironman.ability.IronManMark3.isKitSuit(suitId)
+					&& !com.projecthero.mod.ironman.ability.IronManMark6.isKitSuit(suitId)) {
 				String key = suitId + "/" + IronManAbilities.MICRO_MISSILES;
 				Long readyAt = state.abilityReadyAt.get(key);
 				long left = readyAt == null ? 0 : readyAt - now;
@@ -256,7 +252,7 @@ public final class IronManHud {
 		List<String> chipText = new ArrayList<>();
 		List<Integer> chipColor = new ArrayList<>();
 		if (hasAbility(suit, IronManAbilities.MOB_HIGHLIGHT_TOGGLE)) {
-			boolean on = state.mobHighlightOn;
+			boolean on = player.getAttachedOrElse(ModAttachments.IRON_MAN_HIGHLIGHT_ON, false); // v0.15.4: wearer-only sync
 			String t = Component.translatable(on ? "hud.projecthero.ironman.chip.highlight_on"
 					: "hud.projecthero.ironman.chip.highlight_off").getString();
 			if (on && minimalHud) {
@@ -278,6 +274,11 @@ public final class IronManHud {
 						Component.translatable("hud.projecthero.ironman.ability." + state.weaponWheelChoice)).getString());
 				chipColor.add(IronManGui.GOLD);
 			}
+			if (com.projecthero.mod.ironman.ability.IronManMark6.isKitSuit(suitId)) { // v0.15.4: what G fires
+				chipText.add(Component.translatable("hud.projecthero.ironman.chip.wheel",
+						Component.translatable("hud.projecthero.ironman.ability." + com.projecthero.mod.ironman.ability.IronManMark6.selectedWeapon(state, suitId))).getString());
+				chipColor.add(IronManGui.GOLD);
+			}
 			if (com.projecthero.mod.ironman.ability.IronManMark3.shieldOn(state, suitId)) {
 				chipText.add(Component.translatable("hud.projecthero.ironman.chip.mk3_shield").getString()); // v0.14.27
 				chipColor.add(IronManGui.CYAN);
@@ -286,7 +287,8 @@ public final class IronManHud {
 				chipText.add(Component.translatable("hud.projecthero.ironman.chip.blades").getString());
 				chipColor.add(IronManGui.CYAN);
 			}
-			if (suit.missileCount() > 0 && !com.projecthero.mod.ironman.ability.IronManMark3.isKitSuit(suitId) && missilesReady) {
+			if (suit.missileCount() > 0 && !com.projecthero.mod.ironman.ability.IronManMark3.isKitSuit(suitId)
+					&& !com.projecthero.mod.ironman.ability.IronManMark6.isKitSuit(suitId) && missilesReady) {
 				chipText.add(Component.translatable("hud.projecthero.ironman.missiles", suit.missileCount()).getString());
 				chipColor.add(IronManGui.GOLD);
 			}
@@ -422,10 +424,13 @@ public final class IronManHud {
 			}
 			boolean wheel = IronManAbilities.WEAPON_WHEEL_SLOT.equals(abilityId);
 			// v0.14.27: the Mark III G box shows the weapon picked on its wheel (and that weapon's cooldown)
-			boolean mk3Arsenal = com.projecthero.mod.ironman.ability.IronManMark3.ARSENAL.equals(abilityId);
+			boolean mk3Arsenal = com.projecthero.mod.ironman.ability.IronManMark3.ARSENAL.equals(abilityId)
+					|| com.projecthero.mod.ironman.ability.IronManMark6.WEAPON.equals(abilityId); // v0.15.4: the Mark 6 / 7 G box too
 			String effectiveId = wheel ? state.weaponWheelChoice
+					: com.projecthero.mod.ironman.ability.IronManMark6.WEAPON.equals(abilityId) ? com.projecthero.mod.ironman.ability.IronManMark6.selectedWeapon(state, suitId)
 					: mk3Arsenal ? com.projecthero.mod.ironman.ability.IronManMark3.selectedWeapon(state, suitId) : abilityId;
-			String cdKey = suitId + "/" + com.projecthero.mod.ironman.ability.IronManMark6.hudCooldownId(effectiveId); // v0.14.29: G shields = the barrier cooldown
+			// v0.15.4: the Mark 6 / 7 V box reads the shield's cooldown, X the flares'
+			String cdKey = suitId + "/" + com.projecthero.mod.ironman.ability.IronManMark6.hudCooldownId(effectiveId);
 			Long readyAt = state.abilityReadyAt.get(cdKey);
 			long left = readyAt == null ? 0 : Math.max(0, readyAt - now);
 			boolean active = isActive(player, state, abilityId, now)
@@ -455,10 +460,6 @@ public final class IronManHud {
 				g.drawString(font, s, r.x() + (r.w() - font.width(s)) / 2, r.y() + 7, 0xFFFFFFFF, true);
 			} else if (offline) {
 				g.fill(r.x() + 1, r.y() + 1, r.right() - 1, r.bottom() - 1, 0x90200000);
-			} else if (com.projecthero.mod.ironman.ability.IronManMark6.SURGE.equals(abilityId) && com.projecthero.mod.ironman.ability.IronManMark6.surging(state, now)) {
-				// v0.14.29: the Arc Reactor Surge's remaining time, in cyan, on its X box
-				String s = String.valueOf(IronManUiLayout.ceilSecs(com.projecthero.mod.ironman.ability.IronManMark6.surgeUntil(state) - now));
-				g.drawString(font, s, r.x() + (r.w() - font.width(s)) / 2, r.y() + 7, IronManGui.CYAN, true);
 			} else if (IronManAbilities.TIMED_FLIGHT.equals(abilityId) && state.timedFlightUntil > now) {
 				// v0.14.27: the flight burst's remaining time, in gold, on its own key box
 				String s = String.valueOf(IronManUiLayout.ceilSecs(state.timedFlightUntil - now));
@@ -490,7 +491,7 @@ public final class IronManHud {
 
 	private static boolean isActive(Player player, TonyStarkState state, String abilityId, long now) {
 		if (IronManAbilities.MOB_HIGHLIGHT_TOGGLE.equals(abilityId)) {
-			return state.mobHighlightOn;
+			return player.getAttachedOrElse(ModAttachments.IRON_MAN_HIGHLIGHT_ON, false); // v0.15.4: wearer-only sync
 		}
 		if (IronManAbilities.BLADE.equals(abilityId)) {
 			return player.getAttachedOrElse(ModAttachments.IRON_MAN_BLADES, false);
@@ -498,17 +499,20 @@ public final class IronManHud {
 		if (IronManAbilities.TIMED_FLIGHT.equals(abilityId)) {
 			return state.timedFlightUntil > now;
 		}
-		// v0.14.29: Mark 6 surge running / Sneak+V highlight on
-		if (com.projecthero.mod.ironman.ability.IronManMark6.SURGE.equals(abilityId)) {
-			return com.projecthero.mod.ironman.ability.IronManMark6.surging(state, now);
-		}
-		if (com.projecthero.mod.ironman.ability.IronManMark6.BARRAGE.equals(abilityId)) {
-			return state.mobHighlightOn;
+		// v0.15.4: the Mark 6 / 7 X box lights while its supersonic boost runs
+		if (com.projecthero.mod.ironman.ability.IronManMark6.FLARES.equals(abilityId)) {
+			String worn = suitIdOf(player);
+			return worn != null && com.projecthero.mod.ironman.ability.IronManFlares.boosting(state, worn, now);
 		}
 		if (com.projecthero.mod.ironman.ability.IronManMark3.WHEEL.equals(abilityId)) {
 			return com.projecthero.mod.ironman.ability.IronManMark3.shieldOn(state); // v0.14.27: Sneak+V shield is up
 		}
 		return false;
+	}
+
+	/** v0.15.4: the id of the Iron Man suit whose helmet the player wears, or null. */
+	private static String suitIdOf(Player player) {
+		return player.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof IronManArmorItem a ? a.suitId() : null;
 	}
 
 	/** The HUD name key for a slot -- the same per-suit variants the old text list used. */
@@ -556,10 +560,12 @@ public final class IronManHud {
 			case com.projecthero.mod.ironman.ability.IronManMark3.UNIBEAM -> new ItemStack(IronManItems.ARC_REACTOR);
 			case com.projecthero.mod.ironman.ability.IronManMark3.WHEEL -> new ItemStack(Items.COMPASS);
 			// v0.14.29: Mark 6 / Mark 7 kits
-			case com.projecthero.mod.ironman.ability.IronManMark6.SHIELD, com.projecthero.mod.ironman.ability.IronManMark7.SHIELD -> new ItemStack(Items.SHIELD);
-			case com.projecthero.mod.ironman.ability.IronManMark6.SURGE -> new ItemStack(Items.NETHER_STAR);
+			// v0.15.4: the Mark 6 / Mark 7 modern kit
+			case com.projecthero.mod.ironman.ability.IronManMark6.WEAPON, com.projecthero.mod.ironman.ability.IronManMark6.BARRAGE -> new ItemStack(Items.TARGET);
+			case com.projecthero.mod.ironman.ability.IronManMark6.FLARES -> new ItemStack(Items.GLOWSTONE_DUST);
 			case com.projecthero.mod.ironman.ability.IronManMark6.UNIBEAM, com.projecthero.mod.ironman.ability.IronManMark7.UNIBEAM -> new ItemStack(IronManItems.ARC_REACTOR);
-			case com.projecthero.mod.ironman.ability.IronManMark6.BARRAGE -> new ItemStack(Items.TARGET);
+			case com.projecthero.mod.ironman.ability.IronManMark6.WHEEL -> new ItemStack(Items.COMPASS);
+			case com.projecthero.mod.ironman.ability.IronManMark7.LASER -> new ItemStack(Items.REDSTONE_TORCH);
 			default -> ItemStack.EMPTY;
 		};
 	}

@@ -53,7 +53,7 @@ public final class IronManDamage {
 			}
 		});
 		IronManCombo.initialize(); // v0.14.29 agent F: repulsor -> melee combo
-		com.projecthero.mod.ironman.ability.IronManMark6.initialize(); // v0.14.29 (agent C): Arc Reactor Surge damage boost
+		// v0.15.4: the Mark 6 Arc Reactor Surge (and its outgoing-damage boost) is gone from the kit
 	}
 
 	/** v0.14.27: wearing any Iron Man piece = no fall damage (and no suit cost for the fall). */

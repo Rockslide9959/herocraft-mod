@@ -36,6 +36,8 @@ public final class IronManWeaponWheelScreen extends Screen {
 	private final boolean mark3;
 	/** v0.14.29: which kit suit this Mark III-style wheel belongs to (Mark III or Mark 4); null for the Mark VII wheel. */
 	private final String kitSuit;
+	/** v0.15.4: the Mark 6 / Mark 7 arsenal wheel ({@link com.projecthero.mod.ironman.ability.IronManMark6#WEAPONS}, picks what G fires). */
+	private final boolean modern;
 	private final String[] SECTORS;
 	private int hovered = -1;
 	private final float[] lift;
@@ -51,12 +53,25 @@ public final class IronManWeaponWheelScreen extends Screen {
 
 	/** v0.14.29: {@code kitSuit} = the Mark III / Mark 4 whose arsenal wheel to show, null = the Mark VII wheel. */
 	public IronManWeaponWheelScreen(String kitSuit) {
-		super(Component.translatable(kitSuit == null ? "screen.projecthero.weapon_wheel.title"
+		this(kitSuit, false);
+	}
+
+	/** v0.15.4: the Mark 6 / Mark 7 arsenal wheel for {@code suitId}. */
+	public static IronManWeaponWheelScreen modern(String suitId) {
+		return new IronManWeaponWheelScreen(suitId, true);
+	}
+
+	private IronManWeaponWheelScreen(String kitSuit, boolean modern) {
+		super(Component.translatable(modern
+				? (com.projecthero.mod.ironman.ability.IronManMark7.SUIT_ID.equals(kitSuit)
+						? "screen.projecthero.weapon_wheel.mk7_title" : "screen.projecthero.weapon_wheel.mk6_title")
+				: kitSuit == null ? "screen.projecthero.weapon_wheel.title"
 				: IronManMark3.MARK_4_ID.equals(kitSuit) ? "screen.projecthero.weapon_wheel.mk4_title"
 				: "screen.projecthero.weapon_wheel.mk3_title"));
 		this.mark3 = kitSuit != null;
+		this.modern = modern;
 		this.kitSuit = kitSuit;
-		this.SECTORS = mark3 ? IronManMark3.WEAPONS : IronManAbilities.WEAPON_WHEEL_SECTORS;
+		this.SECTORS = modern ? com.projecthero.mod.ironman.ability.IronManMark6.WEAPONS : mark3 ? IronManMark3.WEAPONS : IronManAbilities.WEAPON_WHEEL_SECTORS;
 		this.lift = new float[SECTORS.length];
 	}
 
@@ -67,6 +82,9 @@ public final class IronManWeaponWheelScreen extends Screen {
 
 	private String currentBinding() {
 		TonyStarkState s = state();
+		if (modern) {
+			return com.projecthero.mod.ironman.ability.IronManMark6.selectedWeapon(s, kitSuit);
+		}
 		if (mark3) {
 			return IronManMark3.selectedWeapon(s, kitSuit);
 		}
@@ -74,8 +92,8 @@ public final class IronManWeaponWheelScreen extends Screen {
 	}
 
 	private boolean glowOn() {
-		TonyStarkState s = state();
-		return s != null && s.mobHighlightOn;
+		Minecraft mc = Minecraft.getInstance(); // v0.15.4: the highlight state is synced to the wearer only
+		return mc.player != null && mc.player.getAttachedOrElse(ModAttachments.IRON_MAN_HIGHLIGHT_ON, false);
 	}
 
 	private boolean isActive(String sector) {
@@ -173,6 +191,9 @@ public final class IronManWeaponWheelScreen extends Screen {
 
 	/** v0.14.29: the Mark 4's rocket line quotes its own (+2) damage; everything else uses the shared text. */
 	private Component description(String sector) {
+		if (modern) {
+			return Component.translatable("screen.projecthero.weapon_wheel.desc.mk6." + sector);
+		}
 		if (IronManMark3.MARK_4_ID.equals(kitSuit) && IronManMark3.ROCKETS.equals(sector)) {
 			return Component.translatable("screen.projecthero.weapon_wheel.desc.mk4_rockets",
 					Math.round(IronManMark3.damageFor(kitSuit, IronManMark3.ROCKET_DAMAGE)));
