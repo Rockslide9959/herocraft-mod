@@ -94,8 +94,12 @@ public final class IronManSuitCall {
 		}
 		List<IronManSuitListPayload.Option> options = new ArrayList<>(gather(player));
 		// v0.15.1: without the Stark Glasses the picker still opens, but platform suits can't be called (greyed client-side)
-		if (!com.projecthero.mod.ironman.gear.StarkGear.canCall(player) && options.stream().anyMatch(o -> o.source() == IronManSuitListPayload.SOURCE_PLATFORM)) {
-			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player);
+		// v0.15.6: with only the Colantotte Bracelets on, only the Mark 7 can be called
+		List<IronManSuitListPayload.Option> platformOpts = options.stream()
+				.filter(o -> o.source() == IronManSuitListPayload.SOURCE_PLATFORM).toList();
+		if (!platformOpts.isEmpty() && platformOpts.stream()
+				.noneMatch(o -> com.projecthero.mod.ironman.gear.StarkGear.canCall(player, o.suitId()))) {
+			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player, platformOpts.get(0).suitId());
 		}
 		// v0.14.27: pieces carried in the pack can also be sent home to a platform from the same picker
 		options.addAll(sendBackOptions(player));
@@ -474,10 +478,19 @@ public final class IronManSuitCall {
 			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player);
 			return false;
 		}
-		List<IronManSuitListPayload.Option> options = gather(player);
-		if (options.isEmpty()) {
+		List<IronManSuitListPayload.Option> all = gather(player);
+		if (all.isEmpty()) {
 			player.displayClientMessage(Component.translatable("message.projecthero.ironman.no_suit_available",
 					Component.translatable("key.projecthero.ironman")), true);
+			return false;
+		}
+		// v0.15.6: a suit carried whole can always go on; anything else is a call -- with only the bracelets on, the Mark 7
+		List<IronManSuitListPayload.Option> options = all.stream()
+				.filter(o -> (o.source() == IronManSuitListPayload.SOURCE_INVENTORY && fullyInInventory(player, o.suitId()))
+						|| com.projecthero.mod.ironman.gear.StarkGear.canCall(player, o.suitId()))
+				.toList();
+		if (options.isEmpty()) {
+			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player, all.get(0).suitId());
 			return false;
 		}
 		String active = TonyStark.activeSuitId(player);
@@ -524,8 +537,9 @@ public final class IronManSuitCall {
 			}
 			return;
 		}
-		if (!com.projecthero.mod.ironman.gear.StarkGear.canCall(player)) { // v0.15.1: calling a suit in needs the Stark Glasses
-			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player);
+		// v0.15.1: calling a suit in needs the Stark Glasses (v0.15.6: the bracelets call only the Mark 7)
+		if (!com.projecthero.mod.ironman.gear.StarkGear.canCall(player, suitId)) {
+			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player, suitId);
 			return;
 		}
 		callFromPlatform(player, suit);
@@ -540,7 +554,7 @@ public final class IronManSuitCall {
 		if (suit == null || suit.summonType() != SummonType.TRACKING_POD
 				|| !com.projecthero.mod.ironman.entity.IronManDeliveryPodEntity.airborne(player)
 				|| !TonyStark.hasPower(player) || IronManSuitUpManager.inTransition(player)
-				|| !com.projecthero.mod.ironman.gear.StarkGear.canCall(player)) { // v0.15.1: the orbital pod call needs the Stark Glasses (else a normal suit-up)
+				|| !com.projecthero.mod.ironman.gear.StarkGear.canCall(player, suit.id())) { // v0.15.1: the orbital pod call needs the Stark Glasses (else a normal suit-up)
 			return false;
 		}
 		ItemStack chest = findInInventory(player, suit.id(), ArmorItem.Type.CHESTPLATE);
@@ -562,6 +576,22 @@ public final class IronManSuitCall {
 	 */
 	public static boolean fastCall(ServerPlayer player, IronManSuit suit) {
 		return IronManSuitUpManager.braceletSuitUp(player, suit) && suit.summonType() == SummonType.TRACKING_POD;
+	}
+
+	/** v0.15.6: fallen at least this far (blocks) counts as "falling" for the suit-call speed-up. */
+	public static final float FALLING_DISTANCE = 2.0f;
+
+	/**
+	 * v0.15.6: is {@code player} falling -- airborne (not standing, swimming, riding, gliding or flying, with or without
+	 * a suit) and already {@value #FALLING_DISTANCE}+ blocks into the drop? Then every called suit races to catch them:
+	 * couriers fly twice as fast, the pod descends twice as fast and spits its pieces at double rate, and each piece
+	 * builds on in half the time ({@link IronManSuitFx#fast}). Server-side (fallDistance is tracked there).
+	 */
+	public static boolean falling(ServerPlayer player) {
+		return !player.onGround() && !player.isInWater() && !player.isInLava() && !player.isPassenger()
+				&& !player.isFallFlying() && !player.getAbilities().flying && !IronManFlight.isFlying(player)
+				&& !com.projecthero.mod.ironman.RepulsorBoots.isFlying(player)
+				&& player.fallDistance >= FALLING_DISTANCE;
 	}
 
 	/** Fixed distance the couriers cover on the final approach -- tuned so the equip always takes the
@@ -666,12 +696,18 @@ public final class IronManSuitCall {
 		}
 		int launched = taken.size();
 		int arrival;
+		boolean falling = falling(player); // v0.15.6: a falling caller gets everything at double speed
+		int stagger = falling ? LAUNCH_STAGGER / 2 : LAUNCH_STAGGER;
 		if (launched > 0 && suit.summonType() == SummonType.TRACKING_POD) {
 			// Mark VII: one delivery pod carries the whole set and fires the pieces out at its owner
 			boolean fast = fastCall(player, suit); // v0.15.4: the Colantotte Bracelets
 			com.projecthero.mod.ironman.entity.IronManDeliveryPodEntity.spawn(level, player, taken,
-					straightFromPlatform ? origin : null, fast);
+					straightFromPlatform ? origin : null, fast).falling(falling);
 			arrival = com.projecthero.mod.ironman.entity.IronManDeliveryPodEntity.ticksToLastPiece(launched, fast) + 30;
+			if (fast) {
+				// v0.15.6: the bracelets are spent on the call -- the pair is gone (claim a new one from the platform)
+				com.projecthero.mod.ironman.gear.ColantotteBracelets.consume(player);
+			}
 		} else {
 			for (int i = 0; i < taken.size(); i++) {
 				Vec3 from;
@@ -683,9 +719,12 @@ public final class IronManSuitCall {
 							12 + level.random.nextDouble() * 5, Math.sin(ang) * ARRIVAL_DISTANCE);
 				}
 				// Stagger each courier so the pieces fly in and equip one at a time, in TYPES order.
-				IronManSuitPartEntity.spawn(level, from, player, taken.get(i), i * LAUNCH_STAGGER);
+				IronManSuitPartEntity.spawn(level, from, player, taken.get(i), i * stagger).falling(falling);
 			}
 			arrival = suit.suitUpType().durationTicks() + Math.max(0, launched - 1) * LAUNCH_STAGGER + 40;
+			if (falling) {
+				arrival /= 2; // v0.15.6: the couriers race in (the suit-up still waits for the last piece's build-on)
+			}
 		}
 
 		if (launched == 0) {
@@ -739,8 +778,8 @@ public final class IronManSuitCall {
 		if (!reachable) {
 			return false;
 		}
-		if (!com.projecthero.mod.ironman.gear.StarkGear.canCall(player)) { // v0.15.1
-			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player);
+		if (!com.projecthero.mod.ironman.gear.StarkGear.canCall(player, suitId)) { // v0.15.1
+			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player, suitId);
 			return false;
 		}
 		callFromPlatform(player, suit);
@@ -755,8 +794,8 @@ public final class IronManSuitCall {
 		if (!TonyStark.hasPower(player) || IronManSuits.byId(suitId) == null) {
 			return false;
 		}
-		if (!com.projecthero.mod.ironman.gear.StarkGear.canCall(player)) { // v0.15.1: flying a piece in is a call -- needs the Stark Glasses
-			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player);
+		if (!com.projecthero.mod.ironman.gear.StarkGear.canCall(player, suitId)) { // v0.15.1: flying a piece in is a call -- needs the Stark Glasses
+			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player, suitId);
 			return false;
 		}
 		if (IronManArmor.isPieceWorn(player, IronManSuitUpManager.slotFor(type), suitId)) {

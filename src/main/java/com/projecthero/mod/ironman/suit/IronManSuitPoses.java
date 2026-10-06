@@ -88,7 +88,7 @@ public final class IronManSuitPoses {
 	}
 
 	private static int window(IronManSuitFx fx, int bit) {
-		return fx.assembling(bit) ? fx.lockTicks() : fx.releaseTicks();
+		return fx.assembling(bit) ? fx.lockTicks(bit) : fx.releaseTicks(); // v0.15.6: per piece (halved for a falling owner)
 	}
 
 	/** The key of piece {@code bit} {@code age} ticks into its window: forwards on, backwards off. */

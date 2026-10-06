@@ -433,6 +433,17 @@ public final class IronManSuitUpManager {
 	 * Platform's robotic arms carry it onto the body), so it shows complete at once instead of building itself on.
 	 */
 	public static boolean receivePart(ServerPlayer player, ItemStack piece, boolean buildOn) {
+		return receivePart(player, piece, buildOn, false, false);
+	}
+
+	/**
+	 * v0.15.6: as {@link #receivePart(ServerPlayer, ItemStack, boolean)}, for a delivered piece that builds on:
+	 * {@code fast} = the owner is falling, so it goes on in half the time (synced per piece, {@link IronManSuitFx#fast});
+	 * {@code bracelet} = a Colantotte Bracelets call -- the Mark 7 pod's pieces each wrap on with the quick bracelet look
+	 * ({@link IronManSuitFx#STYLE_BRACELET}: split open, onto the body, shut; the helmet swings up out of the back with its
+	 * faceplate raised, and the faceplate closes once the suit-up finishes).
+	 */
+	public static boolean receivePart(ServerPlayer player, ItemStack piece, boolean buildOn, boolean fast, boolean bracelet) {
 		if (!(piece.getItem() instanceof IronManArmorItem armor)) {
 			return false;
 		}
@@ -455,12 +466,19 @@ public final class IronManSuitUpManager {
 			}
 			return true;
 		}
-		if (fxNow.mk5() || fxNow.bracelet()) {
+		int wantStyle = bracelet ? IronManSuitFx.STYLE_BRACELET : IronManSuitFx.STYLE_PLATES;
+		if (fxNow.style() != wantStyle && (bracelet || fxNow.mk5() || fxNow.bracelet())) {
 			// v0.14.29: a leftover Mark 5 style must not time this piece's ordinary build-on (v0.15.4: nor a bracelet one)
+			// v0.15.6: ...and a bracelet-call piece switches the style to the bracelet wrap-on
 			player.setAttached(ModAttachments.IRON_MAN_SUIT_FX, fxNow.withPose(fxNow.poseKind(), fxNow.poseStart(),
-					fxNow.poseTicks(), IronManSuitFx.STYLE_PLATES));
+					fxNow.poseTicks(), wantStyle));
 		}
-		IronManSuitFx.markPiece(player, slot, true);
+		IronManSuitFx.markPiece(player, slot, true, fast);
+		if (bracelet && slot == EquipmentSlot.HEAD && inTransition(player)) {
+			// v0.15.6: the bracelet helmet comes without its faceplate down -- it is raised, and closes when the suit-up
+			// finishes (IronManSuitUpManager#finish); outside a suit-up it would be closed again at once, so leave it
+			player.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, true);
+		}
 		stageFx(player, slot, true);
 		if (IronManArmor.wearingFullSuit(player, suitId) && !inTransition(player)) {
 			faceplateClose(player, suitId);

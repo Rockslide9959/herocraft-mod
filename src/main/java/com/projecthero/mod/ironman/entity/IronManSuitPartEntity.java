@@ -84,6 +84,8 @@ public class IronManSuitPartEntity extends Entity {
 	public static final int MAX_LIFE = 800;
 	/** Distance (blocks) over which the courier eases down to its final crawl. */
 	private static final double DECEL_DISTANCE = 3.5;
+	/** v0.15.6: speed factor of a courier racing to a falling owner. */
+	public static final double FALLING_SPEED = 2.0;
 
 	private UUID ownerId;
 	private int life;
@@ -92,6 +94,13 @@ public class IronManSuitPartEntity extends Entity {
 	private Vec3 launchPos;
 	private Vec3 bow;
 	private double t;
+	/**
+	 * v0.15.6: the owner is (or was, at some point on the way) falling -- this courier waits half as long, flies twice as
+	 * fast and its piece builds on in half the time. Latched: once falling, it stays fast to the end.
+	 */
+	private boolean falling;
+	/** v0.15.6: a piece spat out by the Mark 7 pod on a Colantotte Bracelets call -- it wraps on bracelet-style. */
+	private boolean braceletWrap;
 
 	public IronManSuitPartEntity(EntityType<? extends IronManSuitPartEntity> type, Level level) {
 		super(type, level);
@@ -149,6 +158,27 @@ public class IronManSuitPartEntity extends Entity {
 
 	public boolean homeMode() {
 		return getEntityData().get(MODE) == MODE_HOME;
+	}
+
+	/** v0.15.6: mark this courier as delivering to a falling owner (double speed; latched). Returns this. */
+	public IronManSuitPartEntity falling(boolean f) {
+		this.falling |= f;
+		return this;
+	}
+
+	/** v0.15.6: is this courier on the double-speed falling delivery? */
+	public boolean falling() {
+		return falling;
+	}
+
+	/** v0.15.6: this piece wraps on with the Mark 7 bracelet look (a Colantotte Bracelets pod call). Returns this. */
+	public IronManSuitPartEntity braceletWrap(boolean b) {
+		this.braceletWrap = b;
+		return this;
+	}
+
+	public boolean braceletWrap() {
+		return braceletWrap;
 	}
 
 	/** v0.14.28 send-home build progress of this piece, 0..1. */
@@ -248,7 +278,13 @@ public class IronManSuitPartEntity extends Entity {
 			getEntityData().set(OWNER_ENTITY, owner.getId());
 		}
 
+		// v0.15.6: the owner started falling (at the call, or since) -- this piece hurries: double speed from here on
+		falling |= com.projecthero.mod.ironman.suit.IronManSuitCall.falling(owner);
+
 		// Hold at the staging point until this piece's turn in the sequence.
+		if (falling && life < launchDelay) {
+			life++; // v0.15.6: the stagger runs at double time too
+		}
 		if (life < launchDelay) {
 			setPos(getX(), getY() + Math.sin(life * 0.3) * 0.01, getZ());
 			setYRot(getYRot() + 8f);
@@ -275,6 +311,9 @@ public class IronManSuitPartEntity extends Entity {
 		int flightTicks = life - launchDelay;
 		double speed = Math.min(1.3, 0.25 + flightTicks * 0.06 + arc * 0.01);
 		speed *= Mth.clamp(remaining / DECEL_DISTANCE, 0.22, 1.0);
+		if (falling) {
+			speed *= FALLING_SPEED; // v0.15.6: twice as fast to catch a falling owner
+		}
 		t = Math.min(1.0, t + speed / Math.max(0.5, arc));
 
 		Vec3 next = bezier(launchPos, control, target, t);
@@ -459,7 +498,8 @@ public class IronManSuitPartEntity extends Entity {
 	private void arrive(ServerPlayer owner) {
 		ItemStack stack = getEntityData().get(PIECE).copy();
 		getEntityData().set(PIECE, ItemStack.EMPTY);
-		if (!IronManSuitUpManager.receivePart(owner, stack)) {
+		// v0.15.6: a falling owner's piece builds on in half the time; a bracelet-call piece wraps on bracelet-style
+		if (!IronManSuitUpManager.receivePart(owner, stack, true, falling, braceletWrap)) {
 			IronManSuitUpManager.giveBack(owner, stack);
 		}
 		discard();
@@ -483,6 +523,8 @@ public class IronManSuitPartEntity extends Entity {
 		}
 		life = tag.getInt("Life");
 		launchDelay = tag.getInt("LaunchDelay");
+		falling = tag.getBoolean("Falling");
+		braceletWrap = tag.getBoolean("BraceletWrap");
 		if (tag.getInt("Mode") == MODE_HOME) {
 			getEntityData().set(MODE, MODE_HOME);
 			homeDock = tag.contains("HomeDock") ? BlockPos.of(tag.getLong("HomeDock")) : null;
@@ -515,6 +557,8 @@ public class IronManSuitPartEntity extends Entity {
 		}
 		tag.putInt("Life", life);
 		tag.putInt("LaunchDelay", launchDelay);
+		tag.putBoolean("Falling", falling);
+		tag.putBoolean("BraceletWrap", braceletWrap);
 		ItemStack stack = getEntityData().get(PIECE);
 		if (!stack.isEmpty()) {
 			tag.put("Piece", stack.save(registryAccess()));

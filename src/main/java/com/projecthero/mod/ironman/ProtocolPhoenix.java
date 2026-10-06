@@ -275,6 +275,9 @@ public final class ProtocolPhoenix {
 		return options.stream()
 				.filter(o -> IronManSuits.byId(o.suitId()) != null)
 				.filter(o -> com.projecthero.mod.ironman.gear.StarkGear.phoenixEligible(o.suitId())) // v0.15.1: Mark 7+ only
+				// v0.15.6: with only the Colantotte Bracelets on, a platform suit must be the Mark 7 (the one they can call)
+				.filter(o -> o.source() == IronManSuitListPayload.SOURCE_INVENTORY
+						|| com.projecthero.mod.ironman.gear.StarkGear.canCall(player, o.suitId()))
 				.filter(o -> o.integrityFrac() >= MIN_INTEGRITY_FRACTION)
 				.filter(o -> o.energyFrac() >= MIN_ENERGY_FRACTION)
 				.max(Comparator

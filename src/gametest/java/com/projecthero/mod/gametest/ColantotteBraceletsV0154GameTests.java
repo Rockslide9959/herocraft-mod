@@ -364,6 +364,9 @@ public class ColantotteBraceletsV0154GameTests implements FabricGameTest {
 		h.assertFalse(IronManSuitCall.fastCall(slowP, IronManSuits.MARK_VII), "a glasses call is the ordinary one");
 		h.assertTrue(IronManSuitCall.autoEquipInventorySuit(fastP), "the bracelet Tony calls the Mark 7");
 		h.assertTrue(IronManSuitCall.autoEquipInventorySuit(slowP), "so does the glasses Tony");
+		// v0.15.6: the call uses the bracelets up; the glasses stay on
+		h.assertFalse(StarkGear.hasBracelets(fastP) || ColantotteBracelets.count(fastP) > 0, "the bracelets are spent on the call");
+		h.assertTrue(StarkGear.hasGlasses(slowP), "the glasses are not");
 		AABB sky = new AABB(h.absolutePos(BlockPos.ZERO)).inflate(40).expandTowards(0, 100, 0);
 		List<IronManDeliveryPodEntity> fastPods = h.getLevel().getEntitiesOfClass(IronManDeliveryPodEntity.class, sky,
 				e -> fastP.getUUID().equals(e.ownerId()));
@@ -384,14 +387,15 @@ public class ColantotteBraceletsV0154GameTests implements FabricGameTest {
 			if (arrived[1] < 0 && (slowPod.isRemoved() || slowPod.phase() != IronManDeliveryPodEntity.DESCEND)) {
 				arrived[1] = clock[0];
 			}
-			wrapOn[0] |= TonyStark.state(fastP).transitionBracelet;
+			// v0.15.6: no more hand-off -- the pod clamps each piece on with the bracelet wrap-on look
+			wrapOn[0] |= IronManSuitFx.of(fastP).bracelet() && IronManArmor.wearingAnyIronMan(fastP);
 		});
 		h.succeedWhen(() -> {
 			h.assertTrue(arrived[0] > 0 && arrived[1] > 0, "both pods arrive");
 			h.assertTrue(arrived[0] * 1.0 <= arrived[1] * 0.65,
 					"the bracelet pod gets there about twice as fast (" + arrived[0] + " vs " + arrived[1] + " ticks)");
 			h.assertTrue(wearing(fastP, M7) && wearing(slowP, M7), "both end up in the full Mark 7");
-			h.assertTrue(wrapOn[0], "the bracelet Tony's Mark 7 went on with the wrap-on");
+			h.assertTrue(wrapOn[0], "the bracelet Tony's Mark 7 pieces went on with the bracelet wrap-on look");
 			h.assertFalse(IronManSuitUpManager.inTransition(fastP), "and is online");
 			h.assertFalse(IronManFaceplate.isOpen(fastP), "faceplate closed");
 		});

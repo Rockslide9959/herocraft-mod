@@ -71,7 +71,7 @@ public final class IronManSuitCallScreen extends Screen {
 		Set<String> listed = new HashSet<>();
 		for (IronManSuitListPayload.Option o : options) {
 			// v0.15.1: without the Stark Glasses a platform suit can't be called -- shown, greyed, unpickable
-			boolean callable = o.source() != IronManSuitListPayload.SOURCE_PLATFORM || glassesOn();
+			boolean callable = o.source() != IronManSuitListPayload.SOURCE_PLATFORM || glassesOn(o.suitId());
 			cards.add(new Card(o.suitId(), o.source(), o.energyFrac(), o.integrityFrac(), o.distance(), callable));
 			listed.add(o.suitId());
 		}
@@ -106,9 +106,15 @@ public final class IronManSuitCallScreen extends Screen {
 	}
 
 	/** v0.15.1: suit calling needs the Stark Glasses in the Stark Gear slot. */
-	private boolean glassesOn() {
+	private boolean glassesOn(String suitId) {
 		return minecraft != null && minecraft.player != null
-				&& com.projecthero.mod.ironman.gear.StarkGear.canCall(minecraft.player); // v0.15.4: or the bracelets
+				&& com.projecthero.mod.ironman.gear.StarkGear.canCall(minecraft.player, suitId); // v0.15.6: bracelets = Mark 7 only
+	}
+
+	/** v0.15.6: wearing the Colantotte Bracelets (they call only the Mark 7). */
+	private boolean braceletsOn() {
+		return minecraft != null && minecraft.player != null
+				&& com.projecthero.mod.ironman.gear.StarkGear.hasBracelets(minecraft.player);
 	}
 
 	private boolean anyLockedPlatformCard() {
@@ -201,8 +207,9 @@ public final class IronManSuitCallScreen extends Screen {
 		renderCompare(g);
 		// v0.15.1: with platform suits locked for want of the Stark Glasses, the hint line says so instead
 		boolean locked = anyLockedPlatformCard();
-		String hint = IronManGui.fit(font, Component.translatable(locked ? "screen.projecthero.suit_call.needs_glasses_hint"
-				: "screen.projecthero.suit_call.hint"), width - 12);
+		String hint = IronManGui.fit(font, Component.translatable(!locked ? "screen.projecthero.suit_call.hint"
+				: braceletsOn() ? "screen.projecthero.suit_call.bracelets_mk7_only_hint" // v0.15.6
+				: "screen.projecthero.suit_call.needs_glasses_hint"), width - 12);
 		g.drawCenteredString(this.font, hint, width / 2, height - 35, locked ? IronManGui.GOLD : IronManGui.TEXT_MUTED);
 	}
 
@@ -371,7 +378,8 @@ public final class IronManSuitCallScreen extends Screen {
 		String where = c.available
 				? Component.translatable(IronManUiLayout.locationKey(c.source), c.distance).getString()
 				: c.source == IronManSuitListPayload.SOURCE_PLATFORM // v0.15.1: reachable, but no glasses
-						? Component.translatable("screen.projecthero.suit_call.needs_glasses").getString()
+						? Component.translatable(braceletsOn() ? "screen.projecthero.suit_call.bracelets_mk7_only"
+								: "screen.projecthero.suit_call.needs_glasses").getString()
 						: Component.translatable("screen.projecthero.suit_call.unreachable").getString();
 		int whereCol = !c.available ? IronManGui.TEXT_MUTED
 				: c.source == IronManSuitListPayload.SOURCE_INVENTORY ? IronManGui.GREEN

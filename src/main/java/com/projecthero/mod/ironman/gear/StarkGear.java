@@ -48,7 +48,8 @@ import net.minecraft.world.level.GameRules;
  *
  * <p>v0.15.4: the slot can hold the <b>Colantotte Bracelets</b> instead ({@link ColantotteBracelets}) -- they allow suit
  * calling (and arm Protocol Phoenix) just like the glasses, but give no Night Vision; and they make a called Mark 7 come
- * twice as fast and go on with the quick bracelet wrap-on.
+ * twice as fast and go on with the quick bracelet wrap-on. v0.15.6: they call <em>only</em> the Mark 7
+ * ({@link #canCall(Player, String)}) and are used up by that call.
  *
  * <p>The slot is the {@link ModAttachments#STARK_GEAR} attachment (persistent, synced to everyone so they see the
  * glasses). Death without keepInventory drops the glasses where you died, like the rest of the inventory.
@@ -149,10 +150,29 @@ public final class StarkGear {
 		return hasGlasses(player) || hasBracelets(player);
 	}
 
+	/**
+	 * v0.15.6: may this player call {@code suitId} right now? The Stark Glasses call any suit; the Colantotte Bracelets
+	 * call only the Mark 7 ({@code IronManSuitUpManager.BRACELET_SUIT}). Works on both sides (the slot is synced).
+	 */
+	public static boolean canCall(Player player, String suitId) {
+		return hasGlasses(player) || (hasBracelets(player)
+				&& com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRACELET_SUIT.equals(suitId));
+	}
+
 	/** Tell the player the call was refused because the glasses aren't on. */
 	public static void refuseCall(ServerPlayer player) {
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.glasses_needed")
 				.withStyle(ChatFormatting.RED), true);
+	}
+
+	/** v0.15.6: tell the player why calling {@code suitId} was refused -- no gear on, or the bracelets (Mark 7 only). */
+	public static void refuseCall(ServerPlayer player, String suitId) {
+		if (hasBracelets(player) && !hasGlasses(player)) {
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.bracelets_mk7_only")
+					.withStyle(ChatFormatting.RED), true);
+			return;
+		}
+		refuseCall(player);
 	}
 
 	/** Whether Protocol Phoenix may bring in this suit (Mark {@value #PHOENIX_MIN_MARK} or later). */

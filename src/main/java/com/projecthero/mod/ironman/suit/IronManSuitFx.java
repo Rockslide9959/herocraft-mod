@@ -157,6 +157,23 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 		return bit >= 0 && (assembleMask & (1 << bit)) != 0;
 	}
 
+	/**
+	 * v0.15.6: {@link #assembleMask} bits {@code FAST_SHIFT .. FAST_SHIFT + 3} mark a piece that is going on at double
+	 * speed (it was delivered to a <em>falling</em> owner) -- its build-on window is halved. Kept in the synced mask so the
+	 * server's "still building" check and every viewer's per-piece clock use the same window.
+	 */
+	public static final int FAST_SHIFT = 4;
+
+	/** v0.15.6: is piece {@code bit} going on at double speed (a falling owner)? */
+	public boolean fast(int bit) {
+		return bit >= 0 && bit < 4 && (assembleMask & (1 << (bit + FAST_SHIFT))) != 0;
+	}
+
+	/** v0.15.6: a piece's window at double speed: half, never under 2 ticks. */
+	private int scaled(int bit, int window) {
+		return fast(bit) ? Math.max(2, window / 2) : window;
+	}
+
 	/** Ticks (with partial) since the piece in {@code slot} started its lock-on / release, or -1 if it has no live clock. */
 	public float pieceAge(EquipmentSlot slot, long gameTime, float partial) {
 		int b = bit(slot);
@@ -191,9 +208,9 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 	/** v0.14.29: how long piece {@code bit} takes to go on -- the Mark 5 has a window per piece, everything else {@link #lockTicks()}. */
 	public int lockTicks(int bit) {
 		if (style == STYLE_BRACELET) {
-			return IronManBraceletSuitUp.upWindow(bit); // v0.15.4
+			return scaled(bit, IronManBraceletSuitUp.upWindow(bit)); // v0.15.4 (v0.15.6: halved for a falling owner)
 		}
-		return style == STYLE_MK5 ? IronManMk5Suitcase.upWindow(bit) : lockTicks();
+		return scaled(bit, style == STYLE_MK5 ? IronManMk5Suitcase.upWindow(bit) : lockTicks());
 	}
 
 	/** v0.14.29: how long piece {@code bit} takes to come off (per piece for the Mark 5). */
@@ -284,11 +301,18 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 	// ---------------- writing (server) ----------------
 
 	public IronManSuitFx withPiece(int bit, long start, boolean assembling) {
+		return withPiece(bit, start, assembling, false);
+	}
+
+	/** v0.15.6: as {@link #withPiece(int, long, boolean)}; {@code fast} = the piece goes on at double speed (falling owner). */
+	public IronManSuitFx withPiece(int bit, long start, boolean assembling, boolean fast) {
 		long h = bit == 0 ? start : headStart;
 		long c = bit == 1 ? start : chestStart;
 		long l = bit == 2 ? start : legsStart;
 		long f = bit == 3 ? start : feetStart;
 		int mask = assembling ? assembleMask | (1 << bit) : assembleMask & ~(1 << bit);
+		int fastBit = 1 << (bit + FAST_SHIFT);
+		mask = fast && assembling ? mask | fastBit : mask & ~fastBit;
 		return new IronManSuitFx(h, c, l, f, mask, style, poseStart, poseTicks, poseKind, faceplateAt, poseVariant);
 	}
 
@@ -308,12 +332,17 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 
 	/** A piece reached the body ({@code assembling}) or began breaking away from it. Synced to every viewer. */
 	public static void markPiece(ServerPlayer player, EquipmentSlot slot, boolean assembling) {
+		markPiece(player, slot, assembling, false);
+	}
+
+	/** v0.15.6: as {@link #markPiece(ServerPlayer, EquipmentSlot, boolean)}; {@code fast} = double-speed build-on (falling). */
+	public static void markPiece(ServerPlayer player, EquipmentSlot slot, boolean assembling, boolean fast) {
 		int b = bit(slot);
 		if (b < 0) {
 			return;
 		}
 		player.setAttached(ModAttachments.IRON_MAN_SUIT_FX,
-				of(player).withPiece(b, player.level().getGameTime(), assembling));
+				of(player).withPiece(b, player.level().getGameTime(), assembling, fast));
 	}
 
 	public static void startPose(ServerPlayer player, int kind, int ticks, int style) {

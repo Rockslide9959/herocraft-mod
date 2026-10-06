@@ -66,8 +66,19 @@ import software.bernie.geckolib.util.GeckoLibUtil;
  *
  * <h2>v0.15.4: Colantotte Bracelets</h2>
  * Called while the owner wears the bracelets ({@link #fast}), the pod flies the same path in half the time (twice the
- * speed, four times the acceleration -- {@link #speedAt}) and, the moment it reaches them, hands the whole set over for the
- * quick bracelet wrap-on ({@link #handOff}) instead of firing pieces out one by one.
+ * speed, four times the acceleration -- {@link #speedAt}).
+ *
+ * <h2>v0.15.6: the pod stays until the suit is on</h2>
+ * <ul>
+ *   <li>On a bracelet call the pod no longer hands the whole set over: it lands, opens and <b>stays</b>, spitting the
+ *       pieces out one by one ({@value #FAST_DEPLOY_INTERVAL} ticks apart) as couriers that each wrap on with the quick
+ *       bracelet look ({@code IronManSuitFx.STYLE_BRACELET}).</li>
+ *   <li>Every pod -- bracelet, ordinary and catch mode -- only closes and flies off once the <b>whole suit is on</b> and
+ *       no piece is still building ({@link #suitDone}), or after {@value #SUIT_WAIT_TIMEOUT} ticks of waiting with its
+ *       cargo gone (a piece taken off, a courier that went astray); meanwhile it keeps the owner's suit-up open.</li>
+ *   <li><b>Falling owner</b> ({@code IronManSuitCall.falling}, latched in {@link #falling}): the descent runs at double
+ *       speed again, the pieces leave at double rate and each one builds on in half the time.</li>
+ * </ul>
  */
 public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 	public static final int DESCEND = 0;
@@ -96,6 +107,10 @@ public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 	/** v0.14.29: catch mode -- the clamshell opens this fast, then one piece clamps on every CATCH_INTERVAL ticks. */
 	public static final int CATCH_OPEN_TICKS = 3;
 	public static final int CATCH_INTERVAL = 3;
+	/** v0.15.6: on a bracelet call the pod spits a piece out this often (it then wraps on bracelet-style). */
+	public static final int FAST_DEPLOY_INTERVAL = 5;
+	/** v0.15.6: with its cargo gone, the pod waits at most this long for the suit to finish going on before it leaves. */
+	public static final int SUIT_WAIT_TIMEOUT = 200;
 	/** The arrival radius: closer than this (or than one step) and it has reached its owner. */
 	private static final double ARRIVE_RADIUS = 1.5;
 	/** How far behind the owner it lands. */
@@ -119,8 +134,14 @@ public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 	private boolean catchMode;
 	private Vec3 lastOwnerPos;
 	private Vec3 ownerVel = Vec3.ZERO;
-	/** v0.15.4: called with the Colantotte Bracelets on -- twice as fast, hands the set straight to the wrap-on. */
+	/** v0.15.4: called with the Colantotte Bracelets on -- twice as fast; v0.15.6: its pieces wrap on bracelet-style. */
 	private boolean fast;
+	/** v0.15.6: the owner is (or was, during this delivery) falling -- everything runs at double speed. Latched. */
+	private boolean falling;
+	/** v0.15.6: the suit this pod delivers (remembered once the cargo is gone, to see when it is fully on). */
+	private String suitId;
+	/** v0.15.6: ticks spent waiting, cargo gone, for the suit to finish going on. */
+	private int waitTicks;
 
 	public IronManDeliveryPodEntity(EntityType<? extends IronManDeliveryPodEntity> type, Level level) {
 		super(type, level);
@@ -160,6 +181,7 @@ public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 		}
 		// boots first: a falling owner is fall-immune from the first clamp, and the build reads bottom-up
 		pod.cargo.sort((a, b) -> Integer.compare(order(b), order(a)));
+		pod.suitId = pod.cargoSuitId();
 		pod.setYRot(owner.getYRot());
 		level.addFreshEntity(pod);
 		IronManSounds.play(pod, IronManSounds.THRUSTER, 1.2f, 0.7f);
@@ -195,12 +217,12 @@ public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 		return DESCEND_TICKS + OPEN_TICKS + Math.max(0, n - 1) * DEPLOY_INTERVAL;
 	}
 
-	/** v0.15.4: with the bracelets the pod flies twice as fast and the whole set goes on in one hand-off. */
+	/** v0.15.4: with the bracelets the pod flies twice as fast (v0.15.6: and spits the pieces out every FAST_DEPLOY_INTERVAL). */
 	public static int ticksToLastPiece(int n, boolean fast) {
-		return fast ? DESCEND_TICKS / 2 + FAST_OPEN_TICKS : ticksToLastPiece(n);
+		return fast ? DESCEND_TICKS / 2 + FAST_OPEN_TICKS + Math.max(0, n - 1) * FAST_DEPLOY_INTERVAL : ticksToLastPiece(n);
 	}
 
-	/** v0.15.4: with the bracelets the clamshell opens this fast before the set is handed over. */
+	/** v0.15.4: with the bracelets the clamshell opens this fast. */
 	public static final int FAST_OPEN_TICKS = OPEN_TICKS / 2;
 
 	/**
@@ -208,12 +230,33 @@ public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 	 * same flight at double time -- twice the speed and four times the acceleration, so any distance takes half as long.
 	 */
 	public static double speedAt(int t, boolean fast) {
-		double k = fast ? 2.0 : 1.0;
+		return speedAt(t, fast, false);
+	}
+
+	/** v0.15.6: as {@link #speedAt(int, boolean)}; {@code falling} doubles the time scale again (a falling owner). */
+	public static double speedAt(int t, boolean fast, boolean falling) {
+		double k = (fast ? 2.0 : 1.0) * (falling ? 2.0 : 1.0);
 		return Math.min(MAX_SPEED * k, START_SPEED * k + t * ACCELERATION * k * k);
 	}
 
 	public boolean fast() {
 		return fast;
+	}
+
+	/** v0.15.6: is this delivery on the double-speed falling schedule? */
+	public boolean falling() {
+		return falling;
+	}
+
+	/** v0.15.6: mark this delivery as racing to a falling owner (latched). Returns this. */
+	public IronManDeliveryPodEntity falling(boolean f) {
+		this.falling |= f;
+		return this;
+	}
+
+	/** v0.15.6: the suit this pod is delivering. */
+	public String suitId() {
+		return suitId;
 	}
 
 	public int phase() {
@@ -280,23 +323,28 @@ public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 			ownerVel = Vec3.ZERO; // a teleport, not motion
 		}
 		lastOwnerPos = here;
-		if (!cargo.isEmpty()) {
+		if (suitId == null) {
+			suitId = cargoSuitId();
+		}
+		// v0.15.6: the owner is falling (at the call or since) -- latch the double-speed schedule. Checked before ride()
+		// below brakes the fall and resets the fall distance.
+		falling |= com.projecthero.mod.ironman.suit.IronManSuitCall.falling(owner);
+		int ph = phase();
+		if (!cargo.isEmpty() || ph == OPEN || ph == DEPLOY) {
 			holdTransition(owner);
 		}
-		switch (phase()) {
+		switch (ph) {
 			case DESCEND -> tickDescend(level, owner);
 			case OPEN -> {
 				if (catchMode) {
 					ride(owner);
 				}
 				faceOwner(owner);
-				if (fast && phaseTick >= (catchMode ? CATCH_OPEN_TICKS : FAST_OPEN_TICKS) && handOff(owner)) {
-					// v0.15.4: the bracelets took the whole set -- close up and go
-					setPhase(CLOSE);
-					IronManSounds.play(this, IronManSounds.SERVO, 0.9f, 1.2f);
-				} else if (phaseTick >= (catchMode ? CATCH_OPEN_TICKS : OPEN_TICKS)) {
+				// v0.15.6: no more bracelet hand-off -- the bracelet pod opens quickly and spits the pieces out itself
+				int open = catchMode ? CATCH_OPEN_TICKS : fast ? FAST_OPEN_TICKS : OPEN_TICKS;
+				if (phaseTick >= open) {
 					setPhase(DEPLOY);
-					phaseTick = catchMode ? CATCH_INTERVAL : DEPLOY_INTERVAL; // first piece goes straight away
+					phaseTick = deployInterval(); // first piece goes straight away
 				}
 			}
 			case DEPLOY -> {
@@ -304,7 +352,7 @@ public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 					ride(owner);
 				}
 				faceOwner(owner);
-				int interval = catchMode ? CATCH_INTERVAL : DEPLOY_INTERVAL;
+				int interval = deployInterval();
 				if (phaseTick >= interval && !cargo.isEmpty()) {
 					phaseTick = 0;
 					ItemStack piece = cargo.remove(0);
@@ -312,14 +360,19 @@ public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 						clampOn(level, owner, piece);
 					} else {
 						Vec3 door = position().add(0, 1.1, 0).add(Vec3.directionFromRotation(0, getYRot()).scale(0.5));
-						IronManSuitPartEntity.spawn(level, door, owner, piece, 0);
+						// v0.15.6: a bracelet call's piece wraps on bracelet-style; a falling owner's races in
+						IronManSuitPartEntity.spawn(level, door, owner, piece, 0).falling(falling).braceletWrap(fast);
 						IronManSounds.play(this, IronManSounds.RELEASE, 0.8f, 1.2f);
 						level.sendParticles(ParticleTypes.ELECTRIC_SPARK, door.x, door.y, door.z, 8, 0.2, 0.2, 0.2, 0.08);
 					}
 				}
 				if (cargo.isEmpty() && phaseTick >= interval) {
-					setPhase(CLOSE);
-					IronManSounds.play(this, IronManSounds.SERVO, 0.9f, 1.0f);
+					// v0.15.6: the pod stays (open, beside / riding with its owner) until the whole suit is on
+					waitTicks++;
+					if (suitDone(owner) || waitTicks > SUIT_WAIT_TIMEOUT) {
+						setPhase(CLOSE);
+						IronManSounds.play(this, IronManSounds.SERVO, 0.9f, 1.0f);
+					}
 				}
 			}
 			case CLOSE -> {
@@ -347,7 +400,7 @@ public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 		}
 		boolean air = airborne(owner);
 		Vec3 target = air ? catchPoint(owner) : landingPoint(owner);
-		double speed = speedAt(phaseTick, fast); // v0.15.4: twice as fast with the bracelets
+		double speed = speedAt(phaseTick, fast, falling); // v0.15.4: twice as fast with the bracelets (v0.15.6: and falling)
 		Vec3 to = target.subtract(position());
 		double dist = to.length();
 		faceOwner(owner);
@@ -430,7 +483,8 @@ public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 		ArmorItem.Type type = piece.getItem() instanceof IronManArmorItem a ? a.getType() : ArmorItem.Type.CHESTPLATE;
 		Vec3 slot = IronManSuitPartEntity.attachPoint(owner, type);
 		Vec3 from = position().add(0, 1.1, 0);
-		if (!IronManSuitUpManager.receivePart(owner, piece)) {
+		// v0.15.6: a falling owner's piece builds on in half the time; a bracelet call's wraps on bracelet-style
+		if (!IronManSuitUpManager.receivePart(owner, piece, true, falling, fast)) {
 			IronManSuitUpManager.giveBack(owner, piece);
 		}
 		owner.resetFallDistance();
@@ -443,49 +497,20 @@ public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 		IronManSounds.play(this, IronManSounds.RELEASE, 0.8f, 1.4f);
 	}
 
+	/** v0.15.6: how often a piece leaves the pod: catch mode clamps fast, a bracelet call spits fast; double rate falling. */
+	private int deployInterval() {
+		int interval = catchMode ? CATCH_INTERVAL : fast ? FAST_DEPLOY_INTERVAL : DEPLOY_INTERVAL;
+		return falling ? Math.max(1, interval / 2) : interval;
+	}
+
 	/**
-	 * v0.15.4: the bracelet hand-off -- every piece goes into the owner's pack and the Mark 7's quick wrap-on starts from
-	 * there (keeping the suit's charge), each piece leaving the pack in the tick it wraps on (never in two places). If the
-	 * pack has no room for the whole set it returns false and the pod fires the pieces out the ordinary way.
+	 * v0.15.6: is the delivered suit fully on {@code owner}, every piece finished building on? Only then does the pod close
+	 * and leave.
 	 */
-	boolean handOff(ServerPlayer owner) {
-		String suitId = cargoSuitId();
-		if (suitId == null || cargo.isEmpty()) {
-			return false;
-		}
-		int free = 0;
-		for (ItemStack s : owner.getInventory().items) {
-			free += s.isEmpty() ? 1 : 0;
-		}
-		if (free < cargo.size()) {
-			fast = false; // no room: the ordinary courier delivery (the pieces build on one by one)
-			return false;
-		}
-		float energy = IronManEnergy.energy(owner, suitId);
-		float integrity = IronManEnergy.integrity(owner, suitId);
-		for (ItemStack s : cargo) {
-			if (!s.isEmpty()) {
-				owner.getInventory().add(s.copy());
-			}
-		}
-		cargo.clear();
-		TonyStarkState s = TonyStark.state(owner);
-		if (suitId.equals(s.transitionSuit) && s.transitionUp) {
-			// the call's transition was only a wait for the pod -- drop it so the wrap-on can start
-			s.transitionSuit = "";
-			s.transitionTicks = 0;
-			s.transitionMask = 0;
-			s.transitionReleaseMask = 0;
-			s.transitionBracelet = false;
-		}
-		if (IronManSuitUpManager.beginSuitUp(owner, suitId)) {
-			IronManEnergy.setEnergy(owner, suitId, energy);
-			IronManEnergy.setIntegrity(owner, suitId, integrity);
-		}
-		owner.resetFallDistance();
-		((ServerLevel) level()).sendParticles(ParticleTypes.ELECTRIC_SPARK, getX(), getY() + 1.1, getZ(), 14, 0.3, 0.3, 0.3, 0.1);
-		IronManSounds.play(this, IronManSounds.RELEASE, 0.9f, 1.3f);
-		return true;
+	public boolean suitDone(ServerPlayer owner) {
+		return suitId != null && cargo.isEmpty()
+				&& com.projecthero.mod.ironman.IronManArmor.wearingFullSuit(owner, suitId)
+				&& !IronManSuitFx.of(owner).anyBuilding(owner.level().getGameTime());
 	}
 
 	private void ascend(ServerLevel level) {
@@ -495,12 +520,15 @@ public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 		level.sendParticles(ParticleTypes.FLAME, getX(), getY(), getZ(), 2, 0.1, 0.05, 0.1, 0.01);
 	}
 
-	/** Keep the owner's suit-up transition alive while the pieces are still on their way. */
+	/**
+	 * Keep the owner's suit-up transition alive while the pieces are still on their way -- v0.15.6: and while the pod waits
+	 * for them to finish going on (then only just: it ends a couple of ticks after the pod closes).
+	 */
 	private void holdTransition(ServerPlayer owner) {
-		String suitId = cargoSuitId();
 		TonyStarkState s = TonyStark.state(owner);
-		if (suitId != null && suitId.equals(s.transitionSuit) && s.transitionUp && s.transitionTicks < 10) {
-			s.transitionTicks = 10;
+		int hold = cargo.isEmpty() ? 2 : 10;
+		if (suitId != null && suitId.equals(s.transitionSuit) && s.transitionUp && s.transitionTicks < hold) {
+			s.transitionTicks = hold;
 		}
 	}
 
@@ -596,6 +624,9 @@ public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 		}
 		life = tag.getInt("Life");
 		fast = tag.getBoolean("Fast");
+		falling = tag.getBoolean("Falling");
+		waitTicks = tag.getInt("Wait");
+		suitId = tag.contains("Suit") ? tag.getString("Suit") : null;
 		cargo.clear();
 		ListTag list = tag.getList("Cargo", Tag.TAG_COMPOUND);
 		for (int i = 0; i < list.size(); i++) {
@@ -615,6 +646,11 @@ public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 		}
 		tag.putInt("Life", life);
 		tag.putBoolean("Fast", fast);
+		tag.putBoolean("Falling", falling);
+		tag.putInt("Wait", waitTicks);
+		if (suitId != null) {
+			tag.putString("Suit", suitId);
+		}
 		tag.putInt("Phase", phase());
 		ListTag list = new ListTag();
 		for (ItemStack s : cargo) {

@@ -24,10 +24,13 @@ import net.minecraft.world.item.component.CustomData;
  * <i>Bracelets</i> button while a Mark 7 is stored on it ({@link #claim}); worn in the Stark Gear slot (Shift + N, the same
  * slot as the Stark Glasses -- one or the other). Wearing them:
  * <ul>
- *   <li>suits can be called, exactly as with the glasses ({@link StarkGear#canCall});</li>
+ *   <li>v0.15.6: the <b>Mark 7 only</b> can be called ({@link StarkGear#canCall(Player, String)}) -- any other suit is
+ *       refused with its own message (a suit carried whole still goes on, that is not a call);</li>
  *   <li>a called Mark 7 reaches you twice as fast (the delivery pod flies at double speed, a far platform's travel wait is
- *       halved, see {@code IronManSuitCall} / {@code IronManDeliveryPodEntity});</li>
- *   <li>the Mark 7 goes on with the quick 4 s bracelet wrap-on ({@code SuitUpType.BRACELET_QUICK}).</li>
+ *       halved, see {@code IronManSuitCall} / {@code IronManDeliveryPodEntity}), and the pod stays beside you and spits the
+ *       pieces out one by one, each wrapping on with the quick bracelet look;</li>
+ *   <li>v0.15.6: the call <b>uses the pair up</b> ({@link #consume}) -- claim a new one from the platform next time;</li>
+ *   <li>a Mark 7 carried in the pack goes on with the quick 4 s bracelet wrap-on ({@code SuitUpType.BRACELET_QUICK}).</li>
  * </ul>
  *
  * <h2>No spare copies</h2>
@@ -152,6 +155,27 @@ public final class ColantotteBracelets {
 			}
 		}
 		return n;
+	}
+
+	/**
+	 * v0.15.6: the bracelets are spent on a Mark 7 call -- the worn pair leaves the Stark Gear slot for good (nothing is
+	 * dropped or returned). The issue counter is not touched: with no pair left on the player, {@link #hasPair} is false,
+	 * so the Suit Platform's Bracelets tab hands out the next pair, which retires any stray older copy as usual.
+	 * Returns true if a pair was worn and consumed.
+	 */
+	public static boolean consume(ServerPlayer player) {
+		if (!StarkGear.hasBracelets(player)) {
+			return false;
+		}
+		StarkGear.setGlasses(player, ItemStack.EMPTY);
+		IronManSounds.play(player, IronManSounds.RELEASE, 0.8f, 1.5f);
+		if (player.level() instanceof net.minecraft.server.level.ServerLevel level) {
+			level.sendParticles(net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 0.9,
+					player.getZ(), 12, 0.35, 0.2, 0.35, 0.06);
+		}
+		player.displayClientMessage(Component.translatable("message.projecthero.ironman.bracelets_used")
+				.withStyle(ChatFormatting.AQUA), true);
+		return true;
 	}
 
 	/** Tell a holder their retired pair crumbled. */
