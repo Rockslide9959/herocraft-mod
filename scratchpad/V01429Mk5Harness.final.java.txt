@@ -1,0 +1,176 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.ironman.TonyStark;
+import com.projecthero.mod.ironman.item.IronManItems;
+import com.projecthero.mod.ironman.suit.IronManSuitUpManager;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.14.29 Mark 5 suitcase visual check. Enabled by run/v01429b.flag. */
+public final class V01429Mk5Harness {
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 base;
+
+	private V01429Mk5Harness() {
+	}
+
+	public static void init() {
+		if (Files.exists(Path.of("v01429b.flag"))) {
+			ClientTickEvents.END_CLIENT_TICK.register(V01429Mk5Harness::tick);
+		}
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					try {
+						fn.accept(p);
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "B_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void at(int t, Runnable r) {
+		Runnable prev = AT.get(t);
+		AT.put(t, prev == null ? r : () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				LevelSettings settings = new LevelSettings("V01429B" + System.currentTimeMillis() % 100000,
+						GameType.SURVIVAL, false, Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				base = Vec3.atBottomCenterOf(p.blockPosition());
+				TonyStark.grant(p);
+			});
+			t0 = inWorldTicks;
+			buildScript(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void buildScript(Minecraft mc) {
+		int t = 20;
+		at(t, () -> server(mc, p -> {
+			p.teleportTo(p.serverLevel(), base.x, base.y, base.z, 0f, 0f);
+			p.setYBodyRot(0f);
+			p.setYHeadRot(0f);
+			for (EquipmentSlot s : new EquipmentSlot[] { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET }) {
+				p.setItemSlot(s, ItemStack.EMPTY);
+			}
+			p.getInventory().clearContent();
+			p.getInventory().selected = 0;
+			p.getInventory().items.set(0, new ItemStack(IronManItems.MARK_V_SUITCASE));
+		}));
+		at(t + 20, () -> shot(mc, "up_t000_holding"));
+		t += 30;
+		at(t, () -> server(mc, p -> System.out.println("[HARNESS] up started=" + IronManSuitUpManager.beginSuitUpFromCase(p, "mark_v"))));
+		for (int m : new int[] { 8, 18, 24, 30, 36, 46, 56, 66, 74, 82, 92, 100, 108, 114, 124 }) {
+			final int mm = m;
+			at(t + 1 + m, () -> shot(mc, "up_t" + String.format("%03d", mm)));
+		}
+		t += 170;
+		at(t, () -> server(mc, p -> System.out.println("[HARNESS] down started=" + IronManSuitUpManager.beginSuitDownToCase(p, "mark_v"))));
+		for (int m : new int[] { 8, 16, 24, 34, 46, 56, 64, 70, 74, 78, 86 }) {
+			final int mm = m;
+			at(t + 1 + m, () -> shot(mc, "down_t" + String.format("%03d", mm)));
+		}
+		at(t + 100, () -> server(mc, p -> System.out.println("[HARNESS] after fold: mainhand="
+				+ p.getMainHandItem() + " worn=" + p.getItemBySlot(EquipmentSlot.CHEST))));
+		t += 110;
+		// Call Armour picker with the compare panel: a Mark III and a Mark 4 in the pack
+		at(t, () -> server(mc, p -> {
+			p.getInventory().clearContent();
+			for (String id : new String[] { "mark_iii", "mark_4" }) {
+				for (net.minecraft.world.item.ArmorItem.Type ty : net.minecraft.world.item.ArmorItem.Type.values()) {
+					var it = IronManItems.armor(id, ty);
+					if (it != null) p.getInventory().add(new ItemStack(it));
+				}
+			}
+			com.projecthero.mod.ironman.suit.IronManSuitCall.openMenu(p);
+		}));
+		at(t + 1, () -> { mc.options.hideGui = false; mc.options.setCameraType(CameraType.FIRST_PERSON); });
+		at(t + 30, () -> shot(mc, "call_compare"));
+		at(t + 31, () -> {
+			var w = mc.getWindow();
+			// hover the first card so the compare panel fills in
+			org.lwjgl.glfw.GLFW.glfwSetCursorPos(w.getWindow(), w.getScreenWidth() * 0.18, w.getScreenHeight() * 0.35);
+		});
+		at(t + 45, () -> shot(mc, "call_compare_hover"));
+		at(t + 60, () -> {
+			System.out.println("[HARNESS] done");
+			mc.stop();
+		});
+	}
+}

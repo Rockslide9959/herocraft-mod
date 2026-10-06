@@ -130,6 +130,11 @@ public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 			from = null; // v0.14.29: a rack in a frozen border chunk -- the pod comes out of the sky over its owner instead
 		}
 		Vec3 s = from != null ? from : orbitalStart(level, owner);
+		if (!com.projecthero.mod.ironman.suit.IronManChunkTickets.entityTicking(level, s)) {
+			// v0.14.29: the start point is in a neighbouring chunk that does not tick entities (edge of the loaded area) --
+			// the pod would sit there frozen, so drop it straight down over the owner's own (ticking) chunk instead
+			s = new Vec3(owner.getX(), s.y, owner.getZ());
+		}
 		pod.setPos(s.x, s.y, s.z);
 		pod.start = s;
 		pod.ownerId = owner.getUUID();

@@ -1,0 +1,80 @@
+Project Hero v0.14.29 -- Iron Man: Marks 4-7, Remote Pilot and JARVIS
+
+Every Iron Man suit now has its own kit: Mark 4 and Mark 5 are rebuilt to spec, the Mark 6 gets an Arc Reactor Surge and the Mark 7 drops in from orbit. Suits can now be called from anywhere, flown remotely as drones, and JARVIS talks you through the fight.
+
+🔧 MARK 4
+- Energy 3000 (+5/s), integrity 1750 (+3/s). Integrity soaks 50% of every hit you take.
+- Immune to arrows and fire, and they don't drain integrity.
+- Diamond-grade armour, +7 melee. Breathes underwater, feeds you, and has auto-aim targeting with its HUD.
+- The full Mark III kit with +2 damage on every move and every cooldown 2 seconds shorter (same energy costs):
+- R Repulsor: 17 damage, no cooldown. Hold R for 1 second: 22 damage, 1s cooldown. Sneak + R Repulsor Dash: 22 damage, 6s cooldown.
+- V opens the Mark 4 Arsenal wheel, G fires the pick: Rockets 37 damage (8s), Miniguns 12 per shot (13s), Micro-Missiles 4 x 27 (10s).
+- Sneak + G Sonic Clap: 22 damage, 6s cooldown.
+- X Flares (burn 7 per half second, 8s; supersonic boost while flying). Sneak + X JARVIS Scan (1s cooldown).
+- Hold Z Unibeam: 22 damage per hit, 18s cooldown after you let go.
+- Sneak + V Energy Shield. C stores the suit.
+- The old one-shot wrist laser is gone. The Mark 4 remembers its own weapon pick, separate from the Mark III.
+
+💼 MARK 5 (SUITCASE)
+- Energy 2500 (+5/s), integrity 800 (+2/s). Integrity soaks 50% of every hit you take.
+- Immune to arrows and fire, and they don't drain integrity.
+- Diamond-grade armour, +6 melee. Breathes underwater, feeds you, and has auto-aim targeting with its HUD.
+- The Mark 2 kit: R Repulsor now fires instantly with no spin-up (hold 1s for the charged shot, Sneak + R dash), G Sonic Clap, X Flares, Z Unibeam.
+- V: Gauntlet Blades (replaces Mob Highlight on this suit).
+- C folds the suit into its suitcase in 4 seconds. The case goes into your hand, or the first free hotbar slot, or your inventory (and drops at your feet if you're completely full). It keeps the suit's energy and integrity.
+- Right-click the suitcase to suit up in 6 seconds: you hold the case out in front of you, it turns into the chestplate and you put it on your chest and hold your arms out, then the suit builds itself on: chest, arms, legs, head and finally the faceplate.
+- Pressing C, the Call Armour picker and Protocol Phoenix never deploy the Mark 5. It only comes out of its case.
+- New Mark 5 pieces from the Fabricator: with all four in your inventory, right-click one to pack them into a suitcase.
+
+⚡ MARK 6
+- Resistance I, auto-aim targeting and unlimited underwater breathing (the air tank is gone).
+- R Repulsor: 17 damage (hold 1s for 26). Sneak + R Repulsor Dash: 22 damage.
+- G: hold for the 360-degree Repulsor Shield. Sneak + G Sonic Clap: 22 damage.
+- X Arc Reactor Surge: for 10 seconds you deal 50% more damage, fly 50% faster and run 50% faster, with a glowing chest reactor, eye glints and a SURGE timer. 250 energy to start, then 150 energy per second. Press X again to end it early. 40s cooldown.
+- Sneak + X Flares.
+- Hold Z Unibeam: 24 damage per hit, 18s cooldown.
+- V Shoulder Barrage: 6 homing missiles, 20 damage each, 14s cooldown. Sneak + V coloured entity highlight.
+- Every ability still costs 40% less energy.
+
+🚀 MARK 7
+- Resistance I, auto-aim targeting, unlimited underwater breathing, +8 melee (was +7), 80-block scan range.
+- R Repulsor: 20 damage (hold 1s for 30). Sneak + R Repulsor Dash: 25 damage.
+- G: hold for the 360-degree shield. Sneak + G Flares.
+- Hold Z Unibeam: 28 damage per hit, 15s cooldown.
+- V weapon wheel, every weapon now hits at least as hard as the Mark III's: Micro-Missiles 6 x 26, Homing Missiles 4 x 26, Flamethrower 12 damage/s, Wrist Laser (3 second cutting beam, 15 per hit, no overload), Rocket 40 damage with a bigger blast, plus Supersonic Flight and Entity Glow.
+- Orbital drop: call the Mark 7 with no platform nearby and its pod streaks down from the sky with a fire trail. On the ground it lands behind you; if you're in the air or falling it catches up, slows your fall and clamps the suit on mid-air, boots first.
+- With the whole Mark 7 in your inventory, pressing C while airborne also sends it by pod.
+
+📡 SUIT CALLING (WORKS EVERYWHERE NOW)
+- Calling a suit from a Suit Platform in an unloaded chunk, or far away, now always works: the Call Armour picker, quick call, Protocol Phoenix and the Mark 7 pod. Suits no longer get stuck frozen in unloaded chunks, and the platform ends up empty.
+- Protocol Phoenix pulls a suit from an unloaded platform in 2 seconds (was up to 30).
+- A suit sent home (or flying home after you die) to an unloaded platform is racked straight away and shows up in the picker immediately.
+- Sneak + C while wearing a suit opens the picker with a "send home" card: the suit comes off and flies back to the platform it came from to repair (every mark except the Mark 5).
+- New compare panel in the Call Armour picker: the hovered suit's energy, integrity, charge, condition, melee, regen, repair and flight speed side by side with your current suit (green = better, orange = worse), plus its key abilities. Right-click a card to pin it for comparing.
+
+🎮 REMOTE PILOT
+- Without a suit on, open the Call Armour picker and press PILOT on a fully charged suit to fly it as a drone.
+- Your view jumps into the suit: WASD flies, Jump / Sneak go up and down, Sprint boosts, click or R fires its repulsor.
+- A REMOTE LINK HUD shows the drone's charge, integrity and range (up to 96 m, with a SIGNAL WEAK warning near the edge).
+- Your real body stays behind and can be hurt. The link ends if you press C, take damage, go out of range or run out of energy.
+- When the link ends the drone flies back to you and docks in your inventory. If it's destroyed or runs dry, it drops as its four pieces, keeping their energy. Logging out sends the pieces back to their platform.
+
+💥 COMBAT FEEL (EVERY SUIT)
+- Repulsor stagger: any repulsor hit staggers its target for 3 seconds (slowed, sparks crackling round it). Your next punch on it deals bonus damage with a big impact. The Mark 1's Strong Punch and flamethrower stagger instead.
+- Punch then repulsor within 1.5 seconds for extra knockback.
+- Battle damage: sparks fly from the suit below 60% integrity; below 35% the plating gets scorched and cracked (worse at 20% and 8%), the suit smokes and its glow flickers. Your helmet visor cracks on the HUD. Eyes and the arc reactor stay lit, and the suit looks exactly as before at higher integrity.
+- J.A.R.V.I.S. now talks to you: suit online, low energy, hull damage, first target lock, sealing up underwater, Protocol Phoenix, the Mark 2's icing ceiling, suit stored and more. The Mark 1 only gets crude SYSTEM readouts. Type /jarvis off to mute him (/jarvis on brings him back).
+
+🍗 AUTO-FEED
+- Suit auto-feeding now eats any safe food, including modded food, not just a short list of vanilla cooked food. Bowls and bottles come back to you.
+- It still never touches raw meat or fish, food with side effects (rotten flesh, spider eyes, pufferfish), chorus fruit, suspicious stew or golden apples.
+- Feeds you on the Mark III, 4, 5, 6 and 7 (the Mark 1 and 2 don't).
+
+📖 GUIDEBOOK & MENUS
+- New guidebook pages: Mark 4, Mark 5 (Suitcase), Mark 6, Mark 7, Combat Systems, J.A.R.V.I.S. and Remote Pilot. The controls and auto-feed pages are updated.
+- The I-key spec sheet, HUD ability strip, weapon wheels and the Stark Fabricator "View more" panel show the new numbers. The Fabricator's armour-repair stat now shows the real rate for every suit.
+- Stark Sorting Station screen redesigned so it fits small windows and high GUI scales (1280x720 at GUI scale 3). Sort and Tidy now sit side by side.
+
+🛠️ FIXES
+- Flamethrower flames now come from the raised wrist as a tight jet, instead of spraying from below the arm.
+- Checked in-game: repulsor dash, sonic clap, Mark III miniguns, the Mark 1 hover floor, the faceplate and the Green Lantern Rescue Tether bubble all work as intended.

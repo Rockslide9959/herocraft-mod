@@ -42,6 +42,9 @@ public final class IronManDroneCardButton {
 		}
 		Rect b = rect(card);
 		boolean hot = b.contains(mouseX, mouseY);
+		// v0.14.29: drawn in front of the card's rotating 3D suit preview (which otherwise covered the label)
+		g.pose().pushPose();
+		g.pose().translate(0, 0, 400);
 		g.fill(b.x(), b.y(), b.x() + b.w(), b.y() + b.h(), hot ? 0xF0183048 : 0xD0081420);
 		int border = hot ? IronManGui.CYAN : IronManGui.CYAN_DIM;
 		g.fill(b.x(), b.y(), b.x() + b.w(), b.y() + 1, border);
@@ -50,6 +53,7 @@ public final class IronManDroneCardButton {
 		g.fill(b.x() + b.w() - 1, b.y(), b.x() + b.w(), b.y() + b.h(), border);
 		String label = IronManGui.fit(font, Component.translatable("screen.projecthero.suit_call.remote_pilot"), b.w() - 4);
 		g.drawString(font, label, b.x() + (b.w() - font.width(label)) / 2, b.y() + 2, hot ? 0xFFFFFFFF : IronManGui.CYAN, false);
+		g.pose().popPose();
 		if (hot) {
 			screen.setTooltipForNextRenderPass(font.split(
 					Component.translatable("screen.projecthero.suit_call.remote_pilot.tooltip"), 180));

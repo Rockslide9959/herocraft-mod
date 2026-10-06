@@ -362,6 +362,10 @@ public class IronManV01429Mk67GameTests implements FabricGameTest {
 		p.setOnGround(true);
 		h.assertFalse(IronManSuitCall.orbitalDrop(p, IronManSuits.MARK_VII), "on the ground the pack suit builds normally");
 		h.assertFalse(IronManSuitCall.orbitalDrop(p, IronManSuits.MARK_III), "only the pod suit drops from orbit");
+		// genuinely airborne: hovering 6 blocks up with no gravity, so a physics tick can't land the player mid-descent
+		// (landing would switch the pod to its slower ground delivery and run past the timeout)
+		p.setNoGravity(true);
+		p.teleportTo(p.getX(), p.getY() + 6.0, p.getZ());
 		p.setOnGround(false);
 		h.assertTrue(IronManSuitCall.autoEquipInventorySuit(p), "C while airborne calls the Mark 7");
 		List<IronManDeliveryPodEntity> pods = h.getLevel().getEntitiesOfClass(IronManDeliveryPodEntity.class, sky(h), podsOf(p));
