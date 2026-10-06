@@ -41,6 +41,18 @@ public class SentinelBeamEntity extends EnergyProjectile {
 			this.core = core;
 			this.width = width;
 		}
+
+		public int glowColor() {
+			return color;
+		}
+
+		public int hotColor() {
+			return core;
+		}
+
+		public float beamWidth() {
+			return width;
+		}
 	}
 
 	private static final EntityDataAccessor<Byte> DATA_KIND = SynchedEntityData.defineId(SentinelBeamEntity.class, EntityDataSerializers.BYTE);

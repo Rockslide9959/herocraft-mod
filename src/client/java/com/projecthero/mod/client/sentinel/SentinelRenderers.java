@@ -10,6 +10,9 @@ import com.projecthero.mod.sentinel.entity.MasterMoldEntity;
 import com.projecthero.mod.sentinel.entity.SentinelDroneEntity;
 import com.projecthero.mod.sentinel.entity.SentinelEntity;
 import com.projecthero.mod.sentinel.entity.SentinelEntityTypes;
+import com.projecthero.mod.sentinel.entity.SentinelAimedShot;
+import com.projecthero.mod.sentinel.entity.SentinelBeamEntity;
+import com.projecthero.mod.sentinel.entity.SentinelRobot;
 
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 
@@ -119,6 +122,17 @@ public final class SentinelRenderers {
 		protected float getDeathMaxRotation(SentinelDroneEntity animatable) {
 			return 0.0f; // the death clip spins it
 		}
+
+		@Override
+		public void render(SentinelDroneEntity entity, float yaw, float partialTick, PoseStack poseStack, MultiBufferSource buffers, int light) {
+			super.render(entity, yaw, partialTick, poseStack, buffers, light);
+			renderShot(entity, partialTick, poseStack, buffers, entityRenderDispatcher.camera.getPosition());
+		}
+
+		@Override
+		public boolean shouldRender(SentinelDroneEntity entity, Frustum frustum, double camX, double camY, double camZ) {
+			return super.shouldRender(entity, frustum, camX, camY, camZ) || shotVisible(entity, frustum);
+		}
 	}
 
 	// ---------------------------------------------------------------- the Sentinel
@@ -153,6 +167,75 @@ public final class SentinelRenderers {
 		protected float getDeathMaxRotation(SentinelEntity animatable) {
 			return 0.0f; // the death clip kneels it and crashes it forward
 		}
+
+		@Override
+		public void render(SentinelEntity entity, float yaw, float partialTick, PoseStack poseStack, MultiBufferSource buffers, int light) {
+			super.render(entity, yaw, partialTick, poseStack, buffers, light);
+			renderShot(entity, partialTick, poseStack, buffers, entityRenderDispatcher.camera.getPosition());
+		}
+
+		@Override
+		public boolean shouldRender(SentinelEntity entity, Frustum frustum, double camX, double camY, double camZ) {
+			return super.shouldRender(entity, frustum, camX, camY, camZ) || shotVisible(entity, frustum);
+		}
+	}
+
+	// ---------------------------------------------------------------- v0.15.3: aimed-shot telegraph and beam
+
+	/**
+	 * A robot's {@link SentinelAimedShot}: while tracking, a thin dim aiming line from the emitter; once locked, a brighter,
+	 * fast-pulsing line with a white core (the "move now" warning); on the shot, the full beam with a hot core. Same
+	 * two-pass glow/core geometry as Master Mold's Purge Beam (all glow first, then all core).
+	 */
+	static void renderShot(SentinelRobot entity, float partialTick, PoseStack poseStack, MultiBufferSource buffers, Vec3 camera) {
+		int state = entity.shotState();
+		if (state == SentinelAimedShot.STATE_OFF || entity.isDeadOrDying()) {
+			return;
+		}
+		SentinelBeamEntity.Kind kind = entity.shotKind();
+		Vec3 base = new Vec3(Mth.lerp(partialTick, entity.xo, entity.getX()), Mth.lerp(partialTick, entity.yo, entity.getY()),
+				Mth.lerp(partialTick, entity.zo, entity.getZ()));
+		Vec3 start = entity.shotFrom().subtract(base);
+		Vec3 end = entity.shotTo().subtract(base);
+		if (end.subtract(start).lengthSqr() < 1.0e-4) {
+			return;
+		}
+		Vec3 cam = camera.subtract(base);
+		PoseStack.Pose pose = poseStack.last();
+		float t = entity.tickCount + partialTick;
+		float w = kind.beamWidth();
+		int glowColor = kind.glowColor();
+		VertexConsumer glow = buffers.getBuffer(RenderType.debugQuads());
+		switch (state) {
+			case SentinelAimedShot.STATE_TRACK -> {
+				float flicker = 0.35f + 0.1f * Mth.sin(t * 0.9f);
+				BeamDraw.beam(glow, true, pose, start, end, cam, w * 0.22f, glowColor, flicker);
+			}
+			case SentinelAimedShot.STATE_LOCK -> {
+				float pulse = 0.55f + 0.45f * Math.abs(Mth.sin(t * 1.6f));
+				BeamDraw.beam(glow, true, pose, start, end, cam, w * 0.45f, glowColor, pulse);
+				BeamDraw.beam(glow, true, pose, start, start.add(end.subtract(start).normalize().scale(0.6)), cam, w * 1.4f, glowColor, pulse);
+				VertexConsumer hot = buffers.getBuffer(RenderType.lightning());
+				BeamDraw.beam(hot, false, pose, start, end, cam, w * 0.45f, 0xFFFFFF, pulse * 0.7f);
+			}
+			default -> {
+				float flicker = 0.85f + 0.15f * Mth.sin(t * 1.9f);
+				BeamDraw.beam(glow, true, pose, start, end, cam, w * 1.6f, glowColor, flicker);
+				BeamDraw.beam(glow, true, pose, start, start.add(end.subtract(start).normalize().scale(0.8)), cam, w * 3.0f, glowColor, flicker * 0.8f);
+				VertexConsumer hot = buffers.getBuffer(RenderType.lightning());
+				BeamDraw.beam(hot, false, pose, start, end, cam, w * 1.6f, kind.hotColor(), flicker);
+			}
+		}
+	}
+
+	/** Don't cull an aiming line or beam just because the robot's box is off-screen. */
+	static boolean shotVisible(SentinelRobot entity, Frustum frustum) {
+		if (entity.shotState() == SentinelAimedShot.STATE_OFF) {
+			return false;
+		}
+		Vec3 a = entity.shotFrom();
+		Vec3 b = entity.shotTo();
+		return frustum.isVisible(new AABB(a, b).inflate(0.5));
 	}
 
 	// ---------------------------------------------------------------- Master Mold

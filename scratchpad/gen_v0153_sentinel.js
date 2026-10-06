@@ -161,25 +161,38 @@ clip('fly', 1.2, true, [
 	[1.2, flyA, 'easeinoutsine'],
 ]);
 
-{ // chest beam: rears back, arms flung wide and back, the chest gem fires (three bolts from CHEST_FIRE)
-	const [len, fire] = T('beam_chest', 24, 12);
+// v0.15.3: both beams are aimed shots (SentinelAimedShot) -- the pose builds and holds through the tracking and the lock
+// (SentinelEntity.LOCK_TICKS = 9 before the fire key), then recoils on the fire key
+{ // chest beam: rears back, arms flung wide and back, the chest gem charges, then three pulses from CHEST_FIRE
+	const [len, fire] = T('beam_chest', 36, 24);
 	const rear = pose({ torso: -14, head: -10, right_arm: [30, 0, 28], left_arm: [30, 0, -28] });
 	clip('beam_chest', len, false, [
 		[0, R],
-		[fire - 0.1, rear, 'easeoutquad'],
+		[0.5, rear, 'easeoutquad'],
+		[fire - 0.05, pose({ ...rear, torso: -16 })],
 		[fire, pose({ ...rear, torso: -4 })],
-		[0.9, pose({ ...rear, torso: -6 })],
+		[fire + 0.35, pose({ ...rear, torso: -6 })],
 		[len, R, 'easeinoutsine'],
 	]);
 }
-{ // palm blast: the right arm swings straight at the target, palm out
-	const [len, fire] = T('beam_hand', 20, 10);
+{ // palm blast: the right arm comes up straight at the target, palm out, holds the aim, recoils on the shot
+	const [len, fire] = T('beam_hand', 30, 20);
 	const aim = pose({ right_arm: [-88, 0, 0], torso: [2, 12, 0], head: [-2, -10, 0] });
 	clip('beam_hand', len, false, [
 		[0, R],
-		[fire - 0.15, aim, 'easeoutquad'],
-		[fire, pose({ ...aim, right_arm: [-84, 0, 0] })],
-		[0.75, aim],
+		[0.4, aim, 'easeoutquad'],
+		[fire - 0.05, pose({ ...aim, right_arm: [-89, 0, 0] })],
+		[fire, pose({ ...aim, right_arm: [-80, 0, 0] })],
+		[fire + 0.2, aim],
+		[len, R, 'easeinoutsine'],
+	]);
+}
+{ // backhand (the vanilla melee hit): a quick swipe of the right arm
+	const [len, hit] = T('backhand', 12, 4);
+	clip('backhand', len, false, [
+		[0, R],
+		[0.1, pose({ right_arm: [-40, -30, 30], torso: [2, -14, 0] }), 'easeoutquad'],
+		[hit, pose({ right_arm: [-70, 40, -10], torso: [4, 18, 0] }), 'easeinquad'],
 		[len, R, 'easeinoutsine'],
 	]);
 }

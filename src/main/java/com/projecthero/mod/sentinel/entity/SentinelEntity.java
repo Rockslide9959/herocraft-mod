@@ -18,6 +18,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -51,8 +52,10 @@ import software.bernie.geckolib.animation.RawAnimation;
  * <ul>
  *   <li><b>Arrival</b>: purge Sentinels come down out of the sky on their boot thrusters ({@link #startArrival}) and land
  *       with a jolt.</li>
- *   <li><b>Chest beam</b>: rears back and fires three magenta bolts from its chest emitter (3 x 3 damage).</li>
- *   <li><b>Palm blast</b>: swings its right arm at the target and fires one heavier, leading bolt (7).</li>
+ *   <li><b>Chest beam</b>: rears back while an aiming line from its chest gem trails the target, locks 0.45 s before
+ *       firing, then three magenta pulses run down the locked line (3 x 3 damage) -- strafe during the lock to dodge
+ *       ({@link SentinelAimedShot}).</li>
+ *   <li><b>Palm blast</b>: raises its right palm at the target, aims and locks the same way, then one heavier beam (7).</li>
  *   <li><b>Grab and slam</b>: reaches for anything within arm's length, lifts it overhead, holds it, then drives it
  *       into the ground (4 + 14). It works in the air too: a flyer it catches is hurled downward instead.</li>
  *   <li><b>Flight</b>: when its prey is high above it or out of reach, it takes off and chases on its thrusters,
@@ -68,8 +71,14 @@ public class SentinelEntity extends SentinelRobot {
 	public static final int DEATH_TICKS = 60;
 
 	// clip timings (ticks): length, key frame
-	static final int CHEST_LEN = 24, CHEST_FIRE = 12;
-	static final int HAND_LEN = 20, HAND_FIRE = 10;
+	// v0.15.3: the beams are aimed shots -- the aim trails the target until LOCK_TICKS before the fire key, then freezes
+	public static final int CHEST_LEN = 36, CHEST_FIRE = 24;
+	public static final int HAND_LEN = 30, HAND_FIRE = 20;
+	public static final int LOCK_TICKS = 9;
+	/** How fast (blocks per tick) the aim point may chase the target's lagged position while tracking. */
+	static final double TRACK_SPEED = 0.45;
+	/** Body turn rate (degrees per tick) while aiming. */
+	static final float BEAM_TURN_DEG = 9f;
 	static final int GRAB_LEN = 36, GRAB_REACH = 8, GRAB_SLAM = 28;
 	static final int DEPLOY_LEN = 30, DEPLOY_RELEASE = 16;
 
@@ -81,6 +90,7 @@ public class SentinelEntity extends SentinelRobot {
 
 	private Attack attack = Attack.NONE;
 	private int attackTicks;
+	private SentinelAimedShot shot;
 	private int globalCooldown = 30;
 	private int beamCooldown = 40;
 	private int grabCooldown = 60;
@@ -285,10 +295,12 @@ public class SentinelEntity extends SentinelRobot {
 		double speed = attack == Attack.NONE ? 0.5 : 0.12;
 		Vec3 desired = len < 0.5 ? Vec3.ZERO : dir.scale(Math.min(speed, len * 0.3) / len);
 		setDeltaMovement(getDeltaMovement().lerp(desired, 0.2));
-		getLookControl().setLookAt(target, 30f, 30f);
-		float yaw = (float) (Math.atan2(aim.z - getZ(), aim.x - getX()) * (180.0 / Math.PI)) - 90.0f;
-		setYRot(yaw);
-		yBodyRot = yaw;
+		if (shot == null) { // while aiming, tickAttack turns it (rate-limited) toward its aim point instead
+			getLookControl().setLookAt(target, 30f, 30f);
+			float yaw = (float) (Math.atan2(aim.z - getZ(), aim.x - getX()) * (180.0 / Math.PI)) - 90.0f;
+			setYRot(yaw);
+			yBodyRot = yaw;
+		}
 		fallDistance = 0;
 	}
 
@@ -356,7 +368,23 @@ public class SentinelEntity extends SentinelRobot {
 
 	private void tickAttack(ServerLevel server, LivingEntity target) {
 		attackTicks++;
-		if (target != null && attack != Attack.GRAB) {
+		boolean beam = attack == Attack.CHEST_BEAM || attack == Attack.PALM_BLAST;
+		if (beam && shot == null && target != null) {
+			shot = attack == Attack.CHEST_BEAM
+					? new SentinelAimedShot(this, target, SentinelBeamEntity.Kind.BEAM, this::chestOrigin, SentinelConfig.sentinel().chestBeamDamage / 3.0f,
+							CHEST_FIRE - 1, LOCK_TICKS, 3, 2, SentinelConfig.sentinel().beamRange + 8.0, TRACK_SPEED)
+					: new SentinelAimedShot(this, target, SentinelBeamEntity.Kind.BEAM, this::palmOrigin, SentinelConfig.sentinel().palmBlastDamage,
+							HAND_FIRE - 1, LOCK_TICKS, 1, 1, SentinelConfig.sentinel().beamRange + 8.0, TRACK_SPEED);
+		}
+		if (beam && shot != null) {
+			// v0.15.3: face the (lagging, then locked) aim point at a limited turn rate -- no snapping onto the target
+			Vec3 aim = shot.aimPoint();
+			float yaw = (float) (Math.atan2(aim.z - getZ(), aim.x - getX()) * (180.0 / Math.PI)) - 90.0f;
+			setYRot(Mth.approachDegrees(getYRot(), yaw, BEAM_TURN_DEG));
+			yBodyRot = getYRot();
+			yHeadRot = getYRot();
+			getLookControl().setLookAt(aim.x, aim.y, aim.z, BEAM_TURN_DEG, BEAM_TURN_DEG);
+		} else if (target != null && attack != Attack.GRAB) {
 			getLookControl().setLookAt(target, 40f, 40f);
 			if (!isFlying()) {
 				lookAt(target, 40f, 40f);
@@ -365,28 +393,11 @@ public class SentinelEntity extends SentinelRobot {
 		}
 		SentinelConfig.Sentinel cfg = SentinelConfig.sentinel();
 		switch (attack) {
-			case CHEST_BEAM -> {
-				if (target != null && (attackTicks == CHEST_FIRE || attackTicks == CHEST_FIRE + 2 || attackTicks == CHEST_FIRE + 4)) {
-					Vec3 from = position().add(0, getBbHeight() * 0.68, 0).add(Vec3.directionFromRotation(0, yBodyRot).scale(getBbWidth() * 0.5));
-					double speed = 1.7;
-					SentinelBeamEntity.fire(server, this, SentinelBeamEntity.Kind.BEAM, from,
-							SentinelBeamEntity.leadAim(target, from, speed).subtract(from), cfg.chestBeamDamage / 3.0f, speed);
+			case CHEST_BEAM, PALM_BLAST -> {
+				if (shot != null && shot.tick(server)) {
+					shot = null;
 				}
-				if (attackTicks >= CHEST_LEN) {
-					finish();
-				}
-			}
-			case PALM_BLAST -> {
-				if (target != null && attackTicks == HAND_FIRE) {
-					Vec3 look = Vec3.directionFromRotation(0, yBodyRot);
-					Vec3 side = new Vec3(-look.z, 0, look.x); // points to its right
-					// v0.15.3: out of the user's model's real right palm (the old model's "right" arm was on its left)
-					Vec3 from = position().add(0, getBbHeight() * 0.7, 0).add(look.scale(getBbWidth() * 0.9)).add(side.scale(getBbWidth() * 0.45));
-					double speed = 1.9;
-					SentinelBeamEntity.fire(server, this, SentinelBeamEntity.Kind.BEAM, from,
-							SentinelBeamEntity.leadAim(target, from, speed).subtract(from), cfg.palmBlastDamage, speed);
-				}
-				if (attackTicks >= HAND_LEN) {
+				if (attackTicks >= (attack == Attack.CHEST_BEAM ? CHEST_LEN : HAND_LEN)) {
 					finish();
 				}
 			}
@@ -503,7 +514,32 @@ public class SentinelEntity extends SentinelRobot {
 		return made;
 	}
 
+	/** The chest gem, where the chest beam leaves. */
+	public Vec3 chestOrigin() {
+		return position().add(0, getBbHeight() * 0.68, 0).add(Vec3.directionFromRotation(0, yBodyRot).scale(getBbWidth() * 0.3));
+	}
+
+	/** The right palm, held out at the target in the palm-blast pose. */
+	public Vec3 palmOrigin() {
+		Vec3 look = Vec3.directionFromRotation(0, yBodyRot);
+		Vec3 side = new Vec3(-look.z, 0, look.x); // points to its right
+		return position().add(0, getBbHeight() * 0.7, 0).add(look.scale(getBbWidth() * 0.9)).add(side.scale(getBbWidth() * 0.45));
+	}
+
+	/** The aimed shot in progress, if any (tests). */
+	public SentinelAimedShot currentShot() {
+		return shot;
+	}
+
+	private void clearShot() {
+		if (shot != null || shotState() != SentinelAimedShot.STATE_OFF) {
+			shot = null;
+			syncShot(SentinelAimedShot.STATE_OFF, SentinelBeamEntity.Kind.BEAM, Vec3.ZERO, Vec3.ZERO);
+		}
+	}
+
 	private void finish() {
+		clearShot();
 		attack = Attack.NONE;
 		attackTicks = 0;
 		globalCooldown = 20 + random.nextInt(20);
@@ -521,7 +557,7 @@ public class SentinelEntity extends SentinelRobot {
 	public boolean doHurtTarget(Entity target) {
 		boolean hit = super.doHurtTarget(target);
 		if (hit) {
-			triggerAnim("action", "beam_hand"); // a backhand with the same arm
+			triggerAnim("action", "backhand"); // v0.15.3: its own quick clip (the palm blast now holds its aim)
 			meleeHold = 12;
 			syncBusy();
 			target.setDeltaMovement(target.getDeltaMovement().add(0, 0.25, 0));
@@ -558,6 +594,7 @@ public class SentinelEntity extends SentinelRobot {
 		}
 		grabbed = null;
 		attack = Attack.NONE;
+		clearShot();
 		super.die(source);
 		setFlying(false);
 		arriving = false;
@@ -615,6 +652,7 @@ public class SentinelEntity extends SentinelRobot {
 		arriving = false;
 		setFlying(false);
 		attack = Attack.NONE;
+		shot = null;
 	}
 
 	// ---------------------------------------------------------------- GeckoLib
@@ -622,7 +660,7 @@ public class SentinelEntity extends SentinelRobot {
 	private static final RawAnimation IDLE = RawAnimation.begin().thenLoop("animation.sentinel.idle");
 	private static final RawAnimation WALK = RawAnimation.begin().thenLoop("animation.sentinel.walk");
 	private static final RawAnimation FLY = RawAnimation.begin().thenLoop("animation.sentinel.fly");
-	public static final String[] ACTION_CLIPS = { "beam_chest", "beam_hand", "grab", "deploy", "death" };
+	public static final String[] ACTION_CLIPS = { "beam_chest", "beam_hand", "grab", "deploy", "death", "backhand" };
 
 	@Override
 	public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {

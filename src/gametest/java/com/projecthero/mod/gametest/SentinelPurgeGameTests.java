@@ -26,6 +26,8 @@ import com.projecthero.mod.sentinel.SentinelRewards;
 import com.projecthero.mod.sentinel.SentinelSpawner;
 import com.projecthero.mod.sentinel.SentinelTargets;
 import com.projecthero.mod.sentinel.entity.MasterMoldEntity;
+import com.projecthero.mod.sentinel.entity.SentinelAimedShot;
+import com.projecthero.mod.sentinel.entity.SentinelBeamEntity;
 import com.projecthero.mod.sentinel.entity.SentinelDroneEntity;
 import com.projecthero.mod.sentinel.entity.SentinelEntity;
 import com.projecthero.mod.sentinel.entity.SentinelEntityTypes;
@@ -301,6 +303,115 @@ public class SentinelPurgeGameTests implements FabricGameTest {
 			helper.assertTrue(d.isRemoved(), "the orphaned drone removed itself");
 			helper.succeed();
 		});
+	}
+
+	// ------------------------------------------------------------------ v0.15.3: spread aggro
+
+	private static SentinelEntity idleSentinel(GameTestHelper helper, Vec3 rel, float yaw) {
+		ServerLevel level = helper.getLevel();
+		level.getServer().setDifficulty(Difficulty.NORMAL, true);
+		SentinelEntity s = SentinelEntityTypes.SENTINEL.create(level);
+		Vec3 at = helper.absoluteVec(rel);
+		s.moveTo(at.x, at.y, at.z, yaw, 0);
+		s.setNoAi(true);
+		level.addFreshEntity(s);
+		return s;
+	}
+
+	/** A fresh (never-ticked) mock player keeps vanilla's 3 s spawn invulnerability; clear it so it can be hurt. */
+	private static void clearSpawnInvulnerability(ServerPlayer p) {
+		try {
+			java.lang.reflect.Field f = ServerPlayer.class.getDeclaredField("spawnInvulnerableTime");
+			f.setAccessible(true);
+			f.setInt(p, 0);
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException(e);
+		}
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "sentinel_aggro")
+	public void sentinelAggroRotatesAndFollowsTheHardestHitter(GameTestHelper helper) {
+		SentinelEntity s = idleSentinel(helper, new Vec3(4.5, 1, 4.5), 0f);
+		ServerPlayer near = survivor(helper, new Vec3(3.0, 1, 4.5));
+		ServerPlayer far = survivor(helper, new Vec3(7.5, 1, 4.5));
+		ServerLevel level = helper.getLevel();
+		s.retargetAmong(List.of(near, far));
+		helper.assertTrue(s.getTarget() == near, "starts on the nearer player");
+		s.setFocusTicks(near.getUUID(), 100);
+		s.retargetAmong(List.of(near, far));
+		helper.assertTrue(s.getTarget() == near, "a few seconds in it stays on the same player");
+		s.setFocusTicks(near.getUUID(), SentinelEntity.FOCUS_CAP + 20);
+		s.retargetAmong(List.of(near, far));
+		helper.assertTrue(s.getTarget() == far, "after ~11 s on one player it turns to the other");
+		// the player it left behind hits it hard: it turns back at once
+		s.hurt(level.damageSources().playerAttack(near), 12.0f);
+		helper.assertTrue(s.recentDamageFrom(near.getUUID()) >= 12.0f, "the hit is remembered");
+		helper.assertTrue(s.getTarget() == near, "whoever clearly out-damages its target gets its attention immediately");
+		s.discard();
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "sentinel_aggro_lone")
+	public void sentinelKeepsALoneTargetHoweverLongItsFocused(GameTestHelper helper) {
+		SentinelEntity s = idleSentinel(helper, new Vec3(4.5, 1, 4.5), 0f);
+		ServerPlayer only = survivor(helper, new Vec3(6.5, 1, 4.5));
+		s.retargetAmong(List.of(only));
+		helper.assertTrue(s.getTarget() == only, "locks on to the only player");
+		s.setFocusTicks(only.getUUID(), SentinelEntity.FOCUS_CAP * 5);
+		s.retargetAmong(List.of(only));
+		helper.assertTrue(s.getTarget() == only, "with nobody else around it keeps attacking the same player");
+		s.discard();
+		helper.succeed();
+	}
+
+	// ------------------------------------------------------------------ v0.15.3: dodgeable aimed shots
+
+	private static SentinelAimedShot palmShot(SentinelEntity s, ServerPlayer target, Vec3 from) {
+		return new SentinelAimedShot(s, target, SentinelBeamEntity.Kind.BEAM, () -> from, SentinelConfig.sentinel().palmBlastDamage,
+				SentinelEntity.HAND_FIRE - 1, SentinelEntity.LOCK_TICKS, 1, 1, 40.0, 0.45);
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "sentinel_shot_hit")
+	public void aimedShotHitsAStandingTargetForTheFullDamage(GameTestHelper helper) {
+		SentinelEntity s = idleSentinel(helper, new Vec3(1.5, 1, 2.5), -90f);
+		ServerPlayer p = survivor(helper, new Vec3(6.5, 1, 2.5));
+		clearSpawnInvulnerability(p);
+		float before = p.getHealth();
+		SentinelAimedShot shot = palmShot(s, p, helper.absoluteVec(new Vec3(1.5, 2.2, 2.5)));
+		boolean locked = false;
+		for (int i = 0; i < 40 && !shot.tick(helper.getLevel()); i++) {
+			locked |= s.shotState() == SentinelAimedShot.STATE_LOCK;
+		}
+		helper.assertTrue(locked, "the shot telegraphs a lock before firing");
+		helper.assertTrue(shot.hits() == 1, "a target that stands still is hit, hits=" + shot.hits());
+		float dealt = before - p.getHealth();
+		helper.assertTrue(Math.abs(dealt - SentinelConfig.sentinel().palmBlastDamage) < 0.01f,
+				"the palm blast still deals " + SentinelConfig.sentinel().palmBlastDamage + ", dealt " + dealt);
+		helper.assertTrue(s.shotState() == SentinelAimedShot.STATE_OFF, "the beam is cleared afterwards");
+		s.discard();
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "sentinel_shot_dodge")
+	public void aimedShotMissesATargetThatSidestepsDuringTheLock(GameTestHelper helper) {
+		SentinelEntity s = idleSentinel(helper, new Vec3(1.5, 1, 2.5), -90f);
+		ServerPlayer p = survivor(helper, new Vec3(6.5, 1, 2.5));
+		clearSpawnInvulnerability(p);
+		float before = p.getHealth();
+		SentinelAimedShot shot = palmShot(s, p, helper.absoluteVec(new Vec3(1.5, 2.2, 2.5)));
+		boolean moved = false;
+		for (int i = 0; i < 40 && !shot.tick(helper.getLevel()); i++) {
+			if (!moved && shot.locked()) {
+				Vec3 side = helper.absoluteVec(new Vec3(6.5, 1, 5.5));
+				p.teleportTo(side.x, side.y, side.z);
+				moved = true;
+			}
+		}
+		helper.assertTrue(moved, "the shot locked");
+		helper.assertTrue(shot.hits() == 0, "three blocks sideways during the lock dodges it, hits=" + shot.hits());
+		helper.assertTrue(p.getHealth() == before, "no damage taken");
+		s.discard();
+		helper.succeed();
 	}
 
 	// ------------------------------------------------------------------ v0.15.3: the user's Sentinel model

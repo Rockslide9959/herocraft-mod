@@ -86,6 +86,11 @@ public class MasterMoldEntity extends SentinelRobot {
 
 	public enum Attack { NONE, STOMP, SWEEP, BEAM, DEPLOY, ROAR }
 
+	/** v0.15.3: the Purge Beam's aim point speed cap per phase (blocks per tick; a walk is ~0.22, a sprint ~0.28). */
+	static final double[] BEAM_TRACK_SPEED = { 0.17, 0.2, 0.24 };
+	/** v0.15.3: how close to the Purge Beam's line a body must be to be burned (was 1.2). */
+	static final double BEAM_HIT_RADIUS = 0.6;
+
 	/** 0 = off, 1 = charging, 2 = firing. */
 	private static final EntityDataAccessor<Byte> DATA_BEAM = SynchedEntityData.defineId(MasterMoldEntity.class, EntityDataSerializers.BYTE);
 	private static final EntityDataAccessor<Vector3f> DATA_BEAM_TARGET = SynchedEntityData.defineId(MasterMoldEntity.class, EntityDataSerializers.VECTOR3);
@@ -407,13 +412,15 @@ public class MasterMoldEntity extends SentinelRobot {
 			beamPoint = target != null ? target.getEyePosition() : eye.add(Vec3.directionFromRotation(0, yBodyRot).scale(20));
 		}
 		if (target != null) {
-			// the beam point creeps after the target: dodge sideways and it can't keep up
-			double turn = phase() >= 3 ? 0.55 : 0.35;
+			// the beam point creeps after the target: dodge sideways and it can't keep up. v0.15.3: a hard cap on how fast
+			// it may move (blocks per tick), below a sprint and (outside phase 3) below a walk -- the old cap grew with the
+			// distance to the target, so in practice it never lost anyone
+			double turn = BEAM_TRACK_SPEED[Math.min(BEAM_TRACK_SPEED.length, phase()) - 1];
 			Vec3 want = target.position().add(0, target.getBbHeight() * 0.5, 0);
 			Vec3 delta = want.subtract(beamPoint);
 			double len = delta.length();
 			if (len > 1.0e-4) {
-				beamPoint = beamPoint.add(delta.scale(Math.min(len, turn + len * 0.04) / len));
+				beamPoint = beamPoint.add(delta.scale(Math.min(len, turn) / len));
 			}
 			float yaw = (float) (Math.atan2(beamPoint.z - getZ(), beamPoint.x - getX()) * (180.0 / Math.PI)) - 90.0f;
 			setYRot(Mth.approachDegrees(getYRot(), yaw, 4f));
@@ -463,11 +470,11 @@ public class MasterMoldEntity extends SentinelRobot {
 		return hit.getType() == HitResult.Type.MISS ? tip : hit.getLocation();
 	}
 
-	/** Everything the beam passes through (within 1.2 blocks of its line) takes {@code damage}. */
+	/** Everything the beam passes through (within {@link #BEAM_HIT_RADIUS} of its line) takes {@code damage}. */
 	private void beamDamage(ServerLevel server, Vec3 from, Vec3 to, float damage) {
-		AABB box = new AABB(from, to).inflate(1.5);
+		AABB box = new AABB(from, to).inflate(BEAM_HIT_RADIUS + 1.0);
 		for (LivingEntity e : server.getEntitiesOfClass(LivingEntity.class, box, SentinelTargets::canTarget)) {
-			if (e.getBoundingBox().inflate(1.2).clip(from, to).isPresent()) {
+			if (e.getBoundingBox().inflate(BEAM_HIT_RADIUS).clip(from, to).isPresent()) {
 				e.hurt(damageSources().indirectMagic(this, this), damage);
 			}
 		}

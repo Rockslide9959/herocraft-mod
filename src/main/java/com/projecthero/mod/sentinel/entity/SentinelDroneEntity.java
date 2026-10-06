@@ -30,13 +30,16 @@ import software.bernie.geckolib.animation.RawAnimation;
 /**
  * v0.15.1: a <b>Sentinel Drone</b> -- the Sentinel Program's flying scout. Small, fragile (16 health) and always airborne:
  * it circles its prey a few blocks above head height, bobbing and switching direction, and snaps a thin red laser at it
- * every two seconds (4 damage, stopped by cover). Carrier Sentinels release them in pairs, and the first wave of every
+ * every two seconds (4 damage, stopped by cover). v0.15.3: the laser is a {@link SentinelAimedShot} -- a thin red aiming
+ * line trails its prey, locks 0.45 s before it fires, and a target that moves off the line in time is missed. Carrier Sentinels release them in pairs, and the first wave of every
  * purge is all drones. Flight is a hand-rolled steer (the same approach as the Parademons), not a path-finder.
  */
 public class SentinelDroneEntity extends SentinelRobot {
 	public static final int DEATH_TICKS = 20;
 
 	private int laserCooldown = 30;
+	private SentinelAimedShot laser;
+	private boolean shotAnimPlayed;
 	private int orbitDir = 1;
 	private int orbitFlipTicks = 40;
 	private final float bobPhase;
@@ -102,6 +105,9 @@ public class SentinelDroneEntity extends SentinelRobot {
 			yHeadRot = yaw;
 			tickLaser(server, target);
 		} else {
+			if (laser != null) {
+				tickLaser(server, null);
+			}
 			double a = (tickCount + bobPhase) * 0.03 * orbitDir;
 			int ground = server.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(home.x), (int) Math.floor(home.z));
 			want = new Vec3(home.x + Math.cos(a) * 5, Math.max(home.y, ground + 6), home.z + Math.sin(a) * 5);
@@ -119,8 +125,21 @@ public class SentinelDroneEntity extends SentinelRobot {
 		}
 	}
 
+	/** v0.15.3: the laser is an aimed shot -- a red aiming line that trails the target, locks, then fires. */
+	public static final int LASER_FIRE = 18, LASER_LOCK = 9;
+
 	private void tickLaser(ServerLevel server, LivingEntity target) {
-		if (--laserCooldown > 0) {
+		if (laser != null) {
+			if (laser.state() == SentinelAimedShot.STATE_FIRE && laser.lastPulseTick() > 0 && !shotAnimPlayed) {
+				shotAnimPlayed = true;
+				triggerAnim("action", "shoot");
+			}
+			if (laser.tick(server)) {
+				laser = null;
+			}
+			return;
+		}
+		if (--laserCooldown > 0 || target == null) {
 			return;
 		}
 		SentinelConfig.Drone cfg = SentinelConfig.drone();
@@ -129,14 +148,23 @@ public class SentinelDroneEntity extends SentinelRobot {
 			return;
 		}
 		laserCooldown = cfg.laserCooldownTicks + random.nextInt(15);
-		triggerAnim("action", "shoot");
-		Vec3 from = position().add(0, getBbHeight() * 0.3, 0);
-		double speed = 1.5;
-		SentinelBeamEntity.fire(server, this, SentinelBeamEntity.Kind.LASER, from,
-				SentinelBeamEntity.leadAim(target, from, speed).subtract(from), cfg.laserDamage, speed);
+		shotAnimPlayed = false;
+		laser = new SentinelAimedShot(this, target, SentinelBeamEntity.Kind.LASER, this::laserOrigin, cfg.laserDamage, LASER_FIRE, LASER_LOCK,
+				1, 1, cfg.laserRange + 6.0, 0.5);
+		laser.tick(server);
 	}
 
-	/** Test hook: fire right away. */
+	/** Where the laser leaves: under its chin. */
+	public Vec3 laserOrigin() {
+		return position().add(0, getBbHeight() * 0.3, 0);
+	}
+
+	/** The laser shot in progress, if any (tests). */
+	public SentinelAimedShot currentShot() {
+		return laser;
+	}
+
+	/** Test hook: start a shot right away. */
 	public void fireNow() {
 		laserCooldown = 0;
 	}
@@ -179,6 +207,10 @@ public class SentinelDroneEntity extends SentinelRobot {
 	public void die(DamageSource source) {
 		if (dead || isRemoved()) {
 			return;
+		}
+		if (laser != null) {
+			laser = null;
+			syncShot(SentinelAimedShot.STATE_OFF, SentinelBeamEntity.Kind.LASER, Vec3.ZERO, Vec3.ZERO);
 		}
 		super.die(source);
 		setNoGravity(false);
