@@ -598,7 +598,7 @@ const mold = buildModel({
 	}
 	{ // Fabricate: the chest hatch swings up and a freshly built Sentinel launches out
 		const [len, launch] = T('deploy', 44, 24);
-		const open = pose({ hatch: -115, torso: -4, head: -10, right_arm: 15, left_arm: 15, right_forearm: -30, left_forearm: -30, core_s: 1.4 });
+		const open = pose({ hatch: -92, torso: -4, head: -10, right_arm: 15, left_arm: 15, right_forearm: -30, left_forearm: -30, core_s: 1.4 });
 		clip('deploy', len, false, [
 			[0, R],
 			[0.6, open, 'easeoutquad'],
