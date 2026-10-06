@@ -171,6 +171,8 @@ public final class IronManFlightFxClient {
 		Matrix4f base = new Matrix4f()
 				.rotateY((180.0f - yaw) * Mth.DEG_TO_RAD)
 				.scale(s)
+				// v0.15.9: the Repulsor Boots bank, in the same order as PlayerRendererMixin#leanWhileFlying
+				.rotateZ(-IronManFlightPose.bootsRoll(player, partial) * Mth.DEG_TO_RAD)
 				.rotateX(-lean * Mth.DEG_TO_RAD)
 				.scale(-0.9375f, -0.9375f, 0.9375f)
 				.translate(0.0f, -1.501f, 0.0f);

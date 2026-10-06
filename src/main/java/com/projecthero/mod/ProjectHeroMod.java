@@ -435,6 +435,7 @@ public class ProjectHeroMod implements ModInitializer {
 				});
 		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			com.projecthero.mod.spider.SpiderMan.clearTransient(handler.getPlayer());
+			com.projecthero.mod.ironman.IronManSuitArrows.forget(handler.getPlayer().getUUID()); // v0.15.9
 			com.projecthero.mod.spider.SpiderWebs.clearFor(handler.getPlayer());
 			com.projecthero.mod.maxsteel.MaxSteel.clearTransient(handler.getPlayer());
 			com.projecthero.mod.firearm.FirearmManager.onCleanup(handler.getPlayer().getUUID());

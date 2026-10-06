@@ -133,6 +133,7 @@ public final class GreenLanternConstructs {
 	}
 
 	public static void initialize() {
+		GreenLanternRingLight.initialize(); // v0.15.9: no ring light survives a server stop
 		// Punching one of a construct's own blocks either chips away at its HP (Wall/Cage; the whole
 		// construct collapses at 0) or, for the HP-less kinds (Platform/Bridge/Stair-Ramp/Lantern
 		// Light), dismisses it outright on the first punch -- either way the vanilla break path never
@@ -196,6 +197,7 @@ public final class GreenLanternConstructs {
 	}
 
 	public static void clearSessionState() {
+		GreenLanternRingLight.clearSessionState(); // v0.15.9
 		BY_OWNER.clear();
 		RESCUE_HELD.clear();
 		RESCUE_BUBBLE.clear();
@@ -323,6 +325,16 @@ public final class GreenLanternConstructs {
 			rescueGrab(player);
 			return;
 		}
+		// v0.15.9: the Lantern Light is the ring's own light now -- a second press puts it out
+		if (type == ConstructType.LANTERN_LIGHT) {
+			Construct lit = firstOfType(player.getUUID(), type);
+			if (lit != null) {
+				dismissOne(lit, false);
+				player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_DEACTIVATE,
+						SoundSource.PLAYERS, 0.5f, 1.2f);
+				return;
+			}
+		}
 		if (TOGGLE_TYPES.contains(type)) {
 			Construct existing = firstOfType(player.getUUID(), type);
 			if (existing != null) {
@@ -374,7 +386,10 @@ public final class GreenLanternConstructs {
 			case PLATFORM_BLOCKS -> spawnPlatform(player, c, type == ConstructType.CARRY_PLATFORM);
 			case BRIDGE_BLOCKS -> spawnBridge(player, c);
 			case RAMP_BLOCKS -> spawnRamp(player, c);
-			case LIGHT_BLOCKS -> spawnLight(player, c);
+			case RING_LIGHT -> {
+				c.toggledOn = true;
+				GreenLanternRingLight.start(player);
+			}
 			case CAGE -> spawnCage(player, c, cageTarget);
 			case TURRET -> {} // anchor + timer only, ticked below (its display entities are added once it is tracked)
 			case BUBBLE -> c.radius = GreenLanternConfig.BUBBLE_RADIUS;
@@ -384,7 +399,7 @@ public final class GreenLanternConstructs {
 		}
 		boolean usesBlocks = type.kind() == ConstructType.Kind.WALL || type.kind() == ConstructType.Kind.PLATFORM_BLOCKS
 				|| type.kind() == ConstructType.Kind.BRIDGE_BLOCKS || type.kind() == ConstructType.Kind.RAMP_BLOCKS
-				|| type.kind() == ConstructType.Kind.LIGHT_BLOCKS || type.kind() == ConstructType.Kind.CAGE;
+				|| type.kind() == ConstructType.Kind.CAGE;
 		boolean placementFailed = (usesBlocks && c.cells.isEmpty())
 				|| (type.kind() == ConstructType.Kind.CAGE && c.cagedEntityId < 0)
 				|| (type.kind() == ConstructType.Kind.TOOL_KIT && !c.toolKitGranted);
@@ -418,7 +433,7 @@ public final class GreenLanternConstructs {
 	}
 
 	private static boolean isAimed(ConstructType type) {
-		return type == ConstructType.HARD_LIGHT_WALL || type == ConstructType.PLATFORM || type == ConstructType.LANTERN_LIGHT
+		return type == ConstructType.HARD_LIGHT_WALL || type == ConstructType.PLATFORM
 				|| type == ConstructType.SENTRY_TURRET || type == ConstructType.CONTAINMENT_CAGE;
 	}
 
@@ -448,7 +463,6 @@ public final class GreenLanternConstructs {
 			case PLATFORM -> Vec3.atBottomCenterOf(platformCell(player));
 			case HARD_LIGHT_WALL, SENTRY_TURRET -> Vec3.atBottomCenterOf(groundSnap(level,
 					targetCell(player, GreenLanternConfig.CONSTRUCT_PLACE_RANGE)));
-			case LANTERN_LIGHT -> Vec3.atBottomCenterOf(targetCell(player, GreenLanternConfig.LANTERN_LIGHT_RANGE));
 			case CONTAINMENT_CAGE -> cageTarget.position();
 			default -> player.position();
 		};
@@ -768,11 +782,6 @@ public final class GreenLanternConstructs {
 		}
 		c.facing = facing;
 		c.buildPerTick = GreenLanternConfig.RAMP_WIDTH;
-	}
-
-	/** v0.13.21: a floating orb of hard light (no collision) on the aimed air cell, not a full Sea Lantern block. */
-	private static void spawnLight(ServerPlayer player, Construct c) {
-		add(c, BlockPos.containing(c.anchor), GreenLanternBlocks.HARD_LIGHT_LAMP.defaultBlockState());
 	}
 
 	/**
@@ -1509,6 +1518,10 @@ public final class GreenLanternConstructs {
 		if (c.type == ConstructType.CARRY_PLATFORM) {
 			removeCarrySeats(c);
 		}
+		if (c.type.kind() == ConstructType.Kind.RING_LIGHT) {
+			MinecraftServer server = c.level.getServer();
+			GreenLanternRingLight.stop(c.owner, server, server == null ? null : server.getPlayerList().getPlayer(c.owner));
+		}
 	}
 
 	/** v0.13.21: every construct fades out in green sparks as it ends (it used to vanish silently unless punched down). */
@@ -1591,6 +1604,9 @@ public final class GreenLanternConstructs {
 					removeDisplays(c);
 					if (c.type == ConstructType.CARRY_PLATFORM) {
 						removeCarrySeats(c);
+					}
+					if (c.type.kind() == ConstructType.Kind.RING_LIGHT) {
+						GreenLanternRingLight.stop(c.owner, server, null);
 					}
 				}
 				ownerIt.remove();
@@ -1684,6 +1700,9 @@ public final class GreenLanternConstructs {
 			case BUBBLE -> tickBubble(owner, c, now);
 			case DRILL -> tickDrill(owner, c);
 			case MELEE_BUFF -> tickEnergyBlade(owner, c);
+			case RING_LIGHT -> {
+				GreenLanternRingLight.tick(owner);
+			}
 			case PLATFORM_BLOCKS -> {
 				if (c.type == ConstructType.CARRY_PLATFORM) {
 					tickCarryPlatform(owner, c);

@@ -435,6 +435,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			return;
 		}
 
+		// v0.15.9: no sprint flying on Repulsor Boots -- drop a sprint carried into the take-off (new sprints are refused
+		// by mixin.LivingEntityRepulsorFlightMixin), so there is no sprint speed modifier or FOV kick
+		if (com.projecthero.mod.ironman.RepulsorBoots.blocksSprint(client.player) && client.player.isSprinting()) {
+			client.player.setSprinting(false);
+		}
 		handleGreenLanternConstructWheelHold(client);
 		handleTitanSprint(client);
 

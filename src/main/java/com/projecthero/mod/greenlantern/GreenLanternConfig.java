@@ -290,10 +290,9 @@ public final class GreenLanternConfig {
 	/** v0.11.7: 1 to deploy, 1 charge every 5 seconds (0.2/sec) to maintain -- explicit user request. */
 	public static final float LANTERN_LIGHT_COST = 1f;
 	public static final float LANTERN_LIGHT_UPKEEP_PER_SEC = 0.2f;
-	public static final int LANTERN_LIGHT_MAX_DURATION_TICKS = 60 * 20;
+	/** v0.15.9: 0 = no time limit -- the ring light stays on until toggled off (its upkeep still drains). */
+	public static final int LANTERN_LIGHT_MAX_DURATION_TICKS = 0;
 	public static final int LANTERN_LIGHT_SLOT_WEIGHT = 1;
-	/** v0.13.21: an aimed Lantern Light hangs where you point, up to this far (it used to share the generic 24). */
-	public static final double LANTERN_LIGHT_RANGE = 16.0;
 
 	public static final float BUBBLE_COST = 90f;
 	public static final float BUBBLE_UPKEEP_PER_SEC = 7f;
@@ -417,7 +416,7 @@ public final class GreenLanternConfig {
 
 	// ---------------- Will Trial ----------------
 
-	/** v0.11.12, explicit user request: a bare experience-level gate on even starting the trial. */
+	/** v0.11.12: the experience-level gate on starting the trial; v0.15.9: these levels are consumed when it starts. */
 	public static final int TRIAL_LEVEL_REQUIREMENT = 20;
 	public static final double TRIAL_RADIUS = 32.0;
 	public static final int TRIAL_LEAVE_FAIL_TICKS = 8 * 20;

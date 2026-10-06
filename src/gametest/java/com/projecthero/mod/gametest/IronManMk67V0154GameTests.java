@@ -134,9 +134,9 @@ public class IronManMk67V0154GameTests implements FabricGameTest {
 		IronManSuit m6 = IronManSuits.MARK_6;
 		IronManSuit m7 = IronManSuits.MARK_VII;
 		h.assertTrue(m6.energyCapacity() == 4000f && m6.energyRegenPerSecond() == 5f, "Mark 6: 4000 energy at 5/s");
-		h.assertTrue(m6.maxIntegrity() == 2500f && m6.wornIntegrityRegenPerSecond() == 1f, "Mark 6: 2500 integrity at 1/s");
+		h.assertTrue(m6.maxIntegrity() == 2500f && m6.wornIntegrityRegenPerSecond() == 0f, "Mark 6: 2500 integrity, no worn repair (v0.15.9)");
 		h.assertTrue(m7.energyCapacity() == 4500f && m7.energyRegenPerSecond() == 5f, "Mark 7: 4500 energy at 5/s");
-		h.assertTrue(m7.maxIntegrity() == 2750f && m7.wornIntegrityRegenPerSecond() == 1f, "Mark 7: 2750 integrity at 1/s");
+		h.assertTrue(m7.maxIntegrity() == 2750f && m7.wornIntegrityRegenPerSecond() == 0f, "Mark 7: 2750 integrity, no worn repair (v0.15.9)");
 		for (IronManSuit s : new IronManSuit[] { m6, m7 }) {
 			String id = s.id();
 			h.assertTrue(s.resistanceAmplifier() == 1, id + ": Resistance II");
@@ -197,7 +197,7 @@ public class IronManMk67V0154GameTests implements FabricGameTest {
 			float e = IronManEnergy.energy(p, id);
 			float i = IronManEnergy.integrity(p, id);
 			h.assertTrue(Math.abs(e - 1005f) < 0.05f, id + " energy regenerates 5/s, got " + e);
-			h.assertTrue(Math.abs(i - 101f) < 0.05f, id + " integrity repairs 1/s while worn, got " + i);
+			h.assertTrue(i == 100f, id + " v0.15.9: integrity no longer repairs while worn, got " + i);
 			leave(h, p);
 		}
 		// every other mark keeps the v0.15.3 rule: no worn repair
@@ -216,7 +216,7 @@ public class IronManMk67V0154GameTests implements FabricGameTest {
 			float before = IronManEnergy.integrity(p, id);
 			h.assertTrue(IronManDamage.onAllowDamage(p, p.damageSources().generic(), 10f), id + ": the hit lands in full");
 			IronManDamage.onDamageTaken(p, p.damageSources().generic(), 10f);
-			h.assertTrue(Math.abs(before - IronManEnergy.integrity(p, id) - 7.5f) < 1e-3f, id + ": 10 taken = 7.5 integrity");
+			h.assertTrue(Math.abs(before - IronManEnergy.integrity(p, id) - 10f) < 1e-3f, id + ": v0.15.9: 10 damage = 10 integrity");
 			leave(h, p);
 		}
 		h.succeed();

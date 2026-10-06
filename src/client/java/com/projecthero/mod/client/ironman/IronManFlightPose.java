@@ -10,6 +10,7 @@ import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.client.FlightPoseHelper;
 import com.projecthero.mod.flight.DirectionalFlightModel;
 import com.projecthero.mod.ironman.IronManFlightLook;
+import com.projecthero.mod.ironman.RepulsorFlightLook;
 import com.projecthero.mod.ironman.data.TonyStarkState;
 import com.projecthero.mod.ironman.item.IronManArmorItem;
 import com.projecthero.mod.ironman.suit.IronManSuit;
@@ -21,6 +22,7 @@ import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.player.Player;
 
 /**
@@ -40,7 +42,11 @@ import net.minecraft.world.entity.player.Player;
  *   landings just ease out of the pose.</li>
  * </ul>
  * The Mark 1 never leans and gets its own clunky upright stance (arms stiffly out for balance, a heavy sway and a
- * servo jitter). Repulsor Boots wearers (no suit) only get straight legs so the boot jets line up.
+ * servo jitter). v0.15.9: Repulsor Boots wearers (no suit) get their own continuous pose instead of the tiers -- see
+ * {@link com.projecthero.mod.ironman.RepulsorFlightLook}: the body leans / banks with the body-frame velocity
+ * ({@link #bootsLean} / {@link #bootsRoll}, applied by {@code FlightPoseHelper} / {@code PlayerRendererMixin}), arms
+ * angled down with the palms to the ground hovering and swept back along the body moving, legs together and trailing,
+ * a slow bob hovering ({@link #bootsBob}).
  *
  * <p>Every input is state the client has for <em>every</em> player it can see -- the synced flight flags, the synced
  * sprint flag, worn boots, the synced {@code TonyStarkState.supersonicUntil} and the interpolated position (speed and
@@ -110,6 +116,18 @@ public final class IronManFlightPose {
 		private int histIndex;
 		/** Ticks this player has been in view -- a flier that comes into range already airborne is not a take-off. */
 		private int seenTicks;
+
+		// v0.15.9 Repulsor Boots pose: eased body-frame velocity (normalised -1..1) and body lean / roll (degrees)
+		float bFwd;
+		float bFwdPrev;
+		float bRight;
+		float bRightPrev;
+		float bUp;
+		float bUpPrev;
+		float bLean;
+		float bLeanPrev;
+		float bRoll;
+		float bRollPrev;
 
 		public IronManFlightLook.JetState jetState() {
 			return IronManFlightLook.jetState(moving, backward, sprinting, supersonic);
@@ -218,12 +236,60 @@ public final class IronManFlightPose {
 			float target = i == tier ? 1f : 0f;
 			a.w[i] += (target - a.w[i]) * TIER_EASE;
 		}
+		tickBoots(player, a, dx, dy, dz);
+
 		a.blendPrev = a.blend;
 		float target = a.flying ? 1f : 0f;
 		a.blend += (target - a.blend) * BLEND_EASE;
 		if (Math.abs(a.blend - target) < 0.002f) {
 			a.blend = target;
 		}
+	}
+
+	/** v0.15.9: eases the Repulsor Boots body-frame velocity and the lean / roll it drives (both toward 0 off the boots). */
+	private static void tickBoots(Player player, Anim a, double dx, double dy, double dz) {
+		boolean boots = a.flying && a.kind == Kind.BOOTS;
+		float yaw = player.yBodyRot;
+		float fwd = boots ? RepulsorFlightLook.normalise(RepulsorFlightLook.forward(dx, dz, yaw), RepulsorFlightLook.FULL_SPEED) : 0f;
+		float right = boots ? RepulsorFlightLook.normalise(RepulsorFlightLook.right(dx, dz, yaw), RepulsorFlightLook.FULL_SPEED) : 0f;
+		float up = boots ? RepulsorFlightLook.normalise(dy, RepulsorFlightLook.FULL_VERTICAL) : 0f;
+		a.bFwdPrev = a.bFwd;
+		a.bRightPrev = a.bRight;
+		a.bUpPrev = a.bUp;
+		a.bLeanPrev = a.bLean;
+		a.bRollPrev = a.bRoll;
+		a.bFwd = RepulsorFlightLook.ease(a.bFwd, fwd, RepulsorFlightLook.VELOCITY_EASE);
+		a.bRight = RepulsorFlightLook.ease(a.bRight, right, RepulsorFlightLook.VELOCITY_EASE);
+		a.bUp = RepulsorFlightLook.ease(a.bUp, up, RepulsorFlightLook.VELOCITY_EASE);
+		a.bLean = RepulsorFlightLook.ease(a.bLean, boots ? RepulsorFlightLook.targetLean(a.bFwd) : 0f, RepulsorFlightLook.BODY_EASE);
+		a.bRoll = RepulsorFlightLook.ease(a.bRoll, boots ? RepulsorFlightLook.targetRoll(a.bRight) : 0f, RepulsorFlightLook.BODY_EASE);
+	}
+
+	/** v0.15.9: the Repulsor Boots body lean (degrees, + = forward), added into {@link FlightPoseHelper#lean}. */
+	public static float bootsLean(Player player, float partial) {
+		Anim a = ANIMS.get(player.getUUID());
+		return a == null ? 0f : Mth.lerp(partial, a.bLeanPrev, a.bLean);
+	}
+
+	/** v0.15.9: the Repulsor Boots body bank (degrees, + = toward the flier's right), applied by {@code PlayerRendererMixin}. */
+	public static float bootsRoll(Player player, float partial) {
+		Anim a = ANIMS.get(player.getUUID());
+		return a == null ? 0f : Mth.lerp(partial, a.bRollPrev, a.bRoll);
+	}
+
+	/** v0.15.9: the Repulsor Boots hover bob (blocks), fading out with speed and with the flight blend. */
+	public static float bootsBob(Player player, float partial) {
+		Anim a = ANIMS.get(player.getUUID());
+		if (a == null || a.shownKind != Kind.BOOTS) {
+			return 0f;
+		}
+		float blend = Mth.lerp(partial, a.blendPrev, a.blend);
+		if (blend <= 0.001f) {
+			return 0f;
+		}
+		float hover = RepulsorFlightLook.hoverWeight(Mth.lerp(partial, a.bFwdPrev, a.bFwd), Mth.lerp(partial, a.bRightPrev, a.bRight));
+		float age = player.tickCount + partial;
+		return Mth.sin(age * RepulsorFlightLook.BOB_SPEED) * RepulsorFlightLook.BOB_AMPLITUDE * hover * blend;
 	}
 
 	public static Kind kindOf(Player player) {
@@ -331,12 +397,60 @@ public final class IronManFlightPose {
 		out[10] = 0f;
 		out[11] = Mth.lerp(crouch, -legZ, -0.10f);
 		if (kind == Kind.BOOTS) {
-			// no suit: just straight legs, slightly apart, so the boot jets point where they should
-			out[6] = 0.02f + Mth.sin(age * 0.10f) * 0.03f * wh;
-			out[8] = 0.05f;
-			out[9] = 0.02f + Mth.sin(age * 0.10f + 2.6f) * 0.03f * wh;
-			out[11] = -0.05f;
+			bootsTargets(a, partial, age, out);
 		}
+	}
+
+	/**
+	 * v0.15.9: the Repulsor Boots limb pose (no suit), from the eased body-frame velocity -- see
+	 * {@link com.projecthero.mod.ironman.RepulsorFlightLook}. Same layout and conventions as {@link #targets}.
+	 */
+	static void bootsTargets(Anim a, float partial, float age, float[] out) {
+		float fwd = Mth.lerp(partial, a.bFwdPrev, a.bFwd);
+		float right = Mth.lerp(partial, a.bRightPrev, a.bRight);
+		float up = Mth.lerp(partial, a.bUpPrev, a.bUp);
+		float f = RepulsorFlightLook.response(Math.max(0f, fwd));
+		float b = RepulsorFlightLook.response(Math.max(0f, -fwd));
+		float side = RepulsorFlightLook.response(right);
+		float sa = Math.abs(side);
+		float h = RepulsorFlightLook.hoverWeight(fwd, right);
+		float climb = Math.max(0f, up);
+		float sink = Math.max(0f, -up);
+
+		// arms: hovering angled down and a touch back, palms (hand ends) to the ground; moving forward swept back along
+		// the leaning body; backward thrown forward to brake; strafing out for balance; climbing tucked straight down
+		// (pushing), sinking flared out (braking)
+		float armX = 0.16f + f * 0.50f - b * 0.55f - climb * 0.06f - sink * 0.14f;
+		float armZ = 0.34f - f * 0.22f - b * 0.04f + sa * 0.06f - climb * 0.14f + sink * 0.22f;
+		// strafing: the arm on the side being slid toward tucks in, the trailing one flares
+		float rArmZ = armZ - side * 0.14f;
+		float lArmZ = armZ + side * 0.14f;
+		// legs together, slightly back; trailing further at speed, swung forward braking / sinking, trailing the slide
+		float legX = 0.07f + f * 0.20f - b * 0.22f + climb * 0.06f - sink * 0.16f;
+		float rLegZ = 0.03f - side * 0.10f;
+		float lLegZ = 0.03f + side * 0.10f;
+
+		// a slow stabilising drift hovering, a faint flutter at speed
+		float mv = 1f - h;
+		float rArmX = armX + Mth.sin(age * 0.11f) * 0.035f * h + Mth.sin(age * 1.3f) * 0.008f * mv;
+		float lArmX = armX + Mth.sin(age * 0.11f + 1.9f) * 0.035f * h + Mth.sin(age * 1.3f + 1.1f) * 0.008f * mv;
+		rArmZ += Mth.sin(age * 0.15f + 0.7f) * 0.025f * h;
+		lArmZ += Mth.sin(age * 0.15f + 2.3f) * 0.025f * h;
+		float rLegX = legX + Mth.sin(age * 0.11f) * 0.03f * h + Mth.sin(age * 1.5f) * 0.01f * mv;
+		float lLegX = legX + Mth.sin(age * 0.11f + 0.6f) * 0.03f * h + Mth.sin(age * 1.5f + 2.0f) * 0.01f * mv;
+
+		out[0] = rArmX;
+		out[1] = 0f;
+		out[2] = rArmZ;
+		out[3] = lArmX;
+		out[4] = 0f;
+		out[5] = -lArmZ;
+		out[6] = rLegX;
+		out[7] = 0f;
+		out[8] = rLegZ;
+		out[9] = lLegX;
+		out[10] = 0f;
+		out[11] = -lLegZ;
 	}
 
 	private static final float[] SCRATCH = new float[12];
@@ -356,6 +470,21 @@ public final class IronManFlightPose {
 			if (!boots) {
 				set(m.rightArm, blend, t[0], t[1], t[2]);
 				set(m.leftArm, blend, t[3], t[4], t[5]);
+			} else if (!firstPersonHand) {
+				// v0.15.9: the boots pose owns the arms too -- except an arm vanilla is aiming / blocking / using with
+				// (bow, crossbow, shield, spyglass...), and fading out of the way across an attack swing; never the
+				// first-person hand (renderHand runs setupAnim and only resets the arm's xRot)
+				HumanoidArm swingArm = player.swingingArm == net.minecraft.world.InteractionHand.MAIN_HAND
+						? player.getMainArm() : player.getMainArm().getOpposite();
+				float swing = Mth.sin(Mth.clamp(m.attackTime, 0f, 1f) * Mth.PI);
+				if (free(m.rightArmPose)) {
+					float w = swingArm == HumanoidArm.RIGHT ? blend * (1f - swing) : blend;
+					set(m.rightArm, w, t[0], t[1], t[2]);
+				}
+				if (free(m.leftArmPose)) {
+					float w = swingArm == HumanoidArm.LEFT ? blend * (1f - swing) : blend;
+					set(m.leftArm, w, t[3], t[4], t[5]);
+				}
 			}
 			set(m.rightLeg, blend, t[6], t[7], t[8]);
 			set(m.leftLeg, blend, t[9], t[10], t[11]);
@@ -365,6 +494,16 @@ public final class IronManFlightPose {
 		if (k > 0f) {
 			applyLanding(m, k, tLand);
 		}
+	}
+
+	/**
+	 * v0.15.9: set by {@code PlayerRendererHandMixin} while vanilla draws the first-person hand, whose
+	 * {@code setupAnim} must not pick up the boots' arm pose.
+	 */
+	public static boolean firstPersonHand;
+
+	private static boolean free(HumanoidModel.ArmPose pose) {
+		return pose == HumanoidModel.ArmPose.EMPTY || pose == HumanoidModel.ArmPose.ITEM;
 	}
 
 	private static void set(ModelPart p, float w, float x, float y, float z) {

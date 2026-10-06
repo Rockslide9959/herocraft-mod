@@ -58,6 +58,16 @@ public final class RepulsorBoots {
 	}
 
 	/**
+	 * v0.15.9, explicit user request ("dont allow sprint flying"): no sprinting while flying on the boots -- no sprint
+	 * speed, no sprint FOV, no sprint flag. Read off the synced flag, so it holds on both sides and for every player;
+	 * enforced by {@code mixin.LivingEntityRepulsorFlightMixin} (any {@code setSprinting(true)} becomes false) plus
+	 * {@link #setFlying} / {@link #tick} dropping a sprint the flier was already in.
+	 */
+	public static boolean blocksSprint(Player player) {
+		return player.getAttachedOrElse(ModAttachments.REPULSOR_BOOTS_FLYING, false);
+	}
+
+	/**
 	 * The double-tap-jump gesture, once {@link IronManFlight} has declined it. Returns true if the
 	 * boots handled the input.
 	 */
@@ -82,6 +92,9 @@ public final class RepulsorBoots {
 		player.getAbilities().flying = flying;
 		player.onUpdateAbilities();
 		player.resetFallDistance();
+		if (flying && player.isSprinting()) {
+			player.setSprinting(false); // v0.15.9: no sprint flying on the boots
+		}
 		// v0.14.21: the take-off / power-down sounds are client-side now (client.IronManFlightFxClient)
 	}
 
@@ -95,6 +108,9 @@ public final class RepulsorBoots {
 			return;
 		}
 		player.getAbilities().flying = true;
+		if (player.isSprinting()) {
+			player.setSprinting(false); // v0.15.9: no sprint flying on the boots
+		}
 		// v0.14.16: the movement (and the MAX_SPEED_MPS ceiling) is the client's directional flight now --
 		// flight.DirectionalFlightModel#repulsorBoots -- with W / S forward / back along the look like every other flight.
 		// v0.14.21: the boot jets are drawn client-side at the real boot soles (client.IronManFlightFxClient)

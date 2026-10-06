@@ -161,16 +161,8 @@ public final class IronManEnergy {
 		if (current < suit.energyCapacity()) {
 			addEnergy(player, suit.id(), regenPerSecond(player, suit) / 20f);
 		}
-		// v0.15.4, explicit user request: the Mark 6 / Mark 7 repair their own integrity while worn (1/s) -- the one
-		// exception to v0.15.3's "only a Suit Platform repairs a suit"; every other mark keeps wornIntegrityRegen = 0
-		float repair = suit.wornIntegrityRegenPerSecond();
-		if (repair > 0f) {
-			float integ = integrity(player, suit.id());
-			float max = maxIntegrity(suit.id());
-			if (integ < max) {
-				setIntegrity(player, suit.id(), Math.min(max, integ + repair / 20f));
-			}
-		}
+		// v0.15.9, explicit user request: no suit repairs its own integrity while worn any more (the Mark 6 / Mark 7's
+		// 1/s from v0.15.4 is gone too) -- docking on a Suit Platform is the only repair
 	}
 
 	/**
@@ -193,12 +185,13 @@ public final class IronManEnergy {
 
 	// v0.15.3, explicit user request: a worn suit no longer repairs its own integrity at all (the per-mark armorRegen x
 	// WORN_REGEN_SCALE trickle is gone) -- docking it on a Suit Platform (or creative) is the only repair.
-	// v0.15.4: except the Mark 6 / Mark 7, which repair 1 integrity/s while worn (IronManSuit#wornIntegrityRegenPerSecond).
+	// v0.15.4 let the Mark 6 / Mark 7 repair 1 integrity/s while worn; v0.15.9 took that away again (no worn repair at all).
 
 	/**
-	 * v0.15.3, explicit user request: a hit that lands on a wearer with the suit's chestplate on bleeds integrity by this
-	 * share of the damage the player actually took, and the suit no longer absorbs any of it -- 10 damage taken = 7.5
-	 * integrity lost, and the player still takes the full 10. See {@link IronManDamage#onDamageTaken}.
+	 * v0.15.3: a hit that lands on a wearer with the suit's chestplate on bleeds integrity by this share of the hit, and
+	 * the suit absorbs none of it. v0.15.9, explicit user request ("integrity will take 100% of the damage the player
+	 * takes"): the whole hit -- 10 damage = 10 integrity, and the player still takes the full 10. Every suit, fire
+	 * included. See {@link IronManDamage#onDamageTaken}.
 	 */
-	public static final float INTEGRITY_PER_DAMAGE = 0.75f;
+	public static final float INTEGRITY_PER_DAMAGE = 1.0f;
 }

@@ -23,6 +23,7 @@
 		"LivingEntityClimbMixin",
 		"LivingEntityEatMixin",
 		"LivingEntityEffectMixin",
+		"LivingEntityRepulsorFlightMixin",
 		"LivingEntitySupermanSuitMixin",
 		"MobGoalsAccessor",
 		"MobMindLockMixin",

@@ -124,46 +124,66 @@ public final class GreenLanternTrial {
 	}
 
 	public static void attemptStart(ServerPlayer player, BlockPos pedestal, boolean claimed) {
-		if (claimed) {
-			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.site_claimed"), true);
+		if (!admit(player, pedestal, claimed)) {
 			return;
 		}
-		if (ACTIVE.containsKey(player.getUUID())) {
-			return;
-		}
-		if (GreenLantern.hasPower(player)) {
-			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.already_bonded"), true);
-			return;
-		}
-		// v0.11.12, explicit user request: the ring demands proof of experience before it will even
-		// test your will -- experience LEVELS (the enchant-table number), not XP points, and purely a
-		// gate, not a cost -- nothing is spent here.
-		if (player.experienceLevel < GreenLanternConfig.TRIAL_LEVEL_REQUIREMENT) {
-			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.trial_level_required",
-					GreenLanternConfig.TRIAL_LEVEL_REQUIREMENT), true);
-			return;
-		}
-		Long cooldownUntil = COOLDOWNS.get(cooldownKey(player, pedestal));
-		if (cooldownUntil != null && player.level().getGameTime() < cooldownUntil) {
-			int secs = (int) ((cooldownUntil - player.level().getGameTime()) / 20);
-			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.trial_cooldown",
-					secs), true);
-			return;
-		}
-		// The last gate before committing: refuses a second player racing the same unclaimed pedestal.
-		// Every earlier `return` above must NOT have reserved this, or a rejected attempt would leave
-		// the pedestal permanently (falsely) marked in-progress.
-		if (!PEDESTALS_IN_PROGRESS.add(pedestal.asLong())) {
-			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.trial_in_progress"), true);
-			return;
-		}
-
 		Trial trial = new Trial(pedestal, Vec3.atCenterOf(pedestal), player.serverLevel());
 		ACTIVE.put(player.getUUID(), trial);
 		player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.trial_begin")
 				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
 		expelOutsiders(trial, player.getUUID());
 		spawnWave(player, trial);
+	}
+
+	/**
+	 * Every gate on starting a trial, then -- only once all of them pass -- the commitment: the pedestal is reserved
+	 * and (v0.15.9) the {@link GreenLanternConfig#TRIAL_LEVEL_REQUIREMENT} experience levels are drained. A refused
+	 * start reserves nothing and costs nothing. Public for the gametests (which cannot run the real wave flow); a
+	 * caller that gets {@code true} must start the trial or {@link #release} the pedestal.
+	 */
+	public static boolean admit(ServerPlayer player, BlockPos pedestal, boolean claimed) {
+		if (claimed) {
+			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.site_claimed"), true);
+			return false;
+		}
+		if (ACTIVE.containsKey(player.getUUID())) {
+			return false;
+		}
+		if (GreenLantern.hasPower(player)) {
+			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.already_bonded"), true);
+			return false;
+		}
+		// v0.11.12, explicit user request: the ring demands proof of experience before it will even
+		// test your will -- experience LEVELS (the enchant-table number), not XP points. v0.15.9, explicit user
+		// request: the 20 levels are now the price of the trial as well, drained the moment it actually starts
+		// (below, after every refusal) -- never on a refused / cancelled start.
+		if (player.experienceLevel < GreenLanternConfig.TRIAL_LEVEL_REQUIREMENT) {
+			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.trial_level_required",
+					GreenLanternConfig.TRIAL_LEVEL_REQUIREMENT), true);
+			return false;
+		}
+		Long cooldownUntil = COOLDOWNS.get(cooldownKey(player, pedestal));
+		if (cooldownUntil != null && player.level().getGameTime() < cooldownUntil) {
+			int secs = (int) ((cooldownUntil - player.level().getGameTime()) / 20);
+			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.trial_cooldown",
+					secs), true);
+			return false;
+		}
+		// The last gate before committing: refuses a second player racing the same unclaimed pedestal.
+		// Every earlier `return` above must NOT have reserved this, or a rejected attempt would leave
+		// the pedestal permanently (falsely) marked in-progress.
+		if (!PEDESTALS_IN_PROGRESS.add(pedestal.asLong())) {
+			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.trial_in_progress"), true);
+			return false;
+		}
+		// v0.15.9: the trial is committed -- take the 20 levels it asked for
+		player.giveExperienceLevels(-GreenLanternConfig.TRIAL_LEVEL_REQUIREMENT);
+		return true;
+	}
+
+	/** Frees a pedestal {@link #admit} reserved without a trial being started on it (gametests). */
+	public static void release(BlockPos pedestal) {
+		PEDESTALS_IN_PROGRESS.remove(pedestal.asLong());
 	}
 
 	private static String cooldownKey(ServerPlayer player, BlockPos pedestal) {

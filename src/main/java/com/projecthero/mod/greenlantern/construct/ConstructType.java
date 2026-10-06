@@ -33,7 +33,8 @@ public enum ConstructType {
 	// v0.11.7: free to equip, only draining GreenLanternConfig.DRILL_UPKEEP_PER_SEC while toggled on.
 	MINING_DRILL(Kind.DRILL, GreenLanternConfig.DRILL_START_COST, GreenLanternConfig.DRILL_UPKEEP_PER_SEC, 0f, 0,
 			GreenLanternConfig.DRILL_SLOT_WEIGHT),
-	LANTERN_LIGHT(Kind.LIGHT_BLOCKS, GreenLanternConfig.LANTERN_LIGHT_COST, GreenLanternConfig.LANTERN_LIGHT_UPKEEP_PER_SEC,
+	// v0.15.9: the light comes from the ring (GreenLanternRingLight) -- toggled, no time limit, night vision while on
+	LANTERN_LIGHT(Kind.RING_LIGHT, GreenLanternConfig.LANTERN_LIGHT_COST, GreenLanternConfig.LANTERN_LIGHT_UPKEEP_PER_SEC,
 			0f, GreenLanternConfig.LANTERN_LIGHT_MAX_DURATION_TICKS, GreenLanternConfig.LANTERN_LIGHT_SLOT_WEIGHT),
 	ATMOSPHERE_BUBBLE(Kind.BUBBLE, GreenLanternConfig.BUBBLE_COST, GreenLanternConfig.BUBBLE_UPKEEP_PER_SEC,
 			0f, GreenLanternConfig.BUBBLE_MAX_DURATION_TICKS, GreenLanternConfig.BUBBLE_SLOT_WEIGHT),
@@ -64,7 +65,10 @@ public enum ConstructType {
 	/** How {@link GreenLanternConstructs} spawns/ticks/dismisses a construct of this type. */
 	public enum Kind {
 		MELEE_BUFF, CAGE, TURRET, INSTANT, WALL, PLATFORM_BLOCKS, BRIDGE_BLOCKS, RAMP_BLOCKS,
-		DRILL, LIGHT_BLOCKS, BUBBLE, TOOL_KIT,
+		DRILL,
+		/** v0.15.9: Lantern Light -- light from the caster's ring + night vision ({@link GreenLanternRingLight}). */
+		RING_LIGHT,
+		BUBBLE, TOOL_KIT,
 		/** v0.14.3: a one-shot hard-light attack entity (Buzzsaw, Anvil Drop, Chain Snare). */
 		ATTACK,
 		/** v0.14.3: a lasting hard-light entity (Launch Pad, Emerald Warrior). */

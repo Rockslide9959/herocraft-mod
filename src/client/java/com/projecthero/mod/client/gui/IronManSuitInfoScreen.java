@@ -84,7 +84,7 @@ public class IronManSuitInfoScreen extends Screen {
 			row(wrap, "screen.projecthero.ironman_info.hurt_regen", Component.translatable(
 					"screen.projecthero.ironman_info.hurt_regen_value", fmt(suit.hurtRegenEnergyPerSecond())).getString());
 		}
-		// v0.15.3: hits land in full; the suit loses 75% of what you took as integrity
+		// v0.15.3: hits land in full; v0.15.9: the suit loses the whole hit as integrity
 		row(wrap, "screen.projecthero.ironman_info.integrity_wear", Component.translatable(
 				"screen.projecthero.ironman_info.integrity_wear_value",
 				Math.round(IronManEnergy.INTEGRITY_PER_DAMAGE * 100f)).getString());

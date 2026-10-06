@@ -175,7 +175,7 @@ public class IronManV0153GameTests implements FabricGameTest {
 	// ------------------------------------------------------------------ 4. 75% integrity wear, hits land in full
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void tenDamageCostsSevenPointFiveIntegrityAndLandsInFull(GameTestHelper h) {
+	public void tenDamageCostsTenIntegrityAndLandsInFull(GameTestHelper h) {
 		for (String id : FLYING_MARKS) {
 			ServerPlayer p = suited(h, id);
 			float max = IronManEnergy.maxIntegrity(id);
@@ -185,19 +185,19 @@ public class IronManV0153GameTests implements FabricGameTest {
 					id + ": the hit is not cancelled or reduced -- the player takes the full 10");
 			h.assertTrue(IronManEnergy.energy(p, id) == energy, id + ": no energy charge for the hit");
 			IronManDamage.onDamageTaken(p, hit, 10f);
-			h.assertTrue(Math.abs(IronManEnergy.integrity(p, id) - (max - 7.5f)) < 1e-3f,
-					id + ": 10 damage taken = 7.5 integrity, got " + (max - IronManEnergy.integrity(p, id)));
-			IronManDamage.onDamageTaken(p, hit, 1f);
-			IronManDamage.onDamageTaken(p, hit, 1f);
-			h.assertTrue(Math.abs(IronManEnergy.integrity(p, id) - (max - 9.0f)) < 1e-3f,
-					id + ": fractions accumulate (7.5 + 0.75 + 0.75), got " + (max - IronManEnergy.integrity(p, id)));
+			h.assertTrue(Math.abs(IronManEnergy.integrity(p, id) - (max - 10f)) < 1e-3f,
+					id + ": v0.15.9: 10 damage = 10 integrity, got " + (max - IronManEnergy.integrity(p, id)));
+			IronManDamage.onDamageTaken(p, hit, 0.25f);
+			IronManDamage.onDamageTaken(p, hit, 0.25f);
+			h.assertTrue(Math.abs(IronManEnergy.integrity(p, id) - (max - 10.5f)) < 1e-3f,
+					id + ": fractions accumulate (10 + 0.25 + 0.25), got " + (max - IronManEnergy.integrity(p, id)));
 			leave(h, p);
 		}
-		// fire is heat, not impact: it barely wears a suit it can reach (Mark 6 / 7 aren't fire-immune)
+		// v0.15.9: fire wears a suit it can reach (Mark 6 / 7 aren't fire-immune) at the full 100% too
 		ServerPlayer p6 = suited(h, "mark_6");
 		IronManDamage.onDamageTaken(p6, p6.damageSources().inFire(), 10f);
-		h.assertTrue(Math.abs(IronManEnergy.integrity(p6, "mark_6") - (IronManEnergy.maxIntegrity("mark_6") - 0.375f)) < 1e-3f,
-				"fire wears 5% of the normal rate"); // v0.15.4: the Mark 6 pool is 2500
+		h.assertTrue(Math.abs(IronManEnergy.integrity(p6, "mark_6") - (IronManEnergy.maxIntegrity("mark_6") - 10f)) < 1e-3f,
+				"fire wears the full hit too");
 		// with integrity gone nothing more comes off, and the hit still lands
 		IronManEnergy.setIntegrity(p6, "mark_6", 0f);
 		IronManDamage.onDamageTaken(p6, p6.damageSources().generic(), 10f);

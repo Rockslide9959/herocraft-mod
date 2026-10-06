@@ -18,28 +18,22 @@ import net.minecraft.world.entity.LivingEntity;
  *
  * <p><b>v0.15.3 rework (explicit user request):</b> the suit no longer soaks any part of a hit through its integrity.
  * The wearer takes every hit in full (vanilla armour points / Resistance still apply as for any armour), and the suit's
- * integrity separately loses {@link IronManEnergy#INTEGRITY_PER_DAMAGE 75%} of the damage the wearer actually took --
- * 10 damage taken = 7.5 integrity lost, the player still loses the full 10. That bleed happens in
- * {@link #onDamageTaken} off Fabric's {@code AFTER_DAMAGE}, so it is always the real, landed amount. The old 50/50
+ * integrity separately loses the hit. v0.15.9, explicit user request: <b>100%</b> of it
+ * ({@link IronManEnergy#INTEGRITY_PER_DAMAGE}) -- a 10-damage hit costs 10 integrity, fire included -- measured as the
+ * hit arrives at the player (Fabric's {@code AFTER_DAMAGE} base amount, before armour / Resistance trim the health loss).
+ * That bleed happens in {@link #onDamageTaken}. The old 50/50
  * and 90/10 splits and the per-hit energy cost of "running the mitigation" are gone with it. At zero integrity the
  * wearer is still Slowed + Weakened ({@link IronManSuitTicker}).
  *
  * <p>Special rules kept as they were: no fall damage in any Iron Man piece, bulletproof (gunfire does nothing with
  * the chestplate on), the Mark III-line Energy Shield, the Repulsor Shield's 90% frontal block, arrows + fire do
- * nothing to a powered Mark 1-5, and fire / lava only wear integrity at {@value #FIRE_INTEGRITY_MULTIPLIER} of the
- * normal rate (heat, not impact). New in v0.15.3: the wearer is immune to all damage while a suit is assembling onto
+ * nothing to a powered Mark 1-5 (v0.15.9: the old 5% fire / lava wear rate is gone -- every hit is 100%). New in v0.15.3: the wearer is immune to all damage while a suit is assembling onto
  * them ({@link #suitUpImmune}).
  *
  * <p>The Repulsor Shield still uses the cancel-and-re-apply-smaller pattern of {@code HeroDamageRules}, because
  * Fabric's {@code ALLOW_DAMAGE} is a boolean veto with no "reduce amount".
  */
 public final class IronManDamage {
-	/**
-	 * "changes 22": burning is <b>heat</b>, not impact, and the suit is a sealed heat-shielded shell -- so fire / lava /
-	 * hot floors only bleed integrity at this multiple of the normal 75%-of-damage rate.
-	 */
-	public static final float FIRE_INTEGRITY_MULTIPLIER = 0.05f;
-
 	private static final ThreadLocal<Boolean> REENTRANT = ThreadLocal.withInitial(() -> false);
 
 	private IronManDamage() {
@@ -48,8 +42,9 @@ public final class IronManDamage {
 	public static void initialize() {
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(IronManDamage::onAllowDamage);
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> {
-			if (entity instanceof ServerPlayer player) {
-				onDamageTaken(player, source, taken);
+			// v0.15.9: the hit as it arrived (base), not what armour / Resistance left of it -- a shield block is no hit
+			if (entity instanceof ServerPlayer player && !blocked) {
+				onDamageTaken(player, source, base);
 			}
 		});
 		IronManCombo.initialize(); // v0.14.29 agent F: repulsor -> melee combo
@@ -137,9 +132,9 @@ public final class IronManDamage {
 	}
 
 	/**
-	 * v0.15.3, explicit user request: a hit has landed on the player ({@code AFTER_DAMAGE}, {@code taken} = the damage
-	 * that actually got through). With an Iron Man chestplate on, the suit loses {@link IronManEnergy#INTEGRITY_PER_DAMAGE}
-	 * of it as integrity (fire at {@link #FIRE_INTEGRITY_MULTIPLIER} of that), stored as an exact float so fractions
+	 * v0.15.3, explicit user request: a hit has landed on the player ({@code AFTER_DAMAGE}; v0.15.9: {@code taken} is the
+	 * hit's own damage as it arrived, before armour / Resistance). With an Iron Man chestplate on, the suit loses
+	 * {@link IronManEnergy#INTEGRITY_PER_DAMAGE} (100%) of it as integrity, stored as an exact float so fractions
 	 * accumulate; any landed hit also seals an open faceplate. Public so the gametests can drive it (mock players never
 	 * fire the damage events).
 	 */
@@ -158,8 +153,7 @@ public final class IronManDamage {
 		if (before <= 0f) {
 			return;
 		}
-		float bleed = taken * IronManEnergy.INTEGRITY_PER_DAMAGE
-				* (source.is(DamageTypeTags.IS_FIRE) ? FIRE_INTEGRITY_MULTIPLIER : 1.0f);
+		float bleed = taken * IronManEnergy.INTEGRITY_PER_DAMAGE;
 		IronManEnergy.damageIntegrity(player, suitId, bleed);
 		if (IronManEnergy.integrity(player, suitId) <= 0f) {
 			ServerLevel level = (ServerLevel) player.level();

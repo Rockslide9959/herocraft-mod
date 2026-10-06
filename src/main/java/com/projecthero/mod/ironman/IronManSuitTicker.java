@@ -40,6 +40,7 @@ public final class IronManSuitTicker {
 		IronManBlade.tick(player);
 		IronManFlight.tick(player);
 		IronManSuitUpManager.tick(player);
+		IronManSuitArrows.tick(player); // v0.15.9: stuck arrows fall off at the start and end of every suit-up / suit-down
 		IronManPassives.tick(player);
 		IronManSuitCall.tickPending(player);
 		// v0.14.27: the shared repulsor dash and the homing flares / flare burns run whatever the suit's state

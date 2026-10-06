@@ -144,8 +144,8 @@ public class IronManV01427Mark12GameTests implements FabricGameTest {
 	// ---------------------------------------------------------------- damage model
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void integrityWearsSeventyFivePercentAndTheHitLandsInFull(GameTestHelper h) {
-		// v0.15.3: no more 50/50 split -- the wearer takes the whole hit and the suit loses 75% of it as integrity
+	public void integrityWearsTheWholeHitAndTheHitLandsInFull(GameTestHelper h) {
+		// v0.15.3: no more 50/50 split -- the wearer takes the whole hit; v0.15.9: and the suit loses all of it as integrity
 		ServerPlayer p = suited(h, "mark_1");
 		clearSpawnInvulnerability(p);
 		float hp = p.getHealth();
@@ -153,8 +153,8 @@ public class IronManV01427Mark12GameTests implements FabricGameTest {
 		p.invulnerableTime = 0;
 		p.hurt(p.damageSources().magic(), 10f); // magic bypasses armour points, so the numbers are exact
 		h.assertTrue(Math.abs((hp - p.getHealth()) - 10f) < 0.01f, "the wearer takes the full 10: " + (hp - p.getHealth()));
-		h.assertTrue(Math.abs((integ - IronManEnergy.integrity(p, "mark_1")) - 7.5f) < 0.01f,
-				"integrity loses 7.5: " + (integ - IronManEnergy.integrity(p, "mark_1")));
+		h.assertTrue(Math.abs((integ - IronManEnergy.integrity(p, "mark_1")) - 10f) < 0.01f,
+				"integrity loses 10: " + (integ - IronManEnergy.integrity(p, "mark_1")));
 		h.succeed();
 	}
 

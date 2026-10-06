@@ -270,8 +270,12 @@ public final class IronManSuit {
 	public boolean targeting() { return targeting; }
 	public float mobHighlightEnergy() { return mobHighlightEnergy; }
 	public int mobHighlightDurationTicks() { return mobHighlightDurationTicks; }
-	/** v0.15.4: integrity the WORN suit repairs by itself each second (0 = only a Suit Platform repairs it). */
-	public float wornIntegrityRegenPerSecond() { return wornIntegrityRegenPerSecond; }
+	/**
+	 * v0.15.4: integrity the WORN suit repaired by itself each second. v0.15.9, explicit user request ("remove integrity
+	 * regen from all armours"): always 0 -- no suit repairs itself while worn any more; docking on a Suit Platform is the
+	 * only repair. The builder's {@code wornIntegrityRegen} value is kept but ignored.
+	 */
+	public float wornIntegrityRegenPerSecond() { return 0f; }
 	/** v0.15.4: true when the suit gives Regeneration I while the wearer is hurt. */
 	public boolean hurtRegeneration() { return hurtRegenEnergyPerSecond > 0f; }
 	/** v0.15.4: the energy a second that Regeneration costs while it is being applied. */

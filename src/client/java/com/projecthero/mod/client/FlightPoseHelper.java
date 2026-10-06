@@ -203,10 +203,15 @@ public final class FlightPoseHelper {
 		return anim != null && anim.heroOnly && Math.abs(lean(player, partialTick)) > 5.0f;
 	}
 
-	/** Smoothed forward body tilt, in degrees. 0 while upright. */
+	/**
+	 * Smoothed forward body tilt, in degrees. 0 while upright. v0.15.9: includes the Repulsor Boots' continuous lean
+	 * ({@code client.ironman.IronManFlightPose#bootsLean}), which this helper's tiers never drive -- so the head
+	 * levelling, cape and thruster FX all follow the boots' lean like every other flight's.
+	 */
 	public static float lean(Player player, float partialTick) {
 		PoseAnim anim = ANIMS.get(player.getUUID());
-		return anim == null ? 0.0f : Mth.lerp(partialTick, anim.leanPrev, anim.lean);
+		float boots = com.projecthero.mod.client.ironman.IronManFlightPose.bootsLean(player, partialTick);
+		return (anim == null ? 0.0f : Mth.lerp(partialTick, anim.leanPrev, anim.lean)) + boots;
 	}
 
 	/** Smoothed 0..1 blend from the vanilla arm animation into the raised/extended hammer pose. */

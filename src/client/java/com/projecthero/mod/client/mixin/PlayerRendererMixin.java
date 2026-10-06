@@ -75,6 +75,17 @@ public abstract class PlayerRendererMixin {
 	@Inject(method = "setupRotations(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;FFFF)V", at = @At("TAIL"))
 	private void projecthero$leanWhileFlying(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks,
 			float rotationYaw, float partialTicks, float scale, CallbackInfo ci) {
+		// v0.15.9 Repulsor Boots: a slow hover bob, and a bank into a strafe -- before the lean, so the banked body
+		// then leans forward along its own axis. Local +X is the flier's right here, and a positive Z rotation tips the
+		// top toward -X, hence the minus. (IronManFlightFxClient mirrors this order for the boot jets.)
+		float bob = com.projecthero.mod.client.ironman.IronManFlightPose.bootsBob(player, partialTicks);
+		if (bob != 0.0f) {
+			poseStack.translate(0.0f, bob, 0.0f);
+		}
+		float roll = com.projecthero.mod.client.ironman.IronManFlightPose.bootsRoll(player, partialTicks);
+		if (Math.abs(roll) >= 0.05f) {
+			poseStack.mulPose(Axis.ZP.rotationDegrees(-roll));
+		}
 		float lean = FlightPoseHelper.lean(player, partialTicks);
 		if (Math.abs(lean) < 0.05f) {
 			return;

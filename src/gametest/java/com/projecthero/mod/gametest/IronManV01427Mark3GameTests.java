@@ -556,11 +556,11 @@ public class IronManV01427Mark3GameTests implements FabricGameTest {
 		boolean allowed = ServerLivingEntityEvents.ALLOW_DAMAGE.invoker().allowDamage(p, sources.inFire(), 6f);
 		helper.assertFalse(allowed, "fire is ignored");
 		helper.assertTrue(IronManEnergy.integrity(p, M4) == 1000f, "fire never drains integrity");
-		// an ordinary hit (v0.15.3): it lands in full, and what lands costs 75% of it in integrity
+		// an ordinary hit (v0.15.3): it lands in full; v0.15.9: and costs all of it in integrity
 		helper.assertTrue(ServerLivingEntityEvents.ALLOW_DAMAGE.invoker().allowDamage(p, sources.generic(), 20f), "the hit lands");
 		helper.assertTrue(IronManEnergy.integrity(p, M4) == 1000f, "nothing is soaked up front");
 		ServerLivingEntityEvents.AFTER_DAMAGE.invoker().afterDamage(p, sources.generic(), 20f, 20f, false);
-		helper.assertTrue(Math.abs(IronManEnergy.integrity(p, M4) - 985f) < 0.01f, "integrity takes 75%, at " + IronManEnergy.integrity(p, M4));
+		helper.assertTrue(Math.abs(IronManEnergy.integrity(p, M4) - 980f) < 0.01f, "integrity takes the whole 20, at " + IronManEnergy.integrity(p, M4));
 		// Sneak+V Energy Shield works on the Mark 4 too
 		p.setShiftKeyDown(true);
 		IronManAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
