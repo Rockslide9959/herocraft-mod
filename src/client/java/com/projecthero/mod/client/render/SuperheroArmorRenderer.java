@@ -92,6 +92,22 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			}
 			return;
 		}
+		// v0.15.9 Sentry Mode: the standing suit opens up at the back -- every bone with geometry (bar the faceplate) is
+		// drawn as two half-shells hinged at their front corners, the backs swung open (IronManSentryClient#openDeg)
+		float sentryDeg = com.projecthero.mod.client.ironman.IronManSentryClient.openDeg;
+		if (sentryDeg > 0.01f && animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem
+				&& !(getCurrentEntity() instanceof Player)) {
+			braceletSplit = "faceplate".equals(name) ? 0f : sentryDeg;
+			backSplit = true;
+			try {
+				super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick,
+						packedLight, packedOverlay, colour);
+			} finally {
+				braceletSplit = 0f;
+				backSplit = false;
+			}
+			return;
+		}
 		// v0.14.28: the send-home suit standing in front of its owner builds itself with the same base-halves visual
 		float standP = com.projecthero.mod.client.ironman.IronManSuitReveal.standBuild;
 		if (standP >= 0f && standP < 1f && animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem
@@ -117,6 +133,9 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 	/** v0.15.4: this bone's half-shell opening (degrees) during the Mark 7 bracelet wrap-on; 0 = drawn whole. */
 	private float braceletSplit;
 
+	/** v0.15.9: {@link #braceletSplit} hinges at the front and opens the back (a Sentry Mode suit), not the front. */
+	private boolean backSplit;
+
 	/**
 	 * v0.15.4: during the Mark 7 bracelet wrap-on a body bone is drawn as two half-shells -- its own boxes clipped at the
 	 * centre line, each half swung open on a hinge at its back corner ({@link com.projecthero.mod.client.ironman.IronManBraceletClient}).
@@ -132,7 +151,8 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 		}
 		float[] bounds = com.projecthero.mod.client.ironman.IronManBraceletClient.bounds(bone);
 		for (int side = -1; side <= 1; side += 2) {
-			var half = com.projecthero.mod.client.ironman.IronManBraceletClient.Half.of(bounds, side, deg);
+			var half = backSplit ? com.projecthero.mod.client.ironman.IronManBraceletClient.Half.ofBack(bounds, side, deg)
+					: com.projecthero.mod.client.ironman.IronManBraceletClient.Half.of(bounds, side, deg);
 			for (software.bernie.geckolib.cache.object.GeoCube cube : bone.getCubes()) {
 				poseStack.pushPose();
 				software.bernie.geckolib.util.RenderUtil.translateToPivotPoint(poseStack, cube);

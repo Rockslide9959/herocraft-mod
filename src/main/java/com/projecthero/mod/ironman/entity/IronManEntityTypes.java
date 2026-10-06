@@ -35,6 +35,16 @@ public final class IronManEntityTypes {
 					.noSave()
 					.build("iron_man_missile"));
 
+	/** v0.15.9: Sentry Mode -- the empty suit standing on its own (carries the real stacks; saved). */
+	public static final EntityType<IronManSentryEntity> SENTRY = register("iron_man_sentry",
+			EntityType.Builder.<IronManSentryEntity>of(IronManSentryEntity::new, MobCategory.MISC)
+					.sized(0.6f, 1.9f)
+					.eyeHeight(1.62f)
+					.fireImmune()
+					.clientTrackingRange(10)
+					.updateInterval(1)
+					.build("iron_man_sentry"));
+
 	private IronManEntityTypes() {
 	}
 

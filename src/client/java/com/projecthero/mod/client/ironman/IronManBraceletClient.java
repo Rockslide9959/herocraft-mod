@@ -130,6 +130,17 @@ public final class IronManBraceletClient {
 			return new Half(side, cut, hingeX, bounds[3], (float) Math.sin(a), (float) Math.cos(a));
 		}
 
+		/**
+		 * v0.15.9 Sentry Mode: the same half-shell, but hinged at its FRONT corner so the BACK swings open (the standing
+		 * suit opening up behind for its owner to step in / out).
+		 */
+		public static Half ofBack(float[] bounds, int side, float deg) {
+			float cut = (bounds[0] + bounds[1]) * 0.5f;
+			float hingeX = side > 0 ? bounds[1] : bounds[0];
+			double a = Math.toRadians(side > 0 ? deg : -deg);
+			return new Half(side, cut, hingeX, bounds[2], (float) Math.sin(a), (float) Math.cos(a));
+		}
+
 		boolean keeps(float x) {
 			return side > 0 ? x >= cutX - 1.0e-4f : x <= cutX + 1.0e-4f;
 		}

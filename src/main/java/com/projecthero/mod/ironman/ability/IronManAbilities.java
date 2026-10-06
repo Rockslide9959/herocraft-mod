@@ -328,6 +328,7 @@ public final class IronManAbilities {
 			case IronManMark6.WEAPON, IronManMark6.FLARES, IronManMark6.UNIBEAM, IronManMark6.WHEEL ->
 					IronManMark6.trigger(player, suit, ability, pressed);
 			case IronManMark7.LASER -> IronManMark7.trigger(player, suit, ability, pressed);
+			case IronManMark8.SENTRY -> IronManMark8.trigger(player, suit, ability, pressed); // v0.15.9: Sentry Mode
 			default -> { }
 		}
 	}

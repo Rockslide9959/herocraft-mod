@@ -88,6 +88,10 @@ public final class IronManDamage {
 		if (suitUpImmune(player)) {
 			return false;
 		}
+		// v0.15.9: ...nor while a Sentry Mode suit walks them in and closes around them
+		if (com.projecthero.mod.ironman.entity.IronManSentryEntity.steppingIn(player)) {
+			return false;
+		}
 
 		// v0.14.27, explicit user request: any Iron Man armour makes the wearer immune to fall damage -- every mark
 		// (Mark 1's old 20% fallDamageFraction no longer applies), and a fall never costs the suit energy or integrity.

@@ -79,6 +79,8 @@ public final class IronManHud {
 			// no helmet: a Tony Stark player who isn't suited up can always try to call the armour (the server
 			// decides whether anything is actually reachable).
 			int y = IronManUiLayout.HUD_Y;
+			// v0.15.9: one of your suits standing as a sentry -- its mode, energy and integrity
+			y = com.projecthero.mod.client.ironman.IronManSentryClient.renderHud(g, font, x, y, w);
 			// v0.15.1: suit calling and Protocol Phoenix need the Stark Glasses (Stark Gear slot, Shift+N)
 			boolean glasses = com.projecthero.mod.ironman.gear.StarkGear.canCall(player); // v0.15.4: or the Colantotte Bracelets
 			// v0.15.7: no gear on -> no chip at all (it used to say "needs glasses"); the bracelets call the Mark 7
@@ -568,6 +570,7 @@ public final class IronManHud {
 			case com.projecthero.mod.ironman.ability.IronManMark6.UNIBEAM, com.projecthero.mod.ironman.ability.IronManMark7.UNIBEAM -> new ItemStack(IronManItems.ARC_REACTOR);
 			case com.projecthero.mod.ironman.ability.IronManMark6.WHEEL -> new ItemStack(Items.COMPASS);
 			case com.projecthero.mod.ironman.ability.IronManMark7.LASER -> new ItemStack(Items.REDSTONE_TORCH);
+			case com.projecthero.mod.ironman.ability.IronManMark8.SENTRY -> new ItemStack(Items.ARMOR_STAND); // v0.15.9
 			default -> ItemStack.EMPTY;
 		};
 	}

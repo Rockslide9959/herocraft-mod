@@ -78,6 +78,10 @@ public class IronManSuitGlowLayer extends GeoRenderLayer<SuperheroArmorItem> {
 						|| IronManGantryBuild.mk5Incomplete(gp, armor.getCurrentSlot(), item.armorSetId(), partialTick))) {
 			return;
 		}
+		// v0.15.9: a powered-down Sentry Mode suit (no energy / no integrity) stands dark
+		if (IronManSentryClient.dark && !(wearer instanceof Player)) {
+			return;
+		}
 		// v0.14.29 agent F: a badly damaged suit's lights flicker
 		if (wearer instanceof Player fp && IronManBattleDamage.glowFlickerOff(fp)) {
 			return;
@@ -90,6 +94,9 @@ public class IronManSuitGlowLayer extends GeoRenderLayer<SuperheroArmorItem> {
 		if (wearer instanceof Player p && armor.getCurrentSlot() != null) {
 			float flash = IronManAssemblyClient.flash(p, armor.getCurrentSlot(), partialTick);
 			passes += flash > 0.66f ? 3 : flash > 0.33f ? 2 : flash > 0f ? 1 : 0;
+		} else if (!(wearer instanceof Player) && IronManSentryClient.flash > 0.05f) {
+			// v0.15.9: a Sentry Mode suit's eyes flash as it switches mode
+			passes += IronManSentryClient.flash > 0.66f ? 3 : IronManSentryClient.flash > 0.33f ? 2 : 1;
 		}
 		IronManAssemblyClient.glowPass = true;
 		try {

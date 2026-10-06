@@ -91,6 +91,7 @@ public final class ServerStateReset {
 		IronManSuitCall.clearPending();
 		com.projecthero.mod.ironman.gantry.StarkGantry.clearSessionState(); // v0.15.4: where each suit last came from
 		com.projecthero.mod.ironman.drone.IronManDrones.clearSessionState(); // v0.14.29 agent E: Remote Pilot links
+		com.projecthero.mod.ironman.entity.IronManSentryEntity.clearSessionState(); // v0.15.9: Sentry Mode step-in immunity
 		com.projecthero.mod.ironman.ability.IronManMark3.clearSessionState(); // v0.14.27 (agent D)
 		com.projecthero.mod.ironman.ability.IronManMark6.clearSessionState(); // v0.14.29 (agent C)
 		com.projecthero.mod.ironman.ability.IronManMark7.clearSessionState();
