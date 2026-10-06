@@ -31,6 +31,11 @@ public final class HulkAbilityManager {
 	}
 
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
+		// v0.15.3: the Hulk in the full gladiator gear fights with his axe and hammer instead (tap / Shift+key)
+		if (slot.ordinal() < 6 && com.projecthero.mod.hulk.gladiator.GladiatorAbilities.active(player)) {
+			com.projecthero.mod.hulk.gladiator.GladiatorAbilities.handle(player, slot, pressed);
+			return;
+		}
 		switch (slot) {
 			case SLOT_1 -> {
 				if (pressed) {

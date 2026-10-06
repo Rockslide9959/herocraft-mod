@@ -20,6 +20,13 @@ public final class ModEntityRenderers {
 				com.projecthero.mod.client.titanshifter.TitanCorpseRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.hulk.entity.HulkEntities.BOULDER,
 				com.projecthero.mod.client.hulk.HulkBoulderRenderer::new);
+		// v0.15.3: the Gladiator Hulk's thrown axe and hammer
+		EntityRendererRegistry.register(com.projecthero.mod.hulk.gladiator.GladiatorEntities.THROWN_AXE,
+				ctx -> new com.projecthero.mod.client.hulk.GladiatorWeaponRenderer<>(ctx,
+						() -> com.projecthero.mod.hulk.gladiator.GladiatorItems.AXE, 45.0f));
+		EntityRendererRegistry.register(com.projecthero.mod.hulk.gladiator.GladiatorEntities.THROWN_HAMMER,
+				ctx -> new com.projecthero.mod.client.hulk.GladiatorWeaponRenderer<>(ctx,
+						() -> com.projecthero.mod.hulk.gladiator.GladiatorItems.HAMMER, 30.0f));
 		EntityRendererRegistry.register(com.projecthero.mod.titanshifter.entity.TitanShifterEntities.TITAN_LIGHTNING,
 				com.projecthero.mod.client.titanshifter.TitanLightningRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.maxsteel.entity.MaxSteelEntityTypes.TURBO_BOLT,

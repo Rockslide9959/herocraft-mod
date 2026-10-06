@@ -369,6 +369,16 @@ public final class HulkGrab {
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.PLAYERS, 1.0f, 0.6f);
 	}
 
+	/**
+	 * v0.15.3: may the Hulk lay hands on {@code target} to hurt it -- V's rules for an enemy (no bosses, nothing wider than
+	 * 2.5 or taller than 3.5 blocks, only what {@link HulkCombat#targets} allows). Shared with the Gladiator's Arena Grapple.
+	 */
+	public static boolean grabbable(ServerPlayer player, LivingEntity target) {
+		return target != null && target.isAlive() && !com.projecthero.mod.titanshifter.TitanCombat.isBoss(target)
+				&& target.getBbWidth() <= 2.5f && target.getBbHeight() <= 3.5f && !isHeld(target)
+				&& HulkCombat.targets(player, target.getBoundingBox().inflate(0.1)).stream().anyMatch(e -> e == target);
+	}
+
 	/** True if {@code e} is currently held overhead by some Hulk (for the rider / AI checks). */
 	public static boolean isHeld(Entity e) {
 		return HELD.containsValue(e.getId());

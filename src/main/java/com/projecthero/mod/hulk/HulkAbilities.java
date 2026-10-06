@@ -103,26 +103,26 @@ public final class HulkAbilities {
 		return at == null ? 0 : (int) Math.max(0L, at - player.level().getGameTime());
 	}
 
-	static void cooldown(ServerPlayer player, String id, int ticks) {
+	public static void cooldown(ServerPlayer player, String id, int ticks) {
 		HulkState n = Hulk.state(player).copy();
 		n.abilityReadyAt.put(id, player.level().getGameTime() + ticks);
 		Hulk.save(player, n);
 	}
 
-	static void anim(ServerPlayer player, int animId) {
+	public static void anim(ServerPlayer player, int animId) {
 		HulkState n = Hulk.state(player).copy();
 		n.animId = animId;
 		n.animStart = player.level().getGameTime();
 		Hulk.save(player, n);
 	}
 
-	static void schedule(ServerPlayer player, int delay, Runnable run) {
+	public static void schedule(ServerPlayer player, int delay, Runnable run) {
 		TASKS.computeIfAbsent(player.getUUID(), k -> new ArrayList<>())
 				.add(new Task(player.level().getGameTime() + delay, run));
 	}
 
 	/** Only the Hulk in control: Banner is told to get angry first; a rampaging or calming Hulk is ignored. */
-	static boolean canAct(ServerPlayer player) {
+	public static boolean canAct(ServerPlayer player) {
 		HulkState s = Hulk.state(player);
 		if (!s.hulk) {
 			Hulk.say(player, "message.projecthero.hulk.banner_cannot", ChatFormatting.GRAY);
@@ -139,7 +139,7 @@ public final class HulkAbilities {
 		return player.isAlive() && !player.isSpectator();
 	}
 
-	static Vec3 flatLook(ServerPlayer p) {
+	public static Vec3 flatLook(ServerPlayer p) {
 		Vec3 l = p.getLookAngle();
 		Vec3 f = new Vec3(l.x, 0, l.z);
 		return f.lengthSqr() < 1.0e-5 ? Vec3.directionFromRotation(0, p.getYRot()) : f.normalize();
@@ -206,7 +206,7 @@ public final class HulkAbilities {
 	}
 
 	/** A ring of damage, knockback, lift and flying earth round {@code at}; also the leap landing and rampage stomps. */
-	static void shockwave(ServerPlayer player, Vec3 at, double radius, float damage, double knockback, double lift, float shake) {
+	public static void shockwave(ServerPlayer player, Vec3 at, double radius, float damage, double knockback, double lift, float shake) {
 		ServerLevel level = (ServerLevel) player.level();
 		HulkCombat.radial(player, at, radius, new HulkCombat.Hit(damage, knockback, lift), true);
 		BlockState ground = level.getBlockState(BlockPos.containing(at).below());
@@ -300,7 +300,7 @@ public final class HulkAbilities {
 		}
 	}
 
-	static boolean isFragile(ServerLevel level, BlockPos pos, BlockState state) {
+	public static boolean isFragile(ServerLevel level, BlockPos pos, BlockState state) {
 		if (state.isAir() || state.hasBlockEntity()) {
 			return false;
 		}

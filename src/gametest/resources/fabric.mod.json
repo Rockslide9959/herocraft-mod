@@ -59,6 +59,7 @@
       "com.projecthero.mod.gametest.ThorSquadGameTests",
       "com.projecthero.mod.gametest.AllMightGameTests",
       "com.projecthero.mod.gametest.HulkGameTests",
+      "com.projecthero.mod.gametest.GladiatorMovesGameTests",
       "com.projecthero.mod.gametest.AgentVenomGameTests",
       "com.projecthero.mod.gametest.DarkseidRaidGameTests",
       "com.projecthero.mod.gametest.RandomPowerSerumGameTests",

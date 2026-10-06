@@ -78,6 +78,7 @@ public final class Hulk {
 		LAST_MESSAGE.clear();
 		HulkAbilities.clearSessionState();
 		HulkGrab.clearSessionState();
+		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.clearSessionState(); // v0.15.3
 		HulkControl.clearSessionState();
 		HulkCalm.clearSessionState();
 		GammaOverload.clearSessionState();
@@ -89,7 +90,7 @@ public final class Hulk {
 		return player.getAttachedOrCreate(ModAttachments.HULK_STATE);
 	}
 
-	static void save(ServerPlayer player, HulkState state) {
+	public static void save(ServerPlayer player, HulkState state) {
 		player.setAttached(ModAttachments.HULK_STATE, state);
 	}
 
@@ -156,7 +157,7 @@ public final class Hulk {
 		return s != null && s.exhaustedUntil > player.level().getGameTime();
 	}
 
-	static void say(ServerPlayer player, String key, ChatFormatting colour, Object... args) {
+	public static void say(ServerPlayer player, String key, ChatFormatting colour, Object... args) {
 		long now = player.level().getGameTime();
 		Long last = LAST_MESSAGE.get(player.getUUID());
 		if (last != null && now - last < 10) {
@@ -195,6 +196,7 @@ public final class Hulk {
 	/** Takes the Gamma power away; a Hulk shrinks straight back (no exhaustion). */
 	public static void revoke(ServerPlayer player) {
 		HulkAbilities.clear(player.getUUID());
+		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.clear(player); // v0.15.3: the thrown weapons come home
 		HulkGrab.release(player);
 		HulkCalm.clear(player.getUUID());
 		HulkControl.clear(player.getUUID());
@@ -330,6 +332,7 @@ public final class Hulk {
 		long now = player.level().getGameTime();
 		HulkGrab.release(player);
 		HulkAbilities.endCharge(player);
+		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.clear(player); // v0.15.3
 		HulkControl.clear(player.getUUID());
 		ejectRider(player);
 		float ratio = healthRatio(player);
@@ -554,6 +557,7 @@ public final class Hulk {
 		}
 		HulkAbilities.tick(player);
 		HulkGrab.tick(player);
+		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.tick(player); // v0.15.3: the Gladiator's running moves
 		HulkControl.tick(player);
 		HulkCalm.tick(player);
 		s = state(player);
@@ -752,6 +756,7 @@ public final class Hulk {
 		if (!s.hasPower) {
 			return;
 		}
+		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.onJoin(player); // v0.15.3: no weapon is away after a relog
 		HulkState n = s.copy();
 		n.hulk = false;
 		n.combat.unwilling = false;
@@ -795,6 +800,7 @@ public final class Hulk {
 		LAST_MESSAGE.remove(player.getUUID());
 		HulkAbilities.clear(player.getUUID());
 		HulkGrab.release(player);
+		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.clear(player); // v0.15.3
 		HulkCalm.clear(player.getUUID());
 		HulkControl.clear(player.getUUID());
 		ejectRider(player);

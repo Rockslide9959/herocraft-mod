@@ -59,7 +59,7 @@ values and version.
 | `projecthero_events.json` | `event/EventConfig` | 1 | 1 Grave Essence drops (v0.14.4) | Fixed in v0.14.4 (v0.13.6 drops). No later default changes. |
 | `projecthero_titan.json` | `titan/TitanConfig` | **1 (new)** | 1 v0.10.11 damage cut | **Yes.** It had no version, so a file written by v0.9.22-v0.10.10 kept punch 26 / melee 22 / stomp 40 / slam 34 / grab 8 / hold 5 / throw 14 / boulder 36 / charge 44 instead of 20 / 16 / 30 / 26 / 6 / 4 / 10 / 28 / 34. Older changes don't matter, because v0.9.22 renamed the file. |
 | `projecthero_titan_shifter.json` | `titanshifter/TitanShifterConfig` | 4 | 2 body + energy bar, 3 full-bar transform, 4 regen II + roar 32 | No. Already migrated. |
-| `projecthero_hulk.json` | `hulk/HulkConfig` | 3 | 2 kit rebuilt, 3 Thunderclap 12 -> 25 if unchanged | No. Already migrated. |
+| `projecthero_hulk.json` | `hulk/HulkConfig` | 4 | 2 kit rebuilt, 3 Thunderclap 12 -> 25 if unchanged, 4 introduce the `gladiator` section (v0.15.3) | No. Already migrated. |
 | `projecthero_behemoth.json` | `behemoth/BehemothConfig` | 2 | 1 full reset (v0.13.7), 2 health 1000 -> 3000 | No. Already migrated (this is the original bug). |
 | `projecthero_horde.json` | `horde/HordeConfig` | 1 | 1 boss health | No. New in v0.14.20 and versioned from the start. |
 | `projecthero_darkseid.json` | `darkseid/DarkseidConfig` | 4 | 1 full reset, 2 v0.13.19 balance, 3 Parademons restored, 4 introduce rewards.valuablesMultiplier | No. Already migrated. |

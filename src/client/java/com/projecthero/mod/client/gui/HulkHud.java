@@ -109,9 +109,17 @@ public final class HulkHud {
 
 		if (s.hulk) {
 			int formY = rageBar - 22;
-			g.drawString(mc.font, Component.translatable("hud.projecthero.hulk.form").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD),
-					x0, formY, 0xFF55FF55, true);
-			renderKeys(g, mc, player, s, x0, formY - 3 - BOX, now);
+			boolean gladiator = com.projecthero.mod.hulk.gladiator.GladiatorAbilities.active(player);
+			if (gladiator) {
+				// v0.15.3: the full gladiator gear swaps in the weapon kit
+				g.drawString(mc.font, Component.translatable("hud.projecthero.hulk.gladiator_form").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
+						x0, formY, 0xFFFFC34A, true);
+				renderGladiatorKeys(g, mc, player, s, x0, formY - 3 - BOX, now);
+			} else {
+				g.drawString(mc.font, Component.translatable("hud.projecthero.hulk.form").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD),
+						x0, formY, 0xFF55FF55, true);
+				renderKeys(g, mc, player, s, x0, formY - 3 - BOX, now);
+			}
 		}
 		renderCentre(g, mc, player, s, now);
 	}
@@ -156,6 +164,77 @@ public final class HulkHud {
 			int w = 6 * BOX + 5 * GAP;
 			g.fill(x0, y0 - 6, x0 + w, y0 - 6 + HAIRLINE, COLOR_BG);
 			g.fill(x0, y0 - 6, x0 + Math.round(w * leap), y0 - 6 + HAIRLINE, leap >= 1.0f ? 0xFFFFFFFF : COLOR_RAGE_READY);
+		}
+	}
+
+	/**
+	 * v0.15.3: the Gladiator kit's six boxes. Each shows the tap move's cooldown -- or, while Shift is held, the Shift
+	 * move's -- and a thin strip along its bottom for the other one. X
+	 * above the boxes, so the HUD itself stays six small boxes.
+	 */
+	private static void renderGladiatorKeys(GuiGraphics g, Minecraft mc, Player player, HulkState s, int x0, int y0, long now) {
+		long win = mc.getWindow().getWindow();
+		boolean alt = org.lwjgl.glfw.GLFW.glfwGetKey(win, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+		boolean shift = player.isShiftKeyDown() || org.lwjgl.glfw.GLFW.glfwGetKey(win, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT)
+				== org.lwjgl.glfw.GLFW.GLFW_PRESS;
+		boolean locked = s.rampaging(now) || s.combat.calming;
+		boolean busy = com.projecthero.mod.hulk.gladiator.GladiatorAbilities.busy(player);
+		for (int i = 0; i < 6; i++) {
+			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
+			int x = x0 + i * (BOX + GAP);
+			String tap = com.projecthero.mod.hulk.gladiator.GladiatorAbilities.tapId(slot);
+			String alt2 = com.projecthero.mod.hulk.gladiator.GladiatorAbilities.shiftId(slot);
+			String main = shift ? alt2 : tap;
+			String other = shift ? tap : alt2;
+			boolean active = switch (slot) {
+				case SLOT_3 -> busy && !com.projecthero.mod.hulk.gladiator.GladiatorAbilities.whirling(player)
+						&& !com.projecthero.mod.hulk.gladiator.GladiatorAbilities.grappling(player);
+				case SLOT_4 -> com.projecthero.mod.hulk.gladiator.GladiatorAbilities.roaring(player);
+				case SLOT_5 -> com.projecthero.mod.hulk.gladiator.GladiatorAbilities.whirling(player)
+						|| com.projecthero.mod.hulk.gladiator.GladiatorAbilities.grappling(player);
+				case SLOT_6 -> com.projecthero.mod.hulk.gladiator.GladiatorAbilities.axeAway(player)
+						|| com.projecthero.mod.hulk.gladiator.GladiatorAbilities.hammerAway(player);
+				default -> false;
+			};
+			g.fill(x, y0, x + BOX, y0 + BOX, shift ? 0xC0201808 : 0xC0181408);
+			g.renderOutline(x, y0, BOX, BOX, active ? 0xFFFFD866 : (shift ? 0xFFB07A2A : 0xFF7A5A26));
+			g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 2, y0 + 2, locked ? 0xFF6A6A6A : 0xFFF2E2C0, false);
+			if (shift) {
+				g.fill(x + BOX - 5, y0 + 2, x + BOX - 2, y0 + 5, 0xFFFFC34A); // a dot: these are the Shift moves
+			}
+			int cd = com.projecthero.mod.hulk.HulkAbilities.cooldownRemaining(player, main);
+			int max = com.projecthero.mod.hulk.gladiator.GladiatorAbilities.maxCooldown(main);
+			if (locked) {
+				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, 0x90000000);
+			} else if (cd > 0 && max > 0) {
+				int h = (int) ((BOX - 2) * Math.min(1f, cd / (float) max));
+				g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, 0xB0000000);
+				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2 + 2, y0 + 10, 0xFFFFFFFF);
+			}
+			// the other move on this key: a strip along the bottom, bright when it is ready
+			int ocd = com.projecthero.mod.hulk.HulkAbilities.cooldownRemaining(player, other);
+			int omax = com.projecthero.mod.hulk.gladiator.GladiatorAbilities.maxCooldown(other);
+			float ready = omax <= 0 ? 1.0f : 1.0f - Math.min(1.0f, ocd / (float) omax);
+			g.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * ready), y0 + BOX - 1, ocd > 0 ? 0xFF6A4A1A : 0xFFFFD27A);
+		}
+		if (shift || alt) {
+			// the names, one short line per key, stacked above the boxes and right-aligned with them (clear of the hotbar)
+			int right = x0 + 6 * BOX + 5 * GAP;
+			int lineY = y0 - 4 - 6 * 10;
+			if (shift) {
+				Component head = Component.translatable("hud.projecthero.hulk.gladiator_shift").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
+				g.drawString(mc.font, head, right - mc.font.width(head), lineY - 11, 0xFFFFFFFF, true);
+			}
+			for (int i = 0; i < 6; i++) {
+				AbilitySlot slot = AbilitySlot.byNumber(i + 1);
+				String id = shift ? com.projecthero.mod.hulk.gladiator.GladiatorAbilities.shiftId(slot)
+						: com.projecthero.mod.hulk.gladiator.GladiatorAbilities.tapId(slot);
+				Component name = Component.literal(slot.defaultKey() + " ")
+						.withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable(com.projecthero.mod.hulk.gladiator.GladiatorAbilities.langName(id))
+								.withStyle(ChatFormatting.WHITE));
+				g.drawString(mc.font, name, right - mc.font.width(name), lineY + i * 10, 0xFFFFFFFF, true);
+			}
 		}
 	}
 

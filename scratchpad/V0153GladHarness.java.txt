@@ -1,0 +1,233 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.hulk.Hulk;
+import com.projecthero.mod.hulk.gladiator.GladiatorAbilities;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.15.3 Gladiator Hulk moves visual check. Enabled by run/v0153glad.flag. */
+public final class V0153GladHarness {
+	public static Vec3 camOffset;
+	public static Vec3 camLook = new Vec3(0, 1.0, 0);
+
+	private static boolean createdWorld;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 base;
+
+	private V0153GladHarness() {
+	}
+
+	public static void init() {
+		if (Files.exists(Path.of("v0153glad.flag"))) {
+			ClientTickEvents.END_CLIENT_TICK.register(V0153GladHarness::tick);
+		}
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					try {
+						fn.accept(p);
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "v0153_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void at(int t, Runnable r) {
+		Runnable prev = AT.get(t);
+		AT.put(t, prev == null ? r : () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			if (!createdWorld && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				LevelSettings settings = new LevelSettings("V0153G" + System.currentTimeMillis() % 100000,
+						GameType.SURVIVAL, false, Difficulty.NORMAL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+				mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+						reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+								.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+						mc.screen);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(60);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				base = Vec3.atBottomCenterOf(p.blockPosition());
+				Hulk.grant(p);
+				Hulk.setRage(p, 100.0f);
+				Hulk.tryTransform(p);
+				GladiatorAbilities.forceKitForTests(p, true);
+				System.out.println("[HARNESS] base " + base + " hulk " + Hulk.isHulk(p) + " glad " + GladiatorAbilities.active(p));
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			if ((inWorldTicks - t0) % 40 == 0) {
+				server(mc, p -> Hulk.setRage(p, 100.0f));
+			}
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void home(ServerPlayer p, float yaw, float pitch) {
+		p.teleportTo(p.serverLevel(), base.x, base.y, base.z, yaw, pitch);
+		p.setDeltaMovement(Vec3.ZERO);
+	}
+
+	private static void clearMobs(ServerPlayer p) {
+		for (Mob m : p.serverLevel().getEntitiesOfClass(Mob.class, new AABB(base, base).inflate(80))) {
+			m.discard();
+		}
+	}
+
+	private static Mob husk(ServerPlayer p, double dx, double dz) {
+		Mob m = EntityType.HUSK.create(p.serverLevel());
+		m.moveTo(base.x + dx, base.y, base.z + dz, 90f, 0f);
+		m.setNoAi(true);
+		m.setPersistenceRequired();
+		m.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(400.0);
+		m.setHealth(400.0f);
+		p.serverLevel().addFreshEntity(m);
+		return m;
+	}
+
+	private static void cam(Vec3 off, Vec3 look) {
+		camOffset = off;
+		camLook = look;
+	}
+
+	/** One scene: reset, husks in front, the camera, then {@code move} at +30 and shots at the given offsets. */
+	private static int scene(Minecraft mc, int t, String name, Vec3 camOff, Vec3 camAt, float pitch,
+			java.util.function.Consumer<ServerPlayer> move, int... shots) {
+		at(t, () -> server(mc, p -> {
+			clearMobs(p);
+			GladiatorAbilities.clear(p);
+			Hulk.state(p).abilityReadyAt.clear();
+			home(p, -90f, pitch);
+			husk(p, 3.5, 1.5);
+			husk(p, 4.5, -2.0);
+			husk(p, 9.0, 0.5);
+		}));
+		at(t + 2, () -> cam(camOff, camAt));
+		at(t + 30, () -> server(mc, p -> {
+			home(p, -90f, pitch);
+			move.accept(p);
+			System.out.println("[HARNESS] " + name + " fired, anim " + Hulk.state(p).animId);
+		}));
+		int last = 0;
+		for (int s : shots) {
+			final int ss = s;
+			at(t + 30 + s, () -> shot(mc, name + "_t" + ss));
+			last = Math.max(last, s);
+		}
+		return t + 30 + last + 20;
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 40;
+		Vec3 side = new Vec3(3.0, 2.6, -8.5);
+		Vec3 front = new Vec3(7.0, 2.6, -5.0);
+		Vec3 look = new Vec3(2.0, 1.6, 0);
+		t = scene(mc, t, "axe_cleave", front, look, 0f, GladiatorAbilities::axeCleave, 3, 6, 9);
+		t = scene(mc, t, "hammer_uppercut", side, look, 0f, GladiatorAbilities::hammerUppercut, 3, 6, 10);
+		t = scene(mc, t, "hammer_quake", side, look, 0f, GladiatorAbilities::hammerQuake, 5, 10, 14);
+		t = scene(mc, t, "earthsplitter", side, new Vec3(4.0, 1.0, 0), 0f, GladiatorAbilities::earthsplitter, 6, 10, 14);
+		t = scene(mc, t, "champions_roar", front, look, 0f, GladiatorAbilities::championsRoar, 5, 12);
+		t = scene(mc, t, "weapon_clash", front, look, 0f, GladiatorAbilities::weaponClash, 4, 8, 12);
+		t = scene(mc, t, "whirlwind", new Vec3(4.0, 3.5, -7.0), look, 0f, GladiatorAbilities::whirlwind, 7, 13, 30, 62);
+		t = scene(mc, t, "axe_throw", new Vec3(4.0, 3.0, -9.0), new Vec3(5.0, 1.5, 0), 0f, GladiatorAbilities::axeThrow, 3, 6, 9, 12, 16);
+		t = scene(mc, t, "hammer_hurl", new Vec3(4.0, 3.0, -9.0), new Vec3(5.0, 1.0, 0), 15f, GladiatorAbilities::hammerHurl, 4, 8, 11, 14, 40);
+		// the hammer is stuck: call it back
+		at(t, () -> server(mc, GladiatorAbilities::recallHammer));
+		at(t + 3, () -> shot(mc, "hammer_recall_t3"));
+		at(t + 7, () -> shot(mc, "hammer_recall_t7"));
+		t += 30;
+		t = scene(mc, t, "arena_grapple", side, look, 10f, GladiatorAbilities::arenaGrapple, 4, 9, 14);
+		t = scene(mc, t, "arena_leap", new Vec3(-6.0, 4.0, -9.0), new Vec3(4.0, 1.0, 0), -10f, GladiatorAbilities::arenaLeap, 5, 12, 25);
+		t = scene(mc, t, "meteor_dive", new Vec3(-6.0, 3.0, -10.0), new Vec3(2.0, 1.0, 0), 50f, GladiatorAbilities::meteorDive, 6, 16, 22);
+		// the HUD: cooldowns running, then Shift held for the variant names
+		final int h = t;
+		at(h, () -> {
+			mc.options.hideGui = false;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+		});
+		at(h + 2, () -> server(mc, p -> {
+			clearMobs(p);
+			GladiatorAbilities.clear(p);
+			Hulk.state(p).abilityReadyAt.clear();
+			home(p, -90f, 0f);
+			GladiatorAbilities.axeCleave(p);
+			GladiatorAbilities.hammerHurl(p);
+		}));
+		at(h + 30, () -> shot(mc, "hud"));
+		at(h + 32, () -> mc.options.keyShift.setDown(true));
+		at(h + 40, () -> shot(mc, "hud_shift"));
+		at(h + 42, () -> mc.options.keyShift.setDown(false));
+		at(h + 60, () -> {
+			System.out.println("[HARNESS] done");
+			mc.stop();
+		});
+	}
+}

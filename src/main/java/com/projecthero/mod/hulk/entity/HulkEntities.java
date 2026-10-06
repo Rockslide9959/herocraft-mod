@@ -27,5 +27,6 @@ public final class HulkEntities {
 
 	public static void initialize() {
 		// registration happens in the static initialiser
+		com.projecthero.mod.hulk.gladiator.GladiatorEntities.initialize(); // v0.15.3: the thrown axe and hammer
 	}
 }

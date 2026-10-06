@@ -46,6 +46,21 @@ public final class HulkAnimatable implements GeoReplacedEntity {
 	private static final RawAnimation PICKUP = RawAnimation.begin().thenPlay(P + "pickup");
 	private static final RawAnimation THROW = RawAnimation.begin().thenPlay(P + "throw");
 	private static final RawAnimation CRUSH = RawAnimation.begin().thenPlay(P + "crush");
+	// v0.15.3: the Gladiator Hulk's moves (axe in the left hand, hammer in the right)
+	private static final RawAnimation G_AXE_CLEAVE = RawAnimation.begin().thenPlay(P + "gladiator_axe_cleave");
+	private static final RawAnimation G_UPPERCUT = RawAnimation.begin().thenPlay(P + "gladiator_hammer_uppercut");
+	private static final RawAnimation G_QUAKE = RawAnimation.begin().thenPlay(P + "gladiator_hammer_quake");
+	private static final RawAnimation G_EARTHSPLITTER = RawAnimation.begin().thenPlay(P + "gladiator_earthsplitter");
+	private static final RawAnimation G_ROAR = RawAnimation.begin().thenPlay(P + "gladiator_champions_roar");
+	private static final RawAnimation G_CLASH = RawAnimation.begin().thenPlay(P + "gladiator_weapon_clash");
+	private static final RawAnimation G_ARENA_LEAP = RawAnimation.begin().thenPlayAndHold(P + "gladiator_arena_leap");
+	private static final RawAnimation G_METEOR = RawAnimation.begin().thenPlayAndHold(P + "gladiator_meteor_dive");
+	private static final RawAnimation G_SLAM = RawAnimation.begin().thenPlay(P + "gladiator_slam");
+	private static final RawAnimation G_AXE_THROW = RawAnimation.begin().thenPlay(P + "gladiator_axe_throw");
+	private static final RawAnimation G_HAMMER_HURL = RawAnimation.begin().thenPlay(P + "gladiator_hammer_hurl");
+	private static final RawAnimation G_RECALL = RawAnimation.begin().thenPlay(P + "gladiator_hammer_recall");
+	private static final RawAnimation G_WHIRLWIND = RawAnimation.begin().thenLoop(P + "gladiator_whirlwind");
+	private static final RawAnimation G_GRAPPLE = RawAnimation.begin().thenLoop(P + "gladiator_grapple");
 
 	/** Ticks each one-shot owns the body after it starts (a touch longer than the clip, so it finishes). */
 	private static final int CLAP_TICKS = 14;
@@ -87,6 +102,12 @@ public final class HulkAnimatable implements GeoReplacedEntity {
 			return state.setAndContinue(HULK_SMASH_CHARGE);
 		}
 		long since = now - s.animStart;
+		if (com.projecthero.mod.hulk.gladiator.GladiatorAnims.isGladiator(s.animId)) {
+			RawAnimation g = gladiator(s.animId, since, player);
+			if (g != null) {
+				return state.setAndContinue(g);
+			}
+		}
 		if (s.animId == HulkState.ANIM_HULK_SMASH && since < 26) {
 			return state.setAndContinue(HULK_SMASH);
 		}
@@ -118,6 +139,41 @@ public final class HulkAnimatable implements GeoReplacedEntity {
 			return state.setAndContinue(player.isSprinting() ? RUN : WALK);
 		}
 		return state.setAndContinue(IDLE);
+	}
+
+	/**
+	 * v0.15.3: the Gladiator Hulk's twelve moves ({@link com.projecthero.mod.hulk.gladiator.GladiatorAnims}); null once
+	 * the clip is over (then the usual walk / idle choice runs).
+	 */
+	private static RawAnimation gladiator(int id, long since, Player player) {
+		int len = com.projecthero.mod.hulk.gladiator.GladiatorAnims.ticks(id);
+		if (len > 0) {
+			if (since >= len) {
+				return null;
+			}
+			return switch (id) {
+				case com.projecthero.mod.hulk.gladiator.GladiatorAnims.AXE_CLEAVE -> G_AXE_CLEAVE;
+				case com.projecthero.mod.hulk.gladiator.GladiatorAnims.HAMMER_UPPERCUT -> G_UPPERCUT;
+				case com.projecthero.mod.hulk.gladiator.GladiatorAnims.HAMMER_QUAKE -> G_QUAKE;
+				case com.projecthero.mod.hulk.gladiator.GladiatorAnims.EARTHSPLITTER -> G_EARTHSPLITTER;
+				case com.projecthero.mod.hulk.gladiator.GladiatorAnims.CHAMPIONS_ROAR -> G_ROAR;
+				case com.projecthero.mod.hulk.gladiator.GladiatorAnims.WEAPON_CLASH -> G_CLASH;
+				case com.projecthero.mod.hulk.gladiator.GladiatorAnims.SLAM -> G_SLAM;
+				case com.projecthero.mod.hulk.gladiator.GladiatorAnims.AXE_THROW -> G_AXE_THROW;
+				case com.projecthero.mod.hulk.gladiator.GladiatorAnims.HAMMER_HURL -> G_HAMMER_HURL;
+				default -> G_RECALL;
+			};
+		}
+		return switch (id) {
+			case com.projecthero.mod.hulk.gladiator.GladiatorAnims.ARENA_LEAP ->
+					since < 240 && (since < 5 || !player.onGround()) ? G_ARENA_LEAP : null;
+			case com.projecthero.mod.hulk.gladiator.GladiatorAnims.METEOR_DIVE ->
+					since < 240 && (since < 5 || !player.onGround()) ? G_METEOR : null;
+			case com.projecthero.mod.hulk.gladiator.GladiatorAnims.WHIRLWIND ->
+					since < com.projecthero.mod.hulk.HulkConfig.gladiator().whirlwindTicks + 2 ? G_WHIRLWIND : null;
+			case com.projecthero.mod.hulk.gladiator.GladiatorAnims.GRAPPLE -> since < 200 ? G_GRAPPLE : null;
+			default -> null;
+		};
 	}
 
 	/** Both arms overhead while V holds a mob or a boulder (arms only, so it rides on top of walk / run). */

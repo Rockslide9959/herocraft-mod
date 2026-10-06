@@ -844,6 +844,18 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.hulk.ability." + row[1] + ".desc");
 			}
 			blank(lines);
+			// v0.15.3: the Gladiator Hulk's twelve weapon moves (full gladiator gear on)
+			head(lines, "projecthero.guide.hulk.gladiator_moves");
+			para(lines, "projecthero.guide.hulk.gladiator_moves.body");
+			for (String[] row : new String[][] { { "R", "axe_cleave" }, { "Shift+R", "hammer_uppercut" }, { "G", "hammer_quake" },
+					{ "Shift+G", "earthsplitter" }, { "Z", "champions_roar" }, { "Shift+Z", "weapon_clash" }, { "X", "arena_leap" },
+					{ "Shift+X", "meteor_dive" }, { "C", "axe_throw" }, { "Shift+C", "hammer_hurl" }, { "V", "whirlwind" },
+					{ "Shift+V", "arena_grapple" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.hulk.gladiator.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.hulk.gladiator.ability." + row[1] + ".desc");
+			}
+			blank(lines);
 			for (String section : new String[]{"sprint_smash", "control", "riding", "looks", "limits", "commands"}) {
 				head(lines, "projecthero.guide.hulk." + section);
 				para(lines, "projecthero.guide.hulk." + section + ".body");

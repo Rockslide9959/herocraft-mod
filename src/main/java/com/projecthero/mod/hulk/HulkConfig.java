@@ -15,6 +15,117 @@ public final class HulkConfig {
 	public World world = new World();
 	public Control control = new Control();
 	public Calm calm = new Calm();
+	/** v0.15.3: the Gladiator Hulk's weapon kit (used instead of {@link #abilities} while the full gladiator gear is on). */
+	public Gladiator gladiator = new Gladiator();
+
+	/**
+	 * v0.15.3: damage, reach and cooldown of the twelve Gladiator Hulk moves (tap / Shift+key on R G Z X C V). A little
+	 * harder per hit than the bare-handed kit -- he has an axe and a hammer.
+	 */
+	public static final class Gladiator {
+		// ---- R Axe Cleave: a wide horizontal sweep in front, bleeds ----
+		public float axeCleaveDamage = 34.0f;
+		public double axeCleaveRange = 5.5;
+		/** Full width of the arc in degrees. */
+		public double axeCleaveArcDegrees = 160.0;
+		public double axeCleaveKnockback = 2.4;
+		/** Bleed: this much every second for {@link #bleedSeconds} seconds. */
+		public float bleedDamage = 2.0f;
+		public int bleedSeconds = 4;
+		public int axeCleaveCooldownTicks = 100;
+
+		// ---- Shift+R Hammer Uppercut: one target launched high ----
+		public float uppercutDamage = 36.0f;
+		public double uppercutRange = 5.0;
+		public double uppercutLaunch = 1.6;
+		public int uppercutCooldownTicks = 120;
+
+		// ---- G Hammer Quake: overhead slam, a forward cone fissure ----
+		public float quakeDamage = 36.0f;
+		public double quakeRange = 14.0;
+		public double quakeConeDegrees = 60.0;
+		public double quakeKnockback = 1.6;
+		public double quakeLift = 0.6;
+		/** The fissure only cracks blocks at or below this hardness (dirt, sand, gravel, grass, snow...). */
+		public float quakeCrackHardness = 0.8f;
+		public int quakeCooldownTicks = 140;
+
+		// ---- Shift+G Earthsplitter: a line of erupting earth ----
+		public float earthsplitterDamage = 30.0f;
+		public double earthsplitterLength = 18.0;
+		public double earthsplitterWidth = 3.0;
+		public double earthsplitterLift = 1.2;
+		public int earthsplitterCooldownTicks = 180;
+
+		// ---- Z Champion's Roar: a short buff, mobs flee ----
+		public int roarBuffTicks = 160;
+		/** Extra attack damage while the roar lasts. */
+		public double roarAttackBonus = 6.0;
+		/** Extra knockback resistance while the roar lasts (he already has 0.9). */
+		public double roarKnockbackResistance = 0.1;
+		public double roarRadius = 12.0;
+		public float roarRage = 15.0f;
+		public int roarCooldownTicks = 400;
+
+		// ---- Shift+Z Weapon Clash: a ringing shockwave that stuns ----
+		public float clashDamage = 18.0f;
+		public double clashRadius = 7.0;
+		public int clashStunTicks = 30;
+		public int clashCooldownTicks = 240;
+
+		// ---- X Arena Leap: a big ballistic leap, weapons-first landing ----
+		public double arenaLeapBlocks = 28.0;
+		public float arenaLeapDamage = 32.0f;
+		public double arenaLeapRadius = 6.0;
+		public double arenaLeapCraterRadius = 3.0;
+		public int arenaLeapCooldownTicks = 160;
+
+		// ---- Shift+X Meteor Dive: straight up, then a guided dive ----
+		public double meteorRiseSpeed = 2.0;
+		public double meteorDiveSpeed = 2.8;
+		public double meteorDiveRange = 60.0;
+		public float meteorDamage = 55.0f;
+		public double meteorRadius = 3.5;
+		public double meteorCraterRadius = 2.5;
+		public int meteorCooldownTicks = 300;
+
+		// ---- C Axe Throw: out and back ----
+		public float axeThrowDamage = 26.0f;
+		public double axeThrowRange = 24.0;
+		public double axeThrowSpeed = 1.8;
+		public int axeThrowCooldownTicks = 100;
+
+		// ---- Shift+C Hammer Hurl: an arc, a shockwave, stuck until recalled ----
+		public float hammerHurlDamage = 30.0f;
+		public double hammerHurlRadius = 4.5;
+		public double hammerHurlSpeed = 1.6;
+		/** Hit by the hammer flying home after C recalls it. */
+		public float hammerRecallDamage = 20.0f;
+		/** A hammer left in the ground flies home on its own after this long. */
+		public int hammerStuckTicks = 600;
+		public int hammerHurlCooldownTicks = 160;
+
+		// ---- V Gladiator Whirlwind: a spin with both weapons ----
+		public int whirlwindTicks = 60;
+		public int whirlwindPulseTicks = 5;
+		public float whirlwindDamage = 8.0f;
+		public double whirlwindRadius = 3.5;
+		public double whirlwindPullRadius = 7.0;
+		public float whirlwindSlamDamage = 26.0f;
+		public double whirlwindSlamRadius = 5.0;
+		/** Counted from the end of the spin. */
+		public int whirlwindCooldownTicks = 240;
+
+		// ---- Shift+V Arena Grapple: pin a target and pound it ----
+		public double grappleRange = 5.0;
+		public int grappleBlows = 5;
+		public int grappleBlowTicks = 10;
+		public float grappleBlowDamage = 9.0f;
+		public double grappleThrowSpeed = 2.0;
+		public float grappleThrowDamage = 14.0f;
+		/** Counted from the release / throw. */
+		public int grappleCooldownTicks = 200;
+	}
 
 	/** Damage, reach and cooldown of every Hulk ability (v0.13.14 kit: R G Z X C V). */
 	public static final class Abilities {
@@ -150,13 +261,17 @@ public final class HulkConfig {
 		return instance.calm;
 	}
 
+	public static Gladiator gladiator() {
+		return instance.gladiator;
+	}
+
 	/**
 	 * v0.14.21: loaded through the shared {@link com.projecthero.mod.config.VersionedConfig} (see {@code docs/CONFIGS.md}).
 	 * The steps are the migrations this file already had, unchanged.
 	 */
 	public static final com.projecthero.mod.config.VersionedConfig<HulkConfig> SPEC = com.projecthero.mod.config.VersionedConfig
 			.builder(HulkConfig.class, "projecthero_hulk.json", HulkConfig::new)
-			.balance("abilities", "control", "calm")
+			.balance("abilities", "control", "calm", "gladiator")
 			.introduce(1, "v0.13.12 first file")
 			// v0.13.14 rebuilt the kit (new keys, new damage and cooldowns): a 0.13.13 file must not keep the old numbers
 			.reset(2, "v0.13.14 Hulk kit rebuilt", "abilities")
@@ -167,6 +282,8 @@ public final class HulkConfig {
 					com.projecthero.mod.config.VersionedConfig.resetKey(file, defaults, "abilities.thunderclapRange");
 				}
 			})
+			// v0.15.3: the new "gladiator" section is filled in from the defaults; nothing a server set is touched
+			.introduce(4, "v0.15.3 Gladiator Hulk moves section")
 			.build();
 
 	public static void load() {
