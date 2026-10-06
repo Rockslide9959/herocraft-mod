@@ -3955,5 +3955,9 @@
   "subtitles.projecthero.ironman_punch": "Armoured punch lands",
   "subtitles.projecthero.ironman_mk1_clunk": "Crude armour clanks",
   "subtitles.projecthero.ironman_combo_finisher": "Staggered foe is smashed",
-  "subtitles.projecthero.ironman_suit_stored": "Suit powers down"
+  "subtitles.projecthero.ironman_suit_stored": "Suit powers down",
+  "projecthero.guide.iron_man.armour_rules": "Armour Rules",
+  "projecthero.guide.iron_man.armour_rules.body": "Iron Man armour only goes on with C or a suit deploy, and only comes off with C, a Suit Platform retrieve or a send-home -- it can't be dragged in or out of your armour slots like normal armour. Every suit is bulletproof (guns do nothing while the chestplate is on) and gives 70% knockback resistance. Repulsors reach 50 blocks, and from the Mark 3 up the mob highlight switches on by itself when you put the helmet on. Marks 3, 6 and 7 repair 1 integrity per second while worn.",
+  "projecthero.guide.green_lantern.dome_model": "Protective Dome",
+  "projecthero.guide.green_lantern.dome_model.body": "Sneak + Z throws up a glowing hard-light dome around you: a green globe with a lattice of light that grows out over a second and a half, pushes out anyone who isn't in your squad, and flickers when it is close to breaking."
 }

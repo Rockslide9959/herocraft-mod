@@ -405,7 +405,7 @@ public final class HeroPackGuide {
 			// v0.14.26: scanner, Mark III targeting, I-key spec sheet, auto-feed, the Stark cookers
 			for (String section : new String[]{"scanner", "targeting", "spec_sheet", "auto_feed", "furnaces",
 					"mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "platform", "combat", "jarvis",
-					"remote_pilot"}) { // v0.14.29: + Mark 4 / 5 / 6 / 7, combat systems, JARVIS, remote pilot
+					"remote_pilot", "armour_rules"}) { // v0.15.1: + armour rules; v0.14.29: + Mark 4 / 5 / 6 / 7, combat systems, JARVIS, remote pilot
 				head(lines, "projecthero.guide.iron_man." + section);
 				para(lines, "projecthero.guide.iron_man." + section + ".body");
 			}
@@ -555,6 +555,8 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.air_tank");
 			para(lines, "projecthero.guide.green_lantern.air_tank.body");
+			head(lines, "projecthero.guide.green_lantern.dome_model"); // v0.15.1
+			para(lines, "projecthero.guide.green_lantern.dome_model.body");
 			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.controls");
 			// v0.14.3: H (Giant Hand) and N (dismiss / take off the ring) joined the kit

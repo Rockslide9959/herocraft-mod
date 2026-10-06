@@ -1,0 +1,42 @@
+Project Hero v0.15.1 -- Bulletproof Iron Man, Iron Man Sounds, Kingpin's Cane, Thor Weapon Recall
+
+⚡ THOR: CALL MJOLNIR OR STORMBREAKER
+THOR_RECALL_SECTION
+
+🦾 IRON MAN ARMOUR RULES
+- Iron Man armour can't be taken off like normal armour any more: no picking it out of your armour slots, shift-clicking it out or hot-key swapping it away. It comes off with C (suit down), a Suit Platform retrieve or a send-home. (It already couldn't be put on by hand.)
+- Every Iron Man suit is bulletproof: guns (player guns and the Syndicate's gunmen) do nothing to you while the chestplate is on, and never drain integrity or energy.
+- Every Iron Man suit now gives 70% knockback resistance.
+- Repulsor blasts reach 50 blocks (tap, charged, the hand repulsor and the Remote Pilot drone).
+- Mark 3 and up: the mob highlight switches on by itself when you put the helmet on. (The Mark 6 and 7 can still turn it off; it comes back next time the helmet goes on.)
+- Marks 3, 6 and 7 now repair 1 integrity per second while worn (the Mark 4 keeps 3/s and the Mark 5 2/s).
+- No more two-leg kick when you start flying: you go straight into the flight pose.
+- The arc reactor on your chest sits higher, just under the second pixel of the chest.
+
+🔊 IRON MAN SOUND EFFECTS
+- Every Iron Man move has its own sound now, built from layered Minecraft sounds:
+- Repulsors: a rising charge whine, a concussive "thoom" blast, a heavier boom for the charged shot.
+- Unibeam: a deep humming beam with crackle, power-up and power-down.
+- Missiles and rockets: pod opening, launch hiss and whoosh, detonations.
+- Miniguns: spin-up, rattling fire, spin-down.
+- Flares, the sonic clap boom, the wrist laser sizzle, shield hum and deflects, the dash, supersonic flight, the Mark 6 Arc Reactor Surge, JARVIS scan chirps, gauntlet blades, the flamethrower, target lock beeps, HUD on/off, suit stored and power failure.
+- The Mark 1 sounds cruder and clunkier than the later suits.
+- Every sound has a subtitle, and nearby players hear them too.
+
+💼 MARK 5 SUITCASE
+- You now carry the Mark 5 Suitcase like a real briefcase: hanging by its handle at your side instead of sticking out in front of you.
+
+🦯 KINGPIN'S CANE
+- The cane now has a proper 3D model when held: a black lacquered shaft with a silver collar and tip and a big faceted diamond head (still a flat icon in your inventory).
+- New swing animations that chain together: an Overhead Strike, then a Side Swipe, then a Cane Thrust. Pause for two seconds and the chain starts over.
+- They play in first and third person, and the Kingpin swings his cane the same way in his boss fight.
+- Damage and the hidden barrel shot are unchanged.
+
+💚 GREEN LANTERN
+- The Protective Dome (Sneak + Z) now has a real model: a glowing hard-light globe with a lattice of light that grows out around you, a bright band sweeping up it, and a flicker when it's close to breaking. No more particle rings.
+
+📖 GUIDEBOOK
+- New Iron Man "Armour Rules" page and a Green Lantern "Protective Dome" page.
+THOR_GUIDE_LINE
+
+Coming in v0.15.2: the Sentinel Purge event, Stark Glasses and the Stark Gear slot (Shift + N), robotic-arm suit-up on the Suit Platform, new Mark 5, 6 and 7 models, and new Stark Furnace, Smelter and Smoker models.
