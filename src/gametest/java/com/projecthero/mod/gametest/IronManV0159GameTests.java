@@ -217,6 +217,16 @@ public class IronManV0159GameTests implements FabricGameTest {
 		int off = centre(h).plan().total();
 		ItemStack[][] stolen = new ItemStack[1][];
 		h.runAfterDelay(40, () -> stolen[0] = other.takeAllPieces()); // someone else's sequence took it meanwhile
+		// the pick is gone at the hand-off: the taking-off plays its normal outro instead of snapping shut
+		h.runAfterDelay(off - GantryTimeline.LEAD + 2, () -> {
+			StarkGantryFloorBlockEntity c = centre(h);
+			h.assertTrue(c.running() && c.mode() == StarkGantryFloorBlockEntity.MODE_UNEQUIP && c.swapSuit() == null,
+					"still running, now just a Remove Suit playing its outro");
+			h.assertTrue(c.getBlockState().getValue(com.projecthero.mod.ironman.gantry.StarkGantryFloorBlock.OPEN)
+					&& GantryTimeline.lift(c.frameAt(0f), c.plan()) > 0.9f * GantryTimeline.LIFT, "floor still open, lift still up");
+			h.assertTrue(home.isFull() && OLD.equals(home.storedSuitId()), "the old suit already went home");
+			h.assertTrue(IronManSuitPlatformBlockEntity.isFrozen(p), "held until the outro is over");
+		});
 		h.runAfterDelay(off + 6, () -> {
 			assertReleased(h, p);
 			h.assertFalse(IronManArmor.wearingAnyIronMan(p), "the old suit came off and nothing went on");

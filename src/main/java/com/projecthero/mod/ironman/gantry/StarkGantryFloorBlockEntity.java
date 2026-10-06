@@ -399,7 +399,8 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		}
 		if (!ok) {
 			player.displayClientMessage(Component.translatable("message.projecthero.gantry.swap_gone").withStyle(ChatFormatting.GOLD), true);
-			end(player);
+			// the taking-off simply plays on through its own outro (swapSuit is cleared now): the lift lowers, the arms fold,
+			// the floor closes and the sequence ends as an ordinary Remove Suit would -- no snap
 			return;
 		}
 		IronManSounds.play(player, IronManSounds.CLAMP, 0.6f, 0.8f);
