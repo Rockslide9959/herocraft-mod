@@ -32,7 +32,17 @@ public record HammerRecord(
 		BlockPos lastPos,
 		/** The in-world entity's UUID while {@link Placement#ENTITY}. Absent otherwise. */
 		Optional<UUID> entityId,
-		MjolnirStatus status) {
+		MjolnirStatus status,
+		/** v0.15.1: which weapon this is. Records saved before Stormbreaker was tracked load as Mjolnir. */
+		ThorWeapon weapon) {
+
+	/** The pre-v0.15.1 shape -- a Mjolnir record. */
+	public HammerRecord(UUID hammerId, int generation, Optional<UUID> owner, String ownerName, Placement placement,
+			Optional<UUID> holder, ResourceKey<Level> dimension, BlockPos lastPos, Optional<UUID> entityId,
+			MjolnirStatus status) {
+		this(hammerId, generation, owner, ownerName, placement, holder, dimension, lastPos, entityId, status,
+				ThorWeapon.MJOLNIR);
+	}
 
 	/** Where the hammer physically is. Deliberately coarse -- the fine detail lives on the entity. */
 	public enum Placement {
@@ -63,7 +73,9 @@ public record HammerRecord(
 			BlockPos.CODEC.optionalFieldOf("last_pos", BlockPos.ZERO).forGetter(HammerRecord::lastPos),
 			UUIDUtil.CODEC.optionalFieldOf("entity_id").forGetter(HammerRecord::entityId),
 			Codec.STRING.xmap(HammerRecord::statusOf, MjolnirStatus::name)
-					.optionalFieldOf("status", MjolnirStatus.STORED).forGetter(HammerRecord::status)
+					.optionalFieldOf("status", MjolnirStatus.STORED).forGetter(HammerRecord::status),
+			Codec.STRING.xmap(ThorWeapon::byKey, ThorWeapon::key)
+					.optionalFieldOf("weapon", ThorWeapon.MJOLNIR).forGetter(HammerRecord::weapon)
 	).apply(instance, HammerRecord::new));
 
 	/** Anything unrecognised (an older save, a hand-edited file) degrades to the inert default. */
@@ -86,17 +98,17 @@ public record HammerRecord(
 	public HammerRecord withPlacement(Placement newPlacement, Optional<UUID> newHolder, Optional<UUID> newEntityId,
 			ResourceKey<Level> newDimension, BlockPos newPos, MjolnirStatus newStatus) {
 		return new HammerRecord(hammerId, generation, owner, ownerName, newPlacement, newHolder,
-				newDimension, newPos, newEntityId, newStatus);
+				newDimension, newPos, newEntityId, newStatus, weapon);
 	}
 
 	public HammerRecord withOwner(Optional<UUID> newOwner, String newOwnerName) {
 		return new HammerRecord(hammerId, generation, newOwner, newOwnerName, placement, holder,
-				dimension, lastPos, entityId, status);
+				dimension, lastPos, entityId, status, weapon);
 	}
 
 	public HammerRecord withGeneration(int newGeneration) {
 		return new HammerRecord(hammerId, newGeneration, owner, ownerName, placement, holder,
-				dimension, lastPos, entityId, status);
+				dimension, lastPos, entityId, status, weapon);
 	}
 
 	public boolean isOwnedBy(UUID player) {

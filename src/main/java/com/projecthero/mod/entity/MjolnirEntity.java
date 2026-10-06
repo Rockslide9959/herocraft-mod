@@ -1023,6 +1023,10 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 	 */
 	private boolean giveTo(Player player, boolean forceIntoHand) {
 		ItemStack stack = this.getItem().copy();
+		if (forceIntoHand) {
+			// v0.15.1: called while holding Stormbreaker, the hammer takes the hand and the axe steps back into the pack
+			com.projecthero.mod.hammer.MjolnirRecall.stowOtherWeapon(player, com.projecthero.mod.hammer.ThorWeapon.MJOLNIR);
+		}
 		ItemStack currentMainHand = player.getMainHandItem();
 		if (currentMainHand.isEmpty()) {
 			player.setItemInHand(InteractionHand.MAIN_HAND, stack);

@@ -7,8 +7,8 @@ import java.util.UUID;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.entity.MjolnirEntity;
 import com.projecthero.mod.item.ModDataComponents;
-import com.projecthero.mod.item.ModItems;
 import com.projecthero.mod.power.ThorFeedback;
+import com.projecthero.mod.stormbreaker.StormbreakerEntity;
 import com.projecthero.mod.worthiness.Worthiness;
 
 import net.minecraft.core.BlockPos;
@@ -19,7 +19,9 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
@@ -28,6 +30,22 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * "Call Mjolnir" -- resolving where the player's hammer actually is and starting it home.
+ *
+ * <h2>v0.15.1: Mjolnir and Stormbreaker, interchangeably</h2>
+ * The one call key now considers both of the player's bound weapons ({@link ModAttachments#BOUND_HAMMER_ID} and
+ * {@link ModAttachments#BOUND_STORMBREAKER_ID}) -- see {@link #chooseWeapon}:
+ * <ol>
+ *   <li>one of them already with the player (anywhere in the inventory, hands, off hand or cursor) -- the
+ *   <em>other</em> one is called;</li>
+ *   <li>neither with the player -- whichever is closer is called (a loaded weapon by its real distance, an unloaded
+ *   one by where the registry last saw it; one in another dimension counts as farther than anything in this one,
+ *   but still answers if it is the only option);</li>
+ *   <li>bound to only one of them -- that one, with the old behaviour exactly (swap it into the main hand if it is
+ *   elsewhere in the pack, "already in your hands" if it is held);</li>
+ *   <li>both already with the player -- nothing moves, one short line says so.</li>
+ * </ol>
+ * Whichever weapon is chosen then goes through the same resolution below; a Stormbreaker flies home on its own
+ * return flight ({@link StormbreakerEntity#createReturning}) and takes the hand when it lands.
  *
  * <h2>Resolution order</h2>
  * Deliberately cheapest-and-most-certain first, and it never creates a hammer while an existing one
@@ -87,11 +105,18 @@ public final class MjolnirRecall {
 	/** How high above the player it comes in from -- it should arrive out of the sky. */
 	private static final double ARRIVAL_HEIGHT = 12.0;
 
+	/** v0.15.1 nearest-weapon ranking: a weapon in another dimension is farther than anything in this one... */
+	static final double OTHER_DIMENSION_DISTANCE = 1.0E9;
+	/** ...one in this dimension with no usable last position sits just inside that... */
+	static final double UNKNOWN_POSITION_DISTANCE = 1.0E8;
+	/** ...and one that cannot be called at all (no record, not ours) is never chosen over one that can. */
+	static final double UNREACHABLE = Double.POSITIVE_INFINITY;
+
 	private MjolnirRecall() {
 	}
 
 	/**
-	 * @return true if a hammer is now on its way (or already in hand), false if the call went
+	 * @return true if a weapon is now on its way (or already in hand), false if the call went
 	 *         unanswered. The caller does not need to report anything -- every branch below has
 	 *         already given the player feedback.
 	 */
@@ -100,32 +125,120 @@ public final class MjolnirRecall {
 			ThorFeedback.recallBlocked(player);
 			return false;
 		}
+		MjolnirRegistry registry = MjolnirRegistry.get(player.serverLevel());
+		ThorWeapon weapon = chooseWeapon(player);
+		if (weapon == null) {
+			ThorFeedback.recallBothWithYou(player);
+			return true;
+		}
+		return callWeapon(player, registry, weapon, boundId(player, weapon));
+	}
 
-		ServerLevel level = player.serverLevel();
-		MjolnirRegistry registry = MjolnirRegistry.get(level);
-		UUID hammerId = player.getAttachedOrElse(ModAttachments.BOUND_HAMMER_ID, null);
+	/**
+	 * v0.15.1: which weapon the call key brings -- see the class javadoc's four rules. Null means both bound weapons
+	 * are already with the player. A player with no Stormbreaker bound always gets {@link ThorWeapon#MJOLNIR} (the
+	 * pre-v0.15.1 behaviour, unchanged).
+	 */
+	public static ThorWeapon chooseWeapon(ServerPlayer player) {
+		UUID axeId = boundId(player, ThorWeapon.STORMBREAKER);
+		if (axeId == null) {
+			return ThorWeapon.MJOLNIR;
+		}
+		MjolnirRegistry registry = MjolnirRegistry.get(player.serverLevel());
+		UUID hammerId = boundId(player, ThorWeapon.MJOLNIR);
+		boolean hammerWith = isWithPlayer(player, registry, ThorWeapon.MJOLNIR, hammerId);
+		boolean axeWith = isWithPlayer(player, registry, ThorWeapon.STORMBREAKER, axeId);
+		if (hammerWith && axeWith) {
+			return null;
+		}
+		if (hammerWith) {
+			return ThorWeapon.STORMBREAKER;
+		}
+		if (axeWith) {
+			// Stormbreaker in hand calls Mjolnir -- even an unbound one lying nearby, the old Mjolnir rules -- unless
+			// there is no Mjolnir to answer at all, when the axe's own "already in your hands" / swap-in is more useful
+			if (hammerId == null && distanceTo(player, registry, ThorWeapon.MJOLNIR, null) == UNREACHABLE) {
+				return ThorWeapon.STORMBREAKER;
+			}
+			return ThorWeapon.MJOLNIR;
+		}
+		double toHammer = distanceTo(player, registry, ThorWeapon.MJOLNIR, hammerId);
+		double toAxe = distanceTo(player, registry, ThorWeapon.STORMBREAKER, axeId);
+		// a tie (both unreachable included) goes to Mjolnir, whose "no hammer" feedback is the familiar one
+		return toAxe < toHammer ? ThorWeapon.STORMBREAKER : ThorWeapon.MJOLNIR;
+	}
 
+	/** The id of the weapon of this kind bound to {@code player}, or null. */
+	public static UUID boundId(Player player, ThorWeapon weapon) {
+		return player.getAttachedOrElse(weapon == ThorWeapon.STORMBREAKER
+				? ModAttachments.BOUND_STORMBREAKER_ID : ModAttachments.BOUND_HAMMER_ID, null);
+	}
+
+	/** v0.15.1: in the inventory (any slot, hands and off hand included) or on the cursor. */
+	static boolean isWithPlayer(ServerPlayer player, MjolnirRegistry registry, ThorWeapon weapon, UUID id) {
+		return findInInventory(player, registry, weapon, id) >= 0
+				|| matches(registry, player.containerMenu.getCarried(), weapon, player.getUUID(), id);
+	}
+
+	/**
+	 * v0.15.1: how far away this weapon is, for picking the nearer one. A loaded one is measured exactly; otherwise
+	 * the registry's record is used -- a living holder's current position, else the last position seen in this
+	 * dimension. Never loads anything.
+	 */
+	static double distanceTo(ServerPlayer player, MjolnirRegistry registry, ThorWeapon weapon, UUID id) {
+		Entity loaded = findLoadedEntity(player, registry, weapon, id);
+		if (loaded != null) {
+			return loaded.distanceTo(player);
+		}
+		if (id == null) {
+			return UNREACHABLE;
+		}
+		Optional<HammerRecord> maybeRecord = registry.record(id);
+		if (maybeRecord.isEmpty() || !maybeRecord.get().isOwnedBy(player.getUUID())) {
+			return UNREACHABLE;
+		}
+		HammerRecord record = maybeRecord.get();
+		if (record.placement() == HammerRecord.Placement.CARRIED && record.holder().isPresent()) {
+			ServerPlayer holder = player.getServer().getPlayerList().getPlayer(record.holder().get());
+			if (holder != null) {
+				return holder.level() == player.level() ? holder.distanceTo(player) : OTHER_DIMENSION_DISTANCE;
+			}
+		}
+		if (!record.dimension().equals(player.level().dimension())) {
+			return OTHER_DIMENSION_DISTANCE;
+		}
+		if (BlockPos.ZERO.equals(record.lastPos())) {
+			return UNKNOWN_POSITION_DISTANCE;
+		}
+		return Math.sqrt(player.distanceToSqr(Vec3.atCenterOf(record.lastPos())));
+	}
+
+	/**
+	 * The pre-v0.15.1 recall, for one specific weapon kind: Mjolnir's path is exactly what it always was;
+	 * Stormbreaker's is the same resolution with its own entity and return flight.
+	 */
+	private static boolean callWeapon(ServerPlayer player, MjolnirRegistry registry, ThorWeapon weapon, UUID hammerId) {
 		// 1. Already ours.
-		int ownSlot = findInInventory(player, hammerId);
+		int ownSlot = findInInventory(player, registry, weapon, hammerId);
 		if (ownSlot >= 0) {
-			equipFromInventory(player, ownSlot);
+			equipFromInventory(player, ownSlot, weapon);
 			return true;
 		}
 		// v0.14.16: ...including on our own cursor (mid-drag in a menu) -- it is in our hand already.
-		if (matches(registry, player.containerMenu.getCarried(), player.getUUID(), hammerId)) {
-			ThorFeedback.recallAlreadyHeld(player);
+		if (matches(registry, player.containerMenu.getCarried(), weapon, player.getUUID(), hammerId)) {
+			ThorFeedback.recallAlreadyHeld(player, weapon);
 			return true;
 		}
 
 		// 2. A loaded entity.
-		MjolnirEntity loaded = findLoadedEntity(player, registry, hammerId);
+		Entity loaded = findLoadedEntity(player, registry, weapon, hammerId);
 		if (loaded != null) {
 			double distance = loaded.distanceTo(player);
-			loaded.recall(player);
+			answerLoaded(player, registry, weapon, hammerId, loaded);
 			if (distance > FAR_DISTANCE) {
-				ThorFeedback.recallStartedFar(player);
+				ThorFeedback.recallStartedFar(player, weapon);
 			} else {
-				ThorFeedback.recallStartedNear(player);
+				ThorFeedback.recallStartedNear(player, weapon);
 			}
 			return true;
 		}
@@ -133,13 +246,13 @@ public final class MjolnirRecall {
 		// Everything past here needs a known identity: without one there is no record to work from
 		// and no way to tell one hammer from another.
 		if (hammerId == null) {
-			ThorFeedback.recallNoHammer(player);
+			ThorFeedback.recallNoHammer(player, weapon);
 			return false;
 		}
 
 		Optional<HammerRecord> maybeRecord = registry.record(hammerId);
 		if (maybeRecord.isEmpty() || !maybeRecord.get().isOwnedBy(player.getUUID())) {
-			ThorFeedback.recallNoHammer(player);
+			ThorFeedback.recallNoHammer(player, weapon);
 			return false;
 		}
 		HammerRecord record = maybeRecord.get();
@@ -151,22 +264,22 @@ public final class MjolnirRecall {
 		// 2b. Its recorded entity is loaded, just not in the caller's dimension.
 		ItemStack fromOtherDimension = takeLoadedEntityElsewhere(player, registry, hammerId, record);
 		if (fromOtherDimension != null) {
-			flyIn(player, restamp(fromOtherDimension, registry, hammerId));
-			ThorFeedback.recallStartedFar(player);
+			flyIn(player, weapon, restamp(fromOtherDimension, registry, hammerId));
+			ThorFeedback.recallStartedFar(player, weapon);
 			return true;
 		}
 
 		// 3. In somebody else's hand, inventory, cursor, open menu or ender chest (or our own ender chest).
-		StolenHammer stolen = takeFromOtherPlayers(player, registry, hammerId);
+		StolenHammer stolen = takeFromOtherPlayers(player, registry, weapon, hammerId);
 		if (stolen != null) {
 			ItemStack moving = restamp(stolen.stack(), registry, hammerId);
 			if (stolen.holder() == player) {
-				flyIn(player, moving);
+				flyIn(player, weapon, moving);
 			} else {
-				flyInFromHolder(player, stolen.holder(), moving);
-				ThorFeedback.hammerTakenByOwner(stolen.holder());
+				flyInFromHolder(player, stolen.holder(), weapon, moving);
+				ThorFeedback.hammerTakenByOwner(stolen.holder(), weapon);
 			}
-			ThorFeedback.recallStartedFar(player);
+			ThorFeedback.recallStartedFar(player, weapon);
 			return true;
 		}
 
@@ -178,11 +291,11 @@ public final class MjolnirRecall {
 		if (found != null) {
 			ItemStack moving = restamp(found.stack(), registry, hammerId);
 			if (found.level() == player.serverLevel()) {
-				flyInFrom(player, found.level(), found.origin(), moving);
+				flyInFrom(player, weapon, found.level(), found.origin(), moving);
 			} else {
-				flyIn(player, moving);
+				flyIn(player, weapon, moving);
 			}
-			ThorFeedback.recallStartedFar(player);
+			ThorFeedback.recallStartedFar(player, weapon);
 			return true;
 		}
 
@@ -191,10 +304,10 @@ public final class MjolnirRecall {
 		// its first tick. v0.14.16: rebuilt from the registry's last full snapshot of the stack, so the
 		// recalled copy keeps its custom name, enchantments and the rest; the ghost left behind is deleted by
 		// MjolnirGuard the moment its chunk / container / owner is next seen.
-		ItemStack rebuilt = rebuildStack(record, registry.snapshot(hammerId).orElse(null),
+		ItemStack rebuilt = rebuildStack(record, weapon, registry.snapshot(hammerId).orElse(null),
 				registry.reconstruct(hammerId));
-		flyIn(player, rebuilt);
-		ThorFeedback.recallStartedFar(player);
+		flyIn(player, weapon, rebuilt);
+		ThorFeedback.recallStartedFar(player, weapon);
 		return true;
 	}
 
@@ -203,6 +316,25 @@ public final class MjolnirRecall {
 		ItemStack moving = stack.copyWithCount(1);
 		moving.set(ModDataComponents.HAMMER_GENERATION, registry.reconstruct(hammerId));
 		return moving;
+	}
+
+	/**
+	 * v0.15.1: a weapon called home while the player holds the OTHER Thor weapon in the main hand takes the hand --
+	 * the held one steps back into the first free backpack slot. Does nothing if the hand holds anything else or the
+	 * pack is full (the weapon then lands by the old rules).
+	 */
+	public static void stowOtherWeapon(Player player, ThorWeapon arriving) {
+		ItemStack held = player.getMainHandItem();
+		if (ThorWeapon.of(held) != arriving.other()) {
+			return;
+		}
+		Inventory inventory = player.getInventory();
+		int free = inventory.getFreeSlot();
+		if (free < 0 || free == inventory.selected) {
+			return;
+		}
+		inventory.setItem(free, held);
+		player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
 	}
 
 	/**
@@ -223,23 +355,28 @@ public final class MjolnirRecall {
 	 * @return true if the physical hammer was found and its own binding cleared.
 	 */
 	public static boolean forceUnbind(ServerPlayer player, UUID hammerId) {
+		return forceUnbind(player, ThorWeapon.MJOLNIR, hammerId);
+	}
+
+	/** v0.15.1: {@link #forceUnbind(ServerPlayer, UUID)} for either weapon. */
+	public static boolean forceUnbind(ServerPlayer player, ThorWeapon weapon, UUID hammerId) {
 		if (hammerId == null) {
 			return false;
 		}
 		MjolnirRegistry registry = MjolnirRegistry.get(player.serverLevel());
 
-		int slot = findInInventory(player, hammerId);
+		int slot = findInInventory(player, registry, weapon, hammerId);
 		if (slot >= 0) {
 			ItemStack stack = player.getInventory().getItem(slot);
 			clearBinding(stack, registry);
 			return true;
 		}
 
-		MjolnirEntity loaded = findLoadedEntity(player, registry, hammerId);
+		Entity loaded = findLoadedEntity(player, registry, weapon, hammerId);
 		if (loaded != null) {
-			ItemStack stack = loaded.getItem().copy();
+			ItemStack stack = stackOf(loaded).copy();
 			clearBinding(stack, registry);
-			loaded.setItem(stack);
+			setStackOf(loaded, stack);
 			return true;
 		}
 
@@ -262,60 +399,109 @@ public final class MjolnirRecall {
 	 * manually shift-clicking one there) is left alone rather than risk swapping the displaced item
 	 * into an armor slot.
 	 */
-	private static void equipFromInventory(ServerPlayer player, int slot) {
+	private static void equipFromInventory(ServerPlayer player, int slot, ThorWeapon weapon) {
 		Inventory inventory = player.getInventory();
 		int mainHandSlot = inventory.selected;
 		if (slot == mainHandSlot) {
-			ThorFeedback.recallAlreadyHeld(player);
+			ThorFeedback.recallAlreadyHeld(player, weapon);
 			return;
 		}
 		if (slot < 0 || slot >= 36) {
-			ThorFeedback.recallAlreadyHeld(player);
+			ThorFeedback.recallAlreadyHeld(player, weapon);
 			return;
 		}
 		ItemStack hammer = inventory.getItem(slot);
 		ItemStack heldItem = inventory.getItem(mainHandSlot);
 		inventory.setItem(mainHandSlot, hammer);
 		inventory.setItem(slot, heldItem);
-		ThorFeedback.recallEquipped(player);
+		ThorFeedback.recallEquipped(player, weapon);
 	}
 
 	// ---------------- resolution steps ----------------
 
-	/** @return the inventory slot the caller's own hammer is in, or -1. */
-	private static int findInInventory(ServerPlayer player, UUID hammerId) {
-		MjolnirRegistry registry = MjolnirRegistry.get(player.serverLevel());
+	/** @return the inventory slot the caller's own weapon is in, or -1. */
+	private static int findInInventory(ServerPlayer player, MjolnirRegistry registry, ThorWeapon weapon, UUID hammerId) {
 		Inventory inventory = player.getInventory();
 		for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
 			ItemStack stack = inventory.getItem(slot);
-			if (matches(registry, stack, player.getUUID(), hammerId)) {
+			if (matches(registry, stack, weapon, player.getUUID(), hammerId)) {
 				return slot;
 			}
 		}
 		return -1;
 	}
 
+	/** v0.15.1: the in-world forms a weapon can take -- Mjolnir's own entity, a thrown Stormbreaker, a dropped Stormbreaker. */
+	private static ItemStack stackOf(Entity entity) {
+		if (entity instanceof MjolnirEntity hammer) {
+			return hammer.getItem();
+		}
+		if (entity instanceof StormbreakerEntity axe) {
+			return axe.getItem();
+		}
+		if (entity instanceof ItemEntity item) {
+			return item.getItem();
+		}
+		return ItemStack.EMPTY;
+	}
+
+	private static void setStackOf(Entity entity, ItemStack stack) {
+		if (entity instanceof MjolnirEntity hammer) {
+			hammer.setItem(stack);
+		} else if (entity instanceof StormbreakerEntity axe) {
+			axe.setItem(stack);
+		} else if (entity instanceof ItemEntity item) {
+			item.setItem(stack);
+		}
+	}
+
+	/** Whether {@code entity} is a form {@code weapon} takes in the world. */
+	private static boolean isWeaponEntity(Entity entity, ThorWeapon weapon) {
+		if (weapon == ThorWeapon.MJOLNIR) {
+			return entity instanceof MjolnirEntity;
+		}
+		return entity instanceof StormbreakerEntity
+				|| (entity instanceof ItemEntity item && item.getItem().is(weapon.item()));
+	}
+
 	/**
 	 * The recorded entity first (exact, and cheap -- {@code getEntity(UUID)} is a map lookup that
 	 * simply misses for anything unloaded), then a bounded sweep of the player's own level for
-	 * hammers that have no record yet.
+	 * hammers that have no record yet. Only ever returns one that is in the caller's level and ticking, so it can
+	 * fly home on its own.
 	 */
-	private static MjolnirEntity findLoadedEntity(ServerPlayer player, MjolnirRegistry registry, UUID hammerId) {
+	private static Entity findLoadedEntity(ServerPlayer player, MjolnirRegistry registry, ThorWeapon weapon, UUID hammerId) {
 		if (hammerId != null) {
 			Optional<HammerRecord> record = registry.record(hammerId);
 			if (record.isPresent() && record.get().entityId().isPresent()) {
 				ServerLevel recordLevel = player.getServer().getLevel(record.get().dimension());
-				if (recordLevel != null
-						&& recordLevel.getEntity(record.get().entityId().get()) instanceof MjolnirEntity hammer
-						&& !hammer.isRemoved()
-						&& hammer.level() == player.level()
-						&& !registry.isStale(hammer.getItem())
+				Entity entity = recordLevel == null ? null : recordLevel.getEntity(record.get().entityId().get());
+				if (entity != null
+						&& isWeaponEntity(entity, weapon)
+						&& !entity.isRemoved()
+						&& entity.level() == player.level()
+						&& !registry.isStale(stackOf(entity))
+						&& (weapon == ThorWeapon.MJOLNIR || MjolnirGuard.isLiveCopy(registry, stackOf(entity), hammerId))
 						// v0.14.16: one sitting in a lazy border chunk never ticks, so it could never fly
 						// home -- takeLoadedEntityElsewhere moves it instead.
-						&& player.serverLevel().isPositionEntityTicking(hammer.blockPosition())) {
-					return hammer;
+						&& player.serverLevel().isPositionEntityTicking(entity.blockPosition())) {
+					return entity;
 				}
 			}
+		}
+
+		if (weapon == ThorWeapon.STORMBREAKER) {
+			// no legacy path: every Stormbreaker that answers a call is identified, so only its own id matches
+			if (hammerId == null) {
+				return null;
+			}
+			return player.serverLevel().getEntities((Entity) null,
+							player.getBoundingBox().inflate(LOADED_SEARCH_RADIUS),
+							entity -> !entity.isRemoved() && isWeaponEntity(entity, weapon)
+									&& MjolnirGuard.isLiveCopy(registry, stackOf(entity), hammerId)
+									&& player.serverLevel().isPositionEntityTicking(entity.blockPosition())).stream()
+					.min(Comparator.comparingDouble(entity -> entity.distanceToSqr(player)))
+					.orElse(null);
 		}
 
 		return player.serverLevel().getEntitiesOfClass(MjolnirEntity.class,
@@ -325,6 +511,25 @@ public final class MjolnirRecall {
 								&& answersTo(entity, player, hammerId)).stream()
 				.min(Comparator.comparingDouble(entity -> entity.distanceToSqr(player)))
 				.orElse(null);
+	}
+
+	/**
+	 * Starts a loaded, ticking weapon home: Mjolnir and a thrown Stormbreaker are simply told to return (the very same
+	 * entity flies back); a Stormbreaker lying on the ground as an item is lifted off it and flies home from there.
+	 */
+	private static void answerLoaded(ServerPlayer player, MjolnirRegistry registry, ThorWeapon weapon, UUID hammerId,
+			Entity loaded) {
+		if (loaded instanceof MjolnirEntity hammer) {
+			hammer.recall(player);
+		} else if (loaded instanceof StormbreakerEntity axe) {
+			axe.recall(player);
+		} else if (loaded instanceof ItemEntity item) {
+			ItemStack taken = item.getItem().copy();
+			item.discard();
+			ItemStack moving = hammerId == null ? taken.copyWithCount(1) : restamp(taken, registry, hammerId);
+			flyInFrom(player, weapon, (ServerLevel) item.level(),
+					item.position().add(0.0, 0.4, 0.0), moving);
+		}
 	}
 
 	/**
@@ -362,7 +567,8 @@ public final class MjolnirRecall {
 	 * looks at online players -- see the class javadoc for why that is exactly what makes the
 	 * offline-holder case safe.
 	 */
-	private static StolenHammer takeFromOtherPlayers(ServerPlayer caller, MjolnirRegistry registry, UUID hammerId) {
+	private static StolenHammer takeFromOtherPlayers(ServerPlayer caller, MjolnirRegistry registry, ThorWeapon weapon,
+			UUID hammerId) {
 		for (ServerPlayer other : caller.getServer().getPlayerList().getPlayers()) {
 			if (other == caller) {
 				continue;
@@ -370,7 +576,7 @@ public final class MjolnirRecall {
 
 			for (InteractionHand hand : InteractionHand.values()) {
 				ItemStack held = other.getItemInHand(hand);
-				if (matches(registry, held, caller.getUUID(), hammerId)) {
+				if (matches(registry, held, weapon, caller.getUUID(), hammerId)) {
 					ItemStack taken = held.copy();
 					other.setItemInHand(hand, ItemStack.EMPTY);
 					return new StolenHammer(other, taken);
@@ -425,8 +631,9 @@ public final class MjolnirRecall {
 		return null;
 	}
 
-	private static boolean matches(MjolnirRegistry registry, ItemStack stack, UUID owner, UUID hammerId) {
-		if (!stack.is(ModItems.MJOLNIR)) {
+	private static boolean matches(MjolnirRegistry registry, ItemStack stack, ThorWeapon weapon, UUID owner,
+			UUID hammerId) {
+		if (!weapon.is(stack)) {
 			return false;
 		}
 		// v0.14.16: a superseded ghost is never "the" hammer -- moving one would resurrect it.
@@ -461,14 +668,14 @@ public final class MjolnirRecall {
 			return null;
 		}
 		ServerLevel recordLevel = player.getServer().getLevel(record.dimension());
-		if (recordLevel == null
-				|| !(recordLevel.getEntity(record.entityId().get()) instanceof MjolnirEntity hammer)
-				|| hammer.isRemoved()
-				|| !MjolnirGuard.isLiveCopy(registry, hammer.getItem(), hammerId)) {
+		Entity entity = recordLevel == null ? null : recordLevel.getEntity(record.entityId().get());
+		if (entity == null || entity.isRemoved()
+				|| !(entity instanceof MjolnirEntity || entity instanceof StormbreakerEntity || entity instanceof ItemEntity)
+				|| !MjolnirGuard.isLiveCopy(registry, stackOf(entity), hammerId)) {
 			return null;
 		}
-		ItemStack taken = hammer.getItem().copy();
-		hammer.discard();
+		ItemStack taken = stackOf(entity).copy();
+		entity.discard();
 		return taken;
 	}
 
@@ -554,10 +761,11 @@ public final class MjolnirRecall {
 	}
 
 	private static ItemStack takeFromEntity(Entity entity, MjolnirRegistry registry, UUID hammerId) {
-		if (entity instanceof MjolnirEntity hammer) {
-			if (MjolnirGuard.isLiveCopy(registry, hammer.getItem(), hammerId)) {
-				ItemStack taken = hammer.getItem().copy();
-				hammer.discard();
+		if (entity instanceof MjolnirEntity || entity instanceof StormbreakerEntity) {
+			ItemStack stack = stackOf(entity);
+			if (MjolnirGuard.isLiveCopy(registry, stack, hammerId)) {
+				ItemStack taken = stack.copy();
+				entity.discard();
 				return taken;
 			}
 			return null;
@@ -667,10 +875,10 @@ public final class MjolnirRecall {
 	 * enchantments, damage and every other component survive; identity and ownership are then
 	 * re-stamped from the authoritative record.
 	 */
-	private static ItemStack rebuildStack(HammerRecord record, ItemStack snapshot, int generation) {
-		ItemStack stack = snapshot != null && snapshot.is(ModItems.MJOLNIR)
+	private static ItemStack rebuildStack(HammerRecord record, ThorWeapon weapon, ItemStack snapshot, int generation) {
+		ItemStack stack = snapshot != null && snapshot.is(weapon.item())
 				? snapshot.copyWithCount(1)
-				: new ItemStack(ModItems.MJOLNIR);
+				: new ItemStack(weapon.item());
 		stack.remove(ModDataComponents.BOUND_OWNER);
 		stack.remove(ModDataComponents.BOUND_OWNER_NAME);
 		stack.set(ModDataComponents.HAMMER_ID, record.hammerId());
@@ -684,16 +892,22 @@ public final class MjolnirRecall {
 		return stack;
 	}
 
+	/** v0.15.1: the weapon's own return flight -- Mjolnir's recall flight, or Stormbreaker's loyalty-style return. */
+	private static void spawnReturning(ServerLevel level, ServerPlayer owner, ThorWeapon weapon, ItemStack stack,
+			Vec3 origin) {
+		Entity entity = weapon == ThorWeapon.STORMBREAKER
+				? StormbreakerEntity.createReturning(level, owner, stack, origin)
+				: MjolnirEntity.createReturning(level, owner, stack, origin);
+		level.addFreshEntity(entity);
+	}
+
 	/**
 	 * Starts the visible return: the hammer appears well away from the player, high and behind them,
 	 * and flies the rest of the way under its own power. Deliberately not dropped into the inventory
 	 * -- crossing a dimension should still look like the hammer came to you.
 	 */
-	private static void flyIn(ServerPlayer player, ItemStack stack) {
-		ServerLevel level = player.serverLevel();
-		Vec3 origin = arrivalPoint(player);
-		MjolnirEntity hammer = MjolnirEntity.createReturning(level, player, stack, origin);
-		level.addFreshEntity(hammer);
+	private static void flyIn(ServerPlayer player, ThorWeapon weapon, ItemStack stack) {
+		spawnReturning(player.serverLevel(), player, weapon, stack, arrivalPoint(player));
 	}
 
 	/**
@@ -707,16 +921,15 @@ public final class MjolnirRecall {
 	 * matches the owner's; if the holder is elsewhere, this falls back to {@link #flyIn}'s ordinary
 	 * behind-the-owner arrival rather than spawning somewhere it could never actually fly home from.
 	 */
-	private static void flyInFromHolder(ServerPlayer owner, ServerPlayer holder, ItemStack stack) {
+	private static void flyInFromHolder(ServerPlayer owner, ServerPlayer holder, ThorWeapon weapon, ItemStack stack) {
 		if (holder.serverLevel() != owner.serverLevel()) {
-			flyIn(owner, stack);
+			flyIn(owner, weapon, stack);
 			return;
 		}
 
 		ServerLevel level = holder.serverLevel();
 		Vec3 origin = holder.position().add(0.0, holder.getBbHeight() * 0.6, 0.0);
-		MjolnirEntity hammer = MjolnirEntity.createReturning(level, owner, stack, origin);
-		level.addFreshEntity(hammer);
+		spawnReturning(level, owner, weapon, stack, origin);
 
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, origin.x, origin.y, origin.z, 14, 0.3, 0.3, 0.3, 0.06);
 		level.playSound(null, holder.blockPosition(), SoundEvents.ITEM_BREAK, SoundSource.PLAYERS, 0.6f, 1.3f);
@@ -726,9 +939,8 @@ public final class MjolnirRecall {
 	 * v0.14.16: the hammer bursts out of the chest / item frame / minecart it was sitting in and flies home
 	 * from there -- the visible proof that the one real hammer moved rather than a second one appearing.
 	 */
-	private static void flyInFrom(ServerPlayer owner, ServerLevel level, Vec3 origin, ItemStack stack) {
-		MjolnirEntity hammer = MjolnirEntity.createReturning(level, owner, stack, origin);
-		level.addFreshEntity(hammer);
+	private static void flyInFrom(ServerPlayer owner, ThorWeapon weapon, ServerLevel level, Vec3 origin, ItemStack stack) {
+		spawnReturning(level, owner, weapon, stack, origin);
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, origin.x, origin.y, origin.z, 14, 0.3, 0.3, 0.3, 0.06);
 		level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.CHEST_OPEN, SoundSource.BLOCKS, 0.6f, 0.8f);
 	}

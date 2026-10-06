@@ -374,7 +374,8 @@ public final class HeroPackGuide {
 			// v0.14.19: Stormbreaker -- recipe, the Nether forging, its two right-click powers, and that it is Thor's weapon
 			blank(lines);
 			head(lines, "projecthero.guide.thor.stormbreaker");
-			for (String part : new String[]{"intro", "recipe", "forge", "throw", "bifrost", "weapon"}) {
+			// v0.15.1: "recall" -- Stormbreaker binds on first worthy carry and R calls it interchangeably with Mjolnir
+			for (String part : new String[]{"intro", "recipe", "forge", "throw", "bifrost", "recall", "weapon"}) {
 				para(lines, "projecthero.guide.thor.stormbreaker." + part);
 			}
 			// v0.14.20: the Mjolnir / Stormbreaker 3-hit melee combo

@@ -23,6 +23,7 @@
       "com.projecthero.mod.gametest.V01415GameTests",
       "com.projecthero.mod.gametest.MjolnirRecallV01416GameTests",
       "com.projecthero.mod.gametest.StormbreakerGameTests",
+      "com.projecthero.mod.gametest.ThorRecallV0151GameTests",
       "com.projecthero.mod.gametest.TargetingV01420GameTests",
       "com.projecthero.mod.gametest.WeaponComboGameTests",
       "com.projecthero.mod.gametest.KingpinCaneV01431GameTests",

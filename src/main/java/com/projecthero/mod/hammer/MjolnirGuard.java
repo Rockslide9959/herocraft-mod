@@ -7,7 +7,7 @@ import java.util.UUID;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.entity.MjolnirEntity;
 import com.projecthero.mod.item.ModDataComponents;
-import com.projecthero.mod.item.ModItems;
+import com.projecthero.mod.stormbreaker.StormbreakerEntity;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerBlockEntityEvents;
@@ -83,7 +83,7 @@ public final class MjolnirGuard {
 
 	/** A Mjolnir stack a newer copy has already superseded. */
 	public static boolean isStaleHammer(MjolnirRegistry registry, ItemStack stack) {
-		return stack.is(ModItems.MJOLNIR) && registry.isStale(stack);
+		return ThorWeapon.isTracked(stack) && registry.isStale(stack);
 	}
 
 	/** Whether {@code stack} is, or (one level deep: a shulker box / bundle item) contains, a ghost hammer. */
@@ -91,7 +91,7 @@ public final class MjolnirGuard {
 		if (stack.isEmpty()) {
 			return false;
 		}
-		if (stack.is(ModItems.MJOLNIR)) {
+		if (ThorWeapon.isTracked(stack)) {
 			return registry.isStale(stack);
 		}
 		ItemContainerContents contents = stack.get(DataComponents.CONTAINER);
@@ -122,7 +122,7 @@ public final class MjolnirGuard {
 		if (!holdsStale(registry, stack)) {
 			return stack;
 		}
-		if (stack.is(ModItems.MJOLNIR)) {
+		if (ThorWeapon.isTracked(stack)) {
 			return ItemStack.EMPTY;
 		}
 		ItemStack copy = stack.copy();
@@ -213,6 +213,9 @@ public final class MjolnirGuard {
 		if (entity instanceof MjolnirEntity hammer) {
 			return isStaleHammer(registry, hammer.getItem());
 		}
+		if (entity instanceof StormbreakerEntity axe) {
+			return isStaleHammer(registry, axe.getItem());
+		}
 		if (entity instanceof ItemEntity item) {
 			return holdsStale(registry, item.getItem());
 		}
@@ -243,6 +246,13 @@ public final class MjolnirGuard {
 		if (entity instanceof MjolnirEntity hammer) {
 			if (isStaleHammer(registry, hammer.getItem())) {
 				hammer.discard();
+				return true;
+			}
+			return false;
+		}
+		if (entity instanceof StormbreakerEntity axe) {
+			if (isStaleHammer(registry, axe.getItem())) {
+				axe.discard();
 				return true;
 			}
 			return false;
@@ -317,7 +327,7 @@ public final class MjolnirGuard {
 			if (stack.isEmpty()) {
 				continue;
 			}
-			if (stack.is(ModItems.MJOLNIR)) {
+			if (ThorWeapon.isTracked(stack)) {
 				if (registry.isStale(stack)) {
 					slot.set(ItemStack.EMPTY);
 					removed++;
@@ -335,7 +345,7 @@ public final class MjolnirGuard {
 			}
 		}
 		ItemStack carried = menu.getCarried();
-		if (!carried.isEmpty() && (carried.is(ModItems.MJOLNIR) || deep)) {
+		if (!carried.isEmpty() && (ThorWeapon.isTracked(carried) || deep)) {
 			ItemStack cleaned = clean(registry, carried);
 			if (cleaned != carried) {
 				menu.setCarried(cleaned);
@@ -410,7 +420,7 @@ public final class MjolnirGuard {
 
 	/** Whether {@code stack} is the live (non-ghost) copy of hammer {@code hammerId}. */
 	static boolean isLiveCopy(MjolnirRegistry registry, ItemStack stack, UUID hammerId) {
-		return hammerId != null && stack.is(ModItems.MJOLNIR)
+		return hammerId != null && ThorWeapon.isTracked(stack)
 				&& hammerId.equals(stack.get(ModDataComponents.HAMMER_ID))
 				&& !registry.isStale(stack);
 	}

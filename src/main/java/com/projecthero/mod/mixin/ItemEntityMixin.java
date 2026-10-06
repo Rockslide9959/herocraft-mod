@@ -85,6 +85,41 @@ public abstract class ItemEntityMixin implements StormbreakerForge.Forgeable {
 		StormbreakerForge.serverTick(self);
 	}
 
+	/** v0.15.1: whether this item has told the registry it is a Stormbreaker lying here. Not saved. */
+	@Unique
+	private boolean projecthero$stormbreakerNoted;
+
+	/**
+	 * v0.15.1: a Stormbreaker on the ground stays an ordinary (never-despawning) item, but it is tracked like Mjolnir so
+	 * the call key can find it: a ghost of one a recall already brought home just goes, and a live one is recorded
+	 * (entity UUID, position) on its first tick and every 5 seconds after.
+	 */
+	@Inject(method = "tick", at = @At("HEAD"), cancellable = true)
+	private void projecthero$trackStormbreaker(CallbackInfo ci) {
+		ItemEntity self = (ItemEntity) (Object) this;
+		if (self.isRemoved() || !(self.level() instanceof net.minecraft.server.level.ServerLevel serverLevel)) {
+			return;
+		}
+		ItemStack stack = self.getItem();
+		if (!stack.is(ModItems.STORMBREAKER) || this.pickupDelay == NEVER_PICK_UP) {
+			return;
+		}
+		com.projecthero.mod.hammer.MjolnirRegistry registry = com.projecthero.mod.hammer.MjolnirRegistry.get(serverLevel);
+		if (registry.isStale(stack)) {
+			self.discard();
+			ci.cancel();
+			return;
+		}
+		if (!projecthero$stormbreakerNoted || self.tickCount % 100 == 0) {
+			projecthero$stormbreakerNoted = true;
+			ItemStack working = stack.copy();
+			registry.noteEntity(working, self, com.projecthero.mod.hammer.MjolnirStatus.RESTING);
+			if (!ItemStack.isSameItemSameComponents(working, stack)) {
+				self.setItem(working);
+			}
+		}
+	}
+
 	@Inject(method = "tick", at = @At("HEAD"), cancellable = true)
 	private void projecthero$promoteToMjolnirEntity(CallbackInfo ci) {
 		ItemEntity self = (ItemEntity) (Object) this;

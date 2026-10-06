@@ -122,6 +122,19 @@ public final class ModAttachments {
 					.syncWith(UUIDUtil.STREAM_CODEC, AttachmentSyncPredicate.targetOnly()));
 
 	/**
+	 * v0.15.1: the {@link com.projecthero.mod.item.ModDataComponents#HAMMER_ID} of the Stormbreaker bound to this
+	 * player (it binds to the first worthy player who carries it -- see
+	 * {@link com.projecthero.mod.stormbreaker.StormbreakerItem#inventoryTick}), or absent. Lets the call key bring
+	 * Stormbreaker back from anywhere, interchangeably with Mjolnir. Grants no powers of its own. Persistent and
+	 * {@code copyOnDeath()} for the same reason as {@link #BOUND_HAMMER_ID}.
+	 */
+	public static final AttachmentType<UUID> BOUND_STORMBREAKER_ID = AttachmentRegistry.create(
+			ProjectHeroMod.id("thor_bound_stormbreaker"),
+			builder -> builder.persistent(UUIDUtil.CODEC)
+					.copyOnDeath()
+					.syncWith(UUIDUtil.STREAM_CODEC, AttachmentSyncPredicate.targetOnly()));
+
+	/**
 	 * v0.12.16: true once a Thor has deliberately released their hold on the hammer (unbound it) and has
 	 * not bound one since. If they then gain another power they lose their worthiness
 	 * ({@code HeroTiers.unworthyIfHammerReleased}) so they cannot lift Mjolnir back up and stack it on top.

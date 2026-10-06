@@ -85,7 +85,8 @@ public final class MjolnirRegistry extends SavedData {
 		return get(level.getServer());
 	}
 
-	private static MjolnirRegistry load(CompoundTag tag, HolderLookup.Provider registries) {
+	/** Public for the saved-data round-trip GameTests. */
+	public static MjolnirRegistry load(CompoundTag tag, HolderLookup.Provider registries) {
 		MjolnirRegistry registry = new MjolnirRegistry();
 		ListTag list = tag.getList(TAG_HAMMERS, Tag.TAG_COMPOUND);
 		for (int i = 0; i < list.size(); i++) {
@@ -220,7 +221,8 @@ public final class MjolnirRegistry extends SavedData {
 	public java.util.List<HammerRecord> freeHammers() {
 		java.util.List<HammerRecord> out = new java.util.ArrayList<>();
 		for (HammerRecord record : records.values()) {
-			if (record.placement() == HammerRecord.Placement.ENTITY && record.owner().isEmpty()) {
+			if (record.placement() == HammerRecord.Placement.ENTITY && record.owner().isEmpty()
+					&& record.weapon() == ThorWeapon.MJOLNIR) {
 				out.add(record);
 			}
 		}
@@ -323,7 +325,8 @@ public final class MjolnirRegistry extends SavedData {
 		return new HammerRecord(id, generation == null ? 0 : generation,
 				Optional.ofNullable(boundOwner), boundName == null ? "" : boundName,
 				HammerRecord.Placement.UNKNOWN, Optional.empty(), Level.OVERWORLD, BlockPos.ZERO,
-				Optional.empty(), MjolnirStatus.STORED);
+				Optional.empty(), MjolnirStatus.STORED,
+				ThorWeapon.of(stack) == ThorWeapon.STORMBREAKER ? ThorWeapon.STORMBREAKER : ThorWeapon.MJOLNIR);
 	}
 
 	/** The single write path -- nothing is marked dirty unless the record genuinely changed. */

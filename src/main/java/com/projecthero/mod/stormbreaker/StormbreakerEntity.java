@@ -8,7 +8,13 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.projecthero.mod.entity.ModEntityTypes;
+import com.projecthero.mod.hammer.MjolnirRecall;
+import com.projecthero.mod.hammer.MjolnirRegistry;
+import com.projecthero.mod.hammer.MjolnirStatus;
+import com.projecthero.mod.hammer.ThorWeapon;
+import com.projecthero.mod.item.ModDataComponents;
 import com.projecthero.mod.item.ModItems;
+import com.projecthero.mod.power.ThorFeedback;
 import com.projecthero.mod.power.ThorFx;
 import com.projecthero.mod.power.ThorPowers;
 import com.projecthero.mod.power.ThorTargets;
@@ -77,9 +83,15 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 	private static final String TAG_PIERCED = "Pierced";
 	private static final String TAG_LIGHTNING = "LightningCalled";
 
+	private static final String TAG_RECALLED = "Recalled";
+
 	private double flown;
 	private int pierced;
 	private boolean lightningCalled;
+	/** v0.15.1: brought home by the call key (not a plain throw's return) -- it announces itself and takes the hand. */
+	private boolean recalled;
+	/** v0.15.1: whether this entity has told {@link MjolnirRegistry} where it is yet (first server tick). Not saved. */
+	private boolean registered;
 	private double returnSpeed = RETURN_SPEED_MIN;
 	/** Everything struck on this outbound flight -- one hit each. Not saved: a reload simply allows a fresh hit. */
 	private final Set<UUID> struck = new HashSet<>();
@@ -196,6 +208,67 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		setReturning(true);
 		this.returnSpeed = RETURN_SPEED_MIN;
 		this.hasImpulse = true;
+		noteToRegistry();
+	}
+
+	public boolean wasRecalled() {
+		return recalled;
+	}
+
+	/**
+	 * v0.15.1: the call key (via {@link com.projecthero.mod.hammer.MjolnirRecall}) brings this axe home -- mid-throw
+	 * or otherwise. The summoner becomes the thrower it homes toward, exactly like Mjolnir's recall.
+	 */
+	public void recall(Player summoner) {
+		this.setOwner(summoner);
+		this.recalled = true;
+		beginReturn();
+		if (level() instanceof ServerLevel serverLevel) {
+			serverLevel.playSound(null, this.getX(), this.getY(), this.getZ(),
+					SoundEvents.WIND_CHARGE_THROW, SoundSource.PLAYERS, 0.6f, 0.6f);
+			serverLevel.playSound(null, this.getX(), this.getY(), this.getZ(),
+					SoundEvents.EVOKER_PREPARE_SUMMON, SoundSource.PLAYERS, 0.5f, 1.3f);
+		}
+	}
+
+	/**
+	 * v0.15.1: a Stormbreaker the call key has just pulled out of somewhere it could not fly from on its own (a
+	 * chest, another player, an unloaded chunk, the ground) -- it appears at {@code pos} already on its return flight.
+	 */
+	public static StormbreakerEntity createReturning(Level level, Player owner, ItemStack stack, Vec3 pos) {
+		StormbreakerEntity entity = new StormbreakerEntity(ModEntityTypes.STORMBREAKER, level);
+		entity.setItem(stack.copy());
+		entity.setPos(pos.x, pos.y, pos.z);
+		entity.setOwner(owner);
+		entity.recalled = true;
+		entity.beginReturn();
+		return entity;
+	}
+
+	// ---------------- v0.15.1: ownership tracking ----------------
+
+	/** Same as Mjolnir: a copy a recall has already superseded deletes itself rather than becoming a second axe. */
+	private boolean discardIfStale() {
+		if (!(level() instanceof ServerLevel serverLevel) || !MjolnirRegistry.get(serverLevel).isStale(this.getItem())) {
+			return false;
+		}
+		this.discard();
+		return true;
+	}
+
+	/** Writes through a working copy + {@link #setItem} so the synched stack is marked dirty (see MjolnirEntity). */
+	private void noteToRegistry() {
+		if (!registered || !(level() instanceof ServerLevel serverLevel) || this.isRemoved()) {
+			return;
+		}
+		ItemStack working = this.getItem().copy();
+		if (!working.is(ModItems.STORMBREAKER)) {
+			return;
+		}
+		MjolnirRegistry registry = MjolnirRegistry.get(serverLevel);
+		registry.identify(working);
+		registry.noteEntity(working, this, isReturning() ? MjolnirStatus.RETURNING : MjolnirStatus.THROWN);
+		this.setItem(working);
 	}
 
 	@Override
@@ -207,6 +280,16 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 
 	@Override
 	public void tick() {
+		if (!level().isClientSide()) {
+			// v0.15.1: staleness before registration, exactly as MjolnirEntity -- registering would stamp a ghost current
+			if (discardIfStale()) {
+				return;
+			}
+			if (!registered) {
+				registered = true;
+				noteToRegistry();
+			}
+		}
 		boolean returning = isReturning();
 		if (returning) {
 			if (!steerHome()) {
@@ -375,13 +458,32 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 
 	private void catchBy(Player player) {
 		ItemStack stack = this.getItem().copy();
+		if (recalled) {
+			// v0.15.1: called while holding Mjolnir, the axe takes the hand and the hammer steps back into the pack
+			MjolnirRecall.stowOtherWeapon(player, ThorWeapon.STORMBREAKER);
+		}
+		boolean carried = true;
 		if (player.getMainHandItem().isEmpty()) {
 			player.setItemInHand(InteractionHand.MAIN_HAND, stack);
 		} else if (!player.getInventory().add(stack)) {
-			ItemEntity dropped = player.drop(stack, false);
-			if (dropped != null) {
-				dropped.setUnlimitedLifetime();
+			if (recalled) {
+				// a deliberate call: like Mjolnir, it goes into the hand anyway and what was held is dropped
+				ItemStack displaced = player.getMainHandItem();
+				player.setItemInHand(InteractionHand.MAIN_HAND, stack);
+				player.drop(displaced, false);
+			} else {
+				carried = false;
+				ItemEntity dropped = player.drop(stack, false);
+				if (dropped != null) {
+					dropped.setUnlimitedLifetime();
+				}
 			}
+		}
+		if (carried && level() instanceof ServerLevel serverLevel && stack.get(ModDataComponents.HAMMER_ID) != null) {
+			MjolnirRegistry.get(serverLevel).noteCarried(stack, player, player.getMainHandItem() == stack);
+		}
+		if (recalled) {
+			ThorFeedback.recallArrived(player, ThorWeapon.STORMBREAKER);
 		}
 		level().playSound(null, player.blockPosition(), SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 0.8f, 1.1f);
 		level().playSound(null, player.blockPosition(), SoundEvents.MACE_SMASH_GROUND, SoundSource.PLAYERS, 0.5f, 1.25f);
@@ -427,6 +529,7 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		tag.putDouble(TAG_FLOWN, flown);
 		tag.putInt(TAG_PIERCED, pierced);
 		tag.putBoolean(TAG_LIGHTNING, lightningCalled);
+		tag.putBoolean(TAG_RECALLED, recalled);
 	}
 
 	@Override
@@ -436,5 +539,6 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		flown = tag.getDouble(TAG_FLOWN);
 		pierced = tag.getInt(TAG_PIERCED);
 		lightningCalled = tag.getBoolean(TAG_LIGHTNING);
+		recalled = tag.getBoolean(TAG_RECALLED);
 	}
 }

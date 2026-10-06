@@ -1,5 +1,7 @@
 package com.projecthero.mod.power;
 
+import com.projecthero.mod.hammer.ThorWeapon;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
@@ -19,36 +21,67 @@ public final class ThorFeedback {
 	}
 
 	// ---------------- recall ----------------
+	// v0.15.1: every recall line names the weapon that is answering -- the call key now brings Mjolnir OR
+	// Stormbreaker (see MjolnirRecall). The no-argument forms are Mjolnir's, unchanged.
 
 	/** The hammer is loaded and nearby -- it will visibly fly in from wherever it is. */
 	public static void recallStartedNear(Player player) {
-		actionBar(player, "message.projecthero.recall.returning", ChatFormatting.AQUA);
+		recallStartedNear(player, ThorWeapon.MJOLNIR);
+	}
+
+	public static void recallStartedNear(Player player, ThorWeapon weapon) {
+		actionBar(player, key("message.projecthero.recall.returning", weapon), ChatFormatting.AQUA);
 		thunderCue(player, 1.2f);
 	}
 
 	/** The hammer was far away, in an unloaded chunk, or in another dimension. */
 	public static void recallStartedFar(Player player) {
-		actionBar(player, "message.projecthero.recall.answering", ChatFormatting.AQUA);
+		recallStartedFar(player, ThorWeapon.MJOLNIR);
+	}
+
+	public static void recallStartedFar(Player player, ThorWeapon weapon) {
+		actionBar(player, key("message.projecthero.recall.answering", weapon), ChatFormatting.AQUA);
 		thunderCue(player, 0.8f);
 	}
 
 	public static void recallArrived(Player player) {
-		actionBar(player, "message.projecthero.recall.returned", ChatFormatting.GOLD);
+		recallArrived(player, ThorWeapon.MJOLNIR);
+	}
+
+	public static void recallArrived(Player player, ThorWeapon weapon) {
+		actionBar(player, key("message.projecthero.recall.returned", weapon), ChatFormatting.GOLD);
 	}
 
 	/** Already in hand -- nothing to do, but say so rather than failing silently. */
 	public static void recallAlreadyHeld(Player player) {
-		actionBar(player, "message.projecthero.recall.already_held", ChatFormatting.GRAY);
+		recallAlreadyHeld(player, ThorWeapon.MJOLNIR);
+	}
+
+	public static void recallAlreadyHeld(Player player, ThorWeapon weapon) {
+		actionBar(player, key("message.projecthero.recall.already_held", weapon), ChatFormatting.GRAY);
+	}
+
+	/** v0.15.1: Mjolnir and Stormbreaker are both already on the player -- there is nothing left to call. */
+	public static void recallBothWithYou(Player player) {
+		actionBar(player, "message.projecthero.recall.both_with", ChatFormatting.GRAY);
 	}
 
 	/** v0.14.0: was elsewhere in the backpack -- swapped straight into the main hand mid-fight. */
 	public static void recallEquipped(Player player) {
-		actionBar(player, "message.projecthero.recall.equipped", ChatFormatting.AQUA);
+		recallEquipped(player, ThorWeapon.MJOLNIR);
+	}
+
+	public static void recallEquipped(Player player, ThorWeapon weapon) {
+		actionBar(player, key("message.projecthero.recall.equipped", weapon), ChatFormatting.AQUA);
 		thunderCue(player, 0.6f);
 	}
 
 	public static void recallNoHammer(Player player) {
-		actionBar(player, "message.projecthero.recall.none", ChatFormatting.RED);
+		recallNoHammer(player, ThorWeapon.MJOLNIR);
+	}
+
+	public static void recallNoHammer(Player player, ThorWeapon weapon) {
+		actionBar(player, key("message.projecthero.recall.none", weapon), ChatFormatting.RED);
 	}
 
 	public static void recallBlocked(Player player) {
@@ -57,7 +90,11 @@ public final class ThorFeedback {
 	}
 
 	public static void recallInventoryFull(Player player) {
-		actionBar(player, "message.projecthero.recall.inventory_full", ChatFormatting.YELLOW);
+		recallInventoryFull(player, ThorWeapon.MJOLNIR);
+	}
+
+	public static void recallInventoryFull(Player player, ThorWeapon weapon) {
+		actionBar(player, key("message.projecthero.recall.inventory_full", weapon), ChatFormatting.YELLOW);
 	}
 
 	/**
@@ -67,7 +104,21 @@ public final class ThorFeedback {
 	 * or anything that reads as a penalty.
 	 */
 	public static void hammerTakenByOwner(Player wielder) {
-		actionBar(wielder, "message.projecthero.recall.taken_from_you", ChatFormatting.GRAY);
+		hammerTakenByOwner(wielder, ThorWeapon.MJOLNIR);
+	}
+
+	public static void hammerTakenByOwner(Player wielder, ThorWeapon weapon) {
+		actionBar(wielder, key("message.projecthero.recall.taken_from_you", weapon), ChatFormatting.GRAY);
+	}
+
+	/** v0.15.1: a worthy player's first Stormbreaker has just bound to them. One line, once per bind. */
+	public static void stormbreakerBound(Player player) {
+		actionBar(player, "message.projecthero.bind.stormbreaker", ChatFormatting.AQUA);
+	}
+
+	/** Mjolnir keeps the original keys; Stormbreaker's are the same keys with a {@code .stormbreaker} suffix. */
+	private static String key(String base, ThorWeapon weapon) {
+		return weapon == ThorWeapon.STORMBREAKER ? base + ".stormbreaker" : base;
 	}
 
 	// ---------------- binding ----------------

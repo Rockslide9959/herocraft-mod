@@ -428,6 +428,12 @@ public final class ThorPowers {
 		if (hammerId != null) {
 			MjolnirRecall.forceUnbind(player, hammerId);
 		}
+		// v0.15.1: a bound Stormbreaker is released along with the power, so it can bind to the next Thor
+		UUID axeId = player.getAttachedOrElse(ModAttachments.BOUND_STORMBREAKER_ID, null);
+		if (axeId != null) {
+			MjolnirRecall.forceUnbind(player, com.projecthero.mod.hammer.ThorWeapon.STORMBREAKER, axeId);
+			player.setAttached(ModAttachments.BOUND_STORMBREAKER_ID, null);
+		}
 		// Clears BOUND_HAMMER_ID and reconciles every attribute/effect off immediately, whether or not
 		// the physical hammer itself was reachable above -- this alone is what fixes the lingering HUD.
 		ThorPassives.unbind(player);
