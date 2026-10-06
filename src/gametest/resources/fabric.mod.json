@@ -27,6 +27,7 @@
       "com.projecthero.mod.gametest.TargetingV01420GameTests",
       "com.projecthero.mod.gametest.WeaponComboGameTests",
       "com.projecthero.mod.gametest.KingpinCaneV01431GameTests",
+      "com.projecthero.mod.gametest.StarkFurnaceModelsV0151GameTests",
       "com.projecthero.mod.gametest.IronManRecipeCostV01421GameTests",
       "com.projecthero.mod.gametest.HeroPackGameTests",
       "com.projecthero.mod.gametest.IronManSuitUpV01421GameTests",

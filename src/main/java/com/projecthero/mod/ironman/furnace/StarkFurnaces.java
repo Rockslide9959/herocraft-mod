@@ -84,7 +84,10 @@ public final class StarkFurnaces {
 				.requiresCorrectToolForDrops()
 				.strength(4.0f, 8.0f)
 				.sound(SoundType.METAL)
-				.lightLevel(s -> s.getValue(StarkFurnaceBlock.LIT) ? 14 : 3));
+				.lightLevel(s -> s.getValue(StarkFurnaceBlock.LIT) ? 14 : 3)
+				// v0.15.1: the multi-element models don't fill the whole cube, so neighbours must not cull against them
+				// (collision/outline stay a full cube; block states unchanged)
+				.noOcclusion());
 		return Registry.register(BuiltInRegistries.BLOCK, ResourceKey.create(Registries.BLOCK, ProjectHeroMod.id(kind.id)), b);
 	}
 
