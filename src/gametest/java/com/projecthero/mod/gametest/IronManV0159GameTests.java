@@ -173,7 +173,20 @@ public class IronManV0159GameTests implements FabricGameTest {
 		int off = g.plan().total();
 		int on = GantryTimeline.FULL.total();
 		h.onEachTick(() -> assertEachOnce(h, p, "every tick", home, other));
-		h.runAfterDelay(off + 2, () -> {
+		// the hand-off is seamless: the putting-on picks up at the end of the lead-in, the floor never shuts in between
+		int handOff = off - GantryTimeline.LEAD;
+		h.runAfterDelay(handOff - 1, () -> h.assertTrue(centre(h).mode() == StarkGantryFloorBlockEntity.MODE_UNEQUIP
+				&& centre(h).getBlockState().getValue(com.projecthero.mod.ironman.gantry.StarkGantryFloorBlock.OPEN), "still taking off, floor open"));
+		h.runAfterDelay(handOff + 1, () -> {
+			StarkGantryFloorBlockEntity c = centre(h);
+			h.assertTrue(c.mode() == StarkGantryFloorBlockEntity.MODE_EQUIP && c.getBlockState().getValue(com.projecthero.mod.ironman.gantry.StarkGantryFloorBlock.OPEN),
+					"putting on straight away, the floor still open");
+			float fr = c.frameAt(0f);
+			h.assertTrue(fr >= GantryTimeline.LEAD && fr <= GantryTimeline.LEAD + 3, "starting at the end of its lead-in, got frame " + fr);
+			h.assertTrue(GantryTimeline.hatch(fr, c.plan()) == 1f && GantryTimeline.lift(fr, c.plan()) == GantryTimeline.LIFT,
+					"hatches open and lift up across the hand-off");
+		});
+		h.runAfterDelay(handOff + 2, () -> {
 			h.assertTrue(centre(h).running() && centre(h).mode() == StarkGantryFloorBlockEntity.MODE_EQUIP,
 					"straight on to putting the new suit on -- one continuous sequence");
 			h.assertTrue(IronManSuitPlatformBlockEntity.isFrozen(p), "the player is held throughout");
@@ -181,7 +194,7 @@ public class IronManV0159GameTests implements FabricGameTest {
 			h.assertTrue(other.isEmptyPlatform(), "the new suit left its platform for the floor");
 			h.assertFalse(IronManArmor.wearingAnyIronMan(p), "nothing worn between the two halves");
 		});
-		h.runAfterDelay(off + on + 8, () -> {
+		h.runAfterDelay(off + on - 2 * GantryTimeline.LEAD + 8, () -> {
 			assertReleased(h, p);
 			h.assertTrue(IronManArmor.wearingFullSuit(p, NEW), "the new suit is on");
 			for (ArmorItem.Type t : TYPES) {

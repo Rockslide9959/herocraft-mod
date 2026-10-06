@@ -102,6 +102,11 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 	 */
 	private String swapSuit;
 	private BlockPos swapPlatform;
+	/**
+	 * v0.15.9: set for the one {@link #begin} that continues a swap -- the putting-on starts {@link GantryTimeline#LEAD}
+	 * frames in, with the floor already open, the lift up and the arms out, exactly where the taking-off left them.
+	 */
+	private boolean continuing;
 
 	private int mode = MODE_NONE;
 	private long start;
@@ -271,8 +276,10 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 
 	private void begin(ServerPlayer player, int newMode, String suitId, List<Integer> order) {
 		ServerLevel sl = (ServerLevel) level;
+		int skip = continuing ? GantryTimeline.LEAD : 0;
+		continuing = false;
 		mode = newMode;
-		start = sl.getGameTime();
+		start = sl.getGameTime() - skip;
 		playerId = player.getUUID();
 		owner = playerId;
 		playerEntity = player.getId();
@@ -289,7 +296,8 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		Vec3 at = standAt();
 		// v0.15.5: the camera swings round to watch from the front (GantryClient) -- a slight upward look puts it just above
 		// the wearer's eyes, looking down over the whole body
-		player.teleportTo(sl, at.x, at.y, at.z, yaw, -12f);
+		// (a swap's second half: still up on the lift, the look left as it is -- nothing moves at the hand-off)
+		player.teleportTo(sl, at.x, at.y + (skip > 0 ? GantryTimeline.lift(skip, plan) : 0f), at.z, yaw, skip > 0 ? player.getXRot() : -12f);
 		player.setDeltaMovement(Vec3.ZERO);
 		player.fallDistance = 0f;
 		lockFacing(player, true);
@@ -300,20 +308,22 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		var s = TonyStark.state(player);
 		s.transitionSuit = suitId;
 		s.transitionUp = newMode == MODE_EQUIP;
-		s.transitionTotal = plan.total() + 2;
+		s.transitionTotal = plan.total() - skip + 2;
 		s.transitionTicks = s.transitionTotal;
 		s.transitionMask = 0;
 		s.transitionReleaseMask = 0;
 		s.transitionPlan = 0;
 		IronManSuitFx.startPose(player, newMode == MODE_EQUIP ? IronManSuitFx.POSE_PLATFORM : IronManSuitFx.POSE_PLATFORM_OFF,
-				plan.total(), IronManSuitFx.STYLE_PLATES, 0);
+				plan.total() - skip, IronManSuitFx.STYLE_PLATES, 0);
 		IronManSounds.play(player, IronManSounds.SERVO, 1.0f, 0.7f);
 		if (newMode == MODE_EQUIP) {
 			IronManSounds.play(player, IronManSounds.HUD_ON, 0.6f, 0.9f);
 		}
 		player.displayClientMessage(Component.translatable(newMode == MODE_EQUIP ? "message.projecthero.gantry.equipping"
 				: "message.projecthero.gantry.unequipping").withStyle(ChatFormatting.AQUA), true);
-		sl.playSound(null, worldPosition, SoundEvents.PISTON_EXTEND, SoundSource.BLOCKS, 0.7f, 0.7f);
+		if (skip == 0) {
+			sl.playSound(null, worldPosition, SoundEvents.PISTON_EXTEND, SoundSource.BLOCKS, 0.7f, 0.7f);
+		}
 		setOpen(sl, true);
 		changed();
 	}
@@ -346,8 +356,11 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		} else {
 			tickUnequip(sl, player, t);
 		}
-		if (t >= plan().total()) {
-			if (mode == MODE_UNEQUIP && swapSuit != null) {
+		// v0.15.9: a swap hands over to the putting-on as soon as the taking-off's work is done -- before its outro would
+		// lower the lift, fold the arms and shut the floor (the putting-on then skips its lead-in to match)
+		boolean swapping = mode == MODE_UNEQUIP && swapSuit != null;
+		if (t >= plan().total() - (swapping ? GantryTimeline.LEAD : 0)) {
+			if (swapping) {
 				continueSwap(sl, player);
 			} else {
 				end(player);
@@ -390,6 +403,7 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 			return;
 		}
 		IronManSounds.play(player, IronManSounds.CLAMP, 0.6f, 0.8f);
+		continuing = true;
 		if (platform != null) {
 			beginEquip(player, platform);
 		} else {
