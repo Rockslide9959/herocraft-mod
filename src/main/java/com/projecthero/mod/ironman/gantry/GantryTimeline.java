@@ -14,7 +14,7 @@ import com.projecthero.mod.ironman.suit.IronManSuitPoses;
  *       jacket layer builds on;</li>
  *   <li>the right gauntlet is carried on (no sleeve layer), the rest of the arm builds itself up from it, then the sleeve
  *       layer; the same for the left arm;</li>
- *   <li>the boots are carried on (no pant-leg layer);</li>
+ *   <li>the boots are carried on one at a time, right then left (no pant-leg layer; v0.15.6);</li>
  *   <li>the top half of the leggings is carried on, the bottom half builds itself down, then the pant-leg layer builds on
  *       (down the legs and over the boots);</li>
  *   <li>the helmet is carried on without its faceplate, and the faceplate is carried on last.</li>
@@ -78,23 +78,25 @@ public final class GantryTimeline {
 	public static final int L_GAUNTLET = 6;
 	public static final int L_ARM = 7;
 	public static final int L_SLEEVE = 8;
-	public static final int BOOTS = 9;
-	public static final int THIGH_TOP = 10;
-	public static final int THIGH_BOTTOM = 11;
-	public static final int PANTS = 12;
-	public static final int HELMET = 13;
-	public static final int FACEPLATE = 14;
-	public static final int STAGES = 15;
+	/** v0.15.6, user request: one boot at a time -- the right, then the left (taken off left, then right). */
+	public static final int R_BOOT = 9;
+	public static final int L_BOOT = 10;
+	public static final int THIGH_TOP = 11;
+	public static final int THIGH_BOTTOM = 12;
+	public static final int PANTS = 13;
+	public static final int HELMET = 14;
+	public static final int FACEPLATE = 15;
+	public static final int STAGES = 16;
 
 	/** Is stage s an arm carry (true) or a self-build (false)? */
-	private static final boolean[] CARRIED = { true, false, false, true, false, false, true, false, false, true, true, false,
-			false, true, true };
+	private static final boolean[] CARRIED = { true, false, false, true, false, false, true, false, false, true, true, true,
+			false, false, true, true };
 	/** The piece (rack slot) each stage belongs to (the pant layer: the leggings; it also covers the boots). */
-	private static final int[] PIECE = { CHEST, CHEST, CHEST, CHEST, CHEST, CHEST, CHEST, CHEST, CHEST, FEET, LEGS, LEGS, LEGS,
-			HEAD, HEAD };
+	private static final int[] PIECE = { CHEST, CHEST, CHEST, CHEST, CHEST, CHEST, CHEST, CHEST, CHEST, FEET, FEET, LEGS, LEGS,
+			LEGS, HEAD, HEAD };
 	/** Which robotic arm carries a carried stage (true = the one on the wearer's right). */
 	private static final boolean[] RIGHT_ARM = { true, true, true, true, true, true, false, false, false, true, false, false,
-			false, true, false };
+			false, false, true, false };
 
 	public static boolean carried(int stage) {
 		return CARRIED[stage];
@@ -114,7 +116,7 @@ public final class GantryTimeline {
 			case HEAD -> HELMET;
 			case CHEST -> TORSO_TOP;
 			case LEGS -> THIGH_TOP;
-			default -> BOOTS;
+			default -> R_BOOT;
 		};
 	}
 
@@ -267,7 +269,7 @@ public final class GantryTimeline {
 		return plan(maskOf(slots));
 	}
 
-	/** A whole suit (all four pieces): 21 s. */
+	/** A whole suit (all four pieces): about 22 s. */
 	public static final Plan FULL = plan(15);
 
 	private GantryTimeline() {
@@ -337,7 +339,8 @@ public final class GantryTimeline {
 			case L_GAUNTLET -> arm(false, 7.5, -2.4);
 			case L_ARM -> arm(false, 5 - 7 * k, -2.4);
 			case L_SLEEVE -> arm(false, 10 - 12 * k, -2.6);
-			case BOOTS -> px(0, 2.2, -2.6);
+			case R_BOOT -> px(2, 2.2, -2.6);
+			case L_BOOT -> px(-2, 2.2, -2.6);
 			case THIGH_TOP -> px(0, 10, -2.6);
 			case THIGH_BOTTOM -> px(2 * side, 8 - 4 * k, -2.6);
 			case PANTS -> px(2 * side, 12 - 12 * k, -2.8);
@@ -364,7 +367,7 @@ public final class GantryTimeline {
 		return switch (s) {
 			case TORSO_TOP -> 18.0 / 16.0;
 			case R_GAUNTLET, L_GAUNTLET -> 0.80;
-			case BOOTS -> 0.0;
+			case R_BOOT, L_BOOT -> 0.0;
 			case THIGH_TOP -> 8.0 / 16.0;
 			default -> 24.0 / 16.0;
 		};
@@ -417,7 +420,7 @@ public final class GantryTimeline {
 		return switch (s) {
 			case TORSO_TOP, TORSO_BOTTOM, JACKET -> 0.35f;
 			case R_GAUNTLET, R_ARM, R_SLEEVE, L_GAUNTLET, L_ARM, L_SLEEVE -> 0.30f;
-			case BOOTS, PANTS -> 0.55f;
+			case R_BOOT, L_BOOT, PANTS -> 0.55f;
 			case THIGH_TOP, THIGH_BOTTOM -> 0.45f;
 			default -> -0.05f;
 		};

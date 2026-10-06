@@ -530,7 +530,10 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 	public void timetableIsSymmetricAndOrdered(GameTestHelper h) {
 		GantryTimeline.Plan full = GantryTimeline.FULL;
 		h.assertTrue(full.count() == GantryTimeline.STAGES, "a full suit has every part");
-		h.assertTrue(full.total() >= 380 && full.total() <= 440, "about 20 s, got " + full.total());
+		h.assertTrue(full.total() >= 400 && full.total() <= 470, "about 22 s, got " + full.total());
+		h.assertTrue(full.indexOf(GantryTimeline.L_BOOT) == full.indexOf(GantryTimeline.R_BOOT) + 1
+				&& full.removeTick(GantryTimeline.FEET) > full.total() - full.fitTick(full.indexOf(GantryTimeline.L_BOOT)),
+				"one boot at a time: right then left on, left then right off");
 		int prev = -1;
 		for (int i = 0; i < full.count(); i++) {
 			h.assertTrue(full.stage(i) > prev, "the parts go on in the order asked for");
@@ -545,7 +548,7 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 		// -> pant legs, helmet, faceplate
 		int[] want = { GantryTimeline.TORSO_TOP, GantryTimeline.TORSO_BOTTOM, GantryTimeline.JACKET, GantryTimeline.R_GAUNTLET,
 				GantryTimeline.R_ARM, GantryTimeline.R_SLEEVE, GantryTimeline.L_GAUNTLET, GantryTimeline.L_ARM, GantryTimeline.L_SLEEVE,
-				GantryTimeline.BOOTS, GantryTimeline.THIGH_TOP, GantryTimeline.THIGH_BOTTOM, GantryTimeline.PANTS,
+				GantryTimeline.R_BOOT, GantryTimeline.L_BOOT, GantryTimeline.THIGH_TOP, GantryTimeline.THIGH_BOTTOM, GantryTimeline.PANTS,
 				GantryTimeline.HELMET, GantryTimeline.FACEPLATE };
 		for (int i = 0; i < want.length; i++) {
 			h.assertTrue(full.stage(i) == want[i], "stage " + i + " is " + want[i]);
@@ -559,7 +562,7 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 		}
 		// a suit missing its boots and helmet still builds the pant legs, and skips the rest
 		GantryTimeline.Plan part = GantryTimeline.plan((1 << GantryTimeline.CHEST) | (1 << GantryTimeline.LEGS));
-		h.assertTrue(part.indexOf(GantryTimeline.BOOTS) < 0 && part.indexOf(GantryTimeline.HELMET) < 0
+		h.assertTrue(part.indexOf(GantryTimeline.R_BOOT) < 0 && part.indexOf(GantryTimeline.L_BOOT) < 0 && part.indexOf(GantryTimeline.HELMET) < 0
 				&& part.indexOf(GantryTimeline.PANTS) >= 0 && part.total() < full.total(), "missing pieces are left out");
 		h.assertTrue(part.equipTick(GantryTimeline.HEAD) < 0, "no helmet tick for a suit with no helmet");
 		int t = full.total();

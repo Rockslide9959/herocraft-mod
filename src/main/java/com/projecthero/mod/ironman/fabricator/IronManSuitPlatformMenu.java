@@ -149,8 +149,37 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 		return com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRACELET_SUIT.equals(id);
 	}
 
+	/** v0.15.6: menu button id of the side "Suitcase" button (only while a Mark 5 is stored). */
+	public static final int SUITCASE_BUTTON = 3;
+
+	/** v0.15.6: is a Mark 5 stored here, so the Suitcase button is offered? */
+	public boolean offersSuitcase() {
+		IronManSuitPlatformBlockEntity be = liveBE();
+		String id = be != null ? be.storedSuitId() : null;
+		if (id == null) {
+			for (int i = 0; i < 4 && id == null; i++) {
+				if (getSlot(i).getItem().getItem() instanceof IronManArmorItem a) {
+					id = a.suitId();
+				}
+			}
+		}
+		return "mark_v".equals(id);
+	}
+
 	@Override
 	public boolean clickMenuButton(Player player, int id) {
+		if (player instanceof ServerPlayer sp && id == SUITCASE_BUTTON) {
+			// v0.15.6: fold the racked Mark 5 back into its suitcase and hand it over
+			boolean packed = access.evaluate((level, pos) -> level.getBlockEntity(pos) instanceof IronManSuitPlatformBlockEntity be
+					&& be.packSuitcase(sp), false);
+			sp.displayClientMessage(net.minecraft.network.chat.Component.translatable(packed
+					? "message.projecthero.suit_platform.suitcase_packed" : "message.projecthero.suit_platform.suitcase_refused")
+					.withStyle(packed ? net.minecraft.ChatFormatting.AQUA : net.minecraft.ChatFormatting.GOLD), true);
+			if (packed) {
+				com.projecthero.mod.ironman.IronManSounds.play(sp, com.projecthero.mod.ironman.IronManSounds.SERVO, 0.8f, 1.2f);
+			}
+			return packed;
+		}
 		if (!(player instanceof ServerPlayer sp) || id != BRACELETS_BUTTON) {
 			return false;
 		}

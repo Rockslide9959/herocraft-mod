@@ -406,7 +406,10 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		changed();
 	}
 
-	/** A self-building part: a welding hiss as it starts, crackles as the seam runs along it (either direction). */
+	/**
+	 * A self-building part (either direction): v0.15.6, user request -- mechanical sounds only, no hiss: a servo whine as
+	 * it starts and the plates ratcheting into place as the seam runs along it.
+	 */
 	private void tickWeld(ServerLevel sl, GantryTimeline.Plan plan, int i, int t, boolean on) {
 		int from = on ? plan.begin(i) : plan.total() - plan.begin(i) - plan.length(i);
 		int k = t - from;
@@ -414,10 +417,13 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 			return;
 		}
 		if (k == 0) {
-			sl.playSound(null, worldPosition, SoundEvents.BLAZE_SHOOT, SoundSource.BLOCKS, 0.18f, 1.9f);
+			sl.playSound(null, worldPosition, IronManSounds.SERVO, SoundSource.BLOCKS, 0.55f, 1.35f);
 		}
-		if (k % 4 == 1) {
-			sl.playSound(null, worldPosition, SoundEvents.REDSTONE_TORCH_BURNOUT, SoundSource.BLOCKS, 0.12f, 1.6f + 0.1f * (k % 3));
+		if (k % 3 == 1) {
+			sl.playSound(null, worldPosition, IronManSounds.CLAMP, SoundSource.BLOCKS, 0.22f, 1.55f + 0.05f * (k % 4));
+		}
+		if (k == plan.length(i) - 2) {
+			sl.playSound(null, worldPosition, IronManSounds.RELEASE, SoundSource.BLOCKS, 0.3f, 1.5f);
 		}
 	}
 

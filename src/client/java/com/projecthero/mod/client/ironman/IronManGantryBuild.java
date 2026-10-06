@@ -38,7 +38,7 @@ import net.minecraft.world.entity.player.Player;
  *   <li>the torso base splits at y = 18 (top half carried on, bottom half built down from it), the arm base at y = 17
  *       (the gauntlet carried on, the arm built up from it), the thigh base at y = 8 (top half carried on, bottom half
  *       built down); the jacket builds top-down, the sleeves bottom-up, the pant-leg layer down the legs and over the
- *       boots; boots, helmet and faceplate are each carried on whole.</li>
+ *       boots; each boot (right, then left), the helmet and the faceplate are carried on whole.</li>
  * </ul>
  * The worn piece is drawn with every texel whose stage has not reached it yet transparent ({@link #texture}), built
  * texels flashing a white-hot then cyan seam for a few ticks; the piece the arm is carrying is drawn with only its own
@@ -344,7 +344,7 @@ public final class IronManGantryBuild {
 				return new float[] { GantryTimeline.PANTS, mix((12.75f - y) / 13.5f, scatter, 0.22f) };
 			default:
 				if (cube == 0) {
-					return new float[] { GantryTimeline.BOOTS, 0f };
+					return new float[] { right ? GantryTimeline.R_BOOT : GantryTimeline.L_BOOT, 0f };
 				}
 				return new float[] { GantryTimeline.PANTS, mix((12.75f - y) / 13.5f, scatter, 0.22f) };
 		}

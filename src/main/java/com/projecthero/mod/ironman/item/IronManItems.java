@@ -169,7 +169,7 @@ public final class IronManItems {
 		EnumMap<ArmorItem.Type, IronManArmorItem> pieces = new EnumMap<>(ArmorItem.Type.class);
 		for (ArmorItem.Type type : new ArmorItem.Type[] {
 				ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS, ArmorItem.Type.BOOTS }) {
-			String path = "iron_man_" + suitId + "_" + type.getName();
+			String path = "iron_man_" + itemName(suitId) + "_" + type.getName();
 			IronManArmorItem item = register(path, new IronManArmorItem(material, type,
 					new Item.Properties().rarity(Rarity.EPIC)
 							// v0.14.22, explicit user request: no durability -- suit integrity is the damage model.
@@ -181,6 +181,43 @@ public final class IronManItems {
 			pieces.put(type, item);
 		}
 		ARMOR.put(suitId, pieces);
+	}
+
+	/**
+	 * v0.15.6, user request: the armour item ids use the Mark's number -- {@code iron_man_mark_7_leggings} -- while the
+	 * suit ids inside the mod (saved state, config, models) keep their old names. Mark 1 / 2 / 4 / 6 were already numbers.
+	 */
+	public static String itemName(String suitId) {
+		return switch (suitId) {
+			case "mark_iii" -> "mark_3";
+			case "mark_v" -> "mark_5";
+			case "mark_vii" -> "mark_7";
+			default -> suitId;
+		};
+	}
+
+	private static final java.util.regex.Pattern LEGACY = java.util.regex.Pattern.compile("iron_man_mark_(iii|v|vii)_(helmet|chestplate|leggings|boots)");
+
+	/** v0.15.6: an old roman-numeral armour item id -> its new numbered id (anything else unchanged). */
+	public static net.minecraft.resources.ResourceLocation legacyId(net.minecraft.resources.ResourceLocation id) {
+		if (id == null || !ProjectHeroMod.MOD_ID.equals(id.getNamespace()) || !id.getPath().startsWith("iron_man_mark_")) {
+			return id;
+		}
+		java.util.regex.Matcher m = LEGACY.matcher(id.getPath());
+		if (!m.matches()) {
+			return id;
+		}
+		return ProjectHeroMod.id("iron_man_" + itemName("mark_" + m.group(1)) + "_" + m.group(2));
+	}
+
+	/** v0.15.6: as {@link #legacyId(net.minecraft.resources.ResourceLocation)} for a registry key. */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public static net.minecraft.resources.ResourceKey<?> legacyKey(net.minecraft.resources.ResourceKey<?> key) {
+		if (key == null) {
+			return null;
+		}
+		net.minecraft.resources.ResourceLocation to = legacyId(key.location());
+		return to == key.location() ? key : net.minecraft.resources.ResourceKey.create((net.minecraft.resources.ResourceKey) key.registryKey(), to);
 	}
 
 	public static IronManArmorItem armor(String suitId, ArmorItem.Type type) {

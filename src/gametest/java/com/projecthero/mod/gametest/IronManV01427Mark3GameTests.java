@@ -407,7 +407,7 @@ public class IronManV01427Mark3GameTests implements FabricGameTest {
 		helper.assertTrue(m4.repulsorDamage() == m3.repulsorDamage() + 2f, "tap +2");
 		helper.assertTrue(m4.chargedRepulsorDamage() == m3.chargedRepulsorDamage() + 2f, "charged +2");
 		helper.assertTrue(m4.dashDamage() == m3.dashDamage() + 2f, "dash +2");
-		helper.assertTrue(m4.repulsorTapCooldownTicks() == Math.max(0, m3.repulsorTapCooldownTicks() - 40), "tap cd -2 s");
+		helper.assertTrue(m4.repulsorTapCooldownTicks() == 20, "v0.15.6: tap cd 1 s (no repulsor spam)");
 		helper.assertTrue(m4.chargedRepulsorCooldownTicks() == m3.chargedRepulsorCooldownTicks() - 40, "charged cd -2 s");
 		helper.assertTrue(m4.dashCooldownTicks() == m3.dashCooldownTicks() - 40, "dash cd -2 s");
 		helper.assertTrue(m4.repulsorTapEnergy() == m3.repulsorTapEnergy() && m4.chargedRepulsorEnergy() == m3.chargedRepulsorEnergy()

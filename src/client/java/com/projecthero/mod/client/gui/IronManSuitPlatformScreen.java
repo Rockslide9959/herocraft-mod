@@ -46,6 +46,8 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 	private final long openedAt = Util.getMillis();
 	/** v0.15.4: the side tab that hands out the Colantotte Bracelets -- only shown while a Mark 7 is stored. */
 	private IronManGui.StarkButton bracelets;
+	/** v0.15.6: the side tab that packs a racked Mark 5 into its suitcase -- only shown while a Mark 5 is stored. */
+	private IronManGui.StarkButton suitcase;
 
 	public IronManSuitPlatformScreen(IronManSuitPlatformMenu menu, Inventory inv, Component title) {
 		super(menu, inv, title);
@@ -66,6 +68,12 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 		bracelets.accent = IronManGui.RED;
 		bracelets.visible = menu.offersBracelets();
 		addRenderableWidget(bracelets);
+		// v0.15.6: the same tab spot packs a racked Mark 5 back into its suitcase (a platform holds one suit at a time)
+		suitcase = new IronManGui.StarkButton(leftPos + imageWidth + 2, topPos + 98, BRACELETS_W, 15,
+				Component.translatable("screen.projecthero.suit_platform.suitcase"),
+				() -> click(IronManSuitPlatformMenu.SUITCASE_BUTTON));
+		suitcase.visible = menu.offersSuitcase();
+		addRenderableWidget(suitcase);
 	}
 
 	/** v0.15.4: width of the Bracelets tab. */
@@ -171,10 +179,17 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 		if (bracelets != null) {
 			bracelets.visible = menu.offersBracelets(); // v0.15.4: only while a Mark 7 is stored
 		}
+		if (suitcase != null) {
+			suitcase.visible = menu.offersSuitcase(); // v0.15.6: only while a Mark 5 is stored
+		}
 		super.render(g, mouseX, mouseY, partialTick);
 		this.renderTooltip(g, mouseX, mouseY);
 		if (bracelets != null && bracelets.visible && bracelets.isHovered()) {
 			g.renderTooltip(font, font.split(Component.translatable("screen.projecthero.suit_platform.bracelets_tip"), 160),
+					mouseX, mouseY);
+		}
+		if (suitcase != null && suitcase.visible && suitcase.isHovered()) {
+			g.renderTooltip(font, font.split(Component.translatable("screen.projecthero.suit_platform.suitcase_tip"), 160),
 					mouseX, mouseY);
 		}
 		if (mouseX >= leftPos + 136 && mouseX < leftPos + 170 && mouseY >= topPos + 29 && mouseY < topPos + 51) {

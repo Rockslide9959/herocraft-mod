@@ -1560,7 +1560,7 @@ Death-crash integrity damage is now **50% of that suit's own max** (was a flat 2
 isn't near-totalled by one death.
 
 **Marks 1-3 are all survival-craftable at a normal table.** Mark 1 / Mark 2 recipes already
-existed; added `data/projecthero/recipe/iron_man_mark_iii_{helmet,chestplate,leggings,boots}.json`
+existed; added `data/projecthero/recipe/iron_man_mark_3_{helmet,chestplate,leggings,boots}.json`
 (metal plating + basic circuits + diamonds, netherite ingot in the chestplate). The Fabricator
 path still exists and is still the only thing that advances the tech tree.
 

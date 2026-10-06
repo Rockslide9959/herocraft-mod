@@ -181,7 +181,7 @@ public final class IronManSuits {
 			.flight(1.05f, 0.09f)
 			// v0.14.29 R: the Mark III's numbers +2 dmg / -2 s -- tap 17 dmg / 10 energy / no cd; hold 1 s = 22 dmg /
 			// 50 energy / 1 s cd; Shift+R dash 22 dmg / 50 energy / 6 s cd
-			.repulsorTap(17.0f, 10f, 0)
+			.repulsorTap(17.0f, 10f, 20) // v0.15.6, user request: no more repulsor spam -- a 1 s tap cooldown (the -2 s rule had made it 0)
 			.repulsorCharged(22.0f, 50f, 20, 20)
 			.dash(22.0f, 50f, 120)
 			.unibeam(20.0f)
@@ -253,7 +253,7 @@ public final class IronManSuits {
 			.targeting() // v0.14.29: lock-on / auto-aim
 			.waterBreathing() // v0.14.29: breathes underwater indefinitely
 			// v0.14.29 R: tap 20 dmg / 10 energy / 1 s cd; hold 1 s = 30 dmg / 50 energy / 3 s cd; Shift+R dash 25 / 50 / 8 s
-			.repulsorTap(20.0f, 10f, 20)
+			.repulsorTap(20.0f, 10f, 10) // v0.15.6, user request: 0.5 s tap cooldown (was 1 s)
 			.repulsorCharged(30.0f, 50f, 60, 20)
 			.dash(25.0f, 50f, 160)
 			.unibeam(com.projecthero.mod.ironman.ability.IronManMark7.UNIBEAM_DAMAGE)

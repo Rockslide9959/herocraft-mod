@@ -303,6 +303,35 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		return true;
 	}
 
+	/**
+	 * v0.15.6, explicit user request: the reverse of {@link #storeSuitcase} -- fold every racked Mark 5 piece back into a
+	 * Mark 5 Suitcase and hand it to {@code player} (their pack, else dropped at their feet). The pieces keep their own
+	 * charge and integrity inside the case. False (nothing moves) unless a Mark 5 is racked here and the player may use
+	 * this platform.
+	 */
+	public boolean packSuitcase(net.minecraft.server.level.ServerPlayer player) {
+		if (!"mark_v".equals(storedSuitId()) || owner != null && !owner.equals(player.getUUID())) {
+			return false;
+		}
+		ItemStack caseStack = new ItemStack(com.projecthero.mod.ironman.item.IronManItems.MARK_V_SUITCASE);
+		NonNullList<ItemStack> slots = NonNullList.withSize(com.projecthero.mod.ironman.item.SuitcaseContents.SLOTS, ItemStack.EMPTY);
+		for (int i = 0; i < SIZE; i++) {
+			ItemStack s = pieces.get(i);
+			if (s.getItem() instanceof IronManArmorItem a) {
+				slots.set(com.projecthero.mod.ironman.item.SuitcaseContents.slotOf(a.getType()), s.copyWithCount(1));
+			}
+		}
+		com.projecthero.mod.ironman.item.SuitcaseContents.write(caseStack, slots);
+		for (int i = 0; i < SIZE; i++) {
+			pieces.set(i, ItemStack.EMPTY);
+		}
+		afterContentsChanged();
+		if (!player.getInventory().add(caseStack)) {
+			player.drop(caseStack, false);
+		}
+		return true;
+	}
+
 	// ---------------- v0.15.4: suiting up / down is the Stark Gantry's job ----------------
 	//
 	// The platform's own deploy / retrieve (v0.14.21 flying pieces, v0.15.1 robotic-arm deploy, v0.15.3 robotic-arm

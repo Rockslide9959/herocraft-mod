@@ -190,8 +190,6 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 		Vec3 part = Vec3.ZERO;
 		float carryPoseF = 0f;
 		Vec3 sparkAt = null;
-		Vec3 weldR = null; // the growing seam (sparks only)
-		Vec3 weldL = null;
 		boolean onElevator = false;
 		if (i >= 0) {
 			int stage = plan.stage(i);
@@ -270,21 +268,8 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 					right = assist;
 				}
 			} else {
-				// v0.15.5, user request: a self-building part builds itself -- the arms stay back at their ready hover; only
-				// a few sparks fly off the growing seam
-				float k = (u - GantryTimeline.BUILD_FROM) / (GantryTimeline.BUILD_TO - GantryTimeline.BUILD_FROM);
-				if (k > 0f && k < 1f) {
-					boolean rightSide = stage != GantryTimeline.L_ARM && stage != GantryTimeline.L_SLEEVE;
-					boolean leftSide = stage != GantryTimeline.R_ARM && stage != GantryTimeline.R_SLEEVE;
-					if (rightSide) {
-						double[] wp = GantryTimeline.partPoint(stage, k, 1);
-						weldR = body.add(wp[0], wp[1], wp[2] - 0.02);
-					}
-					if (leftSide) {
-						double[] wp = GantryTimeline.partPoint(stage, k, -1);
-						weldL = body.add(wp[0], wp[1], wp[2] - 0.02);
-					}
-				}
+				// v0.15.5 / v0.15.6, user requests: a self-building part builds itself -- the arms stay back at their ready
+				// hover and nothing covers it (no particles); the texture shows it growing on (IronManGantryBuild)
 			}
 		}
 
@@ -346,17 +331,10 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 				level.addParticle(ParticleTypes.ELECTRIC_SPARK, w.x, w.y, w.z, 0, 0, 0);
 			}
 		}
-		if (sparkAt != null && level.random.nextFloat() < 0.6f) {
+		if (sparkAt != null && level.random.nextFloat() < 0.2f) {
 			Vec3 w = origin.add(toWorldRel(sparkAt, theta));
 			level.addParticle(ParticleTypes.ELECTRIC_SPARK, w.x, w.y, w.z, (level.random.nextFloat() - 0.5f) * 0.12f,
 					level.random.nextFloat() * 0.08f, (level.random.nextFloat() - 0.5f) * 0.12f);
-		}
-		for (Vec3 tip : new Vec3[] { weldR, weldL }) {
-			if (tip != null && level.random.nextFloat() < 0.25f) {
-				Vec3 w = origin.add(toWorldRel(tip, theta));
-				level.addParticle(ParticleTypes.ELECTRIC_SPARK, w.x, w.y, w.z, (level.random.nextFloat() - 0.5f) * 0.06f,
-						level.random.nextFloat() * 0.04f, (level.random.nextFloat() - 0.5f) * 0.06f);
-			}
 		}
 		pose.popPose();
 	}

@@ -3,6 +3,8 @@
 	"package": "com.projecthero.mod.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
+		"LegacyItemIdMixin",
+		"LegacyItemIdDefaultedMixin",
 		"AbstractArrowMixin",
 		"AbstractFurnaceBlockEntityStarkMixin",
 		"BossEventAccessor",
