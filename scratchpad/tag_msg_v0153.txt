@@ -1,0 +1,51 @@
+Project Hero v0.15.3 -- Gladiator Hulk, Iron Man Rework, Thor Weapon Select, New Sentinel
+
+💚 NEW: GLADIATOR HULK
+Hulk can now gear up like the champion of Sakaar's arena.
+- 7 new craftable pieces (crafting table): Gladiator Helmet, Pauldron, Chest Harness, Bracers and War Kilt (iron, gold, leather, red wool), plus the Gladiator Hammer and Gladiator Axe (netherite ingot + iron blocks).
+- Tap N as Banner to open the new Gladiator Gear screen and put the pieces in their slots. It shows how many of the 7 you have.
+- The gear is locked while you are the Hulk (change back to Banner to swap it), and it stays in its slots when you die.
+- With all 7 pieces stored, transforming turns you into Gladiator Hulk: helmet with a crest, war paint, a big left pauldron, chest straps, bracers and a war kilt, hammer in the right hand and axe in the left.
+- Gladiator Hulk takes 10% less damage. Holding N is still the calm-down.
+- Without the full set you're the normal Hulk with the normal moves, exactly as before.
+
+⚔️ GLADIATOR HULK MOVES (tap / Shift + key)
+- R: Axe Cleave (wide axe sweep, heavy knockback and a bleed) / Shift+R: Hammer Uppercut (launches one target high into the air)
+- G: Hammer Quake (overhead slam, cone of shockwave that cracks soft blocks) / Shift+G: Earthsplitter (axe into the ground, a line of erupting earth launches everything along it)
+- Z: Champion's Roar (damage and knockback resistance buff, nearby mobs flee or stagger, more rage) / Shift+Z: Weapon Clash (bang the weapons together, stuns everything around you)
+- X: Arena Leap (huge leap, weapons-first crater slam) / Shift+X: Meteor Dive (straight up, then a guided dive where you look, smaller but much harder hit)
+- C: Axe Throw (spinning axe hits on the way out and back) / Shift+C: Hammer Hurl (the hammer lands with a shockwave and sticks in the ground; press C to call it back, hitting things on the way)
+- V: Gladiator Whirlwind (spin with both weapons for 3 s, pulls mobs in, ends with a slam) / Shift+V: Arena Grapple (pin a target and hammer it, Shift+V again throws it)
+- A move that needs a weapon won't work while that weapon is thrown. New HUD shows all six moves; hold Shift to see the Shift moves.
+- Rage, rampage, the death save, calm-down and riding all still work. Settings in the new "gladiator" section of config/projecthero_hulk.json.
+
+🦾 IRON MAN
+- You can't be hurt while a suit is going on (C suit-up, Mark 5 suitcase, called suits, Mark 7 pod, Suit Platform).
+- Suits no longer repair themselves while worn. Repair them on a Suit Platform.
+- Damage rework: hits now land on you in full, and the suit's integrity loses 75% of the damage you take (take 10 damage, integrity drops by 7.5). Bulletproofing, shields, arrow and fire immunity are unchanged.
+- The faceplate now closes by itself when you take off, use an ability or get hit.
+- Flight now costs energy on every suit: 3 energy per second, and energy regen is halved while flying.
+- Weapon wheel: hold V to open it, aim at a weapon and let go of V to equip it. A quick tap changes nothing.
+- Rockets now explode when they hit a mob or player, not only the ground (never on you, your suit or your drone).
+- Suit Platform: taking a suit off at the platform now uses the robotic arms too. They lift the faceplate and take each piece off you, helmet first, and rack it (8 s, sneak to cancel).
+- You now face away from the platform (back to the arms) while it puts the suit on or takes it off.
+- Fixed the stray yellow pixels on the sides of the Mark 3 and Mark 4 helmets (the side faces were flipped on every mark).
+
+⚡ THOR
+- Press N to open the new Weapon Select screen: set Mjolnir and Stormbreaker each to Active or Inactive. R only calls active weapons; with both inactive, R calls nothing.
+- Stormbreaker now lies in the world as itself when dropped, like Mjolnir: Q, death, dispensers and freshly forged axes. It never despawns or burns, floats out of lava, only a worthy player can pick it up (right-click), and R flies it back to you.
+
+🤖 SENTINELS
+- The Sentinel has a brand-new look: the classic magenta-and-blue Sentinel, with glowing red eyes and chest gem. Same size, health and attacks.
+- Spread aggro: Sentinels, Drones and Master Mold now change targets every few seconds based on who's hurting them, distance and line of sight. They won't stay on one player for more than about 11 seconds if someone else is nearby, and turn on anyone who hits them much harder.
+- Their lasers can now be dodged. A thin aiming line follows you with a delay, locks in just under half a second before firing (it brightens and clicks), then the beam fires along that line. Keep moving and you can sidestep it. Damage is unchanged.
+- Master Mold's Purge Beam now tracks slower than a sprint, so you can outrun it.
+
+🛠️ FIXES
+- Effect descriptions in the inventory (like Supervillain Omen) no longer have the timer drawn over the text.
+
+📖 GUIDEBOOK
+- New Gladiator Hulk pages (gear and moves) in the Hulk chapter.
+- Thor pages cover Weapon Select and the dropped Stormbreaker.
+- Iron Man pages updated for the new damage, flight, wheel and platform rules.
+- Sentinel Purge pages describe the new look and the dodgeable beams.
