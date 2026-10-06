@@ -82,6 +82,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.syndicate.SyndicateItems.addToCreativeTab(output);
 				// v0.14.25: Carnage: Crimson Biomass and the spawn eggs.
 				com.projecthero.mod.carnage.CarnageItems.addToCreativeTab(output);
+				// v0.15.1: Sentinel Purge: the Trask Signal, Sentinel Circuitry, the Master Mold Core, spawn eggs.
+				com.projecthero.mod.sentinel.item.SentinelItems.addToCreativeTab(output);
 				// Spider-Man: the Arachnid Mutagen that evolves Spider Adhesion into the Hero Class.
 				com.projecthero.mod.spider.item.SpiderItems.addToCreativeTab(output);
 				// Max Steel: the T.U.R.B.O. Stabilizer for bonding with Steel below Level 30.

@@ -42,7 +42,8 @@ import java.util.List;
 public final class RaidAdminCommand {
 	private static final List<String> RAIDS = List.of("supervillain", "gravebound", "darkseid",
 			"zombie_horde", "skeleton_horde", "spider_horde", // v0.14.12: the Horde blocks
-			"syndicate", "carnage"); // v0.14.25: the Syndicate Bust, Carnage
+			"syndicate", "carnage", // v0.14.25: the Syndicate Bust, Carnage
+			"sentinel_purge"); // v0.15.1: the Sentinel Purge
 	private static final SuggestionProvider<CommandSourceStack> RAID_KEYS =
 			(ctx, builder) -> SharedSuggestionProvider.suggest(RAIDS, builder);
 
@@ -69,11 +70,14 @@ public final class RaidAdminCommand {
 						.executes(c -> {
 							String raid = StringArgumentType.getString(c, "raid");
 							if (!RAIDS.contains(raid)) {
-								c.getSource().sendFailure(Component.literal("Unknown raid (supervillain, gravebound, darkseid, zombie_horde, skeleton_horde, spider_horde, syndicate, carnage)"));
+								c.getSource().sendFailure(Component.literal("Unknown raid (supervillain, gravebound, darkseid, zombie_horde, skeleton_horde, spider_horde, syndicate, carnage, sentinel_purge)"));
 								return 0;
 							}
 							if (raid.equals("darkseid")) {
 								return DarkseidRaidCommand.verb(c, name);
+							}
+							if (raid.equals("sentinel_purge")) {
+								return com.projecthero.mod.sentinel.SentinelPurge.command(c, name);
 							}
 							if (raid.equals("carnage")) {
 								return com.projecthero.mod.carnage.Carnage.command(c, name);

@@ -1,0 +1,453 @@
+{
+ "format_version": "1.8.0",
+ "animations": {
+  "animation.sentinel_drone.idle": {
+   "animation_length": 1.6,
+   "bones": {
+    "root": {
+     "position": {
+      "0.00": [
+       0,
+       0,
+       0
+      ],
+      "0.80": {
+       "vector": [
+        0,
+        0.75,
+        0
+       ],
+       "easing": "easeinoutsine"
+      },
+      "1.60": {
+       "vector": [
+        0,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      }
+     }
+    },
+    "body": {
+     "rotation": {
+      "0.00": [
+       0,
+       0,
+       0
+      ],
+      "0.80": {
+       "vector": [
+        4,
+        0,
+        3
+       ],
+       "easing": "easeinoutsine"
+      },
+      "1.60": {
+       "vector": [
+        0,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      }
+     }
+    },
+    "antenna": {
+     "rotation": {
+      "0.00": [
+       0,
+       0,
+       0
+      ],
+      "0.80": {
+       "vector": [
+        -10,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      },
+      "1.60": {
+       "vector": [
+        0,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      }
+     }
+    },
+    "right_pod": {
+     "rotation": {
+      "0.00": [
+       0,
+       0,
+       0
+      ],
+      "0.80": {
+       "vector": [
+        12,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      },
+      "1.60": {
+       "vector": [
+        0,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      }
+     }
+    },
+    "left_pod": {
+     "rotation": {
+      "0.00": [
+       0,
+       0,
+       0
+      ],
+      "0.80": {
+       "vector": [
+        -12,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      },
+      "1.60": {
+       "vector": [
+        0,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      }
+     }
+    }
+   },
+   "loop": true
+  },
+  "animation.sentinel_drone.fly": {
+   "animation_length": 0.8,
+   "bones": {
+    "root": {
+     "position": {
+      "0.00": [
+       0,
+       0,
+       0
+      ],
+      "0.40": {
+       "vector": [
+        0,
+        0.4,
+        0
+       ],
+       "easing": "easeinoutsine"
+      },
+      "0.80": {
+       "vector": [
+        0,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      }
+     }
+    },
+    "body": {
+     "rotation": {
+      "0.00": [
+       14,
+       0,
+       0
+      ],
+      "0.40": {
+       "vector": [
+        12,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      },
+      "0.80": {
+       "vector": [
+        14,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      }
+     }
+    },
+    "antenna": {
+     "rotation": {
+      "0.00": [
+       20,
+       0,
+       0
+      ],
+      "0.40": {
+       "vector": [
+        25,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      },
+      "0.80": {
+       "vector": [
+        20,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      }
+     }
+    },
+    "right_pod": {
+     "rotation": {
+      "0.00": [
+       30,
+       0,
+       0
+      ],
+      "0.40": {
+       "vector": [
+        34,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      },
+      "0.80": {
+       "vector": [
+        30,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      }
+     }
+    },
+    "left_pod": {
+     "rotation": {
+      "0.00": [
+       30,
+       0,
+       0
+      ],
+      "0.40": {
+       "vector": [
+        34,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      },
+      "0.80": {
+       "vector": [
+        30,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      }
+     }
+    }
+   },
+   "loop": true
+  },
+  "animation.sentinel_drone.shoot": {
+   "animation_length": 0.6,
+   "bones": {
+    "body": {
+     "rotation": {
+      "0.00": [
+       0,
+       0,
+       0
+      ],
+      "0.20": {
+       "vector": [
+        -12,
+        0,
+        0
+       ],
+       "easing": "easeoutquad"
+      },
+      "0.60": {
+       "vector": [
+        0,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      }
+     }
+    },
+    "antenna": {
+     "rotation": {
+      "0.00": [
+       0,
+       0,
+       0
+      ],
+      "0.20": {
+       "vector": [
+        14,
+        0,
+        0
+       ],
+       "easing": "easeoutquad"
+      },
+      "0.60": {
+       "vector": [
+        0,
+        0,
+        0
+       ],
+       "easing": "easeinoutsine"
+      }
+     }
+    }
+   }
+  },
+  "animation.sentinel_drone.death": {
+   "animation_length": 1,
+   "bones": {
+    "root": {
+     "position": {
+      "0.00": [
+       0,
+       0,
+       0
+      ],
+      "0.50": {
+       "vector": [
+        0,
+        -2,
+        0
+       ],
+       "easing": "easeinquad"
+      },
+      "1.00": {
+       "vector": [
+        0,
+        -6,
+        0
+       ],
+       "easing": "easeinquad"
+      }
+     }
+    },
+    "body": {
+     "rotation": {
+      "0.00": [
+       0,
+       0,
+       0
+      ],
+      "0.50": {
+       "vector": [
+        40,
+        120,
+        30
+       ],
+       "easing": "easeinquad"
+      },
+      "1.00": {
+       "vector": [
+        80,
+        260,
+        60
+       ],
+       "easing": "easeinquad"
+      }
+     }
+    },
+    "antenna": {
+     "rotation": {
+      "0.00": [
+       0,
+       0,
+       0
+      ],
+      "0.50": {
+       "vector": [
+        40,
+        0,
+        0
+       ],
+       "easing": "easeinquad"
+      },
+      "1.00": {
+       "vector": [
+        60,
+        0,
+        0
+       ],
+       "easing": "easeinquad"
+      }
+     }
+    },
+    "right_pod": {
+     "rotation": {
+      "0.00": [
+       0,
+       0,
+       0
+      ],
+      "0.50": {
+       "vector": [
+        0,
+        0,
+        0
+       ],
+       "easing": "easeinquad"
+      },
+      "1.00": {
+       "vector": [
+        60,
+        0,
+        0
+       ],
+       "easing": "easeinquad"
+      }
+     }
+    },
+    "left_pod": {
+     "rotation": {
+      "0.00": [
+       0,
+       0,
+       0
+      ],
+      "0.50": {
+       "vector": [
+        0,
+        0,
+        0
+       ],
+       "easing": "easeinquad"
+      },
+      "1.00": {
+       "vector": [
+        -60,
+        0,
+        0
+       ],
+       "easing": "easeinquad"
+      }
+     }
+    }
+   },
+   "loop": "hold_on_last_frame"
+  }
+ }
+}

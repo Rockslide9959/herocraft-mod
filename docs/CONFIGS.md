@@ -63,6 +63,7 @@ values and version.
 | `projecthero_behemoth.json` | `behemoth/BehemothConfig` | 2 | 1 full reset (v0.13.7), 2 health 1000 -> 3000 | No. Already migrated (this is the original bug). |
 | `projecthero_horde.json` | `horde/HordeConfig` | 1 | 1 boss health | No. New in v0.14.20 and versioned from the start. |
 | `projecthero_darkseid.json` | `darkseid/DarkseidConfig` | 4 | 1 full reset, 2 v0.13.19 balance, 3 Parademons restored, 4 introduce rewards.valuablesMultiplier | No. Already migrated. |
+| `projecthero_sentinel.json` | `sentinel/SentinelConfig` | 1 | 1 introduce (v0.15.1 Sentinel Purge) | No. New in v0.15.1 and versioned from the start. |
 
 The audit compared the `public ... = <default>` lines in `git log -p` of each config class against its migration
 steps. The Oathbreaker has no config file: its numbers are code constants, so they can't go stale.

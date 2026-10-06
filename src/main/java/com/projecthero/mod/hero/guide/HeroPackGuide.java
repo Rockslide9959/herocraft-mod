@@ -266,7 +266,8 @@ public final class HeroPackGuide {
 	private static final int CH_STARK_SORTER = 27;
 	private static final int CH_SYNDICATE = 28; // v0.14.25
 	private static final int CH_CARNAGE = 29; // v0.14.25
-	private static final int CHAPTER_POWER_BASE = 30;
+	private static final int CH_SENTINEL_PURGE = 30; // v0.15.1
+	private static final int CHAPTER_POWER_BASE = 31;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -974,6 +975,15 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.guide.carnage." + section + ".body");
 			}
 		}));
+		// v0.15.1: the Sentinel Purge
+		out.add(chapter("projecthero.guide.sentinel_purge", lines -> {
+			para(lines, "projecthero.guide.sentinel_purge.body");
+			for (String section : new String[]{"trigger", "waves", "drone", "sentinel", "master_mold", "rewards", "commands"}) {
+				blank(lines);
+				head(lines, "projecthero.guide.sentinel_purge." + section);
+				para(lines, "projecthero.guide.sentinel_purge." + section + ".body");
+			}
+		}));
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -1029,6 +1039,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.hordes", CH_HORDES);
 		link(idx, "projecthero.guide.syndicate", CH_SYNDICATE);
 		link(idx, "projecthero.guide.carnage", CH_CARNAGE);
+		link(idx, "projecthero.guide.sentinel_purge", CH_SENTINEL_PURGE);
 
 		section(idx, "projecthero.guide.section.squads", true);
 		link(idx, "projecthero.guide.squads", CH_SQUADS);

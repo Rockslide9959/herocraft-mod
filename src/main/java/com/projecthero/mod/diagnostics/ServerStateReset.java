@@ -108,6 +108,8 @@ public final class ServerStateReset {
 		com.projecthero.mod.punisher.PunisherAbilityManager.clearSessionState();
 		com.projecthero.mod.behemoth.BehemothSpawner.clearSessionState();
 		com.projecthero.mod.carnage.CarnageSpawner.clearSessionState(); // v0.14.25
+		com.projecthero.mod.sentinel.SentinelSpawner.clearSessionState(); // v0.15.1
+		com.projecthero.mod.sentinel.SentinelTargets.clearSessionState(); // v0.15.1
 		com.projecthero.mod.ironman.IronManTargeting.clearSessionState(); // v0.14.26
 		com.projecthero.mod.ironman.ability.IronManAbilities.clearAutoHighlightState(); // v0.15.1
 		com.projecthero.mod.ironman.ability.IronManDash.clearSessionState(); // v0.14.27
