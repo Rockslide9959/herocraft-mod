@@ -104,6 +104,16 @@ public class IronManSuitPartEntity extends Entity {
 	 */
 	public static IronManSuitPartEntity spawn(ServerLevel level, Vec3 from, ServerPlayer owner, ItemStack piece, int launchDelay) {
 		IronManSuitPartEntity e = new IronManSuitPartEntity(IronManEntityTypes.SUIT_PART, level);
+		if (!com.projecthero.mod.ironman.suit.IronManChunkTickets.entityTicking(level, from)) {
+			// v0.14.29: never launch from a chunk where the courier would freeze (and be saved with its piece) --
+			// start a few blocks out from the owner on the same bearing instead
+			Vec3 d = new Vec3(from.x - owner.getX(), 0, from.z - owner.getZ());
+			d = d.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : d.normalize();
+			from = owner.position().add(d.scale(6.0)).add(0, 4.0, 0);
+			if (!com.projecthero.mod.ironman.suit.IronManChunkTickets.entityTicking(level, from)) {
+				from = owner.position().add(0, 4.0, 0); // the owner's own chunk always ticks
+			}
+		}
 		e.setPos(from.x, from.y, from.z);
 		e.ownerId = owner.getUUID();
 		e.launchDelay = Math.max(0, launchDelay);
@@ -268,7 +278,10 @@ public class IronManSuitPartEntity extends Entity {
 		t = Math.min(1.0, t + speed / Math.max(0.5, arc));
 
 		Vec3 next = bezier(launchPos, control, target, t);
-		if (t >= 1.0 || next.distanceTo(target) < 0.2) {
+		if (t >= 1.0 || next.distanceTo(target) < 0.2
+				|| !com.projecthero.mod.ironman.suit.IronManChunkTickets.entityTicking(level, next)) {
+			// v0.14.29: the next step would leave entity-ticking chunks (the owner is moving fast / the bow swings
+			// out) -- clamp on now rather than freeze out there with the piece
 			arrive(owner);
 			return;
 		}
@@ -326,7 +339,9 @@ public class IronManSuitPartEntity extends Entity {
 			queueHome(level);
 			return;
 		}
+		// v0.14.29: "reachable" = the dock is somewhere entities keep ticking, not merely loaded
 		boolean reachable = !homeSkyward && level.isLoaded(homeDock)
+				&& com.projecthero.mod.ironman.suit.IronManChunkTickets.entityTicking(level, homeDock)
 				&& level.getBlockEntity(homeDock) instanceof com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlockEntity;
 		if (!reachable) {
 			homeSkyward = true;
@@ -355,7 +370,7 @@ public class IronManSuitPartEntity extends Entity {
 			homeSpeed = Math.min(homeSpeed, Math.max(0.25, dist * 0.35)); // ease into the dock
 		}
 		Vec3 next = homeFeet.add(dir.scale(homeSpeed));
-		if (!level.hasChunkAt(BlockPos.containing(next))) {
+		if (!com.projecthero.mod.ironman.suit.IronManChunkTickets.entityTicking(level, next)) {
 			queueHome(level); // flying into unloaded terrain: hand over to the queue instead of freezing there
 			return;
 		}
@@ -399,6 +414,13 @@ public class IronManSuitPartEntity extends Entity {
 		ItemStack stack = getEntityData().get(PIECE).copy();
 		getEntityData().set(PIECE, ItemStack.EMPTY);
 		if (homeDock != null && ownerId != null && stack.getItem() instanceof IronManArmorItem a) {
+			// v0.14.29: rack it now -- the platform's chunk is loaded with a short ticket; the queue is only the fallback
+			net.minecraft.core.GlobalPos gp = net.minecraft.core.GlobalPos.of(level.dimension(), homeDock);
+			if (com.projecthero.mod.ironman.suit.IronManPlatformReturn.depositNow(level.getServer(), ownerId, gp,
+					java.util.List.of(stack))) {
+				discard();
+				return;
+			}
 			com.projecthero.mod.ironman.data.StarkSuitReturnQueue.get(level).enqueue(ownerId,
 					net.minecraft.core.GlobalPos.of(level.dimension(), homeDock), a.suitId(), maskOf(a.getType()),
 					com.projecthero.mod.ironman.IronManEnergy.stackEnergy(stack, a.suitId()),

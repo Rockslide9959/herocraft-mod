@@ -55,6 +55,16 @@ public final class IronManAbilityManager {
 			if (com.projecthero.mod.ironman.suit.IronManSuitUpManager.blockedWhileAssembling(player, pressed)) {
 				return;
 			}
+			// v0.14.29 (agent D): Sneak+C while suited opens the Call Armour picker with "send home" for the worn suit
+			// (it flies itself back to its platform for repair). Plain C is still suit-down; a suitcase mark (Mark 5)
+			// keeps its own Sneak+C fold.
+			if (pressed && slot == AbilitySlot.SLOT_6 && player.isShiftKeyDown()
+					&& suit.summonType() != com.projecthero.mod.ironman.suit.SummonType.SUITCASE_ITEM
+					&& IronManAbilities.SUIT_TOGGLE.equals(suit.abilityInSlot(6))
+					&& !com.projecthero.mod.ironman.suit.IronManSuitUpManager.inTransition(player)) {
+				com.projecthero.mod.ironman.suit.IronManSuitCall.openMenu(player);
+				return;
+			}
 			IronManAbilities.trigger(player, suit, slot.number(), pressed);
 			return;
 		}

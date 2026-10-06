@@ -126,6 +126,9 @@ public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 	 */
 	public static IronManDeliveryPodEntity spawn(ServerLevel level, ServerPlayer owner, List<ItemStack> pieces, Vec3 from) {
 		IronManDeliveryPodEntity pod = new IronManDeliveryPodEntity(IronManEntityTypes.DELIVERY_POD, level);
+		if (from != null && !com.projecthero.mod.ironman.suit.IronManChunkTickets.entityTicking(level, from)) {
+			from = null; // v0.14.29: a rack in a frozen border chunk -- the pod comes out of the sky over its owner instead
+		}
 		Vec3 s = from != null ? from : orbitalStart(level, owner);
 		pod.setPos(s.x, s.y, s.z);
 		pod.start = s;
@@ -313,6 +316,13 @@ public class IronManDeliveryPodEntity extends Entity implements GeoEntity {
 		// home: keep pace with the owner, then close in at the pod's own speed
 		Vec3 step = ownerVel.add(to.scale(speed / dist));
 		Vec3 prev = position();
+		if (!com.projecthero.mod.ironman.suit.IronManChunkTickets.entityTicking(level, prev.add(step))) {
+			// v0.14.29: never step into a chunk where the pod (and its cargo) would freeze -- jump to the owner instead
+			setPos(target.x, target.y, target.z);
+			setDeltaMovement(ownerVel);
+			arrive(level, owner, air);
+			return;
+		}
 		setDeltaMovement(step);
 		setPos(prev.x + step.x, prev.y + step.y, prev.z + step.z);
 		// the re-entry trail every viewer sees (the client adds its own denser one between ticks)

@@ -1,0 +1,15 @@
+{
+  "screen.projecthero.suit_call.hint": "Click calls  ·  Right-click compares  ·  Esc cancels",
+  "screen.projecthero.suit_call.cmp.title": "COMPARE",
+  "screen.projecthero.suit_call.cmp.empty": "Hover a suit to compare it with the one you wear or last used.",
+  "screen.projecthero.suit_call.cmp.energy": "Energy",
+  "screen.projecthero.suit_call.cmp.integrity": "Integrity",
+  "screen.projecthero.suit_call.cmp.charge": "Charge",
+  "screen.projecthero.suit_call.cmp.condition": "Condition",
+  "screen.projecthero.suit_call.cmp.melee": "Melee",
+  "screen.projecthero.suit_call.cmp.regen": "Regen",
+  "screen.projecthero.suit_call.cmp.repair": "Repair",
+  "screen.projecthero.suit_call.cmp.flight": "Flight",
+  "screen.projecthero.suit_call.cmp.abilities": "KEY ABILITIES",
+  "screen.projecthero.suit_call.cmp.wheel_weapon": "Weapon picked on the wheel"
+}

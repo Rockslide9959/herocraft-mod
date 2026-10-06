@@ -226,9 +226,10 @@ public final class StarkSuitReturnQueue extends SavedData {
 				continue; // dimension not loaded this run -- try again next sweep
 			}
 			BlockPos pos = p.platform().pos();
-			level.getChunk(pos.getX() >> 4, pos.getZ() >> 4); // one-off synchronous load, packet-context style
+			// v0.14.29: loaded + held by a short IronManChunkTickets ticket, so the deposit is saved with the chunk
+			IronManSuitPlatformBlockEntity be = com.projecthero.mod.ironman.suit.IronManChunkTickets.loadPlatform(level, pos);
 			processed++;
-			if (level.getBlockEntity(pos) instanceof IronManSuitPlatformBlockEntity be) {
+			if (be != null) {
 				q.deposit(p, be);
 				it.remove();
 				q.setDirty();

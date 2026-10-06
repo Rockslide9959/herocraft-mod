@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import com.projecthero.mod.ironman.IronManArmor;
 import com.projecthero.mod.ironman.IronManEnergy;
+import com.projecthero.mod.ironman.IronManFlight;
 import com.projecthero.mod.ironman.TonyStark;
 import com.projecthero.mod.ironman.data.StarkPlatformRegistry;
 import com.projecthero.mod.ironman.data.StarkSuitReturnQueue;
@@ -74,7 +75,22 @@ public final class IronManSuitCall {
 			return;
 		}
 		if (IronManArmor.wearingAnyIronMan(player)) {
-			return; // wearing a suit -> C is suit-down, handled elsewhere
+			// v0.14.29 (agent D): Sneak+C while suited -- the picker offers to send the worn suit (and anything carried)
+			// home to its platform for repair; plain C stays suit-down (handled elsewhere)
+			if (IronManSuitUpManager.inTransition(player)) {
+				return;
+			}
+			List<IronManSuitListPayload.Option> home = sendBackOptions(player);
+			if (home.isEmpty()) {
+				String worn = IronManArmor.wornSuitId(player);
+				IronManSuit ws = worn == null ? null : IronManSuits.byId(worn);
+				player.displayClientMessage(Component.translatable("message.projecthero.ironman.send_back_no_platform",
+						ws == null ? Component.literal("?") : Component.translatable(ws.nameKey()))
+						.withStyle(ChatFormatting.RED), true);
+				return;
+			}
+			ServerPlayNetworking.send(player, new IronManSuitListPayload(home));
+			return;
 		}
 		List<IronManSuitListPayload.Option> options = new ArrayList<>(gather(player));
 		// v0.14.27: pieces carried in the pack can also be sent home to a platform from the same picker
@@ -103,32 +119,65 @@ public final class IronManSuitCall {
 	 */
 	public static List<IronManSuitListPayload.Option> sendBackOptions(ServerPlayer player) {
 		List<IronManSuitListPayload.Option> out = new ArrayList<>();
-		ServerLevel level = player.serverLevel();
 		BlockPos here = player.blockPosition();
 		List<IronManSuit> suits = new ArrayList<>(IronManSuits.all());
 		suits.sort(java.util.Comparator.comparingInt(IronManSuit::markNumber));
+		String worn = IronManArmor.wornSuitId(player);
 		for (IronManSuit suit : suits) {
 			var carried = carriedPieces(player, suit.id());
-			if (carried.isEmpty()) {
+			boolean wearing = suit.id().equals(worn) && wornMask(player, suit.id()) != 0;
+			if (carried.isEmpty() && !wearing) {
 				continue;
 			}
 			BlockPos dock = sendBackTarget(player, suit.id());
 			if (dock == null) {
 				continue;
 			}
-			ItemStack ref = player.getInventory().items.get(carried.containsKey(ArmorItem.Type.CHESTPLATE)
-					? carried.get(ArmorItem.Type.CHESTPLATE) : carried.values().iterator().next());
-			float e = IronManEnergy.stackEnergy(ref, suit.id()) / Math.max(1f, suit.energyCapacity());
-			float integ = IronManEnergy.stackIntegrity(ref, suit.id()) / IronManEnergy.maxIntegrity(suit.id());
+			float e;
+			float integ;
+			if (wearing) {
+				// v0.14.29: the worn suit's live pool
+				e = IronManEnergy.energy(player, suit.id()) / Math.max(1f, suit.energyCapacity());
+				integ = IronManEnergy.integrity(player, suit.id()) / IronManEnergy.maxIntegrity(suit.id());
+			} else {
+				ItemStack ref = player.getInventory().items.get(carried.containsKey(ArmorItem.Type.CHESTPLATE)
+						? carried.get(ArmorItem.Type.CHESTPLATE) : carried.values().iterator().next());
+				e = IronManEnergy.stackEnergy(ref, suit.id()) / Math.max(1f, suit.energyCapacity());
+				integ = IronManEnergy.stackIntegrity(ref, suit.id()) / IronManEnergy.maxIntegrity(suit.id());
+			}
 			out.add(new IronManSuitListPayload.Option(suit.id(), IronManSuitListPayload.SOURCE_SEND_BACK, e, integ,
 					(int) Math.sqrt(dock.distSqr(here))));
 		}
 		return out;
 	}
 
-	/** Where carried pieces of {@code suitId} would go: the nearest loaded dock, else the registry's. Null = none. */
+	/** v0.14.29: bit mask (1 helmet .. 8 boots) of the pieces of {@code suitId} the player is wearing. */
+	private static int wornMask(ServerPlayer player, String suitId) {
+		int mask = 0;
+		for (ArmorItem.Type t : TYPES) {
+			if (IronManArmor.isPieceWorn(player, IronManSuitUpManager.slotFor(t), suitId)) {
+				mask |= switch (t) {
+					case HELMET -> 1;
+					case CHESTPLATE -> 2;
+					case LEGGINGS -> 4;
+					default -> 8;
+				};
+			}
+		}
+		return mask;
+	}
+
+	/**
+	 * Where pieces of {@code suitId} would go home to. v0.14.29: first the platform they were last called off (stamped on
+	 * the pieces, see {@link IronManPlatformReturn#tagHome}) if it is in this dimension and still has room -- loaded or
+	 * not -- then the nearest loaded dock, then the registry's nearest. Null = none.
+	 */
 	private static BlockPos sendBackTarget(ServerPlayer player, String suitId) {
 		ServerLevel level = player.serverLevel();
+		BlockPos origin = originPlatform(player, suitId);
+		if (origin != null) {
+			return origin;
+		}
 		IronManSuitPlatformBlockEntity dock = nearestLoadedDock(level, player.blockPosition(), player.getUUID(), suitId);
 		if (dock != null) {
 			return dock.getBlockPos();
@@ -136,6 +185,44 @@ public final class IronManSuitCall {
 		return StarkPlatformRegistry.get(level)
 				.nearestDockFor(player.getUUID(), level.dimension(), suitId, player.blockPosition())
 				.map(StarkPlatformRegistry.Entry::blockPos).orElse(null);
+	}
+
+	/** v0.14.29: the platform a worn / carried piece of {@code suitId} was last called off, if it can take it back. */
+	private static BlockPos originPlatform(ServerPlayer player, String suitId) {
+		ServerLevel level = player.serverLevel();
+		List<ItemStack> pieces = new ArrayList<>();
+		for (ArmorItem.Type t : TYPES) {
+			ItemStack w = player.getItemBySlot(IronManSuitUpManager.slotFor(t));
+			if (w.getItem() instanceof IronManArmorItem a && a.suitId().equals(suitId)) {
+				pieces.add(w);
+			}
+		}
+		for (ItemStack s : player.getInventory().items) {
+			if (s.getItem() instanceof IronManArmorItem a && a.suitId().equals(suitId)) {
+				pieces.add(s);
+			}
+		}
+		for (ItemStack s : pieces) {
+			Optional<net.minecraft.core.GlobalPos> home = IronManPlatformReturn.homeOf(s);
+			if (home.isEmpty() || home.get().dimension() != level.dimension()) {
+				continue;
+			}
+			BlockPos pos = home.get().pos();
+			if (level.isLoaded(pos)) {
+				if (level.getBlockEntity(pos) instanceof IronManSuitPlatformBlockEntity be
+						&& (be.owner().isEmpty() || be.owner().get().equals(player.getUUID()))
+						&& (be.storedSuitId() == null || suitId.equals(be.storedSuitId())) && !be.isFull()) {
+					return pos;
+				}
+				continue;
+			}
+			Optional<StarkPlatformRegistry.Entry> e = StarkPlatformRegistry.get(level).at(level, pos);
+			if (e.isPresent() && (e.get().owner().isEmpty() || e.get().ownedBy(player.getUUID()))
+					&& e.get().hasRoomFor(suitId)) {
+				return pos;
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -152,18 +239,42 @@ public final class IronManSuitCall {
 			return 0;
 		}
 		var carried = carriedPieces(player, suitId);
-		if (carried.isEmpty()) {
+		// v0.14.29 (agent D): the worn suit can be sent home too (Sneak+C picker while suited) -- never mid-transition
+		int worn = IronManSuitUpManager.inTransition(player) ? 0 : wornMask(player, suitId);
+		if (carried.isEmpty() && worn == 0) {
 			return 0;
 		}
 		ServerLevel level = player.serverLevel();
 		var items = player.getInventory().items;
-		IronManSuitPlatformBlockEntity dock = nearestLoadedDock(level, player.blockPosition(), player.getUUID(), suitId);
-		Optional<StarkPlatformRegistry.Entry> regEntry = dock != null ? Optional.empty()
-				: StarkPlatformRegistry.get(level).nearestDockFor(player.getUUID(), level.dimension(), suitId, player.blockPosition());
-		if (dock == null && regEntry.isEmpty()) {
+		// v0.14.29: the platform it was called off first (loaded or not), else the nearest dock
+		BlockPos targetPos = sendBackTarget(player, suitId);
+		IronManSuitPlatformBlockEntity dock = targetPos != null && level.isLoaded(targetPos)
+				&& level.getBlockEntity(targetPos) instanceof IronManSuitPlatformBlockEntity b ? b : null;
+		if (targetPos == null) {
 			player.displayClientMessage(Component.translatable("message.projecthero.ironman.send_back_no_platform",
 					Component.translatable(suit.nameKey())).withStyle(ChatFormatting.RED), true);
 			return 0;
+		}
+		java.util.EnumMap<ArmorItem.Type, ItemStack> wornStacks = new java.util.EnumMap<>(ArmorItem.Type.class);
+		if (worn != 0) {
+			float energy = IronManEnergy.energy(player, suitId);
+			float integrity = IronManEnergy.integrity(player, suitId);
+			if (IronManFlight.isFlying(player)) {
+				IronManFlight.setFlying(player, false);
+			}
+			for (ArmorItem.Type t : TYPES) {
+				net.minecraft.world.entity.EquipmentSlot slot = IronManSuitUpManager.slotFor(t);
+				if (!IronManArmor.isPieceWorn(player, slot, suitId)) {
+					continue;
+				}
+				ItemStack out = player.getItemBySlot(slot).copy();
+				IronManEnergy.stampStack(out, energy, integrity);
+				player.setItemSlot(slot, ItemStack.EMPTY);
+				wornStacks.put(t, out);
+			}
+			if (!IronManArmor.wearingAnyIronMan(player)) {
+				TonyStark.setActiveSuit(player, "");
+			}
 		}
 		// v0.14.28: the pieces leave the pack and build themselves into a standing suit 1 block in front of the player
 		// (boots first, ~1 s each), which then flies home to the platform and docks; a platform out of reach (unloaded
@@ -171,7 +282,7 @@ public final class IronManSuitCall {
 		// in exactly one place (pack -> courier -> platform / queue / back to the player).
 		int sent = 0;
 		Vec3 from = player.position().add(0, 1.0, 0);
-		BlockPos target = dock != null ? dock.getBlockPos() : regEntry.get().blockPos();
+		BlockPos target = targetPos;
 		if (dock != null && dock.owner().isEmpty()) {
 			dock.bindTo(player.getUUID());
 		}
@@ -183,19 +294,24 @@ public final class IronManSuitCall {
 		ArmorItem.Type[] order = { ArmorItem.Type.BOOTS, ArmorItem.Type.LEGGINGS, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.HELMET };
 		int count = 0;
 		for (ArmorItem.Type t : order) {
-			if (carried.containsKey(t)) {
+			if (carried.containsKey(t) || wornStacks.containsKey(t)) {
 				count++;
 			}
 		}
 		for (ArmorItem.Type t : order) {
-			Integer idx = carried.get(t);
-			if (idx == null) {
-				continue;
+			ItemStack one = wornStacks.get(t);
+			if (one == null) {
+				Integer idx = carried.get(t);
+				if (idx == null) {
+					continue;
+				}
+				one = items.get(idx).split(1);
 			}
-			ItemStack one = items.get(idx).split(1);
+			// (a carried duplicate of a worn type stays in the pack -- one piece per slot on the rack)
 			if (one.isEmpty()) {
 				continue;
 			}
+			IronManPlatformReturn.clearHome(one);
 			IronManSuitPartEntity.spawnHome(level, feet, faceYaw, player, one, sent, count, target);
 			sent++;
 		}
@@ -430,6 +546,10 @@ public final class IronManSuitCall {
 	/** Fixed distance the couriers cover on the final approach -- tuned so the equip always takes the
 	 *  same satisfying couple of seconds regardless of how far the armour actually started. */
 	private static final double ARRIVAL_DISTANCE = 26.0;
+	/** v0.14.29: a loaded platform further than this (blocks) sends its pieces in from ARRIVAL_DISTANCE instead. */
+	public static final double STRAIGHT_FLIGHT_RANGE = 64.0;
+	/** v0.14.29: Protocol Phoenix's travel time from an unloaded platform (ticks). */
+	public static final int PHOENIX_DELAY = 40;
 
 	private static void callFromPlatform(ServerPlayer player, IronManSuit suit) {
 		ServerLevel level = player.serverLevel();
@@ -440,7 +560,13 @@ public final class IronManSuitCall {
 		// 1. A LOADED platform -> the armour flies straight to you off it, no wait.
 		IronManSuitPlatformBlockEntity be = nearestLoadedPlatform(level, here, player.getUUID(), suitId);
 		if (be != null) {
-			deliver(player, suit, be, Vec3.atCenterOf(be.getBlockPos()).add(0, 1.0, 0), true);
+			// v0.14.29: straight off the rack only when that spot keeps entities ticking -- a courier launched into a
+			// loaded-but-frozen border chunk used to sit there with the piece (saved into that chunk) until someone
+			// walked by. Otherwise the pieces come in from the usual ARRIVAL_DISTANCE around the player.
+			Vec3 rack = Vec3.atCenterOf(be.getBlockPos()).add(0, 1.0, 0);
+			boolean straight = IronManChunkTickets.entityTicking(level, rack)
+					&& rack.distanceTo(player.position()) <= STRAIGHT_FLIGHT_RANGE;
+			deliver(player, suit, be, straight ? rack : null, straight);
 			return;
 		}
 
@@ -452,6 +578,9 @@ public final class IronManSuitCall {
 		if (entry.isPresent()) {
 			double dist = Math.sqrt(entry.get().blockPos().distSqr(here));
 			int delay = (int) Math.max(60, Math.min(600, dist * 0.6)); // 3 s .. 30 s of travel
+			if (TonyStark.phoenixEmergency(player)) {
+				delay = PHOENIX_DELAY; // v0.14.29: an emergency recall does not make a dying player wait 30 s
+			}
 			PENDING.put(player.getUUID(), new PendingCall(suitId,
 					net.minecraft.core.GlobalPos.of(level.dimension(), entry.get().blockPos()), delay));
 			level.playSound(null, player.getX(), player.getY(), player.getZ(),
@@ -498,6 +627,9 @@ public final class IronManSuitCall {
 				continue;
 			}
 			ItemStack stack = be != null ? be.takePieceStack(suitId, type) : ItemStack.EMPTY;
+			if (!stack.isEmpty() && be != null) {
+				IronManPlatformReturn.tagHome(stack, level, be.getBlockPos()); // v0.14.29: remembers its own platform
+			}
 			if (stack.isEmpty()) {
 				int idx = findInInventoryIndex(player, suitId, type);
 				if (idx >= 0) {
@@ -638,6 +770,11 @@ public final class IronManSuitCall {
 		PENDING.clear();
 	}
 
+	/** v0.14.29 gametest hook: a pending far call finishes its travel countdown on the player's next tick. */
+	public static void skipPendingTravel(ServerPlayer player) {
+		PENDING.computeIfPresent(player.getUUID(), (k, p) -> new PendingCall(p.suitId(), p.platform(), 0));
+	}
+
 	/** Called every tick from {@link com.projecthero.mod.ironman.IronManSuitTicker}. */
 	public static void tickPending(ServerPlayer player) {
 		PendingCall p = PENDING.get(player.getUUID());
@@ -663,9 +800,9 @@ public final class IronManSuitCall {
 
 		ServerLevel level = player.serverLevel();
 		BlockPos pos = p.platform().pos();
-		level.getChunk(pos.getX() >> 4, pos.getZ() >> 4); // one-off synchronous load for the removal
-		if (level.getBlockEntity(pos) instanceof IronManSuitPlatformBlockEntity be
-				&& p.suitId().equals(be.storedSuitId())) {
+		// v0.14.29: load + hold the platform chunk with our own short ticket, so the removal is saved with the chunk
+		IronManSuitPlatformBlockEntity be = IronManChunkTickets.loadPlatform(level, pos);
+		if (be != null && p.suitId().equals(be.storedSuitId())) {
 			deliver(player, suit, be, null, false); // flies in from ARRIVAL_DISTANCE, normal equip time
 		} else {
 			StarkPlatformRegistry.get(level).remove(level, pos);
@@ -805,9 +942,12 @@ public final class IronManSuitCall {
 						.withStyle(ChatFormatting.AQUA));
 			} else {
 				BlockPos pos = regEntry.get().blockPos();
-				StarkSuitReturnQueue.get(level).enqueue(player.getUUID(),
-						net.minecraft.core.GlobalPos.of(level.dimension(), pos), suitId, mask, energy, halved,
-						new ArrayList<>(pieces.values()));
+				net.minecraft.core.GlobalPos gp = net.minecraft.core.GlobalPos.of(level.dimension(), pos);
+				// v0.14.29: rack it on the (unloaded) platform right away via a chunk ticket; the queue is the fallback
+				if (!IronManPlatformReturn.depositNow(level.getServer(), player.getUUID(), gp, new ArrayList<>(pieces.values()))) {
+					StarkSuitReturnQueue.get(level).enqueue(player.getUUID(), gp, suitId, mask, energy, halved,
+							new ArrayList<>(pieces.values()));
+				}
 				player.sendSystemMessage(Component.translatable("message.projecthero.ironman.suit_returning",
 						Component.translatable(suit.nameKey()), pos.getX(), pos.getY(), pos.getZ())
 						.withStyle(ChatFormatting.AQUA));
