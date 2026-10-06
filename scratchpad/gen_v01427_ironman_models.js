@@ -1,3 +1,5 @@
+// SUPERSEDED in v0.15.1 by gen_v0151_ironman_models.js -- do not re-run (its detail cubes are the stray gold blocks the
+// user asked to remove).
 // v0.14.27: rebuild the Mark 1 / Mark 2 / Mark III / Mark 4 Iron Man armour from the user's new Blockbench skin models
 // (`3d minecraft models/IRon Man/new models/mark{1,2,3,4}.bbmodel` -- each a plain 64x64 player skin on the standard
 // base + layer rig). For each mark:

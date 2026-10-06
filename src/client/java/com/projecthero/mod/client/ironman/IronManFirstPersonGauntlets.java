@@ -22,20 +22,13 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.14.21 round two: a distinct first-person gauntlet per Iron Man mark (it used to be one shared crimson_vanguard
- * arm for all of them). Drawn in the vanilla arm's own animated space ({@code ModelPart#translateAndRotate}), so every
- * swing / bob / place animation carries over, and textured from the mark's own 64x64 suit texture with the same panels
- * the GeckoLib model uses (base arm, arm shell, shoulder panel, gauntlet panel), so the colours match the body.
+ * The first-person Iron Man arm, per mark. Drawn in the vanilla arm's own animated space ({@code ModelPart#translateAndRotate}),
+ * so every swing / bob / place animation carries over, and textured from the mark's own 64x64 suit texture.
  *
- * <ul>
- *   <li><b>Mark 1</b> -- bulky, crude: an oversized boxy gauntlet with a thick cuff, a slab shoulder and rivets.</li>
- *   <li><b>Mark 2</b> -- smooth silver: slim rounded gauntlet with an end cap, a domed shoulder.</li>
- *   <li><b>Mark III / 4</b> -- plated: outer forearm plate and knuckle plate, two-tier shoulder (Mark 4 adds a wrist
- *       ring and splits the forearm plate in two).</li>
- *   <li><b>Mark V</b> -- slim, with the blade housing ridge; its blade slides out with the X toggle.</li>
- *   <li><b>Mark 6</b> -- angular: forearm fins and a stepped shoulder.</li>
- *   <li><b>Mark VII</b> -- the sleekest: banded gauntlet, a wrist missile pod, swept shoulder flap.</li>
- * </ul>
+ * <p>v0.15.1: every mark is now the user's Blockbench skin model, and the armour must look exactly like it -- so the
+ * first-person arm is exactly the model's arm too: the base arm and the arm layer, the same two boxes the third-person
+ * geometry uses (the v0.14.21 per-mark plates / cuffs / fins sampled arbitrary panels of the old procedural textures and
+ * would add shapes the uploaded models do not have). The Mark V blade still slides out with the X toggle.
  * Every mark but the Mark 1 has a fullbright palm repulsor (a glow on the palm and on the end of the fist). The arm
  * follows the chestplate's build-on reveal (the palm lights only once it is locked in).
  */
@@ -46,11 +39,7 @@ public final class IronManFirstPersonGauntlets {
 	/** Texture panels as box-UV origins {right u, right v, left u, left v} and UV dims {w, h, d}. */
 	private enum Panel {
 		BASE(40, 16, 32, 48, 4, 12, 4),
-		SHELL(40, 32, 48, 48, 4, 12, 4),
-		SHOULDER(40, 32, 48, 48, 4, 5, 4),
-		GAUNTLET(40, 38, 48, 54, 4, 6, 4),
-		/** a narrow strip of the gauntlet panel for plates / bands / rivets */
-		TRIM(44, 44, 52, 60, 2, 2, 1);
+		SHELL(40, 32, 48, 48, 4, 12, 4);
 
 		final int ru, rv, lu, lv, w, h, d;
 
@@ -73,10 +62,6 @@ public final class IronManFirstPersonGauntlets {
 		}
 	}
 
-	private static Part p(Panel panel, float x0, float y0, float z0, float x1, float y1, float z1) {
-		return new Part(panel, x0, y0, z0, x1, y1, z1, 0f);
-	}
-
 	private static Part p(Panel panel, float x0, float y0, float z0, float x1, float y1, float z1, float inflate) {
 		return new Part(panel, x0, y0, z0, x1, y1, z1, inflate);
 	}
@@ -84,56 +69,12 @@ public final class IronManFirstPersonGauntlets {
 	private static final Part UNDERSUIT = p(Panel.BASE, -3, -2, -2, 1, 10, 2, 0.25f);
 	private static final Part SLEEVE = p(Panel.SHELL, -3, -2, -2, 1, 10, 2, 0.45f);
 
+	/** v0.15.1: the skin model's arm (base + layer) for every mark -- nothing added. */
+	private static final List<Part> MODEL_ARM = List.of(UNDERSUIT, SLEEVE);
+
 	private static final Map<String, List<Part>> DESIGNS = Map.of(
-			"mark_1", List.of(UNDERSUIT,
-					p(Panel.SHELL, -3, -2, -2, 1, 4.5f, 2, 0.55f),
-					p(Panel.SHOULDER, -4.3f, -2.7f, -3.0f, 1.5f, 2.3f, 3.0f),        // slab shoulder
-					p(Panel.GAUNTLET, -3.7f, 4.2f, -2.7f, 1.7f, 10.35f, 2.7f),      // oversized boxy gauntlet
-					p(Panel.TRIM, -4.0f, 4.0f, -3.0f, 2.0f, 5.3f, 3.0f),            // thick cuff
-					p(Panel.TRIM, -3.5f, 9.3f, -3.0f, 1.5f, 10.4f, -2.6f),          // crude knuckle bar
-					// rivets: outer face and back of the gauntlet
-					p(Panel.TRIM, -4.05f, 6.0f, -1.9f, -3.7f, 6.6f, -1.3f), p(Panel.TRIM, -4.05f, 6.0f, 1.3f, -3.7f, 6.6f, 1.9f),
-					p(Panel.TRIM, -4.05f, 8.6f, -1.9f, -3.7f, 9.2f, -1.3f), p(Panel.TRIM, -4.05f, 8.6f, 1.3f, -3.7f, 9.2f, 1.9f),
-					p(Panel.TRIM, -2.6f, 6.6f, -3.05f, -2.0f, 7.2f, -2.7f), p(Panel.TRIM, 0.0f, 6.6f, -3.05f, 0.6f, 7.2f, -2.7f),
-					p(Panel.TRIM, -4.6f, -0.6f, -1.0f, -4.3f, 0.6f, 1.0f)),         // shoulder bolt
-			"mark_2", List.of(UNDERSUIT, SLEEVE,
-					p(Panel.SHOULDER, -3.5f, -2.5f, -2.5f, 1.3f, 1.4f, 2.5f),        // domed shoulder: body ..
-					p(Panel.SHOULDER, -3.1f, -2.95f, -2.1f, 0.9f, -2.45f, 2.1f),     // .. and its crown
-					p(Panel.GAUNTLET, -3.3f, 4.7f, -2.3f, 1.3f, 9.95f, 2.3f),        // slim, smooth gauntlet
-					p(Panel.GAUNTLET, -3.1f, 9.9f, -2.1f, 1.1f, 10.4f, 2.1f)),       // rounded end cap
-			"mark_iii", List.of(UNDERSUIT, SLEEVE,
-					p(Panel.SHOULDER, -3.7f, -2.6f, -2.6f, 1.4f, 1.5f, 2.6f),
-					p(Panel.SHOULDER, -4.0f, -1.6f, -2.2f, -3.6f, 2.3f, 2.2f),       // side tier
-					p(Panel.GAUNTLET, -3.4f, 4.4f, -2.4f, 1.4f, 10.2f, 2.4f),
-					p(Panel.TRIM, -3.85f, 4.7f, -1.6f, -3.4f, 8.8f, 1.6f),           // outer forearm plate
-					p(Panel.TRIM, -3.2f, 9.1f, -2.75f, 1.2f, 10.2f, -2.4f)),         // knuckle plate
-			"mark_4", List.of(UNDERSUIT, SLEEVE,
-					p(Panel.SHOULDER, -3.7f, -2.6f, -2.6f, 1.4f, 1.5f, 2.6f),
-					p(Panel.SHOULDER, -4.0f, -1.6f, -2.2f, -3.6f, 2.3f, 2.2f),
-					p(Panel.GAUNTLET, -3.4f, 4.4f, -2.4f, 1.4f, 10.2f, 2.4f),
-					p(Panel.TRIM, -3.65f, 4.1f, -2.65f, 1.65f, 4.8f, 2.65f),         // wrist ring
-					p(Panel.TRIM, -3.85f, 5.1f, -1.6f, -3.4f, 6.7f, 1.6f),           // split forearm plates
-					p(Panel.TRIM, -3.85f, 7.1f, -1.6f, -3.4f, 8.7f, 1.6f),
-					p(Panel.TRIM, -3.2f, 9.1f, -2.75f, 1.2f, 10.2f, -2.4f)),
-			"mark_v", List.of(UNDERSUIT, SLEEVE,
-					p(Panel.SHOULDER, -3.4f, -2.4f, -2.4f, 1.2f, 1.1f, 2.4f),        // slim shoulder
-					p(Panel.GAUNTLET, -3.25f, 4.8f, -2.25f, 1.25f, 10.1f, 2.25f),
-					p(Panel.TRIM, -3.75f, 4.9f, -0.75f, -3.25f, 8.1f, 0.75f)),       // blade housing ridge
-			"mark_6", List.of(UNDERSUIT, SLEEVE,
-					p(Panel.SHOULDER, -3.6f, -2.5f, -2.5f, 1.3f, 0.8f, 2.5f),        // stepped, angular shoulder
-					p(Panel.SHOULDER, -3.95f, -2.0f, -2.0f, -3.6f, 1.7f, 2.0f),
-					p(Panel.SHOULDER, -3.3f, -2.9f, -1.8f, 0.6f, -2.5f, 1.8f),
-					p(Panel.GAUNTLET, -3.3f, 4.5f, -2.3f, 1.3f, 10.1f, 2.3f),
-					p(Panel.TRIM, -3.8f, 5.0f, -1.0f, -3.3f, 9.2f, 1.0f),            // forearm fin
-					p(Panel.TRIM, -3.6f, 5.6f, -1.85f, -3.3f, 7.0f, 1.85f)),
-			"mark_vii", List.of(UNDERSUIT, SLEEVE,
-					p(Panel.SHOULDER, -3.45f, -2.45f, -2.45f, 1.25f, 0.9f, 2.45f),
-					p(Panel.SHOULDER, -3.7f, -0.6f, -1.9f, -3.45f, 2.0f, 1.9f),      // swept flap
-					p(Panel.GAUNTLET, -3.2f, 4.6f, -2.2f, 1.2f, 10.05f, 2.2f),
-					p(Panel.TRIM, -3.35f, 5.2f, -2.35f, 1.35f, 5.65f, 2.35f),        // three bands
-					p(Panel.TRIM, -3.35f, 6.6f, -2.35f, 1.35f, 7.05f, 2.35f),
-					p(Panel.TRIM, -3.35f, 8.0f, -2.35f, 1.35f, 8.45f, 2.35f),
-					p(Panel.TRIM, -3.75f, 5.4f, -0.9f, -3.2f, 7.6f, 0.9f)));         // wrist missile pod
+			"mark_1", MODEL_ARM, "mark_2", MODEL_ARM, "mark_iii", MODEL_ARM, "mark_4", MODEL_ARM,
+			"mark_v", MODEL_ARM, "mark_6", MODEL_ARM, "mark_vii", MODEL_ARM);
 
 	/** Mark V blade in right-arm space: housing, blade, tip (blade swatch painted at 0..8 x 0..8 of mark_v.png). */
 	private static final float BLADE_TOP = 4.6f;

@@ -174,6 +174,20 @@ worn, so nothing shows through.
 
 ## Iron Man marks: own geometry
 
+> **Current pipeline (v0.15.1) -- supersedes the history below.** All seven marks are the user's Blockbench skin
+> models (`3d minecraft models/IRon Man/new models/mark1..7.bbmodel`, each a plain 64x64 skin on the standard
+> base + layer rig), built by `scratchpad/gen_v0151_ironman_models.js`. Rule: **the armour looks exactly like the
+> uploaded model, nothing added.** The geo is only the skin rig (base cube at `inflate` 0.25 + layer cube at
+> 0.25 + the model's own layer inflation, per body part); the legs are cut at the boot line (thigh = top 8 texel
+> rows, boot = bottom 4, explicit non-overlapping cubes); the helmet's front faces are the `faceplate` bone (H lifts
+> it). Every other named bone (`helmet_brow`, `chest_armor`, `arc_reactor`, `waist`, `back_panel`, shoulders,
+> gauntlets, thigh plates, knees) stays in the geo with its pivot because the assembly / build-on / suitcase code
+> looks bones up by name, but carries **no cubes** -- the v0.14.27 thin detail plates on those bones were the stray
+> gold blocks on the Mark III / 4 backs. Mark V also keeps its `right_blade` / `left_blade` bones (shown only when
+> extended) and its blade swatch in the skin's unused top-left 8x8. The first-person arm is the same base + layer arm
+> for every mark. `IronManRound2GameTests#ironManGeoIsJustTheSkinModel` / `#everyIronManGeoHasTheBonesTheCodeDrives`
+> guard both rules. Offline preview: `node scratchpad/preview_v0151_all.js`.
+
 Each `geo/mark_<n>.geo.json` is generated from an externally-authored model pack
 (`mark<n>_armor.geo.json` + `mark<n>_skin.png`, one pack per mark, each with its own
 `MARK<n>_MODEL_SPEC.json` declaring a texture SHA-256). The conversion is scripted (not hand-edited)

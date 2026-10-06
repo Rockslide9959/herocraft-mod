@@ -395,4 +395,102 @@ public class IronManRound2GameTests implements FabricGameTest {
 		}
 		helper.succeed();
 	}
+	// ------------------------------------------------------------------ v0.15.1: the user's skin models, nothing added
+
+	private static Map<String, JsonObject> geoBones(String mark) throws Exception {
+		JsonObject geo;
+		try (InputStream in = res("/assets/projecthero/geo/" + mark + ".geo.json")) {
+			geo = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
+		}
+		Map<String, JsonObject> bones = new HashMap<>();
+		for (JsonElement b : geo.getAsJsonArray("minecraft:geometry").get(0).getAsJsonObject().getAsJsonArray("bones")) {
+			bones.put(b.getAsJsonObject().get("name").getAsString(), b.getAsJsonObject());
+		}
+		return bones;
+	}
+
+	/** Every bone the assembly / build-on / suitcase / faceplate / blade code looks up by name. */
+	private static Set<String> requiredBones(String mark) {
+		Set<String> need = new java.util.TreeSet<>(List.of("armorHead", "armorBody", "armorRightArm", "armorLeftArm",
+				"armorRightLeg", "armorLeftLeg", "armorRightBoot", "armorLeftBoot", "helmet", "faceplate", "helmet_brow"));
+		for (int bit = 0; bit < 4; bit++) {
+			for (boolean fromCase : new boolean[] { false, true }) {
+				for (List<String> group : com.projecthero.mod.ironman.suit.IronManAssemblyPlan.groups(bit, fromCase)) {
+					need.addAll(group);
+				}
+			}
+		}
+		if ("mark_v".equals(mark)) {
+			need.add("right_blade");
+			need.add("left_blade");
+		}
+		return need;
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void everyIronManGeoHasTheBonesTheCodeDrives(GameTestHelper helper) throws Exception {
+		for (String m : MARKS) {
+			Map<String, JsonObject> bones = geoBones(m);
+			for (String need : requiredBones(m)) {
+				helper.assertTrue(bones.containsKey(need), m + " geo has bone " + need);
+			}
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void ironManGeoIsJustTheSkinModel(GameTestHelper helper) throws Exception {
+		Set<String> skin = Set.of("helmet", "faceplate", "chest", "right_upper_arm", "left_upper_arm", "right_thigh", "left_thigh",
+				"right_boot", "left_boot");
+		for (String m : MARKS) {
+			Map<String, JsonObject> bones = geoBones(m);
+			for (Map.Entry<String, JsonObject> e : bones.entrySet()) {
+				String name = e.getKey();
+				int cubes = e.getValue().has("cubes") ? e.getValue().getAsJsonArray("cubes").size() : 0;
+				if (name.endsWith("_blade")) {
+					helper.assertTrue("mark_v".equals(m) && cubes == 3, m + ": only the Mark V has (3-cube) blades");
+				} else if (skin.contains(name)) {
+					helper.assertTrue(cubes == 2, m + " " + name + ": base + layer, got " + cubes);
+				} else {
+					helper.assertTrue(cubes == 0, m + " " + name + " adds no geometry beyond the skin model, got " + cubes);
+				}
+			}
+			// the helmet's front faces are the faceplate (H lifts it)
+			for (JsonElement c : bones.get("helmet").getAsJsonArray("cubes")) {
+				helper.assertFalse(c.getAsJsonObject().getAsJsonObject("uv").has("north"), m + " helmet has no front faces");
+			}
+			// leggings + boots are exactly the model's legs: each layer's thigh starts where its boot ends
+			for (String side : new String[] { "right", "left" }) {
+				JsonArray thigh = bones.get(side + "_thigh").getAsJsonArray("cubes");
+				JsonArray boot = bones.get(side + "_boot").getAsJsonArray("cubes");
+				for (int i = 0; i < 2; i++) {
+					JsonObject t = thigh.get(i).getAsJsonObject();
+					JsonObject b = boot.get(i).getAsJsonObject();
+					float bootTop = b.getAsJsonArray("origin").get(1).getAsFloat() + b.getAsJsonArray("size").get(1).getAsFloat();
+					float thighBottom = t.getAsJsonArray("origin").get(1).getAsFloat();
+					helper.assertTrue(Math.abs(bootTop - thighBottom) < 1e-3f, m + " " + side + " leg layer " + i + " seamless, no overlap");
+					helper.assertTrue(t.getAsJsonObject("uv").getAsJsonObject("north").getAsJsonArray("uv_size").get(1).getAsFloat()
+							+ b.getAsJsonObject("uv").getAsJsonObject("north").getAsJsonArray("uv_size").get(1).getAsFloat() == 12f,
+							m + " " + side + " leg: 12 texel rows between thigh and boot");
+				}
+			}
+			// the skin's unused top-left corner stays empty -- except the Mark V's blade swatch
+			BufferedImage img;
+			try (InputStream in = res("/assets/projecthero/textures/armor/" + m + ".png")) {
+				img = ImageIO.read(in);
+			}
+			helper.assertTrue(img.getWidth() == 64 && img.getHeight() == 64, m + " texture is a 64x64 skin");
+			helper.assertTrue(((img.getRGB(2, 2) >>> 24) != 0) == "mark_v".equals(m), m + ": blade swatch only on the Mark V");
+			// no enchanted shimmer on any piece
+			for (ArmorItem.Type type : ArmorItem.Type.values()) {
+				if (type == ArmorItem.Type.BODY) {
+					continue;
+				}
+				var item = IronManItems.armor(m, type);
+				helper.assertTrue(item != null && Boolean.FALSE.equals(new ItemStack(item)
+						.get(net.minecraft.core.component.DataComponents.ENCHANTMENT_GLINT_OVERRIDE)), m + " " + type + " has no glint");
+			}
+		}
+		helper.succeed();
+	}
 }
