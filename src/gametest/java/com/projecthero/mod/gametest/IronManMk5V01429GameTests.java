@@ -121,8 +121,8 @@ public class IronManMk5V01429GameTests implements FabricGameTest {
 		p.getInventory().selected = 2;
 		IronManAbilityManager.handle(p, AbilitySlot.SLOT_6, true); // plain C
 		h.assertTrue(IronManSuitUpManager.inTransition(p), "C starts the fold");
-		h.assertTrue(TonyStark.state(p).transitionTotal == IronManMk5Suitcase.DOWN_TICKS && IronManMk5Suitcase.DOWN_TICKS == 80,
-				"the fold takes 4 s");
+		h.assertTrue(TonyStark.state(p).transitionTotal == IronManMk5Suitcase.DOWN_TICKS && IronManMk5Suitcase.DOWN_TICKS == 140,
+				"v0.15.8: the fold is the 7 s build backwards");
 		h.assertTrue(IronManArmor.wearingFullSuit(p, "mark_v"), "the pieces stay on until the fold ends");
 		runSequence(p);
 		h.assertFalse(IronManArmor.wearingAnyIronMan(p), "folded away");
@@ -185,12 +185,12 @@ public class IronManMk5V01429GameTests implements FabricGameTest {
 		p.getInventory().items.set(0, new ItemStack(IronManItems.MARK_V_SUITCASE));
 		IronManItems.MARK_V_SUITCASE.use(h.getLevel(), p, InteractionHand.MAIN_HAND);
 		h.assertTrue(IronManSuitUpManager.inTransition(p) && IronManSuitUpManager.assembling(p), "right-click starts the build");
-		h.assertTrue(TonyStark.state(p).transitionTotal == IronManMk5Suitcase.UP_TICKS && IronManMk5Suitcase.UP_TICKS == 120,
-				"the build takes 6 s");
+		h.assertTrue(TonyStark.state(p).transitionTotal == IronManMk5Suitcase.UP_TICKS && IronManMk5Suitcase.UP_TICKS == 140,
+				"v0.15.8: the build takes 7 s");
 		IronManSuitFx fx = IronManSuitFx.of(p);
 		h.assertTrue(fx.poseKind() == IronManSuitFx.POSE_MK5_UP && fx.style() == IronManSuitFx.STYLE_MK5, "the Mark 5 pose + style");
 		// held out first: nothing is on the body until the hold is over, then the chest arrives first
-		for (int i = 0; i < IronManMk5Suitcase.HOLD_TICKS - 1; i++) {
+		for (int i = 0; i < IronManMk5Suitcase.upStart(1) - 1; i++) {
 			IronManSuitUpManager.tick(p);
 		}
 		h.assertTrue(p.getItemBySlot(EquipmentSlot.CHEST).isEmpty(), "the case is still held out in front");
@@ -205,59 +205,46 @@ public class IronManMk5V01429GameTests implements FabricGameTest {
 		h.succeed();
 	}
 
+	/** v0.15.8, user request: chest top on, chest builds, arms down to the hands, legs down to the feet, helmet up from the back, faceplate last. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void mk5AssemblyOrderChestArmsLegsHeadFaceplate(GameTestHelper h) {
-		int[] prevEnd = null;
-		for (int step = IronManMk5Suitcase.STEP_CHEST; step <= IronManMk5Suitcase.STEP_FACEPLATE; step++) {
-			int[] t = IronManMk5Suitcase.upStepTicks(step);
-			h.assertTrue(t[1] > t[0], "step " + step + " has a window");
-			if (prevEnd != null) {
-				h.assertTrue(t[0] >= prevEnd[1], "step " + step + " starts after the one before ends");
-			}
-			prevEnd = t;
+		int[] order = { IronManMk5Suitcase.S_CHEST_TOP, IronManMk5Suitcase.S_CHEST, IronManMk5Suitcase.S_ARMS,
+				IronManMk5Suitcase.S_LEGS, IronManMk5Suitcase.S_HELMET, IronManMk5Suitcase.S_FACEPLATE };
+		for (int i = 1; i < order.length; i++) {
+			h.assertTrue(IronManMk5Suitcase.appear(order[i], 0f) >= IronManMk5Suitcase.appear(order[i - 1], 1f) - 0.01f,
+					"stage " + order[i] + " starts once the one before is done");
+			h.assertTrue(IronManMk5Suitcase.appear(order[i], 1f) > IronManMk5Suitcase.appear(order[i], 0f) || i == 0,
+					"stage " + order[i] + " builds over a window");
 		}
-		h.assertTrue(IronManMk5Suitcase.upStepTicks(IronManMk5Suitcase.STEP_CHEST)[0] >= IronManMk5Suitcase.HOLD_TICKS,
-				"the case is held out before the chest starts");
-		h.assertTrue(prevEnd[1] <= IronManMk5Suitcase.UP_TICKS, "the faceplate is done inside the 6 s");
-		// bones map onto the steps
-		h.assertTrue(IronManMk5Suitcase.step(1, "chest") == IronManMk5Suitcase.STEP_CHEST
-				&& IronManMk5Suitcase.step(1, "arc_reactor") == IronManMk5Suitcase.STEP_CHEST
-				&& IronManMk5Suitcase.step(1, "right_upper_arm") == IronManMk5Suitcase.STEP_ARMS
-				&& IronManMk5Suitcase.step(1, "left_gauntlet") == IronManMk5Suitcase.STEP_ARMS
-				&& IronManMk5Suitcase.step(2, "right_thigh") == IronManMk5Suitcase.STEP_LEGS
-				&& IronManMk5Suitcase.step(3, "left_boot") == IronManMk5Suitcase.STEP_LEGS
-				&& IronManMk5Suitcase.step(0, "helmet") == IronManMk5Suitcase.STEP_HEAD
-				&& IronManMk5Suitcase.step(0, "faceplate") == IronManMk5Suitcase.STEP_FACEPLATE, "bone -> step");
-		// within a piece: the torso is whole before an arm bone starts; the helmet before the faceplate
-		h.assertTrue(IronManMk5Suitcase.localProgress(1, "chest", IronManMk5Suitcase.CHEST_TORSO_END) == 1f
-				&& IronManMk5Suitcase.localProgress(1, "right_gauntlet", IronManMk5Suitcase.CHEST_TORSO_END) == 0f,
-				"torso before arms");
-		h.assertTrue(IronManMk5Suitcase.localProgress(0, "helmet", IronManMk5Suitcase.HEAD_SHELL_END) == 1f
-				&& IronManMk5Suitcase.localProgress(0, "faceplate", IronManMk5Suitcase.HEAD_SHELL_END) == 0f,
-				"helmet before faceplate");
-		h.assertTrue(IronManMk5Suitcase.remap(1, "chest", 0f) > 0f, "nothing shows at progress 0");
-		// the synced clock times each piece over its own window
-		IronManSuitFx fx = IronManSuitFx.EMPTY.withPose(IronManSuitFx.POSE_MK5_UP, 1000L, 120, IronManSuitFx.STYLE_MK5)
-				.withPiece(1, 1000L, true);
-		int w = IronManMk5Suitcase.upWindow(1);
-		h.assertTrue(fx.lockTicks(1) == w && fx.pieceProgress(EquipmentSlot.CHEST, 1000L + w, 0f) == 1f
-				&& Math.abs(fx.pieceProgress(EquipmentSlot.CHEST, 1000L + w / 2, 0f) - 0.5f) < 1e-3f, "per-piece window");
-		// the fold is the exact reverse: faceplate/head first, chest last, and a piece stays hidden once apart
-		h.assertTrue(IronManMk5Suitcase.downStart(0) < IronManMk5Suitcase.downStart(3)
-				&& IronManMk5Suitcase.downStart(3) < IronManMk5Suitcase.downStart(2)
-				&& IronManMk5Suitcase.downStart(2) < IronManMk5Suitcase.downStart(1), "fold order");
-		h.assertTrue(IronManMk5Suitcase.downStart(1) + IronManMk5Suitcase.downWindow(1)
-				<= IronManMk5Suitcase.DOWN_TICKS - IronManMk5Suitcase.CASE_FORM_TICKS, "the case forms after the chest is apart");
-		IronManSuitFx down = IronManSuitFx.EMPTY.withPose(IronManSuitFx.POSE_MK5_DOWN, 1000L, 80, IronManSuitFx.STYLE_MK5)
-				.withPiece(0, 1001L, false);
-		h.assertTrue(down.pieceProgress(EquipmentSlot.HEAD, 1001L + 60, 0f) == 0f, "a folded piece stays hidden until the end");
-		// pose: case held out in front (both arms forward) first, then arms out to the side
+		h.assertTrue(IronManMk5Suitcase.appear(IronManMk5Suitcase.S_CHEST_TOP, 0f) >= IronManMk5Suitcase.HOLD_TICKS,
+				"the case is held out before the chest goes on");
+		h.assertTrue(IronManMk5Suitcase.appear(IronManMk5Suitcase.S_FACEPLATE, 1f) <= IronManMk5Suitcase.UP_TICKS,
+				"the faceplate closes inside the 7 s");
+		// every piece is in its slot before its first texel shows, and the head before the helmet starts
+		h.assertTrue(IronManMk5Suitcase.upStart(1) <= IronManMk5Suitcase.appear(IronManMk5Suitcase.S_CHEST_TOP, 0f)
+				&& IronManMk5Suitcase.upStart(2) <= IronManMk5Suitcase.appear(IronManMk5Suitcase.S_LEGS, 0f)
+				&& IronManMk5Suitcase.upStart(3) <= IronManMk5Suitcase.appear(IronManMk5Suitcase.S_LEGS, 0f)
+				&& IronManMk5Suitcase.upStart(0) <= IronManMk5Suitcase.appear(IronManMk5Suitcase.S_HELMET, 0f), "slot before texels");
+		// the fold is the exact reverse
+		h.assertTrue(IronManMk5Suitcase.frame(false, 10f) == IronManMk5Suitcase.UP_TICKS - 10f
+				&& IronManMk5Suitcase.frame(true, 10f) == 10f, "suit-down frames run backwards");
+		h.assertTrue(IronManMk5Suitcase.downStart(0) < IronManMk5Suitcase.downStart(2)
+				&& IronManMk5Suitcase.downStart(2) == IronManMk5Suitcase.downStart(3)
+				&& IronManMk5Suitcase.downStart(3) < IronManMk5Suitcase.downStart(1), "fold order: head, legs, chest");
+		for (float age : new float[] { 5f, 25f, 60f, 90f, 115f, 130f }) {
+			float[] up = IronManMk5Suitcase.pose(true, age);
+			float[] down = IronManMk5Suitcase.pose(false, IronManMk5Suitcase.UP_TICKS - age);
+			h.assertTrue(java.util.Arrays.equals(up, down), "the fold pose mirrors the build at " + age);
+		}
+		// pose: case held out (both arms forward), pressed to the chest, then arms out while the arms build
 		float[] hold = IronManMk5Suitcase.pose(true, 10f);
-		float[] spread = IronManMk5Suitcase.pose(true, 50f);
+		float[] chest = IronManMk5Suitcase.pose(true, 40f);
+		float[] spread = IronManMk5Suitcase.pose(true, 65f);
 		h.assertTrue(hold[1] < -0.5f && hold[4] < -0.5f, "both arms forward holding the case");
-		h.assertTrue(spread[3] > 1.2f && spread[6] < -1.2f, "arms out to the side while it builds");
+		h.assertTrue(chest[1] < -1.2f && chest[4] < -1.2f, "hands on the chest while the chest builds");
+		h.assertTrue(spread[3] > 1.2f && spread[6] < -1.2f, "arms out to the side while they build");
 		h.assertTrue(IronManMk5Suitcase.caseScale(true, 10f) == 1f && IronManMk5Suitcase.caseScale(true, 40f) == 0f
-				&& IronManMk5Suitcase.caseScale(false, 79f) > 0.9f, "case drawn while held, gone once it is the chestplate");
+				&& IronManMk5Suitcase.caseScale(false, 139f) > 0.9f, "case drawn while held, gone once it is the chestplate");
 		h.succeed();
 	}
 }

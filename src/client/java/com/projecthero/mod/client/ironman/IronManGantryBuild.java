@@ -20,6 +20,7 @@ import com.projecthero.mod.armor.SuperheroArmorVisuals;
 import com.projecthero.mod.ironman.gantry.GantryTimeline;
 import com.projecthero.mod.ironman.gantry.StarkGantryFloorBlockEntity;
 import com.projecthero.mod.ironman.suit.IronManAssemblyPlan;
+import com.projecthero.mod.ironman.suit.IronManMk5Suitcase;
 import com.projecthero.mod.ironman.suit.IronManSuitFx;
 
 import net.minecraft.client.Minecraft;
@@ -44,11 +45,67 @@ import net.minecraft.world.entity.player.Player;
  * texels flashing a white-hot then cyan seam for a few ticks; the piece the arm is carrying is drawn with only its own
  * stage's texels ({@link #solo}). Taking the suit off plays the same frames backwards. Textures are made lazily and
  * shared between every frame that looks the same (a frame is "how many texels are on", unless a seam is still hot).
+ *
+ * <p>v0.15.8, user request: the <b>Mark 5 suitcase</b> builds on the same way, with its own scheme ({@link Timing#mk5}):
+ * the chest top half whole, the rest of the chest built on, the arms from the shoulders down to the hands, the legs from
+ * the top of the thighs to the soles of the boots, the helmet up from the back of the neck over the head, the faceplate
+ * closing down from it ({@link IronManMk5Suitcase}). Its frame is the synced suit-up pose clock, run backwards to take
+ * it off.
  */
 public final class IronManGantryBuild {
 	private static final int SEAM_HOT = 0xFFE8FFFF;
 	private static final int SEAM_CYAN = 0xFF4FE3FF;
 	private static final int GLOW_TICKS = 3;
+
+	/** v0.15.8: a timetable the per-texel build reads -- which scheme sorts texels into stages, and when each is on. */
+	private interface Timing {
+		/** Cache key of the timetable (texels are timed once per key). */
+		String key();
+
+		/** The Mark 5 scheme (true) or the Stark Gantry's ({@link GantryTimeline} stages). */
+		boolean mk5();
+
+		float appear(int stage, float k);
+
+		/** Does a stage go on whole (no hot seam)? */
+		boolean whole(int stage);
+	}
+
+	private record GantryTiming(GantryTimeline.Plan plan) implements Timing {
+		public String key() {
+			return "g" + plan.mask();
+		}
+
+		public boolean mk5() {
+			return false;
+		}
+
+		public float appear(int stage, float k) {
+			return plan.appear(stage, k);
+		}
+
+		public boolean whole(int stage) {
+			return GantryTimeline.carried(stage);
+		}
+	}
+
+	private static final Timing MK5 = new Timing() {
+		public String key() {
+			return "mk5";
+		}
+
+		public boolean mk5() {
+			return true;
+		}
+
+		public float appear(int stage, float k) {
+			return IronManMk5Suitcase.appear(stage, k);
+		}
+
+		public boolean whole(int stage) {
+			return stage == IronManMk5Suitcase.S_CHEST_TOP;
+		}
+	};
 
 	/** Per texel of a piece: its stage (-1 = not this piece) and build position. */
 	private record Parts(int w, int h, byte[] stage, float[] k) {
@@ -142,7 +199,57 @@ public final class IronManGantryBuild {
 		if (def == null) {
 			return base;
 		}
-		return frame(def.geometry(), base, bit, be.plan(), be.frameAt(partialTick));
+		return frame(def.geometry(), base, bit, new GantryTiming(be.plan()), be.frameAt(partialTick));
+	}
+
+	/** v0.15.8: the Mark 5 suitcase frame {@code player} is at (suit-up timetable), or NaN outside that sequence. */
+	private static float mk5Frame(Player player, float partialTick) {
+		IronManSuitFx fx = IronManSuitFx.of(player);
+		if (player.level() == null || !fx.mk5()) {
+			return Float.NaN;
+		}
+		int kind = fx.poseKind();
+		if (kind != IronManSuitFx.POSE_MK5_UP && kind != IronManSuitFx.POSE_MK5_DOWN) {
+			return Float.NaN;
+		}
+		float age = fx.poseAge(player.level().getGameTime(), partialTick);
+		return age < 0f ? Float.NaN : IronManMk5Suitcase.frame(kind == IronManSuitFx.POSE_MK5_UP, age);
+	}
+
+	/** v0.15.8: the texture of {@code player}'s Mark 5 piece in {@code slot} during the suitcase build, or null outside it. */
+	public static ResourceLocation mk5Texture(Player player, String setId, EquipmentSlot slot, ResourceLocation base, float partialTick) {
+		float f = mk5Frame(player, partialTick);
+		int bit = IronManSuitFx.bit(slot);
+		if (Float.isNaN(f) || bit < 0) {
+			return null;
+		}
+		ArmorVisualDefinition def = SuperheroArmorVisuals.get(setId);
+		return def == null ? base : frame(def.geometry(), base, bit, MK5, f);
+	}
+
+	/**
+	 * v0.15.8: the Mark 5 frame (suit-up timetable) a Suit Platform is folding its racked suit at, or NaN. Set by the
+	 * platform renderer around one draw call of its stand, render thread only.
+	 */
+	public static float standMk5Frame = Float.NaN;
+
+	/** v0.15.8: the texture of a Mark 5 piece on a folding Suit Platform ({@link #standMk5Frame}). */
+	public static ResourceLocation mk5TextureAt(String setId, EquipmentSlot slot, ResourceLocation base, float frame) {
+		int bit = IronManSuitFx.bit(slot);
+		ArmorVisualDefinition def = SuperheroArmorVisuals.get(setId);
+		return def == null || bit < 0 ? base : frame(def.geometry(), base, bit, MK5, frame);
+	}
+
+	/** v0.15.8: is part of {@code player}'s Mark 5 piece in {@code slot} still missing (lights dark until it is whole)? */
+	public static boolean mk5Incomplete(Player player, EquipmentSlot slot, String setId, float partialTick) {
+		float f = mk5Frame(player, partialTick);
+		int bit = IronManSuitFx.bit(slot);
+		ArmorVisualDefinition def = SuperheroArmorVisuals.get(setId);
+		if (Float.isNaN(f) || bit < 0 || def == null) {
+			return false;
+		}
+		Timed t = timed(def.geometry(), def.texture(), bit, MK5);
+		return t != null && f < t.last;
 	}
 
 	/** Is any part of {@code player}'s piece in {@code slot} still missing (its lights stay dark until it is whole)? */
@@ -153,7 +260,7 @@ public final class IronManGantryBuild {
 		if (be == null || bit < 0 || def == null) {
 			return false;
 		}
-		Timed t = timed(def.geometry(), def.texture(), bit, be.plan());
+		Timed t = timed(def.geometry(), def.texture(), bit, new GantryTiming(be.plan()));
 		return t != null && be.frameAt(partialTick) < t.last;
 	}
 
@@ -170,7 +277,7 @@ public final class IronManGantryBuild {
 		if (got != null) {
 			return got;
 		}
-		Parts parts = parts(def.geometry(), base, bit);
+		Parts parts = parts(def.geometry(), base, bit, false);
 		NativeImage src = SOURCES.get(def.geometry() + "|" + base + "|" + bit);
 		if (parts == null || src == null) {
 			return base;
@@ -189,9 +296,9 @@ public final class IronManGantryBuild {
 
 	// ---------------- frames ----------------
 
-	static ResourceLocation frame(ResourceLocation geometry, ResourceLocation base, int bit, GantryTimeline.Plan plan, float f) {
-		Timed t = timed(geometry, base, bit, plan);
-		Parts parts = parts(geometry, base, bit);
+	static ResourceLocation frame(ResourceLocation geometry, ResourceLocation base, int bit, Timing timing, float f) {
+		Timed t = timed(geometry, base, bit, timing);
+		Parts parts = parts(geometry, base, bit, timing.mk5());
 		NativeImage src = SOURCES.get(geometry + "|" + base + "|" + bit);
 		if (t == null || parts == null || src == null) {
 			return base;
@@ -203,7 +310,7 @@ public final class IronManGantryBuild {
 		boolean hot = false;
 		for (int i = 0; i < t.appear.length; i++) {
 			float a = t.appear[i];
-			if (!Float.isNaN(a) && a <= fi && fi - a < GLOW_TICKS && !GantryTimeline.carried(parts.stage()[i])) {
+			if (!Float.isNaN(a) && a <= fi && fi - a < GLOW_TICKS && !timing.whole(parts.stage()[i])) {
 				hot = true;
 				break;
 			}
@@ -227,7 +334,7 @@ public final class IronManGantryBuild {
 				continue;
 			}
 			int orig = src.getPixelRGBA(x, y);
-			if (((orig >>> 24) & 0xFF) == 0 || GantryTimeline.carried(parts.stage()[i])) {
+			if (((orig >>> 24) & 0xFF) == 0 || timing.whole(parts.stage()[i])) {
 				continue;
 			}
 			float age = fi - a;
@@ -238,7 +345,7 @@ public final class IronManGantryBuild {
 						age < 2f ? 0.6f : 0.3f));
 			}
 		}
-		ResourceLocation id = register(bit + "_" + plan.mask() + "_" + sig, img);
+		ResourceLocation id = register(bit + "_" + timing.key() + "_" + sig, img);
 		t.bySignature.put(sig, id);
 		return id;
 	}
@@ -249,20 +356,20 @@ public final class IronManGantryBuild {
 		return id;
 	}
 
-	private static Timed timed(ResourceLocation geometry, ResourceLocation base, int bit, GantryTimeline.Plan plan) {
-		String key = geometry + "|" + base + "|" + bit + "|" + plan.mask();
+	private static Timed timed(ResourceLocation geometry, ResourceLocation base, int bit, Timing timing) {
+		String key = geometry + "|" + base + "|" + bit + "|" + timing.key();
 		Timed t = TIMED.get(key);
 		if (t != null) {
 			return t;
 		}
-		Parts parts = parts(geometry, base, bit);
+		Parts parts = parts(geometry, base, bit, timing.mk5());
 		if (parts == null) {
 			return null;
 		}
 		float[] appear = new float[parts.stage().length];
 		for (int i = 0; i < appear.length; i++) {
 			int s = parts.stage()[i];
-			appear[i] = s < 0 ? Float.NaN : plan.appear(s, parts.k()[i]);
+			appear[i] = s < 0 ? Float.NaN : timing.appear(s, parts.k()[i]);
 		}
 		t = new Timed(appear);
 		TIMED.put(key, t);
@@ -271,11 +378,12 @@ public final class IronManGantryBuild {
 
 	// ---------------- geometry -> per-texel stage ----------------
 
-	private static Parts parts(ResourceLocation geometry, ResourceLocation base, int bit) {
-		String key = geometry + "|" + base + "|" + bit;
+	private static Parts parts(ResourceLocation geometry, ResourceLocation base, int bit, boolean mk5) {
+		String key = geometry + "|" + base + "|" + bit + (mk5 ? "|mk5" : "");
 		if (PARTS.containsKey(key)) {
 			return PARTS.get(key);
 		}
+		String srcKey = geometry + "|" + base + "|" + bit;
 		Parts parts = null;
 		Minecraft mc = Minecraft.getInstance();
 		Optional<Resource> texRes = mc.getResourceManager().getResource(base);
@@ -287,8 +395,11 @@ public final class IronManGantryBuild {
 				JsonObject geo = JsonParser.parseReader(reader).getAsJsonObject();
 				List<IronManAssemblyReveal.Sample> samples = new ArrayList<>();
 				IronManAssemblyReveal.collect(geo, src.getWidth(), src.getHeight(), bit, samples);
-				parts = classify(samples, src.getWidth(), src.getHeight(), bit);
-				SOURCES.put(key, src);
+				parts = classify(samples, src.getWidth(), src.getHeight(), bit, mk5);
+				NativeImage old = SOURCES.put(srcKey, src);
+				if (old != null) {
+					old.close();
+				}
 			} catch (Exception e) {
 				ProjectHeroMod.LOGGER.warn("[ProjectHero] could not build the Stark Gantry parts for {}: {}", base, e.toString());
 			}
@@ -298,12 +409,13 @@ public final class IronManGantryBuild {
 	}
 
 	/** Every texel's stage + build position; a texel used twice goes with the later stage (nothing shows early). */
-	static Parts classify(List<IronManAssemblyReveal.Sample> samples, int w, int h, int bit) {
+	static Parts classify(List<IronManAssemblyReveal.Sample> samples, int w, int h, int bit, boolean mk5) {
 		byte[] stage = new byte[w * h];
 		float[] k = new float[w * h];
 		Arrays.fill(stage, (byte) -1);
 		for (IronManAssemblyReveal.Sample s : samples) {
-			float[] sk = stageOf(s.bone(), s.cube(), s.pos().y, s.index(), bit);
+			float[] sk = mk5 ? mk5StageOf(s.bone(), s.cube(), s.pos().y, s.pos().z, s.index(), bit)
+					: stageOf(s.bone(), s.cube(), s.pos().y, s.index(), bit);
 			int st = (int) sk[0];
 			int i = s.index();
 			if (stage[i] < 0 || st > stage[i] || st == stage[i] && sk[1] > k[i]) {
@@ -347,6 +459,34 @@ public final class IronManGantryBuild {
 					return new float[] { right ? GantryTimeline.R_BOOT : GantryTimeline.L_BOOT, 0f };
 				}
 				return new float[] { GantryTimeline.PANTS, mix((12.75f - y) / 13.5f, scatter, 0.22f) };
+		}
+	}
+
+	/**
+	 * v0.15.8: {stage, k} of a texel in the Mark 5 scheme ({@link IronManMk5Suitcase} stages): the chest top half whole,
+	 * the rest of the chest down from it and its outer layer top-down; the arms (base and sleeve, gauntlets included)
+	 * from the shoulder (y 24) down to the hand (y 12); legs and boots from the top of the thigh (y 12) to the sole (y 0);
+	 * the helmet up the back of the neck (z +4), over the top and down the front (z -4); the faceplate top-down.
+	 */
+	static float[] mk5StageOf(String bone, int cube, float y, float z, int texel, int bit) {
+		float scatter = IronManAssemblyPlan.hash("mk5", texel);
+		switch (bit) {
+			case GantryTimeline.HEAD:
+				if ("faceplate".equals(bone)) {
+					return new float[] { IronManMk5Suitcase.S_FACEPLATE, mix((32f - y) / 8f, scatter, 0.06f) };
+				}
+				return new float[] { IronManMk5Suitcase.S_HELMET, mix(((y - 24f) + (4f - z)) / 16f, scatter, 0.08f) };
+			case GantryTimeline.CHEST:
+				if (bone.contains("gauntlet") || bone.contains("upper_arm") || bone.contains("shoulder") || bone.contains("blade")) {
+					return new float[] { IronManMk5Suitcase.S_ARMS, mix((24f - y) / 12f, scatter, cube == 0 ? 0.08f : 0.2f) };
+				}
+				if (cube == 0) {
+					return y >= 18f ? new float[] { IronManMk5Suitcase.S_CHEST_TOP, 0f }
+							: new float[] { IronManMk5Suitcase.S_CHEST, 0.55f * mix((18f - y) / 6.5f, scatter, 0.08f) };
+				}
+				return new float[] { IronManMk5Suitcase.S_CHEST, 0.35f + 0.65f * mix((24.5f - y) / 13f, scatter, 0.22f) };
+			default:
+				return new float[] { IronManMk5Suitcase.S_LEGS, mix((12.5f - y) / 12.5f, scatter, cube == 0 ? 0.08f : 0.2f) };
 		}
 	}
 

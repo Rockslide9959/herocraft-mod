@@ -112,8 +112,8 @@ public class MarkVSuitcaseLayer extends RenderLayer<AbstractClientPlayer, Player
 
 	/**
 	 * v0.14.29: the Mark 5 case between both hands, in front of the body. Suit-up: held out, then pulled onto the chest
-	 * where it opens and shrinks into the chestplate. Suit-down: it grows out of the chestplate, closes, and is pushed
-	 * back out in front of the body.
+	 * where it opens and shrinks into the chestplate. Suit-down: the same backwards -- it grows out of the chestplate,
+	 * closes, and is pushed back out in front of the body.
 	 */
 	private void renderMk5(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, boolean up,
 			float age) {
@@ -122,16 +122,10 @@ public class MarkVSuitcaseLayer extends RenderLayer<AbstractClientPlayer, Player
 			return;
 		}
 		// 0 = held out in front .. 1 = against the chest
-		float toChest;
-		float open;
-		if (up) {
-			toChest = smooth((age - IronManMk5Suitcase.HOLD_TICKS) / 10f);
-			open = smooth((age - IronManMk5Suitcase.HOLD_TICKS) / IronManMk5Suitcase.MORPH_TICKS);
-		} else {
-			float formAt = IronManMk5Suitcase.DOWN_TICKS - IronManMk5Suitcase.CASE_FORM_TICKS;
-			toChest = 1f - smooth((age - formAt) / 8f);
-			open = 1f - smooth((age - formAt) / 6f);
-		}
+		// v0.15.8: the suit-down is the suit-up backwards
+		float f = IronManMk5Suitcase.frame(up, age);
+		float toChest = smooth((f - IronManMk5Suitcase.HOLD_TICKS) / 10f);
+		float open = smooth((f - IronManMk5Suitcase.HOLD_TICKS) / IronManMk5Suitcase.MORPH_TICKS);
 		if (caseStack == null) {
 			caseStack = new ItemStack(IronManItems.MARK_V_SUITCASE);
 		}

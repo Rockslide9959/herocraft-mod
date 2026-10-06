@@ -52,6 +52,12 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 				public boolean mayPlace(ItemStack stack) {
 					return container.canPlaceItem(slotIdx, stack);
 				}
+
+				@Override
+				public boolean mayPickup(Player player) {
+					// v0.15.8: the rack is locked while the Mark 5 folds into its case
+					return !(container instanceof IronManSuitPlatformBlockEntity be && be.packing());
+				}
 			});
 		}
 		for (int row = 0; row < 3; row++) {
@@ -177,6 +183,7 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 					.withStyle(packed ? net.minecraft.ChatFormatting.AQUA : net.minecraft.ChatFormatting.GOLD), true);
 			if (packed) {
 				com.projecthero.mod.ironman.IronManSounds.play(sp, com.projecthero.mod.ironman.IronManSounds.SERVO, 0.8f, 1.2f);
+				sp.closeContainer(); // v0.15.8: step back and watch the suit fold itself up into its case
 			}
 			return packed;
 		}

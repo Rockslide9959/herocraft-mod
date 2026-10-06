@@ -5,7 +5,11 @@ package com.projecthero.mod.ironman.suit;
  * the server sequence ({@link IronManSuitUpManager}), the synced clock ({@link IronManSuitFx}), the client renderer and
  * the gametests all read the same numbers.
  *
- * <h2>Suit-up ({@value #UP_TICKS} ticks = 6 s, right-click the case)</h2>
+ * <p><b>v0.15.8:</b> the build is now per texel, gantry style ({@link #appear}, client {@code IronManGantryBuild}) and the
+ * suit-down is exactly the suit-up backwards ({@link #frame}); the per-bone step windows below are the v0.14.29 build,
+ * kept for the old reveal path.
+ *
+ * <h2>Suit-up ({@value #UP_TICKS} ticks = 7 s, right-click the case)</h2>
  * <ol>
  *   <li>0 .. {@value #HOLD_TICKS}: the player holds the closed suitcase out in front in both hands.</li>
  *   <li>The case turns into the chestplate, which the player puts on their chest, then holds the arms out to the side
@@ -16,31 +20,55 @@ package com.projecthero.mod.ironman.suit;
  * A piece's own build window is split into sub-windows ({@link #boneWindow}) so the chestplate builds its torso before
  * its arms and the helmet builds its shell before the faceplate.
  *
- * <h2>Suit-down ({@value #DOWN_TICKS} ticks = 4 s, C)</h2>
+ * <h2>Suit-down ({@value #DOWN_TICKS} ticks = 7 s, C)</h2>
  * The exact reverse -- faceplate, head, boots, legs, arms, chest -- then the arms come in, the chestplate turns back into
  * the suitcase, which ends up held out in front in both hands (and then in the main hand, see
  * {@link IronManSuitUpManager#placeSuitcase}).
  */
 public final class IronManMk5Suitcase {
-	/** 6 s suit-up. */
-	public static final int UP_TICKS = 120;
-	/** 4 s suit-down. */
-	public static final int DOWN_TICKS = 80;
+	/** v0.15.8: 7 s suit-up. */
+	public static final int UP_TICKS = 140;
+	/** v0.15.8, user request: the suit-down is the suit-up played backwards -- just as long. */
+	public static final int DOWN_TICKS = UP_TICKS;
 	/** The case is held out in front this long before it becomes the chestplate. */
 	public static final int HOLD_TICKS = 20;
 	/** The case shrinks into the chestplate over this long once the hold is over. */
 	public static final int MORPH_TICKS = 8;
-	/** Suit-down: the chestplate turns back into the case over the last this-many ticks. */
-	public static final int CASE_FORM_TICKS = 14;
 
-	/** Suit-up: the tick each piece (bit 0 head, 1 chest, 2 legs, 3 feet) reaches the body and starts building. */
-	private static final int[] UP_START = { 86, 20, 60, 72 };
-	/** Suit-up: how long each piece builds for. */
-	private static final int[] UP_WINDOW = { 30, 40, 16, 14 };
-	/** Suit-down: the tick each piece starts coming apart (faceplate + head first ... chest last). */
-	private static final int[] DOWN_START = { 1, 40, 26, 18 };
+	// ---------------- v0.15.8: the gantry-style build (per texel, IronManGantryBuild's Mark 5 scheme) ----------------
+	//
+	// Explicit user request: the case is brought to the chest and the top half of the chestplate is on; the rest of the
+	// chest builds on from it (as on the Stark Gantry), then the arms build down from the chest to the hands, then the
+	// legs from the top of the legs to the soles of the boots, then the helmet comes up from the back of the neck over
+	// the head, and the faceplate closes down out of it last. Taking it off is the same frames backwards.
+
+	/** Build stages of the Mark 5 scheme (a texel's stage + its position k = 0..1 along the stage's build). */
+	public static final int S_CHEST_TOP = 0, S_CHEST = 1, S_ARMS = 2, S_LEGS = 3, S_HELMET = 4, S_FACEPLATE = 5;
+	/** The frame the top half of the chestplate is on (the case has shrunk into it). */
+	public static final int CHEST_ON = HOLD_TICKS + MORPH_TICKS;
+	/** Each stage's frame window {from, to} on the suit-up timetable. */
+	private static final int[][] WINDOW = { { CHEST_ON, CHEST_ON }, { CHEST_ON, 52 }, { 52, 76 }, { 76, 104 }, { 104, 124 },
+			{ 124, 134 } };
+
+	/** v0.15.8: the frame (suit-up timetable) a texel of {@code stage} at build position {@code k} is on. */
+	public static float appear(int stage, float k) {
+		int[] w = WINDOW[Math.max(0, Math.min(WINDOW.length - 1, stage))];
+		return w[0] + (w[1] - w[0]) * (0.02f + 0.96f * clamp(k));
+	}
+
+	/** v0.15.8: the frame of the suit-up timetable shown {@code age} ticks into a suit-up / (backwards) a suit-down. */
+	public static float frame(boolean up, float age) {
+		return up ? age : UP_TICKS - age;
+	}
+
+	/** Suit-up: the tick each piece (bit 0 head, 1 chest, 2 legs, 3 feet) reaches the slot (just before it shows). */
+	private static final int[] UP_START = { 102, 26, 74, 74 };
+	/** Suit-up: how long each piece builds for (the chest window includes its arms). */
+	private static final int[] UP_WINDOW = { 32, 50, 30, 30 };
+	/** Suit-down: the tick each piece starts coming apart -- the suit-up's windows mirrored (head first ... chest last). */
+	private static final int[] DOWN_START = { UP_TICKS - 134, UP_TICKS - 76, UP_TICKS - 104, UP_TICKS - 104 };
 	/** Suit-down: how long each piece takes to come apart. */
-	private static final int[] DOWN_WINDOW = { 20, 26, 14, 10 };
+	private static final int[] DOWN_WINDOW = { 32, 50, 30, 30 };
 
 	/** Share of the chestplate's window the torso builds in; the arms build in the rest. */
 	public static final float CHEST_TORSO_END = 0.5f;
@@ -157,41 +185,29 @@ public final class IronManMk5Suitcase {
 	 * {@link IronManSuitPoses} key layout, or null outside the sequence. Pure, so the gametests can read it.
 	 */
 	public static float[] pose(boolean up, float age) {
-		int total = up ? UP_TICKS : DOWN_TICKS;
-		if (age < 0f || age > total) {
+		if (age < 0f || age > UP_TICKS) {
 			return null;
 		}
+		// v0.15.8, user request: the suit-down is the suit-up backwards, pose and all
+		float f = frame(up, age);
+		float w = Math.min(smooth(f / 5f), smooth((UP_TICKS - f) / 6f));
 		float[] key;
-		float w;
-		if (up) {
-			w = Math.min(smooth(age / 5f), smooth((total - age) / 6f));
-			int legs0 = UP_START[2];
-			int head0 = UP_START[0];
-			if (age < HOLD_TICKS) {
-				key = HOLD;
-			} else if (age < HOLD_TICKS + 10) {
-				key = lerp(HOLD, CHEST, smooth((age - HOLD_TICKS) / 10f));
-			} else if (age < HOLD_TICKS + 22) {
-				key = lerp(CHEST, SPREAD, smooth((age - HOLD_TICKS - 10) / 12f));
-			} else if (age < legs0) {
-				key = SPREAD;
-			} else if (age < head0) {
-				float a = smooth((age - legs0) / 8f);
-				float b = smooth((age - (head0 - 8)) / 8f);
-				key = lerp(lerp(SPREAD, SPREAD_LOOK_DOWN, a), SPREAD, b);
-			} else {
-				key = SPREAD;
-			}
+		if (f < HOLD_TICKS) {
+			key = HOLD; // the case held out
+		} else if (f < HOLD_TICKS + 10) {
+			key = lerp(HOLD, CHEST, smooth((f - HOLD_TICKS) / 10f)); // brought to the chest
+		} else if (f < WINDOW[S_ARMS][0] - 6) {
+			key = CHEST; // pressing the chestplate on while the chest builds
+		} else if (f < WINDOW[S_ARMS][0] + 4) {
+			key = lerp(CHEST, SPREAD, smooth((f - (WINDOW[S_ARMS][0] - 6)) / 10f)); // arms out as they build
+		} else if (f < WINDOW[S_LEGS][0] - 4) {
+			key = SPREAD;
+		} else if (f < WINDOW[S_HELMET][0]) {
+			float a = smooth((f - (WINDOW[S_LEGS][0] - 4)) / 8f);
+			float b = smooth((f - (WINDOW[S_HELMET][0] - 8)) / 8f);
+			key = lerp(lerp(SPREAD, SPREAD_LOOK_DOWN, a), SPREAD, b); // watching the legs build
 		} else {
-			w = Math.min(smooth(age / 5f), smooth((total - age) / 4f));
-			int caseAt = total - CASE_FORM_TICKS;
-			if (age < caseAt - 10) {
-				key = age >= DOWN_START[2] && age < DOWN_START[1] ? SPREAD_LOOK_DOWN : SPREAD;
-			} else if (age < caseAt) {
-				key = lerp(SPREAD, CHEST, smooth((age - (caseAt - 10)) / 10f));
-			} else {
-				key = lerp(CHEST, HOLD, smooth((age - caseAt) / 8f));
-			}
+			key = SPREAD; // chin up for the helmet and faceplate
 		}
 		float[] out = new float[IronManSuitPoses.SIZE + 1];
 		out[0] = w;
@@ -201,13 +217,11 @@ public final class IronManMk5Suitcase {
 
 	/**
 	 * How big the suitcase drawn between the hands is at {@code age} (0 = not drawn .. 1 = full size): suit-up, it is
-	 * held out and then shrinks into the chestplate; suit-down, it grows back out of the chestplate at the end.
+	 * held out and then shrinks into the chestplate; suit-down (backwards), it grows back out of the chestplate.
 	 */
 	public static float caseScale(boolean up, float age) {
-		if (up) {
-			return age < 0f ? 0f : 1f - smooth((age - HOLD_TICKS) / MORPH_TICKS);
-		}
-		return smooth((age - (DOWN_TICKS - CASE_FORM_TICKS)) / 6f);
+		float f = frame(up, age);
+		return f < 0f || f > UP_TICKS ? 0f : 1f - smooth((f - HOLD_TICKS) / MORPH_TICKS);
 	}
 
 	private static float[] lerp(float[] a, float[] b, float t) {

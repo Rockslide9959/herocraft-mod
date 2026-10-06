@@ -530,18 +530,53 @@ public class IronManGantryV0154GameTests implements FabricGameTest {
 	public void timetableIsSymmetricAndOrdered(GameTestHelper h) {
 		GantryTimeline.Plan full = GantryTimeline.FULL;
 		h.assertTrue(full.count() == GantryTimeline.STAGES, "a full suit has every part");
-		h.assertTrue(full.total() >= 400 && full.total() <= 470, "about 22 s, got " + full.total());
+		h.assertTrue(full.total() >= 190 && full.total() <= 250, "v0.15.8: about 11 s, got " + full.total());
+		// v0.15.8, user request: chest, +1 s a gauntlet, +0.2 s the other, +1 s a boot, +0.2 s the other, +1 s the leggings,
+		// +1 s the helmet, +1 s the faceplate -- the builds run alongside at their own speed
+		int[][] beat = { { GantryTimeline.TORSO_TOP, GantryTimeline.R_GAUNTLET, 20 }, { GantryTimeline.R_GAUNTLET, GantryTimeline.L_GAUNTLET, 4 },
+				{ GantryTimeline.L_GAUNTLET, GantryTimeline.R_BOOT, 20 }, { GantryTimeline.R_BOOT, GantryTimeline.L_BOOT, 4 },
+				{ GantryTimeline.L_BOOT, GantryTimeline.THIGH_TOP, 20 }, { GantryTimeline.THIGH_TOP, GantryTimeline.HELMET, 20 },
+				{ GantryTimeline.HELMET, GantryTimeline.FACEPLATE, 20 } };
+		for (int[] b : beat) {
+			int gap = full.fitTick(full.indexOf(b[1])) - full.fitTick(full.indexOf(b[0]));
+			h.assertTrue(gap == b[2], "stage " + b[1] + " goes on " + b[2] + " ticks after " + b[0] + ", got " + gap);
+		}
+		h.assertTrue(full.begin(full.indexOf(GantryTimeline.TORSO_BOTTOM)) == full.fitTick(full.indexOf(GantryTimeline.TORSO_TOP))
+				&& full.begin(full.indexOf(GantryTimeline.R_ARM)) == full.fitTick(full.indexOf(GantryTimeline.R_GAUNTLET))
+				&& full.length(full.indexOf(GantryTimeline.R_ARM)) == GantryTimeline.BUILD, "a build starts as its part goes on, at its own speed");
+		// the arms are back at the original speed; an arm never works two parts at once -- its part is on before it sets
+		// off for the next -- each gauntlet / boot on its own side's arm, and a pair rides up the pad side by side
+		h.assertTrue(GantryTimeline.CARRY == 30, "original arm speed");
+		h.assertTrue(full.rightArm(full.indexOf(GantryTimeline.R_GAUNTLET)) && !full.rightArm(full.indexOf(GantryTimeline.L_GAUNTLET))
+				&& full.rightArm(full.indexOf(GantryTimeline.R_BOOT)) && !full.rightArm(full.indexOf(GantryTimeline.L_BOOT)), "each side its own arm");
+		for (int mask = 1; mask < 16; mask++) {
+			GantryTimeline.Plan pl = GantryTimeline.plan(mask);
+			for (int a = 0; a < pl.count(); a++) {
+				for (int b = 0; b < pl.count(); b++) {
+					int sa = pl.stage(a);
+					int sb = pl.stage(b);
+					if (a != b && GantryTimeline.carried(sa) && GantryTimeline.carried(sb) && pl.rightArm(a) == pl.rightArm(b)
+							&& pl.begin(a) < pl.begin(b)) {
+						h.assertTrue(pl.end(a) <= pl.begin(b) && pl.fitTick(a) < pl.begin(b),
+								"plan " + mask + ": arm overlap between stages " + sa + " and " + sb);
+					}
+				}
+			}
+		}
+		h.assertTrue(full.padX(full.indexOf(GantryTimeline.R_GAUNTLET)) > 0 && full.padX(full.indexOf(GantryTimeline.L_GAUNTLET)) < 0
+				&& full.padX(full.indexOf(GantryTimeline.HELMET)) == 0, "pairs sit side by side on the pad");
 		h.assertTrue(full.indexOf(GantryTimeline.L_BOOT) == full.indexOf(GantryTimeline.R_BOOT) + 1
 				&& full.removeTick(GantryTimeline.FEET) > full.total() - full.fitTick(full.indexOf(GantryTimeline.L_BOOT)),
 				"one boot at a time: right then left on, left then right off");
 		int prev = -1;
 		for (int i = 0; i < full.count(); i++) {
-			h.assertTrue(full.stage(i) > prev, "the parts go on in the order asked for");
+			h.assertTrue(full.stage(i) > prev, "the parts are listed in order");
 			prev = full.stage(i);
 			h.assertTrue(full.begin(i) >= GantryTimeline.LEAD && full.begin(i) + full.length(i) <= full.total() - GantryTimeline.OUTRO,
 					"part " + i + " inside the work");
 			if (GantryTimeline.carried(full.stage(i))) {
-				h.assertTrue(full.liftTick(i) < full.fitTick(i) && full.fitTick(i) < full.letGoTick(i), "carry " + i + " ordered");
+				h.assertTrue(full.liftTick(i) < full.fitTick(i) && full.fitTick(i) <= full.letGoTick(i) && full.letGoTick(i) < full.end(i),
+						"carry " + i + " ordered");
 			}
 		}
 		// the user's order: chest top -> bottom -> jacket, gauntlet -> arm -> sleeve (each side), boots, thigh top -> bottom

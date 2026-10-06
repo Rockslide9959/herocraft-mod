@@ -65,6 +65,12 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 
 	private final NonNullList<ItemStack> pieces = NonNullList.withSize(SIZE, ItemStack.EMPTY);
 	private UUID owner;
+	/**
+	 * v0.15.8: the racked Mark 5 folding itself into its case -- the game time it started (0 = not packing) and who gets
+	 * the case. Saved and synced, so every viewer sees the fold; the rack is locked until it is done.
+	 */
+	private long packStart;
+	private UUID packFor;
 	private long lastRegistrySync = Long.MIN_VALUE;
 
 	public final ContainerData data = new ContainerData() {
@@ -102,6 +108,9 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 			be.tryAdoptOwner(serverLevel);
 		}
 
+		if (be.packStart > 0L && level.getGameTime() - be.packStart >= PACK_TICKS) {
+			be.finishPack(serverLevel);
+		}
 		String suitId = be.storedSuitId();
 		if (suitId != null) {
 			IronManSuit suit = IronManSuits.byId(suitId);
@@ -234,6 +243,9 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 	}
 
 	public String storedSuitId() {
+		if (packStart > 0L) {
+			return null; // v0.15.8: folding into its case -- nothing here can be called, deployed or claimed
+		}
 		for (ItemStack stack : pieces) {
 			if (stack.getItem() instanceof IronManArmorItem piece) {
 				return piece.suitId();
@@ -303,16 +315,46 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		return true;
 	}
 
+	/** v0.15.8: the fold -- the Mark 5 suit-down played backwards on the rack at double speed (frames 134 -> 26)... */
+	public static final int PACK_FOLD_TICKS = 54;
+	/** ...then the case forms at the chest, drops to the pad and hops to the player. */
+	public static final int PACK_TICKS = PACK_FOLD_TICKS + 16;
+
+	/** v0.15.8: is the racked Mark 5 folding into its case right now? */
+	public boolean packing() {
+		return packStart > 0L;
+	}
+
+	/** v0.15.8: ticks into the fold (client: with the partial tick), or -1 when not packing. */
+	public float packAge(float partialTick) {
+		if (packStart <= 0L || level == null) {
+			return -1f;
+		}
+		return Math.max(0f, level.getGameTime() - packStart + partialTick);
+	}
+
 	/**
 	 * v0.15.6, explicit user request: the reverse of {@link #storeSuitcase} -- fold every racked Mark 5 piece back into a
-	 * Mark 5 Suitcase and hand it to {@code player} (their pack, else dropped at their feet). The pieces keep their own
-	 * charge and integrity inside the case. False (nothing moves) unless a Mark 5 is racked here and the player may use
-	 * this platform.
+	 * Mark 5 Suitcase and hand it to {@code player}. v0.15.8, user request: it is animated -- the suit folds itself up on
+	 * the rack and the case is handed over {@link #PACK_TICKS} later ({@link #finishPack}); the rack is locked meanwhile.
+	 * The pieces keep their own charge and integrity inside the case. False (nothing happens) unless a Mark 5 is racked
+	 * here, nothing is packing yet and the player may use this platform.
 	 */
 	public boolean packSuitcase(net.minecraft.server.level.ServerPlayer player) {
-		if (!"mark_v".equals(storedSuitId()) || owner != null && !owner.equals(player.getUUID())) {
+		if (!"mark_v".equals(storedSuitId()) || owner != null && !owner.equals(player.getUUID()) || level == null) {
 			return false;
 		}
+		packStart = Math.max(1L, level.getGameTime());
+		packFor = player.getUUID();
+		afterContentsChanged();
+		return true;
+	}
+
+	/** v0.15.8: the fold is over -- the pieces go into a case for whoever asked (their pack, else dropped on the pad). */
+	public void finishPack(ServerLevel level) {
+		UUID to = packFor;
+		packStart = 0L;
+		packFor = null;
 		ItemStack caseStack = new ItemStack(com.projecthero.mod.ironman.item.IronManItems.MARK_V_SUITCASE);
 		NonNullList<ItemStack> slots = NonNullList.withSize(com.projecthero.mod.ironman.item.SuitcaseContents.SLOTS, ItemStack.EMPTY);
 		for (int i = 0; i < SIZE; i++) {
@@ -326,10 +368,18 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 			pieces.set(i, ItemStack.EMPTY);
 		}
 		afterContentsChanged();
-		if (!player.getInventory().add(caseStack)) {
-			player.drop(caseStack, false);
+		ServerPlayer player = to == null ? null : level.getServer().getPlayerList().getPlayer(to);
+		if (player != null && player.level() == level && player.blockPosition().closerThan(worldPosition, 24.0)) {
+			if (!player.getInventory().add(caseStack)) {
+				player.drop(caseStack, false);
+			}
+			com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.SERVO, 0.8f, 1.4f);
+			return;
 		}
-		return true;
+		net.minecraft.world.entity.item.ItemEntity drop = new net.minecraft.world.entity.item.ItemEntity(level,
+				worldPosition.getX() + 0.5, worldPosition.getY() + 1.0, worldPosition.getZ() + 0.5, caseStack);
+		drop.setDefaultPickUpDelay();
+		level.addFreshEntity(drop);
 	}
 
 	// ---------------- v0.15.4: suiting up / down is the Stark Gantry's job ----------------
@@ -475,6 +525,9 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 
 	@Override
 	public ItemStack removeItem(int slot, int amount) {
+		if (packStart > 0L) {
+			return ItemStack.EMPTY; // v0.15.8: locked while it folds into its case
+		}
 		ItemStack r = ContainerHelper.removeItem(pieces, slot, amount);
 		afterContentsChanged();
 		return r;
@@ -482,6 +535,9 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 
 	@Override
 	public ItemStack removeItemNoUpdate(int slot) {
+		if (packStart > 0L) {
+			return ItemStack.EMPTY;
+		}
 		return ContainerHelper.takeItem(pieces, slot);
 	}
 
@@ -493,7 +549,7 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 
 	@Override
 	public boolean canPlaceItem(int slot, ItemStack stack) {
-		return stack.getItem() instanceof IronManArmorItem piece && slotOf(piece.getType()) == slot
+		return packStart <= 0L && stack.getItem() instanceof IronManArmorItem piece && slotOf(piece.getType()) == slot
 				&& matchesStoredSuit(piece.suitId());
 	}
 
@@ -561,6 +617,8 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		pieces.clear();
 		ContainerHelper.loadAllItems(tag, pieces, registries);
 		owner = tag.hasUUID("Owner") ? tag.getUUID("Owner") : null;
+		packStart = tag.getLong("PackStart");
+		packFor = tag.hasUUID("PackFor") ? tag.getUUID("PackFor") : null;
 	}
 
 	@Override
@@ -569,6 +627,12 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		ContainerHelper.saveAllItems(tag, pieces, registries);
 		if (owner != null) {
 			tag.putUUID("Owner", owner);
+		}
+		if (packStart > 0L) {
+			tag.putLong("PackStart", packStart);
+			if (packFor != null) {
+				tag.putUUID("PackFor", packFor);
+			}
 		}
 	}
 

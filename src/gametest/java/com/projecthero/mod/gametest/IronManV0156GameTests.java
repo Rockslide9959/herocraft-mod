@@ -70,6 +70,8 @@ public class IronManV0156GameTests implements FabricGameTest {
 		TonyStark.grant(p);
 		BlockPos pos = new BlockPos(2, 2, 2);
 		h.setBlock(pos, IronManBlocks.IRON_MAN_SUIT_PLATFORM);
+		net.minecraft.world.phys.Vec3 near = h.absoluteVec(new net.minecraft.world.phys.Vec3(4.5, 2.0, 2.5));
+		p.moveTo(near.x, near.y, near.z); // v0.15.8: the case is handed over to an owner within 24 blocks
 		IronManSuitPlatformBlockEntity be = (IronManSuitPlatformBlockEntity) h.getBlockEntity(pos);
 		be.bindTo(p.getUUID());
 		h.assertFalse(be.packSuitcase(p), "an empty platform has no suitcase to give");
@@ -77,7 +79,12 @@ public class IronManV0156GameTests implements FabricGameTest {
 			be.store(new ItemStack(IronManItems.armor("mark_v", t)));
 		}
 		h.assertTrue(be.packSuitcase(p), "a racked Mark 5 packs into its case");
-		h.assertTrue(be.isEmptyPlatform(), "the rack is empty afterwards");
+		// v0.15.8: it folds itself up first -- locked meanwhile, the case handed over at the end
+		h.assertTrue(be.packing() && be.storedSuitId() == null && be.removeItem(1, 1).isEmpty()
+				&& !be.canPlaceItem(0, new ItemStack(IronManItems.armor("mark_v", ArmorItem.Type.HELMET))), "the rack is locked while it folds");
+		h.assertFalse(be.packSuitcase(p), "and cannot be packed twice");
+		be.finishPack(h.getLevel());
+		h.assertTrue(be.isEmptyPlatform() && !be.packing(), "the rack is empty afterwards");
 		ItemStack found = ItemStack.EMPTY;
 		for (ItemStack s : p.getInventory().items) {
 			if (s.is(IronManItems.MARK_V_SUITCASE)) {
@@ -95,5 +102,31 @@ public class IronManV0156GameTests implements FabricGameTest {
 		h.assertFalse(be.packSuitcase(p), "only a Mark 5 packs into a suitcase");
 		h.getLevel().getServer().getPlayerList().remove(p);
 		h.succeed();
+	}
+
+	/** v0.15.8: the fold plays out on the platform tick and then hands the case over. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void suitcaseFoldFinishesOnItsOwn(GameTestHelper h) {
+		ServerPlayer p = h.makeMockServerPlayerInLevel();
+		p.setGameMode(GameType.SURVIVAL);
+		TonyStark.grant(p);
+		BlockPos pos = new BlockPos(2, 2, 2);
+		h.setBlock(pos, IronManBlocks.IRON_MAN_SUIT_PLATFORM);
+		net.minecraft.world.phys.Vec3 near = h.absoluteVec(new net.minecraft.world.phys.Vec3(4.5, 2.0, 2.5));
+		p.moveTo(near.x, near.y, near.z); // v0.15.8: the case is handed over to an owner within 24 blocks
+		IronManSuitPlatformBlockEntity be = (IronManSuitPlatformBlockEntity) h.getBlockEntity(pos);
+		be.bindTo(p.getUUID());
+		for (ArmorItem.Type t : TYPES) {
+			be.store(new ItemStack(IronManItems.armor("mark_v", t)));
+		}
+		h.assertTrue(be.packSuitcase(p), "the fold starts");
+		h.runAfterDelay(IronManSuitPlatformBlockEntity.PACK_TICKS / 2, () -> h.assertTrue(be.packing() && be.pieceMask() == 15,
+				"halfway: still folding, every piece still racked"));
+		h.runAfterDelay(IronManSuitPlatformBlockEntity.PACK_TICKS + 5, () -> {
+			h.assertTrue(!be.packing() && be.isEmptyPlatform(), "done: the rack is empty");
+			h.assertTrue(p.getInventory().countItem(IronManItems.MARK_V_SUITCASE) == 1, "and the case is in the pack");
+			h.getLevel().getServer().getPlayerList().remove(p);
+			h.succeed();
+		});
 	}
 }

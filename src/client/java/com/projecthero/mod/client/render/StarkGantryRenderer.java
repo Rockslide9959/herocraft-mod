@@ -183,95 +183,61 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 
 		float lift = GantryTimeline.lift(f, plan);
 		Vec3 body = player != null ? toLocal(player.getPosition(partialTick).subtract(origin), theta) : new Vec3(0, lift, 0);
-		int i = plan.at(f);
+		// v0.15.8, user request: the parts go on to a fixed beat, so both arms can be busy at once (a gauntlet / boot pair
+		// rides up the elevator side by side) -- each arm plays its own carry, and the pad is as high as any part needs
+		boolean inPlan = plan.at(f) >= 0;
+		int iR = inPlan ? plan.carrying(f, true) : -1;
+		int iL = inPlan ? plan.carrying(f, false) : -1;
 		double elevatorTop = ELEVATOR_DOWN;
-		int carryStage = -1;
-		Vec3 carryAt = null;
-		Vec3 part = Vec3.ZERO;
-		float carryPoseF = 0f;
+		for (int i : new int[] { iR, iL }) {
+			if (i >= 0) {
+				elevatorTop = Math.max(elevatorTop, Mth.lerp(GantryTimeline.elevator(plan.frac(f, i)), ELEVATOR_DOWN, ELEVATOR_UP));
+			}
+		}
+		java.util.List<Carry> carries = new java.util.ArrayList<>();
 		Vec3 sparkAt = null;
-		boolean onElevator = false;
-		if (i >= 0) {
-			int stage = plan.stage(i);
-			float u = plan.frac(f, i);
-			if (GantryTimeline.carried(stage)) {
-				elevatorTop = Mth.lerp(GantryTimeline.elevator(u), ELEVATOR_DOWN, ELEVATOR_UP);
-				boolean rightCarries = GantryTimeline.rightArmCarries(stage);
-				// one arm alone works a gauntlet -- v0.15.7, user request: and a boot (the other stays at its ready hover)
-				boolean limb = stage == GantryTimeline.R_GAUNTLET || stage == GantryTimeline.L_GAUNTLET
-						|| stage == GantryTimeline.R_BOOT || stage == GantryTimeline.L_BOOT;
-				Vec3 sC = rightCarries ? sR : sL;
-				Vec3 sA = rightCarries ? sL : sR;
-				ArmPose readyC = rightCarries ? readyR : readyL;
-				ArmPose readyA = rightCarries ? readyL : readyR;
-				double[] pp = GantryTimeline.partPoint(stage, 0.5f, 0);
-				part = new Vec3(pp[0], pp[1], pp[2]);
-				double rise = 0.05 + part.y - GantryTimeline.partBottom(stage); // elevator top -> the part's grip point
-				Vec3 eA = new Vec3(0, elevatorTop + rise, -1);
-				Vec3 eUp = new Vec3(0, ELEVATOR_UP + rise, -1);
-				Vec3 bodyA = body.add(part);
-				ArmPose carry;
-				ArmPose assist = readyA;
-				carryStage = stage;
-				if (u < GantryTimeline.REACH) {
-					// the elevator brings the part up; the arm reaches over it, jaws wide
-					carry = readyC.lerp(grip(sC, eUp.add(0, 0.25, 0), 1f), GantryTimeline.smooth(u / GantryTimeline.REACH));
-					carryAt = eA;
-					onElevator = true;
-				} else if (u < GantryTimeline.GRIP) {
-					float r = GantryTimeline.smooth((u - GantryTimeline.REACH) / (GantryTimeline.ELEVATOR_UP - GantryTimeline.REACH));
-					float jaws = 1f - GantryTimeline.smooth((u - GantryTimeline.GRIP_CLOSE) / (GantryTimeline.GRIP - GantryTimeline.GRIP_CLOSE));
-					ArmPose over = grip(sC, eUp.add(0, 0.25, 0), 1f);
-					ArmPose at = grip(sC, eA, jaws);
-					carry = over.lerp(at, r);
-					carry = new ArmPose(carry.wrist(), carry.dir(), jaws, carry.pole());
-					carryAt = eA;
-					onElevator = true;
-				} else if (u < GantryTimeline.FIT) {
-					// lifted off the elevator and carried round onto the body on a raised arc
-					float g = GantryTimeline.smooth((u - GantryTimeline.GRIP) / (GantryTimeline.FIT - GantryTimeline.GRIP));
-					double arc = Math.sin(Math.PI * g);
-					Vec3 sideOut = horizontal(sC.subtract(lerpV(eUp, bodyA, g)));
-					Vec3 a = lerpV(eUp, bodyA, g).add(0, 0.30 * arc, 0).add(sideOut.scale(0.15 * arc));
-					carry = grip(sC, a, 0f);
-					carryAt = a;
-					carryPoseF = g;
-					if (!limb) {
-						assist = readyA.lerp(brace(sA, bodyA), GantryTimeline.smooth((g - 0.35f) / 0.65f));
-					}
-				} else {
-					// on: the clamps lock (sparks), then the jaws open and the arms pull back
-					ArmPose atBody = grip(sC, bodyA, 0f);
-					ArmPose braced = limb ? readyA : brace(sA, bodyA);
-					if (u < GantryTimeline.LET_GO) {
-						float k = (u - GantryTimeline.FIT) / (GantryTimeline.LET_GO - GantryTimeline.FIT);
-						double push = 0.03 * Math.sin(Math.PI * k);
-						carry = new ArmPose(atBody.wrist().add(atBody.dir().scale(push)), atBody.dir(), 0f, atBody.pole());
-						if (!limb) {
-							double jit = 0.012 * Math.sin(time * 2.7);
-							assist = new ArmPose(braced.wrist().add(jit, -jit, jit), braced.dir(), 0.25f, braced.pole());
-							sparkAt = braced.wrist().add(braced.dir().scale(JAW + 0.05));
-						} else {
-							sparkAt = bodyA;
-						}
-					} else {
-						float g = GantryTimeline.smooth((u - GantryTimeline.LET_GO) / (1f - GantryTimeline.LET_GO));
-						carry = new ArmPose(atBody.wrist(), atBody.dir(), Math.min(1f, g * 2.5f), atBody.pole()).lerp(readyC, g);
-						assist = braced.lerp(readyA, g);
-					}
-					carryAt = bodyA;
-					carryPoseF = 1f;
+		for (int armNo = 0; armNo < 2; armNo++) {
+			boolean rightArm = armNo == 0;
+			int i = rightArm ? iR : iL;
+			if (i < 0) {
+				// the second of a pair rides up beside the first and waits on the pad until its own arm reaches for it
+				int other = rightArm ? iL : iR;
+				int p = other < 0 ? -1 : plan.partner(other);
+				if (p >= 0 && f < plan.begin(p)) {
+					carries.add(waiting(plan, p, elevatorTop));
 				}
-				if (rightCarries) {
-					right = carry;
-					left = assist;
-				} else {
-					left = carry;
-					right = assist;
-				}
+				continue;
+			}
+			// v0.15.8: an arm that set off straight from its last part starts its reach from where that part left it
+			ArmPose start = rightArm ? readyR : readyL;
+			int from = plan.cutFrom(i);
+			if (from >= 0) {
+				start = carry(plan, from, plan.frac(plan.begin(i), from), elevatorTop, body, rightArm ? sR : sL, rightArm ? sL : sR,
+						start, start, rightArm ? readyL : readyR, time).carry();
+			}
+			Carry c = carry(plan, i, plan.frac(f, i), elevatorTop, body, rightArm ? sR : sL, rightArm ? sL : sR,
+					start, rightArm ? readyR : readyL, rightArm ? readyL : readyR, time);
+			carries.add(c);
+			if (rightArm) {
+				right = c.carry();
 			} else {
-				// v0.15.5 / v0.15.6, user requests: a self-building part builds itself -- the arms stay back at their ready
-				// hover and nothing covers it (no particles); the texture shows it growing on (IronManGantryBuild)
+				left = c.carry();
+			}
+			if (c.sparkAt() != null) {
+				sparkAt = c.sparkAt();
+			}
+		}
+		// a part one arm can't fit alone (chest, legs, helmet, faceplate) has the other arm bracing it, when that arm is free
+		for (Carry c : carries) {
+			// ...but not when that arm is due at its own next part before this one is done (it would have to jump)
+			if (c.assist() != null && plan.carrying(plan.end(c.index()) - 1, !plan.rightArm(c.index())) < 0) {
+				if (plan.rightArm(c.index())) {
+					if (iL < 0) {
+						left = c.assist();
+					}
+				} else if (iR < 0) {
+					right = c.assist();
+				}
 			}
 		}
 
@@ -284,36 +250,39 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 		// re-fetched: asking the buffer source for the arms' render type ended the block-atlas batch ("Not building!")
 		drawElevator(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(InventoryMenu.BLOCK_ATLAS)), top, side, elevatorTop, LevelRenderer.getLightColor(level, pos.relative(facing).above()));
 
-		// ---- the part: on the elevator, in the clamp, or just fitted ----
-		ItemStack piece = ItemStack.EMPTY;
-		if (carryStage >= 0 && carryAt != null) {
+		// ---- the parts: on the elevator, in a clamp, or just fitted ----
+		for (Carry c : carries) {
+			int carryStage = c.stage();
 			int idx = GantryTimeline.pieceOf(carryStage);
-			int k = plan.indexOf(carryStage);
-			float fitAt = plan.fitTick(Math.max(0, k));
+			float fitAt = plan.fitTick(c.index());
 			boolean first = carryStage == GantryTimeline.firstStage(idx);
 			// putting on: until it is fitted (a first part lingers a few ticks while the worn sync lands); taking off: once
 			// it is off the body
 			boolean show = equip ? f < fitAt + (first ? LINGER : 0f) : f < fitAt;
-			if (show) {
-				ItemStack worn = player != null ? player.getItemBySlot(SLOTS[idx]) : ItemStack.EMPTY;
-				if (!be.buffered(idx).isEmpty()) {
-					piece = be.buffered(idx);
-				} else if (worn.getItem() instanceof IronManArmorItem) {
-					piece = worn; // a later part of a piece already on the body (or one the sync has not moved yet)
-				} else {
-					piece = seen[idx];
-				}
+			if (!show) {
+				continue;
 			}
-		}
-		if (!piece.isEmpty()) {
-			int idx = GantryTimeline.pieceOf(carryStage);
-			Vec3 jaws = GantryTimeline.rightArmCarries(carryStage) ? gripR : gripL;
-			Vec3 a = onElevator || carryPoseF >= 1f ? carryAt : lerpV(jaws, carryAt, GantryTimeline.smooth((carryPoseF - 0.5f) / 0.5f));
+			ItemStack piece;
+			ItemStack worn = player != null ? player.getItemBySlot(SLOTS[idx]) : ItemStack.EMPTY;
+			if (!be.buffered(idx).isEmpty()) {
+				piece = be.buffered(idx);
+			} else if (worn.getItem() instanceof IronManArmorItem) {
+				piece = worn; // a later part of a piece already on the body (or one the sync has not moved yet)
+			} else {
+				piece = seen[idx];
+			}
+			if (piece.isEmpty()) {
+				continue;
+			}
+			Vec3 jaws = plan.rightArm(c.index()) ? gripR : gripL;
+			Vec3 a = c.onElevator() || c.poseF() >= 1f ? c.carryAt()
+					: lerpV(jaws, c.carryAt(), GantryTimeline.smooth((c.poseF() - 0.5f) / 0.5f));
+			Vec3 part = c.part();
 			ArmorStand s = stand(level);
 			for (int j = 0; j < 4; j++) {
 				setIfChanged(s, SLOTS[j], j == idx ? piece : ItemStack.EMPTY);
 			}
-			standPose(s, GantryTimeline.pose(plan.fitTick(Math.max(0, plan.indexOf(carryStage))), plan), carryPoseF);
+			standPose(s, GantryTimeline.pose(fitAt, plan), c.poseF());
 			var dispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
 			dispatcher.setRenderShadow(false);
 			pose.pushPose();
@@ -321,14 +290,14 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 			pose.mulPose(Axis.YP.rotationDegrees(180f)); // a stand faces +Z; the wearer faces local -Z
 			IronManGantryBuild.solo = carryStage;
 			try {
-				dispatcher.render(s, 0.0, 0.0, 0.0, 0.0f, partialTick, pose, buffers, onElevator ? LevelRenderer.getLightColor(level,
+				dispatcher.render(s, 0.0, 0.0, 0.0, 0.0f, partialTick, pose, buffers, c.onElevator() ? LevelRenderer.getLightColor(level,
 						pos.relative(facing).above()) : light);
 			} finally {
 				IronManGantryBuild.solo = -1;
 			}
 			pose.popPose();
 			dispatcher.setRenderShadow(true);
-			if (!onElevator && carryPoseF < 1f && level.random.nextFloat() < 0.15f) {
+			if (!c.onElevator() && c.poseF() < 1f && level.random.nextFloat() < 0.15f) {
 				Vec3 w = origin.add(toWorldRel(jaws, theta));
 				level.addParticle(ParticleTypes.ELECTRIC_SPARK, w.x, w.y, w.z, 0, 0, 0);
 			}
@@ -339,6 +308,106 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 					level.random.nextFloat() * 0.08f, (level.random.nextFloat() - 0.5f) * 0.12f);
 		}
 		pose.popPose();
+	}
+
+	// ---------------- v0.15.8: one arm's carry ----------------
+
+	/** One carried (or waiting) part this frame: its arm's pose, the other arm's brace (null = none), where the part is. */
+	private record Carry(int stage, int index, ArmPose carry, ArmPose assist, Vec3 carryAt, Vec3 part, float poseF,
+			boolean onElevator, Vec3 sparkAt) {
+	}
+
+	/** Grip point of carried entry {@code i}'s part, and how high above the elevator pad top it sits. */
+	private static Vec3 partOf(int stage) {
+		double[] pp = GantryTimeline.partPoint(stage, 0.5f, 0);
+		return new Vec3(pp[0], pp[1], pp[2]);
+	}
+
+	private static double riseOf(int stage, Vec3 part) {
+		return 0.05 + part.y - GantryTimeline.partBottom(stage); // elevator top -> the part's grip point
+	}
+
+	/** The second part of a pair, riding up on the pad beside the first before its own arm reaches for it. */
+	private static Carry waiting(GantryTimeline.Plan plan, int i, double elevatorTop) {
+		int stage = plan.stage(i);
+		Vec3 part = partOf(stage);
+		Vec3 at = new Vec3(plan.padX(i), elevatorTop + riseOf(stage, part), -1);
+		return new Carry(stage, i, null, null, at, part, 0f, true, null);
+	}
+
+	/**
+	 * Carried entry {@code i} at fraction {@code u}: the elevator brings the part up, the arm reaches over it, the jaws
+	 * close, it is carried round onto the body on a raised arc, the clamps lock (sparks), the jaws open and the arm pulls
+	 * back. A gauntlet or boot is one arm's work alone; anything else has the other arm brace the body.
+	 */
+	private static Carry carry(GantryTimeline.Plan plan, int i, float u, double elevatorTop, Vec3 body, Vec3 sC, Vec3 sA,
+			ArmPose start, ArmPose readyC, ArmPose readyA, float time) {
+		int stage = plan.stage(i);
+		// one arm alone works a gauntlet -- v0.15.7, user request: and a boot (the other stays at its ready hover)
+		boolean limb = stage == GantryTimeline.R_GAUNTLET || stage == GantryTimeline.L_GAUNTLET
+				|| stage == GantryTimeline.R_BOOT || stage == GantryTimeline.L_BOOT;
+		Vec3 part = partOf(stage);
+		double rise = riseOf(stage, part);
+		double padX = plan.padX(i);
+		Vec3 eA = new Vec3(padX, elevatorTop + rise, -1);
+		Vec3 eUp = new Vec3(padX, ELEVATOR_UP + rise, -1);
+		Vec3 bodyA = body.add(part);
+		ArmPose carry;
+		ArmPose assist = readyA;
+		Vec3 carryAt;
+		float poseF = 0f;
+		boolean onElevator = false;
+		Vec3 sparkAt = null;
+		if (u < GantryTimeline.REACH) {
+			// the elevator brings the part up; the arm reaches over it, jaws wide
+			carry = start.lerp(grip(sC, eUp.add(0, 0.25, 0), 1f), GantryTimeline.smooth(u / GantryTimeline.REACH));
+			carryAt = eA;
+			onElevator = true;
+		} else if (u < GantryTimeline.GRIP) {
+			float r = GantryTimeline.smooth((u - GantryTimeline.REACH) / (GantryTimeline.ELEVATOR_UP - GantryTimeline.REACH));
+			float jaws = 1f - GantryTimeline.smooth((u - GantryTimeline.GRIP_CLOSE) / (GantryTimeline.GRIP - GantryTimeline.GRIP_CLOSE));
+			ArmPose over = grip(sC, eUp.add(0, 0.25, 0), 1f);
+			ArmPose at = grip(sC, eA, jaws);
+			carry = over.lerp(at, r);
+			carry = new ArmPose(carry.wrist(), carry.dir(), jaws, carry.pole());
+			carryAt = eA;
+			onElevator = true;
+		} else if (u < GantryTimeline.FIT) {
+			// lifted off the elevator and carried round onto the body on a raised arc
+			float g = GantryTimeline.smooth((u - GantryTimeline.GRIP) / (GantryTimeline.FIT - GantryTimeline.GRIP));
+			double arc = Math.sin(Math.PI * g);
+			Vec3 sideOut = horizontal(sC.subtract(lerpV(eUp, bodyA, g)));
+			Vec3 a = lerpV(eUp, bodyA, g).add(0, 0.30 * arc, 0).add(sideOut.scale(0.15 * arc));
+			carry = grip(sC, a, 0f);
+			carryAt = a;
+			poseF = g;
+			if (!limb) {
+				assist = readyA.lerp(brace(sA, bodyA), GantryTimeline.smooth((g - 0.35f) / 0.65f));
+			}
+		} else {
+			// on: the clamps lock (sparks), then the jaws open and the arms pull back
+			ArmPose atBody = grip(sC, bodyA, 0f);
+			ArmPose braced = limb ? readyA : brace(sA, bodyA);
+			if (u < GantryTimeline.LET_GO) {
+				float k = (u - GantryTimeline.FIT) / (GantryTimeline.LET_GO - GantryTimeline.FIT);
+				double push = 0.03 * Math.sin(Math.PI * k);
+				carry = new ArmPose(atBody.wrist().add(atBody.dir().scale(push)), atBody.dir(), 0f, atBody.pole());
+				if (!limb) {
+					double jit = 0.012 * Math.sin(time * 2.7);
+					assist = new ArmPose(braced.wrist().add(jit, -jit, jit), braced.dir(), 0.25f, braced.pole());
+					sparkAt = braced.wrist().add(braced.dir().scale(JAW + 0.05));
+				} else {
+					sparkAt = bodyA;
+				}
+			} else {
+				float g = GantryTimeline.smooth((u - GantryTimeline.LET_GO) / (1f - GantryTimeline.LET_GO));
+				carry = new ArmPose(atBody.wrist(), atBody.dir(), Math.min(1f, g * 2.5f), atBody.pole()).lerp(readyC, g);
+				assist = braced.lerp(readyA, g);
+			}
+			carryAt = bodyA;
+			poseF = 1f;
+		}
+		return new Carry(stage, i, carry, limb ? null : assist, carryAt, part, poseF, onElevator, sparkAt);
 	}
 
 	// ---------------- the floor parts (block-atlas quads) ----------------

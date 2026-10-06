@@ -179,6 +179,11 @@ public final class IronManAssemblyClient {
 		if (p >= 1f) {
 			return true;
 		}
+		if (fx.mk5() && (fx.poseKind() == IronManSuitFx.POSE_MK5_UP || fx.poseKind() == IronManSuitFx.POSE_MK5_DOWN)
+				&& fx.poseAge(now, partialTick) >= 0f) {
+			// v0.15.8: the Mark 5 builds on texel by texel (IronManGantryBuild) -- the bones stay put
+			return true;
+		}
 		if (fx.mk5()) {
 			// v0.14.29: the Mark 5 suitcase build -- each bone builds in its own step's sub-window (chest, arms, legs,
 			// head, faceplate); a bone not yet started (or already taken apart) is not drawn at all

@@ -19,7 +19,11 @@ import com.projecthero.mod.ironman.suit.IronManSuitPoses;
  *       (down the legs and over the boots);</li>
  *   <li>the helmet is carried on without its faceplate, and the faceplate is carried on last.</li>
  * </ol>
- * A <b>carry</b> stage is the robotic arm work of v0.15.4 (elevator up, jaws close, carried round onto the body, clamps
+ * v0.15.8, explicit user request: the carried parts go on to a fixed beat ({@link #PIECE_GAP} apart, a gauntlet / boot
+ * pair {@link #PAIR_GAP} apart, riding the elevator side by side), the arms move faster ({@link #CARRY}), and each
+ * build starts the moment its parent part is on and runs alongside the later carries at its own speed -- stages overlap.
+ *
+ * <p>A <b>carry</b> stage is the robotic arm work of v0.15.4 (elevator up, jaws close, carried round onto the body, clamps
  * lock, let go); a <b>build</b> stage has the part build itself on, texel by texel behind a hot seam (the arms stay back
  * at their ready hover -- they only ever fit parts). Stages of pieces the suit lacks are left out. The lead-in (lift, hatches, arm masts) and the outro are
  * mirror images ({@link #edge}), so taking a suit OFF is exactly this timetable played backwards ({@link #frame}).
@@ -32,9 +36,18 @@ public final class GantryTimeline {
 	/** Lift + hatches + arms coming up, before the first stage (and the same, reversed, after the last). */
 	public static final int LEAD = 40;
 	public static final int OUTRO = 40;
-	/** Ticks of an arm-carried part / a self-building part. */
+	/**
+	 * Ticks of an arm-carried part / a self-building part. (v0.15.8: briefly 20 for faster arms; the user asked for the
+	 * original speed back -- to keep the beat, an arm whose next part is due heads off for it the tick after its clamps
+	 * lock instead of holding and swinging back to its hover, see {@link Plan#end}.)
+	 */
 	public static final int CARRY = 30;
 	public static final int BUILD = 16;
+	/** v0.15.8, user request: ticks between one carried part going on and the next (1 s), and within a pair (0.2 s). */
+	public static final int PIECE_GAP = 20;
+	public static final int PAIR_GAP = 4;
+	/** v0.15.8: a gauntlet / boot pair rides up the elevator side by side -- each this far off its centre (blocks). */
+	public static final double PAIR_OFFSET = 0.2;
 	/** How high the centre lift raises the wearer (blocks). */
 	public static final float LIFT = 0.5f;
 
@@ -94,7 +107,11 @@ public final class GantryTimeline {
 	/** The piece (rack slot) each stage belongs to (the pant layer: the leggings; it also covers the boots). */
 	private static final int[] PIECE = { CHEST, CHEST, CHEST, CHEST, CHEST, CHEST, CHEST, CHEST, CHEST, FEET, FEET, LEGS, LEGS,
 			LEGS, HEAD, HEAD };
-	/** Which robotic arm carries a carried stage (true = the one on the wearer's right). */
+	/**
+	 * Which robotic arm carries a carried stage (true = the one on the wearer's right). v0.15.8: fixed for the gauntlets
+	 * and boots (each side's own arm); the chest, leggings, helmet and faceplate go to whichever arm is free soonest
+	 * ({@link Plan#rightArm}) -- this is only their tie-break.
+	 */
 	private static final boolean[] RIGHT_ARM = { true, true, true, true, true, true, false, false, false, true, false, false,
 			false, false, true, false };
 
@@ -135,28 +152,129 @@ public final class GantryTimeline {
 	public static final class Plan {
 		private final int[] stages;
 		private final int[] begin;
+		/** v0.15.8: per entry -- which arm carries it, and the frame its carry ends (cut short by that arm's next part). */
+		private final boolean[] right;
+		private final int[] end;
 		private final int total;
 		private final int mask;
 
 		private Plan(int mask) {
 			this.mask = mask;
-			int n = 0;
-			int[] st = new int[STAGES];
-			int[] be = new int[STAGES];
-			int t = LEAD;
+			boolean[] has = new boolean[STAGES];
 			for (int s = 0; s < STAGES; s++) {
-				boolean has = (mask & (1 << PIECE[s])) != 0 || s == PANTS && (mask & (1 << FEET)) != 0;
-				if (!has) {
+				has[s] = (mask & (1 << PIECE[s])) != 0 || s == PANTS && (mask & (1 << FEET)) != 0;
+			}
+			// v0.15.8, user request: the carried parts go on to a fixed beat -- each fits PIECE_GAP after the one before,
+			// the second gauntlet / boot PAIR_GAP after the first -- without waiting for the builds, which start the moment
+			// their parent part is on and run alongside the later carries at their own (unchanged) speed
+			int[] fit = new int[STAGES];
+			int[] be = new int[STAGES];
+			java.util.Arrays.fill(fit, -1);
+			int fitOffset = Math.round(CARRY * FIT);
+			boolean[] arm = new boolean[STAGES];
+			int lastR = Integer.MIN_VALUE / 2;
+			int lastL = Integer.MIN_VALUE / 2;
+			int prev = -1;
+			for (int s = 0; s < STAGES; s++) {
+				if (!has[s] || !CARRIED[s]) {
 					continue;
 				}
-				st[n] = s;
-				be[n] = t;
-				t += CARRIED[s] ? CARRY : BUILD;
-				n++;
+				boolean pair = (s == L_GAUNTLET && prev == R_GAUNTLET) || (s == L_BOOT && prev == R_BOOT);
+				fit[s] = prev < 0 ? LEAD + fitOffset : fit[prev] + (pair ? PAIR_GAP : PIECE_GAP);
+				be[s] = fit[s] - fitOffset;
+				boolean limb = s == R_GAUNTLET || s == L_GAUNTLET || s == R_BOOT || s == L_BOOT;
+				if (limb) {
+					arm[s] = RIGHT_ARM[s];
+				} else if (lastR != lastL) {
+					arm[s] = lastR < lastL; // whichever arm finished its last part longer ago
+				} else {
+					// neither has worked yet: leave free the arm the next gauntlet / boot needs
+					int next = -1;
+					for (int n = s + 1; n < STAGES && next < 0; n++) {
+						if (has[n] && CARRIED[n]) {
+							next = n;
+						}
+					}
+					boolean nextLimb = next == R_GAUNTLET || next == L_GAUNTLET || next == R_BOOT || next == L_BOOT;
+					arm[s] = nextLimb ? !RIGHT_ARM[next] : RIGHT_ARM[s];
+				}
+				if (arm[s]) {
+					lastR = fit[s];
+				} else {
+					lastL = fit[s];
+				}
+				prev = s;
+			}
+			for (int s = 0; s < STAGES; s++) {
+				if (!has[s] || CARRIED[s]) {
+					continue;
+				}
+				int from = switch (s) {
+					case TORSO_BOTTOM -> fit[TORSO_TOP];
+					case JACKET -> has[TORSO_BOTTOM] ? be[TORSO_BOTTOM] + BUILD : fit[TORSO_TOP];
+					case R_ARM -> fit[R_GAUNTLET];
+					case R_SLEEVE -> has[R_ARM] ? be[R_ARM] + BUILD : fit[R_GAUNTLET];
+					case L_ARM -> fit[L_GAUNTLET];
+					case L_SLEEVE -> has[L_ARM] ? be[L_ARM] + BUILD : fit[L_GAUNTLET];
+					case THIGH_BOTTOM -> fit[THIGH_TOP];
+					// the pant layer runs down the legs and over the boots: after both
+					default -> Math.max(has[THIGH_BOTTOM] ? be[THIGH_BOTTOM] + BUILD : fit[THIGH_TOP],
+							Math.max(fit[R_BOOT], fit[L_BOOT]));
+				};
+				be[s] = Math.max(LEAD, from);
+			}
+			int n = 0;
+			int end = LEAD;
+			int[] st = new int[STAGES];
+			int[] bg = new int[STAGES];
+			for (int s = 0; s < STAGES; s++) {
+				if (has[s]) {
+					st[n] = s;
+					bg[n] = be[s];
+					end = Math.max(end, be[s] + (CARRIED[s] ? CARRY : BUILD));
+					n++;
+				}
 			}
 			stages = java.util.Arrays.copyOf(st, n);
-			begin = java.util.Arrays.copyOf(be, n);
-			total = t + OUTRO;
+			begin = java.util.Arrays.copyOf(bg, n);
+			total = end + OUTRO;
+			right = new boolean[n];
+			this.end = new int[n];
+			for (int i = 0; i < n; i++) {
+				right[i] = arm[stages[i]];
+				this.end[i] = begin[i] + (CARRIED[stages[i]] ? CARRY : BUILD);
+			}
+			for (int i = 0; i < n; i++) {
+				if (!CARRIED[stages[i]]) {
+					continue;
+				}
+				for (int j = 0; j < n; j++) {
+					if (j != i && CARRIED[stages[j]] && right[j] == right[i] && begin[j] > begin[i] && begin[j] < this.end[i]) {
+						this.end[i] = begin[j]; // the arm sets off for its next part
+					}
+				}
+			}
+		}
+
+		/** v0.15.8: does the right arm (true) or the left carry entry {@code i}? */
+		public boolean rightArm(int i) {
+			return right[i];
+		}
+
+		/** v0.15.8: the frame entry {@code i} ends -- for a carry, cut short if its arm has to set off for its next part. */
+		public int end(int i) {
+			return end[i];
+		}
+
+		/** v0.15.8: the same arm's carry that entry {@code i} cuts short (it starts from that arm's pose), or -1. */
+		public int cutFrom(int i) {
+			for (int j = 0; j < stages.length; j++) {
+				if (j != i && CARRIED[stages[j]] && right[j] == right[i] && end[j] == begin[i]
+						&& begin[j] + length(j) > begin[i]) {
+					return j;
+				}
+			}
+			return -1;
 		}
 
 		public int mask() {
@@ -206,6 +324,36 @@ public final class GantryTimeline {
 			return -1;
 		}
 
+		/** v0.15.8: the carried entry the right ({@code true}) / left arm is working at frame {@code f}, or -1. */
+		public int carrying(float f, boolean right) {
+			for (int i = 0; i < stages.length; i++) {
+				int s = stages[i];
+				if (CARRIED[s] && this.right[i] == right && f >= begin[i] && f < end[i]) {
+					return i;
+				}
+			}
+			return -1;
+		}
+
+		/** v0.15.8: the entry of the other gauntlet / boot of entry {@code i}'s pair, or -1 (not a pair, or not in the plan). */
+		public int partner(int i) {
+			return switch (stages[i]) {
+				case R_GAUNTLET -> indexOf(L_GAUNTLET);
+				case L_GAUNTLET -> indexOf(R_GAUNTLET);
+				case R_BOOT -> indexOf(L_BOOT);
+				case L_BOOT -> indexOf(R_BOOT);
+				default -> -1;
+			};
+		}
+
+		/** v0.15.8: where entry {@code i}'s part sits across the elevator pad (blocks, + = the wearer's right). */
+		public double padX(int i) {
+			if (partner(i) < 0) {
+				return 0.0;
+			}
+			return right[i] ? PAIR_OFFSET : -PAIR_OFFSET;
+		}
+
 		/** How far through plan entry {@code i} frame {@code f} is (0..1, clamped). */
 		public float frac(float f, int i) {
 			return clamp((f - begin[i]) / (float) length(i));
@@ -222,7 +370,8 @@ public final class GantryTimeline {
 		}
 
 		public int letGoTick(int i) {
-			return begin[i] + Math.round(length(i) * LET_GO);
+			// v0.15.8: an arm that sets off for its next part lets go as it goes
+			return Math.min(begin[i] + Math.round(length(i) * LET_GO), Math.max(fitTick(i), end[i] - 1));
 		}
 
 		/** Frame at which the real stack of {@code rackSlot} goes onto the body (-1 if the suit has no such piece). */
@@ -269,7 +418,7 @@ public final class GantryTimeline {
 		return plan(maskOf(slots));
 	}
 
-	/** A whole suit (all four pieces): about 22 s. */
+	/** A whole suit (all four pieces): about 11 s (v0.15.8; it was 22 s one part after another). */
 	public static final Plan FULL = plan(15);
 
 	private GantryTimeline() {

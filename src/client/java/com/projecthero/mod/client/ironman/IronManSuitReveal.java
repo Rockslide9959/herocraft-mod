@@ -124,6 +124,11 @@ public final class IronManSuitReveal {
 		if (gantry != null) {
 			return gantry;
 		}
+		// v0.15.8: the Mark 5 suitcase builds on part by part, the same way (IronManGantryBuild Mark 5 scheme)
+		ResourceLocation mk5 = IronManGantryBuild.mk5Texture(player, setId, slot, base, partialTick);
+		if (mk5 != null) {
+			return mk5;
+		}
 		float p = progress(player, slot, partialTick);
 		if (IronManSuitFx.of(player).bracelet()) {
 			return base; // v0.15.4: the bracelet wrap-on moves whole plates -- the texture stays as it is
