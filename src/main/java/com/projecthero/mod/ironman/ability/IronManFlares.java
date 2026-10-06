@@ -1,5 +1,6 @@
 package com.projecthero.mod.ironman.ability;
 
+import com.projecthero.mod.ironman.IronManSounds;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -142,8 +143,8 @@ public final class IronManFlares {
 			}
 		}
 		IronManAbilityFx.play(player, IronManAbilityFx.FLARE, 12);
-		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_BLAST, 1.2f, 1.4f);
-		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_TWINKLE, 1.0f, 1.2f);
+		IronManSounds.move(player, IronManSounds.FLARE_LAUNCH, 1.0f, 1.0f);
+		IronManSounds.play(player, IronManSounds.FLARE_CRACKLE, 0.9f, 1.0f);
 
 		List<LivingEntity> targets = targets(player);
 		for (LivingEntity e : targets) {
@@ -255,8 +256,7 @@ public final class IronManFlares {
 		BURNS.computeIfAbsent(player.getUUID(), k -> new ArrayList<>()).add(burn);
 		level.sendParticles(ParticleTypes.FLASH, target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(),
 				1, 0, 0, 0, 0);
-		level.playSound(null, target.blockPosition(), SoundEvents.FIREWORK_ROCKET_BLAST,
-				net.minecraft.sounds.SoundSource.PLAYERS, 0.8f, 1.2f);
+		IronManSounds.playAt(level, target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(), IronManSounds.FLARE_HIT, 0.9f, 1.0f);
 	}
 
 	/** True if {@code target} is currently being burnt by one of this player's advanced flares. */
@@ -313,8 +313,8 @@ public final class IronManFlares {
 		ServerLevel level = (ServerLevel) player.level();
 		level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 0.4, player.getZ(), 30, 0.4, 0.4, 0.4, 0.1);
 		level.sendParticles(ParticleTypes.EXPLOSION, player.getX(), player.getY() + 0.4, player.getZ(), 1, 0, 0, 0, 0);
-		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_LARGE_BLAST_FAR, 1.4f, 0.7f);
-		AbilityHelpers.sound(player, SoundEvents.BREEZE_SHOOT, 1.2f, 0.5f);
+		IronManSounds.move(player, IronManSounds.SUPERSONIC, 1.2f, 1.0f);
+		IronManSounds.loop(player, IronManSounds.THRUSTER, 0.8f, 1.3f);
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.supersonic_boost_online"), true);
 		return true;
 	}

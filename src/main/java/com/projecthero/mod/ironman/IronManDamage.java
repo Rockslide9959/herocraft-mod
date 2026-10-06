@@ -164,7 +164,7 @@ public final class IronManDamage {
 			if (beforeIntegrity > 0f && IronManEnergy.integrity(player, suitId) <= 0f) {
 				ServerLevel level = (ServerLevel) player.level();
 				level.playSound(null, player.getX(), player.getY(), player.getZ(),
-						SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 1.0f, 0.6f);
+						IronManSounds.POWER_FAIL, SoundSource.PLAYERS, 1.0f, 1.0f);
 				player.displayClientMessage(net.minecraft.network.chat.Component
 						.translatable("message.projecthero.ironman.integrity_failed")
 						.withStyle(net.minecraft.ChatFormatting.RED), true);
@@ -195,7 +195,7 @@ public final class IronManDamage {
 		if (IronManEnergy.integrity(player, suitId) <= 0f) {
 			ServerLevel level = (ServerLevel) player.level();
 			level.playSound(null, player.getX(), player.getY(), player.getZ(),
-					SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 1.0f, 0.6f);
+					IronManSounds.POWER_FAIL, SoundSource.PLAYERS, 1.0f, 1.0f);
 			player.displayClientMessage(net.minecraft.network.chat.Component
 					.translatable("message.projecthero.ironman.integrity_failed")
 					.withStyle(net.minecraft.ChatFormatting.RED), true);

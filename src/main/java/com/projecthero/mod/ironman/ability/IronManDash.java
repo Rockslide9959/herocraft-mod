@@ -1,5 +1,6 @@
 package com.projecthero.mod.ironman.ability;
 
+import com.projecthero.mod.ironman.IronManSounds;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -96,8 +97,9 @@ public final class IronManDash {
 		ACTIVE.put(player.getUUID(), new Dash(dir, now + DASH_TICKS, damage));
 		TonyStark.triggerCooldown(player, suitId, ABILITY_ID, cooldownTicks);
 		IronManAbilityFx.play(player, IronManAbilityFx.DASH, DASH_TICKS + 4);
-		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_LARGE_BLAST, 1.2f, 0.8f);
-		AbilityHelpers.sound(player, SoundEvents.BEACON_POWER_SELECT, 1.0f, 1.6f);
+		IronManSounds.move(player, IronManSounds.DASH, 1.1f, 1.0f);
+		IronManSounds.play(player, IronManSounds.THRUSTER, 0.8f, 1.3f);
+		IronManSounds.play(player, IronManSounds.REPULSOR_ZAP, 0.6f, 1.1f);
 		push(player, dir);
 		return true;
 	}
@@ -137,7 +139,7 @@ public final class IronManDash {
 			if (AbilityHelpers.hurtBurst(player, e, d.damage)) com.projecthero.mod.ironman.IronManCombo.onRepulsorHit(player, e); // v0.14.29 agent F
 			AbilityHelpers.knockbackFrom(e, player.position(), 1.2);
 			AbilityHelpers.burst(level, to, ParticleTypes.ELECTRIC_SPARK, 10, 0.3);
-			AbilityHelpers.sound(player, SoundEvents.GENERIC_EXPLODE, 0.3f, 1.7f);
+			IronManSounds.playAt(level, to.x, to.y, to.z, IronManSounds.ENERGY_IMPACT, 0.7f, 1.0f);
 		}
 	}
 

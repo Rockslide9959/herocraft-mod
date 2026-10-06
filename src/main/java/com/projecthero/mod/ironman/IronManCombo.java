@@ -142,8 +142,8 @@ public final class IronManCombo {
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, entity.getX(), y, entity.getZ(), 24, 0.35, 0.35, 0.35, 0.4);
 		level.sendParticles(ParticleTypes.CRIT, entity.getX(), y, entity.getZ(), 14, 0.3, 0.3, 0.3, 0.3);
 		level.playSound(null, entity.getX(), y, entity.getZ(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS, 1.0f, 0.6f);
-		level.playSound(null, entity.getX(), y, entity.getZ(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.35f, 1.8f);
-		level.playSound(null, entity.getX(), y, entity.getZ(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.3f, 1.9f);
+		IronManSounds.playAt(level, entity.getX(), y, entity.getZ(), IronManSounds.COMBO_FINISHER, 1.0f, 1.0f);
+		IronManSounds.playAt(level, entity.getX(), y, entity.getZ(), IronManSounds.ENERGY_IMPACT, 0.7f, 0.9f);
 	}
 
 	private static void serverTick(MinecraftServer server) {

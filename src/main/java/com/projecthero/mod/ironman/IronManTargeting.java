@@ -66,7 +66,7 @@ public final class IronManTargeting {
 		LivingEntity direct = underCrosshair(player, eye, look);
 		if (direct != null) {
 			if (direct != current) {
-				AbilityHelpers.sound(player, SoundEvents.NOTE_BLOCK_BIT.value(), 0.45f, 1.8f);
+				IronManSounds.play(player, IronManSounds.TARGET_LOCK, 0.6f, 1.0f);
 			}
 			setLock(player, direct);
 			return;
@@ -100,7 +100,7 @@ public final class IronManTargeting {
 			return;
 		}
 		if (best != null && best != current) {
-			AbilityHelpers.sound(player, SoundEvents.NOTE_BLOCK_BIT.value(), 0.45f, 1.8f);
+			IronManSounds.play(player, IronManSounds.TARGET_LOCK, 0.6f, 1.0f);
 		}
 		setLock(player, best);
 	}

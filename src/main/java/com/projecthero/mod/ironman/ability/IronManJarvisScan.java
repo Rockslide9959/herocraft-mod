@@ -1,5 +1,6 @@
 package com.projecthero.mod.ironman.ability;
 
+import com.projecthero.mod.ironman.IronManSounds;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -63,7 +64,9 @@ public final class IronManJarvisScan {
 		TonyStark.triggerCooldown(player, suit.id(), IronManMark3.JARVIS_SCAN, IronManMark3.cooldownFor(suit.id(), COOLDOWN));
 		Report r = scan(player);
 		readOut(player, suit, r);
-		AbilityHelpers.sound(player, SoundEvents.BEACON_POWER_SELECT, 0.6f, 1.9f);
+		IronManSounds.move(player, IronManSounds.SCAN, 0.9f, 1.0f);
+		IronManSounds.play(player, IronManSounds.SCAN_CHIRP, 0.7f, 1.0f);
+		IronManSounds.play(player, IronManSounds.SCAN_CHIRP, 0.6f, 0.85f);
 		((ServerLevel) player.level()).sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD,
 				player.getX(), player.getEyeY(), player.getZ(), 16, 1.5, 0.6, 1.5, 0.02);
 		return r;

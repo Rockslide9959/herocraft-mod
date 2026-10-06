@@ -1,5 +1,6 @@
 package com.projecthero.mod.ironman.ability;
 
+import com.projecthero.mod.ironman.IronManSounds;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -140,7 +141,8 @@ public final class IronManMark7 {
 		missile.setPos(shoulder.x + dir.x, shoulder.y + dir.y, shoulder.z + dir.z);
 		level.addFreshEntity(missile);
 		IronManAbilityFx.play(player, IronManAbilityFx.ROCKET, 14);
-		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.2f, 0.85f);
+		IronManSounds.move(player, IronManSounds.ROCKET_LAUNCH, 1.1f, 1.0f);
+		IronManSounds.loop(player, IronManSounds.THRUSTER, 0.6f, 1.2f);
 		TonyStark.triggerCooldown(player, SUIT_ID, IronManAbilities.ROCKET, ROCKET_COOLDOWN);
 	}
 
@@ -158,7 +160,8 @@ public final class IronManMark7 {
 			return;
 		}
 		LASER_UNTIL.put(player.getUUID(), player.level().getGameTime() + LASER_TICKS);
-		AbilityHelpers.sound(player, SoundEvents.BEACON_ACTIVATE, 1.4f, 0.3f);
+		IronManSounds.move(player, IronManSounds.LASER_START, 1.0f, 1.0f);
+		IronManSounds.play(player, IronManSounds.REPULSOR_ZAP, 0.8f, 1.2f);
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk7.laser_firing")
 				.withStyle(ChatFormatting.RED), true);
 	}
@@ -170,7 +173,7 @@ public final class IronManMark7 {
 		if (cooldown) {
 			TonyStark.triggerCooldown(player, SUIT_ID, IronManAbilities.WRIST_LASER, LASER_COOLDOWN);
 		}
-		AbilityHelpers.sound(player, SoundEvents.BEACON_DEACTIVATE, 0.8f, 0.5f);
+		IronManSounds.play(player, IronManSounds.LASER_END, 0.9f, 1.0f);
 	}
 
 	private static void tickLaser(ServerPlayer player) {
@@ -211,7 +214,7 @@ public final class IronManMark7 {
 			level.sendParticles(ParticleTypes.SMALL_FLAME, end.x, end.y, end.z, 2, 0.08, 0.08, 0.08, 0.01);
 		}
 		if (now % 4 == 0) {
-			AbilityHelpers.sound(player, SoundEvents.BLASTFURNACE_FIRE_CRACKLE, 0.6f, 0.5f);
+			IronManSounds.play(player, IronManSounds.LASER, 0.7f, 0.95f + (player.tickCount % 3) * 0.05f);
 		}
 	}
 

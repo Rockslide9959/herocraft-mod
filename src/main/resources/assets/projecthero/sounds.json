@@ -870,5 +870,1330 @@
         "pitch": 1.4
       }
     ]
+  },
+  "ironman_repulsor_charge": {
+    "subtitle": "subtitles.projecthero.ironman_repulsor_charge",
+    "sounds": [
+      {
+        "name": "minecraft:block/respawn_anchor/charge1",
+        "volume": 0.5,
+        "pitch": 1.4
+      },
+      {
+        "name": "minecraft:block/respawn_anchor/charge2",
+        "volume": 0.5,
+        "pitch": 1.4
+      },
+      {
+        "name": "minecraft:block/respawn_anchor/charge3",
+        "volume": 0.5,
+        "pitch": 1.4
+      },
+      {
+        "name": "minecraft:block/conduit/short1",
+        "volume": 0.55,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:block/conduit/short2",
+        "volume": 0.55,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:block/conduit/short3",
+        "volume": 0.55,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:block/conduit/short4",
+        "volume": 0.55,
+        "pitch": 1.6
+      }
+    ]
+  },
+  "ironman_repulsor_ready": {
+    "subtitle": "subtitles.projecthero.ironman_repulsor_ready",
+    "sounds": [
+      {
+        "name": "minecraft:block/amethyst/shimmer",
+        "volume": 0.8,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:block/beacon/power1",
+        "volume": 0.6,
+        "pitch": 1.9
+      }
+    ]
+  },
+  "ironman_repulsor_blast": {
+    "subtitle": "subtitles.projecthero.ironman_repulsor_blast",
+    "sounds": [
+      {
+        "name": "minecraft:entity/wind_charge/wind_burst1",
+        "volume": 0.9,
+        "pitch": 1.35
+      },
+      {
+        "name": "minecraft:entity/wind_charge/wind_burst2",
+        "volume": 0.9,
+        "pitch": 1.35
+      },
+      {
+        "name": "minecraft:entity/wind_charge/wind_burst3",
+        "volume": 0.9,
+        "pitch": 1.35
+      },
+      {
+        "name": "minecraft:mob/breeze/shoot",
+        "volume": 0.8,
+        "pitch": 1.5
+      }
+    ]
+  },
+  "ironman_repulsor_zap": {
+    "subtitle": "subtitles.projecthero.ironman_repulsor_blast",
+    "sounds": [
+      {
+        "name": "minecraft:block/conduit/attack1",
+        "volume": 0.7,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:block/conduit/attack2",
+        "volume": 0.7,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:block/conduit/attack3",
+        "volume": 0.7,
+        "pitch": 1.6
+      }
+    ]
+  },
+  "ironman_repulsor_charged_blast": {
+    "subtitle": "subtitles.projecthero.ironman_repulsor_charged_blast",
+    "sounds": [
+      {
+        "name": "minecraft:entity/wind_charge/wind_burst1",
+        "volume": 1,
+        "pitch": 0.75
+      },
+      {
+        "name": "minecraft:entity/wind_charge/wind_burst2",
+        "volume": 1,
+        "pitch": 0.75
+      },
+      {
+        "name": "minecraft:entity/wind_charge/wind_burst3",
+        "volume": 1,
+        "pitch": 0.75
+      },
+      {
+        "name": "minecraft:fireworks/largeblast1",
+        "volume": 1,
+        "pitch": 0.65
+      }
+    ]
+  },
+  "ironman_energy_impact": {
+    "subtitle": "subtitles.projecthero.ironman_energy_impact",
+    "sounds": [
+      {
+        "name": "minecraft:random/explode1",
+        "volume": 0.5,
+        "pitch": 1.7
+      },
+      {
+        "name": "minecraft:random/explode2",
+        "volume": 0.5,
+        "pitch": 1.7
+      },
+      {
+        "name": "minecraft:random/explode3",
+        "volume": 0.5,
+        "pitch": 1.7
+      },
+      {
+        "name": "minecraft:random/explode4",
+        "volume": 0.5,
+        "pitch": 1.7
+      },
+      {
+        "name": "minecraft:entity/wind_charge/wind_burst1",
+        "volume": 0.6,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:entity/wind_charge/wind_burst2",
+        "volume": 0.6,
+        "pitch": 1.6
+      }
+    ]
+  },
+  "ironman_unibeam_charge": {
+    "subtitle": "subtitles.projecthero.ironman_unibeam_charge",
+    "sounds": [
+      {
+        "name": "minecraft:block/beacon/activate",
+        "volume": 1,
+        "pitch": 1.2
+      }
+    ]
+  },
+  "ironman_unibeam_loop": {
+    "subtitle": "subtitles.projecthero.ironman_unibeam_loop",
+    "sounds": [
+      {
+        "name": "minecraft:block/conduit/short1",
+        "volume": 0.6,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block/conduit/short2",
+        "volume": 0.6,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block/conduit/short3",
+        "volume": 0.6,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block/conduit/short4",
+        "volume": 0.6,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block/conduit/short5",
+        "volume": 0.6,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block/conduit/short6",
+        "volume": 0.6,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block/conduit/short7",
+        "volume": 0.6,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block/conduit/short8",
+        "volume": 0.6,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block/conduit/short9",
+        "volume": 0.6,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block/respawn_anchor/ambient1",
+        "volume": 0.6,
+        "pitch": 0.7
+      },
+      {
+        "name": "minecraft:block/respawn_anchor/ambient2",
+        "volume": 0.6,
+        "pitch": 0.7
+      },
+      {
+        "name": "minecraft:block/respawn_anchor/ambient3",
+        "volume": 0.6,
+        "pitch": 0.7
+      }
+    ]
+  },
+  "ironman_beam_crackle": {
+    "subtitle": "subtitles.projecthero.ironman_unibeam_loop",
+    "sounds": [
+      {
+        "name": "minecraft:block/campfire/crackle1",
+        "volume": 0.8,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:block/campfire/crackle2",
+        "volume": 0.8,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:block/campfire/crackle3",
+        "volume": 0.8,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:block/campfire/crackle4",
+        "volume": 0.8,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:block/campfire/crackle5",
+        "volume": 0.8,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:block/campfire/crackle6",
+        "volume": 0.8,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:block/conduit/attack1",
+        "volume": 0.45,
+        "pitch": 0.7
+      },
+      {
+        "name": "minecraft:block/conduit/attack2",
+        "volume": 0.45,
+        "pitch": 0.7
+      },
+      {
+        "name": "minecraft:block/conduit/attack3",
+        "volume": 0.45,
+        "pitch": 0.7
+      }
+    ]
+  },
+  "ironman_unibeam_end": {
+    "subtitle": "subtitles.projecthero.ironman_unibeam_end",
+    "sounds": [
+      {
+        "name": "minecraft:block/beacon/deactivate",
+        "volume": 0.9,
+        "pitch": 0.7
+      },
+      {
+        "name": "minecraft:block/conduit/deactivate",
+        "volume": 0.9,
+        "pitch": 0.8
+      }
+    ]
+  },
+  "ironman_missile_pod": {
+    "subtitle": "subtitles.projecthero.ironman_missile_pod",
+    "sounds": [
+      {
+        "name": "minecraft:tile/piston/out",
+        "volume": 0.7,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:block/vault/open_shutter",
+        "volume": 0.8,
+        "pitch": 1.4
+      }
+    ]
+  },
+  "ironman_missile_launch": {
+    "subtitle": "subtitles.projecthero.ironman_missile_launch",
+    "sounds": [
+      {
+        "name": "minecraft:fireworks/launch1",
+        "volume": 0.8,
+        "pitch": 1.5,
+        "weight": 2
+      },
+      {
+        "name": "minecraft:fireworks/launch1",
+        "volume": 0.8,
+        "pitch": 1.7
+      },
+      {
+        "name": "minecraft:mob/ghast/fireball4",
+        "volume": 0.5,
+        "pitch": 1.8
+      }
+    ]
+  },
+  "ironman_rocket_launch": {
+    "subtitle": "subtitles.projecthero.ironman_rocket_launch",
+    "sounds": [
+      {
+        "name": "minecraft:fireworks/launch1",
+        "volume": 1,
+        "pitch": 0.7,
+        "weight": 2
+      },
+      {
+        "name": "minecraft:fireworks/launch1",
+        "volume": 1,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:mob/ghast/fireball4",
+        "volume": 0.8,
+        "pitch": 0.6
+      }
+    ]
+  },
+  "ironman_missile_impact": {
+    "subtitle": "subtitles.projecthero.ironman_missile_impact",
+    "sounds": [
+      {
+        "name": "minecraft:random/explode1",
+        "volume": 0.8,
+        "pitch": 1.3
+      },
+      {
+        "name": "minecraft:random/explode2",
+        "volume": 0.8,
+        "pitch": 1.3
+      },
+      {
+        "name": "minecraft:random/explode3",
+        "volume": 0.8,
+        "pitch": 1.3
+      },
+      {
+        "name": "minecraft:random/explode4",
+        "volume": 0.8,
+        "pitch": 1.3
+      },
+      {
+        "name": "minecraft:fireworks/blast1",
+        "volume": 0.8,
+        "pitch": 0.8
+      }
+    ]
+  },
+  "ironman_minigun_spin": {
+    "subtitle": "subtitles.projecthero.ironman_minigun_spin",
+    "sounds": [
+      {
+        "name": "minecraft:block/crafter/craft",
+        "volume": 0.7,
+        "pitch": 1.8
+      },
+      {
+        "name": "minecraft:tile/piston/out",
+        "volume": 0.6,
+        "pitch": 1.8
+      }
+    ]
+  },
+  "ironman_minigun_fire": {
+    "subtitle": "subtitles.projecthero.ironman_minigun_fire",
+    "sounds": [
+      {
+        "name": "minecraft:item/crossbow/shoot1",
+        "volume": 0.6,
+        "pitch": 1.8
+      },
+      {
+        "name": "minecraft:item/crossbow/shoot2",
+        "volume": 0.6,
+        "pitch": 1.8
+      },
+      {
+        "name": "minecraft:item/crossbow/shoot3",
+        "volume": 0.6,
+        "pitch": 1.8
+      },
+      {
+        "name": "minecraft:note/snare",
+        "volume": 0.7,
+        "pitch": 1.4,
+        "weight": 2
+      },
+      {
+        "name": "minecraft:mob/zombie/metal1",
+        "volume": 0.35,
+        "pitch": 2
+      },
+      {
+        "name": "minecraft:mob/zombie/metal2",
+        "volume": 0.35,
+        "pitch": 2
+      },
+      {
+        "name": "minecraft:mob/zombie/metal3",
+        "volume": 0.35,
+        "pitch": 2
+      }
+    ]
+  },
+  "ironman_minigun_stop": {
+    "subtitle": "subtitles.projecthero.ironman_minigun_stop",
+    "sounds": [
+      {
+        "name": "minecraft:tile/piston/in",
+        "volume": 0.7,
+        "pitch": 1.2
+      },
+      {
+        "name": "minecraft:item/crossbow/loading_end",
+        "volume": 0.7,
+        "pitch": 1.4
+      }
+    ]
+  },
+  "ironman_flare_launch": {
+    "subtitle": "subtitles.projecthero.ironman_flare_launch",
+    "sounds": [
+      {
+        "name": "minecraft:fireworks/blast1",
+        "volume": 0.9,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:fireworks/blast1",
+        "volume": 0.9,
+        "pitch": 1.4
+      },
+      {
+        "name": "minecraft:fireworks/blast_far1",
+        "volume": 0.9,
+        "pitch": 1.5
+      }
+    ]
+  },
+  "ironman_flare_crackle": {
+    "subtitle": "subtitles.projecthero.ironman_flare_launch",
+    "sounds": [
+      {
+        "name": "minecraft:fireworks/twinkle1",
+        "volume": 0.9,
+        "pitch": 1.2
+      },
+      {
+        "name": "minecraft:fireworks/twinkle_far1",
+        "volume": 0.9,
+        "pitch": 1.4
+      }
+    ]
+  },
+  "ironman_flare_hit": {
+    "subtitle": "subtitles.projecthero.ironman_flare_hit",
+    "sounds": [
+      {
+        "name": "minecraft:fireworks/blast1",
+        "volume": 0.8,
+        "pitch": 1.2
+      },
+      {
+        "name": "minecraft:fire/ignite",
+        "volume": 0.9,
+        "pitch": 1
+      }
+    ]
+  },
+  "ironman_sonic_clap": {
+    "subtitle": "subtitles.projecthero.ironman_sonic_clap",
+    "sounds": [
+      {
+        "name": "minecraft:mob/warden/sonic_boom1",
+        "volume": 1,
+        "pitch": 0.75
+      },
+      {
+        "name": "minecraft:mob/warden/sonic_boom2",
+        "volume": 1,
+        "pitch": 0.75
+      },
+      {
+        "name": "minecraft:mob/warden/sonic_boom3",
+        "volume": 1,
+        "pitch": 0.75
+      },
+      {
+        "name": "minecraft:mob/warden/sonic_boom4",
+        "volume": 1,
+        "pitch": 0.75
+      }
+    ]
+  },
+  "ironman_clap_clang": {
+    "subtitle": "subtitles.projecthero.ironman_sonic_clap",
+    "sounds": [
+      {
+        "name": "minecraft:random/anvil_land",
+        "volume": 0.5,
+        "pitch": 1.9
+      },
+      {
+        "name": "minecraft:item/mace/smash_ground_heavy",
+        "volume": 0.8,
+        "pitch": 1.4
+      }
+    ]
+  },
+  "ironman_laser_start": {
+    "subtitle": "subtitles.projecthero.ironman_laser_start",
+    "sounds": [
+      {
+        "name": "minecraft:mob/guardian/attack_loop",
+        "volume": 0.6,
+        "pitch": 1.6
+      }
+    ]
+  },
+  "ironman_laser": {
+    "subtitle": "subtitles.projecthero.ironman_laser",
+    "sounds": [
+      {
+        "name": "minecraft:random/fizz",
+        "volume": 0.45,
+        "pitch": 1.8,
+        "weight": 2
+      },
+      {
+        "name": "minecraft:random/fizz",
+        "volume": 0.45,
+        "pitch": 2
+      },
+      {
+        "name": "minecraft:block/campfire/crackle1",
+        "volume": 0.5,
+        "pitch": 1.7
+      },
+      {
+        "name": "minecraft:block/campfire/crackle2",
+        "volume": 0.5,
+        "pitch": 1.7
+      },
+      {
+        "name": "minecraft:block/campfire/crackle3",
+        "volume": 0.5,
+        "pitch": 1.7
+      }
+    ]
+  },
+  "ironman_laser_end": {
+    "subtitle": "subtitles.projecthero.ironman_laser_end",
+    "sounds": [
+      {
+        "name": "minecraft:block/beacon/deactivate",
+        "volume": 0.8,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:random/fizz",
+        "volume": 0.6,
+        "pitch": 1
+      }
+    ]
+  },
+  "ironman_power_fail": {
+    "subtitle": "subtitles.projecthero.ironman_power_fail",
+    "sounds": [
+      {
+        "name": "minecraft:block/respawn_anchor/deplete1",
+        "volume": 1,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block/respawn_anchor/deplete2",
+        "volume": 1,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block/beacon/deactivate",
+        "volume": 1,
+        "pitch": 0.5
+      }
+    ]
+  },
+  "ironman_shield_up": {
+    "subtitle": "subtitles.projecthero.ironman_shield_up",
+    "sounds": [
+      {
+        "name": "minecraft:block/conduit/activate",
+        "volume": 0.9,
+        "pitch": 1.5,
+        "weight": 2
+      },
+      {
+        "name": "minecraft:block/beacon/power2",
+        "volume": 0.8,
+        "pitch": 1.6
+      }
+    ]
+  },
+  "ironman_shield_hum": {
+    "subtitle": "subtitles.projecthero.ironman_shield_hum",
+    "sounds": [
+      {
+        "name": "minecraft:block/respawn_anchor/ambient1",
+        "volume": 0.35,
+        "pitch": 1.5
+      },
+      {
+        "name": "minecraft:block/respawn_anchor/ambient2",
+        "volume": 0.35,
+        "pitch": 1.5
+      },
+      {
+        "name": "minecraft:block/respawn_anchor/ambient3",
+        "volume": 0.35,
+        "pitch": 1.5
+      },
+      {
+        "name": "minecraft:block/conduit/short5",
+        "volume": 0.35,
+        "pitch": 1.8
+      },
+      {
+        "name": "minecraft:block/conduit/short6",
+        "volume": 0.35,
+        "pitch": 1.8
+      },
+      {
+        "name": "minecraft:block/conduit/short7",
+        "volume": 0.35,
+        "pitch": 1.8
+      }
+    ]
+  },
+  "ironman_shield_down": {
+    "subtitle": "subtitles.projecthero.ironman_shield_down",
+    "sounds": [
+      {
+        "name": "minecraft:block/conduit/deactivate",
+        "volume": 0.8,
+        "pitch": 1.4
+      },
+      {
+        "name": "minecraft:block/beacon/deactivate",
+        "volume": 0.8,
+        "pitch": 1.5
+      }
+    ]
+  },
+  "ironman_shield_deflect": {
+    "subtitle": "subtitles.projecthero.ironman_shield_deflect",
+    "sounds": [
+      {
+        "name": "minecraft:item/shield/block1",
+        "volume": 0.7,
+        "pitch": 1.4
+      },
+      {
+        "name": "minecraft:item/shield/block2",
+        "volume": 0.7,
+        "pitch": 1.4
+      },
+      {
+        "name": "minecraft:item/shield/block3",
+        "volume": 0.7,
+        "pitch": 1.4
+      },
+      {
+        "name": "minecraft:item/shield/block4",
+        "volume": 0.7,
+        "pitch": 1.4
+      },
+      {
+        "name": "minecraft:item/shield/block5",
+        "volume": 0.7,
+        "pitch": 1.4
+      },
+      {
+        "name": "minecraft:block/amethyst/place1",
+        "volume": 0.7,
+        "pitch": 1.2
+      },
+      {
+        "name": "minecraft:block/amethyst/place2",
+        "volume": 0.7,
+        "pitch": 1.2
+      }
+    ]
+  },
+  "ironman_dash": {
+    "subtitle": "subtitles.projecthero.ironman_dash",
+    "sounds": [
+      {
+        "name": "minecraft:entity/wind_charge/wind_burst1",
+        "volume": 1,
+        "pitch": 0.9
+      },
+      {
+        "name": "minecraft:entity/wind_charge/wind_burst2",
+        "volume": 1,
+        "pitch": 0.9
+      },
+      {
+        "name": "minecraft:entity/wind_charge/wind_burst3",
+        "volume": 1,
+        "pitch": 0.9
+      },
+      {
+        "name": "minecraft:mob/breeze/wind_burst1",
+        "volume": 1,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:mob/breeze/wind_burst2",
+        "volume": 1,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:mob/breeze/wind_burst3",
+        "volume": 1,
+        "pitch": 0.8
+      }
+    ]
+  },
+  "ironman_flight_burst": {
+    "subtitle": "subtitles.projecthero.ironman_flight_burst",
+    "sounds": [
+      {
+        "name": "minecraft:mob/ghast/fireball4",
+        "volume": 1,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:fireworks/launch1",
+        "volume": 1,
+        "pitch": 0.5
+      },
+      {
+        "name": "minecraft:mob/blaze/breathe1",
+        "volume": 0.8,
+        "pitch": 0.5
+      },
+      {
+        "name": "minecraft:mob/blaze/breathe2",
+        "volume": 0.8,
+        "pitch": 0.5
+      }
+    ]
+  },
+  "ironman_supersonic": {
+    "subtitle": "subtitles.projecthero.ironman_supersonic",
+    "sounds": [
+      {
+        "name": "minecraft:fireworks/largeblast_far1",
+        "volume": 1,
+        "pitch": 0.7
+      },
+      {
+        "name": "minecraft:item/trident/riptide3",
+        "volume": 1,
+        "pitch": 0.8
+      }
+    ]
+  },
+  "ironman_supersonic_end": {
+    "subtitle": "subtitles.projecthero.ironman_supersonic_end",
+    "sounds": [
+      {
+        "name": "minecraft:item/trident/riptide1",
+        "volume": 0.6,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block/beacon/deactivate",
+        "volume": 0.5,
+        "pitch": 1.4
+      }
+    ]
+  },
+  "ironman_surge": {
+    "subtitle": "subtitles.projecthero.ironman_surge",
+    "sounds": [
+      {
+        "name": "minecraft:block/beacon/activate",
+        "volume": 1,
+        "pitch": 1.5
+      }
+    ]
+  },
+  "ironman_surge_crackle": {
+    "subtitle": "subtitles.projecthero.ironman_surge",
+    "sounds": [
+      {
+        "name": "minecraft:block/conduit/attack1",
+        "volume": 0.8,
+        "pitch": 1.2
+      },
+      {
+        "name": "minecraft:block/conduit/attack2",
+        "volume": 0.8,
+        "pitch": 1.2
+      },
+      {
+        "name": "minecraft:block/conduit/attack3",
+        "volume": 0.8,
+        "pitch": 1.2
+      }
+    ]
+  },
+  "ironman_surge_pulse": {
+    "subtitle": "subtitles.projecthero.ironman_surge_pulse",
+    "sounds": [
+      {
+        "name": "minecraft:block/conduit/short1",
+        "volume": 0.4,
+        "pitch": 1.9
+      },
+      {
+        "name": "minecraft:block/conduit/short2",
+        "volume": 0.4,
+        "pitch": 1.9
+      },
+      {
+        "name": "minecraft:block/conduit/short3",
+        "volume": 0.4,
+        "pitch": 1.9
+      },
+      {
+        "name": "minecraft:block/conduit/short4",
+        "volume": 0.4,
+        "pitch": 1.9
+      },
+      {
+        "name": "minecraft:block/conduit/short5",
+        "volume": 0.4,
+        "pitch": 1.9
+      },
+      {
+        "name": "minecraft:block/conduit/short6",
+        "volume": 0.4,
+        "pitch": 1.9
+      },
+      {
+        "name": "minecraft:block/conduit/short7",
+        "volume": 0.4,
+        "pitch": 1.9
+      },
+      {
+        "name": "minecraft:block/conduit/short8",
+        "volume": 0.4,
+        "pitch": 1.9
+      },
+      {
+        "name": "minecraft:block/conduit/short9",
+        "volume": 0.4,
+        "pitch": 1.9
+      }
+    ]
+  },
+  "ironman_surge_end": {
+    "subtitle": "subtitles.projecthero.ironman_surge_end",
+    "sounds": [
+      {
+        "name": "minecraft:block/beacon/deactivate",
+        "volume": 0.9,
+        "pitch": 1.2
+      },
+      {
+        "name": "minecraft:block/respawn_anchor/deplete1",
+        "volume": 0.8,
+        "pitch": 1.3
+      },
+      {
+        "name": "minecraft:block/respawn_anchor/deplete2",
+        "volume": 0.8,
+        "pitch": 1.3
+      }
+    ]
+  },
+  "ironman_scan": {
+    "subtitle": "subtitles.projecthero.ironman_scan",
+    "sounds": [
+      {
+        "name": "minecraft:block/beacon/power1",
+        "volume": 0.6,
+        "pitch": 1.9
+      },
+      {
+        "name": "minecraft:block/beacon/power2",
+        "volume": 0.6,
+        "pitch": 1.9
+      },
+      {
+        "name": "minecraft:block/beacon/power3",
+        "volume": 0.6,
+        "pitch": 1.9
+      },
+      {
+        "name": "minecraft:block/sculk_sensor/sculk_clicking1",
+        "volume": 0.5,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:block/sculk_sensor/sculk_clicking2",
+        "volume": 0.5,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:block/sculk_sensor/sculk_clicking3",
+        "volume": 0.5,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:block/sculk_sensor/sculk_clicking4",
+        "volume": 0.5,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:block/sculk_sensor/sculk_clicking5",
+        "volume": 0.5,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:block/sculk_sensor/sculk_clicking6",
+        "volume": 0.5,
+        "pitch": 1.6
+      }
+    ]
+  },
+  "ironman_scan_chirp": {
+    "subtitle": "subtitles.projecthero.ironman_scan",
+    "sounds": [
+      {
+        "name": "minecraft:note/bit",
+        "volume": 0.6,
+        "pitch": 1.7
+      },
+      {
+        "name": "minecraft:note/pling",
+        "volume": 0.5,
+        "pitch": 1.8
+      },
+      {
+        "name": "minecraft:note/bit",
+        "volume": 0.6,
+        "pitch": 2
+      }
+    ]
+  },
+  "ironman_target_lock": {
+    "subtitle": "subtitles.projecthero.ironman_target_lock",
+    "sounds": [
+      {
+        "name": "minecraft:note/bit",
+        "volume": 0.5,
+        "pitch": 1.9
+      },
+      {
+        "name": "minecraft:note/icechime",
+        "volume": 0.4,
+        "pitch": 1.8
+      }
+    ]
+  },
+  "ironman_hud_on": {
+    "subtitle": "subtitles.projecthero.ironman_hud_on",
+    "sounds": [
+      {
+        "name": "minecraft:ui/toast/in",
+        "volume": 0.6,
+        "pitch": 1.5
+      },
+      {
+        "name": "minecraft:note/bit",
+        "volume": 0.4,
+        "pitch": 1.5
+      }
+    ]
+  },
+  "ironman_hud_off": {
+    "subtitle": "subtitles.projecthero.ironman_hud_off",
+    "sounds": [
+      {
+        "name": "minecraft:ui/toast/out",
+        "volume": 0.6,
+        "pitch": 1.5
+      }
+    ]
+  },
+  "ironman_weapon_select": {
+    "subtitle": "subtitles.projecthero.ironman_weapon_select",
+    "sounds": [
+      {
+        "name": "minecraft:block/copper_bulb/toggle",
+        "volume": 0.6,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:random/click",
+        "volume": 0.4,
+        "pitch": 1.7
+      }
+    ]
+  },
+  "ironman_blade_extend": {
+    "subtitle": "subtitles.projecthero.ironman_blade_extend",
+    "sounds": [
+      {
+        "name": "minecraft:item/trident/throw1",
+        "volume": 0.8,
+        "pitch": 1.7
+      },
+      {
+        "name": "minecraft:item/trident/throw2",
+        "volume": 0.8,
+        "pitch": 1.7
+      },
+      {
+        "name": "minecraft:block/chain/break1",
+        "volume": 0.7,
+        "pitch": 1.8
+      },
+      {
+        "name": "minecraft:block/chain/break2",
+        "volume": 0.7,
+        "pitch": 1.8
+      },
+      {
+        "name": "minecraft:block/chain/break3",
+        "volume": 0.7,
+        "pitch": 1.8
+      },
+      {
+        "name": "minecraft:block/chain/break4",
+        "volume": 0.7,
+        "pitch": 1.8
+      }
+    ]
+  },
+  "ironman_blade_ring": {
+    "subtitle": "subtitles.projecthero.ironman_blade_extend",
+    "sounds": [
+      {
+        "name": "minecraft:block/smithing_table/smithing_table1",
+        "volume": 0.5,
+        "pitch": 1.8
+      },
+      {
+        "name": "minecraft:block/smithing_table/smithing_table2",
+        "volume": 0.5,
+        "pitch": 1.8
+      },
+      {
+        "name": "minecraft:block/smithing_table/smithing_table3",
+        "volume": 0.5,
+        "pitch": 1.8
+      },
+      {
+        "name": "minecraft:random/anvil_use",
+        "volume": 0.3,
+        "pitch": 1.9
+      }
+    ]
+  },
+  "ironman_blade_retract": {
+    "subtitle": "subtitles.projecthero.ironman_blade_retract",
+    "sounds": [
+      {
+        "name": "minecraft:tile/piston/in",
+        "volume": 0.7,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:block/chain/step1",
+        "volume": 0.7,
+        "pitch": 1.4
+      },
+      {
+        "name": "minecraft:block/chain/step2",
+        "volume": 0.7,
+        "pitch": 1.4
+      },
+      {
+        "name": "minecraft:block/chain/step3",
+        "volume": 0.7,
+        "pitch": 1.4
+      },
+      {
+        "name": "minecraft:item/armor/equip_chain1",
+        "volume": 0.7,
+        "pitch": 1.2
+      },
+      {
+        "name": "minecraft:item/armor/equip_chain2",
+        "volume": 0.7,
+        "pitch": 1.2
+      }
+    ]
+  },
+  "ironman_flamethrower_ignite": {
+    "subtitle": "subtitles.projecthero.ironman_flamethrower_ignite",
+    "sounds": [
+      {
+        "name": "minecraft:fire/ignite",
+        "volume": 1,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:mob/ghast/fireball4",
+        "volume": 0.7,
+        "pitch": 0.7
+      }
+    ]
+  },
+  "ironman_flamethrower": {
+    "subtitle": "subtitles.projecthero.ironman_flamethrower",
+    "sounds": [
+      {
+        "name": "minecraft:mob/blaze/breathe1",
+        "volume": 0.6,
+        "pitch": 0.7
+      },
+      {
+        "name": "minecraft:mob/blaze/breathe2",
+        "volume": 0.6,
+        "pitch": 0.7
+      },
+      {
+        "name": "minecraft:mob/blaze/breathe3",
+        "volume": 0.6,
+        "pitch": 0.7
+      },
+      {
+        "name": "minecraft:mob/blaze/breathe4",
+        "volume": 0.6,
+        "pitch": 0.7
+      },
+      {
+        "name": "minecraft:block/campfire/crackle1",
+        "volume": 0.8,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block/campfire/crackle2",
+        "volume": 0.8,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block/campfire/crackle3",
+        "volume": 0.8,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block/campfire/crackle4",
+        "volume": 0.8,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block/campfire/crackle5",
+        "volume": 0.8,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:block/campfire/crackle6",
+        "volume": 0.8,
+        "pitch": 0.6
+      }
+    ]
+  },
+  "ironman_punch": {
+    "subtitle": "subtitles.projecthero.ironman_punch",
+    "sounds": [
+      {
+        "name": "minecraft:mob/irongolem/throw",
+        "volume": 1,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:item/mace/smash_ground1",
+        "volume": 0.8,
+        "pitch": 1.2
+      },
+      {
+        "name": "minecraft:item/mace/smash_ground2",
+        "volume": 0.8,
+        "pitch": 1.2
+      },
+      {
+        "name": "minecraft:item/mace/smash_ground3",
+        "volume": 0.8,
+        "pitch": 1.2
+      },
+      {
+        "name": "minecraft:random/anvil_land",
+        "volume": 0.4,
+        "pitch": 0.7
+      }
+    ]
+  },
+  "ironman_mk1_clunk": {
+    "subtitle": "subtitles.projecthero.ironman_mk1_clunk",
+    "sounds": [
+      {
+        "name": "minecraft:tile/piston/out",
+        "volume": 0.6,
+        "pitch": 0.7
+      },
+      {
+        "name": "minecraft:block/iron_trapdoor/close1",
+        "volume": 0.6,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:block/iron_trapdoor/close2",
+        "volume": 0.6,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:block/iron_trapdoor/close3",
+        "volume": 0.6,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:block/iron_trapdoor/close4",
+        "volume": 0.6,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:mob/irongolem/walk1",
+        "volume": 0.6,
+        "pitch": 0.9
+      },
+      {
+        "name": "minecraft:mob/irongolem/walk2",
+        "volume": 0.6,
+        "pitch": 0.9
+      }
+    ]
+  },
+  "ironman_combo_finisher": {
+    "subtitle": "subtitles.projecthero.ironman_combo_finisher",
+    "sounds": [
+      {
+        "name": "minecraft:mob/irongolem/throw",
+        "volume": 1,
+        "pitch": 1
+      },
+      {
+        "name": "minecraft:item/mace/smash_ground1",
+        "volume": 0.9,
+        "pitch": 1.3
+      },
+      {
+        "name": "minecraft:item/mace/smash_ground2",
+        "volume": 0.9,
+        "pitch": 1.3
+      },
+      {
+        "name": "minecraft:item/mace/smash_ground3",
+        "volume": 0.9,
+        "pitch": 1.3
+      },
+      {
+        "name": "minecraft:item/mace/smash_ground4",
+        "volume": 0.9,
+        "pitch": 1.3
+      }
+    ]
+  },
+  "ironman_suit_stored": {
+    "subtitle": "subtitles.projecthero.ironman_suit_stored",
+    "sounds": [
+      {
+        "name": "minecraft:block/beacon/deactivate",
+        "volume": 0.8,
+        "pitch": 1
+      },
+      {
+        "name": "minecraft:block/conduit/deactivate",
+        "volume": 0.8,
+        "pitch": 1.1
+      }
+    ]
   }
 }

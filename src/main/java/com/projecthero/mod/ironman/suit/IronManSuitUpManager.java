@@ -534,6 +534,7 @@ public final class IronManSuitUpManager {
 			}
 			level.playSound(null, player.getX(), player.getY(), player.getZ(),
 					SoundEvents.NETHERITE_BLOCK_BREAK, SoundSource.PLAYERS, 0.6f, 0.9f);
+			IronManSounds.play(player, IronManSounds.SUIT_STORED, 0.8f, IronManSounds.markPitch(s.transitionSuit)); // v0.14.31
 			IronManSuitFx.endPose(player);
 		}
 		s.transitionToCase = false;

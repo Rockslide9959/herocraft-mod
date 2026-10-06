@@ -45,9 +45,12 @@ public final class IronManBlade {
 		boolean out = !active(player);
 		player.setAttached(ModAttachments.IRON_MAN_BLADES, out);
 		if (player.level() instanceof ServerLevel level) {
-			level.playSound(null, player.getX(), player.getY(), player.getZ(),
-					out ? SoundEvents.NETHERITE_BLOCK_HIT : SoundEvents.NETHERITE_BLOCK_PLACE,
-					SoundSource.PLAYERS, 0.9f, out ? 1.7f : 1.1f);
+			if (out) { // v0.14.31: a metallic snikt + ring out, a servo-clank back in
+				IronManSounds.move(player, IronManSounds.BLADE_EXTEND, 1.0f, 1.0f);
+				IronManSounds.play(player, IronManSounds.BLADE_RING, 0.8f, 1.0f);
+			} else {
+				IronManSounds.move(player, IronManSounds.BLADE_RETRACT, 0.9f, 1.0f);
+			}
 		}
 		player.displayClientMessage(Component.translatable(out
 				? "message.projecthero.ironman.blades_out" : "message.projecthero.ironman.blades_in"), true);

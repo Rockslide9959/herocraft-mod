@@ -1,5 +1,6 @@
 package com.projecthero.mod.ironman.ability;
 
+import com.projecthero.mod.ironman.IronManSounds;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.ironman.IronManAbilityFx;
 import com.projecthero.mod.ironman.IronManArmor;
@@ -58,8 +59,8 @@ public final class IronManSonicClap {
 		Vec3 eye = player.getEyePosition();
 		Vec3 look = com.projecthero.mod.ironman.IronManTargeting.aimLook(player, RANGE + 4.0); // v0.14.30: the cone points at the lock
 		IronManAbilityFx.play(player, IronManAbilityFx.SONIC_CLAP, 16);
-		AbilityHelpers.sound(player, SoundEvents.WARDEN_SONIC_BOOM, 1.2f, 1.3f);
-		AbilityHelpers.sound(player, SoundEvents.ANVIL_LAND, 0.6f, 1.8f);
+		IronManSounds.move(player, IronManSounds.SONIC_CLAP, 1.2f, 1.0f);
+		IronManSounds.play(player, IronManSounds.CLAP_CLANG, 1.0f, 1.0f);
 
 		// the shockwave: expanding rings of particles down the cone
 		for (int i = 1; i <= 6; i++) {

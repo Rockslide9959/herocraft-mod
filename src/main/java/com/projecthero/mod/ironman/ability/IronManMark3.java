@@ -1,5 +1,6 @@
 package com.projecthero.mod.ironman.ability;
 
+import com.projecthero.mod.ironman.IronManSounds;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -252,7 +253,7 @@ public final class IronManMark3 {
 				TonyStarkState s = TonyStark.state(player).copy();
 				s.abilityReadyAt.put(weaponKey(suitId), (long) i);
 				player.setAttached(ModAttachments.TONY_STARK_STATE, s);
-				AbilityHelpers.sound(player, SoundEvents.UI_BUTTON_CLICK.value(), 0.4f, 1.6f);
+				IronManSounds.play(player, IronManSounds.WEAPON_SELECT, 0.7f, 1.0f);
 				player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk3.weapon_selected",
 						Component.translatable("hud.projecthero.ironman.ability." + weapon)).withStyle(ChatFormatting.GOLD), true);
 				return;
@@ -380,7 +381,8 @@ public final class IronManMark3 {
 		missile.setPos(shoulder.x + dir.x, shoulder.y + dir.y, shoulder.z + dir.z);
 		level.addFreshEntity(missile);
 		IronManAbilityFx.play(player, IronManAbilityFx.ROCKET, 14);
-		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.2f, 0.9f);
+		IronManSounds.move(player, IronManSounds.ROCKET_LAUNCH, 1.1f, 1.0f);
+		IronManSounds.loop(player, IronManSounds.THRUSTER, 0.6f, 1.2f);
 		TonyStark.triggerCooldown(player, suitId, ROCKETS, t.cooldown(ROCKET_COOLDOWN));
 	}
 
@@ -400,7 +402,7 @@ public final class IronManMark3 {
 		r.microSuit = suitId;
 		r.microNext = player.level().getGameTime();
 		IronManAbilityFx.play(player, IronManAbilityFx.MISSILES, 24);
-		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.0f, 1.2f);
+		IronManSounds.move(player, IronManSounds.MISSILE_POD, 0.9f, 1.0f);
 		TonyStark.triggerCooldown(player, suitId, MICRO_MISSILES, tuningOrDefault(suitId).cooldown(MICRO_COOLDOWN));
 		tickMicroMissiles(player, r); // the first one leaves right away
 	}
@@ -429,7 +431,7 @@ public final class IronManMark3 {
 		}
 		missile.setPos(shoulder.x + dir.x * 0.3, shoulder.y + dir.y * 0.3, shoulder.z + dir.z * 0.3);
 		level.addFreshEntity(missile);
-		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_LAUNCH, 0.6f, 1.6f);
+		IronManSounds.loop(player, IronManSounds.MISSILE_LAUNCH, 0.8f, 0.95f + (player.tickCount % 3) * 0.05f);
 		r.pendingMicro--;
 		r.microNext = now + MICRO_STAGGER;
 	}
@@ -472,7 +474,7 @@ public final class IronManMark3 {
 		r.minigunSuit = suitId;
 		r.minigunStart = now;
 		r.minigunNextShot = now;
-		AbilityHelpers.sound(player, SoundEvents.PISTON_EXTEND, 0.8f, 1.6f);
+		IronManSounds.move(player, IronManSounds.MINIGUN_SPIN, 0.9f, 1.0f);
 		tickMinigun(player, suit, r); // the first burst leaves on the press, so even a quick tap fires
 	}
 
@@ -486,7 +488,7 @@ public final class IronManMark3 {
 		if (cooldown) {
 			TonyStark.triggerCooldown(player, r.minigunSuit, MINIGUN, tuningOrDefault(r.minigunSuit).cooldown(MINIGUN_COOLDOWN));
 		}
-		AbilityHelpers.sound(player, SoundEvents.PISTON_CONTRACT, 0.8f, 1.4f);
+		IronManSounds.play(player, IronManSounds.MINIGUN_STOP, 0.9f, 1.0f);
 	}
 
 	private static void tickMinigun(ServerPlayer player, IronManSuit suit, Runtime r) {
@@ -518,7 +520,7 @@ public final class IronManMark3 {
 			broadcastBeam(player, muzzle, end.add(jitter), TRACER_BEAM);
 			level.sendParticles(ParticleTypes.SMALL_FLAME, muzzle.x, muzzle.y, muzzle.z, 1, 0.02, 0.02, 0.02, 0.0);
 			level.sendParticles(ParticleTypes.CRIT, end.x, end.y, end.z, 2, 0.15, 0.15, 0.15, 0.1);
-			AbilityHelpers.sound(player, SoundEvents.CROSSBOW_SHOOT, 0.55f, 1.8f + level.random.nextFloat() * 0.2f);
+			IronManSounds.play(player, IronManSounds.MINIGUN_FIRE, 0.7f, 0.95f + level.random.nextFloat() * 0.1f);
 		}
 		if (now >= r.minigunNextShot) {
 			r.minigunNextShot = now + MINIGUN_SHOT_INTERVAL;
@@ -546,7 +548,8 @@ public final class IronManMark3 {
 		}
 		r.unibeamSuit = suitId;
 		r.unibeam = true;
-		AbilityHelpers.sound(player, SoundEvents.BEACON_ACTIVATE, 1.4f, 0.4f);
+		IronManSounds.move(player, IronManSounds.UNIBEAM_CHARGE, 1.1f, 1.0f);
+		IronManSounds.loop(player, IronManSounds.REPULSOR_CHARGE, 0.7f, 0.7f);
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.unibeam_firing"), true);
 	}
 
@@ -559,7 +562,7 @@ public final class IronManMark3 {
 		if (cooldown) {
 			TonyStark.triggerCooldown(player, r.unibeamSuit, UNIBEAM, tuningOrDefault(r.unibeamSuit).cooldown(UNIBEAM_COOLDOWN));
 		}
-		AbilityHelpers.sound(player, SoundEvents.BEACON_DEACTIVATE, 0.8f, 0.6f);
+		IronManSounds.play(player, IronManSounds.UNIBEAM_END, 1.0f, 1.0f);
 	}
 
 	private static void tickUnibeam(ServerPlayer player, IronManSuit suit) {
@@ -577,6 +580,9 @@ public final class IronManMark3 {
 		Vec3 chest = chest0.add(dir.scale(0.4));
 		Vec3 end = chest.add(dir.scale(UNIBEAM_RANGE));
 		IronManAbilityFx.hold(player, IronManAbilityFx.UNIBEAM);
+		if (now % 8 == 0) {
+			IronManSounds.play(player, IronManSounds.UNIBEAM_LOOP, 0.8f, 1.0f);
+		}
 		if (now % 2 == 0) {
 			broadcastBeam(player, chest, end, 2);
 		}
@@ -589,7 +595,7 @@ public final class IronManMark3 {
 					level.destroyBlock(bp, true, player);
 				}
 			}
-			AbilityHelpers.sound(player, SoundEvents.GENERIC_EXPLODE, 0.4f, 0.7f);
+			IronManSounds.play(player, IronManSounds.BEAM_CRACKLE, 0.7f, 1.0f);
 		}
 		// the same per-tick, i-frame-paced damage model as the shared Unibeam (a hit lands every ~0.5 s)
 		for (LivingEntity e : AbilityHelpers.enemiesAround(player, chest.add(dir.scale(12)), 12.0)) {
@@ -606,7 +612,7 @@ public final class IronManMark3 {
 		String suitId = suit.id();
 		if (shieldOn(TonyStark.state(player), suitId)) {
 			setShield(player, suitId, false);
-			AbilityHelpers.sound(player, SoundEvents.BEACON_DEACTIVATE, 0.6f, 1.3f);
+			IronManSounds.play(player, IronManSounds.SHIELD_DOWN, 0.9f, 1.0f);
 			player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk3.shield_down"), true);
 			return;
 		}
@@ -618,7 +624,7 @@ public final class IronManMark3 {
 			return;
 		}
 		setShield(player, suitId, true);
-		AbilityHelpers.sound(player, SoundEvents.CONDUIT_ACTIVATE, 1.0f, 1.4f);
+		IronManSounds.move(player, IronManSounds.SHIELD_UP, 1.0f, 1.0f);
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk3.shield_up"), true);
 	}
 
@@ -629,6 +635,9 @@ public final class IronManMark3 {
 			return;
 		}
 		IronManAbilityFx.hold(player, IronManAbilityFx.BARRIER);
+		if (player.level().getGameTime() % 30 == 0) {
+			IronManSounds.play(player, IronManSounds.SHIELD_HUM, 0.6f, 1.0f); // v0.14.31
+		}
 	}
 
 	private static void dropShield(ServerPlayer player, String suitId) {
@@ -636,7 +645,7 @@ public final class IronManMark3 {
 			return;
 		}
 		setShield(player, suitId, false);
-		AbilityHelpers.sound(player, SoundEvents.BEACON_DEACTIVATE, 0.6f, 1.2f);
+		IronManSounds.play(player, IronManSounds.SHIELD_DOWN, 0.9f, 0.85f);
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk3.shield_failed")
 				.withStyle(ChatFormatting.RED), true);
 	}
@@ -657,7 +666,7 @@ public final class IronManMark3 {
 			dropShield(player, suitId);
 		}
 		ServerLevel level = (ServerLevel) player.level();
-		level.playSound(null, player.blockPosition(), SoundEvents.SHIELD_BLOCK, net.minecraft.sounds.SoundSource.PLAYERS, 0.8f, 1.5f);
+		IronManSounds.play(player, IronManSounds.SHIELD_DEFLECT, 0.9f, 1.0f);
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + player.getBbHeight() * 0.6, player.getZ(),
 				8, 0.5, 0.5, 0.5, 0.05);
 		return true;

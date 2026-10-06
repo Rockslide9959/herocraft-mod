@@ -1,5 +1,6 @@
 package com.projecthero.mod.ironman.ability;
 
+import com.projecthero.mod.ironman.IronManSounds;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -63,7 +64,8 @@ public final class IronManHeldBeam {
 			return;
 		}
 		FIRING.put(player.getUUID(), spec);
-		AbilityHelpers.sound(player, SoundEvents.BEACON_ACTIVATE, 1.4f, 0.4f);
+		IronManSounds.move(player, IronManSounds.UNIBEAM_CHARGE, 1.1f, 1.0f);
+		IronManSounds.loop(player, IronManSounds.REPULSOR_CHARGE, 0.7f, 0.7f);
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.unibeam_firing"), true);
 	}
 
@@ -76,7 +78,7 @@ public final class IronManHeldBeam {
 		if (cooldown) {
 			TonyStark.triggerCooldown(player, spec.suitId(), spec.cooldownId(), spec.cooldownTicks());
 		}
-		AbilityHelpers.sound(player, SoundEvents.BEACON_DEACTIVATE, 0.8f, 0.6f);
+		IronManSounds.play(player, IronManSounds.UNIBEAM_END, 1.0f, 1.0f);
 	}
 
 	/** {@link #stop}, but only if the running beam belongs to {@code suitId} (each kit's shutdown leaves the others' alone). */
@@ -106,6 +108,9 @@ public final class IronManHeldBeam {
 		Vec3 chest = chest0.add(dir.scale(0.4));
 		Vec3 end = chest.add(dir.scale(range));
 		IronManAbilityFx.hold(player, IronManAbilityFx.UNIBEAM);
+		if (now % 8 == 0) {
+			IronManSounds.play(player, IronManSounds.UNIBEAM_LOOP, 0.8f, 1.0f);
+		}
 		if (now % 2 == 0) {
 			IronManAbilities.broadcastBeam(player, chest, end, 2);
 		}
@@ -118,7 +123,7 @@ public final class IronManHeldBeam {
 					level.destroyBlock(bp, true, player);
 				}
 			}
-			AbilityHelpers.sound(player, SoundEvents.GENERIC_EXPLODE, 0.4f, 0.7f);
+			IronManSounds.play(player, IronManSounds.BEAM_CRACKLE, 0.7f, 1.0f);
 		}
 		double half = range * 0.5;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(player, chest.add(dir.scale(half)), half)) {

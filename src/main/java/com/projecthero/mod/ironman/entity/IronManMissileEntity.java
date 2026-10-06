@@ -200,7 +200,7 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 				? Level.ExplosionInteraction.MOB : Level.ExplosionInteraction.NONE;
 		level.explode(this, getX(), getY(), getZ(), blastRadius, interaction);
 		level.sendParticles(ParticleTypes.EXPLOSION, getX(), getY(), getZ(), 1, 0, 0, 0, 0);
-		level.playSound(null, getX(), getY(), getZ(), SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.8f, 1.4f);
+		com.projecthero.mod.ironman.IronManSounds.playAt(level, getX(), getY(), getZ(), com.projecthero.mod.ironman.IronManSounds.MISSILE_IMPACT, 1.0f, 1.0f);
 		// AoE splash damage, scaled with the blast size, falling off toward the edge
 		double aoe = blastRadius + 1.0;
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class,

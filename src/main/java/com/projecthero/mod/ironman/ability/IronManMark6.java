@@ -1,5 +1,6 @@
 package com.projecthero.mod.ironman.ability;
 
+import com.projecthero.mod.ironman.IronManSounds;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -241,8 +242,9 @@ public final class IronManMark6 {
 		level.sendParticles(ParticleTypes.FLASH, chest.x, chest.y, chest.z, 1, 0, 0, 0, 0);
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, chest.x, chest.y, chest.z, 30, 0.4, 0.5, 0.4, 0.25);
 		level.sendParticles(ParticleTypes.END_ROD, chest.x, chest.y, chest.z, 16, 0.2, 0.2, 0.2, 0.15);
-		AbilityHelpers.sound(player, SoundEvents.BEACON_POWER_SELECT, 1.2f, 1.6f);
-		AbilityHelpers.sound(player, SoundEvents.CONDUIT_ACTIVATE, 0.8f, 1.8f);
+		IronManSounds.move(player, IronManSounds.SURGE, 1.1f, 1.0f);
+		IronManSounds.play(player, IronManSounds.SURGE_CRACKLE, 0.9f, 1.0f);
+		IronManSounds.play(player, IronManSounds.POWER_UP, 0.8f, 1.3f);
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk6.surge_on")
 				.withStyle(ChatFormatting.AQUA), true);
 	}
@@ -259,7 +261,7 @@ public final class IronManMark6 {
 		if (cooldown) {
 			TonyStark.triggerCooldown(player, SUIT_ID, SURGE, SURGE_COOLDOWN);
 		}
-		AbilityHelpers.sound(player, SoundEvents.BEACON_DEACTIVATE, 0.9f, 1.2f);
+		IronManSounds.play(player, IronManSounds.SURGE_END, 1.0f, 1.0f);
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk6.surge_off")
 				.withStyle(ChatFormatting.GRAY), true);
 	}
@@ -321,7 +323,7 @@ public final class IronManMark6 {
 			}
 		}
 		if (now % 20 == 0) {
-			AbilityHelpers.sound(player, SoundEvents.BEACON_AMBIENT, 0.6f, 1.8f);
+			IronManSounds.play(player, IronManSounds.SURGE_PULSE, 0.6f, 1.0f);
 		}
 	}
 
@@ -343,7 +345,7 @@ public final class IronManMark6 {
 		BARRAGE_RT.put(player.getUUID(), new int[] { BARRAGE_COUNT, BARRAGE_COUNT });
 		BARRAGE_NEXT.put(player.getUUID(), player.level().getGameTime());
 		IronManAbilityFx.play(player, IronManAbilityFx.MISSILES, 24);
-		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.0f, 1.1f);
+		IronManSounds.move(player, IronManSounds.MISSILE_POD, 1.0f, 0.95f);
 		TonyStark.triggerCooldown(player, SUIT_ID, BARRAGE, BARRAGE_COOLDOWN);
 		tickBarrage(player); // the first one leaves right away
 	}
@@ -380,7 +382,7 @@ public final class IronManMark6 {
 		}
 		missile.setPos(shoulder.x + dir.x * 0.3, shoulder.y + dir.y * 0.3, shoulder.z + dir.z * 0.3);
 		level.addFreshEntity(missile);
-		AbilityHelpers.sound(player, SoundEvents.FIREWORK_ROCKET_LAUNCH, 0.6f, 1.6f);
+		IronManSounds.loop(player, IronManSounds.MISSILE_LAUNCH, 0.8f, 0.95f + (player.tickCount % 3) * 0.05f);
 		r[0]--;
 		BARRAGE_NEXT.put(player.getUUID(), now + BARRAGE_STAGGER);
 	}

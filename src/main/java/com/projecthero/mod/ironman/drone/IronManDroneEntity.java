@@ -444,8 +444,8 @@ public class IronManDroneEntity extends Entity {
 			}
 		}
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, end.x, end.y, end.z, 12, 0.3, 0.3, 0.3, 0.05);
-		level.playSound(null, getX(), getY(), getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.0f, 1.4f);
-		level.playSound(null, end.x, end.y, end.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.35f, 1.6f);
+		IronManSounds.play(this, IronManSounds.REPULSOR_BLAST, 0.9f, 1.05f);
+		IronManSounds.playAt(level, end.x, end.y, end.z, IronManSounds.ENERGY_IMPACT, 0.5f, 1.0f);
 		if (target != null) {
 			AbilityHelpers.hurt(owner, target, damage);
 			AbilityHelpers.knockbackFrom(target, position(), 1.1);
