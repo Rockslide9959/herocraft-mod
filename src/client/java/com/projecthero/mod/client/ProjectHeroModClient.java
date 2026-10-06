@@ -136,6 +136,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		net.minecraft.client.gui.screens.MenuScreens.register(
 				com.projecthero.mod.ironman.IronManBlocks.SUIT_PLATFORM_MENU,
 				com.projecthero.mod.client.gui.IronManSuitPlatformScreen::new);
+		com.projecthero.mod.client.ironman.StarkGearClient.initialize(); // v0.15.1: Stark Gear screen + glasses layer
 		net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry.register(
 				com.projecthero.mod.ironman.IronManBlocks.SUIT_PLATFORM_BE,
 				com.projecthero.mod.client.render.IronManSuitPlatformRenderer::new);
@@ -919,6 +920,10 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternActionPayload(
 						com.projecthero.mod.network.GreenLanternActionPayload.Action.CLEAR_CONSTRUCTS));
 			}
+		} else if (down && !maxSteelTransformWasDown && Screen.hasShiftDown() && client.player != null
+				&& com.projecthero.mod.ironman.TonyStark.hasPower(client.player) && client.screen == null) {
+			// v0.15.1: Shift+N as Tony Stark opens the Stark Gear screen (the Stark Glasses slot).
+			com.projecthero.mod.client.ironman.StarkGearClient.requestOpen();
 		} else if (down && !maxSteelTransformWasDown && humanShifter) {
 			// v0.12.43: plain N as a base-form Titan Shifter (no other power claiming N) toggles the passive regeneration.
 			ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(
@@ -928,6 +933,10 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			// v0.13.22: nothing else owns N -- it is the selected mutation's Utility 2.
 			// v0.14.5: a six-key mutation (no H / N, e.g. Super Strength) still sends Sneak+N so power combos fire.
 			pressUtility(8);
+		} else if (down && !maxSteelTransformWasDown && Screen.hasShiftDown()
+				&& com.projecthero.mod.client.ironman.StarkGearClient.ownsSneakN(client)) {
+			// v0.15.1: nothing else owns Shift+N and the glasses are still on (power lost) -- the screen to take them off.
+			com.projecthero.mod.client.ironman.StarkGearClient.requestOpen();
 		}
 		if (!down && glRingRemoveHeld) {
 			glRingRemoveHeld = false;

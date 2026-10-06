@@ -93,6 +93,10 @@ public final class IronManSuitCall {
 			return;
 		}
 		List<IronManSuitListPayload.Option> options = new ArrayList<>(gather(player));
+		// v0.15.1: without the Stark Glasses the picker still opens, but platform suits can't be called (greyed client-side)
+		if (!com.projecthero.mod.ironman.gear.StarkGear.canCall(player) && options.stream().anyMatch(o -> o.source() == IronManSuitListPayload.SOURCE_PLATFORM)) {
+			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player);
+		}
 		// v0.14.27: pieces carried in the pack can also be sent home to a platform from the same picker
 		options.addAll(sendBackOptions(player));
 		ServerPlayNetworking.send(player, new IronManSuitListPayload(options));
@@ -466,6 +470,10 @@ public final class IronManSuitCall {
 		if (!TonyStark.hasPower(player) || IronManArmor.wearingAnyIronMan(player)) {
 			return false;
 		}
+		if (!com.projecthero.mod.ironman.gear.StarkGear.canCall(player)) { // v0.15.1: suit calling needs the Stark Glasses
+			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player);
+			return false;
+		}
 		List<IronManSuitListPayload.Option> options = gather(player);
 		if (options.isEmpty()) {
 			player.displayClientMessage(Component.translatable("message.projecthero.ironman.no_suit_available",
@@ -516,6 +524,10 @@ public final class IronManSuitCall {
 			}
 			return;
 		}
+		if (!com.projecthero.mod.ironman.gear.StarkGear.canCall(player)) { // v0.15.1: calling a suit in needs the Stark Glasses
+			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player);
+			return;
+		}
 		callFromPlatform(player, suit);
 	}
 
@@ -527,7 +539,8 @@ public final class IronManSuitCall {
 	public static boolean orbitalDrop(ServerPlayer player, IronManSuit suit) {
 		if (suit == null || suit.summonType() != SummonType.TRACKING_POD
 				|| !com.projecthero.mod.ironman.entity.IronManDeliveryPodEntity.airborne(player)
-				|| !TonyStark.hasPower(player) || IronManSuitUpManager.inTransition(player)) {
+				|| !TonyStark.hasPower(player) || IronManSuitUpManager.inTransition(player)
+				|| !com.projecthero.mod.ironman.gear.StarkGear.canCall(player)) { // v0.15.1: the orbital pod call needs the Stark Glasses (else a normal suit-up)
 			return false;
 		}
 		ItemStack chest = findInInventory(player, suit.id(), ArmorItem.Type.CHESTPLATE);
@@ -713,6 +726,10 @@ public final class IronManSuitCall {
 		if (!reachable) {
 			return false;
 		}
+		if (!com.projecthero.mod.ironman.gear.StarkGear.canCall(player)) { // v0.15.1
+			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player);
+			return false;
+		}
 		callFromPlatform(player, suit);
 		return true;
 	}
@@ -723,6 +740,10 @@ public final class IronManSuitCall {
 	 */
 	public static boolean callPiece(ServerPlayer player, String suitId, ArmorItem.Type type) {
 		if (!TonyStark.hasPower(player) || IronManSuits.byId(suitId) == null) {
+			return false;
+		}
+		if (!com.projecthero.mod.ironman.gear.StarkGear.canCall(player)) { // v0.15.1: flying a piece in is a call -- needs the Stark Glasses
+			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player);
 			return false;
 		}
 		if (IronManArmor.isPieceWorn(player, IronManSuitUpManager.slotFor(type), suitId)) {

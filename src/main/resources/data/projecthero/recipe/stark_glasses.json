@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "G G",
+    "PCP"
+  ],
+  "key": {
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "P": {
+      "item": "minecraft:red_stained_glass_pane"
+    },
+    "C": {
+      "item": "projecthero:basic_circuit"
+    }
+  },
+  "result": {
+    "id": "projecthero:stark_glasses",
+    "count": 1
+  }
+}

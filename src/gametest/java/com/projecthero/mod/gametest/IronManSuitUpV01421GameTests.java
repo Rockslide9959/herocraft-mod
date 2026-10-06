@@ -68,6 +68,7 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 		ServerPlayer p = h.makeMockServerPlayerInLevel();
 		p.setGameMode(GameType.SURVIVAL);
 		TonyStark.grant(p);
+		StarkGlassesV0151GameTests.wearGlasses(p); // v0.15.1: calling a suit needs the Stark Glasses
 		return p;
 	}
 
@@ -355,12 +356,12 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 	public void protocolPhoenixRecallKeepsTheRealStacks(GameTestHelper h) {
 		ServerPlayer p = player(h);
 		for (ArmorItem.Type t : TYPES) {
-			p.getInventory().add(marked(h, "mark_iii", t));
+			p.getInventory().add(marked(h, "mark_vii", t)); // v0.15.1: Phoenix only ever recalls a Mark 7 or later
 		}
 		try {
 			h.assertTrue(ProtocolPhoenix.tryActivate(p, p.damageSources().generic()), "Phoenix takes over");
 			runSequence(p);
-			assertWornMarked(h, p, "mark_iii");
+			assertWornMarked(h, p, "mark_vii");
 		} finally {
 			ProtocolPhoenix.clearEmergency(p);
 			TonyStark.setPhoenixReadyAt(p, 0L);

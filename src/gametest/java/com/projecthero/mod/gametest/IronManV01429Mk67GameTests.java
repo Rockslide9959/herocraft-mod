@@ -80,6 +80,7 @@ public class IronManV01429Mk67GameTests implements FabricGameTest {
 		ServerPlayer p = h.makeMockServerPlayerInLevel();
 		p.setGameMode(GameType.SURVIVAL);
 		TonyStark.grant(p);
+		StarkGlassesV0151GameTests.wearGlasses(p); // v0.15.1: calling a suit needs the Stark Glasses
 		BlockPos at = h.absolutePos(new BlockPos(1, 1, 1));
 		p.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
 		p.setYRot(0f); // facing +Z

@@ -44,6 +44,7 @@ public final class IronManSuitTicker {
 		// v0.14.27: the shared repulsor dash and the homing flares / flare burns run whatever the suit's state
 		com.projecthero.mod.ironman.ability.IronManDash.tick(player);
 		com.projecthero.mod.ironman.ability.IronManFlares.tick(player);
+		com.projecthero.mod.ironman.gear.StarkGear.tick(player); // v0.15.1: the Stark Glasses' Night Vision
 
 		TonyStarkState s = TonyStark.state(player);
 
@@ -226,6 +227,9 @@ public final class IronManSuitTicker {
 	 * the player got from a potion or a beacon.
 	 */
 	static void clearHelmetNightVision(ServerPlayer player) {
+		if (com.projecthero.mod.ironman.gear.StarkGear.hasGlasses(player)) {
+			return; // v0.15.1: the Stark Glasses keep the same optic on (StarkGear.tick)
+		}
 		MobEffectInstance eff = player.getEffect(MobEffects.NIGHT_VISION);
 		if (eff != null && eff.isAmbient() && !eff.isVisible() && !eff.showIcon() && eff.getDuration() <= 400) {
 			player.removeEffect(MobEffects.NIGHT_VISION);

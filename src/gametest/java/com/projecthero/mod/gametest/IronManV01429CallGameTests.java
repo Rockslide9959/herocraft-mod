@@ -58,6 +58,7 @@ public class IronManV01429CallGameTests implements FabricGameTest {
 		ServerPlayer p = helper.makeMockServerPlayerInLevel();
 		p.setGameMode(GameType.SURVIVAL);
 		TonyStark.grant(p);
+		StarkGlassesV0151GameTests.wearGlasses(p); // v0.15.1: calling a suit needs the Stark Glasses
 		Vec3 at = Vec3.atBottomCenterOf(helper.absolutePos(rel));
 		p.moveTo(at.x, at.y, at.z, 0f, 0f);
 		return p;
@@ -85,6 +86,12 @@ public class IronManV01429CallGameTests implements FabricGameTest {
 	/** A platform bound to {@code owner}, {@code offset} blocks beyond it (+x/+z), optionally racked with a full Mark III. */
 	private static BlockPos farPlatform(GameTestHelper helper, ServerPlayer owner, int offset, boolean racked,
 			float energy, float integrity) {
+		return farPlatform(helper, owner, offset, racked, energy, integrity, "mark_iii");
+	}
+
+	/** v0.15.1: any mark (Protocol Phoenix only recalls a Mark 7 or later). */
+	private static BlockPos farPlatform(GameTestHelper helper, ServerPlayer owner, int offset, boolean racked,
+			float energy, float integrity, String suitId) {
 		ServerLevel level = helper.getLevel();
 		// further out from the isolated player (away from the test grid): every other test's unowned platform in the
 		// registry is callable too, so ours must be the nearest one
@@ -95,10 +102,10 @@ public class IronManV01429CallGameTests implements FabricGameTest {
 		be.bindTo(owner.getUUID());
 		if (racked) {
 			// energy / integrity are fractions of the Mark III's own capacity / max
-			float cap = IronManSuits.byId("mark_iii").energyCapacity();
-			float maxI = IronManEnergy.maxIntegrity("mark_iii");
+			float cap = IronManSuits.byId(suitId).energyCapacity();
+			float maxI = IronManEnergy.maxIntegrity(suitId);
 			for (ArmorItem.Type t : ALL) {
-				ItemStack piece = new ItemStack(IronManItems.armor("mark_iii", t));
+				ItemStack piece = new ItemStack(IronManItems.armor(suitId, t));
 				IronManEnergy.stampStack(piece, energy * cap, integrity * maxI);
 				helper.assertTrue(be.store(piece), "the far platform takes the " + t);
 			}
@@ -113,14 +120,18 @@ public class IronManV01429CallGameTests implements FabricGameTest {
 
 	/** Every Mark III piece the player has anywhere: worn + pack + couriers / drops around them. */
 	private static int piecesAround(GameTestHelper helper, ServerPlayer p) {
+		return piecesAround(helper, p, "mark_iii");
+	}
+
+	private static int piecesAround(GameTestHelper helper, ServerPlayer p, String suitId) {
 		int n = 0;
 		for (ArmorItem.Type t : ALL) {
-			if (p.getItemBySlot(IronManSuitUpManager.slotFor(t)).getItem() instanceof IronManArmorItem a && a.suitId().equals("mark_iii")) {
+			if (p.getItemBySlot(IronManSuitUpManager.slotFor(t)).getItem() instanceof IronManArmorItem a && a.suitId().equals(suitId)) {
 				n++;
 			}
 		}
 		for (ItemStack s : p.getInventory().items) {
-			if (s.getItem() instanceof IronManArmorItem a && a.suitId().equals("mark_iii")) {
+			if (s.getItem() instanceof IronManArmorItem a && a.suitId().equals(suitId)) {
 				n += s.getCount();
 			}
 		}
@@ -238,7 +249,7 @@ public class IronManV01429CallGameTests implements FabricGameTest {
 		ServerPlayer p = tony(helper, new BlockPos(2, 2, 2));
 		ChunkPos cp = isolate(helper, p, 2900);
 		ServerLevel level = helper.getLevel();
-		BlockPos far = farPlatform(helper, p, 500, true, 0.9f, 0.9f);
+		BlockPos far = farPlatform(helper, p, 500, true, 0.9f, 0.9f, "mark_vii"); // v0.15.1: Phoenix recalls Mark 7+ only
 		helper.startSequence()
 				.thenWaitUntil(() -> helper.assertTrue(unloaded(level, far), "the far platform's chunk unloads"))
 				.thenExecute(() -> {
@@ -247,11 +258,11 @@ public class IronManV01429CallGameTests implements FabricGameTest {
 					helper.assertTrue(IronManSuitCall.hasPendingCall(p), "and calls the suit off the unloaded platform");
 				})
 				.thenWaitUntil(() -> {
-					helper.assertTrue(IronManArmor.wearingFullSuit(p, "mark_iii"), "the emergency suit arrives");
+					helper.assertTrue(IronManArmor.wearingFullSuit(p, "mark_vii"), "the emergency suit arrives");
 					helper.assertFalse(TonyStark.phoenixEmergency(p), "and Phoenix completes");
 				})
 				.thenExecute(() -> {
-					helper.assertTrue(piecesAround(helper, p) == 4, "exactly four pieces (no duplicate)");
+					helper.assertTrue(piecesAround(helper, p, "mark_vii") == 4, "exactly four pieces (no duplicate)");
 					helper.assertTrue(StarkPlatformRegistry.get(level).at(level, far).map(StarkPlatformRegistry.Entry::pieceMask).orElse(-1) == 0,
 							"the platform is empty");
 					release(helper, cp);

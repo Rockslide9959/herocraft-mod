@@ -39,6 +39,7 @@ public class IronManDroneV01429GameTests implements FabricGameTest {
 		ServerPlayer p = helper.makeMockServerPlayerInLevel();
 		p.setGameMode(GameType.SURVIVAL);
 		TonyStark.grant(p);
+		StarkGlassesV0151GameTests.wearGlasses(p); // v0.15.1: calling a suit needs the Stark Glasses
 		Vec3 at = Vec3.atBottomCenterOf(helper.absolutePos(rel));
 		p.moveTo(at.x, at.y, at.z, 0f, 0f);
 		return p;

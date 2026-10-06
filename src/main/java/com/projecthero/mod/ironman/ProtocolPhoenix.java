@@ -35,6 +35,9 @@ import net.minecraft.world.effect.MobEffects;
  * has equipped the player is restored to 5 hearts, the emergency state ends, and the suit pays the
  * cost (20% of its max energy, 10% of its max integrity).
  *
+ * <p>v0.15.1: armed only while the Stark Glasses are worn in the Stark Gear slot, and only a Mark 7 or later suit is
+ * ever recalled ({@link com.projecthero.mod.ironman.gear.StarkGear#PHOENIX_MIN_MARK}); no eligible suit = normal death.
+ *
  * <p>All server-authoritative. The cooldown lives on the synced, persistent {@link TonyStarkState} so
  * it survives death / relog / dimension change / dropping armour. Fails safely: no viable suit means a
  * normal death; a suit that never arrives is cleaned up by a failsafe timeout with the player left
@@ -72,6 +75,10 @@ public final class ProtocolPhoenix {
 	 */
 	public static boolean tryActivate(ServerPlayer player, DamageSource source) {
 		if (!TonyStark.hasPower(player)) {
+			return false;
+		}
+		// v0.15.1: Protocol Phoenix is only armed while the Stark Glasses are on (Stark Gear slot)
+		if (!com.projecthero.mod.ironman.gear.StarkGear.hasGlasses(player)) {
 			return false;
 		}
 		// Can't trigger recursively, and truly un-survivable damage always kills.
@@ -267,6 +274,7 @@ public final class ProtocolPhoenix {
 		List<IronManSuitListPayload.Option> options = IronManSuitCall.assemblableSuits(player);
 		return options.stream()
 				.filter(o -> IronManSuits.byId(o.suitId()) != null)
+				.filter(o -> com.projecthero.mod.ironman.gear.StarkGear.phoenixEligible(o.suitId())) // v0.15.1: Mark 7+ only
 				.filter(o -> o.integrityFrac() >= MIN_INTEGRITY_FRACTION)
 				.filter(o -> o.energyFrac() >= MIN_ENERGY_FRACTION)
 				.max(Comparator

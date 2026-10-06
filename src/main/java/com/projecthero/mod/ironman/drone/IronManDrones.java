@@ -160,6 +160,10 @@ public final class IronManDrones {
 			fail(player, "message.projecthero.ironman.drone.already", suit);
 			return null;
 		}
+		if (source == IronManSuitListPayload.SOURCE_PLATFORM && !com.projecthero.mod.ironman.gear.StarkGear.canCall(player)) {
+			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player); // v0.15.1: a platform deploy is a call
+			return null;
+		}
 		ServerLevel level = player.serverLevel();
 		ItemStack[] pieces = new ItemStack[4];
 		GlobalPos home = null;

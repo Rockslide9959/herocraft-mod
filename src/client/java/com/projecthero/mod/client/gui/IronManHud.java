@@ -79,16 +79,23 @@ public final class IronManHud {
 			// no helmet: a Tony Stark player who isn't suited up can always try to call the armour (the server
 			// decides whether anything is actually reachable).
 			int y = IronManUiLayout.HUD_Y;
+			// v0.15.1: suit calling and Protocol Phoenix need the Stark Glasses (Stark Gear slot, Shift+N)
+			boolean glasses = com.projecthero.mod.ironman.gear.StarkGear.hasGlasses(player);
 			if (!wearingAnyIronMan(player)) {
-				String call = Component.translatable("hud.projecthero.ironman.call_armor",
-						ModKeyBindings.ABILITY_SLOTS[5].getTranslatedKeyMessage()).getString();
-				IronManGui.chip(g, font, x, y, w, call, IronManGui.CYAN);
+				String call = glasses
+						? Component.translatable("hud.projecthero.ironman.call_armor",
+								ModKeyBindings.ABILITY_SLOTS[5].getTranslatedKeyMessage()).getString()
+						: Component.translatable("hud.projecthero.ironman.calling_offline").getString();
+				IronManGui.chip(g, font, x, y, w, call, glasses ? IronManGui.CYAN : IronManGui.TEXT_DIM);
 				y += 13;
 			}
 			long phoenixIn = state.phoenixReadyAt - now;
 			if (phoenixIn > 0) {
 				IronManGui.chip(g, font, x, y, w, Component.translatable("hud.projecthero.ironman.phoenix_cooldown",
 						IronManUiLayout.mmss(phoenixIn)).getString(), IronManGui.GOLD);
+			} else if (glasses) {
+				IronManGui.chip(g, font, x, y, w, Component.translatable("hud.projecthero.ironman.phoenix_armed").getString(),
+						IronManGui.GREEN);
 			}
 			return;
 		}

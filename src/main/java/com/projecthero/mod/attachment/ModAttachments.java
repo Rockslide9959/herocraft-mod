@@ -769,6 +769,18 @@ public final class ModAttachments {
 			ProjectHeroMod.id("bifrost_ready_at"),
 			builder -> builder.persistent(Codec.LONG).copyOnDeath().initializer(() -> 0L));
 
+	/**
+	 * v0.15.1: the Stark Gear slot -- the Stark Glasses worn on the face (empty = none). Persistent, kept through death
+	 * (without keepInventory {@code StarkGear} drops it on death first, like inventory) and synced to everyone (they see
+	 * the glasses). Always replaced, never mutated in place outside {@code StarkGearMenu}'s slot.
+	 */
+	public static final AttachmentType<net.minecraft.world.item.ItemStack> STARK_GEAR = AttachmentRegistry.create(
+			ProjectHeroMod.id("stark_gear"),
+			builder -> builder.persistent(net.minecraft.world.item.ItemStack.OPTIONAL_CODEC)
+					.copyOnDeath()
+					.initializer(() -> net.minecraft.world.item.ItemStack.EMPTY)
+					.syncWith(net.minecraft.world.item.ItemStack.OPTIONAL_STREAM_CODEC, AttachmentSyncPredicate.all()));
+
 	private ModAttachments() {
 	}
 

@@ -1022,6 +1022,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		player.setPos(mid.x, mid.y, mid.z);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
 		com.projecthero.mod.ironman.TonyStark.markBuilt(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_III);
+		StarkGlassesV0151GameTests.wearGlasses(player); // v0.15.1: calling a suit needs the Stark Glasses
 		for (net.minecraft.world.item.ArmorItem.Type t : net.minecraft.world.item.ArmorItem.Type.values()) {
 			if (com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t) != null) {
 				player.getInventory().add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t)));
@@ -1062,6 +1063,7 @@ public class HeroPackGameTests implements FabricGameTest {
 			}
 		}
 		// v0.14.21: through the real call path (the legacy IronManSuitSummonManager is gone)
+		StarkGlassesV0151GameTests.wearGlasses(player); // v0.15.1: calling a suit needs the Stark Glasses
 		com.projecthero.mod.ironman.suit.IronManSuitCall.execute(player, "mark_iii",
 				com.projecthero.mod.network.IronManSuitListPayload.SOURCE_PLATFORM);
 		// couriers spawn at (platform centre + up 1), same tick as the call
@@ -1179,6 +1181,7 @@ public class HeroPackGameTests implements FabricGameTest {
 			}
 		}
 		// no built suit, no pieces on the player -- only the bound platform. C must still call it.
+		StarkGlassesV0151GameTests.wearGlasses(player); // v0.15.1: calling a suit needs the Stark Glasses
 		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuitCall.callBest(player),
 				"callBest must find the suit on the bound platform with nothing else developed/carried");
 		helper.assertTrue(be.isEmptyPlatform(), "the platform must be emptied by the call");
