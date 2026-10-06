@@ -9,6 +9,7 @@ import com.projecthero.mod.hulk.gladiator.GladiatorAbilities;
 import com.projecthero.mod.hulk.gladiator.GladiatorAxeEntity;
 import com.projecthero.mod.hulk.gladiator.GladiatorGear;
 import com.projecthero.mod.hulk.gladiator.GladiatorHammerEntity;
+import com.projecthero.mod.hulk.gladiator.GladiatorSwing;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 
@@ -19,7 +20,9 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Husk;
 import net.minecraft.world.level.GameType;
@@ -122,6 +125,35 @@ public class GladiatorMovesGameTests implements FabricGameTest {
 		helper.assertFalse(GladiatorAbilities.active(glad), "Banner has no Gladiator kit, gear or not");
 		GladiatorAbilities.axeCleave(glad);
 		helper.assertTrue(HulkAbilities.cooldownRemaining(glad, GladiatorAbilities.AXE_CLEAVE) == 0, "and Banner can't use the moves");
+		helper.succeed();
+	}
+
+	/** v0.15.5: plain melee swings alternate hammer (main / right hand) and axe (off / left hand), strictly. */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "gladiator_kit")
+	public void gladiatorMeleeSwingsStrictlyAlternateHands(GameTestHelper helper) {
+		ServerPlayer plain = hulk(helper);
+		plain.swing(InteractionHand.OFF_HAND, true);
+		helper.assertTrue(GladiatorSwing.next(plain, InteractionHand.MAIN_HAND) == InteractionHand.MAIN_HAND,
+				"without the kit the Hulk swings the hand vanilla picks");
+
+		ServerPlayer p = gladiator(helper);
+		helper.assertTrue(GladiatorSwing.after(null) == InteractionHand.MAIN_HAND, "the first swing is the hammer's");
+		helper.assertTrue(GladiatorSwing.arm(p, InteractionHand.MAIN_HAND) == HumanoidArm.RIGHT, "main hand = right arm (hammer)");
+		helper.assertTrue(GladiatorSwing.arm(p, InteractionHand.OFF_HAND) == HumanoidArm.LEFT, "off hand = left arm (axe)");
+		p.swing(InteractionHand.MAIN_HAND, true);
+		InteractionHand last = InteractionHand.MAIN_HAND;
+		for (int i = 0; i < 6; i++) {
+			InteractionHand next = GladiatorSwing.next(p, InteractionHand.MAIN_HAND);
+			helper.assertTrue(next != last, "swing " + i + " switches hands (was " + last + ")");
+			p.swing(next, true);
+			helper.assertTrue(p.swingingArm == next, "the swing is recorded on that hand");
+			last = next;
+		}
+
+		Hulk.revert(p, false);
+		p.swing(InteractionHand.MAIN_HAND, true);
+		helper.assertTrue(GladiatorSwing.next(p, InteractionHand.MAIN_HAND) == InteractionHand.MAIN_HAND,
+				"Banner swings the main hand as usual");
 		helper.succeed();
 	}
 

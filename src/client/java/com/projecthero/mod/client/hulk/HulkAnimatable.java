@@ -21,7 +21,7 @@ import software.bernie.geckolib.util.GeckoLibUtil;
  * every Hulk -- GeckoLib keys each player's animation state by entity id. What plays is read from the player's synced
  * {@link HulkState}: the growth ({@code transform}), a charging / airborne Super Leap, Thunderclap ({@code clap}) and
  * Ground Smash ({@code smash}) on their impact clock, otherwise {@code run} / {@code walk} / {@code idle}; a melee
- * swing layers {@code punch} over the right arm.
+ * swing layers {@code punch} over the right arm ({@code punch_left} over the left for a left-arm swing, v0.15.5).
  */
 public final class HulkAnimatable implements GeoReplacedEntity {
 	public static final HulkAnimatable INSTANCE = new HulkAnimatable();
@@ -38,6 +38,8 @@ public final class HulkAnimatable implements GeoReplacedEntity {
 	/** v0.13.15: the unwilling change -- on his knees, clutching his head, then up into the roar. */
 	private static final RawAnimation TRANSFORM_FORCED = RawAnimation.begin().thenPlay(P + "transform_forced");
 	private static final RawAnimation PUNCH = RawAnimation.begin().thenPlay(P + "punch");
+	/** v0.15.5: the same punch thrown with the left arm (an off-hand swing -- Gladiator Hulk alternates axe / hammer). */
+	private static final RawAnimation PUNCH_LEFT = RawAnimation.begin().thenPlay(P + "punch_left");
 	private static final RawAnimation POWER_PUNCH = RawAnimation.begin().thenPlay(P + "power_punch");
 	private static final RawAnimation HULK_SMASH_CHARGE = RawAnimation.begin().thenPlayAndHold(P + "hulk_smash_charge");
 	private static final RawAnimation HULK_SMASH = RawAnimation.begin().thenPlay(P + "hulk_smash");
@@ -190,7 +192,9 @@ public final class HulkAnimatable implements GeoReplacedEntity {
 	private PlayState swing(AnimationState<HulkAnimatable> state) {
 		if (state.getData(DataTickets.ENTITY) instanceof Player player && player.swinging
 				&& !player.getAttachedOrElse(ModAttachments.HULK_STATE, new HulkState()).combat.holding) {
-			return state.setAndContinue(PUNCH);
+			boolean left = player.swingingArm != null && com.projecthero.mod.hulk.gladiator.GladiatorSwing.arm(player, player.swingingArm)
+					== net.minecraft.world.entity.HumanoidArm.LEFT;
+			return state.setAndContinue(left ? PUNCH_LEFT : PUNCH);
 		}
 		state.getController().forceAnimationReset();
 		return PlayState.STOP;

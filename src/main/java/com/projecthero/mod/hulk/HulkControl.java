@@ -244,7 +244,8 @@ public final class HulkControl {
 			if (dist <= reach && now >= r.nextSwing) {
 				player.resetAttackStrengthTicker();
 				player.attack(target);
-				player.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
+				// v0.15.5: Gladiator Hulk alternates hammer / axe
+				player.swing(com.projecthero.mod.hulk.gladiator.GladiatorSwing.next(player, net.minecraft.world.InteractionHand.MAIN_HAND), true);
 				r.nextSwing = now + 12;
 			}
 			if (dist > 9.0 && now >= r.nextLeap && player.onGround()) {
