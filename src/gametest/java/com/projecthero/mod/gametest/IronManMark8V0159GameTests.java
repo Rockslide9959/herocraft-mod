@@ -249,4 +249,29 @@ public class IronManMark8V0159GameTests implements FabricGameTest {
 		h.assertTrue(IronManAbilities.SUIT_TOGGLE != null, "sanity");
 		h.succeed();
 	}
+
+	/**
+	 * The helmet's base layer (head faces of the skin layout: top / bottom / sides / front / back) must be fully opaque --
+	 * a transparent texel there lets the wearer's own head show through the closed helmet (the user's skin had 18 such
+	 * texels on the top front edge, the side front edges and the jaw corners, filled in after the in-client check).
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void markEightHelmetBaseLayerIsOpaque(GameTestHelper h) {
+		try (java.io.InputStream in = IronManMark8V0159GameTests.class.getResourceAsStream("/assets/projecthero/textures/armor/mark_8.png")) {
+			h.assertTrue(in != null, "missing mark_8.png");
+			java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(in);
+			int[][] faces = { { 8, 0 }, { 16, 0 }, { 0, 8 }, { 8, 8 }, { 16, 8 }, { 24, 8 } };
+			for (int[] f : faces) {
+				for (int y = 0; y < 8; y++) {
+					for (int x = 0; x < 8; x++) {
+						int a = img.getRGB(f[0] + x, f[1] + y) >>> 24;
+						h.assertTrue(a == 255, "see-through helmet texel at (" + (f[0] + x) + "," + (f[1] + y) + ") alpha " + a);
+					}
+				}
+			}
+		} catch (java.io.IOException e) {
+			h.fail("could not read mark_8.png: " + e);
+		}
+		h.succeed();
+	}
 }
