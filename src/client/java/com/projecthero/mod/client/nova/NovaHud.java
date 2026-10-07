@@ -72,8 +72,8 @@ public final class NovaHud {
 		int totalW = BOX * SLOTS.length + GAP * (SLOTS.length - 1);
 		int x0 = g.guiWidth() - MARGIN - totalW;
 		int y0 = g.guiHeight() - MARGIN - BOX;
-		if (x0 < g.guiWidth() / 2 + 91 + 4) {
-			y0 -= 40; // a narrow GUI: sit above the hotbar, health and food rows instead of on top of them
+		if (x0 < g.guiWidth() / 2 + 91 + 32) { // the hotbar (and a left-hander's off-hand slot beside it)
+			y0 -= 52; // a narrow GUI: sit above the hotbar, health, food and air rows instead of on top of them
 		}
 
 		// ---- the Slab bar

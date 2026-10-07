@@ -473,8 +473,12 @@ public class NovaGameTests implements FabricGameTest {
 		ServerPlayer p = nova(helper, 1.5, 2.0, 1.5);
 		Zombie weak = zombie(helper, 4.5, 2.0, 2.5, true, 40);
 		Zombie strong = zombie(helper, 2.5, 2.0, 5.5, true, 100);
+		helper.assertTrue(NovaAbilities.strongestOf(p, java.util.List.of(weak, strong)) == strong, "the stronger one is picked");
+		// the real scan reaches 48 blocks, so a neighbouring test's mob may be stronger still -- but never the weak one
 		NovaAbilities.scan(p);
-		helper.assertTrue(NovaAbilities.isMarked(strong) && !NovaAbilities.isMarked(weak), "the strongest is marked");
+		helper.assertFalse(NovaAbilities.isMarked(weak), "the weaker one is not marked");
+		NovaAbilities.mark(strong, NovaConfig.SCAN_TICKS);
+		helper.assertTrue(NovaAbilities.isMarked(strong), "marked");
 		strong.invulnerableTime = 0;
 		strong.hurt(helper.getLevel().damageSources().generic(), 8f);
 		helper.assertTrue(Math.abs((100f - strong.getHealth()) - 10f) < EPS, "the mark adds 25%: 8 -> 10, lost " + (100f - strong.getHealth()));

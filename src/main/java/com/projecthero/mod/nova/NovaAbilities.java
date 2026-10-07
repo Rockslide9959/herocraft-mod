@@ -1025,23 +1025,9 @@ public final class NovaAbilities {
 		long now = level.getGameTime();
 		List<LivingEntity> found = NovaCombat.within(p, p.getEyePosition(), NovaConfig.SCAN_RANGE,
 				e -> e != p && e instanceof Mob && e.isAlive());
-		LivingEntity strongest = null;
-		for (boolean hostileOnly : new boolean[] { true, false }) {
-			for (LivingEntity e : found) {
-				if ((hostileOnly && !NovaCombat.isHostile(p, e)) || (!hostileOnly && !NovaCombat.isTarget(p, e))) {
-					continue;
-				}
-				if (strongest == null || e.getMaxHealth() > strongest.getMaxHealth()
-						|| (e.getMaxHealth() == strongest.getMaxHealth() && e.getHealth() > strongest.getHealth())) {
-					strongest = e;
-				}
-			}
-			if (strongest != null) {
-				break;
-			}
-		}
+		LivingEntity strongest = strongestOf(p, found);
 		if (strongest != null) {
-			MARKS.put(strongest.getId(), now + NovaConfig.SCAN_TICKS);
+			mark(strongest, NovaConfig.SCAN_TICKS);
 			Vec3 m = strongest.position().add(0, strongest.getBbHeight() + 0.4, 0);
 			level.sendParticles(ParticleTypes.FLASH, m.x, m.y, m.z, 1, 0.0, 0.0, 0.0, 0.0);
 		}
@@ -1064,6 +1050,31 @@ public final class NovaAbilities {
 		p.displayClientMessage(Component.translatable("message.projecthero.nova.scan", found.size(),
 				strongest == null ? Component.translatable("message.projecthero.nova.scan_none") : strongest.getDisplayName())
 				.withStyle(ChatFormatting.AQUA), true);
+	}
+
+	/** The creature a Worldmind Scan marks among {@code found}: the highest max health (then health), hostiles first. */
+	public static LivingEntity strongestOf(ServerPlayer p, List<LivingEntity> found) {
+		LivingEntity strongest = null;
+		for (boolean hostileOnly : new boolean[] { true, false }) {
+			for (LivingEntity e : found) {
+				if ((hostileOnly && !NovaCombat.isHostile(p, e)) || (!hostileOnly && !NovaCombat.isTarget(p, e))) {
+					continue;
+				}
+				if (strongest == null || e.getMaxHealth() > strongest.getMaxHealth()
+						|| (e.getMaxHealth() == strongest.getMaxHealth() && e.getHealth() > strongest.getHealth())) {
+					strongest = e;
+				}
+			}
+			if (strongest != null) {
+				return strongest;
+			}
+		}
+		return null;
+	}
+
+	/** Puts the Worldmind mark (+25% damage taken) on {@code e} for {@code ticks}. */
+	public static void mark(LivingEntity e, int ticks) {
+		MARKS.put(e.getId(), e.level().getGameTime() + ticks);
 	}
 
 	// ================================================================ Shift+V: Nova Force Transfer

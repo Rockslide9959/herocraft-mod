@@ -6,10 +6,12 @@ file in step with it.
 ## Getting it
 
 - **Crashed Nova Corps Pod** (`projecthero:nova_pod_site`): a rare surface structure -- a scorched 15-block impact bowl
-  with a gold-and-blue pod nose-down in the middle (cyan canopy, gold Nova star on each flank, glowing engine with a
-  smouldering exhaust) and hull plates scattered round it. Biomes = the Mjolnir crater list
-  (`#projecthero:nova_pod_site_biomes`); placement `random_spread`, spacing 110, separation 40, frequency 0.5 (about as
-  rare as the Kryptonite crater). `/locate structure projecthero:nova_pod_site`.
+  with a long, low Nova Corps fighter lying in it at an angle (15 blocks long, 5 wide): gold nose cone ploughed into
+  the floor, blue fuselage with sloping shoulders and a gold spine stripe, a glass cockpit canopy and windscreen, a gold
+  Nova star on each flank, the hatch torn open, two swept tail fins and a dorsal fin, a glowing engine with a smouldering
+  exhaust, and a 12-block skid furrow of scorched earth and hull plates running out of the crater behind it. Biomes =
+  the Mjolnir crater list (`#projecthero:nova_pod_site_biomes`); placement `random_spread`, spacing 110, separation 40,
+  frequency 0.5 (about as rare as the Kryptonite crater). `/locate structure projecthero:nova_pod_site`.
 - **The dying Centurion** (`projecthero:nova_centurion`) sits slumped against the open hatch: not hostile, never moves
   (turns his head to you), cannot be hurt (only `/kill`), never despawns. Within 8 blocks he mutters a line, at most once
   every 10 s per player. **Right-click** him: he hands over the **Nova Corps Helmet** and fades away in golden light over
@@ -74,7 +76,7 @@ pets; other players only with PvP on. Gravity moves only ever move mobs, never p
 ## HUD
 
 Bottom right: NOVA (OVERLOAD + seconds while it runs), the Nova Force **Slab** bar (9 px, border, numbers inside), and
-six boxes R G Z X C V. Each box shows the tap move's cooldown, or with Shift held the Shift move's (gold dot); a strip
+six boxes R G Z X C V (moved up above the hotbar / health / food / air rows whenever the GUI is too narrow for them to sit beside the hotbar). Each box shows the tap move's cooldown, or with Shift held the Shift move's (gold dot); a strip
 along the bottom shows the other move's readiness; a red strip = not enough Force. Shift or Left-Alt lists the moves.
 No H / N boxes.
 

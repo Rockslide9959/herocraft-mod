@@ -32,6 +32,8 @@ public class NovaPodSitePiece extends StructurePiece {
 	public static final int RADIUS = 7;
 	private static final int MAX_DEPTH = 3;
 	private static final double EDGE_JITTER = 1.2;
+	/** How far the skid furrow runs out past the rim (+X). */
+	private static final int FURROW = 12;
 	/** The floor stays flat this far from the centre. */
 	private static final double FLAT_RADIUS = 3.6;
 
@@ -40,7 +42,7 @@ public class NovaPodSitePiece extends StructurePiece {
 	public NovaPodSitePiece(int centerX, int surfaceY, int centerZ) {
 		super(ModStructurePieceTypes.NOVA_POD_SITE, 0, new BoundingBox(
 				centerX - RADIUS - 2, surfaceY - MAX_DEPTH - 6, centerZ - RADIUS - 2,
-				centerX + RADIUS + 2, surfaceY + 10, centerZ + RADIUS + 2));
+				centerX + RADIUS + FURROW + 1, surfaceY + 12, centerZ + RADIUS + 2));
 		this.baseY = surfaceY;
 	}
 
@@ -60,7 +62,7 @@ public class NovaPodSitePiece extends StructurePiece {
 	}
 
 	public BlockPos center() {
-		return new BlockPos((this.boundingBox.minX() + this.boundingBox.maxX()) / 2, floorY(),
+		return new BlockPos(this.boundingBox.minX() + RADIUS + 2, floorY(), // the box runs on past the rim for the furrow
 				(this.boundingBox.minZ() + this.boundingBox.maxZ()) / 2);
 	}
 
@@ -123,6 +125,7 @@ public class NovaPodSitePiece extends StructurePiece {
 			}
 		}
 		buildPod(level, box, cx, floor + 1, cz);
+		buildFurrow(level, box, cx, cz, surface);
 		if (centurion) {
 			placeCenturion(level, box, cx, floor + 1, cz);
 		}
@@ -134,9 +137,6 @@ public class NovaPodSitePiece extends StructurePiece {
 
 	private static BlockState scorch(RandomSource r, double dist) {
 		float f = r.nextFloat();
-		if (dist < 1.5 && f < 0.25f) {
-			return Blocks.MAGMA_BLOCK.defaultBlockState();
-		}
 		return f < 0.45f ? Blocks.BLACKSTONE.defaultBlockState()
 				: f < 0.7f ? Blocks.BASALT.defaultBlockState()
 				: f < 0.88f ? Blocks.COARSE_DIRT.defaultBlockState() : Blocks.GILDED_BLACKSTONE.defaultBlockState();
@@ -149,63 +149,183 @@ public class NovaPodSitePiece extends StructurePiece {
 		}
 	}
 
+	/** How high the hull sits at each X along its length (-8 = the buried nose tip, +7 = the lifted engine). */
+	static int lift(int dx) {
+		if (dx <= -7) {
+			return -2;
+		}
+		if (dx <= -4) {
+			return -1;
+		}
+		if (dx <= 0) {
+			return 0;
+		}
+		if (dx <= 3) {
+			return 1;
+		}
+		return 2;
+	}
+
+	/** Half-width of the hull at {@code dx}: the fuselage is 5 wide, tapering to 3 at the nose and the tail. */
+	private static int halfWidth(int dx) {
+		return dx <= -6 || dx >= 5 ? 1 : 2;
+	}
+
+	/** Top row of the hull at {@code dx} (rows count up from the belly). */
+	private static int topRow(int dx) {
+		if (dx <= -8) {
+			return 1;
+		}
+		return halfWidth(dx) == 2 ? 3 : 2;
+	}
+
+	private static BlockState stair(net.minecraft.world.level.block.Block block, Direction facing, boolean upsideDown) {
+		return block.defaultBlockState().setValue(net.minecraft.world.level.block.StairBlock.FACING, facing)
+				.setValue(net.minecraft.world.level.block.StairBlock.HALF, upsideDown
+						? net.minecraft.world.level.block.state.properties.Half.TOP
+						: net.minecraft.world.level.block.state.properties.Half.BOTTOM);
+	}
+
 	/**
-	 * The pod: a 7-long capsule along X, nose (-X) dug into the floor, tail (+X) lifted, a cyan canopy on top, a gold
-	 * Nova star on each flank, the hatch open on the +Z side and a glowing, smoking engine at the tail.
+	 * The pod: a long, low Nova Corps fighter (15 blocks, 5 wide, 4 tall) lying along X at an angle -- its gold nose cone
+	 * ploughed into the crater floor at -X, the engine end lifted two blocks at +X. Blue flanks with sloping dark-blue
+	 * shoulders (stairs) and a sloping belly, a gold band down the spine, a light-blue glass cockpit canopy behind the
+	 * nose with a windscreen, a gold Nova star on each flank, the hatch torn open on the +Z side (the Centurion sits
+	 * against the hull beside it), two swept tail fins and a dorsal fin, a glowing engine with a smouldering exhaust, and
+	 * the lifted end propped on the earth it ploughed up. {@link #buildFurrow} adds the skid trench behind it.
 	 */
 	private static void buildPod(WorldGenLevel level, BoundingBox box, int cx, int y0, int cz) {
-		BlockState hull = Blocks.YELLOW_CONCRETE.defaultBlockState();
-		BlockState trim = Blocks.BLUE_CONCRETE.defaultBlockState();
-		BlockState dark = Blocks.CYAN_TERRACOTTA.defaultBlockState();
+		BlockState blue = Blocks.BLUE_CONCRETE.defaultBlockState();
 		BlockState gold = Blocks.GOLD_BLOCK.defaultBlockState();
+		BlockState goldTrim = Blocks.YELLOW_CONCRETE.defaultBlockState();
+		BlockState inside = Blocks.BLACK_CONCRETE.defaultBlockState();
 		BlockState glass = Blocks.LIGHT_BLUE_STAINED_GLASS.defaultBlockState();
-		for (int dx = -3; dx <= 3; dx++) {
-			int lift = dx <= -2 ? -1 : dx >= 2 ? 1 : 0; // nose down, tail up
-			for (int dy = 0; dy <= 2; dy++) {
-				for (int dz = -1; dz <= 1; dz++) {
-					boolean corner = (dy == 0 || dy == 2) && dz != 0;
-					boolean tip = (dx == -3 || dx == 3) && (dy != 1 || dz != 0);
-					if (corner || tip) {
-						continue;
+		net.minecraft.world.level.block.Block shoulder = Blocks.DARK_PRISMARINE_STAIRS;
+
+		for (int dx = -8; dx <= 6; dx++) {
+			int y = y0 + lift(dx);
+			int half = dx <= -8 ? 0 : halfWidth(dx);
+			int top = topRow(dx);
+			for (int dz = -half; dz <= half; dz++) {
+				Direction in = dz > 0 ? Direction.NORTH : Direction.SOUTH; // the tall side of a stair faces the spine
+				for (int dy = 0; dy <= top; dy++) {
+					boolean edge = dz != 0 && Math.abs(dz) == half;
+					BlockState s;
+					if (dx <= -7) {
+						s = dy == top || dz == 0 ? gold : goldTrim; // the gold nose cone
+					} else if (dy == top) {
+						if (edge && half == 2) {
+							continue; // the shoulder stair below gives the slope
+						}
+						s = dz == 0 ? gold : blue; // a gold stripe down the spine between blue shoulders
+						if (dx == -5 || dx == -4) {
+							s = glass; // the cockpit canopy
+						}
+					} else if (dy == 0) {
+						s = edge ? stair(shoulder, in, true) : blue; // the belly curves in
+					} else if (edge && dy == top - 1 && half == 2) {
+						s = stair(shoulder, in, false); // the shoulders
+					} else if (edge) {
+						s = blue;
+					} else {
+						s = inside;
 					}
-					BlockState s = dy == 1 && dz != 0 ? trim : hull;
-					if (dy == 2 && (dx == -1 || dx == 0)) {
-						s = glass; // the canopy
+					if (dx == -6 && dy == top && dz == 0) {
+						s = glass; // the windscreen
 					}
-					if (dy == 0) {
-						s = dark;
-					}
-					if (dy == 1 && dz != 0 && dx == 0) {
-						s = gold; // the Nova star on the flank
-					}
-					if (dz == 1 && dx == 1 && dy <= 1) {
-						s = Blocks.AIR.defaultBlockState(); // the open hatch
-					}
-					put(level, box, cx + dx, y0 + dy + lift, cz + dz, s);
+					put(level, box, cx + dx, y + dy, cz + dz, s);
+				}
+				// prop the lifted end up on the earth it ploughed (and fill the gap under the belly)
+				for (int py = y0 - 1; py < y; py++) {
+					put(level, box, cx + dx, py, cz + dz, py == y - 1 ? Blocks.COARSE_DIRT.defaultBlockState()
+							: Blocks.BLACKSTONE.defaultBlockState());
 				}
 			}
 		}
-		// the nose cone and the engine
-		put(level, box, cx - 4, y0, cz, gold);
-		put(level, box, cx + 4, y0 + 2, cz, Blocks.SEA_LANTERN.defaultBlockState());
-		put(level, box, cx + 4, y0 + 1, cz, Blocks.CAMPFIRE.defaultBlockState().setValue(CampfireBlock.LIT, true)
+		// the Nova star on each flank: a gold plus on the blue
+		for (int side : new int[] { -1, 1 }) {
+			int sx = side > 0 ? 2 : 0;
+			int sy = y0 + lift(sx) + 1;
+			int sz = cz + 2 * side;
+			put(level, box, cx + sx, sy, sz, gold);
+			put(level, box, cx + sx - 1, sy, sz, gold);
+			put(level, box, cx + sx + 1, sy, sz, gold);
+			put(level, box, cx + sx, sy - 1, sz, gold);
+			put(level, box, cx + sx, sy + 1, sz, gold);
+		}
+		// the hatch, torn open on the +Z flank
+		for (int hy = 1; hy <= 2; hy++) {
+			put(level, box, cx - 1, y0 + lift(-1) + hy, cz + 2, Blocks.AIR.defaultBlockState());
+		}
+		put(level, box, cx - 3, y0, cz + 4, Blocks.BLUE_CONCRETE.defaultBlockState()); // the hatch door, thrown clear
+		// the engine: a glowing core in a dark housing, a smouldering exhaust beside it
+		int ey = y0 + lift(6);
+		put(level, box, cx + 7, ey + 1, cz, Blocks.SEA_LANTERN.defaultBlockState());
+		put(level, box, cx + 7, ey + 2, cz, Blocks.POLISHED_BLACKSTONE.defaultBlockState());
+		put(level, box, cx + 7, ey + 1, cz - 1, Blocks.POLISHED_BLACKSTONE.defaultBlockState());
+		put(level, box, cx + 7, ey + 1, cz + 1, Blocks.POLISHED_BLACKSTONE.defaultBlockState());
+		put(level, box, cx + 7, ey, cz, Blocks.CAMPFIRE.defaultBlockState().setValue(CampfireBlock.LIT, true)
 				.setValue(CampfireBlock.SIGNAL_FIRE, false));
-		put(level, box, cx + 4, y0, cz, Blocks.BLACKSTONE.defaultBlockState());
-		// fins
-		put(level, box, cx + 3, y0 + 2, cz - 2, Blocks.YELLOW_TERRACOTTA.defaultBlockState());
-		put(level, box, cx + 3, y0 + 2, cz + 2, Blocks.YELLOW_TERRACOTTA.defaultBlockState());
-		put(level, box, cx + 2, y0 + 3, cz, Blocks.YELLOW_TERRACOTTA.defaultBlockState());
-		// a torn hull plate and a cable by the hatch
-		put(level, box, cx + 2, y0, cz + 2, Blocks.IRON_BARS.defaultBlockState());
-		put(level, box, cx - 1, y0, cz + 3, Blocks.YELLOW_CONCRETE.defaultBlockState());
-		put(level, box, cx - 2, y0, cz - 3, Blocks.LIGHT_BLUE_STAINED_GLASS_PANE.defaultBlockState());
-		put(level, box, cx + 1, y0, cz - 2, Blocks.CHAIN.defaultBlockState().setValue(net.minecraft.world.level.block.ChainBlock.AXIS,
-				Direction.Axis.X));
+		for (int py = y0 - 1; py < ey; py++) {
+			put(level, box, cx + 7, py, cz, Blocks.BLACKSTONE.defaultBlockState());
+		}
+		// two swept tail fins and a dorsal fin
+		for (int side : new int[] { -1, 1 }) {
+			put(level, box, cx + 5, y0 + lift(5) + 2, cz + 2 * side, goldTrim);
+			put(level, box, cx + 6, y0 + lift(6) + 2, cz + 2 * side, goldTrim);
+			put(level, box, cx + 6, y0 + lift(6) + 3, cz + 3 * side, goldTrim);
+		}
+		put(level, box, cx + 5, y0 + lift(5) + 3, cz, goldTrim);
+		put(level, box, cx + 6, y0 + lift(6) + 3, cz, goldTrim);
+		put(level, box, cx + 6, y0 + lift(6) + 4, cz, Blocks.YELLOW_TERRACOTTA.defaultBlockState());
+	}
+
+	/**
+	 * The skid furrow behind the pod: a three-wide trench of scorched earth running out of the crater along +X, banked
+	 * with ploughed-up dirt, littered with hull plates.
+	 */
+	private void buildFurrow(WorldGenLevel level, BoundingBox box, int cx, int cz, Heightmap.Types surface) {
+		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+		for (int dx = RADIUS - 1; dx <= RADIUS + FURROW; dx++) {
+			int x = cx + dx;
+			double fade = (dx - (RADIUS - 1)) / (double) (FURROW + 1); // shallower and narrower as it runs out
+			int width = fade > 0.7 ? 1 : 2;
+			for (int dz = -width; dz <= width; dz++) {
+				int z = cz + dz;
+				if (x < box.minX() || x > box.maxX() || z < box.minZ() || z > box.maxZ()) {
+					continue;
+				}
+				RandomSource r = columnRandom(x, z * 31 + 7);
+				int top = level.getHeight(surface, x, z) - 1;
+				if (top < baseY - MAX_DEPTH - 2) {
+					continue; // inside the bowl already
+				}
+				if (Math.abs(dz) == width && width == 2) {
+					cursor.set(x, top + 1, z); // the bank of ploughed-up earth
+					if (r.nextFloat() < 0.25f) {
+						level.setBlock(cursor, r.nextFloat() < 0.3f ? Blocks.BLACKSTONE.defaultBlockState() : Blocks.COARSE_DIRT.defaultBlockState(), 2);
+					}
+					continue;
+				}
+				cursor.set(x, top, z);
+				level.setBlock(cursor, Blocks.AIR.defaultBlockState(), 2);
+				cursor.set(x, top - 1, z);
+				level.setBlock(cursor, scorch(r, 6.0), 2);
+				if (r.nextFloat() < 0.12f) {
+					cursor.set(x, top, z); // a hull plate left behind
+					level.setBlock(cursor, r.nextBoolean() ? Blocks.BLUE_CONCRETE.defaultBlockState()
+							: Blocks.YELLOW_CONCRETE.defaultBlockState(), 2);
+				} else if (r.nextFloat() < 0.06f) {
+					cursor.set(x, top, z);
+					level.setBlock(cursor, Blocks.IRON_BARS.defaultBlockState(), 2);
+				}
+			}
+		}
 	}
 
 	/** Where the Centurion sits: against the hull beside the open hatch, facing out (+Z). */
 	public static BlockPos centurionSpot(int cx, int y0, int cz) {
-		return new BlockPos(cx, y0, cz + 2);
+		return new BlockPos(cx - 1, y0, cz + 3);
 	}
 
 	private static void placeCenturion(WorldGenLevel level, BoundingBox box, int cx, int y0, int cz) {
