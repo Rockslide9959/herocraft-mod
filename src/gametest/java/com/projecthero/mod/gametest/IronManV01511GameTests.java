@@ -88,6 +88,8 @@ public class IronManV01511GameTests implements FabricGameTest {
 		Zombie z = EntityType.ZOMBIE.create(h.getLevel());
 		z.moveTo(at.x, at.y, at.z);
 		z.setNoAi(true);
+		// daylight sets a zombie alight even with no AI -- the burn read as a stray hit in CI (v0.15.13)
+		z.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.FIRE_RESISTANCE, 20 * 60, 0, false, false));
 		h.getLevel().addFreshEntity(z);
 		return z;
 	}
@@ -331,7 +333,8 @@ public class IronManV01511GameTests implements FabricGameTest {
 			h.assertTrue(near.getDeltaMovement().y > 0.3 && edge.getDeltaMovement().y > 0.3, "both are popped up");
 			Vec3 push = near.getDeltaMovement();
 			h.assertTrue(push.x > 0.2 && push.z > 0.2, "and thrown outward, got " + push);
-			h.assertTrue(out.getHealth() == hp, "a zombie 8 blocks away is untouched");
+			h.assertTrue(out.getHealth() == hp && out.getLastHurtByMob() != p,
+					"a zombie 8 blocks away is untouched, health " + out.getHealth() + ", fire " + out.getRemainingFireTicks());
 			float e1 = IronManEnergy.energy(p, "mark_1");
 			p.setShiftKeyDown(true);
 			IronManAbilities.trigger(p, IronManSuits.MARK_1, 1, true);
