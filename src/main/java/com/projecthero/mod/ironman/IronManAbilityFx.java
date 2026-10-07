@@ -31,6 +31,8 @@ public final class IronManAbilityFx {
 	public static final int SONIC_CLAP = 21;
 	/** v0.14.27 (agent D): Mark III shoulder miniguns -- numbered high to stay clear of other new poses. */
 	public static final int MINIGUN = 22;
+	/** v0.15.11: the Mark 1 Shift+R ground pound ({@code IronManGroundPound}) -- fists overhead, then slammed down. */
+	public static final int GROUND_POUND = 60;
 
 	private IronManAbilityFx() {
 	}

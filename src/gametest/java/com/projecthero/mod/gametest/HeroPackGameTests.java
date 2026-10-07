@@ -1198,49 +1198,6 @@ public class HeroPackGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void suitAutoRecoversToPlatformOnDeath(GameTestHelper helper) {
-		ServerPlayer player = survivalMockPlayer(helper);
-		net.minecraft.world.phys.Vec3 pp = net.minecraft.world.phys.Vec3.atBottomCenterOf(
-				helper.absolutePos(new net.minecraft.core.BlockPos(6, 1, 6)));
-		player.setPos(pp.x, pp.y, pp.z);
-		com.projecthero.mod.ironman.TonyStark.grant(player);
-		for (net.minecraft.world.item.ArmorItem.Type t : net.minecraft.world.item.ArmorItem.Type.values()) {
-			if (com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t) != null) {
-				player.setItemSlot(com.projecthero.mod.ironman.suit.IronManSuitUpManager.slotFor(t),
-						new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t)));
-			}
-		}
-		com.projecthero.mod.ironman.IronManEnergy.setEnergy(player, "mark_iii", 4200f);
-		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_iii",
-				com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_iii"));
-
-		helper.getLevel().getServer().getGameRules()
-				.getRule(net.minecraft.world.level.GameRules.RULE_KEEPINVENTORY)
-				.set(false, helper.getLevel().getServer());
-
-		net.minecraft.core.BlockPos platPos = new net.minecraft.core.BlockPos(2, 2, 2);
-		helper.setBlock(platPos, com.projecthero.mod.ironman.IronManBlocks.IRON_MAN_SUIT_PLATFORM);
-		var be = (com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlockEntity) helper.getBlockEntity(platPos);
-		be.bindTo(player.getUUID());
-
-		com.projecthero.mod.ironman.suit.IronManSuitCall.recoverSuitOnDeath(player);
-
-		helper.assertTrue(!com.projecthero.mod.ironman.IronManArmor.wearingAnyIronMan(player),
-				"the suit must come off the player on death");
-		helper.assertTrue("mark_iii".equals(be.storedSuitId()) && be.isFull(),
-				"the whole suit must be docked at the bound platform");
-		// "changes 14": a 50%-of-this-suit's-max integrity crash hit. Mark III's pool is 600 ("changes
-		// 18"), so a full suit lands at ~300.
-		float half = com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_iii") * 0.5f;
-		helper.assertTrue(be.suitIntegrity() > half - 15f && be.suitIntegrity() < half + 15f,
-				"the recovered suit lost 50% of max integrity (~" + half + "), got " + be.suitIntegrity());
-		helper.assertTrue(be.suitEnergy() > 1000f, // v0.14.26: Mark III capacity is 1500
-
-				"the recovered suit keeps its charge, got " + be.suitEnergy());
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
 	public void ironManSuitGrantsStrengthProRata(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
@@ -1368,41 +1325,6 @@ public class HeroPackGameTests implements FabricGameTest {
 				"the diamond chestplate it replaced must come back to the inventory, not vanish");
 		helper.assertTrue(countIronManPieces(player, "mark_iii") == 0,
 				"every reserved piece should have moved from the pack onto the body exactly once");
-		helper.succeed();
-	}
-
-	/**
-	 * Dying in a partial suit with a Suit Platform waiting in an unloaded chunk sends the Iron Man
-	 * pieces home -- and must leave every other armour slot completely alone.
-	 */
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void deathRecoveryOnlyTakesTheIronManPieces(GameTestHelper helper) {
-		ServerPlayer player = survivalMockPlayer(helper);
-		com.projecthero.mod.ironman.TonyStark.grant(player);
-		player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST,
-				new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii",
-						net.minecraft.world.item.ArmorItem.Type.CHESTPLATE)));
-		player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD,
-				new ItemStack(net.minecraft.world.item.Items.DIAMOND_HELMET));
-
-		// A dock the player owns, far enough away that the loaded-chunk scan can't see it -- this is
-		// the "fly itself home" path, the one that used to blank all four armour slots.
-		var level = helper.getLevel();
-		var registry = com.projecthero.mod.ironman.data.StarkPlatformRegistry.get(level);
-		net.minecraft.core.BlockPos far = player.blockPosition().offset(4000, 0, 4000);
-		registry.put(level, far, java.util.Optional.of(player.getUUID()), "", 0, 0f,
-				com.projecthero.mod.ironman.IronManEnergy.MAX_INTEGRITY);
-		try {
-			com.projecthero.mod.ironman.suit.IronManSuitCall.recoverSuitOnDeath(player);
-
-			helper.assertTrue(player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).isEmpty(),
-					"the Iron Man chestplate should have left for the platform");
-			helper.assertTrue(player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD)
-					.is(net.minecraft.world.item.Items.DIAMOND_HELMET),
-					"the diamond helmet is not Stark property -- it must still be on the player's head to drop normally");
-		} finally {
-			registry.remove(level, far);
-		}
 		helper.succeed();
 	}
 
@@ -1552,49 +1474,6 @@ public class HeroPackGameTests implements FabricGameTest {
 				"a suit with failed integrity should slow its wearer");
 		helper.assertTrue(player.hasEffect(net.minecraft.world.effect.MobEffects.WEAKNESS),
 				"a suit with failed integrity should weaken its wearer");
-		helper.succeed();
-	}
-
-	// ---- death recovery also reaches a suit that was only ever carried, never worn ----
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void carriedOnlySuitIsRecoveredOnDeathToo(GameTestHelper helper) {
-		ServerPlayer player = survivalMockPlayer(helper);
-		net.minecraft.world.phys.Vec3 pp = net.minecraft.world.phys.Vec3.atBottomCenterOf(
-				helper.absolutePos(new net.minecraft.core.BlockPos(6, 1, 6)));
-		player.setPos(pp.x, pp.y, pp.z);
-		com.projecthero.mod.ironman.TonyStark.grant(player);
-		for (net.minecraft.world.item.ArmorItem.Type t : new net.minecraft.world.item.ArmorItem.Type[] { net.minecraft.world.item.ArmorItem.Type.HELMET, net.minecraft.world.item.ArmorItem.Type.CHESTPLATE, net.minecraft.world.item.ArmorItem.Type.LEGGINGS, net.minecraft.world.item.ArmorItem.Type.BOOTS }) {
-			ItemStack stack = new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t));
-			com.projecthero.mod.ironman.IronManEnergy.stampStack(stack, 5000f,
-					com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_iii"));
-			player.getInventory().add(stack);
-		}
-		helper.assertTrue(!com.projecthero.mod.ironman.IronManArmor.wearingAnyIronMan(player),
-				"test setup: the suit must NOT be worn, only carried");
-
-		helper.getLevel().getServer().getGameRules()
-				.getRule(net.minecraft.world.level.GameRules.RULE_KEEPINVENTORY)
-				.set(false, helper.getLevel().getServer());
-		net.minecraft.core.BlockPos platPos = new net.minecraft.core.BlockPos(2, 2, 2);
-		helper.setBlock(platPos, com.projecthero.mod.ironman.IronManBlocks.IRON_MAN_SUIT_PLATFORM);
-		var be = (com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlockEntity) helper.getBlockEntity(platPos);
-		be.bindTo(player.getUUID());
-
-		com.projecthero.mod.ironman.suit.IronManSuitCall.recoverSuitOnDeath(player);
-
-		helper.assertTrue("mark_iii".equals(be.storedSuitId()) && be.isFull(),
-				"the carried-only suit must still have flown to the platform");
-		float half3 = com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_iii") * 0.5f;
-		helper.assertTrue(be.suitIntegrity() > half3 - 15f && be.suitIntegrity() < half3 + 15f,
-				"it should carry the same flat 50%-of-max crash damage as a worn suit, got " + be.suitIntegrity());
-		int leftInPack = 0;
-		for (ItemStack s : player.getInventory().items) {
-			if (s.getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem) {
-				leftInPack++;
-			}
-		}
-		helper.assertTrue(leftInPack == 0, "every carried piece should have left the inventory, got " + leftInPack);
 		helper.succeed();
 	}
 
@@ -2039,7 +1918,7 @@ public class HeroPackGameTests implements FabricGameTest {
 	public void markSixAndSevenAreConfigured(GameTestHelper helper) {
 		var m6 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_6");
 		helper.assertTrue(m6 != null && m6.fullBodyShield(), "mark_6 must have a full-body shield");
-		helper.assertTrue(m6.maxFlightSpeedMps() == 30.0, "mark_6 flight cap must be 30 m/s");
+		helper.assertTrue(m6.maxFlightSpeedMps() == 35.0, "mark_6 flight cap must be 35 m/s (v0.15.11)");
 		helper.assertTrue(m6.energyCostMultiplier() < 1.0f, "mark_6 must cost less energy");
 		helper.assertTrue(m6.maxIntegrity() == 2500f && m6.energyCapacity() == 4_000f, "mark_6 pools (v0.15.4)");
 		helper.assertTrue(com.projecthero.mod.ironman.item.IronManItems.armor("mark_6",
@@ -2380,11 +2259,12 @@ public class HeroPackGameTests implements FabricGameTest {
 		// v0.14.21: the Mark 1 is built from Metal Plating rather than raw iron ingots.
 		ItemStack iron = new ItemStack(com.projecthero.mod.ironman.item.IronManItems.METAL_PLATING);
 		ItemStack circuit = new ItemStack(com.projecthero.mod.ironman.item.IronManItems.BASIC_CIRCUIT);
-		// "PBP" / "P P" -- slot 0 is the result, 1..9 are the 3x3 grid row-major.
+		// v0.15.11: "PBP" / "PIP" (I = an iron helmet) -- slot 0 is the result, 1..9 are the 3x3 grid row-major.
 		menu.getSlot(1).set(iron.copy());
 		menu.getSlot(2).set(circuit.copy());
 		menu.getSlot(3).set(iron.copy());
 		menu.getSlot(4).set(iron.copy());
+		menu.getSlot(5).set(new ItemStack(net.minecraft.world.item.Items.IRON_HELMET));
 		menu.getSlot(6).set(iron.copy());
 		menu.slotsChanged(menu.getSlot(1).container);
 		return menu;

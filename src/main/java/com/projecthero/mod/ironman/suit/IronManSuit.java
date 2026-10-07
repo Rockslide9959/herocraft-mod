@@ -97,6 +97,8 @@ public final class IronManSuit {
 	private final float flamethrowerDamagePerSecond;
 	private final double flightCruiseMps;        // > 0 = fixed cruise speed in blocks/second
 	private final boolean sprintFlight;          // false = sprinting never speeds flight up
+	private final double flightNormalBps;        // v0.15.11: > 0 = exact flight speed (blocks/s) without sprinting
+	private final double flightSprintBps;        // v0.15.11: > 0 = exact flight speed (blocks/s) while sprinting
 	private final double hoverFloor;             // > 0 = during a timed flight burst you can't sink lower than this above the ground
 	private final boolean arrowFireImmune;       // arrows + fire do nothing (no health, no integrity)
 	private final boolean autoFeed;
@@ -180,6 +182,8 @@ public final class IronManSuit {
 		this.flamethrowerDamagePerSecond = b.flamethrowerDamagePerSecond;
 		this.flightCruiseMps = b.flightCruiseMps;
 		this.sprintFlight = b.sprintFlight;
+		this.flightNormalBps = b.flightNormalBps;
+		this.flightSprintBps = b.flightSprintBps;
 		this.hoverFloor = b.hoverFloor;
 		this.arrowFireImmune = b.arrowFireImmune;
 		this.autoFeed = b.autoFeed;
@@ -262,6 +266,23 @@ public final class IronManSuit {
 	public float flamethrowerDamagePerSecond() { return flamethrowerDamagePerSecond; }
 	public double flightCruiseMps() { return flightCruiseMps; }
 	public boolean sprintFlight() { return sprintFlight; }
+	public double flightNormalBps() { return flightNormalBps; }
+	public double flightSprintBps() { return flightSprintBps; }
+
+	/**
+	 * v0.15.11: the fixed cruise speed (blocks/second) this mark flies at, or 0 for the legacy {@link #flightSpeed} scaling.
+	 * A fixed {@link #flightCruiseMps} (the Mark 1 burst) wins; otherwise the mark's exact normal / sprint speeds.
+	 * {@code sprinting} must already include whether this mark may sprint-fly at all.
+	 */
+	public double flightCruiseFor(boolean sprinting) {
+		if (flightCruiseMps > 0.0) {
+			return flightCruiseMps;
+		}
+		if (sprinting && sprintFlight && flightSprintBps > 0.0) {
+			return flightSprintBps;
+		}
+		return flightNormalBps;
+	}
 	public double hoverFloor() { return hoverFloor; }
 	/** {@code >= 0}: the flat v0.14.27 split -- the wearer takes this share of a hit, integrity absorbs the rest. */
 	public boolean arrowFireImmune() { return arrowFireImmune; }
@@ -359,6 +380,8 @@ public final class IronManSuit {
 		private float flamethrowerDamagePerSecond = 0f; // 0 = the legacy 2.5-per-hit stream
 		private double flightCruiseMps = 0.0;
 		private boolean sprintFlight = true;
+		private double flightNormalBps = 0.0;
+		private double flightSprintBps = 0.0;
 		private double hoverFloor = 0.0;
 		private boolean arrowFireImmune = false;
 		private boolean autoFeed = true;
@@ -480,6 +503,10 @@ public final class IronManSuit {
 		public Builder flightCruise(double blocksPerSecond) { this.flightCruiseMps = blocksPerSecond; return this; }
 		/** v0.14.27: sprinting never speeds this suit's flight up. */
 		public Builder noSprintFlight() { this.sprintFlight = false; return this; }
+		/** v0.15.11: exact flight speeds in blocks/second, normal and sprinting (explicit user numbers per mark). */
+		public Builder flightSpeeds(double normalBps, double sprintBps) {
+			this.flightNormalBps = normalBps; this.flightSprintBps = sprintBps; return this;
+		}
 		/** v0.14.27: during a timed flight burst the wearer can't sink lower than this many blocks above the ground. */
 		public Builder hoverFloor(double blocks) { this.hoverFloor = blocks; return this; }
 		/** v0.14.27: flat damage split -- the wearer takes {@code playerShare} of every hit, integrity absorbs the rest. */

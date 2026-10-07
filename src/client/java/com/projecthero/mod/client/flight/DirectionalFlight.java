@@ -154,7 +154,7 @@ public final class DirectionalFlight {
 			// v0.14.27: per-suit fixed cruise (Mark 1: 8 b/s), no sprint flight, and the Mark 2 supersonic boost (x2)
 			boolean boost = com.projecthero.mod.ironman.ability.IronManFlares.boosting(ts, suit.id(), player.level().getGameTime());
 			return DirectionalFlightModel.ironManSuit(suit.flightSpeed(), suit.flightAcceleration(), suit.maxFlightSpeedMps(),
-					suit.flightCruiseMps(), sprint && suit.sprintFlight(), supersonic,
+					suit.flightCruiseFor(sprint && suit.sprintFlight()), sprint && suit.sprintFlight(), supersonic, // v0.15.11: exact per-mark speeds
 					boost ? com.projecthero.mod.ironman.ability.IronManFlares.BOOST_SPEED_MULTIPLIER : 1.0); // v0.15.4: no Mark 6 surge
 		}
 		if (player.getAttachedOrElse(ModAttachments.REPULSOR_BOOTS_FLYING, false)) {

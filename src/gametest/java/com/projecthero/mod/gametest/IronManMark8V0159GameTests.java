@@ -200,7 +200,8 @@ public class IronManMark8V0159GameTests implements FabricGameTest {
 			IronManSuitCall.execute(p, M8, IronManSuitListPayload.SOURCE_PLATFORM);
 			h.assertTrue(be.isEmptyPlatform(), "the Mark 8 leaves its platform");
 			h.assertTrue(IronManSuitUpManager.inTransition(p), "and is inbound");
-			h.assertTrue(h.getLevel().getEntitiesOfClass(IronManDeliveryPodEntity.class, p.getBoundingBox().inflate(64)).isEmpty(),
+			h.assertTrue(h.getLevel().getEntitiesOfClass(IronManDeliveryPodEntity.class, p.getBoundingBox().inflate(64),
+					pod -> p.getUUID().equals(pod.ownerId())).isEmpty(), // v0.15.11: only OUR pod (a neighbouring Mark 7 test's pod can land nearby)
 					"flying in piece by piece -- no delivery pod");
 		} finally {
 			leave(h, p);

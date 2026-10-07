@@ -99,7 +99,8 @@ public class IronManRecipeCostV01421GameTests implements FabricGameTest {
 				markOne += weighted(helper, table, e.getKey(), e.getValue(), 0);
 			}
 		}
-		helper.assertTrue(markOne > 0 && markOne < 16, "Mark 1 raw cost " + markOne + " (was ~22.5)");
+		// v0.15.11: + the four iron armour pieces (24 iron) the Mark 1 is now built around
+		helper.assertTrue(markOne > 24 && markOne < 40, "Mark 1 raw cost " + markOne + " (plating ~12 + 24 iron of armour)");
 		previous = markOne;
 		previousSuit = "mark_1";
 
@@ -139,6 +140,11 @@ public class IronManRecipeCostV01421GameTests implements FabricGameTest {
 		if (item == Items.GLOWSTONE) return 1.5;
 		if (item == Items.GUNPOWDER) return 0.5;
 		if (item == Items.NETHERITE_INGOT) return 40;
+		// v0.15.11: each Mark 1 piece is built around the matching vanilla iron armour piece (its ingot count)
+		if (item == Items.IRON_HELMET) return 5;
+		if (item == Items.IRON_CHESTPLATE) return 8;
+		if (item == Items.IRON_LEGGINGS) return 7;
+		if (item == Items.IRON_BOOTS) return 4;
 		return 1;
 	}
 

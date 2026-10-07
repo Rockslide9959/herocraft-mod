@@ -265,9 +265,8 @@ public class ProjectHeroMod implements ModInitializer {
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(ThorPassives::onAllowDamage);
 
 		// Iron Man: Protocol Phoenix ("changes 17") gets first refusal on a Tony Stark player's death --
-		// if it takes over, the death is cancelled and ordinary suit recovery is skipped. Otherwise a
-		// suit worn on death flies itself home to the nearest Suit Platform (banged up) instead of
-		// littering the ground -- runs before Player.die() drops equipment.
+		// if it takes over, the death is cancelled. (v0.15.11: the old death recovery -- the suit flying itself home
+		// to a Suit Platform -- is gone; Iron Man armour now drops on death like any other armour.)
 		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> {
 			if (entity instanceof net.minecraft.server.level.ServerPlayer sp) {
 				if (com.projecthero.mod.ironman.ProtocolPhoenix.tryActivate(sp, source)) {
@@ -287,7 +286,6 @@ public class ProjectHeroMod implements ModInitializer {
 				if (com.projecthero.mod.moonknight.MoonKnightDamage.tryResurrect(sp)) {
 					return false;
 				}
-				com.projecthero.mod.ironman.suit.IronManSuitCall.recoverSuitOnDeath(sp);
 				// A web line must not still be drawn on a corpse -- drop the anchor as the player dies
 				// rather than waiting for the respawn (spec section 39).
 				com.projecthero.mod.spider.SpiderMan.clearTransient(sp);
@@ -332,6 +330,9 @@ public class ProjectHeroMod implements ModInitializer {
 		net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register(
 				(player, world, hand, entity, hit) -> phoenixFrozen(player)
 						? net.minecraft.world.InteractionResult.FAIL : net.minecraft.world.InteractionResult.PASS);
+
+		// v0.15.11: an Iron Man melee hit seals an open faceplate
+		com.projecthero.mod.ironman.IronManFaceplate.register();
 
 		// Max Steel: a melee hit marks the player "in combat" (regen rate) and, in Turbo Strength Mode
 		// while sprinting, triggers Heavy Punch.

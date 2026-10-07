@@ -132,7 +132,7 @@ public final class IronManSuitCompare {
 	 */
 	public static double flightSpeed(IronManSuit suit) {
 		DirectionalFlightModel.Tune t = DirectionalFlightModel.ironManSuit(suit.flightSpeed(), suit.flightAcceleration(),
-				suit.maxFlightSpeedMps(), suit.flightCruiseMps(), suit.sprintFlight(), false, 1.0);
+				suit.maxFlightSpeedMps(), suit.flightCruiseFor(suit.sprintFlight()), suit.sprintFlight(), false, 1.0); // v0.15.11
 		double speed = t.speed();
 		if (t.maxHorizontal() > 0.0) {
 			speed = Math.min(speed, t.maxHorizontal());

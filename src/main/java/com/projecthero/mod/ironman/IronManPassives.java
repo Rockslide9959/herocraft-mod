@@ -89,6 +89,25 @@ public final class IronManPassives {
 				player.removeEffect(MobEffects.DAMAGE_RESISTANCE);
 			}
 		}
+
+		// v0.15.11, explicit user request: a full, powered suit gives Haste -- Haste I in a Mark 1 / 2 / 3, Haste II from
+		// the Mark 4 up. Same refresh-every-tick pattern as the Resistance above (no particles, no icon), so it is gone
+		// the moment a piece comes off, the suit is stored or the power is removed.
+		int haste = powered && suit != null && frac >= 1.0 ? hasteAmplifier(suit) : -1;
+		if (haste >= 0) {
+			player.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, RESISTANCE_REFRESH_TICKS, haste, true, false, false));
+		} else {
+			MobEffectInstance eff = player.getEffect(MobEffects.DIG_SPEED);
+			if (eff != null && eff.isAmbient() && !eff.isVisible() && !eff.showIcon()
+					&& eff.getDuration() <= RESISTANCE_REFRESH_TICKS) {
+				player.removeEffect(MobEffects.DIG_SPEED);
+			}
+		}
+	}
+
+	/** v0.15.11: the Haste amplifier a full suit gives -- 0 (Haste I) for the Mark 1-3, 1 (Haste II) for the Mark 4 and up. */
+	public static int hasteAmplifier(IronManSuit suit) {
+		return suit.markNumber() <= 3 ? 0 : 1;
 	}
 
 	private static void set(ServerPlayer player, Holder<Attribute> attribute, ResourceLocation id, double amount,

@@ -83,7 +83,7 @@ public final class IronManHighlight {
 		// Not highlighted right now: take the authoritative "off" inside the scan radius, where a stale outline could
 		// linger; anything further out is left to vanilla / the other powers.
 		double range = wornSuit == null ? 34.0 : wornSuit.targetScanRange();
-		return target.distanceToSqr(viewer) <= range * range ? Boolean.FALSE : null;
+		return inSphere(viewer, target, range) ? Boolean.FALSE : null;
 	}
 
 	/** Does the viewer's OWN powered helmet outline {@code target} right now? */
@@ -103,7 +103,7 @@ public final class IronManHighlight {
 		}
 		double passive = wornSuit == null ? 0.0 : wornSuit.passiveHighlightRange();
 		if (passive > 0.0) {
-			return target.distanceToSqr(viewer) <= passive * passive;
+			return inSphere(viewer, target, passive);
 		}
 		// the client is only ever told its OWN highlight state, through the wearer-only attachment (the all-players
 		// TonyStarkState sync masks it off); the server reads its own truth
@@ -113,7 +113,7 @@ public final class IronManHighlight {
 			return false;
 		}
 		double range = wornSuit == null ? 34.0 : wornSuit.targetScanRange();
-		if (target.distanceToSqr(viewer) > range * range) {
+		if (!inSphere(viewer, target, range)) {
 			return false;
 		}
 		// a coloured-glow suit (Mark 6 / Mark 7) outlines every nearby entity; every other mark only hostiles
@@ -121,6 +121,32 @@ public final class IronManHighlight {
 			return true;
 		}
 		return target instanceof Enemy;
+	}
+
+	/**
+	 * v0.15.11, explicit user request: the highlight covers a full SPHERE of {@code range} blocks around the wearer -- a
+	 * mob far above (on a cliff, in the air) or below (in a cave) is outlined exactly like one at eye level. Measured
+	 * from the middle of the wearer's body to the nearest point of the target's hit-box, in all three axes.
+	 */
+	public static boolean inSphere(Entity viewer, Entity target, double range) {
+		return com.projecthero.mod.hero.power.AbilityHelpers.distanceSqToBox(target, sphereCentre(viewer)) <= range * range;
+	}
+
+	/** The centre of the highlight sphere: the middle of the wearer's body. */
+	public static net.minecraft.world.phys.Vec3 sphereCentre(Entity viewer) {
+		return viewer.position().add(0.0, viewer.getBbHeight() * 0.5, 0.0);
+	}
+
+	/**
+	 * v0.15.11: everything the highlight could outline around {@code viewer} -- a CUBE search box of {@code range} in every
+	 * direction (never a flat slab), then the {@link #inSphere} test. Same answer as {@link #outlines} per entity; used by
+	 * the gametests and anything that wants the list.
+	 */
+	public static java.util.List<Entity> outlinedAround(Player viewer, double range) {
+		net.minecraft.world.phys.Vec3 c = sphereCentre(viewer);
+		net.minecraft.world.phys.AABB cube = new net.minecraft.world.phys.AABB(c.x - range, c.y - range, c.z - range,
+				c.x + range, c.y + range, c.z + range);
+		return viewer.level().getEntities(viewer, cube, e -> outlines(viewer, e));
 	}
 
 	/** The coloured-glow suits' outline colour: players yellow, hostiles red, everything else blue. */

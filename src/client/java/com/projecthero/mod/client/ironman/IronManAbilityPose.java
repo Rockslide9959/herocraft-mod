@@ -156,6 +156,19 @@ public final class IronManAbilityPose {
 					set(m.leftArm, w, aimX, aimY + Mth.lerp(k, 0.9f, -0.12f), Mth.lerp(k, -1.25f, 0f));
 				}
 			}
+			case IronManAbilityFx.GROUND_POUND -> {
+				// v0.15.11: Mark 1 Shift+R -- both fists flung up overhead, then hammered down to the ground, body hunched over
+				if (t < 2f) {
+					set(m.rightArm, w, -2.9f, 0f, 0.15f);
+					set(m.leftArm, w, -2.9f, 0f, -0.15f);
+				} else {
+					float k = Mth.clamp((t - 2f) / 2f, 0f, 1f);
+					set(m.rightArm, w, Mth.lerp(k, -2.9f, -0.35f), 0f, Mth.lerp(k, 0.15f, 0.05f));
+					set(m.leftArm, w, Mth.lerp(k, -2.9f, -0.35f), 0f, Mth.lerp(k, -0.15f, -0.05f));
+					m.body.xRot = Mth.lerp(w, m.body.xRot, 0.25f * k);
+					m.head.xRot = Mth.lerp(w * k, m.head.xRot, 0.35f);
+				}
+			}
 			default -> {
 			}
 		}

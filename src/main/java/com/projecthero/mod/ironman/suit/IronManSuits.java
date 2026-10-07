@@ -77,6 +77,7 @@ public final class IronManSuits {
 			.flightDrain(0.9f) // "changes 18"
 			.targetScanRange(25.0) // v0.14.27: Mob Highlight reaches 25 blocks
 			.flight(1.0f, 0.08f) // "normal flight like other armours"
+			.flightSpeeds(15.0, 30.0) // v0.15.11, explicit user request: 15 blocks/s, 30 sprinting
 			// v0.14.27 R: tap = 1 s spin-up then 10 dmg (10 energy, 1 s cd); hold 1 s = 18 dmg (50 energy, 3 s cd);
 			// Shift+R = the repulsor dash (15 dmg, 50 energy, 8 s cd)
 			.repulsorTap(10.0f, 10f, 20)
@@ -112,6 +113,7 @@ public final class IronManSuits {
 			.flightDrain(1.0f) // "changes 18"
 			.targetScanRange(70.0) // "changes 14": Mark III target scan reaches 70 blocks
 			.flight(1.0f, 0.08f)
+			.flightSpeeds(18.0, 35.0) // v0.15.11, explicit user request: Mark 3-8 fly 18 blocks/s, 35 sprinting
 			// v0.14.27 R: tap 15 dmg / 10 energy / 1 s cd (no windup); hold 1 s = 20 dmg / 50 energy / 3 s cd;
 			// Shift+R = the repulsor dash (20 dmg, 50 energy, 8 s cd)
 			.repulsorTap(15.0f, 10f, 20)
@@ -146,6 +148,7 @@ public final class IronManSuits {
 			.flightDrain(0.90f) // "changes 18"
 			.targetScanRange(30.0)
 			.flight(1.0f, 0.08f)
+			.flightSpeeds(18.0, 35.0) // v0.15.11, explicit user request: Mark 3-8 fly 18 blocks/s, 35 sprinting
 			// v0.14.29 R: the Mark 2's numbers but NO 1 s spin-up -- a tap fires the moment it is released;
 			// hold 1 s = charged; Shift+R = the repulsor dash
 			.repulsorTap(10.0f, 10f, 20)
@@ -179,6 +182,7 @@ public final class IronManSuits {
 			.flightDrain(1.05f) // "changes 18"
 			.targetScanRange(70.0)
 			.flight(1.05f, 0.09f)
+			.flightSpeeds(18.0, 35.0) // v0.15.11, explicit user request: Mark 3-8 fly 18 blocks/s, 35 sprinting
 			// v0.14.29 R: the Mark III's numbers +2 dmg / -2 s -- tap 17 dmg / 10 energy / no cd; hold 1 s = 22 dmg /
 			// 50 energy / 1 s cd; Shift+R dash 22 dmg / 50 energy / 6 s cd
 			.repulsorTap(17.0f, 10f, 20) // v0.15.6, user request: no more repulsor spam -- a 1 s tap cooldown (the -2 s rule had made it 0)
@@ -215,7 +219,8 @@ public final class IronManSuits {
 			.resistance(2) // v0.15.4: Resistance II while the chestplate is worn + powered
 			.targeting() // v0.14.29: lock-on / auto-aim
 			.flight(1.7f, 0.14f)
-			.maxFlightSpeed(30.0)
+			.flightSpeeds(18.0, 35.0) // v0.15.11, explicit user request: Mark 3-8 fly 18 blocks/s, 35 sprinting
+			.maxFlightSpeed(35.0) // v0.15.11: the 35 b/s sprint speed is the ceiling now (was 30)
 			// v0.14.29 R: tap 17 dmg / 10 energy / 1 s cd; hold 1 s = 26 dmg / 50 energy / 3 s cd; Shift+R dash 22 / 50 / 8 s
 			.repulsorTap(17.0f, 10f, 20)
 			.repulsorCharged(26.0f, 50f, 60, 20)
@@ -248,7 +253,8 @@ public final class IronManSuits {
 			.hurtRegeneration(3.0f) // v0.15.4: Regeneration I below full health, 3 energy/s while it runs
 			.flightDrain(1.15f) // "changes 18"
 			.flight(1.7f, 0.14f)
-			.maxFlightSpeed(30.0)
+			.flightSpeeds(18.0, 35.0) // v0.15.11, explicit user request: Mark 3-8 fly 18 blocks/s, 35 sprinting
+			.maxFlightSpeed(35.0) // v0.15.11: the 35 b/s sprint speed is the ceiling now (was 30)
 			.resistance(2) // v0.15.4: Resistance II while the chestplate is worn + powered
 			.targeting() // v0.14.29: lock-on / auto-aim
 			.waterBreathing() // v0.14.29: breathes underwater indefinitely
@@ -286,7 +292,8 @@ public final class IronManSuits {
 			.hurtRegeneration(3.0f) // as the Mark 7: Regeneration I below full health, 3 energy/s while it runs
 			.flightDrain(1.15f)
 			.flight(1.7f, 0.14f)
-			.maxFlightSpeed(30.0)
+			.flightSpeeds(18.0, 35.0) // v0.15.11, explicit user request: Mark 3-8 fly 18 blocks/s, 35 sprinting
+			.maxFlightSpeed(35.0) // v0.15.11: the 35 b/s sprint speed is the ceiling now (was 30)
 			.resistance(2)
 			.targeting()
 			.waterBreathing() // v0.15.9: breathes underwater

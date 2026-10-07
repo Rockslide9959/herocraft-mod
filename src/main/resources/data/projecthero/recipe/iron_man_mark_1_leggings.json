@@ -3,7 +3,7 @@
   "category": "equipment",
   "pattern": [
     "PCP",
-    "P P",
+    "PIP",
     "P P"
   ],
   "key": {
@@ -12,6 +12,9 @@
     },
     "C": {
       "item": "projecthero:copper_wiring"
+    },
+    "I": {
+      "item": "minecraft:iron_leggings"
     }
   },
   "result": {

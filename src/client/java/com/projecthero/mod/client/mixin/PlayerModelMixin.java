@@ -44,6 +44,8 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 		// took the whole client down during the resource reload. The fields are all public, so a plain
 		// cast reaches every one of them (inherited or not) with no Mixin involvement.
 		PlayerModel<?> model = (PlayerModel<?>) (Object) this;
+		// v0.15.11: the shared model's hat part is drawn whole unless an open Iron Man faceplate says otherwise (below)
+		com.projecthero.mod.client.render.FrontFaceOnlyPart.set(model.hat, false);
 		// Max Steel's suit-up / suit-down is a pixel-by-pixel reveal -- the player's own skin (second
 		// layer included) must stay visible underneath while the suit forms, so do not suppress it
 		// until the reveal has settled.
@@ -68,6 +70,12 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 		if (player.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof SuperheroArmorItem
 				&& !helmetRetracted(player)) {
 			model.hat.visible = false;
+		}
+		// v0.15.11, explicit user request: an open Iron Man faceplate only bares the FACE -- the rest of the helmet shell is
+		// still on, so only the front face of the skin's hat layer shows (its top / sides / back used to poke through)
+		if (player.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof IronManArmorItem && IronManFaceplate.isOpen(player)
+				&& model.hat.visible) {
+			com.projecthero.mod.client.render.FrontFaceOnlyPart.set(model.hat, true);
 		}
 		if (player.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof SuperheroArmorItem) {
 			model.jacket.visible = false;

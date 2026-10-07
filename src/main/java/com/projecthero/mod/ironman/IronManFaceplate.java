@@ -62,6 +62,31 @@ public final class IronManFaceplate {
 		return true;
 	}
 
+	/**
+	 * v0.15.11, explicit user request: a regular melee hit (left-click attack) on a living thing also snaps an open
+	 * faceplate shut, exactly like taking off or using an ability. Wired to {@code AttackEntityCallback} in
+	 * {@link #register}; public so the gametests can drive it (mock players never send the attack packet).
+	 * Returns true if it closed.
+	 */
+	public static boolean onMeleeHit(ServerPlayer player, net.minecraft.world.entity.Entity target) {
+		if (player.isSpectator() || !(target instanceof net.minecraft.world.entity.LivingEntity living) || !living.isAlive()
+				|| target instanceof net.minecraft.world.entity.decoration.ArmorStand
+				|| !IronManArmor.wearingAnyIronMan(player)) {
+			return false;
+		}
+		return autoClose(player);
+	}
+
+	/** v0.15.11: hooks {@link #onMeleeHit} into the server's attack event (never cancels the attack). */
+	public static void register() {
+		net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
+			if (!world.isClientSide() && player instanceof ServerPlayer sp) {
+				onMeleeHit(sp, entity);
+			}
+			return net.minecraft.world.InteractionResult.PASS;
+		});
+	}
+
 	/** Called each tick from {@link IronManSuitTicker}: a faceplate can't stay "open" once the armour is off. */
 	public static void reconcile(ServerPlayer player) {
 		if (isOpen(player) && !IronManArmor.wearingAnyIronMan(player)) {

@@ -3,7 +3,7 @@
   "category": "equipment",
   "pattern": [
     "PBP",
-    "P P"
+    "PIP"
   ],
   "key": {
     "P": {
@@ -11,6 +11,9 @@
     },
     "B": {
       "item": "projecthero:basic_circuit"
+    },
+    "I": {
+      "item": "minecraft:iron_helmet"
     }
   },
   "result": {

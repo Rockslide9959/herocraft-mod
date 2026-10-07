@@ -236,7 +236,7 @@ public final class IronManSuitCall {
 	/**
 	 * v0.14.27, explicit user request: send every carried (inventory, not worn) piece of {@code suitId} back to the
 	 * player's platform -- docked at once if that platform is loaded, otherwise queued on {@link StarkSuitReturnQueue}
-	 * (the same fly-home path a suit takes when its wearer dies, minus the crash damage). Returns pieces sent.
+	 * (the return queue). Returns pieces sent.
 	 */
 	/** v0.14.28: how far in front of the player a sent-home suit stands while it builds itself (blocks). */
 	public static final double SEND_HOME_DISTANCE = 1.0;
@@ -897,149 +897,11 @@ public final class IronManSuitCall {
 		}
 	}
 
-	// ---------------- death recovery ----------------
+	// ---------------- death ----------------
 
-	/**
-	 * When a Tony Stark player dies -- wearing an Iron Man suit, OR simply carrying one in the pack
-	 * ("changes 12": recovery isn't just for a worn suit any more) -- the suit's onboard AI doesn't let
-	 * the armour litter the ground, it flies itself to the nearest of the player's Suit Platforms (this
-	 * dimension), taking a flat 50% integrity hit from the crash. Every distinct suit id the player is
-	 * holding any piece of (worn or carried) is recovered independently, each to whichever platform
-	 * actually holds that mark.
-	 *
-	 * <p>If there is no platform for a given mark, its pieces are stamped in place (so the damage still
-	 * applies) and left exactly where they are -- worn pieces then drop the ordinary way when
-	 * {@code Player.die()} runs, carried ones the same way the rest of the inventory always does.
-	 * Skipped entirely under keepInventory.
-	 *
-	 * <p>Called from {@code ALLOW_DEATH}; must not itself cancel the death.
-	 */
-	public static void recoverSuitOnDeath(ServerPlayer player) {
-		if (!TonyStark.hasPower(player)
-				|| player.level().getGameRules().getBoolean(net.minecraft.world.level.GameRules.RULE_KEEPINVENTORY)) {
-			return;
-		}
-		ServerLevel level = player.serverLevel();
-
-		// Every suit id touched by this death, worn pieces first (their stack -- carrying live charge
-		// state -- wins as the "representative" one if the same type also happens to be duplicated in
-		// the pack, which should not normally happen but costs nothing to prefer correctly).
-		java.util.Map<String, java.util.EnumMap<ArmorItem.Type, ItemStack>> bySuit = new java.util.LinkedHashMap<>();
-		java.util.Map<String, java.util.EnumSet<ArmorItem.Type>> wornTypesBySuit = new java.util.HashMap<>();
-		for (ArmorItem.Type type : TYPES) {
-			net.minecraft.world.entity.EquipmentSlot slot = IronManSuitUpManager.slotFor(type);
-			ItemStack st = player.getItemBySlot(slot);
-			if (st.getItem() instanceof IronManArmorItem p) {
-				bySuit.computeIfAbsent(p.suitId(), k -> new java.util.EnumMap<>(ArmorItem.Type.class)).put(type, st.copy());
-				wornTypesBySuit.computeIfAbsent(p.suitId(), k -> java.util.EnumSet.noneOf(ArmorItem.Type.class)).add(type);
-			}
-		}
-		var items = player.getInventory().items;
-		java.util.Map<String, java.util.EnumMap<ArmorItem.Type, Integer>> invIndexBySuit = new java.util.HashMap<>();
-		for (int i = 0; i < items.size(); i++) {
-			if (items.get(i).getItem() instanceof IronManArmorItem p) {
-				bySuit.computeIfAbsent(p.suitId(), k -> new java.util.EnumMap<>(ArmorItem.Type.class))
-						.putIfAbsent(p.getType(), items.get(i).copy());
-				invIndexBySuit.computeIfAbsent(p.suitId(), k -> new java.util.EnumMap<>(ArmorItem.Type.class))
-						.put(p.getType(), i);
-			}
-		}
-		if (bySuit.isEmpty()) {
-			return;
-		}
-
-		for (var suitEntry : bySuit.entrySet()) {
-			String suitId = suitEntry.getKey();
-			IronManSuit suit = IronManSuits.byId(suitId);
-			if (suit == null) {
-				continue;
-			}
-			var pieces = suitEntry.getValue();
-			var wornTypes = wornTypesBySuit.getOrDefault(suitId, java.util.EnumSet.noneOf(ArmorItem.Type.class));
-			var invIdx = invIndexBySuit.getOrDefault(suitId, new java.util.EnumMap<>(ArmorItem.Type.class));
-
-			boolean anyWorn = !wornTypes.isEmpty();
-			ItemStack reference = pieces.containsKey(ArmorItem.Type.CHESTPLATE)
-					? pieces.get(ArmorItem.Type.CHESTPLATE) : pieces.values().iterator().next();
-			float energy = anyWorn ? IronManEnergy.energy(player, suitId) : IronManEnergy.stackEnergy(reference, suitId);
-			float integrity = anyWorn ? IronManEnergy.integrity(player, suitId) : IronManEnergy.stackIntegrity(reference, suitId);
-			// "changes 14": a 50%-of-this-suit's-max integrity crash hit, worn or not. Now that condition
-			// pools vary a lot per mark (200 on a Mark 1, 500 on the advanced marks), a flat 250 would
-			// near-total a small suit, so the crash cost scales with the suit's own ceiling.
-			float halved = Math.max(0f, integrity - IronManEnergy.maxIntegrity(suitId) * 0.5f);
-			int halvedPct = Math.round(100f * halved / IronManEnergy.maxIntegrity(suitId));
-
-			int mask = 0;
-			for (ArmorItem.Type type : pieces.keySet()) {
-				mask |= switch (type) {
-					case HELMET -> 1;
-					case CHESTPLATE -> 2;
-					case LEGGINGS -> 4;
-					case BOOTS -> 8;
-					default -> 0;
-				};
-			}
-
-			IronManSuitPlatformBlockEntity dock = nearestLoadedDock(level, player.blockPosition(), player.getUUID(), suitId);
-			Optional<StarkPlatformRegistry.Entry> regEntry = dock != null ? Optional.empty()
-					: StarkPlatformRegistry.get(level).nearestDockFor(player.getUUID(), level.dimension(), suitId, player.blockPosition());
-
-			if (dock == null && regEntry.isEmpty()) {
-				// No platform anywhere for this mark -- stamp everything in place and leave it exactly
-				// where it is; worn pieces drop the ordinary way once Player.die() runs, carried ones
-				// the same way the rest of the inventory always does.
-				for (ArmorItem.Type type : wornTypes) {
-					IronManEnergy.stampStack(player.getItemBySlot(IronManSuitUpManager.slotFor(type)), energy, halved);
-				}
-				for (var e : invIdx.entrySet()) {
-					IronManEnergy.stampStack(items.get(e.getValue()), energy, halved);
-				}
-				player.sendSystemMessage(Component.translatable("message.projecthero.ironman.suit_lost_no_platform",
-						Component.translatable(suit.nameKey())).withStyle(ChatFormatting.RED));
-				continue;
-			}
-
-			// Pull every piece of this suit off the player entirely -- worn AND carried -- before it
-			// either docks immediately or is queued to fly home.
-			for (ArmorItem.Type type : wornTypes) {
-				player.setItemSlot(IronManSuitUpManager.slotFor(type), ItemStack.EMPTY);
-			}
-			for (var e : invIdx.entrySet()) {
-				items.set(e.getValue(), ItemStack.EMPTY);
-			}
-
-			// v0.14.21: the very stacks the player had (enchantments, names, ...) go home, stamped with the crash damage
-			for (ItemStack st : pieces.values()) {
-				IronManEnergy.stampStack(st, energy, halved);
-			}
-			if (dock != null) {
-				if (dock.owner().isEmpty()) {
-					dock.bindTo(player.getUUID());
-				}
-				for (ItemStack st : pieces.values()) {
-					ItemStack copy = st.copy();
-					if (!dock.store(copy)) {
-						player.drop(st.copy(), true, false); // a slot clash on the dock: never lose the piece
-					}
-				}
-				BlockPos dp = dock.getBlockPos();
-				player.sendSystemMessage(Component.translatable("message.projecthero.ironman.suit_recovered",
-						Component.translatable(suit.nameKey()), halvedPct, dp.getX(), dp.getY(), dp.getZ())
-						.withStyle(ChatFormatting.AQUA));
-			} else {
-				BlockPos pos = regEntry.get().blockPos();
-				net.minecraft.core.GlobalPos gp = net.minecraft.core.GlobalPos.of(level.dimension(), pos);
-				// v0.14.29: rack it on the (unloaded) platform right away via a chunk ticket; the queue is the fallback
-				if (!IronManPlatformReturn.depositNow(level.getServer(), player.getUUID(), gp, new ArrayList<>(pieces.values()))) {
-					StarkSuitReturnQueue.get(level).enqueue(player.getUUID(), gp, suitId, mask, energy, halved,
-							new ArrayList<>(pieces.values()));
-				}
-				player.sendSystemMessage(Component.translatable("message.projecthero.ironman.suit_returning",
-						Component.translatable(suit.nameKey()), pos.getX(), pos.getY(), pos.getZ())
-						.withStyle(ChatFormatting.AQUA));
-			}
-		}
-	}
+	// v0.15.11, explicit user request: the death recovery (a dead Tony Stark's suit flying itself home to the nearest Suit
+	// Platform) is gone -- a suit worn or carried on death now drops like any other armour. Send-home (Sneak + C picker)
+	// and the return queue it uses are unchanged.
 
 	private static IronManSuitPlatformBlockEntity nearestLoadedDock(ServerLevel level, BlockPos here,
 			java.util.UUID owner, String suitId) {

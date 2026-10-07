@@ -308,25 +308,6 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void deathRecoveryDocksTheRealStacks(GameTestHelper h) {
-		ServerPlayer p = player(h);
-		placeAt(h, p, new BlockPos(5, 1, 5));
-		h.getLevel().getServer().getGameRules().getRule(net.minecraft.world.level.GameRules.RULE_KEEPINVENTORY)
-				.set(false, h.getLevel().getServer());
-		for (ArmorItem.Type t : TYPES) {
-			p.setItemSlot(IronManSuitUpManager.slotFor(t), marked(h, "mark_iii", t));
-		}
-		IronManSuitPlatformBlockEntity be = platform(h, new BlockPos(2, 2, 2));
-		be.bindTo(p.getUUID());
-		IronManSuitCall.recoverSuitOnDeath(p);
-		for (int i = 0; i < 4; i++) {
-			h.assertTrue(isMarked(h, be.getItem(i), "mark_iii", TYPES[i]), "the docked " + TYPES[i].getName()
-					+ " is the real enchanted, named stack");
-		}
-		h.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
 	public void returnQueueKeepsTheRealStacksThroughSaveAndLoad(GameTestHelper h) {
 		var ops = h.getLevel().registryAccess().createSerializationContext(NbtOps.INSTANCE);
 		List<ItemStack> stacks = new ArrayList<>();

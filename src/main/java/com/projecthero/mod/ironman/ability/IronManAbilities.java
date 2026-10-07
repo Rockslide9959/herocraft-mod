@@ -118,7 +118,14 @@ public final class IronManAbilities {
 
 	// -- Mark 1 / Mark 2 ("changes 12") --
 	public static final float PUNCH_DAMAGE = 15.0f; // v0.14.27: explicit user request
-	private static final double PUNCH_RANGE = 4.0;
+	public static final double PUNCH_RANGE = 5.0; // v0.15.11, explicit user request: 5 blocks (was 4)
+	/** v0.15.11: the Strong Punch's splash -- everything else within this many blocks of the impact point is hit too. */
+	public static final double PUNCH_SPLASH_RADIUS = 2.0;
+	/** v0.15.11: the splash deals this fraction of {@link #PUNCH_DAMAGE}. */
+	public static final float PUNCH_SPLASH_FRACTION = 0.5f;
+	public static final double PUNCH_SPLASH_KNOCKBACK = 0.9;
+	/** v0.15.11: how much the Strong Punch's aim forgives (blocks added round each hit-box). */
+	public static final double PUNCH_AIM_MARGIN = 0.5;
 	public static final int PUNCH_COOLDOWN_TICKS = 20; // v0.14.27: 1 s
 	public static final float PUNCH_ENERGY_COST = 10f; // v0.14.27: explicit user request
 
@@ -279,7 +286,16 @@ public final class IronManAbilities {
 					}
 				}
 			}
-			case STRONG_PUNCH -> { if (pressed) strongPunch(player, suit); }
+			case STRONG_PUNCH -> {
+				if (pressed) {
+					// v0.15.11: Shift+R on the Mark 1 is the ground pound
+					if (player.isShiftKeyDown()) {
+						IronManGroundPound.fire(player, suit);
+					} else {
+						strongPunch(player, suit);
+					}
+				}
+			}
 			case FLAMETHROWER -> {
 				if (!pressed) {
 					TonyStark.state(player).flamethrowerHeld = false;
@@ -977,14 +993,15 @@ public final class IronManAbilities {
 
 	// ---------------- Mark 1: Strong Punch (R) ----------------
 
-	private static void strongPunch(ServerPlayer player, IronManSuit suit) {
+	/** Public for the gametests (v0.15.11). */
+	public static void strongPunch(ServerPlayer player, IronManSuit suit) {
 		if (!cooldownReady(player, suit.id(), STRONG_PUNCH)) {
 			return;
 		}
 		if (!pay(player, suit, PUNCH_ENERGY_COST)) {
 			return;
 		}
-		LivingEntity target = AbilityHelpers.raycastEntity(player, PUNCH_RANGE);
+		LivingEntity target = punchTarget(player);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 fist = player.getEyePosition().add(player.getLookAngle().scale(1.2)).add(0, -0.4, 0);
 		com.projecthero.mod.ironman.IronManAbilityFx.play(player, com.projecthero.mod.ironman.IronManAbilityFx.PUNCH, 10); // v0.14.26 pose + shockwave
@@ -997,8 +1014,67 @@ public final class IronManAbilities {
 			if (landed) com.projecthero.mod.ironman.IronManCombo.onRepulsorHit(player, target); // v0.14.29 agent F: Mark 1 stagger
 			level.sendParticles(ParticleTypes.SWEEP_ATTACK, target.getX(), target.getY() + target.getBbHeight() * 0.5,
 					target.getZ(), 1, 0, 0, 0, 0);
+			punchSplash(player, target.position().add(0, target.getBbHeight() * 0.5, 0), target);
+		} else {
+			// v0.15.11: a punch into a wall / the floor within reach still splashes out from where it lands
+			net.minecraft.world.phys.BlockHitResult bhr = AbilityHelpers.raycastBlock(player, PUNCH_RANGE);
+			if (bhr.getType() != HitResult.Type.MISS) {
+				punchSplash(player, bhr.getLocation(), null);
+			}
 		}
 		triggerCooldown(player, suit.id(), STRONG_PUNCH, PUNCH_COOLDOWN_TICKS);
+	}
+
+	/**
+	 * v0.15.11: what the Strong Punch connects with -- the nearest harmable thing whose hit-box, grown by
+	 * {@link #PUNCH_AIM_MARGIN}, the look ray crosses within {@link #PUNCH_RANGE} (and before a wall). The plain pixel-exact
+	 * pick missed a zombie straight ahead: the Mark 1 makes its wearer 25% taller, so a level look passed over its head.
+	 */
+	public static LivingEntity punchTarget(ServerPlayer player) {
+		Vec3 eye = player.getEyePosition();
+		Vec3 look = player.getLookAngle();
+		Vec3 end = eye.add(look.scale(PUNCH_RANGE));
+		net.minecraft.world.phys.BlockHitResult wall = AbilityHelpers.raycastBlock(player, PUNCH_RANGE);
+		double limit = wall.getType() == HitResult.Type.MISS ? PUNCH_RANGE : wall.getLocation().distanceTo(eye) + 0.3;
+		LivingEntity best = null;
+		double bestDist = Double.MAX_VALUE;
+		for (LivingEntity e : player.level().getEntitiesOfClass(LivingEntity.class,
+				new net.minecraft.world.phys.AABB(eye, end).inflate(PUNCH_AIM_MARGIN + 1.0),
+				e -> e != player && e.isAlive() && e.isPickable() && !(e instanceof net.minecraft.world.entity.decoration.ArmorStand))) {
+			var hit = e.getBoundingBox().inflate(PUNCH_AIM_MARGIN).clip(eye, end);
+			double d = e.getBoundingBox().contains(eye) ? 0.0 : hit.map(eye::distanceTo).orElse(Double.MAX_VALUE);
+			if (d <= limit && d < bestDist) {
+				bestDist = d;
+				best = e;
+			}
+		}
+		return best;
+	}
+
+	/**
+	 * v0.15.11, explicit user request: the Strong Punch's small area hit -- every OTHER harmable thing within
+	 * {@link #PUNCH_SPLASH_RADIUS} blocks of the impact takes {@link #PUNCH_SPLASH_FRACTION} of the punch damage and is
+	 * knocked away from it (never the wearer, never a squadmate). Returns how many it hit.
+	 */
+	public static int punchSplash(ServerPlayer player, Vec3 impact, LivingEntity primary) {
+		ServerLevel level = (ServerLevel) player.level();
+		int n = 0;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(player, impact, PUNCH_SPLASH_RADIUS)) {
+			if (e == player || e == primary || e instanceof net.minecraft.world.entity.player.Player other
+					&& com.projecthero.mod.squad.Squads.areAllies(player, other)) {
+				continue;
+			}
+			AbilityHelpers.hurt(player, e, PUNCH_DAMAGE * PUNCH_SPLASH_FRACTION);
+			AbilityHelpers.knockbackFrom(e, impact, PUNCH_SPLASH_KNOCKBACK);
+			n++;
+		}
+		level.sendParticles(ParticleTypes.EXPLOSION, impact.x, impact.y, impact.z, 1, 0, 0, 0, 0);
+		level.sendParticles(ParticleTypes.CRIT, impact.x, impact.y, impact.z, 18, 0.6, 0.4, 0.6, 0.35);
+		for (int i = 0; i < 16; i++) {
+			double a = Math.PI * 2.0 * i / 16;
+			level.sendParticles(ParticleTypes.CLOUD, impact.x, impact.y, impact.z, 0, Math.cos(a), 0.05, Math.sin(a), 0.22);
+		}
+		return n;
 	}
 
 	// ---------------- Mark 1: Flamethrower (G) ----------------

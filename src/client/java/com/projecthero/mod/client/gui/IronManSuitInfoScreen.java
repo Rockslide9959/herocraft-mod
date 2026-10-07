@@ -100,7 +100,13 @@ public class IronManSuitInfoScreen extends Screen {
 		head("screen.projecthero.ironman_info.flight");
 		row(wrap, "screen.projecthero.ironman_info.flight_mode", Component.translatable(suit.manualFlight()
 				? "screen.projecthero.ironman_info.flight_free" : "screen.projecthero.ironman_info.flight_timed").getString());
-		if (suit.maxFlightSpeedMps() > 0) {
+		// v0.15.11: the exact per-mark speeds (Mark 2 15 / 30, Mark 3-8 18 / 35 blocks a second)
+		if (suit.flightNormalBps() > 0 && suit.flightCruiseMps() <= 0) {
+			row(wrap, "screen.projecthero.ironman_info.flight_speed", Component.translatable(
+					"screen.projecthero.ironman_info.flight_speed_value",
+					String.format(java.util.Locale.ROOT, "%.0f", suit.flightNormalBps()),
+					String.format(java.util.Locale.ROOT, "%.0f", suit.flightSprintBps())).getString());
+		} else if (suit.maxFlightSpeedMps() > 0) {
 			row(wrap, "screen.projecthero.ironman_info.top_speed", String.format(java.util.Locale.ROOT, "%.0f m/s", suit.maxFlightSpeedMps()));
 		}
 		row(wrap, "screen.projecthero.ironman_info.flight_drain", suit.flatFlightDrainPerSecond() > 0f // v0.15.3: 3/s, regen halved

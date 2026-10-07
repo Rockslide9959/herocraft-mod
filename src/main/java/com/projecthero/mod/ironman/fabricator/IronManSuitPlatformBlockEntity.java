@@ -141,7 +141,7 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 			be.setChanged();
 		}
 
-		// A suit whose wearer died flies itself home ("changes 10"): the moment this platform's chunk
+		// A suit sent home out of reach (send-home; v0.15.11: no longer death) waits on the return queue: the moment this platform's chunk
 		// is loaded and ticking, pull in anything the return queue has waiting for this position.
 		com.projecthero.mod.ironman.data.StarkSuitReturnQueue returns =
 				com.projecthero.mod.ironman.data.StarkSuitReturnQueue.get(serverLevel);
