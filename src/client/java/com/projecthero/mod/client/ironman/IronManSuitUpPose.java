@@ -91,6 +91,12 @@ public final class IronManSuitUpPose {
 							touched = true;
 						}
 					}
+					case IronManSuitFx.POSE_MK1_BUILD, IronManSuitFx.POSE_MANUAL_UP -> {
+						// v0.15.11: the suit put on by hand -- the hammer / wrench work, sitting for the Mark 1's boots
+						if (IronManManualSuitUpPose.apply(player, model)) {
+							touched = true;
+						}
+					}
 					case IronManSuitFx.POSE_CASE_UP, IronManSuitFx.POSE_CASE_DOWN -> {
 						if (w > 0.001f) {
 							arms(model, w, -1.05f, 0.05f, -0.2f, 0.75f);

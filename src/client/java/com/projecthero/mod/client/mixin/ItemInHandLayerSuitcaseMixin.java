@@ -30,5 +30,10 @@ public abstract class ItemInHandLayerSuitcaseMixin {
 				&& (arm == HumanoidArm.RIGHT || com.projecthero.mod.client.ironman.MarkVSuitcaseLayer.bothHands(player))) {
 			ci.cancel();
 		}
+		// v0.15.11: while a suit is put on by hand the hands hold the hammer / wrench / the piece being fitted
+		// (IronManManualSuitUpLayer), never whatever was in them
+		if (entity instanceof Player player && com.projecthero.mod.client.ironman.IronManManualSuitUpLayer.active(player)) {
+			ci.cancel();
+		}
 	}
 }

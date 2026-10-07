@@ -79,7 +79,7 @@ public final class IronManSuitPoses {
 		// v0.14.29: the Mark 5 suitcase build has its own pose too (IronManMk5Suitcase#pose)
 		// v0.15.4: ...and so has the Mark 7 bracelet suit-up (IronManBraceletSuitUp#pose)
 		return fx.style() != IronManSuitFx.STYLE_CASE && fx.style() != IronManSuitFx.STYLE_MK5
-				&& fx.style() != IronManSuitFx.STYLE_BRACELET;
+				&& fx.style() != IronManSuitFx.STYLE_BRACELET && !fx.manual(); // v0.15.11: the hand builds pose themselves
 	}
 
 	/** Does piece {@code bit}'s clock count for the pose (a build-on, or a reverse build coming off)? */

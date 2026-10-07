@@ -80,6 +80,16 @@ public final class IronManSuitUpManager {
 	 * missing every piece or has not developed this mark.
 	 */
 	public static boolean beginSuitUp(ServerPlayer player, String suitId) {
+		return beginSuitUp(player, suitId, false);
+	}
+
+	/**
+	 * v0.15.11: as {@link #beginSuitUp(ServerPlayer, String)}; {@code byHand} = this is the player pressing C with the suit
+	 * in their pack (no gantry, no call), so a Mark 1 is built by hand in the cave (30 s) and a Mark 2-7 put on by hand in
+	 * the workshop (25 s) -- {@link IronManManualSuitUp}. Everything else (the Mark 8, the bracelet wrap-on, an emergency
+	 * Protocol Phoenix suit-up, commands) keeps its own suit-up.
+	 */
+	public static boolean beginSuitUp(ServerPlayer player, String suitId, boolean byHand) {
 		IronManSuit suit = IronManSuits.byId(suitId);
 		if (suit == null || !TonyStark.hasPower(player)) {
 			return false;
@@ -135,6 +145,11 @@ public final class IronManSuitUpManager {
 		}
 
 		TonyStark.setActiveSuit(player, suitId);
+		int handKind = IronManManualSuitUp.kindFor(suitId);
+		if (byHand && mask != 0 && handKind >= 0 && !braceletSuitUp(player, suit)) {
+			IronManManualSuitUp.start(player, suit, handKind, mask); // v0.15.11: put on by hand
+			return true;
+		}
 		start(player, suit, true, mask, false, false, braceletSuitUp(player, suit));
 		return true;
 	}
@@ -500,6 +515,10 @@ public final class IronManSuitUpManager {
 			}
 			return;
 		}
+		if (s.transitionManual != 0) {
+			IronManManualSuitUp.tick(player, s); // v0.15.11: a suit being put on by hand runs its own timetable
+			return;
+		}
 		IronManSuit suit = IronManSuits.byId(s.transitionSuit);
 		ServerLevel level = (ServerLevel) player.level();
 		SuitUpType type = suit != null ? suit.suitUpType() : SuitUpType.MECHANICAL_REMOTE;
@@ -822,7 +841,7 @@ public final class IronManSuitUpManager {
 	}
 
 	/** The faceplate-close beat that ends a suit-up: the visor swings shut (animated for every viewer), seal + power-up. */
-	private static void faceplateClose(ServerPlayer player, String suitId) {
+	static void faceplateClose(ServerPlayer player, String suitId) {
 		ServerLevel level = (ServerLevel) player.level();
 		if (player.getAttachedOrElse(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false)) {
 			player.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false);
@@ -878,7 +897,7 @@ public final class IronManSuitUpManager {
 	 * put there -- {@link ServerPlayer#setItemSlot} overwrites, it does not return what was there. An Iron Man piece
 	 * being evicted also gets its live charge / integrity stamped onto the outgoing stack.
 	 */
-	private static void evictSlot(ServerPlayer player, EquipmentSlot slot) {
+	static void evictSlot(ServerPlayer player, EquipmentSlot slot) {
 		ItemStack current = player.getItemBySlot(slot);
 		if (current.isEmpty()) {
 			return;
@@ -972,7 +991,7 @@ public final class IronManSuitUpManager {
 		return null;
 	}
 
-	private static int findInInventory(ServerPlayer player, String suitId, ArmorItem.Type type) {
+	static int findInInventory(ServerPlayer player, String suitId, ArmorItem.Type type) {
 		for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
 			ItemStack stack = player.getInventory().getItem(i);
 			if (stack.getItem() instanceof IronManArmorItem piece

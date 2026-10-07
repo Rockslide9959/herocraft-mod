@@ -55,6 +55,7 @@
 		"PlayerRendererHandMixin",
 		"PlayerRendererHulkMixin",
 		"PlayerRendererMixin",
+		"PlayerRendererManualSuitUpMixin",
 		"PlayerRendererTitanMixin",
 		"SoundEngineMixin",
 		"SpeedPhaseHandJitterMixin",

@@ -1,0 +1,350 @@
+{
+  "credit": "Project Hero v0.15.11 -- workshop suit-up wrench prop (render only)",
+  "textures": {
+    "bar": "minecraft:block/iron_block",
+    "grip": "minecraft:block/red_wool",
+    "particle": "minecraft:block/iron_block"
+  },
+  "elements": [
+    {
+      "from": [
+        7.3,
+        0,
+        7.6
+      ],
+      "to": [
+        8.7,
+        11,
+        8.4
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.3,
+            5,
+            8.7,
+            16
+          ],
+          "texture": "#bar"
+        },
+        "south": {
+          "uv": [
+            7.3,
+            5,
+            8.7,
+            16
+          ],
+          "texture": "#bar"
+        },
+        "east": {
+          "uv": [
+            7.6,
+            5,
+            8.4,
+            16
+          ],
+          "texture": "#bar"
+        },
+        "west": {
+          "uv": [
+            7.6,
+            5,
+            8.4,
+            16
+          ],
+          "texture": "#bar"
+        },
+        "up": {
+          "uv": [
+            7.3,
+            7.6,
+            8.7,
+            8.4
+          ],
+          "texture": "#bar"
+        },
+        "down": {
+          "uv": [
+            7.3,
+            7.6,
+            8.7,
+            8.4
+          ],
+          "texture": "#bar"
+        }
+      }
+    },
+    {
+      "from": [
+        7.1,
+        0.5,
+        7.4
+      ],
+      "to": [
+        8.9,
+        5,
+        8.6
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.1,
+            11,
+            8.9,
+            15.5
+          ],
+          "texture": "#grip"
+        },
+        "south": {
+          "uv": [
+            7.1,
+            11,
+            8.9,
+            15.5
+          ],
+          "texture": "#grip"
+        },
+        "east": {
+          "uv": [
+            7.4,
+            11,
+            8.6,
+            15.5
+          ],
+          "texture": "#grip"
+        },
+        "west": {
+          "uv": [
+            7.4,
+            11,
+            8.6,
+            15.5
+          ],
+          "texture": "#grip"
+        },
+        "up": {
+          "uv": [
+            7.1,
+            7.4,
+            8.9,
+            8.6
+          ],
+          "texture": "#grip"
+        },
+        "down": {
+          "uv": [
+            7.1,
+            7.4,
+            8.9,
+            8.6
+          ],
+          "texture": "#grip"
+        }
+      }
+    },
+    {
+      "from": [
+        6.2,
+        10.5,
+        7.6
+      ],
+      "to": [
+        9.8,
+        11.5,
+        8.4
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            6.2,
+            4.5,
+            9.8,
+            5.5
+          ],
+          "texture": "#bar"
+        },
+        "south": {
+          "uv": [
+            6.2,
+            4.5,
+            9.8,
+            5.5
+          ],
+          "texture": "#bar"
+        },
+        "east": {
+          "uv": [
+            7.6,
+            4.5,
+            8.4,
+            5.5
+          ],
+          "texture": "#bar"
+        },
+        "west": {
+          "uv": [
+            7.6,
+            4.5,
+            8.4,
+            5.5
+          ],
+          "texture": "#bar"
+        },
+        "up": {
+          "uv": [
+            6.2,
+            7.6,
+            9.8,
+            8.4
+          ],
+          "texture": "#bar"
+        },
+        "down": {
+          "uv": [
+            6.2,
+            7.6,
+            9.8,
+            8.4
+          ],
+          "texture": "#bar"
+        }
+      }
+    },
+    {
+      "from": [
+        6.2,
+        11.5,
+        7.6
+      ],
+      "to": [
+        7.3,
+        14,
+        8.4
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            8.7,
+            2,
+            9.8,
+            4.5
+          ],
+          "texture": "#bar"
+        },
+        "south": {
+          "uv": [
+            6.2,
+            2,
+            7.3,
+            4.5
+          ],
+          "texture": "#bar"
+        },
+        "east": {
+          "uv": [
+            7.6,
+            2,
+            8.4,
+            4.5
+          ],
+          "texture": "#bar"
+        },
+        "west": {
+          "uv": [
+            7.6,
+            2,
+            8.4,
+            4.5
+          ],
+          "texture": "#bar"
+        },
+        "up": {
+          "uv": [
+            6.2,
+            7.6,
+            7.3,
+            8.4
+          ],
+          "texture": "#bar"
+        },
+        "down": {
+          "uv": [
+            6.2,
+            7.6,
+            7.3,
+            8.4
+          ],
+          "texture": "#bar"
+        }
+      }
+    },
+    {
+      "from": [
+        8.7,
+        11.5,
+        7.6
+      ],
+      "to": [
+        9.8,
+        14,
+        8.4
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            6.2,
+            2,
+            7.3,
+            4.5
+          ],
+          "texture": "#bar"
+        },
+        "south": {
+          "uv": [
+            8.7,
+            2,
+            9.8,
+            4.5
+          ],
+          "texture": "#bar"
+        },
+        "east": {
+          "uv": [
+            7.6,
+            2,
+            8.4,
+            4.5
+          ],
+          "texture": "#bar"
+        },
+        "west": {
+          "uv": [
+            7.6,
+            2,
+            8.4,
+            4.5
+          ],
+          "texture": "#bar"
+        },
+        "up": {
+          "uv": [
+            8.7,
+            7.6,
+            9.8,
+            8.4
+          ],
+          "texture": "#bar"
+        },
+        "down": {
+          "uv": [
+            8.7,
+            7.6,
+            9.8,
+            8.4
+          ],
+          "texture": "#bar"
+        }
+      }
+    }
+  ]
+}

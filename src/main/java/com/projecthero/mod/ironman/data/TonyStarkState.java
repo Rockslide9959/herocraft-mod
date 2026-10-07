@@ -147,6 +147,11 @@ public final class TonyStarkState {
 	public transient int transitionPlan = 0;
 	/** v0.15.4: this suit-up is the Mark 7's quick bracelet wrap-on ({@code IronManBraceletSuitUp}). */
 	public transient boolean transitionBracelet = false;
+	/**
+	 * v0.15.11: this suit-up is put on by hand ({@code IronManManualSuitUp}): 0 = no, 1 = the Mark 1 cave build, 2 = the
+	 * Marks 2-7 workshop build (the kind + 1).
+	 */
+	public transient int transitionManual = 0;
 	/** game time the R-slot (slot 1) hold started, or 0 if not held -- drives the charged-repulsor spin-up. */
 	public transient long chargeStartTick = 0L;
 	/** true once the current R-hold has crossed the charged threshold, so the "ready" cue only fires once. */
@@ -236,6 +241,7 @@ public final class TonyStarkState {
 		c.transitionReleaseMask = transitionReleaseMask;
 		c.transitionPlan = transitionPlan;
 		c.transitionBracelet = transitionBracelet;
+		c.transitionManual = transitionManual;
 		c.chargeStartTick = chargeStartTick;
 		c.chargeReadyPinged = chargeReadyPinged;
 		c.unibeamUntil = unibeamUntil;

@@ -443,7 +443,7 @@ public final class IronManSuitCall {
 			}
 		}
 		if (pick != null) {
-			return orbitalDrop(player, IronManSuits.byId(pick.suitId())) || IronManSuitUpManager.beginSuitUp(player, pick.suitId());
+			return orbitalDrop(player, IronManSuits.byId(pick.suitId())) || IronManSuitUpManager.beginSuitUp(player, pick.suitId(), true); // v0.15.11: by hand
 		}
 		// v0.14.29: the Mark V suitcase is no longer deployed by C -- only by right-clicking the case
 		String partial = null;
@@ -463,7 +463,7 @@ public final class IronManSuitCall {
 				partial = suit.id();
 			}
 		}
-		return partial != null && IronManSuitUpManager.beginSuitUp(player, partial);
+		return partial != null && IronManSuitUpManager.beginSuitUp(player, partial, true); // v0.15.11: by hand
 	}
 
 	/**
@@ -533,7 +533,7 @@ public final class IronManSuitCall {
 		if (source == IronManSuitListPayload.SOURCE_INVENTORY && fullyInInventory(player, suitId)) {
 			// equip immediately -- staged suit-up straight from the inventory (spec "changes 9")
 			if (!orbitalDrop(player, suit)) {
-				IronManSuitUpManager.beginSuitUp(player, suitId);
+				IronManSuitUpManager.beginSuitUp(player, suitId, true); // v0.15.11: a carried suit goes on by hand
 			}
 			return;
 		}

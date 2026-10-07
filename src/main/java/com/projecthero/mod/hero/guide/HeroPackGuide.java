@@ -405,6 +405,9 @@ public final class HeroPackGuide {
 			// v0.14.21: the animated suit-up / platform / pod / suitcase
 			head(lines, "projecthero.guide.iron_man.suit_up");
 			para(lines, "projecthero.guide.iron_man.suit_up.body");
+			// v0.15.11: C with a suit in the pack = putting it on by hand (Mark 1 cave build, Marks 2-7 workshop build)
+			head(lines, "projecthero.guide.iron_man.hand_build");
+			para(lines, "projecthero.guide.iron_man.hand_build.body");
 			head(lines, "projecthero.guide.iron_man.screens"); // v0.14.21 UI redesign
 			para(lines, "projecthero.guide.iron_man.screens.body");
 			// v0.14.26: scanner, Mark III targeting, I-key spec sheet, auto-feed, the Stark cookers

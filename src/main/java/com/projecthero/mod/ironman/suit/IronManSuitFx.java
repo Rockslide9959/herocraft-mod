@@ -72,6 +72,13 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 	 * split open down the front, onto the body, shut; the helmet swings up out of the back, the faceplate closes last.
 	 */
 	public static final int STYLE_BRACELET = 37;
+	/**
+	 * v0.15.11: the Mark 1 built by hand ({@link IronManManualSuitUp#KIND_MK1}) -- each piece builds on like
+	 * {@link #STYLE_PLATES}, but over its own window and in bursts timed to the hammer strikes / straps.
+	 */
+	public static final int STYLE_MK1_BUILD = 40;
+	/** v0.15.11: Marks 2-7 put on by hand in the workshop ({@link IronManManualSuitUp#KIND_WORKSHOP}). */
+	public static final int STYLE_MANUAL = 41;
 
 	public static final int POSE_NONE = 0;
 	/** Standing suit-up: arms out and slightly raised while the pieces lock on, then the faceplate beat. */
@@ -97,6 +104,13 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 	public static final int POSE_MK5_DOWN = 36;
 	/** v0.15.4: the Mark 7 bracelet suit-up -- arms a little out while it wraps on ({@link IronManBraceletSuitUp#pose}). */
 	public static final int POSE_BRACELET_UP = 37;
+	/**
+	 * v0.15.11: the Mark 1 hand build ({@link IronManManualSuitUp}) -- sitting on the floor for the boots and greaves,
+	 * the hammer in the right hand; {@code poseVariant} carries the suit and the planned pieces.
+	 */
+	public static final int POSE_MK1_BUILD = 40;
+	/** v0.15.11: the Marks 2-7 workshop hand build ({@link IronManManualSuitUp}), standing, faceplate last. */
+	public static final int POSE_MANUAL_UP = 41;
 
 	public static final IronManSuitFx EMPTY = new IronManSuitFx(0L, 0L, 0L, 0L, 0, STYLE_PLATES, 0L, 0, POSE_NONE, 0L, 0);
 
@@ -202,11 +216,18 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 			return 1f;
 		}
 		int b = bit(slot);
+		if (assembling(b) && manual()) {
+			// v0.15.11: a hand-built piece fills in with the work (strikes, clamps, ratchets), not at a steady rate
+			return IronManManualSuitUp.progress(IronManManualSuitUp.kindOfStyle(style), b, age);
+		}
 		return assembling(b) ? clamp(age / lockTicks(b)) : 1f - clamp(age / releaseTicks(b));
 	}
 
 	/** v0.14.29: how long piece {@code bit} takes to go on -- the Mark 5 has a window per piece, everything else {@link #lockTicks()}. */
 	public int lockTicks(int bit) {
+		if (manual()) {
+			return IronManManualSuitUp.window(IronManManualSuitUp.kindOfStyle(style), bit); // v0.15.11: per piece, by hand
+		}
 		if (style == STYLE_BRACELET) {
 			return scaled(bit, IronManBraceletSuitUp.upWindow(bit)); // v0.15.4 (v0.15.6: halved for a falling owner)
 		}
@@ -216,6 +237,11 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 	/** v0.14.29: how long piece {@code bit} takes to come off (per piece for the Mark 5). */
 	public int releaseTicks(int bit) {
 		return style == STYLE_MK5 ? IronManMk5Suitcase.downWindow(bit) : releaseTicks();
+	}
+
+	/** v0.15.11: is this a suit put on by hand (the Mark 1 cave build or the Marks 2-7 workshop build)? */
+	public boolean manual() {
+		return style == STYLE_MK1_BUILD || style == STYLE_MANUAL;
 	}
 
 	/** v0.15.4: is this the Mark 7 bracelet suit-up? */
