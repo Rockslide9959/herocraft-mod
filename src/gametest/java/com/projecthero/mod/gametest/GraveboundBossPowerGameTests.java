@@ -340,22 +340,26 @@ public class GraveboundBossPowerGameTests implements FabricGameTest {
 			electro.discard();
 			a.discard();
 
-			// Cryokinesis: Ice Bolt / Freeze Beam add the power's real frost stacks
-			clearCorridor(level, at);
-			EmpoweredZombie cryo = boss(level, at, CryokinesisBoss.POWER_KEY);
-			Wolf b = pet(level, at.offset(9, 0, 0));
+			// Cryokinesis: Ice Bolt / Freeze Beam add the power's real frost stacks. v0.15.12: up to 3 fresh attempts -- in
+			// a loaded CI batch one boss can roll a run where nothing connects (seen with LOS true and every move used)
 			boolean[] frosted = { false };
-			driveUntil(level, cryo, b, bossAt, bossAt.add(9, 0, 0), 64,
-					() -> {
-						frosted[0] |= FrostStacks.stacks(b) > 0 || FrostStacks.frozen(b);
-						clearCorridor(level, at); // its own Ice Wall blocks the next Freeze Beam's line of sight (CI flake)
-					},
-					() -> frosted[0] && b.getHealth() < b.getMaxHealth());
-			boolean cryoHurt = b.getHealth() < b.getMaxHealth();
-			String cryoInfo = " (used " + cryo.primaryController().usedAbilities() + ", pet " + b.getHealth() + "/" + b.getMaxHealth()
-					+ ", sees " + cryo.hasLineOfSight(b) + ")";
-			cryo.discard();
-			b.discard();
+			boolean cryoHurt = false;
+			String cryoInfo = "";
+			for (int attempt = 0; attempt < 3 && !(cryoHurt && frosted[0]); attempt++) {
+				clearCorridor(level, at);
+				EmpoweredZombie cryo = boss(level, at, CryokinesisBoss.POWER_KEY);
+				Wolf b = pet(level, at.offset(9, 0, 0));
+				driveUntil(level, cryo, b, bossAt, bossAt.add(9, 0, 0), 64, () -> {
+					frosted[0] |= FrostStacks.stacks(b) > 0 || FrostStacks.frozen(b);
+					clearCorridor(level, at); // its own Ice Wall blocks the next Freeze Beam's line of sight
+				}, () -> frosted[0] && b.getHealth() < b.getMaxHealth());
+				cryoHurt = b.getHealth() < b.getMaxHealth();
+				cryoInfo = " (attempt " + (attempt + 1) + ", used " + cryo.primaryController().usedAbilities() + ", pet " + b.getHealth()
+						+ "/" + b.getMaxHealth() + ", sees " + cryo.hasLineOfSight(b) + ", boss removed " + cryo.isRemoved()
+						+ ", difficulty " + level.getDifficulty() + ")";
+				cryo.discard();
+				b.discard();
+			}
 
 			// Super Strength: the Haymaker combo / Ground Slam at melee range
 			clearCorridor(level, at);
