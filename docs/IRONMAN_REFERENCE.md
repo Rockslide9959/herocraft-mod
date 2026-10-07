@@ -2199,3 +2199,12 @@ Suit id and item ids are both `mark_8` (`iron_man_mark_8_*`, `mark_8_blueprint`)
 
 Tests: `IronManMark8V0159GameTests`.
 
+
+## v0.15.12: Vibranium Plating and the Ultron Uprising
+
+The Ultron Uprising (`docs/ULTRON_REFERENCE.md`) pays **Vibranium Plating**. Smithing table, no template: an unplated
+Iron Man armour piece + a plating = +2 armour and +1 toughness on that slot (`ultron/item/VibraniumPlating`, component
+`projecthero:vibranium_plated`, extra attribute modifiers on the stack). Tooltip line and an I-key spec-sheet row
+("Vibranium plating n / 4"). Iron Man armour only. JARVIS has five Ultron lines (`JarvisDialogue.speak`), the
+lock-on targets Ultron's drones and relay pylons, and Ultron's hits wear a worn suit's hull 10% harder.
+Tests: `UltronV01512GameTests`.

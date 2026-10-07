@@ -47,6 +47,11 @@ public abstract class EntityGlowMixin {
 		if (viewer == null || viewer == self) {
 			return;
 		}
+		// v0.15.12: the Mind Stone in the viewer's off hand outlines hostiles within 24 blocks -- the viewer's own view only
+		if (com.projecthero.mod.client.ultron.UltronClient.mindStoneOutlines(self)) {
+			cir.setReturnValue(true);
+			return;
+		}
 		// Iron Man: while the viewer wears a powered Iron Man helmet with the highlight on, nearby mobs are outlined.
 		// Client-only, decided from the viewer's OWN state -- never a server GLOWING effect / glowing tag / shared flag,
 		// so no other player (squad mates included) ever sees it. "changes 18": when the viewer wears an Iron Man helmet
@@ -190,6 +195,18 @@ public abstract class EntityGlowMixin {
 		// magnetic sense: only magnetically reactive objects, never Mjolnir
 		if (com.projecthero.mod.hero.power.p26.MagneticMaterials.isMagneticEntity(self)) {
 			cir.setReturnValue(true);
+		}
+	}
+
+	/** v0.15.12: the Mind Stone's gold outline (the viewer's own render only, client-side entities only). */
+	@Inject(method = "getTeamColor", at = @At("HEAD"), cancellable = true)
+	private void projecthero$mindStoneColor(CallbackInfoReturnable<Integer> cir) {
+		Entity self = (Entity) (Object) this;
+		if (self instanceof LocalPlayer || !com.projecthero.mod.ironman.IronManHighlight.mayDecide(self)) {
+			return;
+		}
+		if (com.projecthero.mod.client.ultron.UltronClient.mindStoneOutlines(self)) {
+			cir.setReturnValue(com.projecthero.mod.client.ultron.UltronClient.MIND_STONE_COLOR);
 		}
 	}
 

@@ -2,6 +2,8 @@
   "replace": false,
   "values": [
     "projecthero:power_battery",
+    "projecthero:ultron_beacon",
+    "projecthero:ultron_core",
     "projecthero:stark_fabricator",
     "projecthero:iron_man_suit_platform",
     "projecthero:stark_gantry_floor",

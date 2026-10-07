@@ -33,6 +33,9 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 	private boolean breaksBlocks = false;
 	/** v0.14.21 round two: the entity a Homing Missiles volley locked on to (not saved -- a reload falls back to nearest-hostile homing). */
 	private int lockedTargetId = -1;
+	/** v0.15.12: Ultron's missiles (the Heavy's barrage, the Sentry's missile rain) are drawn with a red tint and trail. */
+	private static final net.minecraft.network.syncher.EntityDataAccessor<Boolean> DATA_RED = net.minecraft.network.syncher.SynchedEntityData
+			.defineId(IronManMissileEntity.class, net.minecraft.network.syncher.EntityDataSerializers.BOOLEAN);
 
 	public IronManMissileEntity(EntityType<? extends IronManMissileEntity> type, Level level) {
 		super(type, level);
@@ -43,6 +46,22 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 	}
 
 	/** Set once, right after {@link #IronManMissileEntity(Level, LivingEntity, Vec3)}, before spawning. */
+	@Override
+	protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {
+		super.defineSynchedData(builder);
+		builder.define(DATA_RED, false);
+	}
+
+	/** v0.15.12: an Ultron missile -- red tint, red trail. */
+	public IronManMissileEntity withRedTint() {
+		entityData.set(DATA_RED, true);
+		return this;
+	}
+
+	public boolean isRedTinted() {
+		return entityData.get(DATA_RED);
+	}
+
 	public IronManMissileEntity withDamage(float direct, float splash) {
 		this.directDamage = direct;
 		this.splashDamage = splash;
@@ -138,6 +157,9 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 			}
 		}
 		((ServerLevel) level()).sendParticles(ParticleTypes.SMOKE, getX(), getY(), getZ(), 2, 0.02, 0.02, 0.02, 0.0);
+		if (isRedTinted()) {
+			((ServerLevel) level()).sendParticles(com.projecthero.mod.ultron.UltronFx.RED, getX(), getY(), getZ(), 1, 0.03, 0.03, 0.03, 0.0);
+		}
 	}
 
 	/**
@@ -256,6 +278,10 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 				|| entity instanceof com.projecthero.mod.ironman.drone.IronManDroneEntity || entity instanceof IronManMissileEntity) {
 			return false;
 		}
+		// v0.15.12: Ultron's missiles pass through his own robots
+		if (getOwner() instanceof com.projecthero.mod.ultron.entity.UltronRobot && entity instanceof com.projecthero.mod.ultron.entity.UltronRobot) {
+			return false;
+		}
 		return super.canHitEntity(entity)
 				&& (!(entity instanceof LivingEntity le) || canTargetLiving(le));
 	}
@@ -274,6 +300,7 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 			blastRadius = tag.getFloat("BlastRadius");
 		}
 		breaksBlocks = tag.getBoolean("BreaksBlocks");
+		entityData.set(DATA_RED, tag.getBoolean("UltronRed"));
 	}
 
 	@Override
@@ -284,5 +311,6 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 		tag.putBoolean("Homing", homing);
 		tag.putFloat("BlastRadius", blastRadius);
 		tag.putBoolean("BreaksBlocks", breaksBlocks);
+		tag.putBoolean("UltronRed", isRedTinted());
 	}
 }

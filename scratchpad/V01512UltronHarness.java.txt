@@ -1,0 +1,603 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.projecthero.mod.ultron.Ultron;
+import com.projecthero.mod.ultron.UltronEntityTypes;
+import com.projecthero.mod.ultron.UltronRewards;
+import com.projecthero.mod.ultron.UltronUprising;
+import com.projecthero.mod.ultron.block.UltronBlocks;
+import com.projecthero.mod.ultron.entity.UltronDroneEntity;
+import com.projecthero.mod.ultron.entity.UltronHeavyEntity;
+import com.projecthero.mod.ultron.entity.UltronPrimeEntity;
+import com.projecthero.mod.ultron.entity.UltronPylonEntity;
+import com.projecthero.mod.ultron.entity.UltronRobot;
+import com.projecthero.mod.ultron.entity.UltronSentinelDroneEntity;
+import com.projecthero.mod.ultron.entity.UltronSentryEntity;
+import com.projecthero.mod.ultron.entity.UltronSniperEntity;
+import com.projecthero.mod.ultron.item.UltronItems;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.animal.Pig;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.15.12 Ultron Uprising visual check. Enabled by run/v01512u.flag. Needs
+ * V01512HarnessCameraMixin in projecthero.client.mixins.json and V01512UltronHarness.init() in onInitializeClient.
+ * Shots go to run/screenshots/v01512_*.png. The camera is an absolute world position looking at a point
+ * ({@link #camPos} / {@link #camAt}) while the (invisible, creative) player stands near the scene.
+ */
+public final class V01512UltronHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	public static Vec3 camPos;
+	public static Vec3 camAt;
+	private static BlockPos C;
+	private static UltronUprising up;
+	private static UltronPrimeEntity prime;
+	private static UltronSentryEntity sentry;
+	private static Pig dummy;
+	private static final List<Mob> gallery = new ArrayList<>();
+	private static volatile long lastProgress = System.currentTimeMillis();
+
+	private V01512UltronHarness() {
+	}
+
+	public static void init() {
+		if (Files.exists(Path.of("v01512u.flag"))) {
+			watchdog();
+			ClientTickEvents.END_CLIENT_TICK.register(V01512UltronHarness::tick);
+		}
+	}
+
+	private static void watchdog() {
+		Thread t = new Thread(() -> {
+			while (true) {
+				try {
+					Thread.sleep(5000);
+				} catch (InterruptedException e) {
+					return;
+				}
+				if (System.currentTimeMillis() - lastProgress > 120_000) {
+					System.out.println("[HARNESS] WATCHDOG no progress for 120 s");
+					Thread.getAllStackTraces().forEach((th, st) -> {
+						System.out.println("[HARNESS] WATCHDOG thread " + th.getName());
+						for (StackTraceElement e : st) {
+							System.out.println("[HARNESS] WATCHDOG    at " + e);
+						}
+					});
+					Runtime.getRuntime().halt(3);
+				}
+			}
+		}, "v01512-harness-watchdog");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					try {
+						fn.accept(p);
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		lastProgress = System.currentTimeMillis();
+		Screenshot.grab(mc.gameDirectory, "v01512_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void at(int t, Runnable r) {
+		Runnable prev = AT.get(t);
+		AT.put(t, prev == null ? r : () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void cam(double x, double y, double z, double ax, double ay, double az) {
+		camPos = Vec3.atBottomCenterOf(C).add(x, y, z);
+		camAt = Vec3.atBottomCenterOf(C).add(ax, ay, az);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0) {
+				lastProgress = System.currentTimeMillis();
+				System.out.println("[HARNESS] waiting " + (mc.screen == null ? "null" : mc.screen.getClass().getName()) + " overlay "
+						+ (mc.getOverlay() != null));
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen) {
+				createdWorld = true;
+				lastProgress = System.currentTimeMillis();
+				mc.execute(() -> {
+					LevelSettings settings = new LevelSettings("V01512U_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+							Difficulty.HARD, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+					mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+							reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+									.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+							mc.screen);
+				});
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks % 200 == 0) {
+			lastProgress = System.currentTimeMillis();
+			System.out.println("[HARNESS] in world " + inWorldTicks);
+		}
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = false;
+			mc.options.fov().set(70);
+			mc.options.renderDistance().set(10);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.getServer().setDifficulty(Difficulty.HARD, true);
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				C = p.blockPosition();
+				p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 999999, 0, false, false));
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				System.out.println("[HARNESS] centre " + C);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				lastProgress = System.currentTimeMillis();
+				try {
+					r.run();
+				} catch (Throwable e) {
+					System.out.println("[HARNESS] error " + e);
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	private static BlockPos ground(ServerLevel level, BlockPos at) {
+		return new BlockPos(at.getX(), level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, at.getX(), at.getZ()), at.getZ());
+	}
+
+	private static <T extends Mob> T spawn(ServerLevel level, EntityType<T> type, BlockPos at, float yaw, boolean noAi) {
+		T m = type.create(level);
+		BlockPos g = ground(level, at);
+		m.moveTo(g.getX() + 0.5, g.getY(), g.getZ() + 0.5, yaw, 0f);
+		m.finalizeSpawn(level, level.getCurrentDifficultyAt(g), MobSpawnType.COMMAND, null);
+		m.setNoAi(noAi);
+		m.setPersistenceRequired();
+		level.addFreshEntity(m);
+		m.setYRot(yaw);
+		m.setYHeadRot(yaw);
+		m.setYBodyRot(yaw);
+		return m;
+	}
+
+	private static void tp(ServerPlayer p, int dx, int dy, int dz) {
+		Vec3 v = Vec3.atBottomCenterOf(C).add(dx, dy, dz);
+		p.teleportTo(p.serverLevel(), v.x, v.y, v.z, 0f, 0f);
+	}
+
+	private static void time(ServerPlayer p, long t) {
+		p.serverLevel().setDayTime(t);
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 20;
+		// ---------------- A: the uplink, the arena, the pylons, wave 1
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			level.setBlockAndUpdate(C, UltronBlocks.ULTRON_BEACON.defaultBlockState());
+			p.setGameMode(GameType.SURVIVAL);
+			p.getAbilities().invulnerable = true;
+			p.onUpdateAbilities();
+			up = Ultron.start(level, C, null);
+			System.out.println("[HARNESS] uprising " + up);
+			tp(p, 0, 3, 6);
+			p.setGameMode(GameType.CREATIVE);
+		}));
+		at(t + 2, () -> cam(0, 4, -9, 0, 0.5, 0));
+		at(t + 20, () -> shot(mc, "A1_pylons_rising"));
+		t += 70;
+		at(t, () -> cam(0, 30, -42, 0, 0, 0));
+		at(t + 6, () -> shot(mc, "A2_arena_overview"));
+		at(t + 8, () -> server(mc, p -> {
+			List<UltronPylonEntity> ps = up.livePylons(p.serverLevel());
+			if (!ps.isEmpty()) {
+				Vec3 pp = ps.get(0).position().subtract(Vec3.atBottomCenterOf(C));
+				camPos = Vec3.atBottomCenterOf(C).add(pp.x * 0.75 + 4, 4, pp.z * 0.75 - 4);
+				camAt = Vec3.atBottomCenterOf(C).add(pp.x, 2.5, pp.z);
+			}
+		}));
+		at(t + 14, () -> shot(mc, "A3_pylon_close"));
+		at(t + 16, () -> cam(2.2, 1.6, -2.6, 0, 0.5, 0));
+		at(t + 22, () -> shot(mc, "A4_uplink_active"));
+		at(t + 24, () -> server(mc, p -> time(p, 18000)));
+		at(t + 26, () -> cam(0, 30, -42, 0, 0, 0));
+		at(t + 34, () -> shot(mc, "A5_arena_night"));
+		at(t + 36, () -> server(mc, p -> time(p, 6000)));
+		// wave 1 arrives (countdown is 6 s from start -- force it)
+		at(t + 40, () -> server(mc, p -> up.debugAdvance(p.serverLevel())));
+		at(t + 42, () -> cam(0, 12, -24, 0, 6, 0));
+		at(t + 80, () -> shot(mc, "A6_wave1_drones"));
+		// drones need a target: a dummy pig
+		at(t + 82, () -> server(mc, p -> {
+			dummy = spawn(p.serverLevel(), EntityType.PIG, C.offset(4, 0, 4), 0f, true);
+			dummy.setInvulnerable(true);
+			for (Mob m : p.serverLevel().getEntitiesOfClass(Mob.class, new net.minecraft.world.phys.AABB(C).inflate(50), m -> m instanceof UltronRobot
+					&& !(m instanceof UltronPylonEntity))) {
+				m.setTarget(dummy);
+				if (m instanceof UltronDroneEntity d) {
+					d.fireNow();
+				}
+			}
+		}));
+		for (int i = 0; i < 6; i++) {
+			int k = i;
+			at(t + 100 + i * 6, () -> shot(mc, "A7_drone_fire_" + k));
+		}
+		t += 150;
+		// the waves: skip through to wave 4 for the mix
+		at(t, () -> server(mc, p -> {
+			up.debugAdvance(p.serverLevel()); // wave 1 cleared
+			up.startWave(p.serverLevel(), 4);
+		}));
+		at(t + 40, () -> cam(-10, 6, -22, 0, 3, 0));
+		at(t + 46, () -> shot(mc, "A8_wave4_mix"));
+		at(t + 48, () -> server(mc, p -> {
+			for (Mob m : p.serverLevel().getEntitiesOfClass(Mob.class, new net.minecraft.world.phys.AABB(C).inflate(50), m -> m instanceof UltronSniperEntity)) {
+				Vec3 s = m.position().subtract(Vec3.atBottomCenterOf(C));
+				camPos = Vec3.atBottomCenterOf(C).add(s.x * 0.7 + 3, s.y + 3, s.z * 0.7 + 3);
+				camAt = Vec3.atBottomCenterOf(C).add(s.x, s.y + 1, s.z);
+				System.out.println("[HARNESS] sniper perched " + ((UltronSniperEntity) m).isPerched() + " at " + m.position());
+				break;
+			}
+		}));
+		at(t + 54, () -> shot(mc, "A9_sniper_perched"));
+		// clear the wave and go to the gate
+		at(t + 60, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			up.debugAdvance(l);
+			up.startWave(l, 5);
+			up.debugAdvance(l); // wave 5 cleared -> breather
+			up.debugAdvance(l); // breather over -> next tick goes to the gate
+		}));
+		at(t + 90, () -> cam(0, 18, -30, 0, 2, 0));
+		at(t + 96, () -> shot(mc, "A10_gate_title"));
+		at(t + 100, () -> server(mc, p -> {
+			// one pylon EMP shot: kill a pylon near some drones
+			List<UltronPylonEntity> ps = up.livePylons(p.serverLevel());
+			if (!ps.isEmpty()) {
+				UltronPylonEntity py = ps.get(0);
+				for (int i = 0; i < 3; i++) {
+					UltronDroneEntity d = spawn(p.serverLevel(), UltronEntityTypes.DRONE, BlockPos.containing(py.position()).offset(2 + i, 2, 2), 0f, false);
+					up.adopt(d);
+				}
+				Vec3 pp = py.position().subtract(Vec3.atBottomCenterOf(C));
+				camPos = Vec3.atBottomCenterOf(C).add(pp.x * 0.6 + 4, 6, pp.z * 0.6 - 4);
+				camAt = Vec3.atBottomCenterOf(C).add(pp.x, 2, pp.z);
+			}
+		}));
+		at(t + 110, () -> server(mc, p -> {
+			List<UltronPylonEntity> ps = up.livePylons(p.serverLevel());
+			if (!ps.isEmpty()) {
+				ps.get(0).kill();
+			}
+		}));
+		at(t + 113, () -> shot(mc, "A11_pylon_emp"));
+		at(t + 125, () -> shot(mc, "A12_drones_stunned"));
+		t += 140;
+		// all pylons down -> Prime (reserve pylons rise)
+		at(t, () -> server(mc, p -> {
+			for (UltronPylonEntity py : up.livePylons(p.serverLevel())) {
+				py.kill();
+			}
+		}));
+		at(t + 30, () -> cam(0, 14, -30, 0, 6, 0));
+		at(t + 40, () -> shot(mc, "A13_prime_arrives"));
+		at(t + 90, () -> shot(mc, "A14_prime_reserve_pylons"));
+		// Prime falls -> Sentry rises
+		at(t + 100, () -> server(mc, p -> up.debugAdvance(p.serverLevel())));
+		at(t + 130, () -> cam(0, 10, -26, 0, 8, 0));
+		at(t + 135, () -> shot(mc, "A15_sentry_rising"));
+		at(t + 175, () -> cam(4, 6, -18, 5, 4, 0));
+		at(t + 185, () -> shot(mc, "A16_sentry_arrived"));
+		// kill him -> purged -> chest
+		at(t + 200, () -> server(mc, p -> up.debugAdvance(p.serverLevel())));
+		at(t + 215, () -> shot(mc, "A17_purged_title"));
+		at(t + 245, () -> shot(mc, "A18_sentry_death_late"));
+		at(t + 320, () -> cam(2, 2.2, -3, 0, 0.5, 0));
+		at(t + 330, () -> shot(mc, "A19_reward_chest"));
+		at(t + 332, () -> server(mc, p -> {
+			tp(p, 0, 1, -2);
+			if (p.serverLevel().getBlockEntity(C) instanceof ChestBlockEntity chest) {
+				p.openMenu(chest);
+			}
+		}));
+		at(t + 345, () -> shot(mc, "A20_reward_chest_gui"));
+		at(t + 347, () -> {
+			mc.setScreen(null);
+			server(mc, p -> p.closeContainer());
+		});
+		t += 360;
+
+		// ---------------- B: the gallery (posed, NoAI)
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			Ultron.endAll(l.getServer());
+			tp(p, 70, 2, 8);
+			BlockPos g = C.offset(70, 0, 0);
+			gallery.add(spawn(l, UltronEntityTypes.DRONE, g.offset(-6, 0, 0), 0f, true));
+			gallery.add(spawn(l, UltronEntityTypes.SENTINEL_DRONE, g.offset(-3, 0, 0), 0f, true));
+			gallery.add(spawn(l, UltronEntityTypes.HEAVY, g.offset(0, 0, 0), 0f, true));
+			gallery.add(spawn(l, UltronEntityTypes.SNIPER, g.offset(3, 0, 0), 0f, true));
+			gallery.add(spawn(l, UltronEntityTypes.PRIME, g.offset(6, 0, 0), 0f, true));
+			gallery.get(0).setPos(gallery.get(0).getX(), gallery.get(0).getY() + 1.0, gallery.get(0).getZ());
+			gallery.get(4).setPos(gallery.get(4).getX(), gallery.get(4).getY() + 0.5, gallery.get(4).getZ());
+		}));
+		at(t + 5, () -> cam(70, 2.0, 9, 70, 1.6, 0));
+		at(t + 20, () -> shot(mc, "B1_gallery_front"));
+		at(t + 22, () -> cam(70, 2.0, -9, 70, 1.6, 0));
+		at(t + 30, () -> shot(mc, "B2_gallery_back"));
+		at(t + 32, () -> server(mc, p -> time(p, 18000)));
+		at(t + 34, () -> cam(70, 2.0, 9, 70, 1.6, 0));
+		at(t + 44, () -> shot(mc, "B3_gallery_night"));
+		at(t + 46, () -> server(mc, p -> time(p, 6000)));
+		String[] names = { "drone", "sentinel_drone", "heavy", "sniper", "prime" };
+		for (int i = 0; i < 5; i++) {
+			int k = i;
+			double x = 70 - 6 + i * 3;
+			at(t + 50 + i * 12, () -> cam(x + 1.2, 2.3, 3.4, x, 1.4 + (k == 0 ? 1 : 0) + (k == 4 ? 0.8 : 0), 0));
+			at(t + 58 + i * 12, () -> shot(mc, "B4_close_" + names[k]));
+		}
+		// poses: aim / barrage / claw
+		at(t + 120, () -> {
+			for (Mob m : gallery) {
+				if (m instanceof UltronRobot r) {
+					r.setAction(m instanceof UltronHeavyEntity ? UltronHeavyEntity.ACTION_BARRAGE
+							: m instanceof UltronPrimeEntity ? UltronPrimeEntity.ACTION_SWARM : UltronRobot.ACTION_AIM);
+				}
+			}
+		});
+		at(t + 121, () -> server(mc, p -> {
+			for (Mob m : gallery) {
+				if (m instanceof UltronRobot r) {
+					r.setAction(m instanceof UltronHeavyEntity ? UltronHeavyEntity.ACTION_BARRAGE
+							: m instanceof UltronPrimeEntity ? UltronPrimeEntity.ACTION_SWARM : UltronRobot.ACTION_AIM);
+				}
+			}
+		}));
+		at(t + 122, () -> cam(70, 2.0, 9, 70, 1.6, 0));
+		at(t + 130, () -> shot(mc, "B5_gallery_poses"));
+		t += 140;
+
+		// ---------------- C: Ultron Prime's moves (live AI, dummy pig target)
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			for (Mob m : gallery) {
+				m.discard();
+			}
+			gallery.clear();
+			tp(p, 0, 2, 100);
+			dummy = spawn(l, EntityType.PIG, C.offset(0, 0, 90), 0f, true);
+			dummy.setInvulnerable(true);
+			prime = spawn(l, UltronEntityTypes.PRIME, C.offset(8, 4, 90), 90f, false);
+			prime.configure(1);
+			prime.setTarget(dummy);
+		}));
+		at(t + 40, () -> cam(-2, 5, 76, 5, 3, 90));
+		at(t + 42, () -> server(mc, p -> prime.startMove(p.serverLevel(), UltronPrimeEntity.Move.BARRAGE, dummy)));
+		at(t + 53, () -> shot(mc, "C1_prime_barrage"));
+		at(t + 58, () -> shot(mc, "C1b_prime_barrage"));
+		at(t + 80, () -> server(mc, p -> prime.startMove(p.serverLevel(), UltronPrimeEntity.Move.ENCEPHALO, dummy)));
+		at(t + 92, () -> shot(mc, "C2_encephalo_telegraph"));
+		at(t + 112, () -> shot(mc, "C3_encephalo_beam"));
+		at(t + 132, () -> shot(mc, "C3b_encephalo_sweep"));
+		at(t + 160, () -> server(mc, p -> prime.startMove(p.serverLevel(), UltronPrimeEntity.Move.SWARM, dummy)));
+		at(t + 178, () -> shot(mc, "C4_swarm"));
+		at(t + 200, () -> server(mc, p -> {
+			for (UltronDroneEntity d : p.serverLevel().getEntitiesOfClass(UltronDroneEntity.class, prime.getBoundingBox().inflate(30))) {
+				d.discard();
+			}
+			// the pull needs a survival player in metal
+			p.setGameMode(GameType.SURVIVAL);
+			p.getAbilities().flying = false;
+			p.onUpdateAbilities();
+			p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 999999, 10, false, false));
+			p.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 999999, 5, false, false));
+			p.removeEffect(MobEffects.INVISIBILITY);
+			p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
+			p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET));
+			Vec3 at = prime.position().add(-12, -3, 0);
+			p.teleportTo(p.serverLevel(), at.x, Math.max(at.y, C.getY()), at.z, 0f, 0f);
+			prime.setTarget(p);
+		}));
+		at(t + 210, () -> server(mc, p -> prime.startMove(p.serverLevel(), UltronPrimeEntity.Move.PULL, p)));
+		at(t + 218, () -> shot(mc, "C5_magnetic_pull"));
+		at(t + 226, () -> shot(mc, "C5b_pull_punch"));
+		at(t + 250, () -> server(mc, p -> {
+			p.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
+			p.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
+			p.setGameMode(GameType.CREATIVE);
+			p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 999999, 0, false, false));
+			tp(p, 0, 2, 100);
+			prime.setTarget(dummy);
+			prime.setHealth(prime.getMaxHealth() * 0.2f);
+		}));
+		at(t + 255, () -> server(mc, p -> prime.startMove(p.serverLevel(), UltronPrimeEntity.Move.DIVE, dummy)));
+		at(t + 268, () -> shot(mc, "C6_dive_up"));
+		at(t + 280, () -> shot(mc, "C7_dive_down"));
+		at(t + 292, () -> shot(mc, "C8_dive_slam"));
+		// body jump: a pylon to jump to
+		at(t + 320, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			UltronPylonEntity py = spawn(l, UltronEntityTypes.PYLON, C.offset(16, 0, 96), 0f, false);
+			py.configure(C.offset(0, 0, 90), 300, true);
+			prime.setHealth(prime.getMaxHealth());
+			prime.teleportTo(C.getX() - 6, C.getY() + 4, C.getZ() + 90);
+		}));
+		at(t + 340, () -> cam(4, 9, 76, 6, 3, 92));
+		at(t + 380, () -> server(mc, p -> prime.hurt(p.serverLevel().damageSources().genericKill(), 1.0e6f)));
+		at(t + 386, () -> shot(mc, "C9_body_jump_start"));
+		at(t + 396, () -> shot(mc, "C10_body_jump_streak"));
+		at(t + 404, () -> shot(mc, "C11_body_jump_streak_late"));
+		at(t + 420, () -> shot(mc, "C12_body_rebuilt"));
+		at(t + 424, () -> server(mc, p -> System.out.println("[HARNESS] after jump body " + prime.bodyIndex() + " hp " + prime.getHealth() + "/"
+				+ prime.getMaxHealth())));
+		at(t + 430, () -> server(mc, p -> prime.hurt(p.serverLevel().damageSources().genericKill(), 1.0e6f)));
+		at(t + 445, () -> shot(mc, "C13_prime_falls"));
+		t += 470;
+
+		// ---------------- D: the Sentry
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			tp(p, -90, 2, 10);
+			dummy = spawn(l, EntityType.PIG, C.offset(-90, 0, -6), 0f, true);
+			dummy.setInvulnerable(true);
+			sentry = spawn(l, UltronEntityTypes.SENTRY, C.offset(-90, 0, 2), 180f, false);
+			sentry.configure(1);
+			sentry.setTarget(dummy);
+		}));
+		at(t + 30, () -> cam(-80, 5, 12, -90, 3.5, 0));
+		at(t + 40, () -> shot(mc, "D1_sentry"));
+		at(t + 42, () -> cam(-90, 4, 14, -90, 3.5, 2));
+		at(t + 50, () -> shot(mc, "D2_sentry_front"));
+		at(t + 52, () -> server(mc, p -> time(p, 18000)));
+		at(t + 62, () -> shot(mc, "D3_sentry_night"));
+		at(t + 64, () -> server(mc, p -> time(p, 6000)));
+		at(t + 66, () -> cam(-78, 6, 8, -90, 3, -2));
+		at(t + 70, () -> server(mc, p -> sentry.startMove(p.serverLevel(), UltronSentryEntity.Move.SLAM, dummy)));
+		at(t + 84, () -> shot(mc, "D4_slam_windup"));
+		at(t + 93, () -> shot(mc, "D5_slam"));
+		at(t + 120, () -> server(mc, p -> sentry.startMove(p.serverLevel(), UltronSentryEntity.Move.CANNON, dummy)));
+		at(t + 150, () -> shot(mc, "D6_cannon_charge"));
+		at(t + 168, () -> shot(mc, "D7_cannon_fire"));
+		at(t + 200, () -> server(mc, p -> sentry.startMove(p.serverLevel(), UltronSentryEntity.Move.RAIN, dummy)));
+		at(t + 202, () -> cam(-76, 10, 14, -90, 2, -4));
+		at(t + 222, () -> shot(mc, "D8_missile_rain"));
+		at(t + 232, () -> shot(mc, "D8b_missile_rain"));
+		at(t + 260, () -> server(mc, p -> sentry.raiseShield(p.serverLevel())));
+		at(t + 262, () -> cam(-78, 6, 12, -90, 3.5, 2));
+		at(t + 290, () -> shot(mc, "D9_shield"));
+		at(t + 292, () -> server(mc, p -> time(p, 18000)));
+		at(t + 300, () -> shot(mc, "D10_shield_night"));
+		at(t + 302, () -> server(mc, p -> {
+			time(p, 6000);
+			for (java.util.UUID u : new ArrayList<>(sentry.shieldDrones())) {
+				if (p.serverLevel().getEntity(u) instanceof LivingEntity d) {
+					d.kill();
+				}
+			}
+		}));
+		at(t + 330, () -> shot(mc, "D11_shield_broken_stagger"));
+		at(t + 340, () -> server(mc, p -> sentry.kill()));
+		at(t + 352, () -> shot(mc, "D12_sentry_death_fall"));
+		at(t + 372, () -> shot(mc, "D13_sentry_head_crack"));
+		at(t + 405, () -> shot(mc, "D14_sentry_wreck"));
+		t += 420;
+
+		// ---------------- E: the Mind Stone and the Ultron Core
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			tp(p, 0, 1, -70);
+			p.setGameMode(GameType.SURVIVAL);
+			p.getAbilities().invulnerable = true;
+			p.onUpdateAbilities();
+			p.removeEffect(MobEffects.INVISIBILITY);
+			p.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(UltronItems.MIND_STONE));
+			p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(UltronItems.VIBRANIUM_PLATING));
+			for (int i = 0; i < 3; i++) {
+				spawn(l, EntityType.ZOMBIE, C.offset(-4 + i * 4, 0, -62), 180f, true);
+			}
+			l.setBlockAndUpdate(ground(l, C.offset(2, 0, -67)), UltronBlocks.ULTRON_CORE.defaultBlockState());
+			time(p, 18000);
+		}));
+		at(t + 2, () -> {
+			camPos = null;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+		});
+		at(t + 6, () -> {
+			mc.player.setYRot(0f);
+			mc.player.setXRot(10f);
+		});
+		at(t + 40, () -> shot(mc, "E1_mind_stone_offhand_night"));
+		at(t + 42, () -> server(mc, p -> time(p, 6000)));
+		at(t + 50, () -> shot(mc, "E2_mind_stone_offhand_day"));
+		at(t + 52, () -> {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			cam(3.2, 0.5, -69, 2, 0.4, -67);
+		});
+		at(t + 62, () -> shot(mc, "E3_ultron_core"));
+		at(t + 64, () -> server(mc, p -> time(p, 18000)));
+		at(t + 74, () -> shot(mc, "E4_ultron_core_night"));
+		at(t + 84, () -> shot(mc, "E5_ultron_core_turned"));
+		at(t + 90, () -> server(mc, p -> {
+			// the reward roll, for the log
+			System.out.println("[HARNESS] roll(2) = " + UltronRewards.roll(p.getRandom(), p.serverLevel().registryAccess(), 2));
+		}));
+		at(t + 100, () -> {
+			System.out.println("[HARNESS] DONE");
+			mc.stop();
+		});
+	}
+}

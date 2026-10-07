@@ -198,6 +198,24 @@ public final class JarvisDialogue {
 		return true;
 	}
 
+	/**
+	 * v0.15.12: an event-driven line (the Ultron Uprising's "three relay signatures", "relay down", "purged") -- spoken at
+	 * once to a Tony Stark, whatever the gap, through the same speech box. {@code id} is a
+	 * {@code message.projecthero.ironman.jarvis.<id>} lang key. Nothing for anyone without the power.
+	 */
+	public static void speak(ServerPlayer player, String id) {
+		if (!TonyStark.hasPower(player)) {
+			return;
+		}
+		Seen seen = SEEN.get(player.getUUID());
+		if (seen != null) {
+			seen.lastSpokenAt = player.level().getGameTime();
+			seen.lastLine = id;
+			seen.spokenCount++;
+		}
+		send(player, id, false);
+	}
+
 	private static void send(ServerPlayer player, String id, boolean crude) {
 		if (ServerPlayNetworking.canSend(player, IronManJarvisPayload.TYPE)) {
 			ServerPlayNetworking.send(player, new IronManJarvisPayload(id, crude));

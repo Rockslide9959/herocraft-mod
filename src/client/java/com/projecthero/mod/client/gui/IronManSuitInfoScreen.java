@@ -74,6 +74,16 @@ public class IronManSuitInfoScreen extends Screen {
 		row(wrap, "screen.projecthero.ironman_info.pieces", pieces + " / 4");
 		row(wrap, "screen.projecthero.ironman_info.energy", fmt(energy) + " / " + fmt(suit.energyCapacity()));
 		row(wrap, "screen.projecthero.ironman_info.integrity", fmt(integ) + " / " + fmt(maxInt));
+		// v0.15.12: Vibranium Plating -- how many worn pieces are plated, and what it adds
+		int plated = 0;
+		for (EquipmentSlot slot : new EquipmentSlot[] { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET }) {
+			if (com.projecthero.mod.ultron.item.VibraniumPlating.isPlated(p.getItemBySlot(slot))) {
+				plated++;
+			}
+		}
+		row(wrap, "screen.projecthero.ironman_info.vibranium", Component.translatable("screen.projecthero.ironman_info.vibranium_value",
+				plated, fmt((float) (plated * com.projecthero.mod.ultron.item.VibraniumPlating.ARMOR_BONUS)),
+				fmt((float) (plated * com.projecthero.mod.ultron.item.VibraniumPlating.TOUGHNESS_BONUS))).getString());
 		row(wrap, "screen.projecthero.ironman_info.energy_regen", // v0.14.27
 				String.format(java.util.Locale.ROOT, "%s / s", fmt(suit.energyRegenPerSecond())));
 		if (suit.wornIntegrityRegenPerSecond() > 0f) { // v0.15.4: Mark 6 / Mark 7 repair themselves while worn

@@ -124,5 +124,6 @@ public class IronManArmorItem extends SuperheroArmorItem {
 		tooltip.add(Component.translatable("item.projecthero.ironman.suit_piece",
 				Component.translatable("projecthero.ironman.suit." + suitId + ".name")).withStyle(ChatFormatting.GRAY));
 		tooltip.add(Component.translatable("item.projecthero.ironman.requires_tony_stark").withStyle(ChatFormatting.DARK_AQUA));
+		com.projecthero.mod.ultron.item.VibraniumPlating.appendTooltip(stack, tooltip); // v0.15.12
 	}
 }

@@ -70,6 +70,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.horde.HordeConfig.load(); // v0.14.20: horde boss health
 		com.projecthero.mod.carnage.CarnageConfig.load(); // v0.14.25: Carnage spawn + health
 		com.projecthero.mod.sentinel.SentinelConfig.load(); // v0.15.1: the Sentinel Purge (read before its entity types)
+		com.projecthero.mod.ultron.UltronConfig.load(); // v0.15.12: the Ultron Uprising (read before its entity types)
 		// v0.13.18: the Darkseid Raid (read before its entity types -- they take attributes and hit-box scale from it).
 		com.projecthero.mod.darkseid.DarkseidConfig.load();
 		ModAttachments.initialize();
@@ -192,6 +193,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.carnage.Carnage.initialize();
 		// v0.15.1: the Sentinel Purge (Sentinel Drones, Sentinels, Master Mold, the Trask Signal)
 		com.projecthero.mod.sentinel.SentinelPurge.initialize();
+		// v0.15.12: the Ultron Uprising (Ultron Beacon -> relay pylons -> five waves -> Ultron Prime -> the Sentry)
+		com.projecthero.mod.ultron.Ultron.initialize();
 		com.projecthero.mod.event.entity.CursedZombieSpawns.initialize();
 		com.projecthero.mod.grave.GraveboundEffect.initialize();
 		com.projecthero.mod.grave.GraveboundEvents.initialize();
@@ -242,6 +245,8 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.behemoth.BehemothSpawner.tick(server);
 			com.projecthero.mod.carnage.CarnageSpawner.tick(server);
 			com.projecthero.mod.sentinel.SentinelSpawner.tick(server); // v0.15.1
+			com.projecthero.mod.ultron.UltronSpawner.tick(server); // v0.15.12 (natural trigger, off by default)
+			com.projecthero.mod.ultron.MindStoneCharm.tick(server); // v0.15.12
 			com.projecthero.mod.oathbreaker.OathbreakerSummon.tick(server);
 			com.projecthero.mod.spider.SpiderWebs.tick(server);
 			com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.tick(server);

@@ -46,6 +46,9 @@ public class IronManMissileRenderer extends EntityRenderer<IronManMissileEntity>
 	private static final float FIN_LEN = 0.13f;
 	private static final float FIN_OUT = 0.075f;
 
+	/** v0.15.12: green/blue channel of the vertex colour (255 = untinted, low = Ultron red). Render thread only. */
+	private static int tintG = 255;
+
 	public IronManMissileRenderer(EntityRendererProvider.Context context) {
 		super(context);
 		this.shadowRadius = 0.0f;
@@ -65,6 +68,8 @@ public class IronManMissileRenderer extends EntityRenderer<IronManMissileEntity>
 			mp = -Mth.lerp(partialTicks, entity.xRotO, entity.getXRot());
 		}
 		float age = entity.tickCount + partialTicks;
+		// v0.15.12: Ultron's missiles are tinted red
+		tintG = entity.isRedTinted() ? 70 : 255;
 		pose.pushPose();
 		pose.translate(0.0, entity.getBbHeight() * 0.5, 0.0);
 		pose.mulPose(Axis.YP.rotationDegrees(my - 90.0f));
@@ -140,7 +145,7 @@ public class IronManMissileRenderer extends EntityRenderer<IronManMissileEntity>
 	private static void vertex(VertexConsumer vc, PoseStack.Pose p, int light, float x, float y, float z,
 			float u, float v, float nx, float ny, float nz) {
 		vc.addVertex(p, x, y, z)
-				.setColor(255, 255, 255, 255)
+				.setColor(255, tintG, tintG, 255)
 				.setUv(u, v)
 				.setOverlay(OverlayTexture.NO_OVERLAY)
 				.setLight(light)

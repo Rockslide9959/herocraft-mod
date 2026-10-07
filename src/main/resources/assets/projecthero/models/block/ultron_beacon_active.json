@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "side": "projecthero:block/ultron_beacon_active",
+    "end": "projecthero:block/ultron_beacon_top_active"
+  }
+}

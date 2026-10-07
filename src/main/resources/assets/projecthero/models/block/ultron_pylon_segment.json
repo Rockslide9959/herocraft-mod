@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "side": "projecthero:block/ultron_pylon_segment",
+    "end": "projecthero:block/ultron_pylon_end"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "projecthero:block/ultron_core"
+    },
+    "facing=east": {
+      "model": "projecthero:block/ultron_core",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "projecthero:block/ultron_core",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "projecthero:block/ultron_core",
+      "y": 270
+    }
+  }
+}

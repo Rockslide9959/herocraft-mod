@@ -267,7 +267,8 @@ public final class HeroPackGuide {
 	private static final int CH_SYNDICATE = 28; // v0.14.25
 	private static final int CH_CARNAGE = 29; // v0.14.25
 	private static final int CH_SENTINEL_PURGE = 30; // v0.15.1
-	private static final int CHAPTER_POWER_BASE = 31;
+	private static final int CH_ULTRON = 31; // v0.15.12
+	private static final int CHAPTER_POWER_BASE = 32;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1008,6 +1009,15 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.guide.sentinel_purge." + section + ".body");
 			}
 		}));
+		// v0.15.12: the Ultron Uprising
+		out.add(chapter("projecthero.guide.ultron", lines -> {
+			para(lines, "projecthero.guide.ultron.body");
+			for (String section : new String[]{"trigger", "arena", "pylons", "waves", "prime", "sentry", "weakness", "rewards", "commands"}) {
+				blank(lines);
+				head(lines, "projecthero.guide.ultron." + section);
+				para(lines, "projecthero.guide.ultron." + section + ".body");
+			}
+		}));
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -1064,6 +1074,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.syndicate", CH_SYNDICATE);
 		link(idx, "projecthero.guide.carnage", CH_CARNAGE);
 		link(idx, "projecthero.guide.sentinel_purge", CH_SENTINEL_PURGE);
+		link(idx, "projecthero.guide.ultron", CH_ULTRON);
 
 		section(idx, "projecthero.guide.section.squads", true);
 		link(idx, "projecthero.guide.squads", CH_SQUADS);

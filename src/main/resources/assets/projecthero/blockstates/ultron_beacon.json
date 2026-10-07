@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "active=false": {
+      "model": "projecthero:block/ultron_beacon"
+    },
+    "active=true": {
+      "model": "projecthero:block/ultron_beacon_active"
+    }
+  }
+}
