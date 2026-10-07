@@ -346,7 +346,10 @@ public class GraveboundBossPowerGameTests implements FabricGameTest {
 			Wolf b = pet(level, at.offset(9, 0, 0));
 			boolean[] frosted = { false };
 			driveUntil(level, cryo, b, bossAt, bossAt.add(9, 0, 0), 64,
-					() -> frosted[0] |= FrostStacks.stacks(b) > 0 || FrostStacks.frozen(b),
+					() -> {
+						frosted[0] |= FrostStacks.stacks(b) > 0 || FrostStacks.frozen(b);
+						clearCorridor(level, at); // its own Ice Wall blocks the next Freeze Beam's line of sight (CI flake)
+					},
 					() -> frosted[0] && b.getHealth() < b.getMaxHealth());
 			boolean cryoHurt = b.getHealth() < b.getMaxHealth();
 			String cryoInfo = " (used " + cryo.primaryController().usedAbilities() + ", pet " + b.getHealth() + "/" + b.getMaxHealth()
