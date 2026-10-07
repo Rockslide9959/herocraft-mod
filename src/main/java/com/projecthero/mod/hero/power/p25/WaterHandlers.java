@@ -43,7 +43,6 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.OwnableEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
@@ -813,7 +812,7 @@ public final class WaterHandlers {
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(HEAL_RANGE))) {
 			boolean ally = e == p
 					|| e instanceof ServerPlayer other && squads.sameSquad(p.getUUID(), other.getUUID())
-					|| e instanceof OwnableEntity own && p.getUUID().equals(own.getOwnerUUID());
+					|| com.projecthero.mod.combat.HeroTargets.isFriendlyPet(p, e); // v0.15.11: + squadmates' pets
 			if (!ally || !e.isAlive() || e.distanceToSqr(p) > HEAL_RANGE * HEAL_RANGE) {
 				continue;
 			}

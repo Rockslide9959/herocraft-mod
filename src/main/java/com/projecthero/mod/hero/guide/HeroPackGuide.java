@@ -303,6 +303,8 @@ public final class HeroPackGuide {
 			blank(lines);
 			para(lines, "projecthero.guide.mutation.research");
 			blank(lines);
+			para(lines, "projecthero.guide.mutation.notes"); // v0.15.11: 4 notes + a bottle = a serum
+			blank(lines);
 			para(lines, "projecthero.guide.mutation.random_serums");
 		}));
 
@@ -677,6 +679,8 @@ public final class HeroPackGuide {
 		// makes the rest of the mod playable together: almost every ability in here is an area attack.
 		out.add(chapter("projecthero.guide.squads", lines -> {
 			para(lines, "projecthero.guide.squads.body");
+			blank(lines);
+			para(lines, "projecthero.guide.squads.pets"); // v0.15.11: squadmates' pets are safe too
 			blank(lines);
 			head(lines, "projecthero.guide.squads.commands");
 			para(lines, "projecthero.guide.squads.commands.body");

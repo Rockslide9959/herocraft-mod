@@ -97,7 +97,7 @@ public class LaserVisionV0145GameTests implements FabricGameTest {
 			helper.assertTrue(a != null && ids[i].equals(a.id()), "slot " + (i + 1) + " should be " + ids[i]);
 			helper.assertTrue(AbilityHandlers.has(power, a), ids[i] + " has a handler");
 		}
-		helper.assertTrue(power.passiveKeys().size() == 1, "only the heat passive is left");
+		helper.assertTrue(power.passiveKeys().size() == 2, "only the heat passive (+ v0.15.11 cooked-kills line) is left");
 		helper.assertTrue(LaserVisionHandlers.MAX_HEAT == 100f, "heat is out of 100");
 		helper.assertFalse(MutationVisuals.registeredFlags().contains("p02.eyes"), "no glowing eyes any more");
 		MutationMeters.Spec heat = MutationMeters.get(K, "heat");

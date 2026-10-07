@@ -60,6 +60,9 @@ public final class SyndicateRewards {
 		Valuables.add(out, r, Items.IRON_INGOT, 12, 24, more);
 		Valuables.add(out, r, Items.DIAMOND, 2, 4, more);
 		Valuables.add(out, r, Items.GUNPOWDER, 8, 16, more);
+		// v0.15.11: the crew's electronics stock -- always some redstone dust, often a block or two of it
+		Valuables.add(out, r, Items.REDSTONE, 16, 32, more);
+		Valuables.chance(out, r, 0.5, Items.REDSTONE_BLOCK, 1, 2);
 		Valuables.add(out, r, Items.GOLDEN_APPLE, 1, 3, more);
 		Valuables.add(out, r, Items.EXPERIENCE_BOTTLE, 6, 12, more);
 		ammo(out, r, FirearmItems.PISTOL_AMMO, 16, 32, more);

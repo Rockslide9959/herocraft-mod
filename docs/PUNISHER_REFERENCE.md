@@ -121,7 +121,10 @@ No potion, no accident — a trained human:
 
 1. Find a rare **Abandoned Vigilante Safehouse** (`/locate structure projecthero:vigilante_safehouse`)
    — a buried stone-brick bunker with a weapon workbench, ammo + supply chests, target boards, and a
-   guaranteed **Vigilante Training Manual** in a barrel.
+   guaranteed **Vigilante Training Manual** in a barrel. (v0.15.11 rebuild: the roof is two blocks
+   under the ground, the way in is a cobblestone-ringed spruce hatch over a lined ladder shaft -- the
+   ladder hangs on the south wall facing north, so it climbs properly -- and the room has a west-wall
+   workbench, east-wall bed + chests, and a firing range with a bullseye, hay backstop and targets.)
 2. Right-click the Manual → **Vigilante Training** begins. Objectives: defeat 25 hostiles, 10 of them
    at range, land 5 firearm headshots, craft a firearm, defeat a Pillager Captain.
 3. All objectives done → *HERO POWER UNLOCKED — PUNISHER*, permanent, via `Punisher.grant` (the same

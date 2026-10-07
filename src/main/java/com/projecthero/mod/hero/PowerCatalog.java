@@ -102,7 +102,7 @@ final class PowerCatalog {
 				.ability(ab(k, "maximum_output", SLOT_4, INSTANT, 1100))
 				.ability(ab(k, "ignite", SLOT_5, INSTANT, 10))
 				.ability(ab(k, "thermal_vision", SLOT_6, TOGGLE, 0))
-				.passives(pk(k, "passive.heat"))
+				.passives(pk(k, "passive.heat"), pk(k, "passive.cook")) // v0.15.11: laser kills drop cooked meat
 				.serum(SerumRecipe.of("minecraft:night_vision", pk(k, "serum"),
 						"minecraft:redstone", "minecraft:fire_charge", "minecraft:amethyst_shard"))
 				.trigger(MutationTrigger.of(Kind.HIGH_INTENSITY_LIGHT, pk(k, "trigger"), "projecthero.device.light_projector"))

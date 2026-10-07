@@ -88,12 +88,14 @@ public final class Squads {
 
 	/** True when this hit is one squadmate striking another and must not land. */
 	private static boolean blocks(LivingEntity victim, DamageSource source) {
-		if (!(victim instanceof ServerPlayer hurt)) {
-			return false;
-		}
 		// Never intercept the "you cannot survive this" sources -- /kill and the void are not attacks.
 		if (source.is(DamageTypes.GENERIC_KILL) || source.is(DamageTypes.FELL_OUT_OF_WORLD)) {
 			return false;
+		}
+		if (!(victim instanceof ServerPlayer hurt)) {
+			// v0.15.11: a squadmate's pet is as safe from you as the squadmate -- sword, arrow or power
+			return source.getEntity() instanceof Player dealer
+					&& protectsPet(dealer, com.projecthero.mod.combat.HeroTargets.petOwnerOf(victim));
 		}
 		Entity attacker = source.getEntity();
 		if (!(attacker instanceof Player dealer) || dealer.getUUID().equals(hurt.getUUID())) {
@@ -118,6 +120,22 @@ public final class Squads {
 			return false;
 		}
 		return !rampageBreaksSquad(dealer, victim);
+	}
+
+	/**
+	 * v0.15.11: does squad membership protect a pet owned by {@code petOwner} from {@code dealer}? True when the owner is
+	 * a different player in the dealer's squad (online or not -- the squad is checked by id). The squad's friendly-fire
+	 * switch does not change this: it is for sparring between squadmates, never for their animals. A rampaging Hulk is
+	 * nobody's ally, so the dealer rampaging cancels it, like it does for the squadmates themselves. Your own pets are not
+	 * covered here (vanilla lets you strike your own animal; abilities already skip them via
+	 * {@link com.projecthero.mod.combat.HeroTargets#canHarm}).
+	 */
+	public static boolean protectsPet(Player dealer, UUID petOwner) {
+		if (dealer == null || petOwner == null || petOwner.equals(dealer.getUUID()) || dealer.getServer() == null
+				|| !SquadManager.get(dealer.getServer()).sameSquad(dealer.getUUID(), petOwner)) {
+			return false;
+		}
+		return !com.projecthero.mod.hulk.HulkControl.rampaging(dealer);
 	}
 
 	/**

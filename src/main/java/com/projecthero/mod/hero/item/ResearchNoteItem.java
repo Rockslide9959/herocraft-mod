@@ -22,6 +22,9 @@ import net.minecraft.world.level.Level;
  * A damaged research note found in structures. Right-click to "study" it: advances the reader's
  * research on the documented power to at least {@link ResearchStage#RESEARCH_FOUND}, unlocking the
  * partial guide entry and the first advancement in the chain. Consumed on use.
+ *
+ * <p>v0.15.11: four notes about the same power plus a Glass Bottle craft that power's serum
+ * ({@link ResearchNoteSerumRecipe}); four blank notes plus a bottle craft a Mutagenic Serum.
  */
 public final class ResearchNoteItem extends Item {
 	public ResearchNoteItem(Properties properties) {
@@ -32,6 +35,11 @@ public final class ResearchNoteItem extends Item {
 		ItemStack stack = new ItemStack(com.projecthero.mod.hero.item.HeroPackItems.RESEARCH_NOTE, count);
 		stack.set(HeroPackComponents.RESEARCH_POWER, power.key());
 		return stack;
+	}
+
+	/** The power a note is about, or null for a blank note (incl. a note for a disabled power). */
+	public static Power notePower(ItemStack stack) {
+		return power(stack);
 	}
 
 	private static Power power(ItemStack stack) {
@@ -66,5 +74,8 @@ public final class ResearchNoteItem extends Item {
 					Component.translatable(power.nameKey())).withStyle(ChatFormatting.GRAY));
 		}
 		tooltip.add(Component.translatable("item.projecthero.research_note.hint").withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
+		// v0.15.11: the crafting use (a special recipe -- not in the recipe book, so the tooltip says it)
+		tooltip.add(Component.translatable(power != null ? "item.projecthero.research_note.craft"
+				: "item.projecthero.research_note.craft_blank").withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
 	}
 }

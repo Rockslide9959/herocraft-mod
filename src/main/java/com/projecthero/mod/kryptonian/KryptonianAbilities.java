@@ -401,7 +401,10 @@ public final class KryptonianAbilities {
 				com.projecthero.mod.network.LaserBeamPayload.KIND_HEAT_VISION, com.projecthero.mod.network.LaserBeamPayload.REFRESH_TICKS);
 		if (age % KryptonianConfig.HEAT_HIT_INTERVAL == 0) {
 			if (target != null) {
-				KryptonianCombat.strike(p, target, eye, KryptonianConfig.HEAT_DAMAGE, 0.0, 0.0, true, AbilityHelpers.fire(p));
+				// v0.15.11: a laser -- an animal it kills drops cooked food
+				final LivingEntity burnt = target;
+				com.projecthero.mod.hero.power.p02.LaserCooking.run(() -> KryptonianCombat.strike(p, burnt, eye,
+						KryptonianConfig.HEAT_DAMAGE, 0.0, 0.0, true, AbilityHelpers.fire(p)));
 				target.igniteForSeconds(KryptonianConfig.HEAT_FIRE_SECONDS);
 			}
 			level.sendParticles(ParticleTypes.FLAME, end.x, end.y, end.z, 4, 0.15, 0.15, 0.15, 0.02);

@@ -208,6 +208,7 @@ public final class LaserVisionHandlers {
 	}
 
 	public static void register() {
+		LaserCooking.initialize(); // v0.15.11: laser kills drop cooked food
 		// R -- Heat Vision. Hold to beam (+1 heat a second); the damage ramps up the longer you hold it (to x2.5 after
 		// 3 s). Aimed down while airborne, the beam holds you up like slow falling. Shift + R: Piercing Blast.
 		AbilityHandlers.register(KEY, "heat_vision", new AbilityHandler() {
@@ -283,7 +284,7 @@ public final class LaserVisionHandlers {
 			set(p, "no_fall_until", p.level().getGameTime() + 80);
 			float dmg = 9.6f;
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, blast, 2.5)) {
-				AbilityHelpers.hurt(p, e, AbilityHelpers.fire(p), dmg);
+				LaserCooking.hurt(p, e, AbilityHelpers.fire(p), dmg);
 				AbilityHelpers.knockbackFrom(e, blast, 1.2);
 				e.setRemainingFireTicks(60);
 			}
@@ -461,7 +462,7 @@ public final class LaserVisionHandlers {
 					if (hit.size() >= pierce || !hit.add(e.getId())) {
 						continue;
 					}
-					AbilityHelpers.hurtBurst(p, e, AbilityHelpers.fire(p), dmg);
+					LaserCooking.hurtBurst(p, e, AbilityHelpers.fire(p), dmg);
 					e.setRemainingFireTicks(80);
 				}
 			}
@@ -511,7 +512,7 @@ public final class LaserVisionHandlers {
 		}
 		if (left % 10 == 0) {
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, end, 3.5)) {
-				AbilityHelpers.hurt(p, e, AbilityHelpers.fire(p), 12.0f);
+				LaserCooking.hurt(p, e, AbilityHelpers.fire(p), 12.0f);
 				e.setRemainingFireTicks(120);
 			}
 			level.sendParticles(ParticleTypes.EXPLOSION, end.x, end.y, end.z, 1, 0, 0, 0, 0);
@@ -565,7 +566,7 @@ public final class LaserVisionHandlers {
 				oneShotTicks(ANIM_IGNITE));
 		LivingEntity target = AbilityHelpers.raycastEntity(p, RANGE);
 		if (target != null) {
-			AbilityHelpers.hurt(p, target, AbilityHelpers.fire(p), 2.0f);
+			LaserCooking.hurt(p, target, AbilityHelpers.fire(p), 2.0f);
 			target.setRemainingFireTicks(Math.max(target.getRemainingFireTicks(), 100));
 			level.playSound(null, target.blockPosition(), SoundEvents.FLINTANDSTEEL_USE, SoundSource.PLAYERS, 1.0f, 1.0f);
 			return;
@@ -635,7 +636,7 @@ public final class LaserVisionHandlers {
 		double len = start.distanceTo(end);
 		for (double d = 0.5; d <= len; d += 1.0) {
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, start.add(dir.scale(d)), 1.0)) {
-				if (AbilityHelpers.hurt(p, e, AbilityHelpers.fire(p), dmg)) {
+				if (LaserCooking.hurt(p, e, AbilityHelpers.fire(p), dmg)) {
 					e.setRemainingFireTicks(60);
 				}
 			}
@@ -669,12 +670,12 @@ public final class LaserVisionHandlers {
 		Vec3 impact = target != null
 				? target.position().add(0, target.getBbHeight() * 0.5, 0)
 				: AbilityHelpers.aimPoint(p, RANGE);
-		if (target != null && AbilityHelpers.hurt(p, target, AbilityHelpers.fire(p), damage)) {
+		if (target != null && LaserCooking.hurt(p, target, AbilityHelpers.fire(p), damage)) {
 			target.setRemainingFireTicks(60);
 		}
 		if (splash > 0.0) {
 			for (LivingEntity e : AbilityHelpers.enemiesAround(p, impact, splash)) {
-				if (e != target && AbilityHelpers.hurt(p, e, AbilityHelpers.fire(p), damage * 0.6f)) {
+				if (e != target && LaserCooking.hurt(p, e, AbilityHelpers.fire(p), damage * 0.6f)) {
 					e.setRemainingFireTicks(40);
 				}
 			}

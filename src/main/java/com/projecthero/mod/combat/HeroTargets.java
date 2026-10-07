@@ -87,11 +87,9 @@ public final class HeroTargets {
 			if (petOwner.equals(owner.getUUID())) {
 				return false; // your own pet / summon / construct
 			}
-			if (ownerPlayer != null) {
-				Player keeper = owner.level().getPlayerByUUID(petOwner);
-				if (keeper != null && Squads.areAllies(ownerPlayer, keeper)) {
-					return false; // a squadmate's pet
-				}
+			// a squadmate's pet -- v0.15.11: checked by id, so it stays safe while its owner is offline or far away
+			if (ownerPlayer != null && Squads.protectsPet(ownerPlayer, petOwner)) {
+				return false;
 			}
 		}
 		return true;
@@ -185,6 +183,24 @@ public final class HeroTargets {
 			return p.getUUID();
 		}
 		return null;
+	}
+
+	/**
+	 * v0.15.11: the owner of {@code e} if it is a tamed animal -- anything {@link OwnableEntity} with an owner: wolves,
+	 * cats, parrots, horses, llamas, Symbiote pet hosts and other mods' pets. Null for wild animals and for summons /
+	 * constructs (those are {@link #ownerOf}'s business). Used by the squad damage veto.
+	 */
+	public static UUID petOwnerOf(Entity e) {
+		return e instanceof OwnableEntity ownable ? ownable.getOwnerUUID() : null;
+	}
+
+	/**
+	 * v0.15.11: is {@code target} a pet of one of {@code player}'s squadmates (or the player's own)? For abilities that
+	 * keep their own "friend" lists (weapon combos, grapples, heals) so they agree with {@link #canHarm}.
+	 */
+	public static boolean isFriendlyPet(Player player, Entity target) {
+		UUID keeper = petOwnerOf(target);
+		return keeper != null && player != null && (keeper.equals(player.getUUID()) || Squads.protectsPet(player, keeper));
 	}
 
 	/** Is {@code e} owned by {@code owner} (pet / summon / construct)? */

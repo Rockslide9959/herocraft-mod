@@ -24,7 +24,6 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.OwnableEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
@@ -227,7 +226,7 @@ public final class MoonKnightGrapple implements MoonKnightMove {
 		if (e instanceof Player other) {
 			return !other.isSpectator() && Squads.areAllies(player, other);
 		}
-		return e instanceof OwnableEntity own && player.getUUID().equals(own.getOwnerUUID());
+		return com.projecthero.mod.combat.HeroTargets.isFriendlyPet(player, e); // v0.15.11: + squadmates' pets
 	}
 
 	/**

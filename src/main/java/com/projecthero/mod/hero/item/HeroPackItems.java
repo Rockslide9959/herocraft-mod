@@ -40,6 +40,10 @@ public final class HeroPackItems {
 		}
 		RESEARCH_NOTE = register("research_note", new ResearchNoteItem(new Item.Properties().stacksTo(16)));
 		// v0.13.17: id was "heropack_guide" -- /give now reads projecthero:guidebook
+		// v0.15.11: 4 notes about one power + a glass bottle = that power's serum (blank notes = a Mutagenic Serum)
+		ResearchNoteSerumRecipe.SERIALIZER = Registry.register(BuiltInRegistries.RECIPE_SERIALIZER,
+				ProjectHeroMod.id("research_note_serum"),
+				new net.minecraft.world.item.crafting.SimpleCraftingRecipeSerializer<>(ResearchNoteSerumRecipe::new));
 		GUIDE = register("guidebook", new com.projecthero.mod.hero.guide.HeroPackGuideItem(new Item.Properties()));
 	}
 

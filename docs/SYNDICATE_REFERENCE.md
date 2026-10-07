@@ -82,7 +82,7 @@ A street-level raid on the Kingpin's crew. Package `com.projecthero.mod.syndicat
 - The Kingpin's Cane:
   - +8 attack, -2.9 speed, 1200 durability
   - Use it to fire a hit-scan shot for 7 damage every 50 ticks.
-- Emeralds, gold, iron, diamonds, gunpowder, golden apples, XP bottles, Punisher ammo and parts, a 25% enchanted golden apple, and an enchanted book. Scaled by `Valuables.partyScale`.
+- Emeralds, gold, iron, diamonds, gunpowder, redstone (16-32 dust, 50% chance of 1-2 blocks; v0.15.11), golden apples, XP bottles, Punisher ammo and parts, a 25% enchanted golden apple, and an enchanted book. Scaled by `Valuables.partyScale` (the redstone blocks are not).
 
 ## Commands
 

@@ -17,7 +17,6 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.OwnableEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
@@ -252,7 +251,7 @@ public final class WeaponCombo {
 		if (target == player) {
 			return true;
 		}
-		if (target instanceof OwnableEntity own && player.getUUID().equals(own.getOwnerUUID())) {
+		if (com.projecthero.mod.combat.HeroTargets.isFriendlyPet(player, target)) { // v0.15.11: + squadmates' pets
 			return true;
 		}
 		return Squads.areAllies(player, target);
