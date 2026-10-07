@@ -164,7 +164,8 @@ public final class IronManTargeting {
 		net.minecraft.world.phys.EntityHitResult hit = net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(player, eye, end,
 				new net.minecraft.world.phys.AABB(eye, end).inflate(1.0),
 				e -> e instanceof LivingEntity le && le.isAlive() && !e.isSpectator() && !e.isInvisible() && e != player
-						&& !(e instanceof net.minecraft.world.entity.decoration.ArmorStand),
+						&& !(e instanceof net.minecraft.world.entity.decoration.ArmorStand)
+						&& com.projecthero.mod.combat.HeroTargets.canHarm(player, le),
 				eye.distanceToSqr(end));
 		return hit != null && hit.getEntity() instanceof LivingEntity le ? le : null;
 	}
