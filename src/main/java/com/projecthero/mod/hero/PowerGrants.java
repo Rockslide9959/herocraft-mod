@@ -21,7 +21,7 @@ public final class PowerGrants {
 	/** Every Hero-Tier key a grant accepts: the {@link HeroTiers#HERO_KEYS} Primary heroes plus the Symbiote. */
 	public static final List<String> HERO_TIER_KEYS = List.of(
 			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter",
-			"all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "symbiote");
+			"all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "nova", "symbiote");
 
 	/**
 	 * v0.13.19: Hero-Tier powers still being built in phases. Grantable by an operator for testing, but the random
@@ -189,6 +189,10 @@ public final class PowerGrants {
 			case "kryptonian" -> {
 				boolean ok = com.projecthero.mod.kryptonian.Kryptonian.grant(target);
 				return new Result(ok, Component.literal(ok ? "Made " + name + " a Kryptonian" : name + " is already a Kryptonian"));
+			}
+			case "nova" -> {
+				boolean ok = com.projecthero.mod.nova.Nova.grant(target);
+				return new Result(ok, Component.literal(ok ? "Gave " + name + " the Nova Force (Nova)" : name + " already carries the Nova Force"));
 			}
 			default -> {
 				boolean ok = com.projecthero.mod.symbiote.Symbiote.grant(target);

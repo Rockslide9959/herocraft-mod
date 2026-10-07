@@ -49,6 +49,17 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 		// Max Steel's suit-up / suit-down is a pixel-by-pixel reveal -- the player's own skin (second
 		// layer included) must stay visible underneath while the suit forms, so do not suppress it
 		// until the reveal has settled.
+		// v0.15.13: Nova's uniform is a second skin drawn a hair over the first -- the wearer's own overlay layer (hair, hat,
+		// jacket, sleeves, trousers) would poke through it, so it is hidden whenever any of the uniform is on
+		if (com.projecthero.mod.client.nova.NovaSuitRender.hidesSkinOverlay(player)) {
+			model.hat.visible = false;
+			model.jacket.visible = false;
+			model.leftSleeve.visible = false;
+			model.rightSleeve.visible = false;
+			model.leftPants.visible = false;
+			model.rightPants.visible = false;
+			return;
+		}
 		if (com.projecthero.mod.client.maxsteel.MaxSteelNano.skinShows(player)) {
 			return;
 		}

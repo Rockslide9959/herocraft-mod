@@ -138,6 +138,10 @@ public final class DirectionalFlight {
 			var ks = player.getAttachedOrElse(ModAttachments.KRYPTONIAN_STATE, null);
 			return DirectionalFlightModel.kryptonian(sprint, ks != null && ks.flightBoost);
 		}
+		// v0.15.13: Nova flight -- 20 b/s, 40 sprinting
+		if (com.projecthero.mod.nova.Nova.isFlying(player)) {
+			return DirectionalFlightModel.nova(sprint);
+		}
 		// Iron Man suit flight (double-tap jump, Mark 1 timed flight, supersonic burst)
 		if (player.getAttachedOrElse(ModAttachments.IRON_MAN_FLYING, false)) {
 			IronManSuit suit = player.getItemBySlot(EquipmentSlot.FEET).getItem() instanceof IronManArmorItem piece

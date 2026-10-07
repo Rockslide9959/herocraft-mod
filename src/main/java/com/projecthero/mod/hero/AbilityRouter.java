@@ -175,6 +175,11 @@ public final class AbilityRouter {
 			com.projecthero.mod.kryptonian.KryptonianAbilityManager.handle(player, slot, pressed);
 			return;
 		}
+		// Nova (v0.15.13) takes the slots on the same terms: has the power and has not selected a mutation.
+		if (com.projecthero.mod.nova.NovaAbilityManager.hasContext(player)) {
+			com.projecthero.mod.nova.NovaAbilityManager.handle(player, slot, pressed);
+			return;
+		}
 
 		// A Normal Symbiote host (bonded, suit active, NOT also Spider-Man -- that combination is Black
 		// Suit Spider-Man and stays on SpiderManAbilityManager above) gets its own six tendril/mobility/
@@ -272,6 +277,8 @@ public final class AbilityRouter {
 		com.projecthero.mod.hulk.Hulk.tick(player);
 		// v0.14.8: the Kryptonian -- Solar Energy, sun healing, kryptonite, flight, the running moves
 		com.projecthero.mod.kryptonian.Kryptonian.tick(player);
+		// v0.15.13: Nova -- the Nova Force, flight, the running moves
+		com.projecthero.mod.nova.Nova.tick(player);
 		// v0.13.19: Moon Knight -- Vengeance drain, the Fracture, Khonshu's Resurrection recharge, the suit
 		com.projecthero.mod.moonknight.MoonKnight.tick(player);
 		com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.serverTick(player);

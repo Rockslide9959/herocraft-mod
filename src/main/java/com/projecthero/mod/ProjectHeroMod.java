@@ -121,6 +121,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.hulk.entity.HulkEntities.initialize();
 		// v0.14.8: the Kryptonian -- meteor blocks / items / entity, damage rules, flight payload, lifecycle hooks, meteor event
 		com.projecthero.mod.kryptonian.KryptonianMod.initialize();
+		// v0.15.13: Nova -- the Nova Corps Helmet, the Centurion, damage rules, payloads, lifecycle hooks
+		com.projecthero.mod.nova.NovaMod.initialize();
 		// v0.14.11: the Flash Suit and the Flash Ring (H packs the suit into the ring and lets it out again)
 		com.projecthero.mod.flash.FlashSuit.initialize();
 		com.projecthero.mod.thorarmor.ThorArmor.initialize();

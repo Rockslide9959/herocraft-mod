@@ -33,7 +33,9 @@ public abstract class HumanoidArmorLayerMixin {
 				|| (player.isInvisible() && com.projecthero.mod.symbiote.Symbiote.isActive(player))
 				// v0.10.10: and while phasing -- opaque armour floating around a see-through body
 				// (see LivingEntityPhaseMixin) looks like a bug rather than a power.
-				|| com.projecthero.mod.hero.power.p18.DensityManipulationHandlers.phasing(player))) {
+				|| com.projecthero.mod.hero.power.p18.DensityManipulationHandlers.phasing(player)
+				// v0.15.13: Nova's uniform is drawn over the body itself -- worn armour would cover it
+				|| com.projecthero.mod.client.nova.NovaSuitRender.hidesSkinOverlay(player))) {
 			ci.cancel();
 		}
 	}

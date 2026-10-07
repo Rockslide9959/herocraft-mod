@@ -32,6 +32,10 @@ public final class ModStructurePieceTypes {
 	public static final StructurePieceType KRYPTONITE_CRATER =
 			register("kryptonite_crater", com.projecthero.mod.kryptonian.worldgen.KryptoniteCraterPiece::new);
 
+	/** v0.15.13: the Crashed Nova Corps Pod. */
+	public static final StructurePieceType NOVA_POD_SITE =
+			register("nova_pod_site", com.projecthero.mod.nova.worldgen.NovaPodSitePiece::new);
+
 	private ModStructurePieceTypes() {
 	}
 

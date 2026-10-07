@@ -757,6 +757,18 @@ public final class ModAttachments {
 									AttachmentSyncPredicate.all()));
 
 	/**
+	 * v0.15.13: Nova (Richard Rider) -- the power, the suit, the Nova Force bar, flight, the move timers and the visible
+	 * effects (beam, shield, Gravity Well, Overload). Persistent, kept through death and synced to every client.
+	 */
+	public static final AttachmentType<com.projecthero.mod.nova.data.NovaState> NOVA_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("nova_state"),
+					builder -> builder.persistent(com.projecthero.mod.nova.data.NovaState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.nova.data.NovaState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.nova.data.NovaState.CODEC),
+									AttachmentSyncPredicate.all()));
+
+	/**
 	 * v0.14.11: the Flash Ring on a speedster's finger -- the ring as an item stack, the packed suit in its container
 	 * component; empty = none. Persistent, kept through death (a full ring drops on death without keepInventory, see
 	 * {@code FlashRing}) and synced to everyone (they draw the ring). Always replaced, never mutated in place.

@@ -118,6 +118,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.supersoldier.SuperSoldierClient.initialize();
 		// v0.14.8: the Kryptonian -- HUD, heat-vision beams, the meteor renderer
 		com.projecthero.mod.client.kryptonian.KryptonianClient.initialize();
+		// v0.15.13: Nova -- the uniform layer, HUD, beam / shield / well, Worldmind, the Centurion
+		com.projecthero.mod.client.nova.NovaClient.initialize();
 		com.projecthero.mod.client.flash.FlashClient.initialize(); // v0.14.11
 		com.projecthero.mod.client.horde.HordeClient.initialize(); // v0.14.12
 		com.projecthero.mod.client.syndicate.SyndicateRenderer.initialize(); // v0.14.25: Syndicate Bust crooks + the Kingpin
@@ -722,6 +724,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				// v0.13.19: H as Moon Knight -- the suit on / off (Shift+H still opens the power wheel).
 				ClientPlayNetworking.send(new com.projecthero.mod.network.MoonKnightActionPayload(
 						com.projecthero.mod.network.MoonKnightActionPayload.Action.TOGGLE_SUIT, 0));
+			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.nova.NovaClient.ownsH(client.player)) {
+				// v0.15.13: H as Nova -- the Nova Corps uniform on / off (Shift+H still opens the power wheel).
+				com.projecthero.mod.client.nova.NovaClient.pressH();
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.flash.FlashClient.ownsH(client.player)) {
 				// v0.14.11: H as a speedster with the Flash Suit -- the suit into the ring / out of it (Shift+H still opens the wheel).
 				com.projecthero.mod.client.flash.FlashClient.pressH();
@@ -1048,6 +1053,13 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			ticksSinceJumpPress = Integer.MAX_VALUE;
 			ClientPlayNetworking.send(new com.projecthero.mod.kryptonian.network.KryptonianActionPayload(
 					com.projecthero.mod.kryptonian.network.KryptonianActionPayload.Action.TOGGLE_FLIGHT));
+			return;
+		}
+
+		// v0.15.13: Nova -- double-tap jump in the air while suited takes off / drops out of flight (server re-validates).
+		if (com.projecthero.mod.client.nova.NovaClient.wantsFlightToggle(player)) {
+			ticksSinceJumpPress = Integer.MAX_VALUE;
+			com.projecthero.mod.client.nova.NovaClient.toggleFlight();
 			return;
 		}
 

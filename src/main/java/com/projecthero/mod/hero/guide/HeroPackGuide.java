@@ -119,6 +119,11 @@ public final class HeroPackGuide {
 		return chapters().get(CH_KRYPTONIAN);
 	}
 
+	/** Nova (v0.15.13). */
+	public static Chapter novaChapter() {
+		return chapters().get(CH_NOVA);
+	}
+
 	public static Chapter symbioteChapter() {
 		return chapters().get(CH_SYMBIOTE);
 	}
@@ -268,7 +273,8 @@ public final class HeroPackGuide {
 	private static final int CH_CARNAGE = 29; // v0.14.25
 	private static final int CH_SENTINEL_PURGE = 30; // v0.15.1
 	private static final int CH_ULTRON = 31; // v0.15.12
-	private static final int CHAPTER_POWER_BASE = 32;
+	private static final int CH_NOVA = 32; // v0.15.13
+	private static final int CHAPTER_POWER_BASE = 33;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1018,6 +1024,29 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.guide.ultron." + section + ".body");
 			}
 		}));
+		// v0.15.13: Nova (Richard Rider)
+		out.add(chapter("projecthero.guide.nova", lines -> {
+			lines.add(Component.translatable("projecthero.guide.nova.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.nova.body");
+			blank(lines);
+			for (String section : new String[]{"origin", "suit", "force", "flight", "passives"}) {
+				head(lines, "projecthero.guide.nova." + section);
+				para(lines, "projecthero.guide.nova." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.nova.controls");
+			for (String[] row : new String[][] { { "R", "nova_blast" }, { "Shift+R", "bolt_volley" }, { "G", "gravimetric_pulse" },
+					{ "Shift+G", "gravity_slam" }, { "Z", "force_shield" }, { "Shift+Z", "nova_overload" }, { "X", "comet_dash" },
+					{ "Shift+X", "orbital_launch" }, { "C", "gravity_well" }, { "Shift+C", "gravity_lock" }, { "V", "worldmind_scan" },
+					{ "Shift+V", "force_transfer" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.nova.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.nova.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.nova.commands");
+			para(lines, "projecthero.guide.nova.commands.body");
+		}));
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -1056,6 +1085,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.moon_knight", CH_MOON_KNIGHT);
 		link(idx, "projecthero.guide.super_soldier", CH_SUPER_SOLDIER);
 		link(idx, "projecthero.guide.kryptonian", CH_KRYPTONIAN);
+		link(idx, "projecthero.guide.nova", CH_NOVA);
 		// v0.14.13: Super Speed is Hero-Tier -- its chapter is still the generated power chapter
 		for (int i = 0; i < Powers.enabled().size(); i++) {
 			if (Powers.isHeroTier(Powers.enabled().get(i))) {

@@ -142,6 +142,8 @@ public final class ServerStateReset {
 		com.projecthero.mod.moonknight.MoonKnight.clearSessionState(); // v0.14.4: combat tracking for the Vengeance regen
 		// v0.14.8: Kryptonian move sessions, flight / kryptonite trackers, and the Kryptonite Meteor schedule
 		com.projecthero.mod.kryptonian.KryptonianMod.clearSessionState();
+		// v0.15.13: Nova move sessions (beam, bolts, slam, dash, launch, lock), Worldmind marks, flight / toggle trackers
+		com.projecthero.mod.nova.NovaMod.clearSessionState();
 		com.projecthero.mod.hulk.Hulk.clearSessionState();
 		com.projecthero.mod.supersoldier.SuperSoldierAbilityManager.clearSessionState(); // v0.14.8: move timers, ultimate, marks
 		com.projecthero.mod.moonknight.temple.KhonshuRitual.clearSessionState();

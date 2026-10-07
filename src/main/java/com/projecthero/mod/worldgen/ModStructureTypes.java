@@ -62,6 +62,10 @@ public final class ModStructureTypes {
 	public static final StructureType<com.projecthero.mod.kryptonian.worldgen.KryptoniteCraterStructure> KRYPTONITE_CRATER =
 			register("kryptonite_crater", com.projecthero.mod.kryptonian.worldgen.KryptoniteCraterStructure.CODEC);
 
+	/** Nova (v0.15.13): the rare Crashed Nova Corps Pod, the dying Centurion beside it. */
+	public static final StructureType<com.projecthero.mod.nova.worldgen.NovaPodSiteStructure> NOVA_POD_SITE =
+			register("nova_pod_site", com.projecthero.mod.nova.worldgen.NovaPodSiteStructure.CODEC);
+
 	private ModStructureTypes() {
 	}
 

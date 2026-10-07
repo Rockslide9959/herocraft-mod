@@ -46,6 +46,8 @@ public abstract class LevelRendererHighlightMixin {
 			return compiled;
 		}
 		var viewer = Minecraft.getInstance().player;
-		return viewer != null && com.projecthero.mod.ironman.IronManHighlight.outlines(viewer, e);
+		// v0.15.13: Nova's Worldmind sphere sees through rock the same way
+		return viewer != null && (com.projecthero.mod.ironman.IronManHighlight.outlines(viewer, e)
+				|| com.projecthero.mod.client.nova.NovaWorldmindClient.outlines(viewer, e));
 	}
 }

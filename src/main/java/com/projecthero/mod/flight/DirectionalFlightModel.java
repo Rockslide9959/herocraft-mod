@@ -140,6 +140,16 @@ public final class DirectionalFlightModel {
 	}
 
 	/**
+	 * v0.15.13: Nova's flight -- 20 blocks a second cruising, 40 sprinting ({@code NovaConfig}), 12 b/s straight up / down,
+	 * strafe at 80%, Green-Lantern-like handling.
+	 */
+	public static Tune nova(boolean sprint) {
+		double speed = sprint ? com.projecthero.mod.nova.NovaConfig.FLIGHT_SPRINT_SPEED : com.projecthero.mod.nova.NovaConfig.FLIGHT_SPEED;
+		return new Tune(speed, com.projecthero.mod.nova.NovaConfig.FLIGHT_VERTICAL_SPEED, 0.8, com.projecthero.mod.nova.NovaConfig.FLIGHT_ACCELERATION,
+				com.projecthero.mod.nova.NovaConfig.FLIGHT_BRAKE, com.projecthero.mod.nova.NovaConfig.FLIGHT_IDLE, 0.0, 0.0, false, PUSH_CARRY_TICKS, true);
+	}
+
+	/**
 	 * The experimental Flight power: the vanilla tune at its tier's flying speed, under its old caps -- 15 b/s cruising,
 	 * 25 / 32 / 39 / 46 b/s for sprint tiers 0-3 -- and Sonic Flight's 50 b/s forced drive.
 	 */

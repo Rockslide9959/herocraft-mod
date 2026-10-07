@@ -1,0 +1,15 @@
+{
+  "structures": [
+    {
+      "structure": "projecthero:nova_pod_site",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 7139411,
+    "spacing": 110,
+    "separation": 40,
+    "frequency": 0.5
+  }
+}

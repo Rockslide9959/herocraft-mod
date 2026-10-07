@@ -1,0 +1,6 @@
+{
+  "type": "projecthero:nova_pod_site",
+  "biomes": "#projecthero:nova_pod_site_biomes",
+  "spawn_overrides": {},
+  "step": "surface_structures"
+}

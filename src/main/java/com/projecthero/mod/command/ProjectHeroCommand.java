@@ -49,6 +49,8 @@ public final class ProjectHeroCommand {
 		// v0.14.8: /projecthero meteor [here] and /projecthero kryptonian solar <n> (op only)
 		root.then(com.projecthero.mod.kryptonian.KryptonianCommand.buildMeteor());
 		root.then(com.projecthero.mod.kryptonian.KryptonianCommand.buildKryptonian());
+		// v0.15.13: /projecthero nova force <n> and /projecthero nova site (op only)
+		root.then(com.projecthero.mod.nova.NovaCommand.build());
 
 		dispatcher.register(root);
 		// v0.13.11: Hulk Phase 1 test commands (op-only; removed / locked down in Phase 4)

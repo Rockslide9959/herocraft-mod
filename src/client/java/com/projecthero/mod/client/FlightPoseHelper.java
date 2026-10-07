@@ -109,8 +109,10 @@ public final class FlightPoseHelper {
 		boolean greenLanternFlying = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FLYING, false);
 		// v0.14.8: the Kryptonian leans into his flight too (his own arm pose is KryptonianPose)
 		boolean kryptonianFlying = com.projecthero.mod.kryptonian.Kryptonian.isFlying(player);
+		// v0.15.13: Nova too (his own arm pose is NovaPose)
+		boolean novaFlying = com.projecthero.mod.nova.Nova.isFlying(player);
 		boolean otherHeroFlying = player.getAttachedOrElse(ModAttachments.HERO_FLYING, false)
-				|| maxSteelFlying || greenLanternFlying || kryptonianFlying;
+				|| maxSteelFlying || greenLanternFlying || kryptonianFlying || novaFlying;
 		boolean heroFlying = otherHeroFlying || ironManFlying;
 		boolean flying = thorFlying || heroFlying;
 		// v0.14.21: Iron Man keeps the body lean from here but has his own limb poses (client.ironman.IronManFlightPose),

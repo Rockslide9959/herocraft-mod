@@ -60,6 +60,9 @@ public final class HeroIdentity {
 		if (com.projecthero.mod.kryptonian.Kryptonian.hasPower(player)) {
 			return "projecthero.squad.identity.kryptonian";
 		}
+		if (com.projecthero.mod.nova.Nova.hasPower(player)) {
+			return "projecthero.squad.identity.nova";
+		}
 		if (com.projecthero.mod.wolverine.WolverineAbilityManager.hasContext(player)) {
 			return "projecthero.squad.identity.wolverine";
 		}
