@@ -90,6 +90,8 @@ public class CarnageV01515GameTests implements FabricGameTest {
 		c.moveTo(helper.absoluteVec(new Vec3(1.5, 2, 1.5)), 0f, 0f);
 		c.configure(1);
 		c.setNoAi(true);
+		// neighbouring tests in the batch can set him burning or hit him, which makes him writhe and cuts the move short
+		c.setInvulnerable(true);
 		helper.getLevel().addFreshEntity(c);
 		return c;
 	}
@@ -108,6 +110,9 @@ public class CarnageV01515GameTests implements FabricGameTest {
 		helper.onEachTick(() -> {
 			if (c.isAlive()) {
 				c.setTarget(victim);
+				if (c.debugMoveIdle() && victim.getHealth() >= victim.getMaxHealth()) {
+					c.debugStartMove(move);
+				}
 				c.debugTickBrain();
 			}
 		});

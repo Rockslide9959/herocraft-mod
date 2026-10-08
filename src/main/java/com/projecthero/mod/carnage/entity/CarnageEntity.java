@@ -579,6 +579,11 @@ public class CarnageEntity extends Monster {
 		return brain != null && brain.force(name);
 	}
 
+	/** Test hook: true when no move is running (so a test can restart one that was cut short). */
+	public boolean debugMoveIdle() {
+		return brain == null || brain.idle();
+	}
+
 	/** Test / harness hook: one tick of the move brain (for a NoAI Carnage, whose goals never run). */
 	public void debugTickBrain() {
 		if (brain != null) {
@@ -779,6 +784,10 @@ public class CarnageEntity extends Monster {
 		}
 
 		/** Test hook: start {@code name} now, cooldowns or not. */
+		boolean idle() {
+			return move == Move.NONE;
+		}
+
 		boolean force(String name) {
 			Move m;
 			try {
