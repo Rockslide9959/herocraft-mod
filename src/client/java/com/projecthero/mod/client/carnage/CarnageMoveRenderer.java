@@ -54,11 +54,11 @@ final class CarnageMoveRenderer {
 				float p = (e - sweepStart) / (sweepEnd - sweepStart);
 				p = p * p * (3 - 2 * p);
 				theta = Mth.lerp(p, -120f, 110f);
-				phi = Mth.lerp(Math.min(1f, p * 2.5f), 50f - k * 10f, -6f - k * 6f);
+				phi = Mth.lerp(Math.min(1f, p * 2.5f), 50f - k * 10f, -3f - k * 3f);
 				lagScale = 1f;
 			} else {
 				theta = 110f;
-				phi = -6f - k * 6f;
+				phi = -3f - k * 3f;
 				lagScale = 0.3f;
 				length = Math.max(0f, 1f - (e - sweepEnd) / 8f);
 			}
@@ -73,7 +73,7 @@ final class CarnageMoveRenderer {
 			for (int i = 0; i < n; i++) {
 				double s = i / (double) (n - 1);
 				double th = Math.toRadians(theta - 55.0 * s * lagScale + 7.0 * Math.sin(s * 8.0 - age * 0.6 + k * 2));
-				double ph = Math.toRadians(phi - 14.0 * s + 5.0 * Math.cos(s * 6.0 - age * 0.4));
+				double ph = Math.toRadians(phi - 7.0 * s + 5.0 * Math.cos(s * 6.0 - age * 0.4));
 				Vec3 dir = new Vec3(Math.sin(th) * Math.cos(ph), -Math.sin(ph), -Math.cos(th) * Math.cos(ph));
 				// the first stretch climbs out of his back before it fans out
 				pts[i] = shoulder.add(dir.scale(reach * s)).add(0, 0, 0.18 * Math.sin(Math.min(1.0, s * 6.0) * Math.PI));
@@ -127,21 +127,25 @@ final class CarnageMoveRenderer {
 		Vec3[] outer = new Vec3[n + 1];
 		for (int i = 0; i <= n; i++) {
 			double t = i / (double) n;
-			inner[i] = new Vec3(0, 0.82 + 0.46 * t, 0.05);
-			outer[i] = new Vec3(0, 0.6 + 0.92 * t, 0.62 + 0.24 * Math.sin(Math.PI * t) + 0.06 * Math.sin(t * 9));
+			// a narrow neck on the haft flaring into a long curved bearded blade
+			inner[i] = new Vec3(0, 0.98 + 0.26 * t, 0.05);
+			double flare = Math.sin(Math.PI * t);
+			outer[i] = new Vec3(0, 0.5 + 1.12 * t + 0.1 * Math.sin(Math.PI * 2 * t), 0.5 + 0.3 * flare + 0.04 * Math.sin(t * 11));
 		}
 		for (int i = 0; i < n; i++) {
 			float v0 = i / (float) n, v1 = (i + 1) / (float) n;
 			for (int s = -1; s <= 1; s += 2) {
-				// each face, thinning toward the edge
+				// each face, thinning toward the edge (u along the blade, v from the haft out, so no stripes)
 				Vec3 a = inner[i].add(cx + s * th, 0, 0), b = inner[i + 1].add(cx + s * th, 0, 0);
-				Vec3 c = outer[i + 1].add(cx + s * th * 0.25, 0, 0), d = outer[i].add(cx + s * th * 0.25, 0, 0);
-				CarnageMesh.quad(vc, last, light, CarnageMesh.WHITE, a, b, c, d, 0f, v0, 1f, v1);
+				Vec3 c = outer[i + 1].add(cx + s * th * 0.3, 0, 0), d = outer[i].add(cx + s * th * 0.3, 0, 0);
+				CarnageMesh.quad(vc, last, light, CarnageMesh.WHITE, a, b, c, d, v0 * 0.5f, 0f, v1 * 0.5f, 1f);
 			}
-			// the bright cutting edge
+			// the bright, glowing cutting edge
 			Vec3 e0 = outer[i].add(cx, 0, 0), e1 = outer[i + 1].add(cx, 0, 0);
-			CarnageMesh.quad(vc, last, FULL_BRIGHT, EDGE, e0.add(-0.015, 0, 0), e1.add(-0.015, 0, 0), e1.add(0.015, 0, 0.05), e0.add(0.015, 0, 0.05),
-					0f, v0, 1f, v1);
+			for (int s = -1; s <= 1; s += 2) {
+				CarnageMesh.quad(vc, last, FULL_BRIGHT, EDGE, e0.add(s * 0.02, 0, -0.07), e1.add(s * 0.02, 0, -0.07), e1.add(0, 0, 0.03), e0.add(0, 0, 0.03),
+						0f, v0, 1f, v1);
+			}
 			// the back of the head
 			Vec3 i0 = inner[i].add(cx, 0, 0), i1 = inner[i + 1].add(cx, 0, 0);
 			CarnageMesh.quad(vc, last, light, CarnageMesh.WHITE, i0.add(-th, 0, 0), i1.add(-th, 0, 0), i1.add(th, 0, 0), i0.add(th, 0, 0), 0f, v0, 1f, v1);
@@ -165,7 +169,7 @@ final class CarnageMoveRenderer {
 		}
 		pose.pushPose();
 		arm.translateAndRotate(pose);
-		CarnageMesh.blob(vc, pose.last(), light, CarnageMesh.WHITE, new Vec3(-0.0625, 0.78, 0.0), 0.3f * size, age, 3);
+		CarnageMesh.blob(vc, pose.last(), light, CarnageMesh.WHITE, new Vec3(-0.0625, 0.8, 0.0), 0.34f * size, age, 3);
 		pose.popPose();
 	}
 

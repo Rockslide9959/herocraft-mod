@@ -78,7 +78,8 @@ public final class CarnageRenderer {
 			float elapsed = e instanceof CarnageEntity c ? age - c.actionStartTick : 0f;
 			this.crouching = action == CarnageEntity.ACTION_COCOON || action == CarnageEntity.ACTION_POUNCE
 					|| action == CarnageEntity.ACTION_ERUPT && elapsed >= CarnageEntity.ERUPT_SLAM
-					|| action == CarnageEntity.ACTION_CLEAVE && elapsed < CarnageEntity.CLEAVE_WINDUP;
+					|| action == CarnageEntity.ACTION_CLEAVE && elapsed < CarnageEntity.CLEAVE_WINDUP
+					|| action == CarnageEntity.ACTION_CLEAVE_LAND;
 			super.setupAnim(e, limbSwing, limbSwingAmount, age, headYaw, headPitch);
 			if (!(e instanceof CarnageEntity)) {
 				// the brood: a hunched, arms-forward scuttle
@@ -87,7 +88,9 @@ public final class CarnageRenderer {
 			} else {
 				// a constant, slightly unhinged sway
 				body.zRot = Mth.sin(age * 0.11f) * 0.05f;
-				head.zRot += Mth.sin(age * 0.17f) * 0.12f;
+				// v0.15.15: assigned, not added -- HumanoidModel never resets head.zRot, so "+=" accumulated every frame
+				// and slowly wrenched his head off to one side
+				head.zRot = Mth.sin(age * 0.17f) * 0.12f;
 				switch (action) {
 					case CarnageEntity.ACTION_CLAW -> {
 						float s = Mth.sin(age * 0.9f);
@@ -162,21 +165,23 @@ public final class CarnageRenderer {
 							rightArm.zRot = 0.15f;
 							leftArm.xRot = -0.8f;
 							leftArm.zRot = -0.5f;
-						} else if (!e.onGround()) {
+						} else {
+							// in the air, axe raised high
 							float p = Math.min(1f, (elapsed - CarnageEntity.CLEAVE_WINDUP) / 10f);
 							rightArm.xRot = Mth.lerp(p, -2.9f, -3.1f);
 							leftArm.xRot = -2.2f;
 							leftArm.zRot = -0.6f;
 							rightLeg.xRot = -0.6f;
 							leftLeg.xRot = 0.4f;
-						} else {
-							// the blade buried in the ground in front of him
-							rightArm.xRot = -0.75f;
-							rightArm.yRot = 0.1f;
-							leftArm.xRot = -0.6f;
-							leftArm.zRot = -0.4f;
-							body.xRot = 0.45f;
 						}
+					}
+					case CarnageEntity.ACTION_CLEAVE_LAND -> {
+						// the swing comes down over 3 ticks, then the blade stays buried in the ground in front of him
+						float p = Math.min(1f, elapsed / 3f);
+						rightArm.xRot = Mth.lerp(p, -3.1f, -0.85f);
+						rightArm.yRot = 0.1f;
+						leftArm.xRot = -0.6f;
+						leftArm.zRot = -0.4f;
 					}
 					case CarnageEntity.ACTION_ERUPT -> {
 						if (elapsed < CarnageEntity.ERUPT_SLAM) {
@@ -196,7 +201,7 @@ public final class CarnageRenderer {
 					case CarnageEntity.ACTION_SNARE -> {
 						if (elapsed < CarnageEntity.SNARE_THROW) {
 							rightArm.xRot = -2.5f - Mth.sin(elapsed * 0.4f) * 0.1f;
-							rightArm.zRot = -0.2f;
+							rightArm.zRot = 0.45f; // out to the side, so the glob is clear of his head
 							leftArm.xRot = -1.1f;
 							leftArm.yRot = 0.4f;
 						} else {
@@ -240,8 +245,9 @@ public final class CarnageRenderer {
 			if (action == CarnageEntity.ACTION_WHIP) {
 				CarnageMoveRenderer.whip(pose, vc, light, elapsed, age);
 			}
-			if (action == CarnageEntity.ACTION_CLEAVE) {
-				CarnageMoveRenderer.axe(pose, vc, light, getParentModel().rightArm, Math.min(1f, elapsed / 8f), age);
+			if (action == CarnageEntity.ACTION_CLEAVE || action == CarnageEntity.ACTION_CLEAVE_LAND) {
+				float grow = action == CarnageEntity.ACTION_CLEAVE ? Math.min(1f, elapsed / 8f) : Math.min(1f, Math.max(0f, (14f - elapsed) / 4f));
+				CarnageMoveRenderer.axe(pose, vc, light, getParentModel().rightArm, grow, age);
 			} else {
 				blade(pose, vc, light, getParentModel().rightArm, 1f, age);
 			}

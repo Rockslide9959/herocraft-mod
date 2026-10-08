@@ -95,7 +95,7 @@ public class CarnageEntity extends Monster {
 	public static final byte ACTION_NONE = 0, ACTION_CLAW = 1, ACTION_POUNCE = 2, ACTION_LASH = 3, ACTION_SPIKES = 4,
 			ACTION_COCOON = 5, ACTION_EMERGE = 6, ACTION_WRITHE = 7,
 			// v0.15.15: Tendril Whip Sweep, Axe-Arm Cleave, Spike Eruption, Symbiote Snare
-			ACTION_WHIP = 8, ACTION_CLEAVE = 9, ACTION_ERUPT = 10, ACTION_SNARE = 11;
+			ACTION_WHIP = 8, ACTION_CLEAVE = 9, ACTION_ERUPT = 10, ACTION_SNARE = 11, ACTION_CLEAVE_LAND = 12;
 	/** v0.15.15 move timings the renderer mirrors (ticks from the move starting). */
 	public static final int WHIP_WINDUP = 12, WHIP_SWEEP = 8, CLEAVE_WINDUP = 12, ERUPT_SLAM = 8, SNARE_THROW = 12;
 
@@ -883,6 +883,7 @@ public class CarnageEntity extends Monster {
 				if (timer > CLEAVE_WINDUP + 3 && leftGround && c.onGround() || timer > CLEAVE_WINDUP + 40) {
 					landed = true;
 					timer = 100; // recovery counts from 100
+					c.setAction(ACTION_CLEAVE_LAND); // the client swings the axe down and buries it
 					c.setDeltaMovement(0, c.getDeltaMovement().y, 0);
 					Vec3 fwd = Vec3.directionFromRotation(0, lockedYaw);
 					Vec3 blade = c.position().add(fwd.scale(1.4));
