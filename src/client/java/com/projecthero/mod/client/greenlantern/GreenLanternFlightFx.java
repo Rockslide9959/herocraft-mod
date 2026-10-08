@@ -147,16 +147,21 @@ public final class GreenLanternFlightFx {
 			float boost = Mth.lerp(partial, t.boostPrev, t.boost);
 			boolean self = p == mc.player && mc.options.getCameraType().isFirstPerson();
 			float time = p.tickCount + partial;
-			if (aura > 0.01f && !self) {
-				aura(pose, buffers, cam, p, partial, time, aura, boost);
-			}
+			// v0.15.15 playtest: the body glow is a thin skin of light on the model itself now (GreenLanternFlightGlow,
+			// drawn from the player's render layer) -- the old ellipsoid (aura()) read as a long orb round the player
 			if (!t.points.isEmpty()) {
 				trail(pose, buffers, cam, p, t, partial, now, time, sprintFlying(p));
 			}
 		}
 	}
 
-	// ---------------------------------------------------------------- the aura
+	/** 0..1 eased Ring Flight glow strength for {@code p} (fades in on take-off, out on landing), for GreenLanternFlightGlow. */
+	public static float auraStrength(Player p, float partial) {
+		Trail t = TRAILS.get(p.getUUID());
+		return t == null ? 0f : Mth.lerp(partial, t.auraPrev, t.aura);
+	}
+
+	// ---------------------------------------------------------------- the old ellipsoid aura (unused since the playtest)
 
 	private static void aura(PoseStack pose, MultiBufferSource buffers, Vec3 cam, Player p, float partial, float time, float k,
 			float boost) {
@@ -216,11 +221,12 @@ public final class GreenLanternFlightFx {
 		pose.translate(-cam.x, -cam.y, -cam.z);
 		PoseStack.Pose last = pose.last();
 		VertexConsumer vc = HardLightRibbon.translucent(buffers);
-		ribbon(vc, last, cam, pts, age, 0.34f, 0x35F075, 0.42f, 1.0f);
-		ribbon(vc, last, cam, pts, age, 0.11f, 0xF0FFF4, 0.9f, 1.6f);
+		// v0.15.15 playtest ("make the flight trail more transparent"): about half the old opacity, the core much fainter
+		ribbon(vc, last, cam, pts, age, 0.34f, 0x35F075, 0.2f, 1.0f);
+		ribbon(vc, last, cam, pts, age, 0.1f, 0xF0FFF4, 0.28f, 1.6f);
 		strands(vc, last, cam, pts, age, time);
 		VertexConsumer add = HardLightRibbon.additive(buffers);
-		ribbon(add, last, cam, pts, age, 0.6f, 0x35F075, 0.3f, 1.2f);
+		ribbon(add, last, cam, pts, age, 0.6f, 0x35F075, 0.14f, 1.2f);
 		pose.popPose();
 	}
 
@@ -271,7 +277,7 @@ public final class GreenLanternFlightFx {
 				float r = 0.26f * Math.min(1f, (i + 0.35f) / 2.2f) * (1f - age[i] * 0.5f);
 				q[i] = pts[i].add(u.scale(Mth.cos(phase) * r)).add(v.scale(Mth.sin(phase) * r));
 			}
-			ribbon(vc, pose, cam, q, age, 0.035f, 0xB8FFCC, 0.85f, 1.3f);
+			ribbon(vc, pose, cam, q, age, 0.035f, 0xB8FFCC, 0.38f, 1.3f);
 		}
 	}
 }

@@ -34,6 +34,8 @@ public class PowerRingLayer extends RenderLayer<AbstractClientPlayer, PlayerMode
 		if (!GreenLanternHandRenderer.hasAnything(player)) {
 			return;
 		}
+		// v0.15.15: the Ring Flight glow, a thin skin of light over the posed model
+		com.projecthero.mod.client.greenlantern.GreenLanternFlightGlow.render(pose, buffers, player, getParentModel(), ageInTicks);
 		GreenLanternHandRenderer.render(pose, buffers, packedLight, player, getParentModel().rightArm, ageInTicks);
 	}
 }
