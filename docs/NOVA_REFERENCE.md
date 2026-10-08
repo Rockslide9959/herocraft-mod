@@ -1,4 +1,4 @@
-# Nova (Richard Rider) -- reference (v0.15.13)
+# Nova (Richard Rider) -- reference (v0.15.13, retuned v0.15.15)
 
 Hero-Tier **Primary** power. Every number lives in `com.projecthero.mod.nova.NovaConfig` (static finals); keep this
 file in step with it.
@@ -25,8 +25,13 @@ file in step with it.
 ## The uniform (H)
 
 - **H** puts the Nova Corps uniform on / takes it off (10-tick debounce; Shift+H still opens the power wheel).
-- Suit-up: golden energy wraps the body from the feet up over **24 ticks** (1.2 s); suit-down unravels from the head
-  over **14 ticks**.
+- Suit-up (v0.15.15, **46 ticks**): the **Nova Corps Helmet** (the suit model's own head + helmet layer) materialises in
+  both hands in front of the chest, is raised overhead (ticks 0-12) and lowered onto the head (12-22, the arms aimed at
+  it the whole way, the head levelled so it settles square; a flash and a clank as it lands), then the rest of the uniform
+  materialises **from the neck down** (22-46) with a bright gold scan line on the newest texel rows and a gold helix
+  running down the body. Suit-down (**38 ticks**): the body dematerialises from the feet up to the neck (0-16), the hands
+  come up to the helmet (16-21), lift it off overhead (21-31) and it dissolves there in gold (31-38).
+  Timing: `NovaConfig.SUIT_*`; the client keyframes are `NovaSuitRender.anim` (+ `NovaPose.holdHelmet`).
 - The uniform is not an item: drawn from the synced state as a second wide player model a hair over the wearer (base
   +0.04, outer +0.29, helmet +0.54). The wearer's own skin overlay and worn armour are hidden while it is on (the armour
   still protects). Transparent texels stay transparent, so the wearer's face shows in the helmet opening.
@@ -35,12 +40,17 @@ file in step with it.
 
 ## Nova Force (Slab bar)
 
-- 0-100, starts full. Refills **4 a second, all the time**.
-- Flying faster than 25 b/s (i.e. sprint flight) drains **2 a second** (net +2).
+- 0-100, starts full. Refills **3 a second**; **half that (1.5/s) while flying**.
+- Flying faster than 25 b/s (i.e. sprint flight) also drains **2 a second** (net -0.5/s).
+- After a NOVA OVERLOAD the bar is **empty** and refills at **half speed for 60 s** (1.5/s, 0.75/s flying -- the two
+  slowdowns multiply). The HUD shows it: the bar dimmed, a red line along its bottom draining away, "slow refill Ns".
+- During the Overload the bar is **infinite** (shown full and pulsing, "OVERLOAD: infinite Force N s"); it does not
+  refill underneath.
 - The HUD Slab bar outline turns cyan when full (NOVA OVERLOAD ready).
 
 ## Passives (while suited)
 
+- **+8 melee damage** (an `ATTACK_DAMAGE` modifier, `projecthero:nova_melee`).
 - **60% damage reduction** on everything except `/kill` / the void.
 - **No fall damage** (nor flying into walls).
 - **Worldmind**: every mob within a **32-block sphere** is outlined gold -- through walls, for the Nova alone (viewer-only,
@@ -49,22 +59,25 @@ file in step with it.
 ## Flight
 
 Double-tap jump in the air while suited (again to drop out; touching the ground lands you). Shared directional flight
-(`DirectionalFlightModel.nova`): **20 b/s** cruising, **40 b/s** sprinting, 12 b/s straight up/down, strafe 80%; a
-golden trail.
+(`DirectionalFlightModel.nova`): **20 b/s** cruising, **45 b/s** sprinting (steady state), 12 b/s straight up/down,
+strafe 80%. The golden trail (v0.15.15) is drawn client-side (`NovaEffectsRenderer`): a tapering gold ribbon with a hot
+core and a cyan thread from the **interpolated feet** back through the last 11 ticks' positions, plus a few sparks. The
+flight lean pivots round the soles (`PlayerRendererMixin`), so the feet are the entity position in every pose --
+sprint-flying flat out included.
 
 ## Moves
 
 | Key | Move | Effect | Cost | Cooldown |
 |---|---|---|---|---|
-| R (hold) | **Nova Blast** | Golden beam from the hand, 32 blocks, **8 dmg/s** (4 every 10 ticks), up to 8 s | 6/s (needs 3 to open) | 1.5 s after release |
-| Shift+R | **Nova Bolt Volley** | **5 homing bolts, 6 dmg each** (seek the enemies nearest the crosshair, 24 blocks, 3 s life) | 20 | 6 s |
-| G | **Gravimetric Pulse** | **6-block** shockwave round you, **10 dmg** (70% at the edge), knock-up 0.9 | 20 | 8 s |
-| Shift+G | **Gravity Slam** | From 2+ blocks up: dive, then an **8-block** crater shockwave, **6 + 0.6/block dropped, max 18**; particles only, no blocks broken | 25 | 12 s |
-| Z | **Force Shield** | **4 s** golden bubble (1.8 blocks): absorbs every projectile (deleted on entry) and every melee blow (attacker pushed back) | 25 | 15 s |
-| Shift+Z | **NOVA OVERLOAD** (ultimate) | Needs a **full bar** and takes all of it: **10 s** of free moves at **+50%** damage with halved cooldowns, then a **30-dmg nova burst** (10 blocks) | 100 (all) | **90 s** (from activation) |
-| X | **Comet Dash** | **20-block** ram along the look (flat on foot, any direction in flight), **14 dmg** to everything within 1.5 blocks of the path, once each | 15 | 6 s |
+| R (hold) | **Nova Blast** | Golden beam from the hand, 32 blocks, **10 dmg per hit, one hit every 10 ticks (20 dmg/s)**; **no time limit** -- fires while held until the Force runs out | 6/s (needs 3 to open) | 1.5 s after release |
+| Shift+R | **Nova Bolt Volley** | **5 homing bolts, 8 dmg each** (seek the enemies nearest the crosshair, 24 blocks, 3 s life) | 20 | 6 s |
+| G | **Gravimetric Pulse** | **6-block** shockwave round you, **20 dmg** (70% at the edge), knock-up 0.9 | 20 | 8 s |
+| Shift+G | **Gravity Slam** | From 2+ blocks up: dive, then an **8-block** crater shockwave, **10 + 1/block dropped, max 30** (at 20 blocks); particles only, no blocks broken | 25 | 12 s |
+| Z (hold) | **Force Field** | Golden **ForceBubble** (1.8 blocks) **for as long as Z is held**: absorbs every projectile (deleted on entry) and every melee blow (attacker pushed back); flickers when under 8 Force | **8/s** while up (needs 8 to raise; free in the Overload) | 1 s after release |
+| Shift+Z | **NOVA OVERLOAD** (ultimate) | Needs a **full bar** and takes all of it: **15 s** of **double damage** on every move, **infinite Nova Force** and halved cooldowns, then a **30-dmg nova burst** (10 blocks). When it ends the bar is set to **0** and refills at **half speed for 60 s** (also if the uniform comes off mid-Overload, without the burst) | 100 (all) | **75 s** (from activation) |
+| X | **Comet Dash** | **20-block** ram along the look (flat on foot, any direction in flight), **20 dmg** to everything within 1.5 blocks of the path, once each | 15 | 6 s |
 | Shift+X | **Orbital Launch** | Grab the nearest hostile mob within 8 (not players, not bosses), climb **30 blocks** with it at 1.5 b/tick, spike it down at 3 b/tick: **20 dmg on impact + the fall**, 6 dmg splash (3 blocks); you hover at the top | 30 | 20 s |
-| C | **Gravity Well** | Singularity at the crosshair (24 blocks): **3 s** pulling mobs within 8 in, then collapses for **20 dmg** (4 blocks) | 30 | 14 s |
+| C | **Gravity Well** | Singularity at the crosshair (24 blocks): **3 s** pulling mobs within 8 in, then collapses for **35 dmg** (4 blocks) | 25 | **25 s** |
 | Shift+C | **Gravity Lock** | Every mob within **10** lifted **3 blocks** and frozen (Slowness X / Weakness X) for **4 s**, then dropped | 35 | 20 s |
 | V | **Worldmind Scan** | 48-block pulse: everything found outlined cyan for **10 s** (Nova only); the strongest (highest max health, hostiles first) marked red and takes **+25% from every source** | 15 | 20 s |
 | Shift+V | **Nova Force Transfer** | Heal yourself and every squadmate within 8 for **6 hearts** | 40 (40%) | 20 s |
@@ -73,16 +86,26 @@ Bosses (max health >= 300, or a Titan-class boss) take at most 8% of their max h
 back, grabbed, lifted or pulled. Every move uses `HeroTargets`: never yourself, squadmates, squadmates' pets or your own
 pets; other players only with PvP on. Gravity moves only ever move mobs, never players.
 
+## The Force Field bubble (shared)
+
+`com.projecthero.mod.shield.ForceBubble` (server: `blocks(source)`, `absorb(...)`, `tick(...)`, `raise` / `drop`) and
+`client.shield.ForceBubbleRenderer.draw(...)` (a fresnel-rim shell, a slowly turning latitude / longitude lattice and
+three spinning rings, one accent-coloured; drawn fainter for the wearer). Styles: `ForceBubble.Style.NOVA` (gold,
+cyan accent) and `Style.GREEN_LANTERN` (green) -- built so Green Lantern's Z shield can switch to the same bubble.
+Nova keeps the "is it up" state (`NovaState.shieldUntil = Long.MAX_VALUE` while Z is held, 0 when let go) and the upkeep.
+
 ## HUD
 
-Bottom right: NOVA (OVERLOAD + seconds while it runs), the Nova Force **Slab** bar (9 px, border, numbers inside), and
+Bottom right: NOVA, the Nova Force **Slab** bar (9 px, border, numbers inside; full and pulsing with "OVERLOAD: infinite
+Force N s" while it runs; dimmed with a draining red line and "slow refill Ns" during the 60 s after), and
 six boxes R G Z X C V (moved up above the hotbar / health / food / air rows whenever the GUI is too narrow for them to sit beside the hotbar). Each box shows the tap move's cooldown, or with Shift held the Shift move's (gold dot); a strip
 along the bottom shows the other move's readiness; a red strip = not enough Force. Shift or Left-Alt lists the moves.
 No H / N boxes.
 
 ## Poses (keyframed, every viewer)
 
-Flight (main fist forward overhead), Nova Blast (arm along the look, other hand braced), Force Shield (forearms crossed),
+Suit-up / suit-down (both hands on the helmet as it is raised and lowered, or lifted off), Flight (main fist forward
+overhead), Nova Blast (arm along the look, other hand braced), Force Field (forearms crossed),
 Comet Dash (fist forward, other arm back), Gravity Slam (fists overhead through the dive, landing crouch), Overload (arms
 flung wide, head back; wider for the burst), plus short frames for volley, pulse, launch, well, lock, scan and transfer.
 
@@ -99,7 +122,9 @@ Source files: `scratchpad/nova_skins/`.
   `projecthero:nova_state`); `item/` (helmet, registry), `entity/NovaCenturionEntity`, `worldgen/NovaPodSite*`,
   `network/` (`NovaActionPayload` C2S H / flight, `NovaScanPayload` S2C to the caster only).
 - `client/nova/` -- `NovaSuitRender` (model, reveal frames, glow), `NovaSuitLayer`, `NovaHud`, `NovaPose`,
-  `NovaEffectsRenderer` (beam, bubble, well), `NovaWorldmindClient`, `NovaCenturionRenderer`, `NovaClient`.
+  `NovaEffectsRenderer` (beam, Force Field bubble, well, flight trail), `NovaWorldmindClient`, `NovaCenturionRenderer`,
+  `NovaClient`.
+- `shield/ForceBubble` + `client/shield/ForceBubbleRenderer` -- the reusable bubble shield (v0.15.15).
 - Mixins: `NovaWorldmindGlowMixin`, `NovaWorldmindColorMixin`, `NovaFirstPersonArmMixin`; hooks in `PlayerModelMixin`,
   `HumanoidArmorLayerMixin`, `HumanoidModelMixin`, `LevelRendererHighlightMixin`.
 - Tests: `NovaGameTests`.
