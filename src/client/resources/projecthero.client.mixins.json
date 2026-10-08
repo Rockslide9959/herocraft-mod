@@ -6,6 +6,7 @@
 		"NovaFirstPersonParticleMixin",
 		"AbstractClientPlayerHulkFovMixin",
 		"GantryFovMixin",
+		"IronManRemovalParticleMixin",
 		"ItemInHandRendererComboMixin",
 		"CompositeStateAccessor",
 		"LivingEntityRendererLayersAccessor",

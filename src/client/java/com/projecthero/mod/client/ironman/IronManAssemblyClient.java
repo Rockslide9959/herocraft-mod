@@ -84,7 +84,9 @@ public final class IronManAssemblyClient {
 			}
 			s[0] = s[1];
 			s[1] = IronManFaceplateLook.step(s[1], open);
-			if (s[0] > 0f && s[1] == 0f) {
+			// v0.15.15: only a real seal -- a helmet taken off with its faceplate up (the C removals) also lets the lift
+			// fall to 0, and that used to puff the sparkle right in front of the wearer's own eyes
+			if (s[0] > 0f && s[1] == 0f && p.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof IronManArmorItem) {
 				// sealed: white eye flash + a little sparkle at the eyes
 				EYE_FLASH_AT.put(p.getId(), mc.level.getGameTime());
 				Vec3 eye = p.getEyePosition().add(p.getViewVector(1f).scale(0.33));

@@ -632,9 +632,8 @@ public final class IronManSuitRemoval {
 			}
 			case EV_GONE -> {
 				IronManSounds.playAt(level, at.x, at.y, at.z, IronManSounds.RELEASE, 0.6f, 1.25f + e.bit() * 0.05f);
-				if (e.bit() != 0) { // no sparks at eye level -- in first person they filled the view
-					level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 4, 0.2, 0.12, 0.2, 0.05);
-				}
+				// (the wearer's own first-person view drops bursts this close to the camera: IronManRemovalParticleMixin)
+				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 4, 0.2, 0.12, 0.2, 0.05);
 			}
 			case EV_PULL -> {
 				IronManManualSuitUp.playAt(player, SoundEvents.IRON_TRAPDOOR_OPEN, e, 0.6f, 0.75f);
