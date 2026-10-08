@@ -8,6 +8,8 @@
 		"GantryFovMixin",
 		"IronManRemovalParticleMixin",
 		"ItemInHandRendererComboMixin",
+		"ItemInHandLayerPowerBatteryMixin",
+		"ItemInHandRendererPowerBatteryMixin",
 		"CompositeStateAccessor",
 		"LivingEntityRendererLayersAccessor",
 		"RenderTypeCompositeInvoker",

@@ -111,6 +111,10 @@ public final class GreenLanternPose {
 			f(28, -0.6f, -0.1f, 0.2f, 0.05f, 0, -0.2f, 0, 0, 0, 0, 0),
 			rest(32) };
 
+	/** v0.15.15 charge pose (radians): the ring arm across to the battery, the battery arm held out. Tuned on screenshots. */
+	public static float CH_RING_X = -0.95f, CH_RING_Y = -0.62f, CH_RING_Z = 0f;
+	public static float CH_BAT_X = -1.2f, CH_BAT_Y = 0.42f, CH_BAT_Z = 0f;
+
 	private GreenLanternPose() {
 	}
 
@@ -124,6 +128,22 @@ public final class GreenLanternPose {
 		float age = player.tickCount + partial;
 		GreenLanternFx fx = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FX, GreenLanternFx.EMPTY);
 
+		if (fx.has(GreenLanternFx.CH_CHARGE)) {
+			// v0.15.15: charging at the Power Battery -- the battery held out in front in the off hand, the ring fist
+			// brought across and pressed against it, the head bowed to watch while the Oath is recited
+			float held = now - fx.chargeStart() + partial;
+			float in = Math.min(1f, held / 6f);
+			float press = Mth.sin(age * 0.4f) * 0.02f;
+			if (player.getMainArm() == net.minecraft.world.entity.HumanoidArm.RIGHT) {
+				set(m, in, CH_RING_X + press, CH_RING_Y, CH_RING_Z, CH_BAT_X, CH_BAT_Y, CH_BAT_Z);
+			} else {
+				set(m, in, CH_BAT_X, -CH_BAT_Y, -CH_BAT_Z, CH_RING_X + press, -CH_RING_Y, -CH_RING_Z);
+			}
+			m.head.xRot = Mth.lerp(in, m.head.xRot, 0.35f);
+			m.head.yRot = Mth.lerp(in, m.head.yRot, 0f);
+			m.hat.copyFrom(m.head);
+			return;
+		}
 		if (fx.has(GreenLanternFx.CH_RING_REMOVE)) {
 			float held = now - fx.ringRemoveStart() + partial;
 			float in = Math.min(1f, held / 6f);

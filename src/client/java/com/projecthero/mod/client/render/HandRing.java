@@ -60,6 +60,17 @@ public final class HandRing {
 	}
 
 	/**
+	 * v0.15.15: x of the fist's inner face as the ring's pivot sees it. Both shipped {@link RingPlacement}s turn the ring
+	 * 90 degrees about Y, which puts the band on the OUTER face of the hand, whose outward normal is -x -- so a thicker
+	 * suit shell has to move the pivot toward -x. (Before this the gap was added toward +x, burying the ring inside a
+	 * suit's gauntlet -- "the ring doesn't look like it's on the player's body" when suited.) Identical to the old value
+	 * for bare skin (gap = SKIN_GAP).
+	 */
+	private static float innerFace(float gap) {
+		return 1f + 2f * SKIN_GAP - gap;
+	}
+
+	/**
 	 * Draws the ring. {@code pose} must already be in the arm's space ({@code arm.translateAndRotate}); {@code gap} lifts
 	 * it off a suit's gauntlet. Callers add their own extras (the Lantern's halo) round {@link #gemCentre}.
 	 */
@@ -67,7 +78,7 @@ public final class HandRing {
 		gap = lift(gap);
 		pose.pushPose();
 		pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
-		float inner = 1f + gap;           // the fist's inner face (toward the body)
+		float inner = innerFace(gap);     // the fist's inner face (toward the body), see innerFace
 		float front = -2f - gap;          // its front (knuckle) face
 		float fx = inner - FINGER_IN;     // finger centre, x: on the knuckles, right by the inner edge
 		float y = RING_Y;
@@ -94,13 +105,13 @@ public final class HandRing {
 	 */
 	public static void place(PoseStack pose, Palette c, float gap) {
 		gap = lift(gap);
-		RingPlacement.apply(pose, c.id(), 1f + gap - FINGER_IN, RING_Y, -2f - gap);
+		RingPlacement.apply(pose, c.id(), innerFace(gap) - FINGER_IN, RING_Y, -2f - gap);
 	}
 
 	/** The centre of the gem, in arm pixels (x, y, z), for extras drawn round it. */
 	public static float[] gemCentre(float gap) {
 		gap = lift(gap);
-		return new float[] { 1f + gap - FINGER_IN, RING_Y, -2f - gap - 0.5f };
+		return new float[] { innerFace(gap) - FINGER_IN, RING_Y, -2f - gap - 0.5f };
 	}
 
 	public static VertexConsumer buffer(net.minecraft.client.renderer.MultiBufferSource buffers) {

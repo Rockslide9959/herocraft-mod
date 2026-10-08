@@ -75,7 +75,8 @@ public final class GreenLanternHandRenderer {
 		pose.pushPose();
 		arm.translateAndRotate(pose);
 		// the suit's gauntlet is always the wide 4 px arm (0.55 px proud of it), even over a slim skin
-		ring(pose, buffers, player, suited == 1 ? 0.62f : 0.08f, ageInTicks);
+		// v0.15.15: 0.55 px shell + the usual lift (0.63)
+		ring(pose, buffers, player, suited == 1 ? 0.63f : HandRing.SKIN_GAP, ageInTicks);
 		com.projecthero.mod.greenlantern.data.GreenLanternFx fx = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FX,
 				com.projecthero.mod.greenlantern.data.GreenLanternFx.EMPTY);
 		if (fx.has(com.projecthero.mod.greenlantern.data.GreenLanternFx.CH_GATLING)) {
@@ -132,6 +133,11 @@ public final class GreenLanternHandRenderer {
 		// v0.15.15: the ring blazes while the suit pours out of it (or back into it)
 		float forming = GreenLanternSuitReveal.ringGlow(player, age - (float) Math.floor(age));
 		HandRing.arm(player);
+		if (gap > 0.3f || (HandRing.firstPerson && player.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof GreenLanternArmorItem)) {
+			// v0.15.15: the suit's gauntlet (3rd person) and first-person sleeve are always the wide 4 px arm, even over a
+			// slim skin -- place the ring for a wide arm so it sits on the glove instead of inside it
+			HandRing.slimArm = false;
+		}
 		HandRing.draw(pose, vc, gap, forming > 0.05f ? BLAZING : HandRing.GREEN_LANTERN);
 		// the halo: breathes softly, flares while the ring is working
 		float[] g = HandRing.gemCentre(gap);

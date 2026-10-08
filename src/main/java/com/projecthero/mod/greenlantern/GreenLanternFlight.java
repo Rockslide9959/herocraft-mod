@@ -146,7 +146,7 @@ public final class GreenLanternFlight {
 		// streak instead: a short line of dust from the current position back along the direction of
 		// travel (not the look angle -- flying backwards/strafing should still trail behind the actual
 		// motion), every tick while moving, so it reads as a continuous ribbon rather than a dotted line.
-		if (speed > 0.02) {
+		if (speed > 0.02 && !boosting) { // v0.15.15: sprint flight draws a real trail model instead (client GreenLanternFlightFx)
 			ServerLevel level = player.serverLevel();
 			Vec3 travel = player.getDeltaMovement();
 			Vec3 travelDir = travel.lengthSqr() > 1.0e-6 ? travel.normalize() : player.getLookAngle();
