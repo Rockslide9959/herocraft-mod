@@ -47,6 +47,7 @@ public class SpeedsV01515GameTests implements FabricGameTest {
 	}
 
 	private static void near(GameTestHelper h, String what, double got, double want) {
+		System.out.println("[v01515 speed] " + what + ": " + String.format(java.util.Locale.ROOT, "%.3f", got) + " b/s (want " + want + ")");
 		h.assertTrue(Math.abs(got - want) < 0.05, what + ": measured " + got + " b/s, want " + want);
 	}
 
@@ -146,6 +147,7 @@ public class SpeedsV01515GameTests implements FabricGameTest {
 		AbilityRouter.handleInput(p, 6, false);
 		double walk = run(p, start, false);
 		double sprint = run(p, start, true);
+		System.out.println("[v01515 speed] " + "Speed Mode" + ": walk " + walk + " b/s, sprint " + sprint + " b/s");
 		h.assertTrue(Math.abs(walk - 20.0) < 0.5, "Speed Mode walking measured " + walk + " b/s, want 20");
 		h.assertTrue(Math.abs(sprint - 40.0) < 0.5, "Speed Mode sprinting measured " + sprint + " b/s, want 40");
 		h.succeed();
@@ -160,6 +162,7 @@ public class SpeedsV01515GameTests implements FabricGameTest {
 		AbilityRouter.handleInput(p, 5, false);
 		double walk = run(p, start, false);
 		double sprint = run(p, start, true);
+		System.out.println("[v01515 speed] " + "Overdrive" + ": walk " + walk + " b/s, sprint " + sprint + " b/s");
 		h.assertTrue(Math.abs(walk - 32.0) < 0.5, "Overdrive walking measured " + walk + " b/s, want 32");
 		h.assertTrue(Math.abs(sprint - 120.0) < 1.0, "Overdrive sprinting measured " + sprint + " b/s, want 120");
 		h.succeed();

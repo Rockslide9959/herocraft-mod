@@ -73,7 +73,7 @@ never knocked back.
 
 Double-tap jump in the air -> `KryptonianActionPayload.TOGGLE_FLIGHT`. Client model (v0.14.16: the shared
 `client/flight/DirectionalFlight`, numbers in `flight/DirectionalFlightModel#kryptonian`): W / S fly forward / backward
-along the look (0.9 b/t, Sprint 1.75 b/t, Flight Boost 2.75), turning around at the old brake rate (0.35 of the gap/tick),
+along the look (v0.15.15: 1.0 b/t = 20 b/s, Sprint 2.25 b/t = 45 b/s, Flight Boost 2.75 = 55 b/s), turning around at the old brake rate (0.35 of the gap/tick),
 A/D strafe (70%), Space/Sneak 0.6 b/t vertical, coast to a hover (0.08). Big outside pushes (> 0.6 b/t off the model, or
 any server velocity packet) are adopted. Dash / Slam / Launch stop flight while they
 run (the server launches him) and Dash / Launch restore it.
