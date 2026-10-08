@@ -31,7 +31,6 @@ public abstract class FirstPersonBodyHeadMixin<T extends LivingEntity, M extends
 	private void projecthero$fpBodyHead(T entity, float yaw, float partialTick, PoseStack pose, MultiBufferSource buffers, int light,
 			CallbackInfo ci) {
 		if (FirstPersonBody.renderingSelf(entity) && model instanceof HumanoidModel<?> humanoid) {
-			FirstPersonBody.nudgeArms(humanoid);
 			FirstPersonBody.captureHead(pose, humanoid.head, entity, partialTick);
 		}
 	}

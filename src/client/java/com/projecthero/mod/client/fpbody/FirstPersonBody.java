@@ -29,11 +29,11 @@ import net.minecraft.world.phys.Vec3;
  *   <li>the player's own model is drawn in the world pass like a third-person view ({@code mixin.FirstPersonBodyLevelMixin}
  *       flips the camera's "detached" test for the entity loop only), with every layer -- armour, GeckoLib suits, the
  *       forming effects, held items, keyframed poses -- exactly as everyone else sees it;</li>
- *   <li>it is drawn {@link #BACK} blocks behind its true spot along the body's facing and, when looking down, swung up
- *       about the eyes towards the line of sight ({@link #SWING}) -- the eyes sit right over the chest, so a standing body
- *       is otherwise only in view looking straight down (v0.15.15 review: at a natural 45-70 degree look down the view
- *       showed nothing but grass); faces right at the lens are culled ({@link CullingBufferSource#NEAR}), an arm raised
- *       out in front is swung aside ({@link #nudgeArms}), and the body's own shadow is not drawn;</li>
+ *   <li>it is drawn where the body really stands, facing the way the body faces (yBodyRot -- never turned or tilted with
+ *       the camera), only set back along that facing ({@link #offset}) the way the third-person model mod "First-person
+ *       Model" does it: a little when looking ahead, further the more the wearer looks down (so the torso, legs and feet
+ *       come into view in their natural place), its own amount when sneaking, none swimming / gliding; faces right at
+ *       the lens are culled ({@link CullingBufferSource#NEAR}) and the body's own shadow is not drawn;</li>
  *   <li>everything inside the head's volume -- the head, hat, any helmet, glasses, masks, GeckoLib head bones -- is
  *       culled quad by quad ({@link CullingBufferSource}, in the head's own frame captured by
  *       {@code mixin.FirstPersonBodyHeadMixin}), so nothing sits over the lens;</li>
@@ -43,38 +43,14 @@ import net.minecraft.world.phys.Vec3;
  * </ul>
  */
 public final class FirstPersonBody {
-	/** How far behind its true spot (along the body's facing) the body is drawn, in blocks. */
-	public static final double BACK = 0.30;
-	/**
-	 * How much of the gap between the look pitch and straight down the body swings up towards the view, about the eyes
-	 * (0 = it stays standing, 1 = it always lies along the line of sight as if looking straight down). A standing body
-	 * is only ever in view looking nearly straight down -- the eyes sit over the chest -- so the body swings up a little to
-	 * meet a natural look down.
-	 */
-	public static final float SWING = 0.9f;
-
-	/** The swing applied to the body this frame (world-aligned camera space), identity when none. */
-	private static final org.joml.Quaternionf swing = new org.joml.Quaternionf();
-
-	/**
-	 * Swings the pose stack about the camera (the origin of the world pass's camera-relative space) so the body rises
-	 * towards the line of sight -- see {@link #SWING}.
-	 */
-	public static void applySwing(PoseStack pose, Entity self, float partialTick) {
-		float pitch = Mth.clamp(self.getViewXRot(partialTick), 0f, 90f);
-		// only when looking down: looking ahead (or up) the body stays where it stands, out of sight below
-		float lookingDown = Mth.clamp((pitch - 10f) / 30f, 0f, 1f);
-		float d = (float) Math.toRadians(SWING * (90f - pitch) * lookingDown);
-		double yaw = Math.toRadians(self.getViewYRot(partialTick));
-		float fx = (float) -Math.sin(yaw);
-		float fz = (float) Math.cos(yaw);
-		// rotate "down" towards "forward": about down x forward = (-fz, 0, fx)
-		swing.identity();
-		if (Math.abs(d) > 1e-4f) {
-			swing.rotationAxis(d, -fz, 0f, fx);
-			pose.mulPose(swing);
-		}
-	}
+	/** Set-back (blocks) along the body's facing when looking straight ahead, standing. */
+	private static final double BACK_AHEAD = 0.20;
+	/** ...growing by this much by the time the wearer looks straight down (so the chest and legs come into view). */
+	private static final double BACK_LOOK_DOWN = 0.16;
+	/** Sneaking: the crouched body leans forward under the eyes, so it sits further back. */
+	private static final double BACK_SNEAK = 0.40;
+	/** Sneaking: the crouched model's neck sits lower relative to the eyes than standing. */
+	private static final double DOWN_SNEAK = 0.05;
 
 	private static final List<Predicate<AbstractClientPlayer>> SEQUENCES = new CopyOnWriteArrayList<>();
 
@@ -201,31 +177,7 @@ public final class FirstPersonBody {
 		org.joml.Vector3f neck = headFrame.transformPosition(0f, 0f, 0f, new org.joml.Vector3f());
 		double r = Math.toRadians(bodyYaw(entity, partialTick));
 		// upright neck frame: origin at the neck pivot, z = the body's facing, y = world up
-		neckFrame = new Matrix4f().translation(neck).rotate(swing).rotateY((float) -r).invert();
-	}
-
-	/** How far (radians) an arm raised straight out in front is swung out to the side, clear of the lens. */
-	public static final float ARM_NUDGE = 0.45f;
-
-	/**
-	 * An arm raised out in front (a ring aimed, a piece held up, a fist to the core) comes up right in front of the eyes
-	 * and filled the view: swing it out to the side in proportion to how far it is raised. Only the wearer's own view of
-	 * themselves is changed -- this runs on the pose of the body drawn for them in first person.
-	 */
-	public static void nudgeArms(net.minecraft.client.model.HumanoidModel<?> m) {
-		float r = raised(m.rightArm.xRot);
-		float l = raised(m.leftArm.xRot);
-		m.rightArm.yRot += ARM_NUDGE * r;
-		m.leftArm.yRot -= ARM_NUDGE * l;
-		if (m instanceof net.minecraft.client.model.PlayerModel<?> pm && (r > 0f || l > 0f)) {
-			pm.rightSleeve.copyFrom(pm.rightArm);
-			pm.leftSleeve.copyFrom(pm.leftArm);
-		}
-	}
-
-	/** 0 for an arm hanging or held low, 1 for one raised level with the shoulder or higher (xRot -0.6 .. -1.4). */
-	private static float raised(float xRot) {
-		return Mth.clamp((-xRot - 0.6f) / 0.8f, 0f, 1f);
+		neckFrame = new Matrix4f().translation(neck).rotateY((float) -r).invert();
 	}
 
 	/** The head frame's inverse (this frame's, or the last one's), or null before the first capture. */
@@ -245,10 +197,23 @@ public final class FirstPersonBody {
 				? Mth.rotLerp(partialTick, le.yBodyRotO, le.yBodyRot) : entity.getViewYRot(partialTick);
 	}
 
-	/** Where (relative to its true spot) the body is drawn: {@link #BACK} blocks behind, along the body's facing. */
+	/**
+	 * Where (relative to its true spot) the body is drawn: set back along the BODY's facing (never the camera's), by an
+	 * amount that grows as the wearer looks down -- straight ahead nothing of the body is in view anyway, looking down the
+	 * torso, legs and feet show in their natural place. Sneaking sits further back and a little lower; swimming / gliding
+	 * (the body lies along the look) none.
+	 */
 	public static Vec3 offset(Entity entity, float partialTick) {
 		double r = Math.toRadians(bodyYaw(entity, partialTick));
+		if (entity instanceof net.minecraft.world.entity.LivingEntity le && (le.isFallFlying() || le.isVisuallySwimming()
+				|| le.isSleeping())) {
+			return Vec3.ZERO;
+		}
+		float pitch = Mth.clamp(entity.getViewXRot(partialTick), 0f, 90f);
+		double lookDown = Mth.clamp((pitch - 20f) / 60f, 0f, 1f);
+		boolean sneak = entity.isCrouching();
+		double back = (sneak ? BACK_SNEAK : BACK_AHEAD) + BACK_LOOK_DOWN * lookDown;
 		// facing (yaw) -> look vector (-sin, 0, cos); behind is the opposite
-		return new Vec3(Math.sin(r) * BACK, 0.0, -Math.cos(r) * BACK);
+		return new Vec3(Math.sin(r) * back, sneak ? -DOWN_SNEAK : 0.0, -Math.cos(r) * back);
 	}
 }
