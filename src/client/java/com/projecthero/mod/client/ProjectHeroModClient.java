@@ -39,9 +39,6 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	private static boolean glWheelOpenedThisHold = false;
 	/** v0.14.3: Shift+N went down as a Green Lantern -- the release must tell the server to stop taking the ring off. */
 	private static boolean glRingRemoveHeld = false;
-	/** v0.15.15: ticks Shift+N has been held as a Green Lantern (-1 = not held); a tap is shorter than GL_SHIFT_N_TAP. */
-	private static int glShiftNTicks = -1;
-	private static final int GL_SHIFT_N_TAP = 8;
 
 	/** Ability-1 (R) tap vs hold while a firearm is held: tap = reload, hold = open the Arsenal wheel. */
 	private static int firearmAbilityOneHeld = -1;
@@ -779,9 +776,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				ClientPlayNetworking.send(new com.projecthero.mod.network.ThorActionPayload(
 						com.projecthero.mod.network.ThorActionPayload.Action.TOGGLE_ARMOUR));
 			} else if (client.player != null && !Screen.hasShiftDown() && greenLanternHasWheelContext(client.player)) {
-				// v0.14.3: H as Green Lantern -- the Giant Hand: grab, then H again to hurl (Shift+H still opens the power wheel).
+				// v0.15.15: H as Green Lantern -- Suit Up / Suit Down (the Giant Hand moved to V; Shift+H still opens the power wheel).
 				ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternActionPayload(
-						com.projecthero.mod.network.GreenLanternActionPayload.Action.GIANT_HAND));
+						com.projecthero.mod.network.GreenLanternActionPayload.Action.SUIT_TOGGLE));
 			} else if (!Screen.hasShiftDown() && mutationHasUtility(client, 7)) {
 				// v0.13.22: a mutation with H / N abilities -- plain H is its Utility 1; Shift+H opens the power wheel.
 				pressUtility(7);
@@ -945,12 +942,15 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			client.player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
 					on ? "projecthero.symbiote.predator_vision.on" : "projecthero.symbiote.predator_vision.off"), true);
 		} else if (down && !maxSteelTransformWasDown && client.player != null && greenLanternHasWheelContext(client.player)) {
-			// v0.15.15: Green Lantern -- N opens the suit screen; Shift + tap N dismisses every construct; Shift + hold N
-			// takes the ring off (the hold starts counting once it is clearly not a tap -- see glShiftNTicks below).
+			// v0.15.15: Green Lantern -- N dismisses every construct; Shift+N opens the suit screen (suit styles + Remove Ring,
+			// which replaced Shift + hold N).
 			if (Screen.hasShiftDown()) {
-				glShiftNTicks = 0;
-			} else if (client.screen == null) {
-				client.setScreen(new com.projecthero.mod.client.gui.GreenLanternSuitScreen());
+				if (client.screen == null) {
+					client.setScreen(new com.projecthero.mod.client.gui.GreenLanternSuitScreen());
+				}
+			} else {
+				ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternActionPayload(
+						com.projecthero.mod.network.GreenLanternActionPayload.Action.CLEAR_CONSTRUCTS));
 			}
 		} else if (down && !maxSteelTransformWasDown && com.projecthero.mod.client.hulk.GladiatorGearClient.ownsN(client)) {
 			// v0.15.3: a TAP of N as Banner opens the Gladiator Gear screen (sent on release; a 2 s hold stays the calm-down).
@@ -976,24 +976,6 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				&& com.projecthero.mod.client.ironman.StarkGearClient.ownsSneakN(client)) {
 			// v0.15.1: nothing else owns Shift+N and the glasses are still on (power lost) -- the screen to take them off.
 			com.projecthero.mod.client.ironman.StarkGearClient.requestOpen();
-		}
-		// v0.15.15: Shift + N as a Green Lantern -- released within GL_SHIFT_N_TAP ticks it is a tap (Clear Constructs);
-		// held past that it becomes the ring-removal hold
-		if (glShiftNTicks >= 0) {
-			if (down) {
-				glShiftNTicks++;
-				if (glShiftNTicks == GL_SHIFT_N_TAP && !glRingRemoveHeld) {
-					glRingRemoveHeld = true;
-					ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternActionPayload(
-							com.projecthero.mod.network.GreenLanternActionPayload.Action.RING_REMOVE_START));
-				}
-			} else {
-				if (!glRingRemoveHeld) {
-					ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternActionPayload(
-							com.projecthero.mod.network.GreenLanternActionPayload.Action.CLEAR_CONSTRUCTS));
-				}
-				glShiftNTicks = -1;
-			}
 		}
 		if (!down && glRingRemoveHeld) {
 			glRingRemoveHeld = false;

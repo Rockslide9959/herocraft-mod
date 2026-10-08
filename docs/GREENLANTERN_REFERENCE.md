@@ -609,11 +609,15 @@ top surface (`GreenLanternConstructs#newCarrySeat`), so a rider sits on the plat
 
 User requests: "Players can press N to choose between different suits. Turn these green lantern skins into suits." and
 "make the suitup not go from the top of the players chest to their feet, make it spread outwards from the hand with the
-ring on it, ring glows as the suit forms on users body".
+ring on it, ring glows as the suit forms on users body". Then (same release) the key layout: "SHIFT+N opens the suit
+selection menu, and that menu also has a Remove Ring option; plain N stays Clear Constructs; suit-up/down moves to H; the
+Giant Hand moves to V".
 
 | Key | Tap | Shift |
 |---|---|---|
-| N | **open the suit screen** (`client/gui/GreenLanternSuitScreen`) | **tap: dismiss all constructs**; **hold 5 s: take the ring off** |
+| H | **Suit Up / Down** (was V) | power wheel (unchanged) |
+| V | **Giant Hand** (was H) | Ring Scan (unchanged) |
+| N | dismiss all constructs (unchanged) | **open the suit screen** (`client/gui/GreenLanternSuitScreen`): 4 suit cards + a two-click **Remove Ring** button (replaces Shift + hold N) |
 
 - `GreenLanternSuitStyle` (DEFAULT, CORPS, STEWART, CLASSIC) -> texture. Default = `textures/armor/green_lantern.png`;
   the three new ones are the user's skins with skin/hair stripped (`textures/entity/green_lantern/suits/*.png`, 64x64
@@ -626,12 +630,13 @@ ring on it, ring glows as the suit forms on users body".
   (`SuperheroFirstPersonArm`). Transparent texels show the wearer's own skin (face, Stewart's bare hands).
 - Picking (`GreenLanternActionPayload` actions `SUIT_STYLE_*`, appended -> `GreenLanternSuit#selectStyle`): stored at
   once; if the suit is on and settled, a free suit-up transition replays (armour stays on) so the new suit re-forms out
-  of the ring.
+  of the ring. `SUIT_TOGGLE` (H) -> `GreenLanternAbilityManager#suitToggle`; `REMOVE_RING` -> `#removeRingFromMenu`
+  (`GreenLantern#removeRing`). The old RING_REMOVE_START/STOP hold path is still on the server but no client sends it.
 - Suit-up / suit-down: `ArmorSweepReveal.Sweep.radialVia("gl_ring_arm", ring fist -> right shoulder)` -- up the ring arm,
   then out over the body and head behind a white-green edge; suit-down plays it backwards (recedes into the ring). Pose:
-  ring fist raised out in front for the whole transition (`GreenLanternPose.SUIT`, both directions). Ring blaze:
+  ring fist held forward and a little up, the head turned to watch it, for the whole transition, then back to normal
+  (`GreenLanternPose.SUIT`, both directions). Ring blaze:
   `GreenLanternSuitReveal#ringGlow` -> `GreenLanternHandRenderer` draws the ring in a bright palette with a white core,
-  a pulsing green glow and expanding light rings (full-bright, both views); server dust bursts at
-  `GreenLanternSuit#ringHand` and rides the sweep front.
-- Client N: a plain press opens the screen; Shift+N counts ticks -- released before 8 ticks = CLEAR_CONSTRUCTS, held to
-  8 sends RING_REMOVE_START (removal now takes about 5.4 s in all).
+  additive (lightning-buffer) glow spheres and a pulsing light shell (both views); server dust bursts at
+  `GreenLanternSuit#ringHand` and rides the sweep front -- sent to everyone but the Lantern (in first person it buried
+  the view).

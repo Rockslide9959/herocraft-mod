@@ -106,6 +106,8 @@ public final class ModNetworking {
 				// v0.15.15: the N suit screen
 				case SUIT_STYLE_DEFAULT, SUIT_STYLE_CORPS, SUIT_STYLE_STEWART, SUIT_STYLE_CLASSIC ->
 						com.projecthero.mod.greenlantern.GreenLanternSuit.selectStyle(context.player(), payload.action().suitStyle());
+				case SUIT_TOGGLE -> com.projecthero.mod.greenlantern.GreenLanternAbilityManager.suitToggle(context.player());
+				case REMOVE_RING -> com.projecthero.mod.greenlantern.GreenLanternAbilityManager.removeRingFromMenu(context.player());
 			}
 		});
 

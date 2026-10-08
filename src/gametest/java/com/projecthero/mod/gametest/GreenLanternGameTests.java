@@ -1253,6 +1253,34 @@ public class GreenLanternGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
+	public void hSuitsUpAndVNoLongerDoes(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		// V (slot 5) is the Giant Hand now -- it must not start a suit-up
+		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_5, true);
+		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_5, false);
+		helper.assertTrue(GreenLantern.state(player).suitAnimDir == GreenLanternState.SUIT_IDLE && !GreenLantern.isSuited(player),
+				"V must no longer suit up");
+		// H (the SUIT_TOGGLE action) does
+		GreenLanternAbilityManager.suitToggle(player);
+		helper.assertTrue(GreenLantern.state(player).suitAnimDir == GreenLanternState.SUIT_SUITING_UP, "H should start a suit-up");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void removeRingButtonTakesTheRingOff(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		player.getInventory().clearContent();
+		GreenLanternAbilityManager.removeRingFromMenu(player);
+		helper.assertFalse(GreenLantern.hasPower(player), "Remove Ring should end the power");
+		boolean ringBack = false;
+		for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+			ringBack |= !player.getInventory().getItem(i).isEmpty();
+		}
+		helper.assertTrue(ringBack, "the Power Ring should come back into the inventory");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
 	public void ringHandSitsOutInFrontOnTheRightSide(GameTestHelper helper) {
 		ServerPlayer player = bonded(helper);
 		player.setYBodyRot(0f); // facing south (+Z): the right hand is to the west (-X)

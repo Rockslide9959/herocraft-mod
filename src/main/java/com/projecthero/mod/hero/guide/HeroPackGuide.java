@@ -584,7 +584,7 @@ public final class HeroPackGuide {
 			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C", "H", "N"}) {
 				String key = switch (slot) {
 					case "R" -> "ring_bolt"; case "G" -> "construct_fist"; case "X" -> "oath";
-					case "Z" -> "shield"; case "V" -> "suit"; case "H" -> "giant_hand"; case "N" -> "dismiss";
+					case "Z" -> "shield"; case "V" -> "giant_hand"; case "H" -> "suit"; // v0.15.15 swap case "N" -> "dismiss";
 					default -> "construct";
 				};
 				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)

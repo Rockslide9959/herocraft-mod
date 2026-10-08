@@ -148,7 +148,13 @@ public final class GreenLanternHandRenderer {
 			HandRing.box(vc, pose, g[0], g[1], g[2], 0.45f, 0.45f, 0.35f, 0xF4FFF6, 0.95f * forming);
 			pose.pushPose();
 			pose.translate(g[0], g[1], g[2]);
-			com.projecthero.mod.client.maxsteel.TurboDraw.sphere(vc, pose, 1.0f + 0.15f * pulse, 0x9CFFB8, (0.5f + 0.2f * pulse) * forming);
+			// additive (vanilla's lightning buffer), so the glow brightens whatever is behind it instead of tinting it dark
+			com.mojang.blaze3d.vertex.VertexConsumer add = buffers.getBuffer(RenderType.lightning());
+			com.projecthero.mod.client.maxsteel.TurboDraw.sphere(add, pose, 0.9f + 0.15f * pulse, 0xB8FFCC, (0.8f + 0.2f * pulse) * forming);
+			com.projecthero.mod.client.maxsteel.TurboDraw.sphere(add, pose, 1.5f + 0.25f * pulse, 0x35F075, (0.45f + 0.15f * pulse) * forming);
+			// re-fetch: asking the buffer source for another render type can end the batch the old consumer belonged to
+			vc = HardLightDraw.buffer(buffers);
+			com.projecthero.mod.client.maxsteel.TurboDraw.sphere(vc, pose, 1.0f + 0.15f * pulse, 0x9CFFB8, (0.35f + 0.15f * pulse) * forming);
 			com.projecthero.mod.client.maxsteel.TurboDraw.sphere(vc, pose, 1.9f + 0.3f * pulse, 0x35F075, (0.18f + 0.08f * pulse) * forming);
 			// a ring of light pulsing out of the gem every 8 ticks
 			float wave = (age % 8f) / 8f;

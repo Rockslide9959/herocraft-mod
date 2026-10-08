@@ -11,7 +11,10 @@ import com.projecthero.mod.network.GreenLanternActionPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.resources.PlayerSkin;
@@ -25,7 +28,7 @@ import net.minecraft.util.FormattedCharSequence;
  * under the suit's texture, so the bare face / hands read exactly as they will in the world). Click a card (or press
  * 1-4) to pick it: the choice is sent to the server ({@link GreenLanternActionPayload}, re-validated there), stored in the
  * synced {@link GreenLanternState#suitStyle} and -- if the suit is on -- re-formed out of the ring at once. N or Esc
- * closes. Four cards in a row, or a 2 x 2 grid when the GUI is too narrow; all prose is word-wrapped to its card.
+ * closes. Opened with Shift+N; the Remove Ring button along the bottom (two clicks) replaced Shift + hold N. Four cards in a row, or a 2 x 2 grid when the GUI is too narrow; all prose is word-wrapped to its card.
  */
 public final class GreenLanternSuitScreen extends Screen {
 	private static final int GREEN = 0xFF5CFF8E;
@@ -41,6 +44,10 @@ public final class GreenLanternSuitScreen extends Screen {
 	private static final int CARD_W = 72;
 	private static final int GAP = 6;
 	private static final int PAD = 10;
+	/** v0.15.15: the Remove Ring button along the bottom (it replaced Shift + hold N). */
+	private static final int BUTTON_ROW = 24;
+	private Button removeButton;
+	private long removeArmedUntil;
 
 	private int cols;
 	private int scale;
@@ -88,12 +95,35 @@ public final class GreenLanternSuitScreen extends Screen {
 		scale = 3;
 		while (true) {
 			cardH = 6 + 32 * scale + 6 + nameLines * 10 + descLines * 9 + 6;
-			panelH = 28 + intro.size() * 10 + 6 + rows * cardH + (rows - 1) * GAP + 10 + footer.size() * 10;
+			panelH = 28 + intro.size() * 10 + 6 + rows * cardH + (rows - 1) * GAP + 10 + footer.size() * 10 + BUTTON_ROW;
 			if (panelH <= this.height - 8 || scale == 1) {
 				break;
 			}
 			scale--;
 		}
+		removeArmedUntil = 0;
+		int bw = Math.min(150, panelW - 2 * PAD);
+		removeButton = addRenderableWidget(Button.builder(removeLabel(), b -> removeRing())
+				.bounds(left() + PAD, top() + panelH - BUTTON_ROW + 2, bw, 18).build());
+		removeButton.setTooltip(Tooltip.create(Component.translatable("screen.projecthero.green_lantern_suit.remove_ring.tip")));
+	}
+
+	/** First click arms it (the label asks for a second click), the second within 3 s takes the ring off. */
+	private void removeRing() {
+		long now = System.currentTimeMillis();
+		if (now < removeArmedUntil) {
+			ClientPlayNetworking.send(new GreenLanternActionPayload(GreenLanternActionPayload.Action.REMOVE_RING));
+			onClose();
+			return;
+		}
+		removeArmedUntil = now + 3000L;
+		removeButton.setMessage(removeLabel());
+	}
+
+	private Component removeLabel() {
+		return System.currentTimeMillis() < removeArmedUntil
+				? Component.translatable("screen.projecthero.green_lantern_suit.remove_ring.confirm").withStyle(ChatFormatting.RED)
+				: Component.translatable("screen.projecthero.green_lantern_suit.remove_ring").withStyle(ChatFormatting.GOLD);
 	}
 
 	private int left() {
@@ -137,6 +167,10 @@ public final class GreenLanternSuitScreen extends Screen {
 		GreenLanternState s = p == null ? null : p.getAttachedOrElse(ModAttachments.GREEN_LANTERN_STATE, null);
 		if (s == null || !s.hasPower) {
 			onClose();
+			return;
+		}
+		if (removeButton != null) {
+			removeButton.setMessage(removeLabel());
 		}
 	}
 
@@ -196,7 +230,7 @@ public final class GreenLanternSuitScreen extends Screen {
 				ty += 9;
 			}
 		}
-		int fy = t + panelH - 4 - footer.size() * 10;
+		int fy = t + panelH - BUTTON_ROW - 2 - footer.size() * 10;
 		for (FormattedCharSequence line : footer) {
 			g.drawString(this.font, line, l + PAD, fy, MUTED, false);
 			fy += 10;
@@ -250,7 +284,7 @@ public final class GreenLanternSuitScreen extends Screen {
 		return super.mouseClicked(mouseX, mouseY, button);
 	}
 
-	/** 1-4 pick a suit; N again closes, like the inventory key closes the inventory. */
+	/** 1-4 pick a suit; N (Shift+N) again closes, like the inventory key closes the inventory. */
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
 		if (com.projecthero.mod.client.ModKeyBindings.MAX_STEEL_TRANSFORM.matches(keyCode, scanCode)) {

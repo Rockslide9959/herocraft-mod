@@ -136,7 +136,8 @@ public final class GreenLanternAbilityManager {
 						GreenLanternScan.scan(player);
 						GreenLanternVisuals.anim(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_SCAN);
 					} else {
-						GreenLanternSuit.toggle(player);
+						// v0.15.15: V is the Giant Hand now (it was on H); the suit moved to H
+						giantHand(player);
 					}
 				}
 			}
@@ -167,7 +168,25 @@ public final class GreenLanternAbilityManager {
 
 	// ---------------- v0.14.3: H / N ----------------
 
-	/** H: the Giant Hand -- grab what you aim at, or hurl what it is holding. */
+	/** v0.15.15: H -- Suit Up / Suit Down (it was V; the Giant Hand moved to V). */
+	public static void suitToggle(ServerPlayer player) {
+		if (hasContext(player)) {
+			GreenLanternSuit.toggle(player);
+		}
+	}
+
+	/**
+	 * v0.15.15: the Remove Ring button on the Shift+N suit screen (the screen asks for a second click to confirm) --
+	 * replaces Shift + hold N. Same result as before: the power goes and the Power Ring comes back as an item.
+	 */
+	public static void removeRingFromMenu(ServerPlayer player) {
+		if (hasContext(player)) {
+			RING_REMOVE.remove(player.getUUID());
+			GreenLantern.removeRing(player);
+		}
+	}
+
+	/** V (v0.15.15; H before): the Giant Hand -- grab what you aim at, or hurl what it is holding. */
 	public static void giantHand(ServerPlayer player) {
 		if (hasContext(player)) {
 			GreenLanternConstructAttacks.giantHand(player);

@@ -15,7 +15,7 @@ import net.minecraft.util.Mth;
 import org.joml.Vector3f;
 
 /**
- * Suit Up / Suit Down (V, tap). 0.8s animation, 10 charge on activation (v0.11.5, was 100), plus 1
+ * Suit Up / Suit Down (H since v0.15.15, V before; tap). 0.8s animation, 10 charge on activation (v0.11.5, was 100), plus 1
  * charge every 5 seconds while worn (ticked in {@code GreenLanternAbilityManager#serverTick}) -- the
  * suit is no longer free to keep on. A 0.25s debounce stops a double-tap from immediately reversing the
  * animation, and suit-down is refused while battery-recharging (Phase 4).
@@ -220,7 +220,7 @@ public final class GreenLanternSuit {
 		double scale = player.getBbHeight() / 1.8;
 		return new net.minecraft.world.phys.Vec3(
 				player.getX() + (fx * 0.58 + rx * 0.3) * scale,
-				player.getY() + 1.4 * scale,
+				player.getY() + 1.47 * scale,
 				player.getZ() + (fz * 0.58 + rz * 0.3) * scale);
 	}
 }

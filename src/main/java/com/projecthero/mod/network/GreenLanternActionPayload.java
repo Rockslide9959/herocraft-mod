@@ -30,7 +30,7 @@ public record GreenLanternActionPayload(Action action) implements CustomPacketPa
 
 	public enum Action {
 		TOGGLE_FLIGHT,
-		/** v0.14.3: H -- the Giant Hand (grab / hurl). */
+		/** v0.14.3: H -- the Giant Hand (grab / hurl). v0.15.15: unused by the client (the Giant Hand is on V). */
 		GIANT_HAND,
 		/** v0.14.3: N -- dismiss every construct (was Shift+C). */
 		CLEAR_CONSTRUCTS,
@@ -41,11 +41,16 @@ public record GreenLanternActionPayload(Action action) implements CustomPacketPa
 		SUIT_STYLE_DEFAULT,
 		SUIT_STYLE_CORPS,
 		SUIT_STYLE_STEWART,
-		SUIT_STYLE_CLASSIC;
+		SUIT_STYLE_CLASSIC,
+		/** v0.15.15: H -- suit up / down (V before). */
+		SUIT_TOGGLE,
+		/** v0.15.15: the Remove Ring button on the Shift+N suit screen (replaces Shift + hold N). */
+		REMOVE_RING;
 
 		/** The {@code GreenLanternSuitStyle} ordinal this action picks, or -1. */
 		public int suitStyle() {
-			return ordinal() >= SUIT_STYLE_DEFAULT.ordinal() ? ordinal() - SUIT_STYLE_DEFAULT.ordinal() : -1;
+			return ordinal() >= SUIT_STYLE_DEFAULT.ordinal() && ordinal() <= SUIT_STYLE_CLASSIC.ordinal()
+					? ordinal() - SUIT_STYLE_DEFAULT.ordinal() : -1;
 		}
 
 		public static Action forSuitStyle(int style) {

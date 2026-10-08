@@ -23,7 +23,8 @@ import net.minecraft.world.entity.player.Player;
  *   <li>Held: Continuous Beam (both hands, the free one gripping the wrist), Emerald Gatling (braced, shaking), the
  *   Directional Shield (ring arm braced forward), reciting the Oath (ring fist raised before the face; punched to the
  *   sky when it completes), taking the ring off (hands together, head bowed).</li>
- *   <li>Suit up / down (v0.15.15): ring fist raised out in front while the suit pours out of / back into the ring.</li>
+ *   <li>Suit up / down (v0.15.15): ring fist held forward and a little up, the head turned to watch the ring while the
+ *   suit pours out of it (or back into it), then back to normal.</li>
  * </ul>
  * Frames are {@code {tick, rArmX, rArmY, rArmZ, lArmX, lArmY, lArmZ, bodyX, bodyY, rLegX, lLegX, headX}} in radians.
  */
@@ -99,8 +100,8 @@ public final class GreenLanternPose {
 	 */
 	private static final float[][] SUIT = {
 			rest(0),
-			f(4, -1.75f, -0.35f, 0, 0.1f, 0, -0.2f, 0, 0, 0, 0, -0.1f),
-			f(24, -1.7f, -0.3f, 0, 0.14f, 0, -0.3f, 0, 0, 0.04f, -0.04f, -0.12f),
+			f(4, -1.9f, -0.3f, 0, 0.1f, 0, -0.2f, 0, 0, 0, 0, 0),
+			f(24, -1.85f, -0.28f, 0, 0.14f, 0, -0.3f, 0, 0, 0.04f, -0.04f, 0),
 			f(28, -0.6f, -0.1f, 0.2f, 0.05f, 0, -0.2f, 0, 0, 0, 0, 0),
 			rest(32) };
 
@@ -200,6 +201,11 @@ public final class GreenLanternPose {
 			float end = SUIT[SUIT.length - 1][0];
 			float tick = (now - s.suitAnimStartTick + partial) * end / Math.max(1, GreenLanternConfig.SUIT_UP_TICKS);
 			blend(m, SUIT, tick, false);
+			// v0.15.15: the head turns to watch the ring (a touch to the right and up) while the suit pours out of it
+			float look = Mth.clamp(Math.min(tick / 4f, (29f - tick) / 5f), 0f, 1f);
+			m.head.yRot = Mth.lerp(look, m.head.yRot, 0.2f);
+			m.head.xRot = Mth.lerp(look, m.head.xRot, -0.05f);
+			m.hat.copyFrom(m.head);
 		}
 	}
 

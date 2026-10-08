@@ -69,7 +69,7 @@ public final class GreenLanternHud {
 	private static final String[] KEY_LABELS = {"R", "G", "X", "Z", "V", "C", "H", "N"};
 	/** Alt names: {@code projecthero.guide.green_lantern.ability.<key>} per box. */
 	private static final String[] KEY_NAMES = {
-			"ring_bolt", "construct_fist", "oath", "shield", "suit", "construct", "giant_hand", "dismiss"
+			"ring_bolt", "construct_fist", "oath", "shield", "giant_hand", "construct", "suit", "dismiss" // v0.15.15: V = Giant Hand, H = suit
 	};
 
 	private GreenLanternHud() {
@@ -135,9 +135,8 @@ public final class GreenLanternHud {
 				case 0 -> fx.has(GreenLanternFx.CH_BEAM);
 				case 2 -> oathActive || oathReciting || fx.has(GreenLanternFx.CH_GATLING);
 				case 3 -> barrierUp;
-				case 4 -> s.suited;
-				case 6 -> fx.has(GreenLanternFx.CH_HAND);
-				case 7 -> fx.has(GreenLanternFx.CH_RING_REMOVE);
+				case 4 -> fx.has(GreenLanternFx.CH_HAND); // v0.15.15: Giant Hand moved to V, the suit to H
+				case 6 -> s.suited;
 				default -> false;
 			};
 			boolean flash = fx.anim() != GreenLanternFx.ANIM_NONE && now - fx.animStart() < 6 && animKey(fx.anim()) == i;
@@ -211,7 +210,7 @@ public final class GreenLanternHud {
 			case GreenLanternFx.ANIM_DOME -> 3;
 			case GreenLanternFx.ANIM_SCAN -> 4;
 			case GreenLanternFx.ANIM_MISSILES, GreenLanternFx.ANIM_CONSTRUCT -> 5;
-			case GreenLanternFx.ANIM_GRAB, GreenLanternFx.ANIM_THROW -> 6;
+			case GreenLanternFx.ANIM_GRAB, GreenLanternFx.ANIM_THROW -> 4;
 			default -> -1;
 		};
 	}
