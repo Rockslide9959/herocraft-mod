@@ -11,6 +11,9 @@ public final class CarnageConfig {
 	public static final VersionedConfig<CarnageConfig> SPEC = VersionedConfig.builder(CarnageConfig.class, "projecthero_carnage.json", CarnageConfig::new)
 			.balance("boss")
 			.introduce(1, "v0.14.25 Carnage")
+			// v0.15.15: 1000 HP base (cap 3500) and 2 HP every 2 s regeneration -- reset the boss section so an old file
+			// does not keep 700 HP / the old regen forever
+			.reset(2, "v0.15.15 Carnage 1000 HP, 2 HP per 2 s regen", "boss")
 			.build();
 
 	private static CarnageConfig instance = new CarnageConfig();
@@ -30,9 +33,12 @@ public final class CarnageConfig {
 	public int reabsorbAfterTicks = 400;
 
 	public static final class Boss {
-		public double health = 700.0;
+		public double health = 1000.0;
 		public double healthPerExtraFighter = 250.0;
-		public double maxHealth = 3000.0;
+		public double maxHealth = 3500.0;
+		/** v0.15.15: health regenerated every {@link #regenIntervalTicks} (doubled while frenzied; fire stops it). */
+		public double regenAmount = 2.0;
+		public int regenIntervalTicks = 40;
 	}
 
 	public static CarnageConfig get() {

@@ -48,6 +48,7 @@
       "com.projecthero.mod.gametest.ZombieRaidGameTests",
       "com.projecthero.mod.gametest.BossRewardsV01423GameTests",
       "com.projecthero.mod.gametest.V01425GameTests",
+      "com.projecthero.mod.gametest.CarnageV01515GameTests",
       "com.projecthero.mod.gametest.ConfigMigrationGameTests",
       "com.projecthero.mod.gametest.GraveboundBossPowerGameTests",
       "com.projecthero.mod.gametest.SpiderManGameTests",

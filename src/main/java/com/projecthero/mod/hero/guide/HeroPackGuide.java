@@ -1000,7 +1000,7 @@ public final class HeroPackGuide {
 		// v0.14.25: Carnage
 		out.add(chapter("projecthero.guide.carnage", lines -> {
 			para(lines, "projecthero.guide.carnage.body");
-			for (String section : new String[]{"arrival", "moves", "split", "weakness", "rewards", "commands"}) {
+			for (String section : new String[]{"arrival", "moves", "new_moves", "split", "weakness", "rewards", "commands"}) { // v0.15.15: new_moves
 				blank(lines);
 				head(lines, "projecthero.guide.carnage." + section);
 				para(lines, "projecthero.guide.carnage." + section + ".body");

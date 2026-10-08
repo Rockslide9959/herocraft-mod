@@ -28,7 +28,8 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.block.Blocks;
 
 /**
- * v0.14.25: Carnage and his brood -- the slim player model in his Skindex skin ("carnage" by TheTickanatorDSSX), posed
+ * v0.14.25: Carnage and his brood -- the player model in his skin (v0.15.15: the user's new wide-arm skin, so the
+ * classic 4-pixel-arm model), posed
  * from his synced action, with a crimson blade grown out of each forearm (drawn with the crimson tendril texture), and
  * the meteor he rides down in (a tumbling magma block; the trail is particles).
  */
@@ -43,12 +44,13 @@ public final class CarnageRenderer {
 		EntityRendererRegistry.register(CarnageEntityTypes.CARNAGE, Body::new);
 		EntityRendererRegistry.register(CarnageEntityTypes.CRIMSON_SPAWN, Body::new);
 		EntityRendererRegistry.register(CarnageEntityTypes.CRIMSON_METEOR, Meteor::new);
+		EntityRendererRegistry.register(CarnageEntityTypes.CARNAGE_ATTACK, CarnageMoveRenderer.Attack::new);
 	}
 
 	/** Carnage or one of his brood (the brood is the same model, made small by its SCALE attribute). */
 	static final class Body extends HumanoidMobRenderer<Mob, Model> {
 		Body(EntityRendererProvider.Context ctx) {
-			super(ctx, new Model(ctx.bakeLayer(ModelLayers.PLAYER_SLIM)), 0.5f);
+			super(ctx, new Model(ctx.bakeLayer(ModelLayers.PLAYER)), 0.5f);
 			addLayer(new Blades(this));
 		}
 
@@ -67,13 +69,16 @@ public final class CarnageRenderer {
 	/** The player model posed from {@link CarnageEntity#action}; the brood just runs with its arms out. */
 	static final class Model extends PlayerModel<Mob> {
 		Model(ModelPart root) {
-			super(root, true);
+			super(root, false); // v0.15.15: wide arms
 		}
 
 		@Override
 		public void setupAnim(Mob e, float limbSwing, float limbSwingAmount, float age, float headYaw, float headPitch) {
 			byte action = e instanceof CarnageEntity c ? c.action() : CarnageEntity.ACTION_NONE;
-			this.crouching = action == CarnageEntity.ACTION_COCOON || action == CarnageEntity.ACTION_POUNCE;
+			float elapsed = e instanceof CarnageEntity c ? age - c.actionStartTick : 0f;
+			this.crouching = action == CarnageEntity.ACTION_COCOON || action == CarnageEntity.ACTION_POUNCE
+					|| action == CarnageEntity.ACTION_ERUPT && elapsed >= CarnageEntity.ERUPT_SLAM
+					|| action == CarnageEntity.ACTION_CLEAVE && elapsed < CarnageEntity.CLEAVE_WINDUP;
 			super.setupAnim(e, limbSwing, limbSwingAmount, age, headYaw, headPitch);
 			if (!(e instanceof CarnageEntity)) {
 				// the brood: a hunched, arms-forward scuttle
@@ -131,6 +136,74 @@ public final class CarnageRenderer {
 						head.zRot = Mth.sin(age * 1.3f) * 0.4f;
 						body.zRot = Mth.sin(age * 0.9f) * 0.15f;
 					}
+					// ---- v0.15.15
+					case CarnageEntity.ACTION_WHIP -> {
+						if (elapsed < CarnageEntity.WHIP_WINDUP) {
+							// coiled, twisting back to the right
+							body.yRot = -0.45f * Math.min(1f, elapsed / 6f);
+							rightArm.xRot = -0.4f;
+							rightArm.zRot = 1.1f;
+							leftArm.xRot = -1.2f;
+							leftArm.yRot = -0.6f;
+						} else {
+							float p = Math.min(1f, (elapsed - CarnageEntity.WHIP_WINDUP) / CarnageEntity.WHIP_SWEEP);
+							body.yRot = Mth.lerp(p, -0.45f, 0.5f);
+							rightArm.xRot = -1.3f;
+							rightArm.yRot = Mth.lerp(p, -0.8f, 0.9f);
+							leftArm.zRot = -1.2f;
+							leftArm.xRot = -0.3f;
+						}
+						head.yRot -= body.yRot * 0.5f;
+					}
+					case CarnageEntity.ACTION_CLEAVE -> {
+						if (elapsed < CarnageEntity.CLEAVE_WINDUP) {
+							// the axe grows; arm cocked back over his head
+							rightArm.xRot = -2.9f;
+							rightArm.zRot = 0.15f;
+							leftArm.xRot = -0.8f;
+							leftArm.zRot = -0.5f;
+						} else if (!e.onGround()) {
+							float p = Math.min(1f, (elapsed - CarnageEntity.CLEAVE_WINDUP) / 10f);
+							rightArm.xRot = Mth.lerp(p, -2.9f, -3.1f);
+							leftArm.xRot = -2.2f;
+							leftArm.zRot = -0.6f;
+							rightLeg.xRot = -0.6f;
+							leftLeg.xRot = 0.4f;
+						} else {
+							// the blade buried in the ground in front of him
+							rightArm.xRot = -0.75f;
+							rightArm.yRot = 0.1f;
+							leftArm.xRot = -0.6f;
+							leftArm.zRot = -0.4f;
+							body.xRot = 0.45f;
+						}
+					}
+					case CarnageEntity.ACTION_ERUPT -> {
+						if (elapsed < CarnageEntity.ERUPT_SLAM) {
+							rightArm.xRot = -2.8f;
+							leftArm.xRot = -2.8f;
+							rightArm.zRot = 0.3f;
+							leftArm.zRot = -0.3f;
+						} else {
+							// fists driven into the ground
+							rightArm.xRot = -0.45f;
+							leftArm.xRot = -0.45f;
+							rightArm.zRot = 0.2f;
+							leftArm.zRot = -0.2f;
+							body.xRot = 0.6f;
+						}
+					}
+					case CarnageEntity.ACTION_SNARE -> {
+						if (elapsed < CarnageEntity.SNARE_THROW) {
+							rightArm.xRot = -2.5f - Mth.sin(elapsed * 0.4f) * 0.1f;
+							rightArm.zRot = -0.2f;
+							leftArm.xRot = -1.1f;
+							leftArm.yRot = 0.4f;
+						} else {
+							rightArm.xRot = -1.2f;
+							leftArm.xRot = -0.4f;
+						}
+					}
 					default -> {
 					}
 				}
@@ -161,7 +234,20 @@ public final class CarnageRenderer {
 				cocoon(pose, vc, light, age);
 				return;
 			}
-			blade(pose, vc, light, getParentModel().rightArm, 1f, age);
+			float elapsed = age - c.actionStartTick;
+			byte action = c.action();
+			// v0.15.15: the newer moves' crimson geometry
+			if (action == CarnageEntity.ACTION_WHIP) {
+				CarnageMoveRenderer.whip(pose, vc, light, elapsed, age);
+			}
+			if (action == CarnageEntity.ACTION_CLEAVE) {
+				CarnageMoveRenderer.axe(pose, vc, light, getParentModel().rightArm, Math.min(1f, elapsed / 8f), age);
+			} else {
+				blade(pose, vc, light, getParentModel().rightArm, 1f, age);
+			}
+			if (action == CarnageEntity.ACTION_SNARE && elapsed < CarnageEntity.SNARE_THROW) {
+				CarnageMoveRenderer.handGlob(pose, vc, light, getParentModel().rightArm, Math.min(1f, elapsed / 9f), age);
+			}
 			blade(pose, vc, light, getParentModel().leftArm, -1f, age);
 		}
 

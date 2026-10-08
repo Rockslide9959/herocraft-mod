@@ -36,6 +36,7 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.util.Mth;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.InteractionHand;
@@ -70,8 +71,14 @@ import net.minecraft.world.phys.Vec3;
  * v0.14.25: Carnage -- the Symbiote's red, insane offspring, and the Symbiote power's own rival boss. He arrives in a
  * crimson meteor ({@link CrimsonMeteorEntity}), climbs out of the impact, and fights like a blender: blade-arm
  * combos, a ballistic pounce, crimson tendrils that whip and drag everyone within ten blocks, and fans of crimson
- * spikes. 700 health for one fighter (+250 each extra, configurable in {@code projecthero_carnage.json}), and he
- * regenerates.
+ * spikes. 1000 health for one fighter (+250 each extra, up to 3500, configurable in {@code projecthero_carnage.json}),
+ * iron-armour-grade armour (15), and he regenerates 2 health every 2 s.
+ *
+ * <p>v0.15.15 added four moves with real crimson geometry: <b>Tendril Whip Sweep</b> (two long segmented tendrils
+ * whip a 180-degree arc in front of him, 8 blocks), <b>Axe-Arm Cleave</b> (his arm becomes a huge crimson axe, he
+ * leaps and cleaves, and the landing sends a ring of shards out), <b>Spike Eruption</b> (red cracks race along the
+ * ground toward you, then crimson spikes burst up out of them) and <b>Symbiote Snare</b> (a lobbed glob of goo that
+ * wraps whoever it hits in a tendril cocoon for 2 s). See {@link CarnageAttackEntity}.
  *
  * <p><b>He splits.</b> At three-quarters, half and a quarter health he wraps himself in a crimson cocoon (untouchable)
  * and lets loose a brood of {@link CrimsonSpawnEntity}. Kill every one and he bursts out <em>staggered</em> (half again
@@ -86,7 +93,11 @@ import net.minecraft.world.phys.Vec3;
 public class CarnageEntity extends Monster {
 	public static final float SCALE = 1.2f;
 	public static final byte ACTION_NONE = 0, ACTION_CLAW = 1, ACTION_POUNCE = 2, ACTION_LASH = 3, ACTION_SPIKES = 4,
-			ACTION_COCOON = 5, ACTION_EMERGE = 6, ACTION_WRITHE = 7;
+			ACTION_COCOON = 5, ACTION_EMERGE = 6, ACTION_WRITHE = 7,
+			// v0.15.15: Tendril Whip Sweep, Axe-Arm Cleave, Spike Eruption, Symbiote Snare
+			ACTION_WHIP = 8, ACTION_CLEAVE = 9, ACTION_ERUPT = 10, ACTION_SNARE = 11;
+	/** v0.15.15 move timings the renderer mirrors (ticks from the move starting). */
+	public static final int WHIP_WINDUP = 12, WHIP_SWEEP = 8, CLEAVE_WINDUP = 12, ERUPT_SLAM = 8, SNARE_THROW = 12;
 
 	private static final EntityDataAccessor<Byte> DATA_ACTION = SynchedEntityData.defineId(CarnageEntity.class, EntityDataSerializers.BYTE);
 	private static final ResourceLocation FRENZY_SPEED = ProjectHeroMod.id("carnage_frenzy_speed");
@@ -105,6 +116,10 @@ public class CarnageEntity extends Monster {
 	private int lonelyTicks;
 	private long lastLineTick = -1000;
 	private final List<UUID> brood = new ArrayList<>();
+	/** Set from registerGoals (called by the Mob constructor, so deliberately no initialiser here). */
+	private Brain brain;
+	/** Client: the tickCount when the synced action last changed (drives the move animations). */
+	public int actionStartTick;
 
 	public CarnageEntity(EntityType<? extends CarnageEntity> type, Level level) {
 		super(type, level);
@@ -115,11 +130,12 @@ public class CarnageEntity extends Monster {
 
 	public static AttributeSupplier.Builder createAttributes() {
 		return Monster.createMonsterAttributes()
-				.add(Attributes.MAX_HEALTH, 700.0)
+				.add(Attributes.MAX_HEALTH, 1000.0)
 				.add(Attributes.MOVEMENT_SPEED, 0.34)
 				.add(Attributes.ATTACK_DAMAGE, 10.0)
 				.add(Attributes.ATTACK_KNOCKBACK, 0.6)
-				.add(Attributes.ARMOR, 6.0)
+				.add(Attributes.ARMOR, 15.0) // v0.15.15: a full iron set
+				.add(Attributes.ARMOR_TOUGHNESS, 0.0)
 				.add(Attributes.KNOCKBACK_RESISTANCE, 0.6)
 				.add(Attributes.FOLLOW_RANGE, 48.0)
 				.add(Attributes.STEP_HEIGHT, 1.5)
@@ -140,6 +156,14 @@ public class CarnageEntity extends Monster {
 		builder.define(DATA_ACTION, ACTION_NONE);
 	}
 
+	@Override
+	public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
+		super.onSyncedDataUpdated(key);
+		if (DATA_ACTION.equals(key)) {
+			actionStartTick = tickCount;
+		}
+	}
+
 	public byte action() {
 		return entityData.get(DATA_ACTION);
 	}
@@ -153,7 +177,8 @@ public class CarnageEntity extends Monster {
 	@Override
 	protected void registerGoals() {
 		goalSelector.addGoal(0, new FloatGoal(this));
-		goalSelector.addGoal(2, new Brain(this));
+		brain = new Brain(this);
+		goalSelector.addGoal(2, brain);
 		goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 0.8));
 		goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 16.0f));
 		goalSelector.addGoal(9, new RandomLookAroundGoal(this));
@@ -382,8 +407,10 @@ public class CarnageEntity extends Monster {
 		}
 		if (regenLockout > 0) {
 			regenLockout--;
-		} else if (tickCount % 20 == 0 && getHealth() < getMaxHealth()) {
-			heal(frenzied ? 3.0f : 1.5f);
+		} else if (tickCount % Math.max(1, CarnageConfig.get().boss.regenIntervalTicks) == 0 && getHealth() < getMaxHealth()) {
+			// v0.15.15: 2 HP every 2 s by default (double while frenzied)
+			float amount = (float) CarnageConfig.get().boss.regenAmount;
+			heal(frenzied ? amount * 2.0f : amount);
 		}
 		if (tickCount % 4 == 0) {
 			server.sendParticles(BLOOD, getX(), getY() + getBbHeight() * 0.5, getZ(), 1, 0.35, 0.6, 0.35, 0.0);
@@ -547,9 +574,21 @@ public class CarnageEntity extends Monster {
 
 	// ---------------------------------------------------------------- the brain
 
-	/** Claws, Pounce, Tendril Lash and Spike Volley, as one state machine. */
+	/** Test / harness hook: start one move by name ({@code WHIP}, {@code CLEAVE}, {@code ERUPT}, ...) on the current target. */
+	public boolean debugStartMove(String name) {
+		return brain != null && brain.force(name);
+	}
+
+	/** Test / harness hook: one tick of the move brain (for a NoAI Carnage, whose goals never run). */
+	public void debugTickBrain() {
+		if (brain != null) {
+			brain.tick();
+		}
+	}
+
+	/** Claws, Pounce, Tendril Lash, Spike Volley and (v0.15.15) Whip / Cleave / Eruption / Snare, as one state machine. */
 	static final class Brain extends Goal {
-		private enum Move { NONE, CLAW, POUNCE, LASH, SPIKES }
+		private enum Move { NONE, CLAW, POUNCE, LASH, SPIKES, WHIP, CLEAVE, ERUPT, SNARE }
 
 		private final CarnageEntity c;
 		private Move move = Move.NONE;
@@ -558,8 +597,17 @@ public class CarnageEntity extends Monster {
 		private int pounceCd = 60;
 		private int lashCd = 80;
 		private int spikeCd = 100;
+		private int whipCd = 90;
+		private int cleaveCd = 140;
+		private int eruptCd = 120;
+		private int snareCd = 160;
+		/** v0.15.15: a short breather after every special move, so the bigger kit doesn't chain into a stun-lock. */
+		private int globalCd = 40;
 		private boolean leftGround;
+		private boolean landed;
+		private float lockedYaw;
 		private final List<LivingEntity> lashed = new ArrayList<>();
+		private final java.util.Set<Integer> struck = new java.util.HashSet<>();
 
 		Brain(CarnageEntity c) {
 			this.c = c;
@@ -603,6 +651,11 @@ public class CarnageEntity extends Monster {
 			pounceCd--;
 			lashCd--;
 			spikeCd--;
+			whipCd--;
+			cleaveCd--;
+			eruptCd--;
+			snareCd--;
+			globalCd--;
 			if (c.busy()) {
 				move = Move.NONE;
 				return;
@@ -615,6 +668,10 @@ public class CarnageEntity extends Monster {
 					case POUNCE -> tickPounce(level, t);
 					case LASH -> tickLash(level);
 					case SPIKES -> tickSpikes(level, t);
+					case WHIP -> tickWhip(level);
+					case CLEAVE -> tickCleave(level, t);
+					case ERUPT -> tickErupt(level, t);
+					case SNARE -> tickSnare(level, t);
 					default -> move = Move.NONE;
 				}
 				return;
@@ -626,17 +683,33 @@ public class CarnageEntity extends Monster {
 			double d = c.distanceTo(t);
 			boolean sees = c.getSensing().hasLineOfSight(t);
 			double reach = 1.4 + c.getBbWidth();
-			if (lashCd <= 0 && d <= 10 && sees) {
-				begin(Move.LASH, ACTION_LASH);
-				return;
+			// every special move that is ready and in range is a candidate; he picks one at random
+			List<Move> options = new ArrayList<>();
+			if (globalCd <= 0 && sees) {
+				if (whipCd <= 0 && d <= 7.5) {
+					options.add(Move.WHIP);
+				}
+				if (lashCd <= 0 && d <= 10) {
+					options.add(Move.LASH);
+				}
+				if (pounceCd <= 0 && d >= 5 && d <= 16 && c.onGround()) {
+					options.add(Move.POUNCE);
+				}
+				if (cleaveCd <= 0 && d >= 3.5 && d <= 12 && c.onGround()) {
+					options.add(Move.CLEAVE);
+				}
+				if (spikeCd <= 0 && d >= 6 && d <= 24) {
+					options.add(Move.SPIKES);
+				}
+				if (eruptCd <= 0 && d >= 4 && d <= 18) {
+					options.add(Move.ERUPT);
+				}
+				if (snareCd <= 0 && d >= 5 && d <= 16 && !CarnageAttackEntity.isSnared(t)) {
+					options.add(Move.SNARE);
+				}
 			}
-			if (pounceCd <= 0 && d >= 5 && d <= 16 && sees && c.onGround()) {
-				begin(Move.POUNCE, ACTION_POUNCE);
-				return;
-			}
-			if (spikeCd <= 0 && d >= 6 && d <= 24 && sees) {
-				begin(Move.SPIKES, ACTION_SPIKES);
-				c.say(level, "spikes", false);
+			if (!options.isEmpty()) {
+				start(level, options.get(c.getRandom().nextInt(options.size())));
 				return;
 			}
 			if (d <= reach && clawCd <= 0) {
@@ -654,13 +727,244 @@ public class CarnageEntity extends Monster {
 			move = m;
 			timer = 0;
 			lashed.clear();
+			struck.clear();
+			landed = false;
+			leftGround = false;
 			c.getNavigation().stop();
 			c.setAction(action);
 		}
 
 		private void end() {
+			if (move != Move.CLAW) {
+				globalCd = cd(move == Move.SNARE ? 6 : 24);
+			}
 			move = Move.NONE;
 			c.setAction(ACTION_NONE);
+		}
+
+		private void start(ServerLevel level, Move m) {
+			switch (m) {
+				case LASH -> begin(Move.LASH, ACTION_LASH);
+				case POUNCE -> begin(Move.POUNCE, ACTION_POUNCE);
+				case SPIKES -> {
+					begin(Move.SPIKES, ACTION_SPIKES);
+					c.say(level, "spikes", false);
+				}
+				case WHIP -> {
+					begin(Move.WHIP, ACTION_WHIP);
+					LivingEntity t = c.getTarget();
+					Vec3 to = t != null ? t.position().subtract(c.position()) : Vec3.directionFromRotation(0, c.getYRot());
+					lockedYaw = (float) (Mth.atan2(to.z, to.x) * Mth.RAD_TO_DEG) - 90f;
+					c.say(level, "whip", false);
+					level.playSound(null, c.getX(), c.getY(), c.getZ(), SoundEvents.SLIME_ATTACK, SoundSource.HOSTILE, 1.6f, 0.45f);
+				}
+				case CLEAVE -> {
+					begin(Move.CLEAVE, ACTION_CLEAVE);
+					c.say(level, "cleave", false);
+					level.playSound(null, c.getX(), c.getY(), c.getZ(), SoundEvents.SLIME_SQUISH, SoundSource.HOSTILE, 1.8f, 0.4f);
+				}
+				case ERUPT -> {
+					begin(Move.ERUPT, ACTION_ERUPT);
+					c.say(level, "erupt", false);
+				}
+				case SNARE -> {
+					begin(Move.SNARE, ACTION_SNARE);
+					c.say(level, "snare", false);
+					level.playSound(null, c.getX(), c.getY(), c.getZ(), SoundEvents.HONEY_BLOCK_SLIDE, SoundSource.HOSTILE, 1.6f, 0.5f);
+				}
+				case CLAW -> begin(Move.CLAW, ACTION_CLAW);
+				default -> {
+				}
+			}
+		}
+
+		/** Test hook: start {@code name} now, cooldowns or not. */
+		boolean force(String name) {
+			Move m;
+			try {
+				m = Move.valueOf(name);
+			} catch (IllegalArgumentException ex) {
+				return false;
+			}
+			if (m == Move.NONE || !(c.level() instanceof ServerLevel level)) {
+				return false;
+			}
+			start(level, m);
+			return true;
+		}
+
+		private boolean victim(LivingEntity e) {
+			return e != c && e.isAlive() && !(e instanceof CarnageEntity) && !(e instanceof CrimsonSpawnEntity)
+					&& !(e instanceof Player p && (p.isSpectator() || p.isCreative()));
+		}
+
+		private void lockYaw() {
+			c.setYRot(lockedYaw);
+			c.yBodyRot = lockedYaw;
+			c.yHeadRot = lockedYaw;
+			c.getNavigation().stop();
+		}
+
+		// ---- v0.15.15 Tendril Whip Sweep: two long tendrils rear up behind him, then whip a 180-degree arc in front
+		private void tickWhip(ServerLevel level) {
+			lockYaw();
+			if (timer == WHIP_WINDUP) {
+				level.playSound(null, c.getX(), c.getY(), c.getZ(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 1.8f, 0.5f);
+			}
+			if (timer >= WHIP_WINDUP && timer <= WHIP_WINDUP + WHIP_SWEEP) {
+				// the arc swept so far, in degrees from his right (-90) through his front (0) to his left (+90)
+				double swept = -90.0 + 180.0 * (timer - WHIP_WINDUP) / WHIP_SWEEP;
+				double yaw = Math.toRadians(lockedYaw);
+				Vec3 fwd = new Vec3(-Math.sin(yaw), 0, Math.cos(yaw));
+				Vec3 left = new Vec3(Math.cos(yaw), 0, Math.sin(yaw));
+				for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, c.getBoundingBox().inflate(8.5, 2.5, 8.5), this::victim)) {
+					Vec3 to = new Vec3(e.getX() - c.getX(), 0, e.getZ() - c.getZ());
+					double dist = to.length();
+					if (dist > 8.5 || struck.contains(e.getId())) {
+						continue;
+					}
+					double rel = dist < 0.3 ? 0 : Math.toDegrees(Math.atan2(to.dot(left), to.dot(fwd)));
+					if (rel < -105 || rel > swept) {
+						continue;
+					}
+					struck.add(e.getId());
+					e.invulnerableTime = 0;
+					if (e.hurt(c.damageSources().mobAttack(c), 9.0f)) {
+						Vec3 out = dist < 0.3 ? fwd : to.normalize();
+						Vec3 push = out.scale(0.7).add(left.scale(0.9));
+						e.push(push.x, 0.45, push.z);
+						e.hurtMarked = true;
+						level.sendParticles(BLOOD, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(), 8, 0.2, 0.3, 0.2, 0.0);
+					}
+				}
+			}
+			if (timer >= WHIP_WINDUP + WHIP_SWEEP + 8) {
+				whipCd = cd(140);
+				end();
+			}
+		}
+
+		// ---- v0.15.15 Axe-Arm Cleave: the right arm grows into a crimson axe, he leaps, and the landing cracks the ground
+		private void tickCleave(ServerLevel level, LivingEntity t) {
+			if (timer < CLEAVE_WINDUP) {
+				if (t != null) {
+					c.getLookControl().setLookAt(t, 60f, 60f);
+				}
+				return;
+			}
+			if (timer == CLEAVE_WINDUP) {
+				if (t == null) {
+					end();
+					return;
+				}
+				Vec3 to = t.position().subtract(c.position());
+				// land just short of the target, so the blade (not his body) comes down on them
+				Vec3 flat = new Vec3(to.x, 0, to.z);
+				double len = flat.length();
+				Vec3 aim = len > 1.6 ? to.subtract(flat.scale(1.0 / len).scale(1.2)) : to;
+				c.setDeltaMovement(AbilityHelpers.ballisticLaunch(aim, aim.length(), true));
+				c.hasImpulse = true;
+				lockedYaw = (float) (Mth.atan2(to.z, to.x) * Mth.RAD_TO_DEG) - 90f;
+				lockYaw();
+				// the landing spot glows red: the telegraph
+				Vec3 spot = c.position().add(aim);
+				for (int i = 0; i < 16; i++) {
+					double a = i * Math.PI / 8;
+					level.sendParticles(BLOOD, spot.x + Math.cos(a) * 2.6, spot.y + 0.15, spot.z + Math.sin(a) * 2.6, 1, 0, 0, 0, 0);
+				}
+				level.playSound(null, c.getX(), c.getY(), c.getZ(), SoundEvents.WITCH_CELEBRATE, SoundSource.HOSTILE, 1.4f, 0.6f);
+				return;
+			}
+			if (!landed) {
+				lockYaw();
+				if (!c.onGround()) {
+					leftGround = true;
+				}
+				if (timer > CLEAVE_WINDUP + 3 && leftGround && c.onGround() || timer > CLEAVE_WINDUP + 40) {
+					landed = true;
+					timer = 100; // recovery counts from 100
+					c.setDeltaMovement(0, c.getDeltaMovement().y, 0);
+					Vec3 fwd = Vec3.directionFromRotation(0, lockedYaw);
+					Vec3 blade = c.position().add(fwd.scale(1.4));
+					level.playSound(null, c.getX(), c.getY(), c.getZ(), SoundEvents.ANVIL_LAND, SoundSource.HOSTILE, 1.4f, 0.5f);
+					level.playSound(null, c.getX(), c.getY(), c.getZ(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 1.0f, 0.8f);
+					level.sendParticles(BLOOD, blade.x, blade.y + 0.2, blade.z, 40, 1.0, 0.2, 1.0, 0.0);
+					level.sendParticles(ParticleTypes.EXPLOSION, blade.x, blade.y + 0.3, blade.z, 1, 0, 0, 0, 0);
+					for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new net.minecraft.world.phys.AABB(blade, blade).inflate(2.6, 2.0, 2.6),
+							this::victim)) {
+						struck.add(e.getId());
+						e.invulnerableTime = 0;
+						if (e.hurt(c.damageSources().mobAttack(c), 14.0f)) {
+							Vec3 out = new Vec3(e.getX() - blade.x, 0, e.getZ() - blade.z);
+							Vec3 h = out.lengthSqr() < 1.0e-4 ? fwd : out.normalize();
+							e.push(h.x * 0.6, 0.5, h.z * 0.6);
+							e.hurtMarked = true;
+						}
+					}
+					CarnageAttackEntity.shockwave(level, c, blade);
+				}
+				return;
+			}
+			if (timer >= 100 + 14) {
+				cleaveCd = cd(180);
+				end();
+			}
+		}
+
+		// ---- v0.15.15 Spike Eruption: he punches both fists into the ground; cracks race toward the target, then spikes burst up
+		private void tickErupt(ServerLevel level, LivingEntity t) {
+			if (t != null && timer < ERUPT_SLAM) {
+				c.getLookControl().setLookAt(t, 60f, 60f);
+			}
+			if (timer == ERUPT_SLAM) {
+				level.playSound(null, c.getX(), c.getY(), c.getZ(), SoundEvents.ROOTED_DIRT_BREAK, SoundSource.HOSTILE, 1.8f, 0.4f);
+				level.sendParticles(BLOOD, c.getX(), c.getY() + 0.2, c.getZ(), 20, 0.6, 0.1, 0.6, 0.0);
+				if (t != null) {
+					Vec3 to = new Vec3(t.getX() - c.getX(), 0, t.getZ() - c.getZ());
+					double d = to.length();
+					Vec3 dir = d < 0.5 ? Vec3.directionFromRotation(0, c.getYRot()) : to.scale(1.0 / d);
+					int n = Mth.clamp((int) Math.ceil((d + 2.5) / 1.5), 4, 12);
+					for (int i = 0; i < n; i++) {
+						double along = 1.5 + i * 1.5;
+						CarnageAttackEntity.spike(level, c, c.getX() + dir.x * along, c.getZ() + dir.z * along, c.getY(), 14 + i * 2);
+					}
+					if (c.frenzied) {
+						// frenzied: a ring round the target too
+						for (int i = 0; i < 6; i++) {
+							double a = i * Math.PI / 3;
+							CarnageAttackEntity.spike(level, c, t.getX() + Math.cos(a) * 2.0, t.getZ() + Math.sin(a) * 2.0, t.getY(), 20);
+						}
+					}
+				}
+			}
+			if (timer >= ERUPT_SLAM + 16) {
+				eruptCd = cd(160);
+				end();
+			}
+		}
+
+		// ---- v0.15.15 Symbiote Snare: a glob of goo grows in his hand and is lobbed at the target
+		private void tickSnare(ServerLevel level, LivingEntity t) {
+			if (t != null) {
+				c.getLookControl().setLookAt(t, 60f, 60f);
+			}
+			if (timer == SNARE_THROW) {
+				if (t == null) {
+					end();
+					return;
+				}
+				double yaw = Math.toRadians(c.yBodyRot);
+				Vec3 right = new Vec3(-Math.cos(yaw), 0, -Math.sin(yaw));
+				Vec3 from = c.position().add(0, c.getBbHeight() * 1.05, 0).add(right.scale(0.45));
+				Vec3 to = t.position().add(0, t.getBbHeight() * 0.4, 0);
+				CarnageAttackEntity.glob(level, c, from, to);
+				c.swing(InteractionHand.MAIN_HAND);
+				level.playSound(null, c.getX(), c.getY(), c.getZ(), SoundEvents.SNOWBALL_THROW, SoundSource.HOSTILE, 1.4f, 0.4f);
+			}
+			if (timer >= SNARE_THROW + 10) {
+				snareCd = cd(220);
+				end();
+			}
 		}
 
 		// ---- three quick blade swipes

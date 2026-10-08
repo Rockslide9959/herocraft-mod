@@ -1,6 +1,7 @@
 package com.projecthero.mod.carnage;
 
 import com.projecthero.mod.ProjectHeroMod;
+import com.projecthero.mod.carnage.entity.CarnageAttackEntity;
 import com.projecthero.mod.carnage.entity.CarnageEntity;
 import com.projecthero.mod.carnage.entity.CrimsonMeteorEntity;
 import com.projecthero.mod.carnage.entity.CrimsonSpawnEntity;
@@ -28,6 +29,11 @@ public final class CarnageEntityTypes {
 	public static final EntityType<CrimsonMeteorEntity> CRIMSON_METEOR = register("crimson_meteor",
 			EntityType.Builder.<CrimsonMeteorEntity>of(CrimsonMeteorEntity::new, MobCategory.MISC)
 					.sized(1.0f, 1.0f).clientTrackingRange(16).updateInterval(1).noSave().build("crimson_meteor"));
+
+	/** v0.15.15: his newer moves out in the world (spikes, shockwave, goo glob, snare). */
+	public static final EntityType<CarnageAttackEntity> CARNAGE_ATTACK = register("carnage_attack",
+			EntityType.Builder.<CarnageAttackEntity>of(CarnageAttackEntity::new, MobCategory.MISC)
+					.sized(0.5f, 0.5f).clientTrackingRange(10).updateInterval(1).noSave().build("carnage_attack"));
 
 	private CarnageEntityTypes() {
 	}
