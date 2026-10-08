@@ -43,13 +43,13 @@ public abstract class ItemInHandRendererPowerBatteryMixin {
 			boolean batteryHand = hand == InteractionHand.OFF_HAND;
 			pose.pushPose();
 			PowerBatteryHeldRenderer.chargeArmPose(pose, side, batteryHand, player, partialTick);
+			if (batteryHand) {
+				PowerBatteryHeldRenderer.tiltAboutFist(pose, side, 0f, 0f);
+			}
+			org.joml.Matrix4f start = new org.joml.Matrix4f(pose.last().pose());
 			renderPlayerArm(pose, buffers, light, 0f, 0f, side);
 			pose.popPose();
 			if (batteryHand) {
-				pose.pushPose();
-				PowerBatteryHeldRenderer.chargeArmPose(pose, side, true, player, partialTick);
-				org.joml.Matrix4f start = new org.joml.Matrix4f(pose.last().pose());
-				pose.popPose();
 				Vector3f fist = PowerBatteryHeldRenderer.firstPersonFist(pose, start, 0f, 0f, side);
 				PowerBatteryHeldRenderer.drawFirstPerson(player, player.getOffhandItem(), fist, side, pitch, partialTick, pose, buffers, light,
 						true);
@@ -62,6 +62,7 @@ public abstract class ItemInHandRendererPowerBatteryMixin {
 		}
 		pose.pushPose();
 		PowerBatteryHeldRenderer.holdArmPose(pose, side); // raised a little, so the lantern hanging below the fist is in view
+		PowerBatteryHeldRenderer.tiltAboutFist(pose, side, equipProgress, swingProgress);
 		org.joml.Matrix4f start = new org.joml.Matrix4f(pose.last().pose());
 		renderPlayerArm(pose, buffers, light, equipProgress, swingProgress, side);
 		pose.popPose();

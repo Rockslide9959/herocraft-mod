@@ -122,6 +122,12 @@ public final class PowerBatteryHeldRenderer {
 			SWAY.clear();
 			return;
 		}
+		// v0.15.15: frozen while charging -- the client's own prediction too (the server pulls back any drift)
+		if (mc.player != null && charge(mc.player, 0f) >= 0f) {
+			net.minecraft.world.phys.Vec3 v = mc.player.getDeltaMovement();
+			mc.player.setDeltaMovement(0, mc.player.getAbilities().flying ? 0 : Math.min(0, v.y), 0);
+			mc.player.setSprinting(false);
+		}
 		if (mc.isPaused()) {
 			return;
 		}
@@ -193,7 +199,9 @@ public final class PowerBatteryHeldRenderer {
 		pose.pushPose();
 		arm.translateAndRotate(pose);
 		// the bottom of the fist, a touch inside it (the handle is gripped)
-		pose.translate(f * 1f / 16f, 9.6f / 16f, 0f);
+		// v0.15.15 playtest ("it doesnt really sit in the hand, its kinda floating"): the handle is gripped INSIDE the fist
+		// -- the bar and its uprights are hidden in the hand, the lantern's cap starts right at the bottom of the fist
+		pose.translate(f * 1f / 16f, GRIP_IN_FIST_PX / 16f, 0f);
 		// take the arm's own rotation back off: the lantern hangs toward the ground whatever the arm does
 		pose.mulPose(new Quaternionf().rotationZYX(arm.zRot, arm.yRot, arm.xRot).conjugate());
 		// body model space is y-down / x-mirrored: turn it right way up (+y up, +x = the holder's right, -z = forward)
@@ -280,7 +288,7 @@ public final class PowerBatteryHeldRenderer {
 		m.rotate(Axis.YP.rotationDegrees(f * -135f));
 		m.translate(f * 5.6f, 0f, 0f);
 		// the arm bone: pivot (-5 / 5, 2) px, fist bottom 10 px down it, its centre 1 px toward the outside
-		m.translate((right ? -6f : 6f) / 16f, 11.6f / 16f, 0f);
+		m.translate((right ? -6f : 6f) / 16f, GRIP_IN_FIST_PX / 16f + 2f / 16f, 0f);
 		Vector3f out = new Vector3f();
 		m.getTranslation(out);
 		// back into the pose's own space
@@ -310,13 +318,29 @@ public final class PowerBatteryHeldRenderer {
 
 	/** First-person charge pose offsets (blocks / degrees), tuned on screenshots. */
 	public static float BAT_IN = 0.1f, BAT_UP = 0.58f, BAT_FWD = 0.1f, BAT_ROLL = 4f;
-	public static float RING_IN = 0.2f, RING_UP = 0.3f, RING_FWD = 0.12f, RING_YAW = 18f, RING_ROLL = 4f;
+	public static float RING_IN = 0.56f, RING_UP = 0.2f, RING_FWD = 0.12f, RING_YAW = 18f, RING_ROLL = 4f;
 	/** First person, just holding it: the arm lifted so the hanging lantern shows. */
-	public static float HOLD_UP = 0.5f, HOLD_IN = 0.22f;
+	public static float HOLD_UP = 0.55f, HOLD_IN = 0.3f;
 	/** Halo size multiplier (first person draws it tighter). */
 	private static float glowK = 1f;
 	/** First person: the grip point moved in from the fist's centre to its inner edge, and up. */
-	public static float FP_SIDE = 0.3f, FP_UP = 0.04f;
+	public static float FP_SIDE = 0f, FP_UP = 0f;
+	/** Where the handle is held, px down the arm bone from the shoulder pivot (the fist ends at 10). */
+	public static final float GRIP_IN_FIST_PX = 8.4f;
+	/**
+	 * First person: the battery arm is rolled about its own fist so its forearm leans out to the side -- the lantern then
+	 * hangs straight below the fist (handle in the hand) without the arm in front of it.
+	 */
+	public static float FP_TILT = 68f;
+
+	/** Rolls the first-person arm chain about its fist (see {@link #FP_TILT}); {@code pose} must be the chain's start. */
+	public static void tiltAboutFist(PoseStack pose, HumanoidArm side, float equip, float swing) {
+		float f = side == HumanoidArm.RIGHT ? 1f : -1f;
+		Vector3f fist = firstPersonFist(pose, new Matrix4f(pose.last().pose()), equip, swing, side);
+		pose.translate(fist.x, fist.y, fist.z);
+		pose.mulPose(Axis.ZP.rotationDegrees(f * FP_TILT));
+		pose.translate(-fist.x, -fist.y, -fist.z);
+	}
 
 	public static void holdArmPose(PoseStack pose, HumanoidArm side) {
 		float f = side == HumanoidArm.RIGHT ? 1f : -1f;
@@ -327,8 +351,7 @@ public final class PowerBatteryHeldRenderer {
 	public static void drawFirstPerson(Player player, ItemStack stack, Vector3f fist, HumanoidArm side, float camPitch, float partial,
 			PoseStack pose, MultiBufferSource buffers, int light, boolean charging) {
 		pose.pushPose();
-		// on the inner edge of the fist: seen from behind your own arm, a lantern hanging straight below the fist would be
-		// hidden by the arm itself
+		// the handle in the fist (the arm is rolled aside by tiltAboutFist so it doesn't hide the lantern)
 		pose.translate(fist.x + (side == HumanoidArm.RIGHT ? -FP_SIDE : FP_SIDE), fist.y + FP_UP, fist.z);
 		// hang toward the real ground: world-down in camera space tilts with the view pitch
 		pose.mulPose(Axis.XP.rotationDegrees(camPitch));

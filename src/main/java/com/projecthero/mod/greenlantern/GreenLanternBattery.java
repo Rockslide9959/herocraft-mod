@@ -109,13 +109,16 @@ public final class GreenLanternBattery {
 			return true;
 		}
 		long now = player.level().getGameTime();
+		// frozen in place: Ring Flight would keep moving you on its own input, so it ends (you settle to the ground)
+		if (GreenLanternFlight.isFlying(player)) {
+			GreenLanternFlight.forceStop(player, false);
+		}
 		CHARGES.put(player.getUUID(), new Charge(player.position(), now));
 		GreenLanternVisuals.charge(player, now);
 		// rooted: no walking, no jumping (removed again on every way out)
 		PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, ROOT_MOVE, -1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		PowerToggles.modifier(player, Attributes.JUMP_STRENGTH, ROOT_JUMP, -1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-		player.setDeltaMovement(0, Math.min(0, player.getDeltaMovement().y), 0);
-		player.hurtMarked = true;
+		freeze(player, player.position());
 		player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
 				SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 0.7f, 1.4f);
 		return true;
@@ -173,6 +176,37 @@ public final class GreenLanternBattery {
 		}
 	}
 
+	/**
+	 * v0.15.15 (user: "they must be frozen in place"): no walking, sprinting, jumping, sneak-sliding or knockback drift
+	 * while charging -- zero horizontal velocity every tick (vertical too while flying; falling still falls), any drift
+	 * pulled straight back to where the ritual began, sprint switched off. Looking around stays free. The client does
+	 * the same for its own prediction ({@code PowerBatteryHeldRenderer}), and the speed / jump modifiers stop the input.
+	 */
+	public static void freeze(ServerPlayer player, Vec3 origin) {
+		boolean flying = player.getAbilities().flying;
+		double vy = flying ? 0.0 : Math.min(0.0, player.getDeltaMovement().y);
+		Vec3 p = player.position();
+		double dx = p.x - origin.x;
+		double dz = p.z - origin.z;
+		double dy = p.y - origin.y;
+		if (dx * dx + dz * dz > 0.02 * 0.02 || (flying && Math.abs(dy) > 0.02) || dy > 0.05) {
+			player.teleportTo(origin.x, flying || dy > 0.05 ? origin.y : p.y, origin.z);
+		}
+		player.setSprinting(false);
+		player.setDeltaMovement(0, vy, 0);
+		player.hurtMarked = true;
+	}
+
+	private static void freeze(ServerPlayer player, Charge c) {
+		freeze(player, c.origin);
+	}
+
+	/** Where the charge began (tests), or null if not charging. */
+	public static Vec3 chargeOrigin(ServerPlayer player) {
+		Charge c = CHARGES.get(player.getUUID());
+		return c == null ? null : c.origin;
+	}
+
 	/** Per-player server tick. */
 	public static void tick(ServerPlayer player) {
 		Charge c = CHARGES.get(player.getUUID());
@@ -183,11 +217,7 @@ public final class GreenLanternBattery {
 			cancel(player, true);
 			return;
 		}
-		// rooted: pull any drift back to where the ritual began (turning is fine)
-		if (player.position().distanceToSqr(c.origin) > 0.04 * 0.04) {
-			player.teleportTo(c.origin.x, Math.min(player.getY(), c.origin.y + 0.05), c.origin.z);
-		}
-		player.setDeltaMovement(0, Math.min(0, player.getDeltaMovement().y), 0);
+		freeze(player, c);
 
 		ServerLevel level = player.serverLevel();
 		long elapsed = player.level().getGameTime() - c.startTick;

@@ -137,6 +137,36 @@ public class V01515Gl2GameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void chargingFreezesThePlayerInPlace(GameTestHelper helper) {
+		ServerPlayer player = lantern(helper, 500f);
+		holdBattery(player);
+		GreenLanternBattery.beginCharge(player);
+		Vec3 origin = GreenLanternBattery.chargeOrigin(player);
+		helper.assertTrue(origin != null, "the charge should start");
+		helper.assertTrue(player.getAttributeValue(Attributes.MOVEMENT_SPEED) < 1.0e-4, "no walking while charging");
+		helper.assertTrue(player.getAttributeValue(Attributes.JUMP_STRENGTH) < 1.0e-4, "no jumping while charging");
+		// walking / sprinting / knockback velocity is wiped every tick
+		player.setDeltaMovement(0.8, 0.0, -0.5);
+		player.setSprinting(true);
+		GreenLanternBattery.tick(player);
+		Vec3 v = player.getDeltaMovement();
+		helper.assertTrue(v.x == 0.0 && v.z == 0.0, "no horizontal velocity while charging, was " + v);
+		helper.assertFalse(player.isSprinting(), "sprinting is switched off");
+		// any drift (a shove, sneak-sliding off an edge) is pulled straight back
+		player.teleportTo(player.getX() + 1.5, player.getY(), player.getZ() - 0.7);
+		GreenLanternBattery.tick(player);
+		double dx = player.getX() - origin.x;
+		double dz = player.getZ() - origin.z;
+		helper.assertTrue(dx * dx + dz * dz < 0.03 * 0.03, "the Lantern is pulled back to where the charge began");
+		helper.assertTrue(GreenLanternBattery.isRecitingOath(player), "being held in place does not end the charge");
+		// once it ends, he can move again
+		GreenLanternBattery.onDamaged(player);
+		helper.assertTrue(player.getAttributeValue(Attributes.MOVEMENT_SPEED) > 0.01
+				&& player.getAttributeValue(Attributes.JUMP_STRENGTH) > 0.01, "the freeze lifts when the charge ends");
+		helper.succeed();
+	}
+
 	// ---------------------------------------------------------------- R: tap / hold / Shift
 
 	@GameTest(template = EMPTY_STRUCTURE)
