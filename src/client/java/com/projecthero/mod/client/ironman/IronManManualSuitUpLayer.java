@@ -49,6 +49,7 @@ public class IronManManualSuitUpLayer extends RenderLayer<AbstractClientPlayer, 
 
 	public static void initialize() {
 		ModelLoadingPlugin.register(plugin -> plugin.addModels(HAMMER, WRENCH));
+		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.AFTER_ENTITIES.register(IronManManualSuitUpLayer::renderDroppedPlates); // v0.15.15
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
 			if (entityRenderer instanceof PlayerRenderer playerRenderer) {
 				helper.register(new IronManManualSuitUpLayer(playerRenderer));
@@ -160,47 +161,82 @@ public class IronManManualSuitUpLayer extends RenderLayer<AbstractClientPlayer, 
 				}
 			}
 		}
-		if (suitId == null) {
+		// v0.15.15: the plates let go of fall in WORLD space (renderDroppedPlates), to the wearer's left
+	}
+
+	/**
+	 * v0.15.15: the Mark 1's dropped plates, drawn in world space (WorldRenderEvents.AFTER_ENTITIES) so they fall to the
+	 * wearer's LEFT -- worked out from the body yaw (facing f = (-sin, cos), left = (cos, sin)) -- whatever the camera
+	 * angle: let go of at hand height half a block out to the left, they tumble to the floor and shrink away.
+	 */
+	static void renderDroppedPlates(net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext context) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.level == null || context.consumers() == null || context.matrixStack() == null) {
 			return;
 		}
-		// the plates let go of: falling from the left hand to the floor, then shrinking away
-		for (int bit = 0; bit < 4; bit++) {
-			int drop = sch.dropAt(bit);
-			if (drop < 0) {
+		float partial = context.tickCounter().getGameTimeDeltaPartialTick(false);
+		net.minecraft.world.phys.Vec3 cam = context.camera().getPosition();
+		PoseStack pose = context.matrixStack();
+		for (Player player : mc.level.players()) {
+			IronManSuitFx fx = IronManSuitFx.of(player);
+			if (com.projecthero.mod.ironman.suit.IronManSuitRemoval.kindOfPose(fx.poseKind())
+					!= com.projecthero.mod.ironman.suit.IronManSuitRemoval.KIND_MK1 || player.isInvisible()) {
 				continue;
 			}
-			float t = age - drop;
-			int fall = com.projecthero.mod.ironman.suit.IronManSuitRemoval.FALL_TICKS;
-			int vanish = com.projecthero.mod.ironman.suit.IronManSuitRemoval.VANISH_TICKS;
-			if (t < 0f || t > fall + vanish) {
+			float age = fx.poseAge(mc.level.getGameTime(), partial);
+			String suitId = IronManManualSuitUp.suitOf(fx.poseVariant());
+			if (age < 0f || suitId == null) {
 				continue;
 			}
-			IronManArmorItem item = IronManItems.armor(suitId, IronManSuitUpManager.typeOf(slotOf(bit)));
-			if (item == null) {
-				continue;
+			var sch = com.projecthero.mod.ironman.suit.IronManSuitRemoval.schedule(
+					com.projecthero.mod.ironman.suit.IronManSuitRemoval.KIND_MK1, IronManManualSuitUp.planOf(fx.poseVariant()));
+			double yaw = Math.toRadians(net.minecraft.util.Mth.lerp(partial, player.yBodyRotO, player.yBodyRot));
+			double fwdX = -Math.sin(yaw);
+			double fwdZ = Math.cos(yaw);
+			double leftX = Math.cos(yaw);
+			double leftZ = Math.sin(yaw);
+			net.minecraft.world.phys.Vec3 feet = player.getPosition(partial);
+			float scale = player.getScale();
+			for (int bit = 0; bit < 4; bit++) {
+				int drop = sch.dropAt(bit);
+				if (drop < 0) {
+					continue;
+				}
+				float t = age - drop;
+				int fall = com.projecthero.mod.ironman.suit.IronManSuitRemoval.FALL_TICKS;
+				int vanish = com.projecthero.mod.ironman.suit.IronManSuitRemoval.VANISH_TICKS;
+				if (t < 0f || t > fall + vanish) {
+					continue;
+				}
+				IronManArmorItem item = IronManItems.armor(suitId, IronManSuitUpManager.typeOf(slotOf(bit)));
+				if (item == null) {
+					continue;
+				}
+				float ft = Math.min(t, fall);
+				float u = ft / fall;
+				double y0 = bit >= 2 ? 0.75 : 1.05; // the greaves / boots are let go of lower, bent over
+				double y = 0.18 + (y0 - 0.18) * (1.0 - u * u); // accelerating down onto the floor
+				double side = 0.62 + 0.03 * ft; // drifting a little further out as it falls
+				double ahead = 0.15;
+				float shrink = t <= fall ? 1f : Math.max(0f, 1f - (t - fall) / vanish);
+				if (shrink <= 0.01f) {
+					continue;
+				}
+				double wx = feet.x + (leftX * side + fwdX * ahead) * scale;
+				double wy = feet.y + y * scale;
+				double wz = feet.z + (leftZ * side + fwdZ * ahead) * scale;
+				int light = net.minecraft.client.renderer.LevelRenderer.getLightColor(mc.level,
+						net.minecraft.core.BlockPos.containing(wx, wy + 0.2, wz));
+				pose.pushPose();
+				pose.translate(wx - cam.x, wy - cam.y, wz - cam.z);
+				pose.mulPose(Axis.YP.rotationDegrees(-(float) Math.toDegrees(yaw) + bit * 40f + ft * 7f));
+				pose.mulPose(Axis.XP.rotationDegrees(ft * 11f));
+				float sc = 0.55f * shrink * scale;
+				pose.scale(sc, sc, sc);
+				mc.getItemRenderer().renderStatic(new ItemStack(item), ItemDisplayContext.FIXED, light,
+						OverlayTexture.NO_OVERLAY, pose, context.consumers(), mc.level, player.getId() + bit);
+				pose.popPose();
 			}
-			// model space: +x the wearer's left, +y down (the feet at 1.5), -z the front
-			boolean low = bit >= 2;
-			float y0 = low ? 0.75f : 0.45f;
-			float ft = Math.min(t, fall);
-			float u = ft / fall;
-			float y = y0 + (1.42f - y0) * u * u; // dropped from the hand, accelerating, onto the floor
-			float x = 0.55f + 0.02f * ft;
-			float z = -0.25f - 0.01f * ft;
-			float shrink = t <= fall ? 1f : Math.max(0f, 1f - (t - fall) / vanish);
-			if (shrink <= 0.01f) {
-				continue;
-			}
-			pose.pushPose();
-			pose.translate(x, y, z);
-			pose.mulPose(Axis.ZP.rotationDegrees(180f));
-			pose.mulPose(Axis.XP.rotationDegrees(ft * 11f));
-			pose.mulPose(Axis.YP.rotationDegrees(ft * 7f + bit * 40f));
-			float sc = 0.55f * shrink;
-			pose.scale(sc, sc, sc);
-			Minecraft.getInstance().getItemRenderer().renderStatic(new ItemStack(item), ItemDisplayContext.FIXED, light,
-					OverlayTexture.NO_OVERLAY, pose, buffers, player.level(), player.getId() + bit);
-			pose.popPose();
 		}
 	}
 

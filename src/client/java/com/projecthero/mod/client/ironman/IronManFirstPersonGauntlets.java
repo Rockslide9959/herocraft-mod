@@ -119,7 +119,8 @@ public final class IronManFirstPersonGauntlets {
 				}
 			}
 		}
-		if (!"mark_1".equals(setId) && reveal >= 1f) {
+		// v0.15.15: no palm glow while the plates retract (powered down); the texture above already carries the retract
+		if (!"mark_1".equals(setId) && reveal >= 1f && !IronManGantryBuild.retracting(player)) {
 			VertexConsumer glow = buffers.getBuffer(RenderType.entityTranslucentEmissive(PALM_GLOW));
 			int full = LightTexture.FULL_BRIGHT;
 			float[] palm = palm(setId); // {inner face x, fist end y} of this design, right arm

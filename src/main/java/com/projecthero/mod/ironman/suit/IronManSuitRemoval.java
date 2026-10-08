@@ -163,6 +163,14 @@ public final class IronManSuitRemoval {
 		return V_LO[r] + (V_HI[r] - V_LO[r]) * (1f - order);
 	}
 
+	/**
+	 * v0.15.15: the raised faceplate folds away first of the helmet (it sits furthest out, up over the brow): within the
+	 * first fifth of the helmet's share of the wave, staggered by {@code jitter}.
+	 */
+	public static float faceplateVanishAt(float jitter) {
+		return V_LO[R_HELMET] + (V_HI[R_HELMET] - V_LO[R_HELMET]) * 0.2f * IronManManualSuitUp.clamp(jitter);
+	}
+
 	/** How far through the retract wave the sequence is {@code age} ticks in (0..1). */
 	public static float wave(float age) {
 		return IronManManualSuitUp.clamp((age - RETRACT_FROM) / RETRACT_TICKS);
@@ -594,9 +602,8 @@ public final class IronManSuitRemoval {
 		if (!IronManArmor.isPieceWorn(player, slot, s.transitionSuit)) {
 			return;
 		}
-		if (bit == 0) {
-			player.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false);
-		}
+		// (the raised faceplate flag is cleared only once the sequence ends -- clearing it here synced a tick before the empty
+		// helmet slot and flashed the closed-visor HUD for a frame)
 		IronManSuitUpManager.removeForSuitDown(player, s, slot);
 	}
 
@@ -625,7 +632,9 @@ public final class IronManSuitRemoval {
 			}
 			case EV_GONE -> {
 				IronManSounds.playAt(level, at.x, at.y, at.z, IronManSounds.RELEASE, 0.6f, 1.25f + e.bit() * 0.05f);
-				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 6, 0.2, 0.12, 0.2, 0.05);
+				if (e.bit() != 0) { // no sparks at eye level -- in first person they filled the view
+					level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 4, 0.2, 0.12, 0.2, 0.05);
+				}
 			}
 			case EV_PULL -> {
 				IronManManualSuitUp.playAt(player, SoundEvents.IRON_TRAPDOOR_OPEN, e, 0.6f, 0.75f);
@@ -703,6 +712,9 @@ public final class IronManSuitRemoval {
 	}
 
 	private static void clear(ServerPlayer player, TonyStarkState s) {
+		if (!IronManArmor.isPieceWorn(player, EquipmentSlot.HEAD, s.transitionSuit)) {
+			player.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false);
+		}
 		s.transitionManual = 0;
 		s.transitionMask = 0;
 		s.transitionPlan = 0;

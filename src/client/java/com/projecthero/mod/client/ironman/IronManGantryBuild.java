@@ -472,12 +472,26 @@ public final class IronManGantryBuild {
 		byte[] stage = new byte[w * h];
 		float[] k = new float[w * h];
 		Arrays.fill(stage, (byte) -1);
+		// v0.15.15: in the retract the raised faceplate goes first of the helmet -- its texels (some shared with the helmet
+		// shell's front, which is not drawn while it is up) keep the faceplate's early time whatever else samples them
+		boolean[] faceplate = new boolean[w * h];
 		for (IronManAssemblyReveal.Sample s : samples) {
 			float[] sk = scheme == S_RETRACT ? retractStageOf(s, bit)
 					: scheme == S_MK5 ? mk5StageOf(s.bone(), s.cube(), s.pos().y, s.pos().z, s.index(), bit)
 					: stageOf(s.bone(), s.cube(), s.pos().y, s.index(), bit);
 			int st = (int) sk[0];
 			int i = s.index();
+			if (scheme == S_RETRACT && "faceplate".equals(s.bone())) {
+				if (!faceplate[i] || sk[1] < k[i]) {
+					stage[i] = (byte) st;
+					k[i] = sk[1];
+				}
+				faceplate[i] = true;
+				continue;
+			}
+			if (faceplate[i]) {
+				continue;
+			}
 			if (stage[i] < 0 || st > stage[i] || st == stage[i] && sk[1] > k[i]) {
 				stage[i] = (byte) st;
 				k[i] = sk[1];
@@ -554,6 +568,9 @@ public final class IronManGantryBuild {
 	static float[] retractStageOf(IronManAssemblyReveal.Sample s, int bit) {
 		int region = IronManSuitRemoval.region(bit, s.bone());
 		float jitter = IronManAssemblyPlan.hash("retract", s.tile());
+		if ("faceplate".equals(s.bone())) {
+			return new float[] { region, IronManSuitRemoval.faceplateVanishAt(jitter) };
+		}
 		return new float[] { region, IronManSuitRemoval.vanishAt(region, s.pos().x, s.pos().y, s.pos().z, jitter) };
 	}
 
