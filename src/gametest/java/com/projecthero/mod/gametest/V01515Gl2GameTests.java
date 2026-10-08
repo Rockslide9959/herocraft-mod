@@ -180,7 +180,7 @@ public class V01515Gl2GameTests implements FabricGameTest {
 				+ (5000f - charge(player)));
 		helper.assertTrue(GreenLantern.cooldownRemaining(player, GreenLanternCombat.BLAST_CD) >= GreenLanternConfig.BLAST_WAVE_COOLDOWN_TICKS - 1,
 				"a 7 s cooldown");
-		helper.assertFalse(GreenLantern.abilityReady(player, "ring_bolt"), "Shift+R is not the bolt");
+		helper.assertTrue(GreenLantern.abilityReady(player, "ring_bolt"), "Shift+R is not the bolt");
 		// a second press on cooldown does nothing
 		player.setShiftKeyDown(true);
 		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_1, true);
