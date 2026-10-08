@@ -3905,7 +3905,7 @@
   "event.projecthero.syndicate.bar.spotted": "%s - get ready",
   "event.projecthero.syndicate.bar.breather": "%s - wave %s of %s cleared",
   "event.projecthero.syndicate.bar.wave": "%s - wave %s of %s - %s left",
-  "event.projecthero.carnage.meteor": "A crimson meteor is falling out of the night sky...",
+  "event.projecthero.carnage.meteor": "A crimson meteor is falling out of the sky...",
   "boss.projecthero.kingpin.chat": "<%s> %s",
   "boss.projecthero.kingpin.say.intro": "You walk into my house. Uninvited. You will regret that.",
   "boss.projecthero.kingpin.say.rush": "Stand still.",
