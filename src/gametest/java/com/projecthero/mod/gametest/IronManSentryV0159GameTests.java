@@ -157,8 +157,8 @@ public class IronManSentryV0159GameTests implements FabricGameTest {
 				helper.assertTrue(!com.projecthero.mod.ironman.IronManDamage.onAllowDamage(p, p.damageSources().generic(), 5f),
 						"nothing hurts them while they step in");
 				helper.runAfterDelay(IronManSentryEntity.STEP_TICKS / 2, () -> {
-					double d = p.position().distanceTo(s.position());
-					helper.assertTrue(d > 0.1 && d < 1.9, "half-way through the walk the owner is between start and suit (" + d + ")");
+					// v0.15.15: they are walked round behind it first, then into its back -- not on yet either way
+					helper.assertTrue(s.phase() == IronManSentryEntity.PHASE_STEP_IN, "still stepping in");
 					helper.assertTrue(!IronManArmor.wearingAnyIronMan(p), "not on yet mid-walk");
 				});
 				helper.succeedWhen(() -> {
@@ -208,8 +208,9 @@ public class IronManSentryV0159GameTests implements FabricGameTest {
 		z.setNoAi(true);
 		z.getAttribute(Attributes.MAX_HEALTH).setBaseValue(500.0);
 		z.setHealth(500f);
-		// two shots' worth: the Mark 7 tap costs 10 x 0.6 = 6, so 10 = one full shot and a last one that empties it
-		s.setEnergy(10f);
+		// v0.15.15: Defensive also drains 2% of capacity a second (100/s on the Mark 8), so give it ~3 s worth: it shoots
+		// while it lasts, then it is empty, drops to Regular and stands powered down
+		s.setEnergy(300f);
 		s.use(p, true); // can't while stepping out
 		helper.assertTrue(s.mode() == IronManSentryEntity.REGULAR, "busy while the owner steps out");
 		helper.runAfterDelay(IronManSentryEntity.EJECT_CLOSE_TICK + 2, () -> {
@@ -217,10 +218,11 @@ public class IronManSentryV0159GameTests implements FabricGameTest {
 			helper.assertTrue(s.mode() == IronManSentryEntity.DEFENSIVE, "Defensive");
 		});
 		helper.runAfterDelay(150, () -> {
-			helper.assertTrue(s.shotsFired() == 2, "two repulsor shots then nothing (" + s.shotsFired() + ")");
-			helper.assertTrue(s.energy() == 0f, "every shot used energy, down to zero (" + s.energy() + ")");
+			helper.assertTrue(s.shotsFired() >= 1, "it shot while it had energy (" + s.shotsFired() + ")");
+			helper.assertTrue(s.energy() == 0f, "shots + the Defensive drain used it all, down to zero (" + s.energy() + ")");
 			helper.assertTrue(z.getHealth() < 500f, "the zombie was hit (" + z.getHealth() + ")");
 			helper.assertTrue(!s.powered(), "no energy = powered down");
+			helper.assertTrue(s.mode() == IronManSentryEntity.REGULAR, "and back in Regular");
 			helper.assertTrue(s.lightPos() == null, "and dark");
 			// at zero it still closes around its owner when asked
 			s.use(p, false);

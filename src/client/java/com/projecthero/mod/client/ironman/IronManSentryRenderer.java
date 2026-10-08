@@ -20,7 +20,7 @@ import net.minecraft.world.item.ItemStack;
 /**
  * v0.15.9 Sentry Mode: the suit's real GeckoLib armour on an invisible, reusable client {@link ArmorStand} (the same trick
  * as {@code IronManDroneRenderer}), so the standing suit looks exactly like the worn one, lights included. Its back opens
- * as split half-shells ({@link IronManSentryClient#openDeg}, drawn by {@code SuperheroArmorRenderer}); every limb follows the
+ * as back panels swung open like doors ({@link IronManSentryClient#openDeg}, drawn by {@code SuperheroArmorRenderer}); every limb follows the
  * entity's eased pose channels ({@code IronManSentryEntity#animate}); a powered-down suit's lights are off.
  */
 public class IronManSentryRenderer extends EntityRenderer<IronManSentryEntity> {

@@ -77,8 +77,8 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 				if (!com.projecthero.mod.client.ironman.IronManAssemblyClient.apply(poseStack, bone, ip, getCurrentSlot(), partialTick)) {
 					return;
 				}
-				// v0.15.4: the Mark 7 bracelet wrap-on draws this bone as two half-shells swung open (0 = whole)
-				braceletSplit = com.projecthero.mod.client.ironman.IronManBraceletClient.splitDeg;
+				// v0.15.4: the Mark 7 bracelet wrap-on; v0.15.15 (user): drawn with its back panels open like doors, front whole
+				backDoorDeg = com.projecthero.mod.client.ironman.IronManBraceletClient.splitDeg;
 				com.projecthero.mod.client.ironman.IronManBraceletClient.splitDeg = 0f;
 				// the H faceplate is up: drop the helmet's front faces so the wearer's face shows (shell + brow stay on)
 				skipNorthFaces = "helmet".equals(name) && getCurrentSlot() == EquipmentSlot.HEAD
@@ -87,24 +87,23 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 						packedLight, packedOverlay, colour);
 			} finally {
 				skipNorthFaces = false;
-				braceletSplit = 0f;
+				backDoorDeg = 0f;
 				poseStack.popPose();
 			}
 			return;
 		}
-		// v0.15.9 Sentry Mode: the standing suit opens up at the back -- every bone with geometry (bar the faceplate) is
-		// drawn as two half-shells hinged at their front corners, the backs swung open (IronManSentryClient#openDeg)
+		// v0.15.9 Sentry Mode: the standing suit opens up at the back. v0.15.15 (user): only the BACK opens -- every bone
+		// with geometry (bar the faceplate) keeps its front half whole and its back half swings open as two panels hinged
+		// at the sides, like doors (IronManSentryClient#openDeg / #doorClip)
 		float sentryDeg = com.projecthero.mod.client.ironman.IronManSentryClient.openDeg;
 		if (sentryDeg > 0.01f && animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem
 				&& !(getCurrentEntity() instanceof Player)) {
-			braceletSplit = "faceplate".equals(name) ? 0f : sentryDeg;
-			backSplit = true;
+			backDoorDeg = "faceplate".equals(name) ? 0f : sentryDeg;
 			try {
 				super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick,
 						packedLight, packedOverlay, colour);
 			} finally {
-				braceletSplit = 0f;
-				backSplit = false;
+				backDoorDeg = 0f;
 			}
 			return;
 		}
@@ -133,8 +132,8 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 	/** v0.15.4: this bone's half-shell opening (degrees) during the Mark 7 bracelet wrap-on; 0 = drawn whole. */
 	private float braceletSplit;
 
-	/** v0.15.9: {@link #braceletSplit} hinges at the front and opens the back (a Sentry Mode suit), not the front. */
-	private boolean backSplit;
+	/** v0.15.15: a Sentry Mode suit's back panels, swung open this far (degrees); 0 = drawn whole. */
+	private float backDoorDeg;
 
 	/**
 	 * v0.15.4: during the Mark 7 bracelet wrap-on a body bone is drawn as two half-shells -- its own boxes clipped at the
@@ -144,6 +143,10 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 	@Override
 	public void renderCubesOfBone(PoseStack poseStack, software.bernie.geckolib.cache.object.GeoBone bone, VertexConsumer buffer,
 			int packedLight, int packedOverlay, int colour) {
+		if (backDoorDeg > 0.01f && !bone.isHidden() && !bone.getCubes().isEmpty()) {
+			renderBackDoors(poseStack, bone, buffer, packedLight, packedOverlay, colour, backDoorDeg);
+			return;
+		}
 		float deg = braceletSplit;
 		if (deg <= 0.01f || bone.isHidden() || bone.getCubes().isEmpty()) {
 			super.renderCubesOfBone(poseStack, bone, buffer, packedLight, packedOverlay, colour);
@@ -151,8 +154,7 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 		}
 		float[] bounds = com.projecthero.mod.client.ironman.IronManBraceletClient.bounds(bone);
 		for (int side = -1; side <= 1; side += 2) {
-			var half = backSplit ? com.projecthero.mod.client.ironman.IronManBraceletClient.Half.ofBack(bounds, side, deg)
-					: com.projecthero.mod.client.ironman.IronManBraceletClient.Half.of(bounds, side, deg);
+			var half = com.projecthero.mod.client.ironman.IronManBraceletClient.Half.of(bounds, side, deg);
 			for (software.bernie.geckolib.cache.object.GeoCube cube : bone.getCubes()) {
 				poseStack.pushPose();
 				software.bernie.geckolib.util.RenderUtil.translateToPivotPoint(poseStack, cube);
@@ -180,6 +182,45 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 				}
 				poseStack.popPose();
 			}
+		}
+	}
+
+	/**
+	 * v0.15.15: a Sentry Mode suit's bone with its back open -- the front half drawn as it is, the back half as two
+	 * panels hinged at the sides of the back and swung out {@code deg} ({@link com.projecthero.mod.client.ironman.IronManSentryClient#doorClip}).
+	 * Same transforms as GeckoLib's own {@code renderCube}; nothing is added to the model.
+	 */
+	private void renderBackDoors(PoseStack poseStack, software.bernie.geckolib.cache.object.GeoBone bone, VertexConsumer buffer,
+			int packedLight, int packedOverlay, int colour, float deg) {
+		float[] bounds = com.projecthero.mod.client.ironman.IronManBraceletClient.bounds(bone);
+		for (software.bernie.geckolib.cache.object.GeoCube cube : bone.getCubes()) {
+			poseStack.pushPose();
+			software.bernie.geckolib.util.RenderUtil.translateToPivotPoint(poseStack, cube);
+			software.bernie.geckolib.util.RenderUtil.rotateMatrixAroundCube(poseStack, cube);
+			software.bernie.geckolib.util.RenderUtil.translateAwayFromPivotPoint(poseStack, cube);
+			org.joml.Matrix3f normalMat = poseStack.last().normal();
+			org.joml.Matrix4f poseMat = new org.joml.Matrix4f(poseStack.last().pose());
+			for (software.bernie.geckolib.cache.object.GeoQuad quad : cube.quads()) {
+				if (quad == null) {
+					continue;
+				}
+				for (int part = -1; part <= 1; part++) {
+					var verts = com.projecthero.mod.client.ironman.IronManSentryClient.doorClip(quad, bounds, part, deg);
+					if (verts == null) {
+						continue;
+					}
+					float[] n = com.projecthero.mod.client.ironman.IronManSentryClient.doorNormal(bounds, part, deg,
+							quad.normal().x(), quad.normal().y(), quad.normal().z());
+					org.joml.Vector3f normal = normalMat.transform(new org.joml.Vector3f(n[0], n[1], n[2]));
+					software.bernie.geckolib.util.RenderUtil.fixInvertedFlatCube(cube, normal);
+					for (var v : verts) {
+						org.joml.Vector4f p = poseMat.transform(new org.joml.Vector4f(v.x(), v.y(), v.z(), 1f));
+						buffer.addVertex(p.x(), p.y(), p.z(), colour, v.u(), v.v(), packedOverlay, packedLight,
+								normal.x(), normal.y(), normal.z());
+					}
+				}
+			}
+			poseStack.popPose();
 		}
 	}
 

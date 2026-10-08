@@ -72,12 +72,16 @@ public final class IronManBraceletClient {
 		if (glowPass && !IronManBraceletSuitUp.closed(p)) {
 			return false; // the lights come on once the halves have shut
 		}
+		// v0.15.15 (user: "it opens and folds in on itself"): the piece comes on like the Mark 8 sentry's -- its FRONT stays
+		// whole and only its back panels stand open like doors (SuperheroArmorRenderer#renderBackDoors); it comes in from
+		// in front along the wearer's own facing (open back first, so nothing passes through the body), full size (no
+		// shrunken piece growing out of the body), then the back panels swing shut round the wearer
 		float slide = IronManBraceletSuitUp.slide(p) * IronManBraceletSuitUp.SLIDE_PX / 16f;
 		if (slide > 0f) {
-			pose.translate(0f, slide * 0.2f, slide); // from behind (+z), a touch above
+			pose.translate(0f, slide * 0.2f, -slide); // from in front (-z), a touch above
 		}
 		float sc = IronManBraceletSuitUp.scale(p);
-		if (sc != 1f) {
+		if (sc > 1f) { // only the clasp pulse once shut
 			float gx = bone.getPivotX() / 16f;
 			float gy = bone.getPivotY() / 16f;
 			float gz = bone.getPivotZ() / 16f;

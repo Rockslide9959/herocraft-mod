@@ -296,6 +296,8 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
 		if (entity instanceof Player player) {
 			com.projecthero.mod.client.ironman.IronManSuitUpPose.apply(player, (HumanoidModel<?>) (Object) this);
+			// v0.15.15: walking out of / into a Sentry Mode suit -- arms a little out, like the open suit
+			com.projecthero.mod.client.ironman.IronManSentryClient.applyStepPose(player, (HumanoidModel<?>) (Object) this);
 		}
 	}
 

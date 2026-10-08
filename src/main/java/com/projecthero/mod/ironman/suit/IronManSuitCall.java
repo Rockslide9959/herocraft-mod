@@ -296,6 +296,9 @@ public final class IronManSuitCall {
 					Component.translatable(suit.nameKey())).withStyle(ChatFormatting.RED), true);
 			return 0;
 		}
+		if (worn == 15 && IronManMark8Call.sendHome(player, suit, targetPos)) {
+			return 4; // v0.15.15 (mark8): the worn Mark 8 opens, its owner steps out and it flies itself home whole
+		}
 		java.util.EnumMap<ArmorItem.Type, ItemStack> wornStacks = new java.util.EnumMap<>(ArmorItem.Type.class);
 		if (worn != 0) {
 			float energy = IronManEnergy.energy(player, suitId);
@@ -723,6 +726,10 @@ public final class IronManSuitCall {
 		Optional<StarkPlatformRegistry.Entry> entry =
 				registry.nearestHolding(player.getUUID(), level.dimension(), suitId, here);
 		if (entry.isPresent()) {
+			if (IronManMark8Call.applies(player, suit)
+					&& IronManMark8Call.refuseLowEnergy(player, suit, entry.get().suitEnergy())) {
+				return; // v0.15.15 (mark8): a call costs 10% of the suit's energy
+			}
 			double dist = Math.sqrt(entry.get().blockPos().distSqr(here));
 			int delay = (int) Math.max(60, Math.min(600, dist * 0.6)); // 3 s .. 30 s of travel
 			if (TonyStark.phoenixEmergency(player)) {
@@ -769,6 +776,12 @@ public final class IronManSuitCall {
 			energyFrac = be.suitEnergy() / Math.max(1f, suit.energyCapacity());
 			integrity = be.suitIntegrity();
 		}
+		// v0.15.15 (mark8): a Mark 8 call costs 10% of the suit's capacity (refused below that) and flies in whole
+		boolean mk8 = IronManMark8Call.applies(player, suit);
+		float mk8Energy = mk8 ? IronManMark8Call.storedEnergy(player, suit, be) : 0f;
+		if (mk8 && IronManMark8Call.refuseLowEnergy(player, suit, mk8Energy)) {
+			return;
+		}
 
 		// v0.14.21: the REAL stacks leave the platform / pack and travel in the couriers (or the pod).
 		List<ItemStack> taken = new ArrayList<>();
@@ -791,6 +804,11 @@ public final class IronManSuitCall {
 			}
 		}
 		int launched = taken.size();
+		if (mk8 && launched == 4) {
+			IronManMark8Call.flyIn(player, suit, taken, straightFromPlatform ? origin : null, mk8Energy,
+					be != null ? integrity : IronManEnergy.stackIntegrity(taken.get(0), suitId));
+			return;
+		}
 		int arrival;
 		boolean falling = falling(player); // v0.15.6: a falling caller gets everything at double speed
 		int stagger = falling ? LAUNCH_STAGGER / 2 : LAUNCH_STAGGER;
@@ -829,7 +847,8 @@ public final class IronManSuitCall {
 			return;
 		}
 
-		IronManEnergy.setEnergy(player, suitId, energyFrac * suit.energyCapacity());
+		IronManEnergy.setEnergy(player, suitId, mk8 ? Math.max(0f, mk8Energy - IronManMark8Call.cost(suit)) // v0.15.15 (mark8)
+				: energyFrac * suit.energyCapacity());
 		IronManEnergy.setIntegrity(player, suitId, integrity);
 		chargeCall(player, suit); // v0.15.15: the Mark 7 pays 10% of its power for the call
 		level.playSound(null, player.getX(), player.getY(), player.getZ(),

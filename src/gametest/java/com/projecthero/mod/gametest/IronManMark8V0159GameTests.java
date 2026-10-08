@@ -199,7 +199,11 @@ public class IronManMark8V0159GameTests implements FabricGameTest {
 			h.assertFalse(StarkGear.canCall(p, M7), "but still not the Mark 7");
 			IronManSuitCall.execute(p, M8, IronManSuitListPayload.SOURCE_PLATFORM);
 			h.assertTrue(be.isEmptyPlatform(), "the Mark 8 leaves its platform");
-			h.assertTrue(IronManSuitUpManager.inTransition(p), "and is inbound");
+			// v0.15.15: it flies in whole, as a Sentry (see IronManSentryV01515GameTests)
+			var inbound = h.getLevel().getEntities(com.projecthero.mod.ironman.entity.IronManEntityTypes.SENTRY,
+					p.getBoundingBox().inflate(32), s -> p.getUUID().equals(s.ownerId()));
+			h.assertTrue(inbound.size() == 1, "and is inbound as one suit");
+			inbound.forEach(net.minecraft.world.entity.Entity::discard);
 			h.assertTrue(h.getLevel().getEntitiesOfClass(IronManDeliveryPodEntity.class, p.getBoundingBox().inflate(64),
 					pod -> p.getUUID().equals(pod.ownerId())).isEmpty(), // v0.15.11: only OUR pod (a neighbouring Mark 7 test's pod can land nearby)
 					"flying in piece by piece -- no delivery pod");

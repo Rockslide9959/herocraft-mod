@@ -116,6 +116,7 @@
       "com.projecthero.mod.gametest.IronManMk5V01429GameTests",
       "com.projecthero.mod.gametest.IronManDroneV01429GameTests",
       "com.projecthero.mod.gametest.IronManSentryV0159GameTests",
+      "com.projecthero.mod.gametest.IronManSentryV01515GameTests",
       "com.projecthero.mod.gametest.IronManUiV01421GameTests",
       "com.projecthero.mod.gametest.V01421SpyMarkGameTests",
       "com.projecthero.mod.gametest.IronManRound2GameTests",
