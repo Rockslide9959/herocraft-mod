@@ -486,9 +486,9 @@ public final class IronManBattleDamage {
 
 		// ---- 1: grime, desaturation and soot / scorch blotches ----
 		void grimeAndSoot() {
-			float desat = 0.045f * tier;
-			float dark = 1f - 0.03f * tier;
-			float th = 0.70f - 0.045f * tier;       // tier 1: 0.655 .. tier 9: 0.295
+			float desat = 0.04f * tier;
+			float dark = 1f - 0.022f * tier;
+			float th = 0.64f - 0.04f * tier;        // tier 1: 0.60 .. tier 9: 0.28
 			float sootMax = 0.55f + 0.045f * tier;
 			for (int y = 0; y < h; y++) {
 				for (int x = 0; x < w; x++) {
@@ -552,7 +552,8 @@ public final class IronManBattleDamage {
 			int total = 170;
 			Random rng = new Random(seed ^ 0x51A7C4L);
 			for (int i = 0; i < total; i++) {
-				int appear = 1 + i * IronManDamageTiers.MAX_TIER / total;
+				// a big first batch so the very first tier already reads as "hit", then ~17 more per tier
+				int appear = i < 34 ? 1 : 2 + (i - 34) * (IronManDamageTiers.MAX_TIER - 1) / (total - 34);
 				float x = rng.nextFloat() * w;
 				float y = rng.nextFloat() * h;
 				double ang = rng.nextDouble() * Math.PI;
@@ -990,24 +991,8 @@ public final class IronManBattleDamage {
 				}
 			}
 		}
-		boolean[] out = new boolean[w * h];
-		for (int x = 0; x < w; x++) {
-			for (int y = 0; y < h; y++) {
-				if (!layered[y * w + x]) {
-					continue;
-				}
-				for (int dx = -1; dx <= 1; dx++) {
-					for (int dy = -1; dy <= 1; dy++) {
-						int nx = x + dx;
-						int ny = y + dy;
-						if (nx >= 0 && ny >= 0 && nx < w && ny < h) {
-							out[ny * w + nx] = true;
-						}
-					}
-				}
-			}
-		}
-		return out;
+		// (no margin round them any more: the old one-texel margin kept most of a faceplate spotless)
+		return layered;
 	}
 
 	/** The same body texel on the other skin layer, in 64x64 player-skin UV space (null if none). */
@@ -1096,16 +1081,14 @@ public final class IronManBattleDamage {
 				level.addParticle(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z,
 						(rnd.nextDouble() - 0.5) * 0.3, rnd.nextDouble() * 0.18, (rnd.nextDouble() - 0.5) * 0.3);
 			}
-			if (wrecked && rnd.nextInt(3) == 0) {
-				level.addParticle(ParticleTypes.LAVA, at.x, at.y, at.z, 0, 0, 0); // a hot fleck popping off
-			}
 		}
 		// smoke: light from 15%, heavy at 5%
 		if (tier >= IronManDamageTiers.SMOKE_TIER) {
 			float smokeChance = (wrecked ? 0.55f : 0.10f + 0.08f * (tier - IronManDamageTiers.SMOKE_TIER)) * rate;
 			if (rnd.nextFloat() < smokeChance) {
 				Vec3 at = bodyPoint(p, rnd, firstPersonSelf);
-				level.addParticle(wrecked && rnd.nextBoolean() ? ParticleTypes.LARGE_SMOKE : ParticleTypes.SMOKE,
+				// (first person: never the big puffs -- they rise straight through the camera)
+				level.addParticle(wrecked && !firstPersonSelf && rnd.nextBoolean() ? ParticleTypes.LARGE_SMOKE : ParticleTypes.SMOKE,
 						at.x, at.y, at.z, (rnd.nextDouble() - 0.5) * 0.02, 0.04 + rnd.nextDouble() * 0.03, (rnd.nextDouble() - 0.5) * 0.02);
 			}
 			if (wrecked && !firstPersonSelf && rnd.nextFloat() < 0.04f) {
@@ -1133,7 +1116,13 @@ public final class IronManBattleDamage {
 		double side;
 		double up;
 		double fwd;
-		switch (rnd.nextInt(firstPersonSelf ? 3 : 5)) {
+		if (firstPersonSelf) {
+			// out of the camera's way: low on the back or down the legs
+			boolean back = rnd.nextBoolean();
+			side = (rnd.nextDouble() - 0.5) * 0.4;
+			up = back ? 0.8 + rnd.nextDouble() * 0.3 : 0.25 + rnd.nextDouble() * 0.35;
+			fwd = back ? -0.35 : 0.0;
+		} else switch (rnd.nextInt(5)) {
 			case 0 -> { side = rnd.nextBoolean() ? 0.36 : -0.36; up = 1.38; fwd = -0.05; }  // shoulders
 			case 1 -> { side = (rnd.nextDouble() - 0.5) * 0.4; up = 1.0 + rnd.nextDouble() * 0.3; fwd = -0.18; } // back
 			case 2 -> { side = rnd.nextBoolean() ? 0.14 : -0.14; up = 0.3 + rnd.nextDouble() * 0.4; fwd = 0.0; } // legs
