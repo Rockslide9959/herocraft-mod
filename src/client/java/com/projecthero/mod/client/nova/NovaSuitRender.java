@@ -138,7 +138,7 @@ public final class NovaSuitRender {
 		float on = NovaConfig.SUIT_HELMET_ON_TICK;
 		if (age < raise) {
 			float t = smooth(age / raise);
-			return new Anim(0f, true, Mth.lerp(t, CHEST_Y, OVER_Y), Mth.lerp(t, CHEST_Z, OVER_Z), Math.min(1f, age / 4f), 1f, false);
+			return new Anim(0f, true, Mth.lerp(t, CHEST_Y, OVER_Y), Mth.lerp(t, CHEST_Z, OVER_Z), Math.min(1f, 0.35f + age / 3f), 1f, false);
 		}
 		if (age < on) {
 			float t = smooth((age - raise) / (on - raise));
@@ -288,7 +288,7 @@ public final class NovaSuitRender {
 		m.hat.render(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(GLOW)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, color);
 		if (alpha < 0.999f) {
 			// materialising / dissolving: a gold sheen over it
-			float k = 1f - alpha;
+			float k = 0.45f * (1f - alpha); // a light sheen: the helmet must stay readable
 			int gc = FastColor.ARGB32.color(255, Math.round(255 * k), Math.round(200 * k), Math.round(80 * k));
 			m.hat.render(pose, buffers.getBuffer(RenderType.eyes(SUIT)), light, OverlayTexture.NO_OVERLAY, gc);
 		}

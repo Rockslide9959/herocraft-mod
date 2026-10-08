@@ -9,7 +9,12 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 
 /**
@@ -55,5 +60,43 @@ public final class NovaClient {
 
 	public static void toggleFlight() {
 		ClientPlayNetworking.send(new NovaActionPayload(NovaActionPayload.Action.TOGGLE_FLIGHT));
+	}
+
+	/** How close to a first-person Nova's camera his own effect particles may spawn. */
+	private static final double CAMERA_CLEARANCE = 1.5;
+
+	/**
+	 * v0.15.15: should this server particle packet be dropped? True only for a Nova looking through his own eyes, for
+	 * Nova's gold / cyan dust, end rods and flashes whose spawn cloud reaches within {@link #CAMERA_CLEARANCE} of the
+	 * camera (his aura, the Overload, the suit-up and the Force Field are spawned round his body -- from inside they
+	 * filled the view). Directional bursts ({@code count == 0}) fly outward and are kept.
+	 */
+	public static boolean hideNearCamera(ParticleOptions options, double x, double y, double z, int count, float spread) {
+		Minecraft mc = Minecraft.getInstance();
+		LocalPlayer player = mc.player;
+		if (player == null || count <= 0 || !Nova.hasPower(player) || !mc.options.getCameraType().isFirstPerson()
+				|| mc.getCameraEntity() != player) {
+			return false;
+		}
+		if (!novaParticle(options)) {
+			return false;
+		}
+		Vec3 cam = mc.gameRenderer.getMainCamera().getPosition();
+		double reach = CAMERA_CLEARANCE + spread * 0.5;
+		return cam.distanceToSqr(x, y, z) < reach * reach;
+	}
+
+	private static boolean novaParticle(ParticleOptions options) {
+		if (options.getType() == ParticleTypes.FLASH || options.getType() == ParticleTypes.END_ROD) {
+			return true;
+		}
+		if (options instanceof DustParticleOptions d) {
+			return same(d, Nova.GOLD) || same(d, Nova.GOLD_BIG) || same(d, Nova.CYAN);
+		}
+		return false;
+	}
+
+	private static boolean same(DustParticleOptions a, DustParticleOptions b) {
+		return a.getColor().distanceSquared(b.getColor()) < 1.0e-4f && Math.abs(a.getScale() - b.getScale()) < 1.0e-3f;
 	}
 }

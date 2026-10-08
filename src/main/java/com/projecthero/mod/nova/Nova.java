@@ -274,7 +274,6 @@ public final class Nova {
 		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position();
-		level.sendParticles(ParticleTypes.FLASH, c.x, c.y + 1.0, c.z, 1, 0.0, 0.0, 0.0, 0.0);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.0f, 1.5f);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.5f, 0.8f);
 		NovaAbilities.beginSuitUpFx(player);
