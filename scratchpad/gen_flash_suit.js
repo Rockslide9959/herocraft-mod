@@ -1,5 +1,5 @@
 // v0.14.11 Flash Suit: every asset of the craftable, speedster-only armour set and its ring, from the user's Blockbench
-// model (C:/Users/ethan/OneDrive/Desktop/3d minecraft models/flash.bbmodel).
+// model (C:/Users/ethan/OneDrive/Desktop/3d minecraft models/flash/flash.bbmodel).
 //
 // The model is a plain 64x64 player skin on the same skin rig as the Superman Suit (Head/Hat Layer, Body/Body Layer,
 // arms and legs each a base cube plus an inflated second-layer cube), so the geometry is superman.geo.json (Moon
@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const { decode, encode, upscale } = require('./pngkit');
 
-const SRC = 'C:/Users/ethan/OneDrive/Desktop/3d minecraft models/flash.bbmodel';
+const SRC = 'C:/Users/ethan/OneDrive/Desktop/3d minecraft models/flash/flash.bbmodel';
 const RES = path.join(__dirname, '..', 'src/main/resources');
 const A = path.join(RES, 'assets/projecthero');
 const D = path.join(RES, 'data/projecthero');
