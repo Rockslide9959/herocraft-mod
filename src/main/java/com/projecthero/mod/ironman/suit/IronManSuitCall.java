@@ -92,18 +92,51 @@ public final class IronManSuitCall {
 			ServerPlayNetworking.send(player, new IronManSuitListPayload(home));
 			return;
 		}
-		List<IronManSuitListPayload.Option> options = new ArrayList<>(gather(player));
-		// v0.15.1: without the Stark Glasses the picker still opens, but platform suits can't be called (greyed client-side)
-		// v0.15.6: with only the Colantotte Bracelets on, only the Mark 7 can be called
-		List<IronManSuitListPayload.Option> platformOpts = options.stream()
-				.filter(o -> o.source() == IronManSuitListPayload.SOURCE_PLATFORM).toList();
-		if (!platformOpts.isEmpty() && platformOpts.stream()
-				.noneMatch(o -> com.projecthero.mod.ironman.gear.StarkGear.canCall(player, o.suitId()))) {
-			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player, platformOpts.get(0).suitId());
+		// v0.15.15, explicit user request: unsuited, the picker is the Stark Glasses' -- it opens only with them on (no
+		// glasses: silent, like every other refused call since v0.15.7) and lists only what the glasses can call, the Mark
+		// 8 and later (StarkGear.GLASSES_MIN_MARK); lower marks are no longer listed greyed out
+		if (!com.projecthero.mod.ironman.gear.StarkGear.hasGlasses(player)) {
+			return;
 		}
-		// v0.14.27: pieces carried in the pack can also be sent home to a platform from the same picker
-		options.addAll(sendBackOptions(player));
+		List<IronManSuitListPayload.Option> options = new ArrayList<>(glassesOptions(player));
 		ServerPlayNetworking.send(player, new IronManSuitListPayload(options));
+	}
+
+	/**
+	 * v0.15.15: what the unsuited Stark Glasses picker lists -- every reachable suit (and carried pieces that could be sent
+	 * home, v0.14.27) of a mark the glasses can call: Mark {@value com.projecthero.mod.ironman.gear.StarkGear#GLASSES_MIN_MARK}
+	 * or later. Empty without the glasses.
+	 */
+	public static List<IronManSuitListPayload.Option> glassesOptions(ServerPlayer player) {
+		List<IronManSuitListPayload.Option> out = new ArrayList<>();
+		if (!com.projecthero.mod.ironman.gear.StarkGear.hasGlasses(player)) {
+			return out;
+		}
+		for (IronManSuitListPayload.Option o : gather(player)) {
+			if (com.projecthero.mod.ironman.gear.StarkGear.canCall(player, o.suitId())) {
+				out.add(o);
+			}
+		}
+		for (IronManSuitListPayload.Option o : sendBackOptions(player)) {
+			if (com.projecthero.mod.ironman.gear.StarkGear.canCall(player, o.suitId())) {
+				out.add(o);
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * v0.15.15, explicit user request: C with no suit on. Plain C calls the Mark 7 with the Colantotte Bracelets on, else
+	 * puts on a suit carried in the pack; failing that (or on Sneak+C) the call picker opens -- but only with the Stark
+	 * Glasses on. Without them nothing happens (silent, v0.15.7).
+	 */
+	public static void unsuitedC(ServerPlayer player) {
+		if (!player.isShiftKeyDown() && (braceletCall(player) || autoEquipInventorySuit(player))) {
+			return;
+		}
+		if (com.projecthero.mod.ironman.gear.StarkGear.hasGlasses(player)) {
+			openMenu(player);
+		}
 	}
 
 	// ---------------- v0.14.27: send carried pieces back to a platform ----------------
@@ -563,12 +596,17 @@ public final class IronManSuitCall {
 		if (chest == null) {
 			return false;
 		}
+		if (callCosts(suit) && IronManEnergy.stackEnergy(chest, suit.id()) / Math.max(1f, suit.energyCapacity())
+				< CALL_COST_FRACTION - 1.0e-4f) {
+			return false; // v0.15.15: too little power for the pod call -- the carried suit just goes on by hand
+		}
 		IronManEnergy.loadFromStack(player, suit.id(), chest);
 		float energy = IronManEnergy.energy(player, suit.id());
 		float integrity = IronManEnergy.integrity(player, suit.id());
 		deliver(player, suit, null, null, false);
 		IronManEnergy.setEnergy(player, suit.id(), energy);
 		IronManEnergy.setIntegrity(player, suit.id(), integrity);
+		chargeCall(player, suit); // v0.15.15: the pod call costs the Mark 7 10% of its power
 		return true;
 	}
 
@@ -604,7 +642,63 @@ public final class IronManSuitCall {
 	/** v0.14.29: Protocol Phoenix's travel time from an unloaded platform (ticks). */
 	public static final int PHOENIX_DELAY = 40;
 
+	// ---------------- v0.15.15: calling the Mark 7 costs 10% of its power ----------------
+
+	/** v0.15.15, explicit user request: a call drains this share of the called suit's capacity. */
+	public static final float CALL_COST_FRACTION = 0.10f;
+
+	/**
+	 * v0.15.15: does calling {@code suit} cost {@link #CALL_COST_FRACTION} of its power? The Mark 7, on every call path
+	 * (the Colantotte Bracelets, the Stark Glasses picker / quick call, the orbital pod drop). Putting on a suit you carry
+	 * is not a call and stays free.
+	 */
+	public static boolean callCosts(IronManSuit suit) {
+		return suit != null && suit.markNumber() == 7;
+	}
+
+	/** v0.15.15: the energy (0..1 of capacity) a call of {@code suit} would bring in, read where it is now; 1 if unknown. */
+	private static float callEnergyFraction(ServerPlayer player, IronManSuit suit) {
+		ServerLevel level = player.serverLevel();
+		float cap = Math.max(1f, suit.energyCapacity());
+		IronManSuitPlatformBlockEntity be = nearestLoadedPlatform(level, player.blockPosition(), player.getUUID(), suit.id());
+		if (be != null) {
+			return be.suitEnergy() / cap;
+		}
+		Optional<StarkPlatformRegistry.Entry> entry = StarkPlatformRegistry.get(level)
+				.nearestHolding(player.getUUID(), level.dimension(), suit.id(), player.blockPosition());
+		if (entry.isPresent()) {
+			return entry.get().suitEnergy() / cap;
+		}
+		ItemStack chest = findInInventory(player, suit.id(), ArmorItem.Type.CHESTPLATE);
+		return chest == null ? 1f : IronManEnergy.stackEnergy(chest, suit.id()) / cap;
+	}
+
+	/**
+	 * v0.15.15: may {@code suit} be called with the power it has? A Mark 7 under {@link #CALL_COST_FRACTION} is refused
+	 * with a message (never during Protocol Phoenix -- a dying player's recall is not held back over charge).
+	 */
+	public static boolean callAffordable(ServerPlayer player, IronManSuit suit) {
+		if (!callCosts(suit) || TonyStark.phoenixEmergency(player)
+				|| callEnergyFraction(player, suit) >= CALL_COST_FRACTION - 1.0e-4f) {
+			return true;
+		}
+		player.displayClientMessage(Component.translatable("message.projecthero.ironman.call_low_power",
+				Component.translatable(suit.nameKey()), Math.round(CALL_COST_FRACTION * 100f)).withStyle(ChatFormatting.RED), true);
+		return false;
+	}
+
+	/** v0.15.15: take the call's cost off the called suit's live pool (never below empty). */
+	static void chargeCall(ServerPlayer player, IronManSuit suit) {
+		if (callCosts(suit)) {
+			IronManEnergy.setEnergy(player, suit.id(),
+					Math.max(0f, IronManEnergy.energy(player, suit.id()) - CALL_COST_FRACTION * suit.energyCapacity()));
+		}
+	}
+
 	private static void callFromPlatform(ServerPlayer player, IronManSuit suit) {
+		if (!callAffordable(player, suit)) {
+			return; // v0.15.15: a Mark 7 without 10% power stays where it is
+		}
 		ServerLevel level = player.serverLevel();
 		String suitId = suit.id();
 		BlockPos here = player.blockPosition();
@@ -737,6 +831,7 @@ public final class IronManSuitCall {
 
 		IronManEnergy.setEnergy(player, suitId, energyFrac * suit.energyCapacity());
 		IronManEnergy.setIntegrity(player, suitId, integrity);
+		chargeCall(player, suit); // v0.15.15: the Mark 7 pays 10% of its power for the call
 		level.playSound(null, player.getX(), player.getY(), player.getZ(),
 				SoundEvents.NETHERITE_BLOCK_FALL, SoundSource.PLAYERS, 1.0f, 0.8f);
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.suit_incoming",

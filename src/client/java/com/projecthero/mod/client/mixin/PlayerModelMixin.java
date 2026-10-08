@@ -78,8 +78,11 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 		if (com.projecthero.mod.client.flash.FlashSuitReveal.progress(player, 0.0f) < 1.0f) {
 			return;
 		}
+		// v0.15.15: the Mark 5 suitcase build / fold and the Marks 2-7 C retract keep their pieces in the slots while the
+		// texels come and go -- a region whose texels are all gone shows the skin's outer layer again (IronManSkinOverlay)
 		if (player.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof SuperheroArmorItem
-				&& !helmetRetracted(player)) {
+				&& !helmetRetracted(player)
+				&& !com.projecthero.mod.client.ironman.IronManSkinOverlay.bare(player, com.projecthero.mod.client.ironman.IronManSkinOverlay.HAT)) {
 			model.hat.visible = false;
 		}
 		// v0.15.11, explicit user request: an open Iron Man faceplate only bares the FACE -- the rest of the helmet shell is
@@ -89,11 +92,16 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 			com.projecthero.mod.client.render.FrontFaceOnlyPart.set(model.hat, true);
 		}
 		if (player.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof SuperheroArmorItem) {
-			model.jacket.visible = false;
-			model.leftSleeve.visible = false;
-			model.rightSleeve.visible = false;
+			if (!com.projecthero.mod.client.ironman.IronManSkinOverlay.bare(player, com.projecthero.mod.client.ironman.IronManSkinOverlay.JACKET)) {
+				model.jacket.visible = false;
+			}
+			if (!com.projecthero.mod.client.ironman.IronManSkinOverlay.bare(player, com.projecthero.mod.client.ironman.IronManSkinOverlay.SLEEVES)) {
+				model.leftSleeve.visible = false;
+				model.rightSleeve.visible = false;
+			}
 		}
-		if (player.getItemBySlot(EquipmentSlot.LEGS).getItem() instanceof SuperheroArmorItem) {
+		if (player.getItemBySlot(EquipmentSlot.LEGS).getItem() instanceof SuperheroArmorItem
+				&& !com.projecthero.mod.client.ironman.IronManSkinOverlay.bare(player, com.projecthero.mod.client.ironman.IronManSkinOverlay.PANTS)) {
 			model.leftPants.visible = false;
 			model.rightPants.visible = false;
 		}

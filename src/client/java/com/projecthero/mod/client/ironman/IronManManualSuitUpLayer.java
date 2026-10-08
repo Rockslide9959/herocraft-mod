@@ -69,6 +69,11 @@ public class IronManManualSuitUpLayer extends RenderLayer<AbstractClientPlayer, 
 		}
 		IronManSuitFx fx = IronManSuitFx.of(player);
 		int kind = IronManManualSuitUp.kindOfPose(fx.poseKind());
+		int off = com.projecthero.mod.ironman.suit.IronManSuitRemoval.kindOfPose(fx.poseKind());
+		if (off == com.projecthero.mod.ironman.suit.IronManSuitRemoval.KIND_MK1) {
+			renderMk1Removal(pose, buffers, light, player, fx, partialTick); // v0.15.15
+			return;
+		}
 		if (kind < 0) {
 			return;
 		}
@@ -111,6 +116,91 @@ public class IronManManualSuitUpLayer extends RenderLayer<AbstractClientPlayer, 
 					renderPiece(pose, buffers, light, player, new ItemStack(item), grow, both);
 				}
 			}
+		}
+	}
+
+	private static EquipmentSlot slotOf(int bit) {
+		return switch (bit) {
+			case 0 -> EquipmentSlot.HEAD;
+			case 1 -> EquipmentSlot.CHEST;
+			case 2 -> EquipmentSlot.LEGS;
+			default -> EquipmentSlot.FEET;
+		};
+	}
+
+	/**
+	 * v0.15.15: the Mark 1 pulled off with C ({@link com.projecthero.mod.ironman.suit.IronManSuitRemoval#KIND_MK1}) -- the
+	 * hammer in the right hand throughout, the plate just pulled off held in the hands (a display copy: the real stack is
+	 * already in the pack), then let go of: it tumbles to the floor beside the wearer and shrinks away.
+	 */
+	private void renderMk1Removal(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player,
+			IronManSuitFx fx, float partialTick) {
+		float age = fx.poseAge(player.level().getGameTime(), partialTick);
+		if (age < 0f) {
+			return;
+		}
+		var sch = com.projecthero.mod.ironman.suit.IronManSuitRemoval.schedule(
+				com.projecthero.mod.ironman.suit.IronManSuitRemoval.KIND_MK1, IronManManualSuitUp.planOf(fx.poseVariant()));
+		float[] s = sch.pose(age);
+		float grow = s == null ? 0f : Math.min(1f, s[0] * 1.5f);
+		String suitId = IronManManualSuitUp.suitOf(fx.poseVariant());
+		if (grow > 0.01f) {
+			float wrist = (float) Math.toDegrees(IronManManualSuitUp.REST_TILT
+					+ (s[1 + IronManManualSuitUp.TILT] - IronManManualSuitUp.REST_TILT) * s[0]);
+			if ((sch.props(age) & IronManManualSuitUp.PROP_HAMMER) != 0) {
+				renderTool(pose, buffers, light, HAMMER, grow, wrist, 0.7f);
+			}
+			int bit = sch.pieceInHand(age);
+			if (bit >= 0 && suitId != null) {
+				IronManArmorItem item = IronManItems.armor(suitId, IronManSuitUpManager.typeOf(slotOf(bit)));
+				if (item != null) {
+					float rax = s[1 + IronManManualSuitUp.RAX];
+					float both = Math.max(0f, Math.min(1f, (-rax - 1.0f) / 0.8f));
+					renderPiece(pose, buffers, light, player, new ItemStack(item), 1f, both);
+				}
+			}
+		}
+		if (suitId == null) {
+			return;
+		}
+		// the plates let go of: falling from the left hand to the floor, then shrinking away
+		for (int bit = 0; bit < 4; bit++) {
+			int drop = sch.dropAt(bit);
+			if (drop < 0) {
+				continue;
+			}
+			float t = age - drop;
+			int fall = com.projecthero.mod.ironman.suit.IronManSuitRemoval.FALL_TICKS;
+			int vanish = com.projecthero.mod.ironman.suit.IronManSuitRemoval.VANISH_TICKS;
+			if (t < 0f || t > fall + vanish) {
+				continue;
+			}
+			IronManArmorItem item = IronManItems.armor(suitId, IronManSuitUpManager.typeOf(slotOf(bit)));
+			if (item == null) {
+				continue;
+			}
+			// model space: +x the wearer's left, +y down (the feet at 1.5), -z the front
+			boolean low = bit >= 2;
+			float y0 = low ? 0.75f : 0.45f;
+			float ft = Math.min(t, fall);
+			float u = ft / fall;
+			float y = y0 + (1.42f - y0) * u * u; // dropped from the hand, accelerating, onto the floor
+			float x = 0.55f + 0.02f * ft;
+			float z = -0.25f - 0.01f * ft;
+			float shrink = t <= fall ? 1f : Math.max(0f, 1f - (t - fall) / vanish);
+			if (shrink <= 0.01f) {
+				continue;
+			}
+			pose.pushPose();
+			pose.translate(x, y, z);
+			pose.mulPose(Axis.ZP.rotationDegrees(180f));
+			pose.mulPose(Axis.XP.rotationDegrees(ft * 11f));
+			pose.mulPose(Axis.YP.rotationDegrees(ft * 7f + bit * 40f));
+			float sc = 0.55f * shrink;
+			pose.scale(sc, sc, sc);
+			Minecraft.getInstance().getItemRenderer().renderStatic(new ItemStack(item), ItemDisplayContext.FIXED, light,
+					OverlayTexture.NO_OVERLAY, pose, buffers, player.level(), player.getId() + bit);
+			pose.popPose();
 		}
 	}
 

@@ -81,6 +81,19 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		return be;
 	}
 
+	/**
+	 * v0.15.15, CLIENT: is {@code player} standing in a gantry sequence with the faceplate off the helmet right now (lifted
+	 * away while the suit comes off, or not yet fitted while it goes on)? Then the helmet HUD and the mob highlight are
+	 * dark ({@link GantryTimeline#faceplateOn}). Always false server-side and outside a sequence.
+	 */
+	public static boolean visorDark(net.minecraft.world.entity.player.Player player) {
+		if (player == null || player.level() == null || !player.level().isClientSide()) {
+			return false;
+		}
+		StarkGantryFloorBlockEntity be = clientSequenceOf(player.level(), player.getId());
+		return be != null && !GantryTimeline.faceplateOn(be.plan(), be.frameAt(0f));
+	}
+
 	public static void clearClient() {
 		CLIENT_RUNNING.clear();
 	}

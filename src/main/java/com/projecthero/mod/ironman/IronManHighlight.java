@@ -69,6 +69,9 @@ public final class IronManHighlight {
 		if (!(viewer.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof IronManArmorItem)) {
 			return null;
 		}
+		if (com.projecthero.mod.ironman.gantry.StarkGantryFloorBlockEntity.visorDark(viewer)) {
+			return null; // v0.15.15: the faceplate is off on a gantry -- the highlight lives in it
+		}
 		IronManSuit wornSuit = helmetSuit(viewer);
 		boolean coloured = wornSuit != null && wornSuit.coloredEntityGlow();
 		// candidate = an entity this suit's highlight could plausibly light up. A coloured-glow suit (Mark 6/7) can light
@@ -93,6 +96,11 @@ public final class IronManHighlight {
 			return false;
 		}
 		if (!(viewer.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof IronManArmorItem helmet)) {
+			return false;
+		}
+		// v0.15.15, explicit user request: on a Stark Gantry the highlight goes dark with the FACEPLATE (lifted off first when
+		// the suit comes off, fitted last when it goes on), not with the helmet
+		if (com.projecthero.mod.ironman.gantry.StarkGantryFloorBlockEntity.visorDark(viewer)) {
 			return false;
 		}
 		IronManSuit wornSuit = IronManSuits.byId(helmet.suitId());

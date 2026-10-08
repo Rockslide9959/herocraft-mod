@@ -75,7 +75,8 @@ public class IronManSuitGlowLayer extends GeoRenderLayer<SuperheroArmorItem> {
 		// v0.15.5: a part in a Stark Gantry clamp, or a piece the gantry is still building on / taking off, stays dark
 		if (IronManGantryBuild.solo >= 0 || !Float.isNaN(IronManGantryBuild.standMk5Frame) || wearer instanceof Player gp && armor.getCurrentSlot() != null
 				&& (IronManGantryBuild.incomplete(gp, armor.getCurrentSlot(), item.armorSetId(), partialTick)
-						|| IronManGantryBuild.mk5Incomplete(gp, armor.getCurrentSlot(), item.armorSetId(), partialTick))) {
+						|| IronManGantryBuild.mk5Incomplete(gp, armor.getCurrentSlot(), item.armorSetId(), partialTick)
+						|| IronManGantryBuild.retracting(gp))) { // v0.15.15: powered down while it retracts
 			return;
 		}
 		// v0.15.9: a powered-down Sentry Mode suit (no energy / no integrity) stands dark

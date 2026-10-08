@@ -62,11 +62,9 @@ public final class IronManAbilityManager {
 			// v0.14.29 (agent D): Sneak+C while suited opens the Call Armour picker with "send home" for the worn suit
 			// (it flies itself back to its platform for repair). Plain C is still suit-down; a suitcase mark (Mark 5)
 			// keeps its own Sneak+C fold.
-			if (pressed && slot == AbilitySlot.SLOT_6 && player.isShiftKeyDown()
-					&& suit.summonType() != com.projecthero.mod.ironman.suit.SummonType.SUITCASE_ITEM
-					&& IronManAbilities.SUIT_TOGGLE.equals(suit.abilityInSlot(6))
-					&& !com.projecthero.mod.ironman.suit.IronManSuitUpManager.inTransition(player)) {
-				com.projecthero.mod.ironman.suit.IronManSuitCall.openMenu(player);
+			// v0.15.15, explicit user request: Sneak+C (the picker / send home) is the Mark 8's alone -- on Marks 1-7 it does
+			// nothing at all (plain C still takes the suit off)
+			if (slot == AbilitySlot.SLOT_6 && player.isShiftKeyDown() && suit.markNumber() < 8) {
 				return;
 			}
 			IronManAbilities.trigger(player, suit, slot.number(), pressed);
@@ -80,11 +78,9 @@ public final class IronManAbilityManager {
 		if (slot == AbilitySlot.SLOT_6) {
 			// "changes 19": plain C auto-equips a full inventory suit; sneak + C opens the picker.
 			// v0.15.7: with the Colantotte Bracelets on, plain C calls the Mark 7
-			if (!player.isShiftKeyDown() && (com.projecthero.mod.ironman.suit.IronManSuitCall.braceletCall(player)
-					|| com.projecthero.mod.ironman.suit.IronManSuitCall.autoEquipInventorySuit(player))) {
-				return;
-			}
-			com.projecthero.mod.ironman.suit.IronManSuitCall.openMenu(player);
+			// v0.15.15, explicit user request: the call picker only opens with the Stark Glasses on -- otherwise plain C is
+			// the bracelet call / putting on a carried suit, and anything else (or Sneak+C) quietly does nothing
+			com.projecthero.mod.ironman.suit.IronManSuitCall.unsuitedC(player);
 		} else {
 			player.displayClientMessage(Component.translatable("message.projecthero.ironman.call_armor_first",
 					Component.keybind("key.projecthero.ability_6")), true);

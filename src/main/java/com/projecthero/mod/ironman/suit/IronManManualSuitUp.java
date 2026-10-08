@@ -473,13 +473,13 @@ public final class IronManManualSuitUp {
 
 	// ======================================================================== the choreography
 
-	private static float[] k(float rax, float ray, float raz, float lax, float lay, float laz, float rlx, float rly,
+	static float[] k(float rax, float ray, float raz, float lax, float lay, float laz, float rlx, float rly,
 			float rlz, float llx, float lly, float llz, float hx, float hy, float lean, float sit) {
 		return new float[] { rax, ray, raz, lax, lay, laz, rlx, rly, rlz, llx, lly, llz, hx, hy, lean, sit, REST_TILT };
 	}
 
 	/** {@code base} with the arms replaced. */
-	private static float[] arms(float[] base, float rax, float ray, float raz, float lax, float lay, float laz) {
+	static float[] arms(float[] base, float rax, float ray, float raz, float lax, float lay, float laz) {
 		float[] o = base.clone();
 		o[RAX] = rax;
 		o[RAY] = ray;
@@ -490,18 +490,18 @@ public final class IronManManualSuitUp {
 		return o;
 	}
 
-	private static float[] with(float[] base, int i, float v) {
+	static float[] with(float[] base, int i, float v) {
 		float[] o = base.clone();
 		o[i] = v;
 		return o;
 	}
 
-	private static float[] with(float[] base, int i, float v, int j, float w) {
+	static float[] with(float[] base, int i, float v, int j, float w) {
 		return with(with(base, i, v), j, w);
 	}
 
 	/** {@code base} with the right arm set to {@code arm} (x, y, z, wrist). */
-	private static float[] withRight(float[] base, float[] arm) {
+	static float[] withRight(float[] base, float[] arm) {
 		float[] o = base.clone();
 		o[RAX] = arm[0];
 		o[RAY] = arm[1];
@@ -510,7 +510,7 @@ public final class IronManManualSuitUp {
 		return o;
 	}
 
-	private static float[] lerpArm(float[] a, float[] b, float t) {
+	static float[] lerpArm(float[] a, float[] b, float t) {
 		float[] o = new float[4];
 		for (int i = 0; i < 4; i++) {
 			o[i] = a[i] + (b[i] - a[i]) * t;
@@ -519,13 +519,13 @@ public final class IronManManualSuitUp {
 	}
 
 	/** A right-arm strike key: arm x, y, z and the wrist. */
-	private static float[] a(float x, float y, float z, float wrist) {
+	static float[] a(float x, float y, float z, float wrist) {
 		return new float[] { x, y, z, wrist };
 	}
 
 	// legs
-	private static final float[] STAND = k(0f, 0f, 0.08f, 0f, 0f, -0.08f, 0f, 0f, 0.03f, 0f, 0f, -0.03f, 0.1f, 0f, 0f, 0f);
-	private static final float[] READY = k(-0.1f, 0f, 0.14f, -0.1f, 0f, -0.14f, 0f, 0f, 0.07f, 0f, 0f, -0.07f, 0.15f, 0f, 0f, 0f);
+	static final float[] STAND = k(0f, 0f, 0.08f, 0f, 0f, -0.08f, 0f, 0f, 0.03f, 0f, 0f, -0.03f, 0.1f, 0f, 0f, 0f);
+	static final float[] READY = k(-0.1f, 0f, 0.14f, -0.1f, 0f, -0.14f, 0f, 0f, 0.07f, 0f, 0f, -0.07f, 0.15f, 0f, 0f, 0f);
 
 	/** Sitting on the floor, legs straight out in front, a little apart. */
 	private static float[] sit(float[] base) {
@@ -687,19 +687,19 @@ public final class IronManManualSuitUp {
 	}
 
 	/** Standing, bent over, the left hand reaching for the piece. */
-	private static float[] bendPick(float lean) {
+	static float[] bendPick(float lean) {
 		return k(-0.3f, 0f, 0.1f, -0.35f, 0.1f, -0.3f, 0f, 0f, 0.03f, 0f, 0f, -0.03f, 0.75f, 0f, lean, 0f);
 	}
 
-	private static final float[] OVERHEAD = k(-2.95f, 0f, 0.3f, -2.95f, 0f, -0.3f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, -0.35f, 0f, 0f, 0f);
-	private static final float[] DOWN_ONTO = k(-1.6f, -0.5f, 0.5f, -1.6f, 0.5f, -0.5f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0.2f, 0f, 0f, 0f);
-	private static final float[] HUG = k(-1.25f, -0.75f, 0f, -1.25f, 0.75f, 0f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0.45f, 0f, 0.05f, 0f);
-	private static final float[] HELMET_UP = k(-2.75f, -0.3f, 0.05f, -2.75f, 0.3f, -0.05f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, -0.4f, 0f, 0f, 0f);
-	private static final float[] ONTO_HEAD = k(-2.45f, -0.75f, 0.1f, -2.45f, 0.75f, -0.1f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0.05f, 0f, 0f, 0f);
+	static final float[] OVERHEAD = k(-2.95f, 0f, 0.3f, -2.95f, 0f, -0.3f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, -0.35f, 0f, 0f, 0f);
+	static final float[] DOWN_ONTO = k(-1.6f, -0.5f, 0.5f, -1.6f, 0.5f, -0.5f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0.2f, 0f, 0f, 0f);
+	static final float[] HUG = k(-1.25f, -0.75f, 0f, -1.25f, 0.75f, 0f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0.45f, 0f, 0.05f, 0f);
+	static final float[] HELMET_UP = k(-2.75f, -0.3f, 0.05f, -2.75f, 0.3f, -0.05f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, -0.4f, 0f, 0f, 0f);
+	static final float[] ONTO_HEAD = k(-2.45f, -0.75f, 0.1f, -2.45f, 0.75f, -0.1f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0.05f, 0f, 0f, 0f);
 	/** Chest rivets: the fist in front of the chest, the wrist turning the hammer back onto the plate. */
-	private static final float[] CHEST_RAISED = a(-2.3f, -0.45f, 0.3f, 3.4f);
-	private static final float[] CHEST_HIT = a(-1.45f, -0.75f, 0f, 4.08f);
-	private static final float[] PRESS_HEAD =k(-2.55f, -0.65f, 0.15f, -2.55f, 0.65f, -0.15f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0.12f, 0f, 0f, 0f);
+	static final float[] CHEST_RAISED = a(-2.3f, -0.45f, 0.3f, 3.4f);
+	static final float[] CHEST_HIT = a(-1.45f, -0.75f, 0f, 4.08f);
+	static final float[] PRESS_HEAD =k(-2.55f, -0.65f, 0.15f, -2.55f, 0.65f, -0.15f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0.12f, 0f, 0f, 0f);
 
 	private static Segment mk1Chest() {
 		Segment s = new Segment(1, 160);
@@ -920,7 +920,8 @@ public final class IronManManualSuitUp {
 	/** Is {@code player} putting a suit on by hand right now? */
 	public static boolean running(ServerPlayer player) {
 		TonyStarkState s = TonyStark.state(player);
-		return s.transitionManual != 0 && !s.transitionSuit.isEmpty();
+		// v0.15.15: codes 3 / 4 are the C removals (IronManSuitRemoval), not a hand build
+		return (s.transitionManual == KIND_MK1 + 1 || s.transitionManual == KIND_WORKSHOP + 1) && !s.transitionSuit.isEmpty();
 	}
 
 	/** Which hand build is running ({@link #KIND_MK1} / {@link #KIND_WORKSHOP}), or -1. */
@@ -966,6 +967,10 @@ public final class IronManManualSuitUp {
 
 	/** One server tick of a hand build ({@code IronManSuitUpManager#tick} hands it over while one runs). */
 	static void tick(ServerPlayer player, TonyStarkState s) {
+		if (s.transitionManual >= IronManSuitRemoval.CODE_MK1) {
+			IronManSuitRemoval.tick(player, s); // v0.15.15: a C removal rides on the same state slot
+			return;
+		}
 		if (!player.isAlive()) {
 			abort(player);
 			return;
@@ -1108,6 +1113,10 @@ public final class IronManManualSuitUp {
 		if (s.transitionManual == 0) {
 			return;
 		}
+		if (s.transitionManual >= IronManSuitRemoval.CODE_MK1) {
+			IronManSuitRemoval.abort(player); // v0.15.15
+			return;
+		}
 		clear(player, s);
 		IronManSuitFx fx = IronManSuitFx.of(player);
 		player.setAttached(ModAttachments.IRON_MAN_SUIT_FX, IronManSuitFx.EMPTY.withFaceplate(fx.faceplateAt()));
@@ -1121,6 +1130,10 @@ public final class IronManManualSuitUp {
 	public static void completeNow(ServerPlayer player) {
 		TonyStarkState s = TonyStark.state(player);
 		if (s.transitionManual == 0 || s.transitionSuit.isEmpty()) {
+			return;
+		}
+		if (s.transitionManual >= IronManSuitRemoval.CODE_MK1) {
+			IronManSuitRemoval.completeNow(player); // v0.15.15: a C removal finishes into the pack at once
 			return;
 		}
 		String suitId = s.transitionSuit;
@@ -1180,12 +1193,12 @@ public final class IronManManualSuitUp {
 				player.getZ() + (rz * e.right() + fz * e.fwd()) * sc);
 	}
 
-	private static void playAt(ServerPlayer player, SoundEvent sound, Event e, float volume, float pitch) {
+	static void playAt(ServerPlayer player, SoundEvent sound, Event e, float volume, float pitch) {
 		Vec3 at = where(player, e);
 		player.serverLevel().playSound(null, at.x, at.y, at.z, sound, SoundSource.PLAYERS, volume, pitch);
 	}
 
-	private static void playAt(ServerPlayer player, SoundEvent sound, float right, float up, float fwd, float volume,
+	static void playAt(ServerPlayer player, SoundEvent sound, float right, float up, float fwd, float volume,
 			float pitch) {
 		playAt(player, sound, new Event(0, 0, -1, right, up, fwd), volume, pitch);
 	}

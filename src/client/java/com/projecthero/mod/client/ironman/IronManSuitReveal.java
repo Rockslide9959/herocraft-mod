@@ -124,6 +124,11 @@ public final class IronManSuitReveal {
 		if (gantry != null) {
 			return gantry;
 		}
+		// v0.15.15: Marks 2-7 taken off with C -- the plates retract panel by panel into the reactor
+		ResourceLocation retract = IronManGantryBuild.retractTexture(player, setId, slot, base, partialTick);
+		if (retract != null) {
+			return retract;
+		}
 		// v0.15.8: the Mark 5 suitcase builds on part by part, the same way (IronManGantryBuild Mark 5 scheme)
 		ResourceLocation mk5 = IronManGantryBuild.mk5Texture(player, setId, slot, base, partialTick);
 		if (mk5 != null) {

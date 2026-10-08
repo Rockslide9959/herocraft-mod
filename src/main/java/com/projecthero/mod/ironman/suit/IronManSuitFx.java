@@ -79,6 +79,10 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 	public static final int STYLE_MK1_BUILD = 40;
 	/** v0.15.11: Marks 2-7 put on by hand in the workshop ({@link IronManManualSuitUp#KIND_WORKSHOP}). */
 	public static final int STYLE_MANUAL = 41;
+	/** v0.15.15: the Mark 1 pulled off by hand with C ({@link IronManSuitRemoval#KIND_MK1}) -- pieces leave whole. */
+	public static final int STYLE_MK1_OFF = 70;
+	/** v0.15.15: Marks 2-7 taken off with C -- the plates retract panel by panel into the reactor ({@link IronManSuitRemoval#KIND_SLEEK}). */
+	public static final int STYLE_SLEEK_OFF = 71;
 
 	public static final int POSE_NONE = 0;
 	/** Standing suit-up: arms out and slightly raised while the pieces lock on, then the faceplate beat. */
@@ -111,6 +115,10 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 	public static final int POSE_MK1_BUILD = 40;
 	/** v0.15.11: the Marks 2-7 workshop hand build ({@link IronManManualSuitUp}), standing, faceplate last. */
 	public static final int POSE_MANUAL_UP = 41;
+	/** v0.15.15: the Mark 1 C removal -- bolts knocked loose, plates pulled off and dropped ({@link IronManSuitRemoval}). */
+	public static final int POSE_MK1_OFF = 70;
+	/** v0.15.15: the Marks 2-7 C removal -- relaxed, arms a little out, while the plates retract into the reactor. */
+	public static final int POSE_SLEEK_OFF = 71;
 
 	public static final IronManSuitFx EMPTY = new IronManSuitFx(0L, 0L, 0L, 0L, 0, STYLE_PLATES, 0L, 0, POSE_NONE, 0L, 0);
 

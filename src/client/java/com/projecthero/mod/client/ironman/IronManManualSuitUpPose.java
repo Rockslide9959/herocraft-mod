@@ -26,14 +26,20 @@ public final class IronManManualSuitUpPose {
 		}
 		IronManSuitFx fx = IronManSuitFx.of(player);
 		int kind = IronManManualSuitUp.kindOfPose(fx.poseKind());
-		if (kind < 0) {
+		// v0.15.15: the C removals (IronManSuitRemoval) are keyed the same way
+		int off = com.projecthero.mod.ironman.suit.IronManSuitRemoval.kindOfPose(fx.poseKind());
+		if (kind < 0 && off < 0) {
 			return null;
 		}
 		float age = fx.poseAge(player.level().getGameTime(), partial);
 		if (age < 0f) {
 			return null;
 		}
-		return IronManManualSuitUp.schedule(kind, IronManManualSuitUp.planOf(fx.poseVariant())).pose(age);
+		int plan = IronManManualSuitUp.planOf(fx.poseVariant());
+		if (off >= 0) {
+			return com.projecthero.mod.ironman.suit.IronManSuitRemoval.schedule(off, plan).pose(age);
+		}
+		return IronManManualSuitUp.schedule(kind, plan).pose(age);
 	}
 
 	/** How far the body is lowered this frame (blocks, before the wearer's scale), for the sitting floor work. */

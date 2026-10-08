@@ -22,6 +22,7 @@ import com.projecthero.mod.ironman.gantry.StarkGantryFloorBlockEntity;
 import com.projecthero.mod.ironman.suit.IronManAssemblyPlan;
 import com.projecthero.mod.ironman.suit.IronManMk5Suitcase;
 import com.projecthero.mod.ironman.suit.IronManSuitFx;
+import com.projecthero.mod.ironman.suit.IronManSuitRemoval;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -62,8 +63,8 @@ public final class IronManGantryBuild {
 		/** Cache key of the timetable (texels are timed once per key). */
 		String key();
 
-		/** The Mark 5 scheme (true) or the Stark Gantry's ({@link GantryTimeline} stages). */
-		boolean mk5();
+		/** v0.15.15: which scheme sorts texels into stages: {@link #S_GANTRY}, {@link #S_MK5} or {@link #S_RETRACT}. */
+		int scheme();
 
 		float appear(int stage, float k);
 
@@ -76,8 +77,8 @@ public final class IronManGantryBuild {
 			return "g" + plan.mask();
 		}
 
-		public boolean mk5() {
-			return false;
+		public int scheme() {
+			return S_GANTRY;
 		}
 
 		public float appear(int stage, float k) {
@@ -94,8 +95,8 @@ public final class IronManGantryBuild {
 			return "mk5";
 		}
 
-		public boolean mk5() {
-			return true;
+		public int scheme() {
+			return S_MK5;
 		}
 
 		public float appear(int stage, float k) {
@@ -106,6 +107,64 @@ public final class IronManGantryBuild {
 			return stage == IronManMk5Suitcase.S_CHEST_TOP;
 		}
 	};
+
+	/** v0.15.15: the texel schemes -- the Stark Gantry's stages, the Mark 5 suitcase's, the Marks 2-7 C retract. */
+	static final int S_GANTRY = 0, S_MK5 = 1, S_RETRACT = 2;
+
+	/**
+	 * v0.15.15, explicit user request: the Marks 2-7 C removal ({@link IronManSuitRemoval#KIND_SLEEK}) -- every panel
+	 * retracts toward the arc reactor, boots first and the torso last ({@link IronManSuitRemoval#vanishAt}). Frames are in
+	 * wave ticks: a texel is on while the frame is at or past {@code RETRACT_TICKS * (1 - vanishAt)}, and the frame runs
+	 * from {@code RETRACT_TICKS} down to 0 as the wave goes, so the panels about to fold away glow at the seam.
+	 */
+	private static final Timing RETRACT = new Timing() {
+		public String key() {
+			return "ret";
+		}
+
+		public int scheme() {
+			return S_RETRACT;
+		}
+
+		public float appear(int stage, float k) {
+			return IronManSuitRemoval.RETRACT_TICKS * (1f - k);
+		}
+
+		public boolean whole(int stage) {
+			return false;
+		}
+	};
+
+	/** v0.15.15: the retract frame {@code player} is at during a Marks 2-7 C removal, or NaN outside its wave. */
+	private static float retractFrame(Player player, float partialTick) {
+		IronManSuitFx fx = IronManSuitFx.of(player);
+		if (player.level() == null || fx.poseKind() != IronManSuitFx.POSE_SLEEK_OFF) {
+			return Float.NaN;
+		}
+		float age = fx.poseAge(player.level().getGameTime(), partialTick);
+		if (age < IronManSuitRemoval.RETRACT_FROM) {
+			return Float.NaN;
+		}
+		return IronManSuitRemoval.RETRACT_TICKS * (1f - IronManSuitRemoval.wave(age));
+	}
+
+	/** v0.15.15: is {@code player}'s suit retracting (Marks 2-7 C removal) -- its lights go dark for the whole of it? */
+	public static boolean retracting(Player player) {
+		IronManSuitFx fx = IronManSuitFx.of(player);
+		return player.level() != null && fx.poseKind() == IronManSuitFx.POSE_SLEEK_OFF
+				&& fx.poseAge(player.level().getGameTime(), 0f) >= 0f;
+	}
+
+	/** v0.15.15: the texture of {@code player}'s piece in {@code slot} while it retracts, or null outside the wave. */
+	public static ResourceLocation retractTexture(Player player, String setId, EquipmentSlot slot, ResourceLocation base, float partialTick) {
+		float f = retractFrame(player, partialTick);
+		int bit = IronManSuitFx.bit(slot);
+		if (Float.isNaN(f) || bit < 0) {
+			return null;
+		}
+		ArmorVisualDefinition def = SuperheroArmorVisuals.get(setId);
+		return def == null ? base : frame(def.geometry(), base, bit, RETRACT, f);
+	}
 
 	/** Per texel of a piece: its stage (-1 = not this piece) and build position. */
 	private record Parts(int w, int h, byte[] stage, float[] k) {
@@ -277,7 +336,7 @@ public final class IronManGantryBuild {
 		if (got != null) {
 			return got;
 		}
-		Parts parts = parts(def.geometry(), base, bit, false);
+		Parts parts = parts(def.geometry(), base, bit, S_GANTRY);
 		NativeImage src = SOURCES.get(def.geometry() + "|" + base + "|" + bit);
 		if (parts == null || src == null) {
 			return base;
@@ -298,7 +357,7 @@ public final class IronManGantryBuild {
 
 	static ResourceLocation frame(ResourceLocation geometry, ResourceLocation base, int bit, Timing timing, float f) {
 		Timed t = timed(geometry, base, bit, timing);
-		Parts parts = parts(geometry, base, bit, timing.mk5());
+		Parts parts = parts(geometry, base, bit, timing.scheme());
 		NativeImage src = SOURCES.get(geometry + "|" + base + "|" + bit);
 		if (t == null || parts == null || src == null) {
 			return base;
@@ -362,7 +421,7 @@ public final class IronManGantryBuild {
 		if (t != null) {
 			return t;
 		}
-		Parts parts = parts(geometry, base, bit, timing.mk5());
+		Parts parts = parts(geometry, base, bit, timing.scheme());
 		if (parts == null) {
 			return null;
 		}
@@ -378,8 +437,8 @@ public final class IronManGantryBuild {
 
 	// ---------------- geometry -> per-texel stage ----------------
 
-	private static Parts parts(ResourceLocation geometry, ResourceLocation base, int bit, boolean mk5) {
-		String key = geometry + "|" + base + "|" + bit + (mk5 ? "|mk5" : "");
+	private static Parts parts(ResourceLocation geometry, ResourceLocation base, int bit, int scheme) {
+		String key = geometry + "|" + base + "|" + bit + (scheme == S_MK5 ? "|mk5" : scheme == S_RETRACT ? "|ret" : "");
 		if (PARTS.containsKey(key)) {
 			return PARTS.get(key);
 		}
@@ -395,7 +454,7 @@ public final class IronManGantryBuild {
 				JsonObject geo = JsonParser.parseReader(reader).getAsJsonObject();
 				List<IronManAssemblyReveal.Sample> samples = new ArrayList<>();
 				IronManAssemblyReveal.collect(geo, src.getWidth(), src.getHeight(), bit, samples);
-				parts = classify(samples, src.getWidth(), src.getHeight(), bit, mk5);
+				parts = classify(samples, src.getWidth(), src.getHeight(), bit, scheme);
 				NativeImage old = SOURCES.put(srcKey, src);
 				if (old != null) {
 					old.close();
@@ -409,12 +468,13 @@ public final class IronManGantryBuild {
 	}
 
 	/** Every texel's stage + build position; a texel used twice goes with the later stage (nothing shows early). */
-	static Parts classify(List<IronManAssemblyReveal.Sample> samples, int w, int h, int bit, boolean mk5) {
+	static Parts classify(List<IronManAssemblyReveal.Sample> samples, int w, int h, int bit, int scheme) {
 		byte[] stage = new byte[w * h];
 		float[] k = new float[w * h];
 		Arrays.fill(stage, (byte) -1);
 		for (IronManAssemblyReveal.Sample s : samples) {
-			float[] sk = mk5 ? mk5StageOf(s.bone(), s.cube(), s.pos().y, s.pos().z, s.index(), bit)
+			float[] sk = scheme == S_RETRACT ? retractStageOf(s, bit)
+					: scheme == S_MK5 ? mk5StageOf(s.bone(), s.cube(), s.pos().y, s.pos().z, s.index(), bit)
 					: stageOf(s.bone(), s.cube(), s.pos().y, s.index(), bit);
 			int st = (int) sk[0];
 			int i = s.index();
@@ -488,6 +548,13 @@ public final class IronManGantryBuild {
 			default:
 				return new float[] { IronManMk5Suitcase.S_LEGS, mix((12.5f - y) / 12.5f, scatter, cube == 0 ? 0.08f : 0.2f) };
 		}
+	}
+
+	/** v0.15.15: {region, vanishAt} of a texel in the Marks 2-7 retract -- one jitter per 2x2 panel. */
+	static float[] retractStageOf(IronManAssemblyReveal.Sample s, int bit) {
+		int region = IronManSuitRemoval.region(bit, s.bone());
+		float jitter = IronManAssemblyPlan.hash("retract", s.tile());
+		return new float[] { region, IronManSuitRemoval.vanishAt(region, s.pos().x, s.pos().y, s.pos().z, jitter) };
 	}
 
 	private static float mix(float k, float scatter, float amount) {

@@ -442,6 +442,16 @@ public final class GantryTimeline {
 		return equip ? t : plan.total() - t;
 	}
 
+	/**
+	 * v0.15.15, explicit user request: is the faceplate on the helmet at frame {@code f} of {@code plan}? The HUD and the
+	 * mob highlight live in the faceplate, so on a gantry they go dark the moment the arms lift it off (taking the suit
+	 * off) and come on the moment it is fitted (putting it on) -- not with the helmet. True when the plan has no helmet.
+	 */
+	public static boolean faceplateOn(Plan plan, float f) {
+		float at = plan.appear(FACEPLATE, 0f);
+		return Float.isNaN(at) || f >= at;
+	}
+
 	// ---------------- the lead-in / outro (mirror images) ----------------
 
 	/** Frames into the lead-in, or out of the end of the outro -- whichever edge {@code f} is nearer. */

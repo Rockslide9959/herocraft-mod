@@ -184,7 +184,7 @@ public final class IronManAbilities {
 	 *  much energy per second for as long as it stays airborne. */
 	public static final float TIMED_FLIGHT_DRAIN_PER_SECOND = com.projecthero.mod.ironman.suit.IronManSuit.DEFAULT_FLIGHT_DRAIN_PER_SECOND; // v0.15.3: 3/s like every flight (regen still halved)
 	/** v0.14.27: Shift+X -- launch along the look, then the burst switches on this long afterwards. */
-	public static final int LAUNCH_BURST_DELAY_TICKS = 3 * 20;
+	public static final int LAUNCH_BURST_DELAY_TICKS = 30; // v0.15.15, explicit user request: 1.5 s (was 3 s)
 	/** v0.14.27: how hard Shift+X throws the wearer along the look (blocks per tick). */
 	public static final double LAUNCH_SPEED = 3.2;
 	private static final String FLIGHT_BURST_PENDING_KEY = "flight_burst_pending_at";
@@ -1480,7 +1480,7 @@ public final class IronManAbilities {
 	}
 
 	/**
-	 * v0.14.27, Mark 1 Shift+X: throw the wearer far along the look (50 energy), and 3 s later the flight burst
+	 * v0.14.27, Mark 1 Shift+X: throw the wearer far along the look (50 energy), and 1.5 s later the flight burst
 	 * switches on by itself ({@link #tickPendingFlightBurst}).
 	 */
 	private static void launchFlightBurst(ServerPlayer player, IronManSuit suit) {
@@ -1516,7 +1516,7 @@ public final class IronManAbilities {
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.flight_launch"), true);
 	}
 
-	/** v0.14.27: per tick -- switch the burst on once a Shift+X launch's 3 s are up. */
+	/** v0.14.27: per tick -- switch the burst on once a Shift+X launch's 1.5 s are up. */
 	public static void tickPendingFlightBurst(ServerPlayer player, IronManSuit suit) {
 		String key = suit.id() + "/" + FLIGHT_BURST_PENDING_KEY;
 		Long at = TonyStark.state(player).abilityReadyAt.get(key);
@@ -1535,7 +1535,7 @@ public final class IronManAbilities {
 		}
 	}
 
-	/** v0.14.27: drop any queued Shift+X burst (the suit came off / lost power before the 3 s were up). */
+	/** v0.14.27: drop any queued Shift+X burst (the suit came off / lost power before the 1.5 s were up). */
 	public static void clearPendingFlightBurst(ServerPlayer player) {
 		TonyStarkState s = TonyStark.state(player);
 		boolean any = false;

@@ -196,6 +196,13 @@ public final class IronManSuitUpManager {
 		if (IronManFlight.isFlying(player)) {
 			IronManFlight.setFlying(player, false);
 		}
+		// v0.15.15, explicit user request: the Mark 1 is pulled off by hand, Marks 2-7 retract panel by panel into the
+		// reactor (IronManSuitRemoval); the Mark 8 and later keep the reverse build
+		int removal = IronManSuitRemoval.kindFor(suitId);
+		if (removal >= 0) {
+			IronManSuitRemoval.start(player, suit, removal, mask);
+			return true;
+		}
 		start(player, suit, false, mask, false, false, false);
 		return true;
 	}
@@ -679,7 +686,7 @@ public final class IronManSuitUpManager {
 	}
 
 	/** Suit-down: take the piece off the body into the case (Mark V) or the main inventory, charge stamped on. */
-	private static void removeForSuitDown(ServerPlayer player, TonyStarkState s, EquipmentSlot slot) {
+	static void removeForSuitDown(ServerPlayer player, TonyStarkState s, EquipmentSlot slot) {
 		ItemStack removed = player.getItemBySlot(slot);
 		if (!(removed.getItem() instanceof IronManArmorItem)) {
 			return;

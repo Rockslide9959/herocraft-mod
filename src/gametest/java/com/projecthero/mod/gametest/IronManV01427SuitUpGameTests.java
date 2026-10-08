@@ -33,11 +33,15 @@ public class IronManV01427SuitUpGameTests implements FabricGameTest {
 	private static final EquipmentSlot[] SLOTS = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
 
 	private static ServerPlayer suitedUpReady(GameTestHelper h) {
+		return suitedUpReady(h, "mark_iii");
+	}
+
+	private static ServerPlayer suitedUpReady(GameTestHelper h, String suitId) {
 		ServerPlayer p = h.makeMockServerPlayerInLevel();
 		p.setGameMode(GameType.SURVIVAL);
 		TonyStark.grant(p);
 		for (ArmorItem.Type t : TYPES) {
-			p.getInventory().add(new ItemStack(IronManItems.armor("mark_iii", t)));
+			p.getInventory().add(new ItemStack(IronManItems.armor(suitId, t)));
 		}
 		return p;
 	}
@@ -201,16 +205,16 @@ public class IronManV01427SuitUpGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void suitDownTakesSixtyTicksPerPieceInReverse(GameTestHelper h) {
-		ServerPlayer p = suitedUpReady(h);
-		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_iii"), "suit-up starts");
+		ServerPlayer p = suitedUpReady(h, "mark_8"); // v0.15.15: Marks 1-7 have their own C removals now -- the Mark 8 keeps the reverse build
+		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_8"), "suit-up starts");
 		for (int i = 0; i < 400 && IronManSuitUpManager.inTransition(p); i++) {
 			IronManSuitUpManager.tick(p);
 		}
-		h.assertTrue(IronManArmor.wearingFullSuit(p, "mark_iii"), "suited up");
+		h.assertTrue(IronManArmor.wearingFullSuit(p, "mark_8"), "suited up");
 		h.assertTrue(IronManSuitUpManager.unbuildStageTick(0, 0b1111) == 1 && IronManSuitUpManager.unbuildStageTick(1, 0b1111) == 61
 				&& IronManSuitUpManager.unbuildStageTick(2, 0b1111) == 121 && IronManSuitUpManager.unbuildStageTick(3, 0b1111) == 181,
 				"helmet, chestplate, leggings, boots -- 60 ticks apart");
-		h.assertTrue(IronManSuitUpManager.beginSuitDown(p, "mark_iii"), "suit-down starts");
+		h.assertTrue(IronManSuitUpManager.beginSuitDown(p, "mark_8"), "suit-down starts");
 		var st = TonyStark.state(p);
 		h.assertTrue(st.transitionTotal == 241 && st.transitionTicks == 241 && st.transitionPlan == 0b1111,
 				"suit-down timeline: total " + st.transitionTotal + " ticks " + st.transitionTicks + " plan " + st.transitionPlan
@@ -248,7 +252,7 @@ public class IronManV01427SuitUpGameTests implements FabricGameTest {
 		h.assertTrue(posedMidway, "the per-piece pose plays during the suit-down too");
 		h.assertFalse(IronManArmor.wearingAnyIronMan(p), "the suit is off");
 		for (ArmorItem.Type t : TYPES) {
-			h.assertTrue(p.getInventory().countItem(IronManItems.armor("mark_iii", t)) == 1, t.getName() + " stored exactly once");
+			h.assertTrue(p.getInventory().countItem(IronManItems.armor("mark_8", t)) == 1, t.getName() + " stored exactly once");
 		}
 		h.succeed();
 	}

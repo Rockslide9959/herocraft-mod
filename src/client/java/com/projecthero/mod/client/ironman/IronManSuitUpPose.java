@@ -91,7 +91,9 @@ public final class IronManSuitUpPose {
 							touched = true;
 						}
 					}
-					case IronManSuitFx.POSE_MK1_BUILD, IronManSuitFx.POSE_MANUAL_UP -> {
+					case IronManSuitFx.POSE_MK1_BUILD, IronManSuitFx.POSE_MANUAL_UP, IronManSuitFx.POSE_MK1_OFF,
+							IronManSuitFx.POSE_SLEEK_OFF -> {
+						// v0.15.15: the C removals (Mark 1 by hand, Marks 2-7 retracting) use the same keyed pose
 						// v0.15.11: the suit put on by hand -- the hammer / wrench work, sitting for the Mark 1's boots
 						if (IronManManualSuitUpPose.apply(player, model)) {
 							touched = true;
