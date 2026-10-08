@@ -11,6 +11,7 @@
 		"FirstPersonBodyHeadMixin",
 		"FirstPersonBodyHandsMixin",
 		"FirstPersonBodyGeoArmorMixin",
+		"FirstPersonBodyParticleMixin",
 		"ItemInHandRendererComboMixin",
 		"ItemInHandLayerPowerBatteryMixin",
 		"ItemInHandRendererPowerBatteryMixin",

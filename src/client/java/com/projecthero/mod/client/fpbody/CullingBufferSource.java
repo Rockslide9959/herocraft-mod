@@ -39,6 +39,45 @@ public final class CullingBufferSource implements MultiBufferSource {
 	private static final float UPRIGHT_BACK = -0.45f;
 	private static final float UPRIGHT_FRONT = 0.30f;
 
+	/** Any face centred closer than this to the camera goes (blocks). */
+	public static final float NEAR = 0.22f;
+
+	/** The body's own shadow, which only darkened the ground under a body the wearer is standing in. */
+	private static final RenderType SHADOW = RenderType.entityShadow(
+			net.minecraft.resources.ResourceLocation.withDefaultNamespace("textures/misc/shadow.png"));
+
+	private static final VertexConsumer DISCARD = new VertexConsumer() {
+		@Override
+		public VertexConsumer addVertex(float x, float y, float z) {
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setColor(int r, int g, int b, int a) {
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setUv(float u, float v) {
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setUv1(int u, int v) {
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setUv2(int u, int v) {
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setNormal(float x, float y, float z) {
+			return this;
+		}
+	};
+
 	private final MultiBufferSource delegate;
 	private final Map<RenderType, Culling> open = new IdentityHashMap<>();
 
@@ -49,6 +88,9 @@ public final class CullingBufferSource implements MultiBufferSource {
 	@Override
 	public VertexConsumer getBuffer(RenderType type) {
 		flush();
+		if (type == SHADOW) {
+			return DISCARD;
+		}
 		VertexConsumer real = delegate.getBuffer(type);
 		if (type.mode() != VertexFormat.Mode.QUADS) {
 			return real;
@@ -74,6 +116,10 @@ public final class CullingBufferSource implements MultiBufferSource {
 	 * pointing out of the bottom of the head (head-frame +y, model space is y-down) goes.
 	 */
 	static boolean inHead(float cx, float cy, float cz, float nx, float ny, float nz) {
+		// right at the lens (the camera is the origin of the world pass's camera-relative space): shoulders, a raised arm
+		if (cx * cx + cy * cy + cz * cz < NEAR * NEAR) {
+			return true;
+		}
 		Matrix4f inv = FirstPersonBody.headInverse();
 		if (inv == null) {
 			return false;

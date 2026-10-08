@@ -29,18 +29,52 @@ import net.minecraft.world.phys.Vec3;
  *   <li>the player's own model is drawn in the world pass like a third-person view ({@code mixin.FirstPersonBodyLevelMixin}
  *       flips the camera's "detached" test for the entity loop only), with every layer -- armour, GeckoLib suits, the
  *       forming effects, held items, keyframed poses -- exactly as everyone else sees it;</li>
- *   <li>it is drawn {@link #BACK} blocks behind its true spot along the body's facing, so looking down shows the chest,
- *       arms and legs instead of the top of the shoulders (at the true spot the camera sits right over the neck);</li>
+ *   <li>it is drawn {@link #BACK} blocks behind its true spot along the body's facing and, when looking down, swung up
+ *       about the eyes towards the line of sight ({@link #SWING}) -- the eyes sit right over the chest, so a standing body
+ *       is otherwise only in view looking straight down (v0.15.15 review: at a natural 45-70 degree look down the view
+ *       showed nothing but grass); faces right at the lens are culled ({@link CullingBufferSource#NEAR}), an arm raised
+ *       out in front is swung aside ({@link #nudgeArms}), and the body's own shadow is not drawn;</li>
  *   <li>everything inside the head's volume -- the head, hat, any helmet, glasses, masks, GeckoLib head bones -- is
  *       culled quad by quad ({@link CullingBufferSource}, in the head's own frame captured by
  *       {@code mixin.FirstPersonBodyHeadMixin}), so nothing sits over the lens;</li>
  *   <li>the normal first-person hands / held item are not drawn ({@code mixin.FirstPersonBodyHandsMixin}) -- the real
- *       arms are in view instead.</li>
+ *       arms are in view instead;</li>
+ *   <li>particles within two blocks of the camera are dropped ({@code mixin.FirstPersonBodyParticleMixin}).</li>
  * </ul>
  */
 public final class FirstPersonBody {
 	/** How far behind its true spot (along the body's facing) the body is drawn, in blocks. */
-	public static final double BACK = 0.32;
+	public static final double BACK = 0.30;
+	/**
+	 * How much of the gap between the look pitch and straight down the body swings up towards the view, about the eyes
+	 * (0 = it stays standing, 1 = it always lies along the line of sight as if looking straight down). A standing body
+	 * is only ever in view looking nearly straight down -- the eyes sit over the chest -- so the body swings up a little to
+	 * meet a natural look down.
+	 */
+	public static final float SWING = 0.9f;
+
+	/** The swing applied to the body this frame (world-aligned camera space), identity when none. */
+	private static final org.joml.Quaternionf swing = new org.joml.Quaternionf();
+
+	/**
+	 * Swings the pose stack about the camera (the origin of the world pass's camera-relative space) so the body rises
+	 * towards the line of sight -- see {@link #SWING}.
+	 */
+	public static void applySwing(PoseStack pose, Entity self, float partialTick) {
+		float pitch = Mth.clamp(self.getViewXRot(partialTick), 0f, 90f);
+		// only when looking down: looking ahead (or up) the body stays where it stands, out of sight below
+		float lookingDown = Mth.clamp((pitch - 10f) / 30f, 0f, 1f);
+		float d = (float) Math.toRadians(SWING * (90f - pitch) * lookingDown);
+		double yaw = Math.toRadians(self.getViewYRot(partialTick));
+		float fx = (float) -Math.sin(yaw);
+		float fz = (float) Math.cos(yaw);
+		// rotate "down" towards "forward": about down x forward = (-fz, 0, fx)
+		swing.identity();
+		if (Math.abs(d) > 1e-4f) {
+			swing.rotationAxis(d, -fz, 0f, fx);
+			pose.mulPose(swing);
+		}
+	}
 
 	private static final List<Predicate<AbstractClientPlayer>> SEQUENCES = new CopyOnWriteArrayList<>();
 
@@ -79,7 +113,26 @@ public final class FirstPersonBody {
 				|| p.isSpectator() || p.isSleeping()) {
 			return false;
 		}
-		return sequenceRunning(p);
+		if (sequenceRunning(p)) {
+			lastActiveTick = mc.level.getGameTime();
+			return true;
+		}
+		return false;
+	}
+
+	private static long lastActiveTick = Long.MIN_VALUE / 2;
+
+	/** Ticks after a sequence ends during which its closing burst of particles is still kept off the lens. */
+	private static final int PARTICLE_GRACE_TICKS = 10;
+
+	/** {@link #active}, or a sequence ended moments ago (its finishing burst arrives with the state that ends it). */
+	public static boolean activeOrJustEnded() {
+		if (active()) {
+			return true;
+		}
+		Minecraft mc = Minecraft.getInstance();
+		return mc.level != null && mc.options.getCameraType() == CameraType.FIRST_PERSON
+				&& mc.level.getGameTime() - lastActiveTick <= PARTICLE_GRACE_TICKS;
 	}
 
 	// ------------------------------------------------------------------ render-thread state (mixins)
@@ -148,7 +201,31 @@ public final class FirstPersonBody {
 		org.joml.Vector3f neck = headFrame.transformPosition(0f, 0f, 0f, new org.joml.Vector3f());
 		double r = Math.toRadians(bodyYaw(entity, partialTick));
 		// upright neck frame: origin at the neck pivot, z = the body's facing, y = world up
-		neckFrame = new Matrix4f().translation(neck).rotateY((float) -r).invert();
+		neckFrame = new Matrix4f().translation(neck).rotate(swing).rotateY((float) -r).invert();
+	}
+
+	/** How far (radians) an arm raised straight out in front is swung out to the side, clear of the lens. */
+	public static final float ARM_NUDGE = 0.45f;
+
+	/**
+	 * An arm raised out in front (a ring aimed, a piece held up, a fist to the core) comes up right in front of the eyes
+	 * and filled the view: swing it out to the side in proportion to how far it is raised. Only the wearer's own view of
+	 * themselves is changed -- this runs on the pose of the body drawn for them in first person.
+	 */
+	public static void nudgeArms(net.minecraft.client.model.HumanoidModel<?> m) {
+		float r = raised(m.rightArm.xRot);
+		float l = raised(m.leftArm.xRot);
+		m.rightArm.yRot += ARM_NUDGE * r;
+		m.leftArm.yRot -= ARM_NUDGE * l;
+		if (m instanceof net.minecraft.client.model.PlayerModel<?> pm && (r > 0f || l > 0f)) {
+			pm.rightSleeve.copyFrom(pm.rightArm);
+			pm.leftSleeve.copyFrom(pm.leftArm);
+		}
+	}
+
+	/** 0 for an arm hanging or held low, 1 for one raised level with the shoulder or higher (xRot -0.6 .. -1.4). */
+	private static float raised(float xRot) {
+		return Mth.clamp((-xRot - 0.6f) / 0.8f, 0f, 1f);
 	}
 
 	/** The head frame's inverse (this frame's, or the last one's), or null before the first capture. */

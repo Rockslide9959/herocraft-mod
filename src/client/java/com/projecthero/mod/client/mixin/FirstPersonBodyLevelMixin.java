@@ -49,10 +49,13 @@ public abstract class FirstPersonBodyLevelMixin {
 		Vec3 off = FirstPersonBody.offset(self, partialTick);
 		CullingBufferSource culled = new CullingBufferSource(buffers);
 		FirstPersonBody.begin(entity, culled);
+		pose.pushPose();
 		try {
+			FirstPersonBody.applySwing(pose, self, partialTick);
 			original.call(dispatcher, entity, x + off.x, y + off.y, z + off.z, yaw, partialTick, pose, culled, light);
 			culled.flush();
 		} finally {
+			pose.popPose();
 			FirstPersonBody.end();
 		}
 	}
