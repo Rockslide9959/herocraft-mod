@@ -100,6 +100,7 @@ public final class IronManFirstPersonGauntlets {
 		ResourceLocation texture = SuperheroArmorVisuals.get(setId).texture();
 		float reveal = IronManSuitReveal.progress(player, EquipmentSlot.CHEST, partialTick);
 		texture = IronManSuitReveal.texture(player, setId, EquipmentSlot.CHEST, texture, partialTick);
+		texture = IronManBattleDamage.firstPersonTexture(player, setId, texture); // v0.15.15 battle damage
 		pose.pushPose();
 		vanillaArm.translateAndRotate(pose);
 		// v0.14.21 self-assembly: the gauntlet flies in to the hand on the same timetable as the third-person bone

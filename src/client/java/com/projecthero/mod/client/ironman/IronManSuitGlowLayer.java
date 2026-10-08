@@ -83,8 +83,9 @@ public class IronManSuitGlowLayer extends GeoRenderLayer<SuperheroArmorItem> {
 		if (IronManSentryClient.dark && !(wearer instanceof Player)) {
 			return;
 		}
-		// v0.14.29 agent F: a badly damaged suit's lights flicker
-		if (wearer instanceof Player fp && IronManBattleDamage.glowFlickerOff(fp)) {
+		// v0.15.15: a damaged suit's lenses / reactor crack, dim and flicker, and torn plate edges glow orange-hot
+		mask = IronManBattleDamage.glowmask(wearer, armor.getCurrentStack(), item, mask);
+		if (mask == null) {
 			return;
 		}
 		// v0.14.21 self-assembly: per bone, not per piece -- IronManAssemblyClient keeps a bone dark (skips it in this

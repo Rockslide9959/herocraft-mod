@@ -74,12 +74,14 @@ public class IronManSentryRenderer extends EntityRenderer<IronManSentryEntity> {
 		IronManSentryClient.openDeg = sentry.openProgress(partialTick) * IronManSentryClient.OPEN_DEG;
 		IronManSentryClient.dark = !powered;
 		IronManSentryClient.flash = sentry.pose(IronManSentryEntity.P_FLASH, partialTick);
+		IronManBattleDamage.renderingIntegrity = IronManBattleDamage.sentryIntegrity(sentry); // v0.15.15 battle damage
 		try {
 			dispatcher.render(stand, 0.0, 0.0, 0.0, 0.0f, partialTick, pose, buffers, packedLight);
 		} finally {
 			IronManSentryClient.openDeg = 0f;
 			IronManSentryClient.dark = false;
 			IronManSentryClient.flash = 0f;
+			IronManBattleDamage.renderingIntegrity = Float.NaN;
 			dispatcher.setRenderShadow(true);
 			pose.popPose();
 		}

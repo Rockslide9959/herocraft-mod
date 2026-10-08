@@ -20,6 +20,7 @@
       "com.projecthero.mod.gametest.IronManV01511GameTests",
       "com.projecthero.mod.gametest.IronManV01515GameTests",
       "com.projecthero.mod.gametest.IronManV0156GameTests",
+      "com.projecthero.mod.gametest.IronManBattleDamageV01515GameTests",
       "com.projecthero.mod.gametest.IronManV0153GameTests",
       "com.projecthero.mod.gametest.StarkGlassesV0151GameTests",
       "com.projecthero.mod.gametest.ColantotteBraceletsV0154GameTests",
