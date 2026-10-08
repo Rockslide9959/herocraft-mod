@@ -7,7 +7,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.nova.data.NovaState;
 
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -18,8 +17,8 @@ import net.minecraft.world.phys.Vec3;
  * Nova flight (v0.15.13): double-tap jump in the air while suited to take off or drop out of it. Vanilla
  * {@code mayfly}/{@code flying} keep the server from kicking a hovering player; the movement itself is the shared
  * client-side directional flight ({@code client.flight.DirectionalFlight} with {@code DirectionalFlightModel.nova}):
- * 20 blocks a second, 40 sprinting, W/S along the look, Space/Sneak straight up/down, a dead hover with no input.
- * The server lands him on the ground, draws the golden trail and measures his speed for the fast-flight drain.
+ * 20 blocks a second, 45 sprinting (v0.15.15), W/S along the look, Space/Sneak straight up/down, a dead hover with no input.
+ * The server lands him on the ground and measures his speed for the fast-flight drain; the golden trail is client-side.
  */
 public final class NovaFlight {
 	private static final Map<UUID, Long> STARTED = new ConcurrentHashMap<>();
@@ -134,24 +133,7 @@ public final class NovaFlight {
 			speed = 0.0; // a teleport, not flight
 		}
 		SPEED.put(player.getUUID(), speed);
-		// the golden trail
-		ServerLevel level = (ServerLevel) player.level();
-		Vec3 travel = last == null ? Vec3.ZERO : pos.subtract(last);
-		Vec3 dir = travel.lengthSqr() > 1.0e-6 ? travel.normalize() : player.getLookAngle();
-		Vec3 mid = pos.add(0, player.getBbHeight() * 0.45, 0);
-		if (speed > 0.15) {
-			Vec3 tail = mid.subtract(dir.scale(0.9));
-			level.sendParticles(Nova.GOLD, tail.x, tail.y, tail.z, speed > 1.2 ? 4 : 2, 0.12, 0.12, 0.12, 0.0);
-			if (player.tickCount % 2 == 0) {
-				level.sendParticles(ParticleTypes.END_ROD, tail.x, tail.y, tail.z, 1, 0.08, 0.08, 0.08, 0.0);
-			}
-			if (speed > 1.2 && player.tickCount % 3 == 0) {
-				Vec3 far = mid.subtract(dir.scale(1.8));
-				level.sendParticles(Nova.GOLD_BIG, far.x, far.y, far.z, 2, 0.2, 0.2, 0.2, 0.0);
-			}
-		} else if (player.tickCount % 6 == 0) {
-			level.sendParticles(Nova.GOLD, pos.x, pos.y - 0.1, pos.z, 2, 0.2, 0.05, 0.2, 0.0);
-		}
+		// v0.15.15: the golden trail is drawn client-side (client.nova.NovaTrail), pinned to the interpolated feet
 	}
 
 	private static boolean anyOtherFlightWants(ServerPlayer player) {

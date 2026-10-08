@@ -39,7 +39,8 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.15.13 Nova (Richard Rider): the grant and the one-Primary rule, the uniform on / off and what it switches on, the
+ * v0.15.13 Nova (Richard Rider), retuned in v0.15.15 (held Force Field, 45 b/s sprint, 3/s refill, Overload x2 / 15 s /
+ * slow refill after, +8 melee): the grant and the one-Primary rule, the uniform on / off and what it switches on, the
  * flight speeds (measured through the shared directional-flight model), the Nova Force refill / fast-flight drain / every
  * move's cost, each move's core effect, the ultimate's full-bar rule and cooldown, squad safety and the Centurion's
  * hand-off. Mock players are not ticked by the server, so tests that run over time drive {@link Nova#tick} themselves
@@ -172,7 +173,7 @@ public class NovaGameTests implements FabricGameTest {
 	// ---------------------------------------------------------------- flight
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void flightIsTwentyAndFortyBlocksASecond(GameTestHelper helper) {
+	public void flightIsTwentyAndFortyFiveBlocksASecond(GameTestHelper helper) {
 		for (boolean sprint : new boolean[] { false, true }) {
 			DirectionalFlightModel.Tune tune = DirectionalFlightModel.nova(sprint);
 			Vec3 v = Vec3.ZERO;
@@ -182,7 +183,7 @@ public class NovaGameTests implements FabricGameTest {
 				v = DirectionalFlightModel.step(v, wanted, true, tune, false);
 			}
 			double bps = v.length() * 20.0;
-			double expect = sprint ? 40.0 : 20.0;
+			double expect = sprint ? 45.0 : 20.0; // v0.15.15: sprint 45
 			helper.assertTrue(Math.abs(bps - expect) < 0.5, (sprint ? "sprint " : "") + "flight settles at " + expect + " b/s, got " + bps);
 		}
 		ServerPlayer p = nova(helper, 2.5, 4.0, 2.5);
@@ -195,31 +196,50 @@ public class NovaGameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- the Nova Force
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
-	public void forceRefillsFourASecondAndFastFlightDrainsTwo(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
+	public void forceRefillsThreeASecondHalfThatFlying(GameTestHelper helper) {
 		ServerPlayer p = nova(helper, 2.5, 4.0, 2.5);
 		Nova.setForce(p, 50f);
-		boolean[] fast = { false };
+		double[] speed = { -1.0 };
 		helper.onEachTick(() -> {
-			if (fast[0]) {
-				NovaFlight.setMeasuredSpeedForTests(p, 2.0);
+			if (speed[0] >= 0.0) {
+				NovaFlight.setMeasuredSpeedForTests(p, speed[0]);
 			}
 			p.tickCount++;
 			Nova.tick(p);
 		});
 		helper.runAfterDelay(100, () -> {
 			float f = Nova.force(p);
-			helper.assertTrue(f >= 69f && f <= 71f, "5 s of refill: 50 -> 70, got " + f);
+			helper.assertTrue(f >= 64f && f <= 66f, "5 s of refill: 50 -> 65 (3 a second), got " + f);
 			Nova.setForce(p, 50f);
 			NovaFlight.start(p);
-			fast[0] = true;
+			speed[0] = 0.5; // cruising slower than the fast-flight line
 			helper.runAfterDelay(100, () -> {
 				float g = Nova.force(p);
 				helper.assertTrue(Nova.isFlying(p), "still flying");
-				helper.assertTrue(g >= 59f && g <= 61f, "5 s of fast flight: +4 -2 a second -> 60, got " + g);
-				helper.succeed();
+				helper.assertTrue(g >= 56.5f && g <= 58.5f, "5 s of flight: 1.5 a second -> 57.5, got " + g);
+				Nova.setForce(p, 50f);
+				speed[0] = 2.0; // sprint flight
+				helper.runAfterDelay(100, () -> {
+					float h = Nova.force(p);
+					helper.assertTrue(h >= 46.5f && h <= 48.5f, "5 s of fast flight: +1.5 -2 a second -> 47.5, got " + h);
+					helper.succeed();
+				});
 			});
 		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void suitedNovaHitsEightHarder(GameTestHelper helper) {
+		ServerPlayer p = mock(helper, 2.5, 2.0, 2.5);
+		Nova.grant(p);
+		double base = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
+		Nova.suitUp(p);
+		double suited = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
+		helper.assertTrue(Math.abs(suited - base - 8.0) < 1.0e-6, "+8 melee while suited: " + base + " -> " + suited);
+		Nova.suitDown(p);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - base) < 1.0e-6, "and gone when the uniform comes off");
+		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -229,10 +249,9 @@ public class NovaGameTests implements FabricGameTest {
 		zombie(helper, 3.5, 2.0, 4.0, true, 100);
 		spends(helper, p, () -> NovaAbilities.volley(p), 20f, "Shift+R Bolt Volley");
 		spends(helper, p, () -> NovaAbilities.pulse(p), 20f, "G Gravimetric Pulse");
-		spends(helper, p, () -> NovaAbilities.shield(p), 25f, "Z Force Shield");
 		spends(helper, p, () -> NovaAbilities.cometDash(p), 15f, "X Comet Dash");
 		spends(helper, p, () -> NovaAbilities.orbitalLaunch(p), 30f, "Shift+X Orbital Launch");
-		spends(helper, p, () -> NovaAbilities.gravityWell(p), 30f, "C Gravity Well");
+		spends(helper, p, () -> NovaAbilities.gravityWell(p), 25f, "C Gravity Well");
 		spends(helper, p, () -> NovaAbilities.gravityLock(p), 35f, "Shift+C Gravity Lock");
 		spends(helper, p, () -> NovaAbilities.scan(p), 15f, "V Worldmind Scan");
 		spends(helper, p, () -> NovaAbilities.forceTransfer(p), 40f, "Shift+V Nova Force Transfer");
@@ -241,13 +260,15 @@ public class NovaGameTests implements FabricGameTest {
 		ServerPlayer full = nova(helper, 5.5, 2.0, 5.5);
 		spends(helper, full, () -> NovaAbilities.overload(full), 100f, "Shift+Z NOVA OVERLOAD (all of it)");
 		helper.assertTrue(NovaAbilityManager.cost(NovaAbilities.BLAST) == 6f, "Nova Blast costs 6 a second");
+		helper.assertTrue(NovaAbilityManager.cost(NovaAbilities.SHIELD) == 8f, "the Force Field drains 8 a second");
+		helper.assertTrue(NovaConfig.WELL_COOLDOWN == 500 && NovaConfig.OVERLOAD_COOLDOWN == 1500, "Gravity Well 25 s, Overload 75 s");
 		helper.succeed();
 	}
 
 	// ---------------------------------------------------------------- R / Shift+R
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void novaBlastDealsEightASecond(GameTestHelper helper) {
+	public void novaBlastHitsTenTwiceASecond(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = nova(helper, 2.5, 2.0, 1.5);
 		Zombie z = zombie(helper, 2.5, 2.0, 4.5, true, 100);
@@ -257,10 +278,30 @@ public class NovaGameTests implements FabricGameTest {
 		helper.runAfterDelay(41, () -> {
 			NovaAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
 			float lost = 100f - z.getHealth();
-			helper.assertTrue(lost >= 15.5f && lost <= 16.5f, "2 s of beam = 16 damage, got " + lost);
+			helper.assertTrue(lost >= 39.5f && lost <= 40.5f, "2 s of beam = 4 hits of 10 = 40 damage, got " + lost);
 			helper.assertFalse(Nova.blasting(p), "letting go of R ends it");
 			helper.assertTrue(Nova.cooldownRemaining(p, NovaAbilities.BLAST) > 0, "then a short cooldown");
 			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
+	public void novaBlastHasNoTimeLimit(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = nova(helper, 2.5, 2.0, 1.5);
+		zombie(helper, 2.5, 2.0, 4.5, true, 250);
+		pump(helper, p);
+		NovaAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
+		helper.runAfterDelay(200, () -> {
+			helper.assertTrue(Nova.blasting(p), "still firing after 10 s (the old 8 s limit is gone)");
+			float f = Nova.force(p);
+			helper.assertTrue(f >= 66f && f <= 74f, "10 s: -6 +3 a second -> about 70, got " + f);
+			Nova.setForce(p, 2f);
+			helper.runAfterDelay(12, () -> {
+				helper.assertFalse(Nova.blasting(p), "it stops when the Nova Force runs out");
+				NovaAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
+				helper.succeed();
+			});
 		});
 	}
 
@@ -274,7 +315,7 @@ public class NovaGameTests implements FabricGameTest {
 		helper.assertTrue(NovaAbilities.running(p, NovaAbilities.VOLLEY), "five bolts are in the air");
 		helper.runAfterDelay(50, () -> {
 			float lost = 100f - z.getHealth();
-			helper.assertTrue(lost >= 6f, "the homing bolts found it (6 each), lost " + lost);
+			helper.assertTrue(lost >= 8f, "the homing bolts found it (8 each), lost " + lost);
 			helper.assertTrue(lost <= 5 * NovaConfig.VOLLEY_DAMAGE + 0.1f, "at most five bolts, lost " + lost);
 			helper.succeed();
 		});
@@ -289,16 +330,16 @@ public class NovaGameTests implements FabricGameTest {
 		Zombie near = zombie(helper, 5.5, 2.0, 2.5, true, 100);
 		NovaAbilities.pulse(p);
 		float lost = 100f - near.getHealth();
-		helper.assertTrue(lost >= 7f && lost <= 10.01f, "10 damage (70% at the edge), lost " + lost);
+		helper.assertTrue(lost >= 14f && lost <= 20.01f, "20 damage (70% at the edge), lost " + lost);
 		helper.assertTrue(near.getDeltaMovement().y > 0.3, "knocked up, vy " + near.getDeltaMovement().y);
-		helper.assertTrue(NovaConfig.PULSE_RADIUS == 6.0 && NovaConfig.PULSE_DAMAGE == 10f, "6 blocks, 10 damage");
+		helper.assertTrue(NovaConfig.PULSE_RADIUS == 6.0 && NovaConfig.PULSE_DAMAGE == 20f && NovaConfig.PULSE_COST == 20f, "6 blocks, 20 damage, 20 Force");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
 	public void gravitySlamScalesWithTheDrop(GameTestHelper helper) {
-		helper.assertTrue(NovaAbilities.slamDamage(0) == 6f && Math.abs(NovaAbilities.slamDamage(10) - 12f) < 1.0e-4f
-				&& NovaAbilities.slamDamage(100) == 18f, "6 + 0.6 a block, capped at 18");
+		helper.assertTrue(NovaAbilities.slamDamage(0) == 10f && Math.abs(NovaAbilities.slamDamage(10) - 20f) < 1.0e-4f
+				&& NovaAbilities.slamDamage(100) == 30f, "10 + 1 a block, capped at 30");
 		floor(helper);
 		ServerPlayer grounded = nova(helper, 5.5, 2.0, 5.5);
 		grounded.setOnGround(true);
@@ -324,13 +365,13 @@ public class NovaGameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- Z / Shift+Z
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
-	public void forceShieldAbsorbsMeleeAndProjectiles(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void forceFieldIsHeldAndAbsorbsMeleeAndProjectiles(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = nova(helper, 2.5, 2.0, 2.5);
 		Zombie z = zombie(helper, 2.5, 2.0, 4.0, true, 20);
 		pump(helper, p);
-		NovaAbilities.shield(p);
+		NovaAbilityManager.handle(p, AbilitySlot.SLOT_4, true); // Z held
 		helper.assertTrue(Nova.shieldUp(p), "the bubble is up");
 		p.setHealth(20f);
 		p.invulnerableTime = 0;
@@ -342,13 +383,35 @@ public class NovaGameTests implements FabricGameTest {
 		arrow.setOwner(z);
 		arrow.setDeltaMovement(0, 0, -0.5);
 		helper.getLevel().addFreshEntity(arrow);
-		helper.runAfterDelay(3, () -> {
-			helper.assertTrue(arrow.isRemoved(), "an arrow inside the bubble is absorbed");
+		helper.runAfterDelay(3, () -> helper.assertTrue(arrow.isRemoved(), "an arrow inside the bubble is absorbed"));
+		helper.runAfterDelay(100, () -> {
+			helper.assertTrue(Nova.shieldUp(p), "still up after 5 s (no time limit while Z is held)");
+			float f = Nova.force(p);
+			helper.assertTrue(f >= 72f && f <= 78f, "5 s: -8 +3 a second -> about 75, got " + f);
+			NovaAbilityManager.handle(p, AbilitySlot.SLOT_4, false); // let go
+			helper.assertFalse(Nova.shieldUp(p), "letting go of Z drops it");
+			helper.assertTrue(Nova.cooldownRemaining(p, NovaAbilities.SHIELD) > 0, "then a short cooldown");
 			helper.succeed();
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 320)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void forceFieldDropsWhenTheForceRunsOut(GameTestHelper helper) {
+		ServerPlayer p = nova(helper, 2.5, 2.0, 2.5);
+		pump(helper, p);
+		Nova.setForce(p, 7f);
+		NovaAbilities.startShield(p);
+		helper.assertFalse(Nova.shieldUp(p), "it needs 8 to go up");
+		Nova.setForce(p, 9f);
+		NovaAbilities.startShield(p);
+		helper.assertTrue(Nova.shieldUp(p), "with 9 it goes up");
+		helper.runAfterDelay(60, () -> {
+			helper.assertFalse(Nova.shieldUp(p), "-8 +3 a second empties 9 in under 2 s and the bubble drops");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 500)
 	public void overloadNeedsAFullBarThenBursts(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = nova(helper, 2.5, 2.0, 2.5);
@@ -362,21 +425,42 @@ public class NovaGameTests implements FabricGameTest {
 		NovaAbilities.overload(p);
 		helper.assertTrue(Nova.overloaded(p), "a full bar starts NOVA OVERLOAD");
 		helper.assertTrue(Nova.force(p) == 0f, "it takes all of it");
-		helper.assertTrue(Nova.cooldownRemaining(p, NovaAbilities.OVERLOAD) >= NovaConfig.OVERLOAD_COOLDOWN - 1, "90 s cooldown");
-		helper.assertTrue(Nova.damageMultiplier(p) == 1.5f, "+50% strength");
+		helper.assertTrue(Math.abs(Nova.cooldownRemaining(p, NovaAbilities.OVERLOAD) - 1500) <= 1, "75 s cooldown");
+		helper.assertTrue(Nova.damageMultiplier(p) == 2.0f, "double damage");
+		Zombie target = zombie(helper, 2.5, 2.0, 5.5, true, 100);
+		NovaCombat.strike(p, target, p.position(), 10f, 0.0, 0.0);
+		helper.assertTrue(Math.abs((100f - target.getHealth()) - 20f) < EPS, "a 10-damage hit lands for 20, lost " + (100f - target.getHealth()));
+		target.discard();
 		NovaAbilities.pulse(p);
 		helper.assertTrue(Nova.cooldownRemaining(p, NovaAbilities.PULSE) > 0, "moves still fire with an empty bar (free)");
 		helper.assertTrue(Math.abs(Nova.cooldownRemaining(p, NovaAbilities.PULSE) - NovaConfig.PULSE_COOLDOWN / 2) <= 1,
 				"cooldowns started in the Overload are halved");
 		float afterPulse = z.getHealth();
+		helper.runAfterDelay(100, () -> {
+			helper.assertTrue(Nova.overloaded(p), "still running after 5 s");
+			helper.assertTrue(Nova.force(p) == 0f, "the bar does not refill during it (it is infinite)");
+			NovaAbilities.volley(p);
+			helper.assertTrue(Nova.cooldownRemaining(p, NovaAbilities.VOLLEY) > 0, "moves are free");
+		});
 		helper.runAfterDelay(NovaConfig.OVERLOAD_TICKS + 5, () -> {
-			helper.assertFalse(Nova.overloaded(p), "10 s later it is over");
+			helper.assertFalse(Nova.overloaded(p), "15 s later it is over");
 			float burst = afterPulse - z.getHealth();
 			helper.assertTrue(burst >= NovaConfig.OVERLOAD_BURST_DAMAGE * 0.69f, "the closing nova burst hits for 30 (falloff), dealt " + burst);
-			Nova.setForce(p, 100f);
-			NovaAbilities.overload(p);
-			helper.assertFalse(Nova.overloaded(p), "still on its 90 s cooldown");
-			helper.succeed();
+			helper.assertTrue(Nova.force(p) < 1f, "the bar is empty when it ends, " + Nova.force(p));
+			helper.assertTrue(Nova.slowRegenRemaining(p) > NovaConfig.OVERLOAD_SLOW_REGEN_TICKS - 20, "60 s of slow refill begin");
+			helper.assertTrue(Math.abs(Nova.regenPerSecond(p) - 1.5f) < 1.0e-4f, "half speed: 1.5 a second");
+			Nova.setForce(p, 0f);
+			helper.runAfterDelay(100, () -> {
+				float f = Nova.force(p);
+				helper.assertTrue(f >= 6.5f && f <= 8.5f, "5 s of half-speed refill -> 7.5, got " + f);
+				NovaFlight.start(p);
+				helper.assertTrue(Math.abs(Nova.regenPerSecond(p) - 0.75f) < 1.0e-4f, "flying too: a quarter speed (stacks)");
+				NovaFlight.stop(p, false);
+				Nova.setForce(p, 100f);
+				NovaAbilities.overload(p);
+				helper.assertFalse(Nova.overloaded(p), "still on its 75 s cooldown");
+				helper.succeed();
+			});
 		});
 	}
 
@@ -390,7 +474,8 @@ public class NovaGameTests implements FabricGameTest {
 		Zombie second = zombie(helper, 2.8, 2.0, 6.2, true, 100);
 		pump(helper, p);
 		NovaAbilities.cometDash(p);
-		helper.assertTrue(Math.abs((100f - first.getHealth()) - NovaConfig.DASH_DAMAGE) < 0.1f, "the first in line takes 14");
+		helper.assertTrue(NovaConfig.DASH_DAMAGE == 20f, "Comet Dash hits for 20");
+		helper.assertTrue(Math.abs((100f - first.getHealth()) - NovaConfig.DASH_DAMAGE) < 0.1f, "the first in line takes 20");
 		// the client would fly along: carry him down the path
 		Vec3 end = helper.absoluteVec(new Vec3(2.5, 2.0, 7.2));
 		p.setPos(end.x, end.y, end.z);
@@ -440,7 +525,8 @@ public class NovaGameTests implements FabricGameTest {
 			helper.runAfterDelay(45, () -> {
 				helper.assertTrue(Nova.state(p).wellUntil == 0L, "it collapsed after 3 s");
 				float lost = 100f - z.getHealth();
-				helper.assertTrue(lost >= NovaConfig.WELL_CRUSH_DAMAGE * 0.69f, "crushed for 20 (falloff), lost " + lost);
+				helper.assertTrue(NovaConfig.WELL_CRUSH_DAMAGE == 35f, "35 damage");
+				helper.assertTrue(lost >= NovaConfig.WELL_CRUSH_DAMAGE * 0.69f, "crushed for 35 (falloff), lost " + lost);
 				helper.succeed();
 			});
 		});

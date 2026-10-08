@@ -18,7 +18,9 @@ import net.minecraft.world.entity.player.Player;
  * <ul>
  *   <li><b>Flight</b>: as the body leans into it, the main fist drives forward overhead, the other arm along the side.</li>
  *   <li><b>Nova Blast</b> (held): the main arm extended straight along the look, the other hand braced at the chest.</li>
- *   <li><b>Force Shield</b> (while it is up): both forearms crossed in front.</li>
+ *   <li><b>Force Field</b> (while it is held up): both forearms crossed in front.</li>
+ *   <li><b>Suit-up / suit-down</b> (v0.15.15): both hands on the Nova Corps Helmet while it is raised and lowered onto
+ *       the head, or lifted off it.</li>
  *   <li><b>Comet Dash</b>: the main fist forward, the other arm swept back.</li>
  *   <li><b>Gravity Slam</b>: both fists over the head through the dive, then the landing crouch.</li>
  *   <li><b>NOVA OVERLOAD</b>: arms flung wide and head thrown back; the burst at its end, the same wider.</li>
@@ -31,10 +33,17 @@ public final class NovaPose {
 
 	public static void apply(Player player, HumanoidModel<?> model) {
 		NovaState s = player.getAttachedOrElse(ModAttachments.NOVA_STATE, null);
-		if (s == null || !s.hasPower || !s.suited || player.level() == null) {
+		if (s == null || !s.hasPower || player.level() == null) {
 			return;
 		}
 		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+		NovaSuitRender.Anim suit = NovaSuitRender.anim(player, partial);
+		if (suit.arms() > 0f) {
+			holdHelmet(model, suit);
+		}
+		if (!s.suited || suit.arms() >= 0.999f) {
+			return; // the helmet in both hands owns the arms until it is on
+		}
 		long now = player.level().getGameTime();
 		boolean rightMain = player.getMainArm() == HumanoidArm.RIGHT;
 		ModelPart fist = rightMain ? model.rightArm : model.leftArm;
@@ -134,6 +143,30 @@ public final class NovaPose {
 			}
 			default -> {
 			}
+		}
+	}
+
+	/**
+	 * v0.15.15 suit-up / suit-down: both arms aimed at the Nova Corps Helmet (held in front of the chest, raised overhead,
+	 * lowered onto the head -- or lifted off it), so the hands are on its sides wherever it is; the head levels out while
+	 * the helmet is in the hands so it settles on square. Weighted by {@link NovaSuitRender.Anim#arms}.
+	 */
+	static void holdHelmet(HumanoidModel<?> model, NovaSuitRender.Anim a) {
+		float w = a.arms();
+		float cy = model.head.y + a.hy() - 4f; // the helmet's middle (the head cube runs 8 px up from its pivot)
+		float cz = model.head.z + a.hz();
+		for (ModelPart arm : new ModelPart[] { model.rightArm, model.leftArm }) {
+			// the arm hangs along +Y; xRot swings it forward (-Z) and up
+			float x = (float) Math.atan2(cz - arm.z, cy - arm.y);
+			if (x > 0f) {
+				x -= (float) (Math.PI * 2.0); // the same angle, kept on the forward-and-up side
+			}
+			pose(arm, w, x, 0f, 0f);
+		}
+		if (a.helmetHeld()) {
+			model.head.xRot = Mth.lerp(w, model.head.xRot, 0f);
+			model.head.yRot = Mth.lerp(w, model.head.yRot, 0f);
+			model.hat.copyFrom(model.head);
 		}
 	}
 

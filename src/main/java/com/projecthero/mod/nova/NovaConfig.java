@@ -12,25 +12,39 @@ public final class NovaConfig {
 
 	// ---------------------------------------------------------------- the suit (H)
 
-	/** How long the golden energy takes to wrap the body (suit-up). */
-	public static final int SUIT_UP_TICKS = 24;
-	/** How long the suit takes to unravel back into light (suit-down). */
-	public static final int SUIT_DOWN_TICKS = 14;
+	/**
+	 * v0.15.15 suit-up: the helmet is raised in both hands ({@link #SUIT_HELMET_RAISE_TICKS}), lowered onto the head
+	 * (until {@link #SUIT_HELMET_ON_TICK}), then the rest of the uniform materialises from the neck down (until
+	 * {@link #SUIT_UP_TICKS}).
+	 */
+	public static final int SUIT_HELMET_RAISE_TICKS = 12;
+	public static final int SUIT_HELMET_ON_TICK = 22;
+	public static final int SUIT_UP_TICKS = 46;
+	/**
+	 * v0.15.15 suit-down: the body dematerialises from the feet up to the neck (until {@link #SUIT_DOWN_BODY_TICKS}),
+	 * then the hands lift the helmet off and it dissolves overhead (until {@link #SUIT_DOWN_TICKS}).
+	 */
+	public static final int SUIT_DOWN_BODY_TICKS = 16;
+	public static final int SUIT_DOWN_TICKS = 38;
 	/** H debounce. */
 	public static final int SUIT_TOGGLE_COOLDOWN = 10;
 
 	// ---------------------------------------------------------------- the Nova Force bar
 
 	public static final float FORCE_MAX = 100f;
-	/** 4% of the bar a second, all the time (suited or not, flying or not). */
-	public static final float FORCE_REGEN_PER_SECOND = 4f;
-	/** Flying faster than {@link #FAST_FLIGHT_SPEED} drains this much a second (on top of the refill: net +2/s). */
+	/** v0.15.15: 3% of the bar a second, all the time (suited or not). */
+	public static final float FORCE_REGEN_PER_SECOND = 3f;
+	/** v0.15.15: while flying the refill runs at half speed (1.5 a second). */
+	public static final float FLYING_REGEN_MULTIPLIER = 0.5f;
+	/** Flying faster than {@link #FAST_FLIGHT_SPEED} drains this much a second (on top of the halved refill: net -0.5/s). */
 	public static final float FAST_FLIGHT_DRAIN_PER_SECOND = 2f;
 	/** Server-measured speed (blocks/tick) above which flight counts as "fast" (25 b/s, i.e. sprint flight). */
 	public static final double FAST_FLIGHT_SPEED = 1.25;
 
 	// ---------------------------------------------------------------- passives (while suited)
 
+	/** v0.15.15: +8 melee (attack damage) while suited. */
+	public static final double MELEE_BONUS = 8.0;
 	/** 60% of every hit is shrugged off. */
 	public static final float DAMAGE_REDUCTION = 0.60f;
 	/** The Worldmind outlines every mob within this sphere, for the Nova alone. */
@@ -40,8 +54,8 @@ public final class NovaConfig {
 
 	/** 20 blocks a second. */
 	public static final double FLIGHT_SPEED = 1.0;
-	/** 40 blocks a second sprinting. */
-	public static final double FLIGHT_SPRINT_SPEED = 2.0;
+	/** v0.15.15: 45 blocks a second sprinting. */
+	public static final double FLIGHT_SPRINT_SPEED = 2.25;
 	public static final double FLIGHT_VERTICAL_SPEED = 0.6;
 	public static final double FLIGHT_ACCELERATION = 0.22;
 	public static final double FLIGHT_BRAKE = 0.35;
@@ -57,18 +71,18 @@ public final class NovaConfig {
 
 	// ---------------------------------------------------------------- R: Nova Blast (held beam)
 
-	public static final float BLAST_DAMAGE_PER_SECOND = 8f;
-	/** One hit every 10 ticks (so 4 a hit). */
+	/** v0.15.15: 10 damage a hit, one hit every {@link #BLAST_HIT_INTERVAL} ticks (20 a second). */
+	public static final float BLAST_DAMAGE_PER_HIT = 10f;
 	public static final int BLAST_HIT_INTERVAL = 10;
+	/** No time limit: the beam fires while R is held until the Nova Force runs out. */
 	public static final float BLAST_COST_PER_SECOND = 6f;
 	public static final double BLAST_RANGE = 32.0;
-	public static final int BLAST_MAX_TICKS = 160;
 	public static final int BLAST_COOLDOWN = 30;
 
 	// ---------------------------------------------------------------- Shift+R: Nova Bolt Volley
 
 	public static final int VOLLEY_BOLTS = 5;
-	public static final float VOLLEY_DAMAGE = 6f;
+	public static final float VOLLEY_DAMAGE = 8f;
 	public static final float VOLLEY_COST = 20f;
 	public static final int VOLLEY_COOLDOWN = 120;
 	/** Bolt speed (blocks/tick), how far they look for prey, and how long they live. */
@@ -81,7 +95,7 @@ public final class NovaConfig {
 	// ---------------------------------------------------------------- G: Gravimetric Pulse
 
 	public static final double PULSE_RADIUS = 6.0;
-	public static final float PULSE_DAMAGE = 10f;
+	public static final float PULSE_DAMAGE = 20f;
 	public static final double PULSE_LIFT = 0.9;
 	public static final double PULSE_KNOCKBACK = 0.6;
 	public static final float PULSE_COST = 20f;
@@ -91,9 +105,9 @@ public final class NovaConfig {
 
 	public static final double SLAM_RADIUS = 8.0;
 	/** Damage = MIN + PER_BLOCK x drop height, capped at MAX. */
-	public static final float SLAM_MIN_DAMAGE = 6f;
-	public static final float SLAM_DAMAGE_PER_BLOCK = 0.6f;
-	public static final float SLAM_MAX_DAMAGE = 18f;
+	public static final float SLAM_MIN_DAMAGE = 10f;
+	public static final float SLAM_DAMAGE_PER_BLOCK = 1.0f;
+	public static final float SLAM_MAX_DAMAGE = 30f;
 	/** Must start at least this high above the ground. */
 	public static final double SLAM_MIN_HEIGHT = 2.0;
 	public static final double SLAM_DIVE_SPEED = 3.0;
@@ -103,23 +117,31 @@ public final class NovaConfig {
 
 	// ---------------------------------------------------------------- Z: Force Shield
 
-	public static final int SHIELD_TICKS = 80;
+	/** v0.15.15: held -- up for as long as Z is held, draining this much a second (free during the Overload). */
+	public static final float SHIELD_COST_PER_SECOND = 8f;
+	/** Needed in the bar to raise it (one second of upkeep). */
+	public static final float SHIELD_MIN_FORCE = 8f;
 	public static final double SHIELD_RADIUS = 1.8;
-	public static final float SHIELD_COST = 25f;
-	public static final int SHIELD_COOLDOWN = 300;
+	/** A short gap after letting go. */
+	public static final int SHIELD_COOLDOWN = 20;
 
 	// ---------------------------------------------------------------- Shift+Z: NOVA OVERLOAD (ultimate)
 
 	/** Needs a completely full bar (it spends all of it). */
 	public static final float OVERLOAD_MIN_FORCE = FORCE_MAX;
-	public static final int OVERLOAD_TICKS = 200;
-	/** Every ability deals +50% while it runs (and costs nothing). */
-	public static final float OVERLOAD_DAMAGE_MULTIPLIER = 1.5f;
+	/** v0.15.15: 15 s. */
+	public static final int OVERLOAD_TICKS = 300;
+	/** v0.15.15: every move deals double damage while it runs (and the Nova Force is infinite). */
+	public static final float OVERLOAD_DAMAGE_MULTIPLIER = 2.0f;
+	/** v0.15.15: when it ends the bar is emptied and refills at this fraction for {@link #OVERLOAD_SLOW_REGEN_TICKS}. */
+	public static final float OVERLOAD_AFTER_REGEN_MULTIPLIER = 0.5f;
+	public static final int OVERLOAD_SLOW_REGEN_TICKS = 1200;
 	/** Cooldowns started during the Overload are halved. */
 	public static final float OVERLOAD_COOLDOWN_MULTIPLIER = 0.5f;
 	public static final float OVERLOAD_BURST_DAMAGE = 30f;
 	public static final double OVERLOAD_BURST_RADIUS = 10.0;
-	public static final int OVERLOAD_COOLDOWN = 1800;
+	/** v0.15.15: 75 s (from activation). */
+	public static final int OVERLOAD_COOLDOWN = 1500;
 
 	// ---------------------------------------------------------------- X: Comet Dash
 
@@ -127,7 +149,7 @@ public final class NovaConfig {
 	public static final double DASH_SPEED = 2.5;
 	public static final int DASH_MAX_TICKS = 14;
 	public static final double DASH_HIT_RADIUS = 1.5;
-	public static final float DASH_DAMAGE = 14f;
+	public static final float DASH_DAMAGE = 20f;
 	public static final double DASH_KNOCKBACK = 1.2;
 	public static final float DASH_COST = 15f;
 	public static final int DASH_COOLDOWN = 120;
@@ -152,9 +174,9 @@ public final class NovaConfig {
 	public static final double WELL_PULL_RADIUS = 8.0;
 	public static final double WELL_PULL_STRENGTH = 0.28;
 	public static final double WELL_CRUSH_RADIUS = 4.0;
-	public static final float WELL_CRUSH_DAMAGE = 20f;
-	public static final float WELL_COST = 30f;
-	public static final int WELL_COOLDOWN = 280;
+	public static final float WELL_CRUSH_DAMAGE = 35f;
+	public static final float WELL_COST = 25f;
+	public static final int WELL_COOLDOWN = 500;
 
 	// ---------------------------------------------------------------- Shift+C: Gravity Lock
 

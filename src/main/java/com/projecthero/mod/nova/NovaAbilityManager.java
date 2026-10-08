@@ -19,7 +19,7 @@ import net.minecraft.server.level.ServerPlayer;
  *   R (1)  Nova Blast (hold)       Shift+R  Nova Bolt Volley
  *   G (2)  Gravimetric Pulse       Shift+G  Gravity Slam
  *   X (3)  Comet Dash              Shift+X  Orbital Launch
- *   Z (4)  Force Shield            Shift+Z  NOVA OVERLOAD (ultimate)
+ *   Z (4)  Force Field (hold)      Shift+Z  NOVA OVERLOAD (ultimate)
  *   V (5)  Worldmind Scan          Shift+V  Nova Force Transfer
  *   C (6)  Gravity Well            Shift+C  Gravity Lock
  * </pre>
@@ -103,12 +103,12 @@ public final class NovaAbilityManager {
 				}
 			}
 			case SLOT_4 -> {
-				if (pressed) {
-					if (shift) {
-						NovaAbilities.overload(player);
-					} else {
-						NovaAbilities.shield(player);
-					}
+				if (!pressed) {
+					NovaAbilities.stopShield(player); // v0.15.15: the Force Field is held
+				} else if (shift) {
+					NovaAbilities.overload(player);
+				} else {
+					NovaAbilities.startShield(player);
 				}
 			}
 			case SLOT_5 -> {
@@ -165,14 +165,23 @@ public final class NovaAbilityManager {
 		};
 	}
 
-	/** Nova Force cost of a move (per second for the held Nova Blast) -- the HUD / guide / tests. */
+	/** Nova Force needed in the bar to start a move (the held ones need a little upkeep in hand) -- the HUD. */
+	public static float minForce(String id) {
+		return switch (id) {
+			case NovaAbilities.BLAST -> NovaConfig.BLAST_COST_PER_SECOND * 0.5f;
+			case NovaAbilities.SHIELD -> NovaConfig.SHIELD_MIN_FORCE;
+			default -> cost(id);
+		};
+	}
+
+	/** Nova Force cost of a move (per second for the held Nova Blast and Force Field) -- the HUD / guide / tests. */
 	public static float cost(String id) {
 		return switch (id) {
 			case NovaAbilities.BLAST -> NovaConfig.BLAST_COST_PER_SECOND;
 			case NovaAbilities.VOLLEY -> NovaConfig.VOLLEY_COST;
 			case NovaAbilities.PULSE -> NovaConfig.PULSE_COST;
 			case NovaAbilities.SLAM -> NovaConfig.SLAM_COST;
-			case NovaAbilities.SHIELD -> NovaConfig.SHIELD_COST;
+			case NovaAbilities.SHIELD -> NovaConfig.SHIELD_COST_PER_SECOND;
 			case NovaAbilities.OVERLOAD -> NovaConfig.OVERLOAD_MIN_FORCE;
 			case NovaAbilities.DASH -> NovaConfig.DASH_COST;
 			case NovaAbilities.LAUNCH -> NovaConfig.LAUNCH_COST;

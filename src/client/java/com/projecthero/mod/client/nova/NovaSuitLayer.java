@@ -23,10 +23,10 @@ public class NovaSuitLayer extends RenderLayer<AbstractClientPlayer, PlayerModel
 		if (player.isInvisible()) {
 			return;
 		}
-		float progress = NovaSuitRender.progress(player, partialTick);
-		if (progress <= 0f) {
+		NovaSuitRender.Anim anim = NovaSuitRender.anim(player, partialTick);
+		if (!anim.anything()) {
 			return;
 		}
-		NovaSuitRender.render(pose, buffers, light, getParentModel(), progress, 1f, NovaSuitRender.overloaded(player));
+		NovaSuitRender.render(pose, buffers, light, getParentModel(), anim, NovaSuitRender.overloaded(player));
 	}
 }

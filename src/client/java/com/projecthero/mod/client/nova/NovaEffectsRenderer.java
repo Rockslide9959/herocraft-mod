@@ -1,15 +1,25 @@
 package com.projecthero.mod.client.nova;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.client.shield.ForceBubbleRenderer;
+import com.projecthero.mod.nova.Nova;
+import com.projecthero.mod.shield.ForceBubble;
 import com.projecthero.mod.client.darkseid.BeamDraw;
 import com.projecthero.mod.nova.NovaConfig;
 import com.projecthero.mod.nova.data.NovaState;
 
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 
@@ -17,6 +27,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
@@ -37,7 +48,9 @@ import org.joml.Matrix4f;
  * <ul>
  *   <li><b>Nova Blast</b> -- a golden beam from the outstretched hand to whatever it hits (a soft gold glow round a white-gold
  *       additive core with a cyan thread), a burning spot where it lands;</li>
- *   <li><b>Force Shield</b> -- a shimmering golden bubble round the body, flickering in its last second;</li>
+ *   <li><b>Force Field</b> -- the shared {@link ForceBubble} in gold, while Z is held (flickering when the Nova Force is
+ *       about to run dry);</li>
+ *   <li><b>the flight trail</b> (v0.15.15) -- a tapering golden ribbon pinned to the feet;</li>
  *   <li><b>Gravity Well</b> -- a black singularity with a golden accretion ring spinning round it, the rings tightening as
  *       it nears collapse.</li>
  * </ul>
@@ -55,11 +68,98 @@ public final class NovaEffectsRenderer {
 	private record Ribbon(Vec3 a, Vec3 b, float width, int rgb, float alpha) {
 	}
 
+	private record Bubble(Vec3 center, float alpha, boolean self) {
+	}
+
+	/** v0.15.15: each flier's feet position at the end of each of the last few client ticks (newest first). */
+	private static final Map<UUID, ArrayDeque<Vec3>> TRAILS = new HashMap<>();
+	private static final int TRAIL_POINTS = 12;
+
 	private NovaEffectsRenderer() {
 	}
 
 	public static void init() {
 		WorldRenderEvents.AFTER_ENTITIES.register(NovaEffectsRenderer::render);
+		ClientTickEvents.END_CLIENT_TICK.register(client -> tickTrails(client.level));
+	}
+
+	// ---------------------------------------------------------------- the flight trail (v0.15.15)
+
+	/**
+	 * Records every flying Nova's feet once a client tick; a landed one's trail shrinks away a point a tick. The soles sit
+	 * on the entity position in every flight pose (the body lean pivots round the feet -- {@code PlayerRendererMixin}),
+	 * so the trail is pinned there, sprint-flying flat out included.
+	 */
+	private static void tickTrails(ClientLevel level) {
+		if (level == null) {
+			TRAILS.clear();
+			return;
+		}
+		Set<UUID> seen = new HashSet<>();
+		for (Player player : level.players()) {
+			UUID id = player.getUUID();
+			ArrayDeque<Vec3> pts = TRAILS.get(id);
+			if (Nova.isFlying(player)) {
+				seen.add(id);
+				if (pts == null) {
+					pts = new ArrayDeque<>();
+					TRAILS.put(id, pts);
+				}
+				Vec3 feet = player.position();
+				if (!pts.isEmpty() && pts.peekFirst().distanceToSqr(feet) > 64.0 * 64.0) {
+					pts.clear(); // a teleport
+				}
+				pts.addFirst(feet);
+				while (pts.size() > TRAIL_POINTS) {
+					pts.removeLast();
+				}
+				// a few sparks shed just behind the feet
+				Vec3 prev = player.getPosition(0f);
+				if (feet.distanceToSqr(prev) > 0.04 && level.random.nextInt(2) == 0) {
+					level.addParticle(ParticleTypes.END_ROD, prev.x, prev.y + 0.05, prev.z, 0.0, 0.0, 0.0);
+				}
+			} else if (pts != null && !pts.isEmpty()) {
+				seen.add(id);
+				pts.removeLast();
+			}
+		}
+		TRAILS.keySet().retainAll(seen);
+	}
+
+	/**
+	 * The golden trail: a tapering ribbon from the feet (this frame's interpolated position) back through the last few
+	 * ticks' positions -- a soft gold glow round a hot core with a cyan thread.
+	 */
+	private static void trail(Player player, float partial, float time, List<Ribbon> glow, List<Ribbon> core) {
+		ArrayDeque<Vec3> pts = TRAILS.get(player.getUUID());
+		if (pts == null || pts.size() < 3) {
+			return;
+		}
+		List<Vec3> line = new ArrayList<>();
+		line.add(player.getPosition(partial).add(0, 0.05, 0));
+		boolean first = true;
+		for (Vec3 p : pts) {
+			if (first) {
+				first = false; // the newest record is this tick's end -- ahead of the interpolated feet
+				continue;
+			}
+			line.add(p.add(0, 0.05, 0));
+		}
+		int n = line.size() - 1;
+		float flicker = 0.9f + 0.1f * Mth.sin(time * 1.7f);
+		for (int i = 0; i < n; i++) {
+			float t0 = i / (float) n;
+			float t1 = (i + 1) / (float) n;
+			Vec3 a = line.get(i);
+			Vec3 b = line.get(i + 1);
+			if (a.distanceToSqr(b) < 1.0e-4) {
+				continue;
+			}
+			float w = 1f - (t0 + t1) * 0.5f;
+			glow.add(new Ribbon(a, b, 0.20f * w + 0.02f, GOLD, 0.42f * w * flicker));
+			core.add(new Ribbon(a, b, 0.075f * w + 0.01f, GOLD_HOT, 0.9f * w));
+			core.add(new Ribbon(a, b, 0.02f * w + 0.005f, CYAN, 0.7f * w));
+		}
 	}
 
 	private static void render(WorldRenderContext context) {
@@ -78,6 +178,7 @@ public final class NovaEffectsRenderer {
 		List<Ribbon> core = new ArrayList<>();
 		List<Quad> soft = new ArrayList<>();
 		List<Quad> hot = new ArrayList<>();
+		List<Bubble> bubbles = new ArrayList<>();
 		for (Player player : level.players()) {
 			NovaState s = player.getAttachedOrElse(ModAttachments.NOVA_STATE, null);
 			if (s == null || !s.hasPower || !s.suited) {
@@ -88,15 +189,14 @@ public final class NovaEffectsRenderer {
 				beam(mc, level, player, partial, time, self, glow, core);
 			}
 			if (s.shieldUntil > now) {
-				float left = (s.shieldUntil - now - partial) / 20f;
-				float flicker = left < 1f ? (Mth.sin(time * 2.2f) > 0 ? 1f : 0.35f) : 1f;
-				Vec3 c = player.getPosition(partial).add(0, player.getBbHeight() * 0.5, 0);
-				float a = (self ? 0.05f : 0.12f) * flicker;
-				sphere(soft, c, NovaConfig.SHIELD_RADIUS, 14, 20, GOLD, a);
-				for (int i = 0; i < 3; i++) {
-					double tilt = time * 0.05 + i * Math.PI / 3;
-					ring(core, c, NovaConfig.SHIELD_RADIUS * 1.01, tilt, i * 1.1, 28, 0.025f, GOLD_HOT, (self ? 0.25f : 0.55f) * flicker);
-				}
+				// v0.15.15: the held Force Field -- the shared ForceBubble, drawn after this batch; it flickers when the
+				// Nova Force is about to run dry (under one second of upkeep left)
+				boolean low = s.overloadUntil <= now && s.force < NovaConfig.SHIELD_COST_PER_SECOND;
+				float flicker = low ? (Mth.sin(time * 2.2f) > 0 ? 1f : 0.35f) : 1f;
+				bubbles.add(new Bubble(player.getPosition(partial).add(0, player.getBbHeight() * 0.5, 0), flicker, self));
+			}
+			if (s.flying) {
+				trail(player, partial, time, glow, core);
 			}
 			if (s.overloadUntil > now && !self) {
 				// NOVA OVERLOAD: a pulsing golden corona round the body
@@ -121,6 +221,9 @@ public final class NovaEffectsRenderer {
 				}
 				sphere(hot, c, 3.0 - 1.6 * t, 12, 16, GOLD, 0.06f); // additive: the rings inside must still show
 			}
+		}
+		for (Bubble b : bubbles) {
+			ForceBubbleRenderer.draw(poseStack, consumers, cam, b.center(), ForceBubble.Style.NOVA, time, b.alpha(), b.self());
 		}
 		if (glow.isEmpty() && core.isEmpty() && soft.isEmpty() && hot.isEmpty()) {
 			return;

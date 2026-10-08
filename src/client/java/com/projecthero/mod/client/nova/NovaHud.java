@@ -19,8 +19,10 @@ import org.lwjgl.glfw.GLFW;
 /**
  * v0.15.13: the Nova HUD (bottom-right):
  * <pre>
- *   NOVA                       the name (OVERLOAD + seconds left while it runs)
- *   [ Nova Force: 80 / 100 ]   a Slab bar (9 px, 1 px border, the numbers inside)
+ *   NOVA                       the name
+ *   [ Nova Force: 80 / 100 ]   a Slab bar (9 px, 1 px border, the numbers inside); v0.15.15: full and pulsing with
+ *                              "OVERLOAD: infinite" + seconds while it runs, dimmed with a draining red line and
+ *                              "slow Ns" for the 60 s of half-speed refill after it
  *   [R] [G] [Z] [X] [C] [V]    the six keys
  * </pre>
  * Each box shows its tap move's cooldown -- or, while Shift is held, its Shift move's (a gold dot marks the Shift set) --
@@ -36,6 +38,8 @@ public final class NovaHud {
 
 	private static final int GOLD = 0xFFFFC83C;
 	private static final int GOLD_DARK = 0xFF8A6418;
+	/** The bar while it refills at half speed after an Overload. */
+	private static final int GOLD_DIM = 0xFF8C7232;
 	private static final int CYAN = 0xFF8BF8FF;
 	private static final int BOX_BG = 0xC0101418;
 	private static final int BOX_BG_SHIFT = 0xC0201808;
@@ -78,22 +82,31 @@ public final class NovaHud {
 
 		// ---- the Slab bar
 		int sy = y0 - 3 - SLAB_H;
-		float ratio = Math.max(0f, Math.min(1f, s.force / NovaConfig.FORCE_MAX));
+		// v0.15.15: infinite (a full, pulsing bar) while the Overload runs; dimmed while it refills at half speed after one
+		float ratio = overload ? 1f : Math.max(0f, Math.min(1f, s.force / NovaConfig.FORCE_MAX));
+		int slow = Nova.slowRegenRemaining(mc.player);
 		g.fill(x0, sy, x0 + totalW, sy + SLAB_H, GOLD_DARK);
 		g.fill(x0 + 1, sy + 1, x0 + totalW - 1, sy + SLAB_H - 1, 0xE0141008);
 		int fillW = Math.round((totalW - 2) * ratio);
-		int fill = overload ? pulse(now, mc) : GOLD;
+		int fill = overload ? pulse(now, mc) : slow > 0 ? GOLD_DIM : GOLD;
 		if (fillW > 0) {
 			g.fill(x0 + 1, sy + 1, x0 + 1 + fillW, sy + SLAB_H - 1, fill);
-			g.fill(x0 + 1, sy + 1, x0 + 1 + fillW, sy + 2, 0x60FFFFFF); // a highlight along the top
+			g.fill(x0 + 1, sy + 1, x0 + 1 + fillW, sy + 2, slow > 0 ? 0x30FFFFFF : 0x60FFFFFF); // a highlight along the top
+		}
+		if (slow > 0) {
+			// the half-speed refill drains away along the bottom edge
+			int left = Math.round((totalW - 2) * slow / (float) NovaConfig.OVERLOAD_SLOW_REGEN_TICKS);
+			g.fill(x0 + 1, sy + SLAB_H - 2, x0 + 1 + left, sy + SLAB_H - 1, 0xFFB04A2A);
 		}
 		if (s.force >= NovaConfig.FORCE_MAX - 0.01f && !overload) {
 			g.renderOutline(x0, sy, totalW, SLAB_H, CYAN); // full: the Overload is ready
 		}
 		Component text = overload
 				? Component.translatable("hud.projecthero.nova.overload", (s.overloadUntil - now + 19) / 20)
-				: Component.translatable("hud.projecthero.nova.force", (int) Math.floor(s.force), (int) NovaConfig.FORCE_MAX);
-		float scale = 0.75f;
+				: slow > 0
+						? Component.translatable("hud.projecthero.nova.force_slow", (int) Math.floor(s.force), (int) NovaConfig.FORCE_MAX, (slow + 19) / 20)
+						: Component.translatable("hud.projecthero.nova.force", (int) Math.floor(s.force), (int) NovaConfig.FORCE_MAX);
+		float scale = Math.min(0.75f, (totalW - 4) / (float) Math.max(1, mc.font.width(text))); // always inside the bar
 		int tw = Math.round(mc.font.width(text) * scale);
 		g.pose().pushPose();
 		g.pose().translate(x0 + (totalW - tw) / 2f, sy + 2f, 0);
@@ -143,7 +156,7 @@ public final class NovaHud {
 				int h = (int) ((BOX - 2) * Math.min(1f, cd / (float) max));
 				g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, 0xB0000000);
 				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2 + 2, y0 + 10, 0xFFFFFFFF);
-			} else if (!overload && s.force + 1.0e-3f < NovaAbilityManager.cost(main) * (main.equals(com.projecthero.mod.nova.NovaAbilities.BLAST) ? 0.5f : 1f)) {
+			} else if (!overload && s.force + 1.0e-3f < NovaAbilityManager.minForce(main)) {
 				g.fill(x + 1, y0 + BOX - 3, x + BOX - 1, y0 + BOX - 1, 0xFF7A2A2A); // not enough Nova Force
 			}
 			int ocd = Nova.cooldownRemaining(mc.player, other);

@@ -13,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.nova.data.NovaState;
 import com.projecthero.mod.nova.network.NovaScanPayload;
+import com.projecthero.mod.shield.ForceBubble;
 
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
@@ -31,7 +32,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.state.BlockState;
@@ -49,7 +49,7 @@ import net.minecraft.world.phys.Vec3;
  * <pre>
  *   R (1)  Nova Blast (hold)       Shift+R  Nova Bolt Volley
  *   G (2)  Gravimetric Pulse       Shift+G  Gravity Slam
- *   Z (4)  Force Shield            Shift+Z  NOVA OVERLOAD (ultimate)
+ *   Z (4)  Force Field (hold)      Shift+Z  NOVA OVERLOAD (ultimate)
  *   X (3)  Comet Dash              Shift+X  Orbital Launch
  *   C (6)  Gravity Well            Shift+C  Gravity Lock
  *   V (5)  Worldmind Scan          Shift+V  Nova Force Transfer
@@ -135,6 +135,8 @@ public final class NovaAbilities {
 	}
 
 	private static final Map<UUID, Long> BLASTS = new ConcurrentHashMap<>();
+	/** When each held Force Field went up (its upkeep clock). */
+	private static final Map<UUID, Long> SHIELD_START = new ConcurrentHashMap<>();
 	private static final Map<UUID, List<Bolt>> BOLTS = new ConcurrentHashMap<>();
 	private static final Map<UUID, Slam> SLAMS = new ConcurrentHashMap<>();
 	private static final Map<UUID, Dash> DASHES = new ConcurrentHashMap<>();
@@ -152,6 +154,7 @@ public final class NovaAbilities {
 
 	static void clearSessionState() {
 		BLASTS.clear();
+		SHIELD_START.clear();
 		BOLTS.clear();
 		SLAMS.clear();
 		DASHES.clear();
@@ -166,6 +169,7 @@ public final class NovaAbilities {
 	public static void clear(ServerPlayer p) {
 		UUID id = p.getUUID();
 		BLASTS.remove(id);
+		SHIELD_START.remove(id);
 		BOLTS.remove(id);
 		SLAMS.remove(id);
 		DASHES.remove(id);
@@ -189,6 +193,7 @@ public final class NovaAbilities {
 		UUID u = p.getUUID();
 		return switch (id) {
 			case BLAST -> BLASTS.containsKey(u);
+			case SHIELD -> Nova.shieldUp(p);
 			case VOLLEY -> BOLTS.containsKey(u) && !BOLTS.get(u).isEmpty();
 			case SLAM -> SLAMS.containsKey(u);
 			case DASH -> DASHES.containsKey(u);
@@ -332,7 +337,8 @@ public final class NovaAbilities {
 
 	private static void tickBlast(ServerPlayer p, long start, long now) {
 		long age = now - start;
-		if (age >= NovaConfig.BLAST_MAX_TICKS || !Nova.suited(p) || !p.isAlive()) {
+		// v0.15.15: no time limit -- it fires while R is held until the Nova Force runs out
+		if (!Nova.suited(p) || !p.isAlive()) {
 			stopBlast(p);
 			return;
 		}
@@ -346,8 +352,7 @@ public final class NovaAbilities {
 		LivingEntity[] hit = new LivingEntity[1];
 		Vec3 end = blastEnd(p, hit);
 		if (age > 0 && age % NovaConfig.BLAST_HIT_INTERVAL == 0 && hit[0] != null) {
-			float perHit = NovaConfig.BLAST_DAMAGE_PER_SECOND * NovaConfig.BLAST_HIT_INTERVAL / 20f;
-			NovaCombat.strike(p, hit[0], p.getEyePosition(), perHit, 0.15, 0.0);
+			NovaCombat.strike(p, hit[0], p.getEyePosition(), NovaConfig.BLAST_DAMAGE_PER_HIT, 0.15, 0.0);
 		}
 		if (age % 2 == 0) {
 			level.sendParticles(Nova.GOLD_BIG, end.x, end.y, end.z, 3, 0.15, 0.15, 0.15, 0.0);
@@ -552,46 +557,55 @@ public final class NovaAbilities {
 		level.sendParticles(ParticleTypes.END_ROD, p.getX(), p.getY() + 2.0, p.getZ(), 2, 0.2, 0.4, 0.2, 0.0);
 	}
 
-	// ================================================================ Z: Force Shield
+	// ================================================================ Z: Force Field (held)
 
-	public static void shield(ServerPlayer p) {
-		if (!begin(p, SHIELD, NovaConfig.SHIELD_COST)) {
+	/**
+	 * Z pressed: the {@link ForceBubble} goes up and stays up while Z is held ({@link NovaState#shieldUntil} =
+	 * {@link Long#MAX_VALUE}), draining {@link NovaConfig#SHIELD_COST_PER_SECOND} a second (free during the Overload).
+	 */
+	public static void startShield(ServerPlayer p) {
+		if (Nova.shieldUp(p) || !Nova.canAct(p)) {
 			return;
 		}
-		cooldown(p, SHIELD, NovaConfig.SHIELD_COOLDOWN);
+		if (!Nova.overloaded(p) && Nova.force(p) + 1.0e-3f < NovaConfig.SHIELD_MIN_FORCE) {
+			Nova.say(p, "message.projecthero.nova.low_force", ChatFormatting.YELLOW, (int) Math.ceil(NovaConfig.SHIELD_MIN_FORCE),
+					(int) Math.floor(Nova.force(p)));
+			return;
+		}
+		if (!begin(p, SHIELD, 0f)) {
+			return;
+		}
 		NovaState n = Nova.state(p).copy();
-		n.shieldUntil = p.level().getGameTime() + NovaConfig.SHIELD_TICKS;
+		n.shieldUntil = Long.MAX_VALUE;
 		Nova.save(p, n);
-		ServerLevel level = level(p);
-		level.sendParticles(Nova.GOLD_BIG, p.getX(), p.getY() + 1.0, p.getZ(), 40, 1.0, 1.0, 1.0, 0.0);
-		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0f, 1.8f);
-		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.2f, 1.2f);
+		SHIELD_START.put(p.getUUID(), p.level().getGameTime());
+		ForceBubble.raise(p, ForceBubble.Style.NOVA);
 	}
 
-	/** While the shield is up: every projectile that comes within the bubble is absorbed. */
-	private static void tickShield(ServerPlayer p) {
-		ServerLevel level = level(p);
-		Vec3 c = p.position().add(0, p.getBbHeight() * 0.5, 0);
-		double r = NovaConfig.SHIELD_RADIUS + 0.6;
-		for (Projectile proj : level.getEntitiesOfClass(Projectile.class, new AABB(c, c).inflate(r))) {
-			if (proj.getOwner() == p || proj.position().distanceToSqr(c) > r * r) {
-				continue;
-			}
-			Vec3 at = proj.position();
-			level.sendParticles(Nova.GOLD_BIG, at.x, at.y, at.z, 6, 0.1, 0.1, 0.1, 0.0);
-			level.sendParticles(ParticleTypes.FLASH, at.x, at.y, at.z, 1, 0.0, 0.0, 0.0, 0.0);
-			level.playSound(null, at.x, at.y, at.z, SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 0.8f, 1.6f);
-			proj.discard();
+	/** Z let go (or the Nova Force ran out): the bubble drops, then a short cooldown. */
+	public static void stopShield(ServerPlayer p) {
+		SHIELD_START.remove(p.getUUID());
+		NovaState s = Nova.state(p);
+		if (s.shieldUntil == 0L) {
+			return;
 		}
-		if (p.tickCount % 4 == 0) {
-			for (int i = 0; i < 6; i++) {
-				double a = p.getRandom().nextDouble() * Math.PI * 2;
-				double b = Math.acos(2 * p.getRandom().nextDouble() - 1);
-				double rr = NovaConfig.SHIELD_RADIUS;
-				level.sendParticles(Nova.GOLD, c.x + rr * Math.sin(b) * Math.cos(a), c.y + rr * Math.cos(b), c.z + rr * Math.sin(b) * Math.sin(a),
-						1, 0.0, 0.0, 0.0, 0.0);
-			}
+		NovaState n = s.copy();
+		n.shieldUntil = 0L;
+		Nova.save(p, n);
+		cooldown(p, SHIELD, NovaConfig.SHIELD_COOLDOWN);
+		ForceBubble.drop(p, ForceBubble.Style.NOVA);
+	}
+
+	/** While the bubble is up: the upkeep (paid 2 every 5 ticks) and the {@link ForceBubble} itself. */
+	private static void tickShield(ServerPlayer p, long now) {
+		long start = SHIELD_START.computeIfAbsent(p.getUUID(), k -> now);
+		long age = now - start;
+		if (age > 0 && age % 5 == 0 && !Nova.spendForce(p, NovaConfig.SHIELD_COST_PER_SECOND / 4f)) {
+			Nova.say(p, "message.projecthero.nova.shield_empty", ChatFormatting.YELLOW);
+			stopShield(p);
+			return;
 		}
+		ForceBubble.tick(p, ForceBubble.Style.NOVA);
 	}
 
 	// ================================================================ Shift+Z: NOVA OVERLOAD (ultimate)
@@ -612,7 +626,8 @@ public final class NovaAbilities {
 		}
 		long now = p.level().getGameTime();
 		NovaState n = Nova.state(p).copy();
-		n.force = 0f; // it takes all of it
+		n.force = 0f; // it takes all of it -- and the bar is infinite until it ends
+		n.slowRegenUntil = 0L;
 		n.abilityReadyAt.put(OVERLOAD, now + NovaConfig.OVERLOAD_COOLDOWN);
 		n.overloadUntil = now + NovaConfig.OVERLOAD_TICKS;
 		n.animId = NovaState.ANIM_OVERLOAD;
@@ -643,17 +658,20 @@ public final class NovaAbilities {
 		}
 		OVERLOADING.remove(p.getUUID());
 		if (!s.suited) {
-			return; // taken off mid-Overload: no burst
+			return; // taken off mid-Overload: no burst (Nova.suitDown applied the empty bar / slow refill)
 		}
 		overloadBurst(p);
 	}
 
-	/** The end of the Overload: a 30-damage nova burst all around. */
+	/** The end of the Overload: a 30-damage nova burst all around; the bar empties and refills slowly for 60 s. */
 	static void overloadBurst(ServerPlayer p) {
 		ServerLevel level = level(p);
 		Vec3 c = p.position().add(0, 1.0, 0);
 		NovaState n = Nova.state(p).copy();
 		n.overloadUntil = 0L;
+		// v0.15.15: the bar is left empty and refills at half speed for the next 60 s
+		n.force = 0f;
+		n.slowRegenUntil = p.level().getGameTime() + NovaConfig.OVERLOAD_SLOW_REGEN_TICKS;
 		n.animId = NovaState.ANIM_BURST;
 		n.animStart = p.level().getGameTime();
 		Nova.save(p, n);
@@ -1115,22 +1133,38 @@ public final class NovaAbilities {
 		SUIT_FX.put(p.getUUID(), p.level().getGameTime());
 	}
 
-	/** Golden energy spirals up the body while the uniform forms (the client draws the texel wrap itself). */
+	/**
+	 * v0.15.15: the server half of the suit-up (the client draws the helmet in the hands and the texel reveal itself):
+	 * a golden glimmer round the raised helmet, a flash and chime as it settles on the head, then a light double helix of
+	 * gold running down the body from the neck as the rest of the uniform materialises.
+	 */
 	private static void tickSuitFx(ServerPlayer p, long start, long now) {
 		long age = now - start;
+		ServerLevel level = level(p);
 		if (age > NovaConfig.SUIT_UP_TICKS) {
 			SUIT_FX.remove(p.getUUID());
-			ServerLevel level = level(p);
 			level.sendParticles(Nova.CYAN, p.getX(), p.getY() + 1.4, p.getZ(), 10, 0.25, 0.25, 0.25, 0.0);
 			level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.5f, 2.0f);
 			return;
 		}
-		ServerLevel level = level(p);
-		double h = (age / (double) NovaConfig.SUIT_UP_TICKS) * 2.0;
-		// a light double helix of gold rising with the wrap -- sparse, so the suit forming stays visible
+		if (age < NovaConfig.SUIT_HELMET_ON_TICK) {
+			if (age % 3 == 0) {
+				double y = age < NovaConfig.SUIT_HELMET_RAISE_TICKS ? 1.2 + 1.2 * age / (double) NovaConfig.SUIT_HELMET_RAISE_TICKS
+						: 2.4 - 0.75 * (age - NovaConfig.SUIT_HELMET_RAISE_TICKS) / (double) (NovaConfig.SUIT_HELMET_ON_TICK - NovaConfig.SUIT_HELMET_RAISE_TICKS);
+				level.sendParticles(Nova.GOLD, p.getX(), p.getY() + y, p.getZ(), 2, 0.25, 0.15, 0.25, 0.0);
+			}
+			return;
+		}
+		if (age == NovaConfig.SUIT_HELMET_ON_TICK) {
+			level.sendParticles(Nova.GOLD_BIG, p.getX(), p.getY() + 1.6, p.getZ(), 12, 0.25, 0.2, 0.25, 0.0);
+			level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 1.0f, 1.2f);
+			level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.8f, 1.7f);
+		}
+		double t = (age - NovaConfig.SUIT_HELMET_ON_TICK) / (double) (NovaConfig.SUIT_UP_TICKS - NovaConfig.SUIT_HELMET_ON_TICK);
+		double h = 1.5 * (1.0 - t); // from the neck down to the feet
 		for (int i = 0; i < 2; i++) {
 			double a = age * 0.9 + i * Math.PI;
-			level.sendParticles(Nova.GOLD, p.getX() + Math.cos(a) * 0.7, p.getY() + h, p.getZ() + Math.sin(a) * 0.7, 1, 0.0, 0.0, 0.0, 0.0);
+			level.sendParticles(Nova.GOLD, p.getX() + Math.cos(a) * 0.6, p.getY() + h, p.getZ() + Math.sin(a) * 0.6, 1, 0.0, 0.0, 0.0, 0.0);
 		}
 		if (age % 6 == 0) {
 			level.sendParticles(ParticleTypes.END_ROD, p.getX(), p.getY() + h, p.getZ(), 2, 0.3, 0.05, 0.3, 0.02);
@@ -1171,7 +1205,7 @@ public final class NovaAbilities {
 			tickSlam(p, slam, now);
 		}
 		if (Nova.state(p).shieldUntil > now) {
-			tickShield(p);
+			tickShield(p, now);
 		}
 		if (OVERLOADING.contains(id)) {
 			tickOverload(p, now);

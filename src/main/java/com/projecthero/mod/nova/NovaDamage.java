@@ -1,27 +1,22 @@
 package com.projecthero.mod.nova;
 
-import com.projecthero.mod.hero.power.AbilityHelpers;
+import com.projecthero.mod.shield.ForceBubble;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.projectile.Projectile;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * What hurts Nova and what his Worldmind mark does (v0.15.13).
  *
  * <ul>
- *   <li>While suited: no fall damage (nor flying into a wall); while the Force Shield is up, every projectile and every
- *       melee blow is absorbed outright (the attacker is pushed back); everything else is cut by
+ *   <li>While suited: no fall damage (nor flying into a wall); while the Force Field is held up, every projectile and
+ *       every melee blow is absorbed outright by the {@link ForceBubble} (the attacker is pushed back); everything else is cut by
  *       {@link NovaConfig#DAMAGE_REDUCTION} (60%). {@code /kill} and the void always go through.</li>
  *   <li>The creature the Worldmind Scan marked takes +25% from every source while the mark lasts.</li>
  *   <li>A creature carried up by Orbital Launch or held in a Gravity Lock does not suffocate in the blocks it is dragged
@@ -65,8 +60,8 @@ public final class NovaDamage {
 			player.resetFallDistance();
 			return false;
 		}
-		if (Nova.shieldUp(player) && (isProjectile(source) || isMelee(source))) {
-			absorb(player, source);
+		if (Nova.shieldUp(player) && ForceBubble.blocks(source)) {
+			ForceBubble.absorb(player, source, ForceBubble.Style.NOVA, NovaCombat::isBoss);
 			return false;
 		}
 		float reduced = amount * Nova.damageTakenFactor(player);
@@ -83,32 +78,6 @@ public final class NovaDamage {
 			entity.hurt(source, amount);
 		} finally {
 			REENTRANT.set(false);
-		}
-	}
-
-	private static boolean isProjectile(DamageSource source) {
-		return source.is(DamageTypeTags.IS_PROJECTILE) || source.getDirectEntity() instanceof Projectile;
-	}
-
-	/** A blow struck in person: the attacker is the thing that hit (not an arrow, not an explosion, not magic). */
-	private static boolean isMelee(DamageSource source) {
-		return source.getEntity() instanceof LivingEntity && source.getDirectEntity() == source.getEntity()
-				&& !source.is(DamageTypeTags.IS_EXPLOSION) && !source.is(DamageTypeTags.IS_FIRE)
-				&& !source.is(DamageTypes.MAGIC) && !source.is(DamageTypes.INDIRECT_MAGIC);
-	}
-
-	private static void absorb(ServerPlayer player, DamageSource source) {
-		ServerLevel level = (ServerLevel) player.level();
-		Vec3 c = player.position().add(0, 1.0, 0);
-		if (source.getDirectEntity() != null) {
-			Vec3 from = source.getDirectEntity().position().add(0, source.getDirectEntity().getBbHeight() * 0.5, 0);
-			Vec3 at = c.add(from.subtract(c).normalize().scale(NovaConfig.SHIELD_RADIUS));
-			level.sendParticles(Nova.GOLD_BIG, at.x, at.y, at.z, 10, 0.15, 0.15, 0.15, 0.0);
-			level.sendParticles(ParticleTypes.FLASH, at.x, at.y, at.z, 1, 0.0, 0.0, 0.0, 0.0);
-		}
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.0f, 1.4f);
-		if (isMelee(source) && source.getEntity() instanceof LivingEntity attacker && !NovaCombat.isBoss(attacker)) {
-			AbilityHelpers.knockbackFrom(attacker, player.position(), 0.9);
 		}
 	}
 

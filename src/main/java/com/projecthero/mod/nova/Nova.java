@@ -38,13 +38,15 @@ import org.joml.Vector3f;
  * passives (60% damage reduction, no fall damage, the Worldmind's 32-block mob outline), the flight and the six keys work.
  *
  * <h2>The Nova Force</h2>
- * 0..100, refilling 4 a second all the time; every move spends some of it, fast flight drains 2 a second, and the
- * Overload needs all of it.
+ * 0..100, refilling 3 a second (half that while flying); every move spends some of it, fast flight drains 2 a second,
+ * and the Overload needs all of it. v0.15.15: the bar is infinite while the Overload runs; when it ends the bar is empty
+ * and refills at half speed for 60 s (stacking with the flying slowdown).
  */
 public final class Nova {
 	public static final String KEY = "nova";
 
 	private static final ResourceLocation SAFE_FALL_ID = PowerToggles.id("nova_safe_fall");
+	private static final ResourceLocation MELEE_ID = PowerToggles.id("nova_melee");
 
 	/** Nova gold (255, 205, 60) and the Worldmind cyan (139, 248, 255). */
 	public static final DustParticleOptions GOLD = new DustParticleOptions(new Vector3f(1.0f, 0.80f, 0.24f), 1.3f);
@@ -121,6 +123,28 @@ public final class Nova {
 		return s == null ? 0f : s.force;
 	}
 
+	/** v0.15.15: ticks left of the post-Overload half-speed refill (0 when none). Client-safe. */
+	public static int slowRegenRemaining(Player player) {
+		NovaState s = peek(player);
+		return s == null ? 0 : (int) Math.max(0L, Math.min(NovaConfig.OVERLOAD_SLOW_REGEN_TICKS, s.slowRegenUntil - player.level().getGameTime()));
+	}
+
+	/** v0.15.15: Nova Force refilled a second right now (3, halved while flying, halved again after an Overload). */
+	public static float regenPerSecond(Player player) {
+		NovaState s = peek(player);
+		if (s == null || !s.hasPower) {
+			return 0f;
+		}
+		float r = NovaConfig.FORCE_REGEN_PER_SECOND;
+		if (s.flying && s.suited) {
+			r *= NovaConfig.FLYING_REGEN_MULTIPLIER;
+		}
+		if (slowRegenRemaining(player) > 0) {
+			r *= NovaConfig.OVERLOAD_AFTER_REGEN_MULTIPLIER;
+		}
+		return r;
+	}
+
 	public static int cooldownRemaining(Player player, String abilityId) {
 		NovaState s = peek(player);
 		if (s == null) {
@@ -130,7 +154,7 @@ public final class Nova {
 		return ready == null ? 0 : (int) Math.max(0L, ready - player.level().getGameTime());
 	}
 
-	/** +50% while the Overload runs. */
+	/** v0.15.15: double damage while the Overload runs. */
 	public static float damageMultiplier(Player player) {
 		return overloaded(player) ? NovaConfig.OVERLOAD_DAMAGE_MULTIPLIER : 1.0f;
 	}
@@ -147,7 +171,7 @@ public final class Nova {
 
 	// ---------------------------------------------------------------- the Nova Force
 
-	/** Spends {@code cost} Nova Force if he has it (free while the Overload runs). */
+	/** Spends {@code cost} Nova Force if he has it (free while the Overload runs: the bar is infinite then). */
 	public static boolean spendForce(ServerPlayer player, float cost) {
 		if (cost <= 0f || overloaded(player)) {
 			return true;
@@ -261,9 +285,15 @@ public final class Nova {
 		if (!s.suited) {
 			return;
 		}
+		boolean wasOverloaded = overloaded(player);
 		NovaFlight.stop(player, false);
 		NovaAbilities.clear(player);
 		NovaState n = state(player).copy();
+		if (wasOverloaded) {
+			// taken off mid-Overload: no burst, but the bar still empties and refills slowly
+			n.force = 0f;
+			n.slowRegenUntil = player.level().getGameTime() + NovaConfig.OVERLOAD_SLOW_REGEN_TICKS;
+		}
 		n.suited = false;
 		n.suitChangeAt = player.level().getGameTime();
 		n.blasting = false;
@@ -287,8 +317,11 @@ public final class Nova {
 	public static void reconcile(ServerPlayer player) {
 		if (suited(player)) {
 			PowerToggles.modifier(player, Attributes.SAFE_FALL_DISTANCE, SAFE_FALL_ID, 1000.0, AttributeModifier.Operation.ADD_VALUE);
+			// v0.15.15: +8 melee while suited
+			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID, NovaConfig.MELEE_BONUS, AttributeModifier.Operation.ADD_VALUE);
 		} else {
 			PowerToggles.clearModifier(player, Attributes.SAFE_FALL_DISTANCE, SAFE_FALL_ID);
+			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID);
 		}
 	}
 
@@ -333,9 +366,15 @@ public final class Nova {
 		NovaAbilities.tick(player);
 	}
 
-	/** Every 5 ticks: a quarter-second of refill minus a quarter-second of fast-flight drain. */
+	/**
+	 * Every 5 ticks: a quarter-second of refill (halved while flying, halved again for 60 s after an Overload) minus a
+	 * quarter-second of fast-flight drain. Nothing moves while the Overload runs (the bar is infinite then).
+	 */
 	private static void tickForce(ServerPlayer player, NovaState s) {
-		float gain = NovaConfig.FORCE_REGEN_PER_SECOND / 4f;
+		if (s.suited && s.overloadUntil > player.level().getGameTime()) {
+			return;
+		}
+		float gain = regenPerSecond(player) / 4f;
 		if (s.flying && NovaFlight.flyingFast(player)) {
 			gain -= NovaConfig.FAST_FLIGHT_DRAIN_PER_SECOND / 4f;
 		}
@@ -366,6 +405,9 @@ public final class Nova {
 		n.wellUntil = 0L;
 		n.wellPos = java.util.List.of();
 		n.suitChangeAt = 0L;
+		if (n.slowRegenUntil > now + NovaConfig.OVERLOAD_SLOW_REGEN_TICKS) {
+			n.slowRegenUntil = 0L; // a different world clock
+		}
 		n.force = Float.isNaN(n.force) ? 0f : Math.max(0f, Math.min(NovaConfig.FORCE_MAX, n.force));
 		n.abilityReadyAt.entrySet().removeIf(e -> e.getValue() > now + NovaConfig.OVERLOAD_COOLDOWN + 20L);
 		boolean wasFlying = n.flying && n.suited;
@@ -403,9 +445,11 @@ public final class Nova {
 		NovaAbilities.clear(player);
 		forget(player.getUUID());
 		NovaState s = player.getAttachedOrElse(ModAttachments.NOVA_STATE, null);
-		if (s != null && s.hasPower && (s.blasting || s.slamming || s.animId != NovaState.ANIM_NONE || s.wellUntil != 0L)) {
+		if (s != null && s.hasPower && (s.blasting || s.slamming || s.animId != NovaState.ANIM_NONE || s.wellUntil != 0L
+				|| s.shieldUntil != 0L)) {
 			NovaState n = s.copy();
 			n.blasting = false;
+			n.shieldUntil = 0L;
 			n.slamming = false;
 			n.animId = NovaState.ANIM_NONE;
 			n.wellUntil = 0L;

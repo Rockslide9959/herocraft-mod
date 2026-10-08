@@ -42,7 +42,10 @@ public final class NovaState {
 	public final Map<String, Long> abilityReadyAt;
 	/** The held Nova Blast is firing right now. */
 	public boolean blasting;
-	/** Force Shield up until this game time. */
+	/**
+	 * Force Shield up until this game time. v0.15.15: the shield is held, so while Z is down this is
+	 * {@link Long#MAX_VALUE} and letting go sets it to 0.
+	 */
 	public long shieldUntil;
 	/** NOVA OVERLOAD running until this game time. */
 	public long overloadUntil;
@@ -52,14 +55,16 @@ public final class NovaState {
 	public List<Double> wellPos;
 	/** Diving in a Gravity Slam (pose). */
 	public boolean slamming;
+	/** v0.15.15: after a NOVA OVERLOAD the Nova Force refills at half speed until this game time. */
+	public long slowRegenUntil;
 
 	public NovaState() {
-		this(false, false, 0L, 0f, false, 0, 0L, new HashMap<>(), false, 0L, 0L, 0L, List.of(), false);
+		this(false, false, 0L, 0f, false, 0, 0L, new HashMap<>(), false, 0L, 0L, 0L, List.of(), false, 0L);
 	}
 
 	public NovaState(boolean hasPower, boolean suited, long suitChangeAt, float force, boolean flying, int animId, long animStart,
 			Map<String, Long> abilityReadyAt, boolean blasting, long shieldUntil, long overloadUntil, long wellUntil,
-			List<Double> wellPos, boolean slamming) {
+			List<Double> wellPos, boolean slamming, long slowRegenUntil) {
 		this.hasPower = hasPower;
 		this.suited = suited;
 		this.suitChangeAt = suitChangeAt;
@@ -74,11 +79,12 @@ public final class NovaState {
 		this.wellUntil = wellUntil;
 		this.wellPos = List.copyOf(wellPos);
 		this.slamming = slamming;
+		this.slowRegenUntil = slowRegenUntil;
 	}
 
 	public NovaState copy() {
 		return new NovaState(hasPower, suited, suitChangeAt, force, flying, animId, animStart, abilityReadyAt, blasting,
-				shieldUntil, overloadUntil, wellUntil, wellPos, slamming);
+				shieldUntil, overloadUntil, wellUntil, wellPos, slamming, slowRegenUntil);
 	}
 
 	public static final Codec<NovaState> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -96,6 +102,7 @@ public final class NovaState {
 			Codec.LONG.optionalFieldOf("overload_until", 0L).forGetter(s -> s.overloadUntil),
 			Codec.LONG.optionalFieldOf("well_until", 0L).forGetter(s -> s.wellUntil),
 			Codec.DOUBLE.listOf().optionalFieldOf("well_pos", List.of()).forGetter(s -> s.wellPos),
-			Codec.BOOL.optionalFieldOf("slamming", false).forGetter(s -> s.slamming)
+			Codec.BOOL.optionalFieldOf("slamming", false).forGetter(s -> s.slamming),
+			Codec.LONG.optionalFieldOf("slow_regen_until", 0L).forGetter(s -> s.slowRegenUntil)
 	).apply(i, NovaState::new));
 }
