@@ -77,10 +77,18 @@ public final class GreenLanternShieldRenderer {
 			if (hp <= 0f || dome) {
 				continue;
 			}
-			drawShield(poseStack, buffers, camera, mc, player, partialTick);
+			// v0.15.15: Z is a hard-light bubble round the whole body now (the shared ForceBubble, green) -- the floating
+			// vanilla shield below is no longer drawn. Fainter for the wearer in first person so it never blinds him.
+			boolean self = player == mc.player && mc.options.getCameraType().isFirstPerson();
+			float time = player.tickCount + partialTick;
+			com.projecthero.mod.client.shield.ForceBubbleRenderer.draw(poseStack, buffers, camera.getPosition(),
+					player.getPosition(partialTick).add(0, player.getBbHeight() * 0.5, 0),
+					com.projecthero.mod.shield.ForceBubble.Style.GREEN_LANTERN, time, 1f, self);
 		}
 	}
 
+	/** Pre-v0.15.15 look (a floating green vanilla shield) -- kept for reference, no longer called. */
+	@SuppressWarnings("unused")
 	private static void drawShield(PoseStack poseStack, MultiBufferSource buffers, Camera camera,
 			Minecraft mc, Player player, float partialTick) {
 		Vec3 eye = player.getEyePosition(partialTick);

@@ -169,6 +169,13 @@ public final class GreenLanternConfig {
 	// ---------------- Directional Shield (Z) / Protective Dome (Shift+Z) ----------------
 
 	// v0.11.5: both cut to well under a fifth of their original cost -- "way less" per the user's request.
+	/**
+	 * v0.15.15 (user-confirmed): Z is a held hard-light bubble round the whole body (the shared
+	 * {@code com.projecthero.mod.shield.ForceBubble}, green) that blocks every projectile and blow struck in person while
+	 * Z is held, draining this much Ring Charge a second and dropping when the ring can't pay. Replaces the floating
+	 * directional shield (SHIELD_INITIAL_COST / SHIELD_UPKEEP_PER_SEC / SHIELD_HP / the frontal arc are no longer used).
+	 */
+	public static final float BUBBLE_SHIELD_DRAIN_PER_SEC = 40f;
 	public static final float SHIELD_INITIAL_COST = 45f;
 	public static final float SHIELD_UPKEEP_PER_SEC = 10f;
 	public static final float SHIELD_HP = 140f; // v0.14.3: was 80

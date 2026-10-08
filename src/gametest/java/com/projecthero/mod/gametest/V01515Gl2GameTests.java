@@ -246,4 +246,47 @@ public class V01515Gl2GameTests implements FabricGameTest {
 			helper.succeed();
 		});
 	}
+
+	// ---------------------------------------------------------------- Z: the hard-light bubble (ForceBubble)
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void zHoldsABubbleThatDrainsFortyASecondAndBlocksBlows(GameTestHelper helper) {
+		ServerPlayer player = lantern(helper, 5000f);
+		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_4, true);
+		helper.assertTrue(com.projecthero.mod.greenlantern.GreenLanternShield.isBubble(player), "holding Z raises the bubble");
+		helper.assertTrue(charge(player) == 5000f, "no up-front cost");
+		Husk attacker = husk(helper, player, 0.0, -1.5); // behind: the bubble covers every side
+		try {
+			java.lang.reflect.Field f = ServerPlayer.class.getDeclaredField("spawnInvulnerableTime");
+			f.setAccessible(true);
+			f.setInt(player, 0);
+		} catch (ReflectiveOperationException ignored) {
+		}
+		float hp = player.getHealth();
+		player.invulnerableTime = 0;
+		player.hurt(helper.getLevel().damageSources().mobAttack(attacker), 6f);
+		helper.assertTrue(player.getHealth() == hp, "a blow from behind is stopped by the bubble");
+		for (int i = 0; i < 20; i++) {
+			com.projecthero.mod.greenlantern.GreenLanternShield.tickShieldUpkeep(player);
+		}
+		float drained = 5000f - charge(player);
+		helper.assertTrue(Math.abs(drained - GreenLanternConfig.BUBBLE_SHIELD_DRAIN_PER_SEC) < 0.5f,
+				"a second of bubble costs 40 charge, was " + drained);
+		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_4, false);
+		helper.assertFalse(com.projecthero.mod.greenlantern.GreenLanternShield.isActive(player), "letting go of Z drops it");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theBubbleDropsWhenTheRingRunsDry(GameTestHelper helper) {
+		ServerPlayer player = lantern(helper, GreenLanternConfig.EMERGENCY_RESERVE + 5f);
+		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_4, true);
+		helper.assertTrue(com.projecthero.mod.greenlantern.GreenLanternShield.isBubble(player), "the bubble goes up");
+		for (int i = 0; i < 20; i++) {
+			com.projecthero.mod.greenlantern.GreenLanternShield.tickShieldUpkeep(player);
+		}
+		helper.assertFalse(com.projecthero.mod.greenlantern.GreenLanternShield.isActive(player),
+				"out of charge, the bubble drops even with Z still held");
+		helper.succeed();
+	}
 }

@@ -57,9 +57,15 @@ public final class GreenLanternDamage {
 		if (source.is(DamageTypeTags.BYPASSES_INVULNERABILITY) && !source.is(DamageTypeTags.IS_EXPLOSION)) {
 			return true;
 		}
-		// Directional Shield only covers a 120-degree frontal arc; the Dome covers every direction.
-		if (!GreenLanternShield.isDome(player) && !inFrontalArc(player, source)) {
-			return true;
+		// v0.15.15: Z is the hard-light bubble now -- every projectile and blow struck in person is stopped outright
+		// (no HP), everything else goes through; only the Dome still soaks hits into its HP.
+		if (!GreenLanternShield.isDome(player)) {
+			if (!com.projecthero.mod.shield.ForceBubble.blocks(source)) {
+				return true;
+			}
+			com.projecthero.mod.shield.ForceBubble.absorb(player, source,
+					com.projecthero.mod.shield.ForceBubble.Style.GREEN_LANTERN, com.projecthero.mod.titanshifter.TitanCombat::isBoss);
+			return false;
 		}
 
 		REENTRANT.set(true);

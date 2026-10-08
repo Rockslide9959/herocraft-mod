@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.power.AbilityHelpers;
+import com.projecthero.mod.shield.ForceBubble;
 import com.projecthero.mod.squad.SquadManager;
 
 import net.minecraft.core.particles.DustParticleOptions;
@@ -81,41 +82,51 @@ public final class GreenLanternShield {
 		return player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_METER, 1f);
 	}
 
+	/**
+	 * v0.15.15: Z pressed -- raise the hard-light bubble (the shared {@link ForceBubble} in
+	 * {@link ForceBubble.Style#GREEN_LANTERN}). It stays up while Z is held, draining
+	 * {@link GreenLanternConfig#BUBBLE_SHIELD_DRAIN_PER_SEC}; no up-front cost, no HP, no uptime meter. It is still the
+	 * "barrier" attachment (HP > 0, not a dome) so the HUD and pose code see it like the old shield.
+	 */
 	public static void startShield(ServerPlayer player) {
-		if (isActive(player) || !GreenLantern.abilityReady(player, SHIELD_COOLDOWN)) {
+		if (isActive(player)) {
 			return;
 		}
-		if (meter(player) <= 0f) {
-			GreenLanternEnergy.feedback(player, "message.projecthero.green_lantern.barrier_recharging");
-			return;
-		}
-		if (!GreenLanternEnergy.spend(player, GreenLanternConfig.SHIELD_INITIAL_COST)) {
+		if (!GreenLanternEnergy.canSpend(player, GreenLanternConfig.BUBBLE_SHIELD_DRAIN_PER_SEC / 20f)) {
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
 			return;
 		}
 		GreenLanternBattery.onAbilityUsed(player);
 		player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_HP, GreenLanternConfig.SHIELD_HP);
 		player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, false);
-		player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
-				SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 0.5f, 1.4f);
+		ForceBubble.raise(player, ForceBubble.Style.GREEN_LANTERN);
 	}
 
+	/** Z released: the bubble drops (no cooldown). */
 	public static void stopShield(ServerPlayer player) {
 		if (isActive(player) && !isDome(player)) {
 			endBarrier(player, false);
+			ForceBubble.drop(player, ForceBubble.Style.GREEN_LANTERN);
 		}
 	}
 
-	/** Per-tick upkeep while the Directional Shield is held. */
+	/** Whether the Z bubble (not the dome) is up. */
+	public static boolean isBubble(ServerPlayer player) {
+		return isActive(player) && !isDome(player);
+	}
+
+	/** Per-tick upkeep while the bubble is held: 40 charge/s, projectiles inside it destroyed, drops when charge runs out. */
 	public static void tickShieldUpkeep(ServerPlayer player) {
 		if (!isActive(player) || isDome(player)) {
 			return;
 		}
-		if (!GreenLanternEnergy.drainTick(player, GreenLanternConfig.SHIELD_UPKEEP_PER_SEC / 20f)) {
-			endBarrier(player, true);
+		if (!GreenLanternEnergy.drainTick(player, GreenLanternConfig.BUBBLE_SHIELD_DRAIN_PER_SEC / 20f)) {
+			endBarrier(player, false);
+			ForceBubble.drop(player, ForceBubble.Style.GREEN_LANTERN);
+			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
 			return;
 		}
-		drainMeter(player);
+		ForceBubble.tick(player, ForceBubble.Style.GREEN_LANTERN);
 	}
 
 	// ---------------- Protective Dome (timed) ----------------
