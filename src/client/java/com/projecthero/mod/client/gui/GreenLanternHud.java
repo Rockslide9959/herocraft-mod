@@ -26,7 +26,8 @@ import net.minecraft.world.entity.player.Player;
 
 /**
  * The Green Lantern HUD. v0.14.4: back to the simpler pre-v0.14.3 look the user preferred -- no framed panel, no
- * borders around anything but the key boxes themselves -- keeping what the v0.14.3 kit needs (the H and N keys, the Oath
+ * borders around anything but the key boxes themselves -- keeping what the v0.14.3 kit needs (v0.15.15: the H and N boxes are
+ * gone again -- user rule, no H / N boxes -- and every box got a Shift-move cooldown bar like the Nova HUD's; the Oath
  * timer, Gatling / Missile Barrage / Giant Hand cooldowns and glows, taking the ring off). Bottom-right, stacking upward:
  * <pre>
  *   (Alt held: every key's move names, plain text)
@@ -34,8 +35,9 @@ import net.minecraft.world.entity.player.Player;
  *   SHIELD / DOME / BARRIER + thin bar     while a barrier is up or its meter refills
  *   TAKING OFF THE RING 60% + thin bar     while Sneak + N is held
  *   Buzzsaw                     35 charge  the selected construct
- *   Green Lantern             OATH 18s     title + Oath / Reciting / Flying / Boost
- *   [R][G][X][Z][V][C][H][N]               cooldowns shade the box, lit outline while a move runs
+ *   Green Lantern             OATH 18s     title + Charging / Oath / Reciting / Flying / Boost
+ *   [R][G][X][Z][V][C]                     tap-move cooldown shades the box, lit outline while a move runs,
+ *                                          a small green bar along each box's bottom = its Shift move's cooldown
  *   ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬               Ring Charge, 3 px, no border, the emergency reserve marked
  *   87%
  * </pre>
@@ -46,12 +48,13 @@ public final class GreenLanternHud {
 	public static final ResourceLocation ICONS = ProjectHeroMod.id("textures/gui/green_lantern/constructs.png");
 	public static final int EMBLEM_ICON = 31;
 
-	private static final int BOX = 20;
+	private static final int BOX = 24; // v0.15.15: six bigger keys (was eight at 20) -- room for the Shift bar
 	private static final int GAP = 2;
 	private static final int MARGIN = 4;
 	/** Vertical spacing between stacked label rows above the ability-key boxes. */
 	private static final int LINE = 10;
-	private static final int KEYS = 8;
+	/** v0.15.15: six keys -- the H and N boxes are gone (user rule: no H / N boxes on the HUD). */
+	private static final int KEYS = 6;
 
 	private static final int GREEN = 0xFF35F075;
 	private static final int GREEN_DIM = 0xFF1A7838;
@@ -66,11 +69,20 @@ public final class GreenLanternHud {
 	private static final int KEY = 0xFFCFF8D4;
 	private static final int TRACK = 0xAA0A2412;
 
-	private static final String[] KEY_LABELS = {"R", "G", "X", "Z", "V", "C", "H", "N"};
+	private static final String[] KEY_LABELS = {"R", "G", "X", "Z", "V", "C"};
 	/** Alt names: {@code projecthero.guide.green_lantern.ability.<key>} per box. */
 	private static final String[] KEY_NAMES = {
-			"ring_bolt", "construct_fist", "oath", "shield", "giant_hand", "construct", "suit", "dismiss" // v0.15.15: V = Giant Hand, H = suit
+			"ring_bolt", "construct_fist", "oath", "shield", "giant_hand", "construct" // v0.15.15: V = Giant Hand
 	};
+	/** v0.15.15: the cooldown ids of each key's Shift move, shown as a small green bar along the bottom of its box. */
+	private static final String[][] SHIFT_COOLDOWNS = {
+			{"blast_wave"}, {"war_hammer_slam"}, {"emerald_gatling"}, {"protective_dome"}, {"ring_scan"}, {"missile_barrage"}
+	};
+	/** Shift bar colours: filling while it cools down, bright once ready. */
+	private static final int SHIFT_BAR_COOLING = 0xFF1E8A44;
+	private static final int SHIFT_BAR_READY = 0xFF5CFF8E;
+	/** Longest cooldown seen per id since it last started (the bars' full length -- some moves set different lengths). */
+	private static final java.util.Map<String, Integer> PEAK = new java.util.HashMap<>();
 
 	private GreenLanternHud() {
 	}
@@ -136,7 +148,6 @@ public final class GreenLanternHud {
 				case 2 -> oathActive || oathReciting || fx.has(GreenLanternFx.CH_GATLING);
 				case 3 -> barrierUp;
 				case 4 -> fx.has(GreenLanternFx.CH_HAND); // v0.15.15: Giant Hand moved to V, the suit to H
-				case 6 -> s.suited;
 				default -> false;
 			};
 			boolean flash = fx.anim() != GreenLanternFx.ANIM_NONE && now - fx.animStart() < 6 && animKey(fx.anim()) == i;
@@ -158,6 +169,12 @@ public final class GreenLanternHud {
 					g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
 				}
 			}
+			// v0.15.15: the Shift move's cooldown -- a small green bar along the bottom of the box that refills as it
+			// cools down (like the Nova HUD), bright green once it's ready
+			float ready = shiftReady(player, i);
+			g.fill(x + 1, y0 + BOX - 3, x + BOX - 1, y0 + BOX - 1, 0xC0062010);
+			g.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * ready), y0 + BOX - 1,
+					ready >= 1f ? SHIFT_BAR_READY : SHIFT_BAR_COOLING);
 		}
 
 		// ---- Ring Charge below the keys: a thin 3 px bar, no border, pulsing faster the lower it gets
@@ -186,6 +203,9 @@ public final class GreenLanternHud {
 
 	/** What is running right now, for the right end of the title row (most important first), or null. */
 	private static Component status(Player player, boolean oathActive, boolean oathReciting, long oathUntil, long now) {
+		if (player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_FX, GreenLanternFx.EMPTY).has(GreenLanternFx.CH_CHARGE)) {
+			return Component.translatable("hud.projecthero.green_lantern.tag.charging").withStyle(ChatFormatting.GREEN);
+		}
 		if (oathActive) {
 			return Component.translatable("hud.projecthero.green_lantern.tag.oath", (int) Math.ceil((oathUntil - now) / 20.0))
 					.withStyle(ChatFormatting.GOLD);
@@ -204,7 +224,7 @@ public final class GreenLanternHud {
 	/** Which key box a move animation belongs to (so the box flashes as the move goes off). */
 	private static int animKey(int anim) {
 		return switch (anim) {
-			case GreenLanternFx.ANIM_BOLT -> 0;
+			case GreenLanternFx.ANIM_BOLT, GreenLanternFx.ANIM_BLAST -> 0;
 			case GreenLanternFx.ANIM_FIST, GreenLanternFx.ANIM_HAMMER -> 1;
 			case GreenLanternFx.ANIM_OATH -> 2;
 			case GreenLanternFx.ANIM_DOME -> 3;
@@ -303,17 +323,35 @@ public final class GreenLanternHud {
 		return switch (slot) {
 			case 0 -> Math.max(GreenLantern.cooldownRemaining(player, "ring_bolt"),
 					GreenLantern.cooldownRemaining(player, "continuous_beam"));
-			case 1 -> Math.max(GreenLantern.cooldownRemaining(player, "construct_fist"),
-					GreenLantern.cooldownRemaining(player, "war_hammer_slam"));
-			case 2 -> Math.max(GreenLantern.cooldownRemaining(player, "oath_mode"),
-					GreenLantern.cooldownRemaining(player, "emerald_gatling"));
-			case 3 -> Math.max(GreenLantern.cooldownRemaining(player, "directional_shield"),
-					GreenLantern.cooldownRemaining(player, "protective_dome"));
-			case 4 -> GreenLantern.cooldownRemaining(player, "ring_scan");
-			case 5 -> Math.max(GreenLanternConstructs.cooldownRemainingFor(player, ConstructType.byOrdinal(s.selectedConstruct)),
-					GreenLantern.cooldownRemaining(player, "missile_barrage"));
-			case 6 -> GreenLantern.cooldownRemaining(player, "giant_hand");
+			// v0.15.15: the box shows the tap move; each Shift move has its own bar along the bottom (shiftReady)
+			case 1 -> GreenLantern.cooldownRemaining(player, "construct_fist");
+			case 2 -> GreenLantern.cooldownRemaining(player, "oath_mode");
+			case 3 -> GreenLantern.cooldownRemaining(player, "directional_shield");
+			case 4 -> GreenLantern.cooldownRemaining(player, "giant_hand"); // v0.15.15: V = Giant Hand (its Shift move is the bar)
+			case 5 -> GreenLanternConstructs.cooldownRemainingFor(player, ConstructType.byOrdinal(s.selectedConstruct));
 			default -> 0;
 		};
+	}
+
+	/** v0.15.15: how far key {@code slot}'s Shift move has cooled down, 0..1 (1 = ready). */
+	private static float shiftReady(Player player, int slot) {
+		int cd = 0;
+		String id = null;
+		for (String c : SHIFT_COOLDOWNS[slot]) {
+			int r = GreenLantern.cooldownRemaining(player, c);
+			if (r > cd) {
+				cd = r;
+				id = c;
+			}
+		}
+		if (id == null) {
+			for (String c : SHIFT_COOLDOWNS[slot]) {
+				PEAK.remove(c);
+			}
+			return 1f;
+		}
+		int peak = Math.max(cd, PEAK.getOrDefault(id, 0));
+		PEAK.put(id, peak);
+		return 1f - cd / (float) Math.max(1, peak);
 	}
 }
