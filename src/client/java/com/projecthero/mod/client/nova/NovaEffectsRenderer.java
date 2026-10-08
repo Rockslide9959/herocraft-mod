@@ -74,6 +74,14 @@ public final class NovaEffectsRenderer {
 
 	/** v0.15.15: each flier's feet position at the end of each of the last few client ticks (newest first). */
 	private static final Map<UUID, LightTrail.History> TRAILS = new HashMap<>();
+	/** v0.15.15: each Nova's eased body-glow strength while flying ({value, previous tick's value}). */
+	private static final Map<UUID, float[]> GLOW = new HashMap<>();
+
+	/** 0..1 eased flight body-glow strength (fades in on take-off, out on landing) -- read by {@code NovaSuitLayer}. */
+	public static float glowStrength(Player player, float partial) {
+		float[] g = GLOW.get(player.getUUID());
+		return g == null ? 0f : Mth.lerp(partial, g[1], g[0]);
+	}
 
 	private NovaEffectsRenderer() {
 	}
@@ -93,9 +101,25 @@ public final class NovaEffectsRenderer {
 	private static void tickTrails(ClientLevel level) {
 		if (level == null) {
 			TRAILS.clear();
+			GLOW.clear();
 			return;
 		}
 		long now = level.getGameTime();
+		for (Player player : level.players()) {
+			boolean fly = Nova.isFlying(player);
+			float[] g = GLOW.get(player.getUUID());
+			if (g == null) {
+				if (!fly) {
+					continue;
+				}
+				g = new float[2];
+				GLOW.put(player.getUUID(), g);
+			}
+			g[1] = g[0];
+			g[0] = Mth.approach(g[0], fly ? 1f : 0f, 0.12f);
+		}
+		GLOW.entrySet().removeIf(e -> e.getValue()[0] <= 0f && e.getValue()[1] <= 0f
+				|| level.getPlayerByUUID(e.getKey()) == null);
 		Set<UUID> seen = new HashSet<>();
 		for (Player player : level.players()) {
 			UUID id = player.getUUID();

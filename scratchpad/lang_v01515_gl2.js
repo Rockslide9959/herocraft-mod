@@ -32,7 +32,7 @@ require('./langset.js')([
 	{
 		anchor: 'projecthero.guide.green_lantern.flight.body',
 		entries: {
-			'projecthero.guide.green_lantern.flight.body': 'Double-tap Space while airborne to take off, or land to end it automatically, the same gesture Thor and Iron Man use. Ring Flight is directional: hold forward and you fly exactly where you are looking, climbing or diving with your aim, while strafing, Space (up) and Sneak (down) still work like creative flight, and letting go of everything eases you into a steady hover. A soft green glow surrounds you the whole time you are in the air. Costs a flat 1 charge/sec while flying. Sprint to fly much faster at 40 charge/sec: a streamer of hard light trails out behind you while you do. Ends safely on depletion with a brief controlled descent instead of a plummet.',
+			'projecthero.guide.green_lantern.flight.body': 'Double-tap Space while airborne to take off, or land to end it automatically, the same gesture Thor and Iron Man use. Ring Flight is directional: hold forward and you fly exactly where you are looking, climbing or diving with your aim, while strafing, Space (up) and Sneak (down) still work like creative flight, and letting go of everything eases you into a steady hover. The whole time you are in the air, a faint skin of green light hugs your body, following every move. Costs a flat 1 charge/sec while flying. Sprint to fly much faster at 40 charge/sec: a streamer of hard light trails out behind you from your feet, with two strands of light twisting round it, and the glow gets a little brighter. Ends safely on depletion with a brief controlled descent instead of a plummet.',
 		},
 	},
 	{
@@ -41,6 +41,13 @@ require('./langset.js')([
 			'projecthero.green_lantern.construct.containment_cage.desc': 'Traps what you aim at in a closed box of light sized to fit it, until you let it go (N) or it breaks.',
 			'projecthero.green_lantern.construct.chain_snare.desc': 'Chains of light burst from the ground and pin every hostile within 10 blocks in place until you press N (4 charge a second each).',
 			'projecthero.green_lantern.construct.emerald_warrior.desc': 'A knight of hard light fights at your side until you dismiss it, hunting down whatever threatens you (12 per blow).',
+		},
+	},
+	{
+		// v0.15.15: Nova got Green Lantern's trail and body glow in his colours
+		anchor: 'projecthero.guide.nova.flight.body',
+		entries: {
+			'projecthero.guide.nova.flight.body': 'Double-tap jump in the air while suited. 20 blocks a second, 45 sprinting: look where you want to go, Space and Sneak to rise and sink, let go to hover. While you fly, a faint skin of golden light hugs your uniform, and a streamer of gold light with two cyan strands twisting round it trails from your feet. Both grow brighter when you sprint. Touching the ground lands you.',
 		},
 	},
 	{
