@@ -576,6 +576,9 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.green_lantern.dome_model"); // v0.15.1
 			para(lines, "projecthero.guide.green_lantern.dome_model.body");
 			blank(lines);
+			head(lines, "projecthero.guide.green_lantern.suits"); // v0.15.15: N suit screen
+			para(lines, "projecthero.guide.green_lantern.suits.body");
+			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.controls");
 			// v0.14.3: H (Giant Hand) and N (dismiss / take off the ring) joined the kit
 			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C", "H", "N"}) {

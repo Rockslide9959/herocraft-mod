@@ -1172,4 +1172,94 @@ public class GreenLanternGameTests implements FabricGameTest {
 		seat.discard();
 		helper.succeed();
 	}
+
+	// ---------------- v0.15.15: suit styles (N suit screen) ----------------
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void suitStylePickIsStoredWhileUnsuitedWithoutFormingTheSuit(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		helper.assertTrue(GreenLantern.state(player).suitStyle == 0, "a new Lantern starts in the Default suit");
+		float charge = GreenLantern.state(player).ringCharge;
+		helper.assertTrue(GreenLanternSuit.selectStyle(player, com.projecthero.mod.greenlantern.GreenLanternSuitStyle.CORPS.ordinal()),
+				"picking a different suit should succeed");
+		GreenLanternState s = GreenLantern.state(player);
+		helper.assertTrue(s.suitStyle == com.projecthero.mod.greenlantern.GreenLanternSuitStyle.CORPS.ordinal(), "the pick is stored");
+		helper.assertFalse(s.suited, "picking a suit must not put it on");
+		helper.assertTrue(s.suitAnimDir == GreenLanternState.SUIT_IDLE, "picking a suit while unsuited starts no transition");
+		helper.assertTrue(s.ringCharge == charge, "picking a suit is free");
+		helper.assertFalse(GreenLanternSuit.selectStyle(player, com.projecthero.mod.greenlantern.GreenLanternSuitStyle.CORPS.ordinal()),
+				"picking the suit you already have changes nothing");
+		helper.assertFalse(GreenLanternSuit.selectStyle(player, 99), "an out-of-range style is refused");
+		helper.assertTrue(GreenLantern.state(player).suitStyle == com.projecthero.mod.greenlantern.GreenLanternSuitStyle.CORPS.ordinal(),
+				"a refused pick leaves the stored one alone");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void suitStylePickWhileSuitedReformsTheSuitFromTheRing(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		GreenLanternSuit.toggle(player);
+		GreenLanternState s = GreenLantern.state(player).copy();
+		s.suitAnimStartTick = player.level().getGameTime() - GreenLanternConfig.SUIT_UP_TICKS;
+		GreenLantern.save(player, s);
+		GreenLanternSuit.tick(player);
+		helper.assertTrue(GreenLantern.isSuited(player), "this test needs a settled suit");
+		float charge = GreenLantern.state(player).ringCharge;
+
+		helper.assertTrue(GreenLanternSuit.selectStyle(player, com.projecthero.mod.greenlantern.GreenLanternSuitStyle.STEWART.ordinal()),
+				"picking a different suit while suited should succeed");
+		s = GreenLantern.state(player);
+		helper.assertTrue(s.suitStyle == com.projecthero.mod.greenlantern.GreenLanternSuitStyle.STEWART.ordinal(), "the pick is stored");
+		helper.assertTrue(s.suited, "re-forming keeps the suit (and its protection) on");
+		helper.assertTrue(s.suitAnimDir == GreenLanternState.SUIT_SUITING_UP, "the new suit pours out of the ring again");
+		helper.assertTrue(s.ringCharge == charge, "re-forming is free");
+		helper.assertTrue(player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).getItem()
+				instanceof com.projecthero.mod.greenlantern.item.GreenLanternArmorItem, "the armour stays worn while it re-forms");
+
+		GreenLanternState fast = s.copy();
+		fast.suitAnimStartTick = player.level().getGameTime() - GreenLanternConfig.SUIT_UP_TICKS;
+		GreenLantern.save(player, fast);
+		GreenLanternSuit.tick(player);
+		helper.assertTrue(GreenLantern.isSuited(player) && GreenLantern.state(player).suitAnimDir == GreenLanternState.SUIT_IDLE,
+				"the re-form settles back to a worn suit");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void suitStyleSurvivesTheCodecAndBadOrdinalsFallBackToDefault(GameTestHelper helper) {
+		GreenLanternState s = new GreenLanternState();
+		s.hasPower = true;
+		s.suitStyle = com.projecthero.mod.greenlantern.GreenLanternSuitStyle.CLASSIC.ordinal();
+		var tag = GreenLanternState.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, s).getOrThrow();
+		GreenLanternState back = GreenLanternState.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, tag).getOrThrow();
+		helper.assertTrue(back.suitStyle == s.suitStyle, "suit_style must round-trip through the save codec");
+		// a save from before v0.15.15 has no suit_style field
+		var old = (net.minecraft.nbt.CompoundTag) tag;
+		old.remove("suit_style");
+		helper.assertTrue(GreenLanternState.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, old).getOrThrow().suitStyle == 0,
+				"an old save loads in the Default suit");
+		helper.assertTrue(com.projecthero.mod.greenlantern.GreenLanternSuitStyle.byOrdinal(-1)
+				== com.projecthero.mod.greenlantern.GreenLanternSuitStyle.DEFAULT, "a negative ordinal falls back to Default");
+		helper.assertTrue(com.projecthero.mod.greenlantern.GreenLanternSuitStyle.byOrdinal(42)
+				== com.projecthero.mod.greenlantern.GreenLanternSuitStyle.DEFAULT, "an unknown ordinal falls back to Default");
+		// the N-screen actions line up with the styles, in order
+		for (com.projecthero.mod.greenlantern.GreenLanternSuitStyle style : com.projecthero.mod.greenlantern.GreenLanternSuitStyle.values()) {
+			helper.assertTrue(com.projecthero.mod.network.GreenLanternActionPayload.Action.forSuitStyle(style.ordinal()).suitStyle()
+					== style.ordinal(), "the suit action for " + style.id() + " must map back to it");
+		}
+		helper.assertTrue(com.projecthero.mod.network.GreenLanternActionPayload.Action.CLEAR_CONSTRUCTS.suitStyle() == -1,
+				"other actions pick no suit");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void ringHandSitsOutInFrontOnTheRightSide(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		player.setYBodyRot(0f); // facing south (+Z): the right hand is to the west (-X)
+		net.minecraft.world.phys.Vec3 ring = GreenLanternSuit.ringHand(player);
+		helper.assertTrue(ring.z > player.getZ() + 0.3, "the raised ring is in front of the body");
+		helper.assertTrue(ring.x < player.getX() - 0.1, "the ring is on the right hand");
+		helper.assertTrue(ring.y > player.getY() + 1.1 && ring.y < player.getY() + 1.7, "the ring is raised to about shoulder height");
+		helper.succeed();
+	}
 }

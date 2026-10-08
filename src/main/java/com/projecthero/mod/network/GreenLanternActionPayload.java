@@ -36,6 +36,20 @@ public record GreenLanternActionPayload(Action action) implements CustomPacketPa
 		CLEAR_CONSTRUCTS,
 		/** v0.14.3: Shift + N pressed / N released -- take the ring off after a 5 s hold. */
 		RING_REMOVE_START,
-		RING_REMOVE_STOP
+		RING_REMOVE_STOP,
+		/** v0.15.15: the N suit screen -- one action per {@code GreenLanternSuitStyle}, in its order (append only). */
+		SUIT_STYLE_DEFAULT,
+		SUIT_STYLE_CORPS,
+		SUIT_STYLE_STEWART,
+		SUIT_STYLE_CLASSIC;
+
+		/** The {@code GreenLanternSuitStyle} ordinal this action picks, or -1. */
+		public int suitStyle() {
+			return ordinal() >= SUIT_STYLE_DEFAULT.ordinal() ? ordinal() - SUIT_STYLE_DEFAULT.ordinal() : -1;
+		}
+
+		public static Action forSuitStyle(int style) {
+			return values()[SUIT_STYLE_DEFAULT.ordinal() + style];
+		}
 	}
 }

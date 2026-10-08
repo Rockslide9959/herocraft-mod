@@ -23,7 +23,7 @@ import net.minecraft.world.entity.player.Player;
  *   <li>Held: Continuous Beam (both hands, the free one gripping the wrist), Emerald Gatling (braced, shaking), the
  *   Directional Shield (ring arm braced forward), reciting the Oath (ring fist raised before the face; punched to the
  *   sky when it completes), taking the ring off (hands together, head bowed).</li>
- *   <li>Suit up: ring fist to the chest, then arms out as the light sweeps down.</li>
+ *   <li>Suit up / down (v0.15.15): ring fist raised out in front while the suit pours out of / back into the ring.</li>
  * </ul>
  * Frames are {@code {tick, rArmX, rArmY, rArmZ, lArmX, lArmY, lArmZ, bodyX, bodyY, rLegX, lLegX, headX}} in radians.
  */
@@ -93,13 +93,15 @@ public final class GreenLanternPose {
 			f(3, -1.5f, 0, 0, 0, 0, 0, 0, -0.55f, 0, 0, 0),
 			f(14, -1.5f, 0, 0, 0, 0, 0, 0, 0.55f, 0, 0, 0),
 			rest(20) };
-	/** Suit up, scaled to the suit clock: ring fist to the heart, then arms out as the light sweeps down. */
+	/**
+	 * Suit up / suit down, scaled to the suit clock (v0.15.15): the ring fist raised out in front, held there while the suit
+	 * pours out of the ring (or back into it), the free hand open at the side; lowered as it settles.
+	 */
 	private static final float[][] SUIT = {
 			rest(0),
-			f(6, -1.25f, -0.8f, 0, 0.1f, 0, -0.1f, 0.1f, 0, 0, 0, 0.3f),
-			f(14, -1.3f, -0.85f, 0, 0.1f, 0, -0.1f, 0.12f, 0, 0, 0, 0.32f),
-			f(22, -0.3f, 0, 0.9f, -0.3f, 0, -0.9f, -0.12f, 0, 0.05f, -0.05f, -0.3f),
-			f(28, -0.25f, 0, 0.85f, -0.25f, 0, -0.85f, -0.1f, 0, 0.05f, -0.05f, -0.25f),
+			f(4, -1.75f, -0.35f, 0, 0.1f, 0, -0.2f, 0, 0, 0, 0, -0.1f),
+			f(24, -1.7f, -0.3f, 0, 0.14f, 0, -0.3f, 0, 0, 0.04f, -0.04f, -0.12f),
+			f(28, -0.6f, -0.1f, 0.2f, 0.05f, 0, -0.2f, 0, 0, 0, 0, 0),
 			rest(32) };
 
 	private GreenLanternPose() {
@@ -194,7 +196,7 @@ public final class GreenLanternPose {
 			m.leftArm.xRot = Mth.lerp(0.5f, m.leftArm.xRot, -0.45f);
 			return;
 		}
-		if (s.suitAnimDir == GreenLanternState.SUIT_SUITING_UP) {
+		if (s.suitAnimDir != GreenLanternState.SUIT_IDLE) {
 			float end = SUIT[SUIT.length - 1][0];
 			float tick = (now - s.suitAnimStartTick + partial) * end / Math.max(1, GreenLanternConfig.SUIT_UP_TICKS);
 			blend(m, SUIT, tick, false);

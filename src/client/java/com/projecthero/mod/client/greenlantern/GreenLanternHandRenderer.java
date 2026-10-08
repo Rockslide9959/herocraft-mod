@@ -67,6 +67,11 @@ public final class GreenLanternHandRenderer {
 		bake();
 		int slim = player.getSkin().model() == PlayerSkin.Model.SLIM ? 1 : 0;
 		int suited = player.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof GreenLanternArmorItem ? 1 : 0;
+		// v0.15.15: John Stewart's suit leaves the hands bare, so the ring sits on the skin
+		com.projecthero.mod.greenlantern.data.GreenLanternState st = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_STATE, null);
+		if (st != null && st.suitStyle == com.projecthero.mod.greenlantern.GreenLanternSuitStyle.STEWART.ordinal()) {
+			suited = 0;
+		}
 		pose.pushPose();
 		arm.translateAndRotate(pose);
 		// the suit's gauntlet is always the wide 4 px arm (0.55 px proud of it), even over a slim skin
@@ -124,8 +129,10 @@ public final class GreenLanternHandRenderer {
 		long now = player.level().getGameTime();
 		boolean busy = fx.channels() != 0 || (fx.anim() != 0 && now - fx.animStart() < 12);
 		float breathe = 0.5f + 0.5f * net.minecraft.util.Mth.sin(age * 0.12f);
+		// v0.15.15: the ring blazes while the suit pours out of it (or back into it)
+		float forming = GreenLanternSuitReveal.ringGlow(player, age - (float) Math.floor(age));
 		HandRing.arm(player);
-		HandRing.draw(pose, vc, gap, HandRing.GREEN_LANTERN);
+		HandRing.draw(pose, vc, gap, forming > 0.05f ? BLAZING : HandRing.GREEN_LANTERN);
 		// the halo: breathes softly, flares while the ring is working
 		float[] g = HandRing.gemCentre(gap);
 		float halo = busy ? 1.1f : 0.7f + 0.1f * breathe;
@@ -135,8 +142,25 @@ public final class GreenLanternHandRenderer {
 		HandRing.place(pose, HandRing.GREEN_LANTERN, gap);
 		HandRing.box(vc, pose, g[0], g[1], g[2], halo, halo, halo * 0.6f, 0x35F075, haloAlpha);
 		HandRing.box(vc, pose, g[0], g[1], g[2], halo * 1.35f, halo * 1.35f, halo * 0.8f, 0x35F075, haloAlpha * 0.3f);
+		if (forming > 0f) {
+			// a white-hot core, a big pulsing green glow round the whole fist, and rings of light pulsing out of it
+			float pulse = 0.5f + 0.5f * net.minecraft.util.Mth.sin(age * 1.3f);
+			HandRing.box(vc, pose, g[0], g[1], g[2], 0.45f, 0.45f, 0.35f, 0xF4FFF6, 0.95f * forming);
+			pose.pushPose();
+			pose.translate(g[0], g[1], g[2]);
+			com.projecthero.mod.client.maxsteel.TurboDraw.sphere(vc, pose, 1.0f + 0.15f * pulse, 0x9CFFB8, (0.5f + 0.2f * pulse) * forming);
+			com.projecthero.mod.client.maxsteel.TurboDraw.sphere(vc, pose, 1.9f + 0.3f * pulse, 0x35F075, (0.18f + 0.08f * pulse) * forming);
+			// a ring of light pulsing out of the gem every 8 ticks
+			float wave = (age % 8f) / 8f;
+			com.projecthero.mod.client.maxsteel.TurboDraw.sphere(vc, pose, 1.2f + wave * 2.6f, 0x9CFFB8, 0.18f * (1f - wave) * forming);
+			pose.popPose();
+		}
 		pose.popPose();
 	}
+
+	/** v0.15.15: the ring while it is forming the suit -- band and bezel lit up bright green. */
+	private static final HandRing.Palette BLAZING = new HandRing.Palette(HandRing.GREEN_LANTERN.id(), 0x5CFF8E, 0xE6FFEC, 0x2FD86A,
+			0xFFFFFF, 0xB8FFCC);
 
 	/** v0.14.3: the Emerald Gatling -- a housing round the fist and six spinning barrels running on past the knuckles. */
 	private static void gatling(PoseStack pose, MultiBufferSource buffers, float cx, float age) {

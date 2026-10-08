@@ -29,12 +29,17 @@ import org.joml.Vector3f;
  * be visible the armour pieces are put on at the START of a suit-up (the renderer hides the rows the sweep has not
  * reached yet) instead of popping on at the end; suit-down still takes them off at the end. The particle ring rides
  * the sweep's leading edge. The transition is 1.5s ({@link GreenLanternConfig#SUIT_UP_TICKS}, was 0.8s).
+ *
+ * <p>v0.15.15: the suit no longer sweeps down the body -- it spreads outward from the ring on the right hand (up the
+ * ring arm, then over the body) while the ring blazes, and recedes back into the ring on suit-down. Four suit styles
+ * ({@link GreenLanternSuitStyle}), picked on N ({@link #selectStyle}).
  */
 public final class GreenLanternSuit {
 	/** Lantern-Corps green, matching every other hard-light effect's dust colour in this power. */
 	private static final ParticleOptions SUIT_DUST = new DustParticleOptions(new Vector3f(0.45f, 1.0f, 0.6f), 0.55f);
-	private static final int RING_POINTS = 10;
-	private static final double RING_RADIUS = 0.45;
+	/** v0.15.15: the bright burst at the ring while the suit pours out of it. */
+	private static final ParticleOptions RING_FLARE = new DustParticleOptions(new Vector3f(0.75f, 1.0f, 0.8f), 0.9f);
+	private static final int RING_POINTS = 8;
 
 	private GreenLanternSuit() {
 	}
@@ -67,6 +72,40 @@ public final class GreenLanternSuit {
 		beginTransition(player, GreenLanternState.SUIT_SUITING_UP);
 		// v0.13.21: on now, revealed row by row by the client over the transition (see the class javadoc)
 		GreenLanternSuitArmor.equip(player);
+	}
+
+	/**
+	 * v0.15.15: N suit screen pick. Stored at once (the next suit-up forms it); if the suit is already on and settled, the
+	 * ring re-forms it in the new style straight away -- the suit-up sweep plays again out of the ring hand, free of charge
+	 * (the armour stays on, so nothing about the suit's protection blinks). Returns whether the style changed.
+	 */
+	public static boolean selectStyle(ServerPlayer player, int ordinal) {
+		if (!GreenLanternAbilityManager.hasContext(player) || ordinal < 0 || ordinal >= GreenLanternSuitStyle.values().length) {
+			return false;
+		}
+		GreenLanternState s = GreenLantern.state(player);
+		GreenLanternSuitStyle style = GreenLanternSuitStyle.byOrdinal(ordinal);
+		if (s.suitStyle == ordinal) {
+			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.suit_style_same",
+					Component.translatable(style.nameKey())), true);
+			return false;
+		}
+		GreenLanternState c = s.copy();
+		c.suitStyle = ordinal;
+		boolean reform = c.suited && c.suitAnimDir == GreenLanternState.SUIT_IDLE;
+		if (reform) {
+			c.suitAnimDir = GreenLanternState.SUIT_SUITING_UP;
+			c.suitAnimStartTick = player.level().getGameTime();
+		}
+		GreenLantern.save(player, c);
+		if (reform) {
+			player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_ACTIVATE,
+					SoundSource.PLAYERS, 0.5f, 1.6f);
+		}
+		player.displayClientMessage(Component.translatable(reform
+				? "message.projecthero.green_lantern.suit_style_reform" : "message.projecthero.green_lantern.suit_style_set",
+				Component.translatable(style.nameKey())), true);
+		return true;
 	}
 
 	/**
@@ -133,16 +172,55 @@ public final class GreenLanternSuit {
 	 * feet -> shoulders on suit-down, matching the client-side reveal (it used to climb feet -> head on suit-up).
 	 */
 	private static void emitSuitRing(ServerPlayer player, int dir, long elapsed) {
+		// v0.15.15: the suit pours out of the ring (and back into it) -- the ring flares, and a scatter of light rides the
+		// sweep's front as it spreads over the body from the ring hand (GreenLanternSuitReveal draws the same front)
 		float progress = Mth.clamp(elapsed / (float) GreenLanternConfig.SUIT_UP_TICKS, 0f, 1f);
 		float coverage = dir == GreenLanternState.SUIT_SUITING_UP ? progress : 1f - progress;
 		ServerLevel level = player.serverLevel();
-		// the suit spans the feet to the shoulders -- 24.5 of the model's 32 pixel rows
-		double y = player.getY() + (1f - coverage) * player.getBbHeight() * (24.5 / 32.0);
-		for (int i = 0; i < RING_POINTS; i++) {
-			double angle = (2 * Math.PI * i) / RING_POINTS;
-			double x = player.getX() + Math.cos(angle) * RING_RADIUS;
-			double z = player.getZ() + Math.sin(angle) * RING_RADIUS;
-			level.sendParticles(SUIT_DUST, x, y, z, 1, 0.0, 0.0, 0.0, 0.0);
+		net.minecraft.world.phys.Vec3 ring = ringHand(player);
+		// not to the Lantern themself: in first person the raised ring is right in front of the camera and the dust
+		// buried the view (they see the ring blaze on their own hand instead)
+		send(level, player, RING_FLARE, ring.x, ring.y, ring.z, 3, 0.05);
+		// the farthest point of the suit from the raised ring is about 1.9 blocks away (the far foot)
+		double front = coverage * 1.9;
+		net.minecraft.util.RandomSource r = player.getRandom();
+		int placed = 0;
+		for (int tries = 0; tries < 60 && placed < RING_POINTS; tries++) {
+			double x = player.getX() + (r.nextDouble() - 0.5) * player.getBbWidth() * 1.1;
+			double y = player.getY() + r.nextDouble() * player.getBbHeight() * (24.5 / 32.0 + 0.2);
+			double z = player.getZ() + (r.nextDouble() - 0.5) * player.getBbWidth() * 1.1;
+			double d = ring.distanceTo(new net.minecraft.world.phys.Vec3(x, y, z));
+			if (Math.abs(d - front) < 0.18) {
+				send(level, player, SUIT_DUST, x, y, z, 1, 0.0);
+				placed++;
+			}
 		}
+	}
+
+	private static void send(ServerLevel level, ServerPlayer owner, ParticleOptions particle, double x, double y, double z, int count,
+			double spread) {
+		for (ServerPlayer viewer : level.players()) {
+			if (viewer != owner) {
+				level.sendParticles(viewer, particle, false, x, y, z, count, spread, spread, spread, 0.0);
+			}
+		}
+	}
+
+	/**
+	 * Where the ring is while the suit forms: the right fist raised out in front ({@code GreenLanternPose}'s suit-up pose),
+	 * worked out from the body's facing -- right shoulder, then most of an arm's length forward and a little up.
+	 */
+	public static net.minecraft.world.phys.Vec3 ringHand(ServerPlayer player) {
+		double yaw = Math.toRadians(player.yBodyRot);
+		double fx = -Math.sin(yaw);
+		double fz = Math.cos(yaw);
+		// the player's right is (-fz, fx) rotated: right = (-cos, -sin)
+		double rx = -Math.cos(yaw);
+		double rz = -Math.sin(yaw);
+		double scale = player.getBbHeight() / 1.8;
+		return new net.minecraft.world.phys.Vec3(
+				player.getX() + (fx * 0.58 + rx * 0.3) * scale,
+				player.getY() + 1.4 * scale,
+				player.getZ() + (fz * 0.58 + rz * 0.3) * scale);
 	}
 }

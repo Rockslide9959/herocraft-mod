@@ -604,3 +604,34 @@ top surface (`GreenLanternConstructs#newCarrySeat`), so a rider sits on the plat
   the usual 5-tick fade.
 - No time limit: `TETHER_UPKEEP_PER_SEC` 1 -> 0, so an empty ring no longer drops the target. Only C (throw) and
   N / Shift+C (set down) end the carry, plus the existing 20-block leash.
+
+## v0.15.15 -- suit styles (N) and the suit pouring out of the ring
+
+User requests: "Players can press N to choose between different suits. Turn these green lantern skins into suits." and
+"make the suitup not go from the top of the players chest to their feet, make it spread outwards from the hand with the
+ring on it, ring glows as the suit forms on users body".
+
+| Key | Tap | Shift |
+|---|---|---|
+| N | **open the suit screen** (`client/gui/GreenLanternSuitScreen`) | **tap: dismiss all constructs**; **hold 5 s: take the ring off** |
+
+- `GreenLanternSuitStyle` (DEFAULT, CORPS, STEWART, CLASSIC) -> texture. Default = `textures/armor/green_lantern.png`;
+  the three new ones are the user's skins with skin/hair stripped (`textures/entity/green_lantern/suits/*.png`, 64x64
+  player-skin layout). Stored in `GreenLanternState#suitStyle` (codec field `suit_style`, default 0, so old saves load
+  as Default), synced with the rest of the state.
+- Rendering: all styles share `geo/green_lantern.geo.json`, which now has a `mask` bone under `armorHead` (head cube at
+  inflate 0.55 -- over the player's own hat layer -- and hat cube at 0.8). The default texture's head is empty, so the
+  default suit looks as before; Corps/Classic show their domino mask there. `GreenLanternSuitReveal#texture` swaps in the
+  style texture for the 3rd-person armour (`SuperheroArmorRenderer#getRenderType`) and the first-person sleeve
+  (`SuperheroFirstPersonArm`). Transparent texels show the wearer's own skin (face, Stewart's bare hands).
+- Picking (`GreenLanternActionPayload` actions `SUIT_STYLE_*`, appended -> `GreenLanternSuit#selectStyle`): stored at
+  once; if the suit is on and settled, a free suit-up transition replays (armour stays on) so the new suit re-forms out
+  of the ring.
+- Suit-up / suit-down: `ArmorSweepReveal.Sweep.radialVia("gl_ring_arm", ring fist -> right shoulder)` -- up the ring arm,
+  then out over the body and head behind a white-green edge; suit-down plays it backwards (recedes into the ring). Pose:
+  ring fist raised out in front for the whole transition (`GreenLanternPose.SUIT`, both directions). Ring blaze:
+  `GreenLanternSuitReveal#ringGlow` -> `GreenLanternHandRenderer` draws the ring in a bright palette with a white core,
+  a pulsing green glow and expanding light rings (full-bright, both views); server dust bursts at
+  `GreenLanternSuit#ringHand` and rides the sweep front.
+- Client N: a plain press opens the screen; Shift+N counts ticks -- released before 8 ticks = CLEAR_CONSTRUCTS, held to
+  8 sends RING_REMOVE_START (removal now takes about 5.4 s in all).

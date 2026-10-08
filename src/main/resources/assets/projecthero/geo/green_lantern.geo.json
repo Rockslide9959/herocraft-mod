@@ -16,6 +16,15 @@
           "pivot": [0, 24, 0]
         },
         {
+          "name": "mask",
+          "pivot": [0, 24, 0],
+          "parent": "armorHead",
+          "cubes": [
+            {"origin": [-4, 24, -4], "size": [8, 8, 8], "uv": [0, 0], "inflate": 0.55},
+            {"origin": [-4, 24, -4], "size": [8, 8, 8], "uv": [32, 0], "inflate": 0.8}
+          ]
+        },
+        {
           "name": "armorBody",
           "pivot": [0, 24, 0]
         },

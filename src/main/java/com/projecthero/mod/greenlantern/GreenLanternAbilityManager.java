@@ -175,8 +175,8 @@ public final class GreenLanternAbilityManager {
 	}
 
 	/**
-	 * N: dismiss every construct (was Shift+C). A Rescue Tether hold is set down safely first, and anything in the
-	 * Giant Hand is let go; a second N then dismisses the rest.
+	 * Shift + tap N (v0.15.15; plain N before that, Shift+C before v0.14.3): dismiss every construct. A Rescue Tether hold is set down safely first, and anything in the
+	 * Giant Hand is let go; a second press then dismisses the rest.
 	 */
 	public static void clearConstructs(ServerPlayer player) {
 		if (!hasContext(player)) {

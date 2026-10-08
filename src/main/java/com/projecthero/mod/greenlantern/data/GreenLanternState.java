@@ -44,14 +44,19 @@ public final class GreenLanternState {
 	public int selectedConstruct = ConstructType.HARD_LIGHT_WALL.ordinal();
 	/** {@code abilityId} -> absolute game-time it is ready again (survives relog/death/dimension). */
 	public final Map<String, Long> abilityReadyAt;
+	/**
+	 * v0.15.15: which suit the ring forms -- a {@link com.projecthero.mod.greenlantern.GreenLanternSuitStyle} ordinal,
+	 * picked on N. Kept with the power (relog / death).
+	 */
+	public int suitStyle;
 
 	public GreenLanternState() {
 		this(false, GreenLanternConfig.MAX_RING_CHARGE, false, SUIT_IDLE, 0L,
-				ConstructType.HARD_LIGHT_WALL.ordinal(), new HashMap<>());
+				ConstructType.HARD_LIGHT_WALL.ordinal(), new HashMap<>(), 0);
 	}
 
 	public GreenLanternState(boolean hasPower, float ringCharge, boolean suited, int suitAnimDir,
-			long suitAnimStartTick, int selectedConstruct, Map<String, Long> abilityReadyAt) {
+			long suitAnimStartTick, int selectedConstruct, Map<String, Long> abilityReadyAt, int suitStyle) {
 		this.hasPower = hasPower;
 		this.ringCharge = ringCharge;
 		this.suited = suited;
@@ -59,11 +64,12 @@ public final class GreenLanternState {
 		this.suitAnimStartTick = suitAnimStartTick;
 		this.selectedConstruct = selectedConstruct;
 		this.abilityReadyAt = new HashMap<>(abilityReadyAt);
+		this.suitStyle = suitStyle;
 	}
 
 	public GreenLanternState copy() {
 		return new GreenLanternState(hasPower, ringCharge, suited, suitAnimDir, suitAnimStartTick,
-				selectedConstruct, abilityReadyAt);
+				selectedConstruct, abilityReadyAt, suitStyle);
 	}
 
 	public ConstructType selectedConstructType() {
@@ -79,6 +85,7 @@ public final class GreenLanternState {
 			Codec.INT.optionalFieldOf("selected_construct", ConstructType.HARD_LIGHT_WALL.ordinal())
 					.forGetter(s -> s.selectedConstruct),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", new HashMap<>())
-					.forGetter(s -> new HashMap<>(s.abilityReadyAt))
+					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
+			Codec.INT.optionalFieldOf("suit_style", 0).forGetter(s -> s.suitStyle)
 	).apply(instance, GreenLanternState::new));
 }
