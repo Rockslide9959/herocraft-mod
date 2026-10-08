@@ -76,9 +76,9 @@ public final class KryptonianConfig {
 	public static final float KRYPTONITE_DAMAGE_PER_SECOND = 1.0f;
 
 	// ---------------------------------------------------------------- flight
-	/** Blocks per tick: cruising (18 b/s) and Sprint super-speed flight (40 b/s). */
-	public static final double FLIGHT_SPEED = 0.9;
-	public static final double FLIGHT_SPRINT_SPEED = 1.75; // v0.14.11: 35 blocks a second (was 2.0 = 40)
+	/** Blocks per tick: v0.15.15, explicit user request -- cruising 20 b/s (was 18) and Sprint flight 45 b/s (was 35). */
+	public static final double FLIGHT_SPEED = 20.0 / 20.0;
+	public static final double FLIGHT_SPRINT_SPEED = 45.0 / 20.0;
 	/** v0.14.11: sprint flight with Flight Boost on (X while flying): 55 blocks a second. */
 	public static final double FLIGHT_BOOST_SPEED = 2.75;
 	/** Blocks per tick straight up / down (Space / Sneak). */

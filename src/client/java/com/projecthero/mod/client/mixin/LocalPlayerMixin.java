@@ -233,7 +233,9 @@ public abstract class LocalPlayerMixin {
 		boolean onWater = !Double.isNaN(surfaceY);
 
 		if (self.onGround() || onWater) {
-			projecthero$groundSpeed = Math.min(3.0, horiz);
+			// v0.15.15: cap raised 3.0 -> 5.0 so Overdrive's 120 b/s (3.3 a tick after friction; 4.9 in the Flash Suit)
+			// carries through a jump at full speed
+			projecthero$groundSpeed = Math.min(5.0, horiz);
 		} else if (projecthero$groundSpeed > 0.05 && horiz > 1.0e-4 && horiz < projecthero$groundSpeed) {
 			// ease the horizontal speed back up toward what it was the instant we left the ground
 			double target = horiz + (projecthero$groundSpeed - horiz) * 0.5;

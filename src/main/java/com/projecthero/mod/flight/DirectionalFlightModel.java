@@ -65,6 +65,18 @@ public final class DirectionalFlightModel {
 	/** Repulsor Boots' horizontal ceiling, 15 m/s (half of the fastest marks'). */
 	public static final double REPULSOR_BOOTS_CAP = 15.0 / 20.0;
 
+	// -- v0.15.15, explicit user request: exact cruise / sprint speeds in blocks per second (steady state, level flight).
+	// These replace the old "whatever vanilla gave this flyingSpeed" derivation for these flights; the server-side
+	// flyingSpeed values stay as they were (they only feed the climb speed and vanilla's own vertical nudge now).
+	public static final double THOR_CRUISE_BPS = 18.0;
+	public static final double THOR_SPRINT_BPS = 36.0;
+	public static final double MAX_STEEL_CRUISE_BPS = 18.0;
+	public static final double MAX_STEEL_SPRINT_BPS = 36.0;
+	public static final double GREEN_LANTERN_CRUISE_BPS = 18.0;
+	public static final double GREEN_LANTERN_SPRINT_BPS = 40.0;
+	/** Green Lantern's Boost (Sneak while sprint-flying): kept at the 55 b/s it already flew at. */
+	public static final double GREEN_LANTERN_BOOST_BPS = 55.0;
+
 	private DirectionalFlightModel() {
 	}
 
@@ -110,25 +122,40 @@ public final class DirectionalFlightModel {
 				1.0, DEFAULT_ACCELERATION, DEFAULT_REVERSE, DEFAULT_IDLE, 0.0, 0.0, false, PUSH_CARRY_TICKS, true);
 	}
 
-	/** Thor's flight: the vanilla tune at Thor's flying speed ({@code ThorPowers.THOR_FLYING_SPEED}). */
+	/**
+	 * Thor's flight: v0.15.15 -- 18 b/s cruising, 36 sprinting; climb still at the speed vanilla gave his flying speed
+	 * ({@code ThorPowers.THOR_FLYING_SPEED}), Green Lantern handling.
+	 */
 	public static Tune thor(float flyingSpeed, boolean sprint) {
-		return vanilla(flyingSpeed, sprint);
+		return fixedCruise(vanilla(flyingSpeed, sprint), (sprint ? THOR_SPRINT_BPS : THOR_CRUISE_BPS) / 20.0);
+	}
+
+	/** Max Steel Turbo Flight: v0.15.15 -- 18 b/s cruising, 36 sprinting; otherwise the vanilla tune. */
+	public static Tune maxSteel(float flyingSpeed, boolean sprint) {
+		return fixedCruise(vanilla(flyingSpeed, sprint), (sprint ? MAX_STEEL_SPRINT_BPS : MAX_STEEL_CRUISE_BPS) / 20.0);
+	}
+
+	/** {@code tune} with its cruise speed (blocks/tick) replaced. */
+	public static Tune fixedCruise(Tune tune, double speed) {
+		return new Tune(speed, tune.verticalSpeed(), tune.strafeScale(), tune.acceleration(), tune.reverse(), tune.idle(),
+				tune.maxHorizontal(), tune.forcedForward(), tune.sneakBoosts(), tune.pushCarryTicks(), tune.adoptPushes());
 	}
 
 	/**
-	 * Green Lantern Ring Flight, unchanged from v0.13.21: cruise {@code flyingSpeed x 10} (the server sets the cruise /
-	 * Boost value), doubled sprinting; 8 b/s climb, 15 b/s boosting; Sneak is the Boost modifier while sprinting.
+	 * Green Lantern Ring Flight: v0.15.15 -- 18 b/s cruising, 40 sprinting, Boost 55 (no longer derived from the
+	 * server's {@code flyingSpeed}); 8 b/s climb, 15 b/s boosting; Sneak is the Boost modifier while sprinting.
 	 */
 	public static Tune greenLantern(float flyingSpeed, boolean sprint, boolean boosting) {
 		double vertical = (boosting ? GreenLanternConfig.BOOST_VERTICAL_SPEED_BPS
 				: GreenLanternConfig.FLIGHT_VERTICAL_SPEED_BPS) / 20.0;
-		return new Tune(flyingSpeed * 10.0 * (sprint ? 2.0 : 1.0), vertical, 1.0, GreenLanternConfig.FLIGHT_ACCELERATION,
+		double bps = boosting ? GREEN_LANTERN_BOOST_BPS : sprint ? GREEN_LANTERN_SPRINT_BPS : GREEN_LANTERN_CRUISE_BPS;
+		return new Tune(bps / 20.0, vertical, 1.0, GreenLanternConfig.FLIGHT_ACCELERATION,
 				GreenLanternConfig.FLIGHT_ACCELERATION, GreenLanternConfig.FLIGHT_BRAKING, 0.0, 0.0, true,
 				PUSH_CARRY_TICKS, true);
 	}
 
 	/**
-	 * Kryptonian flight, the v0.14.8 numbers: 0.9 cruise, 1.75 sprinting, 2.75 with Flight Boost, 0.6 climb, strafe at 70%.
+	 * Kryptonian flight (v0.15.15 speeds): 20 b/s cruise, 45 sprinting, 55 with Flight Boost, 0.6 climb, strafe at 70%.
 	 * S now flies backward; turning around uses the old hard-brake rate ({@link KryptonianConfig#FLIGHT_BRAKE}), so
 	 * tapping S still stops him dead fast.
 	 */

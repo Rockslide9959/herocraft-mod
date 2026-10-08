@@ -255,10 +255,13 @@ public class IronManV01511GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void flightSpeedsAreExactBlocksPerSecond(GameTestHelper h) {
-		check(h, IronManSuits.MARK_2, 15.0, 30.0);
-		for (IronManSuit s : new IronManSuit[] { IronManSuits.MARK_III, IronManSuits.MARK_4, IronManSuits.MARK_V,
-				IronManSuits.MARK_6, IronManSuits.MARK_VII, IronManSuits.MARK_8 }) {
-			check(h, s, 18.0, 35.0);
+		// v0.15.15, explicit user request: per-mark cruise / sprint speeds
+		check(h, IronManSuits.MARK_2, 15.0, 25.0);
+		check(h, IronManSuits.MARK_III, 17.0, 32.0);
+		check(h, IronManSuits.MARK_4, 17.0, 32.0);
+		check(h, IronManSuits.MARK_V, 17.0, 28.0);
+		for (IronManSuit s : new IronManSuit[] { IronManSuits.MARK_6, IronManSuits.MARK_VII, IronManSuits.MARK_8 }) {
+			check(h, s, 18.0, 36.0);
 		}
 		// the Mark 1 burst is untouched: 8 b/s, no sprint flight
 		h.assertTrue(Math.abs(measuredSpeed(IronManSuits.MARK_1, true) - 8.0) < 0.05, "Mark 1 burst still 8 b/s");

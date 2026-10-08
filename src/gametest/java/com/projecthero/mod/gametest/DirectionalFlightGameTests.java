@@ -131,8 +131,9 @@ public class DirectionalFlightGameTests implements FabricGameTest {
 		Tune gl = DirectionalFlightModel.greenLantern(0.06f, false, false);
 		Tune glSprint = DirectionalFlightModel.greenLantern(0.06f, true, false);
 		Tune glBoost = DirectionalFlightModel.greenLantern(0.06f, true, true);
-		helper.assertTrue(Math.abs(gl.speed() - 0.6) < EPS && Math.abs(glSprint.speed() - 1.2) < EPS,
-				"Green Lantern: flyingSpeed x 10, doubled sprinting");
+		helper.assertTrue(Math.abs(gl.speed() - 18.0 / 20.0) < EPS && Math.abs(glSprint.speed() - 40.0 / 20.0) < EPS
+				&& Math.abs(glBoost.speed() - 55.0 / 20.0) < EPS,
+				"Green Lantern (v0.15.15): 18 b/s, 40 sprinting, 55 boosting, whatever the server's flyingSpeed");
 		helper.assertTrue(Math.abs(gl.verticalSpeed() - GreenLanternConfig.FLIGHT_VERTICAL_SPEED_BPS / 20.0) < EPS
 				&& Math.abs(glBoost.verticalSpeed() - GreenLanternConfig.BOOST_VERTICAL_SPEED_BPS / 20.0) < EPS
 				&& gl.sneakBoosts(), "Green Lantern: 8 b/s climb, 15 boosting, Sneak is the Boost modifier");
@@ -149,10 +150,10 @@ public class DirectionalFlightGameTests implements FabricGameTest {
 
 		Tune thor = DirectionalFlightModel.thor(ThorPowers.THOR_FLYING_SPEED, false);
 		Tune thorSprint = DirectionalFlightModel.thor(ThorPowers.THOR_FLYING_SPEED, true);
-		helper.assertTrue(Math.abs(thor.speed() - ThorPowers.THOR_FLYING_SPEED / 0.09) < EPS
-				&& Math.abs(thorSprint.speed() - 2.0 * thor.speed()) < EPS
+		helper.assertTrue(Math.abs(thor.speed() - 18.0 / 20.0) < EPS
+				&& Math.abs(thorSprint.speed() - 36.0 / 20.0) < EPS
 				&& Math.abs(thor.verticalSpeed() - ThorPowers.THOR_FLYING_SPEED * 7.5) < EPS,
-				"Thor flies at the speed vanilla gave his flying speed (~15 b/s, ~31 sprinting)");
+				"Thor (v0.15.15): 18 b/s, 36 sprinting; climb still from his flying speed");
 
 		IronManSuit m2 = IronManSuits.MARK_2;
 		IronManSuit m7 = IronManSuits.MARK_VII;

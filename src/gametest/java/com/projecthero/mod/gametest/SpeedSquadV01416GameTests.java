@@ -129,7 +129,7 @@ public class SpeedSquadV01416GameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	// ---- Overdrive speeds: 32 walking, 100 sprinting ------------------------------------------------------------
+	// ---- Overdrive speeds: 32 walking, 120 sprinting (v0.15.15) ------------------------------------------------------------
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void overdriveSpeedsComeFromTheAttributeMaths(GameTestHelper helper) {
@@ -141,15 +141,15 @@ public class SpeedSquadV01416GameTests implements FabricGameTest {
 		double walk = SuperSpeedHandlers.blocksPerSecond(SuperSpeedHandlers.OVERDRIVE_WALK_BONUS, false);
 		double sprint = SuperSpeedHandlers.blocksPerSecond(SuperSpeedHandlers.OVERDRIVE_BONUS, true);
 		helper.assertTrue(Math.abs(walk - 32.0) < 1e-6, "Overdrive walking is 32 b/s, got " + walk);
-		helper.assertTrue(Math.abs(sprint - 100.0) < 1e-6, "Overdrive sprinting is 100 b/s, got " + sprint);
+		helper.assertTrue(Math.abs(sprint - 120.0) < 1e-6, "Overdrive sprinting is 120 b/s (v0.15.15), got " + sprint);
 		helper.assertTrue(Math.abs(SuperSpeedHandlers.OVERDRIVE_WALK_BONUS - 6.112) < 0.01,
 				"walk bonus ~6.11, got " + SuperSpeedHandlers.OVERDRIVE_WALK_BONUS);
-		helper.assertTrue(Math.abs(SuperSpeedHandlers.OVERDRIVE_BONUS - 16.519) < 0.01,
-				"sprint bonus ~16.52, got " + SuperSpeedHandlers.OVERDRIVE_BONUS);
+		helper.assertTrue(Math.abs(SuperSpeedHandlers.OVERDRIVE_BONUS - 20.083) < 0.01,
+				"sprint bonus ~20.08, got " + SuperSpeedHandlers.OVERDRIVE_BONUS);
 		// Speed Mode keeps its ~20 / ~40 tiers under the same maths
 		double smWalk = SuperSpeedHandlers.blocksPerSecond(SuperSpeedHandlers.SPEED_MODE_WALK_BONUS, false);
 		double smRun = SuperSpeedHandlers.blocksPerSecond(SuperSpeedHandlers.SPEED_MODE_BONUS, true);
-		helper.assertTrue(smWalk > 19 && smWalk < 22 && smRun > 39 && smRun < 43, "Speed Mode ~20 / ~40, got " + smWalk + " / " + smRun);
+		helper.assertTrue(Math.abs(smWalk - 20.0) < 1e-6 && Math.abs(smRun - 40.0) < 1e-6, "Speed Mode exactly 20 / 40 (v0.15.15), got " + smWalk + " / " + smRun);
 		helper.succeed();
 	}
 
@@ -168,9 +168,9 @@ public class SpeedSquadV01416GameTests implements FabricGameTest {
 		p.setSprinting(true);
 		ExperimentalPowers.serverTick(p);
 		var run = p.getAttribute(Attributes.MOVEMENT_SPEED).getModifier(ProjectHeroMod.id("overdrive_speed"));
-		helper.assertTrue(run != null && run.amount() == SuperSpeedHandlers.OVERDRIVE_BONUS, "sprinting: the 100 b/s tier");
+		helper.assertTrue(run != null && run.amount() == SuperSpeedHandlers.OVERDRIVE_BONUS, "sprinting: the 120 b/s tier");
 		double runBps = p.getAttributeValue(Attributes.MOVEMENT_SPEED) * SuperSpeedHandlers.BLOCKS_PER_SECOND_PER_SPEED;
-		helper.assertTrue(Math.abs(runBps - 100.0) < 1.0, "the sprinting attribute (with vanilla's x1.3) runs ~100 b/s, got " + runBps);
+		helper.assertTrue(Math.abs(runBps - 120.0) < 1.0, "the sprinting attribute (with vanilla's x1.3) runs ~120 b/s, got " + runBps);
 		helper.succeed();
 	}
 

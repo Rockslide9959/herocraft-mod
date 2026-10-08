@@ -170,7 +170,7 @@ public final class DirectionalFlight {
 		}
 		// Max Steel Turbo Flight
 		if (player.getAttachedOrElse(ModAttachments.MAX_STEEL_FLYING, false)) {
-			return DirectionalFlightModel.vanilla(flyingSpeed, sprint);
+			return DirectionalFlightModel.maxSteel(flyingSpeed, sprint); // v0.15.15: 18 b/s, 36 sprinting
 		}
 		// the experimental hero flights: the Flight power, Wind / Psychic / Telekinetic / Magnetic flight, rock / flame flight
 		ExperimentalState st = player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);

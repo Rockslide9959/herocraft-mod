@@ -100,16 +100,19 @@ public final class SuperSpeedHandlers {
 	private static final ResourceLocation PASSIVE_STEP = com.projecthero.mod.ProjectHeroMod.id("speed_passive_step");
 	/** v0.14.9: step assist only in the modes -- Speed Mode 3 blocks (base 0.6 + 2.4), Overdrive 10 (0.6 + 9.4). */
 	public static final double SM_STEP_BONUS = 2.4;
+	/** v0.15.15, explicit user request: Speed Mode runs exactly 20 blocks/s walking and 40 sprinting (flat ground). */
+	public static final double SPEED_MODE_WALK_BPS = 20.0;
+	public static final double SPEED_MODE_SPRINT_BPS = 40.0;
 	/**
 	 * v0.14.11: the modes' sprint speed, as a bonus on base movement speed (with the passive +30% and sprinting's x1.3).
 	 * Calibrated on the old values (4.7 ran ~32 blocks/s, 10.5 ~64): Speed Mode now ~40 blocks/s, Overdrive ~100.
 	 */
-	public static final double SPEED_MODE_BONUS = 6.15;
+	public static final double SPEED_MODE_BONUS = bonusFor(SPEED_MODE_SPRINT_BPS, true); // v0.15.15: exactly 40 b/s
 	/**
 	 * v0.14.13: Speed Mode only runs flat out while you SPRINT (~40 blocks/s); plain walking in it is ~20 blocks/s, so it
 	 * stays manageable in a fight. (0.1 x (1 + 0.3 + 3.54) = 0.484, half the sprinting 0.1 x 7.45 x 1.3.)
 	 */
-	public static final double SPEED_MODE_WALK_BONUS = 3.54;
+	public static final double SPEED_MODE_WALK_BONUS = bonusFor(SPEED_MODE_WALK_BPS, false); // v0.15.15: exactly 20 b/s
 
 	/**
 	 * v0.14.16: blocks per second per point of the MOVEMENT_SPEED attribute, running on flat ground. Each ground tick a
@@ -139,12 +142,12 @@ public final class SuperSpeedHandlers {
 				- 1.0 - PASSIVE_SPEED_BONUS;
 	}
 
-	/** v0.14.16: Overdrive's target speeds, walking and sprinting (was ~104 b/s sprinting, the same bonus walking). */
+	/** Overdrive's target speeds, walking and sprinting -- v0.15.15, explicit user request: 32 and 120 (was 100). */
 	public static final double OVERDRIVE_WALK_BPS = 32.0;
-	public static final double OVERDRIVE_SPRINT_BPS = 100.0;
+	public static final double OVERDRIVE_SPRINT_BPS = 120.0;
 	/** v0.14.16: Overdrive walking -- 0.1 x (1.3 + 6.112) x 43.17 = 32 blocks/s. */
 	public static final double OVERDRIVE_WALK_BONUS = bonusFor(OVERDRIVE_WALK_BPS, false);
-	/** Overdrive sprinting -- v0.14.16: 0.1 x (1.3 + 16.519) x 1.3 x 43.17 = 100 blocks/s (was 17.3, ~104). */
+	/** Overdrive sprinting -- v0.15.15: 0.1 x (1.3 + 20.08) x 1.3 x 43.17 = 120 blocks/s (was 100). */
 	public static final double OVERDRIVE_BONUS = bonusFor(OVERDRIVE_SPRINT_BPS, true);
 	public static final double OD_STEP_BONUS = 9.4;
 

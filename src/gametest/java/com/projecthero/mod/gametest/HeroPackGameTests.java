@@ -1918,7 +1918,7 @@ public class HeroPackGameTests implements FabricGameTest {
 	public void markSixAndSevenAreConfigured(GameTestHelper helper) {
 		var m6 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_6");
 		helper.assertTrue(m6 != null && m6.fullBodyShield(), "mark_6 must have a full-body shield");
-		helper.assertTrue(m6.maxFlightSpeedMps() == 35.0, "mark_6 flight cap must be 35 m/s (v0.15.11)");
+		helper.assertTrue(m6.maxFlightSpeedMps() == 36.0, "mark_6 flight cap must be 36 m/s (v0.15.15)");
 		helper.assertTrue(m6.energyCostMultiplier() < 1.0f, "mark_6 must cost less energy");
 		helper.assertTrue(m6.maxIntegrity() == 2500f && m6.energyCapacity() == 4_000f, "mark_6 pools (v0.15.4)");
 		helper.assertTrue(com.projecthero.mod.ironman.item.IronManItems.armor("mark_6",

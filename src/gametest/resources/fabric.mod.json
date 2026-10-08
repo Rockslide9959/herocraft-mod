@@ -107,6 +107,7 @@
       "com.projecthero.mod.gametest.KryptonianGameTests",
       "com.projecthero.mod.gametest.DirectionalFlightGameTests",
       "com.projecthero.mod.gametest.SpeedSquadV01416GameTests",
+      "com.projecthero.mod.gametest.SpeedsV01515GameTests",
       "com.projecthero.mod.gametest.StarkSorterGameTests",
       "com.projecthero.mod.gametest.SortingStationLayoutGameTests",
       "com.projecthero.mod.gametest.KryptonianV01416GameTests",
