@@ -39,7 +39,9 @@ public final class GreenLanternDamage {
 			return true;
 		}
 
-		GreenLanternBattery.onDamaged(player);
+		if (amount > 0f) {
+			GreenLanternBattery.onDamaged(player); // v0.15.15: any real hit cancels a Power Battery charge
+		}
 
 		// v0.11.6: explicit user request -- "player cant take fall damage as long as the ring has
 		// charge". Free, unconditional and not suit-gated (the ring's powers work unsuited too), unlike

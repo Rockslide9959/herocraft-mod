@@ -42,7 +42,7 @@ public final class GreenLanternBlocks {
 			new HardLightLampBlock(hardLight().lightLevel(s -> 15).noCollission()));
 
 	public static final Item POWER_BATTERY_ITEM = registerItem("power_battery",
-			new BlockItem(POWER_BATTERY, new Item.Properties().rarity(Rarity.RARE)));
+			new com.projecthero.mod.greenlantern.item.PowerBatteryItem(POWER_BATTERY, new Item.Properties().rarity(Rarity.RARE))); // v0.15.15: off-hand Sneak+use charges the ring
 
 	private GreenLanternBlocks() {
 	}

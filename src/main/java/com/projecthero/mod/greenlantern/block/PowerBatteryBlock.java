@@ -55,7 +55,8 @@ public class PowerBatteryBlock extends Block {
 			sp.displayClientMessage(Component.translatable("message.projecthero.green_lantern.not_a_lantern"), true);
 			return InteractionResult.CONSUME;
 		}
-		GreenLanternBattery.beginOath(sp, pos);
+		// v0.15.15: charging moved to the battery held in the off hand (Sneak + right-click) -- a placed one just says so
+		sp.displayClientMessage(Component.translatable("message.projecthero.green_lantern.battery_how"), true);
 		return InteractionResult.CONSUME;
 	}
 }

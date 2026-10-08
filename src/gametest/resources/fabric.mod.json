@@ -7,6 +7,7 @@
   "entrypoints": {
     "fabric-gametest": [
       "com.projecthero.mod.gametest.ProjectHeroGameTests",
+      "com.projecthero.mod.gametest.V01515Gl2GameTests",
       "com.projecthero.mod.gametest.RepulsorTrialV0159GameTests",
       "com.projecthero.mod.gametest.V01422GameTests",
       "com.projecthero.mod.gametest.IronManV01427Mark12GameTests",

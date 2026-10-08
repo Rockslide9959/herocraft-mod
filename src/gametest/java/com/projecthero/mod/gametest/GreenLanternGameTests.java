@@ -465,10 +465,9 @@ public class GreenLanternGameTests implements FabricGameTest {
 
 	// ================ v0.11.4: no passive regen / Oath recharge / rebalance / diamond suit / Tool Kit ================
 
-	private static BlockPos placeBatteryNextTo(GameTestHelper helper, ServerPlayer player) {
-		BlockPos pos = player.blockPosition().north();
-		helper.getLevel().setBlock(pos, GreenLanternBlocks.POWER_BATTERY.defaultBlockState(), Block.UPDATE_ALL);
-		return pos;
+	/** v0.15.15: charging is Sneak + use with the Power Battery in the OFF hand -- tests call the server side directly. */
+	private static void holdBattery(ServerPlayer player) {
+		player.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, new ItemStack(GreenLanternBlocks.POWER_BATTERY_ITEM));
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -489,48 +488,10 @@ public class GreenLanternGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void oathRefusedWhenAlreadyAtMaxCharge(GameTestHelper helper) {
 		ServerPlayer player = bonded(helper);
-		BlockPos batteryPos = placeBatteryNextTo(helper, player);
-		GreenLanternBattery.beginOath(player, batteryPos);
+		holdBattery(player);
+		GreenLanternBattery.beginCharge(player);
 		helper.assertFalse(GreenLanternBattery.isRecitingOath(player),
-				"starting an oath at full charge should be refused outright");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 160)
-	public void oathCompletionFillsChargeExactlyToMax(GameTestHelper helper) {
-		ServerPlayer player = bonded(helper);
-		GreenLanternState s = GreenLantern.state(player).copy();
-		s.ringCharge = 500f;
-		GreenLantern.save(player, s);
-		BlockPos batteryPos = placeBatteryNextTo(helper, player);
-
-		GreenLanternBattery.beginOath(player, batteryPos);
-		helper.assertTrue(GreenLanternBattery.isRecitingOath(player), "beginOath() should start the recitation");
-
-		helper.runAfterDelay(GreenLanternConfig.OATH_LINE_TICKS * 4L + 1, () -> {
-			GreenLanternBattery.tick(player);
-			helper.assertFalse(GreenLanternBattery.isRecitingOath(player), "the oath should have finished by now");
-			helper.assertTrue(GreenLantern.state(player).ringCharge == GreenLanternConfig.MAX_RING_CHARGE,
-					"a completed oath should fill the ring to exactly max, was " + GreenLantern.state(player).ringCharge);
-			helper.succeed();
-		});
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void movingDuringTheOathCancelsItAndSpendsNothing(GameTestHelper helper) {
-		ServerPlayer player = bonded(helper);
-		GreenLanternState s = GreenLantern.state(player).copy();
-		s.ringCharge = 500f;
-		GreenLantern.save(player, s);
-		BlockPos batteryPos = placeBatteryNextTo(helper, player);
-
-		GreenLanternBattery.beginOath(player, batteryPos);
-		player.teleportTo(player.getX() + 1.0, player.getY(), player.getZ());
-		GreenLanternBattery.tick(player);
-
-		helper.assertFalse(GreenLanternBattery.isRecitingOath(player), "moving during the oath must cancel it");
-		helper.assertTrue(GreenLantern.state(player).ringCharge == 500f,
-				"a cancelled oath must not change Ring Charge at all");
+				"starting a charge at full charge should be refused outright");
 		helper.succeed();
 	}
 
@@ -540,25 +501,12 @@ public class GreenLanternGameTests implements FabricGameTest {
 		GreenLanternState s = GreenLantern.state(player).copy();
 		s.ringCharge = 500f;
 		GreenLantern.save(player, s);
-		BlockPos batteryPos = placeBatteryNextTo(helper, player);
+		holdBattery(player);
 
-		GreenLanternBattery.beginOath(player, batteryPos);
+		GreenLanternBattery.beginCharge(player);
+		helper.assertTrue(GreenLanternBattery.isRecitingOath(player), "the charge should have started");
 		GreenLanternCombat.ringBolt(player); // any ability firing calls GreenLanternBattery.onAbilityUsed
-		helper.assertFalse(GreenLanternBattery.isRecitingOath(player), "using Ring Bolt during the oath must cancel it");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void takingDamageDuringTheOathCancelsIt(GameTestHelper helper) {
-		ServerPlayer player = bonded(helper);
-		GreenLanternState s = GreenLantern.state(player).copy();
-		s.ringCharge = 500f;
-		GreenLantern.save(player, s);
-		BlockPos batteryPos = placeBatteryNextTo(helper, player);
-
-		GreenLanternBattery.beginOath(player, batteryPos);
-		GreenLanternBattery.onDamaged(player);
-		helper.assertFalse(GreenLanternBattery.isRecitingOath(player), "taking damage during the oath must cancel it");
+		helper.assertFalse(GreenLanternBattery.isRecitingOath(player), "using Ring Bolt during the charge must cancel it");
 		helper.succeed();
 	}
 
@@ -568,11 +516,11 @@ public class GreenLanternGameTests implements FabricGameTest {
 		GreenLanternState s = GreenLantern.state(player).copy();
 		s.ringCharge = 500f;
 		GreenLantern.save(player, s);
-		BlockPos batteryPos = placeBatteryNextTo(helper, player);
+		holdBattery(player);
 
-		GreenLanternBattery.beginOath(player, batteryPos);
-		GreenLanternSuit.toggle(player); // suit-up previously did not cancel the old channel -- gap closed in v0.11.4
-		helper.assertFalse(GreenLanternBattery.isRecitingOath(player), "suiting up during the oath must cancel it");
+		GreenLanternBattery.beginCharge(player);
+		GreenLanternSuit.toggle(player);
+		helper.assertFalse(GreenLanternBattery.isRecitingOath(player), "suiting up during the charge must cancel it");
 		helper.succeed();
 	}
 
