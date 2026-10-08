@@ -28,7 +28,9 @@ public final class CullingBufferSource implements MultiBufferSource {
 	/** The head volume, in head-frame blocks (the head cube is x/z -0.25..0.25, y -0.5..0; helmets sit a little outside). */
 	private static final float HALF_WIDTH = 0.34f;
 	private static final float TOP = -0.66f;
-	private static final float BOTTOM = -0.03f;
+	/** The neck plane band (head-frame y): above it everything inside goes, within it only downward faces. */
+	private static final float NECK_ABOVE = -0.03f;
+	private static final float NECK_BELOW = 0.09f;
 
 	private final MultiBufferSource delegate;
 	private final Map<RenderType, Culling> open = new IdentityHashMap<>();
@@ -59,13 +61,26 @@ public final class CullingBufferSource implements MultiBufferSource {
 		}
 	}
 
-	static boolean inHead(float cx, float cy, float cz) {
+	/**
+	 * Is a quad centred at {@code c} with normal {@code n} part of the head? Inside the head volume, yes -- except right at
+	 * the neck plane, where the head's (and helmet's) underside and the torso's top share a centre: there only a face
+	 * pointing out of the bottom of the head (head-frame +y, model space is y-down) goes.
+	 */
+	static boolean inHead(float cx, float cy, float cz, float nx, float ny, float nz) {
 		Matrix4f inv = FirstPersonBody.headInverse();
 		if (inv == null) {
 			return false;
 		}
 		Vector3f v = inv.transformPosition(cx, cy, cz, new Vector3f());
-		return Math.abs(v.x) < HALF_WIDTH && Math.abs(v.z) < HALF_WIDTH && v.y > TOP && v.y < BOTTOM;
+		if (Math.abs(v.x) >= HALF_WIDTH || Math.abs(v.z) >= HALF_WIDTH || v.y <= TOP || v.y >= NECK_BELOW) {
+			return false;
+		}
+		if (v.y < NECK_ABOVE) {
+			return true;
+		}
+		Vector3f n = inv.transformDirection(nx, ny, nz, new Vector3f());
+		float len = n.length();
+		return len > 1e-4f && n.y / len > 0.7f;
 	}
 
 	/** One held vertex. */
@@ -96,13 +111,16 @@ public final class CullingBufferSource implements MultiBufferSource {
 		}
 
 		private void emitQuad() {
-			float cx = 0f, cy = 0f, cz = 0f;
+			float cx = 0f, cy = 0f, cz = 0f, nx = 0f, ny = 0f, nz = 0f;
 			for (Vtx v : quad) {
 				cx += v.x;
 				cy += v.y;
 				cz += v.z;
+				nx += v.nx;
+				ny += v.ny;
+				nz += v.nz;
 			}
-			boolean drop = quad.size() == 4 && inHead(cx / 4f, cy / 4f, cz / 4f);
+			boolean drop = quad.size() == 4 && inHead(cx / 4f, cy / 4f, cz / 4f, nx, ny, nz);
 			if (!drop) {
 				for (Vtx v : quad) {
 					out.addVertex(v.x, v.y, v.z, v.color, v.u, v.v, v.overlay, v.light, v.nx, v.ny, v.nz);

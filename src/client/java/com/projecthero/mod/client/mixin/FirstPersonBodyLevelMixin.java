@@ -28,7 +28,11 @@ public abstract class FirstPersonBodyLevelMixin {
 	/** The entity loop skips the camera's own entity unless the camera is detached: count it as detached for this. */
 	@ModifyExpressionValue(method = "renderLevel", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;isDetached()Z"))
 	private boolean projecthero$fpBodyDetached(boolean detached) {
-		return detached || FirstPersonBody.active();
+		if (FirstPersonBody.active()) {
+			return true;
+		}
+		FirstPersonBody.inactive();
+		return detached;
 	}
 
 	@WrapOperation(method = "renderEntity", at = @At(value = "INVOKE",
@@ -36,14 +40,15 @@ public abstract class FirstPersonBodyLevelMixin {
 	private void projecthero$fpBodyRender(EntityRenderDispatcher dispatcher, Entity entity, double x, double y, double z, float yaw,
 			float partialTick, PoseStack pose, MultiBufferSource buffers, int light, Operation<Void> original) {
 		Minecraft mc = Minecraft.getInstance();
-		if (entity != mc.player || mc.getCameraEntity() != entity || !mc.options.getCameraType().isFirstPerson()
-				|| !FirstPersonBody.active()) {
+		Entity self = mc.player;
+		if (self == null || mc.getCameraEntity() != self || !mc.options.getCameraType().isFirstPerson()
+				|| entity != self && !FirstPersonBody.companion(entity, self) || !FirstPersonBody.active()) {
 			original.call(dispatcher, entity, x, y, z, yaw, partialTick, pose, buffers, light);
 			return;
 		}
-		Vec3 off = FirstPersonBody.offset(entity, partialTick);
+		Vec3 off = FirstPersonBody.offset(self, partialTick);
 		CullingBufferSource culled = new CullingBufferSource(buffers);
-		FirstPersonBody.begin(entity);
+		FirstPersonBody.begin(entity, culled);
 		try {
 			original.call(dispatcher, entity, x + off.x, y + off.y, z + off.z, yaw, partialTick, pose, culled, light);
 			culled.flush();

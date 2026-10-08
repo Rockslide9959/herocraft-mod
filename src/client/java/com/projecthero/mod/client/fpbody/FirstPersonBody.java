@@ -84,19 +84,57 @@ public final class FirstPersonBody {
 
 	// ------------------------------------------------------------------ render-thread state (mixins)
 
-	/** Called around the local player's world render while {@link #active}. */
-	public static void begin(Entity entity) {
+	/**
+	 * Called around the world render of the local player -- or of a {@link #companion} -- while {@link #active}. The head
+	 * frame is kept between frames (a companion may be drawn before the player in the entity loop; the player's own
+	 * earliest quads come before this frame's capture) and dropped once the view ends ({@link #inactive}).
+	 */
+	public static void begin(Entity entity, CullingBufferSource source) {
 		rendering = entity;
-		headInverse = null;
+		renderingSource = source;
 	}
 
 	public static void end() {
 		rendering = null;
+		renderingSource = null;
+	}
+
+	/**
+	 * The culling source while the body (or a companion) is being drawn, else null. GeckoLib's armour renderer ignores the
+	 * buffer source it is handed and takes the game's main one, so {@code mixin.FirstPersonBodyGeoArmorMixin} swaps this in.
+	 */
+	public static CullingBufferSource renderingSource() {
+		return renderingSource;
+	}
+
+	private static CullingBufferSource renderingSource;
+
+	/** The full-body view is off this frame: forget the head frame. */
+	public static void inactive() {
 		headInverse = null;
 	}
 
+	/**
+	 * An entity drawn in the wearer's space while the view is on: anything standing in (or hugging) the wearer's body --
+	 * the suit being stepped into (Mark 8 Sentry Mode), Max Steel's Steel merging in, a courier locking a piece on. It is
+	 * shifted with the body and has the head volume culled too, so it stays lined up with the body and never sits over the
+	 * lens.
+	 */
+	public static boolean companion(Entity entity, Entity self) {
+		if (entity == self || entity instanceof net.minecraft.world.entity.player.Player || entity == self.getVehicle()) {
+			return false;
+		}
+		double dx = entity.getX() - self.getX();
+		double dz = entity.getZ() - self.getZ();
+		double dy = entity.getY() - self.getY();
+		return dx * dx + dz * dz < COMPANION_RADIUS * COMPANION_RADIUS && dy > -0.75 && dy < self.getBbHeight() + 0.5;
+	}
+
+	/** How close (horizontally, blocks) an entity must be to the wearer to count as a {@link #companion}. */
+	private static final double COMPANION_RADIUS = 0.8;
+
 	public static boolean renderingSelf(Entity entity) {
-		return entity != null && entity == rendering;
+		return entity != null && entity == rendering && entity == Minecraft.getInstance().player;
 	}
 
 	/** After setupAnim: remember the head's frame so the head volume can be culled ({@link CullingBufferSource}). */
@@ -107,7 +145,7 @@ public final class FirstPersonBody {
 		headInverse = tmp.last().pose().invert(new Matrix4f());
 	}
 
-	/** The head frame's inverse, or null if it has not been captured (yet) this render. */
+	/** The head frame's inverse (this frame's, or the last one's), or null before the first capture. */
 	static Matrix4f headInverse() {
 		return headInverse;
 	}

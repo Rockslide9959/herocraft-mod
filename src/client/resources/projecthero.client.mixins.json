@@ -10,6 +10,7 @@
 		"FirstPersonBodyLevelMixin",
 		"FirstPersonBodyHeadMixin",
 		"FirstPersonBodyHandsMixin",
+		"FirstPersonBodyGeoArmorMixin",
 		"ItemInHandRendererComboMixin",
 		"ItemInHandLayerPowerBatteryMixin",
 		"ItemInHandRendererPowerBatteryMixin",
