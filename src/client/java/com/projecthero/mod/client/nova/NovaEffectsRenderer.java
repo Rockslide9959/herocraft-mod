@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.projecthero.mod.client.flight.LightTrail;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.client.shield.ForceBubbleRenderer;
@@ -50,7 +51,7 @@ import org.joml.Matrix4f;
  *       additive core with a cyan thread), a burning spot where it lands;</li>
  *   <li><b>Force Field</b> -- the shared {@link ForceBubble} in gold, while Z is held (flickering when the Nova Force is
  *       about to run dry);</li>
- *   <li><b>the flight trail</b> (v0.15.15) -- a tapering golden ribbon pinned to the feet;</li>
+ *   <li><b>the flight trail</b> (v0.15.15) -- Green Lantern's {@link LightTrail} in Nova's gold, from the feet;</li>
  *   <li><b>Gravity Well</b> -- a black singularity with a golden accretion ring spinning round it, the rings tightening as
  *       it nears collapse.</li>
  * </ul>
@@ -72,8 +73,7 @@ public final class NovaEffectsRenderer {
 	}
 
 	/** v0.15.15: each flier's feet position at the end of each of the last few client ticks (newest first). */
-	private static final Map<UUID, ArrayDeque<Vec3>> TRAILS = new HashMap<>();
-	private static final int TRAIL_POINTS = 12;
+	private static final Map<UUID, LightTrail.History> TRAILS = new HashMap<>();
 
 	private NovaEffectsRenderer() {
 	}
@@ -95,70 +95,50 @@ public final class NovaEffectsRenderer {
 			TRAILS.clear();
 			return;
 		}
+		long now = level.getGameTime();
 		Set<UUID> seen = new HashSet<>();
 		for (Player player : level.players()) {
 			UUID id = player.getUUID();
-			ArrayDeque<Vec3> pts = TRAILS.get(id);
+			LightTrail.History h = TRAILS.get(id);
 			if (Nova.isFlying(player)) {
 				seen.add(id);
-				if (pts == null) {
-					pts = new ArrayDeque<>();
-					TRAILS.put(id, pts);
+				if (h == null) {
+					h = new LightTrail.History();
+					TRAILS.put(id, h);
 				}
-				Vec3 feet = player.position();
-				if (!pts.isEmpty() && pts.peekFirst().distanceToSqr(feet) > 64.0 * 64.0) {
-					pts.clear(); // a teleport
-				}
-				pts.addFirst(feet);
-				while (pts.size() > TRAIL_POINTS) {
-					pts.removeLast();
-				}
+				h.sample(player.position().add(0, 0.05, 0), now);
 				// a few sparks shed just behind the feet
+				Vec3 feet = player.position();
 				Vec3 prev = player.getPosition(0f);
 				if (feet.distanceToSqr(prev) > 0.04 && level.random.nextInt(2) == 0) {
 					level.addParticle(ParticleTypes.END_ROD, prev.x, prev.y + 0.05, prev.z, 0.0, 0.0, 0.0);
 				}
-			} else if (pts != null && !pts.isEmpty()) {
-				seen.add(id);
-				pts.removeLast();
+			} else if (h != null) {
+				h.prune(now); // landed: what is left fades out
+				if (!h.isEmpty()) {
+					seen.add(id);
+				}
 			}
 		}
 		TRAILS.keySet().retainAll(seen);
 	}
 
 	/**
-	 * The golden trail: a tapering ribbon from the feet (this frame's interpolated position) back through the last few
-	 * ticks' positions -- a soft gold glow round a hot core with a cyan thread.
+	 * v0.15.15 (user: "give the same trail to Nova please but just give it his colours"): Green Lantern's light trail
+	 * ({@link LightTrail}) in Nova's gold with a pale warm-gold core and his cyan in the strands, from the feet, whenever
+	 * he flies -- fainter cruising, full strength sprint-flying. Replaces the old single gold ribbon.
 	 */
-	private static void trail(Player player, float partial, float time, List<Ribbon> glow, List<Ribbon> core) {
-		ArrayDeque<Vec3> pts = TRAILS.get(player.getUUID());
-		if (pts == null || pts.size() < 3) {
-			return;
-		}
-		List<Vec3> line = new ArrayList<>();
-		line.add(player.getPosition(partial).add(0, 0.05, 0));
-		boolean first = true;
-		for (Vec3 p : pts) {
-			if (first) {
-				first = false; // the newest record is this tick's end -- ahead of the interpolated feet
+	private static void drawTrails(PoseStack poseStack, MultiBufferSource consumers, Vec3 cam, ClientLevel level, float partial,
+			long now, float time) {
+		for (java.util.Map.Entry<UUID, LightTrail.History> e : TRAILS.entrySet()) {
+			Player player = level.getPlayerByUUID(e.getKey());
+			if (player == null || player.isInvisible()) {
 				continue;
 			}
-			line.add(p.add(0, 0.05, 0));
-		}
-		int n = line.size() - 1;
-		float flicker = 0.9f + 0.1f * Mth.sin(time * 1.7f);
-		for (int i = 0; i < n; i++) {
-			float t0 = i / (float) n;
-			float t1 = (i + 1) / (float) n;
-			Vec3 a = line.get(i);
-			Vec3 b = line.get(i + 1);
-			if (a.distanceToSqr(b) < 1.0e-4) {
-				continue;
-			}
-			float w = 1f - (t0 + t1) * 0.5f;
-			glow.add(new Ribbon(a, b, 0.13f * w + 0.015f, GOLD, 0.32f * w * flicker));
-			core.add(new Ribbon(a, b, 0.06f * w + 0.008f, GOLD_HOT, 0.9f * w));
-			core.add(new Ribbon(a, b, 0.02f * w + 0.005f, CYAN, 0.7f * w));
+			boolean flying = Nova.isFlying(player);
+			float strength = flying && player.isSprinting() ? 1f : 0.6f;
+			Vec3 head = flying ? player.getPosition(partial).add(0, 0.05, 0) : null;
+			e.getValue().draw(poseStack, consumers, cam, head, partial, now, time, LightTrail.NOVA, strength);
 		}
 	}
 
@@ -195,9 +175,7 @@ public final class NovaEffectsRenderer {
 				float flicker = low ? (Mth.sin(time * 2.2f) > 0 ? 1f : 0.35f) : 1f;
 				bubbles.add(new Bubble(player.getPosition(partial).add(0, player.getBbHeight() * 0.5, 0), flicker, self));
 			}
-			if (s.flying) {
-				trail(player, partial, time, glow, core);
-			}
+
 			if (s.overloadUntil > now && !self) {
 				// NOVA OVERLOAD: a pulsing golden corona round the body
 				Vec3 c = player.getPosition(partial).add(0, player.getBbHeight() * 0.5, 0);
@@ -222,6 +200,7 @@ public final class NovaEffectsRenderer {
 				sphere(hot, c, 3.0 - 1.6 * t, 12, 16, GOLD, 0.06f); // additive: the rings inside must still show
 			}
 		}
+		drawTrails(poseStack, consumers, cam, level, partial, now, time); // v0.15.15: the shared light trail, in gold
 		for (Bubble b : bubbles) {
 			ForceBubbleRenderer.draw(poseStack, consumers, cam, b.center(), ForceBubble.Style.NOVA, time, b.alpha(), b.self());
 		}

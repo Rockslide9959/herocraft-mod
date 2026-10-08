@@ -217,67 +217,8 @@ public final class GreenLanternFlightFx {
 			pts[i] = pt.pos;
 			age[i++] = Mth.clamp((now - pt.tick + partial) / TRAIL_LIFE, 0f, 1f);
 		}
-		pose.pushPose();
-		pose.translate(-cam.x, -cam.y, -cam.z);
-		PoseStack.Pose last = pose.last();
-		VertexConsumer vc = HardLightRibbon.translucent(buffers);
-		// v0.15.15 playtest ("make the flight trail more transparent"): about half the old opacity, the core much fainter
-		ribbon(vc, last, cam, pts, age, 0.34f, 0x35F075, 0.2f, 1.0f);
-		ribbon(vc, last, cam, pts, age, 0.1f, 0xF0FFF4, 0.28f, 1.6f);
-		strands(vc, last, cam, pts, age, time);
-		VertexConsumer add = HardLightRibbon.additive(buffers);
-		ribbon(add, last, cam, pts, age, 0.6f, 0x35F075, 0.14f, 1.2f);
-		pose.popPose();
-	}
-
-	/**
-	 * A camera-facing ribbon through {@code pts}, {@code width} wide at its head, tapering and fading with age
-	 * ({@code fadePow} shapes the fade).
-	 */
-	private static void ribbon(VertexConsumer vc, PoseStack.Pose pose, Vec3 cam, Vec3[] pts, float[] age, float width, int rgb,
-			float alpha, float fadePow) {
-		Vec3 prevL = null;
-		Vec3 prevR = null;
-		float prevA = 0f;
-		for (int i = 0; i < pts.length; i++) {
-			Vec3 dir = i + 1 < pts.length ? pts[i].subtract(pts[i + 1]) : pts[i - 1].subtract(pts[i]);
-			if (dir.lengthSqr() < 1.0e-8) {
-				dir = new Vec3(0, 1, 0);
-			}
-			Vec3 side = dir.cross(cam.subtract(pts[i]));
-			side = side.lengthSqr() < 1.0e-8 ? new Vec3(1, 0, 0) : side.normalize();
-			float life = 1f - age[i];
-			// taper: a fine point at the very head (it leaves the body), widest just behind, thinning to the tail
-			float head = Math.min(1f, (i + 0.35f) / 2.2f);
-			float w = width * head * (float) Math.pow(life, 0.7);
-			float a = alpha * (float) Math.pow(life, fadePow);
-			Vec3 l = pts[i].add(side.scale(w));
-			Vec3 r = pts[i].subtract(side.scale(w));
-			if (prevL != null) {
-				HardLightRibbon.quad(vc, pose, (float) prevL.x, (float) prevL.y, (float) prevL.z, (float) l.x, (float) l.y, (float) l.z,
-						(float) r.x, (float) r.y, (float) r.z, (float) prevR.x, (float) prevR.y, (float) prevR.z, rgb, prevA, a, a, prevA);
-			}
-			prevL = l;
-			prevR = r;
-			prevA = a;
-		}
-	}
-
-	/** Two thin strands of light twisting round the trail. */
-	private static void strands(VertexConsumer vc, PoseStack.Pose pose, Vec3 cam, Vec3[] pts, float[] age, float time) {
-		for (int s = 0; s < 2; s++) {
-			Vec3[] q = new Vec3[pts.length];
-			for (int i = 0; i < pts.length; i++) {
-				Vec3 dir = i + 1 < pts.length ? pts[i].subtract(pts[i + 1]) : pts[i - 1].subtract(pts[i]);
-				dir = dir.lengthSqr() < 1.0e-8 ? new Vec3(0, 1, 0) : dir.normalize();
-				Vec3 a = Math.abs(dir.y) < 0.9 ? new Vec3(0, 1, 0) : new Vec3(1, 0, 0);
-				Vec3 u = dir.cross(a).normalize();
-				Vec3 v = dir.cross(u).normalize();
-				float phase = i * 0.55f - time * 0.5f + s * Mth.PI;
-				float r = 0.26f * Math.min(1f, (i + 0.35f) / 2.2f) * (1f - age[i] * 0.5f);
-				q[i] = pts[i].add(u.scale(Mth.cos(phase) * r)).add(v.scale(Mth.sin(phase) * r));
-			}
-			ribbon(vc, pose, cam, q, age, 0.035f, 0xB8FFCC, 0.38f, 1.3f);
-		}
+		// v0.15.15: drawn by the shared LightTrail (Nova uses it too, in his colours)
+		com.projecthero.mod.client.flight.LightTrail.draw(pose, buffers, cam, pts, age, time,
+				com.projecthero.mod.client.flight.LightTrail.GREEN_LANTERN, 1f);
 	}
 }
