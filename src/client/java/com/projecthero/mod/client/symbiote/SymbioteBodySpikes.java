@@ -59,6 +59,19 @@ public final class SymbioteBodySpikes {
 			{ -1.2f, 6.8f, 2.4f, -0.35f, 0.3f, 1.0f, 4.0f },    // forearm, back
 	};
 
+	/**
+	 * First person only: the first-person arm shows the camera its inner side and its top, not the outer side the
+	 * third-person spikes grow from -- so the sleeve the player sees gets its own ring of thorns round the forearm.
+	 */
+	private static final float[][] FP_ARM = {
+			{ 1.3f, 7.0f, -1.0f, 1.0f, 0.6f, -0.4f, 5.0f },     // inner side, raked towards the fist
+			{ 1.3f, 9.0f, 0.8f, 1.0f, 0.7f, 0.3f, 4.0f },
+			{ -1.0f, 6.5f, -2.4f, -0.2f, 0.6f, -1.0f, 5.0f },   // front face
+			{ 0.2f, 8.8f, -2.4f, 0.35f, 0.7f, -1.0f, 4.0f },
+			{ -1.2f, 7.5f, 2.4f, -0.3f, 0.6f, 1.0f, 5.0f },     // back face
+			{ -3.4f, 8.0f, 0.0f, -1.0f, 0.6f, 0.0f, 5.0f },     // outer side
+	};
+
 	private SymbioteBodySpikes() {
 	}
 
@@ -149,8 +162,8 @@ public final class SymbioteBodySpikes {
 		boolean slim = player.getSkin().model() == PlayerSkin.Model.SLIM;
 		pose.pushPose();
 		arm.translateAndRotate(pose);
-		for (int i = 0; i < ARM.length; i++) {
-			spike(vc, pose.last(), light, ARM[i], !rightArm, slim ? 1.0f : 0.0f, growth(player, age, 2 + i));
+		for (int i = 0; i < FP_ARM.length; i++) {
+			spike(vc, pose.last(), light, FP_ARM[i], !rightArm, slim ? 1.0f : 0.0f, growth(player, age, 1 + i));
 		}
 		pose.popPose();
 	}
