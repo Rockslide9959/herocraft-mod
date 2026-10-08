@@ -9,9 +9,9 @@ package com.projecthero.mod.ironman.suit;
  * <h2>Timeline ({@value #UP_TICKS} ticks = 4 s)</h2>
  * <ol>
  *   <li><b>Chestplate</b>, then <b>leggings</b>, then <b>boots</b> (overlapping a little): v0.15.15 (user) each piece
- *       arrives from in front of the player, full size, its front whole and only its <em>back panels</em> standing open
- *       like doors (hinged at the sides of the back, as the Mark 8 sentry opens), settles onto the body, then the
- *       panels swing shut behind the player and lock. ({@link #openAngle} is the panels' swing; the suit's own geometry
+ *       arrives full size from behind the player, its back whole and only its <em>front panels</em> standing open like
+ *       doors (hinged at the sides of the front, dark-lined inside); the body passes in through the open front, the back
+ *       plate settles against the player's back, then the front panels swing shut round them and lock. ({@link #openAngle} is the panels' swing; the suit's own geometry
  *       is clipped and swung -- nothing is added to the user's models.)</li>
  *   <li>The <b>helmet</b> swings up out of the back, hinged at the back of the neck, with no faceplate on it.</li>
  *   <li>The <b>faceplate</b> flips out over the brow into its raised position and then closes down -- the closing is the

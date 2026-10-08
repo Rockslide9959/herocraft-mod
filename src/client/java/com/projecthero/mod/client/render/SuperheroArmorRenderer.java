@@ -79,6 +79,7 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 				}
 				// v0.15.4: the Mark 7 bracelet wrap-on; v0.15.15 (user): drawn with its back panels open like doors, front whole
 				backDoorDeg = com.projecthero.mod.client.ironman.IronManBraceletClient.splitDeg;
+				frontDoors = backDoorDeg > 0f; // v0.15.15 (user): the Mark 7 opens at the FRONT and closes round the wearer
 				com.projecthero.mod.client.ironman.IronManBraceletClient.splitDeg = 0f;
 				// the H faceplate is up: drop the helmet's front faces so the wearer's face shows (shell + brow stay on)
 				skipNorthFaces = "helmet".equals(name) && getCurrentSlot() == EquipmentSlot.HEAD
@@ -88,6 +89,7 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			} finally {
 				skipNorthFaces = false;
 				backDoorDeg = 0f;
+				frontDoors = false;
 				poseStack.popPose();
 			}
 			return;
@@ -136,6 +138,9 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 
 	/** v0.15.15: a Sentry Mode suit's back panels, swung open this far (degrees); 0 = drawn whole. */
 	private float backDoorDeg;
+
+	/** v0.15.15: {@link #backDoorDeg} opens the FRONT panels instead (the Mark 7 wrap-on), the back staying whole. */
+	private boolean frontDoors;
 
 	/**
 	 * v0.15.4: during the Mark 7 bracelet wrap-on a body bone is drawn as two half-shells -- its own boxes clipped at the
@@ -210,12 +215,12 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 				// texture seen from behind: leave it out and let the dark lining stand for it
 				boolean inward = (liningPlate && quad.normal().z() > 0.5f) || (flat(cube) && pointsInward(quad, bounds));
 				for (int part = -1; part <= 1; part++) {
-					var verts = com.projecthero.mod.client.ironman.IronManSentryClient.doorClip(quad, bounds, part, deg);
+					var verts = com.projecthero.mod.client.ironman.IronManSentryClient.doorClip(quad, bounds, part, deg, frontDoors);
 					if (verts == null) {
 						continue;
 					}
 					float[] n = com.projecthero.mod.client.ironman.IronManSentryClient.doorNormal(bounds, part, deg,
-							quad.normal().x(), quad.normal().y(), quad.normal().z());
+							quad.normal().x(), quad.normal().y(), quad.normal().z(), frontDoors);
 					org.joml.Vector3f normal = normalMat.transform(new org.joml.Vector3f(n[0], n[1], n[2]));
 					software.bernie.geckolib.util.RenderUtil.fixInvertedFlatCube(cube, normal);
 					if (inward) {

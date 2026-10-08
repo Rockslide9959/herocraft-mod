@@ -82,6 +82,14 @@ public final class IronManSentryClient {
 	 * quad in that part. Cut faces keep their texture (UVs re-interpolated along the cut edge).
 	 */
 	public static IronManBraceletClient.Vert[] doorClip(GeoQuad quad, float[] bounds, int part, float deg) {
+		return doorClip(quad, bounds, part, deg, false);
+	}
+
+	/**
+	 * v0.15.15: as {@link #doorClip(GeoQuad, float[], int, float)}; {@code front} = the mirror image -- the BACK half stays
+	 * put and the FRONT half opens as two doors hinged at the sides of the front (the Mark 7 wrap-on).
+	 */
+	public static IronManBraceletClient.Vert[] doorClip(GeoQuad quad, float[] bounds, int part, float deg, boolean front) {
 		GeoVertex[] vs = quad.vertices();
 		IronManBraceletClient.Vert[] v = new IronManBraceletClient.Vert[vs.length];
 		for (int i = 0; i < vs.length; i++) {
@@ -91,9 +99,9 @@ public final class IronManSentryClient {
 		float zCut = (bounds[2] + bounds[3]) * 0.5f;
 		float xCut = (bounds[0] + bounds[1]) * 0.5f;
 		if (part == 0) {
-			return clip(v, 2, zCut, false); // the front (-z) stays put
+			return clip(v, 2, zCut, front); // the front (-z) stays put -- or, opening at the front, the back (+z)
 		}
-		v = clip(v, 2, zCut, true);
+		v = clip(v, 2, zCut, !front);
 		if (v == null) {
 			return null;
 		}
@@ -102,7 +110,7 @@ public final class IronManSentryClient {
 			return null;
 		}
 		float hingeX = part > 0 ? bounds[1] : bounds[0];
-		double a = Math.toRadians(part > 0 ? deg : -deg);
+		double a = Math.toRadians((part > 0) != front ? deg : -deg);
 		float sin = (float) Math.sin(a), cos = (float) Math.cos(a);
 		for (int i = 0; i < v.length; i++) {
 			float dx = v[i].x() - hingeX, dz = v[i].z() - zCut;
@@ -114,10 +122,15 @@ public final class IronManSentryClient {
 
 	/** The normal of a quad in {@code part} (see {@link #doorClip}). */
 	public static float[] doorNormal(float[] bounds, int part, float deg, float nx, float ny, float nz) {
+		return doorNormal(bounds, part, deg, nx, ny, nz, false);
+	}
+
+	/** v0.15.15: as above, for front doors ({@code front}) too. */
+	public static float[] doorNormal(float[] bounds, int part, float deg, float nx, float ny, float nz, boolean front) {
 		if (part == 0) {
 			return new float[] { nx, ny, nz };
 		}
-		double a = Math.toRadians(part > 0 ? deg : -deg);
+		double a = Math.toRadians((part > 0) != front ? deg : -deg);
 		float sin = (float) Math.sin(a), cos = (float) Math.cos(a);
 		return new float[] { nx * cos + nz * sin, ny, -nx * sin + nz * cos };
 	}
