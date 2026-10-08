@@ -174,11 +174,11 @@ public final class GreenLanternFlightFx {
 		float a = k * (0.75f + 0.25f * breathe) * (1f + 0.35f * boost);
 		// additive glow: brightens whatever is behind it instead of tinting it dark
 		VertexConsumer add = HardLightRibbon.additive(buffers);
-		shell(add, pose, 0.62f, 1.22f, 0.5f, 0x35F075, 0.22f * a);
-		shell(add, pose, 0.5f, 1.08f, 0.4f, 0x9CFFB8, 0.12f * a);
+		shell(add, pose, 0.7f, 1.3f, 0.58f, 0x35F075, 0.1f * a);
+		shell(add, pose, 0.56f, 1.14f, 0.45f, 0x35F075, 0.05f * a);
 		// a faint translucent skin of light, just outside the body
 		VertexConsumer vc = HardLightDraw.buffer(buffers);
-		shell(vc, pose, 0.7f + 0.03f * breathe, 1.3f + 0.04f * breathe, 0.56f + 0.03f * breathe, 0x35F075, 0.09f * a);
+		shell(vc, pose, 0.7f + 0.03f * breathe, 1.3f + 0.04f * breathe, 0.56f + 0.03f * breathe, 0x35F075, 0.06f * a);
 		pose.popPose();
 	}
 

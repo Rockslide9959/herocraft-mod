@@ -54,14 +54,14 @@ public final class PowerBatteryHeldRenderer {
 	/** Model y of the glowing core's centre. */
 	private static final float CORE_Y = 6.5f / 16f - 0.5f;
 	/** Lantern size in third person / first person. */
-	public static final float SCALE_3P = 0.5f;
-	public static final float SCALE_1P = 0.62f;
+	public static final float SCALE_3P = 0.42f;
+	public static final float SCALE_1P = 0.45f;
 	/** Pendulum: gravity term (rad/tick^2 per rad), damping per tick, the lantern's swing length (blocks). */
 	private static final float GRAVITY = 0.07f;
 	private static final float DAMPING = 0.14f;
 	private static final float LENGTH = 0.35f;
-	private static final float DRAG = 0.09f;
-	private static final float MAX_ANGLE = 1.1f;
+	private static final float DRAG = 0.05f;
+	private static final float MAX_ANGLE = 0.75f;
 
 	private static final class Sway {
 		float pitch, pitchV, roll, rollV;
@@ -152,9 +152,9 @@ public final class PowerBatteryHeldRenderer {
 			float stride = p.walkAnimation.position() * 0.6662f;
 			float bob = Mth.sin(stride) * Math.min(1f, p.walkAnimation.speed()) * 0.03f;
 			// pitch: + = the bottom swings forward. Accelerating forward / moving forward leaves it trailing back.
-			float pa = -GRAVITY * Mth.sin(s.pitch) - DAMPING * s.pitchV - accF / LENGTH * 0.6f - DRAG * velF + bob;
+			float pa = -GRAVITY * Mth.sin(s.pitch) - DAMPING * s.pitchV - accF / LENGTH * 0.22f - DRAG * velF + bob;
 			// roll: + = the bottom swings out to the right
-			float ra = -GRAVITY * Mth.sin(s.roll) - DAMPING * s.rollV - accR / LENGTH * 0.6f - DRAG * velR;
+			float ra = -GRAVITY * Mth.sin(s.roll) - DAMPING * s.rollV - accR / LENGTH * 0.22f - DRAG * velR;
 			s.pitchV = Mth.clamp(s.pitchV + pa, -0.4f, 0.4f);
 			s.rollV = Mth.clamp(s.rollV + ra, -0.4f, 0.4f);
 			s.pitch = Mth.clamp(s.pitch + s.pitchV, -MAX_ANGLE, MAX_ANGLE);
@@ -245,7 +245,7 @@ public final class PowerBatteryHeldRenderer {
 		TurboDraw.box(vc, pose.last(), 0.27f, 0.3f, 0.27f, 0x5CFF8E, 0.35f * s + 0.3f * flash);
 		VertexConsumer add = HardLightRibbon.additive(buffers);
 		TurboDraw.sphere(add, pose, 0.45f + 0.08f * pulse + 0.6f * flash, 0xB8FFCC, (0.35f + 0.25f * pulse) * s + flash * 0.8f);
-		TurboDraw.sphere(add, pose, 0.85f + 0.15f * pulse + 1.4f * flash, 0x35F075, (0.18f + 0.12f * pulse) * s + flash * 0.5f);
+		TurboDraw.sphere(add, pose, 0.7f + 0.1f * pulse + 1.2f * flash, 0x35F075, (0.12f + 0.08f * pulse) * s + flash * 0.5f);
 		vc = HardLightDraw.buffer(buffers);
 		// a ring of light pulsing out of it, faster as the charge builds
 		float wave = (time * (0.08f + 0.1f * k)) % 1f;
@@ -309,14 +309,25 @@ public final class PowerBatteryHeldRenderer {
 	}
 
 	/** First-person charge pose offsets (blocks / degrees), tuned on screenshots. */
-	public static float BAT_IN = 0.34f, BAT_UP = 0.16f, BAT_FWD = 0.1f, BAT_ROLL = 8f;
-	public static float RING_IN = 0.36f, RING_UP = 0.02f, RING_FWD = 0.05f, RING_YAW = 15f, RING_ROLL = 10f;
+	public static float BAT_IN = 0.24f, BAT_UP = 0.42f, BAT_FWD = 0.1f, BAT_ROLL = 4f;
+	public static float RING_IN = 0.34f, RING_UP = 0.24f, RING_FWD = 0.12f, RING_YAW = 18f, RING_ROLL = 4f;
+	/** First person, just holding it: the arm lifted so the hanging lantern shows. */
+	public static float HOLD_UP = 0.36f, HOLD_IN = 0.22f;
+	/** First person: the grip point moved in from the fist's centre to its inner edge, and up. */
+	public static float FP_SIDE = 0.15f, FP_UP = 0.04f;
+
+	public static void holdArmPose(PoseStack pose, HumanoidArm side) {
+		float f = side == HumanoidArm.RIGHT ? 1f : -1f;
+		pose.translate(-f * HOLD_IN, HOLD_UP, 0f);
+	}
 
 	/** Draws the first-person battery hanging from {@code fist} (a point in {@code pose}'s space). */
-	public static void drawFirstPerson(Player player, ItemStack stack, Vector3f fist, float camPitch, float partial, PoseStack pose,
-			MultiBufferSource buffers, int light, boolean charging) {
+	public static void drawFirstPerson(Player player, ItemStack stack, Vector3f fist, HumanoidArm side, float camPitch, float partial,
+			PoseStack pose, MultiBufferSource buffers, int light, boolean charging) {
 		pose.pushPose();
-		pose.translate(fist.x, fist.y, fist.z);
+		// on the inner edge of the fist: seen from behind your own arm, a lantern hanging straight below the fist would be
+		// hidden by the arm itself
+		pose.translate(fist.x + (side == HumanoidArm.RIGHT ? -FP_SIDE : FP_SIDE), fist.y + FP_UP, fist.z);
 		// hang toward the real ground: world-down in camera space tilts with the view pitch
 		pose.mulPose(Axis.XP.rotationDegrees(camPitch));
 		float ch = charge(player, partial);

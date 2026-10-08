@@ -51,7 +51,7 @@ public abstract class ItemInHandRendererPowerBatteryMixin {
 				org.joml.Matrix4f start = new org.joml.Matrix4f(pose.last().pose());
 				pose.popPose();
 				Vector3f fist = PowerBatteryHeldRenderer.firstPersonFist(pose, start, 0f, 0f, side);
-				PowerBatteryHeldRenderer.drawFirstPerson(player, player.getOffhandItem(), fist, pitch, partialTick, pose, buffers, light,
+				PowerBatteryHeldRenderer.drawFirstPerson(player, player.getOffhandItem(), fist, side, pitch, partialTick, pose, buffers, light,
 						true);
 			}
 			ci.cancel();
@@ -61,11 +61,12 @@ public abstract class ItemInHandRendererPowerBatteryMixin {
 			return;
 		}
 		pose.pushPose();
+		PowerBatteryHeldRenderer.holdArmPose(pose, side); // raised a little, so the lantern hanging below the fist is in view
+		org.joml.Matrix4f start = new org.joml.Matrix4f(pose.last().pose());
 		renderPlayerArm(pose, buffers, light, equipProgress, swingProgress, side);
 		pose.popPose();
-		Vector3f fist = PowerBatteryHeldRenderer.firstPersonFist(pose, new org.joml.Matrix4f(pose.last().pose()), equipProgress,
-				swingProgress, side);
-		PowerBatteryHeldRenderer.drawFirstPerson(player, stack, fist, pitch, partialTick, pose, buffers, light, false);
+		Vector3f fist = PowerBatteryHeldRenderer.firstPersonFist(pose, start, equipProgress, swingProgress, side);
+		PowerBatteryHeldRenderer.drawFirstPerson(player, stack, fist, side, pitch, partialTick, pose, buffers, light, false);
 		ci.cancel();
 	}
 }

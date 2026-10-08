@@ -164,6 +164,15 @@ public final class GreenLanternBattery {
 		return player.position().add(fwd.scale(0.62)).add(right.scale(-0.05)).add(0, 0.95, 0);
 	}
 
+	/** Particles for every viewer but {@code self}. */
+	private static void others(ServerPlayer self, ParticleOptions p, double x, double y, double z, int count, double spread) {
+		for (ServerPlayer viewer : self.serverLevel().players()) {
+			if (viewer != self) {
+				self.serverLevel().sendParticles(viewer, p, false, x, y, z, count, spread, spread, spread, spread > 0 ? 0.1 : 0.0);
+			}
+		}
+	}
+
 	/** Per-player server tick. */
 	public static void tick(ServerPlayer player) {
 		Charge c = CHARGES.get(player.getUUID());
@@ -184,15 +193,12 @@ public final class GreenLanternBattery {
 		long elapsed = player.level().getGameTime() - c.startTick;
 		Vec3 bat = batteryPoint(player);
 		// the battery's light: motes of green rising out of it and spiralling in to the ring fist pressed against it
+		// (sent to everyone but the Lantern: in first person they sat right in front of the camera -- he sees the glow)
 		if (elapsed % 2 == 0) {
 			double a = elapsed * 0.45;
 			double rr = 0.28;
-			level.sendParticles(GREEN_DUST, bat.x + Math.cos(a) * rr, bat.y + 0.1 + (elapsed % 10) * 0.03, bat.z + Math.sin(a) * rr,
-					1, 0.0, 0.0, 0.0, 0.0);
-			level.sendParticles(PALE_DUST, bat.x - Math.cos(a) * rr, bat.y + 0.1, bat.z - Math.sin(a) * rr, 1, 0.0, 0.0, 0.0, 0.0);
-		}
-		if (elapsed % 5 == 0) {
-			level.sendParticles(ParticleTypes.END_ROD, bat.x, bat.y + 0.15, bat.z, 1, 0.12, 0.12, 0.12, 0.01);
+			others(player, GREEN_DUST, bat.x + Math.cos(a) * rr, bat.y + 0.1 + (elapsed % 10) * 0.03, bat.z + Math.sin(a) * rr, 1, 0.0);
+			others(player, PALE_DUST, bat.x - Math.cos(a) * rr, bat.y + 0.1, bat.z - Math.sin(a) * rr, 1, 0.0);
 		}
 
 		int line = (int) (elapsed / GreenLanternConfig.OATH_LINE_TICKS);
@@ -207,10 +213,10 @@ public final class GreenLanternBattery {
 					SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.0f, 1.3f);
 			level.playSound(null, player.getX(), player.getY(), player.getZ(),
 					SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.0f, 1.6f);
-			// the flash
-			level.sendParticles(ParticleTypes.FLASH, bat.x, bat.y, bat.z, 1, 0, 0, 0, 0);
-			level.sendParticles(GREEN_DUST, bat.x, bat.y, bat.z, 40, 0.5, 0.5, 0.5, 0.15);
-			level.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + 1.0, player.getZ(), 30, 0.4, 0.8, 0.4, 0.12);
+			// the flash (the Lantern's own view gets the battery's glow flare instead, see PowerBatteryHeldRenderer)
+			others(player, ParticleTypes.FLASH, bat.x, bat.y, bat.z, 1, 0.0);
+			others(player, GREEN_DUST, bat.x, bat.y, bat.z, 40, 0.5);
+			others(player, ParticleTypes.END_ROD, player.getX(), player.getY() + 1.0, player.getZ(), 24, 0.6);
 			return;
 		}
 		if (line != c.lastLineShown) {

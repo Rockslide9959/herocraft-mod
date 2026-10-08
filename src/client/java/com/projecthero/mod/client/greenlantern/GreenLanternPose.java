@@ -112,8 +112,8 @@ public final class GreenLanternPose {
 			rest(32) };
 
 	/** v0.15.15 charge pose (radians): the ring arm across to the battery, the battery arm held out. Tuned on screenshots. */
-	public static float CH_RING_X = -0.95f, CH_RING_Y = -0.62f, CH_RING_Z = 0f;
-	public static float CH_BAT_X = -1.2f, CH_BAT_Y = 0.42f, CH_BAT_Z = 0f;
+	public static float CH_RING_X = -0.8f, CH_RING_Y = -0.6f, CH_RING_Z = 0f;
+	public static float CH_BAT_X = -1.4f, CH_BAT_Y = 0.42f, CH_BAT_Z = 0f;
 
 	private GreenLanternPose() {
 	}

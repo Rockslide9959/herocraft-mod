@@ -640,3 +640,49 @@ Giant Hand moves to V".
   additive (lightning-buffer) glow spheres and a pulsing light shell (both views); server dust bursts at
   `GreenLanternSuit#ringHand` and rides the sweep front -- sent to everyone but the Lantern (in first person it buried
   the view).
+
+## v0.15.15 batch 2 (gl2): R tap/hold + Blast Wave, Z bubble, off-hand battery charging, no construct limits, flight look
+
+| Key | Tap | Hold | Shift |
+|---|---|---|---|
+| R | Ring Bolt (fires on release) | Continuous Beam (after `BEAM_HOLD_TICKS` = 6) | **Blast Wave** |
+| Z | -- | **hard-light bubble** (`ForceBubble`, `Style.GREEN_LANTERN`) | Protective Dome (unchanged) |
+
+- **R**: `GreenLanternAbilityManager` keeps `R_PRESSED` (press tick, or `R_HELD` once it became a hold); `serverTick`
+  starts the beam past the threshold, the release fires the bolt only for a short press. Shift+R ->
+  `GreenLanternCombat#blastWave` (18 dmg, Slowness III 4 s, 7 s cd `blast_wave`, 150 charge) ->
+  `GreenLanternConstructAttacks#blastWave`: a `HardLightConstructEntity` of the new `Shape.WAVE` (appended) that rolls
+  out over a 120-degree forward cone to 8 blocks in 8 ticks, hitting each creature once as the front reaches it
+  (`canHit` = HeroTargets/squad rules, knockback except bosses). Drawn by `HardLightConstructRenderer#wave` with the new
+  `HardLightRibbon` quads (leaning wall, white crest, ground seam, wash, additive glow). Pose `ANIM_BLAST`.
+- **Z** (user-confirmed): held bubble, 40 charge/s (`BUBBLE_SHIELD_DRAIN_PER_SEC`), no up-front cost / HP / uptime meter,
+  drops when the ring can't pay. Still the barrier attachment (HP > 0, not a dome) so HUD/pose see it.
+  `GreenLanternDamage`: not a dome -> `ForceBubble.blocks` cancels projectiles and in-person blows from any side
+  (`ForceBubble.absorb`), everything else passes. `GreenLanternShieldRenderer` draws `ForceBubbleRenderer` (the floating
+  vanilla shield is no longer drawn). From inside in first person the shared renderer's shell is barely visible.
+- **Charging** (`GreenLanternBattery`, rewritten): `PowerBatteryItem` (the battery's BlockItem) -- off hand + Sneak +
+  use (block or air) -> `beginCharge`. Rooted (MOVEMENT_SPEED / JUMP_STRENGTH -100% modifiers + drift pulled back),
+  the four Oath lines on the action bar every 30 ticks (`CHARGE_TICKS` = 120), cancelled by any damage > 0
+  (`GreenLanternDamage`), any ability (`onAbilityUsed`) or the battery leaving the off hand; completion = full ring +
+  `ANIM_CHARGED` (ring fist to the sky) + flash. Particles go to everyone but the charger. Synced through
+  `GreenLanternFx.CH_CHARGE` + the new `chargeStart` field. A placed battery block only explains the gesture.
+- **Battery look** (`client/greenlantern/PowerBatteryHeldRenderer` + `ItemInHandLayerPowerBatteryMixin` /
+  `ItemInHandRendererPowerBatteryMixin`): drawn from its handle at the fist with the arm rotation undone (always hangs
+  down), a damped pendulum per holder driven by hand acceleration / drag / stride. First person: arm lifted
+  (`HOLD_UP`), grip moved to the fist's inner edge (else the arm hides it). Charging: 3rd-person pose in
+  `GreenLanternPose` (`CH_*`), first-person arm offsets `BAT_*` / `RING_*`, full-bright battery + white core + additive
+  halos growing over the Oath, flare on completion.
+- **Constructs**: `ConstructType#maxDurationTicks` = 0 for all but the Sentry Turret; only the turret keeps a cooldown
+  (`cooldownIdFor`); ram / tether / buzzsaw / anvil / chains / warrior cooldowns gone; Chains / Pad / Warrior entities
+  live until N (`life` 0); Chains now cost 4/s (`CHAINS_UPKEEP_PER_SEC`); one ram head in flight at a time.
+- **Flight look** (`client/greenlantern/GreenLanternFlightFx`): additive + translucent ellipsoid aura round the leaning
+  body whenever `GREEN_LANTERN_FLYING` (not for yourself in first person); while sprint-flying (`GREEN_LANTERN_BOOSTING`
+  or sprinting) a trail sampled every tick from the legs, drawn as camera-facing tapered ribbons + white core + two
+  twisting strands + additive glow, fading over 16 ticks. The server dust line is skipped while boosting.
+- **Ring on the suit**: `HandRing#innerFace` -- the 90-degree placements put the band on the outer face (normal -x), so
+  a suit shell now moves the pivot outward (it used to sink the ring into the gauntlet); suited hands use wide-arm
+  placement (gauntlet / first-person sleeve are always 4 px).
+- **HUD**: six keys (24 px), no H / N boxes; the box = tap-move cooldown, a 2 px bar along its bottom = the Shift move
+  (refills while cooling, bright when ready; peak-tracked). CHARGING tag; the barrier label reads BUBBLE.
+- I-key page fix: the N row showed the construct text (a `case "N"` hidden behind a comment).
+- Gametests: `V01515Gl2GameTests`. Screenshots: main repo `scratchpad/shots_v01515/gl2/` (harness sources there too).
