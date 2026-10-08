@@ -32,6 +32,13 @@ public final class CullingBufferSource implements MultiBufferSource {
 	private static final float NECK_ABOVE = -0.03f;
 	private static final float NECK_BELOW = 0.09f;
 
+	/** The upright volume over the shoulders (world blocks, from the neck pivot; z along the body's facing). */
+	private static final float UPRIGHT_HALF_WIDTH = 0.32f;
+	private static final float UPRIGHT_BOTTOM = 0.05f;
+	private static final float UPRIGHT_TOP = 0.62f;
+	private static final float UPRIGHT_BACK = -0.45f;
+	private static final float UPRIGHT_FRONT = 0.30f;
+
 	private final MultiBufferSource delegate;
 	private final Map<RenderType, Culling> open = new IdentityHashMap<>();
 
@@ -70,6 +77,16 @@ public final class CullingBufferSource implements MultiBufferSource {
 		Matrix4f inv = FirstPersonBody.headInverse();
 		if (inv == null) {
 			return false;
+		}
+		Matrix4f neck = FirstPersonBody.neckFrame();
+		if (neck != null) {
+			// the upright space above the shoulders, whatever the head is doing: a hood or collar rising behind the head,
+			// a helmet still sitting where the head was before it nodded down
+			Vector3f u = neck.transformPosition(cx, cy, cz, new Vector3f());
+			if (Math.abs(u.x) < UPRIGHT_HALF_WIDTH && u.y > UPRIGHT_BOTTOM && u.y < UPRIGHT_TOP && u.z > UPRIGHT_BACK
+					&& u.z < UPRIGHT_FRONT) {
+				return true;
+			}
 		}
 		Vector3f v = inv.transformPosition(cx, cy, cz, new Vector3f());
 		if (Math.abs(v.x) >= HALF_WIDTH || Math.abs(v.z) >= HALF_WIDTH || v.y <= TOP || v.y >= NECK_BELOW) {

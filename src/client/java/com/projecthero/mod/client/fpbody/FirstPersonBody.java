@@ -112,6 +112,7 @@ public final class FirstPersonBody {
 	/** The full-body view is off this frame: forget the head frame. */
 	public static void inactive() {
 		headInverse = null;
+		neckFrame = null;
 	}
 
 	/**
@@ -138,11 +139,16 @@ public final class FirstPersonBody {
 	}
 
 	/** After setupAnim: remember the head's frame so the head volume can be culled ({@link CullingBufferSource}). */
-	public static void captureHead(PoseStack modelSpace, ModelPart head) {
+	public static void captureHead(PoseStack modelSpace, ModelPart head, Entity entity, float partialTick) {
 		PoseStack tmp = new PoseStack();
 		tmp.last().pose().set(modelSpace.last().pose());
 		head.translateAndRotate(tmp);
-		headInverse = tmp.last().pose().invert(new Matrix4f());
+		Matrix4f headFrame = tmp.last().pose();
+		headInverse = headFrame.invert(new Matrix4f());
+		org.joml.Vector3f neck = headFrame.transformPosition(0f, 0f, 0f, new org.joml.Vector3f());
+		double r = Math.toRadians(bodyYaw(entity, partialTick));
+		// upright neck frame: origin at the neck pivot, z = the body's facing, y = world up
+		neckFrame = new Matrix4f().translation(neck).rotateY((float) -r).invert();
 	}
 
 	/** The head frame's inverse (this frame's, or the last one's), or null before the first capture. */
@@ -150,11 +156,21 @@ public final class FirstPersonBody {
 		return headInverse;
 	}
 
+	/** World -> upright neck frame (z forward along the body, y up), or null before the first capture. */
+	static Matrix4f neckFrame() {
+		return neckFrame;
+	}
+
+	private static Matrix4f neckFrame;
+
+	private static float bodyYaw(Entity entity, float partialTick) {
+		return entity instanceof net.minecraft.world.entity.LivingEntity le
+				? Mth.rotLerp(partialTick, le.yBodyRotO, le.yBodyRot) : entity.getViewYRot(partialTick);
+	}
+
 	/** Where (relative to its true spot) the body is drawn: {@link #BACK} blocks behind, along the body's facing. */
 	public static Vec3 offset(Entity entity, float partialTick) {
-		float bodyYaw = entity instanceof net.minecraft.world.entity.LivingEntity le
-				? Mth.rotLerp(partialTick, le.yBodyRotO, le.yBodyRot) : entity.getViewYRot(partialTick);
-		double r = Math.toRadians(bodyYaw);
+		double r = Math.toRadians(bodyYaw(entity, partialTick));
 		// facing (yaw) -> look vector (-sin, 0, cos); behind is the opposite
 		return new Vec3(Math.sin(r) * BACK, 0.0, -Math.cos(r) * BACK);
 	}
