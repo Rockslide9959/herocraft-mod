@@ -98,12 +98,14 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 		float sentryDeg = com.projecthero.mod.client.ironman.IronManSentryClient.openDeg;
 		if (sentryDeg > 0.01f && animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem
 				&& !(getCurrentEntity() instanceof Player)) {
-			backDoorDeg = "faceplate".equals(name) ? 0f : sentryDeg;
+			backDoorDeg = "faceplate".equals(name) ? 0.02f : sentryDeg; // the faceplate stays shut, but lined dark inside
+			liningPlate = "faceplate".equals(name);
 			try {
 				super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick,
 						packedLight, packedOverlay, colour);
 			} finally {
 				backDoorDeg = 0f;
+				liningPlate = false;
 			}
 			return;
 		}
@@ -204,6 +206,9 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 				if (quad == null) {
 					continue;
 				}
+				// a flat (zero-thickness) plate's face that points into the suit (e.g. the back of the faceplate) is its
+				// texture seen from behind: leave it out and let the dark lining stand for it
+				boolean inward = (liningPlate && quad.normal().z() > 0.5f) || (flat(cube) && pointsInward(quad, bounds));
 				for (int part = -1; part <= 1; part++) {
 					var verts = com.projecthero.mod.client.ironman.IronManSentryClient.doorClip(quad, bounds, part, deg);
 					if (verts == null) {
@@ -213,15 +218,67 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 							quad.normal().x(), quad.normal().y(), quad.normal().z());
 					org.joml.Vector3f normal = normalMat.transform(new org.joml.Vector3f(n[0], n[1], n[2]));
 					software.bernie.geckolib.util.RenderUtil.fixInvertedFlatCube(cube, normal);
+					if (inward) {
+						continue;
+					}
 					for (var v : verts) {
 						org.joml.Vector4f p = poseMat.transform(new org.joml.Vector4f(v.x(), v.y(), v.z(), 1f));
 						buffer.addVertex(p.x(), p.y(), p.z(), colour, v.u(), v.v(), packedOverlay, packedLight,
 								normal.x(), normal.y(), normal.z());
 					}
+					// v0.15.15: a dark metal lining a hair inside every face -- hidden behind the face from outside, but
+					// in front of the face's back side when you look into the open suit, so the opening reads as a hollow
+					// shell instead of showing the front's own texture (faceplate and all) from behind
+					int lining = darkLining(colour);
+					for (var v : verts) {
+						org.joml.Vector4f p = poseMat.transform(new org.joml.Vector4f(v.x() - n[0] * LINING_INSET,
+								v.y() - n[1] * LINING_INSET, v.z() - n[2] * LINING_INSET, 1f));
+						buffer.addVertex(p.x(), p.y(), p.z(), lining, v.u(), v.v(), packedOverlay, packedLight,
+								-normal.x(), -normal.y(), -normal.z());
+					}
 				}
 			}
 			poseStack.popPose();
 		}
+	}
+
+	/** v0.15.15: drawing the faceplate of an open sentry: its back (+z) faces are left out (the dark lining shows there). */
+	private boolean liningPlate;
+
+	/** v0.15.15: a zero-thickness cube (a plate, like the faceplate)? */
+	private static boolean flat(software.bernie.geckolib.cache.object.GeoCube cube) {
+		var s = cube.size();
+		return Math.abs(s.x) < 1.0e-4 || Math.abs(s.y) < 1.0e-4 || Math.abs(s.z) < 1.0e-4;
+	}
+
+	/** v0.15.15: does {@code quad} face the inside of its bone (towards the middle of the bone's footprint)? */
+	private static boolean pointsInward(software.bernie.geckolib.cache.object.GeoQuad quad, float[] bounds) {
+		float cx = 0f, cz = 0f;
+		var vs = quad.vertices();
+		for (var v : vs) {
+			cx += v.position().x();
+			cz += v.position().z();
+		}
+		cx /= vs.length;
+		cz /= vs.length;
+		float mx = (bounds[0] + bounds[1]) * 0.5f, mz = (bounds[2] + bounds[3]) * 0.5f;
+		float d = quad.normal().x() * (mx - cx) + quad.normal().z() * (mz - cz);
+		if (Math.abs(d) < 1.0e-4f) {
+			return quad.normal().z() > 0.5f; // a bone that is one flat plate (the faceplate): its back (+z) face
+		}
+		return d > 0f;
+	}
+
+	/** v0.15.15: how far (model units, blocks) inside each face the open suit's dark lining sits. */
+	private static final float LINING_INSET = 0.008f;
+
+	/** v0.15.15: {@code colour} tinted to the open suit's dark inner metal (alpha kept, so cut-out texels stay cut out). */
+	private static int darkLining(int colour) {
+		int a = colour >>> 24;
+		int r = ((colour >> 16) & 0xFF) * 40 / 255;
+		int g = ((colour >> 8) & 0xFF) * 40 / 255;
+		int b = (colour & 0xFF) * 46 / 255;
+		return a << 24 | r << 16 | g << 8 | b;
 	}
 
 	@Override

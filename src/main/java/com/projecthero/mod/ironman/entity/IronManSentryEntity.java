@@ -2034,16 +2034,39 @@ public class IronManSentryEntity extends Entity {
 			// boots (1 block below the pivot) and palms (~0.3 below it, out at the sides)
 			Vec3 boot = pivot.add(down.scale(1.0)).add(right.scale(side * 0.12));
 			Vec3 palm = pivot.add(down.scale(0.3)).add(right.scale(side * 0.4));
-			Vec3 jet = down.scale(0.12).add(getDeltaMovement().scale(0.2));
-			if (random.nextFloat() < 0.8f) {
-				level().addParticle(ParticleTypes.FLAME, boot.x, boot.y, boot.z, jet.x, jet.y, jet.z);
+			Vec3 jet = down.scale(0.12);
+			// v0.15.15 follow-up: short-lived jets (they used to drift down and sit on the grass as little fires); right
+			// above the ground they splay out sideways instead of piling up on it
+			boolean low = onGround() || boot.y - Math.floor(boot.y) < 0.35 && !level().getBlockState(
+					BlockPos.containing(boot.x, boot.y - 0.5, boot.z)).isAir();
+			if (low) {
+				jet = new Vec3(jet.x + (random.nextDouble() - 0.5) * 0.12, 0.01, jet.z + (random.nextDouble() - 0.5) * 0.12);
+			}
+			int life = low ? 3 : 5;
+			if (random.nextFloat() < 0.7f) {
+				thruster(ParticleTypes.FLAME, boot, jet, life);
 			}
 			if (random.nextFloat() < 0.35f) {
-				level().addParticle(ParticleTypes.SMALL_FLAME, palm.x, palm.y, palm.z, jet.x * 0.6, jet.y * 0.6, jet.z * 0.6);
+				thruster(ParticleTypes.SMALL_FLAME, palm, jet.scale(0.6), life - 1);
 			}
-			if (random.nextFloat() < 0.15f) {
-				level().addParticle(ParticleTypes.SMOKE, boot.x, boot.y, boot.z, jet.x * 0.5, jet.y * 0.5, jet.z * 0.5);
+			if (random.nextFloat() < 0.1f) {
+				thruster(ParticleTypes.SMOKE, boot, jet.scale(0.5), life + 3);
 			}
+		}
+	}
+
+	/** v0.15.15: client particle hook that can set a particle's lifetime (set by the client; null on a server). */
+	public interface ThrusterSink {
+		void spawn(net.minecraft.core.particles.ParticleOptions type, Vec3 at, Vec3 velocity, int lifetimeTicks);
+	}
+
+	public static ThrusterSink thrusterSink;
+
+	private void thruster(net.minecraft.core.particles.ParticleOptions type, Vec3 at, Vec3 v, int life) {
+		if (thrusterSink != null) {
+			thrusterSink.spawn(type, at, v, life);
+		} else {
+			level().addParticle(type, at.x, at.y, at.z, v.x, v.y, v.z);
 		}
 	}
 

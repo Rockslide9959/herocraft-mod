@@ -63,6 +63,14 @@ public final class IronManSentryClient {
 	public static void initialize() {
 		EntityRendererRegistry.register(IronManEntityTypes.SENTRY, IronManSentryRenderer::new);
 		ClientTickEvents.END_CLIENT_TICK.register(client -> tick());
+		// v0.15.15: short-lived thruster jets (vanilla flames live ~1 s and settled on the ground as little fires)
+		IronManSentryEntity.thrusterSink = (type, at, v, life) -> {
+			Minecraft mc = Minecraft.getInstance();
+			net.minecraft.client.particle.Particle p = mc.particleEngine.createParticle(type, at.x, at.y, at.z, v.x, v.y, v.z);
+			if (p != null) {
+				p.setLifetime(Math.max(1, life));
+			}
+		};
 	}
 
 	// ------------------------------------------------------------------ the back doors
