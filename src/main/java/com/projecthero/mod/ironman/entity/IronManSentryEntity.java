@@ -1294,10 +1294,10 @@ public class IronManSentryEntity extends Entity {
 			setDeltaMovement(getDeltaMovement().add(0, 0.35, 0)); // lift off
 		}
 		if (flying) {
-			Vec3 spot = flat.lengthSqr() < 1.0e-4 ? owner.position() : owner.position().subtract(flat.normalize().scale(FOLLOW_STOP));
+			Vec3 spot = followLanding(level, owner, flat); // ground near them (not thin air off a ledge)
 			double hd = spot.subtract(position()).horizontalDistance();
 			boolean ownerAirborne = !owner.onGround() && !owner.isInWater();
-			if (hd < 1.0 && !ownerAirborne && Math.abs(owner.getY() - getY()) < 3.0) {
+			if (hd < 1.0 && !ownerAirborne && Math.abs(spot.y - getY()) < 3.0) {
 				if (settle(spot, owner.position())) {
 					walking = false;
 					stuckTicks = 0;
@@ -1360,6 +1360,22 @@ public class IronManSentryEntity extends Entity {
 		Vec3 right = new Vec3(-fwd.z, 0, fwd.x);
 		Vec3[] tries = { fwd.scale(ARRIVE_FRONT), fwd.scale(1.4), fwd.scale(1.4).add(right.scale(1.2)),
 				fwd.scale(1.4).add(right.scale(-1.2)), right.scale(1.6), right.scale(-1.6) };
+		Vec3 found = groundNear(level, owner, tries);
+		return found != null ? found : owner.position().add(fwd.scale(ARRIVE_FRONT));
+	}
+
+	/** v0.15.15 Follow: where to come down near the owner -- standing ground at their level, on this side of them. */
+	private Vec3 followLanding(ServerLevel level, ServerPlayer owner, Vec3 flat) {
+		Vec3 back = flat.lengthSqr() < 1.0e-4 ? Vec3.directionFromRotation(0f, owner.getYRot()).scale(-1) : flat.normalize().scale(-1);
+		Vec3 right = new Vec3(-back.z, 0, back.x);
+		Vec3[] tries = { back.scale(FOLLOW_STOP), back.scale(1.5), right.scale(1.5), right.scale(-1.5),
+				back.scale(1.0).add(right.scale(1.0)), back.scale(1.0).add(right.scale(-1.0)), back.scale(0.8) };
+		Vec3 found = groundNear(level, owner, tries);
+		return found != null ? found : owner.position().add(back.scale(FOLLOW_STOP));
+	}
+
+	/** The first of {@code offsets} (from the owner) with standing ground within a block up / three down of their feet. */
+	private Vec3 groundNear(ServerLevel level, ServerPlayer owner, Vec3[] tries) {
 		var dims = getType().getDimensions();
 		for (Vec3 off : tries) {
 			Vec3 c = owner.position().add(off);
@@ -1377,7 +1393,7 @@ public class IronManSentryEntity extends Entity {
 				}
 			}
 		}
-		return owner.position().add(fwd.scale(ARRIVE_FRONT));
+		return null;
 	}
 
 	/**

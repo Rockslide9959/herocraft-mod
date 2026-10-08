@@ -263,7 +263,7 @@ public class IronManSentryV0159GameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 180) // v0.15.15: the step-in walks round behind it first
 	public void saveLoadKeepsThePiecesModeAndOwner(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = suitedTony(helper, new BlockPos(3, 2, 3), 1234f, 567f);

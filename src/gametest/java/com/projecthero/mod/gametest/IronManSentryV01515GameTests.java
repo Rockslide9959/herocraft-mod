@@ -180,7 +180,8 @@ public class IronManSentryV01515GameTests implements FabricGameTest {
 				h.runAfterDelay(40, () -> {
 					float used2 = e1 - s.energy();
 					h.assertTrue(Math.abs(used2 - cap() * 0.04f) < cap() * 0.002f, "Defensive: 2% a second (" + used2 + " in 2 s)");
-					s.use(p, true); // Regular
+					s.use(p, true);
+					s.use(p, true); // Defensive -> Follow -> Regular
 					float e2 = s.energy();
 					h.runAfterDelay(20, () -> {
 						h.assertTrue(s.energy() == e2, "Regular costs nothing");
@@ -202,7 +203,7 @@ public class IronManSentryV01515GameTests implements FabricGameTest {
 
 	// ------------------------------------------------------------------ auto-defend
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 320)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 380)
 	public void ownerHurtSwitchesToDefensiveThenBackOnceCalm(GameTestHelper h) {
 		h.getLevel().getServer().setDifficulty(Difficulty.NORMAL, true);
 		floor(h);
@@ -216,7 +217,7 @@ public class IronManSentryV01515GameTests implements FabricGameTest {
 		h.runAfterDelay(IronManSentryEntity.EJECT_CLOSE_TICK + 2, () -> {
 			s.use(p, true);
 			s.use(p, true); // Follow
-			h.runAfterDelay(5, () -> {
+			h.runAfterDelay(40, () -> { // past the mock player's 3 s spawn invulnerability
 				h.assertTrue(s.mode() == IronManSentryEntity.FOLLOW && !s.autoDefending(), "Follow, nothing going on");
 				p.hurt(p.damageSources().mobAttack(z), 1f);
 				h.runAfterDelay(2, () -> {
