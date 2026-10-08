@@ -47,7 +47,7 @@ public final class ForceBubbleRenderer {
 			return;
 		}
 		double r = style.radius();
-		float k = firstPerson ? 0.45f : 1f;
+		float k = firstPerson ? 0.6f : 1f;
 		poseStack.pushPose();
 		poseStack.translate(-cam.x, -cam.y, -cam.z);
 		PoseStack.Pose pose = poseStack.last();
@@ -72,7 +72,7 @@ public final class ForceBubbleRenderer {
 
 		// ---- the lattice and rings (additive)
 		VertexConsumer add = consumers.getBuffer(RenderType.lightning());
-		float lineA = (firstPerson ? 0.10f : 0.22f) * alpha;
+		float lineA = (firstPerson ? 0.2f : 0.22f) * alpha;
 		float spin = time * 0.012f;
 		// latitude lines
 		for (int i = 1; i < 6; i++) {
@@ -106,7 +106,7 @@ public final class ForceBubbleRenderer {
 	/** Fresnel: faint where the shell faces the camera, bright at the silhouette edge. */
 	private static float shellAlpha(Vec3 p, Vec3 c, Vec3 cam, boolean inside) {
 		if (inside) {
-			return 0.05f;
+			return 0.08f;
 		}
 		Vec3 n = p.subtract(c).normalize();
 		Vec3 v = cam.subtract(p).normalize();

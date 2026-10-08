@@ -156,8 +156,8 @@ public final class NovaEffectsRenderer {
 				continue;
 			}
 			float w = 1f - (t0 + t1) * 0.5f;
-			glow.add(new Ribbon(a, b, 0.20f * w + 0.02f, GOLD, 0.42f * w * flicker));
-			core.add(new Ribbon(a, b, 0.075f * w + 0.01f, GOLD_HOT, 0.9f * w));
+			glow.add(new Ribbon(a, b, 0.13f * w + 0.015f, GOLD, 0.32f * w * flicker));
+			core.add(new Ribbon(a, b, 0.06f * w + 0.008f, GOLD_HOT, 0.9f * w));
 			core.add(new Ribbon(a, b, 0.02f * w + 0.005f, CYAN, 0.7f * w));
 		}
 	}

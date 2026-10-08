@@ -105,9 +105,9 @@ public final class NovaSuitRender {
 	}
 
 	/** The helmet held in front of the chest (start of the raise) and overhead (top of the raise). */
-	private static final float CHEST_Y = 3f;
-	private static final float CHEST_Z = -8f;
-	private static final float OVER_Y = -7f;
+	private static final float CHEST_Y = 9f;
+	private static final float CHEST_Z = -7f;
+	private static final float OVER_Y = -9f;
 	private static final float OVER_Z = -1f;
 
 	/** The suit-up / suit-down at this moment (see {@link Anim}). */
@@ -117,6 +117,9 @@ public final class NovaSuitRender {
 			return Anim.NONE;
 		}
 		float age = player.level().getGameTime() - s.suitChangeAt + partial;
+		if (age < 0f && age > -40f) {
+			age = 0f; // the client clock can trail the server by a few ticks: the change has only just begun
+		}
 		if (s.suited) {
 			if (s.suitChangeAt <= 0L || age >= NovaConfig.SUIT_UP_TICKS || age < 0f) {
 				return Anim.FULL;
