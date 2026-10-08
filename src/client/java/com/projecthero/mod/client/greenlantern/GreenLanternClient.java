@@ -15,6 +15,7 @@ public final class GreenLanternClient {
 		GreenLanternShieldRenderer.initialize();
 		GreenLanternDomeRenderer.initialize(); // v0.15.1: hard-light dome model
 		GreenLanternFlightFx.initialize(); // v0.15.15: flight aura + sprint-flight trail
+		GreenLanternOathSubtitle.initialize(); // v0.15.15: the Oath as a centred subtitle (was the action bar)
 		PowerBatteryHeldRenderer.initialize(); // v0.15.15: the battery hanging from the hand, swaying; the charge glow
 		// the hard-light construct blocks and the Power Battery's glass barrel are translucent
 		BlockRenderLayerMap.INSTANCE.putBlocks(RenderType.translucent(), GreenLanternBlocks.HARD_LIGHT,

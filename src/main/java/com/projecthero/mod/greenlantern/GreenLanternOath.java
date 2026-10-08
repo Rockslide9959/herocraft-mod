@@ -76,7 +76,7 @@ public final class GreenLanternOath {
 			return;
 		}
 		player.setAttached(ModAttachments.GREEN_LANTERN_OATH_RECITING_SINCE, player.level().getGameTime());
-		player.displayClientMessage(Component.translatable(OATH_LINES[0]).withStyle(ChatFormatting.GREEN), true);
+		// v0.15.15: the lines are drawn by the client as a centred subtitle (GreenLanternOathSubtitle), not the action bar
 		player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
 				SoundEvents.BEACON_AMBIENT, SoundSource.PLAYERS, 0.4f, 1.8f);
 	}
@@ -102,7 +102,6 @@ public final class GreenLanternOath {
 			if (elapsed % GreenLanternConfig.OATH_MODE_LINE_TICKS == 0) {
 				int line = (int) (elapsed / GreenLanternConfig.OATH_MODE_LINE_TICKS);
 				if (line > 0 && line < OATH_LINES.length) {
-					player.displayClientMessage(Component.translatable(OATH_LINES[line]).withStyle(ChatFormatting.GREEN), true);
 					player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
 							SoundEvents.BEACON_AMBIENT, SoundSource.PLAYERS, 0.4f, 1.8f);
 				}

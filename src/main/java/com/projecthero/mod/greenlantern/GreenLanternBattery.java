@@ -47,7 +47,7 @@ public final class GreenLanternBattery {
 	private static final ParticleOptions GREEN_DUST = new DustParticleOptions(new Vector3f(0.208f, 0.941f, 0.459f), 1.0f);
 	private static final ParticleOptions PALE_DUST = new DustParticleOptions(new Vector3f(0.66f, 1.0f, 0.75f), 0.7f);
 	/** The classic Green Lantern Oath, one line at a time (shared with {@link GreenLanternOath}). */
-	static final String[] OATH_LINES = {
+	public static final String[] OATH_LINES = {
 			"message.projecthero.green_lantern.oath.line1",
 			"message.projecthero.green_lantern.oath.line2",
 			"message.projecthero.green_lantern.oath.line3",
@@ -207,8 +207,6 @@ public final class GreenLanternBattery {
 			end(player);
 			GreenLanternEnergy.addCharge(player, GreenLanternConfig.MAX_RING_CHARGE);
 			GreenLanternVisuals.anim(player, GreenLanternFx.ANIM_CHARGED);
-			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.oath.complete")
-					.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
 			level.playSound(null, player.getX(), player.getY(), player.getZ(),
 					SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.0f, 1.3f);
 			level.playSound(null, player.getX(), player.getY(), player.getZ(),
@@ -221,8 +219,8 @@ public final class GreenLanternBattery {
 		}
 		if (line != c.lastLineShown) {
 			c.lastLineShown = line;
-			player.displayClientMessage(Component.translatable(OATH_LINES[Math.min(line, OATH_LINES.length - 1)])
-					.withStyle(ChatFormatting.GREEN, ChatFormatting.ITALIC), true);
+			// the line itself is drawn by the client as a centred subtitle (GreenLanternOathSubtitle) -- on the action bar
+			// it ran into the HUD
 			level.playSound(null, player.getX(), player.getY(), player.getZ(),
 					SoundEvents.BEACON_AMBIENT, SoundSource.PLAYERS, 0.6f, 1.4f + 0.15f * line);
 		}

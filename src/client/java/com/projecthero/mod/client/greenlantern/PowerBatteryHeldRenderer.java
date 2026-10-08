@@ -244,12 +244,12 @@ public final class PowerBatteryHeldRenderer {
 		TurboDraw.box(vc, pose.last(), 0.17f, 0.2f, 0.17f, 0xF4FFF6, Math.min(1f, 0.6f + 0.4f * s + flash));
 		TurboDraw.box(vc, pose.last(), 0.27f, 0.3f, 0.27f, 0x5CFF8E, 0.35f * s + 0.3f * flash);
 		VertexConsumer add = HardLightRibbon.additive(buffers);
-		TurboDraw.sphere(add, pose, 0.45f + 0.08f * pulse + 0.6f * flash, 0xB8FFCC, (0.35f + 0.25f * pulse) * s + flash * 0.8f);
-		TurboDraw.sphere(add, pose, 0.7f + 0.1f * pulse + 1.2f * flash, 0x35F075, (0.12f + 0.08f * pulse) * s + flash * 0.5f);
+		TurboDraw.sphere(add, pose, glowK * (0.45f + 0.08f * pulse + 0.6f * flash), 0xB8FFCC, (0.35f + 0.25f * pulse) * s + flash * 0.8f);
+		TurboDraw.sphere(add, pose, glowK * (0.7f + 0.1f * pulse + 1.2f * flash), 0x35F075, (0.12f + 0.08f * pulse) * s + flash * 0.5f);
 		vc = HardLightDraw.buffer(buffers);
 		// a ring of light pulsing out of it, faster as the charge builds
 		float wave = (time * (0.08f + 0.1f * k)) % 1f;
-		TurboDraw.sphere(vc, pose, 0.5f + wave * 1.3f, 0x9CFFB8, 0.16f * (1f - wave) * s);
+		TurboDraw.sphere(vc, pose, glowK * (0.5f + wave * 1.3f), 0x9CFFB8, 0.16f * (1f - wave) * s);
 		pose.popPose();
 	}
 
@@ -309,12 +309,14 @@ public final class PowerBatteryHeldRenderer {
 	}
 
 	/** First-person charge pose offsets (blocks / degrees), tuned on screenshots. */
-	public static float BAT_IN = 0.24f, BAT_UP = 0.42f, BAT_FWD = 0.1f, BAT_ROLL = 4f;
-	public static float RING_IN = 0.34f, RING_UP = 0.24f, RING_FWD = 0.12f, RING_YAW = 18f, RING_ROLL = 4f;
+	public static float BAT_IN = 0.1f, BAT_UP = 0.58f, BAT_FWD = 0.1f, BAT_ROLL = 4f;
+	public static float RING_IN = 0.2f, RING_UP = 0.3f, RING_FWD = 0.12f, RING_YAW = 18f, RING_ROLL = 4f;
 	/** First person, just holding it: the arm lifted so the hanging lantern shows. */
-	public static float HOLD_UP = 0.36f, HOLD_IN = 0.22f;
+	public static float HOLD_UP = 0.5f, HOLD_IN = 0.22f;
+	/** Halo size multiplier (first person draws it tighter). */
+	private static float glowK = 1f;
 	/** First person: the grip point moved in from the fist's centre to its inner edge, and up. */
-	public static float FP_SIDE = 0.15f, FP_UP = 0.04f;
+	public static float FP_SIDE = 0.3f, FP_UP = 0.04f;
 
 	public static void holdArmPose(PoseStack pose, HumanoidArm side) {
 		float f = side == HumanoidArm.RIGHT ? 1f : -1f;
@@ -338,7 +340,9 @@ public final class PowerBatteryHeldRenderer {
 			swayP *= 0.2f;
 			swayR *= 0.2f;
 		}
+		glowK = 0.5f; // right in front of the camera: a tighter glow, so the battery body stays readable
 		drawHanging(pose, buffers, light, stack, player, swayP, swayR, SCALE_1P, ch, fl, player.tickCount + partial);
+		glowK = 1f;
 		pose.popPose();
 	}
 }
