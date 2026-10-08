@@ -408,16 +408,16 @@ public class SymbioteGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void normalHostArmourIsBetweenIronAndDiamond(GameTestHelper helper) {
+	public void normalHostArmourIsDiamondGrade(GameTestHelper helper) {
 		double total = 0;
 		for (var mat : new net.minecraft.world.item.ArmorItem.Type[] {
 				net.minecraft.world.item.ArmorItem.Type.HELMET, net.minecraft.world.item.ArmorItem.Type.CHESTPLATE,
 				net.minecraft.world.item.ArmorItem.Type.LEGGINGS, net.minecraft.world.item.ArmorItem.Type.BOOTS }) {
 			total += com.projecthero.mod.item.ModArmorMaterials.SYMBIOTE_HOST.value().defense().get(mat);
 		}
-		helper.assertTrue(total == 17.0, "total armour should be 17 (iron 15 < 17 < diamond 20), got " + total);
-		helper.assertTrue(com.projecthero.mod.item.ModArmorMaterials.SYMBIOTE_HOST.value().toughness() == 1.0f,
-				"toughness should be 1.0 per piece");
+		helper.assertTrue(total == 20.0, "v0.15.15: diamond-grade, 20 armour, got " + total);
+		helper.assertTrue(com.projecthero.mod.item.ModArmorMaterials.SYMBIOTE_HOST.value().toughness() == 2.0f,
+				"v0.15.15: diamond toughness 2.0 per piece");
 		helper.succeed();
 	}
 

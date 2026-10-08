@@ -273,7 +273,8 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			float partialTick) {
 		if (getCurrentEntity() instanceof Player p && isSymbioteSuit(animatable)
 				&& com.projecthero.mod.client.symbiote.SymbioteReveal.isRevealing(p)) {
-			texture = com.projecthero.mod.client.symbiote.SymbioteDissolve.texture(texture,
+			// v0.15.15: spreads out from the chest, head last (SymbioteSpread; SymbioteDissolve stays Moon Knight's)
+			texture = com.projecthero.mod.client.symbiote.SymbioteSpread.texture(texture,
 					com.projecthero.mod.client.symbiote.SymbioteReveal.progress(p, partialTick));
 		}
 		// v0.13.20: Moon Knight's suit materialises one pixel at a time too (and dissolves the same way on H)

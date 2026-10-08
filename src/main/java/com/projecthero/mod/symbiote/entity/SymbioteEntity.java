@@ -101,6 +101,9 @@ public class SymbioteEntity extends Entity {
 			SynchedEntityData.defineId(SymbioteEntity.class, EntityDataSerializers.BYTE);
 	private static final EntityDataAccessor<Boolean> DATA_RECOIL =
 			SynchedEntityData.defineId(SymbioteEntity.class, EntityDataSerializers.BOOLEAN);
+	/** v0.15.15: 0..1 how crimson it has turned during a Carnage call, 1..2 how far a consumed one has dissolved. */
+	private static final EntityDataAccessor<Float> DATA_CRIMSON =
+			SynchedEntityData.defineId(SymbioteEntity.class, EntityDataSerializers.FLOAT);
 
 	static final int HOST_SCAN_INTERVAL = 15;
 	static final int THREAT_SCAN_INTERVAL = 10;
@@ -137,6 +140,12 @@ public class SymbioteEntity extends Entity {
 	private int recoilTicks;
 	/** v0.14.21: ticks left before a Symbiote lit with flint and steel burns away (0 = not burning). */
 	private int burnTicks;
+	/** v0.15.15 Call Carnage: the player channelling it, when they started, their last interaction (see SymbioteCarnageCall). */
+	private UUID carnageCaller;
+	private long carnageCallStart;
+	private long carnageCallPing;
+	/** v0.15.15: ticks left before a consumed (Carnage-calling) Symbiote has dissolved away; 0 = not consumed. */
+	private int consumeTicks;
 	private int holdTicks;
 	private int fleeTicks;
 	private Vec3 fleeFrom;
@@ -178,6 +187,7 @@ public class SymbioteEntity extends Entity {
 	protected void defineSynchedData(SynchedEntityData.Builder builder) {
 		builder.define(DATA_MOOD, MOOD_IDLE);
 		builder.define(DATA_RECOIL, false);
+		builder.define(DATA_CRIMSON, 0.0f);
 	}
 
 	@Override
@@ -191,6 +201,7 @@ public class SymbioteEntity extends Entity {
 		}
 		huntDelay = tag.getInt("HuntDelay");
 		burnTicks = tag.getInt("BurnTicks");
+		consumeTicks = tag.getInt("ConsumeTicks"); // v0.15.15
 		// Pre-0.13.19 save: only the hover height was stored. Work out what it was on the first tick.
 		legacy = tag.contains("HoverY") && !tag.contains("HomeX");
 	}
@@ -209,6 +220,9 @@ public class SymbioteEntity extends Entity {
 		}
 		if (burnTicks > 0) {
 			tag.putInt("BurnTicks", burnTicks);
+		}
+		if (consumeTicks > 0) {
+			tag.putInt("ConsumeTicks", consumeTicks);
 		}
 	}
 
@@ -286,6 +300,20 @@ public class SymbioteEntity extends Entity {
 		if (burnTicks > 0) {
 			tickBurning(server);
 			return;
+		}
+		if (consumeTicks > 0) {
+			tickConsumed(server);
+			return;
+		}
+		if (carnageCaller != null) {
+			float p = com.projecthero.mod.symbiote.SymbioteCarnageCall.tickChannel(server, this, carnageCaller, carnageCallStart,
+					carnageCallPing);
+			if (p >= 0.0f) {
+				entityData.set(DATA_CRIMSON, 0.65f * p);
+				holdTicks = Math.max(holdTicks, 5);
+			} else if (consumeTicks > 0) {
+				return;
+			}
 		}
 		if (bondingPlayer != null) {
 			ServerPlayer claimer = server.getServer().getPlayerList().getPlayer(bondingPlayer);
@@ -792,6 +820,16 @@ public class SymbioteEntity extends Entity {
 			return InteractionResult.sidedSuccess(level().isClientSide);
 		}
 		long now = level().getGameTime();
+		// v0.15.15: a player who carries a Symbiote holds right-click on a free one to call Carnage (flint and steel and
+		// the vial keep their own uses). Every repeat of the held click lands here and keeps the channel alive.
+		if (!player.getMainHandItem().is(Items.FLINT_AND_STEEL)
+				&& !player.getMainHandItem().is(com.projecthero.mod.symbiote.item.SymbioteHostItems.SYMBIOTE_VIAL)
+				&& com.projecthero.mod.symbiote.SymbioteCarnageCall.canChannel(sp)) {
+			if (burnTicks <= 0 && consumeTicks <= 0) {
+				com.projecthero.mod.symbiote.SymbioteCarnageCall.ping(sp, this);
+			}
+			return InteractionResult.CONSUME;
+		}
 		Long readyAt = interactCooldown.get(sp.getUUID());
 		if (readyAt != null && now < readyAt) {
 			return InteractionResult.CONSUME;
@@ -818,6 +856,62 @@ public class SymbioteEntity extends Entity {
 
 		SymbioteBonding.attempt(sp, this);
 		return InteractionResult.CONSUME;
+	}
+
+	// ---------------- Call Carnage (v0.15.15) ----------------
+
+	public UUID carnageCaller() {
+		return carnageCaller;
+	}
+
+	public void startCarnageCall(UUID caller, long now) {
+		carnageCaller = caller;
+		carnageCallStart = now;
+		carnageCallPing = now;
+		holdTicks = Math.max(holdTicks, 20);
+		recoil();
+	}
+
+	public void pingCarnageCall(long now) {
+		carnageCallPing = now;
+	}
+
+	public void endCarnageCall() {
+		carnageCaller = null;
+		if (consumeTicks <= 0) {
+			entityData.set(DATA_CRIMSON, 0.0f);
+		}
+	}
+
+	/** The call went through: the Symbiote is spent -- it turns fully crimson and dissolves over CONSUME_TICKS. */
+	public void beginConsume() {
+		carnageCaller = null;
+		consumeTicks = com.projecthero.mod.symbiote.SymbioteCarnageCall.CONSUME_TICKS;
+		bondingPlayer = null;
+		entityData.set(DATA_CRIMSON, 1.0f);
+	}
+
+	public boolean isConsumed() {
+		return consumeTicks > 0;
+	}
+
+	/** 0..1 crimson, 1..2 dissolving (client: the renderer reads this). */
+	public float crimson() {
+		return entityData.get(DATA_CRIMSON);
+	}
+
+	private void tickConsumed(ServerLevel server) {
+		consumeTicks--;
+		recoilTicks = 30;
+		entityData.set(DATA_RECOIL, true);
+		entityData.set(DATA_MOOD, MOOD_IDLE);
+		setDeltaMovement(Vec3.ZERO);
+		int total = com.projecthero.mod.symbiote.SymbioteCarnageCall.CONSUME_TICKS;
+		entityData.set(DATA_CRIMSON, 1.0f + (total - consumeTicks) / (float) total);
+		com.projecthero.mod.symbiote.SymbioteCarnageCall.consumeFx(server, this, consumeTicks);
+		if (consumeTicks <= 0) {
+			discard();
+		}
 	}
 
 	// ---------------- burning ----------------

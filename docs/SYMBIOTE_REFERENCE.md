@@ -157,3 +157,26 @@ Bite, Tendril Lash, Pounce (Spike Burst, Tendril Lash and Pounce are unchanged).
 owned, still sitting, refuses its owner); bond -> transformed + buffs, forced calm -> detransform + buffs off + scale
 eases back, a target -> transform + buffs + full size, fight over -> timeout detransform; a sitting wolf and cat with a
 target stay put and don't attack; a pet with pre-rework permanent modifiers loads in its normal form without them.
+
+## v0.15.15
+
+- **Suit stats** -- the Normal host's `ModArmorMaterials.SYMBIOTE_HOST` is diamond grade (3/8/6/3 = 20, toughness 2.0).
+  `SymbioteSuitResistance` keeps an ambient, particle-free Resistance I on a Normal host / Agent Venom while the suit
+  is on (Black Suit Spider-Man already gets Resistance I from `SpiderPassives`), never replacing a stronger Resistance
+  and only removing its own. The old flat 10% `SymbioteDamageRules.SUIT_DAMAGE_FACTOR` cut is now 1.0.
+- **Suit-up** -- `client/symbiote/SymbioteSpread`: per-texel reveal ranked by distance from the middle of the chest along
+  the body (torso direct, arms via the shoulder, legs via the hip), head texels ranked separately after the body;
+  48 frames, played backwards on retract. Used by `SuperheroArmorRenderer` and the first-person sleeve
+  (`SuperheroFirstPersonArm`). `SymbioteDissolve` is unchanged (Moon Knight still uses it).
+- **Body spikes** -- `client/symbiote/SymbioteBodySpikes`: thorns on the back, shoulders and arms while a spike move's
+  window is open (`SPIKE_SHOT` 30 t, `SPIKE_FAN` / `SPIKES_FLEX` 36 t) and for as long as Thorns mode is on. Third
+  person rides `SymbioteBladeRenderer.Layer`, first person `PlayerRendererSymbioteBladeMixin`.
+- **Call Carnage** -- `SymbioteCarnageCall`: a bonded player holding right-click on a `SymbioteEntity` (anything but
+  flint and steel / a vial) for 100 ticks. Each repeated interaction pings the channel; the entity's tick cancels it
+  after 10 ticks without one, beyond 4 blocks, or without the bond. Completion: `CarnageSpawner.dropNear(12..20)`,
+  the Symbiote turns crimson (`DATA_CRIMSON`: 0..1 redness, 1..2 dissolve) and is discarded after 30 ticks; 10-minute
+  per-player cooldown (static, cleared by `Symbiote.clearSessionState`). Refused on Peaceful or with a Carnage /
+  crimson meteor within 256 blocks. Tests: `SymbioteV01515GameTests`.
+- **Guide** -- the three Symbiote pages share section builders in `HeroPackGuide` (`symbioteHowToGet`, `symbioteSuit`,
+  `symbioteBiomass`, `symbioteMoves`, ...), keys under `projecthero.guide.symbiote.s.*`
+  (`scratchpad/lang_v01515_symbiote.js`). Agent Venom's I key now shows the Punisher page.

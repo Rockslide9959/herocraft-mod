@@ -27,10 +27,16 @@ public abstract class PlayerRendererSymbioteBladeMixin {
 			at = @At("TAIL"))
 	private void projecthero$symbioteBlade(PoseStack pose, MultiBufferSource buffers, int light,
 			AbstractClientPlayer player, ModelPart arm, ModelPart sleeve, CallbackInfo ci) {
-		if (player != Minecraft.getInstance().player || !SymbioteBladeRenderer.visible(player)) {
+		if (player != Minecraft.getInstance().player) {
 			return;
 		}
 		PlayerModel<AbstractClientPlayer> playerModel = ((PlayerRenderer) (Object) this).getModel();
+		// v0.15.15: Symbiote Spikes bristling out of the arm while the spikes are out
+		com.projecthero.mod.client.symbiote.SymbioteBodySpikes.renderFirstPerson(pose, buffers, light, player, arm,
+				arm == playerModel.rightArm);
+		if (!SymbioteBladeRenderer.visible(player)) {
+			return;
+		}
 		SymbioteBladeRenderer.renderFirstPerson(pose, buffers, light, player, arm, arm == playerModel.rightArm);
 	}
 }

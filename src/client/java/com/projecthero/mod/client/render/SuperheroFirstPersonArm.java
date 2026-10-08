@@ -117,6 +117,8 @@ public final class SuperheroFirstPersonArm {
 					net.minecraft.client.Minecraft.getInstance().player, texture,
 					net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
 		}
+		// v0.15.15: the Symbiote sleeve spreads on (and off) with the rest of the suit, pixel by pixel from the chest
+		texture = com.projecthero.mod.client.symbiote.SymbioteSpread.firstPerson(armorSetId, texture);
 		arm.render(pose, buffers.getBuffer(RenderType.armorCutoutNoCull(texture)), light, OverlayTexture.NO_OVERLAY);
 	}
 }

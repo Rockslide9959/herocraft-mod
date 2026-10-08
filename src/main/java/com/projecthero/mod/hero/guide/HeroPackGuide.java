@@ -129,69 +129,42 @@ public final class HeroPackGuide {
 	}
 
 	/**
-	 * The "Your Power" (I) screen's entry for a plain Normal Symbiote Host -- bonded, but not also
-	 * Spider-Man. Deliberately its own live-built chapter rather than the cached {@link #symbioteChapter()}
-	 * (which is the shared book page and covers both host variants): a Normal Host has no web abilities
-	 * and no sneak-modified "alt" extras, so their personal menu should show only their own six-ability
-	 * kit, not the Black Suit Spider-Man material.
+	 * The "Your Power" (I) screen's entry for a plain Normal Symbiote Host -- bonded, but not also Spider-Man. Its own
+	 * live-built chapter rather than the cached {@link #symbioteChapter()} (the shared book page, which covers every host
+	 * variant): a Normal Host's menu shows only their own kit.
+	 *
+	 * <p>v0.15.15 restructure (user request: "hard to see all the information"): laid out like the other powers' pages --
+	 * short sections (how to get it, the suit, Biomass, moves, sneak combos, always-on, weaknesses, tips), one row per key
+	 * with its cooldown beside the name and a one- or two-line description under it.
 	 */
 	public static Chapter symbioteNormalHostChapter() {
 		return chapter("projecthero.guide.symbiote", lines -> {
 			lines.add(Component.translatable("projecthero.guide.symbiote.tier").withStyle(ChatFormatting.LIGHT_PURPLE));
-			para(lines, "projecthero.guide.symbiote.body");
+			para(lines, "projecthero.guide.symbiote.overview");
 			blank(lines);
-			head(lines, "projecthero.guide.symbiote.controls");
-			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {
-				String ability = switch (slot) {
-					case "R" -> "tendril_strike"; case "G" -> "spike_shot"; case "X" -> "leap";
-					case "Z" -> "barrage"; case "V" -> "blade"; default -> "spikes";
-				};
-				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
-						.append(Component.translatable("projecthero.symbiote.ability." + ability).withStyle(ChatFormatting.WHITE)));
-				para(lines, "projecthero.symbiote.ability." + ability + ".desc");
-			}
-			lines.add(Component.literal(" Sneak+X  ").withStyle(ChatFormatting.GOLD)
-					.append(Component.translatable("projecthero.symbiote.ability.grapple").withStyle(ChatFormatting.WHITE)));
-			para(lines, "projecthero.symbiote.ability.grapple.desc");
-			for (String[] extra : new String[][]{{"Sneak+G", "spike_fan"}, {"Sneak+C", "tendril_grab"}}) {
-				lines.add(Component.literal(" " + extra[0] + "  ").withStyle(ChatFormatting.GOLD)
-						.append(Component.translatable("projecthero.symbiote.ability." + extra[1]).withStyle(ChatFormatting.WHITE)));
-				para(lines, "projecthero.symbiote.ability." + extra[1] + ".desc");
-			}
-			blank(lines);
-			head(lines, "projecthero.guide.symbiote.passives");
-			lines.add(Component.literal(" • ").append(
-					Component.translatable("projecthero.guide.symbiote.passive.biomass")).withStyle(ChatFormatting.GRAY));
-			lines.add(Component.literal(" • ").append(
-					Component.translatable("projecthero.guide.symbiote.passive.recovery")).withStyle(ChatFormatting.GRAY));
-			lines.add(Component.literal(" • ").append(
-					Component.translatable("projecthero.guide.symbiote.passive.bare_hands")).withStyle(ChatFormatting.GRAY));
-			for (String p : new String[]{"protect", "resist", "growth", "cloak", "predator", "resurrect", "squad", "pet", "vial"}) {
-				lines.add(Component.literal(" • ").append(
-						Component.translatable("projecthero.guide.symbiote.passive." + p)).withStyle(ChatFormatting.GRAY));
-			}
-			blank(lines);
-			head(lines, "projecthero.guide.symbiote.weaknesses");
-			lines.add(Component.literal(" • ").append(
-					Component.translatable("projecthero.guide.symbiote.weakness.sonic")).withStyle(ChatFormatting.GRAY));
-			lines.add(Component.literal(" • ").append(
-					Component.translatable("projecthero.guide.symbiote.weakness.fire")).withStyle(ChatFormatting.GRAY));
+			symbioteHowToGet(lines);
+			symbioteSuit(lines);
+			symbioteBiomass(lines);
+			symbioteMoves(lines);
+			symbiotePassives(lines, true);
+			symbioteWeaknesses(lines);
+			symbioteTips(lines);
 		});
 	}
 
 	/**
-	 * The "Your Power" info screen's entry for a player who is BOTH bonded with a Symbiote AND
-	 * currently holds Spider-Man -- Black Suit Spider-Man. Deliberately not one of the cached
-	 * {@link #chapters()} (the physical HeroPack Guide book has no single reader, so it can't show a
-	 * combination that depends on what one specific player currently has); built fresh each time this
-	 * is called instead, the same way {@code PowerInfoScreen} already builds its live training-progress
-	 * page. Shows Spider-Man's REAL keybinds (Z/X/G/C/V/B, not the Normal host's tendril slots) plus the
-	 * three sneak-modified Symbiote extras layered on top of them.
+	 * The "Your Power" info screen's entry for a player who is BOTH bonded with a Symbiote AND currently holds Spider-Man
+	 * -- Black Suit Spider-Man. Built fresh each call (the physical book cannot show a per-player combination). Shows
+	 * Spider-Man's REAL keybinds plus the three sneak-modified Symbiote extras layered on top of them. v0.15.15: same
+	 * sectioned layout as the Normal host's page.
 	 */
 	public static Chapter symbioteSpiderManChapter() {
 		return chapter("projecthero.guide.symbiote_spider_man", lines -> {
 			lines.add(Component.translatable("projecthero.guide.symbiote_spider_man.tier").withStyle(ChatFormatting.LIGHT_PURPLE));
 			para(lines, "projecthero.guide.symbiote_spider_man.body");
+			blank(lines);
+			head(lines, "projecthero.guide.symbiote_spider_man.suit");
+			para(lines, "projecthero.guide.symbiote_spider_man.suit.body");
 			blank(lines);
 			head(lines, "projecthero.guide.spider_man.controls");
 			for (String ability : new String[]{
@@ -207,35 +180,121 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.spider_man.ability." + ability + ".desc");
 			}
 			blank(lines);
-			head(lines, "projecthero.guide.symbiote.black_suit");
-			String[] extras = {"symbiote_tendril_strike", "symbiote_crush", "symbiote_slam_enhanced"};
-			String[] keyedOn = {com.projecthero.mod.spider.SpiderAbilities.WEB_YANK,
-					com.projecthero.mod.spider.SpiderAbilities.WEB_SHOT,
-					com.projecthero.mod.spider.SpiderAbilities.WALL_CRAWL};
-			for (int i = 0; i < extras.length; i++) {
-				lines.add(Component.literal(" Sneak+" + com.projecthero.mod.spider.SpiderAbilities.slotKeyOf(keyedOn[i]) + "  ")
-						.withStyle(ChatFormatting.GOLD)
-						.append(Component.translatable("projecthero.symbiote.ability." + extras[i]).withStyle(ChatFormatting.WHITE)));
-				para(lines, "projecthero.symbiote.ability." + extras[i] + ".desc");
-			}
-			blank(lines);
+			symbioteBlackSuitExtras(lines);
 			head(lines, "projecthero.guide.symbiote_spider_man.passives");
-			// v0.13.21: the armour line is new; "resist" (the Normal host's -10% suit damage cut) never applied to him
 			for (String p : new String[]{"armour", "melee", "speed", "jump", "knockback", "web_capacity", "recovery"}) {
-				lines.add(Component.literal(" • ").append(
-						Component.translatable("projecthero.guide.symbiote_spider_man.passive." + p)).withStyle(ChatFormatting.GRAY));
+				bullet(lines, "projecthero.guide.symbiote_spider_man.passive." + p);
 			}
-			for (String p : new String[]{"protect", "growth", "cloak", "predator", "resurrect", "squad", "pet", "vial"}) {
-				lines.add(Component.literal(" • ").append(
-						Component.translatable("projecthero.guide.symbiote.passive." + p)).withStyle(ChatFormatting.GRAY));
+			for (String p : new String[]{"protect", "resurrect", "predator", "squad", "pet", "vial"}) {
+				bullet(lines, "projecthero.guide.symbiote.s.passive." + p);
 			}
 			blank(lines);
-			head(lines, "projecthero.guide.symbiote.weaknesses");
-			lines.add(Component.literal(" • ").append(
-					Component.translatable("projecthero.guide.symbiote.weakness.sonic")).withStyle(ChatFormatting.GRAY));
-			lines.add(Component.literal(" • ").append(
-					Component.translatable("projecthero.guide.symbiote.weakness.fire")).withStyle(ChatFormatting.GRAY));
+			symbioteWeaknesses(lines);
+			symbioteTips(lines);
 		});
+	}
+
+	// ---- v0.15.15: the Symbiote pages' shared sections ----
+
+	/** One key row: {@code key} in gold, the move's name in white, its cooldown (or "toggle") in dark grey, then its line. */
+	private static void symbioteRow(List<Component> lines, String key, String move, String cooldown) {
+		net.minecraft.network.chat.MutableComponent row = Component.literal(" " + key + "  ").withStyle(ChatFormatting.GOLD)
+				.append(Component.translatable("projecthero.symbiote.ability." + move).withStyle(ChatFormatting.WHITE));
+		if (cooldown != null) {
+			row.append(Component.literal("  "))
+					.append((cooldown.equals("toggle") ? Component.translatable("projecthero.guide.symbiote.s.toggle")
+							: Component.translatable("projecthero.guide.symbiote.s.cd", cooldown)).withStyle(ChatFormatting.DARK_GRAY));
+		}
+		lines.add(row);
+		para(lines, "projecthero.guide.symbiote.s.move." + move);
+	}
+
+	private static void bullet(List<Component> lines, String key) {
+		lines.add(Component.literal(" • ").append(Component.translatable(key)).withStyle(ChatFormatting.GRAY));
+	}
+
+	private static void symbioteHowToGet(List<Component> lines) {
+		head(lines, "projecthero.guide.symbiote.progression");
+		for (String step : new String[]{"find", "bond", "settle"}) {
+			para(lines, "projecthero.guide.symbiote.s.get." + step);
+		}
+		lines.add(Component.translatable("projecthero.guide.symbiote.s.get.purge").withStyle(ChatFormatting.DARK_GRAY));
+		blank(lines);
+	}
+
+	private static void symbioteSuit(List<Component> lines) {
+		head(lines, "projecthero.guide.symbiote.s.suit");
+		para(lines, "projecthero.guide.symbiote.s.suit.body");
+		for (String b : new String[]{"armour", "resistance", "stats", "bonded"}) {
+			bullet(lines, "projecthero.guide.symbiote.s.suit." + b);
+		}
+		blank(lines);
+	}
+
+	private static void symbioteBiomass(List<Component> lines) {
+		head(lines, "projecthero.guide.symbiote.s.biomass");
+		para(lines, "projecthero.guide.symbiote.s.biomass.body");
+		for (String b : new String[]{"regen", "costs", "empty", "death"}) {
+			bullet(lines, "projecthero.guide.symbiote.s.biomass." + b);
+		}
+		blank(lines);
+	}
+
+	private static void symbioteMoves(List<Component> lines) {
+		head(lines, "projecthero.guide.symbiote.s.moves");
+		symbioteRow(lines, "R", "tendril_strike", "1.5");
+		symbioteRow(lines, "G", "spike_shot", "4");
+		symbioteRow(lines, "X", "leap", "2");
+		symbioteRow(lines, "Z", "barrage", "15");
+		symbioteRow(lines, "V", "blade", "toggle");
+		symbioteRow(lines, "C", "spikes", "toggle");
+		blank(lines);
+		head(lines, "projecthero.guide.symbiote.s.combos");
+		symbioteRow(lines, "Sneak+R", "tendril_sweep", "10");
+		symbioteRow(lines, "Sneak+G", "spike_fan", "10");
+		symbioteRow(lines, "Sneak+X", "grapple", "3");
+		symbioteRow(lines, "Sneak+hold Z", "onslaught", "90");
+		symbioteRow(lines, "Sneak+V", "shield", "toggle");
+		symbioteRow(lines, "Sneak+C", "tendril_grab", "5");
+		blank(lines);
+	}
+
+	private static void symbioteBlackSuitExtras(List<Component> lines) {
+		head(lines, "projecthero.guide.symbiote.black_suit");
+		String[] extras = {"symbiote_tendril_strike", "symbiote_crush", "symbiote_slam_enhanced"};
+		String[] keyedOn = {com.projecthero.mod.spider.SpiderAbilities.WEB_YANK,
+				com.projecthero.mod.spider.SpiderAbilities.WEB_SHOT,
+				com.projecthero.mod.spider.SpiderAbilities.WALL_CRAWL};
+		String[] cooldowns = {"4", "10", "10"};
+		for (int i = 0; i < extras.length; i++) {
+			symbioteRow(lines, "Sneak+" + (i == 1 ? "hold " : "") + com.projecthero.mod.spider.SpiderAbilities.slotKeyOf(keyedOn[i]),
+					extras[i], cooldowns[i]);
+		}
+		blank(lines);
+	}
+
+	private static void symbiotePassives(List<Component> lines, boolean normalHost) {
+		head(lines, "projecthero.guide.symbiote.passives");
+		for (String p : normalHost
+				? new String[]{"recovery", "protect", "resurrect", "falls", "arrows", "cloak", "predator", "claws", "diet", "squad", "pet", "vial"}
+				: new String[]{"protect", "resurrect", "predator", "squad", "pet", "vial"}) {
+			bullet(lines, "projecthero.guide.symbiote.s.passive." + p);
+		}
+		blank(lines);
+	}
+
+	private static void symbioteWeaknesses(List<Component> lines) {
+		head(lines, "projecthero.guide.symbiote.weaknesses");
+		bullet(lines, "projecthero.guide.symbiote.s.weakness.sonic");
+		bullet(lines, "projecthero.guide.symbiote.s.weakness.fire");
+		blank(lines);
+	}
+
+	private static void symbioteTips(List<Component> lines) {
+		head(lines, "projecthero.guide.symbiote.s.tips");
+		for (String t : new String[]{"carnage", "burn", "biomass"}) {
+			bullet(lines, "projecthero.guide.symbiote.s.tip." + t);
+		}
 	}
 
 	// The framing chapters are always added in this order by build(); the outline references them by
@@ -600,21 +659,26 @@ public final class HeroPackGuide {
 		}));
 
 		// The Symbiote -- not a Hero Class of its own like the other four: any player can bond with it,
-		// and which of the two host variants they get is derived live from whether they also hold
-		// Spider-Man. Sits with the other Hero-Tier chapters because that is what pressing I shows.
+		// and which host variant they get is derived live from whether they also hold Spider-Man or the
+		// Punisher. Sits with the other Hero-Tier chapters because that is what pressing I shows.
+		// v0.15.15: restructured into the same short sections as the I-key pages (see symbioteNormalHostChapter).
 		out.add(chapter("projecthero.guide.symbiote", lines -> {
 			lines.add(Component.translatable("projecthero.guide.symbiote.tier").withStyle(ChatFormatting.LIGHT_PURPLE));
-			para(lines, "projecthero.guide.symbiote.body");
+			para(lines, "projecthero.guide.symbiote.overview");
 			blank(lines);
-			head(lines, "projecthero.guide.symbiote.progression");
-			para(lines, "projecthero.guide.symbiote.step.find");
-			para(lines, "projecthero.guide.symbiote.step.bond");
-			blank(lines);
+			symbioteHowToGet(lines);
 			head(lines, "projecthero.guide.symbiote.hosts");
 			para(lines, "projecthero.guide.symbiote.host.normal");
 			para(lines, "projecthero.guide.symbiote.host.spider_man");
 			para(lines, "projecthero.guide.symbiote.host.agent_venom");
 			blank(lines);
+			symbioteSuit(lines);
+			symbioteBiomass(lines);
+			para(lines, "projecthero.guide.symbiote.controls.body");
+			symbioteMoves(lines);
+			symbioteBlackSuitExtras(lines);
+			symbiotePassives(lines, true);
+			symbioteWeaknesses(lines);
 			// v0.14.4: infested animals and Symbiote Pets
 			head(lines, "projecthero.guide.symbiote.creatures");
 			para(lines, "projecthero.guide.symbiote.creatures.wild");
@@ -623,37 +687,7 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.symbiote.creatures.powers");
 			para(lines, "projecthero.guide.symbiote.creatures.release");
 			blank(lines);
-			head(lines, "projecthero.guide.symbiote.controls");
-			para(lines, "projecthero.guide.symbiote.controls.body");
-			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {
-				String ability = switch (slot) {
-					case "R" -> "tendril_strike"; case "G" -> "spike_shot"; case "X" -> "leap";
-					case "Z" -> "barrage"; case "V" -> "blade"; default -> "spikes";
-				};
-				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
-						.append(Component.translatable("projecthero.symbiote.ability." + ability).withStyle(ChatFormatting.WHITE)));
-				para(lines, "projecthero.symbiote.ability." + ability + ".desc");
-			}
-			lines.add(Component.literal(" Sneak+X  ").withStyle(ChatFormatting.GOLD)
-					.append(Component.translatable("projecthero.symbiote.ability.grapple").withStyle(ChatFormatting.WHITE)));
-			para(lines, "projecthero.symbiote.ability.grapple.desc");
-			for (String[] extra : new String[][]{{"Sneak+G", "spike_fan"}, {"Sneak+C", "tendril_grab"}}) {
-				lines.add(Component.literal(" " + extra[0] + "  ").withStyle(ChatFormatting.GOLD)
-						.append(Component.translatable("projecthero.symbiote.ability." + extra[1]).withStyle(ChatFormatting.WHITE)));
-				para(lines, "projecthero.symbiote.ability." + extra[1] + ".desc");
-			}
-			blank(lines);
-			head(lines, "projecthero.guide.symbiote.black_suit");
-			para(lines, "projecthero.guide.symbiote.black_suit.body");
-			blank(lines);
-			head(lines, "projecthero.guide.symbiote.passives");
-			para(lines, "projecthero.guide.symbiote.spider_passives");
-			blank(lines);
-			head(lines, "projecthero.guide.symbiote.weaknesses");
-			lines.add(Component.literal(" • ").append(
-					Component.translatable("projecthero.guide.symbiote.weakness.sonic")).withStyle(ChatFormatting.GRAY));
-			lines.add(Component.literal(" • ").append(
-					Component.translatable("projecthero.guide.symbiote.weakness.fire")).withStyle(ChatFormatting.GRAY));
+			symbioteTips(lines);
 		}));
 
 		// World events. Written here rather than in a separate book so there is exactly one in-game

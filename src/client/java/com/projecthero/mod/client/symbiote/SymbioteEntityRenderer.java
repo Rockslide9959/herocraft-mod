@@ -90,12 +90,22 @@ public class SymbioteEntityRenderer extends EntityRenderer<SymbioteEntity> {
 		float hunt = Mth.lerp(partialTicks, entity.huntO, entity.hunt);
 		float rear = Math.max(0.0f, alert);
 		float cower = Math.max(0.0f, -alert);
+		// v0.15.15 Call Carnage: it reddens while being channelled, then (consumed) turns fully crimson and dissolves
+		float crimsonAmt = entity.crimson();
+		float dissolve = Mth.clamp(crimsonAmt - 1.0f, 0.0f, 1.0f);
+		ResourceLocation tex = crimsonAmt > 0.01f ? crimsonTexture() : TEX;
+		colorScale = crimsonAmt > 0.01f ? 0.12f + 0.88f * Math.min(1.0f, crimsonAmt) : 1.0f;
 
 		float breathe = 1.0f + 0.07f * Mth.sin(t * 0.06f);
 		radius = (0.52f - 0.07f * rear + 0.07f * cower) * (1.0f + 0.03f * Mth.sin(t * 0.045f + 1.3f));
 		height = (0.30f + 0.18f * rear - 0.11f * cower + 0.03f * hunt) * breathe;
 		stretchZ = 1.0f + 0.4f * crawl;
 		stretchX = 1.0f - 0.18f * crawl;
+		if (dissolve > 0.0f) {
+			float keep = 1.0f - dissolve;
+			radius *= 0.25f + 0.75f * keep;
+			height *= keep * keep;
+		}
 
 		pose.pushPose();
 		float bodyYaw = Mth.rotLerp(partialTicks, entity.yRotO, entity.getYRot());
@@ -105,14 +115,15 @@ public class SymbioteEntityRenderer extends EntityRenderer<SymbioteEntity> {
 		// Opaque body first, in its own pass, so the translucent film and sheen always blend over it
 		// (in one shared translucent buffer a sheen quad could sort before the dome under it and punch a
 		// see-through hole in it).
-		VertexConsumer body = buffers.getBuffer(RenderType.entityCutoutNoCull(TEX));
+		VertexConsumer body = buffers.getBuffer(RenderType.entityCutoutNoCull(tex));
 		emitDome(body, p, light);
 		emitTendrils(body, p, light, entity.getId(), hunt, rear, cower);
-		VertexConsumer film = buffers.getBuffer(RenderType.entityTranslucent(TEX));
+		VertexConsumer film = buffers.getBuffer(RenderType.entityTranslucent(tex));
 		emitSkirt(film, p, light);
 		emitSheen(film, p, light);
 
 		pose.popPose();
+		colorScale = 1.0f;
 		super.render(entity, yaw, partialTicks, pose, buffers, light);
 	}
 
@@ -446,8 +457,49 @@ public class SymbioteEntityRenderer extends EntityRenderer<SymbioteEntity> {
 
 	// ---------------------------------------------------------------- util
 
+	/** v0.15.15: vertex-colour multiplier for the reddening (render thread only). */
+	private static float colorScale = 1.0f;
+	private static ResourceLocation crimsonTex;
+
+	/** v0.15.15: a crimson copy of the goo texture (brightness kept, hue turned to Carnage red), built once. */
+	private static ResourceLocation crimsonTexture() {
+		if (crimsonTex != null) {
+			return crimsonTex;
+		}
+		crimsonTex = TEX;
+		try (java.io.InputStream in = net.minecraft.client.Minecraft.getInstance().getResourceManager().getResource(TEX).orElseThrow().open()) {
+			com.mojang.blaze3d.platform.NativeImage img = com.mojang.blaze3d.platform.NativeImage.read(in);
+			for (int y = 0; y < img.getHeight(); y++) {
+				for (int x = 0; x < img.getWidth(); x++) {
+					int abgr = img.getPixelRGBA(x, y);
+					int a = abgr >>> 24;
+					int r = abgr & 0xFF;
+					int g = (abgr >> 8) & 0xFF;
+					int b = (abgr >> 16) & 0xFF;
+					float lum = Math.max(r, Math.max(g, b)) / 255.0f;
+					int nr = Math.min(255, (int) (90 + 165 * Math.pow(lum, 0.6)));
+					int ng = (int) (6 + 40 * lum);
+					int nb = (int) (10 + 40 * lum);
+					img.setPixelRGBA(x, y, (a << 24) | (nb << 16) | (ng << 8) | nr);
+				}
+			}
+			ResourceLocation id = ProjectHeroMod.id("dynamic/symbiote_goo_crimson");
+			net.minecraft.client.Minecraft.getInstance().getTextureManager()
+					.register(id, new net.minecraft.client.renderer.texture.DynamicTexture(img));
+			crimsonTex = id;
+		} catch (Exception e) {
+			ProjectHeroMod.LOGGER.warn("[ProjectHero] could not build the crimson Symbiote texture: {}", e.toString());
+		}
+		return crimsonTex;
+	}
+
 	private static void vert(VertexConsumer vc, PoseStack.Pose p, float x, float y, float z, int r, int g, int b, int a,
 			float u, float v, int light, float nx, float ny, float nz) {
+		if (colorScale != 1.0f) {
+			r = (int) (r * colorScale);
+			g = (int) (g * colorScale);
+			b = (int) (b * colorScale);
+		}
 		vc.addVertex(p, x, y, z).setColor(r, g, b, a).setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY)
 				.setLight(light).setNormal(p, nx, ny, nz);
 	}

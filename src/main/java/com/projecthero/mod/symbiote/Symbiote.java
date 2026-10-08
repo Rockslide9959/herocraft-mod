@@ -335,6 +335,8 @@ public final class Symbiote {
 		}
 
 		tickGrowth(player, s);
+		// v0.15.15: Resistance I while the suit is on (and off again the moment it is not)
+		SymbioteSuitResistance.tick(player);
 
 		if (!s.hasSymbiote) {
 			return;
@@ -650,6 +652,8 @@ public final class Symbiote {
 		HAZARD_EXPOSURE.clear();
 		SONIC_HANDLED.clear();
 		AUTO_EQUIP_SUPPRESS.clear();
+		SymbioteSuitResistance.clearSessionState(); // v0.15.15
+		SymbioteCarnageCall.clearSessionState(); // v0.15.15
 	}
 
 	private static void fx(ServerPlayer player, boolean on) {

@@ -54,6 +54,7 @@
       "com.projecthero.mod.gametest.GraveboundBossPowerGameTests",
       "com.projecthero.mod.gametest.SpiderManGameTests",
       "com.projecthero.mod.gametest.SymbioteGameTests",
+      "com.projecthero.mod.gametest.SymbioteV01515GameTests",
       "com.projecthero.mod.gametest.MaxSteelGameTests",
       "com.projecthero.mod.gametest.SupervillainRaidGameTests",
       "com.projecthero.mod.gametest.PunisherGameTests",

@@ -101,6 +101,8 @@ public final class SymbioteBladeRenderer {
 		@Override
 		public void render(PoseStack pose, MultiBufferSource buffers, int packedLight, AbstractClientPlayer player,
 				float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
+			// v0.15.15: the Symbiote Spikes on the back, shoulders and arms ride this same layer
+			SymbioteBodySpikes.render(pose, buffers, packedLight, player, getParentModel(), partialTick);
 			if (!visible(player)) {
 				return;
 			}

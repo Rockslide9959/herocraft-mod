@@ -162,6 +162,10 @@ public final class PowerInfoScreen extends Screen {
 		if (symbiote && spiderMan) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.symbioteSpiderManChapter();
 		}
+		if (symbiote && com.projecthero.mod.punisher.Punisher.hasPower(mc.player)) {
+			// v0.15.15: Agent Venom -- the Punisher's page covers his kit and his three Symbiote extras
+			return com.projecthero.mod.hero.guide.HeroPackGuide.punisherChapter();
+		}
 		if (symbiote) {
 			// A plain Normal Host: their own six-ability kit only -- no web abilities, no sneak "alt"
 			// extras (that material belongs to Black Suit Spider-Man, handled just above).

@@ -21,6 +21,9 @@ import net.minecraft.world.entity.player.Player;
  *
  * <p>Driven entirely by the synced {@link SymbioteState}, so every viewer sees the same reveal on a
  * transforming Symbiote, not just the owner.
+ *
+ * <p>v0.15.15: the suit itself is drawn by {@link SymbioteSpread} (pixel by pixel outward from the chest, head last)
+ * from {@link #progress}; the per-bone thresholds here are only kept for {@link #hidden}'s callers.
  */
 public final class SymbioteReveal {
 	/** bone name -> reveal threshold, in the three stages: chest / arms+legs / head. */

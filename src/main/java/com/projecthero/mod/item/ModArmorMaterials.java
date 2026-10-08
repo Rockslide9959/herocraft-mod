@@ -161,21 +161,21 @@ public final class ModArmorMaterials {
 	 * fallback textures from the v0.9.19-v0.9.23 fully-transparent placeholder era and are no longer
 	 * read by anything (GeckoLib doesn't use vanilla armor-layer textures at all), kept on disk only as
 	 * art reference like every other converted set's old layer textures.
-	 * Defence (3/6/5/3 = 17, toughness 1.0) is deliberately the midpoint between iron (15, toughness 0)
-	 * and diamond (20, toughness 2) per the design spec -- stronger than iron, weaker than diamond, not
-	 * a copy of either, and untouched by the texture change. Never crafted (synthesised by
+	 * v0.15.15 (user request): <b>diamond level</b> -- 3/6/8/3 = 20 armour and 2.0 toughness (was the 3/6/5/3 = 17,
+	 * toughness 1.0 iron/diamond midpoint), plus Resistance I while the suit is on
+	 * ({@code SymbioteSuitResistance}). Never crafted (synthesised by
 	 * {@code SymbioteSuit} on suit-up, curse-locked, no durability -> unbreakable while bonded), so the
 	 * repair ingredient is nominal.
 	 */
 	public static final Holder<ArmorMaterial> SYMBIOTE_HOST = registerWithLayer("symbiote_host", "symbiote_host",
 			Map.of(
 					ArmorItem.Type.BOOTS, 3,
-					ArmorItem.Type.LEGGINGS, 5,
-					ArmorItem.Type.CHESTPLATE, 6,
+					ArmorItem.Type.LEGGINGS, 6,
+					ArmorItem.Type.CHESTPLATE, 8,
 					ArmorItem.Type.HELMET, 3),
 			15,
 			SoundEvents.ARMOR_EQUIP_NETHERITE,
-			1.0f,
+			2.0f,
 			0.0f,
 			() -> Ingredient.of(Items.STRING));
 
