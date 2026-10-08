@@ -143,8 +143,9 @@ public class V0143GameTests implements FabricGameTest {
 		GreenLanternConstructs.deploy(player, ConstructType.CHAIN_SNARE);
 		helper.assertTrue(GreenLanternConstructAttacks.liveCount(player.getUUID(), HardLightConstructEntity.Shape.CHAINS) >= 1,
 				"a set of chains per hostile in range");
-		helper.assertTrue(GreenLanternConstructs.cooldownRemainingFor(player, ConstructType.CHAIN_SNARE) > 0,
-				"Chain Snare goes on cooldown");
+		// v0.15.15: constructs have no cooldowns any more (only the Sentry Turret keeps its limits)
+		helper.assertTrue(GreenLanternConstructs.cooldownRemainingFor(player, ConstructType.CHAIN_SNARE) == 0,
+				"Chain Snare has no cooldown any more");
 		helper.succeed();
 	}
 

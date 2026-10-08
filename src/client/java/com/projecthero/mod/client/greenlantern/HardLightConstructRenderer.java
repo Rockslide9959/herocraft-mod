@@ -61,8 +61,72 @@ public class HardLightConstructRenderer extends EntityRenderer<HardLightConstruc
 			case LAUNCH_PAD -> pad(e, vc, pose, age, alpha);
 			case WARRIOR -> warrior(e, vc, pose, age, alpha, partial);
 			case BUBBLE -> bubble(e, vc, pose, age, alpha, partial);
+			case WAVE -> wave(e, buffers, pose, age, alpha, partial);
 		}
 		pose.popPose();
+	}
+
+	// ---------------------------------------------------------------- Shift+R: the Blast Wave (v0.15.15)
+
+	/**
+	 * An arc of hard light rolling out over the forward cone: a leaning wall with a white-hot crest, a wash of light on
+	 * the ground behind the front, an additive glow over the lot, and feathered ends. It slows as it goes (ease-out),
+	 * gets lower and thinner, then fades.
+	 */
+	private static void wave(HardLightConstructEntity e, MultiBufferSource buffers, PoseStack pose, float age, float alpha,
+			float partial) {
+		pose.mulPose(Axis.YP.rotationDegrees(-e.getViewYRot(partial)));
+		float travel = GreenLanternConfig.BLAST_WAVE_TRAVEL_TICKS;
+		float p = Math.min(1f, age / travel);
+		float eased = 1f - (1f - p) * (1f - p);
+		float r = 0.6f + (e.scale() - 0.6f) * eased;
+		float h = 0.35f + 1.55f * (1f - 0.55f * p);
+		float lean = 0.55f;
+		float a = alpha * (1f - 0.35f * p);
+		float half = (float) Math.toRadians(GreenLanternConfig.BLAST_WAVE_HALF_ANGLE);
+		int segs = 24;
+		float wash = Math.min(r - 0.3f, 1.2f + 1.4f * eased);
+		VertexConsumer vc = HardLightRibbon.translucent(buffers);
+		PoseStack.Pose last = pose.last();
+		for (int pass = 0; pass < 2; pass++) {
+			if (pass == 1) {
+				vc = HardLightRibbon.additive(buffers);
+			}
+			float gw = pass == 1 ? 0.6f : 1f;
+			for (int i = 0; i < segs; i++) {
+				float t0 = i / (float) segs;
+				float t1 = (i + 1) / (float) segs;
+				float ang0 = -half + 2f * half * t0;
+				float ang1 = -half + 2f * half * t1;
+				// feather the ends of the arc
+				float f0 = Mth.sin((float) Math.PI * t0);
+				float f1 = Mth.sin((float) Math.PI * t1);
+				f0 = (float) Math.pow(f0, 0.6);
+				f1 = (float) Math.pow(f1, 0.6);
+				float s0 = Mth.sin(ang0), c0 = Mth.cos(ang0), s1 = Mth.sin(ang1), c1 = Mth.cos(ang1);
+				// the wall, leaning out
+				float rt = r + lean;
+				HardLightRibbon.quad(vc, last, s0 * r, 0.04f, c0 * r, s0 * rt, h, c0 * rt, s1 * rt, h, c1 * rt, s1 * r, 0.04f, c1 * r,
+						HardLightDraw.GREEN, 0.55f * a * f0 * gw, 0.2f * a * f0 * gw, 0.2f * a * f1 * gw,
+						0.55f * a * f1 * gw);
+				// the white-hot crest along its top
+				float rc = r + lean * 0.9f;
+				float hc = h * 0.88f;
+				HardLightRibbon.quad(vc, last, s0 * rc, hc, c0 * rc, s0 * (rt + 0.06f), h + 0.06f, c0 * (rt + 0.06f),
+						s1 * (rt + 0.06f), h + 0.06f, c1 * (rt + 0.06f), s1 * rc, hc, c1 * rc, 0xF0FFF4,
+						0.9f * a * f0 * gw, 0.9f * a * f0 * gw, 0.9f * a * f1 * gw, 0.9f * a * f1 * gw);
+				// a bright seam where it meets the ground
+				HardLightRibbon.quad(vc, last, s0 * (r - 0.12f), 0.05f, c0 * (r - 0.12f), s0 * (r + 0.12f), 0.05f, c0 * (r + 0.12f),
+						s1 * (r + 0.12f), 0.05f, c1 * (r + 0.12f), s1 * (r - 0.12f), 0.05f, c1 * (r - 0.12f), HardLightDraw.PALE,
+						0.8f * a * f0 * gw, 0.8f * a * f0 * gw, 0.8f * a * f1 * gw, 0.8f * a * f1 * gw);
+				if (pass == 0) {
+					// the wash of light left on the ground behind the front
+					float ri = r - wash;
+					HardLightRibbon.quad(vc, last, s0 * ri, 0.03f, c0 * ri, s0 * r, 0.03f, c0 * r, s1 * r, 0.03f, c1 * r, s1 * ri, 0.03f,
+							c1 * ri, HardLightDraw.DEEP, 0f, 0.35f * a * f0, 0.35f * a * f1, 0f);
+				}
+			}
+		}
 	}
 
 	/** Turns the pose so +Z points along the entity's yaw / pitch. */

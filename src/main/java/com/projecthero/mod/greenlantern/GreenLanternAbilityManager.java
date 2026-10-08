@@ -45,11 +45,16 @@ public final class GreenLanternAbilityManager {
 	private static final Map<UUID, Float> LAST_CHARGE_CHECK = new ConcurrentHashMap<>();
 	/** v0.14.3: Shift + N press game-time per player, while the ring is being taken off. */
 	private static final Map<UUID, Long> RING_REMOVE = new ConcurrentHashMap<>();
+	/** v0.15.15: R press game-time per player -- tap (Ring Bolt on release) vs hold (Continuous Beam). */
+	private static final Map<UUID, Long> R_PRESSED = new ConcurrentHashMap<>();
+	/** {@link #R_PRESSED} value once the press has turned into a hold. */
+	private static final long R_HELD = Long.MIN_VALUE;
 
 	private GreenLanternAbilityManager() {
 	}
 
 	public static void clearSessionState() {
+		R_PRESSED.clear();
 		ABILITY6_PRESSED.clear();
 		LAST_CHARGE_CHECK.clear();
 		RING_REMOVE.clear();
@@ -57,6 +62,7 @@ public final class GreenLanternAbilityManager {
 	}
 
 	public static void onCleanup(UUID playerId) {
+		R_PRESSED.remove(playerId);
 		ABILITY6_PRESSED.remove(playerId);
 		LAST_CHARGE_CHECK.remove(playerId);
 		RING_REMOVE.remove(playerId);
@@ -77,14 +83,21 @@ public final class GreenLanternAbilityManager {
 		// remain the real gate on every ability below; nothing here becomes free by being unsuited.
 		switch (slot) {
 			case SLOT_1 -> {
+				// v0.15.15: tap R = Ring Bolt, hold R = Continuous Beam (it was Shift+R), Shift+R = Blast Wave
 				if (pressed) {
 					if (player.isShiftKeyDown()) {
-						GreenLanternCombat.beamStart(player);
+						GreenLanternCombat.blastWave(player);
 					} else {
+						R_PRESSED.put(player.getUUID(), player.level().getGameTime());
+					}
+				} else {
+					Long since = R_PRESSED.remove(player.getUUID());
+					if (GreenLanternCombat.isChannellingBeam(player)) {
+						GreenLanternCombat.beamStop(player);
+					} else if (since != null && since != R_HELD
+							&& player.level().getGameTime() - since < GreenLanternConfig.BEAM_HOLD_TICKS) {
 						GreenLanternCombat.ringBolt(player);
 					}
-				} else if (GreenLanternCombat.isChannellingBeam(player)) {
-					GreenLanternCombat.beamStop(player);
 				}
 			}
 			case SLOT_2 -> {
@@ -332,6 +345,12 @@ public final class GreenLanternAbilityManager {
 			}
 		}
 
+		// v0.15.15: R held past BEAM_HOLD_TICKS turns into the Continuous Beam (the release then ends it)
+		Long rSince = R_PRESSED.get(player.getUUID());
+		if (rSince != null && rSince != R_HELD && player.level().getGameTime() - rSince >= GreenLanternConfig.BEAM_HOLD_TICKS) {
+			R_PRESSED.put(player.getUUID(), R_HELD); // a hold now: tried once, and the release must not also fire a bolt
+			GreenLanternCombat.beamStart(player);
+		}
 		boolean beamChannelling = GreenLanternCombat.isChannellingBeam(player);
 		if (beamChannelling) {
 			GreenLanternCombat.beamTick(player);

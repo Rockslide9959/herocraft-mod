@@ -105,6 +105,30 @@ public final class GreenLanternCombat {
 		AbilityHelpers.sound(player, SoundEvents.AMETHYST_BLOCK_CHIME, 0.6f, 1.6f);
 	}
 
+	// ---------------- Blast Wave (Shift+R, v0.15.15) ----------------
+
+	public static final String BLAST_CD = "blast_wave";
+
+	/**
+	 * v0.15.15, user request: Shift+R sends an expanding wave of green energy out over a forward cone that throws enemies
+	 * back -- {@link GreenLanternConfig#BLAST_WAVE_DAMAGE}, Slowness III for 4 s, a 7 s cooldown and
+	 * {@link GreenLanternConfig#BLAST_WAVE_COST} Ring Charge. Squad / HeroTargets rules apply (the wave's hits go through
+	 * {@code GreenLanternConstructAttacks#canHit}).
+	 */
+	public static void blastWave(ServerPlayer player) {
+		if (!GreenLantern.abilityReady(player, BLAST_CD)) {
+			return;
+		}
+		if (!GreenLanternEnergy.spend(player, GreenLanternConfig.BLAST_WAVE_COST)) {
+			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
+			return;
+		}
+		GreenLanternBattery.onAbilityUsed(player);
+		GreenLantern.triggerCooldown(player, BLAST_CD, GreenLanternConfig.BLAST_WAVE_COOLDOWN_TICKS);
+		GreenLanternConstructAttacks.blastWave(player, GreenLanternConfig.BLAST_WAVE_DAMAGE * GreenLanternOath.multiplier(player));
+		GreenLanternVisuals.anim(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_BLAST);
+	}
+
 	// ---------------- Continuous Beam ----------------
 
 	public static boolean isChannellingBeam(ServerPlayer player) {

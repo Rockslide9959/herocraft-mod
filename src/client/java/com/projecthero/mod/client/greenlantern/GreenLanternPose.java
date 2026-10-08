@@ -89,6 +89,12 @@ public final class GreenLanternPose {
 			f(4, -3.05f, 0, 0.12f, 0.2f, 0, -0.25f, -0.1f, 0, 0, 0, -0.45f),
 			f(26, -3.05f, 0, 0.12f, 0.2f, 0, -0.25f, -0.1f, 0, 0, 0, -0.45f),
 			rest(34) };
+	/** v0.15.15: Shift+R Blast Wave -- both palms drawn back, then thrust out low and wide as the wave leaves. */
+	private static final float[][] BLAST = {
+			f(0, -0.6f, 0.2f, 0.3f, -0.6f, -0.2f, -0.3f, -0.08f, 0, 0, 0, 0),
+			f(3, -1.45f, -0.35f, 0.1f, -1.45f, 0.35f, -0.1f, 0.18f, 0, -0.35f, 0.3f, 0.05f),
+			f(11, -1.4f, -0.3f, 0.1f, -1.4f, 0.3f, -0.1f, 0.15f, 0, -0.3f, 0.25f, 0.05f),
+			rest(17) };
 	private static final float[][] SCAN = {
 			rest(0),
 			f(3, -1.5f, 0, 0, 0, 0, 0, 0, -0.55f, 0, 0, 0),
@@ -180,6 +186,8 @@ public final class GreenLanternPose {
 				case GreenLanternFx.ANIM_GRAB -> GRAB;
 				case GreenLanternFx.ANIM_OATH -> OATH;
 				case GreenLanternFx.ANIM_SCAN -> SCAN;
+				case GreenLanternFx.ANIM_BLAST -> BLAST;
+				case GreenLanternFx.ANIM_CHARGED -> OATH;
 				default -> null;
 			};
 			boolean aimed = frames == BOLT || frames == FIST || frames == THROW || frames == GRAB;

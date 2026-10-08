@@ -675,15 +675,13 @@ public final class GreenLanternConstructAttacks {
 
 	// ---------------------------------------------------------------- wheel constructs
 
-	/** Cooldown id for the v0.14.3 wheel constructs, null if it has none. */
+	/**
+	 * Cooldown id for the v0.14.3 wheel constructs, null if it has none. v0.15.15: none of them has one any more (user:
+	 * "remove time limits and cooldowns for all constructs besides the sentry turret limitations") -- they keep their
+	 * Ring Charge costs; the Warrior and Chains keep an upkeep instead of a timer.
+	 */
 	public static String cooldownIdFor(ConstructType type) {
-		return switch (type) {
-			case BUZZSAW -> "construct_buzzsaw";
-			case ANVIL_DROP -> "construct_anvil";
-			case CHAIN_SNARE -> "construct_chains";
-			case EMERALD_WARRIOR -> "construct_warrior";
-			default -> null;
-		};
+		return null;
 	}
 
 	private static int cooldownTicksFor(ConstructType type) {
@@ -908,7 +906,7 @@ public final class GreenLanternConstructAttacks {
 		ServerLevel level = player.serverLevel();
 		for (LivingEntity t : targets) {
 			HardLightConstructEntity e = HardLightConstructEntity.create(level, Shape.CHAINS, player.getUUID(), t.position(),
-					Math.max(0.8f, t.getBbWidth()), GreenLanternConfig.CHAINS_DURATION_TICKS);
+					Math.max(0.8f, t.getBbWidth()), 0); // v0.15.15: until dismissed (N), the target dies or charge runs dry
 			e.setTargetId(t.getId());
 			e.homingId = t.getId();
 			e.origin = t.position();
@@ -923,7 +921,9 @@ public final class GreenLanternConstructAttacks {
 	private static void tickChains(HardLightConstructEntity e, ServerPlayer owner) {
 		ServerLevel level = (ServerLevel) e.level();
 		Entity t = level.getEntity(e.homingId);
-		if (!(t instanceof LivingEntity target) || !target.isAlive()) {
+		// v0.15.15: no timer any more -- the snare holds until N, the target dies, or its upkeep can't be paid
+		if (!(t instanceof LivingEntity target) || !target.isAlive()
+				|| !GreenLanternEnergy.drainTick(owner, GreenLanternConfig.CHAINS_UPKEEP_PER_SEC / 20f)) {
 			dissolve(e);
 			e.discard();
 			return;
@@ -951,7 +951,7 @@ public final class GreenLanternConstructAttacks {
 	private static void placePad(ServerPlayer player, Vec3 at) {
 		ServerLevel level = player.serverLevel();
 		HardLightConstructEntity e = HardLightConstructEntity.create(level, Shape.LAUNCH_PAD, player.getUUID(), at, 1.0f,
-				GreenLanternConfig.PAD_DURATION_TICKS);
+				0); // v0.15.15: no time limit -- stays until N (still at most PAD_MAX_LIVE at once)
 		e.setYRot(player.getYRot());
 		level.addFreshEntity(e);
 		track(player, e);
@@ -1000,7 +1000,7 @@ public final class GreenLanternConstructAttacks {
 		}
 		Vec3 at = player.position().add(player.getLookAngle().multiply(1, 0, 1).normalize().scale(1.5));
 		HardLightConstructEntity e = HardLightConstructEntity.create(level, Shape.WARRIOR, player.getUUID(), at, 1.0f,
-				GreenLanternConfig.WARRIOR_DURATION_TICKS);
+				0); // v0.15.15: no time limit -- fights until N or its upkeep can't be paid
 		e.setYRot(player.getYRot());
 		e.damage = GreenLanternConfig.WARRIOR_DAMAGE;
 		level.addFreshEntity(e);
@@ -1070,6 +1070,93 @@ public final class GreenLanternConstructAttacks {
 		}
 	}
 
+	// ---------------------------------------------------------------- Shift+R: Blast Wave (v0.15.15)
+
+	/**
+	 * Sends the Blast Wave out from {@code owner}'s feet: an arc of hard light that rolls over a
+	 * {@link GreenLanternConfig#BLAST_WAVE_HALF_ANGLE}-degree forward cone to {@link GreenLanternConfig#BLAST_WAVE_RANGE}
+	 * blocks in {@link GreenLanternConfig#BLAST_WAVE_TRAVEL_TICKS}, hitting each creature once as the front reaches it
+	 * ({@link #tickBlastWave}). Cost / cooldown are paid by the caller ({@code GreenLanternCombat#blastWave}).
+	 */
+	public static HardLightConstructEntity blastWave(ServerPlayer owner, float damage) {
+		ServerLevel level = owner.serverLevel();
+		Vec3 at = owner.position().add(0, 0.05, 0);
+		HardLightConstructEntity e = HardLightConstructEntity.create(level, Shape.WAVE, owner.getUUID(), at,
+				(float) GreenLanternConfig.BLAST_WAVE_RANGE, GreenLanternConfig.BLAST_WAVE_TRAVEL_TICKS + 6);
+		e.setYRot(owner.getYRot());
+		e.damage = damage;
+		level.addFreshEntity(e);
+		level.sendParticles(SPARK, at.x, at.y + 1.0, at.z, 30, 0.6, 0.6, 0.6, 0.25);
+		play(level, at, SoundEvents.WARDEN_SONIC_BOOM, 0.6f, 1.6f);
+		play(level, at, SoundEvents.BEACON_POWER_SELECT, 1.0f, 0.7f);
+		return e;
+	}
+
+	/** Whether {@code t} is inside the wave's cone (centre line = the entity's yaw) within {@code radius} blocks. */
+	public static boolean inBlastCone(HardLightConstructEntity e, LivingEntity t, double radius) {
+		Vec3 origin = e.origin;
+		double dy = t.getY() - origin.y;
+		if (dy < -2.5 || dy > 3.0) {
+			return false;
+		}
+		Vec3 flat = new Vec3(t.getX() - origin.x, 0, t.getZ() - origin.z);
+		double reach = Math.sqrt(AbilityHelpers.distanceSqToBox(t, new Vec3(origin.x, t.getY() + t.getBbHeight() * 0.5, origin.z)));
+		if (reach > radius) {
+			return false;
+		}
+		if (flat.lengthSqr() < 0.6 * 0.6) {
+			return true; // standing on top of the caster: always caught
+		}
+		double yaw = Math.toRadians(e.getYRot());
+		Vec3 fwd = new Vec3(-Math.sin(yaw), 0, Math.cos(yaw));
+		double cos = flat.normalize().dot(fwd);
+		// a little extra angle for wide bodies so the edge of the cone still catches them
+		double slack = Math.atan2(t.getBbWidth() * 0.5, Math.max(0.5, flat.length()));
+		return Math.acos(net.minecraft.util.Mth.clamp(cos, -1.0, 1.0)) <= Math.toRadians(GreenLanternConfig.BLAST_WAVE_HALF_ANGLE) + slack;
+	}
+
+	private static void tickBlastWave(HardLightConstructEntity e, ServerPlayer owner) {
+		if (e.tickCount > GreenLanternConfig.BLAST_WAVE_TRAVEL_TICKS + 1) {
+			return; // fading out
+		}
+		ServerLevel level = (ServerLevel) e.level();
+		double radius = GreenLanternConfig.BLAST_WAVE_RANGE * Math.min(1.0, (e.tickCount + 1) / (double) GreenLanternConfig.BLAST_WAVE_TRAVEL_TICKS);
+		AABB box = new AABB(e.origin, e.origin).inflate(GreenLanternConfig.BLAST_WAVE_RANGE + 1.0, 3.0, GreenLanternConfig.BLAST_WAVE_RANGE + 1.0);
+		for (LivingEntity t : level.getEntitiesOfClass(LivingEntity.class, box, x -> x.isAlive() && x != owner)) {
+			if (e.hit.contains(t.getId()) || !canHit(owner, t) || !inBlastCone(e, t, radius)) {
+				continue;
+			}
+			e.hit.add(t.getId());
+			t.invulnerableTime = 0;
+			hit(owner, t, e.damage);
+			AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, GreenLanternConfig.BLAST_WAVE_SLOW_TICKS,
+					GreenLanternConfig.BLAST_WAVE_SLOW_AMPLIFIER);
+			if (!com.projecthero.mod.titanshifter.TitanCombat.isBoss(t)) {
+				Vec3 away = new Vec3(t.getX() - e.origin.x, 0, t.getZ() - e.origin.z);
+				if (away.lengthSqr() < 1.0e-4) {
+					double yaw = Math.toRadians(e.getYRot());
+					away = new Vec3(-Math.sin(yaw), 0, Math.cos(yaw));
+				}
+				away = away.normalize().scale(GreenLanternConfig.BLAST_WAVE_KNOCKBACK);
+				t.setDeltaMovement(t.getDeltaMovement().multiply(0.2, 0, 0.2).add(away.x, 0.45, away.z));
+				t.hurtMarked = true;
+			}
+			Vec3 at = t.position().add(0, t.getBbHeight() * 0.5, 0);
+			level.sendParticles(SPARK, at.x, at.y, at.z, 12, 0.3, 0.4, 0.3, 0.15);
+		}
+		// dust riding the front, low along the ground
+		double yaw = Math.toRadians(e.getYRot());
+		for (int i = -4; i <= 4; i++) {
+			double a = yaw + Math.toRadians(GreenLanternConfig.BLAST_WAVE_HALF_ANGLE) * i / 4.0;
+			double x = e.origin.x - Math.sin(a) * radius;
+			double z = e.origin.z + Math.cos(a) * radius;
+			level.sendParticles(GREEN_DUST, x, e.origin.y + 0.3, z, 1, 0.1, 0.15, 0.1, 0.0);
+		}
+		if (e.tickCount == GreenLanternConfig.BLAST_WAVE_TRAVEL_TICKS / 2) {
+			play(level, e.origin, SoundEvents.AMETHYST_BLOCK_RESONATE, 0.9f, 0.6f);
+		}
+	}
+
 	// ---------------------------------------------------------------- the entity tick
 
 	/** Called from {@link HardLightConstructEntity#tick} on the server. */
@@ -1101,6 +1188,7 @@ public final class GreenLanternConstructAttacks {
 			case CHAINS -> tickChains(e, owner);
 			case LAUNCH_PAD -> tickPad(e, owner);
 			case WARRIOR -> tickWarrior(e, owner);
+			case WAVE -> tickBlastWave(e, owner);
 			default -> {
 			}
 		}

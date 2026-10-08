@@ -108,8 +108,13 @@ public enum ConstructType {
 		return maxHp;
 	}
 
+	/**
+	 * v0.15.15 (explicit user request: "remove time limits and cooldowns for all constructs besides the sentry turret
+	 * limitations"): every construct but the Sentry Turret lasts until it is dismissed (N), runs dry or is broken -- 0 =
+	 * no time limit. The configured durations stay in {@code GreenLanternConfig} for the turret (and as reference).
+	 */
 	public int maxDurationTicks() {
-		return maxDurationTicks;
+		return this == SENTRY_TURRET ? maxDurationTicks : 0;
 	}
 
 	public int slotWeight() {

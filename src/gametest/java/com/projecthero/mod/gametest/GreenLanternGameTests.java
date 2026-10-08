@@ -57,7 +57,9 @@ public class GreenLanternGameTests implements FabricGameTest {
 		ServerPlayer player = bonded(helper);
 		helper.assertFalse(GreenLantern.isSuited(player), "this test needs an unsuited player");
 		float before = GreenLantern.state(player).ringCharge;
+		// v0.15.15: a quick tap of R (press + release) fires the bolt
 		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_1, true);
+		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_1, false);
 		helper.assertTrue(GreenLantern.state(player).ringCharge == before - GreenLanternConfig.BOLT_COST,
 				"Ring Bolt should spend its charge cost even while unsuited");
 		helper.assertFalse(GreenLantern.abilityReady(player, "ring_bolt"),

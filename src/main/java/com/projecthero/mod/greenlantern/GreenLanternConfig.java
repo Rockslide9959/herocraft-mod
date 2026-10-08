@@ -72,6 +72,27 @@ public final class GreenLanternConfig {
 	public static final int BEAM_MAX_CHANNEL_TICKS = 8 * 20;
 	public static final int BEAM_FORCED_COOLDOWN_TICKS = 30; // 1.5s
 	public static final float BEAM_MOVEMENT_PENALTY = 0.20f;
+	/**
+	 * v0.15.15: R is tap-or-hold -- a release before this many ticks fires the Ring Bolt, holding past it starts the
+	 * Continuous Beam (which used to be Shift+R).
+	 */
+	public static final int BEAM_HOLD_TICKS = 6;
+
+	// ---------------- Blast Wave (Shift+R, v0.15.15) ----------------
+
+	/** A ring of hard light that rolls outward over a forward cone and throws everything in it back. */
+	public static final float BLAST_WAVE_DAMAGE = 18f;
+	public static final float BLAST_WAVE_COST = 150f;
+	public static final int BLAST_WAVE_COOLDOWN_TICKS = 7 * 20;
+	public static final double BLAST_WAVE_RANGE = 8.0;
+	/** Half-angle of the forward cone, degrees. */
+	public static final double BLAST_WAVE_HALF_ANGLE = 60.0;
+	/** How long the wave takes to roll out to {@link #BLAST_WAVE_RANGE}. */
+	public static final int BLAST_WAVE_TRAVEL_TICKS = 8;
+	public static final int BLAST_WAVE_SLOW_TICKS = 4 * 20;
+	/** Slowness III. */
+	public static final int BLAST_WAVE_SLOW_AMPLIFIER = 2;
+	public static final double BLAST_WAVE_KNOCKBACK = 1.6;
 
 	// ---------------- Construct Fist (G) / War Hammer Slam (Shift+G) ----------------
 
@@ -389,6 +410,8 @@ public final class GreenLanternConfig {
 	public static final int CHAINS_DURATION_TICKS = 5 * 20;
 	public static final float CHAINS_DAMAGE = 2f; // every 10 ticks
 	public static final int CHAINS_COOLDOWN_TICKS = 18 * 20;
+	/** v0.15.15: the chains no longer time out (user: no construct time limits) -- holding each one costs this instead. */
+	public static final float CHAINS_UPKEEP_PER_SEC = 4f;
 
 	/** Construct: Launch Pad -- a springboard that throws anyone who steps on it high into the air. */
 	public static final float PAD_COST = 20f;

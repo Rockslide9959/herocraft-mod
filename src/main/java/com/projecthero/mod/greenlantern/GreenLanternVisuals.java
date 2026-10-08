@@ -38,6 +38,14 @@ public final class GreenLanternVisuals {
 		}
 	}
 
+	/** v0.15.15: the Power Battery charge ritual -- {@code start} = its game time, 0 = over. */
+	public static void charge(ServerPlayer player, long start) {
+		GreenLanternFx fx = fx(player);
+		if (fx.chargeStart() != start || fx.has(GreenLanternFx.CH_CHARGE) != (start != 0L)) {
+			player.setAttached(ModAttachments.GREEN_LANTERN_FX, fx.withCharge(start));
+		}
+	}
+
 	public static void clear(ServerPlayer player) {
 		if (!GreenLanternFx.EMPTY.equals(fx(player))) {
 			player.setAttached(ModAttachments.GREEN_LANTERN_FX, GreenLanternFx.EMPTY);

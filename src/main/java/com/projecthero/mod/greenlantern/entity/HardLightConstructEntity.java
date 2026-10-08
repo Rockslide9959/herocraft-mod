@@ -31,7 +31,12 @@ public class HardLightConstructEntity extends Entity {
 	public enum Shape {
 		BOLT, BEAM, FIST, HAMMER, MISSILE, BUZZSAW, ANVIL, HAND, CHAINS, LAUNCH_PAD, WARRIOR,
 		/** v0.14.22: the Rescue Tether's hard-light bubble round whatever is being carried (scale = radius). */
-		BUBBLE;
+		BUBBLE,
+		/**
+		 * v0.15.15: the Shift+R Blast Wave -- an arc of hard light rolling out over a forward cone (scale = range in
+		 * blocks; yaw = the cone's centre line; life = travel + fade).
+		 */
+		WAVE;
 
 		public static Shape byId(int id) {
 			Shape[] all = values();
