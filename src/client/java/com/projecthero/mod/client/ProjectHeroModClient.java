@@ -121,6 +121,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		// v0.15.13: Nova -- the uniform layer, HUD, beam / shield / well, Worldmind, the Centurion
 		com.projecthero.mod.client.nova.NovaClient.initialize();
 		com.projecthero.mod.client.flash.FlashClient.initialize(); // v0.14.11
+		com.projecthero.mod.client.fpbody.FirstPersonBodySequences.initialize(); // v0.15.15: watch every suit-up in first person
 		com.projecthero.mod.client.horde.HordeClient.initialize(); // v0.14.12
 		com.projecthero.mod.client.syndicate.SyndicateRenderer.initialize(); // v0.14.25: Syndicate Bust crooks + the Kingpin
 		com.projecthero.mod.client.syndicate.KingpinCaneClient.initialize(); // v0.14.31: 3D Kingpin's Cane, flat GUI icon, cane strikes

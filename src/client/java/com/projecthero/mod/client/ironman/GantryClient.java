@@ -8,7 +8,6 @@ import com.projecthero.mod.network.StarkGantryActionPayload;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
-import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
@@ -22,9 +21,9 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>the lift</b> -- the client owns its player's movement, so it is the client that rides the lift: every tick
  *       the player is set onto the lift pad's height for the next frame (gravity off locally, never synced), which the
  *       renderer interpolates smoothly; the server only corrects real drift;</li>
- *   <li>v0.15.5, user request: <b>the camera</b> swings round to the front third-person view for the whole sequence so
- *       they watch the suit go on (or come off), and back to whatever view they had when it ends; the view no longer
- *       zooms in while the gantry holds them still ({@link #holdFov}).</li>
+ *   <li>v0.15.5, user request: the view no longer zooms in while the gantry holds them still ({@link #holdFov}). v0.15.15:
+ *       the camera is no longer swung round to the front third-person view -- in first person the wearer's whole body is
+ *       drawn instead, so they watch the suit go on (or come off) from their own eyes ({@code client.fpbody.FirstPersonBody}).</li>
  * </ul>
  * Also the H key: Tony Stark standing on gantry floor asks the server for the gantry menu ({@link #wantsH} / {@link #pressH}).
  */
@@ -32,8 +31,6 @@ public final class GantryClient {
 	private static boolean locked;
 	private static float yaw;
 	private static boolean ownNoGravity;
-	/** The view the player had before the sequence moved the camera (null while it has not). */
-	private static CameraType cameraBefore;
 
 	private GantryClient() {
 	}
@@ -56,7 +53,6 @@ public final class GantryClient {
 		locked = false;
 		if (p == null || mc.level == null) {
 			ownNoGravity = false;
-			cameraBefore = null;
 			return;
 		}
 		StarkGantryFloorBlockEntity be = find(mc, p);
@@ -65,22 +61,11 @@ public final class GantryClient {
 				p.setNoGravity(false);
 				ownNoGravity = false;
 			}
-			if (cameraBefore != null) {
-				// the sequence is over: back to the view they had (unless they changed it themselves meanwhile)
-				if (mc.options.getCameraType() == CameraType.THIRD_PERSON_FRONT) {
-					mc.options.setCameraType(cameraBefore);
-				}
-				cameraBefore = null;
-			}
 			return;
 		}
 		locked = true;
 		yaw = be.yaw();
 		apply(p);
-		if (cameraBefore == null) {
-			cameraBefore = mc.options.getCameraType();
-			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
-		}
 		// ride the lift: where the pad will be next tick (the renderer lerps from here to there)
 		float f = be.frameAt(1f);
 		Vec3 at = be.standAt().add(0, GantryTimeline.lift(f, be.plan()), 0);
