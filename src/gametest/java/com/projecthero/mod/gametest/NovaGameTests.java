@@ -297,7 +297,8 @@ public class NovaGameTests implements FabricGameTest {
 			float f = Nova.force(p);
 			helper.assertTrue(f >= 66f && f <= 74f, "10 s: -6 +3 a second -> about 70, got " + f);
 			Nova.setForce(p, 2f);
-			helper.runAfterDelay(12, () -> {
+			// 2 Force at -6 +3 a second lasts about 13 ticks; give it room
+			helper.runAfterDelay(40, () -> {
 				helper.assertFalse(Nova.blasting(p), "it stops when the Nova Force runs out");
 				NovaAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
 				helper.succeed();
