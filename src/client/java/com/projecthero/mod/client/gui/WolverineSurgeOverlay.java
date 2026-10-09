@@ -9,8 +9,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
- * v0.12.17: a pulsing red shadow around the edges of the screen for the whole Death Surge window (the 10
- * seconds he is debuffed), fading in as it starts and out as it ends.
+ * v0.12.17: a pulsing red shadow around the edges of the screen for the whole Death Surge window (while he is
+ * debuffed -- v0.15.18: until his skin is 50% back), fading in as it starts and out as it ends.
  */
 public final class WolverineSurgeOverlay {
 	private WolverineSurgeOverlay() {
@@ -26,12 +26,13 @@ public final class WolverineSurgeOverlay {
 			return;
 		}
 		float now = mc.level.getGameTime() + delta.getGameTimeDeltaPartialTick(false);
-		float left = s.emergencyHealUntil - now;
-		if (left <= 0.0f || left > WolverineConfig.EMERGENCY_HEAL_TICKS) {
+		// v0.15.18: the debuffed part of the surge lasts until the skin is SURGE_DEBUFF_UNTIL (50%) back, not a fixed time
+		float left = WolverineConfig.SURGE_DEBUFF_UNTIL - s.skinRecovery;
+		if (left <= 0.0f) {
 			return;
 		}
-		float elapsed = WolverineConfig.EMERGENCY_HEAL_TICKS - left;
-		float fade = Math.min(1.0f, Math.min(elapsed / 10.0f, left / 30.0f));
+		float elapsed = s.fleshStartedAt > 0L ? Math.max(0.0f, now - s.fleshStartedAt) : 10.0f;
+		float fade = Math.min(1.0f, Math.min(elapsed / 10.0f, left / 0.075f)); // fades out over the last ~1.5 s of full-HP recovery
 		float pulse = 0.85f + 0.15f * (float) Math.sin(now * 0.35f);
 		int alpha = Math.round(170.0f * fade * pulse);
 		if (alpha <= 0) {

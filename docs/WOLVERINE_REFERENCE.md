@@ -5,6 +5,21 @@ Package `com.projecthero.mod.wolverine` (+ `client.wolverine`, `command.Wolverin
 mutation the same way Spider-Man ascends Spider Adhesion. It is not a second regeneration system: it
 reuses Super Regeneration's base heal tick and debuff-shortening mixin and scales them.
 
+> **v0.15.18 (Death Surge rework):** no cooldown / one-use limit (`EMERGENCY_COOLDOWN_TICKS`, `EMERGENCY_HEAL_TICKS`,
+> `FLESH_HOLD_TICKS`, `FLESH_FADE_TICKS` deleted; `emergencyReadyAt` / `emergencyHealUntil` are no longer written). Every
+> lethal hit fires it (`WolverineDamage.allowDeath` -> `WolverinePassives.tryEmergency`) but each one drains
+> `SURGE_HEAL_POOL_COST` (30) Healing Factor; with less than 30 in the pool it does not fire and he dies. A surge during
+> the recovery restarts it. The flesh state is `WolverineState.skinRecovery` (0 raw flesh .. 1 skin; in `Extra`,
+> optional `skin_recovery` default 1.0 so old saves load clean). `WolverinePassives.tickEmergency` advances it every
+> 5 ticks by 5/`SKIN_RECOVERY_TICKS` (400) ONLY while health >= max (counted in whole ticks, so 0.5 / 1.0 are exact);
+> below full HP it pauses. Slowness III + Blindness + Weakness I are re-applied every 5 ticks while progress <
+> `SURGE_DEBUFF_UNTIL` (0.5) and removed when it gets there; `Wolverine.resurrecting` (red border, shredded suit) =
+> progress < 0.5, `surgeRecovering` = progress < 1. Invulnerability (first `EMERGENCY_INVULN_TICKS` 5 s) and the bleed
+> (`EMERGENCY_BLEED_TICKS` 15 s) still key off `fleshStartedAt`. There is no regeneration penalty (none since v0.12.20).
+> Client: `WolverineFlesh.skinAlpha` = synced progress (all viewers); HUD shows "Skin N%" / "Skin N% - Full HP to heal"
+> + a 2 px bar (white tick at 50%) and an orange tick at 30 on the Healing Factor bar; the surge marker is lit while
+> the pool holds >= 30. Respawn / re-ascension reset progress to 1.
+
 > **v0.13.9 (mouse buttons):** the right-click off-hand strike is gone (`WolverineSense.offHandStrike` and
 > `OFFHAND_STRIKE_*` deleted). **Left click** with the claws out and both hands empty swings a random hand:
 > `client.mixin.WolverineAttackMixin` `@ModifyArg`s the `LocalPlayer.swing(hand)` call in

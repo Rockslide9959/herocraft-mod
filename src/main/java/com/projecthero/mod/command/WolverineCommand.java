@@ -81,8 +81,9 @@ public final class WolverineCommand {
 		WolverineState s = Wolverine.state(p);
 		long now = p.level().getGameTime();
 		c.getSource().sendSuccess(() -> Component.literal("Wolverine=" + s.hasPower + " claws=" + s.clawsOut
-				+ " rage=" + Math.max(0, (s.rageUntil - now) / 20) + "s emergencyReadyIn="
-				+ Math.max(0, (s.emergencyReadyAt - now) / 20) + "s"), false);
+				+ " rage=" + Math.max(0, (s.rageUntil - now) / 20) + "s healingFactor=" + (int) s.healPool
+				+ " surgeReady=" + com.projecthero.mod.wolverine.WolverinePassives.surgeAffordable(s)
+				+ " skin=" + Math.round(s.skinRecovery * 100) + "%"), false);
 		return 1;
 	}
 

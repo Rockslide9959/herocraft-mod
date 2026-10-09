@@ -44,17 +44,23 @@ public final class WolverineState {
 	public long lastHurtAt;
 	/** v0.12.43: game time he survived a lethal fall (0 = never) -- his legs show the raw flesh model for 20 s, then the skin fades back over 20 s. */
 	public long legFleshStartedAt;
+	/**
+	 * v0.15.18: how far his skin has grown back after the last Death Surge, 0 (raw flesh) .. 1 (normal skin). Only advances
+	 * while he is at full health; synced so every viewer draws the same flesh -> skin fade.
+	 */
+	public float skinRecovery;
 	/** {@code abilityId} -> absolute game-time it is ready again. */
 	public final Map<String, Long> abilityReadyAt;
 
 	public WolverineState() {
-		this(false, false, 0L, 0L, 0L, 0L, 0L, 0, 0L, 0.0f, 0L, 0L, 0L, new HashMap<>(), 250.0f, 0L, 0L);
+		this(false, false, 0L, 0L, 0L, 0L, 0L, 0, 0L, 0.0f, 0L, 0L, 0L, new HashMap<>(), 250.0f, 0L, 0L, 1.0f);
 	}
 
 	public WolverineState(boolean hasPower, boolean clawsOut, long clawsChangedAt, long rageUntil,
 			long emergencyReadyAt, long emergencyHealUntil, long dashUntil, int lastAction, long lastActionTick,
 			float rageMeter, long chargeStartedAt, long fleshStartedAt, long lastCombatAt,
-			Map<String, Long> abilityReadyAt, float healPool, long lastHurtAt, long legFleshStartedAt) {
+			Map<String, Long> abilityReadyAt, float healPool, long lastHurtAt, long legFleshStartedAt, float skinRecovery) {
+		this.skinRecovery = skinRecovery;
 		this.legFleshStartedAt = legFleshStartedAt;
 		this.healPool = healPool;
 		this.lastHurtAt = lastHurtAt;
@@ -76,7 +82,7 @@ public final class WolverineState {
 
 	public WolverineState copy() {
 		return new WolverineState(hasPower, clawsOut, clawsChangedAt, rageUntil, emergencyReadyAt,
-				emergencyHealUntil, dashUntil, lastAction, lastActionTick, rageMeter, chargeStartedAt, fleshStartedAt, lastCombatAt, abilityReadyAt, healPool, lastHurtAt, legFleshStartedAt);
+				emergencyHealUntil, dashUntil, lastAction, lastActionTick, rageMeter, chargeStartedAt, fleshStartedAt, lastCombatAt, abilityReadyAt, healPool, lastHurtAt, legFleshStartedAt, skinRecovery);
 	}
 
 	public static final Codec<WolverineState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -96,19 +102,22 @@ public final class WolverineState {
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", Map.of())
 					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
 			// the v0.12.40+ fields live in one nested record: the state has hit the codec's 16-field limit
-			Extra.CODEC.optionalFieldOf("extra", Extra.DEFAULT).forGetter(s -> new Extra(s.healPool, s.lastHurtAt, s.legFleshStartedAt))
+			Extra.CODEC.optionalFieldOf("extra", Extra.DEFAULT).forGetter(s -> new Extra(s.healPool, s.lastHurtAt, s.legFleshStartedAt, s.skinRecovery))
 	).apply(instance, (hasPower, clawsOut, clawsChangedAt, rageUntil, emergencyReadyAt, emergencyHealUntil, dashUntil, lastAction,
 			lastActionTick, rageMeter, chargeStartedAt, fleshStartedAt, lastCombatAt, abilityReadyAt, extra) -> new WolverineState(hasPower,
 			clawsOut, clawsChangedAt, rageUntil, emergencyReadyAt, emergencyHealUntil, dashUntil, lastAction, lastActionTick, rageMeter,
-			chargeStartedAt, fleshStartedAt, lastCombatAt, abilityReadyAt, extra.healPool(), extra.lastHurtAt(), extra.legFleshStartedAt())));
+			chargeStartedAt, fleshStartedAt, lastCombatAt, abilityReadyAt, extra.healPool(), extra.lastHurtAt(), extra.legFleshStartedAt(),
+			extra.skinRecovery())));
 
-	/** Healing Factor pool, last-hurt time and the lethal-fall leg-flesh time (v0.12.40 / v0.12.43). */
-	public record Extra(float healPool, long lastHurtAt, long legFleshStartedAt) {
-		public static final Extra DEFAULT = new Extra(250.0f, 0L, 0L);
+	/** Healing Factor pool, last-hurt time, the lethal-fall leg-flesh time and the Death Surge skin recovery (v0.12.40 / v0.12.43 / v0.15.18). */
+	public record Extra(float healPool, long lastHurtAt, long legFleshStartedAt, float skinRecovery) {
+		public static final Extra DEFAULT = new Extra(250.0f, 0L, 0L, 1.0f);
 		public static final Codec<Extra> CODEC = RecordCodecBuilder.create(i -> i.group(
 				Codec.FLOAT.optionalFieldOf("heal_pool", 250.0f).forGetter(Extra::healPool),
 				Codec.LONG.optionalFieldOf("last_hurt_at", 0L).forGetter(Extra::lastHurtAt),
-				Codec.LONG.optionalFieldOf("leg_flesh_started_at", 0L).forGetter(Extra::legFleshStartedAt)
+				Codec.LONG.optionalFieldOf("leg_flesh_started_at", 0L).forGetter(Extra::legFleshStartedAt),
+				// optional: saves from before v0.15.18 load as fully healed skin
+				Codec.FLOAT.optionalFieldOf("skin_recovery", 1.0f).forGetter(Extra::skinRecovery)
 		).apply(i, Extra::new));
 	}
 }

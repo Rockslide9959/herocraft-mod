@@ -43,21 +43,27 @@ public final class WolverineDamage {
 				Wolverine.addRage(attacker, WolverineConfig.RAGE_PER_HIT);
 			}
 		});
-		// A lethal hit while the emergency heal is ready is survived -- the healing factor kicks in at 1 HP.
-		// Then the 60 s internal cooldown applies, so he is hard to kill but not immortal.
-		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> {
-			if (!(entity instanceof ServerPlayer p) || !Wolverine.hasPower(p)) {
-				return true;
-			}
-			if (source.is(DamageTypes.GENERIC_KILL) || source.is(DamageTypes.FELL_OUT_OF_WORLD)) {
-				return true; // /kill and the void still kill
-			}
-			if (WolverinePassives.tryEmergency(p)) {
-				p.setHealth(Math.max(1.0f, p.getMaxHealth() * WolverineConfig.EMERGENCY_HEAL_FRACTION));
-				return false;
-			}
+		ServerLivingEntityEvents.ALLOW_DEATH.register(WolverineDamage::allowDeath);
+	}
+
+	/**
+	 * The Death Surge: a lethal hit is survived at 30% health. v0.15.18: every lethal hit, no cooldown -- but each surge costs
+	 * {@code SURGE_HEAL_POOL_COST} Healing Factor, and with less than that left he dies normally. Public for the gametests.
+	 *
+	 * @return true to let him die
+	 */
+	public static boolean allowDeath(LivingEntity entity, DamageSource source, float amount) {
+		if (!(entity instanceof ServerPlayer p) || !Wolverine.hasPower(p)) {
 			return true;
-		});
+		}
+		if (source.is(DamageTypes.GENERIC_KILL) || source.is(DamageTypes.FELL_OUT_OF_WORLD)) {
+			return true; // /kill and the void still kill
+		}
+		if (WolverinePassives.tryEmergency(p)) {
+			p.setHealth(Math.max(1.0f, p.getMaxHealth() * WolverineConfig.EMERGENCY_HEAL_FRACTION));
+			return false;
+		}
+		return true;
 	}
 
 	/**

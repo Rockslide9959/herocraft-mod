@@ -33,16 +33,22 @@ public final class WolverineConfig {
 	// ---- emergency healing ----
 	/** Health (fraction of max) he is left at when the death resurrection fires. */
 	public static final float EMERGENCY_HEAL_FRACTION = 0.30f;
-	/** The Death Surge window: Slowness III + Blindness + Weakness I, red screen border, suit torn off. */
-	public static final int EMERGENCY_HEAL_TICKS = 20 * S;
-	/** ...of which the first part he cannot take any damage (v0.12.20: 5 s, was 10 s). */
+	/**
+	 * v0.15.18: no cooldown / one-use limit any more -- every lethal hit fires a Death Surge, but each one costs this much
+	 * Healing Factor. With less than this in the pool the surge does not fire and he dies normally.
+	 */
+	public static final float SURGE_HEAL_POOL_COST = 30.0f;
+	/** The first part of a Death Surge he cannot take any damage (v0.12.20: 5 s, was 10 s). */
 	public static final int EMERGENCY_INVULN_TICKS = 5 * S;
 	/** The Death Surge keeps bleeding for this long (the bleed used to be tied to the invulnerability window). */
 	public static final int EMERGENCY_BLEED_TICKS = 15 * S;
-	public static final int EMERGENCY_COOLDOWN_TICKS = 180 * S;
-	/** Emergency resurrection look: full flesh for 10 s, then the skin fades back over another 10 s. */
-	public static final int FLESH_HOLD_TICKS = 20 * S;
-	public static final int FLESH_FADE_TICKS = 20 * S;
+	/**
+	 * v0.15.18: the raw flesh only knits back into skin while he is at FULL health -- this many ticks of full HP in total
+	 * (progress 0 -> 1). Dropping below full HP pauses it; it never resets except on a new surge.
+	 */
+	public static final int SKIN_RECOVERY_TICKS = 20 * S;
+	/** The Death Surge debuffs (Slowness III + Blindness + Weakness I), red screen border and shredded suit last until the skin is this far back. */
+	public static final float SURGE_DEBUFF_UNTIL = 0.5f;
 	/** Deploying the claws tears through his hands: this much damage (armour-bypassing). */
 	public static final float CLAW_DEPLOY_DAMAGE = 4.0f;
 	/** A damaged suit stays torn this long per damage stage (4 stages: fully repaired 20 s after the last damage). */

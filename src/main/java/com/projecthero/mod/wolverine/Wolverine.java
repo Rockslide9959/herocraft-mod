@@ -60,22 +60,24 @@ public final class Wolverine {
 	/** Inside the Death Surge's damage-proof opening seconds. */
 	public static boolean invulnerable(Player player) {
 		WolverineState s = player.getAttachedOrElse(ModAttachments.WOLVERINE_STATE, null);
-		return s != null && s.hasPower && s.emergencyHealUntil > player.level().getGameTime()
-				&& player.level().getGameTime() < s.fleshStartedAt + WolverineConfig.EMERGENCY_INVULN_TICKS;
+		long now = player.level().getGameTime();
+		return s != null && s.hasPower && s.skinRecovery < 1.0f && s.fleshStartedAt > 0L
+				&& now >= s.fleshStartedAt && now < s.fleshStartedAt + WolverineConfig.EMERGENCY_INVULN_TICKS;
 	}
 
-	/** In the flesh + skin-fade recovery after a Death Surge (regeneration halved). */
+	/** v0.15.18: the skin has not fully grown back since the last Death Surge (it only heals at full HP). */
 	public static boolean surgeRecovering(Player player) {
 		WolverineState s = player.getAttachedOrElse(ModAttachments.WOLVERINE_STATE, null);
-		long now = player.level().getGameTime();
-		return s != null && s.hasPower && s.fleshStartedAt > 0L
-				&& now < s.fleshStartedAt + WolverineConfig.FLESH_HOLD_TICKS + WolverineConfig.FLESH_FADE_TICKS;
+		return s != null && s.hasPower && s.skinRecovery < 1.0f;
 	}
 
-	/** In the death-resurrection window (invulnerable, debuffed, flesh-skinned). */
+	/**
+	 * The debuffed part of a Death Surge (Slowness III, Blindness, Weakness I, red screen border, shredded suit). v0.15.18: no
+	 * longer a fixed 20 s -- it lasts until the skin is {@code SURGE_DEBUFF_UNTIL} (50%) recovered.
+	 */
 	public static boolean resurrecting(Player player) {
 		WolverineState s = player.getAttachedOrElse(ModAttachments.WOLVERINE_STATE, null);
-		return s != null && s.hasPower && s.emergencyHealUntil > player.level().getGameTime();
+		return s != null && s.hasPower && s.skinRecovery < WolverineConfig.SURGE_DEBUFF_UNTIL;
 	}
 
 	public static boolean raging(Player player) {
@@ -126,6 +128,7 @@ public final class Wolverine {
 		s.rageMeter = 0.0f;
 		s.healPool = WolverineConfig.HEAL_POOL_MAX;
 		s.lastHurtAt = 0L;
+		s.skinRecovery = 1.0f;
 		s.chargeStartedAt = 0L;
 		s.abilityReadyAt.clear();
 		save(player, s);
@@ -323,10 +326,12 @@ public final class Wolverine {
 
 	public static void onPlayerRespawn(ServerPlayer player) {
 		clearTransient(player);
-		if (state(player).rageMeter != 0.0f || state(player).healPool < WolverineConfig.HEAL_POOL_MAX) {
+		if (state(player).rageMeter != 0.0f || state(player).healPool < WolverineConfig.HEAL_POOL_MAX
+				|| state(player).skinRecovery < 1.0f) {
 			WolverineState c = state(player).copy();
 			c.rageMeter = 0.0f;
 			c.healPool = WolverineConfig.HEAL_POOL_MAX; // a respawn brings the healing factor back
+			c.skinRecovery = 1.0f; // ...and a whole skin
 			save(player, c);
 		}
 	}

@@ -139,10 +139,7 @@ public final class WolverinePassives {
 			c.dashUntil = 0L;
 		}
 		if (healEnded) {
-			c.emergencyHealUntil = 0L;
-			player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
-			player.removeEffect(MobEffects.BLINDNESS);
-			player.removeEffect(MobEffects.WEAKNESS);
+			c.emergencyHealUntil = 0L; // v0.15.18: no longer written (the surge follows skinRecovery); only clears old saves
 		}
 		Wolverine.save(player, c);
 	}
@@ -186,22 +183,30 @@ public final class WolverinePassives {
 
 	// ---------------- emergency heal ----------------
 
+	/** v0.15.18: whether a Death Surge could fire right now -- he needs {@code SURGE_HEAL_POOL_COST} Healing Factor. */
+	public static boolean surgeAffordable(WolverineState s) {
+		return s != null && s.hasPower && s.healPool >= WolverineConfig.SURGE_HEAL_POOL_COST;
+	}
+
 	/**
-	 * Below {@link WolverineConfig#EMERGENCY_BELOW} of max health, restore 30% of max health over two
-	 * seconds, then a 60 s internal cooldown. Called from the damage hooks and every tick.
+	 * The Death Surge, fired by a lethal hit (see {@link WolverineDamage}). v0.15.18: no cooldown or one-use limit -- it fires on
+	 * every lethal hit, but each one drains {@code SURGE_HEAL_POOL_COST} Healing Factor, and with less than that in the pool it
+	 * does not fire (he dies). A surge during the recovery from the last one starts the raw-flesh state over.
 	 *
 	 * @return true if the resurrection started now
 	 */
 	public static boolean tryEmergency(ServerPlayer player) {
 		WolverineState s = Wolverine.state(player);
 		long now = player.level().getGameTime();
-		if (!s.hasPower || now < s.emergencyReadyAt || s.emergencyHealUntil > now) {
+		if (!surgeAffordable(s)) {
 			return false;
 		}
 		WolverineState c = s.copy();
-		c.emergencyHealUntil = now + WolverineConfig.EMERGENCY_HEAL_TICKS;
-		c.emergencyReadyAt = now + WolverineConfig.EMERGENCY_COOLDOWN_TICKS;
+		c.healPool = Math.max(0.0f, s.healPool - WolverineConfig.SURGE_HEAL_POOL_COST);
+		c.emergencyHealUntil = 0L;
+		c.emergencyReadyAt = 0L;
 		c.fleshStartedAt = now;
+		c.skinRecovery = 0.0f; // raw flesh; it only grows back at full HP
 		Wolverine.save(player, c);
 		if (player.level() instanceof ServerLevel level) {
 			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WOLF_GROWL,
@@ -225,17 +230,47 @@ public final class WolverinePassives {
 				player.getX(), y, player.getZ(), chips, 0.5, 0.7, 0.5, 0.25);
 	}
 
-	/** While the resurrection window runs: keep Slowness III, Blindness and Weakness I on him (re-applied because his debuff-halving would shorten them). */
+	/** Skin recovery advances in steps of this many ticks (and the state is only re-synced that often). */
+	private static final int SKIN_STEP_TICKS = 5;
+
+	/**
+	 * v0.15.18: the Death Surge recovery. The skin only grows back while he is at full health ({@code SKIN_RECOVERY_TICKS} of full
+	 * HP in total; below full HP it pauses, it never resets). Until it is {@code SURGE_DEBUFF_UNTIL} (50%) back he keeps Slowness
+	 * III, Blindness and Weakness I -- re-applied every quarter second, so neither his debuff-halving nor milk can clear them early
+	 * -- and they come off the moment it reaches 50%. The bleed still runs for the first {@code EMERGENCY_BLEED_TICKS}.
+	 */
 	private static void tickEmergency(ServerPlayer player, long now) {
 		WolverineState s = Wolverine.state(player);
-		if (s.emergencyHealUntil > now && player.tickCount % 5 == 0 && player.level() instanceof ServerLevel level
+		if (s.skinRecovery >= 1.0f || player.isDeadOrDying()) {
+			return;
+		}
+		boolean debuffed = s.skinRecovery < WolverineConfig.SURGE_DEBUFF_UNTIL;
+		if (player.tickCount % SKIN_STEP_TICKS != 0) {
+			return;
+		}
+		if (debuffed && player.level() instanceof ServerLevel level && s.fleshStartedAt > 0L && now >= s.fleshStartedAt
 				&& now < s.fleshStartedAt + WolverineConfig.EMERGENCY_BLEED_TICKS) {
 			bloodBurst(level, player, 14, 6); // keeps bleeding through the first part of the surge
 		}
-		if (s.emergencyHealUntil > now && player.tickCount % 5 == 0) {
+		float progress = s.skinRecovery;
+		if (player.getHealth() >= player.getMaxHealth()) {
+			// counted in whole ticks so 50% and 100% are hit exactly (no float drift)
+			int done = Math.round(Math.max(0.0f, progress) * WolverineConfig.SKIN_RECOVERY_TICKS) + SKIN_STEP_TICKS;
+			progress = Math.min(1.0f, done / (float) WolverineConfig.SKIN_RECOVERY_TICKS);
+		}
+		if (progress < WolverineConfig.SURGE_DEBUFF_UNTIL) {
 			player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 20, 2, true, false, false));
 			player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 20, 0, true, false, false));
 			player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 20, 0, true, false, false));
+		} else if (debuffed) {
+			player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+			player.removeEffect(MobEffects.BLINDNESS);
+			player.removeEffect(MobEffects.WEAKNESS);
+		}
+		if (progress != s.skinRecovery) {
+			WolverineState c = s.copy();
+			c.skinRecovery = progress;
+			Wolverine.save(player, c);
 		}
 	}
 

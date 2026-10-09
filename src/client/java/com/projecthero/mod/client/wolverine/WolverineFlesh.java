@@ -8,8 +8,8 @@ import net.minecraft.world.entity.player.Player;
 
 /**
  * The Wolverine flesh look, keyed off synced state so every viewer agrees: raw flesh while dying, and
- * after an emergency resurrection full flesh for {@code FLESH_HOLD_TICKS}, then the skin fades back
- * over the flesh across {@code FLESH_FADE_TICKS}.
+ * after a Death Surge the skin fades back over the flesh as {@code WolverineState.skinRecovery} climbs
+ * from 0 to 1 (v0.15.18: it only climbs while he is at full HP -- see {@code WolverinePassives}).
  */
 public final class WolverineFlesh {
 	private WolverineFlesh() {
@@ -24,17 +24,8 @@ public final class WolverineFlesh {
 		if (player.isDeadOrDying()) {
 			return 0.0f;
 		}
-		if (s.fleshStartedAt <= 0L) {
-			return 1.0f;
-		}
-		float t = player.level().getGameTime() + partialTick - s.fleshStartedAt;
-		if (t < 0.0f) {
-			return 1.0f;
-		}
-		if (t < WolverineConfig.FLESH_HOLD_TICKS) {
-			return 0.0f;
-		}
-		return Math.min(1.0f, (t - WolverineConfig.FLESH_HOLD_TICKS) / WolverineConfig.FLESH_FADE_TICKS);
+		// v0.15.18: no timer -- the server-synced skin recovery, which only advances while he is at full HP
+		return Math.max(0.0f, Math.min(1.0f, s.skinRecovery));
 	}
 
 	/** v0.12.43: how much raw flesh shows on his LEGS after a survived lethal fall: 1 for 20 s, then fading to 0 over 20 s (0 = none). */

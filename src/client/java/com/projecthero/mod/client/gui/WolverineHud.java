@@ -50,6 +50,16 @@ public final class WolverineHud {
 		int totalW = BOX * 6 + GAP * 5;
 		int x0 = g.guiWidth() - MARGIN - totalW;
 		int y0 = g.guiHeight() - BOX - MARGIN - 26 - 24;
+		// v0.15.18: the skin-recovery readout (wrapped text + thin bar) pushes the whole panel up so nothing falls off the screen
+		float skin = Math.max(0f, Math.min(1f, s.skinRecovery));
+		boolean skinPaused = mc.player.getHealth() < mc.player.getMaxHealth();
+		java.util.List<net.minecraft.util.FormattedCharSequence> skinRows = s.skinRecovery < 1.0f
+				? mc.font.split(Component.translatable(skinPaused ? "hud.projecthero.wolverine.skin_paused" : "hud.projecthero.wolverine.skin",
+						(int) Math.floor(skin * 100.0f + 1.0e-3f)).withStyle(skinPaused ? ChatFormatting.RED : ChatFormatting.GOLD), totalW)
+				: java.util.List.of();
+		if (!skinRows.isEmpty()) {
+			y0 -= skinRows.size() * 9 + 6;
+		}
 		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(),
 				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
 
@@ -103,13 +113,29 @@ public final class WolverineHud {
 				(int) Math.floor(pf * 100.0f + 1.0e-3f)).withStyle(pool <= 0f ? ChatFormatting.RED : ChatFormatting.GREEN),
 				x0, line, 0xFF55FF77, true);
 		line += 10;
-		boolean surgeReady = s.emergencyReadyAt <= now && s.emergencyHealUntil <= now;
+		// v0.15.18: the Death Surge marker is lit while the pool can pay for a surge (30 Healing Factor)
+		boolean surgeReady = com.projecthero.mod.wolverine.WolverinePassives.surgeAffordable(s);
 		g.fill(x0, line, x0 + 3, line + 3, surgeReady ? 0xFFFF8A00 : 0xFF2A2A2A);
 		int bx = x0 + 4; // 3 px Death Surge marker, 1 px gap
 		int bw = totalW - 4;
 		g.fill(bx, line, bx + bw, line + 3, COLOR_BOX_BG);
 		g.fill(bx, line, bx + (int) (bw * pf), line + 3, pool <= 0f ? 0xFFB02020 : 0xFF3ADB5A);
+		int costX = bx + (int) (bw * WolverineConfig.SURGE_HEAL_POOL_COST / WolverineConfig.HEAL_POOL_MAX);
+		g.fill(costX, line, costX + 1, line + 3, 0xFFFF8A00); // a surge needs the pool past this tick
 		line += 6;
+		if (!skinRows.isEmpty()) {
+			// v0.15.18: Death Surge skin recovery -- only advances at full HP ("Full HP to heal" while paused)
+			for (var row : skinRows) {
+				g.drawString(mc.font, row, x0, line, 0xFFFFAA00, true);
+				line += 9;
+			}
+			line += 1;
+			g.fill(x0, line, x0 + totalW, line + 2, COLOR_BOX_BG);
+			g.fill(x0, line, x0 + (int) (totalW * skin), line + 2, skinPaused ? 0xFF8A5A40 : 0xFFE0A070);
+			int half = x0 + (int) (totalW * WolverineConfig.SURGE_DEBUFF_UNTIL);
+			g.fill(half, line, half + 1, line + 2, 0xFFFFFFFF); // past here the debuffs are gone
+			line += 5;
+		}
 		if (s.chargeStartedAt != 0L) {
 			float frac = Math.min(1f, (now - s.chargeStartedAt) / (float) WolverineConfig.EXECUTION_CHARGE_TICKS);
 			g.drawString(mc.font, Component.translatable(frac >= 1f ? "hud.projecthero.wolverine.charge_ready"

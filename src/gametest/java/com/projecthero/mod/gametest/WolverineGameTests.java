@@ -196,15 +196,140 @@ public class WolverineGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void emergencyHealFiresOnceThenCoolsDown(GameTestHelper helper) {
+	// ---------------- v0.15.18 Death Surge rework ----------------
+
+	private static void setPool(ServerPlayer p, float pool) {
+		com.projecthero.mod.wolverine.data.WolverineState c = Wolverine.state(p).copy();
+		c.healPool = pool;
+		p.setAttached(com.projecthero.mod.attachment.ModAttachments.WOLVERINE_STATE, c);
+	}
+
+	private static int surgeTick = 0;
+
+	/** Runs the Wolverine passive tick {@code steps} times on the 5-tick skin-recovery cadence. */
+	private static void surgeSteps(ServerPlayer p, int steps) {
+		for (int i = 0; i < steps; i++) {
+			surgeTick += 5;
+			p.tickCount = 100000 + surgeTick;
+			WolverinePassives.tick(p);
+		}
+	}
+
+	private static boolean hasSurgeDebuffs(ServerPlayer p) {
+		return p.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN)
+				&& p.hasEffect(net.minecraft.world.effect.MobEffects.BLINDNESS)
+				&& p.hasEffect(net.minecraft.world.effect.MobEffects.WEAKNESS);
+	}
+
+	private static boolean hasAnySurgeDebuff(ServerPlayer p) {
+		return p.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN)
+				|| p.hasEffect(net.minecraft.world.effect.MobEffects.BLINDNESS)
+				|| p.hasEffect(net.minecraft.world.effect.MobEffects.WEAKNESS);
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "wolverine_surge")
+	public void deathSurgeFiresOnEveryLethalHitAndCosts30(GameTestHelper helper) {
 		ServerPlayer p = wolverine(helper);
-		p.setHealth(p.getMaxHealth() * 0.10f);
-		helper.assertTrue(WolverinePassives.tryEmergency(p), "below 15% health starts the emergency heal");
-		helper.assertTrue(Wolverine.state(p).emergencyHealUntil > p.level().getGameTime(), "heal window running");
-		helper.assertTrue(Wolverine.state(p).emergencyReadyAt - p.level().getGameTime() == WolverineConfig.EMERGENCY_COOLDOWN_TICKS,
-				"60-second internal cooldown");
-		helper.assertFalse(WolverinePassives.tryEmergency(p), "cannot retrigger during the cooldown");
+		var generic = p.damageSources().generic();
+		helper.assertTrue(Wolverine.state(p).healPool == WolverineConfig.HEAL_POOL_MAX, "starts with a full pool");
+		p.setHealth(1.0f);
+		helper.assertFalse(com.projecthero.mod.wolverine.WolverineDamage.allowDeath(p, generic, 100.0f), "the first lethal hit is survived");
+		helper.assertTrue(Math.abs(p.getHealth() - p.getMaxHealth() * WolverineConfig.EMERGENCY_HEAL_FRACTION) < 1e-3f, "rises at 30% health");
+		var st = Wolverine.state(p);
+		helper.assertTrue(Math.abs(st.healPool - (WolverineConfig.HEAL_POOL_MAX - 30.0f)) < 1e-3f, "costs 30 Healing Factor, has " + st.healPool);
+		helper.assertTrue(st.skinRecovery == 0.0f, "raw flesh");
+		helper.assertTrue(Wolverine.invulnerable(p), "the damage-proof opening seconds are kept");
+		helper.assertTrue(Wolverine.resurrecting(p) && Wolverine.surgeRecovering(p), "surge running");
+		// part-way through a recovery, a second lethal hit fires again (no one-use limit) and restarts the flesh
+		var partial = Wolverine.state(p).copy();
+		partial.skinRecovery = 0.3f;
+		p.setAttached(com.projecthero.mod.attachment.ModAttachments.WOLVERINE_STATE, partial);
+		p.setHealth(1.0f);
+		helper.assertFalse(com.projecthero.mod.wolverine.WolverineDamage.allowDeath(p, generic, 100.0f), "the second lethal hit is survived too");
+		st = Wolverine.state(p);
+		helper.assertTrue(Math.abs(st.healPool - (WolverineConfig.HEAL_POOL_MAX - 60.0f)) < 1e-3f, "another 30, has " + st.healPool);
+		helper.assertTrue(st.skinRecovery == 0.0f, "a surge during recovery restarts the flesh state");
+		helper.assertTrue(com.projecthero.mod.wolverine.WolverineDamage.allowDeath(p, p.damageSources().genericKill(), 100.0f), "/kill still kills");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "wolverine_surge")
+	public void deathSurgeNeeds30HealingFactorOrHeDies(GameTestHelper helper) {
+		ServerPlayer p = wolverine(helper);
+		setPool(p, 29.5f);
+		p.setHealth(1.0f);
+		helper.assertTrue(com.projecthero.mod.wolverine.WolverineDamage.allowDeath(p, p.damageSources().generic(), 100.0f),
+				"with less than 30 Healing Factor the surge does not fire: he dies");
+		var st = Wolverine.state(p);
+		helper.assertTrue(st.healPool == 29.5f && st.skinRecovery == 1.0f, "nothing spent, no flesh");
+		helper.assertFalse(WolverinePassives.surgeAffordable(st), "HUD marker off");
+		setPool(p, 30.0f);
+		helper.assertTrue(WolverinePassives.surgeAffordable(Wolverine.state(p)), "exactly 30 is enough");
+		helper.assertFalse(com.projecthero.mod.wolverine.WolverineDamage.allowDeath(p, p.damageSources().generic(), 100.0f), "fires at 30");
+		helper.assertTrue(Wolverine.state(p).healPool == 0.0f, "drained to 0");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "wolverine_surge")
+	public void skinOnlyHealsAtFullHpAndDebuffsLastUntilHalfway(GameTestHelper helper) {
+		ServerPlayer p = wolverine(helper);
+		p.setHealth(1.0f);
+		helper.assertTrue(WolverinePassives.tryEmergency(p), "surge");
+		setPool(p, 0.0f); // no healing factor: his health stays where the test puts it
+		Wolverine.markHurt(p); // ...and the pool does not refill (game time does not move inside this test)
+		float max = p.getMaxHealth();
+
+		p.setHealth(max - 1.0f);
+		surgeSteps(p, 20);
+		helper.assertTrue(Wolverine.state(p).skinRecovery == 0.0f, "below full HP the skin does not recover, has " + Wolverine.state(p).skinRecovery);
+		helper.assertTrue(hasSurgeDebuffs(p), "debuffed");
+
+		p.setHealth(max);
+		surgeSteps(p, 20); // 100 ticks of full HP = 25%
+		helper.assertTrue(Wolverine.state(p).skinRecovery == 0.25f, "full HP: 25% after 5 s, has " + Wolverine.state(p).skinRecovery);
+
+		p.setHealth(max - 1.0f);
+		surgeSteps(p, 10);
+		helper.assertTrue(Wolverine.state(p).skinRecovery == 0.25f, "hurt again: paused, not reset");
+
+		p.removeAllEffects(); // milk
+		surgeSteps(p, 1);
+		helper.assertTrue(hasSurgeDebuffs(p), "milk cannot clear the surge debuffs early");
+
+		p.setHealth(max);
+		surgeSteps(p, 19); // 95%... of the way to 50%: 0.4875
+		helper.assertTrue(Wolverine.state(p).skinRecovery < WolverineConfig.SURGE_DEBUFF_UNTIL && hasSurgeDebuffs(p),
+				"still debuffed just under 50%");
+		helper.assertTrue(Wolverine.resurrecting(p), "red border / torn suit still on");
+		surgeSteps(p, 1);
+		helper.assertTrue(Wolverine.state(p).skinRecovery == 0.5f, "exactly 50%, has " + Wolverine.state(p).skinRecovery);
+		helper.assertFalse(hasAnySurgeDebuff(p), "the debuffs come off at 50%");
+		helper.assertFalse(Wolverine.resurrecting(p), "surge window over");
+		helper.assertTrue(Wolverine.surgeRecovering(p), "skin still growing back");
+
+		surgeSteps(p, 39);
+		helper.assertTrue(Wolverine.surgeRecovering(p) && Wolverine.state(p).skinRecovery < 1.0f, "not quite whole");
+		surgeSteps(p, 1);
+		helper.assertTrue(Wolverine.state(p).skinRecovery == 1.0f, "20 s of full HP in total: skin fully back");
+		helper.assertFalse(Wolverine.surgeRecovering(p), "recovery over");
+		helper.assertFalse(hasAnySurgeDebuff(p), "no debuffs re-applied after 50%");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "wolverine_surge")
+	public void skinRecoveryIsSavedAndOldSavesLoadClean(GameTestHelper helper) {
+		var codec = com.projecthero.mod.wolverine.data.WolverineState.CODEC;
+		var old = codec.parse(net.minecraft.nbt.NbtOps.INSTANCE, new net.minecraft.nbt.CompoundTag()).getOrThrow();
+		helper.assertTrue(old.skinRecovery == 1.0f, "a pre-0.15.18 save has whole skin");
+		var s = new com.projecthero.mod.wolverine.data.WolverineState();
+		s.skinRecovery = 0.35f;
+		var tag = codec.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, s).getOrThrow();
+		var back = codec.parse(net.minecraft.nbt.NbtOps.INSTANCE, tag).getOrThrow();
+		helper.assertTrue(back.skinRecovery == 0.35f, "progress round-trips, got " + back.skinRecovery);
+		ServerPlayer p = wolverine(helper);
+		WolverinePassives.tryEmergency(p);
+		Wolverine.onPlayerRespawn(p);
+		helper.assertTrue(Wolverine.state(p).skinRecovery == 1.0f, "a respawn brings the skin back");
 		helper.succeed();
 	}
 
