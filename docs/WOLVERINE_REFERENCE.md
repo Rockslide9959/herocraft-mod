@@ -17,8 +17,8 @@ reuses Super Regeneration's base heal tick and debuff-shortening mixin and scale
 > progress < 0.5, `surgeRecovering` = progress < 1. Invulnerability (first `EMERGENCY_INVULN_TICKS` 5 s) and the bleed
 > (`EMERGENCY_BLEED_TICKS` 15 s) still key off `fleshStartedAt`. There is no regeneration penalty (none since v0.12.20).
 > Client: `WolverineFlesh.skinAlpha` = synced progress (all viewers); HUD shows "Skin N%" / "Skin N% - Full HP to heal"
-> + a 2 px bar (white tick at 50%) and an orange tick at 30 on the Healing Factor bar; the surge marker is lit while
-> the pool holds >= 30. Respawn / re-ascension reset progress to 1.
+> + a 2 px bar (white tick at 50%) and an orange tick at 30 on the Healing Factor bar (a surge needs the pool past it; the old one-use surge marker pixel is gone).
+> Respawn / re-ascension reset progress to 1.
 
 > **v0.13.9 (mouse buttons):** the right-click off-hand strike is gone (`WolverineSense.offHandStrike` and
 > `OFFHAND_STRIKE_*` deleted). **Left click** with the claws out and both hands empty swings a random hand:
