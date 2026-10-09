@@ -71,6 +71,10 @@ fabricApi.configureTests {
 //   ./gradlew runGameTest -PfastTicks=true      don't sleep out each 50 ms tick (tests count ticks, so much faster)
 // With neither property set the run is exactly the full suite at normal speed.
 tasks.matching { it.name == 'runGameTest' }.configureEach { task ->
+	// v0.15.18: `build` (via `check`) used to pull the whole ~10 min suite in as well, so a plain
+	// `build` / `build copyToModpack` ran it again after a deliberate `runGameTest`. The suite now only
+	// runs when `runGameTest` itself is on the command line (CI calls it explicitly per slice).
+	task.onlyIf { gradle.startParameter.taskNames.any { it == 'runGameTest' || it.endsWith(':runGameTest') } }
 	// JUnit-style XML with a per-test time: build/reports/gametest.xml (how to find the slow tests; CI uploads it)
 	task.systemProperty 'fabric-api.gametest.report-file', layout.buildDirectory.file('reports/gametest.xml').get().asFile.absolutePath
 	if (project.hasProperty('testFilter')) {
