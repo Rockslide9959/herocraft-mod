@@ -116,6 +116,20 @@ public final class FirearmClient {
 		return aiming;
 	}
 
+	/**
+	 * v0.15.18: the Punisher's sniper lock-on (Shift+V) raises the scope by itself ({@code on}); releasing hands aiming back
+	 * to the right mouse button as it is held right now.
+	 */
+	public static void forceAim(boolean on) {
+		Minecraft mc = Minecraft.getInstance();
+		boolean useDown = mc.options.keyUse.isDown();
+		aiming = on || useDown;
+		useWasDown = useDown;
+		if (on) {
+			zoomIndex = 1;
+		}
+	}
+
 	public static int zoomIndex() {
 		return zoomIndex;
 	}

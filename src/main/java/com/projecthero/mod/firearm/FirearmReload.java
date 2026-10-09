@@ -21,7 +21,7 @@ public final class FirearmReload {
 
 	/** Begin a reload if it makes sense to (not already reloading, magazine not full, ammo available). */
 	public static void start(ServerPlayer player, ItemStack stack, FirearmData data) {
-		if (FirearmStack.isReloading(stack)) {
+		if (FirearmStack.isReloading(stack) || FirearmHooks.get().reloadBlocked(player)) {
 			return;
 		}
 		int mag = FirearmStack.magazine(stack, data);

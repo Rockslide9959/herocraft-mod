@@ -168,6 +168,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.spider.SpiderPassives.initialize();
 		com.projecthero.mod.maxsteel.MaxSteelDamage.initialize();
 		com.projecthero.mod.punisher.Punisher.initialize();
+		com.projecthero.mod.punisher.ability.PunisherWeaponAbilities.initialize(); // v0.15.18: after Punisher -- wraps its firearm hooks
 		com.projecthero.mod.punisher.PunisherDamage.initialize();
 		com.projecthero.mod.greenlantern.GreenLanternDamage.initialize();
 		com.projecthero.mod.wolverine.Wolverine.initialize();
@@ -484,6 +485,7 @@ public class ProjectHeroMod implements ModInitializer {
 		TickWatchdog.run("RepulsorBoots.tick", () -> com.projecthero.mod.ironman.RepulsorBoots.tick(player));
 		TickWatchdog.run("GraveboundEvents.serverTick", () -> com.projecthero.mod.grave.GraveboundEvents.serverTick(player));
 		TickWatchdog.run("FirearmManager.serverTick", () -> com.projecthero.mod.firearm.FirearmManager.serverTick(player));
+		TickWatchdog.run("PunisherWeaponAbilities.tick", () -> com.projecthero.mod.punisher.ability.PunisherWeaponAbilities.tick(player)); // v0.15.18
 		TickWatchdog.run("Squads.serverTick", () -> com.projecthero.mod.squad.Squads.serverTick(player));
 	}
 

@@ -408,6 +408,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 
 		ClientTickEvents.END_CLIENT_TICK.register(client ->
 				com.projecthero.mod.client.firearm.FirearmClient.clientTick(client));
+		com.projecthero.mod.client.punisher.PunisherLockOnClient.register(); // v0.15.18: Shift+V lock-on camera
 		ClientTickEvents.END_CLIENT_TICK.register(ProjectHeroModClient::handleKeyBinds);
 		ClientTickEvents.END_CLIENT_TICK.register(MagneticSenseClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.ironman.GantryClient::tick); // v0.15.4 (was v0.15.3 PlatformFacingLock)

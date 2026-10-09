@@ -91,6 +91,19 @@ public interface FirearmHooks {
 	default void onFirearmKill(ServerPlayer player, LivingEntity target) {
 	}
 
+	/**
+	 * v0.15.18: a special shot armed for this player's next ordinary trigger pull with {@code data} (the Punisher's
+	 * Weapon Abilities), or null for a normal shot. Its {@link ShotSpec#onFired} is how the arming is used up.
+	 */
+	default ShotSpec nextShot(ServerPlayer player, FirearmData data) {
+		return null;
+	}
+
+	/** v0.15.18: true while this player may not start a reload (the Punisher's rifle lock-on empties the magazine first). */
+	default boolean reloadBlocked(ServerPlayer player) {
+		return false;
+	}
+
 	/** Called when this player crafts a firearm ({@code weaponId} is a {@link Firearms} key). */
 	default void onCrafted(ServerPlayer player, String weaponId) {
 	}

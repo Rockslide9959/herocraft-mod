@@ -590,10 +590,17 @@ public final class HeroPackGuide {
 			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {
 				String key = switch (slot) {
 					case "R" -> "arsenal"; case "G" -> "grenade"; case "X" -> "roll";
-					case "Z" -> "suppressive"; case "V" -> "adrenaline"; default -> "c4";
+					case "Z" -> "suppressive"; case "V" -> "weapon"; default -> "c4";
 				};
 				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.guide.punisher.ability." + key).withStyle(ChatFormatting.WHITE)));
+			}
+			blank(lines);
+			// v0.15.18: V = Weapon Ability, one move (and a Shift move) per gun
+			head(lines, "projecthero.guide.punisher.weapon_ability");
+			para(lines, "projecthero.guide.punisher.weapon_ability.body");
+			for (String w : new String[]{"pistol", "shotgun", "rifle", "sniper"}) {
+				para(lines, "projecthero.guide.punisher.weapon_ability." + w);
 			}
 			blank(lines);
 			head(lines, "projecthero.guide.punisher.passives");

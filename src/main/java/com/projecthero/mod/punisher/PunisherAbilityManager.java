@@ -76,11 +76,7 @@ public final class PunisherAbilityManager {
 					PunisherSuppressive.activate(player);
 				}
 			}
-			case SLOT_5 -> {
-				if (pressed) {
-					PunisherAdrenaline.activate(player);
-				}
-			}
+			case SLOT_5 -> com.projecthero.mod.punisher.ability.PunisherWeaponAbilities.handle(player, pressed); // v0.15.18: Weapon Ability
 			case SLOT_6 -> {
 				if (pressed) {
 					if (player.isShiftKeyDown()) {

@@ -148,6 +148,36 @@ Suppressor** strips it like any other power.
 | V | **Adrenaline** | 20 s: Regen V (first 3 s), Resistance II, Haste II, Speed II, ×0.75 reload (supersedes the passive), +15% firearm dmg. Own audio dulled 30%. Nausea I for 10 s crash when it ends. 30 s cd. |
 | C | **Explosive Charge** | Place a C4 charge on a surface (max 3, owner-stamped). Sneak+C detonates only yours. ~20 dmg, moderate terrain. |
 
+## Weapon Ability (V) — v0.15.18 (`PunisherWeaponAbilities`)
+
+V depends on the gun in the main hand; **Shift+V** (sneak held at the press) is a second move with its own
+cooldown. Not holding a gun → "Hold a gun". Anything still running (pistol charges, Rapid Fire, a chambered
+piercing round, a lock-on) **cancels the moment that gun is put away** — another hotbar slot or another item in
+the slot. Transient (static map, `ServerStateReset` + disconnect cleanup); cooldowns live in
+`PunisherState.abilityReadyAt` as `weapon_<gun>` / `weapon_<gun>_shift`.
+
+| Gun | V | Shift+V |
+|---|---|---|
+| Pistol | Next 3 shots ×2 damage. 12 s cd. | One instant shot (ignores the fire-rate gate): 18 damage + Slowness II 4 s. 20 s cd. |
+| Shotgun | Needs ≥3 shells loaded; spends 3 on one blast, 15 dmg/pellet (6 pellets), 5-block range. 12 s cd. | Same 3 shells, 12 pellets fanned evenly over a 90° arc, 10 dmg/pellet, 5 blocks. 20 s cd. *(user gave no numbers — chosen)* |
+| Assault Rifle | 15 s: fire interval ×0.5 (double rate) and reload time ×0.5. 20 s cd. | Lock onto the target under / nearest (10° cone) the crosshair, ≤40 blocks, line of sight; auto-fires the magazine at its upper body (spread ×0.25) at the gun's own rate; reload blocked until the magazine is empty or the target dies / is lost / leaves LOS. 25 s cd *(chosen)*. |
+| Sniper | Next shot pierces every living thing on its line and ignores 40% of each target's armour value. 12 s cd. | Lock on (≤120 blocks), scope raised; 3 s later one shot paid as a headshot ×2 (80) wherever it lands (also pierces if a V round was chambered). Cancels if the target is lost or the gun swapped. 30 s cd. |
+
+Plumbing — every shot is a real `FirearmShooting.fire` (ammo, sounds, flash, tracers, recoil, headshots, hooks):
+- `firearm/ShotSpec` — per-pull override: aim direction, spread factor, 90° fan, pellets, ammo cost, range,
+  fixed damage, damage multiplier, forced headshot, pierce, armour-ignore (a temporary −X% `ARMOR` modifier on
+  the target around the one `hurt`), skip fire-rate gate, on-hit / on-fired callbacks.
+- `FirearmHooks.nextShot` (an armed special shot for the next ordinary pull — pistol charges, sniper pierce) and
+  `FirearmHooks.reloadBlocked` (checked in `FirearmReload.start`). `PunisherWeaponAbilities.initialize()` wraps
+  the installed hooks (call it after `Punisher.initialize()`) and folds Rapid Fire into `fireIntervalFactor` /
+  `reloadSpeedFactor`. A new `FirearmHooks` method must also be delegated in that wrapper.
+- Lock-on camera: `PunisherLockOnPayload(entityId, scope)` → `client/punisher/PunisherLockOnClient`;
+  `PunisherLockOnMouseMixin` drops mouse look while locked and turns the view onto the target every frame. The
+  sniper lock forces the scope via `FirearmClient.forceAim` (server sets `FIREARM_AIMING`). The server aims every
+  shot itself; the camera is presentation only.
+- HUD: the V box shows the held gun's V cooldown, with a thin bar along its bottom for the Shift+V cooldown.
+- Tests: `PunisherWeaponAbilityV01518GameTests` (batch `punisher_weapon_v01518`).
+
 ## Passives (`PunisherPassives.Hooks`)
 
 - **Weapon Proficiency** — a regenerating personal reserve (3 mags/gun), ×0.6 recoil, faster handling.

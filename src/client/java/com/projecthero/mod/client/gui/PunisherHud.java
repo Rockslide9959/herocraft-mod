@@ -33,7 +33,7 @@ public final class PunisherHud {
 	private static final String[] NAME_KEYS = {
 			"hud.projecthero.punisher.name.satchel", "hud.projecthero.punisher.name.grenade",
 			"hud.projecthero.punisher.name.roll", "hud.projecthero.punisher.name.suppressive",
-			"hud.projecthero.punisher.name.adrenaline", "hud.projecthero.punisher.name.c4"
+			"hud.projecthero.punisher.name.weapon", "hud.projecthero.punisher.name.c4"
 	};
 
 	private PunisherHud() {
@@ -81,7 +81,9 @@ public final class PunisherHud {
 			String ability = PunisherAbilityManager.abilityIdOf(slot);
 			int cd = com.projecthero.mod.punisher.Punisher.cooldownRemaining(mc.player, ability);
 			int max = maxCd(i);
-			if (cd > 0 && max > 0) {
+			if (slot == AbilitySlot.SLOT_5) {
+				drawWeaponAbility(g, mc, x, y0); // v0.15.18: V = Weapon Ability (per held gun)
+			} else if (cd > 0 && max > 0) {
 				int h = (int) (BOX * Math.min(1f, cd / (float) max));
 				g.fill(x, y0 + BOX - h, x + BOX, y0 + BOX, COLOR_COOLDOWN);
 				g.drawString(mc.font, String.valueOf((cd + 19) / 20), x + 5, y0 + 6, 0xFFFFFFFF, true);
@@ -109,6 +111,28 @@ public final class PunisherHud {
 			g.drawString(mc.font, VigilanteTraining.objectivesSummary(s).withStyle(ChatFormatting.GRAY),
 					x0, line, 0xFFAAAAAA, true);
 		}
+	}
+
+	/**
+	 * v0.15.18: the V box = the held gun's Weapon Ability -- its plain-V cooldown like any other box, and its Shift+V
+	 * cooldown as a thin bar along the bottom (refilling while it cools down, bright once ready), like the Green
+	 * Lantern / Nova HUDs. Nothing drawn inside while no gun is held.
+	 */
+	private static void drawWeaponAbility(GuiGraphics g, Minecraft mc, int x, int y) {
+		int[] tap = com.projecthero.mod.punisher.ability.PunisherWeaponAbilities.hudCooldown(mc.player, false);
+		int[] alt = com.projecthero.mod.punisher.ability.PunisherWeaponAbilities.hudCooldown(mc.player, true);
+		if (tap == null || alt == null) {
+			return;
+		}
+		if (tap[0] > 0 && tap[1] > 0) {
+			int h = (int) (BOX * Math.min(1f, tap[0] / (float) tap[1]));
+			g.fill(x, y + BOX - h, x + BOX, y + BOX, COLOR_COOLDOWN);
+			g.drawString(mc.font, String.valueOf((tap[0] + 19) / 20), x + 5, y + 6, 0xFFFFFFFF, true);
+		}
+		float ready = alt[1] <= 0 ? 1f : 1f - Math.min(1f, alt[0] / (float) alt[1]);
+		g.fill(x + 1, y + BOX - 3, x + BOX - 1, y + BOX - 1, 0xC0301008);
+		g.fill(x + 1, y + BOX - 3, x + 1 + Math.round((BOX - 2) * ready), y + BOX - 1,
+				ready >= 1f ? 0xFFFF6A3D : 0xFF8A3A1E);
 	}
 
 	private static int maxCd(int slotIndex) {

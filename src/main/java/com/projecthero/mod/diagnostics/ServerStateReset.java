@@ -122,6 +122,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.ironman.JarvisDialogue.clearSessionState(); // v0.14.29 agent F
 		com.projecthero.mod.oathbreaker.OathbreakerSummon.clearSessionState();
 		com.projecthero.mod.punisher.PunisherArmorGate.clearSessionState();
+		com.projecthero.mod.punisher.ability.PunisherWeaponAbilities.clearSessionState(); // v0.15.18: Weapon Ability (V) effects
 		com.projecthero.mod.combat.SonicVulnerability.clearSessionState();
 		com.projecthero.mod.symbiote.SymbioteAbilityManager.clearSessionState();
 		com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.clearSessionState();
