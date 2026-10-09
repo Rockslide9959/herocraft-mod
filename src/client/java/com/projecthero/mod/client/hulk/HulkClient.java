@@ -27,8 +27,15 @@ public final class HulkClient {
 	private static final boolean[] WAS_DOWN = new boolean[5];
 	private static int answeredPrompt = -1;
 	private static long answeredUntil;
+	/** v0.15.18: H went down for the Hulk -- its release is sent when it comes back up (it calls off a strain). */
+	private static boolean hHeld;
 
 	private HulkClient() {
+	}
+
+	/** v0.15.18: the H press was sent as a Hulk {@code TRANSFORM}; {@link #tick} reports the release. */
+	public static void pressedH() {
+		hHeld = true;
 	}
 
 	/** 0..1 while N is being held toward a calm-down (for the HUD). */
@@ -41,7 +48,13 @@ public final class HulkClient {
 			calmHold = 0;
 			calmSent = false;
 			calmScreenOpened = false;
+			hHeld = false;
 			return;
+		}
+		// ---- v0.15.18: H let go (or a screen took the keyboard) -- the server calls off an unfinished strain ----
+		if (hHeld && (mc.screen != null || !ModKeyBindings.POWER_SELECT.isDown())) {
+			hHeld = false;
+			ClientPlayNetworking.send(new HulkActionPayload(HulkActionPayload.Action.TRANSFORM_RELEASE));
 		}
 		HulkState s = mc.player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
 		if (s == null || !s.hasPower) {

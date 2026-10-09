@@ -276,8 +276,9 @@ public class GladiatorMovesGameTests implements FabricGameTest {
 	public void championsRoarBuffsHimAndStaggersMobs(GameTestHelper helper) {
 		ServerPlayer p = gladiator(helper);
 		Husk mob = husk(helper, p.position().add(0, 0, 4.0));
-		double attack = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
 		Hulk.setRage(p, 50.0f);
+		// v0.15.18: measured after the rage is set -- rage tiers change his attack damage too (50 and 65 are both Angry)
+		double attack = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
 		GladiatorAbilities.championsRoar(p);
 		helper.assertTrue(HulkAbilities.cooldownRemaining(p, GladiatorAbilities.CHAMPIONS_ROAR) > 0, "the roar goes on cooldown");
 		helper.onEachTick(() -> Hulk.tick(p));

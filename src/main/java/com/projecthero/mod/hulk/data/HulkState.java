@@ -85,6 +85,11 @@ public final class HulkState {
 		public boolean unwilling;
 		/** v0.13.17: game time he last TOOK damage -- Banner's rage only starts bleeding off 5 s after that. */
 		public long lastHurtAt;
+		/**
+		 * v0.15.18: game time Banner started holding H below the manual-change rage to strain the Hulk out (0 = not
+		 * straining). The server times it; clients draw the progress from it.
+		 */
+		public long strainStart;
 
 		public Combat copy() {
 			Combat c = new Combat();
@@ -100,6 +105,7 @@ public final class HulkState {
 			c.deathSaveReadyAt = deathSaveReadyAt;
 			c.unwilling = unwilling;
 			c.lastHurtAt = lastHurtAt;
+			c.strainStart = strainStart;
 			return c;
 		}
 
@@ -115,9 +121,10 @@ public final class HulkState {
 				Codec.BOOL.optionalFieldOf("calming", false).forGetter(c -> c.calming),
 				Codec.LONG.optionalFieldOf("death_save_ready_at", 0L).forGetter(c -> c.deathSaveReadyAt),
 				Codec.BOOL.optionalFieldOf("unwilling", false).forGetter(c -> c.unwilling),
-				Codec.LONG.optionalFieldOf("last_hurt_at", 0L).forGetter(c -> c.lastHurtAt)
+				Codec.LONG.optionalFieldOf("last_hurt_at", 0L).forGetter(c -> c.lastHurtAt),
+				Codec.LONG.optionalFieldOf("strain_start", 0L).forGetter(c -> c.strainStart)
 		).apply(i, (chargeUntil, smashChargeStart, holding, control, lastDealtAt, rampageUntil, promptKey, promptUntil, calming,
-				deathSaveReadyAt, unwilling, lastHurtAt) -> {
+				deathSaveReadyAt, unwilling, lastHurtAt, strainStart) -> {
 			Combat c = new Combat();
 			c.chargeUntil = chargeUntil;
 			c.smashChargeStart = smashChargeStart;
@@ -131,6 +138,7 @@ public final class HulkState {
 			c.deathSaveReadyAt = deathSaveReadyAt;
 			c.unwilling = unwilling;
 			c.lastHurtAt = lastHurtAt;
+			c.strainStart = strainStart;
 			return c;
 		}));
 	}

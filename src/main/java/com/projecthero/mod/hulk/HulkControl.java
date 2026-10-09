@@ -30,7 +30,8 @@ import net.minecraft.world.phys.Vec3;
  * player wrestles back {@code rampageRestore} control. Numbers in {@link HulkConfig#control()}.
  *
  * <p>v0.13.15: only an <b>unwilling</b> Hulk ({@link HulkState.Combat#unwilling} -- rage hit 100, or the death save) fights
- * for control. A Hulk the player let out with H stays theirs for as long as he lasts.
+ * for control. A Hulk the player let out with H stays theirs for as long as he lasts. v0.15.18: an unwilling Hulk is tamed
+ * (the flag clears, see {@link Hulk#tick}) once his rage falls under 50 -- until then H can't change him back either.
  */
 public final class HulkControl {
 	public static final int KEY_FORWARD = 1;

@@ -297,8 +297,45 @@ public final class HulkConfig {
 
 	// ---------------- rage ----------------
 	public static final float RAGE_MAX = 100.0f;
-	/** H transforms by hand from this much rage; at {@link #RAGE_MAX} the change is forced. */
-	public static final float MANUAL_TRANSFORM_RAGE = 75.0f;
+	/**
+	 * H transforms by hand from this much rage; at {@link #RAGE_MAX} the change is forced. v0.15.18: 75 -> 50 (below it,
+	 * holding H for {@link #STRAIN_HOLD_TICKS} forces the willing change anyway, at a cost).
+	 */
+	public static final float MANUAL_TRANSFORM_RAGE = 50.0f;
+	/** v0.15.18: Banner starts to pour off green gamma (and the HUD bar throbs) from here -- the warning that 100 is near. */
+	public static final float BANNER_GLOW_RAGE = 75.0f;
+	/** v0.15.18: hold H this long below {@link #MANUAL_TRANSFORM_RAGE} and Banner strains the Hulk out anyway (willing). */
+	public static final int STRAIN_HOLD_TICKS = 50;
+	/** v0.15.18: what the strained change costs -- health (never below 1 HP) and food points. No 20 HP burst either. */
+	public static final float STRAIN_HEALTH_COST = 4.0f;
+	public static final int STRAIN_FOOD_COST = 4;
+	/** v0.15.18: the Hulk's rage only burns down to this floor out of combat -- running low never changes him back. */
+	public static final float HULK_RAGE_FLOOR = 15.0f;
+	/**
+	 * v0.15.18: rage tiers -- the angrier the Hulk, the stronger. Calm (below {@link #RAGE_TIER_ANGRY}): base stats; Angry:
+	 * +{@link #ANGRY_DAMAGE_BONUS} melee damage and +{@link #ANGRY_SPEED_BONUS} speed; Enraged (from
+	 * {@link #RAGE_TIER_ENRAGED}): +{@link #ENRAGED_DAMAGE_BONUS} / +{@link #ENRAGED_SPEED_BONUS} and the gamma glow.
+	 */
+	public static final float RAGE_TIER_ANGRY = 40.0f;
+	public static final float RAGE_TIER_ENRAGED = 80.0f;
+	public static final int TIER_CALM = 0;
+	public static final int TIER_ANGRY = 1;
+	public static final int TIER_ENRAGED = 2;
+	/** Multiplies his total attack damage (+15%). */
+	public static final double ANGRY_DAMAGE_BONUS = 0.15;
+	/** Added to the base-speed multiplier (+10%). */
+	public static final double ANGRY_SPEED_BONUS = 0.10;
+	public static final double ENRAGED_DAMAGE_BONUS = 0.35;
+	public static final double ENRAGED_SPEED_BONUS = 0.20;
+	/** v0.15.18: changing back is only exhausting after this long as the Hulk in one go... */
+	public static final int LONG_FORM_TICKS = 10 * 60 * 20;
+	/** ...or from this much rage. Otherwise (and after Calm Down) there is no exhaustion. */
+	public static final float EXHAUST_RAGE = RAGE_TIER_ENRAGED;
+
+	/** v0.15.18: the rage tier ({@link #TIER_CALM}, {@link #TIER_ANGRY}, {@link #TIER_ENRAGED}) for this much rage. */
+	public static int rageTier(float rage) {
+		return rage >= RAGE_TIER_ENRAGED ? TIER_ENRAGED : rage >= RAGE_TIER_ANGRY ? TIER_ANGRY : TIER_CALM;
+	}
 	/**
 	 * v0.13.17: rage per point of damage TAKEN, both forms -- 5 damage = 5% (was 2.5 as Banner, 1.5 as the Hulk). Banner
 	 * gets nothing for the damage he deals himself.
@@ -338,7 +375,10 @@ public final class HulkConfig {
 	public static final int TOGGLE_DEBOUNCE_TICKS = 10;
 	/** Health healed on top of the carried-over health percentage when the Hulk comes out. */
 	public static final float TRANSFORM_HEAL = 20.0f;
-	/** After changing back: Weakness + Slowness for this long, and no rage can build. */
+	/**
+	 * After an exhausting change back (v0.15.18: only after {@link #LONG_FORM_TICKS} as the Hulk, or from
+	 * {@link #EXHAUST_RAGE} rage): Weakness + Slowness for this long, and no rage can build.
+	 */
 	public static final int EXHAUSTED_TICKS = 8 * 20;
 
 	// ---------------- Hulk stats (fixed-id transient attribute modifiers) ----------------

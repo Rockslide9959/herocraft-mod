@@ -13,7 +13,8 @@ import net.minecraft.resources.ResourceLocation;
  * Gamma power, the rage and the current state every time.
  *
  * <ul>
- *   <li>{@code TRANSFORM} -- H (let the Hulk out at 75+ rage).</li>
+ *   <li>{@code TRANSFORM} -- H pressed (v0.15.18: Banner at 50+ rage lets the Hulk out, below that starts straining him
+ *       out; the Hulk changes back); {@code TRANSFORM_RELEASE} -- H let go (calls an unfinished strain off).</li>
  *   <li>{@code CALM_START} -- N held for 2 s; {@code CALM_REPORT (a = ticks in rhythm, b = out of rhythm)} once a
  *       second from the breathing screen; {@code CALM_STOP} -- Esc.</li>
  *   <li>{@code CONTROL (a = key 1-4)} -- the movement key pressed while a keep-control prompt was showing.</li>
@@ -25,7 +26,9 @@ public record HulkActionPayload(Action action, int a, int b) implements CustomPa
 		CALM_START,
 		CALM_REPORT,
 		CALM_STOP,
-		CONTROL
+		CONTROL,
+		/** v0.15.18 -- appended so the earlier ordinals stay put. */
+		TRANSFORM_RELEASE
 	}
 
 	public HulkActionPayload(Action action) {

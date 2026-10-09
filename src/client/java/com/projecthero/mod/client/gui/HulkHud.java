@@ -44,6 +44,10 @@ public final class HulkHud {
 	private static final int COLOR_EXHAUSTED = 0xFF8A8A8A;
 	private static final int COLOR_CONTROL = 0xFF8FC8FF;
 	private static final String[] KEY_NAMES = { "", "W", "A", "S", "D" };
+	/** v0.15.18: indexed by {@link HulkConfig#rageTier}. */
+	private static final String[] TIER_KEYS = { "hud.projecthero.hulk.tier.calm", "hud.projecthero.hulk.tier.angry",
+			"hud.projecthero.hulk.tier.enraged" };
+	private static final ChatFormatting[] TIER_STYLES = { ChatFormatting.GRAY, ChatFormatting.GOLD, ChatFormatting.RED };
 
 	private HulkHud() {
 	}
@@ -80,20 +84,24 @@ public final class HulkHud {
 		boolean exhausted = s.exhaustedUntil > now;
 		int pct = Math.round(Math.max(0.0f, Math.min(1.0f, s.rage / HulkConfig.RAGE_MAX)) * 100.0f);
 		// v0.13.15: Banner's bar is "Rage 62%", or -- while he is worn out -- "Exhausted 7s" with the bar running down the timer
+		// v0.15.18: the Hulk's reads "Rage 62% - Angry" (his rage tier)
+		int tier = HulkConfig.rageTier(s.rage);
 		Component label = exhausted
 				? Component.translatable("hud.projecthero.hulk.exhausted", (int) Math.ceil((s.exhaustedUntil - now) / 20.0))
-				: Component.translatable("hud.projecthero.hulk.rage", pct);
+				: s.hulk
+						? Component.translatable("hud.projecthero.hulk.rage_tier", pct,
+								Component.translatable(TIER_KEYS[tier]).withStyle(TIER_STYLES[tier]))
+						: Component.translatable("hud.projecthero.hulk.rage", pct);
 		g.drawString(mc.font, label, x0, rageBar - 11, exhausted ? COLOR_EXHAUSTED : COLOR_LABEL, false);
 		// v0.13.19: the death-save dot is gone -- the save has no cooldown, so it was always lit
 		int bx = x0;
 		int bw = totalW;
-		int fill = s.hulk ? COLOR_RAGE_HULK : (s.rage >= HulkConfig.MANUAL_TRANSFORM_RAGE ? COLOR_RAGE_READY : COLOR_RAGE);
-		if (s.hulk && s.rage < 15.0f && (now / 5L) % 2L == 0L) {
-			fill = 0xFF4F7F2A; // about to shrink back
-		}
-		if (!s.hulk && s.rage > HulkConfig.MANUAL_TRANSFORM_RAGE && !exhausted) {
-			// past 75: the bar throbs with his heartbeat, faster as it nears 100
-			float heat = (s.rage - HulkConfig.MANUAL_TRANSFORM_RAGE) / (HulkConfig.RAGE_MAX - HulkConfig.MANUAL_TRANSFORM_RAGE);
+		int fill = s.hulk ? (tier == HulkConfig.TIER_CALM ? COLOR_RAGE : COLOR_RAGE_HULK)
+				: (s.rage >= HulkConfig.MANUAL_TRANSFORM_RAGE ? COLOR_RAGE_READY : COLOR_RAGE);
+		float glowFrom = s.hulk ? HulkConfig.RAGE_TIER_ENRAGED : HulkConfig.BANNER_GLOW_RAGE;
+		if (s.rage > glowFrom && !exhausted) {
+			// Banner past 75 (the forced change is near) / an Enraged Hulk: the bar throbs, faster as it nears 100
+			float heat = (s.rage - glowFrom) / (HulkConfig.RAGE_MAX - glowFrom);
 			float t = (now + delta.getGameTimeDeltaPartialTick(false)) * (0.25f + 0.35f * heat);
 			fill = (Math.sin(t) > 0.3) ? 0xFFB8FF7A : COLOR_RAGE_READY;
 		}
@@ -105,6 +113,12 @@ public final class HulkHud {
 		if (!s.hulk && !exhausted) {
 			int mark = bx + Math.round(bw * (HulkConfig.MANUAL_TRANSFORM_RAGE / HulkConfig.RAGE_MAX));
 			g.fill(mark, rageBar - 1, mark + 1, rageBar + HAIRLINE + 1, 0xFFFFFFFF);
+		} else if (s.hulk) {
+			// v0.15.18: where the Angry and Enraged tiers start
+			for (float at : new float[] { HulkConfig.RAGE_TIER_ANGRY, HulkConfig.RAGE_TIER_ENRAGED }) {
+				int mark = bx + Math.round(bw * (at / HulkConfig.RAGE_MAX));
+				g.fill(mark, rageBar - 1, mark + 1, rageBar + HAIRLINE + 1, 0xC0FFFFFF);
+			}
 		}
 
 		if (s.hulk) {
@@ -250,6 +264,17 @@ public final class HulkHud {
 			g.drawCenteredString(mc.font, Component.translatable("hud.projecthero.hulk.changing").withStyle(ChatFormatting.BOLD), cx, y, col);
 			g.fill(cx - w / 2, y + 11, cx + w / 2, y + 13, COLOR_BG);
 			g.fill(cx - w / 2, y + 11, cx - w / 2 + Math.round(w * f), y + 13, 0xFF7CFF4A);
+			return;
+		}
+		float strain = Hulk.strainProgress(player);
+		if (strain > 0.0f || (!s.hulk && s.combat.strainStart != 0L)) {
+			// v0.15.18: holding H below 50 rage -- Banner strains the Hulk out
+			int w = 120;
+			int col = (now / 5L) % 2L == 0L ? 0xFF7CFF4A : 0xFFB8FF7A;
+			g.drawCenteredString(mc.font, Component.translatable("hud.projecthero.hulk.strain", Math.round(strain * 100.0f))
+					.withStyle(ChatFormatting.BOLD), cx, y, col);
+			g.fill(cx - w / 2, y + 11, cx + w / 2, y + 13, COLOR_BG);
+			g.fill(cx - w / 2, y + 11, cx - w / 2 + Math.round(w * strain), y + 13, 0xFF7CFF4A);
 			return;
 		}
 		if (s.rampaging(now)) {

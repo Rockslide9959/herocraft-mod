@@ -21,9 +21,9 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Server-side coverage for the Hulk, Phase 1 (v0.13.11): the grant, rage from damage, the 75-rage manual change
- * and the forced change at 100, the stats going on and coming off cleanly, the exhausted reversion at 0, the
- * fists-only rule, respawn and persistence. Mock players are not reliably ticked by the server, so each test
+ * Server-side coverage for the Hulk, Phase 1 (v0.13.11): the grant, rage from damage, the manual change (v0.15.18: 50
+ * rage, or hold H below it) and the forced change at 100, the stats going on and coming off cleanly, the v0.15.18 rage
+ * floor / tiers / H change-back / exhaustion rules, the fists-only rule, respawn and persistence. Mock players are not reliably ticked by the server, so each test
  * drives {@link Hulk#tick} itself.
  */
 public class HulkGameTests implements FabricGameTest {
@@ -172,14 +172,170 @@ public class HulkGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void manualChangeNeedsSeventyFiveRage(GameTestHelper helper) {
+	public void manualChangeNeedsFiftyRage(GameTestHelper helper) {
 		ServerPlayer p = gamma(helper);
+		Hulk.setRage(p, 49.0f);
+		Hulk.tryTransform(p);
+		helper.assertFalse(Hulk.isHulk(p), "49 rage is not enough");
+		Hulk.pressH(p);
+		helper.assertFalse(Hulk.isHulk(p), "and a press of H below 50 only starts the strain");
+		helper.assertTrue(Hulk.state(p).combat.strainStart != 0L, "(the strain has started)");
 		Hulk.setRage(p, 50.0f);
-		Hulk.tryTransform(p);
-		helper.assertFalse(Hulk.isHulk(p), "50 rage is not enough");
-		Hulk.setRage(p, 80.0f);
-		Hulk.tryTransform(p);
-		helper.assertTrue(Hulk.isHulk(p), "80 rage lets the Hulk out");
+		Hulk.pressH(p);
+		helper.assertTrue(Hulk.isHulk(p), "50 rage lets the Hulk out with a tap");
+		helper.assertFalse(Hulk.state(p).combat.unwilling, "the willing change");
+		helper.assertTrue(Hulk.state(p).combat.strainStart == 0L, "and the strain is over");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- v0.15.18: the rage rework
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void holdingHForcesAWillingChangeBelowFifty(GameTestHelper helper) {
+		ServerPlayer p = gamma(helper);
+		Hulk.setRage(p, 20.0f);
+		p.setHealth(3.0f);
+		p.getFoodData().setFoodLevel(20);
+		p.getFoodData().setSaturation(0.0f);
+		Hulk.pressH(p);
+		helper.assertFalse(Hulk.isHulk(p), "a press below 50 does not change him at once");
+		helper.onEachTick(() -> Hulk.tick(p));
+		helper.runAfterDelay(HulkConfig.STRAIN_HOLD_TICKS - 10, () -> {
+			helper.assertFalse(Hulk.isHulk(p), "not before the hold is long enough");
+			helper.assertTrue(Hulk.strainProgress(p) > 0.5f, "the strain is well under way, got " + Hulk.strainProgress(p));
+		});
+		helper.runAfterDelay(HulkConfig.STRAIN_HOLD_TICKS + 5, () -> {
+			helper.assertTrue(Hulk.isHulk(p), "holding H 2.5 s forces the change");
+			helper.assertFalse(Hulk.state(p).combat.unwilling, "a willing one");
+			helper.assertFalse(Hulk.changing(p), "quick, not the kneeling change");
+			helper.assertTrue(p.isAlive(), "it never kills");
+			// 3 HP - 4 = 1 HP (never the last point), no 20 HP burst: about 1/20 of the Hulk's 60
+			helper.assertTrue(p.getHealth() < 16.0f, "it cost health and gave no healing burst, got " + p.getHealth());
+			helper.assertTrue(p.getFoodData().getFoodLevel() <= 20 - HulkConfig.STRAIN_FOOD_COST,
+					"and food, got " + p.getFoodData().getFoodLevel());
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void lettingGoOfHEarlyCallsTheStrainOff(GameTestHelper helper) {
+		ServerPlayer p = gamma(helper);
+		Hulk.setRage(p, 20.0f);
+		Hulk.pressH(p);
+		helper.onEachTick(() -> Hulk.tick(p));
+		helper.runAfterDelay(20, () -> {
+			Hulk.releaseH(p);
+			helper.assertTrue(Hulk.state(p).combat.strainStart == 0L, "releasing H ends the strain");
+		});
+		helper.runAfterDelay(HulkConfig.STRAIN_HOLD_TICKS + 20, () -> {
+			helper.assertFalse(Hulk.isHulk(p), "so he never changes");
+			helper.assertTrue(p.getHealth() >= p.getMaxHealth() - 0.01f, "and pays nothing");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void theHulksRageFloorsAtFifteenAndNeverChangesHimBack(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		var n = Hulk.state(p).copy();
+		n.formChangedAt = -10_000L;
+		n.lastCombatAt = -10_000L;
+		n.rage = 16.0f;
+		p.setAttached(ModAttachments.HULK_STATE, n);
+		helper.onEachTick(() -> Hulk.tick(p));
+		helper.runAfterDelay(70, () -> {
+			helper.assertTrue(Math.abs(Hulk.rage(p) - HulkConfig.HULK_RAGE_FLOOR) < 0.01f, "rage stops at 15, got " + Hulk.rage(p));
+			helper.assertTrue(Hulk.isHulk(p), "and he is still the Hulk");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void rageTiersScaleTheHulksDamageAndSpeed(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper); // rage 30: Calm
+		double calmAttack = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
+		double calmSpeed = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
+		helper.assertTrue(Math.abs(calmAttack - 20.0) < 0.01, "Calm: base punches of 20, got " + calmAttack);
+		helper.assertTrue(Hulk.rageTier(p) == HulkConfig.TIER_CALM, "Calm under 40");
+		Hulk.setRage(p, 60.0f);
+		helper.assertTrue(Hulk.rageTier(p) == HulkConfig.TIER_ANGRY, "Angry from 40");
+		double angryAttack = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
+		double angrySpeed = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
+		helper.assertTrue(Math.abs(angryAttack - 20.0 * (1.0 + HulkConfig.ANGRY_DAMAGE_BONUS)) < 0.01, "Angry: +15% damage, got " + angryAttack);
+		helper.assertTrue(angrySpeed > calmSpeed + 1.0e-4, "and faster");
+		Hulk.setRage(p, 90.0f);
+		helper.assertTrue(Hulk.rageTier(p) == HulkConfig.TIER_ENRAGED, "Enraged from 80");
+		double ragingAttack = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
+		helper.assertTrue(Math.abs(ragingAttack - 20.0 * (1.0 + HulkConfig.ENRAGED_DAMAGE_BONUS)) < 0.01, "Enraged: +35% damage, got " + ragingAttack);
+		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > angrySpeed + 1.0e-4, "and faster still");
+		Hulk.reconcile(p);
+		Hulk.reconcile(p);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - ragingAttack) < 1.0e-6, "no stacking");
+		Hulk.revert(p, false);
+		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) <= 1.0 + 0.01, "Banner has no tier bonus");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void tapHChangesAWillingHulkBackWithoutExhaustion(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper); // rage 30
+		Hulk.pressH(p);
+		helper.assertTrue(Hulk.isHulk(p), "not in the middle of the growth");
+		changeOver(p, HulkConfig.GROWTH_TICKS + 1);
+		Hulk.pressH(p);
+		helper.assertFalse(Hulk.isHulk(p), "H changes a willing Hulk back");
+		helper.assertFalse(Hulk.exhausted(p), "a short stint at low rage is not exhausting");
+		helper.assertFalse(p.hasEffect(MobEffects.WEAKNESS) || p.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "no Weakness or Slowness");
+		helper.assertTrue(Math.abs(p.getMaxHealth() - 20.0f) < 0.01f, "max health back to 20");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void changingBackEnragedOrAfterTenMinutesIsExhausting(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		Hulk.setRage(p, 85.0f);
+		changeOver(p, HulkConfig.GROWTH_TICKS + 1);
+		Hulk.pressH(p);
+		helper.assertFalse(Hulk.isHulk(p), "H changes him back at 85 rage");
+		helper.assertTrue(p.hasEffect(MobEffects.WEAKNESS) && p.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "exhausted: Weakness + Slowness");
+		helper.assertTrue(Hulk.exhausted(p), "and marked exhausted");
+		// (Weakness itself lowers attack, so only check the Hulk bonus is gone)
+		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) <= 1.0 + 0.01, "attack bonus gone");
+		// an exhausted Banner builds no rage and cannot change
+		Hulk.onHurt(p, 2.0f);
+		helper.assertTrue(Hulk.rage(p) == 0.0f, "no rage while exhausted");
+		Hulk.setRage(p, 100.0f);
+		Hulk.tick(p);
+		helper.assertFalse(Hulk.isHulk(p), "and no forced change while exhausted");
+
+		ServerPlayer q = hulk(helper); // rage 30, but out for ten minutes
+		changeOver(q, HulkConfig.LONG_FORM_TICKS);
+		Hulk.pressH(q);
+		helper.assertFalse(Hulk.isHulk(q), "H changes him back");
+		helper.assertTrue(Hulk.exhausted(q), "ten minutes as the Hulk is exhausting too");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void anUnwillingHulkOnlyLetsGoUnderFifty(GameTestHelper helper) {
+		ServerPlayer p = gamma(helper);
+		Hulk.setRage(p, HulkConfig.RAGE_MAX);
+		Hulk.tick(p);
+		helper.assertTrue(Hulk.isHulk(p) && Hulk.state(p).combat.unwilling, "100 rage still forces the unwilling change");
+		Hulk.pressH(p);
+		helper.assertTrue(Hulk.isHulk(p), "no changing back in the middle of it");
+		changeOver(p, HulkConfig.FORCED_CHANGE_TICKS + 5);
+		Hulk.setRage(p, 70.0f);
+		Hulk.pressH(p);
+		helper.assertTrue(Hulk.isHulk(p), "an unwilling Hulk at 70 rage won't let go");
+		Hulk.tick(p);
+		helper.assertTrue(Hulk.state(p).combat.unwilling, "and is not tamed yet");
+		Hulk.setRage(p, 45.0f);
+		Hulk.tick(p);
+		helper.assertFalse(Hulk.state(p).combat.unwilling, "under 50 he is tamed");
+		Hulk.pressH(p);
+		helper.assertFalse(Hulk.isHulk(p), "and H changes him back");
+		helper.assertFalse(Hulk.exhausted(p), "a short stint at 45 rage: no exhaustion");
 		helper.succeed();
 	}
 
@@ -275,25 +431,12 @@ public class HulkGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void zeroRageRevertsExhaustedAndClearsTheStats(GameTestHelper helper) {
-		ServerPlayer p = gamma(helper);
-		Hulk.setRage(p, 90.0f);
-		Hulk.tryTransform(p);
-		helper.assertTrue(Hulk.isHulk(p), "precondition: Hulk");
+	public void zeroRageNoLongerChangesHimBack(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
 		Hulk.setRage(p, 0.0f);
 		Hulk.tick(p);
-		helper.assertFalse(Hulk.isHulk(p), "0 rage shrinks him back");
-		helper.assertTrue(p.hasEffect(MobEffects.WEAKNESS) && p.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "exhausted: Weakness + Slowness");
-		helper.assertTrue(Hulk.exhausted(p), "and marked exhausted");
-		helper.assertTrue(Math.abs(p.getMaxHealth() - 20.0f) < 0.01f, "max health back to 20");
-		// (Weakness itself lowers attack, so only check the Hulk bonus is gone)
-		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) <= 1.0 + 0.01, "attack bonus gone");
-		// an exhausted Banner builds no rage and cannot change
-		Hulk.onHurt(p, 2.0f);
-		helper.assertTrue(Hulk.rage(p) == 0.0f, "no rage while exhausted");
-		Hulk.setRage(p, 100.0f);
-		Hulk.tick(p);
-		helper.assertFalse(Hulk.isHulk(p), "and no forced change while exhausted");
+		helper.assertTrue(Hulk.isHulk(p), "v0.15.18: running out of rage does not shrink him back");
+		helper.assertFalse(Hulk.exhausted(p), "nor exhaust him");
 		helper.succeed();
 	}
 
@@ -333,9 +476,11 @@ public class HulkGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void stateSurvivesSaveAndLoad(GameTestHelper helper) {
 		HulkState s = new HulkState(true, true, 42.5f, 10L, 20L, 30L);
+		s.combat.strainStart = 77L;
 		var json = HulkState.CODEC.encodeStart(JsonOps.INSTANCE, s).getOrThrow();
 		HulkState back = HulkState.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow();
 		helper.assertTrue(back.hasPower && back.hulk && back.rage == 42.5f && back.exhaustedUntil == 20L, "round-trips");
+		helper.assertTrue(back.combat.strainStart == 77L, "the strain clock too");
 		helper.assertTrue(ModAttachments.HULK_STATE != null, "the attachment is registered");
 		helper.succeed();
 	}
@@ -353,7 +498,16 @@ public class HulkGameTests implements FabricGameTest {
 		Hulk.setRage(p, 100.0f);
 		Hulk.tryTransform(p);
 		helper.assertTrue(Hulk.isHulk(p), "precondition: Hulk");
+		// v0.15.18: rage scales his stats now -- start Calm so every test sees the base Hulk
+		Hulk.setRage(p, 30.0f);
 		return p;
+	}
+
+	/** v0.15.18: pretend the change (either kind) finished a while ago, so H can change him back. */
+	private static void changeOver(ServerPlayer p, long agoTicks) {
+		var n = Hulk.state(p).copy();
+		n.formChangedAt = p.level().getGameTime() - agoTicks;
+		p.setAttached(ModAttachments.HULK_STATE, n);
 	}
 
 	/** A husk: a zombie that does not burn in daylight, so the only damage it can take is the ability under test. */

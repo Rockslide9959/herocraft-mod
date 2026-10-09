@@ -724,9 +724,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				ClientPlayNetworking.send(new com.projecthero.mod.network.AllMightActionPayload(
 						com.projecthero.mod.network.AllMightActionPayload.Action.TOGGLE_FORM));
 			} else if (client.player != null && com.projecthero.mod.hulk.Hulk.hasPower(client.player) && !Screen.hasShiftDown()) {
-				// v0.13.11: H with the Gamma power lets the Hulk out (75+ rage; Shift+H still opens the power wheel).
+				// v0.13.11: H with the Gamma power lets the Hulk out (Shift+H still opens the power wheel). v0.15.18: 50+ rage, or
+				// hold H to strain him out below that (HulkClient sends the release); H as the Hulk changes back.
 				ClientPlayNetworking.send(new com.projecthero.mod.network.HulkActionPayload(
 						com.projecthero.mod.network.HulkActionPayload.Action.TRANSFORM));
+				com.projecthero.mod.client.hulk.HulkClient.pressedH();
 			} else if (client.player != null && com.projecthero.mod.moonknight.MoonKnight.hasPower(client.player) && !Screen.hasShiftDown()) {
 				// v0.13.19: H as Moon Knight -- the suit on / off (Shift+H still opens the power wheel).
 				ClientPlayNetworking.send(new com.projecthero.mod.network.MoonKnightActionPayload(
