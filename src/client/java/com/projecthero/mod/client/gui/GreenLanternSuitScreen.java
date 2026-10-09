@@ -70,10 +70,15 @@ public final class GreenLanternSuitScreen extends Screen {
 		return s == null ? 0 : GreenLanternSuitStyle.byOrdinal(s.suitStyle).ordinal();
 	}
 
+	private boolean fits(int columns) {
+		return this.width >= columns * CARD_W + (columns - 1) * GAP + 2 * PAD + 8;
+	}
+
 	@Override
 	protected void init() {
 		int n = GreenLanternSuitStyle.values().length;
-		cols = this.width >= n * CARD_W + (n - 1) * GAP + 2 * PAD + 8 ? n : 2;
+		// as many columns as fit: all in one row, else three (two rows of the six suits), else two
+		cols = fits(n) ? n : fits(3) ? 3 : 2;
 		int rows = (n + cols - 1) / cols;
 		panelW = cols * CARD_W + (cols - 1) * GAP + 2 * PAD;
 		intro = this.font.split(Component.translatable("screen.projecthero.green_lantern_suit.intro"), panelW - 2 * PAD);

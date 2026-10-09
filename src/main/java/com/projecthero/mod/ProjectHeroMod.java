@@ -95,6 +95,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.symbiote.entity.SymbioteEntityTypes.initialize();
 		com.projecthero.mod.symbiote.item.SymbioteHostItems.initialize();
 		com.projecthero.mod.titan.entity.TitanEntityTypes.initialize();
+		com.projecthero.mod.firearm.GunSounds.initialize(); // v0.15.16: before the firearms reference them
+		com.projecthero.mod.firearm.GunFx.initialize();
 		com.projecthero.mod.firearm.item.FirearmItems.initialize();
 		com.projecthero.mod.punisher.item.PunisherItems.initialize();
 		com.projecthero.mod.punisher.entity.PunisherEntityTypes.initialize();

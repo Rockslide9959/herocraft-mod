@@ -24,6 +24,9 @@ public final class PunisherItems {
 	public static Item FRAG_GRENADE;
 	/** Render stand-in for the placed C4 charge entity. Not in any tab; never given out. */
 	public static Item C4_CHARGE;
+	/** v0.15.16: render-only props for the gun / Adrenaline animations (never given out, not in any tab). */
+	public static Item ADRENALINE_SYRINGE;
+	public static Item GUN_MAGAZINE;
 
 	public static PunisherArmorItem TACTICAL_VEST;
 	public static PunisherArmorItem TACTICAL_LEGGINGS;
@@ -37,6 +40,8 @@ public final class PunisherItems {
 	public static void initialize() {
 		FRAG_GRENADE = register("frag_grenade", new Item(new Item.Properties().stacksTo(16).rarity(Rarity.UNCOMMON)));
 		C4_CHARGE = register("c4_charge", new Item(new Item.Properties().stacksTo(1)));
+		ADRENALINE_SYRINGE = register("adrenaline_syringe", new Item(new Item.Properties().stacksTo(1)));
+		GUN_MAGAZINE = register("gun_magazine", new Item(new Item.Properties().stacksTo(1)));
 
 		TACTICAL_VEST = registerArmor("punisher_tactical_vest", ArmorItem.Type.CHESTPLATE);
 		TACTICAL_LEGGINGS = registerArmor("punisher_tactical_leggings", ArmorItem.Type.LEGGINGS);

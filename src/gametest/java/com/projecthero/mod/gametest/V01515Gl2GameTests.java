@@ -230,10 +230,10 @@ public class V01515Gl2GameTests implements FabricGameTest {
 		});
 	}
 
-	// ---------------------------------------------------------------- constructs: no time limits, no cooldowns
+	// ---------------------------------------------------------------- constructs: no time limits (cooldowns are back in 0.15.16)
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void constructsHaveNoTimeLimitsOrCooldownsButTheTurret(GameTestHelper helper) {
+	public void constructsHaveNoTimeLimitsButTheirCooldownsReturned(GameTestHelper helper) {
 		for (ConstructType t : ConstructType.values()) {
 			if (t == ConstructType.SENTRY_TURRET) {
 				helper.assertTrue(t.maxDurationTicks() > 0, "the Sentry Turret keeps its time limit");
@@ -250,15 +250,12 @@ public class V01515Gl2GameTests implements FabricGameTest {
 		}
 		helper.assertTrue(GreenLanternConstructAttacks.liveCount(player.getUUID(), HardLightConstructEntity.Shape.WARRIOR) == 1,
 				"the warrior is up");
-		for (ConstructType t : ConstructType.values()) {
-			if (t != ConstructType.SENTRY_TURRET) {
-				helper.assertTrue(GreenLanternConstructs.cooldownRemainingFor(player, t) == 0, t + " has no cooldown");
-			}
-		}
-		// summoning a second warrior right away works (it replaces the first) -- no cooldown in the way
+		// v0.15.16: the cooldowns came back -- the warrior and the snare are on theirs right after being summoned
+		helper.assertTrue(GreenLanternConstructs.cooldownRemainingFor(player, ConstructType.EMERALD_WARRIOR) > 0, "warrior cooldown is back");
+		helper.assertTrue(GreenLanternConstructs.cooldownRemainingFor(player, ConstructType.CHAIN_SNARE) > 0, "chain snare cooldown is back");
 		float before = charge(player);
 		GreenLanternConstructs.deploy(player, ConstructType.EMERALD_WARRIOR);
-		helper.assertTrue(charge(player) < before, "the second warrior is paid for (costs stay)");
+		helper.assertTrue(charge(player) == before, "a second warrior is refused while the first one's cooldown runs");
 		helper.succeed();
 	}
 
@@ -301,9 +298,51 @@ public class V01515Gl2GameTests implements FabricGameTest {
 		}
 		float drained = 5000f - charge(player);
 		helper.assertTrue(Math.abs(drained - GreenLanternConfig.BUBBLE_SHIELD_DRAIN_PER_SEC) < 0.5f,
-				"a second of bubble costs 40 charge, was " + drained);
+				"a second of bubble costs 20 charge, was " + drained);
 		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_4, false);
 		helper.assertFalse(com.projecthero.mod.greenlantern.GreenLanternShield.isActive(player), "letting go of Z drops it");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theBubbleHasItsOwnHpBreaksAtZeroRegeneratesAndCoolsDownEightSeconds(GameTestHelper helper) {
+		ServerPlayer player = lantern(helper, 5000f);
+		helper.assertTrue(GreenLanternConfig.SHIELD_HP == 150f && GreenLanternConfig.SHIELD_REGEN_PER_SEC == 5f
+				&& GreenLanternConfig.SHIELD_BREAK_COOLDOWN_TICKS == 160, "150 HP, 5 HP/s, 8 s cooldown");
+		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_4, true);
+		helper.assertTrue(com.projecthero.mod.greenlantern.GreenLanternShield.bubbleHp(player) == 150f, "starts full");
+		// a blow chips the bubble's own HP, not the Dome meter
+		float meter = com.projecthero.mod.greenlantern.GreenLanternShield.meter(player);
+		float through = com.projecthero.mod.greenlantern.GreenLanternShield.absorbBubble(player, 40f);
+		helper.assertTrue(through == 0f && com.projecthero.mod.greenlantern.GreenLanternShield.bubbleHp(player) == 110f, "40 off the bubble");
+		helper.assertTrue(com.projecthero.mod.greenlantern.GreenLanternShield.meter(player) == meter, "the Dome meter is untouched");
+		// release: 8 s cooldown, and the HP starts to come back at 5/s
+		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_4, false);
+		helper.assertFalse(com.projecthero.mod.greenlantern.GreenLanternShield.isActive(player), "released");
+		helper.assertTrue(GreenLantern.cooldownRemaining(player, "directional_shield") >= GreenLanternConfig.SHIELD_BREAK_COOLDOWN_TICKS - 1,
+				"8 s cooldown on release");
+		for (int i = 0; i < 20; i++) {
+			com.projecthero.mod.greenlantern.GreenLanternShield.tickMeterRegen(player);
+		}
+		helper.assertTrue(Math.abs(com.projecthero.mod.greenlantern.GreenLanternShield.bubbleHp(player) - 115f) < 0.01f, "5 HP in a second");
+		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_4, true);
+		helper.assertFalse(com.projecthero.mod.greenlantern.GreenLanternShield.isActive(player), "cannot be re-raised on cooldown");
+		// dying / suiting off refills it
+		com.projecthero.mod.greenlantern.GreenLanternShield.dismissAll(player);
+		helper.assertTrue(com.projecthero.mod.greenlantern.GreenLanternShield.bubbleHp(player) == 150f, "dismissAll refills it");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aBubbleHitPastItsHpBreaksItAndTheSurplusGetsThrough(GameTestHelper helper) {
+		ServerPlayer player = lantern(helper, 5000f);
+		GreenLanternAbilityManager.handle(player, AbilitySlot.SLOT_4, true);
+		float through = com.projecthero.mod.greenlantern.GreenLanternShield.absorbBubble(player, 200f);
+		helper.assertTrue(through == 50f, "150 soaked, 50 left over, was " + through);
+		helper.assertFalse(com.projecthero.mod.greenlantern.GreenLanternShield.isActive(player), "the bubble broke");
+		helper.assertTrue(com.projecthero.mod.greenlantern.GreenLanternShield.bubbleHp(player) == 0f, "at 0 HP");
+		helper.assertTrue(GreenLantern.cooldownRemaining(player, "directional_shield") >= GreenLanternConfig.SHIELD_BREAK_COOLDOWN_TICKS - 1,
+				"8 s cooldown after a break");
 		helper.succeed();
 	}
 

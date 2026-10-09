@@ -194,6 +194,7 @@ public final class GreenLanternHud {
 
 		// ---- stacked above the title rows
 		labelY = renderRingRemoval(g, mc, fx, now, pt, x0, labelY, totalW);
+		labelY = renderShieldHp(g, player, now, x0, labelY, totalW);
 		labelY = renderBarrier(g, mc, player, x0, labelY, totalW);
 		labelY = renderConstructCooldowns(g, mc, player, x0, labelY, totalW);
 		if (Screen.hasAltDown()) {
@@ -259,17 +260,52 @@ public final class GreenLanternHud {
 		return labelY - LINE - 2;
 	}
 
+	private static float shieldShown = -1f;
+	private static long shieldHitAt = -100L;
+
+	/**
+	 * v0.15.16: the Z bubble's HP as a Hairline bar (3 px, no border, no text) above the HUD. Shown while the bubble is up and
+	 * while it regenerates, hidden once it is full again; a hit flashes it white and leaves a pale trail over the lost HP.
+	 */
+	private static int renderShieldHp(GuiGraphics g, Player player, long now, int x0, int topY, int w) {
+		float max = GreenLanternConfig.SHIELD_HP;
+		float hp = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_SHIELD_HP, max);
+		boolean up = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f) > 0f
+				&& !player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, false);
+		if (shieldShown < 0f) {
+			shieldShown = hp;
+		}
+		if (hp < shieldShown - 0.01f) {
+			shieldHitAt = now;
+		}
+		float trail = shieldShown; // eases down to the real value so a hit reads as a bite out of the bar
+		shieldShown = hp < shieldShown ? Math.max(hp, shieldShown - max * 0.01f) : hp;
+		if (!up && hp >= max - 0.01f) {
+			return topY;
+		}
+		int y = topY - 2;
+		boolean flash = now - shieldHitAt < 6;
+		int fill = flash ? 0xFFFFFFFF : hp / max > 0.5f ? 0xFF35C8F0 : hp / max > 0.25f ? 0xFFFFC040 : 0xFFFF5A5A;
+		g.fill(x0, y, x0 + w, y + 3, TRACK);
+		if (trail > hp) {
+			g.fill(x0 + Math.round(w * hp / max), y, x0 + Math.round(w * trail / max), y + 3, 0xB0FFFFFF);
+		}
+		g.fill(x0, y, x0 + Math.round(w * hp / max), y + 3, up ? fill : (flash ? fill : 0xFF1E7A94));
+		return y - 3;
+	}
+
 	/**
 	 * The shield / dome uptime meter (v0.11.8 semantics: time in use, not damage taken) -- a centred label and a thin
 	 * bar, shown while a barrier is up or the meter is refilling, hidden once neither is true. Returns the y above it.
 	 */
 	private static int renderBarrier(GuiGraphics g, Minecraft mc, Player player, int x0, int topY, int w) {
-		boolean active = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f) > 0f;
+		boolean dome = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, false);
+		// v0.15.16: the Z bubble has its own HP bar (renderShieldHp); this uptime meter belongs to the Dome alone
+		boolean active = dome && player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f) > 0f;
 		float meter = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_METER, 1f);
 		if (!active && meter >= 1f) {
 			return topY;
 		}
-		boolean dome = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, false);
 		int barY = topY + 4;
 		int labelY = barY - 10;
 		Component label = Component.translatable(active

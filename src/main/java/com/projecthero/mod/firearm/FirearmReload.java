@@ -54,6 +54,11 @@ public final class FirearmReload {
 		}
 		long now = player.level().getGameTime();
 		if (now < end) {
+			// v0.15.16: the fresh magazine seats about two thirds of the way through
+			if (!data.shellReload && end - now == Math.round(stepTicks(player, data) * 0.32f)) {
+				player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+						GunSounds.MAG_IN, SoundSource.PLAYERS, 0.7f, 1.0f);
+			}
 			return;
 		}
 		int mag = FirearmStack.magazine(stack, data);

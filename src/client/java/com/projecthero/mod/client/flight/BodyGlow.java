@@ -22,17 +22,20 @@ import net.minecraft.util.Mth;
  * skipped for the wearer in first person.
  */
 public final class BodyGlow {
-	/** Inflation of the inner / outer shells, px per side -- outside every suit layer it is drawn over (Nova's helmet +0.54). */
-	private static final float INNER = 0.8f;
+	/** Inflation of the outer shell (no palette uses it any more), px per side. */
 	private static final float OUTER = 1.7f;
 
-	/** inner = the close shell's colour, outer = the fainter outer shell's. */
-	public record Palette(int inner, int outer) {
+	/**
+	 * inner = the close shell's colour, outer = the fainter outer shell's (-1 = no outer shell); {@code hug} = the inner shell's
+	 * inflation in px (smaller = tighter to the body); {@code alpha} scales the inner shell's opacity.
+	 */
+	public record Palette(int inner, int outer, float hug, float alpha) {
 	}
 
-	public static final Palette GREEN_LANTERN = new Palette(0x5CFF8E, 0x35F075);
-	/** Nova: gold, the outer shell faintly tinted toward his cyan. */
-	public static final Palette NOVA = new Palette(0xF2C230, 0xC8D890);
+	/** v0.15.16 (user: "hug the body more ... slightly more transparent ... remove the outer layer"): inner shell only, 0.55 px, ~25% fainter. */
+	public static final Palette GREEN_LANTERN = new Palette(0x5CFF8E, -1, 0.55f, 0.75f);
+	/** Nova: gold, one inner shell only (v0.15.16, like Green Lantern) -- 0.55 px off the body, clear of his +0.54 helmet. */
+	public static final Palette NOVA = new Palette(0xF2C230, -1, 0.55f, 1f);
 
 	private BodyGlow() {
 	}
@@ -51,12 +54,12 @@ public final class BodyGlow {
 			return;
 		}
 		float pulse = 0.5f + 0.5f * Mth.sin(ageInTicks * 0.15f);
-		float a1 = strength * (0.1f + 0.04f * pulse) * (1f + 0.25f * boost);
+		float a1 = strength * (0.1f + 0.04f * pulse) * (1f + 0.25f * boost) * c.alpha();
 		float a2 = strength * (0.045f + 0.025f * pulse);
 		boolean slim = !forceWide && player.getSkin().model() == PlayerSkin.Model.SLIM;
 		VertexConsumer add = HardLightRibbon.additive(buffers);
-		for (int shell = 0; shell < 2; shell++) {
-			float g = shell == 0 ? INNER : OUTER + 0.25f * pulse;
+		for (int shell = 0; shell < (c.outer() < 0 ? 1 : 2); shell++) {
+			float g = shell == 0 ? c.hug() : OUTER + 0.25f * pulse;
 			float a = shell == 0 ? a1 : a2;
 			int rgb = shell == 0 ? c.inner() : c.outer();
 			part(add, pose, model.head, -4, -8, -4, 4, 0, 4, g, rgb, a);

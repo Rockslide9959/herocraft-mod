@@ -521,10 +521,10 @@ public final class GreenLanternConstructs {
 	 *  longer has one at all -- explicit user request ("remove cooldowns and just make it disappear after
 	 *  15 seconds"), it can simply be recast (at its normal cost) the instant it expires or is punched down. */
 	private static String cooldownIdFor(ConstructType type) {
-		// v0.15.15: only the Sentry Turret keeps a cooldown (user: "remove time limits and cooldowns for all constructs
-		// besides the sentry turret limitations")
+		// v0.15.16: cooldowns are back (user: "green lantern is too op at the moment"); time limits stay removed
 		return switch (type) {
 			case SENTRY_TURRET -> "construct_turret";
+			case HARD_LIGHT_WALL -> "construct_wall";
 			default -> null;
 		};
 	}
@@ -534,7 +534,13 @@ public final class GreenLanternConstructs {
 	 * used by {@code GreenLanternHud}'s C-slot box, since C can deploy whichever construct is selected.
 	 */
 	public static int cooldownRemainingFor(net.minecraft.world.entity.player.Player player, ConstructType type) {
-		String id = cooldownIdFor(type); // v0.15.15: the turret is the only construct with a cooldown left
+		String id = switch (type) {
+			case BATTERING_RAM -> "battering_ram";
+			case RESCUE_TETHER -> "rescue_tether";
+			case BUZZSAW, ANVIL_DROP, CHAIN_SNARE, EMERALD_WARRIOR ->
+					com.projecthero.mod.greenlantern.GreenLanternConstructAttacks.cooldownIdFor(type);
+			default -> cooldownIdFor(type);
+		};
 		return id == null ? 0 : GreenLantern.cooldownRemaining(player, id);
 	}
 
@@ -848,6 +854,10 @@ public final class GreenLanternConstructs {
 			throwRescueHeld(player);
 			return;
 		}
+		if (!GreenLantern.abilityReady(player, "rescue_tether")) {
+			feedbackCooldown(player, "rescue_tether");
+			return;
+		}
 		LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.TETHER_RANGE);
 		if (target == null || !AbilityHelpers.isValidGrabTarget(target, player)) {
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.invalid_target");
@@ -857,7 +867,7 @@ public final class GreenLanternConstructs {
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
 			return;
 		}
-		// v0.15.15: no cooldown any more (constructs keep only their Ring Charge cost)
+		GreenLantern.triggerCooldown(player, "rescue_tether", GreenLanternConfig.TETHER_COOLDOWN_TICKS);
 		com.projecthero.mod.greenlantern.GreenLanternBattery.onAbilityUsed(player);
 
 		ServerLevel level = player.serverLevel();
@@ -1198,14 +1208,18 @@ public final class GreenLanternConstructs {
 	 * away the moment you pressed the key, while the lunge itself carried you only a few blocks. The small lunge stays.
 	 */
 	private static void batteringRam(ServerPlayer player) {
-		// v0.15.15: no cooldown any more -- just one ram head in flight at a time
 		if (RAM_ACTIVE.containsKey(player.getUUID())) {
+			return; // one ram head in flight at a time
+		}
+		if (!GreenLantern.abilityReady(player, "battering_ram")) {
+			feedbackCooldown(player, "battering_ram");
 			return;
 		}
 		if (!GreenLanternEnergy.spend(player, GreenLanternConfig.RAM_COST)) {
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
 			return;
 		}
+		GreenLantern.triggerCooldown(player, "battering_ram", GreenLanternConfig.RAM_COOLDOWN_TICKS);
 		com.projecthero.mod.greenlantern.GreenLanternBattery.onAbilityUsed(player);
 		AbilityHelpers.launchSelf(player, player.getLookAngle().scale(1.4).add(0, 0.1, 0));
 		RamStrike ram = new RamStrike(player.serverLevel(), player.getEyePosition().add(0, -0.35, 0), player.getLookAngle());

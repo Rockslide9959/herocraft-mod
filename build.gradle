@@ -65,6 +65,25 @@ fabricApi.configureTests {
 	clearRunDirectory = true
 }
 
+// Fast paths for the gametest run (see the two mixins in src/gametest/java/.../gametest/mixin):
+//   ./gradlew runGameTest -PtestFilter=<regex>   only tests whose "class.method" or batch name matches (case-insensitive)
+//   ./gradlew runGameTest -PtestShard=2/3        only slice 2 of 3 of the suite (CI runs the slices on parallel runners)
+//   ./gradlew runGameTest -PfastTicks=true      don't sleep out each 50 ms tick (tests count ticks, so much faster)
+// With neither property set the run is exactly the full suite at normal speed.
+tasks.matching { it.name == 'runGameTest' }.configureEach { task ->
+	// JUnit-style XML with a per-test time: build/reports/gametest.xml (how to find the slow tests; CI uploads it)
+	task.systemProperty 'fabric-api.gametest.report-file', layout.buildDirectory.file('reports/gametest.xml').get().asFile.absolutePath
+	if (project.hasProperty('testFilter')) {
+		task.systemProperty 'projecthero.gametest.filter', project.property('testFilter').toString()
+	}
+	if (project.hasProperty('testShard')) {
+		task.systemProperty 'projecthero.gametest.shard', project.property('testShard').toString()
+	}
+	if (project.hasProperty('fastTicks')) {
+		task.systemProperty 'projecthero.gametest.fastTicks', project.property('fastTicks').toString()
+	}
+}
+
 dependencies {
 	// To change the versions see the gradle.properties file
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"

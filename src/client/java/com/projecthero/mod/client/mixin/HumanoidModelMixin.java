@@ -145,6 +145,9 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 	private void projecthero$allMightPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
 			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
 		if (entity instanceof Player player) {
+			// v0.15.16: Punisher gun handling (low ready / aim / sprint / reload / roll tuck / Adrenaline stab) -- first, so
+			// every power pose below still wins over it
+			com.projecthero.mod.client.punisher.PunisherGunPose.apply(player, (HumanoidModel<?>) (Object) this, limbSwing, limbSwingAmount);
 			com.projecthero.mod.client.allmight.AllMightPose.apply(player, (HumanoidModel<?>) (Object) this);
 			// v0.13.15: Banner on his knees through the unwilling Hulk change
 			com.projecthero.mod.client.hulk.HulkPose.apply(player, (HumanoidModel<?>) (Object) this);

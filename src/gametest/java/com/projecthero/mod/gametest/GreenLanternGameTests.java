@@ -47,6 +47,10 @@ public class GreenLanternGameTests implements FabricGameTest {
 		ServerPlayer player = helper.makeMockServerPlayerInLevel();
 		player.setGameMode(GameType.SURVIVAL);
 		GreenLantern.bond(player);
+		// v0.15.16: bonding picks a random suit -- start these tests from the Default one
+		GreenLanternState s = GreenLantern.state(player).copy();
+		s.suitStyle = 0;
+		GreenLantern.save(player, s);
 		return player;
 	}
 
@@ -1124,6 +1128,25 @@ public class GreenLanternGameTests implements FabricGameTest {
 	}
 
 	// ---------------- v0.15.15: suit styles (N suit screen) ----------------
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aNewRingFormsARandomSuitAndEverySuitHasAMenuAction(GameTestHelper helper) {
+		java.util.Set<Integer> seen = new java.util.HashSet<>();
+		for (int i = 0; i < 40; i++) {
+			ServerPlayer player = helper.makeMockServerPlayerInLevel();
+			GreenLantern.bond(player);
+			int style = GreenLantern.state(player).suitStyle;
+			helper.assertTrue(style >= 0 && style < com.projecthero.mod.greenlantern.GreenLanternSuitStyle.values().length, "a real suit");
+			seen.add(style);
+			player.discard();
+		}
+		helper.assertTrue(seen.size() >= 3, "the starting suit varies, saw " + seen);
+		for (var style : com.projecthero.mod.greenlantern.GreenLanternSuitStyle.values()) {
+			var action = com.projecthero.mod.network.GreenLanternActionPayload.Action.forSuitStyle(style.ordinal());
+			helper.assertTrue(action.suitStyle() == style.ordinal(), "the menu action round-trips for " + style);
+		}
+		helper.succeed();
+	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void suitStylePickIsStoredWhileUnsuitedWithoutFormingTheSuit(GameTestHelper helper) {

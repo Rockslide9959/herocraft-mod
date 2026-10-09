@@ -40,8 +40,8 @@ public final class PunisherConfig {
 	// ---------------- Tactical Roll (X) ----------------
 
 	public static final int ROLL_COOLDOWN_TICKS = 4 * 20;
-	public static final int ROLL_DURATION_TICKS = 8;
-	public static final double ROLL_SPEED = 0.62;         // blocks/tick during the roll
+	public static final int ROLL_DURATION_TICKS = 11;     // v0.15.16: was 8 -- a longer dive (~7 blocks, was ~5)
+	public static final double ROLL_SPEED = 0.68;         // blocks/tick during the roll (v0.15.16: was 0.62)
 	public static final int ROLL_IFRAME_TICKS = 4;        // brief damage reduction window (mid-roll)
 	public static final float ROLL_DAMAGE_REDUCTION = 0.4f;
 
@@ -63,6 +63,8 @@ public final class PunisherConfig {
 	/** v0.9.4: 30 s cooldown (was 45), 20 s duration (was 8). */
 	public static final int ADRENALINE_COOLDOWN_TICKS = 30 * 20;
 	public static final int ADRENALINE_DURATION_TICKS = 20 * 20;
+	/** v0.15.16: the stab -- the dose goes in this many ticks after V (raise, plunge, press), then the buffs land. */
+	public static final int ADRENALINE_STAB_TICKS = 14;
 	public static final float ADRENALINE_RELOAD_FACTOR = 0.75f;      // supersedes RELOAD_FACTOR
 	public static final float ADRENALINE_DAMAGE_BONUS = 0.15f;
 	/** v0.9.4: the buff set applied on activation. Regeneration V is a short burst; the rest run the

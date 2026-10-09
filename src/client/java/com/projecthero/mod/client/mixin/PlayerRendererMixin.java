@@ -62,6 +62,19 @@ public abstract class PlayerRendererMixin {
 		poseStack.mulPose(Axis.XP.rotationDegrees(-com.projecthero.mod.client.wolverine.WolverineDashPose.LEAN_DEGREES));
 	}
 
+	/** v0.15.16: the Punisher's Tactical Roll -- a full tumble about the body's middle (forward / back / to either side). */
+	@Inject(method = "setupRotations(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;FFFF)V", at = @At("TAIL"))
+	private void projecthero$punisherRoll(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks,
+			float rotationYaw, float partialTicks, float scale, CallbackInfo ci) {
+		float[] r = com.projecthero.mod.client.punisher.PunisherGunPose.rollAngle(player, partialTicks);
+		if (r == null) {
+			return;
+		}
+		poseStack.translate(0.0f, 0.75f - r[2], 0.0f);
+		poseStack.mulPose(r[0] == 0f ? Axis.XP.rotationDegrees(r[1]) : Axis.ZP.rotationDegrees(r[1]));
+		poseStack.translate(0.0f, -0.75f, 0.0f);
+	}
+
 	/** v0.14.11: the speed-force whirl of a Flash Ring suit-up (two turns) / suit-down (one turn back). */
 	@Inject(method = "setupRotations(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;FFFF)V", at = @At("TAIL"))
 	private void projecthero$flashWhirl(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks,

@@ -115,6 +115,7 @@ public final class PunisherAbilityManager {
 		}
 		PunisherPassives.tick(player);
 		PunisherRoll.tick(player);
+		com.projecthero.mod.punisher.ability.PunisherAdrenaline.tick(player);
 
 		Long grenadePress = GRENADE_PRESSED.get(player.getUUID());
 		if (grenadePress != null

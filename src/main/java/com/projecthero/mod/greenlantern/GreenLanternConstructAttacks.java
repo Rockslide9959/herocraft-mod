@@ -681,7 +681,13 @@ public final class GreenLanternConstructAttacks {
 	 * Ring Charge costs; the Warrior and Chains keep an upkeep instead of a timer.
 	 */
 	public static String cooldownIdFor(ConstructType type) {
-		return null;
+		return switch (type) {
+			case BUZZSAW -> "construct_buzzsaw";
+			case ANVIL_DROP -> "construct_anvil";
+			case CHAIN_SNARE -> "construct_chains";
+			case EMERALD_WARRIOR -> "construct_warrior";
+			default -> null;
+		};
 	}
 
 	private static int cooldownTicksFor(ConstructType type) {

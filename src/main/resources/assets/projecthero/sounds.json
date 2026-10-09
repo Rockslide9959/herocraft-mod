@@ -2195,5 +2195,225 @@
         "pitch": 1.1
       }
     ]
+  },
+  "gun_pistol_fire": {
+    "subtitle": "message.projecthero.subtitle.gun_pistol_fire",
+    "sounds": [
+      {
+        "name": "projecthero:gun/pistol_fire1"
+      },
+      {
+        "name": "projecthero:gun/pistol_fire2"
+      },
+      {
+        "name": "projecthero:gun/pistol_fire3"
+      }
+    ]
+  },
+  "gun_rifle_fire": {
+    "subtitle": "message.projecthero.subtitle.gun_rifle_fire",
+    "sounds": [
+      {
+        "name": "projecthero:gun/rifle_fire1"
+      },
+      {
+        "name": "projecthero:gun/rifle_fire2"
+      },
+      {
+        "name": "projecthero:gun/rifle_fire3"
+      }
+    ]
+  },
+  "gun_shotgun_fire": {
+    "subtitle": "message.projecthero.subtitle.gun_shotgun_fire",
+    "sounds": [
+      {
+        "name": "projecthero:gun/shotgun_fire1"
+      },
+      {
+        "name": "projecthero:gun/shotgun_fire2"
+      },
+      {
+        "name": "projecthero:gun/shotgun_fire3"
+      }
+    ]
+  },
+  "gun_sniper_fire": {
+    "subtitle": "message.projecthero.subtitle.gun_sniper_fire",
+    "sounds": [
+      {
+        "name": "projecthero:gun/sniper_fire1"
+      },
+      {
+        "name": "projecthero:gun/sniper_fire2"
+      },
+      {
+        "name": "projecthero:gun/sniper_fire3"
+      }
+    ]
+  },
+  "gun_pistol_far": {
+    "subtitle": "message.projecthero.subtitle.gun_pistol_far",
+    "sounds": [
+      {
+        "name": "projecthero:gun/pistol_far1"
+      },
+      {
+        "name": "projecthero:gun/pistol_far2"
+      }
+    ]
+  },
+  "gun_rifle_far": {
+    "subtitle": "message.projecthero.subtitle.gun_rifle_far",
+    "sounds": [
+      {
+        "name": "projecthero:gun/rifle_far1"
+      },
+      {
+        "name": "projecthero:gun/rifle_far2"
+      }
+    ]
+  },
+  "gun_shotgun_far": {
+    "subtitle": "message.projecthero.subtitle.gun_shotgun_far",
+    "sounds": [
+      {
+        "name": "projecthero:gun/shotgun_far1"
+      },
+      {
+        "name": "projecthero:gun/shotgun_far2"
+      }
+    ]
+  },
+  "gun_sniper_far": {
+    "subtitle": "message.projecthero.subtitle.gun_sniper_far",
+    "sounds": [
+      {
+        "name": "projecthero:gun/sniper_far1"
+      },
+      {
+        "name": "projecthero:gun/sniper_far2"
+      }
+    ]
+  },
+  "gun_casing": {
+    "subtitle": "message.projecthero.subtitle.gun_casing",
+    "sounds": [
+      {
+        "name": "projecthero:gun/casing1"
+      },
+      {
+        "name": "projecthero:gun/casing2"
+      },
+      {
+        "name": "projecthero:gun/casing3"
+      }
+    ]
+  },
+  "gun_hull": {
+    "subtitle": "message.projecthero.subtitle.gun_hull",
+    "sounds": [
+      {
+        "name": "projecthero:gun/hull1"
+      },
+      {
+        "name": "projecthero:gun/hull2"
+      },
+      {
+        "name": "projecthero:gun/hull3"
+      }
+    ]
+  },
+  "gun_dry": {
+    "subtitle": "message.projecthero.subtitle.gun_dry",
+    "sounds": [
+      {
+        "name": "projecthero:gun/dry"
+      }
+    ]
+  },
+  "gun_mag_out": {
+    "subtitle": "message.projecthero.subtitle.gun_mag_out",
+    "sounds": [
+      {
+        "name": "projecthero:gun/mag_out"
+      }
+    ]
+  },
+  "gun_mag_in": {
+    "subtitle": "message.projecthero.subtitle.gun_mag_in",
+    "sounds": [
+      {
+        "name": "projecthero:gun/mag_in"
+      }
+    ]
+  },
+  "gun_rack": {
+    "subtitle": "message.projecthero.subtitle.gun_rack",
+    "sounds": [
+      {
+        "name": "projecthero:gun/rack"
+      }
+    ]
+  },
+  "gun_pump": {
+    "subtitle": "message.projecthero.subtitle.gun_pump",
+    "sounds": [
+      {
+        "name": "projecthero:gun/pump"
+      }
+    ]
+  },
+  "gun_bolt": {
+    "subtitle": "message.projecthero.subtitle.gun_bolt",
+    "sounds": [
+      {
+        "name": "projecthero:gun/bolt"
+      }
+    ]
+  },
+  "gun_shell_in": {
+    "subtitle": "message.projecthero.subtitle.gun_shell_in",
+    "sounds": [
+      {
+        "name": "projecthero:gun/shell_in"
+      }
+    ]
+  },
+  "gun_impact": {
+    "subtitle": "message.projecthero.subtitle.gun_impact",
+    "sounds": [
+      {
+        "name": "projecthero:gun/impact1"
+      },
+      {
+        "name": "projecthero:gun/impact2"
+      },
+      {
+        "name": "projecthero:gun/impact3"
+      }
+    ]
+  },
+  "gun_ricochet": {
+    "subtitle": "message.projecthero.subtitle.gun_ricochet",
+    "sounds": [
+      {
+        "name": "projecthero:gun/ricochet1"
+      },
+      {
+        "name": "projecthero:gun/ricochet2"
+      }
+    ]
+  },
+  "gun_flesh": {
+    "subtitle": "message.projecthero.subtitle.gun_flesh",
+    "sounds": [
+      {
+        "name": "projecthero:gun/flesh1"
+      },
+      {
+        "name": "projecthero:gun/flesh2"
+      }
+    ]
   }
 }

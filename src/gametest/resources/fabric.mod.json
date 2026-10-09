@@ -133,6 +133,7 @@
       "com.projecthero.mod.gametest.NovaGameTests"
     ]
   },
+  "mixins": ["projecthero-gametest.mixins.json"],
   "depends": {
     "projecthero": "*",
     "fabric-gametest-api-v1": "*"

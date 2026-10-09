@@ -92,6 +92,13 @@ public final class GreenLanternShield {
 		if (isActive(player)) {
 			return;
 		}
+		if (!GreenLantern.abilityReady(player, SHIELD_COOLDOWN)) {
+			GreenLanternEnergy.feedback(player, "message.projecthero.green_lantern.shield_recharging");
+			return;
+		}
+		if (bubbleHp(player) <= 0f) {
+			return;
+		}
 		if (!GreenLanternEnergy.canSpend(player, GreenLanternConfig.BUBBLE_SHIELD_DRAIN_PER_SEC / 20f)) {
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
 			return;
@@ -102,12 +109,42 @@ public final class GreenLanternShield {
 		ForceBubble.raise(player, ForceBubble.Style.GREEN_LANTERN);
 	}
 
-	/** Z released: the bubble drops (no cooldown). */
+	/** Z released: the bubble drops and goes on its 8-second cooldown (v0.15.16); its HP starts to regenerate. */
 	public static void stopShield(ServerPlayer player) {
 		if (isActive(player) && !isDome(player)) {
 			endBarrier(player, false);
+			GreenLantern.triggerCooldown(player, SHIELD_COOLDOWN, GreenLanternConfig.SHIELD_BREAK_COOLDOWN_TICKS);
 			ForceBubble.drop(player, ForceBubble.Style.GREEN_LANTERN);
 		}
+	}
+
+	/** The Z bubble's current HP (full for anyone it has never been set for). */
+	public static float bubbleHp(ServerPlayer player) {
+		return player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_SHIELD_HP, GreenLanternConfig.SHIELD_HP);
+	}
+
+	/**
+	 * The bubble stopped a hit worth {@code amount}: takes it off the bubble's own HP. At 0 the bubble breaks (drops, the
+	 * 8-second cooldown starts). Returns what it could NOT soak -- the caller re-applies that to the player, so a nearly
+	 * dead bubble does not no-sell a huge hit.
+	 */
+	public static float absorbBubble(ServerPlayer player, float amount) {
+		float hp = bubbleHp(player);
+		float soaked = Math.min(hp, amount);
+		float left = hp - soaked;
+		player.setAttached(ModAttachments.GREEN_LANTERN_SHIELD_HP, left);
+		if (left <= 0f && isBubble(player)) {
+			endBarrier(player, true);
+		}
+		return amount - soaked;
+	}
+
+	/** What a projectile the bubble destroys in flight costs it: an arrow's damage at its speed, 4 for anything else. */
+	private static float projectileCost(net.minecraft.world.entity.projectile.Projectile proj) {
+		if (proj instanceof net.minecraft.world.entity.projectile.AbstractArrow arrow) {
+			return (float) Math.max(2.0, Math.ceil(arrow.getBaseDamage() * Math.min(3.0, proj.getDeltaMovement().length())));
+		}
+		return 4f;
 	}
 
 	/** Whether the Z bubble (not the dome) is up. */
@@ -122,11 +159,12 @@ public final class GreenLanternShield {
 		}
 		if (!GreenLanternEnergy.drainTick(player, GreenLanternConfig.BUBBLE_SHIELD_DRAIN_PER_SEC / 20f)) {
 			endBarrier(player, false);
+			GreenLantern.triggerCooldown(player, SHIELD_COOLDOWN, GreenLanternConfig.SHIELD_BREAK_COOLDOWN_TICKS);
 			ForceBubble.drop(player, ForceBubble.Style.GREEN_LANTERN);
 			GreenLanternEnergy.feedback(player, "message.projecthero.ability.low_charge");
 			return;
 		}
-		ForceBubble.tick(player, ForceBubble.Style.GREEN_LANTERN);
+		ForceBubble.tick(player, ForceBubble.Style.GREEN_LANTERN, proj -> absorbBubble(player, projectileCost(proj)));
 	}
 
 	// ---------------- Protective Dome (timed) ----------------
@@ -198,6 +236,11 @@ public final class GreenLanternShield {
 		if (isActive(player)) {
 			return;
 		}
+		float bubble = bubbleHp(player); // v0.15.16: the Z bubble heals while it is down
+		if (bubble < GreenLanternConfig.SHIELD_HP) {
+			player.setAttached(ModAttachments.GREEN_LANTERN_SHIELD_HP,
+					Math.min(GreenLanternConfig.SHIELD_HP, bubble + GreenLanternConfig.SHIELD_REGEN_PER_SEC / 20f));
+		}
 		float meter = meter(player);
 		if (meter >= 1f) {
 			return;
@@ -266,6 +309,7 @@ public final class GreenLanternShield {
 			player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, false);
 		}
 		player.setAttached(ModAttachments.GREEN_LANTERN_BARRIER_METER, 1f);
+		player.setAttached(ModAttachments.GREEN_LANTERN_SHIELD_HP, GreenLanternConfig.SHIELD_HP);
 		DOME_DEPLOY_TICK.remove(player.getUUID());
 	}
 

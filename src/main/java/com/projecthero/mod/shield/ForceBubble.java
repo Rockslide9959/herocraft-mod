@@ -101,6 +101,11 @@ public final class ForceBubble {
 	 * sparkles the surface every few ticks. Returns how many projectiles it stopped.
 	 */
 	public static int tick(ServerPlayer owner, Style style) {
+		return tick(owner, style, null);
+	}
+
+	/** As {@link #tick(ServerPlayer, Style)}, telling {@code onStopped} about each projectile it destroys (a bubble with HP charges for them). */
+	public static int tick(ServerPlayer owner, Style style, java.util.function.Consumer<Projectile> onStopped) {
 		ServerLevel level = (ServerLevel) owner.level();
 		Vec3 c = center(owner);
 		double r = style.radius() + 0.6;
@@ -112,6 +117,9 @@ public final class ForceBubble {
 			Vec3 at = proj.position();
 			spark(level, at, style);
 			level.playSound(null, at.x, at.y, at.z, SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 0.8f, 1.6f);
+			if (onStopped != null) {
+				onStopped.accept(proj);
+			}
 			proj.discard();
 			stopped++;
 		}

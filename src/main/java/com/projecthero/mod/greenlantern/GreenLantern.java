@@ -55,6 +55,8 @@ public final class GreenLantern {
 		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
 		s.suited = false;
 		s.suitAnimDir = GreenLanternState.SUIT_IDLE;
+		// v0.15.16 (user): a new Lantern's ring forms a random one of the suits; N still changes it
+		s.suitStyle = player.getRandom().nextInt(GreenLanternSuitStyle.values().length);
 		save(player, s);
 
 		ServerLevel level = player.serverLevel();

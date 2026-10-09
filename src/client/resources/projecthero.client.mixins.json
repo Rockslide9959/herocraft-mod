@@ -89,7 +89,10 @@
 		"GladiatorAttackMixin",
 		"ItemInHandRendererGladiatorMixin",
 		"PlayerRendererGladiatorWeaponMixin",
-		"WorldEventZoomMixin"
+		"WorldEventZoomMixin",
+		"ItemInHandLayerGunMixin",
+		"ItemInHandRendererGunMixin",
+		"GuiGunCrosshairMixin"
 	],
 	"client": [],
 	"server": [],

@@ -101,6 +101,7 @@ public final class FirearmShooting {
 				if (target instanceof Player && !pvp) {
 					// PvP disabled -> bullet passes harmlessly, still show the impact.
 					impact(level, hp, null);
+					GunFx.tracer(level, player, data, muzzle, hp, 2);
 					continue;
 				}
 				boolean headshot = HeadshotResolver.isHeadshot(target, eye, end);
@@ -126,6 +127,7 @@ public final class FirearmShooting {
 					knockback(target, eye, kb);
 				}
 				impact(level, hp, target);
+				GunFx.tracer(level, player, data, muzzle, hp, 2);
 
 				if (headshot) {
 					anyHeadshot = true;
@@ -137,20 +139,18 @@ public final class FirearmShooting {
 					FirearmHooks.get().onFirearmKill(player, target);
 				}
 			} else {
-				impact(level, rayEnd, null);
-				if (blockHit.getType() != HitResult.Type.MISS) {
-					tracer(level, muzzle, blockHit.getLocation());
+				boolean struck = blockHit.getType() != HitResult.Type.MISS;
+				if (struck) {
+					GunFx.impactBlock(level, rayEnd, blockHit.getBlockPos());
 					bulletHole(level, blockHit);
 				}
+				GunFx.tracer(level, player, data, muzzle, rayEnd, struck ? 1 : 0);
 			}
 		}
 
-		// muzzle flash + report
-		level.sendParticles(ParticleTypes.SMOKE, muzzle.x, muzzle.y, muzzle.z, 2, 0.03, 0.03, 0.03, 0.01);
-		level.sendParticles(ParticleTypes.FLAME, muzzle.x, muzzle.y, muzzle.z, 1, 0.0, 0.0, 0.0, 0.0);
-		float pitchJitter = data.firePitch + (level.random.nextFloat() - 0.5f) * 0.1f;
-		level.playSound(null, player.getX(), player.getY(), player.getZ(),
-				data.fireSound, SoundSource.PLAYERS, data.fireVolume, Math.max(0.1f, pitchJitter));
+		// v0.15.16: report (near + distant), muzzle smoke / sparks, casing, pump / bolt (GunFx); the flash and tracers are
+		// drawn client side
+		GunFx.shot(player, data, muzzle, look);
 
 		// deliberately no player.swing() -- a firearm recoils, it does not swing like a melee weapon
 		FirearmManager.addRecoil(player, data.recoilPerShotDegrees * FirearmHooks.get().recoilFactor(player), data);
@@ -233,13 +233,8 @@ public final class FirearmShooting {
 
 	private static void impact(ServerLevel level, Vec3 pos, LivingEntity hitEntity) {
 		if (hitEntity != null) {
-			level.sendParticles(ParticleTypes.DAMAGE_INDICATOR, pos.x, pos.y, pos.z, 3, 0.1, 0.1, 0.1, 0.0);
+			GunFx.impactFlesh(level, pos, hitEntity);
 			return;
-		}
-		var bp = level.getBlockState(net.minecraft.core.BlockPos.containing(pos));
-		if (!bp.isAir()) {
-			level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, bp),
-					pos.x, pos.y, pos.z, 6, 0.1, 0.1, 0.1, 0.05);
 		}
 		level.sendParticles(ParticleTypes.SMOKE, pos.x, pos.y, pos.z, 2, 0.05, 0.05, 0.05, 0.01);
 	}

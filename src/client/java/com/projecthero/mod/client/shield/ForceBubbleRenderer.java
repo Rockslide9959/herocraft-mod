@@ -43,9 +43,26 @@ public final class ForceBubbleRenderer {
 	 */
 	public static void draw(PoseStack poseStack, MultiBufferSource consumers, Vec3 cam, Vec3 center, ForceBubble.Style style, float time,
 			float alpha, boolean firstPerson) {
+		draw(poseStack, consumers, cam, center, style, time, alpha, firstPerson, 1f);
+	}
+
+	/**
+	 * As above, with {@code integrity} 0..1 (1 = undamaged): a bubble with HP shows its damage -- below 2/3 the lattice
+	 * flushes toward amber and a few cracks open across the shell, below 1/3 it is red, shot through with cracks and
+	 * flickering, and the whole shell thins out as it fails.
+	 */
+	public static void draw(PoseStack poseStack, MultiBufferSource consumers, Vec3 cam, Vec3 center, ForceBubble.Style style, float time,
+			float alpha, boolean firstPerson, float integrity) {
 		if (alpha <= 0.01f) {
 			return;
 		}
+		integrity = Mth.clamp(integrity, 0f, 1f);
+		if (integrity < 0.34f) {
+			alpha *= 0.8f + 0.2f * Mth.sin(time * 1.7f); // failing: it flickers
+		}
+		alpha *= 0.55f + 0.45f * integrity;
+		int hot = integrity >= 1f ? style.hotRgb() : tint(style.hotRgb(), integrity);
+		int cracks = integrity > 0.67f ? 0 : integrity > 0.34f ? 5 : 11;
 		double r = style.radius();
 		float k = firstPerson ? 0.6f : 1f;
 		poseStack.pushPose();
@@ -79,7 +96,7 @@ public final class ForceBubbleRenderer {
 			double theta = Math.PI * i / 6;
 			double rr = r * Math.sin(theta);
 			double y = r * Math.cos(theta);
-			circle(add, pose, cam, center.add(0, y, 0), rr, 0.0, spin, 32, 0.012f, style.hotRgb(), lineA);
+			circle(add, pose, cam, center.add(0, y, 0), rr, 0.0, spin, 32, 0.012f, hot, lineA);
 		}
 		// longitude lines, turning slowly
 		for (int j = 0; j < 6; j++) {
@@ -89,7 +106,7 @@ public final class ForceBubbleRenderer {
 				double theta = Math.PI * s / 24;
 				Vec3 p = pt(center, r * 1.002, theta, phi);
 				if (prev != null) {
-					BeamDraw.segment(add, pose, prev, p, cam, 0.012f, 0.012f, style.hotRgb(), lineA, lineA);
+					BeamDraw.segment(add, pose, prev, p, cam, 0.012f, 0.012f, hot, lineA, lineA);
 				}
 				prev = p;
 			}
@@ -100,7 +117,40 @@ public final class ForceBubbleRenderer {
 			circle(add, pose, cam, center, r * 1.01, tilt, i * 1.1 + time * 0.02, 36, 0.026f, i == 2 ? style.accentRgb() : style.hotRgb(),
 					(0.55f * k) * alpha);
 		}
+		// ---- damage: jagged cracks across the shell (fixed pattern, so they stay put as the bubble spins)
+		for (int c = 0; c < cracks; c++) {
+			crack(add, pose, cam, center, r * 1.012, c, hot, (firstPerson ? 0.35f : 0.8f) * alpha);
+		}
 		poseStack.popPose();
+	}
+
+	/** Green -> amber -> red as the bubble fails. */
+	private static int tint(int rgb, float integrity) {
+		float t = Mth.clamp((0.67f - integrity) / 0.67f, 0f, 1f); // 0 at 2/3, 1 at empty
+		int target = integrity > 0.34f ? 0xFFC040 : 0xFF3A2A;
+		int r = Math.round(Mth.lerp(t, (rgb >> 16) & 0xFF, (target >> 16) & 0xFF));
+		int g = Math.round(Mth.lerp(t, (rgb >> 8) & 0xFF, (target >> 8) & 0xFF));
+		int b = Math.round(Mth.lerp(t, rgb & 0xFF, target & 0xFF));
+		return (r << 16) | (g << 8) | b;
+	}
+
+	/** One crack: a short jagged walk over the sphere from a fixed start point, number {@code n}. */
+	private static void crack(VertexConsumer vc, PoseStack.Pose pose, Vec3 cam, Vec3 center, double r, int n, int rgb, float alpha) {
+		double theta = Math.PI * (0.18 + 0.64 * frac(n * 0.6180339 + 0.13));
+		double phi = Math.PI * 2 * frac(n * 0.7548777 + 0.31);
+		Vec3 prev = pt(center, r, theta, phi);
+		for (int s = 1; s <= 7; s++) {
+			double jitter = (frac((n * 7 + s) * 0.41421356) - 0.5) * 0.55;
+			theta = Mth.clamp(theta + 0.10 + jitter * 0.6, 0.05, Math.PI - 0.05) ;
+			phi += 0.13 + (frac((n * 5 + s) * 0.3247) - 0.5) * 0.7;
+			Vec3 p = pt(center, r, theta, phi);
+			BeamDraw.segment(vc, pose, prev, p, cam, 0.02f, 0.012f, rgb, alpha, alpha * 0.6f);
+			prev = p;
+		}
+	}
+
+	private static double frac(double v) {
+		return v - Math.floor(v);
 	}
 
 	/** Fresnel: faint where the shell faces the camera, bright at the silhouette edge. */

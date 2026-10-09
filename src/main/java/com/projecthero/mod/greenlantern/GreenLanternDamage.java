@@ -65,6 +65,16 @@ public final class GreenLanternDamage {
 			}
 			com.projecthero.mod.shield.ForceBubble.absorb(player, source,
 					com.projecthero.mod.shield.ForceBubble.Style.GREEN_LANTERN, com.projecthero.mod.titanshifter.TitanCombat::isBoss);
+			// v0.15.16: the bubble has its own HP now -- the blow chips it; only what a breaking bubble can't soak gets through
+			float through = GreenLanternShield.absorbBubble(player, amount);
+			if (through >= 0.5f) {
+				REENTRANT.set(true);
+				try {
+					player.hurt(source, through);
+				} finally {
+					REENTRANT.set(false);
+				}
+			}
 			return false;
 		}
 

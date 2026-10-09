@@ -69,6 +69,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(FirearmShotPayload.TYPE, FirearmShotPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FirearmHeadshotPayload.TYPE, FirearmHeadshotPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(BulletHolePayload.TYPE, BulletHolePayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(GunTracerPayload.TYPE, GunTracerPayload.CODEC); // v0.15.16
 		PayloadTypeRegistry.playS2C().register(PunisherArsenalOpenPayload.TYPE, PunisherArsenalOpenPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SquadInfoPayload.TYPE, SquadInfoPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(ThorLightningArcPayload.TYPE, ThorLightningArcPayload.CODEC);
@@ -104,7 +105,7 @@ public final class ModNetworking {
 				case RING_REMOVE_START -> com.projecthero.mod.greenlantern.GreenLanternAbilityManager.ringRemoveStart(context.player());
 				case RING_REMOVE_STOP -> com.projecthero.mod.greenlantern.GreenLanternAbilityManager.ringRemoveStop(context.player());
 				// v0.15.15: the N suit screen
-				case SUIT_STYLE_DEFAULT, SUIT_STYLE_CORPS, SUIT_STYLE_STEWART, SUIT_STYLE_CLASSIC ->
+				case SUIT_STYLE_DEFAULT, SUIT_STYLE_CORPS, SUIT_STYLE_STEWART, SUIT_STYLE_CLASSIC, SUIT_STYLE_MIDNIGHT, SUIT_STYLE_ARMORED ->
 						com.projecthero.mod.greenlantern.GreenLanternSuit.selectStyle(context.player(), payload.action().suitStyle());
 				case SUIT_TOGGLE -> com.projecthero.mod.greenlantern.GreenLanternAbilityManager.suitToggle(context.player());
 				case REMOVE_RING -> com.projecthero.mod.greenlantern.GreenLanternAbilityManager.removeRingFromMenu(context.player());

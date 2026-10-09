@@ -1,0 +1,48 @@
+Project Hero v0.15.16 -- Punisher gun overhaul (new poses, animations, scope, sounds and effects, new assault rifle), Green Lantern shield HP + construct cooldowns, two new Lantern suits
+
+🔫 PUNISHER -- GUNS
+Holding the guns
+- Third person: you now hold every gun properly with both hands -- up at chest height, stock to the shoulder, the support hand on the handguard (both hands round the grip for the pistol). Your hand stays on the gun wherever it points.
+- Aiming (right-click) shoulders the gun with the sights at your eye, pointing exactly where you look.
+- Sprinting carries the gun across your chest, muzzle low, bouncing with your stride. Walking sways it gently.
+- First person: you now see both of your arms holding the gun instead of a floating item. The guns sit bigger in your hands.
+- Aiming in first person brings the gun up to the middle of the screen so you look down its sights. The crosshair hides while you aim.
+- The gun no longer drops off screen and back after every shot -- it stays put and just kicks back with its recoil.
+New assault rifle
+- The Assault Rifle has a brand-new, detailed model (rail, iron sights, handguard, muzzle brake).
+Sniper scope
+- Raising the sniper now puts you straight into the scope (no scrolling needed): a round sight in a black tube with a soft dark edge, a duplex reticle with mil dots and bullet-drop marks, a red centre dot and a slight sway when you move. Scroll still zooms further.
+Reloading
+- Every gun now has a reload animation: the gun cants over, your other hand pulls the magazine, grabs a new one from your belt, seats it and slaps it home. The shotgun is loaded one shell at a time.
+
+🔊 NEW GUN SOUNDS (made for the mod)
+- Every gun has its own shot, with variations: a snappy pistol, a punchy rifle, a deep shotgun blast and a huge, rolling sniper shot.
+- Gunfire carries: players 40 to ~220 blocks away hear a muffled, echoing distant shot.
+- Brass casings clink on the ground after pistol and rifle shots, the shotgun pumps and drops its shell, and the sniper cycles its bolt.
+- Reloads: magazine out, new magazine in, the gun racked; a shell sliding into the shotgun; a dry click when you're empty.
+- Bullets thud into blocks, sometimes ricochet off stone and metal with a whine, and hit creatures with a wet smack.
+
+💥 NEW GUN EFFECTS
+- A bright muzzle flash on every shot (first and third person), different every time; bigger for the shotgun and sniper.
+- Tracers: a hot streak flies from the gun to whatever it hits -- you can watch a sniper round travel. Every shotgun pellet gets its own.
+- Impact flashes (orange sparks off blocks, a red burst off creatures), chips, dust and sparks where bullets land, and blood-red spray on hits.
+- Smoke and sparks at the muzzle, and casings / red shotgun shells ejected out to the side.
+
+🎯 PUNISHER -- ABILITIES
+- Tactical Roll (X): goes further (about 7 blocks, was 5) and is now a full tumble animation -- forward, backward or to either side, whichever way you're moving.
+- Adrenaline (V): you now pull a syringe and stab the dose into your thigh. The buffs kick in a moment later (under a second) with a red pulse round the screen. The cooldown starts with the stab.
+
+🟢 GREEN LANTERN
+Shield (Z)
+- The bubble shield now has its own 150 HP (separate from the dome's meter) and drains 20 charge a second (was 40).
+- Mobs can hit it: every blow and projectile it stops chips its HP. It cracks and turns amber, then red, as it weakens, and shatters at 0 -- whatever damage it couldn't soak goes through to you.
+- A thin bar above your ability keys shows the shield's HP while it's up and while it heals, flashing when hit; it disappears once the shield is full.
+- Letting go of Z (or the shield breaking) puts it on an 8-second cooldown, and it heals 5 HP a second while down.
+Constructs
+- Cooldowns are back: Sentry Turret, Hard-Light Wall, Battering Ram, Rescue Tether, Buzzsaw, Anvil Drop, Chain Snare and Emerald Warrior. Constructs still have no time limits (except the turret).
+Suits
+- Two new suits on the Shift+N suit screen: Kyle Rayner and Guy Gardner. Like the others, your own skin shows through.
+- A new Lantern's ring now forms a random one of the six suits -- you can still change it any time.
+- The skin-style suits (Corps, John Stewart, Classic, Kyle Rayner, Guy Gardner) now fit snugly like a normal skin instead of looking bulky.
+Flight glow
+- The glow while flying is now a single, slimmer layer that hugs your body more closely and is more see-through. Nova's flight glow got the same treatment.

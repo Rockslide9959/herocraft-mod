@@ -20,6 +20,27 @@ public class SuperheroArmorModel extends GeoModel<SuperheroArmorItem> {
 		return SuperheroArmorVisuals.get(animatable.armorSetId()).geometry();
 	}
 
+	/**
+	 * v0.15.16 (user: the skin-based Green Lantern suits "look kinda thick"): every suit but the ring's own default one is a
+	 * cloth-like costume made from a player skin, so it is drawn on a slimmer copy of the suit rig (shells 0.05 / 0.3 px
+	 * off the body instead of 0.3 / 0.55, a thinner mask) -- same UVs, so the textures and the suit-up sweep are unchanged.
+	 */
+	private static final ResourceLocation GREEN_LANTERN_SLIM = com.projecthero.mod.ProjectHeroMod.id("geo/green_lantern_slim.geo.json");
+
+	@Override
+	public ResourceLocation getModelResource(SuperheroArmorItem animatable,
+			software.bernie.geckolib.renderer.GeoRenderer<SuperheroArmorItem> renderer) {
+		if ("green_lantern".equals(animatable.armorSetId()) && renderer instanceof software.bernie.geckolib.renderer.GeoArmorRenderer<?> armor
+				&& armor.getCurrentEntity() instanceof net.minecraft.world.entity.player.Player wearer) {
+			var st = wearer.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.GREEN_LANTERN_STATE, null);
+			if (st != null && com.projecthero.mod.greenlantern.GreenLanternSuitStyle.byOrdinal(st.suitStyle)
+					!= com.projecthero.mod.greenlantern.GreenLanternSuitStyle.DEFAULT) {
+				return GREEN_LANTERN_SLIM;
+			}
+		}
+		return getModelResource(animatable);
+	}
+
 	@Override
 	public ResourceLocation getTextureResource(SuperheroArmorItem animatable) {
 		return SuperheroArmorVisuals.get(animatable.armorSetId()).texture();

@@ -26,8 +26,37 @@ public final class PunisherAdrenaline {
 	private PunisherAdrenaline() {
 	}
 
+	/**
+	 * V pressed (v0.15.16): he pulls a syringe and stabs himself with it -- the dose goes in
+	 * {@link PunisherConfig#ADRENALINE_STAB_TICKS} later ({@link #tick} then calls {@link #inject}). The cooldown starts
+	 * now, so the stab can't be spammed.
+	 */
 	public static void activate(ServerPlayer player) {
-		if (!Punisher.hasPower(player) || !Punisher.abilityReady(player, ABILITY)) {
+		if (!Punisher.hasPower(player) || !Punisher.abilityReady(player, ABILITY) || stabbing(player)) {
+			return;
+		}
+		player.setAttached(com.projecthero.mod.attachment.ModAttachments.PUNISHER_STAB_AT, player.level().getGameTime());
+		Punisher.triggerCooldown(player, ABILITY, PunisherConfig.ADRENALINE_COOLDOWN_TICKS);
+		player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
+				SoundEvents.ARMOR_EQUIP_LEATHER.value(), SoundSource.PLAYERS, 0.6f, 1.6f);
+	}
+
+	public static boolean stabbing(ServerPlayer player) {
+		return player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.PUNISHER_STAB_AT, 0L) > 0L;
+	}
+
+	/** Every server tick: lands the dose once the stab animation has driven the needle home. */
+	public static void tick(ServerPlayer player) {
+		long at = player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.PUNISHER_STAB_AT, 0L);
+		if (at > 0L && player.level().getGameTime() - at >= PunisherConfig.ADRENALINE_STAB_TICKS) {
+			player.setAttached(com.projecthero.mod.attachment.ModAttachments.PUNISHER_STAB_AT, 0L);
+			inject(player);
+		}
+	}
+
+	/** The dose itself: the 20-second heightened state (buffs, firearm perks, muffled audio). */
+	public static void inject(ServerPlayer player) {
+		if (!Punisher.hasPower(player)) {
 			return;
 		}
 		long end = player.level().getGameTime() + PunisherConfig.ADRENALINE_DURATION_TICKS;
@@ -36,7 +65,6 @@ public final class PunisherAdrenaline {
 		c.adrenalineCrashAt = end;
 		Punisher.save(player, c);
 		PunisherPassives.reconcile(player);
-		Punisher.triggerCooldown(player, ABILITY, PunisherConfig.ADRENALINE_COOLDOWN_TICKS);
 
 		int dur = PunisherConfig.ADRENALINE_DURATION_TICKS;
 		player.addEffect(new MobEffectInstance(MobEffects.REGENERATION,
@@ -51,6 +79,8 @@ public final class PunisherAdrenaline {
 		ServerLevel level = player.serverLevel();
 		level.playSound(null, player.getX(), player.getY(), player.getZ(),
 				SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.PLAYERS, 0.7f, 0.6f);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(),
+				SoundEvents.PLAYER_BREATH, SoundSource.PLAYERS, 0.9f, 0.7f);
 		level.sendParticles(ParticleTypes.ANGRY_VILLAGER, player.getX(), player.getY() + 1.2, player.getZ(),
 				6, 0.3, 0.3, 0.3, 0.0);
 		PunisherFeedback.message(player, "adrenaline_on");

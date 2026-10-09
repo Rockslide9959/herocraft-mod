@@ -18,7 +18,11 @@ public enum GreenLanternSuitStyle {
 	DEFAULT("default", "textures/armor/green_lantern.png"),
 	CORPS("corps", "textures/entity/green_lantern/suits/corps.png"),
 	STEWART("stewart", "textures/entity/green_lantern/suits/stewart.png"),
-	CLASSIC("classic", "textures/entity/green_lantern/suits/classic.png");
+	CLASSIC("classic", "textures/entity/green_lantern/suits/classic.png"),
+	/** v0.15.16: the user's two new skins, stripped the same way (scratchpad/v01516_gl) -- Kyle Rayner (black suit, green mask)... */
+	MIDNIGHT("midnight", "textures/entity/green_lantern/suits/midnight.png"),
+	/** ...and Guy Gardner (green / black / white plated suit, no mask, gloved). */
+	ARMORED("armored", "textures/entity/green_lantern/suits/armored.png");
 
 	private final String id;
 	private final ResourceLocation texture;

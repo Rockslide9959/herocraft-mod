@@ -45,16 +45,27 @@ public record GreenLanternActionPayload(Action action) implements CustomPacketPa
 		/** v0.15.15: H -- suit up / down (V before). */
 		SUIT_TOGGLE,
 		/** v0.15.15: the Remove Ring button on the Shift+N suit screen (replaces Shift + hold N). */
-		REMOVE_RING;
+		REMOVE_RING,
+		/** v0.15.16: the two new suits (appended, so the actions above keep their wire ordinals). */
+		SUIT_STYLE_MIDNIGHT,
+		SUIT_STYLE_ARMORED;
+
+		/** One action per {@code GreenLanternSuitStyle}, in the suits' order. */
+		private static final Action[] STYLE_ACTIONS = { SUIT_STYLE_DEFAULT, SUIT_STYLE_CORPS, SUIT_STYLE_STEWART, SUIT_STYLE_CLASSIC,
+				SUIT_STYLE_MIDNIGHT, SUIT_STYLE_ARMORED };
 
 		/** The {@code GreenLanternSuitStyle} ordinal this action picks, or -1. */
 		public int suitStyle() {
-			return ordinal() >= SUIT_STYLE_DEFAULT.ordinal() && ordinal() <= SUIT_STYLE_CLASSIC.ordinal()
-					? ordinal() - SUIT_STYLE_DEFAULT.ordinal() : -1;
+			for (int i = 0; i < STYLE_ACTIONS.length; i++) {
+				if (STYLE_ACTIONS[i] == this) {
+					return i;
+				}
+			}
+			return -1;
 		}
 
 		public static Action forSuitStyle(int style) {
-			return values()[SUIT_STYLE_DEFAULT.ordinal() + style];
+			return STYLE_ACTIONS[style];
 		}
 	}
 }

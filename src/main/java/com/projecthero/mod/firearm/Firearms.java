@@ -37,9 +37,8 @@ public final class Firearms {
 				.range(96.0)
 				.knockback(0.15)
 				.zoom(new float[] { 0.85f }, 1.0f, false)
-				.sounds(s(SoundEvents.CROSSBOW_SHOOT), s(SoundEvents.ARMOR_EQUIP_IRON),
-						s(SoundEvents.TRIPWIRE_CLICK_ON), s(SoundEvents.PISTON_CONTRACT))
-				.firePitch(1.7f, 0.55f)
+				.sounds(GunSounds.PISTOL_FIRE, GunSounds.MAG_OUT, GunSounds.DRY, GunSounds.RACK) // v0.15.16: synthesised gun sounds
+				.firePitch(1.0f, 3.0f)
 				.build());
 
 		register(FirearmData.builder(RIFLE, AmmoKind.RIFLE)
@@ -54,9 +53,8 @@ public final class Firearms {
 				.range(96.0)
 				.knockback(0.12)
 				.zoom(new float[] { 0.8f }, 1.0f, false)
-				.sounds(s(SoundEvents.CROSSBOW_SHOOT), s(SoundEvents.ARMOR_EQUIP_NETHERITE),
-						s(SoundEvents.TRIPWIRE_CLICK_ON), s(SoundEvents.PISTON_CONTRACT))
-				.firePitch(1.45f, 0.6f)
+				.sounds(GunSounds.RIFLE_FIRE, GunSounds.MAG_OUT, GunSounds.DRY, GunSounds.RACK) // v0.15.16: synthesised gun sounds
+				.firePitch(1.0f, 3.2f)
 				.build());
 
 		register(FirearmData.builder(SHOTGUN, AmmoKind.SHOTGUN)
@@ -75,9 +73,8 @@ public final class Firearms {
 				.range(24.0)
 				.knockback(0.6)
 				.zoom(new float[0], 1.0f, false)
-				.sounds(s(SoundEvents.CROSSBOW_SHOOT), s(SoundEvents.ARMOR_EQUIP_IRON),
-						s(SoundEvents.TRIPWIRE_CLICK_ON), s(SoundEvents.PISTON_CONTRACT))
-				.firePitch(0.9f, 0.75f)
+				.sounds(GunSounds.SHOTGUN_FIRE, GunSounds.SHELL_IN, GunSounds.DRY, GunSounds.PUMP) // v0.15.16: synthesised gun sounds
+				.firePitch(1.0f, 3.5f)
 				.build());
 
 		register(FirearmData.builder(SNIPER, AmmoKind.SNIPER)
@@ -93,9 +90,8 @@ public final class Firearms {
 				.range(220.0)
 				.knockback(0.3)
 				.zoom(new float[] { 0.55f, 0.34f, 0.18f, 0.10f }, 0.55f, true)  // normal/3x/6x/10x
-				.sounds(s(SoundEvents.CROSSBOW_SHOOT), s(SoundEvents.ARMOR_EQUIP_NETHERITE),
-						s(SoundEvents.TRIPWIRE_CLICK_ON), s(SoundEvents.PISTON_CONTRACT))
-				.firePitch(0.75f, 0.85f)
+				.sounds(GunSounds.SNIPER_FIRE, GunSounds.MAG_OUT, GunSounds.DRY, GunSounds.BOLT) // v0.15.16: synthesised gun sounds
+				.firePitch(1.0f, 4.0f)
 				.build());
 	}
 

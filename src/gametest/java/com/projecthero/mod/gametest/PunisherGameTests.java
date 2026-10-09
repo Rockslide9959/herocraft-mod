@@ -177,8 +177,14 @@ public class PunisherGameTests implements FabricGameTest {
 	public void adrenalineAppliesBuffsThenClears(GameTestHelper helper) {
 		ServerPlayer p = punisher(helper);
 		double before = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
+		// v0.15.16: V starts the stab; the dose lands ADRENALINE_STAB_TICKS later
 		PunisherAdrenaline.activate(p);
-		helper.assertTrue(Punisher.adrenalineActive(p), "Adrenaline should be active after activation");
+		helper.assertFalse(Punisher.adrenalineActive(p), "nothing yet: the needle is still on its way in");
+		helper.assertFalse(Punisher.abilityReady(p, PunisherAdrenaline.ABILITY), "the cooldown starts with the stab");
+		p.setAttached(com.projecthero.mod.attachment.ModAttachments.PUNISHER_STAB_AT,
+				helper.getLevel().getGameTime() - com.projecthero.mod.punisher.PunisherConfig.ADRENALINE_STAB_TICKS);
+		PunisherAdrenaline.tick(p);
+		helper.assertTrue(Punisher.adrenalineActive(p), "Adrenaline should be active once the dose is in");
 		helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SPEED),
 				"Adrenaline grants Speed II");
 		helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE),

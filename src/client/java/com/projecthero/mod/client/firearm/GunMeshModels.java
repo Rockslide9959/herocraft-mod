@@ -33,7 +33,9 @@ import net.minecraft.world.item.ItemStack;
 public final class GunMeshModels {
 	/** item id -> mesh resource */
 	private static final Map<ResourceLocation, ResourceLocation> MESHES = Map.of(
-			ProjectHeroMod.id("punisher_sniper"), ProjectHeroMod.id("meshes/punisher_sniper.json"));
+			ProjectHeroMod.id("punisher_sniper"), ProjectHeroMod.id("meshes/punisher_sniper.json"),
+			// v0.15.16: the user's new assault rifle (scratchpad/convert_rifle_obj.js)
+			ProjectHeroMod.id("punisher_assault_rifle"), ProjectHeroMod.id("meshes/punisher_assault_rifle.json"));
 
 	private GunMeshModels() {
 	}

@@ -175,11 +175,17 @@ public final class GreenLanternConfig {
 	 * Z is held, draining this much Ring Charge a second and dropping when the ring can't pay. Replaces the floating
 	 * directional shield (SHIELD_INITIAL_COST / SHIELD_UPKEEP_PER_SEC / SHIELD_HP / the frontal arc are no longer used).
 	 */
-	public static final float BUBBLE_SHIELD_DRAIN_PER_SEC = 40f;
+	public static final float BUBBLE_SHIELD_DRAIN_PER_SEC = 20f; // v0.15.16: was 40
 	public static final float SHIELD_INITIAL_COST = 45f;
 	public static final float SHIELD_UPKEEP_PER_SEC = 10f;
-	public static final float SHIELD_HP = 140f; // v0.14.3: was 80
-	public static final int SHIELD_BREAK_COOLDOWN_TICKS = 80; // 4s
+	/**
+	 * v0.15.16 (user): the Z bubble has its own 150 HP pool (separate from the Dome's HP and uptime meter). Blows and
+	 * projectiles it stops chip it; at 0 it breaks. Dropped (released, broke or out of charge) it regenerates
+	 * {@link #SHIELD_REGEN_PER_SEC} HP a second and cannot be raised again for {@link #SHIELD_BREAK_COOLDOWN_TICKS}.
+	 */
+	public static final float SHIELD_HP = 150f;
+	public static final float SHIELD_REGEN_PER_SEC = 5f;
+	public static final int SHIELD_BREAK_COOLDOWN_TICKS = 8 * 20; // 8s after every release / break
 	public static final double SHIELD_ARC_DEGREES = 120.0;
 
 	public static final float DOME_INITIAL_COST = 160f;

@@ -30,6 +30,16 @@ import net.minecraft.world.level.Level;
 public class FirearmItem extends Item {
 	private final String firearmId;
 
+	/**
+	 * v0.15.16: every shot / reload rewrites the gun's components (magazine, last-fired, reload end), which vanilla treats
+	 * as a new item and answers with the lower-and-raise re-equip dip -- the gun dropped off screen on every shot. Same
+	 * gun, no dip; the recoil is the gun rig's own kick.
+	 */
+	@Override
+	public boolean allowComponentsUpdateAnimation(Player player, InteractionHand hand, ItemStack oldStack, ItemStack newStack) {
+		return !ItemStack.isSameItem(oldStack, newStack);
+	}
+
 	public FirearmItem(String firearmId, Properties properties) {
 		super(properties.stacksTo(1));
 		this.firearmId = firearmId;

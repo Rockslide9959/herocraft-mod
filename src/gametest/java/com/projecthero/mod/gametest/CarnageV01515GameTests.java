@@ -60,7 +60,7 @@ public class CarnageV01515GameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void carnageWhipSweepHits(GameTestHelper helper) {
 		runMove(helper, "WHIP", new Vec3(0, 0, 4));
 	}
@@ -109,6 +109,13 @@ public class CarnageV01515GameTests implements FabricGameTest {
 		helper.assertTrue(c.debugStartMove(move), move + " starts");
 		helper.onEachTick(() -> {
 			if (c.isAlive()) {
+				// v0.15.16: neighbouring tests can shove either mob around (it failed twice in full runs) -- until the move
+				// lands, keep the zombie pinned on its spot in front of him
+				if (victim.isAlive() && victim.getHealth() >= victim.getMaxHealth()) {
+					Vec3 spot = c.position().add(offset);
+					victim.teleportTo(spot.x, spot.y, spot.z);
+					victim.setDeltaMovement(Vec3.ZERO);
+				}
 				c.setTarget(victim);
 				if (c.debugMoveIdle() && victim.getHealth() >= victim.getMaxHealth()) {
 					c.debugStartMove(move);

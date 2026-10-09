@@ -143,9 +143,9 @@ public class V0143GameTests implements FabricGameTest {
 		GreenLanternConstructs.deploy(player, ConstructType.CHAIN_SNARE);
 		helper.assertTrue(GreenLanternConstructAttacks.liveCount(player.getUUID(), HardLightConstructEntity.Shape.CHAINS) >= 1,
 				"a set of chains per hostile in range");
-		// v0.15.15: constructs have no cooldowns any more (only the Sentry Turret keeps its limits)
-		helper.assertTrue(GreenLanternConstructs.cooldownRemainingFor(player, ConstructType.CHAIN_SNARE) == 0,
-				"Chain Snare has no cooldown any more");
+		// v0.15.16: construct cooldowns are back
+		helper.assertTrue(GreenLanternConstructs.cooldownRemainingFor(player, ConstructType.CHAIN_SNARE) > 0,
+				"Chain Snare is on its cooldown");
 		helper.succeed();
 	}
 
@@ -187,7 +187,7 @@ public class V0143GameTests implements FabricGameTest {
 	public void greenLanternIsStronger(GameTestHelper helper) {
 		helper.assertTrue(GreenLanternConfig.RING_RESISTANCE_AMPLIFIER == 1, "the bond now grants Resistance II");
 		helper.assertTrue(GreenLanternConfig.SUIT_MELEE_BONUS == 10f, "the suit adds +10 melee");
-		helper.assertTrue(GreenLanternConfig.SHIELD_HP == 140f && GreenLanternConfig.DOME_HP == 400f, "tougher shield and dome");
+		helper.assertTrue(GreenLanternConfig.SHIELD_HP == 150f && GreenLanternConfig.DOME_HP == 400f, "tougher shield and dome");
 		helper.assertTrue(GreenLanternConfig.OATH_MODE_DURATION_TICKS == 600, "the Oath lasts 30 s");
 		helper.assertTrue(ConstructType.values().length == 19, "five new constructs join the wheel");
 		helper.succeed();

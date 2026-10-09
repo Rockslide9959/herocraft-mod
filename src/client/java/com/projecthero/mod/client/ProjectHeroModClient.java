@@ -73,6 +73,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		ModKeyBindings.initialize();
+		// v0.15.16: Punisher gun animation caches are per-world (entity ids)
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> {
+			com.projecthero.mod.client.punisher.GunAnim.clear();
+			com.projecthero.mod.client.punisher.PunisherGunPose.clear();
+		});
 		ModEntityRenderers.initialize();
 		com.projecthero.mod.client.thor.WeaponComboPose.init(); // v0.14.20: Mjolnir / Stormbreaker combo swings
 		// v0.13.22: mutation move animations + per-batch client registration (poses, overlays, renderers)
@@ -185,6 +190,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.thor.ThorFxRenderer.initialize(); // v0.14.4: shockwave rings, the Wrath charge, suit-up bolts
 		com.projecthero.mod.client.thor.ThorCapeClient.initialize(); // v0.14.16: Thor's Armour's crimson cape
 		com.projecthero.mod.client.firearm.BulletHoleRenderer.initialize();
+		com.projecthero.mod.client.firearm.GunTracers.initialize(); // v0.15.16: tracers + impact flashes
 		com.projecthero.mod.client.greenlantern.GreenLanternClient.initialize();
 		com.projecthero.mod.client.grave.TrophyHeadClient.initialize(); // v0.14.4 trophy heads: cutout, power tint, glow
 		com.projecthero.mod.client.grave.NecroticBladeClient.initialize(); // v0.14.21: 3D blade glow, flat GUI icon, soul wisps

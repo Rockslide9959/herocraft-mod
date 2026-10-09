@@ -146,7 +146,7 @@ public final class FirearmClient {
 			return 1.0f;
 		}
 		FirearmData d = Firearms.of(mc.player.getMainHandItem());
-		if (d == null || !d.scopeOverlay || zoomIndex < 1) {
+		if (d == null || !d.scopeOverlay || !scopeOverlayActive()) {
 			return 1.0f;
 		}
 		// scale the configured factor further by how deep the zoom is
@@ -167,13 +167,25 @@ public final class FirearmClient {
 		return d.zoomLevels[Math.min(zoomIndex, d.zoomLevels.length - 1)];
 	}
 
-	/** True when the full sniper-scope overlay should be drawn. */
+	/**
+	 * True when the full sniper-scope overlay should be drawn: v0.15.16, as soon as the scoped gun is raised to the eye
+	 * (any zoom step -- it used to need a scroll to the second), first person only.
+	 */
 	public static boolean scopeOverlayActive() {
 		Minecraft mc = Minecraft.getInstance();
-		if (!aiming || mc.player == null) {
+		if (!aiming || mc.player == null || !mc.options.getCameraType().isFirstPerson()) {
 			return false;
 		}
 		FirearmData d = Firearms.of(mc.player.getMainHandItem());
-		return d != null && d.scopeOverlay && zoomIndex >= 1;
+		return d != null && d.scopeOverlay
+				&& com.projecthero.mod.client.punisher.GunAnim.aim(mc.player, mc.getTimer().getGameTimeDeltaPartialTick(false))
+						>= com.projecthero.mod.client.punisher.GunFirstPerson.SCOPE_IN;
+	}
+
+	/** v0.15.16: no crosshair while a gun is raised to the eye -- the sights (or the scope) are the aim point. */
+	public static boolean hidesCrosshair() {
+		Minecraft mc = Minecraft.getInstance();
+		return mc.player != null && com.projecthero.mod.client.punisher.GunAnim.kind(mc.player) != null
+				&& com.projecthero.mod.client.punisher.GunAnim.aim(mc.player, mc.getTimer().getGameTimeDeltaPartialTick(false)) > 0.25f;
 	}
 }

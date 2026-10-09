@@ -402,6 +402,15 @@ public final class ModAttachments {
 	 * Spider-Man / Max Steel stores. Synced to everyone (the ∞-reserve HUD + ability HUD read it on
 	 * other clients); server stays authoritative. Isolated from every other attachment here.
 	 */
+	/**
+	 * v0.15.16: game time the Punisher started stabbing himself with an Adrenaline dose, or 0 -- the buffs land
+	 * {@link com.projecthero.mod.punisher.PunisherConfig#ADRENALINE_STAB_TICKS} later. Synced to everyone so every viewer
+	 * plays the stab; not persisted (a relog mid-stab simply drops it).
+	 */
+	public static final AttachmentType<Long> PUNISHER_STAB_AT = AttachmentRegistry.create(
+			ProjectHeroMod.id("punisher_stab_at"),
+			builder -> builder.initializer(() -> 0L).syncWith(ByteBufCodecs.VAR_LONG, AttachmentSyncPredicate.all()));
+
 	public static final AttachmentType<com.projecthero.mod.punisher.data.PunisherState> PUNISHER_STATE =
 			AttachmentRegistry.create(ProjectHeroMod.id("punisher_state"),
 					builder -> builder.persistent(com.projecthero.mod.punisher.data.PunisherState.CODEC)
@@ -670,6 +679,17 @@ public final class ModAttachments {
 	public static final AttachmentType<Float> GREEN_LANTERN_BARRIER_HP = AttachmentRegistry.create(
 			ProjectHeroMod.id("green_lantern_barrier_hp"),
 			builder -> builder.initializer(() -> 0f)
+					.syncWith(ByteBufCodecs.FLOAT, AttachmentSyncPredicate.all()));
+
+	/**
+	 * v0.15.16: the Z bubble's own HP pool, {@link com.projecthero.mod.greenlantern.GreenLanternConfig#SHIELD_HP} when full --
+	 * independent of {@link #GREEN_LANTERN_BARRIER_HP} (the "a barrier is up" flag / the Dome's HP) and of the Dome's uptime
+	 * meter. Drops as the bubble stops hits, regenerates while it is down. Not persisted; synced so every client can draw
+	 * the bubble's damage states and the wearer's HUD bar.
+	 */
+	public static final AttachmentType<Float> GREEN_LANTERN_SHIELD_HP = AttachmentRegistry.create(
+			ProjectHeroMod.id("green_lantern_shield_hp"),
+			builder -> builder.initializer(() -> com.projecthero.mod.greenlantern.GreenLanternConfig.SHIELD_HP)
 					.syncWith(ByteBufCodecs.FLOAT, AttachmentSyncPredicate.all()));
 
 	/** True while the active barrier is the Protective Dome (Shift+Z) rather than the Directional Shield. */

@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"package": "com.projecthero.mod.gametest.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"GameTestFilterMixin",
+		"UnthrottledTicksMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

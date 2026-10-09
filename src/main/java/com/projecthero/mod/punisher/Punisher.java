@@ -145,6 +145,7 @@ public final class Punisher {
 			c.adrenalineCrashAt = 0L;
 			save(player, c);
 		}
+		player.setAttached(com.projecthero.mod.attachment.ModAttachments.PUNISHER_STAB_AT, 0L);
 		PunisherPassives.reconcile(player);
 		com.projecthero.mod.punisher.ability.PunisherC4.clearFor(player.getUUID());
 		com.projecthero.mod.punisher.PunisherAbilityManager.onCleanup(player.getUUID());

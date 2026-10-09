@@ -83,7 +83,10 @@ public final class GreenLanternShieldRenderer {
 			float time = player.tickCount + partialTick;
 			com.projecthero.mod.client.shield.ForceBubbleRenderer.draw(poseStack, buffers, camera.getPosition(),
 					player.getPosition(partialTick).add(0, player.getBbHeight() * 0.5, 0),
-					com.projecthero.mod.shield.ForceBubble.Style.GREEN_LANTERN, time, 1f, self);
+					com.projecthero.mod.shield.ForceBubble.Style.GREEN_LANTERN, time, 1f, self,
+					player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_SHIELD_HP,
+							com.projecthero.mod.greenlantern.GreenLanternConfig.SHIELD_HP)
+							/ com.projecthero.mod.greenlantern.GreenLanternConfig.SHIELD_HP);
 		}
 	}
 
