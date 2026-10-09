@@ -126,6 +126,20 @@ public final class SupermanSuit {
 				.withStyle(ChatFormatting.RED), true);
 	}
 
+	/** v0.15.18: each worn piece makes a Kryptonian soak up this much more sunlight (the full three-piece suit: +50%). */
+	public static final float SOLAR_BONUS_PER_PIECE = 0.5f / 3.0f;
+
+	/** How many Superman Suit pieces the player has on. */
+	public static int piecesWorn(Player player) {
+		int n = 0;
+		for (EquipmentSlot slot : ARMOR) {
+			if (isSuit(player.getItemBySlot(slot))) {
+				n++;
+			}
+		}
+		return n;
+	}
+
 	/** v0.14.14: in direct sunlight the worn suit mends this much per piece, every {@link #SUN_REPAIR_EVERY} ticks. */
 	public static final int SUN_REPAIR_AMOUNT = 1;
 	public static final int SUN_REPAIR_EVERY = 20;

@@ -101,11 +101,11 @@ public final class SymbiotePassives {
 		if (!bonded(player)) {
 			return;
 		}
-		// v0.11.15: Regeneration II only while the host is actually hurt, and it is paid for -- each second
+		// v0.11.15 (v0.15.18: Regeneration III): only while the host is actually hurt, and it is paid for -- each second
 		// of healing costs the Symbiote a little Biomass. A spent (broken) or still-bonding Symbiote cannot heal.
 		if (player.tickCount % REGEN_PULSE_TICKS == 0 && player.getHealth() < player.getMaxHealth()
 				&& SymbioteVitalsManager.usable(player) && SymbioteVitalsManager.biomass(player) > 0.0f) {
-			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, REGEN_PULSE_TICKS * 3, 1,
+			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, REGEN_PULSE_TICKS * 3, 2,
 					true, false, false));
 			SymbioteVitalsManager.spendBiomass(player, REGEN_BIOMASS_PER_PULSE);
 		}

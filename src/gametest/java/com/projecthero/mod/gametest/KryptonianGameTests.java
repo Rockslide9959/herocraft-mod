@@ -367,6 +367,23 @@ public class KryptonianGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.15.18: each Superman Suit piece worn soaks up more sunlight -- the full three-piece suit, +50%. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void supermanSuitSoaksUpSunlightFaster(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		Kryptonian.setSolarGainForTests(p, 6f);
+		helper.assertTrue(Math.abs(Kryptonian.solarGainPerSecond(p) - 6f) < 1e-4f, "no suit: the plain sun rate");
+		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(SupermanSuit.CHESTPLATE));
+		helper.assertTrue(Math.abs(Kryptonian.solarGainPerSecond(p) - 7f) < 1e-4f, "one piece: +1/6");
+		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(SupermanSuit.LEGGINGS));
+		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(SupermanSuit.BOOTS));
+		helper.assertTrue(Math.abs(Kryptonian.solarGainPerSecond(p) - 9f) < 1e-4f, "the full suit: +50%");
+		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(net.minecraft.world.item.Items.DIAMOND_LEGGINGS));
+		helper.assertTrue(Math.abs(Kryptonian.solarGainPerSecond(p) - 8f) < 1e-4f, "other armour adds nothing");
+		Kryptonian.setSolarGainForTests(p, null);
+		helper.succeed();
+	}
+
 	/**
 	 * v0.14.21: the Superman cape moved onto the shared flowing cape. When it shows (only with the Superman chestplate on)
 	 * and when it streams in the wind instead of swinging like a cloak (Kryptonian flight, vanilla flight, gliding).
