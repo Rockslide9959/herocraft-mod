@@ -306,7 +306,8 @@ public class NovaGameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	// v0.15.16: its own batch -- homing bolts lock onto the nearest mob, which in a shared batch can be a neighbour test's
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120, batch = "nova_volley_homing")
 	public void boltVolleyHomesIn(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = nova(helper, 1.5, 2.0, 1.5);
