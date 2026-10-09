@@ -91,6 +91,8 @@ sentry_intro, cannon, rain, shield, shield_break, sentry_enrage, death (`boss.pr
 `ultron_shield`, `ultron_purged`, `ultron_process` (natural trigger) via `JarvisDialogue.speak`; every Ultron hit on a
 suited Tony Stark wears the suit's hull an extra **10%** (`damage.ironManDrainBonus`).
 
+**Aggro (Prime and the Sentry):** v0.15.19: aggro is the shared boss threat table (`BossThreat`, see TARGETING.md) -- whoever is hurting it most takes its attention (damage-built threat halving every 10 s, 20% margin to switch). Prime's old "nearest player every 5 s" re-pick only runs while the table is empty.
+
 ## 5. Rewards
 The uplink becomes a chest (`UltronRewards`):
 - **Vibranium Plating** x (2 + fighters)

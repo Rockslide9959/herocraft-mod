@@ -76,6 +76,10 @@ A street-level raid on the Kingpin's crew. Package `com.projecthero.mod.syndicat
 - **Projectile reduction:** projectiles do x0.75.
 - He has his own boss bar. The event's bar hides during the boss phase.
 
+### Kingpin aggro
+
+v0.15.19: aggro is the shared boss threat table (`BossThreat`, see TARGETING.md) -- whoever is hurting it most takes its attention (damage-built threat halving every 10 s, 20% margin to switch). The crooks' `HurtByTargetGoal` is removed from him; a move in flight (rush, grab, gun, pound) finishes before he turns.
+
 ## Rewards
 
 - A Villain Dossier for each fighter, up to 4. Reading one calls `SupervillainMark.mark`. It refuses on Peaceful or if the player is already marked.

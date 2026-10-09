@@ -75,7 +75,7 @@ framework and reuses the Zombie Raid's `EmpoweredZombie` boss and `BossPowers` A
 ## Boss
 
 The Supervillain is an `EmpoweredZombie` with a cosmetic `variant` set. It runs with the same AI as
-the Zombie Raid's final boss (target scoring, rotation, airborne/ranged response, preferred-range
+the Zombie Raid's final boss (target scoring, rotation -- v0.15.19: overridden by the shared `BossThreat` table whenever someone clearly out-threatens the target --, airborne/ranged response, preferred-range
 movement, cluster-aware AoE) and one of the **26 boss-capable Experimental Powers** (v0.14.21: every mutation)
 (`BossPowerController` subclasses). Appearance and power are rolled independently.
 

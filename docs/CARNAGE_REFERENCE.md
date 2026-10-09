@@ -24,6 +24,10 @@ A world boss and the Symbiote power's rival. Package `com.projecthero.mod.carnag
 - **Regeneration (v0.15.15):** `boss.regenAmount` 2 HP every `boss.regenIntervalTicks` 40 ticks, doubled while frenzied. It stops for 6 s after fire, writhing or sonic damage.
 - **Immune** to poison and wither.
 
+## Targeting
+
+v0.15.19: aggro is the shared boss threat table (`BossThreat`, see TARGETING.md) -- whoever is hurting it most takes its attention (damage-built threat halving every 10 s, 20% margin to switch). His `HurtByTargetGoal` is gone; a move in flight finishes before he turns.
+
 ## Moves (`CarnageEntity.Brain`)
 
 - **Claws:** 3 blade-arm hits about 0.3 s apart (10 each).

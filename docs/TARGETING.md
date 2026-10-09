@@ -49,6 +49,35 @@ Anything not listed below is rule 1 (aimed / deliberate).
 | Titan Shifter | Titan Roar crowd control (32 blocks) | punches, stomps, grabs rule 1 (now also respects PvP); the roar's 50-block outline still shows everything |
 | HeroPack mutations | Geokinesis Earthquake (25), Crystal Eruption (20), Refract node beams, Crystal Node spire turret, Electrokinesis chain hops + Electrical Storm follow-up bolts, Pyrokinesis Flame Body ignite aura + blue burn aura (24), Cryokinesis frost aura + Absolute Zero (20), Psychic Detonation (50), Bamf Strike follow-up hops, Sonic Barrier field + sneak Supersonic Scream (20), Density Heavy Impact (20), Shadow Cloak aura + darkness Zone (20), Kinetic Detonation (20), Plant ultimate (20), Nature's Blessing aura, Spore Cloud, Thorn Sentry, Gravity Well field, gravity toggle aura, Black Hole (30), Heavy Ground field, Wind Tailwind aura, Hurricane, ridden Wind Tornado, Size giant step-on crush, Flight sonic-speed trail, Mirror Image lure, Shadow Servant AI | everything else rule 1 |
 
+## Boss aggro: the shared threat table (v0.15.19)
+
+Bosses pick who to chase through one class: `com.projecthero.mod.event.boss.BossThreat` (one instance per boss, an
+instance field -- never a static map, so nothing to add to `ServerStateReset`; not saved, a reloaded boss starts clean).
+It replaced vanilla aggro (`HurtByTargetGoal` only retargets when it *starts*, `NearestAttackableTargetGoal` keeps its first
+find), which let one player kite a boss while a friend hit it for free.
+
+- **Threat in:** every hit that lands adds its damage (min `MIN_THREAT_PER_HIT` = 1) to whoever `DamageSource.getEntity()` names
+  -- projectiles and summons count for their owner. Only things the boss may fight (`BossTargets.isVictim`: players,
+  their pets / summons, golems) are recorded.
+- **Decay:** threat halves every `HALF_LIFE_TICKS` = 200 (10 s, about -6.7%/s), decayed lazily on read.
+- **Switching:** every `RETHINK_TICKS` = 10 the top attacker becomes the target if the boss has none / its target is no
+  longer valid, or if the challenger's threat is more than `SWITCH_MARGIN` = 1.2x the current target's (a target who never
+  hurt the boss has 0, so anyone who does takes it). After a switch the boss holds for `SWITCH_LOCKOUT_TICKS` = 30.
+  `holdWhile(...)` defers the re-think while an attack is in flight, so a swing finishes on its victim and the next one
+  reads the new `getTarget()`.
+- **Dropped entries:** dead / removed, spectator or creative-invulnerable, another dimension, beyond the boss's range
+  (its `FOLLOW_RANGE` clamped to 24-96, or `range(...)`), failing the boss's own `filter(...)`, or faded below 0.05.
+- **Empty table:** nothing changes -- the boss keeps its own acquisition (nearest player, raid participant lists).
+
+Wiring: `threat.record(source, amount)` after a hit lands in `hurt` / `actuallyHurt`, `threat.tick()` once per server tick.
+Wired into Carnage, Kingpin, the Bone Tyrant, the Brood Queen, Ultron Prime, the Ultron Sentry, the Abyssal Behemoth,
+Darkseid (`DarkseidCombat.refreshTarget`: the table first, the old 10 s sticky distance scoring only while the table is
+empty) and every Empowered Zombie / Supervillain (the table overrides its rotation whenever someone clearly out-threatens
+the target). The Oathbreaker (`OathbreakerThreat`), the Titan (`TitanThreat`) and the Sentinels / Master Mold
+(`SentinelRobot` spread aggro) already had their own threat systems and keep them. The vanilla `HurtByTargetGoal` was
+removed from Carnage, Kingpin, the Bone Tyrant and the Brood Queen. Normal (non-boss) mobs are untouched.
+Tests: `BossThreatV01519GameTests`.
+
 ## Judgement calls
 
 - **Huge-radius threshold:** a deliberate "hit everything around me" move of 15+ blocks counts as unaimed (rule 2); up to

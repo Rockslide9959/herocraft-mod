@@ -38,8 +38,10 @@ one; nothing ever calls it. Movement is a direct AI/physics split:
   acceleration, and a cheap `level().noCollision` probe biases the result upward rather than into a wall.
   `isNoGravity()` returns `true`; there is no vanilla swim/fly travel logic left in the loop at all.
 
-Targeting (`acquireTarget`) locks onto the nearest valid player within `detectionRange` and keeps it while
-alive and within `followRange`, mirroring `TitanEntity.acquireTarget`.
+Targeting (`acquireTarget`): v0.15.19 -- the shared boss threat table (`BossThreat`, see TARGETING.md) runs first, so
+whoever is hurting it most takes its attention (damage-built threat halving every 10 s, 20% margin to switch; an ability
+being cast finishes first). Only with an empty table does it fall back to the nearest valid player within
+`detectionRange`, kept while alive and within `followRange`.
 
 ## Combat state machine
 

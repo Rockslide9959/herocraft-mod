@@ -72,7 +72,7 @@ scrap (1-2), 10% ancient debris, 10% enchanted golden apple. The common part is 
   Registered as `darkseid_raid` in `EventTypes`. Owns stages, `DarkseidRoster`, boundary, waves/Boom Tubes, Mother Box
   neglect/overload, shield value, phase changes, enrage, bars, sky, music, rewards, cleanup.
 - `darkseid.entity.DarkseidEntity` -- body, shield/stagger damage rules, synced phase/shield/busy/omega/sweep, boss bar,
-  entrance, cinematic death; tells the raid when he dies. `DarkseidCombat` -- targeting (raid participants only), weighted
+  entrance, cinematic death; tells the raid when he dies. `DarkseidCombat` -- targeting (raid participants only; v0.15.19: the shared `BossThreat` table first, the old 10 s sticky distance scoring only while it is empty), weighted
   attack choice, every attack script. `DarkseidAnims` -- clip names and tick timings (checked by the asset generator).
 - `ParademonEntity` (4 variants), `MotherBoxEntity`, `BoomTubeEntity` (visual only, never saved), `OmegaBeamEntity` /
   `ParademonBoltEntity` (`EnergyProjectile`, client-drawn trails).
