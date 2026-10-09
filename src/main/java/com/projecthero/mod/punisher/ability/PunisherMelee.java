@@ -25,8 +25,8 @@ import net.minecraft.world.phys.Vec3;
  * attack until the stun ends.
  *
  * <ul>
- *   <li><b>G -- Brutal Strike</b>: 18 damage, 2 s stun. 2 s cooldown.</li>
- *   <li><b>Shift+G -- Breach Kick</b>: 25 damage, thrown about 10 blocks back, 5 s stun. 5 s cooldown.</li>
+ *   <li><b>G -- Brutal Strike</b>: 10 damage, 2 s stun. 2 s cooldown.</li>
+ *   <li><b>Shift+G -- Breach Kick</b>: 15 damage, thrown about 10 blocks back, 5 s stun. 5 s cooldown.</li>
  * </ul>
  *
  * A swing at nothing just whiffs: no cooldown is spent.

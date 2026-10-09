@@ -258,6 +258,13 @@ public final class SpiderAbilities {
 			AbilityHelpers.hurt(player, target, WEB_SHOT_DAMAGE);
 
 			boolean boss = SpiderWebs.isBoss(target);
+			if (SpiderWebs.ignoresWebs(target)) {
+				// v0.15.19: Carnage shrugs the webbing off -- the hit lands, no stickiness
+				AbilityHelpers.burst(level, target.position().add(0, target.getBbHeight() * 0.5, 0),
+						ParticleTypes.ITEM_COBWEB, 14, 0.35);
+				AbilityHelpers.sound(player, SoundEvents.SLIME_SQUISH, 0.55f, 1.9f);
+				return;
+			}
 			// v0.6.20: each hit is a stickiness stack (max 3). It slows the target and weighs its jump
 			// down, worse with every stack -- and a follow-up landed within 3s of the first hit is what
 			// pushes the count up. On the third stack an ordinary mob is wrapped in a full cocoon.

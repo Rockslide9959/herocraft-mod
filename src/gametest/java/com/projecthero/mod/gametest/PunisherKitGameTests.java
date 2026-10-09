@@ -171,7 +171,7 @@ public class PunisherKitGameTests implements FabricGameTest {
 		Cow c = cow(helper, 1.5, 4.0);
 		lookAt(p, c);
 		PunisherAbilityManager.handle(p, AbilitySlot.SLOT_2, true);
-		helper.assertTrue(near(c.getHealth(), 100f - PunisherConfig.BRUTAL_STRIKE_DAMAGE), "18 damage, has " + c.getHealth());
+		helper.assertTrue(near(c.getHealth(), 100f - PunisherConfig.BRUTAL_STRIKE_DAMAGE), "10 damage, has " + c.getHealth());
 		helper.assertTrue(PunisherControl.isStunned(c), "the target is stunned");
 		MobEffectInstance slow = c.getEffect(MobEffects.MOVEMENT_SLOWDOWN);
 		helper.assertTrue(slow != null && slow.getAmplifier() >= 9, "stunned = it cannot move");
@@ -188,7 +188,7 @@ public class PunisherKitGameTests implements FabricGameTest {
 		p.setShiftKeyDown(true);
 		PunisherAbilityManager.handle(p, AbilitySlot.SLOT_2, true);
 		p.setShiftKeyDown(false);
-		helper.assertTrue(near(c.getHealth(), 100f - PunisherConfig.BREACH_KICK_DAMAGE), "25 damage, has " + c.getHealth());
+		helper.assertTrue(near(c.getHealth(), 100f - PunisherConfig.BREACH_KICK_DAMAGE), "15 damage, has " + c.getHealth());
 		Vec3 v = c.getDeltaMovement();
 		Vec3 away = c.position().subtract(p.position()).multiply(1, 0, 1).normalize();
 		double out = v.x * away.x + v.z * away.z;

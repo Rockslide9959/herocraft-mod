@@ -47,6 +47,9 @@ public final class Nova {
 
 	private static final ResourceLocation SAFE_FALL_ID = PowerToggles.id("nova_safe_fall");
 	private static final ResourceLocation MELEE_ID = PowerToggles.id("nova_melee");
+	/** v0.15.19: the suit is diamond-level armour (a full diamond set: 20 armour, 8 toughness). */
+	private static final ResourceLocation ARMOR_ID = PowerToggles.id("nova_armor");
+	private static final ResourceLocation TOUGHNESS_ID = PowerToggles.id("nova_armor_toughness");
 
 	/** Nova gold (255, 205, 60) and the Worldmind cyan (139, 248, 255). */
 	public static final DustParticleOptions GOLD = new DustParticleOptions(new Vector3f(1.0f, 0.80f, 0.24f), 1.3f);
@@ -318,13 +321,17 @@ public final class Nova {
 			PowerToggles.modifier(player, Attributes.SAFE_FALL_DISTANCE, SAFE_FALL_ID, 1000.0, AttributeModifier.Operation.ADD_VALUE);
 			// v0.15.15: +8 melee while suited
 			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID, NovaConfig.MELEE_BONUS, AttributeModifier.Operation.ADD_VALUE);
+			PowerToggles.modifier(player, Attributes.ARMOR, ARMOR_ID, NovaConfig.SUIT_ARMOR, AttributeModifier.Operation.ADD_VALUE);
+			PowerToggles.modifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID, NovaConfig.SUIT_ARMOR_TOUGHNESS, AttributeModifier.Operation.ADD_VALUE);
 		} else {
 			PowerToggles.clearModifier(player, Attributes.SAFE_FALL_DISTANCE, SAFE_FALL_ID);
 			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID);
+			PowerToggles.clearModifier(player, Attributes.ARMOR, ARMOR_ID);
+			PowerToggles.clearModifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID);
 		}
 	}
 
-	/** Damage-taken factor while suited: 0.4. */
+	/** Damage-taken factor while suited: 0.8 (v0.15.19). */
 	public static float damageTakenFactor(ServerPlayer player) {
 		return suited(player) ? 1.0f - NovaConfig.DAMAGE_REDUCTION : 1.0f;
 	}

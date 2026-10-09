@@ -135,6 +135,8 @@ public final class NovaAbilities {
 	}
 
 	private static final Map<UUID, Long> BLASTS = new ConcurrentHashMap<>();
+	/** v0.15.19: per held beam, entity id -> game time it was last burned (the per-target hit timer). */
+	private static final Map<UUID, Map<Integer, Long>> BLAST_HITS = new ConcurrentHashMap<>();
 	/** When each held Force Field went up (its upkeep clock). */
 	private static final Map<UUID, Long> SHIELD_START = new ConcurrentHashMap<>();
 	private static final Map<UUID, List<Bolt>> BOLTS = new ConcurrentHashMap<>();
@@ -154,6 +156,7 @@ public final class NovaAbilities {
 
 	static void clearSessionState() {
 		BLASTS.clear();
+		BLAST_HITS.clear();
 		SHIELD_START.clear();
 		BOLTS.clear();
 		SLAMS.clear();
@@ -169,6 +172,7 @@ public final class NovaAbilities {
 	public static void clear(ServerPlayer p) {
 		UUID id = p.getUUID();
 		BLASTS.remove(id);
+		BLAST_HITS.remove(id);
 		SHIELD_START.remove(id);
 		BOLTS.remove(id);
 		SLAMS.remove(id);
@@ -304,6 +308,7 @@ public final class NovaAbilities {
 		if (BLASTS.remove(p.getUUID()) == null) {
 			return;
 		}
+		BLAST_HITS.remove(p.getUUID());
 		setBlastFlag(p, false);
 		cooldown(p, BLAST, NovaConfig.BLAST_COOLDOWN);
 	}
@@ -324,13 +329,27 @@ public final class NovaAbilities {
 		Vec3 far = eye.add(dir.scale(NovaConfig.BLAST_RANGE));
 		BlockHitResult bhr = p.level().clip(new ClipContext(eye, far, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
 		Vec3 end = bhr.getType() == HitResult.Type.MISS ? far : bhr.getLocation();
-		EntityHitResult ehr = ProjectileUtil.getEntityHitResult(p, eye, end, new AABB(eye, end).inflate(1.0),
-				e -> e instanceof LivingEntity le && NovaCombat.isTarget(p, le) && e.isPickable(), eye.distanceToSqr(end));
-		if (ehr != null && ehr.getEntity() instanceof LivingEntity le) {
-			if (hitOut != null) {
-				hitOut[0] = le;
+		// v0.15.19: a forgiving beam -- each creature's hitbox is grown by BLAST_HIT_RADIUS, so a beam that grazes it
+		// counts (the old exact-hitbox ray kept slipping off moving targets between hit ticks)
+		double r = NovaConfig.BLAST_HIT_RADIUS;
+		LivingEntity best = null;
+		Vec3 bestAt = null;
+		double bestSq = eye.distanceToSqr(end);
+		for (Entity e : p.level().getEntities(p, new AABB(eye, end).inflate(r + 1.0),
+				e -> e instanceof LivingEntity le && NovaCombat.isTarget(p, le) && e.isPickable())) {
+			AABB box = e.getBoundingBox().inflate(e.getPickRadius() + r);
+			Vec3 at = box.contains(eye) ? eye : box.clip(eye, end).orElse(null);
+			if (at != null && eye.distanceToSqr(at) < bestSq) {
+				best = (LivingEntity) e;
+				bestAt = at;
+				bestSq = eye.distanceToSqr(at);
 			}
-			return ehr.getLocation();
+		}
+		if (best != null) {
+			if (hitOut != null) {
+				hitOut[0] = best;
+			}
+			return bestAt;
 		}
 		return end;
 	}
@@ -351,8 +370,20 @@ public final class NovaAbilities {
 		ServerLevel level = level(p);
 		LivingEntity[] hit = new LivingEntity[1];
 		Vec3 end = blastEnd(p, hit);
-		if (age > 0 && age % NovaConfig.BLAST_HIT_INTERVAL == 0 && hit[0] != null) {
-			NovaCombat.strike(p, hit[0], p.getEyePosition(), NovaConfig.BLAST_DAMAGE_PER_HIT, 0.15, 0.0);
+		if (hit[0] != null) {
+			// v0.15.19: per-target timer -- the first tick the beam touches a creature it is hit, then every interval
+			Map<Integer, Long> lastHits = BLAST_HITS.computeIfAbsent(p.getUUID(), k -> new HashMap<>());
+			boolean player = hit[0] instanceof Player;
+			int interval = player ? NovaConfig.BLAST_PLAYER_HIT_INTERVAL : NovaConfig.BLAST_HIT_INTERVAL;
+			Long last = lastHits.get(hit[0].getId());
+			if (last == null || now - last >= interval) {
+				lastHits.put(hit[0].getId(), now);
+				NovaCombat.strike(p, hit[0], p.getEyePosition(),
+						player ? NovaConfig.BLAST_PLAYER_DAMAGE_PER_HIT : NovaConfig.BLAST_DAMAGE_PER_HIT, 0.08, 0.0);
+			}
+			if (lastHits.size() > 16) {
+				lastHits.values().removeIf(t -> now - t > 40);
+			}
 		}
 		if (age % 2 == 0) {
 			level.sendParticles(Nova.GOLD_BIG, end.x, end.y, end.z, 3, 0.15, 0.15, 0.15, 0.0);

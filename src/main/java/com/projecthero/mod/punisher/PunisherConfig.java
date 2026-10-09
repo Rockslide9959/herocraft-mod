@@ -43,12 +43,12 @@ public final class PunisherConfig {
 
 	// G -- Brutal Strike: a close-quarters blow that stuns
 	public static final double STRIKE_RANGE = 5.0;
-	public static final float BRUTAL_STRIKE_DAMAGE = 18f;
+	public static final float BRUTAL_STRIKE_DAMAGE = 10f;
 	public static final int BRUTAL_STRIKE_STUN_TICKS = 2 * 20;
 	public static final int BRUTAL_STRIKE_COOLDOWN_TICKS = 2 * 20;
 
 	// Shift+G -- Breach Kick: a kick that throws the target about 10 blocks and stuns it
-	public static final float BREACH_KICK_DAMAGE = 25f;
+	public static final float BREACH_KICK_DAMAGE = 15f;
 	/** Launch speed (blocks/tick) -- with air drag this carries a mob about 10 blocks. */
 	public static final double BREACH_KICK_SPEED = 1.35;
 	public static final double BREACH_KICK_LIFT = 0.42;

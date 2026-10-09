@@ -51,7 +51,7 @@ file in step with it.
 ## Passives (while suited)
 
 - **+8 melee damage** (an `ATTACK_DAMAGE` modifier, `projecthero:nova_melee`).
-- **60% damage reduction** on everything except `/kill` / the void.
+- **Diamond-level suit armour** (+20 armour, +8 toughness attribute modifiers while suited) and a **20% damage reduction** (was 60% before v0.15.19) on everything except `/kill` / the void.
 - **No fall damage** (nor flying into walls).
 - **Worldmind**: every mob within a **32-block sphere** is outlined gold -- through walls, for the Nova alone (viewer-only,
   never a glowing flag).
@@ -69,7 +69,7 @@ sprint-flying flat out included.
 
 | Key | Move | Effect | Cost | Cooldown |
 |---|---|---|---|---|
-| R (hold) | **Nova Blast** | Golden beam from the hand, 32 blocks, **10 dmg per hit, one hit every 10 ticks (20 dmg/s)**; **no time limit** -- fires while held until the Force runs out | 6/s (needs 3 to open) | 1.5 s after release |
+| R (hold) | **Nova Blast** | Golden beam from the hand, 32 blocks, **hits the instant it touches, then 5 dmg every 5 ticks per target (20 dmg/s; players 10 every 10 ticks); hitbox +0.6** (v0.15.19); **no time limit** -- fires while held until the Force runs out | 6/s (needs 3 to open) | 1.5 s after release |
 | Shift+R | **Nova Bolt Volley** | **5 homing bolts, 8 dmg each** (seek the enemies nearest the crosshair, 24 blocks, 3 s life) | 20 | 6 s |
 | G | **Gravimetric Pulse** | **6-block** shockwave round you, **20 dmg** (70% at the edge), knock-up 0.9 | 20 | 8 s |
 | Shift+G | **Gravity Slam** | From 2+ blocks up: dive, then an **8-block** crater shockwave, **10 + 1/block dropped, max 30** (at 20 blocks); particles only, no blocks broken | 25 | 12 s |

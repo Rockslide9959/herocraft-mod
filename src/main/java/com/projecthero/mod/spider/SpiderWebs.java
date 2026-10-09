@@ -133,6 +133,9 @@ public final class SpiderWebs {
 
 	/** Wrap a target for a specific ordinary-mob duration (bosses still get the capped weak version). */
 	public static int cocoonFor(ServerPlayer owner, LivingEntity target, int ordinaryTicks) {
+		if (ignoresWebs(target)) {
+			return 0;
+		}
 		boolean boss = isBoss(target);
 		int ticks = boss ? BOSS_COCOON_TICKS : ordinaryTicks;
 		if (target instanceof Player) {
@@ -285,7 +288,15 @@ public final class SpiderWebs {
 	 * this (not being stuck by the cobweb blocks themselves) lives in {@code EntityWebMixin}.
 	 */
 	public static boolean movesFreelyThroughWebbing(Entity entity) {
-		return entity instanceof Player player && SpiderMan.hasPower(player);
+		return (entity instanceof Player player && SpiderMan.hasPower(player)) || ignoresWebs(entity);
+	}
+
+	/**
+	 * v0.15.19: Carnage is a symbiote -- webbing does not hold him. Cobweb blocks, Web Nets, Web Shot stickiness and
+	 * cocoons never slow, weaken or pin him (the hit damage itself still lands).
+	 */
+	public static boolean ignoresWebs(Entity entity) {
+		return entity instanceof com.projecthero.mod.carnage.entity.CarnageEntity;
 	}
 
 	/**

@@ -152,14 +152,23 @@ public class NovaGameTests implements FabricGameTest {
 
 		Nova.toggleSuit(p); // H
 		helper.assertTrue(Nova.suited(p), "H puts the uniform on");
-		helper.assertTrue(Math.abs(Nova.damageTakenFactor(p) - 0.4f) < 1.0e-4f, "60% damage reduction while suited");
+		helper.assertTrue(Math.abs(Nova.damageTakenFactor(p) - 0.8f) < 1.0e-4f, "v0.15.19: 20% damage reduction while suited");
+		Nova.reconcile(p);
+		helper.assertTrue(p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR) >= NovaConfig.SUIT_ARMOR
+				&& p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS) >= NovaConfig.SUIT_ARMOR_TOUGHNESS,
+				"v0.15.19: the suit is diamond-level armour");
 		p.setHealth(20f);
 		p.invulnerableTime = 0;
-		p.hurt(p.damageSources().generic(), 10f);
-		helper.assertTrue(Math.abs(p.getHealth() - 16f) < EPS, "10 damage becomes 4, health " + p.getHealth());
+		p.hurt(p.damageSources().cactus(), 10f); // generic damage ignores armour, cactus does not
+		// 10 * 0.8 = 8, then a full diamond set's armour (20 / 8 toughness) takes 72% of that: 2.24
+		float expected = 20f - net.minecraft.world.damagesource.CombatRules.getDamageAfterAbsorb(p, 8f, p.damageSources().cactus(),
+				(float) p.getArmorValue(), (float) p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS));
+		helper.assertTrue(Math.abs(p.getHealth() - expected) < 0.05f && p.getHealth() > 17.5f,
+				"10 damage becomes ~2.2 through 20% + diamond armour, health " + p.getHealth());
+		float afterHit = p.getHealth();
 		p.invulnerableTime = 0;
 		p.hurt(p.damageSources().fall(), 10f);
-		helper.assertTrue(Math.abs(p.getHealth() - 16f) < EPS, "no fall damage while suited, health " + p.getHealth());
+		helper.assertTrue(Math.abs(p.getHealth() - afterHit) < EPS, "no fall damage while suited, health " + p.getHealth());
 		Nova.toggleSuit(p); // a bounce of the key
 		helper.assertTrue(Nova.suited(p), "H is debounced");
 		helper.runAfterDelay(NovaConfig.SUIT_TOGGLE_COOLDOWN + 2, () -> {
@@ -268,17 +277,20 @@ public class NovaGameTests implements FabricGameTest {
 	// ---------------------------------------------------------------- R / Shift+R
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void novaBlastHitsTenTwiceASecond(GameTestHelper helper) {
+	public void novaBlastHitsOnContact(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = nova(helper, 2.5, 2.0, 1.5);
 		Zombie z = zombie(helper, 2.5, 2.0, 4.5, true, 100);
 		pump(helper, p);
 		NovaAbilityManager.handle(p, AbilitySlot.SLOT_1, true); // R held
 		helper.assertTrue(Nova.blasting(p), "R opens the beam");
+		// v0.15.19: no more holding it on the target for half a second before it bites
+		helper.runAfterDelay(2, () -> helper.assertTrue(z.getHealth() <= 100f - NovaConfig.BLAST_DAMAGE_PER_HIT + 0.5f,
+				"the beam hurts on the first tick it touches, health " + z.getHealth()));
 		helper.runAfterDelay(41, () -> {
 			NovaAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
 			float lost = 100f - z.getHealth();
-			helper.assertTrue(lost >= 39.5f && lost <= 40.5f, "2 s of beam = 4 hits of 10 = 40 damage, got " + lost);
+			helper.assertTrue(lost >= 39.5f && lost <= 45.5f, "2 s of beam = a hit on contact then 5 every 5 ticks (~20/s), got " + lost);
 			helper.assertFalse(Nova.blasting(p), "letting go of R ends it");
 			helper.assertTrue(Nova.cooldownRemaining(p, NovaAbilities.BLAST) > 0, "then a short cooldown");
 			helper.succeed();

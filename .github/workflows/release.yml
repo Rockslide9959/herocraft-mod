@@ -31,12 +31,47 @@ on:
 
 permissions:
   contents: write   # create the GitHub Release
+  actions: read     # look up the master CI run of the tagged commit
 
 jobs:
+  # v0.15.19: the tagged commit has almost always just been through the full suite on master (build.yml). If that
+  # run passed for this EXACT commit, the suite is not run a second time here -- the release goes straight to
+  # build + publish. A build.yml run still in progress for the commit is waited for; with no green run (or a red
+  # one) the full suite runs below exactly as before, so nothing is ever published untested.
+  tested:
+    runs-on: ubuntu-24.04
+    outputs:
+      green: ${{ steps.find.outputs.green }}
+    steps:
+      - name: find a green master CI run of this commit
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          green=false
+          runs="$(gh run list -R "$REPO" --workflow build.yml --commit "$SHA" --json databaseId,status,conclusion --limit 20)"
+          echo "$runs"
+          if [ "$(echo "$runs" | jq "[.[] | select(.conclusion == \"success\")] | length")" -gt 0 ]; then
+            green=true
+          else
+            pending="$(echo "$runs" | jq -r "[.[] | select(.status != \"completed\")][0].databaseId // empty")"
+            if [ -n "$pending" ]; then
+              echo "waiting for build.yml run $pending on $SHA"
+              if timeout 1500 gh run watch "$pending" -R "$REPO" --exit-status --interval 20 > /dev/null; then
+                green=true
+              fi
+            fi
+          fi
+          echo "green=$green" | tee -a "$GITHUB_OUTPUT"
+
   # The gametest suite (the slow part) runs as 3 disjoint slices (-PtestShard=i/3) on 3 runners at once, beside the jar
-  # build; publishing needs ALL of them to pass, so nothing is released unless every test passed -- same gate as
-  # before, just no longer one after the other.
+  # build -- only when the commit has no green master CI run (see "tested" above). Publishing needs ALL of them to
+  # pass, so nothing is released unless every test passed somewhere for this commit.
   test:
+    needs: tested
+    if: needs.tested.outputs.green != 'true'
     name: gametest (slice ${{ matrix.shard }}/3)
     runs-on: ubuntu-24.04
     strategy:
@@ -80,7 +115,9 @@ jobs:
           path: build/libs/
 
   release:
-    needs: [test, build]
+    needs: [tested, test, build]
+    # "test" is skipped when master CI already passed this commit; it must otherwise have succeeded
+    if: always() && needs.tested.result == 'success' && needs.build.result == 'success' && (needs.test.result == 'success' || (needs.test.result == 'skipped' && needs.tested.outputs.green == 'true'))
     runs-on: ubuntu-24.04
     steps:
       - name: checkout repository

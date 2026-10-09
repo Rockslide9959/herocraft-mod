@@ -17,7 +17,7 @@ import net.minecraft.world.entity.LivingEntity;
  * <ul>
  *   <li>While suited: no fall damage (nor flying into a wall); while the Force Field is held up, every projectile and
  *       every melee blow is absorbed outright by the {@link ForceBubble} (the attacker is pushed back); everything else is cut by
- *       {@link NovaConfig#DAMAGE_REDUCTION} (60%). {@code /kill} and the void always go through.</li>
+ *       {@link NovaConfig#DAMAGE_REDUCTION} (20%, plus diamond-level suit armour since v0.15.19). {@code /kill} and the void always go through.</li>
  *   <li>The creature the Worldmind Scan marked takes +25% from every source while the mark lasts.</li>
  *   <li>A creature carried up by Orbital Launch or held in a Gravity Lock does not suffocate in the blocks it is dragged
  *       through.</li>

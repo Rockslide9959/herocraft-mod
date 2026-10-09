@@ -45,8 +45,11 @@ public final class NovaConfig {
 
 	/** v0.15.15: +8 melee (attack damage) while suited. */
 	public static final double MELEE_BONUS = 8.0;
-	/** 60% of every hit is shrugged off. */
-	public static final float DAMAGE_REDUCTION = 0.60f;
+	/** v0.15.19: 20% of every hit is shrugged off (was 60%) -- on top of the diamond-level suit armour below. */
+	public static final float DAMAGE_REDUCTION = 0.20f;
+	/** v0.15.19: the suit counts as a full set of diamond armour while worn. */
+	public static final double SUIT_ARMOR = 20.0;
+	public static final double SUIT_ARMOR_TOUGHNESS = 8.0;
 	/** The Worldmind outlines every mob within this sphere, for the Nova alone. */
 	public static final double WORLDMIND_RANGE = 32.0;
 
@@ -71,9 +74,18 @@ public final class NovaConfig {
 
 	// ---------------------------------------------------------------- R: Nova Blast (held beam)
 
-	/** v0.15.15: 10 damage a hit, one hit every {@link #BLAST_HIT_INTERVAL} ticks (20 a second). */
-	public static final float BLAST_DAMAGE_PER_HIT = 10f;
-	public static final int BLAST_HIT_INTERVAL = 10;
+	/**
+	 * v0.15.19: the beam bites the moment it touches a creature, then every {@link #BLAST_HIT_INTERVAL} ticks for as
+	 * long as it stays on it (timed per target, so sweeping onto a new one hits it at once). 5 damage every 5 ticks =
+	 * the same 20 a second as before. Players keep their vanilla hurt cooldown, so they take
+	 * {@link #BLAST_PLAYER_DAMAGE_PER_HIT} every {@link #BLAST_PLAYER_HIT_INTERVAL} ticks instead -- also 20 a second.
+	 */
+	public static final float BLAST_DAMAGE_PER_HIT = 5f;
+	public static final int BLAST_HIT_INTERVAL = 5;
+	public static final float BLAST_PLAYER_DAMAGE_PER_HIT = 10f;
+	public static final int BLAST_PLAYER_HIT_INTERVAL = 10;
+	/** How far off the beam's centre line a creature can be and still be burned (blocks added to its hitbox). */
+	public static final double BLAST_HIT_RADIUS = 0.6;
 	/** No time limit: the beam fires while R is held until the Nova Force runs out. */
 	public static final float BLAST_COST_PER_SECOND = 6f;
 	public static final double BLAST_RANGE = 32.0;
