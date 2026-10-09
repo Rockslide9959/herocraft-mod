@@ -38,6 +38,10 @@ public final class FirearmClient {
 			if (holdingFirearmLast && attackWasDown) {
 				ClientPlayNetworking.send(new FirearmFirePayload(false));
 			}
+			// v0.15.18: lower the sights server side too (the aim slowdown + tight spread must not outlive a screen)
+			if (aiming && player != null) {
+				ClientPlayNetworking.send(new FirearmActionPayload(FirearmActionPayload.Action.AIM_STOP));
+			}
 			attackWasDown = false;
 			useWasDown = false;
 			aiming = false;

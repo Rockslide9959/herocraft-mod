@@ -1,5 +1,5 @@
 // v0.15.16: synthesises every Punisher firearm sound from scratch (no samples) -- gunshots per gun (3 variants each),
-// distant versions, shell casings, dry fire, magazine out / in, charging handle, pump, bolt, shell insert, impacts,
+// distant versions, dry fire, magazine out / in, charging handle, pump, bolt, shell insert, impacts,
 // ricochet, flesh hit -- as 44.1 kHz mono WAVs, then encodes them to OGG Vorbis with ffmpeg.
 //   node scratchpad/synth_gun_sounds.js "<path to ffmpeg.exe>"
 // Output: src/main/resources/assets/projecthero/sounds/gun/<name>.ogg   (WAVs go to scratchpad/gun_wav/)
@@ -162,21 +162,8 @@ for (const [g, p] of Object.entries(GUNS)) {
 	for (let v = 1; v <= 2; v++) OUT[`${g}_far${v}`] = distant(p, v);
 }
 
-// shell casings: a brass ping bouncing on the ground, three variants; shotgun hulls: a hollow plastic tock
-for (let v = 1; v <= 3; v++) {
-	seed = 9000 + v * 31;
-	const x = buf(0.45);
-	const f = 3000 + rnd() * 900;
-	[[0, 1], [0.085 + rnd() * 0.02, 0.55], [0.15 + rnd() * 0.03, 0.3], [0.2 + rnd() * 0.03, 0.15]].forEach(([d, g], k) =>
-		mix(x, ping(0.2, [f * (1 + k * 0.03), f * 1.53, f * 2.37], 0.05 - k * 0.008), d, g));
-	OUT[`casing${v}`] = master(x, 0.6);
-	const h = buf(0.35);
-	[[0, 1], [0.11, 0.45], [0.18, 0.2]].forEach(([d, g]) => {
-		mix(h, thump(0.08, 520 + rnd() * 80, 380, 0.012, 1.3), d, g);
-		mix(h, burst(0.06, 0.008, [['bp', 1800, 1]]), d, g * 0.4);
-	});
-	OUT[`hull${v}`] = master(h, 0.55);
-}
+// (v0.15.18: the brass-casing "tring" + shotgun-hull tock landing sounds were removed -- user: "remove that tring
+// sound effect when shooting". Every later section reseeds, so the other sounds come out unchanged.)
 
 seed = 42;
 OUT.dry = master(mix(click(1, 3600, 0.003), click(0.5, 2600, 0.004), 0.012), 0.7);

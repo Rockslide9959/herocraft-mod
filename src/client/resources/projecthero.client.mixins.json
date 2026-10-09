@@ -24,6 +24,8 @@
 		"FirearmAttackMixin",
 		"FogRendererMixin",
 		"GunFovMixin",
+		"GunAdsFovMixin",
+		"GunAdsBobMixin",
 		"GameRendererPickMixin",
 		"DirectionalFlightTravelMixin",
 		"DirectionalFlightMotionMixin",

@@ -4,14 +4,19 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.firearm.item.FirearmItem;
 import com.projecthero.mod.network.FirearmShotPayload;
 
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -25,6 +30,15 @@ import net.minecraft.world.item.ItemStack;
 public final class FirearmManager {
 	private static final Map<UUID, Boolean> TRIGGER_HELD = new ConcurrentHashMap<>();
 	private static final Map<UUID, Float> RECOIL = new ConcurrentHashMap<>();
+
+	/**
+	 * v0.15.18 (user: move 30% slower while aiming): a transient movement-speed modifier held while a gun is aimed down
+	 * its sights. Reconciled every tick in {@link #serverTick} against the synced {@link ModAttachments#FIREARM_AIMING}
+	 * flag + a held firearm, so it can never stick (being transient it is not saved on logout, and a respawned player
+	 * starts without it).
+	 */
+	public static final ResourceLocation ADS_SLOW_ID = ProjectHeroMod.id("firearm_ads_slow");
+	public static final double ADS_SLOW = -0.3;
 
 	private FirearmManager() {
 	}
@@ -93,6 +107,8 @@ public final class FirearmManager {
 
 	public static void serverTick(ServerPlayer player) {
 		ItemStack held = heldFirearm(player);
+		syncAdsSlow(player, held != null && player.isAlive() && !player.isSpectator()
+				&& player.getAttachedOrElse(ModAttachments.FIREARM_AIMING, false));
 		if (held == null) {
 			TRIGGER_HELD.remove(player.getUUID());
 			RECOIL.remove(player.getUUID());
@@ -127,6 +143,20 @@ public final class FirearmManager {
 		if (mag <= 0 && !triggerHeld && !FirearmStack.isReloading(held)
 				&& FirearmAmmo.reserveCount(player, data.ammo) > 0) {
 			FirearmReload.start(player, held, data);
+		}
+	}
+
+	/** Adds / removes the aim-down-sights slowdown so the speed attribute matches {@code aiming}. */
+	public static void syncAdsSlow(ServerPlayer player, boolean aiming) {
+		AttributeInstance speed = player.getAttribute(Attributes.MOVEMENT_SPEED);
+		if (speed == null) {
+			return;
+		}
+		boolean has = speed.hasModifier(ADS_SLOW_ID);
+		if (aiming && !has) {
+			speed.addTransientModifier(new AttributeModifier(ADS_SLOW_ID, ADS_SLOW, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+		} else if (!aiming && has) {
+			speed.removeModifier(ADS_SLOW_ID);
 		}
 	}
 

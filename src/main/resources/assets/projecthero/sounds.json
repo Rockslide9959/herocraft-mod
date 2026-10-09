@@ -2296,34 +2296,6 @@
       }
     ]
   },
-  "gun_casing": {
-    "subtitle": "message.projecthero.subtitle.gun_casing",
-    "sounds": [
-      {
-        "name": "projecthero:gun/casing1"
-      },
-      {
-        "name": "projecthero:gun/casing2"
-      },
-      {
-        "name": "projecthero:gun/casing3"
-      }
-    ]
-  },
-  "gun_hull": {
-    "subtitle": "message.projecthero.subtitle.gun_hull",
-    "sounds": [
-      {
-        "name": "projecthero:gun/hull1"
-      },
-      {
-        "name": "projecthero:gun/hull2"
-      },
-      {
-        "name": "projecthero:gun/hull3"
-      }
-    ]
-  },
   "gun_dry": {
     "subtitle": "message.projecthero.subtitle.gun_dry",
     "sounds": [

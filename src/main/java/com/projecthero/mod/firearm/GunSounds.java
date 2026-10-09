@@ -11,8 +11,9 @@ import net.minecraft.sounds.SoundEvent;
  * v0.15.16: the Punisher firearms' own sounds -- synthesised from scratch for the mod ({@code scratchpad/synth_gun_sounds.js}
  * writes the OGGs in {@code assets/projecthero/sounds/gun/}), replacing the old re-pitched crossbow twang. Each gun has
  * a close report (three variants) and a distant one (heard past {@link GunFx#FAR_FROM} blocks, muffled, echoing); plus
- * brass casings / shotgun hulls, the dry-fire click, magazine out / in, the pistol-and-rifle charging handle, the
- * shotgun pump, the sniper bolt, a shell going into the tube, and bullet impacts (dirt / stone, ricochet, flesh).
+ * the dry-fire click, magazine out / in, the pistol-and-rifle charging handle, the shotgun pump, the sniper bolt, a
+ * shell going into the tube, and bullet impacts (dirt / stone, ricochet, flesh). (The brass-casing / shotgun-hull
+ * landing clinks were removed in v0.15.18 -- user: "remove that tring sound effect when shooting".)
  */
 public final class GunSounds {
 	public static final SoundEvent PISTOL_FIRE = register("gun_pistol_fire");
@@ -23,8 +24,6 @@ public final class GunSounds {
 	public static final SoundEvent RIFLE_FAR = register("gun_rifle_far");
 	public static final SoundEvent SHOTGUN_FAR = register("gun_shotgun_far");
 	public static final SoundEvent SNIPER_FAR = register("gun_sniper_far");
-	public static final SoundEvent CASING = register("gun_casing");
-	public static final SoundEvent HULL = register("gun_hull");
 	public static final SoundEvent DRY = register("gun_dry");
 	public static final SoundEvent MAG_OUT = register("gun_mag_out");
 	public static final SoundEvent MAG_IN = register("gun_mag_in");

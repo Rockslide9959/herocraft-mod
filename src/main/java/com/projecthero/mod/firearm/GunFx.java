@@ -38,8 +38,8 @@ import org.joml.Vector3f;
  *   <li><b>the report</b>: the gun's own synthesised shot ({@link GunSounds}), heard loud out to ~48 blocks, and a
  *       muffled, echoing distant version sent to everyone between {@link #FAR_FROM} and {@link #FAR_TO} blocks;</li>
  *   <li><b>the muzzle</b>: a smoke puff + sparks (bigger for the shotgun and sniper), and a brass casing (a red shotgun
- *       hull, after the pump) spat out to the right; its clink lands a moment later, as do the shotgun's pump and the
- *       sniper's bolt;</li>
+ *       hull, after the pump) spat out to the right (silently since v0.15.18 -- the landing clink was removed); the
+ *       shotgun's pump and the sniper's bolt follow a moment later;</li>
  *   <li><b>tracers</b>: one {@link GunTracerPayload} per bullet / pellet, so nearby clients draw a streak and an impact
  *       flash ({@code client.firearm.GunTracers});</li>
  *   <li><b>impacts</b>: block chips + dust + sparks and a thud on blocks (sometimes a ricochet whine off stone / metal),
@@ -52,7 +52,9 @@ public final class GunFx {
 
 	private static final DustParticleOptions BLOOD = new DustParticleOptions(new Vector3f(0.55f, 0.02f, 0.02f), 1.1f);
 
-	private record Pending(ServerLevel level, UUID shooter, SoundEvent sound, float volume, float pitch, long at, boolean particle) {
+	/** A delayed beat after a shot: a sound (the pump / bolt) or, with {@code sound == null}, just the ejected casing. */
+	private record Pending(ServerLevel level, UUID shooter, SoundEvent sound, float volume, float pitch, long at, boolean particle,
+			boolean hull) {
 	}
 
 	private static final List<Pending> PENDING = new ArrayList<>();
@@ -108,13 +110,13 @@ public final class GunFx {
 		Vec3 right = look.cross(new Vec3(0, 1, 0));
 		right = right.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : right.normalize();
 		long now = level.getGameTime();
+		// v0.15.18 (user: "remove that tring sound effect when shooting"): the casing / hull still flies out, but its
+		// brass "tring" (and the shotgun hull's tock) landing a moment later is gone -- those sounds were removed outright
 		if (kind <= 1) {
 			eject(level, muzzle.subtract(look.scale(0.45)), right, false);
-			schedule(level, player, GunSounds.CASING, 0.35f, 0.9f + level.random.nextFloat() * 0.25f, now + 9, false);
 		} else {
-			schedule(level, player, kind == 2 ? GunSounds.PUMP : GunSounds.BOLT, 0.7f, 1.0f, now + (kind == 2 ? 7 : 10), false);
-			schedule(level, player, kind == 2 ? GunSounds.HULL : GunSounds.CASING, 0.35f, 0.9f + level.random.nextFloat() * 0.2f,
-					now + (kind == 2 ? 17 : 22), true);
+			schedule(level, player, kind == 2 ? GunSounds.PUMP : GunSounds.BOLT, 0.7f, 1.0f, now + (kind == 2 ? 7 : 10), false, false);
+			schedule(level, player, null, 0f, 1f, now + (kind == 2 ? 17 : 22), true, kind == 2);
 		}
 	}
 
@@ -125,8 +127,9 @@ public final class GunFx {
 		level.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, shell), at.x, at.y, at.z, 0, v.x, v.y, v.z, 1.0);
 	}
 
-	private static void schedule(ServerLevel level, ServerPlayer shooter, SoundEvent sound, float vol, float pitch, long at, boolean particle) {
-		PENDING.add(new Pending(level, shooter.getUUID(), sound, vol, pitch, at, particle));
+	private static void schedule(ServerLevel level, ServerPlayer shooter, SoundEvent sound, float vol, float pitch, long at, boolean particle,
+			boolean hull) {
+		PENDING.add(new Pending(level, shooter.getUUID(), sound, vol, pitch, at, particle, hull));
 	}
 
 	private static void tick() {
@@ -143,13 +146,15 @@ public final class GunFx {
 			if (!(p.level.getPlayerByUUID(p.shooter) instanceof ServerPlayer s)) {
 				continue;
 			}
-			p.level.playSound(null, s.getX(), s.getY(), s.getZ(), p.sound, SoundSource.PLAYERS, p.volume, p.pitch);
+			if (p.sound != null) {
+				p.level.playSound(null, s.getX(), s.getY(), s.getZ(), p.sound, SoundSource.PLAYERS, p.volume, p.pitch);
+			}
 			if (p.particle) {
 				Vec3 look = s.getLookAngle();
 				Vec3 right = look.cross(new Vec3(0, 1, 0));
 				right = right.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : right.normalize();
 				Vec3 at = s.getEyePosition().add(look.scale(0.4)).add(right.scale(0.25)).subtract(0, 0.4, 0);
-				eject(p.level, at, right, p.sound == GunSounds.HULL);
+				eject(p.level, at, right, p.hull);
 			}
 		}
 	}

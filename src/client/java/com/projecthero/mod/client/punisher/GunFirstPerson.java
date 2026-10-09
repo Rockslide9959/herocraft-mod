@@ -118,10 +118,11 @@ public final class GunFirstPerson {
 		Matrix4f baseInv = new Matrix4f(pose.last().pose()).invert();
 		pose.pushPose();
 		pose.translate(0f, equipProgress * -0.6f, 0f);
-		// walking sway (on top of vanilla's view bob), damped when aiming
+		// walking sway (on top of vanilla's view bob) at the hip; v0.15.18: none at all with the sights up (and
+		// GunAdsBobMixin fades vanilla's hand bob out too) -- the gun holds steady on the crosshair while walking
 		float walk = Mth.lerp(partialTick, player.walkDistO, player.walkDist);
 		float speed = Math.min(1f, (float) player.getDeltaMovement().horizontalDistance() * 5f);
-		float sway = (1f - ads * 0.85f) * speed;
+		float sway = (1f - ads) * speed;
 		pose.translate(Mth.sin(walk * (float) Math.PI) * 0.012f * sway, -Math.abs(Mth.cos(walk * (float) Math.PI)) * 0.01f * sway, 0f);
 		// idle breathing
 		pose.translate(0f, Mth.sin(time * 0.07f) * 0.004f * (1f - ads * 0.7f), 0f);

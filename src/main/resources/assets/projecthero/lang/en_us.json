@@ -1419,8 +1419,6 @@
   "message.projecthero.subtitle.gun_rifle_far": "Distant gunfire",
   "message.projecthero.subtitle.gun_shotgun_far": "Distant shotgun blast",
   "message.projecthero.subtitle.gun_sniper_far": "Distant rifle shot",
-  "message.projecthero.subtitle.gun_casing": "Shell casing clinks",
-  "message.projecthero.subtitle.gun_hull": "Shotgun shell drops",
   "message.projecthero.subtitle.gun_dry": "Gun clicks empty",
   "message.projecthero.subtitle.gun_mag_out": "Magazine drops out",
   "message.projecthero.subtitle.gun_mag_in": "Magazine slots in",
