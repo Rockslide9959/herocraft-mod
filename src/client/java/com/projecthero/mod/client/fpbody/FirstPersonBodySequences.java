@@ -117,6 +117,11 @@ public final class FirstPersonBodySequences {
 			return now < s.transformUntil && s.transformUntil - now <= 40L
 					&& (s.animId == AllMightState.ANIM_TRANSFORM_UP || s.animId == AllMightState.ANIM_TRANSFORM_DOWN);
 		});
+
+		// v0.15.18 (not a suit-up): the Punisher's Breach Kick -- the real body is drawn so the kicking leg (armour and
+		// all) comes up into the view (PunisherKickCameraMixin dips the view to meet it); the gun rig makes way for the real arms
+		FirstPersonBody.register(p -> com.projecthero.mod.client.punisher.GunAnim.meleeKind(p) == com.projecthero.mod.punisher.ability.PunisherMelee.ANIM_KICK
+				&& com.projecthero.mod.client.punisher.GunAnim.melee(p, 0f) >= 0f);
 	}
 
 	/**

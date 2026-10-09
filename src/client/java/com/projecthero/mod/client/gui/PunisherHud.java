@@ -23,9 +23,10 @@ import net.minecraft.network.chat.Component;
  * <pre>
  *   (Alt held: each key's move, and its Shift move under it, left of the row)
  *   WARZONE  ▬▬▬▬▬▬▬▬▬▬▬▬               while Shift+Z is held: the 5 s call filling up
- *    R   G   Z   X   C   V
- *   [ ] [ ] [ ] [ ] [ ] [ ]                 the plain move's cooldown shades the box; a thin red bar along each
- *                                           box's bottom is its Shift move's cooldown (bright once ready)
+ *   [R ] [G ] [Z ] [X ] [C ] [V ]           each box carries its key letter in its top-left corner (the key actually
+ *                                           bound, like every other hero HUD); the plain move's cooldown shades the
+ *                                           box with the seconds bottom-right; a thin red bar along each box's bottom
+ *                                           is its Shift move's cooldown (bright once ready)
  *   MARKED 23s                              while a Target Designation mark is live
  *   (training objectives, if any)
  * </pre>
@@ -104,7 +105,7 @@ public final class PunisherHud {
 			g.renderOutline(x, y0, BOX, BOX, COLOR_BORDER);
 			if (slot == AbilitySlot.SLOT_5) {
 				drawWeaponAbility(g, mc, x, y0); // v0.15.18: V = Weapon Ability (per held gun)
-				g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 2, y0 - 9, COLOR_KEY, true);
+				drawKey(g, mc, slot, x, y0);
 				continue;
 			}
 			String plain = PunisherAbilityManager.abilityIdOf(slot);
@@ -113,7 +114,7 @@ public final class PunisherHud {
 			if (cd > 0 && max > 0) {
 				int h = (int) ((BOX - 2) * Math.min(1f, cd / (float) max));
 				g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, COLOR_COOLDOWN);
-				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + 5, 0xFFFFFFFF);
+				drawSeconds(g, mc, cd, x, y0);
 			}
 			// the Shift move's own cooldown: a thin bar along the bottom that refills, bright once ready
 			String shift = PunisherAbilityManager.shiftAbilityIdOf(slot);
@@ -125,7 +126,7 @@ public final class PunisherHud {
 				g.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * ready), y0 + BOX - 1,
 						ready >= 1f ? SHIFT_BAR_READY : SHIFT_BAR_COOLING);
 			}
-			g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 2, y0 - 9, COLOR_KEY, true);
+			drawKey(g, mc, slot, x, y0);
 		}
 
 		if (expanded) {
@@ -159,9 +160,9 @@ public final class PunisherHud {
 			return;
 		}
 		if (tap[0] > 0 && tap[1] > 0) {
-			int h = (int) (BOX * Math.min(1f, tap[0] / (float) tap[1]));
-			g.fill(x, y + BOX - h, x + BOX, y + BOX, COLOR_COOLDOWN);
-			g.drawString(mc.font, String.valueOf((tap[0] + 19) / 20), x + 5, y + 6, 0xFFFFFFFF, true);
+			int h = (int) ((BOX - 2) * Math.min(1f, tap[0] / (float) tap[1]));
+			g.fill(x + 1, y + BOX - 1 - h, x + BOX - 1, y + BOX - 1, COLOR_COOLDOWN);
+			drawSeconds(g, mc, tap[0], x, y);
 		}
 		float ready = alt[1] <= 0 ? 1f : 1f - Math.min(1f, alt[0] / (float) alt[1]);
 		g.fill(x + 1, y + BOX - 3, x + BOX - 1, y + BOX - 1, 0xC0301008);
@@ -169,11 +170,32 @@ public final class PunisherHud {
 				ready >= 1f ? 0xFFFF6A3D : 0xFF8A3A1E);
 	}
 
+	/**
+	 * The box's key letter, top-left inside the box (playtest v0.15.18: it used to sit above the box, where it read as
+	 * part of whatever was drawn over the row -- every other hero HUD puts it in the box). Drawn last, so a cooldown
+	 * shade never covers it.
+	 */
+	private static void drawKey(GuiGraphics g, Minecraft mc, AbilitySlot slot, int x, int y) {
+		g.drawString(mc.font, keyLabel(slot), x + 2, y + 2, COLOR_KEY, true);
+	}
+
+	/** A running cooldown's seconds, bottom-right inside the box, clear of the key letter. */
+	private static void drawSeconds(GuiGraphics g, Minecraft mc, int ticks, int x, int y) {
+		String secs = String.valueOf((ticks + 19) / 20);
+		g.drawString(mc.font, secs, x + BOX - 2 - mc.font.width(secs), y + BOX - 12, 0xFFFFFFFF, true);
+	}
+
+	/** The key actually bound to {@code slot} (tracks rebinds), at most two characters, upper case. */
+	private static String keyLabel(AbilitySlot slot) {
+		String k = ModKeyBindings.ABILITY_SLOTS[slot.index()].getTranslatedKeyMessage().getString().toUpperCase(java.util.Locale.ROOT);
+		return k.length() > 2 ? k.substring(0, 2) : k;
+	}
+
 	/** Alt held: "R  Target Designation" with "Shift  Threat Assessment" under it, per key, right-aligned left of the row. */
 	private static void renderNames(GuiGraphics g, Minecraft mc, int x0, int bottom) {
 		int y = bottom - 10;
 		for (int i = NAMES.length - 1; i >= 0; i--) {
-			String key = String.valueOf(ORDER[i].defaultKey());
+			String key = keyLabel(ORDER[i]);
 			if (!NAMES[i][1].isEmpty()) {
 				Component sh = Component.translatable("hud.projecthero.punisher.shift_key",
 						key, Component.translatable("hud.projecthero.punisher.name." + NAMES[i][1]));

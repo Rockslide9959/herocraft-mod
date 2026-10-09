@@ -216,25 +216,42 @@ public class PunisherWeaponAbilityV01518GameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/**
+	 * Playtest v0.15.18: the sniper's Shift+V is a Steady Shot -- no lock-on, no auto-aim. The player re-aims during the
+	 * 3 s wait (from one villager to another, off to the side) and the round goes where they now look, a body hit paid
+	 * as a doubled headshot; the first villager is never touched.
+	 */
 	@GameTest(template = EMPTY_STRUCTURE, batch = BATCH, timeoutTicks = 200)
-	public void sniperShiftVLocksScopesAndFiresDoubleHeadshot(GameTestHelper helper) {
+	public void sniperShiftVSteadyShotFiresWhereThePlayerAims(GameTestHelper helper) {
 		ItemStack gun = new ItemStack(FirearmItems.PUNISHER_SNIPER);
 		ServerPlayer p = punisher(helper, gun);
 		FirearmData d = Firearms.get(Firearms.SNIPER);
-		Villager v = dummy(helper, 7.5, 0.0);
-		aimAtBody(p, v);
+		Villager first = dummy(helper, 7.5, 0.0);
+		Villager second = helper.spawn(EntityType.VILLAGER, new Vec3(5.5, 1.0, 7.5));
+		second.setNoAi(true);
+		second.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000.0);
+		second.setHealth(1000f);
+		aimAtBody(p, first);
 
 		p.setShiftKeyDown(true);
 		PunisherWeaponAbilities.handle(p, true);
-		helper.assertTrue(PunisherWeaponAbilities.lockedOn(p), "Shift+V locks on");
+		helper.assertTrue(PunisherWeaponAbilities.steadying(p), "Shift+V lines up a Steady Shot");
+		helper.assertFalse(PunisherWeaponAbilities.lockedOn(p), "with no lock-on");
 		helper.assertTrue(p.getAttachedOrElse(ModAttachments.FIREARM_AIMING, false), "and raises the scope");
-		helper.assertTrue(v.getHealth() == 1000f, "nothing fired yet");
+		helper.assertFalse(Punisher.abilityReady(p, PunisherWeaponAbilities.cooldownId(Firearms.SNIPER, true)),
+				"the 30 s cooldown starts");
+		helper.assertTrue(first.getHealth() == 1000f, "nothing fired yet");
+		aimAtBody(p, second); // the player re-aims themselves
+		float yaw = p.getYRot();
+		float pitch = p.getXRot();
 		helper.onEachTick(() -> PunisherWeaponAbilities.tick(p));
-		float expected = d.headDamage * PunisherWeaponAbilities.SNIPER_LOCK_FACTOR;
+		float expected = d.headDamage * PunisherWeaponAbilities.SNIPER_STEADY_FACTOR;
 		helper.succeedWhen(() -> {
-			helper.assertFalse(PunisherWeaponAbilities.lockedOn(p), "the lock fires once and ends");
-			float dealt = 1000f - v.getHealth();
-			helper.assertTrue(near(dealt, expected), "double headshot damage, expected " + expected + " got " + dealt);
+			helper.assertFalse(PunisherWeaponAbilities.steadying(p), "the shot fires once and ends");
+			float dealt = 1000f - second.getHealth();
+			helper.assertTrue(near(dealt, expected), "double headshot damage on a body hit, expected " + expected + " got " + dealt);
+			helper.assertTrue(first.getHealth() == 1000f, "the first target was never auto-aimed at");
+			helper.assertTrue(p.getYRot() == yaw && p.getXRot() == pitch, "the server never turned the player");
 			helper.assertFalse(p.getAttachedOrElse(ModAttachments.FIREARM_AIMING, false), "scope lowered again");
 		});
 	}
@@ -250,17 +267,18 @@ public class PunisherWeaponAbilityV01518GameTests implements FabricGameTest {
 		helper.assertTrue(PunisherWeaponAbilities.pistolCharges(p) == 0, "swapping away cancels the charged shots");
 		p.getInventory().selected = 0;
 
-		// the sniper lock, cancelled by a different gun in the same slot
+		// the sniper's Steady Shot, cancelled by a different gun in the same slot
 		ItemStack sniper = new ItemStack(FirearmItems.PUNISHER_SNIPER);
 		p.setItemInHand(InteractionHand.MAIN_HAND, sniper);
 		Villager v = dummy(helper, 7.5, 0.0);
 		aimAtBody(p, v);
 		p.setShiftKeyDown(true);
 		PunisherWeaponAbilities.handle(p, true);
-		helper.assertTrue(PunisherWeaponAbilities.lockedOn(p), "locked on");
+		helper.assertTrue(PunisherWeaponAbilities.steadying(p), "steadying");
 		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(FirearmItems.PUNISHER_PISTOL));
 		PunisherWeaponAbilities.tick(p);
-		helper.assertFalse(PunisherWeaponAbilities.lockedOn(p), "a different gun cancels the lock");
+		helper.assertFalse(PunisherWeaponAbilities.steadying(p), "a different gun cancels the Steady Shot");
+		helper.assertFalse(p.getAttachedOrElse(ModAttachments.FIREARM_AIMING, false), "and drops the forced scope");
 		helper.assertTrue(v.getHealth() == 1000f, "and the shot never fires");
 
 		// nothing (or not a gun) in hand: refused, no cooldown spent

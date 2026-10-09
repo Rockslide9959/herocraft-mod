@@ -412,6 +412,16 @@ public final class ModAttachments {
 			ProjectHeroMod.id("punisher_stab_at"),
 			builder -> builder.initializer(() -> 0L).syncWith(ByteBufCodecs.VAR_LONG, AttachmentSyncPredicate.all()));
 
+	/**
+	 * v0.15.18 playtest: the Punisher's last close-quarters move for the client animation -- {@code startTick * 4 + kind}
+	 * (kind {@link com.projecthero.mod.punisher.ability.PunisherMelee#ANIM_PUNCH} Brutal Strike /
+	 * {@link com.projecthero.mod.punisher.ability.PunisherMelee#ANIM_KICK} Breach Kick), 0 = none. Synced to everyone so
+	 * every viewer plays the punch / kick from the same tick; not persisted (a stale value just reads as finished).
+	 */
+	public static final AttachmentType<Long> PUNISHER_MELEE_ANIM = AttachmentRegistry.create(
+			ProjectHeroMod.id("punisher_melee_anim"),
+			builder -> builder.initializer(() -> 0L).syncWith(ByteBufCodecs.VAR_LONG, AttachmentSyncPredicate.all()));
+
 	public static final AttachmentType<com.projecthero.mod.punisher.data.PunisherState> PUNISHER_STATE =
 			AttachmentRegistry.create(ProjectHeroMod.id("punisher_state"),
 					builder -> builder.persistent(com.projecthero.mod.punisher.data.PunisherState.CODEC)

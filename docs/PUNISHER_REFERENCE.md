@@ -39,6 +39,19 @@ cooldown id in `PunisherState.abilityReadyAt`. Routing in `PunisherAbilityManage
   flag; the red dust marker over the mark is sent with `sendParticles(owner, ...)` only.
 - **Warzone missiles** are simulated server-side (no entity, nothing saved); trail / ring / blast particles are
   force-sent to every player within 192 blocks so a far-off barrage is visible.
+- **Punch / kick animations** (playtest fix): `PunisherMelee.animate` stamps the synced, non-persistent
+  `ModAttachments.PUNISHER_MELEE_ANIM` (`startTick * 4 + kind`, kind 1 punch / 2 kick) on every press, hit or whiff;
+  every client reads it through `GunAnim.melee` / `meleeKind`. Third person (`PunisherGunPose.punchPose` / `kickPose`
+  + `meleeLean` in `PlayerRendererMixin`): Brutal Strike = 8-tick right jab (wind-up, fist out at tick 2, shoulders
+  twisted into it like vanilla's attack swing, lead foot forward, off hand up in a guard, lean in); Breach Kick =
+  11-tick high front kick (chamber, leg out at tick 3, arms out for balance, lean back). First person: the gun rig
+  (`GunFirstPerson`) jabs forward with the support hand off in a guard; bare-handed / other items the arm jabs
+  (`ItemInHandRendererGunMixin.projecthero$punisherJab`); the kick switches on the full first-person body
+  (`FirstPersonBodySequences`) and `PunisherKickCameraMixin` dips the rendered view ~55 degrees for the kick (never
+  the player's look / aim) so the real boot comes up into the screen. The damage is still instant on
+  the press -- the short wind-ups put the impact frame about where the hit lands on the clients.
+- **HUD** key letters sit inside each box's top-left corner and follow the actual key bindings (they were drawn above
+  the boxes from `AbilitySlot.defaultKey()`); a cooldown's seconds sit bottom-right.
 - With a gun in hand, **tap R reloads** and holding R (8 ticks) sends R -- so R / Shift+R need a short hold there.
 - Suited as **Agent Venom**, Sneak+X / Z / V are the Symbiote extras: they shadow Tactical Advance and Warzone.
 - **Removed**: Suppressive Fire, Adrenaline, Explosive Charge. `C4ChargeEntity` / `projecthero:c4_charge` stays
@@ -181,7 +194,7 @@ Suppressor** strips it like any other power.
 
 V depends on the gun in the main hand; **Shift+V** (sneak held at the press) is a second move with its own
 cooldown. Not holding a gun → "Hold a gun". Anything still running (pistol charges, Rapid Fire, a chambered
-piercing round, a lock-on) **cancels the moment that gun is put away** — another hotbar slot or another item in
+piercing round, a lock-on, a Steady Shot) **cancels the moment that gun is put away** — another hotbar slot or another item in
 the slot. Transient (static map, `ServerStateReset` + disconnect cleanup); cooldowns live in
 `PunisherState.abilityReadyAt` as `weapon_<gun>` / `weapon_<gun>_shift`.
 
@@ -190,7 +203,7 @@ the slot. Transient (static map, `ServerStateReset` + disconnect cleanup); coold
 | Pistol | Next 3 shots ×2 damage. 12 s cd. | One instant shot (ignores the fire-rate gate): 18 damage + Slowness II 4 s. 20 s cd. |
 | Shotgun | Needs ≥3 shells loaded; spends 3 on one blast, 15 dmg/pellet (6 pellets), 5-block range. 12 s cd. | Same 3 shells, 12 pellets fanned evenly over a 90° arc, 10 dmg/pellet, 5 blocks. 20 s cd. *(user gave no numbers — chosen)* |
 | Assault Rifle | 15 s: fire interval ×0.5 (double rate) and reload time ×0.5. 20 s cd. | Lock onto the target under / nearest (10° cone) the crosshair, ≤40 blocks, line of sight; auto-fires the magazine at its upper body (spread ×0.25) at the gun's own rate; reload blocked until the magazine is empty or the target dies / is lost / leaves LOS. 25 s cd *(chosen)*. |
-| Sniper | Next shot pierces every living thing on its line and ignores 40% of each target's armour value. 12 s cd. | Lock on (≤120 blocks), scope raised; 3 s later one shot paid as a headshot ×2 (80) wherever it lands (also pierces if a V round was chambered). Cancels if the target is lost or the gun swapped. 30 s cd. |
+| Sniper | Next shot pierces every living thing on its line and ignores 40% of each target's armour value. 12 s cd. **Steady Shot** (playtest fix: no auto-aim, no lock-on, the camera stays the player's): scope raised if it was not up (`PunisherLockOnPayload.SCOPE_ONLY`); 3 s (`SNIPER_STEADY_TICKS`) later one zero-spread shot along the player's own look, paid as a headshot ×2 (80) wherever it lands (also pierces if a V round was chambered). Needs a round loaded and no reload running; reload blocked while steadying. Cancels if the gun is swapped. 30 s cd. |
 
 Plumbing — every shot is a real `FirearmShooting.fire` (ammo, sounds, flash, tracers, recoil, headshots, hooks):
 - `firearm/ShotSpec` — per-pull override: aim direction, spread factor, 90° fan, pellets, ammo cost, range,
@@ -200,10 +213,10 @@ Plumbing — every shot is a real `FirearmShooting.fire` (ammo, sounds, flash, t
   `FirearmHooks.reloadBlocked` (checked in `FirearmReload.start`). `PunisherWeaponAbilities.initialize()` wraps
   the installed hooks (call it after `Punisher.initialize()`) and folds Rapid Fire into `fireIntervalFactor` /
   `reloadSpeedFactor`. A new `FirearmHooks` method must also be delegated in that wrapper.
-- Lock-on camera: `PunisherLockOnPayload(entityId, scope)` → `client/punisher/PunisherLockOnClient`;
-  `PunisherLockOnMouseMixin` drops mouse look while locked and turns the view onto the target every frame. The
-  sniper lock forces the scope via `FirearmClient.forceAim` (server sets `FIREARM_AIMING`). The server aims every
-  shot itself; the camera is presentation only.
+- Lock-on camera (Assault Rifle only): `PunisherLockOnPayload(entityId, scope)` → `client/punisher/PunisherLockOnClient`;
+  `PunisherLockOnMouseMixin` drops mouse look while locked and turns the view onto the target every frame. The server
+  aims every rifle-lock shot itself; the camera is presentation only. The sniper's Steady Shot sends
+  `entityId = SCOPE_ONLY (-2)`: no lock, only `FirearmClient.forceAim` (server sets `FIREARM_AIMING`); -1 lowers it.
 - HUD: the V box shows the held gun's V cooldown, with a thin bar along its bottom for the Shift+V cooldown.
 - Tests: `PunisherWeaponAbilityV01518GameTests` (batch `punisher_weapon_v01518`).
 

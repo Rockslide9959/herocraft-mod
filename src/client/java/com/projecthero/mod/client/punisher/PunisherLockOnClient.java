@@ -14,10 +14,11 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.15.18: the client half of the Punisher's Shift+V lock-on (rifle / sniper Weapon Ability). While the server has
- * us locked onto an entity, mouse look is ignored ({@code PunisherLockOnMouseMixin}) and the camera turns smoothly onto
- * the target's upper body every frame instead; the sniper's lock also raises the scope. The server decides every shot's
- * direction itself -- this is only so the player sees what the gun is doing.
+ * v0.15.18: the client half of the Punisher's Shift+V lock-on (the Assault Rifle's Weapon Ability). While the server
+ * has us locked onto an entity, mouse look is ignored ({@code PunisherLockOnMouseMixin}) and the camera turns smoothly
+ * onto the target's upper body every frame instead. The server decides every shot's direction itself -- this is only
+ * so the player sees what the gun is doing. The sniper's Steady Shot sends {@link PunisherLockOnPayload#SCOPE_ONLY}:
+ * the scope goes up but the camera stays the player's.
  */
 public final class PunisherLockOnClient {
 	/** How quickly the view closes on the target (per second, exponential). */
@@ -40,6 +41,14 @@ public final class PunisherLockOnClient {
 	}
 
 	private static void accept(PunisherLockOnPayload payload) {
+		if (payload.entityId() == PunisherLockOnPayload.SCOPE_ONLY) {
+			targetId = -1; // never a camera lock
+			if (payload.scope() != scoped) {
+				scoped = payload.scope();
+				FirearmClient.forceAim(scoped);
+			}
+			return;
+		}
 		if (payload.entityId() < 0) {
 			release();
 			return;

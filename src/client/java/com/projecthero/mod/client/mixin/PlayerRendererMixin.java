@@ -75,6 +75,16 @@ public abstract class PlayerRendererMixin {
 		poseStack.translate(0.0f, -0.75f, 0.0f);
 	}
 
+	/** v0.15.18: the Punisher's Brutal Strike leans the body into the punch, the Breach Kick back away from the kick. */
+	@Inject(method = "setupRotations(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;FFFF)V", at = @At("TAIL"))
+	private void projecthero$punisherMeleeLean(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks,
+			float rotationYaw, float partialTicks, float scale, CallbackInfo ci) {
+		float lean = com.projecthero.mod.client.punisher.PunisherGunPose.meleeLean(player, partialTicks);
+		if (lean != 0.0f) {
+			poseStack.mulPose(Axis.XP.rotationDegrees(lean)); // about the feet; + = back
+		}
+	}
+
 	/** v0.14.11: the speed-force whirl of a Flash Ring suit-up (two turns) / suit-down (one turn back). */
 	@Inject(method = "setupRotations(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;FFFF)V", at = @At("TAIL"))
 	private void projecthero$flashWhirl(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks,

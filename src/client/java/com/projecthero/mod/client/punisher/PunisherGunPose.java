@@ -52,7 +52,8 @@ public final class PunisherGunPose {
 		Kind kind = GunAnim.kind(player);
 		float stab = GunAnim.stab(player, pt);
 		float roll = GunAnim.rolling(player, pt);
-		if (kind == null && stab < 0f && roll < 0f) {
+		float melee = GunAnim.melee(player, pt);
+		if (kind == null && stab < 0f && roll < 0f && melee < 0f) {
 			ITEM.remove(player.getId());
 			return;
 		}
@@ -160,6 +161,13 @@ public final class PunisherGunPose {
 
 		if (stab >= 0f) {
 			stabPose(m, off, s, stab, item);
+		}
+		if (melee >= 0f) {
+			float[] b = GunAnim.meleeKind(player) == com.projecthero.mod.punisher.ability.PunisherMelee.ANIM_KICK
+					? kickPose(m, main, off, right, s, melee) : punchPose(m, main, off, right, s, melee);
+			barrelPitch = Mth.lerp(b[0], barrelPitch, b[1]);
+			barrelYaw = rotLerp(b[0], barrelYaw, bodyYaw + b[2]);
+			item[6] = Mth.lerp(b[0], item[6], b[3]); // arm up level: the gun sits lower on the fist, as when aimed
 		}
 		item[0] = barrelPitch;
 		item[5] = barrelYaw;
@@ -327,6 +335,80 @@ public final class PunisherGunPose {
 		if (t < hit + 5f) {
 			item[3] = 1f;
 		}
+	}
+
+	/**
+	 * v0.15.18 Brutal Strike: a right-hand jab from wherever the arms were -- a short wind-up (shoulder back), the fist
+	 * driven straight out at {@code PunisherMelee.PUNCH_IMPACT_TICK} with the shoulders turning into it and the lead foot
+	 * forward, the other hand up in a guard, then back. Twisting the body moves the shoulder pivots the way vanilla's own
+	 * attack swing does. Returns {weight, barrel pitch (rad), barrel yaw relative to the body (deg), grip lift factor}.
+	 */
+	private static float[] punchPose(HumanoidModel<?> m, ModelPart main, ModelPart off, boolean right, float s, float t) {
+		float w = GunAnim.seg(t, 0f, 1.2f) * (1f - GunAnim.seg(t, 4.5f, 8f));
+		float twist = GunAnim.keys(t, 0f, 0f, 1.2f, 0.3f, 2.2f, -0.5f, 4f, -0.45f, 8f, 0f) * s;
+		float armX = GunAnim.keys(t, 0f, -0.5f, 1.2f, -0.45f, 2.2f, -1.66f, 4f, -1.6f, 8f, -0.6f);
+		float armY = GunAnim.keys(t, 0f, 0f, 1.2f, 0.12f, 2.2f, -0.08f, 8f, 0f) * s;
+		m.body.yRot = twist;
+		main.xRot = Mth.lerp(w, main.xRot, armX);
+		main.yRot = Mth.lerp(w, main.yRot, armY + twist);
+		main.zRot = Mth.lerp(w, main.zRot, 0f);
+		off.xRot = Mth.lerp(w, off.xRot, -1.35f);
+		off.yRot = Mth.lerp(w, off.yRot, 0.6f * s + twist);
+		off.zRot = Mth.lerp(w, off.zRot, 0f);
+		shoulders(m, right, twist);
+		ModelPart lead = right ? m.leftLeg : m.rightLeg;
+		ModelPart rear = right ? m.rightLeg : m.leftLeg;
+		lead.xRot = Mth.lerp(w, lead.xRot, -0.3f);
+		rear.xRot = Mth.lerp(w, rear.xRot, 0.32f);
+		return new float[] { w, 0.1f, (armY + twist) * Mth.RAD_TO_DEG, -0.8f };
+	}
+
+	/**
+	 * v0.15.18 Breach Kick: a high front kick -- the leg chambers, snaps out forward and up at
+	 * {@code PunisherMelee.KICK_IMPACT_TICK}, holds, and comes down; the arms swing out for balance and the body leans back
+	 * ({@link #meleeLean}). Returns {weight, barrel pitch (rad), barrel yaw relative to the body (deg), grip lift factor}.
+	 */
+	private static float[] kickPose(HumanoidModel<?> m, ModelPart main, ModelPart off, boolean right, float s, float t) {
+		float w = GunAnim.seg(t, 0f, 1.5f) * (1f - GunAnim.seg(t, 7f, 11f));
+		ModelPart kick = right ? m.rightLeg : m.leftLeg;
+		ModelPart stand = right ? m.leftLeg : m.rightLeg;
+		float legX = GunAnim.keys(t, 0f, 0f, 2f, -1.25f, 3f, -2.05f, 5.5f, -1.95f, 8.5f, -0.6f, 11f, 0f);
+		kick.xRot = Mth.lerp(GunAnim.seg(t, 0f, 0.6f) * (1f - GunAnim.seg(t, 10f, 11f)), kick.xRot, legX);
+		kick.yRot = 0f;
+		kick.zRot = Mth.lerp(w, kick.zRot, 0.06f * s);
+		stand.xRot = Mth.lerp(w, stand.xRot, 0.18f);
+		stand.yRot = Mth.lerp(w, stand.yRot, 0f);
+		main.xRot = Mth.lerp(w, main.xRot, -0.3f);
+		main.yRot = Mth.lerp(w, main.yRot, 0f);
+		main.zRot = Mth.lerp(w, main.zRot, 1.4f * s);
+		off.xRot = Mth.lerp(w, off.xRot, -0.45f);
+		off.yRot = Mth.lerp(w, off.yRot, 0f);
+		off.zRot = Mth.lerp(w, off.zRot, -1.3f * s);
+		m.head.xRot = Mth.lerp(w * 0.5f, m.head.xRot, 0.15f);
+		return new float[] { w, 0.9f, 55f * s, 1f };
+	}
+
+	/** Swing the shoulder pivots round with a body twist, as {@code HumanoidModel#setupAttackAnimation} does. */
+	private static void shoulders(HumanoidModel<?> m, boolean right, float twist) {
+		m.rightArm.z = Mth.sin(twist) * 5f;
+		m.rightArm.x = -Mth.cos(twist) * 5f;
+		m.leftArm.z = -Mth.sin(twist) * 5f;
+		m.leftArm.x = Mth.cos(twist) * 5f;
+	}
+
+	/**
+	 * v0.15.18: whole-body lean for {@code PlayerRendererMixin} during the punch (forward into it) / kick (back, away from
+	 * the kicking leg), in degrees about the feet, positive = back. 0 when neither plays.
+	 */
+	public static float meleeLean(Player player, float partialTick) {
+		float t = GunAnim.melee(player, partialTick);
+		if (t < 0f) {
+			return 0f;
+		}
+		if (GunAnim.meleeKind(player) == com.projecthero.mod.punisher.ability.PunisherMelee.ANIM_KICK) {
+			return GunAnim.keys(t, 0f, 0f, 2f, 5f, 3f, 11f, 5.5f, 10f, 11f, 0f);
+		}
+		return GunAnim.keys(t, 0f, 0f, 1.2f, 2f, 2.2f, -9f, 4f, -8f, 8f, 0f);
 	}
 
 	/**

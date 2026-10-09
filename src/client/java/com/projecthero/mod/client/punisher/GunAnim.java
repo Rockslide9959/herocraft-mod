@@ -9,6 +9,7 @@ import com.projecthero.mod.firearm.FirearmStack;
 import com.projecthero.mod.firearm.item.FirearmItem;
 import com.projecthero.mod.firearm.item.FirearmItems;
 import com.projecthero.mod.punisher.PunisherConfig;
+import com.projecthero.mod.punisher.ability.PunisherMelee;
 import com.projecthero.mod.punisher.data.PunisherState;
 
 import net.minecraft.client.Minecraft;
@@ -100,7 +101,7 @@ public final class GunAnim {
 		e[3] = t;
 		if (dt > 0f) {
 			boolean gun = kind(player) != null;
-			boolean busy = rolling(player, partialTick) >= 0f || stab(player, partialTick) >= 0f;
+			boolean busy = rolling(player, partialTick) >= 0f || stab(player, partialTick) >= 0f || melee(player, partialTick) >= 0f;
 			float aimTarget = gun && aimingFlag(player) && !busy ? 1f : 0f;
 			float sprintTarget = gun && player.isSprinting() && aimTarget == 0f ? 1f : 0f;
 			e[0] = approach(e[0], aimTarget, dt / 3.5f);
@@ -248,6 +249,36 @@ public final class GunAnim {
 			return -1f;
 		}
 		return t;
+	}
+
+	/** v0.15.18: which close-quarters move is animating ({@code PunisherMelee.ANIM_PUNCH} / {@code ANIM_KICK}), or 0. */
+	public static int meleeKind(Player player) {
+		long v = player.getAttachedOrElse(ModAttachments.PUNISHER_MELEE_ANIM, 0L);
+		return v == 0L ? 0 : PunisherMelee.animKind(v);
+	}
+
+	/** v0.15.18: ticks into the Brutal Strike punch / Breach Kick (0 .. its length), or -1 when neither is playing. */
+	public static float melee(Player player, float partialTick) {
+		long v = player.getAttachedOrElse(ModAttachments.PUNISHER_MELEE_ANIM, 0L);
+		if (v == 0L) {
+			return -1f;
+		}
+		float t = now(player, partialTick) - PunisherMelee.animStart(v);
+		return t < 0f || t > PunisherMelee.animTicks(PunisherMelee.animKind(v)) ? -1f : t;
+	}
+
+	/** Linear keyframes {@code {t, v}} sampled at {@code t} with smoothstep between keys. */
+	public static float keys(float t, float... tv) {
+		if (t <= tv[0]) {
+			return tv[1];
+		}
+		for (int i = 2; i < tv.length; i += 2) {
+			if (t <= tv[i]) {
+				float f = smooth((t - tv[i - 2]) / Math.max(1.0e-4f, tv[i] - tv[i - 2]));
+				return Mth.lerp(f, tv[i - 1], tv[i + 1]);
+			}
+		}
+		return tv[tv.length - 1];
 	}
 
 	public static float smooth(float x) {

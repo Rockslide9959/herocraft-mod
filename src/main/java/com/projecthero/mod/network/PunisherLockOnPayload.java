@@ -9,11 +9,15 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * v0.15.18: server &rarr; the shooter: a Punisher Weapon Ability (Shift+V with the rifle or sniper) has locked onto
- * {@code entityId} -- the client turns the camera onto it every frame and ignores mouse look until released
- * ({@code entityId} = -1). {@code scope}: raise the scope too (the sniper). The aim itself is decided server side.
+ * v0.15.18: server &rarr; the shooter: the Assault Rifle's Shift+V Weapon Ability has locked onto {@code entityId} --
+ * the client turns the camera onto it every frame and ignores mouse look until released ({@code entityId} = -1).
+ * {@code entityId} = {@link #SCOPE_ONLY}: no lock at all, just raise the scope ({@code scope} true) -- the sniper's
+ * Shift+V Steady Shot, where the player keeps the camera. The aim itself is always decided server side.
  */
 public record PunisherLockOnPayload(int entityId, boolean scope) implements CustomPacketPayload {
+	/** No camera lock: only raise (or, with {@code scope} false, lower) the scope. */
+	public static final int SCOPE_ONLY = -2;
+
 	public static final CustomPacketPayload.Type<PunisherLockOnPayload> TYPE =
 			new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(ProjectHeroMod.MOD_ID, "punisher_lock_on"));
 

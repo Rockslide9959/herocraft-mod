@@ -39,4 +39,28 @@ public abstract class ItemInHandRendererGunMixin {
 		}
 		ci.cancel();
 	}
+
+	/**
+	 * v0.15.18: the Punisher's Brutal Strike without a gun in hand -- the main arm (empty or holding anything else) jabs
+	 * straight out toward the crosshair. Applied just inside the method's own push so it never leaks to the other hand.
+	 */
+	@Inject(method = "renderArmWithItem", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;pushPose()V", shift = At.Shift.AFTER))
+	private void projecthero$punisherJab(AbstractClientPlayer player, float partialTick, float pitch, InteractionHand hand,
+			float swingProgress, ItemStack stack, float equipProgress, PoseStack pose, MultiBufferSource buffers, int light,
+			CallbackInfo ci) {
+		if (hand != InteractionHand.MAIN_HAND || GunFirstPerson.active(player)
+				|| com.projecthero.mod.client.punisher.GunAnim.meleeKind(player) != com.projecthero.mod.punisher.ability.PunisherMelee.ANIM_PUNCH) {
+			return;
+		}
+		float t = com.projecthero.mod.client.punisher.GunAnim.melee(player, partialTick);
+		if (t < 0f) {
+			return;
+		}
+		float k = com.projecthero.mod.client.punisher.GunAnim.keys(t, 0f, 0f, 1.2f, -0.3f, 2.2f, 1f, 4f, 0.85f, 8f, 0f);
+		float out = Math.max(0f, k);
+		float side = player.getMainArm() == net.minecraft.world.entity.HumanoidArm.RIGHT ? 1f : -1f;
+		pose.translate(-0.16f * out * side, 0.2f * out, -0.45f * k);
+		pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(6f * out));
+		pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(14f * out * side));
+	}
 }

@@ -57,7 +57,8 @@ import net.minecraft.world.phys.Vec3;
  *             Shift+V  lock onto the target under the crosshair (40 blocks) and auto-fire the magazine into it;
  *                      the camera tracks it and reloading is blocked until it ends (25 s)
  *   Sniper    V  next shot pierces everything on its line and ignores 40% of armour (12 s)
- *             Shift+V  lock on, scope in, and 3 s later fire one shot that pays double headshot damage (30 s)
+ *             Shift+V  Steady Shot: scope in and hold steady for 3 s -- no auto-aim, the player aims -- then one shot
+ *                      fires along their own look and pays double headshot damage wherever it lands (30 s)
  * </pre>
  *
  * Anything still running (the pistol's charged shots, rapid fire, an armed piercing round, a lock-on) ends the moment
@@ -92,9 +93,9 @@ public final class PunisherWeaponAbilities {
 	public static final int SNIPER_CD = 240;
 	public static final int SNIPER_SHIFT_CD = 600;
 	public static final float SNIPER_ARMOR_IGNORE = 0.4f;
-	public static final double SNIPER_LOCK_RANGE = 120.0;
-	public static final int SNIPER_LOCK_TICKS = 60;
-	public static final float SNIPER_LOCK_FACTOR = 2.0f;
+	/** Shift+V Steady Shot: the wait before the round goes, and its multiplier on the gun's headshot damage. */
+	public static final int SNIPER_STEADY_TICKS = 60;
+	public static final float SNIPER_STEADY_FACTOR = 2.0f;
 
 	/** The near-the-crosshair cone a lock-on searches when nothing is right under it. */
 	private static final double LOCK_CONE_COS = Math.cos(Math.toRadians(10.0));
@@ -107,8 +108,8 @@ public final class PunisherWeaponAbilities {
 		long rapidUntil;
 		boolean sniperPierce;
 		int lockTarget = -1;
-		boolean lockSniper;
-		long lockFireAt;
+		/** Sniper Steady Shot: game time the round fires, or 0 while none is lined up. */
+		long steadyFireAt;
 		boolean forcedAim;
 
 		Active(String weaponId, int slot) {
@@ -117,7 +118,7 @@ public final class PunisherWeaponAbilities {
 		}
 
 		boolean idle(long now) {
-			return pistolCharges <= 0 && rapidUntil <= now && !sniperPierce && lockTarget < 0;
+			return pistolCharges <= 0 && rapidUntil <= now && !sniperPierce && lockTarget < 0 && steadyFireAt == 0L;
 		}
 	}
 
@@ -170,14 +171,14 @@ public final class PunisherWeaponAbilities {
 			case Firearms.SHOTGUN -> shotgunBlast(player, held, data, shift);
 			case Firearms.RIFLE -> {
 				if (shift) {
-					lockOn(player, held, data, false);
+					lockOn(player, held, data);
 				} else {
 					startRapidFire(player);
 				}
 			}
 			case Firearms.SNIPER -> {
 				if (shift) {
-					lockOn(player, held, data, true);
+					steadyShot(player, held, data);
 				} else {
 					armPiercing(player);
 				}
@@ -248,16 +249,13 @@ public final class PunisherWeaponAbilities {
 		message(player, "sniper_piercing", ChatFormatting.GOLD);
 	}
 
-	private static void lockOn(ServerPlayer player, ItemStack held, FirearmData data, boolean sniper) {
+	/** Assault Rifle Shift+V: lock onto the target under the crosshair and auto-fire the magazine into it. */
+	private static void lockOn(ServerPlayer player, ItemStack held, FirearmData data) {
 		if (FirearmStack.magazine(held, data) <= 0) {
 			message(player, "empty", ChatFormatting.RED);
 			return;
 		}
-		if (sniper && FirearmStack.isReloading(held)) {
-			message(player, "reloading", ChatFormatting.GRAY);
-			return;
-		}
-		LivingEntity target = acquire(player, sniper ? SNIPER_LOCK_RANGE : RIFLE_LOCK_RANGE);
+		LivingEntity target = acquire(player, RIFLE_LOCK_RANGE);
 		if (target == null) {
 			message(player, "no_target", ChatFormatting.GRAY);
 			return;
@@ -265,17 +263,38 @@ public final class PunisherWeaponAbilities {
 		FirearmReload.cancel(held); // a rifle mid-reload with rounds still in it: the lock fires those first
 		Active a = bind(player, data.id);
 		a.lockTarget = target.getId();
-		a.lockSniper = sniper;
-		a.lockFireAt = player.level().getGameTime() + SNIPER_LOCK_TICKS;
-		if (sniper && !player.getAttachedOrElse(ModAttachments.FIREARM_AIMING, false)) {
+		ServerPlayNetworking.send(player, new PunisherLockOnPayload(target.getId(), false));
+		Punisher.triggerCooldown(player, cooldownId(data.id, true), RIFLE_SHIFT_CD);
+		player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
+				SoundEvents.NOTE_BLOCK_PLING.value(), SoundSource.PLAYERS, 0.5f, 2.0f);
+		message(player, "rifle_lock", ChatFormatting.GOLD);
+	}
+
+	/**
+	 * Sniper Shift+V, Steady Shot (playtest v0.15.18: no auto-aim): raise the scope if it is not up and hold steady for
+	 * {@link #SNIPER_STEADY_TICKS}; the player keeps full control of the camera the whole time. Then one round fires
+	 * along their own look, paid as a headshot at {@link #SNIPER_STEADY_FACTOR}x wherever it lands. Reloading waits.
+	 */
+	private static void steadyShot(ServerPlayer player, ItemStack held, FirearmData data) {
+		if (FirearmStack.magazine(held, data) <= 0) {
+			message(player, "empty", ChatFormatting.RED);
+			return;
+		}
+		if (FirearmStack.isReloading(held)) {
+			message(player, "reloading", ChatFormatting.GRAY);
+			return;
+		}
+		Active a = bind(player, data.id);
+		a.steadyFireAt = player.level().getGameTime() + SNIPER_STEADY_TICKS;
+		if (!player.getAttachedOrElse(ModAttachments.FIREARM_AIMING, false)) {
 			player.setAttached(ModAttachments.FIREARM_AIMING, true);
 			a.forcedAim = true;
+			ServerPlayNetworking.send(player, new PunisherLockOnPayload(PunisherLockOnPayload.SCOPE_ONLY, true));
 		}
-		ServerPlayNetworking.send(player, new PunisherLockOnPayload(target.getId(), sniper));
-		Punisher.triggerCooldown(player, cooldownId(data.id, true), sniper ? SNIPER_SHIFT_CD : RIFLE_SHIFT_CD);
+		Punisher.triggerCooldown(player, cooldownId(data.id, true), SNIPER_SHIFT_CD);
 		player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(),
-				SoundEvents.NOTE_BLOCK_PLING.value(), SoundSource.PLAYERS, 0.5f, sniper ? 1.6f : 2.0f);
-		message(player, sniper ? "sniper_lock" : "rifle_lock", ChatFormatting.GOLD);
+				SoundEvents.NOTE_BLOCK_PLING.value(), SoundSource.PLAYERS, 0.5f, 1.6f);
+		message(player, "sniper_steady", ChatFormatting.GOLD);
 	}
 
 	// ---------------------------------------------------------------- tick
@@ -303,6 +322,9 @@ public final class PunisherWeaponAbilities {
 		if (a.lockTarget >= 0) {
 			tickLock(player, a, held, data, now);
 		}
+		if (a.steadyFireAt != 0L && now >= a.steadyFireAt) {
+			fireSteadyShot(player, a, held, data);
+		}
 		if (a.idle(now) && ACTIVE.get(player.getUUID()) == a) {
 			ACTIVE.remove(player.getUUID());
 		}
@@ -310,7 +332,7 @@ public final class PunisherWeaponAbilities {
 
 	private static void tickLock(ServerPlayer player, Active a, ItemStack held, FirearmData data, long now) {
 		Entity e = player.level().getEntity(a.lockTarget);
-		double keep = (a.lockSniper ? SNIPER_LOCK_RANGE : RIFLE_LOCK_RANGE) + 8.0;
+		double keep = RIFLE_LOCK_RANGE + 8.0;
 		if (!(e instanceof LivingEntity t) || !t.isAlive() || t.distanceTo(player) > keep || !player.hasLineOfSight(t)) {
 			endLock(player, a);
 			if (!(e instanceof LivingEntity dead) || dead.isAlive()) { // a kill needs no "lost" note
@@ -319,27 +341,6 @@ public final class PunisherWeaponAbilities {
 			return;
 		}
 		Vec3 dir = aimPoint(t).subtract(player.getEyePosition());
-		if (a.lockSniper) {
-			if (now < a.lockFireAt) {
-				return;
-			}
-			ShotSpec spec = new ShotSpec();
-			spec.aimDir = dir;
-			spec.spreadFactor = 0f;
-			spec.forceHeadshot = true;
-			spec.damageFactor = SNIPER_LOCK_FACTOR;
-			spec.ignoreFireRate = true;
-			if (a.sniperPierce) { // an armed piercing round is the next shot -- this one
-				spec.pierce = true;
-				spec.armorIgnore = SNIPER_ARMOR_IGNORE;
-				spec.onFired = () -> a.sniperPierce = false;
-			}
-			if (FirearmShooting.fire(player, held, data, spec) != FirearmShooting.Result.FIRED) {
-				message(player, "empty", ChatFormatting.RED);
-			}
-			endLock(player, a);
-			return;
-		}
 		if (FirearmStack.magazine(held, data) > 0) {
 			ShotSpec spec = new ShotSpec();
 			spec.aimDir = dir;
@@ -351,15 +352,41 @@ public final class PunisherWeaponAbilities {
 		}
 	}
 
+	/** The Steady Shot's round: along the player's own look, no spread, every hit paid as a doubled headshot. */
+	private static void fireSteadyShot(ServerPlayer player, Active a, ItemStack held, FirearmData data) {
+		ShotSpec spec = new ShotSpec();
+		spec.spreadFactor = 0f;
+		spec.forceHeadshot = true;
+		spec.damageFactor = SNIPER_STEADY_FACTOR;
+		spec.ignoreFireRate = true;
+		if (a.sniperPierce) { // an armed piercing round is the next shot -- this one
+			spec.pierce = true;
+			spec.armorIgnore = SNIPER_ARMOR_IGNORE;
+			spec.onFired = () -> a.sniperPierce = false;
+		}
+		if (FirearmShooting.fire(player, held, data, spec) != FirearmShooting.Result.FIRED) {
+			message(player, "empty", ChatFormatting.RED);
+		}
+		endSteady(player, a);
+	}
+
+	private static void endSteady(ServerPlayer player, Active a) {
+		if (a.steadyFireAt == 0L) {
+			return;
+		}
+		a.steadyFireAt = 0L;
+		if (a.forcedAim) {
+			a.forcedAim = false;
+			player.setAttached(ModAttachments.FIREARM_AIMING, false);
+			ServerPlayNetworking.send(player, new PunisherLockOnPayload(-1, false));
+		}
+	}
+
 	private static void endLock(ServerPlayer player, Active a) {
 		if (a.lockTarget < 0) {
 			return;
 		}
 		a.lockTarget = -1;
-		if (a.forcedAim) {
-			a.forcedAim = false;
-			player.setAttached(ModAttachments.FIREARM_AIMING, false);
-		}
 		ServerPlayNetworking.send(player, new PunisherLockOnPayload(-1, false));
 	}
 
@@ -371,6 +398,7 @@ public final class PunisherWeaponAbilities {
 		}
 		boolean running = !a.idle(player.level().getGameTime());
 		endLock(player, a);
+		endSteady(player, a);
 		if (announce && running) {
 			message(player, "cancelled", ChatFormatting.GRAY);
 		}
@@ -406,7 +434,13 @@ public final class PunisherWeaponAbilities {
 		return a != null && a.rapidUntil > player.level().getGameTime();
 	}
 
-	/** True while a Shift+V lock-on is running. */
+	/** True while the sniper's Shift+V Steady Shot is lined up (not yet fired). */
+	public static boolean steadying(Player player) {
+		Active a = ACTIVE.get(player.getUUID());
+		return a != null && a.steadyFireAt != 0L;
+	}
+
+	/** True while the rifle's Shift+V lock-on is running. */
 	public static boolean lockedOn(Player player) {
 		Active a = ACTIVE.get(player.getUUID());
 		return a != null && a.lockTarget >= 0;
@@ -536,7 +570,7 @@ public final class PunisherWeaponAbilities {
 
 	/**
 	 * Wraps whatever {@link FirearmHooks} were installed before (the Punisher's passives) and folds the Weapon
-	 * Abilities in: the armed special shot, Rapid Fire's fire rate + reload time, and the lock-on's reload block.
+	 * Abilities in: the armed special shot, Rapid Fire's fire rate + reload time, and the lock-on / Steady Shot reload block.
 	 * Everything else is passed straight through.
 	 */
 	private static final class Hooks implements FirearmHooks {
@@ -621,7 +655,7 @@ public final class PunisherWeaponAbilities {
 
 		@Override
 		public boolean reloadBlocked(ServerPlayer player) {
-			return inner.reloadBlocked(player) || lockedOn(player);
+			return inner.reloadBlocked(player) || lockedOn(player) || steadying(player);
 		}
 	}
 }

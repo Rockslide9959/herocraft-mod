@@ -1,5 +1,6 @@
 package com.projecthero.mod.punisher.ability;
 
+import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.combat.HeroTargets;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.punisher.Punisher;
@@ -13,7 +14,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.block.Blocks;
@@ -30,10 +30,24 @@ import net.minecraft.world.phys.Vec3;
  * </ul>
  *
  * A swing at nothing just whiffs: no cooldown is spent.
+ *
+ * <p>v0.15.18 playtest: both play a synced animation ({@link ModAttachments#PUNISHER_MELEE_ANIM}, start tick + kind) --
+ * a right-hand jab for Brutal Strike ({@link #PUNCH_TICKS}), a high front kick for Breach Kick ({@link #KICK_TICKS}),
+ * hit or whiff. The damage stays instant at the press; the animations are built with a short wind-up so their impact
+ * frame ({@link #PUNCH_IMPACT_TICK} / {@link #KICK_IMPACT_TICK}) lands about when the hit arrives on the clients.
  */
 public final class PunisherMelee {
 	public static final String STRIKE = "brutal_strike";
 	public static final String KICK = "breach_kick";
+
+	/** Animation kinds in {@link ModAttachments#PUNISHER_MELEE_ANIM}. */
+	public static final int ANIM_PUNCH = 1;
+	public static final int ANIM_KICK = 2;
+	/** Animation lengths and the tick the fist / foot connects. */
+	public static final int PUNCH_TICKS = 8;
+	public static final int PUNCH_IMPACT_TICK = 2;
+	public static final int KICK_TICKS = 11;
+	public static final int KICK_IMPACT_TICK = 3;
 
 	private PunisherMelee() {
 	}
@@ -52,7 +66,7 @@ public final class PunisherMelee {
 			return;
 		}
 		LivingEntity t = target(player);
-		player.swing(InteractionHand.MAIN_HAND, true);
+		animate(player, ANIM_PUNCH);
 		if (t == null) {
 			whiff(player);
 			return;
@@ -75,7 +89,7 @@ public final class PunisherMelee {
 			return;
 		}
 		LivingEntity t = target(player);
-		player.swing(InteractionHand.OFF_HAND, true);
+		animate(player, ANIM_KICK);
 		if (t == null) {
 			whiff(player);
 			return;
@@ -94,6 +108,26 @@ public final class PunisherMelee {
 		level.playSound(null, t.getX(), t.getY(), t.getZ(), SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.PLAYERS, 1.2f, 0.6f);
 		level.playSound(null, t.getX(), t.getY(), t.getZ(), SoundEvents.ZOMBIE_BREAK_WOODEN_DOOR, SoundSource.PLAYERS, 0.6f, 1.3f);
 		Punisher.triggerCooldown(player, KICK, PunisherConfig.BREACH_KICK_COOLDOWN_TICKS);
+	}
+
+	/** Start the punch / kick animation on every client, this tick. */
+	public static void animate(ServerPlayer player, int kind) {
+		player.setAttached(ModAttachments.PUNISHER_MELEE_ANIM, player.level().getGameTime() * 4L + kind);
+	}
+
+	/** The animation kind in a {@link ModAttachments#PUNISHER_MELEE_ANIM} value (0 = none). */
+	public static int animKind(long value) {
+		return (int) (value & 3L);
+	}
+
+	/** The game tick a {@link ModAttachments#PUNISHER_MELEE_ANIM} value started. */
+	public static long animStart(long value) {
+		return value >> 2;
+	}
+
+	/** Length in ticks of an animation kind. */
+	public static int animTicks(int kind) {
+		return kind == ANIM_KICK ? KICK_TICKS : PUNCH_TICKS;
 	}
 
 	/** Throw {@code t} straight away from the kicker, about 10 blocks; knockback resistance still counts. */

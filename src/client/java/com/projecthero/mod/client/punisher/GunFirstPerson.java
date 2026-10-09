@@ -38,6 +38,8 @@ import net.minecraft.world.item.ItemStack;
  *       jolt and slaps it home (one shell per cycle into the shotgun's port);</li>
  *   <li><b>Tactical Roll</b>: the gun is tucked in and down out of the way;</li>
  *   <li><b>Adrenaline</b>: the support hand comes up with a syringe and drives it down into the thigh.</li>
+ *   <li><b>Brutal Strike</b> (v0.15.18): the gun hand drives the gun straight out at the crosshair -- a short pull back,
+ *       the jab, back -- while the support hand lets go and comes up in a guard.</li>
  * </ul>
  * Right-handed only; a left-handed main arm keeps vanilla's drawing.
  */
@@ -109,6 +111,8 @@ public final class GunFirstPerson {
 		float reload = GunAnim.reload(player, partialTick);
 		float roll = GunAnim.rolling(player, partialTick);
 		float stab = GunAnim.stab(player, partialTick);
+		float punch = GunAnim.meleeKind(player) == com.projecthero.mod.punisher.ability.PunisherMelee.ANIM_PUNCH
+				? GunAnim.melee(player, partialTick) : -1f;
 		float time = player.tickCount + partialTick;
 
 		BakedModel model = mc.getItemRenderer().getModel(stack, player.level(), player, player.getId());
@@ -157,9 +161,18 @@ public final class GunFirstPerson {
 		if (sw > 0f) {
 			pose.translate(0.03f * sw, -0.12f * sw, 0.03f * sw);
 		}
+		// v0.15.18 Brutal Strike: pull back, jab straight out toward the crosshair, back
+		float pw = punch >= 0f ? GunAnim.seg(punch, 0f, 1.2f) * (1f - GunAnim.seg(punch, 4.5f, 8f)) : 0f;
+		if (pw > 0f) {
+			float pk = GunAnim.keys(punch, 0f, 0f, 1.2f, -0.3f, 2.2f, 1f, 4f, 0.85f, 8f, 0f);
+			float out = Math.max(0f, pk);
+			pose.translate(-0.16f * out, 0.07f * out - 0.03f * pw, -0.36f * pk);
+			pose.mulPose(Axis.YP.rotationDegrees(12f * out));
+			pose.mulPose(Axis.ZP.rotationDegrees(-22f * out));
+		}
 
 		// hip <-> aim-down-sights
-		float a = Math.min(ads, 1f - Math.max(rw, Math.max(tw, sw)));
+		float a = Math.min(ads, 1f - Math.max(Math.max(rw, pw), Math.max(tw, sw)));
 		Vector3f[] adsT = sightTransform(rig, new Vector3f(0f, -0.004f, -rig.adsDist), 0f);
 		Vector3f[] hipT = sightTransform(rig, HIP, HIP_YAW);
 		Vector3f rot = new Vector3f(hipT[1]).lerp(adsT[1], a);
@@ -199,6 +212,9 @@ public final class GunFirstPerson {
 			if (stab < PunisherConfig.ADRENALINE_STAB_TICKS + 5) {
 				prop = new ItemStack(PunisherItems.ADRENALINE_SYRINGE);
 			}
+		}
+		if (pw > 0f) {
+			support = new Vector3f(support).lerp(new Vector3f(-0.3f, -0.36f, -0.46f), pw); // off the gun, up in a guard
 		}
 		PlayerRenderer renderer = (PlayerRenderer) mc.getEntityRenderDispatcher().getRenderer(player);
 		drawArm(pose, renderer, buffers, light, player, true, grip, new Vector3f(grip).add(RIGHT_FROM), null);

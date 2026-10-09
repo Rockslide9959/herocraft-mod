@@ -58,6 +58,7 @@
 		"MoonKnightInvisibleSuitMixin",
 		"MoonKnightPickerMouseMixin",
 		"PunisherLockOnMouseMixin",
+		"PunisherKickCameraMixin",
 		"MoonKnightTruncheonSpinMixin",
 		"PlayerModelMixin",
 		"ModelPartFrontFaceMixin",
