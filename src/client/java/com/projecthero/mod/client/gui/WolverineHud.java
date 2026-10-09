@@ -106,20 +106,18 @@ public final class WolverineHud {
 		line += 10;
 		g.drawString(mc.font, claws, x0, line, s.clawsOut ? 0xFFE8E8E8 : 0xFF909090, true);
 		line += 10;
-		// v0.12.41: Healing Factor pool: "Healing Factor 80%", then the pool bar (an orange tick at the 30 a Death Surge costs)
+		// v0.12.41: Healing Factor pool: "Healing Factor 80%", then the pool bar
 		float pool = Math.max(0f, Math.min(WolverineConfig.HEAL_POOL_MAX, s.healPool));
 		float pf = pool / WolverineConfig.HEAL_POOL_MAX;
 		g.drawString(mc.font, Component.translatable("hud.projecthero.wolverine.healing",
 				(int) Math.floor(pf * 100.0f + 1.0e-3f)).withStyle(pool <= 0f ? ChatFormatting.RED : ChatFormatting.GREEN),
 				x0, line, 0xFF55FF77, true);
 		line += 10;
-		// v0.15.18: the old one-use Death Surge pixel is gone (a surge just costs 30 Healing Factor now); the bar runs full width
+		// v0.15.18: no Death Surge pixel or 30-cost tick any more; the bar runs full width
 		int bx = x0;
 		int bw = totalW;
 		g.fill(bx, line, bx + bw, line + 3, COLOR_BOX_BG);
 		g.fill(bx, line, bx + (int) (bw * pf), line + 3, pool <= 0f ? 0xFFB02020 : 0xFF3ADB5A);
-		int costX = bx + (int) (bw * WolverineConfig.SURGE_HEAL_POOL_COST / WolverineConfig.HEAL_POOL_MAX);
-		g.fill(costX, line, costX + 1, line + 3, 0xFFFF8A00); // a surge needs the pool past this tick
 		line += 6;
 		if (!skinRows.isEmpty()) {
 			// v0.15.18: Death Surge skin recovery -- only advances at full HP ("Full HP to heal" while paused)
