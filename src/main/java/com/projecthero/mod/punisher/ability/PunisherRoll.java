@@ -18,7 +18,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Ability 3 (X) -- Tactical Roll. A quick dive in the direction the player is moving (or facing, if
+ * X -- Tactical Roll (Shift+X: {@link #advance Tactical Advance}). A quick dive in the direction the player is moving (or facing, if
  * still). Not a teleport: the player is given horizontal velocity for a few ticks and vanilla
  * collision stops them at walls / closed doors, so there is no clipping and no way to enter a block.
  * No upward component -- it can't be used to climb. Cancels an active reload and gives a brief window
@@ -26,6 +26,8 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class PunisherRoll {
 	public static final String ABILITY = "tactical_roll";
+	/** v0.15.18: Shift+X. */
+	public static final String ADVANCE = "tactical_advance";
 
 	private PunisherRoll() {
 	}
@@ -64,6 +66,25 @@ public final class PunisherRoll {
 
 		Punisher.triggerCooldown(player, ABILITY, PunisherConfig.ROLL_COOLDOWN_TICKS);
 		com.projecthero.mod.punisher.PunisherPassives.reconcile(player);
+	}
+
+	/**
+	 * v0.15.18 -- Shift+X, <b>Tactical Advance</b>: Speed IV for 30 s. 60 s cooldown (its own, apart from the roll's).
+	 */
+	public static void advance(ServerPlayer player) {
+		if (!Punisher.hasPower(player) || !Punisher.abilityReady(player, ADVANCE)) {
+			return;
+		}
+		player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SPEED,
+				PunisherConfig.ADVANCE_DURATION_TICKS, PunisherConfig.ADVANCE_SPEED_AMP, false, true, true));
+		ServerLevel level = player.serverLevel();
+		level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 0.1, player.getZ(), 10, 0.35, 0.05, 0.35, 0.03);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(),
+				SoundEvents.ARMOR_EQUIP_LEATHER.value(), SoundSource.PLAYERS, 0.8f, 0.8f);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(),
+				SoundEvents.PLAYER_BREATH, SoundSource.PLAYERS, 0.6f, 1.2f);
+		com.projecthero.mod.punisher.PunisherFeedback.message(player, "advance_on");
+		Punisher.triggerCooldown(player, ADVANCE, PunisherConfig.ADVANCE_COOLDOWN_TICKS);
 	}
 
 	/** Applied each tick while rolling: keep the dive going and hold the roll pose momentum. */

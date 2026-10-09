@@ -169,6 +169,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.render.RaidEntityRenderers.initialize();
 		com.projecthero.mod.client.render.TitanEntityRenderers.initialize();
 		com.projecthero.mod.client.render.PunisherEntityRenderers.initialize();
+		com.projecthero.mod.client.punisher.PunisherIntelClient.initialize(); // v0.15.18: Target Designation / Threat Assessment glow
 		com.projecthero.mod.client.render.SuperheroFirstPersonArm.initialize();
 		// v0.14.21 round two: Mark V blade extension clock + the worn Repulsor Boots model
 		com.projecthero.mod.client.ironman.IronManBladeClient.initialize();
@@ -596,6 +597,16 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		}
 	}
 
+	/** v0.15.18: mirrors the server's {@code PunisherAbilityManager.hasContext} -- the Punisher, no mutation selected. */
+	private static boolean punisherOwnsN(LocalPlayer player) {
+		if (!com.projecthero.mod.punisher.Punisher.hasPower(player)) {
+			return false;
+		}
+		com.projecthero.mod.hero.data.ExperimentalState experimental =
+				player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		return experimental == null || experimental.activePower.isEmpty();
+	}
+
 	/** Mirrors the server's {@code GreenLanternAbilityManager.hasContext}: bonded, no mutation active. */
 	private static boolean greenLanternHasWheelContext(LocalPlayer player) {
 		if (player == null) {
@@ -977,6 +988,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				&& com.projecthero.mod.hammer.ThorWeaponSelection.ownsSelector(client.player)) {
 			// v0.15.3: Thor -- N opens the weapon screen (Mjolnir / Stormbreaker Active or Inactive for R).
 			client.setScreen(new com.projecthero.mod.client.gui.ThorWeaponScreen());
+		} else if (down && !maxSteelTransformWasDown && client.player != null && client.screen == null
+				&& punisherOwnsN(client.player)) {
+			// v0.15.18: Punisher -- N opens the Tactical Satchel (it was R; R is Target Designation now).
+			ClientPlayNetworking.send(new com.projecthero.mod.network.PunisherActionPayload(
+					com.projecthero.mod.network.PunisherActionPayload.Action.OPEN_SATCHEL));
 		} else if (down && !maxSteelTransformWasDown && (mutationHasUtility(client, 8)
 				|| (Screen.hasShiftDown() && mutationSelected(client)))) {
 			// v0.13.22: nothing else owns N -- it is the selected mutation's Utility 2.

@@ -72,6 +72,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(GunTracerPayload.TYPE, GunTracerPayload.CODEC); // v0.15.16
 		PayloadTypeRegistry.playS2C().register(PunisherArsenalOpenPayload.TYPE, PunisherArsenalOpenPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(PunisherLockOnPayload.TYPE, PunisherLockOnPayload.CODEC); // v0.15.18
+		PayloadTypeRegistry.playS2C().register(PunisherIntelPayload.TYPE, PunisherIntelPayload.CODEC); // v0.15.18
 		PayloadTypeRegistry.playS2C().register(SquadInfoPayload.TYPE, SquadInfoPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(ThorLightningArcPayload.TYPE, ThorLightningArcPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(GreenLanternConstructSelectPayload.TYPE, GreenLanternConstructSelectPayload.CODEC);
@@ -272,6 +273,11 @@ public final class ModNetworking {
 		ServerPlayNetworking.registerGlobalReceiver(PunisherActionPayload.TYPE, (payload, context) -> {
 			if (payload.action() == PunisherActionPayload.Action.ABANDON_TRAINING) {
 				com.projecthero.mod.punisher.VigilanteTraining.abandon(context.player());
+			}
+			// v0.15.18: N opens the Tactical Satchel (it was R); only while the Punisher holds the keys
+			if (payload.action() == PunisherActionPayload.Action.OPEN_SATCHEL
+					&& com.projecthero.mod.punisher.PunisherAbilityManager.hasContext(context.player())) {
+				com.projecthero.mod.punisher.satchel.PunisherSatchel.open(context.player());
 			}
 		});
 

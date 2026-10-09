@@ -74,12 +74,11 @@ public final class Punisher {
 		PunisherState s = state(player).copy();
 		s.hasPower = false;
 		s.trainingActive = false;
-		s.adrenalineUntil = 0L;
-		s.suppressiveUntil = 0L;
 		s.rollUntil = 0L;
 		s.abilityReadyAt.clear();
 		save(player, s);
 		PunisherPassives.reconcile(player);
+		com.projecthero.mod.punisher.ability.PunisherMark.clear(player);
 	}
 
 	// ---------------- arsenal ----------------
@@ -137,6 +136,7 @@ public final class Punisher {
 	/** Drop every transient buff/modifier -- death, respawn, logout, dimension change, power loss. */
 	public static void clearTransient(ServerPlayer player) {
 		PunisherState s = state(player);
+		// v0.15.18: also zeroes the retired Adrenaline / Suppressive Fire timers an older save may still carry
 		if (s.adrenalineUntil != 0L || s.suppressiveUntil != 0L || s.rollUntil != 0L || s.adrenalineCrashAt != 0L) {
 			PunisherState c = s.copy();
 			c.adrenalineUntil = 0L;
@@ -145,9 +145,8 @@ public final class Punisher {
 			c.adrenalineCrashAt = 0L;
 			save(player, c);
 		}
-		player.setAttached(com.projecthero.mod.attachment.ModAttachments.PUNISHER_STAB_AT, 0L);
 		PunisherPassives.reconcile(player);
-		com.projecthero.mod.punisher.ability.PunisherC4.clearFor(player.getUUID());
+		com.projecthero.mod.punisher.ability.PunisherMark.clear(player);
 		com.projecthero.mod.punisher.PunisherAbilityManager.onCleanup(player.getUUID());
 	}
 
@@ -163,6 +162,14 @@ public final class Punisher {
 
 	public static void initialize() {
 		FirearmHooks.install(new PunisherPassives.Hooks());
+
+		// v0.15.18: the kit's world-side timers -- stuns / no-target windows, marks, smoke clouds, Warzone barrages
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server -> {
+			PunisherControl.tick(server);
+			com.projecthero.mod.punisher.ability.PunisherMark.tick(server);
+			com.projecthero.mod.punisher.ability.PunisherSmoke.tick(server);
+			com.projecthero.mod.punisher.ability.PunisherWarzone.tick(server);
+		});
 
 		// Vigilante Training: attribute a mob death to a player who is running the training (they do
 		// NOT have the power yet -- that is the whole point) or already has it.
@@ -193,16 +200,6 @@ public final class Punisher {
 	}
 
 	// ---------------- helpers used across the package ----------------
-
-	public static boolean adrenalineActive(Player player) {
-		PunisherState s = player.getAttachedOrElse(ModAttachments.PUNISHER_STATE, null);
-		return s != null && s.hasPower && s.adrenalineUntil > player.level().getGameTime();
-	}
-
-	public static boolean suppressiveActive(Player player) {
-		PunisherState s = player.getAttachedOrElse(ModAttachments.PUNISHER_STATE, null);
-		return s != null && s.hasPower && s.suppressiveUntil > player.level().getGameTime();
-	}
 
 	public static boolean rolling(Player player) {
 		PunisherState s = player.getAttachedOrElse(ModAttachments.PUNISHER_STATE, null);

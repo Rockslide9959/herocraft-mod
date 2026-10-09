@@ -307,7 +307,7 @@ public class ProjectHeroMod implements ModInitializer {
 				// Max Steel: drop the suit on death (the power itself is kept via copyOnDeath) so no
 				// flight/speed/stealth state or attribute modifier survives onto the corpse or respawn.
 				com.projecthero.mod.maxsteel.MaxSteel.clearTransient(sp);
-				// Punisher: drop Adrenaline / Suppressive / roll modifiers and clear placed C4 (the
+				// Punisher: drop the roll window, his Target Designation mark and a Warzone call in progress (the
 				// power itself is kept via copyOnDeath).
 				com.projecthero.mod.punisher.Punisher.clearTransient(sp);
 				// Green Lantern: active constructs vanish, the suit deactivates, flight/shield/dome end

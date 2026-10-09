@@ -15,6 +15,37 @@ player) and `com.projecthero.mod.punisher` (the power). Power id `punisher`.
 | v0.8.4 | Tactical armour + Abandoned Vigilante Safehouse + Vigilante Training |
 | v0.8.5 | Guide, docs, gametests, polish |
 | v0.9.3 | Tactical Satchel (replaces Arsenal on R); hold-Alt move names on the HUD; infinite arrows + double arrow damage |
+| v0.15.18 | New kit: R/G/Z/X/C each with a Shift move, satchel on N; Suppressive Fire, Adrenaline and C4 removed |
+
+## v0.15.18 kit
+
+Shift = sneaking at the moment the key goes down (`player.isShiftKeyDown()`); every Shift move has its **own**
+cooldown id in `PunisherState.abilityReadyAt`. Routing in `PunisherAbilityManager.handle`; numbers in `PunisherConfig`.
+
+| Key | Move | Shift + key | Move |
+|---|---|---|---|
+| R | **Target Designation** (`PunisherMark`) -- entity raycast 48, never a squadmate / own pet; marked 30 s, +30% from every hit the marker deals it (`LivingEntityPunisherMarkMixin`, `hurt` HEAD); one mark per player. 5 s | Shift+R | **Threat Assessment** -- every living thing within 18 glows 10 s. 12 s |
+| G | **Brutal Strike** (`PunisherMelee`) -- target within 5: 18 dmg, 2 s stun. 2 s (a whiff costs nothing) | Shift+G | **Breach Kick** -- 25 dmg, launched ~10 blocks (1.35 b/t + 0.42 lift, scaled by KB resistance), 5 s stun. 5 s |
+| Z | **Frag Grenade** -- unchanged, moved from G (hold to cook). 12 s | Shift+Z | **Warzone** (`PunisherWarzone`) -- hold 5 s (let go of Z or Shift = cancelled, free) to call a barrage on the aimed block (100): 15-block zone marked with red smoke for everyone, ~3 missiles/s for 10 s, 30 dmg in 5 blocks (40% at the edge), no block damage, never the caller / squad / pets. 120 s |
+| X | **Tactical Roll** -- unchanged. 4 s | Shift+X | **Tactical Advance** -- Speed IV 30 s. 60 s (no cooldown was specified; chosen) |
+| C | **Smoke Screen** (`PunisherSmoke`) -- 5-block cloud 6 s; mobs inside lose / cannot take a target, other harmable players inside get Blindness I. 12 s | Shift+C | **Flashbang** (`FlashbangEntity`, 1.5 s fuse) -- within 6 (not thrower / squad): Blindness, Slowness II, Nausea 8 s (softened on players by `applyControl`), mobs drop their target + 3 s no-target. 12 s |
+| V | weapon abilities (`PunisherWeaponAbilities`, a separate change) | | |
+| N | **Tactical Satchel** (`PunisherActionPayload.OPEN_SATCHEL`; not an ability slot, never on the HUD) | | |
+
+- **Stun / no target** (`PunisherControl`): stunned = Slowness X + Weakness III, path dropped every tick, no target;
+  the no-target window is refused at `Mob#setTarget` (`MobMindLockMixin`). Static maps, `ServerStateReset`-cleared.
+- **Private glow**: the mark (red) and Threat Assessment (orange hostiles / grey others) are ids sent to the Punisher
+  only (`PunisherIntelPayload` -> `PunisherIntelClient`, drawn by `EntityGlowMixin`), never a GLOWING effect or
+  flag; the red dust marker over the mark is sent with `sendParticles(owner, ...)` only.
+- **Warzone missiles** are simulated server-side (no entity, nothing saved); trail / ring / blast particles are
+  force-sent to every player within 192 blocks so a far-off barrage is visible.
+- With a gun in hand, **tap R reloads** and holding R (8 ticks) sends R -- so R / Shift+R need a short hold there.
+- Suited as **Agent Venom**, Sneak+X / Z / V are the Symbiote extras: they shadow Tactical Advance and Warzone.
+- **Removed**: Suppressive Fire, Adrenaline, Explosive Charge. `C4ChargeEntity` / `projecthero:c4_charge` stays
+  registered for save safety (a leftover discards itself on its first tick, `NoopRenderer`); the `c4_charge` and
+  `adrenaline_syringe` items stay as plain items. `PunisherState.adrenalineUntil` / `suppressiveUntil` /
+  `adrenalineCrashAt` stay in the codec, unused. The client Adrenaline stab animation (`GunAnim.stab`,
+  `GunFirstPerson`, `PunisherGunPose`, the `ScopeOverlay` pulse, `PUNISHER_STAB_AT`) is dormant -- nothing sets it.
 
 ## v0.9.5 changes
 
@@ -76,12 +107,10 @@ Firearms are held items, not abilities:
 
 - **Left-click** — fire (suppressed vanilla attack via `FirearmAttackMixin`).
 - **Hold right-click** — aim down sights / scope. Sniper: tap the scope-cycle gesture for 3×/6×/10×.
-- **Tap R** — reload. **Hold R** — open the Tactical Satchel (Punisher only; needs the full armour set).
+- **Tap R** — reload. **Hold R** — R's ability (v0.15.18: Target Designation; the satchel moved to N).
 - An empty magazine auto-reloads when the trigger is released.
 
-Punisher abilities use the six universal slots (R/G/X/Z/V/C), assigned in order:
-`R` Tactical Satchel · `G` Frag Grenade · `X` Tactical Roll · `Z` Suppressive Fire · `V` Adrenaline ·
-`C` Explosive Charge.
+Punisher abilities use the six universal slots -- see **v0.15.18 kit** above for the current map.
 
 ## Firearm engine (`com.projecthero.mod.firearm`)
 
@@ -137,7 +166,7 @@ power grant|revoke`, `/projecthero power grant hero punisher`, `/projecthero pun
 `/projecthero punisher arsenal all|<weapon>`, `/projecthero punisher status`. The craftable **Power
 Suppressor** strips it like any other power.
 
-## Abilities (`com.projecthero.mod.punisher.ability`)
+## Abilities (`com.projecthero.mod.punisher.ability`) -- the pre-v0.15.18 kit, kept for history
 
 | Key | Ability | Summary |
 |---|---|---|
@@ -181,7 +210,7 @@ Plumbing — every shot is a real `FirearmShooting.fire` (ammo, sounds, flash, t
 ## Passives (`PunisherPassives.Hooks`)
 
 - **Weapon Proficiency** — a regenerating personal reserve (3 mags/gun), ×0.6 recoil, faster handling.
-- **Faster Reloading** — ×0.85 reload; Adrenaline's ×0.75 *supersedes* it (no compounding).
+- **Faster Reloading** — ×0.85 reload.
 - **Ballistic Expertise** — ×0.85 (ADS) / ×0.9 (hip) spread.
 - **No Mercy** — +25% firearm damage to a non-boss hostile below 15% health (+10% to a boss,
   `maxHealth ≥ 150`).
@@ -249,6 +278,10 @@ grenade and C4 entities, and the roll all replicate to other clients through nor
 sync + the S2C effect payloads.
 
 ## Testing
+
+v0.15.18: `PunisherKitGameTests` (16) covers the new kit; the Adrenaline / Suppressive / C4 tests are gone.
+Run `./gradlew runGameTest -PtestFilter=punisher -PfastTicks=true --offline`.
+
 
 `./gradlew build` — green after every phase (v0.8.1 → v0.8.5). `src/gametest/.../PunisherGameTests.java`
 (11 tests): magazine drain + reload, Punisher-consumes-no-ammo vs normal-player-consumes-ammo,

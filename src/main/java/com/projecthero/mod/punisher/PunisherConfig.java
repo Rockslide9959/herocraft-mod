@@ -15,7 +15,7 @@ public final class PunisherConfig {
 	/** Spread multiplier -- ballistic expertise, slightly better than a normal shooter. */
 	public static final float SPREAD_FACTOR_HIP = 0.9f;
 	public static final float SPREAD_FACTOR_ADS = 0.85f;
-	/** Reload duration multiplier (15% faster). Superseded, not stacked, by Adrenaline. */
+	/** Reload duration multiplier (15% faster). */
 	public static final float RELOAD_FACTOR = 0.85f;
 
 	// ---------------- No Mercy (low-health execution bonus) ----------------
@@ -27,8 +27,35 @@ public final class PunisherConfig {
 	/** A target at or above this max health is treated as a boss. */
 	public static final float BOSS_MAX_HEALTH = 150f;
 
-	// ---------------- Frag Grenade (G) ----------------
+	// ---------------- v0.15.18 kit: R / G / Z / X / C (V = weapon abilities, N = Tactical Satchel) ----------------
+	// Every Shift move has its own cooldown, separate from the plain key's.
 
+	// R -- Target Designation: mark the enemy you aim at; it takes +30% damage from you while marked (one mark at a time)
+	public static final double MARK_RANGE = 48.0;
+	public static final int MARK_DURATION_TICKS = 30 * 20;
+	public static final float MARK_DAMAGE_BONUS = 0.30f;
+	public static final int MARK_COOLDOWN_TICKS = 5 * 20;
+
+	// Shift+R -- Threat Assessment: every living thing within 18 blocks glows for you alone
+	public static final double THREAT_RADIUS = 18.0;
+	public static final int THREAT_DURATION_TICKS = 10 * 20;
+	public static final int THREAT_COOLDOWN_TICKS = 12 * 20;
+
+	// G -- Brutal Strike: a close-quarters blow that stuns
+	public static final double STRIKE_RANGE = 5.0;
+	public static final float BRUTAL_STRIKE_DAMAGE = 18f;
+	public static final int BRUTAL_STRIKE_STUN_TICKS = 2 * 20;
+	public static final int BRUTAL_STRIKE_COOLDOWN_TICKS = 2 * 20;
+
+	// Shift+G -- Breach Kick: a kick that throws the target about 10 blocks and stuns it
+	public static final float BREACH_KICK_DAMAGE = 25f;
+	/** Launch speed (blocks/tick) -- with air drag this carries a mob about 10 blocks. */
+	public static final double BREACH_KICK_SPEED = 1.35;
+	public static final double BREACH_KICK_LIFT = 0.42;
+	public static final int BREACH_KICK_STUN_TICKS = 5 * 20;
+	public static final int BREACH_KICK_COOLDOWN_TICKS = 5 * 20;
+
+	// Z -- Frag Grenade (hold to cook, release to throw)
 	public static final int GRENADE_COOLDOWN_TICKS = 12 * 20;
 	public static final int GRENADE_FUSE_TICKS = 3 * 20;
 	public static final int GRENADE_MAX_COOK_TICKS = 3 * 20;
@@ -37,56 +64,53 @@ public final class PunisherConfig {
 	public static final float GRENADE_BLOCK_POWER = 1.6f; // small -- must not level a base
 	public static final float GRENADE_THROW_SPEED = 1.1f;
 
-	// ---------------- Tactical Roll (X) ----------------
+	// Shift+Z (hold 5 s) -- Warzone: an artillery barrage on the block you aim at
+	public static final int WARZONE_CHARGE_TICKS = 5 * 20;
+	public static final double WARZONE_RANGE = 100.0;
+	public static final double WARZONE_RADIUS = 15.0;
+	public static final int WARZONE_DURATION_TICKS = 10 * 20;
+	/** Missiles per second, spread at random over the marked area. */
+	public static final double WARZONE_MISSILES_PER_SECOND = 3.0;
+	public static final double WARZONE_BLAST_RADIUS = 5.0;
+	public static final float WARZONE_DAMAGE = 30f;
+	/** Fraction of the damage still dealt at the blast's edge (linear falloff from the centre). */
+	public static final float WARZONE_EDGE_DAMAGE = 0.4f;
+	public static final double WARZONE_DROP_HEIGHT = 45.0;
+	public static final double WARZONE_FALL_SPEED = 2.5;   // blocks per tick
+	public static final int WARZONE_COOLDOWN_TICKS = 120 * 20;
 
+	// X -- Tactical Roll
 	public static final int ROLL_COOLDOWN_TICKS = 4 * 20;
 	public static final int ROLL_DURATION_TICKS = 11;     // v0.15.16: was 8 -- a longer dive (~7 blocks, was ~5)
 	public static final double ROLL_SPEED = 0.68;         // blocks/tick during the roll (v0.15.16: was 0.62)
 	public static final int ROLL_IFRAME_TICKS = 4;        // brief damage reduction window (mid-roll)
 	public static final float ROLL_DAMAGE_REDUCTION = 0.4f;
 
-	// ---------------- Suppressive Fire (Z) ----------------
+	// Shift+X -- Tactical Advance: Speed IV (no cooldown was specified; 60 s chosen)
+	public static final int ADVANCE_DURATION_TICKS = 30 * 20;
+	public static final int ADVANCE_SPEED_AMP = 3;        // Speed IV
+	public static final int ADVANCE_COOLDOWN_TICKS = 60 * 20;
 
-	public static final int SUPPRESSIVE_COOLDOWN_TICKS = 20 * 20;
-	public static final int SUPPRESSIVE_DURATION_TICKS = 8 * 20;   // v0.9.22: 8 s (was 4)
-	// v0.9.23: made clearly impactful -- the interval roughly halves (rifle 4t -> 2t) and the self-slow
-	// is much lighter so the stance no longer feels like a downgrade.
-	public static final float SUPPRESSIVE_FIRE_RATE_FACTOR = 0.5f;   // faster (shorter interval)
-	public static final float SUPPRESSIVE_RECOIL_FACTOR = 0.25f;
-	public static final float SUPPRESSIVE_SPREAD_FACTOR = 0.45f;
-	public static final float SUPPRESSIVE_SELF_SLOW = 0.10f;         // -10% move speed while active
-	public static final int SUPPRESSIVE_SLOW_TICKS = 40;             // Slowness on things you hit
-	public static final int SUPPRESSIVE_SLOW_AMP = 1;
+	// C -- Smoke Screen: mobs inside lose their target and cannot pick a new one; other players inside are blinded
+	public static final double SMOKE_RADIUS = 5.0;
+	public static final int SMOKE_DURATION_TICKS = 6 * 20;
+	public static final int SMOKE_COOLDOWN_TICKS = 12 * 20;
 
-	// ---------------- Adrenaline (V) ----------------
+	// Shift+C -- Flashbang: blinds, slows and confuses everything near it
+	public static final int FLASHBANG_FUSE_TICKS = 30;
+	public static final double FLASHBANG_RADIUS = 6.0;
+	public static final int FLASHBANG_EFFECT_TICKS = 8 * 20;
+	public static final int FLASHBANG_SLOW_AMP = 1;       // Slowness II
+	/** Flashed mobs drop their target and cannot pick one again for this long. */
+	public static final int FLASHBANG_NO_TARGET_TICKS = 3 * 20;
+	public static final float FLASHBANG_THROW_SPEED = 1.0f;
+	public static final int FLASHBANG_COOLDOWN_TICKS = 12 * 20;
 
-	/** v0.9.4: 30 s cooldown (was 45), 20 s duration (was 8). */
-	public static final int ADRENALINE_COOLDOWN_TICKS = 30 * 20;
-	public static final int ADRENALINE_DURATION_TICKS = 20 * 20;
-	/** v0.15.16: the stab -- the dose goes in this many ticks after V (raise, plunge, press), then the buffs land. */
+	/**
+	 * v0.15.18: Adrenaline is no longer an ability. Only the dormant client stab animation ({@code GunAnim},
+	 * {@code GunFirstPerson}, {@code PunisherGunPose}) still reads this -- remove it together with that animation.
+	 */
 	public static final int ADRENALINE_STAB_TICKS = 14;
-	public static final float ADRENALINE_RELOAD_FACTOR = 0.75f;      // supersedes RELOAD_FACTOR
-	public static final float ADRENALINE_DAMAGE_BONUS = 0.15f;
-	/** v0.9.4: the buff set applied on activation. Regeneration V is a short burst; the rest run the
-	 *  full duration. Speed II replaces the old +20% movement-speed attribute modifier. */
-	public static final int ADRENALINE_REGEN_TICKS = 3 * 20;
-	public static final int ADRENALINE_REGEN_AMP = 4;               // Regeneration V
-	public static final int ADRENALINE_RESISTANCE_AMP = 1;          // Resistance II
-	public static final int ADRENALINE_HASTE_AMP = 1;               // Haste II
-	public static final int ADRENALINE_SPEED_AMP = 1;               // Speed II
-	/** Client game audio is dulled by this fraction while Adrenaline is active (tunnel-vision feel). */
-	public static final float ADRENALINE_AUDIO_MUFFLE = 0.30f;
-	/** The crash: Nausea I for this long, once, the moment Adrenaline wears off. */
-	public static final int ADRENALINE_CRASH_NAUSEA_TICKS = 10 * 20;
-
-	// ---------------- Explosive Charge / C4 (C) ----------------
-
-	public static final int C4_MAX_ACTIVE = 3;
-	public static final int C4_COOLDOWN_TICKS = 20;   // short -- the limit is the max-active count
-	public static final float C4_DAMAGE = 20f;
-	public static final double C4_RADIUS = 5.5;
-	public static final float C4_BLOCK_POWER = 3.0f;  // moderate terrain damage, not obliteration
-	public static final double C4_PLACE_RANGE = 5.0;
 
 	// ---------------- Vigilante Training ----------------
 

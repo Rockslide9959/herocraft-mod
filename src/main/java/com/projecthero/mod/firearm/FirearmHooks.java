@@ -50,7 +50,7 @@ public interface FirearmHooks {
 		return 0;
 	}
 
-	/** Multiplier on reload duration (&lt; 1 = faster). Punisher: 0.85; with Adrenaline stacking guarded. */
+	/** Multiplier on reload duration (&lt; 1 = faster). Punisher: 0.85. */
 	default float reloadSpeedFactor(ServerPlayer player) {
 		return 1.0f;
 	}
@@ -74,7 +74,7 @@ public interface FirearmHooks {
 	default void onFired(ServerPlayer player, String weaponId, boolean aiming) {
 	}
 
-	/** Multiplier on the fire-rate interval (&lt; 1 = faster). Suppressive Fire uses this. */
+	/** Multiplier on the fire-rate interval (&lt; 1 = faster). (No current user since v0.15.18.) */
 	default float fireIntervalFactor(ServerPlayer player) {
 		return 1.0f;
 	}

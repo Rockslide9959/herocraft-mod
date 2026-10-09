@@ -587,13 +587,14 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.punisher.ammo");
 			blank(lines);
 			head(lines, "projecthero.guide.punisher.controls");
-			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {
-				String key = switch (slot) {
-					case "R" -> "arsenal"; case "G" -> "grenade"; case "X" -> "roll";
-					case "Z" -> "suppressive"; case "V" -> "weapon"; default -> "c4";
-				};
-				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
-						.append(Component.translatable("projecthero.guide.punisher.ability." + key).withStyle(ChatFormatting.WHITE)));
+			// v0.15.18: the new kit -- every key has a Shift move with its own cooldown; N opens the satchel
+			para(lines, "projecthero.guide.punisher.controls.note");
+			for (String[] row : new String[][] {
+					{ "R", "mark" }, { "Shift+R", "threat" }, { "G", "strike" }, { "Shift+G", "kick" },
+					{ "Z", "grenade" }, { "Shift+Z", "warzone" }, { "X", "roll" }, { "Shift+X", "advance" },
+					{ "C", "smoke" }, { "Shift+C", "flashbang" }, { "V", "weapon" }, { "N", "satchel" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.guide.punisher.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 			}
 			blank(lines);
 			// v0.15.18: V = Weapon Ability, one move (and a Shift move) per gun

@@ -9,12 +9,14 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * Client &rarr; server Punisher gestures issued from the "Your Power" info screen. Currently just
- * abandoning Vigilante Training; re-validated server-side.
+ * Client &rarr; server Punisher gestures: abandoning Vigilante Training (from the "Your Power" info screen) and,
+ * v0.15.18, opening the Tactical Satchel (N). Re-validated server-side.
  */
 public record PunisherActionPayload(Action action) implements CustomPacketPayload {
 	public enum Action {
-		ABANDON_TRAINING
+		ABANDON_TRAINING,
+		/** v0.15.18: N -- open the Tactical Satchel. */
+		OPEN_SATCHEL
 	}
 
 	public static final CustomPacketPayload.Type<PunisherActionPayload> TYPE =

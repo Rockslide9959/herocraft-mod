@@ -10,7 +10,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 
-/** The Punisher's two projectile/placed entities: the Frag Grenade and the Explosive Charge (C4). */
+/** The Punisher's thrown entities: the Frag Grenade and (v0.15.18) the Flashbang. */
 public final class PunisherEntityTypes {
 	public static final EntityType<FragGrenadeEntity> FRAG_GRENADE = register("frag_grenade",
 			EntityType.Builder.<FragGrenadeEntity>of(FragGrenadeEntity::new, MobCategory.MISC)
@@ -19,12 +19,24 @@ public final class PunisherEntityTypes {
 					.updateInterval(5)
 					.build("frag_grenade"));
 
+	/**
+	 * v0.15.18: the Explosive Charge ability was removed. The type stays registered so worlds saved with a charge
+	 * still load; a leftover charge removes itself on its first tick ({@link C4ChargeEntity}).
+	 */
 	public static final EntityType<C4ChargeEntity> C4_CHARGE = register("c4_charge",
 			EntityType.Builder.<C4ChargeEntity>of(C4ChargeEntity::new, MobCategory.MISC)
 					.sized(0.4f, 0.28f)
 					.clientTrackingRange(8)
 					.updateInterval(20)
 					.build("c4_charge"));
+
+	/** v0.15.18: Shift+C -- a thrown flashbang that goes off after a short fuse. */
+	public static final EntityType<FlashbangEntity> FLASHBANG = register("flashbang",
+			EntityType.Builder.<FlashbangEntity>of(FlashbangEntity::new, MobCategory.MISC)
+					.sized(0.3f, 0.3f)
+					.clientTrackingRange(6)
+					.updateInterval(5)
+					.build("flashbang"));
 
 	private PunisherEntityTypes() {
 	}

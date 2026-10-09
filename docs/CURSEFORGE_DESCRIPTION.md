@@ -123,7 +123,8 @@ No superpowers: guns, explosives, gear and training. Complete the **Vigilante Tr
 **Vigilante Safehouse**.
 - Pistol, Rifle, Shotgun and a fully modelled, scoped Sniper, with recoil, spread, range falloff and **headshots**. Ammo regenerates, so
   there's nothing to carry.
-- Tactical Satchel, cook-and-throw Frag Grenades, Tactical Roll, Suppressive Fire, Adrenaline and remote **C4**.
+- Mark a target for +30% damage, Brutal Strikes and Breach Kicks, cook-and-throw Frag Grenades, a **Warzone**
+  artillery barrage, Tactical Roll and Advance, Smoke Screens, Flashbangs and a Tactical Satchel (N).
 - Tactical armour only a Punisher can craft.
 - **Agent Venom:** bond with a Symbiote and **H** wraps you in the Agent Venom suit: Tendril Swing, Tendril Snatch,
   Symbiote Unleashed and Symbiote Rounds, on top of your whole arsenal.

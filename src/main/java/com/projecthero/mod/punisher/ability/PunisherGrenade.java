@@ -13,7 +13,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Ability 2 (G) -- Frag Grenade. Hold to cook (up to {@link PunisherConfig#GRENADE_MAX_COOK_TICKS}),
+ * Z (v0.15.18; was G) -- Frag Grenade. Hold to cook (up to {@link PunisherConfig#GRENADE_MAX_COOK_TICKS}),
  * release to throw. Holding past the max cook detonates it in your hand -- you cannot sit on a live
  * grenade forever (spec section 23). 12-second cooldown, started on the throw.
  */

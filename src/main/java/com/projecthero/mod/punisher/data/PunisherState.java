@@ -33,14 +33,18 @@ public final class PunisherState {
 	public final Map<String, Long> abilityReadyAt;
 
 	/**
-	 * The Tactical Satchel: a persistent 9-slot personal container (opened with R while wearing the
+	 * The Tactical Satchel: a persistent 9-slot personal container (opened with N -- v0.15.18, was R -- while wearing the
 	 * full Punisher tactical armour). Ender-chest-like -- it rides on the player, so it survives death
 	 * ({@code copyOnDeath}), power swaps and dimension changes. Stored as an {@link ItemContainerContents}
 	 * so it serialises exactly like a vanilla shulker box / bundle.
 	 */
 	public ItemContainerContents satchel = ItemContainerContents.EMPTY;
 
-	/** Absolute game-time Adrenaline / Suppressive Fire end (0 = inactive). */
+	/**
+	 * Absolute game-time Adrenaline / Suppressive Fire end (0 = inactive). v0.15.18: both abilities are gone -- the
+	 * fields (and {@link #adrenalineCrashAt}) stay only so the codec slots and older saves are untouched; nothing sets
+	 * them, and {@code Punisher.clearTransient} zeroes any value an old save still carries.
+	 */
 	public long adrenalineUntil;
 	public long suppressiveUntil;
 	/** Absolute game-time the current Tactical Roll ends (drives the i-frame window + animation). */

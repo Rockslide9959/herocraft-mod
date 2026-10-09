@@ -107,7 +107,10 @@ public final class ServerStateReset {
 		com.projecthero.mod.maxsteel.worldgen.SteelCrashAmbience.clearSessionState();
 		com.projecthero.mod.symbiote.worldgen.SymbioteWorldgen.clearSessionState();
 		com.projecthero.mod.firearm.FirearmManager.clearSessionState();
-		com.projecthero.mod.punisher.ability.PunisherC4.clearSessionState();
+		com.projecthero.mod.punisher.PunisherControl.clearSessionState(); // v0.15.18: stuns / no-target windows
+		com.projecthero.mod.punisher.ability.PunisherMark.clearSessionState(); // v0.15.18
+		com.projecthero.mod.punisher.ability.PunisherSmoke.clearSessionState(); // v0.15.18
+		com.projecthero.mod.punisher.ability.PunisherWarzone.clearSessionState(); // v0.15.18
 		com.projecthero.mod.punisher.PunisherAbilityManager.clearSessionState();
 		com.projecthero.mod.behemoth.BehemothSpawner.clearSessionState();
 		com.projecthero.mod.carnage.CarnageSpawner.clearSessionState(); // v0.14.25

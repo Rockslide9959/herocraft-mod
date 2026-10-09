@@ -72,7 +72,6 @@
 		"PlayerRendererMixin",
 		"PlayerRendererManualSuitUpMixin",
 		"PlayerRendererTitanMixin",
-		"SoundEngineMixin",
 		"SpeedPhaseHandJitterMixin",
 		"SpeedPhaseJitterMixin",
 		"TitanCameraMixin",

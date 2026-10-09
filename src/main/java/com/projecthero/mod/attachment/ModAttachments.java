@@ -403,6 +403,7 @@ public final class ModAttachments {
 	 * other clients); server stays authoritative. Isolated from every other attachment here.
 	 */
 	/**
+	 * v0.15.18: no longer set (Adrenaline is gone); kept because the dormant client stab animation still reads it.
 	 * v0.15.16: game time the Punisher started stabbing himself with an Adrenaline dose, or 0 -- the buffs land
 	 * {@link com.projecthero.mod.punisher.PunisherConfig#ADRENALINE_STAB_TICKS} later. Synced to everyone so every viewer
 	 * plays the stab; not persisted (a relog mid-stab simply drops it).

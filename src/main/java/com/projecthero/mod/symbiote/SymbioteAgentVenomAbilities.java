@@ -39,11 +39,11 @@ import net.minecraft.world.phys.Vec3;
  * keys, never new keybinds. Everything here needs the suit on (H).
  *
  * <ul>
- *   <li><b>Sneak + X (Tactical Roll's key)</b> -- Tendril Swing: a tendril shoots up to 36 blocks at the
+ *   <li><b>Sneak + X (Tactical Roll's key; replaces Tactical Advance while suited)</b> -- Tendril Swing: a tendril shoots up to 36 blocks at the
  *       block you are aiming at and hauls you to it; no fall damage for 3 s after.</li>
- *   <li><b>Sneak + Z (Suppressive Fire's key)</b> -- Tendril Snatch: yank the mob you are aiming at
+ *   <li><b>Sneak + Z (Frag Grenade's key; replaces Warzone while suited)</b> -- Tendril Snatch: yank the mob you are aiming at
  *       (18 blocks) to you, bound (Slowness III), and rip the weapon out of its hand.</li>
- *   <li><b>Sneak + V (Adrenaline's key)</b> -- Symbiote Unleashed: 10 s of +50% melee, +20% speed and
+ *   <li><b>Sneak + V (the weapon-ability key)</b> -- Symbiote Unleashed: 10 s of +50% melee, +20% speed and
  *       20% life steal on punches (v0.13.21: was 30%).</li>
  * </ul>
  *

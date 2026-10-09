@@ -82,6 +82,17 @@ public abstract class EntityGlowMixin {
 			}
 		}
 
+		// v0.15.18: the Punisher's Target Designation mark and Threat Assessment -- fed by PunisherIntelPayload to him alone,
+		// nothing is set on the entity. Checked before the player exclusion below: a marked player is outlined too.
+		if (self instanceof LivingEntity && com.projecthero.mod.punisher.Punisher.hasPower(viewer)) {
+			long pnow = viewer.level() != null ? viewer.level().getGameTime() : 0L;
+			if (com.projecthero.mod.client.punisher.PunisherIntelClient.isMarked(self.getId(), pnow)
+					|| com.projecthero.mod.client.punisher.PunisherIntelClient.isThreat(self.getId(), pnow)) {
+				cir.setReturnValue(true);
+				return;
+			}
+		}
+
 		// v0.12.43: Titan Roar -- everything the roar reached within 50 blocks is outlined blue for the roaring shifter alone.
 		if (self instanceof LivingEntity && com.projecthero.mod.client.titanshifter.TitanRoarSenseClient.isMarked(self.getId(),
 				viewer.level() != null ? viewer.level().getGameTime() : 0L)) {
@@ -339,6 +350,31 @@ public abstract class EntityGlowMixin {
 			cir.setReturnValue(0xFF8A00);
 		} else if (sniffed) {
 			cir.setReturnValue(0xFFE9A0);
+		}
+	}
+
+	/** v0.15.18: the Punisher's mark is red; his Threat Assessment shows hostiles orange, anything else pale grey. */
+	@Inject(method = "getTeamColor", at = @At("HEAD"), cancellable = true)
+	private void projecthero$punisherIntelColor(CallbackInfoReturnable<Integer> cir) {
+		if (cir.isCancelled()) {
+			return;
+		}
+		Entity self = (Entity) (Object) this;
+		if (self instanceof LocalPlayer || !(self instanceof LivingEntity)
+				|| !com.projecthero.mod.ironman.IronManHighlight.mayDecide(self)) {
+			return;
+		}
+		LocalPlayer viewer = Minecraft.getInstance().player;
+		if (viewer == null || viewer == self || !com.projecthero.mod.punisher.Punisher.hasPower(viewer)) {
+			return;
+		}
+		long now = viewer.level() != null ? viewer.level().getGameTime() : 0L;
+		if (com.projecthero.mod.client.punisher.PunisherIntelClient.isMarked(self.getId(), now)) {
+			cir.setReturnValue(com.projecthero.mod.client.punisher.PunisherIntelClient.MARK_COLOR);
+		} else if (com.projecthero.mod.client.punisher.PunisherIntelClient.isThreat(self.getId(), now)) {
+			cir.setReturnValue(self instanceof net.minecraft.world.entity.monster.Enemy
+					? com.projecthero.mod.client.punisher.PunisherIntelClient.THREAT_HOSTILE_COLOR
+					: com.projecthero.mod.client.punisher.PunisherIntelClient.THREAT_OTHER_COLOR);
 		}
 	}
 

@@ -20,7 +20,9 @@ public abstract class MobMindLockMixin {
 	@ModifyVariable(method = "setTarget", at = @At("HEAD"), argsOnly = true)
 	private LivingEntity projecthero$mindLockedHasNoTarget(LivingEntity target) {
 		Mob self = (Mob) (Object) this;
-		if (target != null && !self.level().isClientSide() && TelekinesisHandlers.isLocked(self)) {
+		// v0.15.18: so can't a mob the Punisher stunned, flashbanged or hid from in his smoke
+		if (target != null && !self.level().isClientSide()
+				&& (TelekinesisHandlers.isLocked(self) || com.projecthero.mod.punisher.PunisherControl.refusesTarget(self))) {
 			return null;
 		}
 		return target;
