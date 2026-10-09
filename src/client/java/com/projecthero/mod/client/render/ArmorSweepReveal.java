@@ -336,6 +336,84 @@ public final class ArmorSweepReveal {
 	 */
 	private static void paintFace(Face f, Vector3f lo, Vector3f hi, Matrix4f m, float su, float sv, int texW, int texH,
 			float[] height, Vector3f origin, Vector3f joint) {
+		walkFace(f, lo, hi, m, su, sv, texW, texH, (i, p) -> {
+			// v0.14.26: off the path limb, the distance runs origin -> joint -> texel
+			float value = origin == null ? p.y : joint == null ? -p.distance(origin) : -(origin.distance(joint) + p.distance(joint));
+			// a texel shared by several faces appears with the highest of them
+			if (Float.isNaN(height[i]) || value > height[i]) {
+				height[i] = value;
+			}
+		});
+	}
+
+	/** v0.15.18: receives one texel of a face -- its index ({@code y * texW + x}) and where it sits on the rest-pose model. */
+	public interface TexelSink {
+		void accept(int index, Vector3f point);
+	}
+
+	/** v0.15.18: like {@link TexelSink}, plus the name of the top-level bone the texel's cube hangs under. */
+	public interface BoneTexelSink {
+		void accept(int index, String rootBone, Vector3f point);
+	}
+
+	/**
+	 * v0.15.18: walks every texel of every cube face of {@code geometry} (a {@code texW} x {@code texH} texture), handing
+	 * each one's rest-pose position (model units) and top-level bone to {@code sink} -- the same UV-to-body mapping the
+	 * sweeps use, for callers that want their own reveal order (the Green Lantern suit growing along the body from the
+	 * ring). False if the geometry could not be read.
+	 */
+	public static boolean forEachTexel(ResourceLocation geometry, int texW, int texH, BoneTexelSink sink) {
+		Optional<Resource> geoRes = Minecraft.getInstance().getResourceManager().getResource(geometry);
+		if (geoRes.isEmpty()) {
+			return false;
+		}
+		try (Reader reader = new InputStreamReader(geoRes.get().open(), StandardCharsets.UTF_8)) {
+			JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
+			JsonObject model = root.getAsJsonArray("minecraft:geometry").get(0).getAsJsonObject();
+			JsonObject desc = model.getAsJsonObject("description");
+			float su = texW / (desc.has("texture_width") ? desc.get("texture_width").getAsFloat() : 64f);
+			float sv = texH / (desc.has("texture_height") ? desc.get("texture_height").getAsFloat() : 64f);
+			Map<String, JsonObject> bones = new HashMap<>();
+			JsonArray boneList = model.getAsJsonArray("bones");
+			for (JsonElement b : boneList) {
+				bones.put(b.getAsJsonObject().get("name").getAsString(), b.getAsJsonObject());
+			}
+			for (JsonElement b : boneList) {
+				JsonObject bone = b.getAsJsonObject();
+				if (!bone.has("cubes")) {
+					continue;
+				}
+				JsonObject top = bone;
+				for (int guard = 0; top.has("parent") && bones.containsKey(top.get("parent").getAsString()) && guard < 64; guard++) {
+					top = bones.get(top.get("parent").getAsString());
+				}
+				String rootName = top.get("name").getAsString();
+				Matrix4f boneMatrix = boneRest(bone, bones);
+				for (JsonElement ce : bone.getAsJsonArray("cubes")) {
+					JsonObject cube = ce.getAsJsonObject();
+					Vector3f o = vec(cube.getAsJsonArray("origin"));
+					Vector3f s = vec(cube.getAsJsonArray("size"));
+					float inflate = cube.has("inflate") ? cube.get("inflate").getAsFloat() : 0f;
+					Matrix4f m = new Matrix4f(boneMatrix);
+					if (cube.has("rotation")) {
+						Vector3f pivot = cube.has("pivot") ? vec(cube.getAsJsonArray("pivot")) : new Vector3f(o).add(s.x / 2, s.y / 2, s.z / 2);
+						m.mul(rotationAbout(pivot, vec(cube.getAsJsonArray("rotation"))));
+					}
+					Vector3f lo = new Vector3f(o).sub(inflate, inflate, inflate);
+					Vector3f hi = new Vector3f(o).add(s).add(inflate, inflate, inflate);
+					for (Face f : faces(cube, s)) {
+						walkFace(f, lo, hi, m, su, sv, texW, texH, (i, p) -> sink.accept(i, rootName, p));
+					}
+				}
+			}
+			return true;
+		} catch (Exception e) {
+			ProjectHeroMod.LOGGER.warn("[ProjectHero] could not read the geometry {}: {}", geometry, e.toString());
+			return false;
+		}
+	}
+
+	private static void walkFace(Face f, Vector3f lo, Vector3f hi, Matrix4f m, float su, float sv, int texW, int texH, TexelSink out) {
 		float u0 = Math.min(f.u0, f.u0 + f.du) * su;
 		float u1 = Math.max(f.u0, f.u0 + f.du) * su;
 		float v0 = Math.min(f.v0, f.v0 + f.dv) * sv;
@@ -356,13 +434,7 @@ public final class ArmorSweepReveal {
 				float cz = f.corner[2] + f.alongU[2] * fu + f.alongV[2] * fv;
 				Vector3f p = new Vector3f(lo.x + ext.x * cx, lo.y + ext.y * cy, lo.z + ext.z * cz);
 				m.transformPosition(p);
-				int i = ty * texW + tx;
-				// v0.14.26: off the path limb, the distance runs origin -> joint -> texel
-				float value = origin == null ? p.y : joint == null ? -p.distance(origin) : -(origin.distance(joint) + p.distance(joint));
-				// a texel shared by several faces appears with the highest of them
-				if (Float.isNaN(height[i]) || value > height[i]) {
-					height[i] = value;
-				}
+				out.accept(ty * texW + tx, p);
 			}
 		}
 	}

@@ -1,11 +1,8 @@
 package com.projecthero.mod.client.greenlantern;
 
-import org.joml.Vector3f;
-
 import com.projecthero.mod.armor.ArmorVisualDefinition;
 import com.projecthero.mod.armor.SuperheroArmorVisuals;
 import com.projecthero.mod.attachment.ModAttachments;
-import com.projecthero.mod.client.render.ArmorSweepReveal;
 import com.projecthero.mod.greenlantern.GreenLanternConfig;
 import com.projecthero.mod.greenlantern.GreenLanternSuitStyle;
 import com.projecthero.mod.greenlantern.data.GreenLanternState;
@@ -21,16 +18,16 @@ import net.minecraft.world.entity.player.Player;
  * the suit never flashes fully on.
  *
  * <p>v0.15.15, explicit user request: the suit no longer sweeps from the chest down -- it spreads outward from the Power
- * Ring on the right hand ({@link ArmorSweepReveal.Sweep#radialVia}: up the ring arm to the shoulder first, then out over the
+ * Ring on the right hand ({@code ArmorSweepReveal.Sweep#radialVia}: up the ring arm to the shoulder first, then out over the
  * body and head), behind a white-green edge; suit-down plays it backwards, the suit receding into the ring. The suit drawn
  * is the wearer's chosen {@link GreenLanternSuitStyle} (N); every style shares the geometry, so the same sweep serves all.
  * {@link #ringGlow} is how hard the ring blazes while the suit forms.
+ *
+ * <p>v0.15.18 (user: "the suit has to build outwards onto the body starting from the ring"): the straight-line sweep is
+ * replaced by {@link GreenLanternSuitBuild} -- a per-texel wave measured ALONG the body from the ring finger (up the ring
+ * arm, across the chest, down the legs, up over the head and down the other arm) behind a white-green forming edge.
  */
 public final class GreenLanternSuitReveal {
-	/** The ring on the right fist, then the right shoulder joint -- in the armour geometry's own model units. */
-	private static final ArmorSweepReveal.Sweep FROM_RING = ArmorSweepReveal.Sweep.radialVia("gl_ring_arm",
-			new Vector3f(-6.0f, 12.5f, -1.0f), "armorRightArm", new Vector3f(-6.0f, 23.0f, 0.0f), 0xFFE6FFEC, 0xFF5CFF8E);
-
 	private GreenLanternSuitReveal() {
 	}
 
@@ -81,7 +78,7 @@ public final class GreenLanternSuitReveal {
 		return style == GreenLanternSuitStyle.DEFAULT ? fallback : style.texture();
 	}
 
-	/** The suit texture to draw on {@code player} right now: their chosen style, swept on / off outside a settled suit. */
+	/** The suit texture to draw on {@code player} right now: their chosen style, built on / off from the ring outside a settled suit. */
 	public static ResourceLocation texture(Player player, ResourceLocation base, float partialTick) {
 		ResourceLocation tex = styleTexture(player, base);
 		float p = progress(player, partialTick);
@@ -89,7 +86,7 @@ public final class GreenLanternSuitReveal {
 			return tex;
 		}
 		ArmorVisualDefinition def = SuperheroArmorVisuals.get("green_lantern");
-		return def == null ? tex : ArmorSweepReveal.texture(def.geometry(), tex, p, FROM_RING);
+		return def == null ? tex : GreenLanternSuitBuild.texture(def.geometry(), tex, p);
 	}
 
 	private static float clamp(float v) {

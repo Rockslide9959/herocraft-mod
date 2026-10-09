@@ -24,6 +24,12 @@ public class SuperheroArmorModel extends GeoModel<SuperheroArmorItem> {
 	 * v0.15.16 (user: the skin-based Green Lantern suits "look kinda thick"): every suit but the ring's own default one is a
 	 * cloth-like costume made from a player skin, so it is drawn on a slimmer copy of the suit rig (shells 0.05 / 0.3 px
 	 * off the body instead of 0.3 / 0.55, a thinner mask) -- same UVs, so the textures and the suit-up sweep are unchanged.
+	 *
+	 * <p>v0.15.18 (user: "skin pokes through the leg sides"): GeckoLib's {@code GeoArmorRenderer#applyBaseTransformations}
+	 * places the leg bones at the vanilla leg x +/- 2 (i.e. 0.1 px toward the middle of the body, since vanilla legs sit at
+	 * +/-1.9). The thick default rig's 0.3 px shell hides that; the slim rig's 0.05 px base layer did not, so the outer side
+	 * of each leg sank 0.05 px inside the wearer's own leg and only the skin was visible from the side. The slim rig's leg
+	 * cubes are moved 0.1 px outward to cancel the shift.
 	 */
 	private static final ResourceLocation GREEN_LANTERN_SLIM = com.projecthero.mod.ProjectHeroMod.id("geo/green_lantern_slim.geo.json");
 
