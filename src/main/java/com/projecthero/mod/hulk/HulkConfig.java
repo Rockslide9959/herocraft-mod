@@ -306,9 +306,11 @@ public final class HulkConfig {
 	public static final float BANNER_GLOW_RAGE = 75.0f;
 	/** v0.15.18: hold H this long below {@link #MANUAL_TRANSFORM_RAGE} and Banner strains the Hulk out anyway (willing). */
 	public static final int STRAIN_HOLD_TICKS = 50;
-	/** v0.15.18: what the strained change costs -- health (never below 1 HP) and food points. No 20 HP burst either. */
-	public static final float STRAIN_HEALTH_COST = 4.0f;
-	public static final int STRAIN_FOOD_COST = 4;
+	/**
+	 * v0.15.18 (playtest): forcing the change needs a full hunger bar, empties it (food and saturation) and the Hulk comes
+	 * out on only this much health (no 20 HP burst).
+	 */
+	public static final float STRAIN_START_HEALTH = 20.0f;
 	/** v0.15.18: the Hulk's rage only burns down to this floor out of combat -- running low never changes him back. */
 	public static final float HULK_RAGE_FLOOR = 15.0f;
 	/**

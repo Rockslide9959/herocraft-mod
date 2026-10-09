@@ -208,11 +208,27 @@ public class HulkGameTests implements FabricGameTest {
 			helper.assertTrue(Hulk.isHulk(p), "holding H 2.5 s forces the change");
 			helper.assertFalse(Hulk.state(p).combat.unwilling, "a willing one");
 			helper.assertFalse(Hulk.changing(p), "quick, not the kneeling change");
-			helper.assertTrue(p.isAlive(), "it never kills");
-			// 3 HP - 4 = 1 HP (never the last point), no 20 HP burst: about 1/20 of the Hulk's 60
-			helper.assertTrue(p.getHealth() < 16.0f, "it cost health and gave no healing burst, got " + p.getHealth());
-			helper.assertTrue(p.getFoodData().getFoodLevel() <= 20 - HulkConfig.STRAIN_FOOD_COST,
-					"and food, got " + p.getFoodData().getFoodLevel());
+			// v0.15.18 playtest: he comes out on 20 HP (a little regen since), whatever Banner had
+			helper.assertTrue(p.getHealth() >= HulkConfig.STRAIN_START_HEALTH && p.getHealth() < HulkConfig.STRAIN_START_HEALTH + 3.0f,
+					"he comes out on 20 HP, got " + p.getHealth());
+			helper.assertTrue(p.getFoodData().getFoodLevel() == 0 && p.getFoodData().getSaturationLevel() == 0.0f,
+					"and the whole hunger bar is gone, got " + p.getFoodData().getFoodLevel() + " / " + p.getFoodData().getSaturationLevel());
+			helper.succeed();
+		});
+	}
+
+	/** v0.15.18 playtest: forcing the change needs a full hunger bar. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void forcingTheChangeNeedsAFullHungerBar(GameTestHelper helper) {
+		ServerPlayer p = gamma(helper);
+		Hulk.setRage(p, 20.0f);
+		p.getFoodData().setFoodLevel(19);
+		Hulk.pressH(p);
+		helper.assertTrue(Hulk.state(p).combat.strainStart == 0L, "19/20 food: the strain does not start");
+		helper.onEachTick(() -> Hulk.tick(p));
+		helper.runAfterDelay(HulkConfig.STRAIN_HOLD_TICKS + 10, () -> {
+			helper.assertFalse(Hulk.isHulk(p), "so no change");
+			helper.assertTrue(p.getFoodData().getFoodLevel() == 19, "and nothing is taken");
 			helper.succeed();
 		});
 	}

@@ -39,7 +39,7 @@ import org.joml.Vector3f;
  * he TAKES is 1 rage, in either form. As Banner, the damage he deals builds nothing, and 5 s after the last hit he
  * took his rage bleeds off at 2 a second. As the Hulk, every hit he lands adds 2, and only once he has been out of
  * combat for 5 s does rage burn down (0.75 a second). v0.15.18 rules: at 50 Banner can let the Hulk out with H (below
- * that, holding H strains him out anyway, for some health and food); at 100 the Hulk comes out on his own (the unwilling
+ * that, holding H with a full hunger bar strains him out anyway -- it empties the bar and he comes out on 20 HP); at 100 the Hulk comes out on his own (the unwilling
  * change). The Hulk's rage only burns down to {@link HulkConfig#HULK_RAGE_FLOOR} -- it never changes him back. Instead it
  * sets his rage tier (Calm / Angry / Enraged), which scales his damage and speed. The player taps H to change back
  * (an unwilling Hulk only once his rage is under 50); that is only exhausting (Weakness + Slowness, no rage, no change for
@@ -339,6 +339,10 @@ public final class Hulk {
 			say(player, "message.projecthero.hulk.cannot_now", ChatFormatting.GRAY);
 			return;
 		}
+		if (player.getFoodData().needsFood()) { // v0.15.18 playtest: forcing it needs a full hunger bar
+			say(player, "message.projecthero.hulk.strain_hungry", ChatFormatting.RED);
+			return;
+		}
 		HulkState n = s.copy();
 		n.combat.strainStart = now;
 		save(player, n);
@@ -373,19 +377,25 @@ public final class Hulk {
 		}
 	}
 
-	/** v0.15.18: the strain worked -- it costs health (never the last point) and food, then the willing change. */
+	/**
+	 * v0.15.18: the strain worked -- the willing change, paid for with the whole hunger bar (food and saturation emptied;
+	 * it needed a full bar to start), and the Hulk comes out on only {@link HulkConfig#STRAIN_START_HEALTH}.
+	 */
 	private static void finishStrain(ServerPlayer player) {
 		HulkState n = state(player).copy();
 		n.combat.strainStart = 0L;
 		save(player, n);
-		float health = player.getHealth();
-		player.setHealth(Math.max(Math.min(health, 1.0f), health - HulkConfig.STRAIN_HEALTH_COST));
 		net.minecraft.world.food.FoodData food = player.getFoodData();
-		food.setFoodLevel(Math.max(0, food.getFoodLevel() - HulkConfig.STRAIN_FOOD_COST));
-		food.setSaturation(Math.min(food.getSaturationLevel(), food.getFoodLevel()));
-		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_HURT, SoundSource.PLAYERS, 1.0f, 0.6f);
+		if (food.needsFood()) {
+			say(player, "message.projecthero.hulk.strain_hungry", ChatFormatting.RED); // he got hungry mid-strain
+			return;
+		}
 		transform(player, false, false);
 		if (isHulk(player)) {
+			player.setHealth(Math.min(player.getMaxHealth(), HulkConfig.STRAIN_START_HEALTH));
+			food.setFoodLevel(0);
+			food.setSaturation(0.0f);
+			player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_HURT, SoundSource.PLAYERS, 1.0f, 0.6f);
 			player.displayClientMessage(Component.translatable("message.projecthero.hulk.strain_done")
 					.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
 		}
