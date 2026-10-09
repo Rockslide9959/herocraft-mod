@@ -83,6 +83,11 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 	public static final int STYLE_MK1_OFF = 70;
 	/** v0.15.15: Marks 2-7 taken off with C -- the plates retract panel by panel into the reactor ({@link IronManSuitRemoval#KIND_SLEEK}). */
 	public static final int STYLE_SLEEK_OFF = 71;
+	/**
+	 * v0.15.19, explicit user request: Marks 2-7 taken off with C by hand, like the Mark 1 -- wrench and hands, each plate
+	 * unbolted, pulled off and let go of ({@link IronManSuitRemoval#KIND_WORKSHOP}); pieces leave whole.
+	 */
+	public static final int STYLE_WORKSHOP_OFF = 72;
 
 	public static final int POSE_NONE = 0;
 	/** Standing suit-up: arms out and slightly raised while the pieces lock on, then the faceplate beat. */
@@ -119,6 +124,13 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 	public static final int POSE_MK1_OFF = 70;
 	/** v0.15.15: the Marks 2-7 C removal -- relaxed, arms a little out, while the plates retract into the reactor. */
 	public static final int POSE_SLEEK_OFF = 71;
+	/** v0.15.19: the Marks 2-7 C removal by hand -- bolts ratcheted loose, plates pulled off and dropped ({@link IronManSuitRemoval}). */
+	public static final int POSE_WORKSHOP_OFF = 72;
+
+	/** v0.15.19: is {@code pose} one of the C removals ({@link IronManSuitRemoval}: Mark 1 / Marks 2-7 by hand, the old retract)? */
+	public static boolean removalPose(int pose) {
+		return pose == POSE_MK1_OFF || pose == POSE_SLEEK_OFF || pose == POSE_WORKSHOP_OFF;
+	}
 
 	public static final IronManSuitFx EMPTY = new IronManSuitFx(0L, 0L, 0L, 0L, 0, STYLE_PLATES, 0L, 0, POSE_NONE, 0L, 0);
 

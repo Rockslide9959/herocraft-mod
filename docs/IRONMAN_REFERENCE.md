@@ -1826,7 +1826,8 @@ marks — still renders with the same `crimson_vanguard` placeholder texture, be
   the armour flies straight off it to you. An unloaded one = a travel delay scaled to the real
   distance ("ETA 12s") *then* it flies in and self-assembles at the usual pace. Pieces stay on the
   platform until it actually launches, so nothing is lost if the server restarts mid-wait.
-* **Suit worn on death auto-recovers** — the onboard AI flies the armour to your nearest Suit
+* ~~**Suit worn on death auto-recovers**~~ (removed in v0.15.11, confirmed v0.15.19: a worn suit now drops like
+  vanilla armour on death -- see "v0.15.19" at the end) — the onboard AI flies the armour to your nearest Suit
   Platform, crash-damaged (integrity drops to ~35% of what it was). Repair it there. No platform to
   reach → the pieces just drop (with their charge intact). Off under keepInventory.
 * Sprint-flying vents repulsor exhaust from the **hands** (drawn client-side so it tracks the pose).
@@ -2208,3 +2209,33 @@ Iron Man armour piece + a plating = +2 armour and +1 toughness on that slot (`ul
 ("Vibranium plating n / 4"). Iron Man armour only. JARVIS has five Ultron lines (`JarvisDialogue.speak`), the
 lock-on targets Ultron's drones and relay pylons, and Ultron's hits wear a worn suit's hull 10% harder.
 Tests: `UltronV01512GameTests`.
+
+## v0.15.19: hand-built suit-down for Marks 2-7, death drops, landing ends every flight
+
+* **Marks 2-7 C suit-down = by hand, like the Mark 1** (explicit user request). `IronManSuitRemoval.kindFor` maps
+  `mark_2 / mark_iii / mark_4 / mark_6 / mark_vii` to the new `KIND_WORKSHOP` (code 5 on `transitionManual`, style /
+  pose 72: `IronManSuitFx.STYLE_WORKSHOP_OFF` / `POSE_WORKSHOP_OFF`). Same order and beats as the Mark 1 removal
+  (helmet -> chestplate -> greaves -> boots, ~20 s for a full suit), but in the workshop build's style: the **wrench**
+  (`PROP_WRENCH`, ratchet clicks) instead of the hammer -- faceplate pushed up, neck bolt ratcheted, helmet lifted off;
+  gauntlet clamp popped, gauntlet bolt ratcheted, reactor twisted out (`EV_POWER_DOWN`), chestplate hauled overhead;
+  hip bolts ratcheted, greaves popped open and pulled off; ankle bolts ratcheted, step out of the boots. Each plate is
+  pulled (`EV_PULL`: the real stack goes to the main inventory that tick via `removeForSuitDown`, unchanged), held,
+  dropped to the left and vanishes (`IronManManualSuitUpLayer.renderHandRemoval` / `renderDroppedPlates`, now for both
+  by-hand kinds). Synced through the pose clock + variant, so every viewer sees it. The Mark 5 keeps its suitcase fold,
+  the Mark 8+ the reverse build, the gantry / platform removals are untouched. The v0.15.15 retract (`KIND_SLEEK`, pose
+  71) is no longer chosen for any mark but its code and texel wave are kept.
+* **Death = vanilla drop.** The "changes 10" death recovery (suit flies home to a platform) has been gone since v0.15.11;
+  v0.15.19 adds `IronManV01519GameTests.aWornSuitDropsLikeArmourOnDeath` (a real `ServerPlayer.die`: the four real
+  pieces land as ordinary item entities at the death spot and stay there) and `keepInventoryKeepsTheSuit`. Iron Man
+  items have no despawn-on-drop rule. `StarkSuitReturnQueue` stays for send-home / Sentry / suit-part returns, and still
+  delivers any record an older version wrote (old death returns included), so existing worlds lose nothing.
+* **Touching the floor ends every hero flight** (explicit user request). Shared rule `flight.FlightLanding`: on the
+  ground, past a 10-tick take-off grace, and not rising (`getKnownMovement().y <= 0`; on the server that is the client's
+  last reported movement). Each system ends the flight through its own off path: Iron Man (every mark; the Mark 1 Flight
+  Burst too, via `endTimedFlight` + `setFlying(false)`, the landing slam still fires), Repulsor Boots, Nova, Kryptonian,
+  Green Lantern (they already landed; now with the rising check), Thor (rising check added to its cooldown grace), Max
+  Steel Turbo Flight (`exitToBase`, as re-pressing the key), the Flight-power `HeroFlight` and `TimedSelfFlight`.
+  Creative flight is never touched. Take-off ticks live in `FlightLanding` (cleared by `ServerStateReset`).
+
+Tests: `IronManV01519GameTests`, `IronManV01515GameTests.marksTwoToSevenComeOffByHandPieceByPiece`,
+`DirectionalFlightGameTests.ironManFlightTickKeepsItsDrain` (grace then landing).

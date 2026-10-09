@@ -25,6 +25,13 @@ public final class MaxSteelModeRuntime {
 		if (!mode.isSpecialised()) {
 			return;
 		}
+		// v0.15.19, explicit user request ("when players touch the floor they stop flying"): touching down in Turbo Flight
+		// drops back to Base exactly as re-pressing the key does -- past the shared take-off grace, not while rising
+		if (mode == MaxSteelMode.FLIGHT && MaxSteelFlight.isFlying(player) && !player.getAbilities().instabuild
+				&& com.projecthero.mod.flight.FlightLanding.landed(player, com.projecthero.mod.flight.FlightLanding.MAX_STEEL)) {
+			MaxSteelModes.exitToBase(player, true);
+			return;
+		}
 
 		float perTick = drainPerTick(player, mode);
 		if (perTick > 0f) {

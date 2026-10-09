@@ -296,7 +296,16 @@ public class DirectionalFlightGameTests implements FabricGameTest {
 
 		player.setOnGround(true);
 		IronManFlight.tick(player);
-		helper.assertTrue(!IronManFlight.isFlying(player) && !player.getAbilities().flying, "touching the ground still lands");
-		helper.succeed();
+		// v0.15.19: inside the shared take-off grace (FlightLanding) ground contact does not land it yet...
+		helper.assertTrue(IronManFlight.isFlying(player), "the take-off grace keeps it up right after take-off");
+		player.setOnGround(false);
+		helper.runAfterDelay(com.projecthero.mod.flight.FlightLanding.LIFTOFF_GRACE_TICKS + 1, () -> {
+			// ...past it, touching the ground still lands
+			player.setOnGround(true);
+			player.setKnownMovement(net.minecraft.world.phys.Vec3.ZERO);
+			IronManFlight.tick(player);
+			helper.assertTrue(!IronManFlight.isFlying(player) && !player.getAbilities().flying, "touching the ground still lands");
+			helper.succeed();
+		});
 	}
 }

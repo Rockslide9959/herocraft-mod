@@ -104,6 +104,11 @@ public final class HeroFlight {
 	}
 
 	public static void setFlying(ServerPlayer player, boolean flying) {
+		if (flying && !isFlying(player)) {
+			com.projecthero.mod.flight.FlightLanding.started(player, com.projecthero.mod.flight.FlightLanding.HERO);
+		} else if (!flying) {
+			com.projecthero.mod.flight.FlightLanding.ended(player, com.projecthero.mod.flight.FlightLanding.HERO);
+		}
 		player.setAttached(ModAttachments.HERO_FLYING, flying);
 		if (player.getAbilities().instabuild) {
 			return;
@@ -135,6 +140,12 @@ public final class HeroFlight {
 		}
 
 		if (flying && (ThorPowers.isFlying(player) || !canFly || player.getAbilities().instabuild)) {
+			setFlying(player, false);
+			return;
+		}
+		// v0.15.19, explicit user request ("when players touch the floor they stop flying"): touching down (past the
+		// shared take-off grace, not rising) lands it, exactly as toggling it off does
+		if (flying && com.projecthero.mod.flight.FlightLanding.landed(player, com.projecthero.mod.flight.FlightLanding.HERO)) {
 			setFlying(player, false);
 			return;
 		}

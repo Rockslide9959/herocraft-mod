@@ -134,32 +134,58 @@ public class IronManV01515GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void marksTwoToSevenRetractIntoTheReactor(GameTestHelper h) {
+	public void marksTwoToSevenComeOffByHandPieceByPiece(GameTestHelper h) {
 		ServerPlayer p = tony(h);
 		wear(p, "mark_iii");
+		// v0.15.19, user request: Marks 2-7 are unbuilt off the body by hand like the Mark 1 (no more retract)
 		for (String id : new String[] { "mark_2", "mark_iii", "mark_4", "mark_6", "mark_vii" }) {
-			h.assertTrue(IronManSuitRemoval.kindFor(id) == IronManSuitRemoval.KIND_SLEEK, id + " retracts");
+			h.assertTrue(IronManSuitRemoval.kindFor(id) == IronManSuitRemoval.KIND_WORKSHOP, id + " comes off by hand");
 		}
 		h.assertTrue(IronManSuitRemoval.kindFor("mark_v") < 0 && IronManSuitRemoval.kindFor("mark_8") < 0,
 				"the Mark 5 keeps its suitcase fold, the Mark 8 its reverse build");
 		h.assertTrue(IronManSuitUpManager.beginSuitDown(p, "mark_iii"), "C starts the removal");
+		h.assertTrue(IronManSuitRemoval.running(p) && !IronManManualSuitUp.running(p), "a removal, not a hand build");
 		IronManSuitFx fx = IronManSuitFx.of(p);
-		h.assertTrue(fx.poseKind() == IronManSuitFx.POSE_SLEEK_OFF && fx.style() == IronManSuitFx.STYLE_SLEEK_OFF,
-				"the retract pose + style (71) are synced");
+		h.assertTrue(fx.poseKind() == IronManSuitFx.POSE_WORKSHOP_OFF && fx.style() == IronManSuitFx.STYLE_WORKSHOP_OFF,
+				"the by-hand removal pose + style (72) are synced");
+		var sch = IronManSuitRemoval.schedule(IronManSuitRemoval.KIND_WORKSHOP, 0b1111);
+		h.assertTrue(sch.offAt(0) < sch.offAt(1) && sch.offAt(1) < sch.offAt(2) && sch.offAt(2) < sch.offAt(3),
+				"helmet, chestplate, greaves, boots -- one after another, like the Mark 1");
+		boolean wrench = false;
+		for (int bit = 0; bit < 4; bit++) {
+			h.assertTrue(sch.dropAt(bit) > sch.offAt(bit), "piece " + bit + " is held a moment, then dropped");
+		}
+		for (int t = 0; t < sch.total(); t++) {
+			wrench |= (sch.props(t) & IronManManualSuitUp.PROP_WRENCH) != 0;
+			h.assertTrue((sch.props(t) & IronManManualSuitUp.PROP_HAMMER) == 0, "no Mark 1 hammer at tick " + t);
+		}
+		h.assertTrue(wrench, "the bolts are worked loose with the wrench");
 		int[] off = runRemoval(h, p, "mark_iii");
-		h.assertTrue(off[3] < off[2] && off[2] <= off[0] && off[0] < off[1],
-				"boots first, then legs, helmet, and the chestplate last into the reactor (" + off[0] + ", " + off[1] + ", "
-						+ off[2] + ", " + off[3] + ")");
+		for (int bit = 0; bit < 4; bit++) {
+			h.assertTrue(off[bit] == sch.offAt(bit), "piece " + bit + " leaves at its pull tick (" + off[bit] + " vs "
+					+ sch.offAt(bit) + ")");
+		}
 		h.assertFalse(IronManArmor.wearingAnyIronMan(p), "the suit is off");
+		h.assertFalse(frozen(p), "free to move again");
+		h.assertTrue(IronManSuitFx.of(p).poseKind() == IronManSuitFx.POSE_NONE, "the pose clock is cleared");
+		for (int i = 0; i < 9; i++) {
+			h.assertFalse(p.getInventory().items.get(i).getItem() instanceof IronManArmorItem, "nothing lands in the hotbar");
+		}
 		h.assertTrue(IronManEnergy.stackEnergy(findInPack(p, "mark_iii", ArmorItem.Type.CHESTPLATE), "mark_iii")
 				> IronManSuits.byId("mark_iii").energyCapacity() * 0.45f, "its charge is stamped on the stored pieces");
-		// the wave itself: far from the reactor first, the torso last
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void oldRetractWaveStillOrdersItsPanels(GameTestHelper h) {
+		// v0.15.15's retract (no longer played since v0.15.19, kept for a possible per-mark return): the wave itself
 		h.assertTrue(IronManSuitRemoval.vanishAt(IronManSuitRemoval.R_BOOTS, 2f, 1f, 0f, 0.5f)
 				< IronManSuitRemoval.vanishAt(IronManSuitRemoval.R_TORSO, 0f, 20f, -2f, 0.5f), "boot panels before the reactor");
 		h.assertTrue(IronManSuitRemoval.vanishAt(IronManSuitRemoval.R_ARMS, 6f, 12f, 0f, 0.5f)
 				< IronManSuitRemoval.vanishAt(IronManSuitRemoval.R_ARMS, 6f, 23f, 0f, 0.5f), "hands before shoulders");
-		h.assertTrue(IronManSuitRemoval.regionGone(IronManSuitRemoval.R_LEGS, off[2])
-				&& !IronManSuitRemoval.regionGone(IronManSuitRemoval.R_TORSO, off[2]), "legs bare while the torso is still on");
+		int legsOff = IronManSuitRemoval.schedule(IronManSuitRemoval.KIND_SLEEK, 0b1111).offAt(2);
+		h.assertTrue(IronManSuitRemoval.regionGone(IronManSuitRemoval.R_LEGS, legsOff)
+				&& !IronManSuitRemoval.regionGone(IronManSuitRemoval.R_TORSO, legsOff), "legs bare while the torso is still on");
 		h.succeed();
 	}
 

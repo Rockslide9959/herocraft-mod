@@ -31,7 +31,7 @@ public abstract class IronManRemovalParticleMixin {
 		}
 		IronManSuitFx fx = IronManSuitFx.of(mc.player);
 		int kind = fx.poseKind();
-		if ((kind != IronManSuitFx.POSE_MK1_OFF && kind != IronManSuitFx.POSE_SLEEK_OFF)
+		if (!IronManSuitFx.removalPose(kind)
 				|| fx.poseAge(mc.level.getGameTime(), 0f) < 0f) {
 			return;
 		}

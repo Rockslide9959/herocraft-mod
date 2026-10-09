@@ -109,7 +109,8 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 	}
 
 	private static void runSequence(ServerPlayer p) {
-		for (int i = 0; i < 300 && IronManSuitUpManager.inTransition(p); i++) {
+		// v0.15.19: room for the Marks 2-7 by-hand removal (~20 s, like the Mark 1's)
+		for (int i = 0; i < 1000 && IronManSuitUpManager.inTransition(p); i++) {
 			IronManSuitUpManager.tick(p);
 		}
 	}

@@ -474,7 +474,7 @@ public final class HeroPackGuide {
 			// v0.15.11: C with a suit in the pack = putting it on by hand (Mark 1 cave build, Marks 2-7 workshop build)
 			head(lines, "projecthero.guide.iron_man.hand_build");
 			para(lines, "projecthero.guide.iron_man.hand_build.body");
-			// v0.15.15: C to take a Mark 1-7 off (Mark 1 by hand, Marks 2-7 retracting into the reactor)
+			// v0.15.15: C to take a Mark 1-7 off (Mark 1 by hand; v0.15.19: Marks 2-7 by hand too, with the wrench)
 			head(lines, "projecthero.guide.iron_man.suit_down");
 			para(lines, "projecthero.guide.iron_man.suit_down.body");
 			head(lines, "projecthero.guide.iron_man.screens"); // v0.14.21 UI redesign

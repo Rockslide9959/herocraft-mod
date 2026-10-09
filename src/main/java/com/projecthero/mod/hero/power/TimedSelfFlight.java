@@ -57,6 +57,7 @@ public final class TimedSelfFlight {
 		}
 		ExperimentalPowers.setResource(p, power, ticksKey(tag), DURATION_TICKS, DURATION_TICKS);
 		ExperimentalPowers.setResource(p, power, meterKey(tag), 100.0f, 100.0f);
+		com.projecthero.mod.flight.FlightLanding.started(p, landingKey(tag)); // v0.15.19
 		p.getAbilities().mayfly = true;
 		p.getAbilities().flying = true;
 		p.onUpdateAbilities();
@@ -75,6 +76,12 @@ public final class TimedSelfFlight {
 			stop(p, power, ability, tag, false);
 			return;
 		}
+		// v0.15.19, explicit user request ("when players touch the floor they stop flying"): touching down past the shared
+		// take-off grace (not while rising) ends it like the timer running out
+		if (com.projecthero.mod.flight.FlightLanding.landed(p, landingKey(tag))) {
+			stop(p, power, ability, tag, true);
+			return;
+		}
 		remaining -= 1.0f;
 		p.getAbilities().mayfly = true;
 		p.getAbilities().flying = true;
@@ -89,7 +96,12 @@ public final class TimedSelfFlight {
 		}
 	}
 
+	private static String landingKey(String tag) {
+		return com.projecthero.mod.flight.FlightLanding.TIMED + "_" + tag;
+	}
+
 	public static void stop(ServerPlayer p, Power power, Ability ability, String tag, boolean startCooldown) {
+		com.projecthero.mod.flight.FlightLanding.ended(p, landingKey(tag));
 		ExperimentalPowers.setResource(p, power, ticksKey(tag), 0.0f, DURATION_TICKS);
 		ExperimentalPowers.setResource(p, power, meterKey(tag), 0.0f, 100.0f);
 		if (!anyActive(p)) {

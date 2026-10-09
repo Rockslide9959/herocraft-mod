@@ -89,6 +89,7 @@ public final class ServerStateReset {
 		ElectrokinesisHandlers.clearSessionState();
 		ShadowManipulationHandlers.clearSessionState();
 		IronManSuitCall.clearPending();
+		com.projecthero.mod.flight.FlightLanding.clearSessionState(); // v0.15.19: take-off ticks for the landing rule
 		com.projecthero.mod.ironman.IronManSuitArrows.clearSessionState(); // v0.15.9: last suit signature per player
 		com.projecthero.mod.ironman.gantry.StarkGantry.clearSessionState(); // v0.15.4: where each suit last came from
 		com.projecthero.mod.ironman.drone.IronManDrones.clearSessionState(); // v0.14.29 agent E: Remote Pilot links

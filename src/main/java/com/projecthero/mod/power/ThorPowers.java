@@ -536,7 +536,8 @@ public final class ThorPowers {
 				if (!holding && !grace) {
 					// No hammer, and no (or expired) grace: flight ends, ordinary gravity takes over.
 					setFlying(player, false);
-				} else if (player.onGround() && cooldowns(player).isReady(ThorAbility.FLIGHT, player.level().getGameTime())) {
+				} else if (player.onGround() && cooldowns(player).isReady(ThorAbility.FLIGHT, player.level().getGameTime())
+						&& com.projecthero.mod.flight.FlightLanding.descending(player)) { // v0.15.19: and not rising
 					// Touching down ends the flight, matching vanilla's own creative-flight behavior,
 					// and cleanly cancels any hammerless grace in progress -- requirement 27.
 					setFlying(player, false);

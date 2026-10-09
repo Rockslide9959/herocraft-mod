@@ -196,8 +196,9 @@ public final class IronManSuitUpManager {
 		if (IronManFlight.isFlying(player)) {
 			IronManFlight.setFlying(player, false);
 		}
-		// v0.15.15, explicit user request: the Mark 1 is pulled off by hand, Marks 2-7 retract panel by panel into the
-		// reactor (IronManSuitRemoval); the Mark 8 and later keep the reverse build
+		// v0.15.15, explicit user request: the Mark 1 is pulled off by hand (IronManSuitRemoval); v0.15.19: Marks 2-7 are
+		// unbuilt off the body by hand the same way (wrench in place of the hammer); the Mark 8 and later keep the
+		// reverse build
 		int removal = IronManSuitRemoval.kindFor(suitId);
 		if (removal >= 0) {
 			IronManSuitRemoval.start(player, suit, removal, mask);

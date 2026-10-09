@@ -107,7 +107,8 @@ public final class GreenLanternFlight {
 		// flight engages (still reporting the ground the player just jumped off) doesn't instantly cancel
 		// it -- the same grace window Thor's own flight uses for the identical reason.
 		Long start = FLIGHT_START.get(player.getUUID());
-		if (player.onGround() && (start == null || player.level().getGameTime() - start >= LIFTOFF_GRACE_TICKS)) {
+		// v0.15.19: plus "not rising" -- the shared landing rule (FlightLanding)
+		if (com.projecthero.mod.flight.FlightLanding.landed(player, start == null ? -1L : start)) {
 			forceStop(player, false);
 			return 0f;
 		}

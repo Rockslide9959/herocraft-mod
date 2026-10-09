@@ -9,6 +9,7 @@ import static com.projecthero.mod.ironman.suit.IronManManualSuitUp.LAZ;
 import static com.projecthero.mod.ironman.suit.IronManManualSuitUp.ONTO_HEAD;
 import static com.projecthero.mod.ironman.suit.IronManManualSuitUp.OVERHEAD;
 import static com.projecthero.mod.ironman.suit.IronManManualSuitUp.RAX;
+import static com.projecthero.mod.ironman.suit.IronManManualSuitUp.RAY;
 import static com.projecthero.mod.ironman.suit.IronManManualSuitUp.RAZ;
 import static com.projecthero.mod.ironman.suit.IronManManualSuitUp.HX;
 import static com.projecthero.mod.ironman.suit.IronManManualSuitUp.RLX;
@@ -56,21 +57,36 @@ import net.minecraft.world.phys.Vec3;
  * goes into the main inventory -- and a display copy is held in the hands), held out to the left, let go, falls and
  * vanishes with a thud on the floor. Then the shoulders roll.
  *
- * <h2>{@link #KIND_SLEEK} -- Marks 2-7: the plates retract</h2>
+ * <h2>{@link #KIND_WORKSHOP} -- Marks 2-7: unbuilt by hand too (v0.15.19)</h2>
+ * v0.15.19, explicit user request ("for mark 2-7 change the suit down animation to make it similar to the mark 1 suit
+ * down animation where the player unbuilds the suit from their body"): the Mark 1's piece-by-piece take-off, in the
+ * workshop build's style ({@link IronManManualSuitUp#KIND_WORKSHOP}) -- the wrench instead of the hammer. Faceplate up,
+ * the neck bolt ratcheted loose, the helmet lifted off; the gauntlet clamps released, the reactor twisted (the suit powers
+ * down), the chestplate hauled up over the head; the hip bolts ratcheted, the greave clamps popped, the greaves pulled
+ * off; the ankle bolts ratcheted, out of the boots one foot at a time. Each plate is pulled off (the real stack goes into
+ * the main inventory that tick, exactly where a C suit-down always put it), held out to the left, let go of, and falls
+ * and vanishes like the Mark 1's. The Mark 5 keeps its suitcase fold, the Mark 8 and later their reverse build.
+ *
+ * <h2>{@link #KIND_SLEEK} -- the v0.15.15 retract (no longer chosen by {@link #kindFor})</h2>
  * Arms relaxed a little out from the body, chin up; the faceplate lifts, the suit powers down and every plate retracts
  * panel by panel toward the arc reactor ({@link #vanishAt}: boots first, then the legs, the helmet, the arms, and the
  * torso last of all into the reactor). Each piece leaves its slot the tick its last panel is gone ({@link Schedule#offAt}).
+ * Kept (with its client texel wave) so it can be brought back for a mark, but since v0.15.19 nothing plays it.
  *
- * <p>Pose / style ids 70-79 (the Iron Man suits range): {@link IronManSuitFx#POSE_MK1_OFF}, {@link IronManSuitFx#POSE_SLEEK_OFF}.
- * The running kind rides on {@code TonyStarkState#transitionManual} as {@link #CODE_MK1} / {@link #CODE_SLEEK} (the hand
- * builds use 1 / 2), so the hand build's death / logout / dimension-change hooks cover it too.
+ * <p>Pose / style ids 70-79 (the Iron Man suits range): {@link IronManSuitFx#POSE_MK1_OFF}, {@link IronManSuitFx#POSE_SLEEK_OFF},
+ * {@link IronManSuitFx#POSE_WORKSHOP_OFF}. The running kind rides on {@code TonyStarkState#transitionManual} as
+ * {@link #CODE_MK1} / {@link #CODE_SLEEK} / {@link #CODE_WORKSHOP} (the hand builds use 1 / 2), so the hand build's death /
+ * logout / dimension-change hooks cover it too.
  */
 public final class IronManSuitRemoval {
 	public static final int KIND_MK1 = 0;
 	public static final int KIND_SLEEK = 1;
+	/** v0.15.19: Marks 2-7 unbuilt by hand (wrench), like the Mark 1. */
+	public static final int KIND_WORKSHOP = 2;
 	/** {@code TonyStarkState#transitionManual} while a removal runs (the hand-built suit-ups use 1 and 2). */
 	public static final int CODE_MK1 = 3;
 	public static final int CODE_SLEEK = 4;
+	public static final int CODE_WORKSHOP = 5;
 
 	// events of their own (the hand build's EV_STRIKE / EV_STRAP / EV_SERVO / EV_SETTLE are reused as they are)
 	public static final int EV_FACEPLATE_UP = 30;
@@ -102,7 +118,7 @@ public final class IronManSuitRemoval {
 	/** The arc reactor, in the skin rig's rest coordinates (model pixels, feet at y 0). */
 	public static final float REACTOR_X = 0f, REACTOR_Y = 20f, REACTOR_Z = 0f;
 
-	private static final Schedule[][] CACHE = new Schedule[2][16];
+	private static final Schedule[][] CACHE = new Schedule[3][16];
 
 	private IronManSuitRemoval() {
 	}
@@ -116,22 +132,60 @@ public final class IronManSuitRemoval {
 		}
 		return switch (suitId) {
 			case "mark_1" -> KIND_MK1;
-			case "mark_2", "mark_iii", "mark_4", "mark_6", "mark_vii" -> KIND_SLEEK;
+			// v0.15.19, explicit user request: unbuilt off the body by hand like the Mark 1 (was KIND_SLEEK, the retract)
+			case "mark_2", "mark_iii", "mark_4", "mark_6", "mark_vii" -> KIND_WORKSHOP;
 			default -> -1;
 		};
 	}
 
 	public static int style(int kind) {
-		return kind == KIND_MK1 ? IronManSuitFx.STYLE_MK1_OFF : IronManSuitFx.STYLE_SLEEK_OFF;
+		return switch (kind) {
+			case KIND_MK1 -> IronManSuitFx.STYLE_MK1_OFF;
+			case KIND_WORKSHOP -> IronManSuitFx.STYLE_WORKSHOP_OFF;
+			default -> IronManSuitFx.STYLE_SLEEK_OFF;
+		};
 	}
 
 	public static int poseKind(int kind) {
-		return kind == KIND_MK1 ? IronManSuitFx.POSE_MK1_OFF : IronManSuitFx.POSE_SLEEK_OFF;
+		return switch (kind) {
+			case KIND_MK1 -> IronManSuitFx.POSE_MK1_OFF;
+			case KIND_WORKSHOP -> IronManSuitFx.POSE_WORKSHOP_OFF;
+			default -> IronManSuitFx.POSE_SLEEK_OFF;
+		};
+	}
+
+	/** {@code TonyStarkState#transitionManual} for a running removal of {@code kind}. */
+	static int code(int kind) {
+		return switch (kind) {
+			case KIND_MK1 -> CODE_MK1;
+			case KIND_WORKSHOP -> CODE_WORKSHOP;
+			default -> CODE_SLEEK;
+		};
+	}
+
+	/** The removal kind a {@code transitionManual} code stands for, or -1. */
+	static int kindOfCode(int code) {
+		return switch (code) {
+			case CODE_MK1 -> KIND_MK1;
+			case CODE_SLEEK -> KIND_SLEEK;
+			case CODE_WORKSHOP -> KIND_WORKSHOP;
+			default -> -1;
+		};
 	}
 
 	/** The removal kind a synced pose stands for, or -1. */
 	public static int kindOfPose(int pose) {
-		return pose == IronManSuitFx.POSE_MK1_OFF ? KIND_MK1 : pose == IronManSuitFx.POSE_SLEEK_OFF ? KIND_SLEEK : -1;
+		return switch (pose) {
+			case IronManSuitFx.POSE_MK1_OFF -> KIND_MK1;
+			case IronManSuitFx.POSE_SLEEK_OFF -> KIND_SLEEK;
+			case IronManSuitFx.POSE_WORKSHOP_OFF -> KIND_WORKSHOP;
+			default -> -1;
+		};
+	}
+
+	/** v0.15.19: is {@code kind} one of the by-hand removals (pieces pulled off whole and dropped: Mark 1, Marks 2-7)? */
+	public static boolean byHand(int kind) {
+		return kind == KIND_MK1 || kind == KIND_WORKSHOP;
 	}
 
 	// ======================================================================== the retract wave (Marks 2-7)
@@ -336,7 +390,7 @@ public final class IronManSuitRemoval {
 
 	/** The removal for {@code kind} and the worn pieces {@code plan} (bit 0 HEAD .. 3 FEET). */
 	public static Schedule schedule(int kind, int plan) {
-		int k = kind == KIND_MK1 ? 0 : 1;
+		int k = kind == KIND_MK1 || kind == KIND_WORKSHOP ? kind : KIND_SLEEK;
 		Schedule s = CACHE[k][plan & 15];
 		if (s == null) {
 			s = new Schedule(k, plan & 15);
@@ -368,6 +422,9 @@ public final class IronManSuitRemoval {
 			out.add(sleek());
 			return out;
 		}
+		if (kind == KIND_WORKSHOP) {
+			return workshop(plan);
+		}
 		out.add(new Segment(-1, 6).key(0, STAND, H));
 		if ((plan & 1) != 0) {
 			out.add(mk1Helmet());
@@ -392,7 +449,11 @@ public final class IronManSuitRemoval {
 
 	/** Let go of the plate held out to the left at {@code t}: it falls and lands {@link #FALL_TICKS} later. */
 	private static void drop(Segment s, int t, float[] pose, float up) {
-		s.key(t, pose, H);
+		drop(s, t, pose, up, H);
+	}
+
+	private static void drop(Segment s, int t, float[] pose, float up, int props) {
+		s.key(t, pose, props);
 		s.event(t, EV_DROP, -0.45f, up, 0.25f);
 		s.event(t + FALL_TICKS, EV_LAND, -0.5f, 0.05f, 0.3f);
 	}
@@ -499,6 +560,149 @@ public final class IronManSuitRemoval {
 		return s;
 	}
 
+	// ------------------------------------------------------------------ Marks 2-7 by hand (v0.15.19)
+
+	private static final int W = IronManManualSuitUp.PROP_WRENCH;
+	private static final int P = IronManManualSuitUp.PROP_PIECE;
+	private static final int EV_TOOL = IronManManualSuitUp.EV_TOOL;
+	private static final int EV_CLAMP = IronManManualSuitUp.EV_CLAMP;
+	private static final float[] READY = IronManManualSuitUp.READY;
+
+	/** v0.15.19: the Marks 2-7 take-off -- the Mark 1's order (helmet, chestplate, greaves, boots), wrench and hands. */
+	static List<Segment> workshop(int plan) {
+		List<Segment> out = new ArrayList<>();
+		out.add(new Segment(-1, 6).key(0, STAND, 0));
+		if ((plan & 1) != 0) {
+			out.add(wsHelmet());
+		}
+		if ((plan & 2) != 0) {
+			out.add(wsChest());
+		}
+		if ((plan & 4) != 0) {
+			out.add(wsGreaves());
+		}
+		if ((plan & 8) != 0) {
+			out.add(wsBoots());
+		}
+		Segment outro = new Segment(-1, 22);
+		outro.key(0, STAND, 0);
+		outro.key(10, SHOULDERS, 0);
+		outro.event(10, IronManManualSuitUp.EV_SETTLE, 0f, 1.3f, 0f);
+		outro.key(20, STAND, 0);
+		out.add(outro);
+		return out;
+	}
+
+	private static Segment wsHelmet() {
+		Segment s = new Segment(0, 74);
+		s.key(0, READY, 0);
+		// the left hand pushes the faceplate up
+		s.key(6, k(-0.1f, 0f, 0.14f, -2.8f, 0.45f, 0.1f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0.1f, 0f, 0f, 0f), 0);
+		s.event(7, EV_FACEPLATE_UP, 0f, 1.6f, 0.2f);
+		// the wrench up behind the head onto the neck bolt, the left hand steadying the helmet at the brow
+		float[] neck = with(k(-3.5f, 0.1f, 0.2f, -2.8f, 0.4f, 0f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0.3f, 0f, 0f, 0f),
+				TILT, -1.25f);
+		s.key(14, neck, W);
+		s.event(14, EV_TOOL, 0.2f, 0.9f, 0f);
+		s.ratchet(18, 2, 8, neck, -0.25f, 0.15f, new float[] { 0.05f, 1.55f, -0.15f }, W);
+		// both hands on it: the seal releases, it is lifted clear
+		s.key(40, ONTO_HEAD, 0);
+		s.event(42, EV_CLAMP, 0.15f, 1.5f, 0.05f);
+		s.key(44, with(ONTO_HEAD, RAX, -2.55f, LAX, -2.55f), 0);
+		s.event(44, EV_PULL, 0f, 1.75f, 0f);
+		s.key(45, with(ONTO_HEAD, RAX, -2.55f, LAX, -2.55f), P);
+		s.key(52, HELMET_UP, P);
+		s.key(58, DROP_LEFT, P);
+		drop(s, 59, DROP_LEFT, 1.25f, 0);
+		s.key(70, STAND, 0);
+		return s;
+	}
+
+	private static Segment wsChest() {
+		Segment s = new Segment(1, 112);
+		s.key(0, READY, 0);
+		// the left hand pops the right gauntlet's clamp
+		float[] gauntletR = k(-1.45f, -0.3f, 0f, -1.3f, 0.65f, 0f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0.45f, 0f, 0f, 0f);
+		s.key(8, gauntletR, 0);
+		s.key(14, with(gauntletR, LAX, -1.4f), 0);
+		s.event(14, EV_CLAMP, 0.12f, 1.15f, 0.55f);
+		// the left forearm held out low, the wrench ratcheting the gauntlet bolt loose
+		float[] gauntletL = with(k(-1.15f, -0.5f, 0f, -1.2f, 0.3f, 0f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0.55f, 0f, 0f, 0f),
+				TILT, 2.0f);
+		s.key(22, gauntletL, W);
+		s.event(22, EV_TOOL, 0.2f, 0.9f, 0f);
+		s.ratchet(26, 3, 8, gauntletL, -0.2f, 0.15f, new float[] { -0.12f, 1.15f, 0.55f }, W);
+		// the arc reactor twisted out of its seat: the suit powers down
+		float[] reactor = k(-1.1f, -0.8f, 0f, -0.2f, 0f, -0.15f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0.5f, 0f, 0f, 0f);
+		s.key(56, reactor, 0);
+		s.key(62, with(reactor, RAY, -0.55f), 0);
+		s.event(62, EV_POWER_DOWN, 0f, 1.2f, 0.25f);
+		// grab both sides and haul it up over the head
+		s.key(70, HUG, 0);
+		s.event(72, EV_CLAMP, -0.22f, 1.1f, 0.1f);
+		s.key(76, with(HUG, RAX, -1.15f, LAX, -1.15f), 0);
+		s.event(76, EV_PULL, 0f, 1.2f, 0.2f);
+		s.key(77, with(HUG, RAX, -1.15f, LAX, -1.15f), P);
+		s.key(86, OVERHEAD, P);
+		s.key(94, DROP_LEFT, P);
+		drop(s, 96, DROP_LEFT, 1.2f, 0);
+		s.key(108, STAND, 0);
+		return s;
+	}
+
+	private static Segment wsGreaves() {
+		Segment s = new Segment(2, 88);
+		s.key(0, READY, 0);
+		// the wrench on the hip bolts
+		float[] hip = with(k(-0.35f, -0.1f, 0.2f, -0.3f, 0f, -0.3f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0.45f, 0f, 0.15f, 0f),
+				TILT, 3.0f);
+		s.key(8, hip, W);
+		s.event(8, EV_TOOL, 0.2f, 0.9f, 0f);
+		s.ratchet(12, 2, 8, hip, -0.4f, 0.1f, new float[] { 0.25f, 0.95f, 0.1f }, W);
+		// pop each greave open
+		s.key(34, k(-0.35f, 0f, 0.05f, -0.3f, 0.2f, -0.1f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0.5f, 0f, 0.35f, 0f), 0);
+		s.event(38, EV_CLAMP, 0.12f, 0.6f, 0.15f);
+		s.key(42, k(-0.3f, -0.2f, 0.1f, -0.35f, 0f, -0.05f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0.5f, 0f, 0.35f, 0f), 0);
+		s.event(46, EV_CLAMP, -0.12f, 0.6f, 0.15f);
+		// bend down and pull them off
+		s.key(52, bendPick(0.95f), 0);
+		s.event(56, EV_PULL, 0f, 0.5f, 0.2f);
+		s.key(56, bendPick(0.95f), P);
+		s.key(63, bendPick(0.6f), P);
+		s.key(69, DROP_LEFT_LOW, P);
+		drop(s, 71, DROP_LEFT_LOW, 0.85f, 0);
+		s.key(84, STAND, 0);
+		return s;
+	}
+
+	private static Segment wsBoots() {
+		Segment s = new Segment(3, 90);
+		s.key(0, READY, 0);
+		// bent double, the wrench on the ankle bolts
+		float[] ankle = with(k(0.45f, -0.1f, 0.05f, 0.35f, 0.1f, -0.05f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0.8f, 0f, 0.95f, 0f),
+				TILT, 1.6f);
+		s.key(10, ankle, W);
+		s.event(10, EV_TOOL, 0.2f, 0.9f, 0f);
+		s.ratchet(14, 3, 8, ankle, -0.35f, 0.15f, new float[] { 0.1f, 0.15f, 0.2f }, W);
+		// step out of them: arms out for balance, right foot then left, each clamp letting go
+		float[] balance = k(-0.1f, 0f, 0.45f, -0.1f, 0f, -0.45f, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0.6f, 0f, 0.1f, 0f);
+		s.key(44, balance, 0);
+		s.key(49, with(balance, RLX, -0.55f), 0);
+		s.event(49, EV_CLAMP, 0.12f, 0.1f, 0.05f);
+		s.key(54, balance, 0);
+		s.key(59, with(balance, LLX, -0.55f), 0);
+		s.event(59, EV_CLAMP, -0.12f, 0.1f, 0.05f);
+		s.key(64, balance, 0);
+		// pick them up and toss them aside
+		s.key(70, bendPick(0.95f), 0);
+		s.event(72, EV_PULL, 0f, 0.15f, 0.2f);
+		s.key(72, bendPick(0.95f), P);
+		s.key(78, DROP_LEFT_LOW, P);
+		drop(s, 79, DROP_LEFT_LOW, 0.85f, 0);
+		s.key(88, STAND, 0);
+		return s;
+	}
+
 	private static Segment sleek() {
 		int end = RETRACT_FROM + RETRACT_TICKS;
 		Segment s = new Segment(-1, end + 28);
@@ -532,7 +736,7 @@ public final class IronManSuitRemoval {
 	/** Is {@code player} taking a suit off this way right now? */
 	public static boolean running(ServerPlayer player) {
 		TonyStarkState s = TonyStark.state(player);
-		return !s.transitionSuit.isEmpty() && (s.transitionManual == CODE_MK1 || s.transitionManual == CODE_SLEEK);
+		return !s.transitionSuit.isEmpty() && kindOfCode(s.transitionManual) >= 0;
 	}
 
 	/**
@@ -548,7 +752,7 @@ public final class IronManSuitRemoval {
 		s.transitionToCase = false;
 		s.transitionFromCase = false;
 		s.transitionBracelet = false;
-		s.transitionManual = kind == KIND_MK1 ? CODE_MK1 : CODE_SLEEK;
+		s.transitionManual = code(kind);
 		s.transitionPlan = mask;
 		s.transitionMask = mask;
 		s.transitionReleaseMask = 0;
@@ -574,7 +778,7 @@ public final class IronManSuitRemoval {
 			abort(player);
 			return;
 		}
-		int kind = s.transitionManual == CODE_MK1 ? KIND_MK1 : KIND_SLEEK;
+		int kind = kindOfCode(s.transitionManual);
 		Schedule sch = schedule(kind, s.transitionPlan);
 		s.transitionTicks--;
 		int elapsed = s.transitionTotal - s.transitionTicks;
@@ -660,6 +864,14 @@ public final class IronManSuitRemoval {
 				level.sendParticles(ParticleTypes.SMALL_FLAME, at.x, at.y, at.z, 1, 0.03, 0.03, 0.03, 0.01);
 			}
 			case IronManManualSuitUp.EV_STRAP -> IronManManualSuitUp.playAt(player, SoundEvents.ARMOR_EQUIP_LEATHER.value(), e, 0.7f, 0.8f);
+			// v0.15.19: the Marks 2-7 take-off works with the wrench (IronManManualSuitUp's workshop sounds)
+			case IronManManualSuitUp.EV_TOOL -> IronManManualSuitUp.playAt(player, SoundEvents.CHAIN_PLACE, e, 0.5f, 1.4f);
+			case IronManManualSuitUp.EV_RATCHET -> {
+				if (pieceOn) {
+					IronManManualSuitUp.playAt(player, SoundEvents.LEVER_CLICK, e, 0.35f, 1.7f);
+					IronManManualSuitUp.playAt(player, SoundEvents.TRIPWIRE_CLICK_OFF, e, 0.3f, 1.4f);
+				}
+			}
 			case IronManManualSuitUp.EV_CLAMP -> {
 				IronManSounds.playAt(level, at.x, at.y, at.z, IronManSounds.RELEASE, 0.6f, 0.8f);
 				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 3, 0.08, 0.05, 0.08, 0.05);

@@ -121,7 +121,8 @@ public final class KryptonianFlight {
 		}
 		long now = player.level().getGameTime();
 		Long start = STARTED.computeIfAbsent(player.getUUID(), k -> now);
-		if (player.onGround() && now - start >= KryptonianConfig.FLIGHT_LIFTOFF_GRACE) {
+		// v0.15.19: the shared landing rule (on the ground, past the take-off grace, not rising) -- FlightLanding
+		if (com.projecthero.mod.flight.FlightLanding.landed(player, start)) {
 			stop(player, false);
 			return;
 		}

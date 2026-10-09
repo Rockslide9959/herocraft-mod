@@ -28,6 +28,7 @@ public final class MaxSteelFlight {
 	}
 
 	public static void onEnter(ServerPlayer player) {
+		com.projecthero.mod.flight.FlightLanding.started(player, com.projecthero.mod.flight.FlightLanding.MAX_STEEL); // v0.15.19
 		player.setAttached(ModAttachments.MAX_STEEL_FLYING, true);
 		if (!player.getAbilities().instabuild) {
 			player.getAbilities().mayfly = true;
@@ -46,6 +47,7 @@ public final class MaxSteelFlight {
 		boolean wasFlying = isFlying(player);
 		if (wasFlying) {
 			player.setAttached(ModAttachments.MAX_STEEL_FLYING, false);
+			com.projecthero.mod.flight.FlightLanding.ended(player, com.projecthero.mod.flight.FlightLanding.MAX_STEEL);
 		}
 		if (player.getAbilities().getFlyingSpeed() != 0.05f) {
 			player.getAbilities().setFlyingSpeed(0.05f);

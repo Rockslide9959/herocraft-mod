@@ -42,8 +42,7 @@ public abstract class GantryFovMixin {
 		int kind = fx.poseKind();
 		boolean byHand = kind == com.projecthero.mod.ironman.suit.IronManSuitFx.POSE_MK1_BUILD
 				|| kind == com.projecthero.mod.ironman.suit.IronManSuitFx.POSE_MANUAL_UP
-				|| kind == com.projecthero.mod.ironman.suit.IronManSuitFx.POSE_MK1_OFF
-				|| kind == com.projecthero.mod.ironman.suit.IronManSuitFx.POSE_SLEEK_OFF
+				|| com.projecthero.mod.ironman.suit.IronManSuitFx.removalPose(kind)
 				|| kind == com.projecthero.mod.ironman.suit.IronManSuitFx.POSE_SUIT_DOWN;
 		return byHand && self.level() != null && fx.poseAge(self.level().getGameTime(), 0f) >= 0f;
 	}

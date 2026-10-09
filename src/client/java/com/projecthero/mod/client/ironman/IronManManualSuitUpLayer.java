@@ -71,8 +71,8 @@ public class IronManManualSuitUpLayer extends RenderLayer<AbstractClientPlayer, 
 		IronManSuitFx fx = IronManSuitFx.of(player);
 		int kind = IronManManualSuitUp.kindOfPose(fx.poseKind());
 		int off = com.projecthero.mod.ironman.suit.IronManSuitRemoval.kindOfPose(fx.poseKind());
-		if (off == com.projecthero.mod.ironman.suit.IronManSuitRemoval.KIND_MK1) {
-			renderMk1Removal(pose, buffers, light, player, fx, partialTick); // v0.15.15
+		if (com.projecthero.mod.ironman.suit.IronManSuitRemoval.byHand(off)) {
+			renderHandRemoval(pose, buffers, light, player, fx, off, partialTick); // v0.15.15 (v0.15.19: Marks 2-7 too)
 			return;
 		}
 		if (kind < 0) {
@@ -132,24 +132,28 @@ public class IronManManualSuitUpLayer extends RenderLayer<AbstractClientPlayer, 
 	/**
 	 * v0.15.15: the Mark 1 pulled off with C ({@link com.projecthero.mod.ironman.suit.IronManSuitRemoval#KIND_MK1}) -- the
 	 * hammer in the right hand throughout, the plate just pulled off held in the hands (a display copy: the real stack is
-	 * already in the pack), then let go of: it tumbles to the floor beside the wearer and shrinks away.
+	 * already in the pack), then let go of: it tumbles to the floor beside the wearer and shrinks away. v0.15.19: Marks 2-7
+	 * too ({@link com.projecthero.mod.ironman.suit.IronManSuitRemoval#KIND_WORKSHOP}), the wrench in place of the hammer.
 	 */
-	private void renderMk1Removal(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player,
-			IronManSuitFx fx, float partialTick) {
+	private void renderHandRemoval(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player,
+			IronManSuitFx fx, int kind, float partialTick) {
 		float age = fx.poseAge(player.level().getGameTime(), partialTick);
 		if (age < 0f) {
 			return;
 		}
-		var sch = com.projecthero.mod.ironman.suit.IronManSuitRemoval.schedule(
-				com.projecthero.mod.ironman.suit.IronManSuitRemoval.KIND_MK1, IronManManualSuitUp.planOf(fx.poseVariant()));
+		var sch = com.projecthero.mod.ironman.suit.IronManSuitRemoval.schedule(kind,
+				IronManManualSuitUp.planOf(fx.poseVariant()));
 		float[] s = sch.pose(age);
 		float grow = s == null ? 0f : Math.min(1f, s[0] * 1.5f);
 		String suitId = IronManManualSuitUp.suitOf(fx.poseVariant());
 		if (grow > 0.01f) {
 			float wrist = (float) Math.toDegrees(IronManManualSuitUp.REST_TILT
 					+ (s[1 + IronManManualSuitUp.TILT] - IronManManualSuitUp.REST_TILT) * s[0]);
-			if ((sch.props(age) & IronManManualSuitUp.PROP_HAMMER) != 0) {
+			int props = sch.props(age);
+			if ((props & IronManManualSuitUp.PROP_HAMMER) != 0) {
 				renderTool(pose, buffers, light, HAMMER, grow, wrist, 0.7f);
+			} else if ((props & IronManManualSuitUp.PROP_WRENCH) != 0) {
+				renderTool(pose, buffers, light, WRENCH, grow, wrist, 0.75f);
 			}
 			int bit = sch.pieceInHand(age);
 			if (bit >= 0 && suitId != null) {
@@ -179,8 +183,8 @@ public class IronManManualSuitUpLayer extends RenderLayer<AbstractClientPlayer, 
 		PoseStack pose = context.matrixStack();
 		for (Player player : mc.level.players()) {
 			IronManSuitFx fx = IronManSuitFx.of(player);
-			if (com.projecthero.mod.ironman.suit.IronManSuitRemoval.kindOfPose(fx.poseKind())
-					!= com.projecthero.mod.ironman.suit.IronManSuitRemoval.KIND_MK1 || player.isInvisible()) {
+			int removal = com.projecthero.mod.ironman.suit.IronManSuitRemoval.kindOfPose(fx.poseKind());
+			if (!com.projecthero.mod.ironman.suit.IronManSuitRemoval.byHand(removal) || player.isInvisible()) {
 				continue;
 			}
 			float age = fx.poseAge(mc.level.getGameTime(), partial);
@@ -188,8 +192,8 @@ public class IronManManualSuitUpLayer extends RenderLayer<AbstractClientPlayer, 
 			if (age < 0f || suitId == null) {
 				continue;
 			}
-			var sch = com.projecthero.mod.ironman.suit.IronManSuitRemoval.schedule(
-					com.projecthero.mod.ironman.suit.IronManSuitRemoval.KIND_MK1, IronManManualSuitUp.planOf(fx.poseVariant()));
+			var sch = com.projecthero.mod.ironman.suit.IronManSuitRemoval.schedule(removal,
+					IronManManualSuitUp.planOf(fx.poseVariant()));
 			double yaw = Math.toRadians(net.minecraft.util.Mth.lerp(partial, player.yBodyRotO, player.yBodyRot));
 			double fwdX = -Math.sin(yaw);
 			double fwdZ = Math.cos(yaw);

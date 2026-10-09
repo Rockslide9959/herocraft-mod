@@ -161,7 +161,7 @@ public final class FirstPersonBodySequences {
 		int kind = fx.poseKind();
 		boolean down = kind == IronManSuitFx.POSE_SUIT_DOWN || kind == IronManSuitFx.POSE_CASE_DOWN
 				|| kind == IronManSuitFx.POSE_PLATFORM_OFF || kind == IronManSuitFx.POSE_MK5_DOWN
-				|| kind == IronManSuitFx.POSE_MK1_OFF || kind == IronManSuitFx.POSE_SLEEK_OFF;
+				|| IronManSuitFx.removalPose(kind);
 		return down ? anyWorn : !allOnAndBuilt;
 	}
 }

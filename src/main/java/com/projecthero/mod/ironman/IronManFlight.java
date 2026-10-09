@@ -59,10 +59,16 @@ public final class IronManFlight {
 	}
 
 	public static void setFlying(ServerPlayer player, boolean flying) {
+		boolean was = isFlying(player);
 		player.setAttached(ModAttachments.IRON_MAN_FLYING, flying);
 		if (flying) {
+			if (!was) {
+				com.projecthero.mod.flight.FlightLanding.started(player, com.projecthero.mod.flight.FlightLanding.IRON_MAN);
+			}
 			IronManLandingSlam.reset(player); // v0.14.27: fresh motion history for the landing slam
 			IronManFaceplate.autoClose(player); // v0.15.3: taking off seals the visor
+		} else {
+			com.projecthero.mod.flight.FlightLanding.ended(player, com.projecthero.mod.flight.FlightLanding.IRON_MAN);
 		}
 		if (player.getAbilities().instabuild) {
 			return;
@@ -92,14 +98,11 @@ public final class IronManFlight {
 			return;
 		}
 		// Mark 1's "20 seconds of flight" (X) is paid for up front (an activation cost) and guaranteed to
-		// stay airborne for its whole duration regardless of energy -- no landing on ground contact (so
-		// it can launch you straight up off the floor, like Pyrokinesis/Geokinesis timed self-flight),
-		// and it force-lands the instant the timer runs out. v0.11.12, explicit user request: it now ALSO
+		// stay airborne for its whole duration regardless of energy (v0.15.19: except that touching down
+		// past the take-off grace lands it like any other flight -- see below), and it force-lands the
+		// instant the timer runs out. v0.11.12, explicit user request: it now ALSO
 		// drains TIMED_FLIGHT_DRAIN_PER_SECOND on top of that activation cost -- unlike the guarantee
-		// above, running dry mid-burst does force an early landing (see below), it just never cuts the
-		// burst short from ground contact. This check has to run BEFORE the ordinary "touched the ground
-		// = land" rule, otherwise activating it while standing on the ground ended it again the very next
-		// tick.
+		// above, running dry mid-burst does force an early landing (see below).
 		// "changes 17": a supersonic burst ends after 20 s (or an early re-press) -> start its cooldown.
 		long supersonicUntil = TonyStark.state(player).supersonicUntil;
 		if (supersonicUntil != 0L && player.level().getGameTime() >= supersonicUntil) {
@@ -110,6 +113,16 @@ public final class IronManFlight {
 
 		long timedFlightUntil = TonyStark.state(player).timedFlightUntil;
 		boolean timedBurst = timedFlightUntil > 0L;
+		// v0.15.19, explicit user request ("when players touch the floor they stop flying"): touching down ends the flight
+		// on every mark, the Mark 1's timed burst too, exactly as the double-tap toggle would -- but only past the shared
+		// take-off grace (FlightLanding) and while not rising, so the burst still launches you up off the floor and a
+		// take-off from the ground still works.
+		if (com.projecthero.mod.flight.FlightLanding.landed(player, com.projecthero.mod.flight.FlightLanding.IRON_MAN)) {
+			IronManLandingSlam.onLanded(player); // v0.14.27: flew into the ground hard -> slam the area
+			com.projecthero.mod.ironman.ability.IronManAbilities.endTimedFlight(player, suitId);
+			setFlying(player, false);
+			return;
+		}
 		if (timedBurst) {
 			if (player.level().getGameTime() >= timedFlightUntil) {
 				com.projecthero.mod.ironman.ability.IronManAbilities.endTimedFlight(player, suitId);
@@ -125,11 +138,6 @@ public final class IronManFlight {
 				return;
 			}
 		} else {
-			if (player.onGround()) {
-				IronManLandingSlam.onLanded(player); // v0.14.27: flew into the ground hard -> slam the area
-				setFlying(player, false);
-				return;
-			}
 			// "changes 18": tiered flight energy cost -- hover 10/s, walk-flight 20/s, sprint-flight 30/s,
 			// supersonic 45/s -- each scaled by this mark's flightDrainMultiplier.
 			if (!IronManEnergy.spend(player, suitId, flightCostPerTick(player, suit, supersonic))) {

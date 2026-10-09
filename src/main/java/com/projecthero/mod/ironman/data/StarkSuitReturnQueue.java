@@ -30,14 +30,22 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.saveddata.SavedData;
 
 /**
- * Persistent queue of Iron Man suits that need to fly themselves home to a Suit Platform after their
- * wearer died ("changes 10": the armour must return to the platform on death <em>even if the platform
- * is in an unloaded chunk</em>). Mirrors {@link StarkPlatformRegistry} / {@code MjolnirRegistry}:
- * server-global {@link SavedData} on the overworld, only written when something changes.
+ * Persistent queue of Iron Man suits that need to fly themselves home to a Suit Platform that is out of
+ * reach -- in an unloaded chunk or another dimension. Mirrors {@link StarkPlatformRegistry} /
+ * {@code MjolnirRegistry}: server-global {@link SavedData} on the overworld, only written when something
+ * changes.
  *
- * <p>On death the worn pieces are removed from the player and a {@link Pending} is recorded here
- * (suit id + which pieces + carried charge + post-crash integrity + target platform). Two things then
- * drain the queue, whichever happens first:
+ * <p>History: "changes 10" sent a dead wearer's suit home through this queue. That death recovery was
+ * removed in v0.15.11 (explicit user request) and confirmed again in v0.15.19: a suit worn (or carried)
+ * on death now simply drops at the death spot like any vanilla armour, and stays with the player under
+ * keepInventory -- nothing on the death path writes here any more. What still does: send-home (Sneak + C
+ * picker), a Sentry-mode suit or a loose suit part heading back to its platform, when
+ * {@code IronManPlatformReturn#depositNow} cannot rack the stacks at once. Records written by an older
+ * version (death returns included) still load and are still delivered exactly as before, so an
+ * existing world loses nothing.
+ *
+ * <p>Each {@link Pending} holds the suit id + which pieces + carried charge + integrity + the target
+ * platform (and, since v0.14.21, the real stacks). Two things drain the queue, whichever happens first:
  * <ul>
  *   <li>{@link #tick} runs a slow server-wide sweep that force-loads a couple of target chunks per
  *       pass (the same one-off synchronous load {@code IronManSuitCall.tickPending} already uses) and

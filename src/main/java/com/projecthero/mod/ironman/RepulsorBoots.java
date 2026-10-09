@@ -84,6 +84,11 @@ public final class RepulsorBoots {
 	}
 
 	public static void setFlying(ServerPlayer player, boolean flying) {
+		if (flying && !isFlying(player)) {
+			com.projecthero.mod.flight.FlightLanding.started(player, com.projecthero.mod.flight.FlightLanding.REPULSOR_BOOTS);
+		} else if (!flying) {
+			com.projecthero.mod.flight.FlightLanding.ended(player, com.projecthero.mod.flight.FlightLanding.REPULSOR_BOOTS);
+		}
 		player.setAttached(ModAttachments.REPULSOR_BOOTS_FLYING, flying);
 		if (player.getAbilities().instabuild) {
 			return;
@@ -103,7 +108,9 @@ public final class RepulsorBoots {
 		if (!isFlying(player)) {
 			return;
 		}
-		if (player.getAbilities().instabuild || !worn(player) || player.onGround()) {
+		// v0.15.19: touching down (past the shared take-off grace, not rising) lands it -- FlightLanding
+		if (player.getAbilities().instabuild || !worn(player)
+				|| com.projecthero.mod.flight.FlightLanding.landed(player, com.projecthero.mod.flight.FlightLanding.REPULSOR_BOOTS)) {
 			setFlying(player, false);
 			return;
 		}
