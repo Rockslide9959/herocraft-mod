@@ -278,8 +278,9 @@ public class MoonKnightV0144GameTests implements FabricGameTest {
 		List<LivingEntity> targets = MoonKnightKhonshu.eyeTargets(p);
 		helper.assertFalse(targets.contains(ally) || targets.contains(p), "the random Moonbeams never pick him or his squad");
 		LivingEntity struck = MoonKnightKhonshu.eyeStrike(p);
-		helper.assertTrue(struck != null && MoonKnightKhonshu.isFoe(p, struck), "a random Moonbeam falls on a foe (" + struck + ")");
-		helper.assertTrue(struck.getHealth() < struck.getMaxHealth(), "and hurts it");
+		// v0.15.18: checked against the candidate list -- a Moonbeam that kills the husk outright makes isFoe() false (CI flake)
+		helper.assertTrue(struck != null && targets.contains(struck), "a random Moonbeam falls on a foe (" + struck + ")");
+		helper.assertTrue(struck.isDeadOrDying() || struck.getHealth() < struck.getMaxHealth(), "and hurts it");
 		helper.assertTrue(targets.contains(foe) && targets.contains(late), "both husks in the area are candidates");
 		disband(helper, p);
 		helper.succeed();
