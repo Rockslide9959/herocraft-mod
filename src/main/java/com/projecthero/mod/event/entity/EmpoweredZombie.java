@@ -1,14 +1,12 @@
 package com.projecthero.mod.event.entity;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 import com.projecthero.mod.event.EventConfig;
 import com.projecthero.mod.event.boss.BossPowerController;
 import com.projecthero.mod.event.boss.BossPowers;
 import com.projecthero.mod.event.boss.BossTargets;
+import com.projecthero.mod.event.boss.BossThreat;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
@@ -86,8 +84,16 @@ public class EmpoweredZombie extends RaidUndead {
 
 	private BossPowerController primary;
 	private BossPowerController secondary;
-	/** Damage each player has dealt since the last retarget; cleared on every retarget, so bounded. */
-	private final Map<UUID, Float> threat = new HashMap<>();
+	/**
+	 * v0.15.19: the shared boss threat table (damage dealt to him, halving every 10 s). Whoever clearly out-threatens
+	 * his target takes his attention within half a second; the rotation below only ever moves between near-equals.
+	 */
+	private final BossThreat threat = new BossThreat(this);
+
+	/** v0.15.19: his threat table (tests / debug). */
+	public BossThreat threat() {
+		return threat;
+	}
 	private int participantCount = 1;
 
 	public EmpoweredZombie(EntityType<? extends EmpoweredZombie> type, Level level) {
@@ -342,6 +348,7 @@ public class EmpoweredZombie extends RaidUndead {
 		if (tickCount % AURA_INTERVAL == 0) {
 			emitAura(server);
 		}
+		threat.tick();
 		if (tickCount % RETARGET_INTERVAL == 0) {
 			retarget(server);
 		}
@@ -473,7 +480,6 @@ public class EmpoweredZombie extends RaidUndead {
 		List<LivingEntity> candidates = BossTargets.victims(server, this,
 				getBoundingBox().inflate(getAttributeValue(Attributes.FOLLOW_RANGE)));
 		if (candidates.isEmpty()) {
-			threat.clear();
 			return;
 		}
 		LivingEntity current = getTarget();
@@ -486,7 +492,7 @@ public class EmpoweredZombie extends RaidUndead {
 				score -= 30.0; // a pet or golem only wins when no player is in reach
 			}
 			// Whoever has been hurting it most since the last switch is the most dangerous.
-			score += threat.getOrDefault(player.getUUID(), 0.0f) * 0.5;
+			score += threat.threatOf(player) * 0.5;
 			// An airborne player (Iron Man, Thor, experimental flight) is otherwise safe from a
 			// ground boss, so weight them up -- the powers that can answer flight will follow.
 			if (!player.onGround() && player.getY() > getY() + 2.5) {
@@ -504,7 +510,6 @@ public class EmpoweredZombie extends RaidUndead {
 				best = player;
 			}
 		}
-		threat.clear();
 		if (best != null && best != current) {
 			setTarget(best);
 		}
@@ -521,9 +526,7 @@ public class EmpoweredZombie extends RaidUndead {
 		}
 		boolean hurt = super.hurt(source, amount);
 		if (hurt && level() instanceof ServerLevel server) {
-			if (source.getEntity() instanceof LivingEntity attacker && BossTargets.isVictim(this, attacker)) {
-				threat.merge(attacker.getUUID(), amount, Float::sum);
-			}
+			threat.record(source, amount);
 			if (primary != null) {
 				primary.onDamaged(server, source, amount);
 			}

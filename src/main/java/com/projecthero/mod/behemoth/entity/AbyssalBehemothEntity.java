@@ -8,6 +8,7 @@ import java.util.Map;
 import com.projecthero.mod.behemoth.BehemothCombat;
 import com.projecthero.mod.behemoth.BehemothConfig;
 import com.projecthero.mod.event.EventBossBar;
+import com.projecthero.mod.event.boss.BossThreat;
 import com.projecthero.mod.titanshifter.TitanCombat;
 
 import net.minecraft.core.particles.DustParticleOptions;
@@ -93,6 +94,8 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 
 	private Ability activeAbility;
 	private Stage stage = Stage.NONE;
+	/** v0.15.19: the shared threat table -- it turns on whoever is actually hurting it; an ability being cast finishes first. */
+	private final BossThreat threat = new BossThreat(this).filter(this::isValidTarget).holdWhile(() -> activeAbility != null && stage != Stage.NONE);
 	private int stageTicks;
 	private Ability lastAbility;
 	private long globalLockUntil;
@@ -180,6 +183,9 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 	@Override
 	protected void actuallyHurt(DamageSource source, float amount) {
 		super.actuallyHurt(source, amount);
+		if (!level().isClientSide()) {
+			threat.record(source, amount);
+		}
 		if (this.random.nextInt(3) == 0) {
 			triggerAnim("action", "hit");
 		}
@@ -258,7 +264,16 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 
 	// ---------------------------------------------------------------- targeting (spec 26)
 
+	/** v0.15.19: its threat table (tests / debug). */
+	public BossThreat threat() {
+		return threat;
+	}
+
 	private void acquireTarget(ServerLevel server) {
+		// v0.15.19: whoever is hurting it most takes its attention (BossThreat: damage-built, decaying, 20% margin to
+		// switch). It used to keep its first target for as long as they stayed in range, so a kiting player let a
+		// friend hit it for free. The nearest-player scan below is only the fallback for an empty table.
+		threat.tick();
 		LivingEntity current = getTarget();
 		if (current != null && current.isAlive() && isValidTarget(current)
 				&& current.distanceToSqr(this) <= BehemothConfig.stats().followRange * BehemothConfig.stats().followRange) {

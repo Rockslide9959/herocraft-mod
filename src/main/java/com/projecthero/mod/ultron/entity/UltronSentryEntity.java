@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import com.projecthero.mod.event.boss.BossThreat;
 import com.projecthero.mod.ironman.JarvisDialogue;
 import com.projecthero.mod.ironman.entity.IronManMissileEntity;
 import com.projecthero.mod.ultron.UltronCombat;
@@ -122,6 +123,14 @@ public class UltronSentryEntity extends UltronRobot {
 		return UltronSkin.SENTRY;
 	}
 
+	/** v0.15.19: the shared threat table -- it turns on whoever is actually hurting it, not whoever it saw first. */
+	private final BossThreat threat = new BossThreat(this).filter(UltronCombat::canTarget);
+
+	/** v0.15.19: its threat table (tests / debug). */
+	public BossThreat threat() {
+		return threat;
+	}
+
 	@Override
 	protected void registerGoals() {
 		goalSelector.addGoal(0, new FloatGoal(this));
@@ -167,6 +176,7 @@ public class UltronSentryEntity extends UltronRobot {
 			return;
 		}
 		bossBar.setProgress(Mth.clamp(getHealth() / getMaxHealth(), 0f, 1f));
+		threat.tick();
 		if (shielded()) {
 			tickShield(server);
 		}
@@ -395,6 +405,9 @@ public class UltronSentryEntity extends UltronRobot {
 			amount *= 1.5f;
 		}
 		boolean hurt = super.hurt(source, amount);
+		if (hurt && !level().isClientSide()) {
+			threat.record(source, amount);
+		}
 		if (hurt && level() instanceof ServerLevel server && !isDeadOrDying()) {
 			float f = getHealth() / getMaxHealth();
 			if (!shieldUsed && f <= 0.5f) {

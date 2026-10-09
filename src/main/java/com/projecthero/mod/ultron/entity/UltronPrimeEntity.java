@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
+import com.projecthero.mod.event.boss.BossThreat;
 import com.projecthero.mod.ironman.item.IronManArmorItem;
 import com.projecthero.mod.ultron.UltronCombat;
 import com.projecthero.mod.ultron.UltronConfig;
@@ -79,6 +80,13 @@ public class UltronPrimeEntity extends UltronRobot {
 	private final ServerBossEvent bossBar = new ServerBossEvent(Component.translatable("entity.projecthero.ultron_prime"),
 			BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.NOTCHED_10);
 	private Move move = Move.NONE;
+	/** v0.15.19: the shared threat table -- he turns on whoever is actually hurting him; a move in flight finishes first. */
+	private final BossThreat threat = new BossThreat(this).range(72).filter(UltronCombat::canTarget).holdWhile(() -> move != Move.NONE);
+
+	/** v0.15.19: his threat table (tests / debug). */
+	public BossThreat threat() {
+		return threat;
+	}
 	private int moveTick;
 	private int cooldown = 40;
 	private int lastMove = -1;
@@ -182,7 +190,13 @@ public class UltronPrimeEntity extends UltronRobot {
 			setTarget(null);
 			target = null;
 		}
-		if ((target == null || tickCount % 100 == 0) && tickCount % 10 == 0) {
+		// v0.15.19: whoever is hurting him most takes his attention (BossThreat); the old "nearest player every 5 s"
+		// re-pick only runs while nobody has hurt him lately, so a kiting player can no longer cover a friend's free hits.
+		LivingEntity hot = threat.tick();
+		if (hot != null) {
+			target = hot;
+		}
+		if ((target == null || tickCount % 100 == 0 && threat.isEmpty()) && tickCount % 10 == 0) {
 			Player p = UltronCombat.nearestPlayer(server, position(), 56);
 			if (p != null) {
 				setTarget(p);
@@ -583,6 +597,9 @@ public class UltronPrimeEntity extends UltronRobot {
 			return false;
 		}
 		boolean hurt = super.hurt(source, amount);
+		if (hurt && !level().isClientSide()) {
+			threat.record(source, amount);
+		}
 		if (hurt && level() instanceof ServerLevel server && !enraged && getHealth() / getMaxHealth() <= 0.33f && getHealth() > 1f) {
 			enraged = true;
 			bossBar.setColor(BossEvent.BossBarColor.PURPLE);

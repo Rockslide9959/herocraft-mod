@@ -13,6 +13,7 @@ import com.projecthero.mod.carnage.CarnageEntityTypes;
 import com.projecthero.mod.carnage.CarnageItems;
 import com.projecthero.mod.carnage.CarnageSpawner;
 import com.projecthero.mod.combat.SonicVulnerability;
+import com.projecthero.mod.event.boss.BossThreat;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.symbiote.entity.SymbioteSpikeEntity;
 import com.projecthero.mod.symbiote.entity.SymbioteTendrilEntity;
@@ -57,7 +58,6 @@ import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
-import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.animal.IronGolem;
 import net.minecraft.world.entity.monster.Monster;
@@ -118,6 +118,8 @@ public class CarnageEntity extends Monster {
 	private final List<UUID> brood = new ArrayList<>();
 	/** Set from registerGoals (called by the Mob constructor, so deliberately no initialiser here). */
 	private Brain brain;
+	/** v0.15.19: the shared threat table -- he turns on whoever is actually hurting him. */
+	private final BossThreat threat = new BossThreat(this).holdWhile(() -> brain != null && brain.midMove());
 	/** Client: the tickCount when the synced action last changed (drives the move animations). */
 	public int actionStartTick;
 
@@ -182,7 +184,8 @@ public class CarnageEntity extends Monster {
 		goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 0.8));
 		goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 16.0f));
 		goalSelector.addGoal(9, new RandomLookAroundGoal(this));
-		targetSelector.addGoal(1, new HurtByTargetGoal(this, CrimsonSpawnEntity.class));
+		// v0.15.19: no HurtByTargetGoal -- once running it never let go of a target (one player kited him while a
+		// friend hit him for free). Who is hurting him is the BossThreat table's job now.
 		targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, false));
 		targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, IronGolem.class, true));
 	}
@@ -198,6 +201,11 @@ public class CarnageEntity extends Monster {
 	public void emerge() {
 		emerging = 40;
 		setAction(ACTION_EMERGE);
+	}
+
+	/** v0.15.19: his threat table (tests / debug). */
+	public BossThreat threat() {
+		return threat;
 	}
 
 	public boolean inCocoon() {
@@ -232,6 +240,7 @@ public class CarnageEntity extends Monster {
 					startWrithe(server, 15, "fire");
 				}
 			}
+			threat.record(source, amount);
 			checkSplits(server);
 		}
 		return hurt;
@@ -366,6 +375,7 @@ public class CarnageEntity extends Monster {
 			return;
 		}
 		bossBar.setProgress(getHealth() / getMaxHealth());
+		threat.tick();
 		long now = server.getGameTime();
 		if (emerging > 0) {
 			emerging--;
@@ -613,6 +623,10 @@ public class CarnageEntity extends Monster {
 		private float lockedYaw;
 		private final List<LivingEntity> lashed = new ArrayList<>();
 		private final java.util.Set<Integer> struck = new java.util.HashSet<>();
+
+		boolean midMove() {
+			return move != Move.NONE;
+		}
 
 		Brain(CarnageEntity c) {
 			this.c = c;

@@ -7,6 +7,7 @@ import java.util.Set;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.event.EventInstance;
 import com.projecthero.mod.event.EventManager;
+import com.projecthero.mod.event.boss.BossThreat;
 import com.projecthero.mod.syndicate.SyndicateBust;
 import com.projecthero.mod.syndicate.SyndicateGunfire;
 import com.projecthero.mod.syndicate.SyndicateItems;
@@ -38,6 +39,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -90,6 +92,8 @@ public class KingpinEntity extends SyndicateCriminal {
 	private boolean introduced;
 	private int stunned;
 	private long lastLineTick = -1000;
+	/** v0.15.19: the shared threat table -- he turns on whoever is actually hurting him; a move in flight finishes first. */
+	private final BossThreat threat = new BossThreat(this).holdWhile(() -> brainOf().midMove());
 
 	public KingpinEntity(EntityType<? extends KingpinEntity> type, Level level) {
 		super(type, level);
@@ -131,6 +135,19 @@ public class KingpinEntity extends SyndicateCriminal {
 	}
 
 	@Override
+	protected void registerGoals() {
+		super.registerGoals();
+		// v0.15.19: the crooks' HurtByTargetGoal goes for the boss -- once running it never let go of a target (and its
+		// "alert others" only ever reached other Kingpins). Who is hurting him is the BossThreat table's job.
+		targetSelector.removeAllGoals(g -> g instanceof HurtByTargetGoal);
+	}
+
+	/** v0.15.19: his threat table (tests / debug). */
+	public BossThreat threat() {
+		return threat;
+	}
+
+	@Override
 	public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType reason, SpawnGroupData data) {
 		SpawnGroupData out = super.finalizeSpawn(level, difficulty, reason, data);
 		setSkin(SyndicateSkin.KINGPIN);
@@ -154,6 +171,7 @@ public class KingpinEntity extends SyndicateCriminal {
 		boolean hurt = super.hurt(source, amount);
 		if (hurt && level() instanceof ServerLevel server) {
 			brainOf().onHurt(amount);
+			threat.record(source, amount);
 			checkThresholds(server);
 		}
 		return hurt;
@@ -220,6 +238,7 @@ public class KingpinEntity extends SyndicateCriminal {
 			return;
 		}
 		bossBar.setProgress(getHealth() / getMaxHealth());
+		threat.tick();
 		if (stunned > 0) {
 			stunned--;
 			getNavigation().stop();
@@ -407,6 +426,10 @@ public class KingpinEntity extends SyndicateCriminal {
 		Brain(KingpinEntity k) {
 			this.k = k;
 			setFlags(EnumSet.of(Flag.MOVE, Flag.LOOK, Flag.JUMP));
+		}
+
+		boolean midMove() {
+			return move != Move.NONE;
 		}
 
 		void queueWhistle() {

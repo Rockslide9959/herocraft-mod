@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.event.EventBossBar;
+import com.projecthero.mod.event.boss.BossThreat;
 import com.projecthero.mod.horde.entity.skeleton.HordeSkeleton;
 import com.projecthero.mod.horde.entity.skeleton.SkeletonHordeEntityTypes;
 
@@ -40,7 +41,6 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
-import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
@@ -132,10 +132,14 @@ public class BoneTyrant extends Monster implements GeoEntity {
 		builder.define(DATA_PHASE, (byte) 1);
 	}
 
+	/** v0.15.19: the shared threat table -- he turns on whoever is actually hurting him; a swing in flight finishes first. */
+	private final BossThreat threat = new BossThreat(this).holdWhile(() -> combat != null && combat.isAttacking());
+
 	@Override
 	protected void registerGoals() {
 		this.goalSelector.addGoal(0, new FloatGoal(this));
-		this.targetSelector.addGoal(1, new HurtByTargetGoal(this, Monster.class)); // a stray arrow from his own horde is no reason to turn
+		// v0.15.19: no HurtByTargetGoal -- once running it never let go of a target. Who is hurting him is the BossThreat
+		// table's job (it only counts players and their allies, so a stray arrow from his own horde still means nothing).
 		this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, false));
 	}
 
@@ -154,6 +158,7 @@ public class BoneTyrant extends Monster implements GeoEntity {
 		if (!(level() instanceof ServerLevel server)) {
 			return;
 		}
+		threat.tick();
 		combat.tick(server);
 		if (clipHoldTicks > 0) {
 			clipHoldTicks--;
@@ -202,7 +207,16 @@ public class BoneTyrant extends Monster implements GeoEntity {
 		if (combat.isRoaring() && !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
 			return false;
 		}
-		return super.hurt(source, amount);
+		boolean hurt = super.hurt(source, amount);
+		if (hurt && !level().isClientSide()) {
+			threat.record(source, amount);
+		}
+		return hurt;
+	}
+
+	/** v0.15.19: his threat table (tests / debug). */
+	public BossThreat threat() {
+		return threat;
 	}
 
 	@Override

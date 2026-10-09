@@ -15,6 +15,7 @@ import com.projecthero.mod.darkseid.DarkseidDamage;
 import com.projecthero.mod.darkseid.DarkseidFx;
 import com.projecthero.mod.darkseid.DarkseidSounds;
 import com.projecthero.mod.darkseid.raid.DarkseidRaid;
+import com.projecthero.mod.event.boss.BossThreat;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -93,6 +94,14 @@ public final class DarkseidCombat {
 	private long targetChosenAt;
 	/** Recent damage dealt to him, per player -- the tank draws his attention. Decays every second. */
 	private final Map<UUID, Float> threat = new HashMap<>();
+	/**
+	 * v0.15.19: the shared boss threat table. Whoever is hurting him most takes his attention (20% margin to switch,
+	 * re-read every half second between attacks); the old 10-second sticky pick only runs while nobody has hurt him
+	 * lately, so a player kiting him no longer covers a friend's free hits.
+	 */
+	private final BossThreat aggro;
+	/** The candidate pool of the latest {@link #refreshTarget} (the table only picks raid participants). */
+	private List<? extends LivingEntity> lastPool = List.of();
 
 	// ---- per-attack state
 	private LivingEntity locked;
@@ -125,6 +134,12 @@ public final class DarkseidCombat {
 
 	DarkseidCombat(DarkseidEntity boss) {
 		this.boss = boss;
+		this.aggro = new BossThreat(boss).range(96.0).filter(e -> lastPool.contains(e));
+	}
+
+	/** v0.15.19: his threat table (tests / debug). */
+	public BossThreat aggro() {
+		return aggro;
 	}
 
 	// ================================================================ queries
@@ -269,12 +284,24 @@ public final class DarkseidCombat {
 
 	private void refreshTarget(ServerLevel server, long now) {
 		List<? extends LivingEntity> pool = candidates(server);
+		lastPool = pool;
 		if (pool.isEmpty()) {
 			target = null;
 			boss.setTarget(null);
 			return;
 		}
-		if (stillValid(target, pool) && now - targetChosenAt < TARGET_STICKY_TICKS) {
+		boolean valid = stillValid(target, pool);
+		if (!valid || current == null && boss.tickCount % BossThreat.RETHINK_TICKS == 0) {
+			LivingEntity hot = aggro.decide(valid ? target : null);
+			if (hot != null && hot != target) {
+				target = hot;
+				targetChosenAt = now;
+				aggro.noteSwitched();
+				boss.setTarget(hot);
+				return;
+			}
+		}
+		if (valid && (now - targetChosenAt < TARGET_STICKY_TICKS || !aggro.isEmpty())) {
 			return;
 		}
 		LivingEntity best = null;
@@ -609,6 +636,7 @@ public final class DarkseidCombat {
 		if (attacker instanceof Player player) {
 			threat.merge(player.getUUID(), taken, Float::sum);
 		}
+		aggro.record(source, taken);
 		if (isChargingAnnihilation()) {
 			annihilationDamage += taken;
 			if (annihilationDamage >= annihilationThreshold) {

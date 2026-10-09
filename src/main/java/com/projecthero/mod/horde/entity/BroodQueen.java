@@ -9,6 +9,7 @@ import java.util.UUID;
 import org.joml.Vector3f;
 
 import com.projecthero.mod.event.EventBossBar;
+import com.projecthero.mod.event.boss.BossThreat;
 import com.projecthero.mod.hero.power.TempBlocks;
 import com.projecthero.mod.titan.TitanHealthCap;
 
@@ -42,7 +43,6 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
-import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.monster.Enemy;
@@ -162,6 +162,8 @@ public class BroodQueen extends Spider implements GeoEntity {
 
 	// ---- attack state (server only, never static)
 	private Attack attack;
+	/** v0.15.19: the shared threat table -- she turns on whoever is actually hurting her; an attack in flight finishes first. */
+	private final BossThreat threat = new BossThreat(this).filter(e -> prey(this, e)).holdWhile(() -> attack != null);
 	private int attackTick;
 	private final int[] cooldowns = new int[Attack.values().length];
 	private int globalCooldown = 30;
@@ -282,7 +284,7 @@ public class BroodQueen extends Spider implements GeoEntity {
 		// not super: the vanilla spider's goals give up in daylight and its leap would fight the state machine
 		this.goalSelector.addGoal(0, new FloatGoal(this));
 		this.goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 24.0f));
-		this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
+		// v0.15.19: no HurtByTargetGoal -- once running it never let go of a target. Who is hurting her is the BossThreat table's job.
 		this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, false));
 	}
 
@@ -321,14 +323,16 @@ public class BroodQueen extends Spider implements GeoEntity {
 			return false; // she can't be hurt while she screams
 		}
 		boolean hurt = super.hurt(source, amount);
-		// a fighter who hurts her from close by while her target is far away draws her attention
-		if (hurt && source.getEntity() instanceof Player p && prey(this, p)) {
-			LivingEntity t = getTarget();
-			if (t == null || !t.isAlive() || (t != p && distanceToSqr(t) > 14 * 14 && distanceToSqr(p) < 10 * 10)) {
-				setTarget(p);
-			}
+		// v0.15.19: whoever hurts her builds threat; the table (not "closest hitter while her target is far") decides who she hunts
+		if (hurt && !level().isClientSide()) {
+			threat.record(source, amount);
 		}
 		return hurt;
+	}
+
+	/** v0.15.19: her threat table (tests / debug). */
+	public BossThreat threat() {
+		return threat;
 	}
 
 	// ---------------------------------------------------------------- tick
@@ -336,6 +340,7 @@ public class BroodQueen extends Spider implements GeoEntity {
 	@Override
 	protected void customServerAiStep() {
 		super.customServerAiStep();
+		threat.tick();
 		combatTick();
 	}
 
