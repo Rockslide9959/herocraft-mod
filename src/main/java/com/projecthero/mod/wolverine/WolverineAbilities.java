@@ -415,6 +415,15 @@ public final class WolverineAbilities {
 				level.sendParticles(ParticleTypes.SWEEP_ATTACK, p.x, p.y, p.z, 1, 0.2, 0.2, 0.2, 0.0);
 			}
 		}
+		// v0.15.21: slightly AoE -- the slash carries through to anyone bunched up beside the target
+		for (LivingEntity e : AbilityHelpers.enemiesAround(player, best.position().add(0, best.getBbHeight() * 0.5, 0),
+				WolverineConfig.FRENZY_SPLASH_RADIUS)) {
+			if (e != best && strike(player, e, WolverineConfig.FRENZY_DAMAGE * WolverineConfig.FRENZY_SPLASH_FACTOR, 0.1)
+					&& player.level() instanceof ServerLevel level) {
+				Vec3 p = e.position().add(0, e.getBbHeight() * 0.6, 0);
+				level.sendParticles(ParticleTypes.SWEEP_ATTACK, p.x, p.y, p.z, 1, 0.1, 0.1, 0.1, 0.0);
+			}
+		}
 	}
 
 	// ---------------- 4: Adamantium Execution (Z) ----------------

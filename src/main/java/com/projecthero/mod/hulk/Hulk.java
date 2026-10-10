@@ -767,6 +767,7 @@ public final class Hulk {
 		if (!s.hulk && !player.getPassengers().isEmpty()) {
 			ejectRider(player);
 		}
+		HulkRiding.tick(player); // v0.15.21: riders never take fall damage
 
 		if (s.hulk) {
 			// v0.13.17: the Hulk only burns rage once he has been out of combat (no hit taken or dealt) for 5 s

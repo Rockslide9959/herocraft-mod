@@ -82,7 +82,7 @@ are identical (same inputs, same yield) — gametest `componentTableRecipesMirro
 | component | inputs | yield |
 |---|---|---|
 | `copper_wiring` (table) | 1 copper + 1 redstone | 6 |
-| `metal_plating` (table) | 2 iron | **4** (was 3) |
+| `metal_plating` (table) | 3 iron in a row (v0.15.21; was 2 iron shapeless, which shadowed shears) | **6** |
 | `basic_circuit` (table) | 1 copper_wiring + 1 redstone + 1 quartz | **4** (was 3) |
 | `mechanical_parts` (table) | 1 iron + 1 redstone + 1 copper_wiring | **4** (was 3) |
 | `titanium_gold_alloy` | 3 gold + 3 iron + 1 metal_plating | **3** (was 2) |

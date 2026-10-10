@@ -155,6 +155,8 @@ public class StarkGlassesV0151GameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void glassesGiveNightVisionThatClearsTheMomentTheyComeOff(GameTestHelper h) {
 		ServerPlayer p = tony(h, new BlockPos(2, 1, 2));
+		com.projecthero.mod.armor.ArmorNightVision.testOverride = true; // v0.15.21: the optic only runs in the dark
+		try {
 		IronManSuitTicker.tick(p);
 		h.assertTrue(p.getEffect(MobEffects.NIGHT_VISION) == null, "no night vision without the glasses");
 		StarkGear.equip(p, glasses());
@@ -184,6 +186,20 @@ public class StarkGlassesV0151GameTests implements FabricGameTest {
 		StarkGear.unequip(plain);
 		IronManSuitTicker.tick(plain);
 		h.assertTrue(plain.getEffect(MobEffects.NIGHT_VISION) == null, "and clears for them too");
+
+		// v0.15.21: in the light the optic switches itself off, and back on once it is dark again
+		StarkGear.equip(plain, glasses());
+		IronManSuitTicker.tick(plain);
+		h.assertTrue(plain.getEffect(MobEffects.NIGHT_VISION) != null, "dark: on");
+		com.projecthero.mod.armor.ArmorNightVision.testOverride = false;
+		IronManSuitTicker.tick(plain);
+		h.assertTrue(plain.getEffect(MobEffects.NIGHT_VISION) == null, "lit: the glasses' night vision goes off by itself");
+		com.projecthero.mod.armor.ArmorNightVision.testOverride = true;
+		IronManSuitTicker.tick(plain);
+		h.assertTrue(plain.getEffect(MobEffects.NIGHT_VISION) != null, "dark again: back on");
+		} finally {
+			com.projecthero.mod.armor.ArmorNightVision.testOverride = null;
+		}
 		h.succeed();
 	}
 

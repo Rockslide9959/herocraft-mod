@@ -910,6 +910,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	}
 
 	private static boolean titanSprintWasDown;
+	/** v0.15.21: Shift + N went down as Nova (the helmet is being taken off) -- the release is sent once. */
+	private static boolean novaHelmetRemoveHeld;
 
 	/** v0.12.34: a rider never reports sprinting, so the Titan is told whether Sprint is held (a run starts after 3 s of it while walking). */
 	private static void handleTitanSprint(Minecraft client) {
@@ -973,6 +975,12 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternActionPayload(
 						com.projecthero.mod.network.GreenLanternActionPayload.Action.CLEAR_CONSTRUCTS));
 			}
+		} else if (down && !maxSteelTransformWasDown && Screen.hasShiftDown() && client.player != null
+				&& com.projecthero.mod.nova.Nova.hasPower(client.player)) {
+			// v0.15.21: Nova -- hold Shift + N for 5 s to take the Nova Corps Helmet off (the server times it)
+			novaHelmetRemoveHeld = true;
+			ClientPlayNetworking.send(new com.projecthero.mod.nova.network.NovaActionPayload(
+					com.projecthero.mod.nova.network.NovaActionPayload.Action.HELMET_REMOVE_START));
 		} else if (down && !maxSteelTransformWasDown && com.projecthero.mod.client.hulk.GladiatorGearClient.ownsN(client)) {
 			// v0.15.3: a TAP of N as Banner opens the Gladiator Gear screen (sent on release; a 2 s hold stays the calm-down).
 			com.projecthero.mod.client.hulk.GladiatorGearClient.pressed();
@@ -1002,6 +1010,13 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				&& com.projecthero.mod.client.ironman.StarkGearClient.ownsSneakN(client)) {
 			// v0.15.1: nothing else owns Shift+N and the glasses are still on (power lost) -- the screen to take them off.
 			com.projecthero.mod.client.ironman.StarkGearClient.requestOpen();
+		}
+		if (!down && novaHelmetRemoveHeld) {
+			novaHelmetRemoveHeld = false;
+			if (client.getConnection() != null) {
+				ClientPlayNetworking.send(new com.projecthero.mod.nova.network.NovaActionPayload(
+						com.projecthero.mod.nova.network.NovaActionPayload.Action.HELMET_REMOVE_STOP));
+			}
 		}
 		if (!down && glRingRemoveHeld) {
 			glRingRemoveHeld = false;

@@ -225,7 +225,10 @@ public final class IronManSuitTicker {
 	 * its own a moment after the helmet comes off.
 	 */
 	private static void applyHelmetOptics(ServerPlayer player, IronManSuit suit, String suitId) {
-		if (suit.helmetNightVision() && IronManArmor.hasHelmet(player, suitId)) {
+		// v0.15.21: only with the faceplate down, and only while it is dark (ArmorNightVision) -- lifting the visor drops it
+		if (suit.helmetNightVision() && IronManArmor.hasHelmet(player, suitId) && !IronManFaceplate.isOpen(player)
+				&& com.projecthero.mod.armor.ArmorNightVision.wanted(player,
+						com.projecthero.mod.ironman.gear.StarkGear.isOptic(player.getEffect(MobEffects.NIGHT_VISION)))) {
 			player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 400, 0, true, false, false));
 		} else {
 			// "changes 18": the instant the helmet comes off (or this mark has no NV optic) the Night
@@ -240,10 +243,11 @@ public final class IronManSuitTicker {
 	 * the player got from a potion or a beacon.
 	 */
 	static void clearHelmetNightVision(ServerPlayer player) {
-		if (com.projecthero.mod.ironman.gear.StarkGear.hasGlasses(player)) {
-			return; // v0.15.1: the Stark Glasses keep the same optic on (StarkGear.tick)
-		}
 		MobEffectInstance eff = player.getEffect(MobEffects.NIGHT_VISION);
+		if (com.projecthero.mod.ironman.gear.StarkGear.hasGlasses(player)
+				&& com.projecthero.mod.armor.ArmorNightVision.wanted(player, com.projecthero.mod.ironman.gear.StarkGear.isOptic(eff))) {
+			return; // v0.15.1: the Stark Glasses keep the same optic on (StarkGear.tick) -- v0.15.21: while it is dark
+		}
 		if (eff != null && eff.isAmbient() && !eff.isVisible() && !eff.showIcon() && eff.getDuration() <= 400) {
 			player.removeEffect(MobEffects.NIGHT_VISION);
 		}

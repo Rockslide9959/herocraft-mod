@@ -37,6 +37,8 @@ public final class NovaMod {
 			switch (payload.action()) {
 				case TOGGLE_SUIT -> Nova.toggleSuit(p);
 				case TOGGLE_FLIGHT -> NovaFlight.toggle(p);
+				case HELMET_REMOVE_START -> Nova.helmetRemoveStart(p);
+				case HELMET_REMOVE_STOP -> Nova.helmetRemoveStop(p);
 			}
 		});
 

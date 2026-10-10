@@ -28,6 +28,8 @@ public final class NovaConfig {
 	public static final int SUIT_DOWN_TICKS = 38;
 	/** H debounce. */
 	public static final int SUIT_TOGGLE_COOLDOWN = 10;
+	/** v0.15.21: how long Shift + N must be held to take the Nova Corps Helmet off (5 s). */
+	public static final int HELMET_REMOVE_HOLD_TICKS = 5 * 20;
 
 	// ---------------------------------------------------------------- the Nova Force bar
 

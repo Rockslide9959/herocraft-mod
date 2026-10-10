@@ -20,4 +20,22 @@ public class WolverineArmorItem extends SuperheroArmorItem {
 	public String armorSetId() {
 		return "wolverine";
 	}
+
+	/** v0.15.21: the suit knits itself back together -- one durability point every 5 s, worn or carried. */
+	public static final int REPAIR_INTERVAL_TICKS = 5 * 20;
+
+	@Override
+	public void inventoryTick(net.minecraft.world.item.ItemStack stack, net.minecraft.world.level.Level level,
+			net.minecraft.world.entity.Entity entity, int slot, boolean selected) {
+		if (!level.isClientSide() && stack.isDamaged() && level.getGameTime() % REPAIR_INTERVAL_TICKS == 0) {
+			repairTick(stack);
+		}
+	}
+
+	/** One point of self-repair (a gametest hook as well as the 5 s tick). */
+	public static void repairTick(net.minecraft.world.item.ItemStack stack) {
+		if (stack.isDamaged()) {
+			stack.setDamageValue(stack.getDamageValue() - 1);
+		}
+	}
 }

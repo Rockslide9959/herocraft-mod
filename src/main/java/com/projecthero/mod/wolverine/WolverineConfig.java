@@ -129,6 +129,9 @@ public final class WolverineConfig {
 	public static final double FRENZY_RANGE = 4.0;
 	public static final int FRENZY_INTERVAL_TICKS = 4; // ~0.2 s
 	public static final int FRENZY_COOLDOWN = 15 * S;
+	/** v0.15.21: every Frenzy strike also catches whoever stands right by its target, for part of the damage. */
+	public static final double FRENZY_SPLASH_RADIUS = 2.0;
+	public static final float FRENZY_SPLASH_FACTOR = 0.4f;
 
 	// ---- Ability 4: Adamantium Execution (Z) -- hold to charge, release to strike ----
 	/** Hold the key this long; on release after a full charge the execution fires. */

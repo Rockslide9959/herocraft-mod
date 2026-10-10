@@ -15,7 +15,10 @@ import net.minecraft.resources.ResourceLocation;
 public record NovaActionPayload(Action action) implements CustomPacketPayload {
 	public enum Action {
 		TOGGLE_SUIT,
-		TOGGLE_FLIGHT
+		TOGGLE_FLIGHT,
+		/** v0.15.21: Shift + N pressed / released -- hold it 5 s to take the helmet off (the power goes, the item comes back). */
+		HELMET_REMOVE_START,
+		HELMET_REMOVE_STOP
 	}
 
 	public static final CustomPacketPayload.Type<NovaActionPayload> TYPE =

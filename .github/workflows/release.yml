@@ -51,32 +51,38 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           green=false
+          # v0.15.21: master CI may have run only a subset (or none) of the suite -- only a green run whose
+          # gametest jobs were the FULL suite counts
+          full_ok() {
+            gh run view "$1" -R "$REPO" --json jobs --jq '[.jobs[] | select(.name | startswith("gametest full")) | select(.conclusion == "success")] | length' 2>/dev/null
+          }
           runs="$(gh run list -R "$REPO" --workflow build.yml --commit "$SHA" --json databaseId,status,conclusion --limit 20)"
           echo "$runs"
-          if [ "$(echo "$runs" | jq "[.[] | select(.conclusion == \"success\")] | length")" -gt 0 ]; then
-            green=true
-          else
+          for id in $(echo "$runs" | jq -r '.[] | select(.conclusion == "success") | .databaseId'); do
+            if [ "$(full_ok "$id")" -ge 6 ]; then green=true; fi
+          done
+          if [ "$green" != true ]; then
             pending="$(echo "$runs" | jq -r "[.[] | select(.status != \"completed\")][0].databaseId // empty")"
             if [ -n "$pending" ]; then
               echo "waiting for build.yml run $pending on $SHA"
-              if timeout 1500 gh run watch "$pending" -R "$REPO" --exit-status --interval 20 > /dev/null; then
+              if timeout 1500 gh run watch "$pending" -R "$REPO" --exit-status --interval 20 > /dev/null                   && [ "$(full_ok "$pending")" -ge 6 ]; then
                 green=true
               fi
             fi
           fi
           echo "green=$green" | tee -a "$GITHUB_OUTPUT"
 
-  # The gametest suite (the slow part) runs as 3 disjoint slices (-PtestShard=i/3) on 3 runners at once, beside the jar
+  # The gametest suite (the slow part) runs as 6 disjoint slices (-PtestShard=i/6) on 6 runners at once, beside the jar
   # build -- only when the commit has no green master CI run (see "tested" above). Publishing needs ALL of them to
   # pass, so nothing is released unless every test passed somewhere for this commit.
   test:
     needs: tested
     if: needs.tested.outputs.green != 'true'
-    name: gametest (slice ${{ matrix.shard }}/3)
+    name: gametest (slice ${{ matrix.shard }}/6)
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@v6
       - uses: gradle/actions/wrapper-validation@v6
@@ -87,7 +93,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
       - run: chmod +x ./gradlew
       - name: run this slice of the gametest suite
-        run: ./gradlew runGameTest -PtestShard=${{ matrix.shard }}/3 --console=plain
+        run: ./gradlew runGameTest -PtestShard=${{ matrix.shard }}/6 --console=plain
       - name: capture gametest report
         if: always()
         uses: actions/upload-artifact@v7

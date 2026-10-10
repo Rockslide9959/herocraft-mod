@@ -334,4 +334,29 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		this.head.xRot -= lean * ((float) Math.PI / 180.0f);
 		this.hat.copyFrom(this.head);
 	}
+
+	/**
+	 * v0.15.21: a player riding the Hulk's back holds on piggyback-style -- both arms reach forward round his shoulders
+	 * and the legs wrap wide round his back, instead of vanilla's chair-sitting pose. Every humanoid layer (armour too).
+	 */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$hulkPiggyback(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (!(entity instanceof Player) || !com.projecthero.mod.hulk.HulkRiding.ridingHulk(entity)) {
+			return;
+		}
+		float sway = Mth.sin(ageInTicks * 0.12f) * 0.04f;
+		this.rightArm.xRot = -1.45f + sway;
+		this.rightArm.yRot = -0.5f;
+		this.rightArm.zRot = 0.0f;
+		this.leftArm.xRot = -1.45f - sway;
+		this.leftArm.yRot = 0.5f;
+		this.leftArm.zRot = 0.0f;
+		this.rightLeg.xRot = -1.2f;
+		this.rightLeg.yRot = 0.75f;
+		this.rightLeg.zRot = 0.1f;
+		this.leftLeg.xRot = -1.2f;
+		this.leftLeg.yRot = -0.75f;
+		this.leftLeg.zRot = -0.1f;
+	}
 }

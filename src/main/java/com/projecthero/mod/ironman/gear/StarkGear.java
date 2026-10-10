@@ -227,6 +227,9 @@ public final class StarkGear {
 			return;
 		}
 		MobEffectInstance eff = player.getEffect(MobEffects.NIGHT_VISION);
+		if (!com.projecthero.mod.armor.ArmorNightVision.wanted(player, isOptic(eff))) {
+			return; // v0.15.21: lit -- the optic is off (IronManSuitTicker.clearHelmetNightVision takes it away)
+		}
 		if (eff == null || (isOptic(eff) && eff.getDuration() < NIGHT_VISION_REFRESH_BELOW)) {
 			player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, NIGHT_VISION_TICKS, 0, true, false, false));
 		}

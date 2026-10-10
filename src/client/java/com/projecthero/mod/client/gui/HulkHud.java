@@ -134,6 +134,18 @@ public final class HulkHud {
 						x0, formY, 0xFF55FF55, true);
 				renderKeys(g, mc, player, s, x0, formY - 3 - BOX, now);
 			}
+			// v0.15.21: he can't see his own back -- who is riding it
+			Player rider = com.projecthero.mod.hulk.HulkRiding.rider(player);
+			if (rider != null) {
+				Component carrying = Component.translatable("hud.projecthero.hulk.carrying", rider.getDisplayName())
+						.withStyle(ChatFormatting.GREEN);
+				java.util.List<net.minecraft.util.FormattedCharSequence> rows = mc.font.split(carrying, totalW);
+				int cy = formY - 3 - BOX - 4 - rows.size() * 9;
+				for (net.minecraft.util.FormattedCharSequence row : rows) {
+					g.drawString(mc.font, row, g.guiWidth() - MARGIN - mc.font.width(row), cy, 0xFF9CFF9C, true);
+					cy += 9;
+				}
+			}
 		}
 		renderCentre(g, mc, player, s, now);
 	}

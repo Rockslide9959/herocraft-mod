@@ -6,14 +6,20 @@
 # Tag pushes (v*) are NOT built here: release.yml builds + tests them itself, so running
 # the ~1400-test gametest suite here as well just doubled the CI time of every release.
 #
-# The gametest suite is split into 3 disjoint slices (-PtestShard=i/3, see build.gradle) that run on
-# three runners at once; the jar build runs on a fourth. Every test still runs exactly once.
+# v0.15.21: a "plan" job (.github/scripts/select-gametests.js) decides what each push needs:
+#   none   -- only docs / client code / textures / models / sounds changed: no gametests (the jar build still runs)
+#   subset -- only the test classes that touch the changed feature packages / data files, on one runner
+#   full   -- anything shared changed (core packages, build files, mixins...): the whole suite as 6 disjoint slices
+#             (-PtestShard=i/6, see build.gradle) on six runners at once
+# Release tags always get the FULL suite (release.yml only skips its own run when master already ran the full suite on
+# that exact commit). Run this workflow by hand (Actions -> build -> Run workflow) to force a full run.
 
 name: build
 on:
   pull_request:
   push:
     branches: ['**']
+  workflow_dispatch:
 
 # A newer push to the same branch/PR makes the older run pointless: cancel it.
 concurrency:
@@ -21,13 +27,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      mode: ${{ steps.select.outputs.mode }}
+      filter: ${{ steps.select.outputs.filter }}
+      shards: ${{ steps.select.outputs.shards }}
+      shard_count: ${{ steps.select.outputs.shard_count }}
+    steps:
+      - name: checkout repository (full history, to diff against the previous push)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: pick the gametests this push needs
+        id: select
+        env:
+          FORCE_FULL: ${{ github.event_name == 'workflow_dispatch' }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.sha }}
+        run: node .github/scripts/select-gametests.js "$BASE" "$HEAD"
+
   gametest:
-    name: gametest (slice ${{ matrix.shard }}/3)
+    needs: plan
+    if: needs.plan.outputs.mode != 'none'
+    name: gametest ${{ needs.plan.outputs.mode }} (slice ${{ matrix.shard }}/${{ needs.plan.outputs.shard_count }})
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
@@ -43,7 +71,15 @@ jobs:
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
       - name: run this slice of the gametest suite
-        run: ./gradlew runGameTest -PtestShard=${{ matrix.shard }}/3 --console=plain
+        env:
+          TEST_FILTER: ${{ needs.plan.outputs.filter }}
+          SHARD: ${{ matrix.shard }}/${{ needs.plan.outputs.shard_count }}
+        run: |
+          if [ -n "$TEST_FILTER" ]; then
+            ./gradlew runGameTest -PtestShard="$SHARD" -PtestFilter="$TEST_FILTER" --console=plain
+          else
+            ./gradlew runGameTest -PtestShard="$SHARD" --console=plain
+          fi
       - name: capture gametest report
         if: always()
         uses: actions/upload-artifact@v7

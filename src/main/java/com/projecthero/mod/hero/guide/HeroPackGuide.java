@@ -1087,7 +1087,7 @@ public final class HeroPackGuide {
 			for (String[] row : new String[][] { { "R", "nova_blast" }, { "Shift+R", "bolt_volley" }, { "G", "gravimetric_pulse" },
 					{ "Shift+G", "gravity_slam" }, { "Z", "force_shield" }, { "Shift+Z", "nova_overload" }, { "X", "comet_dash" },
 					{ "Shift+X", "orbital_launch" }, { "C", "gravity_well" }, { "Shift+C", "gravity_lock" }, { "V", "worldmind_scan" },
-					{ "Shift+V", "force_transfer" } }) {
+					{ "Shift+V", "force_transfer" }, { "Shift+hold N", "remove_helmet" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.nova.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.nova.ability." + row[1] + ".desc");

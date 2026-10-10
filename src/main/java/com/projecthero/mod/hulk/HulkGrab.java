@@ -75,7 +75,7 @@ public final class HulkGrab {
 		return true;
 	}
 
-	private static void protectLanding(ServerPlayer mate) {
+	static void protectLanding(ServerPlayer mate) {
 		SAFE_LANDING.put(mate.getUUID(), mate.level().getGameTime() + SAFE_LANDING_TICKS);
 		mate.resetFallDistance();
 	}

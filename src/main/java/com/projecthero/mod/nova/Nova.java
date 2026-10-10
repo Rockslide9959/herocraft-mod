@@ -62,6 +62,8 @@ public final class Nova {
 	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
 	/** Game time of the last H toggle (debounce). */
 	private static final Map<UUID, Long> LAST_TOGGLE = new ConcurrentHashMap<>();
+	/** v0.15.21: game time Shift + N went down (taking the helmet off). */
+	private static final Map<UUID, Long> HELMET_REMOVE = new ConcurrentHashMap<>();
 
 	private Nova() {
 	}
@@ -70,6 +72,7 @@ public final class Nova {
 		LAST_MESSAGE.clear();
 		LAST_TICK.clear();
 		LAST_TOGGLE.clear();
+		HELMET_REMOVE.clear();
 		NovaFlight.clearSessionState();
 		NovaAbilities.clearSessionState();
 		NovaAbilityManager.clearSessionState();
@@ -241,6 +244,7 @@ public final class Nova {
 		LAST_MESSAGE.remove(id);
 		LAST_TICK.remove(id);
 		LAST_TOGGLE.remove(id);
+		HELMET_REMOVE.remove(id);
 		NovaAbilityManager.forget(id);
 	}
 
@@ -370,6 +374,76 @@ public final class Nova {
 		}
 		NovaFlight.tick(player);
 		NovaAbilities.tick(player);
+		tickHelmetRemove(player);
+	}
+
+	// ---------------------------------------------------------------- taking the helmet off (Shift + hold N)
+
+	/** v0.15.21: Shift + N pressed -- start taking the helmet off (it comes off after {@link NovaConfig#HELMET_REMOVE_HOLD_TICKS}). */
+	public static void helmetRemoveStart(ServerPlayer player) {
+		if (!hasPower(player) || !player.isShiftKeyDown() || HELMET_REMOVE.containsKey(player.getUUID())) {
+			return;
+		}
+		HELMET_REMOVE.put(player.getUUID(), player.level().getGameTime());
+		player.displayClientMessage(Component.translatable("message.projecthero.nova.helmet_remove_hold",
+				NovaConfig.HELMET_REMOVE_HOLD_TICKS / 20).withStyle(ChatFormatting.YELLOW), true);
+	}
+
+	/** N released (or Sneak let go): the helmet stays on. */
+	public static void helmetRemoveStop(ServerPlayer player) {
+		if (HELMET_REMOVE.remove(player.getUUID()) != null) {
+			player.displayClientMessage(Component.translatable("message.projecthero.nova.helmet_remove_cancel")
+					.withStyle(ChatFormatting.GRAY), true);
+		}
+	}
+
+	/** True while Shift + N is being held to take the helmet off (gametest hook). */
+	public static boolean removingHelmet(ServerPlayer player) {
+		return HELMET_REMOVE.containsKey(player.getUUID());
+	}
+
+	private static void tickHelmetRemove(ServerPlayer player) {
+		Long since = HELMET_REMOVE.get(player.getUUID());
+		if (since == null) {
+			return;
+		}
+		if (!player.isShiftKeyDown()) {
+			helmetRemoveStop(player);
+			return;
+		}
+		long held = player.level().getGameTime() - since;
+		if (held > 0 && held % 20 == 0 && held < NovaConfig.HELMET_REMOVE_HOLD_TICKS) {
+			player.displayClientMessage(Component.translatable("message.projecthero.nova.helmet_remove_hold",
+					(NovaConfig.HELMET_REMOVE_HOLD_TICKS - held) / 20).withStyle(ChatFormatting.YELLOW), true);
+			((ServerLevel) player.level()).sendParticles(GOLD, player.getX(), player.getEyeY() + 0.2, player.getZ(),
+					4 + (int) (held / 10), 0.3, 0.2, 0.3, 0.02);
+		}
+		if (held >= NovaConfig.HELMET_REMOVE_HOLD_TICKS) {
+			HELMET_REMOVE.remove(player.getUUID());
+			removeHelmet(player);
+		}
+	}
+
+	/**
+	 * v0.15.21: the Nova takes the helmet off -- the power goes exactly as a revoke (uniform, flight, the Primary slot
+	 * frees up) and the Nova Corps Helmet comes back to the inventory (or drops at their feet if it is full), so it can
+	 * be put back on -- or handed to someone else -- with a right-click.
+	 */
+	public static void removeHelmet(ServerPlayer player) {
+		if (!hasPower(player)) {
+			return;
+		}
+		revoke(player);
+		net.minecraft.world.item.ItemStack helmet = new net.minecraft.world.item.ItemStack(
+				com.projecthero.mod.nova.item.NovaItems.NOVA_CORPS_HELMET);
+		if (!player.getInventory().add(helmet)) {
+			player.drop(helmet, false);
+		}
+		ServerLevel level = (ServerLevel) player.level();
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 1.0f, 1.2f);
+		level.sendParticles(GOLD_BIG, player.getX(), player.getEyeY(), player.getZ(), 30, 0.4, 0.4, 0.4, 0.03);
+		player.displayClientMessage(Component.translatable("message.projecthero.nova.helmet_removed")
+				.withStyle(ChatFormatting.GOLD), false);
 	}
 
 	/**

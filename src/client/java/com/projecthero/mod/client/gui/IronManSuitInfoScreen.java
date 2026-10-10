@@ -174,7 +174,7 @@ public class IronManSuitInfoScreen extends Screen {
 		row(wrap, "screen.projecthero.ironman_info.targeting", Component.translatable(IronManTargeting.hasTargeting(suit)
 				? "screen.projecthero.ironman_info.yes" : "screen.projecthero.ironman_info.no").getString());
 		row(wrap, "screen.projecthero.ironman_info.night_vision", Component.translatable(suit.helmetNightVision()
-				? "screen.projecthero.ironman_info.yes" : "screen.projecthero.ironman_info.no").getString());
+				? "screen.projecthero.ironman_info.night_vision_auto" : "screen.projecthero.ironman_info.no").getString());
 		if (suit.waterBreathing()) {
 			row(wrap, "screen.projecthero.ironman_info.air", Component.translatable("screen.projecthero.ironman_info.air_unlimited").getString());
 		} else if (suit.airTankSeconds() > 0) {
