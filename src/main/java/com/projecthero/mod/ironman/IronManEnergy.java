@@ -138,14 +138,14 @@ public final class IronManEnergy {
 	 */
 	public static final float PLATFORM_FRACTION_PER_SECOND = 0.001f;
 
-	/** Energy per second a docked suit gains on a Suit Platform -- v0.14.27: a flat 10/s for every mark (the per-mark
+	/** Energy per second a docked suit gains on a Suit Platform -- v0.15.20: the suit's passive Arc Reactor rate
+	 *  ({@link IronManSuit#energyRegenPerSecond()}, never the halved in-flight rate). v0.14.27 was a flat 10/s (the per-mark
 	 *  {@link IronManSuit#platformEnergyPerSecondOverride()} and the 0.1%-of-pool formula no longer apply). */
 	public static float platformEnergyPerSecond(IronManSuit suit) {
-		return suit == null ? 0f
-				: com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlockEntity.REGEN_ENERGY_PER_SECOND;
+		return suit == null ? 0f : suit.energyRegenPerSecond();
 	}
 
-	/** Integrity per second a docked suit repairs on a Suit Platform -- v0.14.27: a flat 10/s for every mark. */
+	/** Integrity per second a docked suit repairs on a Suit Platform -- v0.15.20: a flat 5/s for every mark (10/s since v0.14.27). */
 	public static float platformIntegrityPerSecond(IronManSuit suit) {
 		return suit == null ? 0f
 				: com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlockEntity.REGEN_INTEGRITY_PER_SECOND;

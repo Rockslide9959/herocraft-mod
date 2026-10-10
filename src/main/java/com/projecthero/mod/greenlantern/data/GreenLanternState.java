@@ -49,14 +49,23 @@ public final class GreenLanternState {
 	 * picked on N. Kept with the power (relog / death).
 	 */
 	public int suitStyle;
+	/**
+	 * v0.15.20, explicit user request: the Shift+N suit screen's two switches -- the Ring Flight body glow and the
+	 * sprint-flight trail. On by default; synced, so every player sees (or doesn't see) them.
+	 */
+	public boolean bodyGlow = true;
+	public boolean flightTrail = true;
 
 	public GreenLanternState() {
 		this(false, GreenLanternConfig.MAX_RING_CHARGE, false, SUIT_IDLE, 0L,
-				ConstructType.HARD_LIGHT_WALL.ordinal(), new HashMap<>(), 0);
+				ConstructType.HARD_LIGHT_WALL.ordinal(), new HashMap<>(), 0, true, true);
 	}
 
 	public GreenLanternState(boolean hasPower, float ringCharge, boolean suited, int suitAnimDir,
-			long suitAnimStartTick, int selectedConstruct, Map<String, Long> abilityReadyAt, int suitStyle) {
+			long suitAnimStartTick, int selectedConstruct, Map<String, Long> abilityReadyAt, int suitStyle,
+			boolean bodyGlow, boolean flightTrail) {
+		this.bodyGlow = bodyGlow;
+		this.flightTrail = flightTrail;
 		this.hasPower = hasPower;
 		this.ringCharge = ringCharge;
 		this.suited = suited;
@@ -69,7 +78,7 @@ public final class GreenLanternState {
 
 	public GreenLanternState copy() {
 		return new GreenLanternState(hasPower, ringCharge, suited, suitAnimDir, suitAnimStartTick,
-				selectedConstruct, abilityReadyAt, suitStyle);
+				selectedConstruct, abilityReadyAt, suitStyle, bodyGlow, flightTrail);
 	}
 
 	public ConstructType selectedConstructType() {
@@ -86,6 +95,8 @@ public final class GreenLanternState {
 					.forGetter(s -> s.selectedConstruct),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", new HashMap<>())
 					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
-			Codec.INT.optionalFieldOf("suit_style", 0).forGetter(s -> s.suitStyle)
+			Codec.INT.optionalFieldOf("suit_style", 0).forGetter(s -> s.suitStyle),
+			Codec.BOOL.optionalFieldOf("body_glow", true).forGetter(s -> s.bodyGlow),
+			Codec.BOOL.optionalFieldOf("flight_trail", true).forGetter(s -> s.flightTrail)
 	).apply(instance, GreenLanternState::new));
 }

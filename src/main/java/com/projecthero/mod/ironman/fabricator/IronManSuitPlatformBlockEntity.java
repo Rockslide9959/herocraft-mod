@@ -55,11 +55,11 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		implements Container, ExtendedScreenHandlerFactory<BlockPos> {
 	public static final int SIZE = 4;
 	/**
-	 * v0.14.27: every docked suit -- any mark -- charges 10 energy and repairs 10 integrity per second. The platform's
-	 * own Reactor-Core reserve is gone (an old save's {@code StoredEnergy} key is simply ignored).
+	 * v0.14.27: every docked suit -- any mark -- is charged and repaired every second. The platform's own Reactor-Core
+	 * reserve is gone (an old save's {@code StoredEnergy} key is simply ignored). v0.15.20: repair is 5 integrity/s (was
+	 * 10) and the charge is the suit's own passive Arc Reactor rate ({@link IronManEnergy#platformEnergyPerSecond}).
 	 */
-	public static final float REGEN_ENERGY_PER_SECOND = 10f;
-	public static final float REGEN_INTEGRITY_PER_SECOND = 10f;
+	public static final float REGEN_INTEGRITY_PER_SECOND = 5f;
 	/** Fallback capacity shown for an empty rack. */
 	public static final int MAX_ENERGY = 50_000;
 
@@ -77,6 +77,16 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 	 */
 	private long unpackStart;
 	private long lastRegistrySync = Long.MIN_VALUE;
+	/**
+	 * v0.15.20, user request: the racked suit is below max integrity and being repaired -- the welding arms rise out of
+	 * the pad and spark over it (IronManSuitPlatformRenderer). Server-decided and synced on change only (the stacks'
+	 * integrity itself is not re-sent every tick).
+	 */
+	private boolean repairing;
+	/** Client: game time {@link #repairing} last flipped, so the arms ease up / back down (MIN_VALUE = since load). */
+	private long repairToggledAt = Long.MIN_VALUE;
+	/** Ticks the welding arms take to rise out of / sink back into the pad. */
+	public static final float REPAIR_ARM_TICKS = 14f;
 
 	public final ContainerData data = new ContainerData() {
 		@Override
@@ -131,8 +141,20 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 				}
 			}
 			if (suit != null) {
-				// v0.14.27: a flat 10 energy/s + 10 integrity/s for every mark (overrides any per-mark platformRegen)
+				// v0.15.20: the suit's passive energy rate + a flat 5 integrity/s for every mark
 				be.regenTick(suit);
+			}
+		}
+		// v0.15.20: the welding arms -- up while a damaged suit is racked, with a quiet weld crackle now and then
+		boolean nowRepairing = suitId != null && be.suitIntegrity() < IronManEnergy.maxIntegrity(suitId) - 0.001f;
+		be.setRepairing(serverLevel, nowRepairing);
+		if (nowRepairing && level.getGameTime() % 9L == 0L) {
+			float pitch = 1.5f + level.random.nextFloat() * 0.5f;
+			level.playSound(null, pos, net.minecraft.sounds.SoundEvents.FIRE_EXTINGUISH, net.minecraft.sounds.SoundSource.BLOCKS,
+					0.12f, pitch);
+			if (level.random.nextInt(3) == 0) {
+				level.playSound(null, pos, net.minecraft.sounds.SoundEvents.CHAIN_PLACE, net.minecraft.sounds.SoundSource.BLOCKS,
+						0.25f, 1.6f + level.random.nextFloat() * 0.3f);
 			}
 		}
 
@@ -151,7 +173,7 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		}
 	}
 
-	/** One server tick of the v0.14.27 flat platform charge + repair (public for the gametests). */
+	/** One server tick of the platform charge + repair (public for the gametests). */
 	public void regenTick(IronManSuit suit) {
 		String suitId = storedSuitId();
 		if (suit == null || suitId == null) {
@@ -164,8 +186,34 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		if (cur >= cap && integ >= maxInteg) {
 			return;
 		}
-		stampAllPieces(Math.min(cap, Math.max(cur, cur + REGEN_ENERGY_PER_SECOND / 20f)),
+		stampAllPieces(Math.min(cap, Math.max(cur, cur + IronManEnergy.platformEnergyPerSecond(suit) / 20f)),
 				Math.min(maxInteg, Math.max(integ, integ + REGEN_INTEGRITY_PER_SECOND / 20f)));
+	}
+
+	/** v0.15.20: is a damaged suit on the rack being welded right now? (Synced -- the client draws the arms from it.) */
+	public boolean repairing() {
+		return repairing;
+	}
+
+	/** v0.15.20, client: 0 (arms sunk in the pad) .. 1 (up and welding), eased over {@link #REPAIR_ARM_TICKS}. */
+	public float repairArms(float partialTick) {
+		if (repairToggledAt == Long.MIN_VALUE || level == null) {
+			return repairing ? 1f : 0f;
+		}
+		float x = Math.max(0f, Math.min(1f, (level.getGameTime() - repairToggledAt + partialTick) / REPAIR_ARM_TICKS));
+		x = x * x * (3f - 2f * x);
+		return repairing ? x : 1f - x;
+	}
+
+	private void setRepairing(ServerLevel level, boolean on) {
+		if (repairing == on) {
+			return;
+		}
+		repairing = on;
+		setChanged();
+		// a damaged suit just racked (or the last plate just welded): tell the watching clients, along with the
+		// up-to-date stacks
+		level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
 	}
 
 	private void tryAdoptOwner(ServerLevel level) {
@@ -666,6 +714,11 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		packStart = tag.getLong("PackStart");
 		packFor = tag.hasUUID("PackFor") ? tag.getUUID("PackFor") : null;
 		unpackStart = tag.getLong("UnpackStart");
+		boolean wasRepairing = repairing;
+		repairing = tag.getBoolean("Repairing");
+		if (level != null && level.isClientSide && wasRepairing != repairing) {
+			repairToggledAt = level.getGameTime();
+		}
 	}
 
 	@Override
@@ -683,6 +736,9 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		}
 		if (unpackStart > 0L) {
 			tag.putLong("UnpackStart", unpackStart);
+		}
+		if (repairing) {
+			tag.putBoolean("Repairing", true);
 		}
 	}
 

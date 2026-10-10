@@ -22,6 +22,11 @@ public final class GreenLanternFlightGlow {
 
 	public static void render(PoseStack pose, MultiBufferSource buffers, AbstractClientPlayer player, PlayerModel<AbstractClientPlayer> model,
 			float ageInTicks) {
+		// v0.15.20: switched off on the Shift+N suit screen
+		var gl = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_STATE, null);
+		if (gl != null && !gl.bodyGlow) {
+			return;
+		}
 		float k = GreenLanternFlightFx.auraStrength(player, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
 		float boost = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BOOSTING, false) || player.isSprinting() ? 1f : 0f;
 		BodyGlow.render(pose, buffers, player, model, ageInTicks, k, boost, BodyGlow.GREEN_LANTERN, false);

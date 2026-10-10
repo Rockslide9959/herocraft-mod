@@ -29,6 +29,8 @@ import net.minecraft.util.FormattedCharSequence;
  * 1-4) to pick it: the choice is sent to the server ({@link GreenLanternActionPayload}, re-validated there), stored in the
  * synced {@link GreenLanternState#suitStyle} and -- if the suit is on -- re-formed out of the ring at once. N or Esc
  * closes. Opened with Shift+N; the Remove Ring button along the bottom (two clicks) replaced Shift + hold N. Four cards in a row, or a 2 x 2 grid when the GUI is too narrow; all prose is word-wrapped to its card.
+ * v0.15.20: a row of two switches above it -- Body Glow and Flight Trail ({@link GreenLanternState#bodyGlow} /
+ * {@link GreenLanternState#flightTrail}, synced so every player sees the choice).
  */
 public final class GreenLanternSuitScreen extends Screen {
 	private static final int GREEN = 0xFF5CFF8E;
@@ -46,7 +48,17 @@ public final class GreenLanternSuitScreen extends Screen {
 	private static final int PAD = 10;
 	/** v0.15.15: the Remove Ring button along the bottom (it replaced Shift + hold N). */
 	private static final int BUTTON_ROW = 24;
+	/** v0.15.20: the Body Glow / Flight Trail switch row, above the Remove Ring button. */
+	private static final int TOGGLE_ROW = 22;
 	private Button removeButton;
+	private Button glowButton;
+	private Button trailButton;
+	/**
+	 * v0.15.20: the toggle row's height -- {@link #TOGGLE_ROW}, or 0 in the compact layout (a short GUI, e.g. a small
+	 * window: the card blurbs and intro go and the two switches share the Remove Ring row) so nothing runs off the bottom.
+	 */
+	private int toggleRow;
+	private boolean compact;
 	private long removeArmedUntil;
 
 	private int cols;
@@ -97,20 +109,70 @@ public final class GreenLanternSuitScreen extends Screen {
 			descLines = Math.max(descLines, d.size());
 		}
 		// the doll is 16 x 32 skin pixels; shrink it until the whole panel fits the screen
+		compact = false;
+		toggleRow = TOGGLE_ROW;
+		layout(rows, descLines);
+		if (panelH > this.height - 8) {
+			// v0.15.20: still too tall at the smallest doll -- drop the blurbs and the intro, share the button row
+			compact = true;
+			toggleRow = 0;
+			intro = List.of();
+			descs.replaceAll(d -> List.of());
+			layout(rows, 0);
+		}
+		removeArmedUntil = 0;
+		int by = top() + panelH - BUTTON_ROW + 2;
+		int bw = compact ? (panelW - 2 * PAD - 2 * GAP) / 3 : Math.min(150, panelW - 2 * PAD);
+		removeButton = addRenderableWidget(Button.builder(removeLabel(), b -> removeRing())
+				.bounds(left() + PAD, by, bw, 18).build());
+		removeButton.setTooltip(Tooltip.create(Component.translatable("screen.projecthero.green_lantern_suit.remove_ring.tip")));
+		// v0.15.20: two equal switches side by side above it (or beside it, compact)
+		int tw = compact ? bw : Math.min(120, (panelW - 2 * PAD - GAP) / 2);
+		int ty = compact ? by : top() + panelH - BUTTON_ROW - TOGGLE_ROW + 2;
+		int tx = compact ? left() + PAD + bw + GAP : left() + PAD;
+		glowButton = addRenderableWidget(Button.builder(toggleLabel("body_glow", glowOn()), b -> ClientPlayNetworking.send(
+				new GreenLanternActionPayload(GreenLanternActionPayload.Action.TOGGLE_BODY_GLOW)))
+				.bounds(tx, ty, tw, 18).build());
+		glowButton.setTooltip(Tooltip.create(Component.translatable("screen.projecthero.green_lantern_suit.body_glow.tip")));
+		trailButton = addRenderableWidget(Button.builder(toggleLabel("flight_trail", trailOn()), b -> ClientPlayNetworking.send(
+				new GreenLanternActionPayload(GreenLanternActionPayload.Action.TOGGLE_FLIGHT_TRAIL)))
+				.bounds(tx + tw + GAP, ty, tw, 18).build());
+		trailButton.setTooltip(Tooltip.create(Component.translatable("screen.projecthero.green_lantern_suit.flight_trail.tip")));
+	}
+
+	/** Card and panel heights for {@code descLines} blurb lines, shrinking the doll until the panel fits (or scale 1). */
+	private void layout(int rows, int descLines) {
 		scale = 3;
 		while (true) {
 			cardH = 6 + 32 * scale + 6 + nameLines * 10 + descLines * 9 + 6;
-			panelH = 28 + intro.size() * 10 + 6 + rows * cardH + (rows - 1) * GAP + 10 + footer.size() * 10 + BUTTON_ROW;
+			panelH = 28 + intro.size() * 10 + 6 + rows * cardH + (rows - 1) * GAP + 10 + footer.size() * 10 + toggleRow + BUTTON_ROW;
 			if (panelH <= this.height - 8 || scale == 1) {
 				break;
 			}
 			scale--;
 		}
-		removeArmedUntil = 0;
-		int bw = Math.min(150, panelW - 2 * PAD);
-		removeButton = addRenderableWidget(Button.builder(removeLabel(), b -> removeRing())
-				.bounds(left() + PAD, top() + panelH - BUTTON_ROW + 2, bw, 18).build());
-		removeButton.setTooltip(Tooltip.create(Component.translatable("screen.projecthero.green_lantern_suit.remove_ring.tip")));
+	}
+
+	private static GreenLanternState state() {
+		AbstractClientPlayer p = Minecraft.getInstance().player;
+		return p == null ? null : p.getAttachedOrElse(ModAttachments.GREEN_LANTERN_STATE, null);
+	}
+
+	private static boolean glowOn() {
+		GreenLanternState s = state();
+		return s == null || s.bodyGlow;
+	}
+
+	private static boolean trailOn() {
+		GreenLanternState s = state();
+		return s == null || s.flightTrail;
+	}
+
+	/** "Body Glow: ON" (green) / "Body Glow: OFF" (grey); "Glow: ON" in the compact layout. */
+	private Component toggleLabel(String key, boolean on) {
+		return Component.translatable("screen.projecthero.green_lantern_suit." + key + (compact ? ".short" : ""),
+				Component.translatable(on ? "options.on" : "options.off")
+						.withStyle(on ? ChatFormatting.GREEN : ChatFormatting.GRAY));
 	}
 
 	/** First click arms it (the label asks for a second click), the second within 3 s takes the ring off. */
@@ -177,6 +239,13 @@ public final class GreenLanternSuitScreen extends Screen {
 		if (removeButton != null) {
 			removeButton.setMessage(removeLabel());
 		}
+		// the switches follow the synced state (the server flips it, the label catches up a tick later)
+		if (glowButton != null) {
+			glowButton.setMessage(toggleLabel("body_glow", s.bodyGlow));
+		}
+		if (trailButton != null) {
+			trailButton.setMessage(toggleLabel("flight_trail", s.flightTrail));
+		}
 	}
 
 	@Override
@@ -235,7 +304,7 @@ public final class GreenLanternSuitScreen extends Screen {
 				ty += 9;
 			}
 		}
-		int fy = t + panelH - BUTTON_ROW - 2 - footer.size() * 10;
+		int fy = t + panelH - BUTTON_ROW - toggleRow - 2 - footer.size() * 10;
 		for (FormattedCharSequence line : footer) {
 			g.drawString(this.font, line, l + PAD, fy, MUTED, false);
 			fy += 10;

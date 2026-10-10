@@ -139,6 +139,19 @@ public final class IronManHud {
 			return;
 		}
 
+		// v0.15.20, explicit user request: the clock line carries X, Y and Z, and the whole block grows wider to fit it (it
+		// used to be clipped to the fixed width, so a 3-digit X already cut the Z off) -- never past the screen edge.
+		String clockLine = null;
+		if (!minimalHud && client.level != null) {
+			long dayTime = client.level.getDayTime();
+			long tod = ((dayTime + 6000L) % 24000L + 24000L) % 24000L;
+			clockLine = Component.translatable("hud.projecthero.ironman.clock_pos",
+					String.format(java.util.Locale.ROOT, "%02d:%02d", tod / 1000L, (tod % 1000L) * 60L / 1000L),
+					dayTime / 24000L + 1L, (int) Math.floor(player.getX()), (int) Math.floor(player.getY()),
+					(int) Math.floor(player.getZ())).getString();
+			w = Math.min(Math.max(w, font.width(clockLine)), g.guiWidth() - 2 * x);
+		}
+
 		// Two passes: measure the text block, then draw a soft backdrop behind it (readable over a bright sky) and the block.
 		int textBottom = IronManUiLayout.HUD_Y;
 		boolean missilesReady = true;
@@ -172,15 +185,10 @@ public final class IronManHud {
 					IronManUiLayout.pct(integrityFrac) + " " + IronManUiLayout.amount(integrity, maxIntegrity),
 					integrityFrac, integrityFrac < 0.3f ? IronManGui.RED : IronManGui.GREEN);
 
-			// ---- one dim clock + position line ("changes 18" clock)
-			if (!minimalHud && client.level != null) {
-				long dayTime = client.level.getDayTime();
-				long tod = ((dayTime + 6000L) % 24000L + 24000L) % 24000L;
-				String line = Component.translatable("hud.projecthero.ironman.clock_pos",
-						String.format(java.util.Locale.ROOT, "%02d:%02d", tod / 1000L, (tod % 1000L) * 60L / 1000L),
-						dayTime / 24000L + 1L, (int) Math.floor(player.getX()), (int) Math.floor(player.getZ())).getString();
+			// ---- one dim clock + position line ("changes 18" clock); the block is widened to fit it (v0.15.20)
+			if (clockLine != null) {
 				if (draw) {
-					g.drawString(font, IronManGui.fit(font, line, w), x, y, IronManGui.TEXT_DIM, false);
+					g.drawString(font, IronManGui.fit(font, clockLine, w), x, y, IronManGui.TEXT_DIM, false);
 				}
 				y += 11;
 			}

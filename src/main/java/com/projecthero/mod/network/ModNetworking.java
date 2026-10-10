@@ -111,6 +111,9 @@ public final class ModNetworking {
 						com.projecthero.mod.greenlantern.GreenLanternSuit.selectStyle(context.player(), payload.action().suitStyle());
 				case SUIT_TOGGLE -> com.projecthero.mod.greenlantern.GreenLanternAbilityManager.suitToggle(context.player());
 				case REMOVE_RING -> com.projecthero.mod.greenlantern.GreenLanternAbilityManager.removeRingFromMenu(context.player());
+				// v0.15.20: the suit screen's glow / trail switches
+				case TOGGLE_BODY_GLOW -> com.projecthero.mod.greenlantern.GreenLanternSuit.toggleBodyGlow(context.player());
+				case TOGGLE_FLIGHT_TRAIL -> com.projecthero.mod.greenlantern.GreenLanternSuit.toggleFlightTrail(context.player());
 			}
 		});
 

@@ -1226,6 +1226,36 @@ public class GreenLanternGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
+	public void glowAndTrailSwitchesToggleAndSurviveTheCodec(GameTestHelper helper) {
+		ServerPlayer player = bonded(helper);
+		GreenLanternState s = GreenLantern.state(player);
+		helper.assertTrue(s.bodyGlow && s.flightTrail, "glow and trail start on");
+		helper.assertTrue(GreenLanternSuit.toggleBodyGlow(player), "the glow switch works for a bonded Lantern");
+		helper.assertTrue(!GreenLantern.state(player).bodyGlow && GreenLantern.state(player).flightTrail,
+				"the glow switch flips only the glow");
+		helper.assertTrue(GreenLanternSuit.toggleFlightTrail(player), "the trail switch works for a bonded Lantern");
+		helper.assertTrue(!GreenLantern.state(player).flightTrail, "the trail switch flips the trail");
+		GreenLanternSuit.toggleBodyGlow(player);
+		helper.assertTrue(GreenLantern.state(player).bodyGlow, "a second click turns the glow back on");
+
+		GreenLanternState off = new GreenLanternState();
+		off.bodyGlow = false;
+		off.flightTrail = false;
+		var tag = (net.minecraft.nbt.CompoundTag) GreenLanternState.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, off).getOrThrow();
+		GreenLanternState back = GreenLanternState.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, tag).getOrThrow();
+		helper.assertTrue(!back.bodyGlow && !back.flightTrail, "both switches round-trip through the save codec");
+		helper.assertTrue(!back.copy().bodyGlow && !back.copy().flightTrail, "copy() keeps both switches");
+		tag.remove("body_glow");
+		tag.remove("flight_trail");
+		GreenLanternState old = GreenLanternState.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, tag).getOrThrow();
+		helper.assertTrue(old.bodyGlow && old.flightTrail, "a save from before v0.15.20 loads with both on");
+
+		ServerPlayer plain = helper.makeMockServerPlayerInLevel();
+		helper.assertFalse(GreenLanternSuit.toggleBodyGlow(plain), "no ring, no switch");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
 	public void hSuitsUpAndVNoLongerDoes(GameTestHelper helper) {
 		ServerPlayer player = bonded(helper);
 		// V (slot 5) is the Giant Hand now -- it must not start a suit-up

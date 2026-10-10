@@ -2064,11 +2064,11 @@ public class HeroPackGameTests implements FabricGameTest {
 		var m2 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_2");
 		var m7 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_vii");
 
-		// v0.14.27: every mark charges a flat 10 energy/s + 10 integrity/s on a platform (per-mark overrides ignored)
+		// v0.15.20: a platform charges at the mark's own passive rate and repairs a flat 5 integrity/s
 		for (var suit : new com.projecthero.mod.ironman.suit.IronManSuit[] { m1, m2, m7 }) {
-			helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.platformEnergyPerSecond(suit) == 10f
-					&& com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(suit) == 10f,
-					"flat 10/s platform regen for " + suit.id());
+			helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.platformEnergyPerSecond(suit) == suit.energyRegenPerSecond()
+					&& com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(suit) == 5f,
+					"passive-rate energy + 5/s integrity platform regen for " + suit.id());
 		}
 		helper.succeed();
 	}

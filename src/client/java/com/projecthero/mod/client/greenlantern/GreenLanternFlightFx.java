@@ -149,7 +149,9 @@ public final class GreenLanternFlightFx {
 			float time = p.tickCount + partial;
 			// v0.15.15 playtest: the body glow is a thin skin of light on the model itself now (GreenLanternFlightGlow,
 			// drawn from the player's render layer) -- the old ellipsoid (aura()) read as a long orb round the player
-			if (!t.points.isEmpty()) {
+			// v0.15.20: the trail can be switched off on the Shift+N suit screen
+			var gl = p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.GREEN_LANTERN_STATE, null);
+			if (!t.points.isEmpty() && (gl == null || gl.flightTrail)) {
 				trail(pose, buffers, cam, p, t, partial, now, time, sprintFlying(p));
 			}
 		}

@@ -132,7 +132,8 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 		// v0.14.27: the reserve is gone -- the plate shows the flat regen rate instead
 		g.drawString(font, IronManGui.fit(font, Component.translatable("screen.projecthero.suit_platform.regen_short"), 30),
 				139, 31, IronManGui.TEXT_DIM, false);
-		String rv = IronManGui.fit(font, "+" + Math.round(IronManSuitPlatformBlockEntity.REGEN_ENERGY_PER_SECOND) + "/s", 30);
+		// v0.15.20: the energy rate is the stored suit's own passive rate (a dash when empty)
+		String rv = IronManGui.fit(font, suit == null ? "-" : "+" + rate(IronManEnergy.platformEnergyPerSecond(suit)) + "/s", 30);
 		g.drawString(font, rv, 139, 41, IronManGui.CYAN, false);
 
 		if (menu.hasStoredSuit()) {
@@ -167,6 +168,17 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 		}
 	}
 
+	private IronManSuit platformSuit() {
+		String id = storedSuitId();
+		return id == null ? null : IronManSuits.byId(id);
+	}
+
+	/** "5", or "0.5" for a fractional rate. */
+	private static String rate(float perSecond) {
+		return perSecond == Math.round(perSecond) ? Integer.toString(Math.round(perSecond))
+				: String.format(java.util.Locale.ROOT, "%.1f", perSecond);
+	}
+
 	private void meter(GuiGraphics g, int y, String label, float frac, String exact, int fill) {
 		g.drawString(font, label, MX, y, IronManGui.TEXT_DIM, false);
 		String p = IronManUiLayout.pct(frac);
@@ -194,8 +206,8 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 		}
 		if (mouseX >= leftPos + 136 && mouseX < leftPos + 170 && mouseY >= topPos + 29 && mouseY < topPos + 51) {
 			g.renderTooltip(font, Component.translatable("screen.projecthero.suit_platform.regen_tip",
-					Math.round(IronManSuitPlatformBlockEntity.REGEN_ENERGY_PER_SECOND),
-					Math.round(IronManSuitPlatformBlockEntity.REGEN_INTEGRITY_PER_SECOND)), mouseX, mouseY);
+					platformSuit() == null ? "-" : rate(IronManEnergy.platformEnergyPerSecond(platformSuit())),
+					rate(IronManSuitPlatformBlockEntity.REGEN_INTEGRITY_PER_SECOND)), mouseX, mouseY);
 		}
 	}
 }

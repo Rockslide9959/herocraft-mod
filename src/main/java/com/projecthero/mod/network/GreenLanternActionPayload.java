@@ -48,7 +48,10 @@ public record GreenLanternActionPayload(Action action) implements CustomPacketPa
 		REMOVE_RING,
 		/** v0.15.16: the two new suits (appended, so the actions above keep their wire ordinals). */
 		SUIT_STYLE_MIDNIGHT,
-		SUIT_STYLE_ARMORED;
+		SUIT_STYLE_ARMORED,
+		/** v0.15.20: the suit screen's Body Glow / Flight Trail switches (appended). */
+		TOGGLE_BODY_GLOW,
+		TOGGLE_FLIGHT_TRAIL;
 
 		/** One action per {@code GreenLanternSuitStyle}, in the suits' order. */
 		private static final Action[] STYLE_ACTIONS = { SUIT_STYLE_DEFAULT, SUIT_STYLE_CORPS, SUIT_STYLE_STEWART, SUIT_STYLE_CLASSIC,

@@ -48,6 +48,31 @@ public class IronManV01427PlatformGameTests implements FabricGameTest {
 		return (IronManSuitPlatformBlockEntity) helper.getBlockEntity(rel);
 	}
 
+	/** v0.15.20: the welding arms' synced flag is on exactly while a racked suit is below max integrity. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void platformRepairFlagFollowsIntegrity(GameTestHelper helper) {
+		BlockPos rel = new BlockPos(2, 2, 2);
+		IronManSuitPlatformBlockEntity be = platform(helper, rel);
+		BlockPos abs = helper.absolutePos(rel);
+		var level = helper.getLevel();
+		IronManSuitPlatformBlockEntity.serverTick(level, abs, be.getBlockState(), be);
+		helper.assertFalse(be.repairing(), "an empty rack welds nothing");
+		float maxI = IronManEnergy.maxIntegrity("mark_iii");
+		for (ArmorItem.Type t : ALL) {
+			ItemStack piece = new ItemStack(IronManItems.armor("mark_iii", t));
+			IronManEnergy.stampStack(piece, 0f, maxI - 2f);
+			be.store(piece);
+		}
+		IronManSuitPlatformBlockEntity.serverTick(level, abs, be.getBlockState(), be);
+		helper.assertTrue(be.repairing(), "a damaged suit on the rack is being welded");
+		for (int i = 0; i < 20; i++) {
+			IronManSuitPlatformBlockEntity.serverTick(level, abs, be.getBlockState(), be);
+		}
+		helper.assertTrue(be.suitIntegrity() >= maxI - 0.01f, "2 integrity is repaired well within a second at 5/s");
+		helper.assertFalse(be.repairing(), "the arms go down once the suit is whole");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void platformRegenIsFlatTenPerSecondForEveryMark(GameTestHelper helper) {
 		for (String suitId : new String[] { "mark_1", "mark_iii" }) {
@@ -62,9 +87,11 @@ public class IronManV01427PlatformGameTests implements FabricGameTest {
 			for (int i = 0; i < 20; i++) {
 				be.regenTick(suit);
 			}
-			helper.assertTrue(Math.abs(be.suitEnergy() - 10f) < 0.05f, suitId + ": 1 s on the rack = +10 energy, got " + be.suitEnergy());
-			helper.assertTrue(Math.abs(be.suitIntegrity() - 10f) < 0.05f, suitId + ": 1 s on the rack = +10 integrity, got " + be.suitIntegrity());
-			helper.assertTrue(IronManEnergy.platformEnergyPerSecond(suit) == 10f && IronManEnergy.platformIntegrityPerSecond(suit) == 10f,
+			// v0.15.20: the suit's own passive energy rate + 5 integrity/s
+			float rate = suit.energyRegenPerSecond();
+			helper.assertTrue(Math.abs(be.suitEnergy() - rate) < 0.05f, suitId + ": 1 s on the rack = +" + rate + " energy, got " + be.suitEnergy());
+			helper.assertTrue(Math.abs(be.suitIntegrity() - 5f) < 0.05f, suitId + ": 1 s on the rack = +5 integrity, got " + be.suitIntegrity());
+			helper.assertTrue(IronManEnergy.platformEnergyPerSecond(suit) == rate && IronManEnergy.platformIntegrityPerSecond(suit) == 5f,
 					suitId + ": per-mark platformRegen overrides no longer apply");
 		}
 		helper.assertTrue(platform(helper, new BlockPos(5, 2, 1)).data.getCount() == 3,

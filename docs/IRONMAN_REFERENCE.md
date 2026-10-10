@@ -2070,7 +2070,7 @@ Tests: `IronManV01429Mk67GameTests` (surge damage / drain / expiry / cooldown, s
 * **Deposits**: send-home (`queueHome`) and death recovery to an unloaded platform rack the stacks immediately with `IronManPlatformReturn.depositNow`; `StarkSuitReturnQueue` is only the fallback (platform gone / dimension absent). Its sweep also loads through the ticket now.
 * Cross-dimension calls are still not offered (the registry is filtered by dimension, as before).
 
-**Send home for repair.** Sneak+C *while suited* (any mark except the suitcase Mark 5, which keeps its fold) opens the Call Armour picker with a gold "send home, Nm" card for the worn suit (plus any carried pieces). Picking it takes the suit off (charge + integrity stamped on the stacks), it builds itself in front of the player and flies home -- to the platform it was last called off (each piece carries a `projecthero_home_platform` custom-data stamp written by `deliver`, cleared when it leaves again), else the nearest platform with room. The platform repairs it at the flat 10/s. Plain C is unchanged (suit-down to the pack).
+**Send home for repair.** Sneak+C *while suited* (any mark except the suitcase Mark 5, which keeps its fold) opens the Call Armour picker with a gold "send home, Nm" card for the worn suit (plus any carried pieces). Picking it takes the suit off (charge + integrity stamped on the stacks), it builds itself in front of the player and flies home -- to the platform it was last called off (each piece carries a `projecthero_home_platform` custom-data stamp written by `deliver`, cleared when it leaves again), else the nearest platform with room. The platform repairs it at the flat 5/s (10/s before v0.15.20). Plain C is unchanged (suit-down to the pack).
 
 **Compare panel.** The picker's grid now shares the screen with a 150 px panel on the right (`ironman/ui/IronManSuitCompare`): hovered / focused card vs the worn suit, else a right-click-pinned card (gold border), else the last active suit. Rows: Energy (capacity), Integrity (max), Charge %, Condition %, Melee bonus, Regen (energy/s), Repair (worn self-repair/s), Flight (top speed in b/s from `DirectionalFlightModel.ironManSuit`), green / orange where better / worse, then the hovered suit's key abilities word-wrapped. Fits 320x240 and 426x240.
 
@@ -2087,7 +2087,7 @@ All explicit user requests, every mark (1-7).
   Ends the tick the suit comes online or the suit-up is cancelled. Suit-downs / retrieves give no immunity.
 * **No worn integrity regen.** `IronManSuit.armorRegenPerSecond` / `.armorRegen(..)`, `IronManEnergy.tickArmorRegen` and
   `WORN_REGEN_SCALE` are removed; the spec sheet "Self-repair (worn)" row, the Fabricator "Armour regen / s" stat and the
-  Call Armour compare panel's "Repair" row are gone (lang keys deleted). Repair = a Suit Platform (flat 10 integrity/s,
+  Call Armour compare panel's "Repair" row are gone (lang keys deleted). Repair = a Suit Platform (flat 5 integrity/s since v0.15.20, was 10,
   `REGEN_INTEGRITY_PER_SECOND`) or creative, unchanged.
 * **Integrity = 75% of the damage taken; hits land in full.** `integritySplit` / `mitigateSplit`, the 90/10 and 80/20
   splits and the per-hit energy cost are removed. `ALLOW_DAMAGE` now only *cancels* (Phoenix, suit-up, falls,
@@ -2239,3 +2239,9 @@ Tests: `UltronV01512GameTests`.
 
 Tests: `IronManV01519GameTests`, `IronManV01515GameTests.marksTwoToSevenComeOffByHandPieceByPiece`,
 `DirectionalFlightGameTests.ironManFlightTickKeepsItsDrain` (grace then landing).
+
+## v0.15.20 -- platform repair rate, welding arms, HUD coordinates
+
+* **Suit Platform rates.** A racked suit repairs a flat **5 integrity/s** (`IronManSuitPlatformBlockEntity.REGEN_INTEGRITY_PER_SECOND`, was 10) and charges at the suit's **own passive Arc Reactor rate** (`IronManEnergy.platformEnergyPerSecond` = `IronManSuit.energyRegenPerSecond()`: Mark 1 2/s, Mark 2 3/s, Mark 3+ 5/s; never the halved in-flight rate). The flat `REGEN_ENERGY_PER_SECOND` constant is gone. The platform screen's REGEN plate shows the stored suit's own energy rate (a dash when empty), and its tooltip gives both rates.
+* **Welding arms.** While the racked suit is below max integrity the block entity's synced `repairing` flag is on (sent with `sendBlockUpdated` only when it flips). `IronManSuitPlatformRenderer.renderWelding` then raises two small gantry arms (`StarkGantryRenderer.drawWeldingArm`, the same parts and two-bone IK at 0.55 scale) out of the pad's front corners over `REPAIR_ARM_TICKS` (14). They turn with the rack, sweep their torch tips up and down the suit's front out of step, draw an additive white-hot tip with a seam that cools to orange behind it, and throw electric sparks, small flames and the odd puff of smoke. The server plays a quiet fire-hiss every 9 ticks, plus a chain clink now and then. Once the suit is whole the arms sink back into the pad.
+* **HUD coordinates.** The clock line (`hud.projecthero.ironman.clock_pos`) now reads `HH:MM  DAY n  X x  Y y  Z z`. The HUD block widens to fit it (capped at the screen width) instead of clipping it to the fixed 150 px, which used to cut Z off once X reached three digits.

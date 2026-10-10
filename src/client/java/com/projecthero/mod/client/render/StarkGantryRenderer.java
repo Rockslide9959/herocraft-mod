@@ -615,6 +615,19 @@ public class StarkGantryRenderer implements BlockEntityRenderer<StarkGantryFloor
 		return wrist.add(dir.scale(JAW));
 	}
 
+	/**
+	 * v0.15.20: one of the Suit Platform's welding arms (IronManSuitPlatformRenderer) -- the gantry arm, jaws pinched shut
+	 * round the torch, its tip held at {@code tip}. All points are in arm units (the caller scales the pose); draws with
+	 * the arm texture into {@code buffers}.
+	 */
+	public static void drawWeldingArm(PoseStack pose, MultiBufferSource buffers, int light, Vec3 shoulder, Vec3 tip, Vec3 pole) {
+		bakeArmParts();
+		Vec3 dir = tip.subtract(shoulder);
+		dir = dir.lengthSqr() < 1e-6 ? new Vec3(0, 1, 0) : dir.normalize();
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(ARM_TEXTURE));
+		drawArm(pose, vc, light, shoulder, new ArmPose(tip.subtract(dir.scale(JAW)), dir, 0.0f, pole));
+	}
+
 	private static void drawHub(PoseStack pose, VertexConsumer vc, int light, Vec3 at, Vec3 toward, float size) {
 		pose.pushPose();
 		align(pose, at, toward);

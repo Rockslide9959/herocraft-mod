@@ -79,6 +79,28 @@ public final class GreenLanternSuit {
 	 * ring re-forms it in the new style straight away -- the suit-up sweep plays again out of the ring hand, free of charge
 	 * (the armour stays on, so nothing about the suit's protection blinks). Returns whether the style changed.
 	 */
+	/** v0.15.20: the suit screen's Body Glow switch -- flips the synced {@link GreenLanternState#bodyGlow}. */
+	public static boolean toggleBodyGlow(ServerPlayer player) {
+		if (!GreenLanternAbilityManager.hasContext(player)) {
+			return false;
+		}
+		GreenLanternState c = GreenLantern.state(player).copy();
+		c.bodyGlow = !c.bodyGlow;
+		GreenLantern.save(player, c);
+		return true;
+	}
+
+	/** v0.15.20: the suit screen's Flight Trail switch -- flips the synced {@link GreenLanternState#flightTrail}. */
+	public static boolean toggleFlightTrail(ServerPlayer player) {
+		if (!GreenLanternAbilityManager.hasContext(player)) {
+			return false;
+		}
+		GreenLanternState c = GreenLantern.state(player).copy();
+		c.flightTrail = !c.flightTrail;
+		GreenLantern.save(player, c);
+		return true;
+	}
+
 	public static boolean selectStyle(ServerPlayer player, int ordinal) {
 		if (!GreenLanternAbilityManager.hasContext(player) || ordinal < 0 || ordinal >= GreenLanternSuitStyle.values().length) {
 			return false;
