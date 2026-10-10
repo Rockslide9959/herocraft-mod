@@ -34,6 +34,21 @@ public abstract class EntityHulkRideMixin {
 		}
 	}
 
+	/**
+	 * v0.15.21: vanilla only tells OTHER players who rides an entity (ServerEntity broadcasts to its watchers, never to
+	 * the entity itself), so a player carrying someone -- the Hulk -- never learnt it on his own screen: no rider on his
+	 * back, no Carrying HUD line. Tell him whenever someone gets on or off.
+	 */
+	@Inject(method = "addPassenger", at = @At("TAIL"))
+	private void projecthero$syncOwnPassengersOn(Entity passenger, CallbackInfo ci) {
+		HulkRiding.syncToSelf((Entity) (Object) this);
+	}
+
+	@Inject(method = "removePassenger", at = @At("TAIL"))
+	private void projecthero$syncOwnPassengersOff(Entity passenger, CallbackInfo ci) {
+		HulkRiding.syncToSelf((Entity) (Object) this);
+	}
+
 	/** v0.15.21: the rider can look round, but not all the way behind (like a boat). */
 	@Inject(method = "onPassengerTurned", at = @At("HEAD"))
 	private void projecthero$hulkClampRiderLook(Entity passenger, CallbackInfo ci) {

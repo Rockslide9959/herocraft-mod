@@ -4326,7 +4326,7 @@
   "screen.projecthero.stark_gear.calling.hint_on": "Glasses: Mark 8+. Bracelets: Mark 7.",
   "screen.projecthero.stark_gear.calling.hint_off": "Wear glasses or bracelets.",
   "screen.projecthero.stark_gear.night_vision.hint_on": "The tinted lenses see in the dark.",
-  "screen.projecthero.stark_gear.night_vision.hint_off": "The glasses give night vision in the dark.",
+  "screen.projecthero.stark_gear.night_vision.hint_off": "Night vision in the dark.",
   "screen.projecthero.stark_gear.phoenix.hint_on": "Protocol Phoenix: Mark 7+ suits only.",
   "screen.projecthero.stark_gear.phoenix.hint_off": "Needs the Stark Glasses.",
   "screen.projecthero.suit_call.needs_glasses": "Can't call",

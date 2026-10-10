@@ -279,7 +279,8 @@ public class KryptonianGameTests implements FabricGameTest {
 				.thenSucceed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	// v0.15.21: its own batch -- the meteor falls 10 blocks through the shared test grid, so a neighbour can catch it
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200, batch = "kryptonian_meteor_impact")
 	public void meteorImpactLeavesTheCoreAndOre(GameTestHelper helper) {
 		// a floor of stone to strike
 		for (int x = 1; x <= 6; x++) {

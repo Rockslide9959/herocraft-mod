@@ -69,7 +69,7 @@ public final class HulkRiding {
 
 	/**
 	 * v0.15.21, both sides, right after the vehicle placed the rider ({@code EntityHulkRideMixin}): the rider's body
-	 * faces the way the Hulk's does, and the rider's own view turns with him (like a boat) -- the rider can still look
+	 * faces the way the Hulk's does, and the rider's own view turns with his camera (like a boat) -- the rider can still look
 	 * round freely, up to a little past each shoulder.
 	 */
 	public static void carryRider(net.minecraft.world.entity.LivingEntity hulk, Entity passenger) {
@@ -79,7 +79,8 @@ public final class HulkRiding {
 		rider.yBodyRot = hulk.yBodyRot;
 		rider.yBodyRotO = hulk.yBodyRotO;
 		if (rider instanceof net.minecraft.world.entity.player.Player p && p.isLocalPlayer()) {
-			float turn = net.minecraft.util.Mth.wrapDegrees(hulk.yBodyRot - hulk.yBodyRotO);
+			// his camera, not his body: the body lags up to 50 degrees behind where he looks
+			float turn = net.minecraft.util.Mth.wrapDegrees(hulk.getYRot() - hulk.yRotO);
 			p.setYRot(p.getYRot() + turn);
 			p.setYHeadRot(p.getYHeadRot() + turn);
 			clampLook(hulk, p);
@@ -100,8 +101,18 @@ public final class HulkRiding {
 
 	private static final float LOOK_LIMIT = 120.0f;
 
+	/** v0.15.21: a player vehicle is told its own passengers (see {@code EntityHulkRideMixin}); no-op on the client. */
+	public static void syncToSelf(Entity vehicle) {
+		if (vehicle instanceof ServerPlayer sp && sp.connection != null) {
+			sp.connection.send(new net.minecraft.network.protocol.game.ClientboundSetPassengersPacket(sp));
+		}
+	}
+
 	/** Server tick, from {@code Hulk.tick}: whoever rides him (and for 8 s after they hop off) takes no fall damage. */
 	public static void tick(ServerPlayer hulk) {
+		if (!hulk.getPassengers().isEmpty() && hulk.tickCount % 40 == 0) {
+			syncToSelf(hulk); // safety net: the rider may only just have come into his view (log-in, chunk load)
+		}
 		for (Entity e : hulk.getPassengers()) {
 			if (e instanceof ServerPlayer mate) {
 				HulkGrab.protectLanding(mate);
