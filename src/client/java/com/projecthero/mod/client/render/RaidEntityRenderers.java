@@ -1,7 +1,6 @@
 package com.projecthero.mod.client.render;
 
 import com.projecthero.mod.client.render.raid.AcidGlobRenderer;
-import com.projecthero.mod.client.render.raid.EmpoweredZombieDispatchRenderer;
 import com.projecthero.mod.client.render.raid.RaidUndeadRenderer;
 import com.projecthero.mod.event.entity.RaidEntityTypes;
 
@@ -28,8 +27,8 @@ public final class RaidEntityRenderers {
 		EntityRendererRegistry.register(RaidEntityTypes.RAID_ZOMBIE, context -> new RaidUndeadRenderer<>(context, 0.5f, null, true));
 		EntityRendererRegistry.register(RaidEntityTypes.ACID_ZOMBIE, context -> new RaidUndeadRenderer<>(context, 0.6f, z -> 0x80A070, true));
 		EntityRendererRegistry.register(RaidEntityTypes.JUGGERNAUT_ZOMBIE, context -> new RaidUndeadRenderer<>(context, 0.9f, z -> 0x705848, false));
-		// the Zombie Raid's Powered Zombie Boss gets the new model; the Supervillain variants keep SupervillainBossRenderer
-		EntityRendererRegistry.register(RaidEntityTypes.EMPOWERED_ZOMBIE, EmpoweredZombieDispatchRenderer::new);
+		// SupervillainBossRenderer dispatches: ordinary boss -> raid.PoweredZombieRenderer, variants -> SupervillainGeoRenderer
+		EntityRendererRegistry.register(RaidEntityTypes.EMPOWERED_ZOMBIE, SupervillainBossRenderer::new);
 		EntityRendererRegistry.register(RaidEntityTypes.PILLAGER_SPY, context -> new RaidUndeadRenderer<>(context, 0.5f, null, false));
 		EntityRendererRegistry.register(RaidEntityTypes.SWORD_SKELETON, context -> new RaidUndeadRenderer<>(context, 0.5f, s -> 0x606878, false));
 		EntityRendererRegistry.register(RaidEntityTypes.ACID_GLOB, AcidGlobRenderer::new);

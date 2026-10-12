@@ -1,0 +1,463 @@
+{
+	"transition": 4,
+	"source": "src/main/java/com/projecthero/mod/event/entity/SupervillainAnims.java",
+	"note": "length/hit = server ticks; a play-once/held clip is (length - 4) ticks long and keys its strike on (hit - 4); loops are length ticks.",
+	"models": {
+		"chimera": {
+			"texture": [
+				1024,
+				304
+			],
+			"bones": 39,
+			"cubes": 208,
+			"rest_fit_height_px": 66.6,
+			"height_blocks": 4.192,
+			"clips": {
+				"idle": {
+					"server_length": 80,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 80,
+					"strike_clip_tick": null
+				},
+				"fidget": {
+					"server_length": 64,
+					"hit": -1,
+					"kind": "once",
+					"clip_ticks": 60,
+					"strike_clip_tick": null
+				},
+				"walk": {
+					"server_length": 28,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 28,
+					"strike_clip_tick": null
+				},
+				"run": {
+					"server_length": 16,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 16,
+					"strike_clip_tick": null
+				},
+				"air": {
+					"server_length": 24,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 24,
+					"strike_clip_tick": null
+				},
+				"intro": {
+					"server_length": 56,
+					"hit": 24,
+					"kind": "once",
+					"clip_ticks": 52,
+					"strike_clip_tick": 20
+				},
+				"hurt": {
+					"server_length": 12,
+					"hit": -1,
+					"kind": "once",
+					"clip_ticks": 8,
+					"strike_clip_tick": null
+				},
+				"death": {
+					"server_length": 40,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 36,
+					"strike_clip_tick": null
+				},
+				"melee": {
+					"server_length": 16,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 12,
+					"strike_clip_tick": 0
+				},
+				"melee_alt": {
+					"server_length": 16,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 12,
+					"strike_clip_tick": 0
+				},
+				"repel": {
+					"server_length": 18,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 14,
+					"strike_clip_tick": 0
+				},
+				"burst": {
+					"server_length": 20,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 16,
+					"strike_clip_tick": 0
+				},
+				"slam": {
+					"server_length": 20,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 16,
+					"strike_clip_tick": 0
+				},
+				"shoot": {
+					"server_length": 16,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 12,
+					"strike_clip_tick": 0
+				},
+				"lunge": {
+					"server_length": 16,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 12,
+					"strike_clip_tick": 0
+				},
+				"blink": {
+					"server_length": 14,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 10,
+					"strike_clip_tick": 0
+				},
+				"cast_1": {
+					"server_length": 24,
+					"hit": 10,
+					"kind": "once",
+					"clip_ticks": 20,
+					"strike_clip_tick": 6
+				},
+				"cast_2": {
+					"server_length": 34,
+					"hit": 20,
+					"kind": "once",
+					"clip_ticks": 30,
+					"strike_clip_tick": 16
+				},
+				"cast_3": {
+					"server_length": 46,
+					"hit": 30,
+					"kind": "once",
+					"clip_ticks": 42,
+					"strike_clip_tick": 26
+				},
+				"cast_4": {
+					"server_length": 58,
+					"hit": 40,
+					"kind": "once",
+					"clip_ticks": 54,
+					"strike_clip_tick": 36
+				}
+			}
+		},
+		"arsenal": {
+			"texture": [
+				1024,
+				320
+			],
+			"bones": 25,
+			"cubes": 156,
+			"rest_fit_height_px": 67.4,
+			"height_blocks": 3.802,
+			"clips": {
+				"idle": {
+					"server_length": 80,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 80,
+					"strike_clip_tick": null
+				},
+				"fidget": {
+					"server_length": 64,
+					"hit": -1,
+					"kind": "once",
+					"clip_ticks": 60,
+					"strike_clip_tick": null
+				},
+				"walk": {
+					"server_length": 28,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 28,
+					"strike_clip_tick": null
+				},
+				"run": {
+					"server_length": 16,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 16,
+					"strike_clip_tick": null
+				},
+				"air": {
+					"server_length": 24,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 24,
+					"strike_clip_tick": null
+				},
+				"intro": {
+					"server_length": 56,
+					"hit": 24,
+					"kind": "once",
+					"clip_ticks": 52,
+					"strike_clip_tick": 20
+				},
+				"hurt": {
+					"server_length": 12,
+					"hit": -1,
+					"kind": "once",
+					"clip_ticks": 8,
+					"strike_clip_tick": null
+				},
+				"death": {
+					"server_length": 40,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 36,
+					"strike_clip_tick": null
+				},
+				"melee": {
+					"server_length": 16,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 12,
+					"strike_clip_tick": 0
+				},
+				"melee_alt": {
+					"server_length": 16,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 12,
+					"strike_clip_tick": 0
+				},
+				"repel": {
+					"server_length": 18,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 14,
+					"strike_clip_tick": 0
+				},
+				"burst": {
+					"server_length": 20,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 16,
+					"strike_clip_tick": 0
+				},
+				"slam": {
+					"server_length": 20,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 16,
+					"strike_clip_tick": 0
+				},
+				"shoot": {
+					"server_length": 16,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 12,
+					"strike_clip_tick": 0
+				},
+				"lunge": {
+					"server_length": 16,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 12,
+					"strike_clip_tick": 0
+				},
+				"blink": {
+					"server_length": 14,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 10,
+					"strike_clip_tick": 0
+				},
+				"cast_1": {
+					"server_length": 24,
+					"hit": 10,
+					"kind": "once",
+					"clip_ticks": 20,
+					"strike_clip_tick": 6
+				},
+				"cast_2": {
+					"server_length": 34,
+					"hit": 20,
+					"kind": "once",
+					"clip_ticks": 30,
+					"strike_clip_tick": 16
+				},
+				"cast_3": {
+					"server_length": 46,
+					"hit": 30,
+					"kind": "once",
+					"clip_ticks": 42,
+					"strike_clip_tick": 26
+				},
+				"cast_4": {
+					"server_length": 58,
+					"hit": 40,
+					"kind": "once",
+					"clip_ticks": 54,
+					"strike_clip_tick": 36
+				}
+			}
+		},
+		"omega_mage": {
+			"texture": [
+				1024,
+				336
+			],
+			"bones": 31,
+			"cubes": 153,
+			"rest_fit_height_px": 62.23,
+			"height_blocks": 3.413,
+			"clips": {
+				"idle": {
+					"server_length": 80,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 80,
+					"strike_clip_tick": null
+				},
+				"fidget": {
+					"server_length": 64,
+					"hit": -1,
+					"kind": "once",
+					"clip_ticks": 60,
+					"strike_clip_tick": null
+				},
+				"walk": {
+					"server_length": 28,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 28,
+					"strike_clip_tick": null
+				},
+				"run": {
+					"server_length": 16,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 16,
+					"strike_clip_tick": null
+				},
+				"air": {
+					"server_length": 24,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 24,
+					"strike_clip_tick": null
+				},
+				"intro": {
+					"server_length": 56,
+					"hit": 24,
+					"kind": "once",
+					"clip_ticks": 52,
+					"strike_clip_tick": 20
+				},
+				"hurt": {
+					"server_length": 12,
+					"hit": -1,
+					"kind": "once",
+					"clip_ticks": 8,
+					"strike_clip_tick": null
+				},
+				"death": {
+					"server_length": 40,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 36,
+					"strike_clip_tick": null
+				},
+				"melee": {
+					"server_length": 16,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 12,
+					"strike_clip_tick": 0
+				},
+				"melee_alt": {
+					"server_length": 16,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 12,
+					"strike_clip_tick": 0
+				},
+				"repel": {
+					"server_length": 18,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 14,
+					"strike_clip_tick": 0
+				},
+				"burst": {
+					"server_length": 20,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 16,
+					"strike_clip_tick": 0
+				},
+				"slam": {
+					"server_length": 20,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 16,
+					"strike_clip_tick": 0
+				},
+				"shoot": {
+					"server_length": 16,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 12,
+					"strike_clip_tick": 0
+				},
+				"lunge": {
+					"server_length": 16,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 12,
+					"strike_clip_tick": 0
+				},
+				"blink": {
+					"server_length": 14,
+					"hit": 4,
+					"kind": "once",
+					"clip_ticks": 10,
+					"strike_clip_tick": 0
+				},
+				"cast_1": {
+					"server_length": 24,
+					"hit": 10,
+					"kind": "once",
+					"clip_ticks": 20,
+					"strike_clip_tick": 6
+				},
+				"cast_2": {
+					"server_length": 34,
+					"hit": 20,
+					"kind": "once",
+					"clip_ticks": 30,
+					"strike_clip_tick": 16
+				},
+				"cast_3": {
+					"server_length": 46,
+					"hit": 30,
+					"kind": "once",
+					"clip_ticks": 42,
+					"strike_clip_tick": 26
+				},
+				"cast_4": {
+					"server_length": 58,
+					"hit": 40,
+					"kind": "once",
+					"clip_ticks": 54,
+					"strike_clip_tick": 36
+				}
+			}
+		}
+	}
+}

@@ -206,7 +206,9 @@ public abstract class BossPowerController {
 		startingCast = true;
 		startCooldown(slot, baseCd);
 		startingCast = false;
-		boss.raidAnimator().set(com.projecthero.mod.event.entity.RaidAnims.BOSS_CAST_WINDUP); // v0.16.1: held until it resolves
+		boss.poweredAnim(com.projecthero.mod.event.entity.RaidAnims.BOSS_CAST_WINDUP); // v0.16.1: held until it resolves
+		// v0.16.1: a Supervillain winds up on screen for exactly the cast's cycles and releases on the fire tick
+		boss.playSupervillainAnim(com.projecthero.mod.event.entity.SupervillainAnims.cast(castTicks));
 	}
 
 	/** v0.16.1: set while beginCast records its cooldown, so the ability animation is the held wind-up, not a snap. */
@@ -234,10 +236,10 @@ public abstract class BossPowerController {
 		castTarget = null;
 		if (aimAt != null) {
 			boss.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, aimAt.getEyePosition());
-			boss.raidAnimator().set(com.projecthero.mod.event.entity.RaidAnims.BOSS_CAST_RELEASE);
+			boss.poweredAnim(com.projecthero.mod.event.entity.RaidAnims.BOSS_CAST_RELEASE);
 			fire.accept(aimAt);
 		} else {
-			boss.raidAnimator().clear();
+			boss.poweredAnim(null);
 		}
 		return true;
 	}
@@ -342,13 +344,14 @@ public abstract class BossPowerController {
 		cooldowns[slot] = Math.max(5, (int) Math.round(baseTicks * boss.cooldownScale()));
 		lastSlot = slot;
 		recordUse(slot);
-		if (!startingCast) {
+		if (!startingCast && boss.variant() == null) {
 			// v0.16.1: an instant ability -- the model plays the matching exertion (slam / punch / dash / burst / cast)
 			com.projecthero.mod.event.entity.RaidAnims.Clip anim = com.projecthero.mod.event.entity.PoweredBossAnims.forAbility(lastAbility);
 			if (anim != null) {
-				boss.raidAnimator().set(anim);
+				boss.poweredAnim(anim);
 			}
 		}
+		boss.noteSupervillainAbility(); // v0.16.1: a generic power gesture if no better-matching clip starts
 		// Shared recovery between abilities: ~1s normally, ~0.6s once the boss is badly hurt.
 		globalCd = healthFraction() <= 0.33f ? 12 : 22;
 	}
@@ -525,6 +528,7 @@ public abstract class BossPowerController {
 		if (v.lengthSqr() < 1.0e-6) {
 			return;
 		}
+		boss.supervillainAbilityAnim(com.projecthero.mod.event.entity.SupervillainAnims.LUNGE);
 		v = v.normalize().scale(speed);
 		boss.setDeltaMovement(v.x, lift, v.z);
 		boss.hasImpulse = true;
@@ -569,6 +573,7 @@ public abstract class BossPowerController {
 
 	/** Teleport the boss to {@code to} with portal particles at both ends. */
 	protected final void blinkTo(ServerLevel level, Vec3 to, ParticleOptions particle, SoundEvent sound) {
+		boss.supervillainAbilityAnim(com.projecthero.mod.event.entity.SupervillainAnims.BLINK);
 		Vec3 from = boss.position();
 		particles(level, particle, from.add(0, 1.2, 0), 24, 0.5);
 		boss.teleportTo(to.x, to.y, to.z);
@@ -663,6 +668,7 @@ public abstract class BossPowerController {
 	 */
 	protected final List<LivingEntity> strikeArea(ServerLevel level, Vec3 center, double radius, float damage, boolean falloff,
 			double knockback, double lift) {
+		boss.supervillainAbilityAnim(com.projecthero.mod.event.entity.SupervillainAnims.SLAM);
 		List<LivingEntity> hit = victimsAround(level, center, radius);
 		for (LivingEntity e : hit) {
 			float dmg = damage;
@@ -680,6 +686,7 @@ public abstract class BossPowerController {
 
 	/** Hit every victim on the segment (a beam / lash / charge path). Returns the victims hit. */
 	protected final List<LivingEntity> strikeLine(ServerLevel level, Vec3 from, Vec3 to, double width, float damage) {
+		boss.supervillainAbilityAnim(com.projecthero.mod.event.entity.SupervillainAnims.SHOOT);
 		List<LivingEntity> hit = victimsOnSegment(level, from, to, width);
 		for (LivingEntity e : hit) {
 			hurt(e, damage);
@@ -751,6 +758,7 @@ public abstract class BossPowerController {
 	 */
 	protected final void projectile(ServerLevel level, Vec3 from, Vec3 dir, double speed, int maxTicks, double hitRadius,
 			ParticleOptions trail, int trailPerTick, BiConsumer<Vec3, LivingEntity> onImpact) {
+		boss.supervillainAbilityAnim(com.projecthero.mod.event.entity.SupervillainAnims.SHOOT);
 		Vec3 step = dir.normalize().scale(speed);
 		Vec3[] pos = { from };
 		task(level, age -> {
