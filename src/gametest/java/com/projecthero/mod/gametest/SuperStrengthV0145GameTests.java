@@ -94,12 +94,7 @@ public class SuperStrengthV0145GameTests implements FabricGameTest {
 
 	// ---------------- the kit ----------------
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void powerIsRegistered(GameTestHelper helper) {
-		helper.assertTrue(Powers.byKey(SuperStrengthHandlers.KEY) != null, "Super Strength is registered");
-		helper.succeed();
-	}
-
+	// (v0.16.1: the old powerIsRegistered test is gone -- sixAbilitiesInTheNewOrderAndNoUtilityKeys reads the power first)
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void sixAbilitiesInTheNewOrderAndNoUtilityKeys(GameTestHelper helper) {
 		Power power = power();

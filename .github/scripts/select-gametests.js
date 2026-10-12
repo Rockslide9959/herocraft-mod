@@ -10,13 +10,16 @@
 //
 // The rules lean towards running MORE: anything shared (core packages, build files, mixin configs, the test helpers),
 // an unknown base commit, or a huge diff means the full suite. Release tags always get a full run (release.yml only
-// skips its own run when master already ran the FULL suite on that exact commit).
+// skips its own run when master already ran the FULL suite on that exact commit, or on an earlier commit when this
+// script says "none" for everything changed since -- see .github/scripts/release-gate.sh).
 
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const FULL_SHARDS = 6;
+// v0.16.1: 8 (was 6). Each slice costs ~80 s of fixed set-up on its own runner in parallel, so more slices only
+// shorten the test part; the slices are dealt evenly by GameTestFilterMixin.
+const FULL_SHARDS = 8;
 const TEST_DIR = 'src/gametest/java/com/projecthero/mod/gametest';
 const MOD_PKG = 'src/main/java/com/projecthero/mod/';
 // shared by every power: a change here can break anything
@@ -89,7 +92,9 @@ for (const f of files) {
 	if (f === 'gradle.properties' && onlyVersionChanged(f)) {
 		continue; // the version bump every release does
 	}
-	if (f === '.github/scripts/select-gametests.js') {
+	// CI plumbing the gametest run never sees (the slice runner script and build.yml still count as shared)
+	if (f === '.github/scripts/select-gametests.js' || f === '.github/scripts/release-gate.sh'
+			|| f === '.github/workflows/release.yml') {
 		continue;
 	}
 	// a test class: just that class -- unless it is a shared helper

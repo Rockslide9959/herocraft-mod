@@ -80,12 +80,7 @@ public class LaserVisionV0145GameTests implements FabricGameTest {
 	}
 
 	// ---------------- tests ----------------
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void powerIsRegistered(GameTestHelper helper) {
-		helper.assertTrue(Powers.byKey(LaserVisionHandlers.KEY) != null, "Laser Vision is registered");
-		helper.succeed();
-	}
+	// (v0.16.1: the old powerIsRegistered test is gone -- sixAbilitiesNoUtilityKeys reads the registered power first)
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void sixAbilitiesNoUtilityKeys(GameTestHelper helper) {
