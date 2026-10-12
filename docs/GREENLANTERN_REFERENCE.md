@@ -719,6 +719,9 @@ A new wheel construct (`ConstructType.SNIPER_RIFLE`, appended so saved selection
   READY / CHARGING / FULL CHARGE / cooldown, 5x. Zoom (`SNIPER_SCOPE_FOV` 0.2) and slower look
   (`SNIPER_SCOPE_SENSITIVITY` 0.35) ride the existing `GunFovMixin` / `MouseHandlerMixin`; the crosshair is hidden
   (`GuiGunCrosshairMixin`).
-- **HUD**: a Sniper Rifle line + Hairline bar above the title rows while it is out (charge / cooldown / READY).
+- **HUD**: while the rifle is out, the selected-construct row becomes the rifle's row (READY / CHARGING n% / FULL
+  CHARGE / seconds to the next shot) -- one line, no extra rows. The scope overlay is registered in
+  `ProjectHeroModClient` before the HUDs, so the Lantern HUD draws over the scope's surround; the 5x label sits in the
+  upper-left of the lens.
 - Gametests: `V0161PunisherGlGameTests` (forms / puts away, long-range hit + cost + cooldown, tapped shot weaker,
   refused without charge, charge-and-release input path; shots go straight up with `skyAccess = true`).

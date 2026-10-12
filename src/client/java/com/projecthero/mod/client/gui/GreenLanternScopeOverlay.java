@@ -148,7 +148,8 @@ public final class GreenLanternScopeOverlay {
 		g.drawCenteredString(mc.font, status, icx, icy + Math.round(radius * 0.62f), statusColour);
 		int zoom = Math.max(1, Math.round(1f / GreenLanternConfig.SNIPER_SCOPE_FOV));
 		Component z = Component.translatable("hud.projecthero.green_lantern.sniper.zoom", zoom);
-		g.drawString(mc.font, z, icx - Math.round(radius * 0.55f) - mc.font.width(z), icy + Math.round(radius * 0.62f), 0xFF35F075, true);
+		// the magnification sits in the clear upper-left of the lens, away from the HUDs at the bottom of the screen
+		g.drawString(mc.font, z, icx - Math.round(radius * 0.5f), icy - Math.round(radius * 0.55f), 0xFF35F075, true);
 
 		// the scope forming: a short flash of green light
 		float form = 1f - Mth.clamp((now - scopedSince + pt) / 5f, 0f, 1f);

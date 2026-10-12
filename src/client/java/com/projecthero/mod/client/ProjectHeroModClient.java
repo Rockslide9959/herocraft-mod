@@ -105,6 +105,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.MaxSteelHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.FirearmHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.ScopeOverlay::render);
+		// v0.16.1: the Green Lantern Sniper Rifle scope -- before the HUDs so they draw over its surround
+		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternScopeOverlay::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.PunisherHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.WolverineSurgeOverlay::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.WolverineHud::render);
