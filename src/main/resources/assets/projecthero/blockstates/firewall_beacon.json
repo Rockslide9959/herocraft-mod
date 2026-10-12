@@ -1,0 +1,10 @@
+{
+	"variants": {
+		"lit=false": {
+			"model": "projecthero:block/firewall_beacon"
+		},
+		"lit=true": {
+			"model": "projecthero:block/firewall_beacon_lit"
+		}
+	}
+}

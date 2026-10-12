@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " V ",
+    "VPV",
+    " V "
+  ],
+  "key": {
+    "V": {
+      "item": "projecthero:vibranium_ingot"
+    },
+    "P": {
+      "item": "projecthero:vibranium_plating"
+    }
+  },
+  "result": {
+    "id": "projecthero:vibranium_plating_2",
+    "count": 1
+  }
+}

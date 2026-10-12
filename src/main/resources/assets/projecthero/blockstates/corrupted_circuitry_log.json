@@ -1,0 +1,16 @@
+{
+	"variants": {
+		"axis=x": {
+			"model": "projecthero:block/corrupted_circuitry_log",
+			"x": 90,
+			"y": 90
+		},
+		"axis=y": {
+			"model": "projecthero:block/corrupted_circuitry_log"
+		},
+		"axis=z": {
+			"model": "projecthero:block/corrupted_circuitry_log",
+			"x": 90
+		}
+	}
+}

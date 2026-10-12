@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "NAN",
+    "IVI",
+    "III"
+  ],
+  "key": {
+    "N": {
+      "item": "projecthero:nanite_sample"
+    },
+    "A": {
+      "item": "projecthero:arc_reactor"
+    },
+    "V": {
+      "item": "projecthero:vibranium_plating"
+    },
+    "I": {
+      "item": "minecraft:iron_block"
+    }
+  },
+  "result": {
+    "id": "projecthero:firewall_beacon",
+    "count": 1
+  }
+}

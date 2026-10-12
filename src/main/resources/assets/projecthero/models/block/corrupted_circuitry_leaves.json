@@ -1,0 +1,6 @@
+{
+	"parent": "minecraft:block/leaves",
+	"textures": {
+		"all": "projecthero:block/corrupted_circuitry_leaves"
+	}
+}

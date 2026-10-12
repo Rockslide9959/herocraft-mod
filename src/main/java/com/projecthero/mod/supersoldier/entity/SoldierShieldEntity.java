@@ -102,6 +102,13 @@ public class SoldierShieldEntity extends Entity {
 		return shield;
 	}
 
+	/** v0.16.1: a stronger shield (the Vibranium Shield): its own damage, bounces and range. */
+	public void upgrade(float damage, int hits, double range) {
+		this.damage = damage;
+		this.hitsLeft = hits;
+		this.range = range;
+	}
+
 	@Override
 	protected void defineSynchedData(SynchedEntityData.Builder builder) {
 		builder.define(RETURNING, false);

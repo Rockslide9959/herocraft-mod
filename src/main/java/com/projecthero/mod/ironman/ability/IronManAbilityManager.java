@@ -47,6 +47,10 @@ public final class IronManAbilityManager {
 	}
 
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
+		// v0.16.1: Ultron in the suit -- a hijack attempt eats the presses (6 break it), a locked suit does nothing
+		if (com.projecthero.mod.ultron.contagion.SuitHijack.blocksAbilities(player, pressed)) {
+			return;
+		}
 		String suitId = IronManArmor.wornSuitId(player);
 		IronManSuit suit = suitId == null ? null : IronManSuits.byId(suitId);
 

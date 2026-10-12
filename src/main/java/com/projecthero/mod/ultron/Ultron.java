@@ -42,6 +42,7 @@ public final class Ultron {
 		UltronItems.initialize();
 		VibraniumPlating.initialize();
 		UltronRewards.initialize();
+		com.projecthero.mod.ultron.contagion.Contagion.initialize(); // v0.16.1: the Ultron Contagion
 		PayloadTypeRegistry.playS2C().register(UltronBeamPayload.TYPE, UltronBeamPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(UltronSignalPayload.TYPE, UltronSignalPayload.CODEC); // v0.16.1
 		EventTypes.register(UltronUprising.TYPE_ID, UltronUprising::new);

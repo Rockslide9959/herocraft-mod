@@ -61,7 +61,9 @@ public final class VibraniumPlating {
 
 	/** Can {@code stack} take a plating? An unplated Iron Man armour piece. */
 	public static boolean canPlate(ItemStack stack) {
-		return stack.getItem() instanceof IronManArmorItem && !isPlated(stack);
+		// v0.16.1: a piece with Vibranium Plating II can't go back to plating I
+		return stack.getItem() instanceof IronManArmorItem && !isPlated(stack)
+				&& !com.projecthero.mod.ultron.contagion.item.VibraniumPlatingII.isPlated(stack);
 	}
 
 	/** A plated copy of {@code base} (one item). */

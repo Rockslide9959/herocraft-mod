@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "VVV",
+    "VSV",
+    " V "
+  ],
+  "key": {
+    "V": {
+      "item": "projecthero:vibranium_ingot"
+    },
+    "S": {
+      "item": "projecthero:adamantium_shield"
+    }
+  },
+  "result": {
+    "id": "projecthero:vibranium_shield",
+    "count": 1
+  }
+}

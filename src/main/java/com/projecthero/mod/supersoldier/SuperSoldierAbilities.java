@@ -529,7 +529,9 @@ public final class SuperSoldierAbilities {
 			return false;
 		}
 		ItemStack held = p.getItemInHand(hand);
-		boolean adamantium = held.is(SuperSoldierItems.ADAMANTIUM_SHIELD);
+		// v0.16.1: the Vibranium Shield is a better Adamantium Shield (it extends it) -- full-strength numbers and then some
+		boolean adamantium = held.getItem() instanceof com.projecthero.mod.supersoldier.item.AdamantiumShieldItem;
+		boolean vibranium = held.getItem() instanceof com.projecthero.mod.ultron.contagion.item.VibraniumShieldItem;
 		if (!begin(p, SHIELD_THROW, adamantium ? SuperSoldierConfig.SHIELD_THROW_COOLDOWN : SuperSoldierConfig.NORMAL_SHIELD_THROW_COOLDOWN, 6)) {
 			return false;
 		}
@@ -540,8 +542,14 @@ public final class SuperSoldierAbilities {
 		p.swing(hand, true);
 		AbilityHelpers.sound(p, SoundEvents.TRIDENT_THROW, 1.0f, adamantium ? 1.3f : 1.5f);
 		Vec3 from = p.getEyePosition().add(0, -0.2, 0).add(p.getLookAngle().scale(0.6));
-		LivingEntity first = facing(p, adamantium ? SuperSoldierConfig.SHIELD_RANGE : SuperSoldierConfig.NORMAL_SHIELD_RANGE);
-		SoldierShieldEntity.launch(p, from, p.getLookAngle(), held, hand, adamantium, first);
+		LivingEntity first = facing(p, vibranium ? com.projecthero.mod.ultron.contagion.item.VibraniumShieldItem.THROW_RANGE
+				: adamantium ? SuperSoldierConfig.SHIELD_RANGE : SuperSoldierConfig.NORMAL_SHIELD_RANGE);
+		SoldierShieldEntity thrown = SoldierShieldEntity.launch(p, from, p.getLookAngle(), held, hand, adamantium, first);
+		if (vibranium) {
+			thrown.upgrade(com.projecthero.mod.ultron.contagion.item.VibraniumShieldItem.THROW_DAMAGE,
+					com.projecthero.mod.ultron.contagion.item.VibraniumShieldItem.THROW_HITS,
+					com.projecthero.mod.ultron.contagion.item.VibraniumShieldItem.THROW_RANGE);
+		}
 		return true;
 	}
 
