@@ -84,7 +84,10 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 public class UltronOmegaEntity extends UltronRobot implements GeoEntity {
 	public enum Move { NONE, STRIKE, BLAST, LATTICE, SIPHON, SPLIT, OVERRIDE, UPLOAD, KNEEL, DISINTEGRATE, SELF_DESTRUCT }
 
-	/** Client hook (set by the client): does the local viewer see this Omega outlined gold (the Mind Stone tell)? */
+	/**
+	 * Client hook (set by the client): is the local viewer looking at this Omega with a Mind Stone in hand (within range)?
+	 * Then only the real one is outlined, in gold -- the Legion tell. A client-side decision only (privacy rule).
+	 */
 	public static Predicate<UltronOmegaEntity> clientGoldOutline = e -> false;
 	public static final int GOLD = 0xF5C542;
 
@@ -887,6 +890,24 @@ public class UltronOmegaEntity extends UltronRobot implements GeoEntity {
 		}
 	}
 
+	/** Test hook: one decoy of this Omega, {@code offset} away (as the Legion split makes them). */
+	public UltronOmegaEntity spawnDecoyForTest(ServerLevel server, Vec3 at) {
+		UltronOmegaEntity d = ContagionEntityTypes.ULTRON_OMEGA.create(server);
+		if (d == null) {
+			return null;
+		}
+		d.entityData.set(DATA_DECOY, true);
+		d.realId = getUUID();
+		d.getAttribute(Attributes.MAX_HEALTH).setBaseValue(getMaxHealth());
+		d.setHealth(getMaxHealth());
+		d.moveTo(at.x, at.y, at.z, 0f, 0f);
+		d.introduced = true;
+		server.addFreshEntity(d);
+		decoys.add(d.getUUID());
+		splitDone = true;
+		return d;
+	}
+
 	/** Test hook: go straight to the kneel. */
 	public void enterVisionForTest() {
 		if (level() instanceof ServerLevel server) {
@@ -993,14 +1014,18 @@ public class UltronOmegaEntity extends UltronRobot implements GeoEntity {
 	@Override
 	public boolean isCurrentlyGlowing() {
 		if (level().isClientSide()) {
-			return clientGoldOutline.test(this) || super.isCurrentlyGlowing();
+			// a viewer with the Mind Stone sees only the real one outlined (gold); anyone else's outline treats all four alike
+			if (clientGoldOutline.test(this)) {
+				return !isDecoy();
+			}
+			return super.isCurrentlyGlowing();
 		}
 		return super.isCurrentlyGlowing();
 	}
 
 	@Override
 	public int getTeamColor() {
-		if (level().isClientSide() && clientGoldOutline.test(this)) {
+		if (level().isClientSide() && !isDecoy() && clientGoldOutline.test(this)) {
 			return GOLD;
 		}
 		return super.getTeamColor();

@@ -141,7 +141,8 @@
       "com.projecthero.mod.gametest.UltronV01512GameTests",
       "com.projecthero.mod.gametest.UltronV0161GameTests",
       "com.projecthero.mod.gametest.NovaGameTests",
-      "com.projecthero.mod.gametest.FrostGiantGameTests"
+      "com.projecthero.mod.gametest.FrostGiantGameTests",
+      "com.projecthero.mod.gametest.UltronContagionV0161GameTests"
     ]
   },
   "mixins": ["projecthero-gametest.mixins.json"],

@@ -84,6 +84,22 @@ public class IronManSuitInfoScreen extends Screen {
 		row(wrap, "screen.projecthero.ironman_info.vibranium", Component.translatable("screen.projecthero.ironman_info.vibranium_value",
 				plated, fmt((float) (plated * com.projecthero.mod.ultron.item.VibraniumPlating.ARMOR_BONUS)),
 				fmt((float) (plated * com.projecthero.mod.ultron.item.VibraniumPlating.TOUGHNESS_BONUS))).getString());
+		// v0.16.1: Vibranium Plating II (replaces plating I) and the Firewall Chip / JARVIS Firewall protocol
+		int plated2 = 0;
+		for (EquipmentSlot slot : new EquipmentSlot[] { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET }) {
+			if (com.projecthero.mod.ultron.contagion.item.VibraniumPlatingII.isPlated(p.getItemBySlot(slot))) {
+				plated2++;
+			}
+		}
+		if (plated2 > 0) {
+			row(wrap, "screen.projecthero.ironman_info.vibranium_2", Component.translatable("screen.projecthero.ironman_info.vibranium_value",
+					plated2, fmt((float) (plated2 * com.projecthero.mod.ultron.contagion.item.VibraniumPlatingII.ARMOR_BONUS)),
+					fmt((float) (plated2 * com.projecthero.mod.ultron.contagion.item.VibraniumPlatingII.TOUGHNESS_BONUS))).getString());
+		}
+		boolean chip = com.projecthero.mod.ultron.contagion.item.FirewallChip.hasChip(p.getItemBySlot(EquipmentSlot.HEAD));
+		boolean protocol = p.getAttachedOrElse(com.projecthero.mod.ultron.contagion.SuitHijack.FIREWALL_PROTOCOL, false);
+		row(wrap, "screen.projecthero.ironman_info.firewall", Component.translatable(protocol ? "screen.projecthero.ironman_info.firewall_protocol"
+				: chip ? "screen.projecthero.ironman_info.firewall_chip" : "screen.projecthero.ironman_info.firewall_none").getString());
 		row(wrap, "screen.projecthero.ironman_info.energy_regen", // v0.14.27
 				String.format(java.util.Locale.ROOT, "%s / s", fmt(suit.energyRegenPerSecond())));
 		if (suit.wornIntegrityRegenPerSecond() > 0f) { // v0.15.4: Mark 6 / Mark 7 repair themselves while worn

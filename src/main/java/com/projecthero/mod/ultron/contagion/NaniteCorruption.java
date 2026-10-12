@@ -209,6 +209,24 @@ public final class NaniteCorruption {
 		return changed;
 	}
 
+	/**
+	 * Corrupts the single block at {@code pos} for {@code rec} if every rule allows it (natural, no block entity, not
+	 * player-placed leaves, not protected); records the original first. True if it changed. (The gametests' entry point.)
+	 */
+	public static boolean corruptAt(ServerLevel level, ContagionState state, ContagionState.NexusRecord rec, BlockPos pos) {
+		BlockState st = level.getBlockState(pos);
+		BlockState to = corruptedFor(st);
+		if (to == null || level.getBlockEntity(pos) != null || state.protectedByBeacon(pos, level.getGameTime())) {
+			return false;
+		}
+		if (state.recordAt(pos.asLong()) == null) {
+			rec.blocks.put(pos.asLong(), state.stateId(st));
+		}
+		level.setBlock(pos, to, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+		state.setDirty();
+		return true;
+	}
+
 	// ---------------------------------------------------------------- revert
 
 	/** Puts back up to {@code budget} queued blocks (loaded chunks only). Returns how many were put back. */

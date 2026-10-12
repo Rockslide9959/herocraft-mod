@@ -25,6 +25,18 @@ import net.minecraft.world.item.ItemStack;
  */
 public final class AdamantiumShieldRenderer implements BuiltinItemRendererRegistry.DynamicItemRenderer {
 	public static final ResourceLocation TEXTURE = ProjectHeroMod.id("textures/entity/adamantium_shield.png");
+	/** v0.16.1: the Vibranium Shield is drawn by the same disc with its own art (same 64x64 layout). */
+	public static final ResourceLocation VIBRANIUM_TEXTURE = ProjectHeroMod.id("textures/entity/vibranium_shield.png");
+
+	private final ResourceLocation texture;
+
+	public AdamantiumShieldRenderer() {
+		this(TEXTURE);
+	}
+
+	public AdamantiumShieldRenderer(ResourceLocation texture) {
+		this.texture = texture;
+	}
 	/** Disc radius in model pixels (the vanilla plate is 12 x 22). */
 	private static final float RADIUS = 9.0f;
 	private static final float FRONT_Z = -2.0f;
@@ -36,7 +48,7 @@ public final class AdamantiumShieldRenderer implements BuiltinItemRendererRegist
 	public void render(ItemStack stack, ItemDisplayContext mode, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
 		pose.pushPose();
 		pose.scale(1.0f, -1.0f, -1.0f);
-		VertexConsumer vc = ItemRenderer.getFoilBufferDirect(buffers, RenderType.entityCutoutNoCull(TEXTURE), true, stack.hasFoil());
+		VertexConsumer vc = ItemRenderer.getFoilBufferDirect(buffers, RenderType.entityCutoutNoCull(texture), true, stack.hasFoil());
 		PoseStack.Pose p = pose.last();
 		float r = RADIUS / 16.0f;
 		float zf = FRONT_Z / 16.0f;

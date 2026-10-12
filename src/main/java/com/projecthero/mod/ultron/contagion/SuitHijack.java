@@ -41,7 +41,8 @@ import net.minecraft.world.entity.player.Player;
 public final class SuitHijack {
 	/** The JARVIS "Firewall" protocol: hijack-immune in every suit (first Omega win). Persistent. */
 	public static final AttachmentType<Boolean> FIREWALL_PROTOCOL = AttachmentRegistry.create(ProjectHeroMod.id("jarvis_firewall"),
-			b -> b.persistent(Codec.BOOL).copyOnDeath().initializer(() -> false));
+			b -> b.persistent(Codec.BOOL).copyOnDeath().initializer(() -> false)
+					.syncWith(net.minecraft.network.codec.ByteBufCodecs.BOOL, net.fabricmc.fabric.api.attachment.v1.AttachmentSyncPredicate.targetOnly()));
 
 	private static final class State {
 		UUID visited;
