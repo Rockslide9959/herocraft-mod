@@ -6,6 +6,31 @@ const path = require('path');
 
 require('./langset.js')([
 	{
+		anchor: 'projecthero.wolverine.ability.adamantium_execution',
+		entries: {
+			'projecthero.wolverine.ability.berserker_plunge': 'Berserker Plunge',
+			'projecthero.wolverine.ability.rising_uppercut': 'Rising Uppercut',
+			'projecthero.wolverine.ability.whirlwind': 'Whirlwind',
+			'projecthero.wolverine.ability.pounce': 'Pounce',
+			'projecthero.wolverine.ability.bleed_flurry': 'Bleed Flurry',
+			'projecthero.wolverine.ability.feral_roar': 'Feral Roar',
+			'hud.projecthero.wolverine.shift_pair': '%s  /  Shift: %s',
+		},
+	},
+	{
+		anchor: 'projecthero.guide.wolverine.ability.adamantium_execution',
+		entries: {
+			'projecthero.guide.wolverine.ability.claw_dash': 'Launch yourself 21 blocks along your aim, leaning into the lunge with both claws thrust forward -- both claw tips leave a trail through the whole leap. You cannot dash through blocks and you are knockback-immune mid-dash. Every enemy in a 3-block-wide path takes 12 damage (once each), and the first one you hit -- mob or player -- is grabbed and dragged along in front of you until you land. Your claw moves swing left and right hands in turn. 6-second cooldown.',
+			'projecthero.guide.wolverine.ability.adamantium_execution': 'Shift+Z (v0.16.1; it was plain Z): hold for 5 seconds to charge (you move slowly while charging), then release: whatever you are looking at within 10 blocks glows red for you and Wolverine launches straight at them for a 60-damage claw strike with heavy knockback. A whiff only costs 8 seconds. 30-second cooldown, its own.',
+			'projecthero.guide.wolverine.ability.berserker_plunge': 'Leap high, arms raised, then slam down claws-first where you land: 16 damage to everything within 3 blocks and they are knocked into the air, with a shockwave ring. 12-second cooldown.',
+			'projecthero.guide.wolverine.ability.rising_uppercut': 'A crouched, low-to-high slash: 14 damage to what is in front of you (3.5 blocks deep, 2.5 wide) and it is launched into the air, leaving a vertical trail. 4-second cooldown, separate from Claw Slash.',
+			'projecthero.guide.wolverine.ability.whirlwind': 'Arms flung wide, you spin a full turn twice: each spin hits everything within 3.5 blocks for 10, all the way round, leaving a ring of claw trails. 7-second cooldown, separate from Cross Slash.',
+			'projecthero.guide.wolverine.ability.pounce': 'Leap onto the enemy you are aiming at (up to 14 blocks): you land on it, pin it in place for 1.5 seconds and rake it 3 times for 6 each. Bosses are not pinned, only raked. No target, no cooldown. 10-second cooldown, separate from Claw Dash.',
+			'projecthero.guide.wolverine.ability.bleed_flurry': 'Six fast slashes into a cone in front of you, 5 damage each, and everything they cut is lacerated: 1 more damage a second for 4 seconds (steel-blue flecks, no blood). No target, no cooldown. 12-second cooldown, separate from Frenzy.',
+			'projecthero.guide.wolverine.ability.feral_roar': 'A roar that throws back every enemy within 6 blocks and leaves them weakened (Weakness I, 5 s), with a shockwave ring. It does not need the rage bar. 20-second cooldown.',
+		},
+	},
+	{
 		anchor: 'projecthero.guide.wolverine.claws',
 		entries: {
 			'projecthero.guide.wolverine.claws.body': 'Three curved blades in each hand, hidden until you want them. H deploys or retracts them: deploying, you raise both fists in front of your face, then throw your arms down to your sides as the blades snap out of the backs of your fists (claws an ability brings out just appear, with no flourish); retracting, they simply slide back in. While they are out they are your tools: they dig like an iron shovel and chop like an iron axe (the same speed and the same drops), cut like a sword (cobwebs give way at once and drop their string, plants and leaves 1.5x faster), and you mine 1.5x faster on top of that. Right-clicking a block with them does nothing a tool would -- no dirt paths, no stripped logs. With them out your bare-hand attack is 12 damage (1 + your +3 strength + the claws\' +8). You cannot hold items in either hand while the claws are out (they are stowed in your inventory). Left-click chains a three-hit combo: a rising diagonal slash with the right claws, a horizontal slash with the left, then a finisher -- both arms raised high, raked down into an X across your chest -- the same damage every hit. Every claw strike leaves a thin slash trail behind the blade tips and throws adamantium sparks (in first person too). Hold right-click to block: both sets of claws cross in front of you and anything a shield could stop does 30% less damage (falls, fire, drowning and magic still get through), but -- like a raised shield -- you can\'t attack while guarding. Deploying the claws tears through your hands for 4 damage (never enough to kill you) -- but that is not a fight: it never fills your Rage bar and never tears your suit. Every claw move deploys them for you if they are away. Other players see your claws and every move.',

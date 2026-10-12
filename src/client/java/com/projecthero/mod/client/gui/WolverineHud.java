@@ -30,11 +30,35 @@ public final class WolverineHud {
 
 	private static final String[] NAME_KEYS = {
 			"projecthero.wolverine.ability.claw_slash", "projecthero.wolverine.ability.cross_slash",
-			"projecthero.wolverine.ability.claw_dash", "projecthero.wolverine.ability.adamantium_execution",
+			"projecthero.wolverine.ability.claw_dash", "projecthero.wolverine.ability.berserker_plunge",
 			"projecthero.wolverine.ability.frenzy", "projecthero.wolverine.ability.berserker_rage"
 	};
 
+	/** v0.16.1: each key's Shift move, named under Alt and shown as a thin bar along the bottom of its box. */
+	private static final String[] SHIFT_NAME_KEYS = {
+			"projecthero.wolverine.ability.rising_uppercut", "projecthero.wolverine.ability.whirlwind",
+			"projecthero.wolverine.ability.pounce", "projecthero.wolverine.ability.adamantium_execution",
+			"projecthero.wolverine.ability.bleed_flurry", "projecthero.wolverine.ability.feral_roar"
+	};
+	private static final int SHIFT_BAR_TRACK = 0xC0101820;
+	private static final int SHIFT_BAR_COOLING = 0xFF5A6E88;
+	private static final int SHIFT_BAR_READY = 0xFFB4DCFF;
+
 	private WolverineHud() {
+	}
+
+	/** The Shift move's own cooldown: a thin bar along the bottom of the box that refills, bright once ready. */
+	private static void shiftBar(GuiGraphics g, net.minecraft.client.player.LocalPlayer player, AbilitySlot slot, int x, int y0) {
+		int scd = Wolverine.cooldownRemaining(player, WolverineAbilityManager.shiftAbilityIdOf(slot));
+		int smax = Math.max(1, WolverineAbilityManager.shiftMaxCooldown(slot));
+		float ready = scd <= 0 ? 1f : 1f - Math.min(1f, scd / (float) smax);
+		g.fill(x + 1, y0 + BOX - 3, x + BOX - 1, y0 + BOX - 1, SHIFT_BAR_TRACK);
+		g.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * ready), y0 + BOX - 1, ready >= 1f ? SHIFT_BAR_READY : SHIFT_BAR_COOLING);
+	}
+
+	private static Component names(int i) {
+		return Component.translatable("hud.projecthero.wolverine.shift_pair", Component.translatable(NAME_KEYS[i]),
+				Component.translatable(SHIFT_NAME_KEYS[i]));
 	}
 
 	public static void render(GuiGraphics g, DeltaTracker delta) {
@@ -75,15 +99,17 @@ public final class WolverineHud {
 						: s.rageMeter / WolverineConfig.RAGE_BAR_MAX;
 				int h = (int) (BOX * Math.max(0f, Math.min(1f, frac)));
 				g.fill(x + 1, y0 + BOX - h, x + BOX - 1, y0 + BOX - 1, burning ? 0xA0FF3030 : (frac >= 1f ? 0xA0FF6A00 : 0x70A02020));
+				shiftBar(g, mc.player, slot, x, y0);
 				g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 7, y0 + 6, frac >= 1f || burning ? 0xFFFFFFFF : COLOR_KEY, true);
 				if (expanded) {
-					Component name = Component.translatable(NAME_KEYS[i]);
+					Component name = names(i);
 					g.drawString(mc.font, name, x0 - 8 - mc.font.width(name), y0 + i * 10 - 52, COLOR_NAME, true);
 				}
 				continue;
 			}
 			int cd = Wolverine.cooldownRemaining(mc.player, WolverineAbilityManager.abilityIdOf(slot));
 			int max = WolverineAbilityManager.maxCooldown(slot);
+			shiftBar(g, mc.player, slot, x, y0);
 			if (cd > 0 && max > 0) {
 				int h = (int) (BOX * Math.min(1f, cd / (float) max));
 				g.fill(x, y0 + BOX - h, x + BOX, y0 + BOX, COLOR_COOLDOWN);
@@ -92,7 +118,7 @@ public final class WolverineHud {
 				g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 7, y0 + 6, COLOR_KEY, true);
 			}
 			if (expanded) {
-				Component name = Component.translatable(NAME_KEYS[i]);
+				Component name = names(i);
 				int tw = mc.font.width(name);
 				g.drawString(mc.font, name, x0 - 8 - tw, y0 + i * 10 - 52, COLOR_NAME, true);
 			}

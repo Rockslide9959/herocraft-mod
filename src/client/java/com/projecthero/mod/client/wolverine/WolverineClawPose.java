@@ -45,7 +45,7 @@ import org.joml.Vector3f;
  * owns the arms.
  */
 public final class WolverineClawPose {
-	public enum Kind { NONE, DIAG, HORIZ, CROSS, THRUST, CHARGE, ROAR }
+	public enum Kind { NONE, DIAG, HORIZ, CROSS, THRUST, CHARGE, ROAR, UPPER, WHIRL, LEAP, PLUNGE, SLAM }
 
 	/** A move playing now: which, the arm that leads it, its age in game ticks and its playback speed. */
 	public record Move(Kind kind, HumanoidArm arm, float age, float speed) {
@@ -62,7 +62,8 @@ public final class WolverineClawPose {
 		}
 
 		boolean both() {
-			return kind == Kind.CROSS || kind == Kind.THRUST || kind == Kind.CHARGE || kind == Kind.ROAR;
+			return kind == Kind.CROSS || kind == Kind.THRUST || kind == Kind.CHARGE || kind == Kind.ROAR || kind == Kind.WHIRL
+					|| kind == Kind.LEAP || kind == Kind.PLUNGE || kind == Kind.SLAM;
 		}
 	}
 
@@ -323,6 +324,34 @@ public final class WolverineClawPose {
 			k(9.5f, SNAP, 0.0f, -0.12f, v(-0.45f, 0.88f, -0.14f), v(1, 0.3f, 0), v(0.45f, 0.88f, -0.14f), v(-1, 0.3f, 0), 0, 0, -0.15f),
 			k(13.0f, SMOOTH, 0.0f, -0.08f, v(-0.4f, 0.9f, -0.12f), v(1, 0.3f, 0), v(0.4f, 0.9f, -0.12f), v(-1, 0.3f, 0), 0, 0, -0.1f));
 
+	// ---- v0.16.1 Shift moves ----
+
+	/** Shift+R Rising Uppercut (lead: right): crouched low, arm down and back, then a snap straight up past the head. */
+	private static final Clip UPPER = new Clip(9.0f, 1.0f,
+			k(1.5f, SMOOTH, 0.25f, 0.3f, v(-0.3f, 0.8f, 0.5f), v(0, -0.5f, -1), v(0.2f, 0.35f, -0.9f), v(0, -1, 0), -0.2f, 0.2f, NO),
+			k(3.5f, SNAP, -0.25f, -0.15f, v(0.15f, -0.9f, -0.4f), v(0, -1, 0.4f), v(0.25f, 0.55f, 0.8f), v(0, 0, 1), 0.1f, -0.3f, -0.25f),
+			k(5.5f, OUT, -0.3f, -0.2f, v(0.1f, -0.98f, 0.1f), v(0, -1, 0.6f), v(0.25f, 0.55f, 0.8f), v(0, 0, 1), 0.1f, -0.3f, -0.3f));
+
+	/** Shift+G Whirlwind: arms flung wide, blades out, while the whole body spins (see {@link #spinDegrees}). */
+	private static final Clip WHIRL = new Clip(8.0f, 1.0f,
+			k(1.0f, SNAP, 0.0f, 0.1f, v(-0.95f, 0.15f, -0.25f), v(0, 0, -1), v(0.95f, 0.15f, -0.25f), v(0, 0, -1), 0, 0, NO),
+			k(7.0f, SMOOTH, 0.0f, 0.1f, v(-0.95f, 0.15f, -0.25f), v(0, 0, -1), v(0.95f, 0.15f, -0.25f), v(0, 0, -1), 0, 0, NO));
+
+	/** Shift+X Pounce: in the air, both arms reaching forward and up with the claws spread, legs tucked. */
+	private static final Clip LEAP = new Clip(16.0f, 1.0f,
+			k(2.0f, SNAP, 0.0f, 0.35f, v(-0.35f, -0.45f, -0.82f), v(0, -1, 0), v(0.35f, -0.45f, -0.82f), v(0, -1, 0), 0.6f, 0.3f, -0.3f),
+			k(13.0f, SMOOTH, 0.0f, 0.35f, v(-0.35f, -0.45f, -0.82f), v(0, -1, 0), v(0.35f, -0.45f, -0.82f), v(0, -1, 0), 0.6f, 0.3f, -0.3f));
+
+	/** Z Berserker Plunge, the rise: both arms raised overhead, knees tucked; held until the slam takes over. */
+	private static final Clip PLUNGE = new Clip(60.0f, 1.5f,
+			k(3.0f, SNAP, 0.0f, -0.2f, v(-0.3f, -0.92f, 0.1f), v(1, 0, 0), v(0.3f, -0.92f, 0.1f), v(-1, 0, 0), -0.5f, -0.5f, -0.3f),
+			k(57.0f, SMOOTH, 0.0f, -0.2f, v(-0.3f, -0.92f, 0.1f), v(1, 0, 0), v(0.3f, -0.92f, 0.1f), v(-1, 0, 0), -0.5f, -0.5f, -0.3f));
+
+	/** Z Berserker Plunge, the slam: both claws driven down into the ground in front, crunched forward in a lunge. */
+	private static final Clip SLAM = new Clip(10.0f, 0.5f,
+			k(2.0f, SNAP, 0.0f, 0.55f, v(-0.2f, 0.55f, -0.8f), v(0, 1, 0), v(0.2f, 0.55f, -0.8f), v(0, 1, 0), -0.6f, 0.3f, NO),
+			k(6.0f, OUT, 0.0f, 0.5f, v(-0.2f, 0.6f, -0.78f), v(0, 1, 0), v(0.2f, 0.6f, -0.78f), v(0, 1, 0), -0.6f, 0.3f, NO));
+
 	private static final Map<Kind, Clip> MIRRORED = new EnumMap<>(Kind.class);
 
 	/** The canonical lead arm of each clip (the other arm leads the mirrored copy). */
@@ -338,14 +367,18 @@ public final class WolverineClawPose {
 			case THRUST -> THRUST;
 			case CHARGE -> CHARGE;
 			case ROAR -> ROAR;
+			case UPPER -> UPPER;
+			case WHIRL -> WHIRL;
+			case LEAP -> LEAP;
+			case PLUNGE -> PLUNGE;
+			case SLAM -> SLAM;
 			default -> null;
 		};
 	}
 
 	private static Clip clip(Kind kind, HumanoidArm lead) {
 		Clip c = clipOf(kind);
-		if (c == null || lead == canonical(kind) || kind == Kind.CROSS || kind == Kind.THRUST || kind == Kind.CHARGE
-				|| kind == Kind.ROAR) {
+		if (c == null || lead == canonical(kind) || new Move(kind, lead, 0, 1).both()) {
 			return c;
 		}
 		return MIRRORED.computeIfAbsent(kind, k -> clipOf(k).mirror());
@@ -375,7 +408,14 @@ public final class WolverineClawPose {
 				case 2 -> timed(Kind.DIAG, swingArm, age, 1.0f);
 				case 4 -> timed(Kind.THRUST, swingArm, age, 1.0f);
 				case 5 -> timed(Kind.DIAG, swingArm, age, 2.0f);
-				case 6 -> timed(Kind.ROAR, player.getMainArm(), age, 1.0f);
+				case 6, 16 -> timed(Kind.ROAR, player.getMainArm(), age, 1.0f);
+				case 11 -> timed(Kind.UPPER, swingArm, age, 1.0f);
+				case 12 -> timed(Kind.WHIRL, swingArm, age, 1.0f);
+				case 13 -> timed(Kind.LEAP, swingArm, age, 1.0f);
+				case 14 -> timed(Kind.PLUNGE, swingArm, age, 1.0f);
+				case 15 -> timed(Kind.DIAG, swingArm, age, 2.6f);
+				case 17 -> timed(Kind.DIAG, swingArm, age, 2.0f);
+				case 18 -> timed(Kind.SLAM, swingArm, age, 1.0f);
 				default -> Move.NONE;
 			};
 			if (m.kind() != Kind.NONE) {
@@ -414,12 +454,20 @@ public final class WolverineClawPose {
 			case DIAG, HORIZ -> new float[] {1.5f, 4.2f};
 			case CROSS -> new float[] {2.5f, 5.6f};
 			case THRUST -> new float[] {2.0f, 4.4f};
+			case UPPER -> new float[] {1.5f, 4.2f};
+			case WHIRL -> new float[] {0.5f, 7.5f};
+			case LEAP -> new float[] {0.0f, 16.0f};
+			case PLUNGE -> new float[] {0.0f, 60.0f};
+			case SLAM -> new float[] {0.0f, 3.0f};
 			default -> null;
 		};
 	}
 
 	/** True while {@code arm}'s claws are in the snap of a move -- when they leave a slash trail. */
 	public static boolean trailing(Player player, float partialTick, HumanoidArm arm) {
+		if (com.projecthero.mod.wolverine.Wolverine.dashing(player)) {
+			return true; // v0.16.1: the Claw Dash trails both claw tips through the whole leap
+		}
 		Move m = current(player, partialTick);
 		float[] w = snap(m.kind());
 		if (w == null || (!m.both() && m.arm() != arm)) {
@@ -433,9 +481,20 @@ public final class WolverineClawPose {
 		float tick = switch (kind) {
 			case CROSS -> 5.0f;
 			case THRUST -> 3.8f;
+			case WHIRL -> 4.0f;
+			case SLAM -> 2.0f;
 			default -> 3.5f;
 		};
 		return tick / clipDuration(kind);
+	}
+
+	/** v0.16.1: the Whirlwind body spin, degrees about the vertical axis (0 when not spinning). */
+	public static float spinDegrees(Player player, float partialTick) {
+		Move m = current(player, partialTick);
+		if (m.kind() != Kind.WHIRL) {
+			return 0.0f;
+		}
+		return -360.0f * ease(OUT, m.t());
 	}
 
 	/** True when a claw move is playing and should own the arms (vanilla's punch swing switched off). */
@@ -593,6 +652,23 @@ public final class WolverineClawPose {
 			fk(9.5f, SNAP, new float[] {0.22f, -0.12f, 0.04f, -12.0f, -14.0f, 0.0f}, null),
 			fk(13.0f, SMOOTH, new float[] {0.18f, -0.08f, 0.04f, -8.0f, -10.0f, 0.0f}, null));
 
+	private static final FClip F_UPPER = new FClip(9.0f, 1.0f, false,
+			fk(1.5f, SMOOTH, new float[] {0.12f, -0.3f, 0.08f, -30.0f, -10.0f, 0.0f}, OFF_GUARD),
+			fk(3.5f, SNAP, new float[] {-0.1f, 0.38f, -0.12f, 40.0f, 10.0f, 0.0f}, OFF_BACK),
+			fk(5.5f, OUT, new float[] {-0.12f, 0.45f, -0.08f, 48.0f, 12.0f, 0.0f}, OFF_BACK));
+	private static final FClip F_WHIRL = new FClip(8.0f, 1.0f, true,
+			fk(1.0f, SNAP, new float[] {0.35f, 0.0f, 0.0f, 0.0f, -30.0f, 0.0f}, null),
+			fk(7.0f, SMOOTH, new float[] {0.35f, 0.0f, 0.0f, 0.0f, -30.0f, 0.0f}, null));
+	private static final FClip F_LEAP = new FClip(16.0f, 1.0f, true,
+			fk(2.0f, SNAP, new float[] {-0.05f, 0.25f, -0.2f, 30.0f, 10.0f, 0.0f}, null),
+			fk(13.0f, SMOOTH, new float[] {-0.05f, 0.25f, -0.2f, 30.0f, 10.0f, 0.0f}, null));
+	private static final FClip F_PLUNGE = new FClip(60.0f, 1.5f, true,
+			fk(3.0f, SNAP, new float[] {0.12f, 0.3f, -0.12f, 22.0f, -10.0f, 0.0f}, null),
+			fk(57.0f, SMOOTH, new float[] {0.12f, 0.3f, -0.12f, 22.0f, -10.0f, 0.0f}, null));
+	private static final FClip F_SLAM = new FClip(10.0f, 0.5f, true,
+			fk(2.0f, SNAP, new float[] {-0.06f, -0.18f, -0.3f, -30.0f, 12.0f, 0.0f}, null),
+			fk(6.0f, OUT, new float[] {-0.06f, -0.18f, -0.3f, -30.0f, 12.0f, 0.0f}, null));
+
 	private static FClip fclip(Kind kind) {
 		return switch (kind) {
 			case DIAG -> F_DIAG;
@@ -600,6 +676,11 @@ public final class WolverineClawPose {
 			case CROSS -> F_CROSS;
 			case THRUST -> F_THRUST;
 			case CHARGE -> F_CHARGE;
+			case UPPER -> F_UPPER;
+			case WHIRL -> F_WHIRL;
+			case LEAP -> F_LEAP;
+			case PLUNGE -> F_PLUNGE;
+			case SLAM -> F_SLAM;
 			default -> null;
 		};
 	}

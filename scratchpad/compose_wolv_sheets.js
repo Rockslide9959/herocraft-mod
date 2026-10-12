@@ -45,6 +45,10 @@ if (want('deploy')) {
 }
 // abilities, 3/4 view: one row each -- R sweep, G cross slash, V frenzy, Z charge, Z strike, C roar
 if (want('abil')) sheet('wolv_abilities_sheet.png', ['abil_R', 'abil_G', 'abil_V', 'abil_Zcharge', 'abil_Z', 'abil_C'].map(n => Array.from({ length: 5 }, (_, i) => 'v0161s_' + n + '_' + i + '.png')));
+if (want('shift')) {
+	for (const n of ['uppercut', 'whirlwind', 'pounce', 'plunge', 'flurry', 'roar']) sheet('wolv_shift_' + n + '_sheet.png', ['q', 'f'].map(v => frames('shift_' + n, v)));
+	sheet('wolv_leap_trail_sheet.png', [frames('leap', 's')]);
+}
 if (want('trail')) {
 	// before (v0.16.1 first pass, the sheet trail) / after (thin arcs)
 	const before = path.join(OUT, 'v0161w_10_fp_combo1_4.png');

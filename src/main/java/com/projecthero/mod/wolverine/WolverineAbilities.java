@@ -59,7 +59,7 @@ public final class WolverineAbilities {
 	// ---------------- shared helpers ----------------
 
 	/** Common gate: has the power, off cooldown; auto-deploys the claws for a claw move. */
-	private static boolean prepare(ServerPlayer player, String id, String nameKey, boolean needsClaws) {
+	static boolean prepare(ServerPlayer player, String id, String nameKey, boolean needsClaws) {
 		if (!Wolverine.hasPower(player)) {
 			return false;
 		}
@@ -77,12 +77,12 @@ public final class WolverineAbilities {
 	}
 
 	/** Berserker Rage adds 50% to every claw hit. */
-	private static float scaled(ServerPlayer player, float base) {
+	static float scaled(ServerPlayer player, float base) {
 		return Wolverine.raging(player) ? base * (1.0f + (float) WolverineConfig.RAGE_DAMAGE_BONUS) : base;
 	}
 
 	/** Living things in front of the player within {@code range} (measured to their hitbox), nearest first. */
-	private static List<LivingEntity> inCone(ServerPlayer player, double range, double minDot) {
+	static List<LivingEntity> inCone(ServerPlayer player, double range, double minDot) {
 		Vec3 eye = player.getEyePosition();
 		Vec3 look = player.getLookAngle();
 		List<LivingEntity> out = new ArrayList<>();
@@ -98,7 +98,7 @@ public final class WolverineAbilities {
 	}
 
 	/** Living things in a box in front of the player: {@code range} deep, {@code width} blocks wide, nearest first. */
-	private static List<LivingEntity> inBox(ServerPlayer player, double range, double width) {
+	static List<LivingEntity> inBox(ServerPlayer player, double range, double width) {
 		Vec3 eye = player.getEyePosition();
 		Vec3 look = player.getLookAngle();
 		Vec3 flat = new Vec3(look.x, 0, look.z);
@@ -123,7 +123,7 @@ public final class WolverineAbilities {
 		return com.projecthero.mod.squad.Squads.areAllies(a, b); // v0.14.4: a rampaging Hulk is nobody's squadmate
 	}
 
-	private static boolean strike(ServerPlayer player, LivingEntity target, float damage, double knockback) {
+	static boolean strike(ServerPlayer player, LivingEntity target, float damage, double knockback) {
 		if (!AbilityHelpers.hurtBurst(player, target, scaled(player, damage))) {
 			return false;
 		}
@@ -140,7 +140,7 @@ public final class WolverineAbilities {
 		return true;
 	}
 
-	private static void slashFx(ServerPlayer player, double reach, double sideways, float pitch) {
+	static void slashFx(ServerPlayer player, double reach, double sideways, float pitch) {
 		if (!(player.level() instanceof ServerLevel level)) {
 			return;
 		}
@@ -152,7 +152,7 @@ public final class WolverineAbilities {
 		AbilityHelpers.sound(player, SoundEvents.CHAIN_HIT, 0.5f, pitch + 0.4f);
 	}
 
-	private static void swing(ServerPlayer player, int slot) {
+	static void swing(ServerPlayer player, int slot) {
 		boolean left = !LEFT_NEXT.add(player.getUUID());
 		if (left) {
 			LEFT_NEXT.remove(player.getUUID());

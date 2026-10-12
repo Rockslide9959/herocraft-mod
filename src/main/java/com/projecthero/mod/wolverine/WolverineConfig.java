@@ -160,6 +160,52 @@ public final class WolverineConfig {
 	 * right-click off-hand strike; left click now picks a random hand instead. */
 	public static final float BLOCK_DAMAGE_REDUCTION = 0.30f;
 
+	// ---- v0.16.1 Shift moves (Sneak + the same key; each has its own cooldown, separate from the base move) ----
+	/** Shift+R Rising Uppercut: a low-to-high slash that launches what it hits. */
+	public static final float UPPERCUT_DAMAGE = 14.0f;
+	public static final double UPPERCUT_RANGE = 3.5;
+	public static final double UPPERCUT_WIDTH = 2.5;
+	public static final double UPPERCUT_LAUNCH = 0.95;
+	public static final int UPPERCUT_COOLDOWN = 4 * S;
+	/** Shift+G Whirlwind: two 360-degree spins, each hitting everything around him. */
+	public static final float WHIRLWIND_DAMAGE_EACH = 10.0f;
+	public static final double WHIRLWIND_RADIUS = 3.5;
+	public static final int WHIRLWIND_SPINS = 2;
+	public static final int WHIRLWIND_SPIN_TICKS = 8;
+	public static final int WHIRLWIND_COOLDOWN = 7 * S;
+	/** Shift+X Pounce: leap onto the targeted enemy, pin it (not bosses) and rake it. */
+	public static final double POUNCE_RANGE = 14.0;
+	public static final double POUNCE_REACH = 2.4;
+	public static final int POUNCE_MAX_TICKS = 25;
+	public static final int POUNCE_PIN_TICKS = 30;
+	public static final int POUNCE_RAKES = 3;
+	public static final int POUNCE_RAKE_GAP = 6;
+	public static final float POUNCE_RAKE_DAMAGE = 6.0f;
+	/** Anything with at least this much max health counts as a boss: hit, never pinned. */
+	public static final float POUNCE_BOSS_HEALTH = 150.0f;
+	public static final int POUNCE_COOLDOWN = 10 * S;
+	/** Shift+C Feral Roar: knockback + Weakness I to everything nearby. Not gated by the rage bar. */
+	public static final double ROAR_RADIUS = 6.0;
+	public static final double ROAR_KNOCKBACK = 1.2;
+	public static final int ROAR_WEAKNESS_TICKS = 5 * S;
+	public static final int ROAR_COOLDOWN = 20 * S;
+	/** Shift+V Bleed Flurry: six fast slashes in a forward cone, each leaving the target lacerated. */
+	public static final int FLURRY_STRIKES = 6;
+	public static final int FLURRY_INTERVAL_TICKS = 3;
+	public static final float FLURRY_DAMAGE = 5.0f;
+	public static final double FLURRY_RANGE = 3.5;
+	/** Laceration: this much damage every second for {@link #LACERATE_SECONDS} (one bleed per target per flurry). */
+	public static final float LACERATE_DAMAGE = 1.0f;
+	public static final int LACERATE_SECONDS = 4;
+	public static final int FLURRY_COOLDOWN = 12 * S;
+	/** Shift+Z Berserker Plunge: a high jump, then a claws-first slam on landing. */
+	public static final double PLUNGE_JUMP = 1.25;
+	public static final float PLUNGE_DAMAGE = 16.0f;
+	public static final double PLUNGE_RADIUS = 3.0;
+	public static final double PLUNGE_KNOCKUP = 0.7;
+	public static final int PLUNGE_MAX_TICKS = 60;
+	public static final int PLUNGE_COOLDOWN = 12 * S;
+
 	/** Claw toggle spam guard. */
 	public static final int TOGGLE_COOLDOWN = 8;
 }

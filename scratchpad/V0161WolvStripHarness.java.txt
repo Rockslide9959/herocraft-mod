@@ -292,7 +292,7 @@ public final class V0161WolvHarness {
 				});
 				at(c + 6, () -> {
 					server(mc, p -> Wolverine.setClaws(p, true, true));
-					capture("deploy_" + v, () -> clawsChanged(true), 2.0f, 4.5f, 7.0f, 9.5f, 12.5f, 18.0f);
+					capture("deploy_" + v, () -> clawsChanged(true), 2.5f, 5.0f, 7.5f, 9.5f, 13.0f, 19.0f);
 				});
 				at(c + 40, () -> server(mc, p -> Wolverine.setClaws(p, true)));
 				c += 52;
@@ -365,6 +365,59 @@ public final class V0161WolvHarness {
 						e.discard();
 					}
 				}));
+			}
+			at(c, () -> tickRate(mc, 20f));
+			c += 5;
+		}
+		if (all || only.contains("shift")) {
+			at(c, () -> tickRate(mc, 4f));
+			c += 3;
+			String[] names = {"uppercut", "whirlwind", "pounce", "plunge", "flurry", "roar", "leap"};
+			float[][] beats = {{1.5f, 2.5f, 3.5f, 5.5f, 7.0f}, {1.0f, 3.0f, 5.0f, 9.0f, 12.0f}, {1.0f, 4.0f, 8.0f, 12.0f, 18.0f},
+					{2.0f, 8.0f, 14.0f, 20.0f, 26.0f}, {1.0f, 3.0f, 6.0f, 9.0f, 14.0f}, {2.0f, 4.0f, 8.0f, 14.0f, 20.0f},
+					{2.0f, 5.0f, 8.0f, 11.0f, 14.0f}};
+			for (int a = 0; a < names.length; a++) {
+				for (String v : (a == 6 ? new String[] {"s"} : new String[] {"q", "f"})) {
+					final int ai = a;
+					at(c, () -> {
+						view(mc, v);
+						server(mc, p -> {
+							p.teleportTo(p.serverLevel(), Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5, 0f, 0f);
+							for (var e : p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.monster.Husk.class, p.getBoundingBox().inflate(30))) {
+								e.discard();
+							}
+							var st = Wolverine.state(p).copy();
+							st.abilityReadyAt.clear();
+							p.setAttached(ModAttachments.WOLVERINE_STATE, st);
+							double[][] spots = ai == 1 ? new double[][] {{0, 2.2}, {2.0, -1.0}, {-2.0, -1.0}}
+									: ai == 2 ? new double[][] {{0, 5.0}} : ai == 6 ? new double[][] {{0, 6.0}, {0.5, 11.0}} : new double[][] {{0, 2.4}};
+							for (double[] sp : spots) {
+								var h = net.minecraft.world.entity.EntityType.HUSK.create(p.serverLevel());
+								h.moveTo(p.getX() + sp[0], p.getY(), p.getZ() + sp[1], 180f, 0f);
+								h.setNoAi(true);
+								h.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(500.0);
+								h.setHealth(500f);
+								p.serverLevel().addFreshEntity(h);
+							}
+						});
+					});
+					at(c + 4, () -> {
+						server(mc, p -> {
+							switch (ai) {
+								case 0 -> com.projecthero.mod.wolverine.WolverineShiftAbilities.risingUppercut(p);
+								case 1 -> com.projecthero.mod.wolverine.WolverineShiftAbilities.whirlwind(p);
+								case 2 -> com.projecthero.mod.wolverine.WolverineShiftAbilities.pounce(p);
+								case 3 -> com.projecthero.mod.wolverine.WolverineShiftAbilities.berserkerPlunge(p);
+								case 4 -> com.projecthero.mod.wolverine.WolverineShiftAbilities.bleedFlurry(p);
+								case 5 -> com.projecthero.mod.wolverine.WolverineShiftAbilities.feralRoar(p);
+								default -> com.projecthero.mod.wolverine.WolverineAbilities.clawDash(p);
+							}
+						});
+						double armed = mc.level.getGameTime() + 1;
+						capture((ai == 6 ? "leap_" : "shift_" + names[ai] + "_") + v, () -> armed, beats[ai]);
+					});
+					c += 40;
+				}
 			}
 			at(c, () -> tickRate(mc, 20f));
 			c += 5;

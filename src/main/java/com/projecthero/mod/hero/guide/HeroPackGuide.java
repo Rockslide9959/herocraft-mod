@@ -780,11 +780,19 @@ public final class HeroPackGuide {
 			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C"}) {
 				String key = switch (slot) {
 					case "R" -> "claw_slash"; case "G" -> "cross_slash"; case "X" -> "claw_dash";
-					case "Z" -> "adamantium_execution"; case "V" -> "frenzy"; default -> "berserker_rage";
+					case "Z" -> "berserker_plunge"; case "V" -> "frenzy"; default -> "berserker_rage";
+				};
+				// v0.16.1: every key has a Shift move (Sneak + the key), with its own cooldown
+				String shift = switch (slot) {
+					case "R" -> "rising_uppercut"; case "G" -> "whirlwind"; case "X" -> "pounce";
+					case "Z" -> "adamantium_execution"; case "V" -> "bleed_flurry"; default -> "feral_roar";
 				};
 				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.wolverine.ability." + key).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.guide.wolverine.ability." + key);
+				lines.add(Component.literal(" Shift+" + slot + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.wolverine.ability." + shift).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.guide.wolverine.ability." + shift);
 			}
 			lines.add(Component.literal(" H  ").withStyle(ChatFormatting.GOLD)
 					.append(Component.translatable("projecthero.guide.wolverine.toggle").withStyle(ChatFormatting.WHITE)));

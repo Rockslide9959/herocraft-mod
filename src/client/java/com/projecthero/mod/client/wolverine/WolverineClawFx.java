@@ -216,7 +216,8 @@ public final class WolverineClawFx {
 			float t = m.kind() == WolverineClawPose.Kind.NONE ? -1.0f : m.t();
 			LAST_T.put(p.getId(), t);
 			if (m.kind() == WolverineClawPose.Kind.NONE || m.kind() == WolverineClawPose.Kind.CHARGE
-					|| m.kind() == WolverineClawPose.Kind.ROAR) {
+					|| m.kind() == WolverineClawPose.Kind.ROAR || m.kind() == WolverineClawPose.Kind.LEAP
+					|| m.kind() == WolverineClawPose.Kind.PLUNGE) {
 				continue;
 			}
 			float impact = WolverineClawPose.impactAt(m.kind());
@@ -241,7 +242,8 @@ public final class WolverineClawFx {
 		Vec3 right = new Vec3(-flat.z, 0, flat.x);
 		Vec3 centre = p.getEyePosition().add(look.scale(1.25)).add(0, -0.35, 0);
 		int sparks = fewer ? 2 : 5;
-		boolean both = m.kind() == WolverineClawPose.Kind.CROSS || m.kind() == WolverineClawPose.Kind.THRUST;
+		boolean both = m.kind() == WolverineClawPose.Kind.CROSS || m.kind() == WolverineClawPose.Kind.THRUST
+				|| m.kind() == WolverineClawPose.Kind.WHIRL || m.kind() == WolverineClawPose.Kind.SLAM;
 		for (HumanoidArm arm : HumanoidArm.values()) {
 			if (!both && arm != m.arm()) {
 				continue;

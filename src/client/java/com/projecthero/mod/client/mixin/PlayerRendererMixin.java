@@ -62,6 +62,16 @@ public abstract class PlayerRendererMixin {
 		poseStack.mulPose(Axis.XP.rotationDegrees(-com.projecthero.mod.client.wolverine.WolverineDashPose.LEAN_DEGREES));
 	}
 
+	/** v0.16.1: Wolverine's Whirlwind (Shift+G) -- the whole body spins a full turn per spin, about its own axis. */
+	@Inject(method = "setupRotations(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;FFFF)V", at = @At("TAIL"))
+	private void projecthero$wolverineWhirl(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks,
+			float rotationYaw, float partialTicks, float scale, CallbackInfo ci) {
+		float deg = com.projecthero.mod.client.wolverine.WolverineClawPose.spinDegrees(player, partialTicks);
+		if (deg != 0.0f) {
+			poseStack.mulPose(Axis.YP.rotationDegrees(deg));
+		}
+	}
+
 	/** v0.15.16: the Punisher's Tactical Roll -- a full tumble about the body's middle (forward / back / to either side). */
 	@Inject(method = "setupRotations(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;FFFF)V", at = @At("TAIL"))
 	private void projecthero$punisherRoll(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks,

@@ -10,6 +10,8 @@ import com.projecthero.mod.wolverine.WolverineConfig;
 import com.projecthero.mod.wolverine.WolverinePassives;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.wolverine.WolverineBareHands;
+import com.projecthero.mod.wolverine.WolverineScheduler;
+import com.projecthero.mod.wolverine.WolverineShiftAbilities;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 
@@ -410,6 +412,110 @@ public class WolverineGameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE)
 				- (1.0 + WolverineConfig.MELEE_BONUS_DAMAGE + WolverineConfig.CLAW_MELEE_BONUS)) < 1e-6,
 				"claws: 1 + 3 + 8 = 12, the strength bonus counted once");
+		helper.succeed();
+	}
+
+	// ---------------- v0.16.1 Shift moves (Sneak + the key; own cooldowns) ----------------
+
+	private static ServerPlayer sneakingWolverine(GameTestHelper helper) {
+		ServerPlayer p = wolverine(helper);
+		p.setYRot(0.0f);
+		p.setXRot(0.0f);
+		p.setShiftKeyDown(true);
+		return p;
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shiftRIsRisingUppercut(GameTestHelper helper) {
+		ServerPlayer p = sneakingWolverine(helper);
+		Zombie z = zombieInFront(helper, p, 2.0);
+		float before = z.getHealth();
+		AbilityRouter.handleInput(p, 1, true);
+		helper.assertTrue(before - z.getHealth() >= WolverineConfig.UPPERCUT_DAMAGE - 0.5f, "the uppercut deals 14, dealt " + (before - z.getHealth()));
+		helper.assertTrue(z.getDeltaMovement().y > 0.3, "and launches the target");
+		helper.assertFalse(Wolverine.abilityReady(p, WolverineShiftAbilities.UPPERCUT), "its own cooldown runs");
+		helper.assertTrue(Wolverine.abilityReady(p, WolverineAbilities.SLASH), "Claw Slash's cooldown is untouched");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shiftGIsWhirlwind(GameTestHelper helper) {
+		ServerPlayer p = sneakingWolverine(helper);
+		Zombie behind = zombieInFront(helper, p, -2.0); // a spin hits all round, behind him too
+		float before = behind.getHealth();
+		AbilityRouter.handleInput(p, 2, true);
+		WolverineScheduler.tick(p); // the first spin is due now
+		helper.assertTrue(before - behind.getHealth() >= WolverineConfig.WHIRLWIND_DAMAGE_EACH - 0.5f,
+				"the first spin hits behind him for 10, dealt " + (before - behind.getHealth()));
+		helper.assertFalse(Wolverine.abilityReady(p, WolverineShiftAbilities.WHIRLWIND), "its own cooldown runs");
+		helper.assertTrue(Wolverine.abilityReady(p, WolverineAbilities.CROSS), "Cross Slash's cooldown is untouched");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shiftXIsPounce(GameTestHelper helper) {
+		ServerPlayer p = sneakingWolverine(helper);
+		Zombie z = zombieInFront(helper, p, 5.0);
+		float before = z.getHealth();
+		AbilityRouter.handleInput(p, 3, true);
+		helper.assertFalse(Wolverine.abilityReady(p, WolverineShiftAbilities.POUNCE), "its own cooldown runs");
+		helper.assertTrue(Wolverine.abilityReady(p, WolverineAbilities.DASH), "Claw Dash's cooldown is untouched");
+		helper.runAfterDelay(3, () -> {
+			// a mock player is not moved by its velocity: put it where the leap lands
+			p.teleportTo(z.getX(), z.getY(), z.getZ() - 1.0);
+			WolverineScheduler.tick(p); // lands: pinned
+			WolverineScheduler.tick(p); // the first rake
+			helper.assertTrue(z.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN), "the target is pinned");
+			helper.assertTrue(before - z.getHealth() >= WolverineConfig.POUNCE_RAKE_DAMAGE - 0.5f,
+					"the rake hits, dealt " + (before - z.getHealth()));
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void zIsBerserkerPlungeAndShiftZIsTheExecution(GameTestHelper helper) {
+		ServerPlayer p = wolverine(helper);
+		p.setYRot(0.0f);
+		Zombie z = zombieInFront(helper, p, 1.5);
+		float before = z.getHealth();
+		AbilityRouter.handleInput(p, 4, true);
+		AbilityRouter.handleInput(p, 4, false);
+		helper.assertFalse(Wolverine.abilityReady(p, WolverineShiftAbilities.PLUNGE), "plain Z: the Plunge, its own cooldown");
+		helper.assertTrue(Wolverine.state(p).chargeStartedAt == 0L, "plain Z does not charge the Execution");
+		helper.runAfterDelay(6, () -> {
+			WolverineScheduler.tick(p); // a mock player never leaves the ground: it slams at once
+			helper.assertTrue(before - z.getHealth() >= WolverineConfig.PLUNGE_DAMAGE - 0.5f,
+					"the slam deals 16, dealt " + (before - z.getHealth()));
+			p.setShiftKeyDown(true);
+			com.projecthero.mod.wolverine.WolverineScheduler.clear(p.getUUID());
+			AbilityRouter.handleInput(p, 4, true);
+			helper.assertTrue(Wolverine.state(p).chargeStartedAt != 0L, "Shift+Z charges the Adamantium Execution");
+			helper.assertTrue(Wolverine.abilityReady(p, WolverineAbilities.EXECUTION), "the Execution has its own cooldown");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shiftVIsBleedFlurry(GameTestHelper helper) {
+		ServerPlayer p = sneakingWolverine(helper);
+		Zombie z = zombieInFront(helper, p, 2.0);
+		float before = z.getHealth();
+		AbilityRouter.handleInput(p, 5, true);
+		WolverineScheduler.tick(p); // the first slash is due now
+		helper.assertTrue(before - z.getHealth() >= WolverineConfig.FLURRY_DAMAGE - 0.5f, "a slash hits for 5, dealt " + (before - z.getHealth()));
+		helper.assertFalse(Wolverine.abilityReady(p, WolverineShiftAbilities.FLURRY), "its own cooldown runs");
+		helper.assertTrue(Wolverine.abilityReady(p, WolverineAbilities.FRENZY), "Frenzy's cooldown is untouched");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shiftCIsFeralRoar(GameTestHelper helper) {
+		ServerPlayer p = sneakingWolverine(helper);
+		Zombie z = zombieInFront(helper, p, 3.0);
+		AbilityRouter.handleInput(p, 6, true);
+		helper.assertTrue(z.hasEffect(net.minecraft.world.effect.MobEffects.WEAKNESS), "the roar weakens enemies nearby");
+		helper.assertFalse(Wolverine.abilityReady(p, WolverineShiftAbilities.ROAR), "its own cooldown runs");
+		helper.assertFalse(Wolverine.raging(p), "it is not the Berserker Rage");
 		helper.succeed();
 	}
 

@@ -43,6 +43,26 @@ reuses Super Regeneration's base heal tick and debuff-shortening mixin and scale
 > - **Sniff sound:** `WolverineSounds.SNIFF` (`projecthero:wolverine_sniff`, 3 synthesised takes
 >   `sounds/wolverine/sniff1..3.ogg`, from `scratchpad/synth_wolverine_sniff.js` + ffmpeg) replaces the Sniffer mob noises.
 
+> **v0.16.1 Shift moves (Sneak + the key, each with its own cooldown; `WolverineShiftAbilities`, numbers in
+> `WolverineConfig`):** current keys --
+>
+> | Key | Move | Shift+Key | Move |
+> |---|---|---|---|
+> | R | Claw Slash | Shift+R | Rising Uppercut: 14 + launch, 4 s |
+> | G | Cross Slash | Shift+G | Whirlwind: 2 full-body spins, 10 each in 3.5 blocks, 7 s |
+> | X | Claw Dash (now trails both claw tips through the leap) | Shift+X | Pounce: leap onto the aimed enemy (14), pin 1.5 s (not bosses, max HP >= 150), 3 rakes of 6, 10 s |
+> | Z | **Berserker Plunge** (moved here): jump, slam 16 in 3 blocks + knock-up + shockwave ring, 12 s | Shift+Z | **Adamantium Execution** (moved from plain Z, unchanged: hold 5 s, release) |
+> | V | Frenzy | Shift+V | Bleed Flurry: 6 slashes x 5 in a cone + laceration 1/s for 4 s (steel-blue flecks), 12 s |
+> | C | Berserker Rage (rage bar) | Shift+C | Feral Roar: knockback + Weakness I 5 s within 6, shockwave ring, 20 s |
+>
+> Routing in `WolverineAbilityManager.handle` (sneak checked at the press; a Z release always goes to the Execution's
+> release). Animations: synced action stamps 11-18 (`WolverineShiftAbilities.ACT_*`) map to `WolverineClawPose` kinds
+> UPPER / WHIRL (the whole body spins via `PlayerRendererMixin` + `spinDegrees`) / LEAP / PLUNGE / SLAM, the flurry and
+> the pounce rakes reuse DIAG at 2.6x / 2x, Feral Roar reuses ROAR. HUD: each box has a thin Shift-cooldown bar; Alt
+> lists "Move / Shift: Move". Gametests: one per Shift move (damage, own cooldown, sneak routing). Note: Plunge / Pounce
+> poll on `WolverineScheduler`, so Shift+Z (whose charge waits for no pending tasks) can't start for up to 3 s after
+> one of them.
+
 > **v0.16.1 deploy v3:** the motion is now forearms raised in front of the face (fists at eye height, 5 t), then
 > thrown down and out to his sides (arms angled down/out from the hips, chest out) as the blades pop at 9.5 t, settle
 > by 20 t; first person mirrors it (fists up in view, then down to the lower edges). Everything else as v2.
