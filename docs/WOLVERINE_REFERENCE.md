@@ -43,6 +43,10 @@ reuses Super Regeneration's base heal tick and debuff-shortening mixin and scale
 > - **Sniff sound:** `WolverineSounds.SNIFF` (`projecthero:wolverine_sniff`, 3 synthesised takes
 >   `sounds/wolverine/sniff1..3.ogg`, from `scratchpad/synth_wolverine_sniff.js` + ffmpeg) replaces the Sniffer mob noises.
 
+> **v0.16.1 deploy v3:** the motion is now forearms raised in front of the face (fists at eye height, 5 t), then
+> thrown down and out to his sides (arms angled down/out from the hips, chest out) as the blades pop at 9.5 t, settle
+> by 20 t; first person mirrors it (fists up in view, then down to the lower edges). Everything else as v2.
+
 > **v0.16.1 deploy v2:** H only (`Wolverine.setClaws(player, out, manual)`; `toggleClaws` passes manual): fists in to
 > the chest (4.5 t), arms thrown out to the sides (9.5 t, blades pop: `DEPLOY_DELAY_TICKS` 5.5 + extend 4, snikt
 > scheduled at `CLAW_POP_TICKS` 9 via `WolverineScheduler`), settle by 20 t. Arm roll is the natural one per pose

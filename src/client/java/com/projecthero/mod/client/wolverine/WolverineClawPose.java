@@ -313,16 +313,15 @@ public final class WolverineClawPose {
 			k(20.0f, SMOOTH, 0.0f, -0.2f, v(-0.85f, 0.5f, 0.1f), v(0, 1, 0), v(0.85f, 0.5f, 0.1f), v(0, 1, 0), 0, 0, -0.55f));
 
 	/**
-	 * H (manual only), claws out: both fists brought in to the chest, knuckles forward (~4.5 ticks), then thrown out to the
-	 * sides with the chest out and head back -- the blades pop out of the backs of the fists as the arms reach full
-	 * extension (~9.5 ticks) -- then he settles. Arm roll is the natural one for each pose (edge inward at the chest,
-	 * down when the arm is raised sideways) so the fists never read upside down; the arm points a touch above level so
-	 * the claws come out outward and slightly up.
+	 * H (manual only), claws out: both forearms brought up in front of the face, fists at eye height, knuckles forward
+	 * (~5 ticks), then thrown down and out to his sides -- arms angled down and slightly out from the hips, chest out --
+	 * the blades popping out at the end of the throw (~9.5 ticks), pointing down and outward; then he settles. Arm roll is
+	 * the natural one for each pose (blade edge inward), so the fists never read upside down.
 	 */
 	private static final Clip DEPLOY = new Clip(DEPLOY_TICKS, 1.5f,
-			k(4.5f, SMOOTH, 0.0f, 0.12f, v(0.55f, 0.3f, -0.78f), v(1, 0, 0), v(-0.55f, 0.3f, -0.78f), v(-1, 0, 0), 0, 0, 0.1f),
-			k(9.5f, SNAP, 0.0f, -0.15f, v(-0.97f, -0.18f, 0.08f), v(0, 1, 0), v(0.97f, -0.18f, 0.08f), v(0, 1, 0), 0, 0, -0.4f),
-			k(12.5f, SMOOTH, 0.0f, -0.12f, v(-0.96f, -0.1f, 0.1f), v(0, 1, 0), v(0.96f, -0.1f, 0.1f), v(0, 1, 0), 0, 0, -0.3f));
+			k(5.0f, SMOOTH, 0.0f, 0.05f, v(0.32f, -0.6f, -0.73f), v(1, 0, 0), v(-0.32f, -0.6f, -0.73f), v(-1, 0, 0), 0, 0, NO),
+			k(9.5f, SNAP, 0.0f, -0.12f, v(-0.45f, 0.88f, -0.14f), v(1, 0.3f, 0), v(0.45f, 0.88f, -0.14f), v(-1, 0.3f, 0), 0, 0, -0.15f),
+			k(13.0f, SMOOTH, 0.0f, -0.08f, v(-0.4f, 0.9f, -0.12f), v(1, 0.3f, 0), v(0.4f, 0.9f, -0.12f), v(-1, 0.3f, 0), 0, 0, -0.1f));
 
 	private static final Map<Kind, Clip> MIRRORED = new EnumMap<>(Kind.class);
 
@@ -588,11 +587,11 @@ public final class WolverineClawPose {
 	private static final FClip F_CHARGE = new FClip(CHARGE_HOLD, 3.0f, true,
 			fk(0.0f, SMOOTH, new float[] {0.0f, -0.15f, 0.15f, 12.0f, 0.0f, 0.0f}, null),
 			fk(CHARGE_HOLD - 1.0f, SMOOTH, new float[] {0.0f, -0.15f, 0.15f, 12.0f, 0.0f, 0.0f}, null));
-	/** H deploy, first person: fists pulled in low to the middle, then flung out to the screen edges as the claws pop. */
+	/** H deploy, first person: fists raised in front of the face, then thrown down and out to the lower screen edges as the claws pop. */
 	private static final FClip F_DEPLOY = new FClip(DEPLOY_TICKS, 1.0f, true,
-			fk(4.5f, SMOOTH, new float[] {-0.2f, -0.04f, 0.1f, 0.0f, 15.0f, 0.0f}, null),
-			fk(9.5f, SNAP, new float[] {0.28f, 0.2f, 0.02f, 18.0f, -18.0f, 0.0f}, null),
-			fk(12.5f, SMOOTH, new float[] {0.25f, 0.16f, 0.03f, 15.0f, -15.0f, 0.0f}, null));
+			fk(5.0f, SMOOTH, new float[] {-0.22f, 0.32f, 0.04f, 25.0f, 18.0f, 0.0f}, null),
+			fk(9.5f, SNAP, new float[] {0.22f, -0.12f, 0.04f, -12.0f, -14.0f, 0.0f}, null),
+			fk(13.0f, SMOOTH, new float[] {0.18f, -0.08f, 0.04f, -8.0f, -10.0f, 0.0f}, null));
 
 	private static FClip fclip(Kind kind) {
 		return switch (kind) {

@@ -41,7 +41,7 @@ if (want('m1')) {
 	for (let k = 1; k <= 3; k++) sheet(`wolv_m1_strike${k}_sheet.png`, views.map(v => frames(`m1_s${k}`, v)));
 }
 if (want('deploy')) {
-	sheet('wolv_deploy_sheet_v2.png', views.map(v => frames('deploy', v, 6)));
+	sheet('wolv_deploy_sheet_v3.png', views.map(v => frames('deploy', v, 6)));
 }
 // abilities, 3/4 view: one row each -- R sweep, G cross slash, V frenzy, Z charge, Z strike, C roar
 if (want('abil')) sheet('wolv_abilities_sheet.png', ['abil_R', 'abil_G', 'abil_V', 'abil_Zcharge', 'abil_Z', 'abil_C'].map(n => Array.from({ length: 5 }, (_, i) => 'v0161s_' + n + '_' + i + '.png')));
