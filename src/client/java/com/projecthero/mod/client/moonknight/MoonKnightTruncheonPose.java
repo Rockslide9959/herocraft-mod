@@ -162,7 +162,6 @@ public final class MoonKnightTruncheonPose {
 		m.leftArm.xRot = Mth.lerp(w, m.leftArm.xRot, v[4]);
 		m.leftArm.yRot = Mth.lerp(w, m.leftArm.yRot, v[5]);
 		m.leftArm.zRot = Mth.lerp(w, m.leftArm.zRot, v[6]);
-		m.body.xRot = Mth.lerp(w, m.body.xRot, v[7]);
 		m.body.yRot = Mth.lerp(w, m.body.yRot, v[8]);
 		m.rightLeg.xRot = Mth.lerp(w, m.rightLeg.xRot, m.rightLeg.xRot * 0.3f + v[9]);
 		m.leftLeg.xRot = Mth.lerp(w, m.leftLeg.xRot, m.leftLeg.xRot * 0.3f + v[10]);
@@ -174,6 +173,9 @@ public final class MoonKnightTruncheonPose {
 		m.rightArm.x = -Mth.cos(bodyY) * 5.0f;
 		m.leftArm.z = -Mth.sin(bodyY) * 5.0f;
 		m.leftArm.x = Mth.cos(bodyY) * 5.0f;
+		// v0.16.1: bend from the hips (after the shoulder twist, which places the arms absolutely), so the bottom of the
+		// torso stays on the legs
+		com.projecthero.mod.client.HipBend.pitch(m, w, v[7]);
 	}
 
 	/** The staff spin's whole-body turn right now, in degrees (0 when not spinning). Every viewer. */

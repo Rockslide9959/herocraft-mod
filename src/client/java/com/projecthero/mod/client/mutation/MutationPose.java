@@ -145,7 +145,8 @@ public final class MutationPose {
 		m.leftArm.xRot = Mth.lerp(w, m.leftArm.xRot, channel(p, 4, aimX));
 		m.leftArm.yRot = Mth.lerp(w, m.leftArm.yRot, channel(p, 5, aimY + 0.08f));
 		m.leftArm.zRot = Mth.lerp(w, m.leftArm.zRot, p[6]);
-		m.body.xRot = Mth.lerp(w, m.body.xRot, p[7]);
+		// v0.16.1: bend from the hips, so the bottom of the torso stays on the legs
+		com.projecthero.mod.client.HipBend.pitch(m, w, p[7]);
 		m.body.yRot = Mth.lerp(w, m.body.yRot, p[8]);
 		m.rightLeg.xRot = Mth.lerp(w, m.rightLeg.xRot, p[9]);
 		m.leftLeg.xRot = Mth.lerp(w, m.leftLeg.xRot, p[10]);

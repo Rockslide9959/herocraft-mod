@@ -92,7 +92,7 @@ public final class IronManAbilityPose {
 				float kick = t < 6 ? (6 - t) / 6f * 0.55f : 0f;
 				set(m.rightArm, w, aimX - kick, aimY - 0.18f, 0f);
 				set(m.leftArm, w, aimX - kick, aimY + 0.18f, 0f);
-				m.body.xRot = Mth.lerp(w, m.body.xRot, -kick * 0.3f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, -kick * 0.3f);
 			}
 			case IronManAbilityFx.CHARGING -> {
 				float tremble = Mth.sin(ageInTicks * 2.1f) * 0.02f;
@@ -106,7 +106,7 @@ public final class IronManAbilityPose {
 			case IronManAbilityFx.UNIBEAM -> {
 				set(m.rightArm, w, 0.55f, 0f, 0.45f);
 				set(m.leftArm, w, 0.55f, 0f, -0.45f);
-				m.body.xRot = Mth.lerp(w, m.body.xRot, -0.12f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, -0.12f);
 			}
 			case IronManAbilityFx.FLAME, IronManAbilityFx.LASER -> set(m.rightArm, w, aimX, aimY - 0.05f, 0f);
 			case IronManAbilityFx.ROCKET -> {
@@ -132,18 +132,18 @@ public final class IronManAbilityPose {
 				float recoil = Mth.sin(ageInTicks * 3.3f) * 0.04f;
 				set(m.rightArm, w, aimX + recoil, aimY - 0.12f, 0f);
 				set(m.leftArm, w, aimX - recoil, aimY + 0.12f, 0f);
-				m.body.xRot = Mth.lerp(w, m.body.xRot, 0.04f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, 0.04f);
 			}
 			case IronManAbilityFx.MISSILES -> {
 				set(m.rightArm, w, 0.25f, 0f, 0.55f);
 				set(m.leftArm, w, 0.25f, 0f, -0.55f);
-				m.body.xRot = Mth.lerp(w, m.body.xRot, -0.05f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, -0.05f);
 			}
 			case IronManAbilityFx.DASH -> {
 				// v0.14.27: palms thrown back like thrusters, body leaning hard into the dash
 				set(m.rightArm, w, 0.45f, 0f, 0.35f);
 				set(m.leftArm, w, 0.45f, 0f, -0.35f);
-				m.body.xRot = Mth.lerp(w, m.body.xRot, 0.35f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, 0.35f);
 			}
 			case IronManAbilityFx.SONIC_CLAP -> {
 				// v0.14.27: arms flung wide, then slammed together in front
@@ -165,7 +165,7 @@ public final class IronManAbilityPose {
 					float k = Mth.clamp((t - 2f) / 2f, 0f, 1f);
 					set(m.rightArm, w, Mth.lerp(k, -2.9f, -0.35f), 0f, Mth.lerp(k, 0.15f, 0.05f));
 					set(m.leftArm, w, Mth.lerp(k, -2.9f, -0.35f), 0f, Mth.lerp(k, -0.15f, -0.05f));
-					m.body.xRot = Mth.lerp(w, m.body.xRot, 0.25f * k);
+					com.projecthero.mod.client.HipBend.pitch(m, w, 0.25f * k);
 					m.head.xRot = Mth.lerp(w * k, m.head.xRot, 0.35f);
 				}
 			}
