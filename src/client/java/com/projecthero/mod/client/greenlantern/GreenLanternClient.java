@@ -17,6 +17,10 @@ public final class GreenLanternClient {
 		GreenLanternFlightFx.initialize(); // v0.15.15: flight aura + sprint-flight trail
 		GreenLanternOathSubtitle.initialize(); // v0.15.15: the Oath as a centred subtitle (was the action bar)
 		PowerBatteryHeldRenderer.initialize(); // v0.15.15: the battery hanging from the hand, swaying; the charge glow
+		// v0.16.1: the Sniper Rifle construct -- attack / use input and the hard-light scope
+		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(GreenLanternSniperClient::clientTick);
+		net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register(
+				com.projecthero.mod.client.gui.GreenLanternScopeOverlay::render);
 		// the hard-light construct blocks and the Power Battery's glass barrel are translucent
 		BlockRenderLayerMap.INSTANCE.putBlocks(RenderType.translucent(), GreenLanternBlocks.HARD_LIGHT,
 				GreenLanternBlocks.HARD_LIGHT_STAIRS, GreenLanternBlocks.HARD_LIGHT_LAMP, GreenLanternBlocks.POWER_BATTERY);

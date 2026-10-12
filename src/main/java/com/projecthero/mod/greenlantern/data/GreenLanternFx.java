@@ -29,6 +29,10 @@ public record GreenLanternFx(int anim, long animStart, int channels, long ringRe
 	public static final int ANIM_BLAST = 11;
 	/** v0.15.15: the Power Battery charge just completed -- the ring fist thrown up in a flash. */
 	public static final int ANIM_CHARGED = 12;
+	/** v0.16.1: the Sniper Rifle started charging a shot (animStart = when; the barrel brightens over the charge). */
+	public static final int ANIM_SNIPER_CHARGE = 13;
+	/** v0.16.1: the Sniper Rifle just fired -- the recoil kick. */
+	public static final int ANIM_SNIPER_SHOT = 14;
 
 	/** Continuous Beam is being channelled. */
 	public static final int CH_BEAM = 1;
@@ -40,6 +44,8 @@ public record GreenLanternFx(int anim, long animStart, int channels, long ringRe
 	public static final int CH_RING_REMOVE = 8;
 	/** v0.15.15: charging the ring at the Power Battery held in the off hand (since {@link #chargeStart}). */
 	public static final int CH_CHARGE = 16;
+	/** v0.16.1: looking down the Sniper Rifle's scope (the rifle raised to the eye). */
+	public static final int CH_SNIPER_SCOPE = 32;
 
 	public static final GreenLanternFx EMPTY = new GreenLanternFx(ANIM_NONE, 0L, 0, 0L, 0L);
 

@@ -168,7 +168,7 @@ public final class GreenLanternConstructAttacks {
 	}
 
 	/** The first creature the segment {@code from -> to} passes within {@code radius} of, not already in {@code skip}. */
-	private static LivingEntity firstAlong(ServerLevel level, ServerPlayer owner, Vec3 from, Vec3 to, double radius,
+	static LivingEntity firstAlong(ServerLevel level, ServerPlayer owner, Vec3 from, Vec3 to, double radius,
 			java.util.Set<Integer> skip) {
 		LivingEntity best = null;
 		double bestD = Double.MAX_VALUE;
@@ -191,7 +191,7 @@ public final class GreenLanternConstructAttacks {
 		return best;
 	}
 
-	private static BlockHitResult clip(ServerLevel level, Vec3 from, Vec3 to, Entity ctx) {
+	static BlockHitResult clip(ServerLevel level, Vec3 from, Vec3 to, Entity ctx) {
 		return level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, ctx));
 	}
 
@@ -1170,7 +1170,7 @@ public final class GreenLanternConstructAttacks {
 		ServerPlayer owner = owner(e);
 		Shape shape = e.shape();
 		if (owner == null) {
-			if (shape != Shape.BOLT) {
+			if (shape != Shape.BOLT && shape != Shape.SNIPER_BOLT) {
 				e.discard();
 			}
 			return;

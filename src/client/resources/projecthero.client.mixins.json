@@ -22,6 +22,7 @@
 		"ClientLevelMixin",
 		"EntityGlowMixin",
 		"FirearmAttackMixin",
+		"GreenLanternSniperInputMixin",
 		"FogRendererMixin",
 		"GunFovMixin",
 		"GunAdsFovMixin",

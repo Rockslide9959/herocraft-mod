@@ -128,6 +128,8 @@ public final class GreenLanternConstructs {
 	/** Hand-construct bitmask bits for {@link ModAttachments#GREEN_LANTERN_HAND_CONSTRUCTS}. */
 	public static final int HAND_BLADE = 1;
 	public static final int HAND_DRILL = 2;
+	/** v0.16.1: the Sniper Rifle is out ({@link com.projecthero.mod.greenlantern.GreenLanternSniper}). */
+	public static final int HAND_SNIPER = 4;
 
 	private GreenLanternConstructs() {
 	}
@@ -198,6 +200,7 @@ public final class GreenLanternConstructs {
 
 	public static void clearSessionState() {
 		GreenLanternRingLight.clearSessionState(); // v0.15.9
+		com.projecthero.mod.greenlantern.GreenLanternSniper.clearSessionState(); // v0.16.1
 		BY_OWNER.clear();
 		RESCUE_HELD.clear();
 		RESCUE_BUBBLE.clear();
@@ -228,6 +231,11 @@ public final class GreenLanternConstructs {
 	private static Construct cellOwner(Level level, BlockPos pos) {
 		Map<BlockPos, Construct> cells = CELL_INDEX.get(level.dimension());
 		return cells == null ? null : cells.get(pos);
+	}
+
+	/** v0.16.1: whether {@code owner} has a live construct of {@code type} (the Sniper Rifle checks this). */
+	public static boolean hasActive(UUID owner, ConstructType type) {
+		return firstOfType(owner, type) != null;
 	}
 
 	private static Construct firstOfType(UUID owner, ConstructType type) {
@@ -292,6 +300,9 @@ public final class GreenLanternConstructs {
 			if (c.toggledOn && c.type == ConstructType.MINING_DRILL) {
 				mask |= HAND_DRILL;
 			}
+			if (c.type == ConstructType.SNIPER_RIFLE) {
+				mask |= HAND_SNIPER;
+			}
 		}
 		if (player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_HAND_CONSTRUCTS, 0) != mask) {
 			player.setAttached(ModAttachments.GREEN_LANTERN_HAND_CONSTRUCTS, mask);
@@ -332,6 +343,16 @@ public final class GreenLanternConstructs {
 				dismissOne(lit, false);
 				player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_DEACTIVATE,
 						SoundSource.PLAYERS, 0.5f, 1.2f);
+				return;
+			}
+		}
+		// v0.16.1: C again puts the Sniper Rifle away (free)
+		if (type.kind() == ConstructType.Kind.HELD_WEAPON) {
+			Construct out = firstOfType(player.getUUID(), type);
+			if (out != null) {
+				dismissOne(out, false);
+				player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_DEACTIVATE,
+						SoundSource.PLAYERS, 0.5f, 1.6f);
 				return;
 			}
 		}
@@ -395,6 +416,7 @@ public final class GreenLanternConstructs {
 			case BUBBLE -> c.radius = GreenLanternConfig.BUBBLE_RADIUS;
 			case DRILL -> {} // marker only
 			case TOOL_KIT -> spawnToolKit(player, c);
+			case HELD_WEAPON -> c.toggledOn = true; // v0.16.1: the Sniper Rifle is out the moment it is shaped
 			default -> {}
 		}
 		boolean usesBlocks = type.kind() == ConstructType.Kind.WALL || type.kind() == ConstructType.Kind.PLATFORM_BLOCKS
@@ -417,6 +439,9 @@ public final class GreenLanternConstructs {
 		startBuild(c);
 		if (type.kind() == ConstructType.Kind.TURRET) {
 			spawnTurretDisplays(c);
+		}
+		if (type.kind() == ConstructType.Kind.HELD_WEAPON) {
+			syncHandConstructs(player); // v0.16.1: every client draws the rifle in the ring hand
 		}
 		emitDeployGlow(player);
 		if (isAimed(type)) {
@@ -1522,6 +1547,11 @@ public final class GreenLanternConstructs {
 		if (c.type == ConstructType.CARRY_PLATFORM) {
 			removeCarrySeats(c);
 		}
+		if (c.type.kind() == ConstructType.Kind.HELD_WEAPON) {
+			MinecraftServer server = c.level.getServer();
+			com.projecthero.mod.greenlantern.GreenLanternSniper.onPutAway(c.owner,
+					server == null ? null : server.getPlayerList().getPlayer(c.owner));
+		}
 		if (c.type.kind() == ConstructType.Kind.RING_LIGHT) {
 			MinecraftServer server = c.level.getServer();
 			GreenLanternRingLight.stop(c.owner, server, server == null ? null : server.getPlayerList().getPlayer(c.owner));
@@ -1704,6 +1734,7 @@ public final class GreenLanternConstructs {
 			case BUBBLE -> tickBubble(owner, c, now);
 			case DRILL -> tickDrill(owner, c);
 			case MELEE_BUFF -> tickEnergyBlade(owner, c);
+			case HELD_WEAPON -> com.projecthero.mod.greenlantern.GreenLanternSniper.tick(owner); // v0.16.1
 			case RING_LIGHT -> {
 				GreenLanternRingLight.tick(owner);
 			}

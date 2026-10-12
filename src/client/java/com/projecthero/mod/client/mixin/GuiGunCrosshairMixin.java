@@ -16,7 +16,8 @@ import net.minecraft.client.gui.GuiGraphics;
 public abstract class GuiGunCrosshairMixin {
 	@Inject(method = "renderCrosshair", at = @At("HEAD"), cancellable = true)
 	private void projecthero$hideWhenAiming(GuiGraphics graphics, DeltaTracker delta, CallbackInfo ci) {
-		if (FirearmClient.hidesCrosshair()) {
+		// v0.16.1: the Green Lantern scope draws its own reticle
+		if (FirearmClient.hidesCrosshair() || com.projecthero.mod.client.greenlantern.GreenLanternSniperClient.scopedFirstPerson()) {
 			ci.cancel();
 		}
 	}

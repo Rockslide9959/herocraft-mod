@@ -667,6 +667,9 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.green_lantern.constructs");
 			para(lines, "projecthero.guide.green_lantern.constructs.body");
 			blank(lines);
+			head(lines, "projecthero.guide.green_lantern.sniper"); // v0.16.1
+			para(lines, "projecthero.guide.green_lantern.sniper.body");
+			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.battery");
 			para(lines, "projecthero.guide.green_lantern.battery.body");
 		}));

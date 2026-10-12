@@ -77,6 +77,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(ThorLightningArcPayload.TYPE, ThorLightningArcPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(GreenLanternConstructSelectPayload.TYPE, GreenLanternConstructSelectPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(GreenLanternActionPayload.TYPE, GreenLanternActionPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(GreenLanternSniperPayload.TYPE, GreenLanternSniperPayload.CODEC); // v0.16.1
 		PayloadTypeRegistry.playS2C().register(GreenLanternRingScanPayload.TYPE, GreenLanternRingScanPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(GreenLanternTrialPromptPayload.TYPE, GreenLanternTrialPromptPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SymbioteBondGamePayload.TYPE, SymbioteBondGamePayload.CODEC);
@@ -295,6 +296,16 @@ public final class ModNetworking {
 		// Green Lantern construct wheel: the player picked a construct type (hold C).
 		ServerPlayNetworking.registerGlobalReceiver(GreenLanternConstructSelectPayload.TYPE, (payload, context) ->
 				com.projecthero.mod.greenlantern.GreenLanternAbilityManager.selectConstruct(context.player(), payload.ordinal()));
+
+		// v0.16.1: Green Lantern Sniper Rifle construct -- attack charges / fires, right-click scopes.
+		ServerPlayNetworking.registerGlobalReceiver(GreenLanternSniperPayload.TYPE, (payload, context) -> {
+			switch (payload.action()) {
+				case CHARGE_START -> com.projecthero.mod.greenlantern.GreenLanternSniper.chargeStart(context.player());
+				case FIRE -> com.projecthero.mod.greenlantern.GreenLanternSniper.release(context.player());
+				case SCOPE_ON -> com.projecthero.mod.greenlantern.GreenLanternSniper.setScoped(context.player(), true);
+				case SCOPE_OFF -> com.projecthero.mod.greenlantern.GreenLanternSniper.setScoped(context.player(), false);
+			}
+		});
 
 		// Symbiote bonding minigame result (v0.12.25): the server replays the press ticks against its own seed.
 		ServerPlayNetworking.registerGlobalReceiver(SymbioteBondResultPayload.TYPE, (payload, context) ->

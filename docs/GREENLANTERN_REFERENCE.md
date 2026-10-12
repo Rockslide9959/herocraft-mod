@@ -686,3 +686,39 @@ Giant Hand moves to V".
   (refills while cooling, bright when ready; peak-tracked). CHARGING tag; the barrier label reads BUBBLE.
 - I-key page fix: the N row showed the construct text (a `case "N"` hidden behind a comment).
 - Gametests: `V01515Gl2GameTests`. Screenshots: main repo `scratchpad/shots_v01515/gl2/` (harness sources there too).
+
+## v0.16.1 -- Sniper Rifle construct
+
+A new wheel construct (`ConstructType.SNIPER_RIFLE`, appended so saved selections keep their ordinals; new
+`Kind.HELD_WEAPON`; Attack arc; icon = cell 19 of `textures/gui/green_lantern/constructs.png`).
+
+- **Forming / putting away**: C forms it (`SNIPER_FORM_COST` 20, then `SNIPER_UPKEEP_PER_SEC` 1/s); C again dismisses it
+  for free. It is an ordinary tracked `Construct` (marker, no cells), so N, death, logout, dimension change and an empty
+  ring end it like everything else. `GreenLanternConstructs.HAND_SNIPER` (4) in `GREEN_LANTERN_HAND_CONSTRUCTS` tells
+  every client to draw it; `end()` calls `GreenLanternSniper.onPutAway` (drops a charge in progress + the scope channel).
+- **Input** (`client/greenlantern/GreenLanternSniperClient` + `GreenLanternSniperInputMixin`): while the rifle is out
+  (and no real firearm is in the hand) vanilla `startAttack` / `continueAttack` / `startUseItem` are cancelled; attack
+  down / up and use held / released go to the server as `GreenLanternSniperPayload` (CHARGE_START / FIRE / SCOPE_ON /
+  SCOPE_OFF).
+- **Shot** (`GreenLanternSniper.fire`): needs the rifle out, the `construct_sniper` cooldown ready and
+  `SNIPER_SHOT_COST` (25, through `GreenLanternEnergy.spend`, so the emergency reserve is untouchable and the Oath
+  doubles it). Hit-scan along the look out to `SNIPER_RANGE` (120): `SNIPER_DAMAGE` (22) at a full
+  `SNIPER_FULL_CHARGE_TICKS` (15 = 0.75 s) charge, `SNIPER_MIN_CHARGE_FRACTION` (35%) tapped, times the Oath multiplier,
+  via `AbilityHelpers.hurtBurst` (`HeroTargets` rules: no squadmates / pets). Knockback scales with charge.
+  `SNIPER_COOLDOWN_TICKS` (20) between shots. A refused shot spends nothing and starts no cooldown.
+- **Look**: one `HardLightConstructEntity.Shape.SNIPER_BOLT` at the muzzle (tracked by the shooter even when the impact
+  is 120 blocks off) -- a white-hot head racing to the impact over 2.5 ticks, a thick tracer that thins and fades, and
+  an impact flash (white core, additive + translucent expanding shells, a shock ring); plus a forced particle burst at
+  the impact for every player within 200 blocks. The rifle model is drawn in the arm's pixel space by
+  `GreenLanternHandRenderer.sniper` (stock under the forearm, grip in the fist, receiver, magazine, shrouded barrel,
+  muzzle brake, scope on top; energy cells and muzzle brighten over `ANIM_SNIPER_CHARGE`, a shot kicks it back via
+  `ANIM_SNIPER_SHOT`). `GreenLanternPose`: ring arm along the aim, free hand under the barrel; scoped
+  (`CH_SNIPER_SCOPE` = 32) braces the stance.
+- **Scope** (`client/gui/GreenLanternScopeOverlay`): first person only -- a deep translucent green tube, glowing rim,
+  green duplex reticle with a hollow diamond centre, a 24-point charge ring that fills and pulses at full charge,
+  READY / CHARGING / FULL CHARGE / cooldown, 5x. Zoom (`SNIPER_SCOPE_FOV` 0.2) and slower look
+  (`SNIPER_SCOPE_SENSITIVITY` 0.35) ride the existing `GunFovMixin` / `MouseHandlerMixin`; the crosshair is hidden
+  (`GuiGunCrosshairMixin`).
+- **HUD**: a Sniper Rifle line + Hairline bar above the title rows while it is out (charge / cooldown / READY).
+- Gametests: `V0161PunisherGlGameTests` (forms / puts away, long-range hit + cost + cooldown, tapped shot weaker,
+  refused without charge, charge-and-release input path; shots go straight up with `skyAccess = true`).

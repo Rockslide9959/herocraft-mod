@@ -378,6 +378,29 @@ public final class GreenLanternConfig {
 	public static final int GATLING_MAX_TICKS = 8 * 20;
 	public static final int GATLING_COOLDOWN_TICKS = 3 * 20;
 
+	/**
+	 * v0.16.1 -- the Sniper Rifle construct (the wheel, C): a hard-light rifle in the ring hand. C forms it (and puts it
+	 * away again); right-click scopes in, holding attack charges a shot and letting go fires a hit-scan bolt.
+	 */
+	public static final float SNIPER_FORM_COST = 20f;
+	/** While the rifle is out. */
+	public static final float SNIPER_UPKEEP_PER_SEC = 1f;
+	public static final int SNIPER_SLOT_WEIGHT = 1;
+	/** Ring Charge per shot (full or not). */
+	public static final float SNIPER_SHOT_COST = 25f;
+	/** A fully charged bolt; the Oath multiplier applies on top. */
+	public static final float SNIPER_DAMAGE = 22f;
+	/** An uncharged (tapped) shot does this fraction of {@link #SNIPER_DAMAGE}, rising to all of it over the charge. */
+	public static final float SNIPER_MIN_CHARGE_FRACTION = 0.35f;
+	public static final int SNIPER_FULL_CHARGE_TICKS = 15; // 0.75 s
+	public static final int SNIPER_COOLDOWN_TICKS = 20; // 1 s between shots
+	public static final double SNIPER_RANGE = 120.0;
+	public static final double SNIPER_KNOCKBACK = 0.6;
+	/** FOV multiplier while scoped (about 5x). */
+	public static final float SNIPER_SCOPE_FOV = 0.2f;
+	/** Mouse-look sensitivity multiplier while scoped. */
+	public static final float SNIPER_SCOPE_SENSITIVITY = 0.35f;
+
 	/** Shift+C -- Missile Barrage: homing hard-light missiles at everything hostile in front of you. */
 	public static final int MISSILE_COUNT = 6;
 	public static final float MISSILE_DAMAGE = 12f;

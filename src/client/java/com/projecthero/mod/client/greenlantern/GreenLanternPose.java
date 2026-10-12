@@ -216,6 +216,29 @@ public final class GreenLanternPose {
 				return;
 			}
 		}
+		if ((player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_HAND_CONSTRUCTS, 0)
+				& com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.HAND_SNIPER) != 0) {
+			// v0.16.1: the Sniper Rifle -- the ring arm levelled along the aim, the free hand under the barrel; scoped, the
+			// head drops to the scope and the stance braces; each shot kicks the arms up
+			boolean scoped = fx.has(GreenLanternFx.CH_SNIPER_SCOPE);
+			float kick = 0f;
+			if (fx.anim() == GreenLanternFx.ANIM_SNIPER_SHOT) {
+				float since = now - fx.animStart() + partial;
+				kick = since < 6f ? 1f - since / 6f : 0f;
+			}
+			aimRight(m, 1f, 0f);
+			m.rightArm.xRot -= 0.3f * kick;
+			m.leftArm.xRot = -HALF_PI + m.head.xRot + 0.08f - 0.3f * kick;
+			m.leftArm.yRot = m.head.yRot + (scoped ? 0.45f : 0.55f);
+			m.leftArm.zRot = 0f;
+			if (scoped) {
+				m.rightArm.yRot -= 0.12f;
+				m.body.yRot = -0.12f;
+				m.rightLeg.xRot = m.rightLeg.xRot * 0.3f - 0.2f;
+				m.leftLeg.xRot = m.leftLeg.xRot * 0.3f + 0.2f;
+			}
+			return;
+		}
 		if (player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_HP, 0f) > 0f
 				&& !player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_BARRIER_IS_DOME, false)) {
 			// Directional Shield: the ring arm braced out in front, holding the shield up

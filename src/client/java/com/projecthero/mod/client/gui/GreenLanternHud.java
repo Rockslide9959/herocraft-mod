@@ -194,6 +194,7 @@ public final class GreenLanternHud {
 
 		// ---- stacked above the title rows
 		labelY = renderRingRemoval(g, mc, fx, now, pt, x0, labelY, totalW);
+		labelY = renderSniper(g, mc, player, pt, x0, labelY, totalW); // v0.16.1
 		labelY = renderShieldHp(g, player, now, x0, labelY, totalW);
 		labelY = renderBarrier(g, mc, player, x0, labelY, totalW);
 		labelY = renderConstructCooldowns(g, mc, player, x0, labelY, totalW);
@@ -257,6 +258,43 @@ public final class GreenLanternHud {
 		g.drawCenteredString(mc.font, label, x0 + w / 2, labelY, GOLD);
 		g.fill(x0, barY, x0 + w, barY + 3, TRACK);
 		g.fill(x0, barY, x0 + Math.round(w * f), barY + 3, GOLD);
+		return labelY - LINE - 2;
+	}
+
+	/**
+	 * v0.16.1: while the Sniper Rifle construct is out -- its name, and on the right READY / CHARGING n% / the seconds until
+	 * the next shot, over a thin bar that fills with the charge (bright once full) or refills over the cooldown.
+	 */
+	private static int renderSniper(GuiGraphics g, Minecraft mc, Player player, float pt, int x0, int topY, int w) {
+		if (!com.projecthero.mod.client.greenlantern.GreenLanternSniperClient.isOut(player)) {
+			return topY;
+		}
+		int cd = GreenLantern.cooldownRemaining(player, com.projecthero.mod.greenlantern.GreenLanternSniper.COOLDOWN_ID);
+		float charge = com.projecthero.mod.client.greenlantern.GreenLanternSniperClient.chargeProgress(pt);
+		Component status;
+		float fill;
+		int colour;
+		if (cd > 0) {
+			status = Component.translatable("hud.projecthero.green_lantern.sniper.cooldown", String.format(java.util.Locale.ROOT, "%.1f", cd / 20f))
+					.withStyle(ChatFormatting.RED);
+			fill = 1f - cd / (float) GreenLanternConfig.SNIPER_COOLDOWN_TICKS;
+			colour = GREEN_DIM;
+		} else if (charge >= 0f) {
+			status = Component.translatable(charge >= 1f ? "hud.projecthero.green_lantern.sniper.charged"
+					: "hud.projecthero.green_lantern.sniper.charging", Math.round(charge * 100f)).withStyle(ChatFormatting.WHITE);
+			fill = charge;
+			colour = charge >= 1f ? 0xFFE8FFEE : GREEN;
+		} else {
+			status = Component.translatable("hud.projecthero.green_lantern.sniper.ready").withStyle(ChatFormatting.GREEN);
+			fill = 1f;
+			colour = GREEN;
+		}
+		int barY = topY + 4;
+		int labelY = barY - 10;
+		g.drawString(mc.font, Component.translatable(ConstructType.SNIPER_RIFLE.translationKey()), x0, labelY, SELECTED, true);
+		g.drawString(mc.font, status, x0 + w - mc.font.width(status), labelY, 0xFFFFFFFF, true);
+		g.fill(x0, barY, x0 + w, barY + 3, TRACK);
+		g.fill(x0, barY, x0 + Math.round(w * Mth.clamp(fill, 0f, 1f)), barY + 3, colour);
 		return labelY - LINE - 2;
 	}
 

@@ -84,6 +84,9 @@ public final class GreenLanternHandRenderer {
 		}
 
 		int hand = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_HAND_CONSTRUCTS, 0);
+		if ((hand & GreenLanternConstructs.HAND_SNIPER) != 0) {
+			sniper(pose, buffers, player, fx, slim == 1 ? -0.5f : -1.0f, ageInTicks);
+		}
 		if ((hand & GreenLanternConstructs.HAND_BLADE) != 0) {
 			BLADES[slim].render(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(LIGHT_TEXTURE)),
 					LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0xDDFFFFFF);
@@ -191,6 +194,90 @@ public final class GreenLanternHandRenderer {
 		}
 		HardLightDraw.part(vc, pose, 0f, 19.6f, 0f, 1.75f, 0.35f, 1.75f, 0.9f);
 		HardLightDraw.glow(vc, pose, 0f, 20.2f, 0f, 0.5f, 0.2f, 0.5f, 0.9f);
+		pose.popPose();
+	}
+
+	/**
+	 * v0.16.1: the Sniper Rifle -- a long hard-light rifle built round the ring fist, in the arm's pixel space (y runs down
+	 * the arm, so the barrel runs on past the knuckles; -z is the top of the arm once it is raised to aim, +z the
+	 * underside). A stock back along the underside of the forearm, the grip in the fist, a receiver and magazine, a long
+	 * shrouded barrel with a muzzle brake, and a scope on top. The energy cells along the barrel and the muzzle brighten as
+	 * a shot charges ({@link GreenLanternFx#ANIM_SNIPER_CHARGE}); a shot kicks the whole rifle back.
+	 */
+	/** v0.16.1 first-person rifle placement (degrees / view-space blocks from the fist). Tuned on screenshots. */
+	public static float FP_SNIPER_YAW = 3f, FP_SNIPER_PITCH = 2f, FP_SNIPER_X = -0.06f, FP_SNIPER_Y = 0.1f, FP_SNIPER_Z = 0.0f,
+			FP_SNIPER_SCALE = 0.85f;
+
+	private static void sniper(PoseStack pose, MultiBufferSource buffers, AbstractClientPlayer player,
+			com.projecthero.mod.greenlantern.data.GreenLanternFx fx, float cx, float age) {
+		com.mojang.blaze3d.vertex.VertexConsumer vc = HardLightDraw.buffer(buffers);
+		long now = player.level().getGameTime();
+		float partial = age - (float) Math.floor(age);
+		float since = now - fx.animStart() + partial;
+		float charge = 0f;
+		if (fx.anim() == com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_SNIPER_CHARGE) {
+			charge = Math.min(1f, since / com.projecthero.mod.greenlantern.GreenLanternConfig.SNIPER_FULL_CHARGE_TICKS);
+		}
+		float kick = 0f;
+		if (fx.anim() == com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_SNIPER_SHOT && since < 6f) {
+			kick = 1f - since / 6f;
+		}
+		boolean firstPerson = HandRing.firstPerson && player == net.minecraft.client.Minecraft.getInstance().player;
+		if (firstPerson && com.projecthero.mod.client.greenlantern.GreenLanternSniperClient.scopedFirstPerson()) {
+			return; // looking down the scope: the overlay is the rifle
+		}
+		pose.pushPose();
+		if (firstPerson) {
+			// first person: vanilla's empty-hand pose points the arm up and across the screen, which would stand the rifle
+			// on end -- keep the fist where it is but level the rifle along the view (barrel forward, scope up), turned a
+			// touch towards the crosshair
+			org.joml.Vector3f fist = pose.last().pose().transformPosition(new org.joml.Vector3f(cx / 16f, 10f / 16f, 0f));
+			org.joml.Matrix3f rot = new org.joml.Matrix3f(
+					-1f, 0f, 0f,   // column 0: local x -> view -x
+					0f, 0f, -1f,   // column 1: local y (down the arm) -> view forward (-z)
+					0f, -1f, 0f);  // column 2: local z (underside) -> view down
+			rot.rotateLocal(Axis.YP.rotationDegrees(FP_SNIPER_YAW));
+			rot.rotateLocal(Axis.XP.rotationDegrees(FP_SNIPER_PITCH));
+			// the first-person hand pass looks down +z here (the stack is turned half round), so flip into it
+			rot.rotateLocal(Axis.YP.rotationDegrees(180f));
+			pose.last().pose().identity().translate(fist.x - FP_SNIPER_X, fist.y + FP_SNIPER_Y, fist.z - FP_SNIPER_Z)
+					.mul(new org.joml.Matrix4f(rot));
+			pose.last().normal().set(rot);
+			pose.scale(FP_SNIPER_SCALE / 16f, FP_SNIPER_SCALE / 16f, FP_SNIPER_SCALE / 16f);
+			pose.translate(0f, -1.6f * kick - 10f, 0f);
+		} else {
+			pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
+			pose.translate(cx, -1.6f * kick, 0f);
+		}
+		// stock along the underside of the forearm, with a butt pad at the elbow
+		if (!firstPerson) { // in first person it would run back into the camera
+			HardLightDraw.part(vc, pose, 0f, 4.6f, 2.7f, 0.7f, 3.8f, 0.8f, 0.85f);
+			HardLightDraw.part(vc, pose, 0f, 0.9f, 2.9f, 0.9f, 0.8f, 1.3f, 0.85f);
+		}
+		// grip in the fist, receiver, magazine underneath
+		HardLightDraw.part(vc, pose, 0f, 9.6f, 0.9f, 0.8f, 1.2f, 1.3f, 0.9f);
+		HardLightDraw.part(vc, pose, 0f, 13.2f, 0f, 1.2f, 3.0f, 1.45f, 0.9f);
+		HardLightDraw.part(vc, pose, 0f, 12.4f, 2.3f, 0.6f, 1.1f, 0.85f, 0.85f);
+		// barrel shroud, barrel, muzzle brake
+		HardLightDraw.part(vc, pose, 0f, 19.4f, 0f, 0.8f, 3.2f, 0.8f, 0.9f);
+		HardLightDraw.part(vc, pose, 0f, 27.0f, 0f, 0.42f, 4.6f, 0.42f, 0.95f);
+		HardLightDraw.part(vc, pose, 0f, 32.0f, 0f, 0.72f, 0.7f, 0.72f, 0.95f);
+		// scope on top: tube, eyepiece and objective bells, two mounts, a glowing lens
+		HardLightDraw.part(vc, pose, 0f, 13.6f, -2.75f, 0.62f, 3.6f, 0.62f, 0.9f);
+		HardLightDraw.part(vc, pose, 0f, 10.0f, -2.75f, 0.85f, 0.5f, 0.85f, 0.9f);
+		HardLightDraw.part(vc, pose, 0f, 17.4f, -2.75f, 0.95f, 0.6f, 0.95f, 0.9f);
+		HardLightDraw.part(vc, pose, 0f, 11.8f, -1.7f, 0.3f, 0.35f, 0.5f, 0.8f);
+		HardLightDraw.part(vc, pose, 0f, 15.6f, -1.7f, 0.3f, 0.35f, 0.5f, 0.8f);
+		HardLightDraw.glow(vc, pose, 0f, 18.05f, -2.75f, 0.6f, 0.08f, 0.6f, 0.8f);
+		// energy cells along the shroud and the muzzle: dim at rest, blazing as the shot charges
+		float breathe = 0.5f + 0.5f * net.minecraft.util.Mth.sin(age * 0.2f);
+		for (int i = 0; i < 3; i++) {
+			HardLightDraw.glow(vc, pose, 0f, 17.4f + i * 2.0f, 0f, 0.45f, 0.22f, 0.86f, 0.25f + 0.15f * breathe + 0.6f * charge);
+		}
+		if (charge > 0f || kick > 0f) {
+			float s = 0.35f + 0.6f * Math.max(charge, kick);
+			HardLightDraw.glow(vc, pose, 0f, 33.2f, 0f, s, s, s, Math.max(charge, kick));
+		}
 		pose.popPose();
 	}
 

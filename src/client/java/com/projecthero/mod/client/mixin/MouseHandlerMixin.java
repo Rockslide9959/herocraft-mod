@@ -34,7 +34,8 @@ public abstract class MouseHandlerMixin {
 			target = "Lnet/minecraft/client/OptionInstance;get()Ljava/lang/Object;", ordinal = 0))
 	private Object projecthero$scopeSensitivity(OptionInstance<?> instance) {
 		Object value = instance.get();
-		float factor = FirearmClient.scopedSensitivityFactor();
+		float factor = Math.min(FirearmClient.scopedSensitivityFactor(),
+				com.projecthero.mod.client.greenlantern.GreenLanternSniperClient.sensitivityFactor()); // v0.16.1
 		if (factor < 1.0f && value instanceof Double d) {
 			return (Double) (d * factor);
 		}
