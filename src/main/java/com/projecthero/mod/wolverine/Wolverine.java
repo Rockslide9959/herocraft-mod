@@ -221,12 +221,13 @@ public final class Wolverine {
 		if (out && !player.isCreative() && !player.isSpectator()) {
 			// the blades tear out through his knuckles: 4 damage, but never enough to kill him. v0.12.20: it is
 			// not combat -- it never fills the Rage bar (see WolverineDamage) and the client suit ignores it.
+			// v0.16.1: taken straight off his health, not through hurt(), so there is no red hurt flash, hurt sound or
+			// camera shake (user request); it also never reaches the damage events, so it still isn't combat.
 			float dmg = Math.min(WolverineConfig.CLAW_DEPLOY_DAMAGE, player.getHealth() - 1.0f);
 			if (dmg > 0.0f) {
-				player.invulnerableTime = 0;
 				DEPLOYING.set(true);
 				try {
-					player.hurt(player.damageSources().magic(), dmg);
+					player.setHealth(player.getHealth() - dmg);
 				} finally {
 					DEPLOYING.set(false);
 				}
