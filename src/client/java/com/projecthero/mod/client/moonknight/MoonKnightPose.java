@@ -311,7 +311,12 @@ public final class MoonKnightPose {
 		m.leftArm.xRot = Mth.lerp(w, m.leftArm.xRot, p[4] + (aimLeft ? headX : 0f));
 		m.leftArm.yRot = Mth.lerp(w, m.leftArm.yRot, p[5] + (aimLeft ? headY : 0f));
 		m.leftArm.zRot = Mth.lerp(w, m.leftArm.zRot, p[6]);
-		m.body.xRot = Mth.lerp(w, m.body.xRot, p[7]);
+		if (f == TRANSFORM.frames() || f == UNTRANSFORM.frames()) {
+			// v0.16.1: the transformation bends from the hips, so the bottom of the torso stays on the legs
+			com.projecthero.mod.client.HipBend.pitch(m, w, p[7]);
+		} else {
+			m.body.xRot = Mth.lerp(w, m.body.xRot, p[7]);
+		}
 		m.body.yRot = Mth.lerp(w, m.body.yRot, p[8]);
 		m.rightLeg.xRot = Mth.lerp(w, m.rightLeg.xRot, m.rightLeg.xRot * 0.3f + p[9]);
 		m.leftLeg.xRot = Mth.lerp(w, m.leftLeg.xRot, m.leftLeg.xRot * 0.3f + p[10]);

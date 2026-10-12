@@ -52,10 +52,8 @@ public final class HulkPose {
 		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
 		float k = kneel(player, partial);
 		if (k <= 0.0f) {
-			// vanilla never resets these (they are always 0 for it) and the model is shared between players
-			m.body.z = 0.0f;
-			m.head.z = 0.0f;
-			m.hat.z = 0.0f;
+			// v0.16.1: body.z / head.z / hat.z are reset for every player by HumanoidModelMixin#projecthero$resetTorsoZ,
+			// first, before any pose (resetting them here clobbered the hip-bent poses applied before this one)
 			return;
 		}
 		float age = player.tickCount + partial;

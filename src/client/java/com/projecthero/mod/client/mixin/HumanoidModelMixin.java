@@ -57,6 +57,26 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 	@Shadow
 	public ModelPart leftLeg;
 
+	@Shadow
+	public ModelPart body;
+
+	/**
+	 * v0.16.1: vanilla never resets {@code body.z} / {@code head.z} / {@code hat.z} (they are always 0 for it) and the
+	 * model is shared between players, so a pose that moves them (the hip-bent suit-ups via {@code HipBend}, the Hulk
+	 * kneel, Iron Man flight, Super Speed run, Super Strength landing) would otherwise leave them moved for the next
+	 * player / frame. Declared first, so it runs before every pose below. (Was in {@code HulkPose}, which ran after the
+	 * All Might pose and so clobbered it.)
+	 */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$resetTorsoZ(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player) {
+			this.body.z = 0.0f;
+			this.head.z = 0.0f;
+			this.hat.z = 0.0f;
+		}
+	}
+
 	/**
 	 * v0.14.31: the Kingpin's Cane strikes (overhead strike / side swipe / thrust) over vanilla's arm swing, for players
 	 * and any non-Syndicate mob holding the cane ({@code SyndicateModel} plays them for the Kingpin itself, under his own

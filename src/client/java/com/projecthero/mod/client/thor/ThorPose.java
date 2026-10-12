@@ -237,7 +237,12 @@ public final class ThorPose {
 		float headY = m.head.yRot;
 		lerp(hArm, w, p[1] + (aimed ? -HALF_PI + headX : 0f), (p[2] + (aimed ? -0.1f : 0f)) * s + (aimed ? headY : 0f), p[3] * s);
 		lerp(fArm, w, p[4], p[5] * s, p[6] * s);
-		m.body.xRot = Mth.lerp(w, m.body.xRot, p[7]);
+		if (f == SUIT) {
+			// v0.16.1: the suit-up leans back from the hips, so the bottom of the torso stays on the legs
+			com.projecthero.mod.client.HipBend.pitch(m, w, p[7]);
+		} else {
+			m.body.xRot = Mth.lerp(w, m.body.xRot, p[7]);
+		}
 		m.body.yRot = Mth.lerp(w, m.body.yRot, p[8] * s);
 		ModelPart frontLeg = left ? m.leftLeg : m.rightLeg;
 		ModelPart backLeg = left ? m.rightLeg : m.leftLeg;
