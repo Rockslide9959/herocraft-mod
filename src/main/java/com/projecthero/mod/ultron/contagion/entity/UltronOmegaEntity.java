@@ -1178,8 +1178,9 @@ public class UltronOmegaEntity extends UltronRobot implements GeoEntity {
 		for (String name : OmegaAnims.LOOPS) {
 			action.triggerableAnim(name, RawAnimation.begin().thenLoop(OmegaAnims.PREFIX + name));
 		}
-		controllers.add(action);
+		// main (idle/fly) first, action last: the later controller wins for the bones both key, so a triggered move always shows
 		controllers.add(new AnimationController<>(this, "main", OmegaAnims.TRANSITION, this::mainPredicate));
+		controllers.add(action);
 	}
 
 	private PlayState mainPredicate(AnimationState<UltronOmegaEntity> state) {
