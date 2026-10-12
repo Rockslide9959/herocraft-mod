@@ -92,6 +92,14 @@ public class UltronNexusEntity extends ContagionStructureEntity {
 		return "ultron_nexus";
 	}
 
+	/** While it grows the plates shudder and the rings spin fast ({@code grow}); grown, it idles. */
+	@Override
+	public void registerControllers(software.bernie.geckolib.animation.AnimatableManager.ControllerRegistrar controllers) {
+		controllers.add(new software.bernie.geckolib.animation.AnimationController<>(this, "idle", 10,
+				state -> state.setAndContinue(software.bernie.geckolib.animation.RawAnimation.begin()
+						.thenLoop(grown() ? "animation.ultron_nexus.idle" : "animation.ultron_nexus.grow"))));
+	}
+
 	/** Called once when the Contagion plants it: its health for Ultron {@code version} and the growth clock. */
 	public void configure(int version) {
 		double hp = ContagionConfig.nexus().health * ContagionConfig.unitHealthScale(version);

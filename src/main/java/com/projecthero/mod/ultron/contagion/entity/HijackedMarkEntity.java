@@ -154,7 +154,7 @@ public class HijackedMarkEntity extends UltronRobot {
 		} else if (boltCooldown < 35 && action() == ACTION_REPULSOR) {
 			setAction(ACTION_NONE);
 		}
-		if (tickCount % 3 == 0) {
+		if (tickCount % 8 == 0) {
 			server.sendParticles(ParticleTypes.SMALL_FLAME, getX(), getY() - 0.1, getZ(), 1, 0.1, 0.02, 0.1, 0.0);
 		}
 	}

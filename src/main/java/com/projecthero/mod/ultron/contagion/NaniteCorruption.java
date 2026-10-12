@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.projecthero.mod.ultron.UltronFx;
 import com.projecthero.mod.ultron.contagion.block.ContagionBlocks;
+import com.projecthero.mod.ultron.contagion.block.CorruptedGroundBlock;
 
 import it.unimi.dsi.fastutil.longs.Long2IntMap;
 
@@ -200,13 +201,47 @@ public final class NaniteCorruption {
 			if (state.recordAt(key) == null) {
 				rec.blocks.put(key, state.stateId(st));
 			}
+			boolean firstGround = ground == 0 && !st.is(BlockTags.LOGS) && !st.is(BlockTags.LEAVES);
+			if (firstGround && to.hasProperty(CorruptedGroundBlock.EDGE)) {
+				to = to.setValue(CorruptedGroundBlock.EDGE, true); // the new rim; the column inside it stops being the rim
+			}
 			level.setBlock(p, to, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
 			changed++;
+			if (firstGround) {
+				clearInnerEdges(level, rec, x, z);
+			}
 			if (!st.is(BlockTags.LOGS) && !st.is(BlockTags.LEAVES)) {
 				ground++;
 			}
 		}
 		return changed;
+	}
+
+	/** The columns next to (x, z) that are nearer the Nexus are no longer the rim: their top ground block loses EDGE. */
+	private static void clearInnerEdges(ServerLevel level, ContagionState.NexusRecord rec, int x, int z) {
+		long d = sq(x - rec.pos.getX()) + sq(z - rec.pos.getZ());
+		BlockPos.MutableBlockPos q = new BlockPos.MutableBlockPos();
+		for (int[] o : new int[][] { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) {
+			int nx = x + o[0], nz = z + o[1];
+			if (sq(nx - rec.pos.getX()) + sq(nz - rec.pos.getZ()) >= d) {
+				continue;
+			}
+			int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, nx, nz) - 1;
+			for (int y = top; y > top - 3; y--) {
+				q.set(nx, y, nz);
+				BlockState s = level.getBlockState(q);
+				if (s.hasProperty(CorruptedGroundBlock.EDGE)) {
+					if (s.getValue(CorruptedGroundBlock.EDGE)) {
+						level.setBlock(q, s.setValue(CorruptedGroundBlock.EDGE, false), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+					}
+					break;
+				}
+			}
+		}
+	}
+
+	private static long sq(long v) {
+		return v * v;
 	}
 
 	/**

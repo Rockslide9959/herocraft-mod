@@ -310,7 +310,7 @@ public class UltronOmegaEntity extends UltronRobot implements GeoEntity {
 				pickMove(server, target);
 			}
 		}
-		if (tickCount % 3 == 0) {
+		if (tickCount % 8 == 0) {
 			server.sendParticles(UltronFx.RED_SMALL, getX(), getY() + 0.1, getZ(), 1, 0.2, 0.02, 0.2, 0.0);
 		}
 	}
@@ -335,8 +335,8 @@ public class UltronOmegaEntity extends UltronRobot implements GeoEntity {
 			server.playSound(null, getX(), getY(), getZ(), on ? SoundEvents.BEACON_ACTIVATE : SoundEvents.BEACON_DEACTIVATE, SoundSource.HOSTILE, 2.0f,
 					on ? 0.6f : 1.4f);
 		}
-		if (on && tickCount % 4 == 0) {
-			UltronFx.ring(server, UltronFx.RED, position().add(0, getBbHeight() * 0.5, 0), 1.6, 12);
+		if (on && tickCount % 12 == 0) {
+			UltronFx.ring(server, UltronFx.RED_SMALL, position().add(0, getBbHeight() * 0.5, 0), 1.6, 8);
 		}
 	}
 

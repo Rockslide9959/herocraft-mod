@@ -48,6 +48,8 @@ const NAMES = {
 	'block.projecthero.citadel_plating': 'Citadel Plating',
 	'block.projecthero.citadel_rock': 'Citadel Rock',
 	'block.projecthero.rising_rock': 'Rising Rock',
+	'block.projecthero.citadel_light': 'Citadel Light',
+	'block.projecthero.citadel_cable': 'Citadel Cable',
 	'entity.projecthero.ultron_nexus': 'Ultron Nexus',
 	'entity.projecthero.ultron_lift_engine': 'Lift Engine',
 	'entity.projecthero.ultron_uplink_antenna': 'Uplink Antenna',

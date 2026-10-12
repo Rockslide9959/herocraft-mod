@@ -449,7 +449,7 @@ public final class SokoviaFinale {
 		int n = Math.max(1, fighters.size());
 		double r = ContagionConfig.finale().radius - 6;
 		for (int k = 0; k < 3; k++) {
-			double a = k * Math.PI * 2 / 3 + Math.PI / 6;
+			double a = k * Math.PI * 2 / 3 + Math.toRadians(67.5); // between the towers and the Lift Engines
 			UplinkAntennaEntity ant = ContagionEntityTypes.UPLINK_ANTENNA.create(level);
 			if (ant == null) {
 				continue;

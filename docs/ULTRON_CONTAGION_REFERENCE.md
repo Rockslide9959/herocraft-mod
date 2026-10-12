@@ -53,7 +53,7 @@ what is below). Two ground blocks per column. Rules:
 
 Corrupted blocks: `corrupted_circuitry` (ground), `corrupted_circuitry_stone`, `corrupted_circuitry_log` (keeps the
 axis), `corrupted_circuitry_leaves` -- animated red veins, emissive rendering, light 4, no drops.
-`terrainCorruption: false` = particles only.
+`terrainCorruption: false` = particles only. Look (v0.16.1 polish): the ground uses 4 texture variants (weighted, random 90-degree rotations) whose veins exit every edge at the same two points, so the vein network runs across blocks instead of reading as a grid; the newest ring of each Nexus carries `edge=true` (darker, sooty, thinner veins -- `CorruptedGroundBlock.EDGE`, cleared on the column inside it as the radius grows); leaves are a sparse cutout wire mesh with red nodes.
 
 **Revert**: the record is queued nearest-first (a blue wave); `revertPerTick` (300) per tick, loaded chunks only, only
 where the block is still the corruption's own (a block a player broke or replaced stays as it is). Unloaded entries wait
@@ -109,10 +109,10 @@ The Mind Stone's existing off-hand outline already reveals cloaked Hijackers (ou
   built; 100% = loss.
 - **BUILDING**: ground = the heightmap at the site (clamped so the citadel fits under the build limit); floor at
   ground + 90. The disc (radius 25, ragged broken edge, plating centre + 8 spokes, rock outside, dais, parapet bits, 8
-  pillars, inverted hanging-rock cone up to 16 deep) goes up 500 blocks a tick, only into air, every placed block recorded.
+  pillars, inverted hanging-rock cone up to 16 deep; v0.16.1 polish: four angular Ultron towers (diamond footprint narrowing as it rises, lit corner edges, spike) at 22.5 + 90k degrees, eight lit pylons round the plaza, a raised lit walkway ring, Citadel Light strips down the spokes and round the plaza, rock stalactites and dangling Citadel Cables at the broken rim) goes up 500 blocks a tick, only into air, every placed block recorded.
   The rising-rock path (2x1 steps, +1 up per step, 30 degrees round a 4-block spiral 32 blocks east of the centre, then a
   bridge) builds 2 blocks a tick. The red marker beam (`CitadelMarkerEntity`) stands on the ground: right-click once for
-  the **Stark Lift** (blue beam, carried up then onto the edge).
+  the **Stark Lift** (blue beam, carried up then onto the edge). The red marker beam itself is drawn client-side from the HUD state (`markerTop`): up to the sky while the site is only marked, then only to 18 blocks under the floor once the citadel is built, so it never runs through the citadel or the Core.
 - **FIGHT**: Vibranium Core (`VibraniumCoreEntity`, invulnerable, GeckoLib), 4 Lift Engines (500 health, shielded while their
   guard Heavy lives, -15% charge each), Ultron Omega after 3 s. Core charge 0 -> 100% in 12 min (boss bar "Vibranium Core:
   N%"), frozen during the Vision moment. Fighters: anyone within 64 joins; a fighter who dies is down until they come back

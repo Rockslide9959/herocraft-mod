@@ -144,8 +144,11 @@ public final class ContagionHud {
 		if (s.has(ContagionNet.F_VISION_PROMPT)) {
 			String label = Component.translatable("hud.projecthero.contagion.vision_prompt").getString();
 			label = IronManGui.fit(font, label, 240);
-			g.drawString(font, label, (w - font.width(label)) / 2, cy + 22, 0xFFFFD050, true);
-			IronManGui.hairline(g, (w - 120) / 2, cy + 33, 120, 3, Math.max(0f, s.visionHold()), 0xFFFFD050, 0x80403010);
+			// above the crosshair, clear of the chat box (bottom-left) and the hotbar
+			int py = cy - 46;
+			g.fill((w - font.width(label)) / 2 - 4, py - 3, (w + font.width(label)) / 2 + 4, py + 15, 0x90201808);
+			g.drawString(font, label, (w - font.width(label)) / 2, py, 0xFFFFD050, true);
+			IronManGui.hairline(g, (w - 120) / 2, py + 11, 120, 3, Math.max(0f, s.visionHold()), 0xFFFFD050, 0x80403010);
 		}
 	}
 

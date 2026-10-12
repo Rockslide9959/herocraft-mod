@@ -1,0 +1,13 @@
+{
+	"variants": {
+		"": [
+			{
+				"model": "projecthero:block/citadel_light"
+			},
+			{
+				"model": "projecthero:block/citadel_light",
+				"y": 90
+			}
+		]
+	}
+}

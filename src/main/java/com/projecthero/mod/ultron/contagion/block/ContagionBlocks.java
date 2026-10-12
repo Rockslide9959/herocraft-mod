@@ -36,6 +36,9 @@ public final class ContagionBlocks {
 	public static Block CITADEL_PLATING;
 	public static Block CITADEL_ROCK;
 	public static Block RISING_ROCK;
+	/** v0.16.1 polish: the citadel's red light strips and dangling cables (ours, so they are tracked and removed too). */
+	public static Block CITADEL_LIGHT;
+	public static Block CITADEL_CABLE;
 	public static FirewallBeaconBlock FIREWALL_BEACON;
 	public static OmegaCoreBlock OMEGA_CORE;
 	public static BlockEntityType<FirewallBeaconBlockEntity> FIREWALL_BEACON_BE;
@@ -56,7 +59,7 @@ public final class ContagionBlocks {
 	}
 
 	public static void initialize() {
-		CORRUPTED_CIRCUITRY = register("corrupted_circuitry", new Block(corrupted()));
+		CORRUPTED_CIRCUITRY = register("corrupted_circuitry", new CorruptedGroundBlock(corrupted()));
 		CORRUPTED_STONE = register("corrupted_circuitry_stone", new Block(corrupted().strength(2.5f, 6.0f)));
 		CORRUPTED_LOG = register("corrupted_circuitry_log", new RotatedPillarBlock(corrupted()));
 		CORRUPTED_LEAVES = register("corrupted_circuitry_leaves", new Block(corrupted().strength(0.4f).noOcclusion()
@@ -64,6 +67,8 @@ public final class ContagionBlocks {
 		CITADEL_PLATING = register("citadel_plating", new Block(citadel().lightLevel(s -> 3)));
 		CITADEL_ROCK = register("citadel_rock", new Block(citadel().lightLevel(s -> 2)));
 		RISING_ROCK = register("rising_rock", new Block(citadel().lightLevel(s -> 6)));
+		CITADEL_LIGHT = register("citadel_light", new Block(citadel().lightLevel(s -> 11).emissiveRendering((s, l, p) -> true)));
+		CITADEL_CABLE = register("citadel_cable", new net.minecraft.world.level.block.ChainBlock(citadel().noOcclusion().sound(SoundType.CHAIN)));
 		FIREWALL_BEACON = register("firewall_beacon", new FirewallBeaconBlock(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_CYAN)
 				.strength(5.0f, 1200.0f).requiresCorrectToolForDrops().sound(SoundType.NETHERITE_BLOCK).noOcclusion()
 				.lightLevel(s -> s.getValue(FirewallBeaconBlock.LIT) ? 12 : 2)));
@@ -82,7 +87,7 @@ public final class ContagionBlocks {
 
 	/** Is {@code block} a sky-citadel / stepping-stone block? */
 	public static boolean isCitadel(Block block) {
-		return block == CITADEL_PLATING || block == CITADEL_ROCK || block == RISING_ROCK;
+		return block == CITADEL_PLATING || block == CITADEL_ROCK || block == RISING_ROCK || block == CITADEL_LIGHT || block == CITADEL_CABLE;
 	}
 
 	private static <T extends Block> T register(String path, T block) {

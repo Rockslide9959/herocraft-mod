@@ -59,6 +59,9 @@ public final class SkyCitadel {
 		int r = ContagionConfig.finale().radius + 3;
 		BlockState plating = ContagionBlocks.CITADEL_PLATING.defaultBlockState();
 		BlockState rock = ContagionBlocks.CITADEL_ROCK.defaultBlockState();
+		BlockState light = ContagionBlocks.CITADEL_LIGHT.defaultBlockState();
+		BlockState cable = ContagionBlocks.CITADEL_CABLE.defaultBlockState();
+		List<Placement> hang = new ArrayList<>();
 		List<Placement> under = new ArrayList<>();
 		for (int dx = -r; dx <= r; dx++) {
 			for (int dz = -r; dz <= r; dz++) {
@@ -75,6 +78,15 @@ public final class SkyCitadel {
 				boolean onSpoke = Math.abs(((Math.toDegrees(a) + 22.5) % 45 + 45) % 45 - 22.5) < (d < 4 ? 90 : 9.0 / Math.max(1.0, d * 0.25));
 				boolean inner = d < e * 0.5;
 				BlockState floor = inner || onSpoke ? plating : rock;
+				// red light strips: every third block down each spoke, and a lit ring round the Core's plaza
+				if (onSpoke && d > 4.5 && ((int) Math.round(d)) % 3 == 0 || Math.abs(d - 5.5) < 0.5) {
+					floor = light;
+				}
+				// a raised walkway ring half way out, lit every so often, broken where the spokes cross it
+				double ring = e * 0.5;
+				if (Math.abs(d - ring) < 1.0 && !onSpoke) {
+					out.add(new Placement(centre.offset(dx, 1, dz).asLong(), hash(dx, dz, seed + 21) < 0.18 ? light : plating));
+				}
 				out.add(new Placement(centre.offset(dx, 0, dz).asLong(), floor));
 				// the Core's dais
 				if (d <= 3.2) {
@@ -90,22 +102,67 @@ public final class SkyCitadel {
 				// hanging rock: an inverted cone, deeper towards the middle
 				int depth = 1 + (int) ((e - d) * 0.55 + hash(dx * 3, dz * 3, seed) * 3.0);
 				depth = Math.min(depth, 16);
+				// rock stalactites near the rim: a few columns hang far deeper than the rest
+				if (d > e - 5 && hash(dx * 7, dz * 5, seed + 4) < 0.08) {
+					depth += 4 + (int) (hash(dx, dz * 3, seed + 6) * 7);
+				}
 				for (int y = 1; y <= depth; y++) {
-					under.add(new Placement(centre.offset(dx, -y, dz).asLong(), rock));
+					under.add(new Placement(centre.offset(dx, -y, dz).asLong(), y == depth && hash(dx, dz, seed + 8) < 0.25 ? light : rock));
+				}
+				// cables torn loose, dangling from the underside near the broken edge
+				if (d > e - 4 && hash(dx * 11, dz * 13, seed + 2) < 0.06) {
+					int len = 3 + (int) (hash(dx, dz, seed + 12) * 7);
+					for (int y = 1; y <= len; y++) {
+						hang.add(new Placement(centre.offset(dx, -depth - y, dz).asLong(), cable));
+					}
 				}
 			}
 		}
-		// eight pillars round the inner ring
+		// four angular Ultron towers between the Lift Engines, and eight lit pylons round the plaza
+		for (int k = 0; k < 4; k++) {
+			double a = Math.PI / 2 * k + Math.PI / 8; // clear of the bridge (east) and the Lift Engines (45 degrees)
+			int tx = (int) Math.round(Math.cos(a) * ContagionConfig.finale().radius * 0.72);
+			int tz = (int) Math.round(Math.sin(a) * ContagionConfig.finale().radius * 0.72);
+			tower(out, centre.offset(tx, 1, tz), 11 + (int) (hash(k, k * 3, seed) * 5), plating, rock, light);
+		}
 		for (int k = 0; k < 8; k++) {
 			double a = Math.PI * 2 * k / 8 + Math.PI / 8;
-			int px = (int) Math.round(Math.cos(a) * ContagionConfig.finale().radius * 0.62);
-			int pz = (int) Math.round(Math.sin(a) * ContagionConfig.finale().radius * 0.62);
+			int px = (int) Math.round(Math.cos(a) * 9.5);
+			int pz = (int) Math.round(Math.sin(a) * 9.5);
 			for (int y = 1; y <= 4; y++) {
-				out.add(new Placement(centre.offset(px, y, pz).asLong(), y == 4 ? rock : plating));
+				out.add(new Placement(centre.offset(px, y, pz).asLong(), y == 3 ? light : plating));
 			}
+			out.add(new Placement(centre.offset(px, 5, pz).asLong(), rock));
 		}
 		out.addAll(under);
+		out.addAll(hang);
 		return out;
+	}
+
+	/**
+	 * An angular Ultron tower standing on {@code base}: a 5x5 diamond footprint that narrows in steps as it rises, red light
+	 * strips up the four corner edges, buttress fins at the foot and a two-block spike on top.
+	 */
+	static void tower(List<Placement> out, BlockPos base, int height, BlockState plating, BlockState rock, BlockState light) {
+		for (int y = 0; y < height; y++) {
+			int r = y < height * 0.35 ? 2 : y < height * 0.75 ? 1 : 0;
+			for (int dx = -r; dx <= r; dx++) {
+				for (int dz = -r; dz <= r; dz++) {
+					if (Math.abs(dx) + Math.abs(dz) > r + (r > 0 ? 1 : 0)) {
+						continue; // the diamond cut: angular, never a box
+					}
+					boolean corner = Math.abs(dx) + Math.abs(dz) == r + (r > 0 ? 1 : 0) && (dx == 0 || dz == 0);
+					BlockState s = corner && y % 2 == 0 ? light : (y + dx + dz) % 5 == 0 ? rock : plating;
+					out.add(new Placement(base.offset(dx, y, dz).asLong(), s));
+				}
+			}
+		}
+		for (int[] o : new int[][] { { 3, 0 }, { -3, 0 }, { 0, 3 }, { 0, -3 } }) {
+			out.add(new Placement(base.offset(o[0], 0, o[1]).asLong(), plating));
+			out.add(new Placement(base.offset(o[0] * 4 / 3, 0, o[1] * 4 / 3).asLong(), rock));
+		}
+		out.add(new Placement(base.above(height).asLong(), light));
+		out.add(new Placement(base.above(height + 1).asLong(), rock));
 	}
 
 	/** The rising-rock path from {@code groundY} up to the disc's east edge; bottom step first. */

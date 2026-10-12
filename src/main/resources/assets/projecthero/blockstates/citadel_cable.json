@@ -1,0 +1,16 @@
+{
+	"variants": {
+		"axis=x": {
+			"model": "projecthero:block/citadel_cable",
+			"x": 90,
+			"y": 90
+		},
+		"axis=y": {
+			"model": "projecthero:block/citadel_cable"
+		},
+		"axis=z": {
+			"model": "projecthero:block/citadel_cable",
+			"x": 90
+		}
+	}
+}

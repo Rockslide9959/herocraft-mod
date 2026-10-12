@@ -76,6 +76,7 @@ public final class ContagionClient {
 		BlockRenderLayerMap.INSTANCE.putBlock(ContagionBlocks.CORRUPTED_LEAVES, RenderType.cutoutMipped());
 		BlockRenderLayerMap.INSTANCE.putBlock(ContagionBlocks.FIREWALL_BEACON, RenderType.cutout());
 		BlockRenderLayerMap.INSTANCE.putBlock(ContagionBlocks.OMEGA_CORE, RenderType.cutout());
+		BlockRenderLayerMap.INSTANCE.putBlock(ContagionBlocks.CITADEL_CABLE, RenderType.cutout());
 
 		// the Vibranium Shield: the Adamantium disc with its own art, and the vanilla "blocking" predicate
 		BuiltinItemRendererRegistry.INSTANCE.register(ContagionItems.VIBRANIUM_SHIELD, new AdamantiumShieldRenderer(AdamantiumShieldRenderer.VIBRANIUM_TEXTURE));
@@ -101,6 +102,7 @@ public final class ContagionClient {
 		});
 		HudRenderCallback.EVENT.register(ContagionHud::render);
 		WorldRenderEvents.AFTER_ENTITIES.register(ContagionClient::renderBeams);
+		WorldRenderEvents.AFTER_ENTITIES.register(ContagionClient::renderMarker);
 		ClientTickEvents.END_CLIENT_TICK.register(ContagionClient::tickHold);
 
 		// the Legion tell: a viewer holding the Mind Stone sees the real Omega outlined gold (their own view only)
@@ -203,6 +205,32 @@ public final class ContagionClient {
 				BeamDraw.beam(vc, glow, last, b.a(), b.b(), cam, b.width(), glow ? b.color() : mixWhite(b.color()), fade * flicker);
 			}
 		}
+		pose.popPose();
+	}
+
+	/**
+	 * The Sokovia Protocol's red marker beam, from the HUD state: from below the ground up to the sky while the site is only
+	 * marked (seen from far off), then only up to the underside of the sky-citadel once it is built -- never through it.
+	 */
+	private static void renderMarker(WorldRenderContext ctx) {
+		Minecraft mc = Minecraft.getInstance();
+		ContagionNet.Hud s = ContagionHud.state();
+		if (mc.level == null || s == null || !s.has(ContagionNet.F_MARKER) || ctx.consumers() == null || ctx.matrixStack() == null) {
+			return;
+		}
+		Vec3 cam = ctx.camera().getPosition();
+		double x = s.markerX() + 0.5, z = s.markerZ() + 0.5;
+		if ((x - cam.x) * (x - cam.x) + (z - cam.z) * (z - cam.z) > 1024 * 1024) {
+			return;
+		}
+		float now = mc.level.getGameTime() + ctx.tickCounter().getGameTimeDeltaPartialTick(false);
+		float flick = 0.8f + 0.2f * Mth.sin(now * 0.7f);
+		Vec3 a = new Vec3(x, mc.level.getMinBuildHeight(), z), b = new Vec3(x, s.markerTop(), z);
+		PoseStack pose = ctx.matrixStack();
+		pose.pushPose();
+		pose.translate(-cam.x, -cam.y, -cam.z);
+		BeamDraw.beam(ctx.consumers().getBuffer(RenderType.debugQuads()), true, pose.last(), a, b, cam, 0.45f, 0xFF1A10, flick * 0.8f);
+		BeamDraw.beam(ctx.consumers().getBuffer(RenderType.lightning()), false, pose.last(), a, b, cam, 0.45f, 0xFFA090, flick);
 		pose.popPose();
 	}
 

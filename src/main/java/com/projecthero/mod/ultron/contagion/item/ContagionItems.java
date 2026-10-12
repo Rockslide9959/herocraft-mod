@@ -54,6 +54,8 @@ public final class ContagionItems {
 	public static Item CITADEL_PLATING;
 	public static Item CITADEL_ROCK;
 	public static Item RISING_ROCK;
+	public static Item CITADEL_LIGHT;
+	public static Item CITADEL_CABLE;
 	public static Item OMEGA_SPAWN_EGG;
 	public static Item NEXUS_SPAWN_EGG;
 	public static Item HIJACKED_MARK_SPAWN_EGG;
@@ -93,6 +95,8 @@ public final class ContagionItems {
 		CITADEL_PLATING = plainBlockItem("citadel_plating", ContagionBlocks.CITADEL_PLATING);
 		CITADEL_ROCK = plainBlockItem("citadel_rock", ContagionBlocks.CITADEL_ROCK);
 		RISING_ROCK = plainBlockItem("rising_rock", ContagionBlocks.RISING_ROCK);
+		CITADEL_LIGHT = plainBlockItem("citadel_light", ContagionBlocks.CITADEL_LIGHT);
+		CITADEL_CABLE = plainBlockItem("citadel_cable", ContagionBlocks.CITADEL_CABLE);
 		OMEGA_SPAWN_EGG = register("ultron_omega_spawn_egg", new SpawnEggItem(ContagionEntityTypes.ULTRON_OMEGA, 0xD8DCE4, 0xE01010, new Item.Properties()));
 		NEXUS_SPAWN_EGG = register("ultron_nexus_spawn_egg", new SpawnEggItem(ContagionEntityTypes.ULTRON_NEXUS, 0x15161A, 0xC00808, new Item.Properties()));
 		HIJACKED_MARK_SPAWN_EGG = register("hijacked_mark_spawn_egg", new SpawnEggItem(ContagionEntityTypes.HIJACKED_MARK, 0xA01818, 0xE8C040,
@@ -102,7 +106,7 @@ public final class ContagionItems {
 	public static void addToCreativeTab(CreativeModeTab.Output output) {
 		for (Item i : new Item[] { ULTRON_SCRAP, NANITE_SAMPLE, VIBRANIUM_INGOT, PURGE_CHARGE, OVERRIDE_SPIKE, FIREWALL_CHIP, FIREWALL_BEACON,
 				VIBRANIUM_PLATING_2, VIBRANIUM_SHIELD, OMEGA_CORE, CORRUPTED_CIRCUITRY, CORRUPTED_STONE, CORRUPTED_LOG, CORRUPTED_LEAVES,
-				CITADEL_PLATING, CITADEL_ROCK, RISING_ROCK, NEXUS_SPAWN_EGG, HIJACKED_MARK_SPAWN_EGG, OMEGA_SPAWN_EGG }) {
+				CITADEL_PLATING, CITADEL_ROCK, RISING_ROCK, CITADEL_LIGHT, CITADEL_CABLE, NEXUS_SPAWN_EGG, HIJACKED_MARK_SPAWN_EGG, OMEGA_SPAWN_EGG }) {
 			output.accept(i);
 		}
 	}

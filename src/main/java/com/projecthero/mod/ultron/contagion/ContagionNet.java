@@ -33,7 +33,7 @@ public final class ContagionNet {
 			F_CAPTURE_MIND = 128;
 
 	public record Hud(int flags, float saturation, byte nexus, byte traces, byte version, float hijack, float capture, short captureSeconds,
-			byte capturePlayers, int markerX, int markerZ, float visionHold) implements CustomPacketPayload {
+			byte capturePlayers, int markerX, int markerZ, int markerTop, float visionHold) implements CustomPacketPayload {
 		public static final Type<Hud> TYPE = new Type<>(ProjectHeroMod.id("contagion_hud"));
 		public static final StreamCodec<RegistryFriendlyByteBuf, Hud> CODEC = StreamCodec.of((buf, p) -> {
 			buf.writeVarInt(p.flags);
@@ -47,9 +47,10 @@ public final class ContagionNet {
 			buf.writeByte(p.capturePlayers);
 			buf.writeInt(p.markerX);
 			buf.writeInt(p.markerZ);
+			buf.writeInt(p.markerTop);
 			buf.writeFloat(p.visionHold);
 		}, buf -> new Hud(buf.readVarInt(), buf.readFloat(), buf.readByte(), buf.readByte(), buf.readByte(), buf.readFloat(), buf.readFloat(),
-				buf.readShort(), buf.readByte(), buf.readInt(), buf.readInt(), buf.readFloat()));
+				buf.readShort(), buf.readByte(), buf.readInt(), buf.readInt(), buf.readInt(), buf.readFloat()));
 
 		public boolean has(int flag) {
 			return (flags & flag) != 0;
@@ -135,7 +136,7 @@ public final class ContagionNet {
 	static Hud build(ServerPlayer p, ContagionState st) {
 		boolean running = st.stage == ContagionState.Stage.ACTIVE || st.stage == ContagionState.Stage.FINALE;
 		if (!running || p.level().dimension() != Level.OVERWORLD || !ContagionConfig.get().enabled) {
-			return new Hud(0, 0f, (byte) 0, (byte) 0, (byte) 1, -1f, -1f, (short) 0, (byte) 0, 0, 0, -1f);
+			return new Hud(0, 0f, (byte) 0, (byte) 0, (byte) 1, -1f, -1f, (short) 0, (byte) 0, 0, 0, 0, -1f);
 		}
 		ServerLevel level = p.serverLevel();
 		int flags = F_ACTIVE;
@@ -162,13 +163,16 @@ public final class ContagionNet {
 				break;
 			}
 		}
-		int mx = 0, mz = 0;
+		int mx = 0, mz = 0, top = 0;
 		float hold = -1f;
 		SokoviaFinale f = st.finale;
 		if (f != null && f.phase != SokoviaFinale.Phase.ENDING && f.site != null) {
 			flags |= F_MARKER;
 			mx = f.site.getX();
 			mz = f.site.getZ();
+			// the red marker beam reaches the sky until the citadel is up, then stops under its hanging rock
+			top = f.groundY == Integer.MIN_VALUE || f.phase == SokoviaFinale.Phase.MARKED || f.phase == SokoviaFinale.Phase.AWAY ? level.getMaxBuildHeight() + 64
+					: f.floorY() - 18;
 			UltronOmegaEntity o = f.omega(level);
 			if (o != null && o.inVision() && o.distanceToSqr(p) < 64 * 64) {
 				flags |= F_GOLD;
@@ -179,6 +183,6 @@ public final class ContagionNet {
 			}
 		}
 		return new Hud(flags, (float) st.saturation, (byte) st.nexus.size(), (byte) st.traces, (byte) st.version, SuitHijack.attemptProgress(p), capture,
-				secs, players, mx, mz, hold);
+				secs, players, mx, mz, top, hold);
 	}
 }

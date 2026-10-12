@@ -1,0 +1,7 @@
+{
+	"parent": "minecraft:block/chain",
+	"textures": {
+		"particle": "projecthero:block/citadel_cable",
+		"all": "projecthero:block/citadel_cable"
+	}
+}
