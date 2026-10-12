@@ -72,7 +72,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
-		ModKeyBindings.initialize();		// v0.15.16: Punisher gun animation caches are per-world (entity ids)
+		ModKeyBindings.initialize();
+		// v0.15.16: Punisher gun animation caches are per-world (entity ids)
 		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> {
 			com.projecthero.mod.client.punisher.GunAnim.clear();
 			com.projecthero.mod.client.punisher.PunisherGunPose.clear();
