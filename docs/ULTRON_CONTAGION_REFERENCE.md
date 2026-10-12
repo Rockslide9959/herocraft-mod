@@ -12,7 +12,7 @@ Tuning: `config/projecthero_contagion.json` (`ContagionConfig`, VersionedConfig 
 ## 1. How it starts (`Contagion`)
 | Stage | What happens |
 |---|---|
-| `IDLE` | Waiting for `UltronWorldState.firstDefeatTime >= 0` (Part A sets it on the first Sentry kill; the Contagion's own death hook also marks it for any uprising-bound Sentry). |
+| `IDLE` | Waiting for `UltronWorldState.firstDefeatTime >= 0` (Part A records it via `recordDefeat` on the first Sentry kill). |
 | `SCHEDULED` | Starts `delayDaysMin..delayDaysMax` (3-6) days + a random part of a day after the first defeat. |
 | `PATIENT_ZERO` | 20 s of red flicker at: a placed **Ultron Core** trophy, else a **Stark machine** (Fabricator, suit platform, Gantry floor, Sorting Station, Stark Furnace/Smelter/Smoker), else a ground spot 80-140 blocks from a player who has cleared an Uprising (else any online player). Only loaded chunks are searched. Then the first Nexus grows 2-6 blocks away and machines within 6 blocks are Compromised. |
 | `ACTIVE` | The infection (sections 2-6). |

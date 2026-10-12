@@ -82,6 +82,8 @@ public final class ContagionState extends SavedData {
 
 	public Stage stage = Stage.IDLE;
 	public long startAt = -1L;
+	/** A stopped Contagion does not reschedule itself from this first-defeat time. */
+	public long ignoredDefeatTime = -2L;
 	public double saturation;
 	public int traces;
 	public int version = 1;
@@ -220,6 +222,7 @@ public final class ContagionState extends SavedData {
 			s.stage = Stage.IDLE;
 		}
 		s.startAt = tag.getLong("StartAt");
+		s.ignoredDefeatTime = tag.contains("IgnoredDefeatTime") ? tag.getLong("IgnoredDefeatTime") : -2L;
 		s.saturation = tag.getDouble("Saturation");
 		s.traces = tag.getInt("Traces");
 		s.version = Math.max(1, tag.getInt("Version"));
@@ -296,6 +299,7 @@ public final class ContagionState extends SavedData {
 	public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
 		tag.putString("Stage", stage.name());
 		tag.putLong("StartAt", startAt);
+		tag.putLong("IgnoredDefeatTime", ignoredDefeatTime);
 		tag.putDouble("Saturation", saturation);
 		tag.putInt("Traces", traces);
 		tag.putInt("Version", version);

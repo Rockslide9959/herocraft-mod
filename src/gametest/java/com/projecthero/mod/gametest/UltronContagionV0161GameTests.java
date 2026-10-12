@@ -3,7 +3,6 @@ package com.projecthero.mod.gametest;
 import java.util.UUID;
 
 import com.projecthero.mod.ProjectHeroMod;
-import com.projecthero.mod.ultron.UltronWorldState;
 import com.projecthero.mod.ultron.contagion.Assimilation;
 import com.projecthero.mod.ultron.contagion.Contagion;
 import com.projecthero.mod.ultron.contagion.ContagionConfig;
@@ -85,12 +84,8 @@ public class UltronContagionV0161GameTests implements FabricGameTest {
 		ContagionState st = ContagionState.get(level);
 		ContagionState.Stage stage = st.stage;
 		long startAt = st.startAt;
-		long first = UltronWorldState.firstDefeatTime(level);
 		try {
 			long now = level.getGameTime();
-			UltronWorldState.setFirstDefeatTime(level, -1L);
-			helper.assertTrue(UltronWorldState.markFirstDefeat(level, now), "the first defeat is recorded");
-			helper.assertFalse(UltronWorldState.markFirstDefeat(level, now + 5), "only the first counts");
 			Contagion.schedule(level, st, now);
 			helper.assertTrue(st.stage == ContagionState.Stage.SCHEDULED, "scheduled");
 			helper.assertTrue(st.startAt >= now + 3 * 24000L && st.startAt < now + 7 * 24000L, "3-6 days later, got " + (st.startAt - now));
@@ -100,7 +95,6 @@ public class UltronContagionV0161GameTests implements FabricGameTest {
 		} finally {
 			st.stage = stage;
 			st.startAt = startAt;
-			UltronWorldState.setFirstDefeatTime(level, first);
 			st.setDirty();
 		}
 		helper.succeed();

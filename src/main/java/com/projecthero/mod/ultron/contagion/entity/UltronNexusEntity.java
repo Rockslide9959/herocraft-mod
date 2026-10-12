@@ -350,6 +350,11 @@ public class UltronNexusEntity extends ContagionStructureEntity {
 		}
 	}
 
+	/** Test / harness hook: as if it started growing {@code ticksAgo} ticks ago. */
+	public void setGrownForTest(int ticksAgo) {
+		entityData.set(DATA_BORN, level().getGameTime() - ticksAgo);
+	}
+
 	/** Test hook: finish growing now. */
 	public void finishGrowing() {
 		entityData.set(DATA_BORN, level().getGameTime() - ContagionConfig.nexus().growTicks - 1);

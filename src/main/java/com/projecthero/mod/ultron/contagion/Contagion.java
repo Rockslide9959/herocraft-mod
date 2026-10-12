@@ -16,7 +16,6 @@ import com.projecthero.mod.ultron.contagion.block.FirewallBeaconBlockEntity;
 import com.projecthero.mod.ultron.contagion.entity.ContagionEntityTypes;
 import com.projecthero.mod.ultron.contagion.entity.UltronNexusEntity;
 import com.projecthero.mod.ultron.contagion.item.ContagionItems;
-import com.projecthero.mod.ultron.entity.UltronSentryEntity;
 import com.projecthero.mod.ultron.item.UltronItems;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -91,10 +90,7 @@ public final class Contagion {
 		ContagionRewards.initialize();
 		ServerTickEvents.END_SERVER_TICK.register(Contagion::tick);
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
-			if (entity instanceof UltronSentryEntity sentry && entity.level() instanceof ServerLevel server && sentry.uprisingId() != null) {
-				// Part A records the first defeat from the uprising itself; this is the Contagion's own guarantee
-				UltronWorldState.markFirstDefeat(server, server.getGameTime());
-			}
+			// (Ultron's defeats are recorded by the Uprising itself: UltronWorldState.recordDefeat)
 			if (entity instanceof ServerPlayer p) {
 				SokoviaFinale.onPlayerDied(p);
 			}
@@ -153,7 +149,7 @@ public final class Contagion {
 			return;
 		}
 		long first = UltronWorldState.firstDefeatTime(level);
-		if (first < 0) {
+		if (first < 0 || first == st.ignoredDefeatTime) {
 			return;
 		}
 		schedule(level, st, first);
@@ -649,8 +645,8 @@ public final class Contagion {
 		Assimilation.releaseAllMachines(level, st);
 		st.stage = st.omegaBeaten ? ContagionState.Stage.DORMANT : ContagionState.Stage.IDLE;
 		if (st.stage == ContagionState.Stage.IDLE) {
-			// do not restart on our own: a stop is a stop until the next Ultron defeat or a command
-			UltronWorldState.setFirstDefeatTime(level, -1L);
+			// do not restart on our own: a stop is a stop until a command (or Ultron's world state is reset)
+			st.ignoredDefeatTime = UltronWorldState.firstDefeatTime(level);
 		}
 		st.saturation = 0;
 		st.traces = 0;
