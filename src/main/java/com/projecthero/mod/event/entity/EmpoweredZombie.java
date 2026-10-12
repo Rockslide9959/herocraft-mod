@@ -70,6 +70,13 @@ public class EmpoweredZombie extends RaidUndead {
 	private static final EntityDataAccessor<String> DATA_VARIANT =
 			SynchedEntityData.defineId(EmpoweredZombie.class, EntityDataSerializers.STRING);
 
+	/**
+	 * v0.16.1: the Supervillain's synced animation clip ({@link SupervillainAnims} index in the low 10 bits, a sequence
+	 * number above so a replayed clip restarts). Unused on an ordinary Zombie Raid boss.
+	 */
+	private static final EntityDataAccessor<Integer> DATA_ANIM =
+			SynchedEntityData.defineId(EmpoweredZombie.class, EntityDataSerializers.INT);
+
 	public static final float SCALE = 1.45f;
 	private static final int ABILITY_INTERVAL = 10;
 	private static final int RETARGET_INTERVAL = 70;
@@ -125,6 +132,7 @@ public class EmpoweredZombie extends RaidUndead {
 		builder.define(DATA_SECOND_POWER, "");
 		builder.define(DATA_FINAL, false);
 		builder.define(DATA_VARIANT, "");
+		builder.define(DATA_ANIM, 0x3FF);
 	}
 
 	/**
@@ -236,6 +244,107 @@ public class EmpoweredZombie extends RaidUndead {
 		setHealth(getMaxHealth());
 		refreshBossBarName();
 		refreshDimensions();
+		introPending = variant != null;
+	}
+
+	// ---------------- v0.16.1: Supervillain animation (cosmetic; never touches the AI) ----------------
+
+	private int animSeq;
+	private int animTicksLeft;
+	private SupervillainAnims.Clip serverAnim;
+	private boolean introPending;
+	private boolean meleeAlt;
+	private int lastSoftAnimTick = -1000;
+	private int lastHurtAnimTick = -1000;
+	/** Client: the clip synced last and the tick it arrived (the renderer's animation clock). */
+	public SupervillainAnims.Clip clientAnim;
+	public int clientAnimStart;
+
+	/**
+	 * Server: play a Supervillain clip, unless a higher- or equal-priority move is still running (death wins over
+	 * everything). Does nothing on an ordinary Zombie Raid boss.
+	 */
+	public boolean playSupervillainAnim(SupervillainAnims.Clip clip) {
+		if (clip == null || variant() == null || level().isClientSide()) {
+			return false;
+		}
+		if (serverAnim != null && animTicksLeft > 0 && clip.priority() <= serverAnim.priority() && clip != SupervillainAnims.DEATH) {
+			return false;
+		}
+		animSeq = (animSeq + 1) & 0x3FFFFF;
+		this.entityData.set(DATA_ANIM, (SupervillainAnims.indexOf(clip) & 0x3FF) | (animSeq << 10));
+		serverAnim = clip;
+		animTicksLeft = clip.length();
+		return true;
+	}
+
+	/**
+	 * Server: an ability helper fired (area strike, projectile, dash, blink, instant ability). A travelling wave can call
+	 * these many times in a row, so they only start a clip when nothing is running and none started in the last second.
+	 */
+	public void supervillainAbilityAnim(SupervillainAnims.Clip clip) {
+		if (variant() == null || tickCount - lastSoftAnimTick < 20) {
+			return;
+		}
+		if (playSupervillainAnim(clip)) {
+			lastSoftAnimTick = tickCount;
+		}
+	}
+
+	private int abilityUsedTick = -1000;
+	private int abilityGestureTick = -1000;
+
+	/** Server: a power ability fired (BossPowerController#startCooldown); see {@link #tickSupervillainAnim}. */
+	public void noteSupervillainAbility() {
+		abilityUsedTick = tickCount;
+	}
+
+	/** The clip synced right now, or null (locomotion). */
+	public SupervillainAnims.Clip currentSupervillainAnim() {
+		return SupervillainAnims.byIndex(this.entityData.get(DATA_ANIM) & 0x3FF);
+	}
+
+	private void tickSupervillainAnim() {
+		if (introPending) {
+			introPending = false;
+			playSupervillainAnim(SupervillainAnims.INTRO);
+		}
+		// an ability fired since the last tick and nothing more specific (slam / shoot / lunge / blink / cast) started
+		if (abilityUsedTick >= tickCount - 1 && abilityGestureTick < abilityUsedTick && lastSoftAnimTick < abilityUsedTick) {
+			abilityGestureTick = abilityUsedTick;
+			supervillainAbilityAnim(SupervillainAnims.BURST);
+		}
+		if (serverAnim == SupervillainAnims.INTRO && animTicksLeft > 0) {
+			getNavigation().stop(); // he holds his ground for the entrance roar
+		}
+		if (animTicksLeft > 0 && --animTicksLeft == 0 && serverAnim != null && !serverAnim.holds()) {
+			serverAnim = null;
+			this.entityData.set(DATA_ANIM, 0x3FF | (animSeq << 10));
+		}
+	}
+
+	@Override
+	public boolean doHurtTarget(net.minecraft.world.entity.Entity target) {
+		boolean hit = super.doHurtTarget(target);
+		if (variant() != null) {
+			meleeAlt = !meleeAlt;
+			playSupervillainAnim(meleeAlt ? SupervillainAnims.MELEE : SupervillainAnims.MELEE_ALT);
+		}
+		return hit;
+	}
+
+	@Override
+	protected void tickDeath() {
+		if (variant() == null) {
+			super.tickDeath();
+			return;
+		}
+		// the death clip runs 2 s: keep the body that long, then vanish like any mob
+		++this.deathTime;
+		if (this.deathTime >= SupervillainAnims.DEATH.length() && !level().isClientSide() && !isRemoved()) {
+			level().broadcastEntityEvent(this, (byte) 60);
+			remove(RemovalReason.KILLED);
+		}
 	}
 
 	/** The Supervillain appearance, or {@code null} for an ordinary Zombie Raid boss. */
@@ -344,6 +453,9 @@ public class EmpoweredZombie extends RaidUndead {
 		}
 
 		updateBossBar(server);
+		if (variant() != null) {
+			tickSupervillainAnim();
+		}
 
 		if (tickCount % AURA_INTERVAL == 0) {
 			emitAura(server);
@@ -429,6 +541,7 @@ public class EmpoweredZombie extends RaidUndead {
 		if (near.isEmpty()) {
 			return false;
 		}
+		playSupervillainAnim(SupervillainAnims.REPEL);
 		server.playSound(null, getX(), getY(), getZ(), SoundEvents.WARDEN_SONIC_BOOM, SoundSource.HOSTILE, 0.7f, 1.7f);
 		server.sendParticles(net.minecraft.core.particles.ParticleTypes.SWEEP_ATTACK,
 				getX(), getY() + 1.0, getZ(), 14, 1.4, 0.6, 1.4, 0.05);
@@ -527,6 +640,10 @@ public class EmpoweredZombie extends RaidUndead {
 		boolean hurt = super.hurt(source, amount);
 		if (hurt && level() instanceof ServerLevel server) {
 			threat.record(source, amount);
+			if (variant() != null && amount >= 8.0f && tickCount - lastHurtAnimTick > 40 && !isDeadOrDying()) {
+				lastHurtAnimTick = tickCount;
+				playSupervillainAnim(SupervillainAnims.HURT);
+			}
 			if (primary != null) {
 				primary.onDamaged(server, source, amount);
 			}
@@ -635,6 +752,7 @@ public class EmpoweredZombie extends RaidUndead {
 	@Override
 	public void die(DamageSource source) {
 		if (level() instanceof ServerLevel server) {
+			playSupervillainAnim(SupervillainAnims.DEATH);
 			bossBar.removeAllPlayers();
 			broadcastBarRemoval();
 			server.playSound(null, getX(), getY(), getZ(), SoundEvents.WITHER_DEATH, SoundSource.HOSTILE, 1.0f, 1.4f);
@@ -661,6 +779,10 @@ public class EmpoweredZombie extends RaidUndead {
 		if (DATA_POWER.equals(key) && !level().isClientSide()) {
 			rebuildControllers();
 			refreshBossBarName();
+		}
+		if (DATA_ANIM.equals(key) && level().isClientSide()) {
+			clientAnim = SupervillainAnims.byIndex(this.entityData.get(DATA_ANIM) & 0x3FF);
+			clientAnimStart = tickCount;
 		}
 		if (DATA_VARIANT.equals(key)) {
 			refreshDimensions();

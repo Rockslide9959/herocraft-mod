@@ -1,54 +1,86 @@
 package com.projecthero.mod.client.render;
 
+import java.util.EnumMap;
+import java.util.Map;
+
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.projecthero.mod.ProjectHeroMod;
+import com.projecthero.mod.client.supervillain.SupervillainGeoRenderer;
 import com.projecthero.mod.event.entity.EmpoweredZombie;
 import com.projecthero.mod.event.entity.SupervillainVariant;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.phys.Vec3;
 
 /**
- * The Supervillain Village Raid's wave-6 boss. Shares the {@link EmpoweredZombie} entity and its
- * whole AI, and reuses the vanilla zombie model like every other raid mob -- it only swaps the
- * texture and render scale on the rolled {@link SupervillainVariant}.
+ * The renderer registered for {@link EmpoweredZombie} (the Zombie Raid's Powered Zombie Boss and the Supervillain Village
+ * Raid's wave-6 boss share that entity).
  *
- * <p>An ordinary (non-Supervillain) Empowered Zombie -- the Zombie Raid's Powered Zombie Boss -- falls
- * through to its own {@code empowered_zombie} texture and {@link EmpoweredZombie#SCALE}, unchanged.
- *
- * <p><b>Art note:</b> these three currently use flat tinted placeholder textures on the zombie mesh.
- * The bespoke voxel models from the reference designs (Chimera / Arsenal / Omega Mage) are a
- * follow-up: the gameplay, AI, boss bar, rewards and model-selection are all wired to
- * {@link SupervillainVariant} already, so dropping in real models is texture + (optional) GeckoLib
- * work with no logic change.
+ * <ul>
+ *   <li>An ordinary Powered Zombie Boss (no {@link SupervillainVariant}) is drawn exactly as before by the shared
+ *       {@link RaidZombieRenderer} (vanilla zombie mesh, {@code empowered_zombie} texture, {@link EmpoweredZombie#SCALE}).</li>
+ *   <li>v0.16.1: a Supervillain is drawn by its own GeckoLib model -- the Chimera, the Arsenal or the Omega Mage
+ *       ({@link SupervillainGeoRenderer}, one per variant), with its own animation set synced from the server
+ *       ({@code SupervillainAnims}). The vanilla zombie / baby zombie and every other mob are untouched: this class is only
+ *       ever bound to {@code projecthero:empowered_zombie}.</li>
+ * </ul>
  */
-public class SupervillainBossRenderer extends RaidZombieRenderer<EmpoweredZombie> {
+public class SupervillainBossRenderer extends EntityRenderer<EmpoweredZombie> {
 	private static final ResourceLocation EMPOWERED = ProjectHeroMod.id("textures/entity/empowered_zombie.png");
-	private static final ResourceLocation CHIMERA = ProjectHeroMod.id("textures/entity/supervillain_chimera.png");
-	private static final ResourceLocation ARSENAL = ProjectHeroMod.id("textures/entity/supervillain_arsenal.png");
-	private static final ResourceLocation OMEGA = ProjectHeroMod.id("textures/entity/supervillain_omega_mage.png");
+
+	private final RaidZombieRenderer<EmpoweredZombie> zombie;
+	private final Map<SupervillainVariant, SupervillainGeoRenderer> villains = new EnumMap<>(SupervillainVariant.class);
 
 	public SupervillainBossRenderer(EntityRendererProvider.Context context) {
-		super(context, SupervillainBossRenderer::textureFor, EmpoweredZombie.SCALE);
+		super(context);
+		this.zombie = new RaidZombieRenderer<>(context, RaidZombieRenderer.fixed(EMPOWERED), EmpoweredZombie.SCALE);
+		for (SupervillainVariant v : SupervillainVariant.values()) {
+			villains.put(v, new SupervillainGeoRenderer(context, v));
+		}
+		this.shadowRadius = 0.5f * EmpoweredZombie.SCALE;
 	}
 
-	private static ResourceLocation textureFor(EmpoweredZombie boss) {
+	private EntityRenderer<? super EmpoweredZombie> delegate(EmpoweredZombie boss) {
 		SupervillainVariant v = boss.variant();
-		if (v == null) {
-			return EMPOWERED;
-		}
-		return switch (v) {
-			case CHIMERA -> CHIMERA;
-			case ARSENAL -> ARSENAL;
-			case OMEGA_MAGE -> OMEGA;
-		};
+		return v == null ? zombie : villains.get(v);
 	}
 
 	@Override
-	protected void scale(EmpoweredZombie entity, PoseStack poseStack, float partialTick) {
+	public void render(EmpoweredZombie entity, float entityYaw, float partialTick, PoseStack poseStack, MultiBufferSource buffer, int packedLight) {
 		SupervillainVariant v = entity.variant();
-		float s = v == null ? EmpoweredZombie.SCALE : v.scale();
-		poseStack.scale(s, s, s);
+		if (v == null) {
+			this.shadowRadius = 0.5f * EmpoweredZombie.SCALE;
+			zombie.render(entity, entityYaw, partialTick, poseStack, buffer, packedLight);
+			return;
+		}
+		this.shadowRadius = 0.55f * v.scale();
+		villains.get(v).render(entity, entityYaw, partialTick, poseStack, buffer, packedLight);
+	}
+
+	@Override
+	public boolean shouldRender(EmpoweredZombie entity, Frustum frustum, double x, double y, double z) {
+		if (entity.variant() == null) {
+			return zombie.shouldRender(entity, frustum, x, y, z);
+		}
+		// the model is taller and wider than the hit-box: cull against the drawn size
+		if (!entity.shouldRender(x, y, z)) {
+			return false;
+		}
+		return frustum.isVisible(entity.getBoundingBox().inflate(1.5, 1.6, 1.5).expandTowards(0, 1.0, 0));
+	}
+
+	@Override
+	public Vec3 getRenderOffset(EmpoweredZombie entity, float partialTick) {
+		return delegate(entity).getRenderOffset(entity, partialTick);
+	}
+
+	@Override
+	public ResourceLocation getTextureLocation(EmpoweredZombie entity) {
+		SupervillainVariant v = entity.variant();
+		return v == null ? EMPOWERED : villains.get(v).getTextureLocation(entity);
 	}
 }
