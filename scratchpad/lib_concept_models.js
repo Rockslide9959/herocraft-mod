@@ -230,9 +230,9 @@ class Model {
 				const s = (i + 0.5) / w, t = (j + 0.5) / h;
 				const p = facePoint(c, f, s, t);
 				const ePx = Math.min(Math.min(s, 1 - s) * r.fw, Math.min(t, 1 - t) * r.fh); // distance to the face border, px
-				const [col, a, g] = shadeFn(c, f, s, t, p, { i, j, w, h, fw: r.fw, fh: r.fh, ePx, D: this.D });
+				const [col, a, g, ga] = shadeFn(c, f, s, t, p, { i, j, w, h, fw: r.fw, fh: r.fh, ePx, D: this.D });
 				put(this.tex, u + i, v + j, col, a == null ? 255 : a);
-				if (g && (a == null || a > 0)) put(this.glow, u + i, v + j, g);
+				if (g && (a == null || a > 0 || ga != null)) put(this.glow, u + i, v + j, g, ga == null ? 255 : ga); // ga: glow alpha (0 = additive-only halo texel)
 			}
 		}
 	}
@@ -493,9 +493,10 @@ function renderPanel(o) {
 				const s = l1 * ua[0] + l2 * ub[0] + l3 * uc[0];
 				const t = l1 * ua[1] + l2 * ub[1] + l3 * uc[1];
 				const ti = M.texel(r, s, t);
-				if (M.tex[ti + 3] < 128) return;
+				const glowOnly = M.tex[ti + 3] < 128 && M.glow[ti + 3] >= 128; // GeckoLib-style emissive texel (base cleared)
+				if (M.tex[ti + 3] < 128 && !glowOnly) return;
 				zb[idx] = z; idb[idx] = f.id;
-				let rr = M.tex[ti], gg = M.tex[ti + 1], bb = M.tex[ti + 2];
+				let rr = glowOnly ? M.glow[ti] : M.tex[ti], gg = glowOnly ? M.glow[ti + 1] : M.tex[ti + 1], bb = glowOnly ? M.glow[ti + 2] : M.tex[ti + 2];
 				if (f.silhouette) { rr = f.silhouette[0]; gg = f.silhouette[1]; bb = f.silhouette[2]; }
 				const j = idx * 3;
 				if (f.tint) { rr *= f.tint[0]; gg *= f.tint[1]; bb *= f.tint[2]; }

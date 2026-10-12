@@ -101,10 +101,12 @@ public class IronManSuitGlowLayer extends GeoRenderLayer<SuperheroArmorItem> {
 			passes += IronManSentryClient.flash > 0.66f ? 3 : IronManSentryClient.flash > 0.33f ? 2 : 1;
 		}
 		IronManAssemblyClient.glowPass = true;
+		// v0.16.1: an Iron Legion suit Ultron has hijacked glows Ultron red
+		int tint = com.projecthero.mod.client.ultron.contagion.HijackedMarkRenderer.legion ? 0xFFFF2414 : 0xFFFFFFFF;
 		try {
 			for (int i = 0; i < passes; i++) {
 				getRenderer().reRender(bakedModel, poseStack, bufferSource, animatable, glow, bufferSource.getBuffer(glow),
-						partialTick, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+						partialTick, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, tint);
 			}
 		} finally {
 			IronManAssemblyClient.glowPass = false;

@@ -1,0 +1,354 @@
+{
+	"parent": "minecraft:block/block",
+	"texture_size": [
+		32,
+		32
+	],
+	"textures": {
+		"core": "projecthero:block/ultron_omega_core",
+		"particle": "projecthero:block/ultron_omega_core"
+	},
+	"elements": [
+		{
+			"from": [
+				2,
+				0,
+				2
+			],
+			"to": [
+				14,
+				6,
+				14
+			],
+			"faces": {
+				"north": {
+					"uv": [
+						0,
+						6,
+						6,
+						9
+					],
+					"texture": "#core"
+				},
+				"south": {
+					"uv": [
+						0,
+						6,
+						6,
+						9
+					],
+					"texture": "#core"
+				},
+				"east": {
+					"uv": [
+						0,
+						6,
+						6,
+						9
+					],
+					"texture": "#core"
+				},
+				"west": {
+					"uv": [
+						0,
+						6,
+						6,
+						9
+					],
+					"texture": "#core"
+				},
+				"up": {
+					"uv": [
+						0,
+						0,
+						6,
+						6
+					],
+					"texture": "#core"
+				},
+				"down": {
+					"uv": [
+						0,
+						0,
+						6,
+						6
+					],
+					"texture": "#core",
+					"cullface": "down"
+				}
+			}
+		},
+		{
+			"from": [
+				6.5,
+				6,
+				6.5
+			],
+			"to": [
+				9.5,
+				7,
+				9.5
+			],
+			"faces": {
+				"north": {
+					"uv": [
+						14,
+						9,
+						15.5,
+						9.5
+					],
+					"texture": "#core"
+				},
+				"south": {
+					"uv": [
+						14,
+						9,
+						15.5,
+						9.5
+					],
+					"texture": "#core"
+				},
+				"east": {
+					"uv": [
+						14,
+						9,
+						15.5,
+						9.5
+					],
+					"texture": "#core"
+				},
+				"west": {
+					"uv": [
+						14,
+						9,
+						15.5,
+						9.5
+					],
+					"texture": "#core"
+				},
+				"up": {
+					"uv": [
+						8.5,
+						9,
+						10,
+						10.5
+					],
+					"texture": "#core"
+				},
+				"down": {
+					"uv": [
+						8.5,
+						9,
+						10,
+						10.5
+					],
+					"texture": "#core"
+				}
+			}
+		},
+		{
+			"from": [
+				5.5,
+				7,
+				4.5
+			],
+			"to": [
+				10.5,
+				10,
+				10.5
+			],
+			"faces": {
+				"north": {
+					"uv": [
+						3.5,
+						9,
+						6,
+						10.5
+					],
+					"texture": "#core"
+				},
+				"south": {
+					"uv": [
+						6,
+						9,
+						8.5,
+						10.5
+					],
+					"texture": "#core"
+				},
+				"east": {
+					"uv": [
+						13,
+						6,
+						16,
+						7.5
+					],
+					"texture": "#core"
+				},
+				"west": {
+					"uv": [
+						13,
+						6,
+						16,
+						7.5
+					],
+					"texture": "#core"
+				},
+				"up": {
+					"uv": [
+						13.5,
+						0,
+						16,
+						3
+					],
+					"texture": "#core"
+				},
+				"down": {
+					"uv": [
+						13.5,
+						0,
+						16,
+						3
+					],
+					"texture": "#core"
+				}
+			}
+		},
+		{
+			"from": [
+				4.5,
+				10,
+				4.5
+			],
+			"to": [
+				11.5,
+				14,
+				11.5
+			],
+			"faces": {
+				"north": {
+					"uv": [
+						6,
+						6,
+						9.5,
+						8
+					],
+					"texture": "#core"
+				},
+				"south": {
+					"uv": [
+						9.5,
+						6,
+						13,
+						8
+					],
+					"texture": "#core"
+				},
+				"east": {
+					"uv": [
+						0,
+						9,
+						3.5,
+						11
+					],
+					"texture": "#core"
+				},
+				"west": {
+					"uv": [
+						0,
+						9,
+						3.5,
+						11
+					],
+					"texture": "#core"
+				},
+				"up": {
+					"uv": [
+						10,
+						0,
+						13.5,
+						3.5
+					],
+					"texture": "#core"
+				},
+				"down": {
+					"uv": [
+						10,
+						0,
+						13.5,
+						3.5
+					],
+					"texture": "#core"
+				}
+			}
+		},
+		{
+			"from": [
+				4,
+				14,
+				5
+			],
+			"to": [
+				12,
+				16,
+				12
+			],
+			"faces": {
+				"north": {
+					"uv": [
+						10,
+						9,
+						14,
+						10
+					],
+					"texture": "#core"
+				},
+				"south": {
+					"uv": [
+						0,
+						11,
+						4,
+						12
+					],
+					"texture": "#core"
+				},
+				"east": {
+					"uv": [
+						4,
+						11,
+						7.5,
+						12
+					],
+					"texture": "#core"
+				},
+				"west": {
+					"uv": [
+						4,
+						11,
+						7.5,
+						12
+					],
+					"texture": "#core"
+				},
+				"up": {
+					"uv": [
+						6,
+						0,
+						10,
+						3.5
+					],
+					"texture": "#core"
+				},
+				"down": {
+					"uv": [
+						6,
+						0,
+						10,
+						3.5
+					],
+					"texture": "#core"
+				}
+			}
+		}
+	]
+}

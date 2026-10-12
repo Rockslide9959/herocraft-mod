@@ -10,6 +10,8 @@ import com.projecthero.mod.frostgiant.FrostGiantAnims.Clip;
 import com.projecthero.mod.frostgiant.FrostGiantEntityTypes;
 import com.projecthero.mod.frostgiant.entity.FrostGiantEntity;
 import com.projecthero.mod.frostgiant.entity.YmirArmEntity;
+import com.projecthero.mod.ultron.contagion.entity.ContagionEntityTypes;
+import com.projecthero.mod.ultron.contagion.entity.UltronOmegaEntity;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 
@@ -202,25 +204,35 @@ public final class V0161FrostModelHarness {
 	}
 
 	private static void clear(ServerPlayer p) {
-		for (Entity e : p.serverLevel().getEntities((Entity) null, new AABB(C).inflate(80), e -> e instanceof FrostGiantEntity || e instanceof YmirArmEntity)) {
+		for (Entity e : p.serverLevel().getEntities((Entity) null, new AABB(C).inflate(80), e -> e instanceof FrostGiantEntity || e instanceof YmirArmEntity || e instanceof UltronOmegaEntity)) {
 			e.discard();
 		}
 	}
 
 	private static final Object[][] UNITS = {
-			// type, height, clips to show at their hit tick (null = mid-clip)
-			{ FrostGiantEntityTypes.HOUND, 1.6f, new Clip[] { FrostGiantAnims.HOUND_WALK, FrostGiantAnims.HOUND_POUNCE, FrostGiantAnims.HOUND_HOWL } },
-			{ FrostGiantEntityTypes.RAIDER, 4.5f, new Clip[] { FrostGiantAnims.RAIDER_WALK, FrostGiantAnims.RAIDER_SPEAR_THRUST, FrostGiantAnims.RAIDER_WAR_CRY } },
-			{ FrostGiantEntityTypes.SHAMAN, 5f, new Clip[] { FrostGiantAnims.SHAMAN_WALK, FrostGiantAnims.SHAMAN_ICE_WALL, FrostGiantAnims.SHAMAN_FROST_NOVA } },
-			{ FrostGiantEntityTypes.BRUTE, 7f, new Clip[] { FrostGiantAnims.BRUTE_WALK, FrostGiantAnims.BRUTE_GLACIER_SPIKES, FrostGiantAnims.BRUTE_WAR_CRY } },
-			{ FrostGiantEntityTypes.WARLORD, 11f, new Clip[] { FrostGiantAnims.WARLORD_WALK, FrostGiantAnims.WARLORD_CLEAVE, FrostGiantAnims.WARLORD_RALLY } },
-			{ FrostGiantEntityTypes.LAUFEY, 14f, new Clip[] { FrostGiantAnims.LAUFEY_WALK, FrostGiantAnims.LAUFEY_CASKET_OPEN, FrostGiantAnims.LAUFEY_SPEAR_FAN } },
+			// type, height, the attack clip shown at its hit tick
+			{ FrostGiantEntityTypes.HOUND, 1.6f, FrostGiantAnims.HOUND_POUNCE },
+			{ FrostGiantEntityTypes.RAIDER, 4.5f, FrostGiantAnims.RAIDER_SPEAR_THRUST },
+			{ FrostGiantEntityTypes.SHAMAN, 5f, FrostGiantAnims.SHAMAN_FROST_NOVA },
+			{ FrostGiantEntityTypes.BRUTE, 7f, FrostGiantAnims.BRUTE_GLACIER_SPIKES },
+			{ FrostGiantEntityTypes.WARLORD, 11f, FrostGiantAnims.WARLORD_RALLY },
+			{ FrostGiantEntityTypes.LAUFEY, 14f, FrostGiantAnims.LAUFEY_CASKET_OPEN },
 	};
+
+	private static void weather(ServerPlayer p, long time, boolean rain) {
+		ServerLevel l = p.serverLevel();
+		l.setDayTime(time);
+		if (rain) {
+			l.setWeatherParameters(0, 6000, true, false);
+		} else {
+			l.setWeatherParameters(6000, 0, false, false);
+		}
+	}
 
 	@SuppressWarnings("unchecked")
 	private static void script(Minecraft mc) {
 		int t = 20;
-		// the lineup, idle, at true scale
+		// the lineup at true scale: day, then dusk in the rain, then night
 		at(t, () -> server(mc, p -> {
 			ServerLevel l = p.serverLevel();
 			int x = -26;
@@ -231,41 +243,43 @@ public final class V0161FrostModelHarness {
 			p.teleportTo(l, C.getX(), C.getY() + 6, C.getZ() + 40, 0f, 0f);
 		}));
 		at(t + 4, () -> cam(-6, 8, 44, -6, 6, 0));
-		at(t + 60, () -> shot(mc, "00_lineup"));
-		t += 70;
+		at(t + 60, () -> shot(mc, "00_lineup_day"));
+		at(t + 62, () -> server(mc, p -> weather(p, 13400, true)));
+		at(t + 100, () -> shot(mc, "00_lineup_dusk_rain"));
+		at(t + 102, () -> server(mc, p -> weather(p, 18000, false)));
+		at(t + 130, () -> shot(mc, "00_lineup_night"));
+		at(t + 132, () -> server(mc, p -> weather(p, 6000, false)));
+		t += 140;
 		at(t, () -> server(mc, V0161FrostModelHarness::clear));
 		t += 10;
 		int i = 0;
 		for (Object[] u : UNITS) {
 			final float h = (float) u[1];
 			final EntityType<? extends Mob> type = (EntityType<? extends Mob>) u[0];
+			final Clip clip = (Clip) u[2];
 			final String name = String.format("%02d_%s", ++i, EntityType.getKey(type).getPath());
 			final Mob[] m = new Mob[1];
-			final double d = Math.max(4.0, h * 1.45);
+			final double d = Math.max(3.4, h * 1.05);
+			final int fire = Math.max(clip.hit(), 6) + 1;
 			at(t, () -> server(mc, p -> {
 				m[0] = spawn(p.serverLevel(), type, C, 0f);
 				p.teleportTo(p.serverLevel(), C.getX(), C.getY() + h, C.getZ() + d, 0f, 0f);
 			}));
-			at(t + 4, () -> cam(0, h * 0.55, d, 0, h * 0.5, 0));
-			at(t + 40, () -> shot(mc, name + "_a_front"));
-			at(t + 42, () -> cam(d * 0.72, h * 0.62, d * 0.72, 0, h * 0.5, 0));
-			at(t + 52, () -> shot(mc, name + "_b_threequarter"));
-			at(t + 54, () -> cam(d, h * 0.55, 0.01, 0, h * 0.5, 0));
-			at(t + 64, () -> shot(mc, name + "_c_side"));
-			int tt = t + 66;
-			for (Clip c : (Clip[]) u[2]) {
-				final Clip clip = c;
-				final int fire = c.loops() ? c.length() / 4 + 6 : Math.max(c.hit(), 6) + 1;
-				at(tt, () -> cam(d * 0.72, h * 0.62, d * 0.72, 0, h * 0.5, 0));
-				at(tt + 2, () -> server(mc, p -> ((FrostGiantEntity) m[0]).setAnim(clip)));
-				at(tt + 2 + fire, () -> shot(mc, name + "_d_" + clip.name()));
-				tt += fire + 30;
-			}
-			final int end = tt;
-			at(end, () -> server(mc, V0161FrostModelHarness::clear));
-			t = end + 10;
+			at(t + 4, () -> cam(d * 0.72, h * 0.62, d * 0.72, 0, h * 0.5, 0));
+			at(t + 40, () -> shot(mc, name + "_day_idle"));
+			at(t + 42, () -> server(mc, p -> ((FrostGiantEntity) m[0]).setAnim(clip)));
+			at(t + 42 + fire, () -> shot(mc, name + "_day_" + clip.name()));
+			at(t + 80, () -> server(mc, p -> weather(p, 13400, true)));
+			at(t + 116, () -> shot(mc, name + "_dusk_idle"));
+			at(t + 118, () -> server(mc, p -> ((FrostGiantEntity) m[0]).setAnim(clip)));
+			at(t + 118 + fire, () -> shot(mc, name + "_dusk_" + clip.name()));
+			at(t + 160, () -> server(mc, p -> {
+				weather(p, 6000, false);
+				clear(p);
+			}));
+			t += 170;
 		}
-		// Ymir's arm: the palm slam, seen from the side and from the front, with a raider for scale
+		// Ymir's arm: the palm slam, day and dusk, with a raider for scale
 		final YmirArmEntity[] arm = new YmirArmEntity[1];
 		at(t, () -> server(mc, p -> {
 			ServerLevel l = p.serverLevel();
@@ -277,17 +291,32 @@ public final class V0161FrostModelHarness {
 			spawn(l, FrostGiantEntityTypes.RAIDER, C.offset(10, 0, 6), 300f);
 			p.teleportTo(l, C.getX(), C.getY() + 20, C.getZ() + 60, 0f, 0f);
 		}));
-		at(t + 4, () -> cam(30, 18, 50, 0, 18, 0));
-		at(t + 40, () -> shot(mc, "07_ymir_a_idle"));
-		at(t + 42, () -> server(mc, p -> arm[0].play(FrostGiantAnims.YMIR_PALM_SLAM)));
-		at(t + 42 + 26, () -> shot(mc, "07_ymir_b_palm_slam_raised"));
-		at(t + 42 + 41, () -> shot(mc, "07_ymir_c_palm_slam_hit"));
-		at(t + 100, () -> cam(55, 14, 2, 0, 16, 0));
-		at(t + 102, () -> server(mc, p -> arm[0].play(FrostGiantAnims.YMIR_PALM_SLAM)));
-		at(t + 102 + 41, () -> shot(mc, "07_ymir_d_palm_slam_side"));
-		at(t + 160, () -> server(mc, p -> arm[0].play(FrostGiantAnims.YMIR_GLACIAL_SWEEP)));
-		at(t + 160 + 62, () -> shot(mc, "07_ymir_e_glacial_sweep"));
-		at(t + 250, () -> {
+		at(t + 4, () -> cam(34, 16, 46, 0, 16, 0));
+		at(t + 40, () -> server(mc, p -> arm[0].play(FrostGiantAnims.YMIR_PALM_SLAM)));
+		at(t + 40 + 41, () -> shot(mc, "07_ymir_day_palm_slam"));
+		at(t + 90, () -> server(mc, p -> weather(p, 13400, true)));
+		at(t + 120, () -> server(mc, p -> arm[0].play(FrostGiantAnims.YMIR_PALM_SLAM)));
+		at(t + 120 + 41, () -> shot(mc, "07_ymir_dusk_palm_slam"));
+		at(t + 170, () -> server(mc, p -> {
+			weather(p, 6000, false);
+			clear(p);
+		}));
+		t += 180;
+		// Ultron Omega through its own entity: hovering idle, the concussive blast, dusk
+		final UltronOmegaEntity[] om = new UltronOmegaEntity[1];
+		at(t, () -> server(mc, p -> {
+			om[0] = spawn(p.serverLevel(), ContagionEntityTypes.ULTRON_OMEGA, C, 0f);
+			p.teleportTo(p.serverLevel(), C.getX(), C.getY() + 4, C.getZ() + 7, 0f, 0f);
+		}));
+		at(t + 4, () -> cam(4.4, 3.0, 4.4, 0, 2.2, 0));
+		at(t + 40, () -> shot(mc, "08_ultron_omega_day_idle"));
+		at(t + 42, () -> server(mc, p -> om[0].startMove(p.serverLevel(), UltronOmegaEntity.Move.BLAST, null)));
+		at(t + 42 + 19, () -> shot(mc, "08_ultron_omega_day_concussive_blast"));
+		at(t + 80, () -> server(mc, p -> om[0].startMove(p.serverLevel(), UltronOmegaEntity.Move.STRIKE, null)));
+		at(t + 80 + 37, () -> shot(mc, "08_ultron_omega_day_vibranium_strike"));
+		at(t + 130, () -> server(mc, p -> weather(p, 13400, true)));
+		at(t + 170, () -> shot(mc, "08_ultron_omega_dusk_idle"));
+		at(t + 200, () -> {
 			System.out.println("[HARNESS] DONE");
 			mc.stop();
 		});

@@ -9,6 +9,7 @@
 		"AbstractFurnaceBlockEntityStarkMixin",
 		"BossEventAccessor",
 		"ClipContextMixin",
+		"ContagionPoisonImmunityMixin",
 		"CraftingMenuMixin",
 		"EntityHulkRideMixin",
 		"EntityWebMixin",

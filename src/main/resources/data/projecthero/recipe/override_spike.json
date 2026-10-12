@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "SLS",
+    "SNS",
+    " R "
+  ],
+  "key": {
+    "S": {
+      "item": "projecthero:ultron_scrap"
+    },
+    "L": {
+      "item": "minecraft:lightning_rod"
+    },
+    "N": {
+      "item": "projecthero:nanite_sample"
+    },
+    "R": {
+      "item": "projecthero:reactor_core"
+    }
+  },
+  "result": {
+    "id": "projecthero:override_spike",
+    "count": 1
+  }
+}

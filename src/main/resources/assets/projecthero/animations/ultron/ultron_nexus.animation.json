@@ -1,0 +1,122 @@
+{
+	"format_version": "1.8.0",
+	"animations": {
+		"animation.ultron_nexus.idle": {
+			"animation_length": 4,
+			"loop": true,
+			"bones": {
+				"ring": {
+					"rotation": {
+						"0.0": [
+							0,
+							0,
+							0
+						],
+						"1.0": [
+							0,
+							90,
+							0
+						],
+						"2.0": [
+							0,
+							180,
+							0
+						],
+						"3.0": [
+							0,
+							270,
+							0
+						],
+						"4.0": [
+							0,
+							360,
+							0
+						]
+					}
+				},
+				"eye": {
+					"scale": {
+						"0.0": [
+							1,
+							1,
+							1
+						],
+						"1.0": {
+							"vector": [
+								1.25,
+								1.25,
+								1.25
+							],
+							"easing": "easeinoutsine"
+						},
+						"2.0": {
+							"vector": [
+								1,
+								1,
+								1
+							],
+							"easing": "easeinoutsine"
+						},
+						"3.0": {
+							"vector": [
+								1.25,
+								1.25,
+								1.25
+							],
+							"easing": "easeinoutsine"
+						},
+						"4.0": {
+							"vector": [
+								1,
+								1,
+								1
+							],
+							"easing": "easeinoutsine"
+						}
+					}
+				},
+				"spire_upper": {
+					"rotation": {
+						"0.0": [
+							0,
+							0,
+							0
+						],
+						"1.0": {
+							"vector": [
+								0.8,
+								0,
+								1.5
+							],
+							"easing": "easeinoutsine"
+						},
+						"2.0": {
+							"vector": [
+								0,
+								0,
+								0
+							],
+							"easing": "easeinoutsine"
+						},
+						"3.0": {
+							"vector": [
+								-0.8,
+								0,
+								-1.5
+							],
+							"easing": "easeinoutsine"
+						},
+						"4.0": {
+							"vector": [
+								0,
+								0,
+								0
+							],
+							"easing": "easeinoutsine"
+						}
+					}
+				}
+			}
+		}
+	}
+}

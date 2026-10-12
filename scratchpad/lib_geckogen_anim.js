@@ -274,7 +274,7 @@ function decodePng(buf) {
 	}
 	return { w, h, px: out };
 }
-function loadGameModel(geoFile, texFile, glowFile, modelScale) {
+function loadGameModel(geoFile, texFile, glowFile, modelScale, geckoMask = false) {
 	const geo = JSON.parse(fs.readFileSync(geoFile, 'utf8'))['minecraft:geometry'][0];
 	const M = new Model(path.basename(geoFile), { TW: geo.description.texture_width });
 	for (const b of geo.bones) {
@@ -287,6 +287,11 @@ function loadGameModel(geoFile, texFile, glowFile, modelScale) {
 	}
 	const t = decodePng(fs.readFileSync(texFile)), g = decodePng(fs.readFileSync(glowFile));
 	M.TW = t.w; M.TH = t.h; M.tex = t.px; M.glow = g.px;
+	if (geckoMask) for (let i = 0; i < t.px.length; i += 4) if (g.px[i] || g.px[i + 1] || g.px[i + 2] || g.px[i + 3]) { // as GeckoLib's AutoGlowingTexture
+		for (let q = 0; q < 3; q++) M.glow[i + q] = t.px[i + q];
+		if (!g.px[i + 3]) M.glow[i + 3] = t.px[i + 3];
+		M.tex[i + 3] = 0;
+	}
 	M.MODEL_SCALE = modelScale; M.k = modelScale / 16;
 	return M;
 }

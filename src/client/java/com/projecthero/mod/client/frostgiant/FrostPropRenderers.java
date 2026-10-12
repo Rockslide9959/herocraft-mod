@@ -123,6 +123,7 @@ public final class FrostPropRenderers {
 			super(context, new FixedModel<>(FrostGiantAnims.CASKET));
 			this.shadowRadius = 0.0f;
 			addRenderLayer(new AutoGlowingGeoLayer<>(this));
+			addRenderLayer(new FrostHaloLayer<>(this, 0.55f)); // additive bloom + halo shells
 		}
 
 		@Override
@@ -159,6 +160,7 @@ public final class FrostPropRenderers {
 			super(context, new FixedModel<>(FrostGiantAnims.YMIR));
 			this.shadowRadius = 0.0f;
 			addRenderLayer(new AutoGlowingGeoLayer<>(this));
+			addRenderLayer(new FrostHaloLayer<>(this, 0.55f)); // additive bloom + halo shells
 		}
 
 		@Override

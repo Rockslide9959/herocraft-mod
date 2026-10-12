@@ -31,6 +31,9 @@ public final class IronManFlight {
 		if (!IronManArmor.canOperate(player)) {
 			return;
 		}
+		if (com.projecthero.mod.ultron.contagion.SuitHijack.blocksFlight(player)) {
+			return; // v0.16.1: the suit is locked by Ultron
+		}
 		// v0.14.27: no take-off until the suit-up has built every piece on
 		if (com.projecthero.mod.ironman.suit.IronManSuitUpManager.blockedWhileAssembling(player, true)) {
 			return;

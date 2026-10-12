@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "projecthero:nanite_sample"
+    },
+    {
+      "item": "projecthero:stark_circuit"
+    },
+    {
+      "item": "projecthero:ultron_scrap"
+    },
+    {
+      "item": "projecthero:ultron_scrap"
+    },
+    {
+      "item": "minecraft:quartz"
+    }
+  ],
+  "result": {
+    "id": "projecthero:firewall_chip",
+    "count": 1
+  }
+}

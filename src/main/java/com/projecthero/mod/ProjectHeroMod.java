@@ -72,6 +72,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.sentinel.SentinelConfig.load(); // v0.15.1: the Sentinel Purge (read before its entity types)
 		com.projecthero.mod.ultron.UltronConfig.load(); // v0.15.12: the Ultron Uprising (read before its entity types)
 		com.projecthero.mod.frostgiant.FrostGiantConfig.load(); // v0.16.1: the Frost Giant Assault (read before its entity types)
+		com.projecthero.mod.ultron.contagion.ContagionConfig.load(); // v0.16.1: the Ultron Contagion (read before its entity types)
 		// v0.13.18: the Darkseid Raid (read before its entity types -- they take attributes and hit-box scale from it).
 		com.projecthero.mod.darkseid.DarkseidConfig.load();
 		ModAttachments.initialize();

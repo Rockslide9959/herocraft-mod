@@ -249,7 +249,7 @@ if (require.main === module && !process.argv.includes('--game')) {
 }
 
 // ================================================================ GAME EXPORT (--game)
-// TIMING TABLE (source of truth until the Contagion gameplay is merged; mirror it in OmegaAnims): server ticks, the
+// TIMING TABLE = com.projecthero.mod.ultron.contagion.OmegaAnims (reconciled on merge: same lengths and hit ticks): server ticks, the
 // Titan / FrostGiantAnims convention -- TRANSITION 4; a play-once / held clip is (length - 4) ticks long and keys each
 // strike on (hit - 4); loops are `length` ticks and carry no hits. kind: once | hold | loop.
 const OMEGA_TRANSITION = 4;
@@ -257,17 +257,17 @@ const OMEGA_TIMING = {
 	idle: { kind: 'loop', length: 60 },
 	fly: { kind: 'loop', length: 30 },
 	walk: { kind: 'loop', length: 32, speed: 0.15 },
-	vibranium_strike: { kind: 'once', length: 44, hits: [12, 22, 34] }, // 3-hit combo, 8 / 8 / 14 damage
+	vibranium_strike: { kind: 'once', length: 44, hits: [12, 22, 36] }, // 3-hit combo, 8 / 8 / 14 damage
 	concussive_blast: { kind: 'once', length: 30, hits: [18] },
-	lattice: { kind: 'once', length: 50, hits: [24] },                   // the rotating beams switch on at the hit
+	lattice: { kind: 'once', length: 100, hits: [20] },                  // LATTICE_WINDUP: the rotating beams switch on at the hit
 	siphon: { kind: 'loop', length: 40 },
-	split: { kind: 'once', length: 30, hits: [18] },                     // the decoys appear on the hit
-	override: { kind: 'once', length: 40, hits: [26] },                  // the Legion suits are hijacked on the hit
+	split: { kind: 'once', length: 30, hits: [20] },                     // the decoys appear on the hit
+	override: { kind: 'once', length: 40, hits: [24] },                  // the Legion suits are hijacked on the hit
 	upload: { kind: 'loop', length: 60 },
 	hurt: { kind: 'once', length: 10 },
-	stagger_kneel: { kind: 'hold', length: 40 },
+	stagger_kneel: { kind: 'hold', length: 30 },
 	disintegrate: { kind: 'hold', length: 60 },
-	self_destruct: { kind: 'hold', length: 80, hits: [70] },            // the blast on the hit
+	self_destruct: { kind: 'hold', length: 60, hits: [60] },            // the blast on the hit (SELF_DESTRUCT_TICKS)
 };
 
 function omegaGame() {
@@ -278,6 +278,13 @@ function omegaGame() {
 	const M = buildOmega();
 	M.setHeight(4, c => c.bone !== 'head' || c.paint !== 'crest');
 	M.layout(); M.paint(shadeOmega(M));
+	// in-game: a touch more contrast and brightness on the plates (vanilla entity lighting flattens the silver)
+	for (let i = 0; i < M.tex.length; i += 4) if (!M.glow[i + 3]) for (let q = 0; q < 3; q++) M.tex[i + q] = Math.max(0, Math.min(255, Math.round((120 + (M.tex[i + q] - 120) * 1.18) * 1.06)));
+	// OmegaRenderer draws the model at bbHeight / 4.0, i.e. it expects the rest pose exactly 64 px (4 blocks) tall
+	const K = M.MODEL_SCALE;
+	for (const b of M.bones) b.pivot = b.pivot.map(v => v * K);
+	for (const c of M.cubes()) { c.from = c.from.map(v => v * K); c.to = c.to.map(v => v * K); if (c.pivot) c.pivot = c.pivot.map(v => v * K); }
+	M.k = 1 / 16; M.MODEL_SCALE = 1;
 	const P = omegaPoses(M);
 	const an = new A.AnimSet(M, 'ultron_omega', { transition: OMEGA_TRANSITION, feet: c => c.tag === 'sole' });
 	const fist = (n, k) => { const s = n === 'r' ? -1 : 1; return { [`fingers_${n}`]: [0, 0, s * 30 * k], [`fingertips_${n}`]: [0, 0, s * 40 * k] }; };
@@ -362,7 +369,8 @@ function omegaGame() {
 		mk('self_destruct', (len, [h]) => {
 			const f = [[0, ap(H, HY(12))], [16, ap(arc, HY(16)), 'easeinoutsine']];
 			for (let t = 22, i = 0; t < h - 2; t += 4, i++) f.push([t, ap(arc, { chest: [(i % 2 ? 3 : -3) * (1 + t / h), (i % 2 ? 4 : -4), 0], head: [(i % 2 ? -4 : 4), (i % 2 ? 6 : -6), 0] }, HY(16 + t / 10)), 'linear']);
-			f.push([h, strike(ap(arc, { chest: [-10, 0, 0], arm_r: [-20, 0, 10], arm_l: [-20, 0, -10] }, HY(24))), 'easeoutquad'], [len, ap(arc, HY(24))]);
+			f.push([h, strike(ap(arc, { chest: [-10, 0, 0], arm_r: [-20, 0, 10], arm_l: [-20, 0, -10] }, HY(24))), 'easeoutquad']);
+			if (len > h) f.push([len, ap(arc, HY(24))]);
 			return f;
 		});
 	}

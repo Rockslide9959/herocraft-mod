@@ -6,14 +6,14 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import com.projecthero.mod.client.V0161UltronHarness;
+import com.projecthero.mod.client.V0161ContagionHarness;
 
 import net.minecraft.client.Camera;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.phys.Vec3;
 
-/** TEMP-HARNESS (not shipped): an absolute world camera for the v0.16.1 Ultron harness. */
+/** TEMP-HARNESS (not shipped). */
 @Mixin(Camera.class)
 public abstract class V0161HarnessCameraMixin {
 	@Shadow
@@ -23,12 +23,13 @@ public abstract class V0161HarnessCameraMixin {
 	protected abstract void setRotation(float yRot, float xRot);
 
 	@Inject(method = "setup", at = @At("TAIL"))
-	private void projecthero$v0161Cam(BlockGetter level, Entity entity, boolean detached, boolean reverse, float partialTick, CallbackInfo ci) {
-		if (!detached || V0161UltronHarness.camPos == null || V0161UltronHarness.camAt == null) {
+	private void projecthero$v01520Orbit(BlockGetter level, Entity entity, boolean detached, boolean reverse, float partialTick, CallbackInfo ci) {
+		if (!detached || V0161ContagionHarness.camOffset == null) {
 			return;
 		}
-		Vec3 pos = V0161UltronHarness.camPos;
-		Vec3 d = V0161UltronHarness.camAt.subtract(pos);
+		Vec3 pos = entity.getPosition(partialTick).add(V0161ContagionHarness.camOffset);
+		Vec3 target = entity.getPosition(partialTick).add(V0161ContagionHarness.camLook);
+		Vec3 d = target.subtract(pos);
 		float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
 		float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
 		setRotation(yaw, pitch);

@@ -1,8 +1,8 @@
 {
 	"transition": 4,
 	"note": "server ticks; a play-once/held clip is (length - 4) ticks long and keys each hit on (hit - 4); loops are length ticks. Hover clips lift the root ~12 px (0.75 block x model scale) above the hit-box floor.",
-	"model_scale_for_4_blocks": 1.0738,
-	"rest_height_px": 60.02,
+	"model_scale_for_4_blocks": 1,
+	"rest_height_px": 64.46,
 	"texture": [
 		512,
 		144
@@ -32,12 +32,12 @@
 			"hits": [
 				12,
 				22,
-				34
+				36
 			],
 			"strike_clip_ticks": [
 				8,
 				18,
-				30
+				32
 			]
 		},
 		"concussive_blast": {
@@ -52,14 +52,14 @@
 			]
 		},
 		"lattice": {
-			"server_length": 50,
+			"server_length": 100,
 			"kind": "once",
-			"clip_ticks": 46,
+			"clip_ticks": 96,
 			"hits": [
-				24
+				20
 			],
 			"strike_clip_ticks": [
-				20
+				16
 			]
 		},
 		"siphon": {
@@ -72,10 +72,10 @@
 			"kind": "once",
 			"clip_ticks": 26,
 			"hits": [
-				18
+				20
 			],
 			"strike_clip_ticks": [
-				14
+				16
 			]
 		},
 		"override": {
@@ -83,10 +83,10 @@
 			"kind": "once",
 			"clip_ticks": 36,
 			"hits": [
-				26
+				24
 			],
 			"strike_clip_ticks": [
-				22
+				20
 			]
 		},
 		"upload": {
@@ -100,9 +100,9 @@
 			"clip_ticks": 6
 		},
 		"stagger_kneel": {
-			"server_length": 40,
+			"server_length": 30,
 			"kind": "hold",
-			"clip_ticks": 36
+			"clip_ticks": 26
 		},
 		"disintegrate": {
 			"server_length": 60,
@@ -110,14 +110,14 @@
 			"clip_ticks": 56
 		},
 		"self_destruct": {
-			"server_length": 80,
+			"server_length": 60,
 			"kind": "hold",
-			"clip_ticks": 76,
+			"clip_ticks": 56,
 			"hits": [
-				70
+				60
 			],
 			"strike_clip_ticks": [
-				66
+				56
 			]
 		}
 	}

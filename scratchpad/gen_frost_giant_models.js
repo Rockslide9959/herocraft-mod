@@ -1511,6 +1511,73 @@ function writeGame(M, id, an, dir) {
 	return { geo: path.join(geoDir, `${id}.geo.json`), tex: path.join(texDir, `${id}.png`), glow: path.join(texDir, `${id}_glowmask.png`), anim: path.join(animDir, `${id}.animation.json`) };
 }
 
+
+// ---------------------------------------------------------------- the in-game look (game export only)
+// Minecraft's flat entity lighting and the GeckoLib glow layer flatten the concept look, so the game textures get:
+//   - a little more saturation / contrast (skin most, ice a lot so it reads as cyan ice, not grey plastic),
+//   - ice and crystals that glow through their whole body (edges at full strength, the interior softer),
+//     stronger ridge glow, red eyes at full,
+//   - HALO shells: an inflated copy of every glowing cube (and a flat plate over each eye) whose base texel is fully
+//     transparent (invisible in the main pass and in GeckoLib's glow pass) and whose glowmask RGB is a soft radial
+//     gradient; FrostGiantRenderer's additive glow pass (RenderType.eyes on the glowmask) turns them into a bloom halo.
+const GLOW_MATS = new Set(['ice', 'crystal', 'crystal_hot', 'blade', 'casket_glass', 'ice_dim', 'ice_shaft']);
+const sat = (c, k) => { const l = 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2]; return c.map(v => clamp(l + (v - l) * k)); };
+const contrast = (c, k, mid = 118) => c.map(v => clamp(mid + (v - mid) * k));
+function addHalos(M, eyes) {
+	const cubes = M.cubes().slice();
+	for (const c of cubes) {
+		if (!GLOW_MATS.has(c.mat)) continue;
+		const sz = [0, 1, 2].map(i => c.to[i] - c.from[i]);
+		const h = Math.max(0.5, Math.min(2.2, Math.min(...sz) * 0.7 + 0.3));
+		const b = M.B[c.bone];
+		const hc = M.box(b, c.from[0] - h, c.from[1] - h, c.from[2] - h, c.to[0] + h, c.to[1] + h, c.to[2] + h, 'halo', { rot: c.rot, pivot: c.pivot, tag: c.mat === 'crystal_hot' || c.mat === 'casket_glass' ? 'hot' : c.mat === 'ice_dim' || c.mat === 'ice_shaft' ? 'dim' : null });
+		hc.haloOf = c.mat;
+	}
+	for (const e of eyes || []) M.box(e.bone, e.c[0] - e.s[0] / 2, e.c[1] - e.s[1] / 2, e.c[2] - e.s[2] / 2, e.c[0] + e.s[0] / 2, e.c[1] + e.s[1] / 2, e.c[2] + e.s[2] / 2, 'halo', { tag: 'eye' });
+}
+function jotunEyes(M) {
+	const A = M.A;
+	return [-1, 1].map(s => ({ bone: 'head', c: [s * A.eyeX, A.eyeY, A.faceZ - 0.2], s: [A.eyeW * 2 + 1.5, A.eyeH * 2 + 1.3, 0.2] }));
+}
+// GeckoLib's AutoGlowingTexture uses the glowmask only as a MASK: every non-zero glowmask texel takes the BASE texture's
+// colour (at the glowmask's alpha) into the emissive texture, and that base texel is cleared. So the emissive colour lives
+// in the base texture, and the glowmask carries only "where" and "how opaque".
+function gameShade(M) {
+	const base = shadeFor(M);
+	const W = [255, 255, 255];
+	return (c, f, s, t, p, info) => {
+		if (c.mat === 'halo') {
+			const r = Math.max(Math.abs(s - 0.5), Math.abs(t - 0.5)) * 2; // 0 centre .. 1 edge of the face
+			const fall = Math.pow(Math.max(0, 1 - r), 1.3);
+			const col = c.tag === 'eye' ? [255, 50, 30] : c.tag === 'hot' ? [150, 225, 255] : [90, 190, 255];
+			const k = c.tag === 'eye' ? 1.0 : c.tag === 'hot' ? 1.0 : c.tag === 'dim' ? 0.5 : 0.85;
+			// colour = the additive halo (FrostHaloLayer); a faint translucent haze in GeckoLib's own glow pass
+			return [col.map(v => v * fall * k), 255, W, Math.max(1, Math.round(70 * fall * k))];
+		}
+		let [col, a, g] = base(c, f, s, t, p, info);
+		let ga = null;
+		if (GLOW_MATS.has(c.mat)) {
+			if (c.mat !== 'casket_glass' && c.mat !== 'crystal_hot') { col = sat(col, 1.55); col = mix(col, [70, 170, 240], 0.18); } // the hot cores stay white-cyan
+			g = W; ga = c.mat === 'ice_shaft' ? 205 : c.mat === 'ice_dim' ? 225 : 255; // the whole body is emissive
+		} else if (c.mat === 'skin') {
+			col = mul(contrast(sat(col, 1.2), 1.1), 1.16);
+			if (g) {
+				if (g[0] > g[2]) ga = 255; // red eyes
+				else { col = mix(col, [120, 200, 255], 0.5); ga = 165; } // raised ridges glow cold blue, half-translucent
+			}
+		} else {
+			col = contrast(sat(col, 1.15), 1.06);
+			if (g) col = mix(col, g, 0.5);
+		}
+		return [col, a, g, ga];
+	};
+}
+function gameLook(M, eyes) {
+	addHalos(M, eyes);
+	M.layout();
+	M.paint(gameShade(M));
+	return M;
+}
 function gameExport() {
 	const A = require('./lib_geckogen_anim.js');
 	const CL = require('./frost_giant_clips.js');
@@ -1546,8 +1613,8 @@ function gameExport() {
 		previews.push({ id, files, k: opts.k || (opts.height ? opts.height / fitPx : M.k), clips: an.clips, height: opts.height || 2, timing: timing[id], cam: opts.cam });
 		console.log(`${id}: ${M.bones.length} bones, ${M.cubes().length} cubes, tex ${M.TW}x${M.TH}, ${Object.keys(an.clips).length} clips`);
 	};
-	const prep = (M, blocks) => { M.setHeight(blocks, c => (!['hair', 'horn', 'crystal', 'crystal_hot', 'ice', 'blade'].includes(c.mat) && !/^(weapon|casket_spill)/.test(c.bone)) || c.bone === 'root'); M.layout(); M.paint(shadeFor(M)); return M; };
-	{ const M = prep(buildHound(), 1.6); unit('rime_hound', M, CL.houndClips, houndPoses(M), { height: 1.6 }); }
+	const prep = (M, blocks) => { M.setHeight(blocks, c => (!['hair', 'horn', 'crystal', 'crystal_hot', 'ice', 'blade'].includes(c.mat) && !/^(weapon|casket_spill)/.test(c.bone)) || c.bone === 'root'); gameLook(M, M.A && M.A.eyeX ? jotunEyes(M) : M.B.wskull ? null : null); return M; };
+	{ const M = buildHound(); M.setHeight(1.6); gameLook(M, [-1, 1].map(s => ({ bone: 'head', c: [s * 1.55, 20.3, -14.15], s: [2.4, 1.5, 0.2] }))); M.MODEL_SCALE = M.MODEL_SCALE; unit('rime_hound', M, CL.houndClips, houndPoses(M), { height: 1.6 }); }
 	{ const M = prep(buildRaider(), 4.5); unit('jotun_raider', M, CL.raiderClips, raiderPoses(M), { height: 4.5 }); }
 	{ const M = prep(buildShaman(), 5); unit('frost_shaman', M, CL.shamanClips, shamanPoses(M), { height: 5, hidden: ['spell_r'] }); }
 	{ const M = prep(buildBrute(), 7); unit('ice_brute', M, CL.bruteClips, brutePoses(M), { height: 7 }); }
@@ -1556,9 +1623,9 @@ function gameExport() {
 		const M = buildLaufey(); const poses = laufeyPoses(M); laufeyStaff(M, poses.stand); prep(M, 14);
 		unit('king_laufey', M, CL.laufeyClips, poses, { height: 14, hidden: ['casket_spill'] });
 	}
-	{ const C = buildYmir(); C.layout(); C.paint(shadeFor(C)); const G = ymirGame(C); unit('ymir_arm', G, CL.ymirClips, {}, { k: 1 / 16, height: 40 }); }
+	{ const C = buildYmir(); gameLook(C); const G = ymirGame(C); unit('ymir_arm', G, CL.ymirClips, {}, { k: 1 / 16, height: 40 }); }
 	{
-		const M = buildCasket(); renameBones(M, { casket_lid: 'lid', casket_spill: 'spill' }); M.layout(); M.paint(shadeFor(M));
+		const M = buildCasket(); renameBones(M, { casket_lid: 'lid', casket_spill: 'spill' }); gameLook(M);
 		M.k = 1.6 / 16; M.MODEL_SCALE = 1.6; M.heightBlocks = 1.8;
 		unit('ice_casket', M, CL.casketClips, {}, { k: 1.6 / 16, height: 1.8, hidden: ['spill'] });
 	}
@@ -1569,7 +1636,7 @@ function gameExport() {
 
 // Preview sheets rendered from the WRITTEN game files (geo + PNG + animation JSON), at the in-game scale.
 function gamePreview(p, A) {
-	const G = A.loadGameModel(p.files.geo, p.files.tex, p.files.glow, p.k * 16);
+	const G = A.loadGameModel(p.files.geo, p.files.tex, p.files.glow, p.k * 16, true);
 	G.heightBlocks = p.height;
 	const anims = A.loadAnimations(p.files.anim);
 	const key = n => `animation.${p.id}.${n}`;

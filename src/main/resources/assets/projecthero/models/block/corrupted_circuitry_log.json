@@ -1,0 +1,7 @@
+{
+	"parent": "minecraft:block/cube_column",
+	"textures": {
+		"end": "projecthero:block/corrupted_circuitry_log_top",
+		"side": "projecthero:block/corrupted_circuitry_log"
+	}
+}

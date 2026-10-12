@@ -32,6 +32,11 @@
     "projecthero:stark_smelter",
     "projecthero:stark_smoker",
     "projecthero:jotunheim_rune_stone",
-    "projecthero:jotun_skull"
+    "projecthero:jotun_skull",
+    "projecthero:firewall_beacon",
+    "projecthero:ultron_omega_core",
+    "projecthero:corrupted_circuitry",
+    "projecthero:corrupted_circuitry_stone",
+    "projecthero:corrupted_circuitry_log"
   ]
 }

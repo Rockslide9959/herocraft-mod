@@ -136,6 +136,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.sentinel.SentinelRenderers.initialize(); // v0.15.1: Sentinel Drones, Sentinels, Master Mold, their beams
 		com.projecthero.mod.client.ultron.UltronClient.initialize(); // v0.15.12: Ultron's robots, pylons, beams, the Ultron Core
 		com.projecthero.mod.client.frostgiant.FrostGiantClient.initialize(); // v0.16.1: Frost Giants, braziers, the rift, the blizzard
+		com.projecthero.mod.client.ultron.contagion.ContagionClient.initialize(); // v0.16.1: the Ultron Contagion
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SymbioteHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SquadLocatorBarHud::render);

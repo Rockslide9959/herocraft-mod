@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "SCS",
+    "RER",
+    "SCS"
+  ],
+  "key": {
+    "S": {
+      "item": "projecthero:ultron_scrap"
+    },
+    "C": {
+      "item": "minecraft:copper_ingot"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "E": {
+      "item": "minecraft:sculk_sensor"
+    }
+  },
+  "result": {
+    "id": "projecthero:purge_charge",
+    "count": 4
+  }
+}

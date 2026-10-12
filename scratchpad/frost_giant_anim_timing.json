@@ -14,10 +14,10 @@
 		"rime_hound": {
 			"texture": [
 				512,
-				80
+				128
 			],
 			"bones": 23,
-			"cubes": 120,
+			"cubes": 197,
 			"rest_fit_height_px": 24.62,
 			"concept_model_scale": 1.0397,
 			"speeds_blocks_per_tick": {
@@ -95,10 +95,10 @@
 		"jotun_raider": {
 			"texture": [
 				512,
-				352
+				400
 			],
 			"bones": 35,
-			"cubes": 137,
+			"cubes": 166,
 			"rest_fit_height_px": 67.45,
 			"concept_model_scale": 1.0827,
 			"speeds_blocks_per_tick": {
@@ -178,11 +178,11 @@
 		"frost_shaman": {
 			"texture": [
 				512,
-				432
+				496
 			],
 			"bones": 35,
-			"cubes": 182,
-			"rest_fit_height_px": 66.17,
+			"cubes": 244,
+			"rest_fit_height_px": 67.3,
 			"concept_model_scale": 1.2121,
 			"speeds_blocks_per_tick": {
 				"walk": 0.125,
@@ -261,10 +261,10 @@
 		"ice_brute": {
 			"texture": [
 				512,
-				352
+				576
 			],
 			"bones": 34,
-			"cubes": 202,
+			"cubes": 326,
 			"rest_fit_height_px": 59.97,
 			"concept_model_scale": 1.8698,
 			"speeds_blocks_per_tick": {
@@ -353,10 +353,10 @@
 		"frost_giant_warlord": {
 			"texture": [
 				512,
-				384
+				448
 			],
 			"bones": 35,
-			"cubes": 165,
+			"cubes": 181,
 			"rest_fit_height_px": 65.45,
 			"concept_model_scale": 2.6057,
 			"speeds_blocks_per_tick": {
@@ -443,10 +443,10 @@
 		"king_laufey": {
 			"texture": [
 				512,
-				560
+				752
 			],
 			"bones": 43,
-			"cubes": 215,
+			"cubes": 305,
 			"rest_fit_height_px": 74.74,
 			"concept_model_scale": 2.9987,
 			"speeds_blocks_per_tick": {
@@ -568,11 +568,11 @@
 		"ymir_arm": {
 			"texture": [
 				1024,
-				368
+				416
 			],
 			"bones": 18,
-			"cubes": 145,
-			"rest_fit_height_px": 897.97,
+			"cubes": 204,
+			"rest_fit_height_px": 900.78,
 			"concept_model_scale": 1,
 			"speeds_blocks_per_tick": null,
 			"clips": {
@@ -616,11 +616,11 @@
 		"ice_casket": {
 			"texture": [
 				512,
-				112
+				224
 			],
 			"bones": 4,
-			"cubes": 58,
-			"rest_fit_height_px": 21.9,
+			"cubes": 90,
+			"rest_fit_height_px": 22.67,
 			"concept_model_scale": 1.6,
 			"speeds_blocks_per_tick": null,
 			"clips": {
