@@ -546,7 +546,7 @@ public class FrostGiantAssault extends EventInstance {
 		if (viewers.isEmpty()) {
 			return;
 		}
-		int points = 96;
+		int points = 128;
 		for (int i = 0; i < points; i++) {
 			double a = i * Math.PI * 2 / points + (now % 80) * 0.002;
 			double x = c.getX() + 0.5 + Math.cos(a) * r;
@@ -556,6 +556,10 @@ public class FrostGiantAssault extends EventInstance {
 			for (ServerPlayer viewer : viewers) {
 				level.sendParticles(viewer, dust, true, x, y + 0.6, z, 1, 0, 0.4, 0, 0);
 				level.sendParticles(viewer, dust, true, x, y + 2.0, z, 1, 0, 0.4, 0, 0);
+				if (i % 3 == 0) {
+					// full-bright, so the edge still reads at night (dust takes the world's light)
+					level.sendParticles(viewer, ParticleTypes.END_ROD, true, x, y + 1.3, z, 1, 0, 0.5, 0, 0);
+				}
 				if (i % 6 == 0) {
 					level.sendParticles(viewer, ParticleTypes.SNOWFLAKE, true, x, y + 1.2, z, 1, 0.1, 0.6, 0.1, 0.01);
 				}
@@ -1121,22 +1125,7 @@ public class FrostGiantAssault extends EventInstance {
 				return;
 			}
 			var victim = targets.get(level.random.nextInt(targets.size()));
-			ymirHit.clear();
-			ymirTick = 0;
-			if (level.random.nextFloat() < 0.6f) {
-				ymirMove = 1;
-				ymirTo = victim.position();
-				arm.moveTo(ymirTo.x, ymirTo.y, ymirTo.z, arm.getYRot(), 0f);
-				arm.play(com.projecthero.mod.frostgiant.FrostGiantAnims.YMIR_PALM_SLAM);
-			} else {
-				ymirMove = 2;
-				double a = level.random.nextDouble() * Math.PI;
-				Vec3 dir = new Vec3(Math.cos(a), 0, Math.sin(a));
-				ymirFrom = clampToArena(victim.position().subtract(dir.scale(22)));
-				ymirTo = clampToArena(victim.position().add(dir.scale(22)));
-				arm.moveTo(ymirFrom.x, ymirFrom.y, ymirFrom.z, (float) (Math.atan2(-dir.x, dir.z) * Mth.RAD_TO_DEG), 0f);
-				arm.play(com.projecthero.mod.frostgiant.FrostGiantAnims.YMIR_GLACIAL_SWEEP);
-			}
+			startYmirMove(level, arm, level.random.nextFloat() < 0.6f, victim.position());
 			return;
 		}
 		ymirTick++;
@@ -1196,6 +1185,36 @@ public class FrostGiantAssault extends EventInstance {
 				arm.play(com.projecthero.mod.frostgiant.FrostGiantAnims.YMIR_IDLE);
 			}
 		}
+	}
+
+	/** Ymir begins a Palm Slam on {@code at}, or a Glacial Sweep through it. */
+	private void startYmirMove(ServerLevel level, YmirArmEntity arm, boolean palm, Vec3 at) {
+		ymirHit.clear();
+		ymirTick = 0;
+		if (palm) {
+			ymirMove = 1;
+			ymirTo = at;
+			arm.moveTo(ymirTo.x, ymirTo.y, ymirTo.z, arm.getYRot(), 0f);
+			arm.play(com.projecthero.mod.frostgiant.FrostGiantAnims.YMIR_PALM_SLAM);
+		} else {
+			ymirMove = 2;
+			double a = level.random.nextDouble() * Math.PI;
+			Vec3 dir = new Vec3(Math.cos(a), 0, Math.sin(a));
+			ymirFrom = clampToArena(at.subtract(dir.scale(22)));
+			ymirTo = clampToArena(at.add(dir.scale(22)));
+			arm.moveTo(ymirFrom.x, ymirFrom.y, ymirFrom.z, (float) (Math.atan2(-dir.x, dir.z) * Mth.RAD_TO_DEG), 0f);
+			arm.play(com.projecthero.mod.frostgiant.FrostGiantAnims.YMIR_GLACIAL_SWEEP);
+		}
+	}
+
+	/** Command / harness hook: Ymir starts a Palm Slam on (or a Glacial Sweep through) {@code at} right now. */
+	public boolean debugYmir(ServerLevel level, boolean palm, Vec3 at) {
+		YmirArmEntity arm = ymir(level);
+		if (!ymirAwake || arm == null || ymirMove == 3) {
+			return false;
+		}
+		startYmirMove(level, arm, palm, at);
+		return true;
 	}
 
 	private Vec3 clampToArena(Vec3 p) {

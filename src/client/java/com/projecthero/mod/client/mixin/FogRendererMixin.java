@@ -70,7 +70,7 @@ public class FogRendererMixin {
 		// v0.16.1: the Frost Giant blizzard closes the fog in to ~48 blocks (32 with the Casket open)
 		float frost = com.projecthero.mod.client.frostgiant.FrostBlizzardClient.fogEnd();
 		if (frost > 0.0f) {
-			RenderSystem.setShaderFogStart(frost * 0.12f);
+			RenderSystem.setShaderFogStart(frost * 0.3f);
 			RenderSystem.setShaderFogEnd(frost);
 			return;
 		}

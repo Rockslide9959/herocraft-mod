@@ -119,6 +119,10 @@ public final class FrostTempBlocks {
 			if (layers >= Math.max(1, maxDepth)) {
 				return false;
 			}
+			// grass / mycelium die (turn to dirt) under 2+ layers of snow -- a permanent change. Keep them at one layer.
+			if (level.getBlockState(pos.below()).getBlock() instanceof net.minecraft.world.level.block.SpreadingSnowyDirtBlock) {
+				return false;
+			}
 			return place(level, pos, current.setValue(SnowLayerBlock.LAYERS, layers + 1), -1);
 		}
 		if (!current.isAir() || !level.getBlockState(pos.below()).isFaceSturdy(level, pos.below(), net.minecraft.core.Direction.UP)) {

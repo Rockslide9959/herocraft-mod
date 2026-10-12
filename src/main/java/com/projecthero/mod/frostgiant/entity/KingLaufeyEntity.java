@@ -232,6 +232,14 @@ public class KingLaufeyEntity extends FrostGiantEntity {
 		if (staggerGrace > 0) {
 			staggerGrace--;
 		}
+		if (phase >= 2 && !casketOpened && move != FrostGiantAnims.LAUFEY_CASKET_OPEN) {
+			// the opening clip was cut short (or he can't move): the Casket opens anyway
+			FrostGiantAssault a = myAssault();
+			if (a != null) {
+				a.onCasketOpened(server);
+			}
+			casketOpened = true;
+		}
 		if (phase >= 3 && !drained && tickCount % 20 == 0 && (casketId == null || !(server.getEntity(casketId) instanceof IceCasketEntity))) {
 			spawnCasket(server); // reloaded, or it went missing: it floats back
 		}
