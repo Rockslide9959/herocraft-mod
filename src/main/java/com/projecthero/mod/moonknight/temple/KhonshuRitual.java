@@ -116,6 +116,10 @@ public final class KhonshuRitual {
 					.withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC), true);
 			return false;
 		}
+		// v0.16.1: projectheroUniquePowers -- Khonshu already has a fist; the scarab stays in hand
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, MoonKnight.KEY)) {
+			return false;
+		}
 		stack.shrink(1); // consumed into the altar, creative included -- the altar holds it now
 		be.state = KhonshuAltarBlockEntity.AltarState.HOLDING_SCARAB;
 		be.ritualPlayer = player.getUUID();
@@ -242,6 +246,12 @@ public final class KhonshuRitual {
 
 	/** The rebirth: the player stands again on the altar as the Fist of Khonshu, and the altar is spent. */
 	private static void rise(ServerLevel level, BlockPos pos, KhonshuAltarBlockEntity be, ServerPlayer player) {
+		// v0.16.1: projectheroUniquePowers -- someone else became Moon Knight during the ritual: abort, the scarab pops
+		// back out and the altar is not spent
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, MoonKnight.KEY)) {
+			cancel(level, pos, be, player, null);
+			return;
+		}
 		REBORN.remove(player.getUUID());
 		player.removeEffect(MobEffects.INVISIBILITY);
 		Vec3 top = top(pos);

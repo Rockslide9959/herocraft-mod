@@ -37,12 +37,19 @@ public final class SymbioteBonding {
 					.withStyle(ChatFormatting.GRAY), true);
 			return;
 		}
+		// v0.16.1: projectheroUniquePowers -- the Symbiote already has a host
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, "symbiote")) {
+			return;
+		}
 		// v0.12.25: touching the Symbiote starts the bonding minigame; winning it calls bondNow.
 		SymbioteBondGame.begin(player, symbiote);
 	}
 
 	/** The bond itself, after the minigame is won (also what the gametests call directly). */
 	public static void bondNow(ServerPlayer player, SymbioteEntity symbiote) {
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, "symbiote")) {
+			return;
+		}
 		if (!symbiote.claimBond(player, 60)) {
 			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.entity_busy"), true);
 			return;
@@ -61,6 +68,10 @@ public final class SymbioteBonding {
 					.withStyle(ChatFormatting.GRAY), true);
 			return false;
 		}
+		// v0.16.1: projectheroUniquePowers -- the vial is kept
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, "symbiote")) {
+			return false;
+		}
 		SymbioteBondGame.begin(player, null);
 		return true;
 	}
@@ -71,6 +82,10 @@ public final class SymbioteBonding {
 	}
 
 	private static void completeBond(ServerPlayer player, double fxX, double fxY, double fxZ) {
+		// v0.16.1: projectheroUniquePowers -- checked before the purge below touches anything
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, "symbiote")) {
+			return;
+		}
 		// v0.13.11: Spider-Man and the Punisher both keep their power (Black Suit / Agent Venom)
 		boolean spiderMan = SymbioteCompatibility.isCompatibleHero(player);
 		boolean incompatible = !spiderMan && SymbioteCompatibility.hasIncompatiblePower(player);

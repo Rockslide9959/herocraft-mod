@@ -47,6 +47,12 @@ public final class HulkCommand {
 	/** The single-player grant used by both {@code /hulk grant} and {@code /projecthero power grant hulk}. */
 	public static int grant(CommandContext<CommandSourceStack> c, ServerPlayer target) {
 		String name = target.getGameProfile().getName();
+		// v0.16.1: projectheroUniquePowers -- report the holder instead of "already has"
+		String holder = Hulk.hasPower(target) ? null : com.projecthero.mod.hero.UniquePowers.blockingHolder(target, Hulk.KEY);
+		if (holder != null) {
+			c.getSource().sendFailure(com.projecthero.mod.hero.UniquePowers.takenMessage(Hulk.KEY, holder));
+			return 0;
+		}
 		if (!Hulk.grant(target)) {
 			c.getSource().sendFailure(Component.literal(name + " already has the Gamma power"));
 			return 0;

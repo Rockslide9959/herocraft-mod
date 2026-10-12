@@ -52,6 +52,10 @@ public class KryptonianCrystalItem extends Item {
 			}
 			return InteractionResultHolder.fail(stack);
 		}
+		// v0.16.1: projectheroUniquePowers -- refused before the infusion starts
+		if (player instanceof ServerPlayer sp && com.projecthero.mod.hero.UniquePowers.refuse(sp, Kryptonian.KEY)) {
+			return InteractionResultHolder.fail(stack);
+		}
 		if (player instanceof ServerPlayer sp && !inSunlight(sp)) {
 			sp.displayClientMessage(Component.translatable("message.projecthero.kryptonian_crystal.needs_sun")
 					.withStyle(ChatFormatting.YELLOW), true);
@@ -94,6 +98,10 @@ public class KryptonianCrystalItem extends Item {
 	 */
 	public static boolean infuse(ServerPlayer player, ItemStack stack, boolean requireSun) {
 		if (Kryptonian.hasPower(player)) {
+			return false;
+		}
+		// v0.16.1: projectheroUniquePowers -- the crystal is kept
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, Kryptonian.KEY)) {
 			return false;
 		}
 		if (requireSun && !inSunlight(player)) {

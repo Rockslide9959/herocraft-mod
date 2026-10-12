@@ -19,7 +19,9 @@ public final class SuperSoldierSerum {
 	public static final float UNREFINED_SUCCESS_CHANCE = 0.10f;
 
 	public enum Outcome {
-		GRANTED, REJECTED, ALREADY
+		GRANTED, REJECTED, ALREADY,
+		/** v0.16.1: projectheroUniquePowers -- someone else holds it; nothing happens (no roll, no rejection). */
+		TAKEN
 	}
 
 	private SuperSoldierSerum() {
@@ -33,6 +35,9 @@ public final class SuperSoldierSerum {
 	public static Outcome drink(ServerPlayer player, boolean refined, float roll) {
 		if (SuperSoldier.hasPower(player)) {
 			return Outcome.ALREADY;
+		}
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, SuperSoldier.KEY)) {
+			return Outcome.TAKEN;
 		}
 		if (succeeds(refined, roll)) {
 			SuperSoldier.grant(player);

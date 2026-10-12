@@ -56,6 +56,7 @@
       "com.projecthero.mod.gametest.V01519GameTests",
       "com.projecthero.mod.gametest.BossThreatV01519GameTests",
       "com.projecthero.mod.gametest.V01521GameTests",
+      "com.projecthero.mod.gametest.UniquePowersV0161GameTests",
       "com.projecthero.mod.gametest.ConfigMigrationGameTests",
       "com.projecthero.mod.gametest.GraveboundBossPowerGameTests",
       "com.projecthero.mod.gametest.SpiderManGameTests",

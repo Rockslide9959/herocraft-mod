@@ -38,6 +38,10 @@ public class AdamantiumSerumItem extends Item {
 					.withStyle(ChatFormatting.GRAY), true);
 			return InteractionResultHolder.fail(held);
 		}
+		// v0.16.1: projectheroUniquePowers -- refused, and the serum is kept
+		if (com.projecthero.mod.hero.UniquePowers.refuse(sp, "wolverine")) {
+			return InteractionResultHolder.fail(held);
+		}
 		if (!Wolverine.hasSuperRegeneration(sp)) {
 			sp.displayClientMessage(Component.translatable("message.projecthero.adamantium_serum.no_regeneration")
 					.withStyle(ChatFormatting.RED), true);

@@ -271,6 +271,8 @@ public class ProjectHeroMod implements ModInitializer {
 		// so without this the previous world stayed reachable -- see ServerStateReset for the full
 		// write-up of the "it gets laggy after a long session" report this addresses.
 		com.projecthero.mod.diagnostics.ServerStateReset.initialize();
+		// v0.16.1: the projectheroUniquePowers gamerule + its holder table, reconcile tick and join hook
+		com.projecthero.mod.hero.UniquePowers.initialize();
 
 		// Fall/lightning immunity for the Power of Thor.
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(ThorPassives::onAllowDamage);

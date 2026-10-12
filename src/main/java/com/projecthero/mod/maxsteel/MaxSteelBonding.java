@@ -46,6 +46,10 @@ public final class MaxSteelBonding {
 		}
 
 		// v0.11.14: a bond replaces any other Primary power (MaxSteel.bond claims Primary status).
+		// v0.16.1: projectheroUniquePowers -- refused before any stabilizer / levels are taken
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, "max_steel")) {
+			return;
+		}
 
 		boolean hasStabilizer = findStabilizerSlot(player) >= 0;
 		boolean hasLevels = player.experienceLevel >= LEVEL_REQUIREMENT;

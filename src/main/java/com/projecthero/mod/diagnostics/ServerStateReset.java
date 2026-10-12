@@ -162,5 +162,6 @@ public final class ServerStateReset {
 		com.projecthero.mod.greenlantern.GreenLanternShield.clearSessionState();
 		com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.clearSessionState();
 		com.projecthero.mod.greenlantern.GreenLanternTrial.clearSessionState();
+		com.projecthero.mod.hero.UniquePowers.clearSessionState(); // v0.16.1: refusal-message throttle
 	}
 }

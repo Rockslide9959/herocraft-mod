@@ -344,6 +344,10 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.powerclass");
 			para(lines, "projecthero.guide.powerclass.body");
 			blank(lines);
+			// v0.16.1: the projectheroUniquePowers gamerule
+			head(lines, "projecthero.guide.unique_powers");
+			para(lines, "projecthero.guide.unique_powers.body");
+			blank(lines);
 			head(lines, "projecthero.guide.controls.title");
 			para(lines, "projecthero.guide.controls.body");
 			for (AbilitySlot slot : AbilitySlot.values()) {

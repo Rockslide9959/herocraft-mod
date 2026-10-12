@@ -101,6 +101,10 @@ public final class SpiderMan {
 		// stopped, then drop ownership of ALL of them. Experimental mutations and a Hero-Tier power
 		// cannot be mixed, so becoming Spider-Man consumes not just Spider Adhesion but any other
 		// mutation the player was carrying (the mutagen is a total rewrite of their biology).
+		// v0.16.1: projectheroUniquePowers -- refused (nothing granted) while someone else holds it
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, "spider_man")) {
+			return false;
+		}
 		com.projecthero.mod.hero.HeroTiers.claimPrimary(player, "spider_man");
 		ExperimentalPowers.setActive(player, null);
 		if (com.projecthero.mod.hero.power.HeroFlight.isFlying(player)) {

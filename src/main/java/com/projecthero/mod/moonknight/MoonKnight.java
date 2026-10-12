@@ -102,6 +102,10 @@ public final class MoonKnight {
 		if (state(player).hasPact) {
 			return false;
 		}
+		// v0.16.1: projectheroUniquePowers -- refused (nothing granted) while someone else holds it
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, KEY)) {
+			return false;
+		}
 		HeroTiers.claimPrimary(player, KEY);
 		MoonKnightState s = new MoonKnightState();
 		s.hasPact = true;

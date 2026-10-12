@@ -279,6 +279,8 @@ public final class HeroTiers {
 		PowerPassives.reconcileActive(player);
 		// v0.13.11: the Punisher shares a host with the Symbiote too (Agent Venom)
 		dropSymbioteUnless(player, com.projecthero.mod.symbiote.SymbioteCompatibility.COMPATIBLE_HERO_KEYS.contains(heroKey));
+		// v0.16.1: the single choke point every hero grant passes -- record the new holder (projectheroUniquePowers)
+		UniquePowers.onClaimed(player, heroKey);
 	}
 
 	/**

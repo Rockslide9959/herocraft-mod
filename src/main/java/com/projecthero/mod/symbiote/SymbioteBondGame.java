@@ -131,6 +131,11 @@ public final class SymbioteBondGame {
 			fail(player, s, now);
 			return;
 		}
+		// v0.16.1: projectheroUniquePowers -- someone else bonded during the game: nothing is used up
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, "symbiote")) {
+			release(player, s);
+			return;
+		}
 		Entity target = s.entity == null ? null : ((ServerLevel) player.level()).getEntity(s.entity);
 		if (s.entity != null) {
 			if (!(target instanceof SymbioteEntity blob) || blob.isRemoved() || blob.distanceTo(player) > 12.0f

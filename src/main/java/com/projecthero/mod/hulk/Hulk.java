@@ -196,6 +196,10 @@ public final class Hulk {
 		if (state(player).hasPower) {
 			return false;
 		}
+		// v0.16.1: projectheroUniquePowers -- refused (nothing granted) while someone else holds it
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, KEY)) {
+			return false;
+		}
 		HeroTiers.claimPrimary(player, KEY);
 		HulkState s = new HulkState();
 		s.hasPower = true;
