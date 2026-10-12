@@ -143,7 +143,8 @@
       "com.projecthero.mod.gametest.NovaGameTests",
       "com.projecthero.mod.gametest.FrostGiantGameTests",
       "com.projecthero.mod.gametest.UltronContagionV0161GameTests",
-      "com.projecthero.mod.gametest.SupervillainModelGameTests"
+      "com.projecthero.mod.gametest.SupervillainModelGameTests",
+      "com.projecthero.mod.gametest.RaidModelGameTests"
     ]
   },
   "mixins": ["projecthero-gametest.mixins.json"],

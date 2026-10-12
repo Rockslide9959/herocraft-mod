@@ -157,7 +157,7 @@ function buildBabyZombie() {
 	M.box(doll, A.shX - 0.3, A.knuckY - 4.6, 0.15, A.shX + 0.3, A.knuckY - 3.4, 0.65, 'doll', { paint: 'doll_leg' });
 	M.customMat = (c, f, s, t, p, info) => {
 		if (c.mat !== 'doll') return null;
-		let col = G.clothMat(M, Object.assign({}, c, { tag: 'solid' }), f, s, t, p, info, [150, 92, 84])[0];
+		let col = G.clothMat(M, Object.assign({}, c, { tag: 'solid' }), f, s, t, p, info, [156, 128, 92])[0];
 		if (c.paint === 'doll_head') {
 			col = mix(col, [196, 170, 140], 0.6);
 			if (f === 'west' && Math.abs(t - 0.4) < 0.14 && (Math.abs(s - 0.3) < 0.12 || Math.abs(s - 0.7) < 0.12)) col = [20, 18, 22]; // button eyes (faces -X... the doll faces the side)
@@ -185,7 +185,7 @@ function buildAcidZombie() {
 	M.leatherCol = [66, 56, 40]; M.cloth2Col = [70, 74, 60]; M.seed = 5;
 	const P = Object.assign({}, BASE, {
 		chestW: 9.0, ribW: 8.0, chestD: 5.2, chestH: 6.6, waistW: 9.0, waistD: 6.6, waistH: 3.8, pelvisW: 8.0, pelvisD: 5.0,
-		headW: 4.8, headH: 5.4, headD: 5.0, neckH: 1.0, neckW: 3.8, armW: 1.9, foreW: 1.8, upperLen: 6.2, foreLen: 6.0, thighW: 3.4, thighD: 3.4, legX: 2.3, shinW: 2.5,
+		headW: 5.6, headH: 5.8, headD: 5.6, neckH: 1.0, neckW: 3.8, armW: 1.9, foreW: 1.8, upperLen: 6.2, foreLen: 6.0, thighW: 3.4, thighD: 3.4, legX: 2.3, shinW: 2.5,
 		noTorsoAnatomy: true,
 	});
 	rig(M, P, { anatomy: true });
@@ -193,7 +193,10 @@ function buildAcidZombie() {
 	A.eyeCol = [190, 255, 110]; A.eyeHot = [240, 255, 200]; A.eyeW = 0.7; A.eyeH = 0.5;
 	M.jawGlow = ACID;
 	// an unhinged jaw: longer, hanging open, the throat glowing behind the teeth
-	const jaw = M.B.jaw; jaw.rot = [30, 0, 0];
+	const jaw = M.B.jaw; jaw.rot = [34, 0, 0];
+	// a sagging double chin and boils on the cheeks
+	G.blob(M, 'neck', [0, A.chestTop + 0.6, -2.0], [4.6, 2.2, 2.6], 'flesh', { paint: 'chin' });
+	for (const [x, y, z] of [[1.9, A.eyeY - 1.2, A.faceZ + 0.2], [-2.6, A.eyeY + 1.2, A.faceZ + 0.6], [0.8, A.headTop - 0.4, -1.0]]) M.cbox('head', [x, y, z], [1.0, 1.0, 1.0], 'acid', { paint: 'sac', seed: 40 + Math.round(x * 3) });
 	M.box(jaw, -A.hw + 0.4, A.hb - 1.8, A.faceZ + 0.1, A.hw - 0.4, A.hb - 0.3, A.hd / 2 - 1.2, 'flesh', { paint: 'jaw' });
 	M.box('head', -A.hw + 0.7, A.hb + 1.2, A.faceZ + 0.4, A.hw - 0.7, A.hb + 1.6, A.hd / 2 - 1.0, 'acid', { paint: 'mouth', seed: 2 });
 	// a lumpy swelling on the right side of the skull with a sac bursting out of it

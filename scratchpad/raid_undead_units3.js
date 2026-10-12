@@ -85,14 +85,14 @@ function buildCursedZombie() {
 		const along = clamp((c.to[1] - p[1]) / (c.to[1] - c.from[1]), 0, 1);
 		const n = fbm(p[0] * 0.8 + c.seed, p[1] * 0.5, p[2] * 0.8, 3);
 		const col = mix(CURSE_HOT, CURSE, along * 0.8 + n * 0.3);
-		const ga = Math.round(clamp(210 * (1 - along * 0.85) * (0.6 + 0.6 * n), 30, 230));
+		const ga = Math.round(clamp(130 * (1 - along * 0.85) * (0.6 + 0.6 * n), 20, 150));
 		return [col, 255, col, ga];
 	};
 	return M;
 }
 function cursedPoses(M) {
 	const stand = Object.assign({
-		waist: [6, 0, 0], chest: [10, -6, -5], head: [-8, 18, -12], jaw: [6, 0, 0],
+		waist: [6, 0, 0], chest: [10, -6, -5], head: [-8, 12, -5], jaw: [6, 0, 0],
 		arm_r: [-8, 0, 2], forearm_r: [-16, 0, 0], arm_l: [-14, 0, -6], forearm_l: [-24, 0, 0],
 		thigh_r: [-2, 0, 3], shin_r: [4, 0, 0], thigh_l: [2, 0, -3], shin_l: [2, 0, 0],
 	}, CLAW('r', 1.2), CLAW('l', 1.2));
@@ -122,6 +122,10 @@ function buildSpy() {
 	// hood: sides, crown and back around the head, the point falling down the back; a scarf over the mouth
 	const hood = M.bone('hood', 'head', [0, A.headTop, 1]);
 	M.box(hood, -A.hw - 0.55, A.hb + 0.4, -A.hd / 2 - 0.6, A.hw + 0.55, A.headTop + 0.7, A.hd / 2 + 0.6, 'cloth3', { paint: 'hood' });
+	// the hood's peak juts forward over the brow (the face sits in its shadow), the sides drape onto the shoulders
+	M.box(hood, -A.hw - 0.3, A.headTop - 0.6, -A.hd / 2 - 1.5, A.hw + 0.3, A.headTop + 0.9, -A.hd / 2 + 0.6, 'cloth3', { paint: 'hood_peak', tag: 'solid', rot: [-12, 0, 0], pivot: [0, A.headTop, -A.hd / 2] });
+	M.box(hood, -0.6, A.headTop + 0.6, -A.hd / 2 - 1.2, 0.6, A.headTop + 1.4, A.hd / 2 - 0.4, 'cloth3', { paint: 'hood_peak', tag: 'solid' });
+	for (const [s] of SIDES) M.box(hood, ...[sxr(s, A.hw + 0.2, A.hw + 1.0)[0], A.hb - 1.6, -A.hd / 2 - 0.2, sxr(s, A.hw + 0.2, A.hw + 1.0)[1], A.eyeY + 1.0, A.hd / 2 + 0.4], 'cloth3', { paint: 'hood_side', tag: 'solid' });
 	const hoodTip = M.bone('hood_tip', 'hood', [0, A.headTop - 0.6, A.hd / 2 + 0.5]);
 	M.box(hoodTip, -1.6, A.headTop - 5.0, A.hd / 2 + 0.3, 1.6, A.headTop - 0.3, A.hd / 2 + 1.2, 'cloth3', { paint: 'hood', tag: 'hem', seed: 80 });
 	M.box('head', -A.hw - 0.25, A.hb - 0.4, A.faceZ - 0.5, A.hw + 0.25, A.eyeY - 1.6, A.hd / 2 - 0.4, 'cloth2', { paint: 'scarf', tag: 'solid' });
@@ -196,6 +200,12 @@ function buildSpy() {
 		}
 		if (c.paint === 'hood' && f === 'south' && c.bone === 'hood') return null;
 		if (c.paint === 'brow') return [[34, 32, 36], 255, null];
+		if (c.mat === 'flesh' && (c.paint === 'head' || c.paint === 'nose' || c.paint === 'cheek') && f === 'north' && p[1] > A.eyeY - 1.2) {
+			// the hood's shadow over the upper face (the eyes still glint)
+			const r = G.flesh(M, c, f, s, t, p, info);
+			if (r[2]) return r;
+			return [mul(r[0], 0.5 - 0.25 * clamp((p[1] - A.eyeY) / 2, 0, 1)), 255, null];
+		}
 		if (c.mat === 'flesh' && M.noWounds && c.paint === 'nose') { const r = G.flesh(M, c, f, s, t, p, info); return [mul(r[0], 0.95), 255, null]; }
 		return null;
 	};
@@ -332,12 +342,18 @@ function buildBoss() {
 	// wings: tattered bone-and-membrane wings folded on the back
 	g('acc_wings', 'chest', [0, A.chestTop - 2, 3.4]);
 	for (const [s, n] of SIDES) {
-		const wb = g(`wing_${n}`, 'acc_wings', [s * 2.0, A.chestTop - 2, 3.6], [0, s * -20, s * -18]);
+		const wb = g(`wing_${n}`, 'acc_wings', [s * 2.0, A.chestTop - 2, 3.6], [6, s * -38, s * -26]);
 		const root = [s * 2.0, A.chestTop - 2, 3.6];
 		M.stick(wb, root, [s, 0.9, 0.3], 9, 0.9, 'bone', { seed: 360 });
 		const tip = vadd(root, vsc(vnorm([s, 0.9, 0.3]), 9));
 		for (let k = 0; k < 3; k++) M.stick(wb, tip, [s * (0.4 - k * 0.15), -1, 0.15], 8 - k * 1.5, 0.45, 'bone', { seed: 361 + k });
-		M.box(wb, Math.min(root[0], tip[0] + s * 2), tip[1] - 8, 3.9, Math.max(root[0], tip[0] + s * 2), tip[1] - 0.4, 4.15, 'membrane', { seed: 370 + s });
+		// tattered membrane panels fanning between the finger bones (thin flat sticks hanging from the wrist)
+		for (let k = 0; k < 4; k++) {
+			const a = k / 3, len = 7.5 - k * 1.2;
+			const dir = [s * (0.45 - a * 0.65), -1, 0.15];
+			M.stick(wb, vadd(tip, [-s * 0.6 * k, -0.3, 0]), dir, len, [2.6, 0.22], 'membrane', { seed: 370 + s * 10 + k });
+		}
+		M.stick(wb, root, vnorm(vsub(vadd(tip, [s * 1, -6, 0]), root)), 8.5, [3.0, 0.22], 'membrane', { seed: 390 + s });
 	}
 	// spines: swept-back blades on the forearms, shoulders and the back of the head
 	for (const [s, n] of SIDES) {

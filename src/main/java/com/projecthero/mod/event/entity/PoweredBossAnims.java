@@ -75,7 +75,7 @@ public final class PoweredBossAnims {
 		if (k.contains("gravity")) return new Look("orbit", 0x8A6CFF);
 		if (k.contains("teleport")) return new Look("orbit", 0x5CFFE0);
 		if (k.contains("wind")) return new Look("orbit", 0xD8FFF2);
-		if (k.contains("invisibility") || k.contains("light")) return new Look("orbit", 0xFFF6C8);
+		if (k.contains("invisibility")) return new Look("orbit", 0xFFF6C8); // (not "light": "flight" contains it)
 		if (k.contains("flight")) return new Look("wings", 0xFFE9A8);
 		if (k.contains("super_speed")) return new Look("spines", 0xFFE14A);
 		if (k.contains("spider")) return new Look("spines", 0xFF3A5A);

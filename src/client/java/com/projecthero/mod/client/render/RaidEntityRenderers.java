@@ -16,7 +16,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
  * renderers, and nothing here (no mixin, no layer) touches them.
  *
  * <p>Cost: one model per mob type (55-280 cubes), the emissive layer, and an additive bloom pass only on the glowing
- * units (Acid, Cursed, the boss, the glob) -- the common Risen / Armoured / grave-child / Juggernaut / skeleton / spy skip it.
+ * units (Acid, Cursed, the boss, the glob, the Juggernaut's and skeleton's eyes) -- the common Risen / Armoured / grave-child / spy skip it.
  */
 public final class RaidEntityRenderers {
 	private RaidEntityRenderers() {

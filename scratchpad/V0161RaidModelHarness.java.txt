@@ -1,0 +1,324 @@
+package com.projecthero.mod.client.raidharness;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+
+import com.projecthero.mod.event.entity.EmpoweredZombie;
+import com.projecthero.mod.event.entity.RaidEntityTypes;
+import com.projecthero.mod.event.entity.RaidZombie;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): raid-undead model screenshots. Enabled by run/raidmodels.flag (its first line = shot
+ * prefix, e.g. "old" / "new"). Needs RaidHarnessCamMixin in projecthero.client.mixins.json and RaidModelHarness.init() in
+ * onInitializeClient. Shots go to run/screenshots/raid_<prefix>_*.png.
+ */
+public final class RaidModelHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	public static Vec3 camPos;
+	public static Vec3 camAt;
+	private static BlockPos C;
+	private static String prefix = "old";
+	private static volatile long lastProgress = System.currentTimeMillis();
+
+	private RaidModelHarness() {
+	}
+
+	public static void init() {
+		Path flag = Path.of("raidmodels.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			String s = Files.readString(flag).trim();
+			if (!s.isEmpty()) {
+				prefix = s.split("\\s+")[0];
+			}
+		} catch (Exception ignored) {
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(RaidModelHarness::tick);
+		Thread wd = new Thread(() -> {
+			while (true) {
+				try {
+					Thread.sleep(5000);
+				} catch (InterruptedException e) {
+					return;
+				}
+				if (System.currentTimeMillis() - lastProgress > 120_000L) {
+					System.out.println("[HARNESS] WATCHDOG: no progress for 120 s");
+					Runtime.getRuntime().halt(3);
+				}
+			}
+		}, "raid-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					try {
+						fn.accept(p);
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		lastProgress = System.currentTimeMillis();
+		Screenshot.grab(mc.gameDirectory, "raid_" + prefix + "_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void at(int t, Runnable r) {
+		Runnable prev = AT.get(t);
+		AT.put(t, prev == null ? r : () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void cam(double x, double y, double z, double ax, double ay, double az) {
+		camPos = Vec3.atBottomCenterOf(C).add(x, y, z);
+		camAt = Vec3.atBottomCenterOf(C).add(ax, ay, az);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.screen instanceof net.minecraft.client.gui.screens.PauseScreen) {
+			mc.setScreen(null);
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0) {
+				lastProgress = System.currentTimeMillis();
+				if (!createdWorld && mc.getOverlay() == null && mc.screen != null && !(mc.screen instanceof TitleScreen)) {
+					mc.options.onboardAccessibility = false;
+					mc.setScreen(new TitleScreen());
+				}
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				lastProgress = System.currentTimeMillis();
+				mc.execute(() -> {
+					LevelSettings settings = new LevelSettings("RAIDM_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+							Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+					mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+							reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+									.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+							mc.screen);
+				});
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks % 20 == 0) {
+			lastProgress = System.currentTimeMillis();
+		}
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(50);
+			org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), 1600, 900);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.getServer().setDifficulty(Difficulty.NORMAL, true);
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				C = p.blockPosition();
+				p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 999999, 0, false, false));
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				lastProgress = System.currentTimeMillis();
+				try {
+					r.run();
+				} catch (Throwable e) {
+					System.out.println("[HARNESS] error " + e);
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	private static BlockPos ground(ServerLevel level, BlockPos at) {
+		return new BlockPos(at.getX(), level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, at.getX(), at.getZ()), at.getZ());
+	}
+
+	static BlockPos center() {
+		return C;
+	}
+
+	static <T extends Mob> T spawn(ServerLevel level, EntityType<T> type, BlockPos at, float yaw, java.util.function.Consumer<T> pre) {
+		T m = type.create(level);
+		BlockPos g = ground(level, at);
+		m.moveTo(g.getX() + 0.5, g.getY(), g.getZ() + 0.5, yaw, 0f);
+		m.finalizeSpawn(level, level.getCurrentDifficultyAt(g), MobSpawnType.COMMAND, null);
+		if (pre != null) {
+			pre.accept(m);
+		}
+		m.setNoAi(true);
+		m.setPersistenceRequired();
+		level.addFreshEntity(m);
+		m.setYRot(yaw);
+		m.setYHeadRot(yaw);
+		m.setYBodyRot(yaw);
+		return m;
+	}
+
+	private static void clear(ServerPlayer p) {
+		for (Entity e : p.serverLevel().getEntities((Entity) null, new AABB(C).inflate(60), e -> e instanceof Mob || e instanceof net.minecraft.world.entity.item.ItemEntity || e instanceof net.minecraft.world.entity.ExperienceOrb)) {
+			e.discard();
+		}
+	}
+
+	/** One unit: name, how to spawn it, its height (blocks), and extra scripted moments ({@code acts}). */
+	record Unit(String name, Function<ServerLevel, Mob> spawn, float h, List<Act> acts) {
+	}
+
+	/** A scripted moment: at {@code dt} ticks after the trigger, take shot {@code shot}; {@code fire} runs on the server. */
+	record Act(String label, BiConsumer<ServerPlayer, Mob> fire, int shotAfter) {
+	}
+
+	static Unit unit(String name, float h, Function<ServerLevel, Mob> s, Act... acts) {
+		return new Unit(name, s, h, List.of(acts));
+	}
+
+	static List<Unit> units() {
+		List<Unit> u = new ArrayList<>();
+		u.add(unit("raid_zombie", 1.95f, l -> spawn(l, RaidEntityTypes.RAID_ZOMBIE, C, 0f, z -> z.setVariant(RaidZombie.Variant.BASIC))));
+		u.add(unit("raid_zombie_armoured", 1.95f, l -> spawn(l, RaidEntityTypes.RAID_ZOMBIE, C, 0f, z -> z.setVariant(RaidZombie.Variant.ARMOURED))));
+		u.add(unit("raid_zombie_baby", 1.0f, l -> spawn(l, RaidEntityTypes.RAID_ZOMBIE, C, 0f, z -> z.setVariant(RaidZombie.Variant.BABY))));
+		u.add(unit("acid_zombie", 1.95f, l -> spawn(l, RaidEntityTypes.ACID_ZOMBIE, C, 0f, null)));
+		u.add(unit("juggernaut_zombie", 3.0f, l -> spawn(l, RaidEntityTypes.JUGGERNAUT_ZOMBIE, C, 0f, null)));
+		u.add(unit("sword_skeleton", 1.99f, l -> spawn(l, RaidEntityTypes.SWORD_SKELETON, C, 0f, null)));
+		u.add(unit("cursed_zombie", 1.95f, l -> spawn(l, RaidEntityTypes.CURSED_ZOMBIE, C, 0f, null)));
+		u.add(unit("pillager_spy", 1.95f, l -> spawn(l, RaidEntityTypes.PILLAGER_SPY, C, 0f, null)));
+		for (String pw : new String[] { "power_08_pyrokinesis", "power_09_cryokinesis", "power_07_electrokinesis", "power_06_crystalkinesis" }) {
+			u.add(unit("empowered_zombie_" + pw.replaceAll("power_\\d+_", ""), 2.83f,
+					l -> spawn(l, RaidEntityTypes.EMPOWERED_ZOMBIE, C, 0f, z -> z.configure(pw, null, false, 1))));
+		}
+		u.addAll(RaidHarnessActs.extra());
+		return u;
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 20;
+		List<Unit> all = units();
+		// lineup of the base units
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			String[] order = { "raid_zombie_baby", "raid_zombie", "raid_zombie_armoured", "acid_zombie", "cursed_zombie", "sword_skeleton", "pillager_spy", "juggernaut_zombie", "empowered_zombie_pyrokinesis" };
+			int x = -9;
+			for (String n : order) {
+				for (Unit un : all) {
+					if (un.name().equals(n)) {
+						BlockPos keep = C;
+						C = keep.offset(x, 0, 0);
+						un.spawn().apply(l);
+						C = keep;
+						x += un.h() > 2.5f ? 3 : 2;
+					}
+				}
+			}
+		}));
+		at(t + 4, () -> cam(0, 2.4, 11.5, 0, 1.2, 0));
+		at(t + 50, () -> shot(mc, "00_lineup"));
+		t += 60;
+		at(t, () -> server(mc, RaidModelHarness::clear));
+		t += 6;
+		int i = 0;
+		for (Unit un : all) {
+			final String name = String.format("%02d_%s", ++i, un.name());
+			final Mob[] m = new Mob[1];
+			final float h = un.h();
+			final double d = h * 1.75 + 0.9;
+			at(t, () -> server(mc, p -> {
+				m[0] = un.spawn().apply(p.serverLevel());
+				p.teleportTo(p.serverLevel(), C.getX(), C.getY() + h + 2, C.getZ() + d + 3, 0f, 0f);
+			}));
+			at(t + 4, () -> cam(d * 0.57, h * 0.62, d * 0.82, 0, h * 0.48, 0));
+			at(t + 30, () -> shot(mc, name + "_a_threequarter"));
+			at(t + 32, () -> cam(0, h * 0.55, d, 0, h * 0.48, 0));
+			at(t + 40, () -> shot(mc, name + "_b_front"));
+			at(t + 42, () -> cam(-d, h * 0.55, 0.01, 0, h * 0.48, 0));
+			at(t + 50, () -> shot(mc, name + "_c_side"));
+			at(t + 52, () -> cam(d * 0.57, h * 0.62, d * 0.82, 0, h * 0.48, 0));
+			at(t + 53, () -> server(mc, p -> p.serverLevel().setDayTime(18000L)));
+			at(t + 70, () -> shot(mc, name + "_e_night"));
+			at(t + 71, () -> server(mc, p -> p.serverLevel().setDayTime(6000L)));
+			t += 76;
+			java.util.List<Act> acts = new ArrayList<>(un.acts());
+			acts.addAll(RaidHarnessActs.actsFor(un.name()));
+			for (Act a : acts) {
+				final int tt = t;
+				at(tt, () -> server(mc, p -> a.fire().accept(p, m[0])));
+				at(tt + a.shotAfter(), () -> shot(mc, name + "_d_" + a.label()));
+				t += Math.max(a.shotAfter() + 4, 10);
+			}
+			at(t, () -> server(mc, RaidModelHarness::clear));
+			t += 6;
+		}
+		at(t + 10, () -> {
+			System.out.println("[HARNESS] DONE");
+			mc.stop();
+		});
+	}
+}

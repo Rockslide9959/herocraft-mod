@@ -144,7 +144,7 @@ function run() {
 	}
 	{ const M = U2.buildJuggernaut(); unit('juggernaut_zombie', M, CL.juggernautClips, U2.juggernautPoses(M), { halos: { mats: [], col: null, eyes: [-1, 1].map(k => ({ bone: 'mask', c: [k * 1.45, M.A.eyeY - 0.1, M.A.faceZ - 0.95], s: [2.6, 1.3, 0.15], col: [255, 110, 30] })) } }); }
 	{ const M = U2.buildSkeleton(); unit('sword_skeleton', M, CL.skeletonClips, U2.skeletonPoses(M), { halos: { mats: [], col: null, eyes: [-1, 1].map(k => ({ bone: 'head', c: [k * 1.3, M.A.eyeY, M.A.faceZ - 0.1], s: [1.6, 1.6, 0.15], col: [140, 190, 255] })) } }); }
-	{ const M = U3.buildCursedZombie(); unit('cursed_zombie', M, CL.cursedClips, U3.cursedPoses(M), { halos: { mats: ['wisp'], col: () => [170, 70, 255], eyes: eyeHalos(M, [190, 90, 255], 1.1) } }); }
+	{ const M = U3.buildCursedZombie(); unit('cursed_zombie', M, CL.cursedClips, U3.cursedPoses(M), { halos: { mats: [], col: () => [170, 70, 255], eyes: eyeHalos(M, [190, 90, 255], 1.1) } }); }
 	{ const M = U3.buildSpy(); unit('pillager_spy', M, CL.spyClips, U3.spyPoses(M), { hidden: ['spyglass_hand'], previewHide: c => c.bone === 'spyglass_hand' }); }
 	{
 		const M = U3.buildBoss();

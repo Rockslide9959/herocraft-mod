@@ -192,11 +192,11 @@
 		"acid_zombie": {
 			"texture": [
 				256,
-				320
+				336
 			],
 			"bones": 28,
-			"cubes": 138,
-			"rest_fit_height_px": 31.99,
+			"cubes": 147,
+			"rest_fit_height_px": 32.94,
 			"height_blocks": 1.95,
 			"clips": {
 				"idle": {
@@ -458,7 +458,7 @@
 				192
 			],
 			"bones": 29,
-			"cubes": 92,
+			"cubes": 86,
 			"rest_fit_height_px": 35.13,
 			"height_blocks": 1.95,
 			"clips": {
@@ -535,11 +535,11 @@
 		"pillager_spy": {
 			"texture": [
 				256,
-				256
+				272
 			],
 			"bones": 31,
-			"cubes": 113,
-			"rest_fit_height_px": 35.69,
+			"cubes": 117,
+			"rest_fit_height_px": 36.39,
 			"height_blocks": 1.95,
 			"clips": {
 				"idle": {
@@ -618,7 +618,7 @@
 				272
 			],
 			"bones": 46,
-			"cubes": 278,
+			"cubes": 286,
 			"rest_fit_height_px": 39.54,
 			"height_blocks": 2.8274999999999997,
 			"clips": {
