@@ -28,8 +28,9 @@ import org.joml.Vector3f;
  * Wolverine's body language (v0.16.1), third person ({@link #apply}) and first person ({@link #firstPerson}), all keyed
  * off synced state so every viewer sees the same thing. Over vanilla's own pose, lowest first:
  * <ol>
- * <li><b>Claw deploy / retract</b> ({@code clawsChangedAt}): arms flung out to the sides, chest out and head back
- * while the blades pop out of the fists at full extension; retracting, the arms pull in and the blades slide back.</li>
+ * <li><b>Claw deploy</b> ({@code clawsChangedAt}, H only -- see {@link WolverineClawsModel#manualDeploy}): fists to the
+ * chest, then the arms flung out to the sides, chest out and head back, the blades popping out at full extension.
+ * Retracting has no arm motion: the blades just slide back in.</li>
  * <li><b>Moves</b>: the left-click combo ({@link WolverineClawCombo}) -- a rising diagonal slash with the right claws,
  * a horizontal slash with the left, then a finisher with both arms raised high outside the shoulders raking down
  * into an X across the chest -- and the ability moves (R sweep, G slashes, V fast slashes, Z charge + thrust, C roar).
@@ -68,8 +69,7 @@ public final class WolverineClawPose {
 	/** Set while vanilla draws the first-person hand (see {@code PlayerRendererClawsMixin}). */
 	public static boolean inFirstPersonHand;
 
-	public static final float DEPLOY_TICKS = 18.0f;
-	public static final float RETRACT_TICKS = 9.0f;
+	public static final float DEPLOY_TICKS = 20.0f;
 	private static final float CHARGE_HOLD = 100000.0f;
 
 	private static final int SMOOTH = 0;
@@ -312,14 +312,17 @@ public final class WolverineClawPose {
 			k(3.0f, SNAP, 0.0f, -0.22f, v(-0.85f, 0.5f, 0.1f), v(0, 1, 0), v(0.85f, 0.5f, 0.1f), v(0, 1, 0), 0, 0, -0.6f),
 			k(20.0f, SMOOTH, 0.0f, -0.2f, v(-0.85f, 0.5f, 0.1f), v(0, 1, 0), v(0.85f, 0.5f, 0.1f), v(0, 1, 0), 0, 0, -0.55f));
 
-	/** H, claws out: arms thrown out to the sides, chest out, head back; the blades pop at full extension (~6.5 ticks). */
+	/**
+	 * H (manual only), claws out: both fists brought in to the chest, knuckles forward (~4.5 ticks), then thrown out to the
+	 * sides with the chest out and head back -- the blades pop out of the backs of the fists as the arms reach full
+	 * extension (~9.5 ticks) -- then he settles. Arm roll is the natural one for each pose (edge inward at the chest,
+	 * down when the arm is raised sideways) so the fists never read upside down; the arm points a touch above level so
+	 * the claws come out outward and slightly up.
+	 */
 	private static final Clip DEPLOY = new Clip(DEPLOY_TICKS, 1.5f,
-			k(6.5f, SNAP, 0.0f, -0.15f, v(-0.95f, 0.22f, 0.1f), v(0, -1, 0), v(0.95f, 0.22f, 0.1f), v(0, -1, 0), 0, 0, -0.45f),
-			k(10.0f, SMOOTH, 0.0f, -0.12f, v(-0.93f, 0.28f, 0.1f), v(0, -1, 0), v(0.93f, 0.28f, 0.1f), v(0, -1, 0), 0, 0, -0.35f));
-
-	/** H, claws in: the arms pull in low in front while the blades slide back. */
-	private static final Clip RETRACT = new Clip(RETRACT_TICKS, 1.0f,
-			k(3.5f, SNAP, 0.0f, 0.18f, v(0.3f, 0.85f, -0.45f), v(0, 0, -1), v(-0.3f, 0.85f, -0.45f), v(0, 0, -1), 0, 0, NO));
+			k(4.5f, SMOOTH, 0.0f, 0.12f, v(0.55f, 0.3f, -0.78f), v(1, 0, 0), v(-0.55f, 0.3f, -0.78f), v(-1, 0, 0), 0, 0, 0.1f),
+			k(9.5f, SNAP, 0.0f, -0.15f, v(-0.97f, -0.18f, 0.08f), v(0, 1, 0), v(0.97f, -0.18f, 0.08f), v(0, 1, 0), 0, 0, -0.4f),
+			k(12.5f, SMOOTH, 0.0f, -0.12f, v(-0.96f, -0.1f, 0.1f), v(0, 1, 0), v(0.96f, -0.1f, 0.1f), v(0, 1, 0), 0, 0, -0.3f));
 
 	private static final Map<Kind, Clip> MIRRORED = new EnumMap<>(Kind.class);
 
@@ -478,9 +481,9 @@ public final class WolverineClawPose {
 		float headPitchW = 0.0f;
 		boolean any = false;
 
-		// ---- claw deploy / retract
+		// ---- claw deploy (H only)
 		float age = now - st.clawsChangedAt;
-		Clip dc = st.clawsOut ? (age < DEPLOY_TICKS ? DEPLOY : null) : (age < RETRACT_TICKS ? RETRACT : null);
+		Clip dc = age < DEPLOY_TICKS && WolverineClawsModel.manualDeploy(st) ? DEPLOY : null;
 		if (dc != null && st.clawsChangedAt > 0L && age >= 0.0f) {
 			Sample s = sample(dc, age);
 			if (s.w > 0.001f) {
@@ -585,11 +588,11 @@ public final class WolverineClawPose {
 	private static final FClip F_CHARGE = new FClip(CHARGE_HOLD, 3.0f, true,
 			fk(0.0f, SMOOTH, new float[] {0.0f, -0.15f, 0.15f, 12.0f, 0.0f, 0.0f}, null),
 			fk(CHARGE_HOLD - 1.0f, SMOOTH, new float[] {0.0f, -0.15f, 0.15f, 12.0f, 0.0f, 0.0f}, null));
-	private static final FClip F_DEPLOY = new FClip(16.0f, 1.0f, true,
-			fk(6.5f, SNAP, new float[] {0.36f, 0.3f, 0.05f, 25.0f, -20.0f, -30.0f}, null),
-			fk(10.0f, SMOOTH, new float[] {0.34f, 0.26f, 0.05f, 22.0f, -18.0f, -26.0f}, null));
-	private static final FClip F_RETRACT = new FClip(8.0f, 1.0f, true,
-			fk(3.0f, SNAP, new float[] {-0.1f, -0.15f, 0.0f, 0.0f, 0.0f, 15.0f}, null));
+	/** H deploy, first person: fists pulled in low to the middle, then flung out to the screen edges as the claws pop. */
+	private static final FClip F_DEPLOY = new FClip(DEPLOY_TICKS, 1.0f, true,
+			fk(4.5f, SMOOTH, new float[] {-0.2f, -0.04f, 0.1f, 0.0f, 15.0f, 0.0f}, null),
+			fk(9.5f, SNAP, new float[] {0.28f, 0.2f, 0.02f, 18.0f, -18.0f, 0.0f}, null),
+			fk(12.5f, SMOOTH, new float[] {0.25f, 0.16f, 0.03f, 15.0f, -15.0f, 0.0f}, null));
 
 	private static FClip fclip(Kind kind) {
 		return switch (kind) {
@@ -630,7 +633,7 @@ public final class WolverineClawPose {
 
 	/**
 	 * Apply this frame's first-person claw motion to {@code pose} (before vanilla's own arm placement): the move, the
-	 * deploy / retract throw. Returns true when Wolverine's hands are shown (the
+	 * H deploy throw. Returns true when Wolverine's hands are shown (the
 	 * caller then draws the arm without vanilla's punch swing).
 	 */
 	public static boolean firstPerson(AbstractClientPlayer player, HumanoidArm arm, float partialTick, PoseStack pose) {
@@ -642,9 +645,9 @@ public final class WolverineClawPose {
 		float now = player.level().getGameTime() + partialTick;
 		float[] v = new float[6];
 
-		// claw deploy / retract
+		// claw deploy (H only)
 		float age = now - st.clawsChangedAt;
-		FClip dc = st.clawsOut ? (age < 16.0f ? F_DEPLOY : null) : (age < 8.0f ? F_RETRACT : null);
+		FClip dc = age < F_DEPLOY.duration && WolverineClawsModel.manualDeploy(st) ? F_DEPLOY : null;
 		if (dc != null && st.clawsChangedAt > 0L && age >= 0.0f) {
 			float[] d = fsample(dc, age, true);
 			for (int j = 0; j < 6; j++) {

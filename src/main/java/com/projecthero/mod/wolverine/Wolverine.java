@@ -186,8 +186,16 @@ public final class Wolverine {
 		return DEPLOYING.get();
 	}
 
-	/** Deploy or retract the claws. Server-validated; returns the new state. */
+	/** Deploy or retract the claws (not by H: an ability, a command). Server-validated; returns the new state. */
 	public static boolean setClaws(ServerPlayer player, boolean out) {
+		return setClaws(player, out, false);
+	}
+
+	/**
+	 * Deploy or retract the claws. {@code manual} = the H key: v0.16.1 only then does the client play the arm-throw deploy
+	 * animation, so the snikt waits {@link #CLAW_POP_TICKS} for the blades to pop out; otherwise it is immediate.
+	 */
+	public static boolean setClaws(ServerPlayer player, boolean out, boolean manual) {
 		WolverineState s = state(player);
 		if (!s.hasPower || s.clawsOut == out) {
 			return s.clawsOut;
@@ -197,9 +205,16 @@ public final class Wolverine {
 		c.clawsChangedAt = player.level().getGameTime();
 		save(player, c);
 		WolverinePassives.reconcile(player);
-		if (!out) {
+		if (out && manual) {
+			long at = c.clawsChangedAt;
+			WolverineScheduler.schedule(player, CLAW_POP_TICKS, () -> {
+				if (state(player).clawsOut && state(player).clawsChangedAt == at) {
+					clawSound(player);
+				}
+			});
+		} else {
 			clawSound(player);
-		} // v0.16.1: deploying, the snikt waits for the blades to pop out at the end of the arm throw (WolverinePassives)
+		}
 		player.displayClientMessage(Component.translatable(
 				out ? "message.projecthero.wolverine.claws_deployed" : "message.projecthero.wolverine.claws_retracted")
 				.withStyle(out ? ChatFormatting.GOLD : ChatFormatting.GRAY), true);
@@ -221,7 +236,7 @@ public final class Wolverine {
 	}
 
 	/** Ticks after a deploy at which the blades pop out of the fists (the client's arm throw reaches full extension). */
-	public static final int CLAW_POP_TICKS = 6;
+	public static final int CLAW_POP_TICKS = 9;
 
 	/** The claws' metal sound (deploy and retract sound alike). */
 	static void clawSound(ServerPlayer player) {
@@ -241,7 +256,7 @@ public final class Wolverine {
 		if (now - s.clawsChangedAt < WolverineConfig.TOGGLE_COOLDOWN) {
 			return;
 		}
-		setClaws(player, !s.clawsOut);
+		setClaws(player, !s.clawsOut, true);
 	}
 
 	/** Record the last combat action so every client can flash the claws / play the swing. */

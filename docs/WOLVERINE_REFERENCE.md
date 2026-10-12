@@ -43,6 +43,13 @@ reuses Super Regeneration's base heal tick and debuff-shortening mixin and scale
 > - **Sniff sound:** `WolverineSounds.SNIFF` (`projecthero:wolverine_sniff`, 3 synthesised takes
 >   `sounds/wolverine/sniff1..3.ogg`, from `scratchpad/synth_wolverine_sniff.js` + ffmpeg) replaces the Sniffer mob noises.
 
+> **v0.16.1 deploy v2:** H only (`Wolverine.setClaws(player, out, manual)`; `toggleClaws` passes manual): fists in to
+> the chest (4.5 t), arms thrown out to the sides (9.5 t, blades pop: `DEPLOY_DELAY_TICKS` 5.5 + extend 4, snikt
+> scheduled at `CLAW_POP_TICKS` 9 via `WolverineScheduler`), settle by 20 t. Arm roll is the natural one per pose
+> (edge inward at the chest, down when raised sideways), fixing the upside-down fists. The client treats a deploy as
+> manual when no ability stamp / Z charge came at or after `clawsChangedAt` (`WolverineClawsModel.manualDeploy`):
+> ability auto-deploys play no deploy motion and the blades come out at once (sound immediate). No retract animation.
+
 > **v0.16.1 animation redo (after playtest):** `WolverineClawPose` was rebuilt as key-framed clips in ticks
 > (anticipation, a SNAP segment with a strong ease-out, follow-through, quick ease-out recovery). Each key holds the
 > torso twist (yaw) and lean (pitch) -- applied about the hips like `HipBend` but generalised to a twisted torso
