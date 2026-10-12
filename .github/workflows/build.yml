@@ -1,18 +1,30 @@
-# Automatically build the project and run any configured tests for every push
-# and submitted pull request. This can help catch issues that only occur on
-# certain platforms or Java versions, and provides a first line of defence
-# against bad commits.
+# Builds the mod and runs the gametests for every push and pull request.
 #
-# Tag pushes (v*) are NOT built here: release.yml builds + tests them itself, so running
-# the ~1400-test gametest suite here as well just doubled the CI time of every release.
+# CI LAYOUT (v0.16.1)
+# -------------------
+#   plan      (~8 s)   .github/scripts/select-gametests.js picks what this push needs:
+#                        none   -- only docs / client code / textures / models / sounds / the version bump changed
+#                        subset -- only the test classes that touch the changed feature packages / data files (1 runner)
+#                        full   -- anything shared changed (core packages, build files, mixins, this file...): the whole
+#                                  suite as 8 slices on 8 runners at once
+#   gametest  (~100 s) one job per slice: checkout, JDK 21 (Temurin, already on the runner image), Gradle with the
+#                      ~/.gradle + Loom caches restored, compile, boot the gametest server, run the slice
+#                      (.github/scripts/run-gametests.sh). The time is mostly fixed set-up (~75 s); the tests
+#                      themselves take ~15 s a slice. Slices are dealt evenly by GameTestFilterMixin (same number of
+#                      named batches and default tests each). A test that fails is re-run ON ITS OWN once: passing
+#                      there = a neighbour flake (warning annotation, slice passes); failing again = real failure.
+#                      Only slice 1 writes the Gradle cache back (the others skip the ~5 s upload).
+#   build     (~70 s)  the jars (build -x runGameTest), uploaded as the "Artifacts" artifact. release.yml downloads
+#                      this jar for the tagged commit instead of building it again.
 #
-# v0.15.21: a "plan" job (.github/scripts/select-gametests.js) decides what each push needs:
-#   none   -- only docs / client code / textures / models / sounds changed: no gametests (the jar build still runs)
-#   subset -- only the test classes that touch the changed feature packages / data files, on one runner
-#   full   -- anything shared changed (core packages, build files, mixins...): the whole suite as 6 disjoint slices
-#             (-PtestShard=i/6, see build.gradle) on six runners at once
-# Release tags always get the FULL suite (release.yml only skips its own run when master already ran the full suite on
-# that exact commit). Run this workflow by hand (Actions -> build -> Run workflow) to force a full run.
+# Tag pushes (v*) are NOT built here; release.yml handles them. It skips the suite when this workflow already passed
+# the FULL suite on the tagged commit (or on an earlier master commit with nothing since that the suite can see), and
+# publishes the jar the "build" job made. Run this workflow by hand (Actions -> build -> Run workflow) to force a
+# full run.
+#
+# Why not "compile once, share the classes with the slices"? Every slice is a parallel runner, so the compile is not
+# on the critical path more than once; a separate compile job would put it in front of the slices and make the run
+# longer. GameTestServer never sleeps between ticks, so -PfastTicks changes nothing here (see UnthrottledTicksMixin).
 
 name: build
 on:
@@ -50,8 +62,10 @@ jobs:
   gametest:
     needs: plan
     if: needs.plan.outputs.mode != 'none'
+    # release.yml's gate looks for jobs named "gametest full ..." -- keep the name pattern
     name: gametest ${{ needs.plan.outputs.mode }} (slice ${{ matrix.shard }}/${{ needs.plan.outputs.shard_count }})
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -65,31 +79,29 @@ jobs:
         uses: actions/setup-java@v5
         with:
           java-version: '21'
-          distribution: 'microsoft'
+          distribution: 'temurin'
       - name: setup gradle (caches ~/.gradle incl. the Minecraft/Loom remap caches)
         uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: ${{ matrix.shard != 1 }}
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
       - name: run this slice of the gametest suite
         env:
           TEST_FILTER: ${{ needs.plan.outputs.filter }}
           SHARD: ${{ matrix.shard }}/${{ needs.plan.outputs.shard_count }}
-        run: |
-          if [ -n "$TEST_FILTER" ]; then
-            ./gradlew runGameTest -PtestShard="$SHARD" -PtestFilter="$TEST_FILTER" --console=plain
-          else
-            ./gradlew runGameTest -PtestShard="$SHARD" --console=plain
-          fi
+        run: bash .github/scripts/run-gametests.sh "$SHARD" "$TEST_FILTER"
       - name: capture gametest report
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: gametest-report-${{ matrix.shard }}
-          path: build/reports/gametest.xml
+          path: build/reports/gametest*.xml
           if-no-files-found: ignore
 
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
@@ -99,15 +111,18 @@ jobs:
         uses: actions/setup-java@v5
         with:
           java-version: '21'
-          distribution: 'microsoft'
+          distribution: 'temurin'
       - name: setup gradle
         uses: gradle/actions/setup-gradle@v6
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
+      - name: give the Gradle daemon room to compile (the project's 1 GB is sized for dev machines)
+        run: mkdir -p ~/.gradle && echo "org.gradle.jvmargs=-Xmx3g -XX:+UseParallelGC -Dfile.encoding=UTF-8" >> ~/.gradle/gradle.properties
       - name: build (compile + jars; the gametests run in the parallel "gametest" jobs)
         run: ./gradlew build -x runGameTest --console=plain
       - name: capture build artifacts
         uses: actions/upload-artifact@v7
         with:
+          # release.yml downloads this artifact by name -- keep "Artifacts"
           name: Artifacts
           path: build/libs/

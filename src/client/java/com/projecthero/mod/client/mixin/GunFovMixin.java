@@ -23,6 +23,17 @@ public abstract class GunFovMixin {
 	@Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
 	private void projecthero$firearmZoom(Camera camera, float partialTick, boolean useFovSetting,
 			CallbackInfoReturnable<Double> cir) {
+		if (useFovSetting) {
+			// v0.16.1: the Green Lantern Sniper Rifle scope -- the world view only (the hand pass would magnify the arm),
+			// eased on its own so the two calls a frame (world + hand) never fight over one smoothing value
+			float sniper = com.projecthero.mod.client.greenlantern.GreenLanternSniperClient.zoomFactor();
+			projecthero$sniperZoom += (sniper - projecthero$sniperZoom) * 0.35f;
+			if (Math.abs(projecthero$sniperZoom - 1.0f) < 0.002f) {
+				projecthero$sniperZoom = 1.0f;
+			} else {
+				cir.setReturnValue(cir.getReturnValueD() * projecthero$sniperZoom);
+			}
+		}
 		float target = FirearmClient.zoomFactor();
 		projecthero$currentZoom += (target - projecthero$currentZoom) * 0.35f;
 		if (Math.abs(projecthero$currentZoom - 1.0f) < 0.002f) {
@@ -31,4 +42,6 @@ public abstract class GunFovMixin {
 		}
 		cir.setReturnValue(cir.getReturnValueD() * projecthero$currentZoom);
 	}
+
+	private float projecthero$sniperZoom = 1.0f;
 }

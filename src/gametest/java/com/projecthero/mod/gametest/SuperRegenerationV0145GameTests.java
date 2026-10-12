@@ -38,12 +38,7 @@ public class SuperRegenerationV0145GameTests implements FabricGameTest {
 		return p;
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void powerIsRegistered(GameTestHelper helper) {
-		helper.assertTrue(Powers.byKey(KEY) != null, "Super Regeneration is registered");
-		helper.succeed();
-	}
-
+	// (v0.16.1: the old powerIsRegistered test is gone -- passiveOnlyAndKeyPressesDoNothing reads the registered power first)
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void passiveOnlyAndKeyPressesDoNothing(GameTestHelper helper) {
 		Power power = Powers.byKey(KEY);

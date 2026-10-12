@@ -42,6 +42,8 @@ public class UltronPylonEntity extends UltronRobot {
 	private static final EntityDataAccessor<BlockPos> DATA_UPLINK = SynchedEntityData.defineId(UltronPylonEntity.class, EntityDataSerializers.BLOCK_POS);
 	private static final EntityDataAccessor<Long> DATA_BORN = SynchedEntityData.defineId(UltronPylonEntity.class, EntityDataSerializers.LONG);
 	private static final EntityDataAccessor<Boolean> DATA_RESERVE = SynchedEntityData.defineId(UltronPylonEntity.class, EntityDataSerializers.BOOLEAN);
+	/** v0.16.1: invulnerable behind a red shell (3+ guards near, or a reserve pylon while Prime is above half health). */
+	private static final EntityDataAccessor<Boolean> DATA_SHIELDED = SynchedEntityData.defineId(UltronPylonEntity.class, EntityDataSerializers.BOOLEAN);
 
 	public UltronPylonEntity(EntityType<? extends UltronPylonEntity> type, Level level) {
 		super(type, level);
@@ -64,6 +66,7 @@ public class UltronPylonEntity extends UltronRobot {
 		builder.define(DATA_UPLINK, BlockPos.ZERO);
 		builder.define(DATA_BORN, 0L);
 		builder.define(DATA_RESERVE, false);
+		builder.define(DATA_SHIELDED, false);
 	}
 
 	@Override
@@ -117,7 +120,61 @@ public class UltronPylonEntity extends UltronRobot {
 			if (tickCount % 40 == 0) {
 				server.playSound(null, getX(), getY() + 3, getZ(), SoundEvents.BEACON_AMBIENT, SoundSource.HOSTILE, 0.8f, 0.6f);
 			}
+			if (tickCount % 10 == 0) {
+				refreshShield(server);
+			}
 		}
+	}
+
+	// ---------------------------------------------------------------- v0.16.1: the guard shield
+
+	public boolean shielded() {
+		return entityData.get(DATA_SHIELDED);
+	}
+
+	/** How many of Ultron's units (not pylons, not rockets) of this pylon's uprising stand within the shield radius. */
+	public int guards(ServerLevel server) {
+		double r = UltronConfig.arena().pylonShieldRadius;
+		java.util.UUID mine = uprisingId();
+		return server.getEntitiesOfClass(UltronRobot.class, getBoundingBox().inflate(r, r, r), m -> m != this && m.isAlive() && !m.isDeadOrDying()
+				&& !(m instanceof UltronPylonEntity) && !(m instanceof UltronFistRocketEntity)
+				&& (mine == null || mine.equals(m.uprisingId())) && m.distanceToSqr(this) <= r * r).size();
+	}
+
+	/**
+	 * Re-decides the shield (every half second, and the gametests' hook): up while {@link UltronConfig.Arena#pylonShieldGuards}
+	 * or more units guard it -- clear the guards first -- and, for one of Prime's reserve pylons, while Prime is above
+	 * {@link UltronConfig.Arena#reserveShieldAbove} of his health.
+	 */
+	public boolean refreshShield(ServerLevel server) {
+		UltronConfig.Arena cfg = UltronConfig.arena();
+		boolean up = guards(server) >= Math.max(1, cfg.pylonShieldGuards);
+		if (!up && isReserve()) {
+			com.projecthero.mod.ultron.UltronUprising u = uprising();
+			if (u != null && u.boss(server) instanceof UltronPrimeEntity prime && prime.isAlive()
+					&& prime.getHealth() > prime.getMaxHealth() * cfg.reserveShieldAbove) {
+				up = true;
+			}
+		}
+		if (up != shielded()) {
+			entityData.set(DATA_SHIELDED, up);
+			server.playSound(null, getX(), getY() + 2, getZ(), up ? SoundEvents.BEACON_ACTIVATE : SoundEvents.BEACON_DEACTIVATE,
+					SoundSource.HOSTILE, 1.2f, up ? 1.4f : 0.8f);
+		}
+		return up;
+	}
+
+	@Override
+	public boolean hurt(DamageSource source, float amount) {
+		if (shielded() && !source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+			if (level() instanceof ServerLevel server && tickCount % 3 == 0) {
+				Vec3 c = position().add(0, getBbHeight() * 0.5, 0);
+				server.sendParticles(UltronFx.RED, c.x, c.y, c.z, 10, 0.7, 1.4, 0.7, 0.02);
+				server.playSound(null, getX(), getY() + 2, getZ(), SoundEvents.SHIELD_BLOCK, SoundSource.HOSTILE, 1.0f, 0.6f);
+			}
+			return false;
+		}
+		return super.hurt(source, amount);
 	}
 
 	@Override

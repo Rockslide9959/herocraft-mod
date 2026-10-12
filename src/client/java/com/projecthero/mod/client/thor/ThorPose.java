@@ -134,7 +134,7 @@ public final class ThorPose {
 			float tremble = Mth.sin(age * 2.7f) * (0.02f + 0.06f * build);
 			lerp(hArm, in, -3.1f + tremble, 0.1f * s, 0.12f * s);
 			lerp(fArm, in, -0.45f - tremble, 0f, -1.15f * s);
-			m.body.xRot = Mth.lerp(in, m.body.xRot, -0.08f);
+			com.projecthero.mod.client.HipBend.pitch(m, in, -0.08f);
 			m.rightLeg.zRot = Mth.lerp(in, m.rightLeg.zRot, 0.14f);
 			m.leftLeg.zRot = Mth.lerp(in, m.leftLeg.zRot, -0.14f);
 			m.rightLeg.xRot *= 1f - in * 0.7f;
@@ -237,7 +237,8 @@ public final class ThorPose {
 		float headY = m.head.yRot;
 		lerp(hArm, w, p[1] + (aimed ? -HALF_PI + headX : 0f), (p[2] + (aimed ? -0.1f : 0f)) * s + (aimed ? headY : 0f), p[3] * s);
 		lerp(fArm, w, p[4], p[5] * s, p[6] * s);
-		m.body.xRot = Mth.lerp(w, m.body.xRot, p[7]);
+		// v0.16.1: the torso bends from the hips (not the neck), so the bottom of it stays on the legs
+		com.projecthero.mod.client.HipBend.pitch(m, w, p[7]);
 		m.body.yRot = Mth.lerp(w, m.body.yRot, p[8] * s);
 		ModelPart frontLeg = left ? m.leftLeg : m.rightLeg;
 		ModelPart backLeg = left ? m.rightLeg : m.leftLeg;

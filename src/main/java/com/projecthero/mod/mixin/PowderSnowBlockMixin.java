@@ -22,6 +22,11 @@ public abstract class PowderSnowBlockMixin {
 	private static void projecthero$cryoWalk(Entity entity, CallbackInfoReturnable<Boolean> cir) {
 		if (entity instanceof Player player && CryokinesisHandlers.active(player)) {
 			cir.setReturnValue(true);
+			return;
+		}
+		// v0.16.1: the Casket of Ancient Winters in the off hand, or a full Rimed netherite set
+		if (com.projecthero.mod.frostgiant.item.FrostGear.walksOnPowderSnow(entity)) {
+			cir.setReturnValue(true);
 		}
 	}
 }

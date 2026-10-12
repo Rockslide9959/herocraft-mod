@@ -138,6 +138,10 @@ public final class GammaOverload {
 		if (ACTIVE.containsKey(pos.immutable())) {
 			return;
 		}
+		// v0.16.1: projectheroUniquePowers -- someone else is the Hulk: the reactor stays quiet and the dose is kept
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, Hulk.KEY)) {
+			return;
+		}
 		start(player, pos);
 	}
 
@@ -215,7 +219,10 @@ public final class GammaOverload {
 		// he gets the power -- and the shield -- a heartbeat before the blast reaches him
 		if (player != null && player.level() == level) {
 			SHIELDED.put(player.getUUID(), now + SHIELD_TICKS);
-			Hulk.grant(player);
+			// v0.16.1: if someone else became the Hulk during the wind-up the grant is refused -- give the dose back
+			if (!Hulk.grant(player) && !Hulk.hasPower(player)) {
+				setDosed(player, true);
+			}
 		}
 		level.setBlock(o.reactor(), Blocks.AIR.defaultBlockState(), 3);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.BLOCKS, 12.0f, 0.5f);

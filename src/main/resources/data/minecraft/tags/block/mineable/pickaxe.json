@@ -30,6 +30,8 @@
     "projecthero:meteor_core",
     "projecthero:stark_furnace",
     "projecthero:stark_smelter",
-    "projecthero:stark_smoker"
+    "projecthero:stark_smoker",
+    "projecthero:jotunheim_rune_stone",
+    "projecthero:jotun_skull"
   ]
 }

@@ -77,6 +77,10 @@ public final class MjolnirSeer {
 					.withStyle(ChatFormatting.GRAY), true);
 			return;
 		}
+		// v0.16.1: projectheroUniquePowers -- no bearing to sell while someone else is Thor (no emeralds taken)
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, "thor")) {
+			return;
+		}
 		new SeerMerchant(player).openTradingScreen(player, Component.translatable("message.projecthero.hammer_seer.title"), 1);
 	}
 

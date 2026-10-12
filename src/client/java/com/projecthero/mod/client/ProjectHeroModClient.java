@@ -105,6 +105,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.MaxSteelHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.FirearmHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.ScopeOverlay::render);
+		// v0.16.1: the Green Lantern Sniper Rifle scope -- before the HUDs so they draw over its surround
+		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternScopeOverlay::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.PunisherHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.WolverineSurgeOverlay::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.WolverineHud::render);
@@ -133,6 +135,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.carnage.CarnageRenderer.initialize(); // v0.14.25: Carnage, his brood, his meteor
 		com.projecthero.mod.client.sentinel.SentinelRenderers.initialize(); // v0.15.1: Sentinel Drones, Sentinels, Master Mold, their beams
 		com.projecthero.mod.client.ultron.UltronClient.initialize(); // v0.15.12: Ultron's robots, pylons, beams, the Ultron Core
+		com.projecthero.mod.client.frostgiant.FrostGiantClient.initialize(); // v0.16.1: Frost Giants, braziers, the rift, the blizzard
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SymbioteHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.GreenLanternHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.SquadLocatorBarHud::render);
@@ -248,9 +251,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.maxsteel.MaxSteelArmCannon.initialize();
 		com.projecthero.mod.client.maxsteel.MaxSteelLockOnRenderer.initialize();
 		com.projecthero.mod.client.render.MaxSteelFirstPersonArm.initialize();
-		net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
-				com.projecthero.mod.client.wolverine.WolverineClawsModel.LAYER,
-				com.projecthero.mod.client.wolverine.WolverineClawsModel::createLayer);
+		com.projecthero.mod.client.wolverine.WolverineClawFx.initialize(); // v0.16.1: claw slash trails + strike sparks
 		net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
 				com.projecthero.mod.client.spider.ImpactWebModel.LAYER,
 				com.projecthero.mod.client.spider.ImpactWebModel::createLayer);
@@ -267,8 +268,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 						registrationHelper.register(new com.projecthero.mod.client.maxsteel.MaxSteelGearLayer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.render.PowerRingLayer(
 								playerRenderer, context.getItemRenderer()));
-						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineClawsLayer(
-								playerRenderer, context.getModelSet()));
+						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineClawsLayer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineFleshLayer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineLegFleshLayer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.spider.SpiderHandTrackerLayer(playerRenderer));

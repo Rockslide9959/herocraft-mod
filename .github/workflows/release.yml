@@ -11,6 +11,10 @@
 # then uploads to CurseForge and creates the matching GitHub Release. The tag's
 # annotation message becomes the changelog on both.
 #
+# v0.16.1: usually there is nothing to build or test here. When master CI (build.yml) already passed the full suite on
+# the tagged commit, and built its jar, the run is just: gate (~15 s) -> download that jar -> publish -> Discord.
+# See the "tested" job and .github/scripts/release-gate.sh.
+#
 # One-time setup before the first run:
 #   - CurseForge project created: id 1684169 (set in `curseforge-id` below).
 #   - Add a repo secret named CURSEFORGE_TOKEN (Settings > Secrets and variables >
@@ -34,85 +38,81 @@ permissions:
   actions: read     # look up the master CI run of the tagged commit
 
 jobs:
-  # v0.15.19: the tagged commit has almost always just been through the full suite on master (build.yml). If that
-  # run passed for this EXACT commit, the suite is not run a second time here -- the release goes straight to
-  # build + publish. A build.yml run still in progress for the commit is waited for; with no green run (or a red
-  # one) the full suite runs below exactly as before, so nothing is ever published untested.
+  # v0.16.1 gate (.github/scripts/release-gate.sh). The suite is NOT run again when master CI (build.yml) already
+  # passed the FULL suite on this exact commit -- or on an earlier master commit, when everything changed since is
+  # something the suite never sees (select-gametests.js says "none": docs, client code, textures, the version bump).
+  # A build.yml run of this commit still in progress is waited for. With no such green run (or a red one) the full
+  # suite runs below, so nothing is ever published untested. The gate also finds the jar build.yml already built for
+  # this exact commit, so the release does not build it a second time.
   tested:
     runs-on: ubuntu-24.04
+    timeout-minutes: 40
     outputs:
-      green: ${{ steps.find.outputs.green }}
+      green: ${{ steps.gate.outputs.green }}
+      jar_run: ${{ steps.gate.outputs.jar_run }}
     steps:
-      - name: find a green master CI run of this commit
-        id: find
+      - name: checkout repository (full history, for the earlier-commit check)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: find a green master CI run and a built jar for this commit
+        id: gate
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
-        run: |
-          green=false
-          # v0.15.21: master CI may have run only a subset (or none) of the suite -- only a green run whose
-          # gametest jobs were the FULL suite counts
-          full_ok() {
-            gh run view "$1" -R "$REPO" --json jobs --jq '[.jobs[] | select(.name | startswith("gametest full")) | select(.conclusion == "success")] | length' 2>/dev/null
-          }
-          runs="$(gh run list -R "$REPO" --workflow build.yml --commit "$SHA" --json databaseId,status,conclusion --limit 20)"
-          echo "$runs"
-          for id in $(echo "$runs" | jq -r '.[] | select(.conclusion == "success") | .databaseId'); do
-            if [ "$(full_ok "$id")" -ge 6 ]; then green=true; fi
-          done
-          if [ "$green" != true ]; then
-            pending="$(echo "$runs" | jq -r "[.[] | select(.status != \"completed\")][0].databaseId // empty")"
-            if [ -n "$pending" ]; then
-              echo "waiting for build.yml run $pending on $SHA"
-              if timeout 1500 gh run watch "$pending" -R "$REPO" --exit-status --interval 20 > /dev/null                   && [ "$(full_ok "$pending")" -ge 6 ]; then
-                green=true
-              fi
-            fi
-          fi
-          echo "green=$green" | tee -a "$GITHUB_OUTPUT"
+        run: bash .github/scripts/release-gate.sh
 
-  # The gametest suite (the slow part) runs as 6 disjoint slices (-PtestShard=i/6) on 6 runners at once, beside the jar
-  # build -- only when the commit has no green master CI run (see "tested" above). Publishing needs ALL of them to
-  # pass, so nothing is released unless every test passed somewhere for this commit.
+  # The full suite as 8 slices on 8 runners (same runner script as build.yml, incl. the one on-its-own retry of a
+  # failed test) -- only when the gate found no green run. Publishing needs every slice to pass.
   test:
     needs: tested
     if: needs.tested.outputs.green != 'true'
-    name: gametest (slice ${{ matrix.shard }}/6)
+    name: gametest (slice ${{ matrix.shard }}/8)
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@v6
       - uses: gradle/actions/wrapper-validation@v6
       - uses: actions/setup-java@v5
         with:
           java-version: '21'
-          distribution: 'microsoft'
+          distribution: 'temurin'
       - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
       - run: chmod +x ./gradlew
       - name: run this slice of the gametest suite
-        run: ./gradlew runGameTest -PtestShard=${{ matrix.shard }}/6 --console=plain
+        run: bash .github/scripts/run-gametests.sh "${{ matrix.shard }}/8"
       - name: capture gametest report
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: gametest-report-${{ matrix.shard }}
-          path: build/reports/gametest.xml
+          path: build/reports/gametest*.xml
           if-no-files-found: ignore
 
+  # Only when master CI has no jar for this commit (normally it has: the tag points at a pushed master commit).
   build:
+    needs: tested
+    if: needs.tested.outputs.jar_run == ''
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
       - uses: gradle/actions/wrapper-validation@v6
       - uses: actions/setup-java@v5
         with:
           java-version: '21'
-          distribution: 'microsoft'
+          distribution: 'temurin'
       - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
       - run: chmod +x ./gradlew
+      - run: mkdir -p ~/.gradle && echo "org.gradle.jvmargs=-Xmx3g -XX:+UseParallelGC -Dfile.encoding=UTF-8" >> ~/.gradle/gradle.properties
       - name: build the jars (tests run in the parallel "test" job)
         run: ./gradlew build -x runGameTest --console=plain
       - uses: actions/upload-artifact@v7
@@ -122,8 +122,9 @@ jobs:
 
   release:
     needs: [tested, test, build]
-    # "test" is skipped when master CI already passed this commit; it must otherwise have succeeded
-    if: always() && needs.tested.result == 'success' && needs.build.result == 'success' && (needs.test.result == 'success' || (needs.test.result == 'skipped' && needs.tested.outputs.green == 'true'))
+    # "test" is skipped when the gate found a green full run, "build" when it found master's jar; otherwise each must
+    # have succeeded
+    if: always() && needs.tested.result == 'success' && (needs.test.result == 'success' || (needs.test.result == 'skipped' && needs.tested.outputs.green == 'true')) && (needs.build.result == 'success' || (needs.build.result == 'skipped' && needs.tested.outputs.jar_run != ''))
     runs-on: ubuntu-24.04
     steps:
       - name: checkout repository
@@ -131,7 +132,16 @@ jobs:
         with:
           fetch-depth: 0   # need the tag object for its annotation message
 
-      - name: download the built jars
+      - name: fetch the jar master CI already built for this commit
+        if: needs.tested.outputs.jar_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ needs.tested.outputs.jar_run }}
+        run: gh run download "$RUN_ID" -R "$REPO" -n Artifacts -D build/libs
+
+      - name: download the jars built above
+        if: needs.tested.outputs.jar_run == ''
         uses: actions/download-artifact@v5
         with:
           name: jars
@@ -145,6 +155,11 @@ jobs:
           TAG="${GITHUB_REF_NAME#v}"
           if [ "$TAG" != "$VERSION" ]; then
             echo "::error::Tag $GITHUB_REF_NAME does not match gradle.properties version $VERSION"
+            exit 1
+          fi
+          ls -la build/libs
+          if [ ! -f "build/libs/projecthero-$VERSION.jar" ]; then
+            echo "::error::build/libs has no projecthero-$VERSION.jar to publish"
             exit 1
           fi
           {

@@ -224,7 +224,6 @@ public final class WeaponComboPose {
 		ModelPart fArm = left ? m.rightArm : m.leftArm;
 		lerp(wArm, w, p[1], p[2] * sgn, p[3] * sgn);
 		lerp(fArm, w, p[4], p[5] * sgn, p[6] * sgn);
-		m.body.xRot = Mth.lerp(w, m.body.xRot, p[7]);
 		m.body.yRot = Mth.lerp(w, m.body.yRot, p[8] * sgn);
 		ModelPart frontLeg = left ? m.leftLeg : m.rightLeg;
 		ModelPart backLeg = left ? m.rightLeg : m.leftLeg;
@@ -238,6 +237,9 @@ public final class WeaponComboPose {
 		m.rightArm.x = -Mth.cos(bodyY) * 5.0f;
 		m.leftArm.z = -Mth.sin(bodyY) * 5.0f;
 		m.leftArm.x = Mth.cos(bodyY) * 5.0f;
+		// v0.16.1: bend from the hips (after the shoulder twist, which places the arms absolutely), so the bottom of the
+		// torso stays on the legs
+		com.projecthero.mod.client.HipBend.pitch(m, w, p[7]);
 		GRIP.put(player.getId(), new float[] { p[12] * w, w });
 	}
 

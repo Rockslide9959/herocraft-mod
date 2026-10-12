@@ -20,7 +20,8 @@ import net.minecraft.world.item.ItemStack;
 /**
  * First person: while Wolverine's claws are out, the (otherwise hidden) empty off hand pops up too, drawn
  * exactly like the main arm -- so {@link PlayerRendererClawsMixin} then adds its mirrored claws. v0.13.9:
- * while the right-click claw guard is up, both arms are drawn raised and angled in so the claws cross.
+ * while the right-click claw guard is up, both arms are drawn raised and angled in so the claws cross. v0.16.1: the
+ * claw slashes / ability moves of {@code WolverineClawPose} are played on both arms here.
  */
 @Mixin(ItemInHandRenderer.class)
 public abstract class ItemInHandRendererClawsMixin {
@@ -55,11 +56,11 @@ public abstract class ItemInHandRendererClawsMixin {
 			ci.cancel();
 			return;
 		}
-		if (hand != InteractionHand.OFF_HAND) {
-			return;
-		}
+		// v0.16.1: both arms are drawn here -- a claw move (slash combo, ability) replaces vanilla's punch swing with its own
+		// key-framed motion (WolverineClawPose); otherwise the main arm keeps vanilla's swing and the off arm idles
 		pose.pushPose();
-		renderPlayerArm(pose, buffers, light, equipProgress, swingProgress, arm);
+		boolean moving = com.projecthero.mod.client.wolverine.WolverineClawPose.firstPerson(player, arm, partialTick, pose);
+		renderPlayerArm(pose, buffers, light, equipProgress, moving ? 0.0f : swingProgress, arm);
 		pose.popPose();
 		ci.cancel();
 	}

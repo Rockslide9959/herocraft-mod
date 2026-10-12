@@ -55,7 +55,11 @@ public enum ConstructType {
 	CHAIN_SNARE(Kind.ATTACK, GreenLanternConfig.CHAINS_COST, 0f, 0f, GreenLanternConfig.CHAINS_DURATION_TICKS, 0),
 	LAUNCH_PAD(Kind.SUMMON, GreenLanternConfig.PAD_COST, 0f, 0f, GreenLanternConfig.PAD_DURATION_TICKS, 1),
 	EMERALD_WARRIOR(Kind.SUMMON, GreenLanternConfig.WARRIOR_COST, GreenLanternConfig.WARRIOR_UPKEEP_PER_SEC, 0f,
-			GreenLanternConfig.WARRIOR_DURATION_TICKS, 3);
+			GreenLanternConfig.WARRIOR_DURATION_TICKS, 3),
+	// v0.16.1: a hard-light sniper rifle held in the ring hand -- right-click scopes, attack fires a charged bolt
+	// (GreenLanternSniper). Appended so saved selections keep their ordinals.
+	SNIPER_RIFLE(Kind.HELD_WEAPON, GreenLanternConfig.SNIPER_FORM_COST, GreenLanternConfig.SNIPER_UPKEEP_PER_SEC, 0f, 0,
+			GreenLanternConfig.SNIPER_SLOT_WEIGHT);
 
 	/** v0.14.3: the construct wheel groups constructs into these four arcs. */
 	public enum Category {
@@ -72,7 +76,9 @@ public enum ConstructType {
 		/** v0.14.3: a one-shot hard-light attack entity (Buzzsaw, Anvil Drop, Chain Snare). */
 		ATTACK,
 		/** v0.14.3: a lasting hard-light entity (Launch Pad, Emerald Warrior). */
-		SUMMON
+		SUMMON,
+		/** v0.16.1: a weapon held in the ring hand that takes over attack / use while it is out (the Sniper Rifle). */
+		HELD_WEAPON
 	}
 
 	private final Kind kind;
@@ -124,7 +130,7 @@ public enum ConstructType {
 	/** v0.14.3: which arc of the construct wheel this sits in. */
 	public Category category() {
 		return switch (this) {
-			case BATTERING_RAM, SENTRY_TURRET, ENERGY_BLADE, BUZZSAW, ANVIL_DROP, EMERALD_WARRIOR -> Category.ATTACK;
+			case BATTERING_RAM, SENTRY_TURRET, ENERGY_BLADE, BUZZSAW, ANVIL_DROP, EMERALD_WARRIOR, SNIPER_RIFLE -> Category.ATTACK;
 			case HARD_LIGHT_WALL, CONTAINMENT_CAGE, CHAIN_SNARE, ATMOSPHERE_BUBBLE, RESCUE_TETHER -> Category.DEFENSE;
 			case PLATFORM, BRIDGE, STAIR_RAMP, CARRY_PLATFORM, LAUNCH_PAD -> Category.MOBILITY;
 			default -> Category.UTILITY;

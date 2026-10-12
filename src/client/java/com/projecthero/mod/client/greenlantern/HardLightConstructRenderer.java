@@ -62,6 +62,7 @@ public class HardLightConstructRenderer extends EntityRenderer<HardLightConstruc
 			case WARRIOR -> warrior(e, vc, pose, age, alpha, partial);
 			case BUBBLE -> bubble(e, vc, pose, age, alpha, partial);
 			case WAVE -> wave(e, buffers, pose, age, alpha, partial);
+			case SNIPER_BOLT -> sniperBolt(e, buffers, pose, age, partial); // v0.16.1
 		}
 		pose.popPose();
 	}
@@ -539,6 +540,78 @@ public class HardLightConstructRenderer extends EntityRenderer<HardLightConstruc
 		pose.translate(x, hip, z);
 		pose.mulPose(Axis.XP.rotationDegrees(angle));
 		HardLightDraw.part(vc, pose, 0f, -hh, 0f, hw, hh, hw, alpha);
+		pose.popPose();
+	}
+
+	// ---------------------------------------------------------------- the Sniper Rifle's bolt (v0.16.1)
+
+	/** How many ticks the bolt's head takes to race from the muzzle to the impact (it is hit-scan; this is only the look). */
+	private static final float SNIPER_TRAVEL_TICKS = 2.5f;
+
+	/**
+	 * A white-hot head racing from the muzzle to the impact over a couple of ticks, leaving a thick tracer of hard light that
+	 * then thins and fades; when the head arrives, a flash -- a white core and expanding green shells (one additive, so it
+	 * lights up whatever is behind it) -- blooms at the impact point. Width and flash scale with the charge (scale 0.35-1).
+	 */
+	private static void sniperBolt(HardLightConstructEntity e, MultiBufferSource buffers, PoseStack pose, float age, float partial) {
+		double len = aim(e, pose, e.end(), partial);
+		if (len < 0.05) {
+			return;
+		}
+		float charge = e.scale();
+		float life = Math.max(1, e.life());
+		float fade = Mth.clamp((life - age) / (life - SNIPER_TRAVEL_TICKS), 0f, 1f);
+		float travel = Mth.clamp(age / SNIPER_TRAVEL_TICKS, 0f, 1f);
+		float head = (float) len * travel;
+		float w = (0.09f + 0.13f * charge) * (0.45f + 0.55f * fade);
+		VertexConsumer vc = HardLightDraw.buffer(buffers);
+		// the shooter's own bolt in first person: no muzzle flare, and the tracer starts a little way out (a box of light
+		// a block and a half from the camera would fill the screen)
+		net.minecraft.client.Camera camera = net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera();
+		boolean atEye = !camera.isDetached() && camera.getPosition().distanceToSqr(e.getPosition(partial)) < 3.0 * 3.0;
+		float skip = atEye ? Math.min(head, 1.5f) : 0f;
+		if (head - skip > 0.05f) {
+			pose.pushPose();
+			pose.translate(0f, 0f, skip);
+			HardLightDraw.streak(vc, pose, head - skip, atEye ? w * 0.6f : w, age, 0.95f * fade);
+			pose.popPose();
+		}
+		float flare = atEye ? 0f : Math.max(0f, 1f - age / 4f);
+		if (flare > 0f) {
+			HardLightDraw.glow(vc, pose, 0f, 0f, 0f, 0.12f + 0.12f * charge, 0.12f + 0.12f * charge, 0.2f, flare);
+		}
+		if (travel < 1f) {
+			if (!(atEye && head < 4f)) {
+				// the head of the bolt, still in flight
+				pose.pushPose();
+				pose.translate(0f, 0f, head);
+				HardLightDraw.glow(vc, pose, 0f, 0f, 0f, w * 1.3f, w * 1.3f, w * 3.5f, 1f);
+				pose.popPose();
+			}
+			return;
+		}
+		// the impact flash
+		float t = Mth.clamp((age - SNIPER_TRAVEL_TICKS) / (life - SNIPER_TRAVEL_TICKS), 0f, 1f);
+		float a = 1f - t;
+		pose.pushPose();
+		pose.translate(0f, 0f, (float) len);
+		float size = 0.5f + 0.7f * charge;
+		HardLightDraw.glow(vc, pose, 0f, 0f, 0f, 0.18f * size * (1f - 0.5f * t), 0.18f * size * (1f - 0.5f * t),
+				0.18f * size * (1f - 0.5f * t), a);
+		VertexConsumer add = buffers.getBuffer(net.minecraft.client.renderer.RenderType.lightning());
+		TurboDraw.sphere(add, pose, size * (0.35f + 1.1f * t), 0x9CFFB8, 0.75f * a);
+		// re-fetch: asking for another render type can end the batch the old consumer belonged to
+		vc = HardLightDraw.buffer(buffers);
+		TurboDraw.sphere(vc, pose, size * (0.5f + 1.8f * t), HardLightDraw.GREEN, 0.35f * a);
+		TurboDraw.sphere(vc, pose, size * (0.3f + 2.6f * t), HardLightDraw.PALE, 0.12f * a);
+		// a flat shock ring facing back along the shot
+		for (int i = 0; i < 12; i++) {
+			pose.pushPose();
+			pose.mulPose(Axis.ZP.rotationDegrees(i * 30f + age * 6f));
+			pose.translate(size * (0.4f + 2.2f * t), 0f, 0f);
+			TurboDraw.box(vc, pose.last(), 0.05f, 0.18f * size, 0.05f, 0xE8FFEE, 0.8f * a);
+			pose.popPose();
+		}
 		pose.popPose();
 	}
 }

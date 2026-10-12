@@ -47,12 +47,20 @@ public class SuperSoldierSerumItem extends Item {
 			}
 			return InteractionResultHolder.fail(player.getItemInHand(hand));
 		}
+		// v0.16.1: projectheroUniquePowers -- refused before drinking
+		if (player instanceof ServerPlayer sp && com.projecthero.mod.hero.UniquePowers.refuse(sp, SuperSoldier.KEY)) {
+			return InteractionResultHolder.fail(player.getItemInHand(hand));
+		}
 		return ItemUtils.startUsingInstantly(level, player, hand);
 	}
 
 	@Override
 	public ItemStack finishUsingItem(ItemStack stack, Level level, LivingEntity entity) {
 		if (level.isClientSide() || !(entity instanceof ServerPlayer player) || SuperSoldier.hasPower(player)) {
+			return stack;
+		}
+		// v0.16.1: projectheroUniquePowers -- someone else took it while this one was drinking: the serum is kept
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, SuperSoldier.KEY)) {
 			return stack;
 		}
 		float roll = level.getRandom().nextFloat();

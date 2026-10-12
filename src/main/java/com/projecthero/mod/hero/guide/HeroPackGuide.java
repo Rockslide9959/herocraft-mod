@@ -333,7 +333,8 @@ public final class HeroPackGuide {
 	private static final int CH_SENTINEL_PURGE = 30; // v0.15.1
 	private static final int CH_ULTRON = 31; // v0.15.12
 	private static final int CH_NOVA = 32; // v0.15.13
-	private static final int CHAPTER_POWER_BASE = 33;
+	private static final int CH_FROST_GIANTS = 33; // v0.16.1
+	private static final int CHAPTER_POWER_BASE = 34;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -343,6 +344,10 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.powerclass");
 			para(lines, "projecthero.guide.powerclass.body");
+			blank(lines);
+			// v0.16.1: the projectheroUniquePowers gamerule
+			head(lines, "projecthero.guide.unique_powers");
+			para(lines, "projecthero.guide.unique_powers.body");
 			blank(lines);
 			head(lines, "projecthero.guide.controls.title");
 			para(lines, "projecthero.guide.controls.body");
@@ -662,6 +667,9 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.constructs");
 			para(lines, "projecthero.guide.green_lantern.constructs.body");
+			blank(lines);
+			head(lines, "projecthero.guide.green_lantern.sniper"); // v0.16.1
+			para(lines, "projecthero.guide.green_lantern.sniper.body");
 			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.battery");
 			para(lines, "projecthero.guide.green_lantern.battery.body");
@@ -1067,7 +1075,8 @@ public final class HeroPackGuide {
 		// v0.15.12: the Ultron Uprising
 		out.add(chapter("projecthero.guide.ultron", lines -> {
 			para(lines, "projecthero.guide.ultron.body");
-			for (String section : new String[]{"trigger", "arena", "pylons", "waves", "prime", "sentry", "weakness", "rewards", "commands"}) {
+			for (String section : new String[]{"trigger", "arena", "pylons", "waves", "lancer", "hijacker", "prime", "sentry", "weakness",
+					"rewards", "commands"}) { // v0.16.1: + the Lancer and the Hijacker
 				blank(lines);
 				head(lines, "projecthero.guide.ultron." + section);
 				para(lines, "projecthero.guide.ultron." + section + ".body");
@@ -1096,6 +1105,8 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.nova.commands");
 			para(lines, "projecthero.guide.nova.commands.body");
 		}));
+		// v0.16.1: the Frost Giant Assault -- its unit entries open up as you kill each kind (refreshFrostGiants)
+		out.add(frostGiantsChapter(null));
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -1154,6 +1165,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.carnage", CH_CARNAGE);
 		link(idx, "projecthero.guide.sentinel_purge", CH_SENTINEL_PURGE);
 		link(idx, "projecthero.guide.ultron", CH_ULTRON);
+		link(idx, "projecthero.guide.frost_giants", CH_FROST_GIANTS);
 
 		section(idx, "projecthero.guide.section.squads", true);
 		link(idx, "projecthero.guide.squads", CH_SQUADS);
@@ -1274,6 +1286,42 @@ public final class HeroPackGuide {
 			"cryokinesis_water", "pyrokinesis_flight", "energy_absorption_laser",
 			"wind_fire", "shadow_teleportation",
 	};
+
+	/**
+	 * v0.16.1: the Frost Giant Assault chapter. The raid itself is always described; each unit's entry (the bestiary) shows
+	 * only once {@code viewer} has killed one ({@link com.projecthero.mod.frostgiant.FrostBestiary}) -- a null viewer sees
+	 * them all locked.
+	 */
+	public static Chapter frostGiantsChapter(net.minecraft.world.entity.player.Player viewer) {
+		return chapter("projecthero.guide.frost_giants", lines -> {
+			para(lines, "projecthero.guide.frost_giants.body");
+			for (String section : new String[] { "ladder", "trigger", "arena", "cold", "braziers", "waves", "laufey", "ymir", "casket",
+					"weakness", "rewards", "gear", "thor", "commands" }) {
+				blank(lines);
+				head(lines, "projecthero.guide.frost_giants." + section);
+				para(lines, "projecthero.guide.frost_giants." + section + ".body");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.frost_giants.bestiary");
+			para(lines, "projecthero.guide.frost_giants.bestiary.body");
+			for (int i = 0; i < com.projecthero.mod.frostgiant.FrostBestiary.COUNT; i++) {
+				String id = com.projecthero.mod.frostgiant.FrostBestiary.IDS[i];
+				boolean known = viewer != null && com.projecthero.mod.frostgiant.FrostBestiary.isUnlocked(viewer, i);
+				blank(lines);
+				lines.add(Component.translatable("entity.projecthero." + id).withStyle(known ? ChatFormatting.AQUA : ChatFormatting.DARK_GRAY,
+						ChatFormatting.BOLD));
+				para(lines, known ? "projecthero.guide.frost_giants.unit." + id : "projecthero.guide.frost_giants.locked");
+			}
+		});
+	}
+
+	/** v0.16.1: rebuilds the Frost Giant chapter for {@code viewer} (the Guidebook screen calls this as it opens). */
+	public static void refreshFrostGiants(net.minecraft.world.entity.player.Player viewer) {
+		List<Chapter> all = chapters();
+		if (CH_FROST_GIANTS < all.size()) {
+			all.set(CH_FROST_GIANTS, frostGiantsChapter(viewer));
+		}
+	}
 
 	private interface Body {
 		void fill(List<Component> lines);

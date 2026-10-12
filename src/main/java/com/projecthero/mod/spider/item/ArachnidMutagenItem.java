@@ -45,6 +45,10 @@ public class ArachnidMutagenItem extends Item {
 					.withStyle(ChatFormatting.GRAY), true);
 			return InteractionResultHolder.fail(held);
 		}
+		// v0.16.1: projectheroUniquePowers -- refused before the prerequisite is touched; the mutagen is kept
+		if (com.projecthero.mod.hero.UniquePowers.refuse(sp, "spider_man")) {
+			return InteractionResultHolder.fail(held);
+		}
 		// v0.14.8: while Spider Adhesion is a disabled experimental power (Powers.ENABLED) nobody can hold it, so the
 		// mutagen supplies the prerequisite itself (exactly as the Spider-Man grant does) and evolves it at once.
 		com.projecthero.mod.hero.Power adhesion = com.projecthero.mod.hero.Powers.byKey(SpiderMan.SPIDER_ADHESION_KEY);

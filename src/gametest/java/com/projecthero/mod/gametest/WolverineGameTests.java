@@ -8,9 +8,18 @@ import com.projecthero.mod.wolverine.Wolverine;
 import com.projecthero.mod.wolverine.WolverineAbilities;
 import com.projecthero.mod.wolverine.WolverineConfig;
 import com.projecthero.mod.wolverine.WolverinePassives;
+import com.projecthero.mod.ProjectHeroMod;
+import com.projecthero.mod.wolverine.WolverineBareHands;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
@@ -342,6 +351,65 @@ public class WolverineGameTests implements FabricGameTest {
 				"plain Super Regeneration is not in Wolverine's context");
 		AbilityRouter.handleInput(p, 6, true); // C must not start a Wolverine rage
 		helper.assertFalse(Wolverine.raging(p), "no Wolverine behaviour without the power");
+		helper.succeed();
+	}
+
+	/** v0.16.1: the claws dig like an iron shovel and chop like an iron axe (speed and drops), and still cut like a sword. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void clawsMineLikeAnIronShovelAndAxe(GameTestHelper helper) {
+		ServerPlayer p = wolverine(helper);
+		helper.assertTrue(WolverineBareHands.toolSpeed(Blocks.DIRT.defaultBlockState()) == 6.0f, "dirt at iron-shovel speed");
+		helper.assertTrue(WolverineBareHands.toolSpeed(Blocks.OAK_LOG.defaultBlockState()) == 6.0f, "logs at iron-axe speed");
+		helper.assertTrue(WolverineBareHands.toolSpeed(Blocks.COBWEB.defaultBlockState()) > 6.0f, "cobwebs still fall like to a sword");
+		helper.assertTrue(WolverineBareHands.toolSpeed(Blocks.STONE.defaultBlockState()) == 1.0f, "stone is a pickaxe's job");
+		helper.assertTrue(WolverineBareHands.correctToolForDrops(Blocks.SNOW_BLOCK.defaultBlockState()), "snow drops (shovel)");
+		helper.assertTrue(WolverineBareHands.correctToolForDrops(Blocks.COBWEB.defaultBlockState()), "cobweb drops string (sword)");
+		helper.assertFalse(WolverineBareHands.correctToolForDrops(Blocks.STONE.defaultBlockState()), "no drops from stone");
+		float bare = p.getDestroySpeed(Blocks.DIRT.defaultBlockState());
+		Wolverine.setClaws(p, true);
+		helper.assertTrue(WolverineBareHands.applies(p), "claws out on an empty hand");
+		float claws = p.getDestroySpeed(Blocks.DIRT.defaultBlockState());
+		helper.assertTrue(claws >= bare * 6.0f - 1.0e-3f, "the claws dig dirt at least 6x faster, " + bare + " -> " + claws);
+		helper.assertTrue(p.hasCorrectToolForDrops(Blocks.SNOW_BLOCK.defaultBlockState()), "and get snow blocks to drop");
+		helper.succeed();
+	}
+
+	/** v0.16.1: the claws are not a shovel or an axe on right-click -- no dirt paths, no stripped logs. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void clawsDoNothingWhenRightClickingBlocks(GameTestHelper helper) {
+		ServerPlayer p = wolverine(helper);
+		Wolverine.setClaws(p, true);
+		BlockPos grass = new BlockPos(1, 1, 1);
+		BlockPos log = new BlockPos(2, 1, 1);
+		helper.setBlock(grass, Blocks.GRASS_BLOCK);
+		helper.setBlock(log, Blocks.OAK_LOG);
+		for (BlockPos rel : new BlockPos[] {grass, log}) {
+			BlockPos abs = helper.absolutePos(rel);
+			p.gameMode.useItemOn(p, helper.getLevel(), p.getMainHandItem(), InteractionHand.MAIN_HAND,
+					new BlockHitResult(Vec3.atCenterOf(abs).add(0, 0.5, 0), Direction.UP, abs, false));
+		}
+		helper.assertBlockPresent(Blocks.GRASS_BLOCK, grass);
+		helper.assertBlockPresent(Blocks.OAK_LOG, log);
+		helper.succeed();
+	}
+
+	/** v0.16.1: his +3 strength applies with any weapon; the claws' +8 only with the claws, so it is never counted twice. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void strengthBonusStacksWithAnyWeapon(GameTestHelper helper) {
+		ServerPlayer p = wolverine(helper);
+		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_SWORD));
+		WolverinePassives.reconcile(p);
+		var attack = p.getAttribute(Attributes.ATTACK_DAMAGE);
+		var strength = attack.getModifier(ProjectHeroMod.id("wolverine_attack"));
+		helper.assertTrue(strength != null && strength.amount() == WolverineConfig.MELEE_BONUS_DAMAGE,
+				"the +3 strength bonus is on while holding a sword");
+		helper.assertTrue(attack.getModifier(ProjectHeroMod.id("wolverine_claw_attack")) == null, "no claw bonus with a sword");
+		p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		Wolverine.setClaws(p, true);
+		WolverinePassives.reconcile(p);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE)
+				- (1.0 + WolverineConfig.MELEE_BONUS_DAMAGE + WolverineConfig.CLAW_MELEE_BONUS)) < 1e-6,
+				"claws: 1 + 3 + 8 = 12, the strength bonus counted once");
 		helper.succeed();
 	}
 

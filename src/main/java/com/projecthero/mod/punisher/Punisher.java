@@ -51,6 +51,10 @@ public final class Punisher {
 		if (hasPower(player)) {
 			return false;
 		}
+		// v0.16.1: projectheroUniquePowers -- refused (nothing granted) while someone else holds it
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, "punisher")) {
+			return false;
+		}
 		com.projecthero.mod.hero.HeroTiers.claimPrimary(player, "punisher");
 		PunisherState s = state(player).copy();
 		s.hasPower = true;

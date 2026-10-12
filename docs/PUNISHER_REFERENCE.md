@@ -245,6 +245,14 @@ Renders through the shared GeckoLib armour path (`geo/punisher.geo.json` + `text
 64×64). **Full-set bonus, only while holding the power:** 20% projectile-damage reduction, 10%
 knockback resistance, ×0.9 recoil. Never exceeds Iron Man.
 
+**Enchanting (v0.16.1):** the three pieces are in the vanilla enchantable item tags
+(`data/minecraft/tags/item/enchantable/{armor,chest_armor,leg_armor,foot_armor,durability,equippable,vanishing}.json`,
+`replace: false`), and the material's enchantment value is 15, so the enchanting table and the anvil accept
+Protection / Fire / Blast / Projectile Protection, Thorns, Unbreaking, Mending, the curses, Swift Sneak (leggings) and
+Feather Falling / Depth Strider / Frost Walker / Soul Speed (boots). The armour keeps its normal durability, so Unbreaking
+and Mending are meaningful. Deliberately not added to the plain `minecraft:chest_armor` etc. tags, which would also make
+it trimmable (trims would not render on the GeckoLib model). Gametest: `V0161PunisherGlGameTests`.
+
 **Model history:** v0.9.25 added a second "Mark 2" model for side-by-side comparison; v0.10.1 the user
 picked Mark 2, so `geo/punisher.geo.json` + `textures/armor/punisher.png` were *replaced in place* with
 that model (merged from the GeckoLib-4 bundle at `.../Punisher/punisher_armor_geckolib4_bundle`;

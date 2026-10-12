@@ -86,6 +86,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.sentinel.item.SentinelItems.addToCreativeTab(output);
 				// v0.15.12: Ultron Uprising: the Ultron Beacon, Vibranium Plating, the Ultron Core, the Mind Stone, spawn eggs.
 				com.projecthero.mod.ultron.item.UltronItems.addToCreativeTab(output);
+				// v0.16.1: Frost Giant Assault: the Jotunheim Rune Stone, Rime Shards, the Jotun Skull, the Casket, spawn eggs.
+				com.projecthero.mod.frostgiant.item.FrostGiantItems.addToCreativeTab(output);
 				// Spider-Man: the Arachnid Mutagen that evolves Spider Adhesion into the Hero Class.
 				com.projecthero.mod.spider.item.SpiderItems.addToCreativeTab(output);
 				// Max Steel: the T.U.R.B.O. Stabilizer for bonding with Steel below Level 30.

@@ -157,9 +157,14 @@ public final class Symbiote {
 		if (s.hasSymbiote) {
 			return false;
 		}
+		// v0.16.1: projectheroUniquePowers -- one host at a time while the gamerule is on
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, "symbiote")) {
+			return false;
+		}
 		SymbioteState c = s.copy();
 		c.hasSymbiote = true;
 		save(player, c);
+		com.projecthero.mod.hero.UniquePowers.onClaimed(player, "symbiote");
 		if (announce) {
 			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.bonded")
 					.withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.BOLD), false);

@@ -49,6 +49,10 @@ public final class GreenLantern {
 		if (hasPower(player)) {
 			return false;
 		}
+		// v0.16.1: projectheroUniquePowers -- refused (nothing granted) while someone else holds it
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, "green_lantern")) {
+			return false;
+		}
 		com.projecthero.mod.hero.HeroTiers.claimPrimary(player, "green_lantern");
 		GreenLanternState s = state(player).copy();
 		s.hasPower = true;

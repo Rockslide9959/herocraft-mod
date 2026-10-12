@@ -49,6 +49,10 @@ public class ArcReactorItem extends Item {
 
 		// v0.11.14: no refusal any more -- TonyStark.grant claims Primary status, replacing whatever
 		// Primary power (or mutation) the player held.
+		// v0.16.1: projectheroUniquePowers -- refused, and the reactor is kept
+		if (!TonyStark.hasPower(serverPlayer) && com.projecthero.mod.hero.UniquePowers.refuse(serverPlayer, "iron_man")) {
+			return InteractionResultHolder.fail(stack);
+		}
 		if (!TonyStark.grant(serverPlayer)) {
 			serverPlayer.displayClientMessage(
 					Component.translatable("message.projecthero.tony_stark.already_have").withStyle(ChatFormatting.RED), true);

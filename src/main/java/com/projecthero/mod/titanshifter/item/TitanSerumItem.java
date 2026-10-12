@@ -30,6 +30,10 @@ public class TitanSerumItem extends Item {
 		if (level.isClientSide() || !(player instanceof ServerPlayer sp)) {
 			return InteractionResultHolder.success(held);
 		}
+		// v0.16.1: projectheroUniquePowers -- refused, and the serum is kept
+		if (!TitanShifter.isShifter(sp) && com.projecthero.mod.hero.UniquePowers.refuse(sp, TitanShifter.KEY)) {
+			return InteractionResultHolder.fail(held);
+		}
 		if (!TitanShifter.grant(sp)) {
 			sp.displayClientMessage(Component.translatable("message.projecthero.titan_serum.already")
 					.withStyle(ChatFormatting.GRAY), true);

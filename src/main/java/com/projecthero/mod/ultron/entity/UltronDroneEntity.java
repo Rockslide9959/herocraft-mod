@@ -29,8 +29,9 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.15.12: an <b>Ultron Drone</b> -- the swarm. A flying Ultron body (30 health) that hovers 4-8 blocks up, circling its
- * prey, and snaps red repulsor bolts at it (hit-scan, a short arm-raise first, 4 damage). Flight is a hand-rolled steer
+ * v0.15.12: an <b>Ultron Drone</b> -- the swarm. A flying Ultron body (v0.16.1: 40 health) that hovers 4-8 blocks up,
+ * circling its prey, and snaps red repulsor bolts at it (hit-scan, a short arm-raise first, v0.16.1: 5 damage).
+ * v0.16.1: during the Sentry's Reconstruct a drone flies into his chest instead ({@link #flyInto}). Flight is a hand-rolled steer
  * (the same approach as the Sentinel Drones), not a path-finder.
  *
  * <p>A <b>shield carrier</b> ({@link #carryShieldFor}) instead orbits the Ultron Sentry and feeds its shield through a red
@@ -46,6 +47,7 @@ public class UltronDroneEntity extends UltronRobot {
 	private final float bobPhase;
 	private Vec3 home;
 	private UUID shieldFor;
+	private UUID flyInto;
 
 	public UltronDroneEntity(EntityType<? extends UltronDroneEntity> type, Level level) {
 		super(type, level);
@@ -87,6 +89,15 @@ public class UltronDroneEntity extends UltronRobot {
 		entityData.set(DATA_TETHER, sentry.getId());
 	}
 
+	/** v0.16.1 Reconstruct: fly into {@code sentry} (null: back to hunting). */
+	public void flyInto(UltronSentryEntity sentry) {
+		this.flyInto = sentry == null ? null : sentry.getUUID();
+	}
+
+	public boolean isFlyingInto() {
+		return flyInto != null;
+	}
+
 	public boolean isShieldCarrier() {
 		return shieldFor != null || entityData.get(DATA_TETHER) >= 0;
 	}
@@ -118,6 +129,20 @@ public class UltronDroneEntity extends UltronRobot {
 		if (shieldFor != null) {
 			tickCarrier(server);
 			return;
+		}
+		if (flyInto != null) {
+			// v0.16.1 Reconstruct: straight into the Sentry's chest (it absorbs us on arrival)
+			Entity s = server.getEntity(flyInto);
+			if (s instanceof UltronSentryEntity sentry && sentry.isAlive()) {
+				Vec3 core = sentry.chest();
+				steer(core, 0.75);
+				faceTowards(sentry);
+				if (tickCount % 2 == 0) {
+					server.sendParticles(UltronFx.RED_SMALL, getX(), getY() + 0.9, getZ(), 1, 0.05, 0.05, 0.05, 0.0);
+				}
+				return;
+			}
+			flyInto = null;
 		}
 		LivingEntity target = getTarget();
 		if (target != null && (!UltronCombat.canTarget(target) || distanceToSqr(target) > 48 * 48)) {

@@ -118,6 +118,8 @@ public final class ServerStateReset {
 		com.projecthero.mod.sentinel.SentinelSpawner.clearSessionState(); // v0.15.1
 		com.projecthero.mod.sentinel.SentinelTargets.clearSessionState(); // v0.15.1
 		com.projecthero.mod.ultron.MindStoneCharm.clearSessionState(); // v0.15.12: Mind Stone charms
+		com.projecthero.mod.ultron.UltronJam.clearSessionState(); // v0.16.1: jammed ability keys (Hijacker / Network Override)
+		com.projecthero.mod.frostgiant.entity.IcePrisonEntity.clearSessionState(); // v0.16.1: who is inside Laufey's ice
 		com.projecthero.mod.ironman.IronManTargeting.clearSessionState(); // v0.14.26
 		com.projecthero.mod.ironman.ability.IronManAbilities.clearAutoHighlightState(); // v0.15.1
 		com.projecthero.mod.ironman.ability.IronManDash.clearSessionState(); // v0.14.27
@@ -162,5 +164,6 @@ public final class ServerStateReset {
 		com.projecthero.mod.greenlantern.GreenLanternShield.clearSessionState();
 		com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.clearSessionState();
 		com.projecthero.mod.greenlantern.GreenLanternTrial.clearSessionState();
+		com.projecthero.mod.hero.UniquePowers.clearSessionState(); // v0.16.1: refusal-message throttle
 	}
 }

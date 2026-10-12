@@ -199,6 +199,11 @@ public abstract class ItemEntityMixin implements StormbreakerForge.Forgeable {
 			// before vanilla's own pickup moves it into the inventory) -- unless it is already bound to
 			// somebody else, in which case they simply get to lift it and nothing about its owner changes.
 			if (Worthiness.wouldAscend(sp, stack)) {
+				// v0.16.1: projectheroUniquePowers -- someone else is Thor, so the hammer stays put (effect kept)
+				if (com.projecthero.mod.hero.UniquePowers.refuse(sp, "thor")) {
+					ci.cancel();
+					return;
+				}
 				Worthiness.ascend(sp, stack);
 			}
 			return;

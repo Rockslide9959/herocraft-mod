@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "side": "projecthero:block/jotunheim_rune_stone",
+    "end": "projecthero:block/jotunheim_rune_stone_top"
+  }
+}

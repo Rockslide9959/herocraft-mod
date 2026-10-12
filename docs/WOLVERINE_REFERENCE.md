@@ -5,6 +5,44 @@ Package `com.projecthero.mod.wolverine` (+ `client.wolverine`, `command.Wolverin
 mutation the same way Spider-Man ascends Spider Adhesion. It is not a second regeneration system: it
 reuses Super Regeneration's base heal tick and debuff-shortening mixin and scales them.
 
+> **v0.16.1 (claws, combo, VFX, tools, suit, sniff):**
+> - **Claw model** (`client.wolverine.WolverineClawsModel`): no longer ModelParts/boxes (the `wolverine_claws` model layer
+>   is gone) -- a procedural mesh. Per hand 3 blades, each 16 segments along a centreline that bends toward the body
+>   (`CURVE` 0.42 rad, eased u^2), every ring a 4-point diamond (sharp edge on the concave side, thicker spine, two
+>   bevels), tapering to a needle point; real per-face normals. Deploying slides the blades out of the fist (rings
+>   inside the fist are clipped at `ROOT_Y`). Length 16 px first person, 8 px third person (`WORLD_LENGTH`, so a hanging
+>   arm never digs them into the ground). Texture `textures/entity/wolverine_claws.png` (32x128 brushed-metal strip,
+>   one column per face) from `scratchpad/gen_wolverine_claws_v0161.js`. There is no bone tier (the tier system was
+>   removed in v0.12.30) -- only adamantium.
+> - **Melee combo** (`WolverineClawCombo`): left click = right slash, left slash, overhead cross (both arms), repeat.
+>   `WolverineAttackMixin` now picks `WolverineClawCombo.nextHand` instead of a random hand; `client.mixin.WolverineSwingMixin`
+>   (TAIL of `LivingEntity.swing`, client only) records each swing start, so every viewer derives the same step from the
+>   swing packet's hand (off hand = step 2; main hand within 20 ticks of an off-hand swing = cross). No new packets; the
+>   hit is still vanilla's.
+> - **Poses** (`WolverineClawPose`, one key-frame table drives third person via `HumanoidModelMixin` and first person via
+>   `ItemInHandRendererClawsMixin`, which now draws BOTH arms while the claws are out): combo slashes / cross; R = wide
+>   horizontal sweep; G = two diagonal slashes; V = fast slashes; Z = arms drawn back and low while charging
+>   (`chargeStartedAt`), then a two-claw thrust; C = a roar (arms flung out, head back). Abilities key off the synced
+>   `lastAction` / `lastActionTick`. The guard pose still wins; the Claw Dash keeps its own lunge pose.
+> - **VFX** (`WolverineClawFx`): additive slash-trail ribbons swept by the outer 60% of each blade during the cutting
+>   phase (third person in world space from the layer, drawn after translucents; first person in the hand's camera
+>   space), fading over 3.5 ticks, red-tinged in Rage; strike sparks (`ELECTRIC_SPARK` + a crit, plus a vanilla sweep for
+>   combo slashes) once per strike, client side, skipped on Minimal particles / halved on Decreased / not beyond 32
+>   blocks. Server: `WolverineAbilities.strike` adds 4 `ELECTRIC_SPARK`s per hit. Blood-free.
+> - **Claws as tools** (`WolverineBareHands`): iron shovel + iron axe + (as before) sword -- the best tool speed scales
+>   vanilla's bare-hand speed (so haste / water / airborne / `BLOCK_BREAK_SPEED` still apply), drops if any of the
+>   three is the correct tool. The claws are not items, so right-click on blocks does nothing a tool would (no paths,
+>   no stripping) -- gametest `clawsDoNothingWhenRightClickingBlocks` pins that.
+> - **Melee bonus:** the +3 `wolverine_attack` modifier was already an `ATTACK_DAMAGE` modifier, i.e. it applies with any
+>   weapon (iron sword 6 + 3 = 9); now documented as his strength. The +8 `wolverine_claw_attack` is the claws' own
+>   weapon damage and only applies with claws out + empty hand (nothing can be held with them out), so the two never
+>   double-dip: claws = 1 + 3 + 8 = 12. Numbers unchanged.
+> - **Suit mend** (`WolverineSuitMend`): 1 durability / s (worn or carried) once the holder has been out of combat 30 s
+>   (no damage dealt or taken; unsaved `wolverine_suit_last_combat` attachment set from `AFTER_DAMAGE` for victim and
+>   attacker, claw-deploy wound excluded). Replaces v0.15.21's 1 per 5 s.
+> - **Sniff sound:** `WolverineSounds.SNIFF` (`projecthero:wolverine_sniff`, 3 synthesised takes
+>   `sounds/wolverine/sniff1..3.ogg`, from `scratchpad/synth_wolverine_sniff.js` + ffmpeg) replaces the Sniffer mob noises.
+
 > **v0.15.18 (Death Surge rework):** no cooldown / one-use limit (`EMERGENCY_COOLDOWN_TICKS`, `EMERGENCY_HEAL_TICKS`,
 > `FLESH_HOLD_TICKS`, `FLESH_FADE_TICKS` deleted; `emergencyReadyAt` / `emergencyHealUntil` are no longer written). Every
 > lethal hit fires it (`WolverineDamage.allowDeath` -> `WolverinePassives.tryEmergency`) but each one drains

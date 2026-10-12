@@ -80,6 +80,9 @@ public final class CarnageRenderer {
 					|| action == CarnageEntity.ACTION_ERUPT && elapsed >= CarnageEntity.ERUPT_SLAM
 					|| action == CarnageEntity.ACTION_CLEAVE && elapsed < CarnageEntity.CLEAVE_WINDUP
 					|| action == CarnageEntity.ACTION_CLEAVE_LAND;
+			// v0.16.1: HumanoidModel never resets these, and the Lash lean below moves them (HipBend)
+			body.z = 0.0f;
+			head.z = 0.0f;
 			super.setupAnim(e, limbSwing, limbSwingAmount, age, headYaw, headPitch);
 			if (!(e instanceof CarnageEntity)) {
 				// the brood: a hunched, arms-forward scuttle
@@ -110,7 +113,8 @@ public final class CarnageRenderer {
 						leftArm.zRot = -1.6f;
 						rightArm.xRot = -0.3f;
 						leftArm.xRot = -0.3f;
-						body.xRot = -0.2f;
+						// v0.16.1: lean back from the hips, so the bottom of the torso stays on the legs
+						com.projecthero.mod.client.HipBend.pitch(this, 1.0f, -0.2f);
 					}
 					case CarnageEntity.ACTION_SPIKES -> {
 						rightArm.xRot = -Mth.HALF_PI + head.xRot;

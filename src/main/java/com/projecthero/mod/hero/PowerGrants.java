@@ -113,6 +113,11 @@ public final class PowerGrants {
 		if (!HERO_TIER_KEYS.contains(hero)) {
 			return Result.fail("Unknown Hero-Tier power (" + String.join(", ", HERO_TIER_KEYS) + ")");
 		}
+		// v0.16.1: the projectheroUniquePowers gamerule -- refused before anything (prerequisites, wipes) is touched
+		String holder = UniquePowers.blockingHolder(target, hero);
+		if (holder != null) {
+			return new Result(false, UniquePowers.takenMessage(hero, holder));
+		}
 		// Spider-Man needs the mutations cleared for its Spider Adhesion prerequisite.
 		if ("spider_man".equals(hero) && allowWipe) {
 			HeroTiers.wipeExperimental(target);
@@ -199,5 +204,31 @@ public final class PowerGrants {
 				return new Result(ok, Component.literal(ok ? "Bonded " + name + " with the Symbiote" : name + " already has the Symbiote"));
 			}
 		}
+	}
+
+	/** v0.16.1: tear one Hero-Tier power (or the Symbiote) down through its own revoke; false for an unknown key. */
+	public static boolean revokeHeroTier(ServerPlayer target, String hero) {
+		switch (hero) {
+			case "thor" -> com.projecthero.mod.power.ThorPowers.revokePower(target);
+			case "iron_man" -> TonyStark.revoke(target);
+			case "spider_man" -> SpiderMan.revoke(target);
+			case "max_steel" -> MaxSteel.revoke(target);
+			case "punisher" -> com.projecthero.mod.punisher.Punisher.revoke(target);
+			case "green_lantern" -> com.projecthero.mod.greenlantern.GreenLantern.revoke(target);
+			case "wolverine" -> com.projecthero.mod.wolverine.Wolverine.revoke(target);
+			case "titan_shifter" -> com.projecthero.mod.titanshifter.TitanShifter.revoke(target);
+			case "all_might" -> com.projecthero.mod.allmight.AllMight.revoke(target);
+			case "hulk" -> com.projecthero.mod.hulk.Hulk.revoke(target);
+			case "moon_knight" -> com.projecthero.mod.moonknight.MoonKnight.revoke(target);
+			case "super_soldier" -> com.projecthero.mod.supersoldier.SuperSoldier.revoke(target);
+			case "kryptonian" -> com.projecthero.mod.kryptonian.Kryptonian.revoke(target);
+			case "nova" -> com.projecthero.mod.nova.Nova.revoke(target);
+			case "symbiote" -> com.projecthero.mod.symbiote.Symbiote.remove(target);
+			default -> {
+				return false;
+			}
+		}
+		PowerPassives.reconcileActive(target);
+		return true;
 	}
 }

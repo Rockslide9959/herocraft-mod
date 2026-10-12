@@ -2,6 +2,9 @@ package com.projecthero.mod.ultron;
 
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.ultron.entity.UltronDroneEntity;
+import com.projecthero.mod.ultron.entity.UltronFistRocketEntity;
+import com.projecthero.mod.ultron.entity.UltronHijackerEntity;
+import com.projecthero.mod.ultron.entity.UltronLancerEntity;
 import com.projecthero.mod.ultron.entity.UltronHeavyEntity;
 import com.projecthero.mod.ultron.entity.UltronPrimeEntity;
 import com.projecthero.mod.ultron.entity.UltronPylonEntity;
@@ -53,6 +56,21 @@ public final class UltronEntityTypes {
 			EntityType.Builder.<UltronPylonEntity>of(UltronPylonEntity::new, MobCategory.MONSTER)
 					.sized(1.4f, 4.2f).eyeHeight(3.75f).fireImmune().clientTrackingRange(16).build("ultron_pylon"));
 
+	/** v0.16.1: the shield wall. */
+	public static final EntityType<UltronLancerEntity> LANCER = register("ultron_lancer",
+			EntityType.Builder.<UltronLancerEntity>of(UltronLancerEntity::new, MobCategory.MONSTER)
+					.sized(0.7f, 1.95f).eyeHeight(1.75f).clientTrackingRange(10).build("ultron_lancer"));
+
+	/** v0.16.1: the cloaked saboteur. */
+	public static final EntityType<UltronHijackerEntity> HIJACKER = register("ultron_hijacker",
+			EntityType.Builder.<UltronHijackerEntity>of(UltronHijackerEntity::new, MobCategory.MONSTER)
+					.sized(0.6f, 1.8f).eyeHeight(1.62f).clientTrackingRange(10).build("ultron_hijacker"));
+
+	/** v0.16.1: the Sentry's Fist Rocket (shootable). */
+	public static final EntityType<UltronFistRocketEntity> FIST_ROCKET = register("ultron_fist_rocket",
+			EntityType.Builder.<UltronFistRocketEntity>of(UltronFistRocketEntity::new, MobCategory.MISC)
+					.sized(0.9f, 0.9f).eyeHeight(0.45f).fireImmune().clientTrackingRange(12).updateInterval(1).build("ultron_fist_rocket"));
+
 	private UltronEntityTypes() {
 	}
 
@@ -64,6 +82,9 @@ public final class UltronEntityTypes {
 		FabricDefaultAttributeRegistry.register(PRIME, UltronPrimeEntity.createAttributes());
 		FabricDefaultAttributeRegistry.register(SENTRY, UltronSentryEntity.createAttributes());
 		FabricDefaultAttributeRegistry.register(PYLON, UltronPylonEntity.createAttributes());
+		FabricDefaultAttributeRegistry.register(LANCER, UltronLancerEntity.createAttributes());
+		FabricDefaultAttributeRegistry.register(HIJACKER, UltronHijackerEntity.createAttributes());
+		FabricDefaultAttributeRegistry.register(FIST_ROCKET, UltronFistRocketEntity.createAttributes());
 	}
 
 	private static <T extends Entity> EntityType<T> register(String path, EntityType<T> type) {

@@ -67,11 +67,7 @@ public class SuperSpeedV0145GameTests implements FabricGameTest {
 		return Powers.byKey(SuperSpeedHandlers.KEY);
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void powerIsRegistered(GameTestHelper helper) {
-		helper.assertTrue(Powers.byKey(SuperSpeedHandlers.KEY) != null, "Super Speed is registered");
-		helper.succeed();
-	}
+	// (v0.16.1: the old powerIsRegistered test is gone -- sixKeysPlusCarryOnN reads the registered power first)
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void sixKeysPlusCarryOnN(GameTestHelper helper) {

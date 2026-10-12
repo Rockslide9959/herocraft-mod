@@ -83,6 +83,16 @@ public class UltronPylonRenderer extends EntityRenderer<UltronPylonEntity> {
 		VertexConsumer glow = buffers.getBuffer(RenderType.debugQuads());
 		BeamDraw.segment(glow, last, eye.add(0, -er, 0), eye.add(0, er, 0), cam, er * 1.3f, er * 1.3f, UltronBeamClient.GLOW, 0.75f * pulse,
 				0.75f * pulse);
+		if (entity.shielded() && rise >= 1f) {
+			// v0.16.1: the guard shield -- a faint red shell round the whole tower. The tower's block quads sit in the
+			// batched block-sheet buffers (drawn last); flush them now or the shell's depth write hides the tower.
+			if (buffers instanceof MultiBufferSource.BufferSource bs) {
+				bs.endBatch(net.minecraft.client.renderer.Sheets.solidBlockSheet());
+				bs.endBatch(net.minecraft.client.renderer.Sheets.cutoutBlockSheet());
+				glow = buffers.getBuffer(RenderType.debugQuads());
+			}
+			UltronRobotRenderer.shell(glow, last, new Vec3(0, UltronPylonEntity.EYE_HEIGHT * 0.52, 0), 1.9, 0.09f + 0.03f * Mth.sin(t * 0.3f));
+		}
 		if (beam) {
 			UltronBeamClient.draw(glow, true, last, eye, uplink, cam, UltronFx.TETHER, 0.9f, t);
 		}

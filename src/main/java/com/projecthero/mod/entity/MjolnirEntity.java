@@ -962,6 +962,10 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 			// A Hero of the Village lifting it for the first time becomes Thor -- but only once there is
 			// actually room in their inventory, so a full pack never burns the effect for nothing.
 			if (Worthiness.wouldAscend(player, this.getItem()) && player instanceof net.minecraft.server.level.ServerPlayer sp) {
+				// v0.16.1: projectheroUniquePowers -- someone else is Thor: it will not budge, the effect is kept
+				if (com.projecthero.mod.hero.UniquePowers.refuse(sp, "thor")) {
+					return net.minecraft.world.InteractionResult.SUCCESS;
+				}
 				if (!player.getMainHandItem().isEmpty() && player.getInventory().getFreeSlot() < 0) {
 					return net.minecraft.world.InteractionResult.SUCCESS;
 				}

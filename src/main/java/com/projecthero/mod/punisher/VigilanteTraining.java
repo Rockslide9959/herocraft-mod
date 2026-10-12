@@ -35,6 +35,10 @@ public final class VigilanteTraining {
 					.withStyle(ChatFormatting.GRAY), true);
 			return false;
 		}
+		// v0.16.1: projectheroUniquePowers -- no training while someone else is the Punisher
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, "punisher")) {
+			return false;
+		}
 		PunisherState s = Punisher.state(player);
 		if (s.trainingActive) {
 			player.displayClientMessage(Component.translatable("message.projecthero.punisher.training_active")
@@ -142,6 +146,11 @@ public final class VigilanteTraining {
 
 	private static void checkComplete(ServerPlayer player, PunisherState s) {
 		if (!s.trainingDone()) {
+			return;
+		}
+		// v0.16.1: projectheroUniquePowers -- training stays complete-but-open; the next objective event after the
+		// slot frees finishes it
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, "punisher")) {
 			return;
 		}
 		PunisherState c = s.copy();

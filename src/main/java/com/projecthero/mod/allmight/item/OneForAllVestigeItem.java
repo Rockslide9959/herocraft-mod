@@ -27,6 +27,10 @@ public class OneForAllVestigeItem extends Item {
 		if (level.isClientSide() || !(player instanceof ServerPlayer sp)) {
 			return InteractionResultHolder.success(held);
 		}
+		// v0.16.1: projectheroUniquePowers -- refused, and the Vestige is kept
+		if (!AllMight.hasPower(sp) && com.projecthero.mod.hero.UniquePowers.refuse(sp, AllMight.KEY)) {
+			return InteractionResultHolder.fail(held);
+		}
 		if (!AllMight.grant(sp)) {
 			sp.displayClientMessage(Component.translatable("message.projecthero.all_might.already").withStyle(ChatFormatting.GRAY), true);
 			return InteractionResultHolder.fail(held);

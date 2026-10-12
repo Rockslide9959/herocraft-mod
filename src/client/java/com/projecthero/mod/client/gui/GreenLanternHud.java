@@ -128,13 +128,20 @@ public final class GreenLanternHud {
 		}
 		labelY -= LINE;
 
-		// ---- the selected construct, with its cost (or its cooldown) on the right
-		ConstructType sel = ConstructType.byOrdinal(s.selectedConstruct);
+		// ---- the selected construct, with its cost (or its cooldown) on the right -- v0.16.1: while the Sniper Rifle is
+		// out this one row is the rifle instead (READY / CHARGING n% / FULL CHARGE / seconds to the next shot)
+		Component sniper = sniperStatus(player, pt);
+		ConstructType sel = sniper != null ? ConstructType.SNIPER_RIFLE : ConstructType.byOrdinal(s.selectedConstruct);
 		g.drawString(mc.font, Component.translatable(sel.translationKey()), x0, labelY, SELECTED, true);
-		int selCd = GreenLanternConstructs.cooldownRemainingFor(player, sel);
-		Component costLine = selCd > 0
-				? Component.translatable("hud.projecthero.green_lantern.cooldown_short", (selCd + 19) / 20).withStyle(ChatFormatting.RED)
-				: Component.translatable("hud.projecthero.green_lantern.cost", Math.round(sel.initialCost())).withStyle(ChatFormatting.GRAY);
+		Component costLine;
+		if (sniper != null) {
+			costLine = sniper;
+		} else {
+			int selCd = GreenLanternConstructs.cooldownRemainingFor(player, sel);
+			costLine = selCd > 0
+					? Component.translatable("hud.projecthero.green_lantern.cooldown_short", (selCd + 19) / 20).withStyle(ChatFormatting.RED)
+					: Component.translatable("hud.projecthero.green_lantern.cost", Math.round(sel.initialCost())).withStyle(ChatFormatting.GRAY);
+		}
 		g.drawString(mc.font, costLine, right - mc.font.width(costLine), labelY, 0xFFFFFFFF, true);
 		labelY -= LINE;
 
@@ -258,6 +265,27 @@ public final class GreenLanternHud {
 		g.fill(x0, barY, x0 + w, barY + 3, TRACK);
 		g.fill(x0, barY, x0 + Math.round(w * f), barY + 3, GOLD);
 		return labelY - LINE - 2;
+	}
+
+	/**
+	 * v0.16.1: while the Sniper Rifle construct is out, what its row says on the right -- the seconds until the next shot,
+	 * CHARGING n% / FULL CHARGE while a shot charges, else READY. Null when the rifle is not out.
+	 */
+	private static Component sniperStatus(Player player, float pt) {
+		if (!com.projecthero.mod.client.greenlantern.GreenLanternSniperClient.isOut(player)) {
+			return null;
+		}
+		int cd = GreenLantern.cooldownRemaining(player, com.projecthero.mod.greenlantern.GreenLanternSniper.COOLDOWN_ID);
+		float charge = com.projecthero.mod.client.greenlantern.GreenLanternSniperClient.chargeProgress(pt);
+		if (cd > 0) {
+			return Component.translatable("hud.projecthero.green_lantern.sniper.cooldown",
+					String.format(java.util.Locale.ROOT, "%.1f", cd / 20f)).withStyle(ChatFormatting.RED);
+		}
+		if (charge >= 0f) {
+			return Component.translatable(charge >= 1f ? "hud.projecthero.green_lantern.sniper.charged"
+					: "hud.projecthero.green_lantern.sniper.charging", Math.round(charge * 100f)).withStyle(ChatFormatting.WHITE);
+		}
+		return Component.translatable("hud.projecthero.green_lantern.sniper.ready").withStyle(ChatFormatting.GREEN);
 	}
 
 	private static float shieldShown = -1f;

@@ -77,7 +77,10 @@ public final class HeroCommand {
 						.then(Commands.argument("power", StringArgumentType.word()).suggests(POWER_KEYS)
 								.executes(c -> grant(c, self(c)))
 								.then(Commands.argument("player", EntityArgument.player())
-										.executes(c -> grant(c, EntityArgument.getPlayer(c, "player"))))))
+										.executes(c -> grant(c, EntityArgument.getPlayer(c, "player")))
+										// v0.16.1: "force" ignores the projectheroUniquePowers gamerule
+										.then(Commands.literal("force")
+												.executes(c -> grant(c, EntityArgument.getPlayer(c, "player"), true))))))
 				.then(Commands.literal("remove")
 						.then(Commands.argument("power", StringArgumentType.word()).suggests(POWER_KEYS_OR_ALL)
 								.executes(c -> revoke(c, self(c)))
@@ -87,7 +90,9 @@ public final class HeroCommand {
 						.then(Commands.argument("power", StringArgumentType.word()).suggests(POWER_KEYS)
 								.executes(c -> stack(c, self(c)))
 								.then(Commands.argument("player", EntityArgument.player())
-										.executes(c -> stack(c, EntityArgument.getPlayer(c, "player"))))))
+										.executes(c -> stack(c, EntityArgument.getPlayer(c, "player")))
+										.then(Commands.literal("force")
+												.executes(c -> stack(c, EntityArgument.getPlayer(c, "player"), true))))))
 				// v0.13.22: the mutation test commands were only ever on the unregistered legacy tree -- expose them
 				.then(Commands.literal("active")
 						.then(Commands.argument("power", StringArgumentType.word()).suggests(POWER_KEYS)
@@ -210,6 +215,10 @@ public final class HeroCommand {
 	 * {@code /heropower stack} to add a power without removing the others.
 	 */
 	private static int grant(CommandContext<CommandSourceStack> c, ServerPlayer target) {
+		return grant(c, target, false);
+	}
+
+	private static int grant(CommandContext<CommandSourceStack> c, ServerPlayer target, boolean force) {
 		// v0.6.20: the bare form also accepts a Hero-Tier key, so "/heropower grant spider_man" routes
 		// to the same path as "/heropower grant hero spider_man".
 		String rawKey = StringArgumentType.getString(c, "power");
@@ -219,6 +228,13 @@ public final class HeroCommand {
 			c.getSource().sendFailure(Component.literal("Unknown or disabled power (experimental key or "
 					+ String.join("/", HERO_TIER_KEYS) + ")"));
 			return 0;
+		}
+		// v0.16.1: projectheroUniquePowers -- refused before anything is wiped; "force" overrides
+		if (heroKey && !force && uniqueRefused(c, target, rawKey)) {
+			return 0;
+		}
+		if (heroKey && force) {
+			return com.projecthero.mod.hero.UniquePowers.forced(() -> grant(c, target, false));
 		}
 		boolean hadAny = com.projecthero.mod.hero.HeroTiers.hasExperimental(target)
 				|| com.projecthero.mod.hero.HeroTiers.hasHeroTier(target)
@@ -244,9 +260,33 @@ public final class HeroCommand {
 	}
 
 	/** Additive grant: unlock a power without disturbing the others, up to the mutation capacity. */
+	/**
+	 * v0.16.1: the projectheroUniquePowers gamerule. True (and the operator told who holds it, and how to override) if
+	 * {@code target} may not gain {@code key}.
+	 */
+	private static boolean uniqueRefused(CommandContext<CommandSourceStack> c, ServerPlayer target, String key) {
+		String holder = com.projecthero.mod.hero.UniquePowers.blockingHolder(target, key);
+		if (holder == null) {
+			return false;
+		}
+		c.getSource().sendFailure(com.projecthero.mod.hero.UniquePowers.takenMessage(key, holder)
+				.append(Component.literal(" (add 'force' after the player to override)")));
+		return true;
+	}
+
 	private static int stack(CommandContext<CommandSourceStack> c, ServerPlayer target) {
+		return stack(c, target, false);
+	}
+
+	private static int stack(CommandContext<CommandSourceStack> c, ServerPlayer target, boolean force) {
 		String rawKey = StringArgumentType.getString(c, "power");
 		if (HERO_TIER_KEYS.contains(rawKey)) {
+			if (force) {
+				return com.projecthero.mod.hero.UniquePowers.forced(() -> grantHeroByKey(c, target, rawKey));
+			}
+			if (uniqueRefused(c, target, rawKey)) {
+				return 0;
+			}
 			return grantHeroByKey(c, target, rawKey); // claims a Primary slot, alongside what they already hold
 		}
 		Power power = resolve(c);

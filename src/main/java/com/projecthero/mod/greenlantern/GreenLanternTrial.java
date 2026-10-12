@@ -153,6 +153,10 @@ public final class GreenLanternTrial {
 			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.already_bonded"), true);
 			return false;
 		}
+		// v0.16.1: projectheroUniquePowers -- no trial (and no levels taken) while someone else wears the ring
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, "green_lantern")) {
+			return false;
+		}
 		// v0.11.12, explicit user request: the ring demands proof of experience before it will even
 		// test your will -- experience LEVELS (the enchant-table number), not XP points. v0.15.9, explicit user
 		// request: the 20 levels are now the price of the trial as well, drained the moment it actually starts

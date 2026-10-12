@@ -81,6 +81,12 @@ public final class MoonKnightCommand {
 		int n = 0;
 		for (ServerPlayer p : targets) {
 			String name = p.getGameProfile().getName();
+			// v0.16.1: projectheroUniquePowers -- report the holder instead of "already serves"
+			String holder = MoonKnight.hasPower(p) ? null : com.projecthero.mod.hero.UniquePowers.blockingHolder(p, MoonKnight.KEY);
+			if (holder != null) {
+				c.getSource().sendFailure(com.projecthero.mod.hero.UniquePowers.takenMessage(MoonKnight.KEY, holder));
+				continue;
+			}
 			if (MoonKnight.grant(p)) {
 				n++;
 				c.getSource().sendSuccess(() -> Component.literal("Sealed " + name + "'s pact with Khonshu"), true);

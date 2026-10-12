@@ -159,6 +159,10 @@ public final class TitanShifter {
 		if (state(player).unlocked) {
 			return false;
 		}
+		// v0.16.1: projectheroUniquePowers -- refused (nothing granted) while someone else holds it
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, KEY)) {
+			return false;
+		}
 		HeroTiers.claimPrimary(player, KEY);
 		TitanShifterState s = state(player).copy();
 		s.unlocked = true;

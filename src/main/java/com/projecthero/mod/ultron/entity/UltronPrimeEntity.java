@@ -12,6 +12,7 @@ import com.projecthero.mod.ultron.UltronConfig;
 import com.projecthero.mod.ultron.UltronDialogue;
 import com.projecthero.mod.ultron.UltronEntityTypes;
 import com.projecthero.mod.ultron.UltronFx;
+import com.projecthero.mod.ultron.UltronJam;
 import com.projecthero.mod.ultron.UltronUprising;
 
 import net.minecraft.core.BlockPos;
@@ -47,9 +48,11 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.15.12: <b>Ultron Prime</b> -- body one. The player model at 1.4x in his Skindex skin; he flies. 900 health for one
- * fighter (+300 for each extra, up to 3,000), 12 armour. His moves (phase 1 above two-thirds health, 2 above a third, 3
- * below; enraged below a third -- shorter gaps):
+ * v0.15.12: <b>Ultron Prime</b> -- body one. The player model at 1.4x in his Skindex skin; he flies. v0.16.1: 1,600 health
+ * for one fighter (+450 for each extra, up to 5,000), 12 armour. His moves (phase 1 above two-thirds health, 2 above a
+ * third, 3 below; enraged below a third -- shorter gaps). v0.16.1 adds <b>Overclock</b> (phase 2+: 6 s at 1.5x speed,
+ * an 8-beam barrage), the phase-3 <b>double encephalo sweep</b>, and <b>Network Override</b> (a 1 s reticle over the
+ * highest-threat fighter, then their ability keys die for 4 s -- break line of sight to dodge it):
  * <ul>
  *   <li><b>Repulsor barrage</b>: five quick red beams, spread across the fighters.</li>
  *   <li><b>Encephalo-beam</b>: a red line shows where it starts for a second, then a held face laser sweeps across
@@ -73,9 +76,18 @@ public class UltronPrimeEntity extends UltronRobot {
 	public static final byte ACTION_DIVE_UP = 8;
 	public static final byte ACTION_DIVE_DOWN = 9;
 	public static final byte ACTION_UPLOAD = 10;
+	/** v0.16.1: Overclock's wind-up and Network Override's pointing hand. */
+	public static final byte ACTION_OVERCLOCK = 11;
+	public static final byte ACTION_OVERRIDE = 12;
 	public static final int JUMP_TICKS = 30;
+	static final int OVERCLOCK_WINDUP = 12;
 
-	public enum Move { NONE, BARRAGE, ENCEPHALO, SWARM, PULL, DIVE }
+	public enum Move { NONE, BARRAGE, ENCEPHALO, SWARM, PULL, DIVE, OVERCLOCK, OVERRIDE }
+
+	// v0.16.1 move state
+	private int overclock;
+	private boolean doubleSweep;
+	private UUID overrideTarget;
 
 	private final ServerBossEvent bossBar = new ServerBossEvent(Component.translatable("entity.projecthero.ultron_prime"),
 			BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.NOTCHED_10);
@@ -96,6 +108,11 @@ public class UltronPrimeEntity extends UltronRobot {
 	private int bodyIndex = 1;
 	// move state
 	private final List<UUID> barrageTargets = new ArrayList<>();
+
+	/** v0.16.1 test hook: does this encephalo-beam sweep twice? */
+	public boolean doubleSweep() {
+		return doubleSweep;
+	}
 	private float sweepYaw;
 	private float sweepPitch;
 	private Vec3 diveAt;
@@ -221,6 +238,22 @@ public class UltronPrimeEntity extends UltronRobot {
 		if (enraged && tickCount % 4 == 0) {
 			server.sendParticles(UltronFx.RED_SMALL, getX(), getY() + getBbHeight() * 0.6, getZ(), 1, 0.4, 0.6, 0.4, 0.0);
 		}
+		if (overclock > 0) {
+			overclock--;
+			if (tickCount % 2 == 0) {
+				server.sendParticles(ParticleTypes.ELECTRIC_SPARK, getX(), getY() + getBbHeight() * 0.5, getZ(), 2, 0.4, 0.7, 0.4, 0.1);
+				server.sendParticles(UltronFx.RED, getX(), getY() + getBbHeight() * 0.5, getZ(), 1, 0.3, 0.6, 0.3, 0.0);
+			}
+		}
+	}
+
+	/** v0.16.1: is he overclocked (50% faster, an 8-beam barrage)? */
+	public boolean overclocked() {
+		return overclock > 0;
+	}
+
+	private double speedFactor() {
+		return overclock > 0 ? UltronConfig.prime().overclockSpeedMultiplier : 1.0;
 	}
 
 	/** Holds a point ~9 blocks off the target and a few above the ground, drifting round it. */
@@ -239,7 +272,7 @@ public class UltronPrimeEntity extends UltronRobot {
 		} else {
 			want = position().add(0, Math.sin((tickCount + bobPhase) * 0.06) * 0.05, 0);
 		}
-		steer(want, 0.35);
+		steer(want, 0.35 * speedFactor());
 	}
 
 	private void steer(Vec3 want, double speed) {
@@ -270,6 +303,13 @@ public class UltronPrimeEntity extends UltronRobot {
 		if (phase >= 3) {
 			options.add(Move.DIVE);
 			options.add(Move.DIVE);
+		}
+		// v0.16.1: Overclock below two-thirds (not while already overclocked); Network Override on a player fighter
+		if (phase >= 2 && overclock <= 0) {
+			options.add(Move.OVERCLOCK);
+		}
+		if (overrideVictim(server, target) != null) {
+			options.add(Move.OVERRIDE);
 		}
 		if (options.size() > 1 && lastMove >= 0) {
 			options.remove(Move.values()[lastMove]);
@@ -305,6 +345,7 @@ public class UltronPrimeEntity extends UltronRobot {
 				sweepSide = random.nextBoolean() ? 1 : -1;
 				sweepYaw = yaw - sweepSide * 35f;
 				sweepPitch = (float) -Math.toDegrees(Math.atan2(to.y, Math.sqrt(to.x * to.x + to.z * to.z)));
+				doubleSweep = phase() >= 3; // v0.16.1: phase 3 sweeps there and back
 				setAction(ACTION_TELEGRAPH);
 				server.playSound(null, getX(), getY(), getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.HOSTILE, 2.0f, 0.6f);
 			}
@@ -321,7 +362,79 @@ public class UltronPrimeEntity extends UltronRobot {
 				setAction(ACTION_DIVE_UP);
 				say(server, "dive", false);
 			}
+			case OVERCLOCK -> {
+				setAction(ACTION_OVERCLOCK);
+				say(server, "overclock", false);
+				server.playSound(null, getX(), getY(), getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.HOSTILE, 2.0f, 1.6f);
+			}
+			case OVERRIDE -> {
+				LivingEntity victim = overrideVictim(server, target);
+				if (victim == null) {
+					move = Move.NONE;
+					setAction(ACTION_NONE);
+					return;
+				}
+				overrideTarget = victim.getUUID();
+				setAction(ACTION_OVERRIDE);
+				UltronJam.reticle(server, victim, UltronConfig.prime().overrideTelegraphTicks);
+				server.playSound(null, victim.getX(), victim.getY(), victim.getZ(), SoundEvents.NOTE_BLOCK_BIT.value(), SoundSource.HOSTILE, 1.5f, 0.5f);
+			}
 			default -> setAction(ACTION_NONE);
+		}
+	}
+
+	/**
+	 * v0.16.1 Network Override's mark: the highest-threat fighter (the threat table's strongest), else the current target --
+	 * only ever a player in reach.
+	 */
+	public LivingEntity overrideVictim(ServerLevel server, LivingEntity target) {
+		double range = UltronConfig.prime().overrideRange;
+		LivingEntity top = threat.strongest();
+		LivingEntity pick = top instanceof ServerPlayer ? top : target;
+		if (pick instanceof ServerPlayer sp && UltronCombat.canTarget(sp) && sp.distanceToSqr(this) <= range * range) {
+			return sp;
+		}
+		return null;
+	}
+
+	/** Overclock's wind-up, then 6 s at 1.5x speed with an 8-beam barrage. */
+	private void tickOverclock(ServerLevel server) {
+		setDeltaMovement(getDeltaMovement().scale(0.7));
+		server.sendParticles(ParticleTypes.ELECTRIC_SPARK, getX(), getY() + getBbHeight() * 0.6, getZ(), 4, 0.5, 0.6, 0.5, 0.2);
+		if (moveTick >= OVERCLOCK_WINDUP) {
+			overclock = UltronConfig.prime().overclockTicks;
+			UltronFx.forced(server, UltronFx.RED_BIG, getX(), getY() + getBbHeight() * 0.5, getZ(), 24, 0.6, 0.9, 0.6, 0.1);
+			server.playSound(null, getX(), getY(), getZ(), SoundEvents.WARDEN_SONIC_CHARGE, SoundSource.HOSTILE, 1.5f, 1.6f);
+			endMove();
+		}
+	}
+
+	/** Network Override: a 1 s reticle over the mark, then -- if he can still see them -- every ability key dies for 4 s. */
+	private void tickOverride(ServerLevel server, UltronConfig.Prime cfg) {
+		setDeltaMovement(getDeltaMovement().scale(0.7));
+		Entity e = overrideTarget == null ? null : server.getEntity(overrideTarget);
+		if (!(e instanceof ServerPlayer victim) || !victim.isAlive()) {
+			overrideTarget = null;
+			endMove();
+			return;
+		}
+		face(victim.getEyePosition());
+		Vec3 above = victim.position().add(0, victim.getBbHeight() + 0.6, 0);
+		if (moveTick % 4 == 0) {
+			UltronFx.ring(server, UltronFx.RED_SMALL, above, 0.5, 10);
+		}
+		if (moveTick == cfg.overrideTelegraphTicks) {
+			if (hasLineOfSight(victim) && UltronCombat.canTarget(victim) && victim.distanceToSqr(this) <= cfg.overrideRange * cfg.overrideRange) {
+				UltronFx.beam(server, headPos(), victim.getEyePosition(), UltronFx.TELEGRAPH, 8);
+				UltronJam.jam(victim, UltronJam.ALL, cfg.overrideJamTicks, true);
+				say(server, "override", true);
+				server.playSound(null, victim.getX(), victim.getY(), victim.getZ(), SoundEvents.ELDER_GUARDIAN_CURSE, SoundSource.HOSTILE, 0.8f, 1.6f);
+				server.sendParticles(ParticleTypes.ELECTRIC_SPARK, victim.getX(), victim.getY() + 1.2, victim.getZ(), 20, 0.3, 0.6, 0.3, 0.2);
+			}
+		}
+		if (moveTick >= cfg.overrideTelegraphTicks + 10) {
+			overrideTarget = null;
+			endMove();
 		}
 	}
 
@@ -341,9 +454,10 @@ public class UltronPrimeEntity extends UltronRobot {
 				if (target != null) {
 					face(target.getEyePosition());
 				}
+				int beams = overclock > 0 ? cfg.overclockBarrageBeams : cfg.barrageBeams; // v0.16.1: 8 while overclocked
 				if (moveTick >= 8 && (moveTick - 8) % 3 == 0) {
 					int shot = (moveTick - 8) / 3;
-					if (shot < cfg.barrageBeams && !barrageTargets.isEmpty()) {
+					if (shot < beams && !barrageTargets.isEmpty()) {
 						Entity e = server.getEntity(barrageTargets.get(shot % barrageTargets.size()));
 						if (e instanceof LivingEntity le && le.isAlive()) {
 							Vec3 from = palm(shot % 2 == 0);
@@ -353,7 +467,7 @@ public class UltronPrimeEntity extends UltronRobot {
 							server.playSound(null, from.x, from.y, from.z, SoundEvents.BEACON_DEACTIVATE, SoundSource.HOSTILE, 1.0f, 1.8f);
 						}
 					}
-					if (shot >= cfg.barrageBeams) {
+					if (shot >= beams) {
 						endMove();
 					}
 				}
@@ -370,6 +484,8 @@ public class UltronPrimeEntity extends UltronRobot {
 			}
 			case PULL -> tickPull(server, cfg);
 			case DIVE -> tickDive(server, target, cfg);
+			case OVERCLOCK -> tickOverclock(server);
+			case OVERRIDE -> tickOverride(server, cfg);
 			default -> endMove();
 		}
 	}
@@ -388,7 +504,9 @@ public class UltronPrimeEntity extends UltronRobot {
 		setDeltaMovement(getDeltaMovement().scale(0.6));
 		int tele = cfg.encephaloTelegraphTicks;
 		int sweep = cfg.encephaloSweepTicks;
-		float yaw = moveTick <= tele ? sweepYaw : sweepYaw + sweepSide * 70f * Math.min(1f, (moveTick - tele) / (float) sweep);
+		int passes = doubleSweep ? 2 : 1; // v0.16.1: phase 3 sweeps across and back
+		float t = moveTick <= tele ? 0f : Math.min(passes, (moveTick - tele) / (float) sweep);
+		float yaw = sweepYaw + sweepSide * 70f * (t <= 1f ? t : 2f - t);
 		Vec3 dir = sweepDir(yaw);
 		Vec3 from = headPos().add(dir.scale(0.3));
 		face(from.add(dir.scale(10)));
@@ -413,7 +531,7 @@ public class UltronPrimeEntity extends UltronRobot {
 				UltronCombat.hit(server, this, e, dmg);
 			}
 		}
-		if (moveTick >= tele + sweep) {
+		if (moveTick >= tele + sweep * passes) {
 			endMove();
 		}
 	}

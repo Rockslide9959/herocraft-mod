@@ -8,7 +8,7 @@ import com.projecthero.mod.network.WolverineSensePayload;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
+
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -68,9 +68,8 @@ public final class WolverineSense {
 		}
 		ServerPlayNetworking.send(player, new WolverineSensePayload(hunters(player),
 				ids.stream().mapToInt(Integer::intValue).toArray(), WolverineConfig.SNIFF_TICKS));
+		// v0.16.1: his own sniff (a few quick inhales through the nose) instead of the Sniffer mob's noises
 		player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-				SoundEvents.SNIFFER_SNIFFING, SoundSource.PLAYERS, 1.0f, 1.0f);
-		player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-				SoundEvents.SNIFFER_SEARCHING, SoundSource.PLAYERS, 0.5f, 1.2f);
+				WolverineSounds.SNIFF, SoundSource.PLAYERS, 1.0f, 0.95f + player.getRandom().nextFloat() * 0.1f);
 	}
 }

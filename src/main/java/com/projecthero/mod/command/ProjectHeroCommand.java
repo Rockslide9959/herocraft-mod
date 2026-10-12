@@ -51,6 +51,8 @@ public final class ProjectHeroCommand {
 		root.then(com.projecthero.mod.kryptonian.KryptonianCommand.buildKryptonian());
 		// v0.15.13: /projecthero nova force <n> and /projecthero nova site (op only)
 		root.then(com.projecthero.mod.nova.NovaCommand.build());
+		// v0.16.1: /projecthero uniquepowers list | release <power> (the projectheroUniquePowers gamerule)
+		root.then(com.projecthero.mod.hero.UniquePowers.buildCommand());
 
 		dispatcher.register(root);
 		// v0.13.11: Hulk Phase 1 test commands (op-only; removed / locked down in Phase 4)

@@ -242,6 +242,10 @@ public final class Kryptonian {
 		if (state(player).hasPower) {
 			return false;
 		}
+		// v0.16.1: projectheroUniquePowers -- refused (nothing granted) while someone else holds it
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, KEY)) {
+			return false;
+		}
 		HeroTiers.claimPrimary(player, KEY);
 		KryptonianState s = new KryptonianState();
 		s.hasPower = true;

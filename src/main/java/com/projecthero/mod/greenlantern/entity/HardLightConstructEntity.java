@@ -36,7 +36,12 @@ public class HardLightConstructEntity extends Entity {
 		 * v0.15.15: the Shift+R Blast Wave -- an arc of hard light rolling out over a forward cone (scale = range in
 		 * blocks; yaw = the cone's centre line; life = travel + fade).
 		 */
-		WAVE;
+		WAVE,
+		/**
+		 * v0.16.1: the Sniper Rifle's bolt -- drawn from the muzzle (the entity) to the impact point ({@code end}): a
+		 * white-hot head racing down a thick tracer, then an expanding flash where it struck (scale = charge, 0.35-1).
+		 */
+		SNIPER_BOLT;
 
 		public static Shape byId(int id) {
 			Shape[] all = values();

@@ -107,6 +107,10 @@ public final class MaxSteel {
 		if (hasPower(player)) {
 			return false;
 		}
+		// v0.16.1: projectheroUniquePowers -- refused (nothing granted) while someone else holds it
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, "max_steel")) {
+			return false;
+		}
 		com.projecthero.mod.hero.HeroTiers.claimPrimary(player, "max_steel");
 		MaxSteelState s = state(player).copy();
 		s.hasPower = true;

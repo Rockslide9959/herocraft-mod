@@ -106,6 +106,10 @@ public final class Wolverine {
 		if (hasPower(player) || !hasSuperRegeneration(player)) {
 			return false;
 		}
+		// v0.16.1: projectheroUniquePowers -- refused (nothing granted) while someone else holds it
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, "wolverine")) {
+			return false;
+		}
 		HeroTiers.claimPrimary(player, "wolverine");
 		ExperimentalPowers.setActive(player, null);
 		if (com.projecthero.mod.hero.power.HeroFlight.isFlying(player)) {
@@ -338,5 +342,7 @@ public final class Wolverine {
 
 	public static void initialize() {
 		WolverineDamage.initialize();
+		WolverineSuitMend.initialize(); // v0.16.1: the suit mends 1/s after 30 s out of combat
+		WolverineSounds.initialize(); // v0.16.1: the Sniff
 	}
 }

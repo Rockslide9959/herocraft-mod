@@ -40,6 +40,10 @@ public class NovaCorpsHelmetItem extends Item {
 			return InteractionResultHolder.fail(stack);
 		}
 		if (player instanceof ServerPlayer sp) {
+			// v0.16.1: projectheroUniquePowers -- refused, and the helmet is kept
+			if (com.projecthero.mod.hero.UniquePowers.refuse(sp, Nova.KEY)) {
+				return InteractionResultHolder.fail(stack);
+			}
 			if (!bond(sp, stack)) {
 				return InteractionResultHolder.fail(stack);
 			}
