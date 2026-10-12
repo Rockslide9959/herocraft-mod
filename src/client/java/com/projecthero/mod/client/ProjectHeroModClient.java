@@ -248,9 +248,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.maxsteel.MaxSteelArmCannon.initialize();
 		com.projecthero.mod.client.maxsteel.MaxSteelLockOnRenderer.initialize();
 		com.projecthero.mod.client.render.MaxSteelFirstPersonArm.initialize();
-		net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
-				com.projecthero.mod.client.wolverine.WolverineClawsModel.LAYER,
-				com.projecthero.mod.client.wolverine.WolverineClawsModel::createLayer);
+		com.projecthero.mod.client.wolverine.WolverineClawFx.initialize(); // v0.16.1: claw slash trails + strike sparks
 		net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
 				com.projecthero.mod.client.spider.ImpactWebModel.LAYER,
 				com.projecthero.mod.client.spider.ImpactWebModel::createLayer);
@@ -267,8 +265,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 						registrationHelper.register(new com.projecthero.mod.client.maxsteel.MaxSteelGearLayer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.render.PowerRingLayer(
 								playerRenderer, context.getItemRenderer()));
-						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineClawsLayer(
-								playerRenderer, context.getModelSet()));
+						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineClawsLayer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineFleshLayer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineLegFleshLayer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.spider.SpiderHandTrackerLayer(playerRenderer));

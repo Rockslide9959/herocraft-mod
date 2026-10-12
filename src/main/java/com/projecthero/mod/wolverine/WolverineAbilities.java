@@ -134,6 +134,8 @@ public final class WolverineAbilities {
 			Vec3 at = target.position().add(0, target.getBbHeight() * 0.55, 0);
 			level.sendParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 8, 0.25, 0.3, 0.25, 0.15);
 			level.sendParticles(ParticleTypes.ENCHANTED_HIT, at.x, at.y, at.z, 6, 0.25, 0.3, 0.25, 0.1);
+			// v0.16.1: adamantium sparks where the claws bite (a few, not a shower -- Frenzy lands five of these)
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 4, 0.2, 0.25, 0.2, 0.2);
 		}
 		return true;
 	}

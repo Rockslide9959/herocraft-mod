@@ -342,5 +342,7 @@ public final class Wolverine {
 
 	public static void initialize() {
 		WolverineDamage.initialize();
+		WolverineSuitMend.initialize(); // v0.16.1: the suit mends 1/s after 30 s out of combat
+		WolverineSounds.initialize(); // v0.16.1: the Sniff
 	}
 }

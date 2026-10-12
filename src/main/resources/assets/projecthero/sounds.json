@@ -2387,5 +2387,19 @@
         "name": "projecthero:gun/flesh2"
       }
     ]
+  },
+  "wolverine_sniff": {
+    "subtitle": "subtitles.projecthero.wolverine_sniff",
+    "sounds": [
+      {
+        "name": "projecthero:wolverine/sniff1"
+      },
+      {
+        "name": "projecthero:wolverine/sniff2"
+      },
+      {
+        "name": "projecthero:wolverine/sniff3"
+      }
+    ]
   }
 }

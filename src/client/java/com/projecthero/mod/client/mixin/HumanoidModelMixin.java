@@ -185,6 +185,8 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			com.projecthero.mod.client.maxsteel.MaxSteelPose.apply(player, (HumanoidModel<?>) (Object) this);
 			// v0.14.3: Green Lantern moves, channels, the Oath, the shield and suit-up
 			com.projecthero.mod.client.greenlantern.GreenLanternPose.apply(player, (HumanoidModel<?>) (Object) this);
+			// v0.16.1: Wolverine claw slashes (left-click combo) and the claw-ability poses
+			com.projecthero.mod.client.wolverine.WolverineClawPose.apply(player, (HumanoidModel<?>) (Object) this);
 		}
 	}
 

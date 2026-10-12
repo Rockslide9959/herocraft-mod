@@ -15,7 +15,7 @@ import com.projecthero.mod.ironman.item.IronManItems;
 import com.projecthero.mod.ironman.suit.IronManSuitUpManager;
 import com.projecthero.mod.nova.Nova;
 import com.projecthero.mod.nova.item.NovaItems;
-import com.projecthero.mod.wolverine.item.WolverineArmorItem;
+import com.projecthero.mod.wolverine.WolverineSuitMend;
 import com.projecthero.mod.wolverine.item.WolverineItems;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
@@ -139,16 +139,27 @@ public class V01521GameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- Wolverine Suit
 
+	/** v0.16.1: 1 durability a second, but only after 30 s out of combat (was a flat 1 every 5 s). */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void wolverineSuitMendsItself(GameTestHelper h) {
 		ItemStack suit = new ItemStack(WolverineItems.SUIT_CHESTPLATE);
 		suit.setDamageValue(10);
-		WolverineArmorItem.repairTick(suit);
+		WolverineSuitMend.repairTick(suit);
 		h.assertTrue(suit.getDamageValue() == 9, "one point per repair tick");
 		suit.setDamageValue(0);
-		WolverineArmorItem.repairTick(suit);
+		WolverineSuitMend.repairTick(suit);
 		h.assertTrue(suit.getDamageValue() == 0, "an undamaged suit stays as it is");
-		h.assertTrue(WolverineArmorItem.REPAIR_INTERVAL_TICKS == 100, "every 5 seconds");
+		h.assertTrue(WolverineSuitMend.REPAIR_INTERVAL_TICKS == 20, "every second");
+		h.assertTrue(WolverineSuitMend.OUT_OF_COMBAT_TICKS == 600, "after 30 s out of combat");
+		ServerPlayer p = mock(h);
+		h.assertTrue(WolverineSuitMend.outOfCombat(p), "someone who never fought is out of combat");
+		WolverineSuitMend.markCombat(p);
+		h.assertFalse(WolverineSuitMend.outOfCombat(p), "just fought: no mending");
+		long now = p.level().getGameTime();
+		p.setAttached(WolverineSuitMend.LAST_COMBAT_TICK, now - WolverineSuitMend.OUT_OF_COMBAT_TICKS + 20);
+		h.assertFalse(WolverineSuitMend.outOfCombat(p), "29 s later: still in combat");
+		p.setAttached(WolverineSuitMend.LAST_COMBAT_TICK, now - WolverineSuitMend.OUT_OF_COMBAT_TICKS);
+		h.assertTrue(WolverineSuitMend.outOfCombat(p), "30 s later: out of combat");
 		h.succeed();
 	}
 

@@ -89,6 +89,7 @@
 		"SuperSpeedTimeSlowTextureMixin",
 		"SuperSpeedWalkAnimationAccessor",
 		"WolverineAttackMixin",
+		"WolverineSwingMixin",
 		"GladiatorAttackMixin",
 		"ItemInHandRendererGladiatorMixin",
 		"PlayerRendererGladiatorWeaponMixin",

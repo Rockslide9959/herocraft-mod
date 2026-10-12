@@ -1,0 +1,350 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.client.wolverine.WolverineClawCombo;
+import com.projecthero.mod.hero.ExperimentalPowers;
+import com.projecthero.mod.hero.Powers;
+import com.projecthero.mod.wolverine.Wolverine;
+import com.projecthero.mod.wolverine.WolverineAbilities;
+import com.projecthero.mod.wolverine.WolverineSense;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.16.1 Wolverine claws, combo, abilities, sniff. Enabled by run/v0161wolv.flag. */
+public final class V0161WolvHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	public static Vec3 camOffset;
+	public static Vec3 camLook = new Vec3(0, 1.0, 0);
+	private static volatile long lastProgress = System.currentTimeMillis();
+	private static String only = "";
+
+	private V0161WolvHarness() {
+	}
+
+	public static void init() {
+		Path flag = Path.of("v0161wolv.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			only = Files.readString(flag).trim();
+		} catch (Exception ignored) {
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(V0161WolvHarness::tick);
+		Thread wd = new Thread(() -> {
+			while (true) {
+				try {
+					Thread.sleep(5000);
+				} catch (InterruptedException e) {
+					return;
+				}
+				if (System.currentTimeMillis() - lastProgress > 120_000L) {
+					System.out.println("[HARNESS] WATCHDOG: no progress for 120 s");
+					Runtime.getRuntime().halt(3);
+				}
+			}
+		}, "v0161-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					try {
+						fn.accept(p);
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "v0161w_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+		lastProgress = System.currentTimeMillis();
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void at(int t, Runnable r) {
+		Runnable prev = AT.get(t);
+		AT.put(t, prev == null ? r : () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				lastProgress = System.currentTimeMillis();
+				mc.execute(V0161WolvHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks % 20 == 0) {
+			lastProgress = System.currentTimeMillis();
+		}
+		if (t0 >= 0) {
+			mc.player.setYRot(0f);
+			mc.player.setXRot(pitch);
+			mc.player.yHeadRot = 0f;
+			mc.player.yHeadRotO = 0f;
+			mc.player.yBodyRot = 0f;
+			mc.player.yBodyRotO = 0f;
+			// F1 also hides the first-person hands: GUI on in first person (chat kept clear), off for the outside shots
+			mc.options.hideGui = !mc.options.getCameraType().isFirstPerson();
+			mc.gui.getChat().clearMessages(false);
+		}
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.teleportTo(level, Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5, 0f, 0f);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static float pitch = 0f;
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("V0161W_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.NORMAL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void cam(Vec3 off, Vec3 look) {
+		camOffset = off;
+		camLook = look;
+	}
+
+	private static void swing(Minecraft mc) {
+		mc.player.swing(WolverineClawCombo.nextHand(mc.player));
+	}
+
+	private static void spawnHusk(ServerPlayer p, double dx, double dz) {
+		Mob m = EntityType.HUSK.create(p.serverLevel());
+		m.moveTo(p.getX() + dx, p.getY(), p.getZ() + dz, 180f, 0f);
+		m.setNoAi(true);
+		m.setPersistenceRequired();
+		m.setInvulnerable(true);
+		p.serverLevel().addFreshEntity(m);
+	}
+
+	/** A burst of shots after a trigger. */
+	private static void burst(Minecraft mc, int from, int to, String name) {
+		for (int t = from; t <= to; t++) {
+			final int k = t - from;
+			at(t, () -> shot(mc, name + "_" + k));
+		}
+	}
+
+	private static void script(Minecraft mc) {
+		at(5, () -> server(mc, p -> {
+			p.setGameMode(GameType.CREATIVE); // no claw-deploy wound in the shots
+			ExperimentalPowers.grant(p, Powers.byKey(Wolverine.SUPER_REGENERATION_KEY));
+			Wolverine.ascendFromSuperRegeneration(p);
+			Wolverine.setClaws(p, true);
+			System.out.println("[HARNESS] wolverine=" + Wolverine.hasPower(p) + " claws=" + Wolverine.clawsOut(p));
+		}));
+		if (only.contains("sniff")) {
+			sniffPart(mc, 30);
+			return;
+		}
+		int o = 0;
+		if (!only.contains("skipmodel")) {
+			// ---- 1. the model, third person close-ups
+			at(30, () -> cam(new Vec3(-0.75, 0.95, 0.75), new Vec3(-0.35, 0.6, 0.0)));
+			at(36, () -> shot(mc, "01_tp_close_right"));
+			at(38, () -> cam(new Vec3(-1.1, 0.7, -0.1), new Vec3(-0.35, 0.55, 0.0)));
+			at(44, () -> shot(mc, "02_tp_close_right_side"));
+			at(46, () -> cam(new Vec3(0.0, 1.2, 2.4), new Vec3(0, 0.95, 0)));
+			at(52, () -> shot(mc, "03_tp_front"));
+			// ---- 2. first person idle
+			at(54, () -> {
+				camOffset = null;
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+			});
+			at(64, () -> shot(mc, "04_fp_idle"));
+			at(66, () -> pitch = 30f);
+			at(72, () -> shot(mc, "05_fp_idle_lookdown"));
+			at(74, () -> pitch = 0f);
+			o = 80;
+		}
+		final int c = o;
+		// ---- 3. combo, first person
+		at(c + 0, () -> swing(mc));
+		burst(mc, c + 1, c + 6, "10_fp_combo1");
+		at(c + 12, () -> swing(mc));
+		burst(mc, c + 13, c + 18, "11_fp_combo2");
+		at(c + 24, () -> swing(mc));
+		burst(mc, c + 25, c + 32, "12_fp_combo3_cross");
+		// ---- 4. combo, third person (front quarter)
+		at(c + 40, () -> {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			cam(new Vec3(-2.0, 1.5, 2.6), new Vec3(0, 1.2, 0.3));
+		});
+		at(c + 50, () -> swing(mc));
+		burst(mc, c + 51, c + 56, "20_tp_combo1");
+		at(c + 62, () -> swing(mc));
+		burst(mc, c + 63, c + 68, "21_tp_combo2");
+		at(c + 74, () -> swing(mc));
+		burst(mc, c + 75, c + 82, "22_tp_combo3_cross");
+		// ---- 5. abilities, third person, with targets in front
+		final int a = c + 90;
+		at(a, () -> server(mc, p -> {
+			spawnHusk(p, 0.0, 2.6);
+			spawnHusk(p, 1.4, 2.8);
+		}));
+		at(a + 10, () -> cam(new Vec3(-3.2, 1.6, 1.2), new Vec3(0, 1.1, 1.0)));
+		at(a + 20, () -> server(mc, WolverineAbilities::clawSlash));
+		burst(mc, a + 21, a + 28, "30_tp_R_slash");
+		at(a + 40, () -> server(mc, WolverineAbilities::crossSlash));
+		burst(mc, a + 41, a + 52, "31_tp_G_cross");
+		at(a + 60, () -> server(mc, p -> spawnHusk(p, 0.0, 2.4)));
+		at(a + 65, () -> server(mc, WolverineAbilities::frenzy));
+		at(a + 90, () -> server(mc, p -> spawnHusk(p, 0.3, 5.0)));
+		burst(mc, a + 66, a + 84, "32_tp_V_frenzy");
+		at(a + 95, () -> server(mc, WolverineAbilities::beginExecutionCharge));
+		at(a + 125, () -> shot(mc, "33_tp_Z_charge"));
+		at(a + 130, () -> server(mc, p -> {
+			var s = Wolverine.state(p).copy();
+			s.chargeStartedAt -= 200;
+			p.setAttached(com.projecthero.mod.attachment.ModAttachments.WOLVERINE_STATE, s);
+			WolverineAbilities.releaseExecutionCharge(p);
+		}));
+		burst(mc, a + 131, a + 140, "34_tp_Z_strike");
+		at(a + 160, () -> server(mc, p -> {
+			p.teleportTo(p.serverLevel(), Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) - 2.5, 0f, 0f);
+			var s = Wolverine.state(p).copy();
+			s.rageMeter = 100f;
+			p.setAttached(com.projecthero.mod.attachment.ModAttachments.WOLVERINE_STATE, s);
+			WolverineAbilities.berserkerRage(p);
+		}));
+		at(a + 166, () -> shot(mc, "35_tp_C_roar_a"));
+		at(a + 172, () -> shot(mc, "35_tp_C_roar_b"));
+		// ---- 6. abilities, first person
+		final int f = a + 200;
+		at(f, () -> {
+			camOffset = null;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+		});
+		at(f + 10, () -> server(mc, p -> {
+			var s = Wolverine.state(p).copy();
+			s.rageUntil = 0L;
+			s.abilityReadyAt.clear();
+			p.setAttached(com.projecthero.mod.attachment.ModAttachments.WOLVERINE_STATE, s);
+		}));
+		at(f + 20, () -> server(mc, WolverineAbilities::clawSlash));
+		burst(mc, f + 21, f + 27, "40_fp_R_slash");
+		at(f + 35, () -> server(mc, p -> spawnHusk(p, 0.3, 5.0)));
+		at(f + 40, () -> server(mc, WolverineAbilities::beginExecutionCharge));
+		at(f + 60, () -> shot(mc, "41_fp_Z_charge"));
+		at(f + 62, () -> server(mc, p -> {
+			var s = Wolverine.state(p).copy();
+			s.chargeStartedAt -= 200;
+			p.setAttached(com.projecthero.mod.attachment.ModAttachments.WOLVERINE_STATE, s);
+			WolverineAbilities.releaseExecutionCharge(p);
+		}));
+		burst(mc, f + 63, f + 70, "42_fp_Z_strike");
+		sniffPart(mc, f + 90);
+	}
+
+	private static void sniffPart(Minecraft mc, int s) {
+		// ---- 7. sniff
+		at(s - 5, () -> {
+			camOffset = null;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+		});
+		at(s, () -> server(mc, p -> {
+			for (int i = 0; i < 4; i++) {
+				double ang = i * Math.PI / 2 + 0.4;
+				spawnHusk(p, Math.sin(ang) * 14, Math.cos(ang) * 14);
+			}
+			var pig = EntityType.PIG.create(p.serverLevel());
+			pig.moveTo(p.getX() + 6, p.getY(), p.getZ() + 9, 0f, 0f);
+			pig.setNoAi(true);
+			p.serverLevel().addFreshEntity(pig);
+		}));
+		at(s + 10, () -> {
+			mc.options.hideGui = false;
+			mc.gui.getChat().clearMessages(false);
+		});
+		at(s + 40, () -> server(mc, WolverineSense::sniff));
+		at(s + 50, () -> shot(mc, "50_fp_sniff"));
+		at(s + 52, () -> {
+			mc.options.hideGui = true;
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			cam(new Vec3(0, 9, -9), new Vec3(0, 0, 4));
+		});
+		at(s + 60, () -> shot(mc, "51_tp_sniff_overview"));
+		at(s + 65, () -> {
+			System.out.println("[HARNESS] done");
+			mc.stop();
+		});
+	}
+}

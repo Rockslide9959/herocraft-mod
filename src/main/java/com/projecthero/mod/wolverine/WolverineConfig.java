@@ -65,8 +65,15 @@ public final class WolverineConfig {
 	public static final float POISON_WITHER_DURATION_FACTOR = 0.25f;
 
 	// ---- physique ----
-	public static final double MELEE_BONUS_DAMAGE = 3.0; // bare-hand melee = 1 + 3 = 4
-	/** Claws out AND an empty hand: +8 unarmed damage on top (4 + 8 = 12). Not applied while holding an item. */
+	/**
+	 * His strength: +3 to EVERY melee hit, whatever he holds (v0.16.1 -- an {@code ATTACK_DAMAGE} modifier, so it stacks on a
+	 * sword's or axe's own damage: bare hand 1 + 3 = 4, iron sword 6 + 3 = 9). Counted once, never per weapon.
+	 */
+	public static final double MELEE_BONUS_DAMAGE = 3.0;
+	/**
+	 * Claws out AND an empty hand: the claws' own +8 on top (1 + 3 + 8 = 12). The claws ARE his weapon, so this is the
+	 * weapon's damage, not a second strength bonus -- and nothing can be held with them out, so it never meets a sword's.
+	 */
 	public static final double CLAW_MELEE_BONUS = 8.0;
 	public static final double SPEED_BONUS = 0.0; // v0.12.21: the passive +40% (Speed II-III) is gone; Rage still adds speed
 	public static final double JUMP_BONUS = 0.30; // ~2.1 blocks: clears a 2-block wall

@@ -17,9 +17,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 /**
  * v0.13.9 Wolverine melee, client side:
  * <ul>
- * <li>With the claws out and both hands empty, every left-click swing picks the left or right claw at random
- * (vanilla always swings the main hand). The swing packet carries the hand, so every viewer sees the same
- * one; the hit itself is vanilla's and deals the same damage either way.</li>
+ * <li>With the claws out and both hands empty, left-click swings chain a combo (v0.16.1; it was a random hand):
+ * right slash, left slash, overhead cross ({@code WolverineClawCombo}). The swing packet carries the hand, so every
+ * viewer sees the same one; the hit itself is vanilla's and deals the same damage either way.</li>
  * <li>While the right-click claw guard is up he can't swing at all -- the same rule vanilla applies to a
  * raised shield (see {@code WolverineBlock}).</li>
  * </ul>
@@ -45,7 +45,7 @@ public abstract class WolverineAttackMixin {
 	private InteractionHand projecthero$wolverineRandomHand(InteractionHand hand) {
 		LocalPlayer p = Minecraft.getInstance().player;
 		if (p != null && Wolverine.clawsOut(p) && p.getMainHandItem().isEmpty() && p.getOffhandItem().isEmpty()) {
-			return p.getRandom().nextBoolean() ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND;
+			return com.projecthero.mod.client.wolverine.WolverineClawCombo.nextHand(p);
 		}
 		return hand;
 	}
