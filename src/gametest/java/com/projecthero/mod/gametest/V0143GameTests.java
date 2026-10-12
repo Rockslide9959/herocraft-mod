@@ -189,7 +189,7 @@ public class V0143GameTests implements FabricGameTest {
 		helper.assertTrue(GreenLanternConfig.SUIT_MELEE_BONUS == 10f, "the suit adds +10 melee");
 		helper.assertTrue(GreenLanternConfig.SHIELD_HP == 150f && GreenLanternConfig.DOME_HP == 400f, "tougher shield and dome");
 		helper.assertTrue(GreenLanternConfig.OATH_MODE_DURATION_TICKS == 600, "the Oath lasts 30 s");
-		helper.assertTrue(ConstructType.values().length == 19, "five new constructs join the wheel");
+		helper.assertTrue(ConstructType.values().length >= 19, "five new constructs join the wheel (v0.16.1 adds the Sniper Rifle)");
 		helper.succeed();
 	}
 
