@@ -4,6 +4,31 @@
 		"animation.ice_casket.idle": {
 			"animation_length": 2,
 			"bones": {
+				"casket": {
+					"rotation": {
+						"0.0000": [
+							0,
+							0,
+							0
+						],
+						"1.0000": {
+							"vector": [
+								0,
+								8,
+								0
+							],
+							"easing": "easeinoutsine"
+						},
+						"2.0000": {
+							"vector": [
+								0,
+								0,
+								0
+							],
+							"easing": "easeinoutsine"
+						}
+					}
+				},
 				"lid": {
 					"rotation": {
 						"0.0000": [
@@ -11,31 +36,52 @@
 							0,
 							0
 						],
-						"1.0000": [
-							-12,
-							0,
-							0
-						],
-						"2.0000": [
-							0,
-							0,
-							0
-						]
+						"1.0000": {
+							"vector": [
+								-14,
+								0,
+								0
+							],
+							"easing": "easeinoutsine"
+						},
+						"2.0000": {
+							"vector": [
+								0,
+								0,
+								0
+							],
+							"easing": "easeinoutsine"
+						}
 					}
 				},
-				"casket": {
+				"root": {
 					"position": {
 						"0.0000": [
 							0,
 							0,
 							0
 						],
-						"1.0000": [
-							0,
-							1.5,
-							0
-						],
-						"2.0000": [
+						"1.0000": {
+							"vector": [
+								0,
+								1.5,
+								0
+							],
+							"easing": "easeinoutsine"
+						},
+						"2.0000": {
+							"vector": [
+								0,
+								0,
+								0
+							],
+							"easing": "easeinoutsine"
+						}
+					}
+				},
+				"spill": {
+					"scale": {
+						"0.0000": [
 							0,
 							0,
 							0

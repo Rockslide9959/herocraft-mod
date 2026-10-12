@@ -1,0 +1,124 @@
+{
+	"transition": 4,
+	"note": "server ticks; a play-once/held clip is (length - 4) ticks long and keys each hit on (hit - 4); loops are length ticks. Hover clips lift the root ~12 px (0.75 block x model scale) above the hit-box floor.",
+	"model_scale_for_4_blocks": 1.0738,
+	"rest_height_px": 60.02,
+	"texture": [
+		512,
+		144
+	],
+	"cubes": 122,
+	"clips": {
+		"idle": {
+			"server_length": 60,
+			"kind": "loop",
+			"clip_ticks": 60
+		},
+		"fly": {
+			"server_length": 30,
+			"kind": "loop",
+			"clip_ticks": 30
+		},
+		"walk": {
+			"server_length": 32,
+			"kind": "loop",
+			"clip_ticks": 32,
+			"move_speed": 0.15
+		},
+		"vibranium_strike": {
+			"server_length": 44,
+			"kind": "once",
+			"clip_ticks": 40,
+			"hits": [
+				12,
+				22,
+				34
+			],
+			"strike_clip_ticks": [
+				8,
+				18,
+				30
+			]
+		},
+		"concussive_blast": {
+			"server_length": 30,
+			"kind": "once",
+			"clip_ticks": 26,
+			"hits": [
+				18
+			],
+			"strike_clip_ticks": [
+				14
+			]
+		},
+		"lattice": {
+			"server_length": 50,
+			"kind": "once",
+			"clip_ticks": 46,
+			"hits": [
+				24
+			],
+			"strike_clip_ticks": [
+				20
+			]
+		},
+		"siphon": {
+			"server_length": 40,
+			"kind": "loop",
+			"clip_ticks": 40
+		},
+		"split": {
+			"server_length": 30,
+			"kind": "once",
+			"clip_ticks": 26,
+			"hits": [
+				18
+			],
+			"strike_clip_ticks": [
+				14
+			]
+		},
+		"override": {
+			"server_length": 40,
+			"kind": "once",
+			"clip_ticks": 36,
+			"hits": [
+				26
+			],
+			"strike_clip_ticks": [
+				22
+			]
+		},
+		"upload": {
+			"server_length": 60,
+			"kind": "loop",
+			"clip_ticks": 60
+		},
+		"hurt": {
+			"server_length": 10,
+			"kind": "once",
+			"clip_ticks": 6
+		},
+		"stagger_kneel": {
+			"server_length": 40,
+			"kind": "hold",
+			"clip_ticks": 36
+		},
+		"disintegrate": {
+			"server_length": 60,
+			"kind": "hold",
+			"clip_ticks": 56
+		},
+		"self_destruct": {
+			"server_length": 80,
+			"kind": "hold",
+			"clip_ticks": 76,
+			"hits": [
+				70
+			],
+			"strike_clip_ticks": [
+				66
+			]
+		}
+	}
+}

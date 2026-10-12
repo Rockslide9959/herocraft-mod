@@ -60,7 +60,8 @@ function buildOmega() {
 		M.box(waist, -w * 0.8, y, 1.5, w * 0.8, y + 1.45, 2.3, 'plate_d');
 	});
 	for (const [s] of SIDES) M.box(waist, ...[sxr(s, 2.0, 3.0)[0], hip + 2.2, -1.4, sxr(s, 2.0, 3.0)[1], waistTop - 0.4, 1.4], 'plate_d', { rot: [0, 0, s * 8], pivot: [s * 2.5, waistTop, 0] });
-	const chest = M.bone('chest', 'waist', [0, waistTop, 0]);
+	M.bone('flinch', 'waist', [0, waistTop, 0]); // code-driven hurt flinch (never keyed)
+	const chest = M.bone('chest', 'flinch', [0, waistTop, 0]);
 	M.box(chest, -4.6, waistTop - 0.5, -2.4, 4.6, chestTop, 2.5, 'frame', { paint: 'core' });
 	M.box(chest, -4.9, waistTop - 0.2, -3.0, 4.9, waistTop + 2.6, -1.5, 'plate', { paint: 'ribs' });
 	for (const [s] of SIDES) {
@@ -96,11 +97,11 @@ function buildOmega() {
 		const sh = M.bone(`shoulder_${n}`, 'chest', [s * 3, chestTop - 1, 0]);
 		M.box(sh, ...[sxr(s, 5.0, 10.0)[0], shY - 1.2, -2.7, sxr(s, 5.0, 10.0)[1], shY + 2.4, 2.7], 'plate', { paint: 'pauldron', rot: [0, 0, s * 12], pivot: [sx, shY + 1, 0] });
 		M.box(sh, ...[sxr(s, 6.5, 10.6)[0], shY - 3.0, -2.4, sxr(s, 6.5, 10.6)[1], shY - 0.6, 2.4], 'plate_d', { rot: [0, 0, s * 20], pivot: [sx, shY - 1, 0] });
-		const ua = M.bone(`upper_arm_${n}`, `shoulder_${n}`, [sx, shY, 0], [0, 0, -s * 6]);
+		const ua = M.bone(`arm_${n}`, `shoulder_${n}`, [sx, shY, 0], [0, 0, -s * 6]);
 		M.box(ua, sx - 1.0, elbow - 0.4, -1.0, sx + 1.0, shY + 0.6, 1.0, 'frame', { paint: 'core' });
 		M.box(ua, sx - 1.6, elbow + 1.6, -1.65, sx + 1.6, shY - 2.6, 1.65, 'plate', { paint: 'arm' });
 		M.cbox(ua, [sx, elbow, 0], [1.9, 1.9, 1.9], 'frame', { paint: 'joint' });
-		const fa = M.bone(`forearm_${n}`, `upper_arm_${n}`, [sx, elbow, 0], [-8, 0, 0]);
+		const fa = M.bone(`forearm_${n}`, `arm_${n}`, [sx, elbow, 0], [-8, 0, 0]);
 		M.box(fa, sx - 0.9, wrist - 0.2, -0.9, sx + 0.9, elbow + 0.4, 0.9, 'frame', { paint: 'core' });
 		M.box(fa, sx - 1.7, wrist + 1.2, -1.75, sx + 1.7, elbow - 0.9, 1.75, 'plate', { paint: 'forearm' });
 		M.stick(fa, [sx + s * 1.4, elbow - 2.0, 0.6], [s * 0.4, 1, 0.5], 2.6, [0.5, 1.2], 'plate_d'); // elbow blade
@@ -199,13 +200,13 @@ function shadeOmega(M) {
 function omegaPoses(M) {
 	const fist = (n, k) => { const s = n === 'r' ? -1 : 1; return { [`fingers_${n}`]: [0, 0, s * 30 * k], [`fingertips_${n}`]: [0, 0, s * 40 * k] }; };
 	const stand = Object.assign({
-		upper_arm_r: [-4, 0, 6], forearm_r: [-14, 0, 0], upper_arm_l: [-4, 0, -6], forearm_l: [-14, 0, 0],
+		arm_r: [-4, 0, 6], forearm_r: [-14, 0, 0], arm_l: [-4, 0, -6], forearm_l: [-14, 0, 0],
 		head: [6, 0, 0], thigh_r: [0, 0, 4], thigh_l: [0, 0, -4], foot_r: [0, 0, -4], foot_l: [0, 0, 4],
 	}, fist('r', 1), fist('l', 1));
 	const hover = Object.assign({
 		$root: [0, 14, 0],
-		upper_arm_r: [-8, 0, 74], forearm_r: [-22, -20, 0], hand_r: [0, 0, 18],
-		upper_arm_l: [-8, 0, -74], forearm_l: [-22, 20, 0], hand_l: [0, 0, -18],
+		arm_r: [-8, 0, 74], forearm_r: [-22, -20, 0], hand_r: [0, 0, 18],
+		arm_l: [-8, 0, -74], forearm_l: [-22, 20, 0], hand_l: [0, 0, -18],
 		chest: [-6, 0, 0], head: [10, 0, 0],
 		thigh_r: [-10, 0, 6], shin_r: [26, 0, 0], foot_r: [44, 0, 0],
 		thigh_l: [6, 0, -4], shin_l: [14, 0, 0], foot_l: [40, 0, 0],
@@ -231,7 +232,7 @@ function planted(M, pose) {
 
 module.exports = { buildOmega, buildOmegaFinished, omegaPoses };
 
-if (require.main === module) {
+if (require.main === module && !process.argv.includes('--game')) {
 	const args = process.argv.slice(2);
 	const ci = args.indexOf('--concept');
 	const OUT = ci >= 0 ? args[ci + 1] : null;
@@ -246,3 +247,153 @@ if (require.main === module) {
 		{ label: 'ACTION: HOVERING, ARMS OUT', items: [it(M.poses.hover)], cam: { yaw: 20, pitch: 4 }, ownScale: true },
 	], { minW: 1900, panelH: 1100, bg: dark, bloom: 0.55, light: Object.assign({}, L.DEFAULT_LIGHT, { rimCol: [1.0, 0.55, 0.5], rimK: 0.55 }) });
 }
+
+// ================================================================ GAME EXPORT (--game)
+// TIMING TABLE (source of truth until the Contagion gameplay is merged; mirror it in OmegaAnims): server ticks, the
+// Titan / FrostGiantAnims convention -- TRANSITION 4; a play-once / held clip is (length - 4) ticks long and keys each
+// strike on (hit - 4); loops are `length` ticks and carry no hits. kind: once | hold | loop.
+const OMEGA_TRANSITION = 4;
+const OMEGA_TIMING = {
+	idle: { kind: 'loop', length: 60 },
+	fly: { kind: 'loop', length: 30 },
+	walk: { kind: 'loop', length: 32, speed: 0.15 },
+	vibranium_strike: { kind: 'once', length: 44, hits: [12, 22, 34] }, // 3-hit combo, 8 / 8 / 14 damage
+	concussive_blast: { kind: 'once', length: 30, hits: [18] },
+	lattice: { kind: 'once', length: 50, hits: [24] },                   // the rotating beams switch on at the hit
+	siphon: { kind: 'loop', length: 40 },
+	split: { kind: 'once', length: 30, hits: [18] },                     // the decoys appear on the hit
+	override: { kind: 'once', length: 40, hits: [26] },                  // the Legion suits are hijacked on the hit
+	upload: { kind: 'loop', length: 60 },
+	hurt: { kind: 'once', length: 10 },
+	stagger_kneel: { kind: 'hold', length: 40 },
+	disintegrate: { kind: 'hold', length: 60 },
+	self_destruct: { kind: 'hold', length: 80, hits: [70] },            // the blast on the hit
+};
+
+function omegaGame() {
+	const fs = require('fs');
+	const A = require('./lib_geckogen_anim.js');
+	const { addPose: ap, mirrorPose: mirP } = A;
+	const REPO = path.join(__dirname, '..');
+	const M = buildOmega();
+	M.setHeight(4, c => c.bone !== 'head' || c.paint !== 'crest');
+	M.layout(); M.paint(shadeOmega(M));
+	const P = omegaPoses(M);
+	const an = new A.AnimSet(M, 'ultron_omega', { transition: OMEGA_TRANSITION, feet: c => c.tag === 'sole' });
+	const fist = (n, k) => { const s = n === 'r' ? -1 : 1; return { [`fingers_${n}`]: [0, 0, s * 30 * k], [`fingertips_${n}`]: [0, 0, s * 40 * k] }; };
+	const S = P.stand, H = Object.assign({}, P.hover); delete H.$root;
+	const HY = y => ({ $root: [0, y, 0], $ground: false });
+	const strike = p => Object.assign({}, p, { $strike: true });
+	const mk = (name, build, opts = {}) => {
+		const t = OMEGA_TIMING[name];
+		const len = t.kind === 'loop' ? t.length : t.length - OMEGA_TRANSITION;
+		const hits = (t.hits || []).map(h => h - OMEGA_TRANSITION);
+		an.clip(name, len, t.kind === 'loop' ? true : t.kind === 'hold' ? 'hold' : false, build(len, hits).map(([k, p, e]) => [Math.round(k), p, e]), Object.assign({ strikes: t.hits || [] }, opts));
+	};
+	// a fluid hover: slow bob, a lazy figure-eight sway, the hands drifting, the head tilting like it is curious
+	mk('idle', len => [
+		[0, ap(H, HY(12))], [len * 0.25, ap(H, { chest: [-3, 4, 2], head: [4, -12, 6], arm_r: [-6, 0, -8], arm_l: [4, 0, 4], forearm_r: [-10, 0, 0], shin_r: [6, 0, 0] }, HY(15)), 'easeinoutsine'],
+		[len * 0.5, ap(H, { chest: [1, 0, -1], head: [-2, 0, 0], arm_r: [4, 0, 4], arm_l: [-6, 0, -8] }, HY(11)), 'easeinoutsine'],
+		[len * 0.75, ap(H, { chest: [-2, -4, -2], head: [6, 14, -6], forearm_l: [-10, 0, 0], shin_l: [8, 0, 0] }, HY(14)), 'easeinoutsine'], [len, ap(H, HY(12)), 'easeinoutsine'],
+	]);
+	// flying: a forward dive, arms swept back, legs trailing
+	const dive = ap(S, { root: [40, 0, 0], chest: [10, 0, 0], head: [-36, 0, 0], arm_r: [30, 0, 20], arm_l: [30, 0, -20], forearm_r: [-10, 0, 0], forearm_l: [-10, 0, 0], thigh_r: [10, 0, 0], thigh_l: [16, 0, 0], shin_r: [20, 0, 0], shin_l: [10, 0, 0], foot_r: [40, 0, 0], foot_l: [40, 0, 0] });
+	mk('fly', len => [[0, ap(dive, HY(14))], [len * 0.5, ap(dive, { chest: [2, 0, 3], thigh_r: [6, 0, 0], thigh_l: [-6, 0, 0], arm_r: [4, 0, 4] }, HY(16)), 'easeinoutsine'], [len, ap(dive, HY(14)), 'easeinoutsine']]);
+	// walking: a long, smooth, slightly predatory stride
+	{
+		const t = OMEGA_TIMING.walk, q = t.length / 4;
+		const C = ap(S, { thigh_r: [-26, 0, 0], shin_r: [6, 0, 0], foot_r: [20, 0, 0], thigh_l: [20, 0, 0], shin_l: [16, 0, 0], foot_l: [-30, 0, 0], arm_r: [18, 0, 0], arm_l: [-18, 0, 0], hips: [0, -6, 0], chest: [4, 6, 0], head: [-4, -6, 0] });
+		const Pp = ap(S, { thigh_l: [-24, 0, 0], shin_l: [40, 0, 0], foot_l: [-10, 0, 0], chest: [3, 0, 0], $y: 0.4 });
+		mk('walk', () => [[0, C], [q, Pp, 'easeinoutsine'], [2 * q, ap(S, mirP({ thigh_r: [-26, 0, 0], shin_r: [6, 0, 0], foot_r: [20, 0, 0], thigh_l: [20, 0, 0], shin_l: [16, 0, 0], foot_l: [-30, 0, 0], arm_r: [18, 0, 0], arm_l: [-18, 0, 0], hips: [0, -6, 0], chest: [4, 6, 0], head: [-4, -6, 0] })), 'easeinoutsine'],
+			[3 * q, ap(S, mirP({ thigh_l: [-24, 0, 0], shin_l: [40, 0, 0], foot_l: [-10, 0, 0] }), { chest: [3, 0, 0], $y: 0.4 }), 'easeinoutsine'], [4 * q, C, 'easeinoutsine']], { speed: t.speed });
+	}
+	// vibranium strike: right hook, left hook, then a two-handed hammer blow
+	{
+		const g = ap(S, { thigh_l: [-20, 0, -4], shin_l: [16, 0, 0], thigh_r: [10, 0, 4], shin_r: [10, 0, 0] });
+		const r1 = ap(g, { waist: [0, 30, 0], chest: [0, 20, 0], arm_r: [20, 30, 50], forearm_r: [-80, 0, 0], ...fist('r', 3), arm_l: [-40, 0, -20], forearm_l: [-60, 0, 0], ...fist('l', 3) });
+		const h1 = ap(g, { waist: [6, -30, 0], chest: [6, -20, 0], arm_r: [-90, -20, 0], forearm_r: [-10, 0, 0], ...fist('r', 3), arm_l: [-30, 0, -30], forearm_l: [-70, 0, 0], ...fist('l', 3), head: [0, 16, 0] });
+		const h2 = ap(g, mirP({ waist: [6, -30, 0], chest: [6, -20, 0], arm_r: [-90, -20, 0], forearm_r: [-10, 0, 0], arm_l: [-30, 0, -30], forearm_l: [-70, 0, 0], head: [0, 16, 0] }), fist('r', 3), fist('l', 3));
+		const up = ap(g, { arm_r: [-170, 0, -10], arm_l: [-170, 0, 10], forearm_r: [-40, 0, 0], forearm_l: [-40, 0, 0], chest: [-12, 0, 0], head: [-10, 0, 0], ...fist('r', 3), ...fist('l', 3) });
+		const h3 = ap(g, { arm_r: [-70, 0, -20], arm_l: [-70, 0, 20], forearm_r: [-10, 0, 0], forearm_l: [-10, 0, 0], chest: [30, 0, 0], waist: [10, 0, 0], head: [-14, 0, 0], thigh_l: [-30, 0, 0], shin_l: [40, 0, 0], ...fist('r', 3), ...fist('l', 3) });
+		mk('vibranium_strike', (len, [a, b, c]) => [[0, S], [a - 4, r1, 'easeinoutsine'], [a, strike(h1), 'easeinquad'], [b - 4, ap(h1, { waist: [0, 10, 0] }), 'easeoutquad'], [b, strike(h2), 'easeinquad'], [c - 6, up, 'easeinoutsine'], [c, strike(h3), 'easeinquad'], [c + 3, ap(h3, { chest: [-4, 0, 0] }), 'easeoutquad'], [len, S, 'easeinoutsine']]);
+	}
+	// concussive blast: drawn back, both palms thrust forward (the red cone fires on the hit)
+	{
+		const load = ap(H, { chest: [-14, 0, 0], arm_r: [20, 0, 30], arm_l: [20, 0, -30], forearm_r: [-90, 0, 0], forearm_l: [-90, 0, 0], head: [-6, 0, 0] });
+		const push = ap(H, { chest: [12, 0, 0], arm_r: [-86, 0, -60], arm_l: [-86, 0, 60], forearm_r: [10, 0, 0], forearm_l: [10, 0, 0], hand_r: [-60, 0, -18], hand_l: [-60, 0, 18], head: [6, 0, 0], ...fist('r', -1), ...fist('l', -1) });
+		mk('concussive_blast', (len, [h]) => [[0, ap(H, HY(12))], [h * 0.65, ap(load, HY(14)), 'easeinoutsine'], [h, strike(ap(push, HY(12))), 'easeoutback'], [h + 3, ap(push, { chest: [-6, 0, 0] }, HY(13)), 'easeoutquad'], [len, ap(H, HY(12)), 'easeinoutsine']]);
+	}
+	// lattice: rises, arms spread wide and raised, body arched (beams on from the hit)
+	{
+		const arch = ap(H, { chest: [-20, 0, 0], head: [-30, 0, 0], jaw: [16, 0, 0], arm_r: [-40, 0, 40], arm_l: [-40, 0, -40], forearm_r: [10, 0, 0], forearm_l: [10, 0, 0], ...fist('r', -1), ...fist('l', -1) });
+		mk('lattice', (len, [h]) => [[0, ap(H, HY(12))], [h * 0.6, ap(H, { chest: [14, 0, 0], arm_r: [20, 0, -40], arm_l: [20, 0, 40] }, HY(10)), 'easeinoutsine'], [h, strike(ap(arch, HY(22))), 'easeoutback'], [h + 10, ap(arch, { chest: [0, 20, 0] }, HY(22)), 'easeinoutsine'], [len, ap(H, HY(12)), 'easeinoutsine']]);
+	}
+	// siphon: one hand reaching out, fingers spread and trembling, drawing power in
+	{
+		const reachP = ap(H, { arm_r: [-80, -20, -30], forearm_r: [-6, 0, 0], ...fist('r', -1.3), arm_l: [-20, 0, -40], forearm_l: [-60, 0, 0], chest: [8, -14, 0], head: [4, 14, 0] });
+		mk('siphon', len => [[0, ap(reachP, HY(12))], [len * 0.25, ap(reachP, { forearm_r: [-4, 0, 2], ...fist('r', 0.3) }, HY(13)), 'easeinoutsine'], [len * 0.5, ap(reachP, { chest: [-3, 0, 0] }, HY(12)), 'easeinoutsine'], [len * 0.75, ap(reachP, { forearm_r: [4, 0, -2], ...fist('r', 0.3) }, HY(13)), 'easeinoutsine'], [len, ap(reachP, HY(12)), 'easeinoutsine']]);
+	}
+	// split: a violent glitch-jerk, arms flung out (the decoys peel off on the hit)
+	{
+		const jerk = ap(H, { chest: [10, 20, 10], head: [20, -30, 20], arm_r: [-30, 0, 100], arm_l: [-60, 0, -60], forearm_r: [-40, 0, 0] });
+		mk('split', (len, [h]) => [[0, ap(H, HY(12))], [h - 6, ap(H, { chest: [16, 0, 0], arm_r: [10, 0, -20], arm_l: [10, 0, 20], head: [20, 0, 0] }, HY(11)), 'easeinoutsine'], [h - 2, ap(jerk, HY(12)), 'linear'], [h, strike(ap(H, { arm_r: [-20, 0, 30], arm_l: [-20, 0, -30], chest: [-10, 0, 0], head: [-10, 0, 0] }, HY(13))), 'linear'], [h + 3, ap(jerk, { head: [-30, 50, -30] }, HY(12)), 'linear'], [len, ap(H, HY(12)), 'easeinoutsine']]);
+	}
+	// override: two fingers to the temple, head cocked, then the hand sweeps out commanding
+	{
+		const temple = ap(H, { arm_r: [-150, 30, 30], forearm_r: [-110, 0, 0], ...fist('r', 1.5), head: [6, -10, -16], chest: [-4, 6, 0] });
+		const command = ap(H, { arm_r: [-80, -40, -20], forearm_r: [-4, 0, 0], ...fist('r', -1), head: [-6, 20, 0], chest: [6, -16, 0], arm_l: [-10, 0, -50] });
+		mk('override', (len, [h]) => [[0, ap(H, HY(12))], [h * 0.5, ap(temple, HY(12)), 'easeinoutsine'], [h - 4, ap(temple, { head: [4, 0, -6] }, HY(12)), 'easeinoutsine'], [h, strike(ap(command, HY(13))), 'easeoutback'], [len, ap(H, HY(12)), 'easeinoutsine']]);
+	}
+	// upload: rising, arms raised, head back, the body juddering as he streams into the network
+	{
+		const up = ap(H, { arm_r: [-150, 0, 20], arm_l: [-150, 0, -20], forearm_r: [-10, 0, 0], forearm_l: [-10, 0, 0], ...fist('r', -1.4), ...fist('l', -1.4), chest: [-18, 0, 0], head: [-40, 0, 0], jaw: [20, 0, 0] });
+		mk('upload', len => [[0, ap(up, HY(16))], [len * 0.2, ap(up, { chest: [2, 4, 2], head: [4, 6, 4] }, HY(18)), 'linear'], [len * 0.35, ap(up, { chest: [-2, -4, -2], head: [-4, -6, -4] }, HY(17)), 'linear'], [len * 0.6, ap(up, { chest: [3, 0, 3] }, HY(19)), 'easeinoutsine'], [len * 0.8, ap(up, { head: [6, 10, 0] }, HY(17)), 'linear'], [len, ap(up, HY(16)), 'easeinoutsine']]);
+	}
+	mk('hurt', len => [[0, ap(H, HY(12))], [2, ap(H, { chest: [-16, 10, 8], head: [-20, -14, 10], arm_r: [-10, 0, 20], arm_l: [-10, 0, -20] }, HY(13)), 'easeoutquad'], [len, ap(H, HY(12)), 'easeinoutsine']]);
+	// stagger kneel: drops out of the air onto one knee, a hand on the ground, sparking
+	const kneel = ap(S, { thigh_r: [-80, 0, 6], shin_r: [96, 0, 0], foot_r: [-16, 0, 0], thigh_l: [10, 0, -4], shin_l: [90, 0, 0], foot_l: [-100, 0, 0], chest: [26, 0, 6], head: [20, 10, 8], arm_l: [-40, 0, -10], forearm_l: [-10, 0, 0], arm_r: [20, 0, 20], $ground: 'knees' });
+	mk('stagger_kneel', len => [[0, ap(H, HY(12))], [8, ap(kneel, { chest: [-10, 0, 0] }), 'easeinquad'], [14, kneel, 'easeoutquad'], [24, ap(kneel, { head: [-10, -10, 0] }), 'easeinoutsine'], [len, kneel, 'easeinoutsine']]);
+	// disintegrate: convulses, sags to his knees and slumps forward, arms hanging
+	const slump = ap(kneel, { thigh_l: [-80, 0, -6], shin_l: [96, 0, 0], foot_l: [-16, 0, 0], chest: [40, 0, 0], head: [40, 0, 0], arm_r: [10, 0, 10], arm_l: [10, 0, -10], jaw: [24, 0, 0] });
+	mk('disintegrate', len => [[0, ap(H, HY(12))], [6, ap(H, { chest: [-20, 10, 0], head: [-30, -20, 0], arm_r: [-60, 0, 60], arm_l: [-60, 0, -60] }, HY(12)), 'easeoutquad'], [12, ap(H, { chest: [10, -10, 0], head: [10, 20, 0] }, HY(10)), 'linear'], [26, ap(kneel, { chest: [10, 0, 0] }), 'easeinquad'], [40, slump, 'easeinoutsine'], [len, slump]]);
+	// self destruct: arms spread, back arched, rising and shaking harder until the blast on the hit
+	{
+		const arc = ap(H, { arm_r: [-40, 0, 80], arm_l: [-40, 0, -80], forearm_r: [0, 0, 0], forearm_l: [0, 0, 0], ...fist('r', -1.5), ...fist('l', -1.5), chest: [-26, 0, 0], head: [-36, 0, 0], jaw: [30, 0, 0] });
+		mk('self_destruct', (len, [h]) => {
+			const f = [[0, ap(H, HY(12))], [16, ap(arc, HY(16)), 'easeinoutsine']];
+			for (let t = 22, i = 0; t < h - 2; t += 4, i++) f.push([t, ap(arc, { chest: [(i % 2 ? 3 : -3) * (1 + t / h), (i % 2 ? 4 : -4), 0], head: [(i % 2 ? -4 : 4), (i % 2 ? 6 : -6), 0] }, HY(16 + t / 10)), 'linear']);
+			f.push([h, strike(ap(arc, { chest: [-10, 0, 0], arm_r: [-20, 0, 10], arm_l: [-20, 0, -10] }, HY(24))), 'easeoutquad'], [len, ap(arc, HY(24))]);
+			return f;
+		});
+	}
+	const json = an.build();
+	const RES = path.join(REPO, 'src/main/resources/assets/projecthero');
+	const files = { geo: path.join(RES, 'geo/ultron/ultron_omega.geo.json'), tex: path.join(RES, 'textures/entity/ultron/ultron_omega.png'), glow: path.join(RES, 'textures/entity/ultron/ultron_omega_glowmask.png'), anim: path.join(RES, 'animations/ultron/ultron_omega.animation.json') };
+	for (const f of Object.values(files)) fs.mkdirSync(path.dirname(f), { recursive: true });
+	fs.writeFileSync(files.geo, JSON.stringify(M.geoJson('geometry.ultron_omega'), null, '\t') + '\n');
+	fs.writeFileSync(files.tex, L.encodePng(M.TW, M.TH, M.tex));
+	fs.writeFileSync(files.glow, L.encodePng(M.TW, M.TH, M.glow));
+	fs.writeFileSync(files.anim, JSON.stringify(json, null, '\t') + '\n');
+	const rest = M.bounds(M.world({}));
+	const timing = { transition: OMEGA_TRANSITION, note: 'server ticks; a play-once/held clip is (length - 4) ticks long and keys each hit on (hit - 4); loops are length ticks. Hover clips lift the root ~12 px (0.75 block x model scale) above the hit-box floor.', model_scale_for_4_blocks: +M.MODEL_SCALE.toFixed(4), rest_height_px: +(rest.hi[1] - rest.lo[1]).toFixed(2), texture: [M.TW, M.TH], cubes: M.cubes().length, clips: {} };
+	for (const [n, t] of Object.entries(OMEGA_TIMING)) timing.clips[n] = Object.assign({ server_length: t.length, kind: t.kind, clip_ticks: an.clips[n].len }, t.hits ? { hits: t.hits, strike_clip_ticks: t.hits.map(h => h - OMEGA_TRANSITION) } : {}, t.speed ? { move_speed: t.speed } : {});
+	fs.writeFileSync(path.join(REPO, 'scratchpad/ultron_omega_anim_timing.json'), JSON.stringify(timing, null, '\t') + '\n');
+	console.log(`ultron_omega: ${M.bones.length} bones, ${M.cubes().length} cubes, tex ${M.TW}x${M.TH}, ${Object.keys(an.clips).length} clips; wrote scratchpad/ultron_omega_anim_timing.json`);
+	// previews from the written files
+	const G = A.loadGameModel(files.geo, files.tex, files.glow, M.MODEL_SCALE);
+	G.heightBlocks = 4;
+	const anims = A.loadAnimations(files.anim);
+	const frames = [['IDLE (HOVER)', 'idle', 0], ['IDLE', 'idle', 15], ['FLY', 'fly', 0], ['WALK', 'walk', 0]];
+	for (const [n, t] of Object.entries(OMEGA_TIMING)) {
+		if (['idle', 'fly', 'walk'].includes(n)) continue;
+		if (t.hits) t.hits.forEach((h, i) => frames.push([`${n.toUpperCase().replace(/_/g, ' ')} AT HIT ${h}`, n, h - OMEGA_TRANSITION]));
+		else frames.push([`${n.toUpperCase().replace(/_/g, ' ')}`, n, t.kind === 'loop' ? t.length / 4 : t.length - OMEGA_TRANSITION]);
+	}
+	const dir = path.join(REPO, '..', '..', '..', 'scratchpad', 'concepts_v0161', 'anim');
+	fs.mkdirSync(dir, { recursive: true });
+	for (let i = 0; i * 5 < frames.length; i++) {
+		const panels = frames.slice(i * 5, i * 5 + 5).map(([label, n, t]) => { const pose = A.poseAt(anims, `animation.ultron_omega.${n}`, t); return { label, items: [{ model: G, pose, root: pose.$root, floorR: 2.4 }], cam: { yaw: 25, pitch: 8 } }; });
+		L.sheet(path.join(dir, `ultron_omega_${i + 1}.png`), 'ULTRON OMEGA - GAME ASSETS', `PAGE ${i + 1} - POSES READ BACK FROM THE ANIMATION JSON`, panels, { minW: 1800, panelH: 1000, maxW: 3400, ss: 1, bg: { top: [96, 98, 108], bottom: [52, 54, 62] }, bloom: 0.55 });
+	}
+}
+if (require.main === module && process.argv.includes('--game')) omegaGame();

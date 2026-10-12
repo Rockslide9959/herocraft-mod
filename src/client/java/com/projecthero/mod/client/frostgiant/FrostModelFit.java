@@ -51,7 +51,16 @@ public final class FrostModelFit {
 		});
 	}
 
+	/**
+	 * Bones (and everything under them) left out of the rest-height measure: crowns, horns, held weapons and props, so the
+	 * BODY fills the hit-box (as in the generator's concept scale) instead of a horn tip or a raised staff.
+	 */
+	private static final java.util.Set<String> FIT_IGNORE = java.util.Set.of("helm", "crown", "weapon_r", "weapon_l", "spell_r", "crystals");
+
 	private static void walk(GeoBone bone, float[] mm) {
+		if (FIT_IGNORE.contains(bone.getName())) {
+			return;
+		}
 		for (GeoCube cube : bone.getCubes()) {
 			for (GeoQuad quad : cube.quads()) {
 				if (quad == null) {

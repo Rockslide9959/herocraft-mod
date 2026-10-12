@@ -21,10 +21,14 @@ const { Model, mix, mul, fbm, vnoise, hash3, clamp, smooth, seeded, vnorm, vadd,
 
 const args = process.argv.slice(2);
 const ci = args.indexOf('--concept');
-const OUT = ci >= 0 ? args[ci + 1] : null;
+const GAME = args.includes('--game');
+const REPO = path.join(__dirname, '..');
+const fs = require('fs');
+const PREVIEW_ROOT = path.join(REPO, '..', '..', '..', 'scratchpad', 'concepts_v0161');
+const OUT = ci >= 0 ? args[ci + 1] : (GAME ? PREVIEW_ROOT : null);
 const oi = args.indexOf('--only');
 const ONLY = oi >= 0 ? args[oi + 1].split(',') : null;
-const WANT = n => !ONLY || ONLY.includes(n);
+const WANT = n => !GAME && (!ONLY || ONLY.includes(n));
 
 // ================================================================ palettes
 const RED_EYE = [255, 44, 30], RED_HOT = [255, 170, 140];
@@ -500,13 +504,13 @@ function jotunRig(M, P) {
 	for (const [s, n] of SIDES) {
 		const sx = s * shX;
 		const sh = M.bone(`shoulder_${n}`, 'chest', [s * 2.5, chestTop - 1.0, 0]);
-		const ua = M.bone(`upper_arm_${n}`, `shoulder_${n}`, [sx, shY, 0], [0, 0, -s * P.armOut]);
+		const ua = M.bone(`arm_${n}`, `shoulder_${n}`, [sx, shY, 0], [0, 0, -s * P.armOut]);
 		const aw = P.armW / 2 * b, ad = P.armD / 2 * b;
 		M.box(ua, sx - aw, elbowY - 0.6, -ad, sx + aw, shY + 1.0, ad, 'skin', { paint: 'arm' });
 		M.box(ua, sx - aw * 1.15, shY - 5.0, -ad * 1.15, sx + aw * 1.15, shY + 2.2, ad * 1.1, 'skin', { paint: 'delt' });   // deltoid
 		M.box(ua, sx - aw * 0.75, elbowY + 2.0, -ad - 0.55, sx + aw * 0.75, shY - 4.5, -ad + 0.2, 'skin', { paint: 'arm' }); // biceps
 		M.box(ua, sx - aw * 0.8, elbowY + 1.0, ad - 0.2, sx + aw * 0.8, shY - 4.0, ad + 0.45, 'skin', { paint: 'arm' });      // triceps
-		const fa = M.bone(`forearm_${n}`, `upper_arm_${n}`, [sx, elbowY, 0], [-8, 0, 0]);
+		const fa = M.bone(`forearm_${n}`, `arm_${n}`, [sx, elbowY, 0], [-8, 0, 0]);
 		const fw2 = P.foreW / 2 * b;
 		M.box(fa, sx - fw2 * 0.85, wristY - 0.2, -ad * 0.85, sx + fw2 * 0.85, elbowY + 0.6, ad * 0.85, 'skin', { paint: 'fore' });
 		M.box(fa, sx - fw2, elbowY - 5.5, -ad * 0.98, sx + fw2, elbowY + 0.4, ad * 0.98, 'skin', { paint: 'fore' }); // forearm muscle
@@ -525,6 +529,10 @@ function jotunRig(M, P) {
 		});
 		M.bone(`weapon_${n}`, `hand_${n}`, [sx - s * 1.5, knuckY + 0.9, 0]);
 	}
+	// gear attachment bones every Jotun has (the gameplay renderers look them up by name)
+	M.bone('crystals', 'chest', [0, chestTop - 4, 5]);
+	M.bone('mantle', 'chest', [0, chestTop, 2]);
+	M.bone('helm', 'head', [0, A.browY, 0]);
 	return M;
 }
 // grip curl for a weapon held in the fist (adds to the pose)
@@ -597,7 +605,7 @@ function buildRaider() {
 		M.box(`forearm_${n}`, sx - 2.5, A.wristY + 0.4, -2.5, sx + 2.5, A.wristY + 1.2, 2.5, 'iron');
 		M.box(`forearm_${n}`, sx - 2.5, A.wristY + 5.2, -2.5, sx + 2.5, A.wristY + 6.0, 2.5, 'iron');
 		// upper-arm band
-		M.box(`upper_arm_${n}`, sx - 2.4, A.elbowY + 5.0, -2.45, sx + 2.4, A.elbowY + 6.0, 2.45, 'iron');
+		M.box(`arm_${n}`, sx - 2.4, A.elbowY + 5.0, -2.45, sx + 2.4, A.elbowY + 6.0, 2.45, 'iron');
 	}
 	// an ice pauldron grown over the left shoulder
 	crystals(M, 'shoulder_l', [A.shX - 0.5, A.shY + 2.2, 0.4], [0.55, 1, 0.25], 4, 4.6, 1.6, 11);
@@ -617,21 +625,22 @@ function buildShaman() {
 	// robe torso with a deep V opening down to the sash (cut out of the texture, the ridged chest shows through)
 	M.box('chest', -cw - 0.3, A.chestBot - 0.5, -4.7, cw + 0.3, A.chestTop + 0.4, 4.2, 'cloth', { paint: 'tunic' });
 	M.box('waist', -4.4, A.pelvisTop - 0.8, -3.35, 4.4, A.chestBot + 0.8, 3.35, 'cloth2', { paint: 'sash' });
-	M.box('waist', -1.0, A.pelvisTop - 6.5, -3.75, 0.6, A.pelvisTop + 0.2, -3.3, 'cloth2', { paint: 'sash' }); // sash tail
+	M.box(M.bone('sash', 'waist', [0, A.pelvisTop, -3.5]), -1.0, A.pelvisTop - 6.5, -3.75, 0.6, A.pelvisTop + 0.2, -3.3, 'cloth2', { paint: 'sash' }); // sash tail
 	// short purple shoulder mantle + hood bunched behind the neck
 	M.box('chest', -cw - 1.1, A.chestTop - 3.2, -4.9, cw + 1.1, A.chestTop + 1.2, 4.9, 'cloth2', { paint: 'mantle' });
 	M.box('chest', -3.2, A.chestTop + 0.4, 1.4, 3.2, A.chestTop + 3.4, 5.0, 'cloth', { paint: 'hood' });
 	M.box('chest', -cw * 0.8, A.chestBot + 2, 4.25, cw * 0.8, A.chestTop - 2.6, 5.0, 'cloth2', { paint: 'mantle' });
 	// long A-line robe skirt on the hips (legs hidden under it)
 	const hy = A.pelvisTop - 1.0, by = A.ankleY - 1.2;
-	M.box('hips', -6.2, by + 7, -4.3, 6.2, hy, 4.3, 'cloth', { paint: 'skirt' });
-	M.box('hips', -6.9, by, -4.95, 6.9, by + 7.4, 4.95, 'cloth', { paint: 'skirt' });
-	M.box('hips', -7.1, by - 0.3, -5.15, 7.1, by + 1.5, 5.15, 'trim');
-	M.box('hips', -1.3, by + 1.5, -5.15, 1.3, hy - 1, -4.25, 'cloth2', { paint: 'panel' }); // purple front panel
-	M.box('hips', -1.6, by + 1.5, 4.25, 1.6, hy - 1, 5.15, 'cloth2', { paint: 'panel' });
+	const skirt = M.bone('skirt', 'hips', [0, hy, 0]);
+	M.box(skirt, -6.2, by + 7, -4.3, 6.2, hy, 4.3, 'cloth', { paint: 'skirt' });
+	M.box(skirt, -6.9, by, -4.95, 6.9, by + 7.4, 4.95, 'cloth', { paint: 'skirt' });
+	M.box(skirt, -7.1, by - 0.3, -5.15, 7.1, by + 1.5, 5.15, 'trim');
+	M.box(skirt, -1.3, by + 1.5, -5.15, 1.3, hy - 1, -4.25, 'cloth2', { paint: 'panel' }); // purple front panel
+	M.box(skirt, -1.6, by + 1.5, 4.25, 1.6, hy - 1, 5.15, 'cloth2', { paint: 'panel' });
 	for (const [s, n] of SIDES) {
 		const sx = s * A.shX;
-		M.box(`upper_arm_${n}`, sx - 2.25, A.elbowY - 0.4, -2.3, sx + 2.25, A.shY + 1.6, 2.3, 'cloth', { paint: 'sleeve' });
+		M.box(`arm_${n}`, sx - 2.25, A.elbowY - 0.4, -2.3, sx + 2.25, A.shY + 1.6, 2.3, 'cloth', { paint: 'sleeve' });
 		M.box(`forearm_${n}`, sx - 2.9, A.wristY + 0.2, -2.9, sx + 2.9, A.elbowY + 0.8, 2.9, 'cloth', { paint: 'sleeve' });
 		M.box(`forearm_${n}`, sx - 3.1, A.wristY - 0.2, -3.1, sx + 3.1, A.wristY + 1.3, 3.1, 'trim');
 		M.box(`hand_${n}`, sx - 1.2, A.wristY - 0.9, -1.95, sx + 1.2, A.wristY - 0.2, 1.95, 'bone'); // bone bracelet
@@ -665,13 +674,13 @@ function buildShaman() {
 
 // ================================================================ Frost Giant Warlord
 function buildWarlord() {
-	const M = new Model('frost_giant_warlord', { TW: 768 });
+	const M = new Model('frost_giant_warlord', { TW: 512 });
 	M.pal = PALS.warlord; M.furCol = [52, 44, 40]; M.furTip = [140, 126, 108]; M.ironCol = [86, 94, 108];
 	const P = Object.assign({}, BASE, { bulk: 1.12, chestW: 19.2, ribW: 13.0, waistW: 9.4, armW: 4.3, foreW: 4.5, thighW: 5.6, headW: 6.8, headH: 7.8, neckH: 2.8 });
 	jotunRig(M, P);
 	const A = M.A, cw = A.cw, hw = 3.4;
 	// helm: iron cap, nasal and cheek guards, great curved horns, a crest of short spikes
-	const helm = M.bone('helm', 'head', [0, A.browY, 0]);
+	const helm = M.B.helm;
 	M.box(helm, -hw - 0.4, A.browY + 0.4, -4.35, hw + 0.4, A.headTop + 0.7, 3.8, 'iron', { paint: 'helm' });
 	M.box(helm, -hw - 0.55, A.browY + 0.1, -4.6, hw + 0.55, A.browY + 1.3, 3.95, 'iron_d');
 	M.box(helm, -0.45, A.eyeY - 1.4, A.faceZ - 1.25, 0.45, A.browY + 1.0, A.faceZ - 0.5, 'iron');
@@ -694,7 +703,7 @@ function buildWarlord() {
 		M.cbox(beard, [s * 1.4, A.hb - 9.0, A.faceZ + 0.7], [1.3, 0.7, 1.3], 'bone');
 	}
 	// fur mantle over the shoulders and back + fur cloak with a ragged hem
-	const mantle = M.bone('mantle', 'chest', [0, A.chestTop, 2]);
+	const mantle = M.B.mantle;
 	M.box(mantle, -cw - 1.6, A.chestTop - 3.0, 2.0, cw + 1.6, A.chestTop + 2.4, 6.4, 'fur', { paint: 'mantle' });
 	for (const [s] of SIDES) M.box(mantle, ...[sxr(s, 2.6, cw - 0.4)[0], A.chestTop - 1.8, -5.2, sxr(s, 2.6, cw - 0.4)[1], A.chestTop + 2.0, 2.2], 'fur');
 	M.cbox(mantle, [0, A.chestTop - 1.0, -5.1], [3.0, 2.6, 1.6], 'bone', { paint: 'skull' });
@@ -724,8 +733,8 @@ function buildWarlord() {
 	}
 	M.box('hips', -6.7, A.pelvisTop - 2.1, -4.0, 6.7, A.pelvisTop - 0.1, 4.0, 'leather', { paint: 'belt' });
 	M.cbox('hips', [0, A.pelvisTop - 1.1, -4.1], [3.2, 2.6, 0.6], 'bone', { paint: 'skull' });
-	M.box('hips', -2.6, A.hipY - 10, -4.1, 2.6, A.pelvisTop - 2.0, -3.6, 'leather_d', { paint: 'flap' });
-	M.box('hips', -3.4, A.hipY - 11, 3.6, 3.4, A.pelvisTop - 2.0, 4.1, 'leather_d', { paint: 'flap' });
+	M.box(M.bone('flap_f', 'hips', [0, A.pelvisTop - 2, -3.9]), -2.6, A.hipY - 10, -4.1, 2.6, A.pelvisTop - 2.0, -3.6, 'leather_d', { paint: 'flap' });
+	M.box(M.bone('flap_b', 'hips', [0, A.pelvisTop - 2, 3.9]), -3.4, A.hipY - 11, 3.6, 3.4, A.pelvisTop - 2.0, 4.1, 'leather_d', { paint: 'flap' });
 	// ice greatsword (built along -Z from the fist)
 	const [wx, wy] = M.B.weapon_r.pivot;
 	M.box('weapon_r', wx - 0.75, wy - 0.75, -4.5, wx + 0.75, wy + 0.75, 5.5, 'strap');
@@ -742,7 +751,7 @@ function buildWarlord() {
 
 // ================================================================ Ice Brute
 function buildBrute() {
-	const M = new Model('ice_brute', { TW: 768 });
+	const M = new Model('ice_brute', { TW: 512 });
 	M.pal = PALS.brute; M.leatherCol = [70, 52, 44];
 	const P = Object.assign({}, BASE, {
 		bulk: 1.3, chestW: 21, ribW: 14.5, waistW: 10.5, chestD: 8.6, chestH: 13, armW: 4.6, foreW: 5.6, armD: 4.4,
@@ -759,10 +768,10 @@ function buildBrute() {
 	M.box('neck', -3.6, A.chestTop - 0.5, -0.6, 3.6, A.hb + 3.5, 3.8, 'fur_w');
 	for (const [s, n] of SIDES) M.box(`shoulder_${n}`, A.shX * s - 3.4, A.shY + 0.8, -3.2, A.shX * s + 3.4, A.shY + 3.6, 3.8, 'fur_w');
 	M.box('hips', -7.6, A.pelvisTop - 2.4, -4.9, 7.6, A.pelvisTop - 0.2, 4.9, 'leather', { paint: 'belt' });
-	M.box('hips', -3.6, A.hipY - 9, -5.0, 3.6, A.pelvisTop - 2.3, -4.4, 'fur_w');
-	M.box('hips', -4.6, A.hipY - 9.5, 4.4, 4.6, A.pelvisTop - 2.3, 5.0, 'fur_w');
+	M.box(M.bone('flap_f', 'hips', [0, A.pelvisTop - 2.3, -4.7]), -3.6, A.hipY - 9, -5.0, 3.6, A.pelvisTop - 2.3, -4.4, 'fur_w');
+	M.box(M.bone('flap_b', 'hips', [0, A.pelvisTop - 2.3, 4.7]), -4.6, A.hipY - 9.5, 4.4, 4.6, A.pelvisTop - 2.3, 5.0, 'fur_w');
 	// crystal growths: big shards down the back, on the shoulders and along the forearms
-	const back = M.bone('crystals_back', 'chest', [0, A.chestTop - 4, 5]);
+	const back = M.B.crystals;
 	crystals(M, back, [-4.2, A.chestTop - 2.5, 5.2], [-0.5, 0.9, 0.7], 5, 9.5, 2.8, 101);
 	crystals(M, back, [4.2, A.chestTop - 3.0, 5.2], [0.5, 0.9, 0.7], 5, 8.5, 2.6, 102);
 	crystals(M, back, [0, A.chestBot + 4, 5.0], [0, 0.5, 1], 4, 6.5, 2.2, 103);
@@ -785,19 +794,19 @@ function buildBrute() {
 // ---------------------------------------------------------------- poses (shaman / warlord / brute)
 function shamanPoses(M) {
 	const stand = Object.assign({
-		upper_arm_l: [-16, 0, -4], forearm_l: [-64, 0, 0], weapon_l: [-14, 0, 0],
-		upper_arm_r: [-10, 0, 10], forearm_r: [-30, 0, 0], hand_r: [0, 0, 0],
+		arm_l: [-16, 0, -4], forearm_l: [-64, 0, 0], weapon_l: [-14, 0, 0],
+		arm_r: [-10, 0, 10], forearm_r: [-30, 0, 0], hand_r: [0, 0, 0],
 		head: [-2, 0, 0],
 	}, FIST('l'), OPEN('r', 1.4));
 	L.aimBone(M, stand, 'weapon_l', [0, 0, -1], [0.04, 1, -0.05]);
 	const action = Object.assign({
-		upper_arm_l: [-20, 0, -112], forearm_l: [-40, 0, 0],
-		upper_arm_r: [-60, 0, 20], forearm_r: [-16, 0, 0], hand_r: [-30, 0, 0],
+		arm_l: [-20, 0, -112], forearm_l: [-40, 0, 0],
+		arm_r: [-60, 0, 20], forearm_r: [-16, 0, 0], hand_r: [-30, 0, 0],
 		chest: [-6, 12, 0], head: [-10, -6, 0], jaw: [16, 0, 0],
 
 	}, FIST('l'), OPEN('r', 2.2));
 	L.aimBone(M, action, 'weapon_l', [0, 0, -1], [0.15, 1, 0.1]);
-	L.reach(M, action, 'hand_r', [-M.A.shX, M.A.knuckY, 0], [-M.A.shX - 7, M.A.shY - 3, -11], [['upper_arm_r', 0], ['upper_arm_r', 1], ['upper_arm_r', 2], ['forearm_r', 0]]);
+	L.reach(M, action, 'hand_r', [-M.A.shX, M.A.knuckY, 0], [-M.A.shX - 7, M.A.shY - 3, -11], [['arm_r', 0], ['arm_r', 1], ['arm_r', 2], ['forearm_r', 0]]);
 	return { stand, action };
 }
 function warlordPoses(M) {
@@ -805,15 +814,15 @@ function warlordPoses(M) {
 	// sword planted point-down in front, both hands on the pommel
 	const stand = Object.assign({ head: [-4, 0, 0], chest: [-3, 0, 0], thigh_r: [0, 0, 5], thigh_l: [0, 0, -5] }, FIST('r'), FIST('l'));
 	const grip = [0, A.pelvisTop + 4.5, -10.5];
-	L.reach(M, stand, 'hand_r', [-A.shX, A.knuckY + 0.6, 0], grip, [['upper_arm_r', 0], ['upper_arm_r', 2], ['forearm_r', 0], ['upper_arm_r', 1]]);
+	L.reach(M, stand, 'hand_r', [-A.shX, A.knuckY + 0.6, 0], grip, [['arm_r', 0], ['arm_r', 2], ['forearm_r', 0], ['arm_r', 1]]);
 	L.aimBone(M, stand, 'weapon_r', [0, 0, -1], [0, -1, -0.02]);
 	{
 		const W = M.world(stand); const pom = L.affApply(W.weapon_r, vadd(M.B.weapon_r.pivot, [0, 0, 6.5]));
-		L.reach(M, stand, 'hand_l', [A.shX, A.knuckY + 0.3, 0], vadd(pom, [0.3, 1.6, 0]), [['upper_arm_l', 0], ['upper_arm_l', 2], ['forearm_l', 0], ['upper_arm_l', 1]]);
+		L.reach(M, stand, 'hand_l', [A.shX, A.knuckY + 0.3, 0], vadd(pom, [0.3, 1.6, 0]), [['arm_l', 0], ['arm_l', 2], ['forearm_l', 0], ['arm_l', 1]]);
 	}
 	const action = Object.assign({
-		upper_arm_r: [-170, 0, 8], forearm_r: [-10, 0, 0],
-		upper_arm_l: [-40, 0, -50], forearm_l: [-80, 0, 0],
+		arm_r: [-170, 0, 8], forearm_r: [-10, 0, 0],
+		arm_l: [-40, 0, -50], forearm_l: [-80, 0, 0],
 		chest: [-12, 0, 0], head: [-26, 0, 0], jaw: [26, 0, 0],
 		thigh_r: [-24, 0, 10], shin_r: [30, 0, 0], foot_r: [-6, 0, 0], thigh_l: [16, 0, -10], shin_l: [6, 0, 0], foot_l: [-22, 0, 0],
 	}, FIST('r'), FIST('l'));
@@ -822,11 +831,11 @@ function warlordPoses(M) {
 }
 function brutePoses(M) {
 	const stand = Object.assign({
-		upper_arm_r: [-8, 0, 10], forearm_r: [-22, 0, 0], upper_arm_l: [-8, 0, -10], forearm_l: [-22, 0, 0],
+		arm_r: [-8, 0, 10], forearm_r: [-22, 0, 0], arm_l: [-8, 0, -10], forearm_l: [-22, 0, 0],
 		chest: [-4, 0, 0], head: [-2, 0, 0], thigh_r: [0, 0, 6], thigh_l: [0, 0, -6],
 	}, FIST('r'), FIST('l'));
 	const action = Object.assign({
-		upper_arm_r: [-166, 0, 14], forearm_r: [-34, 0, 0], upper_arm_l: [-166, 0, -14], forearm_l: [-34, 0, 0],
+		arm_r: [-166, 0, 14], forearm_r: [-34, 0, 0], arm_l: [-166, 0, -14], forearm_l: [-34, 0, 0],
 		chest: [-14, 0, 0], waist: [-4, 0, 0], head: [-20, 0, 0], jaw: [30, 0, 0],
 		thigh_r: [-12, 0, 12], shin_r: [18, 0, 0], foot_r: [-6, 0, 0], thigh_l: [-12, 0, -12], shin_l: [18, 0, 0], foot_l: [-6, 0, 0],
 	}, FIST('r'), FIST('l'));
@@ -841,16 +850,17 @@ function buildHound() {
 	M.furCol = [64, 80, 104]; M.furTip = [176, 196, 216];
 	const root = M.bone('root', null, [0, 0, 0]);
 	const body = M.bone('body', 'root', [0, 13, 0]);
-	M.box(body, -3.5, 9.4, -8.4, 3.5, 16.6, -1.4, 'wolf', { paint: 'chest' });           // deep chest
+	const chestB = M.bone('chest', 'body', [0, 13, -4]);
+	M.box(chestB, -3.5, 9.4, -8.4, 3.5, 16.6, -1.4, 'wolf', { paint: 'chest' });           // deep chest
 	M.box(body, -2.9, 10.6, -2.0, 2.9, 16.0, 4.4, 'wolf', { paint: 'belly' });            // tucked waist
 	M.box(body, -3.1, 10.4, 3.6, 3.1, 16.3, 8.6, 'wolf', { paint: 'hips' });              // haunches
-	M.box(body, -3.0, 8.8, -8.0, 3.0, 10.0, -3.0, 'wolf_pale');                            // chest fur
+	M.box(chestB, -3.0, 8.8, -8.0, 3.0, 10.0, -3.0, 'wolf_pale');                            // chest fur
 	// spine crystals, biggest over the shoulders
 	[[-5.5, 5.0, 1.5], [-2.5, 4.4, 1.4], [0.6, 3.6, 1.2], [3.4, 2.8, 1.0], [6.2, 2.0, 0.85]].forEach(([z, len, w], i) =>
 		crystals(M, body, [0, 16.2 + (i === 0 ? 0.3 : 0), z], [0, 1, 0.55], 2, len, w, 200 + i, 'crystal', 0.3));
-	const neck = M.bone('neck', 'body', [0, 14.5, -7]);
+	const neck = M.bone('neck', 'chest', [0, 14.5, -7]);
 	M.stick(neck, [0, 13.0, -6.5], [0, 0.75, -0.66], 6.5, [5.0, 4.6], 'wolf', { paint: 'neck' });
-	M.box(neck, -4.3, 11.2, -10.0, 4.3, 18.6, -4.2, 'wolf_pale', { paint: 'ruff' });       // icy mane
+	M.box(M.bone('ruff', 'neck', [0, 18, -6]), -4.3, 11.2, -10.0, 4.3, 18.6, -4.2, 'wolf_pale', { paint: 'ruff' });       // icy mane
 	crystals(M, neck, [0, 18.4, -6.5], [0, 1, 0.7], 3, 5.5, 1.5, 220, 'crystal', 0.35);
 	for (const [s] of SIDES) {
 		crystals(M, neck, [s * 3.6, 17.2, -5.6], [s * 0.45, 0.8, 0.8], 3, 4.0, 1.2, 230 + s, 'crystal', 0.3);
@@ -863,14 +873,15 @@ function buildHound() {
 	M.box(head, -2.75, 20.35, -14.45, 2.75, 21.15, -13.6, 'wolf', { paint: 'brow' });
 	M.box(head, -3.3, 16.2, -12.6, 3.3, 19.8, -9.2, 'wolf_pale', { paint: 'cheek' });
 	for (const [s] of SIDES) {
-		M.stick(head, [s * 1.7, 21.2, -10.6], [s * 0.25, 1, 0.4], 3.4, [1.7, 0.8], 'wolf', { paint: 'ear' });
+		M.stick(M.bone(`ear_${s < 0 ? 'r' : 'l'}`, 'head', [s * 1.7, 21.2, -10.6]), [s * 1.7, 21.2, -10.6], [s * 0.25, 1, 0.4], 3.4, [1.7, 0.8], 'wolf', { paint: 'ear' });
 		M.box(head, s * 1.05 - 0.28, 15.9, -18.3, s * 1.05 + 0.28, 16.85, -17.8, 'tooth');
 	}
 	const jaw = M.bone('jaw', 'head', [0, 17.0, -11.5]);
 	M.box(jaw, -1.35, 15.6, -18.1, 1.35, 16.85, -11.2, 'wolf', { paint: 'jaw' });
 	for (const [s] of SIDES) M.box(jaw, s * 0.95 - 0.25, 16.8, -17.8, s * 0.95 + 0.25, 17.5, -17.3, 'tooth');
 	const tail = M.bone('tail', 'body', [0, 15.4, 8.4], [-20, 0, 0]);
-	M.tube(tail, [[0, 15.2, 8.0], [0, 14.4, 11.6], [0, 12.6, 14.2], [0, 10.6, 15.4]], [[2.6, 2.6], [2.4, 2.4], [1.9, 1.9]], 'wolf', { paint: 'tail' });
+	M.tube(tail, [[0, 15.2, 8.0], [0, 14.4, 11.6]], [[2.6, 2.6]], 'wolf', { paint: 'tail' });
+	M.tube(M.bone('tail_tip', 'tail', [0, 14.4, 11.6]), [[0, 14.6, 11.2], [0, 12.6, 14.2], [0, 10.6, 15.4]], [[2.4, 2.4], [1.9, 1.9]], 'wolf', { paint: 'tail' });
 	crystals(M, tail, [0, 14.8, 11.0], [0, 1, 0.6], 2, 2.6, 0.9, 250, 'crystal', 0.3);
 	for (const [s, n] of SIDES) {
 		const x = s * 2.4;
@@ -945,7 +956,7 @@ function buildCasket() {
 
 // ================================================================ King Laufey (own rig: Jotun base + robe, collar, crown, casket)
 function buildLaufey() {
-	const M = new Model('king_laufey', { TW: 1024 });
+	const M = new Model('king_laufey', { TW: 512 });
 	M.pal = PALS.laufey; M.clothCol = [24, 30, 54]; M.trimCol = [120, 140, 180]; M.gaunt = true;
 	M.furCol = [40, 40, 50]; M.furTip = [150, 154, 166];
 	const P = Object.assign({}, BASE, {
@@ -980,18 +991,19 @@ function buildLaufey() {
 	}
 	M.box('hips', -5.6, A.pelvisTop - 2.0, -3.6, 5.6, A.pelvisTop - 0.4, 3.6, 'leather_d', { paint: 'belt' });
 	M.cbox('hips', [0, A.pelvisTop - 1.2, -3.7], [2.2, 2.2, 0.6], 'crystal_hot', { seed: 5 });
-	M.box('hips', -2.4, A.hipY - 11, -3.75, 2.4, A.pelvisTop - 2.0, -3.3, 'leather_d', { paint: 'flap' });
+	M.box(M.bone('flap_f', 'hips', [0, A.pelvisTop - 2, -3.5]), -2.4, A.hipY - 11, -3.75, 2.4, A.pelvisTop - 2.0, -3.3, 'leather_d', { paint: 'flap' });
 	// sleeves, fur cuffs, fur on the shoulders
 	for (const [s, n] of SIDES) {
 		const sx = s * A.shX;
-		M.box(`upper_arm_${n}`, sx - 2.2, A.elbowY - 0.5, -2.2, sx + 2.2, A.shY + 1.4, 2.2, 'cloth', { paint: 'sleeve' });
+		M.box(`arm_${n}`, sx - 2.2, A.elbowY - 0.5, -2.2, sx + 2.2, A.shY + 1.4, 2.2, 'cloth', { paint: 'sleeve' });
 		M.box(`forearm_${n}`, sx - 2.6, A.wristY + 1.6, -2.6, sx + 2.6, A.elbowY + 0.6, 2.6, 'cloth', { paint: 'sleeve' });
 		M.box(`forearm_${n}`, sx - 2.9, A.wristY + 0.4, -2.9, sx + 2.9, A.wristY + 2.4, 2.9, 'fur');
 		M.box(`shoulder_${n}`, sx - 3.2, A.shY + 0.2, -3.0, sx + 3.4, A.shY + 3.4, 3.2, 'fur_d');
 	}
 	// the ice crown, fused with the skull: a band and jagged spikes, the tallest at the front and sides
 	const hw = 3.1, hd = 3.6;
-	M.box('head', -hw - 0.35, A.browY + 0.7, -hd - 0.3, hw + 0.35, A.browY + 1.9, hd + 0.1, 'ice_dim', { seed: 60 });
+	const crown = M.bone('crown', 'head', [0, A.browY + 1, 0]);
+	M.box(crown, -hw - 0.35, A.browY + 0.7, -hd - 0.3, hw + 0.35, A.browY + 1.9, hd + 0.1, 'ice_dim', { seed: 60 });
 	const spikes = [[0, 8.5], [28, 5.0], [-28, 5.0], [55, 6.0], [-55, 6.0], [88, 8.0], [-88, 8.0], [120, 5.0], [-120, 5.0], [155, 4.2], [-155, 4.2], [180, 3.6]];
 	spikes.forEach(([a, len], i) => {
 		const r = a * DEGR;
@@ -999,8 +1011,8 @@ function buildLaufey() {
 		const out = Math.abs(a) > 70 ? 0.55 : 0.25;
 		const dir = [Math.sin(r) * out, 1, -Math.cos(r) * out * 0.7];
 		const w = 1.5 * (0.7 + len / 14);
-		M.stick('head', base, dir, len * 0.7, w, 'crystal', { seed: 70 + i });
-		M.stick('head', vadd(base, vsc(vnorm(dir), len * 0.62)), dir, len * 0.45, w * 0.55, 'crystal', { seed: 90 + i, tag: 'tip' });
+		M.stick(crown, base, dir, len * 0.7, w, 'crystal', { seed: 70 + i });
+		M.stick(crown, vadd(base, vsc(vnorm(dir), len * 0.62)), dir, len * 0.45, w * 0.55, 'crystal', { seed: 90 + i, tag: 'tip' });
 	});
 	// icicle beard
 	const beard = M.B.beard;
@@ -1017,15 +1029,15 @@ function buildLaufey() {
 function laufeyPoses(M) {
 	const A = M.A;
 	const stand = Object.assign({
-		upper_arm_r: [-14, 0, 6], forearm_r: [-66, 0, 0],
-		upper_arm_l: [-26, 0, -4], forearm_l: [-70, 0, 0],
+		arm_r: [-14, 0, 6], forearm_r: [-66, 0, 0],
+		arm_l: [-26, 0, -4], forearm_l: [-70, 0, 0],
 		head: [6, 0, 0], neck: [-2, 0, 0], chest: [-2, 0, 0],
 	}, FIST('r'), FIST('l'));
 	L.aimBone(M, stand, 'weapon_r', [0, 0, -1], [0, 1, -0.04]);
 	L.aimBone(M, stand, 'weapon_l', [0, 1, 0], [0, 1, 0]);
 	const action = Object.assign({
-		upper_arm_l: [-174, 0, -6], forearm_l: [-6, 0, 0],
-		upper_arm_r: [-56, 0, 22], forearm_r: [-30, 0, 0],
+		arm_l: [-174, 0, -6], forearm_l: [-6, 0, 0],
+		arm_r: [-56, 0, 22], forearm_r: [-30, 0, 0],
 		chest: [-8, 0, 0], head: [-22, 0, 0], jaw: [16, 0, 0],
 		thigh_r: [-6, 0, 3], thigh_l: [6, 0, -3],
 		casket_lid: [-110, 0, 0],
@@ -1240,14 +1252,14 @@ function finish(M, id, blocks) {
 // ---------------------------------------------------------------- poses
 function raiderPoses(M) {
 	const stand = Object.assign({
-		upper_arm_r: [-18, 0, 4], forearm_r: [-62, 0, 0], hand_r: [0, 0, 0], weapon_r: [-20, 0, 0],
-		upper_arm_l: [4, 0, -4], forearm_l: [-10, 0, 0],
+		arm_r: [-18, 0, 4], forearm_r: [-62, 0, 0], hand_r: [0, 0, 0], weapon_r: [-20, 0, 0],
+		arm_l: [4, 0, -4], forearm_l: [-10, 0, 0],
 		thigh_r: [0, 0, 3], thigh_l: [0, 0, -3], head: [-3, 0, 0],
 	}, FIST('r'), OPEN('l'));
 	const action = Object.assign({
 		waist: [0, -28, 0], chest: [-8, -14, 0], head: [-4, 34, 0], neck: [0, 6, 0],
-		upper_arm_r: [-168, 0, 22], forearm_r: [58, 0, 0], hand_r: [8, 0, 0], 
-		upper_arm_l: [-84, 26, -12], forearm_l: [-6, 0, 0],
+		arm_r: [-168, 0, 22], forearm_r: [58, 0, 0], hand_r: [8, 0, 0], 
+		arm_l: [-84, 26, -12], forearm_l: [-6, 0, 0],
 		thigh_l: [-52, 0, -6], shin_l: [48, 0, 0], foot_l: [4, 0, 0],
 		thigh_r: [30, 0, 8], shin_r: [32, 0, 0], foot_r: [-30, 0, 0],
 		hips: [0, 22, 0],
@@ -1419,3 +1431,174 @@ function lineup() {
 	console.log(`wrote 00_lineup.png (${Wpx}x${H + top})`);
 }
 module.exports = { built };
+
+// ================================================================ GAME EXPORT (--game)
+// Writes the concept models AS the real game assets (no simplification) + every animation clip, into
+// src/main/resources/assets/projecthero/{geo,textures/entity,animations}/frost_giant/, and
+// scratchpad/frost_giant_anim_timing.json; then renders preview sheets FROM those written files into
+// scratchpad/concepts_v0161/anim/.
+//
+// TIMING TABLE: the clip lengths and strike ticks are FrostGiantAnims.java's (the server AI is built on them); this
+// generator parses its clip(...) / hold(...) / loop(...) lines, authors every clip to that table and fails if a strike
+// keyframe is off its tick. Walk / run strides are matched to these assumed ground speeds (blocks/tick):
+const FROST_SPEEDS = {
+	rime_hound: { walk: 0.19, run: 0.26 }, jotun_raider: { walk: 0.135, run: 0.27 }, frost_shaman: { walk: 0.125, run: 0.25 },
+	ice_brute: { walk: 0.12, run: 0.3, charge: 0.42 }, frost_giant_warlord: { walk: 0.11, run: 0.22 }, king_laufey: { walk: 0.09, run: 0.18 },
+};
+// Bones FrostModelFit ignores when it measures the rest height (crowns, horns, held weapons, props), so the BODY fills
+// the hit-box like the concepts.
+const FIT_IGNORE = ['helm', 'crown', 'weapon_r', 'weapon_l', 'spell_r', 'crystals'];
+
+function parseFrostTiming() {
+	const src = fs.readFileSync(path.join(REPO, 'src/main/java/com/projecthero/mod/frostgiant/FrostGiantAnims.java'), 'utf8');
+	const names = {};
+	for (const m of src.matchAll(/static final String (\w+) = "(\w+)";/g)) names[m[1]] = m[2];
+	const t = {};
+	for (const m of src.matchAll(/= (clip|hold|loop)\((\w+), "(\w+)", (\d+)(?:, (-?\d+))?\);/g)) {
+		const model = names[m[2]];
+		(t[model] = t[model] || {})[m[3]] = { kind: m[1] === 'clip' ? 'once' : m[1], length: +m[4], hit: m[5] != null ? +m[5] : -1 };
+	}
+	const tr = /TRANSITION = (\d+);/.exec(src);
+	if (!tr || +tr[1] !== 4) throw new Error('FrostGiantAnims.TRANSITION is not 4');
+	return t;
+}
+function renameBones(M, map) {
+	for (const b of M.bones) {
+		if (map[b.name]) { delete M.B[b.name]; b.name = map[b.name]; M.B[b.name] = b; }
+		if (b.parent && map[b.parent]) b.parent = map[b.parent];
+		for (const c of b.cubes) if (map[c.bone]) c.bone = map[c.bone];
+	}
+}
+// Ymir for the game: palm centre at the origin, the forearm rising 640 px (40 blocks) to the rift, drawn at scale 1.
+// The chain is re-rooted at the palm (root > hand > fore, fingers and thumb on the hand), so posing the hand swings the
+// whole arm around the palm.
+function ymirGame(C) {
+	const S = 640 / (14 + 116); // palm centre (y -116) to the top of the forearm (y +14) = 40 blocks
+	const P = q => [q[0] * S, (q[1] - YMIR_PALM[1]) * S, q[2] * S];
+	const G = new Model('ymir_arm', { TW: C.TW, D: C.D });
+	G.bone('root', null, [0, 0, 0]);
+	const order = ['hand', 'fore', ...C.bones.map(b => b.name).filter(n => n !== 'root' && n !== 'hand' && n !== 'fore')];
+	for (const n of order) {
+		const b = C.B[n];
+		const parent = n === 'hand' ? 'root' : n === 'fore' ? 'hand' : b.parent;
+		const pivot = n === 'hand' ? [0, 0, 0] : n === 'fore' ? P(C.B.hand.pivot) : P(b.pivot); // fore now turns at the wrist
+		const nb = G.bone(n, parent, pivot, b.rot);
+		for (const c of b.cubes) {
+			const f = P(c.from), t = P(c.to);
+			const cc = G.box(nb, f[0], f[1], f[2], t[0], t[1], t[2], c.mat, { rot: c.rot, pivot: c.pivot ? P(c.pivot) : null, paint: c.paint, tag: c.tag });
+			cc.uv = c.uv;
+		}
+	}
+	G.TH = C.TH; G.tex = C.tex; G.glow = C.glow; G.rects = C.rects;
+	G.k = 1 / 16; G.MODEL_SCALE = 1; G.heightBlocks = 40;
+	return G;
+}
+// rest height (px) as FrostModelFit measures it, skipping FIT_IGNORE bones and everything under them
+function fitHeightPx(M) {
+	const skip = new Set();
+	for (const b of M.bones) if (FIT_IGNORE.includes(b.name) || (b.parent && skip.has(b.parent))) skip.add(b.name);
+	const bb = M.bounds(M.world({}), c => !skip.has(c.bone));
+	return bb.hi[1] - bb.lo[1];
+}
+function writeGame(M, id, an, dir) {
+	const RES = path.join(REPO, 'src/main/resources/assets/projecthero');
+	const geoDir = path.join(RES, 'geo', dir), texDir = path.join(RES, 'textures/entity', dir), animDir = path.join(RES, 'animations', dir);
+	for (const d of [geoDir, texDir, animDir]) fs.mkdirSync(d, { recursive: true });
+	fs.writeFileSync(path.join(geoDir, `${id}.geo.json`), JSON.stringify(M.geoJson(`geometry.${id}`), null, '\t') + '\n');
+	fs.writeFileSync(path.join(texDir, `${id}.png`), L.encodePng(M.TW, M.TH, M.tex));
+	fs.writeFileSync(path.join(texDir, `${id}_glowmask.png`), L.encodePng(M.TW, M.TH, M.glow));
+	fs.writeFileSync(path.join(animDir, `${id}.animation.json`), JSON.stringify(an.build(), null, '\t') + '\n');
+	return { geo: path.join(geoDir, `${id}.geo.json`), tex: path.join(texDir, `${id}.png`), glow: path.join(texDir, `${id}_glowmask.png`), anim: path.join(animDir, `${id}.animation.json`) };
+}
+
+function gameExport() {
+	const A = require('./lib_geckogen_anim.js');
+	const CL = require('./frost_giant_clips.js');
+	const timing = parseFrostTiming();
+	const out = { transition: 4, source: 'src/main/java/com/projecthero/mod/frostgiant/FrostGiantAnims.java', note: 'length/hit = server ticks (FrostGiantAnims); a play-once/held clip is (length - 4) ticks long and keys its strike on (hit - 4); loops are length ticks.', fit_ignore_bones: FIT_IGNORE, models: {} };
+	const previews = [];
+	const DANGLE = {
+		jotun_raider: [{ bone: 'braid', dir: [0, -1, 0.35], period: 16, damp: 0.22, limit: 40 }, { bone: 'flap_f', period: 12, limit: 30 }, { bone: 'flap_b', period: 12, limit: 30 }],
+		frost_shaman: [{ bone: 'skirt', period: 22, stiff: 0.55, limit: 12, acc: 0.8 }, { bone: 'sash', period: 12, limit: 35 }, { bone: 'beard', period: 14, damp: 0.25, limit: 30 }],
+		frost_giant_warlord: [{ bone: 'cape', period: 22, damp: 0.28, limit: 35, drag: 3 }, { bone: 'beard', period: 16, limit: 25 }, { bone: 'flap_f', period: 14, limit: 30 }, { bone: 'flap_b', period: 14, limit: 30 }],
+		ice_brute: [{ bone: 'flap_f', period: 14, limit: 30 }, { bone: 'flap_b', period: 14, limit: 30 }],
+		king_laufey: [{ bone: 'robe_b', period: 26, stiff: 0.5, limit: 16, drag: 2 }, { bone: 'robe_l', period: 24, stiff: 0.5, limit: 12 }, { bone: 'robe_r', period: 24, stiff: 0.5, limit: 12 },
+			{ bone: 'robe_fl', period: 24, stiff: 0.5, limit: 14 }, { bone: 'robe_fr', period: 24, stiff: 0.5, limit: 14 }, { bone: 'flap_f', period: 16, limit: 25 }, { bone: 'beard', period: 18, stiff: 0.4, limit: 10 }],
+		rime_hound: [{ bone: 'tail', dir: [0, -0.35, 1], period: 12, damp: 0.25, limit: 35, drag: 4 }, { bone: 'tail_tip', dir: [0, -0.6, 1], period: 9, damp: 0.22, limit: 40 },
+			{ bone: 'ear_l', dir: [0, 1, 0.3], period: 6, stiff: 0.25, limit: 25 }, { bone: 'ear_r', dir: [0, 1, 0.3], period: 6, stiff: 0.25, limit: 25 }, { bone: 'ruff', period: 10, stiff: 0.3, limit: 12 }],
+	};
+	const unit = (id, M, clipsFn, poses, opts = {}) => {
+		const an = new A.AnimSet(M, id, { dangles: DANGLE[id] || [], hidden: opts.hidden || [] });
+		clipsFn(an, timing[id], poses);
+		const files = writeGame(M, id, an, 'frost_giant');
+		const fitPx = fitHeightPx(M);
+		out.models[id] = {
+			texture: [M.TW, M.TH], bones: M.bones.length, cubes: M.cubes().length,
+			rest_fit_height_px: +fitPx.toFixed(2), concept_model_scale: M.MODEL_SCALE ? +M.MODEL_SCALE.toFixed(4) : null,
+			speeds_blocks_per_tick: FROST_SPEEDS[id] || null, clips: {},
+		};
+		for (const [n, t] of Object.entries(timing[id])) {
+			if (!an.timing[n]) throw new Error(`${id}: clip ${n} from FrostGiantAnims was not authored`);
+			out.models[id].clips[n] = Object.assign({ server_length: t.length, hit: t.hit, kind: t.kind, clip_ticks: an.timing[n].length, strike_clip_tick: t.hit >= 4 ? t.hit - 4 : null },
+				an.timing[n].stride_blocks ? { stride_blocks: an.timing[n].stride_blocks } : {}, an.timing[n].move_speed ? { move_speed: an.timing[n].move_speed } : {});
+		}
+		for (const n of Object.keys(an.clips)) if (!timing[id][n]) throw new Error(`${id}: authored clip ${n} is not in FrostGiantAnims`);
+		previews.push({ id, files, k: opts.k || (opts.height ? opts.height / fitPx : M.k), clips: an.clips, height: opts.height || 2, timing: timing[id], cam: opts.cam });
+		console.log(`${id}: ${M.bones.length} bones, ${M.cubes().length} cubes, tex ${M.TW}x${M.TH}, ${Object.keys(an.clips).length} clips`);
+	};
+	const prep = (M, blocks) => { M.setHeight(blocks, c => (!['hair', 'horn', 'crystal', 'crystal_hot', 'ice', 'blade'].includes(c.mat) && !/^(weapon|casket_spill)/.test(c.bone)) || c.bone === 'root'); M.layout(); M.paint(shadeFor(M)); return M; };
+	{ const M = prep(buildHound(), 1.6); unit('rime_hound', M, CL.houndClips, houndPoses(M), { height: 1.6 }); }
+	{ const M = prep(buildRaider(), 4.5); unit('jotun_raider', M, CL.raiderClips, raiderPoses(M), { height: 4.5 }); }
+	{ const M = prep(buildShaman(), 5); unit('frost_shaman', M, CL.shamanClips, shamanPoses(M), { height: 5, hidden: ['spell_r'] }); }
+	{ const M = prep(buildBrute(), 7); unit('ice_brute', M, CL.bruteClips, brutePoses(M), { height: 7 }); }
+	{ const M = prep(buildWarlord(), 11); unit('frost_giant_warlord', M, CL.warlordClips, warlordPoses(M), { height: 11 }); }
+	{
+		const M = buildLaufey(); const poses = laufeyPoses(M); laufeyStaff(M, poses.stand); prep(M, 14);
+		unit('king_laufey', M, CL.laufeyClips, poses, { height: 14, hidden: ['casket_spill'] });
+	}
+	{ const C = buildYmir(); C.layout(); C.paint(shadeFor(C)); const G = ymirGame(C); unit('ymir_arm', G, CL.ymirClips, {}, { k: 1 / 16, height: 40 }); }
+	{
+		const M = buildCasket(); renameBones(M, { casket_lid: 'lid', casket_spill: 'spill' }); M.layout(); M.paint(shadeFor(M));
+		M.k = 1.6 / 16; M.MODEL_SCALE = 1.6; M.heightBlocks = 1.8;
+		unit('ice_casket', M, CL.casketClips, {}, { k: 1.6 / 16, height: 1.8, hidden: ['spill'] });
+	}
+	fs.writeFileSync(path.join(REPO, 'scratchpad/frost_giant_anim_timing.json'), JSON.stringify(out, null, '\t') + '\n');
+	console.log('wrote scratchpad/frost_giant_anim_timing.json');
+	if (!args.includes('--no-previews')) for (const p of previews) gamePreview(p, A);
+}
+
+// Preview sheets rendered from the WRITTEN game files (geo + PNG + animation JSON), at the in-game scale.
+function gamePreview(p, A) {
+	const G = A.loadGameModel(p.files.geo, p.files.tex, p.files.glow, p.k * 16);
+	G.heightBlocks = p.height;
+	const anims = A.loadAnimations(p.files.anim);
+	const key = n => `animation.${p.id}.${n}`;
+	const frames = [];
+	const clipT = n => p.clips[n];
+	const add = (label, n, t) => { if (clipT(n)) frames.push([label, n, Math.max(0, Math.min(clipT(n).len, Math.round(t)))]); };
+	add('IDLE', 'idle', 0);
+	add('IDLE (LOOKING AROUND)', 'idle', clipT('idle') ? clipT('idle').len * 0.45 : 0);
+	add('WALK (CONTACT)', 'walk', 0); add('WALK (PASSING)', 'walk', clipT('walk') ? clipT('walk').len / 4 : 0);
+	add('RUN', 'run', clipT('run') ? clipT('run').len / 2 : 0);
+	for (const [n, t] of Object.entries(p.timing)) {
+		if (['idle', 'walk', 'run'].includes(n)) continue;
+		const c = clipT(n);
+		if (t.hit >= 4) { add(`${n.toUpperCase().replace(/_/g, ' ')} AT HIT ${t.hit}`, n, t.hit - 4); }
+		else add(`${n.toUpperCase().replace(/_/g, ' ')} (END)`, n, c.len);
+	}
+	const dir = path.join(PREVIEW_ROOT, 'anim');
+	fs.mkdirSync(dir, { recursive: true });
+	const per = 5;
+	for (let i = 0; i * per < frames.length; i++) {
+		const chunk = frames.slice(i * per, i * per + per);
+		const panels = chunk.map(([label, n, t]) => {
+			const pose = A.poseAt(anims, key(n), t);
+			const hidden = new Set(pose.$hidden || []);
+			for (const b of G.bones) if (b.parent && hidden.has(b.parent)) hidden.add(b.name);
+			return { label, items: [{ model: G, pose, root: pose.$root, hide: c => hidden.has(c.bone), floorR: p.height * 0.45 + 0.8 }], cam: p.cam || { yaw: p.id === 'rime_hound' ? 50 : 28, pitch: 8 } };
+		});
+		L.sheet(path.join(dir, `${p.id}_${i + 1}.png`), `${p.id.toUpperCase().replace(/_/g, ' ')} - GAME ASSETS`, `PAGE ${i + 1} - POSES READ BACK FROM THE ANIMATION JSON`, panels,
+			{ minW: 1800, panelH: 1000, maxW: 3400, ss: 1 });
+	}
+}
+if (GAME) gameExport();
