@@ -1042,70 +1042,164 @@ function laufeyStaff(M, stand) {
 }
 
 // ================================================================ Ymir's arm (render-only)
+// v2: only the forearm and hand come out of the rift. A tapered forearm (muscle belly near the elbow, slim wrist),
+// a hand with a palm, pads, tendons and knuckles, four fingers with three jointed phalanges each and a three-part
+// thumb; cracked glacier skin (Voronoi plates, dark fissures, a few glowing cores) with veins of blue ice.
+// Bones: root (sits in the rift) > fore > hand > (f<i>_1 > f<i>_2 > f<i>_3) x4, hand > thumb_1 > thumb_2 > thumb_3.
+// The palm faces +Z, the back of the hand -Z, the thumb is on +X.
+const YMIR_PALM = [0, -116, 0]; // palm centre, in rest coordinates
+const YMIR_FINGERS = [ // x, width, phalanx lengths (index on +X next to the thumb)
+	[9.8, 5.4, [13, 9.5, 7.5]], [3.3, 5.9, [14.5, 10.5, 8]], [-3.3, 5.7, [13.5, 9.5, 7.5]], [-9.9, 4.8, [10.5, 7.5, 6]],
+];
+function cham(M, b, x0, y0, z0, x1, y1, z1, i, mat, opts = {}) { // a chamfered block: two crossed boxes
+	M.box(b, x0, y0, z0 + i, x1, y1, z1 - i, mat, opts);
+	M.box(b, x0 + i, y0 + 0.03, z0, x1 - i, y1 - 0.03, z1, mat, opts);
+}
 function buildYmir() {
 	const M = new Model('ymir_arm', { TW: 1024, D: 2 });
-	const root = M.bone('root', null, [0, 0, 0]);
-	const up = M.bone('upper', 'root', [0, 0, 0]);
-	M.box(up, -12, -62, -12, 12, 4, 12, 'glacier', { paint: 'arm' });
-	M.box(up, -16, -22, -15.5, 16, 8, 15.5, 'glacier', { paint: 'shoulder' });             // deltoid
-	M.box(up, -9.5, -52, -16, 9.5, -22, -11.5, 'glacier', { paint: 'arm' });              // biceps (palm side is +Z, so the front is -Z)
-	M.box(up, -10.5, -50, 11.5, 10.5, -16, 16, 'glacier', { paint: 'arm' });              // triceps
-	M.box(up, -14, -40, -9, -11.5, -18, 9, 'glacier', { paint: 'arm' });
-	M.box(up, 11.5, -40, -9, 14, -18, 9, 'glacier', { paint: 'arm' });
-	crystals(M, up, [8, 4, 0], [0.8, 1, 0.2], 6, 26, 6, 400);
-	crystals(M, up, [12, -24, 4], [1, 0.2, 0.4], 5, 18, 5, 401);
-	crystals(M, up, [-6, 6, 8], [-0.4, 1, 0.6], 4, 20, 5, 402);
-	const fore = M.bone('fore', 'upper', [0, -60, 0]);
-	M.box(fore, -10, -117, -10, 10, -58, 10, 'glacier', { paint: 'arm' });
-	M.box(fore, -13.5, -86, -13, 13.5, -58, 13, 'glacier', { paint: 'arm' });
-	M.box(fore, -12, -95, -11.5, 12, -84, 11.5, 'glacier', { paint: 'arm' });
-	M.box(fore, -12.3, -111, -12.3, 12.3, -95, 12.3, 'rune', { paint: 'bracer' }); // ancient rune bracer
-	M.box(fore, -10, -70, 8, 10, -52, 15.5, 'glacier', { paint: 'arm' }); // elbow
-	M.box(fore, -13.2, -98, -13.2, 13.2, -95.5, 13.2, 'iron', { paint: 'band' });
-	M.box(fore, -13.2, -111, -13.2, 13.2, -108.5, 13.2, 'iron', { paint: 'band' });
-	crystals(M, fore, [11, -70, 0], [1, 0.35, 0], 5, 20, 5.5, 410);
-	crystals(M, fore, [9, -88, 7], [0.8, 0.2, 0.8], 4, 15, 4.5, 411);
-	crystals(M, fore, [0, -64, 12], [0, 0.5, 1], 4, 14, 4.5, 412);
-	const hand = M.bone('hand', 'fore', [0, -116, 0]);
-	M.box(hand, -13, -142, -5.5, 13, -114, 5.5, 'glacier', { paint: 'palm' });
-	M.box(hand, -12, -136, -7.2, 12, -116, -5.4, 'glacier', { paint: 'palm' });             // back of hand
-	M.box(hand, -13.4, -143.5, -6.6, 13.4, -138.5, 4.0, 'glacier', { paint: 'palm' });       // knuckle row
-	crystals(M, hand, [0, -122, -7], [0, 0.4, -1], 4, 9, 3.2, 430);
-	const fx = [-9.4, -3.1, 3.1, 9.4], fl = [24, 28, 27, 21];
-	fx.forEach((x, i) => {
-		const a = M.bone(`finger${i}`, 'hand', [x, -141, 0]);
-		M.box(a, x - 2.8, -141 - fl[i] * 0.5, -3.3, x + 2.8, -139.5, 3.3, 'glacier', { paint: 'finger' });
-		const b = M.bone(`finger${i}_tip`, `finger${i}`, [x, -141 - fl[i] * 0.5, 0]);
-		M.box(b, x - 2.5, -141 - fl[i], -3.0, x + 2.5, -141 - fl[i] * 0.5 + 0.8, 3.0, 'glacier', { paint: 'finger' });
-		M.box(b, x - 2.1, -141 - fl[i] - 2.2, -3.6, x + 2.1, -141 - fl[i] + 4.0, -1.8, 'ice', { seed: 420 + i, tag: 'tip' }); // ice nail
+	M.extraMat = ymirSkin;
+	M.bone('root', null, [0, 0, 0]);
+	const fore = M.bone('fore', 'root', [0, 0, 0]);
+	// tapered forearm, elbow end hidden in the rift
+	[[14, -16, 17, 15], [-12, -42, 16.5, 14.2], [-38, -64, 14, 11.8], [-60, -84, 11.6, 9.6], [-80, -104, 9.6, 7.6]].forEach(([y0, y1, hx, hz]) =>
+		cham(M, fore, -hx, y1, -hz, hx, y0, hz, Math.min(hx, hz) * 0.3, 'ymir', { paint: 'fore' }));
+	cham(M, fore, 5, -48, -15.5, 19.5, 8, 3, 3, 'ymir', { paint: 'fore' });     // brachioradialis (thumb side)
+	cham(M, fore, -13, -44, -17.5, 8, 8, -7, 3, 'ymir', { paint: 'fore' });     // extensor mass (back)
+	cham(M, fore, -17.5, -36, -6, -9, 6, 12, 2.5, 'ymir', { paint: 'fore' });   // flexor mass (pinky side)
+	for (const x of [-5.5, -1.5, 2.5, 6.5]) M.box(fore, x - 0.9, -101, -9.4, x + 0.9, -62, -7.6, 'ymir', { paint: 'tendon' });
+	cham(M, fore, -10.4, -106, -8.4, 10.4, -97, 8.4, 2.5, 'ymir', { paint: 'wrist' }); // wrist bones
+	crystals(M, fore, [-2, -10, -16.5], [-0.2, 0.45, -1], 5, 22, 5.5, 410);
+	crystals(M, fore, [8, -36, -15], [0.4, 0.3, -1], 4, 15, 4.2, 411);
+	crystals(M, fore, [-6, -60, -11], [-0.3, 0.25, -1], 3, 10, 3.2, 412);
+	crystals(M, fore, [-17, -14, 4], [-1, 0.5, 0.2], 3, 12, 3.6, 413);
+	const hand = M.bone('hand', 'fore', [0, -102, 0]);
+	cham(M, hand, -13.2, -131, -5.6, 13.2, -100, 5.4, 2.0, 'ymir', { paint: 'palm' });
+	cham(M, hand, 3.5, -121, 2.5, 14, -100.5, 8.5, 2.2, 'ymir', { paint: 'pad' });   // thenar pad (thumb base)
+	cham(M, hand, -13.5, -129, 2.5, -5, -106, 7.2, 2.0, 'ymir', { paint: 'pad' });  // hypothenar pad
+	cham(M, hand, -6, -131, 3.0, 7, -124, 6.5, 1.5, 'ymir', { paint: 'pad' });      // pads under the knuckles
+	YMIR_FINGERS.forEach(([x, w]) => {
+		M.box(hand, x - 0.9, -127, -7.1, x + 0.9, -104, -5.4, 'ymir', { paint: 'tendon' });          // back-of-hand tendon
+		cham(M, hand, x - w / 2 - 0.6, -135, -7.6, x + w / 2 + 0.6, -127, 3.8, 1.6, 'ymir', { paint: 'knuckle' });
 	});
-	const th = M.bone('thumb', 'hand', [12, -122, -2]);
-	M.tube(th, [[11, -118, 0], [19, -128, 2], [23, -140, 3], [24, -150, 2]], [[7.5, 7.5], [6.5, 6.5], [5.5, 5.5]], 'glacier', { paint: 'finger' });
-	M.k = 40 / 172; M.MODEL_SCALE = 16 * M.k; M.heightBlocks = 40;
+	crystals(M, hand, [-4, -112, -7], [0, 0.35, -1], 3, 7, 2.6, 430);
+	YMIR_FINGERS.forEach(([x, w, lens], i) => {
+		let y = -133, parent = 'hand', ww = w;
+		lens.forEach((len, j) => {
+			const b = M.bone(`f${i}_${j + 1}`, parent, [x, y, 0]);
+			cham(M, b, x - ww / 2, y - len - 0.6, -ww * 0.55, x + ww / 2, y + 0.4, ww * 0.5, ww * 0.26, 'ymir', { paint: 'finger' });
+			if (j < 2) M.box(b, x - ww / 2 - 0.35, y - len - 1.2, -ww * 0.6, x + ww / 2 + 0.35, y - len + 1.0, -ww * 0.1, 'ymir', { paint: 'knuckle' }); // joint
+			else {
+				M.box(b, x - ww * 0.38, y - len - 1.6, -ww * 0.68, x + ww * 0.38, y - len * 0.45, -ww * 0.36, 'ice', { seed: 420 + i, tag: 'tip' }); // ice nail
+				M.box(b, x - ww * 0.3, y - len - 2.4, -ww * 0.45, x + ww * 0.3, y - len - 0.4, ww * 0.25, 'ymir', { paint: 'finger' }); // rounded tip
+			}
+			parent = `f${i}_${j + 1}`; y -= len; ww *= 0.9;
+		});
+	});
+	// thumb: three parts, angled out (+X) and toward the palm (+Z)
+	let ty = -106, tw = 7.6;
+	[[0, 13], [1, 10], [2, 8]].forEach(([j, len]) => {
+		const b = M.bone(`thumb_${j + 1}`, j ? `thumb_${j}` : 'hand', [12, ty, 3], j ? [8, 0, 4] : [18, 0, -40]);
+		cham(M, b, 12 - tw / 2, ty - len - 0.6, 3 - tw * 0.55, 12 + tw / 2, ty + 0.5, 3 + tw * 0.5, tw * 0.26, 'ymir', { paint: 'finger' });
+		if (j === 2) M.box(b, 12 - tw * 0.38, ty - len - 1.4, 3 - tw * 0.68, 12 + tw * 0.38, ty - len * 0.4, 3 - tw * 0.36, 'ice', { seed: 440, tag: 'tip' });
+		else M.box(b, 12 - tw / 2 - 0.35, ty - len - 1.2, 3 - tw * 0.6, 12 + tw / 2 + 0.35, ty - len + 1.0, 3 - tw * 0.1, 'ymir', { paint: 'knuckle' });
+		ty -= len; tw *= 0.88;
+	});
+	M.k = 40 / 176; M.MODEL_SCALE = 16 * M.k; M.heightBlocks = 40;
 	return M;
 }
+// 3D cellular noise: distance to the nearest / second-nearest feature point (cell units) and the nearest cell id.
+function voronoi(x, y, z) {
+	const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+	let d1 = 9, d2 = 9, id = 0;
+	for (let dz = -1; dz <= 1; dz++) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+		const cx = xi + dx, cy = yi + dy, cz = zi + dz;
+		const px = cx + hash3(cx, cy, cz), py = cy + hash3(cx + 17, cy, cz), pz = cz + hash3(cx, cy + 31, cz);
+		const d = Math.hypot(px - x, py - y, pz - z);
+		if (d < d1) { d2 = d1; d1 = d; id = hash3(cx, cy, cz + 7); } else if (d < d2) d2 = d;
+	}
+	return [d1, d2, id];
+}
+function ymirSkin(c, f, s, t, p, info) {
+	if (c.mat !== 'ymir') return null;
+	const P = c.paint;
+	const S = P === 'finger' || P === 'knuckle' || P === 'tendon' ? 4.5 : 7.5;
+	const [d1, d2, id] = voronoi(p[0] / S + 3.1, p[1] / S, p[2] / S);
+	const e = d2 - d1;
+	let col = mix([92, 104, 124], [168, 180, 196], 0.25 + 0.6 * id);
+	col = mul(col, 0.9 + 0.2 * fbm(p[0] * 0.25, p[1] * 0.25, p[2] * 0.25, 3));
+	col = mix(col, [70, 84, 108], smooth(0.35, 0.05, e) * 0.5); // plates darken toward their seams
+	if (e > 0.1 && e < 0.17) col = mix(col, [214, 224, 236], 0.25); // raised plate rims catch the light
+	let g = null;
+	// veins of blue ice running through the skin
+	const v = Math.abs(fbm(p[0] * 0.03 + 11, p[1] * 0.018, p[2] * 0.03, 4) - 0.5);
+	if (v < 0.022) { col = mix([110, 168, 216], [196, 234, 255], 1 - v / 0.022); if (v < 0.003) g = [40, 110, 190]; }
+	// fissures between the plates: dark, with a few glowing cores
+	if (e < 0.05) {
+		col = mix([24, 32, 52], [60, 72, 98], e / 0.05);
+		if (e < 0.02 && fbm(p[0] * 0.02 + 40, p[1] * 0.02, p[2] * 0.02, 2) > 0.64) { col = [120, 200, 255]; g = [60, 140, 220]; }
+	}
+	if (P === 'knuckle' || P === 'pad') col = mul(col, 1.06);
+	if (P === 'tendon') col = mix(col, [190, 200, 214], 0.2);
+	// frost and snow on everything facing up, dark undersides
+	if (f === 'up' || (f !== 'down' && t < 0.07)) col = mix(col, [236, 244, 250], 0.7);
+	else col = mix(col, [224, 236, 246], 0.3 * smooth(0.62, 0.78, fbm(p[0] * 0.5 + 5, p[1] * 0.5, p[2] * 0.5, 3)));
+	if (f === 'down') col = mul(col, 0.62);
+	return [bevel(col, info, 0.82, 0.93), 255, g];
+}
 function ymirPoses(M) {
-	// shoulder in the rift, high and behind; the palm comes down flat on the ground
-	const slam = { $root: [0, 128, 52], upper: [-24, 0, 0], fore: [-30, 0, 0], hand: [-60, 0, 0] };
-	const cost = W => {
-		const palmN = L.mv3(W.hand.m, [0, 0, 1]), fing = L.mv3(W.hand.m, [0, -1, 0]);
-		return 40 * (1 - L.vdot(L.vnorm(palmN), [0, -1, 0])) + 25 * (1 - L.vdot(L.vnorm(fing), [0, 0, -1]));
-	};
-	L.reach(M, slam, 'hand', [0, -127, 0], [0, 7, -4], [['upper', 0], ['upper', 2], ['fore', 0], ['fore', 1], ['hand', 0], ['hand', 1], ['hand', 2]], cost);
-	for (let i = 0; i < 4; i++) { slam[`finger${i}`] = [6, 0, (i - 1.5) * 7]; slam[`finger${i}_tip`] = [14, 0, 0]; }
-	slam.thumb = [0, 0, 6];
-	const reachP = { $root: [0, 128, 52], upper: [-20, 0, 0], fore: [-20, 0, 0] };
-	const cost2 = W => 30 * (1 - L.vdot(L.vnorm(L.mv3(W.hand.m, [0, 0, 1])), L.vnorm([0, -0.6, -1])));
-	L.reach(M, reachP, 'hand', [0, -127, 0], [0, 50, -26], [['upper', 0], ['upper', 2], ['fore', 0], ['hand', 0], ['hand', 1], ['hand', 2]], cost2);
-	for (let i = 0; i < 4; i++) { reachP[`finger${i}`] = [6, 0, (i - 1.5) * 13]; reachP[`finger${i}_tip`] = [12, 0, 0]; }
-	reachP.thumb = [0, 0, 18];
+	const fingerPose = (pose, k1, k2, k3, spread) => YMIR_FINGERS.forEach(([x], i) => {
+		pose[`f${i}_1`] = [k1, 0, -x / 9.8 * spread]; pose[`f${i}_2`] = [k2, 0, 0]; pose[`f${i}_3`] = [k3, 0, 0];
+	});
+	// the forearm comes down out of the rift (high and behind) and the palm slams flat on the ground
+	const slam = { $root: [0, 118, 56], fore: [-20, 0, 0], hand: [-60, 0, 0] };
+	const palmDown = (W, dir) => 40 * (1 - L.vdot(L.vnorm(L.mv3(W.hand.m, [0, 0, 1])), L.vnorm(dir)));
+	L.reach(M, slam, 'hand', YMIR_PALM, [0, 8, -12], [['fore', 0], ['fore', 1], ['fore', 2], ['hand', 0], ['hand', 1], ['hand', 2]],
+		W => palmDown(W, [0, -1, 0]) + 25 * (1 - L.vdot(L.vnorm(L.mv3(W.hand.m, [0, -1, 0])), L.vnorm([0, 0, -1]))));
+	fingerPose(slam, 4, 7, 9, 9);
+	slam.thumb_1 = [-4, 0, -10]; slam.thumb_2 = [4, 0, 0]; slam.thumb_3 = [6, 0, 0];
+	// reaching down: fingers hooked like claws
+	const reachP = { $root: [0, 118, 56], fore: [-20, 0, 0], hand: [-30, 0, 0] };
+	L.reach(M, reachP, 'hand', YMIR_PALM, [0, 58, -30], [['fore', 0], ['fore', 1], ['fore', 2], ['hand', 0], ['hand', 1], ['hand', 2]],
+		W => palmDown(W, [0, -0.75, -0.65]));
+	fingerPose(reachP, 22, 34, 30, 14);
+	reachP.thumb_1 = [10, 0, -24]; reachP.thumb_2 = [20, 0, 0]; reachP.thumb_3 = [24, 0, 0];
 	return { slam, reach: reachP };
+}
+// The arm vanishes into the rift: geometry above the rift's height is painted over with the rift's interior,
+// with a bright seam where the skin passes through.
+function riftOver(ctx, ctrW, R) {
+	const c = ctx.proj(ctrW);
+	const rx = R * ctx.ppu, ry = R * 0.5 * ctx.ppu;
+	const Ct = [[ctx.C[0][0], ctx.C[1][0], ctx.C[2][0]], [ctx.C[0][1], ctx.C[1][1], ctx.C[2][1]], [ctx.C[0][2], ctx.C[1][2], ctx.C[2][2]]];
+	const ox = ctx.o.origin[0] * ctx.ss, oy = ctx.o.origin[1] * ctx.ss;
+	for (let y = 0; y < ctx.H; y++) for (let x = 0; x < ctx.W; x++) {
+		const i = y * ctx.W + x;
+		if (ctx.zb[i] === -Infinity) continue;
+		const v = [(x + 0.5 - ox) / ctx.ppu, (oy - y - 0.5) / ctx.ppu, ctx.zb[i] / ctx.ppu];
+		const wy = Ct[1][0] * v[0] + Ct[1][1] * v[1] + Ct[1][2] * v[2];
+		if (wy < ctrW[1] - 1.2) continue;
+		const dx = (x - c[0]) / rx, dy = (y - c[1]) / ry;
+		const d = Math.hypot(dx, dy);
+		if (d > 1.05) continue;
+		const j = i * 3;
+		if (wy > ctrW[1]) { // inside the rift: the swirl hides the rest of the arm
+			const th = Math.atan2(dy, dx);
+			const sw = 0.5 + 0.5 * Math.sin(th * 3 + d * 11 + fbm(dx * 2, dy * 2, 3, 2) * 5);
+			const col = mix(mix([10, 14, 34], [40, 90, 170], Math.pow(d, 1.6)), [170, 225, 255], sw * Math.pow(d, 2.2) * 0.8);
+			ctx.col[j] = col[0]; ctx.col[j + 1] = col[1]; ctx.col[j + 2] = col[2];
+			ctx.emi[j] = 0; ctx.emi[j + 1] = 0; ctx.emi[j + 2] = 0;
+		} else { // a glowing seam of frost where the arm leaves the rift
+			const k = 1 - (ctrW[1] - wy) / 1.2;
+			for (let q = 0; q < 3; q++) ctx.col[j + q] = ctx.col[j + q] * (1 - k * 0.8) + [200, 240, 255][q] * k * 0.8;
+			ctx.emi[j] = 90 * k; ctx.emi[j + 1] = 170 * k; ctx.emi[j + 2] = 255 * k;
+		}
+	}
 }
 function buildBurst() {
 	const M = new Model('ymir_burst', { TW: 512 });
 	const r = M.bone('root', null, [0, 0, 0]);
 	for (let i = 0; i < 16; i++) {
-		const a = i / 16 * Math.PI * 2 + (i % 3) * 0.13, d = 26 + (i % 4) * 5;
+		const a = i / 16 * Math.PI * 2 + (i % 3) * 0.13, d = 46 + (i % 4) * 6;
 		crystals(M, r, [Math.cos(a) * d, -1, Math.sin(a) * d], [Math.cos(a) * 0.8, 1, Math.sin(a) * 0.8], 3, 10 + (i % 5) * 3, 3.2, 500 + i, 'crystal', 0.4);
 	}
 	M.k = 40 / 160; M.MODEL_SCALE = 4; M.heightBlocks = 3;
@@ -1224,19 +1318,27 @@ if (WANT('ymir') || WANT('lineup')) {
 	M.poses = ymirPoses(M);
 	if (WANT('ymir')) {
 		const W = M.world(M.poses.slam, M.poses.slam.$root);
-		const hp = vsc(L.affApply(W.hand, [0, -127, 0]), M.k);
+		const hp = vsc(L.affApply(W.hand, YMIR_PALM), M.k);
 		const items = (pose, burst) => [
 			{ model: M, pose, root: pose.$root, floorR: 16 },
 			...(burst ? [{ model: B, pose: {}, root: [0, 0, 0], pos: [hp[0], 0, hp[2]], floorR: 0.1 }] : []),
 			{ model: PL, pose: {}, root: [0, 0, 0], pos: [hp[0] + 9, 0, hp[2] - 6], silhouette: [46, 50, 60], floorR: 0.1, yaw: 0 },
 		];
-		const rift = (pose) => ctx => drawRift(ctx, vsc(pose.$root, M.k), 12);
-		L.sheet(path.join(OUT, '07_ymir_arm.png'), "YMIR'S ARM", 'RENDER-ONLY - ABOUT 40 BLOCKS, REACHING OUT OF THE SKY RIFT (PLAYER FOR SCALE)', [
-			{ label: 'SLAM - FRONT', items: items(M.poses.slam, true), cam: { yaw: 0, pitch: 8 }, pre: rift(M.poses.slam) },
-			{ label: 'SLAM - THREE-QUARTER', items: items(M.poses.slam, true), cam: { yaw: 40, pitch: 8 }, pre: rift(M.poses.slam) },
-			{ label: 'SLAM - SIDE', items: items(M.poses.slam, true), cam: { yaw: 90, pitch: 8 }, pre: rift(M.poses.slam) },
-			{ label: 'REACHING DOWN', items: items(M.poses.reach, false), cam: { yaw: 30, pitch: 8 }, pre: rift(M.poses.reach) },
-		], { minW: 2400, panelH: 1150, bg: { top: [70, 80, 100], bottom: [104, 110, 122] }, shadowSoft: 0.5, aoR: 0.6, edgeThr: 0.3 });
+		const RR = 13;
+		const panel = (label, pose, burst, yaw) => {
+			const rc = vsc(pose.$root, M.k);
+			return {
+				label, items: items(pose, burst), cam: { yaw, pitch: 8 },
+				pre: ctx => drawRift(ctx, rc, RR), post: ctx => riftOver(ctx, rc, RR),
+				extraPts: [vadd(rc, [RR, RR * 0.3, 0]), vadd(rc, [-RR, RR * 0.3, 0]), vadd(rc, [0, RR * 0.3, RR]), vadd(rc, [0, RR * 0.3, -RR])],
+			};
+		};
+		L.sheet(path.join(OUT, '07_ymir_arm.png'), "YMIR'S ARM", 'RENDER-ONLY - FOREARM AND HAND, ABOUT 40 BLOCKS, OUT OF THE SKY RIFT (PLAYER FOR SCALE)', [
+			panel('SLAM - FRONT', M.poses.slam, true, 0),
+			panel('SLAM - THREE-QUARTER', M.poses.slam, true, 38),
+			panel('SLAM - SIDE', M.poses.slam, true, 90),
+			panel('REACHING DOWN', M.poses.reach, false, 55),
+		], { minW: 2400, maxW: 3400, panelH: 1150, bg: { top: [70, 80, 100], bottom: [104, 110, 122] }, shadowSoft: 0.5, aoR: 0.5, edgeThr: 0.25 });
 	}
 }
 if (WANT('lineup')) lineup();
@@ -1273,7 +1375,7 @@ function lineup() {
 		{ M: PL, pose: {}, name: 'PLAYER', h: '2', w: 1.4, sil: true },
 		{ M: built.hound, pose: built.hound.poses.stand, name: 'RIME HOUND', h: '1.6', w: 3.0, yaw: -55 },
 		{ M: built.raider, pose: built.raider.poses.stand, name: 'JOTUN RAIDER', h: '4.5', w: 3.4 },
-		{ M: built.shaman, pose: built.shaman.poses.stand, name: 'FROST SHAMAN', h: '5', w: 3.6 },
+		{ M: built.shaman, pose: built.shaman.poses.stand, name: 'FROST SHAMAN', h: '5', w: 3.6, hide: c => c.bone === 'spell_r' },
 		...(omega ? [{ M: omega, pose: omega.poses.stand, name: 'ULTRON OMEGA', h: '4', w: 3.2 }] : []),
 		{ M: built.brute, pose: built.brute.poses.stand, name: 'ICE BRUTE', h: '7', w: 5.4 },
 		{ M: built.warlord, pose: built.warlord.poses.stand, name: 'WARLORD', h: '11', w: 6.4 },
@@ -1290,7 +1392,7 @@ function lineup() {
 	// Ymir's hand slams down at the end of the row; his arm runs out of the top of the frame
 	const Y = built.ymir, pose = Y.poses.slam;
 	const W = Y.world(pose, pose.$root);
-	const hp = vsc(L.affApply(W.hand, [0, -127, 0]), Y.k);
+	const hp = vsc(L.affApply(W.hand, YMIR_PALM), Y.k);
 	const yx = x + 6.5;
 	items.push({ model: Y, pose, root: pose.$root, pos: [yx - hp[0], 0, -hp[2] + 3] });
 
