@@ -44,7 +44,8 @@ public final class RaidAdminCommand {
 			"zombie_horde", "skeleton_horde", "spider_horde", // v0.14.12: the Horde blocks
 			"syndicate", "carnage", // v0.14.25: the Syndicate Bust, Carnage
 			"sentinel_purge", // v0.15.1: the Sentinel Purge
-			"ultron"); // v0.15.12: the Ultron Uprising
+			"ultron", // v0.15.12: the Ultron Uprising
+			"frost_giants"); // v0.16.1: the Frost Giant Assault
 	private static final SuggestionProvider<CommandSourceStack> RAID_KEYS =
 			(ctx, builder) -> SharedSuggestionProvider.suggest(RAIDS, builder);
 
@@ -71,11 +72,14 @@ public final class RaidAdminCommand {
 						.executes(c -> {
 							String raid = StringArgumentType.getString(c, "raid");
 							if (!RAIDS.contains(raid)) {
-								c.getSource().sendFailure(Component.literal("Unknown raid (supervillain, gravebound, darkseid, zombie_horde, skeleton_horde, spider_horde, syndicate, carnage, sentinel_purge, ultron)"));
+								c.getSource().sendFailure(Component.literal("Unknown raid (supervillain, gravebound, darkseid, zombie_horde, skeleton_horde, spider_horde, syndicate, carnage, sentinel_purge, ultron, frost_giants)"));
 								return 0;
 							}
 							if (raid.equals("darkseid")) {
 								return DarkseidRaidCommand.verb(c, name);
+							}
+							if (raid.equals("frost_giants")) {
+								return com.projecthero.mod.frostgiant.FrostGiants.command(c, name);
 							}
 							if (raid.equals("ultron")) {
 								return com.projecthero.mod.ultron.Ultron.command(c, name);

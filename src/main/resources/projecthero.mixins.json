@@ -23,6 +23,7 @@
 		"LivingEntityClimbMixin",
 		"LivingEntityEatMixin",
 		"LivingEntityEffectMixin",
+		"LivingEntityFrostMixin",
 		"LivingEntityPunisherMarkMixin",
 		"LivingEntityUltronDamageMixin",
 		"LivingEntityRepulsorFlightMixin",

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "projecthero:block/jotun_skull"
+    },
+    "facing=east": {
+      "model": "projecthero:block/jotun_skull",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "projecthero:block/jotun_skull",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "projecthero:block/jotun_skull",
+      "y": 270
+    }
+  }
+}

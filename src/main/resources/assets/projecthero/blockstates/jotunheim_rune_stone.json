@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "active=false": {
+      "model": "projecthero:block/jotunheim_rune_stone"
+    },
+    "active=true": {
+      "model": "projecthero:block/jotunheim_rune_stone_active"
+    }
+  }
+}

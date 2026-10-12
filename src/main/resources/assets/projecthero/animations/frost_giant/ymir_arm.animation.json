@@ -1,0 +1,161 @@
+{
+	"format_version": "1.8.0",
+	"animations": {
+		"animation.ymir_arm.idle": {
+			"animation_length": 3,
+			"bones": {
+				"fingers": {
+					"rotation": {
+						"0.0000": [
+							0,
+							0,
+							0
+						],
+						"1.5000": [
+							6,
+							0,
+							0
+						],
+						"3.0000": [
+							0,
+							0,
+							0
+						]
+					}
+				}
+			},
+			"loop": true
+		},
+		"animation.ymir_arm.reach_in": {
+			"animation_length": 2.8,
+			"bones": {
+				"root": {
+					"position": {
+						"0.0000": [
+							0,
+							640,
+							0
+						],
+						"2.8000": [
+							0,
+							0,
+							0
+						]
+					}
+				}
+			},
+			"loop": "hold_on_last_frame"
+		},
+		"animation.ymir_arm.palm_slam": {
+			"animation_length": 2.3,
+			"bones": {
+				"root": {
+					"position": {
+						"0.0000": [
+							0,
+							60,
+							0
+						],
+						"1.2600": [
+							0,
+							160,
+							0
+						],
+						"1.8000": [
+							0,
+							0,
+							0
+						],
+						"2.3000": [
+							0,
+							8,
+							0
+						]
+					}
+				},
+				"fingers": {
+					"rotation": {
+						"0.0000": [
+							0,
+							0,
+							0
+						],
+						"1.8000": [
+							-10,
+							0,
+							0
+						],
+						"2.3000": [
+							0,
+							0,
+							0
+						]
+					}
+				}
+			}
+		},
+		"animation.ymir_arm.glacial_sweep": {
+			"animation_length": 3.8,
+			"bones": {
+				"root": {
+					"position": {
+						"0.0000": [
+							0,
+							80,
+							0
+						],
+						"2.8000": [
+							0,
+							4,
+							0
+						],
+						"3.8000": [
+							0,
+							4,
+							0
+						]
+					}
+				},
+				"hand": {
+					"rotation": {
+						"0.0000": [
+							0,
+							0,
+							0
+						],
+						"2.8000": [
+							0,
+							0,
+							18
+						],
+						"3.8000": [
+							0,
+							0,
+							-18
+						]
+					}
+				}
+			}
+		},
+		"animation.ymir_arm.retract": {
+			"animation_length": 2.3,
+			"bones": {
+				"root": {
+					"position": {
+						"0.0000": [
+							0,
+							0,
+							0
+						],
+						"2.3000": [
+							0,
+							640,
+							0
+						]
+					}
+				}
+			},
+			"loop": "hold_on_last_frame"
+		}
+	}
+}

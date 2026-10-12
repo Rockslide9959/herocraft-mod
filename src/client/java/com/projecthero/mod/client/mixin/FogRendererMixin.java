@@ -67,6 +67,13 @@ public class FogRendererMixin {
 	@Inject(method = "setupFog", at = @At("TAIL"))
 	private static void projecthero$raidFog(Camera camera, FogRenderer.FogMode fogMode, float farPlaneDistance,
 			boolean shouldCreateFog, float partialTick, CallbackInfo ci) {
+		// v0.16.1: the Frost Giant blizzard closes the fog in to ~48 blocks (32 with the Casket open)
+		float frost = com.projecthero.mod.client.frostgiant.FrostBlizzardClient.fogEnd();
+		if (frost > 0.0f) {
+			RenderSystem.setShaderFogStart(frost * 0.12f);
+			RenderSystem.setShaderFogEnd(frost);
+			return;
+		}
 		float s = RaidSkyTint.strength();
 		if (s <= 0.0f) {
 			return;
