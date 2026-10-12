@@ -483,7 +483,8 @@ public class WolverineGameTests implements FabricGameTest {
 		helper.assertFalse(Wolverine.abilityReady(p, WolverineShiftAbilities.PLUNGE), "plain Z: the Plunge, its own cooldown");
 		helper.assertTrue(Wolverine.state(p).chargeStartedAt == 0L, "plain Z does not charge the Execution");
 		helper.runAfterDelay(6, () -> {
-			WolverineScheduler.tick(p); // a mock player never leaves the ground: it slams at once
+			p.setOnGround(true); // a mock player is never moved, so nothing else marks it as landed
+			WolverineScheduler.tick(p); // the landing check now slams
 			helper.assertTrue(before - z.getHealth() >= WolverineConfig.PLUNGE_DAMAGE - 0.5f,
 					"the slam deals 16, dealt " + (before - z.getHealth()));
 			p.setShiftKeyDown(true);
