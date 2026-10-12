@@ -2,6 +2,8 @@ package com.projecthero.mod.client.ultron;
 
 import com.projecthero.mod.ultron.entity.UltronDroneEntity;
 import com.projecthero.mod.ultron.entity.UltronHeavyEntity;
+import com.projecthero.mod.ultron.entity.UltronHijackerEntity;
+import com.projecthero.mod.ultron.entity.UltronLancerEntity;
 import com.projecthero.mod.ultron.entity.UltronPrimeEntity;
 import com.projecthero.mod.ultron.entity.UltronRobot;
 import com.projecthero.mod.ultron.entity.UltronSentinelDroneEntity;
@@ -87,13 +89,69 @@ public class UltronModel extends PlayerModel<UltronRobot> {
 			posePrime(action, hx, hy, age);
 		} else if (e instanceof UltronSentryEntity) {
 			poseSentry(action, age);
+		} else if (e instanceof UltronLancerEntity) {
+			poseLancer(action, age);
+		} else if (e instanceof UltronHijackerEntity) {
+			poseHijacker(action, age, limbSwingAmount);
 		}
+		// v0.16.1: the Sentry's right forearm is away as a Fist Rocket
+		boolean armGone = e instanceof UltronSentryEntity s && s.armOut();
+		rightArm.visible = !armGone;
 		leftSleeve.copyFrom(leftArm);
 		rightSleeve.copyFrom(rightArm);
 		leftPants.copyFrom(leftLeg);
 		rightPants.copyFrom(rightLeg);
 		jacket.copyFrom(body);
 		hat.copyFrom(head);
+		rightSleeve.visible = rightArm.visible;
+	}
+
+	/** v0.16.1: the Lancer -- shield arm (left) held across the front, lance arm (right) low and forward; wind-up and thrust. */
+	private void poseLancer(byte action, float age) {
+		leftArm.xRot = -1.05f;
+		leftArm.yRot = 0.45f;
+		leftArm.zRot = 0.1f;
+		switch (action) {
+			case UltronLancerEntity.ACTION_WINDUP -> {
+				rightArm.xRot = 0.55f;
+				rightArm.yRot = -0.2f;
+				rightArm.zRot = 0.25f;
+				body.yRot = -0.25f;
+			}
+			case UltronLancerEntity.ACTION_LUNGE -> {
+				rightArm.xRot = -Mth.HALF_PI - 0.05f;
+				rightArm.yRot = 0.05f;
+				rightArm.zRot = 0f;
+				body.yRot = 0.15f;
+				leftArm.xRot = -0.7f;
+			}
+			default -> {
+				rightArm.xRot = -0.55f + Mth.sin(age * 0.1f) * 0.03f;
+				rightArm.yRot = -0.1f;
+				rightArm.zRot = 0.05f;
+			}
+		}
+	}
+
+	/** v0.16.1: the Hijacker -- a low, arms-back sprint; latched, it hugs its victim. */
+	private void poseHijacker(byte action, float age, float moving) {
+		if (action == UltronHijackerEntity.ACTION_LATCH) {
+			float s = Mth.sin(age * 0.9f) * 0.08f;
+			rightArm.xRot = -2.0f + s;
+			leftArm.xRot = -2.0f - s;
+			rightArm.zRot = 0.45f;
+			leftArm.zRot = -0.45f;
+			rightLeg.xRot = -0.9f;
+			leftLeg.xRot = -0.6f;
+			head.xRot = 0.3f;
+			return;
+		}
+		if (moving > 0.2f) {
+			rightArm.xRot = 0.9f;
+			leftArm.xRot = 0.9f;
+			rightArm.zRot = 0.15f;
+			leftArm.zRot = -0.15f;
+		}
 	}
 
 	private void aimRight(float hx, float hy) {
@@ -157,6 +215,16 @@ public class UltronModel extends PlayerModel<UltronRobot> {
 				rightLeg.xRot = 0.5f;
 				leftLeg.xRot = 0.5f;
 			}
+			case UltronPrimeEntity.ACTION_OVERCLOCK -> {
+				// v0.16.1: fists clenched at his sides, head bowed, shaking with power
+				float s = Mth.sin(age * 2.2f) * 0.05f;
+				rightArm.xRot = 0.25f + s;
+				leftArm.xRot = 0.25f - s;
+				rightArm.zRot = 0.55f;
+				leftArm.zRot = -0.55f;
+				head.xRot = 0.45f;
+			}
+			case UltronPrimeEntity.ACTION_OVERRIDE -> aimRight(hx, hy); // v0.16.1: pointing at his mark
 			default -> {
 			}
 		}
@@ -200,6 +268,22 @@ public class UltronModel extends PlayerModel<UltronRobot> {
 				head.xRot = 0.45f;
 				rightArm.xRot = 0.35f;
 				leftArm.xRot = 0.35f;
+			}
+			case UltronSentryEntity.ACTION_FIST -> {
+				// v0.16.1: the right arm cocked back, then aimed out (it leaves at the end of the wind-up)
+				rightArm.xRot = -Mth.HALF_PI;
+				rightArm.yRot = -0.1f;
+				rightArm.zRot = 0f;
+				leftArm.xRot = 0.3f;
+			}
+			case UltronSentryEntity.ACTION_RECONSTRUCT -> {
+				// v0.16.1: arms flung wide and up, head back -- calling the drones home
+				float s = Mth.sin(age * 0.3f) * 0.08f;
+				rightArm.zRot = 1.9f + s;
+				leftArm.zRot = -1.9f - s;
+				rightArm.xRot = -0.2f;
+				leftArm.xRot = -0.2f;
+				head.xRot = -0.4f;
 			}
 			default -> {
 			}

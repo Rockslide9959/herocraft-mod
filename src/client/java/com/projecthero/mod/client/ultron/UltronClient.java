@@ -32,8 +32,24 @@ public final class UltronClient {
 		EntityRendererRegistry.register(UltronEntityTypes.PRIME, UltronRobotRenderer::new);
 		EntityRendererRegistry.register(UltronEntityTypes.SENTRY, UltronRobotRenderer::new);
 		EntityRendererRegistry.register(UltronEntityTypes.PYLON, UltronPylonRenderer::new);
+		EntityRendererRegistry.register(UltronEntityTypes.LANCER, UltronRobotRenderer::new); // v0.16.1
+		EntityRendererRegistry.register(UltronEntityTypes.HIJACKER, UltronRobotRenderer::new); // v0.16.1
+		EntityRendererRegistry.register(UltronEntityTypes.FIST_ROCKET, UltronFistRocketRenderer::new); // v0.16.1
 		BlockEntityRendererRegistry.register(UltronBlocks.ULTRON_CORE_BE, UltronCoreRenderer::new);
 		UltronBeamClient.initialize();
+		UltronJamClient.initialize(); // v0.16.1: Network Override reticle, jammed-key overlay
+	}
+
+	/**
+	 * v0.16.1: does the local viewer see a cloaked Hijacker anyway? The Mind Stone in the off hand, or the viewer's own
+	 * Iron Man highlight -- the same private, client-side decisions as the outlines (never a server glowing flag).
+	 */
+	public static boolean revealsCloaked(Entity self) {
+		Player viewer = Minecraft.getInstance().player;
+		if (viewer == null || !com.projecthero.mod.ironman.IronManHighlight.mayDecide(self)) {
+			return false;
+		}
+		return mindStoneOutlines(self) || Boolean.TRUE.equals(com.projecthero.mod.ironman.IronManHighlight.decision(viewer, self));
 	}
 
 	/**

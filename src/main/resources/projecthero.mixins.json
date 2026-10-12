@@ -24,6 +24,7 @@
 		"LivingEntityEatMixin",
 		"LivingEntityEffectMixin",
 		"LivingEntityPunisherMarkMixin",
+		"LivingEntityUltronDamageMixin",
 		"LivingEntityRepulsorFlightMixin",
 		"LivingEntitySupermanSuitMixin",
 		"MobGoalsAccessor",

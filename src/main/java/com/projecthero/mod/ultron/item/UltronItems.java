@@ -44,6 +44,8 @@ public final class UltronItems {
 	public static Item PRIME_SPAWN_EGG;
 	public static Item SENTRY_SPAWN_EGG;
 	public static Item PYLON_SPAWN_EGG;
+	public static Item LANCER_SPAWN_EGG;
+	public static Item HIJACKER_SPAWN_EGG;
 
 	private UltronItems() {
 	}
@@ -80,6 +82,8 @@ public final class UltronItems {
 		PRIME_SPAWN_EGG = register("ultron_prime_spawn_egg", new SpawnEggItem(UltronEntityTypes.PRIME, 0xC0C4CC, 0xFF0000, new Item.Properties()));
 		SENTRY_SPAWN_EGG = register("ultron_sentry_spawn_egg", new SpawnEggItem(UltronEntityTypes.SENTRY, 0x2C2E33, 0xFF2010, new Item.Properties()));
 		PYLON_SPAWN_EGG = register("ultron_pylon_spawn_egg", new SpawnEggItem(UltronEntityTypes.PYLON, 0x1E2026, 0xB00000, new Item.Properties()));
+		LANCER_SPAWN_EGG = register("ultron_lancer_spawn_egg", new SpawnEggItem(UltronEntityTypes.LANCER, 0xC8CCD4, 0xE41E16, new Item.Properties()));
+		HIJACKER_SPAWN_EGG = register("ultron_hijacker_spawn_egg", new SpawnEggItem(UltronEntityTypes.HIJACKER, 0x2A2E36, 0xD61A14, new Item.Properties()));
 	}
 
 	public static void addToCreativeTab(CreativeModeTab.Output output) {
@@ -91,6 +95,8 @@ public final class UltronItems {
 		output.accept(SENTINEL_DRONE_SPAWN_EGG);
 		output.accept(HEAVY_SPAWN_EGG);
 		output.accept(SNIPER_SPAWN_EGG);
+		output.accept(LANCER_SPAWN_EGG);
+		output.accept(HIJACKER_SPAWN_EGG);
 		output.accept(PYLON_SPAWN_EGG);
 		output.accept(PRIME_SPAWN_EGG);
 		output.accept(SENTRY_SPAWN_EGG);

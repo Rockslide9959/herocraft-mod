@@ -5,6 +5,8 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.client.darkseid.BeamDraw;
 import com.projecthero.mod.ultron.UltronFx;
 import com.projecthero.mod.ultron.entity.UltronDroneEntity;
+import com.projecthero.mod.ultron.entity.UltronHijackerEntity;
+import com.projecthero.mod.ultron.entity.UltronLancerEntity;
 import com.projecthero.mod.ultron.entity.UltronRobot;
 import com.projecthero.mod.ultron.entity.UltronSentryEntity;
 
@@ -41,6 +43,20 @@ public class UltronRobotRenderer extends HumanoidMobRenderer<UltronRobot, Ultron
 		this.wide = wide;
 		this.slim = slim;
 		addLayer(new Eyes(this));
+		addLayer(new LancerShield(this));
+	}
+
+	/** v0.16.1: a cloaked Hijacker is only a shimmer (vanilla's 15% ghost pass) unless this viewer's Mind Stone / Iron Man highlight reveals it. */
+	@Override
+	protected boolean isBodyVisible(UltronRobot entity) {
+		if (entity instanceof UltronHijackerEntity h && h.cloaked() && !UltronClient.revealsCloaked(h)) {
+			return false;
+		}
+		return super.isBodyVisible(entity);
+	}
+
+	static boolean shimmering(UltronRobot entity) {
+		return entity instanceof UltronHijackerEntity h && h.cloaked() && !UltronClient.revealsCloaked(h);
 	}
 
 	@Override
@@ -54,6 +70,31 @@ public class UltronRobotRenderer extends HumanoidMobRenderer<UltronRobot, Ultron
 		if (entity instanceof UltronSentryEntity s && !s.isDeadOrDying()) {
 			renderSentryFx(s, partialTick, pose, buffers);
 		}
+		if (entity instanceof UltronLancerEntity l && !l.isDeadOrDying()) {
+			renderLance(l, partialTick, pose, buffers);
+		}
+	}
+
+	/** v0.16.1: the Lancer's energy lance -- a red rod out of its right hand, thrust long while it lunges. */
+	private void renderLance(UltronLancerEntity l, float pt, PoseStack pose, MultiBufferSource buffers) {
+		float bodyYaw = Mth.rotLerp(pt, l.yBodyRotO, l.yBodyRot);
+		Vec3 fwd = Vec3.directionFromRotation(0, bodyYaw);
+		Vec3 right = new Vec3(-fwd.z, 0, fwd.x);
+		float s = l.getScale();
+		boolean lunge = l.action() == UltronLancerEntity.ACTION_LUNGE;
+		boolean windup = l.action() == UltronLancerEntity.ACTION_WINDUP;
+		Vec3 hand = new Vec3(0, l.getBbHeight() * (lunge ? 0.62 : 0.5), 0).add(right.scale(0.36 * s)).add(fwd.scale((lunge ? 0.7 : 0.25) * s));
+		double len = lunge ? 3.4 : windup ? 1.1 : 1.6;
+		Vec3 butt = hand.subtract(fwd.scale(windup ? 0.9 : 0.5));
+		Vec3 tip = hand.add(fwd.scale(len)).add(0, lunge ? 0 : 0.15, 0);
+		Vec3 base = lerped(l, pt);
+		Vec3 cam = entityRenderDispatcher.camera.getPosition().subtract(base);
+		float t = l.tickCount + pt;
+		PoseStack.Pose last = pose.last();
+		VertexConsumer glow = buffers.getBuffer(RenderType.debugQuads());
+		BeamDraw.beam(glow, true, last, butt, tip, cam, lunge ? 0.11f : 0.07f, UltronBeamClient.GLOW, 0.85f + 0.15f * Mth.sin(t * 0.7f));
+		VertexConsumer core = buffers.getBuffer(RenderType.lightning());
+		BeamDraw.beam(core, false, last, butt, tip, cam, lunge ? 0.06f : 0.035f, UltronBeamClient.CORE, 0.95f);
 	}
 
 	@Override
@@ -130,7 +171,7 @@ public class UltronRobotRenderer extends HumanoidMobRenderer<UltronRobot, Ultron
 	}
 
 	/** A latitude/longitude sphere of quads, translucent red, both windings (debugQuads doesn't cull anyway). */
-	private static void shell(VertexConsumer vc, PoseStack.Pose pose, Vec3 c, double radius, float alpha) {
+	static void shell(VertexConsumer vc, PoseStack.Pose pose, Vec3 c, double radius, float alpha) {
 		int lat = 10;
 		int lon = 16;
 		int a = (int) (Mth.clamp(alpha, 0f, 1f) * 255);
@@ -154,6 +195,48 @@ public class UltronRobotRenderer extends HumanoidMobRenderer<UltronRobot, Ultron
 		}
 	}
 
+	/**
+	 * v0.16.1: the Lancer's front energy shield -- a translucent red hex plane, full-bright, carried on the body a little in
+	 * front of the chest (model space: -Z is forward, +Y is down). Drawn only while the shield is up; it flickers out after a
+	 * lunge.
+	 */
+	static final class LancerShield extends RenderLayer<UltronRobot, UltronModel> {
+		static final ResourceLocation TEXTURE = com.projecthero.mod.ProjectHeroMod.id("textures/entity/ultron/lancer_shield.png");
+
+		LancerShield(RenderLayerParent<UltronRobot, UltronModel> parent) {
+			super(parent);
+		}
+
+		@Override
+		public void render(PoseStack pose, MultiBufferSource buffers, int light, UltronRobot entity, float limbSwing, float limbSwingAmount,
+				float partialTick, float age, float headYaw, float headPitch) {
+			if (!(entity instanceof UltronLancerEntity l) || !l.shieldUp() || l.isDeadOrDying()) {
+				return;
+			}
+			pose.pushPose();
+			getParentModel().body.translateAndRotate(pose);
+			float pulse = 0.72f + 0.18f * Mth.sin(age * 0.35f);
+			int a = (int) (pulse * 255);
+			VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucentEmissive(TEXTURE));
+			PoseStack.Pose last = pose.last();
+			float x0 = -0.62f, x1 = 0.62f, y0 = -0.42f, y1 = 1.1f, z = -0.5f;
+			float v1 = (y1 - y0) / (x1 - x0);
+			int full = 0xF000F0;
+			// front face and back face (both windings)
+			quad(vc, last, x0, y0, z, x1, y1, a, v1, full, -1);
+			quad(vc, last, x1, y0, z, x0, y1, a, v1, full, 1);
+			pose.popPose();
+		}
+
+		private static void quad(VertexConsumer vc, PoseStack.Pose p, float xa, float y0, float z, float xb, float y1, int a, float v1, int light,
+				float nz) {
+			vc.addVertex(p, xa, y0, z).setColor(255, 255, 255, a).setUv(0, 0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, 0, 0, nz);
+			vc.addVertex(p, xa, y1, z).setColor(255, 255, 255, a).setUv(0, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, 0, 0, nz);
+			vc.addVertex(p, xb, y1, z).setColor(255, 255, 255, a).setUv(1, v1).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, 0, 0, nz);
+			vc.addVertex(p, xb, y0, z).setColor(255, 255, 255, a).setUv(1, 0).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, 0, 0, nz);
+		}
+	}
+
 	/** The glowing eyes: the skin's {@code _eyes} texture drawn full-bright over the model. */
 	static final class Eyes extends RenderLayer<UltronRobot, UltronModel> {
 		Eyes(RenderLayerParent<UltronRobot, UltronModel> parent) {
@@ -163,8 +246,8 @@ public class UltronRobotRenderer extends HumanoidMobRenderer<UltronRobot, Ultron
 		@Override
 		public void render(PoseStack pose, MultiBufferSource buffers, int light, UltronRobot entity, float limbSwing, float limbSwingAmount,
 				float partialTick, float age, float headYaw, float headPitch) {
-			if (entity.isInvisible() || entity.isStunned() && (entity.tickCount / 3) % 2 == 0) {
-				return; // a stunned robot's eyes flicker
+			if (entity.isInvisible() || shimmering(entity) || entity.isStunned() && (entity.tickCount / 3) % 2 == 0) {
+				return; // a stunned robot's eyes flicker; a cloaked Hijacker shows nothing but the shimmer
 			}
 			VertexConsumer vc = buffers.getBuffer(RenderType.eyes(entity.skin().eyes()));
 			getParentModel().renderToBuffer(pose, vc, 0xF00000, OverlayTexture.NO_OVERLAY);

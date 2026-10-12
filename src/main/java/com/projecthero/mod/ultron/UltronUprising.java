@@ -19,6 +19,8 @@ import com.projecthero.mod.ultron.block.UltronBeaconBlock;
 import com.projecthero.mod.ultron.block.UltronBlocks;
 import com.projecthero.mod.ultron.entity.UltronDroneEntity;
 import com.projecthero.mod.ultron.entity.UltronHeavyEntity;
+import com.projecthero.mod.ultron.entity.UltronHijackerEntity;
+import com.projecthero.mod.ultron.entity.UltronLancerEntity;
 import com.projecthero.mod.ultron.entity.UltronPrimeEntity;
 import com.projecthero.mod.ultron.entity.UltronPylonEntity;
 import com.projecthero.mod.ultron.entity.UltronRobot;
@@ -60,7 +62,7 @@ import net.minecraft.world.phys.Vec3;
  * if a server turns it on -- by the natural JARVIS trigger.
  *
  * <pre>
- * COUNTDOWN (3 relay pylons rise) -> WAVE 1 .. WAVE 5 (breathers between)
+ * COUNTDOWN (v0.16.1: 4 relay pylons rise) -> WAVE 1 .. WAVE 7 (breathers between)
  *   -> PYLONS ("DESTROY THE RELAY PYLONS" -- the gate: no boss while any stands)
  *   -> PRIME (Ultron Prime arrives; he re-raises reserve pylons -- spare bodies -- at the relay sites)
  *        at 0 health with a pylon standing: body jump (pylon consumed, new body at half health)
@@ -72,9 +74,9 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>Arena</b>: 40 blocks round the uplink, its edge a red / cyan particle ring. Fighters are kept inside (pulled
  *       back in if they leave); anyone who walks in joins. A fighter who dies is down until they walk back in.</li>
  *   <li><b>Relay pylons</b> ({@link UltronPylonEntity}): while any stands, Ultron's units within 16 blocks of it repair
- *       2 health a second. A destroyed pylon's EMP stuns nearby robots.</li>
- *   <li><b>Waves</b>: 5, scaled x(1 + 0.5 per extra fighter); 1-2 drones only, 3 adds Sentinel Drones, 4 a Heavy and
- *       snipers, 5 everything.</li>
+ *       3 health a second; a pylon with 3+ units within 8 blocks is shielded. A destroyed pylon's EMP stuns nearby robots.</li>
+ *   <li><b>Waves</b>: 7, scaled x(1 + 0.5 per extra fighter) (solo table in {@link UltronConfig.Waves}); Lancers from
+ *       wave 4, Hijackers from wave 5.</li>
  * </ul>
  */
 public class UltronUprising extends EventInstance {
@@ -88,14 +90,15 @@ public class UltronUprising extends EventInstance {
 
 	public enum Phase { COUNTDOWN, WAVE, BREATHER, PYLONS, PRIME, SENTRY_RISE, SENTRY, PURGED }
 
-	/** Unit kinds in a wave. */
-	public static final int DRONE = 0, SENTINEL = 1, HEAVY = 2, SNIPER = 3;
+	/** Unit kinds in a wave (v0.16.1: + the Lancer and the Hijacker). */
+	public static final int DRONE = 0, SENTINEL = 1, HEAVY = 2, SNIPER = 3, LANCER = 4, HIJACKER = 5;
+	public static final int KINDS = 6;
 
 	private Phase phase = Phase.COUNTDOWN;
 	private long phaseStart = -1;
 	private int wave;
 	private int waveTotal;
-	private final int[] owed = new int[4];
+	private final int[] owed = new int[KINDS];
 	private final List<UUID> pylons = new ArrayList<>();
 	private final List<BlockPos> pylonSites = new ArrayList<>();
 	private UUID bossId;
@@ -159,11 +162,12 @@ public class UltronUprising extends EventInstance {
 		return Mth.clamp(UltronConfig.waves().waveCount, 1, MAX_WAVES);
 	}
 
-	/** Wave {@code n}'s solo composition as {drones, sentinel drones, heavies, snipers}. */
+	/** Wave {@code n}'s solo composition as {drones, sentinel drones, heavies, snipers, lancers, hijackers}. */
 	public static int[] composition(int n) {
 		UltronConfig.Waves cfg = UltronConfig.waves();
 		int i = Math.max(1, n) - 1;
-		return new int[] { at(cfg.drones, i), at(cfg.sentinelDrones, i), at(cfg.heavies, i), at(cfg.snipers, i) };
+		return new int[] { at(cfg.drones, i), at(cfg.sentinelDrones, i), at(cfg.heavies, i), at(cfg.snipers, i), at(cfg.lancers, i),
+				at(cfg.hijackers, i) };
 	}
 
 	private static int at(int[] arr, int i) {
@@ -198,7 +202,11 @@ public class UltronUprising extends EventInstance {
 	}
 
 	public int owed() {
-		return owed[0] + owed[1] + owed[2] + owed[3];
+		int n = 0;
+		for (int o : owed) {
+			n += o;
+		}
+		return n;
 	}
 
 	public int fighterCount() {
@@ -224,15 +232,17 @@ public class UltronUprising extends EventInstance {
 		return bossId != null && level.getEntity(bossId) instanceof LivingEntity l ? l : null;
 	}
 
-	/** Live units of this uprising, by kind {drones, sentinel drones, heavies, snipers, bosses}. */
+	/** Live units of this uprising, by kind {drones, sentinel drones, heavies, snipers, lancers, hijackers, bosses}. */
 	public int[] liveCounts(ServerLevel level) {
-		int[] n = new int[5];
+		int[] n = new int[KINDS + 1];
 		for (Mob m : liveOwnedMobs(level)) {
-			if (m instanceof UltronDroneEntity) n[0]++;
-			else if (m instanceof UltronSentinelDroneEntity) n[1]++;
-			else if (m instanceof UltronHeavyEntity) n[2]++;
-			else if (m instanceof UltronSniperEntity) n[3]++;
-			else if (m instanceof UltronPrimeEntity || m instanceof UltronSentryEntity) n[4]++;
+			if (m instanceof UltronDroneEntity) n[DRONE]++;
+			else if (m instanceof UltronSentinelDroneEntity) n[SENTINEL]++;
+			else if (m instanceof UltronHeavyEntity) n[HEAVY]++;
+			else if (m instanceof UltronSniperEntity) n[SNIPER]++;
+			else if (m instanceof UltronLancerEntity) n[LANCER]++;
+			else if (m instanceof UltronHijackerEntity) n[HIJACKER]++;
+			else if (m instanceof UltronPrimeEntity || m instanceof UltronSentryEntity) n[KINDS]++;
 		}
 		return n;
 	}
@@ -525,7 +535,7 @@ public class UltronUprising extends EventInstance {
 		wave = Mth.clamp(n, 1, MAX_WAVES);
 		int[] mix = composition(wave);
 		int f = fighterCount();
-		for (int i = 0; i < 4; i++) {
+		for (int i = 0; i < KINDS; i++) {
 			owed[i] = scaled(mix[i], f);
 		}
 		waveTotal = owed();
@@ -561,12 +571,12 @@ public class UltronUprising extends EventInstance {
 		}
 	}
 
-	/** Brings in up to {@code max} owed units while the cap has room: heavies and snipers first, then a mix. */
+	/** Brings in up to {@code max} owed units while the cap has room: heavies, snipers, lancers and hijackers first, then a mix. */
 	private void spawnOwed(ServerLevel level, int max) {
 		int made = 0;
 		int guard = 0;
 		while (made < max && owed() > 0 && hasRoom(level) && guard++ < 200) {
-			int kind = owed[HEAVY] > 0 ? HEAVY : owed[SNIPER] > 0 ? SNIPER
+			int kind = owed[HEAVY] > 0 ? HEAVY : owed[SNIPER] > 0 ? SNIPER : owed[LANCER] > 0 ? LANCER : owed[HIJACKER] > 0 ? HIJACKER
 					: owed[SENTINEL] > 0 && (owed[DRONE] == 0 || level.random.nextBoolean()) ? SENTINEL : DRONE;
 			owed[kind]--;
 			if (spawnUnit(level, kind) != null) {
@@ -581,6 +591,8 @@ public class UltronUprising extends EventInstance {
 			case SENTINEL -> UltronEntityTypes.SENTINEL_DRONE;
 			case HEAVY -> UltronEntityTypes.HEAVY;
 			case SNIPER -> UltronEntityTypes.SNIPER;
+			case LANCER -> UltronEntityTypes.LANCER;
+			case HIJACKER -> UltronEntityTypes.HIJACKER;
 			default -> UltronEntityTypes.DRONE;
 		};
 		Mob mob = type.create(level);
@@ -607,8 +619,8 @@ public class UltronUprising extends EventInstance {
 		return mob;
 	}
 
-	/** A standing pylon with no sniper on it yet. */
-	private UltronPylonEntity freePerch(ServerLevel level) {
+	/** A standing pylon with no sniper on it yet (v0.16.1: public -- a sniper relocates to one after each shot). */
+	public UltronPylonEntity freePerch(ServerLevel level) {
 		List<UltronPylonEntity> live = livePylons(level);
 		java.util.Collections.shuffle(live, new java.util.Random(level.random.nextLong()));
 		for (UltronPylonEntity p : live) {
@@ -798,9 +810,7 @@ public class UltronUprising extends EventInstance {
 					disown(m.getUUID());
 					m.discard();
 				}
-				for (int i = 0; i < 4; i++) {
-					owed[i] = 0;
-				}
+				java.util.Arrays.fill(owed, 0);
 				phase = Phase.BREATHER;
 				phaseStart = now - UltronConfig.waves().breatherSeconds * 20L;
 			}
@@ -988,8 +998,8 @@ public class UltronUprising extends EventInstance {
 		wave = tag.getInt("UltronWave");
 		waveTotal = tag.getInt("UltronWaveTotal");
 		int[] o = tag.getIntArray("UltronOwed");
-		for (int i = 0; i < 4; i++) {
-			owed[i] = i < o.length ? o[i] : 0;
+		for (int i = 0; i < KINDS; i++) {
+			owed[i] = i < o.length ? o[i] : 0; // a v0.15.x save had four kinds
 		}
 		pylons.clear();
 		ListTag pl = tag.getList("UltronPylons", Tag.TAG_INT_ARRAY);

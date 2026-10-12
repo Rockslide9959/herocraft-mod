@@ -13,6 +13,7 @@ import com.projecthero.mod.ultron.UltronDialogue;
 import com.projecthero.mod.ultron.UltronEntityTypes;
 import com.projecthero.mod.ultron.UltronFx;
 import com.projecthero.mod.ultron.UltronUprising;
+import com.projecthero.mod.ultron.UltronWorldState;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
@@ -57,10 +58,16 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>Chest cannon</b>: a 2-second charge (his chest glows, the light gathers) then a wide red beam down a locked
  *       line. Move off the line while it charges.</li>
  *   <li><b>Missile rain</b>: red missiles fall out of the sky round the fighters.</li>
- *   <li><b>Shield phase</b> at half health: he goes invulnerable and three Ultron Drones carry the shield (red tethers).
- *       Kill all three to break it -- he staggers, taking half again as much damage for a few seconds.</li>
+ *   <li><b>Shield phase</b> at half health: he goes invulnerable and four Ultron Drones carry the shield (red tethers).
+ *       Kill them all to break it -- he staggers, taking half again as much damage for a few seconds. v0.16.1: it comes
+ *       back once more at a quarter.</li>
+ *   <li>v0.16.1 <b>Fist Rocket</b>: his right forearm flies as a homing rocket (18 damage, 2 s, 60 health -- shoot it
+ *       down). <b>Reconstruct</b> (at 50% and 25%, before each shield): a 6 s channel; every drone in the arena flies into
+ *       him and each one heals 2%. The chest cannon now tracks its target at 20 degrees a second.</li>
  * </ul>
- * Dying, he falls, his head cracks open, and the uprising ends: "Ultron has been purged from the network."
+ * v0.16.1 health: 2,600 (+600 per extra fighter, up to 7,000). Dying, he falls, his head cracks open, and the uprising
+ * ends: "Ultron has been purged from the network." On the world's first clear his last words are a promise, and
+ * {@link UltronWorldState} records the time.
  */
 public class UltronSentryEntity extends UltronRobot {
 	public static final float SCALE = 3.4f;
@@ -70,10 +77,25 @@ public class UltronSentryEntity extends UltronRobot {
 	public static final byte ACTION_CANNON = 5;
 	public static final byte ACTION_RAIN = 6;
 	public static final byte ACTION_STAGGER = 7;
+	/** v0.16.1: the Fist Rocket's wind-up, and Reconstruct's channel. */
+	public static final byte ACTION_FIST = 8;
+	public static final byte ACTION_RECONSTRUCT = 9;
 	public static final int DEATH_TICKS = 70;
+	static final int FIST_WINDUP = 16;
 	private static final EntityDataAccessor<Boolean> DATA_SHIELD = SynchedEntityData.defineId(UltronSentryEntity.class, EntityDataSerializers.BOOLEAN);
+	/** v0.16.1: his right forearm is out flying as a Fist Rocket (the renderer hides it). */
+	private static final EntityDataAccessor<Boolean> DATA_ARM_OUT = SynchedEntityData.defineId(UltronSentryEntity.class, EntityDataSerializers.BOOLEAN);
 
-	public enum Move { NONE, SLAM, CANNON, RAIN }
+	public enum Move { NONE, SLAM, CANNON, RAIN, FIST, RECONSTRUCT }
+
+	// v0.16.1 state
+	private boolean recon50;
+	private boolean recon25;
+	private int shieldsRaised;
+	private boolean shieldAfterReconstruct;
+	private UUID rocket;
+	private int absorbed;
+	private final List<UUID> reconstructDrones = new ArrayList<>();
 
 	private final ServerBossEvent bossBar = new ServerBossEvent(Component.translatable("entity.projecthero.ultron_sentry"),
 			BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.NOTCHED_10);
@@ -116,6 +138,22 @@ public class UltronSentryEntity extends UltronRobot {
 	protected void defineSynchedData(SynchedEntityData.Builder builder) {
 		super.defineSynchedData(builder);
 		builder.define(DATA_SHIELD, false);
+		builder.define(DATA_ARM_OUT, false);
+	}
+
+	/** v0.16.1: is his right forearm out as a Fist Rocket? */
+	public boolean armOut() {
+		return entityData.get(DATA_ARM_OUT);
+	}
+
+	/** v0.16.1: how many times the shield has gone up (once at 50%, once more at 25%). */
+	public int shieldsRaised() {
+		return shieldsRaised;
+	}
+
+	/** v0.16.1: drones absorbed by Reconstruct so far. */
+	public int absorbed() {
+		return absorbed;
 	}
 
 	@Override
@@ -180,6 +218,14 @@ public class UltronSentryEntity extends UltronRobot {
 		if (shielded()) {
 			tickShield(server);
 		}
+		if (armOut() && (rocket == null || !(server.getEntity(rocket) instanceof UltronFistRocketEntity r) || !r.isAlive())) {
+			rocket = null;
+			entityData.set(DATA_ARM_OUT, false); // the forearm is back (it rebuilds the moment the rocket is gone)
+		}
+		if (move == Move.RECONSTRUCT) {
+			tickMove(server, getTarget());
+			return; // the channel runs even through a stagger or a stun: kill the drones
+		}
 		if (stagger > 0) {
 			stagger--;
 			getNavigation().stop();
@@ -219,6 +265,9 @@ public class UltronSentryEntity extends UltronRobot {
 			if (d > 4 && hasLineOfSight(target)) {
 				options.add(Move.CANNON);
 			}
+			if (d > 6 && !armOut()) {
+				options.add(Move.FIST); // v0.16.1
+			}
 			options.add(Move.RAIN);
 			if (options.size() > 1 && lastMove >= 0) {
 				options.remove(Move.values()[lastMove]);
@@ -244,7 +293,154 @@ public class UltronSentryEntity extends UltronRobot {
 				setAction(ACTION_RAIN);
 				lastLine = UltronDialogue.say(server, this, "rain", false, lastLine);
 			}
+			case FIST -> {
+				setAction(ACTION_FIST);
+				lastLine = UltronDialogue.say(server, this, "fist", false, lastLine);
+				server.playSound(null, getX(), getY(), getZ(), SoundEvents.PISTON_CONTRACT, SoundSource.HOSTILE, 2.0f, 0.5f);
+			}
+			case RECONSTRUCT -> startReconstruct(server);
 			default -> setAction(ACTION_NONE);
+		}
+	}
+
+	// ---------------------------------------------------------------- v0.16.1: the Fist Rocket
+
+	/** Where the right forearm leaves from (the right shoulder). */
+	public Vec3 rightShoulder() {
+		float yawRad = yBodyRot * ((float) Math.PI / 180f);
+		Vec3 right = new Vec3(-Math.cos(yawRad), 0, -Math.sin(yawRad));
+		return position().add(0, getBbHeight() * 0.72, 0).add(right.scale(0.36 * SCALE)).add(Vec3.directionFromRotation(0, yBodyRot).scale(0.6));
+	}
+
+	/** Launches the right forearm at {@code target} now (also the harness's / tests' hook). */
+	public UltronFistRocketEntity launchFist(ServerLevel server, LivingEntity target) {
+		UltronFistRocketEntity r = UltronEntityTypes.FIST_ROCKET.create(server);
+		if (r == null) {
+			return null;
+		}
+		Vec3 from = rightShoulder();
+		Vec3 dir = target != null ? target.position().add(0, target.getBbHeight() * 0.55, 0).subtract(from).normalize()
+				: Vec3.directionFromRotation(0, yBodyRot);
+		r.moveTo(from.x, from.y - 0.45, from.z, getYRot(), 0f);
+		r.launch(this, target, dir.add(0, 0.25, 0).normalize().scale(0.9));
+		server.addFreshEntity(r);
+		rocket = r.getUUID();
+		entityData.set(DATA_ARM_OUT, true);
+		server.sendParticles(ParticleTypes.EXPLOSION, from.x, from.y, from.z, 1, 0, 0, 0, 0);
+		server.playSound(null, from.x, from.y, from.z, SoundEvents.FIREWORK_ROCKET_LARGE_BLAST, SoundSource.HOSTILE, 2.0f, 0.5f);
+		return r;
+	}
+
+	// ---------------------------------------------------------------- v0.16.1: Reconstruct
+
+	/**
+	 * Reconstruct (at 50% and at 25%): a 6 s channel. He calls drones in from the arena's edge, and every drone in the arena
+	 * (shield carriers aside) flies into him -- each one that arrives heals 2% of his health. Kill them first.
+	 */
+	public void startReconstruct(ServerLevel server) {
+		move = Move.RECONSTRUCT;
+		moveTick = 0;
+		getNavigation().stop();
+		setAction(ACTION_RECONSTRUCT);
+		reconstructDrones.clear();
+		UltronConfig.Sentry cfg = UltronConfig.sentry();
+		UltronUprising up = uprising();
+		for (int i = 0; i < Math.max(0, cfg.reconstructCallDrones); i++) {
+			UltronDroneEntity d = UltronEntityTypes.DRONE.create(server);
+			if (d == null) {
+				continue;
+			}
+			double a = random.nextDouble() * Math.PI * 2;
+			double r = up != null ? UltronUprising.arena() - 6 : 20;
+			Vec3 c = up != null ? Vec3.atBottomCenterOf(up.center()) : position();
+			Vec3 at = c.add(Math.cos(a) * r, 10, Math.sin(a) * r);
+			d.moveTo(at.x, at.y, at.z, random.nextFloat() * 360f, 0f);
+			d.finalizeSpawn(server, server.getCurrentDifficultyAt(BlockPos.containing(at)), MobSpawnType.MOB_SUMMONED, null);
+			if (up != null) {
+				up.adopt(d);
+			}
+			server.addFreshEntity(d);
+			server.sendParticles(ParticleTypes.FLASH, at.x, at.y, at.z, 1, 0, 0, 0, 0);
+		}
+		for (UltronDroneEntity d : server.getEntitiesOfClass(UltronDroneEntity.class, getBoundingBox().inflate(48), x -> x.isAlive() && !x.isShieldCarrier())) {
+			if (up == null || up.id().equals(d.uprisingId()) || d.uprisingId() == null) {
+				d.flyInto(this);
+				reconstructDrones.add(d.getUUID());
+			}
+		}
+		lastLine = UltronDialogue.say(server, this, "reconstruct", true, lastLine);
+		server.playSound(null, getX(), getY(), getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.HOSTILE, 3.0f, 0.4f);
+		for (ServerPlayer p : server.players()) {
+			if (p.distanceToSqr(this) < 64 * 64) {
+				JarvisDialogue.speak(p, "ultron_reconstruct");
+			}
+		}
+	}
+
+	private void tickReconstruct(ServerLevel server, UltronConfig.Sentry cfg) {
+		Vec3 core = chest();
+		if (moveTick % 3 == 0) {
+			for (int i = 0; i < 4; i++) {
+				Vec3 off = new Vec3(random.nextGaussian(), random.nextGaussian(), random.nextGaussian()).normalize().scale(3.0);
+				Vec3 v = off.scale(-0.15);
+				server.sendParticles(UltronFx.RED, core.x + off.x, core.y + off.y, core.z + off.z, 0, v.x, v.y, v.z, 1.0);
+			}
+		}
+		for (UUID id : new ArrayList<>(reconstructDrones)) {
+			Entity e = server.getEntity(id);
+			if (!(e instanceof UltronDroneEntity d) || !d.isAlive() || d.isDeadOrDying()) {
+				reconstructDrones.remove(id);
+				continue;
+			}
+			if (d.position().add(0, d.getBbHeight() * 0.5, 0).distanceToSqr(core) < 2.6 * 2.6) {
+				absorb(server, d, cfg);
+				reconstructDrones.remove(id);
+			}
+		}
+		if (moveTick >= cfg.reconstructTicks) {
+			endReconstruct(server);
+		}
+	}
+
+	/** One drone flies into him: it is gone and he heals {@link UltronConfig.Sentry#reconstructHealPerDrone} of his health. */
+	public void absorb(ServerLevel server, UltronDroneEntity d, UltronConfig.Sentry cfg) {
+		Vec3 at = d.position();
+		d.discard();
+		heal((float) (getMaxHealth() * cfg.reconstructHealPerDrone));
+		absorbed++;
+		UltronFx.forced(server, UltronFx.RED_BIG, at.x, at.y + 0.5, at.z, 12, 0.3, 0.3, 0.3, 0.05);
+		UltronFx.forced(server, UltronFx.STEEL, at.x, at.y + 0.5, at.z, 10, 0.3, 0.3, 0.3, 0.05);
+		server.playSound(null, at.x, at.y, at.z, SoundEvents.ANVIL_USE, SoundSource.HOSTILE, 1.4f, 1.3f);
+	}
+
+	private void endReconstruct(ServerLevel server) {
+		for (UUID id : reconstructDrones) {
+			if (server.getEntity(id) instanceof UltronDroneEntity d) {
+				d.flyInto(null);
+			}
+		}
+		reconstructDrones.clear();
+		endMove();
+		if (shieldAfterReconstruct) {
+			shieldAfterReconstruct = false;
+			raiseShield(server);
+		}
+	}
+
+	/** The threshold checks after a hit: Reconstruct at 50% (then the shield), and at 25% (then the shield once more). */
+	private void checkThresholds(ServerLevel server) {
+		if (shielded() || move == Move.RECONSTRUCT || isDeadOrDying()) {
+			return;
+		}
+		float f = getHealth() / getMaxHealth();
+		if (!recon50 && f <= 0.5f) {
+			recon50 = true;
+			shieldAfterReconstruct = true;
+			startReconstruct(server);
+		} else if (recon50 && !recon25 && shieldsRaised >= 1 && f <= UltronConfig.sentry().reshieldAt) {
+			recon25 = true;
+			shieldAfterReconstruct = true;
+			startReconstruct(server);
 		}
 	}
 
@@ -280,6 +476,18 @@ public class UltronSentryEntity extends UltronRobot {
 					endMove();
 				}
 			}
+			case FIST -> {
+				if (target != null) {
+					getLookControl().setLookAt(target, 20f, 20f);
+				}
+				if (moveTick == FIST_WINDUP) {
+					launchFist(server, target);
+				}
+				if (moveTick >= FIST_WINDUP + 10) {
+					endMove();
+				}
+			}
+			case RECONSTRUCT -> tickReconstruct(server, cfg);
 			default -> endMove();
 		}
 	}
@@ -343,6 +551,12 @@ public class UltronSentryEntity extends UltronRobot {
 		if (cannonDir == null) {
 			cannonDir = getViewVector(1f);
 		}
+		// v0.16.1: the beam tracks -- it turns toward the target at 20 degrees a second while it fires
+		if (target != null && target.isAlive()) {
+			cannonDir = turnToward(cannonDir, target.position().add(0, target.getBbHeight() * 0.5, 0).subtract(from),
+					Math.toRadians(cfg.cannonTurnDegreesPerSecond / 20.0));
+			getLookControl().setLookAt(from.x + cannonDir.x * 10, from.y + cannonDir.y * 10, from.z + cannonDir.z * 10, 10f, 10f);
+		}
 		Vec3 to = beamEnd(server, from, cannonDir, cfg.cannonRange);
 		if (moveTick % 2 == 0) {
 			UltronFx.beam(server, from, to, UltronFx.CANNON, 3);
@@ -358,6 +572,29 @@ public class UltronSentryEntity extends UltronRobot {
 		if (moveTick >= cfg.cannonChargeTicks + cfg.cannonFireTicks) {
 			endMove();
 		}
+	}
+
+	/** {@code dir} rotated toward {@code want} by at most {@code maxRadians} (both normalised; a unit vector out). */
+	public static Vec3 turnToward(Vec3 dir, Vec3 want, double maxRadians) {
+		Vec3 a = dir.normalize();
+		if (want.lengthSqr() < 1.0e-8) {
+			return a;
+		}
+		Vec3 b = want.normalize();
+		double cos = Math.max(-1.0, Math.min(1.0, a.dot(b)));
+		double angle = Math.acos(cos);
+		if (angle <= maxRadians || angle < 1.0e-6) {
+			return b;
+		}
+		double t = maxRadians / angle;
+		// slerp a -> b by t
+		double s = Math.sin(angle);
+		return a.scale(Math.sin((1 - t) * angle) / s).add(b.scale(Math.sin(t * angle) / s)).normalize();
+	}
+
+	/** v0.16.1 test hook: the chest cannon's current aim (null outside a cannon move). */
+	public Vec3 cannonDir() {
+		return cannonDir;
 	}
 
 	private Vec3 beamEnd(ServerLevel server, Vec3 from, Vec3 dir, double range) {
@@ -410,9 +647,7 @@ public class UltronSentryEntity extends UltronRobot {
 		}
 		if (hurt && level() instanceof ServerLevel server && !isDeadOrDying()) {
 			float f = getHealth() / getMaxHealth();
-			if (!shieldUsed && f <= 0.5f) {
-				raiseShield(server);
-			}
+			checkThresholds(server); // v0.16.1: Reconstruct, then the shield, at 50% and again at 25%
 			if (!enraged && f <= 0.25f) {
 				enraged = true;
 				bossBar.setColor(BossEvent.BossBarColor.PURPLE);
@@ -422,9 +657,13 @@ public class UltronSentryEntity extends UltronRobot {
 		return hurt;
 	}
 
-	/** At half health: invulnerable, and the shield drones come out (also a test / harness hook). */
+	/**
+	 * At half health (after Reconstruct) and once more at a quarter: invulnerable, and the shield drones come out (also a
+	 * test / harness hook).
+	 */
 	public void raiseShield(ServerLevel server) {
 		shieldUsed = true;
+		shieldsRaised++;
 		entityData.set(DATA_SHIELD, true);
 		move = Move.NONE;
 		setAction(ACTION_NONE);
@@ -450,7 +689,7 @@ public class UltronSentryEntity extends UltronRobot {
 		}
 		bossBar.setName(Component.translatable("event.projecthero.ultron.bar.shield"));
 		server.playSound(null, getX(), getY(), getZ(), SoundEvents.BEACON_ACTIVATE, SoundSource.HOSTILE, 3.0f, 0.5f);
-		lastLine = UltronDialogue.say(server, this, "shield", true, lastLine);
+		lastLine = UltronDialogue.say(server, this, shieldsRaised > 1 ? "reshield" : "shield", true, lastLine);
 		for (ServerPlayer p : server.players()) {
 			if (p.distanceToSqr(this) < 64 * 64) {
 				JarvisDialogue.speak(p, "ultron_shield");
@@ -496,8 +735,11 @@ public class UltronSentryEntity extends UltronRobot {
 
 	@Override
 	public void die(DamageSource source) {
-		if (level() instanceof ServerLevel server) {
-			lastLine = UltronDialogue.say(server, this, "death", true, lastLine);
+		if (level() instanceof ServerLevel server && !this.dead) {
+			// v0.16.1: the world's first clear records Ultron's first defeat (Part B, the Contagion, starts its timer from
+			// it) and his last words are a promise
+			boolean first = uprising() != null && UltronWorldState.recordDefeat(server);
+			lastLine = UltronDialogue.say(server, this, first ? "death_first" : "death", true, lastLine);
 		}
 		super.die(source);
 		entityData.set(DATA_SHIELD, false);
@@ -566,6 +808,10 @@ public class UltronSentryEntity extends UltronRobot {
 			list.add(NbtUtils.createUUID(u));
 		}
 		tag.put("ShieldDrones", list);
+		tag.putBoolean("Recon50", recon50);
+		tag.putBoolean("Recon25", recon25);
+		tag.putInt("ShieldsRaised", shieldsRaised);
+		tag.putBoolean("ShieldAfterReconstruct", shieldAfterReconstruct || move == Move.RECONSTRUCT);
 	}
 
 	@Override
@@ -581,6 +827,17 @@ public class UltronSentryEntity extends UltronRobot {
 		}
 		if (shielded()) {
 			bossBar.setName(Component.translatable("event.projecthero.ultron.bar.shield"));
+		}
+		recon50 = tag.getBoolean("Recon50") || shieldUsed; // a v0.15.x save that already shielded
+		recon25 = tag.getBoolean("Recon25");
+		shieldsRaised = Math.max(tag.getInt("ShieldsRaised"), shieldUsed ? 1 : 0);
+		// a channel cut short by a save: the shield it was leading to still comes (on the next hit's threshold check)
+		if (tag.getBoolean("ShieldAfterReconstruct") && !shielded()) {
+			if (recon25) {
+				recon25 = false;
+			} else {
+				recon50 = false;
+			}
 		}
 	}
 }

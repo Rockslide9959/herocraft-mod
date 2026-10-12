@@ -1074,7 +1074,8 @@ public final class HeroPackGuide {
 		// v0.15.12: the Ultron Uprising
 		out.add(chapter("projecthero.guide.ultron", lines -> {
 			para(lines, "projecthero.guide.ultron.body");
-			for (String section : new String[]{"trigger", "arena", "pylons", "waves", "prime", "sentry", "weakness", "rewards", "commands"}) {
+			for (String section : new String[]{"trigger", "arena", "pylons", "waves", "lancer", "hijacker", "prime", "sentry", "weakness",
+					"rewards", "commands"}) { // v0.16.1: + the Lancer and the Hijacker
 				blank(lines);
 				head(lines, "projecthero.guide.ultron." + section);
 				para(lines, "projecthero.guide.ultron." + section + ".body");

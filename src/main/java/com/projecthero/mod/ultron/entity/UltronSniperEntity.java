@@ -26,7 +26,8 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.15.12: an <b>Ultron Sniper Frame</b> -- 40 health, perched on top of a relay pylon (or standing off at the arena's
- * edge). It paints its target with a thin red laser sight for 1.5 seconds, then fires a 14-damage shot down the line.
+ * edge). It paints its target with a thin red laser sight for 1.5 seconds, then fires a (v0.16.1) 16-damage shot down
+ * the line, and then jumps to another free pylon ({@link #relocate}).
  * Like the Syndicate's sniper: break its line of sight while the laser is on you. Knock out its pylon and it drops.
  */
 public class UltronSniperEntity extends UltronRobot {
@@ -151,6 +152,43 @@ public class UltronSniperEntity extends UltronRobot {
 		aiming = 0;
 		setAction(ACTION_NONE);
 		cooldown = cfg.cooldownTicks + random.nextInt(20);
+		if (perch != null && cfg.relocateAfterShot) {
+			relocate(server);
+		}
+	}
+
+	/**
+	 * v0.16.1: after each shot a perched sniper jumps to another free pylon (a red streak marks the move), so it is never
+	 * where you last saw it. Stays put when there is no other free pylon. Returns whether it moved.
+	 */
+	public boolean relocate(ServerLevel server) {
+		Entity current = perch == null ? null : server.getEntity(perch);
+		UltronPylonEntity next = null;
+		com.projecthero.mod.ultron.UltronUprising up = uprising();
+		if (up != null) {
+			next = up.freePerch(server);
+		} else {
+			for (UltronPylonEntity p : server.getEntitiesOfClass(UltronPylonEntity.class, getBoundingBox().inflate(64), LivingEntity::isAlive)) {
+				if (p != current) {
+					next = p;
+					break;
+				}
+			}
+		}
+		if (next == null || next == current) {
+			return false;
+		}
+		Vec3 from = position().add(0, 1, 0);
+		perchOn(next);
+		UltronFx.beam(server, from, position().add(0, 1, 0), UltronFx.STREAK, 6);
+		server.sendParticles(UltronFx.RED, getX(), getY() + 1, getZ(), 10, 0.3, 0.5, 0.3, 0.02);
+		server.playSound(null, getX(), getY(), getZ(), SoundEvents.ENDERMAN_TELEPORT, SoundSource.HOSTILE, 0.8f, 1.4f);
+		return true;
+	}
+
+	/** The pylon it is perched on, or null. */
+	public java.util.UUID perch() {
+		return perch;
 	}
 
 	/** Where the shot leaves: just in front of the right shoulder at eye height. */

@@ -99,18 +99,21 @@ public class UltronV01512GameTests implements FabricGameTest {
 		UltronHeavyEntity heavy = UltronEntityTypes.HEAVY.create(level);
 		UltronPrimeEntity prime = UltronEntityTypes.PRIME.create(level);
 		UltronSentryEntity sentry = UltronEntityTypes.SENTRY.create(level);
-		helper.assertTrue(drone.getMaxHealth() == 30f, "drone 30 health, got " + drone.getMaxHealth());
-		helper.assertTrue(heavy.getMaxHealth() == 120f && heavy.getAttributeValue(Attributes.ARMOR) == 10.0, "heavy 120 / 10 armour");
+		// v0.16.1 numbers (the harder Uprising)
+		helper.assertTrue(drone.getMaxHealth() == 40f, "drone 40 health, got " + drone.getMaxHealth());
+		helper.assertTrue(heavy.getMaxHealth() == 180f && heavy.getAttributeValue(Attributes.ARMOR) == 10.0, "heavy 180 / 10 armour");
 		helper.assertTrue(Math.abs(prime.getBbHeight() - 1.8f * 1.4f) < 0.05f, "Prime is x1.4, got " + prime.getBbHeight());
 		helper.assertTrue(Math.abs(sentry.getBbHeight() - 1.8f * 3.4f) < 0.05f, "the Sentry is ~6 blocks, got " + sentry.getBbHeight());
 		prime.configure(1);
-		helper.assertTrue(prime.getMaxHealth() == 900f && prime.getHealth() == 900f, "Prime solo 900");
+		helper.assertTrue(prime.getMaxHealth() == 1600f && prime.getHealth() == 1600f, "Prime solo 1600");
 		prime.configure(3);
-		helper.assertTrue(prime.getMaxHealth() == 1500f, "+300 per extra fighter, got " + prime.getMaxHealth());
+		helper.assertTrue(prime.getMaxHealth() == 2500f, "+450 per extra fighter, got " + prime.getMaxHealth());
 		prime.configure(50);
-		helper.assertTrue(prime.getMaxHealth() == 3000f, "capped at 3000, got " + prime.getMaxHealth());
+		helper.assertTrue(prime.getMaxHealth() == 5000f, "capped at 5000, got " + prime.getMaxHealth());
 		sentry.configure(2);
-		helper.assertTrue(sentry.getMaxHealth() == 1900f, "Sentry 1500 + 400, got " + sentry.getMaxHealth());
+		helper.assertTrue(sentry.getMaxHealth() == 3200f, "Sentry 2600 + 600, got " + sentry.getMaxHealth());
+		sentry.configure(50);
+		helper.assertTrue(sentry.getMaxHealth() == 7000f, "Sentry capped at 7000, got " + sentry.getMaxHealth());
 		helper.assertTrue(drone.isAlliedTo(sentry) && heavy.isAlliedTo(prime), "the robots are on one side");
 		helper.succeed();
 	}
@@ -141,17 +144,15 @@ public class UltronV01512GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void waveMixGrowsAndScalesWithFighters(GameTestHelper helper) {
-		helper.assertTrue(UltronUprising.waveCount() == 5, "five waves");
-		for (int n = 1; n <= 2; n++) {
+		// v0.16.1: seven waves, the solo table from the master prompt (drones / sentinels / heavies / snipers / lancers / hijackers)
+		helper.assertTrue(UltronUprising.waveCount() == 7, "seven waves, got " + UltronUprising.waveCount());
+		int[][] table = { { 6, 0, 0, 0, 0, 0 }, { 8, 2, 0, 0, 0, 0 }, { 6, 4, 1, 0, 0, 0 }, { 6, 4, 1, 2, 1, 0 }, { 6, 4, 2, 2, 1, 1 },
+				{ 8, 5, 2, 2, 2, 1 }, { 8, 6, 3, 3, 2, 2 } };
+		for (int n = 1; n <= 7; n++) {
 			int[] w = UltronUprising.composition(n);
-			helper.assertTrue(w[0] > 0 && w[1] == 0 && w[2] == 0 && w[3] == 0, "wave " + n + " is drones only");
+			helper.assertTrue(java.util.Arrays.equals(w, table[n - 1]), "wave " + n + " is " + java.util.Arrays.toString(table[n - 1]) + ", got "
+					+ java.util.Arrays.toString(w));
 		}
-		int[] w3 = UltronUprising.composition(3);
-		helper.assertTrue(w3[1] > 0 && w3[2] == 0 && w3[3] == 0, "wave 3 adds Sentinel Drones");
-		int[] w4 = UltronUprising.composition(4);
-		helper.assertTrue(w4[2] > 0 && w4[3] > 0, "wave 4 adds a Heavy and snipers");
-		int[] w5 = UltronUprising.composition(5);
-		helper.assertTrue(w5[0] > 0 && w5[1] > 0 && w5[2] > 0 && w5[3] > 0, "wave 5 is everything");
 		helper.assertTrue(UltronUprising.scaled(4, 1) == 4 && UltronUprising.scaled(4, 3) == 8 && UltronUprising.scaled(2, 2) == 3,
 				"x(1 + 0.5 per extra fighter)");
 		helper.assertTrue(UltronUprising.scaled(0, 4) == 0, "an empty entry stays empty");
@@ -164,7 +165,7 @@ public class UltronV01512GameTests implements FabricGameTest {
 		UltronUprising u = startPinned(helper);
 		try {
 			helper.assertTrue(u.state() == EventState.RUNNING && u.phase() == UltronUprising.Phase.COUNTDOWN, "running, counting down");
-			helper.assertTrue(u.livePylons(level).size() == 3, "three relay pylons, got " + u.livePylons(level).size());
+			helper.assertTrue(u.livePylons(level).size() == 4, "four relay pylons, got " + u.livePylons(level).size());
 			helper.assertTrue(level.getBlockState(u.center()).is(com.projecthero.mod.ultron.block.UltronBlocks.ULTRON_BEACON),
 					"the uplink stands at the centre");
 			helper.assertTrue(Ultron.start(level, helper.absolutePos(new BlockPos(5, 1, 5)), null) == null, "a second one nearby is refused");
@@ -176,9 +177,13 @@ public class UltronV01512GameTests implements FabricGameTest {
 			for (int m : mix) {
 				expected += UltronUprising.scaled(m, f);
 			}
-			helper.assertTrue(live[0] + live[1] + live[2] + live[3] + u.owed() == expected, "wave 4 brings its full mix: "
+			int units = 0;
+			for (int k = 0; k < UltronUprising.KINDS; k++) {
+				units += live[k];
+			}
+			helper.assertTrue(units + u.owed() == expected, "wave 4 brings its full mix: "
 					+ java.util.Arrays.toString(live) + " + " + u.owed() + " owed vs " + expected);
-			helper.assertTrue(live[2] > 0 && live[3] > 0, "a Heavy and snipers came first");
+			helper.assertTrue(live[2] > 0 && live[3] > 0 && live[UltronUprising.LANCER] > 0, "a Heavy, snipers and a Lancer came first");
 			// repairs near a pylon
 			Mob hurt = null;
 			for (Mob m : level.getEntitiesOfClass(Mob.class, new net.minecraft.world.phys.AABB(u.center()).inflate(40), u::ownsEntity)) {
@@ -207,13 +212,14 @@ public class UltronV01512GameTests implements FabricGameTest {
 		UltronUprising u = startPinned(helper);
 		try {
 			List<UltronPylonEntity> pylons = u.livePylons(level);
-			helper.assertTrue(pylons.size() == 3, "three pylons");
-			helper.assertFalse(u.tryStartBoss(level), "no boss while three pylons stand");
+			helper.assertTrue(pylons.size() == 4, "four pylons");
+			helper.assertFalse(u.tryStartBoss(level), "no boss while four pylons stand");
 			pylons.get(0).kill();
 			pylons.get(1).kill();
+			pylons.get(2).kill();
 			helper.assertFalse(u.tryStartBoss(level), "no boss while one pylon stands");
 			helper.assertTrue(u.phase() != UltronUprising.Phase.PRIME, "still not the boss phase");
-			pylons.get(2).kill();
+			pylons.get(3).kill();
 			helper.assertTrue(u.tryStartBoss(level), "every pylon down: Ultron Prime comes");
 			helper.assertTrue(u.phase() == UltronUprising.Phase.PRIME && u.boss(level) instanceof UltronPrimeEntity, "Prime is the boss");
 			helper.assertTrue(u.livePylons(level).size() == UltronConfig.arena().reservePylons, "he raised his reserve pylons, got "
@@ -267,7 +273,7 @@ public class UltronV01512GameTests implements FabricGameTest {
 			UltronUprising copy = (UltronUprising) EventTypes.create(UltronUprising.TYPE_ID, u.id());
 			copy.load(tag);
 			helper.assertTrue(copy.phase() == UltronUprising.Phase.WAVE && copy.wave() == 2, "phase and wave survive");
-			helper.assertTrue(copy.pylonIds().equals(u.pylonIds()) && copy.pylonIds().size() == 3, "the pylons survive");
+			helper.assertTrue(copy.pylonIds().equals(u.pylonIds()) && copy.pylonIds().size() == 4, "the pylons survive");
 			helper.assertTrue(copy.fighters().equals(u.fighters()), "the fighters survive");
 			helper.assertTrue(copy.owed() == u.owed(), "the owed units survive");
 		} finally {
@@ -350,11 +356,13 @@ public class UltronV01512GameTests implements FabricGameTest {
 		UltronConfig fresh = UltronConfig.SPEC.fresh();
 		helper.assertTrue(fresh.configVersion != null && fresh.configVersion == UltronConfig.SPEC.currentVersion(), "fresh is stamped");
 		helper.assertFalse(fresh.trigger.naturalTriggerEnabled, "the natural trigger is off by default");
-		UltronConfig old = UltronConfig.SPEC.fromJson("{\"trigger\":{\"naturalTriggerEnabled\":true},\"prime\":{\"health\":1234.0,\"armor\":\"lots\"}}");
+		// v0.16.1: a current-version file keeps a value the server chose (the v2 migration only runs on older files)
+		UltronConfig old = UltronConfig.SPEC.fromJson("{\"configVersion\":" + UltronConfig.SPEC.currentVersion()
+				+ ",\"trigger\":{\"naturalTriggerEnabled\":true},\"prime\":{\"health\":1234.0,\"armor\":\"lots\"}}");
 		helper.assertTrue(old.trigger.naturalTriggerEnabled, "a server's toggle is kept");
-		helper.assertTrue(old.prime.health == 1234.0, "a version-1 value is kept, got " + old.prime.health);
+		helper.assertTrue(old.prime.health == 1234.0, "a current-version value is kept, got " + old.prime.health);
 		helper.assertTrue(old.prime.armor == 12.0, "a wrong-typed value gets its default, got " + old.prime.armor);
-		helper.assertTrue(old.sentry.health == 1500.0 && old.waves.drones.length == 5, "missing sections get defaults");
+		helper.assertTrue(old.sentry.health == 2600.0 && old.waves.drones.length == 7, "missing sections get defaults");
 		helper.assertTrue(old.configVersion == UltronConfig.SPEC.currentVersion(), "stamped with the current version");
 		helper.succeed();
 	}

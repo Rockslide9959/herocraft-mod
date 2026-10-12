@@ -21,7 +21,11 @@ public enum UltronSkin {
 	/** Skindex 6722436: an Ultron Heavy. */
 	HEAVY("heavy", false),
 	/** Skindex 23173990: an Ultron Sniper Frame. */
-	SNIPER("sniper", false);
+	SNIPER("sniper", false),
+	/** v0.16.1: the Ultron Lancer -- painted procedurally from the Heavy's skin (silver and red, heavier). */
+	LANCER("lancer", false),
+	/** v0.16.1: the Ultron Hijacker -- painted procedurally from the Sniper Frame's skin (dark gunmetal, red seams, slim). */
+	HIJACKER("hijacker", true);
 
 	private final ResourceLocation texture;
 	private final ResourceLocation eyes;

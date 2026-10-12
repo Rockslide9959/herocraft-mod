@@ -153,6 +153,23 @@ public final class UltronCombat {
 		return out;
 	}
 
+	// ---------------------------------------------------------------- damage dealt
+
+	/**
+	 * v0.16.1: the global Ultron damage multiplier ({@link UltronConfig.Damage#globalMultiplier}, x1.3) applied to every hit
+	 * whose attacker or direct source is an Ultron robot (its missiles and rockets count: their owner is the robot). Called
+	 * from the {@code LivingEntity#hurt} mixin, server side. One flat factor -- nothing adapts.
+	 */
+	public static float scaleOutgoing(DamageSource source, float amount) {
+		if (source == null || amount <= 0f) {
+			return amount;
+		}
+		if (source.getEntity() instanceof UltronRobot || source.getDirectEntity() instanceof UltronRobot) {
+			return amount * (float) UltronConfig.damage().globalMultiplier;
+		}
+		return amount;
+	}
+
 	// ---------------------------------------------------------------- damage taken
 
 	/**

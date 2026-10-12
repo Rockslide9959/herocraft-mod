@@ -31,9 +31,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.15.12: an <b>Ultron Heavy</b> -- the walking artillery. Big (x1.3), slow, armoured (120 health, 10 armour). At
- * range it raises both arms (a one-second telegraph: shoulder sparks and a rising whine) and fires a barrage of three
- * red missiles that home on its target; up close it stamps the ground (a 4-block shockwave that throws you up).
+ * v0.15.12: an <b>Ultron Heavy</b> -- the walking artillery. Big (x1.3), slow, armoured (v0.16.1: 180 health, 10 armour).
+ * At range it raises both arms (a one-second telegraph: shoulder sparks and a rising whine) and fires a barrage of
+ * (v0.16.1) four red missiles that home on its target; up close it stamps the ground (a 4-block shockwave that throws you up).
  */
 public class UltronHeavyEntity extends UltronRobot {
 	public static final float SCALE = 1.3f;
@@ -153,10 +153,11 @@ public class UltronHeavyEntity extends UltronRobot {
 			return;
 		}
 		int shot = (windup - BARRAGE_WINDUP - 1) / 5;
-		if ((windup - BARRAGE_WINDUP - 1) % 5 == 0 && shot < 3) {
+		int missiles = Math.max(1, UltronConfig.heavy().barrageMissiles); // v0.16.1: 4
+		if ((windup - BARRAGE_WINDUP - 1) % 5 == 0 && shot < missiles) {
 			fireMissile(server, target, shot);
 		}
-		if (shot >= 3) {
+		if (shot >= missiles) {
 			move = ACTION_NONE;
 			setAction(ACTION_NONE);
 			barrageCooldown = UltronConfig.heavy().barrageCooldownTicks + random.nextInt(40);

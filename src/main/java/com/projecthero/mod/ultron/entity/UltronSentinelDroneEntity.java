@@ -29,7 +29,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.15.12: an <b>Ultron Sentinel Drone</b> -- the melee runner. Fast on the ground (45 health), it sprints in and dives at
+ * v0.15.12: an <b>Ultron Sentinel Drone</b> -- the melee runner. Fast on the ground (v0.16.1: 60 health), it sprints in and dives at
  * its prey for claw strikes. When it is destroyed it beeps three times and blows up (6 damage round it, no terrain
  * damage) -- step away when you hear it.
  */

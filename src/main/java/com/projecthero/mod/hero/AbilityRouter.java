@@ -35,6 +35,10 @@ public final class AbilityRouter {
 		if (slotNumber < 1 || slotNumber > 8) {
 			return;
 		}
+		// v0.16.1: an Ultron Hijacker's latch / Prime's Network Override jams ability keys (presses only; releases pass)
+		if (com.projecthero.mod.ultron.UltronJam.blocks(player, slotNumber, pressed)) {
+			return;
+		}
 		AbilitySlot slot = AbilitySlot.byNumber(slotNumber);
 		if (slot.isUtility()) {
 			// v0.13.22: H / N (slots 7-8) are mutation-only -- the client only sends them when no Hero-Tier power

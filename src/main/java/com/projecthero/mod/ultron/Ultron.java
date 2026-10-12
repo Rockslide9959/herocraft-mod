@@ -43,9 +43,11 @@ public final class Ultron {
 		VibraniumPlating.initialize();
 		UltronRewards.initialize();
 		PayloadTypeRegistry.playS2C().register(UltronBeamPayload.TYPE, UltronBeamPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(UltronSignalPayload.TYPE, UltronSignalPayload.CODEC); // v0.16.1
 		EventTypes.register(UltronUprising.TYPE_ID, UltronUprising::new);
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (entity instanceof ServerPlayer p) {
+				UltronJam.clear(p); // v0.16.1: a jam never outlives the player
 				for (UltronUprising u : UltronUprising.all(p.server)) {
 					if (u.dimension() == p.level().dimension() && u.isFighter(p.getUUID())) {
 						u.onFighterDied(p.serverLevel(), p);
