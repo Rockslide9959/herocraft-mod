@@ -85,8 +85,23 @@ public class HijackedMarkRenderer extends EntityRenderer<HijackedMarkEntity> {
 		} finally {
 			legion = false;
 			dispatcher.setRenderShadow(true);
+		}
+		// Ultron's red visor over the suit's own lenses: two hot slits and a glow, turned with the head
+		pose.pushPose();
+		pose.translate(0.0, 1.5, 0.0);
+		pose.mulPose(Axis.XP.rotationDegrees(pitch));
+		float flick = 0.85f + 0.15f * Mth.sin((mark.tickCount + partialTick) * 0.6f);
+		var vc = com.projecthero.mod.client.maxsteel.TurboDraw.buffer(buffers);
+		for (int side = -1; side <= 1; side += 2) {
+			pose.pushPose();
+			pose.translate(side * 0.105, 0.235, 0.335);
+			com.projecthero.mod.client.maxsteel.TurboDraw.box(vc, pose.last(), 0.075f, 0.028f, 0.012f, 0xFF2010, 0.95f * flick);
+			com.projecthero.mod.client.maxsteel.TurboDraw.box(vc, pose.last(), 0.06f, 0.014f, 0.016f, 0xFFB0A0, flick);
+			com.projecthero.mod.client.maxsteel.TurboDraw.box(vc, pose.last(), 0.12f, 0.06f, 0.008f, 0xFF1008, 0.35f * flick);
 			pose.popPose();
 		}
+		pose.popPose();
+		pose.popPose();
 		super.render(mark, entityYaw, partialTick, pose, buffers, packedLight);
 	}
 

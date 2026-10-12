@@ -74,6 +74,11 @@ public final class SuitHijack {
 		});
 	}
 
+	/** Does this client draw the Contagion HUD (then no duplicate action-bar text)? */
+	private static boolean hasHud(ServerPlayer p) {
+		return net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(p, ContagionNet.Hud.TYPE);
+	}
+
 	public static void clearSessionState() {
 		STATES.clear();
 	}
@@ -151,7 +156,8 @@ public final class SuitHijack {
 				s.attemptStart = now;
 				s.presses = 0;
 				level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 1.0f, 1.4f);
-				p.displayClientMessage(Component.translatable("message.projecthero.contagion.hijack_attempt").withStyle(ChatFormatting.RED,
+				if (!hasHud(p)) // the Contagion HUD already shows it
+					p.displayClientMessage(Component.translatable("message.projecthero.contagion.hijack_attempt").withStyle(ChatFormatting.RED,
 						ChatFormatting.BOLD), true);
 			}
 		}
@@ -172,7 +178,8 @@ public final class SuitHijack {
 		if (IronManFlight.isFlying(p)) {
 			IronManFlight.setFlying(p, false);
 		}
-		p.displayClientMessage(Component.translatable("message.projecthero.contagion.hijack_locked").withStyle(ChatFormatting.DARK_RED,
+		if (!hasHud(p)) // the Contagion HUD already shows it
+			p.displayClientMessage(Component.translatable("message.projecthero.contagion.hijack_locked").withStyle(ChatFormatting.DARK_RED,
 				ChatFormatting.BOLD), true);
 		p.serverLevel().playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 1.2f, 0.5f);
 		JarvisDialogue.speak(p, "contagion_hijack_locked");
@@ -192,7 +199,8 @@ public final class SuitHijack {
 		long now = player.level().getGameTime();
 		if (s.lockedUntil > now) {
 			if (pressed) {
-				player.displayClientMessage(Component.translatable("message.projecthero.contagion.hijack_locked").withStyle(ChatFormatting.DARK_RED), true);
+				if (!hasHud(player)) // the Contagion HUD already shows it
+					player.displayClientMessage(Component.translatable("message.projecthero.contagion.hijack_locked").withStyle(ChatFormatting.DARK_RED), true);
 			}
 			return true;
 		}

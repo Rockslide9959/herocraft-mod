@@ -100,7 +100,7 @@ public class ContagionGeoRenderer<T extends ContagionStructureEntity> extends Ge
 			}
 			if (g >= 1f) {
 				int colour = n.overridden() ? 0x40A8FF : n.capturing() && ((int) time / 4) % 2 == 0 ? 0x60E0FF : 0xFF2010;
-				float alpha = n.overridden() ? 0.10f : 0.14f + 0.04f * Mth.sin(time * 0.2f);
+				float alpha = n.overridden() ? 0.05f : 0.06f + 0.025f * Mth.sin(time * 0.2f); // faint: the spire stays readable through it
 				pose.pushPose();
 				pose.translate(0, 4.5, 0);
 				pose.scale(1f, 1.9f, 1f);
