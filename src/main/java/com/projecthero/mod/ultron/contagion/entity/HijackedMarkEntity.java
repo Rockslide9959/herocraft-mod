@@ -60,7 +60,6 @@ public class HijackedMarkEntity extends UltronRobot {
 		this.orbitDir = random.nextBoolean() ? 1 : -1;
 		setNoGravity(true);
 		setPersistenceRequired();
-		addTag(Contagion.UNIT_TAG);
 	}
 
 	public static AttributeSupplier.Builder createAttributes() {

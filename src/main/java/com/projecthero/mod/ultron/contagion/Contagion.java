@@ -526,6 +526,7 @@ public final class Contagion {
 		n.moveTo(ground.getX() + 0.5, ground.getY(), ground.getZ() + 0.5, level.random.nextFloat() * 360f, 0f);
 		n.configure(st.version);
 		st.addNexus(n.getUUID(), ground, level.getGameTime());
+		n.addTag(Contagion.UNIT_TAG);
 		level.addFreshEntity(n);
 		level.playSound(null, ground, SoundEvents.WARDEN_EMERGE, SoundSource.HOSTILE, 3.0f, 0.6f);
 		for (ServerPlayer p : level.players()) {

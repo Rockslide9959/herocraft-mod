@@ -24,7 +24,6 @@ public class CitadelMarkerEntity extends Entity {
 		super(type, level);
 		noPhysics = true;
 		setNoGravity(true);
-		addTag(Contagion.UNIT_TAG);
 	}
 
 	@Override

@@ -4714,7 +4714,7 @@
   "hud.projecthero.contagion.saturation": "%s%% | %s Nexus | Trace %s/3",
   "hud.projecthero.contagion.version": "Ultron v%s",
   "hud.projecthero.contagion.override_attempt": "OVERRIDE ATTEMPT",
-  "hud.projecthero.contagion.override_hint": "Press suit keys x6 or leave the red zone",
+  "hud.projecthero.contagion.override_hint": "Suit keys x6, or leave the zone",
   "hud.projecthero.contagion.locked": "SUIT LOCKED",
   "hud.projecthero.contagion.capture": "OVERRIDE %s%% | %ss | %s inside",
   "hud.projecthero.contagion.capture_paused": "OVERRIDE %s%% | paused: stand in the circle",

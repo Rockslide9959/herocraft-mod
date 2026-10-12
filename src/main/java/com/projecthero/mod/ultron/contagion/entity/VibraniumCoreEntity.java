@@ -31,7 +31,6 @@ public class VibraniumCoreEntity extends Entity implements GeoEntity {
 		super(type, level);
 		noPhysics = true;
 		setNoGravity(true);
-		addTag(Contagion.UNIT_TAG);
 	}
 
 	@Override

@@ -263,6 +263,7 @@ public final class SokoviaFinale {
 		CitadelMarkerEntity m = ContagionEntityTypes.CITADEL_MARKER.create(level);
 		if (m != null) {
 			m.moveTo(site.getX() + 0.5, groundY, site.getZ() + 0.5, 0f, 0f);
+			m.addTag(Contagion.UNIT_TAG);
 			level.addFreshEntity(m);
 			marker = m.getUUID();
 		}
@@ -326,6 +327,7 @@ public final class SokoviaFinale {
 			VibraniumCoreEntity v = ContagionEntityTypes.VIBRANIUM_CORE.create(level);
 			if (v != null) {
 				v.moveTo(c.x, c.y + 1, c.z, 0f, 0f);
+				v.addTag(Contagion.UNIT_TAG);
 				level.addFreshEntity(v);
 				core = v.getUUID();
 			}
@@ -342,6 +344,7 @@ public final class SokoviaFinale {
 				e.moveTo(at.x, at.y, at.z, (float) Math.toDegrees(a), 0f);
 				Mob guard = ContagionUnits.spawn(level, UltronEntityTypes.HEAVY, at.add(Math.cos(a) * -3, 0.2, Math.sin(a) * -3), null, st.version);
 				e.setGuard(guard != null ? guard.getUUID() : null);
+				e.addTag(Contagion.UNIT_TAG);
 				level.addFreshEntity(e);
 				engines.add(e.getUUID());
 			}
@@ -364,6 +367,7 @@ public final class SokoviaFinale {
 		}
 		o.moveTo(c.x, c.y, c.z + 6, 180f, 0f);
 		o.configure(Math.max(1, fighters.size()), st.version);
+		o.addTag(Contagion.UNIT_TAG);
 		level.addFreshEntity(o);
 		omega = o.getUUID();
 		UltronFx.forced(level, ParticleTypes.EXPLOSION_EMITTER, c.x, c.y, c.z + 6, 2, 1, 1, 1, 0);
@@ -452,6 +456,7 @@ public final class SokoviaFinale {
 			}
 			ant.moveTo(c.x + Math.cos(a) * r, c.y, c.z + Math.sin(a) * r, 0f, 0f);
 			ant.configure(n);
+			ant.addTag(Contagion.UNIT_TAG);
 			level.addFreshEntity(ant);
 			antennae.add(ant.getUUID());
 		}

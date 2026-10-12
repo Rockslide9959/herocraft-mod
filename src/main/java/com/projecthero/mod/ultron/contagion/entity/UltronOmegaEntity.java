@@ -134,7 +134,6 @@ public class UltronOmegaEntity extends UltronRobot implements GeoEntity {
 		this.bobPhase = random.nextFloat() * 100f;
 		setNoGravity(true);
 		setPersistenceRequired();
-		addTag(Contagion.UNIT_TAG);
 	}
 
 	public static AttributeSupplier.Builder createAttributes() {
@@ -677,6 +676,7 @@ public class UltronOmegaEntity extends UltronRobot implements GeoEntity {
 			d.moveTo(at.x, at.y, at.z, getYRot(), 0f);
 			d.introduced = true;
 			d.cooldown = 20 + random.nextInt(40);
+			d.addTag(Contagion.UNIT_TAG);
 			server.addFreshEntity(d);
 			decoys.add(d.getUUID());
 		}
@@ -729,6 +729,7 @@ public class UltronOmegaEntity extends UltronRobot implements GeoEntity {
 			}
 			m.moveTo(at.x, at.y, at.z, random.nextFloat() * 360f, 0f);
 			m.configure(suits.get(i), cfg.legionHealth * ContagionConfig.unitHealthScale(version), damageScale);
+			m.addTag(Contagion.UNIT_TAG);
 			server.addFreshEntity(m);
 			legion.add(m.getUUID());
 			UltronFx.forced(server, ParticleTypes.FLASH, at.x, at.y + 1, at.z, 1, 0, 0, 0, 0);
@@ -902,6 +903,7 @@ public class UltronOmegaEntity extends UltronRobot implements GeoEntity {
 		d.setHealth(getMaxHealth());
 		d.moveTo(at.x, at.y, at.z, 0f, 0f);
 		d.introduced = true;
+		d.addTag(Contagion.UNIT_TAG);
 		server.addFreshEntity(d);
 		decoys.add(d.getUUID());
 		splitDone = true;

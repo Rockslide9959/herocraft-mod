@@ -39,7 +39,6 @@ public abstract class ContagionStructureEntity extends UltronRobot implements Ge
 		super(type, level);
 		setNoGravity(true);
 		setPersistenceRequired();
-		addTag(Contagion.UNIT_TAG);
 	}
 
 	/** The GeckoLib asset name under {@code ultron/}. */

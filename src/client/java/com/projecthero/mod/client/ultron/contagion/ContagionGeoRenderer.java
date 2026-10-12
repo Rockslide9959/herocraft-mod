@@ -95,8 +95,8 @@ public class ContagionGeoRenderer<T extends ContagionStructureEntity> extends Ge
 				PoseStack.Pose p = pose.last();
 				float flick = 0.8f + 0.2f * Mth.sin(time * 0.9f);
 				Vec3 a = new Vec3(0, 0.5, 0), b = new Vec3(0, 260 - entity.getY(), 0);
-				BeamDraw.beam(buffers.getBuffer(RenderType.debugQuads()), true, p, a, b, cam, 1.4f, 0xFF1A10, flick);
-				BeamDraw.beam(buffers.getBuffer(RenderType.lightning()), false, p, a, b, cam, 1.4f, 0xFFA090, flick);
+				BeamDraw.beam(buffers.getBuffer(RenderType.debugQuads()), true, p, a, b, cam, 0.5f, 0xFF1A10, flick * 0.8f);
+				BeamDraw.beam(buffers.getBuffer(RenderType.lightning()), false, p, a, b, cam, 0.5f, 0xFFA090, flick);
 			}
 			if (g >= 1f) {
 				int colour = n.overridden() ? 0x40A8FF : n.capturing() && ((int) time / 4) % 2 == 0 ? 0x60E0FF : 0xFF2010;

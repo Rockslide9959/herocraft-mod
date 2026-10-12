@@ -38,8 +38,8 @@ public class CitadelMarkerRenderer extends EntityRenderer<CitadelMarkerEntity> {
 		PoseStack.Pose p = pose.last();
 		float flick = 0.8f + 0.2f * Mth.sin(time * 0.7f);
 		Vec3 a = new Vec3(0, 0, 0), b = new Vec3(0, 400, 0);
-		BeamDraw.beam(buffers.getBuffer(RenderType.debugQuads()), true, p, a, b, cam, 1.2f, 0xFF1A10, flick);
-		BeamDraw.beam(buffers.getBuffer(RenderType.lightning()), false, p, a, b, cam, 1.2f, 0xFFA090, flick);
+		BeamDraw.beam(buffers.getBuffer(RenderType.debugQuads()), true, p, a, b, cam, 0.45f, 0xFF1A10, flick * 0.8f);
+		BeamDraw.beam(buffers.getBuffer(RenderType.lightning()), false, p, a, b, cam, 0.45f, 0xFFA090, flick);
 		pose.pushPose();
 		pose.translate(0, 0.6, 0);
 		TurboDraw.sphere(TurboDraw.buffer(buffers), pose, 0.7f + 0.1f * Mth.sin(time * 0.2f), 0x40B8FF, 0.35f);
