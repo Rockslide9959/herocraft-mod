@@ -396,7 +396,13 @@ public class UltronContagionV0161GameTests implements FabricGameTest {
 		ServerPlayer p = helper.makeMockServerPlayerInLevel();
 		p.getInventory().add(new ItemStack(UltronItems.MIND_STONE));
 		helper.assertTrue(ContagionRewards.grantFirstWin(p), "first win");
-		helper.assertTrue(ContagionItems.empowered(p.getInventory().getItem(p.getInventory().findSlotMatchingItem(new ItemStack(UltronItems.MIND_STONE)))),
+		ItemStack stone = ItemStack.EMPTY; // the empowered stone carries a component, so match by item, not by exact stack
+		for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
+			if (p.getInventory().getItem(i).is(UltronItems.MIND_STONE)) {
+				stone = p.getInventory().getItem(i);
+			}
+		}
+		helper.assertTrue(ContagionItems.empowered(stone),
 				"the Mind Stone is empowered");
 		helper.assertFalse(ContagionRewards.grantFirstWin(p), "second win: nothing again");
 		helper.assertTrue(p.getInventory().countItem(UltronItems.MIND_STONE) == 1, "still exactly one Mind Stone");
