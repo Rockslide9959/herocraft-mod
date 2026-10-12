@@ -74,6 +74,23 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			this.body.z = 0.0f;
 			this.head.z = 0.0f;
 			this.hat.z = 0.0f;
+			// v0.16.1: Wolverine's torso twist moves the x pivots too
+			this.body.x = 0.0f;
+			this.head.x = 0.0f;
+			this.hat.x = 0.0f;
+		}
+	}
+
+	/**
+	 * v0.16.1: while Wolverine's claws are out every swing is one of his claw moves ({@code WolverineClawPose}), which
+	 * own the arms outright -- vanilla's punch swing (and its body twist) must not layer on top.
+	 */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("HEAD"))
+	private void projecthero$wolverineNoPunch(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player player && com.projecthero.mod.client.wolverine.WolverineClawPose.ownsArms(player,
+				Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false))) {
+			((HumanoidModel<?>) (Object) this).attackTime = 0.0f;
 		}
 	}
 

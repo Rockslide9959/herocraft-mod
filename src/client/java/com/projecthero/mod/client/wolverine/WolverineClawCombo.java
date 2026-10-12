@@ -40,6 +40,9 @@ public final class WolverineClawCombo {
 		long now = entity.level().getGameTime();
 		Swing prev = LAST.get(entity.getId());
 		boolean chained = prev != null && now - prev.tick() <= WINDOW && now >= prev.tick();
+		if (chained && now - prev.tick() < WolverineClawPose.commitTicks(prev.step())) {
+			return; // a strike is never cut off before it lands (held-down mining re-swings every 3 ticks)
+		}
 		int step = hand == InteractionHand.OFF_HAND ? STEP_SECOND
 				: chained && prev.step() == STEP_SECOND ? STEP_CROSS : STEP_FIRST;
 		if (LAST.size() > 64) {

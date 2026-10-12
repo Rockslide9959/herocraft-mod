@@ -25,10 +25,23 @@ import net.minecraft.client.renderer.entity.player.PlayerRenderer;
  */
 @Mixin(PlayerRenderer.class)
 public abstract class PlayerRendererClawsMixin {
+	/**
+	 * v0.16.1: vanilla's first-person hand runs the model's {@code setupAnim} and then only resets the arm's xRot -- so the
+	 * third-person Wolverine body poses (stance, torso twist) must sit this one out, or the first-person arm is shoved
+	 * off-screen. {@code WolverineClawPose} checks this flag.
+	 */
+	@Inject(method = "renderHand(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;ILnet/minecraft/client/player/AbstractClientPlayer;Lnet/minecraft/client/model/geom/ModelPart;Lnet/minecraft/client/model/geom/ModelPart;)V",
+			at = @At("HEAD"))
+	private void projecthero$wolverineHandStart(PoseStack pose, MultiBufferSource buffers, int light,
+			AbstractClientPlayer player, ModelPart arm, ModelPart sleeve, CallbackInfo ci) {
+		com.projecthero.mod.client.wolverine.WolverineClawPose.inFirstPersonHand = true;
+	}
+
 	@Inject(method = "renderHand(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;ILnet/minecraft/client/player/AbstractClientPlayer;Lnet/minecraft/client/model/geom/ModelPart;Lnet/minecraft/client/model/geom/ModelPart;)V",
 			at = @At("TAIL"))
 	private void projecthero$wolverineClaws(PoseStack pose, MultiBufferSource buffers, int light,
 			AbstractClientPlayer player, ModelPart arm, ModelPart sleeve, CallbackInfo ci) {
+		com.projecthero.mod.client.wolverine.WolverineClawPose.inFirstPersonHand = false;
 		if (player != Minecraft.getInstance().player || !WolverineClawsModel.visible(player, 1.0f)) {
 			return;
 		}

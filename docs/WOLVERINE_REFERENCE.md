@@ -43,6 +43,32 @@ reuses Super Regeneration's base heal tick and debuff-shortening mixin and scale
 > - **Sniff sound:** `WolverineSounds.SNIFF` (`projecthero:wolverine_sniff`, 3 synthesised takes
 >   `sounds/wolverine/sniff1..3.ogg`, from `scratchpad/synth_wolverine_sniff.js` + ffmpeg) replaces the Sniffer mob noises.
 
+> **v0.16.1 animation redo (after playtest):** `WolverineClawPose` was rebuilt as key-framed clips in ticks
+> (anticipation, a SNAP segment with a strong ease-out, follow-through, quick ease-out recovery). Each key holds the
+> torso twist (yaw) and lean (pitch) -- applied about the hips like `HipBend` but generalised to a twisted torso
+> (`torso()` moves the neck / head / shoulder pivots) -- both arms as aim + blade-edge directions in torso space
+> (`aim()` builds the arm rotation so the curved blades cut edge-first), leg pitches for a step, and head pitch.
+> Combo: 1 = rising diagonal right (`DIAG`, 8 t), 2 = horizontal left (`HORIZ`, 8 t), 3 = both arms high outside
+> the shoulders raked down into an X in front of the chest with a hip crunch (`CROSS`, 10 t); the off arm guards low
+> (never in front of the face) then counter-pulls. Abilities reuse the clips: R = `HORIZ` sweep, G = `DIAG` slashes,
+> V = `DIAG` at 2x speed, Z = `CHARGE` (held) then `THRUST`, C = `ROAR`; lead arms mirror automatically. Claw deploy:
+> `DEPLOY` (arms flung out to the sides, chest out, head back), the blades pop at full extension
+> (`WolverineClawsModel.extension` waits `DEPLOY_DELAY_TICKS` 3 then extends over 4) and the server's snikt
+> (`Wolverine.clawSound`) plays at `CLAW_POP_TICKS` 6 from `WolverinePassives`; retract = `RETRACT` (arms pull in
+> low). First person has matching `F_*` clips in `firstPerson()` (rotations pivot about the hand; yaw/pitch aim the
+> claws across the view since a Z roll only twists the forearm) and draws both hands while
+> `WolverineClawsModel.handsShown`. Vanilla's punch swing is switched off while the claws are out
+> (`HumanoidModelMixin` zeroes `attackTime` at HEAD; first person passes swing 0 and equip 0), and the third-person
+> pose skips vanilla's first-person `renderHand` setupAnim (`WolverineClawPose.inFirstPersonHand`, set by
+> `PlayerRendererClawsMixin`). Combo steps are never cut before their impact (`commitTicks`), so held mining no longer
+> restarts them every 3 ticks. Trails are now thin camera-facing arcs along the blade TIPS only, during the snap,
+> fading over 4.5 ticks (no translucent sheets); the vanilla sweep particle on the finisher is gone.
+> **Gotcha:** JOML 1.10.5's `Quaternionf.getEulerAnglesZYX` does NOT round-trip with `rotationZYX` -- `set()` extracts
+> the ModelPart angles from the matrix by hand. The ascension's Resistance II no longer shows swirl particles (the purple
+> glyphs in early screenshots). Frame-strip harness: `scratchpad/V0161WolvStripHarness*.java.txt` (grabs the previous
+> frame at the head of `Minecraft.runTick` once its game time passes each beat, tick rate 4), sheets via
+> `scratchpad/compose_wolv_sheets.js`.
+
 > **v0.15.18 (Death Surge rework):** no cooldown / one-use limit (`EMERGENCY_COOLDOWN_TICKS`, `EMERGENCY_HEAL_TICKS`,
 > `FLESH_HOLD_TICKS`, `FLESH_FADE_TICKS` deleted; `emergencyReadyAt` / `emergencyHealUntil` are no longer written). Every
 > lethal hit fires it (`WolverineDamage.allowDeath` -> `WolverinePassives.tryEmergency`) but each one drains

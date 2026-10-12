@@ -29,7 +29,7 @@ public final class WolverineClawsModel {
 	public static final ResourceLocation TEXTURE = ProjectHeroMod.id("textures/entity/wolverine_claws.png");
 
 	/** Ticks the blades take to slide out / back in. */
-	private static final float EXTEND_TICKS = 6.0f;
+	private static final float EXTEND_TICKS = 4.0f;
 	/** Arm-bone Y (px) where the blades start, inside the fist. */
 	private static final float ROOT_Y = 9.0f;
 	private static final float BLADE_SPACING = 1.3f;
@@ -52,14 +52,32 @@ public final class WolverineClawsModel {
 		if (s == null || !s.hasPower) {
 			return 0.0f;
 		}
-		float t = (player.level().getGameTime() + partialTick - s.clawsChangedAt) / EXTEND_TICKS;
+		float age = player.level().getGameTime() + partialTick - s.clawsChangedAt;
+		// v0.16.1: deploying, the blades wait for the arms to be flung out (WolverineClawPose's deploy throw) and pop out
+		// of the fists as they reach full extension; retracting, they slide straight back in
+		float t = s.clawsOut ? (age - DEPLOY_DELAY_TICKS) / EXTEND_TICKS : age / EXTEND_TICKS;
 		t = Math.max(0.0f, Math.min(1.0f, t));
 		return s.clawsOut ? t : 1.0f - t;
 	}
 
+	/** v0.16.1: ticks into the deploy throw before the blades start to come out (fully out at delay + extend = 7). */
+	public static final float DEPLOY_DELAY_TICKS = 3.0f;
+
 	/** Whether a player currently needs the claws drawn at all (cheap early-out for the layer / mixin). */
 	public static boolean visible(AbstractClientPlayer player, float partialTick) {
 		return Wolverine.hasPower(player) && extension(player, partialTick) > 0.02f;
+	}
+
+	/**
+	 * v0.16.1: whether the first-person hands are Wolverine's to draw -- claws out (including the first ticks of the
+	 * deploy throw, before the blades show) or the retract animation still running.
+	 */
+	public static boolean handsShown(AbstractClientPlayer player, float partialTick) {
+		WolverineState s = player.getAttachedOrElse(ModAttachments.WOLVERINE_STATE, null);
+		if (s == null || !s.hasPower) {
+			return false;
+		}
+		return s.clawsOut || player.level().getGameTime() + partialTick - s.clawsChangedAt < WolverineClawPose.RETRACT_TICKS;
 	}
 
 	// ------------------------------------------------------------------ geometry

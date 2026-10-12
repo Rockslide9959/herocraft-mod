@@ -41,7 +41,7 @@ public abstract class ItemInHandRendererClawsMixin {
 	private void projecthero$wolverineOffHand(AbstractClientPlayer player, float partialTick, float pitch,
 			InteractionHand hand, float swingProgress, ItemStack stack, float equipProgress, PoseStack pose,
 			MultiBufferSource buffers, int light, CallbackInfo ci) {
-		if (!stack.isEmpty() || player.isInvisible() || !WolverineClawsModel.visible(player, partialTick)) {
+		if (!stack.isEmpty() || player.isInvisible() || !WolverineClawsModel.handsShown(player, partialTick)) {
 			return;
 		}
 		HumanoidArm arm = hand == InteractionHand.MAIN_HAND ? player.getMainArm() : player.getMainArm().getOpposite();
@@ -56,11 +56,11 @@ public abstract class ItemInHandRendererClawsMixin {
 			ci.cancel();
 			return;
 		}
-		// v0.16.1: both arms are drawn here -- a claw move (slash combo, ability) replaces vanilla's punch swing with its own
-		// key-framed motion (WolverineClawPose); otherwise the main arm keeps vanilla's swing and the off arm idles
+		// v0.16.1: both arms are drawn here and Wolverine's claw motion (combo strikes, abilities, the deploy throw, the
+		// sprint pump -- WolverineClawPose) owns them outright: no vanilla punch swing and no post-attack equip dip
 		pose.pushPose();
-		boolean moving = com.projecthero.mod.client.wolverine.WolverineClawPose.firstPerson(player, arm, partialTick, pose);
-		renderPlayerArm(pose, buffers, light, equipProgress, moving ? 0.0f : swingProgress, arm);
+		com.projecthero.mod.client.wolverine.WolverineClawPose.firstPerson(player, arm, partialTick, pose);
+		renderPlayerArm(pose, buffers, light, 0.0f, 0.0f, arm);
 		pose.popPose();
 		ci.cancel();
 	}

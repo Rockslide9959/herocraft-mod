@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import com.projecthero.mod.client.darkseid.BeamDraw;
 import com.projecthero.mod.wolverine.Wolverine;
 
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -32,25 +33,26 @@ import org.joml.Vector3f;
 /**
  * v0.16.1: the claw VFX, all client side and blood-free.
  * <ul>
- * <li><b>Slash trails</b>: while a claw move is in its cutting phase ({@link WolverineClawPose#trailing}), the outer
- * half of each blade is sampled every frame and the swept surface between samples is drawn as a thin additive ribbon --
- * a pale steel-blue arc (red-tinged during Rage) that fades out over {@link #TRAIL_TICKS} ticks. Third person samples
- * come from the claws layer in world space (drawn after translucents); first person samples are taken and drawn in the
- * hand's own camera space so they line up with the first-person arm.</li>
- * <li><b>Strike sparks</b>: the tick a move strikes home, a few adamantium sparks (and, for a left-click slash, one
- * vanilla sweep arc) burst at the claw tips. Throttled: one burst per strike, a handful of particles, nothing beyond
- * {@link #FX_RANGE} blocks, halved on Decreased particles and skipped on Minimal.</li>
+ * <li><b>Slash trails</b>: only during the snap of a cut ({@link WolverineClawPose#trailing}) each blade tip is sampled
+ * every frame and its path drawn as a thin, camera-facing additive arc -- pale steel-blue (red-tinged in Rage), a few
+ * pixels wide, tapering toward its tail and gone {@link #TRAIL_TICKS} ticks later. Third person samples come from the
+ * claws layer in world space (drawn after translucents); first person samples are taken and drawn in the hand's own
+ * camera space so they line up with the first-person arm.</li>
+ * <li><b>Strike sparks</b>: the tick a move strikes home, a few adamantium sparks burst in front of the
+ * chest. Throttled: one burst per strike, a handful of particles, nothing
+ * beyond {@link #FX_RANGE} blocks, halved on Decreased particles and skipped on Minimal.</li>
  * </ul>
  */
 public final class WolverineClawFx {
-	private static final float TRAIL_TICKS = 3.5f;
-	private static final int MAX_SAMPLES = 24;
+	private static final float TRAIL_TICKS = 4.5f;
+	private static final int MAX_SAMPLES = 32;
 	private static final double FX_RANGE = 32.0;
-	/** Where along a blade the ribbon starts (0 root .. 1 tip). */
-	private static final float RIBBON_FROM = 0.4f;
+	/** Arc half-width at its head: first person (view units) and third person (blocks). */
+	private static final float WIDTH_FP = 0.0042f;
+	private static final float WIDTH_WORLD = 0.02f;
 
-	/** One frame's sample: the time and, per blade, the ribbon's inner and outer point. */
-	private record Sample(float time, Vector3f[] inner, Vector3f[] outer) {
+	/** One frame's sample: the time and the three blade tips. */
+	private record Sample(float time, Vector3f[] tips) {
 	}
 
 	private static final class Trail {
@@ -63,7 +65,7 @@ public final class WolverineClawFx {
 	/** The local player's first-person trails, per arm, in the hand's camera space. */
 	private static final Trail[] FIRST_PERSON = {new Trail(), new Trail()};
 	private static boolean inWorldRender;
-	/** Per entity: the last tick's move, so a strike bursts exactly once. */
+	/** Per entity: the last tick's move progress, so a strike bursts exactly once. */
 	private static final Map<Integer, Float> LAST_T = new HashMap<>();
 
 	private WolverineClawFx() {
@@ -89,17 +91,14 @@ public final class WolverineClawFx {
 	}
 
 	private static Sample sample(Matrix4f m, boolean right, boolean slim, float ext, float length, Vec3 offset) {
-		Vector3f[] inner = new Vector3f[3];
-		Vector3f[] outer = new Vector3f[3];
+		Vector3f[] tips = new Vector3f[3];
 		for (int i = 0; i < 3; i++) {
-			inner[i] = m.transformPosition(WolverineClawsModel.bladePoint(right, slim, ext, length, i, RIBBON_FROM));
-			outer[i] = m.transformPosition(WolverineClawsModel.bladePoint(right, slim, ext, length, i, 1.0f));
+			tips[i] = m.transformPosition(WolverineClawsModel.bladePoint(right, slim, ext, length, i, 1.0f));
 			if (offset != null) {
-				inner[i].add((float) offset.x, (float) offset.y, (float) offset.z);
-				outer[i].add((float) offset.x, (float) offset.y, (float) offset.z);
+				tips[i].add((float) offset.x, (float) offset.y, (float) offset.z);
 			}
 		}
-		return new Sample(now(), inner, outer);
+		return new Sample(now(), tips);
 	}
 
 	private static void push(Trail trail, Sample s, boolean rage) {
@@ -114,18 +113,15 @@ public final class WolverineClawFx {
 	public static void recordWorld(AbstractClientPlayer player, boolean right, boolean active, Matrix4f armPose, boolean slim,
 			float ext, float length) {
 		Minecraft mc = Minecraft.getInstance();
-		if (!inWorldRender || (player == mc.player && mc.options.getCameraType().isFirstPerson())) {
-			return; // the inventory / GUI player preview is not in the world; first person has its own trail
-		}
-		int key = player.getId() * 2 + (right ? 1 : 0);
-		if (!active) {
-			return; // the samples already taken fade out on their own
+		if (!inWorldRender || !active || (player == mc.player && mc.options.getCameraType().isFirstPerson())) {
+			return; // not in the world (GUI preview), not cutting, or first person (which has its own trail)
 		}
 		Vec3 cam = mc.gameRenderer.getMainCamera().getPosition();
+		int key = player.getId() * 2 + (right ? 1 : 0);
 		push(WORLD.computeIfAbsent(key, k -> new Trail()), sample(armPose, right, slim, ext, length, cam), Wolverine.raging(player));
 	}
 
-	/** First person: sample and draw this hand's trail in the hand's camera space. */
+	/** First person: sample and draw this hand's trail in the hand's camera space (the camera is the origin). */
 	public static void firstPerson(AbstractClientPlayer player, boolean right, Matrix4f armPose, boolean slim, float ext,
 			MultiBufferSource buffers) {
 		Trail trail = FIRST_PERSON[right ? 1 : 0];
@@ -133,15 +129,16 @@ public final class WolverineClawFx {
 		if (WolverineClawPose.trailing(player, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false), arm)) {
 			push(trail, sample(armPose, right, slim, ext, WolverineClawsModel.FIRST_PERSON_LENGTH, null), Wolverine.raging(player));
 		}
+		expire(trail, now());
 		if (trail.samples.size() < 2) {
-			expire(trail, now());
 			return;
 		}
-		draw(buffers.getBuffer(RenderType.lightning()), new PoseStack().last(), trail, now(), 0.5f);
+		draw(buffers.getBuffer(RenderType.lightning()), new PoseStack().last(), trail, now(), Vec3.ZERO, WIDTH_FP, 0.9f);
 	}
 
 	private static void expire(Trail trail, float now) {
-		while (!trail.samples.isEmpty() && (now - trail.samples.peekFirst().time() > TRAIL_TICKS || now < trail.samples.peekFirst().time() - 1.0f)) {
+		while (!trail.samples.isEmpty() && (now - trail.samples.peekFirst().time() > TRAIL_TICKS
+				|| now < trail.samples.peekFirst().time() - 1.0f)) {
 			trail.samples.removeFirst();
 		}
 	}
@@ -164,53 +161,41 @@ public final class WolverineClawFx {
 				it.remove();
 				continue;
 			}
-			draw(vc, pose.last(), trail, t, 0.42f);
+			draw(vc, pose.last(), trail, t, cam, WIDTH_WORLD, 0.85f);
 		}
 		pose.popPose();
 	}
 
-	/** The ribbon: for each pair of consecutive samples, per blade, a quad from inner to outer point, fading with age. */
-	private static void draw(VertexConsumer vc, PoseStack.Pose pose, Trail trail, float now, float strength) {
-		expire(trail, now);
+	/** Each blade tip's path as a thin camera-facing arc: widest and brightest at the head, thinning and fading behind. */
+	private static void draw(VertexConsumer vc, PoseStack.Pose pose, Trail trail, float now, Vec3 camera, float width,
+			float strength) {
 		if (trail.samples.size() < 2) {
 			return;
 		}
-		int r = trail.rage ? 255 : 150;
-		int g = trail.rage ? 140 : 200;
-		int b = trail.rage ? 150 : 255;
-		Matrix4f m = pose.pose();
+		int rgb = trail.rage ? 0xFF9C9C : 0xB4DCFF;
 		Sample prev = null;
 		for (Sample s : trail.samples) {
 			if (prev != null) {
-				float a0 = alpha(now - prev.time(), strength);
-				float a1 = alpha(now - s.time(), strength);
+				float f0 = life(now - prev.time());
+				float f1 = life(now - s.time());
 				for (int i = 0; i < 3; i++) {
-					quad(vc, m, prev.inner()[i], prev.outer()[i], s.outer()[i], s.inner()[i], r, g, b, a0, a1);
+					// the middle blade's arc is the brightest; the outer two are fainter so they read as one set of marks
+					float k = (i == 1 ? 1.0f : 0.6f) * strength;
+					BeamDraw.segment(vc, pose, vec(prev.tips()[i]), vec(s.tips()[i]), camera, width * f0, width * f1, rgb,
+							k * f0 * f0, k * f1 * f1);
 				}
 			}
 			prev = s;
 		}
 	}
 
-	private static float alpha(float age, float strength) {
-		float f = 1.0f - age / TRAIL_TICKS;
-		return Math.max(0.0f, f * f) * strength;
+	private static Vec3 vec(Vector3f p) {
+		return new Vec3(p.x, p.y, p.z);
 	}
 
-	/** Both windings (the lightning buffer culls back faces); the inner edge is transparent, the tip edge bright. */
-	private static void quad(VertexConsumer vc, Matrix4f m, Vector3f in0, Vector3f out0, Vector3f out1, Vector3f in1,
-			int r, int g, int b, float a0, float a1) {
-		int i0 = 0;
-		int o0 = (int) (255 * Math.min(1.0f, a0));
-		int o1 = (int) (255 * Math.min(1.0f, a1));
-		vc.addVertex(m, in0.x, in0.y, in0.z).setColor(r, g, b, i0);
-		vc.addVertex(m, out0.x, out0.y, out0.z).setColor(r, g, b, o0);
-		vc.addVertex(m, out1.x, out1.y, out1.z).setColor(r, g, b, o1);
-		vc.addVertex(m, in1.x, in1.y, in1.z).setColor(r, g, b, i0);
-		vc.addVertex(m, in1.x, in1.y, in1.z).setColor(r, g, b, i0);
-		vc.addVertex(m, out1.x, out1.y, out1.z).setColor(r, g, b, o1);
-		vc.addVertex(m, out0.x, out0.y, out0.z).setColor(r, g, b, o0);
-		vc.addVertex(m, in0.x, in0.y, in0.z).setColor(r, g, b, i0);
+	/** 1 when fresh, 0 when {@link #TRAIL_TICKS} old. */
+	private static float life(float age) {
+		return Math.max(0.0f, 1.0f - age / TRAIL_TICKS);
 	}
 
 	// ------------------------------------------------------------------ strike sparks
@@ -248,7 +233,7 @@ public final class WolverineClawFx {
 		}
 	}
 
-	/** A few sparks at the claw tips, in front of the chest on the striking side(s); plus a sweep arc for a combo slash. */
+	/** A few sparks where the claws finish, in front of the chest. */
 	private static void burst(ClientLevel level, Player p, WolverineClawPose.Move m, boolean fewer) {
 		Vec3 look = p.getLookAngle();
 		Vec3 flat = new Vec3(look.x, 0, look.z);
@@ -271,9 +256,6 @@ public final class WolverineClawFx {
 				level.addParticle(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, vx, vy, vz);
 			}
 			level.addParticle(ParticleTypes.CRIT, at.x, at.y, at.z, look.x * 0.2, 0.05, look.z * 0.2);
-		}
-		if (m.kind() == WolverineClawPose.Kind.SLASH || m.kind() == WolverineClawPose.Kind.CROSS) {
-			level.addParticle(ParticleTypes.SWEEP_ATTACK, centre.x, centre.y, centre.z, 0.0, 0.0, 0.0);
 		}
 	}
 }

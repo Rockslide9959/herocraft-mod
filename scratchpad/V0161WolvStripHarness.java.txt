@@ -1,0 +1,381 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.DoubleSupplier;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.client.wolverine.WolverineClawCombo;
+import com.projecthero.mod.hero.ExperimentalPowers;
+import com.projecthero.mod.hero.Powers;
+import com.projecthero.mod.wolverine.Wolverine;
+import com.projecthero.mod.wolverine.data.WolverineState;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.16.1 Wolverine frame strips. Frame-accurate: the camera mixin records each frame's
+ * game time, and the frame mixin grabs the PREVIOUS frame at the head of the next runTick (the main target still holds
+ * it) once its animation time passes the next beat. Ticks are slowed (tick rate 4) for the strikes / deploy.
+ */
+public final class V0161WolvHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	public static Vec3 camOffset;
+	public static Vec3 camLook = new Vec3(0, 1.0, 0);
+	private static volatile long lastProgress = System.currentTimeMillis();
+	private static String only = "";
+	private static boolean sprint;
+
+	/** The last rendered frame's game time (ticks + partial). */
+	public static double frameTime;
+
+	private static String capName;
+	private static DoubleSupplier capStart;
+	private static float[] capTargets;
+	private static int capIdx;
+
+	private V0161WolvHarness() {
+	}
+
+	public static void init() {
+		Path flag = Path.of("v0161wolv.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			only = Files.readString(flag).trim();
+		} catch (Exception ignored) {
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(V0161WolvHarness::tick);
+		Thread wd = new Thread(() -> {
+			while (true) {
+				try {
+					Thread.sleep(5000);
+				} catch (InterruptedException e) {
+					return;
+				}
+				if (System.currentTimeMillis() - lastProgress > 180_000L) {
+					System.out.println("[HARNESS] WATCHDOG: no progress for 180 s");
+					Runtime.getRuntime().halt(3);
+				}
+			}
+		}, "v0161-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	public static boolean active() {
+		return t0 >= 0;
+	}
+
+	/** Called at the head of every runTick: the main target holds the last frame. */
+	public static void onFrame() {
+		if (capTargets == null || capIdx >= capTargets.length) {
+			return;
+		}
+		double start = capStart.getAsDouble();
+		if (Double.isNaN(start)) {
+			return;
+		}
+		double t = frameTime - start;
+		if (t >= capTargets[capIdx]) {
+			Minecraft mc = Minecraft.getInstance();
+			String n = capName + "_" + capIdx;
+			Screenshot.grab(mc.gameDirectory, "v0161s_" + n + ".png", mc.getMainRenderTarget(), c -> {
+			});
+			System.out.println("[HARNESS] shot " + n + " t=" + String.format("%.2f", t));
+			lastProgress = System.currentTimeMillis();
+			capIdx++;
+
+		}
+	}
+
+	private static void capture(String name, DoubleSupplier start, float... targets) {
+		capName = name;
+		capStart = start;
+		capTargets = targets;
+		capIdx = 0;
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					try {
+						fn.accept(p);
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		Runnable prev = AT.get(t);
+		AT.put(t, prev == null ? r : () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				lastProgress = System.currentTimeMillis();
+				mc.execute(V0161WolvHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks % 10 == 0) {
+			lastProgress = System.currentTimeMillis();
+		}
+		if (t0 >= 0) {
+			mc.player.setYRot(0f);
+			mc.player.setXRot(0f);
+			mc.player.yHeadRot = 0f;
+			mc.player.yHeadRotO = 0f;
+			mc.player.yBodyRot = 0f;
+			mc.player.yBodyRotO = 0f;
+			mc.options.hideGui = !mc.options.getCameraType().isFirstPerson();
+			mc.gui.getChat().clearMessages(false);
+			mc.options.keyUp.setDown(sprint);
+			mc.options.keySprint.setDown(sprint);
+			if (sprint) {
+				mc.player.setSprinting(true);
+			}
+		}
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.teleportTo(level, Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5, 0f, 0f);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("V0161S_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.NORMAL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void view(Minecraft mc, String v) {
+		switch (v) {
+			case "q" -> {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				camOffset = new Vec3(-1.15, 1.35, 1.5);
+				camLook = new Vec3(0, 1.05, 0.1);
+			}
+			case "s" -> {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				camOffset = new Vec3(-2.0, 1.1, 0.0);
+				camLook = new Vec3(0, 1.0, 0.0);
+			}
+			default -> {
+				camOffset = null;
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+			}
+		}
+	}
+
+	private static void tickRate(Minecraft mc, float rate) {
+		server(mc, p -> p.server.tickRateManager().setTickRate(rate));
+	}
+
+	private static double comboStart() {
+		WolverineClawCombo.Swing s = WolverineClawCombo.last(Minecraft.getInstance().player);
+		return s == null ? Double.NaN : s.tick();
+	}
+
+	private static double clawsChanged(boolean out) {
+		WolverineState s = Minecraft.getInstance().player.getAttachedOrElse(ModAttachments.WOLVERINE_STATE, null);
+		return s == null || s.clawsOut != out ? Double.NaN : s.clawsChangedAt;
+	}
+
+	private static final String[] VIEWS = {"q", "s", "f"};
+
+	private static void script(Minecraft mc) {
+		at(5, () -> server(mc, p -> {
+			ExperimentalPowers.grant(p, Powers.byKey(Wolverine.SUPER_REGENERATION_KEY));
+			Wolverine.ascendFromSuperRegeneration(p);
+			Wolverine.setClaws(p, true);
+		}));
+		int c = 40;
+		boolean all = only.isEmpty() || only.equals("all");
+		if (all || only.contains("m1")) {
+			at(c - 5, () -> tickRate(mc, 4f));
+			float[][] beats = {{1.5f, 2.4f, 3.5f, 5.5f, 7.0f}, {1.5f, 2.4f, 3.5f, 5.5f, 7.0f}, {2.5f, 3.6f, 5.0f, 7.0f, 8.8f}};
+			for (int k = 1; k <= 3; k++) {
+				for (String v : VIEWS) {
+					final int kk = k;
+					at(c, () -> view(mc, v));
+					for (int s = 1; s <= k; s++) {
+						final int ss = s;
+						at(c + 4 + (s - 1) * 10, () -> {
+							mc.player.swing(WolverineClawCombo.nextHand(mc.player));
+							if (ss == kk) {
+								capture("m1_s" + kk + "_" + v, V0161WolvHarness::comboStart, beats[kk - 1]);
+							}
+						});
+					}
+					c += 4 + (k - 1) * 10 + 26;
+				}
+			}
+			at(c, () -> tickRate(mc, 20f));
+			c += 5;
+		}
+		if (all || only.contains("deploy")) {
+			at(c, () -> tickRate(mc, 4f));
+			c += 2;
+			for (String v : VIEWS) {
+				at(c, () -> {
+					view(mc, v);
+					server(mc, p -> Wolverine.setClaws(p, false));
+				});
+				at(c + 6, () -> {
+					server(mc, p -> Wolverine.setClaws(p, true));
+					capture("deploy_" + v, () -> clawsChanged(true), 2.0f, 4.5f, 6.5f, 10.0f, 16.0f);
+				});
+				at(c + 28, () -> {
+					server(mc, p -> Wolverine.setClaws(p, false));
+					capture("retract_" + v, () -> clawsChanged(false), 1.0f, 2.5f, 3.5f, 6.0f, 8.5f);
+				});
+				at(c + 40, () -> server(mc, p -> Wolverine.setClaws(p, true)));
+				c += 52;
+			}
+			at(c, () -> tickRate(mc, 20f));
+			c += 5;
+		}
+		if (all || only.contains("abil")) {
+			at(c, () -> {
+				tickRate(mc, 4f);
+				view(mc, "q");
+			});
+			c += 3;
+			String[] names = {"R", "G", "V", "Z", "C"};
+			int[] actions = {1, 2, 5, 4, 6};
+			float[][] beats = {{1.5f, 2.4f, 3.5f, 5.5f, 7.0f}, {1.5f, 2.4f, 3.5f, 5.5f, 7.0f}, {0.75f, 1.2f, 1.75f, 2.75f, 3.5f},
+					{2.0f, 3.0f, 3.8f, 5.5f, 7.0f}, {2.0f, 4.0f, 10.0f, 20.0f, 24.0f}};
+			for (int a = 0; a < 5; a++) {
+				final int ai = a;
+				at(c, () -> server(mc, p -> {
+					var st = Wolverine.state(p).copy();
+					st.abilityReadyAt.clear();
+					st.rageUntil = 0L;
+					st.rageMeter = 100f;
+					p.setAttached(ModAttachments.WOLVERINE_STATE, st);
+					var h = net.minecraft.world.entity.EntityType.HUSK.create(p.serverLevel());
+					h.moveTo(p.getX(), p.getY(), p.getZ() + 2.6, 180f, 0f);
+					h.setNoAi(true);
+					h.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(500.0);
+					h.setHealth(500f);
+					p.serverLevel().addFreshEntity(h);
+				}));
+				if (ai == 3) {
+					// Z: the held charge first
+					at(c + 3, () -> {
+						server(mc, com.projecthero.mod.wolverine.WolverineAbilities::beginExecutionCharge);
+						capture("abil_Zcharge", () -> {
+							WolverineState w = mc.player.getAttachedOrElse(ModAttachments.WOLVERINE_STATE, null);
+							return w == null || w.chargeStartedAt == 0L ? Double.NaN : w.chargeStartedAt;
+						}, 1f, 3f, 6f, 10f, 14f);
+					});
+					at(c + 22, () -> server(mc, p -> {
+						var st = Wolverine.state(p).copy();
+						st.chargeStartedAt -= 200;
+						p.setAttached(ModAttachments.WOLVERINE_STATE, st);
+					}));
+					c += 22;
+				}
+				final int cc = c;
+				at(c + 3, () -> {
+					server(mc, p -> {
+						switch (ai) {
+							case 0 -> com.projecthero.mod.wolverine.WolverineAbilities.clawSlash(p);
+							case 1 -> com.projecthero.mod.wolverine.WolverineAbilities.crossSlash(p);
+							case 2 -> com.projecthero.mod.wolverine.WolverineAbilities.frenzy(p);
+							case 3 -> com.projecthero.mod.wolverine.WolverineAbilities.releaseExecutionCharge(p);
+							default -> com.projecthero.mod.wolverine.WolverineAbilities.berserkerRage(p);
+						}
+					});
+					double armed = mc.level.getGameTime();
+					capture("abil_" + names[ai], () -> {
+						WolverineState w = mc.player.getAttachedOrElse(ModAttachments.WOLVERINE_STATE, null);
+						return w == null || w.lastAction != actions[ai] || w.lastActionTick < armed - 3 ? Double.NaN : w.lastActionTick;
+					}, beats[ai]);
+				});
+				c += ai == 4 ? 40 : 25;
+				at(c - 2, () -> server(mc, p -> {
+					p.teleportTo(p.serverLevel(), Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5, 0f, 0f);
+					for (var e : p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.monster.Husk.class, p.getBoundingBox().inflate(20))) {
+						e.discard();
+					}
+				}));
+			}
+			at(c, () -> tickRate(mc, 20f));
+			c += 5;
+		}
+		at(c, () -> {
+			System.out.println("[HARNESS] done");
+			mc.stop();
+		});
+	}
+}

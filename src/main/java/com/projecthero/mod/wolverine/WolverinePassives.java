@@ -48,6 +48,9 @@ public final class WolverinePassives {
 		}
 		long now = player.level().getGameTime();
 		expireTimers(player, s, now);
+		if (s.clawsOut && now - s.clawsChangedAt == Wolverine.CLAW_POP_TICKS) {
+			Wolverine.clawSound(player); // v0.16.1: the snikt lands as the blades pop out
+		}
 		reconcile(player);
 
 		healingFactor(player);

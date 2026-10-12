@@ -169,7 +169,8 @@ public final class Wolverine {
 		level.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 60, 0.45, 0.9, 0.45, 0.14);
 		level.sendParticles(ParticleTypes.HEART, c.x, c.y, c.z, 10, 0.4, 0.8, 0.4, 0.0);
 		level.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 1, 0, 0, 0, 0);
-		player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100, 1, false, true, true));
+		// v0.16.1: no swirl particles (the purple Resistance swirls hung around him in every shot after ascending)
+		player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100, 1, false, false, true));
 		player.displayClientMessage(Component.translatable("message.projecthero.wolverine.evolved")
 				.withStyle(ChatFormatting.GOLD), false);
 		player.displayClientMessage(Component.translatable("message.projecthero.wolverine.acquired")
@@ -196,10 +197,9 @@ public final class Wolverine {
 		c.clawsChangedAt = player.level().getGameTime();
 		save(player, c);
 		WolverinePassives.reconcile(player);
-		player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-				SoundEvents.CHAIN_BREAK, SoundSource.PLAYERS, 0.9f, 1.2f); // deploy sounds like the retract
-		player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-				SoundEvents.IRON_TRAPDOOR_CLOSE, SoundSource.PLAYERS, 0.35f, 1.4f);
+		if (!out) {
+			clawSound(player);
+		} // v0.16.1: deploying, the snikt waits for the blades to pop out at the end of the arm throw (WolverinePassives)
 		player.displayClientMessage(Component.translatable(
 				out ? "message.projecthero.wolverine.claws_deployed" : "message.projecthero.wolverine.claws_retracted")
 				.withStyle(out ? ChatFormatting.GOLD : ChatFormatting.GRAY), true);
@@ -218,6 +218,17 @@ public final class Wolverine {
 			}
 		}
 		return out;
+	}
+
+	/** Ticks after a deploy at which the blades pop out of the fists (the client's arm throw reaches full extension). */
+	public static final int CLAW_POP_TICKS = 6;
+
+	/** The claws' metal sound (deploy and retract sound alike). */
+	static void clawSound(ServerPlayer player) {
+		player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+				SoundEvents.CHAIN_BREAK, SoundSource.PLAYERS, 0.9f, 1.2f);
+		player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+				SoundEvents.IRON_TRAPDOOR_CLOSE, SoundSource.PLAYERS, 0.35f, 1.4f);
 	}
 
 	/** H key: toggle, with a tiny anti-spam guard. */
