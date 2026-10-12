@@ -70,7 +70,8 @@ find), which let one player kite a boss while a friend hit it for free.
 - **Empty table:** nothing changes -- the boss keeps its own acquisition (nearest player, raid participant lists).
 
 Wiring: `threat.record(source, amount)` after a hit lands in `hurt` / `actuallyHurt`, `threat.tick()` once per server tick.
-Wired into Carnage, Kingpin, the Bone Tyrant, the Brood Queen, Ultron Prime, the Ultron Sentry, the Abyssal Behemoth,
+Wired into Carnage, Kingpin, the Bone Tyrant, the Brood Queen, Ultron Prime, the Ultron Sentry, Ultron Omega (v0.16.1, the
+Contagion's finale; a move in flight finishes first), the Abyssal Behemoth,
 Darkseid (`DarkseidCombat.refreshTarget`: the table first, the old 10 s sticky distance scoring only while the table is
 empty) and every Empowered Zombie / Supervillain (the table overrides its rotation whenever someone clearly out-threatens
 the target). The Oathbreaker (`OathbreakerThreat`), the Titan (`TitanThreat`) and the Sentinels / Master Mold
