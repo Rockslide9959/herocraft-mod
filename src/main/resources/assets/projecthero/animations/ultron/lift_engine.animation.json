@@ -33,6 +33,47 @@
 							0
 						]
 					}
+				},
+				"cap": {
+					"scale": {
+						"0.0": [
+							1,
+							1,
+							1
+						],
+						"0.25": {
+							"vector": [
+								1.05,
+								1.05,
+								1.05
+							],
+							"easing": "easeinoutsine"
+						},
+						"0.5": {
+							"vector": [
+								1,
+								1,
+								1
+							],
+							"easing": "easeinoutsine"
+						},
+						"0.75": {
+							"vector": [
+								1.05,
+								1.05,
+								1.05
+							],
+							"easing": "easeinoutsine"
+						},
+						"1.0": {
+							"vector": [
+								1,
+								1,
+								1
+							],
+							"easing": "easeinoutsine"
+						}
+					}
 				}
 			}
 		}
