@@ -32,9 +32,62 @@ import net.minecraft.world.level.ServerLevelAccessor;
  * {@code reassessWeaponGoal} would re-add a bow goal whenever the held item changes, so it is
  * overridden to a no-op and the melee goal is installed once, here.
  */
-public class SwordSkeleton extends Skeleton {
+public class SwordSkeleton extends Skeleton implements RaidAnimated {
+	private static final net.minecraft.network.syncher.EntityDataAccessor<Integer> DATA_RAID_ANIM =
+			net.minecraft.network.syncher.SynchedEntityData.defineId(SwordSkeleton.class, net.minecraft.network.syncher.EntityDataSerializers.INT);
+	private final software.bernie.geckolib.animatable.instance.AnimatableInstanceCache geoCache =
+			software.bernie.geckolib.util.GeckoLibUtil.createInstanceCache(this);
+	private RaidAnimator raidAnimator;
+
 	public SwordSkeleton(EntityType<? extends SwordSkeleton> type, Level level) {
 		super(type, level);
+	}
+
+	// ---------------------------------------------------------------- v0.16.1 model (sword combo timed to the melee goal)
+
+	@Override
+	protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {
+		super.defineSynchedData(builder);
+		RaidAnimator.define(builder, DATA_RAID_ANIM);
+	}
+
+	@Override
+	public String raidModel() {
+		return RaidAnims.SKELETON;
+	}
+
+	@Override
+	public RaidAnimator raidAnimator() {
+		if (raidAnimator == null) {
+			raidAnimator = new RaidAnimator(this, DATA_RAID_ANIM);
+		}
+		return raidAnimator;
+	}
+
+	@Override
+	public void onSyncedDataUpdated(net.minecraft.network.syncher.EntityDataAccessor<?> key) {
+		super.onSyncedDataUpdated(key);
+		if (DATA_RAID_ANIM.equals(key)) {
+			raidAnimator().onSynced(key);
+		}
+	}
+
+	@Override
+	public void swing(net.minecraft.world.InteractionHand hand, boolean updateSelf) {
+		super.swing(hand, updateSelf);
+		if (!level().isClientSide() && hand == net.minecraft.world.InteractionHand.MAIN_HAND) {
+			raidAnimator().onMeleeSwing();
+		}
+	}
+
+	@Override
+	public software.bernie.geckolib.animatable.instance.AnimatableInstanceCache getAnimatableInstanceCache() {
+		return geoCache;
+	}
+
+	@Override
+	public void registerControllers(software.bernie.geckolib.animation.AnimatableManager.ControllerRegistrar controllers) {
+		raidAnimator().registerControllers(controllers, this);
 	}
 
 	public static AttributeSupplier.Builder createAttributes() {
@@ -99,6 +152,10 @@ public class SwordSkeleton extends Skeleton {
 	@Override
 	public void aiStep() {
 		super.aiStep();
+		if (!level().isClientSide()) {
+			raidAnimator().tick();
+			raidAnimator().tickMelee();
+		}
 		if (level().isClientSide()) {
 			return;
 		}

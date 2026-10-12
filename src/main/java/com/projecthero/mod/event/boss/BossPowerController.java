@@ -203,8 +203,14 @@ public abstract class BossPowerController {
 		castTicks = Math.max(1, cycles);
 		castTarget = target;
 		pendingCast = fire;
+		startingCast = true;
 		startCooldown(slot, baseCd);
+		startingCast = false;
+		boss.raidAnimator().set(com.projecthero.mod.event.entity.RaidAnims.BOSS_CAST_WINDUP); // v0.16.1: held until it resolves
 	}
+
+	/** v0.16.1: set while beginCast records its cooldown, so the ability animation is the held wind-up, not a snap. */
+	private boolean startingCast;
 
 	/**
 	 * Called by {@link EmpoweredZombie} before {@link #tick}. If a telegraphed cast is pending, keep the boss planted,
@@ -228,7 +234,10 @@ public abstract class BossPowerController {
 		castTarget = null;
 		if (aimAt != null) {
 			boss.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, aimAt.getEyePosition());
+			boss.raidAnimator().set(com.projecthero.mod.event.entity.RaidAnims.BOSS_CAST_RELEASE);
 			fire.accept(aimAt);
+		} else {
+			boss.raidAnimator().clear();
 		}
 		return true;
 	}
@@ -333,6 +342,13 @@ public abstract class BossPowerController {
 		cooldowns[slot] = Math.max(5, (int) Math.round(baseTicks * boss.cooldownScale()));
 		lastSlot = slot;
 		recordUse(slot);
+		if (!startingCast) {
+			// v0.16.1: an instant ability -- the model plays the matching exertion (slam / punch / dash / burst / cast)
+			com.projecthero.mod.event.entity.RaidAnims.Clip anim = com.projecthero.mod.event.entity.PoweredBossAnims.forAbility(lastAbility);
+			if (anim != null) {
+				boss.raidAnimator().set(anim);
+			}
+		}
 		// Shared recovery between abilities: ~1s normally, ~0.6s once the boss is badly hurt.
 		globalCd = healthFraction() <= 0.33f ? 12 : 22;
 	}

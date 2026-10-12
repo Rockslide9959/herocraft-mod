@@ -55,7 +55,7 @@ import net.minecraft.world.level.Level;
  * fixed particle count every {@value #AURA_INTERVAL} ticks. Boss-bar membership is recomputed from the
  * level's existing player list, never from an entity scan.
  */
-public class EmpoweredZombie extends RaidUndead {
+public class EmpoweredZombie extends AnimatedRaidUndead {
 	private static final EntityDataAccessor<String> DATA_POWER =
 			SynchedEntityData.defineId(EmpoweredZombie.class, EntityDataSerializers.STRING);
 	private static final EntityDataAccessor<String> DATA_SECOND_POWER =
@@ -271,6 +271,12 @@ public class EmpoweredZombie extends RaidUndead {
 		return this.entityData.get(DATA_FINAL);
 	}
 
+	/** v0.16.1: the Powered Zombie Boss model (the Supervillain variants keep their own renderer). */
+	@Override
+	public String raidModel() {
+		return RaidAnims.BOSS;
+	}
+
 	public int participantCount() {
 		return participantCount;
 	}
@@ -430,6 +436,7 @@ public class EmpoweredZombie extends RaidUndead {
 			return false;
 		}
 		server.playSound(null, getX(), getY(), getZ(), SoundEvents.WARDEN_SONIC_BOOM, SoundSource.HOSTILE, 0.7f, 1.7f);
+		raidAnimator().set(RaidAnims.BOSS_SHOVE);
 		server.sendParticles(net.minecraft.core.particles.ParticleTypes.SWEEP_ATTACK,
 				getX(), getY() + 1.0, getZ(), 14, 1.4, 0.6, 1.4, 0.05);
 		for (LivingEntity p : near) {

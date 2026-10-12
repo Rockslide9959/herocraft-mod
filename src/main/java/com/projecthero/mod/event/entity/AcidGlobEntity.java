@@ -33,7 +33,20 @@ import net.minecraft.world.phys.HitResult;
  * <p>The acid never touches terrain, which satisfies "acid should not permanently destroy terrain"
  * by construction.
  */
-public class AcidGlobEntity extends ThrowableItemProjectile {
+public class AcidGlobEntity extends ThrowableItemProjectile implements software.bernie.geckolib.animatable.GeoEntity {
+	// v0.16.1: drawn as a glowing GeckoLib blob (geo/raid/acid_glob); the renderer wobbles and spins it, no clips
+	private final software.bernie.geckolib.animatable.instance.AnimatableInstanceCache geoCache =
+			software.bernie.geckolib.util.GeckoLibUtil.createInstanceCache(this);
+
+	@Override
+	public void registerControllers(software.bernie.geckolib.animation.AnimatableManager.ControllerRegistrar controllers) {
+	}
+
+	@Override
+	public software.bernie.geckolib.animatable.instance.AnimatableInstanceCache getAnimatableInstanceCache() {
+		return geoCache;
+	}
+
 	/** Direct hit damage. Low on purpose -- the pressure is the area denial, not the bolt. */
 	private static final float IMPACT_DAMAGE = 4.0f;
 	private static final int POOL_DURATION_TICKS = 8 * 20;

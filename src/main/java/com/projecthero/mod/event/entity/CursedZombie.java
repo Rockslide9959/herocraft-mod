@@ -52,7 +52,7 @@ import net.minecraft.world.level.Level;
  * {@code super}, and the curse is not applied (spec section 6). Killing this mob afterwards does not
  * lift the curse -- nothing here holds it, {@link GraveboundCurse} does.
  */
-public class CursedZombie extends RaidUndead {
+public class CursedZombie extends AnimatedRaidUndead {
 	/** How often the ambient soul trail is emitted, in ticks. */
 	private static final int PARTICLE_INTERVAL = 10;
 	/** How often it may make its cursed call, in ticks. */
@@ -134,6 +134,12 @@ public class CursedZombie extends RaidUndead {
 	@Override
 	protected net.minecraft.sounds.SoundEvent getAmbientSound() {
 		return SoundEvents.ZOMBIE_AMBIENT;
+	}
+
+	/** v0.16.1: its own shrouded, rune-carved model (a cursed baby, if one is ever made, keeps the same model scaled). */
+	@Override
+	public String raidModel() {
+		return RaidAnims.CURSED;
 	}
 
 	@Override
