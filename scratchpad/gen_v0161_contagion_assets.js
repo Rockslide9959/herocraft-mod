@@ -1,8 +1,10 @@
 // v0.16.1 Ultron Contagion asset generator (ART ONLY: no Java, lang, recipes or tags).
 // usage (from the repo/worktree root):  node scratchpad/gen_v0161_contagion_assets.js
 // Writes into src/main/resources/assets/projecthero/ and is idempotent (every file is fully rewritten).
+// NOTE: the four corruption blocks (corrupted_circuitry incl. its edge variants, corrupted_circuitry_stone, _log, _leaves)
+// are now produced by gen_v0161_contagion_blocks2.js; this script no longer writes any of their textures/models/states.
 //
-//  Blocks   corrupted_circuitry(+_stone, _log, _leaves) [animated strips + .mcmeta], citadel_plating, citadel_rock,
+//  Blocks   citadel_plating, citadel_rock,
 //           rising_rock, firewall_beacon (lit/unlit element model), omega_core (facing trophy: pedestal + Omega head)
 //  Items    ultron_scrap, nanite_sample, purge_charge, override_spike, firewall_chip, vibranium_ingot,
 //           vibranium_plating_2, 3 spawn eggs (template model only), vibranium_shield (+_blocking, entity texture)
@@ -103,34 +105,8 @@ function drawTraces(cv, traces) {
 }
 
 // ================================================================ 1. block textures
-// --- corrupted_circuitry (8 frames)
-function plateBase(x, y, seed) {
-	const px = x & 7, py = y & 7, qx = x >> 3, qy = y >> 3;
-	const n = fbm(x * 0.35, y * 0.35, seed, 3);
-	let c = mix(M0, M2, 0.2 + 0.65 * n + (hash3(qx, qy, seed) - 0.5) * 0.35);
-	if (px === 0 || py === 0) c = mix(c, M3, 0.5);
-	if (px === 7 || py === 7) c = mul(c, 0.55);
-	if ((px === 1 || px === 6) && (py === 1 || py === 6)) c = (px === 1 && py === 1) ? mix(M3, M4, 0.7) : mix(c, M3, 0.45);
-	return mul(c, 0.92 + 0.16 * hash3(x, y, seed + 7));
-}
-{
-	const veins = [
-		{ path: polyline([[0, 10], [3, 10], [5, 12], [8, 12], [10, 10], [15, 10]]), phase: 0 },
-		{ path: polyline([[10, 0], [10, 3], [7, 6], [7, 9], [10, 12], [10, 15]]), phase: 0.45 },
-	];
-	const traces = [[[1, 3], [5, 3], [5, 6]], [[12, 1], [12, 4], [14, 6]], [[2, 14], [6, 14]], [[13, 13], [13, 15]], [[1, 6], [3, 6]]];
-	const frames = [];
-	for (let f = 0; f < 8; f++) {
-		const cv = new Canvas(16, 16);
-		for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) cv.set(x, y, plateBase(x, y, 11));
-		drawTraces(cv, traces);
-		paintVeins(cv, veins, f / 8);
-		frames.push(cv);
-	}
-	writePng('textures/block/corrupted_circuitry.png', strip(frames));
-	mcmeta('textures/block/corrupted_circuitry.png.mcmeta', 3);
-}
-// --- corrupted_circuitry_stone (8 frames)
+// (corrupted_circuitry / _stone / _log / _leaves textures, models and blockstates now come from gen_v0161_contagion_blocks2.js)
+// rock tone helper, still used by citadel_rock below
 function rockBase(x, y, seed, lo, hi) {
 	const n = fbm(x * 0.28, y * 0.28, seed, 4);
 	let c = mix(lo, hi, n * 1.35 - 0.2);
@@ -139,101 +115,6 @@ function rockBase(x, y, seed, lo, hi) {
 	if (hash3(x, y, seed + 3) > 0.94) c = mix(c, hex('6A6A74'), 0.5);
 	if (hash3(x, y, seed + 4) < 0.05) c = mul(c, 0.7);
 	return c;
-}
-{
-	const veins = [
-		{ path: polyline([[0, 7], [2, 6], [4, 8], [7, 7], [9, 9], [12, 8], [15, 7]]), phase: 0 },
-		{ path: polyline([[5, 0], [4, 3], [6, 5], [5, 7]]), phase: 0.3 },
-		{ path: polyline([[11, 9], [12, 12], [10, 15]]), phase: 0.65 },
-	];
-	const traces = [[[2, 2], [6, 2], [6, 4]], [[11, 13], [14, 13]], [[1, 12], [1, 14], [4, 14]]];
-	const frames = [];
-	for (let f = 0; f < 8; f++) {
-		const cv = new Canvas(16, 16);
-		for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) cv.set(x, y, rockBase(x, y, 23, hex('1E1F25'), hex('4A4B53')));
-		drawTraces(cv, traces);
-		paintVeins(cv, veins, f / 8);
-		frames.push(cv);
-	}
-	writePng('textures/block/corrupted_circuitry_stone.png', strip(frames));
-	mcmeta('textures/block/corrupted_circuitry_stone.png.mcmeta', 3);
-}
-// --- corrupted_circuitry_log: side (8 frames) + top (static)
-function ribCol(x, y, seed) {
-	const r = x & 3;
-	let c = r === 3 ? hex('14151A') : r === 0 ? mix(M2, M4, 0.45) : r === 1 ? M2 : mix(M1, M2, 0.4);
-	c = mul(c, 0.86 + 0.24 * vnoise(x * 0.5, y * 0.3, seed));
-	if ((y === 4 || y === 12) && r !== 3 && ((x >> 2) & 1) === (y === 4 ? 0 : 1)) c = mix(c, M4, 0.55); // bolt bands
-	if ((y === 5 || y === 13) && r !== 3 && ((x >> 2) & 1) === (y === 5 ? 0 : 1)) c = mul(c, 0.6);
-	return mul(c, 0.94 + 0.12 * hash3(x, y, seed + 2));
-}
-{
-	const veins = [
-		{ path: polyline([[3, 15], [3, 0]]), phase: 0 },
-		{ path: polyline([[11, 15], [11, 0]]), phase: 0.5 },
-		{ path: polyline([[11, 9], [9, 7], [8, 4]]), phase: 0.25 },
-	];
-	const frames = [];
-	for (let f = 0; f < 8; f++) {
-		const cv = new Canvas(16, 16);
-		for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) cv.set(x, y, ribCol(x, y, 31));
-		paintVeins(cv, veins, f / 8, 0.2);
-		frames.push(cv);
-	}
-	writePng('textures/block/corrupted_circuitry_log.png', strip(frames));
-	mcmeta('textures/block/corrupted_circuitry_log.png.mcmeta', 3);
-
-	const top = new Canvas(16, 16);
-	for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-		const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5));
-		let c;
-		if (d >= 7) c = ribCol(x + y, 3, 31);
-		else {
-			const r = Math.floor(d);
-			c = r % 2 === 0 ? mix(M2, M3, 0.35) : M1;
-			if (r % 2 === 0 && (x < 7.5 ? 1 : 0) + (y < 7.5 ? 1 : 0) === 2) c = mix(c, M4, 0.25);
-			c = mul(c, 0.9 + 0.18 * hash3(x, y, 77));
-			// radial circuit traces
-			if ((x === 7 || x === 8) && (y <= 4 || y >= 11) && d < 7 && d > 2) c = (d | 0) % 2 ? PAD : TRACE;
-			if ((y === 7 || y === 8) && (x <= 4 || x >= 11) && d < 7 && d > 2) c = (d | 0) % 2 ? PAD : TRACE;
-			if (d < 2.5 && d >= 1.5) c = RED_D;
-			if (d < 1.5) c = d < 0.6 ? HOT : RED;
-		}
-		top.set(x, y, c);
-	}
-	writePng('textures/block/corrupted_circuitry_log_top.png', top);
-}
-// --- corrupted_circuitry_leaves (4 frames, cutout holes)
-{
-	const frames = [];
-	for (let f = 0; f < 4; f++) {
-		const cv = new Canvas(16, 16);
-		for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-			const a = (x + y) & 3, b = (x - y + 16) & 3;
-			const wire = a === 0 || b === 0;
-			const node = a === 0 && b === 0;
-			if (node && hash3(x, y, 5) > 0.35) {
-				const ph = hash3(x, y, 9);
-				const br = 0.25 + 0.75 * Math.max(0, Math.cos(2 * Math.PI * (f / 4 - ph)));
-				cv.set(x, y, veinCol(br));
-				continue;
-			}
-			if (wire) {
-				let c = a === 0 ? mix(M3, M4, 0.35) : M2;
-				c = mul(c, 0.85 + 0.25 * hash3(x, y, 13));
-				if (hash3(x, y, 17) < 0.12) continue; // broken strand
-				cv.set(x, y, c);
-				continue;
-			}
-			// filler: tangled dark fibre, with holes like vanilla leaves
-			const n = vnoise(x * 0.55, y * 0.55, 3);
-			if (n < 0.3 || hash3(x, y, 21) < 0.12) continue;
-			cv.set(x, y, mul(mix(M0, M1, n), 0.85 + 0.3 * hash3(x, y, 25)));
-		}
-		frames.push(cv);
-	}
-	writePng('textures/block/corrupted_circuitry_leaves.png', strip(frames));
-	mcmeta('textures/block/corrupted_circuitry_leaves.png.mcmeta', 6);
 }
 // --- citadel_plating (static)
 {
@@ -303,17 +184,7 @@ function cubeAll(id) {
 	writeJson(`models/block/${id}.json`, { parent: 'minecraft:block/cube_all', textures: { all: `${NS}:block/${id}` } });
 	writeJson(`models/item/${id}.json`, { parent: `${NS}:block/${id}` });
 }
-['corrupted_circuitry', 'corrupted_circuitry_stone', 'citadel_plating', 'citadel_rock', 'rising_rock'].forEach(cubeAll);
-writeJson('blockstates/corrupted_circuitry_log.json', { variants: {
-	'axis=x': { model: `${NS}:block/corrupted_circuitry_log`, x: 90, y: 90 },
-	'axis=y': { model: `${NS}:block/corrupted_circuitry_log` },
-	'axis=z': { model: `${NS}:block/corrupted_circuitry_log`, x: 90 },
-} });
-writeJson('models/block/corrupted_circuitry_log.json', { parent: 'minecraft:block/cube_column', textures: { end: `${NS}:block/corrupted_circuitry_log_top`, side: `${NS}:block/corrupted_circuitry_log` } });
-writeJson('models/item/corrupted_circuitry_log.json', { parent: `${NS}:block/corrupted_circuitry_log` });
-writeJson('blockstates/corrupted_circuitry_leaves.json', { variants: { '': { model: `${NS}:block/corrupted_circuitry_leaves` } } });
-writeJson('models/block/corrupted_circuitry_leaves.json', { parent: 'minecraft:block/leaves', textures: { all: `${NS}:block/corrupted_circuitry_leaves` } });
-writeJson('models/item/corrupted_circuitry_leaves.json', { parent: `${NS}:block/corrupted_circuitry_leaves` });
+['citadel_plating', 'citadel_rock', 'rising_rock'].forEach(cubeAll);
 
 // ================================================================ 3. element (Blockbench-style) block models
 // Every face is painted at 1 texel per model pixel into a TS x TS atlas; Java model UVs are in 0..16 space,

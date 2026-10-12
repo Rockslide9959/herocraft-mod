@@ -1,7 +1,63 @@
 {
 	"variants": {
-		"": {
-			"model": "projecthero:block/corrupted_circuitry_stone"
-		}
+		"": [
+			{
+				"model": "projecthero:block/corrupted_circuitry_stone_0",
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_stone_0",
+				"y": 90,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_stone_0",
+				"y": 180,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_stone_0",
+				"y": 270,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_stone_1",
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_stone_1",
+				"y": 90,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_stone_1",
+				"y": 180,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_stone_1",
+				"y": 270,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_stone_2",
+				"weight": 2
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_stone_2",
+				"y": 90,
+				"weight": 2
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_stone_2",
+				"y": 180,
+				"weight": 2
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_stone_2",
+				"y": 270,
+				"weight": 2
+			}
+		]
 	}
 }

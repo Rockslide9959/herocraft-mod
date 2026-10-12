@@ -1,7 +1,160 @@
 {
 	"variants": {
-		"": {
-			"model": "projecthero:block/corrupted_circuitry"
-		}
+		"edge=false": [
+			{
+				"model": "projecthero:block/corrupted_circuitry_0",
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_0",
+				"y": 90,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_0",
+				"y": 180,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_0",
+				"y": 270,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_1",
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_1",
+				"y": 90,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_1",
+				"y": 180,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_1",
+				"y": 270,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_2",
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_2",
+				"y": 90,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_2",
+				"y": 180,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_2",
+				"y": 270,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_3",
+				"weight": 1
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_3",
+				"y": 90,
+				"weight": 1
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_3",
+				"y": 180,
+				"weight": 1
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_3",
+				"y": 270,
+				"weight": 1
+			}
+		],
+		"edge=true": [
+			{
+				"model": "projecthero:block/corrupted_circuitry_edge_0",
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_edge_0",
+				"y": 90,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_edge_0",
+				"y": 180,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_edge_0",
+				"y": 270,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_edge_1",
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_edge_1",
+				"y": 90,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_edge_1",
+				"y": 180,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_edge_1",
+				"y": 270,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_edge_2",
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_edge_2",
+				"y": 90,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_edge_2",
+				"y": 180,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_edge_2",
+				"y": 270,
+				"weight": 3
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_edge_3",
+				"weight": 1
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_edge_3",
+				"y": 90,
+				"weight": 1
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_edge_3",
+				"y": 180,
+				"weight": 1
+			},
+			{
+				"model": "projecthero:block/corrupted_circuitry_edge_3",
+				"y": 270,
+				"weight": 1
+			}
+		]
 	}
 }
