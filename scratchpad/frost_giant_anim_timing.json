@@ -119,6 +119,7 @@
 					"kind": "loop",
 					"clip_ticks": 30,
 					"strike_clip_tick": null,
+					"stride_blocks": 4.05,
 					"move_speed": 0.135
 				},
 				"run": {
@@ -127,6 +128,7 @@
 					"kind": "loop",
 					"clip_ticks": 18,
 					"strike_clip_tick": null,
+					"stride_blocks": 4.86,
 					"move_speed": 0.27
 				},
 				"war_cry": {
@@ -200,6 +202,7 @@
 					"kind": "loop",
 					"clip_ticks": 34,
 					"strike_clip_tick": null,
+					"stride_blocks": 4.25,
 					"move_speed": 0.125
 				},
 				"run": {
@@ -208,6 +211,7 @@
 					"kind": "loop",
 					"clip_ticks": 20,
 					"strike_clip_tick": null,
+					"stride_blocks": 5,
 					"move_speed": 0.25
 				},
 				"war_cry": {
@@ -282,6 +286,7 @@
 					"kind": "loop",
 					"clip_ticks": 36,
 					"strike_clip_tick": null,
+					"stride_blocks": 4.32,
 					"move_speed": 0.12
 				},
 				"run": {
@@ -290,6 +295,7 @@
 					"kind": "loop",
 					"clip_ticks": 20,
 					"strike_clip_tick": null,
+					"stride_blocks": 6,
 					"move_speed": 0.3
 				},
 				"war_cry": {
@@ -371,6 +377,7 @@
 					"kind": "loop",
 					"clip_ticks": 40,
 					"strike_clip_tick": null,
+					"stride_blocks": 4.4,
 					"move_speed": 0.11
 				},
 				"run": {
@@ -379,6 +386,7 @@
 					"kind": "loop",
 					"clip_ticks": 24,
 					"strike_clip_tick": null,
+					"stride_blocks": 5.28,
 					"move_speed": 0.22
 				},
 				"war_cry": {
@@ -459,6 +467,7 @@
 					"kind": "loop",
 					"clip_ticks": 48,
 					"strike_clip_tick": null,
+					"stride_blocks": 4.32,
 					"move_speed": 0.09
 				},
 				"run": {
@@ -467,6 +476,7 @@
 					"kind": "loop",
 					"clip_ticks": 30,
 					"strike_clip_tick": null,
+					"stride_blocks": 5.4,
 					"move_speed": 0.18
 				},
 				"war_cry": {

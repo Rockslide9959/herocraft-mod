@@ -72,7 +72,7 @@ class AnimSet {
 		this.M = M; this.id = id;
 		this.T = opts.transition == null ? 4 : opts.transition;
 		this.never = new Set(opts.neverKey || ['neck', 'flinch']);
-		this.feet = opts.feet || (c => c.tag === 'sole');
+		this.feet = opts.feet || (c => c.tag === 'sole' || /^paw_/.test(c.bone));
 		this.knees = opts.knees || (c => /^(shin|foot|lower|paw)/.test(c.bone) || c.tag === 'sole');
 		this.dangles = opts.dangles || [];
 		this.hidden = opts.hidden || []; // bones scaled to 0 unless a clip's scaleKeys show them (props, spell effects)
@@ -188,7 +188,7 @@ class AnimSet {
 			const keyed = new Set();
 			c.frames.forEach(f => Object.keys(f.pose).forEach(b => keyed.add(b)));
 			const sec = this.secondary(c);
-			const kf = (v, e) => { const r = v.map(n => Math.round(n * 1000) / 1000); return e ? { vector: r, easing: e } : r; };
+			const kf = (v, e) => { const r = v.map(n => Math.round(n * 1000) / 1000); if (r.some(n => !Number.isFinite(n))) errors.push(`${c.name}: non-finite key value`); return e ? { vector: r, easing: e } : r; };
 			for (const bn of keyed) {
 				if (this.never.has(bn)) { errors.push(`${c.name}: never-keyed bone ${bn} is keyed`); continue; }
 				if (!this.M.B[bn]) { errors.push(`${c.name}: unknown bone ${bn}`); continue; }
@@ -232,7 +232,7 @@ class AnimSet {
 				else if (!f.strike) errors.push(`${c.name}: keyframe at ${kt} is not marked $strike`);
 			}
 			for (const f of c.frames) if (f.strike && !c.strikes.includes(f.t + this.T)) errors.push(`${c.name}: $strike keyframe at ${f.t} is not in the timing table`);
-			this.timing[c.name] = Object.assign({ length: c.len, loop: c.loop === true ? 'loop' : c.loop === 'hold' ? 'hold' : 'once' },
+			this.timing[c.name] = Object.assign({}, this.timing[c.name] || {}, { length: c.len, loop: c.loop === true ? 'loop' : c.loop === 'hold' ? 'hold' : 'once' },
 				c.strikes.length ? { strike_ticks: c.strikes } : {}, Object.keys(c.events).length ? { events: c.events } : {}, c.speed ? { move_speed: c.speed } : {});
 		}
 		if (errors.length) throw new Error(`${this.id} animation checks failed:\n  ` + errors.join('\n  '));
