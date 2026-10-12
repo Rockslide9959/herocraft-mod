@@ -28,6 +28,8 @@ package com.projecthero.mod.ultron.contagion;
  * </pre>
  * Bones {@code neck} and {@code flinch} are never keyed (code-driven head look / hit flinch).
  */
+// The model generator (scratchpad/gen_ultron_omega_model.js, OMEGA_TIMING) authors every clip to these numbers and writes
+// scratchpad/ultron_omega_anim_timing.json; keep the two in step (reconciled for v0.16.1).
 public final class OmegaAnims {
 	public static final int TRANSITION = 4;
 	public static final String PREFIX = "animation.ultron_omega.";

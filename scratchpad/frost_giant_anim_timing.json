@@ -1,0 +1,637 @@
+{
+	"transition": 4,
+	"source": "src/main/java/com/projecthero/mod/frostgiant/FrostGiantAnims.java",
+	"note": "length/hit = server ticks (FrostGiantAnims); a play-once/held clip is (length - 4) ticks long and keys its strike on (hit - 4); loops are length ticks.",
+	"fit_ignore_bones": [
+		"helm",
+		"crown",
+		"weapon_r",
+		"weapon_l",
+		"spell_r",
+		"crystals"
+	],
+	"models": {
+		"rime_hound": {
+			"texture": [
+				512,
+				128
+			],
+			"bones": 23,
+			"cubes": 197,
+			"rest_fit_height_px": 24.62,
+			"concept_model_scale": 1.0397,
+			"speeds_blocks_per_tick": {
+				"walk": 0.19,
+				"run": 0.26
+			},
+			"clips": {
+				"idle": {
+					"server_length": 40,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 40,
+					"strike_clip_tick": null
+				},
+				"walk": {
+					"server_length": 16,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 16,
+					"strike_clip_tick": null,
+					"move_speed": 0.19
+				},
+				"run": {
+					"server_length": 10,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 10,
+					"strike_clip_tick": null,
+					"move_speed": 0.26
+				},
+				"war_cry": {
+					"server_length": 30,
+					"hit": 10,
+					"kind": "once",
+					"clip_ticks": 26,
+					"strike_clip_tick": 6
+				},
+				"hurt": {
+					"server_length": 10,
+					"hit": -1,
+					"kind": "once",
+					"clip_ticks": 6,
+					"strike_clip_tick": null
+				},
+				"death": {
+					"server_length": 30,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 26,
+					"strike_clip_tick": null
+				},
+				"bite": {
+					"server_length": 14,
+					"hit": 8,
+					"kind": "once",
+					"clip_ticks": 10,
+					"strike_clip_tick": 4
+				},
+				"howl": {
+					"server_length": 40,
+					"hit": 12,
+					"kind": "once",
+					"clip_ticks": 36,
+					"strike_clip_tick": 8
+				},
+				"pounce": {
+					"server_length": 24,
+					"hit": 12,
+					"kind": "once",
+					"clip_ticks": 20,
+					"strike_clip_tick": 8
+				}
+			}
+		},
+		"jotun_raider": {
+			"texture": [
+				512,
+				400
+			],
+			"bones": 35,
+			"cubes": 166,
+			"rest_fit_height_px": 67.45,
+			"concept_model_scale": 1.0827,
+			"speeds_blocks_per_tick": {
+				"walk": 0.135,
+				"run": 0.27
+			},
+			"clips": {
+				"idle": {
+					"server_length": 60,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 60,
+					"strike_clip_tick": null
+				},
+				"walk": {
+					"server_length": 30,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 30,
+					"strike_clip_tick": null,
+					"stride_blocks": 4.05,
+					"move_speed": 0.135
+				},
+				"run": {
+					"server_length": 18,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 18,
+					"strike_clip_tick": null,
+					"stride_blocks": 4.86,
+					"move_speed": 0.27
+				},
+				"war_cry": {
+					"server_length": 30,
+					"hit": 10,
+					"kind": "once",
+					"clip_ticks": 26,
+					"strike_clip_tick": 6
+				},
+				"hurt": {
+					"server_length": 10,
+					"hit": -1,
+					"kind": "once",
+					"clip_ticks": 6,
+					"strike_clip_tick": null
+				},
+				"death": {
+					"server_length": 50,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 46,
+					"strike_clip_tick": null
+				},
+				"spear_thrust": {
+					"server_length": 20,
+					"hit": 12,
+					"kind": "once",
+					"clip_ticks": 16,
+					"strike_clip_tick": 8
+				},
+				"javelin_windup": {
+					"server_length": 20,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 16,
+					"strike_clip_tick": null
+				},
+				"javelin_throw": {
+					"server_length": 16,
+					"hit": 6,
+					"kind": "once",
+					"clip_ticks": 12,
+					"strike_clip_tick": 2
+				}
+			}
+		},
+		"frost_shaman": {
+			"texture": [
+				512,
+				496
+			],
+			"bones": 35,
+			"cubes": 244,
+			"rest_fit_height_px": 67.3,
+			"concept_model_scale": 1.2121,
+			"speeds_blocks_per_tick": {
+				"walk": 0.125,
+				"run": 0.25
+			},
+			"clips": {
+				"idle": {
+					"server_length": 60,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 60,
+					"strike_clip_tick": null
+				},
+				"walk": {
+					"server_length": 34,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 34,
+					"strike_clip_tick": null,
+					"stride_blocks": 4.25,
+					"move_speed": 0.125
+				},
+				"run": {
+					"server_length": 20,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 20,
+					"strike_clip_tick": null,
+					"stride_blocks": 5,
+					"move_speed": 0.25
+				},
+				"war_cry": {
+					"server_length": 30,
+					"hit": 10,
+					"kind": "once",
+					"clip_ticks": 26,
+					"strike_clip_tick": 6
+				},
+				"hurt": {
+					"server_length": 10,
+					"hit": -1,
+					"kind": "once",
+					"clip_ticks": 6,
+					"strike_clip_tick": null
+				},
+				"death": {
+					"server_length": 50,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 46,
+					"strike_clip_tick": null
+				},
+				"ice_wall": {
+					"server_length": 28,
+					"hit": 16,
+					"kind": "once",
+					"clip_ticks": 24,
+					"strike_clip_tick": 12
+				},
+				"rime_ward": {
+					"server_length": 30,
+					"hit": 18,
+					"kind": "once",
+					"clip_ticks": 26,
+					"strike_clip_tick": 14
+				},
+				"frost_nova": {
+					"server_length": 22,
+					"hit": 12,
+					"kind": "once",
+					"clip_ticks": 18,
+					"strike_clip_tick": 8
+				}
+			}
+		},
+		"ice_brute": {
+			"texture": [
+				512,
+				576
+			],
+			"bones": 34,
+			"cubes": 326,
+			"rest_fit_height_px": 59.97,
+			"concept_model_scale": 1.8698,
+			"speeds_blocks_per_tick": {
+				"walk": 0.12,
+				"run": 0.3,
+				"charge": 0.42
+			},
+			"clips": {
+				"idle": {
+					"server_length": 60,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 60,
+					"strike_clip_tick": null
+				},
+				"walk": {
+					"server_length": 36,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 36,
+					"strike_clip_tick": null,
+					"stride_blocks": 4.32,
+					"move_speed": 0.12
+				},
+				"run": {
+					"server_length": 20,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 20,
+					"strike_clip_tick": null,
+					"stride_blocks": 6,
+					"move_speed": 0.3
+				},
+				"war_cry": {
+					"server_length": 34,
+					"hit": 12,
+					"kind": "once",
+					"clip_ticks": 30,
+					"strike_clip_tick": 8
+				},
+				"hurt": {
+					"server_length": 10,
+					"hit": -1,
+					"kind": "once",
+					"clip_ticks": 6,
+					"strike_clip_tick": null
+				},
+				"death": {
+					"server_length": 56,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 52,
+					"strike_clip_tick": null
+				},
+				"charge_windup": {
+					"server_length": 24,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 20,
+					"strike_clip_tick": null
+				},
+				"charge": {
+					"server_length": 16,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 16,
+					"strike_clip_tick": null,
+					"move_speed": 0.42
+				},
+				"glacier_spikes": {
+					"server_length": 40,
+					"hit": 24,
+					"kind": "once",
+					"clip_ticks": 36,
+					"strike_clip_tick": 20
+				},
+				"brazier_smash": {
+					"server_length": 26,
+					"hit": 16,
+					"kind": "once",
+					"clip_ticks": 22,
+					"strike_clip_tick": 12
+				}
+			}
+		},
+		"frost_giant_warlord": {
+			"texture": [
+				512,
+				448
+			],
+			"bones": 35,
+			"cubes": 181,
+			"rest_fit_height_px": 65.45,
+			"concept_model_scale": 2.6057,
+			"speeds_blocks_per_tick": {
+				"walk": 0.11,
+				"run": 0.22
+			},
+			"clips": {
+				"idle": {
+					"server_length": 70,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 70,
+					"strike_clip_tick": null
+				},
+				"walk": {
+					"server_length": 40,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 40,
+					"strike_clip_tick": null,
+					"stride_blocks": 4.4,
+					"move_speed": 0.11
+				},
+				"run": {
+					"server_length": 24,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 24,
+					"strike_clip_tick": null,
+					"stride_blocks": 5.28,
+					"move_speed": 0.22
+				},
+				"war_cry": {
+					"server_length": 34,
+					"hit": 12,
+					"kind": "once",
+					"clip_ticks": 30,
+					"strike_clip_tick": 8
+				},
+				"hurt": {
+					"server_length": 10,
+					"hit": -1,
+					"kind": "once",
+					"clip_ticks": 6,
+					"strike_clip_tick": null
+				},
+				"death": {
+					"server_length": 60,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 56,
+					"strike_clip_tick": null
+				},
+				"cleave": {
+					"server_length": 34,
+					"hit": 24,
+					"kind": "once",
+					"clip_ticks": 30,
+					"strike_clip_tick": 20
+				},
+				"sword_plant": {
+					"server_length": 40,
+					"hit": 24,
+					"kind": "once",
+					"clip_ticks": 36,
+					"strike_clip_tick": 20
+				},
+				"rally": {
+					"server_length": 36,
+					"hit": 14,
+					"kind": "once",
+					"clip_ticks": 32,
+					"strike_clip_tick": 10
+				},
+				"kneel": {
+					"server_length": 60,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 56,
+					"strike_clip_tick": null
+				}
+			}
+		},
+		"king_laufey": {
+			"texture": [
+				512,
+				752
+			],
+			"bones": 43,
+			"cubes": 305,
+			"rest_fit_height_px": 74.74,
+			"concept_model_scale": 2.9987,
+			"speeds_blocks_per_tick": {
+				"walk": 0.09,
+				"run": 0.18
+			},
+			"clips": {
+				"idle": {
+					"server_length": 80,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 80,
+					"strike_clip_tick": null
+				},
+				"walk": {
+					"server_length": 48,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 48,
+					"strike_clip_tick": null,
+					"stride_blocks": 4.32,
+					"move_speed": 0.09
+				},
+				"run": {
+					"server_length": 30,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 30,
+					"strike_clip_tick": null,
+					"stride_blocks": 5.4,
+					"move_speed": 0.18
+				},
+				"war_cry": {
+					"server_length": 40,
+					"hit": 14,
+					"kind": "once",
+					"clip_ticks": 36,
+					"strike_clip_tick": 10
+				},
+				"hurt": {
+					"server_length": 10,
+					"hit": -1,
+					"kind": "once",
+					"clip_ticks": 6,
+					"strike_clip_tick": null
+				},
+				"death": {
+					"server_length": 80,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 76,
+					"strike_clip_tick": null
+				},
+				"spear_fan": {
+					"server_length": 40,
+					"hit": 30,
+					"kind": "once",
+					"clip_ticks": 36,
+					"strike_clip_tick": 26
+				},
+				"summon": {
+					"server_length": 36,
+					"hit": 20,
+					"kind": "once",
+					"clip_ticks": 32,
+					"strike_clip_tick": 16
+				},
+				"frozen_grasp": {
+					"server_length": 40,
+					"hit": 30,
+					"kind": "once",
+					"clip_ticks": 36,
+					"strike_clip_tick": 26
+				},
+				"casket_open": {
+					"server_length": 50,
+					"hit": 30,
+					"kind": "once",
+					"clip_ticks": 46,
+					"strike_clip_tick": 26
+				},
+				"winters_breath": {
+					"server_length": 100,
+					"hit": 40,
+					"kind": "once",
+					"clip_ticks": 96,
+					"strike_clip_tick": 36
+				},
+				"ice_pillars": {
+					"server_length": 40,
+					"hit": 28,
+					"kind": "once",
+					"clip_ticks": 36,
+					"strike_clip_tick": 24
+				},
+				"avalanche_slam": {
+					"server_length": 36,
+					"hit": 24,
+					"kind": "once",
+					"clip_ticks": 32,
+					"strike_clip_tick": 20
+				},
+				"stagger": {
+					"server_length": 100,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 96,
+					"strike_clip_tick": null
+				},
+				"kneel_hold": {
+					"server_length": 20,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 16,
+					"strike_clip_tick": null
+				}
+			}
+		},
+		"ymir_arm": {
+			"texture": [
+				1024,
+				416
+			],
+			"bones": 18,
+			"cubes": 204,
+			"rest_fit_height_px": 900.78,
+			"concept_model_scale": 1,
+			"speeds_blocks_per_tick": null,
+			"clips": {
+				"idle": {
+					"server_length": 60,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 60,
+					"strike_clip_tick": null
+				},
+				"reach_in": {
+					"server_length": 60,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 56,
+					"strike_clip_tick": null
+				},
+				"palm_slam": {
+					"server_length": 50,
+					"hit": 40,
+					"kind": "once",
+					"clip_ticks": 46,
+					"strike_clip_tick": 36
+				},
+				"glacial_sweep": {
+					"server_length": 80,
+					"hit": 60,
+					"kind": "once",
+					"clip_ticks": 76,
+					"strike_clip_tick": 56
+				},
+				"retract": {
+					"server_length": 50,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 46,
+					"strike_clip_tick": null
+				}
+			}
+		},
+		"ice_casket": {
+			"texture": [
+				512,
+				224
+			],
+			"bones": 4,
+			"cubes": 90,
+			"rest_fit_height_px": 22.67,
+			"concept_model_scale": 1.6,
+			"speeds_blocks_per_tick": null,
+			"clips": {
+				"idle": {
+					"server_length": 40,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 40,
+					"strike_clip_tick": null
+				}
+			}
+		}
+	}
+}

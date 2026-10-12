@@ -40,6 +40,7 @@ public class FrostGiantRenderer<T extends FrostGiantEntity> extends GeoEntityRen
 		super(context, new Model<>());
 		this.shadowRadius = shadow;
 		addRenderLayer(new AutoGlowingGeoLayer<>(this));
+		addRenderLayer(new FrostHaloLayer<>(this, 0.55f)); // additive bloom + halo shells
 	}
 
 	@Override

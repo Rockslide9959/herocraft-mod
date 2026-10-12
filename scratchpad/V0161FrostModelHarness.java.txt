@@ -1,0 +1,324 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.frostgiant.FrostGiantAnims;
+import com.projecthero.mod.frostgiant.FrostGiantAnims.Clip;
+import com.projecthero.mod.frostgiant.FrostGiantEntityTypes;
+import com.projecthero.mod.frostgiant.entity.FrostGiantEntity;
+import com.projecthero.mod.frostgiant.entity.YmirArmEntity;
+import com.projecthero.mod.ultron.contagion.entity.ContagionEntityTypes;
+import com.projecthero.mod.ultron.contagion.entity.UltronOmegaEntity;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.16.1 Frost Giant real-model screenshots. Enabled by run/v0161fm.flag. Needs
+ * V0161FrostCamMixin in projecthero.client.mixins.json and V0161FrostModelHarness.init() in onInitializeClient.
+ * Shots go to run/screenshots/v0161fm_*.png.
+ */
+public final class V0161FrostModelHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	public static Vec3 camPos;
+	public static Vec3 camAt;
+	private static BlockPos C;
+	private static volatile long lastProgress = System.currentTimeMillis();
+
+	private V0161FrostModelHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("v0161fm.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(V0161FrostModelHarness::tick);
+		Thread wd = new Thread(() -> {
+			while (true) {
+				try {
+					Thread.sleep(5000);
+				} catch (InterruptedException e) {
+					return;
+				}
+				if (System.currentTimeMillis() - lastProgress > 120_000L) {
+					System.out.println("[HARNESS] WATCHDOG: no progress for 120 s");
+					Runtime.getRuntime().halt(3);
+				}
+			}
+		}, "v0161fm-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					try {
+						fn.accept(p);
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		lastProgress = System.currentTimeMillis();
+		Screenshot.grab(mc.gameDirectory, "v0161fm_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void at(int t, Runnable r) {
+		Runnable prev = AT.get(t);
+		AT.put(t, prev == null ? r : () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void cam(double x, double y, double z, double ax, double ay, double az) {
+		camPos = Vec3.atBottomCenterOf(C).add(x, y, z);
+		camAt = Vec3.atBottomCenterOf(C).add(ax, ay, az);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0) {
+				lastProgress = System.currentTimeMillis();
+				if (!createdWorld && mc.getOverlay() == null && mc.screen != null && !(mc.screen instanceof TitleScreen)) {
+					mc.options.onboardAccessibility = false;
+					mc.setScreen(new TitleScreen());
+				}
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				lastProgress = System.currentTimeMillis();
+				mc.execute(() -> {
+					LevelSettings settings = new LevelSettings("V0161FM_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+							Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+					mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+							reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+									.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+							mc.screen);
+				});
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks % 20 == 0) {
+			lastProgress = System.currentTimeMillis();
+		}
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(60);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.getServer().setDifficulty(Difficulty.NORMAL, true);
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				C = p.blockPosition();
+				p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 999999, 0, false, false));
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				lastProgress = System.currentTimeMillis();
+				try {
+					r.run();
+				} catch (Throwable e) {
+					System.out.println("[HARNESS] error " + e);
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	private static BlockPos ground(ServerLevel level, BlockPos at) {
+		return new BlockPos(at.getX(), level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, at.getX(), at.getZ()), at.getZ());
+	}
+
+	private static <T extends Mob> T spawn(ServerLevel level, EntityType<T> type, BlockPos at, float yaw) {
+		T m = type.create(level);
+		BlockPos g = ground(level, at);
+		m.moveTo(g.getX() + 0.5, g.getY(), g.getZ() + 0.5, yaw, 0f);
+		m.finalizeSpawn(level, level.getCurrentDifficultyAt(g), MobSpawnType.COMMAND, null);
+		m.setNoAi(true);
+		m.setPersistenceRequired();
+		level.addFreshEntity(m);
+		m.setYRot(yaw);
+		m.setYHeadRot(yaw);
+		m.setYBodyRot(yaw);
+		return m;
+	}
+
+	private static void clear(ServerPlayer p) {
+		for (Entity e : p.serverLevel().getEntities((Entity) null, new AABB(C).inflate(80), e -> e instanceof FrostGiantEntity || e instanceof YmirArmEntity || e instanceof UltronOmegaEntity)) {
+			e.discard();
+		}
+	}
+
+	private static final Object[][] UNITS = {
+			// type, height, the attack clip shown at its hit tick
+			{ FrostGiantEntityTypes.HOUND, 1.6f, FrostGiantAnims.HOUND_POUNCE },
+			{ FrostGiantEntityTypes.RAIDER, 4.5f, FrostGiantAnims.RAIDER_SPEAR_THRUST },
+			{ FrostGiantEntityTypes.SHAMAN, 5f, FrostGiantAnims.SHAMAN_FROST_NOVA },
+			{ FrostGiantEntityTypes.BRUTE, 7f, FrostGiantAnims.BRUTE_GLACIER_SPIKES },
+			{ FrostGiantEntityTypes.WARLORD, 11f, FrostGiantAnims.WARLORD_RALLY },
+			{ FrostGiantEntityTypes.LAUFEY, 14f, FrostGiantAnims.LAUFEY_CASKET_OPEN },
+	};
+
+	private static void weather(ServerPlayer p, long time, boolean rain) {
+		ServerLevel l = p.serverLevel();
+		l.setDayTime(time);
+		if (rain) {
+			l.setWeatherParameters(0, 6000, true, false);
+		} else {
+			l.setWeatherParameters(6000, 0, false, false);
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private static void script(Minecraft mc) {
+		int t = 20;
+		// the lineup at true scale: day, then dusk in the rain, then night
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			int x = -26;
+			for (Object[] u : UNITS) {
+				spawn(l, (EntityType<? extends Mob>) u[0], C.offset(x, 0, 0), 0f);
+				x += (int) Math.max(4, (float) u[1] * 0.7f) + 2;
+			}
+			p.teleportTo(l, C.getX(), C.getY() + 6, C.getZ() + 40, 0f, 0f);
+		}));
+		at(t + 4, () -> cam(-6, 8, 44, -6, 6, 0));
+		at(t + 60, () -> shot(mc, "00_lineup_day"));
+		at(t + 62, () -> server(mc, p -> weather(p, 13400, true)));
+		at(t + 100, () -> shot(mc, "00_lineup_dusk_rain"));
+		at(t + 102, () -> server(mc, p -> weather(p, 18000, false)));
+		at(t + 130, () -> shot(mc, "00_lineup_night"));
+		at(t + 132, () -> server(mc, p -> weather(p, 6000, false)));
+		t += 140;
+		at(t, () -> server(mc, V0161FrostModelHarness::clear));
+		t += 10;
+		int i = 0;
+		for (Object[] u : UNITS) {
+			final float h = (float) u[1];
+			final EntityType<? extends Mob> type = (EntityType<? extends Mob>) u[0];
+			final Clip clip = (Clip) u[2];
+			final String name = String.format("%02d_%s", ++i, EntityType.getKey(type).getPath());
+			final Mob[] m = new Mob[1];
+			final double d = Math.max(3.4, h * 1.05);
+			final int fire = Math.max(clip.hit(), 6) + 1;
+			at(t, () -> server(mc, p -> {
+				m[0] = spawn(p.serverLevel(), type, C, 0f);
+				p.teleportTo(p.serverLevel(), C.getX(), C.getY() + h, C.getZ() + d, 0f, 0f);
+			}));
+			at(t + 4, () -> cam(d * 0.72, h * 0.62, d * 0.72, 0, h * 0.5, 0));
+			at(t + 40, () -> shot(mc, name + "_day_idle"));
+			at(t + 42, () -> server(mc, p -> ((FrostGiantEntity) m[0]).setAnim(clip)));
+			at(t + 42 + fire, () -> shot(mc, name + "_day_" + clip.name()));
+			at(t + 80, () -> server(mc, p -> weather(p, 13400, true)));
+			at(t + 116, () -> shot(mc, name + "_dusk_idle"));
+			at(t + 118, () -> server(mc, p -> ((FrostGiantEntity) m[0]).setAnim(clip)));
+			at(t + 118 + fire, () -> shot(mc, name + "_dusk_" + clip.name()));
+			at(t + 160, () -> server(mc, p -> {
+				weather(p, 6000, false);
+				clear(p);
+			}));
+			t += 170;
+		}
+		// Ymir's arm: the palm slam, day and dusk, with a raider for scale
+		final YmirArmEntity[] arm = new YmirArmEntity[1];
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			arm[0] = FrostGiantEntityTypes.YMIR_ARM.create(l);
+			BlockPos g = ground(l, C);
+			arm[0].moveTo(g.getX() + 0.5, g.getY(), g.getZ() + 0.5, 0f, 0f);
+			l.addFreshEntity(arm[0]);
+			arm[0].play(FrostGiantAnims.YMIR_IDLE);
+			spawn(l, FrostGiantEntityTypes.RAIDER, C.offset(10, 0, 6), 300f);
+			p.teleportTo(l, C.getX(), C.getY() + 20, C.getZ() + 60, 0f, 0f);
+		}));
+		at(t + 4, () -> cam(34, 16, 46, 0, 16, 0));
+		at(t + 40, () -> server(mc, p -> arm[0].play(FrostGiantAnims.YMIR_PALM_SLAM)));
+		at(t + 40 + 41, () -> shot(mc, "07_ymir_day_palm_slam"));
+		at(t + 90, () -> server(mc, p -> weather(p, 13400, true)));
+		at(t + 120, () -> server(mc, p -> arm[0].play(FrostGiantAnims.YMIR_PALM_SLAM)));
+		at(t + 120 + 41, () -> shot(mc, "07_ymir_dusk_palm_slam"));
+		at(t + 170, () -> server(mc, p -> {
+			weather(p, 6000, false);
+			clear(p);
+		}));
+		t += 180;
+		// Ultron Omega through its own entity: hovering idle, the concussive blast, dusk
+		final UltronOmegaEntity[] om = new UltronOmegaEntity[1];
+		at(t, () -> server(mc, p -> {
+			om[0] = spawn(p.serverLevel(), ContagionEntityTypes.ULTRON_OMEGA, C, 0f);
+			p.teleportTo(p.serverLevel(), C.getX(), C.getY() + 4, C.getZ() + 7, 0f, 0f);
+		}));
+		at(t + 4, () -> cam(4.4, 3.0, 4.4, 0, 2.2, 0));
+		at(t + 40, () -> shot(mc, "08_ultron_omega_day_idle"));
+		at(t + 42, () -> server(mc, p -> om[0].startMove(p.serverLevel(), UltronOmegaEntity.Move.BLAST, null)));
+		at(t + 42 + 19, () -> shot(mc, "08_ultron_omega_day_concussive_blast"));
+		at(t + 80, () -> server(mc, p -> om[0].startMove(p.serverLevel(), UltronOmegaEntity.Move.STRIKE, null)));
+		at(t + 80 + 37, () -> shot(mc, "08_ultron_omega_day_vibranium_strike"));
+		at(t + 130, () -> server(mc, p -> weather(p, 13400, true)));
+		at(t + 170, () -> shot(mc, "08_ultron_omega_dusk_idle"));
+		at(t + 200, () -> {
+			System.out.println("[HARNESS] DONE");
+			mc.stop();
+		});
+	}
+}
