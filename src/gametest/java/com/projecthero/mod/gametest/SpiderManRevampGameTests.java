@@ -383,4 +383,85 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 		helper.assertTrue(SpiderMoves.perchSpot(p), "on top of a fence post he perches whichever way he faces");
 		helper.succeed();
 	}
+
+	// ---------------- N wall-crawl toggle, rope networks, zip-to-rope ----------------
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void nToggleStopsAutoAttach(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		var local = p.getAttachedOrCreate(com.projecthero.mod.attachment.ModAttachments.SPIDER_CLIMB_LOCAL);
+		helper.assertFalse(com.projecthero.mod.spider.SpiderClimb.crawlOff(p), "wall crawl starts ON");
+		com.projecthero.mod.spider.SpiderClimb.requestGrab(p);
+		helper.assertTrue(local.grabIntent(), "ON: running into a wall arms the grab");
+		helper.assertFalse(SpiderMoves.toggleWallCrawl(p), "N switches it OFF");
+		helper.assertTrue(com.projecthero.mod.spider.SpiderClimb.crawlOff(p), "and it stays off");
+		local.setGrabIntent(false);
+		com.projecthero.mod.spider.SpiderClimb.requestGrab(p);
+		helper.assertFalse(local.grabIntent(), "OFF: nothing arms a grab");
+		p.setOnGround(false);
+		local.setGrabIntent(true);
+		helper.assertTrue(com.projecthero.mod.spider.SpiderClimb.updateAttachment(p, com.projecthero.mod.spider.SpiderClimb.Profile.SPIDER_MAN, local) == null,
+				"OFF: the climb engine never sticks him");
+		helper.assertTrue(SpiderMoves.toggleWallCrawl(p), "N again switches it back ON");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aTightropeCanAnchorOnAnotherRope(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		for (BlockPos pos : BlockPos.betweenClosed(helper.absolutePos(new BlockPos(0, 1, 7)), helper.absolutePos(new BlockPos(7, 5, 7)))) {
+			helper.getLevel().setBlock(pos, Blocks.STONE.defaultBlockState(), 2);
+		}
+		Vec3 a = helper.absoluteVec(new Vec3(0.5, 3.5, 2.5));
+		Vec3 b = helper.absoluteVec(new Vec3(7.5, 3.5, 2.5));
+		WebStructureEntity first = SpiderMoves.buildTightrope(p, a, b);
+		Vec3 at = helper.absoluteVec(new Vec3(4.0, 1.0, 0.5));
+		p.moveTo(at.x, at.y, at.z, 0.0f, 0.0f);
+		Vec3 onRope = a.lerp(b, 0.5);
+		p.lookAt(EntityAnchorArgument.Anchor.EYES, onRope);
+		SpiderMoves.tightrope(p);
+		helper.assertTrue(SpiderMoves.state(p).has(SpiderMoveState.FLAG_ANCHOR_A), "anchor A set on the rope");
+		SpiderMoveState st = SpiderMoves.state(p);
+		Vec3 anchorA = new Vec3(st.ax, st.ay, st.az);
+		helper.assertTrue(com.projecthero.mod.spider.web.WebGeometry.closestOnSegment(a, b, anchorA).distanceTo(anchorA) < 0.05,
+				"anchor A sits exactly on the strand (" + anchorA + ")");
+		p.lookAt(EntityAnchorArgument.Anchor.EYES, helper.absoluteVec(new Vec3(4.0, 3.0, 7.0)));
+		SpiderMoves.tightrope(p);
+		WebStructureEntity second = null;
+		for (WebStructureEntity w : WebStructures.ownedBy(p.getUUID())) {
+			if (w != first) {
+				second = w;
+			}
+		}
+		helper.assertTrue(second != null, "the second rope was spun");
+		helper.assertTrue(second.parents.contains(first.getUUID()), "and it hangs from the first (a junction)");
+		first.dissolve(true);
+		helper.assertTrue(second.isRemoved(), "cutting the parent rope takes the ropes anchored on it");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void pointZipOntoARopeLandsStandingOnIt(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		Vec3 a = helper.absoluteVec(new Vec3(0.5, 5.0, 4.5));
+		Vec3 b = helper.absoluteVec(new Vec3(7.5, 5.0, 4.5));
+		SpiderMoves.buildTightrope(p, a, b);
+		Vec3 at = helper.absoluteVec(new Vec3(4.0, 1.0, 1.5));
+		p.moveTo(at.x, at.y, at.z, 0.0f, 0.0f);
+		Vec3 target = a.lerp(b, 0.55);
+		p.lookAt(EntityAnchorArgument.Anchor.EYES, target); // from below
+		com.projecthero.mod.spider.SpiderAbilities.webZip(p);
+		helper.assertTrue(cd(p, SpiderMoves.POINT_ZIP), "G tap aimed at the rope is a Point Zip");
+		// the haul runs on the server tick; a mock player never moves by itself, so the haul stalls and he is set down
+		for (int i = 0; i < 10; i++) {
+			com.projecthero.mod.spider.SpiderCombat.tick(p);
+		}
+		helper.runAfterDelay(1, () -> {
+			helper.assertTrue(Math.abs(p.getY() - (a.y + 0.03)) < 0.1, "he lands with his feet on the rope (y " + p.getY() + ")");
+			helper.assertTrue(WebStructures.ropeUnderfoot(p) != null, "standing on top of it");
+			double yaw = net.minecraft.util.Mth.wrapDegrees(p.getYRot());
+			helper.assertTrue(Math.abs(Math.abs(yaw) - 90.0) < 5.0, "facing along the rope (yaw " + yaw + ")");
+			helper.succeed();
+		});
+	}
 }

@@ -162,6 +162,7 @@ public final class ModNetworking {
 				case CUT_WEB -> com.projecthero.mod.spider.web.WebStructures.cut(context.player());
 				case ROPE_HANG -> com.projecthero.mod.spider.SpiderMoves.ropeHang(context.player());
 				case ROPE_CLIMB -> com.projecthero.mod.spider.SpiderMoves.ropeClimb(context.player());
+				case TOGGLE_WALL_CRAWL -> com.projecthero.mod.spider.SpiderMoves.toggleWallCrawl(context.player());
 			}
 		});
 

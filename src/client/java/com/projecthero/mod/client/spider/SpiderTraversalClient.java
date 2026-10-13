@@ -194,9 +194,25 @@ public final class SpiderTraversalClient {
 		if (!player.onGround() || player.isShiftKeyDown()) {
 			return;
 		}
-		WebStructureEntity rope = WebStructures.ropeUnderfoot(player);
-		if (rope == null) {
+		// v0.16.1: at a junction (two or more ropes underfoot) follow the one running most nearly the way he is going
+		java.util.List<WebStructureEntity> ropes = WebStructures.ropesUnderfoot(player);
+		if (ropes.isEmpty()) {
 			return;
+		}
+		Vec3 heading = player.getDeltaMovement().horizontalDistanceSqr() > 1.0e-3 ? player.getDeltaMovement() : player.getLookAngle();
+		WebStructureEntity rope = ropes.get(0);
+		double bestAlign = -1.0;
+		for (WebStructureEntity r : ropes) {
+			Vec3 d = r.geometry().b(0).subtract(r.geometry().a(0));
+			Vec3 h = new Vec3(d.x, 0, d.z);
+			if (h.lengthSqr() < 1.0e-4) {
+				continue;
+			}
+			double align = Math.abs(h.normalize().dot(new Vec3(heading.x, 0, heading.z).normalize()));
+			if (align > bestAlign) {
+				bestAlign = align;
+				rope = r;
+			}
 		}
 		WebGeometry g = rope.geometry();
 		Vec3 a = g.a(0);

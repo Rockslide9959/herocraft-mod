@@ -47,7 +47,9 @@ public record SpiderActionPayload(Action action) implements CustomPacketPayload 
 		/** v0.16.1: Sneak while standing on his tightrope -- drop under it and hang. */
 		ROPE_HANG,
 		/** v0.16.1: Jump while hanging under a tightrope -- flip back on top. */
-		ROPE_CLIMB
+		ROPE_CLIMB,
+		/** v0.16.1: N -- switch the automatic wall crawl on / off. */
+		TOGGLE_WALL_CRAWL
 	}
 
 	public static final CustomPacketPayload.Type<SpiderActionPayload> TYPE =

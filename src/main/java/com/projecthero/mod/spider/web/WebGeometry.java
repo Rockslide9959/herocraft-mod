@@ -347,6 +347,35 @@ public final class WebGeometry {
 		return v < 0 ? 0 : v > 1 ? 1 : v;
 	}
 
+	/** v0.16.1: like {@link #rayHit} but strands only (never the wall panel): the fraction 0..1 along the ray, or -1. */
+	public double strandRayHit(Vec3 from, Vec3 to, double radius) {
+		double best = -1.0;
+		Vec3 r = to.subtract(from);
+		for (int i = 0; i < segmentCount(); i++) {
+			Vec3 a = a(i);
+			Vec3 s = b(i).subtract(a);
+			double[] st = closestParams(from, r, a, s);
+			if (from.add(r.scale(st[0])).distanceToSqr(a.add(s.scale(st[1]))) <= radius * radius && (best < 0.0 || st[0] < best)) {
+				best = st[0];
+			}
+		}
+		return best;
+	}
+
+	/** v0.16.1: the strand segment nearest {@code p} (its index), or -1 when there are none. */
+	public int nearestSegment(Vec3 p) {
+		int best = -1;
+		double bestD = Double.MAX_VALUE;
+		for (int i = 0; i < segmentCount(); i++) {
+			double d = closestOnSegment(a(i), b(i), p).distanceToSqr(p);
+			if (d < bestD) {
+				bestD = d;
+				best = i;
+			}
+		}
+		return best;
+	}
+
 	/** Total strand length (the web reserve price of a woven web scales with it on the HUD). */
 	public double totalLength() {
 		double sum = 0;

@@ -86,6 +86,9 @@ public final class SpiderCombat {
 		final long startedAt;
 		double lastDist = Double.MAX_VALUE;
 		int stalled;
+		/** v0.16.1: zipping onto a rope -- where his feet land on top of it, and the way he faces (along it); null = a block zip. */
+		Vec3 landFeet;
+		float landYaw;
 
 		ZipPull(Vec3 target, long startedAt) {
 			this.target = target;
@@ -348,7 +351,22 @@ public final class SpiderCombat {
 		ZIPS.put(player.getUUID(), new ZipPull(target, player.level().getGameTime()));
 	}
 
+	/**
+	 * v0.16.1 Point Zip onto one of his web strands: hauled at the point and, on arrival (or once the haul stalls with
+	 * nothing solid in the way), set down STANDING on top of the strand, balanced and facing along it.
+	 */
+	public static void beginZipLanding(ServerPlayer player, Vec3 feet, float yaw) {
+		ZipPull z = new ZipPull(feet.add(0, player.getEyeHeight(), 0), player.level().getGameTime());
+		z.landFeet = feet;
+		z.landYaw = yaw;
+		ZIPS.put(player.getUUID(), z);
+	}
+
 	private static void tickZip(ServerPlayer player, ZipPull zip) {
+		if (zip.landFeet != null) {
+			tickZipLanding(player, zip);
+			return;
+		}
 		Vec3 delta = zip.target.subtract(player.getEyePosition());
 		double dist = delta.length();
 		boolean timedOut = player.level().getGameTime() - zip.startedAt > 60;
@@ -362,6 +380,35 @@ public final class SpiderCombat {
 			return;
 		}
 		AbilityHelpers.launchSelf(player, delta.normalize().scale(Math.min(3.0, 1.1 + dist * 0.08)));
+	}
+
+	private static void tickZipLanding(ServerPlayer player, ZipPull zip) {
+		Vec3 eye = player.getEyePosition();
+		Vec3 delta = zip.target.subtract(eye);
+		double dist = delta.length();
+		boolean timedOut = player.level().getGameTime() - zip.startedAt > 60;
+		zip.stalled = dist > zip.lastDist - 0.05 ? zip.stalled + 1 : 0;
+		zip.lastDist = dist;
+		if (SpiderSwing.isSwinging(player) || player.isSpectator()) {
+			ZIPS.remove(player.getUUID());
+			return;
+		}
+		boolean clear = player.level().clip(new net.minecraft.world.level.ClipContext(eye, zip.target,
+				net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, player))
+				.getType() == net.minecraft.world.phys.HitResult.Type.MISS;
+		if (dist < 1.3 || ((zip.stalled > 5 || timedOut) && clear)) {
+			ZIPS.remove(player.getUUID());
+			Vec3 f = zip.landFeet;
+			player.connection.teleport(f.x, f.y + 0.03, f.z, zip.landYaw, player.getXRot());
+			AbilityHelpers.launchSelf(player, Vec3.ZERO);
+			player.resetFallDistance();
+			return;
+		}
+		if (zip.stalled > 5 || timedOut) {
+			ZIPS.remove(player.getUUID()); // something solid in the way: just stop
+			return;
+		}
+		AbilityHelpers.launchSelf(player, delta.normalize().scale(Math.min(2.6, 0.9 + dist * 0.08)));
 	}
 
 	// ---------------- tick ----------------

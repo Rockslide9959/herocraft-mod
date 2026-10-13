@@ -494,6 +494,53 @@ public final class V0161SpiderHarness {
 			at(c + 30, () -> showGui = false);
 			c += 35;
 		}
+		// ------------------------------------------------ rope network + zip onto a rope
+		if (all() || only.contains("network")) {
+			final int bx = 1600;
+			at(c, () -> {
+				lockRot = false;
+				server(mc, p -> {
+					ServerLevel l = p.serverLevel();
+					int gy = (int) groundY;
+					fill(l, bx - 1, gy, -1, bx + 1, gy + 7, 1, Blocks.STONE_BRICKS.defaultBlockState());
+					fill(l, bx - 1, gy, 19, bx + 1, gy + 7, 21, Blocks.STONE_BRICKS.defaultBlockState());
+					fill(l, bx + 13, gy, 9, bx + 15, gy + 9, 11, Blocks.STONE_BRICKS.defaultBlockState());
+					reset(p, bx, 8);
+					Vec3 a = new Vec3(bx + 0.5, gy + 7.6, 2.1);
+					Vec3 b = new Vec3(bx + 0.5, gy + 7.6, 18.9);
+					var r1 = SpiderMoves.buildTightrope(p, a, b);
+					Vec3 j = a.lerp(b, 0.5);
+					var r2 = SpiderMoves.buildTightrope(p, j, new Vec3(bx + 12.9, gy + 9.6, 10.5));
+					r2.parents.add(r1.getUUID());
+					p.teleportTo(l, j.x, j.y + 0.05, j.z, -90f, 0f);
+				});
+			});
+			at(c + 75, () -> cam(mc, new Vec3(-6.0, 4.0, -8.0), new Vec3(2.0, 0.0, 0.5)));
+			at(c + 80, () -> still(mc, "network_junction"));
+			at(c + 82, () -> cam(mc, new Vec3(-3.0, 1.5, 3.5), new Vec3(1.0, 0.5, 0.0)));
+			at(c + 86, () -> still(mc, "network_junction_close"));
+			// zip up onto rope 1 from the ground below and to the side
+			at(c + 90, () -> server(mc, p -> {
+				p.teleportTo(p.serverLevel(), bx - 5.5, groundY, 13.5, 0f, 0f);
+				Vec3 target = new Vec3(bx + 0.5, groundY + 7.6, 13.0);
+				p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, target);
+			}));
+			at(c + 94, () -> cam(mc, new Vec3(-4.0, 1.5, -6.5), new Vec3(1.5, 1.0, 0.0)));
+			at(c + 98, () -> {
+				tickRate(mc, 6f);
+				server(mc, p -> {
+					p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, new Vec3(bx + 0.5, groundY + 7.6, 13.0));
+					com.projecthero.mod.spider.SpiderAbilities.webZip(p);
+				});
+				double armed = mc.level.getGameTime();
+				capture("ropezip", () -> animStart(mc, SpiderAnim.ZIP, armed), 1f, 3f, 5f, 8f, 14f);
+			});
+			at(c + 130, () -> {
+				tickRate(mc, 20f);
+				lockRot = true;
+			});
+			c += 140;
+		}
 		// ------------------------------------------------ the ledge perch
 		if (all() || only.contains("perch")) {
 			String[] pv = {"fr", "s", "q", "f"};

@@ -157,7 +157,7 @@ public final class SpiderInputClient {
 		}
 
 		// ---- running / flying into a wall sticks to it (v0.16.1, replaces the C toggle) ----
-		if (spiderMan && !adhered && !sneakDown && regrabLock == 0 && player.horizontalCollision
+		if (spiderMan && !SpiderClimb.crawlOff(player) && !adhered && !sneakDown && regrabLock == 0 && player.horizontalCollision
 				&& !player.getAbilities().flying && !player.isPassenger() && !player.isInWater() && !player.isInLava()
 				&& !local(player).lockedOut()) {
 			boolean airborne = !player.onGround();

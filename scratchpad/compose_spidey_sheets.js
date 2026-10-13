@@ -53,6 +53,7 @@ for (const [m, n] of Object.entries(moves)) sheet(`spidey_${m}_sheet.png`, ['q',
 sheet('spidey_swing_sheet.png', [frames('swing_side', 5), frames('release_side', 5), frames('swing_back', 5)]);
 sheet('spidey_tightrope_sheet.png', [['v0161sm_rope_side.png', 'v0161sm_rope_front.png', 'v0161sm_rope_hang.png'], frames('rope_walk', 4)]);
 sheet('spidey_perch_sheet_v3.png', [frames('perch_fr', 5), frames('perch_s', 5), frames('perch_q', 5), frames('perch_f', 5)]);
+sheet('spidey_rope_network_sheet.png', [['v0161sm_network_junction.png', 'v0161sm_network_junction_close.png'], frames('ropezip', 5)]);
 for (const s of ['weave_wide', 'weave_wide2', 'weave_standing', 'weave_standing_below', 'wall', 'wall_front', 'hud', 'hud_weave_alarm']) {
 	const p = path.join(SHOTS, `v0161sm_${s}.png`);
 	if (fs.existsSync(p)) fs.copyFileSync(p, path.join(OUT, `spidey_${s}.png`));

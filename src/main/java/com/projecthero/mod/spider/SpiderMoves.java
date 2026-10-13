@@ -200,6 +200,8 @@ public final class SpiderMoves {
 	private static final Map<UUID, List<Thrown>> THROWN = new ConcurrentHashMap<>();
 	private static final Map<UUID, Weave> WEAVES = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> ANCHOR_A_AT = new ConcurrentHashMap<>();
+	/** v0.16.1: the web anchor A sits on, when it was placed on a strand (a junction). */
+	private static final Map<UUID, UUID> ANCHOR_A_PARENT = new ConcurrentHashMap<>();
 	private static final Map<UUID, Boolean> THWIP_HAND = new ConcurrentHashMap<>();
 	/** {lastY, lastVy, lastHorizontalSpeed, wasOnGround(1/0), lastX, lastZ} for the landing / release-flip poses. */
 	private static final Map<UUID, double[]> MOTION = new ConcurrentHashMap<>();
@@ -222,6 +224,7 @@ public final class SpiderMoves {
 		THROWN.clear();
 		WEAVES.clear();
 		ANCHOR_A_AT.clear();
+		ANCHOR_A_PARENT.clear();
 		THWIP_HAND.clear();
 		MOTION.clear();
 	}
@@ -242,6 +245,7 @@ public final class SpiderMoves {
 			w.web.dissolve(false);
 		}
 		ANCHOR_A_AT.remove(id);
+		ANCHOR_A_PARENT.remove(id);
 		MOTION.remove(id);
 		SpiderMoveState s = player.getAttachedOrElse(ModAttachments.SPIDER_MOVE_STATE, null);
 		if (s != null && (s.flags != 0 || s.animId != SpiderAnim.NONE)) {
@@ -908,7 +912,11 @@ public final class SpiderMoves {
 		long now = level.getGameTime();
 		Long aAt = ANCHOR_A_AT.get(player.getUUID());
 		boolean hasA = s.has(SpiderMoveState.FLAG_ANCHOR_A) && aAt != null && now - aAt < 600;
-		if (hit.getType() != HitResult.Type.BLOCK) {
+		// v0.16.1: an anchor may also be a point on one of his webs' strands (a junction) -- whichever is nearer on the aim
+		WebStructures.StrandHit strand = WebStructures.raycastStrand(player, w.tightropeMaxLength + 8.0);
+		double blockDist = hit.getType() == HitResult.Type.BLOCK ? hit.getLocation().distanceTo(player.getEyePosition()) : Double.MAX_VALUE;
+		boolean onStrand = strand != null && strand.distance() < blockDist;
+		if (hit.getType() != HitResult.Type.BLOCK && !onStrand) {
 			if (hasA) {
 				clearAnchorA(player);
 				player.displayClientMessage(Component.translatable("message.projecthero.spider_man.anchor_cleared"), true);
@@ -917,7 +925,9 @@ public final class SpiderMoves {
 			}
 			return;
 		}
-		Vec3 point = hit.getLocation().add(Vec3.atLowerCornerOf(hit.getDirection().getNormal()).scale(0.12));
+		Vec3 point = onStrand ? strand.point()
+				: hit.getLocation().add(Vec3.atLowerCornerOf(hit.getDirection().getNormal()).scale(0.12));
+		UUID parent = onStrand ? strand.web().getUUID() : null;
 		anim(player, SpiderAnim.TIGHTROPE_SHOT);
 		thwip(player, 1.0f);
 		if (!hasA) {
@@ -930,6 +940,11 @@ public final class SpiderMoves {
 			c.animStart = now;
 			save(player, c);
 			ANCHOR_A_AT.put(player.getUUID(), now);
+			if (parent != null) {
+				ANCHOR_A_PARENT.put(player.getUUID(), parent);
+			} else {
+				ANCHOR_A_PARENT.remove(player.getUUID());
+			}
 			SpiderCombat.sendStrand(player, SpiderCombat.SLOT_TIGHTROPE, null, point, 600, 0);
 			level.sendParticles(ParticleTypes.ITEM_COBWEB, point.x, point.y, point.z, 8, 0.1, 0.1, 0.1, 0.0);
 			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.anchor_set"), true);
@@ -948,7 +963,14 @@ public final class SpiderMoves {
 		if (!SpiderAbilities.gate(player, TIGHTROPE, cfg(TIGHTROPE).cost)) {
 			return;
 		}
-		buildTightrope(player, a, point);
+		WebStructureEntity rope = buildTightrope(player, a, point);
+		UUID parentA = ANCHOR_A_PARENT.get(player.getUUID());
+		if (parentA != null) {
+			rope.parents.add(parentA);
+		}
+		if (parent != null) {
+			rope.parents.add(parent);
+		}
 		clearAnchorA(player);
 		fired(player, TIGHTROPE);
 	}
@@ -964,6 +986,7 @@ public final class SpiderMoves {
 
 	private static void clearAnchorA(ServerPlayer player) {
 		ANCHOR_A_AT.remove(player.getUUID());
+		ANCHOR_A_PARENT.remove(player.getUUID());
 		SpiderMoveState s = state(player);
 		if (s.has(SpiderMoveState.FLAG_ANCHOR_A)) {
 			SpiderMoveState c = s.copy();
@@ -1227,6 +1250,22 @@ public final class SpiderMoves {
 		anim(player, SpiderAnim.ZIP);
 		fired(player, ZIP_BOOST);
 		return true;
+	}
+
+	/** N: switch the automatic wall crawl on / off (saved per player; default on). Returns the new state (true = on). */
+	public static boolean toggleWallCrawl(ServerPlayer player) {
+		if (!SpiderMan.hasPower(player)) {
+			return false;
+		}
+		boolean off = !player.getAttachedOrElse(ModAttachments.SPIDER_WALL_CRAWL_OFF, false);
+		player.setAttached(ModAttachments.SPIDER_WALL_CRAWL_OFF, off);
+		if (off) {
+			SpiderClimb.requestRelease(player);
+		}
+		play(player, SoundEvents.SPIDER_STEP, 0.5f, off ? 0.8f : 1.6f);
+		player.displayClientMessage(Component.translatable(off
+				? "message.projecthero.spider_man.wall_crawl_off" : "message.projecthero.spider_man.wall_crawl_on"), true);
+		return !off;
 	}
 
 	/** Sneak while standing on one of his tightropes: drop under it and hang from it (a short swing line). */

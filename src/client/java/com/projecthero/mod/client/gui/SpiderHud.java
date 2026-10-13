@@ -237,6 +237,10 @@ public final class SpiderHud {
 		int webY = nameY + 10;
 		graphics.drawString(client.font, Component.translatable("hud.projecthero.spider_man.web_reserve",
 				(int) Math.ceil(ratio * 100.0f)), x0, webY, COLOR_WEB_TEXT, false);
+		// v0.16.1: the N wall-crawl switch, right-aligned on the Web line
+		boolean crawlOn = !player.getAttachedOrElse(ModAttachments.SPIDER_WALL_CRAWL_OFF, false);
+		Component crawl = Component.translatable(crawlOn ? "hud.projecthero.spider_man.wall_crawl_on" : "hud.projecthero.spider_man.wall_crawl_off");
+		graphics.drawString(client.font, crawl, x0 + totalW - client.font.width(crawl), webY, crawlOn ? 0xFFA8E0A8 : 0xFFB0A0A0, false);
 		int barY = webY + 10;
 		graphics.fill(x0, barY, x0 + totalW, barY + 3, 0xAA180C10);
 		graphics.fill(x0, barY, x0 + Math.round(totalW * ratio), barY + 3, ratio < 0.2f ? COLOR_WEB_LOW : COLOR_WEB);

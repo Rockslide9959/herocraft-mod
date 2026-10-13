@@ -125,6 +125,13 @@ strand (+`weaveFinishCost` 30), `spiderPulse` 400/10 (+`pulseHighlightTicks` 120
 ThrownBlockRenderer}`, the rewritten `gui/SpiderHud`, updated `SpiderInputClient` / `SpiderSwingClient` /
 `SpiderWebLineRenderer`. Tests: `SpiderManRevampGameTests`.
 
+### Wall-crawl switch, rope networks, zip-to-rope
+
+- **N toggles the automatic wall crawl** (`SpiderMoves.toggleWallCrawl`, `SpiderActionPayload.TOGGLE_WALL_CRAWL`). Saved per player in the new persistent `SPIDER_WALL_CRAWL_OFF` attachment (default false = ON, kept through death, synced to the owner). OFF means nothing sticks him: `SpiderClimb.updateAttachment` returns null for Spider-Man, `requestGrab` refuses (so a Point Zip at a wall does not arm adhesion either) and the client never sends the auto-grab. HUD: "Wall Crawl: ON / OFF" right-aligned on the Web line, plus an action-bar message on each press. N priority: Titan-in-Titan and a base-form Titan Shifter's Shift+N stay first; then plain N (no Shift, no mutation selected) is Spider-Man's, before All Might / Wolverine / Symbiote host / Green Lantern; Shift+N still falls through to Nova's helmet and the Stark Gear screen. One-primary-power means those heroes never share a player with Spider-Man anyway.
+- **Tightropes connect.** Tightrope anchors raycast web strands as well as blocks (`WebStructures.raycastStrand`: tightropes and woven-web strands, never wall panels; whichever is nearer wins). An anchor on a strand is the exact closest point on it, so a new rope meets the old one there; the new rope records its parent web(s) (`WebStructureEntity.parents`). **Decision:** when a parent is cut or fades, every rope anchored on it dissolves too (cascading) -- simplest and never leaves a rope hanging from nothing. At a junction the balance assist follows the rope running most nearly the way he is going (`WebStructures.ropesUnderfoot`), so he walks straight on across.
+- **Point Zip onto a rope.** A G tap aimed at one of his strands (nearer than any block) zips to that point and sets him down STANDING on top of it (feet 0.03 above the strand), facing along it (the direction nearer his look): `SpiderCombat.beginZipLanding`. The landing happens on arrival, or once the haul stalls / times out with a clear line to the point (so it works zipping up from below -- strands are one-way platforms -- but never through a wall).
+- Gametests: `nToggleStopsAutoAttach`, `aTightropeCanAnchorOnAnotherRope`, `pointZipOntoARopeLandsStandingOnIt`. Sheet: `spidey_rope_network_sheet.png`.
+
 ## v0.9.10 changes (at a glance)
 
 - **Super leap buffed to ~10 blocks.** `SpiderAbilities.superJump` initial rise `1.05 → 1.35`

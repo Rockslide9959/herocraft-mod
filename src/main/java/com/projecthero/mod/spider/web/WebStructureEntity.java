@@ -45,6 +45,8 @@ public class WebStructureEntity extends Entity {
 	public long lastAlarm = Long.MIN_VALUE / 2;
 	/** Server: where the last alarm was raised (null before the first). */
 	public Vec3 lastAlarmAt;
+	/** Server: the webs this one is anchored on (a tightrope junction). If one of them goes, this goes too. */
+	public final java.util.Set<UUID> parents = new java.util.HashSet<>();
 
 	public WebStructureEntity(EntityType<? extends WebStructureEntity> type, Level level) {
 		super(type, level);
@@ -151,6 +153,14 @@ public class WebStructureEntity extends Entity {
 			}
 		}
 		discard();
+		// v0.16.1: ropes anchored on this web go with it (a junction cannot outlive the strand it hangs from)
+		if (!level().isClientSide) {
+			for (WebStructureEntity child : WebStructures.in(level())) {
+				if (child != this && !child.isRemoved() && child.parents.contains(getUUID())) {
+					child.dissolve(cut);
+				}
+			}
+		}
 	}
 
 	/** Shape and owner only matter while the world runs: a web is never written to disk (see the class doc). */

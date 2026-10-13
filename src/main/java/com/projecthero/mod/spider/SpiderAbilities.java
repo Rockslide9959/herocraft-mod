@@ -175,6 +175,14 @@ public final class SpiderAbilities {
 			return;
 		}
 		BlockHitResult hit = AbilityHelpers.raycastBlock(player, ZIP_RANGE);
+		// v0.16.1: aimed at one of his tightropes / web strands (nearer than any block): zip there and land standing on it
+		com.projecthero.mod.spider.web.WebStructures.StrandHit strand =
+				com.projecthero.mod.spider.web.WebStructures.raycastStrand(player, ZIP_RANGE);
+		if (strand != null && (hit.getType() != HitResult.Type.BLOCK
+				|| strand.distance() < hit.getLocation().distanceTo(player.getEyePosition()))) {
+			zipOntoStrand(player, strand, cfg);
+			return;
+		}
 		if (hit.getType() != HitResult.Type.BLOCK) {
 			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.no_surface"), true);
 			return;
@@ -234,6 +242,30 @@ public final class SpiderAbilities {
 		AbilityHelpers.burst(level, target, ParticleTypes.ITEM_COBWEB, 6, 0.15);
 		SpiderMoves.thwip(player, 1.1f);
 		AbilityHelpers.sound(player, SoundEvents.FISHING_BOBBER_RETRIEVE, 0.7f, 1.5f);
+		fired(player, SpiderMoves.POINT_ZIP, cfg.cost, cfg.cooldown);
+	}
+
+	/** Point Zip at a strand: hauled there and set down standing on top of it, facing along it (whichever way is nearer his look). */
+	private static void zipOntoStrand(ServerPlayer player, com.projecthero.mod.spider.web.WebStructures.StrandHit strand,
+			SpiderManConfig.Move cfg) {
+		var g = strand.web().geometry();
+		Vec3 along = g.b(strand.segment()).subtract(g.a(strand.segment()));
+		Vec3 flat = new Vec3(along.x, 0, along.z);
+		Vec3 look = player.getLookAngle();
+		if (flat.lengthSqr() < 1.0e-4) {
+			flat = new Vec3(look.x, 0, look.z);
+		}
+		if (flat.x * look.x + flat.z * look.z < 0) {
+			flat = flat.reverse();
+		}
+		float yaw = (float) Math.toDegrees(Math.atan2(-flat.x, flat.z));
+		SpiderSwing.detach(player, false);
+		SpiderCombat.beginZipLanding(player, strand.point(), yaw);
+		Vec3 dir = strand.point().add(0, player.getEyeHeight(), 0).subtract(player.getEyePosition()).normalize();
+		AbilityHelpers.launchSelf(player, dir.scale(1.4));
+		SpiderMoves.anim(player, SpiderAnim.ZIP);
+		SpiderCombat.sendStrand(player, SpiderCombat.SLOT_ZIP, null, strand.point(), 6, SpiderCombat.STRAND_FADE_TICKS);
+		SpiderMoves.thwip(player, 1.1f);
 		fired(player, SpiderMoves.POINT_ZIP, cfg.cost, cfg.cooldown);
 	}
 

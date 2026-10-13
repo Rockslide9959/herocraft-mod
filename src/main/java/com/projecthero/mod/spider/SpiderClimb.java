@@ -77,6 +77,11 @@ public final class SpiderClimb {
 	private SpiderClimb() {
 	}
 
+	/** v0.16.1: Spider-Man has switched his automatic wall crawl off (N). Readable on both sides (synced to the owner). */
+	public static boolean crawlOff(Player player) {
+		return player.getAttachedOrElse(ModAttachments.SPIDER_WALL_CRAWL_OFF, false);
+	}
+
 	// ---------------- eligibility ----------------
 
 	/**
@@ -263,6 +268,12 @@ public final class SpiderClimb {
 	 * boundaries and across the lip of a slab instead of dropping them.
 	 */
 	public static Direction updateAttachment(Player player, Profile profile, SpiderClimbLocal local) {
+		if (profile == Profile.SPIDER_MAN && crawlOff(player)) {
+			// v0.16.1: N switched the wall crawl off -- nothing sticks him to a surface
+			local.setGrabIntent(false);
+			local.reset();
+			return null;
+		}
 		if (profile == null || blocked(player) || local.lockedOut()) {
 			// Landing, entering water, going into a swing or losing the power all end the grab outright:
 			// re-sticking then needs a fresh double-tap-jump, which is exactly the control the player asked
@@ -375,7 +386,7 @@ public final class SpiderClimb {
 	 * {@link #updateAttachment} clears an intent that cannot apply anyway).
 	 */
 	public static void requestGrab(net.minecraft.server.level.ServerPlayer player) {
-		if (profile(player) == null) {
+		if (profile(player) == null || (SpiderMan.hasPower(player) && crawlOff(player))) {
 			return;
 		}
 		player.getAttachedOrCreate(ModAttachments.SPIDER_CLIMB_LOCAL).setGrabIntent(true);

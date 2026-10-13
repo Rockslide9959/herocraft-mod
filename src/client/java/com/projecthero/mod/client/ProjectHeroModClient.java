@@ -961,6 +961,12 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(Screen.hasShiftDown()
 					? com.projecthero.mod.network.TitanShiftPayload.Action.LET_DOWN
 					: com.projecthero.mod.network.TitanShiftPayload.Action.GRAB_BITE));
+		} else if (down && !maxSteelTransformWasDown && client.player != null && !Screen.hasShiftDown()
+				&& com.projecthero.mod.spider.SpiderMan.hasPower(client.player) && !mutationSelected(client)) {
+			// v0.16.1: Spider-Man -- plain N switches the automatic wall crawl on / off (Shift+N still falls through to
+			// Nova's helmet / the Stark Gear screen below; a selected mutation keeps its own Utility 2)
+			ClientPlayNetworking.send(new com.projecthero.mod.network.SpiderActionPayload(
+					com.projecthero.mod.network.SpiderActionPayload.Action.TOGGLE_WALL_CRAWL));
 		} else if (down && !maxSteelTransformWasDown && client.player != null
 				&& com.projecthero.mod.allmight.AllMight.isFullPower(client.player)) {
 			// v0.12.36: All Might -- N (Power Form) opens the costume locker.

@@ -399,6 +399,15 @@ public final class ModAttachments {
 	 * v0.16.1: Spider-Man's live move state -- the animated move, held stances, the tightrope's anchor A and the web
 	 * being woven. Not persisted (a relog starts clean); synced to every client so everyone sees the poses.
 	 */
+	/**
+	 * v0.16.1: Spider-Man's automatic wall crawl is switched OFF (N toggles it). False = on, the default. Persistent and
+	 * kept through death; synced to the owner (his client runs the climb engine).
+	 */
+	public static final AttachmentType<Boolean> SPIDER_WALL_CRAWL_OFF = AttachmentRegistry.create(
+			ProjectHeroMod.id("spider_wall_crawl_off"),
+			builder -> builder.persistent(Codec.BOOL).copyOnDeath().initializer(() -> false)
+					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.targetOnly()));
+
 	public static final AttachmentType<com.projecthero.mod.spider.data.SpiderMoveState> SPIDER_MOVE_STATE =
 			AttachmentRegistry.create(ProjectHeroMod.id("spider_move_state"),
 					builder -> builder.initializer(com.projecthero.mod.spider.data.SpiderMoveState::new)

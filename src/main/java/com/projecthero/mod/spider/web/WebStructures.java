@@ -256,6 +256,49 @@ public final class WebStructures {
 		return false;
 	}
 
+	/** v0.16.1: a strand of one of his (or his squad's) webs on the aim: the web, the exact point on the strand, the distance. */
+	public record StrandHit(WebStructureEntity web, Vec3 point, double distance, int segment) {
+	}
+
+	/** The nearest usable web strand (tightrope or woven web -- never a wall panel) on {@code player}'s aim, or null. */
+	public static StrandHit raycastStrand(Player player, double range) {
+		Vec3 eye = player.getEyePosition();
+		Vec3 dir = player.getLookAngle();
+		Vec3 to = eye.add(dir.scale(range));
+		StrandHit best = null;
+		for (WebStructureEntity w : in(player.level())) {
+			if (w.geometry().segmentCount() == 0 || !mayUse(player, w.owner())) {
+				continue;
+			}
+			double t = w.geometry().strandRayHit(eye, to, 0.3);
+			if (t < 0.0 || (best != null && t * range >= best.distance())) {
+				continue;
+			}
+			Vec3 along = eye.add(dir.scale(t * range));
+			int seg = w.geometry().nearestSegment(along);
+			Vec3 p = WebGeometry.closestOnSegment(w.geometry().a(seg), w.geometry().b(seg), along);
+			best = new StrandHit(w, p, p.distanceTo(eye), seg);
+		}
+		return best;
+	}
+
+	/** Every tightrope {@code player} is standing on (at a junction there are two or more). */
+	public static List<WebStructureEntity> ropesUnderfoot(Player player) {
+		AABB feet = player.getBoundingBox();
+		AABB probe = new AABB(feet.minX, feet.minY - 0.12, feet.minZ, feet.maxX, feet.minY + 0.05, feet.maxZ);
+		List<WebStructureEntity> out = new ArrayList<>();
+		for (WebStructureEntity w : in(player.level())) {
+			if (w.kind() == WebGeometry.TIGHTROPE && w.geometry().bounds.intersects(probe) && mayUse(player, w.owner())) {
+				List<VoxelShape> shapes = new ArrayList<>();
+				w.geometry().collisionBoxes(probe, shapes, player.getBoundingBox().minY);
+				if (!shapes.isEmpty()) {
+					out.add(w);
+				}
+			}
+		}
+		return out;
+	}
+
 	// ---------------- spawning / removing ----------------
 
 	/** Build a web for {@code owner}, enforcing his cap (his oldest web goes first). */
