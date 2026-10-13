@@ -88,6 +88,7 @@ public final class ModCreativeTab {
 				com.projecthero.mod.ultron.item.UltronItems.addToCreativeTab(output);
 				// v0.16.1: Frost Giant Assault: the Jotunheim Rune Stone, Rime Shards, the Jotun Skull, the Casket, spawn eggs.
 				com.projecthero.mod.frostgiant.item.FrostGiantItems.addToCreativeTab(output);
+				com.projecthero.mod.galactus.item.GalactusItems.addToCreativeTab(output); // v0.16.1
 				com.projecthero.mod.ultron.contagion.item.ContagionItems.addToCreativeTab(output); // v0.16.1
 				// Spider-Man: the Arachnid Mutagen that evolves Spider Adhesion into the Hero Class.
 				com.projecthero.mod.spider.item.SpiderItems.addToCreativeTab(output);

@@ -1305,6 +1305,7 @@ public class FrostGiantAssault extends EventInstance {
 				FrostGiantRewards.grantCasket(p);
 			}
 			level.playSound(null, c, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 1.0f, 1.0f);
+			com.projecthero.mod.galactus.GalactusWorldState.markFrostBeaten(level.getServer()); // v0.16.1: the cosmic signal can find this world now
 			ProjectHeroMod.LOGGER.info("[ProjectHero] Frost Giant Assault {} broken; {} fighter(s) rewarded", id(), winners.size());
 		} else {
 			// Jotunheim won: the anchor shatters

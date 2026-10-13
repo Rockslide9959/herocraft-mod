@@ -45,7 +45,8 @@ public final class RaidAdminCommand {
 			"syndicate", "carnage", // v0.14.25: the Syndicate Bust, Carnage
 			"sentinel_purge", // v0.15.1: the Sentinel Purge
 			"ultron", // v0.15.12: the Ultron Uprising
-			"frost_giants"); // v0.16.1: the Frost Giant Assault
+			"frost_giants", // v0.16.1: the Frost Giant Assault
+			"galactus"); // v0.16.1: Galactus: The Devourer
 	private static final SuggestionProvider<CommandSourceStack> RAID_KEYS =
 			(ctx, builder) -> SharedSuggestionProvider.suggest(RAIDS, builder);
 
@@ -59,6 +60,7 @@ public final class RaidAdminCommand {
 				.then(verb("end", RaidAdminCommand::end))
 				.then(verb("removetimer", RaidAdminCommand::removeTimer))
 				.then(verb("advancetimer", RaidAdminCommand::advanceTimer))
+				.then(verb("advance", RaidAdminCommand::advanceTimer)) // v0.16.1: a short alias for advancetimer
 				.then(DarkseidRaidCommand.build());
 	}
 
@@ -66,14 +68,18 @@ public final class RaidAdminCommand {
 		int run(CommandContext<CommandSourceStack> c, boolean supervillain) throws CommandSyntaxException;
 	}
 
-	private static LiteralArgumentBuilder<CommandSourceStack> verb(String name, Action action) {
-		return Commands.literal(name)
+	private static LiteralArgumentBuilder<CommandSourceStack> verb(String literal, Action action) {
+		String name = literal.equals("advance") ? "advancetimer" : literal;
+		return Commands.literal(literal)
 				.then(Commands.argument("raid", StringArgumentType.word()).suggests(RAID_KEYS)
 						.executes(c -> {
 							String raid = StringArgumentType.getString(c, "raid");
 							if (!RAIDS.contains(raid)) {
-								c.getSource().sendFailure(Component.literal("Unknown raid (supervillain, gravebound, darkseid, zombie_horde, skeleton_horde, spider_horde, syndicate, carnage, sentinel_purge, ultron, frost_giants)"));
+								c.getSource().sendFailure(Component.literal("Unknown raid (supervillain, gravebound, darkseid, zombie_horde, skeleton_horde, spider_horde, syndicate, carnage, sentinel_purge, ultron, frost_giants, galactus)"));
 								return 0;
+							}
+							if (raid.equals("galactus")) {
+								return com.projecthero.mod.galactus.Galactus.command(c, name);
 							}
 							if (raid.equals("darkseid")) {
 								return DarkseidRaidCommand.verb(c, name);
