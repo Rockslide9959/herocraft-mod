@@ -82,7 +82,10 @@ public final class UltronCombat {
 		if (suitId == null) {
 			return;
 		}
-		float extra = (float) (amount * IronManEnergy.INTEGRITY_PER_DAMAGE * UltronConfig.damage().ironManDrainBonus);
+		// v0.16.1: the suit only soaks its Mark's share of a hit now -- Ultron wears that share 10% harder
+		com.projecthero.mod.ironman.suit.IronManSuit worn = com.projecthero.mod.ironman.suit.IronManSuits.byId(suitId);
+		float share = worn == null ? 0f : worn.absorbShare();
+		float extra = (float) (amount * share * IronManEnergy.INTEGRITY_PER_DAMAGE * UltronConfig.damage().ironManDrainBonus);
 		if (extra > 0f) {
 			IronManEnergy.damageIntegrity(player, suitId, extra);
 		}

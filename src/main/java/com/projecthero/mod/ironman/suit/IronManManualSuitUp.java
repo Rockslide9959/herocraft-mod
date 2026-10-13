@@ -339,8 +339,9 @@ public final class IronManManualSuitUp {
 			return -1;
 		}
 		return switch (suitId) {
-			case "mark_1" -> KIND_MK1;
-			case "mark_2", "mark_iii", "mark_4", "mark_6", "mark_vii" -> KIND_WORKSHOP;
+			case "mark_1", "mark_1_v2" -> KIND_MK1; // v0.16.1: the gold Mark 1 V2 shares the Mark 1's model + cave build
+			// v0.16.1: the Mark 2 deploys from its briefcase now; the Mark 5 Stealth builds in the workshop instead
+			case "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii" -> KIND_WORKSHOP;
 			default -> -1;
 		};
 	}

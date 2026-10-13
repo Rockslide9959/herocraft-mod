@@ -334,7 +334,7 @@ public final class Assimilation {
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.ANVIL_LAND, SoundSource.HOSTILE, 1.0f, 0.6f);
 	}
 
-	/** A Proximity Mine's EMP: every suited Iron Man within 5 blocks loses a quarter of the suit's energy. */
+	/** A Proximity Mine's EMP: every suited Iron Man within 5 blocks has the suit locked out (empLockoutTicks). */
 	public static void proximityEmp(ServerLevel level, Vec3 at) {
 		ContagionConfig.Assimilation cfg = ContagionConfig.assimilation();
 		UltronFx.forced(level, UltronFx.CYAN, at.x, at.y + 0.8, at.z, 40, cfg.empRadius * 0.3, 0.6, cfg.empRadius * 0.3, 0.1);
@@ -343,8 +343,8 @@ public final class Assimilation {
 		for (ServerPlayer p : level.getEntitiesOfClass(ServerPlayer.class, new AABB(at, at).inflate(cfg.empRadius))) {
 			String suit = IronManArmor.wornSuitId(p);
 			if (suit != null && TonyStark.hasPower(p) && p.distanceToSqr(at) <= cfg.empRadius * cfg.empRadius) {
-				float drain = (float) (IronManEnergy.capacity(suit) * cfg.empEnergyDrain);
-				IronManEnergy.addEnergy(p, suit, -drain);
+				// v0.16.1: no suit energy any more -- the EMP knocks the suit offline for a moment instead
+				com.projecthero.mod.ironman.IronManIntegrity.lockout(p, cfg.empLockoutTicks);
 				p.displayClientMessage(Component.translatable("message.projecthero.contagion.emp").withStyle(ChatFormatting.AQUA), true);
 			}
 		}

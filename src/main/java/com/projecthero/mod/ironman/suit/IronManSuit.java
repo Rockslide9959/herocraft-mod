@@ -220,7 +220,8 @@ public final class IronManSuit {
 	public String nameKey() { return nameKey; }
 	public int techLevel() { return techLevel; }
 	public int markNumber() { return markNumber; }
-	public float energyCapacity() { return energyCapacity; }
+	/** v0.16.1: suit energy is gone -- every suit reads the inert {@code IronManEnergy.FULL} (old callers / UIs stay "full"). */
+	public float energyCapacity() { return com.projecthero.mod.ironman.IronManEnergy.FULL; }
 	public float flightEnergyCost() { return flightEnergyCost; }
 	public float flightSpeed() { return flightSpeed; }
 	public float flightAcceleration() { return flightAcceleration; }

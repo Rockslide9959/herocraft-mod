@@ -169,7 +169,7 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 				}
 			}
 		}
-		return "mark_v".equals(id);
+		return com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT.equals(id); // v0.16.1: the Mark 2 briefcase
 	}
 
 	@Override

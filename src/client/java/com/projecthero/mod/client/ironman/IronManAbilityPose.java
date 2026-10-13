@@ -169,6 +169,84 @@ public final class IronManAbilityPose {
 					m.head.xRot = Mth.lerp(w * k, m.head.xRot, 0.35f);
 				}
 			}
+			// ---------------- v0.16.1 comic kit poses
+			case IronManAbilityFx.COMIC_MAGNET -> {
+				// both palms thrust forward and spread, fingers wide (magnets, pressor, tractor, gravity)
+				set(m.rightArm, w, aimX - 0.05f, aimY - 0.45f, 0f);
+				set(m.leftArm, w, aimX - 0.05f, aimY + 0.45f, 0f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, -0.06f);
+			}
+			case IronManAbilityFx.COMIC_LAUNCH -> {
+				// a crouch, then both arms flung down and back like thrusters
+				float k = Mth.clamp(t / 4f, 0f, 1f);
+				set(m.rightArm, w, Mth.lerp(k, -0.4f, 0.6f), 0f, Mth.lerp(k, 0.1f, 0.35f));
+				set(m.leftArm, w, Mth.lerp(k, -0.4f, 0.6f), 0f, Mth.lerp(k, -0.1f, -0.35f));
+				com.projecthero.mod.client.HipBend.pitch(m, w, Mth.lerp(k, 0.3f, -0.05f));
+			}
+			case IronManAbilityFx.COMIC_GLIDE -> {
+				// arms spread like wings, body pitched forward
+				set(m.rightArm, w, 0.1f, 0f, 1.45f);
+				set(m.leftArm, w, 0.1f, 0f, -1.45f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, 0.25f);
+			}
+			case IronManAbilityFx.COMIC_SPIN -> {
+				// a full turn with the right leg kicked out
+				float k = Mth.clamp(t / 10f, 0f, 1f);
+				m.body.yRot = Mth.lerp(w, m.body.yRot, k * Mth.TWO_PI);
+				set(m.rightLeg, w, -1.2f, 0f, 0.6f);
+				set(m.rightArm, w, 0f, 0f, 1.2f);
+				set(m.leftArm, w, 0f, 0f, -1.2f);
+			}
+			case IronManAbilityFx.COMIC_GUARD -> {
+				// forearms crossed in front of the face
+				set(m.rightArm, w, -1.75f, 0.55f, 0f);
+				set(m.leftArm, w, -1.75f, -0.55f, 0f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, 0.1f);
+			}
+			case IronManAbilityFx.COMIC_GRAB -> {
+				// both hands out at chest height, holding something big
+				set(m.rightArm, w, -1.35f, -0.25f, 0f);
+				set(m.leftArm, w, -1.35f, 0.25f, 0f);
+			}
+			case IronManAbilityFx.COMIC_THROW -> {
+				// wound back overhead, then whipped forward
+				float k = Mth.clamp((t - 2f) / 3f, 0f, 1f);
+				set(m.rightArm, w, Mth.lerp(k, -2.8f, aimX + 0.2f), aimY, 0f);
+				m.body.yRot = Mth.lerp(w, m.body.yRot, Mth.lerp(k, 0.4f, -0.3f));
+			}
+			case IronManAbilityFx.COMIC_SKY -> {
+				// the right arm straight up at the sky, the left at the hip
+				set(m.rightArm, w, -3.0f, 0f, 0.1f);
+				set(m.leftArm, w, 0.2f, 0f, -0.3f);
+				m.head.xRot = Mth.lerp(w, m.head.xRot, -0.6f);
+			}
+			case IronManAbilityFx.COMIC_DIVE -> {
+				// arms swept back along the body, head down, a falling meteor
+				set(m.rightArm, w, 0.4f, 0f, 0.2f);
+				set(m.leftArm, w, 0.4f, 0f, -0.2f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, 0.45f);
+				m.head.xRot = Mth.lerp(w, m.head.xRot, 0.6f);
+			}
+			case IronManAbilityFx.COMIC_STOMP -> {
+				// the right knee lifted high, then stamped down
+				float k = Mth.clamp((t - 4f) / 3f, 0f, 1f);
+				set(m.rightLeg, w, Mth.lerp(k, -1.4f, 0.1f), 0f, 0f);
+				set(m.rightArm, w, -0.3f, 0f, 0.6f);
+				set(m.leftArm, w, -0.3f, 0f, -0.6f);
+			}
+			case IronManAbilityFx.COMIC_POUND -> {
+				// alternating hammer fists
+				boolean right = ((int) (t / 4f)) % 2 == 0;
+				float k = (t % 4f) / 4f;
+				set(right ? m.rightArm : m.leftArm, w, Mth.lerp(k, -2.6f, -0.6f), 0f, 0f);
+				set(right ? m.leftArm : m.rightArm, w, -1.2f, 0f, 0f);
+			}
+			case IronManAbilityFx.COMIC_FLARE -> {
+				// arms flung out to the sides, chest thrust forward
+				set(m.rightArm, w, 0.2f, 0f, 1.2f);
+				set(m.leftArm, w, 0.2f, 0f, -1.2f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, -0.15f);
+			}
 			default -> {
 			}
 		}

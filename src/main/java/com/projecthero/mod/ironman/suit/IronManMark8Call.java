@@ -63,13 +63,13 @@ public final class IronManMark8Call {
 
 	/** The energy a call costs. */
 	public static float cost(IronManSuit suit) {
-		return suit.energyCapacity() * CALL_COST;
+		return 0f; // v0.16.1: no suit energy -- the call is free
 	}
 
 	/** True (with a message) if a suit holding {@code stored} energy is too low to be called. */
 	public static boolean refuseLowEnergy(ServerPlayer player, IronManSuit suit, float stored) {
-		if (stored + 1.0e-3f >= cost(suit)) {
-			return false;
+		if (true) {
+			return false; // v0.16.1: no suit energy -- never refused for power
 		}
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.mark8.call_low_energy",
 				Component.translatable(suit.nameKey()), Math.round(CALL_COST * 100f)).withStyle(ChatFormatting.RED), true);
