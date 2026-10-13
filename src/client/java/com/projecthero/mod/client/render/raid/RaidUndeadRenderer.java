@@ -4,10 +4,8 @@ import java.util.function.ToIntFunction;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Axis;
 import com.projecthero.mod.event.entity.RaidAnimated;
 import com.projecthero.mod.event.entity.RaidAnimator;
-import com.projecthero.mod.event.entity.RaidZombie;
 
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
@@ -15,8 +13,6 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.item.ItemDisplayContext;
-import net.minecraft.world.item.ItemStack;
 
 import software.bernie.geckolib.animation.AnimationState;
 import software.bernie.geckolib.cache.object.BakedGeoModel;
@@ -26,48 +22,24 @@ import software.bernie.geckolib.model.GeoModel;
 import software.bernie.geckolib.model.data.EntityModelData;
 import software.bernie.geckolib.renderer.GeoEntityRenderer;
 import software.bernie.geckolib.renderer.layer.AutoGlowingGeoLayer;
-import software.bernie.geckolib.renderer.layer.BlockAndItemGeoLayer;
 
 /**
- * v0.16.1: one GeckoLib renderer for every raid mob with its own model ({@link RaidAnimated}: the Risen and its Armoured
- * kit, the grave-child, the Acid Zombie, the Juggernaut, the Sword Skeleton, the Cursed Zombie, the Pillager Spy and --
- * through {@link PoweredZombieRenderer} -- the Powered Zombie Boss). Only these mod entities use it: vanilla zombies,
- * baby zombies and every other vanilla mob keep their vanilla renderers.
+ * v0.16.1: the GeckoLib renderer for a raid mob with its own custom model ({@link RaidAnimated}) -- today the Powered Zombie
+ * Boss, through {@link PoweredZombieRenderer}. (The raid's other mobs are drawn on the player rig: {@link RaidPlayerRenderers}.)
  * <ul>
- *   <li>The model's rest pose is scaled to the adult hit-box height ({@link RaidModelFit}); GeckoLib halves a baby.</li>
- *   <li>Glow: GeckoLib's emissive layer (eyes, acid, runes ...) plus, where given, an additive bloom ({@link RaidHaloLayer}).</li>
+ *   <li>The model's rest pose is scaled to the adult hit-box height ({@link RaidModelFit}).</li>
+ *   <li>Glow: GeckoLib's emissive layer plus, where given, an additive bloom ({@link RaidHaloLayer}).</li>
  *   <li>The head follows the look target through the never-keyed {@code neck} bone (absolute each frame).</li>
- *   <li>The Armoured Risen shows its {@code armour_*} bones; other Risen hide them. Worn vanilla armour is not drawn (the
- *       kit is modelled); a held item is drawn at the {@code item_r} bone for the zombie models that have one (the
- *       skeleton's sword / shield and the spy's crossbow are modelled and the vanilla items are hidden).</li>
  *   <li>No vanilla tip-over on death -- the death clip is the collapse.</li>
  * </ul>
  */
 public class RaidUndeadRenderer<T extends Mob & RaidAnimated> extends GeoEntityRenderer<T> {
-	public RaidUndeadRenderer(EntityRendererProvider.Context context, float shadow, ToIntFunction<T> halo, boolean heldItem) {
+	public RaidUndeadRenderer(EntityRendererProvider.Context context, float shadow, ToIntFunction<T> halo) {
 		super(context, new Model<>());
 		this.shadowRadius = shadow;
 		addRenderLayer(glowLayer());
 		if (halo != null) {
 			addRenderLayer(new RaidHaloLayer<>(this, halo));
-		}
-		if (heldItem) {
-			addRenderLayer(new BlockAndItemGeoLayer<>(this, (bone, mob) -> bone.getName().equals("item_r") && !mob.getMainHandItem().isEmpty() ? mob.getMainHandItem() : null,
-					(bone, mob) -> null) {
-				@Override
-				protected ItemDisplayContext getTransformTypeForStack(GeoBone bone, ItemStack stack, T animatable) {
-					return ItemDisplayContext.THIRD_PERSON_RIGHT_HAND;
-				}
-
-				@Override
-				protected void renderStackForBone(PoseStack poseStack, GeoBone bone, ItemStack stack, T animatable, MultiBufferSource bufferSource,
-						float partialTick, int packedLight, int packedOverlay) {
-					// the hand hangs along -Y with the palm inward: turn the vanilla held-item frame onto it
-					poseStack.mulPose(Axis.XP.rotationDegrees(-90f));
-					poseStack.translate(0.0, 0.06, -0.02);
-					super.renderStackForBone(poseStack, bone, stack, animatable, bufferSource, partialTick, packedLight, packedOverlay);
-				}
-			});
 		}
 	}
 
@@ -134,22 +106,11 @@ public class RaidUndeadRenderer<T extends Mob & RaidAnimated> extends GeoEntityR
 				neck.setRotY(yaw * w * Mth.DEG_TO_RAD);
 				neck.setRotX(pitch * w * Mth.DEG_TO_RAD);
 			}
-			if (mob instanceof RaidZombie z) {
-				boolean armoured = z.variant() == RaidZombie.Variant.ARMOURED;
-				for (String b : ARMOUR_BONES) {
-					GeoBone bone = getAnimationProcessor().getBone(b);
-					if (bone != null) {
-						bone.setHidden(!armoured);
-					}
-				}
-			}
 			if (owner != null) {
 				owner.customBones(mob, this, state);
 			}
 		}
 	}
-
-	private static final String[] ARMOUR_BONES = { "armour_head", "armour_chest", "armour_pauldron_r", "armour_fore_r", "armour_fore_l", "armour_shin_r", "armour_shin_l", "armour_mail" };
 
 	{
 		@SuppressWarnings("unchecked")

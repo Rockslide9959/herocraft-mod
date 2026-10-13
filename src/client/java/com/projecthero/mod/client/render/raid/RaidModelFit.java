@@ -23,8 +23,7 @@ import software.bernie.geckolib.cache.object.GeoVertex;
  */
 public final class RaidModelFit {
 	private static final Map<BakedGeoModel, Float> HEIGHTS = new WeakHashMap<>();
-	private static final Set<String> FIT_IGNORE = Set.of("crown", "weapon_r", "crossbow", "shield", "hair", "hood_tip", "spyglass_hand", "armour_head",
-			"wisp_0", "wisp_1", "wisp_2", "drip_0", "drip_1", "cowl", "doll");
+	private static final Set<String> FIT_IGNORE = Set.of("crown");
 
 	private RaidModelFit() {
 	}

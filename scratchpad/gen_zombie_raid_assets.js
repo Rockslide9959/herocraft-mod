@@ -141,29 +141,10 @@ function skeletonSkin(file, { bone, shade, eyes, seed = 9 }) {
   c.save(path.join(ASSETS, 'entity', file));
 }
 
-zombieSkin('cursed_zombie.png', {
-  skin: [74, 46, 90], shirt: [42, 24, 54], trousers: [30, 18, 40],
-  eyes: [190, 120, 255, 255], seed: 3,
-});
-zombieSkin('armoured_zombie.png', {
-  skin: [86, 104, 74], shirt: [58, 58, 62], trousers: [44, 44, 48],
-  eyes: [200, 210, 190, 255], seed: 11,
-});
-zombieSkin('acid_zombie.png', {
-  skin: [110, 168, 58], shirt: [62, 104, 34], trousers: [46, 76, 28],
-  eyes: [205, 255, 76, 255], seed: 17,
-});
-zombieSkin('juggernaut_zombie.png', {
-  skin: [92, 84, 72], shirt: [48, 42, 36], trousers: [38, 34, 30],
-  eyes: [255, 136, 68, 255], seed: 23,
-});
-zombieSkin('empowered_zombie.png', {
-  skin: [62, 38, 92], shirt: [32, 18, 52], trousers: [26, 14, 44],
-  eyes: [255, 214, 96, 255], seed: 29,
-});
-skeletonSkin('sword_skeleton.png', {
-  bone: [201, 196, 180], shade: [126, 122, 110, 255], eyes: [255, 80, 80, 255], seed: 31,
-});
+// v0.16.1: the raid mob skins that used to be written here (cursed / armoured / acid / juggernaut / empowered zombie,
+// sword skeleton) are gone: the raid's mobs now wear the detailed player-rig skins of gen_raid_player_skins.js
+// (textures/entity/raid_skin/) and the Powered Zombie Boss has its own GeckoLib model (gen_raid_undead_models.js).
+void zombieSkin; void skeletonSkin;
 
 // ---------------------------------------------------------------- item sprites
 

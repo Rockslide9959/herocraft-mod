@@ -1,4 +1,5 @@
-// v0.16.1 raid undead: GAME EXPORT (node scratchpad/gen_raid_undead_models.js --game [--only ...] [--no-previews]).
+// v0.16.1 raid undead: GAME EXPORT -- the Powered Zombie Boss + the acid glob (the raid's other mobs are player-rig skins:
+// gen_raid_player_skins.js) (node scratchpad/gen_raid_undead_models.js --game [--only ...] [--no-previews]).
 // Writes every model AS the game asset (geo + texture + glowmask + animation) into
 // src/main/resources/assets/projecthero/{geo,textures/entity,animations}/raid/, the timing table
 // scratchpad/raid_undead_anim_timing.json, and preview sheets rendered FROM the written files into
@@ -15,7 +16,6 @@ const L = require('./lib_concept_models.js');
 const A = require('./lib_geckogen_anim.js');
 const G = require('./gen_raid_undead_models.js');
 const U = require('./raid_undead_units.js');
-const U2 = require('./raid_undead_units2.js');
 const U3 = require('./raid_undead_units3.js');
 const CL = require('./raid_undead_clips.js');
 const { mix, mul, clamp } = L;
@@ -24,9 +24,9 @@ const REPO = G.REPO;
 const RES = path.join(REPO, 'src/main/resources/assets/projecthero');
 const T = 3;
 // bones the fit leaves out (the BODY fills the hit-box): must match RaidModelFit.FIT_IGNORE
-const FIT_IGNORE = ['crown', 'weapon_r', 'crossbow', 'shield', 'hair', 'hood_tip', 'spyglass_hand', 'armour_head', 'acc_shards', 'acc_horns', 'acc_coils', 'acc_vines', 'acc_orbit', 'acc_wings', 'acc_spines', 'acc_horns_back', 'acc_spines_head', 'wisp_0', 'wisp_1', 'wisp_2', 'drip_0', 'drip_1', 'cowl', 'doll'];
+const FIT_IGNORE = ['crown']; // (+ every acc_* / wing_* bone)
 // adult hit-box heights (blocks)
-const HEIGHTS = { raid_zombie: 1.95, raid_zombie_baby: 1.95, acid_zombie: 1.95, juggernaut_zombie: 1.95 * 1.55, sword_skeleton: 1.99, cursed_zombie: 1.95, pillager_spy: 1.95, powered_zombie: 1.95 * 1.45 };
+const HEIGHTS = { powered_zombie: 1.95 * 1.45 };
 
 function parseTiming() {
 	const src = fs.readFileSync(path.join(REPO, 'src/main/java/com/projecthero/mod/event/entity/RaidAnims.java'), 'utf8');
@@ -104,14 +104,6 @@ function writeGame(M, id, an) {
 }
 
 const DANGLE = {
-	raid_zombie: [{ bone: 'hair', period: 12, damp: 0.25, limit: 30 }, { bone: 'tatter_b', period: 12, limit: 30 }, { bone: 'tatter_f', period: 10, limit: 30 }],
-	raid_zombie_baby: [{ bone: 'hair', period: 10, limit: 30 }, { bone: 'skirt', period: 14, stiff: 0.6, limit: 14 }, { bone: 'doll', period: 10, damp: 0.2, limit: 40 }],
-	acid_zombie: [{ bone: 'drip_0', period: 9, damp: 0.2, limit: 40 }, { bone: 'drip_1', period: 10, damp: 0.2, limit: 40 }, { bone: 'drip_2', period: 9, damp: 0.2, limit: 40 }],
-	juggernaut_zombie: [{ bone: 'chain', period: 14, damp: 0.2, limit: 45, acc: 2 }, { bone: 'flap_f', period: 12, limit: 30 }, { bone: 'flap_b', period: 12, limit: 30 }],
-	sword_skeleton: [{ bone: 'tabard_f', period: 11, limit: 35 }, { bone: 'tabard_b', period: 12, limit: 35 }],
-	cursed_zombie: [{ bone: 'shroud', period: 18, damp: 0.25, limit: 30, drag: 3 }, { bone: 'wrap_f', period: 12, limit: 30 }, { bone: 'hair', period: 12, limit: 30 },
-		{ bone: 'wisp_0', period: 20, damp: 0.15, limit: 40, drag: 4 }, { bone: 'wisp_1', period: 22, damp: 0.15, limit: 40, drag: 4 }, { bone: 'wisp_2', period: 18, damp: 0.15, limit: 40, drag: 4 }],
-	pillager_spy: [{ bone: 'cape', period: 18, damp: 0.28, limit: 35, drag: 3 }, { bone: 'cloak_r', period: 14, limit: 25 }, { bone: 'cloak_l', period: 14, limit: 25 }, { bone: 'hood_tip', period: 10, limit: 30 }],
 	powered_zombie: [{ bone: 'loin_f', period: 14, limit: 30 }, { bone: 'loin_b', period: 16, limit: 30, drag: 2 }],
 };
 
@@ -136,16 +128,6 @@ function run() {
 		previews.push({ id, files, k: HEIGHTS[id] / fitPx, clips: an.clips, height: HEIGHTS[id], timing: timing[id], hide: opts.previewHide });
 		console.log(`${id}: ${M.bones.length} bones, ${M.cubes().length} cubes, tex ${M.TW}x${M.TH}, ${Object.keys(an.clips).length} clips`);
 	};
-	{ const M = U.buildRaidZombie(); unit('raid_zombie', M, CL.raidZombieClips, U.raidZombiePoses(M), { previewHide: U.ARMOUR }); }
-	{ const M = U.buildBabyZombie(); unit('raid_zombie_baby', M, CL.babyClips, U.babyPoses(M)); }
-	{
-		const M = U.buildAcidZombie();
-		unit('acid_zombie', M, CL.acidClips, U.acidPoses(M), { halos: { mats: ['acid'], col: () => [120, 255, 60], eyes: eyeHalos(M, [150, 255, 90], 0.8) } });
-	}
-	{ const M = U2.buildJuggernaut(); unit('juggernaut_zombie', M, CL.juggernautClips, U2.juggernautPoses(M), { halos: { mats: [], col: null, eyes: [-1, 1].map(k => ({ bone: 'mask', c: [k * 1.45, M.A.eyeY - 0.1, M.A.faceZ - 0.95], s: [2.6, 1.3, 0.15], col: [255, 110, 30] })) } }); }
-	{ const M = U2.buildSkeleton(); unit('sword_skeleton', M, CL.skeletonClips, U2.skeletonPoses(M), { halos: { mats: [], col: null, eyes: [-1, 1].map(k => ({ bone: 'head', c: [k * 1.3, M.A.eyeY, M.A.faceZ - 0.1], s: [1.6, 1.6, 0.15], col: [140, 190, 255] })) } }); }
-	{ const M = U3.buildCursedZombie(); unit('cursed_zombie', M, CL.cursedClips, U3.cursedPoses(M), { halos: { mats: [], col: () => [170, 70, 255], eyes: eyeHalos(M, [190, 90, 255], 1.1) } }); }
-	{ const M = U3.buildSpy(); unit('pillager_spy', M, CL.spyClips, U3.spyPoses(M), { hidden: ['spyglass_hand'], previewHide: c => c.bone === 'spyglass_hand' }); }
 	{
 		const M = U3.buildBoss();
 		unit('powered_zombie', M, CL.bossClips, U3.bossPoses(M), { halos: { mats: ['pglow'], col: () => [235, 235, 235], eyes: eyeHalos(M, [255, 255, 255], 1.0) }, previewHide: c => U3.accentOf(c) && U3.accentOf(c) !== 'acc_shards' });

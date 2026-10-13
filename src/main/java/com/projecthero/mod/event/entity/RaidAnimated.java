@@ -3,12 +3,12 @@ package com.projecthero.mod.event.entity;
 import software.bernie.geckolib.animatable.GeoEntity;
 
 /**
- * v0.16.1: a raid mob drawn with its own GeckoLib model ({@link RaidAnims}). Implemented by {@link RaidUndead} (every raid
- * zombie, the Cursed Zombie and the Powered Zombie Boss), {@link SwordSkeleton} and {@link PillagerSpy}. Vanilla mobs are
- * untouched -- only these mod entities carry the new models.
+ * v0.16.1: a raid mob drawn with its own GeckoLib model ({@link RaidAnims}) -- the Powered Zombie Boss ({@link EmpoweredZombie},
+ * through {@link AnimatedRaidUndead}). The raid's other mobs are on the player rig with skins; vanilla mobs are
+ * untouched.
  */
 public interface RaidAnimated extends GeoEntity {
-	/** Asset base name (one of {@link RaidAnims#MODELS}); may depend on state (a baby Risen uses its own model). */
+	/** Asset base name (one of {@link RaidAnims#MODELS}). */
 	String raidModel();
 
 	/** The synced clip state. */

@@ -16,7 +16,6 @@ import com.projecthero.mod.event.entity.RaidAnimated;
 import com.projecthero.mod.event.entity.RaidAnimator;
 import com.projecthero.mod.event.entity.RaidAnims;
 import com.projecthero.mod.event.entity.RaidEntityTypes;
-import com.projecthero.mod.event.entity.RaidZombie;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 
@@ -26,12 +25,11 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 
 /**
- * v0.16.1: the raid undead GeckoLib models (Risen / grave-child / Acid / Juggernaut / Sword Skeleton / Cursed / Pillager
- * Spy / Powered Zombie Boss) against their contract {@link RaidAnims}: every clip exists, play-once clips finish before
- * the server drops them, every strike keyframe sits on {@code (hit - TRANSITION)}, the code-driven {@code neck} is never
- * keyed, the model bones the renderer drives exist, the predictive strikes fit inside the AI's own attack intervals, the
- * synced clip plays and expires, every boss power has a look and every boss ability an exertion clip -- and vanilla
- * zombies are not raid-animated.
+ * v0.16.1: the Powered Zombie Boss's GeckoLib model against its contract {@link RaidAnims} (every clip exists, play-once
+ * clips finish before the server drops them, every strike keyframe sits on {@code (hit - TRANSITION)}, the code-driven
+ * {@code neck} is never keyed, the accent bones exist, the predictive strikes fit the melee interval, the synced clip plays
+ * and expires, every boss power has a look and every boss ability an exertion clip); the raid's other mobs are on the
+ * player rig with their skins on the classpath; and vanilla zombies are untouched.
  */
 public class RaidModelGameTests implements FabricGameTest {
 	private static JsonObject read(String path) {
@@ -94,21 +92,10 @@ public class RaidModelGameTests implements FabricGameTest {
 			for (String b : need) {
 				helper.assertTrue(names.contains(b), model + ": missing bone " + b);
 			}
-			if (model.equals(RaidAnims.ZOMBIE)) {
-				for (String b : new String[] { "armour_head", "armour_chest", "armour_pauldron_r", "armour_fore_r", "armour_fore_l", "armour_shin_r", "armour_shin_l", "armour_mail", "item_r" }) {
-					helper.assertTrue(names.contains(b), "the Risen needs bone " + b);
-				}
-			}
 			if (model.equals(RaidAnims.BOSS)) {
 				for (String a : PoweredBossAnims.ACCENTS) {
 					helper.assertTrue(names.contains("acc_" + a), "the boss needs accent set acc_" + a);
 				}
-			}
-			if (model.equals(RaidAnims.SPY)) {
-				helper.assertTrue(names.contains("crossbow") && names.contains("spyglass_hand") && names.contains("spyglass_belt"), "the spy's crossbow / spyglass bones");
-			}
-			if (model.equals(RaidAnims.SKELETON)) {
-				helper.assertTrue(names.contains("weapon_r") && names.contains("shield"), "the skeleton's sword / shield bones");
 			}
 			JsonObject clips = read("animations/raid/" + model + ".animation.json").getAsJsonObject("animations");
 			for (String clip : clips.keySet()) {
@@ -131,42 +118,56 @@ public class RaidModelGameTests implements FabricGameTest {
 	public void predictiveStrikesFitTheAiIntervals(GameTestHelper helper) {
 		// the melee wind-up starts `hit` ticks before the goal's next hit, inside its 20-tick interval
 		for (RaidAnims.Clip c : RaidAnims.ALL) {
-			if (c.name().equals("attack") || c.name().startsWith("slash_a") || c.name().startsWith("slash_b")) {
+			if (c.name().equals("attack")) {
 				helper.assertTrue(c.hit() > RaidAnims.TRANSITION && c.hit() < RaidAnimator.MELEE_INTERVAL, c.id() + " wind-up must fit the melee interval");
 			}
-			if (c.name().endsWith("_snap") || c.name().equals("crossbow_fire") || c.name().startsWith("ability_") || c.name().equals("shove")
-					|| c.name().equals("cast_release") || c.name().equals("charge_impact")) {
+			if (c.name().endsWith("_snap") || c.name().startsWith("ability_") || c.name().equals("shove") || c.name().equals("cast_release")) {
 				helper.assertTrue(c.hit() == RaidAnims.TRANSITION, c.id() + ": a reaction clip strikes as its blend ends");
 			}
 		}
-		// the Acid Zombie's spit starts inside its 50-tick shot interval; the Juggernaut's tell is its 25-tick wind-up
-		helper.assertTrue(RaidAnims.ACID_SPIT.hit() < 50, "spit wind-up fits the shot interval");
-		helper.assertTrue(RaidAnims.JUGG_CHARGE_WINDUP.length() == 25, "the charge tell matches JuggernautZombie.WINDUP_TICKS");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void raidClipSyncsAndExpires(GameTestHelper helper) {
-		RaidZombie z = RaidEntityTypes.RAID_ZOMBIE.create(helper.getLevel());
-		helper.assertTrue(z.raidModel().equals(RaidAnims.ZOMBIE), "an adult Risen uses the Risen model");
-		z.setBaby(true);
-		helper.assertTrue(z.raidModel().equals(RaidAnims.BABY), "a baby Risen uses the grave-child model, never the vanilla one");
-		z.setBaby(false);
-		z.raidAnimator().set(RaidAnims.ZOMBIE_ATTACK);
-		helper.assertTrue(z.raidAnimator().current() == RaidAnims.ZOMBIE_ATTACK, "attack synced");
-		for (int i = 0; i < RaidAnims.ZOMBIE_ATTACK.length(); i++) {
-			z.raidAnimator().tick();
+	public void bossClipSyncsAndExpires(GameTestHelper helper) {
+		EmpoweredZombie boss = RaidEntityTypes.EMPOWERED_ZOMBIE.create(helper.getLevel());
+		helper.assertTrue(boss.raidModel().equals(RaidAnims.BOSS), "the Powered Zombie Boss uses its own model");
+		boss.raidAnimator().set(RaidAnims.BOSS_ATTACK);
+		helper.assertTrue(boss.raidAnimator().current() == RaidAnims.BOSS_ATTACK, "attack synced");
+		for (int i = 0; i < RaidAnims.BOSS_ATTACK.length(); i++) {
+			boss.raidAnimator().tick();
 		}
-		helper.assertTrue(z.raidAnimator().current() == null, "a play-once clip is dropped after its length");
-		z.raidAnimator().set(RaidAnims.ZOMBIE_READY);
+		helper.assertTrue(boss.raidAnimator().current() == null, "a play-once clip is dropped after its length");
+		boss.raidAnimator().set(RaidAnims.BOSS_READY);
 		for (int i = 0; i < 40; i++) {
-			z.raidAnimator().tick();
+			boss.raidAnimator().tick();
 		}
-		helper.assertTrue(z.raidAnimator().current() == RaidAnims.ZOMBIE_READY, "a held clip stays until replaced");
-		z.discard();
-		Entity vanilla = EntityType.ZOMBIE.create(helper.getLevel());
-		helper.assertFalse(vanilla instanceof RaidAnimated, "the vanilla zombie is untouched (no raid model)");
-		vanilla.discard();
+		helper.assertTrue(boss.raidAnimator().current() == RaidAnims.BOSS_READY, "a held clip stays until replaced");
+		boss.discard();
+		helper.succeed();
+	}
+
+	/**
+	 * The raid's other mobs are on the player rig (skins, no GeckoLib model), every skin and glow map is on the classpath,
+	 * and the vanilla zombie is untouched.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void raidMobsWearPlayerSkinsAndVanillaZombiesAreUntouched(GameTestHelper helper) {
+		for (EntityType<?> type : new EntityType<?>[] { RaidEntityTypes.RAID_ZOMBIE, RaidEntityTypes.ACID_ZOMBIE, RaidEntityTypes.JUGGERNAUT_ZOMBIE,
+				RaidEntityTypes.CURSED_ZOMBIE, RaidEntityTypes.SWORD_SKELETON, RaidEntityTypes.PILLAGER_SPY, EntityType.ZOMBIE }) {
+			Entity e = type.create(helper.getLevel());
+			helper.assertFalse(e instanceof RaidAnimated, EntityType.getKey(type) + " is drawn on the player rig / vanilla, not a GeckoLib raid model");
+			e.discard();
+		}
+		for (String skin : new String[] { "raid_zombie_armoured", "acid_zombie", "juggernaut_zombie", "cursed_zombie", "sword_skeleton", "pillager_spy" }) {
+			for (String tex : new String[] { skin + ".png", skin + "_glow.png" }) {
+				try (InputStream in = RaidAnims.class.getResourceAsStream("/assets/projecthero/textures/entity/raid_skin/" + tex)) {
+					helper.assertTrue(in != null, "missing skin " + tex);
+				} catch (java.io.IOException e) {
+					helper.fail("unreadable skin " + tex);
+				}
+			}
+		}
 		helper.succeed();
 	}
 

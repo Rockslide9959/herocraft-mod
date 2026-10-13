@@ -27,7 +27,7 @@ import software.bernie.geckolib.renderer.layer.AutoGlowingGeoLayer;
  */
 public class PoweredZombieRenderer extends RaidUndeadRenderer<EmpoweredZombie> {
 	public PoweredZombieRenderer(EntityRendererProvider.Context context) {
-		super(context, 1.0f, b -> scaled(tint(b), 0.7f), false);
+		super(context, 1.0f, b -> scaled(tint(b), 0.7f));
 	}
 
 	static int scaled(int rgb, float k) {

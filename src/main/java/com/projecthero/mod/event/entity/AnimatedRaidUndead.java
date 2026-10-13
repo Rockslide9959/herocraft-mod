@@ -13,9 +13,9 @@ import software.bernie.geckolib.animation.AnimatableManager;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
 /**
- * v0.16.1: a {@link RaidUndead} drawn with its own GeckoLib model ({@link RaidAnimated}, {@link RaidAnims}): the Risen /
- * Armoured / grave-child ({@link RaidZombie}), the Acid Zombie, the Juggernaut, the Cursed Zombie and the Powered Zombie
- * Boss. The synced clip id and the strike timing live in {@link RaidAnimator}; the AI is untouched. (The Titan's entities
+ * v0.16.1: a {@link RaidUndead} drawn with its own GeckoLib model ({@link RaidAnimated}, {@link RaidAnims}) -- the Powered
+ * Zombie Boss ({@link EmpoweredZombie}; the raid's other zombies are on the player rig with skins).
+ * The synced clip id and the strike timing live in {@link RaidAnimator}; the AI is untouched. (The Titan's entities
  * extend {@link RaidUndead} directly and are not affected; neither is any vanilla zombie.)
  */
 public abstract class AnimatedRaidUndead extends RaidUndead implements RaidAnimated {

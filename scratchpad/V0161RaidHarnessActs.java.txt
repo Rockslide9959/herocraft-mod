@@ -3,163 +3,48 @@ package com.projecthero.mod.client.raidharness;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.projecthero.mod.event.entity.EmpoweredZombie;
 import com.projecthero.mod.event.entity.PillagerSpy;
-import com.projecthero.mod.event.entity.RaidAnimated;
-import com.projecthero.mod.event.entity.RaidAnims;
-import com.projecthero.mod.event.entity.RaidEntityTypes;
-
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.Mob;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.ChargedProjectiles;
 
-/** TEMP-HARNESS: extra units and the animation moments of each unit for the raid model shots. */
+/** TEMP-HARNESS: the moments shot for the raid mobs on their player-rig skins (v0.16.1). */
 final class RaidHarnessActs {
 	private RaidHarnessActs() {
 	}
 
-	// a mob walked along +Z by the server each tick (NoAI mobs do not move on their own)
-	private static Mob mover;
-	private static double moverStep;
-	private static int moverTicks;
-	private static net.minecraft.world.phys.Vec3 moverStart;
-
-	static {
-		ServerTickEvents.END_SERVER_TICK.register(s -> {
-			if (mover != null && moverTicks-- > 0 && mover.isAlive()) {
-				mover.setPos(mover.getX(), mover.getY(), mover.getZ() + moverStep);
-			} else {
-				if (mover != null && moverStart != null) {
-					mover.setPos(moverStart);
-					mover.setAggressive(false);
-				}
-				mover = null;
-			}
-		});
-	}
-
-	private static RaidModelHarness.Act walk(String label, double step, boolean aggressive, int shotAfter) {
-		return new RaidModelHarness.Act(label, (p, m) -> {
-			m.setAggressive(aggressive);
-			mover = m;
-			moverStart = m.position();
-			moverStep = step;
-			moverTicks = shotAfter + 2;
-		}, shotAfter);
-	}
-
-	private static RaidModelHarness.Act clip(RaidAnims.Clip c, int shotAfter, String label) {
-		return new RaidModelHarness.Act(label, (p, m) -> {
-			m.setAggressive(false);
-			((RaidAnimated) m).raidAnimator().set(c);
-		}, shotAfter);
-	}
-
-	private static RaidModelHarness.Act hurt() {
-		return new RaidModelHarness.Act("hurt", (p, m) -> m.hurt(m.damageSources().generic(), 1.0f), 2);
-	}
-
-	private static RaidModelHarness.Act death() {
-		return new RaidModelHarness.Act("death", (p, m) -> m.kill(), 13);
+	private static RaidModelHarness.Act act(String label, java.util.function.BiConsumer<net.minecraft.server.level.ServerPlayer, net.minecraft.world.entity.Mob> fire, int after) {
+		return new RaidModelHarness.Act(label, fire, after);
 	}
 
 	static List<RaidModelHarness.Act> actsFor(String name) {
 		List<RaidModelHarness.Act> a = new ArrayList<>();
-		switch (name) {
-			case "raid_zombie", "raid_zombie_baby", "cursed_zombie" -> {
-				String model = name.equals("raid_zombie_baby") ? RaidAnims.BABY : name.equals("cursed_zombie") ? RaidAnims.CURSED : RaidAnims.ZOMBIE;
-				a.add(walk("walk", name.equals("raid_zombie_baby") ? 0.09 : 0.075, false, 14));
-				a.add(walk("chase", name.equals("raid_zombie_baby") ? 0.18 : 0.13, true, 12));
-				a.add(clip(RaidAnims.of(model, "attack"), 7, "attack_windup"));
-				a.add(clip(RaidAnims.of(model, "attack"), 10, "attack_strike"));
-				a.add(clip(RaidAnims.of(model, "attack"), 14, "attack_follow"));
-				a.add(hurt());
-				a.add(death());
-			}
-			case "raid_zombie_armoured" -> {
-				a.add(clip(RaidAnims.ZOMBIE_ATTACK, 10, "attack_strike"));
-				a.add(walk("chase", 0.13, true, 12));
-			}
-			case "acid_zombie" -> {
-				a.add(walk("walk", 0.07, false, 14));
-				a.add(clip(RaidAnims.ACID_SPIT, 8, "spit_rear"));
-				a.add(clip(RaidAnims.ACID_SPIT, 14, "spit_release"));
-				a.add(hurt());
-				a.add(death());
-			}
-			case "juggernaut_zombie" -> {
-				a.add(walk("walk", 0.065, false, 16));
-				a.add(clip(RaidAnims.JUGG_CHARGE_WINDUP, 16, "charge_windup"));
-				a.add(new RaidModelHarness.Act("charge", (p, m) -> {
-					((RaidAnimated) m).raidAnimator().set(RaidAnims.JUGG_CHARGE);
-					mover = m;
-					moverStart = m.position();
-					moverStep = 0.22;
-					moverTicks = 11;
-				}, 9));
-				a.add(clip(RaidAnims.JUGG_ATTACK, 8, "attack_windup"));
-				a.add(clip(RaidAnims.JUGG_ATTACK, 12, "attack_strike"));
-				a.add(death());
-			}
-			case "sword_skeleton" -> {
-				a.add(walk("walk", 0.1, false, 12));
-				a.add(walk("chase", 0.18, true, 10));
-				a.add(clip(RaidAnims.SKEL_SLASH_A, 7, "slash_a_windup"));
-				a.add(clip(RaidAnims.SKEL_SLASH_A, 10, "slash_a_strike"));
-				a.add(clip(RaidAnims.SKEL_SLASH_B, 10, "slash_b_strike"));
-				a.add(new RaidModelHarness.Act("block", (p, m) -> m.startUsingItem(InteractionHand.OFF_HAND), 8));
-				a.add(new RaidModelHarness.Act("block_end", (p, m) -> m.stopUsingItem(), 2));
-				a.add(death());
-			}
-			case "pillager_spy" -> {
-				a.add(new RaidModelHarness.Act("spyglass", (p, m) -> {
-				}, 79));
-				a.add(walk("walk_sneak", 0.09, false, 14));
-				a.add(walk("run", 0.2, true, 10));
-				a.add(new RaidModelHarness.Act("crossbow_charge", (p, m) -> ((PillagerSpy) m).setChargingCrossbow(true), 14));
-				a.add(new RaidModelHarness.Act("crossbow_aim", (p, m) -> {
-					((PillagerSpy) m).setChargingCrossbow(false);
-					ItemStack cb = new ItemStack(Items.CROSSBOW);
-					cb.set(DataComponents.CHARGED_PROJECTILES, ChargedProjectiles.of(new ItemStack(Items.ARROW)));
-					m.setItemSlot(EquipmentSlot.MAINHAND, cb);
-					m.setAggressive(true);
-				}, 10));
-				a.add(clip(RaidAnims.SPY_FIRE, 1, "crossbow_fire"));
-				a.add(death());
-			}
-			default -> {
-				if (name.startsWith("empowered_zombie")) {
-					a.add(walk("walk", 0.075, false, 14));
-					a.add(clip(RaidAnims.BOSS_CAST_WINDUP, 14, "cast_windup"));
-					a.add(clip(RaidAnims.BOSS_CAST_RELEASE, 1, "cast_release"));
-					a.add(clip(RaidAnims.BOSS_SLAM, 1, "slam"));
-					a.add(clip(RaidAnims.BOSS_ATTACK, 10, "attack_strike"));
-					a.add(clip(RaidAnims.BOSS_BURST, 2, "burst"));
-					if (name.endsWith("flight")) {
-						a.add(new RaidModelHarness.Act("hover", (p, m) -> {
-							m.setNoGravity(true);
-							m.setOnGround(false);
-							m.setPos(m.getX(), m.getY() + 1.5, m.getZ());
-						}, 20));
-					}
-				}
-			}
+		if (name.startsWith("empowered")) {
+			return a;
 		}
+		if (name.equals("pillager_spy")) {
+			a.add(act("crossbow_charge", (p, m) -> ((PillagerSpy) m).setChargingCrossbow(true), 10));
+			a.add(act("crossbow_aim", (p, m) -> {
+				((PillagerSpy) m).setChargingCrossbow(false);
+				ItemStack cb = new ItemStack(Items.CROSSBOW);
+				cb.set(DataComponents.CHARGED_PROJECTILES, ChargedProjectiles.of(new ItemStack(Items.ARROW)));
+				m.setItemSlot(EquipmentSlot.MAINHAND, cb);
+				m.setAggressive(true);
+			}, 8));
+		} else {
+			a.add(act("aggressive", (p, m) -> m.setAggressive(true), 6));
+			a.add(act("attack", (p, m) -> m.swing(InteractionHand.MAIN_HAND), 3));
+			a.add(act("attack_follow", (p, m) -> m.swing(InteractionHand.MAIN_HAND), 6));
+		}
+		a.add(act("hurt", (p, m) -> m.hurt(m.damageSources().generic(), 1.0f), 2));
 		return a;
 	}
 
 	static List<RaidModelHarness.Unit> extra() {
-		List<RaidModelHarness.Unit> u = new ArrayList<>();
-		for (String pw : new String[] { "power_22_plant_manipulation_chlorokinesis", "power_10_telekinesis", "power_03_flight", "power_04_super_speed" }) {
-			u.add(RaidModelHarness.unit("empowered_zombie_" + pw.replaceAll("power_\\d+_", "").replaceAll("_chlorokinesis", ""), 2.83f,
-					l -> RaidModelHarness.spawn(l, RaidEntityTypes.EMPOWERED_ZOMBIE, RaidModelHarness.center(), 0f, z -> ((EmpoweredZombie) z).configure(pw, null, false, 1))));
-		}
-		return u;
+		return new ArrayList<>();
 	}
 }

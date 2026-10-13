@@ -36,58 +36,7 @@ import net.minecraft.world.level.Level;
  * <p>Deliberately <b>not</b> persistent: a rare hostile natural spawn that saved forever would pile
  * up in a long-lived world (same reasoning as {@code CursedZombie}).
  */
-public class PillagerSpy extends Pillager implements RaidAnimated {
-	// ---------------------------------------------------------------- v0.16.1 model: hooded scout, crossbow, spyglass
-	private static final net.minecraft.network.syncher.EntityDataAccessor<Integer> DATA_RAID_ANIM =
-			net.minecraft.network.syncher.SynchedEntityData.defineId(PillagerSpy.class, net.minecraft.network.syncher.EntityDataSerializers.INT);
-	private final software.bernie.geckolib.animatable.instance.AnimatableInstanceCache geoCache =
-			software.bernie.geckolib.util.GeckoLibUtil.createInstanceCache(this);
-	private RaidAnimator raidAnimator;
-
-	@Override
-	protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {
-		super.defineSynchedData(builder);
-		RaidAnimator.define(builder, DATA_RAID_ANIM);
-	}
-
-	@Override
-	public String raidModel() {
-		return RaidAnims.SPY;
-	}
-
-	@Override
-	public RaidAnimator raidAnimator() {
-		if (raidAnimator == null) {
-			raidAnimator = new RaidAnimator(this, DATA_RAID_ANIM);
-		}
-		return raidAnimator;
-	}
-
-	@Override
-	public void onSyncedDataUpdated(net.minecraft.network.syncher.EntityDataAccessor<?> key) {
-		super.onSyncedDataUpdated(key);
-		if (DATA_RAID_ANIM.equals(key)) {
-			raidAnimator().onSynced(key);
-		}
-	}
-
-	/** The bolt leaves on this tick: the recoil clip (charging and aiming are read from vanilla's synced state). */
-	@Override
-	public void performRangedAttack(LivingEntity target, float velocity) {
-		raidAnimator().set(RaidAnims.SPY_FIRE);
-		super.performRangedAttack(target, velocity);
-	}
-
-	@Override
-	public software.bernie.geckolib.animatable.instance.AnimatableInstanceCache getAnimatableInstanceCache() {
-		return geoCache;
-	}
-
-	@Override
-	public void registerControllers(software.bernie.geckolib.animation.AnimatableManager.ControllerRegistrar controllers) {
-		raidAnimator().registerControllers(controllers, this);
-	}
-
+public class PillagerSpy extends Pillager {
 	/** How far the spy will look for a village to travel toward. */
 	private static final int VILLAGE_SEARCH = 128;
 	/** v0.14.4: anywhere this close to a village bell counts as "in the village" (see {@link #insideVillage}). */
@@ -163,9 +112,6 @@ public class PillagerSpy extends Pillager implements RaidAnimated {
 	@Override
 	public void aiStep() {
 		super.aiStep();
-		if (!level().isClientSide()) {
-			raidAnimator().tick();
-		}
 		if (level().isClientSide()) {
 			// A faint, infrequent purple tell.
 			if (random.nextInt(40) == 0) {

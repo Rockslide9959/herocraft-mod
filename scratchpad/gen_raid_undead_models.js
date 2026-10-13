@@ -1,20 +1,17 @@
-// v0.16.1 Zombie Raid / Gravebound undead: custom GeckoLib models + animations for the raid's mobs, the Pillager Spy and
-// the Cursed Zombie (replacing the vanilla zombie / skeleton / pillager meshes with re-skinned textures).
-//   raid_zombie        Risen / Baby / Armoured (one rig; the iron armour bones are shown for the Armoured variant only)
-//   acid_zombie        bloated, glowing acid sacs, unhinged dripping jaw            (+ acid_glob projectile model)
-//   juggernaut_zombie  hulking, scrap-iron plates bolted on, a chain and shackle
-//   sword_skeleton     cracked bones, rusted notched sword, round shield, helm, tattered tabard
-//   cursed_zombie      grave-shroud, Gravebound purple runes carved in the skin, spectral wisps
-//   pillager_spy       lean hooded scout, dark cloak, crossbow, spyglass
-//   powered_zombie     the Powered Zombie Boss: a huge grave champion with power accent sets (shards / horns / coils /
-//                      vines / orbit stones / wings / spines) toggled per power and tinted with the power's colour
+// v0.16.1 Zombie Raid: the custom GeckoLib model + animations of the Powered Zombie Boss, and the acid glob projectile.
+//   powered_zombie     a huge grave champion with power accent sets (shards / horns / coils / vines / orbit stones /
+//                      wings / spines) toggled per power and tinted with the power's colour
+//   acid_glob          the Acid Zombie's glowing tumbling blob
+// (The raid's other mobs, the Cursed Zombie and the Pillager Spy had custom models here first; at the user's request they
+// are now drawn on the player rig with detailed skins -- gen_raid_player_skins.js, which reuses this file's material
+// painters: flesh / bone / cloth / leather / iron / hair.)
 //
 // Built with the v0.16.x concept pipeline (scratchpad/lib_concept_models.js: boxes in model pixels, procedural painting
 // at 3 texels per model pixel, the software renderer for sheets) and lib_geckogen_anim.js (clip builder, spring
 // follow-through, strike checks). Timing comes from src/main/java/com/projecthero/mod/event/entity/RaidAnims.java.
 //
 // Usage (repo root):
-//   node scratchpad/gen_raid_undead_models.js --concept [--only raid_zombie,...]   concept sheets only
+//   node scratchpad/gen_raid_undead_models.js --concept                           the boss concept sheets
 //   node scratchpad/gen_raid_undead_models.js --game [--no-previews]               writes the game assets + anim previews
 // Previews go to <main checkout>/scratchpad/shots_v0161/raid_models/.
 //

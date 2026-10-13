@@ -31,7 +31,7 @@ import net.minecraft.world.level.ServerLevelAccessor;
  * 17): high armour and armour toughness cut projectile damage hard, but its melee output is
  * unremarkable, so the answer to it is to close in and deal with it -- not to out-range it.
  */
-public class RaidZombie extends AnimatedRaidUndead {
+public class RaidZombie extends RaidUndead {
 	private static final EntityDataAccessor<Integer> DATA_VARIANT =
 			SynchedEntityData.defineId(RaidZombie.class, EntityDataSerializers.INT);
 
@@ -58,12 +58,6 @@ public class RaidZombie extends AnimatedRaidUndead {
 
 	public Variant variant() {
 		return Variant.byId(this.entityData.get(DATA_VARIANT));
-	}
-
-	/** v0.16.1: the Risen model (the Armoured variant shows its iron kit bones); a baby is the small grave-child model. */
-	@Override
-	public String raidModel() {
-		return isBaby() ? RaidAnims.BABY : RaidAnims.ZOMBIE;
 	}
 
 	/**

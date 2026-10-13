@@ -246,12 +246,12 @@ public final class RaidModelHarness {
 		u.add(unit("raid_zombie", 1.95f, l -> spawn(l, RaidEntityTypes.RAID_ZOMBIE, C, 0f, z -> z.setVariant(RaidZombie.Variant.BASIC))));
 		u.add(unit("raid_zombie_armoured", 1.95f, l -> spawn(l, RaidEntityTypes.RAID_ZOMBIE, C, 0f, z -> z.setVariant(RaidZombie.Variant.ARMOURED))));
 		u.add(unit("raid_zombie_baby", 1.0f, l -> spawn(l, RaidEntityTypes.RAID_ZOMBIE, C, 0f, z -> z.setVariant(RaidZombie.Variant.BABY))));
-		u.add(unit("acid_zombie", 1.95f, l -> spawn(l, RaidEntityTypes.ACID_ZOMBIE, C, 0f, null)));
+		u.add(unit("acid_zombie", 1.95f, l -> spawn(l, RaidEntityTypes.ACID_ZOMBIE, C, 0f, z -> z.setBaby(false))));
 		u.add(unit("juggernaut_zombie", 3.0f, l -> spawn(l, RaidEntityTypes.JUGGERNAUT_ZOMBIE, C, 0f, null)));
 		u.add(unit("sword_skeleton", 1.99f, l -> spawn(l, RaidEntityTypes.SWORD_SKELETON, C, 0f, null)));
-		u.add(unit("cursed_zombie", 1.95f, l -> spawn(l, RaidEntityTypes.CURSED_ZOMBIE, C, 0f, null)));
+		u.add(unit("cursed_zombie", 1.95f, l -> spawn(l, RaidEntityTypes.CURSED_ZOMBIE, C, 0f, z -> z.setBaby(false))));
 		u.add(unit("pillager_spy", 1.95f, l -> spawn(l, RaidEntityTypes.PILLAGER_SPY, C, 0f, null)));
-		for (String pw : new String[] { "power_08_pyrokinesis", "power_09_cryokinesis", "power_07_electrokinesis", "power_06_crystalkinesis" }) {
+		for (String pw : new String[] { "power_08_pyrokinesis" }) {
 			u.add(unit("empowered_zombie_" + pw.replaceAll("power_\\d+_", ""), 2.83f,
 					l -> spawn(l, RaidEntityTypes.EMPOWERED_ZOMBIE, C, 0f, z -> z.configure(pw, null, false, 1))));
 		}
@@ -281,7 +281,10 @@ public final class RaidModelHarness {
 		}));
 		at(t + 4, () -> cam(0, 2.4, 11.5, 0, 1.2, 0));
 		at(t + 50, () -> shot(mc, "00_lineup"));
-		t += 60;
+		at(t + 52, () -> server(mc, p -> p.serverLevel().setDayTime(18000L)));
+		at(t + 70, () -> shot(mc, "00_lineup_night"));
+		at(t + 72, () -> server(mc, p -> p.serverLevel().setDayTime(6000L)));
+		t += 80;
 		at(t, () -> server(mc, RaidModelHarness::clear));
 		t += 6;
 		int i = 0;

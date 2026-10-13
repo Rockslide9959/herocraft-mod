@@ -43,7 +43,7 @@ import net.minecraft.world.phys.Vec3;
  * on a player's home would be exactly where it happened -- so this Juggernaut breaks nothing at all.
  * That is a deliberate design decision, not an omission.
  */
-public class JuggernautZombie extends AnimatedRaidUndead {
+public class JuggernautZombie extends RaidUndead {
 	private static final int WINDUP_TICKS = 25;
 	private static final int CHARGE_TICKS = 22;
 	private static final int CHARGE_COOLDOWN_TICKS = 7 * 20;
@@ -114,7 +114,6 @@ public class JuggernautZombie extends AnimatedRaidUndead {
 			}
 			if (windupTicks == 0) {
 				beginCharge();
-				raidAnimator().set(RaidAnims.JUGG_CHARGE);
 			}
 			return;
 		}
@@ -131,9 +130,6 @@ public class JuggernautZombie extends AnimatedRaidUndead {
 			}
 			if (chargeTicks == 0) {
 				chargeCooldown = chargeCooldownTicks();
-				if (raidAnimator().current() == RaidAnims.JUGG_CHARGE) {
-					raidAnimator().clear();
-				}
 			}
 			return;
 		}
@@ -159,7 +155,6 @@ public class JuggernautZombie extends AnimatedRaidUndead {
 			return;
 		}
 		windupTicks = WINDUP_TICKS;
-		raidAnimator().set(RaidAnims.JUGG_CHARGE_WINDUP);
 		chargeConnected = false;
 		level().playSound(null, getX(), getY(), getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 1.2f, 0.6f);
 	}
@@ -193,14 +188,8 @@ public class JuggernautZombie extends AnimatedRaidUndead {
 			level().playSound(null, getX(), getY(), getZ(), SoundEvents.PLAYER_ATTACK_KNOCKBACK,
 					SoundSource.HOSTILE, 1.0f, 0.6f);
 			chargeTicks = Math.min(chargeTicks, 4); // it stops shortly after connecting
-			raidAnimator().set(RaidAnims.JUGG_CHARGE_IMPACT);
 			return;
 		}
-	}
-
-	@Override
-	public String raidModel() {
-		return RaidAnims.JUGGERNAUT;
 	}
 
 	/** True while the charge tell is showing -- read by the renderer for the wind-up pose. */

@@ -9,9 +9,6 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.monster.CrossbowAttackMob;
-import net.minecraft.world.item.CrossbowItem;
-import net.minecraft.world.item.Items;
 
 import software.bernie.geckolib.animation.AnimatableManager;
 import software.bernie.geckolib.animation.AnimationController;
@@ -20,13 +17,13 @@ import software.bernie.geckolib.animation.PlayState;
 import software.bernie.geckolib.animation.RawAnimation;
 
 /**
- * v0.16.1: the clip state of one {@link RaidAnimated} mob -- the synced "what is it doing" id, the server-side timing that
- * keeps strikes on the AI's own attack ticks, and the two GeckoLib controllers (locomotion + full-body clips on
- * {@code main}, upper-body attacks / hurt / block / crossbow on {@code action}).
+ * v0.16.1: the clip state of a {@link RaidAnimated} mob (the Powered Zombie Boss) -- the synced "what is it doing" id, the
+ * server-side timing that keeps strikes on the AI's own attack ticks, and the two GeckoLib controllers (locomotion +
+ * full-body clips on {@code main}, upper-body attacks / hurt on {@code action}).
  *
  * <h2>Predictive strikes, AI untouched</h2>
- * Vanilla's melee goal hits the moment its 20-tick cooldown runs out and the target is in reach, and the ranged goal fires
- * every 50 ticks. Nothing here changes either: {@link #tickMelee} only tracks the tick of the last hit (from
+ * Vanilla's melee goal hits the moment its 20-tick cooldown runs out and the target is in reach. Nothing here changes
+ * that: {@link #tickMelee} only tracks the tick of the last hit (from
  * {@link #onMeleeSwing}, called by the mob's {@code swing}) and, when the next hit is exactly {@code hit} ticks away with the
  * target in reach, starts the {@code attack} clip whose strike keyframe sits on that tick. A hit that comes with no wind-up
  * in flight (the target walked into reach on a ready cooldown) plays the short {@code *_snap} clip instead, from the held
@@ -44,7 +41,6 @@ public final class RaidAnimator {
 	private int ticksLeft;
 	private int clipStartTick;
 	private int lastHitTick = Integer.MIN_VALUE / 2;
-	private boolean altSlash;
 	// client
 	private Clip clientClip;
 	private int clientClipStart;
@@ -124,7 +120,7 @@ public final class RaidAnimator {
 		boolean windupInFlight = serverClip != null && serverClip.hit() > RaidAnims.TRANSITION
 				&& mob.tickCount - clipStartTick <= serverClip.hit() + 2;
 		if (!windupInFlight) {
-			set(clip("attack_snap") != null ? "attack_snap" : "slash_snap");
+			set("attack_snap");
 		}
 	}
 
@@ -135,10 +131,6 @@ public final class RaidAnimator {
 	public void tickMelee() {
 		LivingEntity target = mob.getTarget();
 		Clip attack = clip("attack");
-		boolean skeleton = attack == null;
-		if (skeleton) {
-			attack = clip(altSlash ? "slash_b" : "slash_a");
-		}
 		if (attack == null || target == null || !target.isAlive() || !mob.isAggressive()) {
 			if (playing("attack_ready")) {
 				clear();
@@ -157,9 +149,6 @@ public final class RaidAnimator {
 		}
 		if (cooldown == attack.hit() && inReach) {
 			set(attack);
-			if (skeleton) {
-				altSlash = !altSlash;
-			}
 			return;
 		}
 		if (cooldown == 0 && flat < reach + 2.5) {
@@ -193,18 +182,9 @@ public final class RaidAnimator {
 	}
 
 	/** Ground speed (blocks/tick) each locomotion clip was authored for; the cycle plays faster/slower to match. */
-	private static double nominalSpeed(String model, String loco) {
+	private static double nominalSpeed(String loco) {
 		boolean fast = !loco.equals("walk");
-		return switch (model) {
-			case RaidAnims.BABY -> fast ? 0.2 : 0.09;
-			case RaidAnims.ACID -> 0.07;
-			case RaidAnims.JUGGERNAUT -> fast ? 0.09 : 0.065;
-			case RaidAnims.SKELETON -> fast ? 0.18 : 0.1;
-			case RaidAnims.CURSED -> fast ? 0.15 : 0.08;
-			case RaidAnims.SPY -> fast ? 0.2 : 0.09;
-			case RaidAnims.BOSS -> fast ? 0.14 : 0.075;
-			default -> fast ? 0.13 : 0.075;
-		};
+		return fast ? 0.14 : 0.075; // the boss's walk / chase (raid_undead_clips.js bossClips)
 	}
 
 	public void registerControllers(AnimatableManager.ControllerRegistrar controllers, RaidAnimated owner) {
@@ -237,7 +217,7 @@ public final class RaidAnimator {
 			boolean fastAvail = clip("chase") != null || clip("run") != null;
 			running = fastAvail && (running ? speed > 0.06 : mob.isAggressive() && speed > 0.075 || speed > 0.16);
 			String loco = running ? (clip("chase") != null ? "chase" : "run") : "walk";
-			controller.setAnimationSpeed(Math.max(0.55, Math.min(2.0, speed / nominalSpeed(model, loco))));
+			controller.setAnimationSpeed(Math.max(0.55, Math.min(2.0, speed / nominalSpeed(loco))));
 			return state.setAndContinue(raw(clip(loco)));
 		}
 		running = false;
@@ -259,7 +239,7 @@ public final class RaidAnimator {
 			actionDerived = null;
 			return state.setAndContinue(raw(clientClip));
 		}
-		// client-derived: hurt, the skeleton's shield, the spy's crossbow
+		// client-derived: the hurt flinch
 		Clip derived = null;
 		if (mob.hurtTime > lastHurtTime) {
 			derivedStart = mob.tickCount;
@@ -267,16 +247,6 @@ public final class RaidAnimator {
 		lastHurtTime = mob.hurtTime;
 		if (mob.hurtTime > 0 && mob.tickCount - derivedStart < 10) {
 			derived = clip("hurt");
-		}
-		if (derived == null && mob instanceof SwordSkeleton && mob.isUsingItem() && mob.getOffhandItem().is(Items.SHIELD)) {
-			derived = clip("block");
-		}
-		if (derived == null && mob instanceof CrossbowAttackMob) {
-			if (mob instanceof net.minecraft.world.entity.monster.Pillager p && p.isChargingCrossbow()) {
-				derived = clip("crossbow_charge");
-			} else if (mob.isAggressive() && CrossbowItem.isCharged(mob.getMainHandItem())) {
-				derived = clip("crossbow_aim");
-			}
 		}
 		if (derived == null) {
 			actionDerived = null;
