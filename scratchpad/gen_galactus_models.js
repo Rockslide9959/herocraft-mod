@@ -33,25 +33,15 @@ const ASSETS = !args.includes('--no-assets');
 const DEGR = Math.PI / 180;
 
 // ================================================================ ANIMATION TIMING TABLE (game export, --game)
-// Server ticks, mirrored by com.projecthero.mod.galactus.GalactusAnims (4-tick TRANSITION convention: the controller
-// blends into a clip for TRANSITION ticks before the clip's own clock starts). So a play-once / held clip's
-// animation_length is (length - 4) ticks and its strike keyframe sits on clip tick (hit - 4); loops are `length` ticks.
-// --game authors every clip to this table and FAILS if a strike keyframe is off its tick; it also writes
-// scratchpad/galactus_anim_timing.json for the reconcile. [kind, length, hit] -- hit -1 / omitted = no strike.
+// The clip lengths and hit ticks are the GAME's: com.projecthero.mod.galactus.GalactusAnims (the server's moves land
+// their damage on those ticks). --game parses its clip(...) / hold(...) / loop(...) lines (pose(...) lines are the
+// Surfer's code-driven poses and are skipped), authors every clip to that table and FAILS if a strike keyframe is off
+// its tick (a play-once / held clip is (length - TRANSITION) ticks long and keys its strike on (hit - TRANSITION); loops
+// are `length` ticks), or if a clip in the table was not authored / an authored clip is not in the table. It also
+// writes scratchpad/galactus_anim_timing.json.
 const GAL_TRANSITION = 4;
-const GAL_TIMING = {
-	galactus: {
-		idle: ['loop', 120], eye_beam: ['once', 70, 26], reach: ['once', 56, 36], grab_lift: ['hold', 40], fling: ['once', 34, 14],
-		transmute: ['once', 64, 34], disintegrate: ['once', 50, 26], summon: ['once', 64, 38], weakpoint_hurt: ['once', 26], retreat: ['hold', 90],
-	},
-	galactus_hand: { idle: ['loop', 60], grab: ['hold', 16, 10], release: ['once', 16] },
-	punisher: { idle: ['loop', 60], walk: ['loop', 36], blast: ['once', 44, 20], slam: ['once', 40, 22], death: ['hold', 54] },
-	element_converter: { idle: ['loop', 60], consume: ['loop', 40], shielded: ['loop', 40], destroyed: ['hold', 70] },
-	worldship: { idle: ['loop', 400], leave: ['hold', 140] },
-	surfboard_mount: { idle: ['loop', 40] },
-	nullifier: { idle: ['loop', 40], armed: ['loop', 20] },
-};
-const PUNISHER_WALK_SPEED = 0.13; // blocks/tick the walk stride is matched to
+const GAL_ANIMS_JAVA = 'src/main/java/com/projecthero/mod/galactus/GalactusAnims.java';
+const PUNISHER_WALK_SPEED = 0.12; // blocks/tick the walk stride is matched to (MOVEMENT_SPEED 0.24 walking)
 
 // ================================================================ palettes
 const PC_WHITE = [236, 246, 255];          // Power Cosmic core
@@ -495,9 +485,11 @@ function buildGalactus() {
 	HB(helm, -2.4, eyeY + 1.0, -8.6, 2.4, eyeY + 2.4, -6.2, 'g_frame', { seed: 14 });
 	HB(helm, -1.2, eyeY - 0.1, -8.5, 1.2, eyeY + 1.2, -6.4, 'g_frame', { seed: 15 });
 	HB(helm, -8.2, eyeY + 4.4, -8.0, 8.2, ht + 1.5, -5.8, 'g_blue', { paint: 'forehead', seed: 16 });
-	HB(helm, -1.15, eyeY + 2.6, -9.1, 1.15, ht + 6.9, -7.8, 'g_crest', { seed: 17 });                   // crest (front)
-	HB(helm, -1.15, ht + 6.0, -7.9, 1.15, ht + 7.1, 6.4, 'g_crest', { seed: 18 });                      // crest (over the top)
-	for (const [s] of SIDES) HB(helm, s > 0 ? 1.15 : -2.6, eyeY + 4.4, -8.9, s > 0 ? 2.6 : -1.15, ht + 5.5, -7.6, 'g_frame', { seed: 19 });
+	// the crest: its own bone (GalactusModelFit skips 'crest*' / 'prong*' bones when it fits him to 60 blocks)
+	const crestB = M.bone('crest', 'helmet', [0, hb + (eyeY + 2.6) * hs, -8.5 * hs]);
+	HB(crestB, -1.15, eyeY + 2.6, -9.1, 1.15, ht + 6.9, -7.8, 'g_crest', { seed: 17 });                 // crest (front)
+	HB(crestB, -1.15, ht + 6.0, -7.9, 1.15, ht + 7.1, 6.4, 'g_crest', { seed: 18 });                      // crest (over the top)
+	for (const [s] of SIDES) HB(crestB, s > 0 ? 1.15 : -2.6, eyeY + 4.4, -8.9, s > 0 ? 2.6 : -1.15, ht + 5.5, -7.6, 'g_frame', { seed: 19 });
 	// back of the helmet flaring down over the neck
 	HB(helm, -9.2, -3, 5.2, 9.2, ht + 3.5, 10.2, 'g_blue', { tag: 'panel vrib', seed: 20 });
 	HB(helm, -10.5, -7.5, 6.5, 10.5, -2.5, 12.5, 'g_blue', { tag: 'ribs', seed: 21, rot: [-18, 0, 0], pivot: [0, -3, 6] });
@@ -1593,9 +1585,9 @@ function gameShade(M) {
 		}
 		if (c.mat === 'ec_shield') { // the converter's shield: a faint violet shell with brighter hex seams (emissive only)
 			const [u, v] = UV(s, t, info);
-			const hex = Math.min(Math.abs(((u / 6 + (Math.floor(v / 5) % 2) * 0.5) % 1) - 0.5), Math.abs(((v / 5) % 1) - 0.5));
-			const seam = hex < 0.06 ? 1 : 0;
-			const edge = info.ePx < 1.2 ? 1 : 0;
+			const lat = q => Math.abs(((q / 11) % 1 + 1) % 1 - 0.5); // a diagonal lattice of energy lines, 11 px apart
+			const seam = Math.max(lat(u + v), lat(u - v)) > 0.47 ? 1 : 0;
+			const edge = info.ePx < 1.0 ? 1 : 0;
 			// interior: a dim violet haze (alpha 30); the hex seams and rims carry the light (alpha 140)
 			const k = Math.max(seam, edge * 0.8);
 			return [mix([46, 28, 96], [180, 160, 245], k), 255, W, k > 0 ? 140 : 30];
@@ -1636,19 +1628,35 @@ function handFromGalactus(G) {
 		}
 	}
 	H.TH = G.TH; H.tex = G.tex; H.glow = G.glow; H.rects = G.rects;
-	H.k = G.k; H.MODEL_SCALE = G.MODEL_SCALE; H.heightBlocks = 26; H.A = G.A;
+	H.k = G.k; H.MODEL_SCALE = G.MODEL_SCALE; H.heightBlocks = 9; H.A = G.A;
+	// origin under the fingertips (rest pose): the hand entity's position is the bottom of the hand
+	const lowY = H.bounds(H.world({})).lo[1];
+	transformModel(H, [0, lowY, 0], 1);
 	return H;
 }
+// GalactusModelFit's rule: bones named crest* / prong* / antenna* / horn* (and everything under them) are not measured.
+function fitSkip(M) {
+	const skip = new Set();
+	for (const b of M.bones) if (/^(crest|prong|antenna|horn)/i.test(b.name) || (b.parent && skip.has(b.parent))) skip.add(b.name);
+	return c => !skip.has(c.bone);
+}
+// Parse GalactusAnims.java: the asset-name constants, then every clip(...) / hold(...) / loop(...) line.
 function galTiming() {
+	const src = fs.readFileSync(path.join(REPO, GAL_ANIMS_JAVA), 'utf8');
+	const tr = /int TRANSITION = (\d+);/.exec(src);
+	if (!tr || +tr[1] !== GAL_TRANSITION) throw new Error(`GalactusAnims.TRANSITION is not ${GAL_TRANSITION}`);
+	const names = {};
+	for (const m of src.matchAll(/static final String (\w+) = "(\w+)";/g)) names[m[1]] = m[2];
 	const out = {};
-	for (const [m, clips] of Object.entries(GAL_TIMING)) {
-		out[m] = {};
-		for (const [n, [kind, length, hit]] of Object.entries(clips)) {
-			if (hit != null && hit >= 0 && hit < GAL_TRANSITION) throw new Error(`${m}.${n}: hit ${hit} is inside the ${GAL_TRANSITION}-tick transition`);
-			if (hit != null && hit >= length) throw new Error(`${m}.${n}: hit ${hit} is past the clip length ${length}`);
-			out[m][n] = { kind, length, hit: hit == null ? -1 : hit };
-		}
+	for (const m of src.matchAll(/= (clip|hold|loop)\((\w+), "(\w+)", (\d+)(?:, (-?\d+))?\);/g)) {
+		const model = names[m[2]];
+		if (!model) throw new Error(`GalactusAnims: unknown model constant ${m[2]}`);
+		const kind = m[1] === 'clip' ? 'once' : m[1], length = +m[4], hit = m[5] != null ? +m[5] : -1;
+		if (hit >= 0 && hit < GAL_TRANSITION) throw new Error(`${model}.${m[3]}: hit ${hit} is inside the ${GAL_TRANSITION}-tick transition`);
+		if (hit >= length) throw new Error(`${model}.${m[3]}: hit ${hit} is past the clip length ${length}`);
+		(out[model] = out[model] || {})[m[3]] = { kind, length, hit };
 	}
+	if (!out.galactus || !out.punisher) throw new Error('GalactusAnims parse found no clips');
 	return out;
 }
 function writeGame(M, id, an) {
@@ -1679,7 +1687,7 @@ function gameExport() {
 	if (CL.T !== GAL_TRANSITION) throw new Error('galactus_clips.js TRANSITION differs from GAL_TRANSITION');
 	const timing = galTiming();
 	const out = {
-		transition: GAL_TRANSITION, source: 'scratchpad/gen_galactus_models.js GAL_TIMING (mirror it in com.projecthero.mod.galactus.GalactusAnims)',
+		transition: GAL_TRANSITION, source: 'src/main/java/com/projecthero/mod/galactus/GalactusAnims.java (parsed)',
 		note: 'length/hit = server ticks; a play-once/held clip is (length - 4) ticks long and keys its strike on (hit - 4); loops are length ticks. Never-keyed bones: neck, head (code look; clips nod through `nod`), flinch (code flinch).',
 		never_keyed: ['neck', 'head', 'flinch'], models: {},
 	};
@@ -1708,7 +1716,7 @@ function gameExport() {
 	let G;
 	{
 		G = buildGalactus();
-		G.setHeight(60, c => !/^prong/.test(c.bone));
+		G.setHeight(60, fitSkip(G));
 		const poses = galactusPoses(G);
 		const A0 = G.A, hs = A0.hs;
 		const eyes = [-1, 1].map(s => ({ bone: 'head', c: [s * A0.eyeX, A0.eyeY, A0.faceZ - 0.35], s: [3.3 * 2 * hs * 0.5 + 1.6, 0.62 * 2 * hs + 1.3, 0.2], col: [200, 230, 255], k: 1 }));
@@ -1718,7 +1726,7 @@ function gameExport() {
 	}
 	{
 		const H = handFromGalactus(G);
-		unit('galactus_hand', H, CL.handClips, { cam: { yaw: 50, pitch: 10 }, note: 'Render-only: Galactus\'s right gauntlet + hand at Galactus\'s scale, the root at the palm centre (rotate the root to aim it); grab_socket = where the grabbed player sits; same texture as galactus.png (own copy).' });
+		unit('galactus_hand', H, CL.handClips, { cam: { yaw: 50, pitch: 10 }, note: 'Render-only, fitted to 9 blocks by GalactusRenderers.Hand: the right gauntlet + hand, hanging fingers-down, its origin under the fingertips (the server holds the victim 2 blocks above the hand entity, i.e. in the palm); grab_socket = that spot; same paint as galactus.png (own copy).' });
 	}
 	// ---- Punisher
 	{
@@ -1750,9 +1758,10 @@ function gameExport() {
 		const root = { name: 'root', parent: null, pivot: [0, 0, 0], rot: [0, 0, 0], cubes: [] };
 		W.parent = 'root'; B.bones.unshift(root); B.B.root = root; B.B.board = W;
 		transformModel(B, [0, 0, 0], 32 / 58);
+		transformModel(B, [0, -4, 0], 1); // the deck at 4 px = GalactusRenderers.BOARD_TOP (0.25 blocks): the rider stands on it
 		B.k = 1 / 16; B.MODEL_SCALE = 1; B.heightBlocks = 0.2;
 		gameLook(B, 'surfboard_mount');
-		unit('surfboard_mount', B, CL.boardClips, { cam: { yaw: 40, pitch: 24 }, note: 'Top surface at y = 0 (the rider stands on the root); about 2 blocks long, nose toward -Z.' });
+		unit('surfboard_mount', B, CL.boardClips, { cam: { yaw: 40, pitch: 24 }, note: 'Deck at y = 4 px (BOARD_TOP 0.25 blocks, the rider stands on it), underside glow below; about 2 blocks long, nose toward -Z.' });
 	}
 	// ---- the Ultimate Nullifier (item; centred on the origin for GeckoLib's item renderer)
 	{
@@ -1760,11 +1769,7 @@ function gameExport() {
 		transformModel(M, [0, -4, -10.8], 1);
 		M.k = 1 / 16; M.MODEL_SCALE = 1; M.heightBlocks = 1;
 		gameLook(M, 'nullifier');
-		unit('nullifier', M, CL.nullifierClips, { cam: { yaw: 110, pitch: 14 }, note: 'Item model (GeckoLib GeoItem): models/item/nullifier.json carries the GUI / hand / ground display transforms. Locator: muzzle.' });
-		const itemDir = path.join(REPO, 'src/main/resources/assets/projecthero/models/item');
-		fs.mkdirSync(itemDir, { recursive: true });
-		fs.writeFileSync(path.join(itemDir, 'nullifier.json'), JSON.stringify(nullifierItemModel(), null, '\t') + '\n');
-		out.models.nullifier.files.item_model = 'src/main/resources/assets/projecthero/models/item/nullifier.json';
+		unit('nullifier', M, CL.nullifierClips, { cam: { yaw: 110, pitch: 14 }, note: 'Item model for ultimate_nullifier (GeoItemRenderer; display transforms in models/item/ultimate_nullifier.json), centred on the origin. Locator: muzzle.' });
 	}
 	fs.writeFileSync(path.join(REPO, 'scratchpad/galactus_anim_timing.json'), JSON.stringify(out, null, '\t') + '\n');
 	console.log('wrote scratchpad/galactus_anim_timing.json');
@@ -1808,7 +1813,7 @@ const built = {};
 if (WANT('galactus') || WANT('lineup')) {
 	const M = buildGalactus();
 	M.ground(c => /^foot/.test(c.bone));
-	finish(M, 'galactus', 60, c => !/^prong/.test(c.bone)); // 60 blocks from the toes to the top of the head; the prongs rise above
+	finish(M, 'galactus', 60, fitSkip(M)); // 60 blocks from the toes to the top of the head; the prongs rise above
 	M.poses = galactusPoses(M);
 	built.galactus = M;
 	if (WANT('galactus')) renderGalactus(M);
@@ -1892,8 +1897,8 @@ function renderGalactus(M) {
 	], Object.assign({ returnCanvas: true }, ro));
 	const only = re => c => !re.test(c.bone);
 	const row2 = sheet(null, '', '', [
-		{ label: 'HELMET + FACE', items: [it(M.poses.stand, { hide: only(/^(head|helmet|prong|neck)/), noFloor: true })], cam: { yaw: 0, pitch: 2 }, ownScale: true, ownScaleMax: 20, noOrigin: true, pre },
-		{ label: 'HELMET (THREE-QUARTER)', items: [it(M.poses.stand, { hide: only(/^(head|helmet|prong|neck)/), noFloor: true })], cam: { yaw: 40, pitch: 6 }, ownScale: true, ownScaleMax: 20, noOrigin: true, pre, note: ['CREST + EYES GLOW: WEAK POINT'] },
+		{ label: 'HELMET + FACE', items: [it(M.poses.stand, { hide: only(/^(head|helmet|prong|crest|neck|nod)/), noFloor: true })], cam: { yaw: 0, pitch: 2 }, ownScale: true, ownScaleMax: 20, noOrigin: true, pre },
+		{ label: 'HELMET (THREE-QUARTER)', items: [it(M.poses.stand, { hide: only(/^(head|helmet|prong|crest|neck|nod)/), noFloor: true })], cam: { yaw: 40, pitch: 6 }, ownScale: true, ownScaleMax: 20, noOrigin: true, pre, note: ['CREST + EYES GLOW: WEAK POINT'] },
 		{ label: 'CHEST EMBLEM + BELT', items: [it(M.poses.stand, { hide: only(/^(chest|waist|hips)$/), noFloor: true })], cam: { yaw: 14, pitch: 4 }, ownScale: true, ownScaleMax: 20, noOrigin: true, pre, note: ['THE G GLOWS: WEAK POINT'] },
 		{ label: 'GAUNTLET', items: [it(M.poses.stand, { hide: only(/^(forearm_l|hand_l|fingers_l|fingertips_l|thumb_l)$/), noFloor: true })], cam: { yaw: 50, pitch: 10 }, ownScale: true, ownScaleMax: 20, noOrigin: true, pre, note: ['ENERGY RING + PALM EMITTER: WEAK POINT'] },
 		{ label: 'BOOT', items: [it(M.poses.stand, { hide: only(/^(shin_l|foot_l)$/), noFloor: true })], cam: { yaw: 35, pitch: 8 }, ownScale: true, ownScaleMax: 20, noOrigin: true, pre },

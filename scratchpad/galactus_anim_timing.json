@@ -1,6 +1,6 @@
 {
 	"transition": 4,
-	"source": "scratchpad/gen_galactus_models.js GAL_TIMING (mirror it in com.projecthero.mod.galactus.GalactusAnims)",
+	"source": "src/main/java/com/projecthero/mod/galactus/GalactusAnims.java (parsed)",
 	"note": "length/hit = server ticks; a play-once/held clip is (length - 4) ticks long and keys its strike on (hit - 4); loops are length ticks. Never-keyed bones: neck, head (code look; clips nod through `nod`), flinch (code flinch).",
 	"never_keyed": [
 		"neck",
@@ -15,13 +15,13 @@
 				"glow": "src/main/resources/assets/projecthero/textures/entity/galactus/galactus_glowmask.png",
 				"anim": "src/main/resources/assets/projecthero/animations/galactus/galactus.animation.json"
 			},
-			"model_scale": 7.5429,
+			"model_scale": 7.6163,
 			"height_blocks": 60,
 			"texture": [
 				2048,
 				640
 			],
-			"bones": 40,
+			"bones": 41,
 			"cubes": 177,
 			"locator_bones": [
 				"eye_r",
@@ -37,74 +37,74 @@
 			"hidden_by_default": [],
 			"clips": {
 				"idle": {
-					"server_length": 120,
+					"server_length": 100,
 					"hit": -1,
 					"kind": "loop",
-					"clip_ticks": 120,
+					"clip_ticks": 100,
 					"strike_clip_tick": null
 				},
 				"eye_beam": {
-					"server_length": 70,
-					"hit": 26,
+					"server_length": 90,
+					"hit": 44,
 					"kind": "once",
-					"clip_ticks": 66,
-					"strike_clip_tick": 22
+					"clip_ticks": 86,
+					"strike_clip_tick": 40
 				},
 				"reach": {
-					"server_length": 56,
-					"hit": 36,
+					"server_length": 40,
+					"hit": 34,
 					"kind": "once",
-					"clip_ticks": 52,
-					"strike_clip_tick": 32
+					"clip_ticks": 36,
+					"strike_clip_tick": 30
 				},
 				"grab_lift": {
-					"server_length": 40,
+					"server_length": 50,
 					"hit": -1,
 					"kind": "hold",
-					"clip_ticks": 36,
+					"clip_ticks": 46,
 					"strike_clip_tick": null
 				},
 				"fling": {
-					"server_length": 34,
-					"hit": 14,
+					"server_length": 30,
+					"hit": 16,
 					"kind": "once",
-					"clip_ticks": 30,
-					"strike_clip_tick": 10
+					"clip_ticks": 26,
+					"strike_clip_tick": 12
 				},
 				"transmute": {
-					"server_length": 64,
-					"hit": 34,
+					"server_length": 60,
+					"hit": 40,
 					"kind": "once",
-					"clip_ticks": 60,
-					"strike_clip_tick": 30
+					"clip_ticks": 56,
+					"strike_clip_tick": 36
 				},
 				"disintegrate": {
 					"server_length": 50,
-					"hit": 26,
+					"hit": 30,
 					"kind": "once",
 					"clip_ticks": 46,
-					"strike_clip_tick": 22
+					"strike_clip_tick": 26
 				},
 				"summon": {
-					"server_length": 64,
-					"hit": 38,
+					"server_length": 50,
+					"hit": 30,
 					"kind": "once",
-					"clip_ticks": 60,
-					"strike_clip_tick": 34
+					"clip_ticks": 46,
+					"strike_clip_tick": 26
 				},
 				"weakpoint_hurt": {
-					"server_length": 26,
+					"server_length": 30,
 					"hit": -1,
 					"kind": "once",
-					"clip_ticks": 22,
+					"clip_ticks": 26,
 					"strike_clip_tick": null
 				},
 				"retreat": {
-					"server_length": 90,
-					"hit": -1,
+					"server_length": 160,
+					"hit": 60,
 					"kind": "hold",
-					"clip_ticks": 86,
-					"strike_clip_tick": null
+					"clip_ticks": 156,
+					"strike_clip_tick": 56
 				}
 			},
 			"note": "height_blocks = toes to the top of the head; the helmet prongs rise above. Locators: eye_l/eye_r (beam origins), weak_crest, weak_emblem, weak_gauntlet_l/r (weak points), palm_l/r, grab_socket (where a grabbed player sits)."
@@ -116,8 +116,8 @@
 				"glow": "src/main/resources/assets/projecthero/textures/entity/galactus/galactus_hand_glowmask.png",
 				"anim": "src/main/resources/assets/projecthero/animations/galactus/galactus_hand.animation.json"
 			},
-			"model_scale": 7.5429,
-			"height_blocks": 26,
+			"model_scale": 7.6163,
+			"height_blocks": 9,
 			"texture": [
 				2048,
 				640
@@ -132,28 +132,21 @@
 			"hidden_by_default": [],
 			"clips": {
 				"idle": {
-					"server_length": 60,
+					"server_length": 40,
 					"hit": -1,
 					"kind": "loop",
-					"clip_ticks": 60,
+					"clip_ticks": 40,
 					"strike_clip_tick": null
 				},
-				"grab": {
-					"server_length": 16,
-					"hit": 10,
-					"kind": "hold",
-					"clip_ticks": 12,
-					"strike_clip_tick": 6
-				},
-				"release": {
-					"server_length": 16,
+				"grip": {
+					"server_length": 20,
 					"hit": -1,
-					"kind": "once",
-					"clip_ticks": 12,
+					"kind": "loop",
+					"clip_ticks": 20,
 					"strike_clip_tick": null
 				}
 			},
-			"note": "Render-only: Galactus's right gauntlet + hand at Galactus's scale, the root at the palm centre (rotate the root to aim it); grab_socket = where the grabbed player sits; same texture as galactus.png (own copy)."
+			"note": "Render-only, fitted to 9 blocks by GalactusRenderers.Hand: the right gauntlet + hand, hanging fingers-down, its origin under the fingertips (the server holds the victim 2 blocks above the hand entity, i.e. in the palm); grab_socket = that spot; same paint as galactus.png (own copy)."
 		},
 		"punisher": {
 			"files": {
@@ -184,33 +177,33 @@
 					"strike_clip_tick": null
 				},
 				"walk": {
-					"server_length": 36,
+					"server_length": 30,
 					"hit": -1,
 					"kind": "loop",
-					"clip_ticks": 36,
+					"clip_ticks": 30,
 					"strike_clip_tick": null,
-					"stride_blocks": 4.68,
-					"move_speed": 0.13
+					"stride_blocks": 3.6,
+					"move_speed": 0.12
 				},
 				"blast": {
-					"server_length": 44,
-					"hit": 20,
+					"server_length": 30,
+					"hit": 18,
 					"kind": "once",
-					"clip_ticks": 40,
-					"strike_clip_tick": 16
+					"clip_ticks": 26,
+					"strike_clip_tick": 14
 				},
 				"slam": {
 					"server_length": 40,
-					"hit": 22,
+					"hit": 28,
 					"kind": "once",
 					"clip_ticks": 36,
-					"strike_clip_tick": 18
+					"strike_clip_tick": 24
 				},
 				"death": {
-					"server_length": 54,
+					"server_length": 40,
 					"hit": -1,
 					"kind": "hold",
-					"clip_ticks": 50,
+					"clip_ticks": 36,
 					"strike_clip_tick": null
 				}
 			},
@@ -239,10 +232,10 @@
 			],
 			"clips": {
 				"idle": {
-					"server_length": 60,
+					"server_length": 40,
 					"hit": -1,
 					"kind": "loop",
-					"clip_ticks": 60,
+					"clip_ticks": 40,
 					"strike_clip_tick": null
 				},
 				"consume": {
@@ -260,10 +253,10 @@
 					"strike_clip_tick": null
 				},
 				"destroyed": {
-					"server_length": 70,
+					"server_length": 40,
 					"hit": -1,
 					"kind": "hold",
-					"clip_ticks": 66,
+					"clip_ticks": 36,
 					"strike_clip_tick": null
 				}
 			},
@@ -290,17 +283,17 @@
 			"hidden_by_default": [],
 			"clips": {
 				"idle": {
-					"server_length": 400,
+					"server_length": 200,
 					"hit": -1,
 					"kind": "loop",
-					"clip_ticks": 400,
+					"clip_ticks": 200,
 					"strike_clip_tick": null
 				},
 				"leave": {
-					"server_length": 140,
+					"server_length": 100,
 					"hit": -1,
 					"kind": "hold",
-					"clip_ticks": 136,
+					"clip_ticks": 96,
 					"strike_clip_tick": null
 				}
 			},
@@ -332,15 +325,14 @@
 					"strike_clip_tick": null
 				}
 			},
-			"note": "Top surface at y = 0 (the rider stands on the root); about 2 blocks long, nose toward -Z."
+			"note": "Deck at y = 4 px (BOARD_TOP 0.25 blocks, the rider stands on it), underside glow below; about 2 blocks long, nose toward -Z."
 		},
 		"nullifier": {
 			"files": {
 				"geo": "src/main/resources/assets/projecthero/geo/galactus/nullifier.geo.json",
 				"tex": "src/main/resources/assets/projecthero/textures/entity/galactus/nullifier.png",
 				"glow": "src/main/resources/assets/projecthero/textures/entity/galactus/nullifier_glowmask.png",
-				"anim": "src/main/resources/assets/projecthero/animations/galactus/nullifier.animation.json",
-				"item_model": "src/main/resources/assets/projecthero/models/item/nullifier.json"
+				"anim": "src/main/resources/assets/projecthero/animations/galactus/nullifier.animation.json"
 			},
 			"model_scale": 1,
 			"height_blocks": 1,
@@ -361,16 +353,9 @@
 					"kind": "loop",
 					"clip_ticks": 40,
 					"strike_clip_tick": null
-				},
-				"armed": {
-					"server_length": 20,
-					"hit": -1,
-					"kind": "loop",
-					"clip_ticks": 20,
-					"strike_clip_tick": null
 				}
 			},
-			"note": "Item model (GeckoLib GeoItem): models/item/nullifier.json carries the GUI / hand / ground display transforms. Locator: muzzle."
+			"note": "Item model for ultimate_nullifier (GeoItemRenderer; display transforms in models/item/ultimate_nullifier.json), centred on the origin. Locator: muzzle."
 		}
 	}
 }

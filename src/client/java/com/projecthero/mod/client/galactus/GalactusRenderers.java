@@ -3,6 +3,7 @@ package com.projecthero.mod.client.galactus;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.ProjectHeroMod;
+import com.projecthero.mod.client.frostgiant.FrostHaloLayer;
 import com.projecthero.mod.galactus.GalactusConfig;
 import com.projecthero.mod.galactus.entity.GalactusEntity;
 import com.projecthero.mod.galactus.entity.GalactusHandEntity;
@@ -143,10 +144,17 @@ public final class GalactusRenderers {
 			this.shadowRadius = shadow;
 			this.fixedHeight = fixedHeight;
 			addRenderLayer(new AutoGlowingGeoLayer<>(this));
+			addRenderLayer(new FrostHaloLayer<>(this, 0.55f)); // additive bloom + the halo shells around the glowing parts
 		}
 
 		protected float targetHeight(T animatable) {
 			return fixedHeight > 0 ? fixedHeight : animatable.getBbHeight();
+		}
+
+		@Override
+		public boolean shouldRender(T entity, Frustum frustum, double x, double y, double z) {
+			// drawn taller than its hit-box (the converter): don't let the small box cull the big model
+			return fixedHeight > entity.getBbHeight() + 1.0f || super.shouldRender(entity, frustum, x, y, z);
 		}
 
 		@Override
@@ -310,6 +318,7 @@ public final class GalactusRenderers {
 		BoardObjectRenderer() {
 			super(new Fixed<>(com.projecthero.mod.galactus.GalactusAnims.BOARD));
 			addRenderLayer(new AutoGlowingGeoLayer<>(this));
+			addRenderLayer(new FrostHaloLayer<>(this, 0.55f)); // additive bloom + the halo shells around the glowing parts
 		}
 	}
 
@@ -378,6 +387,7 @@ public final class GalactusRenderers {
 			super(context, new Fixed<>(com.projecthero.mod.galactus.GalactusAnims.WORLDSHIP));
 			this.shadowRadius = 0f;
 			addRenderLayer(new AutoGlowingGeoLayer<>(this));
+			addRenderLayer(new FrostHaloLayer<>(this, 0.55f)); // additive bloom + the halo shells around the glowing parts
 		}
 
 		@Override
@@ -408,6 +418,7 @@ public final class GalactusRenderers {
 			super(context, new Fixed<>(com.projecthero.mod.galactus.GalactusAnims.BOARD));
 			this.shadowRadius = 0.4f;
 			addRenderLayer(new AutoGlowingGeoLayer<>(this));
+			addRenderLayer(new FrostHaloLayer<>(this, 0.55f)); // additive bloom + the halo shells around the glowing parts
 		}
 
 		@Override

@@ -2,6 +2,7 @@ package com.projecthero.mod.client.galactus;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.projecthero.mod.ProjectHeroMod;
+import com.projecthero.mod.client.frostgiant.FrostHaloLayer;
 import com.projecthero.mod.galactus.GalactusAnims;
 import com.projecthero.mod.galactus.GalactusSkyPayload;
 import com.projecthero.mod.galactus.entity.GalactusEntityTypes;
@@ -41,7 +42,8 @@ public final class GalactusClient {
 		EntityRendererRegistry.register(GalactusEntityTypes.GALACTUS, GalactusRenderers.Colossus::new);
 		EntityRendererRegistry.register(GalactusEntityTypes.SILVER_SURFER, GalactusRenderers.Surfer::new);
 		EntityRendererRegistry.register(GalactusEntityTypes.HAND, GalactusRenderers.Hand::new);
-		EntityRendererRegistry.register(GalactusEntityTypes.ELEMENT_CONVERTER, ctx -> new GalactusRenderers.Mob<>(ctx, 1.6f, 0f));
+		// the converter is drawn at its designed 25 blocks (its hit-box is the 10-block core column)
+		EntityRendererRegistry.register(GalactusEntityTypes.ELEMENT_CONVERTER, ctx -> new GalactusRenderers.Mob<>(ctx, 3.5f, 25f));
 		EntityRendererRegistry.register(GalactusEntityTypes.PUNISHER, ctx -> new GalactusRenderers.Mob<>(ctx, 1.6f, 0f));
 		EntityRendererRegistry.register(GalactusEntityTypes.WEAK_POINT, GalactusRenderers.Invisible::new);
 		EntityRendererRegistry.register(GalactusEntityTypes.POWER_PYLON, GalactusRenderers.Pylon::new);
@@ -79,6 +81,7 @@ public final class GalactusClient {
 		NullifierRenderer() {
 			super(new GalactusRenderers.Fixed<>(GalactusAnims.NULLIFIER));
 			addRenderLayer(new AutoGlowingGeoLayer<>(this));
+			addRenderLayer(new FrostHaloLayer<>(this, 0.55f)); // additive bloom + the halo shells around the glowing parts
 		}
 
 		@Override

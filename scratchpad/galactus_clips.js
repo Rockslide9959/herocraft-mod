@@ -54,14 +54,15 @@ function galactusClips(an, timing, poses) {
 			[len, ap(b, { chest: [-1, 0, 0] }), 'easeinoutsine'],
 		];
 	});
-	// eye beams: he draws himself up, fists pulled back, then leans in and the glare comes down (strike), held while the
-	// beams burn, a heavy settle back
+	// eye beams (GalactusAnims: the eyes gather Power Cosmic while the line is drawn on the ground, the sweep runs from the
+	// hit to the end): he draws himself up, fists pulled back; on the hit the glare comes down onto one end of the line and
+	// the whole upper body turns slowly along it; a heavy settle at the end
 	const draw = ap(b, { chest: [-8, 0, 0], waist: [-3, 0, 0], nod: [-10, 0, 0], arm_r: [14, 0, 16], arm_l: [14, 0, -16], forearm_r: [-24, 0, 0], forearm_l: [-24, 0, 0], thigh_r: [-4, 0, 4], thigh_l: [4, 0, -4] });
 	const glare = ap(b, legsBrace, { waist: [6, 0, 0], chest: [9, 0, 0], nod: [16, 0, 0], arm_r: [22, 0, 30], arm_l: [22, 0, -30], forearm_r: [-44, 0, 0], forearm_l: [-44, 0, 0] });
+	const sweep = y => ap(glare, { waist: [0, y * 0.4, 0], chest: [0, y * 0.6, 0], nod: [0, y * 0.5, 0] });
 	mk(an, timing, 'eye_beam', (len, S) => [
-		[0, b], [S * 0.65, draw, 'easeinoutsine'], [S, strike(glare), 'easeoutback'],
-		[S + 8, ap(glare, { chest: [1, 2, 0], nod: [1, -3, 0] }), 'easeinoutsine'], [S + 16, ap(glare, { chest: [-1, -2, 0], nod: [2, 3, 0] }), 'easeinoutsine'],
-		[S + 26, ap(glare, { chest: [1, 1, 0] }), 'easeinoutsine'], [S + 32, ap(draw, { nod: [6, 0, 0] }), 'easeoutquad'], [len, b, 'easeinoutsine'],
+		[0, b], [S * 0.35, ap(draw, { nod: [-4, 0, 0] }), 'easeinoutsine'], [S * 0.8, ap(draw, { chest: [-2, 0, 0], nod: [-4, 0, 0] }), 'easeinoutsine'], [S, strike(sweep(16)), 'easeoutback'],
+		[S + (len - S - 8) * 0.5, sweep(0), 'easeinoutsine'], [len - 8, sweep(-16), 'easeinoutsine'], [len, ap(draw, { nod: [6, 0, 0] }), 'easeoutquad'],
 	]);
 	// reach: the shoulder rolls back, then the whole body bends and the open hand comes down on the target (strike =
 	// the grab check); the fingers close; the clip ends low with the hand shut (grab_lift continues from here)
@@ -71,7 +72,7 @@ function galactusClips(an, timing, poses) {
 	const shut = ap(reach, FIST('r'), { waist: [-2, 0, 0], chest: [-2, 0, 0] });
 	mk(an, timing, 'reach', (len, S) => [
 		[0, b], [S * 0.45, wind, 'easeinoutsine'], [S * 0.8, ap(reach, { arm_r: [-14, 0, 6], chest: [-4, 0, 0] }), 'easeinquad'], [S, strike(reach), 'easeoutquad'],
-		[S + 6, closed, 'easeinoutsine'], [len, shut, 'easeinoutsine'],
+		[S + 3, closed, 'easeinoutsine'], [len, shut, 'easeinoutsine'],
 	]);
 	// grab lift: he straightens with the fist raised before his face to inspect what he caught (held)
 	const lifted = ap(b, { chest: [-4, -10, 0], waist: [-2, -4, 0], nod: [10, 18, 0], arm_r: [-92, -10, 22], forearm_r: [-56, 0, 0], hand_r: [-10, 0, 0], ...FIST('r'), arm_l: [-6, 0, -8], forearm_l: [-20, 0, 0] });
@@ -86,20 +87,22 @@ function galactusClips(an, timing, poses) {
 		[0, lifted], [S * 0.7, cock, 'easeinoutsine'], [S, strike(throwP), 'easeinback'],
 		[S + 5, ap(throwP, { chest: [4, -6, 0], arm_r: [10, 0, -6] }), 'easeoutquad'], [len, b, 'easeinoutsine'],
 	]);
-	// transmute: both palms come together before the emblem, power gathers between them, then the arms sweep wide and
-	// the palms turn up (strike = the transmutation burst), held, lowered
-	const gather = ap(b, { chest: [4, 0, 0], nod: [8, 0, 0], arm_r: [-60, -30, -12], forearm_r: [-62, 0, 0], hand_r: [0, 0, 0], arm_l: [-60, 30, 12], forearm_l: [-62, 0, 0], ...CLAW('r'), ...CLAW('l'), thigh_r: [-6, 0, 4], thigh_l: [6, 0, -4] });
-	const spread = ap(b, legsBrace, { chest: [-10, 0, 0], waist: [-3, 0, 0], nod: [-12, 0, 0], arm_r: [-14, 0, 84], forearm_r: [-34, 0, 0], arm_l: [-14, 0, -84], forearm_l: [-34, 0, 0], ...SPLAY('r'), ...SPLAY('l') });
+	// transmute (a palm to the ground; the marked patches turn on the hit): the left hand rises, charged, then the whole
+	// body bends and the open left palm is driven down onto the ground (strike), held there, he straightens
+	const palmUp = ap(b, { chest: [-8, -8, 0], nod: [-10, 8, 0], arm_l: [-150, 0, -20], forearm_l: [-20, 0, 0], ...SPLAY('l'), arm_r: [10, 0, 14], ...FIST('r') });
+	const palmDown = ap(mirP(reach), SPLAY('l'), { hand_l: [-20, 0, 0], arm_r: [16, 0, 16], forearm_r: [-30, 0, 0], ...FIST('r') });
 	mk(an, timing, 'transmute', (len, S) => [
-		[0, b], [S * 0.5, gather, 'easeinoutsine'], [S * 0.85, ap(gather, { chest: [3, 0, 0], arm_r: [4, 0, -4], arm_l: [4, 0, 4] }), 'easeinoutsine'],
-		[S, strike(spread), 'easeoutback'], [S + 10, ap(spread, { chest: [-2, 0, 0], nod: [-2, 0, 0] }), 'easeinoutsine'], [len, b, 'easeinoutsine'],
+		[0, b], [S * 0.55, palmUp, 'easeinoutsine'], [S * 0.8, ap(palmUp, { arm_l: [-6, 0, 0], chest: [-2, 0, 0] }), 'easeinoutsine'], [S, strike(palmDown), 'easeinquad'],
+		[S + 3, ap(palmDown, { chest: [2, 0, 0], $y: -0.5 }), 'easeoutquad'], [S + 10, palmDown, 'easeinoutsine'], [len, b, 'easeinoutsine'],
 	]);
-	// disintegrate: he levels an open palm at the target and the Power Cosmic unmakes it (strike); recoil through the arm
-	const aim = ap(b, { chest: [-4, 18, 0], waist: [0, 8, 0], nod: [4, -16, 0], arm_r: [-34, 0, 30], forearm_r: [-70, 0, 0], ...CLAW('r'), arm_l: [-10, 0, -10] });
-	const point = ap(b, legsBrace, { chest: [8, -14, 0], waist: [3, -6, 0], nod: [8, 14, 0], arm_r: [-92, -8, -4], forearm_r: [-4, 0, 0], hand_r: [-50, 0, 0], ...SPLAY('r'), arm_l: [20, 0, -24], forearm_l: [-30, 0, 0], ...FIST('l') });
+	// disintegrate (both fists down; the ring leaves his feet on the hit): both fists rise high over the helmet, then he
+	// hammers them down in front of him with a stamp (strike), the shock rolls through him, he rises
+	const fistsUp = ap(b, { chest: [-14, 0, 0], waist: [-5, 0, 0], nod: [-14, 0, 0], arm_r: [-165, 0, -8], forearm_r: [-24, 0, 0], arm_l: [-165, 0, 8], forearm_l: [-24, 0, 0], ...FIST('r'), ...FIST('l'), thigh_r: [-4, 0, 4], thigh_l: [-4, 0, -4] });
+	const fistsDown = ap(b, { chest: [26, 0, 0], waist: [12, 0, 0], nod: [12, 0, 0], arm_r: [-40, 0, -14], forearm_r: [-20, 0, 0], arm_l: [-40, 0, 14], forearm_l: [-20, 0, 0], ...FIST('r'), ...FIST('l'),
+		thigh_r: [-30, 0, 8], shin_r: [42, 0, 0], foot_r: [-12, 0, 0], thigh_l: [-30, 0, -8], shin_l: [42, 0, 0], foot_l: [-12, 0, 0] });
 	mk(an, timing, 'disintegrate', (len, S) => [
-		[0, b], [S * 0.6, aim, 'easeinoutsine'], [S, strike(point), 'easeoutback'],
-		[S + 4, ap(point, { arm_r: [10, 0, 0], chest: [-4, 0, 0], hand_r: [14, 0, 0] }), 'easeoutquad'], [S + 12, ap(point, { arm_r: [4, 0, 0] }), 'easeinoutsine'], [len, b, 'easeinoutsine'],
+		[0, b], [S * 0.6, fistsUp, 'easeinoutsine'], [S * 0.85, ap(fistsUp, { chest: [-3, 0, 0], arm_r: [-4, 0, 0], arm_l: [-4, 0, 0] }), 'easeinoutsine'], [S, strike(fistsDown), 'easeinquad'],
+		[S + 3, ap(fistsDown, { chest: [-5, 0, 0], $y: 0.6 }), 'easeoutquad'], [S + 7, fistsDown, 'easeinquad'], [len, b, 'easeinoutsine'],
 	]);
 	// summon: the right arm rises to the sky, the head tips back, the hand clenches (charge) and bursts open (strike =
 	// the Worldship answers / Punishers drop); the left fist drives down
@@ -115,22 +118,23 @@ function galactusClips(an, timing, poses) {
 		[len * 0.55, ap(b, { chest: [6, 4, 2], nod: [10, -4, 0], arm_l: [-40, 20, 0], forearm_l: [-70, 0, 0], thigh_r: [-14, 0, 4], shin_r: [26, 0, 0], foot_r: [-10, 0, 0], thigh_l: [-6, 0, 0], shin_l: [10, 0, 0] }), 'easeinoutsine'],
 		[len, b, 'easeinoutsine'],
 	]);
-	// retreat: he gathers himself low, arms sweep up and he rises off the ground toward the Worldship (held, high)
-	const crouch = ap(b, { waist: [10, 0, 0], chest: [10, 0, 0], nod: [10, 0, 0], arm_r: [20, 0, 20], arm_l: [20, 0, -20], thigh_r: [-36, 0, 6], shin_r: [56, 0, 0], foot_r: [-20, 0, 0], thigh_l: [-36, 0, -6], shin_l: [56, 0, 0], foot_l: [-20, 0, 0] });
-	const rise = ap(b, { chest: [-10, 0, 0], nod: [-28, 0, 0], arm_r: [-150, 0, 30], forearm_r: [-6, 0, 0], arm_l: [-150, 0, -30], forearm_l: [-6, 0, 0], ...SPLAY('r'), ...SPLAY('l'), thigh_r: [6, 0, 3], shin_r: [8, 0, 0], foot_r: [30, 0, 0], thigh_l: [6, 0, -3], shin_l: [8, 0, 0], foot_l: [30, 0, 0], $ground: false });
-	mk(an, timing, 'retreat', len => [
-		[0, b], [len * 0.25, crouch, 'easeinoutsine'], [len * 0.4, ap(rise, { $root: [0, 4, 0], $keepRoot: true }), 'easeoutquad'],
-		[len, ap(rise, { $root: [0, 140, 0], $keepRoot: true, arm_r: [-10, 0, 0], arm_l: [-10, 0, 0] }), 'easeinquad'],
+	// retreat (the Nullifier): he goes still, his head bows; on the hit he straightens and raises his right hand, open,
+	// palm out (he speaks); held there until the burst of Power Cosmic takes him at the end
+	const bow = ap(b, { chest: [6, 0, 0], waist: [2, 0, 0], nod: [14, 0, 0], arm_r: [4, 0, 4], arm_l: [4, 0, -4], ...OPEN('r'), ...OPEN('l') });
+	const oath = ap(b, { chest: [-6, -8, 0], waist: [-2, -4, 0], nod: [-6, 10, 0], arm_r: [-140, 0, 36], forearm_r: [-22, 0, 0], hand_r: [14, 0, 0], ...SPLAY('r'), arm_l: [0, 0, -8], forearm_l: [-12, 0, 0], ...OPEN('l') });
+	mk(an, timing, 'retreat', (len, S) => [
+		[0, b], [S * 0.6, bow, 'easeinoutsine'], [S, strike(oath), 'easeoutback'], [S + 12, ap(oath, { arm_r: [4, 0, 0] }), 'easeinoutsine'],
+		[S + (len - S) * 0.55, ap(oath, { chest: [-2, 0, 0], nod: [-2, 0, 0] }), 'easeinoutsine'], [len, ap(oath, { chest: [-4, 0, 0], nod: [-6, 0, 0], arm_r: [-4, 0, 0] }), 'easeinoutsine'],
 	]);
 }
 
-// The render-only giant hand for the grab (Galactus's right gauntlet + hand, rooted at the palm).
+// The render-only giant hand for the grab (Galactus's right gauntlet + hand, its origin at the fingertips: the server
+// holds the victim 2 blocks above it). idle = open and coming down, fingers flexing; grip = the fist, squeezing.
 function handClips(an, timing) {
-	mk(an, timing, 'idle', len => [[0, OPEN('r', 1.4)], [len / 2, ap(OPEN('r', 2.2), { hand_r: [-4, 0, 3] }), 'easeinoutsine'], [len, OPEN('r', 1.4), 'easeinoutsine']], { ground: false });
-	mk(an, timing, 'grab', (len, S) => [[0, SPLAY('r')], [S * 0.6, ap(SPLAY('r'), { hand_r: [8, 0, 0] }), 'easeinoutsine'], [S, strike(ap(FIST('r'), { hand_r: [-6, 0, 0] })), 'easeinback'], [len, ap(FIST('r'), { hand_r: [-2, 0, 0] }), 'easeoutquad']], { ground: false });
-	mk(an, timing, 'release', len => [[0, FIST('r')], [len * 0.4, ap(SPLAY('r'), { hand_r: [-12, 0, 0] }), 'easeoutback'], [len, OPEN('r', 1.4), 'easeinoutsine']], { ground: false });
+	mk(an, timing, 'idle', len => [[0, SPLAY('r')], [len / 2, ap(OPEN('r', 1.8), { hand_r: [-4, 0, 3] }), 'easeinoutsine'], [len, SPLAY('r'), 'easeinoutsine']], { ground: false });
+	const squeeze = k => ap(FIST('r'), { [`fingers_r`]: [0, 0, -6 * k], [`fingertips_r`]: [0, 0, -8 * k], hand_r: [2 * k, 0, 1.5 * k] });
+	mk(an, timing, 'grip', len => [[0, squeeze(0)], [len * 0.3, squeeze(1), 'easeinquad'], [len * 0.55, squeeze(-0.3), 'easeoutquad'], [len, squeeze(0), 'easeinoutsine']], { ground: false });
 }
-
 // ================================================================ THE PUNISHER
 function punisherClips(an, timing, poses, speed) {
 	const M = an.M, b = poses.stand;
@@ -189,15 +193,15 @@ function converterClips(an, timing) {
 	mk(an, timing, 'consume', len => spin(len, 2, { a: prongs(4), b: prongs(14) }), { ground: false, scaleKeys: { core: pulse(len(timing, 'consume'), 0.16, 4) } });
 	mk(an, timing, 'shielded', len => spin(len, 0.5), { ground: false, scaleKeys: { core: pulse(len(timing, 'shielded'), 0.04, 1), shield: [[0, 1], [len(timing, 'shielded') / 2, 1.03, 'easeinoutsine'], [len(timing, 'shielded'), 1, 'easeinoutsine']] } });
 	// destroyed: the core flares and collapses, the orbit ring drops and jams, the spire cracks over and the crown falls
-	const D = len(timing, 'destroyed');
+	const f = len(timing, 'destroyed') / 46; // authored on a 46-tick clock, fitted to the table
 	mk(an, timing, 'destroyed', l => [
-		[0, {}], [6, { core: [0, 40, 0], core_ring: [0, -60, 0], spire: [-3, 0, 2] }, 'easeoutquad'],
-		[18, { core: [0, 60, 0], core_ring: [28, -70, 16], spire: [6, 0, -4], crown: [0, 0, 0] }, 'easeinquad'],
-		[30, { core_ring: [36, -70, 22], spire: [24, 0, -10], crown: [20, 0, -12] }, 'easeinquad'],
-		[42, { core_ring: [34, -70, 20], spire: [40, 0, -14], crown: [64, 0, -30] }, 'easeinquad'],
-		[46, { core_ring: [34, -70, 20], spire: [37, 0, -13], crown: [58, 0, -28] }, 'easeoutquad'], [l, { core_ring: [34, -70, 20], spire: [40, 0, -14], crown: [62, 0, -30] }, 'easeinoutsine'],
+		[0, {}], [6 * f, { core: [0, 40, 0], core_ring: [0, -60, 0], spire: [-3, 0, 2] }, 'easeoutquad'],
+		[18 * f, { core: [0, 60, 0], core_ring: [28, -70, 16], spire: [6, 0, -4], crown: [0, 0, 0] }, 'easeinquad'],
+		[30 * f, { core_ring: [36, -70, 22], spire: [24, 0, -10], crown: [20, 0, -12] }, 'easeinquad'],
+		[42 * f, { core_ring: [34, -70, 20], spire: [40, 0, -14], crown: [64, 0, -30] }, 'easeinquad'],
+		[44 * f, { core_ring: [34, -70, 20], spire: [37, 0, -13], crown: [58, 0, -28] }, 'easeoutquad'], [l, { core_ring: [34, -70, 20], spire: [40, 0, -14], crown: [62, 0, -30] }, 'easeinoutsine'],
 	], { ground: false, scaleKeys: { core: [[0, 1], [5, 1.35, 'easeoutquad'], [16, 0, 'easeinback']] } });
-	void D;
+
 }
 function len(timing, n) { const t = timing[n]; return t.kind === 'loop' ? t.length : Math.max(1, t.length - T); }
 
@@ -228,7 +232,6 @@ function boardClips(an, timing) {
 function nullifierClips(an, timing) {
 	const pulse = (l, k, n) => { const o = []; for (let i = 0; i <= n * 2; i++) o.push([l * i / (n * 2), i % 2 ? 1 + k : 1, 'easeinoutsine']); return o; };
 	mk(an, timing, 'idle', l => [[0, {}], [l, {}]], { ground: false, scaleKeys: { core: pulse(len(timing, 'idle'), 0.06, 1) } });
-	mk(an, timing, 'armed', l => [[0, { trigger: [0, 0, 0] }], [l / 2, { trigger: [-14, 0, 0] }, 'easeinoutsine'], [l, { trigger: [0, 0, 0] }, 'easeinoutsine']], { ground: false, scaleKeys: { core: pulse(len(timing, 'armed'), 0.18, 2) } });
 }
 
 module.exports = { galactusClips, handClips, punisherClips, converterClips, worldshipClips, boardClips, nullifierClips, T };
