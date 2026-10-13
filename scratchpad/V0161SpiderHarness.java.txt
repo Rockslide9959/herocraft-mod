@@ -496,7 +496,7 @@ public final class V0161SpiderHarness {
 		}
 		// ------------------------------------------------ the ledge perch
 		if (all() || only.contains("perch")) {
-			String[] pv = {"s", "q", "f"};
+			String[] pv = {"fr", "s", "q", "f"};
 			for (String v : pv) {
 				final int pc = c;
 				at(pc, () -> {
@@ -505,6 +505,8 @@ public final class V0161SpiderHarness {
 					showGui = v.equals("f");
 					if (v.equals("f")) {
 						firstPerson(mc);
+					} else if (v.equals("fr")) {
+						cam(mc, new Vec3(0.0, 0.9, 3.4), new Vec3(0, 0.45, 0));
 					} else if (v.equals("s")) {
 						cam(mc, new Vec3(-3.4, 0.7, 0.6), new Vec3(0, 0.55, 0.5));
 					} else {
