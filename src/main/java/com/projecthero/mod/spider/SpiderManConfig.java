@@ -46,10 +46,10 @@ public final class SpiderManConfig {
 		/** Per web: at most one alarm this often. */
 		public int alarmCooldownTicks = 60;
 		/** Tightrope: the two anchors may be at most this far apart. */
-		public double tightropeMaxLength = 32.0;
+		public double tightropeMaxLength = 40.0;
 		/** Weave Mode: at most this many radial strands, each at most this long. */
 		public int weaveMaxStrands = 10;
-		public double weaveStrandLength = 24.0;
+		public double weaveStrandLength = 30.0;
 		/** v0.16.1: Weave Mode's centre sits this far in front of his eyes (stopping just short of a closer block). */
 		public double weaveCenterDistance = 3.0;
 		/** Anyone who is not Spider-Man or his squad is slowed to this fraction while touching a web (cobweb is 0.25). */
@@ -174,6 +174,8 @@ public final class SpiderManConfig {
 			.resetBalance(2, "v0.16.1 18-second web debuffs, 30-second Web Cocoon")
 			// v0.16.1 (later): faster web swinging -- stronger pump, higher top speed, release / chain momentum
 			.resetBalance(3, "v0.16.1 faster web swinging")
+			// v0.16.1 (later, user request): longer tightropes (32 -> 40 blocks) and weave strands (24 -> 30 blocks)
+			.reset(4, "v0.16.1 tightropes 40 blocks, weave strands 30 blocks", "webs.tightropeMaxLength", "webs.weaveStrandLength")
 			.build();
 
 	public static void load() {
