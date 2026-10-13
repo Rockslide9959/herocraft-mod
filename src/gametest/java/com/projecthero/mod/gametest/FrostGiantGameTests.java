@@ -182,9 +182,10 @@ public class FrostGiantGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void waveMixMatchesTheSpecAndScalesWithFighters(GameTestHelper helper) {
-		helper.assertTrue(FrostGiantAssault.waveCount() == 5, "five waves");
-		int[][] spec = { { 6, 0, 0, 0, 0 }, { 4, 3, 0, 0, 0 }, { 4, 3, 2, 0, 0 }, { 3, 3, 2, 1, 0 }, { 3, 2, 2, 1, 1 } };
-		for (int n = 1; n <= 5; n++) {
+		helper.assertTrue(FrostGiantAssault.waveCount() == 8, "eight waves");
+		int[][] spec = { { 6, 0, 0, 0, 0 }, { 4, 3, 0, 0, 0 }, { 4, 3, 2, 0, 0 }, { 3, 3, 2, 1, 0 }, { 3, 2, 2, 1, 1 },
+				{ 4, 4, 2, 2, 0 }, { 3, 4, 3, 2, 0 }, { 3, 3, 3, 2, 2 } };
+		for (int n = 1; n <= 8; n++) {
 			helper.assertTrue(java.util.Arrays.equals(FrostGiantAssault.composition(n), spec[n - 1]),
 					"wave " + n + " solo mix, got " + java.util.Arrays.toString(FrostGiantAssault.composition(n)));
 		}

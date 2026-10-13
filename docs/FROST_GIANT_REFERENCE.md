@@ -76,9 +76,9 @@ Design brief: `docs/FROST_GIANT_ASSAULT_MASTER_PROMPT.md` (main checkout).
 - **Damage rules** (`FrostCombat.multiplier`): fire, lava, a burning attacker or projectile, Pyrokinesis **x1.5**;
   lightning / Electrokinesis **x1.25** (bigger wins, no stacking). Immune to freezing (`canFreeze` false), Slowness and fall
   damage; Jotunheim never hurts its own (or its projectiles). Rally adds +20% to their outgoing hits.
-- **Waves**: 5, `round(base x (1 + 0.5 x (fighters - 1)))` (the Warlord never multiplies), cap 16 alive, 3 arrivals per
+- **Waves**: 8, `round(base x (1 + 0.5 x (fighters - 1)))` (the Warlord never multiplies), cap 16 alive, 3 arrivals per
   framework tick (+ the pair / pack partners). Solo hounds / raiders / shamans / brutes / warlord: w1 6/0/0/0/0,
-  w2 4/3/0/0/0, w3 4/3/2/0/0, w4 3/3/2/1/0, w5 3/2/2/1/1. 10 s countdown, 10 s breathers; a raid horn from the rift at
+  w2 4/3/0/0/0, w3 4/3/2/0/0, w4 3/3/2/1/0, w5 3/2/2/1/1, w6 4/4/2/2/0, w7 3/4/3/2/0, w8 3/3/3/2/2 (8 waves since the later v0.16.1 pass; config v2 migrates the wave keys). 10 s countdown, 10 s breathers; a raid horn from the rift at
   each wave and when Laufey comes. Stragglers (3 or fewer, after 3 minutes) are removed (never the Warlord).
 - **Temporary ice**: every wall / spike / pillar / frozen-water block goes through `FrostGiantAssault.placeIce` --
   inside the arena, at most `iceBlocksPerTick` (48) a server tick, never into a cell a living thing stands in, tracked in
