@@ -481,7 +481,7 @@ function skinModel(name, sk, spec) {
 	M.heightBlocks = spec.height || 2;
 	return M;
 }
-const isFx = c => c.mat === 'fx';
+const isFx = c => c.mat === 'fx' || /^(jet_|beam_fx)/.test(c.bone);
 
 // standard player rig with the in-game armour layering
 const PLAYER = {
@@ -646,15 +646,23 @@ const SUITS = [
 	{ id: 'mark_vii', file: '08_mark7_space.png', title: 'MARK 7 - SPACE', sub: 'MARK 2 VARIANT - IRON MAN 142', skin: () => buildSpace(m2),
 		footer: 'WHITE + RED + GOLD TRIM - GOLD VISOR - THRUSTER BACKPACK - BOOT THRUSTERS',
 		action: { label: 'ACTION: FLIGHT', yaw: 60, pitch: 2, lift: 4, fx: [FXSEL.boots, FXSEL.back], pose: { root: [48, 0, 0], head: [-34, 0, 0], arm_r: [-150, 0, 10], arm_l: [14, 0, -16], leg_r: [10, 0, 3], leg_l: [-6, 0, -3] } } },
-	{ id: 'mark_8', file: '09_mark8_hulkbuster.png', title: 'MARK 8 - HULKBUSTER', sub: 'MARK 2 VARIANT ON A BULKY MECH BODY - ABOUT 3 BLOCKS', skin: () => buildHulkbusterSkin(m2), rig: HULK,
+	{ id: 'mark_8', file: '09_mark8_hulkbuster.png', title: 'MARK 8 - HULKBUSTER', sub: 'MARK 2 VARIANT ON A BULKY MECH BODY - ABOUT 3 BLOCKS', game: true, skin: () => buildHulkbusterSkin(m2), rig: HULK,
 		footer: 'MARK 3 COLOURS + SILVER HYDRAULICS - SMALL HEAD - HUGE FISTS - BACK THRUSTERS - TRIANGULAR EMITTER',
-		stand: { arm_r: [0, 0, 6], arm_l: [0, 0, -6], leg_r: [0, 0, 2], leg_l: [0, 0, -2] },
+		stand: {},
 		action: { label: 'ACTION: HULKBUSTER PUNCH', yaw: -55, extraW: 300, dx: 150, fx: [FXSEL.palmR], pose: { root: [8, 12, 0], head: [-6, -8, 0], arm_r: [-92, 0, 0], arm_l: [28, 0, -10], leg_r: [-20, 0, 2], leg_l: [16, 0, -2] } } },
 ];
 
 const built = {};
 for (const S of SUITS) {
 	if (!WANT(S.id) && !WANT('lineup')) continue;
+	if (S.game) { // the Hulkbuster is its own segmented GeckoLib body now (gen_hulkbuster_body.js writes its assets + sheets)
+		const A = require('./lib_geckogen_anim.js');
+		const res = path.join(__dirname, '..', 'src', 'main', 'resources', 'assets', 'projecthero');
+		const M = A.loadGameModel(path.join(res, 'geo', 'ironman', 'hulkbuster_body.geo.json'), path.join(res, 'textures', 'armor', 'hulkbuster_body.png'), path.join(res, 'textures', 'armor', 'hulkbuster_body_glowmask.png'), 1, true);
+		M.heightBlocks = 3;
+		built[S.id] = { M, S, hide: c => /^(jet_|beam_fx)/.test(c.bone) };
+		continue;
+	}
 	const sk = S.skin();
 	sk.save(path.join(OUT, 'skins', S.id + '.png'));
 	const M = skinModel(S.id, sk, S.rig || PLAYER);
@@ -667,10 +675,10 @@ if (WANT('lineup')) {
 	const P = skinModel('player', sil, { bones: PLAYER.bones, build(M) { M.part('head', [-4, 24, -4, 4, 32, 4], 'head', 0); M.part('root', [-4, 12, -2, 4, 24, 2], 'body', 0); M.part('arm_r', [-8, 12, -2, -4, 24, 2], 'rarm', 0); M.part('arm_l', [4, 12, -2, 8, 24, 2], 'larm', 0); M.part('leg_r', [-4, 0, -2, -0.02, 12, 2], 'rleg', 0); M.part('leg_l', [0.02, 0, -2, 4, 12, 2], 'lleg', 0); } });
 	const row = [{ M: P, name: 'PLAYER', h: '2 BLOCKS', sil: true }];
 	const names = { mark_1: 'MARK 1', mark_1_v2: 'MARK 1 V2', mark_2: 'MARK 2', mark_iii: 'MARK 3', mark_4: 'MARK 4 HYDRO', mark_v: 'MARK 5 STEALTH', mark_6: 'MARK 6 CENTURION', mark_vii: 'MARK 7 SPACE', mark_8: 'MARK 8 HULKBUSTER' };
-	for (const S of SUITS) { const { M } = built[S.id]; const pose = S.stand || {}; const b = M.bounds(M.world(pose), c => !isFx(c)); row.push({ M, pose, name: names[S.id], h: ((b.hi[1] - b.lo[1]) / 16).toFixed(1) + ' BLOCKS', w: (b.hi[0] - b.lo[0]) / 16 }); }
+	for (const S of SUITS) { const { M, hide } = built[S.id]; const pose = S.stand || {}; const b = M.bounds(M.world(pose), c => !isFx(c) && !(hide && hide(c))); row.push({ M, pose, hide, name: names[S.id], h: ((b.hi[1] - b.lo[1]) / 16).toFixed(1) + ' BLOCKS', w: (b.hi[0] - b.lo[0]) / 16 }); }
 	row[0].w = 1.0;
 	let x = 0; const items = [];
-	for (const r of row) { x += r.w / 2; r.x = x; items.push({ model: r.M, pose: r.pose || {}, root: planted(r.M, r.pose || {}), pos: [x, 0, 0], hide: isFx }); x += r.w / 2 + 0.7; }
+	for (const r of row) { x += r.w / 2; r.x = x; items.push({ model: r.M, pose: r.pose || {}, root: planted(r.M, r.pose || {}), pos: [x, 0, 0], hide: r.hide || isFx }); x += r.w / 2 + 0.7; }
 	const total = x - 0.7;
 	const H = 1100, top = 84, ppu = 280;
 	const cam = { yaw: 0, pitch: 4 };
