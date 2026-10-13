@@ -360,57 +360,67 @@ public final class SpiderPose {
 	}
 
 	/**
-	 * The classic Spider-Man perch (PS4 / Raimi / Amazing): a deep frog squat on the perch point -- hips dropped almost to
-	 * the heels, the thighs nearly flat and splayed wide past the shoulders (the diamond seen from the front), the torso
-	 * pitched far forward low between the knees, shoulders hunched, both arms straight down between the knees with the
-	 * hands planted on the ledge just ahead of the feet, the head forward with a slight tilt, looking out over the drop.
-	 * The vanilla rig has no knees, so each whole leg is pitched forward and yawed outward (a thigh), and every part is
-	 * moved so the leg ends stay on the block.
+	 * The perch (the user's sketch, "like the Legends mod"): seen from the front -- head, an upright body sunk low so its
+	 * bottom is near the block, the two ARMS as the inner pieces running diagonally down and inward across the lower
+	 * body to meet at the perch point between the feet, and the two LEGS as the outer pieces fanned far out to the
+	 * sides, feet down-and-outward and reaching a little forward. The parts are deliberately moved off their joints
+	 * (x / y / z as well as rotation) to make the shape; the player's outer skin layers and the suit copy the parts.
+	 * Every position is blended from its vanilla value, so leaving the perch puts everything back.
 	 */
 	private static void perch(HumanoidModel<?> m, float k) {
-		final float thighPitch = 1.2f;   // forward
-		final float thighSplay = 1.0f;   // outward
-		// the whole figure sits back so the feet (the thigh ends) stay on the ledge rather than over the drop
-		final float back = 4.0f;
-		final float lean = 1.05f;        // torso forward from the hips
 		final float ground = 24.0f;
-		float hipY = ground - 12.0f * Mth.cos(thighPitch) - 0.3f;
+		// the body (12 px) sits low -- its bottom (the hips) 2 px above the block -- and leans ~20 degrees forward from
+		// the hips (the neck moves, the hip point stays), the head following the neck
+		final float hipY = 22.0f;
+		final float lean = 0.35f;
 		float neckY = hipY - 12.0f * Mth.cos(lean);
 		float neckZ = -12.0f * Mth.sin(lean);
 		m.body.xRot = Mth.lerp(k, m.body.xRot, lean);
 		m.body.yRot = Mth.lerp(k, m.body.yRot, 0.0f);
 		m.body.y = Mth.lerp(k, m.body.y, neckY);
-		m.body.z = Mth.lerp(k, m.body.z, neckZ + back);
-		// head forward off the hunched shoulders, looking ahead and down over the drop
-		m.head.y = Mth.lerp(k, m.head.y, neckY + 0.5f);
-		m.head.z = Mth.lerp(k, m.head.z, neckZ - 0.5f + back);
-		m.head.xRot = Mth.lerp(k, m.head.xRot, Mth.clamp(m.head.xRot, 0.1f, 0.6f));
+		m.body.z = Mth.lerp(k, m.body.z, neckZ);
+		m.head.y = Mth.lerp(k, m.head.y, neckY);
+		m.head.z = Mth.lerp(k, m.head.z, neckZ - 0.3f);
+		m.head.xRot = Mth.lerp(k, m.head.xRot, Mth.clamp(m.head.xRot, -0.1f, 0.45f));
 		m.hat.copyFrom(m.head);
-		// shoulders hunched up a pixel, both arms straight down between the knees, hands meeting on the ledge
-		float shoulderY = neckY + 2.0f * Mth.cos(lean) - 1.0f;
-		float shoulderZ = neckZ + 2.0f * Mth.sin(lean) + back;
-		float reach = (float) Math.acos(Mth.clamp((ground - shoulderY) / 12.0f, 0.0f, 1.0f));
+		// arms: inner pieces, from just below the shoulders diagonally down-and-in, hands meeting in front of the feet
+		// shoulders 3 px down the leaning torso; the arm angles put both hands at the block, 0.8 px either side of the
+		// centre line, in front of the feet
+		float shoulderY = neckY + 3.0f * Mth.cos(lean);
+		float shoulderZ = neckZ + 3.0f * Mth.sin(lean);
+		float dx = 4.2f;
+		float dy = ground - shoulderY;
+		float dz = (float) Math.sqrt(Math.max(0.0f, 144.0f - dx * dx - dy * dy));
+		float armFwd = (float) Math.asin(Mth.clamp(dz / 12.0f, 0.0f, 1.0f));
+		float armIn = (float) Math.atan2(dx, dy);
+		m.rightArm.x = Mth.lerp(k, -5.0f, -5.0f);
+		m.leftArm.x = Mth.lerp(k, 5.0f, 5.0f);
 		m.rightArm.y = Mth.lerp(k, m.rightArm.y, shoulderY);
 		m.leftArm.y = Mth.lerp(k, m.leftArm.y, shoulderY);
 		m.rightArm.z = Mth.lerp(k, m.rightArm.z, shoulderZ);
 		m.leftArm.z = Mth.lerp(k, m.leftArm.z, shoulderZ);
-		m.rightArm.xRot = Mth.lerp(k, m.rightArm.xRot, -reach);
-		m.leftArm.xRot = Mth.lerp(k, m.leftArm.xRot, -reach);
+		m.rightArm.xRot = Mth.lerp(k, m.rightArm.xRot, -armFwd);
+		m.leftArm.xRot = Mth.lerp(k, m.leftArm.xRot, -armFwd);
 		m.rightArm.yRot = Mth.lerp(k, m.rightArm.yRot, 0.0f);
 		m.leftArm.yRot = Mth.lerp(k, m.leftArm.yRot, 0.0f);
-		m.rightArm.zRot = Mth.lerp(k, m.rightArm.zRot, -0.36f);
-		m.leftArm.zRot = Mth.lerp(k, m.leftArm.zRot, 0.36f);
-		// thighs: pitched forward almost flat and yawed out wide
-		m.rightLeg.y = Mth.lerp(k, m.rightLeg.y, hipY);
-		m.leftLeg.y = Mth.lerp(k, m.leftLeg.y, hipY);
-		m.rightLeg.z = Mth.lerp(k, m.rightLeg.z, back);
-		m.leftLeg.z = Mth.lerp(k, m.leftLeg.z, back);
-		m.rightLeg.xRot = Mth.lerp(k, m.rightLeg.xRot, -thighPitch);
-		m.leftLeg.xRot = Mth.lerp(k, m.leftLeg.xRot, -thighPitch);
-		m.rightLeg.yRot = Mth.lerp(k, m.rightLeg.yRot, thighSplay);
-		m.leftLeg.yRot = Mth.lerp(k, m.leftLeg.yRot, -thighSplay);
-		m.rightLeg.zRot = Mth.lerp(k, m.rightLeg.zRot, 0.0f);
-		m.leftLeg.zRot = Mth.lerp(k, m.leftLeg.zRot, 0.0f);
+		m.rightArm.zRot = Mth.lerp(k, m.rightArm.zRot, -armIn);
+		m.leftArm.zRot = Mth.lerp(k, m.leftArm.zRot, armIn);
+		// legs: outer pieces, moved out beside the lower body, fanned far out with the feet down-and-outward
+		final float legOut = 0.9f;
+		final float legFwd = 0.35f;
+		float legY = ground - 12.0f * Mth.cos(legFwd) * Mth.cos(legOut);
+		m.rightLeg.x = Mth.lerp(k, -1.9f, -4.0f);
+		m.leftLeg.x = Mth.lerp(k, 1.9f, 4.0f);
+		m.rightLeg.y = Mth.lerp(k, m.rightLeg.y, legY);
+		m.leftLeg.y = Mth.lerp(k, m.leftLeg.y, legY);
+		m.rightLeg.z = Mth.lerp(k, m.rightLeg.z, 0.5f);
+		m.leftLeg.z = Mth.lerp(k, m.leftLeg.z, 0.5f);
+		m.rightLeg.xRot = Mth.lerp(k, m.rightLeg.xRot, -legFwd);
+		m.leftLeg.xRot = Mth.lerp(k, m.leftLeg.xRot, -legFwd);
+		m.rightLeg.yRot = Mth.lerp(k, m.rightLeg.yRot, 0.0f);
+		m.leftLeg.yRot = Mth.lerp(k, m.leftLeg.yRot, 0.0f);
+		m.rightLeg.zRot = Mth.lerp(k, m.rightLeg.zRot, legOut);
+		m.leftLeg.zRot = Mth.lerp(k, m.leftLeg.zRot, -legOut);
 	}
 
 	private static float smooth(float f) {

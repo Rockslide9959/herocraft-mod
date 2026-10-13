@@ -2109,7 +2109,7 @@
   "projecthero.guide.spider_man.step.mutagen": "Craft an Arachnid Mutagen: phantom membrane, an echo shard, spider eyes, fermented spider eyes, amethyst and a golden apple.",
   "projecthero.guide.spider_man.step.evolve": "Use it. With the adaptation already in you it evolves; without it, nothing happens and the mutagen is not consumed.",
   "projecthero.guide.spider_man.controls": "Controls -- 18 moves",
-  "projecthero.guide.spider_man.traversal.perch": "Ledge perch -- Sneak standing still at the edge of a drop (3+ blocks), or up on a fence, wall or post, and you sink into the classic perch: a deep frog squat with the knees spread wide, both hands planted on the ledge between them, shoulders hunched and head forward over the drop. Sneak still keeps you from falling off.",
+  "projecthero.guide.spider_man.traversal.perch": "Ledge perch -- Sneak standing still at the edge of a drop (3+ blocks), or up on a fence, wall or post, and you sink into the perch: low on the ledge, leaning slightly forward, legs fanned wide out to the sides and both hands meeting on the ledge between your feet. Sneak still keeps you from falling off.",
   "projecthero.guide.spider_man.controls.body": "Each of R, G, X, Z, V and C has three moves: tap the key, Shift + the key, or hold it (about half a second -- a tap fires when you let go). Every move has its own cooldown; the HUD shows each key's tap cooldown in its box, its Shift and hold cooldowns as thin blue and red bars under it, and holding Left Alt lists all 18 names.",
   "projecthero.guide.spider_man.how.tap": "tap",
   "projecthero.guide.spider_man.how.shift": "Shift+",

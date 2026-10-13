@@ -44,12 +44,14 @@ public abstract class SpiderPerchHandMixin {
 		float side = main == HumanoidArm.RIGHT ? 1f : -1f;
 		// the off hand, mirrored (renderPlayerArm places it on its own side of the view)
 		pose.pushPose();
-		pose.translate(side * 0.3f * k, 0.06f * k, -0.12f * k);
+		pose.translate(side * 0.42f * k, 0.07f * k, -0.12f * k);
 		pose.mulPose(Axis.XP.rotationDegrees(6f * k));
+		pose.mulPose(Axis.ZP.rotationDegrees(side * 14f * k));
 		renderPlayerArm(pose, buffers, light, 0.0f, 0.0f, main.getOpposite());
 		pose.popPose();
 		// the main hand
-		pose.translate(-side * 0.3f * k, 0.06f * k, -0.12f * k);
+		pose.translate(-side * 0.42f * k, 0.07f * k, -0.12f * k);
 		pose.mulPose(Axis.XP.rotationDegrees(6f * k));
+		pose.mulPose(Axis.ZP.rotationDegrees(-side * 14f * k));
 	}
 }
