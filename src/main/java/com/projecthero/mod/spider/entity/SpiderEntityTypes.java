@@ -52,6 +52,15 @@ public final class SpiderEntityTypes {
 					.fireImmune()
 					.build());
 
+	/** v0.16.1: the Web Bomb (Shift+R) glob, lobbed in an arc; bursts into the splash where it lands. */
+	public static final EntityType<SpiderWebBombEntity> WEB_BOMB = register("web_bomb",
+			FabricEntityTypeBuilder.<SpiderWebBombEntity>create(MobCategory.MISC, SpiderWebBombEntity::new)
+					.dimensions(EntityDimensions.fixed(0.6f, 0.6f))
+					.trackRangeBlocks(64)
+					.trackedUpdateRate(1)
+					.fireImmune()
+					.build());
+
 	private SpiderEntityTypes() {
 	}
 

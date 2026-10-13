@@ -497,6 +497,20 @@ public final class SpiderMoves {
 			at = hit.getType() == HitResult.Type.BLOCK ? hit.getLocation()
 					: player.getEyePosition().add(player.getLookAngle().scale(30.0));
 		}
+		// v0.16.1: a real projectile -- a big web glob lobbed in an arc; the splash happens where it lands (webBombBurst)
+		Vec3 from = player.getEyePosition().add(player.getLookAngle().scale(0.6)).add(0, -0.15, 0);
+		level.addFreshEntity(new com.projecthero.mod.spider.entity.SpiderWebBombEntity(level, player, from, at));
+		thwip(player, 0.8f);
+		anim(player, SpiderAnim.THWIP_BOTH);
+		fired(player, WEB_BOMB);
+	}
+
+	/** v0.16.1: the Web Bomb's splash where its glob lands: the root, the damage, the web rings and real cobwebs. */
+	public static int webBombBurst(ServerPlayer player, Vec3 at) {
+		SpiderManConfig.Moves m = SpiderManConfig.moves();
+		if (!(player.level() instanceof ServerLevel level)) {
+			return 0;
+		}
 		int caught = 0;
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(at, at).inflate(m.webBombRadius),
 				x -> harmable(player, x) && x.distanceToSqr(at) <= m.webBombRadius * m.webBombRadius * 1.5)) {
@@ -507,7 +521,6 @@ public final class SpiderMoves {
 			e.hurtMarked = true;
 			caught++;
 		}
-		SpiderCombat.sendStrand(player, SpiderCombat.SLOT_SHOT, null, at, 3, 20);
 		for (int ring = 1; ring <= 3; ring++) {
 			double r = m.webBombRadius * ring / 3.0;
 			for (int a = 0; a < 360; a += 20) {
@@ -519,13 +532,11 @@ public final class SpiderMoves {
 		level.sendParticles(ParticleTypes.ITEM_COBWEB, at.x, at.y + 0.5, at.z, 40, 1.0, 0.6, 1.0, 0.05);
 		// v0.16.1: real (temporary) cobwebs fill the air in the splash
 		SpiderCobwebs.fillAround(player, at, m.webBombRadius * 0.75, SpiderManConfig.webs().cobwebsPerCast);
-		thwip(player, 0.8f);
 		level.playSound(null, at.x, at.y, at.z, SpiderSounds.SPLAT, SoundSource.PLAYERS, 1.2f, 0.8f);
-		anim(player, SpiderAnim.THWIP_BOTH);
-		fired(player, WEB_BOMB);
 		if (caught > 0) {
 			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.web_bomb", caught), true);
 		}
+		return caught;
 	}
 
 	private static void beginImpactCharge(ServerPlayer player) {
@@ -1299,8 +1310,9 @@ public final class SpiderMoves {
 		Vec3 dir = new Vec3(toward.x, Math.max(-0.2, toward.y) * 0.6 + 0.25, toward.z).normalize();
 		AbilityHelpers.launchSelf(player, dir.scale(1.6));
 		SpiderCombat.sendStrand(player, SpiderCombat.SLOT_ZIP, null, point, 3, 30);
-		thwip(player, 1.3f);
-		play(player, SpiderSounds.ZIP, 0.7f, 1.2f);
+		// v0.16.1: the same sound as firing a swing line (the thwip + the line going out)
+		thwip(player, 1.0f);
+		SpiderSwing.playAttachSound(player);
 		anim(player, SpiderAnim.ZIP);
 		fired(player, ZIP_BOOST);
 		return true;

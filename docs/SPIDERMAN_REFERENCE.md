@@ -259,6 +259,34 @@ Every Spider-Sense sound respects the Shift+N mute.
   - Sheet: `spidey_fp_web_wrist_sheet.png` (FOV 70 top row, FOV 100 bottom row: tightrope shot, Web Zip, swing frames).
 - **Weave Mode centre** (`SpiderMoves.weaveCentre`, `webs.weaveCenterDistance` 3.0). Holding C puts the web's centre 3 blocks in front of his eyes along his look, or 0.3 blocks short of a closer block. The radial strands still run from the centre to the aimed surfaces. Gametest: `weaveCentreSitsThreeBlocksAheadOrShortOfAWall`.
 
+### Perch v4, the perch pose editor, the Web Bomb glob, the Zip Boost sound
+
+- **Perch v4** (the default, `PerchPose.defaults()`). Seen from the front it reads `/ | \`:
+  - Legs: splayed ~41 degrees out and ~14 degrees forward beside the hips, feet resting on the block's top (the 2 px sneak render offset is accounted for).
+  - Body: on top of them, leaning ~20 degrees forward.
+  - Arms: an inverted V meeting on the ledge at the bottom centre in front.
+  - Sheet: `spidey_perch_sheet_v4.png`.
+- **Perch pose editor** (`client.spider.PerchPoseEditorScreen` / `PerchPose`). Client-only: it changes how this client draws the perch. Open it with `/spiderposeeditor`.
+  - **Preview:** a live 3D preview of his own model in the perch. Drag to turn it, scroll to zoom, and use the Block toggle to show or hide the stone block.
+  - **Fields:** per part (head, body, right arm, left arm, right leg, left leg):
+    - x / y / z rot in degrees (0.5 steps);
+    - x / y / z pivot in model px (0.1 steps).
+    - Hold Shift for 10x steps, or type a value.
+  - **Whole-body page:** drop, back/forward shift, extra lean (hip-anchored), and the first-person camera drop / tilt.
+  - **Mirror:** an arm or leg edit is copied, mirrored, to the other side.
+  - **Undo / Reset:** Undo steps back through changes; Reset goes back to the built-in default.
+  - **Save:** writes `config/projecthero_perch_pose.json`, loaded at start-up; it overrides the defaults (delete the file to go back).
+  - **Export:** copies compact JSON to the clipboard and writes `config/projecthero_perch_pose_export.txt`.
+  - **Live:** every change applies to the real perch immediately (the screen does not pause the game).
+  - Positions are for a sneaking model; a standing one is shifted 2 px down.
+  - Shots: `spidey_perch_editor_arm.png`, `spidey_perch_editor_leg.png`.
+- **Web Bomb glob** (`SpiderWebBombEntity`, `projecthero:web_bomb`, `WebBombRenderer`):
+  - A fat ball of webbing (core, three crossed sheaths, loose strands) that tumbles and pulses.
+  - It is lobbed in an exact arc to the aimed point (`launchVelocity`, gravity 0.05 b/t^2, ~1.5 b/t across).
+  - It bursts on a body, a block or its landing point into the splash (`SpiderMoves.webBombBurst`: the root, damage, rings and real cobwebs). It no longer draws a web line.
+  - Sheet: `spidey_webbomb_glob_sheet.png`. Gametest: `webBombIsALobbedGlobThatBurstsWhereItLands`.
+- **Zip Boost** now plays the swing line's sounds: the thwip at the usual pitch plus the line going out (`SpiderSwing.playAttachSound`).
+
 ## v0.9.10 changes (at a glance)
 
 - **Super leap buffed to ~10 blocks.** `SpiderAbilities.superJump` initial rise `1.05 → 1.35`

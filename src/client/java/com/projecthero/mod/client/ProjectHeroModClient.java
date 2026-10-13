@@ -192,6 +192,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		VersionCheckClient.initialize(); // v0.14.22: client/server Project Hero version handshake
 		com.projecthero.mod.client.spider.SpiderWebLineRenderer.initialize();
 		com.projecthero.mod.client.spider.FirstPersonWebAnchor.initialize(); // v0.16.1: first-person web lines leave the drawn wrist
+		com.projecthero.mod.client.spider.PerchPoseEditorScreen.initialize(); // v0.16.1: /spiderposeeditor + the saved perch pose
 		com.projecthero.mod.client.spider.SpiderSenseFx.initialize(); // v0.16.1: tingle lines, projectile paths, hidden-threat shimmer
 		com.projecthero.mod.client.thor.ThorLightningArcRenderer.initialize();
 		com.projecthero.mod.client.thor.ThorFxRenderer.initialize(); // v0.14.4: shockwave rings, the Wrath charge, suit-up bolts
@@ -261,6 +262,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
 				com.projecthero.mod.client.spider.WebShotRenderer.LAYER,
 				com.projecthero.mod.client.spider.WebShotRenderer::createLayer);
+		net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
+				com.projecthero.mod.client.spider.WebBombRenderer.LAYER,
+				com.projecthero.mod.client.spider.WebBombRenderer::createLayer);
 
 		// Arc Reactor on the player's chest (Tony Stark power, no Iron Man chestplate) + Max Steel's
 		// Turbo Blast charge orb / Turbo Cannon arm cannon (v0.14.2).

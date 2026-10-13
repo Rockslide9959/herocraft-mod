@@ -87,8 +87,7 @@ public final class SpiderSwing {
 		grantFloatTolerance(player, true);
 
 		ServerLevel level = (ServerLevel) player.level();
-		level.playSound(null, player.getX(), player.getY(), player.getZ(),
-				SoundEvents.FISHING_BOBBER_THROW, SoundSource.PLAYERS, 0.55f, 1.7f);
+		playAttachSound(player);
 		level.sendParticles(ParticleTypes.ITEM_COBWEB, anchor.pos().x, anchor.pos().y, anchor.pos().z,
 				4, 0.1, 0.1, 0.1, 0.0);
 		return true;
@@ -139,6 +138,12 @@ public final class SpiderSwing {
 			player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
 					SoundEvents.LEASH_KNOT_BREAK, SoundSource.PLAYERS, 0.4f, 1.6f);
 		}
+	}
+
+	/** v0.16.1: the swing line's attach sound (the web line going out) -- Zip Boost plays the same. */
+	public static void playAttachSound(ServerPlayer player) {
+		player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+				SoundEvents.FISHING_BOBBER_THROW, SoundSource.PLAYERS, 0.55f, 1.7f);
 	}
 
 	/** True while the player is inside an unbroken run of fabricated swings. */

@@ -191,7 +191,15 @@ public final class SpiderPose {
 
 	/** Apply every pose for {@code player} (from {@code HumanoidModelMixin}). */
 	public static void apply(Player player, HumanoidModel<?> m) {
-		if (!SpiderMan.hasPower(player) || com.projecthero.mod.client.moonknight.MoonKnightPose.firstPersonHand) {
+		if (com.projecthero.mod.client.moonknight.MoonKnightPose.firstPersonHand) {
+			return;
+		}
+		if (previewPerch) {
+			// v0.16.1: the perch pose editor's preview -- the perch alone, at full strength, for anyone
+			perch(m, 1.0f);
+			return;
+		}
+		if (!SpiderMan.hasPower(player)) {
 			return;
 		}
 		SpiderMoveState s = player.getAttachedOrElse(ModAttachments.SPIDER_MOVE_STATE, null);
@@ -336,6 +344,9 @@ public final class SpiderPose {
 		m.leftLeg.zRot = Mth.lerp(k, m.leftLeg.zRot, -0.06f);
 	}
 
+	/** v0.16.1: set while the perch pose editor draws its preview (the perch is drawn in full, nothing else). */
+	public static boolean previewPerch;
+
 	/** Per player: the eased perch amount (0..1) and the last time it was advanced (ns). */
 	private static final java.util.Map<java.util.UUID, double[]> PERCH_EASE = new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -364,76 +375,44 @@ public final class SpiderPose {
 	}
 
 	/**
-	 * The perch (the user's sketch), v4. Seen from the FRONT it reads / | \ :
-	 * <ul>
-	 * <li>the body, head on top, low in the middle, leaning about 20 degrees forward from the hips;</li>
-	 * <li>each LEG a clearly visible slanted block OUTSIDE the body, its top beside the hips and its foot further out
-	 * and down (about 40 degrees from vertical), standing ON the block's top surface, only a little forward (about 14
-	 * degrees);</li>
-	 * <li>the ARMS an inverted V from the torso down to the bottom centre in front, the hands meeting on the ledge
-	 * between the feet.</li>
-	 * </ul>
-	 * The parts are deliberately moved off their joints (x / y / z as well as rotation); the player's outer skin layers
-	 * and the suit copy the parts. Every value is blended from its vanilla value, so leaving the perch puts everything
-	 * back. While sneaking (the usual way into the perch) the renderer drops the model 2 px, so the block's top is at
-	 * model y 22, not 24.
+	 * The perch (the user's sketch; perch v4 by default): every part's rotation and pivot comes from {@link PerchPose}
+	 * -- the built-in defaults, or the pose the user made in the in-game editor ({@code /spiderposeeditor}) and saved to
+	 * {@code config/projecthero_perch_pose.json}. Seen from the front it reads / | \ : legs splayed down-and-out beside
+	 * the hips with the feet on the block's top, the body low on top of them leaning ~20 degrees forward, the arms an
+	 * inverted V meeting on the ledge at the bottom centre in front. The parts are deliberately moved off their joints;
+	 * the outer skin layers and the suit copy the parts. Every value blends from vanilla's, so leaving the perch puts
+	 * everything back. Pose positions are for a sneaking player (the renderer drops a sneaking model 2 px); standing,
+	 * everything moves down those 2 px.
 	 */
 	private static void perch(HumanoidModel<?> m, float k) {
-		final float ground = m.crouching ? 22.0f : 24.0f;
-		// legs: splayed out (zRot) and only slightly forward, feet resting on the surface
-		final float legOut = 0.72f;
-		final float legFwd = 0.25f;
-		float legDrop = 12.0f * Mth.cos(legFwd) * Mth.cos(legOut);
-		// the leg box is 4 px wide: tilted out, its outer bottom corner sits ~2 sin(out) px lower than its centre line
-		float legY = ground - legDrop - 2.0f * Mth.sin(legOut);
-		final float legX = 3.0f;
-		m.rightLeg.x = Mth.lerp(k, m.rightLeg.x, -legX);
-		m.leftLeg.x = Mth.lerp(k, m.leftLeg.x, legX);
-		m.rightLeg.y = Mth.lerp(k, m.rightLeg.y, legY);
-		m.leftLeg.y = Mth.lerp(k, m.leftLeg.y, legY);
-		m.rightLeg.z = Mth.lerp(k, m.rightLeg.z, 0.0f);
-		m.leftLeg.z = Mth.lerp(k, m.leftLeg.z, 0.0f);
-		m.rightLeg.xRot = Mth.lerp(k, m.rightLeg.xRot, -legFwd);
-		m.leftLeg.xRot = Mth.lerp(k, m.leftLeg.xRot, -legFwd);
-		m.rightLeg.yRot = Mth.lerp(k, m.rightLeg.yRot, 0.0f);
-		m.leftLeg.yRot = Mth.lerp(k, m.leftLeg.yRot, 0.0f);
-		m.rightLeg.zRot = Mth.lerp(k, m.rightLeg.zRot, legOut);
-		m.leftLeg.zRot = Mth.lerp(k, m.leftLeg.zRot, -legOut);
-		// the body: its bottom (the hips) level with the tops of the legs, leaning ~20 degrees forward about the hips
-		final float hipY = legY + 1.0f;
-		final float lean = 0.35f;
-		float neckY = hipY - 12.0f * Mth.cos(lean);
-		float neckZ = -12.0f * Mth.sin(lean);
-		m.body.xRot = Mth.lerp(k, m.body.xRot, lean);
-		m.body.yRot = Mth.lerp(k, m.body.yRot, 0.0f);
-		m.body.y = Mth.lerp(k, m.body.y, neckY);
-		m.body.z = Mth.lerp(k, m.body.z, neckZ);
-		m.head.y = Mth.lerp(k, m.head.y, neckY);
-		m.head.z = Mth.lerp(k, m.head.z, neckZ - 0.3f);
-		m.head.xRot = Mth.lerp(k, m.head.xRot, Mth.clamp(m.head.xRot, -0.1f, 0.45f));
+		PerchPose p = PerchPose.current();
+		float dy = (m.crouching ? 0.0f : 2.0f) + p.drop;
+		float dz = p.shift;
+		float lookX = m.head.xRot;
+		float lookY = m.head.yRot;
+		place(m.body, p.body, k, dy, dz);
+		place(m.rightArm, p.rightArm, k, dy, dz);
+		place(m.leftArm, p.leftArm, k, dy, dz);
+		place(m.rightLeg, p.rightLeg, k, dy, dz);
+		place(m.leftLeg, p.leftLeg, k, dy, dz);
+		place(m.head, p.head, k, dy, dz);
+		// the head keeps looking where he looks (gently limited), the pose's head angles added on top
+		m.head.xRot = Mth.lerp(k, lookX, Mth.clamp(lookX, -0.1f, 0.45f) + p.head.xRot * Mth.DEG_TO_RAD);
+		m.head.yRot = Mth.lerp(k, lookY, lookY + p.head.yRot * Mth.DEG_TO_RAD);
 		m.hat.copyFrom(m.head);
-		// arms: the inverted V -- from the front of the torso diagonally down-and-in, both hands meeting on the ledge at
-		// the bottom centre, in front of the body. The 12 px arms cannot reach the block from the shoulders of a body
-		// held this high, so their tops slide down the front of the torso (10.5 px above the block) and the hands reach forward to the ledge.
-		float shoulderY = Math.max(neckY + 3.0f * Mth.cos(lean), ground - 10.5f);
-		float shoulderZ = neckZ * Mth.clamp((hipY - shoulderY) / 12.0f, 0.0f, 1.0f) - 2.6f;
-		float dx = 4.2f;
-		float dy = ground - shoulderY - 0.2f;
-		float dz = (float) Math.sqrt(Math.max(0.0f, 144.0f - dx * dx - dy * dy));
-		float armFwd = (float) Math.asin(Mth.clamp(dz / 12.0f, 0.0f, 1.0f));
-		float armIn = (float) Math.atan2(dx, Math.max(0.1f, dy));
-		m.rightArm.x = Mth.lerp(k, m.rightArm.x, -5.0f);
-		m.leftArm.x = Mth.lerp(k, m.leftArm.x, 5.0f);
-		m.rightArm.y = Mth.lerp(k, m.rightArm.y, shoulderY);
-		m.leftArm.y = Mth.lerp(k, m.leftArm.y, shoulderY);
-		m.rightArm.z = Mth.lerp(k, m.rightArm.z, shoulderZ);
-		m.leftArm.z = Mth.lerp(k, m.leftArm.z, shoulderZ);
-		m.rightArm.xRot = Mth.lerp(k, m.rightArm.xRot, -armFwd);
-		m.leftArm.xRot = Mth.lerp(k, m.leftArm.xRot, -armFwd);
-		m.rightArm.yRot = Mth.lerp(k, m.rightArm.yRot, 0.0f);
-		m.leftArm.yRot = Mth.lerp(k, m.leftArm.yRot, 0.0f);
-		m.rightArm.zRot = Mth.lerp(k, m.rightArm.zRot, -armIn);
-		m.leftArm.zRot = Mth.lerp(k, m.leftArm.zRot, armIn);
+		if (p.lean != 0.0f) {
+			// extra lean about the hips -- the neck, head and shoulders follow (HipBend), nothing detaches
+			HipBend.pitch(m, k, m.body.xRot + p.lean * Mth.DEG_TO_RAD);
+		}
+	}
+
+	private static void place(net.minecraft.client.model.geom.ModelPart part, PerchPose.Part p, float k, float dy, float dz) {
+		part.xRot = Mth.lerp(k, part.xRot, p.xRot * Mth.DEG_TO_RAD);
+		part.yRot = Mth.lerp(k, part.yRot, p.yRot * Mth.DEG_TO_RAD);
+		part.zRot = Mth.lerp(k, part.zRot, p.zRot * Mth.DEG_TO_RAD);
+		part.x = Mth.lerp(k, part.x, p.x);
+		part.y = Mth.lerp(k, part.y, p.y + dy);
+		part.z = Mth.lerp(k, part.z, p.z + dz);
 	}
 
 	private static float smooth(float f) {

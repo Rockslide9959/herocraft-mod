@@ -43,7 +43,9 @@ public abstract class SpiderPerchCameraMixin {
 		if (k <= 0f) {
 			return;
 		}
-		setPosition(getPosition().add(0.0, -0.32 * k, 0.0));
-		setRotation(getYRot(), Math.min(90f, getXRot() + 6f * k));
+		// v0.16.1: from the (editable) perch pose
+		com.projecthero.mod.client.spider.PerchPose pose = com.projecthero.mod.client.spider.PerchPose.current();
+		setPosition(getPosition().add(0.0, -pose.cameraDrop * k, 0.0));
+		setRotation(getYRot(), Math.min(90f, getXRot() + pose.cameraTilt * k));
 	}
 }

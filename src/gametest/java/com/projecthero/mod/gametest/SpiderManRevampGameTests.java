@@ -516,6 +516,37 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
+	public void webBombIsALobbedGlobThatBurstsWhereItLands(GameTestHelper helper) {
+		// the lob lands on its target point (gravity taken off before each move, as the entity does)
+		Vec3 from = new Vec3(0, 2, 0);
+		Vec3 to = new Vec3(9, 0, 17);
+		Vec3 v = com.projecthero.mod.spider.entity.SpiderWebBombEntity.launchVelocity(from, to);
+		Vec3 pos = from;
+		double best = Double.MAX_VALUE;
+		for (int i = 0; i < 60; i++) {
+			v = v.add(0, -com.projecthero.mod.spider.entity.SpiderWebBombEntity.GRAVITY, 0);
+			pos = pos.add(v);
+			best = Math.min(best, pos.distanceTo(to));
+		}
+		helper.assertTrue(best < 0.05, "the arc comes down on the aimed point (closest " + best + ")");
+		// Shift+R throws the glob (no splash yet); the burst roots what it lands on
+		ServerPlayer p = spider(helper);
+		Zombie zombie = arena(helper, p);
+		int before = helper.getLevel().getEntitiesOfClass(com.projecthero.mod.spider.entity.SpiderWebBombEntity.class,
+				p.getBoundingBox().inflate(8)).size();
+		SpiderMoves.webBomb(p);
+		int after = helper.getLevel().getEntitiesOfClass(com.projecthero.mod.spider.entity.SpiderWebBombEntity.class,
+				p.getBoundingBox().inflate(8)).size();
+		helper.assertTrue(after == before + 1, "Web Bomb launches one glob");
+		helper.assertTrue(SpiderMoves.webBombBurst(p, zombie.position().add(0, 1, 0)) >= 1, "its burst catches the zombie");
+		for (var e : helper.getLevel().getEntitiesOfClass(com.projecthero.mod.spider.entity.SpiderWebBombEntity.class,
+				p.getBoundingBox().inflate(8))) {
+			e.discard();
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
 	public void weaveCentreSitsThreeBlocksAheadOrShortOfAWall(GameTestHelper helper) {
 		ServerPlayer p = spider(helper);
 		Vec3 at = helper.absoluteVec(new Vec3(2.5, 1.0, 1.5));
