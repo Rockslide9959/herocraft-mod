@@ -364,18 +364,43 @@ public final class SpiderPose {
 	}
 
 	/**
-	 * The perch (the user's sketch, "like the Legends mod"): seen from the front -- head, an upright body sunk low so its
-	 * bottom is near the block, the two ARMS as the inner pieces running diagonally down and inward across the lower
-	 * body to meet at the perch point between the feet, and the two LEGS as the outer pieces fanned far out to the
-	 * sides, feet down-and-outward and reaching a little forward. The parts are deliberately moved off their joints
-	 * (x / y / z as well as rotation) to make the shape; the player's outer skin layers and the suit copy the parts.
-	 * Every position is blended from its vanilla value, so leaving the perch puts everything back.
+	 * The perch (the user's sketch), v4. Seen from the FRONT it reads / | \ :
+	 * <ul>
+	 * <li>the body, head on top, low in the middle, leaning about 20 degrees forward from the hips;</li>
+	 * <li>each LEG a clearly visible slanted block OUTSIDE the body, its top beside the hips and its foot further out
+	 * and down (about 40 degrees from vertical), standing ON the block's top surface, only a little forward (about 14
+	 * degrees);</li>
+	 * <li>the ARMS an inverted V from the torso down to the bottom centre in front, the hands meeting on the ledge
+	 * between the feet.</li>
+	 * </ul>
+	 * The parts are deliberately moved off their joints (x / y / z as well as rotation); the player's outer skin layers
+	 * and the suit copy the parts. Every value is blended from its vanilla value, so leaving the perch puts everything
+	 * back. While sneaking (the usual way into the perch) the renderer drops the model 2 px, so the block's top is at
+	 * model y 22, not 24.
 	 */
 	private static void perch(HumanoidModel<?> m, float k) {
-		final float ground = 24.0f;
-		// the body (12 px) sits low -- its bottom (the hips) 2 px above the block -- and leans ~20 degrees forward from
-		// the hips (the neck moves, the hip point stays), the head following the neck
-		final float hipY = 22.0f;
+		final float ground = m.crouching ? 22.0f : 24.0f;
+		// legs: splayed out (zRot) and only slightly forward, feet resting on the surface
+		final float legOut = 0.72f;
+		final float legFwd = 0.25f;
+		float legDrop = 12.0f * Mth.cos(legFwd) * Mth.cos(legOut);
+		// the leg box is 4 px wide: tilted out, its outer bottom corner sits ~2 sin(out) px lower than its centre line
+		float legY = ground - legDrop - 2.0f * Mth.sin(legOut);
+		final float legX = 3.0f;
+		m.rightLeg.x = Mth.lerp(k, m.rightLeg.x, -legX);
+		m.leftLeg.x = Mth.lerp(k, m.leftLeg.x, legX);
+		m.rightLeg.y = Mth.lerp(k, m.rightLeg.y, legY);
+		m.leftLeg.y = Mth.lerp(k, m.leftLeg.y, legY);
+		m.rightLeg.z = Mth.lerp(k, m.rightLeg.z, 0.0f);
+		m.leftLeg.z = Mth.lerp(k, m.leftLeg.z, 0.0f);
+		m.rightLeg.xRot = Mth.lerp(k, m.rightLeg.xRot, -legFwd);
+		m.leftLeg.xRot = Mth.lerp(k, m.leftLeg.xRot, -legFwd);
+		m.rightLeg.yRot = Mth.lerp(k, m.rightLeg.yRot, 0.0f);
+		m.leftLeg.yRot = Mth.lerp(k, m.leftLeg.yRot, 0.0f);
+		m.rightLeg.zRot = Mth.lerp(k, m.rightLeg.zRot, legOut);
+		m.leftLeg.zRot = Mth.lerp(k, m.leftLeg.zRot, -legOut);
+		// the body: its bottom (the hips) level with the tops of the legs, leaning ~20 degrees forward about the hips
+		final float hipY = legY + 1.0f;
 		final float lean = 0.35f;
 		float neckY = hipY - 12.0f * Mth.cos(lean);
 		float neckZ = -12.0f * Mth.sin(lean);
@@ -387,18 +412,18 @@ public final class SpiderPose {
 		m.head.z = Mth.lerp(k, m.head.z, neckZ - 0.3f);
 		m.head.xRot = Mth.lerp(k, m.head.xRot, Mth.clamp(m.head.xRot, -0.1f, 0.45f));
 		m.hat.copyFrom(m.head);
-		// arms: inner pieces, from just below the shoulders diagonally down-and-in, hands meeting in front of the feet
-		// shoulders 3 px down the leaning torso; the arm angles put both hands at the block, 0.8 px either side of the
-		// centre line, in front of the feet
-		float shoulderY = neckY + 3.0f * Mth.cos(lean);
-		float shoulderZ = neckZ + 3.0f * Mth.sin(lean);
+		// arms: the inverted V -- from the front of the torso diagonally down-and-in, both hands meeting on the ledge at
+		// the bottom centre, in front of the body. The 12 px arms cannot reach the block from the shoulders of a body
+		// held this high, so their tops slide down the front of the torso (10.5 px above the block) and the hands reach forward to the ledge.
+		float shoulderY = Math.max(neckY + 3.0f * Mth.cos(lean), ground - 10.5f);
+		float shoulderZ = neckZ * Mth.clamp((hipY - shoulderY) / 12.0f, 0.0f, 1.0f) - 2.6f;
 		float dx = 4.2f;
-		float dy = ground - shoulderY;
+		float dy = ground - shoulderY - 0.2f;
 		float dz = (float) Math.sqrt(Math.max(0.0f, 144.0f - dx * dx - dy * dy));
 		float armFwd = (float) Math.asin(Mth.clamp(dz / 12.0f, 0.0f, 1.0f));
-		float armIn = (float) Math.atan2(dx, dy);
-		m.rightArm.x = Mth.lerp(k, -5.0f, -5.0f);
-		m.leftArm.x = Mth.lerp(k, 5.0f, 5.0f);
+		float armIn = (float) Math.atan2(dx, Math.max(0.1f, dy));
+		m.rightArm.x = Mth.lerp(k, m.rightArm.x, -5.0f);
+		m.leftArm.x = Mth.lerp(k, m.leftArm.x, 5.0f);
 		m.rightArm.y = Mth.lerp(k, m.rightArm.y, shoulderY);
 		m.leftArm.y = Mth.lerp(k, m.leftArm.y, shoulderY);
 		m.rightArm.z = Mth.lerp(k, m.rightArm.z, shoulderZ);
@@ -409,22 +434,6 @@ public final class SpiderPose {
 		m.leftArm.yRot = Mth.lerp(k, m.leftArm.yRot, 0.0f);
 		m.rightArm.zRot = Mth.lerp(k, m.rightArm.zRot, -armIn);
 		m.leftArm.zRot = Mth.lerp(k, m.leftArm.zRot, armIn);
-		// legs: outer pieces, moved out beside the lower body, fanned far out with the feet down-and-outward
-		final float legOut = 0.9f;
-		final float legFwd = 0.35f;
-		float legY = ground - 12.0f * Mth.cos(legFwd) * Mth.cos(legOut);
-		m.rightLeg.x = Mth.lerp(k, -1.9f, -4.0f);
-		m.leftLeg.x = Mth.lerp(k, 1.9f, 4.0f);
-		m.rightLeg.y = Mth.lerp(k, m.rightLeg.y, legY);
-		m.leftLeg.y = Mth.lerp(k, m.leftLeg.y, legY);
-		m.rightLeg.z = Mth.lerp(k, m.rightLeg.z, 0.5f);
-		m.leftLeg.z = Mth.lerp(k, m.leftLeg.z, 0.5f);
-		m.rightLeg.xRot = Mth.lerp(k, m.rightLeg.xRot, -legFwd);
-		m.leftLeg.xRot = Mth.lerp(k, m.leftLeg.xRot, -legFwd);
-		m.rightLeg.yRot = Mth.lerp(k, m.rightLeg.yRot, 0.0f);
-		m.leftLeg.yRot = Mth.lerp(k, m.leftLeg.yRot, 0.0f);
-		m.rightLeg.zRot = Mth.lerp(k, m.rightLeg.zRot, legOut);
-		m.leftLeg.zRot = Mth.lerp(k, m.leftLeg.zRot, -legOut);
 	}
 
 	private static float smooth(float f) {
