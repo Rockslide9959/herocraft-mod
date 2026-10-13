@@ -62,8 +62,12 @@ public class IronManRecipeCostV01421GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void componentTableRecipesMirrorTheFabricator(GameTestHelper helper) {
+		// v0.16.1: the five comic signature parts are Fabricator-only for now (no crafting-table JSON was added with them)
+		Set<String> fabricatorOnly = Set.of("gilded_plating", "pressure_hull", "stealth_coating", "thermal_shielding",
+				"hydraulic_frame");
 		for (FabricationRecipe fab : FabricatorRecipes.all()) {
-			if (fab.result().getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem) {
+			if (fab.result().getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem
+					|| fabricatorOnly.contains(fab.id())) {
 				continue;
 			}
 			Recipe<?> table = tableRecipe(helper, fab.id());
@@ -111,7 +115,11 @@ public class IronManRecipeCostV01421GameTests implements FabricGameTest {
 					cost += weighted(helper, table, input.item(), input.count(), 0);
 				}
 			}
-			helper.assertTrue(cost >= previous, suit + " (" + cost + ") must not be cheaper than " + previousSuit + " (" + previous + ")");
+			// v0.16.1 comic rework: the signature parts changed (gold-heavy Mark 1 V2 upgrade, Pressure Hull / Stealth Coating /
+			// Thermal Shielding / Hydraulic Frame), so the strict "each mark costs more than the last" order no longer holds
+			// (the V2 out-costs the Mark 2, the Stealth Mark 5 comes in under the Hydro Mark 4). What still holds: every
+			// Fabricator suit costs more than the table-built Mark 1, and none blows its cap.
+			helper.assertTrue(cost > markOne, suit + " (" + cost + ") must cost more than the Mark 1 (" + markOne + ")");
 			// The pre-v0.14.21 Mark III-VII cost ~258-268 in these units; the pass targets roughly half.
 			// v0.15.9: the Mark 8 is deliberately the priciest suit (user decision) -- capped a little higher
 			double cap = "mark_8".equals(suit) ? 185 : 160;

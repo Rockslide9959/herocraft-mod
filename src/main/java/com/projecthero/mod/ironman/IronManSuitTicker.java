@@ -180,11 +180,11 @@ public final class IronManSuitTicker {
 		}
 		// v0.14.27: the Mark 1 Shift+X launch turns into the flight burst 3 s later
 		IronManAbilities.tickPendingFlightBurst(player, suit);
-		// v0.14.27 (agent D): Mark III minigun / held Unibeam / micro-missile volley / energy shield
-		com.projecthero.mod.ironman.ability.IronManMark3.tick(player, suit);
-		// v0.15.4: the Mark 6 / Mark 7 modern kit -- held beams (Unibeam, Mark 7 red laser), wheel laser, barrage, and the
-		// Regeneration-while-hurt passive
-		com.projecthero.mod.ironman.ability.IronManMark6.tick(player, suit);
+		// v0.16.1 comic rework: the old Mark III / Mark 6-8 kits (IronManMark3 / IronManMark6 ticks) are no longer bound to any
+		// suit and are not ticked -- an old save's latched Mark III shield flag can never come back on. Their shutDown calls
+		// below stay, so anything left running from before the update is stopped; this clears a stale shield flag (cheap:
+		// it only writes when one is set).
+		com.projecthero.mod.ironman.ability.IronManMark3.shutDown(player);
 	}
 
 	/** v0.16.1: the suit's integrity just hit 0 -- everything it was running stops at once (flight included). */

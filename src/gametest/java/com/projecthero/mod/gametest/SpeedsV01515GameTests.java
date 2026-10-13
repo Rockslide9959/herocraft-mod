@@ -78,14 +78,16 @@ public class SpeedsV01515GameTests implements FabricGameTest {
 		h.assertTrue(flown(DirectionalFlightModel.greenLantern(boostFly, true, true)) > 40.0, "Boost still beats sprint flight");
 
 		Object[][] marks = {
+				// v0.16.1 comic rework (the Mark 1 only glides at its 8 b/s cruise; the Hulkbuster has no sprint flight)
 				{ IronManSuits.MARK_1, 8.0, 8.0 },
-				{ IronManSuits.MARK_2, 15.0, 25.0 },
-				{ IronManSuits.MARK_III, 17.0, 32.0 },
-				{ IronManSuits.MARK_4, 17.0, 32.0 },
-				{ IronManSuits.MARK_V, 17.0, 28.0 },
-				{ IronManSuits.MARK_6, 18.0, 36.0 },
-				{ IronManSuits.MARK_VII, 18.0, 36.0 },
-				{ IronManSuits.MARK_8, 18.0, 36.0 } };
+				{ IronManSuits.MARK_1_V2, 12.0, 18.0 },
+				{ IronManSuits.MARK_2, 18.0, 28.0 },
+				{ IronManSuits.MARK_III, 20.0, 32.0 },
+				{ IronManSuits.MARK_4, 14.0, 22.0 },
+				{ IronManSuits.MARK_V, 20.0, 34.0 },
+				{ IronManSuits.MARK_6, 22.0, 38.0 },
+				{ IronManSuits.MARK_VII, 24.0, 44.0 },
+				{ IronManSuits.MARK_8, 10.0, 10.0 } };
 		for (Object[] m : marks) {
 			IronManSuit suit = (IronManSuit) m[0];
 			near(h, suit.id() + " cruise", flown(ironMan(suit, false)), (Double) m[1]);

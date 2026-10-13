@@ -78,13 +78,22 @@ public final class IronManIntegrity {
 			return;
 		}
 		// once a second (the state is synced to every player -- no per-tick churn)
-		if (player.level().getGameTime() % 20L != 0L || !outOfCombat(player)) {
-			return;
+		if (player.level().getGameTime() % 20L == 0L) {
+			repairStep(player, suit);
+		}
+	}
+
+	/** One second of self-repair, if out of combat. Returns whether anything was repaired. Public for the gametests. */
+	public static boolean repairStep(ServerPlayer player, IronManSuit suit) {
+		if (suit == null || suit.selfRepairPerSecond() <= 0f || !IronManArmor.hasChestplate(player, suit.id()) || !outOfCombat(player)) {
+			return false;
 		}
 		float cur = IronManEnergy.integrity(player, suit.id());
 		float max = suit.maxIntegrity();
-		if (cur < max) {
-			IronManEnergy.setIntegrity(player, suit.id(), Math.min(max, cur + suit.selfRepairPerSecond()));
+		if (cur >= max) {
+			return false;
 		}
+		IronManEnergy.setIntegrity(player, suit.id(), Math.min(max, cur + suit.selfRepairPerSecond()));
+		return true;
 	}
 }
