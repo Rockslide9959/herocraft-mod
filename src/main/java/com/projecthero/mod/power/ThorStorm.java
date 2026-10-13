@@ -114,12 +114,13 @@ public final class ThorStorm {
 		boolean charged = isCharged(player);
 		ThorVisuals.storm(player, charged ? percent() : 0);
 		if (charged && player.tickCount % 3 == 0 && player.level() instanceof ServerLevel level) {
+			// sparks for everyone else (in his own first-person view they would burst in his face; he sees the arcs)
 			double h = player.getBbHeight();
-			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + h * 0.55, player.getZ(), 3,
-					0.35, h * 0.35, 0.35, 0.06);
-			if (player.tickCount % 12 == 0) {
-				level.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + h * 0.6, player.getZ(), 1, 0.3,
-						h * 0.3, 0.3, 0.01);
+			for (ServerPlayer viewer : level.players()) {
+				if (viewer != player && viewer.distanceToSqr(player) < 64.0 * 64.0) {
+					level.sendParticles(viewer, ParticleTypes.ELECTRIC_SPARK, false, player.getX(), player.getY() + h * 0.55,
+							player.getZ(), 3, 0.35, h * 0.35, 0.35, 0.06);
+				}
 			}
 		}
 		// a stray frame (an exception thrown through hurt, or another mod's HEAD cancel that skips our RETURN) must

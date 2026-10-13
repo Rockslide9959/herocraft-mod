@@ -176,7 +176,6 @@ public final class ThunderField {
 		ThorTwinThunder.visualBolt(level, owner, center);
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, center.x, center.y + 0.3, center.z, 50, cfg.radius * 0.4, 0.15,
 				cfg.radius * 0.4, 0.25);
-		level.sendParticles(ParticleTypes.FLASH, center.x, center.y + 0.5, center.z, 1, 0.0, 0.0, 0.0, 0.0);
 		level.playSound(null, center.x, center.y, center.z, SoundEvents.MACE_SMASH_GROUND_HEAVY, SoundSource.PLAYERS, 1.0f,
 				0.9f);
 		level.playSound(null, center.x, center.y, center.z, SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 1.0f,

@@ -146,8 +146,8 @@ public final class WeaponComboPose {
 			rest(DS) };
 	/** Hit 3: the cross-body double swing -- both weapons high and wide, then cut down across each other in an X. */
 	private static final float[][] DUAL_3 = {
-			f(0, -2.55f, 0.45f, 0.35f, -2.55f, -0.45f, -0.35f, -0.12f, 0f, 0.1f, 0.1f, -0.12f, 1),
-			f(2, -2.85f, 0.55f, 0.45f, -2.85f, -0.55f, -0.45f, -0.2f, 0f, 0.15f, 0.15f, -0.2f, 1),
+			f(0, -2.5f, 0.45f, 0.7f, -2.5f, -0.45f, -0.7f, -0.12f, 0f, 0.1f, 0.1f, -0.12f, 1),
+			f(2, -2.75f, 0.55f, 0.8f, -2.75f, -0.55f, -0.8f, -0.2f, 0f, 0.15f, 0.15f, -0.2f, 1),
 			f(4, -0.85f, -0.8f, -0.15f, -0.75f, 0.8f, 0.15f, 0.36f, 0.12f, -0.35f, 0.3f, 0.2f, 1),
 			f(7, -0.7f, -0.9f, -0.15f, -0.6f, 0.9f, 0.15f, 0.4f, 0.12f, -0.32f, 0.28f, 0.22f, 1),
 			rest(DS) };
@@ -167,7 +167,7 @@ public final class WeaponComboPose {
 	/** Hit 1, Mjolnir's hand: up and tipped back, then slammed down and forward. */
 	private static final float[][] FP_D1_M = {
 			{0, 0, 0, 0, 0, 0, 0},
-			{2, 0.02f, 0.32f, 0.08f, 45, 0, -6},
+			{2, 0.0f, 0.42f, 0.05f, 18, 0, -6},
 			{4, -0.12f, -0.16f, -0.22f, -80, 0, 6},
 			{7, -0.12f, -0.18f, -0.2f, -74, 0, 6},
 			{DS, 0, 0, 0, 0, 0, 0} };
@@ -195,15 +195,15 @@ public final class WeaponComboPose {
 	/** Hit 3, both hands (mirrored): up and out, then cut down and across to cross in the middle. */
 	private static final float[][] FP_D3 = {
 			{0, 0, 0, 0, 0, 0, 0},
-			{2, 0.08f, 0.3f, 0.05f, 38, 0, -22},
+			{2, 0.1f, 0.38f, 0.05f, 15, 0, -22},
 			{4, -0.34f, -0.12f, -0.16f, -60, -20, 52},
 			{7, -0.36f, -0.14f, -0.16f, -58, -22, 55},
 			{DS, 0, 0, 0, 0, 0, 0} };
 	/** Hit 4, both hands: low, then flung high (the leap), then driven down together (the landing). */
 	private static final float[][] FP_D4 = {
 			{0, 0, -0.12f, 0.1f, 22, 0, 0},
-			{3, 0.02f, 0.42f, 0.05f, 62, 0, -10},
-			{6, 0.02f, 0.52f, 0.05f, 72, 0, -10},
+			{3, 0.0f, 0.5f, 0.05f, 20, 0, -8},
+			{6, 0.0f, 0.6f, 0.05f, 25, 0, -8},
 			{9, -0.1f, -0.22f, -0.26f, -86, 0, 6},
 			{12, -0.1f, -0.2f, -0.24f, -82, 0, 6},
 			{DSL, 0, 0, 0, 0, 0, 0} };

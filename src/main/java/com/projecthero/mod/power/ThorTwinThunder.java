@@ -167,7 +167,6 @@ public final class ThorTwinThunder {
 		for (Vec3 head : weaponHeads(player)) {
 			visualBolt(level, player, head);
 			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, head.x, head.y, head.z, 24, 0.2, 0.2, 0.2, 0.25);
-			level.sendParticles(ParticleTypes.FLASH, head.x, head.y, head.z, 1, 0.0, 0.0, 0.0, 0.0);
 		}
 	}
 
@@ -190,7 +189,7 @@ public final class ThorTwinThunder {
 		}
 		BlockParticleOption debris = new BlockParticleOption(ParticleTypes.BLOCK, ground);
 		for (int r = 1; r <= (int) cfg.radius; r++) {
-			int points = 10 + r * 6;
+			int points = 6 + r * 4;
 			for (int i = 0; i < points; i++) {
 				double a = Math.PI * 2 * i / points;
 				level.sendParticles(debris, center.x + Math.cos(a) * r, center.y + 0.1, center.z + Math.sin(a) * r, 2,
@@ -199,8 +198,6 @@ public final class ThorTwinThunder {
 		}
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, center.x, center.y + 0.3, center.z, 60, cfg.radius * 0.35, 0.2,
 				cfg.radius * 0.35, 0.3);
-		level.sendParticles(ParticleTypes.EXPLOSION, center.x, center.y + 0.4, center.z, 3, 0.8, 0.1, 0.8, 0.0);
-		level.sendParticles(ParticleTypes.FLASH, center.x, center.y + 0.5, center.z, 1, 0.0, 0.0, 0.0, 0.0);
 		level.playSound(null, center.x, center.y, center.z, SoundEvents.MACE_SMASH_GROUND_HEAVY, SoundSource.PLAYERS,
 				1.2f, 0.7f);
 		level.playSound(null, center.x, center.y, center.z, SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 1.2f,

@@ -33,8 +33,8 @@ final class ThorTwinFrames {
 	/** First person, both hands (mirrored): {tick, x, y, z, xDeg, yDeg, zDeg}. */
 	static final float[][] FP = {
 			{0, 0, 0, 0, 0, 0, 0},
-			{5, 0.05f, 0.55f, 0.05f, 75, 0, -15},
-			{SLAM - 2, 0.05f, 0.6f, 0.05f, 80, 0, -12},
+			{5, 0.02f, 0.6f, 0.05f, 22, 0, -12},
+			{SLAM - 2, 0.02f, 0.66f, 0.05f, 26, 0, -10},
 			{SLAM, -0.15f, -0.25f, -0.3f, -90, 0, 10},
 			{SLAM + 6, -0.15f, -0.22f, -0.28f, -86, 0, 10},
 			{END, 0, 0, 0, 0, 0, 0} };

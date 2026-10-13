@@ -356,19 +356,19 @@ public final class ThorFxRenderer {
 	/** Little arcs crackling over his body now and then while the storm charges him. */
 	private static void stormCrackle(PoseStack poseStack, VertexConsumer vc, Vec3 feet, float height, double now, double seed) {
 		double frame = Math.floor(now * 0.5);
-		if (ThorDraw.hash(seed + frame * 0.77) > 0.55) {
+		if (ThorDraw.hash(seed + frame * 0.77) > 0.75) {
 			return;
 		}
 		PoseStack.Pose pose = poseStack.last();
-		int n = 1 + (int) (ThorDraw.hash(seed + frame * 1.9) * 2.0);
+		int n = 2 + (int) (ThorDraw.hash(seed + frame * 1.9) * 2.0);
 		for (int i = 0; i < n; i++) {
 			double a0 = Math.PI * 2.0 * ThorDraw.hash(seed + frame * 2.3 + i);
 			double a1 = a0 + 0.6 + ThorDraw.hash(seed + frame * 3.7 + i) * 1.2;
 			double y0 = height * (0.15 + 0.75 * ThorDraw.hash(seed + frame * 4.1 + i));
 			double y1 = y0 + (ThorDraw.hash(seed + frame * 5.3 + i) - 0.5) * 0.8;
-			Vec3 p0 = feet.add(Math.cos(a0) * 0.42, y0, Math.sin(a0) * 0.42);
-			Vec3 p1 = feet.add(Math.cos(a1) * 0.42, y1, Math.sin(a1) * 0.42);
-			ThorDraw.bolt(vc, pose, ThorDraw.jagged(p0, p1, 5, 0.16, seed + frame * 7.0 + i * 3.0), 0.32f, 0.85f);
+			Vec3 p0 = feet.add(Math.cos(a0) * 0.45, y0, Math.sin(a0) * 0.45);
+			Vec3 p1 = feet.add(Math.cos(a1) * 0.5, y1, Math.sin(a1) * 0.5);
+			ThorDraw.bolt(vc, pose, ThorDraw.jagged(p0, p1, 6, 0.2, seed + frame * 7.0 + i * 3.0), 0.45f, 0.95f);
 		}
 	}
 

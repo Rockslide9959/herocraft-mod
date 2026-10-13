@@ -178,12 +178,12 @@ public final class ThorHud {
 			CooldownState cds = player.getAttachedOrElse(ModAttachments.COOLDOWNS, null);
 			int twin = cds != null ? cds.remainingTicks(ThorAbility.TWIN_THUNDER, gameTime) : 0;
 			for (int i = 0; i < 4; i++) {
-				int px = x0 + i * 7;
+				int px = x0 + 1 + i * 10;
 				int color = i < step ? COLOR_PIP_ON : twin > 0 ? COLOR_PIP_COOLDOWN : COLOR_PIP_OFF;
 				graphics.fill(px, rowY + 1, px + 5, rowY + 6, color);
-				graphics.renderOutline(px - 1, rowY, 7, 7, i < step ? COLOR_BORDER_ACTIVE : COLOR_BORDER);
+				graphics.renderOutline(px - 1, rowY, 7, 7, COLOR_BORDER);
 			}
-			pipsRight = x0 + 4 * 7 + 1;
+			pipsRight = x0 + 4 * 10;
 			if (twin > 0) {
 				String secs = String.format(java.util.Locale.ROOT, "%d", (int) Math.ceil(twin / 20.0f));
 				graphics.drawString(client.font, secs, pipsRight + 1, rowY, COLOR_PIP_COOLDOWN, false);
